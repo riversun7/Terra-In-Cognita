@@ -1,0 +1,1 @@
+ALTER TABLE "world_cities" ADD COLUMN "necessities_pm" smallint;

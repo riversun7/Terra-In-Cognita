@@ -45,6 +45,8 @@ export interface NpcCityRow {
   readonly mayorUnitId: number | null;
   /** 처음 인구를 채운 시각(749 다). null = 아직 */
   readonly populationSeededAtMs: number | null;
+  /** 지난 하루 끝 생필품 충족 ‰(781 나, cityDayStore.ts). null = 아직 */
+  readonly necessitiesPm: number | null;
 }
 
 export interface NpcHumanRow {
@@ -144,7 +146,8 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       ),
       pool.query(
         `select id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms,
-              development, next_rebellion_ms, wave_cooldown_until_ms, admin_level, name, mayor_unit_id, population_seeded_at_ms
+              development, next_rebellion_ms, wave_cooldown_until_ms, admin_level, name, mayor_unit_id, population_seeded_at_ms,
+              necessities_pm
        from world_cities order by id`,
       ),
       pool.query(
@@ -209,6 +212,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       name: typeof row.name === "string" ? row.name : null,
       mayorUnitId: numOrNull(row.mayor_unit_id),
       populationSeededAtMs: numOrNull(row.population_seeded_at_ms),
+      necessitiesPm: numOrNull(row.necessities_pm),
     })),
     humans: humans.rows.map((row) => ({
       unitId: num(row.unit_id),

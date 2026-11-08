@@ -1,8 +1,17 @@
 // NPC 휴먼 집·일터 나누기 시험 — 기획 답 740 나, docs/adr/2026-11-07-play-flow.md "WP-NPC2". 도시 경제 일꾼 수 → 휴먼(유닛 ID 차례).
+// 일하는 때(770 나, "WP-NPC4"): 일터를 받은 휴먼은 그 2차맵 경도·설정 칸 시각을 함께 받는다.
 import type { BuildingPlacement } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { BotHome } from "../world/bots.ts";
-import { WORK_MARGIN_CELLS, assignHumanPlaces, createHumanPlaces, workAreaOf } from "./humanPlaces.ts";
+import { cellKey } from "@terra/planet";
+import { DEFAULT_WORK_SHIFT } from "../world/bots.ts";
+import {
+  WORK_MARGIN_CELLS,
+  assignHumanPlaces,
+  createHumanPlaces,
+  mapLongitudeDeg,
+  workAreaOf,
+} from "./humanPlaces.ts";
 
 const home = { x: 128, y: 128 };
 
@@ -111,5 +120,55 @@ describe("createHumanPlaces", () => {
     workers = 2;
     expect(people.sync(input)).toBe(1);
     expect(set.get(2)?.work).toEqual(workAreaOf(placement));
+  });
+
+  it("일터를 받은 휴먼은 그 2차맵 경도·일하는 시각을 받고, 설정 칸이 바뀌면 일꾼 모두를 다시 넣는다(770 나)", () => {
+    const set = new Map<number, BotHome | null>();
+    const placement: BuildingPlacement = { x: 88, y: 88, width: 4, height: 4, rotation: 0 };
+    const mapKey = cellKey(2, 9, 100, 200);
+    const map = {
+      forEachBuilding: (visit: (building: { id: number; placement: BuildingPlacement }) => void) =>
+        visit({ id: 10, placement }),
+      unitInfo: () => ({}),
+      setHome: (unitId: number, value: BotHome | null) => {
+        set.set(unitId, value);
+        return true;
+      },
+    };
+    const input = {
+      units: new Map([
+        [1, { id: 1, city: 7 }],
+        [2, { id: 2, city: 7 }],
+        [3, { id: 3, city: 7 }],
+      ]),
+      places: new Map([[7, { mapKey, cellX: 128, cellY: 128 }]]),
+      maps: new Map([[mapKey, map]]),
+      facilitiesOf: () => [{ id: 10, buildingId: 10, workers: 2 }],
+      workHours: { startPm: 250, endPm: 750 },
+    };
+    const people = createHumanPlaces();
+    expect(people.sync(input)).toBe(3);
+    expect(set.get(1)?.shift).toEqual({ lonDeg: mapLongitudeDeg(mapKey), startPm: 250, endPm: 750 });
+    // 일터 없는 휴먼은 일하는 때가 없다(집 둘레만)
+    expect(set.get(3)).toEqual(home);
+    // 개발자 패널에서 일하는 시각을 바꾸면(늘 일터) 일꾼만 다시 넣는다
+    expect(people.sync({ ...input, workHours: { startPm: 0, endPm: 1000 } })).toBe(2);
+    expect(set.get(2)?.shift?.endPm).toBe(1000);
+    // 시각을 주지 않으면 기본(06:00~18:00)
+    expect(people.sync({ ...input, workHours: undefined })).toBe(2);
+    expect(set.get(1)?.shift?.startPm).toBe(DEFAULT_WORK_SHIFT.startPm);
+  });
+});
+
+describe("mapLongitudeDeg", () => {
+  it("셀 키 → 칸 가운데 방향의 경도(−180 초과 180 이하), 셀 키가 아니면 0", () => {
+    for (const key of [cellKey(0, 9, 256, 256), cellKey(1, 9, 10, 500), cellKey(4, 9, 300, 40)]) {
+      const lon = mapLongitudeDeg(key);
+      expect(lon).toBeGreaterThan(-180);
+      expect(lon).toBeLessThanOrEqual(180);
+    }
+    // 면 0 가운데 = 경도 0 근처(+x)
+    expect(Math.abs(mapLongitudeDeg(cellKey(0, 9, 255, 255)))).toBeLessThan(1);
+    expect(mapLongitudeDeg(-1)).toBe(0);
   });
 });

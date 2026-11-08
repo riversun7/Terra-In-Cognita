@@ -21,6 +21,11 @@ import {
 } from "../society/occupation.ts";
 import { deathFate, inherit, lifespanMs } from "../society/population.ts";
 import {
+  type RecruitCoefficients,
+  type RecruitProfile,
+  rollFoundingProfile,
+} from "../society/recruitment.ts";
+import {
   type Regime,
   holdingsOf,
   issueShares,
@@ -51,8 +56,21 @@ import {
   transferCity,
 } from "./world.ts";
 
-/** 난수 흐름(세계 시드에서 갈라 쓴다): 세력·사회 */
+/** 난수 흐름(세계 시드에서 갈라 쓴다): 세력·사회. 유닛마다 차례 0 = 나이·수명, 1 = 처음 인구 스탯(foundingProfileOf) */
 export const STREAM_SOCIETY = 4;
+
+/**
+ * 처음부터 있던 휴먼의 스탯·속성(기획 답 774 나): (세계 시드, 유닛 ID)의 세력·사회 흐름 차례 1로 그 도시 행정 레벨 구인 카드 규칙을 굴린다
+ * (rollFoundingProfile). 시뮬 처음 휴먼과 서버 처음 인구·옛 휴먼 채우기(apps/server/src/npc/runtime.ts)가 같은 값을 낸다
+ */
+export function foundingProfileOf(
+  seed: number,
+  unitId: number,
+  adminLevel: number,
+  c: RecruitCoefficients,
+): RecruitProfile {
+  return rollFoundingProfile(adminLevel, streamRng(seed, STREAM_SOCIETY, unitId, 1), c);
+}
 /** [임시] 휴먼 지갑의 원장 주체 ID = 이 값 + 유닛 ID(휴먼 주체 표가 생기기 전) */
 export const WALLET_BASE = 1_000_000_000;
 
@@ -121,13 +139,19 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
   };
   const sortedCities = (): SimCity[] => [...world.cities.values()].toSorted((a, b) => a.id - b.id);
 
-  // 차리기: 나이·수명 흩기, 도시마다 지분 1000주(D-130)를 도시 주인에게, 기술 단계는 지상 상한 안.
-  // 이어 돌리기(서버)는 수명이 저장 값이고 지분은 없는 도시에만 낸다
+  // 차리기: 나이·수명 흩기, 처음 휴먼 스탯(774 나 — 그 도시 행정 레벨 구인 카드 규칙, 구인 카드 휴먼은 그대로), 도시마다 지분 1000주(D-130)를
+  // 도시 주인에게, 기술 단계는 지상 상한 안. 이어 돌리기(서버)는 수명·스탯이 저장 값이고 지분은 없는 도시에만 낸다
   if (o.restoreDay === undefined)
     for (const unit of world.units.values()) {
       const rng = streamRng(world.seed, STREAM_SOCIETY, unit.id, 0);
       unit.lifespanMs = lifespanMs(rng.nextInt(10_000), c);
       unit.bornAtMs = startMs - Math.floor((unit.lifespanMs * rng.nextInt(10_000)) / 10_000);
+      unit.recruit ??= foundingProfileOf(
+        world.seed,
+        unit.id,
+        world.cities.get(unit.city)?.adminLevel ?? 1,
+        c.recruit,
+      );
     }
   for (const city of sortedCities())
     if (o.restoreDay === undefined || totalShares(book, city.id) === 0n)

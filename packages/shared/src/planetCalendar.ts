@@ -112,3 +112,13 @@ export function planetCalendarForDisplay(utcMs: number): PlanetCalendar | null {
 export function southernSeason(season: PlanetSeason): PlanetSeason {
   return toSeason((season + 2) % PLANET_SEASONS_PER_YEAR);
 }
+
+/**
+ * 지역 시각(시, 0 이상 24 미만) = 24 × 경도 0의 하루 비율 + 경도 ÷ 15°(D-091: 지역 시각은 경도로). 1차맵 하늘·2차맵 빛(엔진 planet/sky.ts
+ * localSolarHours)과 서버 NPC 휴먼의 낮밤 일(기획 답 770 나, apps/server/src/world/bots.ts)이 이 함수 하나를 쓴다 — 보이는 낮밤과 휴먼이 일터에
+ * 가는 때가 같다. 실수 사칙연산만 쓴다(명세가 결과를 정한다). 화면 연출·보이는 움직임만이고 판정에 쓰지 않는다(D-142)
+ */
+export function localSolarHours(msIntoDay: number, lonDeg: number): number {
+  const hours = (msIntoDay / PLANET_DAY_MS) * 24 + lonDeg / 15;
+  return ((hours % 24) + 24) % 24;
+}

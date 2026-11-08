@@ -8,6 +8,7 @@
 //   저장된 스탯이 없는 휴먼은 [임시] 기본값(모두 10, 유닛 화면 기본 스탯과 같다). docs/adr/2026-11-07-play-flow.md "WP-NPC2".
 // 바뀜(기획 정리 742 나·743 나, docs/adr/2026-11-07-play-flow.md "WP-NPC3"): 도시 하루 값(만족도·발전도·생필품 충족, cityDay.ts — 읽기만)과
 // 지도자 창구(governmentOfLeader — 2차맵에서 누른 NPC 국가 지도자가 지금 내 시야 안이면 그 나라 수도 행정 건물의 정부 판).
+// 바뀜("WP-NPC4"): 생필품 충족 = 지난 하루 끝에 저장한 값(781 나 — npc/cityDayStore.ts), 시장 이름(773 나 — npc/humanNames.ts).
 import type { GovernmentMayor, GovernmentResponse } from "@terra/shared/government";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { SimCity, SimFaction, SimUnit } from "@terra/sim";
@@ -41,10 +42,12 @@ export interface GovernmentSource {
         };
         readonly places: ReadonlyMap<number, { readonly mapKey: number; readonly name?: string | undefined }>;
         readonly taxOf?: ((factionId: number) => number | undefined) | undefined;
-        /** 그 도시 오늘 생필품 충족 ‰(도시 경제, 743 나). 경제가 없거나 오늘 셈 전이면 undefined */
+        /** 그 도시 지난 하루 끝 생필품 충족 ‰(781 나, npc/cityDayStore.ts). 경제가 없거나 아직 하루 끝 전이면 undefined */
         readonly necessitiesPm?: ((cityId: number) => number | undefined) | undefined;
         /** 그 도시 시장 유닛(npc/cityPeople.ts). 없으면 undefined */
         readonly mayorOf?: ((cityId: number) => number | undefined) | undefined;
+        /** NPC 휴먼 이름(773 나, npc/humanNames.ts). 없으면 undefined */
+        readonly humanName?: ((unitId: number) => string | undefined) | undefined;
       }
     | undefined;
   /** 소유 주체 ID → 세력 행 ID(유저 주체·없으면 undefined) */
@@ -92,16 +95,18 @@ const empty = (
   generatedAt: nowMs,
 });
 
-/** 시장 휴먼 → 화면 자료(스탯 차례 STR·DEX·AGI·VIT·INT·WIS, 저장된 스탯이 없으면 기본값 모두 BASELINE_HUMAN_STAT) */
+/** 시장 휴먼 → 화면 자료(스탯 차례 STR·DEX·AGI·VIT·INT·WIS, 저장된 스탯이 없으면 기본값 모두 BASELINE_HUMAN_STAT). 이름이 없으면 null */
 export function mayorView(
   unitId: number,
   unit: Pick<SimUnit, "recruit" | "satisfactionMilli">,
+  name?: string,
 ): GovernmentMayor {
   const stats = unit.recruit?.stats;
   const known = stats !== undefined && stats.length >= 6;
   const at = (index: number): number => (known ? (stats[index] ?? 0) : BASELINE_HUMAN_STAT);
   return {
     unitId,
+    name: name ?? null,
     level: unit.recruit?.level ?? 1,
     stats: { str: at(0), dex: at(1), agi: at(2), vit: at(3), int: at(4), wis: at(5) },
     baseline: !known,
@@ -231,7 +236,10 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
                 here,
               },
         building: buildingCell(cityMap, buildingId),
-        mayor: mayorId === undefined || !mayorUnit ? null : mayorView(mayorId, mayorUnit),
+        mayor:
+          mayorId === undefined || !mayorUnit
+            ? null
+            : mayorView(mayorId, mayorUnit, runtime.humanName?.(mayorId)),
         generatedAt: nowMs,
       };
     },
@@ -255,12 +263,10 @@ export function governmentReadsOfWorld(
         world: npc.world,
         places: npc.places,
         taxOf: (factionId) => npc.economy?.economy.taxOf.get(factionId),
-        // 오늘 낼 몫이 아직 없으면(UTC 0시 뒤 첫 정시 유지비 전) 셈 전 — 시뮬 foodPmOf는 그때 1000을 준다
-        necessitiesPm: (cityId) =>
-          (npc.economy?.economy.today.dueByCity.get(cityId) ?? 0) > 0
-            ? npc.economy?.hooks.foodPmOf?.(cityId)
-            : undefined,
+        // 지난 하루 끝 값(781 나 — 만족도·발전도와 같은 날, 저장해 다시 켜도 같다). 도시 경제가 없으면 값이 없다
+        necessitiesPm: (cityId) => (npc.economy ? npc.necessitiesOf(cityId) : undefined),
         mayorOf: (cityId) => npc.mayorOf(cityId),
+        humanName: (unitId) => npc.humanName(unitId),
       };
     },
     factionRowOf: (ownerId) => world.persistence?.owners.get(ownerId)?.factionId ?? undefined,

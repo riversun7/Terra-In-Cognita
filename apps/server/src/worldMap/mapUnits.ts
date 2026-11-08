@@ -9,6 +9,7 @@
 // - 630: 플레이어 카메라 범위(view) — 시야 반지름(서버 판정 칸, @terra/sim) + 여유 VIEW_MARGIN_CELLS, 내 건물 기준 칸.
 // - 636 나: 남의 유닛 한눈 정보(glance) — 지금 내 시야 안(시야 전송과 같은 규칙, MapVision.sees)이거나 전체 보기 권한일 때만 세력·종류.
 //   시야 밖·없는 유닛은 같은 답(null).
+// - "WP-NPC4"(기획 답 773 나): NPC 도시 휴먼은 종류 "휴먼" + 휴먼 이름(그 나라 팩 목록, npc/humanNames.ts).
 // 세계 규칙·표는 바꾸지 않는다.
 import type {
   MapUnit,
@@ -30,7 +31,7 @@ import { jobOf, unitTypeOf } from "../roster/worldUnits.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { injuryAt } from "../world/unitCondition.ts";
 import { canCommandAnyUnit, unitHold } from "../world/unitControl.ts";
-import { UNIT_KIND_CYBORG, UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
+import { UNIT_KIND_BOT, UNIT_KIND_CYBORG, UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
 
 /** 이 조회가 세계에서 읽는 것(시험은 가짜를 넣는다) */
 export interface MapUnitSource {
@@ -51,6 +52,11 @@ export interface MapUnitSource {
   factionOfOwner?: ((ownerId: number) => Promise<MapUnitGlance["faction"]>) | undefined;
   /** 세력 코드 → 그 나라 지도자 이름(팩 국가 프리셋, "WP-NPC"). 없으면 지도자 이름 없음 */
   leaderName?: ((code: string) => MapUnitGlance["name"] | undefined) | undefined;
+  /**
+   * 그 유닛이 NPC 도시 휴먼(NPC 사회 런타임 거울 세계)이면 이름(기획 답 773 나, 없으면 undefined)을 든 답, 휴먼이 아니면 undefined
+   * (docs/adr/2026-11-07-play-flow.md "WP-NPC4"). 없으면 NPC 휴먼도 시험 유닛으로 보인다
+   */
+  npcHuman?: ((unitId: number) => { readonly name: string | undefined } | undefined) | undefined;
 }
 
 export interface MapUnitReads {
@@ -155,6 +161,18 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
         info.kind === UNIT_KIND_NPC_LEADER && faction?.code
           ? (source.leaderName?.(faction.code) ?? null)
           : null;
+      // NPC 도시 휴먼(봇 유닛 가운데 거울 세계 휴먼)은 종류 "휴먼" + 이름(773 나 — 번역 안 함, 두 언어 같은 글자)
+      const human = info.kind === UNIT_KIND_BOT ? source.npcHuman?.(unitId) : undefined;
+      if (human)
+        return {
+          ...none,
+          glance: {
+            unitId,
+            kind: "human",
+            faction,
+            ...(human.name === undefined ? {} : { name: { ko: human.name, en: human.name } }),
+          },
+        };
       return {
         ...none,
         glance: { unitId, kind: kindOf(info.kind), faction, ...(leader ? { name: leader } : {}) },

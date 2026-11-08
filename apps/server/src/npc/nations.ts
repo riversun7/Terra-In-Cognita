@@ -78,6 +78,8 @@ export interface NationPreset {
   readonly cityNames?: readonly string[] | undefined;
   /** 국가 지도자 사이보그 이름(docs/adr/2026-11-07-play-flow.md "WP-NPC", 팩 [임시]). 없으면 화면이 "지도자" */
   readonly leaderName?: { readonly ko: string; readonly en: string } | undefined;
+  /** NPC 휴먼 이름 조각(기획 답 773 나, 번역 안 함 — npc/humanNames.ts, "WP-NPC4", 팩 [임시]). 없으면 화면이 "휴먼 #ID" */
+  readonly humanNames?: { readonly given: readonly string[]; readonly family: readonly string[] } | undefined;
 }
 
 /** n번째 국가 코드(1번 = 시험 NPC 세력, 2번부터 = 팩 프리셋 차례, 프리셋이 없으면 npc_nation_NN) */

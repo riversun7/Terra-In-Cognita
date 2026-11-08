@@ -4,6 +4,7 @@
 // 2. 정부 판(행정 건물 → 도시·나라·지도자·세율·행정 레벨·휴먼 수·도시 하루 값), 행정 건물이 아닌 건물은 not_government, 지도자 창구(WP-NPC3).
 // 3. 세력 화면 실제 자료가 지도자 유닛을 읽고(leader_unit), 팩 이름을 붙인다.
 // 4. (WP-NPC2) 시험 봇은 시험 2차맵 줄에만 서고, 시작 도시 휴먼은 처음 인구 규칙(주거 40 × 750‰ = 30)으로 서며, 정부 판에 자동 시장이 보인다.
+// 5. (WP-NPC4) 처음 인구 휴먼도 스탯(774 나)·이름(773 나 — 그 나라 팩 목록)을 받는다.
 import { loadContentPack } from "@terra/content/node";
 import { decodeCellKey, parseCellKey } from "@terra/planet";
 import type { PlanetCellValues } from "@terra/planet/secondMap";
@@ -18,7 +19,7 @@ import { mapTerrainFromTemp } from "../world/mapTerrain.ts";
 import type { TerrainService } from "../world/terrainService.ts";
 import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
 import { type World, startWorld, testMapKey } from "../world/world.ts";
-import { nationLeaderName, nationName } from "./nations.ts";
+import { nationLeaderName, nationName, presetOfCode } from "./nations.ts";
 import { nationPresetsOf } from "./presets.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
@@ -184,9 +185,17 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 국가 지도자·정부 판 (DB)", () 
       expect(Number(city.humans)).toBeGreaterThanOrEqual(25);
       expect(Number(city.humans)).toBeLessThanOrEqual(30);
     }
-    // 자동 시장(744 나): 그 도시 휴먼, 저장된 스탯이 없어 기본값·레벨 1, DB에 저장
-    expect(answer.mayor).toMatchObject({ level: 1, baseline: true });
-    expect(answer.mayor?.stats.int).toBe(10);
+    // 자동 시장(744 나): 그 도시 휴먼, 처음 인구도 행정 레벨 구인 카드 규칙의 스탯(774 나 — 기본값 아님)·레벨 1, 그 나라 목록의 이름(773 나), DB에 저장
+    expect(answer.mayor).toMatchObject({ level: 1, baseline: false });
+    const mayorStats = Object.values(answer.mayor?.stats ?? {});
+    const lv1 = TEST_SOCIETY_COEFFICIENTS.recruit.levels[0];
+    const mayorTotal = mayorStats.reduce((sum, value) => sum + value, 0);
+    expect(mayorTotal).toBeGreaterThanOrEqual(lv1?.statsMin ?? 0);
+    expect(mayorTotal).toBeLessThanOrEqual(lv1?.statsMax ?? 0);
+    const capitalCode = (await leaders()).find((row) => row.faction_id === capital.faction_id)?.code;
+    const lists = presetOfCode(String(capitalCode), presets)?.humanNames;
+    expect(lists?.given.some((given) => answer.mayor?.name?.startsWith(`${given} `))).toBe(true);
+    expect(lists?.family.some((family) => answer.mayor?.name?.endsWith(` ${family}`))).toBe(true);
     const stored = await rows<{ mayor_unit_id: string; population_seeded_at_ms: string }>(
       test.db,
       `select mayor_unit_id, population_seeded_at_ms from world_cities where id = $1`,

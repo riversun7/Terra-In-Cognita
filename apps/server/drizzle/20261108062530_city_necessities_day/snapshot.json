@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c74a8013-cc48-46bb-932a-524c634227fa",
+  "prevIds": [
+    "d9dd4abc-b9bb-42be-a0d2-485f5bd88074"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_cities",
+        "necessities_pm"
+      ],
+      "writes": [
+        "s|col|public.world_cities.necessities_pm",
+        "n|col|public.world_cities.necessities_pm",
+        "e|col|public.world_cities.necessities_pm"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "necessities_pm",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

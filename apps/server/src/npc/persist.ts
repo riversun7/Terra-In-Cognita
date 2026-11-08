@@ -186,6 +186,8 @@ export function createNpcPersist(
           unit.lifespanMs,
           unit.rebirths,
           unit.recruit?.level ?? 1,
+          // 스탯이 있나(처음부터 있던 휴먼은 켤 때 채운다 — 774 나, runtime.ts foundingProfileOf)
+          unit.recruit !== null,
         ])
       : "";
   };

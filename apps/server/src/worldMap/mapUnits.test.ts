@@ -1,10 +1,12 @@
 // 2차맵 내 유닛 목록 조회 시험(docs/adr/2026-11-07-unit-control.md) — 내 유닛만·사이보그 본체 먼저·명령할 수 없는 까닭·운영자 표시·띄우지 않은 맵.
 // 바뀜(기획 답 630~637): 다른 곳 내 유닛 수(632 다)·카메라 범위(630)·남의 유닛 한눈 정보(636 나 — 시야 안일 때만 세력·종류)
+// 바뀜(docs/adr/2026-11-07-play-flow.md "WP-NPC4", 773 나): NPC 도시 휴먼의 한눈 정보 = 종류 human + 휴먼 이름
 import { JOB_GATHER } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
 import { createTestMap } from "../world/testSupport.ts";
 import {
+  UNIT_KIND_BOT,
   UNIT_KIND_CYBORG,
   UNIT_KIND_GUARDIAN,
   UNIT_KIND_HUMAN,
@@ -174,6 +176,41 @@ describe("기획 답 630~637", () => {
     expect((await reads.unitGlance(PLAYER, MAP_KEY, 3, NOW)).glance).toEqual({
       unitId: 3,
       kind: "human",
+      faction,
+    });
+    test.map.stop();
+  });
+
+  it("WP-NPC4(773 나): NPC 도시 휴먼(봇 유닛 가운데 거울 세계 휴먼)은 종류 human + 휴먼 이름, 시험 봇은 그대로", async () => {
+    const test = setup();
+    test.map.addUnit({ id: 61, size: 1, speed: 437, cellX: 54, cellY: 50, ownerId: 6, kind: UNIT_KIND_BOT });
+    test.map.addUnit({ id: 62, size: 1, speed: 437, cellX: 55, cellY: 50, ownerId: 6, kind: UNIT_KIND_BOT });
+    test.map.addUnit({ id: 63, size: 1, speed: 437, cellX: 56, cellY: 50, ownerId: 6, kind: UNIT_KIND_BOT });
+    const faction = { id: 4, code: "placeholder_nation_01", kind: "npc" as const, name: null };
+    const reads = createMapUnitReads({
+      map: (key) => (key === MAP_KEY ? test.map : undefined),
+      ownerOfUser: () => 5,
+      cyborgName: () => undefined,
+      sees: () => true,
+      factionOfOwner: async () => faction,
+      // 61 = 이름 있는 휴먼, 62 = 이름 목록 없는 나라의 휴먼, 63 = 시험 봇(휴먼 아님)
+      npcHuman: (unitId) =>
+        unitId === 61 ? { name: "Alda Brook" } : unitId === 62 ? { name: undefined } : undefined,
+    });
+    expect((await reads.unitGlance(PLAYER, MAP_KEY, 61, NOW)).glance).toEqual({
+      unitId: 61,
+      kind: "human",
+      faction,
+      name: { ko: "Alda Brook", en: "Alda Brook" },
+    });
+    expect((await reads.unitGlance(PLAYER, MAP_KEY, 62, NOW)).glance).toEqual({
+      unitId: 62,
+      kind: "human",
+      faction,
+    });
+    expect((await reads.unitGlance(PLAYER, MAP_KEY, 63, NOW)).glance).toEqual({
+      unitId: 63,
+      kind: "test_unit",
       faction,
     });
     test.map.stop();

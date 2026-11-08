@@ -12,6 +12,7 @@ import {
   recruitProfileOf,
   recruitWindow,
   recruitWindowEndMs,
+  rollFoundingProfile,
   rollRecruitCards,
   takeRecruitSlot,
   takenNow,
@@ -133,5 +134,24 @@ describe("구인 카드 옛 규칙(D-469·49 N45, 옛 hq_routes.js)", () => {
     expect(slots).toHaveLength(12);
     expect(sum(slots)).toBe(10);
     expect(recruitElementsFromSlots(slots)).toEqual({ water: 3, fire: 0, wind: 7, earth: 0 });
+  });
+
+  it("처음 인구 휴먼(774 나): 그 행정 레벨 카드 한 장과 같은 굴림(토탈 범위·6스탯 합·속성 10점), 시작 레벨, 레벨 0은 Lv1 규칙", () => {
+    for (let level = 0; level <= 5; level++) {
+      const rule = c.levels[Math.max(1, level) - 1];
+      if (!rule) throw new Error("level");
+      for (let seed = 1; seed <= 30; seed++) {
+        const profile = rollFoundingProfile(level, createRng(seed), c);
+        expect(profile.level).toBe(1);
+        expect(profile.stats).toHaveLength(6);
+        expect(sum(profile.stats)).toBeGreaterThanOrEqual(rule.statsMin);
+        expect(sum(profile.stats)).toBeLessThanOrEqual(rule.statsMax);
+        expect(sum(Object.values(profile.elements))).toBe(10);
+        // 같은 난수면 같은 값(결정적)
+        expect(rollFoundingProfile(level, createRng(seed), c)).toEqual(profile);
+      }
+    }
+    // 레벨 규칙이 없으면 토탈 = 6스탯 × 10(화면 기본값과 같은 합)
+    expect(sum(rollFoundingProfile(1, createRng(1), { ...c, levels: [] }).stats)).toBe(60);
   });
 });

@@ -3,7 +3,8 @@
 // - 만족도: NPC 사회 런타임 거울 세계의 그 도시 휴먼 satisfactionMilli 평균 ÷ 1000(시뮬 하루 줄 society.ts dayFields와 같은 셈 — 세력 대신 도시).
 //   하루 끝마다 목표값으로 다가간다(D-433). 휴먼이 없으면 null.
 // - 발전도: 거울 도시 development(하루 끝마다 society.ts가 셈, world_cities.development로 저장).
-// - 생필품 충족: 도시 경제가 정시 유지비마다 쌓는 오늘 몫(economyRun.ts foodPmOf와 같은 값 — 부르는 쪽이 넘긴다). 경제가 없거나 오늘 셈 전이면 null.
+// - 생필품 충족: 지난 하루 끝에 도시 경제가 그날 셈한 값(economyRun.ts foodPmOf — 하루 끝 만족도가 쓴 그 값, 기획 정리 781 나 "WP-NPC4",
+//   npc/cityDayStore.ts가 저장 — 부르는 쪽이 넘긴다). 경제가 없거나 아직 하루 끝 전이면 null.
 import type { GovernmentCityDay } from "@terra/shared/government";
 import type { SimCity, SimUnit } from "@terra/sim";
 

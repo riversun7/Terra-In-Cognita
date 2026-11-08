@@ -53,7 +53,10 @@
 - 스킬 저장 거절 줄 나누기는 팩 검사 줄 글 모양(`formatIssue`)에 기댄다. 모양이 바뀌면 칸 옆 문구 대신 위 알림만 남는다.
 
 ## 검사
-- (아래 "마지막 검사" 줄에 적는다)
+- `TEST_DATABASE_URL=… pnpm check`: 통과(vitest 553파일·4,210시험, 포맷·린트·타입·경계·크기·다국어 5,532키·디자인 값·콘텐츠).
+- `pnpm check:docs origin/main`·`pnpm check:content origin/main`(origin/main 6a525cc, core@57): 통과.
+- `pnpm build` → `node scripts/check-pwa.mjs` 통과(새 공용 파일은 `contentEditor…` 조각·`ItemEditorScreen`·`SkillEditorScreen`·`BuildingEditorScreen` 조각에 들어 미리 캐시 밖), `pnpm check:bundle` 첫 화면 JS 107,195 B / 131,416 B(바탕 107,175 B, 첫 화면 모듈은 그대로).
+- `pnpm e2e e2e/skills.spec.ts e2e/buildings.spec.ts e2e/items.spec.ts e2e/dev-stagebar.spec.ts`: 76시험 통과(첫 실행: 견주기 시험의 `filter({ has })` 안쪽 로케이터를 편집 판 기준으로 써서 1개, 건물 시설 수 9 기대로 1개 실패 → 고침). 사진 186장(개발 테마 둘 × 390·1440 × 한국어·영어, 담은 막대 펼침·휴대폰 거르기·목록 포함, `E2E_SHOTS_DIR`). 사진을 보고 고친 것: 칸 이름에 이미 단위가 있는 칸의 단위 겹침, 풀이·범위가 줄을 바꾸며 점이 앞에 오던 것, 막대 항목 줄의 [열기]·[×]가 둘째 줄로 내려가던 것, 담은 칸이 아래 막대에 가리던 것, 빈 알림 둘이 간격을 두 번 먹던 것, 대분류 고르기 상자 글 잘림, [더 거르기] 펼침 표지, 고른 줄이 목록 밖에 있던 것(목록 상자만 민다), 빈 막대 테두리.
 
 ## 사용자 결정 대기
 - 화면 개편을 사용자가 본 뒤 세 ADR 상태 확정(통합 담당).

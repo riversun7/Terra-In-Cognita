@@ -1,0 +1,146 @@
+/*
+ * 설정 칸 패널 곁 부품 — 펼쳐 보는 판(최근 바꿈·49 칸 목록)과 확인·내보내기 창. 패널 조각과 함께 내려온다. 값은 var(--…)만.
+ */
+/* ── 펼쳐 보는 판(최근 바꿈·49 칸) ── */
+.tp-section {
+  padding: var(--space-2) var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.tp-section > summary {
+  min-height: var(--dev-touch-tap);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.tp-section-title {
+  font-weight: var(--font-weight-strong);
+}
+.tp-history-list,
+.tp-history-changes,
+.tp-cell-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tp-history-list {
+  display: flex;
+  flex-direction: column;
+}
+.tp-history-row {
+  padding-block: var(--space-2);
+  border-block-start: var(--hairline) solid var(--color-border);
+}
+.tp-history-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+.tp-history-action {
+  font-weight: var(--font-weight-strong);
+}
+.tp-history-row[data-action="pack_won"] .tp-history-action,
+.tp-history-row[data-action="dropped"] .tp-history-action {
+  color: var(--color-warning);
+}
+.tp-history-head time,
+.tp-history-who {
+  color: var(--color-text-muted);
+}
+.tp-history-changes {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.tp-history-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.tp-cells-summary {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.tp-cells-group {
+  display: flex;
+  flex-direction: column;
+  margin-block-start: var(--space-4);
+}
+.tp-cells-group .tp-group-title {
+  padding-block-end: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.tp-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-3);
+  min-height: var(--dev-row-h);
+  padding-block: var(--space-1);
+  border-block-start: var(--hairline) solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+.tp-cell:nth-child(even) {
+  background-color: var(--dev-row-alt);
+}
+.tp-cell-name {
+  flex: 1 1 16em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tp-cell-status[data-status="connected"] {
+  border-color: var(--color-success);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+}
+.tp-cell-status[data-status="no_value"] {
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+.tp-cell-status[data-status="not_connected"] {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+.tp-cell-start,
+.tp-cell-ids {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.tp-cell-ids {
+  font-family: var(--font-mono);
+  color: var(--dev-code);
+}
+
+/* ── 확인·내보내기 창 ── */
+.tp-dialog {
+  width: min(100% - 2 * var(--space-4), var(--sheet-max));
+  padding: 0;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
+}
+.tp-dialog::backdrop {
+  background-color: var(--color-overlay);
+}
+.tp-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+.tp-dialog-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-strong);
+}
+.tp-export-text {
+  min-height: calc(var(--control-h) * 8);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  resize: vertical;
+}

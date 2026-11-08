@@ -15,7 +15,12 @@ const worlds: World[] = [];
  */
 const ONE_CITY = {
   ...TEST_SOCIETY_COEFFICIENTS,
-  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, startCitiesMin: 1, startCitiesMax: 1, populationPm: 0 },
+  worldSeed: {
+    ...TEST_SOCIETY_COEFFICIENTS.worldSeed,
+    startCitiesMin: 1,
+    startCitiesMax: 1,
+    populationPm: 0,
+  },
 };
 /** 시험 시계(UTC 0시 몇 분 전에서 시작) */
 let clock = 0;

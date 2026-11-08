@@ -43,10 +43,11 @@
 - 우호도는 쌓이고 보이기만 한다(효과 없음, 질문 847). 시간이 지나도 회복하지 않는다(질문 848).
 - 나라 조건 칸을 정하는 화면·NPC 판단은 없다(NPC 국가는 늘 기본값, 질문 846). 시험은 DB로 칸을 넣는다.
 - 적대 = NPC 사회 런타임 전쟁 상태만(불가침·호감 띠는 보지 않음, 질문 849).
-- 시험 결과는 아래 "검사"에 적는다.
 
 ## 검사
-- 서버(DB 포함, `TEST_DATABASE_URL`): `src/citizenship src/cyborg src/roster src/worldMap src/world/persist src/hospital` 15파일 81개 통과. 프로토콜 21파일 115개 통과. sim 설정 칸 33개 통과. 게임(rosterText·mapUnits·government) 5파일 30개 통과.
+- 작업 중(Verified): 서버 DB 포함 `src/citizenship src/cyborg src/roster src/worldMap src/world/persist src/hospital` 15파일 81개, 프로토콜 21파일 115개, sim 설정 칸 33개, 게임(rosterText·mapUnits·government) 5파일 30개 통과.
+- `merge/integration`(07e08fa)을 합친 뒤(Verified): `TEST_DATABASE_URL=… pnpm check` 통과(543파일 4,115개), `pnpm check:docs origin/main`·`pnpm check:content origin/main`(core@56) 통과.
+- 화면 시험(Verified, 합친 뒤): `pnpm e2e e2e/citizenship.spec.ts e2e/injury.spec.ts e2e/combat-life.spec.ts e2e/unit-control.spec.ts` 23개 모두 통과(7.0분). 사진 390 파스텔 한국어·다크 한국어(지원금·적대 세력)·파스텔 영어(귀화 칸·확인 줄), 부상 칸 파스텔 한국어(중태 "중상까지 72시간 0분"·정상까지 144시간 0분·치료 뒤)·다크 영어(Serious · 48h 0m to Light)를 눈으로 봤다.
 
 ## 사용자 결정 대기
 - 질문 845~849(`docs/questions/2026-11-08-injury-citizen2.md`).

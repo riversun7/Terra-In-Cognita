@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 12:40 | 사용자 지적 묶음 2 합치기 (성향·지도 조작·옆 2차맵·NPC 국가·채집소·건물 모양) | Claude Code | [08-1240-feedback-batch-2-merge](worklog/2026/11/08-1240-feedback-batch-2-merge.md) |
 | 2026-11-08 11:20 | NPC 국가 존재감: 지도자 사이보그·도시 둘레 NPC 휴먼·정부(행정 건물) 판 | Claude Code | [08-1120-npc-presence](worklog/2026/11/08-1120-npc-presence.md) |
 | 2026-11-08 11:10 | 2차맵에서 옆 2차맵으로(사용자 지적 "2차맵 넘어서 이동이 되지 않음") | Claude Code | [08-1110-map-travel](worklog/2026/11/08-1110-map-travel.md) |
 | 2026-11-08 11:00 | 2차맵 건물 모델(시설 종류별 로우폴리) | Claude Code | [08-1100-building-art](worklog/2026/11/08-1100-building-art.md) |

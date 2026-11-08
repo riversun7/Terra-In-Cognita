@@ -118,8 +118,16 @@ export async function rewriteTrpc(
         await route.fallback();
         return;
       }
-      const response = await route.fetch();
-      const body: unknown = await response.json();
+      let response: Awaited<ReturnType<typeof route.fetch>>;
+      let body: unknown;
+      try {
+        response = await route.fetch();
+        body = await response.json();
+      } catch (error) {
+        // 시험이 끝났거나 화면을 옮겨 요청·응답이 버려졌다(맥락을 닫는 중): 고칠 것이 없다
+        if (error instanceof Error && /disposed|closed|Test ended/i.test(error.message)) return;
+        throw error;
+      }
       await fulfillEdited(
         route,
         procedures,

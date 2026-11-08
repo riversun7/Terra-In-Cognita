@@ -48,10 +48,12 @@
 ## 검사·시험 (개발 컨테이너, Node 24.22.1, 시험 DB PostgreSQL 16)
 - 작업 중: 프로토콜 21파일 114개 통과, sim 설정 칸·콘텐츠 14파일 143개 통과, 서버 DB `citizenship.db.test.ts` 2개 통과, `visionShare.test.ts` 4개 통과, 게임 `government`·`mapFeed` 43개 통과, 서버·게임 타입 검사 통과, 고친 파일 oxlint(`--type-aware --deny-warnings`) 통과.
 - 서버 전체(`pnpm vitest run apps/server`, DB 포함): 171파일 1,105개 가운데 1,103 통과·2 실패 — 실패 둘(`facilities/attack.db.test.ts`·`travel/travel.db.test.ts`)은 `createTestDatabase` 훅 30초 시간 초과(다른 줄기와 같은 기계 부하)였고, 따로 다시 돌려 2파일 5개 통과.
-- 끝 검사: (아래에 채운다)
+- 끝 검사(통합 가지 `merge/integration` `7c80aa9`를 합친 결과, 무거운 잠금 안): `TEST_DATABASE_URL=… pnpm check` 통과 — 포맷·린트·타입·경계·파일 크기·다국어·디자인 값·콘텐츠(core@53)·단위·DB 시험 **527파일 4,026개 통과**. `pnpm check:docs origin/main` 통과, `pnpm check:content origin/main` 통과(core@53).
+- 화면 시험 `pnpm e2e citizenship.spec.ts government.spec.ts`(합친 결과로 다시 빌드): **12 통과**(2.2분). 첫 돌림은 빌드가 고치는 도중의 소스(`visibility.ts` 가져오기 한 줄 전)를 잡아 구독이 `ReferenceError`로 실패해 멈추고 다시 돌렸다. 사진(`E2E_SHOTS_DIR`, 저장소 밖) 390 파스텔·다크(한국어)·파스텔 영어 — 귀화 칸·확인 줄·창구의 국적 상담(내 나라) 줄: 넘침 없음, 누르는 곳 44px 이상, 긴 영어 확인 문구는 두 줄로 접힘.
+- 실제 월드 시야 측정: 실제 월드(Verified: 임시 DB 시험 — 저장소에 남기지 않음, 빌드 전 서버 코드·시험 DB PostgreSQL 16): 봇 1,000(유닛 1,024)·시험 2차맵 6장·시험 국가 넷(행성 값 없이 시험 2차맵에 시작 도시)·사이보그 20명(나라마다 5)이 제 2차맵을 실제 시각으로 20초씩 구독. 공유 끔 = 무리 덮개 20/초·시야 틱 2.31ms/초·가장 긴 틱 6.04ms·8.7KB/초, 켬 = 무리 덮개 20/초·나라 덮개 5.55/초(2차맵·나라마다)·1.50ms/초·가장 긴 틱 0.87ms·6.4KB/초. NAS 운영 서버의 1분 지표로는 아직 재지 않았다(미실행).
 
 ## 미검증·TODO·알려진 문제
-- 실제 서버(봇 1,000·구독 클라이언트)의 1분 지표로 시야 틱을 재지 않았다(미실행) — 측정은 가짜 2차맵 스크립트다. NAS에 올린 뒤 `visionTickMaxMs`·`visionNationCovers`를 본다.
+- NAS 운영 서버의 1분 지표로 시야 틱을 재지 않았다(미실행) — 측정은 가짜 2차맵 스크립트와 임시 DB 시험(실제 월드, 봇 1,000)이다. NAS에 올린 뒤 `visionTickMaxMs`·`visionNationCovers`를 본다.
 - 귀화 값은 시험 화폐다(세력 화폐·테라코인 없음, 질문 794).
 - 화면 시험은 진짜 귀화 성공을 그리지 않는다(화면 시험 서버의 플레이어는 국가 1 수도에 있고 다른 나라 도시로 갈 길이 시험에 없다) — 칸은 응답을 고쳐 그리고, 명령은 진짜로 보내 서버의 same_nation 문구를 본다. 성공 경로는 서버 DB 시험이 본다.
 - 나라 덮개는 시야 틱(1초) 동안 다시 써서 귀화 직후·새 휴먼은 길어야 1초 늦게 보인다.

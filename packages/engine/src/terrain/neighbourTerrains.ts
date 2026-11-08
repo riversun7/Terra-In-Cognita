@@ -11,9 +11,18 @@ import { Group } from "three";
 import type { TerrainBuilder } from "./terrainBuilder.ts";
 import { TERRAIN_CELLS, type TerrainInput, sampleHeightM } from "./terrainData.ts";
 import { TerrainView } from "./terrainView.ts";
+import { composePlacement } from "./rebase.ts";
 
 /** 아직 탐사 칸을 모르는 이웃(온통 어두움) — 시야 칸 32×32 비트 */
-const UNEXPLORED = new Uint8Array(128);
+export const UNEXPLORED = new Uint8Array(128);
+
+/** 놓는 자리 → 그룹 행렬(지형 칸 단위 옮김 × 칸 크기) */
+function placeView(view: TerrainView, placement: NeighbourPlacement, cellSizeM: number): void {
+  const { a, b, cc, d, tx, tz } = placement;
+  view.group.matrixAutoUpdate = false;
+  view.group.matrix.set(a, 0, b, tx * cellSizeM, 0, 1, 0, 0, cc, 0, d, tz * cellSizeM, 0, 0, 0, 1);
+  view.group.matrixWorldNeedsUpdate = true;
+}
 
 /** 이웃 칸 좌표 → 지금 2차맵 칸 좌표(지형 칸 단위). a·b·cc·d는 −1·0·1(90°의 배수 돌림) */
 export interface NeighbourPlacement {
@@ -90,10 +99,7 @@ export class NeighbourTerrains {
       view.setGrid(this.grid);
       view.setExplored(this.fogOf(item.id));
       view.set(built.mesh, terrain, built.noise, shade);
-      const { a, b, cc, d, tx, tz } = item.placement;
-      view.group.matrixAutoUpdate = false;
-      view.group.matrix.set(a, 0, b, tx * cellSizeM, 0, 1, 0, 0, cc, 0, d, tz * cellSizeM, 0, 0, 0, 1);
-      view.group.matrixWorldNeedsUpdate = true;
+      placeView(view, item.placement, cellSizeM);
       this.group.add(view.group);
       this.entries.set(item.id, { view, terrain, placement: item.placement });
       changed = true;
@@ -117,6 +123,53 @@ export class NeighbourTerrains {
 
   private fogOf(id: string): Uint8Array | null {
     return this.fog ? (this.explored.get(id) ?? UNEXPLORED) : null;
+  }
+
+  /**
+   * 옆 2차맵으로 넘기(docs/adr/2026-11-08-seamless-second-map.md WP-3): 이웃 하나를 꺼낸다(버리지 않는다 — 엔진이 지금 2차맵으로 쓴다).
+   * 없으면 null. 받은 탐사 칸도 같이 돌려준다
+   */
+  take(id: string): {
+    view: TerrainView;
+    terrain: TerrainInput;
+    placement: NeighbourPlacement;
+    explored: Uint8Array | null;
+  } | null {
+    const entry = this.entries.get(id);
+    if (!entry) return null;
+    this.entries.delete(id);
+    this.version += 1;
+    entry.view.group.removeFromParent();
+    const explored = this.explored.get(id) ?? null;
+    this.explored.delete(id);
+    return { ...entry, explored };
+  }
+
+  /** 남은 이웃을 모두 다른 틀로 옮긴다(p = 옛 지금 2차맵 칸 좌표 → 새 지금 2차맵 칸 좌표) */
+  reframe(p: NeighbourPlacement): void {
+    for (const [id, entry] of this.entries) {
+      const placement = composePlacement(p, entry.placement);
+      placeView(entry.view, placement, entry.terrain.cellSizeM);
+      this.entries.set(id, { ...entry, placement });
+    }
+  }
+
+  /** 다 만든 지형 보기를 이웃으로 들인다(넘기 전 지금 2차맵). explored = 그 2차맵 탐사 칸(없으면 null) */
+  adopt(
+    id: string,
+    view: TerrainView,
+    terrain: TerrainInput,
+    placement: NeighbourPlacement,
+    explored: Uint8Array | null,
+  ): void {
+    this.entries.get(id)?.view.dispose();
+    if (explored) this.explored.set(id, explored);
+    view.setWalls(false);
+    view.setGrid(this.grid);
+    view.setExplored(this.fogOf(id));
+    placeView(view, placement, terrain.cellSizeM);
+    this.group.add(view.group);
+    this.entries.set(id, { view, terrain, placement });
   }
 
   /** 격자 선(개발자 2차맵 시험): 지금 이웃과 뒤에 올 이웃 모두 */

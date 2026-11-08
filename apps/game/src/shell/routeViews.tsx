@@ -181,11 +181,11 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <HomeScreen match={match} monitor={monitor} />;
     case "start":
       return <StartScreen user={user} />;
-    // ?key= 2차맵 키(docs/adr/2026-11-07-play-flow.md "WP2"), ?at= 1차맵에서 고른 배치 칸(WP7): 바뀌면 화면을 새로 만든다
+    // ?key= 2차맵 키(docs/adr/2026-11-07-play-flow.md "WP2"), ?at= 1차맵에서 고른 배치 칸(WP7): 바뀌면 화면이 스스로 새로 만든다 — 화면 안에서
+    // 옆 2차맵으로 넘어 바꾼 주소면 그대로 둔다(로딩 없는 2차맵 이동, docs/adr/2026-11-08-seamless-second-map.md WP-3)
     case "map":
       return (
         <SecondaryMapScreen
-          key={`${match.search.key ?? ""}|${match.search.at ?? ""}`}
           onClose={goBack}
           monitor={monitor}
           mapKey={match.search.key}

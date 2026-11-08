@@ -2,6 +2,7 @@
 // - 탭을 고르면 지도에는 그 탭 표시만 보인다(채집 덧그림이 nearbyState를 읽는다). [닫기]면 지도 표시가 없다. 같은 탭을 다시 누르면 접고 편다.
 // - 20개씩: 목록 끝까지 내리거나 [N개 더 보기]를 누르면 20개 더(사용자 답 Q4).
 // - 줄 누르기: 자원·건물 = 아래 채집·건물 판(gather/), 내 유닛 = 고르기(카메라가 그 유닛을 따라간다), 다른 유닛 = 살펴보기(정보만).
+//   좁은 화면이면 누른 뒤 목록을 접는다(아래 판·지도가 보이게, 탭 줄과 지도 표시는 남는다).
 // - 줄은 1초마다와 자료가 바뀔 때 다시 만든다(유닛이 움직이면 거리도 바뀐다). 엔진·자료는 함수로 받는다(그리는 중에는 읽지 않는다).
 // - 유닛 탭 끝에 "다른 곳에 내 유닛 N"(기획 답 632 다). 이 판이 옛 [내 유닛 N] 목록을 맡는다(사용자 답 "합치기: 내 유닛 + 보이는 유닛").
 import type { MapUnit } from "@terra/shared/mapUnits";
@@ -9,6 +10,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { m } from "../../paraglide/messages.js";
 import type { GatherState } from "../gather/gatherState.ts";
 import { ElsewhereLine } from "../UnitControlPanels.tsx";
+import { wideScreen } from "../commandNotice.ts";
 import { type Point, distanceParts, nearListEnd } from "./nearbyData.ts";
 import { EMPTY_ROWS, type NearbyRow, type NearbyRows, buildNearbyRows } from "./nearbyRows.ts";
 import { NEARBY_PAGE, NEARBY_TABS, type NearbyState, type NearbyTab } from "./nearbyState.ts";
@@ -127,10 +129,14 @@ export function NearbyPanel(props: NearbyPanelProps) {
   if (tab === null) return null;
   const left = Math.max(0, rows.total - rows.rows.length);
   const pick = (row: NearbyRow): void => {
-    if (row.kind === "object") gather.open({ kind: "object", id: row.id });
-    else if (row.kind === "building") gather.open({ kind: "building", id: row.id });
-    else if (row.unit) props.onPickUnit(row.unit);
-    else props.onInspectUnit(row.id);
+    if (row.kind === "unit") {
+      if (row.unit) props.onPickUnit(row.unit);
+      else props.onInspectUnit(row.id);
+      return;
+    }
+    gather.open({ kind: row.kind === "object" ? "object" : "building", id: row.id });
+    // 좁은 화면: 목록을 접어 아래 판·지도가 보이게(고른 탭 표시는 남는다)
+    if (!wideScreen()) nearby.setExpanded(false);
   };
   const pressed = (row: NearbyRow): boolean => {
     if (row.kind === "unit") return props.selected === row.id;

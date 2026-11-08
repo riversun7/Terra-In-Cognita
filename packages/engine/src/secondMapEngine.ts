@@ -53,8 +53,9 @@ import {
   sampleHeightM,
   terrainProblem,
 } from "./terrain/terrainData.ts";
-import { type NeighbourTerrain, NeighbourTerrains } from "./terrain/neighbourTerrains.ts";
+import { type NeighbourTerrain, NeighbourTerrains, UNEXPLORED } from "./terrain/neighbourTerrains.ts";
 import { TerrainView } from "./terrain/terrainView.ts";
+import { cameraThroughPlacement, invertPlacement } from "./terrain/rebase.ts";
 import { type PropSource, PropView } from "./props/propView.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
 import { UnitRoster } from "./units/unitRoster.ts";
@@ -117,7 +118,8 @@ export function createSecondMapEngine(
     },
   );
 
-  const terrainView = new TerrainView();
+  // 지금 2차맵 지형 보기. 옆 2차맵으로 넘으면(rebase) 그 이웃의 보기와 맞바꾼다
+  let terrainView = new TerrainView();
   const buildingView = new BuildingView();
   const unitView = new UnitView(capacity);
   scene.add(terrainView.group, buildingView.group, unitView.group);
@@ -127,6 +129,8 @@ export function createSecondMapEngine(
   const motion = roster.motion;
 
   let terrain: TerrainInput | null = null;
+  /** 지금 2차맵 탐사 칸(안개, null = 끔) — 넘을 때 옛 2차맵 칸을 이웃으로 넘긴다 */
+  let mainExplored: Uint8Array | null = null;
   let terrainVersion = 0;
   let minHeight = 0;
   let maxHeight = 0;
@@ -438,6 +442,46 @@ export function createSecondMapEngine(
       }
     },
 
+    rebase(id, oldId) {
+      if (!terrain || disposed) return false;
+      const taken = neighbours.take(id);
+      if (!taken) return false;
+      // 옛 2차맵 칸 좌표 → 새 2차맵 칸 좌표. 이웃 지형은 지금 2차맵 칸 크기로 맞춰 그렸으니 같은 칸 크기로 옮긴다
+      const back = invertPlacement(taken.placement);
+      state = cameraThroughPlacement(state, back, terrain.cellSizeM);
+      neighbours.reframe(back);
+      const old = terrainView;
+      neighbours.adopt(oldId, old, terrain, back, mainExplored);
+      // 새 2차맵: 그 이웃의 보기를 지금 2차맵 자리(제자리)로
+      terrainView = taken.view;
+      terrainView.group.matrix.identity();
+      terrainView.group.matrixAutoUpdate = true;
+      terrainView.group.position.set(0, 0, 0);
+      scene.add(terrainView.group);
+      terrainView.setWalls(false);
+      terrainView.setGrid(grid);
+      terrain = taken.terrain;
+      // 더 늦게 오는 옛 2차맵 지형 결과는 버린다
+      terrainVersion += 1;
+      mapSize = mapSizeM(terrain);
+      cellM = placementCellM(terrain);
+      mainExplored = mainExplored === null ? null : (taken.explored ?? UNEXPLORED);
+      terrainView.setExplored(mainExplored);
+      // 옛 2차맵 유닛·건물은 버린다(새 2차맵 자료 받기가 넣는다)
+      roster.set([]);
+      buildingView.set([], cellM, groundAt);
+      propView.setBlocked(footprintMask([], PLACEMENT_CELLS));
+      pendingBuildings = null;
+      syncPropSources();
+      // 보기 범위(플레이어 카메라 묶기)는 옛 2차맵 좌표다: 비우고 화면이 새 2차맵 값으로 다시 건다
+      viewArea = null;
+      limits = computeLimits();
+      state = clampCamera(state, limits);
+      lastView = "";
+      scheduler.request();
+      return true;
+    },
+
     setNeighbourExplored(id, bits) {
       neighbours.setExplored(id, bits);
       scheduler.request();
@@ -479,6 +523,7 @@ export function createSecondMapEngine(
     },
 
     setExplored(bits) {
+      mainExplored = bits;
       terrainView.setExplored(bits);
       // 이웃도 같은 안개 모드(전체 보기면 끈다)
       neighbours.setFog(bits !== null);

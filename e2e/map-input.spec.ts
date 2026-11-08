@@ -5,9 +5,13 @@
 //   (1초 요약의 같은 순간: 카메라 목표(m) ÷ 사이보그 자리(배치 칸) = 칸 크기가 x·z 같고 시간이 지나도 같다). 끌면 끊기고(lost) [따라가기]로 다시.
 // - 확대 단계: 사다리 "2차맵 n/5"(data-stage), [−]·[+]가 한 단계씩, 가장 가까이에서 [+]는 그대로.
 // - 사진: 사다리·[따라가기] 390 × 파스텔·다크.
+// 바뀜(docs/adr/2026-11-08-seamless-second-map.md WP-1·2): 늘 유닛 하나가 골라져 있고(들어오면 내 사이보그) 카메라가 그 유닛을 따라간다. 끌기는
+// 따라가기를 끊지 않고 카메라를 돌린다(목표점은 그대로, 방위가 바뀐다). [따라가기]·[선택 해제]는 없다. 채집 표시는 근처 판 자원 탭일 때만 보인다.
+// 사진은 사다리·근처 판 자원 탭.
 import type { Locator, Page } from "@playwright/test";
 import { groundOffsets } from "./helpers/mapGround.ts";
 import { message } from "./helpers/messages.ts";
+import { collapseNearby, openNearby, pickMyUnit } from "./helpers/nearby.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
@@ -32,10 +36,10 @@ async function canvasBox(page: Page): Promise<{ x: number; y: number; width: num
   return box;
 }
 
-/** 카메라 목표(m) — 1초 요약 */
-async function cameraTarget(map: Locator): Promise<{ x: number; z: number }> {
-  const [x = 0, z = 0] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
-  return { x, z };
+/** 카메라 목표(m)·방위(rad) — 1초 요약 */
+async function cameraTarget(map: Locator): Promise<{ x: number; z: number; yaw: number }> {
+  const [x = 0, z = 0, yaw = 0] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
+  return { x, z, yaw };
 }
 
 /**
@@ -102,28 +106,36 @@ async function dragMap(page: Page): Promise<void> {
   await page.mouse.up();
 }
 
-/** 목록에서 내 사이보그를 고른다 */
+/** 근처 판 유닛 탭에서 내 사이보그를 고른다 */
 async function pickCyborg(page: Page, map: Locator): Promise<string> {
   const cyborg = (await map.getAttribute("data-cyborg")) ?? "";
   expect(cyborg).toMatch(/^\d+$/);
-  const toggle = page.locator(".map-units-toggle");
-  await expect(toggle).toHaveText(/\d/, { timeout: 15_000 });
-  await toggle.click();
-  await page.locator(`.map-unit-row[data-unit-id="${cyborg}"]`).click();
+  await pickMyUnit(page, cyborg);
   await expect(map).toHaveAttribute("data-selected", cyborg);
   return cyborg;
+}
+
+/** 근처 판 자원 탭을 열고 목록을 접는다(지도에 자원 표시가 보이고 목록이 지도를 가리지 않게) */
+async function showResourceMarkers(page: Page): Promise<void> {
+  await openNearby(page, "resources");
+  await collapseNearby(page);
 }
 
 test.describe("지도 조작: 플레이어", () => {
   test.use({ account: "player" });
 
-  test("채집 표시 위에서 시작한 끌기는 지도를 끌고 아무것도 고르지 않는다, 짧게 누르면 그 표시의 판", async ({
+  test("채집 표시는 자원 탭일 때만, 표시 위에서 시작한 끌기는 카메라를 돌리고 고르기는 그대로, 짧게 누르면 그 표시의 판", async ({
     page,
     deviceErrors,
   }) => {
     test.setTimeout(150_000);
     const map = await openMap(page);
     const panel = page.locator(".gather-panel");
+    // 판이 닫혀 있으면 표시가 없다. 들어오면 내 사이보그가 골라져 있다
+    const cyborg = (await map.getAttribute("data-cyborg")) ?? "";
+    await expect(map).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
+    await expect(page.locator(READY_MARKER)).toHaveCount(0);
+    await showResourceMarkers(page);
     const marker = await findMarker(page);
     await page.waitForTimeout(1_100);
     const before = await cameraTarget(map);
@@ -134,16 +146,14 @@ test.describe("지도 조작: 플레이어", () => {
     await page.mouse.down();
     await page.mouse.move(marker.x + dx, marker.y + 15, { steps: 10 });
     await page.mouse.up();
+    // 돌리기: 방위가 바뀌고 목표점(내 사이보그)은 그대로
     await expect
-      .poll(
-        async () => {
-          const after = await cameraTarget(map);
-          return Math.hypot(after.x - before.x, after.z - before.z);
-        },
-        { timeout: 5_000 },
-      )
-      .toBeGreaterThan(3);
-    await expect(map).not.toHaveAttribute("data-selected", /./);
+      .poll(async () => Math.abs((await cameraTarget(map)).yaw - before.yaw), { timeout: 5_000 })
+      .toBeGreaterThan(0.05);
+    const turned = await cameraTarget(map);
+    expect(Math.hypot(turned.x - before.x, turned.z - before.z)).toBeLessThan(2);
+    await expect(map).toHaveAttribute("data-selected", cyborg);
+    await expect(map).toHaveAttribute("data-follow", "on");
     await expect(panel).toHaveAttribute("data-sheet", "none");
 
     // 짧게 누르면(움직인 뒤 다시 찾은 표시) 그 오브젝트의 판이 열린다
@@ -151,11 +161,11 @@ test.describe("지도 조작: 플레이어", () => {
     await page.mouse.click(again.x, again.y);
     await expect(panel).toHaveAttribute("data-sheet", "object");
     await expect(page.locator(".gather-sheet[data-object]")).toHaveAttribute("data-object", again.id);
-    await expect(map).not.toHaveAttribute("data-selected", /./);
+    await expect(map).toHaveAttribute("data-selected", cyborg);
     expect(deviceErrors).toEqual([]);
   });
 
-  test("목록에서 고른 내 사이보그를 카메라가 따라가고(data-follow), 끌면 끊기고 [따라가기]로 다시 붙는다", async ({
+  test("고른 내 사이보그를 카메라가 따라가고(data-follow), 끌어도 끊기지 않고 돌기만 한다", async ({
     page,
     deviceErrors,
   }) => {
@@ -190,24 +200,21 @@ test.describe("지도 조작: 플레이어", () => {
       )
       .toBe(true);
 
-    // 끌면 끊기고 [따라가기]가 보인다 → 누르면 다시 사이보그 자리로
+    // 끌어도 따라가기는 그대로(돌리기), [따라가기]·[선택 해제]는 없다
+    const yawBefore = (await cameraTarget(map)).yaw;
     await dragMap(page);
-    await expect(map).toHaveAttribute("data-follow", "lost");
-    const follow = page.locator(".map-unit-follow");
-    await expect(follow).toBeVisible();
-    await expect(follow).toHaveText(message("ko", "map_travel_follow"));
-    await follow.click();
     await expect(map).toHaveAttribute("data-follow", "on");
-    await expect(follow).toHaveCount(0);
+    await expect
+      .poll(async () => Math.abs((await cameraTarget(map)).yaw - yawBefore), { timeout: 5_000 })
+      .toBeGreaterThan(0.05);
     await expect.poll(async () => centred(await followRatio(map)), { timeout: 10_000 }).toBe(true);
+    await expect(page.locator(".map-unit-follow")).toHaveCount(0);
+    await expect(page.locator(".map-back-anchor")).toHaveCount(0);
 
     // 세운다(다른 시험이 쓰는 내 사이보그를 그 자리에)
     const stop = page.locator(".map-unit-stop");
     if (await stop.count()) await stop.click();
-    // 고르기를 풀면 따라가지 않는다
-    await page.locator(".map-actions button", { hasText: message("ko", "map_deselect") }).click();
-    await expect(map).not.toHaveAttribute("data-follow", /./);
-    await expect(map).not.toHaveAttribute("data-selected", /./);
+    await expect(map).toHaveAttribute("data-selected", cyborg);
     expect(cyborg).not.toBe("");
     expect(deviceErrors).toEqual([]);
   });
@@ -261,19 +268,20 @@ test.describe("지도 조작 사진", () => {
       test.describe(`390 ${theme} ${language}`, () => {
         test.use({ theme, language });
 
-        test(`사다리·[따라가기] (390·${theme}·${language})`, async ({ page, deviceErrors }) => {
+        test(`사다리·근처 판 자원 탭 (390·${theme}·${language})`, async ({ page, deviceErrors }) => {
           test.setTimeout(120_000);
           const map = await openMap(page);
           await pickCyborg(page, map);
           await expect(map).toHaveAttribute("data-follow", "on");
-          await dragMap(page);
-          await expect(map).toHaveAttribute("data-follow", "lost");
-          await expect(page.locator(".map-unit-follow")).toHaveText(message(language, "map_travel_follow"));
+          await openNearby(page, "resources");
+          await expect(page.locator(".map-nearby-tab[aria-pressed=true]")).toContainText(
+            message(language, "nearby_tab_resources"),
+          );
           await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", /^[1-5]$/);
-          await page.waitForTimeout(400);
+          await page.waitForTimeout(1_200);
           expect(await horizontalOverflow(page)).toEqual([]);
           expect(await smallTapTargets(page)).toEqual([]);
-          await shot(page, `map-input-follow-390-${theme}-${language}`);
+          await shot(page, `map-input-nearby-390-${theme}-${language}`);
           expect(deviceErrors).toEqual([]);
         });
       });

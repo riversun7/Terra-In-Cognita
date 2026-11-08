@@ -16,6 +16,7 @@ function rig() {
   const listeners = new Set<(event: LinkEvent) => void>();
   let ready = true;
   const explored: [number, number | null][] = [];
+  const arrivals: [number, number[]][] = [];
   const vision = startNeighbourVision({
     link: {
       send: (message) => {
@@ -30,6 +31,7 @@ function rig() {
       },
     },
     onExplored: (mapKey, bits) => explored.push([mapKey, bits ? (bits[0] ?? 0) : null]),
+    onUnits: (mapKey, ids) => arrivals.push([mapKey, [...ids]]),
     nextRequestId: createRequestIds(100),
   });
   const emit = (event: LinkEvent): void => {
@@ -45,6 +47,7 @@ function rig() {
     vision,
     sent,
     explored,
+    arrivals,
     emit,
     message,
     subscribeId,
@@ -69,6 +72,15 @@ describe("이웃 안개 받기", () => {
     r.message({ t: "vision", mapKey: 11, explored: exploredText(7) });
     r.message({ t: "vision", mapKey: 99, explored: exploredText(5) });
     expect(r.explored).toEqual([[11, 7]]);
+  });
+
+  it("바라는 이웃의 경로에 실린 유닛 ID를 알린다(넘기 신호)", () => {
+    const r = rig();
+    r.vision.want([41]);
+    const motion = { id: 77, size: 1 as const, speed: 437, departAtMs: 1, path: [512, 512, 1024, 512] };
+    r.message({ t: "unit_paths", mapKey: 41, fromRev: 1, rev: 2, units: [motion] });
+    r.message({ t: "unit_paths", mapKey: 42, fromRev: 1, rev: 2, units: [motion] });
+    expect(r.arrivals).toEqual([[41, [77]]]);
   });
 
   it("상한(3장)까지만, 빠진 이웃은 푼다", () => {

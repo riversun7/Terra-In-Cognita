@@ -6,7 +6,7 @@
 // - 더 바라지 않는 이웃은 구독을 푼다. 받은 탐사 칸은 엔진에 그대로 둔다(탐사 기록은 늘기만 한다).
 // - 연결이 다시 맺어지면 바라는 이웃을 다시 구독한다.
 // 지금 2차맵 + 이웃 3장 = 4장 — 서버 한 연결 상한(gateway.ts MAX_MAPS_PER_SOCKET = 4) 안이다. 지도 자료(mapFeed.ts)는 다른 2차맵 메시지를 버린다.
-// 이웃 스냅샷(유닛·건물)은 아직 쓰지 않는다(맵 넘기 미리 받기는 다음 단계).
+// 이웃 스냅샷·경로의 유닛 ID는 onUnits로 알린다: 기준 유닛이 이웃에 나타나면 화면이 그 2차맵으로 넘어간다(로딩 없는 2차맵 이동).
 import type { ResultCode } from "@terra/protocol";
 import type { ServerLink } from "../net/serverLink.ts";
 import { defaultRequestId } from "./mapFeed.ts";
@@ -21,6 +21,8 @@ export interface NeighbourVisionOptions {
   readonly link: Pick<ServerLink, "send" | "isReady" | "listen">;
   /** 이웃 2차맵의 탐사 칸(시야 칸 32×32 비트). null = 볼 수 없음(온통 어둡게) */
   readonly onExplored: (mapKey: number, bits: Uint8Array | null) => void;
+  /** 이웃 2차맵의 스냅샷 조각·경로에 실린 유닛 ID(그 2차맵에 있는 유닛) */
+  readonly onUnits?: (mapKey: number, unitIds: readonly number[]) => void;
   readonly nextRequestId?: () => number;
 }
 
@@ -76,6 +78,14 @@ export function startNeighbourVision(options: NeighbourVisionOptions): Neighbour
     const message = event.message;
     if (message.t === "vision") {
       if (wanted.has(message.mapKey)) options.onExplored(message.mapKey, decodeExplored(message.explored));
+      return;
+    }
+    if ((message.t === "map_snapshot" || message.t === "unit_paths") && wanted.has(message.mapKey)) {
+      if (message.units.length > 0)
+        options.onUnits?.(
+          message.mapKey,
+          message.units.map((unit) => unit.id),
+        );
       return;
     }
     if (message.t !== "result" || message.ok) return;

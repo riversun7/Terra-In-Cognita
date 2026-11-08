@@ -371,7 +371,7 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("572 다: 내 사이보그가 있는 2차맵도 ?at=이면 그곳을 보고 [내 사이보그]로 돌아간다", async ({
+  test("572 다 → WP-1: ?at=이어도 카메라는 기준 유닛(내 사이보그)을 따라간다, [내 사이보그]도 그 자리", async ({
     page,
     deviceErrors,
   }) => {
@@ -393,10 +393,14 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
       const [x = 0, z = 1] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
       return x / z;
     };
+    // 자유 시점이 없다(docs/adr/2026-11-08-seamless-second-map.md WP-1): 고른 곳이 아니라 내 사이보그 자리(배치 칸 비율)
+    await expect(map).toHaveAttribute("data-follow", "on", { timeout: 15_000 });
     await expect
-      .poll(async () => Math.abs((await ratio()) - (atX + 0.5) / (cell.y + 0.5)) < 0.02, { timeout: 20_000 })
+      .poll(async () => Math.abs((await ratio()) - (cell.x + 0.5) / (cell.y + 0.5)) < 0.05, {
+        timeout: 20_000,
+      })
       .toBe(true);
-    // [내 사이보그]: 카메라가 내 사이보그 자리로(배치 칸 비율)
+    // [내 사이보그]: 그대로 내 사이보그 자리
     await page.locator(".map-go-cyborg").click();
     await expect
       .poll(async () => Math.abs((await ratio()) - (cell.x + 0.5) / (cell.y + 0.5)) < 0.05, {
@@ -428,6 +432,9 @@ test.describe("도시 안개·들어가기·카메라(WP7): 전체 보기 계정
     await expect(map).toHaveAttribute("data-focus-source", "picked");
     await expect(map).toHaveAttribute("data-focus-at", "40,60");
     await expect(map).not.toHaveAttribute("data-focus", /./);
+    // 내 유닛이 없는 2차맵: 운영자 모드가 아니면 들어갈 수 없다는 안내(docs/adr/2026-11-08-seamless-second-map.md WP-1 Q3)
+    await expect(map).toHaveAttribute("data-blocked", "no-units", { timeout: 15_000 });
+    await expect(page.locator(".map-blocked")).toBeVisible();
     // 카메라 목표(m) 비율 = 배치 칸 (40.5, 60.5) 비율(칸 크기와 상관없이)
     await expect
       .poll(

@@ -4,6 +4,8 @@ import { type NeighbourPlacement, NeighbourTerrains, toLocal } from "./neighbour
 import type { TerrainBuilder } from "./terrainBuilder.ts";
 import { TERRAIN_CELLS, TERRAIN_VERTICES, type TerrainInput } from "./terrainData.ts";
 import { buildTerrainMesh } from "./terrainMesh.ts";
+import { TerrainView } from "./terrainView.ts";
+import { invertPlacement } from "./rebase.ts";
 
 function flat(heightUnits: number): TerrainInput {
   return {
@@ -65,5 +67,32 @@ describe("이웃 2차맵 지형", () => {
     expect(neighbours.count).toBe(1);
     neighbours.dispose();
     expect(neighbours.count).toBe(0);
+  });
+
+  it("넘기(WP-3): 이웃을 꺼내고 남은 이웃을 새 틀로 옮기고 옛 지금 2차맵을 들인다 — 다시 만들지 않는다", async () => {
+    const builder = countingBuilder();
+    const neighbours = new NeighbourTerrains(builder);
+    await neighbours.set(
+      [
+        { id: "right", terrain: flat(50), placement: RIGHT },
+        { id: "below", terrain: flat(70), placement: BELOW_TURNED },
+      ],
+      12,
+    );
+    neighbours.setExplored("right", new Uint8Array(128).fill(255));
+    const taken = neighbours.take("right");
+    expect(taken?.placement).toEqual(RIGHT);
+    expect(taken?.explored?.[0]).toBe(255);
+    expect(neighbours.take("right")).toBeNull();
+    // 새 틀 = 오른쪽 이웃: 옛 지금 2차맵은 왼쪽(x −128), 아래 이웃도 128 왼쪽으로
+    const back = invertPlacement(RIGHT);
+    neighbours.reframe(back);
+    neighbours.adopt("old", new TerrainView(), flat(30), back, null);
+    expect(neighbours.count).toBe(2);
+    expect(neighbours.heightAt(-10 * 12, 5 * 12)).toBeCloseTo(3);
+    expect(neighbours.heightAt((100 - 128) * 12, 140 * 12)).toBeCloseTo(7);
+    expect(builder.builds).toBe(2);
+    taken?.view.dispose();
+    neighbours.dispose();
   });
 });

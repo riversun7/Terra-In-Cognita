@@ -14,9 +14,18 @@ export interface MapUnitsState {
   readonly elsewhere: number;
   /** 카메라 범위(받기 전 null — 범위를 걸지 않는다) */
   readonly view: MapViewArea | null;
+  /** 이 답의 2차맵(받기 전 null). 옆 2차맵으로 넘은 뒤 새 답이 오기 전에는 옛 2차맵 답이다 — 화면은 지금 2차맵 답만 쓴다 */
+  readonly mapKey: number | null;
 }
 
-const INITIAL: MapUnitsState = { units: null, failed: false, elsewhere: 0, view: null };
+export const NO_MAP_UNITS: MapUnitsState = {
+  units: null,
+  failed: false,
+  elsewhere: 0,
+  view: null,
+  mapKey: null,
+};
+const INITIAL = NO_MAP_UNITS;
 
 export function useMapUnits(mapKey: number): MapUnitsState {
   const [state, setState] = useState<MapUnitsState>(INITIAL);
@@ -33,6 +42,7 @@ export function useMapUnits(mapKey: number): MapUnitsState {
               failed: false,
               elsewhere: answer.elsewhere,
               view: answer.view,
+              mapKey,
             });
         },
         () => {

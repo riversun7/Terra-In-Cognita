@@ -6,6 +6,7 @@
 //   바뀐다. 채집 덧그림 표시는 건물을 가려 사진에서만 숨긴다.
 import type { Page, Response } from "@playwright/test";
 import { shot } from "./helpers/screen.ts";
+import { collapseNearby, openNearby } from "./helpers/nearby.ts";
 import { type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
@@ -67,6 +68,9 @@ async function openCityMap(page: Page, query = ""): Promise<{ looks: Awaited<Ret
   await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
   await expect(map).toHaveAttribute("data-operator", "on");
   const looks = await looksOf(await looksResponse);
+  // 건물 표시는 근처 판 건물 탭일 때만(docs/adr/2026-11-08-seamless-second-map.md WP-2) — 목록은 접는다(지도를 가리지 않게)
+  await openNearby(page, "buildings");
+  await collapseNearby(page);
   // 겉모습을 받은 뒤 엔진이 다시 그릴 틈
   await page.waitForTimeout(1_500);
   return { looks };

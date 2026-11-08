@@ -261,6 +261,12 @@ test.describe("경계 너머 보기", () => {
     await page.waitForTimeout(1200);
     await shot(page, "second-map-neighbours-3x3");
 
+    // 플레이어 카메라는 기준 유닛에 붙어 끌기가 돌리기다(docs/adr/2026-11-08-seamless-second-map.md WP-1): 화면을 옮기려면 운영자 [자유 시점]
+    await page.locator(".map-operator-toggle").click();
+    await page.locator(".map-free-view").click();
+    await expect(screen).toHaveAttribute("data-free-view", "on");
+    await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
+
     // 오른쪽 경계 쪽으로 끈다(손가락 아래 땅이 따라온다: 왼쪽으로 끌면 화면이 동쪽으로 간다)
     const box = await page.locator(".map-view canvas").boundingBox();
     if (!box) throw new Error("no canvas");

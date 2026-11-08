@@ -162,6 +162,13 @@ export interface SecondMapEngine {
    * 온통 어둡다. null이면 잊는다(docs/adr/2026-11-08-seamless-second-map.md WP-3)
    */
   setNeighbourExplored(id: string, bits: Uint8Array | null): void;
+  /**
+   * 옆 2차맵으로 넘기(로딩 없는 2차맵 이동, docs/adr/2026-11-08-seamless-second-map.md WP-3): 이웃 id의 지형을 지금 2차맵으로 올리고 지금 2차맵은
+   * oldId 이웃으로 내린다(다시 받거나 만들지 않는다). 카메라는 같은 땅이 같은 자리에 보이게 옮기고, 다른 이웃도 새 틀로 옮긴다. 유닛·건물은 비운다
+   * (새 2차맵 자료가 넣는다). 그 이웃이 없으면(아직 받지 않음) 아무것도 하지 않고 false. 칸 크기는 그 이웃을 그린 값(옛 2차맵 값)이다 —
+   * 새 2차맵 지형을 setTerrain하면 그 값으로 다시 만든다
+   */
+  rebase(id: string, oldId: string): boolean;
   /** 유닛 목록을 통째로 바꾼다(고른 것은 풀린다) */
   setUnits(units: readonly UnitSpawn[]): void;
   /** 서버가 보낸 새 경로 */

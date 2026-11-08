@@ -23,6 +23,11 @@ export interface NeighbourLoaderOptions {
    * (docs/adr/2026-11-08-seamless-second-map.md WP-3)
    */
   onNear?: (mapKeys: readonly number[]) => void;
+  /**
+   * 옆 2차맵으로 넘어온 뒤(엔진 rebase) 이미 가진 지형(2차맵 키 → 지형, 옛 2차맵 포함). 이 2차맵의 이웃이면 받지 않고 처음부터 받은 것으로 둔다
+   * (엔진에 같은 id로 이미 놓여 있다 — 다시 만들지 않는다, docs/adr/2026-11-08-seamless-second-map.md WP-3)
+   */
+  seed?: ReadonlyMap<number, TerrainInput> | null;
 }
 
 export interface NeighbourLoader {
@@ -30,6 +35,8 @@ export interface NeighbourLoader {
   setMain(url: string, mapSizeM: number): void;
   /** 카메라 목표점(m)이 바뀌었을 때 */
   onView(targetX: number, targetZ: number): void;
+  /** 받은 이웃 지형(2차맵 키 → 지형) — 옆 2차맵으로 넘을 때 다음 받기에 넘긴다 */
+  terrains(): Map<number, TerrainInput>;
   stop(): void;
 }
 
@@ -85,7 +92,8 @@ export function createNeighbourLoader(options: NeighbourLoaderOptions): Neighbou
 
   return {
     setMain(url, size) {
-      const changed = mainUrl === null || terrainVersionOf(url) !== terrainVersionOf(mainUrl);
+      const first = mainUrl === null;
+      const changed = first || terrainVersionOf(url) !== terrainVersionOf(mainUrl ?? "");
       mainUrl = url;
       mapSizeM = size;
       if (changed) {
@@ -97,9 +105,23 @@ export function createNeighbourLoader(options: NeighbourLoaderOptions): Neighbou
           options.onChange?.(0);
         }
       }
+      // 넘어온 2차맵: 엔진에 이미 놓인 이웃은 받은 것으로 둔다(같은 판 표지 — 같은 서버 지형)
+      if (first && options.seed) {
+        for (const spot of spots) {
+          const terrain = options.seed.get(spot.key);
+          if (!terrain) continue;
+          loaded.set(spot.key, { id: String(spot.key), terrain, placement: spot.placement });
+          requested.add(spot.key);
+        }
+        if (loaded.size > 0) {
+          void options.setNeighbours([...loaded.values()]);
+          options.onChange?.(loaded.size);
+        }
+      }
       if (options.all) want(size / 2, size / 2);
     },
     onView: want,
+    terrains: () => new Map([...loaded].map(([key, item]) => [key, item.terrain])),
     stop() {
       stopped = true;
     },

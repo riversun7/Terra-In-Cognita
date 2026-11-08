@@ -6,8 +6,11 @@
 // - 636 나: 남의 유닛(시야 안)은 세력·종류까지 보인다.
 // - 612 나: 정찰이 돌아서면 화면 알림 [들어가기] → 본 2차맵 지도.
 // - 사진: 목록(다른 곳 줄)·정찰 알림 390 × 파스텔·다크.
+// 바뀜(docs/adr/2026-11-08-seamless-second-map.md WP-1·2): 카메라는 늘 기준 유닛(내 사이보그)을 따라가고 끌기는 돌리기다 — 630은 "끌어도 목표점이
+// 내 사이보그에 머문다"로 본다. 목록은 근처 판 유닛 탭. 내 유닛이 없는 2차맵은 들어갈 수 없어 남의 유닛 시험은 이 맵에 없는 가짜 내 유닛을 둔다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
+import { openNearby } from "./helpers/nearby.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
@@ -90,15 +93,15 @@ function withReturningScout(mapKey: number) {
 test.describe("기획 답 630~637: 플레이어", () => {
   test.use({ account: "player" });
 
-  test("630: 같은 쪽으로 여러 번 끌어도 카메라는 내 사이보그 둘레에 머문다", async ({
+  test("630·WP-1: 같은 쪽으로 여러 번 끌어도 카메라 목표는 내 사이보그에 머문다(끌기 = 돌리기)", async ({
     page,
     deviceErrors,
   }) => {
     test.setTimeout(90_000);
     await rewriteTrpc(page, { "summary.get": hideSummary });
     await openMap(page);
-    // 범위는 목록을 받은 뒤 1초 안에 걸린다
-    await expect(page.locator(".map-units-toggle")).toHaveText(/\d/, { timeout: 15_000 });
+    // 기준 유닛(내 사이보그)을 따라간다
+    await expect(page.locator(".map-screen")).toHaveAttribute("data-follow", "on", { timeout: 15_000 });
     await page.waitForTimeout(1_500);
     const start = await cameraTarget(page);
     // 멀리 본 뒤(한 번 끌 때 수백 m) 같은 쪽으로 세 번 끈다. 범위(시야 24칸 + 여유 16칸 ≈ 40칸 × 칸 약 5.9m ≈ 234m) 안에 멈춘다
@@ -132,7 +135,14 @@ test.describe("기획 답 630~637: 플레이어", () => {
       "world.mapUnits": (data) => {
         withElsewhere(3)(data);
         if (typeof data !== "object" || data === null) return;
-        Reflect.set(data, "units", []);
+        // 목록이 비면 들어갈 수 없다(WP-1): 이 맵에 없는 가짜 내 유닛 하나로 바꾼다
+        const units: unknown = Reflect.get(data, "units");
+        const first: unknown = Array.isArray(units) ? units[0] : undefined;
+        Reflect.set(
+          data,
+          "units",
+          typeof first === "object" && first !== null ? [{ ...first, unitId: 999_999 }] : [],
+        );
         // 카메라 범위가 내 건물 둘레로 가지 않게(유닛이 없으면 탐사 칸 둘레 — 내 사이보그 자리)
         const view: unknown = Reflect.get(data, "view");
         if (typeof view === "object" && view !== null) Reflect.set(view, "buildings", []);
@@ -162,7 +172,7 @@ test.describe("기획 답 630~637: 플레이어", () => {
     await expect(page.locator(".map-hint p").first()).toContainText("시험 나라", { timeout: 10_000 });
     await expect(page.locator(".map-hint p").first()).toContainText(message("ko", "roster_type_human"));
 
-    await page.locator(".map-units-toggle").click();
+    await openNearby(page, "units");
     const line = page.locator(".map-units-elsewhere-open");
     await expect(line).toHaveText(message("ko", "map_units_elsewhere", { count: "3" }));
     expect(await horizontalOverflow(page)).toEqual([]);
@@ -227,7 +237,7 @@ test.describe("유닛 조종·이동 후속 사진", () => {
         await rewriteTrpc(page, { "summary.get": hideSummary, "world.mapUnits": withElsewhere(2) });
         await openMap(page);
         const mapKey = Number(await page.locator(".map-screen").getAttribute("data-map-key"));
-        await page.locator(".map-units-toggle").click();
+        await openNearby(page, "units");
         await expect(page.locator(".map-units-elsewhere-open")).toBeVisible({ timeout: 15_000 });
         await page.waitForTimeout(1_200);
         expect(await horizontalOverflow(page)).toEqual([]);

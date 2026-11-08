@@ -8,6 +8,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { collapseNearby, nearbyBuildingIds, openBuildingFromList, openNearby } from "./helpers/nearby.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
@@ -21,6 +22,9 @@ async function openMap(page: Page): Promise<void> {
   const map = page.locator(".map-screen[data-map-key]");
   await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
   await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+  // 건물 표시는 근처 판 건물 탭일 때만(docs/adr/2026-11-08-seamless-second-map.md WP-2)
+  await openNearby(page, "buildings");
+  await collapseNearby(page);
   await expect(page.locator(BUILDING_MARKER).first()).toBeVisible({ timeout: 30_000 });
 }
 
@@ -29,9 +33,8 @@ type Want = "objects" | "any" | "facility";
 
 /** 보이는 건물 표시 가운데 찾는 채집소 건물 ID. 없으면 빈 목록 */
 async function findStations(page: Page, want: Want): Promise<number[]> {
-  const ids = await page
-    .locator(BUILDING_MARKER)
-    .evaluateAll((elements) => elements.map((element) => Number(element.getAttribute("data-building"))));
+  // 근처 판 건물 목록(가까운 차례 — 지도 표시와 같은 것)
+  const ids = await nearbyBuildingIds(page);
   return page
     .evaluate(async (list) => {
       const objects: number[] = [];
@@ -59,51 +62,13 @@ async function findStations(page: Page, want: Want): Promise<number[]> {
     );
 }
 
-/**
- * 그 건물 표시가 위·아래 판(HUD)에 가리지 않았으면 누르고 판이 열리면 true. 표시는 누르기를 지도로 지나보내고 엔진이 화면 거리로 고르므로
- * (docs/adr/2026-11-08-map-input.md) 표시 가운데 아래가 지도 캔버스인지 보고 그 자리를 짧게 누른다
- */
-async function clickFreeBuilding(page: Page, id: number): Promise<boolean> {
-  const marker = page.locator(`.gather-building-marker[data-building="${id}"]:not([hidden])`);
-  if ((await marker.count()) === 0) return false;
-  const point = await marker.first().evaluate((element) => {
-    const box = element.getBoundingClientRect();
-    const x = box.x + box.width / 2;
-    const y = box.y + box.height / 2;
-    const hit = document.elementFromPoint(x, y);
-    return hit instanceof HTMLCanvasElement && hit.closest(".map-view") ? { x, y } : null;
-  });
-  if (!point) return false;
-  await page.mouse.click(point.x, point.y);
-  try {
-    await expect(page.locator(`.gather-sheet[data-building="${id}"]`)).toBeVisible({ timeout: 2_000 });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 채집소 건물 판을 연다. 채집소 표시가 판(성능 줄 등)에 가려 있으면 휠로 조금씩 멀리 본다(헤드리스 휠 이벤트는 합쳐지므로 단계마다 띄운다,
- * gather.spec.ts와 같은 방법)
- */
+/** 채집소 건물 판을 연다: 근처 판 건물 목록에서 찾는 채집소(원자재 채집소 먼저, facilityOnly면 농장 등만) 줄을 누른다 */
 async function openStationSheet(page: Page, facilityOnly = false): Promise<Locator> {
   await openMap(page);
-  const size = page.viewportSize() ?? { width: 390, height: 844 };
-  let opened: number | null = null;
-  // 처음 여섯 단계는 원자재 채집소(벌목장·광산)만, 그 뒤에는 농장도(facilityOnly면 처음부터 농장 등만)
-  for (let step = 0; step < 10 && opened === null; step++) {
-    for (const id of await findStations(page, facilityOnly ? "facility" : step < 6 ? "objects" : "any"))
-      if (await clickFreeBuilding(page, id)) {
-        opened = id;
-        break;
-      }
-    if (opened !== null) break;
-    await page.mouse.move(size.width / 2, size.height / 2);
-    await page.mouse.wheel(0, 300);
-    await page.waitForTimeout(400);
-  }
+  const ids = await findStations(page, facilityOnly ? "facility" : "any");
+  const opened = ids[0] ?? null;
   expect(opened).not.toBeNull();
+  await openBuildingFromList(page, opened ?? 0);
   const station = page.locator(`.gather-sheet[data-building="${opened ?? 0}"] [data-part="gather-station"]`);
   await expect(station).toBeVisible({ timeout: 20_000 });
   return station;

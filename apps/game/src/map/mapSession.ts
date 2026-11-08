@@ -1,0 +1,158 @@
+// 2차맵 하나의 자료 잇기 — 2차맵 화면(SecondaryMapScreen.tsx)에서 나눴다(docs/adr/2026-11-08-seamless-second-map.md WP-3 로딩 없는 2차맵 이동).
+// 엔진은 화면이 한 번 만들어 계속 쓰고, 이 모음은 지금 2차맵마다 새로 켠다: 지도 자료 구독(mapFeed.ts)·건물 겉모습·채집 덧그림·지도자 이름표·
+// 이웃 지형 받기·이웃 안개 구독. 옆 2차맵으로 넘으면 화면이 엔진을 rebase하고 이 모음을 멈춘 뒤 새 2차맵으로 다시 켠다(받아 둔 지형을 seed로 넘긴다).
+// - 넘기 신호: 기준 유닛이 구독 중인 이웃 2차맵의 스냅샷·경로에 나타나면 onArrived(그 2차맵).
+import type { SecondMapEngine, TerrainInput } from "@terra/engine";
+import { m } from "../paraglide/messages.js";
+import { serverLink } from "../net/serverLink.ts";
+import { startBuildingLooks } from "./buildingLooks.ts";
+import type { CommandReport, FeedSink, FeedStatus, MapFeed } from "./feedTypes.ts";
+import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
+import { type GatherState, gatherSink } from "./gather/gatherState.ts";
+import { type LeaderTagState, attachLeaderTags } from "./leaderTags.ts";
+import { startMapFeed } from "./mapFeed.ts";
+import { resultText } from "./mapMessages.ts";
+import { loadUnitGlance } from "./mapUnits.ts";
+import type { NearbyState } from "./nearby/nearbyState.ts";
+import { startNeighbourVision } from "./neighbourVision.ts";
+import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
+import { viewMap, wantsAllNeighbours } from "./secondMapNeighbours.ts";
+import { fetchTerrain } from "./terrainLoader.ts";
+
+/** 자료 흐름 전(표시 종류 없음) */
+const NO_KINDS: ReadonlyMap<number, string> = new Map();
+
+export interface MapSessionOptions {
+  readonly engine: SecondMapEngine;
+  readonly host: HTMLElement;
+  readonly mapKey: number;
+  readonly unitCapacity: number;
+  readonly gather: GatherState;
+  readonly nearby: NearbyState;
+  readonly leaderTags: LeaderTagState;
+  /** 카메라 범위 등이 엔진 앞에 끼우는 받는 쪽(useCameraArea) */
+  readonly tap: (sink: FeedSink) => FeedSink;
+  /** 운영자 모드(모든 유닛 명령·전체 보기 — 이웃 안개 구독도 하지 않는다) */
+  readonly operator: () => boolean;
+  readonly serverNow: () => number;
+  /** 옆 2차맵에서 넘어왔으면 그때 가진 지형(옛 2차맵 포함) */
+  readonly seed: ReadonlyMap<number, TerrainInput> | null;
+  /** 카메라가 따라가는 기준 유닛 */
+  readonly anchor: () => number | null;
+  /** 기준 유닛이 이웃 2차맵에 나타났다 */
+  readonly onArrived: (mapKey: number) => void;
+  /** 지도자 이름표를 눌렀다 */
+  readonly onPickLeader: (unitId: number) => void;
+  readonly onStatus: (status: FeedStatus) => void;
+  readonly onCommand: (report: CommandReport) => void;
+  readonly onDevNotice: (text: string) => void;
+}
+
+export interface MapSession {
+  readonly feed: MapFeed;
+  /** 카메라가 바뀐 프레임마다(엔진 onView): 이웃 받기 */
+  onView(camera: { readonly targetX: number; readonly targetZ: number }): void;
+  /** 카메라 목표점이 있는 2차맵(지금 "0,0", 이웃이면 방향) — 화면 시험 표지 */
+  viewMap(): string;
+  /** 가진 지형(지금 2차맵 + 받은 이웃) — 옆 2차맵으로 넘을 때 다음 모음의 seed */
+  carry(): Map<number, TerrainInput>;
+  stop(): void;
+}
+
+export function startMapSession(options: MapSessionOptions): MapSession {
+  const { engine, host, mapKey, gather, nearby } = options;
+  let mapSizeM = 0;
+  let mainTerrain: TerrainInput | null = null;
+  let viewMapNow = "0,0";
+  // 이웃 안개(WP-3): 카메라 쪽 이웃 2차맵을 구독해 탐사 칸을 이웃 지형에 칠한다(운영자 전체 보기면 구독하지 않는다 — 안개가 없다).
+  // 기준 유닛이 그 이웃에 나타나면 넘어간다
+  const neighbourVision = startNeighbourVision({
+    link: serverLink,
+    onExplored: (key, bits) => engine.setNeighbourExplored(String(key), bits),
+    onUnits: (key, ids) => {
+      const anchor = options.anchor();
+      if (anchor !== null && ids.includes(anchor)) options.onArrived(key);
+    },
+  });
+  const neighbourLoader = createNeighbourLoader({
+    mapKey,
+    all: wantsAllNeighbours(window.location.search),
+    setNeighbours: (list) => engine.setNeighbours(list),
+    fetchTerrain: (url) => fetchTerrain(url),
+    onNear: (keys) => neighbourVision.want(options.operator() ? [] : keys),
+    seed: options.seed,
+  });
+  // 지도자 이름표: 전송의 표시 종류(npc_leader)로 찾고 이름은 한눈 정보로. 누르면 그 지도자를 고른다. 채집 덧그림보다 먼저 붙인다
+  // (누르기를 먼저 받고 위에 그린다 — 지도자는 적고 표시는 많다)
+  let feedNow: MapFeed | null = null;
+  const detachLeaders = attachLeaderTags(engine, host, options.leaderTags, {
+    mapKey,
+    kinds: () => feedNow?.unitKinds() ?? NO_KINDS,
+    loadGlance: (key, unitId, signal) => loadUnitGlance(key, unitId, signal).then((answer) => answer.glance),
+    onPick: (unitId) => {
+      engine.select(unitId);
+      options.onPickLeader(unitId);
+    },
+  });
+  const detachGather = attachGatherOverlay(engine, host, gather, {
+    mapKey,
+    serverNow: options.serverNow,
+    nearby,
+  });
+  const looks = startBuildingLooks(engine, mapKey, { onLooks: (rows) => nearby.setLooks(rows) });
+  const feed = startMapFeed({
+    link: serverLink,
+    mapKey,
+    // 자료 흐름: 채집 덧그림(건물) → 카메라 범위(탐사 비트) → 건물 겉모습(buildingLooks.ts) → 엔진
+    sink: options.tap(gatherSink(looks.sink, gather)),
+    loadTerrain: async (url) => {
+      const terrain = await fetchTerrain(url);
+      mainTerrain = terrain;
+      mapSizeM = terrain.cellSizeM * 128;
+      // 배치 칸 한 변(m) = 2차맵 한 변 ÷ 256(근처 판 거리 글자)
+      nearby.setCellM(mapSizeM / 256);
+      neighbourLoader.setMain(url, mapSizeM);
+      return terrain;
+    },
+    canCommand: options.operator,
+    observe: options.operator,
+    onDevSpawn: (outcome) =>
+      options.onDevNotice(
+        outcome.ok ? m.map_vision_spawned() : `${m.map_vision_spawn_failed()} ${resultText(outcome.code)}`,
+      ),
+    now: () => performance.now(),
+    serverNow: options.serverNow,
+    unitCapacity: options.unitCapacity,
+    onStatus: options.onStatus,
+    onCommand: options.onCommand,
+  });
+  feedNow = feed;
+  let stopped = false;
+
+  return {
+    feed,
+    onView(camera) {
+      if (mapSizeM <= 0) return;
+      neighbourLoader.onView(camera.targetX, camera.targetZ);
+      viewMapNow = viewMap(camera.targetX, camera.targetZ, mapSizeM);
+    },
+    viewMap: () => viewMapNow,
+    carry() {
+      const terrains = neighbourLoader.terrains();
+      if (mainTerrain) terrains.set(mapKey, mainTerrain);
+      return terrains;
+    },
+    stop() {
+      // 넘기와 화면 정리가 두 번 부를 수 있다
+      if (stopped) return;
+      stopped = true;
+      neighbourLoader.stop();
+      neighbourVision.stop();
+      // 해제를 먼저 보낸다(엔진은 화면이 버린다)
+      feed.stop();
+      detachGather();
+      detachLeaders();
+      looks.stop();
+    },
+  };
+}

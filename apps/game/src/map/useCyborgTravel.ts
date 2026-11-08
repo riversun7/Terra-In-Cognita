@@ -38,12 +38,14 @@ export function openMap(mapKey: number): void {
 
 /**
  * 2차맵 화면의 가는 중인 길: going = 내 사이보그가 가는 중인 길, crossedTo = 이 2차맵을 떠나 넘어간 2차맵(아직 이 화면이면).
- * following(내 사이보그를 따라 연 화면)이면 넘어갈 때 CROSSING_MS 뒤 그 2차맵으로 바꾼다(D-139)
+ * following(기준 유닛이 내 사이보그)이면 넘어갈 때 CROSSING_MS 뒤 onCross(그 2차맵) — 화면이 로딩 없이 넘거나(엔진 rebase) 주소를 바꾼다
+ * (D-139, docs/adr/2026-11-08-seamless-second-map.md WP-3). 보통은 이웃 구독이 먼저 사이보그를 보고 넘는다 — 이것은 그다음 길이다
  */
 export function useTravelFollow(
   unitId: number | null,
   mapKey: number,
   following: boolean,
+  onCross: (mapKey: number) => void = openMap,
 ): { going: WorldTravel | null; crossedTo: number | null } {
   const travel = useCyborgTravel(unitId);
   const going = travel?.state === "going" ? travel : null;
@@ -51,8 +53,8 @@ export function useTravelFollow(
   const crossedTo = going !== null && !going.hidden && going.mapKey !== mapKey ? going.mapKey : null;
   useEffect(() => {
     if (crossedTo === null || !following) return () => undefined;
-    const timer = setTimeout(() => openMap(crossedTo), CROSSING_MS);
+    const timer = setTimeout(() => onCross(crossedTo), CROSSING_MS);
     return () => clearTimeout(timer);
-  }, [crossedTo, following]);
+  }, [crossedTo, following, onCross]);
   return { going, crossedTo };
 }

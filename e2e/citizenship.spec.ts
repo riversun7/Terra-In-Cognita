@@ -6,6 +6,7 @@
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { openBuildingFromList } from "./helpers/nearby.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
@@ -47,13 +48,8 @@ async function findHall(page: Page, mapKey: number): Promise<{ id: number; data:
 }
 
 async function tapBuilding(page: Page, id: number): Promise<void> {
-  const marker = page.locator(`.gather-building-marker[data-building="${id}"]:not([hidden])`);
-  await expect(marker).toBeVisible({ timeout: 30_000 });
-  try {
-    await marker.click({ timeout: 3_000 });
-  } catch {
-    await marker.dispatchEvent("click");
-  }
+  // 근처 판 건물 탭 목록으로 연다(카메라가 기준 유닛에 붙어 건물 표시가 화면 밖일 수 있다 — docs/adr/2026-11-08-seamless-second-map.md WP-1·2)
+  await openBuildingFromList(page, id);
 }
 
 /** 고친 응답 쓰기: 켜면 정부 판은 남의 나라, 귀화 조건은 신청할 수 있음(받는 나라 이름 = 임시 국가 2) */

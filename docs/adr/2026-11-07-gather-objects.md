@@ -1,6 +1,6 @@
 # 2차맵 원자재 오브젝트 채집과 건물·숲 들어가기
 
-- 상태: 제안
+- 상태: 제안 (일부 대체됨: 2026-11-08-seamless-second-map.md — 7절 오브젝트·건물 표시를 늘 보이기 → 근처 판 고른 탭일 때만)
 - 날짜: 2026-11-07
 - 관련: docs/PLAN.md 14장, ADR `2026-11-07-play-flow.md`(WP3 플레이어 생산·WP8 직무 위치·WP9 2차맵 사이 이동), `2026-10-31-second-map-from-planet.md`(46, 소품·엄폐·서버 판정 자료), `2026-11-03-labor-contracts.md`, `2026-11-07-buildings-runtime.md`(창고·직무), `2026-10-31-economy-core.md`(채집 티어·옛 1차 생산 규칙), 기획 D-112·D-115·D-5030·D-5032·D-227·D-234·D-506·D-507·D-515, 질문 `docs/questions/2026-11-07-gather-objects.md`(660~672), 가지 `work/gather-objects`
 

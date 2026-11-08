@@ -6,9 +6,12 @@
 //   보내지 않는다(view_only, move_unit 0개).
 // - dev: [운영자 모드] → 위 판 "운영자", 안개 없는 전체 보기로 다시 구독, 고른 유닛 다룸 = 운영자.
 // - 사진: 목록·운영자 390 × 파스텔·다크. 넘침·작은 누르는 곳 없음.
+// 바뀜(docs/adr/2026-11-08-seamless-second-map.md WP-1·2): 내 유닛 목록은 근처 판 유닛 탭이고(가까운 차례 — 기준 유닛인 내 사이보그가 첫 줄),
+// 늘 유닛 하나가 골라져 있다(들어오면 내 사이보그). 이 맵에 내 유닛이 없으면 들어갈 수 없다 — 남의 유닛 시험은 목록에 없는 가짜 내 유닛을 둔다.
 import type { Page } from "@playwright/test";
 import { groundOffsets } from "./helpers/mapGround.ts";
 import { message } from "./helpers/messages.ts";
+import { openNearby, pickMyUnit } from "./helpers/nearby.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
@@ -41,24 +44,23 @@ test.describe("유닛 조종: 플레이어", () => {
     const screen = page.locator(".map-screen");
     const cyborg = await screen.getAttribute("data-cyborg");
     expect(cyborg).toMatch(/^\d+$/);
-    // 접힌 목록 단추에 수가 붙는다(목록을 받은 뒤)
-    const toggle = page.locator(".map-units-toggle");
-    await expect(toggle).toHaveText(/\d/, { timeout: 15_000 });
-    await toggle.click();
-    const panel = page.locator(".map-units");
-    await expect(panel).toBeVisible();
-    const first = panel.locator(".map-unit-row").first();
-    await expect(first).toHaveAttribute("data-kind", "cyborg_body");
-    await expect(first).toHaveAttribute("data-unit-id", cyborg ?? "");
+    // 들어오면 내 사이보그가 골라져 있고 카메라가 따라간다(자유 시점 없음)
+    await expect(screen).toHaveAttribute("data-selected", cyborg ?? "", { timeout: 15_000 });
+    await expect(screen).toHaveAttribute("data-follow", "on");
+    // 근처 판 유닛 탭: 내 유닛이 위(기준 유닛 = 내 사이보그가 가장 가깝다)
+    await openNearby(page, "units");
+    const first = page.locator('.map-nearby-row[data-kind="unit"]').first();
+    await expect(first).toHaveAttribute("data-id", cyborg ?? "", { timeout: 15_000 });
+    await expect(first).toHaveAttribute("data-mine", "true");
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
 
-    // 줄을 누르면 고르고(내 유닛), 좁은 화면이라 목록을 접는다
+    // 줄을 누르면 고르고(내 유닛), 좁은 화면이라 목록을 접는다(탭 줄은 남는다)
     await first.click();
     await expect(screen).toHaveAttribute("data-selected", cyborg ?? "");
     await expect(screen).toHaveAttribute("data-control", "own");
-    await expect(panel).toHaveCount(0);
-    await expect(toggle).toBeVisible();
+    await expect(page.locator(".map-nearby-list")).toHaveCount(0);
+    await expect(page.locator(".map-nearby")).toBeVisible();
 
     // 땅을 누르면 보낸다: 갈 수 있는 곳이 나올 때까지 카메라 목표점(따라가는 내 사이보그) 둘레의 빈 땅을 눌러 본다
     const send = async (): Promise<boolean> => {
@@ -68,10 +70,7 @@ test.describe("유닛 조종: 플레이어", () => {
         await expect(screen).not.toHaveAttribute("data-command", "sent", { timeout: 20_000 });
         if ((await screen.getAttribute("data-command")) === "ok") return true;
         // 땅을 누르지 못하고 다른 유닛을 골랐으면 다시 내 사이보그를 고른다
-        if ((await screen.getAttribute("data-selected")) !== cyborg) {
-          await toggle.click();
-          await page.locator(`.map-unit-row[data-unit-id="${cyborg}"]`).click();
-        }
+        if ((await screen.getAttribute("data-selected")) !== cyborg) await pickMyUnit(page, cyborg ?? "");
       }
       return false;
     };
@@ -100,7 +99,8 @@ test.describe("유닛 조종: 플레이어", () => {
 
   test("남의 유닛은 눌러도 정보만, 땅을 눌러도 보내지 않는다", async ({ page, deviceErrors }) => {
     test.setTimeout(90_000);
-    // 내 사이보그를 남의 유닛처럼: 시야 전송의 내 유닛 표시(own)를 지우고 내 유닛 목록을 비운다
+    // 내 사이보그를 남의 유닛처럼: 시야 전송의 내 유닛 표시(own)를 지우고 내 유닛 목록을 이 맵에 없는 가짜 유닛 하나로 바꾼다
+    // (목록이 비면 들어갈 수 없다 — WP-1)
     const sentMoves: string[] = [];
     await page.routeWebSocket(/\/ws$/, (socket) => {
       const server = socket.connectToServer();
@@ -116,7 +116,13 @@ test.describe("유닛 조종: 플레이어", () => {
       "summary.get": hideSummary,
       "world.mapUnits": (data) => {
         if (typeof data !== "object" || data === null) return;
-        Reflect.set(data, "units", []);
+        const units: unknown = Reflect.get(data, "units");
+        const first: unknown = Array.isArray(units) ? units[0] : undefined;
+        Reflect.set(
+          data,
+          "units",
+          typeof first === "object" && first !== null ? [{ ...first, unitId: 999_999 }] : [],
+        );
         // 카메라 범위(기획 정리 630)가 내 건물 둘레로 가지 않게: 유닛이 없으면 탐사 칸 둘레(내 사이보그 자리)
         const view: unknown = Reflect.get(data, "view");
         if (typeof view === "object" && view !== null) Reflect.set(view, "buildings", []);
@@ -162,11 +168,20 @@ test.describe("유닛 조종: 운영자", () => {
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
     // 전체 보기 구독은 탐사 칸을 보내지 않는다(안개 없음)
     await expect(screen).not.toHaveAttribute("data-explored", /./, { timeout: 15_000 });
-    await page.locator(".map-units-toggle").click();
-    const row = page.locator(".map-unit-row").first();
+    await openNearby(page, "units");
+    const row = page.locator('.map-nearby-row[data-kind="unit"]').first();
     await expect(row).toBeVisible({ timeout: 15_000 });
     await row.click();
     await expect(screen).toHaveAttribute("data-control", "operator");
+    // 운영자만 [자유 시점](빨간 운영자 단추): 켜면 따라가지 않는다
+    const free = page.locator(".map-free-view");
+    await expect(free).toBeVisible();
+    await free.click();
+    await expect(free).toHaveAttribute("aria-pressed", "true");
+    await expect(screen).toHaveAttribute("data-free-view", "on");
+    await expect(screen).not.toHaveAttribute("data-follow", /./);
+    await free.click();
+    await expect(screen).toHaveAttribute("data-follow", "on");
     await expect(page.locator(".map-hint p").first()).toContainText(message("ko", "map_operator_badge"));
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
@@ -180,8 +195,8 @@ test.describe("유닛 조종 사진", () => {
       test(`내 유닛 목록 (390·${theme})`, async ({ page, deviceErrors }) => {
         await rewriteTrpc(page, { "summary.get": hideSummary });
         await openMap(page);
-        await page.locator(".map-units-toggle").click();
-        await expect(page.locator(".map-unit-row").first()).toBeVisible({ timeout: 15_000 });
+        await openNearby(page, "units");
+        await expect(page.locator(".map-nearby-row").first()).toBeVisible({ timeout: 15_000 });
         await page.waitForTimeout(1_200);
         expect(await horizontalOverflow(page)).toEqual([]);
         await shot(page, `unit-control-list-390-${theme}`);
@@ -196,8 +211,8 @@ test.describe("유닛 조종 사진", () => {
         await page.locator(".map-operator-toggle").click();
         await expect(page.locator(".map-operator-badge")).toBeVisible();
         await expect(page.locator(".map-screen")).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
-        await page.locator(".map-units-toggle").click();
-        await page.locator(".map-unit-row").first().click();
+        await openNearby(page, "units");
+        await page.locator(".map-nearby-row").first().click();
         await page.waitForTimeout(1_200);
         expect(await horizontalOverflow(page)).toEqual([]);
         await shot(page, `unit-control-operator-390-${theme}`);

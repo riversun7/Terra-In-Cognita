@@ -1,4 +1,4 @@
-// 정부(행정 건물) 판 조회 시험 — docs/adr/2026-11-07-play-flow.md "WP-NPC"·"WP-NPC2"(시장)·"WP-NPC3"(도시 하루 값·지도자 창구). 가짜 세계
+// 정부(행정 건물) 판 조회 시험 — docs/adr/2026-11-07-play-flow.md "WP-NPC"·"WP-NPC2"(시장)·"WP-NPC3"(도시 하루 값·지도자 창구)·"WP-NPC4"(시장 이름). 가짜 세계
 // (거울 도시·시설 줄·2차맵)로 판정만 본다.
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
@@ -81,6 +81,8 @@ function source(overrides: Partial<GovernmentSource> = {}): GovernmentSource {
       necessitiesPm: (cityId) => (cityId === 4 ? 875 : undefined),
       // 도시 3의 시장 = 1004, 도시 4는 시장 없음(휴먼이 없는 도시처럼)
       mayorOf: (cityId) => (cityId === 3 ? 1004 : undefined),
+      // 휴먼 이름(773 나, "WP-NPC4"): 1004만 이름이 있다
+      humanName: (unitId) => (unitId === 1004 ? "Alda Brook" : undefined),
     }),
     factionRowOf: (ownerId) => (ownerId === 101 ? 2 : undefined),
     myFactionRow: () => 2,
@@ -137,11 +139,12 @@ describe("world.government", () => {
     expect(answer.leader?.here).toBe(true);
     expect(answer.city?.humans).toBe(2);
     expect(answer.nation?.mine).toBe(false);
-    // 생필품을 아직 셈하지 않은 도시는 null(화면 "—")
+    // 생필품 하루 값이 아직 없는 도시(하루 끝 전)는 null(화면 "—", 781 나)
     expect(answer.city?.day).toEqual({ satisfaction: 45, development: 30, necessitiesPm: null });
-    // 시장(744 나): 그 휴먼의 레벨·1차 스탯(카드 차례 → 이름 칸)·만족도
+    // 시장(744 나): 그 휴먼의 이름(773 나)·레벨·1차 스탯(카드 차례 → 이름 칸)·만족도
     expect(answer.mayor).toEqual({
       unitId: 1004,
+      name: "Alda Brook",
       level: 2,
       stats: { str: 9, dex: 8, agi: 7, vit: 6, int: 15, wis: 14 },
       baseline: false,
@@ -149,9 +152,10 @@ describe("world.government", () => {
     });
   });
 
-  it("시장이 저장된 스탯이 없는 휴먼이면 기본값(모두 10, 레벨 1)", () => {
+  it("시장이 저장된 스탯이 없는 휴먼이면 기본값(모두 10, 레벨 1), 이름이 없으면 null", () => {
     expect(mayorView(7, { recruit: null, satisfactionMilli: 100_400 })).toEqual({
       unitId: 7,
+      name: null,
       level: 1,
       stats: { str: 10, dex: 10, agi: 10, vit: 10, int: 10, wis: 10 },
       baseline: true,

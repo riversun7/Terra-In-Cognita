@@ -8,6 +8,7 @@ import {
   PLANET_DAY_MS,
   PLANET_YEAR_MS,
   type PlanetCalendar,
+  localSolarHours as sharedLocalSolarHours,
   planetCalendarForDisplay,
 } from "@terra/shared/planetCalendar";
 import { GLOBE_FOV_RAD, type GlobePose, type Viewport, raySphere, screenRay } from "./globeCamera.ts";
@@ -216,10 +217,12 @@ export function moonAt(
   };
 }
 
-/** 지역 시각(시, 0 이상 24 미만) = 24 × 하루 비율 + 경도 ÷ 15°(D-091: 지역 시각은 경도로) */
+/**
+ * 지역 시각(시, 0 이상 24 미만) = 24 × 하루 비율 + 경도 ÷ 15°(D-091: 지역 시각은 경도로). 셈은 공용 달력 하나(@terra/shared/planetCalendar
+ * localSolarHours) — 서버 NPC 휴먼의 낮밤 일(기획 답 770 나)이 같은 함수로 일터에 간다
+ */
 export function localSolarHours(calendar: PlanetCalendar, lonDeg: number): number {
-  const hours = (calendar.msIntoDay / PLANET_DAY_MS) * 24 + lonDeg / 15;
-  return ((hours % 24) + 24) % 24;
+  return sharedLocalSolarHours(calendar.msIntoDay, lonDeg);
 }
 
 /**

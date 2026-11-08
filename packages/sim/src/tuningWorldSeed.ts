@@ -117,4 +117,17 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "그때 띄운 2차맵: 비어 있으면 내리기까지(ms)",
     "On-demand second map: time empty before closing (ms)",
   ),
+  // NPC 휴먼 낮밤 일(기획 답 770 나, docs/adr/2026-11-07-play-flow.md "WP-NPC4"): 49에 칸이 없어 npc_work_*를 앞머리로 쓴다
+  k(
+    "npc_work_start_pm",
+    "workStartPm",
+    "NPC 휴먼 일터에 가는 지역 시각(그 지역 하루 ‰, 250 = 06:00)",
+    "NPC humans go to work at local time (‰ of the local day, 250 = 06:00)",
+  ),
+  k(
+    "npc_work_end_pm",
+    "workEndPm",
+    "NPC 휴먼 집으로 가는 지역 시각(그 지역 하루 ‰, 750 = 18:00)",
+    "NPC humans go home at local time (‰ of the local day, 750 = 18:00)",
+  ),
 ];

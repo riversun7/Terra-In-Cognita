@@ -5225,6 +5225,32 @@
       "max": 86400000
     },
     {
+      "id": "npc_work_start_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 휴먼 일터에 가는 지역 시각(그 지역 하루 ‰, 250 = 06:00)",
+        "en": "NPC humans go to work at local time (‰ of the local day, 250 = 06:00)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "npc_work_end_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 휴먼 집으로 가는 지역 시각(그 지역 하루 ‰, 750 = 18:00)",
+        "en": "NPC humans go home at local time (‰ of the local day, 750 = 18:00)"
+      },
+      "value": 750,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
       "id": "d530_city_bid_pct",
       "code": "",
       "name": {

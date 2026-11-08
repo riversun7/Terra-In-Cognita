@@ -3,8 +3,12 @@
 // 여기서 그 수를 그 도시 휴먼에게 차례로 나눈다 [임시]: 휴먼은 유닛 ID 차례, 시설은 시설 ID 차례(건물 시설이 앞, 도시 직무가 뒤)로 앞에서부터
 // 일꾼 수만큼 채운다. 건물이 있는 시설의 일꾼은 그 건물 둘레가 일터(bots.ts 일 주기 동안 그곳에서 일하고 나머지는 집 둘레), 건물이 없는 도시
 // 직무·일이 없는 휴먼은 집(도시 시청 칸) 둘레만 걷는다. 보이는 움직임만 정한다(산출은 도시 경제가 센다 — 휴먼이 어디 있든 같다).
+// 일하는 때(기획 답 770 나, "WP-NPC4"): 일터를 받은 휴먼은 그 2차맵 지역 시각의 낮(설정 칸 npc_work_start_pm~npc_work_end_pm)에 일터로 간다 —
+// 2차맵 경도는 2차맵 빛(엔진 secondMapPlace)과 같은 셈(칸 가운데 방향의 경도)이다.
+import { isCellKey } from "@terra/planet";
+import { cellCenter } from "@terra/planet/projection";
 import { type BuildingPlacement, footprintRect } from "@terra/sim";
-import type { BotHome, TripArea } from "../world/bots.ts";
+import { type BotHome, DEFAULT_WORK_SHIFT, type TripArea, type WorkShift } from "../world/bots.ts";
 
 /** [임시] 일터 네모 = 건물 가운데 칸 둘레, 건물 반 폭 + 이 칸(건물 칸은 설 수 없어 그 둘레에서 고른다) */
 export const WORK_MARGIN_CELLS = 3;
@@ -16,6 +20,16 @@ export interface WorkFacility {
   /** 건물 ID(도시 직무면 null) */
   readonly buildingId: number | null;
   readonly workers: number;
+}
+
+/**
+ * 2차맵 경도(°, −180 초과 180 이하): 2차맵 키(1차맵 최소 칸의 셀 키) → 칸 가운데 방향의 경도. 엔진 lighting/secondMapLight.ts secondMapPlace와
+ * 같은 셈이라 휴먼의 낮밤이 화면 빛과 맞는다. 셀 키가 아니면(옛 시험 2차맵) 0
+ */
+export function mapLongitudeDeg(mapKey: number): number {
+  if (!isCellKey(mapKey)) return 0;
+  const up = cellCenter(mapKey);
+  return (Math.atan2(up[1], up[0]) * 180) / Math.PI;
 }
 
 /** 건물 배치 → 일터 네모 */
@@ -37,7 +51,10 @@ export function assignHumanPlaces(input: {
   readonly home: { readonly x: number; readonly y: number };
   readonly facilities: readonly WorkFacility[];
   readonly areas: ReadonlyMap<number, TripArea>;
+  /** 일터를 받은 휴먼의 일하는 때(없으면 DEFAULT_WORK_SHIFT) */
+  readonly shift?: WorkShift | undefined;
 }): Map<number, BotHome> {
+  const shift = input.shift ?? DEFAULT_WORK_SHIFT;
   const out = new Map<number, BotHome>();
   const humans = input.humans.toSorted((a, b) => a - b);
   let next = 0;
@@ -46,7 +63,7 @@ export function assignHumanPlaces(input: {
     for (let taken = 0; taken < facility.workers && next < humans.length; taken++) {
       const unitId = humans[next] ?? 0;
       next += 1;
-      out.set(unitId, work ? { x: input.home.x, y: input.home.y, work } : { ...input.home });
+      out.set(unitId, work ? { x: input.home.x, y: input.home.y, work, shift } : { ...input.home });
     }
   }
   for (; next < humans.length; next++) out.set(humans[next] ?? 0, { x: input.home.x, y: input.home.y });
@@ -73,11 +90,15 @@ export interface HumanPlacesInput {
   readonly maps: ReadonlyMap<number, PlacesMap>;
   /** 그 도시 시설 일꾼(도시 경제가 없으면 undefined — 모두 집 둘레) */
   readonly facilitiesOf?: ((cityId: number) => readonly WorkFacility[]) | undefined;
+  /** 일하는 지역 시각(지역 하루 천분율, 설정 칸 npc_work_start_pm·npc_work_end_pm). 없으면 DEFAULT_WORK_SHIFT의 값 */
+  readonly workHours?: { readonly startPm: number; readonly endPm: number } | undefined;
 }
 
 /** 지난번에 넣은 자리(유닛 ID → 모양 글자)와 견줘 바뀐 휴먼만 2차맵에 넣는다. 넣은 수를 돌려준다 */
 export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
   const placed = new Map<number, string>();
+  /** 2차맵 경도(바뀌지 않는다) */
+  const longitudes = new Map<number, number>();
   return {
     sync(input) {
       // 도시마다 그 도시 휴먼(그 도시 2차맵에 서 있는 것만 — 다른 2차맵 도시로 옮겨 간 휴먼은 그대로)
@@ -98,6 +119,15 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
         }
         return areas;
       };
+      const hours = input.workHours ?? DEFAULT_WORK_SHIFT;
+      const shiftOf = (mapKey: number): WorkShift => {
+        let lonDeg = longitudes.get(mapKey);
+        if (lonDeg === undefined) {
+          lonDeg = mapLongitudeDeg(mapKey);
+          longitudes.set(mapKey, lonDeg);
+        }
+        return { lonDeg, startPm: hours.startPm, endPm: hours.endPm };
+      };
       const seen = new Set<number>();
       let changed = 0;
       for (const [cityId, humans] of byCity) {
@@ -110,6 +140,7 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
           home: { x: place.cellX, y: place.cellY },
           facilities: input.facilitiesOf?.(cityId) ?? [],
           areas: areasOf(place.mapKey, map),
+          shift: shiftOf(place.mapKey),
         });
         for (const [unitId, home] of homes) {
           seen.add(unitId);

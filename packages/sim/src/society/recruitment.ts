@@ -220,6 +220,22 @@ export function recruitProfileOf(card: RecruitCard, c: RecruitCoefficients): Rec
   return { level: Math.max(1, c.startLevel), stats: [...card.stats], elements: { ...card.elements } };
 }
 
+/**
+ * 처음 인구 휴먼의 자료(기획 답 774 나 — 처음부터 있던 휴먼도 스탯·속성, docs/adr/2026-11-07-play-flow.md "WP-NPC4"): 그 도시 행정 레벨의
+ * 구인 카드 한 장과 같은 굴림(토탈 = 레벨 범위 안 균등 → 6스탯 분배 → 속성 분배, 값은 받지 않는다)과 고용한 휴먼과 같은 시작 레벨.
+ * 행정 레벨이 0(행정 건물 없음)이면 Lv1 규칙 [임시]. 레벨 규칙이 하나도 없으면 토탈 = 6스탯 × 10(화면 기본값과 같은 합)
+ * 시뮬 처음 휴먼(시나리오 workers, simulator/society.ts)과 서버 처음 인구·옛 휴먼 채우기(apps/server/src/npc/runtime.ts)가 같은 함수다
+ */
+export function rollFoundingProfile(adminLevel: number, rng: Rng, c: RecruitCoefficients): RecruitProfile {
+  const rule = recruitLevelRule(Math.max(1, adminLevel), c);
+  const statsMin = rule?.statsMin ?? RECRUIT_STAT_COUNT * 10;
+  const statsMax = Math.max(statsMin, rule?.statsMax ?? statsMin);
+  const total = statsMin + rng.nextInt(statsMax - statsMin + 1);
+  const stats = distributeRecruitStats(total, rng);
+  const elements = distributeRecruitElements(rng, c);
+  return { level: Math.max(1, c.startLevel), stats, elements };
+}
+
 /** 기본 4원소 점수 → 속성값 12칸(ELEMENT_IDS 차례, 서버 저장·사이보그와 같은 모양) */
 export function recruitElementSlots(elements: RecruitElements): number[] {
   return ELEMENT_IDS.map((id) => {

@@ -1,6 +1,7 @@
 // 정부 판의 시장 한 줄 — 기획 답 744 나(NPC 도시는 그 도시 휴먼 가운데 하나를 서버가 자동으로 시장으로 지정, 이름·스탯만 보임),
 // docs/adr/2026-11-07-play-flow.md "WP-NPC2". 정부 대화상자(GovernmentDialog.tsx)의 사실 줄과 같은 틀(dt·dd)에 이름·레벨·만족도와
-// 1차 스탯 묶음(STR·VIT / INT·WIS / DEX·AGI, D-448 — 구인 카드와 같은 모양)을 놓는다. 휴먼은 이름이 아직 없어 "휴먼 #유닛 ID"다.
+// 1차 스탯 묶음(STR·VIT / INT·WIS / DEX·AGI, D-448 — 구인 카드와 같은 모양)을 놓는다. 이름은 휴먼 이름 규칙(기획 답 773 나, "WP-NPC4"),
+// 그 나라 이름 목록이 없으면 "휴먼 #유닛 ID"다.
 import type { GovernmentMayor } from "@terra/shared/government";
 import { m } from "../paraglide/messages.js";
 import { RECRUIT_STAT_PAIRS } from "../recruit/recruitModel.ts";

@@ -1,17 +1,20 @@
 // 시험 봇 목적지 고르기 시험 — 집이 있는 봇(NPC 휴먼, docs/adr/2026-11-07-play-flow.md "WP-NPC")의 목적지 네모(homeArea), 일터가 있는
-// NPC 휴먼의 일 주기·목적지·쉬는 시간("WP-NPC2", 기획 답 740 나)
+// NPC 휴먼의 일하는 때·목적지·쉬는 시간("WP-NPC2", 기획 답 740 나 — 일하는 때는 그 2차맵 지역 시각의 낮, "WP-NPC4" 770 나)
 import { createRng } from "@terra/shared";
+import { PLANET_CALENDAR_EPOCH_MS, PLANET_DAY_MS, localSolarHours } from "@terra/shared/planetCalendar";
 import { anchorCenter, createPlacementGrid } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_WORK_SHIFT,
   HOME_RADIUS_CELLS,
   TRIP_RADIUS_CELLS,
-  WORK_CYCLE_MS,
-  WORK_SHIFT_MS,
+  WORK_JITTER_PM,
+  type WorkShift,
   arrivalIdleMs,
   atWork,
   homeArea,
   idleMs,
+  localDayPm,
   pickDestination,
   tripArea,
 } from "./bots.ts";
@@ -61,32 +64,75 @@ describe("pickDestination", () => {
   });
 });
 
-describe("일터가 있는 NPC 휴먼(WP-NPC2)", () => {
-  const NOW = 1_800_000_000_000;
-  const work = { x: 60, y: 60, radius: 5 };
-  const home = { x: 128, y: 128, work };
+/** 경도 lonDeg의 지역 시각 hour(시)가 되는 시각(달력 기원 뒤 dayIndex일째) — 엔진 utcMsForLocalHour와 같은 거꾸로 셈 */
+const timeAtLocalHour = (lonDeg: number, hour: number, dayIndex = 30): number =>
+  PLANET_CALENDAR_EPOCH_MS +
+  dayIndex * PLANET_DAY_MS +
+  Math.round((((((hour - lonDeg / 15) % 24) + 24) % 24) / 24) * PLANET_DAY_MS);
 
-  it("일 주기: 한 주기 가운데 일하는 몫만 일터, 유닛마다 시작이 흩어진다", () => {
-    for (const unitId of [1, 2, 77, 9001]) {
-      let working = 0;
-      for (let t = 0; t < WORK_CYCLE_MS; t += 60_000) if (atWork(unitId, NOW + t)) working += 1;
-      expect(working).toBe(WORK_SHIFT_MS / 60_000);
+/** 기본 일하는 때(06:00~18:00)를 그 경도로 */
+const shift = (lonDeg: number): WorkShift => ({ ...DEFAULT_WORK_SHIFT, lonDeg });
+
+describe("낮밤 일(WP-NPC4, 770 나)", () => {
+  it("지역 시각은 공용 달력 localSolarHours(2차맵 빛과 같은 셈)의 천분율", () => {
+    for (const lonDeg of [0, 37.5, -120, 179]) {
+      for (const hour of [0, 6, 12.25, 18, 23.5]) {
+        const t = timeAtLocalHour(lonDeg, hour);
+        expect(localDayPm(t, lonDeg)).toBeCloseTo((hour * 1000) / 24, 3);
+        const msIntoDay = (((t - PLANET_CALENDAR_EPOCH_MS) % PLANET_DAY_MS) + PLANET_DAY_MS) % PLANET_DAY_MS;
+        expect(localDayPm(t, lonDeg)).toBe((localSolarHours(msIntoDay, lonDeg) * 1000) / 24);
+      }
     }
+  });
+
+  it("낮(06:00~18:00 + 휴먼마다 흩은 출근·퇴근)에 일터, 밤에 집 — 같은 시각이라도 경도가 다르면 다르다", () => {
+    for (const unitId of [1, 2, 77, 9001]) {
+      for (const lonDeg of [0, 90, -45]) {
+        // 한낮·한밤은 흩기와 상관없이 정해진다
+        expect(atWork(shift(lonDeg), unitId, timeAtLocalHour(lonDeg, 12))).toBe(true);
+        expect(atWork(shift(lonDeg), unitId, timeAtLocalHour(lonDeg, 0))).toBe(false);
+        expect(atWork(shift(lonDeg), unitId, timeAtLocalHour(lonDeg, 5.9))).toBe(false);
+        // 출근 흩기(지역 1시간 = WORK_JITTER_PM) 뒤에는 모두 일터, 퇴근 흩기 뒤에는 모두 집
+        expect(atWork(shift(lonDeg), unitId, timeAtLocalHour(lonDeg, 7.05))).toBe(true);
+        expect(atWork(shift(lonDeg), unitId, timeAtLocalHour(lonDeg, 19.05))).toBe(false);
+      }
+    }
+    // 경도 0의 한낮 = 경도 180의 한밤
+    const noon = timeAtLocalHour(0, 12);
+    expect(atWork(shift(0), 5, noon)).toBe(true);
+    expect(atWork(shift(180), 5, noon)).toBe(false);
+    // 출근 때가 휴먼마다 흩어진다(지역 06:00~07:00 사이, 한꺼번에 길을 묻지 않게)
     const starts = new Set(
       Array.from({ length: 20 }, (_, index) => {
-        for (let t = 0; t < WORK_CYCLE_MS; t += 60_000)
-          if (atWork(index + 1, NOW + t) && !atWork(index + 1, NOW + t - 60_000)) return t;
+        for (let pm = 240; pm <= 250 + WORK_JITTER_PM + 1; pm += 1)
+          if (atWork(shift(0), index + 1, timeAtLocalHour(0, (pm * 24) / 1000))) return pm;
         return -1;
       }),
     );
     expect(starts.size).toBeGreaterThan(5);
+    expect(Math.min(...starts)).toBeGreaterThanOrEqual(250);
+    expect(Math.max(...starts)).toBeLessThanOrEqual(250 + WORK_JITTER_PM + 1);
   });
 
-  /** 그 유닛이 일하는 몫 / 쉬는 몫인 시각 하나 */
-  const timeWhen = (unitId: number, working: boolean): number => {
-    for (let t = 0; t < WORK_CYCLE_MS; t += 60_000) if (atWork(unitId, NOW + t) === working) return NOW + t;
-    throw new Error("no time");
-  };
+  it("설정 칸 모양: 시작 > 끝이면 밤을 넘는 몫, 같으면 늘 집, 0~1000이면 늘 일터", () => {
+    const night: WorkShift = { lonDeg: 0, startPm: 875, endPm: 125 };
+    expect(atWork(night, 3, timeAtLocalHour(0, 0))).toBe(true);
+    expect(atWork(night, 3, timeAtLocalHour(0, 12))).toBe(false);
+    const never: WorkShift = { lonDeg: 0, startPm: 500, endPm: 500 };
+    const always: WorkShift = { lonDeg: 0, startPm: 0, endPm: 1000 };
+    for (const hour of [0, 3, 9, 12, 15, 21, 23.9]) {
+      expect(atWork(never, 3, timeAtLocalHour(0, hour))).toBe(false);
+      expect(atWork(always, 3, timeAtLocalHour(0, hour))).toBe(true);
+    }
+  });
+});
+
+/** 그 유닛이 일하는 때 / 집에 있는 때인 시각 하나(경도 0, 기본 일하는 때 — 한낮·한밤) */
+const timeWhen = (_unitId: number, working: boolean): number => timeAtLocalHour(0, working ? 12 : 0);
+
+describe("일터가 있는 NPC 휴먼(WP-NPC2)", () => {
+  const work = { x: 60, y: 60, radius: 5 };
+  const home = { x: 128, y: 128, work };
 
   it("일하는 몫이면 일터 쪽(멀면 다가간 칸), 쉬는 몫이면 집 둘레. 일터가 없으면 늘 집 둘레", () => {
     const t = timeWhen(5, true);

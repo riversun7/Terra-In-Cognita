@@ -5,9 +5,12 @@
 // - 크기 등급 1·2·3 = 90·8·2%, 속도는 걷기 85%·차 15%(packages/sim 출발값).
 // - 목적지는 지금 자리 둘레 TRIP_RADIUS_CELLS칸 안에서 그 등급이 설 수 있는 칸. 도착하면 2~6초 쉬고 다시 간다.
 // - 집이 있는 봇(NPC 휴먼)은 집(도시 시청 칸) 둘레 HOME_RADIUS_CELLS 안에서 고른다(homeArea, docs/adr/2026-11-07-play-flow.md "WP-NPC").
-// - 일터가 있는 NPC 휴먼(도시 경제가 일꾼으로 둔 시설, 기획 답 740 나 — docs/adr/2026-11-07-play-flow.md "WP-NPC2")은 일 주기의 일하는
-//   몫 동안 그 시설 둘레에서 짧게 옮기며 오래 쉬고, 나머지 몫은 집 둘레를 걷는다(tripArea·arrivalIdleMs). 주기 시작은 유닛마다 흩는다.
+// - 일터가 있는 NPC 휴먼(도시 경제가 일꾼으로 둔 시설, 기획 답 740 나 — docs/adr/2026-11-07-play-flow.md "WP-NPC2")은 일하는 때에
+//   그 시설 둘레에서 짧게 옮기며 오래 쉬고, 나머지 때는 집 둘레를 걷는다(tripArea·arrivalIdleMs).
+// - 일하는 때 = 그 2차맵 지역 시각의 낮(기획 답 770 나 — 아침에 일터로, 밤에 집으로, "WP-NPC4"). 지역 시각은 2차맵 빛과 같은 셈(공용 달력
+//   localSolarHours, 2차맵 경도)이라 하늘이 밝아질 때 일터로 가고 어두워질 때 돌아온다. 출근·퇴근 때는 유닛마다 조금 흩는다(한꺼번에 길을 묻지 않게).
 import { createRng, type Rng } from "@terra/shared";
+import { localSolarHours, planetCalendarForDisplay } from "@terra/shared/planetCalendar";
 import {
   CAR_SPEED,
   PLACEMENT_SIZE,
@@ -85,20 +88,36 @@ export const HOME_RADIUS_CELLS = 32;
 /** 집에서 멀리 있는 봇이 집 쪽으로 한 번에 다가가는 곳 둘레의 반경(칸) */
 const HOME_STEP_RADIUS_CELLS = 8;
 
+/**
+ * 일하는 때(기획 답 770 나 — 그 2차맵 지역 시각의 낮, docs/adr/2026-11-07-play-flow.md "WP-NPC4"). 지역 하루를 1000으로 나눈 천분율(250 = 06:00)
+ * 이고, 시작 ≤ 끝이면 [시작, 끝), 시작 > 끝이면 밤을 넘는 몫([시작, 1000) + [0, 끝)), 둘이 같으면 일하는 때가 없다(늘 집). 수치는 설정 칸
+ * npc_work_start_pm·npc_work_end_pm [임시](세계 씨앗 계수표 workStartPm·workEndPm — 개발자 패널에서 바꾸면 다음 맞추기부터)
+ */
+export interface WorkShift {
+  /** 그 2차맵 경도(°, 2차맵 빛 secondMapPlace와 같은 셈 — 칸 가운데 방향). 셀 키가 아닌 시험 2차맵은 0 */
+  readonly lonDeg: number;
+  readonly startPm: number;
+  readonly endPm: number;
+}
+
+/** [임시] 설정 칸이 없을 때(시험) 일하는 때: 06:00~18:00(춘분·추분에 해가 뜨고 지는 때) */
+export const DEFAULT_WORK_SHIFT: WorkShift = { lonDeg: 0, startPm: 250, endPm: 750 };
+
 /** 집이 있는 봇(NPC 휴먼)의 자리: 집(도시 시청 칸)과 일터(없으면 집 둘레만 걷는다). 저장하지 않는다(NPC 사회 런타임이 다시 넣는다) */
 export interface BotHome {
   readonly x: number;
   readonly y: number;
   /** 일터 네모(도시 경제가 일꾼으로 둔 시설 건물 둘레, npc/humanPlaces.ts). 없으면 일하지 않는 휴먼(집 둘레) */
   readonly work?: TripArea | undefined;
+  /** 일하는 때(그 2차맵 경도·설정 칸). 없으면 DEFAULT_WORK_SHIFT */
+  readonly shift?: WorkShift | undefined;
 }
 
 /**
- * [임시] 일 주기(기획 답 740 나 — 수치는 정해진 것이 없다, D-515): 한 주기 WORK_CYCLE_MS 가운데 WORK_SHIFT_MS 동안 일터, 나머지는 집 둘레.
- * 유닛마다 주기 시작을 흩어(유닛 ID 해시) 한꺼번에 길을 묻지 않는다. 판정에 쓰지 않는다(보이는 움직임만 — 산출은 도시 경제가 센다)
+ * [임시] 출근·퇴근 흩기(지역 하루 천분율): 휴먼마다 0~이만큼 늦게 일터로 가고 같은 만큼 늦게 돌아온다(유닛 ID 해시). 42‰ ≈ 지역 1시간 =
+ * 실제 약 2.5분 — 도시 하나의 휴먼이 한꺼번에 길을 묻지 않게. 판정에 쓰지 않는다(보이는 움직임만 — 산출은 도시 경제가 센다)
  */
-export const WORK_CYCLE_MS = 30 * 60_000;
-export const WORK_SHIFT_MS = 20 * 60_000;
+export const WORK_JITTER_PM = 42;
 /** [임시] 일터 안에서 옮긴 뒤 쉬는 시간(일하는 모습 — 경로 요청을 줄인다) */
 const WORK_IDLE_MIN_MS = 45_000;
 const WORK_IDLE_SPREAD_MS = 90_000;
@@ -106,15 +125,30 @@ const WORK_IDLE_SPREAD_MS = 90_000;
 const HOME_IDLE_MIN_MS = 8_000;
 const HOME_IDLE_SPREAD_MS = 16_000;
 
-/** 그 유닛이 지금 일하는 몫인가(일 주기, 유닛마다 흩은 시작) */
-export function atWork(unitId: number, nowMs: number): boolean {
-  const offset = (mix32(Math.imul(unitId, 0x2545_f491)) >>> 0) % WORK_CYCLE_MS;
-  return (nowMs + offset) % WORK_CYCLE_MS < WORK_SHIFT_MS;
+/** 그 경도의 지금 지역 시각(지역 하루 천분율, 0 이상 1000 미만). 2차맵 빛과 같은 셈(공용 달력 localSolarHours) */
+export function localDayPm(nowMs: number, lonDeg: number): number {
+  const msIntoDay = planetCalendarForDisplay(nowMs)?.msIntoDay ?? 0;
+  return (localSolarHours(msIntoDay, lonDeg) * 1000) / 24;
 }
 
-/** 지금 가려는 네모: 일하는 몫이고 일터가 있으면 일터, 아니면 집 둘레 */
+/** 천분율 t가 일하는 때 [시작, 끝)에 드나(시작 > 끝이면 밤을 넘는 몫, 같으면 없음) */
+function inShift(t: number, startPm: number, endPm: number): boolean {
+  if (startPm === endPm) return false;
+  return startPm < endPm ? t >= startPm && t < endPm : t >= startPm || t < endPm;
+}
+
+/** 그 유닛이 지금 일하는 때인가(그 2차맵 지역 시각의 낮, 유닛마다 조금 흩은 출근·퇴근) */
+export function atWork(shift: WorkShift, unitId: number, nowMs: number): boolean {
+  const jitter = (mix32(Math.imul(unitId, 0x2545_f491)) >>> 0) % (WORK_JITTER_PM + 1);
+  const t = (localDayPm(nowMs, shift.lonDeg) - jitter + 1000) % 1000;
+  return inShift(t, shift.startPm, shift.endPm);
+}
+
+/** 지금 가려는 네모: 일하는 때이고 일터가 있으면 일터, 아니면 집 둘레 */
 function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
-  return home.work && atWork(unitId, nowMs) ? home.work : { x: home.x, y: home.y, radius: HOME_RADIUS_CELLS };
+  return home.work && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs)
+    ? home.work
+    : { x: home.x, y: home.y, radius: HOME_RADIUS_CELLS };
 }
 
 /**
@@ -143,7 +177,7 @@ export function homeArea(
   return approach(from, size, { x: home.x, y: home.y, radius: HOME_RADIUS_CELLS });
 }
 
-/** 집이 있는 봇의 목적지 네모(일 주기에 따라 일터 또는 집) */
+/** 집이 있는 봇의 목적지 네모(지역 시각에 따라 일터 또는 집) */
 export function tripArea(
   from: Point,
   size: SizeClass,

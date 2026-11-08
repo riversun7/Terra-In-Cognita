@@ -927,6 +927,7 @@ export {
   recruitProfileOf,
   recruitWindow,
   recruitWindowEndMs,
+  rollFoundingProfile,
   rollRecruitCards,
   takeRecruitSlot,
   takenNow,
@@ -978,6 +979,7 @@ export * from "./society/labor.ts";
 export * from "./society/injury.ts";
 export {
   attachSociety,
+  foundingProfileOf,
   STREAM_SOCIETY,
   WALLET_BASE,
   type SocietyOptions,

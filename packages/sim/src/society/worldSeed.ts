@@ -62,6 +62,13 @@ export interface WorldSeedCoefficients {
   readonly mapSpawnMaxLoaded: number;
   /** [임시] 그때 띄운 2차맵이 비어 있은 지 이만큼(ms) 지나면 내린다(유닛·건물·도시·구독·이동이 없음) */
   readonly mapSpawnIdleMs: number;
+  /**
+   * [임시] NPC 휴먼이 일터에 가는 지역 시각(기획 답 770 나 — 아침에 일터, 밤에 집, 하늘 낮밤과 맞춤, docs/adr/2026-11-07-play-flow.md
+   * "WP-NPC4"): 그 2차맵 지역 하루의 천분율(250 = 06:00, 750 = 18:00). 시작 > 끝이면 밤을 넘는 몫, 같으면 늘 집. 보이는 움직임만(D-142 —
+   * 산출은 도시 경제가 센다). 개발자 패널에서 0·1000으로 두면 바로 모두 일터로 가는 모습을 볼 수 있다
+   */
+  readonly workStartPm: number;
+  readonly workEndPm: number;
 }
 
 /** 출발값 — 모두 [임시](옛 규칙 없음, D-515). 시작 도시 2~4곳(60 §7.1), 기본 시설은 종류마다 하나 */
@@ -91,6 +98,9 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   // 그때 띄우기: 지금 NAS(17장 RSS 약 430MB)에 32장(약 +200MB)을 더해도 1GiB 안, 비우고 10분 뒤 내림
   mapSpawnMaxLoaded: 32,
   mapSpawnIdleMs: 10 * 60_000,
+  // 낮밤 일: 06:00~18:00(춘분·추분에 해가 뜨고 지는 지역 시각 — 1차맵 하늘 자전축 [임시] 23.44°라 계절·위도에 따라 해 뜨는 때는 다르다)
+  workStartPm: 250,
+  workEndPm: 750,
 };
 
 /** 시작 도시 수가 놓일 수 있는 범위(60 §7.1 "2~4곳"을 넘지 않게, 칸이 1까지는 받는다) */

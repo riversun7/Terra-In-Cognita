@@ -1,5 +1,6 @@
 // 정부 판의 도시 하루 값(만족도·발전도·생필품 충족) — 기획 정리 743 나(정부 판 = 서버가 하루마다 셈하는 값), docs/adr/2026-11-07-play-flow.md
-// "WP-NPC3". 서버가 이미 셈한 값을 읽어 보이기만 한다(서버 src/government/cityDay.ts). 값이 없으면 "—"(휴먼 없음·도시 경제 없음·오늘 셈 전).
+// "WP-NPC3". 서버가 이미 셈한 값을 읽어 보이기만 한다(서버 src/government/cityDay.ts). 값이 없으면 "—"(휴먼 없음·도시 경제 없음·아직 하루 끝 전).
+// 세 값 모두 같은 날(지난 하루 끝)의 값이다 — 생필품도 하루 끝에 저장한 값(기획 정리 781 나, "WP-NPC4").
 // 정부 대화상자(GovernmentDialog.tsx)가 사실 줄 아래에 둔다.
 import type { GovernmentCityDay } from "@terra/shared/government";
 import { useId } from "react";

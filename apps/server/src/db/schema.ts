@@ -494,6 +494,8 @@ export const worldCities = pgTable(
     mayorUnitId: bigint("mayor_unit_id", { mode: "number" }),
     /** 시작 도시 처음 인구(749 다: 주거 × 비율)를 채운 시각. null = 아직(켤 때 한 번 채운다) */
     populationSeededAtMs: bigint("population_seeded_at_ms", { mode: "number" }),
+    /** 지난 하루 끝(UTC 0시)의 생필품 충족 ‰(781 나 — 정부 판, npc/cityDayStore.ts). null = 아직 하루 끝 전 */
+    necessitiesPm: smallint("necessities_pm"),
   },
   (table) => [
     index("world_cities_map_idx").on(table.mapKey),

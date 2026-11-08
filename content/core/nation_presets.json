@@ -43,6 +43,10 @@
         "ko": "임시 지도자 1",
         "en": "Placeholder leader 1"
       },
+      "humanNames": {
+        "given": ["Alda", "Bren", "Corin", "Dela", "Edric", "Fenna", "Garet", "Hilde"],
+        "family": ["Ashby", "Brook", "Fallow", "Meadow", "Reed", "Thatch"]
+      },
       "enabled": true
     },
     {
@@ -91,6 +95,10 @@
       "leaderName": {
         "ko": "임시 지도자 2",
         "en": "Placeholder leader 2"
+      },
+      "humanNames": {
+        "given": ["Bram", "Cora", "Dain", "Elsa", "Fost", "Greta", "Holt", "Ivor"],
+        "family": ["Anvil", "Coalby", "Forge", "Hammer", "Smith", "Tongs"]
       },
       "enabled": true
     },
@@ -141,6 +149,10 @@
         "ko": "임시 지도자 3",
         "en": "Placeholder leader 3"
       },
+      "humanNames": {
+        "given": ["Ash", "Birk", "Cedra", "Dunn", "Elm", "Fern", "Gale", "Hazel"],
+        "family": ["Bark", "Timber", "Pine", "Resin", "Sawyer", "Woods"]
+      },
       "enabled": true
     },
     {
@@ -161,6 +173,10 @@
       "leaderName": {
         "ko": "임시 지도자 4",
         "en": "Placeholder leader 4"
+      },
+      "humanNames": {
+        "given": ["Aric", "Brann", "Cass", "Dagny", "Eirik", "Freya", "Gunn", "Helga"],
+        "family": ["Frost", "Kettle", "Grey", "North", "Stone", "Watch"]
       },
       "enabled": true
     },
@@ -206,6 +222,10 @@
       "leaderName": {
         "ko": "임시 지도자 5",
         "en": "Placeholder leader 5"
+      },
+      "humanNames": {
+        "given": ["Aldo", "Bea", "Cal", "Dora", "Ewan", "Flora", "Gil", "Hana"],
+        "family": ["Barley", "Field", "Gold", "Harrow", "Oat", "Rye"]
       },
       "enabled": true
     },
@@ -256,6 +276,10 @@
         "ko": "임시 지도자 6",
         "en": "Placeholder leader 6"
       },
+      "humanNames": {
+        "given": ["Axel", "Brix", "Cole", "Dirk", "Erna", "Flint", "Gerd", "Hulda"],
+        "family": ["Bolt", "Coal", "Rivet", "Steel", "Vale", "Weld"]
+      },
       "enabled": true
     },
     {
@@ -305,6 +329,10 @@
         "ko": "임시 지도자 7",
         "en": "Placeholder leader 7"
       },
+      "humanNames": {
+        "given": ["Alder", "Briar", "Cedric", "Della", "Eldon", "Fay", "Glen", "Holly"],
+        "family": ["Birch", "Cedar", "Larch", "Oak", "Spruce", "Yew"]
+      },
       "enabled": true
     },
     {
@@ -325,6 +353,10 @@
       "leaderName": {
         "ko": "임시 지도자 8",
         "en": "Placeholder leader 8"
+      },
+      "humanNames": {
+        "given": ["Arlo", "Bryn", "Cove", "Dune", "Eda", "Finn", "Gull", "Hale"],
+        "family": ["Brack", "Dunmere", "Marsh", "Salt", "Tide", "Wind"]
       },
       "enabled": true
     },
@@ -370,6 +402,10 @@
       "leaderName": {
         "ko": "임시 지도자 9",
         "en": "Placeholder leader 9"
+      },
+      "humanNames": {
+        "given": ["Abel", "Bess", "Clem", "Dot", "Elmer", "Fran", "Gus", "Hattie"],
+        "family": ["Grain", "Mill", "Orchard", "Plow", "Seed", "Sheaf"]
       },
       "enabled": true
     },
@@ -420,6 +456,10 @@
         "ko": "임시 지도자 10",
         "en": "Placeholder leader 10"
       },
+      "humanNames": {
+        "given": ["Anton", "Bryce", "Cyra", "Duff", "Ennis", "Faye", "Garr", "Hester"],
+        "family": ["Brass", "Copper", "Furnace", "Ingot", "Smelt", "Ore"]
+      },
       "enabled": true
     },
     {
@@ -469,6 +509,10 @@
         "ko": "임시 지도자 11",
         "en": "Placeholder leader 11"
       },
+      "humanNames": {
+        "given": ["Ansel", "Bella", "Cade", "Dara", "Emmet", "Flynn", "Gwen", "Hugh"],
+        "family": ["Alder", "Elm", "Maple", "Rowan", "Thorn", "Wick"]
+      },
       "enabled": true
     },
     {
@@ -489,6 +533,10 @@
       "leaderName": {
         "ko": "임시 지도자 12",
         "en": "Placeholder leader 12"
+      },
+      "humanNames": {
+        "given": ["Ari", "Bodil", "Clay", "Dorn", "Edda", "Fiske", "Gro", "Hakon"],
+        "family": ["Cliff", "Pebble", "Quarry", "Shale", "Slate", "Stone"]
       },
       "enabled": true
     },
@@ -534,6 +582,10 @@
       "leaderName": {
         "ko": "임시 지도자 13",
         "en": "Placeholder leader 13"
+      },
+      "humanNames": {
+        "given": ["Amos", "Belle", "Cyril", "Daisy", "Ezra", "Flo", "Grant", "Hope"],
+        "family": ["Bran", "Corn", "Grange", "Malt", "Wheat", "Miller"]
       },
       "enabled": true
     },
@@ -584,6 +636,10 @@
         "ko": "임시 지도자 14",
         "en": "Placeholder leader 14"
       },
+      "humanNames": {
+        "given": ["Alto", "Bix", "Cogan", "Dex", "Elio", "Fitz", "Gideon", "Hob"],
+        "family": ["Bolt", "Gear", "Lead", "Tin", "Wick", "Zinc"]
+      },
       "enabled": true
     },
     {
@@ -633,6 +689,10 @@
         "ko": "임시 지도자 15",
         "en": "Placeholder leader 15"
       },
+      "humanNames": {
+        "given": ["Aspen", "Bay", "Clover", "Dell", "Elowen", "Fennel", "Ginny", "Heath"],
+        "family": ["Ash", "Hazel", "Holly", "Willow", "Yew", "Grove"]
+      },
       "enabled": true
     },
     {
@@ -653,6 +713,10 @@
       "leaderName": {
         "ko": "임시 지도자 16",
         "en": "Placeholder leader 16"
+      },
+      "humanNames": {
+        "given": ["Ambrose", "Bryony", "Caspian", "Delia", "Emrys", "Fenwick", "Gloria", "Hollis"],
+        "family": ["Dusk", "Ember", "Gloam", "Highmoor", "Mere", "Moor"]
       },
       "enabled": true
     }

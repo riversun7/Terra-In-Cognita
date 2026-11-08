@@ -180,8 +180,11 @@ export interface SimUnit {
   /** 태어난 시각·수명(D-021·T4). 환생하면 다시 센다 */
   bornAtMs: number;
   lifespanMs: number;
-  /** 구인 카드로 온 휴먼의 레벨·스탯·속성(D-469). 처음부터 있던 휴먼은 null. 유닛에게는 부모·자녀가 없다(D-469) */
-  readonly recruit: RecruitProfile | null;
+  /**
+   * 휴먼의 레벨·스탯·속성: 구인 카드로 온 휴먼은 그 카드(D-469), 처음부터 있던 휴먼은 세력·사회 차리기가 그 도시 행정 레벨 구인 카드 규칙으로
+   * 굴린 값(기획 답 774 나, society.ts foundingProfileOf). 차리기 전·전투 유닛은 null. 유닛에게는 부모·자녀가 없다(D-469)
+   */
+  recruit: RecruitProfile | null;
   /** 그 유닛의 환생 횟수(D-438 4) */
   rebirths: number;
   /** 부상(D-521: 작업 중·전투 뒤 확률, 단계별 자연 치유). 없으면 초록 */

@@ -14,6 +14,9 @@
 //   (472 가)·폐허가 된 도시 창고 물건을 주인 나라의 가장 가까운 도시 창고로(535).
 // - NPC 휴먼 일터·시장·처음 인구(docs/adr/2026-11-07-play-flow.md "WP-NPC2"): 처음 켤 때 시작 도시마다 한 번 처음 인구(주거 × 비율, 749 다,
 //   cityPeople.ts), 저장 뒤마다 휴먼의 집·일터(도시 경제 일꾼 → 그 시설 둘레, 740 나, humanPlaces.ts)와 시장(떠나면 다시 고름, 744 나)을 맞춘다.
+// - "WP-NPC4": 일터에 가는 때 = 그 2차맵 지역 시각의 낮(770 나, 설정 칸 npc_work_*), 처음부터 있던 휴먼(처음 인구·옛 봇 휴먼)의 스탯·속성 = 그
+//   도시 행정 레벨 구인 카드 규칙(774 나, @terra/sim foundingProfileOf — 저장된 스탯이 없는 휴먼만 켤 때 채움), 휴먼 이름(773 나, humanNames.ts),
+//   하루 끝 생필품 충족 저장(781 나, cityDayStore.ts).
 // - 서버에서 아직 안 하는 것: 실시간 공성(NPC 공격은 전투 없이 점령 — 시뮬 "전투 끔"과 같은 규칙), 환전·세력 화폐(시험 화폐 하나),
 //   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(정원사 칸 오염에 넣지 않음), NPC의 행정 건물 올리기(NPC는 짓지
 //   않는다 — 씨앗 행정 건물 Lv1 그대로).
@@ -50,6 +53,7 @@ import {
   createSimLoop,
   decide,
   emptyNpcCounts,
+  foundingProfileOf,
   lifespanMs,
   newFaction,
   positionAt,
@@ -65,12 +69,14 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, NPC_START_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
+import { createCityDayStore } from "./cityDayStore.ts";
 import { createCityPeople, seedPopulationOf } from "./cityPeople.ts";
 import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./economy.ts";
+import { humanNameOf } from "./humanNames.ts";
 import { createHumanPlaces } from "./humanPlaces.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
-import { nationPresetOf } from "./nations.ts";
+import { type NationPreset, nationPresetOf } from "./nations.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
 import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
@@ -129,6 +135,8 @@ export interface NpcRuntimeOptions {
   readonly guardianSatisfaction?: (() => ReadonlyMap<number, number>) | undefined;
   /** 도시 경제 입력(경제 목록·도시 시설, docs/adr/2026-11-07-play-flow.md WP4). 없으면 경제 없이 돈다(시험) */
   readonly economy?: NpcEconomyInput | undefined;
+  /** 팩 국가 프리셋(휴먼 이름 목록, 773 나 — "WP-NPC4"). 없으면 도시 경제 입력의 프리셋 */
+  readonly presets?: readonly NationPreset[] | undefined;
   /**
    * 폐허 2 고리(npc/ruinsRuntime.ts): 정부 건물 상태(480·487 다)·도시 행정 건물 레벨(489 다)·수호신(472 가)·유저 나라(535 폐허 창고 물건의
    * 갈 곳). 없으면 정부 건물이 있는 폐허도 다 지은 것으로 치고, 행정 레벨은 그대로, 수호신만 있는 도시는 전투 없이 진다(시험)
@@ -152,6 +160,10 @@ export interface NpcRuntime {
   flushRuins(): void;
   /** 그 도시 시장 유닛(기획 답 744 나, cityPeople.ts). 없으면 undefined */
   mayorOf(cityId: number): number | undefined;
+  /** NPC 휴먼 이름(기획 답 773 나, humanNames.ts — 그 휴먼 나라의 팩 목록). 거울 세계 휴먼이 아니거나 목록이 없으면 undefined */
+  humanName(unitId: number): string | undefined;
+  /** 그 도시의 지난 하루 끝 생필품 충족 ‰(781 나, cityDayStore.ts). 아직 하루 끝 전이면 undefined */
+  necessitiesOf(cityId: number): number | undefined;
   /** 지난 호출 뒤 구간의 지표(서버 1분 지표 한 줄에 붙인다) */
   takeMetrics(): Record<string, number>;
   stop(): void;
@@ -368,22 +380,19 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   const takenNames = new Set(
     [...state.cities, ...state.ruins].flatMap((row) => (row.name === null ? [] : [row.name])),
   );
+  const nationLinkOf = (id: number) => {
+    const faction = factions.get(id);
+    return faction
+      ? {
+          code: faction.code,
+          rebelOf: faction.rebelOf,
+          overlord: faction.overlord,
+          bornOf: faction.bornOf,
+        }
+      : undefined;
+  };
   const cityNamesOf = (ownerId: number): readonly string[] | undefined =>
-    nationPresetOf(
-      ownerId,
-      (id) => {
-        const faction = factions.get(id);
-        return faction
-          ? {
-              code: faction.code,
-              rebelOf: faction.rebelOf,
-              overlord: faction.overlord,
-              bornOf: faction.bornOf,
-            }
-          : undefined;
-      },
-      presets,
-    )?.cityNames;
+    nationPresetOf(ownerId, nationLinkOf, presets)?.cityNames;
   const persist = createNpcPersist(
     {
       world,
@@ -439,6 +448,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   // 처음 인구(749 다, cityPeople.ts): 시작 도시마다 한 번, 주거 × 비율에 모자란 만큼 휴먼을 세운다(처음 저장이 구인과 같은 길로 도시 둘레에
   // 봇을 세운다). 나이·수명은 들이기와 같이 흩는다. 이미 있는 휴먼(옛 세계의 봇 휴먼)은 그대로 센다
   const people = createCityPeople({ world, writer, rows: state.cities });
+  const cityDay = createCityDayStore({ writer, rows: state.cities });
   let seededHumans = 0;
   for (const city of [...cities.values()].toSorted((a, b) => a.id - b.id)) {
     if (!people.needsSeed(city.id)) continue;
@@ -458,6 +468,15 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       seededHumans += 1;
     }
     people.markSeeded(city.id, startMs);
+  }
+  // 처음부터 있던 휴먼의 스탯·속성(774 나): 저장된 스탯이 없는 휴먼(처음 인구·옛 봇 휴먼 — NAS 세계 포함)만 그 도시 행정 레벨 구인 카드 규칙으로
+  // (세계 시드, 유닛 ID)에서 굴린다. 결정적이고 지우는 것은 없다. 나이·수명은 이미 저장돼 있다(world_humans 칸이 not null). 바뀐 휴먼은 처음 저장이
+  // 쓴다(persist.ts 휴먼 줄 비교에 스탯 있음이 든다)
+  let foundedStats = 0;
+  for (const unit of [...units.values()].toSorted((a, b) => a.id - b.id)) {
+    if (unit.recruit !== null) continue;
+    unit.recruit = foundingProfileOf(seed, unit.id, cities.get(unit.city)?.adminLevel ?? 1, c.recruit);
+    foundedStats += 1;
   }
   // 들인 휴먼이 주거를 넘으면 주거를 늘린다(휴먼 × 1.3 + 2, 시나리오 기본과 같은 식, 질문 203 가)
   const perCity = new Map<number, number>();
@@ -633,6 +652,13 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   function endOfDay(nowMs: number): void {
     econ?.beforeDay(nowMs);
     society.endOfDay(nowMs);
+    // 하루 생필품 충족(781 나): 하루 끝 만족도가 쓴 바로 그 값(society.ts와 같이 없으면 1000)을 도시마다 적는다(도시 경제 하루 줄을 비우기
+    // 전 — econ.afterDay)
+    if (econ) {
+      const values = new Map<number, number>();
+      for (const cityId of world.cities.keys()) values.set(cityId, econ.hooks.foodPmOf?.(cityId) ?? 1000);
+      cityDay.record(values);
+    }
     // 수호신 만족도 버프(470 가): 사회 규칙의 하루 끝 다음에 그 도시 휴먼마다 더한다(상한에서 자름 [임시]). 바뀜은 휴먼 저장이 줄 비교로 쓴다
     const lift = o.guardianSatisfaction?.();
     if (lift && lift.size > 0)
@@ -674,10 +700,13 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   // 집·일터(740 나)·시장(744 나): 저장(구인·사망·처음 인구의 봇 세우기)이 2차맵을 맞춘 뒤에
   const humanPlaces = createHumanPlaces();
   const syncPeople = (): void => {
+    const seedRules = o.rules().worldSeed;
     humanPlaces.sync({
       units: world.units,
       places: persist.places,
       maps,
+      // 일하는 때(770 나): 설정 칸 실효 값(개발자 패널에서 바꾸면 다음 맞추기부터)
+      workHours: { startPm: seedRules.workStartPm, endPm: seedRules.workEndPm },
       facilitiesOf: econ
         ? (cityId) =>
             econ.production(cityId).map((run) => ({
@@ -689,6 +718,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     });
     people.sync();
     people.flush();
+    cityDay.flush();
   };
   syncPeople();
   log.info(
@@ -698,6 +728,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       humans: units.size,
       adopted,
       seededHumans,
+      foundedStats,
       day: society.currentDay(),
       writes: first.rows,
     },
@@ -749,6 +780,14 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     economy: econ,
     flushRuins: () => void persist.flushRuins(),
     mayorOf: (cityId) => people.mayorOf(cityId),
+    // 휴먼 이름(773 나): 그 휴먼 주인 세력이 따르는 나라의 목록(도시 이름과 같은 길)
+    humanName(unitId) {
+      const unit = world.units.get(unitId);
+      return unit
+        ? humanNameOf(nationPresetOf(unit.owner, nationLinkOf, o.presets ?? presets)?.humanNames, unitId)
+        : undefined;
+    },
+    necessitiesOf: (cityId) => cityDay.necessitiesOf(cityId),
     takeMetrics() {
       const out = {
         npcDecisions: metrics.decisions,

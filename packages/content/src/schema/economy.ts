@@ -254,6 +254,26 @@ const cityName = z
     params: { rule: "city_name" },
   });
 
+/** 국가 프리셋 사람 이름 조각 하나(휴먼 이름, 기획 답 773 나 — 도시 이름처럼 번역하지 않는다 D-476). 제어 문자 없이 1~16자 */
+const personName = z
+  .string()
+  .min(1)
+  .max(16)
+  .refine((text) => text.trim() === text && text !== "" && !/\p{Cc}/u.test(text), {
+    error: "사람 이름은 앞뒤 빈칸·제어 문자 없이 1~16자로 적으세요(번역하지 않는다, D-476).",
+    params: { rule: "person_name" },
+  });
+
+/** 한 목록 안에서 겹치지 않는 사람 이름 조각 목록 */
+const personNames = (max: number) =>
+  z
+    .array(personName)
+    .max(max)
+    .refine((names) => new Set(names).size === names.length, {
+      error: "사람 이름 조각이 겹칩니다. 한 목록 안에서 하나씩 적으세요.",
+      params: { rule: "person_name_unique" },
+    });
+
 /**
  * 국가 성격(기획 답 504 다·531 다·533 다·553 나·554 다, D-518 — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"·"WP10 경제 마무리"). 칸이
  * 없으면 모든 국가가 같은 기본이다(시작 도시 수 = 설정 칸 아래 끝, 도시 직무 = 서버 기본 셋, 처음 창고 = 생필품 48시간분).
@@ -307,6 +327,20 @@ export const nationPresetEntrySchema = z.strictObject({
    * 이름은 [임시] "임시 지도자 N" 그대로.
    */
   leaderName: localizedText.optional(),
+  /**
+   * NPC 휴먼 이름(기획 답 773 나 — 이름 규칙 + 목록 콘텐츠, D-5045·D-398, docs/adr/2026-11-07-play-flow.md "WP-NPC4"). 이름 규칙 [임시] =
+   * "이름 성"(성 목록이 없으면 이름만): 서버가 유닛 ID로 이름·성을 하나씩 결정적으로 고른다(그 휴먼이 사는 나라의 목록 — 반란·종주·태어날 때
+   * 부모를 따라감). 번역하지 않는다(D-476). 없으면 화면이 "휴먼 #ID". 목록은 개발자 페이지에서 정할 콘텐츠(D-398) — 지금 값은 [임시]
+   */
+  humanNames: z
+    .strictObject({
+      given: personNames(64).refine((names) => names.length > 0, {
+        error: "이름 목록은 하나 이상이어야 합니다.",
+        params: { rule: "person_name_given" },
+      }),
+      family: personNames(64).optional(),
+    })
+    .optional(),
   enabled,
 });
 export type NationPresetEntry = z.output<typeof nationPresetEntrySchema>;

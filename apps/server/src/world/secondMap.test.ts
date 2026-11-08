@@ -37,7 +37,8 @@ import {
 } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { performance } from "node:perf_hooks";
-import { HOME_RADIUS_CELLS, WORK_SHIFT_MS, atWork } from "./bots.ts";
+import { PLANET_DAY_MS } from "@terra/shared/planetCalendar";
+import { DEFAULT_WORK_SHIFT, HOME_RADIUS_CELLS, atWork } from "./bots.ts";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { createInlinePathService } from "./pathService.ts";
 import { createSecondMap, remainingPathBlocked } from "./secondMap.ts";
@@ -47,6 +48,9 @@ import { emptyWorldStats } from "./worldStats.ts";
 import { TEST_MAP_KEY } from "./world.ts";
 
 const START = 1_798_000_000_000;
+/** 시험 휴먼 901이 지금 일하는 때인가(집에 일하는 때가 없으면 기본 06:00~18:00, 경도 0), 기본 낮 몫(ms) */
+const humanAtWork = (t: number): boolean => atWork(DEFAULT_WORK_SHIFT, 901, t);
+const shiftMs = ((DEFAULT_WORK_SHIFT.endPm - DEFAULT_WORK_SHIFT.startPm) * PLANET_DAY_MS) / 1000;
 const center = (x: number, y: number) => anchorCenter(x, y, 1);
 
 beforeEach(() => {
@@ -211,10 +215,10 @@ describe("시험용 봇", () => {
     map.stop();
   });
 
-  it("일터가 있는 NPC 휴먼(WP-NPC2, 740 나): 일하는 몫에는 일터 둘레로 가서 머물고, 쉬는 몫에는 집 둘레로 돌아온다", async () => {
-    // 그 휴먼의 일하는 몫이 막 시작되는 시각부터(일 주기는 유닛마다 흩어져 있다)
+  it("일터가 있는 NPC 휴먼(WP-NPC2 740 나·WP-NPC4 770 나): 지역 아침에 일터 둘레로 가서 머물고, 밤에는 집 둘레로 돌아온다", async () => {
+    // 그 휴먼이 일터에 가는 지역 아침부터(집에 일하는 때가 없으면 경도 0·06:00~18:00, 출근은 휴먼마다 조금 흩어져 있다)
     let start = START;
-    while (!(atWork(901, start) && !atWork(901, start - 60_000))) start += 60_000;
+    while (!(humanAtWork(start) && !humanAtWork(start - 60_000))) start += 60_000;
     vi.setSystemTime(start);
     const { map } = createTestMap();
     const home = { x: 128, y: 128 };
@@ -233,9 +237,9 @@ describe("시험용 봇", () => {
       expect(distanceTo(work)).toBeLessThanOrEqual(work.radius + 3);
       await vi.advanceTimersByTimeAsync(60_000);
     }
-    // 쉬는 몫(일하는 몫 끝 뒤 몇 분): 집 둘레로 돌아와 있다
-    await vi.advanceTimersByTimeAsync(start + WORK_SHIFT_MS + 6 * 60_000 - Date.now());
-    expect(atWork(901, Date.now())).toBe(false);
+    // 밤(일하는 때 끝 뒤 몇 분 — 행성 하루 = 실제 1시간이라 낮 몫은 실제 30분): 집 둘레로 돌아와 있다
+    await vi.advanceTimersByTimeAsync(start + shiftMs + 6 * 60_000 - Date.now());
+    expect(humanAtWork(Date.now())).toBe(false);
     expect(distanceTo(home)).toBeLessThanOrEqual(HOME_RADIUS_CELLS + 3);
     map.stop();
   });

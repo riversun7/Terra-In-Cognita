@@ -162,6 +162,16 @@ export const WORLD_TABLES = {
     key: ["id"],
     updateOnly: true,
   },
+  /**
+   * NPC 도시의 하루 생필품 충족 ‰만 고친다(기획 정리 781 나, docs/adr/2026-11-07-play-flow.md "WP-NPC4", npc/cityDayStore.ts). 도시 행(cities)은
+   * 이 칸을 쓰지 않는다(직전 판 앱이 도시 행을 써도 지워지지 않게)
+   */
+  cityDay: {
+    name: "world_cities",
+    columns: ["id", "necessities_pm"],
+    key: ["id"],
+    updateOnly: true,
+  },
   /** 휴먼(유닛 하나 = 휴먼 하나: NPC 나라의 시험 봇·유저가 고용한 휴먼). 유닛 다음에 쓰고 유닛보다 먼저 지운다 */
   humans: {
     name: "world_humans",
@@ -663,6 +673,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "travels",
   "humans",
   "cityPeople",
+  "cityDay",
   "humanGrowth",
   "cyborgUnits",
   "unitSkills",

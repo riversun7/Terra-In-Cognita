@@ -89,6 +89,19 @@ describe("시뮬 세력·사회", () => {
     expect(society.check(0)).toEqual([]);
   });
 
+  it("차리기: 처음 휴먼도 그 도시 행정 레벨 구인 카드 규칙의 스탯·속성(774 나), 같은 시드면 같은 값", () => {
+    const { world } = setup();
+    const again = setup().world;
+    const rule = TEST_SOCIETY_COEFFICIENTS.recruit.levels[0];
+    for (const unit of world.units.values()) {
+      const total = (unit.recruit?.stats ?? []).reduce((sum, value) => sum + value, 0);
+      expect(unit.recruit?.level).toBe(1);
+      expect(total).toBeGreaterThanOrEqual(rule?.statsMin ?? 0);
+      expect(total).toBeLessThanOrEqual(rule?.statsMax ?? 0);
+      expect(again.units.get(unit.id)?.recruit).toEqual(unit.recruit);
+    }
+  });
+
   it("점령: 지분 유지 = 옛 통치자 몫이 점령 국고로, 시작 도시는 칠 수 없고, 도시를 잃으면 기술 후퇴(city_lost)", () => {
     const { world, society, lines, faction } = setup();
     const cap = faction(2);

@@ -1,0 +1,183 @@
+/*
+ * 계산식 조각판(끌어 넣기) — docs/adr/2026-11-01-formula-editor.md "바뀜 (2026-11-08 끌어 넣기)".
+ * 값은 styles/tokens.css의 var(--…)만 쓴다. 칩은 글 상자와 같은 고정폭 글꼴(넣으면 그 모양 그대로 들어간다).
+ * 칩 왼쪽 띠 = 종류(1차 스탯은 묶음 색 --color-stat-*, 다른 변수는 흐린 글색, 함수는 초점 색, 연산자는 띠 없음).
+ * 조각판은 늘 글 상자 바로 아래. 좁은 폭(390px): 이름만 담은 칩이 흐르고 아래 도움 줄에 풀이. 넓으면(48em) 묶음 이름이 왼쪽 칸, 풀이는 칩 안.
+ */
+.fx-editor-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.fx-input[data-dropping] {
+  outline: var(--focus-w) dashed var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.fx-palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.fx-palette-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.fx-palette-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.fx-palette-toggle[aria-pressed="true"] {
+  border-color: var(--color-focus);
+  color: var(--color-focus);
+}
+.fx-palette-hint {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.fx-palette-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.fx-palette-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.fx-palette-group-name {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.fx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.fx-chip {
+  --fx-chip-accent: transparent;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  min-block-size: var(--tap-size);
+  min-inline-size: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-inline-start: var(--border-w) solid var(--fx-chip-accent);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  touch-action: manipulation;
+  /* 끌 때 칩 글자가 골라지지 않게 */
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color var(--duration-fast) ease-out,
+    background-color var(--duration-fast) ease-out;
+}
+.fx-chip[draggable="true"] {
+  cursor: grab;
+}
+.fx-chip[draggable="true"]:active {
+  cursor: grabbing;
+}
+/* 손가락은 누른 뒤 hover가 남으므로 가리킬 수 있는 기기만 */
+@media (hover: hover) {
+  .fx-chip:hover {
+    border-color: var(--color-focus);
+  }
+}
+.fx-chip:active {
+  background-color: var(--color-surface-2);
+}
+.fx-chip:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.fx-chip[data-kind="var"] {
+  --fx-chip-accent: var(--fx-stat, var(--color-text-muted));
+}
+.fx-chip[data-kind="local"] {
+  --fx-chip-accent: var(--color-warning);
+}
+.fx-chip[data-kind="fn"] {
+  --fx-chip-accent: var(--color-focus);
+}
+.fx-chip-name {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+.fx-chip {
+  max-inline-size: 100%;
+}
+/* 중간값 이름은 사용자가 쓴 글(식 2,000자 안에서 길이 제한 없음): 좁은 폭에서 접는다 */
+.fx-chip[data-kind="local"] .fx-chip-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.fx-chip[data-kind="var"] .fx-chip-name {
+  color: var(--fx-stat, var(--color-text));
+}
+.fx-chip-hint {
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.fx-palette[data-detail="off"] .fx-chip-hint {
+  display: none;
+}
+/* 뜻 함께 보기: 칩이 칸을 채우는 격자(이름 + 풀이 한 줄) */
+.fx-palette[data-detail="on"] .fx-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13em), 1fr));
+}
+.fx-palette[data-detail="on"] .fx-chip {
+  justify-content: start;
+}
+.fx-palette-help {
+  margin: 0;
+  min-block-size: calc(var(--font-size-sm) * 1.5);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-chip {
+    transition: none;
+  }
+}
+@media (min-width: 48em) {
+  /* 넓은 화면: 묶음 이름을 왼쪽 칸에 두어 조각판 키를 줄인다(글 상자 바로 아래라 끄는 길이가 짧다) */
+  .fx-palette-group {
+    display: grid;
+    grid-template-columns: 8em minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-2);
+  }
+  .fx-palette-group-name {
+    padding-block-start: var(--space-1);
+    overflow-wrap: anywhere;
+  }
+}

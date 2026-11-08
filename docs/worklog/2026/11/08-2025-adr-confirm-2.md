@@ -24,3 +24,7 @@
 
 ## 사용자 결정 대기
 - 남은 제안 ADR(war-outcomes, ranking, 화면 조작 7개, 개발자 도구 7개)은 사용자 검토 중.
+
+## 덧붙임 (20:50)
+- 사용자 답(진행상황 세션 11:28·11:36 UTC, 원본 확인)으로 상태 줄만 확정: ranking, play-flow, unit-control, planet-view, building-art(사용자 원문 "대체로 맞으나 최대한 잘 만들기" — 구조 확정, 모델 품질은 계속 높인다).
+- 그대로 둠: map-input(사용자 원문 "다른 세션에서 수정중."). war-outcomes·world-layout은 사용자가 규칙을 바꿔 기획 D-ID를 기다린다(원문은 PLAN 미러 줄에 기록 예정).

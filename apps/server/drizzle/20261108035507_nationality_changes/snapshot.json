@@ -1,0 +1,454 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "3a05be3f-c1fc-4ecc-9763-d8b8d60d80ed",
+  "prevIds": [
+    "b2b18d55-97af-452f-bc41-5b344c2839f8",
+    "4c125381-097d-47a1-bec4-5131f4a3d75a",
+    "3ff444e3-acb1-4fe1-b993-4667d1e231a4",
+    "4cb1078a-f7be-41a4-bb21-24713a380c2d"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "nationality_changes"
+      ],
+      "writes": [
+        "s|tbl|public.nationality_changes",
+        "n|tbl|public.nationality_changes",
+        "e|tbl|public.nationality_changes",
+        "n|rel|public.nationality_changes",
+        "n|type|public.nationality_changes",
+        "n|rel|public.nationality_changes_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "nationality_changes",
+        "nationality_changes_user_idx"
+      ],
+      "writes": [
+        "s|idx|public.nationality_changes_user_idx",
+        "n|idx|public.nationality_changes_user_idx",
+        "e|idx|public.nationality_changes_user_idx",
+        "n|rel|public.nationality_changes_user_idx"
+      ],
+      "reads": [
+        "n|tbl|public.nationality_changes",
+        "n|sch|public",
+        "n|col|public.nationality_changes.user_id",
+        "n|col|public.nationality_changes.at_ms"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "nationality_changes"
+      ],
+      "writes": [
+        "s|fk|public.nationality_changes.nationality_changes_user_id_users_id_fkey",
+        "n|fk|public.nationality_changes.nationality_changes_user_id_users_id_fkey",
+        "e|fk|public.nationality_changes.nationality_changes_user_id_users_id_fkey",
+        "n|con|public.nationality_changes.nationality_changes_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.nationality_changes",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.nationality_changes.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "nationality_changes"
+      ],
+      "writes": [
+        "s|fk|public.nationality_changes.nationality_changes_from_faction_factions_id_fkey",
+        "n|fk|public.nationality_changes.nationality_changes_from_faction_factions_id_fkey",
+        "e|fk|public.nationality_changes.nationality_changes_from_faction_factions_id_fkey",
+        "n|con|public.nationality_changes.nationality_changes_from_faction_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.nationality_changes",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.nationality_changes.from_faction",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "nationality_changes"
+      ],
+      "writes": [
+        "s|fk|public.nationality_changes.nationality_changes_to_faction_factions_id_fkey",
+        "n|fk|public.nationality_changes.nationality_changes_to_faction_factions_id_fkey",
+        "e|fk|public.nationality_changes.nationality_changes_to_faction_factions_id_fkey",
+        "n|con|public.nationality_changes.nationality_changes_to_faction_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.nationality_changes",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.nationality_changes.to_faction",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "nationality_changes"
+      ],
+      "writes": [
+        "s|fk|public.nationality_changes.nationality_changes_city_id_world_cities_id_fkey",
+        "n|fk|public.nationality_changes.nationality_changes_city_id_world_cities_id_fkey",
+        "e|fk|public.nationality_changes.nationality_changes_city_id_world_cities_id_fkey",
+        "n|con|public.nationality_changes.nationality_changes_city_id_world_cities_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.nationality_changes",
+        "n|sch|public",
+        "n|tbl|public.world_cities",
+        "n|sch|public",
+        "n|col|public.nationality_changes.city_id",
+        "n|col|public.world_cities.id",
+        "e|uniqueness|public.world_cities.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "nationality_changes",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "nationality_changes_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "9223372036854775807",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "from_faction",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "to_faction",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "building_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "fee",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "grant_returned",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "nationality_changes_user_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "at_ms",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "nationality_changes_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "nationality_changes_from_faction_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "from_faction"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "nationality_changes_to_faction_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "to_faction"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "nationality_changes_city_id_world_cities_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "city_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_cities",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "nationality_changes_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "nationality_changes_amounts",
+        "value": "\"fee\" >= 0 and \"grant_returned\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "nationality_changes_other_nation",
+        "value": "\"from_faction\" <> \"to_faction\"",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

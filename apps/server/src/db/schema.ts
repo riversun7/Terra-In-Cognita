@@ -951,6 +951,8 @@ export { worldTravels } from "./travelSchema.ts";
 export { gatherObjectStates } from "./gatherSchema.ts";
 /** 공성 결과 표(docs/adr/2026-11-07-war-outcomes.md) */
 export { warOutcomes } from "./warSchema.ts";
+/** 국적 바꾸기(귀화) 기록 표(docs/adr/2026-11-08-citizenship.md) */
+export { nationalityChanges } from "./citizenshipSchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

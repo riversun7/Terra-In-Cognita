@@ -67,9 +67,13 @@
  *      건물로 걸어가 화물 넣기·직무 받기·안에 머물기를 한다.
  *    - 병원 치료(hospital.ts hospital_treat·dev_injure_unit → hospital_result, docs/adr/2026-11-08-injury.md, 기획 D-521) — 다친 내 유닛을
  *      그 유닛이 선 도시의 병원(의료 단계 시설)에서 화폐를 내고 빨리 낫게 한다.
- * 18: 유닛 표시 종류(secondMap.ts unitMotionSchema kind, docs/adr/2026-11-07-play-flow.md "WP-NPC3", 기획 정리 748 나) — 서버가 지도에 따로 그릴
- *    유닛(NPC 국가 지도자 npc_leader)의 움직임에 종류를 붙이고, 기기는 그 유닛 머리 위에 이름표·지도자 표시를 늘 그린다. 더하기만 했다: 17판
- *    기기는 모르는 칸을 버리고(zod object) 그대로 받는다(지도자는 다른 유닛과 같은 모양). 서버는 연결 판에 따라 나누지 않는다(스냅샷 조각을 함께 쓴다).
+ * 18: 합친 판(여러 줄기가 더한 것을 한 판으로 묶었다. 모두 더하기만 했고 17판 기기는 그대로 받는다).
+ *    - 유닛 표시 종류(secondMap.ts unitMotionSchema kind, docs/adr/2026-11-07-play-flow.md "WP-NPC3", 기획 정리 748 나) — 서버가 지도에 따로 그릴
+ *      유닛(NPC 국가 지도자 npc_leader)의 움직임에 종류를 붙이고, 기기는 그 유닛 머리 위에 이름표·지도자 표시를 늘 그린다. 더하기만 했다: 17판
+ *      기기는 모르는 칸을 버리고(zod object) 그대로 받는다(지도자는 다른 유닛과 같은 모양). 서버는 연결 판에 따라 나누지 않는다(스냅샷 조각을 함께 쓴다).
+ *    - 국적 바꾸기(citizenship.ts nationality_change → nationality_result, docs/adr/2026-11-08-citizenship.md, 질문 745 나) — 다른 나라 도시의
+ *      행정 건물에서 값을 내고 옛 나라 정착 지원금을 돌려준 뒤 그 나라 국민이 된다. 더하기만 했고 17판 기기는 그대로 받는다(이 메시지를 보내지
+ *      않는다). 같은 나라 시야 공유(질문 746 나)는 메시지 모양이 그대로다(서버가 보내는 남의 유닛이 늘 뿐).
  */
 export const PROTOCOL_VERSION = 18;
 

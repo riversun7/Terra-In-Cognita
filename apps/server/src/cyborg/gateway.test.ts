@@ -43,6 +43,9 @@ function fakeService(calls: string[]): CyborgService {
     isBodyUnit: () => false,
     userOfUnit: () => undefined,
     repairUnits: () => 0,
+    joinable: () => false,
+    changeNation: () => false,
+    naturalizationRules: () => ({ fee: 0n, restMs: 0 }),
     addFaith: () => undefined,
   };
 }

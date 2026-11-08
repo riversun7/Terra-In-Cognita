@@ -46,10 +46,28 @@ export interface StreamStats {
   /** 다시 맞춤으로 보낸 스냅샷 수 */
   resyncs: number;
   snapshots: number;
+  /** 시야 틱에서 무리 하나의 덮개를 다시 센 수(vision.ts) */
+  visionGroupTicks: number;
+  /** 같은 나라 시야 덮개를 센 수(2차맵·나라마다 시야 틱 하나에 한 번, 질문 746 나) */
+  visionNationCovers: number;
+  /** 시야 틱에 쓴 시간 합·가장 긴 한 번(ms, 2차맵 하나의 틱) */
+  visionTickMs: number;
+  visionTickMaxMs: number;
 }
 
 export function emptyStreamStats(): StreamStats {
-  return { messages: 0, bytes: 0, maxBufferedBytes: 0, slowMarked: 0, resyncs: 0, snapshots: 0 };
+  return {
+    messages: 0,
+    bytes: 0,
+    maxBufferedBytes: 0,
+    slowMarked: 0,
+    resyncs: 0,
+    snapshots: 0,
+    visionGroupTicks: 0,
+    visionNationCovers: 0,
+    visionTickMs: 0,
+    visionTickMaxMs: 0,
+  };
 }
 
 export interface MapStreamOptions {

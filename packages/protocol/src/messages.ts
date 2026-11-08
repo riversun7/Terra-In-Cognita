@@ -4,8 +4,10 @@
 // labor.ts(셋 다 프로토콜 7부터, 노동 계약의 구인 게시는 8부터), 사이보그 유닛 융합은 fusion.ts(프로토콜 9부터, 유전자는 11부터),
 // 건물 짓기·수리 명령은 facilities.ts(프로토콜 10부터), 신전 기도·헌금·의식은 temple.ts(프로토콜 12부터), 폐허 복원 모금은
 // ruins.ts(프로토콜 13부터), 물자 거래소 주문·취소·체결 알림은 market.ts(프로토콜 14부터), 2차맵 사이 이동은 travel.ts(프로토콜 16부터),
-// 원자재 오브젝트 채집·건물 들어가기는 gather.ts, 병원 치료는 hospital.ts(둘 다 프로토콜 17부터)에 있다.
+// 원자재 오브젝트 채집·건물 들어가기는 gather.ts, 병원 치료는 hospital.ts(둘 다 프로토콜 17부터), 국적 바꾸기(귀화)는 citizenship.ts(프로토콜
+// 18부터)에 있다.
 import { z } from "zod";
+import { citizenshipClientMessages, citizenshipServerMessages } from "./citizenship.ts";
 import { cyborgClientMessages, cyborgServerMessages } from "./cyborg.ts";
 import { facilityClientMessages, facilityServerMessages } from "./facilities.ts";
 import { fusionClientMessages, fusionServerMessages } from "./fusion.ts";
@@ -57,6 +59,7 @@ export const clientMessageSchema = z.discriminatedUnion("t", [
   ...travelClientMessages,
   ...gatherClientMessages,
   ...hospitalClientMessages,
+  ...citizenshipClientMessages,
 ]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
@@ -102,6 +105,7 @@ export const serverMessageSchema = z.discriminatedUnion("t", [
   ...travelServerMessages,
   ...gatherServerMessages,
   ...hospitalServerMessages,
+  ...citizenshipServerMessages,
 ]);
 export type ServerMessage = z.infer<typeof serverMessageSchema>;
 

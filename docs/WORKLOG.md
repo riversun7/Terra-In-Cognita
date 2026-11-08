@@ -7,6 +7,7 @@
 |---|---|---|---|
 | 2026-11-08 14:00 | NPC 지도자 창구·이름표·정부 판 하루 값 (WP-NPC3) | Claude Code | [08-1400-npc-leader](worklog/2026/11/08-1400-npc-leader.md) |
 | 2026-11-08 14:00 | NPC 휴먼 일터·시장·도시 처음 인구 (WP-NPC2) | Claude Code | [08-1400-npc-humans](worklog/2026/11/08-1400-npc-humans.md) |
+| 2026-11-08 13:30 | 국적 바꾸기(귀화)·같은 나라 시야 공유 | Claude Code | [08-1330-citizenship](worklog/2026/11/08-1330-citizenship.md) |
 | 2026-11-08 13:00 | 농장 채집소(756 ②: 채집소 창고·수확·피로 버프·자동 옮김) | Claude Code | [08-1300-farm-station](worklog/2026/11/08-1300-farm-station.md) |
 | 2026-11-08 12:40 | 사용자 지적 묶음 2 합치기 (성향·지도 조작·옆 2차맵·NPC 국가·채집소·건물 모양) | Claude Code | [08-1240-feedback-batch-2-merge](worklog/2026/11/08-1240-feedback-batch-2-merge.md) |
 | 2026-11-08 11:20 | NPC 국가 존재감: 지도자 사이보그·도시 둘레 NPC 휴먼·정부(행정 건물) 판 | Claude Code | [08-1120-npc-presence](worklog/2026/11/08-1120-npc-presence.md) |

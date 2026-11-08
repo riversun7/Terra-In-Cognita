@@ -261,6 +261,12 @@ export interface SocietyCoefficients {
      */
     readonly startPineLog: number;
     readonly startStone: number;
+    /**
+     * 국적 바꾸기(귀화, 기획 정리 D-523 포인터 질문 745 나 "값·쉬는 날은 설정 칸", docs/adr/2026-11-08-citizenship.md, 기획 칸 없음 → [임시]
+     * 설정값): 받는 나라 국고에 내는 값(최소 단위)과 바꾼 뒤 다시 바꿀 수 없는 기간(ms, 실제 시간 D-5030). 판정 코드는 쓰지 않는다(서버만)
+     */
+    readonly naturalizeFee: number;
+    readonly naturalizeRestMs: number;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -460,6 +466,8 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     grantStepPm: 50,
     startPineLog: 20,
     startStone: 10,
+    naturalizeFee: 100,
+    naturalizeRestMs: 7 * 86_400_000,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

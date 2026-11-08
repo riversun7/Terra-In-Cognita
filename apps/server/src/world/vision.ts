@@ -1,12 +1,17 @@
 // 2차맵 시야 전송 — docs/adr/2026-10-31-s3-server-stage.md 3절 (ADR 7 "시야 판정으로 거른다", ADR 26 "2차맵부터 서버가 확인")
-// - 시야 묶음마다 전송(mapStream) 하나를 쓴다. 묶음 = 사용자 한 명(S3). 세력 가입이 생기면 groupKeyOf만 최상위 세력을
-//   돌려주면 된다(기술 기본안 "같은 국가 전체", 기획 질문 S3-Q1). 관리자 전체 보기는 2차맵의 원래 전송(거르지 않음)을 쓴다.
+// - 시야 묶음마다 전송(mapStream) 하나를 쓴다. 묶음 = 사용자 한 명(S3, 탐사 기록·내 유닛 표시가 사람마다 다르다). 관리자 전체 보기는
+//   2차맵의 원래 전송(거르지 않음)을 쓴다.
+// - 같은 나라 시야 공유(기획 정리 질문 746 나 "같은 나라 시민 시야 공유", S3-Q1 기본안 "같은 국가 전체", D-250, docs/adr/2026-11-08-citizenship.md):
+//   보는 사람의 나라(viewer.nations)가 있으면 그 나라 소유 주체들(NPC 국가 주체 = 그 나라 휴먼·지도자·시설, 같은 나라 유저 = 그 사람 유닛·건물)이
+//   덮는 칸을 내 시야에 더한다. 나라 덮개는 이 2차맵에서 나라 하나에 시야 틱마다 한 번만 센다(그 나라 무리가 몇이든 — 무리마다 세지 않는다).
+//   탐사 기록은 그대로 내 유닛·건물의 시야로만 채운다(S3-Q2). 남의 유닛·건물을 보는 판정(전송·sees·sighted)이 공유 시야를 쓴다.
 // - 내 유닛은 경로 전체(S1 그대로). 남의 유닛은 지금 내 시야 칸에 들어 있을 때만, 경로를 덮인 칸을 벗어나는 곳 또는
 //   CLIP_HORIZON_MS 뒤에서 잘라 보낸다(until). 남은 몫이 RESEND_BELOW_MS보다 적거나 경로가 바뀌면 다음 구간, 안 보이면 hidden.
 // - 시야 틱(VISION_TICK_MS)마다 덮인 칸을 다시 계산한다. 남의 유닛 경로가 바뀌면 그 묶음에 보이는 동안은 곧바로 다시 자른다.
 // - 탐사 기록(사용자마다 128바이트)은 내 유닛·건물의 시야로만 채운다(기술 기본안, 기획 질문 S3-Q2). 바뀌면 vision 메시지로
 //   알리고 EXPLORED_SAVE_MS마다 저장한다. 건물은 탐사한 칸에 있으면 보낸다(마지막 본 모습 D-152는 뒤로 미뤘다).
-// - 볼 수 있는지(구독·지형 파일): 전체 보기 권한, 이 2차맵에 내 유닛·건물이 있음, 한 칸이라도 탐사함(사용자 결정 U3).
+// - 볼 수 있는지(구독·지형 파일): 전체 보기 권한, 이 2차맵에 내 유닛·건물이 있음, 한 칸이라도 탐사함(사용자 결정 U3), 같은 나라
+//   유닛·건물이 있음(같은 나라 시야 공유).
 import { type BuildingWire, type UnitMotionWire, VISION_BYTES, encodeMessage } from "@terra/protocol";
 import {
   BUILDING_VISION_CELLS,
@@ -39,6 +44,9 @@ export const RESEND_BELOW_MS = 3_000;
 const CLIP_STEP_MS = 250;
 /** 탐사 기록을 저장하는 간격 */
 export const EXPLORED_SAVE_MS = 10_000;
+
+/** 소유 주체 → 나라(세력 행 ID). 나라가 없으면 undefined(같은 나라 시야 공유 없음). nationVision.ts가 월드 저장 층으로 만든다 */
+export type NationLookup = (ownerId: number) => number | undefined;
 
 const UNIT_RADIUS = visionRadius(UNIT_VISION_CELLS);
 const BUILDING_RADIUS = visionRadius(BUILDING_VISION_CELLS);
@@ -76,6 +84,8 @@ export interface VisionViewer {
   readonly userId: string;
   /** 그 사용자의 소유 주체(없으면 내 유닛 없음) */
   readonly ownerId: number | undefined;
+  /** 같은 나라 시야 공유(질문 746 나): 소유 주체 → 나라. 보는 사람의 나라 = nations(ownerId). 없으면 내 시야만 */
+  readonly nations?: NationLookup | undefined;
 }
 
 export interface MapVision {
@@ -125,9 +135,31 @@ interface Group {
   readonly visible: Map<number, SentUnit>;
   /** 지금 보내 둔 건물 */
   readonly buildings: Set<number>;
+  /** 남의 유닛·건물을 보는 시야 칸(같은 나라 공유가 있으면 나라 덮개 — 읽기만) */
   cover: Uint16Array;
+  /** 같은 나라 시야 공유(지금 시야 틱의 나라 덮개·소속). 나라가 없으면 undefined */
+  share: NationShare | undefined;
   explored: Uint8Array;
   exploredDirty: boolean;
+}
+
+/** 나라 하나의 시야 틱 몫: 덮개와 소유 주체 소속(묻은 것만 기억) */
+interface NationShare {
+  readonly at: number;
+  readonly nation: number;
+  readonly cover: Uint16Array;
+  readonly members: Map<number, boolean>;
+  readonly lookup: NationLookup;
+}
+
+/** 그 소유 주체가 이 나라 소속인가(시야 틱 하나 동안 주체마다 한 번만 묻는다) */
+function isMember(share: NationShare, ownerId: number): boolean {
+  let known = share.members.get(ownerId);
+  if (known === undefined) {
+    known = share.lookup(ownerId) === share.nation;
+    share.members.set(ownerId, known);
+  }
+  return known;
 }
 
 /** 내 유닛 항목(own 표시를 붙인다. 기기는 이 유닛에 이동 명령을 보낼 수 있다) */
@@ -140,6 +172,10 @@ const encodeBits = (bits: Uint8Array): string =>
 function groupKeyOf(viewer: VisionViewer): string {
   return `u:${viewer.userId}:${viewer.ownerId ?? "-"}`;
 }
+
+/** 보는 사람의 나라(소유 주체가 없거나 나라가 없으면 undefined) */
+const nationOf = (viewer: VisionViewer): number | undefined =>
+  viewer.ownerId === undefined ? undefined : viewer.nations?.(viewer.ownerId);
 
 /** 그 사람의 소유 주체 것인가 */
 const owns = (viewer: VisionViewer, ownerId: number | null): boolean =>
@@ -168,6 +204,8 @@ export function createMapVision(options: {
   const exploredOf = new Map<string, Uint8Array>();
   let tickTimer: ReturnType<typeof setInterval> | undefined;
   let lastSave = now();
+  /** 나라 덮개(나라 → 센 시각·덮개·소속). 시야 틱 하나 동안 다시 쓴다(무리마다 다시 세지 않는다) */
+  const nationShares = new Map<number, NationShare>();
 
   const loadExplored = async (userId: string): Promise<Uint8Array> => {
     const known = exploredOf.get(userId);
@@ -180,8 +218,12 @@ export function createMapVision(options: {
     return bits;
   };
 
-  const buildingVisible = (group: Group, building: VisionBuilding): boolean =>
-    owns(group.viewer, building.ownerId) || hasBit(group.explored, buildingCell(building.placement));
+  /** 보이는 건물: 내 것, 탐사한 칸, 지금 시야(같은 나라 공유 포함) 칸 */
+  const buildingVisible = (group: Group, building: VisionBuilding): boolean => {
+    if (owns(group.viewer, building.ownerId)) return true;
+    const cell = buildingCell(building.placement);
+    return hasBit(group.explored, cell) || (group.cover[cell] ?? 0) > 0;
+  };
 
   /** 그 소유 주체의 유닛·건물이 지금 덮는 시야 칸 */
   const coverOf = (ownerId: number | undefined): Uint16Array => {
@@ -199,11 +241,51 @@ export function createMapVision(options: {
   };
   const computeCover = (group: Group): Uint16Array => coverOf(group.viewer.ownerId);
 
+  /**
+   * 그 사람 나라의 시야 틱 몫: 그 나라 소유 주체들의 유닛·건물이 지금 덮는 시야 칸. 시야 틱 하나(VISION_TICK_MS) 안에서는 센 것을 다시
+   * 쓴다(같은 나라 무리가 몇이든 2차맵마다 한 번). 소유 주체마다 나라를 한 번만 묻는다(유닛은 많고 주체는 적다). 나라가 없으면 undefined
+   */
+  const shareFor = (viewer: VisionViewer): NationShare | undefined => {
+    const nation = nationOf(viewer);
+    const lookup = viewer.nations;
+    if (nation === undefined || !lookup) return undefined;
+    const at = now();
+    const cached = nationShares.get(nation);
+    if (cached && at - cached.at < VISION_TICK_MS && at >= cached.at) return cached;
+    const share: NationShare = {
+      at,
+      nation,
+      cover: new Uint16Array(VISION_CELLS),
+      members: new Map(),
+      lookup,
+    };
+    for (const unit of source.units()) {
+      if (isMember(share, unit.ownerId))
+        stampVision(share.cover, visionCellOf(positionAt(unit.motion, at)), UNIT_RADIUS);
+    }
+    for (const building of source.buildings()) {
+      if (building.ownerId !== null && isMember(share, building.ownerId))
+        stampVision(share.cover, buildingCell(building.placement), BUILDING_RADIUS);
+    }
+    nationShares.set(nation, share);
+    options.stats.visionNationCovers += 1;
+    return share;
+  };
+
+  /**
+   * 남의 유닛·건물을 보는 시야 = 내 덮개 + 같은 나라 덮개. 내 소유 주체도 그 나라라 나라 덮개가 내 덮개를 품는다 → 나라가 있으면 나라
+   * 덮개(여러 무리가 같은 배열을 읽기만 한다), 없으면 내 덮개
+   */
+  const sightOf = (viewer: VisionViewer, own: Uint16Array): Uint16Array => shareFor(viewer)?.cover ?? own;
+
   /** 남의 유닛 하나를 지금 덮인 칸으로 잘라 본다. 안 보이면 undefined */
   const clip = (
     group: Group,
     unit: VisionUnit,
   ): { sent: SentUnit; entry: SizedEntry<UnitMotionWire> } | undefined => {
+    // 같은 나라 유닛은 늘 보인다(제 시야가 제 자리를 덮는다): 내 유닛처럼 경로 전체를 보내고 경로가 바뀔 때만 다시 보낸다(3초마다 자르지 않는다)
+    if (group.share && isMember(group.share, unit.ownerId))
+      return { sent: { motion: unit.motion, until: Number.POSITIVE_INFINITY }, entry: unit.entry };
     const at = now();
     const covered = (cell: number) => (group.cover[cell] ?? 0) > 0;
     if (at >= arrivalAt(unit.motion)) {
@@ -252,16 +334,25 @@ export function createMapVision(options: {
   };
 
   const tickGroup = (group: Group): void => {
-    group.cover = computeCover(group);
-    if (addCoverBits(group.explored, group.cover)) {
+    options.stats.visionGroupTicks += 1;
+    // 탐사 기록은 내 덮개로만, 보는 판정은 공유 시야로
+    const own = computeCover(group);
+    group.share = shareFor(group.viewer);
+    group.cover = group.share?.cover ?? own;
+    const explored = addCoverBits(group.explored, own);
+    if (explored) {
       group.exploredDirty = true;
       sendVision(group);
-      revealBuildings(group);
     }
+    if (explored || group.cover !== own) revealBuildings(group);
     const at = now();
     for (const unit of source.units()) {
       if (owns(group.viewer, unit.ownerId)) continue;
       const sent = group.visible.get(unit.id);
+      if (group.share && isMember(group.share, unit.ownerId)) {
+        if (!sent || sent.motion !== unit.motion) showUnit(group, unit);
+        continue;
+      }
       const inSight = (group.cover[visionCellOf(positionAt(unit.motion, at))] ?? 0) > 0;
       if (!inSight) {
         if (sent) hideUnit(group, unit.id);
@@ -281,7 +372,11 @@ export function createMapVision(options: {
   };
 
   const tick = (): void => {
+    const started = performance.now();
     for (const group of groups.values()) tickGroup(group);
+    const spent = performance.now() - started;
+    options.stats.visionTickMs += spent;
+    options.stats.visionTickMaxMs = Math.max(options.stats.visionTickMaxMs, spent);
     const at = now();
     if (at - lastSave >= EXPLORED_SAVE_MS) {
       lastSave = at;
@@ -340,13 +435,16 @@ export function createMapVision(options: {
       visible: new Map(),
       buildings: new Set(),
       cover: new Uint16Array(VISION_CELLS),
+      share: undefined,
       explored,
       exploredDirty: false,
     };
     holder.group = group;
-    // 처음 상태: 덮인 칸·탐사·보이는 남의 유닛·건물
-    group.cover = computeCover(group);
-    if (addCoverBits(group.explored, group.cover)) group.exploredDirty = true;
+    // 처음 상태: 덮인 칸(같은 나라 공유 포함)·탐사(내 덮개만)·보이는 남의 유닛·건물
+    const own = computeCover(group);
+    group.share = shareFor(viewer);
+    group.cover = group.share?.cover ?? own;
+    if (addCoverBits(group.explored, own)) group.exploredDirty = true;
     for (const building of source.buildings())
       if (buildingVisible(group, building)) group.buildings.add(building.id);
     for (const unit of source.units()) {
@@ -363,13 +461,15 @@ export function createMapVision(options: {
         for (const unit of source.units()) if (unit.ownerId === viewer.ownerId) return true;
         for (const building of source.buildings()) if (building.ownerId === viewer.ownerId) return true;
       }
+      // 같은 나라 유닛·건물이 있는 2차맵도 볼 수 있다(같은 나라 시야 공유 — 내 나라 다른 도시를 들어가 본다, 질문 746 나)
+      if (shareFor(viewer)?.cover.some((count) => count > 0)) return true;
       const bits = await loadExplored(viewer.userId);
       return bits.some((byte) => byte !== 0);
     },
     async sighted(viewer) {
       // 탐사 기록은 구독하는 동안만 쌓이므로 지금 내 유닛·건물이 덮는 칸을 더해 본다(기록은 바꾸지 않는다, 사본)
       const bits = new Uint8Array(await loadExplored(viewer.userId));
-      addCoverBits(bits, coverOf(viewer.ownerId));
+      addCoverBits(bits, sightOf(viewer, coverOf(viewer.ownerId)));
       return bits;
     },
     subscribe(subscriber, viewer) {
@@ -459,7 +559,10 @@ export function createMapVision(options: {
       // 구독 중인 무리면 지금 보내 둔 것과 같게, 아니면 지금 시야를 다시 센다
       const group = groups.get(groupKeyOf(viewer));
       if (group) return group.visible.has(unitId);
-      return (coverOf(viewer.ownerId)[visionCellOf(positionAt(unit.motion, now()))] ?? 0) > 0;
+      const share = shareFor(viewer);
+      if (share && isMember(share, unit.ownerId)) return true;
+      const sight = share?.cover ?? coverOf(viewer.ownerId);
+      return (sight[visionCellOf(positionAt(unit.motion, now()))] ?? 0) > 0;
     },
     tick,
     get groupCount() {

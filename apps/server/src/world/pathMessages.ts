@@ -1,6 +1,8 @@
 // 메인 스레드 ↔ 경로 워커 메시지 (src/world/pathPool.ts ↔ src/world/pathWorker.ts)
 // 워커는 2차맵 배치 격자의 사본(캐시)을 들고 경로만 푼다. 원본 격자는 메인 스레드에 있다.
 // - init: 사본을 처음부터 만든다(워커를 새로 띄울 때마다 지금 상태로).
+// - add·drop: 그때 띄운 2차맵의 사본을 더하고(같은 키가 있으면 바꾼다) 내린 2차맵의 사본을 버린다(world/mapSpawn.ts,
+//   docs/adr/2026-11-07-play-flow.md "WP15"). add 뒤에 보낸 path·edit는 그 사본으로 푼다(같은 워커로 가는 메시지 차례).
 // - edit: 건물 놓기·치우기를 같은 순서로 따라 한다. 한 워커로 가는 메시지는 보낸 순서대로 처리된다
 //   (postMessage 순서). 그래서 edit 뒤에 보낸 path는 edit 뒤의 격자로 푼다.
 // - path 결과에는 푼 격자의 version을 붙인다. 메인 스레드가 늦게 온 결과를 가려낸다(pathPool·secondMap).
@@ -39,6 +41,8 @@ export interface PathJobMessage {
 
 export type ToWorker =
   | { type: "init"; maps: MapReplicaInit[] }
+  | { type: "add"; map: MapReplicaInit }
+  | { type: "drop"; mapKey: number }
   | { type: "edit"; mapKey: number; version: number; edit: GridEdit }
   | PathJobMessage;
 

@@ -104,6 +104,27 @@ describe("경로 워커 풀", () => {
     expect(errors).toContain("path replica diverged");
   });
 
+  it("그때 띄운 2차맵 사본을 더하면(add) 그 2차맵 경로를 풀고, 버리면(drop) unknown_map(WP15)", async () => {
+    const { service } = start(replica());
+    const spawned = { ...replica(), mapKey: MAP + 1 };
+    expect(await service.request(job({ mapKey: MAP + 1 }))).toMatchObject({ status: "unknown_map" });
+    service.add(spawned);
+    expect(await service.request(job({ mapKey: MAP + 1 }))).toMatchObject({ status: "found", version: 0 });
+    // 더한 뒤의 편집도 따라 한다(버전 1)
+    service.edit(MAP + 1, 1, {
+      op: "place",
+      id: 3,
+      placement: { x: 20, y: 5, width: 4, height: 12, rotation: 0 },
+    });
+    const around = await service.request(job({ mapKey: MAP + 1 }));
+    expect(around).toMatchObject({ status: "found", version: 1 });
+    if (around.status === "found") expect(around.waypoints.length).toBeGreaterThan(2);
+    service.drop(MAP + 1);
+    expect(await service.request(job({ mapKey: MAP + 1 }))).toMatchObject({ status: "unknown_map" });
+    // 원래 2차맵은 그대로
+    expect((await service.request(job())).status).toBe("found");
+  });
+
   it("닫으면 기다리던 작업은 busy, 그 뒤 요청도 busy", async () => {
     const { service } = start(replica());
     const pending = service.request(job());

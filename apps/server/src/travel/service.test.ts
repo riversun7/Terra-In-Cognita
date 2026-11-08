@@ -15,6 +15,7 @@ import { UNIT_KIND_BOT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { testMapKey } from "../world/world.ts";
 import { emptyWorldStats } from "../world/worldStats.ts";
 import { type TravelService, createTravelService } from "./service.ts";
+import type { TravelSpawn } from "./serviceTypes.ts";
 
 const START = 1_798_000_000_000;
 const OWNER = 7;
@@ -35,6 +36,9 @@ interface Rig {
   units: UnitRow[];
   travels: { op: "upsert" | "remove"; row: Record<string, unknown> }[];
   settled: { ownerId: number; atMs: number }[];
+  /** 같은 모양의 2차맵을 하나 더 만든다(그때 띄우기 시험 — 목록에 넣지 않는다) */
+  makeMap: (mapKey: number) => SecondMap;
+  paths: ReturnType<typeof createInlinePathService>;
 }
 
 /** 띄운 2차맵(기본 K[0] ~ K[2], loaded 차례만) + 같은 스레드 길 찾기 + 이동 서비스. 유닛 행·길 줄 쓰기를 모은다 */
@@ -47,20 +51,17 @@ function rig(loaded: readonly number[] = [0, 1, 2], pool?: QueryPool): Rig {
     () => [...maps.values()].map((map) => map.replicaInit()),
     () => performance.now(),
   );
-  for (const mapKey of K.filter((_, index) => loaded.includes(index))) {
-    maps.set(
+  const makeMap = (mapKey: number): SecondMap =>
+    createSecondMap({
       mapKey,
-      createSecondMap({
-        mapKey,
-        terrain: mapTerrainFromTemp(mapKey, flatTerrain()),
-        paths,
-        now: () => Date.now(),
-        stats: emptyWorldStats(),
-        log: silentLog,
-        persist: { saveUnit: (row) => units.push(row), saveBuilding: () => {}, removeBuilding: () => {} },
-      }),
-    );
-  }
+      terrain: mapTerrainFromTemp(mapKey, flatTerrain()),
+      paths,
+      now: () => Date.now(),
+      stats: emptyWorldStats(),
+      log: silentLog,
+      persist: { saveUnit: (row) => units.push(row), saveBuilding: () => {}, removeBuilding: () => {} },
+    });
+  for (const mapKey of K.filter((_, index) => loaded.includes(index))) maps.set(mapKey, makeMap(mapKey));
   paths.start();
   const writer: Pick<WorldWriter, "upsert" | "remove"> = {
     upsert: (table, row) => {
@@ -83,7 +84,28 @@ function rig(loaded: readonly number[] = [0, 1, 2], pool?: QueryPool): Rig {
     pool,
     ready: () => true,
   });
-  return { maps, travel, units, travels, settled };
+  return { maps, travel, units, travels, settled, makeMap, paths };
+}
+
+/** 그때 띄우기(가짜 — 부르면 같은 모양 2차맵을 만들어 목록·경로 사본에 넣는다). full이면 상한 */
+function spawnFor(r: Rig, options: { full?: boolean } = {}) {
+  const opened: number[] = [];
+  const spawn: TravelSpawn = {
+    canOpen: (mapKey) => !r.maps.has(mapKey) && K.includes(mapKey),
+    hasRoom: () => !options.full,
+    open: async (mapKey) => {
+      await Promise.resolve();
+      if (options.full) return "full";
+      const map = r.makeMap(mapKey);
+      r.maps.set(mapKey, map);
+      r.paths.add(map.replicaInit());
+      opened.push(mapKey);
+      return "ok";
+    },
+    prefetch: () => {},
+  };
+  r.travel.attachSpawn(spawn);
+  return opened;
 }
 
 function mapAt(r: Rig, index: number): SecondMap {
@@ -420,6 +442,87 @@ describe("2차맵 사이 이동", () => {
       problem: "no_cyborg",
     });
     expect(r.travel.active).toBe(0);
+    r.travel.stop();
+  });
+});
+
+describe("730 다: 띄우지 않은 목적 2차맵은 닿을 때 띄운다(WP15)", () => {
+  it("옆 2차맵을 띄우지 않았어도 보낼 수 있고(opensMap), 변 끝에 닿으면 띄운 뒤 넘어가 목표에 선다", async () => {
+    const r = rig([0]);
+    const opened = spawnFor(r);
+    placeMine(r, 250, 100);
+    const plan = r.travel.plan(USER, { mapKey: K[1] ?? 0, x: 10, y: 100 });
+    expect(plan).toMatchObject({ ok: true, plan: { route: [K[0], K[1]], hiddenMaps: 0, opensMap: true } });
+    expect(
+      (await r.travel.start(USER, { unitId: 1, mapKey: K[1] ?? 0, x: 10, y: 100, kind: "move" })).ok,
+    ).toBe(true);
+    expect(r.travel.touches(K[1] ?? 0)).toBe(true);
+    expect(opened).toEqual([]);
+    // 변 끝(5칸) → 띄우고 넘는다 → (10, 100)에 닿는다
+    for (let step = 0; step < 6 && r.travel.active > 0; step++) {
+      await vi.advanceTimersByTimeAsync(15_000);
+      await flush();
+    }
+    expect(opened).toEqual([K[1]]);
+    expect(whereIs(r, 1)).toBe(1);
+    expect(r.travel.list(USER)).toMatchObject([{ state: "arrived", mapKey: K[1], cellX: 10, cellY: 100 }]);
+    expect(r.travel.touches(K[1] ?? 0)).toBe(false);
+    r.travel.stop();
+  });
+
+  it("지나는 2차맵(중간)은 건너뛰고 마지막 2차맵은 나타날 때 띄운다", async () => {
+    const r = rig([0]);
+    const spawn = spawnFor(r);
+    // K[1]은 지나는 2차맵이라 띄우지 않는다(canOpen이어도 목적지가 아니면 건너뛴다)
+    placeMine(r, 250, 100);
+    const plan = r.travel.plan(USER, { mapKey: K[2] ?? 0, x: 10, y: 100 });
+    expect(plan).toMatchObject({ ok: true, plan: { route: K, hiddenMaps: 1, opensMap: true } });
+    expect(
+      (await r.travel.start(USER, { unitId: 1, mapKey: K[2] ?? 0, x: 10, y: 100, kind: "move" })).ok,
+    ).toBe(true);
+    let hiddenSeen = false;
+    // 건너뛰기 = 2차맵 한 장(약 1.5km) ÷ 걷는 속도 — 몇십 분
+    for (let step = 0; step < 300 && r.travel.active > 0; step++) {
+      await vi.advanceTimersByTimeAsync(15_000);
+      await flush();
+      if (r.travel.list(USER)[0]?.hidden) hiddenSeen = true;
+    }
+    expect(hiddenSeen).toBe(true);
+    expect(spawn).toEqual([K[2]]);
+    expect(r.maps.has(K[1] ?? 0)).toBe(false);
+    expect(whereIs(r, 1)).toBe(2);
+    expect(r.travel.list(USER)).toMatchObject([{ state: "arrived", mapKey: K[2] }]);
+    r.travel.stop();
+  });
+
+  it("더 띄울 수 없으면 확인 단계 map_full·보내기 busy, 닿을 때 꽉 찼으면 변 앞에 멈춘다(map_full)", async () => {
+    const r = rig([0]);
+    const options = { full: true };
+    spawnFor(r, options);
+    placeMine(r, 250, 100);
+    const to = { mapKey: K[1] ?? 0, x: 10, y: 100 };
+    expect(r.travel.plan(USER, to)).toEqual({ ok: false, problem: "map_full" });
+    expect(await r.travel.start(USER, { ...to, unitId: 1, kind: "move" })).toEqual({
+      ok: false,
+      code: "busy",
+    });
+    // 보낼 때는 자리가 있었는데 닿을 때 꽉 찼다
+    const late = { full: false };
+    const spawn: TravelSpawn = {
+      canOpen: (mapKey) => !r.maps.has(mapKey) && K.includes(mapKey),
+      hasRoom: () => !late.full,
+      open: async () => "full",
+      prefetch: () => {},
+    };
+    r.travel.attachSpawn(spawn);
+    expect((await r.travel.start(USER, { ...to, unitId: 1, kind: "move" })).ok).toBe(true);
+    late.full = true;
+    for (let step = 0; step < 4 && r.travel.active > 0; step++) {
+      await vi.advanceTimersByTimeAsync(15_000);
+      await flush();
+    }
+    expect(whereIs(r, 1)).toBe(0);
+    expect(r.travel.list(USER)).toMatchObject([{ state: "stopped", stop: "map_full", mapKey: K[0] }]);
     r.travel.stop();
   });
 });

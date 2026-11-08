@@ -152,8 +152,12 @@ export interface WorldTravelPlan {
   readonly arriveAt: number;
   /** 지금 직무(채집·계약)가 있다 — 출발 2차맵을 떠나면 직무가 끝난다(질문 582) */
   readonly working: boolean;
-  /** 줄에 든 띄우지 않은 2차맵 수(그 구간은 건너뛴다 — 그동안 지도에 보이지 않는다, 질문 593 나) */
+  /** 줄에 든 띄우지 않은 2차맵 수(그 구간은 건너뛴다 — 그동안 지도에 보이지 않는다, 질문 593 나). 닿을 때 띄울 목적지는 세지 않는다 */
   readonly hiddenMaps: number;
+  /**
+   * 목적 2차맵을 서버가 아직 띄우지 않아 유닛이 닿을 때 띄운다(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"). 없으면 false
+   */
+  readonly opensMap?: boolean | undefined;
   readonly cost: WorldTravelCost;
   /** 위험 구간(내가 아는 것만, route 차례) */
   readonly dangers: readonly WorldTravelDanger[];
@@ -175,7 +179,9 @@ export type WorldTravelProblem =
   | "goal_blocked"
   | "unavailable"
   /** 띄우지 않은 2차맵을 건너뛰는 중(다음 띄운 2차맵에 나타난 뒤 보낼 수 있다) */
-  | "in_transit";
+  | "in_transit"
+  /** 목적 2차맵을 띄워야 하는데 서버가 지금 더 띄울 수 없다(그때 띄운 2차맵 상한, WP15) — 잠시 뒤 다시 */
+  | "map_full";
 
 export interface WorldTravelPlanResponse {
   readonly status: "ready" | "not_ready";
@@ -189,7 +195,14 @@ export interface WorldTravelPlanResponse {
  * 멈춘 까닭: 멈추기·다른 명령·전투 등으로 길에서 벗어남·막힘(넘는 변·목표·길 없음)·움직일 수 없음·띄우지 않은 2차맵을 건너뛰는 동안 습격을 받아
  * 졌다(raided — 다음 띄운 2차맵 변에서 부상으로 멈춤, 기획 답 610 나, docs/adr/2026-11-07-play-flow.md "WP13")
  */
-export type WorldTravelStop = "cancelled" | "interrupted" | "blocked" | "unavailable" | "raided";
+export type WorldTravelStop =
+  | "cancelled"
+  | "interrupted"
+  | "blocked"
+  | "unavailable"
+  | "raided"
+  /** 목적 2차맵에 들어서려 했지만 서버가 더 띄울 수 없었다(WP15 상한) — 변 앞(건너뛰던 중이면 사라진 자리)에 멈춤 */
+  | "map_full";
 
 export interface WorldTravel {
   readonly unitId: number;

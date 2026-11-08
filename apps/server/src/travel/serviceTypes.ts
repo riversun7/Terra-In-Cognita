@@ -43,6 +43,20 @@ export type TravelPlanResult =
 /** 화면 한 줄(위도·경도는 조회가 붙인다) */
 export type TravelView = Omit<WorldTravel, "latDeg" | "lonDeg">;
 
+/**
+ * 그때 띄우기(world/mapSpawn.ts, 기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 길의 마지막 2차맵(목적지)을 서버가 띄우지 않았으면
+ * 유닛이 들어서려 할 때 띄운다. 지나는 2차맵(중간)은 그대로 건너뛴다(593 나)
+ */
+export interface TravelSpawn {
+  /** 그때 띄울 수 있는 2차맵인가(이 행성의 2차맵 키, 아직 띄우지 않음) */
+  canOpen(mapKey: number): boolean;
+  /** 하나 더 띄울 자리가 있나(확인 단계·보내기가 미리 본다 — 닿을 때 다시 본다) */
+  hasRoom(): boolean;
+  open(mapKey: number): Promise<"ok" | "full" | "invalid" | "failed">;
+  /** 곧 띄울 2차맵의 지형을 미리 받는다 */
+  prefetch(mapKey: number): void;
+}
+
 /** 건너뛰는 중인 유닛의 지금 자리(보기 값 — 1차맵 내 자리 표시) */
 export interface HiddenPlace {
   readonly mapKey: number;
@@ -69,6 +83,10 @@ export interface TravelService {
    * 부팅 복구가 다시 숨긴 길도 붙인 뒤에 나타나면 굴린다
    */
   attachRaids(raids: TravelRaids | undefined): void;
+  /** 그때 띄우기를 붙인다(world/mapSpawnWorld.ts — 없으면 띄우지 않은 목적지는 unknown_map) */
+  attachSpawn(spawn: TravelSpawn | undefined): void;
+  /** 가는 중인 길이 그 2차맵에 서 있거나(건너뛰어 나타날 곳 포함) 그 2차맵을 노리나 — 그때 띄운 2차맵을 내리지 않는다 */
+  touches(mapKey: number): boolean;
   /** 부팅: 저장한 길을 다시 잇는다(유닛을 다시 놓은 뒤). 다시 시작한 수 */
   restore(): Promise<number>;
   /** 지금 시각까지 확인할 길을 처리한다(타이머가 부른다. 시험은 가짜 시계를 옮긴 뒤 부른다) */
@@ -100,6 +118,8 @@ export interface TravelDeps {
   ready(): boolean;
   /** 도중 습격(raid.ts). 없으면 습격 없음(attachRaids로 나중에 붙일 수 있다) */
   readonly raids?: TravelRaids | undefined;
+  /** 그때 띄우기(없으면 띄우지 않은 목적지는 unknown_map, attachSpawn으로 나중에 붙일 수 있다) */
+  readonly spawn?: TravelSpawn | undefined;
 }
 
 /** 건너뛰는 중(메모리): 들고 있는 유닛 행, 사라진 점(route[hop.from] 틀), 나타날 곳 */
@@ -162,7 +182,11 @@ export function stopOf(code: TravelResultCode): WorldTravelStop {
 
 /** 보내기 결과 코드(확인 단계 문제 → WebSocket 코드, 건너뛰는 중은 다시 해 볼 수 있는 busy) */
 export const startCode = (problem: WorldTravelProblem): TravelResultCode =>
-  problem === "no_cyborg" ? "unknown_unit" : problem === "in_transit" ? "busy" : problem;
+  problem === "no_cyborg"
+    ? "unknown_unit"
+    : problem === "in_transit" || problem === "map_full"
+      ? "busy"
+      : problem;
 
 const clampCell = (value: number): number => Math.max(0, Math.min(PLACEMENT_SIZE - 1, value));
 export const cellOf = (point: Point): CellPoint => ({

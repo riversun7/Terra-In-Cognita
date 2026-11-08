@@ -45,6 +45,13 @@ export interface WorldSeedCoefficients {
   readonly layoutLandMaxTempC: number;
   /** [임시] 시작 도시가 설 땅: 강수(mm) 아래 끝(사막을 빼고 농사지을 땅) */
   readonly layoutLandMinRainMm: number;
+  /**
+   * [임시] 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 서버가 그때 띄운 2차맵 상한(부팅 씨앗 2차맵 —
+   * 시험 줄·도시 — 은 세지 않는다). 꽉 차면 빈 것을 내리고 띄우고, 빈 것이 없으면 띄우지 않는다. NAS 1GiB에서 2차맵 하나 약 5~7MB
+   */
+  readonly mapSpawnMaxLoaded: number;
+  /** [임시] 그때 띄운 2차맵이 비어 있은 지 이만큼(ms) 지나면 내린다(유닛·건물·도시·구독·이동이 없음) */
+  readonly mapSpawnIdleMs: number;
 }
 
 /** 출발값 — 모두 [임시](옛 규칙 없음, D-515). 시작 도시 2~4곳(60 §7.1), 기본 시설은 종류마다 하나 */
@@ -68,6 +75,9 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   layoutLandMinTempC: 8,
   layoutLandMaxTempC: 32,
   layoutLandMinRainMm: 300,
+  // 그때 띄우기: 지금 NAS(17장 RSS 약 430MB)에 32장(약 +200MB)을 더해도 1GiB 안, 비우고 10분 뒤 내림
+  mapSpawnMaxLoaded: 32,
+  mapSpawnIdleMs: 10 * 60_000,
 };
 
 /** 시작 도시 수가 놓일 수 있는 범위(60 §7.1 "2~4곳"을 넘지 않게, 칸이 1까지는 받는다) */

@@ -1,9 +1,10 @@
 // 2차맵 화면 [옆 2차맵으로] — 사용자 지적 2026-11-08 "2차맵 넘어서 이동이 되지 않음", docs/adr/2026-11-07-play-flow.md "WP14 2차맵에서 옆 2차맵으로".
-// 2차맵 안 이동(move_unit)은 그 2차맵 안에서만 걷는다. 변을 넘는 길은 서버 2차맵 사이 이동(travel_start, WP9 규칙: 변까지 걷고 넘고, 띄우지 않은
-// 2차맵은 설 수 없다)이라 이 판이 그 명령을 보낸다(상태를 바꾸는 명령은 WebSocket — AGENTS 4장).
+// 2차맵 안 이동(move_unit)은 그 2차맵 안에서만 걷는다. 변을 넘는 길은 서버 2차맵 사이 이동(travel_start, WP9 규칙: 변까지 걷고 넘는다)이라 이 판이
+// 그 명령을 보낸다(상태를 바꾸는 명령은 WebSocket — AGENTS 4장). 서버가 아직 띄우지 않은 옆 2차맵은 닿을 때 서버가 띄운다(기획 답 730 다, WP15) —
+// 열린 옆 2차맵과 같이 [보내기]이고 "닿으면 엽니다"를 덧붙인다. 서버가 더 띄울 수 없으면(map_full) 그 까닭을 보인다.
 // - 보낼 유닛: 고른 내 유닛, 고르지 않았으면 이 2차맵의 내 사이보그(edgeTravelData.ts edgeUnitOf — 화면이 넘긴다).
-// - [옆 2차맵으로] → 변 넷(나침반 이름)마다 서버 확인 단계(world.travelPlan, 그 유닛): 열린 옆 2차맵은 거리·걸리는 시간·[보내기], 열리지 않은
-//   2차맵은 까닭(unknown_map — 설 수 없다)과 [1차맵에서 고르기](1차맵 명령 흐름은 열리지 않은 2차맵을 건너뛰어 간다). 직무 중이면 끝난다고 알린다.
+// - [옆 2차맵으로] → 변 넷(나침반 이름)마다 서버 확인 단계(world.travelPlan, 그 유닛): 보낼 수 있으면 거리·걸리는 시간·[보내기](띄우지 않은
+//   2차맵이면 "닿으면 엽니다"), 보낼 수 없으면 그 까닭(2차맵 키가 아님 unknown_map·상한 map_full·막힘 등). 직무 중이면 끝난다고 알린다.
 // - 변 화살표(덧그림): 유닛이 변 가까이 오면 그 변 위에 단추 — 누르면 같은 판이 그 변을 먼저 보인다.
 // - 보낸 뒤: 유닛 머리 위 이름표(옆 2차맵까지 남은 시간)·아래 한 줄(남은 시간·도착 예상·[멈추기]). 넘어가면 짧은 안내 뒤 그 2차맵으로 바꾼다
 //   (D-139 — 내 사이보그를 따라 연 화면은 useTravelFollow가 이미 바꾼다). 닿거나 멈추면 그 까닭을 한 줄로.
@@ -329,7 +330,7 @@ export function EdgeTravel({ mapKey, unit, engineRef, hostRef, screenFollows }: 
             const state = states[index] ?? "loading";
             const status =
               plan?.kind === "ready"
-                ? m.map_edge_plan({
+                ? (plan.plan.opensMap ? m.map_edge_plan_opens : m.map_edge_plan)({
                     km: kmText(plan.plan.distanceM),
                     duration: durationText(plan.plan.durationMs),
                   })
@@ -343,6 +344,7 @@ export function EdgeTravel({ mapKey, unit, engineRef, hostRef, screenFollows }: 
                 data-state={state}
                 data-side={target.compass ?? `${target.ox},${target.oy}`}
                 data-map={target.mapKey}
+                data-opens={plan?.kind === "ready" && plan.plan.opensMap ? "true" : undefined}
                 data-focus={open.focus === target.mapKey ? "true" : undefined}
               >
                 <div className="map-edge-side-text">

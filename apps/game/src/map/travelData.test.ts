@@ -68,10 +68,12 @@ describe("2차맵 사이 이동 문구", () => {
 
   it("모든 결과 코드·확인 문제·멈춘 까닭에 문구가 있다", () => {
     for (const code of TRAVEL_RESULT_CODES) expect(travelProblemText(code).length).toBeGreaterThan(0);
-    for (const problem of ["no_cyborg", "offline", "timeout", "in_transit"] as const)
+    for (const problem of ["no_cyborg", "offline", "timeout", "in_transit", "map_full"] as const)
       expect(travelProblemText(problem).length).toBeGreaterThan(0);
     expect(travelProblemText("no_route")).toBe("그곳은 너무 멀어 한 번에 보낼 수 없습니다.");
-    for (const stop of ["cancelled", "interrupted", "blocked", "unavailable", "raided"] as const)
+    // WP15: 서버가 더 띄울 수 없을 때(확인 단계·닿을 때)는 "다시 해 보세요"와 다른 까닭
+    expect(travelProblemText("map_full")).not.toBe(travelProblemText("busy"));
+    for (const stop of ["cancelled", "interrupted", "blocked", "unavailable", "raided", "map_full"] as const)
       expect(travelStopText(stop).length).toBeGreaterThan(0);
   });
 });

@@ -1,7 +1,8 @@
-// 2차맵에서 옆 2차맵으로 화면 시험(docs/adr/2026-11-07-play-flow.md "WP14", 사용자 지적 2026-11-08 "2차맵 넘어서 이동이 되지 않음") — player
+// 2차맵에서 옆 2차맵으로 화면 시험(docs/adr/2026-11-07-play-flow.md "WP14"·"WP15", 사용자 지적 2026-11-08 "2차맵 넘어서 이동이 되지 않음") — player
 // 시험 서버는 행성 값으로 세계를 놓는다(국가마다 행성 위 자기 자리: 수도 + 붙은 2차맵의 시작 도시, ADR 2026-11-07-world-layout). player의 사이보그는
 // 첫 국가 수도에 있어 옆 2차맵 가운데 띄운 것(같은 국가의 붙은 시작 도시)과 띄우지 않은 것이 함께 있다.
-// - [옆 2차맵으로] → 변 넷(나침반 이름)마다 서버 확인: 띄운 옆 2차맵은 거리·시간·[보내기], 띄우지 않은 옆 2차맵은 "설 수 없다" 까닭과 1차맵 안내.
+// - [옆 2차맵으로] → 변 넷(나침반 이름)마다 서버 확인: 띄운 옆 2차맵은 거리·시간·[보내기], 띄우지 않은 옆 2차맵도 [보내기]에 "닿으면 엽니다"
+//   (기획 답 730 다 — 서버가 닿을 때 띄운다, WP15). 막힌 변이 없으니 "설 수 없다" 까닭은 보이지 않는다.
 // - [보내기] = travel_start(옆 2차맵, 변 너머 칸) → 가는 중 한 줄(남은 시간·도착 예상)·유닛 머리 위 이름표 → [멈추기] = travel_cancel → 멈춘 까닭.
 //   걸어서 변까지 몇 분이라 넘어가는 순간(D-139 바꿈)은 서버 시험(travel/layoutTravel.db.test.ts)이 본다. 시험이 끝나면 사이보그는 수도 2차맵에 선다.
 // - 사진: 판·가는 중 390 × 파스텔·다크(한국어), 판 390 파스텔 영어. 넘침·작은 누르는 곳 없음.
@@ -62,19 +63,22 @@ test.describe("옆 2차맵으로: 플레이어", () => {
     await openEdgeSheet(page);
     const sheet = page.locator(".map-edge");
     await expect(sheet).toHaveAttribute("data-edge-unit", cyborg);
-    // 수도 2차맵: 띄운 옆 2차맵(붙은 시작 도시)과 띄우지 않은 옆 2차맵이 함께 있다
-    const opened = sheet.locator('.map-edge-side[data-state="open"]');
-    const closed = sheet.locator('.map-edge-side[data-state="closed"]');
+    // 수도 2차맵: 띄운 옆 2차맵(붙은 시작 도시)과 띄우지 않은 옆 2차맵이 함께 있다 — 둘 다 보낼 수 있다(띄우지 않은 쪽은 닿을 때 연다)
+    const opened = sheet.locator('.map-edge-side[data-state="open"]:not([data-opens])');
+    const opens = sheet.locator('.map-edge-side[data-state="open"][data-opens="true"]');
     await expect(opened).not.toHaveCount(0);
-    await expect(closed).not.toHaveCount(0);
-    await expect(closed.first()).toContainText(message("ko", "map_edge_closed"));
-    await expect(sheet).toContainText(message("ko", "map_edge_closed_hint"));
+    await expect(opens).not.toHaveCount(0);
+    await expect(sheet.locator('.map-edge-side[data-state="closed"]')).toHaveCount(0);
+    const opensNote =
+      message("ko", "map_edge_plan_opens", { km: "", duration: "" }).split(" · ").at(-1) ?? "";
+    await expect(opens.first()).toContainText(opensNote);
+    await expect(sheet).not.toContainText(message("ko", "map_edge_closed_hint"));
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
 
-    // [보내기] → 가는 중(옆 2차맵까지 두 장)
-    const target = await opened.first().getAttribute("data-map");
-    await opened.first().locator(".map-edge-send").click();
+    // [보내기](띄우지 않은 옆 2차맵) → 가는 중(옆 2차맵까지 두 장)
+    const target = await opens.first().getAttribute("data-map");
+    await opens.first().locator(".map-edge-send").click();
     const going = page.locator(".map-edge-going");
     await expect(going).toBeVisible({ timeout: 20_000 });
     await expect(going).toHaveAttribute("data-edge-unit", cyborg);

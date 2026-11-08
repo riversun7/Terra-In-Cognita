@@ -1,18 +1,17 @@
 // 유닛 상세 [부상·병원] 칸 — 기획 D-521(부상 4단계 초록·흰·노랑·빨강, 자연 치유는 한 단계씩, 병원은 등급·의사 스탯·스킬로 매우 빠르고 비용이
-// 든다, 병원 필수 부상 없음), docs/adr/2026-11-08-injury.md. 모바일 우선: 단계 표·길 → 자연 치유 규칙 → 그 유닛이 선 도시 병원의 견적 카드
+// 든다, 병원 필수 부상 없음)·D-525(이름 정상·경상·중상·중태, 남은 회복 시간은 "N시간 M분"), docs/adr/2026-11-08-injury.md. 모바일 우선: 단계 표·길 → 자연 치유 규칙 → 그 유닛이 선 도시 병원의 견적 카드
 // ([병원 치료 · 값], 초록까지 남은 시간·배율·의사) → (dev·admin) 개발 시험 부상 주기.
 // 자료는 tRPC hospital.overview, 바꾸는 명령은 WebSocket(프로토콜 17 hospital_treat·dev_injure_unit). 명령 뒤에는 목록을 다시 받는다.
 import type { HospitalOverviewResponse } from "@terra/shared/hospital";
 import type { RosterInjury } from "@terra/shared/roster";
 import { useEffect, useRef, useState } from "react";
 import { refreshSession } from "../auth/session.ts";
-import { formatDuration } from "../economy/economyText.ts";
 import { api } from "../net/api.ts";
 import { field } from "../net/json.ts";
 import { m } from "../paraglide/messages.js";
 import { InjuryBadge, InjuryTrack, injuryStageName } from "../roster/InjuryBadge.tsx";
 import { Section } from "../roster/parts.tsx";
-import { formatAmount, formatNumber, remaining } from "../roster/rosterText.ts";
+import { formatAmount, formatHoursMinutes, formatNumber, recoveryLeft } from "../roster/rosterText.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { times } from "./fusionParts.tsx";
 import { type HospitalCommand, type HospitalOutcome, sendHospitalCommand } from "./hospitalCommands.ts";
@@ -132,7 +131,9 @@ export function HospitalCare({
         <InjuryTrack stage={shown.stage} />
       </div>
       {shown.stage > 0 && shown.greenAtMs ? (
-        <p className="roster-note">{m.injury_green_in({ time: remaining(shown.greenAtMs, at) ?? "" })}</p>
+        <p className="roster-note">
+          {m.injury_green_in({ time: recoveryLeft(shown.greenAtMs, at) ?? m.roster_soon() })}
+        </p>
       ) : null}
       {shown.stage >= 3 ? <p className="roster-note">{m.injury_red_note()}</p> : null}
       {shown.healPm !== undefined && shown.healPm > 1000 ? (
@@ -141,9 +142,9 @@ export function HospitalCare({
       {data ? (
         <p className="field-hint">
           {m.injury_rule({
-            red: formatDuration(heal[3] ?? 0),
-            yellow: formatDuration(heal[2] ?? 0),
-            white: formatDuration(heal[1] ?? 0),
+            red: formatHoursMinutes(heal[3] ?? 0),
+            yellow: formatHoursMinutes(heal[2] ?? 0),
+            white: formatHoursMinutes(heal[1] ?? 0),
           })}
         </p>
       ) : null}
@@ -182,7 +183,7 @@ export function HospitalCare({
                         })}
                       </span>
                       <span className="roster-meta">
-                        {m.hospital_eta({ time: remaining(option.greenAtMs, at) ?? m.roster_soon() })}
+                        {m.hospital_eta({ time: recoveryLeft(option.greenAtMs, at) ?? m.roster_soon() })}
                       </span>
                       <span className="roster-meta">
                         {site?.doctor
@@ -206,8 +207,8 @@ export function HospitalCare({
                             m.hospital_treated({
                               time:
                                 outcome.ok && outcome.greenAtMs
-                                  ? (remaining(outcome.greenAtMs, Date.now()) ?? "")
-                                  : "",
+                                  ? (recoveryLeft(outcome.greenAtMs, Date.now()) ?? m.roster_soon())
+                                  : m.roster_soon(),
                             }),
                         )
                       }

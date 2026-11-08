@@ -50,6 +50,7 @@ import type {
   EconomyServices,
   SecondMapLabServices,
   TerritoryReadServices,
+  WorldLayoutSource,
   TrpcContext,
   TrpcContextOptions,
   CyborgReadServices,
@@ -86,6 +87,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   secondMapLab?: SecondMapLabServices | undefined;
   /** 영토 조회(세계가 준비되면 서비스, docs/adr/2026-11-03-territory-layer.md 5절). 없으면 늘 준비 전 */
   territory?: (() => TerritoryReadServices | undefined) | undefined;
+  /** 세계 배치 화면(기획 D-528, 세계가 준비되면 서비스). 없으면 늘 준비 전 */
+  worldLayout?: (() => WorldLayoutSource | undefined) | undefined;
   /** 지도 흐름 조회(세계가 준비되면 서비스, src/worldMap/reads.ts). 없으면 늘 준비 전 */
   worldMap?: (() => WorldMapReads | undefined) | undefined;
   /** 원자재 오브젝트 채집 조회(세계가 준비되면, src/gather/reads.ts). 없으면 늘 준비 전 */
@@ -222,6 +225,8 @@ export function createContextFactory(options: ContextFactoryOptions) {
       ruins: options.ruins,
       secondMapLab: options.secondMapLab,
       territory: options.territory,
+      worldLayout:
+        options.worldLayout && request ? { service: options.worldLayout, ip: request.ip } : undefined,
       worldMap: options.worldMap,
       gather: options.gather,
       economy,

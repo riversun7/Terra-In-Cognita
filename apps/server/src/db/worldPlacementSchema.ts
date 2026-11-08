@@ -1,0 +1,29 @@
+// 고정 NPC 국가 자리 표(docs/adr/2026-11-07-world-layout.md "바뀜 (D-528)") — schema.ts가 다시 내보낸다(drizzle-kit 표 정의 진입점은 schema.ts).
+// 개발자·관리자 세계 배치 화면(/dev/world-layout)이 사람이 고른 국가 자리(수도 2차맵)를 적고, 서버가 켤 때 세계 씨앗(src/world/worldBoot.ts)이
+// 읽는다. 세력 행 ID가 아니라 세력 코드로 적는다: 시험 세계 새로 시작(reset-world)이 세력 행을 지워도 자리는 남아 새 세계가 처음부터 그 자리에
+// 선다(이 표는 WORLD_RESET_KEEP — 사람이 만든 세계 밖 설정).
+import { sql } from "drizzle-orm";
+import { bigint, check, jsonb, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core";
+import { planetIdColumn } from "./planetColumns.ts";
+import { users } from "./schema.ts";
+
+/**
+ * 국가 하나의 자리(행성 × 세력 코드 하나에 한 줄). map_key = 수도 2차맵(면 레벨 F 칸 키). applied_at_ms = 마지막으로 세계에 든 시각
+ * (null = 다음 켤 때 들 차례). blocked = 들지 못한 까닭 코드 목록(플레이어 것이 걸림 등, 없으면 null). placed_by = 놓은 사람(지워진 계정이면 null)
+ */
+export const worldNationPlacements = pgTable(
+  "world_nation_placements",
+  {
+    planetId: planetIdColumn(),
+    factionCode: text("faction_code").notNull(),
+    mapKey: bigint("map_key", { mode: "number" }).notNull(),
+    placedBy: uuid("placed_by").references(() => users.id, { onDelete: "set null" }),
+    placedAtMs: bigint("placed_at_ms", { mode: "number" }).notNull(),
+    appliedAtMs: bigint("applied_at_ms", { mode: "number" }),
+    blocked: jsonb("blocked").$type<string[]>(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.planetId, table.factionCode] }),
+    check("world_nation_placements_code_format", sql`${table.factionCode} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+  ],
+);

@@ -5,14 +5,25 @@
 // 2. 행성 값이 없는 세계(시험·DB만 있는 개발)와 NPC 사회를 끈 세계: 옛 방식 그대로(시험 2차맵들에 나눔 / 2차맵마다 가운데 도시).
 // 3. 띄울 2차맵 = 시험 2차맵 줄(봇 규모 시험·서버 시험·화면 시험이 S1_TEST_MAP_KEY를 쓴다) + 도시·폐허가 있는 2차맵(시작 도시 먼저,
 //    MAX_CITY_MAPS까지 — NAS 메모리 상한).
+// 4. 사람이 고른 국가 자리(기획 D-528, nationPlacement.ts): 시작 도시가 없는 국가는 그 자리에 서고, 시작 도시가 선 국가에 새 자리가 있으면
+//    막는 것이 없을 때만 국가째 옮긴다(옛 자리 옮기기와 같은 길, 감사 기록 world.place_nation_city). 자리를 고르지 않은 국가만 자동 배치.
 import { type CellKey, cellLevel, isCellKey } from "@terra/planet";
 import { cityGrade, gradeValue } from "@terra/shared/territory";
 import type { SocietyCoefficients } from "@terra/sim";
 import { type NationPreset, type StartCityPlacer, ensureWorldNations } from "../npc/nations.ts";
+import {
+  type NationPlacement,
+  loadPlacements,
+  markPlacementBlocked,
+  markPlacementsApplied,
+  placementHome,
+  planNationMove,
+} from "./nationPlacement.ts";
 import type { QueryPool } from "./persist/load.ts";
 import type { WriterPool } from "./persist/writer.ts";
 import {
   type LegacyCity,
+  type RelayoutMove,
   type RelayoutPlan,
   applyRelayout,
   loadLegacyCities,
@@ -132,7 +143,7 @@ function layoutPlacer(
   planet: { readonly cities: readonly PlanetCity[]; readonly ruins: readonly LayoutSpot[] },
 ):
   | ((
-      nations: readonly { factionId: number; missing: number }[],
+      nations: readonly { factionId: number; missing: number; home?: CellKey | undefined }[],
       except: ReadonlySet<number>,
     ) => {
       factionId: number;
@@ -173,6 +184,7 @@ function layoutPlacer(
         factionId: nation.factionId,
         missing: nation.missing,
         placed: cities.filter((city) => inPlace(city) && city.factionId === nation.factionId),
+        home: nation.home,
       })),
       obstacles,
       newRadiusMilli,
@@ -227,6 +239,8 @@ export async function bootWorldSeed(
   const { npc, planetId, testMapKeys, nowMs, log } = options;
   let placer: StartCityPlacer | undefined;
   let relayout: RelayoutPlan | undefined;
+  /** 사람이 고른 자리에 이번에 시작 도시를 세운 국가(세력 코드) */
+  const homed: string[] = [];
   if (npc) {
     const loadPlanet = async () => ({
       cities: await loadPlanetCities(pool, planetId),
@@ -264,8 +278,36 @@ export async function bootWorldSeed(
           place = layoutPlacer(options, planet) ?? place;
         }
       }
+      // 사람이 고른 국가 자리(D-528): 시작 도시가 선 국가를 새 자리로(막히면 그대로, 까닭을 적는다)
+      const placements = await loadPlacements(pool, planetId);
+      const moved = await applyPlacementMoves(pool, options, placements, planet, place);
+      if (moved.length > 0) {
+        relayout = { moves: [...(relayout?.moves ?? []), ...moved], kept: relayout?.kept ?? [] };
+        planet = await loadPlanet();
+        place = layoutPlacer(options, planet) ?? place;
+      }
       const placeFinal = place;
-      placer = (nations) => placeFinal(nations, new Set());
+      const planetNow = planet;
+      const avoid = new Set<number>(testMapKeys);
+      placer = (nations) => {
+        // 자리를 고른 국가: 제자리 시작 도시가 없을 때만 그 자리가 수도다(worldLayout.ts home)
+        const spots = placeFinal(
+          nations.map((nation) => ({ ...nation, home: placementHome(placements.get(nation.code)) })),
+          new Set(),
+        );
+        for (const nation of nations) {
+          const inPlace = planetNow.cities.some(
+            (city) => city.start && city.factionId === nation.factionId && !avoid.has(city.mapKey),
+          );
+          if (
+            !inPlace &&
+            placements.has(nation.code) &&
+            spots.some((spot) => spot.factionId === nation.factionId)
+          )
+            homed.push(nation.code);
+        }
+        return spots;
+      };
     }
   }
   await ensureWorldNations(pool, {
@@ -276,5 +318,75 @@ export async function bootWorldSeed(
     seed: options.rules.worldSeed,
     placer,
   });
+  await markPlacementsApplied(pool, planetId, homed, nowMs);
   return { mapKeys: await worldMapKeys(pool, planetId, testMapKeys, log), relayout };
+}
+
+/**
+ * 사람이 고른 국가 자리 가운데 아직 들지 않은 것(applied_at_ms = null)을 본다(nationPlacement.ts 머리 주석 2): 시작 도시가 이미 그 자리
+ * 2차맵에 있으면 든 것으로 적고, 아니면 국가째 옮긴다(막히면 까닭을 적는다). 옮긴 도시 목록(유닛 옮기기에 쓴다)을 돌려준다
+ */
+async function applyPlacementMoves(
+  pool: QueryPool & WriterPool,
+  options: WorldSeedBootOptions,
+  placements: ReadonlyMap<string, NationPlacement>,
+  start: { readonly cities: readonly PlanetCity[]; readonly ruins: readonly LayoutSpot[] },
+  startPlace: NonNullable<ReturnType<typeof layoutPlacer>>,
+): Promise<RelayoutMove[]> {
+  const { planetId, nowMs, log } = options;
+  const pending = [...placements.values()].filter((placement) => placement.appliedAtMs === null);
+  if (pending.length === 0) return [];
+  const found = await pool.query(
+    `select id, code from factions where kind = 'npc' and fixed and code = any($1::text[])`,
+    [pending.map((placement) => placement.code)],
+  );
+  const idOf = new Map(found.rows.map((row) => [String(row.code), Number(row.id)]));
+  let planet = start;
+  let place = startPlace;
+  const applied: string[] = [];
+  const moved: RelayoutMove[] = [];
+  for (const placement of pending) {
+    const factionId = idOf.get(placement.code);
+    if (factionId === undefined) continue;
+    const own = planet.cities.filter((city) => city.factionId === factionId && city.start);
+    // 시작 도시가 없는 국가는 세계 씨앗(ensureWorldNations)이 그 자리에 세운다
+    if (own.length === 0) continue;
+    if (own.some((city) => city.mapKey === placement.mapKey)) {
+      applied.push(placement.code);
+      continue;
+    }
+    const placeNow = place;
+    const plan = await planNationMove(pool, {
+      planetId,
+      factionId,
+      cities: planet.cities,
+      place: (count, except) =>
+        placeNow([{ factionId, missing: count, home: placementHome(placement) }], except).map(
+          (entry) => entry.spot,
+        ),
+    });
+    if (plan.reasons.length > 0) {
+      await markPlacementBlocked(pool, planetId, placement.code, plan.reasons);
+      log.warn(
+        { faction: placement.code, to: cellLabel(placement.mapKey), reasons: plan.reasons },
+        "world placement: nation kept in place",
+      );
+      continue;
+    }
+    await applyRelayout(pool, { moves: plan.moves, kept: [] }, nowMs, "world.place_nation_city");
+    moved.push(...plan.moves);
+    applied.push(placement.code);
+    log.info(
+      { faction: placement.code, to: cellLabel(placement.mapKey), cities: plan.moves.length },
+      "world placement: moved nation to its placed home",
+    );
+    // 다음 국가는 옮긴 도시를 새 자리로 본다
+    planet = {
+      cities: await loadPlanetCities(pool, planetId),
+      ruins: await loadRuinSpots(pool, planetId),
+    };
+    place = layoutPlacer(options, planet) ?? place;
+  }
+  await markPlacementsApplied(pool, planetId, applied, nowMs);
+  return moved;
 }

@@ -35,6 +35,8 @@ export interface MapUnit {
   readonly job: RosterJob | null;
   /** 부상 단계 0~3 */
   readonly injury: 0 | 1 | 2 | 3;
+  /** 다친 유닛이 한 단계 나을 시각(D-525 남은 시간 "N시간 M분" 표시). 정상이면 null, 옛 서버면 없음 */
+  readonly injuryUntilMs?: number | null | undefined;
   /** 지금 명령할 수 없는 까닭(없으면 null — 옮기고 세울 수 있다) */
   readonly hold: MapUnitHold | null;
 }

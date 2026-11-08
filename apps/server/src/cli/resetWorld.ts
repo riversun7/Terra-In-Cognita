@@ -42,6 +42,8 @@ export const WORLD_RESET_KEEP: Readonly<Record<string, string>> = {
   content_override_revision: "편집기 저장 판",
   content_retired_ids: "편집기에서 지운 ID(다시 쓰지 않는다)",
   battle_lab_presets: "전투 실험실 프리셋",
+  world_nation_placements:
+    "고정 NPC 국가 자리(세계 배치 화면, D-528 — 세력 코드로 적어 새 세계가 처음부터 그 자리에 선다)",
   client_errors: "기기 오류 기록(운영)",
   client_perf_samples: "기기 성능 기록(운영)",
 };

@@ -126,6 +126,17 @@ export function TerritoryIcon() {
   );
 }
 
+/** 세계 배치(지구본 위 깃발) */
+export function GlobePinIcon() {
+  return (
+    <DevIcon>
+      <circle cx="11" cy="13" r="7" />
+      <path d="M4 13h14M11 6c-2.4 2-2.4 12 0 14M11 6c2.4 2 2.4 12 0 14" />
+      <path d="M17 3v6M17 3h4l-1 1.5 1 1.5h-4" />
+    </DevIcon>
+  );
+}
+
 /** 크리처 편집기(발바닥 표식) */
 export function PawIcon() {
   return (

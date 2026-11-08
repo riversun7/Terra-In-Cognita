@@ -5,8 +5,11 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 21:20 | 묶음 합치기: 개발자 패널 분야별 페이지 + 식품 포장(D-524) + 부상·귀화(D-525·D-526) | Claude Code | [08-2120-tuning-food-injury-merge](worklog/2026/11/08-2120-tuning-food-injury-merge.md) |
+| 2026-11-08 21:15 | 세계 배치 2(D-528): 개발자·관리자가 고정 NPC 국가 자리를 놓는 화면, NPC 수도 고르기·옮기기 | Claude Code | [08-2115-world-placement](worklog/2026/11/08-2115-world-placement.md) |
 | 2026-11-08 21:10 | 설정 칸 패널(/dev/tuning) 화면 개편 | Claude Code | [08-2110-devtools-tuning](worklog/2026/11/08-2110-devtools-tuning.md) |
 | 2026-11-08 20:45 | 휴대폰 확인 결과로 ADR 8개 확정 | Claude Code | [08-2045-phone-check-confirm](worklog/2026/11/08-2045-phone-check-confirm.md) |
+| 2026-11-08 20:35 | 부상 이름·회복 시간 표시(D-525)와 귀화 지원금/입회비·우호도(D-526) | Claude Code | [08-2035-injury-citizen2](worklog/2026/11/08-2035-injury-citizen2.md) |
 | 2026-11-08 20:30 | 식품 포장·포장 풀기(D-524: 포장된 식품만 스택, 풀면 낱개·신선도 하락 시작) | Claude Code | [08-2030-food-pack](worklog/2026/11/08-2030-food-pack.md) |
 | 2026-11-08 20:26 | 설정 칸 패널 분야별 페이지·[임시] 값 칸 열기 | Claude Code | [08-2026-tuning-pages](worklog/2026/11/08-2026-tuning-pages.md) |
 | 2026-11-08 20:25 | ADR 확정 표시 2차(6개) — 사용자 ADR 검토 | Claude Code | [08-2025-adr-confirm-2](worklog/2026/11/08-2025-adr-confirm-2.md) |

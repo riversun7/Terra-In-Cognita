@@ -1,7 +1,10 @@
-// 정부 창구 국적 상담의 [국적 바꾸기(귀화)] 칸 — 질문 745 나(다른 나라 정부에서 귀화 신청, 값·쉬는 날은 설정 칸, 옛 나라 지원금 반환),
-// docs/adr/2026-11-08-citizenship.md. 내 나라가 아닌 도시의 정부에서만 그린다(창구 GovernmentDesk의 국적 상담 자리 CitizenshipSlot.tsx가 넣는다).
-// - 조건: tRPC world.naturalization(받는 나라·지금 내 나라·귀화 값·지원금 반환·합·내 잔고·쉬는 기간·막는 까닭). 판정은 서버가 다시 한다.
-// - 신청: [귀화 신청] → 확인 줄(받는 나라·낼 값 합) → [확정]이면 WebSocket nationality_change(본 나라·값을 함께 보낸다). 결과 뒤 조건을 다시 받는다.
+// 정부 창구 국적 상담의 [국적 바꾸기(귀화)] 칸 — 질문 745 나(다른 나라 정부에서 귀화 신청, 값·쉬는 날은 설정 칸)·D-526(받는 나라가 지원금
+// 또는 입회비를 정함, 옛 나라에 반환 없음, 옛 나라 우호도 하락 — 적대 세력으로 가면 크게), docs/adr/2026-11-08-citizenship.md. 내 나라가 아닌
+// 도시의 정부에서만 그린다(창구 GovernmentDesk의 국적 상담 자리 CitizenshipSlot.tsx가 넣는다).
+// - 조건: tRPC world.naturalization(받는 나라·지금 내 나라·입회비 또는 지원금·내 잔고·옛 나라와 이 나라 우호도·쉬는 기간·막는 까닭). 판정은
+//   서버가 다시 한다.
+// - 신청: [귀화 신청] → 확인 줄(받는 나라·낼 값 또는 받을 값·우호도 하락) → [확정]이면 WebSocket nationality_change(본 나라·값을 함께 보낸다).
+//   결과 뒤 조건을 다시 받는다.
 // - 무엇이 그대로인지 먼저 알린다: 유닛·건물·직무는 그대로 내 것, 내 도시가 이 도시로, 정착 지원금은 다시 받지 않음.
 import type { GovernmentResponse } from "@terra/shared/government";
 import type { NaturalizationResponse } from "@terra/shared/citizenship";
@@ -9,7 +12,14 @@ import { useEffect, useId, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { sendNaturalize } from "./naturalizeCommands.ts";
-import { NATURALIZE_RESULT_TEXT, blockText, costLines, loadNaturalization } from "./naturalizeData.ts";
+import { formatAmount } from "../roster/rosterText.ts";
+import {
+  NATURALIZE_RESULT_TEXT,
+  blockText,
+  confirmText,
+  costLines,
+  loadNaturalization,
+} from "./naturalizeData.ts";
 import "./naturalize.css";
 
 type Load =
@@ -71,9 +81,15 @@ export function NaturalizePanel({ government }: { government: GovernmentResponse
         t: "nationality_change",
         buildingId,
         factionId: terms.target.id,
-        cost: terms.total,
+        cost: terms.cost,
       });
-      if (outcome.ok) notice.show([m.naturalize_done({ nation: costLines(terms).target })]);
+      if (outcome.ok)
+        notice.show([
+          m.naturalize_done({ nation: costLines(terms).target }),
+          ...(outcome.granted !== "0"
+            ? [m.naturalize_done_grant({ amount: formatAmount(outcome.granted) })]
+            : []),
+        ]);
       else problem.show([NATURALIZE_RESULT_TEXT[outcome.code]()]);
     } finally {
       await fetchTerms();
@@ -113,15 +129,21 @@ export function NaturalizePanel({ government }: { government: GovernmentResponse
           <dl className="gov-facts">
             <Fact part="naturalize-target" label={m.naturalize_field_target()} value={text.target} />
             <Fact part="naturalize-current" label={m.naturalize_field_current()} value={text.current} />
-            <Fact part="naturalize-fee" label={m.naturalize_field_fee()} value={text.fee} />
-            <Fact part="naturalize-grant" label={m.naturalize_field_grant()} value={text.grant} />
+            <Fact part="naturalize-terms" label={m.naturalize_field_fee()} value={text.terms} />
+            <Fact part="naturalize-net" label={m.naturalize_field_total()} value={text.net} />
+            <Fact part="naturalize-standing" label={m.naturalize_field_standing()} value={text.standing} />
             <Fact
-              part="naturalize-total"
-              label={m.naturalize_field_total()}
-              value={m.naturalize_total({ total: text.total, balance: text.balance })}
+              part="naturalize-target-standing"
+              label={m.naturalize_field_target_standing()}
+              value={text.targetStanding}
             />
             <Fact part="naturalize-rest" label={m.naturalize_field_rest()} value={text.rest} />
           </dl>
+          {terms.standing.hostile ? (
+            <p className="gov-naturalize-reason" data-part="naturalize-hostile">
+              {m.naturalize_standing_hostile({ nation: text.current })}
+            </p>
+          ) : null}
           <p className="gov-muted">{m.naturalize_keeps()}</p>
           {reason ? (
             <p className="gov-naturalize-reason" data-part="naturalize-reason">
@@ -130,9 +152,12 @@ export function NaturalizePanel({ government }: { government: GovernmentResponse
           ) : null}
           {confirming ? (
             <div className="gov-naturalize-confirm" data-part="naturalize-confirm">
-              <p className="gov-naturalize-ask">
-                {m.naturalize_confirm({ nation: text.target, total: text.total })}
-              </p>
+              <p className="gov-naturalize-ask">{confirmText(text)}</p>
+              {terms.standing.drop > 0 ? (
+                <p className="gov-muted">
+                  {m.naturalize_confirm_standing({ old: text.current, drop: String(terms.standing.drop) })}
+                </p>
+              ) : null}
               <div className="gov-actions">
                 <button
                   type="button"

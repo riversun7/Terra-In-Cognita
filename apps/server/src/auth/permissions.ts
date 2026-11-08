@@ -1,7 +1,7 @@
 // 역할별 권한 표 — Better Auth 관리자 플러그인과 우리 tRPC 권한 검사가 같은 표를 쓴다.
 // 기본 거부: 표에 없는 동작은 할 수 없다. 여러 역할이면 하나라도 허용하면 허용한다.
 // 지금 정한 것(ADR 2026-10-28-auth-and-accounts): 역할 바꾸기·계정 관리는 admin만.
-// gm·gm_lead(운영자)는 Better Auth 문장이 없다: 운영 권한은 따로 판정한다(src/ops/access.ts, docs/adr/2026-11-08-operator-console.md). dev는 계정 관리 권한 없이 개발 도구 권한(home·planetEditor·tuning)만 있다.
+// gm(운영자)는 Better Auth 문장이 없다: 운영 권한은 따로 판정한다(src/ops/access.ts, docs/adr/2026-11-08-operator-console.md). dev는 계정 관리 권한 없이 개발 도구 권한(home·planetEditor·tuning)만 있다.
 // 게임·콘텐츠 권한은 그 기능을 만들 때 문장(statement)을 늘린다.
 import { ROLES, type Role, isRole } from "@terra/shared";
 import { createAccessControl } from "better-auth/plugins/access";
@@ -41,7 +41,6 @@ export const ac = createAccessControl(statements);
 export const roles = {
   player: ac.newRole({ user: [], session: [] }),
   gm: ac.newRole({ user: [], session: [] }),
-  gm_lead: ac.newRole({ user: [], session: [] }),
   // 개발자: 계정 관리 권한 없이 개발 도구(홈 시험, 행성 편집기)만 쓴다(ADR 2026-10-29-planet-editor-stage1 사용자 결정 D8)
   dev: ac.newRole({
     user: [],

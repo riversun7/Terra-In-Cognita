@@ -11,7 +11,6 @@ import { useMountFocus } from "../ui/useMountFocus.ts";
 import { AuditTab } from "./AuditTab.tsx";
 import { EconomyTab } from "./EconomyTab.tsx";
 import { FactionDetail } from "./FactionDetail.tsx";
-import { GrantsTab } from "./GrantsTab.tsx";
 import { CitiesTab, FactionsTab } from "./NpcTabs.tsx";
 import { LoadState, PERMISSION_LABELS, useOpsLoad } from "./opsUi.tsx";
 import { OverviewTab } from "./OverviewTab.tsx";
@@ -21,7 +20,8 @@ import { UnitDetail } from "./UnitDetail.tsx";
 import { UnitsTab } from "./UnitsTab.tsx";
 import "./ops.css";
 
-const TABS = ["overview", "players", "npcs", "cities", "units", "economy", "audit", "grants"] as const;
+// 권한 부여는 개발자 영역(/dev/ops-grants)으로 옮겼다(사용자 결정 2026-11-08 "권한부여는 개발자가하는 기능이다")
+const TABS = ["overview", "players", "npcs", "cities", "units", "economy", "audit"] as const;
 type Tab = (typeof TABS)[number];
 
 /** 탭마다 필요한 권한(하나라도 있으면 보인다) */
@@ -33,7 +33,6 @@ const TAB_NEEDS: { readonly [T in Tab]: readonly OpsPermission[] } = {
   units: ["view_players", "view_npcs"],
   economy: ["view_economy"],
   audit: ["view_audit"],
-  grants: ["manage_grants"],
 };
 
 const TAB_LABELS: { readonly [T in Tab]: () => string } = {
@@ -44,7 +43,6 @@ const TAB_LABELS: { readonly [T in Tab]: () => string } = {
   units: m.ops_tab_units,
   economy: m.ops_tab_economy,
   audit: m.ops_tab_audit,
-  grants: m.ops_tab_grants,
 };
 
 const isTab = (value: string | undefined): value is Tab =>
@@ -120,9 +118,6 @@ export default function OpsConsole({ viewer, match }: OpsConsoleProps) {
       break;
     case "audit":
       body = <AuditTab />;
-      break;
-    case "grants":
-      body = <GrantsTab viewerId={viewer.id} canSearch={can("view_players")} />;
       break;
     case null:
       body = null;

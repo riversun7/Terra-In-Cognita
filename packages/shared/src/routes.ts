@@ -16,7 +16,7 @@ import type { Role } from "./roles.ts";
 export type RouteFrame = "shown" | "hidden";
 
 /** 누가 여는지. 화면에서 가리는 것은 편의이고, 서버가 요청마다 권한을 본다 */
-export type RouteAccess = "everyone" | "dev_admin" | "admin" | "ops";
+export type RouteAccess = "everyone" | "dev_admin" | "dev" | "admin" | "ops";
 
 /**
  * 매개변수 값 규칙
@@ -200,6 +200,14 @@ export const ROUTES = {
     access: "dev_admin",
   },
   // 설정 칸 패널(docs/adr/2026-11-01-dev-settings-panel.md 12절): 틀 안 빽빽한 목록. 바꾼 값은 그 세계에 바로 든다
+  // 운영 권한 부여(개발자만, docs/adr/2026-11-08-operator-roles-log-switch.md) — 운영자 콘솔에서 옮겼다
+  dev_ops_grants: {
+    path: "/dev/ops-grants",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev",
+  },
   dev_tuning: {
     path: "/dev/tuning",
     search: [],
@@ -725,7 +733,9 @@ const ACCESS_ROLES: { readonly [A in RouteAccess]: readonly Role[] | null } = {
   dev_admin: ["dev", "admin"],
   admin: ["admin"],
   // 운영자 콘솔(@terra/shared/ops OPS_CONSOLE_ROLES와 같다 — 이 파일은 첫 화면 묶음이라 그 모듈을 가져오지 않는다)
-  ops: ["gm", "gm_lead", "dev", "admin"],
+  ops: ["gm", "dev", "admin"],
+  // 개발자만(운영 권한 부여 — 사용자 결정 2026-11-08 "권한부여는 개발자가하는 기능이다")
+  dev: ["dev"],
 };
 
 /** 이 역할들로 그 화면을 여는지. 아니면 "권한 없음" + [홈](ADR 37 2절). 화면 편의일 뿐이고 서버가 요청마다 본다 */

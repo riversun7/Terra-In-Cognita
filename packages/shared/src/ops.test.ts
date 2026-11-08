@@ -1,4 +1,4 @@
-// 운영 권한 판정 시험 — 역할 기본 묶음(gm = 감시+가벼운 통제, gm_lead = + 강한 통제, dev·admin = 전체), 체크박스는 더하기만,
+// 운영 권한 판정 시험 — 역할 기본 묶음(gm 운영자 = 감시+약한 통제, admin 관리자 = + 강한 통제 + 로그 스위치, dev = 전체), 체크박스는 더하기만,
 // 콘솔 역할이 없으면 빈 목록(docs/adr/2026-11-08-operator-console.md)
 import { describe, expect, it } from "vitest";
 import {
@@ -17,16 +17,23 @@ describe("운영 권한", () => {
     expect(Object.keys(OPS_ROLE_DEFAULTS).toSorted()).toEqual([...ROLES].toSorted());
     expect(OPS_ROLE_DEFAULTS.player).toEqual([]);
     expect(OPS_ROLE_DEFAULTS.gm).toEqual([...tier("monitor"), ...tier("light")]);
-    expect(OPS_ROLE_DEFAULTS.gm_lead).toEqual([...tier("monitor"), ...tier("light"), ...tier("strong")]);
+    expect(OPS_ROLE_DEFAULTS.admin).toEqual([
+      ...tier("monitor"),
+      ...tier("light"),
+      ...tier("strong"),
+      "log_switch",
+    ]);
     expect(OPS_ROLE_DEFAULTS.dev).toEqual(OPS_PERMISSIONS);
-    expect(OPS_ROLE_DEFAULTS.admin).toEqual(OPS_PERMISSIONS);
   });
 
-  it("gm은 강한 통제·권한 관리를 못 하고 gm_lead는 권한 관리만 못 한다", () => {
+  it("운영자는 강한 통제·로그 스위치·권한 부여를 못 하고, 관리자는 권한 부여만 못 한다", () => {
     expect(effectiveOpsPermissions(["gm"], [])).not.toContain("ledger_grant");
+    expect(effectiveOpsPermissions(["gm"], [])).not.toContain("log_switch");
     expect(effectiveOpsPermissions(["gm"], [])).toContain("account_ban");
-    expect(effectiveOpsPermissions(["gm_lead"], [])).toContain("unit_teleport");
-    expect(effectiveOpsPermissions(["gm_lead"], [])).not.toContain("manage_grants");
+    expect(effectiveOpsPermissions(["admin"], [])).toContain("unit_teleport");
+    expect(effectiveOpsPermissions(["admin"], [])).toContain("log_switch");
+    expect(effectiveOpsPermissions(["admin"], [])).not.toContain("manage_grants");
+    expect(effectiveOpsPermissions(["dev"], [])).toContain("manage_grants");
   });
 
   it("체크박스는 역할 기본 위에 더한다(차례는 목록 차례, 중복 없음)", () => {

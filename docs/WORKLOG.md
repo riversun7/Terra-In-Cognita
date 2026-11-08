@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 19:20 | 운영 역할 다시 나눔·조회 감사 기록 스위치·권한 부여 이동·읽기 쉬운 감사 기록 | Claude Code | [08-1920-operator-roles-log-switch](worklog/2026/11/08-1920-operator-roles-log-switch.md) |
 | 2026-11-08 18:50 | 사이보그 생성과정 및 스탯 창 속성별 아이콘과 색상 적용 | Antigravity | [08-1850-cyborg-element-icons-and-colors](worklog/2026/11/08-1850-cyborg-element-icons-and-colors.md) |
 | 2026-11-08 16:50 | 크리처 편집기(`/dev/creatures`) 구현 및 구형 도감 91종·이미지 통합 | Antigravity | [08-1650-creature-editor](worklog/2026/11/08-1650-creature-editor.md) |
 | 2026-11-08 16:40 | 운영자 콘솔(/ops): 유저·NPC·유닛 감시와 통제, 운영 역할 둘과 권한 체크박스 | Claude Code | [08-1640-operator-console](worklog/2026/11/08-1640-operator-console.md) |

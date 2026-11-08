@@ -38,6 +38,7 @@ const MailScreen = lazy(() => import("../mail/MailScreen.tsx"));
 const SettingsPage = lazy(() => import("../settings/SettingsPage.tsx"));
 const AdminPage = lazy(() => import("../admin/AdminPage.tsx"));
 const OpsConsole = lazy(() => import("../ops/OpsConsole.tsx"));
+const OpsGrantsScreen = lazy(() => import("../ops/OpsGrantsScreen.tsx"));
 // 개발자 영역(ADR 38 1절). 셰이더 측정은 gpuBench…로 시작하는 진입 파일로 받는다(조각 이름 → 미리 캐시에서 빠짐)
 const DevHome = lazy(() => import("../editor/DevHome.tsx"));
 const GpuBenchPage = lazy(() => import("../editor/gpuBench/gpuBenchScreen.ts"));
@@ -93,6 +94,7 @@ export const ROUTE_TITLES = {
   settings: m.settings_title,
   admin: m.admin_title,
   ops: m.ops_title,
+  dev_ops_grants: m.shell_route_dev_ops_grants,
   dev: m.shell_dev,
   dev_planet_editor: m.shell_route_dev_planet_editor,
   dev_star_system: m.shell_route_dev_star_system,
@@ -207,6 +209,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <AdminPage viewer={user} onClose={goBack} />;
     case "ops":
       return <OpsConsole viewer={user} match={match} />;
+    case "dev_ops_grants":
+      return <OpsGrantsScreen viewer={user} />;
     case "dev":
       return <DevHome />;
     case "dev_gpu_bench":

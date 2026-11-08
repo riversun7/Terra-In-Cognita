@@ -86,11 +86,14 @@ export interface PlanetEditorShared {
   definitions: PlanetEditorDefinitions;
   pack: DraftPackContext;
   limiters: { calls: RateLimiter; definitions: RateLimiter };
+  /** 정의 조회 감사 기록을 쓸지(운영 스위치 view_audit, docs/adr/2026-11-08-operator-roles-log-switch.md). 없으면 늘 쓴다 */
+  viewAudit?: (() => boolean) | undefined;
 }
 
 export interface PlanetEditorSharedOptions {
   now: () => number;
   limits?: Partial<PlanetEditorLimits> | undefined;
+  viewAudit?: (() => boolean) | undefined;
 }
 
 /** 정의 조회 자료 → 요청마다 같이 쓰는 것(팩 정보·속도 제한기) */
@@ -106,6 +109,7 @@ export function createPlanetEditorShared(
       calls: createRateLimiter({ ...limits.callsPerUser, now: options.now }),
       definitions: createRateLimiter({ ...limits.definitionsPerUser, now: options.now }),
     },
+    viewAudit: options.viewAudit,
   };
 }
 
@@ -331,12 +335,14 @@ export function createPlanetEditorServices(deps: PlanetEditorServicesDeps): Plan
 
     async definitions(viewer) {
       const { definitions } = shared;
-      // 시드가 든 자료라 감사 기록을 쓴 뒤에만 보낸다(못 쓰면 던져서 자료를 보내지 않는다)
-      await recordDefinitionsRead(db, actorOf(viewer, deps.ip), {
-        contentVersion: definitions.contentVersion,
-        generatorVersion: definitions.generatorVersion,
-        planetIds: definitions.planets.map((planet) => planet.id),
-      });
+      // 시드가 든 자료라 감사 기록을 쓴 뒤에만 보낸다(못 쓰면 던져서 자료를 보내지 않는다).
+      // 운영 스위치(조회 감사 기록)가 꺼져 있으면 쓰지 않는다(개발 단계 기본 꺼짐 — 사용자 결정 2026-11-08)
+      if (shared.viewAudit?.() !== false)
+        await recordDefinitionsRead(db, actorOf(viewer, deps.ip), {
+          contentVersion: definitions.contentVersion,
+          generatorVersion: definitions.generatorVersion,
+          planetIds: definitions.planets.map((planet) => planet.id),
+        });
       return definitions;
     },
 

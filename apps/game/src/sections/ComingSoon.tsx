@@ -23,6 +23,7 @@ type ComingSoonRoute = Exclude<
   | "settings"
   | "admin"
   | "ops"
+  | "dev_ops_grants"
   | "inbox"
   | "start"
   | "dev"

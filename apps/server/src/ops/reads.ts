@@ -83,12 +83,12 @@ export async function listPlayers(
   const where: string[] = [];
   const values: unknown[] = [];
   if (input.search) {
-    values.push(`%${input.search.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`);
+    values.push(`%${likeEscape(input.search)}%`);
     where.push(`(u.username ilike $${values.length} or c.name ilike $${values.length})`);
   }
   if (input.status === "online") where.push("p.user_id is not null and p.offline_since_ms is null");
   if (input.status === "banned") where.push("u.banned");
-  if (input.status === "staff") where.push("u.role ~ '(^|,)(gm|gm_lead|dev|admin)(,|$)'");
+  if (input.status === "staff") where.push("u.role ~ '(^|,)(gm|dev|admin)(,|$)'");
   const filter = where.length > 0 ? `where ${where.join(" and ")}` : "";
   const order =
     input.sort === "created"
@@ -366,7 +366,7 @@ export async function listCities(
     where.push(`c.faction_id = $${values.length}`);
   }
   if (input.search) {
-    values.push(`%${input.search.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`);
+    values.push(`%${likeEscape(input.search)}%`);
     where.push(`c.name ilike $${values.length}`);
   }
   const filter = where.length > 0 ? `where ${where.join(" and ")}` : "";
@@ -436,20 +436,36 @@ export async function ownerLabels(
 }
 
 export interface AuditFilter {
+  /** 동작 이름 앞부분(비우면 모두) */
   action: string;
+  /** 동작 이름 앞부분 목록(분류 거르기, @terra/shared AUDIT_CATEGORIES). 비우면 모두. action과 함께 주면 둘 다 맞아야 한다 */
+  prefixes?: readonly string[] | undefined;
   actorId?: string | undefined;
   targetId?: string | undefined;
+  /** 한 사람 아이디 일부(대소문자 무시) */
+  actorSearch?: string | undefined;
+  /** 대상 계정 아이디 일부(대소문자 무시) */
+  targetSearch?: string | undefined;
   /** 이 ID보다 작은 것(다음 쪽) */
   beforeId?: number | undefined;
   limit: number;
+}
+
+/** LIKE 특수 글자(\ % _)를 글자로 */
+function likeEscape(value: string): string {
+  return value.replaceAll(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 export async function listAudit(db: OpsQueryable, filter: AuditFilter): Promise<OpsAuditRow[]> {
   const where: string[] = [];
   const values: unknown[] = [];
   if (filter.action) {
-    values.push(`${filter.action.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`);
+    values.push(`${likeEscape(filter.action)}%`);
     where.push(`a.action like $${values.length}`);
+  }
+  if (filter.prefixes && filter.prefixes.length > 0) {
+    values.push(filter.prefixes.map((prefix) => `${likeEscape(prefix)}%`));
+    where.push(`a.action like any($${values.length}::text[])`);
   }
   if (filter.actorId) {
     values.push(filter.actorId);
@@ -458,6 +474,14 @@ export async function listAudit(db: OpsQueryable, filter: AuditFilter): Promise<
   if (filter.targetId) {
     values.push(filter.targetId);
     where.push(`a.target_id = $${values.length}`);
+  }
+  if (filter.actorSearch) {
+    values.push(`%${likeEscape(filter.actorSearch)}%`);
+    where.push(`u.username ilike $${values.length}`);
+  }
+  if (filter.targetSearch) {
+    values.push(`%${likeEscape(filter.targetSearch)}%`);
+    where.push(`t.username ilike $${values.length}`);
   }
   if (filter.beforeId !== undefined) {
     values.push(filter.beforeId);
@@ -472,13 +496,15 @@ export async function listAudit(db: OpsQueryable, filter: AuditFilter): Promise<
     actor_name: string | null;
     action: string;
     target_id: string | null;
+    target_name: string | null;
     before: unknown;
     after: unknown;
     meta: unknown;
     ip: string | null;
   }>(
-    `select a.id, a.at, a.actor_kind, a.actor_id, u.name as actor_name, a.action, a.target_id, a.before, a.after, a.meta, a.ip
-       from audit_log a left join users u on u.id = a.actor_id
+    `select a.id, a.at, a.actor_kind, a.actor_id, u.name as actor_name, a.action, a.target_id, t.name as target_name,
+            a.before, a.after, a.meta, a.ip
+       from audit_log a left join users u on u.id = a.actor_id left join users t on t.id = a.target_id
        ${where.length > 0 ? `where ${where.join(" and ")}` : ""}
       order by a.id desc limit $${values.length}`,
     values,
@@ -491,6 +517,7 @@ export async function listAudit(db: OpsQueryable, filter: AuditFilter): Promise<
     actorLoginId: row.actor_name,
     action: row.action,
     targetId: row.target_id,
+    targetLoginId: row.target_name,
     before: row.before,
     after: row.after,
     meta: row.meta,

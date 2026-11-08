@@ -7,6 +7,8 @@ import { createHomeServices } from "../home/services.ts";
 import { NO_HOLDINGS } from "../holdings/reads.ts";
 import { createMailServices } from "../mail/list.ts";
 import { createOpsServices } from "../ops/services.ts";
+import type { OpsSwitches } from "../ops/switches.ts";
+import { OPS_SWITCHES, type OpsSwitch } from "@terra/shared/ops";
 import { createRosterServices } from "../roster/services.ts";
 import { NO_VITALS } from "../vitals/reads.ts";
 import type { TrpcContext, Viewer } from "./context.ts";
@@ -24,6 +26,7 @@ function fakePool(grants: Record<string, string[]>) {
       const found = grants[String(values[0])];
       return found ? [{ permissions: found }] : [];
     }
+    if (text.includes("from audit_log a")) return [];
     if (text.startsWith("select role, name from users"))
       return values[0] === TARGET ? [{ role: "gm", name: "target" }] : [];
     if (text.startsWith("insert") || text.startsWith("delete") || text.startsWith("update")) {
@@ -44,6 +47,19 @@ function fakePool(grants: Record<string, string[]>) {
   };
 }
 
+/** 메모리 운영 스위치(시험용, 기본 꺼짐) */
+function memorySwitches(): OpsSwitches {
+  const state = new Map<OpsSwitch, boolean>();
+  return {
+    isOn: (id) => state.get(id) ?? false,
+    list: () => OPS_SWITCHES.map((id) => ({ id, enabled: state.get(id) ?? false })),
+    set(id, enabled) {
+      state.set(id, enabled);
+      return Promise.resolve();
+    },
+  };
+}
+
 function callerFor(viewer: Viewer, grants: Record<string, string[]> = {}) {
   const db = fakePool(grants);
   const ops = createOpsServices(
@@ -51,6 +67,7 @@ function callerFor(viewer: Viewer, grants: Record<string, string[]> = {}) {
       pool: db.pool,
       world: () => undefined,
       worldStatus: () => undefined,
+      switches: memorySwitches(),
       wsConnections: () => 0,
       now: () => NOW,
     },
@@ -76,7 +93,7 @@ function callerFor(viewer: Viewer, grants: Record<string, string[]> = {}) {
 }
 
 const GM: Viewer = { id: "00000000-0000-4000-8000-0000000000a1", loginId: "gm", roles: ["gm"] };
-const LEAD: Viewer = { id: "00000000-0000-4000-8000-0000000000a2", loginId: "lead", roles: ["gm_lead"] };
+const ADMIN: Viewer = { id: "00000000-0000-4000-8000-0000000000a2", loginId: "admin", roles: ["admin"] };
 const DEV: Viewer = { id: "00000000-0000-4000-8000-0000000000a3", loginId: "dev", roles: ["dev"] };
 const PLAYER: Viewer = { id: "00000000-0000-4000-8000-0000000000a4", loginId: "p", roles: ["player"] };
 
@@ -104,9 +121,9 @@ describe("ops 라우터 권한", () => {
     expect(await granted.caller.ops.units.heal({ unitId: 1 })).toEqual({ result: "not_ready" });
   });
 
-  it("권한 부여는 dev·admin만(gm_lead는 FORBIDDEN), 저장하면 감사 기록", async () => {
+  it("권한 부여는 개발자만(관리자는 FORBIDDEN), 저장하면 감사 기록", async () => {
     await expect(
-      callerFor(LEAD).caller.ops.grants.set({ userId: TARGET, permissions: ["unit_heal"] }),
+      callerFor(ADMIN).caller.ops.grants.set({ userId: TARGET, permissions: ["unit_heal"] }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     const { caller, writes } = callerFor(DEV);
     expect(await caller.ops.grants.set({ userId: TARGET, permissions: ["unit_heal"] })).toEqual({ ok: true });
@@ -138,7 +155,7 @@ describe("ops 라우터 권한", () => {
   });
 
   it("지급 금액은 부호 있는 정수 글자만 받는다", async () => {
-    const { caller } = callerFor(LEAD);
+    const { caller } = callerFor(ADMIN);
     await expect(
       caller.ops.economy.grant({ ownerId: 1, asset: "credit", amount: "1.5", reason: "test" }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
@@ -148,5 +165,19 @@ describe("ops 라우터 권한", () => {
       ok: false,
       code: "not_ready",
     });
+  });
+
+  it("운영 스위치: 운영자는 FORBIDDEN, 관리자는 켜고 끈다(기본 꺼짐), 바꾸면 감사 기록 ops.switch", async () => {
+    await expect(callerFor(GM).caller.ops.switches.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const { caller, writes } = callerFor(ADMIN);
+    expect(await caller.ops.switches.list()).toEqual([{ id: "view_audit", enabled: false }]);
+    expect(await caller.ops.switches.set({ id: "view_audit", enabled: true })).toEqual({ ok: true });
+    expect(await caller.ops.switches.list()).toEqual([{ id: "view_audit", enabled: true }]);
+    expect(writes.at(-1)?.values[1]).toBe("ops.switch");
+  });
+
+  it("감사 기록은 분류·한 사람 아이디로 거른다", async () => {
+    const { caller } = callerFor(ADMIN);
+    expect(await caller.ops.audit({ categories: ["ops", "account"], actorSearch: "rivers" })).toEqual([]);
   });
 });

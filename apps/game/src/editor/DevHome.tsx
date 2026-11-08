@@ -6,7 +6,8 @@
 // - 이 조각은 미리 캐시된다(작은 목록이다). 도구 조각은 이름 앞머리(gpuBench·planetEditor·starSystem·secondMapLab·tuningPanel·balancePanel·
 //   skillEditor·itemEditor·buildingEditor·territoryLab·contentEditor·battleReplayLab)로
 //   미리 캐시에서 빠진다.
-import { ROUTES, type RouteId } from "@terra/shared";
+import { ROUTES, type RouteId, canOpenRoute } from "@terra/shared";
+import { useSession } from "../auth/session.ts";
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
@@ -153,6 +154,15 @@ const DEV_TOOLS = {
     tagEn: "3D REPLAY · 6v6",
     ready: true,
   },
+  // 운영 권한 부여(docs/adr/2026-11-08-operator-roles-log-switch.md): 개발자만 — 계정마다 운영 권한 체크박스
+  dev_ops_grants: {
+    name: m.shell_route_dev_ops_grants,
+    desc: m.dev_tool_ops_grants_desc,
+    mark: <Icon name="admin" />,
+    tagKo: "ACCESS · 개발자 전용",
+    tagEn: "ACCESS · Developer only",
+    ready: true,
+  },
   dev_gpu_bench: {
     name: m.shell_route_dev_gpu_bench,
     desc: m.dev_tool_gpu_bench_desc,
@@ -211,6 +221,14 @@ const DEV_SECTIONS: readonly DevSection[] = [
     subEn: "Benchmark frame times and rendering performance across WebGL2 and TSL shader paths.",
     routes: ["dev_gpu_bench"],
   },
+  {
+    id: "access",
+    titleKo: "운영 권한",
+    titleEn: "Operator Access",
+    subKo: "운영자 콘솔 권한을 계정마다 체크박스로 더 줍니다. 개발자만 엽니다.",
+    subEn: "Grant extra operator-console permissions per account with checkboxes. Developers only.",
+    routes: ["dev_ops_grants"],
+  },
 ];
 
 function DevToolRow({ route, ko }: { readonly route: DevToolRoute; readonly ko: boolean }) {
@@ -242,6 +260,8 @@ function DevToolRow({ route, ko }: { readonly route: DevToolRoute; readonly ko: 
 
 export default function DevHome() {
   const ko = getLocale() !== "en";
+  const session = useSession();
+  const roles = session.kind === "signed_in" ? session.user.roles : [];
   return (
     <section className="screen dev-home" aria-labelledby="dev-home-title">
       <div className="screen-header">
@@ -276,19 +296,23 @@ export default function DevHome() {
       </div>
 
       <div className="dev-sections" aria-label={m.dev_home_tools()}>
-        {DEV_SECTIONS.map((section) => (
-          <section key={section.id} className="dev-section">
-            <div className="dev-section-head">
-              <h2 className="dev-section-title">{ko ? section.titleKo : section.titleEn}</h2>
-              <p className="dev-section-sub">{ko ? section.subKo : section.subEn}</p>
-            </div>
-            <ul className="dev-tools">
-              {section.routes.map((route) => (
-                <DevToolRow key={route} route={route} ko={ko} />
-              ))}
-            </ul>
-          </section>
-        ))}
+        {DEV_SECTIONS.filter((section) => section.routes.some((route) => canOpenRoute(route, roles))).map(
+          (section) => (
+            <section key={section.id} className="dev-section">
+              <div className="dev-section-head">
+                <h2 className="dev-section-title">{ko ? section.titleKo : section.titleEn}</h2>
+                <p className="dev-section-sub">{ko ? section.subKo : section.subEn}</p>
+              </div>
+              <ul className="dev-tools">
+                {section.routes
+                  .filter((route) => canOpenRoute(route, roles))
+                  .map((route) => (
+                    <DevToolRow key={route} route={route} ko={ko} />
+                  ))}
+              </ul>
+            </section>
+          ),
+        )}
       </div>
     </section>
   );

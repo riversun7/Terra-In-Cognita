@@ -98,6 +98,10 @@ export async function startEditorTestApp(options: EditorTestAppOptions = {}): Pr
   const loaded = loadPack();
   const build = packEditorBuild(loaded);
   const test = await createTestDatabase();
+  // 정의 조회 감사 기록을 보는 시험이라 운영 스위치(조회 감사 기록, 기본 꺼짐)를 켜고 시작한다
+  await test.db.$client.query(
+    "insert into ops_switches (id, enabled, updated_at_ms) values ('view_audit', true, 0)",
+  );
   const app = await buildApp({
     contentVersion: loaded.content.version,
     logger: false,

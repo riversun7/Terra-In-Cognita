@@ -4,8 +4,9 @@
 import { randomUUID } from "node:crypto";
 import type { Role } from "@terra/shared";
 import {
+  AUDIT_CATEGORIES,
+  type AuditCategory,
   type OpsAccess,
-  type OpsAuditRow,
   type OpsBalance,
   type OpsCityRow,
   type OpsEconomy,
@@ -15,6 +16,7 @@ import {
   type OpsPlayerDetail,
   type OpsPlayerRow,
   type OpsServerOverview,
+  type OpsSwitch,
   type OpsUnitDetail,
   type OpsUnitResult,
   type OpsUnitRow,
@@ -24,6 +26,7 @@ import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { World } from "../world/world.ts";
 import { type OpsQueryable, opsAccessOf } from "./access.ts";
 import * as reads from "./reads.ts";
+import { NO_OPS_SWITCHES, type OpsSwitches } from "./switches.ts";
 import {
   type OpsGrantResult,
   type OpsUnitAction,
@@ -48,6 +51,8 @@ export interface OpsShared {
   wsConnections: () => number;
   /** 세력 코드 → 나라 이름(팩 국가 프리셋). 없으면 코드를 쓴다 */
   nationName?: ((code: string) => string | undefined) | undefined;
+  /** 운영 스위치(조회 감사 기록 켜기·끄기). 없으면 늘 꺼짐·바꾸지 못함 */
+  switches?: OpsSwitches | undefined;
   now: () => number;
 }
 
@@ -349,7 +354,35 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
       };
     },
 
-    audit: (filter: reads.AuditFilter): Promise<OpsAuditRow[]> => reads.listAudit(pool, filter),
+    /** 감사 기록. categories = 분류(@terra/shared AUDIT_CATEGORIES) → 동작 앞부분 목록 */
+    audit: (
+      filter: Omit<reads.AuditFilter, "prefixes"> & { categories?: readonly AuditCategory[] | undefined },
+    ) =>
+      reads.listAudit(pool, {
+        ...filter,
+        prefixes: (filter.categories ?? []).flatMap((category) => AUDIT_CATEGORIES[category]),
+      }),
+
+    /** 운영 스위치 지금 값 */
+    switches: (): { id: OpsSwitch; enabled: boolean }[] => (shared.switches ?? NO_OPS_SWITCHES).list(),
+
+    /** 운영 스위치 바꾸기(감사 기록 ops.switch는 스위치와 상관없이 남긴다) */
+    async setSwitch(
+      viewer: OpsViewer,
+      input: { id: OpsSwitch; enabled: boolean },
+    ): Promise<OpsActionResult<"unavailable">> {
+      const switches = shared.switches;
+      if (!switches) return { ok: false, code: "unavailable" };
+      const before = switches.isOn(input.id);
+      await switches.set(input.id, input.enabled, viewer.id, shared.now());
+      await audit(viewer, {
+        action: "ops.switch",
+        targetId: null,
+        before: { [input.id]: before },
+        after: { [input.id]: input.enabled },
+      });
+      return { ok: true };
+    },
 
     async economy(input: { asset: string }): Promise<OpsEconomy> {
       const world = shared.world();

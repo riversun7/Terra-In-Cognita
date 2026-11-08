@@ -119,7 +119,7 @@ describe("기본 카드", () => {
       expect(defaultHomeCards(roles)).toEqual([...PLAYER_DEFAULT, { id: "diagnostics", size: "2x1" }]);
     }
     // 역할 목록이 늘면 위 기대값을 다시 본다
-    expect(ROLES).toEqual(["player", "gm", "gm_lead", "dev", "admin"]);
+    expect(ROLES).toEqual(["player", "gm", "dev", "admin"]);
   });
 });
 

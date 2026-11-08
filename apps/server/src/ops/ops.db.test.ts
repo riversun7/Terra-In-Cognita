@@ -7,6 +7,7 @@ import { ASSET_CREDIT } from "../world/settlement.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { createOpsServices } from "./services.ts";
+import { loadOpsSwitches } from "./switches.ts";
 
 const T0 = 1_800_000_000_000;
 const MINUTE = 60_000;
@@ -57,19 +58,21 @@ describe.skipIf(!TEST_DATABASE_URL)("운영자 콘솔(DB)", () => {
     const world = await boot();
     const persistence = world.persistence;
     if (!persistence) throw new Error("no persistence");
+    const switches = await loadOpsSwitches(test.db.$client);
     const ops = createOpsServices(
       {
         pool: test.db.$client,
         world: () => world,
         worldStatus: () => world.status(),
         wsConnections: () => 3,
+        switches,
         now: () => clock,
       },
       { ip: "127.0.0.1" },
     );
-    const operator = await fakeUser("ops_lead", "gm_lead");
+    const operator = await fakeUser("ops_admin", "admin");
     const player = await fakeUser("ops_player");
-    const opsViewer = { id: operator, roles: ["gm_lead"] as const };
+    const opsViewer = { id: operator, roles: ["admin"] as const };
     const mapKey = [...world.maps.keys()][0] ?? 0;
     const [unitA = 0] = persistence.settlement.giveWorkers(player, mapKey, 1, clock);
     const ownerId = persistence.settlement.ownerOfUser(player, clock).id;
@@ -223,6 +226,23 @@ describe.skipIf(!TEST_DATABASE_URL)("운영자 콘솔(DB)", () => {
       "ops.unit.heal",
     ]);
     expect(audit.find((row) => row.action === "ops.grant")?.meta).toMatchObject({ reason: "보상", ownerId });
+    // 대상 계정 아이디가 붙는다, 분류·한 사람·대상 거르기
+    expect(audit.find((row) => row.action === "ops.ban")?.targetLoginId).toBe("Fake_ops_player");
+    const byCategory = await ops.audit({ action: "", categories: ["ops"], limit: 50 });
+    expect(byCategory.length).toBe(audit.length);
+    expect(await ops.audit({ action: "", categories: ["tuning"], limit: 50 })).toEqual([]);
+    expect(
+      // 그 유저를 대상으로 한 운영자 동작 모두(유닛 통제·지급도 대상 = 유닛·주체의 계정)
+      (await ops.audit({ action: "", targetSearch: "ops_player", limit: 50 })).map((row) => row.action),
+    ).toEqual(audit.map((row) => row.action));
+    expect((await ops.audit({ action: "", actorSearch: "ops_admin", limit: 50 })).length).toBe(audit.length);
+    expect(await ops.audit({ action: "", actorSearch: "nobody", limit: 50 })).toEqual([]);
+
+    // 운영 스위치: 기본 꺼짐, 켜면 DB에 남고 다시 읽어도 켜짐, 바꾼 것은 감사 기록
+    expect(ops.switches()).toEqual([{ id: "view_audit", enabled: false }]);
+    expect(await ops.setSwitch(opsViewer, { id: "view_audit", enabled: true })).toEqual({ ok: true });
+    expect((await loadOpsSwitches(test.db.$client)).isOn("view_audit")).toBe(true);
+    expect((await ops.audit({ action: "ops.switch", limit: 5 }))[0]?.after).toEqual({ view_audit: true });
 
     // 세력·도시(시험 NPC 세력이 있다)
     const factions = await ops.factions({ kind: "npc", includeDissolved: false });

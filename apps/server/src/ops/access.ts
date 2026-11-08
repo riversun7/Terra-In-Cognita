@@ -1,6 +1,6 @@
 // 운영 권한 판정(docs/adr/2026-11-08-operator-console.md) — 역할 기본(@terra/shared OPS_ROLE_DEFAULTS) + 계정에 준 체크박스(ops_grants).
 // Better Auth 권한 표(src/auth/permissions.ts)와 따로 둔다: 계정마다 권한을 더하는 것은 그 표가 못 하기 때문이다.
-// 기본 거부: 콘솔 역할(gm·gm_lead·dev·admin)이 없으면 체크박스가 있어도 아무것도 못 한다.
+// 기본 거부: 콘솔 역할(gm·dev·admin)이 없으면 체크박스가 있어도 아무것도 못 한다.
 import type { Role } from "@terra/shared";
 import {
   type OpsAccess,

@@ -19,6 +19,7 @@ import { worldEconomySource } from "./economyView/worldSource.ts";
 import { createWorldFactionSource } from "./factionScreen/source.ts";
 import { factionRulesFrom } from "./factionScreen/tuning.ts";
 import { startServerMetrics } from "./metrics.ts";
+import { NO_OPS_SWITCHES, loadOpsSwitches } from "./ops/switches.ts";
 import type { PlanetBaker } from "./planet/baker.ts";
 import { type PlanetRouteLimits, registerPlanetRoutes } from "./planet/routes.ts";
 import { type PlanetServiceOptions, createPlanetService } from "./planet/service.ts";
@@ -651,6 +652,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       })
     : undefined;
 
+  // 운영 스위치(조회 감사 기록 켜기·끄기, 기본 꺼짐 — docs/adr/2026-11-08-operator-roles-log-switch.md). 못 읽으면 꺼짐
+  const opsSwitches = options.db
+    ? await loadOpsSwitches(options.db.$client).catch((error: unknown) => {
+        app.log.warn({ err: error }, "ops switches load failed");
+        return NO_OPS_SWITCHES;
+      })
+    : NO_OPS_SWITCHES;
+  const viewAudit = (): boolean => opsSwitches.isOn("view_audit");
   // 요청의 출처 확인 기준 = 계정 경로와 같은 앱 출처(인증이 꺼지면 세션이 없어 보지 않는다)
   const editor = options.planetEditor;
   await registerTrpc(app, {
@@ -661,7 +670,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       auth,
       appOrigin: options.auth?.settings.baseUrl,
       planetEditor: editor
-        ? createPlanetEditorShared(editor.definitions, { now, limits: editor.limits })
+        ? createPlanetEditorShared(editor.definitions, { now, limits: editor.limits, viewAudit })
         : undefined,
       // 복귀 요약: 오프라인 정산의 생산 + 확인 시각(DB가 있는 월드만)
       summary: world && options.db ? createWorldSummaryBackend(world) : undefined,
@@ -741,6 +750,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             wsConnections: () => wsConnections,
             // 운영 화면 이름표는 한국어 나라 이름(팩 국가 프리셋)을 쓴다[임시]
             nationName: (code) => worldMapService?.()?.nationNames?.(code).name?.ko,
+            switches: opsSwitches,
             now,
           }
         : undefined,
@@ -774,7 +784,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         log: app.log,
         onObserve: (viewer, mapKey) => {
           app.log.info({ userId: viewer.id, mapKey }, "second map observe");
-          if (!auditDb) return;
+          // 조회 감사 기록은 운영 스위치가 켜졌을 때만(기본 꺼짐)
+          if (!auditDb || !viewAudit()) return;
           void writeAudit(auditDb, {
             actor: { kind: "admin", id: viewer.id, ip: null },
             action: "second_map.observe",

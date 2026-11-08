@@ -242,6 +242,7 @@ describe("주소 표", () => {
       admin: ["/admin", "home", "shown", "admin", []],
       // 운영자 콘솔(docs/adr/2026-11-08-operator-console.md)
       ops: ["/ops", "home", "shown", "ops", ["tab", "user", "faction", "unit"]],
+      dev_ops_grants: ["/dev/ops-grants", "dev", "shown", "dev", []],
       dev: ["/dev", "home", "shown", "dev_admin", []],
       dev_planet_editor: ["/dev/planet-editor", "dev", "hidden", "dev_admin", []],
       dev_star_system: ["/dev/star-system", "dev", "hidden", "dev_admin", []],
@@ -572,14 +573,15 @@ describe("경로 예", () => {
 });
 
 describe("여는 역할", () => {
-  const OPENS: Record<"everyone" | "dev_admin" | "admin" | "ops", Record<Role, boolean>> = {
-    everyone: { player: true, gm: true, gm_lead: true, dev: true, admin: true },
-    dev_admin: { player: false, gm: false, gm_lead: false, dev: true, admin: true },
-    admin: { player: false, gm: false, gm_lead: false, dev: false, admin: true },
-    ops: { player: false, gm: true, gm_lead: true, dev: true, admin: true },
+  const OPENS: Record<"everyone" | "dev_admin" | "dev" | "admin" | "ops", Record<Role, boolean>> = {
+    everyone: { player: true, gm: true, dev: true, admin: true },
+    dev_admin: { player: false, gm: false, dev: true, admin: true },
+    dev: { player: false, gm: false, dev: true, admin: false },
+    admin: { player: false, gm: false, dev: false, admin: true },
+    ops: { player: false, gm: true, dev: true, admin: true },
   };
 
-  it("누구나 / dev·admin / admin만 / 운영자 콘솔(gm·gm_lead·dev·admin)", () => {
+  it("누구나 / dev·admin / dev만 / admin만 / 운영자 콘솔(gm·dev·admin)", () => {
     for (const [id, route] of Object.entries(ROUTES)) {
       if (!isRouteId(id)) throw new Error(id);
       for (const role of ROLES)

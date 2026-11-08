@@ -94,7 +94,6 @@ describe("개발 도구 권한(home·planetEditor·tuning)", () => {
   const EXPECTED: Record<Role, boolean> = {
     player: false,
     gm: false,
-    gm_lead: false,
     dev: true,
     admin: true,
   };

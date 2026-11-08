@@ -28,6 +28,7 @@ export const WORLD_RESET_KEEP: Readonly<Record<string, string>> = {
   account_recovery: "복구 이메일",
   user_settings: "계정 설정(테마·언어·메뉴·홈)",
   ops_grants: "운영 권한 체크박스(계정마다, docs/adr/2026-11-08-operator-console.md)",
+  ops_switches: "운영 스위치(조회 감사 기록 켜기·끄기, docs/adr/2026-11-08-operator-roles-log-switch.md)",
   audit_log: "감사 기록(추가만, 트리거가 TRUNCATE를 막는다 — PROTECTED)",
   planet_drafts: "행성 편집기 초안",
   planet_draft_revisions: "행성 편집기 초안 판 기록",

@@ -1,8 +1,9 @@
 // ops 라우터 — 운영자 콘솔(/ops, docs/adr/2026-11-08-operator-console.md). 매 요청 서버가 세션과 운영 권한(역할 기본 + 체크박스)을 본다.
 // 예외(ADR 3절): 운영자 통제(유닛·원장)는 게임 상태를 바꾸지만 WebSocket이 아니라 여기(tRPC 쓰기)로 받는다. 서버 한 프로세스의 같은 월드
 // 객체를 같은 쓰기 대기열로 바꾸므로 판정 결과는 같고, 플레이어 명령이 아니라 감사 기록을 남기는 운영 도구이기 때문이다.
+// 권한 부여(grants)는 개발자만(manage_grants), 운영 스위치(switches)는 관리자·개발자(log_switch).
 // 오류(error.data.code): UNAUTHORIZED, FORBIDDEN(권한 없음), PRECONDITION_FAILED(운영 서비스 없음 — DB 없는 서버), NOT_FOUND(대상 없음)
-import { OPS_PERMISSIONS, type OpsPermission } from "@terra/shared/ops";
+import { AUDIT_CATEGORY_IDS, OPS_PERMISSIONS, OPS_SWITCHES, type OpsPermission } from "@terra/shared/ops";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { OpsServices } from "../ops/services.ts";
@@ -202,13 +203,26 @@ export const opsRouter = router({
     .input(
       z.strictObject({
         action: z.string().trim().max(64).default(""),
+        /** 분류(@terra/shared AUDIT_CATEGORIES). 비우면 모두 */
+        categories: z.array(z.enum(AUDIT_CATEGORY_IDS)).max(AUDIT_CATEGORY_IDS.length).default([]),
         actorId: z.uuid().optional(),
         targetId: z.uuid().optional(),
+        /** 한 사람·대상 아이디 일부 */
+        actorSearch: z.string().trim().max(40).default(""),
+        targetSearch: z.string().trim().max(40).default(""),
         beforeId: id.optional(),
         limit: z.int().min(1).max(200).default(50),
       }),
     )
     .query(({ ctx, input }) => ctx.ops.audit(input)),
+
+  /** 운영 스위치(조회 감사 기록, 기본 꺼짐) — 관리자 화면이 쓴다 */
+  switches: router({
+    list: opsProcedure("log_switch").query(({ ctx }) => ctx.ops.switches()),
+    set: opsProcedure("log_switch")
+      .input(z.strictObject({ id: z.enum(OPS_SWITCHES), enabled: z.boolean() }))
+      .mutation(({ ctx, input }) => ctx.ops.setSwitch(ctx.opsViewer, input)),
+  }),
 
   grants: router({
     get: opsProcedure("manage_grants")

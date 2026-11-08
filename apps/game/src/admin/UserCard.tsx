@@ -16,7 +16,6 @@ export type AdminUserRow = Awaited<ReturnType<typeof api.admin.users.list.query>
 const ROLE_LABELS = {
   player: m.role_player,
   gm: m.role_gm,
-  gm_lead: m.role_gm_lead,
   dev: m.role_dev,
   admin: m.role_admin,
 } satisfies Record<Role, () => string>;

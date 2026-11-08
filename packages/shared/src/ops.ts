@@ -9,7 +9,8 @@ import type { Role } from "./roles.ts";
  * - view_*: 감시(조회)
  * - account_kick·account_ban·unit_stop·unit_rescue: 가벼운 통제
  * - unit_heal·unit_teleport·ledger_grant: 강한 통제
- * - manage_grants: 다른 계정에 운영 권한 체크박스 주기
+ * - manage_grants: 다른 계정에 운영 권한 체크박스 주기(개발자만)
+ * - log_switch: 조회 감사 기록 켜기·끄기(관리자·개발자)
  */
 export const OPS_PERMISSIONS = [
   "view_players",
@@ -25,6 +26,7 @@ export const OPS_PERMISSIONS = [
   "unit_teleport",
   "ledger_grant",
   "manage_grants",
+  "log_switch",
 ] as const;
 
 export type OpsPermission = (typeof OPS_PERMISSIONS)[number];
@@ -46,6 +48,7 @@ export const OPS_PERMISSION_TIER: { readonly [P in OpsPermission]: OpsTier } = {
   unit_teleport: "strong",
   ledger_grant: "strong",
   manage_grants: "manage",
+  log_switch: "manage",
 };
 
 export function isOpsPermission(value: string): value is OpsPermission {
@@ -57,17 +60,48 @@ const LIGHT: readonly OpsPermission[] = OPS_PERMISSIONS.filter(
 );
 const STRONG: readonly OpsPermission[] = OPS_PERMISSIONS.filter((p) => OPS_PERMISSION_TIER[p] !== "manage");
 
-/** 역할마다 기본으로 가지는 운영 권한. 계정마다 체크박스로 더 줄 수 있다(빼지는 못한다) */
+/**
+ * 역할마다 기본으로 가지는 운영 권한. 계정마다 체크박스로 더 줄 수 있다(빼지는 못한다).
+ * 사용자 결정(2026-11-08): 운영자(gm) = 감시 + 약한 통제, 관리자(admin) = + 강한 통제 + 로그 스위치, 개발자(dev) = 전체.
+ * 권한 부여(manage_grants)는 개발자 기능이다("권한부여는 개발자가하는 기능이다. 운영자는 불가능")
+ */
 export const OPS_ROLE_DEFAULTS: { readonly [R in Role]: readonly OpsPermission[] } = {
   player: [],
   gm: LIGHT,
-  gm_lead: STRONG,
+  admin: [...STRONG, "log_switch"],
   dev: OPS_PERMISSIONS,
-  admin: OPS_PERMISSIONS,
 };
 
 /** 운영자 콘솔을 여는 역할(화면 주소 /ops). 체크박스 권한은 이 역할 위에 더해진다 */
-export const OPS_CONSOLE_ROLES: readonly Role[] = ["gm", "gm_lead", "dev", "admin"];
+export const OPS_CONSOLE_ROLES: readonly Role[] = ["gm", "dev", "admin"];
+
+/**
+ * 운영 스위치(표 ops_switches, 기본 꺼짐). view_audit = 조회 감사 기록(2차맵 전체 보기·행성 정의 조회).
+ * 계정·통제·편집 저장 같은 책임 기록은 스위치와 상관없이 늘 남긴다
+ */
+export const OPS_SWITCHES = ["view_audit"] as const;
+export type OpsSwitch = (typeof OPS_SWITCHES)[number];
+
+/** 감사 기록 분류(화면 거르기). 동작 이름 앞부분으로 묶는다 */
+export const AUDIT_CATEGORIES = {
+  account: ["account.", "cli."],
+  ops: ["ops."],
+  map: ["second_map."],
+  tuning: ["tuning."],
+  content: ["content.", "battle_lab_preset."],
+  planet: ["planet_editor.", "planet_draft.", "planet_library.", "star_system."],
+  world: ["world."],
+} as const satisfies Record<string, readonly string[]>;
+export type AuditCategory = keyof typeof AUDIT_CATEGORIES;
+export const AUDIT_CATEGORY_IDS = [
+  "account",
+  "ops",
+  "map",
+  "tuning",
+  "content",
+  "planet",
+  "world",
+] as const satisfies readonly AuditCategory[];
 
 /** 역할 기본 + 계정에 준 권한 → 실효 권한(OPS_PERMISSIONS 차례, 중복 없음). 콘솔 역할이 없으면 빈 목록 */
 export function effectiveOpsPermissions(roles: readonly Role[], granted: readonly string[]): OpsPermission[] {
@@ -301,6 +335,8 @@ export interface OpsAuditRow {
   actorLoginId: string | null;
   action: string;
   targetId: string | null;
+  /** 대상이 계정이면 그 아이디(없으면 null) */
+  targetLoginId: string | null;
   before?: unknown;
   after?: unknown;
   meta?: unknown;

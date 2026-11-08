@@ -12,6 +12,7 @@ import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { text } from "../ui/text.ts";
 import { useMountFocus } from "../ui/useMountFocus.ts";
 import { adminErrorInfo } from "./adminErrors.ts";
+import { AdminLogSwitch } from "./AdminLogSwitch.tsx";
 import { AdminOpsPanel } from "./AdminSwitches.tsx";
 import { type AdminUserRow, UserCard } from "./UserCard.tsx";
 import "./admin.css";
@@ -111,6 +112,7 @@ export default function AdminPage({ viewer, onClose }: AdminPageProps) {
         </button>
       </div>
       <AdminOpsPanel totalUsers={list?.total ?? null} />
+      <AdminLogSwitch />
       <div className="admin-users-panel">
         <h2 className="admin-subtitle">{m.admin_users_title()}</h2>
         <form role="search" className="field" onSubmit={search}>

@@ -1,0 +1,381 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8105a144-3b0f-48f2-9d84-8383d65fbe01",
+  "prevIds": [
+    "5914b26a-2b94-4a1f-b5fe-8b230ae23f7c"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_nation_standings"
+      ],
+      "writes": [
+        "s|tbl|public.user_nation_standings",
+        "n|tbl|public.user_nation_standings",
+        "e|tbl|public.user_nation_standings",
+        "n|rel|public.user_nation_standings",
+        "n|type|public.user_nation_standings",
+        "n|rel|public.user_nation_standings_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "naturalize_fee"
+      ],
+      "writes": [
+        "s|col|public.factions.naturalize_fee",
+        "n|col|public.factions.naturalize_fee",
+        "e|col|public.factions.naturalize_fee"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "nationality_changes",
+        "grant_paid"
+      ],
+      "writes": [
+        "s|col|public.nationality_changes.grant_paid",
+        "n|col|public.nationality_changes.grant_paid",
+        "e|col|public.nationality_changes.grant_paid"
+      ],
+      "reads": [
+        "n|tbl|public.nationality_changes",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "nationality_changes",
+        "standing_drop"
+      ],
+      "writes": [
+        "s|col|public.nationality_changes.standing_drop",
+        "n|col|public.nationality_changes.standing_drop",
+        "e|col|public.nationality_changes.standing_drop"
+      ],
+      "reads": [
+        "n|tbl|public.nationality_changes",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "nationality_changes",
+        "hostile"
+      ],
+      "writes": [
+        "s|col|public.nationality_changes.hostile",
+        "n|col|public.nationality_changes.hostile",
+        "e|col|public.nationality_changes.hostile"
+      ],
+      "reads": [
+        "n|tbl|public.nationality_changes",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_nation_standings"
+      ],
+      "writes": [
+        "s|fk|public.user_nation_standings.user_nation_standings_user_id_users_id_fkey",
+        "n|fk|public.user_nation_standings.user_nation_standings_user_id_users_id_fkey",
+        "e|fk|public.user_nation_standings.user_nation_standings_user_id_users_id_fkey",
+        "n|con|public.user_nation_standings.user_nation_standings_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.user_nation_standings",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.user_nation_standings.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_nation_standings"
+      ],
+      "writes": [
+        "s|fk|public.user_nation_standings.user_nation_standings_faction_id_factions_id_fkey",
+        "n|fk|public.user_nation_standings.user_nation_standings_faction_id_factions_id_fkey",
+        "e|fk|public.user_nation_standings.user_nation_standings_faction_id_factions_id_fkey",
+        "n|con|public.user_nation_standings.user_nation_standings_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.user_nation_standings",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.user_nation_standings.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "nationality_changes"
+      ],
+      "writes": [
+        "s|ck|public.nationality_changes.nationality_changes_d526",
+        "n|ck|public.nationality_changes.nationality_changes_d526",
+        "e|ck|public.nationality_changes.nationality_changes_d526",
+        "n|con|public.nationality_changes.nationality_changes_d526"
+      ],
+      "reads": [
+        "n|tbl|public.nationality_changes",
+        "n|sch|public",
+        "n|col|public.nationality_changes.grant_paid",
+        "n|col|public.nationality_changes.standing_drop"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "user_nation_standings",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "naturalize_fee",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "grant_paid",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "standing_drop",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "hostile",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_standings",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_standings",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_standings",
+        "name": "score",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_standings",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_standings",
+        "name": "user_nation_standings_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_standings",
+        "name": "user_nation_standings_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_standings",
+        "name": "user_nation_standings_pkey",
+        "columns": [
+          "user_id",
+          "faction_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nationality_changes",
+        "name": "nationality_changes_d526",
+        "value": "\"grant_paid\" >= 0 and \"standing_drop\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_standings",
+        "name": "user_nation_standings_score",
+        "value": "\"score\" between -100 and 100",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

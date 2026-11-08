@@ -22,6 +22,8 @@ import { defaultStatements } from "better-auth/plugins/admin/access";
  *   - read: 칸 목록·최근 바꿈·내보내기 / write: 덮어쓰기 저장·되돌리기(그 세계의 실효 값을 바꾼다, 감사 기록)
  * territory: 영토 층 개발 도구(/dev/territory, docs/adr/2026-11-03-territory-layer.md 5절). dev·admin만.
  *   - observe: 모든 세력의 영토·비콘 보기(territory.planet) / dev-place: 다른 세력(NPC 시험 세력) 대신 비콘 놓기·치우기(WebSocket)
+ * worldLayout: 세계 배치 화면(/dev/world-layout, 기획 D-528 — 고정 NPC 국가 자리). dev·admin만.
+ *   - read: 국가·도시·놓은 자리·자동 제안 보기 / place: 국가 자리 놓기·지우기(다음 서버 시작 때 세계에 든다, 감사 기록)
  */
 export const statements = {
   ...defaultStatements,
@@ -30,6 +32,7 @@ export const statements = {
   planetEditor: ["read", "write"],
   tuning: ["read", "write"],
   territory: ["observe", "dev-place"],
+  worldLayout: ["read", "place"],
 } as const;
 
 export const ac = createAccessControl(statements);
@@ -50,6 +53,7 @@ export const roles = {
     planetEditor: ["read", "write"],
     tuning: ["read", "write"],
     territory: ["observe", "dev-place"],
+    worldLayout: ["read", "place"],
   }),
   admin: ac.newRole({
     user: ["create", "list", "get", "set-role", "ban", "set-password"],
@@ -59,6 +63,7 @@ export const roles = {
     planetEditor: ["read", "write"],
     tuning: ["read", "write"],
     territory: ["observe", "dev-place"],
+    worldLayout: ["read", "place"],
   }),
 } satisfies Record<Role, unknown>;
 

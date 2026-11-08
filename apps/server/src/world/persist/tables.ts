@@ -112,8 +112,17 @@ export const WORLD_TABLES = {
       "at_ms",
       "fee",
       "grant_returned",
+      "grant_paid",
+      "standing_drop",
+      "hostile",
     ],
     key: [],
+  },
+  /** 사람·나라 우호도(D-526, 덮어쓰기) — 국적 바꾸기와 같은 커밋 */
+  userNationStandings: {
+    name: "user_nation_standings",
+    columns: ["user_id", "faction_id", "score", "updated_at_ms"],
+    key: ["user_id", "faction_id"],
   },
   /** 만드는 중인 초기 스탯 굴림(만들면 지운다) */
   cyborgRolls: {
@@ -260,6 +269,15 @@ export const WORLD_TABLES = {
       "rebel_of",
       "born_of",
     ],
+    key: ["id"],
+    updateOnly: true,
+  },
+  /**
+   * NPC 수도(D-528, src/npc/capitals.ts)만 고친다. 세력 상태(factionState)는 이 칸을 쓰지 않는다(직전 판 앱이 세력 행을 써도 수도가 지워지지 않게)
+   */
+  factionCapital: {
+    name: "factions",
+    columns: ["id", "capital_city_id"],
     key: ["id"],
     updateOnly: true,
   },
@@ -669,6 +687,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "factionState",
   "accounts",
   "cities",
+  "factionCapital",
   "cityNames",
   "units",
   "travels",
@@ -700,6 +719,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "factionMembers",
   "cyborgs",
   "nationalityChanges",
+  "userNationStandings",
   "cyborgRolls",
   "holdings",
   "unitEffects",

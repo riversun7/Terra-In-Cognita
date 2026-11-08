@@ -18,11 +18,15 @@ export interface CityRow {
   readonly start: boolean;
   /** 도시 이름(번역 안 함 D-476, NPC 도시는 팩 프리셋 목록 — 기획 답 510 다). 없으면 null(화면이 "도시 N") */
   readonly name?: string | null | undefined;
+  /** 그 세력이 고른 수도인가(D-528, 세력 행 capital_city_id — npc/capitals.ts). 없으면 아님 */
+  readonly capital?: boolean | undefined;
 }
 
 export async function loadCities(pool: QueryPool): Promise<CityRow[]> {
   const result = await pool.query(
-    `select id, faction_id, planet_id, map_key, cell_x, cell_y, start, name from world_cities order by id`,
+    `select c.id, c.faction_id, c.planet_id, c.map_key, c.cell_x, c.cell_y, c.start, c.name,
+            (f.capital_city_id is not null and f.capital_city_id = c.id) as capital
+     from world_cities c left join factions f on f.id = c.faction_id order by c.id`,
   );
   return result.rows.map((row) => ({
     id: Number(row.id),
@@ -33,6 +37,7 @@ export async function loadCities(pool: QueryPool): Promise<CityRow[]> {
     cellY: Number(row.cell_y),
     start: row.start === true,
     name: typeof row.name === "string" ? row.name : null,
+    capital: row.capital === true,
   }));
 }
 

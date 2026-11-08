@@ -1,0 +1,211 @@
+/*
+ * 세계 배치 화면(/dev/world-layout, 기획 D-528) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 촘촘(data-density="compact").
+ * 개발 화면 층(ADR 2026-11-02-dev-ui): 국가 표는 공용 .dev-table, 표지는 .dev-badge.
+ * 390px: 지도 → 판 → 표가 한 칸씩 쌓인다. 넓은 화면(64em~): 지도 3 : 판 2. 지도는 평면 미니맵(flatMap.css, 가로세로 2 : 1) 위에 표시 겹.
+ * 국가 색 = 차례(data-nation 0~5)로 --color-stat-* 여섯을 돌려 쓴다. 조각 WorldLayoutScreen-*와 함께 내려온다(미리 캐시 밖, [Ww]orldLayout).
+ */
+.wl-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+.wl-lead {
+  margin: 0;
+}
+.wl-actions,
+.wl-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--font-size-sm);
+}
+.wl-summary .dev-muted {
+  margin-inline-end: auto;
+}
+
+/* ── 범례 ── */
+.wl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.wl-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.wl-legend li::before {
+  content: "";
+  display: inline-block;
+  inline-size: var(--status-dot);
+  block-size: var(--status-dot);
+  border: var(--hairline) solid var(--color-text);
+  background-color: var(--color-stat-int);
+}
+.wl-legend li[data-mark="capital"]::before {
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+  border-width: var(--border-w);
+}
+.wl-legend li[data-mark="placed"]::before {
+  border-radius: var(--radius-pill);
+  border: var(--border-w) solid var(--color-stat-int);
+  background-color: transparent;
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+}
+.wl-legend li[data-mark="suggested"]::before {
+  border-radius: var(--radius-pill);
+  border: var(--border-w) dashed var(--color-stat-int);
+  background-color: transparent;
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+}
+
+/* ── 지도 + 판 ── */
+.wl-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+@media (min-width: 64em) {
+  .wl-split {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+.wl-map-box {
+  min-width: 0;
+}
+.wl-map {
+  position: relative;
+  width: 100%;
+}
+/* 평면 미니맵은 편집기에서 판 폭(--content-max)까지지만 여기서는 지도 칸 폭을 다 쓴다(그림 버퍼 상한 1,024점은 FlatMap이 지킨다) */
+.wl-map .flat-map {
+  max-width: 100%;
+}
+/* 표시 겹: 캔버스와 같은 자리·크기(가로세로 2 : 1), 누르기는 아래 캔버스가 받는다 */
+.wl-marks {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+.wl-mark {
+  --wl-color: var(--color-stat-int);
+  position: absolute;
+  inline-size: var(--status-dot);
+  block-size: var(--status-dot);
+  border: var(--hairline) solid var(--color-overlay);
+  background-color: var(--wl-color);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.wl-mark[data-kind="capital"] {
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+  border-width: var(--border-w);
+}
+.wl-mark[data-kind="placed"],
+.wl-mark[data-kind="suggested"] {
+  inline-size: var(--icon-md);
+  block-size: var(--icon-md);
+  border: var(--border-w) solid var(--wl-color);
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  box-shadow:
+    0 0 0 var(--hairline) var(--color-overlay),
+    inset 0 0 0 var(--hairline) var(--color-overlay);
+}
+.wl-mark[data-kind="suggested"] {
+  border-style: dashed;
+}
+.wl-mark[data-nation="1"],
+.wl-swatch[data-nation="1"] {
+  --wl-color: var(--color-stat-str);
+}
+.wl-mark[data-nation="2"],
+.wl-swatch[data-nation="2"] {
+  --wl-color: var(--color-stat-agi);
+}
+.wl-mark[data-nation="3"],
+.wl-swatch[data-nation="3"] {
+  --wl-color: var(--color-stat-wis);
+}
+.wl-mark[data-nation="4"],
+.wl-swatch[data-nation="4"] {
+  --wl-color: var(--color-stat-dex);
+}
+.wl-mark[data-nation="5"],
+.wl-swatch[data-nation="5"] {
+  --wl-color: var(--color-stat-vit);
+}
+
+.wl-panel {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.wl-panel p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.wl-field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+/* ── 표 ── */
+.wl-swatch {
+  --wl-color: var(--color-stat-int);
+  display: inline-block;
+  inline-size: var(--status-dot);
+  block-size: var(--status-dot);
+  margin-inline-end: var(--space-2);
+  border-radius: 50%;
+  background-color: var(--wl-color);
+  vertical-align: middle;
+}
+.wl-pick {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-decoration: underline;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.wl-table tr[aria-current="true"] th {
+  font-weight: var(--font-weight-strong);
+}
+.wl-table td {
+  overflow-wrap: anywhere;
+}
+.wl-by,
+.wl-blocked {
+  display: block;
+  font-size: var(--font-size-xs);
+}
+.wl-blocked {
+  color: var(--color-danger);
+}

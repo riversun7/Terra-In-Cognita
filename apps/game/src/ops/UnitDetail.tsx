@@ -5,6 +5,7 @@ import type { OpsPermission, OpsUnitResult } from "@terra/shared/ops";
 import { useCallback, useId, useState } from "react";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
+import { injuryStageName } from "../roster/InjuryBadge.tsx";
 import { BalanceTable, ItemTable, SkillTable, StatLine } from "./DetailParts.tsx";
 import {
   ActionButton,
@@ -63,7 +64,7 @@ export function UnitDetail({ unitId, can }: UnitDetailProps) {
                 `${data.job.kind} / ${data.job.phase} / ${formatInt(data.job.progressMs)} / ${formatInt(data.job.fatigue)}`,
               ],
               [m.ops_col_status(), data.unit.moving ? m.ops_status_moving() : m.ops_none()],
-              [m.ops_injury({ stage: data.unit.injury }), formatTime(data.injuryUntilMs)],
+              [m.ops_injury({ stage: injuryStageName(data.unit.injury) }), formatTime(data.injuryUntilMs)],
               [m.ops_f_held_by(), data.heldBy ?? m.ops_none()],
             ]}
           />

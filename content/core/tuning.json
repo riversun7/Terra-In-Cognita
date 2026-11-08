@@ -2961,19 +2961,55 @@
       "id": "citizenship_fee",
       "code": "",
       "name": {
-        "ko": "귀화 값(최소 단위, 받는 나라 국고)",
-        "en": "Naturalization fee (minor units, to the new nation's treasury)"
+        "ko": "귀화 조건 기본값(최소 단위, + 입회비 → 받는 나라 국고 / − 지원금 ← 받는 나라 국고)",
+        "en": "Default naturalization terms (minor units, + entrance fee to the new nation / − grant from it)"
       },
       "value": 100,
       "structural": false,
       "unit": "minor",
-      "min": 0,
+      "min": -1000000000,
       "max": 1000000000,
       "desc": {
-        "ko": "다른 나라로 귀화할 때 받는 나라 국고에 내는 값.",
-        "en": "Fee paid to the new nation's treasury to naturalize."
+        "ko": "귀화할 때 받는 나라가 정한 조건의 기본값(나라가 따로 정하지 않으면 이 값, NPC 국가는 늘). +면 옮겨 오는 사람이 받는 나라 국고에 입회비를 내고, −면 받는 나라 국고에서 지원금을 받는다(국고에 있는 만큼). 옛 나라에는 돌려주지 않는다.",
+        "en": "Default naturalization terms a receiving nation sets (used unless the nation sets its own; NPC nations always). Positive: the newcomer pays an entrance fee to the new nation's treasury. Negative: the newcomer receives a grant from it (up to what the treasury holds). Nothing goes back to the old nation."
       },
-      "source": "ADR 2026-11-08-citizenship · 질문 745"
+      "source": "ADR 2026-11-08-citizenship \"바뀜 (D-526)\" · D-526 · 질문 845·846"
+    },
+    {
+      "id": "citizenship_standing_drop",
+      "code": "",
+      "name": {
+        "ko": "귀화 때 옛 나라 우호도 하락(−100~100 눈금)",
+        "en": "Standing lost with the old nation on naturalization (−100–100 scale)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 200,
+      "desc": {
+        "ko": "귀화하면 떠난 사람과 옛 나라 사이 우호도(−100~100, 처음 0)가 이만큼 떨어진다.",
+        "en": "How far standing (−100–100, starting at 0) between the leaver and the old nation drops on naturalization."
+      },
+      "source": "ADR 2026-11-08-citizenship \"바뀜 (D-526)\" · D-526 · 질문 847~849"
+    },
+    {
+      "id": "citizenship_standing_drop_hostile",
+      "code": "",
+      "name": {
+        "ko": "적대 세력(전쟁 중)으로 귀화할 때 옛 나라 우호도 하락",
+        "en": "Standing lost with the old nation when joining its enemy (at war)"
+      },
+      "value": 60,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 200,
+      "desc": {
+        "ko": "받는 나라가 옛 나라와 전쟁 중(적대 세력)일 때 옛 나라 우호도가 떨어지는 양(크게).",
+        "en": "How far standing with the old nation drops when the new nation is at war with it (hostile)."
+      },
+      "source": "ADR 2026-11-08-citizenship \"바뀜 (D-526)\" · D-526 · 질문 847~849"
     },
     {
       "id": "citizenship_rest_ms",
@@ -8094,6 +8130,24 @@
         "en": "Local time NPC humans go home (750 = 18:00)."
       },
       "source": "ADR 2026-11-07-play-flow \"WP-NPC4\" [임시]"
+    },
+    {
+      "id": "npc_capital_switch_dev",
+      "code": "",
+      "name": {
+        "ko": "NPC 수도 옮기기: 다른 도시 발전도가 수도보다 이만큼 높으면(점)",
+        "en": "NPC capital move: when another city's development leads the capital by (points)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "하루 끝에 같은 나라 다른 도시의 발전도가 수도보다 이만큼 높으면 NPC가 수도를 옮긴다.",
+        "en": "At day end the NPC moves its capital when another city of the nation leads in development by this much."
+      },
+      "source": "D-528 · ADR 2026-11-07-world-layout \"바뀜 (D-528)\" [임시]"
     },
     {
       "id": "d530_city_bid_pct",

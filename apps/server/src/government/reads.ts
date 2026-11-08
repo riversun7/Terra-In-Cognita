@@ -48,6 +48,8 @@ export interface GovernmentSource {
         readonly mayorOf?: ((cityId: number) => number | undefined) | undefined;
         /** NPC 휴먼 이름(773 나, npc/humanNames.ts). 없으면 undefined */
         readonly humanName?: ((unitId: number) => string | undefined) | undefined;
+        /** 그 세력의 수도 도시(D-528, npc/capitals.ts — NPC가 발전도로 고름). 없으면 가장 작은 ID 시작 도시로 읽는다 */
+        readonly capitalOf?: ((owner: number) => number | undefined) | undefined;
       }
     | undefined;
   /** 소유 주체 ID → 세력 행 ID(유저 주체·없으면 undefined) */
@@ -135,6 +137,19 @@ function unitOf(map: LeaderUnits | undefined, unitId: number): { ownerId: number
   return found;
 }
 
+/** 그 세력 수도(D-528): 런타임 수도 → 없으면 가장 작은 ID 시작 도시(옛 규칙, npc/leaders.ts capitalsOf와 같은 뒷길) */
+function capitalOf(
+  runtime: NonNullable<ReturnType<GovernmentSource["runtime"]>>,
+  owner: number,
+): number | undefined {
+  const chosen = runtime.capitalOf?.(owner);
+  if (chosen !== undefined) return chosen;
+  let capital: number | undefined;
+  for (const city of runtime.world.cities.values())
+    if (city.start && city.owner === owner && (capital === undefined || city.id < capital)) capital = city.id;
+  return capital;
+}
+
 export function createGovernmentReads(source: GovernmentSource): GovernmentReads {
   /** 건물이 띄운 2차맵에 서 있나 */
   const standing = (buildingId: number): boolean => {
@@ -165,11 +180,8 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
         !(source.seesUnit?.(viewer, mapKey, unitId) ?? false)
       )
         return empty("unknown_unit", 0, nowMs);
-      // 수도 = 그 나라의 가장 작은 ID 시작 도시(npc/leaders.ts capitalsOf와 같은 규칙)
-      let capital: number | undefined;
-      for (const city of runtime.world.cities.values())
-        if (city.start && city.owner === unit.ownerId && (capital === undefined || city.id < capital))
-          capital = city.id;
+      // 수도 = NPC가 고른 수도(D-528). 런타임이 모르면 가장 작은 ID 시작 도시
+      const capital = capitalOf(runtime, unit.ownerId);
       const place = capital === undefined ? undefined : runtime.places.get(capital);
       const hall = capital === undefined || !place ? undefined : hallOf(capital, place.mapKey);
       if (hall === undefined) return empty("not_government", 0, nowMs);
@@ -193,11 +205,7 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
       const factionRow = source.factionRowOf(city.owner);
       let humans = 0;
       for (const unit of runtime.world.units.values()) if (unit.city === city.id) humans += 1;
-      // 수도 = 그 나라의 가장 작은 ID 시작 도시(npc/leaders.ts capitalsOf와 같은 규칙)
-      let capital: number | undefined;
-      for (const other of runtime.world.cities.values())
-        if (other.start && other.owner === city.owner && (capital === undefined || other.id < capital))
-          capital = other.id;
+      const capital = capitalOf(runtime, city.owner);
       const leaderUnit = faction?.fixed ? leaderUnitOf(source.maps.values(), city.owner) : undefined;
       // 지도자가 이 도시 2차맵에 있나(아니면 화면이 "수도에 있음")
       const cityMap = source.maps.get(place.mapKey);
@@ -267,6 +275,7 @@ export function governmentReadsOfWorld(
         necessitiesPm: (cityId) => (npc.economy ? npc.necessitiesOf(cityId) : undefined),
         mayorOf: (cityId) => npc.mayorOf(cityId),
         humanName: (unitId) => npc.humanName(unitId),
+        capitalOf: (owner) => npc.capitalOf(owner),
       };
     },
     factionRowOf: (ownerId) => world.persistence?.owners.get(ownerId)?.factionId ?? undefined,

@@ -27,9 +27,8 @@ import {
   arrivalAt,
   positionAt,
 } from "@terra/sim";
-import { jobOf, unitTypeOf } from "../roster/worldUnits.ts";
+import { injuryOf, jobOf, unitTypeOf } from "../roster/worldUnits.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { injuryAt } from "../world/unitCondition.ts";
 import { canCommandAnyUnit, unitHold } from "../world/unitControl.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_CYBORG, UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
 
@@ -78,8 +77,6 @@ function kindOf(kind: number): MapUnitKind {
 }
 
 const clampCell = (value: number): number => Math.max(0, Math.min(PLACEMENT_SIZE - 1, value));
-const injuryStage = (stage: number): MapUnit["injury"] =>
-  stage >= 3 ? 3 : stage === 2 ? 2 : stage === 1 ? 1 : 0;
 
 export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
   const elsewhereCache = new Map<number, { readonly atMs: number; readonly mapKey: number; count: number }>();
@@ -126,6 +123,13 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
         if (!info) continue;
         const at = positionAt(info.motion, nowMs);
         const kind = kindOf(info.kind);
+        // 부상: 지금 단계와 한 단계 나을 시각(유닛 화면과 같은 셈, D-525 남은 시간 표시)
+        const injury = injuryOf(
+          info.condition.injury,
+          info.condition.injuryUntilMs,
+          nowMs,
+          info.condition.injuryHealPm,
+        );
         units.push({
           unitId,
           kind,
@@ -134,7 +138,8 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
           cellY: clampCell(Math.floor(at.y / CELL_UNITS)),
           moving: nowMs < arrivalAt(info.motion),
           job: jobOf(info.job.job, info.job.phase),
-          injury: injuryStage(injuryAt(info.condition, nowMs)),
+          injury: injury.stage,
+          injuryUntilMs: injury.untilMs,
           hold: unitHold(info, nowMs),
         });
       }

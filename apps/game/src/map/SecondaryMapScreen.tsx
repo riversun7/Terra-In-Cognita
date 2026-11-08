@@ -650,6 +650,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
             elsewhere={myUnits.elsewhere}
             moving={liveMoving}
             selected={selected}
+            now={myUnits.at}
             onPick={pickUnit}
             onClose={() => setListOpen(false)}
           />

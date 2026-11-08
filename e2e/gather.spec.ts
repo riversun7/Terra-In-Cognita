@@ -51,34 +51,59 @@ async function openMap(page: Page): Promise<void> {
 }
 
 /**
- * 위·아래 판(HUD)에 가리지 않은 표시 가운데 화면 가운데에 가장 가까운 것을 누른다(표시는 가운데에 가까운 차례로 놓인다).
+ * 위·아래 판(HUD)에 가리지 않은 표시를 누른다(표시는 화면 가운데에 가까운 차례로 놓인다).
  * 표시는 누르기를 지도로 지나보내므로(사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md) 표시 가운데 아래가 지도 캔버스인 것을 고르고
- * 그 자리를 짧게 누른다 — 엔진이 누르기로 판정해 화면 거리로 표시를 고른다. 표시 가까이의 유닛이 먼저 골라졌으면 풀고 다음 표시를 누른다.
- * 판이 열리지 않으면 false
+ * 그 자리를 짧게 누른다 — 엔진이 누르기로 판정해 유닛 → 표시(화면 거리) 차례로 고른다. 화면 가운데(카메라를 맞춘 내 사이보그)에서 먼 표시를
+ * 먼저 누르고, 유닛이 먼저 골라졌으면 풀고 다시 잰 뒤 다음 표시를 누른다. 판이 열리지 않으면 false
  */
 async function clickFreeMarker(page: Page, selector: string): Promise<boolean> {
-  const points = await page.locator(selector).evaluateAll((elements) =>
-    elements.flatMap((element) => {
-      const box = element.getBoundingClientRect();
-      const x = box.x + box.width / 2;
-      const y = box.y + box.height / 2;
-      const hit = document.elementFromPoint(x, y);
-      return hit instanceof HTMLCanvasElement && hit.closest(".map-view") ? [{ x, y }] : [];
-    }),
-  );
   const panel = page.locator(".gather-panel");
-  for (const point of points.slice(0, 4)) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const points = await page.locator(selector).evaluateAll((elements) =>
+      elements.flatMap((element) => {
+        const box = element.getBoundingClientRect();
+        const x = box.x + box.width / 2;
+        const y = box.y + box.height / 2;
+        const hit = document.elementFromPoint(x, y);
+        const near = Math.hypot(x - window.innerWidth / 2, y - window.innerHeight / 2) < 70;
+        return hit instanceof HTMLCanvasElement && hit.closest(".map-view") ? [{ x, y, near }] : [];
+      }),
+    );
+    const point = points.toSorted((a, b) => Number(a.near) - Number(b.near))[attempt];
+    if (!point) return false;
     await page.mouse.click(point.x, point.y);
     try {
       await expect(panel).not.toHaveAttribute("data-sheet", "none", { timeout: 1_500 });
       return true;
     } catch {
-      // 유닛을 골랐으면(따라가기로 카메라가 움직인다) 풀고 다음 표시를 다시 잰다
+      // 유닛을 골랐으면(따라가기로 카메라가 움직일 수 있다) 풀고 다시 잰다
       if (await page.locator(".map-screen[data-selected]").count()) {
         await page.locator(".map-actions button", { hasText: DESELECT }).click();
-        return false;
+        await page.waitForTimeout(300);
       }
     }
+  }
+  return false;
+}
+
+/** 지도를 아래로 조금 끈다(위 판 밑에 깔린 표시를 끌어내린다 — 표시 위에서 시작해도 끌린다) */
+async function nudgeMapDown(page: Page): Promise<void> {
+  const box = await page.locator(".map-view canvas").boundingBox();
+  if (!box) throw new Error("no canvas");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height * 0.5;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 120, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+}
+
+/** 가리지 않은 건물 표시를 누른다. 판에 가렸으면 지도를 조금씩 끌어내리며 다시 */
+async function clickBuildingMarker(page: Page, tries: number): Promise<boolean> {
+  for (let i = 0; i < tries; i++) {
+    if (await clickFreeMarker(page, BUILDING_MARKER)) return true;
+    await nudgeMapDown(page);
   }
   return false;
 }
@@ -135,7 +160,7 @@ test.describe("원자재 오브젝트 채집·건물 들어가기: 플레이어"
 
     // 건물 표시(시작 도시의 시설) → 건물 판: 들어가면 하는 일·안에 있는 유닛·[들어가기]
     await expect(page.locator(BUILDING_MARKER).first()).toBeVisible({ timeout: 15_000 });
-    await expect.poll(() => clickFreeMarker(page, BUILDING_MARKER), { timeout: 15_000 }).toBe(true);
+    expect(await clickBuildingMarker(page, 6)).toBe(true);
     const buildingSheet = page.locator(".gather-sheet[data-building]");
     await expect(buildingSheet).toBeVisible();
     await expect(buildingSheet.locator(".gather-inside-title")).toBeVisible({ timeout: 10_000 });
@@ -171,7 +196,7 @@ test.describe("채집 사진", () => {
           await shot(page, `gather-loop-390-${theme}-${language}`);
           await loop.locator(".gather-stop").click();
           await expect(loop).toHaveAttribute("data-stop", "stopped", { timeout: 15_000 });
-          if (await clickFreeMarker(page, BUILDING_MARKER)) {
+          if (await clickBuildingMarker(page, 2)) {
             await expect(page.locator(".gather-sheet[data-building] .gather-inside-title")).toBeVisible({
               timeout: 10_000,
             });

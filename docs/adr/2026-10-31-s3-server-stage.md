@@ -1,6 +1,6 @@
 # S3 서버 단계: 예약 저장·복구, 시야 전송, 오프라인 정산, 임시 전투
 
-- 상태: 제안 (사용자 결정 U1~U4 받음(2026-10-31, 끝의 "사용자 결정"). 구현 중. 계단 시험·`SIGKILL` 측정 뒤 수치를 더하고 확정한다)
+- 상태: 확정 (2026-11-08, 사용자 결정 — 진행상황 세션 ADR 검토. 사용자 결정 U1~U4는 끝의 "사용자 결정")
 - 날짜: 2026-10-31
 - 관련: docs/PLAN.md 4.2~4.5·4.7·11장(S3)·14장(S3 줄), ADR `2026-10-28-state-persistence.md`(6), `2026-10-28-time-and-session-protocol.md`(7), `2026-10-28-runtime-topology.md`(3), `2026-10-28-simulation-model.md`(5), `2026-10-28-server-authority.md`(4), `2026-10-28-economy-ledger.md`(8), `2026-10-28-db-access-and-migrations.md`(22), `2026-10-28-npc-scale-and-stage.md`(27), `2026-10-28-unit-cap-housing.md`(32), `2026-10-28-fog-and-map-visibility.md`(26), `2026-10-28-s1-second-map.md`(33), `2026-10-29-combat-map-instances.md`(35), `2026-10-29-app-shell.md`(37, 복귀 요약 자리), 기획 D-044·D-061·D-098·D-099·D-107·D-112·D-116·D-136·D-137·D-143·D-144·D-145·D-148·D-150·D-152·D-153·D-162·D-173·D-178·D-189·D-210·D-245·D-248·D-250·D-296·D-5037·D-6014·D-6036, 작업 기록 `docs/worklog/2026/10/31-1400-s3-design.md`
 

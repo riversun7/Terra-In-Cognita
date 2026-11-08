@@ -176,6 +176,11 @@ describe.skipIf(!TEST_DATABASE_URL)("설정 칸 패널 (DB)", () => {
       override: null,
     });
     expect(entryOf(body, "c19_loot")).toMatchObject({ unit: "bp", min: null, max: null, scope: "sim" });
+    // 분야 페이지(규칙 코드가 정함)·쉬운 풀이·출처(팩 항목, 2026-11-08 분야별 페이지)
+    expect(entryOf(body, "c19_loot")).toMatchObject({ page: "combat", source: "ADR 2026-10-31-combat-core" });
+    expect(obj(entryOf(body, "s26_rebellion")).page).toBe("society");
+    expect(obj(entryOf(body, "npc_bank_gain")).page).toBe("economy");
+    expect(typeof obj(obj(entryOf(body, "s26_rebellion")).desc).ko).toBe("string");
   });
 
   it("묶음 적용은 다음 요청부터 서버가 읽는 곳에 든다(환생 화폐·공물 주기·/health), 판 +1, 감사 기록·서버 기록 한 줄", async () => {

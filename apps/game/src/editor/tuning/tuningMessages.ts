@@ -9,7 +9,7 @@ import type {
   TuningUnit,
 } from "@terra/shared/tuning";
 import { m } from "../../paraglide/messages.js";
-import type { CellStatus, TuningErrorKey, TuningFilter } from "./tuningModel.ts";
+import type { CellStatus, TuningErrorKey, TuningFilter, TuningPageTab } from "./tuningModel.ts";
 
 const FAMILY_TEXT: Readonly<Record<KnownTuningFamily, () => string>> = {
   T: m.dev_tuning_family_T,
@@ -31,6 +31,18 @@ export function familyText(family: string): string {
   if (family === "") return m.dev_tuning_family_none();
   return isKnownFamily(family) ? FAMILY_TEXT[family]() : m.dev_tuning_family_other({ letter: family });
 }
+
+/** 분야 페이지 탭 이름·한 줄 풀이(2026-11-08 분야별 페이지) */
+export const PAGE_TEXT: Readonly<Record<TuningPageTab, { label: () => string; lead: () => string }>> = {
+  all: { label: m.dev_tuning_page_all, lead: m.dev_tuning_page_all_lead },
+  society: { label: m.dev_tuning_page_society, lead: m.dev_tuning_page_society_lead },
+  npc: { label: m.dev_tuning_page_npc, lead: m.dev_tuning_page_npc_lead },
+  gardener: { label: m.dev_tuning_page_gardener, lead: m.dev_tuning_page_gardener_lead },
+  holdings: { label: m.dev_tuning_page_holdings, lead: m.dev_tuning_page_holdings_lead },
+  combat: { label: m.dev_tuning_page_combat, lead: m.dev_tuning_page_combat_lead },
+  economy: { label: m.dev_tuning_page_economy, lead: m.dev_tuning_page_economy_lead },
+  other: { label: m.dev_tuning_page_other, lead: m.dev_tuning_page_other_lead },
+};
 
 export const FILTER_TEXT: Readonly<Record<TuningFilter, () => string>> = {
   all: m.dev_tuning_filter_all,

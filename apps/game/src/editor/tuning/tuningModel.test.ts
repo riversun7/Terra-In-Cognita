@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import cellsJson from "./settingsCells.json";
 import {
   ALL_FAMILIES,
+  ALL_PAGES,
+  TUNING_PAGE_TABS,
   cellCounts,
   cellRows,
   deltaOf,
@@ -11,6 +13,8 @@ import {
   formatDuration,
   formatGloss,
   groupEntries,
+  pageCounts,
+  parsePageTab,
   parseSettingsCells,
   parseValueInput,
   pendingChanges,
@@ -32,6 +36,9 @@ const entry = (id: string, code: string, extra: Partial<TuningEntryView> = {}): 
   value: 10,
   scope: "sim",
   override: null,
+  page: "other",
+  desc: null,
+  source: null,
   ...extra,
 });
 
@@ -46,8 +53,8 @@ const override = {
 
 const ENTRIES = [
   entry("n9_a", "N9", { scope: "live" }),
-  entry("c2_b", "C2", { value: 12, override }),
-  entry("d130_c", ""),
+  entry("c2_b", "C2", { value: 12, override, page: "combat" }),
+  entry("d130_c", "", { page: "society", source: "ADR 2026-10-31-faction-society-core · D-130" }),
   entry("n13_d", "N13"),
   entry("n9_e", "N9"),
   entry("x5_f", "Q5"),
@@ -65,7 +72,7 @@ describe("설정 칸 패널 거르기·무리", () => {
   });
 
   it("찾기(코드·ID·이름 ko/en, 대소문자 무시)·바꾼 것(덮어쓰기·담음)·서버 즉시·무리", () => {
-    const all = { text: "", filter: "all", family: ALL_FAMILIES } as const;
+    const all = { text: "", filter: "all", family: ALL_FAMILIES, page: ALL_PAGES } as const;
     expect(filterEntries(ENTRIES, { ...all, text: "n13" }, new Map()).map((e) => e.id)).toEqual(["n13_d"]);
     expect(filterEntries(ENTRIES, { ...all, text: "NAME D130" }, new Map()).map((e) => e.id)).toEqual([
       "d130_c",
@@ -75,6 +82,44 @@ describe("설정 칸 패널 거르기·무리", () => {
     ).toEqual(["c2_b", "n9_e"]);
     expect(filterEntries(ENTRIES, { ...all, filter: "live" }, new Map()).map((e) => e.id)).toEqual(["n9_a"]);
     expect(filterEntries(ENTRIES, { ...all, family: "" }, new Map()).map((e) => e.id)).toEqual(["d130_c"]);
+    // 출처(ADR·결정 ID)로도 찾는다
+    expect(filterEntries(ENTRIES, { ...all, text: "d-130" }, new Map()).map((e) => e.id)).toEqual(["d130_c"]);
+  });
+
+  it("분야 페이지: 탭 차례(전체 먼저), 탭마다 칸 수, 페이지 거르기, 저장 글 읽기", () => {
+    expect(TUNING_PAGE_TABS).toEqual([
+      "all",
+      "society",
+      "npc",
+      "gardener",
+      "holdings",
+      "combat",
+      "economy",
+      "other",
+    ]);
+    expect(pageCounts(ENTRIES)).toEqual({
+      all: 6,
+      society: 1,
+      npc: 0,
+      gardener: 0,
+      holdings: 0,
+      combat: 1,
+      economy: 0,
+      other: 4,
+    });
+    const base = { text: "", filter: "all", family: ALL_FAMILIES } as const;
+    expect(filterEntries(ENTRIES, { ...base, page: "combat" }, new Map()).map((e) => e.id)).toEqual(["c2_b"]);
+    expect(filterEntries(ENTRIES, { ...base, page: ALL_PAGES }, new Map())).toHaveLength(6);
+    // 페이지 안에서도 다른 거르기가 함께 든다
+    expect(
+      filterEntries(ENTRIES, { ...base, page: "other", filter: "live" }, new Map()).map((e) => e.id),
+    ).toEqual(["n9_a"]);
+    expect([parsePageTab("npc"), parsePageTab("all"), parsePageTab("nope"), parsePageTab(null)]).toEqual([
+      "npc",
+      "all",
+      null,
+      null,
+    ]);
   });
 });
 

@@ -9,7 +9,8 @@
 //   국고로 끝없이 찍는 것을 막는다, 시뮬 R2에서 봄). 소각은 국고 잔고까지만.
 // - 발행 이자(D-303) = 발행 잔액 × 이율(S1)을 날마다 쌓고, 조절보다 먼저 국고에서 소각한다(모자라면 남겨 둔다).
 // - 처음 발행량(E6 기존 공식) = 인구 × 1인당 하루 거래액 × 7.
-// [임시] 이득·상한·이율·1인당 거래액은 설정 칸(E5·E6·S1) 출발값이 없어 시험값이다.
+// [임시] 이득·상한·이율·1인당 거래액은 설정 칸(E5·E6·S1) 출발값이 없어 시험값이다. 이득·상한·이율·목표는 NPC 판단 계수표의
+// bank* 칸(설정 칸 npc_bank_*, 2026-11-08)이고 1인당 거래액은 시나리오·서버 경제 설정이다.
 
 export interface CentralBankRule {
   /** 목표 물가 지수(천분율, 1000 = 시작 시세 = 그 세계 시장의 첫 가격) */
@@ -28,6 +29,21 @@ export const TEST_CENTRAL_BANK_RULE: CentralBankRule = {
   dailyCapBp: 300,
   interestBpPerDay: 1,
 };
+
+/** NPC 판단 계수의 중앙은행 칸(설정 칸 npc.bank*, 출발값 = TEST_CENTRAL_BANK_RULE) → 공식 규칙 */
+export function centralBankRuleOf(npc: {
+  readonly bankTargetMilli: number;
+  readonly bankGainBp: number;
+  readonly bankDailyCapBp: number;
+  readonly bankInterestBpPerDay: number;
+}): CentralBankRule {
+  return {
+    targetMilli: npc.bankTargetMilli,
+    gainBp: npc.bankGainBp,
+    dailyCapBp: npc.bankDailyCapBp,
+    interestBpPerDay: npc.bankInterestBpPerDay,
+  };
+}
 
 export interface CentralBankInput {
   /** 발행 잔액(발행 − 소각) */

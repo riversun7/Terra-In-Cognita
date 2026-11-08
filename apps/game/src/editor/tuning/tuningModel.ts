@@ -1,13 +1,16 @@
 // 설정 칸 패널 순수 코드 — 찾기·거르기·무리 나누기, 담은 변경, 값 글, 서버 오류 → 문구 키, 49 칸 목록 상태(시험 대상).
-// docs/adr/2026-11-01-dev-settings-panel.md 12절·"바뀜: D-462". 판정은 서버가 한다(범위·규칙 검사). 기기는 보이기만 한다.
+// docs/adr/2026-11-01-dev-settings-panel.md 12절·"바뀜: D-462"·"바뀜 (2026-11-08 분야별 페이지)". 판정은 서버가 한다(범위·규칙 검사). 기기는 보이기만 한다.
 import {
   type TuningEntryView,
+  type TuningPage,
   type TuningProblem,
   type TuningReason,
   type TuningUnit,
+  TUNING_PAGES,
   TUNING_REASONS,
   TUNING_VALUE_LIMIT,
   durationParts,
+  isTuningPage,
   isTuningProblem,
   tuningCodeNumber,
   tuningFamilyOf,
@@ -25,18 +28,49 @@ export const ALL_FAMILIES = "*";
 /** 담은 변경: 칸 ID → 새 값(null = 팩 값으로 되돌리기). 넣은 차례를 지킨다 */
 export type Pending = ReadonlyMap<string, number | null>;
 
+/** 페이지 탭 "전체"(분야를 가리지 않음) */
+export const ALL_PAGES = "all";
+export type TuningPageTab = TuningPage | typeof ALL_PAGES;
+/** 탭 차례: 전체 → 분야 페이지(@terra/shared TUNING_PAGES 차례) */
+export const TUNING_PAGE_TABS: readonly TuningPageTab[] = [ALL_PAGES, ...TUNING_PAGES];
+
+/** 저장해 둔 탭 글 → 탭(모르는 값은 null) */
+export function parsePageTab(value: unknown): TuningPageTab | null {
+  if (value === ALL_PAGES) return ALL_PAGES;
+  return isTuningPage(value) ? value : null;
+}
+
+/** 탭마다 칸 수(전체 포함) */
+export function pageCounts(entries: readonly TuningEntryView[]): Record<TuningPageTab, number> {
+  // 페이지가 늘면 타입 검사가 여기서 알린다
+  const counts: Record<TuningPageTab, number> = {
+    [ALL_PAGES]: entries.length,
+    society: 0,
+    npc: 0,
+    gardener: 0,
+    holdings: 0,
+    combat: 0,
+    economy: 0,
+    other: 0,
+  };
+  for (const entry of entries) counts[entry.page] += 1;
+  return counts;
+}
+
 export interface TuningQuery {
   readonly text: string;
   readonly filter: TuningFilter;
   /** 무리 글자("" = 코드 없음) 또는 ALL_FAMILIES */
   readonly family: string;
+  /** 분야 페이지 또는 ALL_PAGES */
+  readonly page: TuningPageTab;
 }
 
-/** 찾는 글이 코드·ID·이름(ko·en)에 들어 있는가(대소문자 무시) */
+/** 찾는 글이 코드·ID·이름(ko·en)·출처에 들어 있는가(대소문자 무시) */
 export function matchesSearch(entry: TuningEntryView, text: string): boolean {
   const needle = text.trim().toLowerCase();
   if (needle === "") return true;
-  return [entry.code, entry.id, entry.name.ko, entry.name.en].some((value) =>
+  return [entry.code, entry.id, entry.name.ko, entry.name.en, entry.source ?? ""].some((value) =>
     value.toLowerCase().includes(needle),
   );
 }
@@ -47,6 +81,7 @@ export function filterEntries(
   pending: Pending,
 ): TuningEntryView[] {
   return entries.filter((entry) => {
+    if (query.page !== ALL_PAGES && entry.page !== query.page) return false;
     if (query.family !== ALL_FAMILIES && tuningFamilyOf(entry.code) !== query.family) return false;
     if (query.filter === "changed" && entry.override === null && !pending.has(entry.id)) return false;
     if (query.filter === "live" && entry.scope !== "live") return false;

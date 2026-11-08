@@ -452,13 +452,13 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
 
     sellShares(seller, cityId, nowMs) {
       if (!seller.cities.has(cityId)) return;
-      // [임시] 사는 쪽 = 국고가 가장 많은 다른 살아 있는 세력, 값 = 주당 10(사는 쪽 국고 화폐)
+      // [임시] 사는 쪽 = 국고가 가장 많은 다른 살아 있는 세력, 수량·주당 값 = 설정 칸(d_share_sale_*, 출발값 100주·주당 10, 사는 쪽 국고 화폐)
       let buyer: SimFaction | undefined;
       for (const other of world.factions.values())
         if (other.alive && other.id !== seller.id && (!buyer || treasury(other) > treasury(buyer)))
           buyer = other;
-      const amount = 100n;
-      const price = amount * 10n;
+      const amount = BigInt(c.shareSaleAmount);
+      const price = amount * BigInt(c.shareSalePrice);
       if (!buyer || treasury(buyer) < price) return;
       const result = transferShares(
         book,
@@ -610,10 +610,13 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           unit.satisfactionMilli = satisfactionToward(unit.satisfactionMilli, target, dayPm, c);
         });
         const avg = average(units);
-        // [임시] 발전도(D-254 7요소 전): 만족도 몫(0~50) + 인구 몫(유닛 × 2, 30까지) + 연구 시설 Lv × 4
+        // [임시] 발전도(D-254 7요소 전): 만족도 몫(0~50) + 인구 몫(유닛 × 2, 30까지) + 연구 시설 Lv × 4 — 계수는 설정 칸(c.development)
+        const dev = c.development;
         city.development = Math.min(
-          100,
-          Math.floor(avg / 2000) + Math.min(30, units.length * 2) + city.researchLevel * 4,
+          dev.max,
+          Math.floor(avg / dev.satisfactionDivisorMilli) +
+            Math.min(dev.unitCap, units.length * dev.perUnit) +
+            city.researchLevel * dev.perResearchLevel,
         );
       }
 

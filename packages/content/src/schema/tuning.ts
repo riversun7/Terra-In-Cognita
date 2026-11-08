@@ -27,6 +27,10 @@ export const tuningEntrySchema = z
     min: tuningInt.optional(),
     /** 기술 범위 위 끝(포함) */
     max: tuningInt.optional(),
+    /** 쉬운 풀이(개발자 패널 칸 아래 줄, 2026-11-08 분야별 페이지). 값을 바꾸면 무엇이 달라지는지 한두 문장 */
+    desc: localizedText.optional(),
+    /** 출처: ADR 이름·기획 결정 ID(예: "ADR 2026-10-31-faction-society-core · D-186"). 보이기만 한다 */
+    source: z.string().min(1).max(160).optional(),
   })
   .superRefine((entry, ctx) => {
     // 필드 검사가 실패해도 불린다(AGENTS 6장 Zod 4.6.7): 값 모양을 다시 보고 틀리면 건너뛴다

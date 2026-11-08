@@ -5,10 +5,12 @@
 //   떨어진 오브젝트는 다른 모양(data-state="depleted": 속 빈 회색 고리). 멀리서 보면(1m가 MIN_PX_PER_M보다 작게) 숨긴다.
 // - 건물 표시: 화면 안 가장 가운데에 가까운 BUILDING_MARKERS개 건물 위 작은 단추(누르면 건물 판 — 들어가기·안에 있는 유닛). 땅을 눌러도 같은 판이 열린다.
 // - 채집 줄 표시: 내 유닛 머리 위 작은 이름표(단계·화물 kg). 누르지 않는다.
+// - 채집소 반경: 채집소 판이 열려 있으면 그 반경 고리(stationRing.ts, 사용자 지적 2026-11-08).
 import type { EngineLayer, EngineLayerView, SecondMapEngine } from "@terra/engine";
 import { m } from "../../paraglide/messages.js";
 import { kgText, nameText, phaseText } from "./gatherData.ts";
 import type { GatherObjectEntry, GatherState } from "./gatherState.ts";
+import { createStationRing } from "./stationRing.ts";
 
 /** 한 화면에 놓는 오브젝트 표시 수 */
 const MARKERS = 40;
@@ -60,6 +62,7 @@ export function attachGatherOverlay(
   const root = document.createElement("div");
   root.className = "gather-overlay";
   host.after(root);
+  const ring = createStationRing(root);
   const markers: Marker[] = [];
   const chips: Chip[] = [];
   for (let i = 0; i < MARKERS; i++) {
@@ -226,6 +229,7 @@ export function attachGatherOverlay(
 
   const layer: EngineLayer = {
     after(view) {
+      ring.place(view, state.ring);
       placeMarkers(view);
       placeBuildings(view);
       placeChips(view);

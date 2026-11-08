@@ -26,6 +26,13 @@ export type GatherSheet =
   | { readonly kind: "object"; readonly id: number }
   | { readonly kind: "building"; readonly id: number };
 
+/** 지도에 그리는 채집소 반경(배치 칸 가운데·반경) — 채집소 판이 열려 있는 동안(사용자 지적 2026-11-08) */
+export interface StationRing {
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
+}
+
 /** 땅을 눌렀을 때 오브젝트를 찾는 반경(배치 칸) */
 export const TAP_RADIUS_CELLS = 2;
 
@@ -36,6 +43,8 @@ export interface GatherState {
   /** 지도 자료의 건물 칸(덧그림이 건물 표시를 놓는다) */
   readonly buildings: readonly BuildingFootprint[];
   readonly sheet: GatherSheet | null;
+  /** 채집소 반경(없으면 null) */
+  readonly ring: StationRing | null;
   /** 바뀔 때마다 오른다(React 구독) */
   readonly version: number;
   subscribe(listener: () => void): () => void;
@@ -43,6 +52,7 @@ export interface GatherState {
   setLoops(loops: readonly GatherLoopView[]): void;
   setBuildings(buildings: readonly BuildingFootprint[]): void;
   open(sheet: GatherSheet | null): void;
+  setRing(ring: StationRing | null): void;
   /** 누른 칸: 둘레 오브젝트·건물이 있으면 판을 열고 true */
   tapCell(cell: { readonly x: number; readonly y: number }): boolean;
   objectById(id: number): GatherObjectEntry | undefined;
@@ -116,6 +126,7 @@ export function createGatherState(): GatherState {
     objects: [] as readonly GatherObjectEntry[],
     loops: [] as readonly GatherLoopView[],
     sheet: null as GatherSheet | null,
+    ring: null as StationRing | null,
     version: 0,
   };
   const changed = (): void => {
@@ -137,6 +148,9 @@ export function createGatherState(): GatherState {
     },
     get sheet() {
       return state.sheet;
+    },
+    get ring() {
+      return state.ring;
     },
     get version() {
       return state.version;
@@ -163,12 +177,22 @@ export function createGatherState(): GatherState {
     },
     open(sheet) {
       state.sheet = sheet;
+      // 채집소 판이 닫히면 반경도 지운다
+      if (sheet?.kind !== "building") state.ring = null;
+      changed();
+    },
+    setRing(ring) {
+      const old = state.ring;
+      if (old === ring || (old && ring && old.x === ring.x && old.y === ring.y && old.radius === ring.radius))
+        return;
+      state.ring = ring;
       changed();
     },
     tapCell(cell) {
       const object = nearestObject(state.objects, cell);
       if (object) {
         state.sheet = { kind: "object", id: object.id };
+        state.ring = null;
         changed();
         return true;
       }

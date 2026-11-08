@@ -61,6 +61,7 @@ function fakeService(calls: string[]): LaborService {
     },
     workersAt: () => [],
     attachProduction: () => {},
+    attachStation: () => {},
     overview: notUsed,
     jobs: notUsed,
     check: () => [],

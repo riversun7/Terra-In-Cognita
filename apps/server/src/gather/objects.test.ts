@@ -103,11 +103,11 @@ describe("채집 셈", () => {
   });
 
   it("피로: 시설 반경 안이면 배율, 다시 자람: 오염 비례 + 시설 반경 안 배율", () => {
-    expect(gatherFatiguePm(rules, false)).toBe(1000);
-    expect(gatherFatiguePm(rules, true)).toBe(500);
-    expect(regrowMs({ regrowMs: 1_800_000 }, rules, 0, false)).toBe(1_800_000);
-    expect(regrowMs({ regrowMs: 1_800_000 }, rules, 100_000, false)).toBe(3_600_000);
-    expect(regrowMs({ regrowMs: 1_800_000 }, rules, 50_000, true)).toBe(1_350_000);
-    expect(regrowMs({ regrowMs: 1_800_000 }, rules, 999_999, false)).toBe(3_600_000);
+    expect(gatherFatiguePm(rules, null)).toBe(1000);
+    expect(gatherFatiguePm(rules, 1)).toBe(500);
+    expect(regrowMs({ regrowMs: 1_800_000 }, rules, 0, null)).toBe(1_800_000);
+    expect(regrowMs({ regrowMs: 1_800_000 }, rules, 100_000, null)).toBe(3_600_000);
+    expect(regrowMs({ regrowMs: 1_800_000 }, rules, 50_000, 1)).toBe(1_350_000);
+    expect(regrowMs({ regrowMs: 1_800_000 }, rules, 999_999, null)).toBe(3_600_000);
   });
 });

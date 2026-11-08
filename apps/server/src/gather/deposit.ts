@@ -1,16 +1,17 @@
 // 채집한 물건을 넣는 곳 — docs/adr/2026-11-07-gather-objects.md 3·4절, 사용자 답 "매 채집마다 창고로 이동하여 저장하여 불필요한 동선. 오브젝트가 몰린곳에
 // 광산이나 벌목소를 통해 빠르게 저장". 원장(유닛 화물 위치 → 넣는 곳 위치) 옮기기와 넣는 곳 고르기다(순수에 가깝다: 원장·자리 세계만 만진다).
-// - 시설(camp): 그 오브젝트를 맡는 내 벌목장·광산(다 지었고 일하는)으로 오브젝트가 반경 안에 있는 것 가운데 가장 가까운 것. 넣으면 그 시설 산출과 같은
-//   곳(그 건물이 선 도시의 내 도시 창고, 도시가 없으면 그 건물 창고 — WP3 "산출 자리")으로 간다.
+// - 시설(camp): 그 오브젝트를 맡는 내 벌목장·광산(다 지었고 일하는)으로 오브젝트가 반경(그 시설 레벨의 채집소 반경) 안에 있는 것 가운데 가장
+//   가까운 것. 넣으면 그 시설 창고(채집소 창고, 상한 = 팩 storageKg × 레벨)로 간다 — 사용자 지적(2026-11-08) "원자재채집소의 기능도 필요": 채집소
+//   창고에 모으고 주인 도시 창고로 옮긴다(손으로·자동, station.ts). 예전에는 그 도시 창고로 바로 갔다.
 // - 창고(storage): 그 2차맵의 내 창고 시설(창고 단계, 다 지었고 일하는, 자리가 남은 것). 건물 창고로(용량 N50).
 // - 도시(city): 그 2차맵의 도시(시청 자리). 내 도시 창고로(용량 없음, 질문 411).
 // 시설이 있으면 시설, 없으면 창고·도시 가운데 지금 자리에서 가장 가까운 곳.
 import { conditionWorks } from "@terra/shared/facilityRuntime";
 import { buildingLocation, cargoLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
-import { assetWeightG, buildingCell, buildingPlace, type PlaceWorld } from "../facilities/places.ts";
+import { assetWeightG, buildingCell, type PlaceWorld } from "../facilities/places.ts";
 import { type StorageContext, roomGrams } from "../facilities/storage.ts";
-import { cellDistance2 } from "./rules.ts";
+import { type GatherRules, cellDistance2, stationBuffs } from "./rules.ts";
 
 export type DepositKind = "camp" | "storage" | "city";
 
@@ -43,15 +44,15 @@ function built(world: PlaceWorld, buildingId: number, works: (id: number) => boo
 }
 
 /**
- * 오브젝트를 맡는 시설: 그 2차맵에서 시설 ID가 facilityId인 다 지은·일하는 건물 가운데 오브젝트가 반경 안인 가장 가까운 것.
- * ownerId가 null이면 주인을 가리지 않는다(다시 자람 버프), 아니면 그 주인 것만(넣는 곳·수확 버프)
+ * 오브젝트를 맡는 시설: 그 2차맵에서 시설 ID가 facilityId인 다 지은·일하는 건물 가운데 오브젝트가 그 시설 레벨의 반경(stationBuffs) 안인 가장
+ * 가까운 것. ownerId가 null이면 주인을 가리지 않는다(다시 자람 버프), 아니면 그 주인 것만(넣는 곳·수확 버프)
  */
 export function campFor(
   world: PlaceWorld,
   mapKey: number,
   facilityId: string | null,
   object: { readonly x: number; readonly y: number },
-  radius: number,
+  rules: GatherRules,
   ownerId: number | null,
   works: (id: number) => boolean,
 ): Camp | undefined {
@@ -60,15 +61,15 @@ export function campFor(
   if (!map) return undefined;
   let best: Camp | undefined;
   let bestDistance = 0;
-  const limit = radius * radius;
   map.forEachBuilding((building) => {
     const record = world.facilities.get(building.id);
     if (record?.facilityId !== facilityId) return;
     if (ownerId !== null && building.ownerId !== ownerId) return;
     const level = built(world, building.id, works);
     if (level === null) return;
+    const radius = stationBuffs(rules, level).radiusCells;
     const distance = cellDistance2(building.x, building.y, object.x, object.y);
-    if (distance > limit) return;
+    if (distance > radius * radius) return;
     if (!best || distance < bestDistance || (distance === bestDistance && building.id < best.buildingId)) {
       best = { buildingId: building.id, level, x: building.x, y: building.y };
       bestDistance = distance;
@@ -77,13 +78,12 @@ export function campFor(
   return best;
 }
 
-/** 시설에 넣으면 가는 원장 위치(WP3 산출 자리: 그 도시 창고, 도시가 없으면 그 건물 창고) */
-export function campDeposit(world: PlaceWorld, camp: Camp): Deposit {
-  const cityId = buildingPlace(world, camp.buildingId)?.cityId ?? null;
+/** 시설에 넣으면 가는 원장 위치 = 그 시설 창고(채집소 창고 — 주인 도시 창고로는 station.ts가 옮긴다) */
+export function campDeposit(camp: Camp): Deposit {
   return {
     kind: "camp",
     id: camp.buildingId,
-    location: cityId === null ? buildingLocation(camp.buildingId) : cityLocation(cityId),
+    location: buildingLocation(camp.buildingId),
     x: camp.x,
     y: camp.y,
   };

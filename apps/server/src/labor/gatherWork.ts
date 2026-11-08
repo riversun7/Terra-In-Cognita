@@ -85,6 +85,11 @@ export interface GatherLotsInput {
   readonly settings: GatherSettings;
   /** 정산 주기 하나의 ms(@terra/sim TEST_JOB_RULES.cycleMs) */
   readonly cycleMs: number;
+  /**
+   * 이번에 끝낼 수 있는 묶음 수 상한(채집소 반경 안 남은 오브젝트 번수, gather/station.ts). 닿으면 쌓인 진행은 다음 묶음 하나 몫까지만 남는다
+   * (기다리는 동안 진행이 끝없이 쌓이지 않게). 없으면 상한 없음
+   */
+  readonly maxLots?: number | undefined;
 }
 
 export interface GatherLotsResult extends GatherProgress {
@@ -92,6 +97,8 @@ export interface GatherLotsResult extends GatherProgress {
   readonly outputs: readonly { readonly asset: string; readonly qty: bigint }[];
   /** 끝낸 묶음 수(빈 묶음 포함) */
   readonly lots: number;
+  /** 묶음 상한(maxLots)에 막혀 더 끝내지 못했나 */
+  readonly capped: boolean;
 }
 
 /** 한 번 부를 때 끝내는 묶음 상한(잘못된 설정 값으로 도는 것을 막는다, 남은 진행은 다음 정산으로) */
@@ -124,8 +131,10 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
   let points = progress.points + Math.max(0, made) * effects.progress * Math.max(1, input.cycleMs);
   let seq = progress.seq;
   let lots = 0;
+  let capped = false;
+  const limit = Math.min(MAX_LOTS_PER_CALL, Math.max(0, Math.floor(input.maxLots ?? MAX_LOTS_PER_CALL)));
   const out = new Map<string, bigint>();
-  while (lots < MAX_LOTS_PER_CALL) {
+  for (;;) {
     const rolled = rollGatherOutputs(
       {
         ladder: site.ladder,
@@ -146,6 +155,14 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
     );
     const need = Math.max(1, tierRequiredProgress(tier, base, step) * tickMs);
     if (points < need) break;
+    if (lots >= limit) {
+      // 묶음 상한(채집소 오브젝트): 다음 묶음 하나 몫까지만 남긴다
+      if (input.maxLots !== undefined) {
+        capped = true;
+        points = need;
+      }
+      break;
+    }
     points -= need;
     seq += 1;
     lots += 1;
@@ -158,5 +175,5 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
       const qty = out.get(asset);
       if (qty !== undefined && qty > 0n) outputs.push({ asset, qty });
     }
-  return { points, seq, outputs, lots };
+  return { points, seq, outputs, lots, capped };
 }

@@ -1,7 +1,7 @@
 // 건물 들어가기 — docs/adr/2026-11-07-gather-objects.md 5절, 사용자 지적(2026-11-07) "숲이나 건물로 진입 등의 상호작용 불가".
 // 유닛이 건물 둘레 설 칸에 닿으면 차례로 해 본다:
-// 1. 화물 넣기: 내 창고 시설(다 지었고 일하는) → 그 건물 창고(용량까지), 내 벌목장·광산(다 지었고 일하는) → 그 시설이 맡는 오브젝트 물건만 그 시설 산출
-//    자리(도시 창고, 도시가 없으면 그 건물 창고), 행정 건물(시청, 주인 상관없음) → 그 도시의 내 도시 창고.
+// 1. 화물 넣기: 내 창고 시설(다 지었고 일하는) → 그 건물 창고(용량까지), 내 벌목장·광산(다 지었고 일하는) → 그 시설이 맡는 오브젝트 물건만 그 시설
+//    창고(채집소 창고, 용량까지 — 사용자 지적 2026-11-08), 행정 건물(시청, 주인 상관없음) → 그 도시의 내 도시 창고.
 // 2. 직무 받기: 내 채집 시설(다 지었고)이고 유닛이 쉬고 있으면 기존 직무 배치(labor assign — 자리·같은 2차맵 검사는 그쪽이 한다).
 // 3. 안에 머물기: 위 둘이 아니면(남의 건물 포함) 건물 판에 "안에 있는 유닛"으로 보인다(움직이면 나간다).
 import type { GatherEnterResult } from "@terra/shared/gather";
@@ -53,7 +53,7 @@ export function entryOptions(
       kinds.filter((kind) => kind.facility === def.id).map((kind) => `item:${kind.item}`),
     );
     return {
-      deposit: campDeposit(world, { buildingId, level: record.level, x, y }),
+      deposit: campDeposit({ buildingId, level: record.level, x, y }),
       accepts: served,
       workplace: true,
       mine,

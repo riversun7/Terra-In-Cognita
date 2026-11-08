@@ -130,4 +130,11 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 휴먼 집으로 가는 지역 시각(그 지역 하루 ‰, 750 = 18:00)",
     "NPC humans go home at local time (‰ of the local day, 750 = 18:00)",
   ),
+  // NPC 수도 옮기기(기획 D-528, docs/adr/2026-11-07-world-layout.md "바뀜 (D-528)"): 49에 칸이 없어 npc_capital_*를 앞머리로 쓴다
+  k(
+    "npc_capital_switch_dev",
+    "capitalSwitchDev",
+    "NPC 수도 옮기기: 다른 도시 발전도가 수도보다 이만큼 높으면(점)",
+    "NPC capital move: when another city's development leads the capital by (points)",
+  ),
 ];

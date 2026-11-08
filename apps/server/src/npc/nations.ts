@@ -231,7 +231,7 @@ export interface ExistingCity extends CitySpot {
  * 자리, docs/adr/2026-11-07-world-layout.md). 없으면 옛 방식(시험 2차맵들에 나눔, planStartCities)
  */
 export type StartCityPlacer = (
-  nations: readonly { readonly factionId: number; readonly missing: number }[],
+  nations: readonly { readonly factionId: number; readonly code: string; readonly missing: number }[],
   existing: readonly ExistingCity[],
   ruins: readonly CitySpot[],
 ) => readonly { readonly factionId: number; readonly spot: CitySpot }[];
@@ -286,7 +286,7 @@ export async function ensureTestNations(
     const factionId = idOf.get(code);
     if (factionId === undefined) return [];
     const want = startCitiesFor(options.seed, presetOfCode(code, options.presets)?.personality?.startCities);
-    return [{ factionId, missing: Math.max(0, want - (have.get(factionId) ?? 0)) }];
+    return [{ factionId, code, missing: Math.max(0, want - (have.get(factionId) ?? 0)) }];
   });
   // 폐허 자리(docs/adr/2026-11-07-ruins-restoration.md)도 찬 자리로 친다(복원되면 같은 자리에 도시가 돌아온다)
   const ruins = await pool.query(`select map_key, cell_x, cell_y from world_ruins where planet_id = $1`, [

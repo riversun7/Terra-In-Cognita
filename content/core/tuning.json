@@ -8096,6 +8096,24 @@
       "source": "ADR 2026-11-07-play-flow \"WP-NPC4\" [임시]"
     },
     {
+      "id": "npc_capital_switch_dev",
+      "code": "",
+      "name": {
+        "ko": "NPC 수도 옮기기: 다른 도시 발전도가 수도보다 이만큼 높으면(점)",
+        "en": "NPC capital move: when another city's development leads the capital by (points)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "하루 끝에 같은 나라 다른 도시의 발전도가 수도보다 이만큼 높으면 NPC가 수도를 옮긴다.",
+        "en": "At day end the NPC moves its capital when another city of the nation leads in development by this much."
+      },
+      "source": "D-528 · ADR 2026-11-07-world-layout \"바뀜 (D-528)\" [임시]"
+    },
+    {
       "id": "d530_city_bid_pct",
       "code": "",
       "name": {

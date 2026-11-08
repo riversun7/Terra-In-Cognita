@@ -1,15 +1,18 @@
 /*
- * 설정 칸 패널(/dev/tuning) — 패널 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
- * 개발 화면 층(ADR 2026-11-02-dev-ui): 칸은 촘촘한 표(공용 .dev-table) 한 줄씩. 코드 · 이름·ID · 표지 · 지금 · 팩 · 범위 · 새 값 · 되돌리기.
- * 넓은 폭은 표 머리가 위 띠 아래에 붙고, 좁은 폭(80em 아래)은 표만 상자 안에서 가로로 민다(화면은 밀리지 않는다).
+ * 설정 칸 패널(/dev/tuning) 틀 — 머리·분야 목록·찾기 띠·담은 변경 막대·펼쳐 보는 판·창. 칸 줄은 tuningRows.css.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다. 개발 화면 층(ADR 2026-11-02-dev-ui), docs/adr/2026-11-01-dev-settings-panel.md "바뀜 (2026-11-08 화면 개편)".
+ * 배치는 화면 폭이 아니라 이 화면의 폭(@container tp-screen)으로 정한다(틀 사이드 메뉴가 있어도 맞게):
+ * - 60rem 이상: 왼쪽 분야 목록(붙음) + 오른쪽 칸 목록, 찾기 띠는 위 띠 아래에 붙는다.
+ * - 그 아래(휴대폰): 분야 고르기 상자 → 찾기 → 거르기 줄 → 칸. 자주 누르는 조작부는 --dev-touch-tap(터치 44px).
  */
 .tp-screen {
-  gap: var(--space-4);
+  container: tp-screen / inline-size;
+  gap: var(--space-5);
   /* 담은 변경 막대가 마지막 줄을 가리지 않게 */
   padding-block-end: var(--space-12);
 }
 .tp-lead {
-  font-size: var(--font-size-sm);
+  max-width: 72ch;
   color: var(--color-text-muted);
 }
 .tp-failed {
@@ -19,7 +22,13 @@
   gap: var(--space-3);
 }
 
-/* ── 요약 칩 ── */
+/* ── 머리: 요약 칩 + 서버 덮어쓰기 도구(오른쪽) ── */
+.tp-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-6);
+}
 .tp-summary {
   margin: 0;
   padding: 0;
@@ -28,6 +37,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
 }
 .tp-summary > li {
   padding: 0 var(--space-3);
@@ -38,145 +48,27 @@
   line-height: var(--line-height-body);
   font-variant-numeric: tabular-nums;
 }
-/* 가중치 표 칸 수 → 밸런스 화면 고리(누르는 곳 --tap-size) */
 .tp-summary > .tp-stat-overrides {
   padding: 0;
 }
 .tp-stat-overrides > a {
   display: inline-flex;
   align-items: center;
-  min-height: var(--tap-size);
+  min-height: var(--dev-touch-tap);
   padding: 0 var(--space-3);
   color: var(--color-text);
   text-decoration: underline;
   text-decoration-color: var(--color-focus);
   text-underline-offset: var(--space-1);
 }
-.tp-summary > .tp-stat-overrides:not([data-count="0"]) {
+.tp-summary > .tp-stat-overrides:not([data-count="0"]),
+.tp-summary > .tp-changed-count:not([data-count="0"]) {
   border-color: var(--color-warning);
   background-color: var(--color-warning-surface);
 }
 .tp-summary > .tp-changed-count:not([data-count="0"]) {
-  border-color: var(--color-warning);
-  background-color: var(--color-warning-surface);
   color: var(--color-warning);
   font-weight: var(--font-weight-strong);
-}
-
-/* ── 분야 페이지 탭: 붙은 단추 줄(좁으면 여러 줄로 접힘). 고른 탭 = 주색 테두리·글 ── */
-.tp-pages {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-.tp-page {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--tap-size);
-  padding: 0 var(--space-3);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-control);
-  background-color: var(--color-surface);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-.tp-page[aria-selected="true"] {
-  border-color: var(--color-primary);
-  background-color: var(--dev-row-selected);
-  color: var(--color-primary);
-  font-weight: var(--font-weight-strong);
-}
-.tp-page:focus-visible {
-  outline: var(--focus-w) solid var(--color-focus);
-  outline-offset: var(--focus-offset);
-}
-.tp-page-count {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-muted);
-}
-.tp-page-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-.tp-page-lead {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-/* ── 찾기·거르기: 한 줄(좁으면 접힘). 이름표는 칸 왼쪽 ── */
-.tp-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3) var(--space-6);
-  padding: var(--space-3) var(--space-4);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background-color: var(--color-surface);
-}
-.tp-toolbar .field {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-3);
-}
-.tp-toolbar .field-label {
-  white-space: nowrap;
-  color: var(--color-text-muted);
-}
-.tp-search {
-  flex: 1 1 18em;
-  min-width: 0;
-}
-.tp-search .input {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.tp-family select {
-  min-width: 12em;
-}
-.tp-filters {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-.tp-filters legend {
-  float: left;
-  margin-inline-end: var(--space-2);
-  color: var(--color-text-muted);
-}
-/* 보기 고르기: 붙은 작은 단추 모양(라디오 칸은 이름표 안) */
-.tp-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-control);
-  background-color: var(--color-surface-2);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-.tp-filter[data-active] {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  font-weight: var(--font-weight-strong);
-}
-.tp-filter:focus-within {
-  outline: var(--focus-w) solid var(--color-focus);
-  outline-offset: var(--focus-offset);
 }
 .tp-tools {
   display: flex;
@@ -184,431 +76,430 @@
   gap: var(--space-2);
   margin-inline-start: auto;
 }
-.tp-shown {
+.tp-tools > button,
+.tp-failed > button,
+.tp-empty > button {
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+.tp-revert-all {
+  color: var(--color-danger);
+}
+
+/* ── 배치 ── */
+.tp-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.tp-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.tp-page-panel {
+  container: tp-list / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.tp-page-lead {
+  margin: 0;
+  max-width: 80ch;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.tp-page-name {
+  margin-inline-end: var(--space-2);
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
+}
+
+/* ── 분야: 좁은 폭 = 고르기 상자, 넓은 폭 = 세로 목록 ── */
+.tp-nav-select {
+  gap: var(--space-2);
+}
+.tp-page-select {
+  width: 100%;
+  min-height: var(--dev-touch-tap);
+}
+.tp-nav-list {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.tp-page {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--dev-row-h);
+  padding: 0 var(--space-4);
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-control);
+  background-color: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-regular);
+  text-align: start;
+}
+@media (hover: hover) and (pointer: fine) {
+  .tp-page:hover {
+    background-color: var(--dev-row-hover);
+  }
+}
+.tp-page[aria-current="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--dev-row-selected);
+  font-weight: var(--font-weight-strong);
+}
+.tp-page:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.tp-page-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* 바뀐 칸 수: 경고색 작은 표(덮어쓰기·담음이 있는 분야) */
+.tp-page-changed {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.tp-page-count {
+  min-width: 3ch;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  text-align: end;
   color: var(--color-text-muted);
 }
 
-/* ── 칸 표 ── */
-.tp-table-wrap {
-  /* 줄 안 읽기 전용 글(.visually-hidden, absolute)이 이 상자 밖으로 문서를 넓히지 않게 담는 상자가 된다 */
-  position: relative;
+/* 키 안내(넓은 폭 분야 목록 아래) */
+.tp-keys {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.tp-keys > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.tp-keys dt {
+  flex: 0 0 auto;
+  min-width: 7ch;
+}
+.tp-keys dd {
+  margin: 0;
+}
+.tp-keys kbd,
+.tp-search-key {
+  display: inline-block;
+  min-width: 2ch;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-body);
+  text-align: center;
+}
+
+/* ── 찾기·거르기 띠 ── */
+.tp-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-panel);
   background-color: var(--color-surface);
 }
-.tp-table {
-  min-width: 60em;
+.tp-search-row {
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
 }
-.tp-table .tp-th-num {
-  text-align: end;
+.tp-search {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
 }
-.tp-group-row > th {
-  padding-block: var(--space-2);
-  background-color: var(--color-surface-2);
+.tp-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--dev-touch-tap);
+  padding-inline-end: calc(var(--space-12) + var(--space-2));
 }
-.tp-group-title {
-  margin: 0;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-strong);
-  line-height: var(--line-height-tight);
-  color: var(--color-text);
+.tp-search-key {
+  position: absolute;
+  inset-inline-end: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
-.tp-row > td {
-  white-space: nowrap;
-}
-/* 덮어쓴 줄: 왼쪽 경고색 표시. 담은 줄: 초점색 표시 + 고른 줄 바탕 */
-.tp-row[data-changed] > td:first-child {
-  box-shadow: inset var(--space-1) 0 0 var(--color-warning);
-}
-.tp-row[data-staged] > td {
-  background-color: var(--dev-row-selected);
-}
-.tp-row[data-staged] > td:first-child {
-  box-shadow: inset var(--space-1) 0 0 var(--color-focus);
-}
-.tp-c-code,
-.tp-c-actions {
-  width: 1%;
-}
-.tp-code {
-  display: inline-block;
-  min-width: 3ch;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-strong);
-  color: var(--color-text);
-}
-/* 이름 칸이 남는 폭을 먼저 받는다(다른 칸은 줄을 바꾸지 않는 글자 폭) — 긴 영어 이름이 두 줄로 꺾이지 않게 */
-.tp-row > .tp-c-name {
-  width: 40%;
-  min-width: 16em;
-  white-space: normal;
-}
-.tp-name {
-  margin-inline-end: var(--space-3);
-  font-weight: var(--font-weight-strong);
-}
-.tp-id {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  color: var(--dev-code);
-  overflow-wrap: anywhere;
-}
-/* 쉬운 풀이(지금 언어)와 단위·출처 줄 */
-.tp-desc {
-  display: block;
-  margin-block-start: var(--space-1);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-body);
-  color: var(--color-text);
-}
-.tp-meta {
+.tp-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 var(--space-4);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.tp-meta-item {
-  overflow-wrap: anywhere;
-}
-.tp-meta-label {
-  font-weight: var(--font-weight-strong);
-}
-.tp-override {
-  display: block;
-  font-size: var(--font-size-xs);
-  color: var(--color-warning);
-  overflow-wrap: anywhere;
-}
-.tp-note {
-  color: var(--color-text);
-}
-.tp-chip {
-  display: inline-block;
-  margin-inline-end: var(--space-2);
-  padding: 0 var(--space-2);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-strong);
-  line-height: var(--line-height-body);
-  white-space: nowrap;
-}
-.tp-chip-structural {
-  border-color: var(--color-warning);
-  background-color: var(--color-warning-surface);
-  color: var(--color-warning);
-}
-.tp-scope[data-scope="live"] {
-  border-color: var(--color-success);
-  background-color: var(--color-success-surface);
-  color: var(--color-success);
-}
-.tp-scope[data-scope="sim"] {
-  background-color: var(--color-surface-2);
-  color: var(--color-text-muted);
-}
-.tp-scope[data-scope="none"] {
-  border-color: var(--color-danger);
-  background-color: var(--color-danger-surface);
-  color: var(--color-danger);
-}
-.tp-row > .tp-c-now,
-.tp-row > .tp-c-pack {
-  text-align: end;
-}
-.tp-value {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
-}
-.tp-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.tp-number {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-strong);
-  font-variant-numeric: tabular-nums;
-}
-.tp-value-pack .tp-number {
-  font-weight: var(--font-weight-regular);
-  color: var(--color-text-muted);
-}
-.tp-row[data-changed] .tp-value-now .tp-number {
-  color: var(--color-warning);
-}
-.tp-value-staged {
-  margin-inline-start: var(--space-3);
-}
-.tp-value-staged .tp-number {
-  color: var(--color-focus);
-}
-.tp-gloss {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.tp-delta {
-  /* 내림 = 시세 파랑(한국식 오르내림, economy.css와 같은 결). 검사가 이름 속 "blue"를 색 이름으로 읽어 칸 이름으로 받는다 */
-  --tp-down: var(--color-market-blue);
-  margin-inline-start: var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-strong);
-}
-.tp-delta[data-sign="up"] {
-  color: var(--color-danger);
-}
-.tp-delta[data-sign="down"] {
-  color: var(--tp-down);
-}
-
-/* 범위: 글 + 작은 막대(아래 끝 ~ 위 끝, 팩 값 = 속 빈 눈금, 지금 값 = 찬 눈금) */
-.tp-range-text {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.tp-unit {
-  font-family: var(--font-body);
-}
-.tp-range {
-  position: relative;
-  display: inline-block;
-  width: var(--dev-range-w);
-  height: var(--stat-bar);
-  margin-inline-end: var(--space-4);
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface-2);
-  box-shadow: inset 0 0 0 var(--hairline) var(--color-border);
-  vertical-align: middle;
-}
-.tp-range:empty {
-  visibility: hidden;
-}
-.tp-range-mark {
-  position: absolute;
-  top: 50%;
-  width: var(--stat-bar-lg);
-  height: var(--stat-bar-lg);
-  border-radius: var(--radius-pill);
-  transform: translate(-50%, -50%);
-}
-.tp-range-pack {
-  border: var(--hairline) solid var(--color-text-muted);
-  background-color: var(--color-surface);
-}
-.tp-range-now {
-  background-color: var(--color-primary);
-}
-.tp-row[data-changed] .tp-range-now {
-  background-color: var(--color-warning);
-}
-
-/* 새 값 칸 + [담기] */
-.tp-editor {
-  display: grid;
-  grid-template-columns: auto auto;
-  justify-content: start;
   align-items: center;
-  gap: var(--space-1) var(--space-2);
+  gap: var(--space-3);
+  min-width: 0;
 }
-.tp-input {
-  width: 9em;
-  min-height: var(--control-h-sm);
-  text-align: end;
-  font-family: var(--font-mono);
+/* 켜고 끄는 작은 단추(바꾼 것만·풀이 보기): 켜면 주색 테두리·글 */
+.tp-chip-button {
+  flex: 0 0 auto;
+  min-height: var(--dev-touch-tap);
+  padding: 0 var(--space-4);
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+}
+.tp-chip-button[aria-pressed="true"],
+.tp-filters-toggle[data-active] {
+  border-color: var(--color-primary);
+  background-color: var(--dev-row-selected);
+  font-weight: var(--font-weight-strong);
+}
+/* 반영 범위: 붙은 칸 고르기(라디오는 숨기고 이름표를 누른다) */
+.tp-scope-filter {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  min-width: 0;
+}
+.tp-seg {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--dev-touch-tap);
+  padding: 0 var(--space-4);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tp-seg + .tp-seg {
+  border-inline-start: var(--hairline) solid var(--color-border);
+}
+.tp-seg:has(input:checked) {
+  background-color: var(--dev-row-selected);
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+  box-shadow: inset 0 calc(-1 * var(--focus-w)) 0 var(--color-primary);
+}
+.tp-seg:has(input:focus-visible) {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+  z-index: 1;
+}
+.tp-filter-select {
+  min-height: var(--dev-touch-tap);
+  max-width: 100%;
+  font-size: var(--font-size-sm);
+}
+.tp-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+}
+.tp-shown {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
-.tp-error {
-  grid-column: 1 / -1;
+/* 글 단추(거르기 지우기): 테두리 없이 밑줄 */
+.tp-link-button {
+  min-height: var(--dev-touch-tap);
+  padding: 0 var(--space-2);
+  border: 0;
+  background-color: transparent;
+  color: var(--color-text);
   font-size: var(--font-size-xs);
-  white-space: normal;
+  font-weight: var(--font-weight-regular);
+  text-decoration: underline;
+  text-decoration-color: var(--color-focus);
+  text-underline-offset: var(--space-1);
+}
+.tp-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-6);
+  border: var(--hairline) dashed var(--color-border);
+  border-radius: var(--radius-panel);
+  color: var(--color-text-muted);
+}
+
+/* 좁은 폭: 거르기 줄은 [거르기]를 눌러야 펼쳐진다. 분야 한 줄 풀이는 고르기 상자가 이름을 보이므로 숨긴다 */
+@container tp-screen (max-width: 59.99rem) {
+  .tp-filters[data-open="false"],
+  .tp-page-lead {
+    display: none;
+  }
+}
+
+/* 휴대폰: 범위 고르기는 한 줄 전체(네 칸 같은 폭), 고르기 상자는 둘이 한 줄 */
+@container tp-screen (max-width: 39.99rem) {
+  .tp-scope-filter {
+    display: flex;
+    flex: 1 1 100%;
+  }
+  .tp-seg {
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 0 var(--space-2);
+  }
+  .tp-filter-select {
+    flex: 1 1 10em;
+  }
+}
+
+/* 넓은 폭: 왼쪽 분야 목록 + 오른쪽 칸 목록. 찾기 띠는 위 띠 아래에 붙는다 */
+@container tp-screen (min-width: 60rem) {
+  .tp-layout {
+    display: grid;
+    grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-8);
+  }
+  .tp-side {
+    position: sticky;
+    top: var(--space-4);
+  }
+  .tp-nav-select {
+    display: none;
+  }
+  .tp-nav-list,
+  .tp-keys {
+    display: flex;
+  }
+  .tp-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    box-shadow: 0 var(--space-2) var(--space-4) var(--color-bg);
+  }
+  .tp-search-row {
+    flex: 1 1 20rem;
+  }
+  .tp-filters-toggle {
+    display: none;
+  }
+  .tp-result {
+    flex: 1 1 100%;
+  }
+}
+:root[data-topbar] .tp-side {
+  top: calc(var(--dev-sticky-top) + var(--space-4));
+}
+:root[data-topbar] .tp-toolbar {
+  top: var(--dev-sticky-top);
 }
 
 /* ── 담은 변경 막대(화면 아래에 붙음) ── */
 .tp-pending {
   position: sticky;
   bottom: calc(var(--dev-dock-bottom) + var(--space-4));
-  z-index: 2;
+  z-index: 4;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-3) var(--space-4);
   padding: var(--space-3) var(--space-4);
   border: var(--hairline) solid var(--color-focus);
   border-radius: var(--radius-panel);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-panel);
 }
+.tp-pending-details {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.tp-pending-details[open] {
+  flex: 1 1 100%;
+}
 .tp-pending-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--dev-touch-tap);
   font-weight: var(--font-weight-strong);
+  color: var(--color-focus);
+  cursor: pointer;
+}
+.tp-pending-list {
+  max-height: calc(var(--dev-row-h) * 6);
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tp-pending-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-4);
+  min-height: var(--dev-row-h);
+  border-block-start: var(--hairline) solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+.tp-pending-what {
+  flex: 1 1 14em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tp-pending-change {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.tp-pending-change strong {
   color: var(--color-focus);
 }
 .tp-note-input {
-  flex: 1 1 16em;
+  flex: 1 1 14em;
   width: auto;
   min-width: 0;
+  min-height: var(--dev-touch-tap);
 }
 .tp-pending-actions {
   display: flex;
   gap: var(--space-2);
   margin-inline-start: auto;
 }
-
-/* ── 펼쳐 보는 판(최근 바꿈·49 칸) ── */
-.tp-section {
-  padding: var(--space-2) var(--space-4);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background-color: var(--color-surface);
-}
-.tp-section > summary {
-  min-height: var(--tap-size);
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-.tp-section-title {
-  font-weight: var(--font-weight-strong);
-}
-.tp-history-list,
-.tp-history-changes,
-.tp-cell-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.tp-history-list {
-  display: flex;
-  flex-direction: column;
-}
-.tp-history-row {
-  padding-block: var(--space-2);
-  border-block-start: var(--hairline) solid var(--color-border);
-}
-.tp-history-head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-  font-size: var(--font-size-sm);
-}
-.tp-history-action {
-  font-weight: var(--font-weight-strong);
-}
-.tp-history-row[data-action="pack_won"] .tp-history-action,
-.tp-history-row[data-action="dropped"] .tp-history-action {
-  color: var(--color-warning);
-}
-.tp-history-head time,
-.tp-history-who {
-  color: var(--color-text-muted);
-}
-.tp-history-changes {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  overflow-wrap: anywhere;
-}
-.tp-history-note {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.tp-cells-summary {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-strong);
-}
-.tp-cells-group {
-  display: flex;
-  flex-direction: column;
-  margin-block-start: var(--space-4);
-}
-.tp-cells-group .tp-group-title {
-  padding-block-end: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-.tp-cell {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 var(--space-3);
-  min-height: var(--dev-row-h);
-  padding-block: var(--space-1);
-  border-block-start: var(--hairline) solid var(--color-border);
-  font-size: var(--font-size-sm);
-}
-.tp-cell:nth-child(even) {
-  background-color: var(--dev-row-alt);
-}
-.tp-cell-name {
-  flex: 1 1 16em;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.tp-cell-status[data-status="connected"] {
-  border-color: var(--color-success);
-  background-color: var(--color-success-surface);
-  color: var(--color-success);
-}
-.tp-cell-status[data-status="no_value"] {
-  background-color: var(--color-surface-2);
-  color: var(--color-text-muted);
-}
-.tp-cell-status[data-status="not_connected"] {
-  border-color: var(--color-warning);
-  background-color: var(--color-warning-surface);
-  color: var(--color-warning);
-}
-.tp-cell-start,
-.tp-cell-ids {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  overflow-wrap: anywhere;
-}
-.tp-cell-ids {
-  font-family: var(--font-mono);
-  color: var(--dev-code);
+.tp-pending-actions > button {
+  min-height: var(--dev-touch-tap);
 }
 
-/* ── 확인·내보내기 창 ── */
-.tp-dialog {
-  width: min(100% - 2 * var(--space-4), var(--sheet-max));
-  padding: 0;
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background-color: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: var(--shadow-panel);
+/* 화면 머리 [뒤로]도 휴대폰에서 자주 누르는 곳. 글이 짧은 단추([적용]·[×])도 폭이 누르는 곳보다 좁지 않게 */
+.tp-screen .back-button {
+  min-height: var(--dev-touch-tap);
 }
-.tp-dialog::backdrop {
-  background-color: var(--color-overlay);
-}
-.tp-dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6);
-}
-.tp-dialog-title {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-strong);
-}
-.tp-export-text {
-  min-height: calc(var(--control-h) * 8);
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-sm);
-  resize: vertical;
-}
-
-/* 좁은·중간 폭: 표만 가로로 민다(머리는 상자 안에 있어 붙지 않는다) */
-@media (max-width: 79.99em) {
-  .tp-table-wrap {
-    overflow-x: auto;
-  }
-  :root[data-topbar] .tp-table-wrap .tp-table thead th {
-    top: 0;
-  }
+.tp-screen button {
+  min-width: var(--dev-touch-tap);
 }

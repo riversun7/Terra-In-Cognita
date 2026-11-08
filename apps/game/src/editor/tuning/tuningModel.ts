@@ -1,13 +1,16 @@
-// 설정 칸 패널 순수 코드 — 찾기·거르기·무리 나누기, 담은 변경, 값 글, 서버 오류 → 문구 키, 49 칸 목록 상태(시험 대상).
-// docs/adr/2026-11-01-dev-settings-panel.md 12절·"바뀜: D-462"·"바뀜 (2026-11-08 분야별 페이지)". 판정은 서버가 한다(범위·규칙 검사). 기기는 보이기만 한다.
+// 설정 칸 패널 순수 코드 — 찾기·거르기·무리 나누기, 담은 변경, 값 글·입력 검사, 서버 오류 → 문구 키, 49 칸 목록 상태(시험 대상).
+// docs/adr/2026-11-01-dev-settings-panel.md 12절·"바뀜: D-462"·"바뀜 (2026-11-08 분야별 페이지)"·"바뀜 (2026-11-08 화면 개편)".
+// 판정은 서버가 한다(범위·규칙 검사). 기기는 보이기만 하고, 입력 검사는 보내기 전에 알려 주는 것뿐이다.
 import {
   type TuningEntryView,
   type TuningPage,
   type TuningProblem,
   type TuningReason,
+  type TuningScope,
   type TuningUnit,
   TUNING_PAGES,
   TUNING_REASONS,
+  TUNING_UNITS,
   TUNING_VALUE_LIMIT,
   durationParts,
   isTuningPage,
@@ -18,12 +21,18 @@ import {
 } from "@terra/shared/tuning";
 import { field } from "../../net/json.ts";
 
-/** 보기 거르기: 전체, 바꾼 것(덮어쓰기·담은 변경), 서버 즉시 */
-export const TUNING_FILTERS = ["all", "changed", "live"] as const;
-export type TuningFilter = (typeof TUNING_FILTERS)[number];
+/** 반영 범위 거르기: 전체 또는 범위 하나(서버 즉시·시뮬만·연결 없음) */
+export const SCOPE_FILTERS = ["all", "live", "sim", "none"] as const satisfies readonly (
+  | TuningScope
+  | "all"
+)[];
+export type ScopeFilter = (typeof SCOPE_FILTERS)[number];
 
 /** 무리 고르기에서 "모든 무리" */
 export const ALL_FAMILIES = "*";
+/** 단위 고르기에서 "모든 단위"·"단위 없음" */
+export const ALL_UNITS = "*";
+export const NO_UNIT = "-";
 
 /** 담은 변경: 칸 ID → 새 값(null = 팩 값으로 되돌리기). 넣은 차례를 지킨다 */
 export type Pending = ReadonlyMap<string, number | null>;
@@ -57,23 +66,70 @@ export function pageCounts(entries: readonly TuningEntryView[]): Record<TuningPa
   return counts;
 }
 
+/** 탭마다 바뀐 칸 수(덮어쓰기가 있거나 담은 칸, 전체 포함) — 분야 목록의 표시 */
+export function pageChangedCounts(
+  entries: readonly TuningEntryView[],
+  pending: Pending,
+): Record<TuningPageTab, number> {
+  const counts = pageCounts([]);
+  for (const entry of entries) {
+    if (entry.override === null && !pending.has(entry.id)) continue;
+    counts[ALL_PAGES] += 1;
+    counts[entry.page] += 1;
+  }
+  return counts;
+}
+
 export interface TuningQuery {
   readonly text: string;
-  readonly filter: TuningFilter;
+  /** 바꾼 칸만(덮어쓰기·담은 변경) */
+  readonly changedOnly: boolean;
+  readonly scope: ScopeFilter;
+  /** 단위(TuningUnit) 또는 ALL_UNITS·NO_UNIT */
+  readonly unit: string;
   /** 무리 글자("" = 코드 없음) 또는 ALL_FAMILIES */
   readonly family: string;
   /** 분야 페이지 또는 ALL_PAGES */
   readonly page: TuningPageTab;
 }
 
-/** 찾는 글이 코드·ID·이름(ko·en)·출처에 들어 있는가(대소문자 무시) */
+/** 아무것도 거르지 않는 질의(페이지만 고른다) */
+export const openQuery = (page: TuningPageTab): TuningQuery => ({
+  text: "",
+  changedOnly: false,
+  scope: "all",
+  unit: ALL_UNITS,
+  family: ALL_FAMILIES,
+  page,
+});
+
+/**
+ * 찾는 글이 코드·ID·이름(ko·en)·풀이(ko·en)·출처에 들어 있는가(대소문자 무시).
+ * 빈칸으로 나눈 낱말이 모두 어딘가에 있으면 맞는다(예: "반란 S26").
+ */
 export function matchesSearch(entry: TuningEntryView, text: string): boolean {
-  const needle = text.trim().toLowerCase();
-  if (needle === "") return true;
-  return [entry.code, entry.id, entry.name.ko, entry.name.en, entry.source ?? ""].some((value) =>
-    value.toLowerCase().includes(needle),
-  );
+  const words = text
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word !== "");
+  if (words.length === 0) return true;
+  const haystack = [
+    entry.code,
+    entry.id,
+    entry.name.ko,
+    entry.name.en,
+    entry.desc?.ko ?? "",
+    entry.desc?.en ?? "",
+    entry.source ?? "",
+  ]
+    .join("\n")
+    .toLowerCase();
+  return words.every((word) => haystack.includes(word));
 }
+
+/** 칸 단위 → 단위 고르기 값 */
+export const unitKey = (unit: TuningUnit | null): string => unit ?? NO_UNIT;
 
 export function filterEntries(
   entries: readonly TuningEntryView[],
@@ -83,8 +139,9 @@ export function filterEntries(
   return entries.filter((entry) => {
     if (query.page !== ALL_PAGES && entry.page !== query.page) return false;
     if (query.family !== ALL_FAMILIES && tuningFamilyOf(entry.code) !== query.family) return false;
-    if (query.filter === "changed" && entry.override === null && !pending.has(entry.id)) return false;
-    if (query.filter === "live" && entry.scope !== "live") return false;
+    if (query.changedOnly && entry.override === null && !pending.has(entry.id)) return false;
+    if (query.scope !== "all" && entry.scope !== query.scope) return false;
+    if (query.unit !== ALL_UNITS && unitKey(entry.unit) !== query.unit) return false;
     return matchesSearch(entry, query.text);
   });
 }
@@ -123,6 +180,12 @@ export function familiesOf(entries: readonly TuningEntryView[]): string[] {
   );
 }
 
+/** 목록에 있는 단위(TUNING_UNITS 차례, 단위 없음은 끝) */
+export function unitsOf(entries: readonly TuningEntryView[]): string[] {
+  const present = new Set(entries.map((entry) => unitKey(entry.unit)));
+  return [...TUNING_UNITS.filter((unit) => present.has(unit)), ...(present.has(NO_UNIT) ? [NO_UNIT] : [])];
+}
+
 /** 값 입력 글 → 정수(쉼표·밑줄·빈칸은 뺀다). 정수가 아니거나 ±10¹² 밖이면 null */
 export function parseValueInput(text: string): number | null {
   const cleaned = text.replaceAll(/[\s,_]/g, "");
@@ -135,6 +198,25 @@ export function parseValueInput(text: string): number | null {
 /** 칸 범위 안인가(서버와 같은 규칙: 양 끝 포함) */
 export function inRange(entry: Pick<TuningEntryView, "min" | "max">, value: number): boolean {
   return (entry.min === null || value >= entry.min) && (entry.max === null || value <= entry.max);
+}
+
+/** 줄 입력 검사: 처음 값과 같음·정수 아님·범위 밖·담을 수 있음 */
+export type ValueCheck =
+  | { readonly status: "same" }
+  | { readonly status: "invalid" }
+  | { readonly status: "out_of_range"; readonly value: number }
+  | { readonly status: "ok"; readonly value: number };
+
+export function checkValueInput(
+  entry: Pick<TuningEntryView, "min" | "max">,
+  text: string,
+  start: number,
+): ValueCheck {
+  const value = parseValueInput(text);
+  if (value === null) return { status: "invalid" };
+  if (value === start) return { status: "same" };
+  if (!inRange(entry, value)) return { status: "out_of_range", value };
+  return { status: "ok", value };
 }
 
 /** 담은 변경을 얹은 값(되돌리기 = 팩 값). 담지 않았으면 지금 값 */

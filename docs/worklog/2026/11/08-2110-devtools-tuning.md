@@ -46,6 +46,8 @@
 - 기준을 origin/main(c18ad1b)으로 둔 `pnpm check:content origin/main`은 이 가지에 없는 main 쪽 팩 바뀜(citizenship 칸 둘·core@56 판) 때문에 실패한다 — 이 가지는 팩을 건드리지 않았다. 바탕 07e08fa 기준으로는 통과.
 
 ## 검사
+- 마지막(merge/integration b718f51을 합친 뒤, 팩 core@57·483칸 — 새 칸 citizenship_*·npc_capital_switch_dev도 풀이·출처와 함께 보임): `pnpm check` 통과(vitest 548파일·4145시험), `pnpm e2e e2e/tuning.spec.ts` 32시험 통과, `pnpm check:docs 07e08fa`·`pnpm check:content 07e08fa` 통과.
+- 합치기 전(바탕 07e08fa):
 - `TEST_DATABASE_URL=… pnpm check`: 통과(vitest 543파일·4114시험 통과, 포맷·린트·타입·경계·크기·다국어·디자인 값·콘텐츠).
 - `pnpm check:docs 07e08fa`·`pnpm check:content 07e08fa`: 통과. `pnpm check:docs origin/main`: 통과.
 - `pnpm e2e e2e/tuning.spec.ts`: 32시험 통과(개편 뒤 첫 실행은 390px에서 [적용]·[×] 폭이 44px보다 좁아 4개 실패 → 화면 안 단추 최소 폭을 `--dev-touch-tap`으로 고쳐 통과). 사진: 개발 테마 둘(네온·라이트) × 390(휴대폰 터치)·1440(데스크톱) × 한국어·영어, 분야 8개마다, 담은 변경 막대 펼침, N43·N44 줄(`E2E_SHOTS_DIR`). 사진을 보고 고친 것: 휴대폰에서 칸이 화면 아래에서야 보이던 것(거르기 줄을 [거르기 N]으로 접고 분야 한 줄 풀이 숨김), ID를 이름 줄로 올려 줄 높이 줄임, "단위 단위 없음" 겹침, [Filters] 줄바꿈.

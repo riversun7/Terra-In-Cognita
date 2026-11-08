@@ -28,3 +28,9 @@ export const UNIT_KIND_CYBORG_UNIT = 5;
  * 않는다. 수명이 없다
  */
 export const UNIT_KIND_GUARDIAN = 6;
+/**
+ * NPC 국가 지도자 사이보그(기획 46 §10.1 "NPC 지도자", 30 §5.3 대표 유닛 D-075 — docs/adr/2026-11-07-play-flow.md "WP-NPC"). 고정 NPC 국가마다
+ * 하나, 주인 = 그 국가 소유 주체, 수도(그 국가의 가장 작은 ID 시작 도시) 행정 건물 앞에 선다(src/npc/leaders.ts). 스스로 움직이지 않는다
+ * (봇이 아니다). 이름은 저장하지 않고 팩 국가 프리셋 leaderName에서 읽는다
+ */
+export const UNIT_KIND_NPC_LEADER = 7;

@@ -10,6 +10,7 @@
 // 유닛 조종(docs/adr/2026-11-07-unit-control.md): 플레이어는 내 유닛만 고르고 명령한다 — 내 유닛 목록(사이보그 먼저, UnitControlPanels.tsx)에서
 // 고르면 카메라가 그 자리로 가고, 땅을 누르면 이동, [멈추기]는 세운다. 남의 유닛은 눌러도 정보만 보인다(보내지 않는다). dev·admin은
 // [운영자 모드]를 켜면 아무 유닛이나 명령하고 안개 없이(전체 보기) 2차맵 어디든 본다(위 판에 "운영자"). 서버도 명령마다 소유·권한을 본다.
+// 옆 2차맵으로(WP14, EdgeTravel.tsx): 고른 내 유닛(없으면 내 사이보그)을 변 너머 옆 2차맵으로 보낸다(서버 2차맵 사이 이동).
 // 기획 답 630~637(ADR "바뀜"): 플레이어 카메라는 내 유닛·건물 둘레로 묶고(useCameraArea), 운영자 모드는 이 기기에서 기억한다(operatorMode.ts),
 // 목록은 유닛 화면 차례 + 다른 곳 내 유닛 수, 남의 유닛은 시야 안이면 세력·종류(useUnitGlance).
 // 픽셀 비율 재기: 주소에 ?pixel-ratio=<1~4>를 붙이면 엔진 상한을 바꾼다(시험용, pixelRatioParam.ts). HUD에 쓰는 값·그리기 버퍼가 보인다.
@@ -58,6 +59,8 @@ import type { MapFocus } from "./mapTarget.ts";
 import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
 import { CrossingNotice, CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
+import { EdgeTravel } from "./EdgeTravel.tsx";
+import { edgeUnitOf } from "./edgeTravelData.ts";
 import { ZoomLadder } from "./ZoomLadder.tsx";
 import { FollowAction, followableOf, useUnitFollow } from "./UnitFollow.tsx";
 import { useTravelFollow } from "./useCyborgTravel.ts";
@@ -85,6 +88,8 @@ import {
 import { GatherPanel } from "./gather/GatherPanel.tsx";
 import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
 import { createGatherState, gatherSink } from "./gather/gatherState.ts";
+import { GovernmentSheet } from "../government/GovernmentSheet.tsx";
+import { startBuildingLooks } from "./buildingLooks.ts";
 import "./map.css";
 
 /** 성능 보고에 붙이는 화면 이름 */
@@ -301,14 +306,15 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     });
     engineRef.current = engine;
     const detachGather = attachGatherOverlay(engine, host, gather, { mapKey, serverNow });
+    const looks = startBuildingLooks(engine, mapKey);
     const onReducedMotion = (): void => engine.setSky(skyMode());
     reduced?.addEventListener("change", onReducedMotion);
     setTelemetryView(TELEMETRY_VIEW);
     const feed = startMapFeed({
       link: serverLink,
       mapKey,
-      // 자료 흐름: 채집 덧그림(건물) → 카메라 범위(탐사 비트) → 엔진
-      sink: cameraTap.current(gatherSink(engine, gather)),
+      // 자료 흐름: 채집 덧그림(건물) → 카메라 범위(탐사 비트) → 건물 겉모습(buildingLooks.ts) → 엔진
+      sink: cameraTap.current(gatherSink(looks.sink, gather)),
       loadTerrain: async (url) => {
         const terrain = await fetchTerrain(url);
         mapSizeM = terrain.cellSizeM * 128;
@@ -384,6 +390,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       feed.stop();
       feedRef.current = null;
       detachGather();
+      looks.stop();
       engine.dispose();
       engineRef.current = null;
       setTelemetryView(null);
@@ -630,12 +637,22 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
           selected={selected}
           cyborgUnitId={cyborg?.unitId ?? null}
         />
+        {/* 누른 건물이 행정 건물이면 정부 판(docs/adr/2026-11-07-play-flow.md "WP-NPC") */}
+        <GovernmentSheet state={gather} />
         <div className="map-panel map-hint" role="status">
           <p>{hint}</p>
           {command ? <p className="map-command">{commandText(command)}</p> : null}
           <TravelLine going={going} />
         </div>
         <CyborgActions onGoToCyborg={cyborg ? goToCyborg : null} followTo={following ? null : crossedTo} />
+        {/* 옆 2차맵으로(WP14): 고른 내 유닛(없으면 내 사이보그)을 변 너머 옆 2차맵으로 보낸다 */}
+        <EdgeTravel
+          mapKey={mapKey}
+          unit={edgeUnitOf({ selected, units: myUnits.units, cyborgUnitId: cyborg?.unitId ?? null })}
+          engineRef={engineRef}
+          hostRef={hostRef}
+          screenFollows={following ? (cyborg?.unitId ?? null) : null}
+        />
         {listOpen ? null : (
           <div className="map-actions">
             <UnitsToggle count={myUnits.units?.length ?? null} onOpen={() => setListOpen(true)} />

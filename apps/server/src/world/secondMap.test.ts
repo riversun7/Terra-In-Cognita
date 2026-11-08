@@ -36,6 +36,7 @@ import {
 } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { performance } from "node:perf_hooks";
+import { HOME_RADIUS_CELLS } from "./bots.ts";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { createInlinePathService } from "./pathService.ts";
 import { createSecondMap, remainingPathBlocked } from "./secondMap.ts";
@@ -144,6 +145,32 @@ describe("시험용 봇", () => {
     expect(map.removeUnit(501)).toBe(false);
     expect(map.setOwner(501, 1)).toBe(false);
     expect(map.gauges().units).toBe(0);
+    map.stop();
+  });
+
+  it("집이 있는 봇(NPC 휴먼, WP-NPC): 멀리 있어도 몇 번 걸어 집 둘레로 모이고, 그 뒤로는 집 둘레 반경 안에서만 걷는다", async () => {
+    const { map } = createTestMap();
+    map.spawnBots(12);
+    // 구인한 휴먼은 세운 기준 칸이 집이다
+    expect(map.spawnBotNear(901, 7, { x: 128, y: 128 }, 4)).toBe(true);
+    const home = { x: 128, y: 128 };
+    for (let id = 1; id <= 12; id++) expect(map.setHome(id, home)).toBe(true);
+    // 봇이 아닌 유닛·없는 유닛은 집을 받지 않는다
+    map.addUnit({ id: 950, size: 1, speed: WALK_SPEED, cellX: 5, cellY: 5 });
+    expect(map.setHome(950, home)).toBe(false);
+    expect(map.setHome(999, home)).toBe(false);
+    const distance = (id: number): number => {
+      const unit = map.unitInfo(id);
+      if (!unit) throw new Error(`bot ${id} missing`);
+      const at = anchorAt(positionAt(unit.motion, Date.now()), unit.size);
+      return Math.max(Math.abs(at.x - home.x), Math.abs(at.y - home.y));
+    };
+    // 걷기 48칸 왕복은 몇 분 — 30분이면 2차맵 끝에서도 집에 닿는다
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+    for (const id of [...Array.from({ length: 12 }, (_, index) => index + 1), 901])
+      expect(distance(id)).toBeLessThanOrEqual(HOME_RADIUS_CELLS + 3);
+    // 집을 풀면(null) 다시 지금 자리 둘레를 걷는다
+    expect(map.setHome(1, null)).toBe(true);
     map.stop();
   });
 

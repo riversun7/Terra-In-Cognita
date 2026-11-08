@@ -1,7 +1,7 @@
-// 2차맵 사이 이동 명령(WebSocket, 프로토콜 16) — 1차맵 명령 판 [확정]·[멈추기]가 보내고 같은 요청 번호의 travel_result를 기다린다.
-// docs/adr/2026-11-07-play-flow.md "WP9 2차맵 사이 이동", 기획 D-197·D-6019·D-6021. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
-// 폐허 명령(economy/ruinsCommands.ts)과 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
-// 1차맵 화면 지연 조각 안에서만 쓴다.
+// 2차맵 사이 이동 명령(WebSocket, 프로토콜 16) — 1차맵 명령 판 [확정]·[멈추기]와 2차맵 화면 [옆 2차맵으로](WP14)가 보내고 같은 요청 번호의
+// travel_result를 기다린다. docs/adr/2026-11-07-play-flow.md "WP9 2차맵 사이 이동", 기획 D-197·D-6019·D-6021. 바꾸는 명령은 WebSocket으로만
+// 보낸다(AGENTS.md 4장). 폐허 명령(economy/ruinsCommands.ts)과 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이
+// 없으면 "timeout". 1·2차맵 화면 지연 조각 안에서만 쓴다.
 import type { ClientMessageOf, TravelResultCode } from "@terra/protocol";
 import { type ServerLink, serverLink } from "../net/serverLink.ts";
 

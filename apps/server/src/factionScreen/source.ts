@@ -12,7 +12,10 @@ import {
   REGIMES,
   type Regime,
 } from "@terra/shared/faction";
+import type { LocalizedName } from "@terra/shared/roster";
 import type { World } from "../world/world.ts";
+import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
+import type { NationNameReads } from "../worldMap/reads.ts";
 import { readOccupationRows } from "./occupations.ts";
 
 /** pg Pool·Client 모양(query만). 시험은 시험 DB 연결을 넣는다 */
@@ -36,6 +39,11 @@ export interface FactionMembership {
   readonly cityCount: number;
   /** 그 세력 소유 주체의 잔고(국고) */
   readonly treasury: readonly AssetBalance[];
+  /** 그 세력 지도자 유닛(NPC 국가 지도자 사이보그, 유닛 종류 7 — npc/leaders.ts). 없으면 null */
+  readonly leaderUnit?: number | null;
+  /** 화면 이름·지도자 이름(팩 국가 프리셋, 이름 출처가 있을 때 — "WP-NPC"). 없으면 null */
+  readonly label?: LocalizedName | null;
+  readonly leaderName?: LocalizedName | null;
 }
 
 export interface FactionReal {
@@ -100,12 +108,14 @@ async function factionPart(db: Queryable, userId: string): Promise<FactionMember
             p.id as parent_id, p.kind as parent_kind, p.code as parent_code,
             (select count(*)::int from faction_members x where x.faction_id = f.id) as members,
             (select count(*)::int from world_cities c where c.faction_id = f.id) as cities,
-            (select o.id from world_owners o where o.faction_id = f.id) as owner_id
+            (select o.id from world_owners o where o.faction_id = f.id) as owner_id,
+            (select u.id from world_units u join world_owners o on o.id = u.owner_id
+              where o.faction_id = f.id and u.kind = $2 order by u.id limit 1) as leader_unit
        from faction_members m
        join factions f on f.id = m.faction_id
        left join factions p on p.id = f.parent_id
       where m.user_id = $1`,
-    [userId],
+    [userId, UNIT_KIND_NPC_LEADER],
   );
   const row = found.rows[0];
   if (row === undefined) return null;
@@ -126,6 +136,7 @@ async function factionPart(db: Queryable, userId: string): Promise<FactionMember
     fixed: row.fixed === true,
     cityCount: asNumber(row.cities),
     treasury,
+    leaderUnit: row.leader_unit === null || row.leader_unit === undefined ? null : asNumber(row.leader_unit),
   };
 }
 
@@ -136,8 +147,30 @@ export async function readFactionReal(db: Queryable, userId: string): Promise<Fa
   return { owner, faction, occupations };
 }
 
-/** 월드(S3 저장)가 있는 서버의 실제 자료 출처 */
-export function createWorldFactionSource(world: World): FactionSource {
+/**
+ * 세력에 화면 이름·지도자 이름을 붙인다(팩 국가 프리셋 — "WP-NPC"). 지도자 이름은 지도자 유닛이 있을 때만(없는 지도자의 이름을 보이지 않는다).
+ * 이름 출처가 없으면 그대로
+ */
+export function withNationNames(real: FactionReal, names: NationNameReads | undefined): FactionReal {
+  const faction = real.faction;
+  if (!faction || faction.code === null || !names) return real;
+  const found = names.nationNames(faction.code);
+  return {
+    ...real,
+    faction: {
+      ...faction,
+      label: found.name ?? null,
+      leaderName:
+        faction.leaderUnit === null || faction.leaderUnit === undefined ? null : (found.leader ?? null),
+    },
+  };
+}
+
+/** 월드(S3 저장)가 있는 서버의 실제 자료 출처. names = 지도 흐름 조회(나라·지도자 이름, 준비 전이면 undefined) */
+export function createWorldFactionSource(
+  world: World,
+  names?: () => Partial<NationNameReads> | undefined,
+): FactionSource {
   return {
     async load(userId, nowMs) {
       const persistence = world.persistence;
@@ -147,7 +180,11 @@ export function createWorldFactionSource(world: World): FactionSource {
         persistence.settlement.settleOwner(ownerId, nowMs);
         await persistence.writer.durable();
       }
-      return readFactionReal(persistence.pool, userId);
+      const nationNames = names?.()?.nationNames;
+      return withNationNames(
+        await readFactionReal(persistence.pool, userId),
+        nationNames ? { nationNames } : undefined,
+      );
     },
   };
 }

@@ -718,7 +718,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
               : undefined,
           })
         : undefined,
-      factionSource: world && options.db ? createWorldFactionSource(world) : undefined,
+      factionSource: world && options.db ? createWorldFactionSource(world, worldMapService) : undefined,
       labor: laborService,
       facilities: world ? () => facilityScreenSourceOf(world) : undefined,
       factionRules: tuningState ? () => factionRulesFrom(tuningState.society()) : undefined,

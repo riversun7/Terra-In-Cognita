@@ -1,0 +1,161 @@
+/*
+ * 2차맵 정부(행정 건물) 작은 판·대화상자(GovernmentSheet.tsx·GovernmentDialog.tsx) — docs/adr/2026-11-07-play-flow.md "WP-NPC".
+ * 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 대화상자 틀은 복귀 요약(summary.css)과 같다: 좁으면(37.5em 미만) 화면 전체,
+ * 넓으면 가운데 판.
+ */
+.gov-sheet {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  overflow-wrap: anywhere;
+}
+.gov-sheet p {
+  margin: 0;
+}
+.gov-sheet-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.gov-muted {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.gov-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.gov-dialog {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: max(var(--space-4), env(safe-area-inset-top)) max(var(--space-3), env(safe-area-inset-right))
+    max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-3), env(safe-area-inset-left));
+  border: 0;
+  background-color: var(--color-bg);
+  background-image: var(--color-bg-image);
+  color: var(--color-text);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.gov-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.gov-dialog::backdrop {
+  background-color: var(--color-overlay);
+}
+.gov-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.gov-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.gov-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+/* 제목은 열 때 읽기 프로그램이 처음부터 읽게 초점만 받는다(누르는 곳이 아니라 테두리를 그리지 않는다) */
+.gov-title:focus {
+  outline: none;
+}
+.gov-close {
+  flex: none;
+}
+.gov-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+}
+.gov-chips:empty {
+  display: none;
+}
+.gov-chip {
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+}
+.gov-facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+.gov-fact {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.gov-fact dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.gov-fact dd {
+  min-width: 0;
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+.gov-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.gov-link {
+  flex: 1 1 0;
+}
+
+/* 넓으면(37.5em 이상) 가운데 판: 바탕을 비우고 판만 띄운다 */
+@media (min-width: 37.5em) {
+  .gov-dialog {
+    width: min(100%, var(--content-max));
+    height: auto;
+    max-height: 100%;
+    margin: auto;
+    padding: var(--space-6) 0;
+    background: none;
+  }
+}

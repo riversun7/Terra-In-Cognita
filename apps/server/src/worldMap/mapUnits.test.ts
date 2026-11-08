@@ -4,7 +4,12 @@ import { JOB_GATHER } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
 import { createTestMap } from "../world/testSupport.ts";
-import { UNIT_KIND_CYBORG, UNIT_KIND_GUARDIAN, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import {
+  UNIT_KIND_CYBORG,
+  UNIT_KIND_GUARDIAN,
+  UNIT_KIND_HUMAN,
+  UNIT_KIND_NPC_LEADER,
+} from "../world/unitKinds.ts";
 import { UNIT_VISION_CELLS } from "@terra/sim";
 import { VIEW_MARGIN_CELLS, createMapUnitReads } from "./mapUnits.ts";
 
@@ -135,6 +140,41 @@ describe("기획 답 630~637", () => {
       unitId: 9,
       kind: "cyborg_body",
       faction: null,
+    });
+    test.map.stop();
+  });
+
+  it("WP-NPC: NPC 국가 지도자는 종류 npc_leader와 그 나라 지도자 이름을 싣는다(다른 유닛은 이름 없음)", async () => {
+    const test = setup();
+    test.map.addUnit({
+      id: 77,
+      size: 1,
+      speed: 437,
+      cellX: 52,
+      cellY: 50,
+      ownerId: 6,
+      kind: UNIT_KIND_NPC_LEADER,
+    });
+    const faction = { id: 4, code: "placeholder_nation_01", kind: "npc" as const, name: null };
+    const reads = createMapUnitReads({
+      map: (key) => (key === MAP_KEY ? test.map : undefined),
+      ownerOfUser: () => 5,
+      cyborgName: () => undefined,
+      sees: () => true,
+      factionOfOwner: async () => faction,
+      leaderName: (code) =>
+        code === "placeholder_nation_01" ? { ko: "임시 지도자 1", en: "L1" } : undefined,
+    });
+    expect((await reads.unitGlance(PLAYER, MAP_KEY, 77, NOW)).glance).toEqual({
+      unitId: 77,
+      kind: "npc_leader",
+      faction,
+      name: { ko: "임시 지도자 1", en: "L1" },
+    });
+    expect((await reads.unitGlance(PLAYER, MAP_KEY, 3, NOW)).glance).toEqual({
+      unitId: 3,
+      kind: "human",
+      faction,
     });
     test.map.stop();
   });

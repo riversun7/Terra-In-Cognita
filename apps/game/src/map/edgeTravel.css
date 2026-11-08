@@ -1,0 +1,179 @@
+/*
+ * 2차맵 [옆 2차맵으로](docs/adr/2026-11-07-play-flow.md "WP14") — 판·변 화살표·가는 중 이름표. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 판은 map.css의 .map-panel(불투명 판)을 그대로 쓰고, 여기서는 안쪽 줄만 놓는다.
+ */
+.map-edge {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+/*
+ * 아래에 붙는 판(지도 화면 밖, 문서 끝): 지도 위 단추(전환 단추 층 5)보다 위 층 6, 방향 안내(층 6)와 같은 층이지만 그 안내는 누르기를
+ * 지나보낸다. 키가 화면을 넘으면 판 안에서 넘긴다. 넓은 화면은 가운데에 32rem까지
+ */
+.map-edge-sheet {
+  position: fixed;
+  left: max(var(--space-3), env(safe-area-inset-left));
+  right: max(var(--space-3), env(safe-area-inset-right));
+  bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  z-index: 6;
+  max-width: 32rem;
+  max-height: calc(100dvh - 2 * var(--space-12));
+  margin-inline: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.map-edge-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-tight);
+}
+.map-edge-unit,
+.map-edge-note {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+.map-edge-sides {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* 변 한 줄: 이름·상태 + [보내기] — 좁은 화면에서는 단추가 아래로 내려간다 */
+.map-edge-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+}
+.map-edge-side[data-focus="true"] {
+  border-color: var(--color-focus);
+}
+.map-edge-side-text {
+  display: grid;
+  flex: 1 1 12em;
+  min-width: 0;
+}
+.map-edge-side-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.map-edge-side-state {
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+/* 열리지 않은 옆 2차맵·막힘: 색에만 기대지 않게 글자(까닭)가 함께 있다 */
+.map-edge-side[data-state="closed"] .map-edge-side-state,
+.map-edge-side[data-state="blocked"] .map-edge-side-state {
+  color: var(--color-text);
+}
+.map-edge-side[data-state="closed"] {
+  background-color: var(--color-warning-surface);
+}
+/* 가까운 변 표시: 테마마다 대비가 맞춰진 짝(주 색 위 글자)을 쓴다 */
+.map-edge-badge {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.map-edge-notice {
+  margin: 0;
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+.map-edge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+/* 가는 중 한 줄 + [멈추기] */
+.map-edge-going {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.map-edge-going p {
+  flex: 1 1 14em;
+  margin: 0;
+}
+.map-edge-row .map-edge-result {
+  font-size: var(--font-size-sm);
+}
+
+/* 덧그림(엔진 판 위, 화면 전체) — 판 사이로 지도를 그대로 누르게 지나보내고, 단추만 받는다 */
+.edge-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+}
+.edge-arrow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  inline-size: var(--tap-size);
+  block-size: var(--tap-size);
+  padding: 0;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  box-shadow: var(--shadow-control);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-md);
+  line-height: 1;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.edge-arrow[hidden],
+.edge-chip[hidden] {
+  display: none;
+}
+.edge-arrow:focus-visible {
+  outline: var(--border-w) solid var(--color-focus);
+  outline-offset: var(--border-w);
+}
+.edge-arrow-glyph {
+  display: block;
+}
+.edge-chip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: calc(var(--tap-size) * 4);
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

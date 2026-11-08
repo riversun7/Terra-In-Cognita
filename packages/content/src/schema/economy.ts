@@ -299,6 +299,11 @@ export const nationPresetEntrySchema = z.strictObject({
       params: { rule: "city_name_unique" },
     })
     .optional(),
+  /**
+   * 국가 지도자 사이보그 이름(기획 46 §10.1 NPC 지도자·30 §5.3 대표 유닛 D-075 — docs/adr/2026-11-07-play-flow.md "WP-NPC"). 서버가 그 국가
+   * 수도 행정 건물 곁에 지도자 유닛을 세우고 세력 화면·정부 판·지도의 한눈 정보가 이 이름을 보인다. 없으면 화면이 "지도자"
+   */
+  leaderName: localizedText.optional(),
   enabled,
 });
 export type NationPresetEntry = z.output<typeof nationPresetEntrySchema>;

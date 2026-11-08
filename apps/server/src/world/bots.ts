@@ -4,6 +4,7 @@
 //   (워커 결과가 오는 시각은 매번 달라서 전체 움직임이 똑같이 되풀이되지는 않는다.)
 // - 크기 등급 1·2·3 = 90·8·2%, 속도는 걷기 85%·차 15%(packages/sim 출발값).
 // - 목적지는 지금 자리 둘레 TRIP_RADIUS_CELLS칸 안에서 그 등급이 설 수 있는 칸. 도착하면 2~6초 쉬고 다시 간다.
+// - 집이 있는 봇(NPC 휴먼)은 집(도시 시청 칸) 둘레 HOME_RADIUS_CELLS 안에서 고른다(homeArea, docs/adr/2026-11-07-play-flow.md "WP-NPC").
 import { createRng, type Rng } from "@terra/shared";
 import {
   CAR_SPEED,
@@ -67,18 +68,56 @@ function clampCell(value: number): number {
   return value < 0 ? 0 : value >= PLACEMENT_SIZE ? PLACEMENT_SIZE - 1 : value;
 }
 
-/** 지금 자리 둘레에서 목적지 하나. 못 고르면 undefined(잠시 뒤 다시) */
+/** 목적지를 고를 네모(가운데 칸·반경 칸) */
+export interface TripArea {
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
+}
+
+/**
+ * 집이 있는 봇(NPC 휴먼 — 집 = 그 도시 시청 칸, docs/adr/2026-11-07-play-flow.md "WP-NPC")이 그 둘레에서 고르는 반경(칸) [임시].
+ * 사이보그 시야(24칸)·도시 기본 시설 자리(가운데에서 48칸 안)와 견줄 만큼 — 도시에 가면 휴먼이 보인다(사용자 지적 2026-11-08)
+ */
+export const HOME_RADIUS_CELLS = 32;
+/** 집에서 멀리 있는 봇이 집 쪽으로 한 번에 다가가는 곳 둘레의 반경(칸) */
+const HOME_STEP_RADIUS_CELLS = 8;
+
+/**
+ * 집이 있는 봇의 목적지 네모: 집에서 HOME_RADIUS_CELLS 안이면 집 둘레, 멀면 집 쪽으로 TRIP_RADIUS_CELLS만큼 다가간 칸 둘레(작은 반경).
+ * 처음 들인 휴먼은 2차맵 아무 곳에 있다 → 몇 번 걸어 도시로 모인다(경로 예산 안의 짧은 길만 묻는다)
+ */
+export function homeArea(
+  from: Point,
+  size: SizeClass,
+  home: { readonly x: number; readonly y: number },
+): TripArea {
+  const here = anchorAt(from, size);
+  const dx = home.x - here.x;
+  const dy = home.y - here.y;
+  const distance = Math.max(Math.abs(dx), Math.abs(dy));
+  if (distance <= HOME_RADIUS_CELLS) return { x: home.x, y: home.y, radius: HOME_RADIUS_CELLS };
+  return {
+    x: clampCell(here.x + Math.round((dx * TRIP_RADIUS_CELLS) / distance)),
+    y: clampCell(here.y + Math.round((dy * TRIP_RADIUS_CELLS) / distance)),
+    radius: HOME_STEP_RADIUS_CELLS,
+  };
+}
+
+/** 목적지 하나: 네모(없으면 지금 자리 둘레 TRIP_RADIUS_CELLS) 안 설 수 있는 칸. 못 고르면 undefined(잠시 뒤 다시) */
 export function pickDestination(
   grid: PlacementGrid,
   rng: Rng,
   size: SizeClass,
   from: Point,
+  area?: TripArea,
 ): Point | undefined {
   const here = anchorAt(from, size);
-  const span = TRIP_RADIUS_CELLS * 2 + 1;
+  const center = area ?? { x: here.x, y: here.y, radius: TRIP_RADIUS_CELLS };
+  const span = center.radius * 2 + 1;
   for (let attempt = 0; attempt < PICK_ATTEMPTS; attempt++) {
-    const x = clampCell(here.x + rng.nextInt(span) - TRIP_RADIUS_CELLS);
-    const y = clampCell(here.y + rng.nextInt(span) - TRIP_RADIUS_CELLS);
+    const x = clampCell(center.x + rng.nextInt(span) - center.radius);
+    const y = clampCell(center.y + rng.nextInt(span) - center.radius);
     if (Math.max(Math.abs(x - here.x), Math.abs(y - here.y)) < MIN_TRIP_CELLS) continue;
     if (isPassable(grid, x, y, size)) return anchorCenter(x, y, size);
   }

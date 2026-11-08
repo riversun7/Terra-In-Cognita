@@ -106,6 +106,8 @@ export class PropView {
   private maxProps = MAX_PROPS;
   /** 모양마다 인스턴스 자리 수(상한을 올리면 다시 만든다) */
   private capacity = 0;
+  /** 지금 2차맵에서 건물이 차지한 배치 칸(1이면 소품 모델을 세우지 않는다). null이면 없음 */
+  private blocked: Uint8Array | null = null;
 
   constructor() {
     this.allocate(MAX_PROPS);
@@ -170,6 +172,12 @@ export class PropView {
     this.drawnCount = 0;
     for (const mesh of this.meshes.values()) mesh.count = 0;
     this.group.visible = false;
+  }
+
+  /** 건물이 차지한 칸(지금 2차맵, 배치 칸 256²). 다음 update에서 다시 세운다 — 나무가 건물 판을 뚫고 서지 않게 */
+  setBlocked(mask: Uint8Array | null): void {
+    this.blocked = mask;
+    this.lastX = Number.NaN;
   }
 
   /** 카메라가 바뀐 뒤 부른다. 다시 세웠으면 true(한 번 더 그려야 한다) */
@@ -243,6 +251,7 @@ export class PropView {
         const distance2 = dx * dx + dz * dz;
         if (distance2 > r2) continue;
         const cell = z * PLACEMENT_CELLS + x;
+        if (!source.placement && this.blocked?.[cell] === 1) continue;
         const look = propLook(art[cell] ?? 0);
         if (!look) continue;
         const forest = look.shape === "broadleaf" || look.shape === "conifer" || look.shape === "palm";

@@ -1,5 +1,6 @@
 // 팩 국가 프리셋 → 시험 국가 코드·이름·성격 — docs/adr/2026-11-01-npc-brain-r5.md 7절, 질문 203 가(D-460 "시험 세력 + 팩 프리셋 셋"),
-// 나라 성격·도시 이름(기획 답 504 다·510 다·531 다·533 다·554 다, D-518 — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"·"WP10")
+// 나라 성격·도시 이름(기획 답 504 다·510 다·531 다·533 다·554 다, D-518 — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"·"WP10"),
+// 지도자 이름(같은 ADR "WP-NPC")
 import { type ContentPack, nationPresetEntrySchema } from "@terra/content";
 import type { NationPreset } from "./nations.ts";
 
@@ -40,6 +41,7 @@ export function nationPresetsOf(pack: ContentPack): NationPreset[] {
             }
           : {}),
         ...(entry.cityNames ? { cityNames: [...entry.cityNames] } : {}),
+        ...(entry.leaderName ? { leaderName: { ko: entry.leaderName.ko, en: entry.leaderName.en } } : {}),
       };
     });
 }

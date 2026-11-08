@@ -39,6 +39,10 @@
         ]
       },
       "cityNames": ["Verdane", "Ashfield", "Millbrook", "Harrowgate", "Sheafton"],
+      "leaderName": {
+        "ko": "임시 지도자 1",
+        "en": "Placeholder leader 1"
+      },
       "enabled": true
     },
     {
@@ -84,6 +88,10 @@
         ]
       },
       "cityNames": ["Ironhold", "Cinderforge", "Anvilmere", "Slagport", "Bellows"],
+      "leaderName": {
+        "ko": "임시 지도자 2",
+        "en": "Placeholder leader 2"
+      },
       "enabled": true
     },
     {
@@ -129,6 +137,10 @@
         ]
       },
       "cityNames": ["Pinecrest", "Timberlake", "Barkmoor", "Resinvale", "Logrun"],
+      "leaderName": {
+        "ko": "임시 지도자 3",
+        "en": "Placeholder leader 3"
+      },
       "enabled": true
     },
     {
@@ -146,6 +158,10 @@
       },
       "tradeTaxBp": 200,
       "cityNames": ["Northwatch", "Greystone", "Kettlebay", "Fernhill", "Marrow"],
+      "leaderName": {
+        "ko": "임시 지도자 4",
+        "en": "Placeholder leader 4"
+      },
       "enabled": true
     },
     {
@@ -187,6 +203,10 @@
         ]
       },
       "cityNames": ["Goldfield", "Oatmere", "Ryeholm", "Furrowdale", "Haybridge"],
+      "leaderName": {
+        "ko": "임시 지도자 5",
+        "en": "Placeholder leader 5"
+      },
       "enabled": true
     },
     {
@@ -232,6 +252,10 @@
         ]
       },
       "cityNames": ["Steelvale", "Coalmouth", "Hammerton", "Forgefall", "Rivetby"],
+      "leaderName": {
+        "ko": "임시 지도자 6",
+        "en": "Placeholder leader 6"
+      },
       "enabled": true
     },
     {
@@ -277,6 +301,10 @@
         ]
       },
       "cityNames": ["Cedarfall", "Larchford", "Sprucewick", "Oakhollow", "Birchend"],
+      "leaderName": {
+        "ko": "임시 지도자 7",
+        "en": "Placeholder leader 7"
+      },
       "enabled": true
     },
     {
@@ -294,6 +322,10 @@
       },
       "tradeTaxBp": 200,
       "cityNames": ["Saltmarsh", "Dunmere", "Windrest", "Brackwater", "Lowtide"],
+      "leaderName": {
+        "ko": "임시 지도자 8",
+        "en": "Placeholder leader 8"
+      },
       "enabled": true
     },
     {
@@ -335,6 +367,10 @@
         ]
       },
       "cityNames": ["Grainhaven", "Millstead", "Orchardine", "Plowmere", "Seedholm"],
+      "leaderName": {
+        "ko": "임시 지도자 9",
+        "en": "Placeholder leader 9"
+      },
       "enabled": true
     },
     {
@@ -380,6 +416,10 @@
         ]
       },
       "cityNames": ["Copperton", "Brassmoor", "Smelterby", "Ingotvale", "Furnace Rock"],
+      "leaderName": {
+        "ko": "임시 지도자 10",
+        "en": "Placeholder leader 10"
+      },
       "enabled": true
     },
     {
@@ -425,6 +465,10 @@
         ]
       },
       "cityNames": ["Alderwood", "Thornwick", "Mapleton", "Elmstead", "Rowanby"],
+      "leaderName": {
+        "ko": "임시 지도자 11",
+        "en": "Placeholder leader 11"
+      },
       "enabled": true
     },
     {
@@ -442,6 +486,10 @@
       },
       "tradeTaxBp": 200,
       "cityNames": ["Stonereach", "Cliffmark", "Quarryhill", "Pebbleton", "Shalecross"],
+      "leaderName": {
+        "ko": "임시 지도자 12",
+        "en": "Placeholder leader 12"
+      },
       "enabled": true
     },
     {
@@ -483,6 +531,10 @@
         ]
       },
       "cityNames": ["Wheatley", "Barleyford", "Cornhollow", "Malting", "Granary"],
+      "leaderName": {
+        "ko": "임시 지도자 13",
+        "en": "Placeholder leader 13"
+      },
       "enabled": true
     },
     {
@@ -528,6 +580,10 @@
         ]
       },
       "cityNames": ["Tinmouth", "Leadwater", "Zincfold", "Gearhaven", "Boltwick"],
+      "leaderName": {
+        "ko": "임시 지도자 14",
+        "en": "Placeholder leader 14"
+      },
       "enabled": true
     },
     {
@@ -573,6 +629,10 @@
         ]
       },
       "cityNames": ["Hollyhurst", "Yewdale", "Willowmere", "Ashgrove", "Hazelbrook"],
+      "leaderName": {
+        "ko": "임시 지도자 15",
+        "en": "Placeholder leader 15"
+      },
       "enabled": true
     },
     {
@@ -590,6 +650,10 @@
       },
       "tradeTaxBp": 200,
       "cityNames": ["Highmoor", "Duskvale", "Emberly", "Frostmere", "Gloamhill"],
+      "leaderName": {
+        "ko": "임시 지도자 16",
+        "en": "Placeholder leader 16"
+      },
       "enabled": true
     }
   ]

@@ -425,10 +425,13 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     });
     adopted += 1;
   }
-  // 휴먼 주인은 그 도시 주인이다(봇 유닛 주인을 맞춘다)
+  // 휴먼 주인은 그 도시 주인이다(봇 유닛 주인을 맞춘다). 집 = 그 도시 시청 칸(도시 둘레를 걷는다 — 사용자 지적 2026-11-08, WP-NPC)
   for (const unit of units.values()) {
     const at = onMap.get(unit.id);
     if (at && at.ownerId !== unit.owner) at.map.setOwner(unit.id, unit.owner);
+    const home = places.get(unit.city);
+    if (at && home && home.mapKey === at.map.mapKey)
+      at.map.setHome(unit.id, { x: home.cellX, y: home.cellY });
   }
   // 들인 휴먼이 주거를 넘으면 주거를 늘린다(휴먼 × 1.3 + 2, 시나리오 기본과 같은 식, 질문 203 가)
   const perCity = new Map<number, number>();

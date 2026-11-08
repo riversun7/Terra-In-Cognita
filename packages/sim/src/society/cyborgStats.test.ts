@@ -10,11 +10,11 @@ const STATS = ["str", "dex", "agi", "vit", "int", "wis"] as const;
 const sumOf = (p: Record<(typeof STATS)[number], number>) => STATS.reduce((sum, stat) => sum + p[stat], 0);
 
 describe("사이보그 초기 스탯 굴림(생성·환생 공용, D-6039·D-444 164·N9)", () => {
-  it("성향 목록은 N9 출발값(D-445 168: 균형·전투형 STR·VIT·기술형 INT·DEX·교역형 INT·WIS), 다시 굴리기 3번(D-445 169)", () => {
+  it("성향 목록: 균형·전투형 STR·VIT·기술형 DEX·AGI(사용자 지적 2026-11-08, D-445 168의 INT·DEX를 바꿈)·교역형 INT·WIS, 다시 굴리기 3번(D-445 169)", () => {
     expect(c.cyborg.temperaments.map((t) => [t.id, [...t.favored]])).toEqual([
       ["balanced", []],
       ["combat", ["str", "vit"]],
-      ["tech", ["int", "dex"]],
+      ["tech", ["dex", "agi"]],
       ["trade", ["int", "wis"]],
     ]);
     expect(c.cyborg.initialRerolls).toBe(3);

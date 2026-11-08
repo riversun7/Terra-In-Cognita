@@ -2,6 +2,7 @@
 // docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산". 개발자 구인 화면(/dev/recruit)과 같은 서버 명령을 쓴다:
 // tRPC recruit.board(도시·카드·잔고) → WebSocket recruit_hire(프로토콜 7). 판정(값·산 칸·자리)은 서버가 하고, 화면은 단추만 막는다.
 // - 도시: 기본은 내 시작 도시(서버가 고른다). 구인 도시가 여럿이면 고른다. [임시] 어느 도시에서든 고용한다(서버 규칙 그대로).
+//   2차맵 정부 판(government/GovernmentDialog.tsx, docs/adr/2026-11-07-play-flow.md "WP-NPC")은 cityId로 그 도시 카드만 보인다(고르기 없음).
 // - 카드: 토탈·스탯 묶음(STR·VIT / INT·WIS / DEX·AGI, D-448)·속성·값과 [고용]. 고용하면 건물 칸의 채집 시설 카드에서 직무 배치한다.
 import type { RecruitCardView } from "@terra/shared/recruit";
 import { useState } from "react";
@@ -54,9 +55,14 @@ function elementText(card: RecruitCardView): string {
     .join(" · ");
 }
 
-export function RecruitPanel() {
+interface RecruitPanelProps {
+  /** 이 도시 행정 건물의 카드만(2차맵 정부 판 — government/GovernmentDialog.tsx). 없으면 내 시작 도시·도시 고르기 */
+  readonly cityId?: number | undefined;
+}
+
+export function RecruitPanel({ cityId: fixedCity }: RecruitPanelProps = {}) {
   const [city, setCity] = useState("");
-  const board = useRecruitBoard([city]);
+  const board = useRecruitBoard([fixedCity === undefined ? city : String(fixedCity)]);
   const cityText = useCityText();
   const live = useLiveLines();
   const [tone, setTone] = useState<"success" | "error">("success");
@@ -68,7 +74,7 @@ export function RecruitPanel() {
       <h2 id="recruit-title" className="eco-section-title">
         {m.recruit_title()}
       </h2>
-      <p className="eco-footnote">{m.recruit_intro()}</p>
+      {fixedCity === undefined ? <p className="eco-footnote">{m.recruit_intro()}</p> : null}
       <Loaded view={board}>
         {(loaded) => {
           if (loaded.cities.length === 0 || loaded.cityId === null)
@@ -96,7 +102,7 @@ export function RecruitPanel() {
           };
           return (
             <>
-              {loaded.cities.length > 1 ? (
+              {loaded.cities.length > 1 && fixedCity === undefined ? (
                 <label className="eco-field">
                   <span>{m.recruit_field_city()}</span>
                   <select

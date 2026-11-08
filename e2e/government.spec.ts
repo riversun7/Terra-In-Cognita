@@ -84,6 +84,13 @@ async function openLeaderTag(page: Page, language: Language) {
   const unitId = Number(field(leader, "unitId"));
   const name = String(field(field(leader, "name"), language));
   const tag = page.locator(`.leader-tag[data-unit="${unitId}"]:not([hidden])`);
+  // 카메라는 내 사이보그를 따라간다(?at= 자리로 가지 않는다 — docs/adr/2026-11-08-seamless-second-map.md WP-1): 지도자가 화면에 들 때까지 멀리 본다
+  const size = page.viewportSize() ?? { width: 390, height: 844 };
+  for (let step = 0; step < 8 && (await tag.count()) === 0; step++) {
+    await page.mouse.move(size.width / 2, size.height / 2);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(500);
+  }
   await expect(tag).toBeVisible({ timeout: 30_000 });
   // 이름은 한눈 정보로 받는다(받기 전엔 "지도자")
   await expect(tag).toContainText(name, { timeout: 15_000 });

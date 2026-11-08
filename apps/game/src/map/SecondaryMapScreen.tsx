@@ -288,7 +288,7 @@ function SecondMapView({
   // 늘 유닛 하나가 골라져 있다: 고른 것이 없으면 기준 유닛을 고른다(화면 상태는 1초 요약이 엔진에서 읽는다)
   useEffect(() => {
     if (selected !== null || anchor === null) return;
-    selectedRef.current = anchor;
+    // selectedRef는 바꾸지 않는다: 1초 요약이 엔진 고르기와 견줘 화면 상태를 맞춘다(명령은 selectedRef ?? 기준 유닛)
     engineRef.current?.select(anchor);
   }, [selected, anchor]);
 

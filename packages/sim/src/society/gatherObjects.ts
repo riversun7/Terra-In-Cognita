@@ -22,6 +22,19 @@ export interface GatherObjectCoefficients {
   readonly nextRadiusCells: number;
   /** [임시] 오염 최대(100,000)일 때 다시 자라는 시간에 더하는 몫(‰). 오염 값에 비례(D-115) */
   readonly pollutionRegrowPm: number;
+  /**
+   * [임시] 채집소(벌목장·광산) 레벨 하나 오를 때마다 넓어지는 반경(배치 칸, Lv1 = campRadiusCells). 사용자 지적(2026-11-08) "원자재채집소의 기능도
+   * 필요" — 레벨에 따라 버프가 커진다(docs/adr/2026-11-07-gather-objects.md "바뀜 (2026-11-08 사용자 지적: 채집소 기능)")
+   */
+  readonly stationRadiusStep: number;
+  /** [임시] 채집소 레벨 하나 오를 때마다 피로 배율에서 빼는 몫(‰, Lv1 = campFatiguePm) */
+  readonly stationFatigueStepPm: number;
+  /** [임시] 채집소 레벨 하나 오를 때마다 다시 자람 시간 배율에서 빼는 몫(‰, Lv1 = campRegrowPm) */
+  readonly stationRegrowStepPm: number;
+  /** [임시] 채집소 피로·다시 자람 배율의 하한(‰) — 레벨이 높아도 이보다 줄지 않는다 */
+  readonly stationFloorPm: number;
+  /** [임시] 채집소 창고 → 그 도시의 주인 도시 창고 자동 옮김 간격(ms). 0이면 자동으로 옮기지 않는다(손으로만) */
+  readonly stationHaulMs: number;
 }
 
 export const START_GATHER_OBJECTS: GatherObjectCoefficients = {
@@ -34,4 +47,9 @@ export const START_GATHER_OBJECTS: GatherObjectCoefficients = {
   fatiguePerGather: 1,
   nextRadiusCells: 24,
   pollutionRegrowPm: 1000,
+  stationRadiusStep: 4,
+  stationFatigueStepPm: 50,
+  stationRegrowStepPm: 50,
+  stationFloorPm: 200,
+  stationHaulMs: 600_000,
 };

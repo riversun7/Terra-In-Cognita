@@ -64,6 +64,21 @@
   outline-offset: var(--focus-offset);
 }
 
+/* 채집소 반경 고리(stationRing.ts): 누르지 않는 SVG 다각형 */
+.gather-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.gather-ring-line {
+  fill: none;
+  stroke: var(--color-focus);
+  stroke-width: var(--border-w);
+  stroke-dasharray: var(--space-2) var(--space-1);
+}
+
 /* 건물 표시: 건물 위 작은 단추(누르면 건물 판) */
 .gather-building-marker {
   position: absolute;
@@ -174,4 +189,80 @@
   gap: var(--space-1);
   margin: 0;
   padding-left: var(--space-4);
+}
+
+/* 채집소 판(StationPanel.tsx, 사용자 지적 2026-11-08): 건물 판 안. 길면 판 안에서만 세로로 넘긴다(지도는 그대로 보인다) */
+.gather-sheet-scroll {
+  max-block-size: 45vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.gather-station {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: var(--hairline) solid var(--color-border);
+}
+.gather-station p {
+  margin: 0;
+}
+.gather-station-head {
+  font-weight: var(--font-weight-strong);
+}
+.gather-station-title {
+  color: var(--color-text);
+}
+.gather-station-part {
+  display: grid;
+  gap: var(--space-1);
+}
+.gather-station-subtitle {
+  font-weight: var(--font-weight-strong);
+}
+.gather-station-warn {
+  color: var(--color-warning);
+  font-weight: var(--font-weight-strong);
+}
+.gather-station-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-4);
+}
+.gather-station-worker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+.gather-station-worker[data-state="no_objects"] strong,
+.gather-station-worker[data-state="storage_full"] strong,
+.gather-station-worker[data-state="stopped"] strong {
+  color: var(--color-warning);
+}
+.gather-station-meter-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.gather-station-meter {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  block-size: var(--space-2);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.gather-station-meter-fill {
+  display: block;
+  block-size: 100%;
+  background-color: var(--color-success);
+}
+.gather-station-meter[data-full="true"] .gather-station-meter-fill {
+  background-color: var(--color-warning);
+}
+.gather-station-meter-text {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
 }

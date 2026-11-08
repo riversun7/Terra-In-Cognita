@@ -5,6 +5,7 @@
 //   떨어진 오브젝트는 다른 모양(data-state="depleted": 속 빈 회색 고리). 멀리서 보면(1m가 MIN_PX_PER_M보다 작게) 숨긴다.
 // - 건물 표시: 화면 안 가장 가운데에 가까운 BUILDING_MARKERS개 건물 위 작은 단추(누르면 건물 판 — 들어가기·안에 있는 유닛). 땅을 눌러도 같은 판이 열린다.
 // - 채집 줄 표시: 내 유닛 머리 위 작은 이름표(단계·화물 kg). 누르지 않는다.
+// - 채집소 반경: 채집소 판이 열려 있으면 그 반경 고리(stationRing.ts, 사용자 지적 2026-11-08).
 // 누르기(사용자 지적 2026-11-08 "맵조작시 오브젝트가 걸려 드래그가 안되고 계속 오브젝트가 잘못눌린다", docs/adr/2026-11-08-map-input.md 1절):
 // 표시는 손가락·마우스를 받지 않고(gather.css pointer-events: none) 지도 캔버스로 지나보낸다 — 표시 위에서 시작한 끌기도 지도를 끈다.
 // 엔진이 누르기(움직임이 누르기 거리 안인 짧은 한 손가락)로 판정한 뒤 유닛을 누르지 않았으면 이 층의 tap()이 화면 거리로 가장 가까운 표시를
@@ -13,6 +14,7 @@ import type { EngineLayer, EngineLayerView, SecondMapEngine } from "@terra/engin
 import { m } from "../../paraglide/messages.js";
 import { kgText, nameText, phaseText } from "./gatherData.ts";
 import type { GatherObjectEntry, GatherSheet, GatherState } from "./gatherState.ts";
+import { createStationRing } from "./stationRing.ts";
 
 /** 한 화면에 놓는 오브젝트 표시 수 */
 const MARKERS = 40;
@@ -87,6 +89,7 @@ export function attachGatherOverlay(
   const root = document.createElement("div");
   root.className = "gather-overlay";
   host.after(root);
+  const ring = createStationRing(root);
   const markers: Marker[] = [];
   const chips: Chip[] = [];
   // 이번 프레임에 보인 표시 자리(누르기 고르기, tap)
@@ -262,6 +265,7 @@ export function attachGatherOverlay(
   const layer: EngineLayer = {
     after(view) {
       hits = [];
+      ring.place(view, state.ring);
       placeMarkers(view);
       placeBuildings(view);
       placeChips(view);

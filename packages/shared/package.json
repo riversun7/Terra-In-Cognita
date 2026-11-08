@@ -34,6 +34,7 @@
     "./recruit": "./src/recruit.ts",
     "./fusion": "./src/fusion.ts",
     "./gather": "./src/gather.ts",
+    "./gatherStation": "./src/gatherStation.ts",
     "./temple": "./src/temple.ts",
     "./ruins": "./src/ruins.ts",
     "./roster": "./src/roster.ts",

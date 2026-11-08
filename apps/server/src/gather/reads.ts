@@ -2,6 +2,8 @@
 // - objects: 그 2차맵 오브젝트 자리·종류·남은 번수·다시 자라는 시각(로그인한 사용자, 띄운 2차맵).
 // - loops: 내 유닛의 채집·들어가기(진행 중 + 최근 끝난 것).
 // - building: 2차맵 건물 판(시설 이름·레벨·내 것인가·화물을 넣을 수 있나·직무를 받을 수 있나·안에 있는 유닛).
+// - station: 채집소 판(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요", stationReads.ts).
+import type { GatherStationResponse } from "@terra/shared/gatherStation";
 import {
   GATHER_OBJECT_STRIDE,
   type GatherBuildingResponse,
@@ -12,12 +14,14 @@ import {
 import type { Viewer } from "../trpc/context.ts";
 import { buildingPlace } from "../facilities/places.ts";
 import { entryOptions } from "./enter.ts";
+import { emptyStation, stationView } from "./stationReads.ts";
 import type { GatherWorld } from "./world.ts";
 
 export interface GatherReads {
   objects(viewer: Viewer, mapKey: number, nowMs: number): GatherObjectsResponse;
   loops(viewer: Viewer, nowMs: number): GatherLoopsResponse;
   building(viewer: Viewer, buildingId: number, nowMs: number): GatherBuildingResponse;
+  station(viewer: Viewer, buildingId: number, nowMs: number): GatherStationResponse;
 }
 
 const emptyBuilding = (
@@ -124,6 +128,12 @@ export function gatherReadsOf(source: () => GatherWorld | undefined): GatherRead
         inside: inside.toSorted((a, b) => a.unitId - b.unitId),
         generatedAt: nowMs,
       };
+    },
+    station(viewer, buildingId, nowMs) {
+      const gather = source();
+      return gather
+        ? stationView(gather, viewer, buildingId, nowMs)
+        : emptyStation("not_ready", buildingId, nowMs);
     },
   };
 }

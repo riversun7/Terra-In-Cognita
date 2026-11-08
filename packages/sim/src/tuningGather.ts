@@ -52,4 +52,35 @@ export const GATHER_OBJECT_TUNING_KEYS: readonly TuningKey[] = [
     "오염 최대일 때 다시 자람 시간 더함(‰)",
     "Extra regrow time at full pollution (‰)",
   ),
+  // 채집소 레벨 버프·창고 옮김(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요", 모두 [임시])
+  k(
+    "gather_obj_station_radius_step",
+    "stationRadiusStep",
+    "채집소 레벨당 반경 더함(배치 칸)",
+    "Gather station radius per level (cells)",
+  ),
+  k(
+    "gather_obj_station_fatigue_step_pm",
+    "stationFatigueStepPm",
+    "채집소 레벨당 피로 배율 줄임(‰)",
+    "Gather station fatigue cut per level (‰)",
+  ),
+  k(
+    "gather_obj_station_regrow_step_pm",
+    "stationRegrowStepPm",
+    "채집소 레벨당 다시 자람 배율 줄임(‰)",
+    "Gather station regrow cut per level (‰)",
+  ),
+  k(
+    "gather_obj_station_floor_pm",
+    "stationFloorPm",
+    "채집소 피로·다시 자람 배율 하한(‰)",
+    "Gather station fatigue/regrow floor (‰)",
+  ),
+  k(
+    "gather_obj_station_haul_ms",
+    "stationHaulMs",
+    "채집소 창고 → 도시 창고 자동 옮김 간격(ms)",
+    "Gather station auto haul interval (ms)",
+  ),
 ];

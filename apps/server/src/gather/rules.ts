@@ -5,6 +5,8 @@
 //   ‰ 나머지는 채집 줄이 들고 다음 번에 더한다(작은 효율에도 0이 되지 않게).
 // - 피로(‰ 점) = 한 번의 피로 × 1000 × (시설 반경 안이면 시설 피로 배율 ÷ 1000). 나머지는 같은 방식.
 // - 다시 자라는 시간 = 오브젝트 값 × (1000 + ⌊오염 × 오염 더함 ÷ 100,000⌋) ÷ 1000 × (일하는 시설 반경 안이면 시설 배율 ÷ 1000)(D-112·D-115).
+// - 채집소 레벨 버프(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요", ADR "바뀜 (2026-11-08 …)"): 반경 = 기본 + (레벨 − 1) × 걸음, 수확 = 위 효율,
+//   피로·다시 자람 배율 = 기본 − (레벨 − 1) × 걸음(하한 stationFloorPm, 기본이 하한보다 작으면 기본). 모두 [임시] 설정 칸.
 // 정수 연산만 쓴다(판정 코드 규칙).
 import type { SocietyCoefficients } from "@terra/sim";
 import { gatherProgress, gatherYield } from "@terra/sim";
@@ -58,23 +60,50 @@ export function splitPm(amountPm: number, carryPm: number): { whole: number; car
   return { whole: Math.floor(total / 1000), carryPm: total % 1000 };
 }
 
-/** 채집 한 번의 피로(‰ 점) */
-export function gatherFatiguePm(rules: GatherRules, nearCamp: boolean): number {
-  const per = Math.max(0, rules.fatiguePerGather) * 1000;
-  return nearCamp ? Math.floor((per * Math.max(0, rules.campFatiguePm)) / 1000) : per;
+/** 채집소(벌목장·광산) 레벨 하나의 버프 — 반경(배치 칸)·수확·피로·다시 자람 배율(‰, 1000 = 그대로) */
+export interface StationBuffs {
+  readonly radiusCells: number;
+  readonly yieldPm: number;
+  readonly fatiguePm: number;
+  readonly regrowPm: number;
 }
 
-/** 떨어진 오브젝트가 다시 자라기까지(ms) */
+/** 기본 배율에서 레벨마다 걸음만큼 줄인다(하한 floor, 기본이 하한보다 작으면 기본) */
+function cutByLevel(basePm: number, steps: number, stepPm: number, floorPm: number): number {
+  const base = Math.max(0, basePm);
+  return Math.max(Math.min(base, floorPm), base - steps * Math.max(0, stepPm));
+}
+
+export function stationBuffs(rules: GatherRules, level: number): StationBuffs {
+  const steps = Math.max(0, Math.floor(level) - 1);
+  const floor = Math.min(1000, Math.max(1, rules.stationFloorPm));
+  return {
+    radiusCells: Math.max(0, rules.campRadiusCells) + steps * Math.max(0, rules.stationRadiusStep),
+    yieldPm: gatherEfficiencyPm(rules, Math.max(1, Math.floor(level))),
+    fatiguePm: cutByLevel(rules.campFatiguePm, steps, rules.stationFatigueStepPm, floor),
+    regrowPm: Math.max(1, cutByLevel(rules.campRegrowPm, steps, rules.stationRegrowStepPm, floor)),
+  };
+}
+
+/** 채집 한 번의 피로(‰ 점). campLevel = 반경 안 내 채집소 레벨(밖이면 null) */
+export function gatherFatiguePm(rules: GatherRules, campLevel: number | null): number {
+  const per = Math.max(0, rules.fatiguePerGather) * 1000;
+  return campLevel === null ? per : Math.floor((per * stationBuffs(rules, campLevel).fatiguePm) / 1000);
+}
+
+/** 떨어진 오브젝트가 다시 자라기까지(ms). campLevel = 반경 안 일하는 채집소(주인 상관없음) 레벨(밖이면 null) */
 export function regrowMs(
   kind: Pick<GatherKind, "regrowMs">,
   rules: GatherRules,
   pollution: number,
-  nearWorkingCamp: boolean,
+  campLevel: number | null,
 ): number {
   const dirty = Math.min(POLLUTION_MAX, Math.max(0, pollution));
   const pollutionPm = 1000 + Math.floor((dirty * Math.max(0, rules.pollutionRegrowPm)) / POLLUTION_MAX);
   const base = Math.floor((kind.regrowMs * pollutionPm) / 1000);
-  return nearWorkingCamp ? Math.max(1, Math.floor((base * Math.max(1, rules.campRegrowPm)) / 1000)) : base;
+  return campLevel === null
+    ? base
+    : Math.max(1, Math.floor((base * stationBuffs(rules, campLevel).regrowPm) / 1000));
 }
 
 /** 배치 칸 두 점의 거리 제곱 */

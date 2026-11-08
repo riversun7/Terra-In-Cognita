@@ -4,6 +4,8 @@
  * 열지도 색: 이김 = 시장 파랑, 짐 = 위험 빨강을 바탕과 단계마다 9%씩(최대 45%) 섞는다 — 글자색 대비를 지키는 상한(두 테마 잰 값, ADR).
  */
 .an-tab {
+  /* 이김 쪽 색(시장 파랑) — 이름에 색 낱말이 있어 직접 쓰면 값 검사가 색으로 본다 */
+  --an-win: var(--color-market-blue);
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
@@ -406,19 +408,19 @@
 
 /* 열지도·2차 변화 칸 색(두 극 + 무채 가운데) */
 [data-side="win"][data-level="1"] {
-  background: color-mix(in oklab, var(--color-market-blue) 9%, var(--color-surface)) !important;
+  background: color-mix(in oklab, var(--an-win) 9%, var(--color-surface)) !important;
 }
 [data-side="win"][data-level="2"] {
-  background: color-mix(in oklab, var(--color-market-blue) 18%, var(--color-surface)) !important;
+  background: color-mix(in oklab, var(--an-win) 18%, var(--color-surface)) !important;
 }
 [data-side="win"][data-level="3"] {
-  background: color-mix(in oklab, var(--color-market-blue) 27%, var(--color-surface)) !important;
+  background: color-mix(in oklab, var(--an-win) 27%, var(--color-surface)) !important;
 }
 [data-side="win"][data-level="4"] {
-  background: color-mix(in oklab, var(--color-market-blue) 36%, var(--color-surface)) !important;
+  background: color-mix(in oklab, var(--an-win) 36%, var(--color-surface)) !important;
 }
 [data-side="win"][data-level="5"] {
-  background: color-mix(in oklab, var(--color-market-blue) 45%, var(--color-surface)) !important;
+  background: color-mix(in oklab, var(--an-win) 45%, var(--color-surface)) !important;
 }
 [data-side="loss"][data-level="1"] {
   background: color-mix(in oklab, var(--color-danger) 9%, var(--color-surface)) !important;

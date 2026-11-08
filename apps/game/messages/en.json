@@ -486,6 +486,7 @@
   "map_terrain_invalid": "Couldn't read the terrain data.",
   "map_command_sent": "Move order sent to unit {id}.",
   "map_command_ok": "Unit {id}: route found, on its way.",
+  "map_travel_sent": "Sent unit {id} to the next local map. It walks to the edge and crosses.",
   "map_command_failed": "Unit {id}: couldn't move.",
   "map_command_offline": "Not connected. The order wasn't sent.",
   "map_code_sign_in_required": "Please sign in again.",

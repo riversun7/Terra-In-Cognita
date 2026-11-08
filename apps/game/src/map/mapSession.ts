@@ -1,7 +1,9 @@
 // 2차맵 하나의 자료 잇기 — 2차맵 화면(SecondaryMapScreen.tsx)에서 나눴다(docs/adr/2026-11-08-seamless-second-map.md WP-3 로딩 없는 2차맵 이동).
 // 엔진은 화면이 한 번 만들어 계속 쓰고, 이 모음은 지금 2차맵마다 새로 켠다: 지도 자료 구독(mapFeed.ts)·건물 겉모습·채집 덧그림·지도자 이름표·
 // 이웃 지형 받기·이웃 안개 구독. 옆 2차맵으로 넘으면 화면이 엔진을 rebase하고 이 모음을 멈춘 뒤 새 2차맵으로 다시 켠다(받아 둔 지형을 seed로 넘긴다).
-// - 넘기 신호: 기준 유닛이 구독 중인 이웃 2차맵의 스냅샷·경로에 나타나면 onArrived(그 2차맵).
+// - 넘기 신호: 기준 유닛이 구독 중인 이웃 2차맵의 스냅샷·경로에 나타나면 onArrived(그 2차맵). 또 기준 유닛이 변 바로 옆에 있다가 지금 2차맵에서
+//   사라지면 그 변의 이웃(볼 수 없던 이웃은 구독이 거절돼 있어 나타남을 못 본다 — neighbourTap.ts crossedNeighbour).
+// - 이웃 안개 = 그 2차맵 탐사 칸(구독 vision) ∪ 변 가까이 선 내 유닛 시야를 옆 틀로 옮긴 칸(neighbourSight.ts — 1초마다, 경계에서 잘리지 않게).
 import type { SecondMapEngine, TerrainInput } from "@terra/engine";
 import { m } from "../paraglide/messages.js";
 import { serverLink } from "../net/serverLink.ts";
@@ -14,13 +16,19 @@ import { startMapFeed } from "./mapFeed.ts";
 import { resultText } from "./mapMessages.ts";
 import { loadUnitGlance } from "./mapUnits.ts";
 import type { NearbyState } from "./nearby/nearbyState.ts";
+import { neighbourSightBits, unionBits } from "./neighbourSight.ts";
+import { crossedNeighbour } from "./neighbourTap.ts";
 import { startNeighbourVision } from "./neighbourVision.ts";
 import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
-import { viewMap, wantsAllNeighbours } from "./secondMapNeighbours.ts";
+import { neighbourSpots, viewMap, wantsAllNeighbours } from "./secondMapNeighbours.ts";
 import { fetchTerrain } from "./terrainLoader.ts";
 
 /** 자료 흐름 전(표시 종류 없음) */
 const NO_KINDS: ReadonlyMap<number, string> = new Map();
+/** 경계 너머 시야를 다시 셈하는 간격(ms) */
+const SIGHT_TICK_MS = 1_000;
+/** 기준 유닛이 사라졌는지 보는 간격(ms, 넘기 신호) */
+const CROSS_TICK_MS = 250;
 
 export interface MapSessionOptions {
   readonly engine: SecondMapEngine;
@@ -66,9 +74,42 @@ export function startMapSession(options: MapSessionOptions): MapSession {
   let viewMapNow = "0,0";
   // 이웃 안개(WP-3): 카메라 쪽 이웃 2차맵을 구독해 탐사 칸을 이웃 지형에 칠한다(운영자 전체 보기면 구독하지 않는다 — 안개가 없다).
   // 기준 유닛이 그 이웃에 나타나면 넘어간다
+  const spots = neighbourSpots(mapKey);
+  /** 이웃 → 서버 탐사 칸(받은 것), 마지막으로 엔진에 넣은 안개(같으면 다시 넣지 않는다) */
+  const serverBits = new Map<number, Uint8Array | null>();
+  const shownBits = new Map<number, string>();
+  let feedNow: MapFeed | null = null;
+  /** 내 유닛의 지금 자리(배치 칸, 시야 전송의 내 유닛 표시) */
+  const myPoints = (): { x: number; y: number }[] => {
+    const points: { x: number; y: number }[] = [];
+    if (!feedNow) return points;
+    for (const id of feedNow.unitIds()) {
+      if (!feedNow.isOwn(id)) continue;
+      const unit = engine.unitState(id);
+      if (unit) points.push({ x: unit.x, y: unit.y });
+    }
+    return points;
+  };
+  /** 받은 이웃마다 안개 = 서버 탐사 칸 ∪ 내 유닛 시야(옆 틀) — 바뀐 것만 엔진에 */
+  const refreshFog = (): void => {
+    const points = myPoints();
+    for (const key of neighbourLoader.terrains().keys()) {
+      const spot = spots.find((item) => item.key === key);
+      // 서버 답(탐사 칸·거절)을 받은 이웃만: 넘어온 직후 옛 2차맵(이웃이 됨)은 엔진이 그 탐사 칸을 들고 있다 — 시야만으로 덮어쓰지 않는다
+      if (!spot || !serverBits.has(key)) continue;
+      const bits = unionBits(serverBits.get(key) ?? null, neighbourSightBits(spot.placement, points));
+      const signature = bits ? bits.join(",") : "";
+      if (shownBits.get(key) === signature) continue;
+      shownBits.set(key, signature);
+      engine.setNeighbourExplored(String(key), bits);
+    }
+  };
   const neighbourVision = startNeighbourVision({
     link: serverLink,
-    onExplored: (key, bits) => engine.setNeighbourExplored(String(key), bits),
+    onExplored: (key, bits) => {
+      serverBits.set(key, bits);
+      refreshFog();
+    },
     onUnits: (key, ids) => {
       const anchor = options.anchor();
       if (anchor !== null && ids.includes(anchor)) options.onArrived(key);
@@ -84,7 +125,6 @@ export function startMapSession(options: MapSessionOptions): MapSession {
   });
   // 지도자 이름표: 전송의 표시 종류(npc_leader)로 찾고 이름은 한눈 정보로. 누르면 그 지도자를 고른다. 채집 덧그림보다 먼저 붙인다
   // (누르기를 먼저 받고 위에 그린다 — 지도자는 적고 표시는 많다)
-  let feedNow: MapFeed | null = null;
   const detachLeaders = attachLeaderTags(engine, host, options.leaderTags, {
     mapKey,
     kinds: () => feedNow?.unitKinds() ?? NO_KINDS,
@@ -128,6 +168,21 @@ export function startMapSession(options: MapSessionOptions): MapSession {
   });
   feedNow = feed;
   let stopped = false;
+  const sightTimer = setInterval(refreshFog, SIGHT_TICK_MS);
+  // 기준 유닛의 마지막 자리: 변 바로 옆에서 사라지면 그 변의 이웃으로 넘어갔다
+  let anchorLast: { id: number; x: number; y: number } | null = null;
+  const crossTimer = setInterval(() => {
+    const anchor = options.anchor();
+    const unit = anchor === null ? null : engine.unitState(anchor);
+    if (anchor !== null && unit) {
+      anchorLast = { id: anchor, x: unit.x, y: unit.y };
+      return;
+    }
+    if (anchor === null || anchorLast?.id !== anchor) return;
+    const next = crossedNeighbour(mapKey, anchorLast);
+    anchorLast = null;
+    if (next !== null) options.onArrived(next);
+  }, CROSS_TICK_MS);
 
   return {
     feed,
@@ -146,6 +201,8 @@ export function startMapSession(options: MapSessionOptions): MapSession {
       // 넘기와 화면 정리가 두 번 부를 수 있다
       if (stopped) return;
       stopped = true;
+      clearInterval(sightTimer);
+      clearInterval(crossTimer);
       neighbourLoader.stop();
       neighbourVision.stop();
       // 해제를 먼저 보낸다(엔진은 화면이 버린다)

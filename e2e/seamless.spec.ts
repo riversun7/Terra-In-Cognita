@@ -31,6 +31,8 @@ interface Rig {
   readonly refused: number[];
   /** 기기가 받은 vision의 2차맵 키 */
   readonly visions: number[];
+  /** 기기가 보낸 2차맵 사이 이동(travel_start)의 옆 2차맵 키 */
+  readonly travels: number[];
   /** 기기에 서버 메시지를 넣는다 */
   inject(message: object): void;
 }
@@ -47,6 +49,7 @@ async function rigSocket(page: Page): Promise<Rig> {
     subscribed: [],
     refused: [],
     visions: [],
+    travels: [],
     inject: (message) => toPage?.(JSON.stringify(message)),
   };
   await page.routeWebSocket(/\/ws$/, (socket) => {
@@ -58,6 +61,10 @@ async function rigSocket(page: Page): Promise<Rig> {
         const key = Number(field(parsed, "mapKey"));
         rig.subscribed.push(key);
         subscribeIds.set(Number(field(parsed, "id")), key);
+      }
+      if (typeof data === "string" && data.includes('"t":"travel_start"')) {
+        const parsed: unknown = JSON.parse(data);
+        rig.travels.push(Number(field(parsed, "mapKey")));
       }
       server.send(data);
     });
@@ -187,6 +194,50 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     expect(rig.subscribed.filter((key) => key === east).length).toBeGreaterThanOrEqual(2);
     expect(main).not.toBe(east);
     expect(await horizontalOverflow(page)).toEqual([]);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("옆 2차맵 땅 누르기", () => {
+  test.use({ account: "player" });
+
+  test("그려 둔 옆 2차맵 땅을 누르면 고른 내 유닛을 그 2차맵으로 보낸다(travel_start)", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(360_000);
+    const rig = await rigSocket(page);
+    await keepMyUnits(page);
+    const { near } = await openAtEdge(page, rig);
+    // 멀리 보아 옆 2차맵이 화면에 넓게 들게 한 뒤, 가운데(내 사이보그) 둘레를 바깥부터 눌러 본다 — 옆 땅을 누를 때까지
+    const box = await page.locator(".map-view canvas").boundingBox();
+    if (!box) throw new Error("no canvas");
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    for (let k = 0; k < 3; k++) {
+      await page.mouse.wheel(0, 400);
+      await page.waitForTimeout(150);
+    }
+    await page.waitForTimeout(800);
+    for (const radius of [150, 110]) {
+      for (let step = 0; step < 12 && rig.travels.length === 0; step++) {
+        const angle = (step * Math.PI) / 6;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        const onCanvas = await page.evaluate(
+          (point) => document.elementFromPoint(point.x, point.y) instanceof HTMLCanvasElement,
+          { x, y },
+        );
+        if (!onCanvas) continue;
+        await page.mouse.click(x, y);
+        await page.waitForTimeout(400);
+        const close = page.locator(".gather-sheet-close");
+        if (await close.count()) await close.first().click();
+      }
+    }
+    expect(rig.travels).toContain(near);
+    await expect(page.locator(".map-screen")).toHaveAttribute("data-command", /^(sent|travel_ok|[a-z_]+)$/);
     expect(deviceErrors).toEqual([]);
   });
 });

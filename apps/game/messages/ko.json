@@ -486,6 +486,7 @@
   "map_terrain_invalid": "지형 자료를 읽지 못했습니다.",
   "map_command_sent": "유닛 {id}에게 이동 명령을 보냈습니다.",
   "map_command_ok": "유닛 {id}: 길을 찾아 출발합니다.",
+  "map_travel_sent": "유닛 {id}을(를) 옆 2차맵으로 보냈습니다. 변까지 걸어가 넘습니다.",
   "map_command_failed": "유닛 {id}: 이동하지 못했습니다.",
   "map_command_offline": "연결이 끊겨 명령을 보내지 못했습니다.",
   "map_code_sign_in_required": "로그인이 필요합니다.",

@@ -60,6 +60,11 @@ export interface SecondMapEngineOptions {
   /** 유닛이 아닌 땅을 눌렀을 때 — 배치 칸 좌표 */
   onGroundTap?: (cell: { x: number; y: number }) => void;
   /**
+   * 지금 2차맵 밖, 그려 둔 이웃 2차맵 땅을 눌렀을 때 — 지금 2차맵 틀의 배치 칸 좌표(0~256 밖). 화면이 그 이웃 2차맵·칸으로 바꿔 보낸다
+   * (docs/adr/2026-11-08-seamless-second-map.md WP-3)
+   */
+  onNeighbourTap?: (cell: { x: number; y: number }) => void;
+  /**
    * 카메라가 바뀐 프레임마다(그리기 전). 나침반·이웃 2차맵 받기에 쓴다 — 가볍게 처리한다(React 상태를 프레임마다 바꾸지 않는다)
    */
   onView?: (camera: Readonly<CameraState>) => void;

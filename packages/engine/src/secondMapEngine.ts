@@ -314,7 +314,8 @@ export function createSecondMapEngine(
   };
 
   // 누른 곳: 유닛(화면 거리, units/unitRoster.ts) → 건물(조각 상자, 땅보다 앞이면) → 땅
-  const pickGround = (point: ScreenPoint): { x: number; z: number } | null => {
+  /** 누른 땅(m). outside = 지금 2차맵 밖(그려 둔 이웃 위) */
+  const pickGround = (point: ScreenPoint): { x: number; z: number; outside?: true } | null => {
     if (!terrain) return null;
     const ray = screenRay(state, viewport, point);
     const building = buildingView.pick(ray.origin, ray.dir);
@@ -334,7 +335,11 @@ export function createSecondMapEngine(
       if (building.distance <= groundDistance + BUILDING_PICK_SLACK_M)
         return { x: building.x, z: building.z };
     }
-    if (!hit || hit.x < 0 || hit.z < 0 || hit.x > mapSize || hit.z > mapSize) return null;
+    if (!hit) return null;
+    if (hit.x < 0 || hit.z < 0 || hit.x > mapSize || hit.z > mapSize) {
+      // 그려 둔 이웃 2차맵 위면 알린다(옆 2차맵으로 보내기 — docs/adr/2026-11-08-seamless-second-map.md WP-3), 아니면 없음
+      return neighbours.heightAt(hit.x, hit.z) === null ? null : { x: hit.x, z: hit.z, outside: true };
+    }
     return hit;
   };
 
@@ -362,7 +367,8 @@ export function createSecondMapEngine(
       // 덧그림 층 표시(채집 오브젝트·건물 표시 등 — 누르기를 지나보내는 HTML)를 화면 거리로 고른다
       if (layers.tap(point)) return;
       const ground = pickGround(point);
-      if (ground) options.onGroundTap?.({ x: ground.x / cellM, y: ground.z / cellM });
+      if (ground?.outside) options.onNeighbourTap?.({ x: ground.x / cellM, y: ground.z / cellM });
+      else if (ground) options.onGroundTap?.({ x: ground.x / cellM, y: ground.z / cellM });
     },
     onZoomPush: (edge) => {
       if (!disposed) options.onZoomEdge?.(edge);

@@ -22,6 +22,7 @@ import type { GatherState } from "./gather/gatherState.ts";
 import type { MapSession } from "./mapSession.ts";
 import type { MapFocus } from "./mapTarget.ts";
 import { canCommand, unitControlOf, unitName } from "./mapUnits.ts";
+import { createNeighbourTravel } from "./neighbourTravel.ts";
 import { pixelRatioOption } from "./pixelRatioParam.ts";
 import { createSkyClock, reducedMotionList } from "./planetSky.ts";
 import { compassAngle, northOnMap } from "./secondMapCompass.ts";
@@ -149,6 +150,16 @@ export function useMapEngine(
         sessionRef.current?.onView(camera);
       },
       onSelect: (id) => selectFromMapRef.current(id),
+      // 그려 둔 옆 2차맵 땅: 고른 내 유닛을 그곳으로 보낸다(2차맵 사이 이동)
+      onNeighbourTap: createNeighbourTravel({
+        mapKeyRef,
+        selectedRef,
+        anchorRef,
+        feedRef,
+        unitsRef,
+        operatorRef,
+        setCommand,
+      }),
       // 고른 유닛이 내 유닛(운영자 모드면 아무 유닛)이면 누른 칸으로 보낸다. 경로는 서버가 찾아 unit_paths로 보낸다
       onGroundTap: (cell) => {
         // 경제 화면 [지도에서 고르기](WP3 연결점, economy/buildPick.ts): 짓기 자리를 고르는 중이면 그 칸을 돌려주고 생산 칸으로 돌아간다

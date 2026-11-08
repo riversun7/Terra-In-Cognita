@@ -73,5 +73,10 @@
 - 합친 뒤 검사: `pnpm check`(DB 포함) 557파일 4,235개 통과(Verified). 화면 시험 seamless·unit-control·map-input·citizenship·gather 기능 시험 — 2개가 땅 대신 걷는 NPC 휴먼을 눌러 실패해 시험을 고친 뒤 통과(Verified: 다른 유닛이 골라지면 다시 내 사이보그를 고르거나 다음 자리를 누른다). `check:bundle` 첫 화면 JS 107,178B / 상한 131,416B, `check-pwa` 통과(Verified).
 - 처음 `pnpm check`의 DB 시험 111개 실패는 이 컨테이너의 PostgreSQL이 꺼져 있던 것(ECONNREFUSED)이라 켜고 다시 돌렸다.
 
+## 바뀜 (사용자 지적 2026-11-09 — NAS에서 옆 2차맵이 잘려 어둡고, 옆 땅을 눌러도 이동이 안 됨)
+- 경계 너머 시야를 이웃 안개에 더함(`neighbourSight.ts`·`.test.ts`, `mapSession.ts`), 옆 2차맵 땅 누르기 → 2차맵 사이 이동(엔진 `secondMapEngine.ts`·`engineTypes.ts` `onNeighbourTap`, `neighbourTap.ts`·`.test.ts`, `neighbourTravel.ts`, `useMapEngine.ts`, `commandNotice.ts` 안내 `travel`, 메시지 `map_travel_sent`), 변 바로 옆에서 사라지면 넘기(`crossedNeighbour`).
+- 검사: 단위 시험(map·engine 77파일 619개), 화면 시험 seamless 4개(옆 땅 누르기 → travel_start 포함)·map-input·unit-control·map-travel 기능 8개 통과(Verified). `pnpm check`는 이 커밋의 푸시 전 훅. 실제 휴대폰에서 걸어서 넘기는 여전히 보지 않았다(미실행).
+- `SecondaryMapScreen.tsx` 603줄(600줄 경고 — main 합치기로 늘었다).
+
 ## 사용자 결정 대기
 - 없음(ADR Q1~Q5 답함).

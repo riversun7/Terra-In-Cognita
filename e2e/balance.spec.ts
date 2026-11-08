@@ -1,5 +1,9 @@
-// 밸런스 화면 시험 — /dev/balance [가중치 표] 탭 (docs/adr/2026-11-01-balance-screen.md 7절). [전투 실험실] 탭은 e2e/battleLab.spec.ts.
-// - 화면은 실험실 탭으로 열리고, [가중치 표] 탭을 누르면 이 표가 뜬다. 기준 유닛을 팀 A 유닛·유닛 프리셋에서 불러온다.
+// 밸런스 화면 시험 — /dev/balance [분포 상성]·[스탯 영향도]·[가중치 표] 탭 (docs/adr/2026-11-01-balance-screen.md 7절·
+// "바뀜 (2026-11-08 완전 개편)"). [전투 실험실] 탭은 e2e/battleLab.spec.ts.
+// - 분석(맨 아래 "분석"·"분석 배치·사진"): 화면은 [분포 상성] 탭으로 열린다. 작은 설정(짝마다 2판·30초)으로 돌리면 승률표·상성 요약·
+//   사양 표, 칸을 누르면 풀이. [스탯 영향도]는 순위 막대 여섯 줄·곡선·2차 변화 표. 결과는 서버 메모리에 남아(30분) 같은 계정이 화면을
+//   다시 열면 이어 보인다 → 배치·사진 시험은 돌리지 않고 그 결과를 연다(시작 속도 제한을 쓰지 않는다).
+// - [가중치 표] 탭을 누르면 이 표가 뜬다. 기준 유닛을 팀 A 유닛·유닛 프리셋에서 불러온다.
 // - dev: 가중치 칸(HP의 VIT)을 고치면 담기고 기여 표가 "지금 → 고침"을 보인다. [승률 돌리기]는 1차 여섯 줄(지금·고침 막대).
 //   [적용]하면 그 세계에 바로 든다(세계에서 바뀐 칸 1, 시안 유닛 HP가 오름, 설정 칸 패널 머리에 가중치 칸 수). 되돌리기 → 적용이면 팩 값.
 //   모든 WIS 가중치를 0으로 담으면 담은 변경 막대가 "적용하면 받지 않음(가치 없는 1차)"을 미리 보이고, 적용은 거절된다.
@@ -129,7 +133,7 @@ const unexpected = (errors: readonly { kind: string; text: string }[]) =>
       !(
         error.kind === "console" &&
         /status of (400|403|429)/.test(error.text) &&
-        /\/api\/trpc\/(tuning|balance)\./.test(error.text)
+        /\/api\/trpc\/(tuning|balance|balanceAnalysis)\./.test(error.text)
       ),
   );
 
@@ -473,6 +477,97 @@ test.describe("기여 조회 거절", () => {
     await expect(page.locator(".bp-contrib tbody tr").first()).toBeVisible({ timeout: 20_000 });
     await expect(panel.locator("[role='alert']")).toHaveCount(0);
     expect(refused).toBe(2);
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+});
+
+// ── 분석 탭(분포 상성·스탯 영향도) ──
+
+/** 분석 탭을 열고 결과가 뜰 때까지(서버가 이 계정의 최근 일을 이어 보인다) */
+async function analysisReady(page: Page, tab: "matrix" | "sensitivity"): Promise<void> {
+  await page.goto(`/dev/balance?tab=${tab}`);
+  await expect(page.locator(`.an-${tab}`)).toHaveAttribute("data-status", "done", { timeout: 60_000 });
+}
+
+test.describe("분석", () => {
+  test.use({ account: "admin" });
+
+  test("분포 상성: 기본 탭, 짝마다 2판·30초로 돌리면 승률표 6×6·상성 요약·사양 표, 칸을 누르면 풀이", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(120_000);
+    await page.goto("/dev/balance");
+    await expect(page.locator("#bp-tab-matrix")).toHaveAttribute("aria-selected", "true");
+    const tab = page.locator(".an-matrix");
+    await tab.locator('[data-field="runs"] select').selectOption("2");
+    await tab.locator('[data-field="limit"] select').selectOption("30");
+    await expect(tab.locator(".an-cost")).toContainText("30");
+    await tab.locator(".an-run").click();
+    await expect(tab).toHaveAttribute("data-status", "done", { timeout: 60_000 });
+    await expect(tab.locator(".an-heat tbody tr")).toHaveCount(6);
+    await expect(tab.locator(".an-heat-self")).toHaveCount(6);
+    await tab.locator('.an-heat tbody tr[data-row="0"] td[data-col="1"] button').click();
+    await expect(tab.locator(".an-detail")).toBeVisible();
+    await expect(tab.locator(".an-rps-table tbody tr")).toHaveCount(6);
+    await expect(tab.locator(".an-specs tbody tr")).toHaveCount(6);
+    await expect(tab.locator(".an-progress-text")).toContainText("30");
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+
+  test("스탯 영향도: 변형마다 2판으로 돌리면 순위 막대 6줄·곡선·2차 변화 표·대조, 지표를 바꿔도 막대 6줄", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(120_000);
+    await page.goto("/dev/balance?tab=sensitivity");
+    const tab = page.locator(".an-sensitivity");
+    await tab.locator('.an-run-panel [data-field="runs"] select').selectOption("2");
+    await tab.locator('[data-field="limit"] select').selectOption("30");
+    await tab.locator(".an-run").click();
+    await expect(tab).toHaveAttribute("data-status", "done", { timeout: 60_000 });
+    await expect(tab.locator(".an-bar-row")).toHaveCount(6);
+    await expect(tab.locator(".an-curve-svg")).toBeVisible();
+    await expect(tab.locator(".an-curve .an-line")).toHaveCount(12);
+    await expect(tab.locator('.an-effects tbody tr[data-row="hp"]')).toBeVisible();
+    await expect(tab.locator(".an-control")).toBeVisible();
+    await tab.locator('[data-field="metric"] select').selectOption("ehp");
+    await expect(tab.locator(".an-bar-row")).toHaveCount(6);
+    await expect(tab.locator('.an-bar-row[data-stat="vit"] .an-bar-fill')).toBeVisible();
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+});
+
+test.describe("분석 배치·사진", () => {
+  test.use({ account: "admin" });
+
+  for (const { theme, language, width, height } of LAYOUTS) {
+    test.describe(`${theme}·${language}·${width}px`, () => {
+      test.use({ devTheme: theme, language, viewport: { width, height } });
+
+      for (const tab of ["matrix", "sensitivity"] as const)
+        test(`${tab}: 결과 화면 가로 넘침·작은 누르는 곳 없음, 사진`, async ({ page, deviceErrors }) => {
+          await replayTrpc(page, layoutReplay, ["battleLab.catalog", "battleLab.presets"]);
+          await analysisReady(page, tab);
+          if (tab === "matrix") await page.locator('.an-heat tbody tr[data-row="1"] td[data-col="0"] button').click();
+          await page.evaluate(() => document.fonts.ready.then(() => undefined));
+          expect(await horizontalOverflow(page)).toEqual([]);
+          expect(await smallTapTargets(page)).toEqual([]);
+          await shot(page, `balance-${tab}-${theme}-${language}-${width}`, { fullPage: true });
+          expect(unexpected(deviceErrors)).toEqual([]);
+        });
+    });
+  }
+});
+
+test.describe("분석 권한", () => {
+  test.use({ account: "player" });
+
+  test("tRPC balanceAnalysis.list·start는 403", async ({ page, deviceErrors }) => {
+    await page.goto("/dev/balance");
+    await expect(page.locator("#no-permission-title")).toBeVisible();
+    expect((await trpc(page, "balanceAnalysis.list")).status).toBe(403);
+    expect((await trpc(page, "balanceAnalysis.start", { kind: "matrix" })).status).toBe(403);
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 });

@@ -78,7 +78,8 @@ const labUnit = (weapon: unknown, level = 1, value = 10) => {
 };
 
 async function labReady(page: Page): Promise<void> {
-  await page.goto("/dev/balance");
+  // 첫 탭은 [분포 상성](2026-11-08 완전 개편) → 주소로 실험실 탭을 연다
+  await page.goto("/dev/balance?tab=lab");
   await expect(page.locator(".bl-lab")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(page.locator(".bl-preview .bl-secondary li").first()).toBeVisible({ timeout: 20_000 });
 }

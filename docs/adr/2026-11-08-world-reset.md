@@ -1,6 +1,6 @@
 # 시험 세계 새로 시작: 남길 표 목록 + 나머지 TRUNCATE, 관리 명령 reset-world와 수동 워크플로 world-reset
 
-- 상태: 제안 (사용자 결정 645 다에 따른 도구. NAS에서 처음 돌린 결과로 확정)
+- 상태: 확정 (2026-11-08, 사용자 결정 — 진행상황 세션 ADR 검토) (사용자 결정 645 다에 따른 도구. NAS에서 처음 돌린 결과로 확정)
 - 날짜: 2026-11-08
 - 관련: docs/PLAN.md 9.5(백업·복구), 기획 질문 `docs/questions/2026-11-07-world-layout.md` 645(가지 `work/world-layout`), ADR `2026-11-07-world-layout.md`(국가를 행성 위로 퍼뜨리는 배치), ADR `2026-10-28-auth-and-accounts.md`(관리 명령·감사 기록 추가만), ADR `2026-10-31-s3-server-stage.md`(세계 표·부팅·원장 추가만 트리거), ADR `2026-10-31-second-map-from-planet.md` 6절(고정본 `second_map_pins`), ADR `2026-10-28-deploy-and-ops.md`(NAS 배포·백업), `docs/PROTECTED.md`
 

@@ -28,3 +28,8 @@
 ## 덧붙임 (20:50)
 - 사용자 답(진행상황 세션 11:28·11:36 UTC, 원본 확인)으로 상태 줄만 확정: ranking, play-flow, unit-control, planet-view, building-art(사용자 원문 "대체로 맞으나 최대한 잘 만들기" — 구조 확정, 모델 품질은 계속 높인다).
 - 그대로 둠: map-input(사용자 원문 "다른 세션에서 수정중."). war-outcomes·world-layout은 사용자가 규칙을 바꿔 기획 D-ID를 기다린다(원문은 PLAN 미러 줄에 기록 예정).
+
+## 덧붙임 (21:00)
+- 상태 줄만 확정: battle-replay, world-reset(사용자 답 11:45·11:50 UTC, 원본 확인).
+- 개편 뒤 확정(사용자 원문): dev-settings-panel "/dev/tuning 은 너무 보기 힘들게 ui/ux가 불친절하다. 분명히 개발자 친화적 ux/ui로 만들라고 했다 개편해야한다.", balance-screen "굉장히 허접한 밸런스 테스트이다 … 완전 개편 세밀한 테스트가능하게 개편필요", item-editor·skill-editor·building-editor "화면 개편 뒤 확정".
+- formula-editor: 사용자 원문 "검증도 좋으나 STR 같은같은 명확한 상수는 드래그해서 쓸수있게 직관적으로 하면 오타없이 좋을듯" — 확정이라고 하지 않았으므로 끌어 넣기를 넣은 뒤 확정한다.

@@ -1,17 +1,20 @@
 // 채집소(벌목장·광산) — 사용자 지적(2026-11-08) "원자재채집소의 기능도 필요", 사용자 답 D-519(원문은 docs/adr/2026-11-07-gather-objects.md 배경)
 // "오브젝트가 몰린곳에 광산이나 벌목소를 통해 빠르게 저장하고 버프(피로도 소모감소, 건물 등급에 따른 채집량 등, 오브젝트 빠른 재생 등) 임금 등의
 // 시스템도 활용 가능". ADR "바뀜 (2026-11-08 사용자 지적: 채집소 기능)".
-// - 채집소 = 팩 gather가 있는 시설 가운데 원자재 오브젝트 종류가 맡는 시설(gather_objects facility — 벌목장·광산). 농장처럼 맡는 오브젝트가 없는
-//   채집 시설은 "facility" 채집소(판만 보이고 산출 규칙은 예전 그대로).
+// - 채집소 = 팩 gather가 있는 시설. 원자재 오브젝트 종류가 맡는 시설(gather_objects facility — 벌목장·광산)은 "objects" 채집소, 맡는 오브젝트가
+//   없는 채집 시설(농장 — 뒤에 목장 등)은 "facility" 채집소다. 기획 정리 756 ②(D-523 포인터, "농장도 창고·버프"): facility 채집소도 채집소 창고·
+//   수확·피로 버프·자동 옮김을 받는다. 오브젝트가 없으니 반경·다시 자람 버프와 "반경 안 오브젝트가 있어야 낸다"는 규칙은 없고, 산출 규칙(선택 모드
+//   D-507 등)은 그대로다.
 // - 일꾼(직무 배치·노동 계약, 같은 2차맵 522 ①)은 소유 주체 정산(labor/workBook.ts goodsFor → 이 고리)에서 묶음마다 반경 안 오브젝트 번수를
-//   하나씩 쓴다(가까운 것부터, 질문 664 ②). 남은 번수가 없으면 그 묶음을 끝내지 못하고 진행은 묶음 하나 몫까지만 쌓인다. 레벨 수확 버프를 곱하고
-//   (‰ 나머지는 결정적 굴림), 산출은 채집소 창고(그 건물 창고, 상한 = 팩 storageKg × 레벨)로 간다. 창고가 가득이면 묶음을 끝내지 않는다.
+//   하나씩 쓴다(objects 채집소만, 가까운 것부터, 질문 664 ②). 남은 번수가 없으면 그 묶음을 끝내지 못하고 진행은 묶음 하나 몫까지만 쌓인다. 레벨
+//   수확 버프를 곱하고(‰ 나머지는 결정적 굴림), 산출은 채집소 창고(그 건물 창고, 상한 = 팩 storageKg × 레벨)로 간다. 창고가 가득이면 묶음을
+//   끝내지 않는다(두 종류 모두).
 // - 피로 덜기: 일한 주기 피로(주기마다 1점, @terra/sim 직무 규칙)에서 (1000 − 레벨 피로 배율)‰을 정산 뒤에 덜어 준다. 오브젝트·창고에 막혀 묶음을
 //   하나도 못 끝낸 구간은 기다림이라 피로를 모두 덜어 준다. 나머지 ‰은 메모리에 들고 다음 정산에 더한다.
 // - 자동 옮김: 설정 칸 간격(gather_obj_station_haul_ms)의 정시마다 채집소 창고의 주인 몫 물자를 그 도시의 주인 도시 창고로 옮긴다(거래 하나,
 //   kind station_haul). 임대형 임차인 몫은 그대로(유예 규칙). 손으로는 이미 있는 창고 꺼내기(storage_move out)로 옮긴다.
 // [임시] 일꾼 상태·끝낸 묶음 수·피로 나머지는 메모리에만 있다(다시 켜면 0부터). 정산이 길게 밀리면(오프라인) 그 사이 다시 자란 번수는 세지 못하고
-// 정산하는 때의 남은 번수만 쓴다. 모두 확인 대기(질문 750~755).
+// 정산하는 때의 남은 번수만 쓴다(기획 정리: 750~755·757 지금 코드). facility 채집소 버프는 objects 채집소와 같은 설정 칸을 쓴다(확인 대기 810~813).
 // 정수 연산만 쓴다(판정 코드 규칙).
 import type { SocietyCoefficients } from "@terra/sim";
 import { PHASE_REST, mix32 } from "@terra/sim";
@@ -30,7 +33,7 @@ import type { ObjectStore } from "./state.ts";
 export interface StationSite {
   readonly buildingId: number;
   readonly facilityId: string;
-  /** objects = 반경 안 오브젝트를 쓰는 채집소, facility = 맡는 오브젝트가 없는 채집 시설(농장 등) */
+  /** objects = 반경 안 오브젝트를 쓰는 채집소, facility = 맡는 오브젝트가 없는 채집 시설(농장 등 — 창고·수확·피로 버프만, 756 ②) */
   readonly kind: "objects" | "facility";
   readonly level: number;
   readonly maxLevel: number;
@@ -44,7 +47,7 @@ export interface StationSite {
   readonly works: boolean;
   /** 맡는 오브젝트 종류 차례(kinds 배열) */
   readonly kindIndexes: readonly number[];
-  /** 지금 레벨 버프 */
+  /** 지금 레벨 버프(facility 채집소는 수확·피로만 쓴다 — 반경·다시 자람은 오브젝트에만) */
   readonly buffs: StationBuffs;
 }
 
@@ -213,19 +216,21 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
 
   const plan = (buildingId: number, unitId: number, room: bigint | null): StationPlan | undefined => {
     const target = site(buildingId);
-    if (!target || target.kind !== "objects") return undefined;
+    if (!target) return undefined;
     const at = now();
     const full = room !== null && room <= 0n;
-    const list = full ? [] : objectsIn(target, at);
+    // facility 채집소(농장)는 오브젝트를 쓰지 않는다 — 묶음 상한은 창고가 가득일 때만(756 ②)
+    const objects = target.kind === "objects";
+    const list = full || !objects ? [] : objectsIn(target, at);
     let available = 0;
     for (const entry of list) available += Math.max(0, entry.usesLeft);
     const buffs = target.buffs;
     return {
-      maxLots: full ? 0 : available,
+      maxLots: full ? 0 : objects ? available : undefined,
       scale: (asset, qty, seq) => scaleByPm(qty, buffs.yieldPm, unitId, seq, asset),
       commit(result) {
-        const used = result.lots > 0 ? draw(target, list, result.lots, at) : 0;
-        if (used < result.lots)
+        const used = objects && result.lots > 0 ? draw(target, list, result.lots, at) : 0;
+        if (objects && used < result.lots)
           deps.log.error({ buildingId, unitId, lots: result.lots, used }, "gather station drew fewer uses");
         const key = `${buildingId}:${unitId}`;
         const lots = (totals.get(key) ?? 0) + result.lots;
@@ -274,11 +279,11 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
   const haulNow = (nowMs: number): number => {
     const world = deps.places();
     if (!world) return 0;
-    // 도시에 선 objects 채집소의 창고 위치 → 주인·도시
+    // 도시에 선 채집소(objects·facility 모두, 756 ②)의 창고 위치 → 주인·도시
     const targets = new Map<number, { ownerId: number; cityId: number }>();
     for (const record of world.facilities.values()) {
       const target = site(record.buildingId);
-      if (!target || target.kind !== "objects" || target.ownerId === null || target.cityId === null) continue;
+      if (!target || target.ownerId === null || target.cityId === null) continue;
       targets.set(buildingLocation(target.buildingId), { ownerId: target.ownerId, cityId: target.cityId });
     }
     if (targets.size === 0) return 0;

@@ -3,6 +3,7 @@
 // - 레벨·반경·버프(지금·다음 레벨), 반경 안 오브젝트 합(캘 수 있음·떨어짐·남은 번수·다음 다시 자람), 채집소 창고(상한·든 무게·내 몫), 자동 옮김
 //   다음 시각, 일꾼(직무 배치·노동 계약)과 상태(일함·쉼·오브젝트 없음·창고 가득·멈춤·2차맵 밖), 레벨 올리는 중·다음 레벨 비용(내 것일 때).
 // - 로그인한 누구나 볼 수 있다(남의 채집소면 내 몫 물건·비용은 비어 있다). 남의 일꾼 상태는 보인다(건물 판 "안에 있는 유닛"과 같은 정도).
+// - facility 채집소(농장 — 오브젝트 없음, 기획 정리 756 ②)는 버프가 수확·피로뿐이다(반경·다시 자람 null, 오브젝트 합 null). 창고·자동 옮김은 같다.
 import type {
   GatherStationBuffs,
   GatherStationGoods,
@@ -19,7 +20,7 @@ import { goodsStock } from "../facilities/materials.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { StationRuntime, StationSite } from "./station.ts";
 import { resting } from "./station.ts";
-import { stationBuffs } from "./rules.ts";
+import { type StationBuffs, stationBuffs } from "./rules.ts";
 import type { GatherWorld } from "./world.ts";
 
 export function emptyStation(
@@ -65,16 +66,16 @@ function workerState(
   if (!site.works) return "stopped";
   if (resting(unit.phase)) return "resting";
   const status = station.status(unitId);
-  if (!status || status.buildingId !== site.buildingId)
-    return site.kind === "objects" ? "waiting" : "working";
+  if (!status || status.buildingId !== site.buildingId) return "waiting";
   return status.state;
 }
 
-const buffsView = (buffs: GatherStationBuffs): GatherStationBuffs => ({
-  radiusCells: buffs.radiusCells,
+/** 버프 보기: facility 채집소(오브젝트 없음)는 반경·다시 자람이 없다 */
+const buffsView = (kind: StationSite["kind"], buffs: StationBuffs): GatherStationBuffs => ({
+  radiusCells: kind === "objects" ? buffs.radiusCells : null,
   yieldPm: buffs.yieldPm,
   fatiguePm: buffs.fatiguePm,
-  regrowPm: buffs.regrowPm,
+  regrowPm: kind === "objects" ? buffs.regrowPm : null,
 });
 
 export function stationView(
@@ -192,7 +193,7 @@ export function stationView(
         have: Number(goodsStock(ledger, ownerId, stack.item, scope)),
       })),
       timeMs: buildTimeAt(def.build, next, (item) => catalog.weightOf(item), rules.facilityBuild).ms,
-      buffs: site.kind === "objects" ? buffsView(stationBuffs(rules.gatherObjects, next)) : null,
+      buffs: buffsView(site.kind, stationBuffs(rules.gatherObjects, next)),
     };
   }
 
@@ -211,7 +212,7 @@ export function stationView(
     y: site.y,
     cityId: site.cityId,
     works: site.works,
-    buffs: site.kind === "objects" ? buffsView(site.buffs) : null,
+    buffs: buffsView(site.kind, site.buffs),
     objects,
     storage: {
       capacityGrams: capacity === null ? null : capacity.toString(),
@@ -220,7 +221,7 @@ export function stationView(
     },
     haul: {
       everyMs: haulEvery,
-      nextAtMs: site.kind === "objects" && site.cityId !== null ? station.nextHaulAt(nowMs) : null,
+      nextAtMs: site.cityId !== null ? station.nextHaulAt(nowMs) : null,
     },
     slots: Math.max(0, record?.level ?? 0) * Math.max(0, site.slotsPerLevel),
     workers: workers.toSorted((a, b) => a.unitId - b.unitId),

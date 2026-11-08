@@ -96,9 +96,9 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
         if (other.start && other.owner === city.owner && (capital === undefined || other.id < capital))
           capital = other.id;
       const leaderUnit = faction?.fixed ? leaderUnitOf(source.maps.values(), city.owner) : undefined;
-      const capitalKey = capital === undefined ? undefined : runtime.places.get(capital)?.mapKey;
-      const capitalMap = capitalKey === undefined ? undefined : source.maps.get(capitalKey);
-      const here = capitalMap !== undefined && leaderUnitOf([capitalMap], city.owner) === leaderUnit;
+      // 지도자가 이 도시 2차맵에 있나(아니면 화면이 "수도에 있음")
+      const cityMap = source.maps.get(place.mapKey);
+      const here = cityMap !== undefined && leaderUnitOf([cityMap], city.owner) === leaderUnit;
       const code = faction?.code ?? null;
       return {
         status: "ready",

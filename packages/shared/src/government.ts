@@ -47,7 +47,7 @@ export interface GovernmentLeader {
   readonly unitId: number;
   /** 팩 국가 프리셋 leaderName. 없으면 null(화면은 "지도자") */
   readonly name: LocalizedName | null;
-  /** 이 도시(수도) 2차맵에 있나 */
+  /** 이 도시 2차맵에 있나(아니면 화면은 "수도에 있음" — 지도자는 수도 행정 건물 곁에 선다) */
   readonly here: boolean;
 }
 

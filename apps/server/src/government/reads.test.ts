@@ -85,11 +85,11 @@ describe("world.government", () => {
       mine: true,
       taxBp: 250,
     });
-    // 수도(도시 3, 2차맵 7)에 선 지도자
+    // 수도(도시 3, 2차맵 7)에 선 지도자 — 이 도시(2차맵 8)에는 없다
     expect(answer.leader).toEqual({
       unitId: 900,
       name: { ko: "임시 지도자 1", en: "Placeholder leader 1" },
-      here: true,
+      here: false,
     });
     expect(answer.mayor).toBeNull();
   });
@@ -98,6 +98,7 @@ describe("world.government", () => {
     const reads = createGovernmentReads(source({ myFactionRow: () => 9 }));
     const answer = await reads.government(viewer, 12, NOW);
     expect(answer.city?.capital).toBe(true);
+    expect(answer.leader?.here).toBe(true);
     expect(answer.city?.humans).toBe(2);
     expect(answer.nation?.mine).toBe(false);
   });

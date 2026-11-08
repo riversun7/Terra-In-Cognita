@@ -21,6 +21,11 @@ export interface HoldingRecord {
   maxDurability: number | null;
   /** 신선도 묶음의 숙성 상태(없으면 null) */
   age: AgeState | null;
+  /**
+   * 식품 포장 상태(D-524, 신선도 묶음만): true = 포장(겹쳐 쌓임, 숙성 멈춤), false·없음 = 풀린 낱개(숙성이 흐름). 부팅 때 읽은 D-524 전 줄은
+   * 없음(undefined)이고 packLegacy가 포장 칸으로 바꾼다
+   */
+  packed?: boolean;
   readonly createdAtMs: number;
   source: string;
   /** 유전자 하나의 값(D-516, 유전자 아이템만 — 하나하나 값이 다른 인스턴스). 없으면 유전자가 아니다 */
@@ -54,6 +59,8 @@ export interface LoadedHoldings {
   readonly cooldowns: UnitCooldownRecord[];
   /** 가장 큰 칸 ID(없으면 0) */
   readonly maxId: number;
+  /** D-524 전에 저장된 신선도 묶음(packed 칸이 빈 줄) — 부팅 때 서비스 packLegacy가 포장 칸으로 바꾼다 */
+  readonly legacyLots?: readonly number[];
 }
 
 /** 유닛이 든 물건의 위치 */
@@ -79,6 +86,8 @@ export function holdingRow(record: HoldingRecord): Row {
     created_at_ms: record.createdAtMs,
     source: record.source,
     gene: record.gene ? JSON.stringify(record.gene) : null,
+    // 신선도 묶음만 포장 상태를 적는다(그 밖은 빈 칸). 빈 칸인 묶음 = D-524 전 줄(부팅 때 포장 칸으로 바뀐다)
+    packed: record.age === null || record.packed === undefined ? null : record.packed,
   };
 }
 
@@ -126,7 +135,7 @@ export async function loadHoldings(pool: QueryPool): Promise<LoadedHoldings> {
   const [holdings, effects, cooldowns, max] = await Promise.all([
     pool.query(
       `select id, owner_id, item_id, location, slot, quantity, stats, score_pm, durability, max_durability,
-              aged_ms, aged_at_ms, created_at_ms, source, gene from item_holdings order by id`,
+              aged_ms, aged_at_ms, created_at_ms, source, gene, packed from item_holdings order by id`,
     ),
     pool.query(
       `select unit_id, effect_id, value, until_ms, exclusive, item_id from unit_effects order by unit_id, effect_id`,
@@ -134,10 +143,14 @@ export async function loadHoldings(pool: QueryPool): Promise<LoadedHoldings> {
     pool.query(`select unit_id, kind, until_ms from unit_cooldowns order by unit_id, kind`),
     pool.query(`select max(id) as id from item_holdings`),
   ]);
+  const legacyLots: number[] = [];
   return {
     holdings: holdings.rows.map((row): HoldingRecord => {
       const agedMs = numOrNull(row.aged_ms);
       const agedAtMs = numOrNull(row.aged_at_ms);
+      const age = agedMs === null || agedAtMs === null ? null : { agedMs, atMs: agedAtMs };
+      const packed = typeof row.packed === "boolean" ? row.packed : undefined;
+      if (age !== null && packed === undefined) legacyLots.push(num(row.id));
       return {
         id: num(row.id),
         ownerId: num(row.owner_id),
@@ -149,7 +162,8 @@ export async function loadHoldings(pool: QueryPool): Promise<LoadedHoldings> {
         scorePm: numOrNull(row.score_pm),
         durability: numOrNull(row.durability),
         maxDurability: numOrNull(row.max_durability),
-        age: agedMs === null || agedAtMs === null ? null : { agedMs, atMs: agedAtMs },
+        age,
+        ...(packed === undefined ? {} : { packed }),
         createdAtMs: num(row.created_at_ms),
         source: String(row.source),
         gene: genePayloadOf(row.gene),
@@ -171,5 +185,6 @@ export async function loadHoldings(pool: QueryPool): Promise<LoadedHoldings> {
         : [],
     ),
     maxId: num(max.rows[0]?.id ?? 0),
+    legacyLots,
   };
 }

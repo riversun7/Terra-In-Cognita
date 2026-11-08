@@ -71,6 +71,17 @@ export function tuningCodeNumber(code: string): number {
 }
 
 /**
+ * 패널 분야 페이지(docs/adr/2026-11-01-dev-settings-panel.md "바뀜 (2026-11-08 분야별 페이지)"). 칸이 어느 페이지에 서는지는
+ * 그 칸을 읽는 규칙 코드가 정한다(@terra/sim tuningPageOf). 차례 = 화면 탭 차례, 맨 끝은 그 밖(사이보그·랭킹·영토·스위치 등)
+ */
+export const TUNING_PAGES = ["society", "npc", "gardener", "holdings", "combat", "economy", "other"] as const;
+export type TuningPage = (typeof TUNING_PAGES)[number];
+
+export function isTuningPage(value: unknown): value is TuningPage {
+  return typeof value === "string" && (TUNING_PAGES as readonly string[]).includes(value);
+}
+
+/**
  * 칸이 어디에 듣나(ADR 7절)
  * - live: 서버가 쓸 때마다 실효 값을 읽는다(다음 요청부터)
  * - sim: 규칙 코드 표(@terra/sim TUNING_KEYS)에는 있지만 서버는 아직 읽지 않는다(시뮬레이터·내보내기에만)
@@ -180,6 +191,12 @@ export interface TuningEntryView {
   readonly value: number;
   readonly scope: TuningScope;
   readonly override: TuningOverrideView | null;
+  /** 분야 페이지(규칙 코드가 정한다, 모르는 칸은 "other") */
+  readonly page: TuningPage;
+  /** 쉬운 풀이(팩 항목 desc, 없으면 null) */
+  readonly desc: { readonly ko: string; readonly en: string } | null;
+  /** 출처(팩 항목 source: ADR·기획 결정 ID, 없으면 null) */
+  readonly source: string | null;
 }
 
 export interface TuningListResponse {

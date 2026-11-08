@@ -86,6 +86,14 @@ export interface NpcCoefficients {
   /** 굶어 멈춤(D-220, 기술 정의): 국고 0 + 생필품 충족 이 ‰ 미만이 이 날 수 이어짐 */
   readonly stallFoodPm: number;
   readonly stallDays: number;
+  /**
+   * NPC 중앙은행 공식(D-131 "기본 NPC 국가 = 공식대로 움직이는 중앙은행", economy/centralBank.ts): 목표 물가 지수(천분율)·이득(만분율)·
+   * 하루 조절 상한(E5, 시중 통화량 만분율)·하루 발행 이율(S1·D-303, 만분율). [임시] 49 E5·S1에 출발값이 없어 시험값(2026-11-08 설정 칸)
+   */
+  readonly bankTargetMilli: number;
+  readonly bankGainBp: number;
+  readonly bankDailyCapBp: number;
+  readonly bankInterestBpPerDay: number;
 }
 
 const HOUR_MS = 3_600_000;
@@ -137,4 +145,8 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   restoreCityPenalty: 40,
   stallFoodPm: 500,
   stallDays: 7,
+  bankTargetMilli: 1000,
+  bankGainBp: 2000,
+  bankDailyCapBp: 300,
+  bankInterestBpPerDay: 1,
 };

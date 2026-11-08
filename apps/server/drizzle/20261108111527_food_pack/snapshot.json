@@ -1,0 +1,77 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "73b9bd3b-50b4-4538-82bb-7240783c5eb2",
+  "prevIds": [
+    "5914b26a-2b94-4a1f-b5fe-8b230ae23f7c"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "item_holdings",
+        "packed"
+      ],
+      "writes": [
+        "s|col|public.item_holdings.packed",
+        "n|col|public.item_holdings.packed",
+        "e|col|public.item_holdings.packed"
+      ],
+      "reads": [
+        "n|tbl|public.item_holdings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "item_holdings"
+      ],
+      "writes": [
+        "s|ck|public.item_holdings.item_holdings_unpacked_single",
+        "n|ck|public.item_holdings.item_holdings_unpacked_single",
+        "e|ck|public.item_holdings.item_holdings_unpacked_single",
+        "n|con|public.item_holdings.item_holdings_unpacked_single"
+      ],
+      "reads": [
+        "n|tbl|public.item_holdings",
+        "n|sch|public",
+        "n|col|public.item_holdings.packed",
+        "n|col|public.item_holdings.quantity"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "item_holdings",
+        "name": "packed",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "item_holdings",
+        "name": "item_holdings_unpacked_single",
+        "value": "\"packed\" is distinct from false or \"quantity\" = 1",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # 대륙 배치: 초대륙·대륙 몇 개·여러 대륙·군도·한쪽 반구와 대륙 수
 
-- 상태: 제안 (사용자가 그림·편집기에서 네 모양을 보고 확인한 뒤 확정)
+- 상태: 확정 (2026-11-08, 사용자 휴대폰 확인 — 휴대폰 확인 "괜찮은듯")
 - 날짜: 2026-10-31
 - 관련: docs/PLAN.md 5.3·6.2, ADR `2026-10-29-s2-planet-lod.md`(36, "행성 정의"·생성기 1판), `2026-10-29-generator-variety.md`(출력 판 3), `2026-10-29-planet-editor-stage1.md`(38), `2026-10-28-content-pack-format.md`, 작업 기록 `docs/worklog/2026/10/31-1340-user-decisions-library-space.md`·`31-1500-continent-layouts.md`
 

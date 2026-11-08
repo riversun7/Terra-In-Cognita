@@ -8,7 +8,12 @@
         "en": "Command re-entry lock (ms)"
       },
       "value": 1000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "전투에서 명령을 넣은 뒤 같은 유닛에 다시 명령을 넣지 못하는 시간. 늘리면 명령을 자주 바꾸기 어렵다.",
+        "en": "After giving a battle command, how long the unit refuses a new one. Higher = harder to spam commands."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c2_limit_normal",
@@ -21,7 +26,12 @@
       "structural": false,
       "unit": "ms",
       "min": 1000,
-      "max": 1800000
+      "max": 1800000,
+      "desc": {
+        "ko": "일반 전투가 이 시간을 넘기면 시간 끝으로 마친다.",
+        "en": "A normal battle ends by time-out after this long."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c2_limit_siege",
@@ -34,7 +44,12 @@
       "structural": false,
       "unit": "ms",
       "min": 1000,
-      "max": 1800000
+      "max": 1800000,
+      "desc": {
+        "ko": "공성 전투가 이 시간을 넘기면 시간 끝으로 마친다.",
+        "en": "A siege battle ends by time-out after this long."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c19_loot",
@@ -44,7 +59,12 @@
         "en": "Defeat cargo loot (bp)"
       },
       "value": 5000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "진 쪽이 싣고 있던 화물 가운데 이긴 쪽이 빼앗는 몫. 5000 = 절반.",
+        "en": "Share of the loser's cargo the winner takes. 5000 = half."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c21_retreat_band",
@@ -54,7 +74,12 @@
         "en": "Retreat band width (cells)"
       },
       "value": 2,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "전장 가장자리의 퇴각 구역 폭. 넓히면 물러나기 쉽다.",
+        "en": "Width of the retreat zone at the battlefield edge. Wider = easier to escape."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c23_retreat_dwell",
@@ -64,7 +89,12 @@
         "en": "Retreat dwell (ms)"
       },
       "value": 0,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "퇴각 구역에 이만큼 머물러야 전장을 빠져나간다. 0이면 들어가자마자 빠진다.",
+        "en": "Time a unit must stay in the retreat zone to leave. 0 = leaves at once."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c24_bush_sense",
@@ -74,7 +104,12 @@
         "en": "Bush sense range (cells)"
       },
       "value": 1,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "수풀에 숨은 적이 이 거리 안에 들어오면 보인다.",
+        "en": "Enemies hiding in bushes become visible within this distance."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c25_bush_reveal",
@@ -84,7 +119,12 @@
         "en": "Bush reveal (ms)"
       },
       "value": 2000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "수풀에서 공격하면 이 시간 동안 모습이 드러난다.",
+        "en": "Attacking from a bush reveals the attacker for this long."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c27_height_unit",
@@ -94,7 +134,12 @@
         "en": "Height sight unit"
       },
       "value": 4800,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "높이가 이만큼 높을 때마다 시야가 한 칸 늘어난다. 줄이면 언덕 시야 보너스가 커진다.",
+        "en": "Each this-much of height adds one cell of sight. Lower = bigger hill bonus."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c27_height_cap",
@@ -104,7 +149,12 @@
         "en": "Height sight cap (cells)"
       },
       "value": 4,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "높이로 늘어나는 시야의 상한.",
+        "en": "Cap on extra sight from height."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c10_affinity_favor",
@@ -117,7 +167,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "내 속성이 상대에게 유리할 때 피해에 더하는 비율.",
+        "en": "Damage rate added when my element beats the target's."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c10_affinity_unfavor",
@@ -130,7 +185,12 @@
       "structural": false,
       "unit": "pm",
       "min": -1000,
-      "max": 0
+      "max": 0,
+      "desc": {
+        "ko": "내 속성이 상대에게 불리할 때 피해에 더하는 비율(음수 = 줄어듦).",
+        "en": "Damage rate added when my element is weak to the target's (negative = less)."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "c10_affinity_same",
@@ -143,7 +203,12 @@
       "structural": false,
       "unit": "pm",
       "min": -1000,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "같은 계열 속성끼리 싸울 때 피해에 더하는 비율.",
+        "en": "Damage rate added between elements of the same family."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "n10_appropriate_cap",
@@ -153,7 +218,12 @@
         "en": "Appropriate ratio cap (‰)"
       },
       "value": 1000,
-      "structural": true
+      "structural": true,
+      "desc": {
+        "ko": "스탯 ÷ 적정 스탯 비율을 이 값까지만 센다. 넘는 스탯은 효과가 없다.",
+        "en": "Stat-to-appropriate ratio counts only up to this. Extra stat does nothing."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "n11_favor_slope",
@@ -163,7 +233,12 @@
         "en": "Evade favour slope (‰)"
       },
       "value": 300,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "내가 상대보다 빠를 때 회피가 오르는 기울기.",
+        "en": "How fast evasion rises when I'm faster than the attacker."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "n11_favor_cap",
@@ -173,7 +248,12 @@
         "en": "Evade favour cap (‰)"
       },
       "value": 400,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "빠를 때 회피가 오르는 끝값.",
+        "en": "Cap on evasion gained from being faster."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "n11_unfavor_slope",
@@ -183,7 +263,12 @@
         "en": "Evade disfavour slope (‰)"
       },
       "value": 400,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "내가 상대보다 느릴 때 회피가 내리는 기울기.",
+        "en": "How fast evasion falls when I'm slower."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "n11_unfavor_cap",
@@ -193,7 +278,12 @@
         "en": "Evade disfavour cap (‰)"
       },
       "value": 300,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "느릴 때 회피가 내리는 끝값.",
+        "en": "Cap on evasion lost from being slower."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "n12_crit_spread",
@@ -203,7 +293,12 @@
         "en": "Crit multiplier spread (‰)"
       },
       "value": 500,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "크리티컬 배율이 흔들리는 폭. 넓히면 크리 피해가 들쭉날쭉하다.",
+        "en": "Width of the critical multiplier range. Wider = more swingy crits."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "n13_weight_agi",
@@ -213,7 +308,12 @@
         "en": "STA score AGI weight (‰)"
       },
       "value": 700,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "스태미나 점수에 AGI가 차지하는 몫.",
+        "en": "AGI's share in the stamina score."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "n13_weight_vit",
@@ -223,7 +323,12 @@
         "en": "STA score VIT weight (‰)"
       },
       "value": 300,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "스태미나 점수에 VIT가 차지하는 몫.",
+        "en": "VIT's share in the stamina score."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "n13_min_consume",
@@ -233,7 +338,12 @@
         "en": "Minimum consumption (‰)"
       },
       "value": 500,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "스태미나를 아무리 아껴도 이 비율보다는 덜 쓰지 않는다.",
+        "en": "Stamina use never drops below this share, however efficient."
+      },
+      "source": "ADR 2026-10-31-combat-core"
     },
     {
       "id": "n21_fatigue_max",
@@ -243,7 +353,12 @@
         "en": "Fatigue max"
       },
       "value": 120,
-      "structural": true
+      "structural": true,
+      "desc": {
+        "ko": "피로가 쌓일 수 있는 최댓값. 다른 피로 칸의 기준이라 구조 값이다.",
+        "en": "Maximum fatigue. Other fatigue cells depend on it, so it is structural."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n23_band1_from",
@@ -253,7 +368,12 @@
         "en": "Fatigue band 1 start"
       },
       "value": 31,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "피로가 이 값에 이르면 1구간 불이익이 붙는다.",
+        "en": "Fatigue at which band 1 penalties begin."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n23_band1_ability",
@@ -263,7 +383,12 @@
         "en": "Fatigue band 1 ability (‰)"
       },
       "value": 900,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "1구간에서 능력(작업·전투)이 이만큼으로 줄어든다.",
+        "en": "Ability (work, combat) multiplier in band 1."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n23_band1_move",
@@ -273,7 +398,12 @@
         "en": "Fatigue band 1 move (‰)"
       },
       "value": 1000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "1구간에서 이동 속도가 이만큼으로 줄어든다.",
+        "en": "Move speed multiplier in band 1."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n23_band2_from",
@@ -283,7 +413,12 @@
         "en": "Fatigue band 2 start"
       },
       "value": 61,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "피로가 이 값에 이르면 2구간 불이익이 붙는다.",
+        "en": "Fatigue at which band 2 penalties begin."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n23_band2_ability",
@@ -293,7 +428,12 @@
         "en": "Fatigue band 2 ability (‰)"
       },
       "value": 750,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "2구간 능력 배율.",
+        "en": "Ability multiplier in band 2."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n23_band2_move",
@@ -303,7 +443,12 @@
         "en": "Fatigue band 2 move (‰)"
       },
       "value": 850,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "2구간 이동 배율.",
+        "en": "Move speed multiplier in band 2."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n23_band3_from",
@@ -313,7 +458,12 @@
         "en": "Fatigue band 3 start"
       },
       "value": 91,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "피로가 이 값에 이르면 3구간(가장 무거운) 불이익이 붙는다.",
+        "en": "Fatigue at which band 3 (the heaviest) begins."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n23_band3_ability",
@@ -323,7 +473,12 @@
         "en": "Fatigue band 3 ability (‰)"
       },
       "value": 500,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "3구간 능력 배율.",
+        "en": "Ability multiplier in band 3."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n23_band3_move",
@@ -333,7 +488,12 @@
         "en": "Fatigue band 3 move (‰)"
       },
       "value": 700,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "3구간 이동 배율.",
+        "en": "Move speed multiplier in band 3."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n24_recover_step",
@@ -343,7 +503,12 @@
         "en": "Fatigue recovery step (ms)"
       },
       "value": 180000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "쉬는 동안 피로 1점이 풀리는 데 걸리는 시간. 줄이면 빨리 회복한다.",
+        "en": "Time to recover 1 fatigue point while resting. Lower = faster."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n24_housing_1",
@@ -353,7 +518,12 @@
         "en": "Housing grade 1 recovery (‰)"
       },
       "value": 1500,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "주거 1등급에서 쉴 때 피로 회복 배율.",
+        "en": "Fatigue recovery multiplier in grade-1 housing."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n24_housing_2",
@@ -363,7 +533,12 @@
         "en": "Housing grade 2 recovery (‰)"
       },
       "value": 2000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "주거 2등급 피로 회복 배율.",
+        "en": "Fatigue recovery multiplier in grade-2 housing."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n24_housing_3",
@@ -373,7 +548,12 @@
         "en": "Housing grade 3 recovery (‰)"
       },
       "value": 3000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "주거 3등급 피로 회복 배율.",
+        "en": "Fatigue recovery multiplier in grade-3 housing."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "s25_homeless_recovery",
@@ -383,7 +563,12 @@
         "en": "Homeless recovery (‰)"
       },
       "value": 100,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "집이 없는(노숙) 휴먼의 피로 회복 배율.",
+        "en": "Fatigue recovery multiplier for homeless humans."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n25_low_satisfaction",
@@ -393,7 +578,12 @@
         "en": "Recovery at satisfaction 0 (‰)"
       },
       "value": 500,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "만족도가 0일 때 피로 회복 배율(그 사이는 만족도에 비례).",
+        "en": "Fatigue recovery multiplier at satisfaction 0 (scaled in between)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n27_wage_rate",
@@ -406,7 +596,12 @@
       "structural": false,
       "unit": "milli",
       "min": 1,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "효율 1점에 주는 기준 임금(1/1000 화폐 단위).",
+        "en": "Base wage per efficiency point (thousandths of a minor unit)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n27_elasticity",
@@ -416,7 +611,12 @@
         "en": "Wage elasticity (‰)"
       },
       "value": 500,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "일손이 모자라거나 남을 때 임금 단가가 얼마나 크게 움직이는지.",
+        "en": "How strongly the wage rate reacts to labour shortage or surplus."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n27_rate_min",
@@ -426,7 +626,12 @@
         "en": "Wage rate floor (‰)"
       },
       "value": 500,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "수급으로 움직이는 단가의 하한(기준 단가의 ‰).",
+        "en": "Floor of the market wage rate (‰ of base)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n27_rate_max",
@@ -436,7 +641,12 @@
         "en": "Wage rate ceiling (‰)"
       },
       "value": 2000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "수급으로 움직이는 단가의 상한(기준 단가의 ‰).",
+        "en": "Ceiling of the market wage rate (‰ of base)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n27_recalc",
@@ -446,7 +656,12 @@
         "en": "Wage recalculation (ms)"
       },
       "value": 21600000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "임금 단가를 다시 셈하는 간격.",
+        "en": "How often the wage rate is recalculated."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n28_adjust_min",
@@ -459,7 +674,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "고용주가 임금을 깎을 수 있는 하한(단가의 ‰).",
+        "en": "Lowest wage an employer can offer (‰ of the rate)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n28_adjust_max",
@@ -472,7 +692,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "고용주가 임금을 올릴 수 있는 상한(단가의 ‰).",
+        "en": "Highest wage an employer can offer (‰ of the rate)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_restore",
@@ -482,7 +707,12 @@
         "en": "Satisfaction restore (‰/day)"
       },
       "value": 300,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "만족도가 목표값 쪽으로 하루에 움직이는 빠르기. 늘리면 빨리 따라간다.",
+        "en": "Daily speed at which satisfaction moves toward its target."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_base",
@@ -492,7 +722,12 @@
         "en": "Satisfaction base target"
       },
       "value": 20,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "모든 휴먼 만족도 목표의 바탕 점수.",
+        "en": "Base score of every human's satisfaction target."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_food",
@@ -502,7 +737,12 @@
         "en": "Food target"
       },
       "value": 40,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "포만감이 가득일 때 만족도 목표에 더하는 점수.",
+        "en": "Satisfaction target bonus when well fed."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_housing_1",
@@ -512,7 +752,12 @@
         "en": "Housing grade 1 target"
       },
       "value": 15,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "주거 1등급에 살 때 만족도 목표에 더하는 점수.",
+        "en": "Satisfaction target bonus for grade-1 housing."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_housing_2",
@@ -522,7 +767,12 @@
         "en": "Housing grade 2 target"
       },
       "value": 20,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "주거 2등급 만족도 목표 점수.",
+        "en": "Satisfaction target bonus for grade-2 housing."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_housing_3",
@@ -532,7 +782,12 @@
         "en": "Housing grade 3 target"
       },
       "value": 25,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "주거 3등급 만족도 목표 점수.",
+        "en": "Satisfaction target bonus for grade-3 housing."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_homeless",
@@ -542,7 +797,12 @@
         "en": "Homeless target"
       },
       "value": -20,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "노숙하는 휴먼의 만족도 목표 점수(음수).",
+        "en": "Satisfaction target change when homeless (negative)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_wage",
@@ -552,7 +812,12 @@
         "en": "Wage target"
       },
       "value": 20,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "임금을 제대로 받을 때 만족도 목표 점수.",
+        "en": "Satisfaction target bonus when wages are paid."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_wage_gap",
@@ -562,7 +827,12 @@
         "en": "Wage gap penalty"
       },
       "value": -10,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "임금이 상위 휴먼보다 크게 낮을 때 빼는 점수.",
+        "en": "Satisfaction penalty when pay lags far behind the top earners."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_faith",
@@ -572,7 +842,12 @@
         "en": "Faith target"
       },
       "value": 10,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "신앙이 있을 때 만족도 목표 점수.",
+        "en": "Satisfaction target bonus from faith."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_war",
@@ -582,7 +857,12 @@
         "en": "War target"
       },
       "value": -15,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "나라가 전쟁 중일 때 만족도 목표 점수(음수).",
+        "en": "Satisfaction target change while at war (negative)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n29_injury",
@@ -592,7 +872,12 @@
         "en": "Injury target"
       },
       "value": -10,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "다쳤을 때 만족도 목표 점수(음수).",
+        "en": "Satisfaction target change while injured (negative)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n30_gap_floor",
@@ -602,7 +887,12 @@
         "en": "Wage gap floor (‰)"
       },
       "value": 600,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "임금이 상위 몫 평균의 이 비율보다 낮으면 격차 불만이 붙는다.",
+        "en": "Pay below this share of the top earners' average triggers the gap penalty."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n30_top_share",
@@ -612,7 +902,12 @@
         "en": "Wage comparison top share (‰)"
       },
       "value": 250,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "임금 비교에 쓰는 상위 휴먼의 몫(250 = 상위 25%).",
+        "en": "Share of top earners used for comparison (250 = top 25%)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n31_life_skill",
@@ -622,7 +917,12 @@
         "en": "Life skill bonus per grade"
       },
       "value": 2,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "\"생활\" 태그 스킬 등급 하나가 직무 점수에 더하는 값.",
+        "en": "Job score added per grade of a \"life\" tagged skill."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n32_main_divisor",
@@ -635,7 +935,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "생산 진행 = 주 스탯 ÷ 이 값. 줄이면 생산이 빨라진다.",
+        "en": "Production progress = main stat ÷ this. Lower = faster production."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n32_sub_yield",
@@ -648,7 +953,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "추가 수확 = 보조 스탯 × 이 값 ÷ 1000(내림). 늘리면 보조 스탯이 수확을 더 늘린다.",
+        "en": "Extra yield = secondary stat × this ÷ 1000 (floored). Higher = secondary stat adds more yield."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n33_food_zero_at",
@@ -658,7 +968,12 @@
         "en": "Food efficiency zero at"
       },
       "value": 30,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "포만감이 이 값 이하면 작업 효율이 0이 된다.",
+        "en": "At or below this fullness, work efficiency drops to 0."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n33_food_low_at",
@@ -668,7 +983,12 @@
         "en": "Food efficiency low at"
       },
       "value": 50,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "포만감이 이 값 이하면 낮은 효율이 붙는다.",
+        "en": "At or below this fullness, the low-food efficiency applies."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n33_food_low",
@@ -678,7 +998,12 @@
         "en": "Low food efficiency (‰)"
       },
       "value": 700,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "포만감이 낮을 때의 작업 효율.",
+        "en": "Work efficiency while fullness is low."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n43_level_bonus",
@@ -691,7 +1016,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "채집 시설 레벨 하나가 높은 티어를 뽑는 데 더하는 유효 스탯.",
+        "en": "Effective stat added per gathering-facility level when rolling the tier."
+      },
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\""
     },
     {
       "id": "n44_tier_progress_base",
@@ -704,7 +1034,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "1차 생산에서 티어 0 물건 하나에 필요한 진행.",
+        "en": "Progress needed for one tier-0 item in primary production."
+      },
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\""
     },
     {
       "id": "n44_tier_progress_step",
@@ -717,7 +1052,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "티어가 하나 오를 때마다 더 필요한 진행.",
+        "en": "Extra progress needed per tier."
+      },
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\""
     },
     {
       "id": "n44_tick_ms",
@@ -730,7 +1070,12 @@
       "structural": false,
       "unit": "ms",
       "min": 1000,
-      "max": 86400000
+      "max": 86400000,
+      "desc": {
+        "ko": "진행 1을 쌓는 데 걸리는 시간.",
+        "en": "Time to accumulate 1 progress."
+      },
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\""
     },
     {
       "id": "n44_ore_grams",
@@ -743,7 +1088,12 @@
       "structural": false,
       "unit": "grams",
       "min": 1,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "광석을 한 번 캘 때 나오는 무게.",
+        "en": "Weight of ore from one dig."
+      },
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\""
     },
     {
       "id": "d506_storage_per_level",
@@ -756,7 +1106,12 @@
       "structural": false,
       "unit": "grams",
       "min": 0,
-      "max": 1000000000
+      "max": 1000000000,
+      "desc": {
+        "ko": "채집 시설 레벨 하나마다의 창고 용량(아직 읽는 코드 없음).",
+        "en": "Gathering facility storage per level (not read by code yet)."
+      },
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506)\" · D-506"
     },
     {
       "id": "m14_build_ms_per_kg",
@@ -769,7 +1124,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 3600000
+      "max": 3600000,
+      "desc": {
+        "ko": "건설 시간 = 재료 무게(kg) × 이 값 × 레벨 계수.",
+        "en": "Build time = material weight (kg) × this × level factor."
+      },
+      "source": "ADR 2026-11-02-building-editor · D-508"
     },
     {
       "id": "m14_time_factor_l1",
@@ -782,7 +1142,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "레벨 1 건설 시간 계수.",
+        "en": "Build time factor for level 1."
+      },
+      "source": "ADR 2026-11-02-building-editor · D-508"
     },
     {
       "id": "m14_time_factor_l2",
@@ -795,7 +1160,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "레벨 2 건설 시간 계수.",
+        "en": "Build time factor for level 2."
+      },
+      "source": "ADR 2026-11-02-building-editor · D-508"
     },
     {
       "id": "m14_time_factor_l3",
@@ -808,7 +1178,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "레벨 3 건설 시간 계수.",
+        "en": "Build time factor for level 3."
+      },
+      "source": "ADR 2026-11-02-building-editor · D-508"
     },
     {
       "id": "m14_time_factor_l4",
@@ -821,7 +1196,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "레벨 4 건설 시간 계수.",
+        "en": "Build time factor for level 4."
+      },
+      "source": "ADR 2026-11-02-building-editor · D-508"
     },
     {
       "id": "m14_time_factor_l5",
@@ -834,7 +1214,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "레벨 5 건설 시간 계수.",
+        "en": "Build time factor for level 5."
+      },
+      "source": "ADR 2026-11-02-building-editor · D-508"
     },
     {
       "id": "n50_damaged",
@@ -847,7 +1232,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "건물 내구도가 이 몫 아래면 \"손상\"이 된다.",
+        "en": "A building is \"damaged\" below this durability share."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_disabled",
@@ -860,7 +1250,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "건물 내구도가 이 몫 아래면 기능이 멈춘다.",
+        "en": "A building stops working below this durability share."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_idle_floor",
@@ -873,7 +1268,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "쓰지 않는 건물은 이 몫까지만 낡는다.",
+        "en": "Unused buildings decay only down to this share."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_idle_decay_ms",
@@ -886,7 +1286,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 31536000000
+      "max": 31536000000,
+      "desc": {
+        "ko": "가득에서 멈추는 곳까지 낡는 데 걸리는 시간.",
+        "en": "Time for an unused building to decay from full to the floor."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_use_wear",
@@ -899,7 +1304,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "쓰는 건물이 하루에 더 닳는 몫.",
+        "en": "Extra daily wear for a building in use."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_repair_step",
@@ -912,7 +1322,12 @@
       "structural": false,
       "unit": "pm",
       "min": 1,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "수리 한 번에 되찾는 최대 내구도 몫.",
+        "en": "Most durability restored by one repair."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_builder_cut",
@@ -925,7 +1340,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "일꾼 하나가 건설·수리 시간을 줄이는 몫.",
+        "en": "Build/repair time cut per extra worker."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_builder_cut_max",
@@ -938,7 +1358,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "일꾼으로 줄일 수 있는 시간의 상한.",
+        "en": "Cap on time cut from workers."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "m15_durability_step",
@@ -951,7 +1376,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "건물 레벨 하나마다 늘어나는 최대 내구도.",
+        "en": "Max durability added per building level."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_storage_step",
@@ -964,7 +1394,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "건물 레벨 하나마다 늘어나는 창고 용량.",
+        "en": "Storage capacity added per building level."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n54_repair_base_ms",
@@ -977,7 +1412,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 86400000
+      "max": 86400000,
+      "desc": {
+        "ko": "장비 수리 한 번의 기준 시간.",
+        "en": "Base time for one equipment repair."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_craft_scale",
@@ -990,7 +1430,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "장인 보정 = 이 값 ÷ 평균 실력 × √장인 수.",
+        "en": "Crafter factor = this ÷ average skill × √crafters."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_craft_min",
@@ -1003,7 +1448,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "장인 보정의 하한.",
+        "en": "Lowest crafter factor."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n50_craft_max",
@@ -1016,7 +1466,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "장인 보정의 상한.",
+        "en": "Highest crafter factor."
+      },
+      "source": "ADR 2026-11-07-buildings-runtime · D-508"
     },
     {
       "id": "n45_refresh_every",
@@ -1029,7 +1484,12 @@
       "structural": false,
       "unit": "ms",
       "min": 60000,
-      "max": 2592000000
+      "max": 2592000000,
+      "desc": {
+        "ko": "구인 카드가 새로 바뀌는 간격.",
+        "en": "How often recruit cards refresh."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cost_per_level",
@@ -1042,7 +1502,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000
+      "max": 1000000000,
+      "desc": {
+        "ko": "구인 값: 행정 건물 등급 하나마다.",
+        "en": "Recruit cost per administration level."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cost_per_stat",
@@ -1055,7 +1520,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000
+      "max": 1000000000,
+      "desc": {
+        "ko": "구인 값: 최소를 넘는 토탈 스탯 1점마다.",
+        "en": "Recruit cost per total stat point above the minimum."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_element_points",
@@ -1068,7 +1538,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 40
+      "max": 40,
+      "desc": {
+        "ko": "구인 휴먼이 받는 속성 점수.",
+        "en": "Element points a recruited human gets."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_elements_min",
@@ -1081,7 +1556,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 4
+      "max": 4,
+      "desc": {
+        "ko": "구인 휴먼 속성 원소 수의 최소.",
+        "en": "Fewest elements on a recruited human."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_elements_max",
@@ -1094,7 +1574,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 4
+      "max": 4,
+      "desc": {
+        "ko": "구인 휴먼 속성 원소 수의 최대.",
+        "en": "Most elements on a recruited human."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_start_level",
@@ -1107,7 +1592,12 @@
       "structural": false,
       "unit": "level",
       "min": 1,
-      "max": 50
+      "max": 50,
+      "desc": {
+        "ko": "구인 휴먼의 시작 레벨.",
+        "en": "Starting level of a recruited human."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cards_min_l1",
@@ -1120,7 +1610,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "행정 건물 Lv1의 구인 카드 수 최소.",
+        "en": "Fewest recruit cards at admin level 1."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cards_max_l1",
@@ -1133,7 +1628,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "Lv1 구인 카드 수 최대.",
+        "en": "Most recruit cards at admin level 1."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_stats_min_l1",
@@ -1146,7 +1646,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "Lv1 구인 휴먼 토탈 스탯 최소.",
+        "en": "Lowest total stats at admin level 1."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_stats_max_l1",
@@ -1159,7 +1664,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "Lv1 구인 휴먼 토탈 스탯 최대.",
+        "en": "Highest total stats at admin level 1."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cards_min_l2",
@@ -1172,7 +1682,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "Lv2 구인 카드 수 최소.",
+        "en": "Fewest recruit cards at admin level 2."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cards_max_l2",
@@ -1185,7 +1700,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "Lv2 구인 카드 수 최대.",
+        "en": "Most recruit cards at admin level 2."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_stats_min_l2",
@@ -1198,7 +1718,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "Lv2 토탈 스탯 최소.",
+        "en": "Lowest total stats at admin level 2."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_stats_max_l2",
@@ -1211,7 +1736,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "Lv2 토탈 스탯 최대.",
+        "en": "Highest total stats at admin level 2."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cards_min_l3",
@@ -1224,7 +1754,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "Lv3 구인 카드 수 최소.",
+        "en": "Fewest recruit cards at admin level 3."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cards_max_l3",
@@ -1237,7 +1772,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "Lv3 구인 카드 수 최대.",
+        "en": "Most recruit cards at admin level 3."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_stats_min_l3",
@@ -1250,7 +1790,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "Lv3 토탈 스탯 최소.",
+        "en": "Lowest total stats at admin level 3."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_stats_max_l3",
@@ -1263,7 +1808,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "Lv3 토탈 스탯 최대.",
+        "en": "Highest total stats at admin level 3."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cards_min_l4",
@@ -1276,7 +1826,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "Lv4 구인 카드 수 최소.",
+        "en": "Fewest recruit cards at admin level 4."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cards_max_l4",
@@ -1289,7 +1844,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "Lv4 구인 카드 수 최대.",
+        "en": "Most recruit cards at admin level 4."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_stats_min_l4",
@@ -1302,7 +1862,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "Lv4 토탈 스탯 최소.",
+        "en": "Lowest total stats at admin level 4."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_stats_max_l4",
@@ -1315,7 +1880,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "Lv4 토탈 스탯 최대.",
+        "en": "Highest total stats at admin level 4."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cards_min_l5",
@@ -1328,7 +1898,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "Lv5 구인 카드 수 최소.",
+        "en": "Fewest recruit cards at admin level 5."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_cards_max_l5",
@@ -1341,7 +1916,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "Lv5 구인 카드 수 최대.",
+        "en": "Most recruit cards at admin level 5."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_stats_min_l5",
@@ -1354,7 +1934,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "Lv5 토탈 스탯 최소.",
+        "en": "Lowest total stats at admin level 5."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "n45_stats_max_l5",
@@ -1367,7 +1952,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "Lv5 토탈 스탯 최대.",
+        "en": "Highest total stats at admin level 5."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
       "id": "d130_shares_per_city",
@@ -1377,7 +1967,12 @@
         "en": "Shares per city (D-130)"
       },
       "value": 1000,
-      "structural": true
+      "structural": true,
+      "desc": {
+        "ko": "도시 하나가 내는 주식 수. 배당·지분 계산의 바탕이라 구조 값이다.",
+        "en": "Shares each city issues. Basis of dividends and stakes, so structural."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-130"
     },
     {
       "id": "d130_dividend_every",
@@ -1390,7 +1985,12 @@
       "structural": false,
       "unit": "ms",
       "min": 60000,
-      "max": 31536000000
+      "max": 31536000000,
+      "desc": {
+        "ko": "도시 세금을 주주에게 나눠 주는 간격.",
+        "en": "How often city taxes are paid to shareholders."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-130"
     },
     {
       "id": "d298_delist_reissue",
@@ -1400,7 +2000,12 @@
         "en": "Shares reissued after delisting (D-298)"
       },
       "value": 1000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "상장폐지 뒤 새로 내는 주식 수.",
+        "en": "Shares reissued after a city is delisted."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-298"
     },
     {
       "id": "d444_delist_loyalty",
@@ -1410,7 +2015,12 @@
         "en": "Dictatorship reissue loyalty share (‰, D-444)"
       },
       "value": 200,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "독재 나라가 재발행 주식 가운데 충성 보상으로 나눠 주는 몫.",
+        "en": "Share of reissued stock a dictatorship hands out as loyalty rewards."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-444"
     },
     {
       "id": "s33_tribute_rate",
@@ -1423,7 +2033,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "속국·봉신이 주기마다 상위 나라에 바치는 국고 몫.",
+        "en": "Treasury share a vassal pays its overlord each period."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "d443_tribute_every",
@@ -1436,7 +2051,12 @@
       "structural": false,
       "unit": "ms",
       "min": 60000,
-      "max": 31536000000
+      "max": 31536000000,
+      "desc": {
+        "ko": "공물을 바치는 간격.",
+        "en": "How often tribute is paid."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-443"
     },
     {
       "id": "s22_inheritance_tax",
@@ -1446,7 +2066,12 @@
         "en": "Inheritance tax (bp)"
       },
       "value": 5000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "휴먼이 죽을 때 남긴 돈에서 도시 국고로 가는 몫.",
+        "en": "Share of a dead human's money that goes to the city treasury."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "s23_dictatorship_drop",
@@ -1456,7 +2081,12 @@
         "en": "Dictatorship occupation drop"
       },
       "value": 20,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "독재 나라가 도시를 점령하면 그 도시 만족도가 이만큼 떨어진다.",
+        "en": "Satisfaction drop when a dictatorship occupies a city."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "s26_rebellion",
@@ -1469,7 +2099,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "도시 평균 만족도가 이 값보다 낮으면 반란이 일어날 수 있다. 올리면 반란이 쉬워진다.",
+        "en": "Cities whose average satisfaction is below this may rebel. Higher = rebellions come easier."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n35_rebellion_warning",
@@ -1482,7 +2117,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "민심 표에서 평균 만족도가 이 값 이하면 \"반란 예고\"로 보인다.",
+        "en": "Unrest table shows \"rebellion warning\" at or below this average."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "n35_sabotage",
@@ -1495,7 +2135,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "민심 표에서 평균 만족도가 이 값 이하면 \"태업 조짐\"으로 보인다.",
+        "en": "Unrest table shows \"sabotage signs\" at or below this average."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "s27_independence",
@@ -1505,7 +2150,12 @@
         "en": "Independence pass (‰)"
       },
       "value": 500,
-      "structural": true
+      "structural": true,
+      "desc": {
+        "ko": "독립 투표가 통과하는 찬성 몫. 구조 값이다.",
+        "en": "Yes share needed for an independence vote to pass. Structural."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "s30_offer_deadline",
@@ -1515,7 +2165,12 @@
         "en": "Incorporation offer deadline (ms)"
       },
       "value": 259200000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "편입(귀속) 제안에 답할 수 있는 기한. 지나면 거절로 본다.",
+        "en": "Time limit to answer an incorporation offer; silence counts as refusal."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "s31_delist_satisfaction",
@@ -1525,7 +2180,12 @@
         "en": "Delisting satisfaction drop"
       },
       "value": 15,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "상장폐지된 도시의 만족도 하락.",
+        "en": "Satisfaction drop in a delisted city."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "s31_delist_relation",
@@ -1535,7 +2195,12 @@
         "en": "Delisting relation drop"
       },
       "value": 20,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "상장폐지를 한 나라와의 관계 점수 하락.",
+        "en": "Relation drop toward the nation that delisted the city."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "d186_loot_drop",
@@ -1545,7 +2210,12 @@
         "en": "Loot satisfaction drop"
       },
       "value": 25,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "도시를 약탈당하면 그 도시 만족도가 이만큼 떨어진다.",
+        "en": "Satisfaction drop when a city is looted."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-186"
     },
     {
       "id": "d186_integrate_drop",
@@ -1555,7 +2225,12 @@
         "en": "Integration satisfaction drop"
       },
       "value": 5,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "도시가 통합(합병)되면 만족도가 이만큼 떨어진다.",
+        "en": "Satisfaction drop when a city is integrated."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-186"
     },
     {
       "id": "d186_loot_take",
@@ -1565,7 +2240,12 @@
         "en": "Loot take (bp)"
       },
       "value": 5000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "약탈한 쪽이 그 도시 금고에서 가져가는 몫.",
+        "en": "Share of the city treasury the looter takes."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-186"
     },
     {
       "id": "t4_lifespan_min",
@@ -1578,7 +2258,12 @@
       "structural": false,
       "unit": "ms",
       "min": 86400000,
-      "max": 315360000000
+      "max": 315360000000,
+      "desc": {
+        "ko": "휴먼 수명을 굴릴 때의 최소값(실제 시간).",
+        "en": "Shortest rolled human lifespan (real time)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "t4_lifespan_max",
@@ -1591,7 +2276,12 @@
       "structural": false,
       "unit": "ms",
       "min": 86400000,
-      "max": 315360000000
+      "max": 315360000000,
+      "desc": {
+        "ko": "휴먼 수명을 굴릴 때의 최대값(실제 시간).",
+        "en": "Longest rolled human lifespan (real time)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core"
     },
     {
       "id": "d395_rebirth",
@@ -1601,7 +2291,12 @@
         "en": "Rebirth chance at end of life (‰)"
       },
       "value": 100,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "수명이 끝난 휴먼이 환생할 확률.",
+        "en": "Chance a human is reborn at the end of life."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-395"
     },
     {
       "id": "d395_deify",
@@ -1611,7 +2306,12 @@
         "en": "Deification chance at end of life (‰)"
       },
       "value": 10,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "수명이 끝난 휴먼이 신격화될 확률.",
+        "en": "Chance a human is deified at the end of life."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-395"
     },
     {
       "id": "q121_tech_max",
@@ -1621,7 +2321,12 @@
         "en": "Ground tech max"
       },
       "value": 5,
-      "structural": true
+      "structural": true,
+      "desc": {
+        "ko": "지상 기술 단계가 오를 수 있는 끝. 구조 값이다.",
+        "en": "Highest ground tech level. Structural."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · 질문 121"
     },
     {
       "id": "q121_research_work",
@@ -1631,7 +2336,12 @@
         "en": "Research work per level"
       },
       "value": 48000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "기술 한 단계를 올리는 데 드는 연구 작업량(단계 × 이 값).",
+        "en": "Research work per tech level (level × this)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · 질문 121"
     },
     {
       "id": "q121_development",
@@ -1641,7 +2351,12 @@
         "en": "Development per tech level"
       },
       "value": 20,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "다음 기술 단계에 필요한 도시 발전도(단계마다 이만큼 더).",
+        "en": "City development required per tech level."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · 질문 121"
     },
     {
       "id": "d396_blueprint",
@@ -1651,7 +2366,138 @@
         "en": "Blueprint discount (bp)"
       },
       "value": 5000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "설계도가 있으면 짓는 값이 이만큼 싸진다.",
+        "en": "Build cost discount when holding a blueprint."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-396"
+    },
+    {
+      "id": "dev_satisfaction_divisor",
+      "code": "",
+      "name": {
+        "ko": "발전도: 만족도 나눗수(밀리점)",
+        "en": "Development: satisfaction divisor (milli)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "milli",
+      "min": 1,
+      "max": 1000000,
+      "desc": {
+        "ko": "발전도의 만족도 몫 = 평균 만족도(밀리점) ÷ 이 값. 줄이면 만족도가 발전도를 더 끌어올린다.",
+        "en": "Satisfaction part of development = average satisfaction (milli) ÷ this. Lower = satisfaction counts more."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-254 [임시]"
+    },
+    {
+      "id": "dev_per_unit",
+      "code": "",
+      "name": {
+        "ko": "발전도: 휴먼 하나당",
+        "en": "Development per human"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "휴먼 하나가 도시 발전도에 더하는 점수.",
+        "en": "Development added per human in the city."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-254 [임시]"
+    },
+    {
+      "id": "dev_unit_cap",
+      "code": "",
+      "name": {
+        "ko": "발전도: 인구 몫 상한",
+        "en": "Development: population cap"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "인구로 얻는 발전도의 상한.",
+        "en": "Cap on development from population."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-254 [임시]"
+    },
+    {
+      "id": "dev_per_research_level",
+      "code": "",
+      "name": {
+        "ko": "발전도: 연구 시설 레벨당",
+        "en": "Development per research level"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "연구 시설 레벨 하나가 더하는 발전도.",
+        "en": "Development added per research-facility level."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-254 [임시]"
+    },
+    {
+      "id": "dev_max",
+      "code": "",
+      "name": {
+        "ko": "발전도 상한",
+        "en": "Development max"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "도시 발전도의 최댓값.",
+        "en": "Maximum city development."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-254 [임시]"
+    },
+    {
+      "id": "share_sale_amount",
+      "code": "",
+      "name": {
+        "ko": "NPC 지분 팔기 한 번 주식 수",
+        "en": "NPC share sale amount"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC가 지분을 한 번 팔 때 내놓는 주식 수.",
+        "en": "Shares an NPC sells in one share sale."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-254 [임시]"
+    },
+    {
+      "id": "share_sale_price",
+      "code": "",
+      "name": {
+        "ko": "NPC 지분 팔기 주당 값(최소 단위)",
+        "en": "NPC share sale price per share"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000,
+      "desc": {
+        "ko": "NPC 지분 팔기의 주당 값(사는 쪽 화폐).",
+        "en": "Price per share in an NPC share sale (buyer's currency)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core · D-254 [임시]"
     },
     {
       "id": "n5_growth_rate",
@@ -1664,7 +2510,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "레벨이 하나 오를 때 1차 스탯이 커지는 비율(K를 곱한다).",
+        "en": "How much primary stats grow per level (multiplied by K)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n6_k_min",
@@ -1677,7 +2528,12 @@
       "structural": false,
       "unit": "pm",
       "min": 1,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "사이보그마다 굴리는 성장 계수 K의 최소값.",
+        "en": "Minimum of each cyborg's rolled growth factor K."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n6_k_max",
@@ -1690,7 +2546,12 @@
       "structural": false,
       "unit": "pm",
       "min": 1,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "성장 계수 K의 최대값.",
+        "en": "Maximum of the growth factor K."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n7_max_level",
@@ -1703,7 +2564,12 @@
       "structural": true,
       "unit": "level",
       "min": 1,
-      "max": 999
+      "max": 999,
+      "desc": {
+        "ko": "사이보그가 오를 수 있는 기본 만렙. 구조 값이다.",
+        "en": "Base level cap for cyborgs. Structural."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n9_initial_sum",
@@ -1716,7 +2582,12 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 600
+      "max": 600,
+      "desc": {
+        "ko": "처음 굴린 1차 스탯 여섯 칸의 합.",
+        "en": "Sum of the six primary stats on the first roll."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n9_initial_min",
@@ -1729,7 +2600,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "처음 굴릴 때 스탯 한 칸의 최소값.",
+        "en": "Lowest value of one stat on the first roll."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n9_initial_max",
@@ -1742,7 +2618,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "처음 굴릴 때 스탯 한 칸의 최대값. 합과 함께 맞아야 한다.",
+        "en": "Highest value of one stat on the first roll. Must fit the sum."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n9_initial_rerolls",
@@ -1755,7 +2636,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 20
+      "max": 20,
+      "desc": {
+        "ko": "사이보그를 만들 때(환생 때도) 다시 굴릴 수 있는 횟수.",
+        "en": "Rerolls allowed when creating (and rebirthing) a cyborg."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n9_initial_favor",
@@ -1768,7 +2654,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 20000
+      "max": 20000,
+      "desc": {
+        "ko": "고른 성향 칸의 평균을 올리는 양(밀리점). 늘리면 성향이 더 치우친다.",
+        "en": "How much a chosen temperament raises its stats' mean (milli). Higher = more skewed."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n9_initial_spread",
@@ -1781,7 +2672,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 20000
+      "max": 20000,
+      "desc": {
+        "ko": "스탯 한 칸이 흩어지는 정도(표준편차, 밀리점).",
+        "en": "Spread of each stat (standard deviation, milli)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n34_rebirth_faith",
@@ -1794,7 +2690,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "사이보그가 환생하려면 있어야 하는 신앙도. 환생하면 0이 된다.",
+        "en": "Faith a cyborg needs to rebirth; it resets to 0."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n34_rebirth_currency",
@@ -1806,7 +2707,12 @@
       "value": 10000,
       "structural": false,
       "unit": "minor",
-      "min": 0
+      "min": 0,
+      "desc": {
+        "ko": "사이보그 환생에 내는 화폐.",
+        "en": "Currency paid for a cyborg rebirth."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "d6041_crowd_normal",
@@ -1819,7 +2725,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "시작 도시에서 시작한 사이보그가 이 수부터 \"보통\"으로 보인다.",
+        "en": "A start city shows \"normal\" crowding from this many cyborgs."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\" · D-6041"
     },
     {
       "id": "d6041_crowd_busy",
@@ -1832,7 +2743,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "이 수부터 \"붐빔\"으로 보인다.",
+        "en": "A start city shows \"busy\" from this many cyborgs."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\" · D-6041"
     },
     {
       "id": "n36_element_cells",
@@ -1845,7 +2761,12 @@
       "structural": true,
       "unit": "count",
       "min": 1,
-      "max": 4
+      "max": 4,
+      "desc": {
+        "ko": "사이보그를 만들 때 고를 수 있는 4원소 칸 수. 구조 값이다.",
+        "en": "Element slots chosen at creation. Structural."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n36_element_points",
@@ -1858,7 +2779,12 @@
       "structural": true,
       "unit": "points",
       "min": 0,
-      "max": 40
+      "max": 40,
+      "desc": {
+        "ko": "만들 때 속성 칸에 나눌 점수. 구조 값이다.",
+        "en": "Element points to distribute at creation. Structural."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n37_light_dark",
@@ -1868,7 +2794,12 @@
         "en": "Religious rebirth light/dark points"
       },
       "value": 5,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "종교 환생으로 빛·어둠 갈래를 열 때 그 칸에 더하는 값.",
+        "en": "Light/dark value added when a religious rebirth opens that path."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n38_organ_wear",
@@ -1878,7 +2809,12 @@
         "en": "Organ wear per hour"
       },
       "value": 1,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "정시마다 인공장기 내구도가 닳는 양.",
+        "en": "Artificial organ durability lost every hour mark."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n38_organ_repair_cost",
@@ -1888,7 +2824,12 @@
         "en": "Organ repair cost per point (minor units)"
       },
       "value": 100,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "인공장기 내구도 1점을 고치는 값.",
+        "en": "Cost to repair 1 point of organ durability."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n38_living_unpaid",
@@ -1901,7 +2842,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "생활비를 못 냈을 때 작업 효율.",
+        "en": "Work efficiency while living costs are unpaid."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n39_grant_base",
@@ -1914,7 +2860,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000
+      "max": 1000000000,
+      "desc": {
+        "ko": "첫 정착 지원금의 기본액(처음 며칠 생활비).",
+        "en": "Base settlement grant (a few days' living costs)."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n39_grant_max",
@@ -1927,7 +2878,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "덜 붐비는 나라를 고를 때 지원금 배율의 최대.",
+        "en": "Maximum grant multiplier for picking an uncrowded nation."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n39_grant_min",
@@ -1940,7 +2896,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "붐비는 나라를 고를 때 지원금 배율의 최소.",
+        "en": "Minimum grant multiplier for a crowded nation."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "n39_grant_step",
@@ -1953,7 +2914,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "가장 덜 붐빈 나라보다 시작 사이보그가 하나 많을 때마다 깎는 배율.",
+        "en": "Multiplier cut per extra starting cyborg compared with the least crowded nation."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
       "id": "start_goods_pine_log",
@@ -1966,7 +2932,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "사이보그를 만들 때 시작 도시 창고에 넣어 주는 소나무 원목 수.",
+        "en": "Pine logs placed in the start city storage when a cyborg is created."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP3\" · 질문 520"
     },
     {
       "id": "start_goods_stone",
@@ -1979,7 +2950,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "만들 때 넣어 주는 석재 수.",
+        "en": "Stone placed in the start city storage at creation."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP3\" · 질문 520"
     },
     {
       "id": "citizenship_fee",
@@ -1992,7 +2968,12 @@
       "structural": false,
       "unit": "minor",
       "min": -1000000000,
-      "max": 1000000000
+      "max": 1000000000,
+      "desc": {
+        "ko": "귀화할 때 받는 나라가 정한 조건의 기본값(나라가 따로 정하지 않으면 이 값, NPC 국가는 늘). +면 옮겨 오는 사람이 받는 나라 국고에 입회비를 내고, −면 받는 나라 국고에서 지원금을 받는다(국고에 있는 만큼). 옛 나라에는 돌려주지 않는다.",
+        "en": "Default naturalization terms a receiving nation sets (used unless the nation sets its own; NPC nations always). Positive: the newcomer pays an entrance fee to the new nation's treasury. Negative: the newcomer receives a grant from it (up to what the treasury holds). Nothing goes back to the old nation."
+      },
+      "source": "ADR 2026-11-08-citizenship \"바뀜 (D-526)\" · D-526 · 질문 845·846"
     },
     {
       "id": "citizenship_standing_drop",
@@ -2005,7 +2986,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 200
+      "max": 200,
+      "desc": {
+        "ko": "귀화하면 떠난 사람과 옛 나라 사이 우호도(−100~100, 처음 0)가 이만큼 떨어진다.",
+        "en": "How far standing (−100–100, starting at 0) between the leaver and the old nation drops on naturalization."
+      },
+      "source": "ADR 2026-11-08-citizenship \"바뀜 (D-526)\" · D-526 · 질문 847~849"
     },
     {
       "id": "citizenship_standing_drop_hostile",
@@ -2018,7 +3004,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 200
+      "max": 200,
+      "desc": {
+        "ko": "받는 나라가 옛 나라와 전쟁 중(적대 세력)일 때 옛 나라 우호도가 떨어지는 양(크게).",
+        "en": "How far standing with the old nation drops when the new nation is at war with it (hostile)."
+      },
+      "source": "ADR 2026-11-08-citizenship \"바뀜 (D-526)\" · D-526 · 질문 847~849"
     },
     {
       "id": "citizenship_rest_ms",
@@ -2031,7 +3022,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 31536000000
+      "max": 31536000000,
+      "desc": {
+        "ko": "귀화한 뒤 다시 나라를 바꿀 수 없는 기간.",
+        "en": "Time before you may change nation again after naturalizing."
+      },
+      "source": "ADR 2026-11-08-citizenship · 질문 745"
     },
     {
       "id": "f11_repair_lv1",
@@ -2044,7 +3040,12 @@
       "structural": false,
       "unit": "pct",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "Lv1 시설에서 수리할 때 최대 내구도가 줄어드는 몫.",
+        "en": "Max-durability loss when repairing at a level-1 facility."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "f11_repair_lv2",
@@ -2057,7 +3058,12 @@
       "structural": false,
       "unit": "pct",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "Lv2 시설 수리 감소.",
+        "en": "Max-durability loss at a level-2 facility."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "f11_repair_lv3",
@@ -2070,7 +3076,12 @@
       "structural": false,
       "unit": "pct",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "Lv3 시설 수리 감소.",
+        "en": "Max-durability loss at a level-3 facility."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "f11_repair_lv4",
@@ -2083,7 +3094,12 @@
       "structural": false,
       "unit": "pct",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "Lv4 시설 수리 감소.",
+        "en": "Max-durability loss at a level-4 facility."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "f11_repair_lv5",
@@ -2096,7 +3112,12 @@
       "structural": false,
       "unit": "pct",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "Lv5 시설 수리 감소.",
+        "en": "Max-durability loss at a level-5 facility."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "f11_repair_floor",
@@ -2109,7 +3130,12 @@
       "structural": false,
       "unit": "pct",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "장인이 아무리 잘해도 수리 감소가 이보다 작아지지 않는다.",
+        "en": "Repair loss never falls below this, however skilled the crafter."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "f12_destroy_at",
@@ -2122,7 +3148,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "최대 내구도가 이 값 이하로 떨어지면 장비가 부서진다.",
+        "en": "Gear breaks when its max durability falls to this or below."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "n49_wear_chance",
@@ -2135,7 +3166,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "전투마다 입은 장비 하나가 닳을 확률(이겨도).",
+        "en": "Chance each worn item wears per battle (even on a win)."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "d496_wear_battle",
@@ -2148,7 +3184,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "닳을 때 줄어드는 내구도.",
+        "en": "Durability lost when an item wears."
+      },
+      "source": "ADR 2026-11-03-item-holdings · D-496"
     },
     {
       "id": "n49_wear_loss_chance",
@@ -2161,7 +3202,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "진 전투에서 더 닳을 확률.",
+        "en": "Chance of extra wear after a lost battle."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "d496_wear_loss",
@@ -2174,7 +3220,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "진 전투에서 더 줄어드는 내구도.",
+        "en": "Extra durability lost after a lost battle."
+      },
+      "source": "ADR 2026-11-03-item-holdings · D-496"
     },
     {
       "id": "d509_ammo_refill_loss",
@@ -2187,7 +3238,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "탄약을 한 번 채울 때 최대 탄 수가 줄어드는 몫.",
+        "en": "Max-ammo loss per refill."
+      },
+      "source": "ADR 2026-11-03-item-holdings · D-509"
     },
     {
       "id": "d509_potion_cooldown",
@@ -2200,7 +3256,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 3600000
+      "max": 3600000,
+      "desc": {
+        "ko": "물약을 쓴 뒤 다시 쓸 수 있기까지(전투·비전투 같음).",
+        "en": "Potion cooldown (same in and out of battle)."
+      },
+      "source": "ADR 2026-11-03-item-holdings · D-509"
     },
     {
       "id": "d510_food_cooldown",
@@ -2213,7 +3274,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 86400000
+      "max": 86400000,
+      "desc": {
+        "ko": "요리를 먹은 뒤 다시 먹을 수 있기까지.",
+        "en": "Food cooldown."
+      },
+      "source": "ADR 2026-11-03-item-holdings · D-510"
     },
     {
       "id": "d510_potion_hp_threshold",
@@ -2226,7 +3292,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "HP가 이 몫 아래로 내려가면 자동으로 물약을 쓴다(유닛 기본값).",
+        "en": "Units drink a potion automatically below this HP share (default)."
+      },
+      "source": "ADR 2026-11-03-item-holdings · D-510"
     },
     {
       "id": "n49_preserve_unit",
@@ -2239,7 +3310,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "유닛이 들고 있을 때 썩는 빠르기(1000 = 보통).",
+        "en": "Spoil speed while carried by a unit (1000 = normal)."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "n49_preserve_storage",
@@ -2252,7 +3328,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "보존 시설 없는 창고에서 썩는 빠르기.",
+        "en": "Spoil speed in storage without preservation."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "n49_preserve_fridge",
@@ -2265,7 +3346,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "냉장에서 썩는 빠르기.",
+        "en": "Spoil speed in a fridge."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "n49_preserve_pickle",
@@ -2278,7 +3364,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "절임 보관에서 썩는 빠르기.",
+        "en": "Spoil speed when pickled."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "n49_preserve_can",
@@ -2291,7 +3382,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "통조림 보관에서 썩는 빠르기.",
+        "en": "Spoil speed when canned."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "n49_preserve_freezer",
@@ -2304,7 +3400,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "냉동에서 썩는 빠르기(0 = 멈춤).",
+        "en": "Spoil speed in a freezer (0 = stopped)."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "n49_preserve_exchange",
@@ -2317,7 +3418,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "거래소에 맡긴 동안 썩는 빠르기(0 = 멈춤).",
+        "en": "Spoil speed while listed on the exchange (0 = stopped)."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "f11_craft_appropriate",
@@ -2330,7 +3436,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "장인의 제작 직무 점수가 이만큼이면 수리 감소가 절반이 된다.",
+        "en": "A crafter with this crafting score halves repair loss."
+      },
+      "source": "ADR 2026-11-03-item-holdings"
     },
     {
       "id": "d496_use_variance",
@@ -2343,7 +3454,12 @@
       "structural": false,
       "unit": "pm",
       "min": 250,
-      "max": 500
+      "max": 500,
+      "desc": {
+        "ko": "소모품 효과량이 굴릴 때마다 흔들리는 폭(±‰).",
+        "en": "How much a consumable's effect amount varies per use (±‰)."
+      },
+      "source": "ADR 2026-11-03-item-holdings · D-496"
     },
     {
       "id": "s19_trait_min",
@@ -2353,7 +3469,12 @@
         "en": "NPC trait axis min"
       },
       "value": 0,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "NPC 나라 성향 축(공격·상업·신앙 등)의 아래 끝.",
+        "en": "Lower end of NPC trait axes (aggression, commerce, faith…)."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
       "id": "s19_trait_max",
@@ -2363,7 +3484,12 @@
         "en": "NPC trait axis max"
       },
       "value": 1000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "NPC 성향 축의 위 끝.",
+        "en": "Upper end of NPC trait axes."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
       "id": "s19_trait_drift",
@@ -2373,7 +3499,12 @@
         "en": "Fluid faction trait drift"
       },
       "value": 150,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "떨어져 나온 세력이 부모 성향에서 벗어날 수 있는 폭.",
+        "en": "How far a split-off faction's traits may drift from its parent."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
       "id": "d323_decide_every",
@@ -2383,7 +3514,12 @@
         "en": "NPC decision interval (ms)"
       },
       "value": 21600000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "NPC 나라가 무엇을 할지 고르는 간격(실제 시각은 ±25%).",
+        "en": "How often an NPC nation decides what to do (±25% jitter)."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · D-323"
     },
     {
       "id": "s3_war_cost",
@@ -2393,7 +3529,12 @@
         "en": "No-cause war cost (treasury bp)"
       },
       "value": 500,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "명분 없이 전쟁을 선포할 때 국고에서 내는 몫.",
+        "en": "Treasury share paid to declare war without a cause."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
       "id": "s5_white_peace",
@@ -2403,7 +3544,12 @@
         "en": "White peace after no fighting (ms)"
       },
       "value": 604800000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "교전이 이만큼 없으면 전쟁이 저절로 끝난다(백지 강화).",
+        "en": "A war ends by itself after this long without fighting."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
       "id": "d292_truce",
@@ -2413,7 +3559,12 @@
         "en": "Peace treaty non-aggression (ms)"
       },
       "value": 1209600000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "강화 조약 뒤 서로 치지 못하는 기간.",
+        "en": "Non-aggression period after a peace treaty."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · D-292"
     },
     {
       "id": "d323_tax_step",
@@ -2423,7 +3574,12 @@
         "en": "NPC tax step (bp)"
       },
       "value": 100,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "NPC가 세율을 한 번에 올리거나 내리는 폭.",
+        "en": "How much an NPC changes its tax rate in one step."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · D-323"
     },
     {
       "id": "d323_tax_max",
@@ -2433,7 +3589,12 @@
         "en": "NPC tax rule cap (bp)"
       },
       "value": 2000,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "NPC 규칙식이 올리는 세율의 상한.",
+        "en": "Highest tax rate the NPC rule will set."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · D-323"
     },
     {
       "id": "d323_tax_floor",
@@ -2443,7 +3604,12 @@
         "en": "NPC tax raise satisfaction floor"
       },
       "value": 50,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "평균 만족도가 이보다 낮으면 NPC가 세율을 올리지 않는다.",
+        "en": "NPCs won't raise taxes when average satisfaction is below this."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · D-323"
     },
     {
       "id": "npc_attack_ratio",
@@ -2453,7 +3619,12 @@
         "en": "NPC attack strength ratio (‰)"
       },
       "value": 1200,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "내 휴먼 수가 상대의 이 배 이상일 때만 친다(1200 = 1.2배).",
+        "en": "Attack only with at least this many times the target's humans (1200 = 1.2×)."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
       "id": "npc_attack_satisfaction",
@@ -2463,7 +3634,12 @@
         "en": "NPC new war satisfaction floor"
       },
       "value": 55,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "평균 만족도가 이보다 낮으면 새 전쟁을 벌이지 않는다.",
+        "en": "No new wars when average satisfaction is below this."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
       "id": "d220_stall_days",
@@ -2473,7 +3649,12 @@
         "en": "Days counted as stalled"
       },
       "value": 7,
-      "structural": false
+      "structural": false,
+      "desc": {
+        "ko": "국고 0에 생필품이 모자란 날이 이만큼 이어지면 \"굶어 멈춤\"으로 센다.",
+        "en": "Days of empty treasury plus food shortage counted as a stall."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · D-220"
     },
     {
       "id": "npc_recruit_target",
@@ -2486,7 +3667,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 5000
+      "max": 5000,
+      "desc": {
+        "ko": "도시 휴먼이 주거 × 이 몫보다 적으면 구인 카드를 산다.",
+        "en": "Buy recruit cards while humans are below housing × this share."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
       "id": "npc_recruit_reserve",
@@ -2499,7 +3685,606 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "카드 값의 이 몫만큼 국고가 남을 때만 구인한다.",
+        "en": "Recruit only if the treasury keeps this share of the card cost."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_idle_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 쉬기 점수(이보다 낮은 후보는 하지 않음)",
+        "en": "NPC idle score"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "다른 할 일의 점수가 모두 이보다 낮으면 아무것도 하지 않는다.",
+        "en": "If every option scores below this, the NPC does nothing."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_attack_war_bonus",
+      "code": "",
+      "name": {
+        "ko": "NPC 이미 전쟁 중인 상대 치기 더함 점수",
+        "en": "NPC attack: at-war bonus"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "이미 전쟁 중인 상대를 칠 때 점수에 더한다.",
+        "en": "Score bonus for attacking someone already at war with you."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_attack_declare_penalty",
+      "code": "",
+      "name": {
+        "ko": "NPC 새로 선포할 때 빼는 점수",
+        "en": "NPC attack: new declaration penalty"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "새로 선포해야 하는 상대를 칠 때 점수에서 뺀다.",
+        "en": "Score penalty when the attack needs a new declaration."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_attack_comfort_cities",
+      "code": "",
+      "name": {
+        "ko": "NPC 치기 점수를 깎기 시작하는 도시 수",
+        "en": "NPC attack: comfortable city count"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "도시가 이 수를 넘으면 넘는 도시마다 치기 점수를 깎는다.",
+        "en": "Above this many cities, each extra city lowers the attack score."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_attack_city_penalty",
+      "code": "",
+      "name": {
+        "ko": "NPC 넘는 도시마다 빼는 치기 점수",
+        "en": "NPC attack: penalty per extra city"
+      },
+      "value": 80,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "넘는 도시 하나마다 빼는 치기 점수.",
+        "en": "Attack score removed per extra city."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_suppress_bonus",
+      "code": "",
+      "name": {
+        "ko": "NPC 떨어져 나간 반란 세력 소탕 더함 점수",
+        "en": "NPC suppress-rebels bonus"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "나에게서 반란으로 떨어져 나간 세력을 칠 때 더하는 점수.",
+        "en": "Score bonus for crushing a faction that rebelled away from you."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_reserve_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 짓기 예비금(행동 값 ‰)",
+        "en": "NPC build reserve (‰ of action cost)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "행동 값의 이 몫만큼 국고가 있어야 짓는다.",
+        "en": "Build only with treasury of at least this share of the action cost."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_found_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 마을 세우기 기본 점수",
+        "en": "NPC found-town base score"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "새 마을을 세우는 기본 점수.",
+        "en": "Base score for founding a town."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_found_vassal_penalty",
+      "code": "",
+      "name": {
+        "ko": "NPC 봉신 하나마다 빼는 마을 세우기 점수",
+        "en": "NPC found-town penalty per vassal"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "이미 둔 봉신 하나마다 마을 세우기 점수에서 뺀다.",
+        "en": "Found-town score removed per existing vassal."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_research_blocked_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 연구 시설 점수(기술이 막혔을 때)",
+        "en": "NPC research score (tech blocked)"
+      },
+      "value": 700,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "다음 기술이 연구 시설에 막혔을 때 연구 시설 짓기 점수.",
+        "en": "Research-facility score when the next tech is blocked by it."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_research_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 연구 시설 점수(평소)",
+        "en": "NPC research score (normal)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "평소 연구 시설 짓기 점수.",
+        "en": "Research-facility score otherwise."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_share_sale_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 지분 팔기 점수(국고 모자랄 때)",
+        "en": "NPC share sale score"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "국고가 모자랄 때 지분을 파는 점수.",
+        "en": "Score for selling shares when short of money."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_share_keep_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 지분 팔고도 쥐는 몫(‰, 상업 ÷ 10을 뺌)",
+        "en": "NPC share keep (‰)"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "지분을 팔고도 쥐는 몫(이 값 − 상업 성향 ÷ 10).",
+        "en": "Stake kept after selling (this − commerce ÷ 10)."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_peace_weary_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 강화: 민심이 지쳤을 때 더함",
+        "en": "NPC peace: weary bonus"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "만족도가 반란 예고 아래일 때 강화 제안에 더하는 점수.",
+        "en": "Peace score bonus when satisfaction is under the rebellion warning."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_peace_weaker_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 강화: 상대가 더 셀 때 더함",
+        "en": "NPC peace: weaker bonus"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "상대가 더 셀 때 강화 제안에 더하는 점수.",
+        "en": "Peace score bonus when the enemy is stronger."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_peace_winning_penalty",
+      "code": "",
+      "name": {
+        "ko": "NPC 강화: 이기고 있을 때 뺌",
+        "en": "NPC peace: winning penalty"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "이기고 있을 때 강화 제안에서 빼는 점수.",
+        "en": "Peace score penalty while winning."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_peace_accept_base",
+      "code": "",
+      "name": {
+        "ko": "NPC 강화 받는 기준값",
+        "en": "NPC peace accept base"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "points",
+      "min": -10000,
+      "max": 10000,
+      "desc": {
+        "ko": "강화 제안을 받는 쪽의 기준 점수(합이 0보다 크면 받는다).",
+        "en": "Base score for accepting peace (accept when total > 0)."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_break_ratio_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 봉신 독립 힘 비(‰)",
+        "en": "NPC vassal break-away ratio (‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "봉신이 상위 나라 힘의 이 몫 이상이면 독립을 꾀한다.",
+        "en": "A vassal seeks independence at this share of its overlord's strength."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_delist_aggression",
+      "code": "",
+      "name": {
+        "ko": "NPC 상장폐지 고르는 공격 성향 문턱",
+        "en": "NPC delist aggression threshold"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "공격 성향이 이 이상이면 상장폐지를 고른다.",
+        "en": "Aggression at or above this chooses delisting."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_independent_aggression",
+      "code": "",
+      "name": {
+        "ko": "NPC 독립 마을 고르는 공격 성향 문턱",
+        "en": "NPC independent-town aggression threshold"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "공격 성향이 이 이상이면 독립 마을을 고른다.",
+        "en": "Aggression at or above this chooses an independent town."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_refuse_aggression",
+      "code": "",
+      "name": {
+        "ko": "NPC 편입 거부 공격 성향 문턱",
+        "en": "NPC refuse-incorporation aggression threshold"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "공격 성향이 이 이상이면 편입 제안을 거부한다.",
+        "en": "Aggression at or above this refuses incorporation."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_vote_commerce",
+      "code": "",
+      "name": {
+        "ko": "NPC 독립 찬성 상업 성향 문턱",
+        "en": "NPC independence vote commerce threshold"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "상업 성향이 이 이상이면 독립 투표에 찬성한다.",
+        "en": "Commerce at or above this votes for independence."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_trade_markup",
+      "code": "",
+      "name": {
+        "ko": "NPC 매도 값 +1%당 상업 성향",
+        "en": "NPC sell markup: commerce per +1%"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "상업 성향이 이만큼 높을 때마다 매도 값을 1% 올린다.",
+        "en": "Each this-much commerce adds 1% to sell prices."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_spend_divisor_short",
+      "code": "",
+      "name": {
+        "ko": "NPC 생필품 모자랄 때 쓰는 국고 몫(분모)",
+        "en": "NPC spend divisor when short"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "생필품이 모자랄 때 한 번에 국고의 1/이 값까지 쓴다.",
+        "en": "When short of necessities, spend up to 1/this of the treasury at once."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_spend_divisor",
+      "code": "",
+      "name": {
+        "ko": "NPC 평소 판단 한 번에 쓰는 국고 몫(분모)",
+        "en": "NPC spend divisor"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "평소 거래 판단 한 번에 국고의 1/이 값까지 쓴다.",
+        "en": "Normally spend up to 1/this of the treasury per trade decision."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_restore_claim_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 폐허 정부 짓기 점수(기본)",
+        "en": "NPC ruin claim base score"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "폐허에 정부를 짓는 기본 점수.",
+        "en": "Base score for claiming a ruin."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_restore_former_bonus",
+      "code": "",
+      "name": {
+        "ko": "NPC 옛 내 도시 폐허 더함 점수",
+        "en": "NPC ruin claim: former city bonus"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "옛 내 도시였던 폐허에 더하는 점수.",
+        "en": "Score bonus for a ruin that used to be yours."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_restore_city_penalty",
+      "code": "",
+      "name": {
+        "ko": "NPC 가진 도시마다 빼는 폐허 점수",
+        "en": "NPC ruin claim: penalty per city"
+      },
+      "value": 40,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "가진 도시 하나마다 폐허 점수에서 뺀다.",
+        "en": "Ruin score removed per city owned."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_stall_food_pm",
+      "code": "",
+      "name": {
+        "ko": "굶어 멈춤 생필품 충족 문턱(‰)",
+        "en": "Stall food threshold (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "생필품 충족이 이 몫 아래인 날을 굶은 날로 센다.",
+        "en": "Days with necessities below this share count as starving."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
+    },
+    {
+      "id": "npc_bank_target",
+      "code": "",
+      "name": {
+        "ko": "중앙은행 목표 물가 지수(천분율)",
+        "en": "Central bank target price index (milli)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "milli",
+      "min": 1,
+      "max": 100000,
+      "desc": {
+        "ko": "중앙은행이 맞추려는 물가 지수(1000 = 첫 시세).",
+        "en": "Price index the central bank aims for (1000 = first market price)."
+      },
+      "source": "ADR 2026-10-31-economy-core 7절 · D-131 [임시]"
+    },
+    {
+      "id": "npc_bank_gain",
+      "code": "",
+      "name": {
+        "ko": "중앙은행 이득(만분율)",
+        "en": "Central bank gain (bp)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "물가가 목표에서 벗어날 때 통화량을 얼마나 세게 고치는지.",
+        "en": "How hard the central bank corrects money supply when prices drift."
+      },
+      "source": "ADR 2026-10-31-economy-core 7절 · D-131 [임시]"
+    },
+    {
+      "id": "npc_bank_daily_cap",
+      "code": "E5",
+      "name": {
+        "ko": "중앙은행 하루 조절 상한(시중 통화량 만분율)",
+        "en": "Central bank daily cap (bp of circulation)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "하루에 늘리거나 줄이는 통화량의 상한(시중 통화량 몫).",
+        "en": "Daily cap on money issued or burnt (share of circulation)."
+      },
+      "source": "ADR 2026-10-31-economy-core 7절 · D-131 [임시]"
+    },
+    {
+      "id": "npc_bank_interest",
+      "code": "S1",
+      "name": {
+        "ko": "발행 이자 하루 이율(만분율)",
+        "en": "Issuance interest per day (bp)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "발행 잔액에 붙는 하루 이자. 국고에서 먼저 소각한다.",
+        "en": "Daily interest on issued money, burnt from the treasury first."
+      },
+      "source": "ADR 2026-10-31-economy-core 7절 · D-131 [임시]"
     },
     {
       "id": "p15_cell_max",
@@ -2512,7 +4297,12 @@
       "structural": true,
       "unit": "points",
       "min": 1000,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "1차맵 칸 하나에 쌓일 수 있는 오염의 상한.",
+        "en": "Maximum pollution on one planet cell."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "p15_battle",
@@ -2525,7 +4315,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "전투 한 번이 그 칸에 더하는 오염.",
+        "en": "Pollution one battle adds to its cell."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "p15_human_step",
@@ -2538,7 +4333,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "휴먼 한 묶음이 하루에 더하는 오염.",
+        "en": "Daily pollution per bundle of humans."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "p15_humans_per_step",
@@ -2551,7 +4351,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "휴먼 오염 한 묶음의 인원.",
+        "en": "Humans per pollution bundle."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "p15_forest",
@@ -2564,7 +4369,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "숲 칸이 하루에 줄이는 오염.",
+        "en": "Daily pollution a forest cell removes."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s14_purify",
@@ -2577,7 +4387,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "정화 한 번이 줄이는 오염.",
+        "en": "Pollution removed by one purification."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "p15_decay",
@@ -2590,7 +4405,12 @@
       "structural": false,
       "unit": "bp",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "오염이 하루에 저절로 줄어드는 몫.",
+        "en": "Daily natural pollution decay."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "p15_spread",
@@ -2603,7 +4423,12 @@
       "structural": false,
       "unit": "bp",
       "min": 0,
-      "max": 5000
+      "max": 5000,
+      "desc": {
+        "ko": "오염이 하루에 이웃 칸으로 퍼지는 몫.",
+        "en": "Daily share of pollution spreading to neighbours."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "m3_influence_radius",
@@ -2616,7 +4441,12 @@
       "structural": false,
       "unit": "cells",
       "min": 0,
-      "max": 4
+      "max": 4,
+      "desc": {
+        "ko": "웨이브 확률을 셀 때 보는 도시 둘레 반경.",
+        "en": "Radius around a city counted for wave chance."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c14_chance_divisor",
@@ -2629,7 +4459,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "웨이브 하루 확률(‰) = 영향권 오염 합 ÷ 이 값. 늘리면 웨이브가 드물어진다.",
+        "en": "Daily wave chance (‰) = area pollution ÷ this. Higher = rarer waves."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c14_chance_max",
@@ -2642,7 +4477,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "웨이브 하루 확률의 상한.",
+        "en": "Cap on daily wave chance."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c16_strength_base",
@@ -2655,7 +4495,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "웨이브 크리쳐 수의 기본.",
+        "en": "Base number of creatures in a wave."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c16_strength_humans",
@@ -2668,7 +4513,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "휴먼이 이 수만큼 늘 때마다 웨이브가 세진다.",
+        "en": "Wave grows per this many humans."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c16_strength_treasury",
@@ -2681,7 +4531,12 @@
       "structural": false,
       "unit": "minor",
       "min": 1,
-      "max": 1000000000000
+      "max": 1000000000000,
+      "desc": {
+        "ko": "국고가 이만큼 늘 때마다 웨이브가 세진다.",
+        "en": "Wave grows per this much treasury."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c16a_target_win",
@@ -2694,7 +4549,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "웨이브 맞추기 도구가 노리는 도시 쪽 승률.",
+        "en": "City win rate the wave calibration aims for."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c16a_target_sum",
@@ -2707,7 +4567,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "목표 승률을 맞출 때 기준이 되는 영향권 오염 합.",
+        "en": "Area pollution at which the target win rate is measured."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c15_notice",
@@ -2720,7 +4585,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 604800000
+      "max": 604800000,
+      "desc": {
+        "ko": "웨이브가 오기 전 적어도 이만큼 먼저 알린다.",
+        "en": "Minimum warning before a wave arrives."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c18_cooldown",
@@ -2733,7 +4603,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 7776000000
+      "max": 7776000000,
+      "desc": {
+        "ko": "막아 낸 웨이브 뒤 그 도시 확률이 줄어드는 기간.",
+        "en": "After a repelled wave, the city's chance stays lower this long."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c18_cooldown_chance",
@@ -2746,7 +4621,12 @@
       "structural": false,
       "unit": "bp",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "쉬는 동안 남는 확률 몫(5000 = 절반).",
+        "en": "Chance kept during the rest period (5000 = half)."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c17_physical_divisor",
@@ -2759,7 +4639,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "물리형 크리쳐 몫을 정하는 나눗수.",
+        "en": "Divisor setting the physical creature share."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c17_physical_max",
@@ -2772,7 +4657,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "웨이브 물리형 몫의 상한.",
+        "en": "Cap on the physical creature share."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s16_unit_budget",
@@ -2785,7 +4675,12 @@
       "structural": true,
       "unit": "count",
       "min": 1,
-      "max": 10000000
+      "max": 10000000,
+      "desc": {
+        "ko": "정원사가 서버에 둘 수 있는 유닛 수.",
+        "en": "Units the gardener may keep on the server."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s16_mothership",
@@ -2798,7 +4693,12 @@
       "structural": false,
       "unit": "bp",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "유닛 예산 가운데 모함 몫.",
+        "en": "Share of the unit budget kept by the mothership."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s17_nomad_detect",
@@ -2811,7 +4711,12 @@
       "structural": false,
       "unit": "cells",
       "min": 0,
-      "max": 32
+      "max": 32,
+      "desc": {
+        "ko": "유목 부대가 목표를 찾는 거리.",
+        "en": "Distance at which nomad bands find targets."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s17_nomad_notice",
@@ -2824,7 +4729,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 604800000
+      "max": 604800000,
+      "desc": {
+        "ko": "유목 부대가 오기 전 적어도 이만큼 먼저 알린다.",
+        "en": "Minimum warning before a nomad band arrives."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s17_nomad_threshold",
@@ -2837,7 +4747,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "오염이 이 이상인 곳만 유목 부대가 노린다.",
+        "en": "Nomad bands only target pollution at or above this."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c18_nomad_exclude",
@@ -2850,7 +4765,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 7776000000
+      "max": 7776000000,
+      "desc": {
+        "ko": "유목 부대가 실패한 목표는 이 기간 동안 다시 노리지 않는다.",
+        "en": "A target that repelled nomads is skipped for this long."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s16_nomad_scouts",
@@ -2863,7 +4783,12 @@
       "structural": true,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "행성마다 도는 정찰대 수.",
+        "en": "Scout bands per planet."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s16_nomad_legions",
@@ -2876,7 +4801,12 @@
       "structural": true,
       "unit": "count",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "행성마다 도는 정화 군단 수.",
+        "en": "Purge legions per planet."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s16_scout_size",
@@ -2889,7 +4819,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "정찰대 한 무리의 크리쳐 수.",
+        "en": "Creatures in a scout band."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s16_legion_at",
@@ -2902,7 +4837,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "오염이 이 이상인 목표만 정화 군단이 맡는다.",
+        "en": "Purge legions take only targets at or above this pollution."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "s16_legion_step",
@@ -2915,7 +4855,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "오염이 이만큼 늘 때마다 정화 군단이 커진다.",
+        "en": "Legion grows per this much pollution."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_relation_min",
@@ -2928,7 +4873,12 @@
       "structural": true,
       "unit": "points",
       "min": -1000,
-      "max": 0
+      "max": 0,
+      "desc": {
+        "ko": "정원 세력과의 관계도 아래 끝.",
+        "en": "Lowest relation with the gardener."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_relation_max",
@@ -2941,7 +4891,12 @@
       "structural": true,
       "unit": "points",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "관계도 위 끝.",
+        "en": "Highest relation with the gardener."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_relation_start",
@@ -2954,7 +4909,12 @@
       "structural": true,
       "unit": "points",
       "min": -1000,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "나라의 처음 관계도.",
+        "en": "Starting relation."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_allied",
@@ -2967,7 +4927,12 @@
       "structural": true,
       "unit": "points",
       "min": -1000,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "관계도가 이 이상이면 동맹.",
+        "en": "Allied at or above this relation."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_friendly",
@@ -2980,7 +4945,12 @@
       "structural": true,
       "unit": "points",
       "min": -1000,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "이 이상이면 우호.",
+        "en": "Friendly at or above this."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_neutral",
@@ -2993,7 +4963,12 @@
       "structural": true,
       "unit": "points",
       "min": -1000,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "이 이상이면 중립.",
+        "en": "Neutral at or above this."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_wary",
@@ -3006,7 +4981,12 @@
       "structural": true,
       "unit": "points",
       "min": -1000,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "이 이상이면 경계, 아래는 적대.",
+        "en": "Wary at or above this; hostile below."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_others_max",
@@ -3019,7 +4999,12 @@
       "structural": false,
       "unit": "points",
       "min": -1000,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "고정 NPC 나라가 아닌 세력의 관계도 상한.",
+        "en": "Relation cap for factions that aren't fixed NPC nations."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_pollution_step",
@@ -3032,7 +5017,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 10000000
+      "max": 10000000,
+      "desc": {
+        "ko": "세력 오염이 이만큼 쌓일 때마다 관계도가 하루 1 내린다.",
+        "en": "Relation drops by 1 a day per this much faction pollution."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_drop_max",
@@ -3045,7 +5035,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "관계도가 하루에 내리는 최대.",
+        "en": "Most relation lost per day."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_peace_daily",
@@ -3058,7 +5053,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "평화 몫으로 오르는 관계도.",
+        "en": "Relation gained from peace."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_peace_every_days",
@@ -3071,7 +5071,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 365
+      "max": 365,
+      "desc": {
+        "ko": "평화 몫을 주는 간격(일).",
+        "en": "Days between peace gains."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_purify_gain",
@@ -3084,7 +5089,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "정화 한 번으로 오르는 관계도.",
+        "en": "Relation gained per purification."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_chance_allied",
@@ -3097,7 +5107,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "동맹 나라의 웨이브 확률 배율.",
+        "en": "Wave chance multiplier for allied nations."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_chance_friendly",
@@ -3110,7 +5125,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "우호 나라의 웨이브 확률 배율.",
+        "en": "Wave chance multiplier for friendly nations."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_chance_neutral",
@@ -3123,7 +5143,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "중립 나라의 웨이브 확률 배율.",
+        "en": "Wave chance multiplier for neutral nations."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_chance_wary",
@@ -3136,7 +5161,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "경계 나라의 웨이브 확률 배율.",
+        "en": "Wave chance multiplier for wary nations."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "n52_chance_hostile",
@@ -3149,7 +5179,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "적대 나라의 웨이브 확률 배율.",
+        "en": "Wave chance multiplier for hostile nations."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "c16_strength_pollution",
@@ -3162,7 +5197,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 1000000000
+      "max": 1000000000,
+      "desc": {
+        "ko": "세력 오염이 이만큼 늘 때마다 웨이브가 세진다.",
+        "en": "Wave grows per this much faction pollution."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "p15_war_daily",
@@ -3175,7 +5215,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "전선 도시 칸에 하루마다 더하는 오염.",
+        "en": "Daily pollution added to front-line city cells."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "p15_front_radius",
@@ -3188,7 +5233,12 @@
       "structural": false,
       "unit": "cells",
       "min": 0,
-      "max": 16
+      "max": 16,
+      "desc": {
+        "ko": "적 도시가 이 거리 안이면 전선 도시로 본다.",
+        "en": "A city counts as front-line within this distance of an enemy city."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-460·D-464"
     },
     {
       "id": "d500_raid_strength",
@@ -3201,7 +5251,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "보호 레이드 세기 = 공격자 웨이브 세기 × 이 몫.",
+        "en": "Protection raid strength = attacker's wave strength × this."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-500"
     },
     {
       "id": "d500_raid_physical",
@@ -3214,7 +5269,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "보호 레이드의 물리형 몫.",
+        "en": "Physical share of a protection raid."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-500"
     },
     {
       "id": "d499_reward_renown",
@@ -3227,7 +5287,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "웨이브를 막으면 크리쳐 한 마리마다 받는 명성.",
+        "en": "Renown per creature for repelling a wave."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-499"
     },
     {
       "id": "d499_reward_genes",
@@ -3240,7 +5305,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "웨이브를 막으면 종류마다 받는 유전자 조각.",
+        "en": "Gene fragments per creature kind for repelling a wave."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-499"
     },
     {
       "id": "d499_reward_materials",
@@ -3253,7 +5323,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "크리쳐 한 마리마다 재료가 나올 몫.",
+        "en": "Creature material drop share per creature."
+      },
+      "source": "ADR 2026-11-01-gardener-r5b · D-499"
     },
     {
       "id": "travel_raid_base",
@@ -3266,7 +5341,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "2차맵을 건너뛸 때마다 습격당할 기본 확률.",
+        "en": "Base raid chance per second map skipped while travelling."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP13\" [임시]"
     },
     {
       "id": "travel_raid_pollution_div",
@@ -3279,7 +5359,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "습격 확률에 더하는 몫 = 오염 ÷ 이 값.",
+        "en": "Raid chance added = pollution ÷ this."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP13\" [임시]"
     },
     {
       "id": "travel_raid_max",
@@ -3292,7 +5377,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "이동 도중 습격 확률의 상한.",
+        "en": "Cap on travel raid chance."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP13\" [임시]"
     },
     {
       "id": "travel_raid_creatures",
@@ -3305,7 +5395,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 50
+      "max": 50,
+      "desc": {
+        "ko": "이동 도중 습격에 나오는 크리쳐 수.",
+        "en": "Creatures in a travel raid."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP13\" [임시]"
     },
     {
       "id": "m2_grade_l2",
@@ -3318,7 +5413,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "발전도가 이 이상이면 도시 등급이 읍이 된다.",
+        "en": "Development at which a city becomes a township."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "m2_grade_l3",
@@ -3331,7 +5431,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "이 이상이면 소도시.",
+        "en": "Development for a small city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "m2_grade_l4",
@@ -3344,7 +5449,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "이 이상이면 도시.",
+        "en": "Development for a city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "m2_grade_l5",
@@ -3357,7 +5467,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "이 이상이면 대도시.",
+        "en": "Development for a large city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "m2_grade_l6",
@@ -3370,7 +5485,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "이 이상이면 거대도시.",
+        "en": "Development for a metropolis."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "m3_city_radius_l1",
@@ -3383,7 +5503,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 50000
+      "max": 50000,
+      "desc": {
+        "ko": "마을의 영향권 반경.",
+        "en": "Influence radius of a village."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "m3_city_radius_l2",
@@ -3396,7 +5521,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 50000
+      "max": 50000,
+      "desc": {
+        "ko": "읍의 영향권 반경.",
+        "en": "Influence radius of a township."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "m3_city_radius_l3",
@@ -3409,7 +5539,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 50000
+      "max": 50000,
+      "desc": {
+        "ko": "소도시의 영향권 반경.",
+        "en": "Influence radius of a small city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "m3_city_radius_l4",
@@ -3422,7 +5557,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 50000
+      "max": 50000,
+      "desc": {
+        "ko": "도시의 영향권 반경.",
+        "en": "Influence radius of a city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "m3_city_radius_l5",
@@ -3435,7 +5575,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 50000
+      "max": 50000,
+      "desc": {
+        "ko": "대도시의 영향권 반경.",
+        "en": "Influence radius of a large city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "m3_city_radius_l6",
@@ -3448,7 +5593,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 50000
+      "max": 50000,
+      "desc": {
+        "ko": "거대도시의 영향권 반경.",
+        "en": "Influence radius of a metropolis."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_beacons_l1",
@@ -3461,7 +5611,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 50
+      "max": 50,
+      "desc": {
+        "ko": "마을이 세울 수 있는 영토 비콘 수.",
+        "en": "Territory beacons a village may place."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_beacons_l2",
@@ -3474,7 +5629,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 50
+      "max": 50,
+      "desc": {
+        "ko": "읍의 비콘 수.",
+        "en": "Beacons for a township."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_beacons_l3",
@@ -3487,7 +5647,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 50
+      "max": 50,
+      "desc": {
+        "ko": "소도시의 비콘 수.",
+        "en": "Beacons for a small city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_beacons_l4",
@@ -3500,7 +5665,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 50
+      "max": 50,
+      "desc": {
+        "ko": "도시의 비콘 수.",
+        "en": "Beacons for a city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_beacons_l5",
@@ -3513,7 +5683,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 50
+      "max": 50,
+      "desc": {
+        "ko": "대도시의 비콘 수.",
+        "en": "Beacons for a large city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_beacons_l6",
@@ -3526,7 +5701,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 50
+      "max": 50,
+      "desc": {
+        "ko": "거대도시의 비콘 수.",
+        "en": "Beacons for a metropolis."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_range_l1",
@@ -3539,7 +5719,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "마을 비콘이 도시에서 떨어질 수 있는 최대 거리.",
+        "en": "Furthest a village beacon may stand from the city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_range_l2",
@@ -3552,7 +5737,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "읍 비콘 최대 거리.",
+        "en": "Beacon range for a township."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_range_l3",
@@ -3565,7 +5755,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "소도시 비콘 최대 거리.",
+        "en": "Beacon range for a small city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_range_l4",
@@ -3578,7 +5773,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "도시 비콘 최대 거리.",
+        "en": "Beacon range for a city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_range_l5",
@@ -3591,7 +5791,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "대도시 비콘 최대 거리.",
+        "en": "Beacon range for a large city."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n42_range_l6",
@@ -3604,7 +5809,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "거대도시 비콘 최대 거리.",
+        "en": "Beacon range for a metropolis."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "n51_beacon_durability",
@@ -3617,7 +5827,12 @@
       "structural": false,
       "unit": "points",
       "min": 1,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "영토 비콘의 내구도.",
+        "en": "Durability of a territory beacon."
+      },
+      "source": "ADR 2026-11-03-territory-layer · D-485·D-486"
     },
     {
       "id": "ranking_period",
@@ -3630,7 +5845,12 @@
       "structural": true,
       "unit": "ms",
       "min": 60000,
-      "max": 2592000000
+      "max": 2592000000,
+      "desc": {
+        "ko": "랭킹을 다시 집계하는 간격.",
+        "en": "How often rankings are recalculated."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_decay",
@@ -3643,7 +5863,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "집계마다 지난 점수가 줄어드는 몫.",
+        "en": "Share of old score lost per ranking period."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_tier_1",
@@ -3656,7 +5881,12 @@
       "structural": false,
       "unit": "pm",
       "min": 1,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "백분위 등급 1이 되는 상위 몫.",
+        "en": "Top share for percentile tier 1."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_tier_2",
@@ -3669,7 +5899,12 @@
       "structural": false,
       "unit": "pm",
       "min": 1,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "등급 2가 되는 상위 몫.",
+        "en": "Top share for tier 2."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_tier_3",
@@ -3682,7 +5917,12 @@
       "structural": false,
       "unit": "pm",
       "min": 1,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "등급 3이 되는 상위 몫.",
+        "en": "Top share for tier 3."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_tier_4",
@@ -3695,7 +5935,12 @@
       "structural": false,
       "unit": "pm",
       "min": 1,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "등급 4가 되는 상위 몫.",
+        "en": "Top share for tier 4."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_top_ranks",
@@ -3708,7 +5953,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "순위 숫자로 보이는 최상위 수.",
+        "en": "How many top players show an exact rank."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_underdog_cap",
@@ -3721,7 +5971,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "약한 쪽이 이길 때 점수 배율의 상한.",
+        "en": "Cap on the underdog win multiplier."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_faction_city",
@@ -3734,7 +5989,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "세력 랭킹: 도시 하나의 점수.",
+        "en": "Faction ranking points per city."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_faction_development",
@@ -3747,7 +6007,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "세력 랭킹: 발전도 1점의 점수.",
+        "en": "Faction ranking points per development point."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_faction_human",
@@ -3760,7 +6025,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "세력 랭킹: 휴먼 하나의 점수.",
+        "en": "Faction ranking points per human."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "ranking_faction_treasury_unit",
@@ -3773,7 +6043,12 @@
       "structural": false,
       "unit": "minor",
       "min": 1,
-      "max": 1000000000
+      "max": 1000000000,
+      "desc": {
+        "ko": "세력 랭킹: 국고가 이만큼마다 1점.",
+        "en": "Faction ranking: one point per this much treasury."
+      },
+      "source": "ADR 2026-11-07-ranking · D-037·D-041 [임시]"
     },
     {
       "id": "n48_wage_cycle_ms",
@@ -3786,7 +6061,12 @@
       "structural": false,
       "unit": "ms",
       "min": 3600000,
-      "max": 604800000
+      "max": 604800000,
+      "desc": {
+        "ko": "노동 계약 임금을 주는 간격.",
+        "en": "How often contract wages are paid."
+      },
+      "source": "ADR 2026-11-03-labor-contracts · D-479"
     },
     {
       "id": "n48_deposit_days",
@@ -3799,7 +6079,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 365
+      "max": 365,
+      "desc": {
+        "ko": "보증금 = 하루 임금 × 이 날 수.",
+        "en": "Deposit = daily wage × this many days."
+      },
+      "source": "ADR 2026-11-03-labor-contracts · D-479"
     },
     {
       "id": "n48_warn_days",
@@ -3812,7 +6097,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 365
+      "max": 365,
+      "desc": {
+        "ko": "보증금이 이 날 수만큼 남으면 경고한다.",
+        "en": "Warn when the deposit has this many days left."
+      },
+      "source": "ADR 2026-11-03-labor-contracts · D-479"
     },
     {
       "id": "n48_rent_cycle_ms",
@@ -3825,7 +6115,12 @@
       "structural": false,
       "unit": "ms",
       "min": 60000,
-      "max": 86400000
+      "max": 86400000,
+      "desc": {
+        "ko": "임대료를 내는 간격.",
+        "en": "How often rent is paid."
+      },
+      "source": "ADR 2026-11-03-labor-contracts · D-479"
     },
     {
       "id": "n48_grace_ms",
@@ -3838,7 +6133,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 2592000000
+      "max": 2592000000,
+      "desc": {
+        "ko": "임대형 계약을 끊은 뒤 남는 유예 기간.",
+        "en": "Grace period after ending a lease contract."
+      },
+      "source": "ADR 2026-11-03-labor-contracts · D-479"
     },
     {
       "id": "n46_currency",
@@ -3851,7 +6151,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000
+      "max": 1000000000,
+      "desc": {
+        "ko": "사이보그 유닛 융합에 드는 화폐.",
+        "en": "Currency cost of a cyborg unit fusion."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n46_titanium",
@@ -3864,7 +6169,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "융합에 드는 티타늄 괴 수.",
+        "en": "Titanium ingots needed for fusion."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n46_microchip",
@@ -3877,7 +6187,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "융합에 드는 마이크로칩 수.",
+        "en": "Microchips needed for fusion."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n46_physical_donor",
@@ -3890,7 +6205,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "융합한 STR·DEX·AGI에서 안드로이드(부품) 쪽이 차지하는 몫.",
+        "en": "Share of STR/DEX/AGI taken from the android parts."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n46_mental_human",
@@ -3903,7 +6223,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "융합한 VIT·INT·WIS에서 휴먼 쪽이 차지하는 몫.",
+        "en": "Share of VIT/INT/WIS taken from the human."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n46_bonus_min",
@@ -3916,7 +6241,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "융합 보너스 배율의 최소.",
+        "en": "Lowest fusion bonus multiplier."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n46_bonus_max",
@@ -3929,7 +6259,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "융합 보너스 배율의 최대.",
+        "en": "Highest fusion bonus multiplier."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n46_parts_stat",
@@ -3942,7 +6277,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "부품 쪽 1차 스탯 값.",
+        "en": "Primary stat value of the parts side."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n46_upkeep",
@@ -3955,7 +6295,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "사이보그 유닛 유지비 배율.",
+        "en": "Upkeep multiplier for cyborg units."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n47_synth_up",
@@ -3968,7 +6313,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "유전자 합성에서 총합이 오를 확률.",
+        "en": "Chance gene synthesis raises the total."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n47_synth_down",
@@ -3981,7 +6331,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "총합이 내릴 확률.",
+        "en": "Chance gene synthesis lowers the total."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n47_synth_keep",
@@ -3994,7 +6349,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "총합이 그대로일 확률.",
+        "en": "Chance gene synthesis keeps the total."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n47_synth_step",
@@ -4007,7 +6367,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "오르내리는 양(바탕 총합의 몫).",
+        "en": "Amount raised or lowered (share of the base total)."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n47_total_max",
@@ -4020,7 +6385,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "스탯 유전자 총합의 상한.",
+        "en": "Cap on a stat gene's total."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n47_element_variance",
@@ -4033,7 +6403,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 10
+      "max": 10,
+      "desc": {
+        "ko": "합성할 때 속성값이 흔들리는 폭(± 점).",
+        "en": "Element value variance in synthesis (± points)."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n47_incubate_base",
@@ -4046,7 +6421,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "인큐베이터에서 나온 휴먼의 바탕 1차 스탯.",
+        "en": "Base primary stat of an incubated human."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "n53_gardener_waves",
@@ -4059,7 +6439,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1
+      "max": 1,
+      "desc": {
+        "ko": "정원 세력 웨이브를 켜고 끈다(0 꺼짐, 1 켜짐).",
+        "en": "Turns gardener waves on or off (0 off, 1 on)."
+      },
+      "source": "ADR 2026-11-08-operator-console · D-513"
     },
     {
       "id": "n53_market_enabled",
@@ -4072,7 +6457,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1
+      "max": 1,
+      "desc": {
+        "ko": "물자 거래소 주문·체결을 멈추거나 켠다.",
+        "en": "Pauses or runs goods exchange orders and fills."
+      },
+      "source": "ADR 2026-11-08-operator-console · D-513"
     },
     {
       "id": "n53_exchange_enabled",
@@ -4085,7 +6475,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1
+      "max": 1,
+      "desc": {
+        "ko": "화폐 환전소를 멈추거나 켠다.",
+        "en": "Pauses or runs the currency exchange."
+      },
+      "source": "ADR 2026-11-08-operator-console · D-513"
     },
     {
       "id": "n53_production_enabled",
@@ -4098,7 +6493,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1
+      "max": 1,
+      "desc": {
+        "ko": "1차·가공 생산을 멈추거나 켠다.",
+        "en": "Pauses or runs primary and processing production."
+      },
+      "source": "ADR 2026-11-08-operator-console · D-513"
     },
     {
       "id": "n53_npc_ai_enabled",
@@ -4111,7 +6511,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1
+      "max": 1,
+      "desc": {
+        "ko": "NPC 세력의 스스로 하는 판단을 멈추거나 켠다.",
+        "en": "Pauses or runs NPC faction decisions."
+      },
+      "source": "ADR 2026-11-08-operator-console · D-513"
     },
     {
       "id": "n54_armor_regen",
@@ -4124,7 +6529,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "분마다 아머가 최대 아머의 이 몫만큼 돌아온다(전투 중에도).",
+        "en": "Armour regained per minute as a share of max armour (also in battle)."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-514)\" · D-514"
     },
     {
       "id": "n54_injury_regen_1",
@@ -4137,7 +6547,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "흰 부상일 때 HP 회복 속도 배율.",
+        "en": "HP regen multiplier with a white injury."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-514)\" · D-514"
     },
     {
       "id": "n54_injury_regen_2",
@@ -4150,7 +6565,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "노랑 부상일 때 HP 회복 속도 배율.",
+        "en": "HP regen multiplier with a yellow injury."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-514)\" · D-514"
     },
     {
       "id": "n54_injury_regen_3",
@@ -4163,7 +6583,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "빨강 부상일 때 HP 회복 속도 배율.",
+        "en": "HP regen multiplier with a red injury."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-514)\" · D-514"
     },
     {
       "id": "n54_injury_penalty_1",
@@ -4176,7 +6601,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "흰 부상일 때 1차 스탯이 줄어드는 몫.",
+        "en": "Primary stat cut with a white injury."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-514)\" · D-514"
     },
     {
       "id": "n54_injury_penalty_2",
@@ -4189,7 +6619,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "노랑 부상일 때 1차 스탯이 줄어드는 몫.",
+        "en": "Primary stat cut with a yellow injury."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-514)\" · D-514"
     },
     {
       "id": "n54_injury_penalty_3",
@@ -4202,7 +6637,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "빨강 부상일 때 1차 스탯이 줄어드는 몫.",
+        "en": "Primary stat cut with a red injury."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-514)\" · D-514"
     },
     {
       "id": "n55_heal_white_ms",
@@ -4215,7 +6655,12 @@
       "structural": false,
       "unit": "ms",
       "min": 60000,
-      "max": 2592000000
+      "max": 2592000000,
+      "desc": {
+        "ko": "흰 부상이 저절로 나아 초록(건강)이 되기까지.",
+        "en": "Time for a white injury to heal to green (healthy)."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_heal_yellow_ms",
@@ -4228,7 +6673,12 @@
       "structural": false,
       "unit": "ms",
       "min": 60000,
-      "max": 2592000000
+      "max": 2592000000,
+      "desc": {
+        "ko": "노랑 부상이 흰 부상으로 나아지기까지.",
+        "en": "Time for a yellow injury to ease to white."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_heal_red_ms",
@@ -4241,7 +6691,12 @@
       "structural": false,
       "unit": "ms",
       "min": 60000,
-      "max": 2592000000
+      "max": 2592000000,
+      "desc": {
+        "ko": "빨강 부상이 노랑 부상으로 나아지기까지.",
+        "en": "Time for a red injury to ease to yellow."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_work_period_ms",
@@ -4254,7 +6709,12 @@
       "structural": false,
       "unit": "ms",
       "min": 60000,
-      "max": 604800000
+      "max": 604800000,
+      "desc": {
+        "ko": "일하는 동안 부상을 굴리는 간격.",
+        "en": "How often a working unit rolls for injury."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_work_chance",
@@ -4267,7 +6727,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "굴릴 때마다 다칠 확률(피로 0일 때).",
+        "en": "Injury chance per roll at zero fatigue."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_work_fatigue",
@@ -4280,7 +6745,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "피로가 가득일 때 더해지는 다칠 확률.",
+        "en": "Extra injury chance at full fatigue."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_work_stage_1",
@@ -4293,7 +6763,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "작업 중 다칠 때 흰 부상이 나올 무게.",
+        "en": "Weight of a white injury when hurt at work."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_work_stage_2",
@@ -4306,7 +6781,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "작업 중 노랑 부상 무게.",
+        "en": "Weight of a yellow injury at work."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_work_stage_3",
@@ -4319,7 +6799,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "작업 중 빨강 부상 무게.",
+        "en": "Weight of a red injury at work."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_combat_downed",
@@ -4332,7 +6817,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "전투에서 쓰러지면 다칠 확률.",
+        "en": "Injury chance when downed in battle."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_combat_downed_stage_1",
@@ -4345,7 +6835,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "쓰러져 다칠 때 흰 부상 무게.",
+        "en": "Weight of a white injury when downed."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_combat_downed_stage_2",
@@ -4358,7 +6853,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "쓰러져 다칠 때 노랑 부상 무게.",
+        "en": "Weight of a yellow injury when downed."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_combat_downed_stage_3",
@@ -4371,7 +6871,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "쓰러져 다칠 때 빨강 부상 무게.",
+        "en": "Weight of a red injury when downed."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_combat_hit",
@@ -4384,7 +6889,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "전투에서 HP를 모두 잃을 만큼 맞았을 때의 다칠 확률(잃은 몫에 비례).",
+        "en": "Injury chance from battle damage at full HP loss (scaled by the share lost)."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_combat_hit_stage_1",
@@ -4397,7 +6907,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "맞아서 다칠 때 흰 부상 무게.",
+        "en": "Weight of a white injury from damage."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_combat_hit_stage_2",
@@ -4410,7 +6925,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "맞아서 다칠 때 노랑 부상 무게.",
+        "en": "Weight of a yellow injury from damage."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_combat_hit_stage_3",
@@ -4423,7 +6943,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "맞아서 다칠 때 빨강 부상 무게.",
+        "en": "Weight of a red injury from damage."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_hospital_base",
@@ -4436,7 +6961,12 @@
       "structural": false,
       "unit": "pm",
       "min": 1000,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "병원(레벨 1, 의사 없음)에서 낫는 빠르기 배율.",
+        "en": "Healing speed at a hospital (level 1, no doctor)."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_hospital_level",
@@ -4449,7 +6979,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "병원 레벨 하나마다 더하는 배율.",
+        "en": "Healing speed added per hospital level."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_hospital_stat",
@@ -4462,7 +6997,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "의사의 INT + WIS 1점마다 더하는 배율.",
+        "en": "Healing speed added per point of the doctor's INT + WIS."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_hospital_skill",
@@ -4475,7 +7015,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "의사의 치유 스킬 등급 하나마다 더하는 배율.",
+        "en": "Healing speed added per grade of the doctor's healing skill."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_hospital_max",
@@ -4488,7 +7033,12 @@
       "structural": false,
       "unit": "pm",
       "min": 1000,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "병원 치유 배율의 상한.",
+        "en": "Cap on hospital healing speed."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_hospital_cost_day",
@@ -4501,7 +7051,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000
+      "max": 1000000000,
+      "desc": {
+        "ko": "남은 치유 시간 하루마다 내는 병원 값.",
+        "en": "Hospital fee per remaining day of healing."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "n55_hospital_cost_level",
@@ -4514,7 +7069,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "병원 레벨 하나마다 값에 더하는 몫.",
+        "en": "Fee increase per hospital level."
+      },
+      "source": "ADR 2026-11-08-injury · D-521"
     },
     {
       "id": "d517_inactive_cap_ms",
@@ -4527,7 +7087,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 2592000000
+      "max": 2592000000,
+      "desc": {
+        "ko": "수명이 끝난 비활성 휴먼이 떠나기까지 기다리는 상한(0 = 없음).",
+        "en": "How long an inactive human waits after its lifespan before leaving (0 = no cap)."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-517"
     },
     {
       "id": "d311_rebirth_faith",
@@ -4540,7 +7105,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "휴먼이 환생하려면 있어야 하는 신앙도(환생하면 0).",
+        "en": "Faith a human needs to rebirth (resets to 0)."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "d311_rebirth_currency",
@@ -4553,7 +7123,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000000
+      "max": 1000000000000,
+      "desc": {
+        "ko": "휴먼 환생에 내는 화폐.",
+        "en": "Currency paid for a human rebirth."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "d311_deify_faith",
@@ -4566,7 +7141,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "신격화에 필요한 신앙도.",
+        "en": "Faith needed for deification."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "d311_deify_currency",
@@ -4579,7 +7159,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000000
+      "max": 1000000000000,
+      "desc": {
+        "ko": "신격화에 내는 화폐.",
+        "en": "Currency paid for deification."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "s15_guardian_cap",
@@ -4592,7 +7177,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "도시 하나에 머물 수 있는 수호신 수.",
+        "en": "Guardians allowed per city."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "d444_pray_faith",
@@ -4605,7 +7195,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "기도 한 번에 오르는 신앙도.",
+        "en": "Faith gained per prayer."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "d444_pray_cooldown_ms",
@@ -4618,7 +7213,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 604800000
+      "max": 604800000,
+      "desc": {
+        "ko": "기도 뒤 다시 기도할 수 있기까지.",
+        "en": "Cooldown between prayers."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "d444_offering_per_faith",
@@ -4631,7 +7231,12 @@
       "structural": false,
       "unit": "minor",
       "min": 1,
-      "max": 1000000000
+      "max": 1000000000,
+      "desc": {
+        "ko": "헌금으로 신앙도 1을 올리는 값.",
+        "en": "Offering cost per point of faith."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "n47_convert_currency",
@@ -4644,7 +7249,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000000
+      "max": 1000000000000,
+      "desc": {
+        "ko": "생명과학 연구소에서 유전자를 바꾸는 값.",
+        "en": "Fee to convert genes at a life-science lab."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "d510_claim_cost",
@@ -4657,7 +7267,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000000
+      "max": 1000000000000,
+      "desc": {
+        "ko": "NPC가 폐허에 정부를 짓는 값.",
+        "en": "Cost for an NPC to claim a ruin with a government."
+      },
+      "source": "ADR 2026-11-07-ruins-restoration · D-510"
     },
     {
       "id": "d510_restore_goal",
@@ -4670,7 +7285,12 @@
       "structural": false,
       "unit": "minor",
       "min": 1,
-      "max": 1000000000000
+      "max": 1000000000000,
+      "desc": {
+        "ko": "옛 주거를 모를 때의 복원 목표 금액.",
+        "en": "Restoration goal when the old housing is unknown."
+      },
+      "source": "ADR 2026-11-07-ruins-restoration · D-510"
     },
     {
       "id": "d510_goal_per_housing",
@@ -4683,7 +7303,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000000
+      "max": 1000000000000,
+      "desc": {
+        "ko": "복원 목표 = 옛 주거 × 이 값.",
+        "en": "Restoration goal = old housing × this."
+      },
+      "source": "ADR 2026-11-07-ruins-restoration · D-510"
     },
     {
       "id": "d510_fund_days",
@@ -4696,7 +7321,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 3650
+      "max": 3650,
+      "desc": {
+        "ko": "복원 모금 기한(0 = 없음).",
+        "en": "Restoration fundraising deadline (0 = none)."
+      },
+      "source": "ADR 2026-11-07-ruins-restoration · D-510"
     },
     {
       "id": "d510_npc_claim_after_days",
@@ -4709,7 +7339,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 3650
+      "max": 3650,
+      "desc": {
+        "ko": "옛 주인이 아닌 NPC가 폐허를 차지하기까지의 날.",
+        "en": "Days before a non-former NPC may claim a ruin."
+      },
+      "source": "ADR 2026-11-07-ruins-restoration · D-510"
     },
     {
       "id": "d510_npc_fund_pm",
@@ -4722,7 +7357,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "폐허 주인 NPC가 하루에 넣는 국고 몫.",
+        "en": "Daily treasury share the ruin's owner NPC puts in."
+      },
+      "source": "ADR 2026-11-07-ruins-restoration · D-510"
     },
     {
       "id": "d510_npc_invest_pm",
@@ -4735,7 +7375,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "다른 NPC가 하루에 투자하는 몫(상업 1000일 때).",
+        "en": "Daily investment share from other NPCs (at commerce 1000)."
+      },
+      "source": "ADR 2026-11-07-ruins-restoration · D-510"
     },
     {
       "id": "d510_npc_restore_score",
@@ -4748,7 +7393,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "NPC 폐허 정부 짓기 기본 점수(복원 규칙 쪽).",
+        "en": "Base NPC score for claiming a ruin (restoration rule)."
+      },
+      "source": "ADR 2026-11-07-ruins-restoration · D-510"
     },
     {
       "id": "d520_raid_goods_bp",
@@ -4761,7 +7411,12 @@
       "structural": false,
       "unit": "bp",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "약탈할 때 도시 공공 창고에서 가져가는 몫.",
+        "en": "Share of the city's public storage taken in a raid."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-520"
     },
     {
       "id": "d520_raid_cooldown_days",
@@ -4774,7 +7429,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 3650
+      "max": 3650,
+      "desc": {
+        "ko": "약탈한 나라가 그 도시를 다시 치지 않는 날.",
+        "en": "Days the raider won't hit that city again."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-520"
     },
     {
       "id": "d520_rebuild_per_housing",
@@ -4787,7 +7447,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000000
+      "max": 1000000000000,
+      "desc": {
+        "ko": "점령·귀속한 도시를 다시 세우는 값(주거 1당).",
+        "en": "Rebuild cost per housing after occupation or annexation."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-520"
     },
     {
       "id": "d520_annex_penalty_days",
@@ -4800,7 +7465,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 3650
+      "max": 3650,
+      "desc": {
+        "ko": "점령·귀속 뒤 만족도 회복이 느린 기간.",
+        "en": "Days of slowed satisfaction recovery after annexation."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-520"
     },
     {
       "id": "d520_annex_recovery_pm",
@@ -4813,7 +7483,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "그 기간 동안 만족도 회복 빠르기.",
+        "en": "Satisfaction recovery speed during that period."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-520"
     },
     {
       "id": "d520_occupy_days",
@@ -4826,7 +7501,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 3650
+      "max": 3650,
+      "desc": {
+        "ko": "점령 상태가 이어지는 기간.",
+        "en": "How long the occupation state lasts."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-520"
     },
     {
       "id": "d520_occupy_tax_every_days",
@@ -4839,7 +7519,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 365
+      "max": 365,
+      "desc": {
+        "ko": "점령 상태 세금을 거두는 간격.",
+        "en": "Days between occupation taxes."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-520"
     },
     {
       "id": "d520_occupy_tax_bp",
@@ -4852,7 +7537,12 @@
       "structural": false,
       "unit": "bp",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "점령 상태 세금(도시 몫 국고의 몫).",
+        "en": "Occupation tax (share of the city's treasury)."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-520"
     },
     {
       "id": "d520_occupy_satisfaction_drop",
@@ -4865,7 +7555,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "점령 상태가 되면 떨어지는 만족도.",
+        "en": "Satisfaction drop when occupied."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-520"
     },
     {
       "id": "d520_npc_annex_weight",
@@ -4878,7 +7573,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "NPC가 공성 결과를 고를 때 점령·귀속 쪽 가중치.",
+        "en": "Weight of occupy/annex when an NPC picks a siege outcome."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-520"
     },
     {
       "id": "d311_guardian_defense_pm",
@@ -4891,7 +7591,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "수호신 하나가 그 도시 수비 유닛에 주는 방어율.",
+        "en": "Defence each guardian gives the city's defenders."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "d311_guardian_satisfaction_milli",
@@ -4904,7 +7609,12 @@
       "structural": false,
       "unit": "milli",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "수호신 하나가 그 도시 휴먼 만족도에 하루 더하는 값.",
+        "en": "Daily satisfaction each guardian adds to the city's humans."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "d311_guardian_production_pm",
@@ -4917,7 +7627,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "수호신 하나가 그 도시 시설 산출에 더하는 몫.",
+        "en": "Facility output each guardian adds in its city."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-311·D-444"
     },
     {
       "id": "d520_rebirth_stat_chance_bp",
@@ -4930,7 +7645,12 @@
       "structural": false,
       "unit": "bp",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "휴먼이 환생할 때 초기 스탯이 오를 확률.",
+        "en": "Chance a human's initial stats rise on rebirth."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-520"
     },
     {
       "id": "d520_rebirth_k_chance_bp",
@@ -4943,7 +7663,12 @@
       "structural": false,
       "unit": "bp",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "환생할 때 K가 오를 확률.",
+        "en": "Chance K rises on rebirth."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-520"
     },
     {
       "id": "d520_rebirth_stat_amount",
@@ -4956,7 +7681,12 @@
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "오를 때 스탯 하나가 오르는 양.",
+        "en": "Stat increase per stat when it rises."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-520"
     },
     {
       "id": "d520_rebirth_k_amount_pm",
@@ -4969,7 +7699,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "오를 때 K가 오르는 양.",
+        "en": "K increase when it rises."
+      },
+      "source": "ADR 2026-11-07-temple-religion · D-520"
     },
     {
       "id": "n47_incubate_currency",
@@ -4982,7 +7717,12 @@
       "structural": false,
       "unit": "minor",
       "min": 0,
-      "max": 1000000000000
+      "max": 1000000000000,
+      "desc": {
+        "ko": "인큐베이터를 쓰는 값.",
+        "en": "Fee to use an incubator."
+      },
+      "source": "ADR 2026-11-07-cyborg-fusion-genes · D-470·D-478"
     },
     {
       "id": "d6041_start_cities_min",
@@ -4995,7 +7735,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 4
+      "max": 4,
+      "desc": {
+        "ko": "고정 NPC 나라마다 시작 도시 수의 아래 끝.",
+        "en": "Fewest start cities per fixed NPC nation."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "d6041_start_cities_max",
@@ -5008,7 +7753,12 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 4
+      "max": 4,
+      "desc": {
+        "ko": "고정 NPC 나라마다 시작 도시 수의 위 끝.",
+        "en": "Most start cities per fixed NPC nation."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "npc_seed_farms",
@@ -5021,7 +7771,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 4
+      "max": 4,
+      "desc": {
+        "ko": "NPC 시작 도시에 처음 짓는 농장 수.",
+        "en": "Farms built in each NPC start city."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "npc_seed_lumber_camps",
@@ -5034,7 +7789,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 4
+      "max": 4,
+      "desc": {
+        "ko": "처음 짓는 벌목장 수.",
+        "en": "Lumber camps built in each NPC start city."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "npc_seed_mines",
@@ -5047,7 +7807,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 4
+      "max": 4,
+      "desc": {
+        "ko": "처음 짓는 광산 수.",
+        "en": "Mines built in each NPC start city."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "npc_seed_storehouses",
@@ -5060,7 +7825,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 4
+      "max": 4,
+      "desc": {
+        "ko": "처음 짓는 창고 수.",
+        "en": "Storehouses built in each NPC start city."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "npc_seed_housing",
@@ -5073,7 +7843,12 @@
       "structural": false,
       "unit": "count",
       "min": 4,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "새 시작 도시의 주거 수.",
+        "en": "Housing in a new NPC start city."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "npc_seed_population_pm",
@@ -5086,7 +7861,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "시작 도시 처음 인구 = 주거 × 이 몫.",
+        "en": "Starting population = housing × this share."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "npc_seed_lumber_forest_pct",
@@ -5099,7 +7879,12 @@
       "structural": false,
       "unit": "pct",
       "min": 0,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "둘레 숲이 이 % 이상이어야 벌목장을 짓는다.",
+        "en": "Build a lumber camp only with at least this % forest around."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "npc_seed_mine_height_m",
@@ -5111,7 +7896,12 @@
       "value": 500,
       "structural": false,
       "min": -12000,
-      "max": 12000
+      "max": 12000,
+      "desc": {
+        "ko": "칸 고도가 이 이상이어야 광산을 짓는다.",
+        "en": "Build a mine only at or above this height."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "npc_seed_farm_temp_c",
@@ -5123,7 +7913,12 @@
       "value": 5,
       "structural": false,
       "min": -100,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "기온이 이 이상이어야 농장을 짓는다.",
+        "en": "Build a farm only at or above this temperature."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "npc_seed_farm_rain_mm",
@@ -5135,7 +7930,12 @@
       "value": 250,
       "structural": false,
       "min": 0,
-      "max": 20000
+      "max": 20000,
+      "desc": {
+        "ko": "강수가 이 이상이어야 농장을 짓는다.",
+        "en": "Build a farm only with at least this rainfall."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
       "id": "world_layout_region_cells",
@@ -5148,7 +7948,12 @@
       "structural": false,
       "unit": "cells",
       "min": 4,
-      "max": 4096
+      "max": 4096,
+      "desc": {
+        "ko": "고정 나라 자리를 처음 찾는 반경.",
+        "en": "Initial search radius for a fixed nation's site."
+      },
+      "source": "ADR 2026-11-07-world-layout [임시]"
     },
     {
       "id": "world_layout_nation_gap_cells",
@@ -5161,7 +7966,12 @@
       "structural": false,
       "unit": "cells",
       "min": 2,
-      "max": 4096
+      "max": 4096,
+      "desc": {
+        "ko": "나라 수도끼리 떨어져야 하는 가장 짧은 거리.",
+        "en": "Minimum distance between nation capitals."
+      },
+      "source": "ADR 2026-11-07-world-layout [임시]"
     },
     {
       "id": "world_layout_city_step_cells",
@@ -5174,7 +7984,12 @@
       "structural": false,
       "unit": "cells",
       "min": 1,
-      "max": 8
+      "max": 8,
+      "desc": {
+        "ko": "같은 나라 시작 도시끼리의 거리.",
+        "en": "Distance between a nation's start cities."
+      },
+      "source": "ADR 2026-11-07-world-layout [임시]"
     },
     {
       "id": "world_layout_land_max_height_m",
@@ -5186,7 +8001,12 @@
       "value": 1500,
       "structural": false,
       "min": 1,
-      "max": 12000
+      "max": 12000,
+      "desc": {
+        "ko": "시작 도시 땅의 고도 위 끝.",
+        "en": "Highest ground allowed for a start city."
+      },
+      "source": "ADR 2026-11-07-world-layout [임시]"
     },
     {
       "id": "world_layout_land_min_temp_c",
@@ -5198,7 +8018,12 @@
       "value": 8,
       "structural": false,
       "min": -100,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "시작 도시 땅의 기온 아래 끝.",
+        "en": "Coldest ground allowed for a start city."
+      },
+      "source": "ADR 2026-11-07-world-layout [임시]"
     },
     {
       "id": "world_layout_land_max_temp_c",
@@ -5210,7 +8035,12 @@
       "value": 32,
       "structural": false,
       "min": -100,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "시작 도시 땅의 기온 위 끝.",
+        "en": "Hottest ground allowed for a start city."
+      },
+      "source": "ADR 2026-11-07-world-layout [임시]"
     },
     {
       "id": "world_layout_land_min_rain_mm",
@@ -5222,7 +8052,12 @@
       "value": 300,
       "structural": false,
       "min": 0,
-      "max": 20000
+      "max": 20000,
+      "desc": {
+        "ko": "시작 도시 땅의 강수 아래 끝.",
+        "en": "Driest ground allowed for a start city."
+      },
+      "source": "ADR 2026-11-07-world-layout [임시]"
     },
     {
       "id": "map_spawn_max_loaded",
@@ -5235,7 +8070,12 @@
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 512
+      "max": 512,
+      "desc": {
+        "ko": "그때그때 띄우는 2차맵의 상한(씨앗 2차맵 빼고).",
+        "en": "Most on-demand second maps loaded at once (seed maps excluded)."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP15\" [임시]"
     },
     {
       "id": "map_spawn_idle_ms",
@@ -5248,7 +8088,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 86400000
+      "max": 86400000,
+      "desc": {
+        "ko": "그때 띄운 2차맵이 비어 있으면 이만큼 뒤 내린다.",
+        "en": "An empty on-demand second map unloads after this long."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP15\" [임시]"
     },
     {
       "id": "npc_work_start_pm",
@@ -5261,7 +8106,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 휴먼이 일터로 가는 지역 시각(하루의 ‰, 250 = 06:00).",
+        "en": "Local time NPC humans go to work (‰ of a day, 250 = 06:00)."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP-NPC4\" [임시]"
     },
     {
       "id": "npc_work_end_pm",
@@ -5274,7 +8124,12 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 휴먼이 집으로 가는 지역 시각(750 = 18:00).",
+        "en": "Local time NPC humans go home (750 = 18:00)."
+      },
+      "source": "ADR 2026-11-07-play-flow \"WP-NPC4\" [임시]"
     },
     {
       "id": "d530_city_bid_pct",
@@ -5287,87 +8142,156 @@
       "structural": false,
       "unit": "pct",
       "min": 1,
-      "max": 100
+      "max": 100,
+      "desc": {
+        "ko": "NPC 도시가 모자란 물건을 지난 값의 이 %로 늘 사려고 걸어 둔다.",
+        "en": "NPC cities keep standing bids for short goods at this % of the last price."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · D-530"
     },
     {
       "id": "gather_obj_carry_g",
       "code": "",
-      "name": { "ko": "채집 화물 상한(g)", "en": "Gather carry limit (g)" },
+      "name": {
+        "ko": "채집 화물 상한(g)",
+        "en": "Gather carry limit (g)"
+      },
       "value": 80000,
       "structural": false,
       "unit": "grams",
       "min": 1000,
-      "max": 1000000
+      "max": 1000000,
+      "desc": {
+        "ko": "유닛이 한 번에 들 수 있는 채집 화물 무게.",
+        "en": "Gathered cargo a unit can carry at once."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_direct_pm",
       "code": "",
-      "name": { "ko": "직접 채집 수확 배율(‰)", "en": "Direct gather yield (‰)" },
+      "name": {
+        "ko": "직접 채집 수확 배율(‰)",
+        "en": "Direct gather yield (‰)"
+      },
       "value": 500,
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "시설 밖에서 직접 채집할 때 수확 배율.",
+        "en": "Yield multiplier when gathering outside a facility."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_camp_radius",
       "code": "",
-      "name": { "ko": "벌목장·광산 반경(배치 칸)", "en": "Lumber camp/mine radius (cells)" },
+      "name": {
+        "ko": "벌목장·광산 반경(배치 칸)",
+        "en": "Lumber camp/mine radius (cells)"
+      },
       "value": 40,
       "structural": false,
       "unit": "cells",
       "min": 1,
-      "max": 255
+      "max": 255,
+      "desc": {
+        "ko": "벌목장·광산이 거두는 반경.",
+        "en": "Radius a lumber camp or mine gathers from."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_camp_level_pm",
       "code": "",
-      "name": { "ko": "시설 레벨당 수확 더함(‰)", "en": "Extra yield per facility level (‰)" },
+      "name": {
+        "ko": "시설 레벨당 수확 더함(‰)",
+        "en": "Extra yield per facility level (‰)"
+      },
       "value": 200,
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000
+      "max": 10000,
+      "desc": {
+        "ko": "시설 레벨 하나마다 수확에 더하는 몫.",
+        "en": "Yield added per facility level."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_camp_fatigue_pm",
       "code": "",
-      "name": { "ko": "시설 반경 안 피로 배율(‰)", "en": "Fatigue near a facility (‰)" },
+      "name": {
+        "ko": "시설 반경 안 피로 배율(‰)",
+        "en": "Fatigue near a facility (‰)"
+      },
       "value": 500,
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "시설 반경 안에서 채집할 때 피로 배율.",
+        "en": "Fatigue multiplier when gathering inside a facility radius."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_camp_regrow_pm",
       "code": "",
-      "name": { "ko": "시설 반경 안 다시 자람 시간 배율(‰)", "en": "Regrow time near a facility (‰)" },
+      "name": {
+        "ko": "시설 반경 안 다시 자람 시간 배율(‰)",
+        "en": "Regrow time near a facility (‰)"
+      },
       "value": 500,
       "structural": false,
       "unit": "pm",
       "min": 1,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "시설 반경 안 오브젝트가 다시 자라는 시간 배율.",
+        "en": "Regrow time multiplier inside a facility radius."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_fatigue",
       "code": "",
-      "name": { "ko": "채집 한 번의 피로(점)", "en": "Fatigue per gather (points)" },
+      "name": {
+        "ko": "채집 한 번의 피로(점)",
+        "en": "Fatigue per gather (points)"
+      },
       "value": 1,
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 120
+      "max": 120,
+      "desc": {
+        "ko": "채집 한 번에 쌓이는 피로.",
+        "en": "Fatigue from one gather action."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_next_radius",
       "code": "",
-      "name": { "ko": "다음 오브젝트 찾는 반경(배치 칸)", "en": "Next object search radius (cells)" },
+      "name": {
+        "ko": "다음 오브젝트 찾는 반경(배치 칸)",
+        "en": "Next object search radius (cells)"
+      },
       "value": 24,
       "structural": false,
       "unit": "cells",
       "min": 0,
-      "max": 255
+      "max": 255,
+      "desc": {
+        "ko": "다 캔 뒤 다음 오브젝트를 찾는 반경.",
+        "en": "Radius searched for the next object after one is used up."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_pollution_pm",
@@ -5380,27 +8304,48 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 100000
+      "max": 100000,
+      "desc": {
+        "ko": "오염이 가득일 때 다시 자라는 시간에 더하는 몫.",
+        "en": "Regrow time added at full pollution."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_station_radius_step",
       "code": "",
-      "name": { "ko": "채집소 레벨당 반경 더함(배치 칸)", "en": "Gather station radius per level (cells)" },
+      "name": {
+        "ko": "채집소 레벨당 반경 더함(배치 칸)",
+        "en": "Gather station radius per level (cells)"
+      },
       "value": 4,
       "structural": false,
       "unit": "cells",
       "min": 0,
-      "max": 64
+      "max": 64,
+      "desc": {
+        "ko": "채집소 레벨 하나마다 반경에 더하는 칸.",
+        "en": "Radius cells added per gathering-station level."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_station_fatigue_step_pm",
       "code": "",
-      "name": { "ko": "채집소 레벨당 피로 배율 줄임(‰)", "en": "Gather station fatigue cut per level (‰)" },
+      "name": {
+        "ko": "채집소 레벨당 피로 배율 줄임(‰)",
+        "en": "Gather station fatigue cut per level (‰)"
+      },
       "value": 50,
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "채집소 레벨 하나마다 피로 배율을 줄이는 몫.",
+        "en": "Fatigue multiplier cut per station level."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_station_regrow_step_pm",
@@ -5413,17 +8358,30 @@
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "채집소 레벨 하나마다 다시 자람 배율을 줄이는 몫.",
+        "en": "Regrow multiplier cut per station level."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_station_floor_pm",
       "code": "",
-      "name": { "ko": "채집소 피로·다시 자람 배율 하한(‰)", "en": "Gather station fatigue/regrow floor (‰)" },
+      "name": {
+        "ko": "채집소 피로·다시 자람 배율 하한(‰)",
+        "en": "Gather station fatigue/regrow floor (‰)"
+      },
       "value": 200,
       "structural": false,
       "unit": "pm",
       "min": 1,
-      "max": 1000
+      "max": 1000,
+      "desc": {
+        "ko": "채집소로 줄이는 피로·다시 자람 배율의 하한.",
+        "en": "Floor for station-reduced fatigue and regrow multipliers."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
       "id": "gather_obj_station_haul_ms",
@@ -5436,7 +8394,12 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 86400000
+      "max": 86400000,
+      "desc": {
+        "ko": "채집소 창고에서 도시 창고로 저절로 옮기는 간격.",
+        "en": "How often station storage is hauled to the city storage."
+      },
+      "source": "ADR 2026-11-07-gather-objects [임시]"
     }
   ]
 }

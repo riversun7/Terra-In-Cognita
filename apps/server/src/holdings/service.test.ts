@@ -68,6 +68,12 @@ const grant = (service: HoldingService, item: string, quantity = 1, atMs = T0, s
 const ids = (result: ReturnType<HoldingService["acquire"]>): readonly number[] =>
   result.ok ? result.holdings : [];
 
+/** 포장 칸에서 낱개를 꺼낸다(D-524) — 새 낱개 칸 ID들 */
+const unpack = (service: HoldingService, holding: number, quantity = 1, nowMs = T0): readonly number[] => {
+  const result = service.unpack(OWNER, holding, quantity, nowMs);
+  return result.ok ? result.holdings : [];
+};
+
 describe("얻기(굴림, N49 285)", () => {
   it("장비는 하나하나, 스탯을 굴리고 내구도 = 지금 정의의 최대", () => {
     const { service, ops } = setup();
@@ -98,7 +104,7 @@ describe("얻기(굴림, N49 285)", () => {
     expect(grant(service, "hold_rotten_fish")).toEqual({ ok: false, code: "not_holdable" });
   });
 
-  it("쌓이는 소모품은 stackMax까지 한 칸, 넘치면 새 칸. 신선도 묶음은 같은 숙성끼리만", () => {
+  it("쌓이는 소모품은 stackMax까지 한 칸, 넘치면 새 칸. 식품은 포장 칸끼리 쌓인다(D-524 — 포장된 동안 숙성이 멈춰 얻은 때가 달라도 같다)", () => {
     const { service } = setup();
     grant(service, "hold_stew", 15);
     grant(service, "hold_stew", 10);
@@ -107,7 +113,8 @@ describe("얻기(굴림, N49 285)", () => {
     grant(service, "hold_fish", 10, T0);
     grant(service, "hold_fish", 5, T0 + HOUR_MS);
     const fish = service.list(OWNER, T0 + HOUR_MS).holdings.filter((h) => h.itemId === "hold_fish");
-    expect(fish.map((h) => h.quantity)).toEqual([40, 5]);
+    expect(fish.map((h) => h.quantity)).toEqual([45]);
+    expect(fish.map((h) => h.packed)).toEqual([true]);
   });
 });
 
@@ -561,19 +568,27 @@ describe("썩기(D-496 288·N49)", () => {
   it("신선도는 1 − 숙성 ÷ 유통기한, 0이 되면 고른 아이템으로 바뀐다", () => {
     const { service } = setup();
     const [lot = 0] = ids(grant(service, "hold_fish", 10));
-    const record = service.list(OWNER, T0 + 36 * HOUR_MS).holdings[0];
+    const [single = 0] = unpack(service, lot);
+    const [packed, record] = service.list(OWNER, T0 + 36 * HOUR_MS).holdings;
+    // 포장 칸은 멈춘 채(D-524), 풀린 낱개는 신선도가 준다
+    expect(packed && service.freshnessOf(packed, T0 + 36 * HOUR_MS)).toEqual({
+      freshnessPm: 1000,
+      spoilsAt: null,
+    });
     expect(record && service.freshnessOf(record, T0 + 36 * HOUR_MS)).toEqual({
       freshnessPm: 500,
       spoilsAt: T0 + 72 * HOUR_MS,
     });
     expect(service.spoilDue(T0 + 71 * HOUR_MS)).toBe(0);
     expect(service.spoilDue(T0 + 72 * HOUR_MS)).toBe(1);
-    const [rotten] = service.list(OWNER, T0 + 72 * HOUR_MS).holdings;
+    const [stillPacked, rotten] = service.list(OWNER, T0 + 72 * HOUR_MS).holdings;
+    expect(stillPacked).toMatchObject({ id: lot, itemId: "hold_fish", quantity: 9, packed: true });
     expect(rotten).toMatchObject({
-      id: lot,
+      id: single,
       itemId: "hold_rotten_fish",
-      quantity: 10,
+      quantity: 1,
       age: null,
+      packed: false,
       source: "spoil",
     });
   });
@@ -599,8 +614,9 @@ describe("썩기(D-496 288·N49)", () => {
         atMs: T0,
         seed: 1,
       });
-    store(carriedBy(UNIT));
-    store(5);
+    // 포장을 풀어야 보관 곳 배율로 숙성한다(D-524)
+    unpack(service, ids(store(carriedBy(UNIT)))[0] ?? 0);
+    unpack(service, ids(store(5))[0] ?? 0);
     const [carried, stored] = service.list(OWNER, T0).holdings;
     expect(carried && service.freshnessOf(carried, T0)?.spoilsAt).toBe(T0 + 72 * HOUR_MS);
     expect(stored && service.freshnessOf(stored, T0)?.spoilsAt).toBe(T0 + 144 * HOUR_MS);
@@ -630,7 +646,7 @@ describe("썩기(D-496 288·N49)", () => {
       rules: () => slow,
       world: { unitOwner: () => OWNER, unitKind: () => "cyborg", unitPrimaries: () => flat(10) },
     });
-    later.acquire({
+    const made = later.acquire({
       ownerId: OWNER,
       item: "hold_fish",
       quantity: 1,
@@ -639,6 +655,7 @@ describe("썩기(D-496 288·N49)", () => {
       atMs: T0,
       seed: 1,
     });
+    later.unpack(OWNER, ids(made)[0] ?? 0, 1, T0);
     const [mine] = later.list(OWNER, T0).holdings;
     expect(mine && later.freshnessOf(mine, T0)?.spoilsAt).toBe(T0 + 288 * HOUR_MS);
   });
@@ -653,11 +670,109 @@ describe("신선도와 효과량(D-512 320)", () => {
     expect(amountNow).toBeGreaterThanOrEqual(30);
     expect(amountNow).toBeLessThanOrEqual(50);
     const half = setup({ vit: 10 });
-    const [b = 0] = ids(grant(half.service, "hold_milk", 1));
+    const [b = 0] = unpack(half.service, ids(grant(half.service, "hold_milk", 1))[0] ?? 0);
     const later = half.service.use(OWNER, b, { confirm: false, nowMs: T0 + 5 * HOUR_MS, seed: 9 });
     const amountLater = later.ok ? (later.effects[0]?.amount ?? 0) : -1;
     expect(amountLater).toBeGreaterThanOrEqual(15);
     expect(amountLater).toBeLessThanOrEqual(25);
+  });
+});
+
+describe("식품 포장(D-524)", () => {
+  it("포장을 풀면 낱개(수량 1)가 되고, 포장 칸은 줄고, 낱개는 쌓이지 않는다", () => {
+    const { service, ops } = setup();
+    const [lot = 0] = ids(grant(service, "hold_fish", 5));
+    const singles = unpack(service, lot, 2, T0 + HOUR_MS);
+    expect(singles).toEqual([102, 103]);
+    const list = service.list(OWNER, T0 + HOUR_MS).holdings;
+    expect(list.map((h) => [h.id, h.quantity, h.packed])).toEqual([
+      [lot, 3, true],
+      [102, 1, false],
+      [103, 1, false],
+    ]);
+    // 낱개의 숙성은 푼 때부터(포장 동안 1시간은 세지 않는다)
+    expect(list[1]?.age).toEqual({ agedMs: 0, atMs: T0 + HOUR_MS });
+    // 쓰기 대기열: 새 낱개 둘(packed false)과 줄어든 포장 칸
+    const rows = ops.filter((op) => op.table === "holdings").slice(-3);
+    expect(rows.map((op) => [op.row.id, op.row.quantity, op.row.packed])).toEqual([
+      [102, 1, false],
+      [103, 1, false],
+      [lot, 3, true],
+    ]);
+    // 새로 얻은 것은 낱개가 아니라 포장 칸에 쌓인다
+    grant(service, "hold_fish", 4, T0 + 2 * HOUR_MS);
+    expect(service.list(OWNER, T0 + 2 * HOUR_MS).holdings.map((h) => h.quantity)).toEqual([7, 1, 1]);
+    // 다 풀면 포장 칸이 사라진다(상한은 수량까지)
+    expect(unpack(service, lot, 100, T0 + 2 * HOUR_MS)).toHaveLength(7);
+    expect(service.list(OWNER, T0 + 2 * HOUR_MS).holdings.every((h) => h.packed === false)).toBe(true);
+  });
+
+  it("풀린 낱개·식품이 아닌 물건은 not_packed, 남의 것은 unknown_holding", () => {
+    const { service } = setup();
+    const [lot = 0] = ids(grant(service, "hold_fish", 2));
+    const [single = 0] = unpack(service, lot);
+    const [tonic = 0] = ids(grant(service, "hold_tonic"));
+    expect(service.unpack(OWNER, single, 1, T0)).toEqual({ ok: false, code: "not_packed" });
+    expect(service.unpack(OWNER, tonic, 1, T0)).toEqual({ ok: false, code: "not_packed" });
+    expect(service.unpack(OTHER, lot, 1, T0)).toEqual({ ok: false, code: "unknown_holding" });
+  });
+
+  it("포장된 식품도 바로 먹을 수 있고 효과량은 멈춘 신선도(가득)로 셈한다", () => {
+    const { service } = setup({ vit: 10 });
+    const [milk = 0] = ids(grant(service, "hold_milk", 2));
+    const used = service.use(OWNER, milk, { confirm: false, nowMs: T0 + 9 * HOUR_MS, seed: 9 });
+    const amount = used.ok ? (used.effects[0]?.amount ?? 0) : -1;
+    expect(amount).toBeGreaterThanOrEqual(30);
+    expect(service.list(OWNER, T0 + 9 * HOUR_MS).holdings).toMatchObject([
+      { id: milk, quantity: 1, packed: true },
+    ]);
+  });
+
+  it("D-524 전 묶음(packed 빈 줄)은 부팅 때 옛 규칙으로 그 시각까지 숙성한 뒤 포장 칸이 된다", () => {
+    const { writer, ops } = fakeWriter();
+    const base = {
+      ownerId: OWNER,
+      location: carriedBy(UNIT),
+      slot: null,
+      stats: [],
+      scorePm: null,
+      durability: null,
+      maxDurability: null,
+      createdAtMs: T0,
+      source: "dev_grant",
+    };
+    const service = createHoldingService({
+      loaded: {
+        holdings: [
+          { ...base, id: 1, itemId: "hold_fish", quantity: 6, age: { agedMs: 0, atMs: T0 } },
+          { ...base, id: 2, itemId: "hold_milk", quantity: 2, age: { agedMs: 0, atMs: T0 } },
+          { ...base, id: 3, itemId: "hold_tonic", quantity: 1, age: null },
+        ],
+        effects: [],
+        cooldowns: [],
+        maxId: 3,
+        legacyLots: [1, 2],
+      },
+      writer,
+      content: () => TEST_HOLDING_CONTENT,
+      rules: () => TEST_HOLDING_RULES,
+      world: { unitOwner: () => OWNER, unitKind: () => "cyborg", unitPrimaries: () => flat(10) },
+    });
+    // 생선(72시간)은 36시간 숙성한 채 포장, 우유(10시간)는 그 사이 상해 바뀐 아이템(신선도 없음)
+    expect(service.packLegacy([1, 2], T0 + 36 * HOUR_MS)).toBe(1);
+    const [fish, milk] = service.list(OWNER, T0 + 99 * HOUR_MS).holdings;
+    expect(fish).toMatchObject({ id: 1, quantity: 6, packed: true, age: { agedMs: 36 * HOUR_MS } });
+    expect(fish && service.freshnessOf(fish, T0 + 99 * HOUR_MS)).toEqual({
+      freshnessPm: 500,
+      spoilsAt: null,
+    });
+    expect(milk).toMatchObject({ id: 2, itemId: "hold_rotten_fish", packed: false, age: null });
+    expect(ops.filter((op) => op.table === "holdings").map((op) => [op.row.id, op.row.packed])).toEqual([
+      [1, true],
+      [2, null],
+    ]);
+    // 두 번 불러도 그대로
+    expect(service.packLegacy([1, 2], T0 + 40 * HOUR_MS)).toBe(0);
   });
 });
 

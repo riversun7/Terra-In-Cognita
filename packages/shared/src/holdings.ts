@@ -44,8 +44,13 @@ export interface HoldingView {
   readonly maxDurability: number | null;
   /** 지금 신선도(‰, 신선도 묶음만) */
   readonly freshnessPm: number | null;
-  /** 그 자리에 그대로 두면 썩는 시각(UTC ms, 멈춤·신선도 없음이면 null) */
+  /** 그 자리에 그대로 두면 썩는 시각(UTC ms, 멈춤·포장·신선도 없음이면 null) */
   readonly spoilsAt: number | null;
+  /**
+   * 식품 포장 상태(D-524, 신선도 묶음만): true = 포장(겹쳐 쌓임, 신선도 멈춤 — 포장 풀기 item_unpack으로 낱개를 꺼낸다), false = 풀린 낱개
+   * (수량 1, 신선도가 준다). 식품이 아니면 null. 옛 서버는 보내지 않는다
+   */
+  readonly packed?: boolean | null | undefined;
   readonly createdAt: number;
   /** 얻은 길(dev_grant·craft·drop·gather·spoil 등) */
   readonly source: string;

@@ -97,8 +97,11 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
       });
     const vest = grant("hold_vest", 1);
     const stew = grant("hold_stew", 2);
-    grant("hold_fish", 5);
-    expect(vest.ok && stew.ok).toBe(true);
+    const fish = grant("hold_fish", 5);
+    expect(vest.ok && stew.ok && fish.ok).toBe(true);
+    // 포장 칸에서 둘을 낱개로 꺼낸다(D-524) — 낱개만 신선도가 준다
+    const fishId = fish.ok ? (fish.holdings[0] ?? 0) : 0;
+    expect(p.holdings.service.unpack(owner, fishId, 2, clock).ok).toBe(true);
     const vestId = vest.ok ? (vest.holdings[0] ?? 0) : 0;
     const stewId = stew.ok ? (stew.holdings[0] ?? 0) : 0;
     // 시험 일꾼 = 휴먼 칸 배치(body = 3)
@@ -112,11 +115,14 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
       slot: number | null;
       quantity: number;
       stats: unknown;
-    }>(test.db, `select id, item_id, slot, quantity, stats from item_holdings order by id`);
-    expect(saved.map((row) => [row.item_id, row.slot, row.quantity])).toEqual([
-      ["hold_vest", 3, 1],
-      ["hold_stew", null, 1],
-      ["hold_fish", null, 5],
+      packed: boolean | null;
+    }>(test.db, `select id, item_id, slot, quantity, stats, packed from item_holdings order by id`);
+    expect(saved.map((row) => [row.item_id, row.slot, row.quantity, row.packed])).toEqual([
+      ["hold_vest", 3, 1, null],
+      ["hold_stew", null, 1, null],
+      ["hold_fish", null, 3, true],
+      ["hold_fish", null, 1, false],
+      ["hold_fish", null, 1, false],
     ]);
     expect(saved[0]?.stats).toEqual(before.holdings[0]?.stats);
     await first.stop();
@@ -133,15 +139,23 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
     expect(listed.holdings.map((h) => [h.item, h.slot, h.quantity, h.unit])).toEqual([
       ["hold_vest", 3, 1, worker],
       ["hold_stew", null, 1, worker],
-      // 72시간이 지나 썩은 생선으로 바뀌었다(목록을 읽기 전에 셈한다)
-      ["hold_rotten_fish", null, 5, worker],
+      // 포장 칸은 멈춘 채 그대로(D-524), 풀린 낱개는 72시간이 지나 썩은 생선으로 바뀌었다(목록을 읽기 전에 셈한다)
+      ["hold_fish", null, 3, worker],
+      ["hold_rotten_fish", null, 1, worker],
+      ["hold_rotten_fish", null, 1, worker],
+    ]);
+    expect(listed.holdings.map((h) => [h.freshnessPm, h.spoilsAt, h.packed])).toEqual([
+      [null, null, null],
+      [null, null, null],
+      [1000, null, true],
+      [null, null, null],
+      [null, null, null],
     ]);
     expect(listed.holdings[0]?.stats).toEqual(before.holdings[0]?.stats);
     // 화면 자료: 입는 칸·쓰기 쿨 종류·쓰는 효과, 든 유닛의 칸 배치(시험 일꾼 = human, 사이보그 없음)
-    expect(listed.holdings.map((h) => [h.item, h.equipSlot, h.useCooldown])).toEqual([
+    expect(listed.holdings.slice(0, 2).map((h) => [h.item, h.equipSlot, h.useCooldown])).toEqual([
       ["hold_vest", "body", null],
       ["hold_stew", null, "food"],
-      ["hold_rotten_fish", null, null],
     ]);
     expect(listed.holdings[1]?.uses?.map((line) => line.effect)).toEqual(["hold_meal_str"]);
     expect(listed.cyborgUnit).toBeNull();
@@ -153,9 +167,54 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
     await q.writer.durable();
     const rotten = await rows<{ item_id: string; aged_ms: string | null; source: string }>(
       test.db,
-      `select item_id, aged_ms, source from item_holdings where item_id like 'hold_%fish'`,
+      `select item_id, aged_ms, source from item_holdings where item_id = 'hold_rotten_fish' order by id`,
     );
-    expect(rotten).toEqual([{ item_id: "hold_rotten_fish", aged_ms: null, source: "spoil" }]);
+    expect(rotten).toEqual([
+      { item_id: "hold_rotten_fish", aged_ms: null, source: "spoil" },
+      { item_id: "hold_rotten_fish", aged_ms: null, source: "spoil" },
+    ]);
+  });
+
+  it("D-524 전 묶음(packed 빈 줄)은 다시 켤 때 그 시각까지 숙성한 뒤 포장 칸으로 저장된다", async () => {
+    const first = await boot();
+    const p = persistence(first);
+    const mapKey = [...first.maps.keys()][0] ?? 0;
+    const user = await fakeUser("legacy");
+    const [worker = 0] = p.settlement.giveWorkers(user, mapKey, 1, clock);
+    const owner = p.settlement.ownerOfUser(user, clock).id;
+    p.holdings.service.acquire({
+      ownerId: owner,
+      item: "hold_fish",
+      quantity: 4,
+      location: carriedBy(worker),
+      source: "dev_grant",
+      atMs: clock,
+      seed: 3,
+    });
+    await p.writer.durable();
+    await first.stop();
+    // 직전 판 앱이 쓴 줄처럼 포장 칸을 비운다
+    await rows(test.db, `update item_holdings set packed = null`);
+    clock += 36 * HOUR_MS;
+    const second = await boot();
+    const q = persistence(second);
+    const [lot] = q.holdings.service.list(owner, clock + 99 * HOUR_MS).holdings;
+    expect(lot).toMatchObject({
+      itemId: "hold_fish",
+      quantity: 4,
+      packed: true,
+      age: { agedMs: 36 * HOUR_MS },
+    });
+    expect(lot && q.holdings.service.freshnessOf(lot, clock + 99 * HOUR_MS)).toEqual({
+      freshnessPm: 500,
+      spoilsAt: null,
+    });
+    await q.writer.durable();
+    const saved = await rows<{ packed: boolean | null; aged_ms: string }>(
+      test.db,
+      `select packed, aged_ms from item_holdings`,
+    );
+    expect(saved).toEqual([{ packed: true, aged_ms: String(36 * HOUR_MS) }]);
   });
 
   it("물약 쿨(D-509)은 저장돼 다시 켜도 이어진다", async () => {

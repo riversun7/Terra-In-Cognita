@@ -32,7 +32,7 @@
 | `docs/adr/2026-11-08-injury.md`·`2026-11-08-citizenship.md`, `docs/PLAN.md`, `docs/questions/2026-11-08-injury-citizen2.md` | 기록 |
 
 ## 함께 바꿔야 하는 파일
-- 프로토콜·팩 판: 다른 줄기(`food-pack` 등)도 19·56을 쓰면 합칠 때 한 판으로 묶는다(`version.ts` 19 설명 줄, `manifest.json`).
+- 프로토콜·팩 판: `merge/integration`(07e08fa — 설정 칸 페이지 core@56, 식품 포장 프로토콜 19)을 합치며 같은 판에 묶었다(`version.ts` 19 = 합친 판, 팩 56 그대로). 새 설정 칸에는 `desc`·`source`를 단다(페이지는 `tuningPages.ts` 규칙대로 "그 밖").
 - 설정 칸을 더하면 `tuningCyborg.ts`와 `content/core/tuning.json`을 함께.
 - 세력 쌍 호감·개인 신뢰도(D-255·D-315)가 서버에 생기면 `user_nation_standings`와 묶는 법(질문 848)을 정한다.
 

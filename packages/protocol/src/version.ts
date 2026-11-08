@@ -74,10 +74,14 @@
  *    - 국적 바꾸기(citizenship.ts nationality_change → nationality_result, docs/adr/2026-11-08-citizenship.md, 질문 745 나) — 다른 나라 도시의
  *      행정 건물에서 값을 내고 옛 나라 정착 지원금을 돌려준 뒤 그 나라 국민이 된다. 더하기만 했고 17판 기기는 그대로 받는다(이 메시지를 보내지
  *      않는다). 같은 나라 시야 공유(질문 746 나)는 메시지 모양이 그대로다(서버가 보내는 남의 유닛이 늘 뿐).
- * 19: 귀화 조건 바뀜(citizenship.ts, docs/adr/2026-11-08-citizenship.md "바뀜 (D-526)") — 받는 나라가 지원금 또는 입회비를 정하고 옛 나라에
- *    돌려주지 않는다. nationality_change의 cost가 부호 있는 값(입회비 − 지원금, 음수 = 받는다)이 되었고, nationality_result 성공에 granted·
- *    standingDrop·hostile(선택 칸)을 더했고 returned는 늘 "0"이다. 18 기기는 그대로 받는다(cost는 0 이상만 보내고, 결과의 새 칸은 버린다 —
- *    지원금을 주는 나라에서는 18 기기가 보낸 합이 맞지 않아 terms_changed).
+ * 19: 합친 판(두 줄기를 한 판으로 묶었다. 18판 기기는 그대로 받는다).
+ *    - 식품 포장 풀기(items.ts item_unpack → item_result, docs/adr/2026-11-03-item-holdings.md "바뀜 (D-524, 2026-11-08)", 사용자 결정 D-524
+ *      "음식은 포장된것만 스택. 포장 해제시 신선도 하락시작") — 포장된 식품 칸에서 낱개를 꺼낸다. 결과 코드 not_packed는 이 메시지의 답에만 간다.
+ *      holdings.list 물건 칸 packed(조회 모양, 프로토콜과 무관)도 같은 줄기다. 더하기만 했고 18판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
+ *    - 귀화 조건 바뀜(citizenship.ts, docs/adr/2026-11-08-citizenship.md "바뀜 (D-526)") — 받는 나라가 지원금 또는 입회비를 정하고 옛 나라에
+ *      돌려주지 않는다. nationality_change의 cost가 부호 있는 값(입회비 − 지원금, 음수 = 받는다)이 되었고, nationality_result 성공에 granted·
+ *      standingDrop·hostile(선택 칸)을 더했고 returned는 늘 "0"이다. 18 기기는 그대로 받는다(cost는 0 이상만 보내고, 결과의 새 칸은 버린다 —
+ *      지원금을 주는 나라에서는 18 기기가 보낸 합이 맞지 않아 terms_changed).
  */
 export const PROTOCOL_VERSION = 19;
 

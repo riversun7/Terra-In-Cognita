@@ -1,5 +1,5 @@
 // 보유 물건 조작 묶음 — tRPC holdings.list 받기(사이보그·유닛 화면과 같은 규칙: 열 때·[다시 시도]·다시 보일 때 60초 넘었으면)와
-// WebSocket 명령(입기·벗기·쓰기·개발 받기), 결과 알림, D-501 교체 확인 창·칸 고르기 창 상태. docs/adr/2026-11-03-item-holdings.md 4·5절.
+// WebSocket 명령(입기·벗기·쓰기·식품 포장 풀기 D-524·개발 받기), 결과 알림, D-501 교체 확인 창·칸 고르기 창 상태. docs/adr/2026-11-03-item-holdings.md 4·5절.
 // - 명령이 성공하면 목록을 다시 받는다(바뀐 값은 서버가 셈한다). 실패 코드는 문구로 보이고, 서버 상태를 모를 때(끊김·답 없음·없는 물건)도
 //   다시 받는다. 쿨이면 다시 쓸 시각을 문구에 넣고 쿨 목록도 다시 받는다.
 // - 시각은 서버 시계 기준(기기 시계 + 잰 차이, net/serverLink.ts). 효과·쿨 끝 시각이 남았을 때만 1초마다 다시 그린다.
@@ -54,6 +54,8 @@ export interface HoldingsController {
   readonly unequip: (holding: HoldingView) => void;
   /** 쓰기(item_use). 같은 묶음의 다른 효과가 사라지면 확인 창(replace)을 연다 */
   readonly consume: (holding: HoldingView) => void;
+  /** 식품 포장 풀기(item_unpack, D-524): 포장 칸에서 낱개 하나를 꺼낸다(그때부터 신선도가 준다) */
+  readonly unpack: (holding: HoldingView) => void;
   /** 개발 시험 받기(dev·admin). 성공하면 true */
   readonly grant: (item: string, quantity: number, unit: number | null, label: string) => Promise<boolean>;
   /** 개발 시험 병원 치료(dev·admin, D-514): 부상을 지우고 HP를 가득. 성공하면 true */
@@ -169,6 +171,15 @@ export function useHoldings(): HoldingsController {
     [run],
   );
 
+  const unpack = useCallback(
+    (holding: HoldingView) => {
+      void run(holding.id, { t: "item_unpack", holding: holding.id }, () =>
+        m.holdings_done_unpack({ item: holdingName(holding) }),
+      );
+    },
+    [run],
+  );
+
   const grant = useCallback(
     (item: string, quantity: number, unit: number | null, label: string) =>
       run(-1, { t: "dev_grant_item", item, quantity, ...(unit === null ? {} : { unit }) }, () =>
@@ -198,6 +209,7 @@ export function useHoldings(): HoldingsController {
     equip,
     unequip,
     consume: useCallback((holding: HoldingView) => consumeHolding(holding, false), [consumeHolding]),
+    unpack,
     grant,
     treat,
     replace,

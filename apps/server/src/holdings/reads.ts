@@ -77,6 +77,8 @@ export function createHoldingsReads(options: {
             maxDurability: record.maxDurability,
             freshnessPm: fresh?.freshnessPm ?? null,
             spoilsAt: fresh?.spoilsAt ?? null,
+            // 식품 포장 상태(D-524, 신선도 묶음만)
+            packed: fresh === null ? null : record.packed === true,
             createdAt: record.createdAtMs,
             source: record.source,
             equipSlot: def?.equip?.slot ?? null,

@@ -11,7 +11,12 @@
 // - 옛 1차 생산 규칙(D-507, 49 N32·P8): 스탯 짝이 있는 시설은 시간당 작업량 = 일꾼 × 1000 × 진행 속도(max(1, ⌊주 ÷ 20⌋)),
 //   산출 = 한 번 캘 때 수확량(min(상한, 기본 + ⌊보조 × 비율⌋)) 배. 선택 방식(농장)은 해금 티어 min(⌊(주 + 보조) ÷ 20⌋, 9)에서 고른다.
 import type { LedgerBook } from "../ledger/ledgerBook.ts";
-import { TEST_CENTRAL_BANK_RULE, centralBankStep, initialMint } from "../economy/centralBank.ts";
+import {
+  type CentralBankRule,
+  TEST_CENTRAL_BANK_RULE,
+  centralBankStep,
+  initialMint,
+} from "../economy/centralBank.ts";
 import { type FxMarket, createFxMarket } from "../economy/fxMarket.ts";
 import { type GoodsMarket, createGoodsMarket } from "../economy/goodsMarket.ts";
 import {
@@ -647,7 +652,12 @@ export function priceIndexMilli(economy: Economy, currency: string): number | un
 }
 
 /** 하루 끝 중앙은행(발행 나라가 살아 있는 화폐마다, 화폐 차례) */
-export function bankDay(economy: Economy, world: SimWorld, nowMs: number): void {
+export function bankDay(
+  economy: Economy,
+  world: SimWorld,
+  nowMs: number,
+  rule: CentralBankRule = TEST_CENTRAL_BANK_RULE,
+): void {
   for (const [currency, factionId] of economy.issuer) {
     const faction = world.factions.get(factionId);
     if (!faction?.alive) continue;
@@ -658,7 +668,7 @@ export function bankDay(economy: Economy, world: SimWorld, nowMs: number): void 
         treasury: world.book.balanceOf(factionId, currency),
         interestOwed: economy.interestOwed.get(currency) ?? 0n,
       },
-      TEST_CENTRAL_BANK_RULE,
+      rule,
     );
     economy.interestOwed.set(currency, step.interestOwed);
     economy.interestPaid.set(factionId, (economy.interestPaid.get(factionId) ?? 0n) + step.interestBurn);

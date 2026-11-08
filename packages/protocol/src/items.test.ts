@@ -5,6 +5,7 @@ import {
   ITEM_RESULT_CODES,
   PROTOCOL_VERSION,
   TREAT_PROTOCOL_VERSION,
+  UNPACK_PROTOCOL_VERSION,
   ProtocolError,
   type ServerMessage,
   decodeClientMessage,
@@ -17,6 +18,21 @@ describe("보유 물건 메시지", () => {
     expect(ITEM_PROTOCOL_VERSION).toBe(6);
     expect(TREAT_PROTOCOL_VERSION).toBe(9);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(TREAT_PROTOCOL_VERSION);
+  });
+
+  it("식품 포장 풀기는 19부터다(D-524)", () => {
+    expect(UNPACK_PROTOCOL_VERSION).toBe(19);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(UNPACK_PROTOCOL_VERSION);
+    expect(ITEM_RESULT_CODES).toContain("not_packed");
+    const messages = [
+      { t: "item_unpack", id: 7, holding: 12 },
+      { t: "item_unpack", id: 8, holding: 12, quantity: 100 },
+    ] as const;
+    for (const message of messages) expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
+    for (const quantity of [0, 101, 1.5])
+      expect(() =>
+        decodeClientMessage(JSON.stringify({ t: "item_unpack", id: 9, holding: 12, quantity })),
+      ).toThrow(ProtocolError);
   });
 
   it("입기·벗기·쓰기·개발 받기 명령이 왕복한다", () => {

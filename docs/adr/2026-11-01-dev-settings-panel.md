@@ -139,6 +139,23 @@
 - 자료: 49 문서가 기계로 읽는 표를 따로 두지 않아서 `pnpm settings:cells`(`scripts/build-settings-cells.mjs`)가 `docs/design/40_Systems/49_Settings.md`의 칸 표(9장 충돌 처리 X는 뺀다)를 읽어 `apps/game/src/editor/tuning/settingsCells.json`(코드·장·이름·무엇·단위·출발값·근거·값 없음)을 쓴다. 손으로 고치지 않는다. 49 미러를 동기화한 뒤 다시 만들지 않으면 `pnpm check`의 시험이 실패한다(`scripts/build-settings-cells.test.mjs`, `--check`도 같다).
 - 상태는 기기가 셈한다(목록 JSON + `tuning.list`의 칸 코드). JSON은 패널 조각에만 든다(미리 캐시 밖, 약 90KB, 2026-11-01 49 미러 7e7dc3e 기준 279칸).
 
+### 바뀜 (2026-11-08 분야별 페이지)
+- 까닭: 사용자 요청(2026-11-08, 원문 "앞서말한 수치 조정을 위한 개발자 패널에 페이지를 만들어라") — ADR에 [임시]·출발값으로 적은 수치를 패널에서 분야별로 보고 바꾼다.
+- **분야 페이지(탭)**: 전체 · 세력·사회 · NPC 두뇌 · 정원사 · 보유 아이템 · 전투 코어 · 경제 코어 · 기타. 페이지 목록은 `@terra/shared/tuning` `TUNING_PAGES` 하나. 칸이 어느 페이지에 서는지는 그 칸을 읽는 규칙 코드가 정한다(`@terra/sim` `tuningPageOf`, `packages/sim/src/tuningPages.ts`): 묶음(정원사·세계 씨앗 → NPC, 생명 수치·부상 → 전투, 노동 계약·시설 건설·채집 오브젝트 → 경제, 공성 결과·신전·폐허 복원·구인 → 세력·사회) → 경로(`npc.bank*` → 경제, `npc.*` → NPC, `durability.*`·`consumables.*` → 보유 아이템, 전투 계수표 → 전투, `gather*` → 경제, 세력·사회 계수표 맨 위 칸과 피로·주거 회복·만족도 목표·포만감 효율·발전도 식 → 세력·사회) → 그 밖(사이보그·융합·랭킹·영토·운영 스위치). 팩에만 있는 칸 둘은 표로(`d506_storage_per_level` 경제, `d496_use_variance` 보유 아이템). 새 칸을 묶음에 더하면 저절로 그 페이지에 선다.
+- 칸 수(core@56): 세력·사회 137, NPC 두뇌 68, 정원사 62, 보유 아이템 24, 전투 코어 53, 경제 코어 49, 기타 87, 전체 480.
+- **칸 줄**: 이름·ID 아래에 쉬운 풀이(지금 언어), 단위(있을 때 — 없으면 범위 칸의 "단위 없음"), 출처(ADR 이름·기획 결정 ID). 팩 `tuning` 항목에 선택 칸 둘을 더했다: `desc`(`{ko, en}`, 값을 바꾸면 무엇이 달라지는지 한두 문장)·`source`(글, 160자 이하). 기존 팩이 그대로 통과하므로 `formatVersion`은 그대로(2절 규칙). 480칸 모두 적었다. 단위·범위 칸은 손대지 않았다(바꾸면 켤 때 `unit_changed`로 덮어쓰기가 지워진다).
+- `tuning.list` 칸마다 `page`·`desc`·`source`를 더했다(덮어쓰기·내보내기·`pnpm tuning:apply`는 그대로 — 값만 다룬다).
+- 화면: 요약 칩 아래 탭 줄(WAI-ARIA tabs: 고른 탭만 Tab, ←→·Home·End로 옮기며 바로 고름, 탭마다 칸 수, 좁은 폭은 여러 줄로 접힘), 그 아래 탭 판(페이지 한 줄 풀이 → 찾기·거르기 → 표). 페이지를 바꾸면 무리 고르기는 전체로, 무리 목록은 그 페이지 칸만. 찾기는 출처도 본다(예: "D-186"). 고른 탭은 이 기기에만 남는다(localStorage `terra.devTuning.page`, 못 쓰면 전체). 처음은 전체.
+- **새 칸 40개**(코드에 상수로 있던 [임시] 값, 출발값 = 옛 상수 그대로 — 행동이 바뀌지 않음, `world/combatCatalog.test.ts`가 팩 값 = 시험 계수표를 본다):
+  - NPC 판단 점수·규칙식 문턱 29개(`npc_idle_score` 등, 계수표 `npc.*`, 질문 192~198 가 기술 출발값): 지금까지 개발자 패널에 없던 성향 가중 점수 계수 전부.
+  - NPC 중앙은행 공식 4개(`npc_bank_target`·`npc_bank_gain`·`npc_bank_daily_cap` E5·`npc_bank_interest` S1, 계수표 `npc.bank*`, 옛 `TEST_CENTRAL_BANK_RULE` 1000·2000·300·1): D-131이 중앙은행을 "공식대로 움직이는 기본 NPC 국가"로 정해 NPC 계수표에 두었다. 시뮬·서버 NPC 경제 고리(`runEconomy`)가 하루 끝 `bankDay`에 `centralBankRuleOf(npc)`로 넘긴다.
+  - 도시 발전도 식 5개(`dev_satisfaction_divisor` 2000·`dev_per_unit` 2·`dev_unit_cap` 30·`dev_per_research_level` 4·`dev_max` 100, 계수표 `development.*`, D-254 7요소 전 [임시]): 기술 단계 문턱(`q121_development`)·도시 등급(M2)이 보는 값.
+  - NPC 지분 팔기 한 번 2개(`share_sale_amount` 100주·`share_sale_price` 주당 10).
+  - 반영 범위: 모두 `sim`(서버 NPC 사회 런타임은 켤 때 받은 계수표로 돈다 — 바꾸면 다음 켤 때 서버에 든다, 시뮬레이터 `--tuning`은 바로).
+- 칸으로 열지 않은 것(까닭): 전투 기술 상수(`tickMs` 100·`snapshotMs`·`fieldMs`·`entryRow`·`limitMs.max` — 다시 계산(복구)·재생이 같은 값을 써야 하는 기술 값), 피로·주거·포만감·부상 표의 0번 구간(늘 0·1000인 바탕 줄), 스킬 최대 등급(D-031·D-5001 기획 확정 값), 1인당 하루 거래액(E6, 시나리오·서버 경제 설정의 큰 정수), 시뮬 전용 거래 판단(`economyStub.ts`, ADR 경제 코어 8절 "게임 규칙이 아님"), 마을 세우기 값(시나리오 설정 `foundCost`).
+- 판 올림: 팩 core@56. SIM_VERSION·프로토콜 그대로(행동이 같다).
+- 기획에 물은 것: 질문 830·831(`docs/questions/2026-11-08-tuning-pages.md`).
+
 ## 사용자 결정 (2026-11-01, 질문 204~206 답, 통합 담당이 전함)
 | 질문 | 원문 | 반영 |
 |---|---|---|

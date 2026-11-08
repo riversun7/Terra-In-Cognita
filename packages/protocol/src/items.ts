@@ -1,6 +1,7 @@
 // 보유 물건 메시지(프로토콜 6부터) — docs/adr/2026-11-03-item-holdings.md 5절, 기획 D-496·D-501·N49.
 // - 바꾸는 명령: 입기(item_equip, 내구도 0이면 못 입음)·벗기(item_unequip)·쓰기(item_use, 효과량은 서버가 D-501 식으로 굴림, 수량 −1,
 //   물약은 유닛마다 쿨 D-509)·
+//   식품 포장 풀기(item_unpack, 프로토콜 19, D-524 — 포장 칸에서 낱개를 꺼내고 그때부터 신선도가 준다)·
 //   개발 시험 받기(dev_grant_item, dev·admin)·개발 시험 병원 치료(dev_treat_unit, dev·admin, 프로토콜 9, D-514). 조회(가진 물건·걸린
 //   효과)는 tRPC holdings.list, 생명 수치는 vitals.list다.
 // - 서버가 판정한다: 소유·자리·칸·내구도·효과 교체(같은 효과는 높은 것만, 같은 묶음의 다른 효과는 confirm). 기기는 결과만 보인다.
@@ -39,6 +40,20 @@ export const itemUseMessage = z.object({
   holding: rowId,
   confirm: z.boolean().optional(),
 });
+
+/**
+ * 식품 포장 풀기(D-524 "포장 해제시 신선도 하락시작"): 포장된 식품 칸에서 quantity개(없으면 1)를 낱개로 꺼낸다. 낱개는 수량 1 칸 하나하나이고
+ * 그 시각부터 신선도가 준다. 한 번에 최대 100개([임시], 서버는 그 칸 수량까지만 푼다). 다시 포장하기는 없다(질문 843)
+ */
+export const itemUnpackMessage = z.object({
+  t: z.literal("item_unpack"),
+  id: requestId,
+  holding: rowId,
+  quantity: z.number().int().positive().max(100).optional(),
+});
+
+/** 식품 포장 풀기에 필요한 가장 낮은 프로토콜 버전 */
+export const UNPACK_PROTOCOL_VERSION = 19;
 
 /** 개발 시험: 내 유닛(없으면 내 사이보그)에 아이템을 받는다(dev·admin, 굴림은 얻는 때 규칙 그대로) */
 export const devGrantItemMessage = z.object({
@@ -94,6 +109,8 @@ export const ITEM_RESULT_CODES = [
   "confirm_replace",
   /** 쓰기 쿨 중(D-509 물약 30초) — readyAt에 다시 쓸 수 있다 */
   "cooldown",
+  /** 포장된 식품 칸이 아님(이미 풀린 낱개·식품이 아닌 물건, D-524) — item_unpack의 답에만 간다(19판) */
+  "not_packed",
 ] as const;
 export type ItemResultCode = (typeof ITEM_RESULT_CODES)[number];
 
@@ -102,7 +119,7 @@ const itemResultMessage = z.discriminatedUnion("ok", [
     t: z.literal("item_result"),
     id: requestId,
     ok: z.literal(true),
-    /** dev_grant_item이면 받은 칸 ID들 */
+    /** dev_grant_item이면 받은 칸 ID들, item_unpack이면 새 낱개 칸 ID들 */
     holdings: z.array(rowId).max(1000).optional(),
     /** item_use면 굴린 효과량 */
     effects: z
@@ -126,6 +143,7 @@ export const itemClientMessages = [
   itemEquipMessage,
   itemUnequipMessage,
   itemUseMessage,
+  itemUnpackMessage,
   devGrantItemMessage,
   devTreatUnitMessage,
 ] as const;

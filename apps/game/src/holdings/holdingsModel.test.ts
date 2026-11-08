@@ -6,6 +6,7 @@ import {
   filterHoldings,
   formatClock,
   isBroken,
+  isPacked,
   nextDeadline,
   percentOf,
   pickSlot,
@@ -188,5 +189,14 @@ describe("수 다듬기", () => {
     expect(nextDeadline(list, 100)).toBe(300);
     expect(nextDeadline(list, 400)).toBe(500);
     expect(nextDeadline(list, 600)).toBeNull();
+  });
+});
+
+describe("식품 포장(D-524)", () => {
+  it("packed가 true인 칸만 포장 칸이다(옛 서버는 보내지 않는다)", () => {
+    expect(isPacked(holding(1, "stew", { kind: "lot", packed: true }))).toBe(true);
+    expect(isPacked(holding(2, "stew", { kind: "lot", packed: false }))).toBe(false);
+    expect(isPacked(holding(3, "stew", { kind: "lot" }))).toBe(false);
+    expect(isPacked(holding(4, "vest", { packed: null }))).toBe(false);
   });
 });

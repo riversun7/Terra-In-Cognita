@@ -19,6 +19,19 @@ import { START_WAR_COEFFICIENTS, type WarCoefficients } from "./warOutcomes.ts";
 import { START_WORLD_SEED, type WorldSeedCoefficients } from "./worldSeed.ts";
 import { type GatherObjectCoefficients, START_GATHER_OBJECTS } from "./gatherObjects.ts";
 
+/** 도시 발전도 식 계수([임시], SocietyCoefficients.development) */
+export interface DevelopmentCoefficients {
+  /** 평균 만족도(밀리점)를 이 값으로 나눈 몫(만족도 100점 = 100,000 ÷ 2000 = 50) */
+  readonly satisfactionDivisorMilli: number;
+  /** 유닛(휴먼) 하나가 더하는 발전도와 그 몫의 상한 */
+  readonly perUnit: number;
+  readonly unitCap: number;
+  /** 연구 시설 레벨 하나가 더하는 발전도 */
+  readonly perResearchLevel: number;
+  /** 발전도 상한 */
+  readonly max: number;
+}
+
 export interface SocietyCoefficients {
   /** 도시 주식 수(D-130) */
   readonly sharesPerCity: number;
@@ -95,6 +108,14 @@ export interface SocietyCoefficients {
   readonly developmentPerTech: number;
   /** 설계도 할인(D-396 출발값 50%, 만분율) */
   readonly blueprintDiscountBp: number;
+  /**
+   * [임시] 도시 발전도 식(D-254 7요소 전, 하루 끝): min(상한, ⌊평균 만족도(밀리) ÷ 만족도 나눗수⌋ + min(인구 상한, 유닛 수 × 유닛당)
+   * + 연구 시설 Lv × 레벨당). 기술 단계 문턱(developmentPerTech)·도시 등급(M2)이 이 값을 본다. 설정 칸 2026-11-08(분야별 페이지)
+   */
+  readonly development: DevelopmentCoefficients;
+  /** [임시] NPC 지분 팔기 한 번(simulator/society.ts sellShares): 파는 주식 수와 주당 값(사는 쪽 국고 화폐 최소 단위) */
+  readonly shareSaleAmount: number;
+  readonly shareSalePrice: number;
   /** 피로 상한(N21 구조 값 120) */
   readonly fatigueMax: number;
   /** 피로 구간 불이익(N23): 구간 하한(포함) → 능력 ‰, 이동 ‰ */
@@ -375,6 +396,9 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   researchWorkBase: 48_000,
   developmentPerTech: 20,
   blueprintDiscountBp: 5000,
+  development: { satisfactionDivisorMilli: 2000, perUnit: 2, unitCap: 30, perResearchLevel: 4, max: 100 },
+  shareSaleAmount: 100,
+  shareSalePrice: 10,
   fatigueMax: 120,
   fatigueBands: [
     { from: 0, abilityPm: 1000, movePm: 1000 },

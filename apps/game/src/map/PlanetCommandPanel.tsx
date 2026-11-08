@@ -72,7 +72,8 @@ export function PlanetCommandPanel({
 }: PlanetCommandPanelProps) {
   const titleId = useId();
   const noteId = useId();
-  const [order, setOrder] = useState<TravelKind>("scout");
+  // 볼 수 있는 2차맵이면 이동이 먼저(내 사이보그 보내기, WP14), 볼 수 없으면 정찰이 먼저(513)
+  const [order, setOrder] = useState<TravelKind>(city.viewable ? "move" : "scout");
   const [plan, setPlan] = useState<PlanState>({ kind: "loading" });
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);

@@ -22,6 +22,7 @@ import {
   routeFrames,
 } from "./frame.ts";
 import {
+  OPEN_SEARCH_MAPS,
   type Standable,
   distanceMeters,
   entryOf,
@@ -77,6 +78,47 @@ describe("2차맵 줄", () => {
       const cell = ij(key);
       expect(Math.abs(cell.i - start.i - (cell.j - start.j))).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+/** 같은 면 두 칸의 맨해튼 거리(칸) */
+const hops = (a: number, b: number) => {
+  const x = ij(a);
+  const y = ij(b);
+  return Math.abs(x.i - y.i) + Math.abs(x.j - y.j);
+};
+
+describe("먼 2차맵 줄(WP14 — 세계 배치의 국가 사이)", () => {
+  // 시험 행성 세계 배치의 국가 수도 넷(작업 기록 2026-11-08 world-layout: 0:92,228·0:52,204·0:100,276·0:68,260)과 시험 줄 첫 2차맵
+  const homes: number[] = [
+    [92, 228],
+    [52, 204],
+    [100, 276],
+    [68, 260],
+    [282, 328],
+  ].map(([i, j]) => cellKey(0, EARTH_FACE_LEVEL, i ?? 0, j ?? 0));
+  const onlyHomes = (key: number) => homes.includes(key);
+
+  it("옛 상한(64장)을 넘는 국가 사이도 가장 짧은 줄을 찾는다(큰 원 둘레 띠), 줄은 변 이웃으로만 이어진다", () => {
+    for (const from of homes)
+      for (const to of homes) {
+        if (from === to) continue;
+        const route = mapRoute(from, to, onlyHomes);
+        expect(route).not.toBeNull();
+        if (!route) continue;
+        // 같은 면 안이라 가장 짧은 줄 = 맨해튼 거리 + 1
+        expect(route).toHaveLength(hops(from, to) + 1);
+        expect(route[0]).toBe(from);
+        expect(route.at(-1)).toBe(to);
+        for (const [index, key] of route.entries()) {
+          const next = route[index + 1];
+          if (next !== undefined && isCellKey(key)) expect(neighbors4(key)).toContain(next);
+        }
+      }
+    // 국가 1 → 국가 2는 65장: 옛 상한이면 길이 없었다(no_route — 사용자 지적 2026-11-08의 까닭 하나)
+    const [first, second] = homes;
+    expect(mapRoute(first ?? 0, second ?? 0, onlyHomes, OPEN_SEARCH_MAPS)).toBeNull();
+    expect(mapRoute(first ?? 0, second ?? 0, onlyHomes)).toHaveLength(65);
   });
 });
 

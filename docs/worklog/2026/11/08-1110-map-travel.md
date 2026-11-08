@@ -32,6 +32,12 @@
 | `docs/questions/2026-11-08-map-travel.md`(새) | 질문 730~736 |
 | `docs/PLAN.md` | 14장 줄 |
 
+## 검사 결과
+- 작업 중(고친 꾸러미만): 서버 `travel/route.test.ts`·`service.test.ts`·`travelWorker.test.ts` 24 통과, DB `travel/layoutTravel.db.test.ts` 1 통과, 게임 `src/map` 165 통과(새 `edgeTravelData.test.ts` 4 포함).
+- 끝 검사: `pnpm check:docs origin/main` 통과. `TEST_DATABASE_URL=… pnpm check` 통과(테스트 파일 508·시험 3,938, DB 시험 포함 — 첫 실행은 `route.test.ts` 타입(TS2345)에서 멈춰 고친 뒤 다시).
+- 화면 시험 `pnpm e2e e2e/map-travel.spec.ts e2e/play-map.spec.ts e2e/unit-control.spec.ts`: **31 통과**(4.3분, 빌드 포함). 판을 아래 판으로 옮기기 전 첫 실행 map-travel 5 통과. 배지 색을 바꾼 뒤 map-travel 다시 5 통과(1.0분).
+- 사진(`E2E_SHOTS_DIR`, 저장소 밖): `map-edge-sheet-390-{pastel,dark}-ko`·`map-edge-sheet-390-pastel-en`(판: 북·동·서 열리지 않음 까닭, 남 0.8km·약 6분 [보내기] — 수도 2차맵), `map-edge-going-390-{pastel,dark}`(유닛 머리 위 "옆 2차맵까지 약 5분", 아래 한 줄·[멈추기]). 첫 사진에서 오른쪽 가운데 전환 단추가 판 글자를 가려 판을 아래에 붙는 판(층 6)으로, 다크에서 "가까운 변" 대비가 낮아 주 색 짝으로 고쳤다.
+
 ## 함께 바꿔야 하는 파일
 - 보낼 수 있는 유닛·결과 코드를 바꾸면 `EdgeTravel.tsx`의 까닭 문구(`edgeProblemText`)와 `travelData.ts` `travelProblemText`를 함께.
 - 경계 너머 보기의 놓는 자리(`secondMapNeighbours.ts` `neighbourSpots`)를 바꾸면 `edgeTravelData.ts`(거꾸로 쓴다)와 그 시험을 함께.

@@ -2,6 +2,7 @@
 // 플레이어(가짜 계정)가 내 사이보그 2차맵을 열면 오브젝트 표시가 보이고, 누르면 아래 판(채집·정보·닫기), [채집]이면 내 사이보그가 오브젝트로 걸어가는
 // 채집 줄이 뜨고 [멈추기]로 멈춘다. 건물 표시를 누르면 건물 판(들어가기·안에 있는 유닛). 사진은 390 파스텔·다크(ko·en).
 import type { Page } from "@playwright/test";
+import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
@@ -9,6 +10,8 @@ import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const READY_MARKER = '.gather-marker[data-state="ready"]:not([hidden])';
 const BUILDING_MARKER = ".gather-building-marker:not([hidden])";
+/** [선택 해제](한국어·영어) */
+const DESELECT = new RegExp(`^(${message("ko", "map_deselect")}|${message("en", "map_deselect")})$`);
 
 /** tRPC 조회 하나(로그인한 이 화면의 쿠키로)의 data */
 async function trpcData(page: Page, procedure: string): Promise<unknown> {
@@ -49,24 +52,35 @@ async function openMap(page: Page): Promise<void> {
 
 /**
  * 위·아래 판(HUD)에 가리지 않은 표시 가운데 화면 가운데에 가장 가까운 것을 누른다(표시는 가운데에 가까운 차례로 놓인다).
- * 가리지 않은 것이 없으면 false
+ * 표시는 누르기를 지도로 지나보내므로(사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md) 표시 가운데 아래가 지도 캔버스인 것을 고르고
+ * 그 자리를 짧게 누른다 — 엔진이 누르기로 판정해 화면 거리로 표시를 고른다. 표시 가까이의 유닛이 먼저 골라졌으면 풀고 다음 표시를 누른다.
+ * 판이 열리지 않으면 false
  */
 async function clickFreeMarker(page: Page, selector: string): Promise<boolean> {
-  const index = await page.locator(selector).evaluateAll((elements) =>
-    elements.findIndex((element) => {
+  const points = await page.locator(selector).evaluateAll((elements) =>
+    elements.flatMap((element) => {
       const box = element.getBoundingClientRect();
-      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-      return hit !== null && (hit === element || element.contains(hit));
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return hit instanceof HTMLCanvasElement && hit.closest(".map-view") ? [{ x, y }] : [];
     }),
   );
-  if (index < 0) return false;
-  // 위 판(성능 줄)은 1초마다 다시 그려져 커질 수 있다: 그 사이 가려지면 짧게 기다리고 다음 차례에 다시 고른다
-  try {
-    await page.locator(selector).nth(index).click({ timeout: 2_000 });
-    return true;
-  } catch {
-    return false;
+  const panel = page.locator(".gather-panel");
+  for (const point of points.slice(0, 4)) {
+    await page.mouse.click(point.x, point.y);
+    try {
+      await expect(panel).not.toHaveAttribute("data-sheet", "none", { timeout: 1_500 });
+      return true;
+    } catch {
+      // 유닛을 골랐으면(따라가기로 카메라가 움직인다) 풀고 다음 표시를 다시 잰다
+      if (await page.locator(".map-screen[data-selected]").count()) {
+        await page.locator(".map-actions button", { hasText: DESELECT }).click();
+        return false;
+      }
+    }
   }
+  return false;
 }
 
 /**

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 10:45 | 2차맵 지도 조작: 끌기·누르기 구분, 고른 유닛 따라가기, 확대 단계 표시 | Claude Code | [08-1045-map-input](worklog/2026/11/08-1045-map-input.md) |
 | 2026-11-08 08:40 | NAS 시험 세계 새로 시작 실행 (D-522) | Claude Code | [08-0840-nas-world-reset-run](worklog/2026/11/08-0840-nas-world-reset-run.md) |
 | 2026-11-08 08:20 | 세계 비우기 DB 시험의 연결 틈 고침 (main CI 빨강) | Claude Code | [08-0820-reset-world-test-race](worklog/2026/11/08-0820-reset-world-test-race.md) |
 | 2026-11-08 07:48 | 사용자 지적·개선 묶음 여섯 줄기 합치기 (세계 배치·채집·지도 보기·공성 결과·부상·조종 후속) | Claude Code | [08-0748-feedback-batch-merge](worklog/2026/11/08-0748-feedback-batch-merge.md) |

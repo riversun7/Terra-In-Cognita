@@ -1,15 +1,15 @@
-// 아이템 편집기 왼쪽 목록(설계안 3.3) — 대분류 타일(개수), 찾기(ID·이름·태그, 300ms 쉰 뒤), 거르기(중분류·칸·입을 종류·출처·켬·권고·
-// 담은 변경·티어), 정렬, [새 아이템]. 줄마다 대분류 표지·이름·ID·중분류·티어·칸/창고·한 줄 요약·출처·꺼짐·코드 참조·권고 수.
-// 390px에서는 거르기 판이 접힌다(details). 1,000줄을 넘으면 보이는 만큼씩 더 그린다(더 보기).
+// 아이템 편집기 왼쪽 목록(설계안 3.3, 2026-11-08 화면 개편: 공용 EntryList) — 찾기(ID·이름·태그·대분류·중분류, 낱말 여럿은 모두 맞는 것,
+// 늦춰 거름), 거르기(대분류(개수) · 정렬 · [담은 것만] · [권고 있음] + [더 거르기]: 중분류·칸·입을 종류·출처·켬·티어), [새 아이템].
+// 줄마다 대분류 표지·이름·ID·한 줄 요약(티어·칸/창고·거래·무기·스탯·효과·무게)·표지(담음·출처·꺼짐·코드 참조·권고 수).
+// 휴대폰은 거르기가 [거르기 N]으로 접힌다. 200줄씩 더 그린다(더 보기).
 import {
   ITEM_CATEGORY_IDS,
   ITEM_PRIMARY_CODES,
-  type ItemCategoryId,
   type ItemEditorListResponse,
   type ItemRow,
 } from "@terra/shared/itemEditor";
 import { EQUIP_SLOTS } from "@terra/shared/roster";
-import { useEffect, useId, useState } from "react";
+import { type Ref, useDeferredValue, useId } from "react";
 import { m } from "../../paraglide/messages.js";
 import {
   CATEGORY_TEXT,
@@ -30,10 +30,14 @@ import {
   sortItems,
   weightText,
 } from "./itemModel.ts";
+import {
+  type EntryBadge,
+  type EntryRow,
+  EntryList,
+  FilterChip,
+  FilterSelect,
+} from "../content/contentEditorList.tsx";
 import "./itemList.css";
-
-/** 한 번에 그리는 줄 수(넘으면 [더 보기]) */
-const PAGE = 200;
 
 const ORIGIN_FILTER_TEXT = {
   all: m.dev_items_filter_all,
@@ -87,279 +91,251 @@ function summaryOf(row: ItemRow, list: ItemEditorListResponse, locale: "ko" | "e
     .join(" · ");
 }
 
+/** 켠 거르기 수(찾는 글 빼고) */
+const activeOf = (query: ItemQuery): number =>
+  [
+    query.category !== "all",
+    query.subcategory !== "all",
+    query.slot !== "all",
+    query.kind !== "all",
+    query.origin !== "all",
+    query.enabled !== "all",
+    query.tierMin !== 0 || query.tierMax !== 9,
+    query.advice,
+    query.staged,
+  ].filter(Boolean).length;
+
+/** 대분류 이름(찾기에도 쓴다) */
+export function categoryLabels(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const id of ITEM_CATEGORY_IDS) out[id] = CATEGORY_TEXT[id]();
+  return out;
+}
+
+/** 보이는 아이템(정렬까지) — 화면이 Alt+↑↓ 이전·다음에도 쓴다 */
+export function shownItems(
+  list: ItemEditorListResponse,
+  query: ItemQuery,
+  sort: ItemSort,
+  staged: ReadonlySet<string>,
+  locale: "ko" | "en",
+): ItemRow[] {
+  return sortItems(filterItems(list.items, query, staged, categoryLabels()), sort, locale);
+}
+
 export function ItemList({
   list,
+  shown,
   selected,
   staged,
   locale,
+  query,
+  sort,
+  onQuery,
+  onSort,
+  searchRef,
   onSelect,
   onCreate,
 }: {
   list: ItemEditorListResponse;
+  /** 찾기·거르기·정렬을 거친 줄(화면이 거른다) */
+  shown: readonly ItemRow[];
   selected: string | null;
   /** 담은 변경이 있는 아이템 ID */
   staged: ReadonlySet<string>;
   locale: "ko" | "en";
+  query: ItemQuery;
+  sort: ItemSort;
+  onQuery: (patch: Partial<ItemQuery>) => void;
+  onSort: (sort: ItemSort) => void;
+  searchRef: Ref<HTMLInputElement>;
   onSelect: (id: string) => void;
   onCreate: () => void;
 }) {
-  const searchId = useId();
   const filterIds = useId();
-  const [typed, setTyped] = useState("");
-  const [query, setQuery] = useState<ItemQuery>(EMPTY_QUERY);
-  const [sort, setSort] = useState<ItemSort>("name");
-  const [limit, setLimit] = useState(PAGE);
-  // 입력을 멈추고 300ms 뒤에 거른다(설계안 3.3)
-  useEffect(() => {
-    const timer = setTimeout(
-      () => setQuery((now) => (now.text === typed ? now : { ...now, text: typed })),
-      300,
-    );
-    return () => clearTimeout(timer);
-  }, [typed]);
   const counts = categoryCounts(list.items);
-  const shown = sortItems(filterItems(list.items, query, staged), sort, locale);
   const subcategories = list.subcategories.filter(
     (row) => query.category === "all" || row.entry.major === query.category,
   );
-  const set = (patch: Partial<ItemQuery>) => {
-    setQuery((now) => ({ ...now, ...patch }));
-    setLimit(PAGE);
-  };
-  const tile = (category: ItemCategoryId | "all", label: string, count: number) => (
-    <button
-      key={category}
-      type="button"
-      className="ie-tile"
-      aria-pressed={query.category === category}
-      onClick={() => set({ category, subcategory: "all" })}
-    >
-      <span className="ie-tile-name">{label}</span>
-      <span className="ie-tile-count">{count}</span>
-    </button>
-  );
+  const more = [
+    query.subcategory !== "all",
+    query.slot !== "all",
+    query.kind !== "all",
+    query.origin !== "all",
+    query.enabled !== "all",
+    query.tierMin !== 0 || query.tierMax !== 9,
+  ].filter(Boolean).length;
+  const rows: EntryRow[] = shown.map((row) => {
+    const badges: EntryBadge[] = [];
+    if (staged.has(row.id))
+      badges.push({ key: "staged", label: m.dev_content_badge_staged(), tone: "staged" });
+    if (row.origin !== "pack")
+      badges.push({
+        key: "origin",
+        label: ORIGIN_TEXT[row.origin](),
+        tone: row.origin === "created" ? "created" : "changed",
+        className: `ie-origin-${row.origin}`,
+      });
+    if (!row.enabled) badges.push({ key: "off", label: m.dev_items_disabled(), tone: "off" });
+    if (row.codeRef) badges.push({ key: "code", label: m.dev_items_code_ref_chip(), tone: "plain" });
+    if (row.advice > 0)
+      badges.push({ key: "advice", label: m.dev_items_advice_count({ count: row.advice }), tone: "advice" });
+    const where = row.slot ? SLOT_TEXT[row.slot]() : STORAGE_TEXT[row.storage]();
+    const summary = summaryOf(row, list, locale);
+    return {
+      id: row.id,
+      name: row.name[locale],
+      tag: { label: CATEGORY_TEXT[row.category](), value: row.category },
+      summary: [`T${row.tier}`, where, MARKET_TEXT[row.market](), summary]
+        .filter((part) => part !== "")
+        .join(" · "),
+      badges,
+      staged: staged.has(row.id),
+      changed: row.origin !== "pack",
+      off: !row.enabled,
+    };
+  });
   return (
-    <aside className="ie-list-pane" aria-label={m.dev_items_list_label()}>
-      <div className="ie-tiles" role="group" aria-label={m.dev_items_category_label()}>
-        {tile("all", m.dev_items_filter_all(), list.items.length)}
-        {ITEM_CATEGORY_IDS.map((category) => tile(category, CATEGORY_TEXT[category](), counts[category]))}
-      </div>
-      <div className="field ie-search">
-        <label className="field-label" htmlFor={searchId}>
-          {m.dev_items_search_label()}
-        </label>
-        <input
-          id={searchId}
-          className="input"
-          type="search"
-          autoComplete="off"
-          placeholder={m.dev_items_search_placeholder()}
-          value={typed}
-          onChange={(event) => setTyped(event.target.value)}
-        />
-      </div>
-      <details className="ie-filters">
-        <summary>{m.dev_items_filters()}</summary>
-        <div className="ie-filter-grid">
-          <label className="field">
-            <span className="field-label">{m.dev_items_field_subcategory()}</span>
-            <select value={query.subcategory} onChange={(event) => set({ subcategory: event.target.value })}>
-              <option value="all">{m.dev_items_filter_all()}</option>
-              {subcategories.map((row) => (
-                <option key={row.entry.id} value={row.entry.id}>
-                  {row.entry.name[locale]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">{m.dev_items_field_slot()}</span>
-            <select
-              value={query.slot}
-              onChange={(event) => {
-                const slot = EQUIP_SLOTS.find((value) => value === event.target.value);
-                set({ slot: slot ?? "all" });
-              }}
-            >
-              <option value="all">{m.dev_items_filter_all()}</option>
-              {EQUIP_SLOTS.map((slot) => (
-                <option key={slot} value={slot}>
-                  {SLOT_TEXT[slot]()}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">{m.dev_items_field_kinds()}</span>
-            <select value={query.kind} onChange={(event) => set({ kind: event.target.value })}>
-              <option value="all">{m.dev_items_filter_all()}</option>
-              {list.unitKinds.map((kind) => (
-                <option key={kind.id} value={kind.id}>
-                  {kind.name[locale]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">{m.dev_items_filter_origin()}</span>
-            <select
-              value={query.origin}
-              onChange={(event) => {
-                const origin = ITEM_ORIGIN_FILTERS.find((value) => value === event.target.value);
-                set({ origin: origin ?? "all" });
-              }}
-            >
-              {ITEM_ORIGIN_FILTERS.map((value) => (
-                <option key={value} value={value}>
-                  {ORIGIN_FILTER_TEXT[value]()}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">{m.dev_items_filter_enabled()}</span>
-            <select
-              value={query.enabled}
-              onChange={(event) => {
-                const value = event.target.value;
-                set({ enabled: value === "on" || value === "off" ? value : "all" });
-              }}
-            >
-              <option value="all">{m.dev_items_filter_all()}</option>
-              <option value="on">{m.dev_items_filter_on()}</option>
-              <option value="off">{m.dev_items_filter_off()}</option>
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">{m.dev_items_filter_tier()}</span>
-            <span className="ie-range">
-              <input
-                className="input"
-                inputMode="numeric"
-                aria-label={m.dev_items_filter_tier_min()}
-                value={query.tierMin}
-                onChange={(event) =>
-                  set({ tierMin: Math.max(0, Math.min(9, Number(event.target.value) || 0)) })
-                }
-              />
-              <span aria-hidden="true">~</span>
-              <input
-                className="input"
-                inputMode="numeric"
-                aria-label={m.dev_items_filter_tier_max()}
-                value={query.tierMax}
-                onChange={(event) =>
-                  set({ tierMax: Math.max(0, Math.min(9, Number(event.target.value) || 0)) })
-                }
-              />
-            </span>
-          </label>
-          <label className="ce-check" htmlFor={`${filterIds}-advice`}>
-            <input
-              id={`${filterIds}-advice`}
-              type="checkbox"
-              checked={query.advice}
-              onChange={(event) => set({ advice: event.target.checked })}
-            />
-            {m.dev_items_filter_advice()}
-          </label>
-          <label className="ce-check" htmlFor={`${filterIds}-staged`}>
-            <input
-              id={`${filterIds}-staged`}
-              type="checkbox"
-              checked={query.staged}
-              onChange={(event) => set({ staged: event.target.checked })}
-            />
-            {m.dev_items_filter_staged()}
-          </label>
-          <label className="field">
-            <span className="field-label">{m.dev_items_sort()}</span>
-            <select
-              value={sort}
-              onChange={(event) => {
-                const next = ITEM_SORTS.find((value) => value === event.target.value);
-                if (next) setSort(next);
-              }}
-            >
-              {ITEM_SORTS.map((value) => (
-                <option key={value} value={value}>
-                  {SORT_TEXT[value]()}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className="button-small"
-            onClick={() => {
-              setTyped("");
-              setQuery(EMPTY_QUERY);
-            }}
-          >
-            {m.dev_items_filter_reset()}
-          </button>
-        </div>
-      </details>
-      <div className="ie-list-head">
-        <span className="field-hint" aria-live="polite">
-          {m.dev_items_shown({ shown: shown.length, total: list.items.length })}
-        </span>
-        <button type="button" className="button-small ie-new-button" onClick={onCreate}>
+    <EntryList
+      label={m.dev_items_list_label()}
+      rows={rows}
+      total={list.items.length}
+      selected={selected}
+      onSelect={onSelect}
+      search={query.text}
+      onSearch={(text) => onQuery({ text })}
+      searchPlaceholder={m.dev_items_search_placeholder()}
+      searchRef={searchRef}
+      activeFilters={activeOf(query)}
+      onReset={() => onQuery(EMPTY_QUERY)}
+      itemClass="ie-item"
+      dataKey="item"
+      emptyText={m.dev_items_empty()}
+      actions={
+        <button type="button" className="ie-new-button" onClick={onCreate}>
           {m.dev_items_new()}
         </button>
-      </div>
-      {shown.length === 0 ? <p className="field-hint">{m.dev_items_empty()}</p> : null}
-      <ul className="ie-list">
-        {shown.slice(0, limit).map((row) => {
-          const summary = summaryOf(row, list, locale);
-          return (
-            <li key={row.id}>
-              {/* 한 줄: 대분류 표지 · 이름 · ID·티어·칸·거래 · 요약 · 표지(넓은 폭에서 넘치면 줄임표, 전체 요약은 title) */}
-              <button
-                type="button"
-                className="ie-item"
-                aria-current={selected === row.id ? "true" : undefined}
-                data-item={row.id}
-                data-off={row.enabled ? undefined : ""}
-                onClick={() => onSelect(row.id)}
-              >
-                <span className="ie-cat" data-category={row.category}>
-                  {CATEGORY_TEXT[row.category]()}
+      }
+      filters={
+        <>
+          <FilterSelect
+            label={m.dev_items_category_label()}
+            className="ie-category-filter"
+            value={query.category}
+            options={[
+              { value: "all" as const, label: m.dev_items_filter_category_all({ count: list.items.length }) },
+              ...ITEM_CATEGORY_IDS.map((value) => ({
+                value,
+                label: m.dev_items_filter_category_count({
+                  name: CATEGORY_TEXT[value](),
+                  count: counts[value],
+                }),
+              })),
+            ]}
+            onChange={(category) => onQuery({ category, subcategory: "all" })}
+          />
+          <FilterSelect
+            label={m.dev_items_sort()}
+            value={sort}
+            options={ITEM_SORTS.map((value) => ({ value, label: SORT_TEXT[value]() }))}
+            onChange={onSort}
+          />
+          <FilterChip
+            label={m.dev_content_filter_staged()}
+            pressed={query.staged}
+            onToggle={(next) => onQuery({ staged: next })}
+          />
+          <FilterChip
+            label={m.dev_items_filter_advice()}
+            pressed={query.advice}
+            onToggle={(advice) => onQuery({ advice })}
+          />
+          <details className="ie-filters" open={more > 0 ? true : undefined}>
+            <summary>
+              {more > 0 ? m.dev_items_more_filters_count({ count: more }) : m.dev_items_more_filters()}
+            </summary>
+            <div className="ie-filter-grid">
+              <FilterSelect
+                label={m.dev_items_field_subcategory()}
+                value={query.subcategory}
+                options={[
+                  { value: "all", label: m.dev_items_filter_subcategory_all() },
+                  ...subcategories.map((row) => ({ value: row.entry.id, label: row.entry.name[locale] })),
+                ]}
+                onChange={(subcategory) => onQuery({ subcategory })}
+              />
+              <FilterSelect
+                label={m.dev_items_field_slot()}
+                value={query.slot}
+                options={[
+                  { value: "all" as const, label: m.dev_items_filter_slot_all() },
+                  ...EQUIP_SLOTS.map((slot) => ({ value: slot, label: SLOT_TEXT[slot]() })),
+                ]}
+                onChange={(slot) => onQuery({ slot })}
+              />
+              <FilterSelect
+                label={m.dev_items_field_kinds()}
+                value={query.kind}
+                options={[
+                  { value: "all", label: m.dev_items_filter_kind_all() },
+                  ...list.unitKinds.map((kind) => ({ value: kind.id, label: kind.name[locale] })),
+                ]}
+                onChange={(kind) => onQuery({ kind })}
+              />
+              <FilterSelect
+                label={m.dev_items_filter_origin()}
+                value={query.origin}
+                options={ITEM_ORIGIN_FILTERS.map((value) => ({
+                  value,
+                  label: value === "all" ? m.dev_items_filter_origin_all() : ORIGIN_FILTER_TEXT[value](),
+                }))}
+                onChange={(origin) => onQuery({ origin })}
+              />
+              <FilterSelect
+                label={m.dev_items_filter_enabled()}
+                value={query.enabled}
+                options={[
+                  { value: "all" as const, label: m.dev_items_filter_enabled_all() },
+                  { value: "on" as const, label: m.dev_items_filter_on() },
+                  { value: "off" as const, label: m.dev_items_filter_off() },
+                ]}
+                onChange={(enabled) => onQuery({ enabled })}
+              />
+              <span className="ie-range" role="group" aria-label={m.dev_items_filter_tier()}>
+                <span className="ie-range-label" aria-hidden="true">
+                  {m.dev_items_filter_tier()}
                 </span>
-                <span className="ie-item-name">{row.name[locale]}</span>
-                <span className="ie-item-meta">
-                  {row.id} · T{row.tier}
-                  {row.slot ? ` · ${SLOT_TEXT[row.slot]()}` : ` · ${STORAGE_TEXT[row.storage]()}`}
-                  {` · ${MARKET_TEXT[row.market]()}`}
-                </span>
-                <span className="ie-item-summary" title={summary === "" ? undefined : summary}>
-                  {summary}
-                </span>
-                <span className="ie-chips">
-                  {row.origin === "pack" ? null : (
-                    <span className={`ie-chip ie-origin-${row.origin}`}>{ORIGIN_TEXT[row.origin]()}</span>
-                  )}
-                  {staged.has(row.id) ? (
-                    <span className="ie-chip ie-chip-staged">{m.dev_items_staged_chip()}</span>
-                  ) : null}
-                  {row.enabled ? null : <span className="ie-chip">{m.dev_items_disabled()}</span>}
-                  {row.codeRef ? <span className="ie-chip">{m.dev_items_code_ref_chip()}</span> : null}
-                  {row.advice > 0 ? (
-                    <span className="ie-chip ie-chip-advice">
-                      {m.dev_items_advice_count({ count: row.advice })}
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {shown.length > limit ? (
-        <button type="button" className="button-small" onClick={() => setLimit(limit + PAGE)}>
-          {m.dev_items_more({ count: shown.length - limit })}
-        </button>
-      ) : null}
-    </aside>
+                <input
+                  id={`${filterIds}-tier-min`}
+                  className="input"
+                  inputMode="numeric"
+                  aria-label={m.dev_items_filter_tier_min()}
+                  value={query.tierMin}
+                  onChange={(event) =>
+                    onQuery({ tierMin: Math.max(0, Math.min(9, Number(event.target.value) || 0)) })
+                  }
+                />
+                <span aria-hidden="true">~</span>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  aria-label={m.dev_items_filter_tier_max()}
+                  value={query.tierMax}
+                  onChange={(event) =>
+                    onQuery({ tierMax: Math.max(0, Math.min(9, Number(event.target.value) || 0)) })
+                  }
+                />
+              </span>
+            </div>
+          </details>
+        </>
+      }
+    />
   );
+}
+
+/** 찾는 글을 늦춰 거른다(줄 몇백 개를 다시 그리는 동안 글자 입력이 막히지 않게) */
+export function useDeferredQuery(query: ItemQuery): ItemQuery {
+  const text = useDeferredValue(query.text);
+  return text === query.text ? query : { ...query, text };
 }

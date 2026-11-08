@@ -12,6 +12,7 @@ import { EQUIP_SLOTS } from "@terra/shared/roster";
 import { useId } from "react";
 import { m } from "../../paraglide/messages.js";
 import { CheckField, NumberField, RemoveButton, SelectField } from "../content/contentEditorFields.tsx";
+import { FormSection } from "../content/contentEditorLayout.tsx";
 import { materialOptions } from "./BuildingLevels.tsx";
 import { EQUIP_SLOT_TEXT } from "./buildingMessages.ts";
 import { MATERIAL_CATEGORIES, newRepairRule, setRepair, toggleIn } from "./buildingModel.ts";
@@ -51,7 +52,7 @@ function RuleEditor({
         </h4>
         <button
           type="button"
-          className="button-small be-remove-repair"
+          className="be-remove-repair"
           onClick={() => {
             const rest = rules.filter((_, at) => at !== index);
             onEdit(setRepair(entry, rest.length === 0 ? undefined : rest));
@@ -98,6 +99,7 @@ function RuleEditor({
           <li key={`${stack.item}-${line}`} className="be-material" data-item={stack.item}>
             <SelectField
               label={m.dev_buildings_field_item()}
+              path={`repair[${index}].materials[${line}].item`}
               hideLabel={line > 0}
               className="be-material-item"
               value={stack.item}
@@ -113,6 +115,7 @@ function RuleEditor({
             />
             <NumberField
               label={m.dev_buildings_field_base_qty()}
+              path={`repair[${index}].materials[${line}].qty`}
               hideLabel={line > 0}
               className="be-material-qty"
               value={stack.qty}
@@ -140,7 +143,7 @@ function RuleEditor({
       {rule.materials.length < FACILITY_REPAIR_LIMITS.materials && pickable[0] ? (
         <button
           type="button"
-          className="button-small be-add-material"
+          className="be-add-material"
           onClick={() => {
             const unused = pickable.find((item) => !rule.materials.some((stack) => stack.item === item.id));
             const item = unused ?? pickable[0];
@@ -168,11 +171,14 @@ export function BuildingRepair({
   const rules = entry.repair ?? [];
   const fresh = newRepairRule(list.items);
   return (
-    <section className="be-panel be-section" aria-labelledby="be-repair-title" data-section="repair">
-      <h3 id="be-repair-title" className="be-heading">
-        {m.dev_buildings_section_repair()}
-      </h3>
-      <p className="field-hint">{m.dev_buildings_repair_hint()}</p>
+    <FormSection
+      name="repair"
+      className="be-section"
+      title={m.dev_buildings_section_repair()}
+      desc={m.dev_buildings_repair_hint()}
+      source="D-512 323"
+      paths={["repair"]}
+    >
       {rules.length === 0 ? <p className="field-hint">{m.dev_buildings_no_repair()}</p> : null}
       <div className="be-bands">
         {rules.map((rule, index) => (
@@ -191,12 +197,12 @@ export function BuildingRepair({
       {rules.length < FACILITY_REPAIR_LIMITS.rules && fresh ? (
         <button
           type="button"
-          className="button-small be-add-repair"
+          className="be-add-repair"
           onClick={() => onEdit(setRepair(entry, [...rules, fresh]))}
         >
           {m.dev_buildings_add_repair_rule()}
         </button>
       ) : null}
-    </section>
+    </FormSection>
   );
 }

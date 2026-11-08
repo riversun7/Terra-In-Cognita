@@ -94,6 +94,7 @@ export function ItemWeaponFields({
       max={L.appropriatePrimary.max}
       optional
       hint={hint}
+      path={`equip.weapon.appropriate.${code}`}
       problem={at(`appropriate.${code}`)}
       onChange={(value) => onChange(withAppropriate(weapon, code, value))}
     />
@@ -121,6 +122,7 @@ export function ItemWeaponFields({
                     value={value.attack}
                     min={L.weaponAttack.min}
                     max={L.weaponAttack.max}
+                    path={`equip.weapon.${field}.attack`}
                     problem={at(`${field}.attack`)}
                     onChange={(attack) => setAttack(field, attack ?? 0)}
                   />
@@ -141,6 +143,7 @@ export function ItemWeaponFields({
             { value: "physical", label: m.dev_items_attack_physical() },
             { value: "elemental", label: m.dev_items_attack_elemental() },
           ]}
+          path="equip.weapon.basic"
           problem={at("basic")}
           onChange={(basic) => onChange({ ...weapon, basic })}
         />
@@ -162,6 +165,7 @@ export function ItemWeaponFields({
           value={weapon.hitPm}
           min={L.pm.min}
           max={L.pm.max}
+          path="equip.weapon.hitPm"
           problem={at("hitPm")}
           onChange={(hitPm) => onChange({ ...weapon, hitPm: hitPm ?? 0 })}
         />
@@ -170,6 +174,7 @@ export function ItemWeaponFields({
           value={weapon.critPm}
           min={L.pm.min}
           max={L.pm.max}
+          path="equip.weapon.critPm"
           problem={at("critPm")}
           onChange={(critPm) => onChange({ ...weapon, critPm: critPm ?? 0 })}
         />
@@ -178,6 +183,7 @@ export function ItemWeaponFields({
           value={weapon.intervalMs}
           min={L.intervalMs.min}
           max={L.intervalMs.max}
+          path="equip.weapon.intervalMs"
           problem={at("intervalMs")}
           onChange={(intervalMs) => onChange({ ...weapon, intervalMs: intervalMs ?? 1000 })}
         />
@@ -186,6 +192,7 @@ export function ItemWeaponFields({
           value={weapon.range}
           min={L.range.min}
           max={L.range.max}
+          path="equip.weapon.range"
           problem={at("range")}
           onChange={(range) => onChange({ ...weapon, range: range ?? 1 })}
         />
@@ -195,6 +202,7 @@ export function ItemWeaponFields({
           min={L.cost.min}
           max={L.cost.max}
           hint={m.dev_items_cost_shared()}
+          path="equip.weapon.staminaCost"
           problem={at("staminaCost")}
           onChange={(staminaCost) => onChange({ ...weapon, staminaCost: staminaCost ?? 0 })}
         />
@@ -203,6 +211,7 @@ export function ItemWeaponFields({
           value={weapon.mpCost}
           min={L.cost.min}
           max={L.cost.max}
+          path="equip.weapon.mpCost"
           problem={at("mpCost")}
           onChange={(mpCost) => onChange({ ...weapon, mpCost: mpCost ?? 0 })}
         />
@@ -234,6 +243,7 @@ export function ItemWeaponFields({
                 : row.entry.name[locale],
           })),
         ]}
+        path="equip.weapon.ammo"
         problem={at("ammo")}
         onChange={(value) => {
           const { ammo: _drop, ...rest } = weapon;
@@ -258,6 +268,7 @@ export function ItemWeaponFields({
               value={pm}
               min={L.elementPm.min}
               max={L.elementPm.max}
+              path={`equip.weapon.skillElementsPm[${index}]`}
               problem={at(`skillElementsPm[${index}]`)}
               onChange={(value) =>
                 onChange({

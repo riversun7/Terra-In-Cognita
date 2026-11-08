@@ -11,6 +11,7 @@ import {
 import { useId } from "react";
 import { m } from "../../paraglide/messages.js";
 import { NumberField, RemoveButton, SelectField } from "../content/contentEditorFields.tsx";
+import { FormSection } from "../content/contentEditorLayout.tsx";
 import {
   MATERIAL_CATEGORIES,
   addBand,
@@ -77,6 +78,8 @@ function BandEditor({
         {index > 0 ? (
           <NumberField
             label={m.dev_buildings_field_from()}
+            path={`build.levels[${index}].from`}
+            unit={m.dev_content_unit_level()}
             className="be-from"
             value={band.from}
             min={1}
@@ -87,11 +90,7 @@ function BandEditor({
           />
         ) : null}
         {index > 0 ? (
-          <button
-            type="button"
-            className="button-small be-remove-band"
-            onClick={() => onEdit(removeBand(entry, index))}
-          >
+          <button type="button" className="be-remove-band" onClick={() => onEdit(removeBand(entry, index))}>
             {m.dev_buildings_remove_band()}
           </button>
         ) : null}
@@ -101,6 +100,7 @@ function BandEditor({
           <li key={`${stack.item}-${line}`} className="be-material" data-item={stack.item}>
             <SelectField
               label={m.dev_buildings_field_item()}
+              path={`build.levels[${index}].materials[${line}].item`}
               hideLabel={line > 0}
               className="be-material-item"
               value={stack.item}
@@ -109,6 +109,7 @@ function BandEditor({
             />
             <NumberField
               label={m.dev_buildings_field_qty()}
+              path={`build.levels[${index}].materials[${line}].qty`}
               hideLabel={line > 0}
               className="be-material-qty"
               value={stack.qty}
@@ -130,7 +131,7 @@ function BandEditor({
       {band.materials.length < FACILITY_BUILD_LIMITS.materials ? (
         <button
           type="button"
-          className="button-small be-add-material"
+          className="be-add-material"
           onClick={() => onEdit(addMaterial(entry, index, pickable))}
         >
           {m.dev_buildings_add_material()}
@@ -161,15 +162,19 @@ export function BuildingLevels({
     (build.levels.at(-1)?.from ?? 0) < maxLevelOf(entry);
   return (
     <>
-      <section className="be-panel be-section" aria-labelledby="be-build-title">
-        <h3 id="be-build-title" className="be-heading">
-          {m.dev_buildings_section_build()}
-        </h3>
-        <p className="field-hint">{m.dev_buildings_build_hint()}</p>
+      <FormSection
+        name="build"
+        className="be-section"
+        title={m.dev_buildings_section_build()}
+        desc={m.dev_buildings_build_hint()}
+        source="49 M14 · D-508"
+        paths={["build"]}
+      >
         {build ? (
           <>
             <NumberField
               label={m.dev_buildings_field_mul()}
+              path="build.mulPm"
               className="be-mul"
               value={build.mulPm}
               min={FACILITY_BUILD_LIMITS.mulPm.min}
@@ -192,29 +197,27 @@ export function BuildingLevels({
               ))}
             </div>
             {canAddBand ? (
-              <button
-                type="button"
-                className="button-small be-add-band"
-                onClick={() => onEdit(addBand(entry))}
-              >
+              <button type="button" className="be-add-band" onClick={() => onEdit(addBand(entry))}>
                 {m.dev_buildings_add_band()}
               </button>
             ) : null}
           </>
         ) : (
-          <div className="be-actions">
+          <div className="ce-inline-actions">
             <p className="field-hint">{m.dev_buildings_no_build()}</p>
-            <button type="button" className="button-small" onClick={() => onEdit(newBuild(entry, pickable))}>
+            <button type="button" onClick={() => onEdit(newBuild(entry, pickable))}>
               {m.dev_buildings_new_build()}
             </button>
           </div>
         )}
-      </section>
-      <section className="be-panel be-section" aria-labelledby="be-levels-title">
-        <h3 id="be-levels-title" className="be-heading">
-          {m.dev_buildings_levels_title()}
-        </h3>
-        <p className="field-hint">{m.dev_buildings_levels_hint({ msPerKg: list.rules.msPerKg })}</p>
+      </FormSection>
+      <FormSection
+        name="levels"
+        className="be-section"
+        title={m.dev_buildings_levels_title()}
+        desc={m.dev_buildings_levels_hint({ msPerKg: list.rules.msPerKg })}
+        source="49 M14 · N43"
+      >
         <div className="dev-table-wrap">
           <table className="dev-table be-level-table">
             <thead>
@@ -279,7 +282,7 @@ export function BuildingLevels({
             </tbody>
           </table>
         </div>
-      </section>
+      </FormSection>
     </>
   );
 }

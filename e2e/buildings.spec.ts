@@ -70,7 +70,8 @@ async function freshEditor(page: Page, path = "/dev/buildings"): Promise<void> {
   await expect(screen(page)).toHaveAttribute("data-status", "ready");
 }
 
-const row = (page: Page, id: string) => page.locator(`.be-table tr[data-facility="${id}"]`);
+/** 왼쪽 목록의 시설 줄(누르면 편집 판) */
+const row = (page: Page, id: string) => page.locator(`.be-row-button[data-facility="${id}"]`);
 const detail = (page: Page) => page.locator(".be-detail");
 const band = (page: Page, index: number) => detail(page).locator(`.be-band[data-band="${index}"]`);
 const levelRow = (page: Page, level: number) =>
@@ -98,11 +99,14 @@ test.describe("개발자", () => {
     deviceErrors,
   }) => {
     await freshEditor(page);
-    // 표: 시설 9개(제재소·가마·영토 비콘 포함, 영토 비콘은 docs/adr/2026-11-03-territory-layer.md). 시설은 늘 켜져 있어 꺼짐 표지가
-    // 없다(팩 core@32, 사용자 답 2026-11-03)
-    await expect(page.locator(".be-table tbody tr")).toHaveCount(9);
-    await expect(page.locator(".be-table .be-badge-off")).toHaveCount(0);
-    await row(page, "farm").locator(".be-row-button").click();
+    // 목록: 시설마다 한 줄(제재소·가마·영토 비콘 포함, 영토 비콘은 docs/adr/2026-11-03-territory-layer.md). 시설은 늘 켜져 있어 꺼짐
+    // 표지가 없다(팩 core@32, 사용자 답 2026-11-03)
+    // 목록 줄 수 = 서버 시설 수(팩 core@57은 17개)
+    const listed = list(field((await trpc(page, "buildings.list")).data, "facilities"));
+    expect(listed.length).toBeGreaterThanOrEqual(9);
+    await expect(page.locator(".be-row-button")).toHaveCount(listed.length);
+    await expect(page.locator(".ce-side .be-badge-off")).toHaveCount(0);
+    await row(page, "farm").click();
     await expect(detail(page)).toHaveAttribute("data-facility", "farm");
     // 편집 판에 켜기 칸이 없다
     await expect(detail(page).locator('input[type="checkbox"]')).toHaveCount(0);
@@ -120,15 +124,20 @@ test.describe("개발자", () => {
     await band(page, 0).locator('.be-material[data-item="pine_log"] .be-material-qty input').fill("10");
     await expect(stagebar(page)).toHaveAttribute("data-count", "1");
     await expect(row(page, "farm")).toHaveAttribute("data-staged", "");
+    // 칸 견주기(2026-11-08 화면 개편): 고친 칸에 담음 표지·팩 값(8)
+    const qty = band(page, 0).locator('.be-material[data-item="pine_log"] .be-material-qty');
+    await expect(qty).toHaveAttribute("data-staged", "");
+    await expect(qty.locator('[data-part="pack"]')).toContainText("8");
     await expect(levelRow(page, 1)).toContainText(
       message("ko", "dev_buildings_material_qty", { name: "소나무", qty: 8 }),
     );
     await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
     await stagebar(page).locator(".be-note").fill("e2e 건축 재료");
     await stagebar(page).locator(".be-apply").click();
-    await expect(stagebar(page)).toHaveAttribute("data-count", "0");
+    await expect(stagebar(page)).toHaveCount(0);
     await expect(screen(page)).not.toHaveAttribute("data-revision", before ?? "");
-    await expect(row(page, "farm").locator('.dev-badge[data-origin="edited"]')).toBeVisible();
+    await expect(row(page, "farm")).toHaveAttribute("data-changed", "");
+    await expect(row(page, "farm").locator(".ce-badge-changed")).toBeVisible();
     const after = await trpc(page, "buildings.list");
     const farm = list(field(after.data, "facilities")).find(
       (entry) => field(field(entry, "entry"), "id") === "farm",
@@ -150,8 +159,8 @@ test.describe("개발자", () => {
     await expect(detail(page).locator(".be-reverting")).toBeVisible();
     await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
     await stagebar(page).locator(".be-apply").click();
-    await expect(stagebar(page)).toHaveAttribute("data-count", "0");
-    await expect(row(page, "farm").locator('.dev-badge[data-origin="pack"]')).toBeVisible();
+    await expect(stagebar(page)).toHaveCount(0);
+    await expect(row(page, "farm")).not.toHaveAttribute("data-changed", "");
     await expect(levelRow(page, 1)).toContainText(
       message("ko", "dev_buildings_material_qty", { name: "소나무", qty: 6 }),
     );
@@ -184,10 +193,10 @@ test.describe("개발자", () => {
       message("ko", "dev_buildings_issue_levels_order", { previous: "2" }),
     );
     await stagebar(page)
-      .getByRole("button", { name: message("ko", "dev_buildings_clear"), exact: true })
+      .getByRole("button", { name: message("ko", "dev_content_discard_all"), exact: true })
       .click();
-    await stagebar(page).locator(".be-confirm .button-primary").click();
-    await expect(stagebar(page)).toHaveAttribute("data-count", "0");
+    await stagebar(page).locator(".ce-confirm-yes").click();
+    await expect(stagebar(page)).toHaveCount(0);
     await expect(band(page, 2)).toHaveCount(0);
     expect((await trpc(page, "buildings.list")).status).toBe(200);
     expect(deviceErrors).toEqual([]);
@@ -224,7 +233,7 @@ test.describe("수리 줄(D-512 323)", () => {
     await expect(stagebar(page)).toHaveAttribute("data-count", "1");
     await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
     await stagebar(page).locator(".be-apply").click();
-    await expect(stagebar(page)).toHaveAttribute("data-count", "0");
+    await expect(stagebar(page)).toHaveCount(0);
     const after = await trpc(page, "buildings.list");
     const workshop = list(field(after.data, "facilities")).find(
       (entry) => field(field(entry, "entry"), "id") === "workshop",
@@ -244,9 +253,9 @@ test.describe("수리 줄(D-512 323)", () => {
     await expect(detail(page).locator(".be-repair-rule")).toHaveCount(3);
     await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
     await stagebar(page)
-      .getByRole("button", { name: message("ko", "dev_buildings_clear"), exact: true })
+      .getByRole("button", { name: message("ko", "dev_content_discard_all"), exact: true })
       .click();
-    await stagebar(page).locator(".be-confirm .button-primary").click();
+    await stagebar(page).locator(".ce-confirm-yes").click();
     await resetBuildings(page);
     expect(deviceErrors).toEqual([]);
   });
@@ -307,6 +316,9 @@ test.describe("배치·사진", () => {
           await shot(page, `${name}-${theme}-${language}-${width}`);
         };
         await check("buildings");
+        // 담은 변경 막대를 펼친 모양(항목마다 바꾼 칸 수·[열기]·[×])
+        await stagebar(page).locator("summary").click();
+        await check("buildings-pending");
         // 레벨 표: 가운데로 올려 화면 사진으로 찍는다(요소 사진은 아래에 붙은 담은 변경 막대가 가린다)
         await detail(page)
           .locator(".be-level-table")
@@ -316,16 +328,19 @@ test.describe("배치·사진", () => {
           await detail(page).locator(".be-back-list").click();
           await expect(row(page, "mine")).toBeVisible();
           await check("buildings-list");
+          // 휴대폰 거르기 줄([거르기] 누르면 펼침)
+          await page.locator(".ce-filters-toggle").click();
+          await check("buildings-filters");
         } else {
           // 넓은 화면의 시설 줄은 촘촘하다(카드가 아니다)
           const box = await row(page, "smelter").boundingBox();
           expect(box?.height ?? 0).toBeLessThanOrEqual(64);
         }
         await stagebar(page)
-          .getByRole("button", { name: message(language, "dev_buildings_clear"), exact: true })
+          .getByRole("button", { name: message(language, "dev_content_discard_all"), exact: true })
           .click();
-        await stagebar(page).locator(".be-confirm .button-primary").click();
-        await expect(stagebar(page)).toHaveAttribute("data-count", "0");
+        await stagebar(page).locator(".ce-confirm-yes").click();
+        await expect(stagebar(page)).toHaveCount(0);
         // 수리 줄(D-512 323): 공방을 열어 수리 판을 가운데로
         await editorReady(page, "/dev/buildings?facility=workshop");
         await expect(detail(page)).toHaveAttribute("data-facility", "workshop");

@@ -76,6 +76,8 @@ export function EffectRows({
   },
   problemOf,
   durationMax = EFFECT_ROW_LIMITS.durationMs.max,
+  legendHidden = false,
+  pathPrefix,
 }: {
   legend: string;
   rows: readonly EffectRowJson[];
@@ -87,17 +89,24 @@ export function EffectRows({
   problemOf?: (index: number, field: "effect" | "value" | "chancePm" | "durationMs") => string | undefined;
   /** 지속 칸 상한(ms). 없으면 효과 줄 범위(1시간, 전투 효과). 아이템 사용 효과는 상한이 없다(D-512 328, 기술 범위만) */
   durationMax?: number;
+  /** 겉 구역이 제목을 보일 때: 묶음 제목은 읽기 프로그램에만 */
+  legendHidden?: boolean;
+  /** 팩 항목 안 효과 줄 경로(예 "effects", "use.effects"): 주면 칸마다 팩 값·지금 값과 견준다 */
+  pathPrefix?: string | undefined;
 }) {
+  const at = (index: number, key: string): string | undefined =>
+    pathPrefix === undefined ? undefined : `${pathPrefix}[${index}].${key}`;
   const firstEffect = effects.find((effect) => effect.enabled)?.id ?? effects[0]?.id ?? "burn";
   const L = EFFECT_ROW_LIMITS;
   return (
     <fieldset className={classes.section}>
-      <legend className={classes.title}>{legend}</legend>
+      <legend className={legendHidden ? "visually-hidden" : classes.title}>{legend}</legend>
       <ul className={classes.rows}>
         {rows.map((part, index) => (
           <li key={index} className={classes.row}>
             <SelectField
               label={m.dev_content_field_effect()}
+              path={at(index, "effect")}
               value={part.effect}
               options={effectOptions(effects, locale, part.effect)}
               problem={problemOf?.(index, "effect")}
@@ -105,6 +114,7 @@ export function EffectRows({
             />
             <NumberField
               label={m.dev_content_field_chance()}
+              path={at(index, "chancePm")}
               value={part.chancePm}
               min={L.chancePm.min}
               max={L.chancePm.max}
@@ -113,6 +123,7 @@ export function EffectRows({
             />
             <NumberField
               label={m.dev_content_field_duration()}
+              path={at(index, "durationMs")}
               value={part.durationMs}
               min={L.durationMs.min}
               max={durationMax}
@@ -125,6 +136,7 @@ export function EffectRows({
             />
             <NumberField
               label={m.dev_content_field_magnitude()}
+              path={at(index, "value")}
               value={part.value}
               min={L.value.min}
               max={L.value.max}

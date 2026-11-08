@@ -1,6 +1,8 @@
-// 건물 편집기(/dev/buildings) — docs/adr/2026-11-02-building-editor.md, 기획 D-508·49 M14·D-5044. dev·admin, 틀 안, 촘촘(개발 화면 층).
-// - 왼쪽 시설 표(.dev-table: 이름·단계·레벨·자리·Lv1 재료·상태), 오른쪽 편집 판(BuildingDetail: 기본·건설 재료 레벨 구간·레벨 표·채집·
-//   레시피). 390px에서는 표 → 편집이 한 칸씩 쌓인다(data-view). ?facility=<ID>는 그 시설을 바로 연다.
+// 건물 편집기(/dev/buildings) — docs/adr/2026-11-02-building-editor.md("바뀜 (2026-11-08 화면 개편)"), 기획 D-508·49 M14·D-5044.
+// dev·admin, 틀 안, 촘촘(개발 화면 층). 설정 칸 패널(/dev/tuning)과 한 가족인 공용 틀(editor/content/contentEditorShell.css).
+// - 넓은 폭은 왼쪽 시설 목록(BuildingList: 찾기·거르기, 줄 = 단계·이름·ID·최고 레벨·자리·Lv1 재료·표지) + 오른쪽 편집 판(BuildingDetail:
+//   기본·건설 재료 레벨 구간·레벨 표·채집·수리·레시피, 칸마다 팩 값·지금 값 견주기와 칸 되돌리기, 검사 문제는 칸 옆에도).
+//   휴대폰은 목록 → 편집이 한 칸씩(data-view). ?facility=<ID>는 그 시설을 바로 연다. 키: "/" 찾기, Alt+↑↓ 이전·다음, Ctrl/⌘+S 적용.
 // - 고친 칸은 바로 담은 변경에 든다(실효 값과 같아지면 빠진다). 막대의 [적용]이 서버 묶음(buildings.save) 하나로 보낸다. 서버가 팩 검사기로
 //   본 뒤 그 세계에 바로 넣는다(D-461). 입력이 1초 멈추면 buildings.check(코드가 붙은 문제 → 편집 판 아래 문구).
 // - 묶음에 고치기 시작할 때의 실효 항목 해시(baseHash)를 싣는다. entry_changed면 목록을 다시 받고 내 칸만 새 항목 위에 다시 얹는다(3방향).
@@ -16,7 +18,7 @@ import {
   type FacilityJson,
 } from "@terra/shared/buildingEditor";
 import type { TuningExportResponse } from "@terra/shared/tuning";
-import { useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useId, useRef, useState } from "react";
 import { refreshSession } from "../../auth/session.ts";
 import { api } from "../../net/api.ts";
 import { m } from "../../paraglide/messages.js";
@@ -26,14 +28,23 @@ import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
 import {
+  EditorSummary,
+  EditorTabs,
+  ExportPanel,
+  KeyHelp,
+  useEditorKeys,
+} from "../content/contentEditorLayout.tsx";
+import {
   type ContentErrorInfo,
   contentErrorOf,
   sameJson,
   stableJson,
 } from "../content/contentEditorModel.ts";
+import { leafDiff } from "../content/contentEditorPaths.ts";
+import { PendingBar, type PendingEntry } from "../content/contentEditorPending.tsx";
 import { BuildingDetail } from "./BuildingDetail.tsx";
-import { BuildingList } from "./BuildingList.tsx";
-import { BuildingExport, BuildingSleeping, BuildingStageBar, type CheckState } from "./BuildingPanels.tsx";
+import { BuildingList, type BuildingQuery, EMPTY_BUILDING_QUERY, filterFacilities } from "./BuildingList.tsx";
+import { BuildingSleeping, type CheckState, checkStatus } from "./BuildingPanels.tsx";
 import { CheckLater } from "./CheckLater.tsx";
 import { GatherProbTab } from "./GatherProbTab.tsx";
 import { errorText } from "./buildingMessages.ts";
@@ -89,8 +100,12 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
   const [busy, setBusy] = useState(false);
   const [exported, setExported] = useState<TuningExportResponse | null>(null);
   const [history, setHistory] = useState<readonly BuildingEditorHistoryRow[] | null>(null);
+  const [query, setQueryState] = useState<BuildingQuery>(EMPTY_BUILDING_QUERY);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const tabsId = useId();
   const notice = useLiveLines();
   const problem = useLiveLines();
+  const text = useDeferredValue(query.text);
 
   useEffect(() => {
     stageRef.current = stage;
@@ -166,6 +181,19 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
   const select = (id: string): void => {
     setSelected(id);
     setView("detail");
+  };
+
+  const setQuery = (patch: Partial<BuildingQuery>): void =>
+    setQueryState((previous) => ({ ...previous, ...patch }));
+  const shown = list ? filterFacilities(list, stage, { ...query, text }, locale) : [];
+  const shownIds = shown.map((item) => item.row.entry.id);
+  const at = selected ? shownIds.indexOf(selected) : -1;
+
+  /** 보이는 차례로 이전·다음 시설 */
+  const step = (by: -1 | 1): void => {
+    if (tab !== "facilities" || shownIds.length === 0) return;
+    const next = shownIds[at < 0 ? 0 : Math.max(0, Math.min(shownIds.length - 1, at + by))];
+    if (next && next !== selected) select(next);
   };
 
   /** 편집 판이 고친 시설(실효 값과 같아지면 담음에서 뺀다) */
@@ -343,9 +371,55 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
     }
   };
 
+  const canApply = keys.length > 0 && checkState.status === "done" && checkState.errors === 0 && !busy;
+  useEditorKeys({
+    searchRef,
+    dirty: keys.length > 0,
+    onSave: () => {
+      if (canApply) void apply();
+    },
+    onStep: step,
+  });
+
+  const facilityName = (id: string): string =>
+    rows.find((item) => item.entry.id === id)?.entry.name[locale] ?? id;
+  const pendingEntries: PendingEntry[] = [
+    ...[...stage.facilities].map(
+      ([id, item]): PendingEntry => ({
+        key: id,
+        id,
+        name: item.op === "put" ? item.entry.name[locale] : facilityName(id),
+        kind: item.op === "put" ? "put" : "revert",
+        fields: item.op === "put" ? leafDiff(item.base, item.entry).length : null,
+        onOpen: () => pick(id),
+        onRemove: () => pushStage(stageFacility(stageRef.current, id, null)),
+      }),
+    ),
+    ...[...stage.gatherBands].map(
+      ([id, item]): PendingEntry => ({
+        key: `gather_tiers/${id}`,
+        id,
+        name: m.dev_buildings_band_pending({ id }),
+        kind: item.op === "put_gather_band" ? "put" : "revert",
+        fields: item.op === "put_gather_band" ? leafDiff(item.base, item.entry).length : null,
+        onOpen: () => pick(`gather_tiers/${id}`),
+        onRemove: () => unstageBand(id),
+      }),
+    ),
+    ...[...stage.discard].map(
+      (id): PendingEntry => ({
+        key: `sleeping/${id}`,
+        id,
+        name: m.dev_buildings_sleeping_title(),
+        kind: "discard",
+        onRemove: () => pushStage(stageDiscard(stageRef.current, id, false)),
+      }),
+    ),
+  ];
+
   return (
     <section
-      className="screen screen-wide be-screen"
+      className="screen screen-wide ce-screen be-screen"
       aria-labelledby="buildings-title"
       data-density="compact"
       data-status={load.status}
@@ -357,39 +431,46 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
         </h1>
         <BackButton />
       </div>
-      <p className="lead be-lead">{m.dev_buildings_lead()}</p>
+      <p className="lead">{m.dev_buildings_lead()}</p>
       {load.status === "loading" ? <p className="field-hint">{m.dev_buildings_loading()}</p> : null}
       {load.status === "failed" ? (
-        <div className="be-actions">
+        <div className="ce-inline-actions">
           <p role="alert" className="field-error">
             {load.message}
           </p>
-          <button type="button" className="button-small" onClick={() => void reload()}>
+          <button type="button" onClick={() => void reload()}>
             {m.dev_buildings_retry()}
           </button>
         </div>
       ) : null}
       {list ? (
         <>
-          <div className="be-summary">
-            <span className="dev-badge">
-              {m.dev_buildings_summary({ count: list.facilities.length, revision: list.revision })}
-            </span>
-            <span className="dev-muted be-version">{list.contentVersion}</span>
-            <div className="be-actions be-summary-tools">
-              <button type="button" className="button-small" onClick={onExport}>
-                {m.dev_buildings_export()}
-              </button>
-              <button
-                type="button"
-                className="button-small"
-                aria-pressed={history !== null}
-                onClick={onHistory}
-              >
-                {m.dev_buildings_history()}
-              </button>
-            </div>
-          </div>
+          <EditorSummary
+            label={m.dev_buildings_summary_label()}
+            className="be-summary"
+            chips={[
+              { key: "pack", text: m.dev_buildings_pack({ version: list.contentVersion }) },
+              { key: "revision", text: m.dev_buildings_revision({ revision: list.revision }) },
+              { key: "count", text: m.dev_buildings_count({ count: list.facilities.length }) },
+              {
+                key: "changed",
+                text: m.dev_buildings_changed({
+                  count: list.facilities.filter((item) => item.origin !== "pack").length,
+                }),
+                warn: list.facilities.some((item) => item.origin !== "pack"),
+              },
+            ]}
+            tools={
+              <span className="be-summary-tools ce-inline-actions">
+                <button type="button" onClick={onExport}>
+                  {m.dev_buildings_export()}
+                </button>
+                <button type="button" aria-pressed={history !== null} onClick={onHistory}>
+                  {m.dev_buildings_history()}
+                </button>
+              </span>
+            }
+          />
           {list.sleeping.length > 0 ? (
             <BuildingSleeping
               rows={list.sleeping}
@@ -397,54 +478,64 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
               onToggle={(id, on) => pushStage(stageDiscard(stageRef.current, id, on))}
             />
           ) : null}
-          {exported ? <BuildingExport exported={exported} onClose={() => setExported(null)} /> : null}
+          {exported ? (
+            <ExportPanel exported={exported} textClass="be-export-text" onClose={() => setExported(null)} />
+          ) : null}
           {history ? (
             <ContentHistory
               rows={history}
               locale={locale}
               title={m.dev_buildings_history()}
-              className="be-panel be-history"
+              className="ce-panel be-history"
               headingId="be-history-title"
             />
           ) : null}
-          <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
-          <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
-          <div className="be-tabs" role="tablist" aria-label={m.shell_route_dev_buildings()}>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "facilities"}
-              className="be-tab"
-              data-active={tab === "facilities" ? "true" : undefined}
-              onClick={() => setTab("facilities")}
-            >
-              {locale === "en"
-                ? `Facilities & Build Materials (${list.facilities.length})`
-                : `시설 · 건설 재료 (${list.facilities.length})`}
-              {stage.facilities.size > 0 ? (
-                <span className="dev-badge be-badge-staged">{stage.facilities.size}</span>
-              ) : null}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "gather_prob"}
-              className="be-tab"
-              data-active={tab === "gather_prob" ? "true" : undefined}
-              onClick={() => setTab("gather_prob")}
-            >
-              {locale === "en"
-                ? `Primary Production · Tier Probability (N43 · ${list.gatherBands.length})`
-                : `1차 생산 · 티어 확률 분포 (N43 · ${list.gatherBands.length}구간)`}
-              {stage.gatherBands.size > 0 ? (
-                <span className="dev-badge be-badge-staged">{stage.gatherBands.size}</span>
-              ) : null}
-            </button>
+          <div className="ce-messages">
+            <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
+            <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
           </div>
+          <EditorTabs
+            id={tabsId}
+            label={m.shell_route_dev_buildings()}
+            className="be-tab"
+            selected={tab}
+            onSelect={setTab}
+            tabs={[
+              {
+                value: "facilities",
+                label: m.dev_buildings_tab_facilities({ count: list.facilities.length }),
+                staged: stage.facilities.size,
+              },
+              {
+                value: "gather_prob",
+                label: m.dev_buildings_tab_gather({ count: list.gatherBands.length }),
+                staged: stage.gatherBands.size,
+              },
+            ]}
+          />
           {tab === "facilities" ? (
-            <div className="be-split" data-view={view}>
-              <BuildingList list={list} locale={locale} selected={selected} stage={stage} onSelect={select} />
-              <div className="be-detail-pane">
+            <div
+              className="ce-layout be-split"
+              data-view={view}
+              role="tabpanel"
+              id={`${tabsId}-facilities-panel`}
+              aria-labelledby={`${tabsId}-facilities`}
+            >
+              <aside className="ce-side">
+                <BuildingList
+                  list={list}
+                  rows={shown}
+                  locale={locale}
+                  selected={selected}
+                  stage={stage}
+                  query={query}
+                  onQuery={setQuery}
+                  searchRef={searchRef}
+                  onSelect={select}
+                />
+                <KeyHelp />
+              </aside>
+              <div className="ce-detail be-detail-pane">
                 {selected && row && draft ? (
                   <BuildingDetail
                     key={selected}
@@ -460,34 +551,42 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
                     onRevert={revert}
                     onUnstage={unstage}
                     onBack={() => setView("list")}
+                    onPrev={at > 0 ? () => step(-1) : null}
+                    onNext={at >= 0 && at < shownIds.length - 1 ? () => step(1) : null}
                   />
                 ) : (
-                  <p className="field-hint be-pick">{m.dev_buildings_pick()}</p>
+                  <p className="ce-pick be-pick">{m.dev_buildings_pick()}</p>
                 )}
               </div>
             </div>
           ) : (
-            <GatherProbTab
-              list={list}
-              stage={stage}
-              locale={locale}
-              onEditBand={editBand}
-              onEditAllBands={editAllBands}
-              onRevertBand={revertBand}
-              onUnstageBand={unstageBand}
-            />
+            <div role="tabpanel" id={`${tabsId}-gather_prob-panel`} aria-labelledby={`${tabsId}-gather_prob`}>
+              <GatherProbTab
+                list={list}
+                stage={stage}
+                locale={locale}
+                onEditBand={editBand}
+                onEditAllBands={editAllBands}
+                onRevertBand={revertBand}
+                onUnstageBand={unstageBand}
+              />
+            </div>
           )}
-          <BuildingStageBar
-            keys={keys}
-            check={checkState}
-            note={note}
-            onNote={setNote}
-            busy={busy}
-            onCheck={() => runCheck(stageJson, changes)}
-            onApply={() => void apply()}
-            onClear={() => pushStage(EMPTY_STAGE)}
-            onPick={pick}
-          />
+          {keys.length > 0 ? (
+            <PendingBar
+              label={m.dev_buildings_stage_label()}
+              entries={pendingEntries}
+              status={checkStatus(checkState)}
+              note={note}
+              onNote={setNote}
+              busy={busy}
+              canApply={canApply}
+              onApply={() => void apply()}
+              onDiscard={() => pushStage(EMPTY_STAGE)}
+              onCheck={() => runCheck(stageJson, changes)}
+              classes={{ bar: "be-stagebar", note: "be-note", apply: "be-apply", discard: "be-clear" }}
+            />
+          ) : null}
           {keys.length > 0 ? (
             <CheckLater key={`check:${stageJson}`} delay={1000} run={() => runCheck(stageJson, changes)} />
           ) : null}

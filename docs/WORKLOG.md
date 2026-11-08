@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 23:20 | 아이템·스킬·건물 편집기 화면 개편(/dev/items·/dev/skills·/dev/buildings) | Claude Code | [08-2320-devtools-editors](worklog/2026/11/08-2320-devtools-editors.md) |
 | 2026-11-08 22:35 | 묶음 합치기: 세계 배치(D-528)·공성 결과(D-527)·계산식 끌어 넣기·/dev/tuning 개편·/dev/balance 완전 개편 | Claude Code | [08-2235-devtools-war-world-merge](worklog/2026/11/08-2235-devtools-war-world-merge.md) |
 | 2026-11-08 21:30 | 밸런스 화면 완전 개편: 분포 상성·스탯 영향도 | Claude Code | [08-2130-devtools-balance](worklog/2026/11/08-2130-devtools-balance.md) |
 | 2026-11-08 21:20 | 묶음 합치기: 개발자 패널 분야별 페이지 + 식품 포장(D-524) + 부상·귀화(D-525·D-526) | Claude Code | [08-2120-tuning-food-injury-merge](worklog/2026/11/08-2120-tuning-food-injury-merge.md) |

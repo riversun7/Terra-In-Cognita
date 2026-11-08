@@ -6,6 +6,7 @@
 //   → 미리 보기 범위(기준 × min(상한, 스탯 ÷ 적정) ± 오차).
 //   대량 도구(WP-7): CSV 가져오기의 틀린 줄은 줄 번호로, 고친 줄·새 줄은 담아 적용. 크리쳐 전용 장비(D-494): 미리 보기·전투 실험실.
 // - player: 권한 없음 화면, tRPC items.*는 403.
+// - 화면 개편(2026-11-08): 칸마다 팩 값·지금 값 견주기와 [되돌리기], 찾기("/")·목록 키(↓·Enter)·Alt+↓ 다음 아이템·Ctrl+S 적용.
 // - 사진: 390·1440 × 개발 화면 테마 네온·라이트 × 한국어·영어, 보이는 화면 크기(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui). 소모품 효과량 칸·
 //   미리 보기 판도 같은 조합으로 찍는다. 옛 자원(295·D-505): 광석·목축 부산물 거르기 목록, 시작 시세 칸·지금 세계 시세(시세 없음).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 아이템 편집기 분류의 덮어쓰기를 모두 지운다.
@@ -268,7 +269,7 @@ test.describe("개발자", () => {
     // 비우기(확인) → 담은 것이 없고 새 항목도 사라진다
     await bar(page).locator(".ie-clear").click();
     await bar(page)
-      .getByRole("button", { name: message("ko", "dev_items_confirm_yes"), exact: true })
+      .getByRole("button", { name: message("ko", "dev_content_confirm_yes"), exact: true })
       .click();
     await expect(bar(page)).toHaveAttribute("data-count", "0");
     await expect(row(page, copy)).toHaveCount(0);
@@ -400,7 +401,7 @@ test.describe("개발자", () => {
     await expect(attackRow).toContainText("30");
     await bar(page).locator(".ie-clear").click();
     await bar(page)
-      .getByRole("button", { name: message("ko", "dev_items_confirm_yes"), exact: true })
+      .getByRole("button", { name: message("ko", "dev_content_confirm_yes"), exact: true })
       .click();
     await expect(bar(page)).toHaveAttribute("data-count", "0");
     expect(deviceErrors).toEqual([]);
@@ -439,7 +440,7 @@ test.describe("개발자", () => {
     await expect(draft.amount).toHaveText(koAmount(39, 10, 1000, 50, 250, 37, 62), { timeout: 15_000 });
     await bar(page).locator(".ie-clear").click();
     await bar(page)
-      .getByRole("button", { name: message("ko", "dev_items_confirm_yes"), exact: true })
+      .getByRole("button", { name: message("ko", "dev_content_confirm_yes"), exact: true })
       .click();
     await expect(bar(page)).toHaveAttribute("data-count", "0");
     expect(deviceErrors).toEqual([]);
@@ -539,6 +540,75 @@ test.describe("개발자", () => {
   });
 });
 
+// 넓은 폭(데스크톱): 목록과 편집 판이 함께 보인다(찾기 칸이 늘 보임)
+test.describe("화면 개편(넓은 폭)", () => {
+  test.use({ account: "dev", ...VIEWPORTS.desktop });
+
+  test("화면 개편: 칸을 고치면 담음·팩 값이 보이고 [되돌리기]로 지금 값, 찾기·목록 키·Alt+↓·Ctrl+S로 적용한다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await editorReady(page);
+    await resetItems(page);
+    await page.reload();
+    await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
+    // "/" → 찾기, 낱말 둘(대분류 ID + 이름 조각) → ↓ 첫 줄 → Enter 열기
+    await page.locator("body").press("/");
+    const search = page.getByRole("searchbox", { name: message("ko", "dev_content_search_label") });
+    await expect(search).toBeFocused();
+    await search.fill("raw iron_o");
+    await expect(page.locator(".ie-item")).toHaveCount(1);
+    await search.press("ArrowDown");
+    await expect(row(page, "iron_ore")).toBeFocused();
+    await row(page, "iron_ore").press("Enter");
+    await expect(detail(page)).toHaveAttribute("data-item", "iron_ore");
+    // 티어를 고치면 그 칸에 담음 표지·팩 값, 구역 머리에 담은 칸 수
+    const tier = editing(page).getByLabel(message("ko", "dev_items_field_tier"), { exact: true });
+    const original = await tier.inputValue();
+    await tier.fill(String(Number(original) + 1));
+    const tierField = editing(page)
+      .locator(".ce-field")
+      .filter({ has: page.getByLabel(message("ko", "dev_items_field_tier"), { exact: true }) });
+    await expect(tierField).toHaveAttribute("data-staged", "");
+    await expect(tierField.locator('[data-part="pack"]')).toContainText(original);
+    await expect(detail(page).locator('[data-section="value"] .ce-badge-staged').first()).toBeVisible();
+    await expect(bar(page)).toHaveAttribute("data-count", "1");
+    // 범위 밖 값은 칸 옆에 까닭(값은 바뀌지 않는다)
+    await tier.fill("99");
+    await expect(tierField).toHaveAttribute("data-invalid", "");
+    await expect(tierField).toContainText(
+      message("ko", "dev_content_value_out_of_range", { range: "0 ~ 9" }),
+    );
+    await tier.fill(String(Number(original) + 1));
+    // [되돌리기] → 지금 값, 담음이 빠진다
+    await tierField
+      .getByRole("button", {
+        name: message("ko", "dev_content_field_undo_named", { name: message("ko", "dev_items_field_tier") }),
+      })
+      .click();
+    await expect(tier).toHaveValue(original);
+    await expect(tierField).not.toHaveAttribute("data-staged", "");
+    await expect(bar(page)).toHaveAttribute("data-count", "0");
+    // Alt+↓: 보이는 차례의 다음 아이템(찾기를 지우면 전체 목록)
+    await search.fill("");
+    await page.locator("body").press("Alt+ArrowDown");
+    await expect(detail(page)).not.toHaveAttribute("data-item", "iron_ore");
+    // 다시 고쳐 Ctrl+S로 적용
+    await page.locator("body").press("Alt+ArrowUp");
+    await expect(detail(page)).toHaveAttribute("data-item", "iron_ore");
+    await tier.fill(String(Number(original) + 1));
+    await expect(bar(page)).toHaveAttribute("data-check", "ok", { timeout: 15_000 });
+    await page.locator("body").press("Control+s");
+    await expect(bar(page)).toHaveAttribute("data-count", "0", { timeout: 15_000 });
+    const got = await trpc(page, "items.get", { id: "iron_ore" });
+    expect(field(field(got.data, "entry"), "tier")).toBe(Number(original) + 1);
+    // 적용 뒤에는 그 칸이 팩과 다르다(덮어씀)
+    await expect(tierField).toHaveAttribute("data-changed", "");
+    await resetItems(page);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
 test.describe("플레이어", () => {
   test.use({ account: "player" });
 
@@ -615,9 +685,9 @@ test.describe("배치·사진", () => {
           await expect(row(page, "test_sword")).toBeVisible();
           await check("items-list");
         } else {
-          // 넓은 화면의 목록 줄은 한 줄(촘촘한 줄, 카드가 아니다)
+          // 넓은 화면의 목록 줄은 두 줄(이름·ID·표지 / 요약, 카드가 아니다)
           const box = await row(page, "test_sword").boundingBox();
-          expect(box?.height ?? 0).toBeLessThanOrEqual(34);
+          expect(box?.height ?? 0).toBeLessThanOrEqual(52);
         }
         await page.getByRole("tab", { name: message(language, "dev_items_tab_taxonomy") }).click();
         await expect(page.locator('.ie-tax[data-category="weapon_types"]')).toBeVisible();
@@ -674,6 +744,9 @@ test.describe("배치·사진", () => {
         expect(await smallTapTargets(page)).toEqual([]);
         await elementShot(value, `items-start-price-${theme}-${language}-${width}`);
         await toList(page);
+        // 휴대폰은 거르기 줄이 [거르기]로 접혀 있다
+        const toggle = page.locator(".ce-filters-toggle");
+        if (await toggle.isVisible()) await toggle.click();
         const filters = page.locator(".ie-filters");
         await filters.locator("summary").click();
         // 거르기 첫 칸이 중분류다(label 안 select라 이름에 고른 값이 붙는다)

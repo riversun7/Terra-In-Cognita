@@ -25,7 +25,7 @@ import { createBattleApply } from "./battleApply.ts";
 import { createBattleWorld, createWorldBattleStart } from "./battleStart.ts";
 import { type BattleItems, createBattleItems } from "./battleItems.ts";
 import { type CityRow, cityCellsOf, loadCities } from "./cities.ts";
-import { seedNpcFacilitiesAtBoot } from "../facilities/npcSeed.ts";
+import { seedNpcAtBoot } from "../npc/leaders.ts";
 import {
   type CyborgRules,
   type CyborgService,
@@ -781,9 +781,9 @@ export function startWorld(
     // 이 서버가 띄우지 않은 (행성, 2차맵)의 유닛은 DB에 그대로 둔다(지우지 않는다)
     for (const unit of units)
       if (unit.planetId !== TEST_PLANET_ID || !maps.has(unit.mapKey)) orphanUnits += 1;
-    // 세계 씨앗: NPC 시작 도시 기본 시설(봇을 채우기 전, 모자란 것만, 동기 — facilities/npcSeed.ts)
+    // 세계 씨앗: NPC 시작 도시 기본 시설·국가 지도자(봇을 채우기 전, 모자란 것만, 동기 — facilities/npcSeed.ts·npc/leaders.ts)
     const seedWith = { maps, cities, owners, facilities, log, rules: societyRules, terrain: terrainService };
-    if (config.npc) seedNpcFacilitiesAtBoot({ ...seedWith, planetId: TEST_PLANET_ID, nowMs: now() });
+    if (config.npc) seedNpcAtBoot({ ...seedWith, planetId: TEST_PLANET_ID, nowMs: now(), ids: nextId });
     paths.start();
     spawnBots();
     // 유닛을 다시 놓은 뒤에 전투 끝을 다시 건다(지난 끝 시각은 곧바로 적용된다)

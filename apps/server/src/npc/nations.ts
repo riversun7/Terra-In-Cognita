@@ -70,6 +70,8 @@ export interface NationPreset {
   readonly personality?: NationPersonality | undefined;
   /** NPC 도시 이름(번역하지 않는다, D-476) */
   readonly cityNames?: readonly string[] | undefined;
+  /** 국가 지도자 사이보그 이름(docs/adr/2026-11-07-play-flow.md "WP-NPC", 팩 [임시]). 없으면 화면이 "지도자" */
+  readonly leaderName?: { readonly ko: string; readonly en: string } | undefined;
 }
 
 /** n번째 국가 코드(1번 = 시험 NPC 세력, 2번부터 = 팩 프리셋 차례, 프리셋이 없으면 npc_nation_NN) */
@@ -93,6 +95,15 @@ export function nationName(
   if (!code.startsWith(NATION_CODE_PREFIX)) return undefined;
   const n = Number(code.slice(NATION_CODE_PREFIX.length));
   return Number.isInteger(n) ? { ko: `시험 NPC 국가 ${n}`, en: `Test NPC nation ${n}` } : undefined;
+}
+
+/** 국가 지도자 이름(세력 코드의 프리셋 leaderName — 1번은 nationName과 같은 16번째 프리셋). 없으면 undefined */
+export function nationLeaderName(
+  code: string,
+  presets: readonly NationPreset[] = [],
+): { ko: string; en: string } | undefined {
+  const name = presetOfCode(code, presets)?.leaderName;
+  return name ? { ko: name.ko, en: name.en } : undefined;
 }
 
 /**

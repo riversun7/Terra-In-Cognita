@@ -37,7 +37,16 @@ import {
   validatePlacement,
 } from "@terra/sim";
 import type { Rng } from "@terra/shared";
-import { botPlan, botRng, idleMs, pickDestination, pickSpawn, retryMs, startDelayMs } from "./bots.ts";
+import {
+  botPlan,
+  botRng,
+  homeArea,
+  idleMs,
+  pickDestination,
+  pickSpawn,
+  retryMs,
+  startDelayMs,
+} from "./bots.ts";
 import { bodyCells, failureCode, lastPoint, rectsOverlap, remainingPathBlocked } from "./mapGeometry.ts";
 import type { MapTerrain, TerrainFile } from "./mapTerrain.ts";
 import { type MapStream, createMapStream } from "./mapStream.ts";
@@ -147,6 +156,8 @@ interface UnitState {
   job: UnitJob;
   condition: UnitCondition;
   readonly bot: boolean;
+  /** 봇의 집(NPC 휴먼 = 그 도시 시청 칸). 있으면 그 둘레에서 걷는다(bots.ts homeArea). 저장하지 않는다(부팅·구인이 다시 넣는다) */
+  home: { readonly x: number; readonly y: number } | undefined;
 }
 
 /** 2차맵 예약: 같은 시각이면 (종류, 유닛 ID) 차례다(@terra/sim compareEventKeys, S3 ADR 1절) */
@@ -234,6 +245,8 @@ export interface SecondMap {
     near: { readonly x: number; readonly y: number },
     radiusCells: number,
   ): boolean;
+  /** 봇의 집(도시 시청 칸, null = 없음 — 지금 자리 둘레를 걷는다)을 정한다. 봇이 아니거나 없으면 false */
+  setHome(unitId: number, home: { readonly x: number; readonly y: number } | null): boolean;
   /** 유닛 주인을 바꾸고 저장한다(도시 주인이 바뀜). 없으면 false */
   setOwner(unitId: number, ownerId: number): boolean;
   /** 유닛 종류 코드를 바꾸고 저장한다(사이보그 융합 D-470: 휴먼 → 사이보그 유닛, 봇 ↔ 봇 아닌 것은 바꾸지 않는다). 없으면 false */
@@ -520,7 +533,9 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       return;
     }
     const rng = nextRng(unit);
-    const destination = pickDestination(grid, rng, unit.size, lastPoint(unit.motion));
+    const from = lastPoint(unit.motion);
+    const area = unit.home ? homeArea(from, unit.size, unit.home) : undefined;
+    const destination = pickDestination(grid, rng, unit.size, from, area);
     if (!destination) {
       scheduleEvent(unit, "wake", now() + retryMs(rng));
       return;
@@ -578,6 +593,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       job: spec.job,
       condition: spec.condition ?? HEALTHY,
       bot: spec.kind === UNIT_KIND_BOT,
+      home: undefined,
     };
     units.set(unit.id, unit);
     rev += 1;
@@ -735,7 +751,15 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         aiStep: 0,
         job: NO_JOB,
       });
+      // 구인한 휴먼의 집 = 그 도시(세운 기준 칸)
+      unit.home = { x: near.x, y: near.y };
       scheduleEvent(unit, "wake", now() + startDelayMs(nextRng(unit)));
+      return true;
+    },
+    setHome(unitId, home) {
+      const unit = units.get(unitId);
+      if (!unit?.bot) return false;
+      unit.home = home ?? undefined;
       return true;
     },
     setOwner(unitId, ownerId) {

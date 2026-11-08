@@ -85,6 +85,7 @@ import {
 import { GatherPanel } from "./gather/GatherPanel.tsx";
 import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
 import { createGatherState, gatherSink } from "./gather/gatherState.ts";
+import { GovernmentSheet } from "../government/GovernmentSheet.tsx";
 import "./map.css";
 
 /** 성능 보고에 붙이는 화면 이름 */
@@ -608,6 +609,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
           selected={selected}
           cyborgUnitId={cyborg?.unitId ?? null}
         />
+        {/* 누른 건물이 행정 건물이면 정부 판(docs/adr/2026-11-07-play-flow.md "WP-NPC") */}
+        <GovernmentSheet state={gather} />
         <div className="map-panel map-hint" role="status">
           <p>{hint}</p>
           {command ? <p className="map-command">{commandText(command)}</p> : null}

@@ -61,7 +61,8 @@ function factionRef(entry: { id: number; kind: FactionMembership["kind"]; code: 
 
 /**
  * 실제 소속 → 세력 요약. 도시가 1개 이상이면 국가(D-213·D-5055), 체제·고정 표시는 DB 값이다(C8).
- * 지도자·가문·세력 화폐는 아직 표가 없어 모른다(null). 공물 비율은 세계가 아직 걷지 않아 null(R5)
+ * 지도자는 NPC 국가 지도자 사이보그가 있으면 그 이름(leaderName, 유저 지도자 표는 아직 없다). 가문·세력 화폐는 아직 표가 없어 모른다(null).
+ * 공물 비율은 세계가 아직 걷지 않아 null(R5)
  */
 function realSummary(membership: FactionMembership): FactionSummary {
   return {
@@ -70,6 +71,9 @@ function realSummary(membership: FactionMembership): FactionSummary {
     regime: membership.regime,
     fixed: membership.fixed,
     leader: null,
+    // 나라 이름·지도자 이름(팩 국가 프리셋, NPC 국가 지도자 사이보그 — docs/adr/2026-11-07-play-flow.md "WP-NPC")
+    label: membership.label ?? null,
+    leaderName: membership.leaderName ?? null,
     memberCount: membership.memberCount,
     cityCount: membership.cityCount,
     joinedAt: membership.joinedAt,

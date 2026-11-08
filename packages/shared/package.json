@@ -20,6 +20,7 @@
     "./faction": "./src/faction.ts",
     "./formula": "./src/formula.ts",
     "./goodsPlaces": "./src/goodsPlaces.ts",
+    "./government": "./src/government.ts",
     "./holdings": "./src/holdings.ts",
     "./hospital": "./src/hospital.ts",
     "./inbox": "./src/inbox.ts",

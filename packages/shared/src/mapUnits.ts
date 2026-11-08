@@ -13,6 +13,8 @@ export const MAP_UNIT_KINDS = [
   "guardian",
   "test_worker",
   "test_unit",
+  // NPC 국가 지도자 사이보그(남의 유닛 한눈 정보에만 나온다 — docs/adr/2026-11-07-play-flow.md "WP-NPC")
+  "npc_leader",
 ] as const;
 export type MapUnitKind = (typeof MAP_UNIT_KINDS)[number];
 
@@ -77,6 +79,8 @@ export interface MapUnitGlance {
     /** 화면 이름(팩 국가 프리셋 등). 없으면 null(기기는 "세력 #ID") */
     readonly name: LocalizedName | null;
   } | null;
+  /** 유닛 이름(NPC 국가 지도자면 팩 국가 프리셋 leaderName). 없으면 null·없음(기기는 "종류 #번호") */
+  readonly name?: LocalizedName | null;
 }
 
 export interface MapUnitGlanceResponse {

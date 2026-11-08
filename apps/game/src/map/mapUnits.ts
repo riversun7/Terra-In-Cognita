@@ -64,7 +64,10 @@ export function sortMapUnits(units: readonly MapUnit[], locale: Locale = getLoca
 
 /** 종류 이름(남의 사이보그 본체는 "사이보그 본체") */
 function kindLabel(kind: MapUnitKind): string {
-  return kind === "cyborg_body" ? m.map_unit_kind_cyborg_body() : typeLabel(kind);
+  if (kind === "cyborg_body") return m.map_unit_kind_cyborg_body();
+  // NPC 국가 지도자 사이보그(docs/adr/2026-11-07-play-flow.md "WP-NPC")
+  if (kind === "npc_leader") return m.map_unit_kind_npc_leader();
+  return typeLabel(kind);
 }
 
 /** 한눈 정보의 세력 이름(팩 이름, 없으면 코드, 코드도 없으면 "세력 #ID") */
@@ -77,7 +80,7 @@ function factionLabel(faction: NonNullable<MapUnitGlance["faction"]>): string {
 export function unitName(unit: Pick<MapUnit, "unitId" | "kind" | "name">): string {
   if (unit.kind === "cyborg_body")
     return unit.name === null ? m.world_my_cyborg() : m.map_unit_cyborg_named({ name: unit.name });
-  return m.roster_unnamed({ type: typeLabel(unit.kind), number: String(unit.unitId) });
+  return m.roster_unnamed({ type: kindLabel(unit.kind), number: String(unit.unitId) });
 }
 
 /** 직무 이름(목록 한 줄 — 시설 직무는 시설 ID, 지금 세계에는 시험 직무만 있다) */
@@ -161,7 +164,10 @@ export function selectionText(
     case "other": {
       const state = moving ? m.map_unit_state_moving() : m.map_unit_state_standing();
       if (glance === null) return m.map_unit_selected_other({ id: unitId, state });
-      const unit = m.roster_unnamed({ type: kindLabel(glance.kind), number: String(unitId) });
+      // 이름이 있는 유닛(NPC 국가 지도자)은 "지도자 이름", 아니면 "종류 #번호"
+      const unit = glance.name
+        ? m.map_unit_named({ type: kindLabel(glance.kind), name: localName(glance.name, String(unitId)) })
+        : m.roster_unnamed({ type: kindLabel(glance.kind), number: String(unitId) });
       return glance.faction
         ? m.map_unit_selected_glance({ faction: factionLabel(glance.faction), unit, state })
         : m.map_unit_selected_glance_free({ unit, state });

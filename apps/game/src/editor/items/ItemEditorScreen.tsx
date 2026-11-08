@@ -1,6 +1,8 @@
-// 아이템 편집기(/dev/items) — docs/adr/2026-11-01-item-editor.md, 설계안 docs/research/2026-11-01-item-editor-design.md 3장. dev·admin, 틀 안, 촘촘.
-// - [아이템] 칸: 왼쪽 목록(ItemList: 대분류 타일·찾기·거르기·정렬), 오른쪽 편집 판(ItemDetail: 접히는 구역·미리 보기·쓰이는 곳). 390px에서는
-//   목록 → 편집이 한 칸씩 쌓인다(data-view). [아이템 분류] 칸: 중분류·태그·무기 종류(ItemTaxonomy).
+// 아이템 편집기(/dev/items) — docs/adr/2026-11-01-item-editor.md("바뀜 (2026-11-08 화면 개편)"), 설계안 docs/research/2026-11-01-item-editor-design.md
+// 3장. dev·admin, 틀 안, 촘촘. 설정 칸 패널(/dev/tuning)과 한 가족인 공용 틀(editor/content/contentEditorShell.css).
+// - [아이템] 칸: 넓은 폭은 왼쪽 목록(ItemList: 찾기·거르기·정렬, 붙음) + 오른쪽 편집 판(ItemDetail: 구역·칸마다 팩 값·지금 값 견주기·
+//   칸 되돌리기·미리 보기·쓰이는 곳). 휴대폰은 목록 → 편집이 한 칸씩(data-view). [아이템 분류] 칸: 중분류·태그·무기 종류(ItemTaxonomy).
+//   키: "/" 찾기, 목록 ↑↓·Enter, Alt+↑↓ 이전·다음 아이템, Ctrl/⌘+S 적용.
 // - 고친 칸은 바로 담은 변경(Stage)에 든다(팩·실효 값과 같아지면 빠진다). 막대(ItemStageBar)의 [적용]이 서버 묶음(items.save) 하나로 보낸다.
 //   서버가 팩 검사기로 본 뒤 그 세계에 바로 넣는다(D-461). 입력이 1초 멈추면 items.check(코드가 붙은 문제 → 칸 아래 문구), 600ms 멈추면
 //   items.preview(그 세계의 실효 자료·계산식). 되돌리기·다시하기는 담은 변경 안에서만(기기 안).
@@ -17,12 +19,11 @@ import {
   type ItemEditorHistoryRow,
   type ItemEditorPreviewResponse,
   type ItemJson,
-  type ItemPatch,
   type ItemPreviewUnit,
   type ItemEditorReason,
 } from "@terra/shared/itemEditor";
 import type { TuningExportResponse } from "@terra/shared/tuning";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { refreshSession } from "../../auth/session.ts";
 import { api } from "../../net/api.ts";
 import { m } from "../../paraglide/messages.js";
@@ -31,6 +32,7 @@ import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
+import { EditorTabs, ExportPanel, KeyHelp, useEditorKeys } from "../content/contentEditorLayout.tsx";
 import {
   type ContentErrorInfo,
   contentErrorOf,
@@ -39,14 +41,17 @@ import {
   stableJson,
 } from "../content/contentEditorModel.ts";
 import { ItemDetail } from "./ItemDetail.tsx";
-import { ExportPanel, ItemSummary, ItemTabs, RiskyConfirm, SleepingPanel } from "./ItemEditorPanels.tsx";
-import { ItemList } from "./ItemList.tsx";
+import { ItemHead, RiskyConfirm, SleepingPanel } from "./ItemEditorPanels.tsx";
+import { ItemList, shownItems, useDeferredQuery } from "./ItemList.tsx";
 import { ItemNewForm } from "./ItemNewForm.tsx";
-import { type CheckState, ItemStageBar } from "./ItemStageBar.tsx";
+import { type CheckState, ItemPendingBar } from "./ItemStageBar.tsx";
 import { ITEM_TABS, ITEM_TAB_TEXT, type ItemTab, ItemTabPanel } from "./ItemTabPanel.tsx";
 import { errorText } from "./itemMessages.ts";
 import {
+  EMPTY_QUERY,
   EMPTY_STAGE,
+  type ItemQuery,
+  type ItemSort,
   type Staged,
   type TaxonomyCategory,
   type TaxonomyJson,
@@ -68,7 +73,9 @@ import {
   splitKey,
   stageDiscard,
 } from "./itemRebase.ts";
+import { type BulkContext, applyPatch, stageImport } from "./itemBulkActions.ts";
 import { restageFromHistory } from "./itemRestage.ts";
+import { unstageKey } from "./itemModel.ts";
 import { useItemStage } from "./useItemStage.ts";
 import { DebouncedTask } from "./DebouncedTask.tsx";
 import { useItemEditorData } from "./useItemEditorData.ts";
@@ -110,6 +117,10 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
   const [exported, setExported] = useState<TuningExportResponse | null>(null);
   const [history, setHistory] = useState<readonly ItemEditorHistoryRow[] | null>(null);
   const [creating, setCreating] = useState(false);
+  const [query, setQueryState] = useState<ItemQuery>(EMPTY_QUERY);
+  const [sort, setSort] = useState<ItemSort>("name");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const deferredQuery = useDeferredQuery(query);
   const notice = useLiveLines();
   const problem = useLiveLines();
 
@@ -386,44 +397,53 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
   const stageEff = (id: string, next: Staged<EffectJson> | null): void =>
     staging.push(stageEffect(staging.current(), id, next), `effects/${id}`);
 
-  /** 가져온 항목을 담는다(새로 = 바탕 없음, 고침 = 지금 항목·해시가 바탕, WP-7) */
-  const stageImport = (entries: readonly ItemJson[], current: ReadonlyMap<string, ItemJson>): void => {
-    let next = staging.current();
-    for (const entry of entries) {
-      const base = current.get(entry.id) ?? null;
-      next = stageItem(next, entry.id, {
-        op: "put",
-        entry,
-        base,
-        baseHash: byId.get(entry.id)?.hash ?? null,
-      });
-    }
-    staging.push(next);
-    notice.show([m.dev_items_bulk_staged_count({ count: entries.length })]);
+  const bulk = (): BulkContext | null =>
+    list
+      ? {
+          list,
+          staging,
+          hashOf: (id) => byId.get(id)?.hash ?? null,
+          note,
+          setList: store.setList,
+          notice: notice.show,
+          fail,
+          reload,
+        }
+      : null;
+
+  const stagedItems = new Set(stage.items.keys());
+  const shown = list ? shownItems(list, deferredQuery, sort, stagedItems, locale) : [];
+  const shownIds = shown.map((item) => item.id);
+  const at = selected ? shownIds.indexOf(selected) : -1;
+  const setQuery = (patch: Partial<ItemQuery>): void =>
+    setQueryState((previous) => ({ ...previous, ...patch }));
+
+  /** 보이는 차례로 이전·다음 아이템 */
+  const step = (by: -1 | 1): void => {
+    if (tab !== "items" || shownIds.length === 0) return;
+    const next = shownIds[at < 0 ? 0 : Math.max(0, Math.min(shownIds.length - 1, at + by))];
+    if (next && next !== selected) select(next);
   };
 
-  /** 여러 개 고치기를 바로 적용한다(서버 patch 명령 하나, WP-7) */
-  const applyPatch = async (ids: readonly string[], patch: ItemPatch): Promise<boolean> => {
-    if (!list) return false;
-    try {
-      const next = await api.items.save.mutate({
-        expectedRevision: list.revision,
-        changes: [{ op: "patch", category: "items", ids: [...ids], patch }],
-        note: note.trim() === "" ? null : note,
-      });
-      store.setList(next);
-      notice.show([m.dev_items_applied({ count: ids.length, revision: next.revision })]);
-      return true;
-    } catch (error: unknown) {
-      const info = fail(error);
-      if (info.key === "revision_conflict") await reload();
-      return false;
-    }
-  };
+  const canApply =
+    keys.length > 0 &&
+    checkState.status === "done" &&
+    checkState.errors === 0 &&
+    conflicts.size === 0 &&
+    !busy;
+  useEditorKeys({
+    searchRef,
+    dirty: keys.length > 0,
+    onSave: () => {
+      if (canApply) void apply(false);
+    },
+    onStep: step,
+  });
+  const changedCount = rows.filter((item) => item.origin !== "pack").length;
 
   return (
     <section
-      className="screen screen-wide ie-screen"
+      className="screen screen-wide ce-screen ie-screen"
       aria-labelledby="items-title"
       data-density="compact"
       data-status={load.status}
@@ -435,68 +455,95 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
         </h1>
         <BackButton />
       </div>
-      <p className="lead ie-lead">{m.dev_items_lead()}</p>
+      <p className="lead">{m.dev_items_lead()}</p>
       {load.status === "loading" ? <p className="field-hint">{m.dev_items_loading()}</p> : null}
       {load.status === "failed" ? (
-        <div className="ie-failed">
+        <div className="ce-inline-actions">
           <p role="alert" className="field-error">
             {load.message}
           </p>
-          <button type="button" className="button-small" onClick={() => void reload()}>
+          <button type="button" onClick={() => void reload()}>
             {m.dev_items_retry()}
           </button>
         </div>
       ) : null}
       {list ? (
         <>
-          <ItemSummary
+          <ItemHead
             list={list}
+            changed={changedCount}
             sleeping={sleeping.length}
             historyOpen={history !== null}
             onExport={onExport}
             onHistory={onHistory}
           />
           {sleeping.length > 0 ? <SleepingPanel rows={sleeping} onDiscard={discardSleeping} /> : null}
-          {exported ? <ExportPanel exported={exported} onClose={() => setExported(null)} /> : null}
+          {exported ? (
+            <ExportPanel exported={exported} textClass="ie-export-text" onClose={() => setExported(null)} />
+          ) : null}
           {history ? (
             <ContentHistory
               rows={history}
               locale={locale}
               title={m.dev_items_history()}
-              className="ie-panel ie-history"
+              className="ce-panel ie-history"
               headingId="ie-history-title"
               onRestage={restage}
             />
           ) : null}
-          <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
-          <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
-          <ItemTabs
+          <div className="ce-messages">
+            <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
+            <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
+          </div>
+          <EditorTabs
             id={tabsId}
-            tabs={ITEM_TABS.map((value) => ({ value, label: ITEM_TAB_TEXT[value]() }))}
-            selected={tab}
             label={m.dev_items_tabs_label()}
+            className="ie-tab"
+            selected={tab}
             onSelect={setTab}
+            tabs={ITEM_TABS.map((value) => ({
+              value,
+              label: ITEM_TAB_TEXT[value](),
+              staged:
+                value === "items"
+                  ? stage.items.size
+                  : value === "effects"
+                    ? stage.effects.size
+                    : value === "taxonomy"
+                      ? keys.filter((key) => /^(item_subcategories|item_tags|weapon_types)\//.test(key))
+                          .length
+                      : 0,
+            }))}
           />
           {tab === "items" ? (
             <div
-              className="ie-split"
+              className="ce-layout ie-split"
               data-view={view}
               role="tabpanel"
               id={`${tabsId}-items-panel`}
               aria-labelledby={`${tabsId}-items`}
             >
-              <ItemList
-                list={list}
-                selected={selected}
-                staged={new Set(stage.items.keys())}
-                locale={locale}
-                onSelect={select}
-                onCreate={() => {
-                  setCreating(true);
-                  setView("detail");
-                }}
-              />
-              <div className="ie-detail-pane">
+              <aside className="ce-side">
+                <ItemList
+                  list={list}
+                  shown={shown}
+                  selected={selected}
+                  staged={stagedItems}
+                  locale={locale}
+                  query={query}
+                  sort={sort}
+                  onQuery={setQuery}
+                  onSort={setSort}
+                  searchRef={searchRef}
+                  onSelect={select}
+                  onCreate={() => {
+                    setCreating(true);
+                    setView("detail");
+                  }}
+                />
+                <KeyHelp />
+              </aside>
+              <div className="ce-detail ie-detail-pane">
                 {creating ? (
                   <ItemNewForm
                     taken={takenItems}
@@ -512,6 +559,7 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
                     locale={locale}
                     id={selected}
                     draft={draft}
+                    current={got?.entry ?? null}
                     isNew={isNew}
                     reverting={reverting}
                     staged={stagedItem !== undefined}
@@ -539,9 +587,11 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
                     onUnstage={unstage}
                     onSelect={select}
                     onBack={() => setView("list")}
+                    onPrev={at > 0 ? () => step(-1) : null}
+                    onNext={at >= 0 && at < shownIds.length - 1 ? () => step(1) : null}
                   />
                 ) : (
-                  <p className="field-hint ie-pick">{m.dev_items_pick()}</p>
+                  <p className="ce-pick ie-pick">{m.dev_items_pick()}</p>
                 )}
               </div>
             </div>
@@ -556,20 +606,29 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
               onStageTaxonomy={stageTax}
               onStageEffect={stageEff}
               onOpenItem={(id) => select(id)}
-              onImport={stageImport}
-              onPatch={applyPatch}
+              onImport={(entries, current) => {
+                const ctx = bulk();
+                if (ctx) stageImport(ctx, entries, current);
+              }}
+              onPatch={(ids, patch) => {
+                const ctx = bulk();
+                return ctx ? applyPatch(ctx, ids, patch) : Promise.resolve(false);
+              }}
             />
           )}
           {askRisky ? (
             <RiskyConfirm ids={askRisky} onYes={() => void apply(true)} onNo={() => setAskRisky(null)} />
           ) : null}
-          <ItemStageBar
-            keys={keys}
+          <ItemPendingBar
+            list={list}
+            stage={stage}
+            locale={locale}
             check={checkState}
             conflicts={conflicts.size}
             note={note}
             onNote={setNote}
             busy={busy}
+            canApply={canApply}
             canUndo={staging.canUndo}
             canRedo={staging.canRedo}
             onUndo={staging.undo}
@@ -581,6 +640,7 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
               setConflicts(new Map());
             }}
             onPick={pick}
+            onUnstageKey={(key) => staging.push(unstageKey(staging.current(), key))}
           />
           {keys.length > 0 ? (
             <DebouncedTask key={`check:${stageJson}`} delay={1000} run={() => runCheck(stageJson, changes)} />

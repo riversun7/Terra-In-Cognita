@@ -25,22 +25,58 @@ export const SKILL_ID_PATTERN = CONTENT_ID_PATTERN;
 export const SKILL_FILTERS = ["all", "edited", "created", "disabled"] as const;
 export type SkillFilter = (typeof SKILL_FILTERS)[number];
 
+/** 목록 찾기·거르기(2026-11-08 화면 개편): 출처·모양·자원·담은 것만. "all" = 거르지 않음 */
+export interface SkillQuery {
+  readonly text: string;
+  readonly filter: SkillFilter;
+  readonly shape?: SkillShapeId | "all" | undefined;
+  readonly resource?: SkillJson["resource"] | "all" | undefined;
+  /** 담은 변경이 있는 스킬만(ID 모음) */
+  readonly staged?: ReadonlySet<string> | null | undefined;
+}
+
 const lower = (text: string): string => text.toLocaleLowerCase();
 
-/** 찾기(ID·이름 ko/en)와 거르기 */
-export function filterSkills(
-  skills: readonly SkillEditorSkill[],
-  query: { readonly text: string; readonly filter: SkillFilter },
-): SkillEditorSkill[] {
-  const text = lower(query.text.trim());
+/** 찾기(ID·이름 ko/en, 낱말 여럿이면 모두 맞는 것)와 거르기 */
+export function filterSkills(skills: readonly SkillEditorSkill[], query: SkillQuery): SkillEditorSkill[] {
+  const words = lower(query.text.trim())
+    .split(/\s+/)
+    .filter((word) => word !== "");
   return skills.filter((skill) => {
     if (query.filter === "edited" && skill.origin !== "edited") return false;
     if (query.filter === "created" && skill.origin !== "created") return false;
     if (query.filter === "disabled" && skill.entry.enabled) return false;
-    if (text === "") return true;
+    if (query.shape && query.shape !== "all" && skill.entry.shape !== query.shape) return false;
+    if (query.resource && query.resource !== "all" && skill.entry.resource !== query.resource) return false;
+    if (query.staged && !query.staged.has(skill.entry.id)) return false;
+    if (words.length === 0) return true;
     const { id, name } = skill.entry;
-    return lower(id).includes(text) || lower(name.ko).includes(text) || lower(name.en).includes(text);
+    const hay = lower(`${id} ${name.ko} ${name.en}`);
+    return words.every((word) => hay.includes(word));
   });
+}
+
+/**
+ * 저장 거절(invalid_entry)의 팩 검사 줄 → 스킬 ID → 칸 경로 → 문구. 줄 모양(@terra/content formatIssue):
+ * "✗ [단계] 파일 › ID › 경로: 문구". 경로가 없는 줄은 "" 칸에 둔다. 모르는 모양의 줄은 건너뛴다
+ */
+export function issueLinesById(lines: readonly string[]): Map<string, Map<string, string>> {
+  const out = new Map<string, Map<string, string>>();
+  for (const line of lines) {
+    const match = /^[✗!] \[[^\]]*\] (.*?): (.*)$/.exec(line);
+    if (!match) continue;
+    const [, where = "", text = ""] = match;
+    const parts = where.split(" › ");
+    // 파일 › ID › 경로(경로·파일은 없을 수 있다)
+    const file = parts[0]?.includes(".") === true;
+    const id = parts[file ? 1 : 0];
+    if (id === undefined || !SKILL_ID_PATTERN.test(id)) continue;
+    const path = parts.slice(file ? 2 : 1).join(".");
+    const fields = out.get(id) ?? new Map<string, string>();
+    if (!fields.has(path)) fields.set(path, text);
+    out.set(id, fields);
+  }
+  return out;
 }
 
 /** 새 스킬 틀: 물리 기반 적 하나 근접(팩 검사를 통과하는 가장 작은 모양) */

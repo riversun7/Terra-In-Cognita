@@ -76,6 +76,7 @@ export function ItemEquipFields({
           label={m.dev_items_field_slot()}
           value={equip.slot}
           options={EQUIP_SLOTS.map((slot) => ({ value: slot, label: SLOT_TEXT[slot]() }))}
+          path="equip.slot"
           problem={problem("equip.slot")}
           onChange={(slot: EquipSlot) => onChange(withSlot(equip, slot))}
         />
@@ -87,6 +88,7 @@ export function ItemEquipFields({
               { value: "", label: m.dev_items_none() },
               ...types.map((row) => ({ value: row.entry.id, label: row.entry.name[locale] })),
             ]}
+            path="equip.weaponType"
             problem={problem("equip.weaponType")}
             onChange={(value) => {
               const { weaponType: _drop, ...rest } = equip;
@@ -104,6 +106,7 @@ export function ItemEquipFields({
             "equip.maxDurability",
             ammo ? m.dev_items_ammo_capacity_hint() : m.dev_items_durability_hint(),
           )}
+          path="equip.maxDurability"
           problem={problem("equip.maxDurability")}
           onChange={(maxDurability) => {
             const { maxDurability: _drop, ...rest } = equip;
@@ -161,6 +164,7 @@ export function ItemEquipFields({
               value={equip.creature.weight}
               min={L.creatureWeight.min}
               max={L.creatureWeight.max}
+              path="equip.creature.weight"
               problem={problem("equip.creature.weight")}
               onChange={(weight) =>
                 equip.creature && onChange({ ...equip, creature: { ...equip.creature, weight: weight ?? 0 } })
@@ -171,6 +175,7 @@ export function ItemEquipFields({
               value={equip.creature.stealPm}
               min={L.stealPm.min}
               max={L.stealPm.max}
+              path="equip.creature.stealPm"
               problem={problem("equip.creature.stealPm")}
               onChange={(stealPm) =>
                 equip.creature &&
@@ -196,6 +201,7 @@ export function ItemEquipFields({
                     ? statOptions
                     : [{ value: range.stat, label: range.stat }, ...statOptions]
                 }
+                path={`equip.stats[${index}].stat`}
                 problem={problem(`equip.stats[${index}].stat`)}
                 onChange={(stat) =>
                   onChange({ ...equip, stats: replaceAt(equip.stats, index, { ...range, stat }) })
@@ -206,6 +212,7 @@ export function ItemEquipFields({
                 value={range.min}
                 min={L.statValue.min}
                 max={L.statValue.max}
+                path={`equip.stats[${index}].min`}
                 problem={problem(`equip.stats[${index}]`) ?? problem(`equip.stats[${index}].min`)}
                 onChange={(min) =>
                   onChange({ ...equip, stats: replaceAt(equip.stats, index, { ...range, min: min ?? 0 }) })
@@ -217,6 +224,7 @@ export function ItemEquipFields({
                 min={L.statValue.min}
                 max={L.statValue.max}
                 hint={m.dev_items_stat_mid({ value: Math.floor((range.min + range.max) / 2) })}
+                path={`equip.stats[${index}].max`}
                 problem={problem(`equip.stats[${index}].max`)}
                 onChange={(max) =>
                   onChange({ ...equip, stats: replaceAt(equip.stats, index, { ...range, max: max ?? 0 }) })
@@ -252,6 +260,7 @@ export function ItemEquipFields({
                 label={m.dev_items_field_element()}
                 value={entry.element}
                 options={ELEMENT_IDS.map((code: ElementCode) => ({ value: code, label: elementName(code) }))}
+                path={`equip.elements[${index}].element`}
                 problem={problem(`equip.elements[${index}].element`)}
                 onChange={(element) =>
                   onChange({ ...equip, elements: replaceAt(elements, index, { ...entry, element }) })
@@ -305,6 +314,7 @@ export function ItemEquipFields({
             min={L.defenseFlat.min}
             max={L.defenseFlat.max}
             optional
+            path="equip.combat.defenseFlat"
             problem={problem("equip.combat.defenseFlat")}
             onChange={(defenseFlat) => setCombat({ defenseFlat })}
           />
@@ -314,6 +324,7 @@ export function ItemEquipFields({
             min={L.penetrationPm.min}
             max={L.penetrationPm.max}
             optional
+            path="equip.combat.penetrationPm"
             problem={problem("equip.combat.penetrationPm")}
             onChange={(penetrationPm) => setCombat({ penetrationPm })}
           />
@@ -332,6 +343,7 @@ export function ItemEquipFields({
                 value={pm}
                 min={L.resistPm.min}
                 max={L.resistPm.max}
+                path={`equip.combat.resistPm[${index}]`}
                 problem={problem(`equip.combat.resistPm[${index}]`)}
                 onChange={(value) => setCombat({ resistPm: replaceAt(resist, index, value ?? 0) })}
               />

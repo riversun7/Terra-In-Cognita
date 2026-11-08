@@ -14,6 +14,7 @@ import {
 import { m } from "../../paraglide/messages.js";
 import { EffectRows, effectOptions } from "../content/contentEditorEffects.tsx";
 import { NumberField, RemoveButton, SelectField } from "../content/contentEditorFields.tsx";
+import { FormSection } from "../content/contentEditorLayout.tsx";
 import { CONDITION_TEXT, PART_TEXT, elementText } from "./skillMessages.ts";
 
 type Update = (next: SkillJson) => void;
@@ -45,15 +46,21 @@ const removeAt = <T,>(list: readonly T[], index: number): T[] => list.filter((_,
 function PartFields({
   part,
   onChange,
+  at,
 }: {
   part: SkillFormulaPartJson;
   onChange: (next: SkillFormulaPartJson) => void;
+  /** 이 부품의 경로(formula[i]) */
+  at: string;
 }) {
+  const unitPm = m.dev_content_unit_pm();
   switch (part.part) {
     case "attack_mul":
       return (
         <NumberField
           label={m.dev_skills_field_pm()}
+          path={`${at}.pm`}
+          unit={unitPm}
           value={part.pm}
           min={0}
           max={100_000}
@@ -64,6 +71,8 @@ function PartFields({
       return (
         <NumberField
           label={m.dev_skills_field_pm()}
+          path={`${at}.pm`}
+          unit={unitPm}
           value={part.pm}
           min={-1000}
           max={1000}
@@ -75,6 +84,8 @@ function PartFields({
       return (
         <NumberField
           label={m.dev_skills_field_pm()}
+          path={`${at}.pm`}
+          unit={unitPm}
           value={part.pm}
           min={0}
           max={10_000}
@@ -85,6 +96,7 @@ function PartFields({
       return (
         <NumberField
           label={m.dev_skills_field_value()}
+          path={`${at}.value`}
           value={part.value}
           min={-1_000_000}
           max={1_000_000}
@@ -95,6 +107,7 @@ function PartFields({
       return (
         <NumberField
           label={m.dev_skills_field_value()}
+          path={`${at}.value`}
           value={part.value}
           min={0}
           max={1_000_000}
@@ -107,12 +120,15 @@ function PartFields({
         <>
           <SelectField
             label={m.dev_skills_field_element()}
+            path={`${at}.element`}
             value={String(part.element)}
             options={ELEMENT_OPTIONS.map((index) => ({ value: String(index), label: elementText(index) }))}
             onChange={(value) => onChange({ ...part, element: Number(value) })}
           />
           <NumberField
             label={m.dev_skills_field_pm()}
+            path={`${at}.pm`}
+            unit={unitPm}
             value={part.pm}
             min={-100_000}
             max={100_000}
@@ -125,8 +141,13 @@ function PartFields({
 
 export function FormulaSection({ draft, update }: { draft: SkillJson; update: Update }) {
   return (
-    <fieldset className="sk-section">
-      <legend className="sk-section-title">{m.dev_skills_section_formula()}</legend>
+    <FormSection
+      name="formula"
+      className="sk-section"
+      title={m.dev_skills_section_formula()}
+      desc={m.dev_skills_section_formula_desc()}
+      paths={["formula"]}
+    >
       <ul className="sk-rows">
         {draft.formula.map((part, index) => (
           <li key={index} className="sk-row" data-part={part.part}>
@@ -139,6 +160,7 @@ export function FormulaSection({ draft, update }: { draft: SkillJson; update: Up
               }
             />
             <PartFields
+              at={`formula[${index}]`}
               part={part}
               onChange={(next) => update({ ...draft, formula: replaceAt(draft.formula, index, next) })}
             />
@@ -158,7 +180,7 @@ export function FormulaSection({ draft, update }: { draft: SkillJson; update: Up
           {m.dev_skills_add_part()}
         </button>
       ) : null}
-    </fieldset>
+    </FormSection>
   );
 }
 
@@ -175,8 +197,13 @@ export function ConditionSection({
 }) {
   const firstEffect = effects[0]?.id ?? "burn";
   return (
-    <fieldset className="sk-section">
-      <legend className="sk-section-title">{m.dev_skills_section_conditions()}</legend>
+    <FormSection
+      name="conditions"
+      className="sk-section"
+      title={m.dev_skills_section_conditions()}
+      desc={m.dev_skills_section_conditions_desc()}
+      paths={["conditions"]}
+    >
       <ul className="sk-rows">
         {draft.conditions.map((condition, index) => (
           <li key={index} className="sk-row">
@@ -194,6 +221,7 @@ export function ConditionSection({
             {condition.part === "self_hp_below" || condition.part === "target_hp_below" ? (
               <NumberField
                 label={m.dev_skills_field_pct()}
+                path={`conditions[${index}].pct`}
                 value={condition.pct}
                 min={1}
                 max={100}
@@ -239,7 +267,7 @@ export function ConditionSection({
           {m.dev_skills_add_condition()}
         </button>
       ) : null}
-    </fieldset>
+    </FormSection>
   );
 }
 
@@ -254,36 +282,53 @@ export function EffectSection({
   effects: readonly SkillEditorEffect[];
   locale: "ko" | "en";
 }) {
-  // 효과 줄 편집은 아이템 사용 효과와 같은 부품(contentEditorEffects)이다. 칸 모양 이름은 이 화면 것(시험이 sk-section을 고른다)
+  // 효과 줄 편집은 아이템 사용 효과와 같은 부품(contentEditorEffects)이다. 구역 겉은 FormSection(시험이 sk-section을 고른다)
   return (
-    <EffectRows
-      legend={m.dev_skills_section_effects()}
-      rows={draft.effects}
-      onChange={(rows) => update({ ...draft, effects: rows })}
-      effects={effects}
-      locale={locale}
-      max={SKILL_LIMITS.effects}
-      classes={{
-        section: "sk-section",
-        title: "sk-section-title",
-        rows: "sk-rows",
-        row: "sk-row sk-effect-row",
-        add: "sk-add",
-      }}
-    />
+    <FormSection
+      name="effects"
+      className="sk-section"
+      title={m.dev_skills_section_effects()}
+      desc={m.dev_skills_section_effects_desc()}
+      source="D-425"
+      paths={["effects"]}
+    >
+      <EffectRows
+        legend={m.dev_skills_section_effects()}
+        legendHidden
+        rows={draft.effects}
+        onChange={(rows) => update({ ...draft, effects: rows })}
+        effects={effects}
+        locale={locale}
+        max={SKILL_LIMITS.effects}
+        pathPrefix="effects"
+        classes={{
+          section: "ce-plain-fieldset",
+          title: "visually-hidden",
+          rows: "sk-rows",
+          row: "sk-row sk-effect-row",
+          add: "sk-add",
+        }}
+      />
+    </FormSection>
   );
 }
 
 export function GradeSection({ draft, update }: { draft: SkillJson; update: Update }) {
   const L = SKILL_LIMITS;
   return (
-    <fieldset className="sk-section">
-      <legend className="sk-section-title">{m.dev_skills_section_grades()}</legend>
+    <FormSection
+      name="grades"
+      className="sk-section"
+      title={m.dev_skills_section_grades()}
+      desc={m.dev_skills_section_grades_desc()}
+      paths={["gradePm"]}
+    >
       <ul className="sk-grades">
         {draft.gradePm.map((pm, index) => (
           <li key={index} className="sk-grade">
             <NumberField
               label={m.dev_skills_grade({ grade: index + 1 })}
+              path={`gradePm[${index}]`}
               value={pm}
               min={L.gradePm.min}
               max={L.gradePm.max}
@@ -292,7 +337,7 @@ export function GradeSection({ draft, update }: { draft: SkillJson; update: Upda
           </li>
         ))}
       </ul>
-      <div className="sk-inline-actions">
+      <div className="ce-inline-actions">
         {draft.gradePm.length < L.grades ? (
           <button
             type="button"
@@ -309,6 +354,6 @@ export function GradeSection({ draft, update }: { draft: SkillJson; update: Upda
           />
         ) : null}
       </div>
-    </fieldset>
+    </FormSection>
   );
 }

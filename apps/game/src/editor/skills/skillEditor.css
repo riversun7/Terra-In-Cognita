@@ -1,207 +1,31 @@
 /*
  * 스킬 편집기·행동별 소모(/dev/skills) — 편집기 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
- * 촘촘(data-density="compact") 화면이다. 좁은 폭(390px) 먼저: 목록 위·칸 아래로 쌓고, 넓으면 목록 옆에 칸.
- * 표는 표 안에서만 옆으로 민다(쪽 전체는 가로로 밀리지 않는다).
+ * 틀(머리·탭·목록·편집 판 머리·구역·칸 견주기·담은 변경 막대)은 공용 editor/content/contentEditorShell.css(2026-11-08 화면 개편).
+ * 여기는 스킬 칸 격자·부품 줄·등급·행동별 소모 표만. 표는 표 안에서만 옆으로 민다(쪽 전체는 가로로 밀리지 않는다).
  */
 .sk-screen {
-  gap: var(--space-3);
   min-width: 0;
-}
-.sk-lead {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-.sk-failed,
-.sk-inline-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* ── 요약 칩 ── */
-.sk-summary {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-.sk-summary > li:not(.sk-summary-tools) {
-  padding: var(--space-1) var(--space-3);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface);
-  font-size: var(--font-size-sm);
-  font-variant-numeric: tabular-nums;
-}
-.sk-summary > .sk-changed:not([data-count="0"]) {
-  border-color: var(--color-warning);
-  background-color: var(--color-warning-surface);
-  color: var(--color-warning);
-}
-.sk-summary-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-inline-start: auto;
-}
-
-/* ── 판(내보내기·최근 바꿈·편집) ── */
-.sk-panel {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3);
-  min-width: 0;
-  padding: var(--space-3);
-  border: var(--border-w) solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background-color: var(--color-surface);
-}
-.sk-heading {
-  margin: 0;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-strong);
-  overflow-wrap: anywhere;
-}
-.sk-export-text {
-  width: 100%;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-}
-
-/* ── 칸 고르기(스킬 · 행동별 소모) ── */
-.sk-tabs {
-  display: flex;
-  gap: var(--space-1);
-  border-block-end: var(--border-w) solid var(--color-border);
-}
-.sk-tab {
-  min-height: var(--tap-size);
-  padding: 0 var(--space-4);
-  border: var(--border-w) solid transparent;
-  border-block-end: none;
-  border-radius: var(--radius-control) var(--radius-control) 0 0;
-  background: none;
-  box-shadow: none;
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-strong);
-}
-.sk-tab[aria-selected="true"] {
-  border-color: var(--color-border);
-  background-color: var(--color-surface);
-  color: var(--color-text);
-}
-
-/* ── 목록 + 칸 ── */
-.sk-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3);
-  min-width: 0;
-}
-.sk-detail {
-  min-width: 0;
-}
-.sk-list-pane {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
-  gap: var(--space-2);
-  min-width: 0;
-}
-.sk-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  border: none;
-}
-.sk-filters > legend {
-  width: 100%;
-}
-.sk-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--tap-size);
-  padding: 0 var(--space-3);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-control);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-.sk-filter[data-active] {
-  border-color: var(--color-focus);
-  background-color: var(--color-surface-2);
 }
 .sk-new {
   display: grid;
+  flex: 1 1 100%;
   gap: var(--space-2);
 }
-/* 목록: 한 줄 = 이름 + ID·종류·소모(줄무늬, 고른 줄은 고른 줄 바탕 + 왼쪽 초점색) */
-.sk-list {
+.sk-new-button {
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+.sk-entry-problem {
   margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  max-height: 60vh;
-  overflow-y: auto;
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background-color: var(--color-surface);
 }
-.sk-list > li:nth-child(even) .sk-item {
-  background-color: var(--dev-row-alt);
-}
-.sk-item {
+.sk-editing {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: flex-start;
-  gap: 0 var(--space-3);
-  width: 100%;
-  min-height: var(--dev-row-h);
-  padding: var(--space-1) var(--space-4);
-  border: 0;
-  border-block-end: var(--hairline) solid var(--color-border);
-  border-radius: 0;
-  background-color: var(--color-surface);
-  font-weight: var(--font-weight-regular);
-  box-shadow: none;
-  color: var(--color-text);
-  text-align: start;
-}
-.sk-list > li .sk-item[aria-current="true"] {
-  background-color: var(--dev-row-selected);
-  box-shadow: inset var(--space-1) 0 0 var(--color-focus);
-}
-.sk-item[data-off] .sk-item-name {
-  color: var(--color-text-muted);
-  text-decoration: line-through;
-}
-.sk-item-name {
-  font-weight: var(--font-weight-strong);
-  overflow-wrap: anywhere;
-}
-.sk-item-meta,
-.sk-cost-id {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
-/* ── 칩 ── */
-.sk-chips {
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
+/* ── 칩(행동별 소모 표) ── */
 .sk-chip {
   display: inline-block;
   padding: 0 var(--space-2);
@@ -212,17 +36,16 @@
   color: var(--color-text-muted);
   white-space: nowrap;
 }
-.sk-origin-edited,
-.sk-chip-edited,
-.sk-chip-dirty {
+.sk-cost-id {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.sk-chip-edited {
   border-color: var(--color-warning);
   background-color: var(--color-warning-surface);
   color: var(--color-warning);
-}
-.sk-origin-created {
-  border-color: var(--color-success);
-  background-color: var(--color-success-surface);
-  color: var(--color-success);
 }
 .sk-status-free {
   border-color: var(--color-success);
@@ -235,78 +58,18 @@
 }
 
 /* ── 편집 칸 ── */
-.sk-editing-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-1);
-}
-.sk-editing-head .field-hint {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
 .sk-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
-}
-.sk-section {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-2);
-  min-width: 0;
-  margin: 0;
-  padding: var(--space-3);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-control);
-}
-.sk-section-title {
-  padding: 0 var(--space-1);
-  font-weight: var(--font-weight-strong);
-  color: var(--color-text);
 }
 .sk-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  align-items: start;
+  gap: var(--space-4) var(--space-4);
   min-width: 0;
-}
-.sk-field {
-  min-width: 0;
-}
-.sk-field select,
-.sk-field .input {
-  width: 100%;
-  min-width: 0;
-}
-.sk-number {
-  font-variant-numeric: tabular-nums;
-}
-.sk-number[aria-invalid="true"] {
-  border-color: var(--color-danger);
-}
-.sk-check {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--tap-size);
-}
-.sk-check > input {
-  inline-size: var(--icon-md);
-  block-size: var(--icon-md);
-}
-/* 칸 옆 이름표가 누르는 곳(44px)이다 */
-.sk-check > label {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--tap-size);
-  min-width: var(--tap-size);
-  cursor: pointer;
-}
-.sk-check-hint {
-  flex-basis: 100%;
-  margin: 0;
 }
 .sk-rows {
   margin: 0;
@@ -318,10 +81,11 @@
 }
 .sk-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
   align-items: end;
-  gap: var(--space-2);
-  padding: var(--space-2);
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-control);
   background-color: var(--color-surface-2);
 }
@@ -330,45 +94,11 @@
   padding: 0;
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 7rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8rem), 1fr));
   gap: var(--space-2);
-}
-.sk-remove {
-  align-self: end;
 }
 .sk-add {
   justify-self: start;
-}
-.sk-confirm {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: var(--border-w) solid var(--color-danger);
-  border-radius: var(--radius-control);
-  background-color: var(--color-danger-surface);
-}
-.sk-confirm p {
-  margin: 0;
-}
-.sk-actions {
-  min-width: 0;
-  position: sticky;
-  bottom: calc(var(--dev-dock-bottom) + var(--space-2));
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: var(--border-w) solid var(--color-focus);
-  border-radius: var(--radius-panel);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-panel);
-}
-.sk-note {
-  flex: 1 1 10em;
-  width: auto;
-  min-width: 0;
 }
 
 /* ── 행동별 소모 표 ── */
@@ -525,13 +255,9 @@
     color: var(--dev-code);
   }
 }
-
-@media (min-width: 64em) {
-  .sk-split {
-    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
-    align-items: start;
-  }
-  .sk-list {
-    max-height: 70vh;
-  }
+.sk-heading {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
 }

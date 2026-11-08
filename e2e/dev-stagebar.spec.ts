@@ -38,7 +38,7 @@ const EDITORS: readonly Editor[] = [
     name: "skills",
     path: "/dev/skills",
     screen: ".sk-screen",
-    bar: ".sk-actions",
+    bar: ".sk-stagebar",
     stage: async (page) => {
       await page.locator('.sk-item[data-skill="power_strike"]').click();
       await expect(page.locator(".sk-editing")).toHaveAttribute("data-skill", "power_strike");
@@ -67,7 +67,7 @@ const EDITORS: readonly Editor[] = [
     screen: ".be-screen",
     bar: ".be-stagebar",
     stage: async (page) => {
-      await page.locator('.be-table tr[data-facility="farm"] .be-row-button').click();
+      await page.locator('.be-row-button[data-facility="farm"]').click();
       await expect(page.locator(".be-detail")).toHaveAttribute("data-facility", "farm");
       await page
         .locator(

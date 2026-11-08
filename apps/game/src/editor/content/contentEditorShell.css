@@ -1,0 +1,889 @@
+/*
+ * 콘텐츠 편집기 틀(아이템·스킬·건물 편집기 공용) — 머리·탭·목록·편집 판 머리·구역·칸 견주기·담은 변경 막대.
+ * 설정 칸 패널(/dev/tuning, tuningPanel.css)과 한 가족: 같은 토큰·띠 색(담음 = 초점색, 덮어씀 = 경고색)·붙는 자리.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다. 개발 화면 층(ADR 2026-11-02-dev-ui), docs/adr/2026-11-01-item-editor.md "바뀜 (2026-11-08 화면 개편)".
+ * 배치는 화면 폭이 아니라 이 화면의 폭(@container ce-screen)으로 정한다(틀 사이드 메뉴가 있어도 맞게):
+ * - 60rem 이상: 왼쪽 목록(붙음, 스스로 밀림) + 오른쪽 편집 판(머리 붙음). [← 목록]은 숨긴다.
+ * - 그 아래(휴대폰): data-view="list"면 목록만, "detail"이면 편집 판만. 자주 누르는 조작부는 --dev-touch-tap(터치 44px).
+ */
+.ce-screen {
+  container: ce-screen / inline-size;
+  gap: var(--space-5);
+  /* 담은 변경 막대가 마지막 줄을 가리지 않게 */
+  padding-block-end: var(--space-12);
+}
+.ce-screen > .lead {
+  max-width: 72ch;
+  color: var(--color-text-muted);
+}
+.ce-screen .back-button {
+  min-height: var(--dev-touch-tap);
+}
+
+/* ── 머리: 요약 칩 + 도구 ── */
+.ce-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-6);
+}
+.ce-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ce-summary > li {
+  padding: 0 var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  font-variant-numeric: tabular-nums;
+}
+.ce-summary > li[data-warn] {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+  font-weight: var(--font-weight-strong);
+}
+.ce-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+.ce-tools > button,
+.ce-inline-actions > button {
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+
+/* ── 판(내보내기·최근 바꿈·잠든 줄) ── */
+.ce-panel {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.ce-panel-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+}
+.ce-export-text {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+.ce-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ce-confirm {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline) solid var(--color-warning);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-warning-surface);
+}
+.ce-confirm p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── 탭 줄 ── */
+.ce-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  border-block-end: var(--hairline) solid var(--color-border);
+}
+.ce-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--dev-touch-tap);
+  padding: 0 var(--space-4);
+  border: var(--hairline) solid transparent;
+  border-block-end: 0;
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+}
+.ce-tab[aria-selected="true"] {
+  border-color: var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+  box-shadow: inset 0 var(--focus-w) 0 var(--color-primary);
+}
+
+/* ── 배치 ── */
+.ce-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.ce-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.ce-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.ce-pick {
+  padding: var(--space-8) var(--space-6);
+  border: var(--hairline) dashed var(--color-border);
+  border-radius: var(--radius-panel);
+  color: var(--color-text-muted);
+}
+
+/* ── 목록 ── */
+.ce-list-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.ce-list-tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-block-end: var(--hairline) solid var(--color-border);
+  background-color: var(--dev-head-bg);
+}
+.ce-search-row {
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.ce-search {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ce-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--dev-touch-tap);
+  padding-inline-end: calc(var(--space-12) + var(--space-2));
+}
+.ce-search-key,
+.ce-keys kbd {
+  display: inline-block;
+  min-width: 2ch;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-body);
+  text-align: center;
+}
+.ce-search-key {
+  position: absolute;
+  inset-inline-end: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.ce-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ce-filters[data-open="false"] {
+  display: none;
+}
+.ce-chip-button {
+  flex: 0 0 auto;
+  min-height: var(--dev-touch-tap);
+  padding: 0 var(--space-4);
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+}
+.ce-chip-button[aria-pressed="true"],
+.ce-filters-toggle[data-active] {
+  border-color: var(--color-primary);
+  background-color: var(--dev-row-selected);
+  font-weight: var(--font-weight-strong);
+}
+.ce-filter-select {
+  flex: 1 1 8em;
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+.ce-list-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+.ce-shown {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ce-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+.ce-list-actions > button {
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+.ce-link-button {
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0 var(--space-2);
+  border: 0;
+  background-color: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  text-decoration: underline;
+  text-decoration-color: var(--color-focus);
+  text-underline-offset: var(--space-1);
+}
+.ce-reset {
+  min-height: var(--dev-touch-tap);
+}
+.ce-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--dev-touch-tap);
+  min-height: var(--dev-touch-tap);
+  padding: 0;
+  font-size: var(--font-size-md);
+}
+.ce-empty {
+  padding: var(--space-6) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.ce-empty p {
+  margin: 0;
+}
+.ce-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ce-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: var(--dev-touch-tap);
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-block-end: var(--hairline) solid var(--color-border);
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--color-text);
+  font-weight: var(--font-weight-regular);
+  text-align: start;
+}
+.ce-entries > li:nth-child(even) > .ce-entry {
+  background-color: var(--dev-row-alt);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ce-entries > li > .ce-entry:hover {
+    background-color: var(--dev-row-hover);
+  }
+}
+.ce-entries > li > .ce-entry[data-changed] {
+  box-shadow: inset var(--space-2) 0 0 var(--color-warning);
+}
+.ce-entries > li > .ce-entry[data-staged] {
+  box-shadow: inset var(--space-2) 0 0 var(--color-focus);
+}
+.ce-entries > li > .ce-entry[aria-current="true"] {
+  background-color: var(--dev-row-selected);
+  outline: var(--hairline) solid var(--color-primary);
+  outline-offset: calc(-1 * var(--hairline));
+}
+.ce-entry:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: calc(-1 * var(--focus-w));
+}
+.ce-entry-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-3);
+  min-width: 0;
+}
+.ce-entry-tag {
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.ce-entry-name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.ce-entry[data-off] .ce-entry-name {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+.ce-entry-id {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--dev-code);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.ce-entry-summary {
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ce-entry-badges,
+.ce-field-badges,
+.ce-entry-head-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.ce-more {
+  margin: var(--space-3);
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+
+/* 표지: 작은 네모 */
+.ce-badge {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+}
+.ce-badge-staged {
+  border-color: var(--color-focus);
+  background-color: var(--dev-row-selected);
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+}
+.ce-badge-changed {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+.ce-badge-created {
+  border-color: var(--color-success);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+}
+.ce-badge-off {
+  color: var(--color-text-muted);
+}
+.ce-badge-advice {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+/* 키 안내 */
+.ce-keys {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.ce-keys > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.ce-keys dt {
+  flex: 0 0 auto;
+  min-width: 9ch;
+}
+.ce-keys dd {
+  margin: 0;
+}
+
+/* ── 편집 판 머리 ── */
+.ce-entry-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.ce-entry-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+.ce-back-list {
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+.ce-entry-heading {
+  flex: 1 1 12em;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.ce-step {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+.ce-entry-head-info {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.ce-entry-head-info p {
+  margin: 0;
+}
+.ce-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.ce-entry-actions > button {
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+.ce-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.ce-jump-link {
+  min-height: var(--tap-size);
+  min-width: var(--tap-size);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+}
+
+/* ── 구역 ── */
+.ce-form-section {
+  min-width: 0;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  scroll-margin-top: calc(var(--dev-sticky-top) + var(--space-12) * 4);
+}
+.ce-form-section[data-staged] {
+  border-color: var(--color-focus);
+}
+.ce-form-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: var(--dev-touch-tap);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-panel);
+  background-color: var(--dev-head-bg);
+  cursor: pointer;
+}
+.ce-form-section[open] > .ce-form-section-head {
+  border-block-end: var(--hairline) solid var(--color-border);
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+.ce-form-section-head:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.ce-form-section-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+.ce-form-section-body {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+}
+.ce-form-section-desc {
+  margin: 0;
+  max-width: 80ch;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.ce-source {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--dev-code);
+}
+
+/* ── 칸: 이름표 줄·도움말·견주기 ── */
+.ce-field-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+.ce-field-head > .field-label {
+  overflow-wrap: anywhere;
+}
+.ce-field[data-staged],
+.ce-field[data-changed],
+.ce-check[data-staged],
+.ce-check[data-changed] {
+  padding-inline-start: var(--space-3);
+  border-radius: var(--radius-sm);
+}
+.ce-field[data-changed],
+.ce-check[data-changed] {
+  box-shadow: inset var(--space-1) 0 0 var(--color-warning);
+}
+.ce-field[data-staged],
+.ce-check[data-staged] {
+  background-color: var(--dev-row-selected);
+  box-shadow: inset var(--space-1) 0 0 var(--color-focus);
+}
+/* 풀이 · 단위 · 범위 · 덧붙인 말: 한 문단으로 흐른다(점은 앞 조각 뒤에) */
+.ce-hint > * + *::before {
+  content: " · ";
+  color: var(--color-text-muted);
+}
+.ce-desc {
+  color: var(--color-text);
+}
+.ce-fact {
+  font-variant-numeric: tabular-nums;
+}
+.ce-compare {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-3);
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+}
+.ce-compare-label {
+  color: var(--color-text-muted);
+}
+.ce-compare-number {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ce-compare-value[data-part="pack"] .ce-compare-number {
+  color: var(--color-warning);
+}
+.ce-check > .ce-compare,
+.ce-check > .ce-field-badges {
+  flex-basis: auto;
+}
+.ce-check > .ce-compare {
+  flex-basis: 100%;
+}
+
+/* ── 담은 변경 막대(화면 아래에 붙음) ── */
+.ce-pending {
+  position: sticky;
+  bottom: calc(var(--dev-dock-bottom) + var(--space-4));
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline) solid var(--color-focus);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.ce-pending-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
+}
+.ce-pending-details {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ce-pending-details[open] {
+  flex: 1 1 100%;
+}
+.ce-pending-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--dev-touch-tap);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-focus);
+  cursor: pointer;
+}
+.ce-pending-empty {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+.ce-pending-list {
+  max-height: calc(var(--dev-row-h) * 7);
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ce-pending-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-4);
+  min-height: var(--dev-row-h);
+  border-block-start: var(--hairline) solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+.ce-pending-what {
+  flex: 1 1 14em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ce-pending-name {
+  font-weight: var(--font-weight-strong);
+}
+.ce-pending-side {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+.ce-pending-kind {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.ce-pending-item[data-kind="revert"] .ce-pending-kind,
+.ce-pending-item[data-kind="discard"] .ce-pending-kind {
+  color: var(--color-warning);
+}
+.ce-pending-item[data-kind="create"] .ce-pending-kind {
+  color: var(--color-success);
+}
+.ce-pending-status {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.ce-pending-status[data-tone="ok"] {
+  color: var(--color-success);
+}
+.ce-pending-status[data-tone="blocked"],
+.ce-pending-status[data-tone="failed"] {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+.ce-pending-tools {
+  display: inline-flex;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+.ce-pending-tools > button {
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+.ce-pending-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.ce-note-input {
+  flex: 1 1 14em;
+  width: auto;
+  min-width: 0;
+  min-height: var(--dev-touch-tap);
+}
+.ce-pending-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+.ce-pending-buttons > button,
+.ce-confirm-inline > button {
+  min-width: var(--dev-touch-tap);
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+.ce-confirm-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+/* 좁은 폭: 한 칸씩(목록 → 편집 판) */
+@container ce-screen (max-width: 59.99rem) {
+  .ce-layout[data-view="list"] > .ce-detail,
+  .ce-layout[data-view="detail"] > .ce-side {
+    display: none;
+  }
+}
+
+/* 휴대폰: 막대 단추가 한 줄 전체로 */
+@container ce-screen (max-width: 39.99rem) {
+  .ce-pending-buttons {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+  .ce-entry-actions > button {
+    flex: 1 1 auto;
+  }
+  /* 구역 바로 가기는 한 줄로 두고 옆으로 민다 */
+  .ce-jump {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-block-end: var(--space-1);
+  }
+  .ce-jump-link {
+    flex: none;
+  }
+}
+
+/* 넓은 폭: 왼쪽 목록(붙음, 스스로 밀림) + 오른쪽 편집 판(머리 붙음) */
+@container ce-screen (min-width: 60rem) {
+  .ce-layout {
+    display: grid;
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-8);
+  }
+  .ce-side {
+    position: sticky;
+    top: var(--space-4);
+    max-height: calc(100dvh - var(--space-12) * 3);
+    overflow-y: auto;
+  }
+  .ce-list-pane {
+    overflow: visible;
+  }
+  .ce-list-tools {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .ce-filters[data-open="false"] {
+    display: flex;
+  }
+  .ce-filters-toggle,
+  .ce-back-list {
+    display: none;
+  }
+  .ce-keys {
+    display: flex;
+  }
+  .ce-entry-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: 0 var(--space-2) var(--space-4) var(--color-bg);
+  }
+}
+:root[data-topbar] .ce-side {
+  top: calc(var(--dev-sticky-top) + var(--space-4));
+  max-height: calc(100dvh - var(--dev-sticky-top) - var(--space-12) * 3);
+}
+:root[data-topbar] .ce-entry-head {
+  top: var(--dev-sticky-top);
+}
+
+/* 글이 짧은 단추도 폭이 누르는 곳보다 좁지 않게 */
+.ce-screen button {
+  min-width: var(--tap-size);
+}
+
+/* 겉 구역이 제목을 보이는 칸 묶음(효과 줄 등): 테두리 없이 */
+.ce-plain-fieldset {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* 붙은 편집 판 머리가 키로 옮긴 칸을 가리지 않게 */
+.ce-detail .ce-field,
+.ce-detail .ce-check {
+  scroll-margin-top: calc(var(--dev-sticky-top) + var(--space-12) * 5);
+  /* 아래에 붙은 담은 변경 막대도 가리지 않게 */
+  scroll-margin-bottom: calc(var(--dev-dock-bottom) + var(--space-12) * 8);
+}
+
+/* 알림 두 줄(성공·오류)은 비어 있어도 화면 사이 간격을 한 번만 먹는다 */
+.ce-messages {
+  display: grid;
+  min-width: 0;
+}
+
+/* 빈 막대(아이템 편집기: 되돌리기·다시하기 때문에 늘 보인다)는 눈에 덜 띄게 */
+.ce-pending[data-count="0"] {
+  border-color: var(--color-border);
+  box-shadow: none;
+}

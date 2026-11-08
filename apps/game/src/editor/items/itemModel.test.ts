@@ -93,6 +93,9 @@ describe("아이템 편집기 모델: 목록", () => {
     expect(ids({ tierMin: 1, tierMax: 1 })).toEqual(["test_sword"]);
     expect(ids({ staged: true }, new Set(["wheat"]))).toEqual(["wheat"]);
     expect(ids({ slot: "weapon" })).toEqual(["test_sword"]);
+    // 낱말 여럿은 모두 맞는 것, 대분류 ID로도 찾는다
+    expect(ids({ text: "equipment sword" })).toEqual(["test_sword"]);
+    expect(ids({ text: "equipment wheat" })).toEqual([]);
   });
 
   it("무게 정렬은 무게 없는 항목을 뒤로, 같으면 ID 차례", () => {

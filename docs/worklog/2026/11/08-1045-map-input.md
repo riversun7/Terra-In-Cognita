@@ -54,7 +54,9 @@
 ## 검사
 - 작업 중: `packages/engine/src/camera` 5파일 39개, `apps/game/src/map` + `packages/engine/src` 560개 통과, 게임 타입 검사·oxlint·biome 통과.
 - 화면 시험 `map-input.spec.ts` 7개: 첫 돌림 6 통과·1 실패(시험 잘못 — 지도 둘레 누르기 150px가 오른쪽 가운데 [1차맵] 단추를 눌러 화면이 바뀜 → 110px로) → 그 시험만 다시 1 통과.
-- 끝 묶음: 아래 "끝 검사"에 적는다.
+- 합치기 전 묶음(main a366ef2 위): `pnpm check` 통과(단위 509파일 3,946개), 화면 시험 7파일 69개 중 62 통과·6 실패·1 건너뜀 — 실패는 gather 5(시험 도우미: 사이보그 옆 표시를 먼저 눌러 유닛이 골라짐·건물 표시가 판에 가림)·unit-control 1(위 [멈추기] 경합) → 시험을 고침.
+- 끝 묶음(통합 3b2d4d5를 합친 뒤): 화면 시험 9파일(map-input·unit-control·building-art·gather-station·government·map-travel·gather·play-map·vision) **75개 중 73 통과·1 실패·1 건너뜀(측정)** — 실패 map-input 따라가기 1(그 시험의 땅 누르기가 건물 모델·표시에 걸림 → 빈 땅 도우미로) → `pnpm check` 1차 실패(서버 타입: 통합 가지의 정부 판 시험 가짜 건물에 `placement` 없음 — 건물 모델·NPC 존재감 두 줄기의 의미 충돌, 시험만 고침) → 고친 뒤 **`pnpm check` 통과(단위 522파일 3,998개)**, `check:docs origin/main` 통과, 바꾼 시험 파일 map-input·unit-control만 다시 **14개 모두 통과**.
+- 합친 뒤 다시 돌리지 않은 화면 시험: control-move3·planet-view(합치기 전 묶음에서 통과). 빌드·`check-pwa`·`check:bundle`은 돌리지 않음(지침).
 
 ## 미검증·TODO·알려진 문제
 - 실제 휴대폰 손가락으로는 재지 않았다(헤드리스 시험은 마우스 포인터). 터치 끌기도 같은 엔진 조작이라 같다고 보지만 Assumed. 누르기 거리 10px가 휴대폰에서 알맞은지 Unknown.

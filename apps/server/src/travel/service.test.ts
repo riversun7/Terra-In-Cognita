@@ -91,7 +91,7 @@ function rig(loaded: readonly number[] = [0, 1, 2], pool?: QueryPool): Rig {
 function spawnFor(r: Rig, options: { full?: boolean } = {}) {
   const opened: number[] = [];
   const spawn: TravelSpawn = {
-    canOpen: (mapKey) => !r.maps.has(mapKey) && K.includes(mapKey),
+    canOpen: (mapKey) => !r.maps.has(mapKey) && K.some((key) => key === mapKey),
     hasRoom: () => !options.full,
     open: async (mapKey) => {
       await Promise.resolve();
@@ -509,7 +509,7 @@ describe("730 다: 띄우지 않은 목적 2차맵은 닿을 때 띄운다(WP15)
     // 보낼 때는 자리가 있었는데 닿을 때 꽉 찼다
     const late = { full: false };
     const spawn: TravelSpawn = {
-      canOpen: (mapKey) => !r.maps.has(mapKey) && K.includes(mapKey),
+      canOpen: (mapKey) => !r.maps.has(mapKey) && K.some((key) => key === mapKey),
       hasRoom: () => !late.full,
       open: async () => "full",
       prefetch: () => {},

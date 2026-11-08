@@ -14,7 +14,15 @@
 - world.ts(1,000줄 상한)에서 2차맵 만들기·탐사 기록 저장을 `world/mapFactory.ts`로 옮겼다(979 → 약 900줄).
 
 ## 잰 값
-- (아래 채움)
+- 방법(Verified, 개발 컨테이너, Node 24.22.1): 임시 측정 스크립트(커밋하지 않음)가 실제 부품으로 세계를 띄움 — 행성 서비스(캐시) + 지형 서비스(워커) + `startWorld`(새 DB, 봇 1,000, 시험 2차맵 6, NPC 국가 넷 = 씨앗 17장, 경로 워커 1) → 준비 뒤 이웃 미리 받기가 끝나면 `persistence.spawn.open`을 차례로 32장(도시 2차맵에서 3칸 떨어진 땅) → `--expose-gc` 뒤 `process.memoryUsage()` → 비어 있음 → 내림. 띄운 2차맵의 "지형 출처"는 서버 기록 `second map opened on demand`의 `source`.
+- 한 장 띄우는 시간(지형 + DB 행 + 목록·워커 사본):
+  - 차가운 캐시(디스크 캐시를 지운 뒤 — 지형 워커가 행성 값에서 생성): 26~75ms. 다만 띄울 때마다 둘레 8장을 미리 받기에 걸어서(지형 워커 하나가 차례로) 그 뒤 차가운 띄우기는 그 줄 뒤에서 기다려 250~1,036ms였다.
+  - 디스크 캐시(다음 실행): 6~97ms(가운데 약 25ms).
+  - 메모리 캐시(이웃 미리 받기·보낼 때 미리 받기에 든 것): 2~8ms. 이동은 보낼 때 목적지 지형을 미리 받으므로 닿을 때는 대개 이 경우다.
+- 메모리: 그때 띄운 2차맵 하나 RSS 약 +1.3~1.9MB(32장에 +43~62MB, arrayBuffers +0.5MB/장 — 봇·NPC가 없는 2차맵이라 부팅 씨앗 2차맵의 약 5~7MB/장보다 작다). 내리면 힙·arrayBuffers는 처음 값으로 돌아오고(32장 내림 → 띄운 2차맵 17장) RSS는 운영체제에 돌려주지 않는다(다음에 띄울 때 다시 쓴다). 상한 32장이면 NAS(17장 RSS 약 430MB)에서 약 +60MB.
+- 이벤트 루프(32장 띄우는 동안, `monitorEventLoopDelay` 10ms): 최대 14~31ms, p99 13~24ms(지형 생성은 워커, 메인 스레드는 격자 복사·행 놓기만).
+- 짧은 실제 서버 실행(Verified, `merge/integration` 7c80aa9를 합친 판, `node --import tsx src/main.ts`, 새 DB, `S1_TEST_BOTS=1000`·`S1_TEST_MAPS=6`·`NPC_SOCIETY=1`·`NPC_TEST_NATIONS=4`·`PATH_WORKERS=1`, 캐시된 행성): 첫 실행 `/health` world ready·worldIssues 0·띄운 2차맵 17·`mapsOnDemand` 0 → 끄고 첫 시작 도시 2차맵의 띄우지 않은 옆 2차맵에 가짜 계정 유닛 하나를 DB로 넣음 → 다시 켬: 띄운 2차맵 18·`mapsOnDemand` 1·`orphanUnits` 0·`problems` [] → 끄고 `node --import tsx src/cli.ts check-world` = `{"ok":true,"problems":[]}`.
+- 불변 조건: 32장 띄운 뒤 `checkInvariants`(메모리 + DB = `check-world`의 DB 몫) 위반 0. DB 시험(`layoutTravel.db.test.ts`)도 넘어간 뒤·다시 켠 뒤·내린 뒤 모두 0.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |

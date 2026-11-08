@@ -141,10 +141,21 @@ test.describe("유닛 조종: 플레이어", () => {
     await expect(screen).toHaveAttribute("data-control", "other");
     await expect(page.locator(".map-hint p").first()).toContainText("#");
     await expect(page.locator(".map-unit-stop")).toHaveCount(0);
-    const [ground] = await groundOffsets(page);
-    if (!ground) throw new Error("빈 땅이 없습니다");
-    await tapMap(page, ground.dx, ground.dy);
-    await expect(screen).toHaveAttribute("data-command", "view_only", { timeout: 5_000 });
+    // 빈 땅을 누른다: 걷는 휴먼(남의 유닛)을 누르면 그 유닛이 골라질 뿐이라 다음 자리를 누른다(고른 것은 여전히 남의 유닛)
+    let viewOnly = false;
+    for (const ground of (await groundOffsets(page)).slice(0, 6)) {
+      await tapMap(page, ground.dx, ground.dy);
+      try {
+        await expect(screen).toHaveAttribute("data-command", "view_only", { timeout: 2_500 });
+        viewOnly = true;
+        break;
+      } catch {
+        const close = page.locator(".gather-sheet-close");
+        if (await close.count()) await close.first().click();
+      }
+    }
+    expect(viewOnly).toBe(true);
+    await expect(screen).toHaveAttribute("data-control", "other");
     expect(sentMoves).toEqual([]);
     expect(deviceErrors).toEqual([]);
   });

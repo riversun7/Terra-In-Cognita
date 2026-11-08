@@ -68,5 +68,10 @@
 - 넘기 시험(`seamless.spec.ts`)은 흉내다: 넘은 뒤 화면이 어둡고 "탐사한 곳이 없다" 안내가 뜨는 것은 서버에서 사이보그가 넘지 않았기 때문이다(실제 넘기에서는 사이보그가 그 맵에 있어 밝다 — Assumed, 실제 넘기는 화면 시험으로 보지 않음).
 - 빌드는 화면 시험 준비가 돌렸다(통과). `check-pwa`·`check:bundle`은 돌리지 않았다(미실행 — 새 코드는 2차맵 지연 조각 안).
 
+## main 합치기 (2026-11-08, 사용자 승인 "오케이")
+- 그사이 main이 57커밋 앞서 충돌: `SecondaryMapScreen.tsx`·`UnitControlPanels.tsx`·`useMapUnits.ts`(main의 부상 남은 시간 D-525 — 목록 서버 시각 `at`을 근처 판 유닛 탭 상태 글에 이음, 옛 내 유닛 목록은 근처 판으로 옮긴 그대로), ADR 상태 줄 3개(main의 확정 + 일부 대체 표시를 함께), 작업 기록 목차(다시 만듦).
+- 합친 뒤 검사: `pnpm check`(DB 포함) 557파일 4,235개 통과(Verified). 화면 시험 seamless·unit-control·map-input·citizenship·gather 기능 시험 — 2개가 땅 대신 걷는 NPC 휴먼을 눌러 실패해 시험을 고친 뒤 통과(Verified: 다른 유닛이 골라지면 다시 내 사이보그를 고르거나 다음 자리를 누른다). `check:bundle` 첫 화면 JS 107,178B / 상한 131,416B, `check-pwa` 통과(Verified).
+- 처음 `pnpm check`의 DB 시험 111개 실패는 이 컨테이너의 PostgreSQL이 꺼져 있던 것(ECONNREFUSED)이라 켜고 다시 돌렸다.
+
 ## 사용자 결정 대기
 - 없음(ADR Q1~Q5 답함).

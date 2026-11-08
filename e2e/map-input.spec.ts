@@ -188,6 +188,8 @@ test.describe("지도 조작: 플레이어", () => {
       // 건물을 눌러 건물 판이 열렸으면 닫는다
       const close = page.locator(".gather-sheet-close");
       if (await close.count()) await close.first().click();
+      // 걷는 휴먼(남의 유닛)을 눌러 그 유닛이 골라졌으면 다시 내 사이보그를 고른다
+      if ((await map.getAttribute("data-selected")) !== cyborg) await pickCyborg(page, map);
     }
     expect(sent).toBe(true);
     // 가는 동안: 카메라 목표가 사이보그 자리에 있고, 사이보그가 움직여도 몫(칸 크기)이 그대로다

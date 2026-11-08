@@ -4,6 +4,7 @@
 // - 판 충돌(다른 사람이 먼저 바꿈)이면 목록을 다시 받고 담은 변경은 남긴다(바뀔 것이 없어진 칸은 뺀다).
 // - [내보내기]: 팩 차이 JSON(pnpm tuning:apply). [모두 되돌리기]: 확인 창 뒤 모든 덮어쓰기를 지운다.
 // - 최근 바꿈(감사 기록)·"49 칸 중 N개 연결"(49 문서에서 만든 읽기 전용 목록)은 펼쳐 본다.
+// - 분야 페이지 탭(2026-11-08): 전체·세력·사회·NPC 두뇌·정원사·보유 아이템·전투 코어·경제 코어·기타(TuningPageTabs). 칸 줄마다 쉬운 풀이·단위·출처.
 // 조각 이름 TuningPanelScreen-*(미리 캐시 규칙 [Tt]uningPanel). 시험용 data-*: data-status(loading·ready·failed), data-revision.
 import type { TuningExportResponse, TuningListResponse } from "@terra/shared/tuning";
 import { useCallback, useEffect, useId, useState } from "react";
@@ -22,16 +23,20 @@ import {
   TuningExport,
   TuningHistory,
 } from "./TuningExtras.tsx";
+import { TuningPageTabs, pageTabId, storePageTab, storedPageTab } from "./TuningPageTabs.tsx";
 import { TuningRow } from "./TuningRow.tsx";
-import { FILTER_TEXT, errorText, familyText, problemText } from "./tuningMessages.ts";
+import { FILTER_TEXT, PAGE_TEXT, errorText, familyText, problemText } from "./tuningMessages.ts";
 import {
   ALL_FAMILIES,
+  ALL_PAGES,
   TUNING_FILTERS,
   type TuningErrorInfo,
   type TuningFilter,
+  type TuningPageTab,
   familiesOf,
   filterEntries,
   groupEntries,
+  pageCounts,
   pendingChanges,
   prunePending,
   tuningErrorOf,
@@ -54,10 +59,12 @@ export default function TuningPanelScreen() {
   const searchId = useId();
   const familyId = useId();
   const noteId = useId();
+  const panelId = useId();
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [text, setText] = useState("");
   const [filter, setFilter] = useState<TuningFilter>("all");
   const [family, setFamily] = useState(ALL_FAMILIES);
+  const [page, setPage] = useState<TuningPageTab>(storedPageTab);
   const [pending, setPending] = useState<ReadonlyMap<string, number | null>>(new Map());
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -94,12 +101,20 @@ export default function TuningPanelScreen() {
 
   const list = load.status === "ready" ? load.list : null;
   const entries = list?.entries ?? [];
-  // 칸은 백몇십 개라 그릴 때마다 다시 거른다
-  const families = familiesOf(entries);
-  const shown = filterEntries(entries, { text, filter, family }, pending);
+  // 칸은 몇백 개라 그릴 때마다 다시 거른다. 무리 고르기는 고른 페이지의 칸만 보인다
+  const counts = pageCounts(entries);
+  const families = familiesOf(page === ALL_PAGES ? entries : entries.filter((entry) => entry.page === page));
+  const shown = filterEntries(entries, { text, filter, family, page }, pending);
   const groups = groupEntries(shown);
   const changedCount = entries.filter((entry) => entry.override !== null).length;
   const liveCount = entries.filter((entry) => entry.scope === "live").length;
+
+  /** 페이지를 바꾸면 무리 고르기는 전체로(그 페이지에 없는 무리가 남지 않게) */
+  const choosePage = (tab: TuningPageTab): void => {
+    setPage(tab);
+    setFamily(ALL_FAMILIES);
+    storePageTab(tab);
+  };
 
   const stage = (id: string, value: number | null): void => {
     setPending((previous) => new Map(previous).set(id, value));
@@ -229,115 +244,125 @@ export default function TuningPanelScreen() {
               </AppLink>
             </li>
           </ul>
-          <div className="tp-toolbar">
-            <div className="field tp-search">
-              <label className="field-label" htmlFor={searchId}>
-                {m.dev_tuning_search_label()}
-              </label>
-              <input
-                id={searchId}
-                className="input"
-                type="search"
-                autoComplete="off"
-                placeholder={m.dev_tuning_search_placeholder()}
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-              />
-            </div>
-            <div className="field tp-family">
-              <label className="field-label" htmlFor={familyId}>
-                {m.dev_tuning_family_label()}
-              </label>
-              <select id={familyId} value={family} onChange={(event) => setFamily(event.target.value)}>
-                <option value={ALL_FAMILIES}>{m.dev_tuning_family_all()}</option>
-                {families.map((letter) => (
-                  <option key={letter} value={letter}>
-                    {familyText(letter)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <fieldset className="tp-filters">
-              <legend className="field-label">{m.dev_tuning_filter_label()}</legend>
-              {TUNING_FILTERS.map((option) => (
-                <label key={option} className="tp-filter" data-active={option === filter ? "" : undefined}>
-                  <input
-                    type="radio"
-                    name="tuning-filter"
-                    value={option}
-                    checked={option === filter}
-                    onChange={() => setFilter(option)}
-                  />
-                  {FILTER_TEXT[option]()}
+          <TuningPageTabs page={page} counts={counts} panelId={panelId} onChange={choosePage} />
+          <div
+            id={panelId}
+            className="tp-page-panel"
+            role="tabpanel"
+            aria-labelledby={pageTabId(page)}
+            data-page={page}
+          >
+            <p className="tp-page-lead">{PAGE_TEXT[page].lead()}</p>
+            <div className="tp-toolbar">
+              <div className="field tp-search">
+                <label className="field-label" htmlFor={searchId}>
+                  {m.dev_tuning_search_label()}
                 </label>
-              ))}
-            </fieldset>
-            <div className="tp-tools">
-              <button type="button" className="button-small tp-export-button" onClick={onExport}>
-                {m.dev_tuning_export()}
-              </button>
-              {changedCount + list.statOverrides > 0 ? (
-                <button
-                  type="button"
-                  className="button-small tp-revert-all"
-                  aria-disabled={busy}
-                  onClick={busy ? undefined : onRevertAll}
-                >
-                  {m.dev_tuning_revert_all()}
+                <input
+                  id={searchId}
+                  className="input"
+                  type="search"
+                  autoComplete="off"
+                  placeholder={m.dev_tuning_search_placeholder()}
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                />
+              </div>
+              <div className="field tp-family">
+                <label className="field-label" htmlFor={familyId}>
+                  {m.dev_tuning_family_label()}
+                </label>
+                <select id={familyId} value={family} onChange={(event) => setFamily(event.target.value)}>
+                  <option value={ALL_FAMILIES}>{m.dev_tuning_family_all()}</option>
+                  {families.map((letter) => (
+                    <option key={letter} value={letter}>
+                      {familyText(letter)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <fieldset className="tp-filters">
+                <legend className="field-label">{m.dev_tuning_filter_label()}</legend>
+                {TUNING_FILTERS.map((option) => (
+                  <label key={option} className="tp-filter" data-active={option === filter ? "" : undefined}>
+                    <input
+                      type="radio"
+                      name="tuning-filter"
+                      value={option}
+                      checked={option === filter}
+                      onChange={() => setFilter(option)}
+                    />
+                    {FILTER_TEXT[option]()}
+                  </label>
+                ))}
+              </fieldset>
+              <div className="tp-tools">
+                <button type="button" className="button-small tp-export-button" onClick={onExport}>
+                  {m.dev_tuning_export()}
                 </button>
-              ) : null}
+                {changedCount + list.statOverrides > 0 ? (
+                  <button
+                    type="button"
+                    className="button-small tp-revert-all"
+                    aria-disabled={busy}
+                    onClick={busy ? undefined : onRevertAll}
+                  >
+                    {m.dev_tuning_revert_all()}
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
-          <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
-          <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
-          <p className="tp-shown" aria-live="polite">
-            {m.dev_tuning_shown({ shown: shown.length, total: entries.length })}
-          </p>
-          {groups.length === 0 ? <p className="field-hint">{m.dev_tuning_empty_filter()}</p> : null}
-          {groups.length > 0 ? (
-            // 넓은 폭: 표 머리가 위 띠 아래에 붙는다. 좁은 폭: 표만 이 상자 안에서 가로로 민다(화면은 밀리지 않는다)
-            <div className="tp-table-wrap">
-              <table className="dev-table tp-table">
-                <thead>
-                  <tr>
-                    <th scope="col">{m.dev_tuning_col_code()}</th>
-                    <th scope="col">{m.dev_tuning_col_name()}</th>
-                    <th scope="col">{m.dev_tuning_col_flags()}</th>
-                    <th scope="col" className="tp-th-num">
-                      {m.dev_tuning_now()}
-                    </th>
-                    <th scope="col" className="tp-th-num">
-                      {m.dev_tuning_pack_value()}
-                    </th>
-                    <th scope="col">{m.dev_tuning_col_range()}</th>
-                    <th scope="col">{m.dev_tuning_value_label()}</th>
-                    <th scope="col">
-                      <span className="visually-hidden">{m.dev_tuning_col_actions()}</span>
-                    </th>
-                  </tr>
-                </thead>
-                {groups.map((group) => (
-                  <tbody key={group.family || "none"} className="tp-group" data-family={group.family}>
-                    <tr className="tp-group-row">
-                      <th scope="colgroup" colSpan={8}>
-                        <h2 className="tp-group-title">{familyText(group.family)}</h2>
+            <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
+            <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
+            <p className="tp-shown" aria-live="polite">
+              {m.dev_tuning_shown({ shown: shown.length, total: counts[page] })}
+            </p>
+            {groups.length === 0 ? <p className="field-hint">{m.dev_tuning_empty_filter()}</p> : null}
+            {groups.length > 0 ? (
+              // 넓은 폭: 표 머리가 위 띠 아래에 붙는다. 좁은 폭: 표만 이 상자 안에서 가로로 민다(화면은 밀리지 않는다)
+              <div className="tp-table-wrap">
+                <table className="dev-table tp-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">{m.dev_tuning_col_code()}</th>
+                      <th scope="col">{m.dev_tuning_col_name()}</th>
+                      <th scope="col">{m.dev_tuning_col_flags()}</th>
+                      <th scope="col" className="tp-th-num">
+                        {m.dev_tuning_now()}
+                      </th>
+                      <th scope="col" className="tp-th-num">
+                        {m.dev_tuning_pack_value()}
+                      </th>
+                      <th scope="col">{m.dev_tuning_col_range()}</th>
+                      <th scope="col">{m.dev_tuning_value_label()}</th>
+                      <th scope="col">
+                        <span className="visually-hidden">{m.dev_tuning_col_actions()}</span>
                       </th>
                     </tr>
-                    {group.entries.map((entry) => (
-                      <TuningRow
-                        key={entry.id}
-                        entry={entry}
-                        pending={pending}
-                        locale={locale}
-                        onStage={stage}
-                        onUnstage={unstage}
-                      />
-                    ))}
-                  </tbody>
-                ))}
-              </table>
-            </div>
-          ) : null}
+                  </thead>
+                  {groups.map((group) => (
+                    <tbody key={group.family || "none"} className="tp-group" data-family={group.family}>
+                      <tr className="tp-group-row">
+                        <th scope="colgroup" colSpan={8}>
+                          <h2 className="tp-group-title">{familyText(group.family)}</h2>
+                        </th>
+                      </tr>
+                      {group.entries.map((entry) => (
+                        <TuningRow
+                          key={entry.id}
+                          entry={entry}
+                          pending={pending}
+                          locale={locale}
+                          onStage={stage}
+                          onUnstage={unstage}
+                        />
+                      ))}
+                    </tbody>
+                  ))}
+                </table>
+              </div>
+            ) : null}
+          </div>
           <TuningHistory revision={list.revision} locale={locale} />
           <TuningCells entries={entries} />
           {pending.size > 0 ? (

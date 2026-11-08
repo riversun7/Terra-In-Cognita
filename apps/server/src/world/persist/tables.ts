@@ -392,6 +392,7 @@ export const WORLD_TABLES = {
       "created_at_ms",
       "source",
       "gene",
+      "packed",
     ],
     key: ["id"],
   },

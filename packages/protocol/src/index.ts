@@ -56,6 +56,7 @@ export {
   ITEM_PROTOCOL_VERSION,
   ITEM_RESULT_CODES,
   TREAT_PROTOCOL_VERSION,
+  UNPACK_PROTOCOL_VERSION,
   type ItemResultCode,
 } from "./items.ts";
 export {

@@ -8,6 +8,7 @@ import {
   basesOf,
   filterUnits,
   formatAmount,
+  formatHoursMinutes,
   formatK,
   formatMilli,
   formatSigned,
@@ -18,6 +19,7 @@ import {
   localName,
   primaryCode,
   primaryLabel,
+  recoveryLeft,
   remaining,
   sortUnits,
   statusCounts,
@@ -130,10 +132,11 @@ describe("상태·정렬·걸러 보기", () => {
     expect(basesOf(all, "ko")).toEqual(["Nova", "Vega"]);
   });
 
-  it("부상 이름: 0은 없음, 1~3은 흰·노랑·빨강(D-521)", () => {
+  it("부상 이름: 0은 없음, 1~3은 경상·중상·중태(D-525, 색은 흰·노랑·빨강)", () => {
     expect(injuryLabel(0, "ko")).toBeNull();
-    expect(injuryLabel(2, "ko")).toBe("노랑 부상");
-    expect(injuryLabel(3, "en")).toBe("Red injury");
+    expect(injuryLabel(1, "ko")).toBe("경상");
+    expect(injuryLabel(2, "ko")).toBe("중상");
+    expect(injuryLabel(3, "en")).toBe("Critical injury");
   });
 });
 
@@ -192,5 +195,15 @@ describe("수·시간", () => {
     expect(remaining(NOW + 3 * HOUR + 59 * MIN, NOW, "en")).toBe("in 3 hours");
     expect(remaining(NOW + 30 * 1000, NOW, "ko")).toBe("곧");
     expect(remaining(NOW - 1, NOW, "ko")).toBeNull();
+  });
+
+  it("회복 시간은 시간·분(D-525): 날로 묶지 않고 분은 올림, 지났으면 null", () => {
+    expect(formatHoursMinutes(72 * HOUR, "ko")).toBe("72시간 0분");
+    expect(formatHoursMinutes(26 * HOUR + 5 * MIN, "en")).toBe("26h 5m");
+    expect(formatHoursMinutes(59 * MIN + 1, "ko")).toBe("1시간 0분");
+    expect(formatHoursMinutes(30 * 1000, "ko")).toBe("1분");
+    expect(formatHoursMinutes(0, "en")).toBe("0m");
+    expect(recoveryLeft(NOW + 2 * HOUR + 30 * MIN, NOW, "ko")).toBe("2시간 30분");
+    expect(recoveryLeft(NOW, NOW, "ko")).toBeNull();
   });
 });

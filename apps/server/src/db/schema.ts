@@ -417,6 +417,8 @@ export const factions = pgTable(
     rebelOf: bigint("rebel_of", { mode: "number" }).references((): AnyPgColumn => factions.id),
     /** 태어날 때 부모 세력(반란·새 마을 — 화폐·나라 성격·도시 이름이 부모 나라를 따른다, 기획 답 620 나·601 나). null = 처음부터 있던 세력 */
     bornOf: bigint("born_of", { mode: "number" }).references((): AnyPgColumn => factions.id),
+    /** 그 나라가 정한 귀화 조건(D-526, 부호 있는 최소 단위: + 입회비 / − 지원금). null = 설정 칸 기본값(NPC 국가는 늘 null) */
+    naturalizeFee: bigint("naturalize_fee", { mode: "bigint" }),
   },
   (table) => [
     check("factions_kind", sql`${table.kind} in ('npc', 'player')`),
@@ -954,7 +956,7 @@ export { gatherObjectStates } from "./gatherSchema.ts";
 /** 공성 결과 표(docs/adr/2026-11-07-war-outcomes.md) */
 export { warOutcomes } from "./warSchema.ts";
 /** 국적 바꾸기(귀화) 기록 표(docs/adr/2026-11-08-citizenship.md) */
-export { nationalityChanges } from "./citizenshipSchema.ts";
+export { nationalityChanges, userNationStandings } from "./citizenshipSchema.ts";
 
 /** 운영 권한 체크박스 표(docs/adr/2026-11-08-operator-console.md) */
 export { opsGrants, opsSwitches } from "./opsSchema.ts";

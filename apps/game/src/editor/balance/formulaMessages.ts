@@ -1,7 +1,14 @@
 // 계산식 탭 문구 표 — 식 오류 코드·변수·함수·단위 → 메시지(oxlint: 메시지 이름을 계산해 읽지 않는다, 표로 적는다).
 // 밸런스 화면 조각(BalancePanelScreen)에만 든다. docs/adr/2026-11-01-formula-editor.md
-import type { FormulaErrorCode, FormulaFunction, FormulaIssue, FormulaUnit } from "@terra/shared/formula";
+import {
+  type FormulaErrorCode,
+  type FormulaFunction,
+  type FormulaIssue,
+  type FormulaUnit,
+  isFormulaFunction,
+} from "@terra/shared/formula";
 import { m } from "../../paraglide/messages.js";
+import { type PaletteOperator, type PaletteToken, isPaletteOperator } from "./formulaInsert.ts";
 
 const ERROR_TEXT: Readonly<Record<FormulaErrorCode | "unused_local", (name: string) => string>> = {
   empty: () => m.dev_formula_err_empty(),
@@ -101,3 +108,27 @@ const SAMPLE_TEXT: Readonly<Record<string, () => string>> = {
 
 /** 표본 유닛 이름(모르는 ID는 그대로) */
 export const sampleText = (id: string): string => SAMPLE_TEXT[id]?.() ?? id;
+
+const OPERATOR_TEXT: Readonly<Record<PaletteOperator, () => string>> = {
+  "+": m.dev_formula_op_add,
+  "-": m.dev_formula_op_sub,
+  "*": m.dev_formula_op_mul,
+  "/": m.dev_formula_op_div,
+  "(": m.dev_formula_op_paren,
+  ",": m.dev_formula_op_comma,
+  "<": m.dev_formula_op_lt,
+  "<=": m.dev_formula_op_le,
+  ">": m.dev_formula_op_gt,
+  ">=": m.dev_formula_op_ge,
+  "==": m.dev_formula_op_eq,
+  "!=": m.dev_formula_op_ne,
+  "=": m.dev_formula_op_let,
+};
+
+/** 식 조각 한 줄 풀이(변수 뜻·함수 모양·연산자 뜻) */
+export function tokenHint(token: PaletteToken): string {
+  if (token.kind === "var") return varText(token.name);
+  if (token.kind === "local") return m.dev_formula_palette_local_hint();
+  if (token.kind === "fn") return isFormulaFunction(token.name) ? functionText(token.name) : token.name;
+  return isPaletteOperator(token.name) ? OPERATOR_TEXT[token.name]() : token.name;
+}

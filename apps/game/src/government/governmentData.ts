@@ -1,6 +1,7 @@
 // 정부(행정 건물) 판 자료 받기·글 — docs/adr/2026-11-07-play-flow.md "WP-NPC"(사용자 지적 2026-11-08 "정부 건물의 기본 기능도 없음").
 // tRPC world.government(읽기만, 서버 src/government/reads.ts). 고용은 구인 판(economy/RecruitPanel.tsx)이 WebSocket recruit_hire로 보낸다.
 // 엔진·React를 가져오지 않는다(시험 대상, governmentData.test.ts).
+// 바뀜("WP-NPC3", 기획 정리 742 나·743 나): 지도자 창구(world.leaderGovernment — 누른 지도자의 나라 수도 정부 판)·도시 하루 값 글.
 import type {
   GovernmentCity,
   GovernmentLeader,
@@ -19,6 +20,18 @@ const REQUEST_TIMEOUT_MS = 10_000;
 export function loadGovernment(buildingId: number, signal?: AbortSignal): Promise<GovernmentResponse> {
   return api.world.government.query(
     { buildingId },
+    { signal: signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
+  );
+}
+
+/** 누른 NPC 국가 지도자의 정부 판(그 나라 수도, 742 나). 시야 밖·지도자가 아니면 status unknown_unit */
+export function loadLeaderGovernment(
+  mapKey: number,
+  unitId: number,
+  signal?: AbortSignal,
+): Promise<GovernmentResponse> {
+  return api.world.leaderGovernment.query(
+    { mapKey, unitId },
     { signal: signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
   );
 }
@@ -58,4 +71,18 @@ export function populationText(
 ): string {
   const count = new Intl.NumberFormat(locale);
   return m.government_population({ humans: count.format(city.humans), housing: count.format(city.housing) });
+}
+
+/** 0~100 하루 값(만족도·발전도) → "62 / 100". 모르면 "—"(743 나 — 값이 아직 없다) */
+export function pointsText(value: number | null, locale: Locale = getLocale()): string {
+  if (value === null) return m.government_value_unknown();
+  return m.government_points({ value: new Intl.NumberFormat(locale).format(value) });
+}
+
+/** 생필품 충족 ‰ → "87.5%". 도시 경제가 없거나 오늘 셈 전이면 "—" */
+export function necessitiesText(necessitiesPm: number | null, locale: Locale = getLocale()): string {
+  if (necessitiesPm === null) return m.government_value_unknown();
+  return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(
+    necessitiesPm / 1000,
+  );
 }

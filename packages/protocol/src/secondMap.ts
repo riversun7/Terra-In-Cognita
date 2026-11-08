@@ -41,6 +41,16 @@ export const SECOND_MAP_PROTOCOL_VERSION = 3;
  * 머문다). 더 낮게 인사한 연결이 stop_unit을 보내면 invalid_message, 그 연결은 두 코드 대신 forbidden을 받는다
  */
 export const UNIT_CONTROL_PROTOCOL_VERSION = 17;
+/**
+ * 유닛 표시 종류(unitMotionSchema kind, 프로토콜 18 — docs/adr/2026-11-07-play-flow.md "WP-NPC3", 기획 정리 748 나): 지도에 따로 그리는 유닛에만
+ * 붙는다(없으면 보통 유닛 — 유닛마다 보내면 바이트가 늘어 지금은 이것들만). npc_leader = NPC 국가 지도자 사이보그(이름표·지도자 표시).
+ * 값은 @terra/shared/mapUnits MapUnitKind와 같은 이름을 쓴다. 기기는 모르는 값을 보통 유닛으로 그린다(나중에 값을 더해도 옛 기기가 메시지를
+ * 버리지 않게 스키마는 영어 소문자 이름이면 받는다)
+ */
+export const UNIT_WIRE_KINDS = ["npc_leader"] as const;
+export type UnitWireKind = (typeof UNIT_WIRE_KINDS)[number];
+/** 유닛 표시 종류가 처음 생긴 프로토콜 버전(17판 기기는 모르는 칸을 버린다 — zod object) */
+export const UNIT_KIND_PROTOCOL_VERSION = 18;
 /** 탐사 칸 비트 모음 바이트 수(시야 칸 32×32, packages/sim VISION_BYTES와 같다) */
 export const VISION_BYTES = 128;
 /** 개발 시험 명령 한 번에 받는 시험 일꾼 상한 */
@@ -161,6 +171,11 @@ export const unitMotionSchema = z.object({
   until: timestampMs.optional(),
   /** 내 유닛(시야 전송, S3): 내가 움직일 수 있다. 전체 보기와 남의 유닛은 없다 */
   own: z.literal(true).optional(),
+  /** 표시 종류(프로토콜 18, UNIT_WIRE_KINDS). 보통 유닛은 없다. 모르는 값이면 기기는 보통 유닛으로 그린다 */
+  kind: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,31}$/)
+    .optional(),
 });
 export type UnitMotionWire = z.infer<typeof unitMotionSchema>;
 

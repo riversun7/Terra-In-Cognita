@@ -275,12 +275,16 @@ test.describe("도시 안개·들어가기·카메라(WP7): 플레이어", () =>
     await expect(order).toHaveAttribute("data-travel", "ready", { timeout: 15_000 });
     expect(Number(await order.getAttribute("data-route-maps"))).toBeGreaterThanOrEqual(2);
     await expect(order.locator(".planet-command-confirm")).toBeEnabled();
-    // WP11: 정찰은 돌아온다는 안내, 비용(걷기)·위험 구간 줄, 띄운 2차맵만 지나 건너뛰는 2차맵 없음
+    // WP11: 정찰은 돌아온다는 안내, 비용(걷기)·위험 구간 줄. 같은 나라 시야 공유(746 나) 뒤로 볼 수 없는 도시는
+    // 다른 나라 도시라 길이 띄우지 않은 2차맵을 건너뛸 수 있다 — 건너뛰는 수는 길 안의 수다
     await expect(order.locator(".planet-command-note")).toHaveText(message("ko", "world_command_scout_note"));
     const plan = order.locator(".planet-command-plan");
     await expect(plan).toContainText(message("ko", "world_travel_cost_walk"));
     await expect(order).toHaveAttribute("data-dangers", /^\d+$/);
-    await expect(order).toHaveAttribute("data-hidden-maps", "0");
+    await expect(order).toHaveAttribute("data-hidden-maps", /^\d+$/);
+    expect(Number(await order.getAttribute("data-hidden-maps"))).toBeLessThanOrEqual(
+      Number(await order.getAttribute("data-route-maps")),
+    );
     await order.getByRole("button", { name: message("ko", "world_command_move") }).click();
     await expect(order).toHaveAttribute("data-order", "move");
     await expect(order.locator(".planet-command-note")).toHaveText(message("ko", "world_command_move_note"));

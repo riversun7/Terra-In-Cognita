@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 15:00 | D-523 기획 답 따라 다섯 줄기 합치기 (NPC 휴먼·지도자·국적·옆 2차맵 띄우기·농장 채집소) | Claude Code | [08-1500-d523-followup-merge](worklog/2026/11/08-1500-d523-followup-merge.md) |
 | 2026-11-08 14:00 | NPC 지도자 창구·이름표·정부 판 하루 값 (WP-NPC3) | Claude Code | [08-1400-npc-leader](worklog/2026/11/08-1400-npc-leader.md) |
 | 2026-11-08 14:00 | NPC 휴먼 일터·시장·도시 처음 인구 (WP-NPC2) | Claude Code | [08-1400-npc-humans](worklog/2026/11/08-1400-npc-humans.md) |
 | 2026-11-08 13:30 | 옆 2차맵을 그때 띄우기 (플레이 흐름 WP15, 기획 답 730 다) | Claude Code | [08-1330-map-spawn](worklog/2026/11/08-1330-map-spawn.md) |

@@ -29,6 +29,11 @@ export interface ModelInput {
   readonly accent: number | null;
   /** 씨앗(건물 ID) */
   readonly seed: number;
+  /** 벽·지붕 색(겉모습 자료, null·없음 = 모델 기본 색) */
+  readonly wall?: Rgb | null | undefined;
+  readonly roof?: Rgb | null | undefined;
+  /** 높이 배율(‰, 없으면 1000): 바닥 판 위 조각의 높이·자리에 곱한다 */
+  readonly heightPm?: number | undefined;
 }
 
 export function buildingModel(input: ModelInput): BuildingPart[] {
@@ -49,6 +54,8 @@ export function buildingModel(input: ModelInput): BuildingPart[] {
     random,
     ridge: input.state === "ok" || input.state === "damaged" ? accent : null,
     main: mainRectOf(input.kind, W, D),
+    wall: (fallback) => input.wall ?? fallback,
+    roof: (fallback) => input.roof ?? fallback,
   };
   list.pad(W, D, input.kind === "government" || input.kind === "temple" ? C.padStone : C.pad);
   if (input.state === "building") underConstruction(ctx);
@@ -68,11 +75,13 @@ export function buildingModel(input: ModelInput): BuildingPart[] {
     if (accent && (input.state === "ok" || input.state === "damaged") && input.kind !== "government")
       list.flag(-W / 2 + MARGIN_M + 0.2, D / 2 - MARGIN_M - 0.2, 5 + level * 0.6, accent);
   }
-  // 좌우 뒤집기(씨앗) → 상태 색 → 판 안으로 맞추기
+  // 좌우 뒤집기(씨앗) → 상태 색 → 높이 배율 → 판 안으로 맞추기
   const mirror = random() < 0.5 ? -1 : 1;
+  const tall = (input.heightPm ?? 1000) / 1000;
   return list.parts.map((part) => {
     const shaded = shade === 1 || part.shape === "glow" ? part.color : scaleRgb(part.color, shade);
-    return fitInside({ ...part, x: part.x * mirror, turn: part.turn * mirror, color: shaded }, W, D);
+    const lifted = tall === 1 || part.ground ? part : stretchUp(part, tall);
+    return fitInside({ ...lifted, x: part.x * mirror, turn: part.turn * mirror, color: shaded }, W, D);
   });
 }
 
@@ -95,6 +104,11 @@ function fitInside(part: BuildingPart, W: number, D: number): BuildingPart {
   if (b.z0 < -limitZ) z += -limitZ - b.z0;
   if (b.z1 > limitZ) z -= b.z1 - limitZ;
   return x === part.x && z === part.z ? part : { ...part, x, z };
+}
+
+/** 높이 배율: 바닥 판 윗면(FLOOR_M) 위의 높이·자리를 k배(판은 그대로) */
+function stretchUp(part: BuildingPart, k: number): BuildingPart {
+  return { ...part, y: FLOOR_M + (part.y - FLOOR_M) * k, sy: part.sy * k };
 }
 
 const scaleRgb = (color: Rgb, k: number): Rgb => [color[0] * k, color[1] * k, color[2] * k];

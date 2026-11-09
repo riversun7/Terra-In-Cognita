@@ -38,6 +38,8 @@ export function lookOf(look: MapBuildingLook, factions: readonly WorldMapFaction
     state: look.state,
     upgrading: look.upgrading,
     accent: accentOf(factions, look.factionId),
+    // 실효 팩 겉모습(건물 편집기가 바꾼 모델·색·높이). 없으면 엔진이 시설 ID로 고른다
+    ...(look.art ? { art: look.art } : {}),
   };
 }
 

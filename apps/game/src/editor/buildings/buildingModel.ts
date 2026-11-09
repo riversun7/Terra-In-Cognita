@@ -13,6 +13,7 @@ import {
   type FacilityBuildRules,
   type FacilityGatherJson,
   type FacilityJson,
+  type FacilityLookJson,
   type FacilityRepairJson,
   GATHER_BAND_WEIGHT_TOTAL,
   GATHER_TIER_SLOTS,
@@ -20,6 +21,7 @@ import {
   buildCostAt,
   buildLevelAt,
   buildTimeAt,
+  cleanFacilityLook,
 } from "@terra/shared/buildingEditor";
 
 /** 시설 하나의 담은 변경: 고친 항목 통째 또는 팩 값으로 되돌리기. base·baseHash = 고치기 시작할 때의 실효 항목·해시 */
@@ -153,6 +155,7 @@ function cleanGather(gather: FacilityGatherJson): FacilityGatherJson {
 
 /** 선택 칸 중 undefined인 것을 뺀 JSON(팩 줄과 같은 칸 차례로 견주고 보낸다 — 내보내기가 팩 파일에 그대로 들어간다) */
 export function cleanFacility(entry: FacilityJson): FacilityJson {
+  const look = cleanFacilityLook(entry.look);
   return {
     id: entry.id,
     name: { ko: entry.name.ko, en: entry.name.en },
@@ -169,7 +172,20 @@ export function cleanFacility(entry: FacilityJson): FacilityJson {
     ...(entry.gather === undefined ? {} : { gather: cleanGather(entry.gather) }),
     ...(entry.build === undefined ? {} : { build: entry.build }),
     ...(entry.repair === undefined ? {} : { repair: entry.repair }),
+    // 2차맵 겉모습(빈 칸을 빼고, 칸이 하나도 없으면 칸째 뺀다 — docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)")
+    ...(look === undefined ? {} : { look }),
   };
+}
+
+/** 겉모습 칸 하나를 바꾼다(undefined = 그 칸을 뺀다 — 모델 기본 값) */
+export function setLook<K extends keyof FacilityLookJson>(
+  entry: FacilityJson,
+  key: K,
+  value: FacilityLookJson[K],
+): FacilityJson {
+  const next = cleanFacilityLook({ ...entry.look, [key]: value });
+  const { look: _old, ...rest } = entry;
+  return next === undefined ? rest : { ...rest, look: next };
 }
 
 /** 칸 값이 같은가(칸 안 키 차례는 편집기가 늘 같은 차례로 만든다) */
@@ -203,6 +219,7 @@ export function mergeFacility(
     gather: pick("gather"),
     build: pick("build"),
     repair: pick("repair"),
+    look: pick("look"),
   });
   return { entry, conflicts };
 }

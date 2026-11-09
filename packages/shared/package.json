@@ -19,6 +19,7 @@
     "./economy": "./src/economy.ts",
     "./facilities": "./src/facilities.ts",
     "./facilityBuild": "./src/facilityBuild.ts",
+    "./facilityLook": "./src/facilityLook.ts",
     "./facilityRuntime": "./src/facilityRuntime.ts",
     "./faction": "./src/faction.ts",
     "./factionProfile": "./src/factionProfile.ts",

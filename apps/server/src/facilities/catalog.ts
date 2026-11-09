@@ -10,6 +10,7 @@ import {
   itemAsset,
 } from "@terra/sim";
 import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
+import { type FacilityLookJson, cleanFacilityLook } from "@terra/shared/facilityLook";
 import type { LocalizedName } from "@terra/shared/roster";
 
 /** 레벨 1 최대 내구도가 팩에 없을 때(옛 코드 기본 max_durability 100) */
@@ -30,6 +31,8 @@ export interface FacilityDef {
   readonly repair: readonly RepairRule[] | undefined;
   /** 채집(팩 gather, D-506·D-507: 스탯 짝·중분류·방식·수확량). 채집 시설이 아니면 undefined */
   readonly gather: CatalogGather | undefined;
+  /** 2차맵 겉모습(그림 자료, 팩 look — docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)"). 없으면 undefined */
+  readonly look?: FacilityLookJson | undefined;
 }
 
 export interface FacilityCatalog {
@@ -74,6 +77,7 @@ function defOf(entry: FacilityEntry): FacilityDef {
     footprint: entry.footprint ? { width: entry.footprint.width, height: entry.footprint.height } : undefined,
     durability: entry.durability ?? DEFAULT_FACILITY_DURABILITY,
     storageKg: entry.storageKg,
+    look: cleanFacilityLook(entry.look),
     build: build
       ? {
           mulPm: build.mulPm,

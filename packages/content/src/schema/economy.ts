@@ -7,6 +7,7 @@ import {
   FACILITY_LEVEL_MAX,
   FACILITY_REPAIR_LIMITS,
 } from "@terra/shared/facilityBuild";
+import { FACILITY_LOOK_COLORS, FACILITY_LOOK_LIMITS, FACILITY_LOOK_MODELS } from "@terra/shared/facilityLook";
 import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
 import {
   isCurrencySymbol,
@@ -188,6 +189,23 @@ export const facilityEntrySchema = z.strictObject({
     .int()
     .min(FACILITY_RUNTIME_LIMITS.storageKg.min)
     .max(FACILITY_RUNTIME_LIMITS.storageKg.max)
+    .optional(),
+  /**
+   * 2차맵 겉모습(그림 자료, 판정에 쓰지 않음 — docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)"): 모델 종류(엔진 로우폴리 모델)·
+   * 벽 색·지붕 색(엔진 색 표 이름)·높이 배율(‰). 모두 선택: 모델이 없으면 엔진이 시설 ID로 고르고(모르는 ID는 일반 집), 색이 없으면 그
+   * 모델의 기본 색, 높이가 없으면 1000‰. 출발값 = 엔진이 시설 ID로 고르던 모델(core@59). 건물 편집기 "2차맵 모습"에서 고친다
+   */
+  look: z
+    .strictObject({
+      model: z.enum(FACILITY_LOOK_MODELS).optional(),
+      wall: z.enum(FACILITY_LOOK_COLORS).optional(),
+      roof: z.enum(FACILITY_LOOK_COLORS).optional(),
+      heightPm: z
+        .int()
+        .min(FACILITY_LOOK_LIMITS.heightPm.min)
+        .max(FACILITY_LOOK_LIMITS.heightPm.max)
+        .optional(),
+    })
     .optional(),
 });
 export type FacilityEntry = z.output<typeof facilityEntrySchema>;

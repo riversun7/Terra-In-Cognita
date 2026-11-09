@@ -46,7 +46,10 @@
         "height": 4
       },
       "durability": 150,
-      "storageKg": 300
+      "storageKg": 300,
+      "look": {
+        "model": "farm"
+      }
     },
     {
       "id": "lumber_camp",
@@ -101,7 +104,10 @@
         "height": 3
       },
       "durability": 200,
-      "storageKg": 200
+      "storageKg": 200,
+      "look": {
+        "model": "lumber"
+      }
     },
     {
       "id": "mine",
@@ -156,7 +162,10 @@
         "height": 3
       },
       "durability": 300,
-      "storageKg": 200
+      "storageKg": 200,
+      "look": {
+        "model": "mine"
+      }
     },
     {
       "id": "smelter",
@@ -202,7 +211,10 @@
         "width": 3,
         "height": 3
       },
-      "durability": 300
+      "durability": 300,
+      "look": {
+        "model": "smelter"
+      }
     },
     {
       "id": "kitchen",
@@ -252,7 +264,10 @@
         "width": 2,
         "height": 2
       },
-      "durability": 180
+      "durability": 180,
+      "look": {
+        "model": "kitchen"
+      }
     },
     {
       "id": "workshop",
@@ -348,7 +363,10 @@
         "width": 2,
         "height": 2
       },
-      "durability": 300
+      "durability": 300,
+      "look": {
+        "model": "workshop"
+      }
     },
     {
       "id": "sawmill",
@@ -394,7 +412,10 @@
         "width": 3,
         "height": 2
       },
-      "durability": 250
+      "durability": 250,
+      "look": {
+        "model": "sawmill"
+      }
     },
     {
       "id": "kiln",
@@ -440,7 +461,10 @@
         "width": 2,
         "height": 2
       },
-      "durability": 250
+      "durability": 250,
+      "look": {
+        "model": "kiln"
+      }
     },
     {
       "id": "territory_beacon",
@@ -506,7 +530,10 @@
         "height": 2
       },
       "durability": 30,
-      "storageKg": 1000
+      "storageKg": 1000,
+      "look": {
+        "model": "stockpile"
+      }
     },
     {
       "id": "storehouse",
@@ -552,7 +579,10 @@
         "height": 3
       },
       "durability": 400,
-      "storageKg": 10000
+      "storageKg": 10000,
+      "look": {
+        "model": "storehouse"
+      }
     },
     {
       "id": "warehouse",
@@ -585,7 +615,10 @@
         "height": 4
       },
       "durability": 500,
-      "storageKg": 100000
+      "storageKg": 100000,
+      "look": {
+        "model": "warehouse"
+      }
     },
     {
       "id": "grand_warehouse",
@@ -622,7 +655,10 @@
         "height": 5
       },
       "durability": 600,
-      "storageKg": 500000
+      "storageKg": 500000,
+      "look": {
+        "model": "warehouse"
+      }
     },
     {
       "id": "temple",
@@ -671,7 +707,10 @@
         "width": 3,
         "height": 3
       },
-      "durability": 300
+      "durability": 300,
+      "look": {
+        "model": "temple"
+      }
     },
     {
       "id": "biotech_lab",
@@ -716,7 +755,10 @@
         "width": 2,
         "height": 2
       },
-      "durability": 200
+      "durability": 200,
+      "look": {
+        "model": "lab"
+      }
     },
     {
       "id": "government_hall",
@@ -783,7 +825,10 @@
         "width": 3,
         "height": 3
       },
-      "durability": 500
+      "durability": 500,
+      "look": {
+        "model": "government"
+      }
     },
     {
       "id": "hospital",
@@ -828,7 +873,10 @@
         "width": 3,
         "height": 3
       },
-      "durability": 250
+      "durability": 250,
+      "look": {
+        "model": "hospital"
+      }
     }
   ]
 }

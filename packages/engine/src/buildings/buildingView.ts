@@ -102,6 +102,9 @@ export class BuildingView {
         upgrading: look.upgrading,
         accent: look.accent,
         seed: building.id,
+        wall: look.wall,
+        roof: look.roof,
+        heightPm: look.heightPm,
       });
     });
     const counts = new Map<PartShape, number>(PART_SHAPES.map((shape) => [shape, 0]));

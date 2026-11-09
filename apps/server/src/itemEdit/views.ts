@@ -222,6 +222,7 @@ export function itemRowOf(
     })),
     effects: (entry.use?.effects ?? []).map((part) => part.effect.id),
     shelfLifeMs: entry.perish?.shelfLifeMs ?? null,
+    stackMax: entry.stackMax ?? null,
     advice: extra.advice,
     codeRef: extra.codeRef,
   };

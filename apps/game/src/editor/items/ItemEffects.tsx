@@ -21,7 +21,7 @@ import { AppLink } from "../../shell/AppLink.tsx";
 import { effectKindText } from "../content/contentEditorEffects.tsx";
 import { CheckField, NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
 import { CONTENT_ID_PATTERN, sameJson } from "../content/contentEditorModel.ts";
-import { NewEntryForm } from "./ItemTaxonomy.tsx";
+import { NewEntryForm } from "./ItemTaxonomyFields.tsx";
 import { effectStatText, effectStatusText, isPrimaryEffectStat } from "./itemEffectsText.ts";
 import { ORIGIN_TEXT, PRIMARY_TEXT, milliText } from "./itemMessages.ts";
 import type { Staged } from "./itemModel.ts";

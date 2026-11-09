@@ -7,6 +7,8 @@
 //   대량 도구(WP-7): CSV 가져오기의 틀린 줄은 줄 번호로, 고친 줄·새 줄은 담아 적용. 크리쳐 전용 장비(D-494): 미리 보기·전투 실험실.
 // - player: 권한 없음 화면, tRPC items.*는 403.
 // - 화면 개편(2026-11-08): 칸마다 팩 값·지금 값 견주기와 [되돌리기], 찾기("/")·목록 키(↓·Enter)·Alt+↓ 다음 아이템·Ctrl+S 적용.
+// - 분류(2026-11-09): [아이템] 탭 대분류 타일 → 대분류 › 중분류 › 무기 종류 거르기·목록/격자·줄 빠른 동작([복제]),
+//   [아이템 분류] 탭 타일 → 나무(대분류 → 중분류 → 무기 종류) → 고른 마디의 칸·든 아이템, 태그 판은 나무 밖, 무기 종류 새로 만들기.
 // - 사진: 390·1440 × 개발 화면 테마 네온·라이트 × 한국어·영어, 보이는 화면 크기(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui). 소모품 효과량 칸·
 //   미리 보기 판도 같은 조합으로 찍는다. 옛 자원(295·D-505): 광석·목축 부산물 거르기 목록, 시작 시세 칸·지금 세계 시세(시세 없음).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 아이템 편집기 분류의 덮어쓰기를 모두 지운다.
@@ -607,6 +609,110 @@ test.describe("화면 개편(넓은 폭)", () => {
     await resetItems(page);
     expect(deviceErrors).toEqual([]);
   });
+
+  test("분류(아이템 탭): 대분류 타일 → 중분류 → 무기 종류로 거르고, 줄 [복제]는 꺼진 사본을 담아 연다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await editorReady(page);
+    await resetItems(page);
+    await page.reload();
+    await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
+    // 고른 아이템이 없으면 목록이 넓다(표 머리)
+    await expect(page.locator(".ie-lines-head")).toBeVisible();
+    await expect(page.locator(".ie-close-detail")).toHaveCount(0);
+    // 타일 원자재 → 중분류 광석 10개(타일을 바꾸면 중분류·무기 종류가 풀린다)
+    await page.locator('.ie-browse .ie-tile[data-category="raw"]').click();
+    await expect(page.locator('.ie-browse .ie-tile[data-category="raw"]')).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.locator(".ie-sub-filter").selectOption("ore");
+    await expect(page.locator(".ie-item")).toHaveCount(10);
+    await expect(row(page, "iron_ore").locator(".ie-chain")).toContainText(message("ko", "economy_cat_raw"));
+    // 장비 타일 → 무기 종류 칸은 장비의 무기 종류(검·도 등)를 고를 수 있다
+    await page.locator('.ie-browse .ie-tile[data-category="equipment"]').click();
+    await expect(page.locator(".ie-sub-filter")).toHaveValue("all");
+    const kind = page.locator(".ie-kind-filter");
+    await expect(kind).toBeEnabled();
+    await expect(kind.locator('option[value="blade"]')).toHaveCount(1);
+    await expect(kind.locator('option[value="shield"]')).toHaveCount(1);
+    // 중분류 없음(장비의 시험 아이템은 중분류가 없다)
+    await page.locator(".ie-sub-filter").selectOption("-");
+    await expect(row(page, "test_sword")).toBeVisible();
+    // 줄 [복제] → 꺼진 사본이 담기고 편집 판에 열린다
+    await row(page, "test_sword").locator("xpath=..").locator(".ie-row-duplicate").click();
+    await expect(detail(page)).toHaveAttribute("data-item", /^test_sword_/);
+    await expect(bar(page)).toHaveAttribute("data-count", "1");
+    await expect(
+      editing(page).getByLabel(message("ko", "dev_items_field_enabled"), { exact: true }),
+    ).not.toBeChecked();
+    await bar(page).locator(".ie-clear").click();
+    await page.getByRole("button", { name: message("ko", "dev_content_confirm_yes"), exact: true }).click();
+    await expect(bar(page)).toHaveAttribute("data-count", "0");
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("분류(분류 탭): 타일 → 나무 대분류 → 중분류 → 무기 종류, 마디 칸·든 아이템, 태그는 따로, 무기 종류 새로 만들기", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await editorReady(page);
+    await resetItems(page);
+    await page.reload();
+    await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
+    await page.getByRole("tab", { name: message("ko", "dev_items_tab_taxonomy"), exact: true }).click();
+    const tree = page.locator(".ie-tax-tree");
+    // 전체: 대분류 9개만(닫힘), 무기 종류는 보이지 않는다
+    await expect(tree.locator('.ie-tree-node[data-level="0"]')).toHaveCount(9);
+    await expect(tree.locator('.ie-tree-node[data-level="2"]')).toHaveCount(0);
+    // 장비 타일 → 장비 대분류 마디가 열리고 그 아래 중분류(무기·보조 무기·…) → 무기 종류
+    await page.locator('.ie-taxonomy .ie-tile[data-category="equipment"]').click();
+    await expect(page.locator('.ie-tax-node[data-node="major:equipment"]')).toBeVisible();
+    const weaponBranch = tree.locator('li:has(> button[data-node="sub:weapon"])');
+    await expect(weaponBranch.locator('[data-node="weapon:blade"]')).toBeVisible();
+    const offhandBranch = tree.locator('li:has(> button[data-node="sub:offhand_weapon"])');
+    await expect(offhandBranch.locator('[data-node="weapon:shield"]')).toHaveAttribute("data-odd", "");
+    await expect(tree.locator('[data-node="sub:ore"]')).toHaveCount(0);
+    // 중분류 마디: 이름 칸(팩 값)·칸으로 묶인다는 풀이(질문 896)
+    await tree.locator('[data-node="sub:weapon"]').click();
+    const node = page.locator('.ie-tax-node[data-node="sub:weapon"]');
+    await expect(
+      node.locator(".ie-node-fields").getByLabel(message("ko", "dev_items_field_name_ko"), { exact: true }),
+    ).toHaveValue("무기");
+    await expect(node.locator('.ie-oddity[data-question="896"]')).toBeVisible();
+    // 태그 판은 나무 밖에 따로
+    await expect(page.locator('.ie-tax[data-category="item_tags"]')).toBeVisible();
+    await expect(tree.locator('[data-category="item_tags"]')).toHaveCount(0);
+    // 중분류 원자재 › 광석: 든 아이템 10개, [아이템 탭에서 거르기] → 아이템 탭 10줄
+    await page.locator('.ie-taxonomy .ie-tile[data-category="raw"]').click();
+    await tree.locator('[data-node="sub:ore"]').click();
+    const ore = page.locator('.ie-tax-node[data-node="sub:ore"]');
+    await expect(ore.locator(".ie-node-item")).toHaveCount(10);
+    await ore.locator(".ie-show-items").click();
+    await expect(page.locator(".ie-sub-filter")).toHaveValue("ore");
+    await expect(page.locator(".ie-item")).toHaveCount(10);
+    // 무기 마디에서 새 무기 종류 → 칸 = 무기, 나무에서 무기 아래 보이고 고른 마디가 된다. 적용하면 서버 목록에 든다
+    await page.getByRole("tab", { name: message("ko", "dev_items_tab_taxonomy"), exact: true }).click();
+    await page.locator('.ie-taxonomy .ie-tile[data-category="equipment"]').click();
+    await tree.locator('[data-node="sub:weapon"]').click();
+    const create = page.locator('.ie-tax-node[data-node="sub:weapon"] .ie-node-new');
+    await create.locator("summary").click();
+    await create.getByLabel(message("ko", "dev_items_field_name_ko"), { exact: true }).fill("e2e 채찍");
+    await create.getByLabel(message("ko", "dev_items_field_name_en"), { exact: true }).fill("E2e whip");
+    await create.getByRole("button", { name: message("ko", "dev_items_create"), exact: true }).click();
+    const created = page.locator('.ie-tax-node[data-node="weapon:e2e_whip"]');
+    await expect(created).toBeVisible();
+    await expect(weaponBranch.locator('[data-node="weapon:e2e_whip"]')).toBeVisible();
+    await expect(
+      created.locator(".ie-node-fields").getByLabel(message("ko", "dev_items_field_slot"), { exact: true }),
+    ).toHaveValue("weapon");
+    await apply(page);
+    const after = await trpc(page, "items.list");
+    expect(field(field(byId(field(after.data, "weaponTypes"), "e2e_whip"), "entry"), "slot")).toBe("weapon");
+    await resetItems(page);
+    expect(deviceErrors).toEqual([]);
+  });
 });
 
 test.describe("플레이어", () => {
@@ -685,13 +791,25 @@ test.describe("배치·사진", () => {
           await expect(row(page, "test_sword")).toBeVisible();
           await check("items-list");
         } else {
-          // 넓은 화면의 목록 줄은 두 줄(이름·ID·표지 / 요약, 카드가 아니다)
-          const box = await row(page, "test_sword").boundingBox();
-          expect(box?.height ?? 0).toBeLessThanOrEqual(52);
+          // 편집 판을 닫으면 목록이 넓게: 표 머리와 분류 사슬·무게·쌓기 상한 칸
+          await page.locator(".ie-close-detail").click();
+          await expect(page.locator(".ie-lines-head")).toBeVisible();
+          await expect(row(page, "test_sword").locator(".ie-chain")).toBeVisible();
+          await check("items-browse");
+          await page.locator('.ie-view-toggle [data-mode="cards"]').click();
+          await expect(page.locator('.ie-lines[data-mode="cards"]')).toBeVisible();
+          await check("items-cards");
+          await page.locator('.ie-view-toggle [data-mode="rows"]').click();
         }
+        await expect(page.locator(".ie-tile")).toHaveCount(10);
         await page.getByRole("tab", { name: message(language, "dev_items_tab_taxonomy") }).click();
-        await expect(page.locator('.ie-tax[data-category="weapon_types"]')).toBeVisible();
+        await page.locator('.ie-taxonomy .ie-tile[data-category="equipment"]').click();
+        await page.locator('.ie-tree-node[data-node="sub:weapon"]').click();
+        await expect(page.locator('.ie-tax-node[data-node="sub:weapon"]')).toBeVisible();
         await check("items-taxonomy");
+        await page.locator('.ie-tree-node[data-node="weapon:shield"]').click();
+        await expect(page.locator('.ie-tax-node[data-node="weapon:shield"] .ie-oddity')).toBeVisible();
+        await check("items-taxonomy-shield");
         await page.getByRole("tab", { name: message(language, "dev_items_tab_effects") }).click();
         await page.locator('.ie-fx-table tr[data-entry="burn"] .ie-fx-pick').click();
         await expect(page.locator('.ie-fx [data-effect="burn"]')).toBeVisible();
@@ -744,13 +862,8 @@ test.describe("배치·사진", () => {
         expect(await smallTapTargets(page)).toEqual([]);
         await elementShot(value, `items-start-price-${theme}-${language}-${width}`);
         await toList(page);
-        // 휴대폰은 거르기 줄이 [거르기]로 접혀 있다
-        const toggle = page.locator(".ce-filters-toggle");
-        if (await toggle.isVisible()) await toggle.click();
-        const filters = page.locator(".ie-filters");
-        await filters.locator("summary").click();
-        // 거르기 첫 칸이 중분류다(label 안 select라 이름에 고른 값이 붙는다)
-        const pick = filters.locator("select").first();
+        // 잇따른 거르기의 중분류 칸(대분류가 전체면 대분류마다 묶음)
+        const pick = page.locator(".ie-sub-filter");
         // 광석 10개(잡석·석재 + 금속 원석 8), 목축 부산물 17개(먹지 않는 16 + 밍크 오일)
         for (const [subcategory, count] of [
           ["ore", 10],

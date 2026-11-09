@@ -178,6 +178,11 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
       .evaluate((element) => element.setAttribute("data-e2e-mark", "kept"));
     await page.waitForTimeout(1_200);
     const [bx = 0, bz = 0] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
+    // 한 단계 줄여 둔다: 넘으면 다시 최대 확대(사용자 지적 2026-11-09 "진입시 항상 최대 확대")
+    const ladder = page.locator(".zoom-ladder");
+    await expect(ladder).toHaveAttribute("data-stage", "5");
+    await ladder.locator(".zoom-ladder-out").click();
+    await expect(ladder).toHaveAttribute("data-stage", "4");
 
     // 넘기: 그 이웃 2차맵 경로에 내 사이보그가 나타난다
     rig.inject({
@@ -203,6 +208,7 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     // 화면을 다시 만들지 않았다: 같은 캔버스 요소, "받는 중" 안내 없음
     await expect(page.locator('.map-view canvas[data-e2e-mark="kept"]')).toHaveCount(1);
     await expect(page.locator(".map-notice")).toHaveCount(0);
+    await expect(ladder).toHaveAttribute("data-stage", "5");
     // 카메라는 새 2차맵 틀로 옮겨졌다: 같은 땅을 보므로 목표점 좌표가 크게 바뀐다(면 경계 너머 돌아간 이웃이면 차이는 한 변과 다르다).
     // 넘은 뒤 자리는 보지 않는다: 시험은 내 유닛 목록을 옛 2차맵 목록(옛 좌표)으로 돌려줘 카메라 묶기 범위가 그 좌표로 걸린다
     await page.waitForTimeout(1_200);

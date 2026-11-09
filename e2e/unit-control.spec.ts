@@ -67,6 +67,9 @@ async function unitListAndBuilding(page: Page, language: Language, suffix: strin
   const cyborg = (await screen.getAttribute("data-cyborg")) ?? "";
   expect(cyborg).toMatch(/^\d+$/);
   await expect(screen).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
+  // 들어오면 최대 확대(사다리 5/5, 사용자 지적 2026-11-09) — 카메라 범위(내 유닛 둘레)가 걸린 뒤에도
+  await page.waitForTimeout(1_500);
+  await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
   // 근처 판 펼침: 탭·[닫기]가 전환 단추에 가리지 않는다
   await openNearby(page, "units");
   await expect(page.locator(".map-nearby-row").first()).toBeVisible({ timeout: 15_000 });
@@ -351,6 +354,35 @@ test.describe("내 유닛 목록·건물 판 하나·전환 단추 겹침(사용
       });
     }
   }
+
+  test.describe("진입 확대", () => {
+    test.use({ account: "player" });
+    test("1차맵에 다녀와도 2차맵은 최대 확대(5/5)로 연다", async ({ page, deviceErrors }) => {
+      test.setTimeout(150_000);
+      await rewriteTrpc(page, { "summary.get": hideSummary });
+      await openMap(page);
+      const ladder = page.locator(".zoom-ladder");
+      await expect(ladder).toHaveAttribute("data-stage", "5");
+      // 두 단계 줄인 뒤 1차맵으로 갔다가 돌아온다
+      await ladder.locator(".zoom-ladder-out").click();
+      await page.waitForTimeout(150);
+      await ladder.locator(".zoom-ladder-out").click();
+      await expect(ladder).toHaveAttribute("data-stage", "3");
+      await page.locator(".map-switch-button").click();
+      await expect(page).toHaveURL((url) => url.pathname === "/map/planet");
+      await expect(page.locator(".planet-screen")).toHaveAttribute("data-status", "ready", {
+        timeout: 60_000,
+      });
+      await page.locator(".map-switch-button").click();
+      await expect(page).toHaveURL((url) => url.pathname === "/map");
+      const screen = page.locator(".map-screen[data-map-key]");
+      await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 30_000 });
+      await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
+      await page.waitForTimeout(1_500);
+      await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
+      expect(deviceErrors).toEqual([]);
+    });
+  });
 
   test.describe("넓은 화면", () => {
     test.use({ account: "player", ...VIEWPORTS.desktop });

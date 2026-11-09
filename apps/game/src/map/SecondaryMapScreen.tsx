@@ -58,7 +58,14 @@ import { blockedWithoutUnits, chooseAnchor, commandUnit } from "./anchorUnit.ts"
 import { useBottomSheet } from "./useBottomSheet.ts";
 import { openMap, useTravelFollow } from "./useCyborgTravel.ts";
 import { type MapSession, startMapSession } from "./mapSession.ts";
-import { type HudSnapshot, UNIT_CAPACITY, openPlanetStage, serverNow, useMapEngine } from "./useMapEngine.ts";
+import {
+  type HudSnapshot,
+  UNIT_CAPACITY,
+  openPlanetStage,
+  serverNow,
+  useMapEngine,
+  zoomToClosest,
+} from "./useMapEngine.ts";
 import type { MapUnit } from "@terra/shared/mapUnits";
 import {
   type CommandNotice,
@@ -254,6 +261,8 @@ function SecondMapView({
       openMap(next);
       return;
     }
+    // 옆 2차맵에 들어와도 최대 확대로(사용자 지적 2026-11-09 — 진입마다 5/5)
+    zoomToClosest(engine);
     // 앞 2차맵 자료는 곧바로 멈춘다(새 틀의 엔진에 옛 2차맵 유닛을 넣지 않게)
     live?.stop();
     sessionRef.current = null;

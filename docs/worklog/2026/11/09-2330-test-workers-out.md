@@ -62,6 +62,8 @@
 
 ## 검사
 - 서버 DB 시험(바꾼 파일, `TEST_DATABASE_URL`): 통과. 공용 시험 DB가 느려(빈 DB 만들기 약 20초) `--hookTimeout`을 늘려 돌렸다.
+- 전체 `pnpm check`(`TEST_DATABASE_URL` 있음): 포맷·린트·타입·경계·크기·다국어·대비·콘텐츠 통과, 시험 565개 파일 4,287개 중 1개 실패(`rosterText.test.ts`
+  걸러 보기 — 시험 자료의 기본 종류를 휴먼으로 바꾼 탓) → 기본 종류를 시험 유닛으로 되돌리고 그 파일만 다시 돌려 13개 통과.
 - 빌드·`check-pwa`·`check:bundle`: 통과(첫 화면 JS 107,253B / 상한 131,416B).
 - 화면 시험(빌드한 앱, 헤드리스 Chromium — 휴대폰 값 아님):
   - 첫 판(`units`·`inventory`·`equip-stats`·`labor`·`recruit`·`vision`·`unit-control`·`play-map`, 103개): 89 통과·13 실패·1 건너뜀. 실패 대부분은 시험마다 휴먼을

@@ -46,7 +46,11 @@
 - 사용자 원문 "이미지"는 그림 파일이 없어(2차맵은 코드 로우폴리 모델만) 3D 미리 보기로 대신했다 — 따로 아이콘을 원하면 다음 줄기.
 
 ## 검사
-(아래 "검사 결과"에 적는다)
+- `TEST_DATABASE_URL=… pnpm check`: 통과(vitest 564파일·4,294시험, 포맷·린트·타입·경계·크기·다국어 5,678키·디자인 값·콘텐츠).
+- `pnpm check:docs origin/main`·`pnpm check:content origin/main`(기준 c296a43, core@59): 통과.
+- `pnpm build` → `node scripts/check-pwa.mjs` 통과(`GatherTierScreen-*`·`buildingEditorPreview-*`는 미리 캐시 밖, sw.js에 없음). `pnpm check:bundle` 첫 화면 JS 107,513 B / 131,416 B(첫 화면이 싣는 주소 표 `routes.ts`에 줄 하나 더함).
+- `pnpm e2e e2e/buildings.spec.ts e2e/gather-tiers.spec.ts e2e/dev.spec.ts e2e/dev-stagebar.spec.ts`: 45시험 통과. 앞선 실행에서 고친 것: 미리 보기 "레벨 올리는 중" 체크 상자가 "편집 판에 켜기 칸 없음" 시험·누르는 곳 크기에 걸림 → 눌림 단추로, 확률 표 머리(붙는 `.dev-table` 머리)가 가로 스크롤 상자 안에서 첫 줄을 가림 → 공용 `.dev-table-wrap`, 시설 고리 누르는 곳 22px → 최소 폭, 휴대폰 사진이 목록 보기라 2차맵 모습이 안 찍힘 → 다시 열기, 개발자 홈 줄 수 13 → 15(세계 배치 줄로 이미 어긋나 있었다). 틀린 look을 서버가 막는지는 e2e 대신 팩 스키마 시험(`validate/facilities.test.ts`)으로 본다(`buildings.check`는 GET이라 시험 도우미가 못 부름).
+- 사진(헤드리스 Chromium, 390 = 폭만·1440 = 데스크톱 프리셋, 개발 테마 둘 × 한국어·영어) 중 남긴 8장: 세션 임시 폴더 `bed2-shots/keep/`. 나머지와 `e2e/test-results`는 지웠다(디스크).
 
 ## 사용자 결정 대기
 - 화면을 본 뒤 두 ADR "바뀜 (2026-11-09)" 확정(통합 담당).

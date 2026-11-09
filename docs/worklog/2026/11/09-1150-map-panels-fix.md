@@ -18,6 +18,9 @@
   - 명령 유닛 하나 `commandUnit`(안내 줄의 고른 유닛을 다룰 수 있으면 그 유닛, 남의 유닛이면 기준 유닛, 없으면 사이보그)을 건물 판 "보낼 유닛"·채집 줄·[옆 2차맵으로]가 쓴다. 이름은 안내 줄과 같은 `unitLabel`(목록 이름, 없으면 "유닛 #N"). 문구 `gather_actor_unit`("보낼 유닛: {unit}"), 채집 줄 머리도 같은 이름.
   - 아래 판 자리 하나 `bottomSheetOf`/`useBottomSheet`: 건물·오브젝트 판 > 내 유닛 목록 > 근처 판. 다른 판이 쓰는 동안 근처 판은 숨고(지도 표시는 남음) [근처] 단추로 다시 연다(건물 판·목록을 닫는다). 행정 건물의 정부 몫은 건물 판 안(`GovernmentSheet embedded`, h3). 건물 판이 열린 동안 채집 줄·지도자 판을 숨긴다.
 
+- 더한 요구(같은 날, 조정 세션이 전함): "2차맵이나 1차맵은 진입시 항상 최대 확대 상태로 시작" — 2차맵 몫만. 처음 카메라 = 가장 가까운 거리(엔진 `initialZoom` 1 — 옛 1.75배는 카메라 묶기로 가장 멀리가 줄면 4/5로 보였다), 옆 2차맵으로 넘을 때도 [+]를 끝까지(`zoomToClosest`). 1차맵 시작 확대·`MapPerfPanel.tsx`·`PlanetMapScreen.tsx`는 다른 줄기(map-view-fix)가 맡아 건드리지 않았다.
+- 영어 운영자 위 판에서 [뒤로]가 "Ba/ck"로 끊겼다(전환 단추 자리를 비워 좁아짐) — 머리 판 단추는 줄바꿈 없음, 제목이 대신 줄을 바꾼다.
+
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
 |---|---|
@@ -34,6 +37,8 @@
 | `apps/game/src/government/GovernmentSheet.tsx`, `government.css` | `embedded`(건물 판 안의 몫) |
 | `apps/game/src/map/SecondaryMapScreen.tsx` | 위 연결, `goToCyborg` 지움 |
 | `apps/game/src/map/EdgeTravel.tsx` | 주석(전환 단추 자리) |
+| `apps/game/src/map/useMapEngine.ts` | 들어올 때 최대 확대(`initialZoom` 1), `zoomToClosest` |
+| `e2e/seamless.spec.ts` | 넘은 뒤 5/5 확인 |
 | `apps/game/messages/{ko,en}.json` | `map_units_*` 6개 되살림, `gather_actor_unit`, 쓰지 않는 `gather_actor_selected`·`gather_actor_cyborg`·`gather_loop_unit` 지움 |
 | `e2e/unit-control.spec.ts` | 새 시험: 목록으로 고르기·건물 판 하나·보낼 유닛 = 안내 줄·전환 단추 겹침(390 × 파스텔·다크 × 한국어·영어, 넓은 화면, 운영자 영어) |
 | `e2e/play-map.spec.ts`, `e2e/government.spec.ts` | [내 사이보그] → [내 유닛 N] 목록, 정부 몫이 건물 판 안 |

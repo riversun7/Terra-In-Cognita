@@ -202,13 +202,14 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     });
     await expect(map).toHaveAttribute("data-map-key", String(east), { timeout: 5_000 });
     await expect(map).toHaveAttribute("data-switched", "in-place");
+    // 넘으면 다시 최대 확대(5/5)
+    await expect(ladder).toHaveAttribute("data-stage", "5");
     await expect(page).toHaveURL(
       (url) => url.pathname === "/map" && url.searchParams.get("key") === String(east),
     );
     // 화면을 다시 만들지 않았다: 같은 캔버스 요소, "받는 중" 안내 없음
     await expect(page.locator('.map-view canvas[data-e2e-mark="kept"]')).toHaveCount(1);
     await expect(page.locator(".map-notice")).toHaveCount(0);
-    await expect(ladder).toHaveAttribute("data-stage", "5");
     // 카메라는 새 2차맵 틀로 옮겨졌다: 같은 땅을 보므로 목표점 좌표가 크게 바뀐다(면 경계 너머 돌아간 이웃이면 차이는 한 변과 다르다).
     // 넘은 뒤 자리는 보지 않는다: 시험은 내 유닛 목록을 옛 2차맵 목록(옛 좌표)으로 돌려줘 카메라 묶기 범위가 그 좌표로 걸린다
     await page.waitForTimeout(1_200);

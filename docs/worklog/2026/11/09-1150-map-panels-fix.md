@@ -54,12 +54,19 @@
 
 ## 미검증·TODO·알려진 문제
 - 실제 휴대폰(NAS)에서는 보지 않았다(미실행). 헤드리스 Chromium 390×844·1440×900만.
-- `SecondaryMapScreen.tsx` 635줄(600줄 경고, 앞 603줄 — 목록 연결로 늘었다. 아래 판 자리는 `useBottomSheet.ts`로 뺐다).
+- `SecondaryMapScreen.tsx` 644줄(600줄 경고, 앞 603줄 — 목록 연결·import로 늘었다. 아래 판 자리는 `useBottomSheet.ts`로 뺐다). 다음 줄기에서 나눈다.
 - 넓은 화면에서도 건물 판이 열리면 근처 목록이 숨는다(옛: 함께 펼침). 건물 판의 채집 줄 [멈추기]는 판을 닫으면 보인다.
 - 건물 판 글이 길면(채집소 판) 45vh 안에서 넘겨야 "보낼 유닛"·[들어가기]가 보인다(전과 같음).
 
 ## 검사
-(아래에 채운다)
+- 단위 시험: `anchorUnit.test.ts`·`mapUnits.test.ts` 20개, `src/map`·`src/government` 33파일 218개 통과(Verified).
+- `pnpm check`(TEST_DATABASE_URL 있음): 통과 — 560파일 4,250개 시험, 린트·타입·경계·크기·다국어·대비·콘텐츠(Verified, 이 작업의 마지막 코드).
+- `pnpm build` → `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 107,178B / 상한 131,416B(바뀜 없음 — 고친 코드는 2차맵 지연 조각, Verified).
+- 화면 시험(Playwright, 헤드리스 Chromium SwiftShader, 390×844·1440×900):
+  - `unit-control.spec.ts` 14개 통과(새 시험: 390 × 파스텔·다크 × 한국어·영어 목록·건물 판, 넓은 화면, 진입 확대, 운영자 영어. 넓은 화면은 목록이 펼친 채인 것을 맞춰 고친 뒤 다시 돌려 통과. 진입 확대·운영자 영어·파스텔 한국어는 최대 확대를 넣은 뒤 다시 돌려 통과, Verified).
+  - `map-input` 확대 사다리 시험 통과(최대 확대 뒤 다시, Verified).
+  - `play-map`·`government`·`gather`·`gather-station`·`map-input`·`shell`·`building-art`·`citizenship`·`seamless` 80개 중 79개 통과(최대 확대를 넣기 전 빌드, Verified). 실패 1개 = `seamless.spec.ts` "변 가까이 … 넘는다"의 `.map-notice` 0개 확인: 넘은 뒤 "탐사한 곳이 없다" 안내가 뜬다. main `7cf9ebe` 코드(apps·e2e를 그대로 되돌려 빌드)로도 같은 줄에서 실패했다(Verified) — 이 줄기 탓이 아니다(앞 줄기 기록의 "넘은 뒤 화면이 어둡고 … 안내가 뜨는 것은 서버에서 사이보그가 넘지 않았기 때문"과 같은 원인으로 보임, Assumed). 같은 시험의 새 확인(넘기 전 4/5 → 넘은 직후 5/5)은 그 줄 앞이라 통과했다(Verified).
+- 사진(세션 임시 폴더, 저장소 밖): 목록·건물 판 390 파스텔·다크 × 한국어·영어, 넓은 화면, 운영자 영어 다크. 눈으로 확인: 전환 단추는 오른쪽 위 구석, 판과 겹치지 않음, 건물 판 하나(근처 판 숨음), "보낼 유닛: E2EPlayer · 내 사이보그", 위 판 영어 [Back] 안 끊김.
 
 ## 사용자 결정 대기
 - 없음

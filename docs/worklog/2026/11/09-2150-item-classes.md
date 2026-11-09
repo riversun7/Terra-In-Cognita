@@ -36,7 +36,7 @@
 - 팩 자료(`content/core/`)는 질문 답 전까지 그대로.
 
 ## 미검증·TODO·알려진 문제
-- 실행한 검사(Verified): `pnpm vitest run apps/game/src/editor` 41파일 356개 통과(작업 중), `pnpm check`(DB 시험 포함) 564파일 4,289개 통과, `pnpm build` + `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 107,242 B / 상한 131,416 B(목록·분류 코드는 지연 조각 `ItemEditorScreen-*`이라 첫 화면은 그대로), `e2e/items.spec.ts`·`e2e/dev-stagebar.spec.ts`·`e2e/dev.spec.ts` 66개 중 65 통과. 실패 하나는 이 줄기와 상관없는 `e2e/dev.spec.ts:47`(개발자 홈 도구 수 기대 13, 실제 14 — main c296a43에서 이미 다른 줄기가 도구를 더함).
+- 실행한 검사(Verified): `pnpm vitest run apps/game/src/editor` 41파일 356개 통과(작업 중), `pnpm check`(DB 시험 포함) 564파일 4,289개 통과, `pnpm build` + `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 107,242 B / 상한 131,416 B(목록·분류 코드는 지연 조각 `ItemEditorScreen-*`이라 첫 화면은 그대로), `e2e/items.spec.ts`·`e2e/dev-stagebar.spec.ts`·`e2e/dev.spec.ts` 66개 중 65 통과(실패 하나는 이 줄기와 상관없는 `e2e/dev.spec.ts:47` — 개발자 홈 도구 수 기대 13, 실제 14, main c296a43 그대로). 마지막 판 `items.spec.ts` + `dev-stagebar.spec.ts` 54개 중 53 통과 → 실패 하나(Alt+↓ 시험이 늦춰 거르는 목록을 기다리지 않음)를 시험에서 기다리게 고친 뒤 넓은 폭 시험 셋 × 2회 6/6 통과(같은 DB 되풀이에서 은퇴한 ID를 피하는 새 무기 종류 ID도 고침).
 - 사진(개발 테마 둘 × 390·1440 × 한국어·영어)은 세션 임시 폴더에만 두었다. 고치기 전 1440 네온 다크 사진도 같은 곳.
 - 빠른 동작 단추는 Tab 차례 밖이다(같은 동작이 편집 판 머리에 있다). 키보드만으로 줄에서 바로 복제하는 길은 없다.
 - 분류 탭 수는 담은 초안 포함, [아이템] 탭 수는 목록 줄(적용된 값) 기준이다(보이는 줄과 같게).

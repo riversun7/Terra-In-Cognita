@@ -593,6 +593,8 @@ test.describe("화면 개편(넓은 폭)", () => {
     await expect(bar(page)).toHaveAttribute("data-count", "0");
     // Alt+↓: 보이는 차례의 다음 아이템(찾기를 지우면 전체 목록)
     await search.fill("");
+    // 찾는 글은 늦춰 거른다: 전체 목록이 다시 그려진 뒤 다음 아이템으로
+    await expect(page.locator(".ie-item")).not.toHaveCount(1);
     await page.locator("body").press("Alt+ArrowDown");
     await expect(detail(page)).not.toHaveAttribute("data-item", "iron_ore");
     // 다시 고쳐 Ctrl+S로 적용
@@ -700,16 +702,19 @@ test.describe("화면 개편(넓은 폭)", () => {
     await create.locator("summary").click();
     await create.getByLabel(message("ko", "dev_items_field_name_ko"), { exact: true }).fill("e2e 채찍");
     await create.getByLabel(message("ko", "dev_items_field_name_en"), { exact: true }).fill("E2e whip");
+    // 제안 ID(영어 이름 → e2e_whip, 같은 DB에서 되풀이하면 은퇴한 ID를 피해 e2e_whip_2 …)
+    const newId = await create.getByLabel(message("ko", "dev_items_field_id"), { exact: true }).inputValue();
+    expect(newId).toMatch(/^e2e_whip/);
     await create.getByRole("button", { name: message("ko", "dev_items_create"), exact: true }).click();
-    const created = page.locator('.ie-tax-node[data-node="weapon:e2e_whip"]');
+    const created = page.locator(`.ie-tax-node[data-node="weapon:${newId}"]`);
     await expect(created).toBeVisible();
-    await expect(weaponBranch.locator('[data-node="weapon:e2e_whip"]')).toBeVisible();
+    await expect(weaponBranch.locator(`[data-node="weapon:${newId}"]`)).toBeVisible();
     await expect(
       created.locator(".ie-node-fields").getByLabel(message("ko", "dev_items_field_slot"), { exact: true }),
     ).toHaveValue("weapon");
     await apply(page);
     const after = await trpc(page, "items.list");
-    expect(field(field(byId(field(after.data, "weaponTypes"), "e2e_whip"), "entry"), "slot")).toBe("weapon");
+    expect(field(field(byId(field(after.data, "weaponTypes"), newId), "entry"), "slot")).toBe("weapon");
     await resetItems(page);
     expect(deviceErrors).toEqual([]);
   });

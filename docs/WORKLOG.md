@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-09 22:15 | 건물 편집기 개편 2: 1차 생산 티어 확률 분리·2차맵 모습(3D 미리 보기·편집)·개발자 편의 | Claude Code | [09-2215-building-editor-2](worklog/2026/11/09-2215-building-editor-2.md) |
 | 2026-11-09 20:40 | 운영자 모드 이동 빠르기 10배 → 100배 | Claude Code | [09-2040-operator-speed](worklog/2026/11/09-2040-operator-speed.md) |
 | 2026-11-09 19:45 | 2차맵 사이를 가는 중 [멈추기] 깜빡임 고침 | Claude Code | [09-1945-stop-flicker](worklog/2026/11/09-1945-stop-flicker.md) |
 | 2026-11-09 17:20 | 2차맵 가까이 볼 때 가시거리: 더 눕히기, 화면이 보는 땅에 소품, 가시거리 자동 조절 | Claude Code | [09-1720-map-viewdist](worklog/2026/11/09-1720-map-viewdist.md) |

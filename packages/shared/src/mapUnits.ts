@@ -11,7 +11,6 @@ export const MAP_UNIT_KINDS = [
   "cyborg",
   "human",
   "guardian",
-  "test_worker",
   "test_unit",
   // NPC 국가 지도자 사이보그(남의 유닛 한눈 정보에만 나온다 — docs/adr/2026-11-07-play-flow.md "WP-NPC")
   "npc_leader",

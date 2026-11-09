@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
-import { silentLog } from "../world/testSupport.ts";
+import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { createOpsServices } from "./services.ts";
 import { loadOpsSwitches } from "./switches.ts";
@@ -74,7 +74,7 @@ describe.skipIf(!TEST_DATABASE_URL)("운영자 콘솔(DB)", () => {
     const player = await fakeUser("ops_player");
     const opsViewer = { id: operator, roles: ["admin"] as const };
     const mapKey = [...world.maps.keys()][0] ?? 0;
-    const [unitA = 0] = persistence.settlement.giveWorkers(player, mapKey, 1, clock);
+    const [unitA = 0] = addTestUnits(world, player, mapKey, 1, clock);
     const ownerId = persistence.settlement.ownerOfUser(player, clock).id;
     await persistence.writer.durable();
 

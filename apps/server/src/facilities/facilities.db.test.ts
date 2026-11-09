@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { ASSET_ORE } from "../world/settlement.ts";
-import { silentLog } from "../world/testSupport.ts";
+import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { facilityScreenSourceOf } from "./appSource.ts";
 import { goodsAsset, goodsStock, grantGoods } from "./materials.ts";
@@ -71,14 +71,14 @@ function persistence(world: World) {
   return found;
 }
 
-/** 사용자 하나: 소유 주체·시험 일꾼 workers개·재료 */
+/** 사용자 하나: 소유 주체·휴먼 workers개(직무 없음)·재료 */
 async function setup(world: World, name: string, workers: number, goods: Record<string, number>) {
   const p = persistence(world);
   const userId = await fakeUser(name);
   const ownerId = p.settlement.ownerOfUser(userId, clock).id;
   const map = [...world.maps.values()][0];
   if (!map) throw new Error("no map");
-  const units = p.settlement.giveWorkers(userId, map.mapKey, workers, clock);
+  const units = addTestUnits(world, userId, map.mapKey, workers, clock);
   p.settlement.grantCredit(ownerId, 100_000n, clock);
   for (const [item, qty] of Object.entries(goods))
     expect(await p.facilities.service.devFacilityGrant(userId, item, qty)).toEqual({ ok: true });
@@ -213,21 +213,19 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     const unitId = a.units[0] ?? 0;
     expect((await p.labor.create(a.userId, { kind: "wage", buildingId, unitId })).ok).toBe(true);
     p.settlement.settleOwner(a.ownerId, clock);
+    // 시설이 일하는 동안(30%)은 계약 유닛이 시험 광석을 낸다(다른 일꾼 하나는 계약이 없어 내지 않는다)
+    const started = p.ledger.balanceOf(a.ownerId, ASSET_ORE);
+    clock += 10 * 60_000;
+    p.settlement.settleOwner(a.ownerId, clock);
+    expect(p.ledger.balanceOf(a.ownerId, ASSET_ORE)).toBeGreaterThan(started);
     const oreBefore = p.ledger.balanceOf(a.ownerId, ASSET_ORE);
-    clock += DAY;
+    clock += DAY - 10 * 60_000;
     service.age(clock);
     expect(record?.conditionPpm).toBe(230_000);
     expect(service.works(buildingId)).toBe(false);
-    // 그 계약 유닛의 산출은 없다(다른 일꾼 하나는 계약 없이 그대로 시험 광석을 낸다)
+    // 기능 정지: 그 계약 유닛의 산출은 없다(정산하는 때의 상태로 본다)
     p.settlement.settleOwner(a.ownerId, clock);
-    const contracted = p.ledger.balanceOf(a.ownerId, ASSET_ORE) - oreBefore;
-    const solo = await setup(world, "solo", 1, {});
-    const soloBefore = p.ledger.balanceOf(solo.ownerId, ASSET_ORE);
-    clock += DAY;
-    p.settlement.settleOwner(solo.ownerId, clock);
-    const oneWorkerDay = p.ledger.balanceOf(solo.ownerId, ASSET_ORE) - soloBefore;
-    expect(oneWorkerDay).toBeGreaterThan(0n);
-    expect(contracted).toBeLessThanOrEqual(oneWorkerDay);
+    expect(p.ledger.balanceOf(a.ownerId, ASSET_ORE)).toBe(oreBefore);
     await p.writer.durable();
     const saved = await rows<{ condition_ppm: number }>(
       test.db,
@@ -398,7 +396,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       await service.storageMove(other.userId, { buildingId: yardId, asset: pine, qty: 1, direction: "in" }),
     ).toEqual({ ok: false, code: "forbidden" });
 
-    // 공방: 소나무 12 = 도시 창고 10 → 창고 시설 2, 철광석 7은 도시 창고(받은 것). 일꾼은 짓는 동안 직무 산출이 없다
+    // 공방: 소나무 12 = 도시 창고 10 → 창고 시설 2, 철광석 7은 도시 창고(받은 것). 일꾼은 짓는 동안 직무 산출이 없고 계약도 못 맺는다
     await service.devFacilityGrant(a.userId, "iron_ore", 7, { mapKey: a.map.mapKey, x: 40, y: 40 });
     p.settlement.settleOwner(a.ownerId, clock);
     const oreBefore = p.ledger.balanceOf(a.ownerId, ASSET_ORE);
@@ -423,9 +421,11 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     p.settlement.settleOwner(a.ownerId, clock - 60_000);
     expect(service.finishDue(clock)).toBe(1);
     expect(p.ledger.balanceOf(a.ownerId, ASSET_ORE)).toBe(oreBefore);
-    clock += 10 * 60_000;
-    p.settlement.settleOwner(a.ownerId, clock);
-    expect(p.ledger.balanceOf(a.ownerId, ASSET_ORE)).toBeGreaterThan(oreBefore);
+    // 작업이 끝나면 그 일꾼은 다시 계약을 맺을 수 있다(맺은 계약은 바로 끝낸다 — 아래 화면 자료는 계약과 상관없다)
+    const freed = await p.labor.create(a.userId, { kind: "wage", buildingId: yardId, unitId });
+    expect(freed.ok).toBe(true);
+    const freedId = freed.ok ? (freed.contractId ?? 0) : 0;
+    expect(await p.labor.terminate(a.userId, freedId)).toEqual({ ok: true });
 
     // 화면 자료: 자리 목록(빈 도시 창고는 빠지고 건물 창고 → 위치 없음), 창고 시설 카드의 든 무게, 건물이 선 도시
     const source = facilityScreenSourceOf(world);

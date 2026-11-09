@@ -563,7 +563,7 @@ export const worldUnits = pgTable(
     ownerId: bigint("owner_id", { mode: "number" })
       .notNull()
       .references(() => worldOwners.id),
-    /** 유닛 종류 코드(src/world/unitKinds.ts. 0 시험 봇, 1 시험 일꾼) */
+    /** 유닛 종류 코드(src/world/unitKinds.ts. 0 시험 봇, 1 없앤 시험 일꾼, 3 사이보그 본체, 4 휴먼 …) */
     kind: smallint("kind").notNull(),
     size: smallint("size").notNull(),
     speed: integer("speed").notNull(),

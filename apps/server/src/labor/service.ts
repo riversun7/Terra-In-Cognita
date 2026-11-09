@@ -17,8 +17,9 @@
 // - 건물 작업(짓기·수리 등)에 묶인 유닛은 계약을 맺지 못한다(unit_busy, D-516 364 — 작업 동안 직무 산출이 없다).
 // - 비활성(수명이 다한 휴먼, D-517)은 일하지 않는다: 계약을 맺지 못하고 열린 계약은 "유닛 사라짐"으로 끝난다(docs/adr/2026-11-07-temple-religion.md).
 // - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 채집 시설(팩 gather)에서 일한 구간은 시험 광석 대신 진짜 물건을 낸다
-//   (workBook.ts goodsFor — 임금형·직무 배치 = 그 건물이 선 도시의 도시 창고, 임대형 = 그 건물 창고). 계약 밖 구간(앞·끝 뒤)은 개발 시험 일꾼만
-//   시험 광석을 내고 플레이어 유닛은 내지 않는다. 계약을 맺으면 유닛 직무를 채집으로 켜고, 일이 끝나면 정산 뒤 고리가 끈다.
+//   (workBook.ts goodsFor — 임금형·직무 배치 = 그 건물이 선 도시의 도시 창고, 임대형 = 그 건물 창고). 계약 밖 구간(앞·끝 뒤)은 산출이 없다
+//   (그 구간에 시험 광석을 내던 개발 시험 일꾼은 없앴다 — 사용자 지적 2026-11-09 "시험일꾼 다 없애라고"). 계약을 맺으면 유닛 직무를
+//   채집으로 켜고, 일이 끝나면 정산 뒤 고리가 끈다.
 //   직무 배치(assign·unassign, 프로토콜 14)는 내 유닛을 내 채집 시설에 돈 없이 둔다(질문 521, 자리 = 레벨 × 레벨당 자리).
 // - 직무 위치·임대 상한(docs/adr/2026-11-07-play-flow.md "WP8", 기획 정리 D-518 522 ①·523 ②): 직무 배치·계약 맺기·구인 받기는 유닛이 그
 //   시설과 같은 2차맵에 있어야 한다(wrong_map). 정산 때 유닛이 그 2차맵을 떠났으면 배치는 풀고 계약은 "유닛 사라짐"으로 끝낸다. 임대형
@@ -221,9 +222,6 @@ export function createLaborService(options: {
   /** 지금 일하는 유닛(열린 계약 또는 직무 배치) — 정산 뒤 직무 끄기가 남긴다 */
   const working = (unitId: number): boolean =>
     openContractOf(unitId) !== undefined || work.assignedTo(unitId) !== undefined;
-  /** 계약 밖 구간(계약 앞·끝난 뒤): 개발 시험 일꾼만 시험 광석, 플레이어 유닛은 산출 없음 */
-  const idleStockOf = (ownerId: number, unitId: number) =>
-    work.isTestWorker(unitId) ? stockOf(ownerId) : null;
   /** 그 시설에서 일하는 유닛 */
   const workersAt = (buildingId: number): LaborWorkerEntry[] => {
     const out: LaborWorkerEntry[] = [];
@@ -293,7 +291,7 @@ export function createLaborService(options: {
     for (const c of mine) {
       // 사라진 유닛·시설의 산출은 나누지 않는다(유예에 들었으면 다음 정산부터 시각만 흐른다). 플레이어 유닛은 그 구간 산출이 없다
       if (endIfGone(c)) {
-        if (!work.isTestWorker(c.unitId)) out.set(c.unitId, [{ untilMs: toMs, stock: null }]);
+        out.set(c.unitId, [{ untilMs: toMs, stock: null }]);
         continue;
       }
       const start = c.settledAtMs;
@@ -307,9 +305,8 @@ export function createLaborService(options: {
         if (!segments.some((segment) => segment.mode !== "free")) continue;
       }
       const list: OutputSegment[] = [];
-      const idle = productionOn ? idleStockOf(ownerId, c.unitId) : null;
-      // 계약이 정산한 앞(주체 정산 구간이 더 이르면)은 계약 없는 몫
-      if (start > fromMs) list.push({ untilMs: start, stock: idle });
+      // 계약이 정산한 앞(주체 정산 구간이 더 이르면)은 계약 없는 몫(산출 없음)
+      if (start > fromMs) list.push({ untilMs: start, stock: null });
       // 시설이 일하지 않으면(짓는 중·30% 미만, N50) 계약대로 일한 구간도 산출이 없다. 정산하는 때의 상태로 본다(분 단위 노화)
       const works = options.buildingWorks?.(c.buildingId) ?? true;
       // 그 도시 수호신 생산 버프(470 가): 일한 구간 산출에 ‰ 덤
@@ -329,14 +326,12 @@ export function createLaborService(options: {
           untilMs: segment.untilMs,
           ...(bonusPm > 0 && segment.mode === "work" ? { bonusPm } : {}),
           ...(producing && goods ? { goods } : {}),
-          stock:
-            !productionOn || segment.mode === "idle" || (segment.mode === "work" && !works)
-              ? null
-              : segment.mode === "work" && c.kind === "wage"
-                ? stockOf(c.ownerId)
-                : segment.mode === "work"
-                  ? buildingStockOf(ownerId, c.buildingId)
-                  : idle,
+          // 일한 구간만 산출(임금형 = 고용주 창고, 임대형 = 임차인의 그 건물 창고). 쉼·계약 밖은 산출 없음
+          stock: !producing
+            ? null
+            : c.kind === "wage"
+              ? stockOf(c.ownerId)
+              : buildingStockOf(ownerId, c.buildingId),
         });
       }
       out.set(c.unitId, list);

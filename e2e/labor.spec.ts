@@ -1,9 +1,9 @@
 // 노동 계약 화면 시험 — 생산 칸 아래 "노동 계약"(docs/adr/2026-11-03-labor-contracts.md, 기획 D-479·49 N48, 338~342).
-// - admin: 시험 일꾼을 받고(dev_spawn_units, 일꾼마다 시험 화폐 24) 시험 건물을 놓은 뒤(place_building, 놓은 사람 것),
-//   화면에서 임금형을 맺고(보증금 = 임금 × 30일, 첫 임금 선불) 보증금을 채우고 내 시설 임대료를 정하고 구인을 낸다.
+// - admin: player 사이보그가 선 2차맵의 내 휴먼(없으면 그 2차맵 도시에서 구인 카드로 고용)과 운영자 지급 시험 화폐(ops.economy.grant)를 갖춘 뒤
+//   (recruit_hire — 시험 일꾼은 없앴다, 사용자 지적 2026-11-09) 시험 건물을 놓고(place_building, 놓은 사람 것),
+//   화면에서 그 휴먼으로 임금형을 맺고(보증금 = 임금 × 30일, 첫 임금 선불) 보증금을 채우고 내 시설 임대료를 정하고 구인을 낸다.
 // - player: 사이보그 본체로 admin 시설을 임대형으로 빌렸다가 해지한다 → 7일 유예(기획 341, 유예는 손으로 끝내지 않는다).
 //   그다음 구인 게시판에서 admin 일자리를 본체로 받는다 → 임금형(고용주 = admin, 역할 "내 유닛").
-//   dev에게는 일꾼을 주지 않는다(vision.spec.ts가 dev의 처음 유닛 수를 기준으로 본다).
 // - 끝에 admin이 임금형 둘을 해지한다(남은 보증금은 돌아온다, 본체는 다시 쉰다). 유예 중인 임대는 돈이 오가지 않아 그대로 둔다.
 //   넓은 화면 시험이 볼 수 있게 구인 하나를 열어 둔다.
 // - 사진(E2E_SHOTS_DIR): 390 파스텔 한국어(admin·player), 390 다크 영어(admin·player), 1440 파스텔 한국어·다크 영어(admin·player).
@@ -12,7 +12,7 @@ import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow } from "./helpers/screen.ts";
 import { type Language, type Theme, deviceOptions, expect, test, watchDeviceErrors } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
-import { cyborgMapKey, sendCommands } from "./helpers/wsCommands.ts";
+import { cyborgMapKey, ensureHuman, grantCredit, sendCommands } from "./helpers/wsCommands.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 /** 브라우저의 Intl 단위 글(앱 formatDuration과 같은 방법, helpers/messages.ts 머리 주석) */
@@ -72,13 +72,9 @@ test.describe("노동 계약", () => {
     await rewriteTrpc(tenant.page, { "summary.get": hideSummary });
     await tenant.page.goto("/");
     const mapKey = await cyborgMapKey(tenant.page);
-    // 일꾼 60(시험 화폐 1,440: 내 임금형 보증금 480 + 채우기 10 + 구인 받힘 보증금 720) + 시험 건물
-    const spawned = await sendCommands(page, [
-      { t: "dev_spawn_units", mapKey, count: 20 },
-      { t: "dev_spawn_units", mapKey, count: 20 },
-      { t: "dev_spawn_units", mapKey, count: 20 },
-    ]);
-    expect(spawned.every((reply) => Reflect.get(Object(reply), "ok") === true)).toBe(true);
+    // 시험 화폐(내 임금형 보증금 480 + 채우기 10 + 구인 받힘 보증금 720) + 그 2차맵의 내 휴먼 하나(없으면 고용) + 시험 건물
+    await ensureHuman(page, "e2e_admin", mapKey);
+    await grantCredit(page, "e2e_admin", 1_300);
     const buildingId = await placeBuilding(page, mapKey);
     const day = await unitText(page, 1, "day");
 

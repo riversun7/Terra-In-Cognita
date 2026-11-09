@@ -282,7 +282,7 @@ describe("몸 계산", () => {
 describe("실제 유닛 줄", () => {
   const row: WorldRosterRow = {
     id: 42,
-    type: "test_worker",
+    type: "test_unit",
     planetId: "s2_test_planet",
     mapKey: 123,
     domain: "land",
@@ -295,8 +295,10 @@ describe("실제 유닛 줄", () => {
   };
 
   it("세계 유닛 코드·직무·부상을 화면 값으로 바꾼다", () => {
-    expect(unitTypeOf(1)).toBe("test_worker");
+    // 1(없앤 시험 일꾼 — 부팅이 옛 행을 지운다)은 따로 이름이 없다
+    expect(unitTypeOf(1)).toBe("test_unit");
     expect(unitTypeOf(2)).toBe("test_unit");
+    expect(unitTypeOf(4)).toBe("human");
     expect(jobOf(1, 0)).toEqual({ kind: "test_gather", phase: "work" });
     expect(jobOf(2, 1)).toEqual({ kind: "test_hunt", phase: "rest" });
     expect(jobOf(0, 0)).toBeNull();
@@ -336,7 +338,7 @@ function fakeWorld(rows: readonly WorldRosterRow[]): WorldRosterSource {
 describe("서비스", () => {
   const worker: WorldRosterRow = {
     id: 7,
-    type: "test_worker",
+    type: "test_unit",
     planetId: "s2_test_planet",
     mapKey: 1,
     domain: "land",

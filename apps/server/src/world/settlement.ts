@@ -2,7 +2,7 @@
 // - 정산 단위 = 소유 주체(사용자 또는 세력). 그 주체의 모든 유닛 직무와 유지비를 (마지막 정산, 지금] 구간으로 한 번에 계산한다
 //   (packages/sim settle: 나눠 정산해도 같은 정수 함수). 결과(직무 상태·원장 거래·settled_at)는 한 번의 동기 처리로
 //   쓰기 대기열에 넣는다 → 같은 커밋에 들어간다. 커밋 전에 죽으면 다시 켠 뒤 같은 입력으로 다시 계산한다(두 번 내지 않음).
-// - 정산 시점: 접속 상태가 바뀔 때(그래서 한 구간 안에서 접속 상태는 하나다), 상호작용 전(시험 명령·복귀 요약 조회),
+// - 정산 시점: 접속 상태가 바뀔 때(그래서 한 구간 안에서 접속 상태는 하나다), 상호작용 전(명령·복귀 요약 조회),
 //   그리고 SETTLE_EVERY_MS마다(1분에 오래된 순으로 SWEEP_BATCH 주체씩).
 // - 접속 상태(D-136): 사용자마다 연결 수를 센다. 모든 연결이 끊긴 시각부터 24시간 동안 반복 직무를 잇는다(D-061·D-144).
 //   세력(NPC)은 늘 접속 중으로 친다.
@@ -12,24 +12,21 @@
 // - 직무 멈춤(D-516 364, docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)"): 건물 작업(짓기·레벨업·수리·장비 수리)에 묶인 유닛은
 //   그 구간 산출을 내지 않는다. 산출 구간(노동 계약 몫)에 멈춤 구간을 겹쳐 그 구간 창고를 null(산출 버림)로 바꾼다(mergePauses).
 //   직무 상태(진행·피로)는 그대로 흐른다(노동 계약 일시 중지와 같은 모양). 정산 뒤 고리(afterSettle)는 노동 계약 유예 끝의 남은 물건 옮기기.
-// - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 산출 구간이 없는 유닛의 기본 산출(시험 광석 → 주인 기본 창고)은 개발
-//   시험 일꾼(UNIT_KIND_WORKER)만 낸다. 플레이어 유닛은 노동 계약·직무 배치 구간(채집 시설이면 진짜 물건, labor/workBook.ts)에서만 낸다.
+// - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 직무가 있는 유닛은 노동 계약·직무 배치 구간(채집 시설이면 진짜 물건,
+//   labor/workBook.ts)에서만 낸다. 산출 구간이 없으면 산출이 없다(그 구간에 기본 산출을 내던 개발 시험 일꾼은 없앴다 — 사용자 지적
+//   2026-11-09 "시험일꾼 다 없애라고", docs/adr/2026-10-31-s3-server-stage.md "바뀜 (2026-11-09)").
 // - 작업 중 부상(D-521, docs/adr/2026-11-08-injury.md): 정산 전 직무 상태로 구간 안 작업 주기 경계를 굴리는 고리(injureWork, world/unitCondition.ts createWorkInjury)를
 //   직무 정산과 같은 동기 처리에서 부른다(나눠 정산해도 같다 — 경계·난수가 실제 시각·유닛으로만 정해진다).
 import {
-  JOB_GATHER,
   JOB_NONE,
   type JobState,
   type OutputSegment,
-  PHASE_WORK,
-  type SizeClass,
   TEST_ASSET_CREDIT,
   TEST_ASSET_ORE,
   TEST_SYSTEM_ISSUE_CREDIT,
   TEST_SYSTEM_RESERVE_ORE,
   TEST_SYSTEM_SINK_CREDIT,
   UPKEEP_PERIOD_MS,
-  WALK_SPEED,
   settleOwnerPeriod,
   testSettleAccounts,
 } from "@terra/sim";
@@ -37,7 +34,6 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { OwnerRow } from "./persist/load.ts";
 import type { WorldWriter } from "./persist/writer.ts";
 import type { SecondMap, UnitJob } from "./secondMap.ts";
-import { UNIT_KIND_WORKER } from "./unitKinds.ts";
 
 /** [임시] 시험 자산 코드·시스템 계정(@terra/sim settle/owner.ts, 시뮬레이터와 같은 값) */
 export const ASSET_CREDIT = TEST_ASSET_CREDIT;
@@ -76,8 +72,6 @@ export interface Settlement {
   connect(userId: string, nowMs: () => number): () => void;
   /** 모든 연결이 끊긴 시각(접속 중이면 null, 모르면 undefined) */
   offlineSince(userId: string): number | null | undefined;
-  /** 시험 명령: 사용자에게 시험 일꾼 count개(채집 직무)를 준다. 만든 유닛 ID */
-  giveWorkers(userId: string, mapKey: number, count: number, nowMs: number): number[];
   /** 시험 명령: 시험 화폐를 발행해 준다 */
   grantCredit(ownerId: number, amount: bigint, nowMs: number): void;
   /**
@@ -160,7 +154,6 @@ export function createSettlement(options: {
   ledger: Ledger;
   writer: WorldWriter;
   nextOwnerId: () => number;
-  nextUnitId: () => number;
   /** 부팅 때 읽은 접속 상태(접속 중으로 남은 것은 이미 끊김으로 고쳤다) */
   presence: readonly { userId: string; offlineSinceMs: number | null }[];
   now: () => number;
@@ -231,10 +224,10 @@ export function createSettlement(options: {
     const pauses = pauser?.(owner.id);
     const own = testSettleAccounts(ledger, owner.id);
     const base = (): number => own.stock();
-    // 산출 구간이 없는 플레이어 유닛(개발 시험 일꾼이 아닌 유닛)은 기본 산출이 없다
+    // 산출 구간이 없는 유닛은 기본 산출이 없다(직무가 없는 유닛은 어차피 내지 않는다 → 구간을 넘기지 않는다)
     const noOutput: readonly OutputSegment[] = [{ untilMs: toMs, stock: null }];
     const defaultOf = (unit: UnitRef): readonly OutputSegment[] | undefined =>
-      unit.kind === UNIT_KIND_WORKER || unit.job.job === JOB_NONE ? undefined : noOutput;
+      unit.job.job === JOB_NONE ? undefined : noOutput;
     const outputOf = (unit: UnitRef): readonly OutputSegment[] | undefined => {
       const windows = pauses?.get(unit.id);
       const route = routes?.get(unit.id) ?? defaultOf(unit);
@@ -349,35 +342,6 @@ export function createSettlement(options: {
       const state = presence.get(userId);
       if (!state) return undefined;
       return state.connections > 0 ? null : state.offlineSinceMs;
-    },
-    giveWorkers(userId, mapKey, count, nowMs) {
-      const map = maps.get(mapKey);
-      if (!map) return [];
-      const owner = ownerOfUser(userId, nowMs);
-      // 유닛 수가 바뀌기 전에 정산한다(상호작용 전 정산)
-      settleOwner(owner.id, nowMs);
-      const made: number[] = [];
-      const size: SizeClass = 1;
-      for (let attempt = 0; made.length < count && attempt < count * 64; attempt++) {
-        const id = options.nextUnitId();
-        const cellX = 96 + ((attempt * 7) % 64);
-        const cellY = 96 + Math.floor((attempt * 7) / 64) * 3;
-        if (
-          !map.addUnit({
-            id,
-            size,
-            speed: WALK_SPEED,
-            cellX,
-            cellY,
-            ownerId: owner.id,
-            kind: UNIT_KIND_WORKER,
-          })
-        )
-          continue;
-        map.setJob(id, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 0 });
-        made.push(id);
-      }
-      return made;
     },
     grantCredit(ownerId, amount, nowMs) {
       ledger.post({

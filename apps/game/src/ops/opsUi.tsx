@@ -33,19 +33,22 @@ export const TIER_LABELS: { readonly [T in OpsTier]: () => string } = {
   manage: m.ops_tier_manage,
 };
 
-const UNIT_KIND_LABELS: readonly (() => string)[] = [
-  m.ops_unit_kind_0,
-  m.ops_unit_kind_1,
-  m.ops_unit_kind_2,
-  m.ops_unit_kind_3,
-  m.ops_unit_kind_4,
-  m.ops_unit_kind_5,
-  m.ops_unit_kind_6,
-  m.ops_unit_kind_7,
-];
+/** 세계 유닛 종류 코드(서버 world/unitKinds.ts) → 이름. 1(시험 일꾼)은 없앴다 — 남아 있으면 "종류 1"로 보인다 */
+const UNIT_KIND_LABELS: ReadonlyMap<number, () => string> = new Map([
+  [0, m.ops_unit_kind_0],
+  [2, m.ops_unit_kind_2],
+  [3, m.ops_unit_kind_3],
+  [4, m.ops_unit_kind_4],
+  [5, m.ops_unit_kind_5],
+  [6, m.ops_unit_kind_6],
+  [7, m.ops_unit_kind_7],
+]);
+
+/** 유닛 찾기 칸이 고르게 보여 주는 종류 코드 */
+export const UNIT_KIND_CODES: readonly number[] = [...UNIT_KIND_LABELS.keys()];
 
 export function unitKindLabel(kind: number): string {
-  return UNIT_KIND_LABELS[kind]?.() ?? m.ops_unit_kind_other({ kind });
+  return UNIT_KIND_LABELS.get(kind)?.() ?? m.ops_unit_kind_other({ kind });
 }
 
 /** 서버 결과 코드 → 문구(모르는 코드는 공용 실패 문구) */

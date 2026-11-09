@@ -10,7 +10,6 @@ import {
   UNIT_KIND_CYBORG_UNIT,
   UNIT_KIND_GUARDIAN,
   UNIT_KIND_HUMAN,
-  UNIT_KIND_WORKER,
 } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
 
@@ -52,14 +51,14 @@ export const EMPTY_WORLD_ROSTER: WorldRosterSource = {
 const DOMAINS: readonly RosterDomain[] = ["space", "sky", "land", "sea"];
 
 /**
- * 세계 유닛 종류 코드 → 화면 종류: 시험 일꾼(1), 구인으로 고용한 휴먼(4, D-469), 융합한 사이보그 유닛(5, D-470), 수호신(6, 기획 답 456 가),
- * 그 밖(관리자 시험 유닛 2, NPC 세력만 갖는 봇 0)은 시험 유닛
+ * 세계 유닛 종류 코드 → 화면 종류: 구인으로 고용한 휴먼(4, D-469), 융합한 사이보그 유닛(5, D-470), 수호신(6, 기획 답 456 가),
+ * 그 밖(관리자 시험 유닛 2, NPC 세력만 갖는 봇 0)은 시험 유닛. 시험 일꾼(1)은 없앴다(부팅이 옛 행을 지운다)
  */
 export function unitTypeOf(kind: number): UnitType {
   if (kind === UNIT_KIND_HUMAN) return "human";
   if (kind === UNIT_KIND_CYBORG_UNIT) return "cyborg";
   if (kind === UNIT_KIND_GUARDIAN) return "guardian";
-  return kind === UNIT_KIND_WORKER ? "test_worker" : "test_unit";
+  return "test_unit";
 }
 
 /** 정산 직무 코드 → 화면 직무 */

@@ -243,8 +243,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "move_unit":
       case "stop_unit":
       case "place_building":
-      case "remove_building":
-      case "dev_spawn_units": {
+      case "remove_building": {
         // 멈추기(stop_unit)는 프로토콜 17의 메시지다(docs/adr/2026-11-07-unit-control.md). 더 낮게 인사한 연결은 모르는 메시지로 본다
         const needs = message.t === "stop_unit" ? UNIT_CONTROL_PROTOCOL_VERSION : SECOND_MAP_PROTOCOL_VERSION;
         if (protocolVersion < needs) {

@@ -1,7 +1,7 @@
 // 건물(시설) 명령 (프로토콜 10부터, 창고 옮기기는 12부터) — docs/adr/2026-11-07-buildings-runtime.md, 기획 49 N50·M14·M15·N54,
 // D-171·D-508·D-509·D-514·D-516(361·382)
 // - 바꾸는 명령: 짓기(facility_build), 레벨업(facility_upgrade), 건물·영토 비콘 수리(facility_repair), 공방 장비 수리(equipment_repair),
-//   개발 시험(dev_facility_grant: 재료 받기, dev_facility_finish: 하던 작업 바로 끝내기 — 권한 secondMap: dev-spawn).
+//   개발 시험(dev_facility_grant: 재료 받기, dev_facility_finish: 하던 작업 바로 끝내기 — 권한 secondMap: dev-test).
 //   창고 옮기기(storage_move, 프로토콜 11): 도시 창고·화물 ↔ 창고 시설, 건물 창고(임대 몫) → 도시 창고. 조회는 tRPC facilities.overview다.
 //   건물·영토 비콘 공격(facility_attack, 프로토콜 12, 질문 381): 내 유닛으로 남의 시설·다른 세력 비콘을 넥서스로 하는 공성 전투를 연다.
 // - 재료를 꺼내는 자리(12부터 서버 규칙, D-516 361): 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 그 2차맵 내 유닛 화물(@terra/shared/goodsPlaces).
@@ -84,7 +84,7 @@ export const equipmentRepairMessage = z.object({
 });
 
 /**
- * 개발 시험: 재료(쌓이는 물자) 받기(권한 secondMap: dev-spawn). 12부터 mapKey·x·y(짓는 자리)를 주면 그 칸이 속한 도시 창고로, 없으면
+ * 개발 시험: 재료(쌓이는 물자) 받기(권한 secondMap: dev-test). 12부터 mapKey·x·y(짓는 자리)를 주면 그 칸이 속한 도시 창고로, 없으면
  * 첫 2차맵 가운데 칸의 도시 창고로 받는다(그 2차맵에 도시가 없으면 내 첫 유닛 화물)
  */
 export const devFacilityGrantMessage = z.object({
@@ -135,7 +135,7 @@ export const facilityAttackMessage = z
   })
   .refine((message) => (message.buildingId === undefined) !== (message.beaconId === undefined));
 
-/** 개발 시험: 하던 작업(짓기·레벨업·수리·장비 수리) 바로 끝내기(권한 secondMap: dev-spawn) */
+/** 개발 시험: 하던 작업(짓기·레벨업·수리·장비 수리) 바로 끝내기(권한 secondMap: dev-test) */
 export const devFacilityFinishMessage = z
   .object({
     t: z.literal("dev_facility_finish"),

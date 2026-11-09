@@ -168,7 +168,7 @@ const ownEntry = (unit: VisionUnit): SizedEntry<UnitMotionWire> => sized({ ...un
 const encodeBits = (bits: Uint8Array): string =>
   Buffer.from(bits.buffer, bits.byteOffset, bits.byteLength).toString("base64");
 
-/** 묶음 열쇠: 사용자 + 소유 주체(시험 일꾼을 받아 주체가 생기면 새 묶음이 된다. 기기는 다시 구독한다) */
+/** 묶음 열쇠: 사용자 + 소유 주체(사이보그를 만들어 주체가 생기면 새 묶음이 된다. 기기는 다시 구독한다) */
 function groupKeyOf(viewer: VisionViewer): string {
   return `u:${viewer.userId}:${viewer.ownerId ?? "-"}`;
 }

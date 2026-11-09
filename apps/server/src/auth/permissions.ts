@@ -12,7 +12,8 @@ import { defaultStatements } from "better-auth/plugins/admin/access";
  * secondMap: 시험 2차맵 명령(WebSocket, src/world/gateway.ts). 건물은 admin만 한다(ADR 2026-10-28-s1-second-map).
  *   자기 유닛 이동·멈추기는 권한 없이 소유로 된다(S3). move-unit = 운영자가 남의 유닛도 옮기고 세운다 — dev·admin
  *   (docs/adr/2026-11-07-unit-control.md, 사용자 지적 2026-11-07 "운영자는 다른 유닛 조종이나 시야 자유이동이 가능", src/world/unitControl.ts).
- *   observe = 관리자 전체 보기(시야로 거르지 않음, 감사 기록), dev-spawn = 개발 시험 명령(내 시험 일꾼 받기). 둘 다 dev·admin(S3 ADR 3절).
+ *   observe = 관리자 전체 보기(시야로 거르지 않음, 감사 기록), dev-test = 개발 시험 명령(물건·재료 받기, 작업 바로 끝내기, 부상·비활성 시험 등).
+ *   둘 다 dev·admin(S3 ADR 3절). dev-test는 예전 이름이 dev-spawn(시험 일꾼 받기)이었다 — 시험 일꾼을 없애며 바꿨다(사용자 지적 2026-11-09).
  * home: 홈 대시보드 시험(ADR 2026-10-29-app-shell 6절, 사용자 결정 2). dev·admin만.
  *   - preview: 처리할 일·복귀 요약의 시안 자료를 받는다(inbox.list·summary.get의 preview). 다른 역할은 403
  *   - template: 기본값(dt_hybrid)이 아닌 템플릿을 저장한다(settings.set). 다른 역할이 보낸 값은 거절하지 않고 dt_hybrid로 바꿔 저장한다
@@ -27,7 +28,7 @@ import { defaultStatements } from "better-auth/plugins/admin/access";
  */
 export const statements = {
   ...defaultStatements,
-  secondMap: ["move-unit", "place-building", "remove-building", "observe", "dev-spawn"],
+  secondMap: ["move-unit", "place-building", "remove-building", "observe", "dev-test"],
   home: ["preview", "template"],
   planetEditor: ["read", "write"],
   tuning: ["read", "write"],
@@ -48,7 +49,7 @@ export const roles = {
   dev: ac.newRole({
     user: [],
     session: [],
-    secondMap: ["move-unit", "observe", "dev-spawn"],
+    secondMap: ["move-unit", "observe", "dev-test"],
     home: ["preview", "template"],
     planetEditor: ["read", "write"],
     tuning: ["read", "write"],
@@ -58,7 +59,7 @@ export const roles = {
   admin: ac.newRole({
     user: ["create", "list", "get", "set-role", "ban", "set-password"],
     session: ["list", "revoke"],
-    secondMap: ["move-unit", "place-building", "remove-building", "observe", "dev-spawn"],
+    secondMap: ["move-unit", "place-building", "remove-building", "observe", "dev-test"],
     home: ["preview", "template"],
     planetEditor: ["read", "write"],
     tuning: ["read", "write"],

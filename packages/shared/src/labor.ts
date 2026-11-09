@@ -105,7 +105,7 @@ export interface LaborBuildingView {
 
 export interface LaborUnitView {
   readonly id: number;
-  /** 유닛 종류 코드(서버 unitKinds: 0 시험 봇, 1 시험 일꾼, 3 사이보그 본체 …) */
+  /** 유닛 종류 코드(서버 unitKinds: 0 시험 봇, 3 사이보그 본체, 4 휴먼 …) */
   readonly kind: number;
   /** 열린 계약(일함·일시 중지)이 있다 */
   readonly busy: boolean;

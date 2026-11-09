@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
 import type { OpenDetail } from "./OpsConsole.tsx";
-import { LoadState, Pager, unitKindLabel, useOpsLoad } from "./opsUi.tsx";
+import { LoadState, Pager, UNIT_KIND_CODES, unitKindLabel, useOpsLoad } from "./opsUi.tsx";
 import { UnitTable } from "./UnitTable.tsx";
 
 const PAGE = 100;
@@ -97,7 +97,7 @@ export function UnitsTab({
             onChange={(event) => setKindInput(event.target.value)}
           />
           <datalist id="ops-unit-kinds">
-            {[0, 1, 2, 3, 4, 5, 6, 7].map((kind) => (
+            {UNIT_KIND_CODES.map((kind) => (
               <option key={kind} value={kind}>
                 {unitKindLabel(kind)}
               </option>

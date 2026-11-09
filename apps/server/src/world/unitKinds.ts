@@ -4,8 +4,11 @@ import type { UnitWireKind } from "@terra/protocol";
 
 /** 시험 NPC 세력이 움직이는 봇(S1_TEST_BOTS) */
 export const UNIT_KIND_BOT = 0;
-/** 시험 일꾼(개발자 시험 명령으로 받는 유닛, 정산 직무를 한다) */
-export const UNIT_KIND_WORKER = 1;
+/**
+ * 없앤 시험 일꾼(옛 개발 시험 명령 dev_spawn_units로 받던 유닛 — 사용자 지적 2026-11-09 "시험일꾼 다 없애라고"). 새로 만들지 않는다.
+ * 남은 옛 행은 부팅이 지운다(world/retireOldWorkers.ts). 번호는 다시 쓰지 않는다
+ */
+export const UNIT_KIND_OLD_WORKER = 1;
 /** 관리자 시험 유닛(addUnit, 스스로 움직이지 않는다) */
 export const UNIT_KIND_TEST = 2;
 

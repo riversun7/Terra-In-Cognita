@@ -51,7 +51,7 @@ export function createFacilityScreenServices(
   return {
     async overview(viewer, nowMs) {
       // 개발 시험 명령(재료 받기·바로 끝내기)은 dev·admin(gateway.ts와 같은 권한)
-      const dev = rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] });
+      const dev = rolesAllow(viewer.roles, { secondMap: ["dev-test"] });
       const found = source?.();
       if (!found) return notReady(nowMs, dev);
       const beacons = await found.beaconsOf(viewer.id);

@@ -1,13 +1,20 @@
 // 화면 시험이 WebSocket 명령을 바로 보내는 도우미 — 같은 출처 브라우저에서 보내 쿠키(로그인)가 실린다.
-// 개발 시험 명령(dev_spawn_units — 서버 처리, dev·admin)으로 시험 일꾼을 받는 곳도 여기다: 2차맵의 [시험 일꾼 받기] 단추는 지웠다
-// (사용자 지적 2026-11-09 "시험일꾼받기 기능 없애라", docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)").
+// 시험에 쓸 내 유닛은 실제 길로 만든다: 구인 카드 고용(recruit_hire, 아무 도시 정부기관에서나 — D-469)으로 휴먼을 세우고, 모자란 시험 화폐는
+// 운영자 지급(tRPC ops.economy.grant, admin·dev 운영 권한 ledger_grant — 감사 기록이 남는다)으로 받는다. 예전 개발 시험 명령 dev_spawn_units
+// (시험 일꾼 받기)는 없앴다(사용자 지적 2026-11-09 "시험일꾼 다 없애라고", 프로토콜 20).
 import type { Page } from "@playwright/test";
 import { PROTOCOL_VERSION } from "../../packages/protocol/src/version.ts";
 
 /** 시험 2차맵 키(@terra/protocol S1_TEST_MAP_KEY = S2 시험 행성 F9 면 0 (282, 328)) */
 const S1_TEST_MAP_KEY = 312_905_547_382_793;
 
-/** 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들(result, 2차맵 사이 이동은 travel_result) */
+/** 시험 화폐 자산 코드(서버 world/settlement.ts ASSET_CREDIT) */
+const ASSET_CREDIT = "s3_test_credit";
+
+/**
+ * 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들(result, 2차맵 사이 이동은 travel_result,
+ * 구인 고용은 recruit_result)
+ */
 export async function sendCommands(
   page: Page,
   commands: readonly Record<string, unknown>[],
@@ -48,7 +55,7 @@ export async function sendCommands(
             (reply) =>
               typeof reply === "object" &&
               reply !== null &&
-              ["result", "travel_result"].includes(String(Reflect.get(reply, "t"))) &&
+              ["result", "travel_result", "recruit_result"].includes(String(Reflect.get(reply, "t"))) &&
               Reflect.get(reply, "id") === id,
           ),
         );
@@ -76,13 +83,100 @@ export async function cyborgMapKey(page: Page): Promise<number> {
   return typeof key === "number" ? key : S1_TEST_MAP_KEY;
 }
 
+/** 객체 칸 읽기(모르는 모양이면 undefined) */
+const pick = (value: unknown, name: string): unknown =>
+  typeof value === "object" && value !== null ? Reflect.get(value, name) : undefined;
+
+/** 화면 안에서 tRPC를 부른다(같은 출처 쿠키). input이 있으면 조회는 ?input=, 바꾸기는 POST 본문. 응답의 result.data(실패면 오류) */
+async function trpc(page: Page, path: string, input: unknown, mutation = false): Promise<unknown> {
+  const reply = await page.evaluate(
+    async ({ route, body, post }) => {
+      const query = body === undefined ? "" : `?input=${encodeURIComponent(JSON.stringify(body))}`;
+      const response = post
+        ? await fetch(`/api/trpc/${route}`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+          })
+        : await fetch(`/api/trpc/${route}${query}`);
+      return { status: response.status, json: (await response.json()) as unknown };
+    },
+    { route: path, body: input, post: mutation },
+  );
+  const data = pick(pick(reply.json, "result"), "data");
+  if (reply.status !== 200 || data === undefined)
+    throw new Error(`${path} failed: ${reply.status} ${JSON.stringify(reply.json).slice(0, 300)}`);
+  return data;
+}
+
 /**
- * 개발 시험 명령으로 내 시험 일꾼 count개(최대 20)를 내 사이보그가 선 2차맵에 받는다(dev·admin). /health로 옮겨 보내므로 부른 뒤 화면을 다시 연다
+ * 운영자 지급으로 그 계정(아이디)의 소유 주체에 시험 화폐 amount를 준다(부르는 계정은 admin·dev — 운영 권한 ledger_grant). 지급 뒤 잔고
  */
-export async function devSpawnUnits(page: Page, count: number): Promise<void> {
+export async function grantCredit(page: Page, loginId: string, amount: number): Promise<bigint> {
+  if (!page.url().startsWith("http")) await page.goto("/health");
+  const list = await trpc(page, "ops.players.list", { search: loginId });
+  const rows = pick(list, "rows");
+  const row = (Array.isArray(rows) ? (rows as unknown[]) : []).find(
+    (entry) => String(pick(entry, "loginId")).toLowerCase() === loginId.toLowerCase(),
+  );
+  const ownerId = pick(row, "ownerId");
+  if (typeof ownerId !== "number") throw new Error(`no owner for ${loginId}`);
+  const reason = "e2e: test units without test workers";
+  const granted = await trpc(
+    page,
+    "ops.economy.grant",
+    { ownerId, asset: ASSET_CREDIT, amount: String(amount), reason },
+    true,
+  );
+  if (pick(granted, "ok") !== true) throw new Error(`grant failed: ${JSON.stringify(granted)}`);
+  return BigInt(String(pick(granted, "balance")));
+}
+
+/**
+ * 구인 카드로 휴먼 하나를 고용한다(실제 플레이어 길, recruit_hire). 그 2차맵(없으면 내 사이보그가 선 2차맵)에 있는 도시의 정부기관에서 가장 싼
+ * 남은 카드를 산다 — 휴먼은 그 도시 둘레에 선다. 잔고가 모자라면 실패한다(먼저 grantCredit). 고용한 유닛 ID.
+ * /health로 옮겨 보내므로 부른 뒤 화면을 다시 연다
+ */
+export async function hireHuman(page: Page, mapKey?: number): Promise<number> {
   await page.goto("/health");
-  const mapKey = await cyborgMapKey(page);
-  const [reply] = await sendCommands(page, [{ t: "dev_spawn_units", mapKey, count }]);
-  if (typeof reply !== "object" || reply === null || Reflect.get(reply, "ok") !== true)
-    throw new Error(`dev_spawn_units failed: ${JSON.stringify(reply)}`);
+  const target = mapKey ?? (await cyborgMapKey(page));
+  const cities = pick(await trpc(page, "world.cities", undefined), "cities");
+  const city = (Array.isArray(cities) ? (cities as unknown[]) : []).find(
+    (entry) => pick(entry, "mapKey") === target,
+  );
+  const cityId = pick(city, "id");
+  if (typeof cityId !== "number") throw new Error(`no city on map ${String(target)}`);
+  const board = await trpc(page, "recruit.board", { cityId });
+  const cards = pick(board, "cards");
+  const card = (Array.isArray(cards) ? (cards as unknown[]) : [])
+    .filter((entry) => pick(entry, "taken") !== true)
+    .map((entry) => ({ slot: Number(pick(entry, "slot")), cost: String(pick(entry, "cost")) }))
+    .toSorted((a, b) => Number(BigInt(a.cost) - BigInt(b.cost)) || a.slot - b.slot)[0];
+  if (!card) throw new Error(`no recruit card left in city ${String(cityId)}`);
+  const window = pick(board, "window");
+  const [reply] = await sendCommands(page, [
+    { t: "recruit_hire", cityId, window, slot: card.slot, cost: card.cost },
+  ]);
+  const unitId = pick(reply, "unitId");
+  if (pick(reply, "ok") !== true || typeof unitId !== "number")
+    throw new Error(`recruit_hire failed: ${JSON.stringify(reply)}`);
+  return unitId;
+}
+
+/**
+ * 그 2차맵(없으면 내 사이보그가 선 2차맵)의 내 휴먼 하나를 돌려준다. 없으면 구인 카드로 고용한다(hireHuman — 모자란 시험 화폐는 운영자 지급).
+ * 고용은 (주인, 도시, 창)마다 카드 3~5장뿐이고 구인 시험(recruit.spec.ts)도 같은 카드를 산다 → 있는 휴먼을 먼저 쓴다.
+ * /health로 옮겨 보내므로 부른 뒤 화면을 다시 연다
+ */
+export async function ensureHuman(page: Page, loginId: string, mapKey?: number): Promise<number> {
+  await page.goto("/health");
+  const target = mapKey ?? (await cyborgMapKey(page));
+  const units = pick(await trpc(page, "world.mapUnits", { mapKey: target }), "units");
+  const found = (Array.isArray(units) ? (units as unknown[]) : []).find(
+    (unit) => pick(unit, "kind") === "human" && pick(unit, "hold") === null,
+  );
+  const unitId = pick(found, "unitId");
+  if (typeof unitId === "number") return unitId;
+  await grantCredit(page, loginId, 1_000);
+  return hireHuman(page, target);
 }

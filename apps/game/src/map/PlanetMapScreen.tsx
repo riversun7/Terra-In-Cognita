@@ -64,14 +64,8 @@ import { type LoadPhase, type TileProblem, screenNotice } from "./planetNotice.t
 import { clusterView, focusView } from "./planetFocus.ts";
 import { PlanetCityPanel } from "./PlanetCityPanel.tsx";
 import { PlanetCommandPanel } from "./PlanetCommandPanel.tsx";
-import {
-  type CommandTarget,
-  areaCheck,
-  areaCheckText,
-  areaTarget,
-  cityTarget,
-  commandKey,
-} from "./commandTarget.ts";
+import { PlanetReadout } from "./PlanetReadout.tsx";
+import { type CommandTarget, areaCheck, areaTarget, cityTarget, commandKey } from "./commandTarget.ts";
 import { PlanetPerfPanel } from "./PlanetPerfPanel.tsx";
 import { PlanetSystemView } from "./PlanetSystemView.tsx";
 import { ZoomLadder } from "./ZoomLadder.tsx";
@@ -368,7 +362,6 @@ function PlanetMapView({
     cell !== null && (cell.water & WATER_BITS.ocean) !== 0,
     shownMe?.mapKey ?? null,
   );
-  const areaNote = areaCheckText(area);
   const moveToArea = (): void => {
     if (area.kind !== "ok" || !world) return;
     setCommand(areaTarget(area.place, cities, world.factions, picked?.ground ?? null));
@@ -536,31 +529,15 @@ function PlanetMapView({
             onClose={() => setCityId(null)}
           />
         ) : null}
-        <div className="map-panel planet-readout" hidden={city !== null || command !== null}>
-          <div role="status">
-            {(picked?.lines ?? [m.planet_hint()]).map((line, index) => (
-              // 같은 문장이 두 번 나올 수 있어 순서도 키에 넣는다
-              <p key={`${index}-${line}`}>{line}</p>
-            ))}
-            {layer === "climate" ? <p className="planet-legend">{m.planet_climate_legend()}</p> : null}
-            {/* 지금 실패한 타일만(다시 받아 오면 사라진다). 판이 바뀐 안내가 떠 있으면 그 안내가 대신한다 */}
-            {stats && stats.tilesFailed > 0 && tileProblem !== "not_found" ? (
-              <p className="planet-legend">{m.planet_tile_errors({ count: stats.tilesFailed })}</p>
-            ) : null}
-            {areaNote ? <p className="planet-legend planet-area-note">{areaNote}</p> : null}
-          </div>
-          {area.kind === "ok" && world ? (
-            <div className="planet-jump planet-area">
-              <button
-                type="button"
-                className="button-small button-primary planet-area-move"
-                onClick={moveToArea}
-              >
-                {m.world_area_move()}
-              </button>
-            </div>
-          ) : null}
-        </div>
+        <PlanetReadout
+          lines={picked?.lines ?? null}
+          hidden={city !== null || command !== null}
+          climate={layer === "climate"}
+          // 지금 실패한 타일만(다시 받아 오면 사라진다). 판이 바뀐 안내가 떠 있으면 그 안내가 대신한다
+          tilesFailed={stats && tileProblem !== "not_found" ? stats.tilesFailed : 0}
+          area={area}
+          onMove={world ? moveToArea : null}
+        />
         <div className="map-panel planet-controls">
           {shownMe || here ? (
             <div className="planet-jump">

@@ -52,7 +52,7 @@ export function GatherTierTable({
   onUnstage: (id: string) => void;
 }) {
   return (
-    <div className="gt-table-wrap">
+    <div className="dev-table-wrap gt-table-wrap">
       <table className="dev-table gt-table">
         <caption className="visually-hidden">{m.dev_gather_table_caption()}</caption>
         <thead>

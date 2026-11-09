@@ -2,6 +2,7 @@
 // - dev: 시설 표에서 농장을 열어 Lv1 원자재 수량을 고치면 담기고(막대·레벨 표), [적용]하면 그 세계에 바로 든다(buildings.list·내보내기
 //   차이). 레벨 구간을 더하면 레벨 표의 구간이 바뀐다. 구간 시작 레벨을 거꾸로 적으면 검사가 막는다. [팩 값으로]를 담아 적용하면 팩 값.
 // - 수리 줄(D-512 323): 공방의 옛 REPAIR_MAP 출발값 넷, 기본 양을 고쳐 적용, 칸·무기 종류를 다 빼면 검사가 막는다.
+// - 2차맵 모습(2026-11-09): 3D 미리 보기 캔버스가 뜨고, 모델·벽 색을 고치면 담기고 미리 보기가 바뀌며 [적용]하면 팩 look 칸이 든다.
 // - player: 권한 없음 화면, tRPC buildings.*는 403.
 // - 사진: 390·1440(VIEWPORTS.desktop) × 개발 화면 테마 네온·라이트 × 한국어·영어(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 시설 덮어쓰기를 모두 지운다.
@@ -203,6 +204,60 @@ test.describe("개발자", () => {
   });
 });
 
+test.describe("2차맵 모습(3D 미리 보기, 2026-11-09)", () => {
+  test.use({ account: "dev", ...VIEWPORTS.desktop });
+
+  test("농장: 미리 보기 캔버스가 뜨고, 모델·벽 색·높이를 고치면 담기고 미리 보기가 바뀌며, [적용]하면 look 칸이 든다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await freshEditor(page, "/dev/buildings?facility=farm");
+    await expect(detail(page)).toHaveAttribute("data-facility", "farm");
+    const section = detail(page).locator('[data-section="look"]');
+    const canvas = section.locator(".be-look-canvas");
+    await expect(section.locator(".be-look-stage")).toHaveAttribute("data-preview", "ready", {
+      timeout: 20_000,
+    });
+    await expect(canvas).toHaveAttribute("data-parts", /^[1-9]\d*$/);
+    // 팩 출발값: 모델 = 농장(core@59), 바닥 = 팩 칸
+    await expect(canvas).toHaveAttribute("data-look", /"model":"farm"/);
+    const before = await canvas.getAttribute("data-parts");
+
+    // 모델 → 신전: 담기고 미리 보기가 다시 세워진다(조각 수가 바뀐다)
+    await section
+      .getByLabel(message("ko", "dev_buildings_field_look_model"), { exact: true })
+      .selectOption("temple");
+    await expect(stagebar(page)).toHaveAttribute("data-count", "1");
+    await expect(canvas).toHaveAttribute("data-look", /"model":"temple"/);
+    await expect(canvas).not.toHaveAttribute("data-parts", before ?? "");
+    // 벽 색 → 벽돌(색 견본 라디오), 높이 1500‰
+    await section
+      .locator(".be-swatches")
+      .first()
+      .getByRole("radio", { name: message("ko", "dev_buildings_look_color_brick"), exact: true })
+      .check();
+    await expect(canvas).toHaveAttribute("data-look", /"wall":"brick"/);
+    await section.getByLabel(message("ko", "dev_buildings_field_look_height"), { exact: true }).fill("1500");
+    await expect(canvas).toHaveAttribute("data-look", /"heightPm":1500/);
+    // 보기 조건(레벨·밤)은 담지 않는다
+    await section.locator(".be-look-levels button").nth(2).click();
+    await expect(canvas).toHaveAttribute("data-look", /"level":2/);
+    await expect(stagebar(page)).toHaveAttribute("data-count", "1");
+    // 구역 표지: 담은 칸 셋(모델·벽·높이)
+    await expect(section).toHaveAttribute("data-staged", "");
+    await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
+    await stagebar(page).locator(".be-apply").click();
+    await expect(stagebar(page)).toHaveCount(0);
+    const after = await trpc(page, "buildings.list");
+    const farm = list(field(after.data, "facilities")).find(
+      (entry) => field(field(entry, "entry"), "id") === "farm",
+    );
+    expect(field(field(farm, "entry"), "look")).toEqual({ model: "temple", wall: "brick", heightPm: 1500 });
+    await resetBuildings(page);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
 test.describe("수리 줄(D-512 323)", () => {
   test.use({ account: "dev", ...VIEWPORTS.desktop });
 
@@ -341,6 +396,15 @@ test.describe("배치·사진", () => {
           .click();
         await stagebar(page).locator(".ce-confirm-yes").click();
         await expect(stagebar(page)).toHaveCount(0);
+        // 2차맵 모습: 미리 보기가 뜬 구역을 위로(휴대폰은 목록에서 광산을 다시 연다)
+        if (width < 1000) await row(page, "mine").click();
+        const look = detail(page).locator('[data-section="look"]');
+        await expect(look.locator(".be-look-stage")).toHaveAttribute("data-preview", "ready", {
+          timeout: 20_000,
+        });
+        await expect(look.locator(".be-look-canvas")).toHaveAttribute("data-parts", /^[1-9]/);
+        await look.evaluate((section) => section.scrollIntoView({ block: "start" }));
+        await check("buildings-look");
         // 수리 줄(D-512 323): 공방을 열어 수리 판을 가운데로
         await editorReady(page, "/dev/buildings?facility=workshop");
         await expect(detail(page)).toHaveAttribute("data-facility", "workshop");

@@ -23,6 +23,11 @@
   color: var(--color-text-muted);
 }
 .gt-facility-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
   font-weight: var(--font-weight-strong);
 }
 
@@ -43,11 +48,9 @@
 }
 
 /* ── 행렬 ── */
+/* 가로 스크롤 상자는 공용 .dev-table-wrap(머리가 상자에 붙는다) */
 .gt-table-wrap {
   min-width: 0;
-  overflow-x: auto;
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-panel);
 }
 .gt-table {
   width: 100%;
@@ -59,9 +62,11 @@
   vertical-align: middle;
 }
 .gt-band {
-  display: grid;
-  gap: 0;
   text-align: start;
+}
+.gt-range,
+.gt-band-meta {
+  display: block;
 }
 .gt-range {
   font-family: var(--font-mono);

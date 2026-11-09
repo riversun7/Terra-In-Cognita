@@ -2,7 +2,7 @@
 // - dev: 시험 검을 복제해 공격력을 고치고 켠 뒤 [적용]하면 그 세계에 바로 든다(목록·items.get·전투 실험실 무기 목록). 서버 미리 보기가
 //   실효 계산식 값을 보인다. 만든 항목을 지우면 목록에서 빠진다. 저장을 막는 문제(공격 칸 없음)는 막대가 막고 칸 아래·옆 판에 보인다.
 //   두 탭이 같은 아이템을 고치면 뒤에 적용한 탭이 내 칸만 새 항목 위에 다시 얹고(다른 칸), 같은 칸이면 고르는 판을 보인다.
-//   효과 사전(WP-6): 효과를 고쳐 적용하면 아이템·스킬 편집기가 같은 실효 효과를 쓴다. 소모품 효과량(D-501): 비례 스탯·적정 스탯·오차
+//   효과 사전은 따로 화면이다(e2e/effects.spec.ts). 소모품 효과량(D-501): 비례 스탯·적정 스탯·오차
 //   → 미리 보기 범위(기준 × min(상한, 스탯 ÷ 적정) ± 오차).
 //   대량 도구(WP-7): CSV 가져오기의 틀린 줄은 줄 번호로, 고친 줄·새 줄은 담아 적용. 크리쳐 전용 장비(D-494): 미리 보기·전투 실험실.
 // - player: 권한 없음 화면, tRPC items.*는 403.
@@ -335,41 +335,6 @@ test.describe("개발자", () => {
     expect(unexpected(deviceErrors, 400)).toEqual([]);
   });
 
-  test("효과 사전(WP-6): 효과를 고쳐 적용하면 아이템·스킬 편집기가 같은 실효 효과를 쓰고, 쓰는 스킬이 보인다", async ({
-    page,
-    deviceErrors,
-  }) => {
-    await editorReady(page);
-    await resetItems(page);
-    await page.reload();
-    await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
-    const listed = await trpc(page, "items.list");
-    const users = list(field(field(field(listed.data, "effectUsage"), "burn"), "skills"));
-    expect(users.length).toBeGreaterThan(0);
-    const skillName = String(
-      field(field(byId(field(listed.data, "skills"), String(users[0])), "name"), "ko"),
-    );
-    await page.getByRole("tab", { name: message("ko", "dev_items_tab_effects"), exact: true }).click();
-    const burnRow = page.locator('.ie-fx-table tr[data-entry="burn"]');
-    await burnRow.locator(".ie-fx-pick").click();
-    await expect(burnRow).toHaveAttribute("data-selected", "");
-    await expect(page.locator('.ie-fx [data-part="effect-usage"]')).toContainText(skillName);
-    const form = page.locator('.ie-fx [data-effect="burn"]');
-    await form.getByLabel(message("ko", "dev_effects_field_duration"), { exact: true }).fill("4500");
-    await form.getByLabel(message("ko", "dev_items_field_name_ko"), { exact: true }).fill("e2e 화상");
-    await expect(bar(page)).toHaveAttribute("data-count", "1");
-    await apply(page, "e2e 효과 사전 시험");
-    await expect(burnRow).toContainText(message("ko", "dev_items_origin_edited"));
-    // 서버 실효: 아이템 편집기 효과 줄, 스킬 편집기 효과 고르기(같은 덮어쓰기 층)
-    const after = await trpc(page, "items.list");
-    const burn = byId(field(after.data, "effectRows"), "burn");
-    expect([field(burn, "origin"), field(field(burn, "entry"), "durationMs")]).toEqual(["edited", 4500]);
-    const skills = await trpc(page, "skills.list");
-    expect(field(field(byId(field(skills.data, "effects"), "burn"), "name"), "ko")).toBe("e2e 화상");
-    await resetItems(page);
-    expect(deviceErrors).toEqual([]);
-  });
-
   test("무기 1차 적정 스탯(D-502): 검(공격력 20·적정 STR 25·DEX 12·AGI 12)의 미리 보기 = 10 + 8 = 18, 몫마다 비율, 적정을 비우면 100%", async ({
     page,
     deviceErrors,
@@ -653,7 +618,7 @@ test.describe("배치·사진", () => {
         ...(width >= 1000 ? VIEWPORTS.desktop : { viewport: { width, height } }),
       });
 
-      test("목록·편집 판·분류·효과 사전·대량 도구: 가로 넘침·작은 누르는 곳 없음, 사진", async ({
+      test("목록·편집 판·분류·대량 도구: 가로 넘침·작은 누르는 곳 없음, 사진", async ({
         page,
         deviceErrors,
       }) => {
@@ -692,10 +657,6 @@ test.describe("배치·사진", () => {
         await page.getByRole("tab", { name: message(language, "dev_items_tab_taxonomy") }).click();
         await expect(page.locator('.ie-tax[data-category="weapon_types"]')).toBeVisible();
         await check("items-taxonomy");
-        await page.getByRole("tab", { name: message(language, "dev_items_tab_effects") }).click();
-        await page.locator('.ie-fx-table tr[data-entry="burn"] .ie-fx-pick').click();
-        await expect(page.locator('.ie-fx [data-effect="burn"]')).toBeVisible();
-        await check("items-effects");
         await page.getByRole("tab", { name: message(language, "dev_items_tab_bulk") }).click();
         await expect(page.locator('[data-part="bulk-import"]')).toBeVisible();
         await check("items-bulk");

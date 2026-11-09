@@ -193,3 +193,14 @@
 - **휴대폰**: 자주 누르는 조작부(찾기·거르기·목록 줄·탭·머리 단추·막대)는 `--dev-touch-tap`(터치 44px). 이 토큰을 설정 칸 패널 밖(세 편집기)에서도 쓴다(ADR `2026-11-02-dev-ui.md`는 확정이라 고치지 않고 여기 적는다).
 - 시험: `itemModel.test.ts`(찾기 낱말 여럿·대분류), `contentEditorPaths.test.ts`, `e2e/items.spec.ts`(넓은 폭: "/" 찾기·↓·Enter·칸 담음/팩 값/범위 밖 문구/[되돌리기]·Alt+↑↓·Ctrl+S 적용 뒤 팩과 다름), `e2e/dev-stagebar.spec.ts`, 사진 개발 테마 둘 × 390·1440 × 한국어·영어.
 - 상태: 사용자가 화면을 본 뒤 통합 담당이 확정한다(이 절은 위 상태 줄을 바꾸지 않는다).
+
+## 바뀜 (2026-11-09, 효과 사전을 따로 화면으로 — 사용자 결정 B)
+- 까닭: 사용자 물음(2026-11-09) "효과 사전은 스킬에디터로 묶여야하는거아니냐?". 세 갈래를 보였다 — A 스킬 편집기로 옮김, B 따로 화면(`/dev/effects`)으로 두고 아이템·스킬 편집기 양쪽에서 잇기, C 아이템 편집기 탭 그대로. B를 권했고 사용자가 "추천대로 해봐라"로 골랐다. 효과 사전은 아이템 사용 효과와 스킬 효과 줄이 같이 쓰는 것(D-425, 위 3절 WP-6: 효과마다 쓰는 아이템·스킬)이라 어느 한 편집기에 넣으면 다른 쪽에서 멀어진다. 가지 `work/effects-page`, 작업 기록 `docs/worklog/2026/11/09-2140-effects-page.md`.
+- 그대로 둔 것: 서버 API `items.*`(같은 덮어쓰기 층·판·권한 dev_admin·감사 기록·속도 제한), 묶음 분류 `effects`·baseHash·entry_changed 3방향 다시 얹기, 서버 검사 `items.check`, 내보내기 `entries` → `pnpm tuning:apply`, 효과 칸·범위·새 효과는 꺼진 채로, 1차 스탯 버프·배타 묶음 안내. 게임 규칙·수치·팩은 그대로다.
+- **화면 `/dev/effects`**(주소 표 `dev_effects`, 부모 dev, 틀 안, dev·admin. 개발자 홈 "데이터 & 생산 에디터" 묶음에 한 줄): 공용 편집기 틀(`editor/content/`) — 왼쪽 목록(찾기·고침/새로 만듦·꺼짐·쓰는 곳 없음·담은 것만·종류, [새 효과]) + 편집 판(구역: 이름·종류 / 지속·중첩 / 상태이상·저항(상태이상만) / 배타 묶음·상한 / 쓰는 곳, 칸마다 팩 값·지금 값 견주기와 [되돌리기]·[팩 값으로]), 담은 변경 막대(검사 상태·메모·[검사]·[모두 취소]·[적용]), 최근 바꿈(효과 줄만, [다시 담기]), [내보내기]. [팩 값으로]·[지우기]는 담았다가 같은 묶음으로 간다(옛 탭과 같다).
+- **주소 매개변수**: `/dev/effects?effect=<ID>`는 그 효과를, `?create=1`은 새 효과 칸을 연다. 쓰는 곳의 아이템은 `/dev/items?item=<ID>`, 스킬은 `/dev/skills?skill=<ID>`(스킬 편집기에 `skill` 검색어를 더했다)로 바로 연다.
+- **아이템 편집기**: [효과 사전] 탭을 없앴다(탭 = 아이템·아이템 분류·대량 도구). 사용 효과 줄마다 [효과 사전에서 열기], 줄 묶음 아래 [새 효과 만들기]와 "옮기면 담은 변경이 남지 않는다" 안내(공용 `EffectRows`에 덧붙일 것 칸 `renderRowExtra`·`footer`만 더함). 최근 바꿈의 효과 줄 [다시 담기]·잠든 효과 줄 버리기는 아이템 편집기에서도 그대로 담은 변경 막대에 든다. 주는 스킬·쓰는 스킬 고리는 그 스킬을 바로 연다(`?skill=`).
+- **서버**: `items.list`에 덮어쓴 효과의 팩 항목 `effectPack`(효과 ID → 팩 항목, 덮어쓴 것만)을 더했다(칸마다 팩 값 견주기). 옛 화면은 읽지 않는다.
+- **조각**: 화면 조각 `EffectDictionaryScreen-*`, 두 편집기가 같이 쓰는 고리 `EffectDictionaryLinks.tsx`(따로 조각이 될 수 있어 같은 앞머리). 미리 캐시 규칙에 `[Ee]ffectDictionary`(vite `globIgnores`·`scripts/pwa-build.mjs` `DEV_ONLY_CHUNK`), 개발 소스 `src/editor/effects/`(`DEV_ONLY_SOURCE`). 효과 사전 화면은 `editor/items/`의 모듈을 가져오지 않는다(같이 쓰면 규칙 밖 이름의 공용 조각이 될 수 있다) — 효과 수치·상태이상 이름은 `editor/effects/effectDictionaryText.ts`로 옮겼다.
+- 시험: `effectDictionaryModel.test.ts`(담기·묶음·거르기·다시 얹기), `itemEdit.db.test.ts`(`effectPack`), `routes.test.ts`, `pwa-build.test.mjs`, `e2e/effects.spec.ts`(개발자 홈에서 열기·고쳐 적용·쓰는 곳 고리·새 효과 만들고 지우기·두 편집기의 고리, 사진 개발 테마 둘 × 1440 + 390). `e2e/items.spec.ts`의 효과 사전 시험은 옮겼다.
+- 상태: 사용자가 화면을 본 뒤 통합 담당이 확정한다(이 절은 위 상태 줄을 바꾸지 않는다).

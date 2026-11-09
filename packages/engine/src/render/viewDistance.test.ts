@@ -46,6 +46,12 @@ describe("가시거리 자동 조절", () => {
     expect(controller.index).toBe(0);
   });
 
+  it("아주 느리면(4fps) 묶음을 늘려서라도 판정해 맨 아래로 내린다", () => {
+    const controller = new ViewDistanceController();
+    run(controller, 60_000, 250, 2);
+    expect(controller.index).toBe(0);
+  });
+
   it("엔진 시간이 크면 프레임 간격이 좋아도 내린다", () => {
     const controller = new ViewDistanceController();
     run(controller, BLOCK_MS * (1 + DOWN_BLOCKS) + 200, 16.7, 14);

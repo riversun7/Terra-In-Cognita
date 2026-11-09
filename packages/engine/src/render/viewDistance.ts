@@ -25,7 +25,7 @@ export const VIEW_DISTANCE_LEVELS: readonly ViewDistanceLevel[] = [
 /** 처음 단계(가운데) — 여유가 있으면 올라가고 없으면 내려간다 */
 export const VIEW_DISTANCE_START_LEVEL = 2;
 
-/** 판정 묶음 길이(ms, 그린 프레임 간격의 합)와 묶음 하나에 필요한 프레임 수(적으면 그 묶음은 버린다) */
+/** 판정 묶음 길이(ms, 그린 프레임 간격의 합)와 묶음 하나의 최소 프레임 수(아주 느리면 프레임이 모일 때까지 묶음을 늘린다) */
 export const BLOCK_MS = 500;
 const MIN_BLOCK_FRAMES = 8;
 /** 여유: 프레임 간격 p95 ≤ 20ms(50fps 이상)이고 엔진 시간 p95 ≤ 6ms */
@@ -86,7 +86,7 @@ export class ViewDistanceController {
     this.frameMs.push(interval);
     this.engineMs.push(Math.max(0, engineMs));
     this.blockMs += interval;
-    if (this.blockMs < BLOCK_MS) return false;
+    if (this.blockMs < BLOCK_MS || this.frameMs.length < MIN_BLOCK_FRAMES) return false;
     return this.closeBlock();
   }
 
@@ -101,7 +101,6 @@ export class ViewDistanceController {
       this.settling = false;
       return false;
     }
-    if (frames.length < MIN_BLOCK_FRAMES) return false;
     const frameP95 = p95(frames);
     const engineP95 = p95(engine);
     if (frameP95 <= UP_FRAME_MS && engineP95 <= UP_ENGINE_MS) {

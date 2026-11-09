@@ -7,8 +7,9 @@
 // - 연결이 다시 맺어지면 바라는 이웃을 다시 구독한다.
 // 지금 2차맵 + 이웃 3장 = 4장 — 서버 한 연결 상한(gateway.ts MAX_MAPS_PER_SOCKET = 4) 안이다. 지도 자료(mapFeed.ts)는 다른 2차맵 메시지를 버린다.
 // 이웃 스냅샷·경로의 유닛 ID는 onUnits로 알린다: 기준 유닛이 이웃에 나타나면 화면이 그 2차맵으로 넘어간다(로딩 없는 2차맵 이동).
-import type { ResultCode } from "@terra/protocol";
-import type { ServerLink } from "../net/serverLink.ts";
+// 이웃마다 모은 유닛 움직임(그 틀)은 onUnitSet으로 알린다: 화면이 지금 2차맵 틀로 옮겨 그린다(unitMerge.ts, 경계 너머 유닛 보기).
+import type { ResultCode, UnitMotionWire } from "@terra/protocol";
+import type { FeatureServerMessage, ServerLink } from "../net/serverLink.ts";
 import { defaultRequestId } from "./mapFeed.ts";
 
 /** 한 번에 구독하는 이웃 수(지금 2차맵 + 3 = 서버 상한 4) */
@@ -23,6 +24,15 @@ export interface NeighbourVisionOptions {
   readonly onExplored: (mapKey: number, bits: Uint8Array | null) => void;
   /** 이웃 2차맵의 스냅샷 조각·경로에 실린 유닛 ID(그 2차맵에 있는 유닛) */
   readonly onUnits?: (mapKey: number, unitIds: readonly number[]) => void;
+  /**
+   * 이웃 2차맵에 지금 있는 유닛(그 틀의 움직임, 서버가 그 구독에 보낸 것 — 내 시야 안·내 유닛). changed = 경로만 바뀐 유닛(null이면 들고 남이
+   * 있다·스냅샷). 구독을 풀면 빈 목록과 null
+   */
+  readonly onUnitSet?: (
+    mapKey: number,
+    units: ReadonlyMap<number, UnitMotionWire>,
+    changed: readonly number[] | null,
+  ) => void;
   readonly nextRequestId?: () => number;
 }
 
@@ -44,6 +54,9 @@ export function startNeighbourVision(options: NeighbourVisionOptions): Neighbour
   /** 바라는 이웃 → 기다리는 구독 요청 번호(보내지 않았거나 답을 받았으면 null) */
   const wanted = new Map<number, number | null>();
   const retries = new Map<number, ReturnType<typeof setTimeout>>();
+  /** 이웃마다 유닛 움직임과 받는 중인 스냅샷 번호 */
+  const unitSets = new Map<number, Map<number, UnitMotionWire>>();
+  const snapshots = new Map<number, number>();
   let stopped = false;
 
   const clearRetry = (mapKey: number): void => {
@@ -62,7 +75,41 @@ export function startNeighbourVision(options: NeighbourVisionOptions): Neighbour
   const unsubscribe = (mapKey: number): void => {
     clearRetry(mapKey);
     wanted.delete(mapKey);
+    snapshots.delete(mapKey);
+    if (unitSets.delete(mapKey)) options.onUnitSet?.(mapKey, new Map(), null);
     if (link.isReady()) link.send({ t: "unsubscribe", id: nextId(), mapKey });
+  };
+
+  /** 스냅샷 조각·경로 묶음을 이웃 유닛 모음에 넣고 알린다 */
+  const collectUnits = (
+    message: Extract<FeatureServerMessage, { t: "map_snapshot" | "unit_paths" }>,
+  ): void => {
+    const key = message.mapKey;
+    let set = unitSets.get(key);
+    if (message.t === "map_snapshot") {
+      // 새 스냅샷이면 처음부터(같은 번호의 다음 조각은 더한다)
+      if (!set || snapshots.get(key) !== message.snapshotId) {
+        set = new Map();
+        unitSets.set(key, set);
+        snapshots.set(key, message.snapshotId);
+      }
+      for (const unit of message.units) set.set(unit.id, unit);
+      options.onUnitSet?.(key, set, null);
+      return;
+    }
+    if (!set) {
+      set = new Map();
+      unitSets.set(key, set);
+    }
+    let joined = false;
+    const changed: number[] = [];
+    for (const unit of message.units) {
+      if (!set.has(unit.id)) joined = true;
+      set.set(unit.id, unit);
+      changed.push(unit.id);
+    }
+    for (const id of message.hidden ?? []) if (set.delete(id)) joined = true;
+    options.onUnitSet?.(key, set, joined ? null : changed);
   };
 
   const off = link.listen((event) => {
@@ -86,6 +133,7 @@ export function startNeighbourVision(options: NeighbourVisionOptions): Neighbour
           message.mapKey,
           message.units.map((unit) => unit.id),
         );
+      if (options.onUnitSet) collectUnits(message);
       return;
     }
     if (message.t !== "result" || message.ok) return;

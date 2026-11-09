@@ -274,6 +274,19 @@ describe("관리자 이동 명령", () => {
     map.stop();
   });
 
+  it("운영자 빠르기(speedFactor): 그 이동만 빠르고 유닛 속도는 그대로", async () => {
+    const { map } = createTestMap();
+    expect(map.addUnit({ id: 1, size: 1, speed: WALK_SPEED, cellX: 10, cellY: 10 })).toBe(true);
+    const result = map.moveUnit(1, center(30, 10), { speedFactor: 10 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await result).toEqual({ ok: true });
+    const info = map.unitInfo(1);
+    expect(info?.motion.speed).toBe(WALK_SPEED * 10);
+    expect(info?.speed).toBe(WALK_SPEED);
+    expect(info && arrivalAt(info.motion)).toBe(START + Math.ceil((20 * 1024 * 1000) / (WALK_SPEED * 10)));
+    map.stop();
+  });
+
   it("없는 유닛 unknown_unit, 막힌 목표 goal_blocked", async () => {
     const { map } = createTestMap();
     map.addUnit({ id: 1, size: 1, speed: WALK_SPEED, cellX: 10, cellY: 10 });

@@ -12,6 +12,7 @@
 import {
   type BuildingWire,
   MAX_PATH_POINTS,
+  MAX_UNIT_SPEED,
   type ResultCode,
   type UnitMotionWire,
   terrainPath,
@@ -271,7 +272,12 @@ export interface SecondMap {
   missingEvents(): number;
   /** 불변 조건 I7: 몸이 건물 칸에 걸친 서 있는 유닛 수 */
   unitsInBuildings(): number;
-  moveUnit(unitId: number, target: Point): Promise<CommandResult>;
+  /** speedFactor = 이 이동 하나의 빠르기 배수(운영자 모드, 기본 1 — 유닛 속도는 그대로) */
+  moveUnit(
+    unitId: number,
+    target: Point,
+    options?: { readonly speedFactor?: number },
+  ): Promise<CommandResult>;
   /** ownerId = 건물 주인 주체(시험 건물은 놓은 사람, 없으면 null) */
   placeBuilding(placement: BuildingPlacement, ownerId?: number | null): CommandResult;
   /** 놓을 수 있나만 본다(놓지 않음 — 폐허 정부 짓기 자리 제안, docs/adr/2026-11-07-ruins-restoration.md) */
@@ -440,6 +446,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     priority: PathPriority,
     nodeBudget: number,
     waiter?: (result: CommandResult) => void,
+    speedFactor = 1,
   ): void => {
     const at = now();
     if (at < arrivalAt(unit.motion)) {
@@ -466,7 +473,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         isCurrent: isCurrent(unit, seq),
       })
       .then(
-        (outcome) => onRoute(unit, seq, to, priority, nodeBudget, outcome, waiter),
+        (outcome) => onRoute(unit, seq, to, priority, nodeBudget, outcome, waiter, speedFactor),
         (error: unknown) => {
           log.error({ err: error, mapKey, unitId: unit.id }, "path request failed");
           if (unit.routeSeq === seq) unit.planning = false;
@@ -483,6 +490,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     nodeBudget: number,
     outcome: PathOutcome,
     waiter: ((result: CommandResult) => void) | undefined,
+    speedFactor = 1,
   ): void => {
     recordPathOutcome(stats.paths, outcome);
     if (units.get(unit.id) !== unit || unit.routeSeq !== seq) {
@@ -499,13 +507,14 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       // 다시 물으면 같은 답이 곧바로 와서 마이크로태스크가 끝없이 돈다(docs/adr/2026-11-07-play-flow.md WP1 9절·WP7). 명령은 unknown_map으로 끝나고
       // 봇은 아래에서 잠시 뒤 다시 깬다
       stats.paths.staleReplans += 1;
-      requestRoute(unit, to, priority, nodeBudget, waiter);
+      requestRoute(unit, to, priority, nodeBudget, waiter, speedFactor);
       return;
     }
     unit.planning = false;
     if (outcome.status === "found") {
       if (outcome.waypoints.length <= MAX_PATH_POINTS && outcome.waypoints.length > 0) {
-        const motion = createMotion({ waypoints: outcome.waypoints, departAtMs: now(), speed: unit.speed });
+        const speed = Math.min(MAX_UNIT_SPEED, Math.max(1, Math.round(unit.speed * speedFactor)));
+        const motion = createMotion({ waypoints: outcome.waypoints, departAtMs: now(), speed });
         setMotion(unit, motion);
         scheduleEvent(unit, "arrive", arrivalAt(motion));
         waiter?.({ ok: true });
@@ -876,12 +885,14 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       }
       return count;
     },
-    moveUnit(unitId, target) {
+    moveUnit(unitId, target, moveOptions) {
       const unit = units.get(unitId);
       if (!unit) return Promise.resolve({ ok: false, code: "unknown_unit" });
       // [임시] 포로·중태는 명령을 받지 않는다. 전용 결과 코드는 전투 화면(L1) 때 프로토콜에 더한다
       if (unavailable(unit.condition, now())) return Promise.resolve({ ok: false, code: "invalid_request" });
-      return new Promise((resolve) => requestRoute(unit, target, "command", COMMAND_NODE_BUDGET, resolve));
+      return new Promise((resolve) =>
+        requestRoute(unit, target, "command", COMMAND_NODE_BUDGET, resolve, moveOptions?.speedFactor),
+      );
     },
     placeBuilding(placement, ownerId = null) {
       if (buildings.size >= MAX_BUILDINGS) return { ok: false, code: "building_limit" };

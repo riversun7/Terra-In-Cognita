@@ -33,6 +33,8 @@ interface Rig {
   readonly visions: number[];
   /** 기기가 보낸 2차맵 사이 이동(travel_start)의 옆 2차맵 키 */
   readonly travels: number[];
+  /** 2차맵마다 마지막 스냅샷의 유닛 ID */
+  readonly snapshotUnits: Map<number, Set<number>>;
   /** 기기에 서버 메시지를 넣는다 */
   inject(message: object): void;
 }
@@ -50,6 +52,7 @@ async function rigSocket(page: Page): Promise<Rig> {
     refused: [],
     visions: [],
     travels: [],
+    snapshotUnits: new Map(),
     inject: (message) => toPage?.(JSON.stringify(message)),
   };
   await page.routeWebSocket(/\/ws$/, (socket) => {
@@ -81,6 +84,13 @@ async function rigSocket(page: Page): Promise<Rig> {
         if (key !== undefined) rig.refused.push(key);
       }
       const units = field(parsed, "units");
+      if (kind === "map_snapshot" && Array.isArray(units)) {
+        const key = Number(field(parsed, "mapKey"));
+        const set =
+          field(parsed, "part") === 0 ? new Set<number>() : (rig.snapshotUnits.get(key) ?? new Set<number>());
+        for (const unit of units) set.add(Number(field(unit, "id")));
+        rig.snapshotUnits.set(key, set);
+      }
       if ((kind === "map_snapshot" || kind === "unit_paths") && Array.isArray(units)) {
         for (const unit of units) {
           if (field(unit, "own") === true)
@@ -153,6 +163,15 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     const map = page.locator(".map-screen[data-map-key]");
     const cyborg = Number(await map.getAttribute("data-cyborg"));
     expect(cyborg).toBeGreaterThan(0);
+    // 옆 2차맵 유닛도 그린다: 엔진 유닛 수 = 지금 2차맵 스냅샷 유닛 + 옆 2차맵 스냅샷 유닛(겹치지 않는 것)
+    const mainUnits = rig.snapshotUnits.get(main) ?? new Set<number>();
+    const nearUnits = [...(rig.snapshotUnits.get(east) ?? new Set<number>())].filter(
+      (id) => !mainUnits.has(id),
+    );
+    if (nearUnits.length > 0)
+      await expect
+        .poll(async () => Number(await map.getAttribute("data-units")), { timeout: 10_000 })
+        .toBeGreaterThan(mainUnits.size);
     // 넘기 전: 캔버스에 표지를 달고 카메라 목표를 잰다
     await page
       .locator(".map-view canvas")

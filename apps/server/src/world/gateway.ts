@@ -41,6 +41,8 @@ type CommandMessage = ClientMessageOf<"move_unit" | "stop_unit" | "place_buildin
 const MAX_PENDING = 16;
 /** 한 연결이 함께 구독할 수 있는 2차맵 수(S1은 1개, 이웃 2차맵 미리 받기를 위해 여유) */
 const MAX_MAPS_PER_SOCKET = 4;
+/** 운영자 모드 이동 빠르기(유닛 속도 × 이 값). 그 이동 하나에만 — 유닛 속도는 그대로 */
+export const OPERATOR_SPEED_FACTOR = 10;
 /** 명령: 사용자별 순간 30개, 초당 10개 (Assumed: 관리자가 손으로 누르는 속도의 몇 배) */
 const COMMAND_LIMIT = { capacity: 30, refillPerMinute: 600 };
 /** 구독: 사용자별 순간 10번, 분당 60번(스냅샷이 수백 KB라 묶는다) */
@@ -186,8 +188,10 @@ function execute(
   message: CommandMessage,
   ownerId: number | null,
   nowMs: number,
+  speedFactor = 1,
 ): Promise<CommandResult> {
-  if (message.t === "move_unit") return map.moveUnit(message.unitId, { x: message.x, y: message.y });
+  if (message.t === "move_unit")
+    return map.moveUnit(message.unitId, { x: message.x, y: message.y }, { speedFactor });
   if (message.t === "stop_unit") return Promise.resolve(stopUnit(map, message.unitId, nowMs));
   if (message.t === "place_building") {
     const { x, y, width, height, rotation } = message;
@@ -214,6 +218,8 @@ export function createWorldGateway(options: {
       let pending = 0;
       let closed = false;
       const subscribed = new Map<number, SecondMap>();
+      /** 전체 보기(운영자 모드)로 구독한 2차맵 — 그 2차맵의 이동 명령은 운영자 빠르기(OPERATOR_SPEED_FACTOR) */
+      const observing = new Set<number>();
       const subscriber: StreamSubscriber = {
         send: (text) => link.send(text),
         bufferedAmount: () => link.bufferedAmount(),
@@ -234,6 +240,7 @@ export function createWorldGateway(options: {
           map?.stream.unsubscribe(subscriber);
           map?.vision.unsubscribe(subscriber);
           subscribed.delete(mapKey);
+          observing.delete(mapKey);
           reply(message.id, { ok: true });
           return;
         }
@@ -257,6 +264,8 @@ export function createWorldGateway(options: {
           // 결과를 먼저 보내고 스냅샷을 보낸다(기기는 ok 다음에 조각들이 온다고 안다)
           reply(message.id, { ok: true });
           subscribed.set(mapKey, map);
+          if (observe) observing.add(mapKey);
+          else observing.delete(mapKey);
           if (observe) {
             map.vision.unsubscribe(subscriber);
             map.stream.subscribe(subscriber);
@@ -295,8 +304,11 @@ export function createWorldGateway(options: {
         if (!commandLimiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
         world.stats.commands += 1;
         const placer = world.ownerOfUser?.(viewer.id) ?? null;
+        // 운영자 모드(전체 보기 구독, 권한은 구독 때 확인)에서 보낸 이동은 훨씬 빠르게(사용자 지적 2026-11-09 "운영자모드에서 이동속도를 훨씬빠르게")
+        const speedFactor =
+          observing.has(mapKey) && canCommandAnyUnit(viewer.roles) ? OPERATOR_SPEED_FACTOR : 1;
         const result = await dedup.run(`${viewer.id}:${mapKey}:${message.id}`, () =>
-          execute(map, message, placer, now()),
+          execute(map, message, placer, now(), speedFactor),
         );
         if (operatorOverride && result.ok && (message.t === "move_unit" || message.t === "stop_unit"))
           options.onOperatorCommand?.(viewer, { t: message.t, mapKey, ...operatorOverride });

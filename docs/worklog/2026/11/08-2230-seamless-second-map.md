@@ -78,5 +78,12 @@
 - 검사: 단위 시험(map·engine 77파일 619개), 화면 시험 seamless 4개(옆 땅 누르기 → travel_start 포함)·map-input·unit-control·map-travel 기능 8개 통과(Verified). `pnpm check`는 이 커밋의 푸시 전 훅. 실제 휴대폰에서 걸어서 넘기는 여전히 보지 않았다(미실행).
 - `SecondaryMapScreen.tsx` 603줄(600줄 경고 — main 합치기로 늘었다).
 
+## 바뀜 2 (사용자 지적 2026-11-09 — 운영자 이동 빠르게, 경계 일자, 옆 유닛 안 보임)
+- 운영자 모드(전체 보기 구독) move_unit 경로 속도 × 10: `apps/server/src/world/gateway.ts`(`OPERATOR_SPEED_FACTOR`, 구독별 전체 보기 기억)·`secondMap.ts`(`moveUnit` speedFactor)·`secondMap.test.ts`. 화면 시험으로는 보지 않았다(미실행 — 서버 단위 시험만).
+- 경계 이음: `neighbourSight.ts`(넓히기 함수 셋)·`.test.ts`, `mapSession.ts`(지금 2차맵 탐사 칸 가로채기·이웃 안개 합).
+- 옆 2차맵 유닛: `unitMerge.ts`·`.test.ts`(새), `neighbourVision.ts`(이웃마다 유닛 모음 `onUnitSet`), `mapSession.ts`(합침), `e2e/seamless.spec.ts`(엔진 유닛 수 = 지금 + 옆).
+- 검사: 단위 시험(map·engine 78파일 623개, 서버 secondMap·gateway 37개), 화면 시험 seamless 5개·unit-control 4개 통과(Verified). 사진: 경계 양쪽이 시야 원으로 이어지고 유닛 33 → 65(옆 유닛 포함).
+- 감수: 넘는 순간 엔진 유닛을 비웠다가 새 2차맵 스냅샷으로 채운다(짧게 사라질 수 있다). 옆 2차맵 건물은 그리지 않는다.
+
 ## 사용자 결정 대기
 - 없음(ADR Q1~Q5 답함).

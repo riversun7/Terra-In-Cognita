@@ -33,3 +33,29 @@ describe("경계 너머 시야", () => {
     expect(unionBits(null, null)).toBeNull();
   });
 });
+
+describe("경계 이음", () => {
+  it("변 가까이 탐사 칸만 골라 옆 틀로 옮기면 경계 너머로 이어진다", async () => {
+    const { edgeExploredPoints, toMainFrame, mainSightBits } = await import("./neighbourSight.ts");
+    // 지금 2차맵: 동쪽 끝 칸(31, 16)과 가운데 칸(16, 16)이 탐사됨 → 가운데는 고르지 않는다
+    const main = new Uint8Array(128);
+    for (const [x, y] of [
+      [31, 16],
+      [16, 16],
+    ] as const) {
+      const index = y * 32 + x;
+      main[index >> 3] = (main[index >> 3] ?? 0) | (1 << (index & 7));
+    }
+    const points = edgeExploredPoints(main);
+    expect(points).toEqual([{ x: 252, y: 132 }]);
+    // 동쪽 이웃 서쪽 끝 칸들이 밝아진다
+    const east = neighbourSightBits(EAST, points);
+    expect(bit(east, 0, 16)).toBe(true);
+    expect(bit(east, 2, 16)).toBe(true);
+    // 이웃 서쪽 끝 탐사 칸(0, 16) → 지금 틀로: 지금 2차맵 동쪽 끝이 밝아진다
+    const back = mainSightBits(toMainFrame(EAST, [{ x: 4, y: 132 }]));
+    expect(bit(back, 31, 16)).toBe(true);
+    expect(bit(back, 29, 16)).toBe(true);
+    expect(bit(back, 28, 16)).toBe(false);
+  });
+});

@@ -3,6 +3,7 @@
 // 이웃 지형 받기·이웃 안개 구독. 옆 2차맵으로 넘으면 화면이 엔진을 rebase하고 이 모음을 멈춘 뒤 새 2차맵으로 다시 켠다(받아 둔 지형을 seed로 넘긴다).
 // - 넘기 신호: 기준 유닛이 구독 중인 이웃 2차맵의 스냅샷·경로에 나타나면 onArrived(그 2차맵). 또 기준 유닛이 변 바로 옆에 있다가 지금 2차맵에서
 //   사라지면 그 변의 이웃(볼 수 없던 이웃은 구독이 거절돼 있어 나타남을 못 본다 — neighbourTap.ts crossedNeighbour).
+// - 옆 2차맵 유닛: 구독 중인 이웃의 유닛 움직임을 지금 2차맵 틀로 옮겨 지금 2차맵 유닛과 함께 엔진에 넣는다(unitMerge.ts).
 // - 이웃 안개 = 그 2차맵 탐사 칸(구독 vision) ∪ 변 가까이 선 내 유닛 시야를 옆 틀로 옮긴 칸(neighbourSight.ts — 1초마다, 경계에서 잘리지 않게).
 import type { SecondMapEngine, TerrainInput } from "@terra/engine";
 import { m } from "../paraglide/messages.js";
@@ -16,9 +17,16 @@ import { startMapFeed } from "./mapFeed.ts";
 import { resultText } from "./mapMessages.ts";
 import { loadUnitGlance } from "./mapUnits.ts";
 import type { NearbyState } from "./nearby/nearbyState.ts";
-import { neighbourSightBits, unionBits } from "./neighbourSight.ts";
+import {
+  edgeExploredPoints,
+  mainSightBits,
+  neighbourSightBits,
+  toMainFrame,
+  unionBits,
+} from "./neighbourSight.ts";
 import { crossedNeighbour } from "./neighbourTap.ts";
 import { startNeighbourVision } from "./neighbourVision.ts";
+import { createUnitMerger } from "./unitMerge.ts";
 import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
 import { neighbourSpots, viewMap, wantsAllNeighbours } from "./secondMapNeighbours.ts";
 import { fetchTerrain } from "./terrainLoader.ts";
@@ -90,9 +98,34 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     }
     return points;
   };
-  /** 받은 이웃마다 안개 = 서버 탐사 칸 ∪ 내 유닛 시야(옆 틀) — 바뀐 것만 엔진에 */
+  /** 지금 2차맵 서버 탐사 칸(받기 전 undefined, 전체 보기면 null)과 그 안개를 넣을 받는 쪽(자료 흐름의 다음 — 카메라 범위·엔진) */
+  let mainServer: Uint8Array | null | undefined;
+  let mainShown = "";
+  let mainSink: FeedSink | null = null;
+  /** 지금 2차맵 안개 = 서버 탐사 칸 ∪ 내 유닛 시야 ∪ 이웃들의 경계 탐사 칸을 이 틀로 넓힌 것(경계 이음) */
+  const pushMainFog = (): void => {
+    if (!mainSink || mainServer === undefined) return;
+    if (mainServer === null) {
+      if (mainShown !== "off") mainSink.setExplored(null);
+      mainShown = "off";
+      return;
+    }
+    // 내 유닛 시야(서버도 같은 규칙으로 밝힌다 — 기다리지 않고 같은 원으로) + 이웃들의 경계 탐사 칸
+    const spread: { x: number; y: number }[] = myPoints();
+    for (const [key, bits] of serverBits) {
+      const spot = spots.find((item) => item.key === key);
+      if (spot) spread.push(...toMainFrame(spot.placement, edgeExploredPoints(bits)));
+    }
+    const bits = unionBits(mainServer, mainSightBits(spread)) ?? mainServer;
+    const signature = bits.join(",");
+    if (signature === mainShown) return;
+    mainShown = signature;
+    mainSink.setExplored(bits);
+  };
+  /** 받은 이웃마다 안개 = 서버 탐사 칸 ∪ 내 유닛 시야(옆 틀) ∪ 지금 2차맵 경계 탐사 칸(옆 틀, 경계 이음) — 바뀐 것만 엔진에 */
   const refreshFog = (): void => {
-    const points = myPoints();
+    const points = [...myPoints(), ...edgeExploredPoints(mainServer ?? null)];
+    pushMainFog();
     for (const key of neighbourLoader.terrains().keys()) {
       const spot = spots.find((item) => item.key === key);
       // 서버 답(탐사 칸·거절)을 받은 이웃만: 넘어온 직후 옛 2차맵(이웃이 됨)은 엔진이 그 탐사 칸을 들고 있다 — 시야만으로 덮어쓰지 않는다
@@ -104,8 +137,15 @@ export function startMapSession(options: MapSessionOptions): MapSession {
       engine.setNeighbourExplored(String(key), bits);
     }
   };
+  // 옆 2차맵 유닛을 지금 2차맵 틀로 옮겨 함께 그린다(구독 중인 이웃만 — 서버가 보낸 것: 내 시야 안·내 유닛)
+  const merger = createUnitMerger();
   const neighbourVision = startNeighbourVision({
     link: serverLink,
+    onUnitSet: (key, units, changed) => {
+      const spot = spots.find((item) => item.key === key);
+      if (!spot || units.size === 0) merger.clearNeighbour(key);
+      else merger.setNeighbour(key, spot.placement, units, changed);
+    },
     onExplored: (key, bits) => {
       serverBits.set(key, bits);
       refreshFog();
@@ -140,11 +180,24 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     nearby,
   });
   const looks = startBuildingLooks(engine, mapKey, { onLooks: (rows) => nearby.setLooks(rows) });
+  /** 지금 2차맵 탐사 칸을 가로채 경계 이음을 더해 넣는다 */
+  const mainFogSink = (next: FeedSink): FeedSink => {
+    mainSink = next;
+    return {
+      ...next,
+      setExplored: (bits) => {
+        mainServer = bits;
+        mainShown = "";
+        pushMainFog();
+        refreshFog();
+      },
+    };
+  };
   const feed = startMapFeed({
     link: serverLink,
     mapKey,
     // 자료 흐름: 채집 덧그림(건물) → 카메라 범위(탐사 비트) → 건물 겉모습(buildingLooks.ts) → 엔진
-    sink: options.tap(gatherSink(looks.sink, gather)),
+    sink: mainFogSink(merger.wrap(options.tap(gatherSink(looks.sink, gather)))),
     loadTerrain: async (url) => {
       const terrain = await fetchTerrain(url);
       mainTerrain = terrain;

@@ -51,3 +51,46 @@ export function unionBits(left: Uint8Array | null, right: Uint8Array | null): Ui
   for (let i = 0; i < VISION_BYTES; i++) out[i] = (left[i] ?? 0) | (right[i] ?? 0);
   return out;
 }
+
+/** 지금 2차맵 틀 그대로(넓히기를 지금 2차맵 안개에 찍을 때) */
+const SAME_FRAME: NeighbourPlacement = { a: 1, b: 0, cc: 0, d: 1, tx: 0, tz: 0 };
+
+/**
+ * 경계 이음(사용자 지적 2026-11-09 "검은맵과 경계선이 1자로 잘못되었잖냐"): 탐사 칸 가운데 변에서 시야 반지름 안에 있는 칸의 가운데(배치 칸).
+ * 서버 탐사 기록은 2차맵마다라 한쪽만 탐사된 곳에서 경계가 자로 그은 듯 갈린다 — 이 점들을 옆 틀로 옮겨 시야처럼 찍으면 경계 너머로 이어진다
+ */
+export function edgeExploredPoints(
+  bits: Uint8Array | null,
+  sightCells = UNIT_SIGHT_CELLS,
+): { x: number; y: number }[] {
+  if (!bits) return [];
+  const radius = Math.ceil(sightCells / VISION_CELL);
+  const points: { x: number; y: number }[] = [];
+  for (let index = 0; index < VISION_SIDE * VISION_SIDE; index++) {
+    if (((bits[index >> 3] ?? 0) & (1 << (index & 7))) === 0) continue;
+    const cx = index % VISION_SIDE;
+    const cy = Math.floor(index / VISION_SIDE);
+    if (cx >= radius && cy >= radius && cx < VISION_SIDE - radius && cy < VISION_SIDE - radius) continue;
+    points.push({ x: cx * VISION_CELL + VISION_CELL / 2, y: cy * VISION_CELL + VISION_CELL / 2 });
+  }
+  return points;
+}
+
+/** 이웃 틀의 점(배치 칸) → 지금 2차맵 틀(놓는 자리 = 이웃 지형 칸 → 지금 지형 칸) */
+export function toMainFrame(
+  placement: NeighbourPlacement,
+  points: readonly { readonly x: number; readonly y: number }[],
+): { x: number; y: number }[] {
+  const { a, b, cc, d, tx, tz } = placement;
+  return points.map((point) => ({
+    x: (a * (point.x / 2) + b * (point.y / 2) + tx) * 2,
+    y: (cc * (point.x / 2) + d * (point.y / 2) + tz) * 2,
+  }));
+}
+
+/** 지금 2차맵 틀의 점들이 지금 2차맵에서 덮는 시야 칸(넓히기) */
+export function mainSightBits(
+  points: readonly { readonly x: number; readonly y: number }[],
+): Uint8Array | null {
+  return neighbourSightBits(SAME_FRAME, points);
+}

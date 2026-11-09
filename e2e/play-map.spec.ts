@@ -17,6 +17,11 @@
 // - 확인 단계에 정찰·이동의 다른 점(정찰은 돌아온다)·비용(걷기 = 없음)·위험 구간 줄(아는 것만)이 보인다.
 // - 가는 동안 1차맵 내 자리 표시가 따라간다(data-me-travel = going, data-me-at이 바뀐다 — WP9은 열 때·도착 때만 받았다).
 // - 정찰이 돌아오는 것·건너뛰는 구간은 시험 세계(띄운 2차맵 6장이 한 줄)와 걷는 시간(2차맵 한 장 약 10분) 때문에 서버 시험이 본다.
+// 바뀜 2026-11-09(사용자 요청 "옆2차맵으로 이동 없애라 그냥 걸어가는거지. 대신 1차맵에서 해당지역으로 이동 같은 기능 추가"):
+// - 1차맵에서 도시가 없는 땅을 누르면 누른 칸 안내 아래 [이곳으로 이동] → 명령 판(대상 = 고른 지역, 이동이 먼저, 보낼 유닛 = 내 사이보그가
+//   먼저) → 서버가 정한 길 → [확정] → 2차맵 화면에 가는 중 한 줄 → 다시 같은 곳 [이곳으로 이동] = 가는 중 판 → [멈추기]. 내 사이보그 2차맵을
+//   누르면 버튼 대신 "2차맵에서 걸어가세요".
+// - 사진: [이곳으로 이동]·명령 판 390 × 파스텔·다크(한국어), 명령 판 390 파스텔 영어.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -180,6 +185,42 @@ async function myTravel(page: Page): Promise<{ state: unknown; stop: unknown; ta
     stop: field(first, "stop"),
     target: Array.isArray(route) ? route.at(-1) : undefined,
   };
+}
+
+/** 화면에서 누를 자리 차례(지도 가운데 띠 — 위 판·아래 판을 피한다, 비율) */
+const TAP_POINTS: readonly (readonly [number, number])[] = [0.38, 0.3, 0.46, 0.24].flatMap((y) =>
+  [0.14, 0.86, 0.32, 0.68, 0.5].map((x) => [x, y] as const),
+);
+
+/** 누른 자리에서 [이곳으로 이동]이 뜨면 명령 판을 연다. 도시가 있는 2차맵·서버가 막은 곳이면 닫고 false */
+async function tryAreaCommand(page: Page, point: { x: number; y: number }): Promise<boolean> {
+  const screen = page.locator(".planet-screen");
+  await page.mouse.click(point.x, point.y);
+  await expect(screen).toHaveAttribute("data-picked", /./, { timeout: 5_000 });
+  // 도시 표시를 눌렀으면 도시 판이 열린다 — 다른 자리로
+  if ((await page.locator(".planet-city:not(.planet-command)").count()) > 0) return false;
+  if ((await screen.getAttribute("data-area")) !== "ok") return false;
+  await page.locator(".planet-area-move").click();
+  const order = page.locator(".planet-command");
+  await expect(order).toHaveAttribute("data-travel", /^(ready|going|blocked)$/, { timeout: 20_000 });
+  if (
+    (await order.getAttribute("data-city")) === null &&
+    (await order.getAttribute("data-travel")) !== "blocked"
+  )
+    return true;
+  await order.locator(".planet-city-actions button").last().click();
+  await expect(order).toHaveCount(0);
+  return false;
+}
+
+/** 내 사이보그 2차맵을 연 1차맵에서 도시가 없는 다른 2차맵 땅을 눌러 명령 판을 연다. 고른 화면 자리를 돌려준다 */
+async function openAreaCommand(page: Page): Promise<{ x: number; y: number }> {
+  const size = page.viewportSize() ?? { width: 390, height: 844 };
+  for (const [rx, ry] of TAP_POINTS) {
+    const point = { x: Math.round(size.width * rx), y: Math.round(size.height * ry) };
+    if (await tryAreaCommand(page, point)) return point;
+  }
+  throw new Error("[이곳으로 이동]을 띄울 도시 없는 땅을 찾지 못했습니다");
 }
 
 test.describe("지도 흐름: 플레이어", () => {
@@ -414,6 +455,122 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
       .toBe(true);
     expect(deviceErrors).toEqual([]);
   });
+});
+
+test.describe("1차맵에서 고른 지역으로 이동(바뀜 2026-11-09): 플레이어", () => {
+  test.use({ account: "player" });
+
+  test("도시 없는 땅 → [이곳으로 이동] → 명령 판(고른 지역·이동·내 사이보그) → [확정] → 2차맵 가는 중 → [멈추기]", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(240_000);
+    await rewriteTrpc(page, { "summary.get": hideSummary });
+    await page.goto("/");
+    const mine = await myMapKey(page);
+    await openPlanet(page, `?key=${mine}`);
+    const screen = page.locator(".planet-screen");
+    // 처음은 가장 가까운 단계(5/5)
+    await expect(screen).toHaveAttribute("data-zoom-stage", "5");
+    await expect(screen).toHaveAttribute("data-me", mine);
+    // 가운데(내 사이보그 2차맵)를 누르면 버튼 대신 "2차맵에서 걸어가세요"
+    const size = page.viewportSize() ?? { width: 390, height: 844 };
+    await page.mouse.click(Math.round(size.width / 2), Math.round(size.height * 0.38));
+    await expect(screen).toHaveAttribute("data-picked", /./, { timeout: 5_000 });
+    if ((await screen.getAttribute("data-area")) === "same_map") {
+      await expect(page.locator(".planet-area-note")).toHaveText(message("ko", "world_area_same_map"));
+      await expect(page.locator(".planet-area-move")).toHaveCount(0);
+    }
+
+    const point = await openAreaCommand(page);
+    const order = page.locator(".planet-command");
+    await expect(order).toHaveAttribute("data-order", "move");
+    await expect(order).toHaveAttribute("data-travel", "ready");
+    const target = (await order.getAttribute("data-target-map")) ?? "";
+    expect(target).toMatch(/^\d+$/);
+    expect(target).not.toBe(mine);
+    await expect(order).toContainText(message("ko", "world_command_area_plain"));
+    expect(Number(await order.getAttribute("data-route-maps"))).toBeGreaterThanOrEqual(2);
+    const plan = order.locator(".planet-command-plan");
+    await expect(plan).toContainText(message("ko", "world_travel_cost_walk"));
+    // 보낼 유닛: 처음은 내 사이보그(유닛이 여럿이면 고르는 줄, 하나면 "내 사이보그" 한 줄)
+    const cyborg = String(field(field(await trpcData(page, "world.myPosition"), "position"), "unitId"));
+    await expect(order).toHaveAttribute("data-unit", cyborg);
+    const unitButtons = order.locator(".planet-command-unit");
+    if ((await unitButtons.count()) > 1) {
+      await expect(order.locator(`.planet-command-unit[data-unit="${cyborg}"]`)).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    } else {
+      await expect(order).toContainText(message("ko", "world_command_party_cyborg"));
+    }
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(await smallTapTargets(page)).toEqual([]);
+
+    // [확정] → 가는 중
+    await order.locator(".planet-command-confirm").click();
+    await expect(order).toHaveAttribute("data-travel", "going", { timeout: 15_000 });
+    expect(await myTravel(page)).toEqual({ state: "going", stop: null, target: Number(target) });
+
+    // 2차맵 화면(내 사이보그를 따라 연다): 가는 중 한 줄
+    await page.goto("/map");
+    const map = page.locator(".map-screen[data-map-key]");
+    await expect(map).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
+    await expect(map).toHaveAttribute("data-map-key", mine);
+    await expect(map).toHaveAttribute("data-travel", /^1\/\d+$/, { timeout: 15_000 });
+    await expect(page.locator(".map-travel")).toBeVisible();
+
+    // 같은 1차맵·같은 자리 → [이곳으로 이동] = 가는 중 판 → [멈추기]
+    await openPlanet(page, `?key=${mine}`);
+    await page.mouse.click(point.x, point.y);
+    await expect(screen).toHaveAttribute("data-area", "ok", { timeout: 5_000 });
+    await page.locator(".planet-area-move").click();
+    await expect(order).toHaveAttribute("data-target-map", target);
+    await expect(order).toHaveAttribute("data-travel", "going", { timeout: 15_000 });
+    await stopTravel(page);
+    expect(await myTravel(page)).toEqual({ state: "stopped", stop: "cancelled", target: Number(target) });
+    expect(await myMapKey(page)).toBe(mine);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("1차맵에서 고른 지역으로 이동 사진", () => {
+  test.use({ account: "player" });
+  const cases: readonly { theme: Theme; language: Language }[] = [
+    { theme: "pastel", language: "ko" },
+    { theme: "dark", language: "ko" },
+    { theme: "pastel", language: "en" },
+  ];
+  for (const { theme, language } of cases) {
+    test.describe(`390 ${theme} ${language}`, () => {
+      test.use({ ...VIEWPORTS.phone, theme, language });
+
+      test(`[이곳으로 이동]·명령 판 (390·${theme}·${language})`, async ({ page, deviceErrors }) => {
+        test.setTimeout(150_000);
+        await rewriteTrpc(page, { "summary.get": hideSummary });
+        await page.goto("/");
+        const mine = await myMapKey(page);
+        await openPlanet(page, `?key=${mine}`);
+        const point = await openAreaCommand(page);
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `planet-area-command-390-${theme}-${language}`);
+        if (language !== "ko") return;
+        // 닫고 같은 자리 = 누른 칸 안내 + [이곳으로 이동]
+        await page
+          .locator(".planet-command")
+          .getByRole("button", { name: message(language, "world_city_close") })
+          .click();
+        await page.mouse.click(point.x, point.y);
+        await expect(page.locator(".planet-area-move")).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator(".planet-area-move")).toHaveText(message(language, "world_area_move"));
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `planet-area-button-390-${theme}`);
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
 });
 
 test.describe("도시 안개·들어가기·카메라(WP7): 전체 보기 계정", () => {

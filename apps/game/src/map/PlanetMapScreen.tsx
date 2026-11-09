@@ -5,6 +5,9 @@
 // WP7: 도시는 서버가 아는 도시만 준다(안개, 514). 들어갈 때 고른 곳(도시 시청·화면 가운데 배치 칸)을 ?at=로 넘긴다(515). 볼 수 없는 맵의
 // 도시는 [정찰 보내기] → 1차맵 명령 판(PlanetCommandPanel, 513) → [확정]이면 내 사이보그가 이웃 2차맵을 지나 걸어간다(WP9, 571 가).
 // WP11: 가는 동안 내 자리 표시가 따라간다(useMyTravel — world.travels의 지금 자리, 건너뛰는 중이면 곧은 선 위 자리).
+// 바뀜 2026-11-09(사용자 요청 "옆2차맵으로 이동 없애라 그냥 걸어가는거지. 대신 1차맵에서 해당지역으로 이동 같은 기능 추가"): 땅을 누르면
+// 누른 칸 안내 아래 [이곳으로 이동] → 같은 1차맵 명령 판(대상 = 누른 자리의 2차맵·배치 칸, 이동이 먼저, commandTarget.ts). 바다·내 사이보그가
+// 이미 있는 2차맵이면 버튼 대신 까닭 한 줄.
 // 처음 볼 곳: ?planet-view= > ?key=(그 2차맵) > 내 사이보그 자리 > 엔진 기본.
 // 타일은 서버 이진 그대로 엔진에 넘기고 메시 워커가 푼다(planetSource.ts, ADR 36 "서버 굽기·전송").
 // 앱 화면 흐름(홈·아래 탭)이 정해지면 이 화면을 그곳으로 옮긴다: onClose·monitor만 받는다.
@@ -25,6 +28,7 @@ import {
   type PlanetProjector,
   type PlanetStats,
   type PlanetStatus,
+  WATER_BITS,
   createPlanetEngine,
   mapKeyAtLatLon,
   placementAtLatLon,
@@ -60,6 +64,14 @@ import { type LoadPhase, type TileProblem, screenNotice } from "./planetNotice.t
 import { clusterView, focusView } from "./planetFocus.ts";
 import { PlanetCityPanel } from "./PlanetCityPanel.tsx";
 import { PlanetCommandPanel } from "./PlanetCommandPanel.tsx";
+import {
+  type CommandTarget,
+  areaCheck,
+  areaCheckText,
+  areaTarget,
+  cityTarget,
+  commandKey,
+} from "./commandTarget.ts";
 import { PlanetPerfPanel } from "./PlanetPerfPanel.tsx";
 import { PlanetSystemView } from "./PlanetSystemView.tsx";
 import { ZoomLadder } from "./ZoomLadder.tsx";
@@ -125,7 +137,12 @@ function PlanetMapView({
   const [stats, setStats] = useState<PlanetStats | null>(null);
   const [layer, setLayer] = useState<PlanetLayer>("terrain");
   const [exaggeration, setExaggeration] = useState(DEFAULT_EXAGGERATION);
-  const [picked, setPicked] = useState<{ cell: PickedCell | null; lines: string[] } | null>(null);
+  // 누른 칸: 안내 줄과 땅 이름(바이옴 — 고른 지역 명령 판의 대상 이름)
+  const [picked, setPicked] = useState<{
+    cell: PickedCell | null;
+    lines: string[];
+    ground?: string | null;
+  } | null>(null);
   // 운영진(gm·admin·dev)만 고도 과장 막대를 본다. 성능 판은 PlanetPerfPanel이 스스로 가린다
   const staff = useStaffView();
   // 지도 흐름: 도시·국가(world.cities), 내 자리, 고른 도시, 행성 면 레벨(가운데 2차맵 키)
@@ -136,8 +153,8 @@ function PlanetMapView({
   const [world, setWorld] = useState<WorldCitiesResponse | null>(null);
   const [me, setMe] = useState<WorldPosition | null>(null);
   const [cityId, setCityId] = useState<number | null>(null);
-  // 고른 도시의 판 대신 1차맵 명령 판(볼 수 없는 맵의 [정찰 보내기])
-  const [commanding, setCommanding] = useState(false);
+  // 1차맵 명령 판의 대상(도시 판 [정찰 보내기] 또는 누른 지역의 [이곳으로 이동]). 있으면 도시 판·누른 칸 안내 대신 명령 판
+  const [command, setCommand] = useState<CommandTarget | null>(null);
   const [planet, setPlanet] = useState<{ faceLevel: number; radiusM: number } | null>(null);
   // 확대 단계(엔진이 바뀔 때 알린다)와 항성계 보기(1단계보다 더 줄였을 때)
   const [zoomStage, setZoomStage] = useState(0);
@@ -157,7 +174,7 @@ function PlanetMapView({
       () => undefined,
     );
     const reached = reachedMap(event);
-    if (reached !== null && reached === commandMapRef.current) setCommanding(false);
+    if (reached !== null && reached === commandMapRef.current) setCommand(null);
   }, []);
   const { travel, refresh: refreshTravel } = useMyTravel(me?.unitId ?? null, onTravelEvent);
   // 같은 값이면 같은 객체(덧그림이 바뀐 때만 다시 그린다)
@@ -230,11 +247,13 @@ function PlanetMapView({
             ...(skyParams.benchRepeat === null ? {} : { gpuBenchRepeat: skyParams.benchRepeat }),
             onStatus: setStatus,
             onPick: (cell) => {
-              // 땅을 누르면 도시 판을 닫고 그 칸을 본다
+              // 땅을 누르면 도시 판·명령 판을 닫고 그 칸을 본다
               setCityId(null);
+              setCommand(null);
               setPicked({
                 cell,
                 lines: cell ? cellLines(cell, (id) => names.get(id) ?? null) : [m.planet_cell_none()],
+                ground: cell ? (names.get(cell.biome) ?? null) : null,
               });
             },
             onOverlay: (projector) => overlayDraw.current?.(projector),
@@ -307,7 +326,7 @@ function PlanetMapView({
   };
   const cities = world?.status === "ready" ? world.cities : [];
   const city = cities.find((entry) => entry.id === cityId) ?? null;
-  const commandMapKey = commanding && city ? city.mapKey : null;
+  const commandMapKey = command?.mapKey ?? null;
   useEffect(() => {
     commandMapRef.current = commandMapKey;
   }, [commandMapKey]);
@@ -343,6 +362,17 @@ function PlanetMapView({
   const shown = screenNotice(load, tileProblem, status);
   const camera = stats?.camera;
   const cell = picked?.cell ?? null;
+  // 누른 지역으로 보내기(바뀜 2026-11-09): 누른 자리의 2차맵·배치 칸. 바다·내 사이보그 2차맵·보낼 유닛 없음이면 버튼을 감춘다
+  const area = areaCheck(
+    cell && planet ? placementAtLatLon(cell.latDeg, cell.lonDeg, planet.faceLevel) : null,
+    cell !== null && (cell.water & WATER_BITS.ocean) !== 0,
+    shownMe?.mapKey ?? null,
+  );
+  const areaNote = areaCheckText(area);
+  const moveToArea = (): void => {
+    if (area.kind !== "ok" || !world) return;
+    setCommand(areaTarget(area.place, cities, world.factions, picked?.ground ?? null));
+  };
   const firstMs = stats?.firstDisplayMs ?? null;
   const sky = stats?.sky;
 
@@ -424,7 +454,8 @@ function PlanetMapView({
       data-picked={cell ? `${cell.face},${cell.mapLevel},${cell.i},${cell.j}` : undefined}
       data-cities={world ? cities.length : undefined}
       data-city={city?.id}
-      data-commanding={commanding && city ? "true" : undefined}
+      data-commanding={command ? "true" : undefined}
+      data-area={cell ? area.kind : undefined}
       data-me={shownMe ? shownMe.mapKey : undefined}
       data-me-at={shownMe ? `${fixed(shownMe.latDeg, 5)},${fixed(shownMe.lonDeg, 5)}` : undefined}
       data-me-travel={travel?.state === "going" ? (travel.hidden ? "hidden" : "going") : undefined}
@@ -444,7 +475,7 @@ function PlanetMapView({
           selected={cityId}
           onSelect={(next) => {
             setCityId(next.id);
-            setCommanding(false);
+            setCommand(null);
           }}
           onZoomTo={zoomTo}
           register={registerOverlay}
@@ -483,36 +514,51 @@ function PlanetMapView({
         </div>
       ) : null}
       <footer className="map-hud map-hud-bottom planet-bottom" hidden={systemView}>
-        {city && world && commanding ? (
+        {command && world ? (
           <PlanetCommandPanel
-            city={city}
+            key={commandKey(command)}
+            target={command}
             factions={world.factions}
             me={me}
             travel={travel}
             onTravelChanged={refreshTravel}
-            onClose={() => setCommanding(false)}
+            onClose={() => setCommand(null)}
           />
         ) : null}
-        {city && world && !commanding ? (
+        {city && world && !command ? (
           <PlanetCityPanel
             city={city}
             factions={world.factions}
             mine={world.myFactionId === city.factionId}
             onEnter={(target) => enterMap(target.mapKey, { x: target.cellX, y: target.cellY })}
-            onScout={() => setCommanding(true)}
+            onScout={() => setCommand(cityTarget(city, world.factions))}
             canSend={me !== null && me.mapKey !== city.mapKey}
             onClose={() => setCityId(null)}
           />
         ) : null}
-        <div className="map-panel planet-readout" role="status" hidden={city !== null}>
-          {(picked?.lines ?? [m.planet_hint()]).map((line, index) => (
-            // 같은 문장이 두 번 나올 수 있어 순서도 키에 넣는다
-            <p key={`${index}-${line}`}>{line}</p>
-          ))}
-          {layer === "climate" ? <p className="planet-legend">{m.planet_climate_legend()}</p> : null}
-          {/* 지금 실패한 타일만(다시 받아 오면 사라진다). 판이 바뀐 안내가 떠 있으면 그 안내가 대신한다 */}
-          {stats && stats.tilesFailed > 0 && tileProblem !== "not_found" ? (
-            <p className="planet-legend">{m.planet_tile_errors({ count: stats.tilesFailed })}</p>
+        <div className="map-panel planet-readout" hidden={city !== null || command !== null}>
+          <div role="status">
+            {(picked?.lines ?? [m.planet_hint()]).map((line, index) => (
+              // 같은 문장이 두 번 나올 수 있어 순서도 키에 넣는다
+              <p key={`${index}-${line}`}>{line}</p>
+            ))}
+            {layer === "climate" ? <p className="planet-legend">{m.planet_climate_legend()}</p> : null}
+            {/* 지금 실패한 타일만(다시 받아 오면 사라진다). 판이 바뀐 안내가 떠 있으면 그 안내가 대신한다 */}
+            {stats && stats.tilesFailed > 0 && tileProblem !== "not_found" ? (
+              <p className="planet-legend">{m.planet_tile_errors({ count: stats.tilesFailed })}</p>
+            ) : null}
+            {areaNote ? <p className="planet-legend planet-area-note">{areaNote}</p> : null}
+          </div>
+          {area.kind === "ok" && world ? (
+            <div className="planet-jump planet-area">
+              <button
+                type="button"
+                className="button-small button-primary planet-area-move"
+                onClick={moveToArea}
+              >
+                {m.world_area_move()}
+              </button>
+            </div>
           ) : null}
         </div>
         <div className="map-panel planet-controls">

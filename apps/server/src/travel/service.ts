@@ -30,6 +30,7 @@ import {
   arrivalAt,
   positionAt,
 } from "@terra/sim";
+import { MAX_UNIT_SPEED } from "@terra/protocol";
 import type { WorldTravelProblem, WorldTravelStop } from "@terra/shared/worldMap";
 import { lastPoint } from "../world/mapGeometry.ts";
 import type { QueryPool } from "../world/persist/load.ts";
@@ -87,6 +88,15 @@ export type {
 export const RECENT_MS = 10 * 60_000;
 /** 길 찾기가 밀렸을 때(busy) 그 구간을 다시 해 보기까지(ms, 다음 구간·부팅 복구만 — 보내기 명령은 busy로 답한다) */
 export const RETRY_MS = 2_000;
+/**
+ * 걷는 빠르기 × 배수(운영자 모드 길, 사용자 지적 2026-11-09 "운영자모드에서 인접 2차맵을 목적지로 선택시 원래 속도로 느려진다").
+ * 2차맵 이동 명령(secondMap.ts onRoute)과 같은 식이다
+ */
+export function walkSpeed(speed: number, factor: number): number {
+  if (factor === 1) return speed;
+  return Math.min(MAX_UNIT_SPEED, Math.max(1, Math.round(speed * factor)));
+}
+
 /** setTimeout 지연 상한(약 24.8일). 더 먼 확인은 깨어나서 다시 건다 */
 const MAX_TIMER_MS = 0x7fff_ffff;
 
@@ -281,7 +291,9 @@ export function createTravelService(deps: TravelDeps): TravelService {
       schedule(journey, at);
       return { ok: true };
     }
-    const result = await map.moveUnit(journey.unitId, anchorCenter(cell.x, cell.y, info.size));
+    const result = await map.moveUnit(journey.unitId, anchorCenter(cell.x, cell.y, info.size), {
+      speedFactor: journey.speedFactor,
+    });
     if (journeys.get(journey.unitId) !== journey || journey.seq !== seq) return fail("busy");
     if (!result.ok) {
       const code = commandCode(result.code);
@@ -346,7 +358,8 @@ export function createTravelService(deps: TravelDeps): TravelService {
     const row = map.transferOut(journey.unitId);
     if (!row) return false;
     const exit = lastPoint(info.motion);
-    const duration = travelMs(hop.distance, info.speed);
+    const speed = walkSpeed(info.speed, journey.speedFactor);
+    const duration = travelMs(hop.distance, speed);
     journey.hidden = {
       row,
       startMs: Math.min(now(), untilMs - duration),
@@ -354,7 +367,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
       hop: { ...hop, from: journey.leg, to: journey.leg + (hop.to - hop.from) },
       exit,
       size: info.size,
-      speed: info.speed,
+      speed,
       cancelled: false,
     };
     journey.leg += 1;
@@ -373,7 +386,15 @@ export function createTravelService(deps: TravelDeps): TravelService {
     }
     settleBefore(journey);
     explore(journey, map, info.motion);
-    if (!conceal(journey, map, info, hop, now() + travelMs(hop.distance, info.speed))) {
+    if (
+      !conceal(
+        journey,
+        map,
+        info,
+        hop,
+        now() + travelMs(hop.distance, walkSpeed(info.speed, journey.speedFactor)),
+      )
+    ) {
       finish(journey, "stopped", "interrupted");
       return;
     }
@@ -479,7 +500,8 @@ export function createTravelService(deps: TravelDeps): TravelService {
     journey.leg = 0;
     journey.target = { x: origin.x, y: origin.y };
     const back = planLegs(contextOf(journey, info.size), positionAt(info.motion, now()));
-    journey.arriveAtMs = now() + (back.ok ? travelMs(back.distance, info.speed) : 0);
+    journey.arriveAtMs =
+      now() + (back.ok ? travelMs(back.distance, walkSpeed(info.speed, journey.speedFactor)) : 0);
     store.save(journey);
     log.info({ unitId: journey.unitId, scouted: map.mapKey, maps: route.length }, "travel: scout turns back");
     void beginLeg(journey, true);
@@ -608,7 +630,9 @@ export function createTravelService(deps: TravelDeps): TravelService {
     const info = mapKey === undefined ? undefined : maps.get(mapKey)?.unitInfo(journey.unitId);
     if (!info) return journey.arriveAtMs;
     const rest = planLegs(contextOf(journey, info.size, journey.leg), positionAt(info.motion, at));
-    return rest.ok ? at + travelMs(rest.distance, info.speed) : journey.arriveAtMs;
+    return rest.ok
+      ? at + travelMs(rest.distance, walkSpeed(info.speed, journey.speedFactor))
+      : journey.arriveAtMs;
   };
 
   return {
@@ -634,7 +658,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
       };
     },
 
-    async start(userId, request) {
+    async start(userId, request, startOptions) {
       if (stopped || !deps.ready()) return fail("busy");
       const found = ownUnit(userId, request.unitId);
       if ("problem" in found) return fail(startCode(found.problem));
@@ -650,6 +674,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
       }
       recent.delete(found.id);
       const position = positionAt(found.info.motion, at);
+      const speedFactor = startOptions?.speedFactor ?? 1;
       const journey: Journey = {
         unitId: found.id,
         ownerId: found.ownerId,
@@ -659,7 +684,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
         leg: 0,
         target: { x: request.x, y: request.y },
         startedAtMs: at,
-        arriveAtMs: at + travelMs(planned.distance, found.info.speed),
+        arriveAtMs: at + travelMs(planned.distance, walkSpeed(found.info.speed, speedFactor)),
         origin: { mapKey: found.map.mapKey, ...anchorOf(position, found.info.size) },
         scoutedMapKey: null,
         hiddenUntilMs: null,
@@ -667,6 +692,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
         motion: null,
         checkAtMs: null,
         hidden: null,
+        speedFactor,
       };
       journeys.set(found.id, journey);
       store.save(journey);
@@ -746,7 +772,15 @@ export function createTravelService(deps: TravelDeps): TravelService {
           store.remove(row.unitId);
           continue;
         }
-        const journey: Journey = { ...row, leg, seq: 0, motion: null, checkAtMs: null, hidden: null };
+        const journey: Journey = {
+          ...row,
+          leg,
+          seq: 0,
+          motion: null,
+          checkAtMs: null,
+          hidden: null,
+          speedFactor: 1,
+        };
         journeys.set(row.unitId, journey);
         resumed += 1;
         // 건너뛰던 중: 유닛은 사라진 자리(변 끝)에 다시 놓였다 → 다시 숨기고 남은 시간을 기다린다

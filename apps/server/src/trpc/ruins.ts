@@ -21,7 +21,7 @@ export const ruinsRouter = router({
   /** 폐허 목록·주인·복원 사업(목표·모인 값·내 몫·지분 미리 셈)·정부 짓기 자리와 재료·내 잔고. dev·admin은 개발 시험(폐허 만들기)을 쓴다 */
   overview: signedInProcedure.query(({ ctx }) => {
     const services = ctx.ruins?.();
-    const devGrant = rolesAllow(ctx.viewer.roles, { secondMap: ["dev-spawn"] });
+    const devGrant = rolesAllow(ctx.viewer.roles, { secondMap: ["dev-test"] });
     return services?.overview({ id: ctx.viewer.id, devGrant }, ctx.now()) ?? notReady(ctx.now(), devGrant);
   }),
 });

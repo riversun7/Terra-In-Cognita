@@ -281,6 +281,9 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
       "assets/EffectDictionaryLinks-E5f6X7d8.js",
       "assets/BuildingEditorScreen-B1u2I3l4.js",
       "assets/BuildingEditorScreen-B1u2I3l4.css",
+      "assets/buildingEditorPreview-B7p8V9w0.js",
+      "assets/GatherTierScreen-G1t2T3s4.js",
+      "assets/GatherTierScreen-G1t2T3s4.css",
       "assets/CreatureEditorScreen-C1r2E3a4.js",
       "assets/CreatureEditorScreen-C1r2E3a4.css",
       "assets/contentEditorFields-C1e2F3d4.js",
@@ -391,6 +394,10 @@ describe("미리 캐시하는 조각의 소스(DEV_ONLY_SOURCE)", () => {
     expect(DEV_ONLY_SOURCE.test("../../src/editor/tuning/settingsCells.json")).toBe(true);
     expect(DEV_ONLY_SOURCE.test("../../src/settings/SettingsPage.tsx")).toBe(false);
     expect(DEV_ONLY_SOURCE.test("../../src/editor/effects/EffectDictionaryScreen.tsx")).toBe(true);
+    // 건물 하나 미리 보기(건물 편집기만): 지도 화면이 쓰는 건물 그리기(buildingView.ts)는 밖
+    expect(DEV_ONLY_SOURCE.test("../../../../packages/engine/src/buildings/buildingPreview.ts")).toBe(true);
+    expect(DEV_ONLY_SOURCE.test("../../../../packages/engine/src/buildings/buildingView.ts")).toBe(false);
+    expect(DEV_ONLY_SOURCE.test("../../src/editor/gatherTiers/GatherTierScreen.tsx")).toBe(true);
   });
 });
 
@@ -411,6 +418,7 @@ describe("개발자 도구 조각 이름(DEV_ONLY_CHUNK가 기대는 규칙)", (
         "apps/game/src/editor/items/ItemEditorScreen.tsx",
         "apps/game/src/editor/effects/EffectDictionaryScreen.tsx",
         "apps/game/src/editor/buildings/BuildingEditorScreen.tsx",
+        "apps/game/src/editor/gatherTiers/GatherTierScreen.tsx",
         "apps/game/src/editor/battleReplayLab/BattleReplayLabScreen.tsx",
       ]),
     );

@@ -191,6 +191,29 @@ describe("2차맵 사이 이동", () => {
     r.travel.stop();
   });
 
+  it("운영자 빠르기 배수로 보낸 길은 넘은 뒤 구간까지 그 배수로 걷고, 도착 예상도 그만큼 짧다", async () => {
+    const r = rig();
+    placeMine(r, 250, 100);
+    const distance = (5 + 255 + 10) * CELL_UNITS;
+    const fast = WALK_SPEED * 10;
+    const result = await r.travel.start(
+      USER,
+      { unitId: 1, mapKey: K[2] ?? 0, x: 10, y: 100, kind: "move" },
+      { speedFactor: 10 },
+    );
+    expect(result).toEqual({ ok: true, maps: 3, arriveAt: START + Math.ceil((distance * 1000) / fast) });
+    const first = mapAt(r, 0).unitInfo(1);
+    expect(first?.motion.speed).toBe(fast);
+    // 유닛 속도는 그대로(그 이동 하나만 빠르다)
+    expect(first?.speed).toBe(WALK_SPEED);
+    // 변 끝에서 넘은 뒤 다음 구간도 같은 배수
+    const crossAt = first ? arrivalAt(first.motion) : 0;
+    await vi.advanceTimersByTimeAsync(crossAt - Date.now() + 1);
+    expect(whereIs(r, 1)).toBe(1);
+    expect(mapAt(r, 1).unitInfo(1)?.motion.speed).toBe(fast);
+    r.travel.stop();
+  });
+
   it("591 나: 정찰은 목표에 닿으면 출발한 자리로 돌아오고, 본 2차맵에 탐사 기록이 남는다(구독하지 않아도)", async () => {
     const r = rig();
     placeMine(r, 250, 100);

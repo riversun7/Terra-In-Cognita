@@ -1,406 +1,351 @@
-// 분류 자료 칸(설계안 2.6·3.5) — 중분류(대분류·차례·보관 창고·식품·식재료 계열)·태그·무기 종류(칸·차례)를 고치고 새로 만든다. 고친 것은
-// 아이템과 같은 담은 변경 묶음에 들어가 [적용] 한 번에 간다(같은 덮어쓰기 층·판). 팩 항목은 [팩 값으로], 만든 항목은 [지우기](ID 은퇴).
-import {
-  FOOD_FAMILY_IDS,
-  ITEM_CATEGORY_IDS,
-  ITEM_LIMITS,
-  STORAGE_KIND_IDS,
-  type ItemEditorListResponse,
-  type ItemTagJson,
-  type SubcategoryJson,
-  type TaxonomyRow,
-  type WeaponTypeJson,
-} from "@terra/shared/itemEditor";
-import { type ReactNode, useId, useState } from "react";
+// [아이템 분류] 탭(2026-11-09 분류 나무, 사용자 "중분류랑 무기 종류가 왜 같이 있냐?") — [아이템] 탭과 같은 대분류 타일 → 분류 나무
+// (대분류 → 중분류 → 무기 종류, 마디마다 든 아이템 수) → 고른 마디(칸·든 아이템·그 자리의 [새로 만들기]). 태그는 나무의 단계가 아니라
+// 아래 따로 붙는 이름표 판이다. 자료 모양 그대로 보이고, 자료가 단계를 섞은 곳(보조 칸 종류·칸으로 묶인 무기 종류·중분류 없는 아이템)은
+// 표시와 기획 질문 번호를 단다(docs/questions/2026-11-09-item-classes.md 895~899). 나무 계산은 itemTree.ts(시험 itemTree.test.ts).
+import type { ItemCategoryId, ItemEditorListResponse } from "@terra/shared/itemEditor";
+import { type ReactNode, useState } from "react";
 import { m } from "../../paraglide/messages.js";
-import { CheckField, NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
-import { CONTENT_ID_PATTERN, sameJson, suggestId } from "../content/contentEditorModel.ts";
-import { CATEGORY_TEXT, FAMILY_TEXT, ORIGIN_TEXT, STORAGE_TEXT } from "./itemMessages.ts";
-import type { Stage, Staged, TaxonomyCategory, TaxonomyJson } from "./itemModel.ts";
-import "./itemList.css";
+import { ItemCategoryTiles } from "./ItemCategoryTiles.tsx";
+import { TaxonomyNode } from "./ItemTaxonomyNode.tsx";
+import { TaxonomySection } from "./ItemTaxonomyFields.tsx";
+import { CategoryIcon } from "./itemIcons.tsx";
+import { CATEGORY_TEXT } from "./itemMessages.ts";
+import type { ItemQuery, Stage, Staged, TaxonomyCategory, TaxonomyJson } from "./itemModel.ts";
+import {
+  type KindNode,
+  type MajorNode,
+  type TaxEntry,
+  type TreeNodeRef,
+  buildItemTree,
+  findKind,
+  findSub,
+  isOffhandKind,
+  isSubcategoryJson,
+  isWeaponTypeJson,
+  taxEntries,
+  treeCounts,
+  treeItems,
+} from "./itemTree.ts";
+import "./itemTree.css";
 
-type Entry = TaxonomyJson;
-type Named = TaxonomyJson;
-
-const TITLE: Readonly<Record<TaxonomyCategory, () => string>> = {
-  item_subcategories: m.dev_items_tax_subcategories,
-  item_tags: m.dev_items_tax_tags,
-  weapon_types: m.dev_items_tax_weapon_types,
-};
-
-/** 새 항목 틀(켠 채로: 분류 자료는 그 자체로 세계에 나오지 않는다) */
-function templateOf(category: TaxonomyCategory, id: string, name: { ko: string; en: string }): Named {
-  if (category === "item_subcategories")
-    return { id, name, major: "raw", enabled: true } satisfies SubcategoryJson;
-  if (category === "weapon_types")
-    return { id, name, slot: "weapon", enabled: true } satisfies WeaponTypeJson;
-  return { id, name, enabled: true } satisfies ItemTagJson;
+/** 담은 변경 막대에서 분류 자료를 누르면 그 마디를 연다(at = 누른 때, 같은 항목을 또 눌러도 다시 연다) */
+export interface TaxonomyFocus {
+  readonly category: TaxonomyCategory;
+  readonly id: string;
+  readonly at: number;
 }
 
-/** 새 항목 칸(이름 ko·en, 영어 이름에서 ID 제안). 효과 사전 탭도 쓴다 */
-export function NewEntryForm({
-  taken,
-  onCreate,
-}: {
-  taken: ReadonlySet<string>;
-  onCreate: (id: string, name: { ko: string; en: string }) => void;
-}) {
-  const [ko, setKo] = useState("");
-  const [en, setEn] = useState("");
-  const [typedId, setTypedId] = useState<string | null>(null);
-  const id = typedId ?? suggestId(en, taken);
-  const idProblem =
-    id === ""
-      ? undefined
-      : !CONTENT_ID_PATTERN.test(id)
-        ? m.dev_items_new_id_invalid()
-        : taken.has(id)
-          ? m.dev_items_new_id_taken()
-          : undefined;
-  const ok = id !== "" && idProblem === undefined && ko.trim() !== "" && en.trim() !== "";
-  return (
-    <div className="ie-new-row">
-      <TextField
-        label={m.dev_items_field_name_ko()}
-        value={ko}
-        maxLength={ITEM_LIMITS.nameMax}
-        onChange={setKo}
-      />
-      <TextField
-        label={m.dev_items_field_name_en()}
-        value={en}
-        maxLength={ITEM_LIMITS.nameMax}
-        onChange={setEn}
-      />
-      <TextField
-        label={m.dev_items_field_id()}
-        value={id}
-        maxLength={48}
-        problem={idProblem}
-        onChange={setTypedId}
-      />
-      <button
-        type="button"
-        className="button-small button-primary"
-        aria-disabled={!ok}
-        onClick={
-          ok
-            ? () => {
-                onCreate(id, { ko: ko.trim(), en: en.trim() });
-                setKo("");
-                setEn("");
-                setTypedId(null);
-              }
-            : undefined
-        }
-      >
-        {m.dev_items_create()}
-      </button>
-    </div>
-  );
-}
+const refKey = (node: TreeNodeRef): string => `${node.kind}:${node.id}`;
 
-function SubcategoryFields({
-  draft,
-  onChange,
-}: {
-  draft: SubcategoryJson;
-  onChange: (next: SubcategoryJson) => void;
-}) {
+/** 줄 끝 표지: 담음 · 출처(고침/만듦) · 꺼짐 */
+function EntryChips({ entry }: { entry: TaxEntry<TaxonomyJson> }) {
   return (
-    <div className="ie-grid">
-      <SelectField
-        label={m.dev_items_field_category()}
-        value={draft.major}
-        options={ITEM_CATEGORY_IDS.map((value) => ({ value, label: CATEGORY_TEXT[value]() }))}
-        onChange={(major) => onChange({ ...draft, major })}
-      />
-      <NumberField
-        label={m.dev_items_field_order()}
-        value={draft.order}
-        min={ITEM_LIMITS.order.min}
-        max={ITEM_LIMITS.order.max}
-        optional
-        onChange={(order) => {
-          const { order: _drop, ...rest } = draft;
-          onChange(order === undefined ? rest : { ...rest, order });
-        }}
-      />
-      <SelectField
-        label={m.dev_items_field_storage()}
-        value={draft.storage ?? ""}
-        options={[
-          { value: "", label: m.dev_items_storage_default() },
-          ...STORAGE_KIND_IDS.map((value) => ({ value, label: STORAGE_TEXT[value]() })),
-        ]}
-        onChange={(value) => {
-          const storage = STORAGE_KIND_IDS.find((item) => item === value);
-          const { storage: _drop, ...rest } = draft;
-          onChange(storage ? { ...rest, storage } : rest);
-        }}
-      />
-      <CheckField
-        label={m.dev_items_field_food()}
-        checked={draft.food === true}
-        onChange={(food) => {
-          const { food: _drop, foodFamily: _f, ...rest } = draft;
-          onChange(food ? { ...rest, food: true } : rest);
-        }}
-      />
-      {draft.food === true ? (
-        <SelectField
-          label={m.dev_items_field_food_family()}
-          value={draft.foodFamily ?? ""}
-          options={[
-            { value: "", label: m.dev_items_none() },
-            ...FOOD_FAMILY_IDS.map((value) => ({ value, label: FAMILY_TEXT[value]() })),
-          ]}
-          onChange={(value) => {
-            const foodFamily = FOOD_FAMILY_IDS.find((item) => item === value);
-            const { foodFamily: _drop, ...rest } = draft;
-            onChange(foodFamily ? { ...rest, foodFamily } : rest);
-          }}
-        />
+    <>
+      {entry.staged ? <span className="ce-badge ce-badge-staged">{m.dev_content_badge_staged()}</span> : null}
+      {entry.row === null ? (
+        <span className="ce-badge ce-badge-created">{m.dev_items_origin_created()}</span>
+      ) : entry.row.origin === "edited" ? (
+        <span className="ce-badge ce-badge-changed">{m.dev_items_origin_edited()}</span>
+      ) : entry.row.origin === "created" ? (
+        <span className="ce-badge ce-badge-created">{m.dev_items_origin_created()}</span>
       ) : null}
-    </div>
+      {entry.entry.enabled ? null : <span className="ce-badge ce-badge-off">{m.dev_items_disabled()}</span>}
+    </>
   );
 }
 
-function WeaponTypeFields({
-  draft,
-  onChange,
+function TreeButton({
+  node,
+  current,
+  level,
+  expanded,
+  count,
+  odd,
+  onPick,
+  children,
 }: {
-  draft: WeaponTypeJson;
-  onChange: (next: WeaponTypeJson) => void;
+  node: TreeNodeRef;
+  current: boolean;
+  level: number;
+  expanded?: boolean | undefined;
+  count: number;
+  /** 자료 이상 표시(질문 번호와 같이 고른 마디에 풀이) */
+  odd?: boolean | undefined;
+  onPick: (node: TreeNodeRef) => void;
+  children: ReactNode;
 }) {
   return (
-    <div className="ie-grid">
-      <SelectField
-        label={m.dev_items_field_slot()}
-        value={draft.slot}
-        options={[
-          { value: "weapon", label: m.roster_slot_weapon() },
-          { value: "offhand", label: m.roster_slot_offhand() },
-        ]}
-        onChange={(slot) => {
-          // 탄약 종류는 보조 칸만(D-497): 무기 칸으로 바꾸면 뺀다
-          const { ammo: _drop, ...rest } = draft;
-          onChange(slot === "offhand" ? { ...draft, slot } : { ...rest, slot });
-        }}
-      />
-      <NumberField
-        label={m.dev_items_field_order()}
-        value={draft.order}
-        min={ITEM_LIMITS.order.min}
-        max={ITEM_LIMITS.order.max}
-        optional
-        onChange={(order) => {
-          const { order: _drop, ...rest } = draft;
-          onChange(order === undefined ? rest : { ...rest, order });
-        }}
-      />
-      {draft.slot === "offhand" ? (
-        <CheckField
-          label={m.dev_items_field_ammo_type()}
-          checked={draft.ammo === true}
-          hint={m.dev_items_ammo_type_hint()}
-          onChange={(on) => {
-            const { ammo: _drop, ...rest } = draft;
-            onChange(on ? { ...rest, ammo: true } : rest);
-          }}
-        />
+    <button
+      type="button"
+      className="ie-tree-node"
+      data-node={refKey(node)}
+      data-level={level}
+      data-odd={odd ? "" : undefined}
+      data-empty={count === 0 ? "" : undefined}
+      aria-current={current ? "true" : undefined}
+      aria-expanded={expanded}
+      onClick={() => onPick(node)}
+    >
+      <span className="ie-tree-label">{children}</span>
+      {odd ? (
+        <span className="ie-odd-mark" title={m.dev_items_tax_oddity()}>
+          !
+        </span>
       ) : null}
-    </div>
+      <span className="ie-tree-count">{count}</span>
+    </button>
   );
 }
 
-const isSubcategory = (value: Named): value is SubcategoryJson => "major" in value;
-const isWeaponType = (value: Named): value is WeaponTypeJson => "slot" in value;
-
-function Section({
-  category,
-  rows,
-  staged,
-  taken,
+function KindItem({
+  kind,
+  entry,
+  current,
   locale,
-  onStage,
+  onPick,
 }: {
-  category: TaxonomyCategory;
-  rows: readonly TaxonomyRow<Entry>[];
-  staged: ReadonlyMap<string, Staged<Named>>;
-  taken: ReadonlySet<string>;
+  kind: KindNode;
+  entry: TaxEntry<TaxonomyJson> | undefined;
+  current: TreeNodeRef | null;
   locale: "ko" | "en";
-  onStage: (category: TaxonomyCategory, id: string, next: Staged<Named> | null) => void;
+  onPick: (node: TreeNodeRef) => void;
 }) {
-  const headingId = useId();
-  const created = [...staged].filter(
-    ([id, item]) => item.base === null && !rows.some((row) => row.entry.id === id),
-  );
-  const all: { id: string; row: TaxonomyRow<Entry> | null }[] = [
-    ...rows.map((row) => ({ id: row.entry.id, row })),
-    ...created.map(([id]) => ({ id, row: null })),
-  ];
-  const put = (row: TaxonomyRow<Entry> | null, next: Named) => {
-    const base = row?.entry ?? null;
-    onStage(
-      category,
-      next.id,
-      base !== null && sameJson(next, base)
-        ? null
-        : { op: "put", entry: next, base, baseHash: row?.hash ?? null },
-    );
-  };
-  const fields = (draft: Named, onChange: (next: Named) => void): ReactNode => {
-    if (isSubcategory(draft)) return <SubcategoryFields draft={draft} onChange={onChange} />;
-    if (isWeaponType(draft)) return <WeaponTypeFields draft={draft} onChange={onChange} />;
-    return null;
-  };
+  const node: TreeNodeRef = { kind: "weapon", id: kind.id };
   return (
-    <section className="ie-panel ie-tax" aria-labelledby={headingId} data-category={category}>
-      <h2 id={headingId} className="ie-heading">
-        {TITLE[category]()} <span className="ie-dim">{all.length}</span>
-      </h2>
-      {all.length === 0 ? <p className="field-hint">{m.dev_items_tax_empty()}</p> : null}
-      <ul className="ie-tax-list">
-        {all.map(({ id, row }) => {
-          const stagedRow = staged.get(id);
-          const reverting = stagedRow?.op === "revert";
-          const draft = stagedRow?.entry ?? row?.entry;
-          if (!draft) return null;
-          return (
-            <li key={id}>
-              <details className="ie-tax-row" data-entry={id} data-staged={stagedRow ? "" : undefined}>
-                <summary>
-                  <span>{draft.name[locale]}</span> <span className="ie-dim">{id}</span>
-                  {row && row.origin !== "pack" ? (
-                    <span className={`ie-chip ie-origin-${row.origin}`}>{ORIGIN_TEXT[row.origin]()}</span>
-                  ) : null}
-                  {row ? null : <span className="ie-chip ie-origin-created">{ORIGIN_TEXT.created()}</span>}
-                  {stagedRow ? (
-                    <span className="ie-chip ie-chip-staged">
-                      {reverting ? m.dev_items_revert_staged() : m.dev_items_staged_chip()}
-                    </span>
-                  ) : null}
-                  {draft.enabled ? null : <span className="ie-chip">{m.dev_items_disabled()}</span>}
-                </summary>
-                {reverting ? (
-                  <button type="button" className="button-small" onClick={() => onStage(category, id, null)}>
-                    {m.dev_items_unstage()}
-                  </button>
-                ) : (
-                  <div className="ie-tax-body">
-                    <div className="ie-grid">
-                      <TextField
-                        label={m.dev_items_field_name_ko()}
-                        value={draft.name.ko}
-                        maxLength={ITEM_LIMITS.nameMax}
-                        onChange={(ko) => put(row, { ...draft, name: { ...draft.name, ko } })}
-                      />
-                      <TextField
-                        label={m.dev_items_field_name_en()}
-                        value={draft.name.en}
-                        maxLength={ITEM_LIMITS.nameMax}
-                        onChange={(en) => put(row, { ...draft, name: { ...draft.name, en } })}
-                      />
-                    </div>
-                    <CheckField
-                      label={m.dev_items_field_enabled()}
-                      checked={draft.enabled}
-                      onChange={(enabled) => put(row, { ...draft, enabled })}
-                    />
-                    {fields(draft, (next) => put(row, next))}
-                    <div className="ie-inline-actions">
-                      {stagedRow ? (
-                        <button
-                          type="button"
-                          className="button-small"
-                          onClick={() => onStage(category, id, null)}
-                        >
-                          {m.dev_items_unstage()}
-                        </button>
-                      ) : null}
-                      {row && row.origin !== "pack" ? (
-                        <button
-                          type="button"
-                          className="button-small"
-                          onClick={() =>
-                            onStage(category, id, {
-                              op: "revert",
-                              entry: null,
-                              base: row.entry,
-                              baseHash: row.hash,
-                            })
-                          }
-                        >
-                          {row.origin === "created" ? m.dev_items_delete() : m.dev_items_revert()}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-              </details>
-            </li>
-          );
-        })}
-      </ul>
-      <details className="ie-tax-new">
-        <summary>{m.dev_items_tax_new()}</summary>
-        <NewEntryForm
-          taken={taken}
-          onCreate={(id, name) =>
-            onStage(category, id, {
-              op: "put",
-              entry: templateOf(category, id, name),
-              base: null,
-              baseHash: null,
-            })
-          }
-        />
-      </details>
-    </section>
+    <li>
+      <TreeButton
+        node={node}
+        level={2}
+        count={kind.count}
+        odd={isOffhandKind(kind.entry)}
+        current={current !== null && refKey(current) === refKey(node)}
+        onPick={onPick}
+      >
+        <span>{kind.entry.name[locale]}</span>
+        <code className="ie-tree-id">{kind.id}</code>
+        {entry ? <EntryChips entry={entry} /> : null}
+      </TreeButton>
+    </li>
   );
+}
+
+function MajorBranch({
+  major,
+  current,
+  expanded,
+  subEntries,
+  kindEntries,
+  locale,
+  onPick,
+}: {
+  major: MajorNode;
+  current: TreeNodeRef | null;
+  expanded: boolean;
+  subEntries: ReadonlyMap<string, TaxEntry<TaxonomyJson>>;
+  kindEntries: ReadonlyMap<string, TaxEntry<TaxonomyJson>>;
+  locale: "ko" | "en";
+  onPick: (node: TreeNodeRef) => void;
+}) {
+  const node: TreeNodeRef = { kind: "major", id: major.id };
+  const is = (other: TreeNodeRef): boolean => current !== null && refKey(current) === refKey(other);
+  return (
+    <li data-major={major.id}>
+      <TreeButton
+        node={node}
+        level={0}
+        count={major.count}
+        expanded={expanded}
+        current={is(node)}
+        onPick={onPick}
+      >
+        <CategoryIcon category={major.id} />
+        <span>{CATEGORY_TEXT[major.id]()}</span>
+        <span className="ie-dim">{m.dev_items_tile_subs({ count: major.subs.length })}</span>
+      </TreeButton>
+      {expanded ? (
+        <ul className="ie-tree-children">
+          {major.subs.map((sub) => {
+            const subNode: TreeNodeRef = { kind: "sub", id: sub.id };
+            const entry = subEntries.get(sub.id);
+            return (
+              <li key={sub.id}>
+                <TreeButton node={subNode} level={1} count={sub.count} current={is(subNode)} onPick={onPick}>
+                  <span>{sub.entry.name[locale]}</span>
+                  <code className="ie-tree-id">{sub.id}</code>
+                  {entry ? <EntryChips entry={entry} /> : null}
+                </TreeButton>
+                {sub.kinds.length > 0 ? (
+                  <ul className="ie-tree-children">
+                    {sub.kinds.map((kind) => (
+                      <KindItem
+                        key={kind.id}
+                        kind={kind}
+                        entry={kindEntries.get(kind.id)}
+                        current={current}
+                        locale={locale}
+                        onPick={onPick}
+                      />
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            );
+          })}
+          {major.unsorted > 0 ? (
+            <li>
+              <TreeButton
+                node={{ kind: "unsorted", id: major.id }}
+                level={1}
+                count={major.unsorted}
+                odd
+                current={is({ kind: "unsorted", id: major.id })}
+                onPick={onPick}
+              >
+                <span className="ie-tree-none">{m.dev_items_tax_unsorted()}</span>
+              </TreeButton>
+            </li>
+          ) : null}
+          {major.looseKinds.length > 0 ? (
+            <li>
+              <span className="ie-tree-group" data-level={1}>
+                {m.dev_items_tax_loose()}
+              </span>
+              <ul className="ie-tree-children">
+                {major.looseKinds.map((kind) => (
+                  <KindItem
+                    key={kind.id}
+                    kind={kind}
+                    entry={kindEntries.get(kind.id)}
+                    current={current}
+                    locale={locale}
+                    onPick={onPick}
+                  />
+                ))}
+              </ul>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+/** 마디가 든 대분류(나무를 펼칠 곳) */
+function majorOf(tree: readonly MajorNode[], node: TreeNodeRef | null): ItemCategoryId | null {
+  if (!node) return null;
+  if (node.kind === "major" || node.kind === "unsorted") return node.id;
+  if (node.kind === "sub") return findSub(tree, node.id)?.entry.major ?? null;
+  return findKind(tree, node.id) ? "equipment" : null;
 }
 
 export function ItemTaxonomy({
   list,
   stage,
   locale,
+  focus,
   onStage,
+  onOpenItem,
+  onShowItems,
 }: {
   list: ItemEditorListResponse;
   stage: Stage;
   locale: "ko" | "en";
-  onStage: (category: TaxonomyCategory, id: string, next: Staged<Named> | null) => void;
+  focus: TaxonomyFocus | null;
+  onStage: (category: TaxonomyCategory, id: string, next: Staged<TaxonomyJson> | null) => void;
+  onOpenItem: (id: string) => void;
+  /** [아이템] 탭을 이 마디로 걸러 연다 */
+  onShowItems: (patch: Partial<ItemQuery>) => void;
 }) {
-  const takenOf = (category: TaxonomyCategory, rows: readonly TaxonomyRow<Entry>[]) =>
-    new Set([
-      ...rows.map((row) => row.entry.id),
-      ...(list.retired[category] ?? []),
-      ...stage[category].keys(),
-    ]);
+  const [tile, setTile] = useState<ItemCategoryId | "all">("all");
+  const [node, setNode] = useState<TreeNodeRef | null>(null);
+  const [seenFocus, setSeenFocus] = useState<number | null>(null);
+  const items = treeItems(list.items, stage.items);
+  const subs = taxEntries(list.subcategories, stage.item_subcategories, isSubcategoryJson);
+  const kinds = taxEntries(list.weaponTypes, stage.weapon_types, isWeaponTypeJson);
+  const tree = buildItemTree(items, subs, kinds);
+  const subEntries = new Map<string, TaxEntry<TaxonomyJson>>(subs.map((entry) => [entry.id, entry]));
+  const kindEntries = new Map<string, TaxEntry<TaxonomyJson>>(kinds.map((entry) => [entry.id, entry]));
+
+  // 담은 변경 막대에서 고른 분류 자료 → 그 마디(그리는 중에 한 번만 맞춘다: 효과 안 setState 대신 이전 값과 견준다)
+  if (focus && focus.at !== seenFocus) {
+    setSeenFocus(focus.at);
+    if (focus.category !== "item_tags") {
+      const next: TreeNodeRef =
+        focus.category === "item_subcategories"
+          ? { kind: "sub", id: focus.id }
+          : { kind: "weapon", id: focus.id };
+      setNode(next);
+      setTile(majorOf(tree, next) ?? "all");
+    }
+  }
+
+  const openMajor = majorOf(tree, node);
+  const majors = tile === "all" ? tree : tree.filter((major) => major.id === tile);
+  const pick = (next: TreeNodeRef): void => {
+    setNode(next);
+    if (tile !== "all") setTile(majorOf(tree, next) ?? tile);
+  };
   return (
-    <div className="ie-tax-grid">
-      <Section
-        category="item_subcategories"
-        rows={list.subcategories}
-        staged={stage.item_subcategories}
-        taken={takenOf("item_subcategories", list.subcategories)}
-        locale={locale}
-        onStage={onStage}
+    <div className="ie-taxonomy">
+      <p className="field-hint ie-tax-lead">{m.dev_items_tax_lead()}</p>
+      <ItemCategoryTiles
+        counts={treeCounts(tree)}
+        total={items.length}
+        selected={tile}
+        subtitle={(category) =>
+          m.dev_items_tile_subs({ count: tree.find((major) => major.id === category)?.subs.length ?? 0 })
+        }
+        onSelect={(category) => {
+          setTile(category);
+          setNode(category === "all" ? null : { kind: "major", id: category });
+        }}
       />
-      <Section
-        category="weapon_types"
-        rows={list.weaponTypes}
-        staged={stage.weapon_types}
-        taken={takenOf("weapon_types", list.weaponTypes)}
-        locale={locale}
-        onStage={onStage}
-      />
-      <Section
+      <div className="ie-tax-split">
+        <nav className="ie-panel ie-tax-tree" aria-label={m.dev_items_tax_tree_label()}>
+          <ul className="ie-tree">
+            {majors.map((major) => (
+              <MajorBranch
+                key={major.id}
+                major={major}
+                current={node}
+                expanded={tile !== "all" || openMajor === major.id}
+                subEntries={subEntries}
+                kindEntries={kindEntries}
+                locale={locale}
+                onPick={pick}
+              />
+            ))}
+          </ul>
+        </nav>
+        <TaxonomyNode
+          key={node ? refKey(node) : "none"}
+          node={node}
+          tree={tree}
+          items={items}
+          subs={subs}
+          kinds={kinds}
+          list={list}
+          stage={stage}
+          locale={locale}
+          onPick={pick}
+          onStage={onStage}
+          onOpenItem={onOpenItem}
+          onShowItems={onShowItems}
+        />
+      </div>
+      <TaxonomySection
+        title={m.dev_items_tax_tags_title()}
+        hint={m.dev_items_tax_tags_hint()}
         category="item_tags"
         rows={list.tags}
         staged={stage.item_tags}
-        taken={takenOf("item_tags", list.tags)}
+        taken={
+          new Set([
+            ...list.tags.map((row) => row.entry.id),
+            ...(list.retired.item_tags ?? []),
+            ...stage.item_tags.keys(),
+          ])
+        }
         locale={locale}
         onStage={onStage}
       />

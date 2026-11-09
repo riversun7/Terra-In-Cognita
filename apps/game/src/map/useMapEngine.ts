@@ -187,6 +187,7 @@ export function useMapEngine(
           unitsRef,
           operatorRef,
           setCommand,
+          markTarget: (cell) => engineRef.current?.setMoveTarget(cell),
         });
         return (cell: { x: number; y: number }): void => {
           closePeek();
@@ -222,6 +223,8 @@ export function useMapEngine(
           return;
         }
         const attempt = current.moveUnit(unitId, cell);
+        // 누른 자리에 목적지 고리를 바로 둔다(경로가 오면 그 경로를 따라 점선, 거절되면 몇 초 뒤 엔진이 거둔다)
+        if (attempt.kind === "sent") engineRef.current?.setMoveTarget(cell);
         setCommand(
           attempt.kind === "sent" ? { kind: "sent", unitId, action: "move" } : { kind: attempt.kind },
         );

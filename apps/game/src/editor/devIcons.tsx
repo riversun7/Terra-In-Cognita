@@ -127,6 +127,19 @@ export function HouseIcon() {
   );
 }
 
+/** 1차 생산 티어 확률(주사위 — 티어 추첨) */
+export function DiceIcon() {
+  return (
+    <DevIcon>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <circle cx="9" cy="9" r="1" />
+      <circle cx="15" cy="15" r="1" />
+      <circle cx="15" cy="9" r="1" />
+      <circle cx="9" cy="15" r="1" />
+    </DevIcon>
+  );
+}
+
 /** 영토 층(꼭짓점 넷을 이은 볼록 도형과 꼭짓점) */
 export function TerritoryIcon() {
   return (

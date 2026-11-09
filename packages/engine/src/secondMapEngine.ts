@@ -62,6 +62,8 @@ import { propArea } from "./props/propArea.ts";
 import { type PropSource, PropView } from "./props/propView.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
 import { UnitRoster } from "./units/unitRoster.ts";
+import { RouteView } from "./units/routeView.ts";
+import { createTargetLife } from "./units/routePath.ts";
 import { UnitView } from "./units/unitView.ts";
 
 /** 지형이 오기 전 2차맵 크기(평균 칸 11.7m) */
@@ -130,6 +132,28 @@ export function createSecondMapEngine(
   unitView.group.visible = false;
   const roster = new UnitRoster(unitView, capacity, serverNow);
   const motion = roster.motion;
+  // 이동 경로·목적지 표시(units/routeView.ts): 화면이 정한 유닛(setRouteUnit)과 누른 목적지(setMoveTarget)
+  const routeView = new RouteView();
+  scene.add(routeView.group);
+  let routeUnit: number | null = null;
+  const targetLife = createTargetLife();
+  /** 경로 표시를 갱신한다. 누른 목적지가 남아 있으면 true(그것을 거둘 때까지 다시 그린다) */
+  const updateRoute = (ppm: number): boolean => {
+    const slot = routeUnit === null ? -1 : roster.slotOf(routeUnit);
+    const revision = slot >= 0 ? motion.revision(slot) : 0;
+    const walking = slot >= 0 && motion.moving[slot] === 1;
+    const now = serverNow();
+    const target = targetLife.update(revision, walking, now);
+    routeView.setPath(
+      walking ? `${routeUnit}:${revision}` : "",
+      walking ? motion.pathPoints(slot) : null,
+      cellM,
+      groundAt,
+    );
+    const travelled = walking ? motion.travelled(slot, now) : 0;
+    routeView.update(travelled, target ?? (walking ? motion.destination(slot) : null), cellM, groundAt, ppm);
+    return target !== null;
+  };
 
   let terrain: TerrainInput | null = null;
   /** 지금 2차맵 탐사 칸(안개, null = 끔) — 넘을 때 옛 2차맵 칸을 이웃으로 넘긴다 */
@@ -295,6 +319,7 @@ export function createSecondMapEngine(
     const ppm = pixelsPerMetre(state.distance, viewport);
     chooseUnitMode(ppm);
     unitView.update(motion.x, motion.y, cellM, groundAt, frustum, roster.selectedSlot, ppm);
+    const targeting = updateRoute(ppm);
     layers.after(layerView);
     renderer.render(scene, camera);
     const info = renderer.info.render;
@@ -306,7 +331,7 @@ export function createSecondMapEngine(
       propView.setReach(viewDistance.level.reachM, viewDistance.level.maxProps);
       animating = true;
     }
-    return moving > 0 || animating || blending;
+    return moving > 0 || animating || blending || targeting;
   };
   const scheduler = new FrameScheduler(frame);
 
@@ -497,6 +522,9 @@ export function createSecondMapEngine(
       terrainView.setExplored(mainExplored);
       // 옛 2차맵 유닛·건물은 버린다(새 2차맵 자료 받기가 넣는다)
       roster.set([]);
+      // 경로·누른 목적지도 옛 2차맵 좌표다
+      routeView.clear();
+      targetLife.set(null, 0, serverNow());
       buildingView.set([], cellM, groundAt);
       propView.setBlocked(footprintMask([], PLACEMENT_CELLS));
       pendingBuildings = null;
@@ -577,6 +605,19 @@ export function createSecondMapEngine(
       return roster.selectedId();
     },
 
+    setRouteUnit(id) {
+      if (id === routeUnit) return;
+      routeUnit = id;
+      targetLife.set(null, 0, serverNow());
+      scheduler.request();
+    },
+
+    setMoveTarget(cell) {
+      const slot = routeUnit === null ? -1 : roster.slotOf(routeUnit);
+      targetLife.set(cell, slot >= 0 ? motion.revision(slot) : 0, serverNow());
+      scheduler.request();
+    },
+
     stats(): EngineStats {
       const summary = timer.summary(performance.now());
       return {
@@ -602,6 +643,8 @@ export function createSecondMapEngine(
         light: sceneLight.stats(),
         neighbours: neighbours.count,
         props: propView.drawn,
+        routePoints: routeView.stats.points,
+        moveTarget: routeView.stats.target,
         propSpanM: propView.limits.spanM,
         propCap: propView.limits.maxProps,
         viewLevel: viewDistance.index,
@@ -706,6 +749,7 @@ export function createSecondMapEngine(
       terrainView.dispose();
       buildingView.dispose();
       unitView.dispose();
+      routeView.dispose();
       scene.clear();
       releaseRenderer(owner);
     },

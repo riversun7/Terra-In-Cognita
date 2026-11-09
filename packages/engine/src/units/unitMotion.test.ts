@@ -99,4 +99,17 @@ describe("UnitMotionStore", () => {
     expect(() => store.setPath(0, { points: [], departAtMs: 0, speedCellsPerSec: 1 })).toThrow();
     expect(() => store.resize(2)).toThrow(RangeError);
   });
+  it("경로 점·간 길이·경로 판을 읽는다(경로 표시용)", () => {
+    const store = new UnitMotionStore(2);
+    store.resize(2);
+    const before = store.revision(0);
+    store.setPath(0, L_PATH);
+    expect(store.revision(0)).not.toBe(before);
+    expect(Array.from(store.pathPoints(0) ?? [])).toEqual(Array.from(L_PATH.points));
+    expect(store.pathPoints(1)).toBeNull();
+    expect(store.travelled(0, L_PATH.departAtMs - 500)).toBe(0);
+    expect(store.travelled(0, L_PATH.departAtMs + 1_000)).toBeCloseTo(L_PATH.speedCellsPerSec);
+    expect(store.travelled(0, L_PATH.departAtMs + 1e9)).toBeCloseTo(20);
+    expect(store.revision(5)).toBe(0);
+  });
 });

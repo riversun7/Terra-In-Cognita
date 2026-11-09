@@ -116,6 +116,14 @@ function MarketColorsSelect({ value }: { value: MarketColorChoice }) {
   );
 }
 
+// 위키는 저장소의 마크다운이라 앱 묶음에 넣지 않고 주소만 쓴다.
+// 그래서 문서를 고쳐도 앱을 다시 빌드하지 않는다 (ADR docs/adr/2026-11-09-player-wiki.md).
+const WIKI_URL = "https://github.com/riversun7/Terra-In-Cognita/blob/main/docs/wiki/start.md";
+
+function openWiki(): void {
+  window.open(WIKI_URL, "_blank", "noopener");
+}
+
 export default function SettingsPage({ onClose }: { onClose: () => void }) {
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const { device, theme } = useSettings();
@@ -166,6 +174,13 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
       <LanguageSelect variant="field" />
       <MarketColorsSelect value={device.marketColors ?? "language"} />
       <NavigationSettings />
+      <fieldset className="settings-section">
+        <legend className="section-title">{m.settings_help_legend()}</legend>
+        <p className="setting-hint">{m.settings_help_hint()}</p>
+        <button type="button" className="button-small" onClick={openWiki}>
+          {m.settings_help_open()}
+        </button>
+      </fieldset>
     </section>
   );
 }

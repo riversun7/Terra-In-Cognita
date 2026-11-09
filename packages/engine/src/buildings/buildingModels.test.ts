@@ -8,7 +8,12 @@ import {
   resolveLook,
 } from "./buildingLook.ts";
 import { type ModelInput, buildingModel } from "./buildingModels.ts";
-import { BUILDING_COLORS, NATION_ACCENTS, WINDOW_DARK } from "./buildingPalette.ts";
+import {
+  FACILITY_LOOK_COLORS,
+  FACILITY_LOOK_MODELS,
+  type FacilityLookColor,
+} from "@terra/shared/facilityLook";
+import { BUILDING_COLORS, LOOK_COLORS, NATION_ACCENTS, WINDOW_DARK, lookColor } from "./buildingPalette.ts";
 import { type BuildingPart, PART_SHAPES, type PartShape, partBounds } from "./buildingParts.ts";
 
 /** 배치 칸 평균(m) — 지형 칸 11.72m ÷ 2 */
@@ -43,6 +48,7 @@ const VERTICES = new Map<PartShape, number>(
   }),
 );
 
+const pad = (parts: readonly BuildingPart[]) => parts.find((part) => part.ground);
 const top = (parts: readonly BuildingPart[]): number => Math.max(...parts.map((part) => part.y + part.sy));
 const colorIn = (parts: readonly BuildingPart[], color: readonly number[]): boolean =>
   parts.some((part) => part.color.every((value, i) => Math.abs(value - (color[i] ?? 0)) < 1e-9));
@@ -185,11 +191,68 @@ describe("resolveLook", () => {
       state: "ok",
       upgrading: false,
       accent: null,
+      wall: null,
+      roof: null,
+      heightPm: 1000,
     });
     expect(resolveLook({ facility: "farm", level: 0 }).state).toBe("building");
     expect(resolveLook({ facility: "farm", level: 9, accent: 3 })).toMatchObject({ level: 5, accent: 3 });
     expect(resolveLook({ facility: "farm", level: 2, state: "ruin", upgrading: true }).upgrading).toBe(false);
     expect(resolveLook({ accent: -1 }).accent).toBeNull();
+  });
+});
+
+describe("겉모습 자료(팩 facilities.look, 2026-11-09)", () => {
+  it("이름표가 팩 스키마(@terra/shared)와 같다: 모델 종류 = 엔진 모델, 색 이름마다 색 표의 색", () => {
+    expect([...BUILDING_ART_KINDS]).toEqual([...FACILITY_LOOK_MODELS]);
+    expect(Object.keys(LOOK_COLORS).toSorted()).toEqual([...FACILITY_LOOK_COLORS].toSorted());
+    for (const name of FACILITY_LOOK_COLORS) {
+      const key = LOOK_COLORS[name];
+      expect(BUILDING_COLORS[key], name).toBeDefined();
+      expect(lookColor(name)).toEqual(BUILDING_COLORS[key]);
+    }
+    expect(lookColor("toString")).toBeNull();
+    expect(lookColor(undefined)).toBeNull();
+  });
+
+  it("look.model이 시설 ID보다 먼저, 모르는 모델은 시설 ID로, 높이는 500~2000‰로 자른다", () => {
+    expect(resolveLook({ facility: "farm", art: { model: "temple" } }).kind).toBe("temple");
+    expect(resolveLook({ facility: "farm", art: {} }).kind).toBe("farm");
+    // 옛 서버·덮어쓰기 줄이 모르는 이름을 주면 시설 ID로
+    expect(resolveLook({ facility: "mine", art: JSON.parse('{"model":"castle"}') }).kind).toBe("mine");
+    expect(resolveLook({ art: { wall: "brick", roof: "teal" } })).toMatchObject({
+      wall: BUILDING_COLORS.wallBrick,
+      roof: BUILDING_COLORS.roofTeal,
+    });
+    expect(resolveLook({ art: { heightPm: 9000 } }).heightPm).toBe(2000);
+    expect(resolveLook({ art: { heightPm: 10 } }).heightPm).toBe(500);
+    expect(resolveLook({ art: null }).heightPm).toBe(1000);
+  });
+
+  it("벽·지붕 색을 주면 집 모양 모델의 벽·지붕이 그 색이 되고, 주지 않으면 그대로다", () => {
+    const pick: FacilityLookColor = "gold";
+    const gold = BUILDING_COLORS.gold;
+    const golden = (parts: readonly BuildingPart[]): number =>
+      parts.filter((part) => colorIn([part], gold)).length;
+    for (const kind of BUILDING_ART_KINDS) {
+      const plain = buildingModel(input({ kind }));
+      const walled = buildingModel(input({ kind, wall: lookColor(pick), roof: lookColor(pick) }));
+      // 광산(바위 언덕)은 권양탑 지붕만, 나머지는 벽 또는 지붕이 금색이 된다
+      expect(golden(walled), kind).toBeGreaterThan(golden(plain));
+    }
+    // 같은 입력·같은 씨앗이면 색만 다르고 조각 수·자리는 같다(씨앗 난수 차례를 바꾸지 않는다)
+    const a = buildingModel(input({ kind: "house", seed: 11 }));
+    const b = buildingModel(input({ kind: "house", seed: 11, wall: lookColor("brick") }));
+    expect(b.map((part) => [part.shape, part.x, part.y, part.z])).toEqual(
+      a.map((part) => [part.shape, part.x, part.y, part.z]),
+    );
+  });
+
+  it("높이 배율은 바닥 판 위 조각의 높이를 곱하고 판은 그대로다", () => {
+    const base = buildingModel(input({ kind: "warehouse" }));
+    const tall = buildingModel(input({ kind: "warehouse", heightPm: 1500 }));
+    expect(top(tall)).toBeCloseTo(0.3 + (top(base) - 0.3) * 1.5, 6);
+    expect(pad(tall)).toEqual(pad(base));
   });
 });
 

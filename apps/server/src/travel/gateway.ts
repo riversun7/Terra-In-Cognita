@@ -5,6 +5,8 @@
 import { type ClientMessageOf, type TravelResultCode, encodeMessage } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
+import { OPERATOR_SPEED_FACTOR } from "../world/gateway.ts";
+import { canCommandAnyUnit } from "../world/unitControl.ts";
 import type { TravelCommandResult, TravelService } from "./service.ts";
 
 export type TravelClientMessage = ClientMessageOf<"travel_start" | "travel_cancel">;
@@ -15,6 +17,11 @@ const LIMIT = { capacity: 10, refillPerMinute: 30 };
 export interface TravelLink {
   send(text: string): void;
   viewer(): Promise<Viewer | null>;
+  /**
+   * 같은 연결이 2차맵을 전체 보기(운영자 모드)로 구독 중인가. 그러면 보내는 길은 운영자 빠르기(OPERATOR_SPEED_FACTOR) — 2차맵 이동 명령과 같다
+   * (사용자 지적 2026-11-09 "운영자모드에서 인접 2차맵을 목적지로 선택시 원래 속도로 느려진다")
+   */
+  observing?(): boolean;
 }
 
 export interface TravelSocket {
@@ -39,16 +46,20 @@ function resultText(id: number, result: TravelCommandResult): string {
 
 const fail = (code: TravelResultCode): TravelCommandResult => ({ ok: false, code });
 
-function run(service: TravelService, viewer: Viewer, message: TravelClientMessage) {
+function run(service: TravelService, viewer: Viewer, message: TravelClientMessage, operatorFast: boolean) {
   switch (message.t) {
     case "travel_start":
-      return service.start(viewer.id, {
-        unitId: message.unitId,
-        mapKey: message.mapKey,
-        x: message.x,
-        y: message.y,
-        kind: message.kind,
-      });
+      return service.start(
+        viewer.id,
+        {
+          unitId: message.unitId,
+          mapKey: message.mapKey,
+          x: message.x,
+          y: message.y,
+          kind: message.kind,
+        },
+        { speedFactor: operatorFast ? OPERATOR_SPEED_FACTOR : 1 },
+      );
     case "travel_cancel":
       return Promise.resolve(service.cancel(viewer.id, message.unitId));
     default: {
@@ -81,7 +92,8 @@ export function createTravelGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
-        reply(message.id, await run(service, viewer, message));
+        const operatorFast = link.observing?.() === true && canCommandAnyUnit(viewer.roles);
+        reply(message.id, await run(service, viewer, message, operatorFast));
       };
 
       return {

@@ -96,6 +96,8 @@ describe("mapBuildingLooks", () => {
         service: { facilities, jobs: new Map([[1, upgrade]]) },
         rules: () => TEST_SOCIETY_COEFFICIENTS,
         facilityName: (id) => (id === "storehouse" ? { ko: "창고", en: "Storehouse" } : undefined),
+        // 실효 팩 겉모습(건물 편집기가 바꾼 것, 2026-11-09): 광산만 칸이 있다
+        facilityArt: (id) => (id === "mine" ? { model: "mine", roof: "teal", heightPm: 1300 } : undefined),
       },
       KEY,
       NOW,
@@ -134,6 +136,7 @@ describe("mapBuildingLooks", () => {
         upgrading: true,
         factionId: null,
         mine: false,
+        art: { model: "mine", roof: "teal", heightPm: 1300 },
       },
       {
         buildingId: test,

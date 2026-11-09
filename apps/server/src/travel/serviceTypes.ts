@@ -71,6 +71,7 @@ export interface TravelService {
   start(
     userId: string,
     request: TravelTarget & { readonly unitId: number; readonly kind: TravelKind },
+    options?: { readonly speedFactor?: number },
   ): Promise<TravelCommandResult>;
   /** 멈추기: 그 자리에 선다(건너뛰는 중이면 나타난 자리에서) */
   cancel(userId: string, unitId: number): TravelCommandResult;
@@ -143,6 +144,8 @@ export interface Journey extends TravelRecord {
   /** 다음 확인 시각(없으면 null) */
   checkAtMs: number | null;
   hidden: Hidden | null;
+  /** 걷는 빠르기 배수(운영자 모드에서 보낸 길은 OPERATOR_SPEED_FACTOR, 아니면 1). 저장하지 않는다 — 다시 켜면 1 */
+  speedFactor: number;
 }
 
 export interface Finished {

@@ -1,7 +1,9 @@
 // 아이템 편집기(/dev/items) — docs/adr/2026-11-01-item-editor.md("바뀜 (2026-11-08 화면 개편)"), 설계안 docs/research/2026-11-01-item-editor-design.md
 // 3장. dev·admin, 틀 안, 촘촘. 설정 칸 패널(/dev/tuning)과 한 가족인 공용 틀(editor/content/contentEditorShell.css).
-// - [아이템] 칸: 넓은 폭은 왼쪽 목록(ItemList: 찾기·거르기·정렬, 붙음) + 오른쪽 편집 판(ItemDetail: 구역·칸마다 팩 값·지금 값 견주기·
-//   칸 되돌리기·미리 보기·쓰이는 곳). 휴대폰은 목록 → 편집이 한 칸씩(data-view). [아이템 분류] 칸: 중분류·태그·무기 종류(ItemTaxonomy).
+// - [아이템] 칸(2026-11-09 옛 편집기 모양): 위 띠(ItemBrowseBar: 대분류 타일 → 대분류 › 중분류 › 무기 종류 · 찾기 · 정렬 · 목록/격자) +
+//   목록(ItemList: 티어·그림·이름·분류 사슬·무게·쌓기 상한·빠른 동작). 아이템을 고르면 넓은 폭은 왼쪽 목록 + 오른쪽 편집 판(ItemDetail:
+//   구역·칸마다 팩 값·지금 값 견주기·칸 되돌리기·미리 보기·쓰이는 곳), 고르지 않으면 목록이 넓게. 휴대폰은 목록 → 편집이 한 칸씩(data-view).
+//   [아이템 분류] 칸: 같은 타일 → 분류 나무(대분류 → 중분류 → 무기 종류) + 고른 마디 + 따로 붙는 태그 판(ItemTaxonomy).
 //   키: "/" 찾기, 목록 ↑↓·Enter, Alt+↑↓ 이전·다음 아이템, Ctrl/⌘+S 적용.
 // - 고친 칸은 바로 담은 변경(Stage)에 든다(팩·실효 값과 같아지면 빠진다). 막대(ItemStageBar)의 [적용]이 서버 묶음(items.save) 하나로 보낸다.
 //   서버가 팩 검사기로 본 뒤 그 세계에 바로 넣는다(D-461). 입력이 1초 멈추면 items.check(코드가 붙은 문제 → 칸 아래 문구), 600ms 멈추면
@@ -15,6 +17,7 @@ import {
   ITEM_EDIT_CATEGORIES,
   type ItemCategoryId,
   type ItemEditorCheckResponse,
+  type ItemEditorGetResponse,
   type ItemEditorHistoryRow,
   type ItemEditorPreviewResponse,
   type ItemJson,
@@ -41,10 +44,13 @@ import {
 } from "../content/contentEditorModel.ts";
 import { ItemDetail } from "./ItemDetail.tsx";
 import { ItemHead, RiskyConfirm, SleepingPanel } from "./ItemEditorPanels.tsx";
+import { ItemBrowseBar, type ItemViewMode } from "./ItemBrowseBar.tsx";
 import { ItemList, shownItems, useDeferredQuery } from "./ItemList.tsx";
+import { buildItemTree, isSubcategoryJson, isWeaponTypeJson, taxEntries, treeItemOfRow } from "./itemTree.ts";
 import { ItemNewForm } from "./ItemNewForm.tsx";
 import { type CheckState, ItemPendingBar } from "./ItemStageBar.tsx";
 import { ITEM_TABS, ITEM_TAB_TEXT, type ItemTab, ItemTabPanel } from "./ItemTabPanel.tsx";
+import type { TaxonomyFocus } from "./ItemTaxonomy.tsx";
 import { errorText } from "./itemMessages.ts";
 import {
   EMPTY_QUERY,
@@ -117,6 +123,8 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
   const [creating, setCreating] = useState(false);
   const [query, setQueryState] = useState<ItemQuery>(EMPTY_QUERY);
   const [sort, setSort] = useState<ItemSort>("name");
+  const [mode, setMode] = useState<ItemViewMode>("rows");
+  const [taxFocus, setTaxFocus] = useState<TaxonomyFocus | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const deferredQuery = useDeferredQuery(query);
   const notice = useLiveLines();
@@ -231,6 +239,52 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
     staging.push(stageItem(staging.current(), id, { op: "put", entry, base: null, baseHash: null }));
     setSelected(id);
     notice.show([m.dev_items_duplicated({ id })]);
+  };
+
+  /** 항목 통째(받아 둔 것이 있으면 그것, 아니면 서버에서) */
+  const detailFor = (id: string): Promise<ItemEditorGetResponse | null> => {
+    const known = store.detailOf(id);
+    if (known) return Promise.resolve(known);
+    return api.items.get.query({ id }).then(
+      (data) => data,
+      (error: unknown) => {
+        fail(error);
+        return null;
+      },
+    );
+  };
+
+  /** 줄 빠른 동작 [복제]: 꺼진 사본을 담고 연다(담은 초안이 있으면 그 초안의 사본) */
+  const duplicateRow = async (id: string): Promise<void> => {
+    const staged = stage.items.get(id);
+    const entry =
+      staged?.op === "put" && staged.entry ? staged.entry : ((await detailFor(id))?.entry ?? null);
+    if (!entry) return;
+    const copyId = freeCopyId(id, takenItems);
+    staging.push(
+      stageItem(staging.current(), copyId, {
+        op: "put",
+        entry: duplicateItem(cleanItem(entry), copyId, COPY_SUFFIX),
+        base: null,
+        baseHash: null,
+      }),
+    );
+    select(copyId, false);
+    notice.show([m.dev_items_duplicated({ id: copyId })]);
+  };
+
+  /** 줄 빠른 동작: 만든 아이템은 [지우기](ID 은퇴), 고친 아이템은 [팩 값으로] — 둘 다 담은 변경에만 든다([적용] 전에는 되돌릴 수 있다) */
+  const revertRow = async (id: string): Promise<void> => {
+    const detail = await detailFor(id);
+    if (!detail?.entry) return;
+    staging.push(
+      stageItem(staging.current(), id, {
+        op: "revert",
+        entry: null,
+        base: detail.entry,
+        baseHash: detail.hash,
+      }),
+    );
   };
 
   const revert = (): void => {
@@ -356,6 +410,8 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
   const pick = (key: string): void => {
     const { category, id } = splitKey(key);
     if (category !== "items") {
+      if (category === "item_subcategories" || category === "weapon_types" || category === "item_tags")
+        setTaxFocus({ category, id, at: Date.now() });
       setTab("taxonomy");
       return;
     }
@@ -407,7 +463,12 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
       : null;
 
   const stagedItems = new Set(stage.items.keys());
-  const shown = list ? shownItems(list, deferredQuery, sort, stagedItems, locale) : [];
+  // 분류 자료는 담은 초안까지 얹은 실효 값(새 중분류가 바로 거르기·사슬에 보인다). 아이템 수는 목록 줄(보이는 줄과 같다)
+  const taxSubs = list ? taxEntries(list.subcategories, stage.item_subcategories, isSubcategoryJson) : [];
+  const taxKinds = list ? taxEntries(list.weaponTypes, stage.weapon_types, isWeaponTypeJson) : [];
+  const tree = buildItemTree(rows.map(treeItemOfRow), taxSubs, taxKinds);
+  const subMajor = new Map(taxSubs.map((sub) => [sub.id, sub.entry.major]));
+  const shown = list ? shownItems(list, deferredQuery, sort, stagedItems, locale, subMajor) : [];
   const shownIds = shown.map((item) => item.id);
   const at = selected ? shownIds.indexOf(selected) : -1;
   const setQuery = (patch: Partial<ItemQuery>): void =>
@@ -509,82 +570,107 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
           />
           {tab === "items" ? (
             <div
-              className="ce-layout ie-split"
-              data-view={view}
+              className="ie-items-tab"
               role="tabpanel"
               id={`${tabsId}-items-panel`}
               aria-labelledby={`${tabsId}-items`}
             >
-              <aside className="ce-side">
-                <ItemList
-                  list={list}
-                  shown={shown}
-                  selected={selected}
-                  staged={stagedItems}
-                  locale={locale}
-                  query={query}
-                  sort={sort}
-                  onQuery={setQuery}
-                  onSort={setSort}
-                  searchRef={searchRef}
-                  onSelect={select}
-                  onCreate={() => {
-                    setCreating(true);
-                    setView("detail");
-                  }}
-                />
-                <KeyHelp />
-              </aside>
-              <div className="ce-detail ie-detail-pane">
-                {creating ? (
-                  <ItemNewForm
-                    taken={takenItems}
-                    onCreate={create}
-                    onCancel={() => {
-                      setCreating(false);
-                      if (!selected) setView("list");
-                    }}
-                  />
-                ) : selected ? (
-                  <ItemDetail
+              <ItemBrowseBar
+                list={list}
+                tree={tree}
+                query={query}
+                sort={sort}
+                shown={shown.length}
+                mode={mode}
+                locale={locale}
+                view={view}
+                detailOpen={creating || selected !== null}
+                searchRef={searchRef}
+                onQuery={setQuery}
+                onSort={setSort}
+                onMode={setMode}
+                onCreate={() => {
+                  setCreating(true);
+                  setView("detail");
+                }}
+                onCloseDetail={() => {
+                  setCreating(false);
+                  setSelected(null);
+                  setView("list");
+                }}
+              />
+              <div
+                className="ce-layout ie-split"
+                data-view={view}
+                data-detail={creating || selected ? "open" : "none"}
+              >
+                <aside className="ce-side">
+                  <ItemList
                     list={list}
+                    shown={shown}
+                    selected={selected}
+                    staged={stagedItems}
                     locale={locale}
-                    id={selected}
-                    draft={draft}
-                    current={got?.entry ?? null}
-                    isNew={isNew}
-                    reverting={reverting}
-                    staged={stagedItem !== undefined}
-                    origin={row?.origin ?? (isNew ? "created" : null)}
-                    override={got?.override ?? null}
-                    pack={got?.pack ?? null}
-                    codeRef={row?.codeRef ?? false}
-                    loading={!isNew && got === null && row !== undefined}
-                    issues={itemIssues}
-                    advice={itemAdvice}
-                    cascade={cascade}
-                    checking={stagedItem !== undefined && checked === null}
-                    usage={got?.usage ?? null}
-                    markets={got?.markets ?? null}
-                    preview={shownPreview?.result ?? null}
-                    previewPending={previewKey !== "" && shownPreview?.key !== previewKey}
-                    previewFailed={shownPreview?.failed ?? null}
-                    unit={unit}
-                    onUnit={setUnit}
-                    conflict={conflicts.get(`items/${selected}`) ?? null}
-                    onResolve={resolve}
-                    onEdit={edit}
-                    onDuplicate={duplicate}
-                    onRevert={revert}
-                    onUnstage={unstage}
+                    mode={mode}
+                    subNames={new Map(taxSubs.map((sub) => [sub.id, sub.entry.name[locale]]))}
+                    kindNames={new Map(taxKinds.map((kind) => [kind.id, kind.entry.name[locale]]))}
                     onSelect={select}
-                    onBack={() => setView("list")}
-                    onPrev={at > 0 ? () => step(-1) : null}
-                    onNext={at >= 0 && at < shownIds.length - 1 ? () => step(1) : null}
+                    onDuplicate={(id) => void duplicateRow(id)}
+                    onRevert={(id) => void revertRow(id)}
                   />
-                ) : (
-                  <p className="ce-pick ie-pick">{m.dev_items_pick()}</p>
-                )}
+                  <KeyHelp />
+                </aside>
+                <div className="ce-detail ie-detail-pane">
+                  {creating ? (
+                    <ItemNewForm
+                      taken={takenItems}
+                      onCreate={create}
+                      onCancel={() => {
+                        setCreating(false);
+                        if (!selected) setView("list");
+                      }}
+                    />
+                  ) : selected ? (
+                    <ItemDetail
+                      list={list}
+                      locale={locale}
+                      id={selected}
+                      draft={draft}
+                      current={got?.entry ?? null}
+                      isNew={isNew}
+                      reverting={reverting}
+                      staged={stagedItem !== undefined}
+                      origin={row?.origin ?? (isNew ? "created" : null)}
+                      override={got?.override ?? null}
+                      pack={got?.pack ?? null}
+                      codeRef={row?.codeRef ?? false}
+                      loading={!isNew && got === null && row !== undefined}
+                      issues={itemIssues}
+                      advice={itemAdvice}
+                      cascade={cascade}
+                      checking={stagedItem !== undefined && checked === null}
+                      usage={got?.usage ?? null}
+                      markets={got?.markets ?? null}
+                      preview={shownPreview?.result ?? null}
+                      previewPending={previewKey !== "" && shownPreview?.key !== previewKey}
+                      previewFailed={shownPreview?.failed ?? null}
+                      unit={unit}
+                      onUnit={setUnit}
+                      conflict={conflicts.get(`items/${selected}`) ?? null}
+                      onResolve={resolve}
+                      onEdit={edit}
+                      onDuplicate={duplicate}
+                      onRevert={revert}
+                      onUnstage={unstage}
+                      onSelect={select}
+                      onBack={() => setView("list")}
+                      onPrev={at > 0 ? () => step(-1) : null}
+                      onNext={at >= 0 && at < shownIds.length - 1 ? () => step(1) : null}
+                    />
+                  ) : (
+                    <p className="ce-pick ie-pick">{m.dev_items_pick()}</p>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
@@ -594,8 +680,14 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
               list={list}
               stage={stage}
               locale={locale}
+              focus={taxFocus}
               issues={checked?.result?.issues ?? []}
               onStageTaxonomy={stageTax}
+              onShowItems={(patch) => {
+                setQueryState({ ...EMPTY_QUERY, ...patch });
+                setTab("items");
+              }}
+              onOpenItem={(id) => select(id)}
               onImport={(entries, current) => {
                 const ctx = bulk();
                 if (ctx) stageImport(ctx, entries, current);

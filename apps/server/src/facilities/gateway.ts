@@ -2,7 +2,7 @@
 // docs/adr/2026-11-07-buildings-runtime.md
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(같은 건물·유닛을 차례로 바꾼다).
 // - 사용자별 속도 제한(순간 10번, 분당 30번 — 노동 계약 명령과 같은 값). 밀린 요청이 MAX_PENDING을 넘으면 busy.
-// - 개발 시험 명령(dev_facility_grant·dev_facility_finish)은 dev·admin(secondMap dev-spawn — 보유 물건 dev_grant_item과 같은 권한).
+// - 개발 시험 명령(dev_facility_grant·dev_facility_finish)은 dev·admin(secondMap dev-test — 보유 물건 dev_grant_item과 같은 권한).
 // - 판정·저장은 서비스(service.ts)가 한다. 세계가 아직 없으면(부팅 중·DB 없음) busy.
 // - 행정 건물(폐허 정부, 프로토콜 13 — docs/adr/2026-11-07-ruins-restoration.md)의 새 코드 not_ruin·ruin_claimed는 13판 연결에만 가고 더 낮은
 //   판은 not_buildable을 받는다(그 판 기기가 모르는 코드라 메시지를 풀지 못한다).
@@ -160,7 +160,7 @@ export function createFacilityGateway(options: {
         if (closed) return;
         if (!viewer) return reply(message.id, fail("sign_in_required"));
         const dev = message.t === "dev_facility_grant" || message.t === "dev_facility_finish";
-        if (dev && !rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] }))
+        if (dev && !rolesAllow(viewer.roles, { secondMap: ["dev-test"] }))
           return reply(message.id, fail("forbidden"));
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));

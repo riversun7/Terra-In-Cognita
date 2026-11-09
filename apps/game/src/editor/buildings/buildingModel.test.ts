@@ -18,15 +18,14 @@ import {
   newBuild,
   newGather,
   newRepairRule,
-  normalizeWeightsPm,
   removeBand,
   removeMaterial,
   setGather,
+  setLook,
   setMaterial,
   setRepair,
   stageDiscard,
   stageFacility,
-  stageGatherBand,
   stageKeys,
   toggleIn,
 } from "./buildingModel.ts";
@@ -84,7 +83,7 @@ describe("담은 변경", () => {
     expect(changesOf(stage)).toEqual([
       { op: "put", entry: MINE, baseHash: "a".repeat(64) },
       { op: "revert", id: "farm", baseHash: "b".repeat(64) },
-      { op: "discard_sleeping", id: "old_hall" },
+      { op: "discard_sleeping", id: "old_hall", category: "facilities" },
     ]);
     expect(changesOf(stageDiscard(stageFacility(stage, "mine", null), "old_hall", false))).toHaveLength(1);
   });
@@ -110,19 +109,22 @@ describe("담은 변경", () => {
     });
   });
 
-  it("1차 생산 티어 확률표 담음(gather_tiers) 및 1000‰ 정규화", () => {
-    const band = { id: "band_000", from: 0, weightsPm: [700, 150, 100, 50, 0, 0, 0, 0, 0, 0] };
-    const stage = stageGatherBand(EMPTY_STAGE, "band_000", {
-      op: "put_gather_band",
-      entry: band,
-      base: band,
-      baseHash: "c".repeat(64),
+  it("2차맵 겉모습(look): 빈 칸은 빼고 칸이 없으면 칸째 뺀다, 3방향 합치기에 든다(2026-11-09)", () => {
+    const withLook: FacilityJson = { ...MINE, look: { model: "mine", wall: undefined, heightPm: 1200 } };
+    expect(cleanFacility(withLook).look).toEqual({ model: "mine", heightPm: 1200 });
+    expect(Object.keys(cleanFacility(withLook)).at(-1)).toBe("look");
+    expect(cleanFacility({ ...MINE, look: {} })).not.toHaveProperty("look");
+    // 칸 하나 고치기: 지우면(undefined) 칸이 빠지고 다 지우면 look째 빠진다
+    expect(setLook(withLook, "roof", "teal").look).toEqual({ model: "mine", roof: "teal", heightPm: 1200 });
+    expect(setLook(withLook, "heightPm", undefined).look).toEqual({ model: "mine" });
+    expect(setLook(setLook(withLook, "heightPm", undefined), "model", undefined)).not.toHaveProperty("look");
+    const base = cleanFacility(withLook);
+    const mine: FacilityJson = { ...base, look: { model: "temple", heightPm: 1200 } };
+    const theirs: FacilityJson = { ...base, pollution: 9 };
+    expect(mergeFacility(base, mine, theirs)).toEqual({
+      entry: { ...theirs, look: { model: "temple", heightPm: 1200 } },
+      conflicts: [],
     });
-    expect(stageKeys(stage)).toEqual(["gather_tiers/band_000"]);
-    expect(changesOf(stage)).toEqual([{ op: "put_gather_band", entry: band, baseHash: "c".repeat(64) }]);
-    const normalized = normalizeWeightsPm([100, 70, 40, 20]);
-    expect(normalized.reduce((a, b) => a + b, 0)).toBe(1000);
-    expect(normalized).toHaveLength(10);
   });
 });
 

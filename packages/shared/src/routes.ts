@@ -257,6 +257,15 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 1차 생산 티어 확률(기획 49 N43·D-513, docs/adr/2026-11-02-building-editor.md "바뀜 (2026-11-09)"): 틀 안 촘촘한 표. 유효 스탯 구간마다
+  // T0~T9 가중치(합 1000‰). 건물 편집기 탭이던 것을 따로 옮겼다. 적용하면 그 세계에 바로 든다
+  dev_gather_tiers: {
+    path: "/dev/gather-tiers",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 크리처 편집기(/dev/creatures): 틀 안 빽빽한 편집 화면. ?creature=<ID>는 그 크리처를 바로 연다. 적용하면 그 세계에 바로 든다
   dev_creatures: {
     path: "/dev/creatures",

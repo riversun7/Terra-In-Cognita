@@ -310,6 +310,8 @@ export interface ItemRow {
   /** 사용 효과 ID */
   readonly effects: readonly string[];
   readonly shelfLifeMs: number | null;
+  /** 한 칸에 쌓는 수 상한(없으면 null = 팩 기본, 목록 표의 "묶음 상한" 칸) */
+  readonly stackMax: number | null;
   /** 권고 수(저장을 막지 않는 문제) */
   readonly advice: number;
   /** 코드·시나리오가 이 ID를 쓰는가(끄기·칸 바꾸기에 확인 창) */

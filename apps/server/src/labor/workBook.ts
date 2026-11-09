@@ -21,12 +21,7 @@ import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import {
-  UNIT_KIND_CYBORG,
-  UNIT_KIND_CYBORG_UNIT,
-  UNIT_KIND_HUMAN,
-  UNIT_KIND_WORKER,
-} from "../world/unitKinds.ts";
+import { UNIT_KIND_CYBORG, UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { type GatherSite, gatherLots, gatherSettingsOf } from "./gatherWork.ts";
 import { type WorkRecord, workRow } from "./work.ts";
 
@@ -92,7 +87,7 @@ export interface GoodsReceiver {
   readonly location: number;
 }
 
-/** 플레이어 유닛 종류(직무를 켜고 끄는 대상). 개발 시험 일꾼·봇·관리자 시험 유닛은 건드리지 않는다 */
+/** 플레이어 유닛 종류(직무를 켜고 끄는 대상). 봇·관리자 시험 유닛은 건드리지 않는다 */
 const PLAYER_KINDS: ReadonlySet<number> = new Set([UNIT_KIND_CYBORG, UNIT_KIND_HUMAN, UNIT_KIND_CYBORG_UNIT]);
 
 export interface WorkBook {
@@ -107,8 +102,6 @@ export interface WorkBook {
   assignedAt(buildingId: number): number[];
   /** 그 주체의 직무 배치 줄(유닛 ID 차례) */
   assignmentsOf(ownerId: number): WorkRecord[];
-  /** 개발 시험 일꾼인가(계약 밖 구간에 시험 광석을 내는 유닛) */
-  isTestWorker(unitId: number): boolean;
   /** 채집 시설이면 산출이 도시 창고(임금형·배치) 또는 건물 창고(임대형)로 가는 물건 구간 칸(goods). 채집 시설이 아니면 undefined */
   goodsFor(
     unitId: number,
@@ -197,13 +190,6 @@ export function createWorkBook(options: {
       return [...records.values()]
         .filter((record) => record.buildingId !== null && record.ownerId === ownerId)
         .toSorted((a, b) => a.unitId - b.unitId);
-    },
-    isTestWorker(unitId) {
-      for (const map of maps.values()) {
-        const info = map.unitInfo(unitId);
-        if (info) return info.kind === UNIT_KIND_WORKER;
-      }
-      return false;
     },
     leaseRooms() {
       const left = new Map<number, bigint | null>();

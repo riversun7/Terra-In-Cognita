@@ -10,10 +10,12 @@ import {
   useId,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import type { TuningExportResponse } from "@terra/shared/tuning";
 import { m } from "../../paraglide/messages.js";
 import { useSectionCounts } from "./contentEditorCompare.tsx";
+import { HintToggle, useHintStyle } from "./contentEditorFields.tsx";
 import "./contentEditorShell.css";
 
 /** 머리 요약 칩 하나 */
@@ -144,11 +146,14 @@ export function EntryHead({
   onNext,
   backClass,
   headingId,
+  nav,
 }: {
   name: string;
   id: string;
   badges?: ReactNode;
   actions?: ReactNode;
+  /** 머리와 함께 붙는 구역 바로 가기(SectionJump). 없으면 화면이 따로 둔다 */
+  nav?: ReactNode;
   /** 머리 아래 작은 글(덮어쓴 사람·쓰는 곳) */
   info?: ReactNode;
   onBack: () => void;
@@ -202,6 +207,7 @@ export function EntryHead({
           {actions}
         </div>
       ) : null}
+      {nav}
     </header>
   );
 }
@@ -245,6 +251,9 @@ export function FormSection({
   children: ReactNode;
 }) {
   const counts = useSectionCounts(paths);
+  const tipMode = useHintStyle() === "tip";
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const aboutId = useId();
   return (
     <details
       className={`ce-form-section ${className ?? ""}`}
@@ -267,7 +276,25 @@ export function FormSection({
         ) : null}
       </summary>
       <div className="ce-form-section-body">
-        {desc || source ? (
+        {tipMode && (desc || source) ? (
+          // tip 모양(건물 편집기): 근거 한 줄 + [ⓘ]를 누르면 풀이가 펼쳐진다
+          <div className="ce-form-section-about">
+            {desc ? (
+              <HintToggle
+                open={aboutOpen}
+                onToggle={() => setAboutOpen(!aboutOpen)}
+                controls={aboutId}
+                label={title}
+              />
+            ) : null}
+            {source ? <span className="ce-source">{m.dev_content_source({ source })}</span> : null}
+            {desc ? (
+              <p id={aboutId} className="ce-form-section-desc" hidden={!aboutOpen}>
+                {desc}
+              </p>
+            ) : null}
+          </div>
+        ) : desc || source ? (
           <p className="ce-form-section-desc">
             {desc}
             {source ? <span className="ce-source"> {m.dev_content_source({ source })}</span> : null}

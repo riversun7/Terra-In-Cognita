@@ -25,10 +25,12 @@ import {
   rows,
   sessionCookie,
 } from "../testDb.ts";
+import { addTestUnits, silentLog } from "./testSupport.ts";
+import { startWorld } from "./world.ts";
 
 const PASSWORD = "fake pass phrase 1";
 
-type RequestMessage = ClientMessageOf<"subscribe" | "remove_building" | "dev_spawn_units">;
+type RequestMessage = ClientMessageOf<"subscribe" | "remove_building">;
 
 function resultOf(messages: ServerMessage[]): ServerMessage | undefined {
   return messages.find((m) => m.t === "result");
@@ -47,6 +49,29 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 로그인·권한 (DB)", () => {
 
   beforeAll(async () => {
     test = await createTestDatabase();
+    const auth = createAuth({ db: test.db, settings: TEST_SETTINGS });
+    await executeCommand(
+      parseCliArgs(["create-user", "--id", "Fake_S1Admin", "--roles", "player,admin"]),
+      { TIC_ACTOR: "test:runner", TIC_PASSWORD: PASSWORD },
+      { db: test.db, auth },
+      { out: () => {}, err: () => {} },
+    );
+    // admin의 내 유닛 3개: 앱을 켜기 전에 같은 DB로 월드를 한 번 켜서 세우고 끈다(시험 도우미 — 기기 명령은 없다).
+    // 앱의 월드는 켤 때 이 유닛들을 복구한다
+    const [admin] = await rows<{ id: string }>(
+      test.db,
+      "select id from users where username = 'fake_s1admin'",
+    );
+    const before = startWorld({
+      testBots: 0,
+      paths: { kind: "inline" },
+      now: () => Date.now(),
+      log: silentLog,
+      pool: test.db.$client,
+    });
+    await before.ready;
+    expect(addTestUnits(before, String(admin?.id), S1_TEST_MAP_KEY, 3, Date.now())).toHaveLength(3);
+    await before.stop();
     app = await buildApp({
       contentVersion: "test",
       logger: false,
@@ -56,13 +81,6 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 로그인·권한 (DB)", () => {
       world: { testBots: 5, paths: { kind: "inline" } },
     });
     await app.ready();
-    const auth = createAuth({ db: test.db, settings: TEST_SETTINGS });
-    await executeCommand(
-      parseCliArgs(["create-user", "--id", "Fake_S1Admin", "--roles", "player,admin"]),
-      { TIC_ACTOR: "test:runner", TIC_PASSWORD: PASSWORD },
-      { db: test.db, auth },
-      { out: () => {}, err: () => {} },
-    );
     adminCookie = sessionCookie(await enter(app, { id: "Fake_S1Admin", password: PASSWORD }));
     playerCookie = sessionCookie(
       await enter(app, { id: "Fake_S1Player", password: PASSWORD, create: true, passwordConfirm: PASSWORD }),
@@ -120,17 +138,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 로그인·권한 (DB)", () => {
     expect(presence[0]?.offline_since_ms).not.toBeNull();
   });
 
-  it("시험 일꾼 받기(dev·admin) → 시야 구독에 내 유닛과 탐사 칸이 오고, 끊으면 탐사 기록이 저장된다(S3 ADR 3절)", async () => {
-    const forbidden = await request(
-      { cookie: playerCookie, origin: TEST_ORIGIN },
-      { t: "dev_spawn_units", id: 3, mapKey: S1_TEST_MAP_KEY, count: 2 },
-    );
-    expect(resultOf(forbidden)).toEqual({ t: "result", id: 3, ok: false, code: "forbidden" });
-    const spawned = await request(
-      { cookie: adminCookie, origin: TEST_ORIGIN },
-      { t: "dev_spawn_units", id: 4, mapKey: S1_TEST_MAP_KEY, count: 3 },
-    );
-    expect(resultOf(spawned)).toEqual({ t: "result", id: 4, ok: true });
+  it("내 유닛이 있으면 시야 구독에 내 유닛과 탐사 칸이 오고, 끊으면 탐사 기록이 저장된다(S3 ADR 3절)", async () => {
     const messages = await request({ cookie: adminCookie, origin: TEST_ORIGIN }, subscribe);
     const units = messages.flatMap((m) => (m.t === "map_snapshot" ? m.units : []));
     // 내 유닛 3개는 경로 전체(until 없음). 봇(남의 유닛)은 시야 안에 있을 때만 온다

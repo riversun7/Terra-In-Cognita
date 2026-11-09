@@ -473,6 +473,11 @@ function SecondMapView({
   const glanceUnit = peek?.unitId ?? (control?.kind === "other" ? shown : null);
   const glance = useUnitGlance(mapKey, glanceUnit, glanceUnit !== null);
   const labelOf = (unitId: number): string => unitLabel(unitId, myUnits.units);
+  // 이동 경로·목적지 표시(엔진 setRouteUnit): 내가 다룰 수 있는 고른 유닛만(사용자 요청 2026-11-09)
+  const routeUnit = control !== null && canCommand(control) ? shown : null;
+  useEffect(() => {
+    engineRef.current?.setRouteUnit(routeUnit);
+  }, [routeUnit, engineRef]);
   const hint =
     pendingBuildPick() !== null
       ? m.map_build_pick_hint()

@@ -47,6 +47,7 @@ const row = (id: string, extra: Partial<ItemRow> = {}): ItemRow => ({
   stats: [],
   effects: [],
   shelfLifeMs: null,
+  stackMax: null,
   advice: 0,
   codeRef: false,
   ...extra,

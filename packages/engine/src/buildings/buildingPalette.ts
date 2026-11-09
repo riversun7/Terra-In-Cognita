@@ -1,6 +1,7 @@
 // 2차맵 건물 색 표(3D) — 순수 코드(three를 쓰지 않는다). 건물 모델 만들기(buildingModels.ts)가 이 이름만 쓴다(색 값을 흩어 쓰지 않는다).
 // 세계 색은 화면 테마와 상관없다(D-070): 파스텔·다크 테마 모두 같은 색이고, 밤은 장면 빛 + 건물 밤 빛 + 창문 불빛이 맡는다.
 // 톤은 "새싹 장난감"(ADR 2026-10-28-design-system): 채도를 조금 낮춘 밝은 색, 지붕은 벽보다 한 단계 짙게.
+import { type FacilityLookColor, isFacilityLookColor } from "@terra/shared/facilityLook";
 import type { Rgb } from "../terrain/terrainTextures.ts";
 
 export type { Rgb } from "../terrain/terrainTextures.ts";
@@ -59,6 +60,33 @@ export const BUILDING_COLORS = {
 } as const satisfies Record<string, Rgb>;
 
 export type BuildingColorName = keyof typeof BUILDING_COLORS;
+
+/**
+ * 겉모습 자료(팩 facilities.look.wall·roof)의 색 이름 → 이 색 표의 색. 이름표는 @terra/shared FACILITY_LOOK_COLORS(건물 편집기·팩 스키마와
+ * 같다). 벽·지붕 어느 쪽에도 쓸 수 있다
+ */
+export const LOOK_COLORS: Readonly<Record<FacilityLookColor, BuildingColorName>> = {
+  cream: "wallCream",
+  wood: "wallWood",
+  stone: "wallStone",
+  white: "wallWhite",
+  brick: "wallBrick",
+  barn: "wallBarn",
+  lab: "wallLab",
+  terracotta: "roofTerracotta",
+  brown: "roofBrown",
+  slate: "roofSlate",
+  moss: "roofMoss",
+  thatch: "roofThatch",
+  teal: "roofTeal",
+  metal: "metal",
+  gold: "gold",
+};
+
+/** 색 이름 → 색(이름이 없거나 모르면 null = 모델 기본 색) */
+export function lookColor(name: string | null | undefined): Rgb | null {
+  return isFacilityLookColor(name) ? BUILDING_COLORS[LOOK_COLORS[name]] : null;
+}
 
 /**
  * 국가 색(깃발·용마루) — 지도 CSS의 국가 색 번호 0~5(data-nation, `--color-stat-*` 여섯을 국가 차례대로)와 같은 차례:

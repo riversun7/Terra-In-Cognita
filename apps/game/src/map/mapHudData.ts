@@ -48,5 +48,7 @@ export function hudDataAttributes(
     // 가시거리 자동 조절 단계(0부터)와 그 거리(m) — @terra/engine render/viewDistance.ts
     "data-view-level": stats?.viewLevel,
     "data-view-reach": stats ? Math.round(stats.viewReachM) : undefined,
+    // 이동 경로 점 수·목적지 표시(1/0) — 화면 시험이 본다
+    "data-route": stats ? `${stats.routePoints},${stats.moveTarget ? 1 : 0}` : undefined,
   };
 }

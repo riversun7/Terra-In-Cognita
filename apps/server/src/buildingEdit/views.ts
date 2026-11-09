@@ -18,6 +18,7 @@ import type {
   FacilityJson,
   GatherTierJson,
 } from "@terra/shared/buildingEditor";
+import { type FacilityLookJson, cleanFacilityLook } from "@terra/shared/facilityLook";
 import { type ContentEditState, type ContentSnapshot, contentKey } from "../contentEdit/state.ts";
 import { originOf, overrideViewOf } from "../contentEdit/views.ts";
 
@@ -72,7 +73,14 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
       : {}),
     ...(entry.durability === undefined ? {} : { durability: entry.durability }),
     ...(entry.storageKg === undefined ? {} : { storageKg: entry.storageKg }),
+    // 2차맵 겉모습(docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)")
+    ...(entry.look ? { look: lookJsonOf(entry.look) } : {}),
   };
+}
+
+/** 팩 look 칸 → 화면 JSON(빈 칸 빼고 팩 줄 차례) */
+function lookJsonOf(look: NonNullable<FacilityEntry["look"]>): FacilityLookJson {
+  return cleanFacilityLook(look) ?? {};
 }
 
 /** 레시피 → 읽기 전용 줄 */

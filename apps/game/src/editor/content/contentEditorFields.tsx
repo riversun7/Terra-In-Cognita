@@ -4,8 +4,10 @@
 // - 칸 아래 한 줄: 쉬운 풀이(desc) · 단위 · 범위(정수 칸은 min~max를 스스로 적는다) · 덧붙인 말(hint).
 // - path를 주면 편집 판의 CompareProvider로 팩 값·지금 값과 견준다(담음·팩과 다름 표지, [되돌리기]·[팩 값으로], 서버 검사 문구).
 // - 칸 문제(서버 검사 코드 문구)는 aria-describedby로 잇는다. hideLabel(표 칸)은 견주기 글 없이 표지(data-staged 등)만 단다.
+// - 풀이 모양(FieldHintStyle): "inline"(기본) = 칸 아래 한 줄, "tip" = 이름표 옆 [ⓘ]를 눌러야 펼친다(건물 편집기, 2026-11-09 개발자 편의
+//   개편 — 칸마다 긴 회색 글이 표를 밀어내지 않게). tip이면 단위는 입력 칸 오른쪽에 붙고 범위는 칸의 title·펼친 풀이에 든다.
 // 조각: 편집기들이 같이 쓰는 모듈이라 rolldown이 따로 묶는다(이름 contentEditor…, 미리 캐시 규칙 [Cc]ontentEditor).
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, createContext, useContext, useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import {
@@ -18,6 +20,44 @@ import {
 import { parseInt32 } from "./contentEditorModel.ts";
 import "./contentEditor.css";
 import "./contentEditorShell.css";
+
+/** 풀이 모양: inline = 칸 아래 늘 보임, tip = [ⓘ]로 펼침(단위는 칸 오른쪽) */
+export type FieldHintStyle = "inline" | "tip";
+const HintStyleContext = createContext<FieldHintStyle>("inline");
+
+/** 이 안의 칸·구역 풀이 모양을 정한다(편집 판 하나에 한 번) */
+export function FieldHintProvider({ mode, children }: { mode: FieldHintStyle; children: ReactNode }) {
+  return <HintStyleContext.Provider value={mode}>{children}</HintStyleContext.Provider>;
+}
+
+export const useHintStyle = (): FieldHintStyle => useContext(HintStyleContext);
+
+/** [ⓘ] 펼침 단추(tip 모양): 풀이 문단을 보이고 숨긴다. 문단은 숨겨도 aria-describedby로 읽힌다 */
+export function HintToggle({
+  open,
+  onToggle,
+  controls,
+  label,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  controls: string;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="ce-hint-toggle"
+      aria-expanded={open}
+      aria-controls={controls}
+      aria-label={m.dev_content_hint_toggle({ name: label })}
+      title={m.dev_content_hint_toggle({ name: label })}
+      onClick={onToggle}
+    >
+      <span aria-hidden="true">i</span>
+    </button>
+  );
+}
 
 /** 칸 아래 문제 줄(서버 검사·바로 보이는 검사). id는 입력 칸의 aria-describedby가 가리킨다 */
 function FieldProblem({ id, text }: { id: string; text: string | undefined }) {
@@ -45,12 +85,15 @@ function FieldHint({
   unit,
   range,
   hint,
+  hidden = false,
 }: {
   id: string;
   desc?: string | undefined;
   unit?: string | undefined;
   range?: string | undefined;
   hint?: string | undefined;
+  /** tip 모양에서 접힘(읽기 프로그램은 aria-describedby로 그대로 읽는다) */
+  hidden?: boolean;
 }) {
   const facts = [
     unit ? m.dev_content_unit({ unit }) : null,
@@ -59,7 +102,7 @@ function FieldHint({
   ].filter((part): part is string => part !== null && part !== "");
   if (!desc && facts.length === 0) return null;
   return (
-    <p id={id} className="field-hint ce-hint">
+    <p id={id} className="field-hint ce-hint" hidden={hidden}>
       {desc ? <span className="ce-desc">{desc}</span> : null}
       {facts.map((fact) => (
         <span key={fact} className="ce-fact">
@@ -76,11 +119,14 @@ function FieldHead({
   label,
   hideLabel,
   badges,
+  tip,
 }: {
   id: string;
   label: string;
   hideLabel: boolean;
   badges: ReactNode;
+  /** tip 모양의 [ⓘ] 단추(풀이가 있을 때만) */
+  tip?: ReactNode;
 }) {
   if (hideLabel)
     return (
@@ -93,6 +139,7 @@ function FieldHead({
       <label className="field-label" htmlFor={id}>
         {label}
       </label>
+      {tip}
       {badges}
     </span>
   );
@@ -171,40 +218,80 @@ export function NumberField({
           : m.dev_content_value_invalid();
   const shownProblem = local ?? problem ?? compare?.problem;
   const invalid = shownProblem !== undefined;
+  const tipMode = useHintStyle() === "tip" && !hideLabel;
+  const [tipOpen, setTipOpen] = useState(false);
+  const input = (
+    <input
+      id={id}
+      className="input ce-number"
+      // 음수를 받을 수 있는 칸은 글 자판(iOS 숫자 자판에는 − 가 없다)
+      inputMode={min >= 0 ? "numeric" : "text"}
+      autoComplete="off"
+      spellCheck={false}
+      value={text}
+      title={
+        hideLabel && compare?.changed
+          ? m.dev_content_compare_pack_title({ value: compareText(compare.packValue) })
+          : tipMode
+            ? m.dev_content_range_label({ range })
+            : undefined
+      }
+      aria-invalid={invalid || undefined}
+      aria-describedby={joinIds(invalid && problemId, !hideLabel && hintId)}
+      onChange={(event) => {
+        const next = event.target.value;
+        setText(next);
+        if (optional && next.trim() === "") {
+          setSeen("");
+          onChange(undefined);
+          return;
+        }
+        const number = parseInt32(next, min, max);
+        if (number !== null) {
+          setSeen(String(number));
+          onChange(number);
+        }
+      }}
+    />
+  );
   return (
     <div className={`field ce-field ${className ?? ""}`} {...compareData(compare, invalid)}>
-      <FieldHead id={id} label={label} hideLabel={hideLabel} badges={<CompareBadges compare={compare} />} />
-      <input
+      <FieldHead
         id={id}
-        className="input ce-number"
-        // 음수를 받을 수 있는 칸은 글 자판(iOS 숫자 자판에는 − 가 없다)
-        inputMode={min >= 0 ? "numeric" : "text"}
-        autoComplete="off"
-        spellCheck={false}
-        value={text}
-        title={
-          hideLabel && compare?.changed
-            ? m.dev_content_compare_pack_title({ value: compareText(compare.packValue) })
-            : undefined
+        label={label}
+        hideLabel={hideLabel}
+        badges={<CompareBadges compare={compare} />}
+        tip={
+          tipMode && (desc || hint) ? (
+            <HintToggle
+              open={tipOpen}
+              onToggle={() => setTipOpen(!tipOpen)}
+              controls={hintId}
+              label={label}
+            />
+          ) : null
         }
-        aria-invalid={invalid || undefined}
-        aria-describedby={joinIds(invalid && problemId, !hideLabel && hintId)}
-        onChange={(event) => {
-          const next = event.target.value;
-          setText(next);
-          if (optional && next.trim() === "") {
-            setSeen("");
-            onChange(undefined);
-            return;
-          }
-          const number = parseInt32(next, min, max);
-          if (number !== null) {
-            setSeen(String(number));
-            onChange(number);
-          }
-        }}
       />
-      {hideLabel ? null : <FieldHint id={hintId} desc={desc} unit={unit} range={range} hint={hint} />}
+      {tipMode && unit ? (
+        <span className="ce-input-unit">
+          {input}
+          <span className="ce-unit" aria-hidden="true">
+            {unit}
+          </span>
+        </span>
+      ) : (
+        input
+      )}
+      {hideLabel ? null : (
+        <FieldHint
+          id={hintId}
+          desc={desc}
+          unit={unit}
+          range={range}
+          hint={hint}
+          hidden={tipMode && !tipOpen}
+        />
+      )}
       {hideLabel ? null : <CompareLine compare={compare} name={label} />}
       <FieldProblem id={problemId} text={shownProblem} />
     </div>
@@ -231,12 +318,29 @@ export function TextField({
   const hintId = useId();
   const compare = useFieldCompare(path);
   const shownProblem = problem ?? compare?.problem;
+  const tipMode = useHintStyle() === "tip";
+  const [tipOpen, setTipOpen] = useState(false);
   return (
     <div
       className={`field ce-field ${className ?? ""}`}
       {...compareData(compare, shownProblem !== undefined)}
     >
-      <FieldHead id={id} label={label} hideLabel={false} badges={<CompareBadges compare={compare} />} />
+      <FieldHead
+        id={id}
+        label={label}
+        hideLabel={false}
+        badges={<CompareBadges compare={compare} />}
+        tip={
+          tipMode && (desc || hint) ? (
+            <HintToggle
+              open={tipOpen}
+              onToggle={() => setTipOpen(!tipOpen)}
+              controls={hintId}
+              label={label}
+            />
+          ) : null
+        }
+      />
       <input
         id={id}
         className="input"
@@ -247,7 +351,7 @@ export function TextField({
         aria-describedby={joinIds(shownProblem && problemId, (desc || hint) && hintId)}
         onChange={(event) => onChange(event.target.value)}
       />
-      <FieldHint id={hintId} desc={desc} hint={hint} />
+      <FieldHint id={hintId} desc={desc} hint={hint} hidden={tipMode && !tipOpen} />
       <CompareLine compare={compare} name={label} />
       <FieldProblem id={problemId} text={shownProblem} />
     </div>
@@ -276,12 +380,29 @@ export function SelectField<T extends string>({
   const compare = useFieldCompare(path);
   const shownProblem = problem ?? compare?.problem;
   const labelOf = (raw: string): string | undefined => options.find((option) => option.value === raw)?.label;
+  const tipMode = useHintStyle() === "tip" && !hideLabel;
+  const [tipOpen, setTipOpen] = useState(false);
   return (
     <div
       className={`field ce-field ${className ?? ""}`}
       {...compareData(compare, shownProblem !== undefined)}
     >
-      <FieldHead id={id} label={label} hideLabel={hideLabel} badges={<CompareBadges compare={compare} />} />
+      <FieldHead
+        id={id}
+        label={label}
+        hideLabel={hideLabel}
+        badges={<CompareBadges compare={compare} />}
+        tip={
+          tipMode && (desc || hint) ? (
+            <HintToggle
+              open={tipOpen}
+              onToggle={() => setTipOpen(!tipOpen)}
+              controls={hintId}
+              label={label}
+            />
+          ) : null
+        }
+      />
       <select
         id={id}
         value={value}
@@ -298,7 +419,7 @@ export function SelectField<T extends string>({
           </option>
         ))}
       </select>
-      {hideLabel ? null : <FieldHint id={hintId} desc={desc} hint={hint} />}
+      {hideLabel ? null : <FieldHint id={hintId} desc={desc} hint={hint} hidden={tipMode && !tipOpen} />}
       {hideLabel ? null : <CompareLine compare={compare} name={label} labelOf={labelOf} />}
       <FieldProblem id={problemId} text={shownProblem} />
     </div>

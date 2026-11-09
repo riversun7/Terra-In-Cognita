@@ -23,6 +23,10 @@ export interface KindContext {
   readonly random: () => number;
   readonly ridge: Rgb | null;
   readonly main: Rect;
+  /** 본채 벽 색: 겉모습 자료(팩 look.wall)가 있으면 그 색, 없으면 모델 기본 색(fallback) */
+  readonly wall: (fallback: Rgb) => Rgb;
+  /** 지붕 색: 겉모습 자료(팩 look.roof)가 있으면 그 색, 없으면 모델 기본 색 */
+  readonly roof: (fallback: Rgb) => Rgb;
 }
 
 /** 종류마다 본채 자리(바닥 크기 비율) */
@@ -79,8 +83,8 @@ function farm(ctx: KindContext): void {
     ...m,
     wallH: 4.4 + ctx.extraH,
     roofH: 3,
-    wall: C.wallBarn,
-    roof: C.roofBrown,
+    wall: ctx.wall(C.wallBarn),
+    roof: ctx.roof(C.roofBrown),
     style: "gable-z",
     doorW: Math.min(2.8, m.w * 0.4),
     doorH: 3,
@@ -124,8 +128,8 @@ function lumber(ctx: KindContext): void {
     ...m,
     wallH: 3.4 + ctx.extraH,
     roofH: 2.2,
-    wall: C.wallWood,
-    roof: C.roofMoss,
+    wall: ctx.wall(C.wallWood),
+    roof: ctx.roof(C.roofMoss),
     style: "gable-x",
     ridge: ctx.ridge,
   });
@@ -173,7 +177,7 @@ function mine(ctx: KindContext): void {
   for (const px of [-half, half])
     for (const pz of [-half, half]) list.add("box", m.x + px, FLOOR_M, m.z + pz, 0.34, towerH, 0.34, C.log);
   list.add("box", m.x, FLOOR_M + towerH * 0.5, m.z, half * 2 + 0.3, 0.25, half * 2 + 0.3, C.log);
-  list.add("box", m.x, FLOOR_M + towerH, m.z, half * 2 + 0.6, 0.35, half * 2 + 0.6, C.roofBrown);
+  list.add("box", m.x, FLOOR_M + towerH, m.z, half * 2 + 0.6, 0.35, half * 2 + 0.6, ctx.roof(C.roofBrown));
   list.add("cylinder", m.x, FLOOR_M + towerH + 0.2, m.z, 0.3, 2.2, 2.2, C.metalDark, {
     lay: true,
     turn: Math.PI / 2,
@@ -200,8 +204,8 @@ function smelter(ctx: KindContext): void {
     ...m,
     wallH: 4.6 + ctx.extraH,
     roofH: 2.4,
-    wall: C.wallStone,
-    roof: C.roofSlate,
+    wall: ctx.wall(C.wallStone),
+    roof: ctx.roof(C.roofSlate),
     style: "gable-x",
     doorX: -m.w * 0.25,
     ridge: ctx.ridge,
@@ -237,8 +241,8 @@ function kitchen(ctx: KindContext): void {
     ...m,
     wallH: 3.4 + ctx.extraH,
     roofH: 2.3,
-    wall: C.wallCream,
-    roof,
+    wall: ctx.wall(C.wallCream),
+    roof: ctx.roof(roof),
     style: "gable-x",
     ridge: ctx.ridge,
   });
@@ -277,8 +281,8 @@ function workshop(ctx: KindContext): void {
     ...m,
     wallH: 3.6 + ctx.extraH,
     roofH: 2,
-    wall: C.wallWood,
-    roof: C.roofSlate,
+    wall: ctx.wall(C.wallWood),
+    roof: ctx.roof(C.roofSlate),
     style: "gable-x",
     doorW: Math.min(2.6, m.w * 0.42),
     doorH: 2.6,
@@ -302,8 +306,8 @@ function sawmill(ctx: KindContext): void {
     ...m,
     wallH: 3.8 + ctx.extraH,
     roofH: 2.2,
-    wall: C.wallWood,
-    roof: C.roofBrown,
+    wall: ctx.wall(C.wallWood),
+    roof: ctx.roof(C.roofBrown),
     style: "gable-x",
     doorX: m.w * 0.25,
     doorW: 2.4,
@@ -325,10 +329,11 @@ function sawmill(ctx: KindContext): void {
 function kiln(ctx: KindContext): void {
   const { list, W, D, level, main: m } = ctx;
   const dia = Math.min(m.w, m.d);
-  list.add("cylinder", m.x, FLOOR_M, m.z, dia, 1.2, dia, C.wallBrick);
-  list.add("dome", m.x, FLOOR_M + 1.2, m.z, dia, 3.4 + ctx.extraH * 0.5 + level * 0.3, dia, C.wallBrick);
+  const brick = ctx.wall(C.wallBrick);
+  list.add("cylinder", m.x, FLOOR_M, m.z, dia, 1.2, dia, brick);
+  list.add("dome", m.x, FLOOR_M + 1.2, m.z, dia, 3.4 + ctx.extraH * 0.5 + level * 0.3, dia, brick);
   list.add("glow", m.x, FLOOR_M + 0.3, m.z + dia / 2 - 0.15, 1.3, 1.2, 0.4, FURNACE_GLOW);
-  list.add("cylinder", m.x + dia * 0.3, FLOOR_M, m.z - dia * 0.36, 1, 7 + level, 1, C.wallBrick);
+  list.add("cylinder", m.x + dia * 0.3, FLOOR_M, m.z - dia * 0.36, 1, 7 + level, 1, brick);
   // 벽돌 더미(레벨 2면 둘)
   for (let i = 0; i < (level >= 2 ? 2 : 1); i++)
     list.add("box", -W * 0.34 + i * 1.6, FLOOR_M, D * 0.36, 1.3, 0.8, 1, C.wallBrick, { turn: 0.1 * i });
@@ -341,7 +346,16 @@ function stockpile(ctx: KindContext): void {
   for (const px of [-m.w / 2 + 0.2, m.w / 2 - 0.2])
     for (const pz of [-m.d / 2 + 0.2, m.d / 2 - 0.2])
       list.add("box", m.x + px, FLOOR_M, m.z + pz, 0.25, postH, 0.25, C.log);
-  list.add("gable", m.x, FLOOR_M + postH, m.z, m.w + 0.3, 1.2, m.d + 0.3, ctx.ridge ?? C.roofThatch);
+  list.add(
+    "gable",
+    m.x,
+    FLOOR_M + postH,
+    m.z,
+    m.w + 0.3,
+    1.2,
+    m.d + 0.3,
+    ctx.ridge ?? ctx.roof(C.roofThatch),
+  );
   list.crates(m.x, m.z, 3 + level, random, 0.95);
   list.barrel(-W * 0.34, D * 0.34);
   list.barrel(-W * 0.34 + 0.9, D * 0.34);
@@ -354,8 +368,8 @@ function storehouse(ctx: KindContext): void {
     ...m,
     wallH: 4.4 + ctx.extraH,
     roofH: 3,
-    wall: C.wallWood,
-    roof: C.roofBrown,
+    wall: ctx.wall(C.wallWood),
+    roof: ctx.roof(C.roofBrown),
     style: "gable-z",
     doorW: Math.min(3.2, m.w * 0.35),
     doorH: 3.4,
@@ -372,8 +386,8 @@ function warehouse(ctx: KindContext): void {
     ...m,
     wallH: 5.6 + ctx.extraH,
     roofH: 2.6,
-    wall: C.wallStone,
-    roof: C.roofSlate,
+    wall: ctx.wall(C.wallStone),
+    roof: ctx.roof(C.roofSlate),
     style: "gable-x",
     doorX: -m.w * 0.22,
     doorW: 3.2,
@@ -394,8 +408,8 @@ function warehouse(ctx: KindContext): void {
       d: 4,
       wallH: 3.6,
       roofH: 1.8,
-      wall: C.wallCream,
-      roof: C.roofTerracotta,
+      wall: ctx.wall(C.wallCream),
+      roof: ctx.roof(C.roofTerracotta),
       style: "gable-x",
       doorW: 0,
     });
@@ -407,8 +421,8 @@ function temple(ctx: KindContext): void {
     ...m,
     wallH: 5 + ctx.extraH,
     roofH: 3,
-    wall: C.wallStone,
-    roof: C.roofTeal,
+    wall: ctx.wall(C.wallStone),
+    roof: ctx.roof(C.roofTeal),
     style: "gable-z",
     doorH: 3,
     ridge: ctx.ridge,
@@ -439,8 +453,8 @@ function lab(ctx: KindContext): void {
     ...m,
     wallH,
     roofH: 0,
-    wall: C.wallLab,
-    roof: C.wallWhite,
+    wall: ctx.wall(C.wallLab),
+    roof: ctx.roof(C.wallWhite),
     style: "flat",
     ridge: null,
   });
@@ -461,8 +475,8 @@ function government(ctx: KindContext): void {
     ...m,
     wallH,
     roofH: 3.2,
-    wall: C.wallCream,
-    roof: C.roofTerracotta,
+    wall: ctx.wall(C.wallCream),
+    roof: ctx.roof(C.roofTerracotta),
     style: "hip",
     doorH: 3,
   });
@@ -506,8 +520,8 @@ function hospital(ctx: KindContext): void {
     ...m,
     wallH,
     roofH: 0,
-    wall: C.wallWhite,
-    roof: C.padStone,
+    wall: ctx.wall(C.wallWhite),
+    roof: ctx.roof(C.padStone),
     style: "flat",
     doorW: 2.4,
     ridge: null,
@@ -528,8 +542,8 @@ function hospital(ctx: KindContext): void {
       d: D * 0.26,
       wallH: 3.4,
       roofH: 0,
-      wall: C.wallWhite,
-      roof: C.padStone,
+      wall: ctx.wall(C.wallWhite),
+      roof: ctx.roof(C.padStone),
       style: "flat",
       doorW: 0,
     });
@@ -553,8 +567,8 @@ function house(ctx: KindContext): void {
         d: single ? m.d : cd * 0.68,
         wallH: 3.2 + ctx.extraH + random() * 0.6,
         roofH: 2.2,
-        wall: random() < 0.5 ? C.wallCream : C.wallWhite,
-        roof: pickRoof(random, roofs),
+        wall: ctx.wall(random() < 0.5 ? C.wallCream : C.wallWhite),
+        roof: ctx.roof(pickRoof(random, roofs)),
         style: random() < 0.75 ? "gable-x" : "hip",
         ridge: ctx.ridge,
       });

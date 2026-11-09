@@ -31,7 +31,6 @@ export {
   UNIT_KIND_PROTOCOL_VERSION,
   UNIT_WIRE_KINDS,
   VISION_BYTES,
-  MAX_DEV_SPAWN_UNITS,
   UNIT_SIZE_CLASSES,
   buildingSchema,
   unitMotionSchema,

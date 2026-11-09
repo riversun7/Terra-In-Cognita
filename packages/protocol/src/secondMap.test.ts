@@ -105,6 +105,11 @@ describe("2차맵 기기 → 서버 메시지", () => {
     expect(clientOk({ ...place, height: 33 })).toBe(false);
     expect(clientOk({ ...place, x: 256 })).toBe(false);
   });
+
+  it("시험 일꾼 받기(dev_spawn_units)는 20에서 빠졌다(사용자 지적 2026-11-09)", () => {
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(20);
+    expect(clientOk({ t: "dev_spawn_units", id: 1, mapKey: 9, count: 2 })).toBe(false);
+  });
 });
 
 describe("2차맵 서버 → 기기 메시지", () => {

@@ -102,3 +102,21 @@ describe("시설 건설 재료(레벨 구간)", () => {
     ).toBeGreaterThan(0);
   });
 });
+
+describe("시설 2차맵 겉모습(look, docs/adr/2026-11-08-building-art.md 바뀜 2026-11-09)", () => {
+  const build = { mulPm: 800, levels: [{ from: 1, materials: [stack("stone", 1)] }] };
+  it("모델·벽·지붕 색·높이 배율(500~2000‰)은 받고, 모두 선택이다", () => {
+    expect(
+      schemaCodes(build, { look: { model: "temple", wall: "brick", roof: "teal", heightPm: 1500 } }),
+    ).toBe(0);
+    expect(schemaCodes(build, { look: {} })).toBe(0);
+    expect(schemaCodes(build)).toBe(0);
+  });
+  it("모르는 모델·색 이름, 범위 밖 높이, 모르는 칸은 스키마 오류", () => {
+    expect(schemaCodes(build, { look: { model: "castle" } })).toBe(1);
+    expect(schemaCodes(build, { look: { wall: "neon" } })).toBe(1);
+    expect(schemaCodes(build, { look: { heightPm: 2001 } })).toBe(1);
+    expect(schemaCodes(build, { look: { heightPm: 499 } })).toBe(1);
+    expect(schemaCodes(build, { look: { icon: "farm.png" } })).toBe(1);
+  });
+});

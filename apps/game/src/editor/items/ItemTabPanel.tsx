@@ -5,8 +5,8 @@ import type { ContentIssueView } from "@terra/shared/contentEdit";
 import type { ItemEditorListResponse, ItemJson, ItemPatch } from "@terra/shared/itemEditor";
 import { m } from "../../paraglide/messages.js";
 import { ItemBulk } from "./ItemBulk.tsx";
-import { ItemTaxonomy } from "./ItemTaxonomy.tsx";
-import type { Stage, Staged, TaxonomyCategory, TaxonomyJson } from "./itemModel.ts";
+import { ItemTaxonomy, type TaxonomyFocus } from "./ItemTaxonomy.tsx";
+import type { ItemQuery, Stage, Staged, TaxonomyCategory, TaxonomyJson } from "./itemModel.ts";
 
 export type ItemTab = "items" | "taxonomy" | "bulk";
 export const ITEM_TABS: readonly ItemTab[] = ["items", "taxonomy", "bulk"];
@@ -22,8 +22,11 @@ export function ItemTabPanel({
   list,
   stage,
   locale,
+  focus,
   issues,
   onStageTaxonomy,
+  onShowItems,
+  onOpenItem,
   onImport,
   onPatch,
 }: {
@@ -33,16 +36,29 @@ export function ItemTabPanel({
   list: ItemEditorListResponse;
   stage: Stage;
   locale: "ko" | "en";
+  /** [아이템 분류] 탭에서 열 마디(담은 변경 막대에서 고른 분류 자료) */
+  focus: TaxonomyFocus | null;
   /** 마지막 서버 검사의 문제(가져오기 판이 보인다) */
   issues: readonly ContentIssueView[];
   onStageTaxonomy: (category: TaxonomyCategory, id: string, next: Staged<TaxonomyJson> | null) => void;
+  /** [아이템] 탭을 그 거르기로 연다(분류 나무 마디의 [아이템 탭에서 거르기]) */
+  onShowItems: (patch: Partial<ItemQuery>) => void;
+  onOpenItem: (id: string) => void;
   onImport: (entries: readonly ItemJson[], current: ReadonlyMap<string, ItemJson>) => void;
   onPatch: (ids: readonly string[], patch: ItemPatch) => Promise<boolean>;
 }) {
   return (
     <div role="tabpanel" id={`${id}-${tab}-panel`} aria-labelledby={`${id}-${tab}`}>
       {tab === "taxonomy" ? (
-        <ItemTaxonomy list={list} stage={stage} locale={locale} onStage={onStageTaxonomy} />
+        <ItemTaxonomy
+          list={list}
+          stage={stage}
+          locale={locale}
+          focus={focus}
+          onStage={onStageTaxonomy}
+          onOpenItem={onOpenItem}
+          onShowItems={onShowItems}
+        />
       ) : (
         <ItemBulk list={list} locale={locale} issues={issues} onStage={onImport} onPatch={onPatch} />
       )}

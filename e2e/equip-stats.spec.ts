@@ -3,7 +3,7 @@
 //   쥐면 실제 공격력이 오르고("든 무기: 시험용 검") 벗으면 돌아온다(보유 물건 목록이 다시 오면 cyborg.get을 다시 받는다).
 //   스태미나 회복 줄은 실제 회복(행 값 × 적정 STA 비율, D-511)과 그 셈을 보인다. 보유 물건은 버릴 길이 없어 실행 안에 남으므로
 //   dev 본체의 칸·인벤토리를 세는 inventory.spec과 겹치지 않게 admin 계정을 쓴다.
-// - 유닛 상세(세계 유닛 = 시험 일꾼): 시험용 조끼를 입히면 2차 스탯 아머 HP가 오른다(units.list를 다시 받는다).
+// - 유닛 상세(세계 유닛 = 구인 카드로 고용한 휴먼): 시험용 조끼를 입히면 2차 스탯 아머 HP가 오른다(units.list를 다시 받는다).
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어 — 사이보그 상세 전투 스펙(실제 공격력·스태미나 회복 펼침), 유닛 상세 스탯 판.
 //   폴더는 E2E_SHOTS_DIR.
 import type { Locator, Page } from "@playwright/test";
@@ -11,7 +11,7 @@ import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
-import { devSpawnUnits } from "./helpers/wsCommands.ts";
+import { ensureHuman } from "./helpers/wsCommands.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const SWORD = "test_sword";
@@ -75,12 +75,12 @@ async function holdSword(page: Page, language: Language): Promise<void> {
   await expect(weaponTile(page)).toContainText(name);
 }
 
-/** 시험 일꾼(세계 유닛)이 있게 한다(없으면 개발 시험 명령으로 받는다 — 지도 단추는 지웠다). 유닛 화면 상세를 연다 */
+/** 세계 유닛이 있게 한다(없으면 구인 카드로 휴먼 하나를 고용한다 — 모자란 시험 화폐는 운영자 지급). 유닛 화면 상세를 연다 */
 async function openUnitDetail(page: Page): Promise<Locator> {
   await page.goto("/units");
   await expect(page.locator(".units-panel .status")).toHaveCount(0, { timeout: 15_000 });
   if ((await page.locator(".units-row .units-row-main").count()) === 0) {
-    await devSpawnUnits(page, 5);
+    await ensureHuman(page, "e2e_admin");
     await page.goto("/units");
     await expect(page.locator(".units-panel .status")).toHaveCount(0, { timeout: 15_000 });
     await expect(page.locator(".units-row .units-row-main").first()).toBeVisible({ timeout: 20_000 });

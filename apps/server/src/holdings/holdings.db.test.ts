@@ -3,7 +3,7 @@
 import type { BattleInit } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
-import { silentLog, testEncounter } from "../world/testSupport.ts";
+import { addTestUnits, silentLog, testEncounter } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { createHoldingsReads } from "./reads.ts";
 import { carriedBy } from "./state.ts";
@@ -82,7 +82,7 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
     const p = persistence(first);
     const mapKey = [...first.maps.keys()][0] ?? 0;
     const user = await fakeUser("holder");
-    const [worker = 0] = p.settlement.giveWorkers(user, mapKey, 1, clock);
+    const [worker = 0] = addTestUnits(first, user, mapKey, 1, clock);
     const owner = p.settlement.ownerOfUser(user, clock).id;
     const at = carriedBy(worker);
     const grant = (item: string, quantity: number) =>
@@ -104,7 +104,7 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
     expect(p.holdings.service.unpack(owner, fishId, 2, clock).ok).toBe(true);
     const vestId = vest.ok ? (vest.holdings[0] ?? 0) : 0;
     const stewId = stew.ok ? (stew.holdings[0] ?? 0) : 0;
-    // 시험 일꾼 = 휴먼 칸 배치(body = 3)
+    // 휴먼 = 휴먼 칸 배치(body = 3)
     expect(p.holdings.service.equip(owner, vestId, 3)).toEqual({ ok: true });
     expect(p.holdings.service.use(owner, stewId, { confirm: false, nowMs: clock, seed: 4 }).ok).toBe(true);
     await p.writer.durable();
@@ -152,7 +152,7 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
       [null, null, null],
     ]);
     expect(listed.holdings[0]?.stats).toEqual(before.holdings[0]?.stats);
-    // 화면 자료: 입는 칸·쓰기 쿨 종류·쓰는 효과, 든 유닛의 칸 배치(시험 일꾼 = human, 사이보그 없음)
+    // 화면 자료: 입는 칸·쓰기 쿨 종류·쓰는 효과, 든 유닛의 칸 배치(휴먼 = human, 사이보그 없음)
     expect(listed.holdings.slice(0, 2).map((h) => [h.item, h.equipSlot, h.useCooldown])).toEqual([
       ["hold_vest", "body", null],
       ["hold_stew", null, "food"],
@@ -180,7 +180,7 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
     const p = persistence(first);
     const mapKey = [...first.maps.keys()][0] ?? 0;
     const user = await fakeUser("legacy");
-    const [worker = 0] = p.settlement.giveWorkers(user, mapKey, 1, clock);
+    const [worker = 0] = addTestUnits(first, user, mapKey, 1, clock);
     const owner = p.settlement.ownerOfUser(user, clock).id;
     p.holdings.service.acquire({
       ownerId: owner,
@@ -222,7 +222,7 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
     const p = persistence(first);
     const mapKey = [...first.maps.keys()][0] ?? 0;
     const user = await fakeUser("drinker");
-    const [worker = 0] = p.settlement.giveWorkers(user, mapKey, 1, clock);
+    const [worker = 0] = addTestUnits(first, user, mapKey, 1, clock);
     const owner = p.settlement.ownerOfUser(user, clock).id;
     const made = p.holdings.service.acquire({
       ownerId: owner,
@@ -258,8 +258,8 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
     const mapKey = [...first.maps.keys()][0] ?? 0;
     const userA = await fakeUser("victor");
     const userB = await fakeUser("loser");
-    const [a1 = 0, a2 = 0] = p.settlement.giveWorkers(userA, mapKey, 2, clock);
-    const [b1 = 0, b2 = 0] = p.settlement.giveWorkers(userB, mapKey, 2, clock);
+    const [a1 = 0, a2 = 0] = addTestUnits(first, userA, mapKey, 2, clock);
+    const [b1 = 0, b2 = 0] = addTestUnits(first, userB, mapKey, 2, clock);
     const ownerA = p.settlement.ownerOfUser(userA, clock).id;
     const ownerB = p.settlement.ownerOfUser(userB, clock).id;
     const dress = (owner: number, unit: number): number => {

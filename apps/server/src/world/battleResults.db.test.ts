@@ -1,5 +1,5 @@
 // 전투 결과의 세계 적용 DB 통합 시험(docs/adr/2026-10-31-combat-core.md 8절) — TEST_DATABASE_URL이 있을 때만. 계정은 가짜 값이다.
-// 두 주체의 시험 일꾼끼리 전쟁 전투를 열고, 끝 시각이 지난 뒤 다시 켜면: 진 유닛은 부상·포로·안전한 곳, 화물 절반은 이긴 쪽,
+// 두 주체의 휴먼끼리 전쟁 전투를 열고, 끝 시각이 지난 뒤 다시 켜면: 진 유닛은 부상·포로·안전한 곳, 화물 절반은 이긴 쪽,
 // 불변 조건은 그대로, 또 켜도 두 번 적용하지 않는다.
 import {
   type BattleInit,
@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { cargoLocation } from "./battleResults.ts";
 import { ASSET_ORE } from "./settlement.ts";
-import { silentLog, testEncounter } from "./testSupport.ts";
+import { addTestUnits, silentLog, testEncounter } from "./testSupport.ts";
 import { type World, startWorld } from "./world.ts";
 
 const T0 = 1_800_000_000_000;
@@ -79,8 +79,8 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 결과 → 세계", () => {
     const mapKey = [...first.maps.keys()][0] ?? 0;
     const userA = await fakeUser("victor");
     const userB = await fakeUser("loser");
-    const [a1 = 0, a2 = 0] = p.settlement.giveWorkers(userA, mapKey, 2, clock);
-    const [b1 = 0, b2 = 0] = p.settlement.giveWorkers(userB, mapKey, 2, clock);
+    const [a1 = 0, a2 = 0] = addTestUnits(first, userA, mapKey, 2, clock);
+    const [b1 = 0, b2 = 0] = addTestUnits(first, userB, mapKey, 2, clock);
     const ownerA = p.settlement.ownerOfUser(userA, clock).id;
     const ownerB = p.settlement.ownerOfUser(userB, clock).id;
     // 진 쪽 유닛마다 화물(광석) 10

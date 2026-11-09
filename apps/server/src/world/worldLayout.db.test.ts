@@ -17,6 +17,7 @@ import { nationPresetsOf } from "../npc/presets.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import type { TerrainService } from "./terrainService.ts";
+import { addTestUnits } from "./testSupport.ts";
 import { type World, startWorld, testMapKey } from "./world.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
@@ -221,7 +222,7 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치(국가마다 행성 위 자�
     await makeCyborg(legacyWorld, mover, Number(firstCity.id));
     // 플레이어 일꾼이 선 2차맵(셋째 시험 2차맵)의 도시는 옮기지 않는다
     const blockedMap = String(testMapKey(2));
-    expect(legacyWorld.devSpawn?.(worker, Number(blockedMap), 2)).toBe(2);
+    expect(addTestUnits(legacyWorld, worker, Number(blockedMap), 2, clock)).toHaveLength(2);
     await legacyWorld.persistence?.writer.durable();
     expect(await cyborgMap(mover)).toBe(firstCity.map_key);
     await stop(legacyWorld);

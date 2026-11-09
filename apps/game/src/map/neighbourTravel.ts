@@ -18,11 +18,13 @@ export interface NeighbourTravelInput {
   readonly unitsRef: RefObject<readonly MapUnit[] | null>;
   readonly operatorRef: RefObject<boolean>;
   readonly setCommand: Dispatch<SetStateAction<CommandNotice | null>>;
+  /** 목적지 표시(엔진 setMoveTarget, null이면 거둔다) — 보낼 때 누른 자리에, 거절되면 거둔다 */
+  readonly markTarget?: (cell: { x: number; y: number } | null) => void;
 }
 
 /** 엔진 onNeighbourTap에 넘길 함수(지금 2차맵 틀의 배치 칸). 부를 때 ref를 읽는다 */
 export function createNeighbourTravel(input: NeighbourTravelInput): (cell: { x: number; y: number }) => void {
-  const { mapKeyRef, selectedRef, anchorRef, feedRef, unitsRef, operatorRef, setCommand } = input;
+  const { mapKeyRef, selectedRef, anchorRef, feedRef, unitsRef, operatorRef, setCommand, markTarget } = input;
   return (cell) => {
     const target = neighbourCellAt(mapKeyRef.current, cell);
     const unitId = selectedRef.current ?? anchorRef.current;
@@ -42,6 +44,7 @@ export function createNeighbourTravel(input: NeighbourTravelInput): (cell: { x: 
       return;
     }
     setCommand({ kind: "travel", unitId, outcome: null });
+    markTarget?.(cell);
     void sendTravelCommand({
       t: "travel_start",
       unitId,
@@ -49,6 +52,9 @@ export function createNeighbourTravel(input: NeighbourTravelInput): (cell: { x: 
       x: target.x,
       y: target.y,
       kind: "move",
-    }).then((outcome) => setCommand({ kind: "travel", unitId, outcome }));
+    }).then((outcome) => {
+      if (!outcome.ok) markTarget?.(null);
+      setCommand({ kind: "travel", unitId, outcome });
+    });
   };
 }

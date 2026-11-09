@@ -57,9 +57,10 @@ test.describe("관리자", () => {
     await expect(page).toHaveURL((url) => url.pathname === "/dev");
     await framed(page);
     await expect(drawer).not.toHaveAttribute("open", "");
-    // 도구 열세 줄: 행성 편집기·항성계 편집기·2차맵 시험·설정 칸·밸런스·스킬 편집기·아이템 편집기·건물 편집기·크리처 편집기·영토 층·구인 카드 시험·
-    // 전투 다시보기·셰이더 측정(모두 화면이 있어 "준비 중" 칩이 없다). 운영 권한 부여(/dev/ops-grants)는 개발자만이라 관리자에게는 숨는다
-    await expect(page.locator("#main a.dev-tool")).toHaveCount(13);
+    // 도구 열여섯 줄: 행성 편집기·항성계 편집기·세계 배치·2차맵 시험·설정 칸·밸런스·스킬 편집기·아이템 편집기·효과 사전·건물 편집기·1차 생산 티어 확률·
+    // 크리처 편집기·영토 층·구인 카드 시험·전투 다시보기·셰이더 측정(모두 화면이 있어 "준비 중" 칩이 없다). 운영 권한 부여(/dev/ops-grants)는
+    // 개발자만이라 관리자에게는 숨는다
+    await expect(page.locator("#main a.dev-tool")).toHaveCount(16);
     await expect(page.locator("#main a.dev-tool .dev-tool-badge")).toHaveCount(0);
     for (const path of [
       "/dev/planet-editor",
@@ -69,7 +70,10 @@ test.describe("관리자", () => {
       "/dev/balance",
       "/dev/skills",
       "/dev/items",
+      "/dev/effects",
       "/dev/buildings",
+      "/dev/gather-tiers",
+      "/dev/world-layout",
       "/dev/territory",
       "/dev/recruit",
       "/dev/battle-replay",

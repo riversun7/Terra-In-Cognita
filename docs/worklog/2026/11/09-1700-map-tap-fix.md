@@ -66,8 +66,8 @@
   - 2차(12파일 126개: seamless·unit-control·play-map·map-input·control-move3·government·vision·units·inventory·equip-stats·labor·first-login): 119 통과·1 건너뜀·6 실패. 실패 까닭: control-move3 636 나(최대 확대에서 가운데에 유닛 없음 → 시험 고침), government 지도자 사진 1개(이름표 아래 걷는 휴먼이 먼저 눌림 → 다시 누르기), units 플레이어 2개(같은 실행에서 government 시험이 player에게 휴먼을 고용시킨 뒤라 "유닛 0" 가정이 깨짐 — 시험 차례 탓, 이 줄기와 무관), vision dev 1개(복귀 요약 대화상자가 가림 → 요약 숨김), vision "경계 너머 보기"(아래).
   - 3차(고친 시험만, 새 DB): control-move3 636·government 지도자 4·units 4·vision dev 5 — 14 통과·1 건너뜀(측정)·1 실패 = vision "경계 너머 보기": 이웃 8장을 그리며 2 fps(p95 450ms, SwiftShader)라 끌기 `mouse.move`가 120초를 넘는다. 이 줄기가 고치지 않은 화면(운영자 자유 시점 끌기)이고 main에서 도는지는 재지 않았다(Unknown).
   - unit-control·seamless·play-map·map-input 전체는 2차 실행에서 모두 통과(Verified).
-- `pnpm check`(TEST_DATABASE_URL 있음): 포맷·린트·타입·경계·크기·다국어·대비·콘텐츠 통과, 단위 시험은 아래 최종 보고 참조.
-- 빌드(마지막 앱 코드 `2d7c06a` 위): `pnpm build` 통과. `check-pwa`·`check:bundle`은 최종 보고 참조.
+- `pnpm check`(TEST_DATABASE_URL 있음): 통과 — 560파일 4,251개 시험, 포맷·린트·타입·경계·크기·다국어·대비·콘텐츠(Verified).
+- 빌드(마지막 앱 코드 `2d7c06a` 위): `pnpm build`·`node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 107,232 B / 상한 131,416 B(Verified). `pnpm check:docs origin/main` 통과.
 - 사진(세션 임시 폴더, 저장소 밖): 정보 판 390 파스텔 한국어·영어, 다크 한국어 — 눈으로 확인: 판 하나, 긴 영어 안내 줄바꿈, [닫기] 누름 크기, 전환 단추와 겹침 없음.
 
 ## 사용자 결정 대기

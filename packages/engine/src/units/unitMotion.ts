@@ -29,6 +29,9 @@ export class UnitMotionStore {
   private readonly speed: Float32Array;
   /** 마지막으로 찾은 구간(다음 프레임은 여기서부터 찾는다) */
   private readonly cursor: Uint32Array;
+  /** 칸마다 경로 판(경로를 바꿀 때마다 새 값 — 경로 표시가 다시 만들지 정한다) */
+  private readonly revisions: Uint32Array;
+  private nextRevision = 1;
   /** 경로 점 저장소: 점마다 x, y, 출발점부터 누적 길이 */
   private pool: Float32Array;
   private poolUsed = 0;
@@ -46,6 +49,7 @@ export class UnitMotionStore {
     this.departAt = new Float64Array(capacity);
     this.speed = new Float32Array(capacity);
     this.cursor = new Uint32Array(capacity);
+    this.revisions = new Uint32Array(capacity);
     this.pool = new Float32Array(Math.max(64, capacity * 8) * 3);
   }
 
@@ -63,6 +67,7 @@ export class UnitMotionStore {
       this.x[slot] = 0;
       this.y[slot] = 0;
       this.moving[slot] = 0;
+      this.revisions[slot] = this.nextRevision++;
     }
     this.count = count;
   }
@@ -98,6 +103,7 @@ export class UnitMotionStore {
     this.departAt[slot] = path.departAtMs;
     this.speed[slot] = Math.max(0, path.speedCellsPerSec);
     this.cursor[slot] = 0;
+    this.revisions[slot] = this.nextRevision++;
     // 첫 프레임 전에도 위치를 읽을 수 있게 출발점을 넣어 둔다
     this.x[slot] = this.pool[start * 3] ?? 0;
     this.y[slot] = this.pool[start * 3 + 1] ?? 0;
@@ -110,6 +116,33 @@ export class UnitMotionStore {
     if (slot < 0 || slot >= this.count || count === 0) return null;
     const at = ((this.pathStart[slot] ?? 0) + count - 1) * 3;
     return { x: this.pool[at] ?? 0, y: this.pool[at + 1] ?? 0 };
+  }
+
+  /** 칸 slot의 경로 판(경로를 바꾸면 달라진다). 없는 칸은 0 */
+  revision(slot: number): number {
+    return slot >= 0 && slot < this.count ? (this.revisions[slot] ?? 0) : 0;
+  }
+
+  /** 칸 slot의 경로 점(배치 칸 x, y, …)을 새 배열로. 없으면 null */
+  pathPoints(slot: number): Float32Array | null {
+    const count = this.pathCount[slot] ?? 0;
+    if (slot < 0 || slot >= this.count || count === 0) return null;
+    const start = this.pathStart[slot] ?? 0;
+    const out = new Float32Array(count * 2);
+    for (let i = 0; i < count; i++) {
+      out[i * 2] = this.pool[(start + i) * 3] ?? 0;
+      out[i * 2 + 1] = this.pool[(start + i) * 3 + 1] ?? 0;
+    }
+    return out;
+  }
+
+  /** 시각 nowMs까지 경로를 따라 간 길이(배치 칸, 0 ~ 전체 길이) */
+  travelled(slot: number, nowMs: number): number {
+    const count = this.pathCount[slot] ?? 0;
+    if (slot < 0 || slot >= this.count || count === 0) return 0;
+    const total = this.pool[((this.pathStart[slot] ?? 0) + count - 1) * 3 + 2] ?? 0;
+    const gone = (Math.max(0, nowMs - (this.departAt[slot] ?? 0)) / 1000) * (this.speed[slot] ?? 0);
+    return Math.min(total, gone);
   }
 
   /**

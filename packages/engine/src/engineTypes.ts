@@ -121,6 +121,9 @@ export interface EngineStats {
   neighbours: number;
   /** 세운 소품 모델 수(가까이만, 0이면 땅 색만) */
   props: number;
+  /** 그린 이동 경로의 잘린 점 수(0이면 경로 없음)와 목적지 표시 여부(setRouteUnit·setMoveTarget) */
+  routePoints: number;
+  moveTarget: boolean;
   /** 소품 모델을 세우는 화면 짧은 변 상한(m)·모델 수 상한(setViewOptions로 바꾼 값) */
   propSpanM: number;
   propCap: number;
@@ -194,6 +197,16 @@ export interface SecondMapEngine {
   /** 고르기(엔진 안 표시만 바꾼다. onSelect는 부르지 않는다) */
   select(id: number | null): void;
   selected(): number | null;
+  /**
+   * 이동 경로·목적지를 보일 유닛(null이면 안 보인다). 가는 중이면 남은 경로를 땅 위 점선으로, 끝에 목적지 고리를 그린다. 화면이 내가 다룰 수
+   * 있는 고른 유닛으로 정한다(사용자 요청 2026-11-09). 바꾸면 누른 목적지는 거둔다
+   */
+  setRouteUnit(id: number | null): void;
+  /**
+   * 누른 목적지(배치 칸, 지금 2차맵 틀 — 밖이면 옆 2차맵). 경로가 오기 전에도 고리를 보인다. 경로 표시 유닛이 그 명령으로 움직이다 멈추거나
+   * 몇 초 안에 움직이지 않으면 스스로 거둔다. null이면 거둔다
+   */
+  setMoveTarget(cell: { x: number; y: number } | null): void;
   stats(): EngineStats;
   /** 지금 카메라(시험·표시용) */
   camera(): Readonly<CameraState>;

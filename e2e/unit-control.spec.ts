@@ -189,6 +189,8 @@ test.describe("유닛 조종: 플레이어", () => {
     await expect(page.locator(".map-hint .map-command").first()).toHaveText(
       message("ko", "map_command_ok", { id: cyborg ?? "" }),
     );
+    // 가는 동안 경로(땅 위 점선, 점 수 > 0)와 목적지 고리(1)를 그린다(사용자 요청 2026-11-09)
+    await expect(screen).toHaveAttribute("data-route", /^[1-9]\d*,1$/, { timeout: 5_000 });
     // 가는 동안 [멈추기] → 그 자리에 선다
     const stop = page.locator(".map-unit-stop");
     await expect(stop).toBeVisible({ timeout: 5_000 });
@@ -205,6 +207,8 @@ test.describe("유닛 조종: 플레이어", () => {
     );
     await expect(screen).toHaveAttribute("data-command", "ok");
     await expect(stop).toHaveCount(0, { timeout: 5_000 });
+    // 서면 경로·목적지를 거둔다
+    await expect(screen).toHaveAttribute("data-route", "0,0", { timeout: 5_000 });
     expect(deviceErrors).toEqual([]);
   });
 

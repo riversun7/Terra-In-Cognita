@@ -51,7 +51,9 @@ async function mapOnlyShot(page: Page, name?: string): Promise<Buffer> {
     clip: { x: 0, y: size.height * 0.2, width: size.width, height: size.height * 0.6 },
     animations: "disabled",
   });
-  await style.evaluate((element) => element.remove());
+  await style.evaluate((node) => {
+    node.parentNode?.removeChild(node);
+  });
   return png;
 }
 

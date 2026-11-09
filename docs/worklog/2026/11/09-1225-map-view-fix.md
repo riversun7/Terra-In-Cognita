@@ -21,6 +21,8 @@
 - 단위: `sessionState.test.ts`·`worldMap.test.ts` 26개 통과(Verified).
 - e2e `planet-view.spec.ts --grep "플레이어|운영진"` 7개 통과(3.0분): 기존 확대 단계 4개 + 새 시험 3개(플레이어: 5단계 시작·성능 판·과장 막대 없음·과장 ×6, 2차맵 성능 판 없음 / dev·admin: 1차맵 성능 판·과장 막대·2차맵 성능 판 보임 + 화소 차이 측정).
 - e2e `play-map.spec.ts --grep "지도 흐름|볼 수 없는 2차맵: 까닭"` 9개 통과(1.1분): 5단계 시작에서도 도시 표시를 눌러 도시 판을 연다. 사진(플레이어 1차맵: 5/5, 성능 판·과장 막대 없음)을 눈으로 확인했다.
+- `pnpm check` 통과(단위 3,974 통과·273 건너뜀). 빌드·`check-pwa` 통과, `check:bundle` 첫 화면 JS 107,213 B / 상한 131,416 B.
+- e2e를 돌린 뒤 `planet-view.spec.ts`의 스타일 지우기 한 줄만 타입 오류(`Node.remove`) 때문에 `parentNode.removeChild`로 바꿨다(그 뒤 e2e는 다시 돌리지 않음, 동작 같음 — Assumed).
 - 2차맵 성능 판을 읽는 `building-art.spec.ts`는 dev 계정이라 그대로 보인다(실행하지 않음, Assumed: 코드).
 
 ## 바꾼 파일과 이유

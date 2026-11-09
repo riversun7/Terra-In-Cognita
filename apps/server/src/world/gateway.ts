@@ -41,8 +41,8 @@ type CommandMessage = ClientMessageOf<"move_unit" | "stop_unit" | "place_buildin
 const MAX_PENDING = 16;
 /** 한 연결이 함께 구독할 수 있는 2차맵 수(S1은 1개, 이웃 2차맵 미리 받기를 위해 여유) */
 const MAX_MAPS_PER_SOCKET = 4;
-/** 운영자 모드 이동 빠르기(유닛 속도 × 이 값). 그 이동 하나에만 — 유닛 속도는 그대로 */
-export const OPERATOR_SPEED_FACTOR = 10;
+/** 운영자 모드 이동 빠르기(유닛 속도 × 이 값). 그 이동 하나에만 — 유닛 속도는 그대로. 사용자 지적 2026-11-09 "10배 더 빠르게"로 10 → 100(걷기 437 × 100 = 43,700, 프로토콜 상한 1,048,576 안) */
+export const OPERATOR_SPEED_FACTOR = 100;
 /** 명령: 사용자별 순간 30개, 초당 10개 (Assumed: 관리자가 손으로 누르는 속도의 몇 배) */
 const COMMAND_LIMIT = { capacity: 30, refillPerMinute: 600 };
 /** 구독: 사용자별 순간 10번, 분당 60번(스냅샷이 수백 KB라 묶는다) */

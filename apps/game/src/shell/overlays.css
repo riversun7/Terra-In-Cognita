@@ -49,15 +49,25 @@
   pointer-events: auto;
 }
 
-/* ── 지도 위 전역 층: 1차맵/2차맵 전환(오른쪽 가운데)과 방향 안내 ───────── */
+/* ── 지도 위 전역 층: 1차맵/2차맵 전환(오른쪽 위 구석, D-6018 "구석에 전환 버튼")과 방향 안내 ───────── */
+/* 전환 단추 너비 — 지도 위 판 줄(map/map.css .map-hud-top)이 이만큼 오른쪽을 비워 둔다 */
+:root {
+  --map-switch-width: calc(var(--tap-size) + var(--space-6));
+}
+/*
+ * 오른쪽 가운데에 두면 키가 큰 아래 판(근처 목록·건물 판)의 탭·[닫기]를 가렸다(사용자 지적 2026-11-09 문제1 "UI가 겹쳐서 1차맵이 닫기를 가린다").
+ * 오른쪽 위 구석은 위 판 줄이 비워 두고, 아래 판은 그 높이까지 올라오지 않는다
+ */
 .map-switch {
   position: fixed;
-  top: 50%;
+  top: max(var(--space-3), env(safe-area-inset-top));
   right: max(var(--space-3), env(safe-area-inset-right));
   z-index: 5;
-  transform: translateY(-50%);
 }
 .map-switch-button {
+  box-sizing: border-box;
+  inline-size: var(--map-switch-width);
+  text-align: center;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -79,7 +89,7 @@
 .map-switch-button:active {
   background-color: var(--color-surface-2);
 }
-/* 화면 위쪽 1/3쯤: 가운데의 지도 안내(지형을 만드는 중…)와 오른쪽 가운데의 전환 단추를 가리지 않게 */
+/* 화면 위쪽 1/3쯤: 가운데의 지도 안내(지형을 만드는 중…)를 가리지 않게 */
 .orientation-hint {
   position: fixed;
   inset: 0;

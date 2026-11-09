@@ -67,15 +67,15 @@ function distanceText(cells: number, cellM: number): string {
     : m.nearby_distance_km({ km: parts.value });
 }
 
-/** 판이 닫혀 있을 때 [근처] 단추 */
-export function NearbyToggle({ nearby }: { readonly nearby: NearbyState }) {
+/** 판이 닫혀 있거나 다른 판(건물 판·내 유닛 목록)이 그 자리를 쓸 때 [근처] 단추. 여는 일은 화면이 한다(다른 판을 닫고 펼친다) */
+export function NearbyToggle({ onOpen }: { readonly onOpen: () => void }) {
   return (
     <button
       type="button"
       className="button-small map-nearby-toggle"
       aria-expanded={false}
       aria-controls={LIST_ID}
-      onClick={() => nearby.setTab("units")}
+      onClick={onOpen}
     >
       {m.nearby_open()}
     </button>

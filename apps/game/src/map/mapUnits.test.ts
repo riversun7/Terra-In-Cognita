@@ -9,6 +9,7 @@ import {
   selectionText,
   sortMapUnits,
   unitControlOf,
+  unitLabel,
   unitName,
   unitStatusText,
 } from "./mapUnits.ts";
@@ -34,6 +35,14 @@ describe("줄 이름·상태", () => {
     expect(unitName(unit({ kind: "cyborg_body" }))).toBe("내 사이보그");
     expect(unitName(unit({ kind: "human", unitId: 42 }))).toBe("휴먼 #42");
     expect(unitName(unit({ kind: "guardian", unitId: 3 }))).toBe("수호신 #3");
+  });
+
+  it("화면 이름 하나: 목록에 있으면 줄 이름(사이보그 = 이름 · 내 사이보그), 없으면 유닛 #번호(문제3)", () => {
+    const units = [unit({ kind: "cyborg_body", name: "사이버로그", unitId: 1001 }), unit({ unitId: 12 })];
+    expect(unitLabel(1001, units)).toBe("사이버로그 · 내 사이보그");
+    expect(unitLabel(12, units)).toBe("휴먼 #12");
+    expect(unitLabel(500, units)).toBe("유닛 #500");
+    expect(unitLabel(500, null)).toBe("유닛 #500");
   });
 
   it("상태: 까닭 > 이동 중 > 부상 > 직무 > 대기", () => {

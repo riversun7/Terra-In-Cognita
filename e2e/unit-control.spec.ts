@@ -8,13 +8,17 @@
 // - 사진: 목록·운영자 390 × 파스텔·다크. 넘침·작은 누르는 곳 없음.
 // 바뀜(docs/adr/2026-11-08-seamless-second-map.md WP-1·2): 내 유닛 목록은 근처 판 유닛 탭이고(가까운 차례 — 기준 유닛인 내 사이보그가 첫 줄),
 // 늘 유닛 하나가 골라져 있다(들어오면 내 사이보그). 이 맵에 내 유닛이 없으면 들어갈 수 없다 — 남의 유닛 시험은 목록에 없는 가짜 내 유닛을 둔다.
+// 바뀜(사용자 지적 2026-11-09, docs/adr/2026-11-08-seamless-second-map.md "바뀜 3"): [내 유닛 N] → 내 유닛 목록(사이보그 첫 줄)으로 고른다, 건물 판의
+// "보낼 유닛"은 안내 줄과 같은 유닛·이름, 건물 하나를 누르면 판 하나(근처 판·정부 판이 따로 뜨지 않는다), 1·2차맵 전환 단추는 판과 겹치지 않는다
+// (오른쪽 위 구석). 사진: 목록·건물 판 390 × 파스텔·다크 × 한국어·영어, 넓은 화면 한 장.
 import type { Page } from "@playwright/test";
 import { groundOffsets } from "./helpers/mapGround.ts";
 import { message } from "./helpers/messages.ts";
-import { openNearby, pickMyUnit } from "./helpers/nearby.ts";
+import { nearbyBuildingIds, openBuildingFromList, openNearby, pickMyUnit } from "./helpers/nearby.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
-import { expect, test } from "./helpers/test.ts";
+import { type Language, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
+import { VIEWPORTS } from "./helpers/viewports.ts";
 
 /** 2차맵을 열고 자료·지형이 서기를 기다린다 */
 async function openMap(page: Page): Promise<void> {
@@ -22,6 +26,104 @@ async function openMap(page: Page): Promise<void> {
   const screen = page.locator(".map-screen[data-map-key]");
   await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
+}
+
+/** 1·2차맵 전환 단추와 겹치는 지도 위·아래 판(또는 그 안 단추)의 class — 비어야 한다(사용자 지적 2026-11-09 문제1) */
+async function switchOverlaps(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const button = document.querySelector(".map-switch-button");
+    if (!button) return ["no map switch"];
+    const box = button.getBoundingClientRect();
+    const hits: string[] = [];
+    for (const element of document.querySelectorAll(
+      ".map-hud-top > *, .map-hud-bottom > *, .map-hud-bottom button, .map-hud-bottom .map-panel",
+    )) {
+      const rect = element.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) continue;
+      if (rect.left < box.right && rect.right > box.left && rect.top < box.bottom && rect.bottom > box.top)
+        hits.push(element.className);
+    }
+    return hits;
+  });
+}
+
+/** 아래 판 자리의 판(근처 판·내 유닛 목록·건물·오브젝트 판·떠 있는 정부 판) 수 — 늘 하나 이하(문제4) */
+async function bottomSheets(page: Page): Promise<string[]> {
+  return page
+    .locator(
+      ".map-hud-bottom :is(.map-nearby, .map-units, .gather-sheet, .gov-sheet):not(.gov-sheet-embedded):visible",
+    )
+    .evaluateAll((elements) => elements.map((element) => element.className));
+}
+
+/**
+ * 내 유닛 목록·건물 판 흐름(문제2·3·4·1): 남의 유닛을 살펴보다가 [내 유닛 N] → 목록 첫 줄(사이보그)로 고르고, 근처 판 건물 줄로 건물 판을 연다.
+ * 보낼 유닛 이름 = 안내 줄의 이름, 판 하나, 전환 단추와 겹침 없음. 사진 이름 끝(suffix)이 있으면 목록·건물 판을 찍는다
+ */
+async function unitListAndBuilding(page: Page, language: Language, suffix: string | null): Promise<void> {
+  await rewriteTrpc(page, { "summary.get": hideSummary });
+  await openMap(page);
+  const screen = page.locator(".map-screen");
+  const cyborg = (await screen.getAttribute("data-cyborg")) ?? "";
+  expect(cyborg).toMatch(/^\d+$/);
+  await expect(screen).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
+  // 들어오면 최대 확대(사다리 5/5, 사용자 지적 2026-11-09) — 카메라 범위(내 유닛 둘레)가 걸린 뒤에도
+  await page.waitForTimeout(1_500);
+  await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
+  // 근처 판 펼침: 탭·[닫기]가 전환 단추에 가리지 않는다
+  await openNearby(page, "units");
+  await expect(page.locator(".map-nearby-row").first()).toBeVisible({ timeout: 15_000 });
+  expect(await switchOverlaps(page)).toEqual([]);
+  // 남의 유닛(도시 둘레 휴먼)을 살펴본다 — 있으면
+  const other = page.locator('.map-nearby-row[data-kind="unit"][data-mine="false"]').first();
+  if (await other.count()) {
+    await other.click();
+    await expect(screen).toHaveAttribute("data-control", "other");
+  }
+
+  // [내 유닛 N] → 목록(사이보그 본체가 첫 줄), 근처 판은 그동안 숨는다
+  const toggle = page.locator(".map-units-toggle");
+  await expect(toggle).toHaveText(/\d/, { timeout: 15_000 });
+  await toggle.click();
+  const list = page.locator(".map-units");
+  await expect(list).toBeVisible();
+  const row = page.locator(".map-unit-row").first();
+  await expect(row).toHaveAttribute("data-kind", "cyborg_body", { timeout: 15_000 });
+  await expect(row).toHaveAttribute("data-unit-id", cyborg);
+  expect(await bottomSheets(page)).toHaveLength(1);
+  expect(await switchOverlaps(page)).toEqual([]);
+  expect(await horizontalOverflow(page)).toEqual([]);
+  expect(await smallTapTargets(page)).toEqual([]);
+  if (suffix) await shot(page, `unit-list-${suffix}`);
+  const name = ((await row.locator(".map-unit-name").textContent()) ?? "").trim();
+  expect(name.length).toBeGreaterThan(0);
+  // 줄을 누르면 고르고(기준 유닛 — 카메라가 따라간다) 좁은 화면이면 목록을 접는다(넓은 화면 64em 이상은 펼친 채 — 기획 60 §2.4)
+  await row.click();
+  await expect(screen).toHaveAttribute("data-selected", cyborg);
+  await expect(screen).toHaveAttribute("data-anchor", cyborg);
+  await expect(screen).toHaveAttribute("data-control", "own");
+  await expect(list).toHaveCount((page.viewportSize()?.width ?? 0) >= 1024 ? 1 : 0);
+  await expect(page.locator(".map-hint p").first()).toContainText(name);
+
+  // 건물 하나를 누르면 판 하나 — 보낼 유닛은 안내 줄과 같은 유닛·이름(옛: "고른 유닛 1001")
+  const [building] = await nearbyBuildingIds(page);
+  expect(building).toBeDefined();
+  await openBuildingFromList(page, building ?? 0);
+  const sheet = page.locator(`.gather-sheet[data-building="${String(building)}"]`);
+  await expect(sheet).toBeVisible({ timeout: 15_000 });
+  await expect(sheet.locator(".gather-actor")).toHaveText(
+    message(language, "gather_actor_unit", { unit: name }),
+  );
+  await expect(page.locator(".map-hint p").first()).toContainText(name);
+  await page.waitForTimeout(1_500);
+  expect(await bottomSheets(page)).toEqual([expect.stringContaining("gather-sheet")]);
+  await expect(page.locator(".gather-loop")).toHaveCount(0);
+  expect(await switchOverlaps(page)).toEqual([]);
+  expect(await horizontalOverflow(page)).toEqual([]);
+  if (suffix) await shot(page, `unit-building-${suffix}`);
+  // 닫으면 근처 판이 다시 보인다
+  await sheet.locator(".gather-sheet-close").click();
+  await expect(page.locator(".map-nearby")).toBeVisible();
 }
 
 /** 지도 캔버스 가운데(카메라 목표점)에서 (dx, dy) CSS px 떨어진 곳을 누른다 */
@@ -234,4 +336,80 @@ test.describe("유닛 조종 사진", () => {
       });
     });
   }
+});
+
+test.describe("내 유닛 목록·건물 판 하나·전환 단추 겹침(사용자 지적 2026-11-09)", () => {
+  for (const theme of ["pastel", "dark"] as const) {
+    for (const language of ["ko", "en"] as const) {
+      test.describe(`390 ${theme} ${language}`, () => {
+        test.use({ account: "player", theme, language });
+        test(`[내 유닛 N]으로 고르고 건물 판은 하나, 보낼 유닛 = 안내 줄 (390·${theme}·${language})`, async ({
+          page,
+          deviceErrors,
+        }) => {
+          test.setTimeout(150_000);
+          await unitListAndBuilding(page, language, `390-${theme}-${language}`);
+          expect(deviceErrors).toEqual([]);
+        });
+      });
+    }
+  }
+
+  test.describe("진입 확대", () => {
+    test.use({ account: "player" });
+    test("1차맵에 다녀와도 2차맵은 최대 확대(5/5)로 연다", async ({ page, deviceErrors }) => {
+      test.setTimeout(150_000);
+      await rewriteTrpc(page, { "summary.get": hideSummary });
+      await openMap(page);
+      const ladder = page.locator(".zoom-ladder");
+      await expect(ladder).toHaveAttribute("data-stage", "5");
+      // 두 단계 줄인 뒤 1차맵으로 갔다가 돌아온다
+      await ladder.locator(".zoom-ladder-out").click();
+      await page.waitForTimeout(150);
+      await ladder.locator(".zoom-ladder-out").click();
+      await expect(ladder).toHaveAttribute("data-stage", "3");
+      await page.locator(".map-switch-button").click();
+      await expect(page).toHaveURL((url) => url.pathname === "/map/planet");
+      await expect(page.locator(".planet-screen")).toHaveAttribute("data-status", "ready", {
+        timeout: 60_000,
+      });
+      await page.locator(".map-switch-button").click();
+      await expect(page).toHaveURL((url) => url.pathname === "/map");
+      const screen = page.locator(".map-screen[data-map-key]");
+      await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 30_000 });
+      await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
+      await page.waitForTimeout(1_500);
+      await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe("넓은 화면", () => {
+    test.use({ account: "player", ...VIEWPORTS.desktop });
+    test("넓은 화면에서도 전환 단추가 판과 겹치지 않는다", async ({ page, deviceErrors }) => {
+      test.setTimeout(150_000);
+      await unitListAndBuilding(page, "ko", null);
+      await openNearby(page, "buildings");
+      expect(await switchOverlaps(page)).toEqual([]);
+      await shot(page, "unit-panels-desktop-pastel");
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe("운영자 390 영어", () => {
+    test.use({ account: "dev", theme: "dark", language: "en" });
+    test("운영자 표시가 있는 위 판도 전환 단추 자리를 비워 둔다", async ({ page, deviceErrors }) => {
+      test.setTimeout(120_000);
+      await rewriteTrpc(page, { "summary.get": hideSummary });
+      await openMap(page);
+      await page.locator(".map-operator-toggle").click();
+      await expect(page.locator(".map-operator-badge")).toBeVisible();
+      await openNearby(page, "units");
+      await page.waitForTimeout(1_200);
+      expect(await switchOverlaps(page)).toEqual([]);
+      expect(await horizontalOverflow(page)).toEqual([]);
+      await shot(page, "unit-operator-390-dark-en");
+      expect(deviceErrors).toEqual([]);
+    });
+  });
 });

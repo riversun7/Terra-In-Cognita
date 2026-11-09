@@ -178,6 +178,11 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
       .evaluate((element) => element.setAttribute("data-e2e-mark", "kept"));
     await page.waitForTimeout(1_200);
     const [bx = 0, bz = 0] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
+    // 한 단계 줄여 둔다: 넘으면 다시 최대 확대(사용자 지적 2026-11-09 "진입시 항상 최대 확대")
+    const ladder = page.locator(".zoom-ladder");
+    await expect(ladder).toHaveAttribute("data-stage", "5");
+    await ladder.locator(".zoom-ladder-out").click();
+    await expect(ladder).toHaveAttribute("data-stage", "4");
 
     // 넘기: 그 이웃 2차맵 경로에 내 사이보그가 나타난다
     rig.inject({
@@ -197,6 +202,8 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     });
     await expect(map).toHaveAttribute("data-map-key", String(east), { timeout: 5_000 });
     await expect(map).toHaveAttribute("data-switched", "in-place");
+    // 넘으면 다시 최대 확대(5/5)
+    await expect(ladder).toHaveAttribute("data-stage", "5");
     await expect(page).toHaveURL(
       (url) => url.pathname === "/map" && url.searchParams.get("key") === String(east),
     );

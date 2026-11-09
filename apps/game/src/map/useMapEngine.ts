@@ -37,6 +37,17 @@ const FOCUS_POLL_MS = 100;
 /** 서버 시계 = 기기 시계 + 앱 연결이 잰 차이(다시 잴 때까지 앞의 값) */
 export const serverNow = (): number => Date.now() + serverLink.clockOffsetMs();
 
+/** 들어올 때 카메라 거리 = 가장 가까운 거리 × 이 값(1 = 최대 확대) */
+const ENTRY_ZOOM = 1;
+
+/** 가장 가까이까지 [+] 횟수 상한(확대 단계 다섯 + 끝까지 한 번) */
+const STEPS_TO_CLOSEST = 6;
+
+/** 거듭 [+]로 가장 가까이까지 당긴다 — 옆 2차맵으로 넘었을 때(화면을 다시 만들지 않아 처음 거리가 다시 쓰이지 않는다) */
+export function zoomToClosest(engine: Pick<SecondMapEngine, "zoomStep">): void {
+  for (let i = 0; i < STEPS_TO_CLOSEST && engine.zoomStep(1); i++);
+}
+
 /** 이 2차맵 자리를 가운데로 1차맵 5단계를 연다(바꾸기: 뒤로 = 지도를 떠남, MapSwitch와 같다) */
 export function openPlanetStage(mapKey: number): void {
   navigate({ route: "map_planet", search: { key: String(mapKey), stage: "5" } }, { replace: true });
@@ -134,6 +145,9 @@ export function useMapEngine(
         if (edge === "out") openPlanetStage(mapKeyRef.current);
       },
       onZoomStage: setZoomStage,
+      // 들어오면 늘 가장 가까이(최대 확대, 사다리 5/5 — 사용자 지적 2026-11-09 "2차맵이나 1차맵은 진입시 항상 최대 확대 상태로 시작").
+      // 가장 가까운 거리는 보기 범위(카메라 묶기)가 바뀌어도 5단계라 단계 표시가 4로 내려가지 않는다. 옆 2차맵으로 넘을 때는 화면이 다시 당긴다
+      initialZoom: ENTRY_ZOOM,
       onFollowBreak: refollow,
       unitCapacity: UNIT_CAPACITY,
       // 낮밤 빛의 자리(처음 2차맵 — 옆 2차맵은 거의 같은 위도·경도다)

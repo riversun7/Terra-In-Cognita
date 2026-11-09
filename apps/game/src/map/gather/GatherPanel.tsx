@@ -1,12 +1,15 @@
 // 2차맵 채집·들어가기 판 — docs/adr/2026-11-07-gather-objects.md 6절, 사용자 지적(2026-11-07) 문제 2·3. 모바일 우선:
 // - 오브젝트를 누르면(표시 단추·둘레 땅) 아래 작은 판: 이름·나오는 것·남은 번수(떨어졌으면 다시 자라는 시간)·맡는 시설 → [채집]·[정보]·[닫기].
 // - 건물을 누르면: 이름·레벨·내 것인가·들어가면 하는 일·안에 있는 유닛 → [들어가기]·[닫기].
-// - 보내는 유닛 = 고른 유닛, 없으면 이 2차맵의 내 사이보그(남의 유닛이면 서버가 forbidden — 그 까닭을 보인다).
+// - 보내는 유닛 = 화면이 정한 명령 유닛 하나(anchorUnit.ts commandUnit — 아래 안내 줄의 고른 유닛, 남의 유닛이면 기준 유닛, 없으면 내 사이보그).
+//   이름은 안내 줄과 같은 이름(mapUnits.ts unitLabel, 사용자 지적 2026-11-09 문제3). 남의 유닛이면 서버가 forbidden — 그 까닭을 보인다.
 // - 내 유닛의 채집 줄 한 줄(단계·화물·넣는 곳·끝난 까닭) + [멈추기].
 // - 건물이 채집소(벌목장·광산·농장)면 건물 판 안에 채집소 판(StationPanel.tsx — 사용자 지적 2026-11-08 "원자재채집소의 기능도 필요").
+// - 건물 한 번 누르기 = 판 하나(사용자 지적 2026-11-09 문제4): 행정 건물의 정부 몫(buildingExtra)도 이 건물 판 안에 넣고, 판이 열린 동안은
+//   채집 줄을 숨긴다(닫으면 다시 보인다).
 // 자료는 gatherState(React 밖)에 두고 판 번호를 구독한다. 바꾸는 명령은 WebSocket(gatherCommands.ts)이다.
 import type { GatherBuildingResponse, GatherLoopView } from "@terra/shared/gather";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
 import { serverLink } from "../../net/serverLink.ts";
 import { m } from "../../paraglide/messages.js";
 import { type GatherOutcome, sendGatherCommand } from "./gatherCommands.ts";
@@ -36,10 +39,12 @@ const NOTICE_MS = 6_000;
 interface GatherPanelProps {
   readonly state: GatherState;
   readonly mapKey: number;
-  /** 엔진에서 고른 유닛(없으면 null) */
-  readonly selected: number | null;
-  /** 이 2차맵의 내 사이보그 유닛(없으면 null) */
-  readonly cyborgUnitId: number | null;
+  /** 명령을 받을 유닛(화면이 정한다 — anchorUnit.ts commandUnit, 없으면 null) */
+  readonly actor: number | null;
+  /** 유닛 이름(아래 안내 줄과 같은 이름 — mapUnits.ts unitLabel) */
+  readonly unitLabel: (unitId: number) => string;
+  /** 건물 판 안에 더 넣을 몫(행정 건물의 정부 몫 — 누른 건물 하나에 판 하나) */
+  readonly buildingExtra?: ReactNode;
 }
 
 const serverNow = (): number => Date.now() + serverLink.clockOffsetMs();
@@ -72,7 +77,7 @@ function loopText(loop: GatherLoopView): string {
   });
 }
 
-export function GatherPanel({ state, mapKey, selected, cyborgUnitId }: GatherPanelProps) {
+export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: GatherPanelProps) {
   const version = useSyncExternalStore(
     (listener) => state.subscribe(listener),
     () => state.version,
@@ -82,7 +87,6 @@ export function GatherPanel({ state, mapKey, selected, cyborgUnitId }: GatherPan
   const [building, setBuilding] = useState<GatherBuildingResponse | null>(null);
   const [sending, setSending] = useState(false);
   const sheet = state.sheet;
-  const actor = selected ?? cyborgUnitId;
 
   // 오브젝트: 열 때와 OBJECTS_POLL_MS마다
   useEffect(() => {
@@ -165,17 +169,12 @@ export function GatherPanel({ state, mapKey, selected, cyborgUnitId }: GatherPan
     await refresh();
   };
 
-  const loop = loopFor(state.loops, mapKey, selected);
+  const loop = loopFor(state.loops, mapKey, actor);
   const object = sheet?.kind === "object" ? state.objectById(sheet.id) : undefined;
   const kind = object ? state.kinds[object.kind] : undefined;
   const now = serverNow();
   const depleted = object !== undefined && object.usesLeft <= 0 && object.regrowAtMs > now;
-  const actorText =
-    actor === null
-      ? m.gather_actor_none()
-      : selected === null
-        ? m.gather_actor_cyborg()
-        : m.gather_actor_selected({ id: selected });
+  const actorText = actor === null ? m.gather_actor_none() : m.gather_actor_unit({ unit: unitLabel(actor) });
 
   return (
     <div
@@ -184,7 +183,7 @@ export function GatherPanel({ state, mapKey, selected, cyborgUnitId }: GatherPan
       data-objects={state.objects.length}
       data-version={version}
     >
-      {loop ? (
+      {loop && sheet === null ? (
         <div
           className="map-panel gather-loop"
           role="status"
@@ -193,7 +192,7 @@ export function GatherPanel({ state, mapKey, selected, cyborgUnitId }: GatherPan
           data-unit={loop.unitId}
         >
           <p>
-            {m.gather_loop_unit({ id: loop.unitId })} · {loopText(loop)}
+            {unitLabel(loop.unitId)} · {loopText(loop)}
           </p>
           {loop.phase !== "done" && loop.deposit ? (
             <p className="gather-muted">{depositText(loop.deposit)}</p>
@@ -315,6 +314,7 @@ export function GatherPanel({ state, mapKey, selected, cyborgUnitId }: GatherPan
               )}
             </>
           ) : null}
+          {buildingExtra}
           <StationPanel
             state={state}
             mapKey={mapKey}

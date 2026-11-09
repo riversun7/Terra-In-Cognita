@@ -31,3 +31,8 @@
 
 ## 사용자 결정 대기
 - 없음
+
+## 합치기·검사 결과 (통합 가지 2fcb23e = map-tap-fix + planet-travel + map-viewdist + stop-flicker, main 5df3547 위)
+- 세 줄기 묶음(067c682): `pnpm check`(시험 4,280개)·`check:docs`·`check:content`·빌드·`check-pwa`·`check:bundle`(107,239 B) 통과. 화면 시험 unit-control·seamless·play-map·map-input·planet-view·map-viewdist·building-art·government 85개 통과(**Verified**).
+- stop-flicker를 더한 뒤: `anchorUnit.test.ts` 16개, 화면 시험 play-map·unit-control 42개 통과(가는 동안 [멈추기] 표본 확인 포함, **Verified**).
+- 남은 것: `vision.spec.ts` "경계 너머 보기"는 헤드리스에서 옆 맵 8장을 그려 약 2 fps라 끌기가 시간 초과된다(map-tap-fix 기록). main에서도 그런지는 아직 안 돌렸다.

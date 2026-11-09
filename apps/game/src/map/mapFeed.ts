@@ -113,8 +113,6 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
   let observing = false;
   /** 마지막 탐사 칸(vision)에서 켜진 시야 칸 수. 아직 없거나 전체 보기면 null */
   let explored: number | null = null;
-  /** 결과를 기다리는 개발 시험 명령 */
-  const devSpawns = new Map<number, ReturnType<typeof setTimeout>>();
   /** 구독을 보냈고 그 스냅샷을 아직 못 받았다 */
   let awaitingSnapshot = false;
   let subscribeSentAt: number | null = null;
@@ -440,15 +438,6 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
   };
 
   const onResult = (message: ServerMessageOf<"result">): void => {
-    const devTimer = devSpawns.get(message.id);
-    if (devTimer !== undefined) {
-      clearTimeout(devTimer);
-      devSpawns.delete(message.id);
-      options.onDevSpawn?.(message.ok ? { ok: true } : { ok: false, code: message.code });
-      // 내 유닛이 생겼다 → 새 스냅샷(시야 묶음이 바뀐다)
-      if (message.ok) resubscribe("refresh");
-      return;
-    }
     if (message.id === subscribeId) {
       subscribeId = null;
       if (!message.ok) onSubscribeFailed(message.code);
@@ -599,19 +588,6 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       failures = 0;
       resubscribe("refresh");
     },
-    devSpawn(count) {
-      if (stopped || !link.isReady()) return false;
-      const id = nextId();
-      if (!link.send({ t: "dev_spawn_units", id, mapKey, count })) return false;
-      devSpawns.set(
-        id,
-        setTimeout(() => {
-          devSpawns.delete(id);
-          options.onDevSpawn?.({ ok: false, code: "no_reply" });
-        }, COMMAND_TIMEOUT_MS),
-      );
-      return true;
-    },
     stop() {
       if (stopped) return;
       stopped = true;
@@ -620,8 +596,6 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       clearSnapshotTimer();
       for (const command of pending.values()) clearTimeout(command.timer);
       pending.clear();
-      for (const timer of devSpawns.values()) clearTimeout(timer);
-      devSpawns.clear();
       if (subscribedOnLink && link.isReady()) link.send({ t: "unsubscribe", id: nextId(), mapKey });
       subscribedOnLink = false;
     },

@@ -200,34 +200,23 @@ export function OperatorBadge() {
 }
 
 /**
- * 개발·운영 단추(dev·admin): [시험 일꾼 받기]·[운영자 모드](모든 유닛 명령 + 안개 없는 전체 보기)·[자유 시점](운영자 모드에서만 — 기준 유닛 따라가기를
- * 끄고 끌어서 옮긴다, docs/adr/2026-11-08-seamless-second-map.md WP-1 Q2). 운영자 단추는 빨간 운영자 모양(map-operator-button, 사용자 답 Q2)
+ * 개발·운영 단추(dev·admin): [운영자 모드](모든 유닛 명령 + 안개 없는 전체 보기)·[자유 시점](운영자 모드에서만 — 기준 유닛 따라가기를
+ * 끄고 끌어서 옮긴다, docs/adr/2026-11-08-seamless-second-map.md WP-1 Q2). 운영자 단추는 빨간 운영자 모양(map-operator-button, 사용자 답 Q2).
+ * [시험 일꾼 받기]는 지웠다(사용자 지적 2026-11-09 "시험일꾼받기 기능 없애라" — 서버 dev_spawn_units 처리는 남는다)
  */
 export function OperatorActions({
   operator,
-  notice,
   freeView,
-  onSpawn,
   onToggle,
   onFreeView,
 }: {
   readonly operator: boolean;
-  readonly notice: string | null;
   readonly freeView: boolean;
-  readonly onSpawn: () => void;
   readonly onToggle: () => void;
   readonly onFreeView: () => void;
 }) {
   return (
     <div className="map-actions" data-observe={operator ? "on" : "off"}>
-      {notice ? (
-        <p className="map-panel map-command" role="status">
-          {notice}
-        </p>
-      ) : null}
-      <button type="button" className="button-small map-operator-button map-dev-spawn" onClick={onSpawn}>
-        {m.map_vision_spawn()}
-      </button>
       <button
         type="button"
         className="button-small map-operator-button map-dev-observe map-operator-toggle"

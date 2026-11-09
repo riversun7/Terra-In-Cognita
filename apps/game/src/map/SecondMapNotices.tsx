@@ -68,7 +68,7 @@ export function SecondMapNotices({
           <p>{m.map_dark_explain()}</p>
           {devTools ? (
             <>
-              <p>{m.map_dark_dev({ spawn: m.map_vision_spawn(), observe: m.map_operator_mode() })}</p>
+              <p>{m.map_dark_dev({ observe: m.map_operator_mode() })}</p>
               <button
                 type="button"
                 className="button-small map-dark-lab"

@@ -17,7 +17,7 @@
 // 경계 너머 보기(ADR 2026-10-31-second-map-from-planet WP-4): 카메라가 경계에 다가오면 이웃 2차맵 지형을 받아 둘레에 그린다
 // (secondMapNeighbourLoader.ts). ?second-map-neighbours=all이면 처음부터 8장(개발자 3×3 이어 보기). 나침반은 그 2차맵의 북쪽을 가리킨다
 // (2차맵은 면 격자 틀이라 북쪽이 2차맵마다 돌아가 있다, 사용자 결정 U1).
-// 탐사한 곳이 없으면(유닛 없는 계정, S3 시야 안개) 온통 어두운 까닭을 알리고, dev·admin에게는 [시험 일꾼 받기]·[운영자 모드]와
+// 탐사한 곳이 없으면(유닛 없는 계정, S3 시야 안개) 온통 어두운 까닭을 알리고, dev·admin에게는 [운영자 모드]와
 // 개발자 2차맵 시험(/dev/second-map)을 가리킨다.
 // 확대 단계(ADR 2026-11-07-planet-view 1·2절): 오른쪽 사다리(ZoomLadder, "2차맵 3/5") [+]·[−]. 가장 멀리에서 [−]나 한 번 더 줄이기
 // (휠·두 손가락) = 이 2차맵 자리의 1차맵 5단계(D-6018, /map/planet?key=&stage=5).
@@ -159,9 +159,6 @@ interface SecondMapViewProps {
   onSwitched: (mapKey: number) => void;
 }
 
-/** 개발 시험 명령 한 번에 받는 시험 일꾼 수 */
-const DEV_SPAWN_COUNT = 5;
-
 function SecondMapView({
   onClose,
   monitor,
@@ -209,7 +206,6 @@ function SecondMapView({
   );
   const [liveMoving, setLiveMoving] = useState<ReadonlySet<number>>(() => new Set());
   const [selection, setSelection] = useState<SelectionState>(NO_SELECTION);
-  const [devNotice, setDevNotice] = useState<string | null>(null);
   const [status, setStatus] = useState<EngineStatus>({ kind: "loading" });
   const [feedStatus, setFeedStatus] = useState<FeedStatus>(INITIAL_FEED_STATUS);
   const [selected, setSelected] = useState<number | null>(null);
@@ -381,7 +377,6 @@ function SecondMapView({
       onPickLeader: (unitId) => selectFromMapRef.current(unitId),
       onStatus: setFeedStatus,
       onCommand: (report) => setCommand({ kind: "result", report }),
-      onDevNotice: setDevNotice,
     });
     sessionRef.current = mapSession;
     feedRef.current = mapSession.feed;
@@ -408,13 +403,6 @@ function SecondMapView({
   useEffect(() => {
     if (signInLost) void refreshSession();
   }, [signInLost]);
-
-  // 시험 일꾼 안내도 잠시 보이고 지운다
-  useEffect(() => {
-    if (devNotice === null) return () => undefined;
-    const timer = setTimeout(() => setDevNotice(null), COMMAND_NOTICE_MS);
-    return () => clearTimeout(timer);
-  }, [devNotice]);
 
   /** 목록에서 고르기: 그 유닛을 고르고 카메라가 따라간다(엔진이 아직 모르는 유닛이면 목록의 칸으로). 좁은 화면이면 목록을 접어 땅을 누를 수 있게 한다 */
   const pickUnit = (unit: MapUnit): void => {
@@ -460,10 +448,6 @@ function SecondMapView({
     if (unitId === null || !current) return;
     const attempt = current.stopUnit(unitId);
     setCommand(attempt.kind === "sent" ? { kind: "sent", unitId, action: "stop" } : { kind: attempt.kind });
-  };
-
-  const spawnWorkers = (): void => {
-    if (!feedRef.current?.devSpawn(DEV_SPAWN_COUNT)) setDevNotice(m.map_vision_spawn_failed());
   };
 
   /** 운영자 모드를 끄면 자유 시점도 끈다(자유 시점은 운영자만) */
@@ -647,9 +631,7 @@ function SecondMapView({
         {devTools ? (
           <OperatorActions
             operator={operator}
-            notice={devNotice}
             freeView={freeView}
-            onSpawn={spawnWorkers}
             onToggle={toggleOperatorMode}
             onFreeView={() => setFreeView((on) => !on)}
           />

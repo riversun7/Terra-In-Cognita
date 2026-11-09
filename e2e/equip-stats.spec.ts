@@ -11,6 +11,7 @@ import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
+import { devSpawnUnits } from "./helpers/wsCommands.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const SWORD = "test_sword";
@@ -74,20 +75,15 @@ async function holdSword(page: Page, language: Language): Promise<void> {
   await expect(weaponTile(page)).toContainText(name);
 }
 
-/** 시험 일꾼(세계 유닛)이 있게 한다(없으면 지도의 개발 시험 명령으로 받는다). 유닛 화면 상세를 연다 */
+/** 시험 일꾼(세계 유닛)이 있게 한다(없으면 개발 시험 명령으로 받는다 — 지도 단추는 지웠다). 유닛 화면 상세를 연다 */
 async function openUnitDetail(page: Page): Promise<Locator> {
   await page.goto("/units");
   await expect(page.locator(".units-panel .status")).toHaveCount(0, { timeout: 15_000 });
   if ((await page.locator(".units-row .units-row-main").count()) === 0) {
-    await page.goto("/map");
-    const screen = page.locator(".map-screen");
-    await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
-    await page.locator(".map-dev-spawn").click();
-    await expect
-      .poll(async () => Number(await screen.getAttribute("data-units")), { timeout: 20_000 })
-      .toBeGreaterThanOrEqual(2);
+    await devSpawnUnits(page, 5);
     await page.goto("/units");
     await expect(page.locator(".units-panel .status")).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.locator(".units-row .units-row-main").first()).toBeVisible({ timeout: 20_000 });
   }
   await page.locator(".units-row .units-row-main").first().click();
   const detail = page.locator(".units-detail");

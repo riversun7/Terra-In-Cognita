@@ -4,7 +4,7 @@ import type { BuildingFootprint, TerrainInput, UnitPath, UnitSpawn } from "@terr
 import type { BuildingWire, ServerMessageOf, UnitMotionWire } from "@terra/protocol";
 import { vi } from "vitest";
 import type { FeatureClientMessage, FeatureServerMessage, LinkEvent } from "../net/serverLink.ts";
-import type { CommandOutcome, CommandReport, FeedSink, FeedStatus, MapFeedOptions } from "./feedTypes.ts";
+import type { CommandReport, FeedSink, FeedStatus, MapFeedOptions } from "./feedTypes.ts";
 import { createRequestIds, startMapFeed } from "./mapFeed.ts";
 
 export const MAP = 2 ** 48 + 9;
@@ -200,7 +200,6 @@ export function setup(options: SetupOptions = {}) {
   const loadTerrain = vi.fn(options.loadTerrain ?? (async () => TERRAIN));
   let admin = options.admin ?? true;
   let observe = options.observe ?? false;
-  const devSpawns: CommandOutcome[] = [];
   let serverClock = 10_050;
   if (options.ready ?? true) net.up();
   const feed = startMapFeed({
@@ -210,7 +209,6 @@ export function setup(options: SetupOptions = {}) {
     loadTerrain,
     canCommand: () => admin,
     observe: () => observe,
-    onDevSpawn: (outcome) => devSpawns.push(outcome),
     now: () => Date.now(),
     serverNow: () => serverClock,
     nextRequestId: createRequestIds(100),
@@ -234,7 +232,6 @@ export function setup(options: SetupOptions = {}) {
     setObserve: (value: boolean) => {
       observe = value;
     },
-    devSpawns,
     setServerClock: (value: number) => {
       serverClock = value;
     },

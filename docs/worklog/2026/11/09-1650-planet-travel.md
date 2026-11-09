@@ -15,10 +15,12 @@
 ## 시험
 - 단위: `map/commandTarget.test.ts` 10개 통과(Verified) — 도시 대상 처음 명령, 버튼을 감추는 까닭, 고른 지역 이름(도시 > 땅 이름 > "고른 지역"), 판 열쇠, 보낼 수 있는 유닛.
 - e2e `play-map.spec.ts --grep "고른 지역"` 4개 통과(1.3분, Verified): 플레이어 1차맵(5/5, ?key=내 2차맵)에서 가운데(내 2차맵)는 "2차맵에서 걸어가세요", 도시 없는 다른 2차맵 땅 → [이곳으로 이동] → 명령 판(이동·고른 지역·지나는 2차맵 ≥ 2·내 사이보그) → [확정] → world.travels going → 2차맵 화면 가는 중 한 줄(`data-travel` 1/N) → 같은 자리 [이곳으로 이동] = 가는 중 판 → [멈추기](stopped·cancelled, 사이보그는 출발 2차맵). 사진 3장.
-- 끝 검사: 아래 "끝 검사" 절.
 
-## 끝 검사
-- (끝에 채움)
+## 끝 검사 (Verified)
+- e2e `play-map.spec.ts` + `planet-view.spec.ts` 37개 통과(8.1분) — `PlanetReadout` 나눈 뒤 다시 빌드해서 돌림(새 시험 4개 포함).
+- `pnpm check` 통과(단위 3,989 통과·274 건너뜀, 파일 크기 경고 중 이 줄기 파일은 `e2e/play-map.spec.ts` 717줄 — 600줄 경고, 1,000줄 아래).
+- 빌드·`node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 107,262 B / 상한 131,416 B(1차맵은 지연 조각이라 첫 화면 거의 그대로).
+- 시험 DB(포트 55432)가 꺼져 있어 스크래치패드의 `startpg.sh`로 다시 켰다(데이터 폴더 그대로).
 
 ## 사진
 - `planet-area-button-390-pastel.png`·`-dark.png`(누른 칸 안내 + [이곳으로 이동]), `planet-area-command-390-pastel-ko.png`·`-dark-ko.png`·`-pastel-en.png`(명령 판). 눈으로 봄: 넘침 없음, 버튼 44px. 저장소 밖 임시 폴더.

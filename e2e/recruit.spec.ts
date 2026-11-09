@@ -3,7 +3,8 @@
 //   성공해 그 카드가 "고용함"이 되고 잔고가 준다(정착 지원금 약 100 ≥ Lv1 카드 최대 80). 다른 도시를 고르면 주소(?city=)가 바뀐다.
 // - player: 권한 없음 화면(개발 화면), tRPC recruit.board는 받는다(고용은 플레이어 명령이라 조회도 열려 있다, 주인 카드는 없음).
 // - 사진: 390·1440 × 개발 화면 테마 네온·라이트 × 한국어·영어(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
-// 고용은 admin 계정에 휴먼 유닛 하나를 더한다(units.spec.ts의 admin 시험은 시험 일꾼 줄을 골라 본다).
+// 고용은 admin 계정에 휴먼 유닛 하나를 더한다. 다른 시험도 내 휴먼이 없으면 같은 창의 카드를 산다(e2e/helpers/wsCommands.ts ensureHuman)
+// → 남은 카드 가운데 가장 싼 것을 고른다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -53,7 +54,9 @@ test.describe("관리자", () => {
     const before = await board(page);
     const list = field(before.data, "cards");
     const mine = Array.isArray(list) ? list : [];
+    // 다른 시험(유닛·장비·노동 계약)이 이 창의 카드를 먼저 샀을 수 있다 → 남은 카드 가운데 가장 싼 것
     const cheapest = mine
+      .filter((card) => field(card, "taken") !== true)
       .map((card) => ({ slot: Number(field(card, "slot")), cost: BigInt(String(field(card, "cost"))) }))
       .toSorted((a, b) => (a.cost < b.cost ? -1 : a.cost > b.cost ? 1 : a.slot - b.slot))[0];
     if (!cheapest) throw new Error("no card");

@@ -1,7 +1,8 @@
 // 유닛·사이보그 화면 시험 — ADR 2026-10-29-app-shell "구현하며 정한 것 (유닛·사이보그 화면)".
 // - 플레이어: 실제 자료만(유닛이 없으면 빈 안내, 시안 칸은 빈 안내, 사이보그는 전역 준비가 첫 접속으로 만든 본체, 시안 스위치 없음).
 // - dev + 시안 자료: 시안 유닛 10·포로·파티·프리셋·관리인·경매소, 사이보그 본체. 걸러 보기·다중 선택·상세(서버 계산 스탯).
-// - admin + 실제 자료: 2차맵 [시험 일꾼 받기] 뒤 유닛 목록에 시험 일꾼(기본값 스탯 안내). dev는 vision.spec.ts가 빈 상태로 써서 admin으로.
+// - admin + 실제 자료: 구인 카드로 휴먼을 고용하면(모자란 시험 화폐는 운영자 지급) 유닛 목록에 그 휴먼("휴먼 #ID", 카드 스탯).
+//   시험 일꾼은 없앴다(사용자 지적 2026-11-09 "시험일꾼 다 없애라고").
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어(유닛 목록·유닛 상세·사이보그, 시안 자료). 폴더는 E2E_SHOTS_DIR.
 // 복귀 요약은 시안 자료면 켤 때마다 뜨므로 이 시험들에서는 띄우지 않는다(hideSummary).
 import type { Page } from "@playwright/test";
@@ -9,7 +10,7 @@ import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
-import { devSpawnUnits } from "./helpers/wsCommands.ts";
+import { ensureHuman } from "./helpers/wsCommands.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 test.beforeEach(async ({ page }) => {
@@ -175,28 +176,28 @@ test.describe("dev + 시안 자료", () => {
   });
 });
 
-// admin으로 받는다: dev는 vision.spec.ts가 처음 유닛 수(사이보그 본체)를 기준으로 보므로 여기서 dev에게 일꾼을 주지 않는다
+// admin으로 고용한다(dev 계정 유닛 화면은 위 시안 자료 시험이 쓴다)
 test.describe("admin + 실제 자료", () => {
   test.use({ account: "admin" });
 
-  test("시험 일꾼을 받으면 유닛 목록에 실제 시험 일꾼이 보인다(시안 표 없음, 기본값 스탯 안내)", async ({
+  test("구인 카드로 고용한 휴먼이 유닛 목록에 실제 휴먼으로 보인다(시안 표 없음)", async ({
     page,
     deviceErrors,
   }) => {
     test.setTimeout(90_000);
-    // 개발 시험 명령(지도의 [시험 일꾼 받기] 단추는 지웠다 — 서버 처리는 남는다)
-    await devSpawnUnits(page, 5);
+    const unitId = await ensureHuman(page, "e2e_admin");
     await page.goto("/units");
     await unitsReady(page);
-    const rows = page.locator(".units-row");
-    await expect.poll(async () => rows.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(5);
     await expect(page.locator(".units-row .roster-tag-preview")).toHaveCount(0);
-    // admin은 구인 카드 시험(recruit.spec.ts)에서 고용한 휴먼도 가질 수 있다 → 시험 일꾼 줄을 골라 본다
-    const worker = rows.filter({ hasText: message("ko", "roster_type_test_worker") }).first();
-    await expect(worker.locator(".units-row-name")).toContainText(message("ko", "roster_type_test_worker"));
-    await worker.locator(".units-row-main").click();
-    await expect(page.locator(".units-detail")).toContainText(message("ko", "roster_stats_baseline"));
-    await expect(page.locator(".units-detail")).toContainText(message("ko", "roster_job_test_gather"));
+    // 이름이 없으면 "휴먼 #ID"(admin은 구인 카드 시험에서 고용한 휴먼도 가질 수 있다 → 그 줄을 고른다)
+    const name = message("ko", "roster_unnamed", {
+      type: message("ko", "roster_type_human"),
+      number: unitId,
+    });
+    const hired = page.locator(".units-row").filter({ hasText: name }).first();
+    await expect(hired.locator(".units-row-name")).toContainText(name, { timeout: 15_000 });
+    await hired.locator(".units-row-main").click();
+    await expect(page.locator(".units-detail")).toContainText(name);
     expect(deviceErrors).toEqual([]);
   });
 });

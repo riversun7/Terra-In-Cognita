@@ -62,7 +62,7 @@ function persistence(world: World) {
   return found;
 }
 
-/** 사용자 하나: 소유 주체·시험 일꾼 count개·시험 화폐 credit, 원하면 그 사용자 건물 하나 */
+/** 사용자 하나: 소유 주체·휴먼 count개(직무 없음)·시험 화폐 credit, 원하면 그 사용자 건물 하나 */
 async function setup(
   world: World,
   name: string,

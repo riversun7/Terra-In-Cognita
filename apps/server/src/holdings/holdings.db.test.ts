@@ -104,7 +104,7 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
     expect(p.holdings.service.unpack(owner, fishId, 2, clock).ok).toBe(true);
     const vestId = vest.ok ? (vest.holdings[0] ?? 0) : 0;
     const stewId = stew.ok ? (stew.holdings[0] ?? 0) : 0;
-    // 시험 일꾼 = 휴먼 칸 배치(body = 3)
+    // 휴먼 = 휴먼 칸 배치(body = 3)
     expect(p.holdings.service.equip(owner, vestId, 3)).toEqual({ ok: true });
     expect(p.holdings.service.use(owner, stewId, { confirm: false, nowMs: clock, seed: 4 }).ok).toBe(true);
     await p.writer.durable();
@@ -152,7 +152,7 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
       [null, null, null],
     ]);
     expect(listed.holdings[0]?.stats).toEqual(before.holdings[0]?.stats);
-    // 화면 자료: 입는 칸·쓰기 쿨 종류·쓰는 효과, 든 유닛의 칸 배치(시험 일꾼 = human, 사이보그 없음)
+    // 화면 자료: 입는 칸·쓰기 쿨 종류·쓰는 효과, 든 유닛의 칸 배치(휴먼 = human, 사이보그 없음)
     expect(listed.holdings.slice(0, 2).map((h) => [h.item, h.equipSlot, h.useCooldown])).toEqual([
       ["hold_vest", "body", null],
       ["hold_stew", null, "food"],

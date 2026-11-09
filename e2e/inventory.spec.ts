@@ -6,14 +6,14 @@
 //   [해제] → 물약 [사용](걸린 효과·물약 쿨·버튼 남은 시간) → 연고 실패(battle_only, 전투 밖 회복이 열리면 cooldown) → 원장 물자 not_holdable → 스튜 [사용] → 교체 확인(그만두기·
 //   그래도 사용) → 스튜 포장 풀기(D-524: 포장 표·멈춘 신선도 → [포장 풀기] → 낱개 표·상하는 때).
 // - 내구도 0(응답을 고쳐 본다): 카드·칸 창의 장착을 막고 "수리 필요".
-// - 유닛 상세(세계 유닛 = 시험 일꾼): 휴먼 칸 배치 6칸, 그 유닛으로 받기 → 카드 [장착] → 무기 칸.
+// - 유닛 상세(세계 유닛 = 구인 카드로 고용한 휴먼): 휴먼 칸 배치 6칸, 그 유닛으로 받기 → 카드 [장착] → 무기 칸.
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어(인벤토리 판, 머리 판 칸, 칸 고르기 창, 교체 확인 창). 폴더는 E2E_SHOTS_DIR.
 import type { Locator, Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
-import { devSpawnUnits } from "./helpers/wsCommands.ts";
+import { ensureHuman } from "./helpers/wsCommands.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const ID = {
@@ -380,7 +380,7 @@ test.describe("개발 계정: 받기 → 목록 → 장착·해제 → 사용·�
 test.describe("개발 계정: 유닛 상세(세계 유닛)의 장비·지닌 물건", () => {
   test.use({ account: "dev" });
 
-  test("시험 일꾼에게 받아 상세 카드에서 장착하면 휴먼 칸 배치의 무기 칸에 들어간다", async ({
+  test("고용한 휴먼에게 받아 상세 카드에서 장착하면 휴먼 칸 배치의 무기 칸에 들어간다", async ({
     page,
     deviceErrors,
   }) => {
@@ -389,8 +389,8 @@ test.describe("개발 계정: 유닛 상세(세계 유닛)의 장비·지닌 물
     await page.goto("/cyborg");
     await cyborgReady(page);
     await ensureTestItems(page);
-    // 시험 일꾼(세계 유닛)을 받는다(units.spec과 같은 개발 시험 명령 — 지도 단추는 지웠다)
-    await devSpawnUnits(page, 5);
+    // 세계 유닛: 내 휴먼(없으면 구인 카드로 고용, 모자란 시험 화폐는 운영자 지급 — 시험 일꾼은 없앴다)
+    await ensureHuman(page, "e2e_dev");
     await page.goto("/units");
     await expect(page.locator(".units-panel .status")).toHaveCount(0, { timeout: 15_000 });
     await expect(page.locator(".units-row .units-row-main").first()).toBeVisible({ timeout: 20_000 });

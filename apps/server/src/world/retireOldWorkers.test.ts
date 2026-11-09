@@ -33,6 +33,9 @@ function ledger(): LedgerBook {
   return createLedgerBook({ nextAccountId: () => ++account, nextTxId: () => ++tx });
 }
 
+/** 배치 칸 가운데의 위치(고정소수점 x, y) */
+const cell = (x: number, y: number) => [x * 1024 + 512, y * 1024 + 512];
+
 const owner = (id: number, userId: string | null): OwnerRow => ({
   id,
   userId,
@@ -66,7 +69,6 @@ describe("없앤 시험 일꾼 옛 행 정리", () => {
       [20, owner(20, "u2")],
       [30, owner(30, null)],
     ]);
-    const cell = (x: number, y: number) => [x * 1024 + 512, y * 1024 + 512];
     book.post({
       kind: "issue",
       atMs: T0,

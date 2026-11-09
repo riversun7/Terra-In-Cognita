@@ -114,8 +114,6 @@ export interface MapFeedOptions {
   unitCapacity?: number;
   onStatus?: (status: FeedStatus) => void;
   onCommand?: (report: CommandReport) => void;
-  /** 개발 시험 명령(시험 일꾼 받기)의 결과 */
-  onDevSpawn?: (outcome: CommandOutcome) => void;
 }
 
 export interface MapFeed {
@@ -138,8 +136,6 @@ export interface MapFeed {
   retry(): void;
   /** 지금 다시 구독한다(전체 보기를 켜고 끌 때) */
   refresh(): void;
-  /** 개발 시험 명령: 내 시험 일꾼 count개(dev·admin). 보냈으면 true. 되면 다시 구독한다 */
-  devSpawn(count: number): boolean;
   /** 해제를 보내고 모두 멈춘다 */
   stop(): void;
 }

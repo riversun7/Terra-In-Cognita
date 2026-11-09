@@ -131,7 +131,7 @@
   text-align: start;
 }
 
-/* 운영자 단추([시험 일꾼 받기]·[운영자 모드]·[자유 시점]) — 빨간 테두리·글자로 플레이어 단추와 나눈다(사용자 답 2026-11-08,
+/* 운영자 단추([운영자 모드]·[자유 시점]) — 빨간 테두리·글자로 플레이어 단추와 나눈다(사용자 답 2026-11-08,
    docs/adr/2026-11-08-seamless-second-map.md WP-1). 켜진 단추는 빨간 바탕 + 굵은 글자(색에만 기대지 않는다) */
 .map-operator-button {
   border-color: var(--color-danger);
@@ -142,4 +142,48 @@
   background-color: var(--color-danger-surface);
   box-shadow: inset 0 0 0 var(--border-w) var(--color-danger);
   font-weight: var(--font-weight-strong);
+}
+
+/* 남의 유닛 정보 판(docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)") — 아래 판 자리의 판 하나. 390px에서는 판 너비, 넓은 화면은 왼쪽에 좁게.
+   긴 이름·영어 안내도 줄바꿈 */
+.map-peek {
+  order: -1;
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+@media (min-width: 64em) {
+  .map-peek {
+    flex: 0 1 24rem;
+    margin-right: auto;
+  }
+}
+.map-peek-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.map-peek-title {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+.map-peek-close {
+  flex: none;
+}
+.map-peek-line,
+.map-peek-note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.map-peek-note {
+  color: var(--color-text-muted);
 }

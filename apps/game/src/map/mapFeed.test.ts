@@ -533,16 +533,4 @@ describe("시야 전송(S3)", () => {
       { id: 101, unitId: 1, action: "stop", outcome: { ok: false, code: "not_owner" }, elapsedMs: 0 },
     ]);
   });
-
-  it("시험 일꾼 받기: 보내고, 되면 알리고 다시 구독한다", async () => {
-    const { net, feed, live, devSpawns } = setup();
-    await live(snapshot({ rev: 1 }));
-    expect(feed.devSpawn(3)).toBe(true);
-    const sent = net.of("dev_spawn_units").at(-1);
-    expect(sent).toMatchObject({ mapKey: MAP, count: 3 });
-    net.receive({ t: "result", id: sent?.id ?? -1, ok: true });
-    expect(devSpawns).toEqual([{ ok: true }]);
-    await vi.advanceTimersByTimeAsync(1_000);
-    expect(net.of("subscribe")).toHaveLength(2);
-  });
 });

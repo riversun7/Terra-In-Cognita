@@ -9,6 +9,7 @@ import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
+import { devSpawnUnits } from "./helpers/wsCommands.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 test.beforeEach(async ({ page }) => {
@@ -178,22 +179,17 @@ test.describe("dev + 시안 자료", () => {
 test.describe("admin + 실제 자료", () => {
   test.use({ account: "admin" });
 
-  test("2차맵에서 시험 일꾼을 받으면 유닛 목록에 실제 시험 일꾼이 보인다(시안 표 없음, 기본값 스탯 안내)", async ({
+  test("시험 일꾼을 받으면 유닛 목록에 실제 시험 일꾼이 보인다(시안 표 없음, 기본값 스탯 안내)", async ({
     page,
     deviceErrors,
   }) => {
     test.setTimeout(90_000);
-    await page.goto("/map");
-    const screen = page.locator(".map-screen");
-    await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
-    await page.locator(".map-dev-spawn").click();
-    await expect
-      .poll(async () => Number(await screen.getAttribute("data-units")), { timeout: 15_000 })
-      .toBeGreaterThanOrEqual(5);
+    // 개발 시험 명령(지도의 [시험 일꾼 받기] 단추는 지웠다 — 서버 처리는 남는다)
+    await devSpawnUnits(page, 5);
     await page.goto("/units");
     await unitsReady(page);
     const rows = page.locator(".units-row");
-    expect(await rows.count()).toBeGreaterThanOrEqual(5);
+    await expect.poll(async () => rows.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(5);
     await expect(page.locator(".units-row .roster-tag-preview")).toHaveCount(0);
     // admin은 구인 카드 시험(recruit.spec.ts)에서 고용한 휴먼도 가질 수 있다 → 시험 일꾼 줄을 골라 본다
     const worker = rows.filter({ hasText: message("ko", "roster_type_test_worker") }).first();

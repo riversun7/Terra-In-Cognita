@@ -97,11 +97,25 @@ async function openLeaderTag(page: Page, language: Language) {
   return { mapKey, hall, unitId, name, tag };
 }
 
-/** 이름표를 누른다(이름표는 손가락을 받지 않는다 — 그 자리를 누르면 지도가 받아 덧그림 층이 고른다) */
-async function tapTag(page: Page, tag: Locator): Promise<void> {
-  const box = await tag.boundingBox();
-  if (!box) throw new Error("leader tag has no box");
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+/**
+ * 이름표를 누른다(이름표는 손가락을 받지 않는다 — 그 자리를 누르면 지도가 받아 덧그림 층이 고른다). 엔진은 유닛을 먼저 고르므로 이름표 아래로
+ * 걷는 휴먼이 있으면 그 휴먼의 정보 판이 열린다(플레이어 — docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)"): 지도자 정보 판이 열릴 때까지
+ * 판을 닫고 세 번까지 다시 누른다
+ */
+async function tapTag(page: Page, tag: Locator, unitId: number): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const box = await tag.boundingBox();
+    if (!box) throw new Error("leader tag has no box");
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    const peek = page.locator(".map-peek");
+    try {
+      await expect(peek).toHaveAttribute("data-unit", String(unitId), { timeout: 3_000 });
+      return;
+    } catch {
+      if (await peek.count()) await peek.locator(".map-peek-close").click();
+      await page.waitForTimeout(1_000);
+    }
+  }
 }
 
 test.describe("정부 판·지도자: 플레이어", () => {
@@ -209,9 +223,10 @@ test.describe("정부 판·지도자: 플레이어", () => {
         field(await trpcData(page, "world.leaderGovernment", { mapKey, unitId: cyborg }), "status"),
       ).toBe("unknown_unit");
 
-    await tapTag(page, tag);
-    await expect(page.locator(".map-screen")).toHaveAttribute("data-selected", String(unitId));
-    const sheet = page.locator(`[data-part="leader-sheet"][data-unit="${unitId}"]`);
+    await tapTag(page, tag, unitId);
+    // 플레이어가 지도자(남의 유닛)를 누르면 고르지 않고 정보 판 — 지도자 몫은 그 판 안(docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)")
+    await expect(page.locator(`.map-peek[data-unit="${unitId}"]`)).toBeVisible();
+    const sheet = page.locator(`.map-peek [data-part="leader-sheet"][data-unit="${unitId}"]`);
     await expect(sheet).toBeVisible({ timeout: 15_000 });
     await expect(sheet).toContainText(name);
     expect(await horizontalOverflow(page)).toEqual([]);
@@ -277,8 +292,8 @@ test.describe("정부 판 사진", () => {
         const { unitId, tag } = await openLeaderTag(page, language);
         expect(await horizontalOverflow(page)).toEqual([]);
         await shot(page, `leader-tag-390-${theme}-${language}`);
-        await tapTag(page, tag);
-        const sheet = page.locator(`[data-part="leader-sheet"][data-unit="${unitId}"]`);
+        await tapTag(page, tag, unitId);
+        const sheet = page.locator(`.map-peek [data-part="leader-sheet"][data-unit="${unitId}"]`);
         await expect(sheet).toBeVisible({ timeout: 15_000 });
         expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `leader-sheet-390-${theme}-${language}`);

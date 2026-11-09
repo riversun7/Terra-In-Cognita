@@ -55,8 +55,11 @@ export interface SecondMapEngineOptions {
    */
   initialZoom?: number;
   onStatus?: (status: EngineStatus) => void;
-  /** 유닛을 눌러 골랐을 때(엔진이 고른 표시를 한다) */
-  onSelect?: (unitId: number | null) => void;
+  /**
+   * 유닛을 눌렀을 때. 엔진이 고른 표시를 그 유닛으로 옮긴다 — false를 돌려주면 옮기지 않는다(앞 고르기 그대로. 플레이어가 남의 유닛을 누르면
+   * 명령 유닛은 그대로 두고 정보 판만 연다, docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)")
+   */
+  onSelect?: (unitId: number | null) => boolean | void;
   /** 유닛이 아닌 땅을 눌렀을 때 — 배치 칸 좌표 */
   onGroundTap?: (cell: { x: number; y: number }) => void;
   /**

@@ -184,7 +184,6 @@ test.describe("첫 접속: 새 플레이어", () => {
     await expect
       .poll(async () => Number(await screen.getAttribute("data-explored")), { timeout: 15_000 })
       .toBeGreaterThan(0);
-    await expect(page.locator(".map-dark")).toHaveCount(0);
     await shot(page, "first-login-map-after-390");
     expect(deviceErrors).toEqual([]);
   });

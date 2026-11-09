@@ -1,6 +1,6 @@
 // 이웃 2차맵 안개·로딩 없는 2차맵 이동 화면 시험(docs/adr/2026-11-08-seamless-second-map.md WP-3, 사용자 지적 2026-11-08 "인접한 맵은 포그가 적용되지
 // 않는 문제", "로딩없이 2차맵 이동") — player.
-// 실제로 걸어서 변을 넘는 데 몇 분 걸려(map-travel.spec.ts 머리 주석) 시험은 연결을 가운데서 고쳐 흉내 낸다:
+// 실제로 걸어서 변을 넘는 데 몇 분 걸려 시험은 연결을 가운데서 고쳐 흉내 낸다:
 // - 서버 → 기기: 내 사이보그(own) 경로를 2차맵 한 변 가까이(가운데 줄)에 선 것으로 바꾼다 → 카메라가 따라가 그쪽 이웃이 카메라 쪽이 된다.
 // - 기기가 그 이웃을 받아 그리고(data-neighbours) 같은 연결로 구독한다(이웃 안개). 볼 수 있는 이웃(같은 나라 시작 도시 등)이면 서버가 vision을 보내고,
 //   볼 수 없으면 구독이 거절된다(온통 어둡게). 시험은 vision이 오는 변을 찾을 때까지 변을 바꿔 다시 연다. 사진(390 파스텔·다크).
@@ -11,6 +11,7 @@ import type { Page } from "@playwright/test";
 import { horizontalOverflow, shot } from "./helpers/screen.ts";
 import { type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
+import { sendCommands } from "./helpers/wsCommands.ts";
 
 /** 위치 단위/배치 칸(@terra/protocol POSITION_UNITS_PER_CELL) */
 const UNITS_PER_CELL = 1024;
@@ -264,7 +265,11 @@ test.describe("옆 2차맵 땅 누르기", () => {
     }
     expect(rig.travels).toContain(near);
     await expect(page.locator(".map-screen")).toHaveAttribute("data-command", /^(sent|travel_ok|[a-z_]+)$/);
+    // 서버에서 내 사이보그가 정말 떠났다: 멈춰 둔다(다음 시험 — unit-control 등 — 이 같은 사이보그를 2차맵 안에서 움직인다)
+    const cyborg = Number(await page.locator(".map-screen").getAttribute("data-cyborg"));
     expect(deviceErrors).toEqual([]);
+    const [cancel] = await sendCommands(page, [{ t: "travel_cancel", unitId: cyborg }]);
+    expect(Reflect.get(Object(cancel), "t")).toBe("travel_result");
   });
 });
 

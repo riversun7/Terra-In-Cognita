@@ -6,7 +6,6 @@
 // - 옆 2차맵 유닛: 구독 중인 이웃의 유닛 움직임을 지금 2차맵 틀로 옮겨 지금 2차맵 유닛과 함께 엔진에 넣는다(unitMerge.ts).
 // - 이웃 안개 = 그 2차맵 탐사 칸(구독 vision) ∪ 변 가까이 선 내 유닛 시야를 옆 틀로 옮긴 칸(neighbourSight.ts — 1초마다, 경계에서 잘리지 않게).
 import type { SecondMapEngine, TerrainInput } from "@terra/engine";
-import { m } from "../paraglide/messages.js";
 import { serverLink } from "../net/serverLink.ts";
 import { startBuildingLooks } from "./buildingLooks.ts";
 import type { CommandReport, FeedSink, FeedStatus, MapFeed } from "./feedTypes.ts";
@@ -14,7 +13,6 @@ import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
 import { type GatherState, gatherSink } from "./gather/gatherState.ts";
 import { type LeaderTagState, attachLeaderTags } from "./leaderTags.ts";
 import { startMapFeed } from "./mapFeed.ts";
-import { resultText } from "./mapMessages.ts";
 import { loadUnitGlance } from "./mapUnits.ts";
 import type { NearbyState } from "./nearby/nearbyState.ts";
 import {
@@ -61,7 +59,6 @@ export interface MapSessionOptions {
   readonly onPickLeader: (unitId: number) => void;
   readonly onStatus: (status: FeedStatus) => void;
   readonly onCommand: (report: CommandReport) => void;
-  readonly onDevNotice: (text: string) => void;
 }
 
 export interface MapSession {
@@ -209,10 +206,6 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     },
     canCommand: options.operator,
     observe: options.operator,
-    onDevSpawn: (outcome) =>
-      options.onDevNotice(
-        outcome.ok ? m.map_vision_spawned() : `${m.map_vision_spawn_failed()} ${resultText(outcome.code)}`,
-      ),
     now: () => performance.now(),
     serverNow: options.serverNow,
     unitCapacity: options.unitCapacity,

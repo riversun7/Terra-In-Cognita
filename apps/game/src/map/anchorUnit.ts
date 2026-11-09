@@ -48,7 +48,7 @@ export function blockedWithoutUnits(input: {
 /**
  * 명령을 받을 유닛 하나(사용자 지적 2026-11-09 문제3 "사이보그선택상태이나 건물 누르면 고른 유닛1001이라는 이상한 상태"): 아래 안내 줄의 고른 유닛을
  * 다룰 수 있으면(내 유닛·운영자 모드) 그 유닛, 남의 유닛을 살펴보는 중이면 기준 유닛(내 유닛), 없으면 이 맵의 내 사이보그. 건물 판의 "보낼 유닛"·
- * 채집·[옆 2차맵으로]가 이것 하나를 쓴다(옛: 건물 판은 기준 유닛만 봐서 운영자 자유 시점에 고른 유닛과 달랐다)
+ * 채집이 이것 하나를 쓴다(옛: 건물 판은 기준 유닛만 봐서 운영자 자유 시점에 고른 유닛과 달랐다)
  */
 export function commandUnit(input: {
   /** 아래 안내 줄의 고른 유닛(늘 하나 — 엔진이 고르기 전이면 기준 유닛) */
@@ -62,13 +62,27 @@ export function commandUnit(input: {
   return input.anchor ?? input.cyborgUnitId;
 }
 
-/** 아래 판 자리에 보일 판 하나 — 누른 건물·오브젝트 판 > 내 유닛 목록 > 근처 판(사용자 지적 2026-11-09 문제4 "하나의 건물 클릭시 여러개가 다 뜬다") */
-export type BottomSheet = "gather" | "units" | "nearby";
+/**
+ * 지도에서 누른 유닛을 어떻게 다루나(사용자 지적 2026-11-09 "이동하려는데 다른 유닛이 선택되는문제 … 애초에 다른 유닛을 이동시키는 기능은 없음.
+ * 다른 유닛 눌려지면 상호작용 메뉴가 나오거나 다른곳을 눌러 저절로 닫히게 해야함"): 다룰 수 있는 유닛(내 유닛, 운영자 모드면 아무 유닛)이면
+ * 고른다(명령 유닛이 된다). 남의 유닛이면 명령 유닛은 그대로 두고 그 유닛의 작은 정보 판만 연다(peek)
+ */
+export function unitTapOf(input: { readonly operator: boolean; readonly own: boolean }): "select" | "peek" {
+  return input.operator || input.own ? "select" : "peek";
+}
+
+/**
+ * 아래 판 자리에 보일 판 하나 — 누른 건물·오브젝트 판 > 남의 유닛 정보 판 > 내 유닛 목록 > 근처 판(사용자 지적 2026-11-09 문제4 "하나의 건물
+ * 클릭시 여러개가 다 뜬다"). 정보 판을 열면 건물 판을 닫으므로 둘이 함께 열려 있을 때는 나중에 연 건물 판이다
+ */
+export type BottomSheet = "gather" | "peek" | "units" | "nearby";
 
 export function bottomSheetOf(input: {
   readonly gatherOpen: boolean;
+  readonly peekOpen: boolean;
   readonly unitsOpen: boolean;
 }): BottomSheet {
   if (input.gatherOpen) return "gather";
+  if (input.peekOpen) return "peek";
   return input.unitsOpen ? "units" : "nearby";
 }

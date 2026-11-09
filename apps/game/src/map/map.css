@@ -110,17 +110,6 @@
   justify-content: center;
   gap: var(--space-2);
 }
-/* 탐사 없음 알림(유닛 없는 계정): 좁은 화면은 판 너비(1·2차맵 전환 단추는 오른쪽 위 구석이라 피하지 않는다) */
-.map-dark {
-  max-width: none;
-  margin-inline: var(--space-3);
-}
-@media (min-width: 64em) {
-  .map-dark {
-    max-width: 32rem;
-    margin-inline: auto;
-  }
-}
 .map-hint {
   flex: 1 1 12em;
   font-size: var(--font-size-sm);

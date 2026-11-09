@@ -6,6 +6,9 @@ import {
   bottomSheetOf,
   chooseAnchor,
   commandUnit,
+  heldMoving,
+  STOP_HOLD_MS,
+  showStop,
   unitTapOf,
 } from "./anchorUnit.ts";
 
@@ -100,5 +103,22 @@ describe("지도에서 누른 유닛(사용자 지적 2026-11-09 — 남의 유�
   it("운영자 모드: 아무 유닛이나 고른다(그 유닛을 명령한다)", () => {
     expect(unitTapOf({ operator: true, own: false })).toBe("select");
     expect(unitTapOf({ operator: true, own: true })).toBe("select");
+  });
+});
+
+describe("[멈추기] 깜빡임 막기(사용자 지적 2026-11-09)", () => {
+  it("명령할 수 없는 유닛이면 안 보인다", () => {
+    expect(showStop({ commandable: false, moving: true, travelling: true })).toBe(false);
+  });
+  it("움직이거나 2차맵 사이를 가는 중이면 보인다(구간 사이에 엔진이 멈췄다고 봐도)", () => {
+    expect(showStop({ commandable: true, moving: true, travelling: false })).toBe(true);
+    expect(showStop({ commandable: true, moving: false, travelling: true })).toBe(true);
+    expect(showStop({ commandable: true, moving: false, travelling: false })).toBe(false);
+  });
+  it("방금 움직였으면 잠깐 움직이는 중으로 붙잡고, 오래 섰으면 놓는다", () => {
+    expect(heldMoving(true, null, 10_000)).toBe(true);
+    expect(heldMoving(false, 10_000 - STOP_HOLD_MS + 1, 10_000)).toBe(true);
+    expect(heldMoving(false, 10_000 - STOP_HOLD_MS, 10_000)).toBe(false);
+    expect(heldMoving(false, null, 10_000)).toBe(false);
   });
 });

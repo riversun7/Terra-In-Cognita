@@ -5568,5 +5568,8 @@
   "ops_cur_edit": "Edit",
   "ops_cur_note": "Symbol 1–3 chars, ticker 3 uppercase letters (unique). Rebel and new-village factions use their followed nation's currency.",
   "audit_act_faction_profile": "Faction identity changed",
-  "audit_act_currency_profile": "Currency display changed"
+  "audit_act_currency_profile": "Currency display changed",
+  "settings_help_legend": "Help",
+  "settings_help_hint": "A wiki that explains the game rules in plain language. Opens in a new tab.",
+  "settings_help_open": "Open wiki"
 }

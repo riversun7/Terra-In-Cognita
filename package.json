@@ -27,6 +27,8 @@
     "settings:cells": "node scripts/build-settings-cells.mjs",
     "e2e": "playwright test -c e2e/playwright.config.ts",
     "docs:index": "node scripts/build-worklog-index.mjs",
+    "wiki:index": "node scripts/build-wiki-index.mjs",
+    "check:wiki": "node scripts/check-wiki.mjs",
     "changelog": "git-cliff --output CHANGELOG.md",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm check:size && pnpm check:i18n && pnpm check:contrast && pnpm check:content --no-compat && pnpm test",
     "prepare": "lefthook install"

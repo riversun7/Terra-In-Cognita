@@ -5568,5 +5568,8 @@
   "ops_cur_edit": "고치기",
   "ops_cur_note": "기호 1~3자, 약어 영어 대문자 3자(세계 안에서 하나). 반란·새 마을 세력은 따르는 나라 화폐를 씁니다.",
   "audit_act_faction_profile": "세력 정체성 바꿈",
-  "audit_act_currency_profile": "화폐 표시 바꿈"
+  "audit_act_currency_profile": "화폐 표시 바꿈",
+  "settings_help_legend": "도움말",
+  "settings_help_hint": "게임 규칙을 쉬운 말로 풀어 놓은 위키입니다. 새 창에서 열립니다.",
+  "settings_help_open": "위키 열기"
 }

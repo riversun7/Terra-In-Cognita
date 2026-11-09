@@ -67,6 +67,7 @@
 | `docs/adr/YYYY-MM-DD-<slug>.md` | 결정할 때 | 확정된 ADR은 고치지 않는다. 바꾸려면 새 ADR을 쓰고 옛 ADR에 "대체됨" 표시만 한다. 템플릿: `docs/adr/README.md` |
 | `docs/PLAN.md` | 결정이 바뀔 때 | 요약 문서. 이유는 ADR에 |
 | `docs/DECISION_LOG.md` | 수정 금지 | 계획 세션의 질문·답변 원문. 새 결정은 ADR로 |
+| `docs/wiki/pages/<id>.md` | 기획서를 쉬운 말로 풀 때 | 플레이어 위키(항목 1개 = 파일 1개). 규칙은 `docs/wiki/README.md`, 결정은 ADR `2026-11-09-player-wiki.md`. 색인·분류·용어는 `pnpm wiki:index`가 만든다(직접 고치지 않는다). 기획서는 정본이라 위키에서 고치지 않는다 |
 | `CHANGELOG.md` | 버전 태그 때 | git-cliff로 자동 생성 |
 
 확인 표기: 확인한 사실은 **Verified**, 추정은 **Assumed**, 모르면 **Unknown**. 실행하지 않은 코드는 "동작한다"고 쓰지 않는다("미실행").
@@ -179,6 +180,8 @@
 | `pnpm tuning:apply <차이.json> [--pack content/<팩 ID>] [--force] [--dry-run]` | 개발자 설정 칸 패널(`/dev/tuning`) [내보내기] 차이(`terra-tuning-diff`)를 팩 `tuning.json`에 넣는다(차이의 `statRows` = 밸런스 화면 `/dev/balance`의 가중치 칸은 `stat_rows.json`에, ADR `2026-11-01-balance-screen.md`. `entries` = 스킬 편집기 `/dev/skills`의 스킬·무기·유닛 종류 항목과 아이템 편집기 `/dev/items`의 아이템·중분류·태그·무기 종류·효과 항목은 그 분류 파일에 통째로(만든 항목은 파일 끝에 ID 차례로), 지금 팩 항목 해시 = `from`일 때만, ADR `2026-11-01-skill-editor.md`·`2026-11-01-item-editor.md`. `retiredIds` = 그 세계에서 만든 뒤 지운 ID는 새 항목으로 넣지 않는다): 칸마다 팩에 있는지·지금 팩 값 = `from`인지(아니면 건너뜀, `--force`면 넣음)·기술 범위 안인지 본 뒤 그 값만 바꾸고 `manifest.json` 판을 한 번 올린다. 건너뛴 칸이 있으면 종료 코드 1. 그다음 `pnpm check:content`·작업 기록·커밋(ADR `2026-11-01-dev-settings-panel.md` 11절). 시뮬레이터는 같은 파일을 `pnpm --filter @terra/sim sim <시나리오> --tuning <차이.json>`으로 받는다(상대 경로는 `packages/sim` 기준) |
 | `pnpm settings:cells [--check]` | 기획 49(`docs/design/40_Systems/49_Settings.md`) 칸 표에서 설정 칸 패널의 "49 칸 중 N개 연결" 목록 JSON(`apps/game/src/editor/tuning/settingsCells.json`)을 다시 만든다(D-462). 손으로 고치지 않는다. 49 미러를 동기화한 뒤 돌린다(안 돌리면 `pnpm test`의 시험이 실패한다) |
 | `pnpm docs:index` | 작업 기록을 추가한 뒤 `docs/WORKLOG.md` 목차를 다시 만든다 |
+| `pnpm wiki:index` | 플레이어 위키 색인·분류 지도·용어 대조표를 다시 만든다(`docs/wiki/index.md`·`categories.md`·`terms.md`). `--check`는 최신인지만 본다. 항목을 더하거나 고치면 돌린다 |
+| `pnpm check:wiki` | 위키 검사: 머리 칸·필수 제목·`지금` 줄과 `status`가 맞는지·항목끼리와 기획서 링크·결정 ID가 실제로 있는지. `--stale`은 인용한 결정에 "대체" 표시가 있는 항목을 알린다(미러를 새로 복사한 뒤에 쓴다) |
 | `pnpm check:docs` | 코드 변경 → 작업 기록(의존성 버전만 올린 변경은 제외), 새 런타임 의존성 → ADR, 올라간 마이그레이션 수정 금지 |
 | `pnpm check:content [기준 커밋]` | 콘텐츠 팩 검증: 스키마·참조·ID 변경표 + 기준 커밋(기본 upstream)의 팩과 호환. `--no-compat`은 호환 검사 빼기, `--print`는 서버 팩의 버전·해시 출력 |
 | `SMOKE_URL=http://127.0.0.1:4100 node ops/smoke.mjs` | 배포 자동 점검(`/health`, WebSocket 접속 인사). 기대값은 `EXPECT_DB`·`EXPECT_CONTENT_VERSION`·`EXPECT_CONTENT_HASH`(비우면 비교 안 함) |
@@ -200,7 +203,7 @@
 | `PLANET_CACHE_DIR=/경로 pnpm dev:server` | 1차맵 행성 타일 디스크 캐시 폴더(기본 `apps/server/.planet-cache`, 이미지 `/app/planet-cache`, NAS는 `ops/compose.yml` 볼륨). 시작하면 콘텐츠 팩 행성(`planets`)마다 캐시를 읽거나 워커에서 차례로 굽는다(S2 시험 행성 `s2_test_planet`·편집 전용 행성 `s2_editor_planet`, 생성기 1판 출력 판 3(`GENERATOR_VERSION` 3), 둘 다 F = 9. 빈 캐시면 개발 컨테이너에서 행성마다 약 11~14초(기계 부하에 따라). 캐시로 켜면 약 1~3초). 요청을 받기 전에 행성마다 편집기 확인 해시(F5)도 만든다(두 행성 약 0.3~0.9초). 행성 표본(`planet_templates`, 편집기 시작점)은 굽지 않고 확인 해시만 만든다(다섯 약 0.4초, ADR 38 "바뀜: 행성 표본"). 행성마다 2차맵 생성기 입력인 행성 값 파일(`.values`, F9 약 22MB)도 같이 둔다. 그 아래 `second-maps/`는 2차맵 지형 디스크 캐시다(2차맵 하나 약 40~60KB, 판 표지가 바뀌면 옛 파일을 지운다, 4,000장까지). 지워도 된다(다음 시작 때 다시 굽는다). 빌드한 서버도 같다 |
 | `S2_URL=http://127.0.0.1:4320 S2_ID=… S2_PASSWORD=… node ops/s2-probe.mjs` | S2 타일 측정 클라이언트: 들어가기 → 목록 정보(준비까지 기다림) → 처음 화면 타일(맵 레벨 F−4·F−3) 시간·크기, 머리 값·이음매 확인(어긋나면 종료 코드 1). `S2_ALL=1`(모든 타일), `S2_CONCURRENCY`(기본 6), `S2_PLANET`(기본 `s2_test_planet`). `S2_URL`은 서버 `BETTER_AUTH_URL`과 같아야 한다(가짜 계정만) |
 
-git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 푸시 전(`pnpm check` + 문서 규칙 + 콘텐츠 호환 + 목차 최신 여부).
+git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 푸시 전(`pnpm check` + 문서 규칙 + 콘텐츠 호환 + 목차 최신 여부 + 위키 검사·색인).
 새 패키지를 만들면 `scripts/check-boundaries.mjs`의 `ALLOWED` 표에 넣는다. 배포·NAS는 `ops/nas-setup.md`.
 
 ## 8. UI·디자인 작업과 스킬

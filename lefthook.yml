@@ -17,4 +17,4 @@ pre-push:
   commands:
     check:
       # pnpm check는 콘텐츠 1·2·4a단계만 본다. check:content(인자 없음)는 4b단계(upstream 팩과 비교)까지 본다
-      run: pnpm check && pnpm check:docs && pnpm check:content && pnpm docs:index --check
+      run: pnpm check && pnpm check:docs && pnpm check:content && pnpm docs:index --check && pnpm check:wiki && pnpm wiki:index --check

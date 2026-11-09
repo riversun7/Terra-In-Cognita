@@ -81,6 +81,8 @@ test.describe("dev", () => {
     page,
     deviceErrors,
   }) => {
+    // 다른 시험이 dev에게 시험 일꾼을 주면 정산 사건으로 복귀 요약이 뜰 수 있다 — 단추를 가리지 않게 띄우지 않는다
+    await rewriteTrpc(page, { "summary.get": hideSummary });
     await page.goto("/map");
     const screen = page.locator(".map-screen");
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });

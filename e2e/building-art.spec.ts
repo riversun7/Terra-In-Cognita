@@ -2,7 +2,7 @@
 // - NPC 시작 도시 2차맵: tRPC facilities.mapLooks가 시설 ID(행정 건물·창고·농장·벌목장·광산 등)를 주고, 엔진이 시설 종류별 모델로 다시 그린다.
 //   그리기 호출(위 판 "그리기 N회")을 기록한다(지형·소품·유닛 + 건물 도형 최대 7).
 // - 건물 표시를 숨기고 그 자리(건물 모델 위)를 누르면 건물 판이 열린다(엔진 건물 누르기 → 판 안 칸).
-// - 사진: 도시 2차맵(도시 칸, 처음 거리) 390·1440 × 파스텔·다크 × 낮·밤(?second-map-time=). 세계 색은 테마와 상관없고(D-070) 위 판만
+// - 사진: 도시 2차맵(도시 칸, 처음 거리 — 최대 확대, 건물 표시가 화면 밖이면 한두 단계 줄인 거리) 390·1440 × 파스텔·다크 × 낮·밤(?second-map-time=). 세계 색은 테마와 상관없고(D-070) 위 판만
 //   바뀐다. 채집 덧그림 표시는 건물을 가려 사진에서만 숨긴다.
 import type { Page, Response } from "@playwright/test";
 import { shot } from "./helpers/screen.ts";
@@ -90,6 +90,18 @@ async function buildingMarkerPoints(page: Page): Promise<{ id: number; x: number
   );
 }
 
+/** 건물 표시가 몇 초 안에 하나라도 보이나 */
+async function markersSoon(page: Page): Promise<boolean> {
+  try {
+    await expect
+      .poll(async () => (await buildingMarkerPoints(page)).length, { timeout: 6_000 })
+      .toBeGreaterThan(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * 건물 무리를 화면 가운데로 끌어 온다(마우스로 땅을 끈다, 두 번). NPC 도시 시설은 도시 칸 둘레의 지을 수 있는 땅에 서서
  * 도시 칸(카메라)에서 떨어져 위 판(HUD) 밑에 걸릴 수 있다
@@ -98,6 +110,12 @@ async function centreOnBuildings(page: Page): Promise<void> {
   const size = page.viewportSize() ?? { width: 390, height: 844 };
   const cx = size.width / 2;
   const cy = size.height / 2;
+  // 2차맵은 최대 확대(5/5)로 열린다(사용자 지적 2026-11-09). 넓은 화면은 카메라가 따라가는 내 사이보그 둘레만 보여 도시 건물이
+  // 화면 밖일 수 있다: 표시가 안 보이면 한 단계씩(두 번까지) 줄인다
+  for (let step = 0; step < 2 && !(await markersSoon(page)); step++) {
+    await page.locator(".zoom-ladder-out").click();
+    await page.waitForTimeout(800);
+  }
   for (let pass = 0; pass < 2; pass++) {
     await expect
       .poll(async () => (await buildingMarkerPoints(page)).length, { timeout: 20_000 })

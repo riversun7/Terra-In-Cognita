@@ -235,11 +235,22 @@ test.describe("유닛 조종: 플레이어", () => {
     });
     await openMap(page);
     const screen = page.locator(".map-screen");
-    // 카메라는 내 사이보그에 맞춰 열린다(D-6017) → 가운데를 누르면 그 유닛을 고른다
+    // 카메라는 내 사이보그 둘레(가짜 목록 유닛의 칸 = 사이보그 칸의 카메라 범위)에 열린다(D-6017) → 가운데를 누르면 둘레 유닛을 고른다.
+    // 2차맵은 최대 확대(5/5)로 열려(사용자 지적 2026-11-09) 카메라 목표와 유닛 사이가 화면에서 멀다: 한 단계 줄여 옛 처음 거리쯤에서 누른다
     await expect(screen).toHaveAttribute("data-focus", /\d+/);
     await page.waitForTimeout(1_200);
+    await page.locator(".zoom-ladder-out").click();
+    await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "4");
+    await page.waitForTimeout(800);
     await tapMap(page, 0, -6);
-    await expect(screen).toHaveAttribute("data-selected", /\d+/, { timeout: 5_000 });
+    try {
+      await expect(screen).toHaveAttribute("data-selected", /\d+/, { timeout: 5_000 });
+    } catch {
+      // 가운데에 유닛이 없으면 근처 판 유닛 탭의 남의 유닛 줄(내 사이보그도 여기서는 남의 유닛)로 고른다
+      await openNearby(page, "units");
+      await page.locator('.map-nearby-row[data-kind="unit"][data-mine="false"]').first().click();
+      await expect(screen).toHaveAttribute("data-selected", /\d+/, { timeout: 5_000 });
+    }
     await expect(screen).toHaveAttribute("data-control", "other");
     await expect(page.locator(".map-hint p").first()).toContainText("#");
     await expect(page.locator(".map-unit-stop")).toHaveCount(0);

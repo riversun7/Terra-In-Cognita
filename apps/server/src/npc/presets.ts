@@ -42,6 +42,14 @@ export function nationPresetsOf(pack: ContentPack): NationPreset[] {
           : {}),
         ...(entry.cityNames ? { cityNames: [...entry.cityNames] } : {}),
         ...(entry.leaderName ? { leaderName: { ko: entry.leaderName.ko, en: entry.leaderName.en } } : {}),
+        ...(entry.shortName ? { shortName: entry.shortName } : {}),
+        ...(entry.color ? { color: entry.color } : {}),
+        currency: {
+          code: entry.currency.code,
+          name: { ko: entry.currency.name.ko, en: entry.currency.name.en },
+          ...(entry.currency.symbol ? { symbol: entry.currency.symbol } : {}),
+          ...(entry.currency.ticker ? { ticker: entry.currency.ticker } : {}),
+        },
         ...(entry.humanNames
           ? {
               humanNames: {

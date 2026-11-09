@@ -23,6 +23,7 @@ export const PERMISSION_LABELS: { readonly [P in OpsPermission]: () => string } 
   ledger_grant: m.ops_perm_ledger_grant,
   manage_grants: m.ops_perm_manage_grants,
   log_switch: m.ops_perm_log_switch,
+  faction_edit: m.ops_perm_faction_edit,
 };
 
 export const TIER_LABELS: { readonly [T in OpsTier]: () => string } = {
@@ -59,6 +60,9 @@ const RESULT_LABELS: { readonly [code: string]: () => string } = {
   owner_not_found: m.ops_res_owner_not_found,
   bad_asset: m.ops_res_bad_asset,
   insufficient: m.ops_res_insufficient,
+  invalid: m.ops_res_invalid,
+  short_taken: m.ops_res_short_taken,
+  ticker_taken: m.ops_res_ticker_taken,
 };
 
 export function resultText(code: string): string {

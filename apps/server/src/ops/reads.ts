@@ -269,6 +269,10 @@ export interface FactionSqlRow {
   humans: string;
   members: string;
   wars: string;
+  truces: string;
+  vassals: string;
+  housing: string;
+  satisfaction: string | null;
   owner_id: string | null;
 }
 
@@ -279,6 +283,11 @@ const FACTION_SELECT = `
          (select count(*) from world_humans h join world_cities c on c.id = h.city_id where c.faction_id = f.id) as humans,
          (select count(*) from faction_members m where m.faction_id = f.id) as members,
          (select count(*) from faction_wars w where (w.faction_a = f.id or w.faction_b = f.id) and w.state = 'war') as wars,
+         (select count(*) from faction_wars w where (w.faction_a = f.id or w.faction_b = f.id) and w.state = 'truce') as truces,
+         (select count(*) from factions v where v.parent_id = f.id and v.dissolved_at_ms is null) as vassals,
+         (select coalesce(sum(c.housing), 0) from world_cities c where c.faction_id = f.id) as housing,
+         (select round(avg(h.satisfaction_milli)) from world_humans h join world_cities c on c.id = h.city_id
+           where c.faction_id = f.id) as satisfaction,
          o.id as owner_id
     from factions f
     left join world_owners o on o.faction_id = f.id`;

@@ -1,5 +1,5 @@
 // 운영자 콘솔(/ops) 화면 시험 — docs/adr/2026-11-08-operator-console.md.
-// admin: 탭 일곱 개, 현황, 유저 상세(통제 판), 유닛, 감사 기록 거르기, 로그 스위치, 권한 부여 주소는 권한 없음.
+// admin: 탭 여덟 개, 현황, 유저 상세(통제 판), 유닛, 감사 기록 거르기, 로그 스위치, 권한 부여 주소는 권한 없음.
 // dev: 개발자 홈 → 운영 권한 부여(체크박스). player: 권한 없음 화면.
 // 사진: 1440 넓은 폭(목록 + 오른쪽 상세)과 390px, 개발 화면 테마 둘(네온·라이트)(ADR 2026-11-02-dev-ui).
 import type { Page } from "@playwright/test";
@@ -15,14 +15,14 @@ async function consoleShown(page: Page): Promise<void> {
 test.describe("운영자 콘솔 — admin", () => {
   test.use({ account: "admin" });
 
-  test("탭 일곱 개, 현황, 유저 상세, 감사 기록 거르기, 권한 부여 탭 없음·주소는 권한 없음", async ({
+  test("탭 여덟 개, 현황, 유저 상세, 감사 기록 거르기, 권한 부여 탭 없음·주소는 권한 없음", async ({
     page,
     deviceErrors,
   }) => {
     await page.goto("/ops");
     await consoleShown(page);
     await expect(page.locator("html")).toHaveAttribute("data-surface", "dev");
-    await expect(page.locator(".ops-tabs [role='tab']")).toHaveCount(7);
+    await expect(page.locator(".ops-tabs [role='tab']")).toHaveCount(8);
     // 현황: 카드 넷 + 경보
     await expect(page.locator(".ops-grid .ops-card")).toHaveCount(4);
     // 유저 탭 → e2e_player 상세(통제 판)
@@ -34,10 +34,10 @@ test.describe("운영자 콘솔 — admin", () => {
     await expect(page.locator(".ops-side .ops-kv").first()).toBeVisible();
     await expect(page.locator(".ops-side .ops-controls")).toBeVisible();
     // 유닛 탭
-    await page.locator(".ops-tabs [role='tab']").nth(4).click();
+    await page.locator(".ops-tabs [role='tab']").nth(5).click();
     await expect(page.locator(".ops-main .dev-table")).toBeVisible();
     // 감사 기록: 분류 칩 8개(전체 + 7), 계정 분류를 누르면 그 분류만(전역 준비가 역할을 넣은 기록이 있다)
-    await page.locator(".ops-tabs [role='tab']").nth(6).click();
+    await page.locator(".ops-tabs [role='tab']").nth(7).click();
     await expect(page.locator(".ops-chips .ops-chip")).toHaveCount(8);
     await page.locator(".ops-chips .ops-chip").nth(1).click();
     await expect(page.locator(".ops-chips .ops-chip").nth(1)).toHaveAttribute("aria-pressed", "true");
@@ -45,6 +45,40 @@ test.describe("운영자 콘솔 — admin", () => {
     // 권한 부여는 개발자만: 관리자는 주소를 열어도 권한 없음
     await page.goto("/dev/ops-grants");
     await expect(page.locator("#no-permission-title")).toBeVisible();
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("세력 관리: 표지·화폐가 보이고, 정체성을 고치면 표에 바로 보인다. 화폐 약어를 고친다(겹치면 거절)", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await page.goto("/ops?tab=npcs");
+    await consoleShown(page);
+    const firstRow = page.locator(".ops-main .dev-table tbody tr").first();
+    await expect(firstRow.locator(".ops-swatch")).toBeVisible();
+    await expect(page.locator(".ops-summary li").first()).toBeVisible();
+    // 첫 세력 상세 → 정체성 고치기
+    await firstRow.locator("td:nth-child(3) button").click();
+    await expect(page.locator(".ops-side .ops-identity")).toBeVisible();
+    await page.locator(".ops-side details.ops-details summary").first().click();
+    const form = page.locator(".ops-side .ops-profile-form");
+    await form.locator("input").nth(1).fill("E2E");
+    await form.locator("button[type='submit']").click();
+    await expect(page.locator(".ops-side .ops-identity")).toContainText("E2E");
+    // 화폐 탭: 첫 화폐의 약어를 두 번째 화폐 약어로 바꾸면 거절, 새 약어면 저장
+    await page.locator(".ops-tabs [role='tab']").nth(4).click();
+    const tickers = await page.locator(".ops-main .dev-table tbody tr td:nth-child(2)").allInnerTexts();
+    await page.locator(".ops-main .dev-table tbody tr").first().locator("button").last().click();
+    const edit = page.locator(".ops-inline-edit");
+    await edit
+      .locator("input")
+      .nth(1)
+      .fill(tickers[1] ?? "PCB");
+    await edit.locator("button").click();
+    await expect(edit.locator("[role='alert']")).toBeVisible();
+    await edit.locator("input").nth(1).fill("ZZE");
+    await edit.locator("button").click();
+    await expect(page.locator(".ops-main .dev-table tbody tr").first()).toContainText("ZZE");
     expect(deviceErrors).toEqual([]);
   });
 
@@ -76,9 +110,21 @@ test.describe("운영자 콘솔 — admin", () => {
           await page.locator(".ops-tabs [role='tab']").first().click();
           await expect(page.locator(".ops-grid .ops-card")).toHaveCount(4);
           await shot(page, `ops-overview-1440-${theme}`);
-          await page.locator(".ops-tabs [role='tab']").nth(6).click();
+          await page.locator(".ops-tabs [role='tab']").nth(7).click();
           await expect(page.locator(".ops-audit tbody tr").first()).toBeVisible();
           await shot(page, `ops-audit-1440-${theme}`);
+          await page.goto("/ops?tab=npcs");
+          await expect(page.locator(".ops-main .dev-table tbody tr").first()).toBeVisible();
+          await page
+            .locator(".ops-main .dev-table tbody tr")
+            .first()
+            .locator("td:nth-child(3) button")
+            .click();
+          await expect(page.locator(".ops-side .ops-identity")).toBeVisible();
+          await shot(page, `ops-factions-1440-${theme}`);
+          await page.locator(".ops-tabs [role='tab']").nth(4).click();
+          await expect(page.locator(".ops-main .dev-table tbody tr").first()).toBeVisible();
+          await shot(page, `ops-currencies-1440-${theme}`);
           await page.goto("/admin");
           await expect(page.locator(".admin-switch-card[data-switch-id='view_audit']")).toBeVisible();
           await shot(page, `admin-log-switch-1440-${theme}`, { fullPage: true });
@@ -116,12 +162,12 @@ test.describe("운영 권한 부여 — dev", () => {
     await expect(page.locator("#ops-grants-title")).toBeVisible();
     await page.locator("#main form input").fill("e2e_admin");
     await page.locator("#main form button[type='submit']").click();
-    // 관리자 역할 기본 = 권한 부여만 뺀 13개(잠김), 권한 부여 1개는 고를 수 있다
-    await expect(page.locator(".ops-grants input[type='checkbox']")).toHaveCount(14);
-    await expect(page.locator(".ops-grants input[type='checkbox']:disabled")).toHaveCount(13);
+    // 관리자 역할 기본 = 권한 부여만 뺀 14개(잠김), 권한 부여 1개는 고를 수 있다
+    await expect(page.locator(".ops-grants input[type='checkbox']")).toHaveCount(15);
+    await expect(page.locator(".ops-grants input[type='checkbox']:disabled")).toHaveCount(14);
     await page.goto("/ops");
     await consoleShown(page);
-    await expect(page.locator(".ops-tabs [role='tab']")).toHaveCount(7);
+    await expect(page.locator(".ops-tabs [role='tab']")).toHaveCount(8);
     expect(deviceErrors).toEqual([]);
   });
 
@@ -134,7 +180,7 @@ test.describe("운영 권한 부여 — dev", () => {
           await page.goto("/dev/ops-grants");
           await page.locator("#main form input").fill("e2e_admin");
           await page.locator("#main form button[type='submit']").click();
-          await expect(page.locator(".ops-grants input[type='checkbox']")).toHaveCount(14);
+          await expect(page.locator(".ops-grants input[type='checkbox']")).toHaveCount(15);
           await shot(page, `ops-grants-1440-${theme}`);
         });
       });

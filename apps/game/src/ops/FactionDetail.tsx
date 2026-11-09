@@ -6,8 +6,18 @@ import { m } from "../paraglide/messages.js";
 import { BalanceTable, GrantForm } from "./DetailParts.tsx";
 import { CityTable } from "./NpcTabs.tsx";
 import type { OpenDetail } from "./OpsConsole.tsx";
-import { KeyValues, LoadState, formatInt, formatTime, useOpsLoad } from "./opsUi.tsx";
+import { FactionMark, regimeLabel, satisfactionText } from "./FactionsTab.tsx";
+import { FactionProfileEdit } from "./FactionProfileEdit.tsx";
+import { KeyValues, LoadState, formatBig, formatInt, formatTime, useOpsLoad } from "./opsUi.tsx";
 import { UnitTable } from "./UnitTable.tsx";
+
+const SOURCE_LABELS = {
+  preset: m.ops_src_preset,
+  default: m.ops_src_default,
+  admin: m.ops_src_admin,
+} as const;
+const sourceText = (source: "preset" | "default" | "admin" | null): string =>
+  source === null ? m.ops_none() : SOURCE_LABELS[source]();
 
 interface FactionDetailProps {
   factionId: number;
@@ -34,11 +44,45 @@ export function FactionDetail({ factionId, can, open }: FactionDetailProps) {
       <LoadState loaded={loaded} />
       {data ? (
         <>
+          <div className="ops-identity" style={{ borderColor: data.faction.color ?? undefined }}>
+            <FactionMark color={data.faction.color} shortName={data.faction.shortName} />
+            <span className="ops-identity-name">{data.faction.name}</span>
+            <span className="dev-muted">#{data.faction.id}</span>
+            {data.faction.currency ? (
+              <span className="dev-badge" translate="no">
+                {data.faction.currency.symbol} {data.faction.currency.ticker}
+              </span>
+            ) : null}
+          </div>
           <KeyValues
             rows={[
-              [m.ops_col_name(), `${data.faction.name} (#${data.faction.id})`],
               [m.ops_col_kind(), data.faction.kind === "npc" ? m.ops_kind_npc() : m.ops_kind_player()],
-              [m.ops_col_regime(), data.faction.regime],
+              [m.ops_col_regime(), regimeLabel(data.faction.regime)],
+              [
+                m.ops_fac_currency(),
+                data.faction.currency
+                  ? `${data.faction.currency.name} (${data.faction.currency.symbol} · ${data.faction.currency.ticker})`
+                  : m.ops_none(),
+              ],
+              [
+                m.ops_fac_treasury(),
+                `${data.faction.currency ? `${data.faction.currency.symbol} ` : ""}${formatBig(data.faction.treasury)}`,
+              ],
+              [m.ops_col_cities(), formatInt(data.faction.cities)],
+              [
+                m.ops_fac_people(),
+                m.ops_f_of({ a: formatInt(data.faction.humans), b: formatInt(data.faction.housing) }),
+              ],
+              [m.ops_fac_satisfaction(), satisfactionText(data.faction.satisfactionMilli)],
+              [
+                m.ops_fac_diplomacy(),
+                m.ops_fac_diplomacy_value({
+                  wars: data.faction.wars,
+                  truces: data.faction.truces,
+                  vassals: data.faction.vassals,
+                }),
+              ],
+              [m.ops_fac_source(), sourceText(data.faction.profileSource)],
               [m.ops_col_tech(), data.faction.techLevel],
               [m.ops_f_research(), formatInt(data.researchProgress)],
               [m.ops_f_ai_step(), formatInt(data.aiStep)],
@@ -50,6 +94,16 @@ export function FactionDetail({ factionId, can, open }: FactionDetailProps) {
               [m.ops_f_owner_id(), data.faction.ownerId ?? m.ops_none()],
             ]}
           />
+          {can("faction_edit") ? (
+            <details className="ops-details">
+              <summary>{m.ops_fac_edit()}</summary>
+              <FactionProfileEdit
+                key={`${data.faction.name}|${data.faction.shortName ?? ""}|${data.faction.color ?? ""}`}
+                faction={data.faction}
+                onDone={loaded.reload}
+              />
+            </details>
+          ) : null}
           <section>
             <h3 className="ops-h3">{m.ops_sec_cities()}</h3>
             {data.cities.length === 0 ? (

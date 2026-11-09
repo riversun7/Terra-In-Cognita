@@ -80,6 +80,18 @@ export interface NationPreset {
   readonly leaderName?: { readonly ko: string; readonly en: string } | undefined;
   /** NPC 휴먼 이름 조각(기획 답 773 나, 번역 안 함 — npc/humanNames.ts, "WP-NPC4", 팩 [임시]). 없으면 화면이 "휴먼 #ID" */
   readonly humanNames?: { readonly given: readonly string[]; readonly family: readonly string[] } | undefined;
+  /** 세력 약어·시그니처 컬러(docs/adr/2026-11-09-faction-profiles.md, 팩 [임시]). 세력 정체성을 처음 정할 때 쓴다 */
+  readonly shortName?: string | undefined;
+  readonly color?: string | undefined;
+  /** 나라 화폐(원장 자산 = "cur:<code>")와 표시(기호·3글자 약어). 화폐 표시를 처음 정할 때 쓴다 */
+  readonly currency?:
+    | {
+        readonly code: string;
+        readonly name: { readonly ko: string; readonly en: string };
+        readonly symbol?: string | undefined;
+        readonly ticker?: string | undefined;
+      }
+    | undefined;
 }
 
 /** n번째 국가 코드(1번 = 시험 NPC 세력, 2번부터 = 팩 프리셋 차례, 프리셋이 없으면 npc_nation_NN) */

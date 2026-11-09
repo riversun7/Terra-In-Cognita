@@ -6,12 +6,16 @@
         "ko": "임시 국가 1",
         "en": "Placeholder nation 1"
       },
+      "shortName": "N01",
+      "color": "#c0392b",
       "currency": {
         "code": "placeholder_cur_01",
         "name": {
           "ko": "임시 화폐 1",
           "en": "Placeholder currency 1"
-        }
+        },
+        "symbol": "₳",
+        "ticker": "PCA"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -55,12 +59,16 @@
         "ko": "임시 국가 2",
         "en": "Placeholder nation 2"
       },
+      "shortName": "N02",
+      "color": "#2980b9",
       "currency": {
         "code": "placeholder_cur_02",
         "name": {
           "ko": "임시 화폐 2",
           "en": "Placeholder currency 2"
-        }
+        },
+        "symbol": "₢",
+        "ticker": "PCB"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -108,12 +116,16 @@
         "ko": "임시 국가 3",
         "en": "Placeholder nation 3"
       },
+      "shortName": "N03",
+      "color": "#27ae60",
       "currency": {
         "code": "placeholder_cur_03",
         "name": {
           "ko": "임시 화폐 3",
           "en": "Placeholder currency 3"
-        }
+        },
+        "symbol": "₣",
+        "ticker": "PCC"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -161,12 +173,16 @@
         "ko": "임시 국가 4",
         "en": "Placeholder nation 4"
       },
+      "shortName": "N04",
+      "color": "#8e44ad",
       "currency": {
         "code": "placeholder_cur_04",
         "name": {
           "ko": "임시 화폐 4",
           "en": "Placeholder currency 4"
-        }
+        },
+        "symbol": "₤",
+        "ticker": "PCD"
       },
       "tradeTaxBp": 200,
       "cityNames": ["Northwatch", "Greystone", "Kettlebay", "Fernhill", "Marrow"],
@@ -186,12 +202,16 @@
         "ko": "임시 국가 5",
         "en": "Placeholder nation 5"
       },
+      "shortName": "N05",
+      "color": "#d35400",
       "currency": {
         "code": "placeholder_cur_05",
         "name": {
           "ko": "임시 화폐 5",
           "en": "Placeholder currency 5"
-        }
+        },
+        "symbol": "₥",
+        "ticker": "PCE"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -235,12 +255,16 @@
         "ko": "임시 국가 6",
         "en": "Placeholder nation 6"
       },
+      "shortName": "N06",
+      "color": "#16a085",
       "currency": {
         "code": "placeholder_cur_06",
         "name": {
           "ko": "임시 화폐 6",
           "en": "Placeholder currency 6"
-        }
+        },
+        "symbol": "₦",
+        "ticker": "PCF"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -288,12 +312,16 @@
         "ko": "임시 국가 7",
         "en": "Placeholder nation 7"
       },
+      "shortName": "N07",
+      "color": "#f1c40f",
       "currency": {
         "code": "placeholder_cur_07",
         "name": {
           "ko": "임시 화폐 7",
           "en": "Placeholder currency 7"
-        }
+        },
+        "symbol": "₧",
+        "ticker": "PCG"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -341,12 +369,16 @@
         "ko": "임시 국가 8",
         "en": "Placeholder nation 8"
       },
+      "shortName": "N08",
+      "color": "#2c3e50",
       "currency": {
         "code": "placeholder_cur_08",
         "name": {
           "ko": "임시 화폐 8",
           "en": "Placeholder currency 8"
-        }
+        },
+        "symbol": "₨",
+        "ticker": "PCH"
       },
       "tradeTaxBp": 200,
       "cityNames": ["Saltmarsh", "Dunmere", "Windrest", "Brackwater", "Lowtide"],
@@ -366,12 +398,16 @@
         "ko": "임시 국가 9",
         "en": "Placeholder nation 9"
       },
+      "shortName": "N09",
+      "color": "#e84393",
       "currency": {
         "code": "placeholder_cur_09",
         "name": {
           "ko": "임시 화폐 9",
           "en": "Placeholder currency 9"
-        }
+        },
+        "symbol": "₩",
+        "ticker": "PCI"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -415,12 +451,16 @@
         "ko": "임시 국가 10",
         "en": "Placeholder nation 10"
       },
+      "shortName": "N10",
+      "color": "#00b894",
       "currency": {
         "code": "placeholder_cur_10",
         "name": {
           "ko": "임시 화폐 10",
           "en": "Placeholder currency 10"
-        }
+        },
+        "symbol": "₪",
+        "ticker": "PCJ"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -468,12 +508,16 @@
         "ko": "임시 국가 11",
         "en": "Placeholder nation 11"
       },
+      "shortName": "N11",
+      "color": "#6c5ce7",
       "currency": {
         "code": "placeholder_cur_11",
         "name": {
           "ko": "임시 화폐 11",
           "en": "Placeholder currency 11"
-        }
+        },
+        "symbol": "₫",
+        "ticker": "PCK"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -521,12 +565,16 @@
         "ko": "임시 국가 12",
         "en": "Placeholder nation 12"
       },
+      "shortName": "N12",
+      "color": "#fd79a8",
       "currency": {
         "code": "placeholder_cur_12",
         "name": {
           "ko": "임시 화폐 12",
           "en": "Placeholder currency 12"
-        }
+        },
+        "symbol": "€",
+        "ticker": "PCL"
       },
       "tradeTaxBp": 200,
       "cityNames": ["Stonereach", "Cliffmark", "Quarryhill", "Pebbleton", "Shalecross"],
@@ -546,12 +594,16 @@
         "ko": "임시 국가 13",
         "en": "Placeholder nation 13"
       },
+      "shortName": "N13",
+      "color": "#e17055",
       "currency": {
         "code": "placeholder_cur_13",
         "name": {
           "ko": "임시 화폐 13",
           "en": "Placeholder currency 13"
-        }
+        },
+        "symbol": "₭",
+        "ticker": "PCM"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -595,12 +647,16 @@
         "ko": "임시 국가 14",
         "en": "Placeholder nation 14"
       },
+      "shortName": "N14",
+      "color": "#0984e3",
       "currency": {
         "code": "placeholder_cur_14",
         "name": {
           "ko": "임시 화폐 14",
           "en": "Placeholder currency 14"
-        }
+        },
+        "symbol": "₮",
+        "ticker": "PCN"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -648,12 +704,16 @@
         "ko": "임시 국가 15",
         "en": "Placeholder nation 15"
       },
+      "shortName": "N15",
+      "color": "#b2bec3",
       "currency": {
         "code": "placeholder_cur_15",
         "name": {
           "ko": "임시 화폐 15",
           "en": "Placeholder currency 15"
-        }
+        },
+        "symbol": "₯",
+        "ticker": "PCO"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -701,12 +761,16 @@
         "ko": "임시 국가 16",
         "en": "Placeholder nation 16"
       },
+      "shortName": "N16",
+      "color": "#fdcb6e",
       "currency": {
         "code": "placeholder_cur_16",
         "name": {
           "ko": "임시 화폐 16",
           "en": "Placeholder currency 16"
-        }
+        },
+        "symbol": "₰",
+        "ticker": "PCP"
       },
       "tradeTaxBp": 200,
       "cityNames": ["Highmoor", "Duskvale", "Emberly", "Frostmere", "Gloamhill"],

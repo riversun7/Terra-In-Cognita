@@ -33,6 +33,8 @@ const ACTION_LABELS: { readonly [action: string]: () => string } = {
   "ops.revoke": m.audit_act_revoke,
   "ops.set_grants": m.audit_act_set_grants,
   "ops.switch": m.audit_act_switch,
+  "ops.faction_profile": m.audit_act_faction_profile,
+  "ops.currency_profile": m.audit_act_currency_profile,
   "tuning.apply": m.audit_act_tuning_apply,
   "tuning.revert_all": m.audit_act_tuning_revert,
   "content.apply": m.audit_act_content_apply,
@@ -72,6 +74,7 @@ const PERMISSION_TEXT: { readonly [permission: string]: () => string } = {
   ledger_grant: m.ops_perm_ledger_grant,
   manage_grants: m.ops_perm_manage_grants,
   log_switch: m.ops_perm_log_switch,
+  faction_edit: m.ops_perm_faction_edit,
 };
 
 const own = <T>(table: { readonly [key: string]: T }, key: string): T | undefined =>
@@ -191,6 +194,22 @@ export function auditSummary(row: OpsAuditRow): string {
     case "ops.set_grants":
       body = m.audit_sum_grants({ before: permissionsText(row.before), after: permissionsText(row.after) });
       break;
+    case "ops.faction_profile": {
+      const side = (value: unknown): string =>
+        [text(field(value, "shortName")), text(field(value, "name")), text(field(value, "color"))]
+          .filter((part) => part !== undefined)
+          .join(" ");
+      body = m.audit_sum_roles({ before: side(row.before), after: side(row.after) });
+      break;
+    }
+    case "ops.currency_profile": {
+      const side = (value: unknown): string =>
+        [text(field(value, "symbol")), text(field(value, "ticker")), text(field(value, "name"))]
+          .filter((part) => part !== undefined)
+          .join(" ");
+      body = m.audit_sum_roles({ before: side(row.before), after: side(row.after) });
+      break;
+    }
     case "ops.switch":
       body = m.audit_sum_switch({
         before: onOff(field(row.before, "view_audit")),

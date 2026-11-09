@@ -11,6 +11,7 @@ import type { Role } from "./roles.ts";
  * - unit_heal·unit_teleport·ledger_grant: 강한 통제
  * - manage_grants: 다른 계정에 운영 권한 체크박스 주기(개발자만)
  * - log_switch: 조회 감사 기록 켜기·끄기(관리자·개발자)
+ * - faction_edit: 세력 정체성(이름·약어·색)·화폐 표시(이름·기호·3글자 약어) 고치기(강한 통제 — 관리자·개발자)
  */
 export const OPS_PERMISSIONS = [
   "view_players",
@@ -27,6 +28,7 @@ export const OPS_PERMISSIONS = [
   "ledger_grant",
   "manage_grants",
   "log_switch",
+  "faction_edit",
 ] as const;
 
 export type OpsPermission = (typeof OPS_PERMISSIONS)[number];
@@ -49,6 +51,7 @@ export const OPS_PERMISSION_TIER: { readonly [P in OpsPermission]: OpsTier } = {
   ledger_grant: "strong",
   manage_grants: "manage",
   log_switch: "manage",
+  faction_edit: "strong",
 };
 
 export function isOpsPermission(value: string): value is OpsPermission {
@@ -243,11 +246,32 @@ export interface OpsSkillRow {
   source: string;
 }
 
+/** 정체성·화폐 표시 값이 어디서 왔나 */
+export type OpsProfileSource = "preset" | "default" | "admin";
+
 export interface OpsFactionRow {
   id: number;
   kind: "npc" | "player";
   code: string | null;
+  /** 세력 이름(정체성 표, 없으면 나라 이름·코드) */
   name: string;
+  /** 약어(2~5자, 세계 안에서 하나). 정체성이 아직 없으면 null */
+  shortName: string | null;
+  /** 시그니처 컬러 #rrggbb. 아직 없으면 null */
+  color: string | null;
+  profileSource: OpsProfileSource | null;
+  /** 쓰는 화폐(원장 자산)와 표시 */
+  currency: { asset: string; name: string; symbol: string; ticker: string } | null;
+  /** 그 화폐로 가진 잔고(최소 단위, 문자열) */
+  treasury: string;
+  /** 봉신(이 세력을 종주로 둔 세력) 수 */
+  vassals: number;
+  /** 불가침 쌍 수 */
+  truces: number;
+  /** 그 세력 도시 휴먼의 평균 만족도(밀리점, 휴먼이 없으면 null) */
+  satisfactionMilli: number | null;
+  /** 도시 주거 합 */
+  housing: number;
   parentId: number | null;
   regime: string;
   fixed: boolean;
@@ -260,6 +284,21 @@ export interface OpsFactionRow {
   ownerId: number | null;
   credit: string;
   wars: number;
+}
+
+export interface OpsCurrencyRow {
+  asset: string;
+  name: string;
+  symbol: string;
+  ticker: string;
+  source: OpsProfileSource;
+  /** 찍는 나라(자기 프리셋 화폐를 가진 고정 나라). 없으면 null(기준 통화 등) */
+  issuer: { id: number; name: string } | null;
+  /** 이 화폐를 쓰는 세력 수(살아 있는 것) */
+  factions: number;
+  /** 유저·세력 보유 합(최소 단위, 문자열), 보유자 수 */
+  held: string;
+  holders: number;
 }
 
 export interface OpsCityRow {

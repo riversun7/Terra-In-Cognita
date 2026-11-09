@@ -11,7 +11,9 @@ import { useMountFocus } from "../ui/useMountFocus.ts";
 import { AuditTab } from "./AuditTab.tsx";
 import { EconomyTab } from "./EconomyTab.tsx";
 import { FactionDetail } from "./FactionDetail.tsx";
-import { CitiesTab, FactionsTab } from "./NpcTabs.tsx";
+import { CurrenciesTab } from "./CurrenciesTab.tsx";
+import { FactionsTab } from "./FactionsTab.tsx";
+import { CitiesTab } from "./NpcTabs.tsx";
 import { LoadState, PERMISSION_LABELS, useOpsLoad } from "./opsUi.tsx";
 import { OverviewTab } from "./OverviewTab.tsx";
 import { PlayerDetail } from "./PlayerDetail.tsx";
@@ -21,7 +23,7 @@ import { UnitsTab } from "./UnitsTab.tsx";
 import "./ops.css";
 
 // 권한 부여는 개발자 영역(/dev/ops-grants)으로 옮겼다(사용자 결정 2026-11-08 "권한부여는 개발자가하는 기능이다")
-const TABS = ["overview", "players", "npcs", "cities", "units", "economy", "audit"] as const;
+const TABS = ["overview", "players", "npcs", "cities", "currencies", "units", "economy", "audit"] as const;
 type Tab = (typeof TABS)[number];
 
 /** 탭마다 필요한 권한(하나라도 있으면 보인다) */
@@ -30,6 +32,7 @@ const TAB_NEEDS: { readonly [T in Tab]: readonly OpsPermission[] } = {
   players: ["view_players"],
   npcs: ["view_npcs"],
   cities: ["view_npcs"],
+  currencies: ["view_npcs"],
   units: ["view_players", "view_npcs"],
   economy: ["view_economy"],
   audit: ["view_audit"],
@@ -40,6 +43,7 @@ const TAB_LABELS: { readonly [T in Tab]: () => string } = {
   players: m.ops_tab_players,
   npcs: m.ops_tab_npcs,
   cities: m.ops_tab_cities,
+  currencies: m.ops_tab_currencies,
   units: m.ops_tab_units,
   economy: m.ops_tab_economy,
   audit: m.ops_tab_audit,
@@ -109,6 +113,9 @@ export default function OpsConsole({ viewer, match }: OpsConsoleProps) {
       break;
     case "cities":
       body = <CitiesTab open={open} />;
+      break;
+    case "currencies":
+      body = <CurrenciesTab open={open} canEdit={can("faction_edit")} />;
       break;
     case "units":
       body = <UnitsTab open={open} canUsers={can("view_players")} canNpcs={can("view_npcs")} />;

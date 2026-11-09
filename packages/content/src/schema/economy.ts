@@ -8,6 +8,12 @@ import {
   FACILITY_REPAIR_LIMITS,
 } from "@terra/shared/facilityBuild";
 import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
+import {
+  isCurrencySymbol,
+  isCurrencyTicker,
+  isFactionColor,
+  isFactionShort,
+} from "@terra/shared/factionProfile";
 import { z } from "zod";
 import { EQUIP_SLOT_KINDS, PRIMARY_STAT_CODES } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
@@ -301,8 +307,43 @@ const nationPersonality = z.strictObject({
 export const nationPresetEntrySchema = z.strictObject({
   id: contentId,
   name: localizedText,
-  /** 세력 화폐(D-124·D-131). 원장 자산 코드는 "cur:<code>" */
-  currency: z.strictObject({ code: contentId, name: localizedText }),
+  /**
+   * 세력 약어·시그니처 컬러(docs/adr/2026-11-09-faction-profiles.md): 그 나라 세력이 처음 생길 때 정체성 값으로 쓴다(관리자가 나중에 고친다).
+   * 없으면 서버 기본값(약어 = "F" + 세력 ID, 색 = 기본 색 표). 약어는 세계 안에서 하나여야 해서, 겹치면 서버가 처음 정할 때 기본값으로 바꾼다
+   */
+  shortName: z
+    .string()
+    .refine(isFactionShort, {
+      error: "세력 약어는 빈칸 없이 글자·숫자 2~5자로 적으세요.",
+      params: { rule: "faction_short" },
+    })
+    .optional(),
+  color: z
+    .string()
+    .refine(isFactionColor, { error: "색은 #rrggbb(소문자)로 적으세요.", params: { rule: "faction_color" } })
+    .optional(),
+  /**
+   * 세력 화폐(D-124·D-131). 원장 자산 코드는 "cur:<code>". symbol = 화폐 기호(1~3자), ticker = 3글자 약어(영어 대문자, 세계 안에서 하나 — 겹치면 서버가 처음 정할 때 다른 3자로 바꾼다).
+   * 없으면 서버 기본값(기호 = 이름 첫 글자, 약어 = 코드에서 만든 겹치지 않는 3자)
+   */
+  currency: z.strictObject({
+    code: contentId,
+    name: localizedText,
+    symbol: z
+      .string()
+      .refine(isCurrencySymbol, {
+        error: "화폐 기호는 빈칸 없이 1~3자로 적으세요.",
+        params: { rule: "currency_symbol" },
+      })
+      .optional(),
+    ticker: z
+      .string()
+      .refine(isCurrencyTicker, {
+        error: "화폐 약어는 영어 대문자 3자로 적으세요.",
+        params: { rule: "currency_ticker" },
+      })
+      .optional(),
+  }),
   /** [임시] 거래세(만분율). NPC 세율은 규칙식(D-323, R5)이 바꾼다 */
   tradeTaxBp: z.int().min(0).max(10_000),
   /** 나라 성격(위). 없으면 모든 국가가 같은 기본 */

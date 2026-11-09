@@ -9,6 +9,7 @@ import {
   type OpsAccess,
   type OpsBalance,
   type OpsCityRow,
+  type OpsCurrencyRow,
   type OpsEconomy,
   type OpsFactionDetail,
   type OpsFactionRow,
@@ -27,6 +28,18 @@ import type { World } from "../world/world.ts";
 import { type OpsQueryable, opsAccessOf } from "./access.ts";
 import * as reads from "./reads.ts";
 import { NO_OPS_SWITCHES, type OpsSwitches } from "./switches.ts";
+import { type NationPreset, presetOfCode } from "../npc/nations.ts";
+import {
+  type CurrencyProfile,
+  type FactionProfile,
+  type ProfileDeps,
+  currencyOfFactions,
+  currencyProfiles,
+  ensureProfiles,
+  factionProfiles,
+  updateCurrencyProfile,
+  updateFactionProfile,
+} from "./factionProfiles.ts";
 import {
   type OpsGrantResult,
   type OpsUnitAction,
@@ -51,6 +64,8 @@ export interface OpsShared {
   wsConnections: () => number;
   /** 세력 코드 → 나라 이름(팩 국가 프리셋). 없으면 코드를 쓴다 */
   nationName?: ((code: string) => string | undefined) | undefined;
+  /** 팩 국가 프리셋(세력 정체성·화폐 표시의 처음 값). 없으면 모두 기본값 */
+  presets?: readonly NationPreset[] | undefined;
   /** 운영 스위치(조회 감사 기록 켜기·끄기). 없으면 늘 꺼짐·바꾸지 못함 */
   switches?: OpsSwitches | undefined;
   now: () => number;
@@ -73,8 +88,38 @@ export type OpsActionResult<C extends string = string> = { ok: true } | { ok: fa
 
 export function createOpsServices(shared: OpsShared, request: { ip: string | null }) {
   const { pool } = shared;
+  const profileDeps: ProfileDeps = {
+    pool,
+    presets: shared.presets ?? [],
+    baseAsset: ASSET_CREDIT,
+    now: shared.now,
+  };
+  /** 이 요청의 세력 정체성·화폐 표시(처음 부를 때 모자란 줄을 정하고 읽는다) */
+  let identityPromise:
+    | Promise<{
+        profiles: Map<number, FactionProfile>;
+        currencies: Map<string, CurrencyProfile>;
+        currencyOf: Map<number, string>;
+      }>
+    | undefined;
+  let profileNames = new Map<number, string>();
+  const identity = () => {
+    identityPromise ??= (async () => {
+      await ensureProfiles(profileDeps);
+      const [profiles, currencies, currencyOf] = await Promise.all([
+        factionProfiles(pool),
+        currencyProfiles(pool),
+        currencyOfFactions(profileDeps),
+      ]);
+      profileNames = new Map([...profiles.values()].map((profile) => [profile.factionId, profile.name]));
+      return { profiles, currencies, currencyOf };
+    })();
+    return identityPromise;
+  };
   const factionLabel = (id: number | null, code: string | null): string => {
     if (id === null) return "";
+    const profile = profileNames.get(id);
+    if (profile) return profile;
     const name = code ? shared.nationName?.(code) : undefined;
     return name ?? code ?? `#${id}`;
   };
@@ -150,13 +195,33 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     viewer: OpsViewer,
     entry: Omit<Parameters<typeof reads.writeOpsAudit>[1], "actorId" | "ip">,
   ) => reads.writeOpsAudit(pool, { ...entry, actorId: viewer.id, ip: request.ip });
-  const toFactionRow = (row: reads.FactionSqlRow, counts?: Map<number, number>): OpsFactionRow => {
+  const toFactionRow = (
+    row: reads.FactionSqlRow,
+    ids: Awaited<ReturnType<typeof identity>>,
+    counts?: Map<number, number>,
+  ): OpsFactionRow => {
     const ownerId = row.owner_id === null ? null : Number(row.owner_id);
+    const id = Number(row.id);
+    const profile = ids.profiles.get(id);
+    const asset = ids.currencyOf.get(id);
+    const currency = asset === undefined ? undefined : ids.currencies.get(asset);
+    const ledger = shared.world()?.persistence?.ledger;
     return {
-      id: Number(row.id),
+      id,
       kind: row.kind,
       code: row.code,
-      name: factionLabel(Number(row.id), row.code),
+      name: factionLabel(id, row.code),
+      shortName: profile?.shortName ?? null,
+      color: profile?.color ?? null,
+      profileSource: profile?.source ?? null,
+      currency: currency
+        ? { asset: currency.asset, name: currency.name, symbol: currency.symbol, ticker: currency.ticker }
+        : null,
+      treasury: ownerId !== null && ledger && asset ? ledger.balanceOf(ownerId, asset).toString() : "0",
+      vassals: Number(row.vassals),
+      truces: Number(row.truces),
+      satisfactionMilli: row.satisfaction === null ? null : Number(row.satisfaction),
+      housing: Number(row.housing),
       parentId: row.parent_id === null ? null : Number(row.parent_id),
       regime: row.regime,
       fixed: row.fixed,
@@ -171,11 +236,16 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
       wars: Number(row.wars),
     };
   };
-  const cityRows = async (input: { factionId?: number | undefined; search: string }): Promise<OpsCityRow[]> =>
-    (await reads.listCities(pool, input)).map(({ factionCode, ...city }) => ({
+  const cityRows = async (input: {
+    factionId?: number | undefined;
+    search: string;
+  }): Promise<OpsCityRow[]> => {
+    await identity();
+    return (await reads.listCities(pool, input)).map(({ factionCode, ...city }) => ({
       ...city,
       factionName: factionLabel(city.factionId, factionCode),
     }));
+  };
 
   return {
     access: (viewer: OpsViewer): Promise<OpsAccess> => opsAccessOf(pool, viewer.id, viewer.roles),
@@ -210,12 +280,14 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     async players(
       input: Parameters<typeof reads.listPlayers>[1],
     ): Promise<{ rows: OpsPlayerRow[]; total: number }> {
+      await identity();
       const { rows, total } = await reads.listPlayers(pool, input);
       const counts = unitCounts(new Set(rows.flatMap((row) => (row.ownerId === null ? [] : [row.ownerId]))));
       return { rows: rows.map((row) => toPlayerRow(row, counts)), total };
     },
 
     async player(userId: string): Promise<OpsPlayerDetail | undefined> {
+      await identity();
       const base = await reads.findPlayer(pool, userId);
       if (!base) return undefined;
       const world = shared.world();
@@ -260,17 +332,19 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     },
 
     async factions(input: Parameters<typeof reads.listFactions>[1]): Promise<OpsFactionRow[]> {
+      const ids = await identity();
       const rows = await reads.listFactions(pool, input);
       const counts = unitCounts(
         new Set(rows.flatMap((row) => (row.owner_id === null ? [] : [Number(row.owner_id)]))),
       );
-      return rows.map((row) => toFactionRow(row, counts));
+      return rows.map((row) => toFactionRow(row, ids, counts));
     },
 
     async faction(factionId: number): Promise<OpsFactionDetail | undefined> {
+      const ids = await identity();
       const row = await reads.findFaction(pool, factionId);
       if (!row) return undefined;
-      const faction = toFactionRow(row);
+      const faction = toFactionRow(row, ids);
       const world = shared.world();
       const units =
         faction.ownerId === null || !world
@@ -313,6 +387,7 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
       limit: number;
       offset: number;
     }): Promise<{ status: "ok" | "not_ready"; rows: OpsUnitRow[]; total: number }> {
+      await identity();
       const world = shared.world();
       if (!world) return { status: "not_ready", rows: [], total: 0 };
       const { units, total } = listUnits(
@@ -330,6 +405,7 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     },
 
     async unit(unitId: number): Promise<OpsUnitDetail | undefined> {
+      await identity();
       const world = shared.world();
       const core = world ? unitDetailCore(world, unitId, shared.now()) : undefined;
       if (!world || !core) return undefined;
@@ -363,6 +439,69 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
         prefixes: (filter.categories ?? []).flatMap((category) => AUDIT_CATEGORIES[category]),
       }),
 
+    /** 화폐 목록(표시·찍는 나라·쓰는 세력 수·보유 합) */
+    async currencies(): Promise<OpsCurrencyRow[]> {
+      const ids = await identity();
+      const factionRows = await reads.listFactions(pool, { kind: "all", includeDissolved: false });
+      const world = shared.world();
+      const totals = new Map((world ? ledgerTotals(world) : []).map((row) => [row.asset, row]));
+      const presets = shared.presets ?? [];
+      return [...ids.currencies.values()].map((currency) => {
+        const users = factionRows.filter((row) => ids.currencyOf.get(Number(row.id)) === currency.asset);
+        const issuerRow = users.find((row) => {
+          if (!row.fixed || row.code === null) return false;
+          const own = presetOfCode(row.code, presets);
+          return own?.currency !== undefined && `cur:${own.currency.code}` === currency.asset;
+        });
+        const total = totals.get(currency.asset);
+        return {
+          ...currency,
+          issuer: issuerRow
+            ? { id: Number(issuerRow.id), name: factionLabel(Number(issuerRow.id), issuerRow.code) }
+            : null,
+          factions: users.length,
+          held: (total?.held ?? 0n).toString(),
+          holders: total?.holders ?? 0,
+        };
+      });
+    },
+
+    /** 세력 정체성 고치기(이름·약어·색). 감사 기록 ops.faction_profile */
+    async updateFaction(
+      viewer: OpsViewer,
+      input: { factionId: number; name: string; shortName: string; color: string; reason: string },
+    ): Promise<OpsActionResult<"not_found" | "invalid" | "short_taken">> {
+      await identity();
+      const result = await updateFactionProfile(pool, { ...input, actorId: viewer.id, nowMs: shared.now() });
+      if (!result.ok) return result;
+      await audit(viewer, {
+        action: "ops.faction_profile",
+        targetId: null,
+        before: { name: result.before.name, shortName: result.before.shortName, color: result.before.color },
+        after: { name: result.after.name, shortName: result.after.shortName, color: result.after.color },
+        meta: { factionId: input.factionId, reason: input.reason },
+      });
+      return { ok: true };
+    },
+
+    /** 화폐 표시 고치기(이름·기호·3글자 약어). 감사 기록 ops.currency_profile */
+    async updateCurrency(
+      viewer: OpsViewer,
+      input: { asset: string; name: string; symbol: string; ticker: string; reason: string },
+    ): Promise<OpsActionResult<"not_found" | "invalid" | "ticker_taken">> {
+      await identity();
+      const result = await updateCurrencyProfile(pool, { ...input, actorId: viewer.id, nowMs: shared.now() });
+      if (!result.ok) return result;
+      await audit(viewer, {
+        action: "ops.currency_profile",
+        targetId: null,
+        before: { name: result.before.name, symbol: result.before.symbol, ticker: result.before.ticker },
+        after: { name: result.after.name, symbol: result.after.symbol, ticker: result.after.ticker },
+        meta: { asset: input.asset, reason: input.reason },
+      });
+      return { ok: true };
+    },
+
     /** 운영 스위치 지금 값 */
     switches: (): { id: OpsSwitch; enabled: boolean }[] => (shared.switches ?? NO_OPS_SWITCHES).list(),
 
@@ -385,6 +524,7 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     },
 
     async economy(input: { asset: string }): Promise<OpsEconomy> {
+      await identity();
       const world = shared.world();
       const asset = input.asset || ASSET_CREDIT;
       const totals = world ? ledgerTotals(world) : [];

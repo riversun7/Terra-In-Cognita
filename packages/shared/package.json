@@ -21,6 +21,7 @@
     "./facilityBuild": "./src/facilityBuild.ts",
     "./facilityRuntime": "./src/facilityRuntime.ts",
     "./faction": "./src/faction.ts",
+    "./factionProfile": "./src/factionProfile.ts",
     "./formula": "./src/formula.ts",
     "./goodsPlaces": "./src/goodsPlaces.ts",
     "./government": "./src/government.ts",

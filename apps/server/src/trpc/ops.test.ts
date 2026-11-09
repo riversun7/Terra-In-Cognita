@@ -27,6 +27,8 @@ function fakePool(grants: Record<string, string[]>) {
       return found ? [{ permissions: found }] : [];
     }
     if (text.includes("from audit_log a")) return [];
+    // 세력 정체성 정하기·읽기(세력이 없는 가짜 DB)
+    if (/from (factions|faction_profiles|currency_profiles)\b/.test(text)) return [];
     if (text.startsWith("select role, name from users"))
       return values[0] === TARGET ? [{ role: "gm", name: "target" }] : [];
     if (text.startsWith("insert") || text.startsWith("delete") || text.startsWith("update")) {

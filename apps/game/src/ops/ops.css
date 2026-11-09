@@ -283,3 +283,65 @@
   overflow: auto;
   white-space: pre-wrap;
 }
+/* ── 세력 관리 ── */
+.ops-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+.ops-summary b {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.ops-fmark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+.ops-swatch {
+  display: inline-block;
+  inline-size: var(--space-6);
+  block-size: var(--space-6);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.ops-sort {
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+}
+.ops-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-inline-start-width: var(--space-2);
+  border-radius: var(--radius-panel);
+}
+.ops-identity-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+}
+.ops-inline-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* 세력·화폐 표: 줄바꿈 없이 표 상자 안에서 가로로 민다(약어·이름이 두 줄로 갈라지지 않게) */
+.ops-nowrap th,
+.ops-nowrap td,
+.ops-nowrap .dev-code {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}

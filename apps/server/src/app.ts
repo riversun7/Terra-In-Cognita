@@ -778,6 +778,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             // 운영 화면 이름표는 한국어 나라 이름(팩 국가 프리셋)을 쓴다[임시]
             nationName: (code) => worldMapService?.()?.nationNames?.(code).name?.ko,
             switches: opsSwitches,
+            presets: options.world?.npc?.presets,
             now,
           }
         : undefined,

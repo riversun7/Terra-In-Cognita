@@ -74,6 +74,34 @@ export const opsRouter = router({
     cities: opsProcedure("view_npcs")
       .input(z.strictObject({ factionId: id.optional(), search: z.string().trim().max(40).default("") }))
       .query(({ ctx, input }) => ctx.ops.cities(input)),
+    /** 세력 정체성 고치기(이름·약어·색) — 관리자·개발자(faction_edit). 규칙은 @terra/shared/factionProfile, 서버가 다시 본다 */
+    updateProfile: opsProcedure("faction_edit")
+      .input(
+        z.strictObject({
+          factionId: id,
+          name: z.string().max(64),
+          shortName: z.string().max(16),
+          color: z.string().max(16),
+          reason,
+        }),
+      )
+      .mutation(({ ctx, input }) => ctx.ops.updateFaction(ctx.opsViewer, input)),
+  }),
+
+  /** 화폐 표시(이름·기호·3글자 약어) */
+  currencies: router({
+    list: opsProcedure("view_npcs").query(({ ctx }) => ctx.ops.currencies()),
+    update: opsProcedure("faction_edit")
+      .input(
+        z.strictObject({
+          asset: z.string().min(2).max(96),
+          name: z.string().max(64),
+          symbol: z.string().max(16),
+          ticker: z.string().max(8),
+          reason,
+        }),
+      )
+      .mutation(({ ctx, input }) => ctx.ops.updateCurrency(ctx.opsViewer, input)),
   }),
 
   units: router({

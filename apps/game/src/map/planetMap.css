@@ -178,6 +178,32 @@
 .planet-command-danger {
   color: var(--color-danger);
 }
+/* 1차맵 명령 판의 보낼 유닛 고르기(바뀜 2026-11-09): 내 사이보그 2차맵의 내 유닛, 고른 것을 잎색으로(aria-pressed). 많으면 판 안에서 넘긴다 */
+.planet-command-party {
+  display: grid;
+  gap: var(--space-1);
+}
+.planet-command-units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-height: calc(var(--tap-size) * 3 + var(--space-1) * 2);
+  overflow-y: auto;
+}
+.planet-command-units button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.planet-command-units button[aria-pressed="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+/* 누른 지역의 [이곳으로 이동](바뀜 2026-11-09) — 누른 칸 안내 아래 */
+.planet-area {
+  margin-top: var(--space-2);
+}
 /* 가까이 본 곳의 2차맵 들어가기·내 위치 — 조작 판 첫 줄 */
 .planet-jump {
   display: flex;

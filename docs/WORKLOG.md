@@ -6,6 +6,7 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-11-09 17:00 | 2차맵 남의 유닛 누르기 → 정보 판, [옆 2차맵으로]·[시험 일꾼 받기]·탐사 없음 안내 지움 | Claude Code | [09-1700-map-tap-fix](worklog/2026/11/09-1700-map-tap-fix.md) |
+| 2026-11-09 16:50 | 1차맵에서 고른 지역으로 이동 — [이곳으로 이동]·명령 판 대상 넓히기·보낼 유닛 고르기 | Claude Code | [09-1650-planet-travel](worklog/2026/11/09-1650-planet-travel.md) |
 | 2026-11-09 15:00 | 세력 관리: 세력 정체성·화폐 표시, 운영자 콘솔 세력 관리·화폐 탭 | Claude Code | [09-1500-faction-profiles](worklog/2026/11/09-1500-faction-profiles.md) |
 | 2026-11-09 12:25 | 1차맵 처음 5단계, 성능 판·고도 과장 막대는 운영진만 | Claude Code | [09-1225-map-view-fix](worklog/2026/11/09-1225-map-view-fix.md) |
 | 2026-11-09 11:50 | 2차맵 판 고침: 1차맵 단추 겹침·내 유닛 목록·보낼 유닛 이름·건물 판 하나 | Claude Code | [09-1150-map-panels-fix](worklog/2026/11/09-1150-map-panels-fix.md) |

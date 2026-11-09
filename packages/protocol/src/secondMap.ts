@@ -53,8 +53,6 @@ export type UnitWireKind = (typeof UNIT_WIRE_KINDS)[number];
 export const UNIT_KIND_PROTOCOL_VERSION = 18;
 /** 탐사 칸 비트 모음 바이트 수(시야 칸 32×32, packages/sim VISION_BYTES와 같다) */
 export const VISION_BYTES = 128;
-/** 개발 시험 명령 한 번에 받는 시험 일꾼 상한 */
-export const MAX_DEV_SPAWN_UNITS = 20;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 /** 기기가 정하는 요청 번호. 명령은 같은 사용자 안에서 10분 동안 겹치지 않게 쓴다(중복 방지 키) */
@@ -140,13 +138,8 @@ export const removeBuildingMessage = z.object({
   buildingId,
 });
 
-/** 개발 시험 명령(dev·admin): 내 시험 일꾼 count개를 이 2차맵에 받는다(채집 직무, 오프라인 정산 시험용) */
-export const devSpawnUnitsMessage = z.object({
-  t: z.literal("dev_spawn_units"),
-  id: requestId,
-  mapKey,
-  count: z.number().int().min(1).max(MAX_DEV_SPAWN_UNITS),
-});
+// 20에서 뺀 것: 개발 시험 명령 dev_spawn_units(시험 일꾼 받기 — 사용자 지적 2026-11-09 "시험일꾼 다 없애라고"). 19판 기기가 보내면
+// invalid_message(그 단추는 19판 기기에서도 이미 지웠다)
 
 // ---------- 서버 → 기기 ----------
 
@@ -312,7 +305,6 @@ export const secondMapClientMessages = [
   stopUnitMessage,
   placeBuildingMessage,
   removeBuildingMessage,
-  devSpawnUnitsMessage,
 ] as const;
 
 export const secondMapServerMessages = [

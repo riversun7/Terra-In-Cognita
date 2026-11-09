@@ -1,7 +1,7 @@
 // WebSocket 연결 하나의 폐허 복원 메시지 처리(src/session.ts가 넘긴다) — docs/adr/2026-11-07-ruins-restoration.md. 신전 게이트웨이와 같은 틀이다:
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(잔고·모인 값을 차례로 본다).
 // - 사용자별 속도 제한(순간 10번, 분당 30번 — 건물 명령과 같음). 밀린 요청이 MAX_PENDING을 넘으면 busy. 세계가 아직 없으면 busy.
-// - 개발 시험(dev_make_ruin)은 dev·admin(secondMap dev-spawn — 다른 개발 시험과 같은 권한).
+// - 개발 시험(dev_make_ruin)은 dev·admin(secondMap dev-test — 다른 개발 시험과 같은 권한).
 // - 판정·저장은 서비스(service.ts, 규칙은 거울 세계 @terra/sim SocietyRuins)가 한다.
 // - 폐허 2(프로토콜 15)의 새 결과 코드 not_built·expired는 15판 연결에만 가고 더 낮은 판은 not_claimed를 받는다(그 판 기기는 모르는 코드다).
 import {
@@ -59,7 +59,7 @@ async function run(service: RuinService, viewer: Viewer, message: RuinClientMess
     case "restoration_fund":
       return service.fund(viewer.id, message.ruin, message.amount);
     case "dev_make_ruin":
-      if (!rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] })) return fail("forbidden");
+      if (!rolesAllow(viewer.roles, { secondMap: ["dev-test"] })) return fail("forbidden");
       return service.devMakeRuin(viewer.id);
     default: {
       const unknown: never = message;

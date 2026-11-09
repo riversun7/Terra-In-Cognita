@@ -202,7 +202,7 @@ export function OperatorBadge() {
 /**
  * 개발·운영 단추(dev·admin): [운영자 모드](모든 유닛 명령 + 안개 없는 전체 보기)·[자유 시점](운영자 모드에서만 — 기준 유닛 따라가기를
  * 끄고 끌어서 옮긴다, docs/adr/2026-11-08-seamless-second-map.md WP-1 Q2). 운영자 단추는 빨간 운영자 모양(map-operator-button, 사용자 답 Q2).
- * [시험 일꾼 받기]는 지웠다(사용자 지적 2026-11-09 "시험일꾼받기 기능 없애라" — 서버 dev_spawn_units 처리는 남는다)
+ * [시험 일꾼 받기]는 지웠다(사용자 지적 2026-11-09 "시험일꾼받기 기능 없애라"). 서버 명령 dev_spawn_units도 프로토콜 20에서 뺐다
  */
 export function OperatorActions({
   operator,

@@ -59,17 +59,10 @@ export interface LocalizedName {
 
 /**
  * 유닛 종류. human·creature·android·cyborg는 기획 유닛 종류(D-416, 콘텐츠 팩 unit_kinds), guardian은 신격화한 휴먼(수호신, 기획 답 456 가,
- * 팩 unit_kinds guardian), test_worker·test_unit은 지금 세계에 있는 시험 유닛(서버 world/unitKinds.ts의 시험 일꾼·관리자 시험 유닛)이다.
+ * 팩 unit_kinds guardian), test_unit은 지금 세계에 있는 시험 유닛(서버 world/unitKinds.ts의 관리자 시험 유닛)이다. 시험 일꾼(test_worker)은
+ * 없앴다(사용자 지적 2026-11-09 "시험일꾼 다 없애라고").
  */
-export const UNIT_TYPES = [
-  "cyborg",
-  "human",
-  "creature",
-  "android",
-  "guardian",
-  "test_worker",
-  "test_unit",
-] as const;
+export const UNIT_TYPES = ["cyborg", "human", "creature", "android", "guardian", "test_unit"] as const;
 export type UnitType = (typeof UNIT_TYPES)[number];
 
 /** 장비 칸 종류(D-422, 콘텐츠 팩 unit_kinds slots) */

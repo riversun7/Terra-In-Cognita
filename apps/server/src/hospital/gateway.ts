@@ -1,7 +1,7 @@
 // WebSocket 연결 하나의 병원 메시지 처리(src/session.ts가 넘긴다) — docs/adr/2026-11-08-injury.md. 신전 게이트웨이와 같은 틀이다:
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(잔고를 차례로 본다).
 // - 사용자별 속도 제한(순간 10번, 분당 30번 — 건물·신전 명령과 같음). 밀린 요청이 MAX_PENDING을 넘으면 busy. 세계가 아직 없으면 busy.
-// - 개발 시험(dev_injure_unit)은 dev·admin(secondMap dev-spawn — 신전 개발 시험과 같은 권한).
+// - 개발 시험(dev_injure_unit)은 dev·admin(secondMap dev-test — 신전 개발 시험과 같은 권한).
 // - 판정·저장은 서비스(service.ts)가 한다.
 import { type ClientMessageOf, type HospitalResultCode, encodeMessage } from "@terra/protocol";
 import { rolesAllow } from "../auth/permissions.ts";
@@ -53,7 +53,7 @@ async function run(service: HospitalService, viewer: Viewer, message: HospitalCl
         cost: message.cost,
       });
     case "dev_injure_unit":
-      if (!rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] })) return fail("forbidden");
+      if (!rolesAllow(viewer.roles, { secondMap: ["dev-test"] })) return fail("forbidden");
       return service.devInjure(viewer.id, { unit: message.unit, stage: message.stage });
     default: {
       const unknown: never = message;

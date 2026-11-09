@@ -42,7 +42,7 @@ const NAMES: RosterNames = {
 const unit = (extra: Partial<RosterUnit>): RosterUnit => ({
   id: "w1",
   name: null,
-  type: "test_worker",
+  type: "human",
   level: null,
   rebirths: 0,
   place: null,
@@ -74,8 +74,8 @@ const unit = (extra: Partial<RosterUnit>): RosterUnit => ({
 
 describe("이름", () => {
   it("지은 이름이 없으면 종류 + 세계 유닛 번호", () => {
-    expect(unitLabel(unit({ id: "w42" }), "ko")).toBe("시험 일꾼 #42");
-    expect(unitLabel(unit({ id: "w42" }), "en")).toBe("Test worker #42");
+    expect(unitLabel(unit({ id: "w42" }), "ko")).toBe("휴먼 #42");
+    expect(unitLabel(unit({ id: "w42" }), "en")).toBe("Human #42");
     expect(unitLabel(unit({ id: "p1", name: "Mina", type: "human" }), "ko")).toBe("Mina");
   });
 

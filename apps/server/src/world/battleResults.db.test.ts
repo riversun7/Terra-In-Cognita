@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { cargoLocation } from "./battleResults.ts";
 import { ASSET_ORE } from "./settlement.ts";
-import { silentLog, testEncounter } from "./testSupport.ts";
+import { addTestUnits, silentLog, testEncounter } from "./testSupport.ts";
 import { type World, startWorld } from "./world.ts";
 
 const T0 = 1_800_000_000_000;
@@ -79,8 +79,8 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 결과 → 세계", () => {
     const mapKey = [...first.maps.keys()][0] ?? 0;
     const userA = await fakeUser("victor");
     const userB = await fakeUser("loser");
-    const [a1 = 0, a2 = 0] = p.settlement.giveWorkers(userA, mapKey, 2, clock);
-    const [b1 = 0, b2 = 0] = p.settlement.giveWorkers(userB, mapKey, 2, clock);
+    const [a1 = 0, a2 = 0] = addTestUnits(first, userA, mapKey, 2, clock);
+    const [b1 = 0, b2 = 0] = addTestUnits(first, userB, mapKey, 2, clock);
     const ownerA = p.settlement.ownerOfUser(userA, clock).id;
     const ownerB = p.settlement.ownerOfUser(userB, clock).id;
     // 진 쪽 유닛마다 화물(광석) 10

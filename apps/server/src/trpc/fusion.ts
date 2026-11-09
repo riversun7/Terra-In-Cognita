@@ -10,7 +10,7 @@ export const fusionRouter = router({
   overview: signedInProcedure.query(async ({ ctx }) => {
     const services = ctx.fusion?.();
     if (!services) throw reasonedError("PRECONDITION_FAILED", "WORLD_NOT_READY", "world_not_ready");
-    const devGrant = rolesAllow(ctx.viewer.roles, { secondMap: ["dev-spawn"] });
+    const devGrant = rolesAllow(ctx.viewer.roles, { secondMap: ["dev-test"] });
     return services.overview({ id: ctx.viewer.id, devGrant }, ctx.now());
   }),
 });

@@ -10,7 +10,7 @@ import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
 import { testRosterCatalog } from "../roster/catalog.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { targetsOf } from "../world/battleTargets.ts";
-import { silentLog } from "../world/testSupport.ts";
+import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type World, startWorld } from "../world/world.ts";
 import { facilityScreenSourceOf } from "./appSource.ts";
 import { goodsAsset, grantGoods } from "./materials.ts";
@@ -102,7 +102,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
     const ownerId = p.settlement.ownerOfUser(owner, clock).id;
     const raider = await fakeUser("raider");
     const raiderId = p.settlement.ownerOfUser(raider, clock).id;
-    const raiders = p.settlement.giveWorkers(raider, TEST_MAP_KEY, 3, clock);
+    const raiders = addTestUnits(world, raider, TEST_MAP_KEY, 3, clock);
     expect(raiders).toHaveLength(3);
     // 주인: 야적장(옛 hp 30)을 짓고 소나무를 넣는다
     expect(await p.facilities.service.devFacilityGrant(owner, "pine_log", 40)).toEqual({ ok: true });
@@ -160,7 +160,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
       ok: false,
       code: "unknown_unit",
     });
-    const helper = p.settlement.giveWorkers(owner, TEST_MAP_KEY, 1, clock);
+    const helper = addTestUnits(world, owner, TEST_MAP_KEY, 1, clock);
     expect(await attack.attack(raider, { buildingId: yard }, [...raiders, ...helper])).toEqual({
       ok: false,
       code: "forbidden",
@@ -283,7 +283,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
 
     // 위치 없는 장부·유닛 화물의 소나무는 쓰지 않는다
     grantGoods(p.ledger, memberId, "pine_log", 50, clock, null);
-    const [carrier] = p.settlement.giveWorkers(member, TEST_MAP_KEY, 1, clock);
+    const [carrier] = addTestUnits(world, member, TEST_MAP_KEY, 1, clock);
     if (carrier === undefined) throw new Error("no unit");
     grantGoods(p.ledger, memberId, "pine_log", 50, clock, cargoLocation(carrier));
     expect(await place()).toEqual({ ok: false, code: "insufficient_materials" });
@@ -309,7 +309,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
     });
     // 세력이 없는 습격자: 비콘 칸의 2차맵에 있는 내 유닛으로
     const raider = await fakeUser("beacon_raider");
-    const raiders = p.settlement.giveWorkers(raider, TEST_MAP_KEY, 3, clock);
+    const raiders = addTestUnits(world, raider, TEST_MAP_KEY, 3, clock);
     const started = await p.facilities.attack.attack(raider, { beaconId }, raiders);
     expect(started).toEqual({ ok: true, doneAtMs: expect.any(Number) });
     world = await finishBattle(world, started.ok ? (started.doneAtMs ?? 0) : 0);

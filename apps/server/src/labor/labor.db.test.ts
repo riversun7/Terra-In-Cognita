@@ -6,7 +6,7 @@ import { UPKEEP_PERIOD_MS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { ASSET_CREDIT, ASSET_ORE } from "../world/settlement.ts";
-import { silentLog } from "../world/testSupport.ts";
+import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { laborEscrowCode } from "@terra/sim";
 
@@ -73,7 +73,7 @@ async function setup(
   const ownerId = p.settlement.ownerOfUser(userId, clock).id;
   const map = [...world.maps.values()][0];
   if (!map) throw new Error("no map");
-  const units = p.settlement.giveWorkers(userId, map.mapKey, options.workers, clock);
+  const units = addTestUnits(world, userId, map.mapKey, options.workers, clock);
   if (options.credit > 0n) p.settlement.grantCredit(ownerId, options.credit, clock);
   let buildingId = 0;
   if (options.building !== undefined) {

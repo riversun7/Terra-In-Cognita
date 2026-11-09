@@ -353,7 +353,7 @@ describe("시야 전송(S3)", () => {
     map.stop();
   });
 
-  it("자기 유닛은 움직일 수 있고 남의 유닛·내 수호신(그 도시에 머묾)은 forbidden, 시험 명령은 dev-spawn 권한", async () => {
+  it("자기 유닛은 움직일 수 있고 남의 유닛·내 수호신(그 도시에 머묾)은 forbidden", async () => {
     const { gateway, map } = setup();
     map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
     map.addUnit({ id: 2, size: 1, speed: 437, cellX: 30, cellY: 30 });
@@ -361,12 +361,10 @@ describe("시야 전송(S3)", () => {
     const socket = link(PLAYER);
     const session = gateway.open(socket);
     session.handle({ t: "move_unit", id: 1, mapKey: MAP_KEY, unitId: 2, x: 20 * 1024, y: 20 * 1024 });
-    session.handle({ t: "dev_spawn_units", id: 2, mapKey: MAP_KEY, count: 2 });
     session.handle({ t: "move_unit", id: 3, mapKey: MAP_KEY, unitId: 3, x: 20 * 1024, y: 20 * 1024 });
     await vi.advanceTimersByTimeAsync(0);
     expect(results(socket.received)).toEqual([
       { t: "result", id: 1, ok: false, code: "forbidden" },
-      { t: "result", id: 2, ok: false, code: "forbidden" },
       { t: "result", id: 3, ok: false, code: "forbidden" },
     ]);
     const own = map.moveUnit(1, { x: 20 * 1024 + 512, y: 10 * 1024 + 512 });

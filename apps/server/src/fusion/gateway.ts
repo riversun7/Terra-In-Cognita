@@ -4,7 +4,7 @@
 // - 사용자별 속도 제한(순간 20번, 분당 60번 — 유전자 명령이 더해져 보유 물건 순간 20과 맞춤). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 //   세계가 아직 없으면 busy.
 // - 개발 시험(dev_grant_goods·dev_grant_gene·dev_expire_unit)과 연구소 칸이 없는 인큐베이터(gene_incubate 개발 시험)는 dev·admin
-//   (secondMap dev-spawn — 보유 물건 dev_grant_item과 같은 권한). 연구소 칸이 있는 인큐베이터(판 13, 기획 답 459 가)는 누구나.
+//   (secondMap dev-test — 보유 물건 dev_grant_item과 같은 권한). 연구소 칸이 있는 인큐베이터(판 13, 기획 답 459 가)는 누구나.
 // - 판정·저장은 서비스(service.ts)가 한다.
 import { type ClientMessageOf, type FusionResultCode, encodeMessage } from "@terra/protocol";
 import { rolesAllow } from "../auth/permissions.ts";
@@ -60,8 +60,7 @@ function resultText(id: number, result: FusionCommandResult): string {
 const fail = (code: FusionResultCode): FusionCommandResult => ({ ok: false, code });
 
 /** 개발 시험 명령 권한(dev·admin) */
-export const canDevGrant = (viewer: Viewer): boolean =>
-  rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] });
+export const canDevGrant = (viewer: Viewer): boolean => rolesAllow(viewer.roles, { secondMap: ["dev-test"] });
 
 async function run(service: FusionService, viewer: Viewer, message: FusionClientMessage) {
   switch (message.t) {

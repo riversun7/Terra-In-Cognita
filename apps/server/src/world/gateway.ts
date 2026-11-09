@@ -2,7 +2,7 @@
 // - 한 연결의 요청은 받은 순서대로 하나씩 처리한다(명령의 순서 보장). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 보기(구독)는 로그인한 사용자만. 플레이어는 시야로 거른 전송(map.vision), 전체 보기(observe, dev·admin)는 거르지 않은
 //   전송(map.stream)을 받는다(S3 ADR 3절). 이동·멈추기 명령은 자기 유닛(수호신 빼고)이거나 운영자(권한 표 move-unit = dev·admin,
-//   unitControl.ts — docs/adr/2026-11-07-unit-control.md), 건물 명령은 admin, 개발 시험 명령(dev_spawn_units)은 dev-spawn(dev·admin).
+//   unitControl.ts — docs/adr/2026-11-07-unit-control.md), 건물 명령은 admin.
 //   명령마다 서버가 확인한다. 남의 유닛은 not_owner, 내 수호신은 unit_stays(프로토콜 17 연결만, 더 낮으면 forbidden).
 // - 사용자별 속도 제한, 명령 중복 방지(같은 사용자·같은 요청 번호면 10분 동안 같은 결과를 다시 준다 —
 //   끊긴 뒤 다시 보낸 명령이 두 번 실행되지 않게).
@@ -27,13 +27,7 @@ import { canObserve, canViewSecondMap } from "./visibility.ts";
 import type { WorldStats } from "./worldStats.ts";
 
 export type SecondMapClientMessage = ClientMessageOf<
-  | "subscribe"
-  | "unsubscribe"
-  | "move_unit"
-  | "stop_unit"
-  | "place_building"
-  | "remove_building"
-  | "dev_spawn_units"
+  "subscribe" | "unsubscribe" | "move_unit" | "stop_unit" | "place_building" | "remove_building"
 >;
 type CommandMessage = ClientMessageOf<"move_unit" | "stop_unit" | "place_building" | "remove_building">;
 
@@ -68,8 +62,6 @@ export interface WorldDirectory {
   ownerOfUser?(userId: string): number | undefined;
   /** 월드 저장 층(저장하는 월드만) — 같은 나라 시야 공유의 소유 주체 → 나라(nationVision.ts) */
   readonly persistence?: NationSource["persistence"];
-  /** 개발 시험 명령: 내 시험 일꾼 count개. 만든 수(저장하는 월드만) */
-  devSpawn?(userId: string, mapKey: number, count: number): number;
 }
 
 /** 연결 하나가 게이트웨이에 주는 것 */
@@ -279,14 +271,6 @@ export function createWorldGateway(options: {
             });
           }
           return;
-        }
-
-        if (message.t === "dev_spawn_units") {
-          if (!rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] }))
-            return reply(message.id, fail("forbidden"));
-          if (!commandLimiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
-          const made = world.devSpawn?.(viewer.id, mapKey, message.count) ?? 0;
-          return reply(message.id, made > 0 ? { ok: true } : fail("busy"));
         }
 
         // 유닛 명령: 내 유닛(수호신은 그 도시에 머문다 — 기획 답 456 가)이거나 운영자(dev·admin). 건물 명령은 권한 표(admin)

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { carriedBy } from "../holdings/state.ts";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
-import { silentLog, testEncounter } from "../world/testSupport.ts";
+import { addTestUnits, silentLog, testEncounter } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { createVitalsReads } from "./reads.ts";
 
@@ -109,8 +109,8 @@ describe.skipIf(!TEST_DATABASE_URL)("생명 수치 저장(D-512)", () => {
     const mapKey = [...first.maps.keys()][0] ?? 0;
     const userA = await fakeUser("keeper");
     const userB = await fakeUser("fallen");
-    const [a1 = 0, a2 = 0] = p.settlement.giveWorkers(userA, mapKey, 2, clock);
-    const [b1 = 0, b2 = 0] = p.settlement.giveWorkers(userB, mapKey, 2, clock);
+    const [a1 = 0, a2 = 0] = addTestUnits(first, userA, mapKey, 2, clock);
+    const [b1 = 0, b2 = 0] = addTestUnits(first, userB, mapKey, 2, clock);
     const ownerA = p.settlement.ownerOfUser(userA, clock).id;
     const ownerB = p.settlement.ownerOfUser(userB, clock).id;
     // 줄이 없으면 시작 자료는 그대로(모두 가득)
@@ -190,7 +190,7 @@ describe.skipIf(!TEST_DATABASE_URL)("생명 수치 저장(D-512)", () => {
     const p = persistence(first);
     const mapKey = [...first.maps.keys()][0] ?? 0;
     const user = await fakeUser("medic");
-    const [worker = 0] = p.settlement.giveWorkers(user, mapKey, 1, clock);
+    const [worker = 0] = addTestUnits(first, user, mapKey, 1, clock);
     const owner = p.settlement.ownerOfUser(user, clock).id;
     // 전투가 끝나 HP 10이 남았다(전투 결과 적용과 같은 함수)
     const init = encounter([worker, 9_000_001, 9_000_002, 9_000_003], [owner, owner]);

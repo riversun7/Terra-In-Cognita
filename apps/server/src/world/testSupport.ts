@@ -2,15 +2,21 @@
 import { performance } from "node:perf_hooks";
 import {
   type BattleInit,
+  JOB_NONE,
+  type JobState,
+  PHASE_WORK,
   SURFACE_GRASS,
   TEMP_TERRAIN_GENERATOR_VERSION,
   TERRAIN_SIZE,
   TERRAIN_VERTEX_SIZE,
   type TempTerrain,
+  WALK_SPEED,
 } from "@terra/sim";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { type PathOutcome, type PathService, createInlinePathService } from "./pathService.ts";
 import { type SecondMap, createSecondMap } from "./secondMap.ts";
+import type { Settlement } from "./settlement.ts";
+import { UNIT_KIND_HUMAN } from "./unitKinds.ts";
 import { type WorldStats, emptyWorldStats } from "./worldStats.ts";
 
 /** 아무 일도 하지 않는 로거 */
@@ -60,6 +66,45 @@ export function heldPathService(inner: PathService): HeldPathService {
     },
   };
   return service;
+}
+
+/**
+ * 사용자에게 유닛 count개를 그 2차맵에 바로 세운다(시험 전용 — 기기 명령은 없다). 기본은 구인 카드로 고용한 것과 같은 휴먼(종류 4, 휴먼
+ * 행 없음)이고 직무가 없다. job을 주면 그 직무로 켠다. 유닛 수가 바뀌기 전에 주인을 정산한다(상호작용 전 정산). 만든 유닛 ID.
+ * (옛 개발 시험 명령 dev_spawn_units의 시험 일꾼 자리 — 사용자 지적 2026-11-09 "시험일꾼 다 없애라고"로 그 명령은 없앴다)
+ */
+export function addTestUnits(
+  world: {
+    readonly maps: ReadonlyMap<number, SecondMap>;
+    readonly persistence?:
+      | { readonly settlement: Settlement; readonly nextId: { unit(): number } }
+      | undefined;
+  },
+  userId: string,
+  mapKey: number,
+  count: number,
+  nowMs: number,
+  options: { readonly kind?: number; readonly job?: number } = {},
+): number[] {
+  const p = world.persistence;
+  const map = world.maps.get(mapKey);
+  if (!p || !map) throw new Error("addTestUnits: no persistence or map");
+  const owner = p.settlement.ownerOfUser(userId, nowMs);
+  p.settlement.settleOwner(owner.id, nowMs);
+  const made: number[] = [];
+  for (let attempt = 0; made.length < count && attempt < count * 64; attempt++) {
+    const id = p.nextId.unit();
+    const cellX = 96 + ((attempt * 7) % 64);
+    const cellY = 96 + Math.floor((attempt * 7) / 64) * 3;
+    const unit = { id, size: 1 as const, speed: WALK_SPEED, cellX, cellY, ownerId: owner.id };
+    if (!map.addUnit({ ...unit, kind: options.kind ?? UNIT_KIND_HUMAN })) continue;
+    if (options.job !== undefined && options.job !== JOB_NONE) {
+      const job: JobState = { job: options.job, phase: PHASE_WORK, progressMs: 0, fatigue: 0 };
+      map.setJob(id, job);
+    }
+    made.push(id);
+  }
+  return made;
 }
 
 export interface TestMap {

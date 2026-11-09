@@ -18,6 +18,7 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { createPlacementService } from "./placementService.ts";
 import type { TerrainService } from "./terrainService.ts";
+import { addTestUnits } from "./testSupport.ts";
 import { UNIT_KIND_NPC_LEADER } from "./unitKinds.ts";
 import { type World, startWorld, testMapKey } from "./world.ts";
 
@@ -181,7 +182,7 @@ describe.skipIf(!TEST_DATABASE_URL)("사람이 고른 국가 자리·NPC 수도(
     const worker = await newUser("PlaceWorker");
     const capitalB = nationB.cities.find((city) => city.capital);
     if (!capitalB) throw new Error("capital B");
-    expect(world.devSpawn?.(worker, Number(capitalB.mapKey), 1)).toBe(1);
+    expect(addTestUnits(world, worker, Number(capitalB.mapKey), 1, clock)).toHaveLength(1);
     await world.persistence?.writer.durable();
     let homeB: number | undefined;
     for (const spot of SPOTS.filter((key) => key !== homeA)) {

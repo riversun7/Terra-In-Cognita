@@ -24,7 +24,6 @@ const TYPE_LABELS = {
   creature: (locale) => m.roster_type_creature({}, { locale }),
   android: (locale) => m.roster_type_android({}, { locale }),
   guardian: (locale) => m.roster_type_guardian({}, { locale }),
-  test_worker: (locale) => m.roster_type_test_worker({}, { locale }),
   test_unit: (locale) => m.roster_type_test_unit({}, { locale }),
 } satisfies Record<UnitType, Text>;
 
@@ -100,7 +99,7 @@ export function unitNumber(id: string): string {
   return id.startsWith("w") ? id.slice(1) : id;
 }
 
-/** 유닛 이름: 지은 이름, 없으면 "시험 일꾼 #42" */
+/** 유닛 이름: 지은 이름, 없으면 "종류 #번호"(예: "휴먼 #42") */
 export function unitLabel(
   unit: Pick<RosterUnit, "id" | "name" | "type">,
   locale: Locale = getLocale(),
@@ -290,7 +289,7 @@ export const NO_FILTER: UnitFilter = { type: "all", status: "all", base: "" };
 
 function typeMatches(type: UnitType, filter: TypeFilter): boolean {
   if (filter === "all") return true;
-  if (filter === "test") return type === "test_worker" || type === "test_unit";
+  if (filter === "test") return type === "test_unit";
   return type === filter;
 }
 

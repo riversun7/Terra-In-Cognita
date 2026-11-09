@@ -40,6 +40,7 @@ import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
 import { retireTestMaps } from "./pins.ts";
+import { auditRetiredWorkers, retireOldWorkers, splitOldWorkers } from "./retireOldWorkers.ts";
 import type { TerrainService } from "./terrainService.ts";
 import { createMapFactory, exploredStoreOf } from "./mapFactory.ts";
 import { type MapSpawner, attachMapSpawn, bootExtraMaps, sameLevelAs } from "./mapSpawnWorld.ts";
@@ -440,7 +441,6 @@ export function startWorld(
       ledger,
       writer,
       nextOwnerId: nextId.owner,
-      nextUnitId: nextId.unit,
       presence: loaded.presence,
       now,
       // 사이보그 유닛은 유지비가 비싸다(D-470, 설정 칸 n46_upkeep 실효 값을 정산할 때마다 읽는다)
@@ -699,9 +699,27 @@ export function startWorld(
     let badUnits = 0;
     let badBuildings = 0;
     let orphanUnits = 0;
+    // 없앤 시험 일꾼(종류 1)의 옛 행은 2차맵에 놓지 않고 지운다. 든 물건·화물은 주인에게(retireOldWorkers.ts, 사용자 지적 2026-11-09)
+    const old = splitOldWorkers(loaded.units);
+    if (old.retired.length > 0) {
+      const cyborgUnitOf = (userId: string) => cyborgs.record(userId)?.unitId ?? undefined;
+      const parts = {
+        owners,
+        cities,
+        cyborgUnitOf,
+        holdings: holdings.service,
+        ledger,
+        writer,
+        nowMs: now(),
+      };
+      const retired = retireOldWorkers({ rows: old.retired, ...parts });
+      await writer.durable();
+      await auditRetiredWorkers(db, retired);
+      log.info(retired, "world boot: removed the old test workers");
+    }
     // 옮긴 옛 자리 도시의 휴먼·사이보그를 새 도시 둘레에 세운다(relayout.ts, 복구 직전)
     const save = (row: Parameters<MapPersist["saveUnit"]>[0]) => persist.saveUnit(row);
-    const units = relocateUnits(loaded.units, seeded?.relayout, maps, save, now()).rows;
+    const units = relocateUnits(old.kept, seeded?.relayout, maps, save, now()).rows;
     for (const [mapKey, map] of maps) {
       const onMap = (row: { planetId: string; mapKey: number }) =>
         row.planetId === map.planetId && row.mapKey === mapKey;
@@ -839,17 +857,6 @@ export function startWorld(
     },
     isReady: () => status.state === "ready",
     ownerOfUser: (userId) => persistence?.settlement.findOwnerOfUser(userId),
-    devSpawn(userId, mapKey, count) {
-      if (!persistence || status.state !== "ready") return 0;
-      const at = now();
-      const made = persistence.settlement.giveWorkers(userId, mapKey, count, at);
-      // [임시] 시험 일꾼 유지비를 낼 시험 화폐(일꾼 하나에 하루치)
-      if (made.length > 0) {
-        const owner = persistence.settlement.ownerOfUser(userId, at);
-        persistence.settlement.grantCredit(owner.id, BigInt(made.length * 24), at);
-      }
-      return made.length;
-    },
     map: (mapKey) => (status.state === "ready" ? maps.get(mapKey) : undefined),
     async checkInvariants() {
       const memory = checkMemoryInvariants(memoryChecks({}));

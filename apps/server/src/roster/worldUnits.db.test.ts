@@ -1,10 +1,10 @@
 // 실제 유닛 읽기 DB 통합 시험 — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
-// 시험 일꾼을 받은 사용자의 유닛(직무·피로는 정산 뒤 값), 화물(위치 = −유닛 ID), 잡힌 유닛·내가 잡은 포로를 본다.
+// 휴먼을 가진 사용자의 유닛(직무·피로는 정산 뒤 값 — 임금형 계약으로 일하는 유닛), 화물(위치 = −유닛 ID), 잡힌 유닛·내가 잡은 포로를 본다.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { cargoLocation } from "../world/battleResults.ts";
 import { ASSET_ORE } from "../world/settlement.ts";
-import { silentLog } from "../world/testSupport.ts";
+import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { HEALTHY } from "../world/unitCondition.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { createWorldRosterSource } from "./worldUnits.ts";
@@ -54,7 +54,7 @@ async function fakeUser(name: string): Promise<string> {
 }
 
 describe.skipIf(!TEST_DATABASE_URL)("실제 유닛 읽기", () => {
-  it("유닛이 없는 사용자는 빈 목록, 시험 일꾼은 정산 뒤 직무·피로·화물, 잡힌 유닛과 내가 잡은 포로를 나눈다", async () => {
+  it("유닛이 없는 사용자는 빈 목록, 일하는 휴먼은 정산 뒤 직무·피로·화물, 잡힌 유닛과 내가 잡은 포로를 나눈다", async () => {
     const world = await boot();
     const persistence = world.persistence;
     if (!persistence) throw new Error("no persistence");
@@ -65,10 +65,22 @@ describe.skipIf(!TEST_DATABASE_URL)("실제 유닛 읽기", () => {
     expect(await source.count(userA, clock)).toBe(0);
 
     const mapKey = [...world.maps.keys()][0] ?? 0;
-    const [a1 = 0, a2 = 0] = persistence.settlement.giveWorkers(userA, mapKey, 2, clock);
-    const [b1 = 0] = persistence.settlement.giveWorkers(userB, mapKey, 1, clock);
+    const [a1 = 0, a2 = 0] = addTestUnits(world, userA, mapKey, 2, clock);
+    const [b1 = 0] = addTestUnits(world, userB, mapKey, 1, clock);
     const ownerA = persistence.settlement.ownerOfUser(userA, clock).id;
     const ownerB = persistence.settlement.ownerOfUser(userB, clock).id;
+    // a1은 내 건물에서 임금형 계약으로 일한다(직무 = 채집)
+    const placed = world.maps
+      .get(mapKey)
+      ?.placeBuilding({ x: 40, y: 40, width: 2, height: 2, rotation: 0 }, ownerA);
+    if (!placed?.ok || placed.buildingId === undefined) throw new Error("no building");
+    persistence.settlement.grantCredit(ownerA, 1_000n, clock);
+    const hired = await persistence.labor.create(userA, {
+      kind: "wage",
+      buildingId: placed.buildingId,
+      unitId: a1,
+    });
+    expect(hired.ok).toBe(true);
     // a1에 화물(광석) 7
     persistence.ledger.post({
       kind: "issue",
@@ -88,7 +100,7 @@ describe.skipIf(!TEST_DATABASE_URL)("실제 유닛 읽기", () => {
     expect(roster.units.map((unit) => unit.id)).toEqual([a1, a2]);
     const [first, second] = roster.units;
     expect(first).toMatchObject({
-      type: "test_worker",
+      type: "human",
       planetId: "s2_test_planet",
       mapKey,
       domain: "land",

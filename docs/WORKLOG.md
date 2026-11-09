@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-09 21:50 | 운영자 모드에서 옆 2차맵으로 보낼 때도 빠르게 | Claude Code | [09-2150-operator-travel-speed](worklog/2026/11/09-2150-operator-travel-speed.md) |
 | 2026-11-09 21:20 | 2차맵 이동 경로·목적지 표시 | Claude Code | [09-2120-move-route-display](worklog/2026/11/09-2120-move-route-display.md) |
 | 2026-11-09 20:40 | 운영자 모드 이동 빠르기 10배 → 100배 | Claude Code | [09-2040-operator-speed](worklog/2026/11/09-2040-operator-speed.md) |
 | 2026-11-09 19:45 | 2차맵 사이를 가는 중 [멈추기] 깜빡임 고침 | Claude Code | [09-1945-stop-flicker](worklog/2026/11/09-1945-stop-flicker.md) |

@@ -85,6 +85,8 @@ export interface SocketLink {
 export interface WorldSocket {
   handle(message: SecondMapClientMessage): void;
   close(): void;
+  /** 2차맵 하나라도 전체 보기(운영자 모드)로 구독 중인가 — 같은 연결의 2차맵 사이 이동도 운영자 빠르기(travel/gateway.ts) */
+  observing(): boolean;
 }
 
 export interface WorldGateway {
@@ -340,7 +342,9 @@ export function createWorldGateway(options: {
             map.vision.unsubscribe(subscriber);
           }
           subscribed.clear();
+          observing.clear();
         },
+        observing: () => observing.size > 0,
       };
     },
   };

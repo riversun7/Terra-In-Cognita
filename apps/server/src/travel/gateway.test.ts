@@ -2,6 +2,7 @@
 import { decodeServerMessage } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
+import { OPERATOR_SPEED_FACTOR } from "../world/gateway.ts";
 import { createTravelGateway } from "./gateway.ts";
 import type { TravelService } from "./service.ts";
 
@@ -14,9 +15,9 @@ const cancel = { t: "travel_cancel", id: 2, unitId: 5 } as const;
 function fakeService(calls: string[]): TravelService {
   return {
     plan: () => ({ ok: false, problem: "no_route" }),
-    start: (userId, request) => {
+    start: (userId, request, options) => {
       calls.push(
-        `start:${userId}:${request.unitId}:${request.mapKey}:${request.x},${request.y}:${request.kind}`,
+        `start:${userId}:${request.unitId}:${request.mapKey}:${request.x},${request.y}:${request.kind}:x${options?.speedFactor ?? 1}`,
       );
       return Promise.resolve({ ok: true, maps: 3, arriveAt: 1234 });
     },
@@ -36,12 +37,13 @@ function fakeService(calls: string[]): TravelService {
   };
 }
 
-function connect(service: TravelService | undefined, who: Viewer | null) {
+function connect(service: TravelService | undefined, who: Viewer | null, observing = false) {
   const sent: unknown[] = [];
   const gateway = createTravelGateway({ service: () => service, now: () => 0, log: { error: () => {} } });
   const socket = gateway.open({
     send: (text) => sent.push(decodeServerMessage(text)),
     viewer: () => Promise.resolve(who),
+    observing: () => observing,
   });
   return { sent, socket };
 }
@@ -53,7 +55,7 @@ describe("2차맵 사이 이동 연결 처리", () => {
     socket.handle(start);
     socket.handle(cancel);
     for (let i = 0; i < 8; i++) await settle();
-    expect(calls).toEqual(["start:user-1:5:9:10,20:scout", "cancel:user-1:5"]);
+    expect(calls).toEqual(["start:user-1:5:9:10,20:scout:x1", "cancel:user-1:5"]);
     expect(sent).toEqual([
       { t: "travel_result", id: 1, ok: true, maps: 3, arriveAt: 1234 },
       { t: "travel_result", id: 2, ok: false, code: "not_traveling" },
@@ -70,5 +72,21 @@ describe("2차맵 사이 이동 연결 처리", () => {
     expect(calls).toEqual([]);
     expect(signedOut.sent).toEqual([{ t: "travel_result", id: 1, ok: false, code: "sign_in_required" }]);
     expect(booting.sent).toEqual([{ t: "travel_result", id: 2, ok: false, code: "busy" }]);
+  });
+  it("운영자 모드(전체 보기 구독)인 운영자가 보낸 길은 운영자 빠르기, 플레이어는 전체 보기라도 1배", async () => {
+    const calls: string[] = [];
+    const dev: Viewer = { id: "dev-1", loginId: "dev", roles: ["dev"] };
+    const operator = connect(fakeService(calls), dev, true);
+    operator.socket.handle(start);
+    const notObserving = connect(fakeService(calls), dev, false);
+    notObserving.socket.handle(start);
+    const playerObserving = connect(fakeService(calls), player, true);
+    playerObserving.socket.handle(start);
+    for (let i = 0; i < 8; i++) await settle();
+    expect(calls).toEqual([
+      `start:dev-1:5:9:10,20:scout:x${OPERATOR_SPEED_FACTOR}`,
+      "start:dev-1:5:9:10,20:scout:x1",
+      "start:user-1:5:9:10,20:scout:x1",
+    ]);
   });
 });

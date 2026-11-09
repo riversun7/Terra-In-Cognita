@@ -508,7 +508,12 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "travel_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        travelSocket ??= context.travel.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        travelSocket ??= context.travel.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          // 같은 연결이 운영자 모드(전체 보기)로 2차맵을 보고 있으면 보내는 길도 운영자 빠르기
+          observing: () => worldSocket?.observing() === true,
+        });
         travelSocket.handle(message);
         return;
       }

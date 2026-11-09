@@ -192,6 +192,42 @@ describe("아이템 사이 규칙", () => {
     ]);
   });
 
+  it("무기 종류의 상위 중분류(D-497 정리 896): 장비 중분류만, 단 장비의 중분류는 그 상위 중분류(비어도 문제)", () => {
+    const parented = {
+      "weapon_types.json": {
+        entries: [
+          { id: "bow", name, slot: "weapon", subcategory: "weapon", enabled: true },
+          { id: "quiver", name, slot: "offhand", enabled: true },
+          { id: "odd_kind", name, slot: "weapon", subcategory: "ore", enabled: true },
+          { id: "lost_kind", name, slot: "weapon", subcategory: "gone", enabled: true },
+        ],
+      },
+    };
+    const { subcategory: _drop, ...bare } = bow;
+    const issues = issuesOf(
+      [
+        bow,
+        { ...bare, id: "bare_bow" },
+        { ...bow, id: "fish_bow", subcategory: "fish" },
+        // 상위 중분류가 장비 것이 아니거나 없으면 아이템 쪽은 묻지 않는다(종류 쪽이 알린다)
+        { ...bow, id: "odd_bow", subcategory: "weapon", equip: { ...bow.equip, weaponType: "odd_kind" } },
+        { ...bow, id: "lost_bow", subcategory: "weapon", equip: { ...bow.equip, weaponType: "lost_kind" } },
+      ],
+      parented,
+    );
+    expect(issues.map((issue) => [issue.file, issue.id, issue.path, issue.code])).toEqual([
+      ["weapon_types.json", "lost_kind", "subcategory", "ref_missing"],
+      ["weapon_types.json", "odd_kind", "subcategory", "weapon_type_subcategory_major"],
+      ["items.json", "bare_bow", "subcategory", "item_weapon_type_subcategory"],
+      ["items.json", "fish_bow", "subcategory", "item_subcategory_major"],
+      ["items.json", "fish_bow", "subcategory", "item_weapon_type_subcategory"],
+    ]);
+    expect(issues.find((issue) => issue.id === "bare_bow")?.params).toEqual({
+      weaponType: "bow",
+      subcategory: "weapon",
+    });
+  });
+
   it("신선도 0이면 바뀌는 아이템은 자기 자신이 아니고, 사슬이 돌지 않는다", () => {
     const self = { ...rawFish, id: "self_fish", perish: { shelfLifeMs: 3_600_000, spoilsTo: "self_fish" } };
     const loopA = { ...rawFish, id: "loop_a", perish: { shelfLifeMs: 3_600_000, spoilsTo: "loop_b" } };

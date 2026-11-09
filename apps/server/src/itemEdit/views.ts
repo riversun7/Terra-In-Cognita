@@ -142,6 +142,7 @@ export function weaponTypeJsonOf(entry: WeaponTypeEntry): WeaponTypeJson {
     id: entry.id,
     name: name(entry.name),
     slot: entry.slot,
+    ...(entry.subcategory === undefined ? {} : { subcategory: entry.subcategory.id }),
     ...(entry.order === undefined ? {} : { order: entry.order }),
     ...(entry.ammo === undefined ? {} : { ammo: entry.ammo }),
     enabled: entry.enabled,

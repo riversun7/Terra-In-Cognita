@@ -178,8 +178,8 @@
     {
       "id": "offhand_weapon",
       "name": {
-        "ko": "보조 무기",
-        "en": "Off-hand weapons"
+        "ko": "보조 장비",
+        "en": "Off-hand gear"
       },
       "major": "equipment",
       "storage": "armory",

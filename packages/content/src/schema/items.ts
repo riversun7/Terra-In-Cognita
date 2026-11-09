@@ -260,13 +260,19 @@ export type ItemTagEntry = z.output<typeof itemTagEntrySchema>;
 
 /**
  * 무기 종류(48 §5.5): 무기 칸(칼·활·총 등) 또는 보조 칸(방패·화살통·탄창 등). 아이템 equip.weaponType이 가리키고, 무기의 탄약 연결
- * (equip.weapon.ammo)은 보조 칸 종류를 가리킨다(D-496: 화살·탄약은 보조무기 칸, 원거리 타격마다 1씩)
+ * (equip.weapon.ammo)은 보조 칸 종류를 가리킨다(D-496: 화살·탄약은 보조무기 칸, 원거리 타격마다 1씩). 화면 이름은 "장비 종류(무기 칸·보조 칸)"
+ * (D-497 기획 정리 895: 이름만 바꿈, 자료 이름 weapon_types·ID는 그대로)
  */
 export const weaponTypeEntrySchema = z
   .strictObject({
     id: contentId,
     name: localizedText,
     slot: z.enum(WEAPON_TYPE_SLOTS),
+    /**
+     * 상위 중분류(D-497 기획 정리 896: 나무 = 대분류 → 중분류 → 무기 종류). 장비 대분류의 중분류만(팩 검사 weapon_type_subcategory_major).
+     * 이 종류가 붙은 장비의 중분류는 이 값이어야 한다(item_weapon_type_subcategory). 선택 칸이라 없으면 나무에서 "상위 중분류 없음"
+     */
+    subcategory: ref("item_subcategories").optional(),
     order: z.int().min(0).max(ITEM_SCHEMA_LIMITS.order).optional(),
     /**
      * 탄약 종류(D-497: 탄약은 보조 칸에 끼우는 장비 하나이고 그 장비의 내구도가 남은 탄 수다. 원거리로 칠 때마다 1 준다, 0이면

@@ -7,6 +7,7 @@
         "en": "Placeholder item"
       },
       "category": "document",
+      "subcategory": "blueprint",
       "tier": 0,
       "startPrice": 1,
       "enabled": false
@@ -54,6 +55,7 @@
         "en": "Iron ingot"
       },
       "category": "processed",
+      "subcategory": "metal",
       "tier": 1,
       "startPrice": 14,
       "weight": 1000,
@@ -92,6 +94,7 @@
         "en": "Ration"
       },
       "category": "consumable",
+      "subcategory": "dish",
       "tier": 0,
       "startPrice": 4,
       "enabled": true
@@ -103,6 +106,7 @@
         "en": "Household goods"
       },
       "category": "consumable",
+      "subcategory": "buff_item",
       "tier": 1,
       "startPrice": 40,
       "enabled": true
@@ -114,6 +118,7 @@
         "en": "Test sword"
       },
       "category": "equipment",
+      "subcategory": "weapon",
       "tier": 1,
       "startPrice": 100,
       "equip": {
@@ -152,6 +157,7 @@
         "en": "Test staff"
       },
       "category": "equipment",
+      "subcategory": "weapon",
       "tier": 1,
       "startPrice": 100,
       "equip": {
@@ -192,6 +198,7 @@
         "en": "Test vest"
       },
       "category": "equipment",
+      "subcategory": "armor",
       "tier": 1,
       "startPrice": 100,
       "equip": {
@@ -218,6 +225,7 @@
         "en": "Test helmet"
       },
       "category": "equipment",
+      "subcategory": "armor",
       "tier": 1,
       "startPrice": 100,
       "equip": {
@@ -239,6 +247,7 @@
         "en": "Test ring"
       },
       "category": "equipment",
+      "subcategory": "accessory",
       "tier": 1,
       "startPrice": 100,
       "equip": {
@@ -260,6 +269,7 @@
         "en": "Test artificial heart"
       },
       "category": "equipment",
+      "subcategory": "implant",
       "tier": 1,
       "startPrice": 100,
       "equip": {
@@ -291,6 +301,7 @@
         "en": "Fire staff"
       },
       "category": "equipment",
+      "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
       "equip": {
@@ -331,6 +342,7 @@
         "en": "Water staff"
       },
       "category": "equipment",
+      "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
       "equip": {
@@ -376,6 +388,7 @@
         "en": "Wind staff"
       },
       "category": "equipment",
+      "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
       "equip": {
@@ -416,6 +429,7 @@
         "en": "Earth staff"
       },
       "category": "equipment",
+      "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
       "equip": {
@@ -461,6 +475,7 @@
         "en": "Light staff"
       },
       "category": "equipment",
+      "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
       "equip": {
@@ -506,6 +521,7 @@
         "en": "Dark staff"
       },
       "category": "equipment",
+      "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
       "equip": {
@@ -2308,6 +2324,7 @@
         "en": "Copper bar"
       },
       "category": "processed",
+      "subcategory": "metal",
       "tier": 2,
       "startPrice": 1,
       "weight": 1000,
@@ -2320,6 +2337,7 @@
         "en": "Silver bar"
       },
       "category": "processed",
+      "subcategory": "metal",
       "tier": 4,
       "startPrice": 1,
       "weight": 1000,
@@ -2332,6 +2350,7 @@
         "en": "Titanium bar"
       },
       "category": "processed",
+      "subcategory": "metal",
       "tier": 5,
       "startPrice": 1,
       "weight": 1000,
@@ -2344,6 +2363,7 @@
         "en": "Gold bar"
       },
       "category": "processed",
+      "subcategory": "metal",
       "tier": 6,
       "startPrice": 1,
       "weight": 1000,
@@ -2356,6 +2376,7 @@
         "en": "Platinum bar"
       },
       "category": "processed",
+      "subcategory": "metal",
       "tier": 7,
       "startPrice": 1,
       "weight": 1000,
@@ -2368,6 +2389,7 @@
         "en": "Mithril bar"
       },
       "category": "processed",
+      "subcategory": "metal",
       "tier": 8,
       "startPrice": 1,
       "weight": 1000,
@@ -2380,6 +2402,7 @@
         "en": "Orichalcum bar"
       },
       "category": "processed",
+      "subcategory": "metal",
       "tier": 9,
       "startPrice": 1,
       "weight": 1000,

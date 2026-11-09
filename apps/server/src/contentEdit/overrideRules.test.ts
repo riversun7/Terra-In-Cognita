@@ -56,6 +56,7 @@ function apply(state: ReturnType<typeof fresh>, puts: Parameters<ReturnType<type
 }
 
 const ration = packEntry("items", "ration");
+// 배급 식량은 중분류 요리(dish, core@60): 대분류를 바꾸는 시험은 그 대분류의 중분류를 같이 준다
 const newItem = (id: string, extra: Record<string, unknown> = {}) => ({ ...ration, id, ...extra });
 
 describe("baseHash: 같은 항목을 누가 먼저 고쳤을 때만 충돌", () => {
@@ -120,7 +121,13 @@ describe("아이템 대분류·크기", () => {
     });
     apply(state, [{ category: "items", id: "odd_loaf", entry: newItem("odd_loaf") }]);
     expect(
-      state.plan([{ category: "items", id: "odd_loaf", entry: newItem("odd_loaf", { category: "raw" }) }]).ok,
+      state.plan([
+        {
+          category: "items",
+          id: "odd_loaf",
+          entry: newItem("odd_loaf", { category: "raw", subcategory: "ore" }),
+        },
+      ]).ok,
     ).toBe(true);
     expect(
       state.plan([
@@ -136,7 +143,13 @@ describe("아이템 대분류·크기", () => {
       },
     ]);
     expect(
-      state.plan([{ category: "items", id: "odd_loaf", entry: newItem("odd_loaf", { category: "raw" }) }]),
+      state.plan([
+        {
+          category: "items",
+          id: "odd_loaf",
+          entry: newItem("odd_loaf", { category: "raw", subcategory: "ore" }),
+        },
+      ]),
     ).toMatchObject({ ok: false, reason: "category_locked" });
   });
 

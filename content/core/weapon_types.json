@@ -7,6 +7,7 @@
         "en": "Blade"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -16,6 +17,7 @@
         "en": "Greatsword"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -25,6 +27,7 @@
         "en": "Blunt weapon"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -34,6 +37,7 @@
         "en": "Spear"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -43,6 +47,7 @@
         "en": "Axe"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -52,6 +57,7 @@
         "en": "Bow"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -61,6 +67,7 @@
         "en": "Crossbow"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -70,6 +77,7 @@
         "en": "Gun"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -79,6 +87,7 @@
         "en": "Staff"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -88,6 +97,7 @@
         "en": "Wand"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -97,6 +107,7 @@
         "en": "Fist weapon"
       },
       "slot": "weapon",
+      "subcategory": "weapon",
       "enabled": true
     },
     {
@@ -106,6 +117,7 @@
         "en": "Shield"
       },
       "slot": "offhand",
+      "subcategory": "offhand_weapon",
       "enabled": true
     },
     {
@@ -115,6 +127,7 @@
         "en": "Quiver"
       },
       "slot": "offhand",
+      "subcategory": "offhand_weapon",
       "ammo": true,
       "enabled": true
     },
@@ -125,6 +138,7 @@
         "en": "Magazine"
       },
       "slot": "offhand",
+      "subcategory": "offhand_weapon",
       "ammo": true,
       "enabled": true
     }

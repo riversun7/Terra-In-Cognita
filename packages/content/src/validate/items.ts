@@ -1,6 +1,8 @@
 // 2단계 뒤 아이템 검사 — 항목 사이를 보는 규칙(docs/adr/2026-11-01-item-editor.md 2절, 설계안 2.7).
 // - 중분류의 대분류가 아이템 대분류와 같다(item_subcategory_major).
 // - 무기 종류의 칸이 장비 칸과 같다(item_weapon_type_slot). 무기의 탄약 연결은 보조 칸 종류만(item_ammo_type).
+// - 무기 종류의 상위 중분류는 장비 대분류의 중분류다(weapon_type_subcategory_major). 상위 중분류가 있는 무기 종류를 단 장비는
+//   중분류가 그 상위 중분류여야 한다(item_weapon_type_subcategory, 비어도 문제). D-497 기획 정리 896: 나무 = 대분류 → 중분류 → 무기 종류.
 // - 신선도 0이면 바뀌는 아이템: 자기 자신이 아니고(item_spoils_self) 사슬이 돌고 돌지 않는다(item_spoils_cycle).
 // 참조가 없는 경우는 참조 단계가 알리므로 여기서는 건너뛴다. 권고(저장을 막지 않는 것)는 여기 두지 않는다(서버 편집기가 셈한다).
 // 항목은 스키마를 통과한 파싱 결과(참조 = ContentRef)다. 타입을 좁히지 않고 칸을 읽는다(planets.ts와 같은 방식).
@@ -25,6 +27,8 @@ export function checkItems(pack: ContentPack): ContentIssue[] {
   const items = pack.entries.get("items") ?? [];
   const majorOf = fieldById(pack, "item_subcategories", "major");
   const typeSlotOf = fieldById(pack, "weapon_types", "slot");
+  /** 무기 종류 → 상위 중분류 ID(있고 그 중분류가 팩에 있을 때만: 없는 참조는 참조 단계가 알린다) */
+  const typeParentOf = new Map<string, string>();
   const error = (id: string, path: string, code: string, message: string, params?: ContentIssue["params"]) =>
     issues.push({
       stage: "references",
@@ -36,6 +40,26 @@ export function checkItems(pack: ContentPack): ContentIssue[] {
       code,
       ...(params ? { params } : {}),
     });
+
+  for (const type of pack.entries.get("weapon_types") ?? []) {
+    const parent = refId(get(type, "subcategory"));
+    if (parent === undefined || !majorOf.has(parent)) continue;
+    const major = majorOf.get(parent);
+    if (major !== "equipment") {
+      issues.push({
+        stage: "references",
+        level: "error",
+        file: "weapon_types.json",
+        id: type.id,
+        path: "subcategory",
+        message: `상위 중분류 ${parent}는 대분류 ${major ?? "?"}의 것입니다. 무기 종류는 장비(equipment) 중분류 아래에만 둡니다.`,
+        code: "weapon_type_subcategory_major",
+        params: { subcategory: parent, major: major ?? "" },
+      });
+      continue;
+    }
+    typeParentOf.set(type.id, parent);
+  }
 
   const spoils = new Map<string, string>();
   for (const item of items) {
@@ -61,6 +85,15 @@ export function checkItems(pack: ContentPack): ContentIssue[] {
         "item_weapon_type_slot",
         `무기 종류 ${type}는 ${typeSlot} 칸 종류입니다(이 장비는 ${slot ?? "?"} 칸).`,
         { weaponType: type, slot: typeSlot },
+      );
+    const parent = type === undefined ? undefined : typeParentOf.get(type);
+    if (parent !== undefined && sub !== parent)
+      error(
+        item.id,
+        "subcategory",
+        "item_weapon_type_subcategory",
+        `무기 종류 ${type ?? "?"}는 중분류 ${parent} 아래 종류입니다(이 아이템 중분류는 ${sub ?? "없음"}). 중분류를 ${parent}로 고르세요.`,
+        { weaponType: type ?? "", subcategory: parent },
       );
     const ammo = refId(get(get(equip, "weapon"), "ammo"));
     const ammoSlot = ammo === undefined ? undefined : typeSlotOf.get(ammo);

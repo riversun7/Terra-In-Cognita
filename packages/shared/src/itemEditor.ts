@@ -269,6 +269,8 @@ export interface WeaponTypeJson {
   readonly id: string;
   readonly name: LocalizedName;
   readonly slot: WeaponTypeSlotId;
+  /** 상위 중분류 ID(장비 대분류의 중분류, D-497 기획 정리 896). 없으면 나무에서 "상위 중분류 없음" */
+  readonly subcategory?: string | undefined;
   readonly order?: number | undefined;
   /** 탄약 종류(D-497: 이 보조 칸 종류의 장비는 내구도 = 남은 탄 수, 최대 내구도 = 담는 탄 수) */
   readonly ammo?: boolean | undefined;

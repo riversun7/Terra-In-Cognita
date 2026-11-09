@@ -311,8 +311,8 @@ export function EdgeTravel({ mapKey, unit, engineRef, hostRef, screenFollows }: 
       const plan = plans.get(target.mapKey);
       return plan?.kind === "ready" && plan.plan.working;
     });
-    // 판은 화면 아래에 붙는 판으로 지도 화면 밖(문서 끝)에 그린다: 키가 커서 아래 판 줄에 두면 오른쪽 가운데 1·2차맵 전환 단추(shell
-    // overlays.css .map-switch, 층 5)에 가린다. 판이 열린 동안은 이 판이 그 단추 위(층 6)다 — 판에 [1차맵에서 고르기]·[닫기]가 있다
+    // 판은 화면 아래에 붙는 판으로 지도 화면 밖(문서 끝)에 그린다: 키가 커서 아래 판 줄에 두면 1·2차맵 전환 단추(shell overlays.css
+    // .map-switch, 층 5 — 그때는 오른쪽 가운데, 지금은 오른쪽 위 구석)에 가렸다. 판이 열린 동안은 이 판이 그 단추 위(층 6)다
     return createPortal(
       <section
         className="map-panel map-edge map-edge-sheet"

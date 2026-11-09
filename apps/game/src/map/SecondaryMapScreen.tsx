@@ -29,6 +29,9 @@
 // 나타나면(또는 사이보그 길 조회가 넘었다고 하면) 엔진 rebase 뒤 모음만 바꾸고 주소를 고친다(crossRef). 이웃 안개는 그 이웃 구독의 탐사 칸.
 // NPC 국가 지도자("WP-NPC3", 기획 정리 748 나·742 나): 머리 위 이름표(leaderTags.ts — 전송의 표시 종류), 지도자나 이름표를 누르면 그 지도자를
 // 고르고 아래 지도자 판(government/LeaderSheet.tsx) → 그 나라 수도 정부 판.
+// 사용자 지적 2026-11-09(docs/adr/2026-11-08-seamless-second-map.md "바뀜 3"): [내 사이보그] 자리에 [내 유닛 N] → 내 유닛 목록(사이보그가 첫 줄),
+// 아래 판 자리에는 판 하나만(누른 건물·오브젝트 판 > 내 유닛 목록 > 근처 판, bottomSheetOf — 행정 건물의 정부 몫은 건물 판 안),
+// 명령 유닛 하나(commandUnit)와 그 이름(unitLabel)을 안내 줄·건물 판이 함께 쓴다.
 import type { EngineStatus, PlanetSkyMode, SecondMapEngine, TerrainInput } from "@terra/engine";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { refreshSession, useSession } from "../auth/session.ts";
@@ -51,7 +54,8 @@ import { EdgeTravel } from "./EdgeTravel.tsx";
 import { edgeUnitOf } from "./edgeTravelData.ts";
 import { ZoomLadder } from "./ZoomLadder.tsx";
 import { useAnchorFollow } from "./UnitFollow.tsx";
-import { blockedWithoutUnits, chooseAnchor } from "./anchorUnit.ts";
+import { blockedWithoutUnits, chooseAnchor, commandUnit } from "./anchorUnit.ts";
+import { useBottomSheet } from "./useBottomSheet.ts";
 import { openMap, useTravelFollow } from "./useCyborgTravel.ts";
 import { type MapSession, startMapSession } from "./mapSession.ts";
 import { type HudSnapshot, UNIT_CAPACITY, openPlanetStage, serverNow, useMapEngine } from "./useMapEngine.ts";
@@ -64,13 +68,19 @@ import {
   commandText,
   wideScreen,
 } from "./commandNotice.ts";
-import { canCommand, selectionText, unitControlOf, unitName } from "./mapUnits.ts";
+import { canCommand, selectionText, unitControlOf, unitLabel } from "./mapUnits.ts";
 import { createLeaderTagState } from "./leaderTags.ts";
 import { useOperatorMode } from "./operatorMode.ts";
 import { useCameraArea } from "./useCameraArea.ts";
 import { NO_MAP_UNITS, useMapUnits } from "./useMapUnits.ts";
 import { useUnitGlance } from "./useUnitGlance.ts";
-import { OperatorActions, OperatorBadge, SelectedActions } from "./UnitControlPanels.tsx";
+import {
+  MyUnitsPanel,
+  OperatorActions,
+  OperatorBadge,
+  SelectedActions,
+  UnitsToggle,
+} from "./UnitControlPanels.tsx";
 import { NearbyPanel, type NearbySources, NearbyToggle } from "./nearby/NearbyPanel.tsx";
 import { createNearbyState } from "./nearby/nearbyState.ts";
 import { GatherPanel } from "./gather/GatherPanel.tsx";
@@ -207,6 +217,8 @@ function SecondMapView({
   const [gather] = useState(createGatherState);
   // NPC 국가 지도자 이름표(덧그림)와 지도자 판이 같이 보는 상태("WP-NPC3")
   const [leaderTags] = useState(createLeaderTagState);
+  // 아래 판 자리 하나: 건물·오브젝트 판 > 내 유닛 목록([내 유닛 N], 문제2) > 근처 판(문제4)
+  const { sheet, openUnits, closeUnits, openNearby } = useBottomSheet(gather, nearby);
   // 고른 유닛 따라가기(내 유닛·운영자 모드)와 2차맵 확대 단계(사다리, 엔진이 바뀔 때 알린다)
   const [zoomStage, setZoomStage] = useState(0);
   // 지도에서 누른 유닛 — 유닛을 누를 때와 지도자 이름표를 누를 때 같다. 다룰 수 있는 유닛이면 기준 유닛이 된다(chooseAnchor). ref·상태 바꾸기만 쓴다
@@ -390,7 +402,10 @@ function SecondMapView({
     setLastPicked(unit.unitId);
     if (!state) engine?.setView({ x: unit.cellX + 0.5, y: unit.cellY + 0.5 });
     setSelection({ own: true, moving: state?.moving ?? unit.moving });
-    if (!wideScreen()) nearby.setExpanded(false);
+    if (!wideScreen()) {
+      nearby.setExpanded(false);
+      closeUnits();
+    }
   };
 
   /** 근처 판의 다른 유닛 줄: 그 유닛을 고른다(정보만 — 카메라는 기준 유닛에 그대로) */
@@ -418,17 +433,6 @@ function SecondMapView({
 
   const spawnWorkers = (): void => {
     if (!feedRef.current?.devSpawn(DEV_SPAWN_COUNT)) setDevNotice(m.map_vision_spawn_failed());
-  };
-
-  /** [내 사이보그]: 내 사이보그를 고른다(기준 유닛 — 카메라가 따라간다). 엔진이 아직 모르면 들어올 때의 칸으로 한 번 옮긴다 */
-  const goToCyborg = (): void => {
-    const engine = engineRef.current;
-    if (!engine || !cyborg || cyborg.unitId === null) return;
-    selectedRef.current = cyborg.unitId;
-    setSelected(cyborg.unitId);
-    setLastPicked(cyborg.unitId);
-    engine.select(cyborg.unitId);
-    if (!engine.unitState(cyborg.unitId)) engine.setView({ x: cyborg.cellX + 0.5, y: cyborg.cellY + 0.5 });
   };
 
   /** [내 유닛으로]: 남의 유닛을 살펴보다가 기준 유닛 고르기로 돌아간다(늘 유닛 하나가 골라져 있다) */
@@ -465,18 +469,20 @@ function SecondMapView({
   const control =
     shown === null ? null : unitControlOf({ operator, mine, ownByFeed: shown === anchor || selection.own });
   const glance = useUnitGlance(mapKey, shown, control?.kind === "other");
+  const labelOf = (unitId: number): string => unitLabel(unitId, myUnits.units);
   const hint =
     pendingBuildPick() !== null
       ? m.map_build_pick_hint()
       : shown === null || control === null
         ? m.map_hint()
-        : selectionText(
-            control,
-            mine ? unitName(mine) : m.map_unit_number({ id: shown }),
-            shown,
-            selection.moving,
-            glance,
-          );
+        : selectionText(control, labelOf(shown), shown, selection.moving, glance);
+  // 명령을 받을 유닛 하나(건물 판 "보낼 유닛"·채집·[옆 2차맵으로]) — 안내 줄의 고른 유닛을 다룰 수 있으면 그 유닛(문제3)
+  const actor = commandUnit({
+    shown,
+    shownCommandable: control !== null && control.kind !== "other",
+    anchor,
+    cyborgUnitId: cyborg?.unitId ?? null,
+  });
 
   return (
     <section
@@ -544,41 +550,67 @@ function SecondMapView({
       />
       <CrossingNotice show={crossedTo !== null && following} />
       <footer className="map-hud map-hud-bottom">
-        <NearbyPanel
-          nearby={nearby}
-          gather={gather}
-          sources={nearbySources}
-          myUnits={myUnits.units}
-          unitsFailed={myUnits.failed}
-          elsewhere={myUnits.elsewhere}
-          moving={liveMoving}
-          now={myUnits.at}
-          selected={shown}
-          onPickUnit={pickUnit}
-          onInspectUnit={inspectUnit}
+        {sheet === "units" ? (
+          <MyUnitsPanel
+            units={myUnits.units}
+            failed={myUnits.failed}
+            elsewhere={myUnits.elsewhere}
+            moving={liveMoving}
+            now={myUnits.at}
+            selected={shown}
+            onPick={pickUnit}
+            onClose={closeUnits}
+          />
+        ) : null}
+        {sheet === "nearby" ? (
+          <NearbyPanel
+            nearby={nearby}
+            gather={gather}
+            sources={nearbySources}
+            myUnits={myUnits.units}
+            unitsFailed={myUnits.failed}
+            elsewhere={myUnits.elsewhere}
+            moving={liveMoving}
+            now={myUnits.at}
+            selected={shown}
+            onPickUnit={pickUnit}
+            onInspectUnit={inspectUnit}
+          />
+        ) : null}
+        {/* 누른 건물이 행정 건물이면 정부 몫을 그 건물 판 안에(docs/adr/2026-11-07-play-flow.md "WP-NPC", 건물 하나에 판 하나) */}
+        <GatherPanel
+          state={gather}
+          mapKey={mapKey}
+          actor={actor}
+          unitLabel={labelOf}
+          buildingExtra={<GovernmentSheet state={gather} embedded />}
         />
-        <GatherPanel state={gather} mapKey={mapKey} selected={anchor} cyborgUnitId={cyborg?.unitId ?? null} />
-        {/* 누른 건물이 행정 건물이면 정부 판(docs/adr/2026-11-07-play-flow.md "WP-NPC") */}
-        <GovernmentSheet state={gather} />
-        {/* 고른 유닛이 NPC 국가 지도자면 지도자 판 → 수도 정부 판("WP-NPC3") */}
-        <LeaderSheet tags={leaderTags} selected={shown} mapKey={mapKey} />
+        {/* 고른 유닛이 NPC 국가 지도자면 지도자 판 → 수도 정부 판("WP-NPC3"). 다른 판이 열린 동안은 숨긴다 */}
+        {sheet === "nearby" ? <LeaderSheet tags={leaderTags} selected={shown} mapKey={mapKey} /> : null}
         <div className="map-panel map-hint" role="status">
           <p>{hint}</p>
           {command ? <p className="map-command">{commandText(command)}</p> : null}
           <TravelLine going={going} />
         </div>
-        <CyborgActions onGoToCyborg={cyborg ? goToCyborg : null} followTo={following ? null : crossedTo} />
+        <CyborgActions
+          unitsToggle={
+            sheet === "units" ? null : (
+              <UnitsToggle count={myUnits.units?.length ?? null} onOpen={openUnits} />
+            )
+          }
+          followTo={following ? null : crossedTo}
+        />
         {/* 옆 2차맵으로(WP14): 고른 내 유닛(없으면 내 사이보그)을 변 너머 옆 2차맵으로 보낸다 */}
         <EdgeTravel
           mapKey={mapKey}
-          unit={edgeUnitOf({ selected: anchor, units: myUnits.units, cyborgUnitId: cyborg?.unitId ?? null })}
+          unit={edgeUnitOf({ selected: actor, units: myUnits.units, cyborgUnitId: cyborg?.unitId ?? null })}
           engineRef={engineRef}
           hostRef={hostRef}
           screenFollows={following ? (cyborg?.unitId ?? null) : null}
         />
-        {nearbyTab === null ? (
+        {nearbyTab === null || sheet !== "nearby" ? (
           <div className="map-actions">
-            <NearbyToggle nearby={nearby} />
+            <NearbyToggle onOpen={openNearby} />
           </div>
         ) : null}
         {shown === null ? null : (

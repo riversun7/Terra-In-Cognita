@@ -31,9 +31,11 @@
 .map-hud > * {
   pointer-events: auto;
 }
+/* 오른쪽 위 구석은 1·2차맵 전환 단추(shell overlays.css .map-switch) 자리 — 판 줄이 그만큼 비워 둔다(사용자 지적 2026-11-09 문제1) */
 .map-hud-top {
   top: max(var(--space-3), env(safe-area-inset-top));
   align-items: flex-start;
+  padding-right: calc(var(--map-switch-width) + var(--space-2));
 }
 .map-hud-bottom {
   bottom: max(var(--space-3), env(safe-area-inset-bottom));
@@ -103,11 +105,10 @@
   justify-content: center;
   gap: var(--space-2);
 }
-/* 탐사 없음 알림(유닛 없는 계정): 오른쪽 가운데 1·2차맵 전환 단추(shell overlays.css .map-switch)를 피해 왼쪽에 붙인다 */
+/* 탐사 없음 알림(유닛 없는 계정): 좁은 화면은 판 너비(1·2차맵 전환 단추는 오른쪽 위 구석이라 피하지 않는다) */
 .map-dark {
   max-width: none;
-  margin-left: var(--space-3);
-  margin-right: calc(var(--tap-size) + var(--space-12) + var(--space-3));
+  margin-inline: var(--space-3);
 }
 @media (min-width: 64em) {
   .map-dark {

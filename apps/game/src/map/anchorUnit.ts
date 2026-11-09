@@ -44,3 +44,31 @@ export function blockedWithoutUnits(input: {
 }): boolean {
   return !input.operator && input.units !== null && input.units.length === 0;
 }
+
+/**
+ * 명령을 받을 유닛 하나(사용자 지적 2026-11-09 문제3 "사이보그선택상태이나 건물 누르면 고른 유닛1001이라는 이상한 상태"): 아래 안내 줄의 고른 유닛을
+ * 다룰 수 있으면(내 유닛·운영자 모드) 그 유닛, 남의 유닛을 살펴보는 중이면 기준 유닛(내 유닛), 없으면 이 맵의 내 사이보그. 건물 판의 "보낼 유닛"·
+ * 채집·[옆 2차맵으로]가 이것 하나를 쓴다(옛: 건물 판은 기준 유닛만 봐서 운영자 자유 시점에 고른 유닛과 달랐다)
+ */
+export function commandUnit(input: {
+  /** 아래 안내 줄의 고른 유닛(늘 하나 — 엔진이 고르기 전이면 기준 유닛) */
+  readonly shown: number | null;
+  /** 그 유닛을 다룰 수 있나(남의 유닛이 아님) */
+  readonly shownCommandable: boolean;
+  readonly anchor: number | null;
+  readonly cyborgUnitId: number | null;
+}): number | null {
+  if (input.shown !== null && input.shownCommandable) return input.shown;
+  return input.anchor ?? input.cyborgUnitId;
+}
+
+/** 아래 판 자리에 보일 판 하나 — 누른 건물·오브젝트 판 > 내 유닛 목록 > 근처 판(사용자 지적 2026-11-09 문제4 "하나의 건물 클릭시 여러개가 다 뜬다") */
+export type BottomSheet = "gather" | "units" | "nearby";
+
+export function bottomSheetOf(input: {
+  readonly gatherOpen: boolean;
+  readonly unitsOpen: boolean;
+}): BottomSheet {
+  if (input.gatherOpen) return "gather";
+  return input.unitsOpen ? "units" : "nearby";
+}

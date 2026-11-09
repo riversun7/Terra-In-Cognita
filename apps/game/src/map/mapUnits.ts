@@ -90,6 +90,15 @@ export function unitName(unit: Pick<MapUnit, "unitId" | "kind" | "name">): strin
   return m.roster_unnamed({ type: kindLabel(unit.kind), number: String(unit.unitId) });
 }
 
+/**
+ * 화면에 쓰는 유닛 이름 하나(사용자 지적 2026-11-09 문제3 — 아래 안내 줄과 건물 판 "보낼 유닛"이 같은 이름을 쓴다): 이 2차맵 내 유닛 목록에
+ * 있으면 줄 이름(unitName — 사이보그 본체 = "이름 · 내 사이보그"), 없으면 "유닛 #번호"
+ */
+export function unitLabel(unitId: number, units: readonly MapUnit[] | null): string {
+  const mine = units?.find((unit) => unit.unitId === unitId);
+  return mine ? unitName(mine) : m.map_unit_number({ id: unitId });
+}
+
 /** 직무 이름(목록 한 줄 — 시설 직무는 시설 ID, 지금 세계에는 시험 직무만 있다) */
 function jobName(job: RosterJob): string {
   if (job.kind === "facility") return job.facility;

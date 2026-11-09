@@ -301,6 +301,12 @@ export function createItemEditorServices(deps: {
       // 효과 사전 탭(WP-6): 항목 통째·출처·해시와 효과마다 쓰는 아이템·스킬
       effectRows: taxonomyRows(state, snapshot, "effects", effective.effects, effectJsonOf),
       effectUsage: effectUsageOf(effective),
+      // 효과 사전 화면(/dev/effects): 덮어쓴 효과의 팩 항목(칸마다 팩 값과 견주고 [팩 값으로])
+      effectPack: Object.fromEntries(
+        state.pack.effects
+          .filter((entry) => originOf(state, snapshot, "effects", entry.id) === "edited")
+          .map((entry) => [entry.id, effectJsonOf(entry)]),
+      ),
     };
   };
 

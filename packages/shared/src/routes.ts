@@ -223,10 +223,11 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
-  // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md 5절): 틀 안 빽빽한 편집 화면. 저장하면 그 세계에 바로 든다
+  // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md 5절): 틀 안 빽빽한 편집 화면. ?skill=<ID>는 그 스킬을 바로 연다
+  // (효과 사전 쓰는 곳에서 온다). 저장하면 그 세계에 바로 든다
   dev_skills: {
     path: "/dev/skills",
-    search: [],
+    search: ["skill"],
     parent: "dev",
     frame: "shown",
     access: "dev_admin",
@@ -235,6 +236,15 @@ export const ROUTES = {
   dev_items: {
     path: "/dev/items",
     search: ["item"],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
+  // 효과 사전(docs/adr/2026-11-01-item-editor.md "바뀜 (2026-11-09)"): 아이템·스킬이 같이 쓰는 효과(D-425)를 따로 고치는 틀 안 화면.
+  // ?effect=<ID>는 그 효과를 바로 열고 ?create=1은 새 효과 칸을 연다(두 편집기의 효과 고르기 옆 고리). 적용하면 그 세계에 바로 든다
+  dev_effects: {
+    path: "/dev/effects",
+    search: ["effect", "create"],
     parent: "dev",
     frame: "shown",
     access: "dev_admin",

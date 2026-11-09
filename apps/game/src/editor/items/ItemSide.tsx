@@ -110,12 +110,14 @@ export function ItemSide({
           {usage.skills.length === 0 ? (
             <p className="field-hint">{m.dev_items_none()}</p>
           ) : (
-            <p>
-              {usage.skills.map((id) => skills.get(id) ?? id).join(", ")}{" "}
-              <AppLink className="ie-link" to={{ route: "dev_skills" }}>
-                {m.dev_items_open_skill_editor()}
-              </AppLink>
-            </p>
+            <div className="ie-chips">
+              {/* 스킬마다 스킬 편집기에서 바로 연다(?skill=) */}
+              {usage.skills.map((id) => (
+                <AppLink key={id} className="ie-link" to={{ route: "dev_skills", search: { skill: id } }}>
+                  {skills.get(id) ?? id}
+                </AppLink>
+              ))}
+            </div>
           )}
           <h3 className="ie-subheading">{m.dev_items_usage_wearers()}</h3>
           <p>

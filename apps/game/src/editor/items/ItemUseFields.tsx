@@ -1,6 +1,6 @@
 // 소모품·신선도 칸(설계안 2.5·3.4) — 사용 효과 줄(효과 사전에서 골라 값·확률‰·지속, 스킬 효과와 같은 모양 D-425), 줄마다 효과량 칸
 // (D-496 286·D-501: 비례 스탯·적정 스탯·±오차, WP-6), 줄마다 효과 사전 정보 한 문장(종류·대상 수치·값 방식·실효 지속·중첩, 설계안 3.5),
-// 신선도(유통기한 일·시간과 0이 되면 바뀌는 아이템, D-496 288: 아이템마다 고른다). 실제로 먹고·쓰고·썩는 실행은 보유 물건 뒤 소비 줄기다.
+// 신선도(유통기한 일·시간과 0이 되면 바뀌는 아이템, D-496 288: 아이템마다 고른다). 효과 줄마다 효과 사전 화면(/dev/effects)으로 가는 고리. 실제로 먹고·쓰고·썩는 실행은 보유 물건 뒤 소비 줄기다.
 import {
   ITEM_LIMITS,
   ITEM_PRIMARY_CODES,
@@ -12,6 +12,7 @@ import {
 import { m } from "../../paraglide/messages.js";
 import { EffectRows } from "../content/contentEditorEffects.tsx";
 import { CheckField, NumberField, SelectField } from "../content/contentEditorFields.tsx";
+import { EffectDictionaryFooter, EffectDictionaryOpenLink } from "../effects/EffectDictionaryLinks.tsx";
 import { fieldHint } from "./ItemForm.tsx";
 import { PRIMARY_TEXT, effectSentence } from "./itemMessages.ts";
 import { shelfMs, shelfParts } from "./itemModel.ts";
@@ -151,6 +152,13 @@ export function ItemUseFields({
           const { use: _drop, ...rest } = draft;
           onChange(next.length === 0 ? rest : { ...rest, use: { effects: next } });
         }}
+        renderRowExtra={(row) => (
+          <EffectDictionaryOpenLink
+            effect={row.effect}
+            name={effects.get(row.effect)?.name[locale] ?? row.effect}
+          />
+        )}
+        footer={<EffectDictionaryFooter />}
       />
       {problem("use.effects") ? <p className="field-error ce-problem">{problem("use.effects")}</p> : null}
       {rows.length > 0 ? (

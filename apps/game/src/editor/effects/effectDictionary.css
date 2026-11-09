@@ -1,0 +1,89 @@
+/*
+ * 효과 사전(/dev/effects) — 화면 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다(ADR 2026-11-02-dev-ui).
+ * 틀(머리·목록·편집 판 머리·구역·칸 견주기·담은 변경 막대)은 공용 editor/content/contentEditorShell.css.
+ * 여기는 효과 칸 격자·쓰는 곳 고리·새 효과 칸·문제 목록만.
+ */
+.fx-screen {
+  min-width: 0;
+}
+.fx-editing,
+.fx-new {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.fx-new .ce-entry-heading {
+  margin: 0;
+}
+.fx-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  min-width: 0;
+}
+.fx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  align-items: start;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.fx-grid-tight {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8rem), 1fr));
+  gap: var(--space-2) var(--space-3);
+}
+.fx-warn {
+  margin: 0;
+  color: var(--color-warning);
+}
+.fx-revert-note {
+  margin: 0;
+}
+
+/* 쓰는 곳: 이름표 | 고리들 두 칸 */
+.fx-usage {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.fx-usage dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.fx-usage dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+.fx-usage-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-size);
+  min-width: var(--tap-size);
+  overflow-wrap: anywhere;
+}
+
+/* 저장을 막는 문제(서버 검사) */
+.fx-issues {
+  display: grid;
+  gap: var(--space-1);
+}
+.fx-issues > p {
+  margin: 0;
+}
+.fx-issues ul {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+.fx-new-button {
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}

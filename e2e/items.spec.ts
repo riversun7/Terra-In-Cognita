@@ -355,7 +355,7 @@ test.describe("개발자", () => {
     await expect(burnRow).toHaveAttribute("data-selected", "");
     await expect(page.locator('.ie-fx [data-part="effect-usage"]')).toContainText(skillName);
     const form = page.locator('.ie-fx [data-effect="burn"]');
-    await form.getByLabel(message("ko", "dev_items_fx_field_duration"), { exact: true }).fill("4500");
+    await form.getByLabel(message("ko", "dev_effects_field_duration"), { exact: true }).fill("4500");
     await form.getByLabel(message("ko", "dev_items_field_name_ko"), { exact: true }).fill("e2e 화상");
     await expect(bar(page)).toHaveAttribute("data-count", "1");
     await apply(page, "e2e 효과 사전 시험");

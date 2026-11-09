@@ -56,6 +56,8 @@ const BalancePanelScreen = lazy(() => import("../editor/balance/BalancePanelScre
 const SkillEditorScreen = lazy(() => import("../editor/skills/SkillEditorScreen.tsx"));
 // 아이템 편집기(틀 안): 조각 이름 ItemEditorScreen-*(미리 캐시 규칙 [Ii]temEditor). 스킬 편집기와 같이 쓰는 부품은 contentEditor…
 const ItemEditorScreen = lazy(() => import("../editor/items/ItemEditorScreen.tsx"));
+// 효과 사전(틀 안): 조각 이름 EffectDictionaryScreen-*(미리 캐시 규칙 [Ee]ffectDictionary). 아이템·스킬 편집기가 같이 쓰는 고리도 이 앞머리
+const EffectDictionaryScreen = lazy(() => import("../editor/effects/EffectDictionaryScreen.tsx"));
 // 건물 편집기(틀 안): 조각 이름 BuildingEditorScreen-*(미리 캐시 규칙 [Bb]uildingEditor). 입력 칸·최근 바꿈은 contentEditor… 공용 부품
 const BuildingEditorScreen = lazy(() => import("../editor/buildings/BuildingEditorScreen.tsx"));
 // 크리처 편집기(틀 안): 조각 이름 CreatureEditorScreen-*(미리 캐시 규칙 [Cc]reatureEditor)
@@ -105,6 +107,7 @@ export const ROUTE_TITLES = {
   dev_balance: m.shell_route_dev_balance,
   dev_skills: m.shell_route_dev_skills,
   dev_items: m.shell_route_dev_items,
+  dev_effects: m.shell_route_dev_effects,
   dev_buildings: m.shell_route_dev_buildings,
   dev_creatures: m.shell_route_dev_creatures,
   dev_territory: m.shell_route_dev_territory,
@@ -229,9 +232,11 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
     case "dev_balance":
       return <BalancePanelScreen />;
     case "dev_skills":
-      return <SkillEditorScreen />;
+      return <SkillEditorScreen initialId={match.search.skill} />;
     case "dev_items":
       return <ItemEditorScreen initialId={match.search.item} />;
+    case "dev_effects":
+      return <EffectDictionaryScreen initialId={match.search.effect} create={match.search.create === "1"} />;
     case "dev_buildings":
       return <BuildingEditorScreen initialId={match.search.facility} />;
     case "dev_creatures":

@@ -251,9 +251,11 @@ describe("주소 표", () => {
       // 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 7절)
       dev_balance: ["/dev/balance", "dev", "shown", "dev_admin", []],
       // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md 5절)
-      dev_skills: ["/dev/skills", "dev", "shown", "dev_admin", []],
+      dev_skills: ["/dev/skills", "dev", "shown", "dev_admin", ["skill"]],
       // 아이템 편집기(docs/adr/2026-11-01-item-editor.md)
       dev_items: ["/dev/items", "dev", "shown", "dev_admin", ["item"]],
+      // 효과 사전(docs/adr/2026-11-01-item-editor.md "바뀜 (2026-11-09)")
+      dev_effects: ["/dev/effects", "dev", "shown", "dev_admin", ["effect", "create"]],
       dev_buildings: ["/dev/buildings", "dev", "shown", "dev_admin", ["facility"]],
       dev_creatures: ["/dev/creatures", "dev", "shown", "dev_admin", ["creature"]],
       // 영토 층(docs/adr/2026-11-03-territory-layer.md 5절)

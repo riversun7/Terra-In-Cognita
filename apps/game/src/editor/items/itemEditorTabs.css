@@ -1,4 +1,5 @@
-/* 아이템 편집기 [효과 사전]·[대량 도구] 탭(WP-6·WP-7) — 촘촘한 표 줄과 작은 입력(D-498 개발자 화면). tokens.css의 var(--…)만 쓴다. */
+/* 아이템 편집기 [대량 도구] 탭(WP-7)·소모품 효과량 줄(WP-6) — 촘촘한 표 줄과 작은 입력(D-498 개발자 화면). tokens.css의 var(--…)만 쓴다.
+   효과 사전은 따로 화면(editor/effects/effectDictionary.css)이다. */
 
 .ie-tab-tools {
   display: flex;
@@ -14,44 +15,6 @@
 .ie-tab-tools > button,
 .ie-tab-tools > input[type="file"] {
   flex: 0 0 auto;
-}
-.ie-tab-form {
-  display: grid;
-  gap: var(--space-2);
-  min-width: 0;
-}
-/* 효과 표(공용 .dev-table): 이름 칸은 접혀도 되고 나머지는 한 줄. 고른 줄은 고른 줄 바탕 + 왼쪽 초점색 */
-.ie-fx-table th[scope="row"] {
-  min-width: 12em;
-  overflow-wrap: anywhere;
-}
-.ie-fx-table th[scope="row"] > * {
-  margin-inline-end: var(--space-2);
-}
-.ie-fx-table td {
-  white-space: nowrap;
-}
-.ie-fx-table tbody tr[data-selected] > * {
-  background-color: var(--dev-row-selected);
-}
-.ie-fx-table tbody tr[data-selected] > th {
-  box-shadow: inset var(--space-1) 0 0 var(--color-focus);
-}
-.ie-fx-pick {
-  min-height: var(--tap-size);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--color-text);
-  font: inherit;
-  font-weight: var(--font-weight-strong);
-  text-align: start;
-  text-decoration: underline;
-  cursor: pointer;
-}
-.ie-fx-link {
-  margin-inline-end: var(--space-1);
-  cursor: pointer;
 }
 .ie-scale-rows {
   display: grid;
@@ -94,20 +57,6 @@
   max-height: 18em;
   overflow-y: auto;
 }
-/* 쓰는 곳(효과 사전): 이름표 | 표지들 두 칸 */
-.ie-fx .ie-facts[data-part="effect-usage"] {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-}
-.ie-fx .ie-facts[data-part="effect-usage"] dd {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1);
-}
-
 @media (min-width: 40em) {
   .ie-scale-row {
     grid-template-columns: minmax(8em, 1fr) repeat(3, minmax(0, 1fr));

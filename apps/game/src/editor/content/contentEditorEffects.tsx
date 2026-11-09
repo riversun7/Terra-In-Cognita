@@ -1,5 +1,6 @@
 // 효과 줄 편집(스킬 특수 효과·아이템 사용 효과, 같은 모양 D-425) — 효과 사전에서 골라 확률·지속·세기. 줄마다 더하기·빼기.
 // 범위는 팩 스키마와 같다(서버가 다시 본다). 꺼진 효과는 고르기 창에 "(꺼짐)"을 붙인다.
+import type { ReactNode } from "react";
 import { m } from "../../paraglide/messages.js";
 import { NumberField, RemoveButton, SelectField } from "./contentEditorFields.tsx";
 
@@ -78,6 +79,8 @@ export function EffectRows({
   durationMax = EFFECT_ROW_LIMITS.durationMs.max,
   legendHidden = false,
   pathPrefix,
+  renderRowExtra,
+  footer,
 }: {
   legend: string;
   rows: readonly EffectRowJson[];
@@ -93,6 +96,10 @@ export function EffectRows({
   legendHidden?: boolean;
   /** 팩 항목 안 효과 줄 경로(예 "effects", "use.effects"): 주면 칸마다 팩 값·지금 값과 견준다 */
   pathPrefix?: string | undefined;
+  /** 줄마다 [빼기] 앞에 덧붙일 것(효과 사전 고리 등) */
+  renderRowExtra?: ((row: EffectRowJson, index: number) => ReactNode) | undefined;
+  /** 줄 묶음 아래 덧붙일 것([새 효과 만들기] 등) */
+  footer?: ReactNode;
 }) {
   const at = (index: number, key: string): string | undefined =>
     pathPrefix === undefined ? undefined : `${pathPrefix}[${index}].${key}`;
@@ -143,6 +150,7 @@ export function EffectRows({
               problem={problemOf?.(index, "value")}
               onChange={(value) => onChange(replaceAt(rows, index, { ...part, value: value ?? 0 }))}
             />
+            {renderRowExtra?.(part, index)}
             <RemoveButton name={part.effect} onClick={() => onChange(removeAt(rows, index))} />
           </li>
         ))}
@@ -156,6 +164,7 @@ export function EffectRows({
           {m.dev_content_add_effect()}
         </button>
       ) : null}
+      {footer}
     </fieldset>
   );
 }

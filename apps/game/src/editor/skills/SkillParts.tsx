@@ -13,6 +13,7 @@ import {
 } from "@terra/shared/skillEditor";
 import { m } from "../../paraglide/messages.js";
 import { EffectRows, effectOptions } from "../content/contentEditorEffects.tsx";
+import { EffectDictionaryFooter, EffectDictionaryOpenLink } from "../effects/EffectDictionaryLinks.tsx";
 import { NumberField, RemoveButton, SelectField } from "../content/contentEditorFields.tsx";
 import { FormSection } from "../content/contentEditorLayout.tsx";
 import { CONDITION_TEXT, PART_TEXT, elementText } from "./skillMessages.ts";
@@ -282,7 +283,9 @@ export function EffectSection({
   effects: readonly SkillEditorEffect[];
   locale: "ko" | "en";
 }) {
-  // 효과 줄 편집은 아이템 사용 효과와 같은 부품(contentEditorEffects)이다. 구역 겉은 FormSection(시험이 sk-section을 고른다)
+  // 효과 줄 편집은 아이템 사용 효과와 같은 부품(contentEditorEffects)이다. 구역 겉은 FormSection(시험이 sk-section을 고른다).
+  // 줄마다 [효과 사전에서 열기], 아래 [새 효과 만들기](효과 사전 화면 /dev/effects, docs/adr/2026-11-01-skill-editor.md "바뀜 (2026-11-09)")
+  const names = new Map(effects.map((effect) => [effect.id, effect.name[locale]]));
   return (
     <FormSection
       name="effects"
@@ -308,6 +311,10 @@ export function EffectSection({
           row: "sk-row sk-effect-row",
           add: "sk-add",
         }}
+        renderRowExtra={(row) => (
+          <EffectDictionaryOpenLink effect={row.effect} name={names.get(row.effect) ?? row.effect} />
+        )}
+        footer={<EffectDictionaryFooter />}
       />
     </FormSection>
   );

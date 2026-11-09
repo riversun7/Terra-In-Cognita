@@ -376,10 +376,12 @@ export interface ItemEditorListResponse {
   readonly retired: Readonly<Partial<Record<ItemEditCategory, readonly string[]>>>;
   /** 잠든 줄(켤 때 적용하지 않은 덮어쓰기) */
   readonly sleeping: readonly ContentSleepingRow[];
-  /** 효과 사전 항목 통째(실효 + 출처 + 해시, [효과 사전] 탭 WP-6). 옛 서버는 보내지 않는다 */
+  /** 효과 사전 항목 통째(실효 + 출처 + 해시, 효과 사전 화면 /dev/effects, WP-6). 옛 서버는 보내지 않는다 */
   readonly effectRows?: readonly TaxonomyRow<EffectJson>[] | undefined;
   /** 효과마다 쓰는 아이템·스킬(D-425 도감) */
   readonly effectUsage?: Readonly<Record<string, EffectUsage>> | undefined;
+  /** 덮어쓴 효과의 팩 항목(효과 사전 화면이 칸마다 팩 값과 견준다. 팩 그대로·만든 효과는 없다) */
+  readonly effectPack?: Readonly<Record<string, EffectJson>> | undefined;
 }
 
 /** 아이템을 쓰는 곳(읽기와 연결만, 설계안 3.6) */

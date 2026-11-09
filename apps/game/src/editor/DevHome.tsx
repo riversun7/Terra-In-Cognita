@@ -16,6 +16,7 @@ import { BackButton } from "../shell/BackButton.tsx";
 import { Icon } from "../ui/icons.tsx";
 import {
   CrateIcon,
+  FlaskIcon,
   ForwardIcon,
   GaugeIcon,
   HouseIcon,
@@ -110,6 +111,15 @@ const DEV_TOOLS = {
     tagEn: "LIVE EDIT · Reserves P1~P4",
     ready: true,
   },
+  // 효과 사전(docs/adr/2026-11-01-item-editor.md "바뀜 (2026-11-09)"): 아이템·스킬이 같이 쓰는 효과(D-425), 효과마다 쓰는 곳
+  dev_effects: {
+    name: m.shell_route_dev_effects,
+    desc: m.dev_tool_effects_desc,
+    mark: <FlaskIcon />,
+    tagKo: "LIVE EDIT · 효과 D-425",
+    tagEn: "LIVE EDIT · Effects D-425",
+    ready: true,
+  },
   // 건물 편집기(docs/adr/2026-11-02-building-editor.md): 시설마다 레벨 구간별 건설 재료·자리·채집 칸 + N43 티어 확률 분포
   dev_buildings: {
     name: m.shell_route_dev_buildings,
@@ -201,7 +211,7 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "시설·채집 티어 확률(N43), 아이템·총량 자원(P1~P4), 스킬·소모, 구인 카드를 담고(Draft) 검사 뒤 즉시 반영합니다.",
     subEn:
       "Stage, validate, and live-apply facilities, N43 gather tier probabilities, items (P1~P4 reserves), skills, and recruitment.",
-    routes: ["dev_creatures", "dev_buildings", "dev_items", "dev_skills", "dev_recruit"],
+    routes: ["dev_creatures", "dev_buildings", "dev_items", "dev_skills", "dev_effects", "dev_recruit"],
   },
   {
     id: "balance",

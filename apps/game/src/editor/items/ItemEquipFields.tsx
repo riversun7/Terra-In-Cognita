@@ -383,7 +383,7 @@ export function ItemEquipFields({
                   }
                   onChange={(next) => onChange({ ...equip, skills: replaceAt(skills, index, next) })}
                 />
-                <AppLink className="ie-link" to={{ route: "dev_skills" }}>
+                <AppLink className="ie-link" to={{ route: "dev_skills", search: { skill: id } }}>
                   {m.dev_items_open_skill_editor()}
                 </AppLink>
                 <RemoveButton

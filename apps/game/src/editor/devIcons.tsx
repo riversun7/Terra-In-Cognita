@@ -93,6 +93,18 @@ export function CrateIcon() {
   );
 }
 
+/** 효과 사전(목 긴 시약병과 거품) */
+export function FlaskIcon() {
+  return (
+    <DevIcon>
+      <path d="M9.5 3.5h5M10.5 3.5v5.2L5.3 18a1.8 1.8 0 0 0 1.6 2.5h10.2a1.8 1.8 0 0 0 1.6-2.5l-5.2-9.3V3.5" />
+      <path d="M7.6 14h8.8" />
+      <circle cx="11" cy="17" r=".6" />
+      <circle cx="14" cy="16.6" r=".6" />
+    </DevIcon>
+  );
+}
+
 /** 구인 카드 시험(사람 카드) */
 export function PersonCardIcon() {
   return (

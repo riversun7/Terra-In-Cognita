@@ -276,6 +276,9 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
       "assets/SkillEditorScreen-S1k2E3d4.css",
       "assets/ItemEditorScreen-I1t2E3m4.js",
       "assets/ItemEditorScreen-I1t2E3m4.css",
+      "assets/EffectDictionaryScreen-E1f2X3d4.js",
+      "assets/EffectDictionaryScreen-E1f2X3d4.css",
+      "assets/EffectDictionaryLinks-E5f6X7d8.js",
       "assets/BuildingEditorScreen-B1u2I3l4.js",
       "assets/BuildingEditorScreen-B1u2I3l4.css",
       "assets/CreatureEditorScreen-C1r2E3a4.js",
@@ -387,6 +390,7 @@ describe("미리 캐시하는 조각의 소스(DEV_ONLY_SOURCE)", () => {
     expect(DEV_ONLY_SOURCE.test("../../src/map/SecondaryMapScreen.tsx")).toBe(false);
     expect(DEV_ONLY_SOURCE.test("../../src/editor/tuning/settingsCells.json")).toBe(true);
     expect(DEV_ONLY_SOURCE.test("../../src/settings/SettingsPage.tsx")).toBe(false);
+    expect(DEV_ONLY_SOURCE.test("../../src/editor/effects/EffectDictionaryScreen.tsx")).toBe(true);
   });
 });
 
@@ -405,6 +409,7 @@ describe("개발자 도구 조각 이름(DEV_ONLY_CHUNK가 기대는 규칙)", (
         "apps/game/src/editor/balance/BalancePanelScreen.tsx",
         "apps/game/src/editor/skills/SkillEditorScreen.tsx",
         "apps/game/src/editor/items/ItemEditorScreen.tsx",
+        "apps/game/src/editor/effects/EffectDictionaryScreen.tsx",
         "apps/game/src/editor/buildings/BuildingEditorScreen.tsx",
         "apps/game/src/editor/battleReplayLab/BattleReplayLabScreen.tsx",
       ]),

@@ -13,7 +13,6 @@ import {
   DEFAULT_PREVIEW_UNIT,
   ITEM_EDITOR_REASONS,
   ITEM_EDIT_CATEGORIES,
-  type EffectJson,
   type ItemCategoryId,
   type ItemEditorCheckResponse,
   type ItemEditorHistoryRow,
@@ -60,7 +59,6 @@ import {
   cleanItem,
   duplicateItem,
   newItemTemplate,
-  stageEffect,
   stageItem,
   stageKeys,
   stageTaxonomy,
@@ -358,7 +356,7 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
   const pick = (key: string): void => {
     const { category, id } = splitKey(key);
     if (category !== "items") {
-      setTab(category === "effects" ? "effects" : "taxonomy");
+      setTab("taxonomy");
       return;
     }
     select(id);
@@ -393,9 +391,6 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
       change,
     );
   };
-
-  const stageEff = (id: string, next: Staged<EffectJson> | null): void =>
-    staging.push(stageEffect(staging.current(), id, next), `effects/${id}`);
 
   const bulk = (): BulkContext | null =>
     list
@@ -507,12 +502,9 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
               staged:
                 value === "items"
                   ? stage.items.size
-                  : value === "effects"
-                    ? stage.effects.size
-                    : value === "taxonomy"
-                      ? keys.filter((key) => /^(item_subcategories|item_tags|weapon_types)\//.test(key))
-                          .length
-                      : 0,
+                  : value === "taxonomy"
+                    ? keys.filter((key) => /^(item_subcategories|item_tags|weapon_types)\//.test(key)).length
+                    : 0,
             }))}
           />
           {tab === "items" ? (
@@ -604,8 +596,6 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
               locale={locale}
               issues={checked?.result?.issues ?? []}
               onStageTaxonomy={stageTax}
-              onStageEffect={stageEff}
-              onOpenItem={(id) => select(id)}
               onImport={(entries, current) => {
                 const ctx = bulk();
                 if (ctx) stageImport(ctx, entries, current);

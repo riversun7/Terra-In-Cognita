@@ -373,6 +373,13 @@ describe.skipIf(!TEST_DATABASE_URL)("아이템 편집기 (DB)", () => {
         .find((item) => obj(item.entry).id === "burn"),
     );
     expect([row.origin, obj(row.entry).durationMs]).toEqual(["edited", 4500]);
+    // 효과 사전 화면(/dev/effects): 덮어쓴 효과만 팩 항목을 같이 준다(칸마다 팩 값 견주기)
+    expect(Object.keys(obj(after.effectPack))).toEqual(["burn"]);
+    expect(obj(obj(after.effectPack).burn)).toMatchObject({
+      id: "burn",
+      durationMs: obj(burn.entry).durationMs,
+    });
+    expect(obj(listed.effectPack)).toEqual({});
     expect(arr(obj(obj(after.effectUsage).burn).skills)).toEqual(expect.arrayContaining(["fire_bolt"]));
     const skills = obj(resultOf(await trpcQuery(app, "skills.list", undefined, cookie.dev)));
     const skillEffect = obj(

@@ -7,7 +7,7 @@
 // - [행동별 소모] 칸: 행동·스킬마다 스태미나·MP(CostTable, D-491). 줄마다 [적용]이 바로 보낸다.
 // - 묶음에 고치기 시작할 때의 실효 항목 해시(baseHash)를 싣는다: 다른 스킬만 바뀐 판 충돌은 받고, 같은 스킬을 누가 먼저 바꿨으면
 //   (entry_changed) 목록을 다시 받아 내가 바꾼 칸만 새 항목 위에 다시 얹는다(3방향, 같은 칸을 양쪽이 바꿨으면 알린다). [내보내기]는
-//   팩 차이(tuning.export, entries 칸)다. 키: "/" 찾기, 목록 ↑↓·Enter, Alt+↑↓ 이전·다음 스킬, Ctrl/⌘+S 적용.
+//   팩 차이(tuning.export, entries 칸)다. 주소 ?skill=<ID>는 그 스킬을 바로 연다. 키: "/" 찾기, 목록 ↑↓·Enter, Alt+↑↓ 이전·다음 스킬, Ctrl/⌘+S 적용.
 // 조각 이름 SkillEditorScreen-*(미리 캐시 규칙 [Ss]killEditor). 시험용 data-*: data-status(loading·ready·failed), data-revision.
 import type {
   SkillEditorChange,
@@ -85,15 +85,16 @@ const errorLines = (info: SkillErrorInfo): string[] => [errorText(info.key), ...
 const hashOf = (target: Draft): { baseHash?: string | null } =>
   target.isNew ? { baseHash: null } : target.baseHash === undefined ? {} : { baseHash: target.baseHash };
 
-export default function SkillEditorScreen() {
+export default function SkillEditorScreen({ initialId }: { initialId?: string | undefined } = {}) {
   const locale = getLocale() === "en" ? "en" : "ko";
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const searchRef = useRef<HTMLInputElement>(null);
   const tabsId = useId();
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [tab, setTab] = useState<Tab>("skills");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [view, setView] = useState<"list" | "detail">("list");
+  // ?skill=<ID>(효과 사전 쓰는 곳·아이템 편집기 주는 스킬에서 온다): 목록을 받으면 그 스킬을 연다
+  const [selected, setSelected] = useState<string | null>(initialId ?? null);
+  const [view, setView] = useState<"list" | "detail">(initialId ? "detail" : "list");
   const [drafts, setDrafts] = useState<ReadonlyMap<string, Draft>>(new Map());
   const [query, setQueryState] = useState<SkillListQuery>(EMPTY_SKILL_QUERY);
   const [note, setNote] = useState("");

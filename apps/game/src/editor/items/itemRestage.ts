@@ -1,5 +1,5 @@
 // 최근 바꿈의 한 줄을 다시 담기(설계안 3.10 [다시 담기]·[이 판으로 되돌리기]) — 감사 줄 ID로 그 판의 항목 하나만 받아 담은 변경에
-// 넣는다. 아이템·분류 자료·효과 사전(WP-6) 모두. 화면(ItemEditorScreen)에서 뗀 비동기 함수다(파일 크기).
+// 넣는다. 아이템·분류 자료·효과 사전(WP-6) 모두(효과 사전 화면 /dev/effects도 같은 줄을 다시 담는다). 화면(ItemEditorScreen)에서 뗀 비동기 함수다(파일 크기).
 import type { ContentHistoryRow } from "@terra/shared/contentEdit";
 import {
   ITEM_EDIT_CATEGORIES,
@@ -25,7 +25,7 @@ export interface RestageDeps {
   readonly push: (next: Stage) => void;
   readonly setDetail: (id: string, data: ItemEditorGetResponse) => void;
   readonly openItem: (id: string) => void;
-  readonly openTab: (tab: "taxonomy" | "effects") => void;
+  readonly openTab: (tab: "taxonomy") => void;
   readonly notice: (lines: string[]) => void;
   readonly problem: (lines: string[]) => void;
   readonly fail: (error: unknown) => void;
@@ -64,7 +64,7 @@ export async function restageFromHistory(
           baseHash: row?.hash ?? null,
         }),
       );
-      deps.openTab("effects");
+      // 효과 사전은 따로 화면(/dev/effects)이다: 담은 변경 막대에만 보이고 같은 묶음으로 간다
     } else {
       const tax = TAXONOMY_CATEGORIES.find((item) => item === category);
       if (!tax || !isTaxonomyJson(tax, entry)) return;

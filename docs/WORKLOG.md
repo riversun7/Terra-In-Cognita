@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-09 17:20 | 2차맵 가까이 볼 때 가시거리: 더 눕히기, 화면이 보는 땅에 소품, 가시거리 자동 조절 | Claude Code | [09-1720-map-viewdist](worklog/2026/11/09-1720-map-viewdist.md) |
 | 2026-11-09 17:00 | 2차맵 남의 유닛 누르기 → 정보 판, [옆 2차맵으로]·[시험 일꾼 받기]·탐사 없음 안내 지움 | Claude Code | [09-1700-map-tap-fix](worklog/2026/11/09-1700-map-tap-fix.md) |
 | 2026-11-09 16:50 | 1차맵에서 고른 지역으로 이동 — [이곳으로 이동]·명령 판 대상 넓히기·보낼 유닛 고르기 | Claude Code | [09-1650-planet-travel](worklog/2026/11/09-1650-planet-travel.md) |
 | 2026-11-09 15:00 | 세력 관리: 세력 정체성·화폐 표시, 운영자 콘솔 세력 관리·화폐 탭 | Claude Code | [09-1500-faction-profiles](worklog/2026/11/09-1500-faction-profiles.md) |

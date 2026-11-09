@@ -124,6 +124,9 @@ export interface EngineStats {
   /** 소품 모델을 세우는 화면 짧은 변 상한(m)·모델 수 상한(setViewOptions로 바꾼 값) */
   propSpanM: number;
   propCap: number;
+  /** 가시거리 단계(0부터, render/viewDistance.ts — 프레임 시간 여유로 자동)와 그 거리(m, 화면 가운데 땅에서 소품 모델을 세우는 거리) */
+  viewLevel: number;
+  viewReachM: number;
   /** 격자 선을 그리는지 */
   grid: boolean;
 }
@@ -134,7 +137,7 @@ export interface EngineViewOptions {
   grid?: boolean;
   /** 소품 모델을 세우는 화면 짧은 변 상한(m, 기본 420, 50~3,000) */
   propSpanM?: number;
-  /** 소품 모델 수 상한(기본 2,500, 0~20,000) */
+  /** 소품 모델 수 상한(0~20,000). 주면 가시거리 단계 상한 대신 이 값을 쓴다 */
   propCap?: number;
 }
 

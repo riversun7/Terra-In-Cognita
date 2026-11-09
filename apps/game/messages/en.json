@@ -469,6 +469,7 @@
   "map_perf_scene": "Units {units} · {calls} draws",
   "map_perf_engine": "Engine {ms} ms",
   "map_perf_pixels": "Pixel ratio {ratio} · buffer {width}×{height}",
+  "map_perf_view": "View distance {reach}m · level {level} · props {props}",
   "map_perf_light": "Local {time} · sun {sun}° · moon {moon}%",
   "map_compass_label": "Compass: the needle points to this map's north",
   "map_compass_north": "N",

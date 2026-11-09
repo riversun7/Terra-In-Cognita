@@ -5,7 +5,13 @@
 //   가는 길(중간 자리)은 묶지 않는다 — 떨어진 두 원 사이를 날 때 원 가장자리에서 튀지 않게.
 // - 확대 움직임(distanceGoal): [+]·[−]가 정한 거리로 로그 눈금에서 지수 감쇠. 화면 가운데(= 목표점)를 붙잡으므로 거리만 바꾼다.
 // - 손짓(끌기)이 따라가기를 끊는 것과 손가락 확대가 확대 움직임을 끊는 것은 엔진(secondMapEngine.ts)이 정한다.
-import { type CameraLimits, type CameraState, type GroundPoint, clampCamera } from "./cameraMath.ts";
+import {
+  type CameraLimits,
+  type CameraState,
+  type GroundPoint,
+  clampCamera,
+  withViewPitch,
+} from "./cameraMath.ts";
 
 /** 따라가기 목표점이 따라붙는 빠르기(지수 감쇠 시간, ms) */
 export const FOLLOW_SMOOTH_MS = 160;
@@ -84,7 +90,8 @@ export class CameraGlide {
       const goal = clamp(this.distanceGoal, limits.minDistance, limits.maxDistance);
       const log = approach(Math.log(next.distance), Math.log(goal), deltaMs, ZOOM_SMOOTH_MS, SNAP_LOG);
       const reached = log === Math.log(goal);
-      next = { ...next, distance: reached ? goal : Math.exp(log) };
+      // 거리가 바뀌면 그린 기울기도 따라 바뀐다(가까이 눕힘). 목표점은 묶지 않는다(따라가는 중간 자리)
+      next = withViewPitch({ ...next, distance: reached ? goal : Math.exp(log) }, limits);
       if (reached) this.distanceGoal = null;
       else busy = true;
     }

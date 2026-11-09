@@ -1,5 +1,8 @@
 // 쿼터뷰 카메라 계산 — 순수 함수(시험 대상). three.js를 쓰지 않는다. ADR 2026-10-28-s1-second-map "카메라와 조작"
 // - 기울기(pitch)는 약 35~55°(기본 45°)로 묶어 지평선이 보이지 않게 한다. 회전(yaw)은 자유다.
+//   가까이 볼 때(확대 5단계 근처)는 그린 기울기를 더 눕혀(기본 45° → 30°) 먼 곳까지 보이게 한다. 화면 위 끝 시선은 늘 수평 아래
+//   VIEW_HORIZON_MARGIN_RAD 이상이라 지평선은 여전히 보이지 않는다(사용자 지적 2026-11-09 "확대하면 주변이 더 안 보인다",
+//   docs/adr/2026-10-28-s1-second-map.md "바뀜 (2026-11-09)"). 사용자가 고른 기울기(basePitch)와 그린 기울기(pitch)를 나눠 둔다.
 // - 확대: 근접(화면 짧은 변이 약 40m)부터 2차맵 전체가 보이는 거리까지. 화면 가로가 짧은 휴대폰(세로)에서는 가로가 40m다.
 // - 이동: 목표점(화면 가운데가 보는 땅)이 2차맵 안에 머문다. 보기 범위(area, 원 여러 개)가 있으면 그 원들 가운데 하나 안에 머문다
 //   (플레이어 카메라는 내 유닛·건물 둘레만 — 기획 정리 630, docs/adr/2026-11-07-unit-control.md "바뀜 (기획 답 630~637)").
@@ -29,8 +32,10 @@ export interface CameraState {
   targetZ: number;
   /** 방위(rad) */
   yaw: number;
-  /** 내려다보는 각(rad, 수평 0) */
+  /** 그린 기울기 = 내려다보는 각(rad, 수평 0). clampCamera·withViewPitch가 basePitch와 거리로 정한다 — 시선 계산은 모두 이 값을 쓴다 */
   pitch: number;
+  /** 사용자가 고른 기울기(rad, 먼 확대 기준, 35~55°). 없으면 pitch를 그 값으로 본다 */
+  basePitch?: number;
   /** 목표점까지 거리(m) */
   distance: number;
 }
@@ -87,6 +92,13 @@ export const CAMERA_FOV_RAD = 40 * DEG;
 export const DEFAULT_PITCH_RAD = 45 * DEG;
 export const MIN_PITCH_RAD = 35 * DEG;
 export const MAX_PITCH_RAD = 55 * DEG;
+/** 가까이 볼 때 더 눕히는 각(rad): 기본 45° → 30° */
+export const CLOSE_TILT_RAD = 15 * DEG;
+/** 화면 위 끝 시선이 수평 아래로 남기는 각(rad) — 그린 기울기 하한 = 시야각/2 + 이 값(28°). 지평선이 화면에 들지 않게 */
+export const VIEW_HORIZON_MARGIN_RAD = 8 * DEG;
+/** 눕힘이 다 걸리는 확대(거리 ÷ 가장 가까운 거리)와 없어지는 확대. 사이는 로그 거리로 부드럽게(확대 5단계 ≈ 1~1.6, 4단계 ≈ 2~3.3) */
+export const TILT_FULL_ZOOM = 1.5;
+export const TILT_NONE_ZOOM = 4;
 /** 가장 가까이: 화면 짧은 변에 보이는 길이(m) */
 export const CLOSE_VIEW_SPAN_M = 40;
 /** 가장 멀리: 2차맵 대각선 × 이 값이 화면 짧은 변에 들어간다(어떤 방향으로 돌려도 전체가 보인다) */
@@ -135,6 +147,38 @@ export function cameraLimitsFor(mapSizeM: number, viewport: Viewport, fov = CAME
   };
 }
 
+/** 거리 distance에서 더 눕히는 각(rad): 가까울수록 CLOSE_TILT_RAD에 가깝고 TILT_NONE_ZOOM배부터 0 */
+export function closeTilt(distance: number, minDistance: number): number {
+  if (!(minDistance > 0) || !(distance > 0)) return 0;
+  const zoom = distance / minDistance;
+  const t = clamp(
+    (Math.log(TILT_NONE_ZOOM) - Math.log(zoom)) / (Math.log(TILT_NONE_ZOOM) - Math.log(TILT_FULL_ZOOM)),
+    0,
+    1,
+  );
+  // 부드러운 계단(smoothstep): 끝에서 기울기 변화가 0이라 확대하며 꺾이는 느낌이 없다
+  return CLOSE_TILT_RAD * t * t * (3 - 2 * t);
+}
+
+/** 그린 기울기 = 사용자 기울기 − 가까이 눕힘. 지평선이 보이지 않는 하한(시야각/2 + 여유) 아래로 내려가지 않는다 */
+export function viewPitch(
+  basePitch: number,
+  distance: number,
+  minDistance: number,
+  fov = CAMERA_FOV_RAD,
+): number {
+  const floor = fov / 2 + VIEW_HORIZON_MARGIN_RAD;
+  return Math.max(Math.min(basePitch, floor), basePitch - closeTilt(distance, minDistance));
+}
+
+/** 그린 기울기만 다시 정한다(거리를 바꾼 뒤, 목표점은 묶지 않을 때 — 따라가기 중간 자리) */
+export function withViewPitch(state: CameraState, limits: CameraLimits): CameraState {
+  const base = clamp(state.basePitch ?? state.pitch, limits.minPitch, limits.maxPitch);
+  const pitch = viewPitch(base, state.distance, limits.minDistance);
+  if (pitch === state.pitch && base === state.basePitch) return state;
+  return { ...state, pitch, basePitch: base };
+}
+
 /** 처음 거리 = 가장 가까운 거리 × 이 값(화면 짧은 변 약 70m: 유닛이 실제 크기로 보이는 범위) */
 const INITIAL_ZOOM = 1.75;
 
@@ -152,6 +196,7 @@ export function initialCamera(
       targetZ: mapSizeM / 2,
       yaw: 0,
       pitch: DEFAULT_PITCH_RAD,
+      basePitch: DEFAULT_PITCH_RAD,
       distance: limits.minDistance * zoom,
     },
     limits,
@@ -171,13 +216,16 @@ export function clampCamera(state: CameraState, limits: CameraLimits): CameraSta
     limits.area && limits.area.length > 0
       ? clampToArea({ x: state.targetX, z: state.targetZ }, limits.area)
       : { x: state.targetX, z: state.targetZ };
+  const basePitch = clamp(state.basePitch ?? state.pitch, limits.minPitch, limits.maxPitch);
+  const distance = clamp(state.distance, limits.minDistance, limits.maxDistance);
   return {
     targetX: clamp(inArea.x, limits.minX, limits.maxX),
     targetY: state.targetY,
     targetZ: clamp(inArea.z, limits.minZ, limits.maxZ),
     yaw: normalizeAngle(state.yaw),
-    pitch: clamp(state.pitch, limits.minPitch, limits.maxPitch),
-    distance: clamp(state.distance, limits.minDistance, limits.maxDistance),
+    pitch: viewPitch(basePitch, distance, limits.minDistance),
+    basePitch,
+    distance,
   };
 }
 
@@ -295,14 +343,15 @@ export function transformAround(
   return keepGroundUnder(changed, anchor, next, viewport, limits, fov);
 }
 
-/** 목표점을 중심으로 돌리고 기울인다(데스크톱 오른쪽 끌기) */
+/** 목표점을 중심으로 돌리고 기울인다(데스크톱 오른쪽 끌기). 기울기는 사용자 기울기(basePitch)를 바꾼다 */
 export function orbit(
   state: CameraState,
   deltaYaw: number,
   deltaPitch: number,
   limits: CameraLimits,
 ): CameraState {
-  return clampCamera({ ...state, yaw: state.yaw + deltaYaw, pitch: state.pitch + deltaPitch }, limits);
+  const base = state.basePitch ?? state.pitch;
+  return clampCamera({ ...state, yaw: state.yaw + deltaYaw, basePitch: base + deltaPitch }, limits);
 }
 
 /** 두 손가락의 변화: 거리 배율(벌리면 1보다 작다 = 가까이), 회전(rad, 화면에서 시계 방향이 +), 가운데 점 */

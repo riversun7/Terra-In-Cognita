@@ -48,6 +48,8 @@ export function inertEngine(): SecondMapEngine {
     props: 0,
     propSpanM: 0,
     propCap: 0,
+    viewLevel: 0,
+    viewReachM: 0,
     grid: false,
     zoomStage: 0,
     following: null,

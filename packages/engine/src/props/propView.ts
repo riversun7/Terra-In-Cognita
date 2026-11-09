@@ -1,10 +1,11 @@
 // 2차맵 소품 모델(가까이만) — 사용자 결정 U5 (가), ADR 2026-10-31-second-map-from-planet 5절(기기 장식).
-// - 화면 짧은 변이 PROP_MODEL_SPAN_M보다 짧을 때만 카메라 목표 둘레(반지름 = 화면 폭에 맞춤)의 배치 칸마다 모델을 세운다.
+// - 화면 짧은 변이 PROP_MODEL_SPAN_M보다 짧을 때만 화면이 보는 땅(propArea.ts: 시야 사다리꼴 ∩ 가시거리 원)의 배치 칸마다 모델을 세운다.
+//   가시거리·모델 수 상한은 엔진의 가시거리 자동 조절(render/viewDistance.ts)이 setReach로 정한다(2026-11-09, 전에는 목표 둘레 원).
 //   멀리서는 모델 없이 땅 색에 소품 색을 섞는다(terrainMaterial.ts uProps). 그래서 휴대폰 그리기 부담이 작다.
-// - 빽빽한 숲(차폐)·바위·덤불·갈대·쓰러진 나무는 칸마다 하나, 성긴 숲(은폐)은 둘에 하나(칸 해시). 최대 MAX_PROPS개(가까운 칸부터).
+// - 빽빽한 숲(차폐)·바위·덤불·갈대·쓰러진 나무는 칸마다 하나, 성긴 숲(은폐)은 둘에 하나(칸 해시). 상한을 넘으면 화면 아래(보는 사람) 쪽 칸부터.
 // - 지금 2차맵과 받은 이웃 2차맵 모두에 세운다(경계 너머에서도 숲이 끊기지 않는다, PropSource).
 // - 모양마다 InstancedMesh 하나(줄기는 나무 셋이 함께): 그리기 호출 최대 8번. 자리·돌림·크기는 칸 해시로 정한다(장식이라
-//   Math를 써도 된다, 판정 아님). 목표가 반지름의 1/4 넘게 움직이거나 반지름이 1/4 넘게 바뀌면 다시 세운다.
+//   Math를 써도 된다, 판정 아님). 세운 땅은 둘레 여유(AREA_MARGIN)만큼 넓혀 두고, 지금 보는 땅이 그 안에 다 들어 있으면 다시 세우지 않는다.
 import {
   BufferGeometry,
   Color,
@@ -21,7 +22,9 @@ import {
 } from "three";
 import { type NeighbourPlacement, toLocal } from "../terrain/neighbourTerrains.ts";
 import { PLACEMENT_CELLS } from "../terrain/terrainData.ts";
+import { type PropArea, insideDistance, polygonArea } from "./propArea.ts";
 import { type PropShape, propLook } from "./propLook.ts";
+import { VIEW_DISTANCE_LEVELS, VIEW_DISTANCE_START_LEVEL } from "../render/viewDistance.ts";
 
 /** 소품 층 하나: 지금 2차맵(놓는 자리 null) 또는 이웃 2차맵(놓는 자리, 지형 칸 단위) */
 export interface PropSource {
@@ -34,16 +37,19 @@ export interface PropSource {
 
 /** 모델을 세우는 화면 짧은 변 상한(m) — 이보다 멀면 땅 색만. 기본값(개발자 2차맵 시험이 setLimits로 바꿔 본다) */
 export const PROP_MODEL_SPAN_M = 420;
-/** 한 번에 세우는 모델 수 상한(가까운 칸부터). 기본값 */
-export const MAX_PROPS = 2_500;
+/** 한 번에 세우는 모델 수 상한 기본값 = 가시거리 처음 단계의 상한 */
+export const MAX_PROPS = VIEW_DISTANCE_LEVELS[VIEW_DISTANCE_START_LEVEL]?.maxProps ?? 5_000;
+/** 가시거리 기본값(m, 화면 가운데 땅에서) = 가시거리 처음 단계 */
+export const PROP_REACH_M = VIEW_DISTANCE_LEVELS[VIEW_DISTANCE_START_LEVEL]?.reachM ?? 250;
 /** setLimits가 받는 범위(개발자 시험용): 화면 짧은 변 50 ~ 3,000m, 모델 0 ~ 20,000개 */
 export const PROP_SPAN_RANGE_M = [50, 3_000] as const;
 export const PROP_CAP_RANGE = [0, 20_000] as const;
-/** 모델 반지름 = 화면 짧은 변 × 이 값, 아래·위 한계(m) */
-const RADIUS_FACTOR = 0.8;
-const MIN_RADIUS_M = 60;
-/** 반지름 위 한계 = 모델 상한 거리 × 이 값(기본 420m → 340m) */
-const MAX_RADIUS_PER_SPAN = 340 / 420;
+/** 세운 땅의 둘레 여유(m) = 가시거리 × 이 값, 아래·위 한계. 화면 아래 끝 밖 나무 윗부분이 보이는 것과 다시 세우는 빈도를 함께 덮는다 */
+const AREA_MARGIN_FACTOR = 0.1;
+const MIN_AREA_MARGIN_M = 12;
+const MAX_AREA_MARGIN_M = 40;
+/** 보는 땅이 세운 땅의 이 몫보다 작아지면(가까이 확대) 다시 세운다 — 상한을 좁은 곳에 다시 모으려고 */
+const SHRINK_REBUILD = 0.5;
 const TRUNK_COLOR = new Color(0.42, 0.32, 0.22);
 
 type Part = "trunk" | "broadleaf" | "conifer" | "palm" | "bush" | "reeds" | "boulder" | "log";
@@ -84,15 +90,28 @@ interface Candidate {
   distance2: number;
 }
 
+/** 층 안 배치 칸(연속, 칸 가운데는 +0.5) → 세계 자리(m). 이웃이면 놓는 자리로 옮긴다(놓는 자리는 지형 칸 = 배치 칸 2개) */
+function cellToWorld(
+  placement: NeighbourPlacement | null,
+  lx: number,
+  lz: number,
+  cellM: number,
+): { x: number; z: number } {
+  if (!placement) return { x: lx * cellM, z: lz * cellM };
+  const { a, b, cc, d, tx, tz } = placement;
+  const c = lx / 2;
+  const r = lz / 2;
+  return { x: (a * c + b * r + tx) * 2 * cellM, z: (cc * c + d * r + tz) * 2 * cellM };
+}
+
 export class PropView {
   readonly group = new Group();
   private readonly meshes = new Map<Part, InstancedMesh>();
   private sources: readonly PropSource[] = [];
   private cellM = 1;
   private groundAt: (x: number, z: number) => number = () => 0;
-  private lastX = Number.NaN;
-  private lastZ = Number.NaN;
-  private lastRadius = 0;
+  /** 마지막으로 세운 땅(둘레 여유를 넣지 않은 다각형)·여유·넓이. null이면 다음 update에서 꼭 다시 세운다 */
+  private built: { polygon: readonly { x: number; z: number }[]; margin: number; area: number } | null = null;
   private drawnCount = 0;
   private readonly matrix = new Matrix4();
   private readonly position = new Vector3();
@@ -103,7 +122,11 @@ export class PropView {
   private readonly color = new Color();
   private readonly tilt = new Quaternion();
   private spanM = PROP_MODEL_SPAN_M;
-  private maxProps = MAX_PROPS;
+  /** 가시거리(m, 화면 가운데 땅에서)와 그 단계의 모델 수 상한(setReach) */
+  private reachM = PROP_REACH_M;
+  private levelCap = MAX_PROPS;
+  /** 개발자 2차맵 시험이 정한 모델 수 상한(setLimits). null이면 가시거리 단계 상한 */
+  private capOverride: number | null = null;
   /** 모양마다 인스턴스 자리 수(상한을 올리면 다시 만든다) */
   private capacity = 0;
   /** 지금 2차맵에서 건물이 차지한 배치 칸(1이면 소품 모델을 세우지 않는다). null이면 없음 */
@@ -134,9 +157,25 @@ export class PropView {
     this.capacity = capacity;
   }
 
-  /** 지금 상한(화면 짧은 변 m, 모델 수) */
-  get limits(): { spanM: number; maxProps: number } {
-    return { spanM: this.spanM, maxProps: this.maxProps };
+  /** 지금 모델 수 상한 */
+  private get maxProps(): number {
+    return this.capOverride ?? this.levelCap;
+  }
+
+  /** 지금 상한(화면 짧은 변 m, 모델 수)과 가시거리(m) */
+  get limits(): { spanM: number; maxProps: number; reachM: number } {
+    return { spanM: this.spanM, maxProps: this.maxProps, reachM: this.reachM };
+  }
+
+  /** 가시거리(m)와 그 단계 모델 수 상한(엔진의 가시거리 자동 조절). 다음 update에서 다시 세운다 */
+  setReach(reachM: number, maxProps: number): void {
+    const reach = Math.max(1, Number.isFinite(reachM) ? reachM : PROP_REACH_M);
+    const cap = Math.max(0, Math.round(Number.isFinite(maxProps) ? maxProps : MAX_PROPS));
+    if (reach === this.reachM && cap === this.levelCap) return;
+    this.reachM = reach;
+    this.levelCap = cap;
+    if (this.maxProps > this.capacity) this.allocate(this.maxProps);
+    this.built = null;
   }
 
   /**
@@ -147,11 +186,11 @@ export class PropView {
     const [spanLow, spanHigh] = PROP_SPAN_RANGE_M;
     const [capLow, capHigh] = PROP_CAP_RANGE;
     this.spanM = Math.min(spanHigh, Math.max(spanLow, Number.isFinite(spanM) ? spanM : PROP_MODEL_SPAN_M));
-    this.maxProps = Math.round(
+    this.capOverride = Math.round(
       Math.min(capHigh, Math.max(capLow, Number.isFinite(maxProps) ? maxProps : MAX_PROPS)),
     );
     if (this.maxProps > this.capacity) this.allocate(this.maxProps);
-    this.lastX = Number.NaN;
+    this.built = null;
   }
 
   /** 그린 모델 수(마지막으로 세운 것) */
@@ -168,7 +207,7 @@ export class PropView {
     this.sources = sources;
     this.cellM = cellM;
     this.groundAt = groundAt;
-    this.lastX = Number.NaN;
+    this.built = null;
     this.drawnCount = 0;
     for (const mesh of this.meshes.values()) mesh.count = 0;
     this.group.visible = false;
@@ -177,43 +216,41 @@ export class PropView {
   /** 건물이 차지한 칸(지금 2차맵, 배치 칸 256²). 다음 update에서 다시 세운다 — 나무가 건물 판을 뚫고 서지 않게 */
   setBlocked(mask: Uint8Array | null): void {
     this.blocked = mask;
-    this.lastX = Number.NaN;
+    this.built = null;
   }
 
-  /** 카메라가 바뀐 뒤 부른다. 다시 세웠으면 true(한 번 더 그려야 한다) */
-  update(targetX: number, targetZ: number, viewSpanM: number): boolean {
+  /** 둘레 여유(m) — 가시거리에 비례 */
+  private margin(): number {
+    return Math.min(MAX_AREA_MARGIN_M, Math.max(MIN_AREA_MARGIN_M, this.reachM * AREA_MARGIN_FACTOR));
+  }
+
+  /**
+   * 카메라가 바뀐 뒤 부른다. viewSpanM = 화면 짧은 변(m), area = 화면이 보는 땅(propArea, 지금 가시거리로 자른 것).
+   * 다시 세웠으면 true(한 번 더 그려야 한다)
+   */
+  update(viewSpanM: number, area: PropArea): boolean {
     if (this.sources.length === 0 || this.maxProps === 0 || viewSpanM >= this.spanM) {
       const changed = this.group.visible;
       this.group.visible = false;
       return changed;
     }
-    const radius = Math.min(
-      this.spanM * MAX_RADIUS_PER_SPAN,
-      Math.max(MIN_RADIUS_M, viewSpanM * RADIUS_FACTOR),
-    );
-    const moved = Math.hypot(targetX - this.lastX, targetZ - this.lastZ);
     const wasVisible = this.group.visible;
     this.group.visible = true;
-    if (
-      wasVisible &&
-      Number.isFinite(moved) &&
-      moved < radius / 4 &&
-      Math.abs(radius - this.lastRadius) < this.lastRadius / 4
-    ) {
-      return false;
+    const built = this.built;
+    if (wasVisible && built) {
+      // 지금 보는 땅(볼록)의 꼭짓점이 모두 세운 땅(+ 여유) 안이면 보는 땅 전체가 그 안이다
+      const covered = area.polygon.every((p) => insideDistance(built.polygon, p.x, p.z) >= -built.margin);
+      if (covered && polygonArea(area.polygon) >= built.area * SHRINK_REBUILD) return false;
     }
-    this.rebuild(targetX, targetZ, radius);
+    this.rebuild(area);
     return true;
   }
 
-  private rebuild(targetX: number, targetZ: number, radius: number): void {
-    this.lastX = targetX;
-    this.lastZ = targetZ;
-    this.lastRadius = radius;
-    const cellM = this.cellM;
-    const r = radius / cellM;
+  private rebuild(area: PropArea): void {
+    const margin = this.margin();
+    this.built = { polygon: area.polygon, margin, area: polygonArea(area.polygon) };
     const candidates: Candidate[] = [];
-    for (const source of this.sources) this.collect(source, targetX, targetZ, r, candidates);
+    for (const source of this.sources) this.collect(source, area, margin, candidates);
     if (candidates.length > this.maxProps) {
       candidates.sort((a, b) => a.distance2 - b.distance2);
       candidates.length = this.maxProps;
@@ -228,14 +265,27 @@ export class PropView {
     this.drawnCount = candidates.length;
   }
 
-  /** 층 하나에서 목표점 둘레 반지름 r(배치 칸) 안의 소품 칸을 모은다 */
-  private collect(source: PropSource, targetX: number, targetZ: number, r: number, out: Candidate[]): void {
-    const { art, cover } = source;
-    // 층 안 자리(배치 칸): 이웃이면 돌림의 역으로 옮긴다(놓는 자리는 지형 칸 = 배치 칸 2개)
-    let cx = targetX / this.cellM;
-    let cz = targetZ / this.cellM;
-    if (source.placement) {
-      const local = toLocal(source.placement, cx / 2, cz / 2);
+  /** 층 하나에서 보는 땅(+ 여유 margin m) 안의 소품 칸을 모은다. distance2 = 기준 점(화면 아래)까지 거리²(m²) */
+  private collect(source: PropSource, area: PropArea, margin: number, out: Candidate[]): void {
+    const { art, cover, placement } = source;
+    const cellM = this.cellM;
+    // 다각형을 덮는 원(세계 m) → 층 안 자리(배치 칸). 이웃이면 돌림의 역으로 옮긴다(원은 돌려도 같다)
+    let sumX = 0;
+    let sumZ = 0;
+    for (const p of area.polygon) {
+      sumX += p.x;
+      sumZ += p.z;
+    }
+    const count = Math.max(1, area.polygon.length);
+    const midX = sumX / count;
+    const midZ = sumZ / count;
+    let radius = 0;
+    for (const p of area.polygon) radius = Math.max(radius, Math.hypot(p.x - midX, p.z - midZ));
+    const r = (radius + margin) / cellM;
+    let cx = midX / cellM;
+    let cz = midZ / cellM;
+    if (placement) {
+      const local = toLocal(placement, cx / 2, cz / 2);
       cx = local.c * 2;
       cz = local.r * 2;
     }
@@ -248,16 +298,19 @@ export class PropView {
       for (let x = x0; x <= x1; x++) {
         const dx = x + 0.5 - cx;
         const dz = z + 0.5 - cz;
-        const distance2 = dx * dx + dz * dz;
-        if (distance2 > r2) continue;
+        if (dx * dx + dz * dz > r2) continue;
         const cell = z * PLACEMENT_CELLS + x;
-        if (!source.placement && this.blocked?.[cell] === 1) continue;
+        if (!placement && this.blocked?.[cell] === 1) continue;
         const look = propLook(art[cell] ?? 0);
         if (!look) continue;
         const forest = look.shape === "broadleaf" || look.shape === "conifer" || look.shape === "palm";
         // 성긴 숲(은폐)은 둘에 하나만 그린다
         if (forest && (cover[cell] ?? 0) < 2 && cellRandom(cell, 7 + source.salt) < 0.5) continue;
-        out.push({ source, cell, shape: look.shape, distance2 });
+        const world = cellToWorld(placement, x + 0.5, z + 0.5, cellM);
+        if (insideDistance(area.polygon, world.x, world.z) < -margin) continue;
+        const nx = world.x - area.nearX;
+        const nz = world.z - area.nearZ;
+        out.push({ source, cell, shape: look.shape, distance2: nx * nx + nz * nz });
       }
     }
   }
@@ -270,17 +323,9 @@ export class PropView {
     const cellM = this.cellM;
     const salt = source.salt * 16;
     // 층 안 자리(배치 칸, 칸 안에서 흔듦) → 세계 자리
-    let lx = (cell % PLACEMENT_CELLS) + 0.15 + cellRandom(cell, 1 + salt) * 0.7;
-    let lz = Math.floor(cell / PLACEMENT_CELLS) + 0.15 + cellRandom(cell, 2 + salt) * 0.7;
-    if (source.placement) {
-      const { a, b, cc, d, tx, tz } = source.placement;
-      const c = lx / 2;
-      const r = lz / 2;
-      lx = (a * c + b * r + tx) * 2;
-      lz = (cc * c + d * r + tz) * 2;
-    }
-    const x = lx * cellM;
-    const z = lz * cellM;
+    const lx = (cell % PLACEMENT_CELLS) + 0.15 + cellRandom(cell, 1 + salt) * 0.7;
+    const lz = Math.floor(cell / PLACEMENT_CELLS) + 0.15 + cellRandom(cell, 2 + salt) * 0.7;
+    const { x, z } = cellToWorld(source.placement, lx, lz, cellM);
     const y = this.groundAt(x, z);
     const size = 0.8 + cellRandom(cell, 3 + salt) * 0.45;
     const turn = cellRandom(cell, 4 + salt) * Math.PI * 2;

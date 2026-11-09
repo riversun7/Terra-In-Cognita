@@ -49,6 +49,16 @@ export function MapPerfPanel({
           })}
         </span>
       ) : null}
+      {/* 가시거리: 프레임 시간 여유로 자동으로 고른 단계(1부터)와 그 거리, 세운 소품 모델 수(@terra/engine render/viewDistance.ts) */}
+      {stats ? (
+        <span>
+          {m.map_perf_view({
+            reach: Math.round(stats.viewReachM),
+            level: stats.viewLevel + 1,
+            props: stats.props,
+          })}
+        </span>
+      ) : null}
       {/* 낮밤: 그 2차맵의 지역 시각, 항성 고도, 달 밝은 비율(낮밤을 끄거나 시각을 모르면 줄이 없다) */}
       {light && light.localHours !== null ? (
         <span>

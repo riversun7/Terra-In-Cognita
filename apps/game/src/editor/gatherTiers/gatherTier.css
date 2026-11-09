@@ -1,0 +1,197 @@
+/*
+ * 1차 생산 티어 확률(/dev/gather-tiers) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 촘촘(data-density="compact").
+ * 개발 화면 층(ADR 2026-11-02-dev-ui): 행렬은 공용 .dev-table(좁은 폭은 표만 상자 안에서 가로로 민다), 표지는 .dev-badge.
+ * 틀(머리 칩·담은 변경 막대)은 공용 editor/content/contentEditorShell.css. 조각 GatherTierScreen-*와 함께 내려온다([Gg]atherTier).
+ */
+.gt-screen {
+  min-width: 0;
+}
+.gt-plain-list,
+.gt-facility-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gt-facility-list {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+}
+.gt-facility-list > li[data-mode="select"] {
+  color: var(--color-text-muted);
+}
+.gt-facility-link {
+  font-weight: var(--font-weight-strong);
+}
+
+/* ── 전체 구간 프리셋 ── */
+.gt-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.gt-bulk-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.gt-bulk > button {
+  min-height: var(--dev-touch-tap);
+}
+
+/* ── 행렬 ── */
+.gt-table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+.gt-table {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.gt-table th,
+.gt-table td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.gt-band {
+  display: grid;
+  gap: 0;
+  text-align: start;
+}
+.gt-range {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-primary);
+}
+.gt-band-meta {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+.gt-table tr[data-staged] > .gt-band {
+  box-shadow: inset var(--space-1) 0 0 var(--color-focus);
+}
+.gt-table tr[data-changed]:not([data-staged]) > .gt-band {
+  box-shadow: inset var(--space-1) 0 0 var(--color-warning);
+}
+.gt-cell {
+  padding: var(--space-1);
+}
+.gt-input {
+  width: 6ch;
+  min-width: 0;
+  min-height: var(--dev-touch-tap);
+  padding-inline: var(--space-2);
+  font-family: var(--font-mono);
+  text-align: end;
+}
+.gt-cell[data-dim] .gt-input {
+  color: var(--color-text-muted);
+}
+.gt-cell[data-changed] .gt-input {
+  border-color: var(--color-warning);
+}
+.gt-cell[data-staged] .gt-input {
+  border-color: var(--color-focus);
+  background-color: var(--dev-row-selected);
+}
+.gt-num {
+  text-align: end;
+}
+.gt-sum {
+  font-family: var(--font-mono);
+}
+.gt-sum[data-invalid] {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+.gt-bar-cell {
+  min-width: 8rem;
+}
+.gt-stack {
+  display: flex;
+  width: 100%;
+  min-width: 8rem;
+  height: var(--space-3);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.gt-seg {
+  flex-basis: 0;
+  height: 100%;
+}
+.gt-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.gt-actions > button,
+.gt-preset {
+  min-height: var(--dev-touch-tap);
+}
+
+/* 티어 색(T0~T9) — 머리 글자와 분포 막대 */
+.gt-tier-head[data-tier="t1"] {
+  color: var(--color-success);
+}
+.gt-tier-head[data-tier="t2"] {
+  color: var(--color-stat-int);
+}
+.gt-tier-head[data-tier="t3"] {
+  color: var(--color-stat-wis);
+}
+.gt-tier-head[data-tier="t4"] {
+  color: var(--color-stat-vit);
+}
+.gt-tier-head[data-tier="t5"] {
+  color: var(--color-stat-dex);
+}
+.gt-tier-head[data-tier="t6"] {
+  color: var(--color-danger);
+}
+.gt-tier-head[data-tier="t7"] {
+  color: var(--color-sec-physical-attack);
+}
+.gt-tier-head[data-tier="t8"] {
+  color: var(--color-sec-elemental-attack);
+}
+.gt-tier-head[data-tier="t9"] {
+  color: var(--color-focus);
+}
+.gt-seg[data-tier="t0"] {
+  background-color: var(--color-text-muted);
+}
+.gt-seg[data-tier="t1"] {
+  background-color: var(--color-success);
+}
+.gt-seg[data-tier="t2"] {
+  background-color: var(--color-stat-int);
+}
+.gt-seg[data-tier="t3"] {
+  background-color: var(--color-stat-wis);
+}
+.gt-seg[data-tier="t4"] {
+  background-color: var(--color-stat-vit);
+}
+.gt-seg[data-tier="t5"] {
+  background-color: var(--color-stat-dex);
+}
+.gt-seg[data-tier="t6"] {
+  background-color: var(--color-danger);
+}
+.gt-seg[data-tier="t7"] {
+  background-color: var(--color-sec-physical-attack);
+}
+.gt-seg[data-tier="t8"] {
+  background-color: var(--color-sec-elemental-attack);
+}
+.gt-seg[data-tier="t9"] {
+  background-color: var(--color-focus);
+}

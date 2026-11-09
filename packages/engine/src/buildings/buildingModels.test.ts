@@ -48,6 +48,7 @@ const VERTICES = new Map<PartShape, number>(
   }),
 );
 
+const pad = (parts: readonly BuildingPart[]) => parts.find((part) => part.ground);
 const top = (parts: readonly BuildingPart[]): number => Math.max(...parts.map((part) => part.y + part.sy));
 const colorIn = (parts: readonly BuildingPart[], color: readonly number[]): boolean =>
   parts.some((part) => part.color.every((value, i) => Math.abs(value - (color[i] ?? 0)) < 1e-9));
@@ -251,7 +252,6 @@ describe("겉모습 자료(팩 facilities.look, 2026-11-09)", () => {
     const base = buildingModel(input({ kind: "warehouse" }));
     const tall = buildingModel(input({ kind: "warehouse", heightPm: 1500 }));
     expect(top(tall)).toBeCloseTo(0.3 + (top(base) - 0.3) * 1.5, 6);
-    const pad = (parts: readonly BuildingPart[]) => parts.find((part) => part.ground);
     expect(pad(tall)).toEqual(pad(base));
   });
 });

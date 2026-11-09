@@ -111,7 +111,8 @@ export function precacheUrls(sw) {
  * 항성계 편집기(starSystem…, ADR 2026-10-31-star-system-editor), 2차맵 시험(secondMapLab…), 설정 칸 패널(tuningPanel…,
  * ADR 2026-11-01-dev-settings-panel), 밸런스 화면(balancePanel…, ADR 2026-11-01-balance-screen), 스킬 편집기(skillEditor…,
  * ADR 2026-11-01-skill-editor), 아이템 편집기(itemEditor…, ADR 2026-11-01-item-editor), 건물 편집기(buildingEditor…,
- * ADR 2026-11-02-building-editor)와 편집기들이 같이 쓰는 부품(contentEditor…),
+ * ADR 2026-11-02-building-editor — 2차맵 모습 3D 미리 보기 buildingEditorPreview… 포함), 1차 생산 티어 확률(gatherTier…, 같은 ADR
+ * "바뀜 (2026-11-09)")과 편집기들이 같이 쓰는 부품(contentEditor…),
  * 전투 다시보기(battleReplayLab…, ADR 2026-11-01-battle-replay)의 화면·코드·워커·CSS. 개발자 도구를
  * 열 때만 받는다(셰이더 측정의 three/webgpu는 약 690kB).
  * 미리 캐시하면 모든 플레이어가 서비스 워커 설치 때 받는다. vite.config.ts의 workbox.globIgnores가 같은 파일을 뺀다.
@@ -120,7 +121,7 @@ export function precacheUrls(sw) {
  * 개발자 홈(DevHome)은 작은 목록이라 이 규칙 밖이다(미리 캐시된다).
  */
 export const DEV_ONLY_CHUNK =
-  /^assets\/(gpuBench|[Pp]lanetEditor|[Ss]tarSystem|[Ss]econdMapLab|[Tt]uningPanel|[Bb]alancePanel|[Ss]killEditor|[Ii]temEditor|[Bb]uildingEditor|[Cc]reatureEditor|[Tt]erritoryLab|[Ww]orldLayout|generator-|cellReport-|[Cc]ontentEditor|[Bb]attleReplayLab|[Rr]ecruitLab)[^/]*\.(js|css)$/;
+  /^assets\/(gpuBench|[Pp]lanetEditor|[Ss]tarSystem|[Ss]econdMapLab|[Tt]uningPanel|[Bb]alancePanel|[Ss]killEditor|[Ii]temEditor|[Bb]uildingEditor|[Gg]atherTier|[Cc]reatureEditor|[Tt]erritoryLab|[Ww]orldLayout|generator-|cellReport-|[Cc]ontentEditor|[Bb]attleReplayLab|[Rr]ecruitLab)[^/]*\.(js|css)$/;
 
 /**
  * 개발자 도구만 쓰는 소스(소스 맵의 sources 경로). 개발자 도구 둘(행성 편집기·항성계 편집기)이 같이 쓰는 모듈은 따로 한 조각이
@@ -130,7 +131,7 @@ export const DEV_ONLY_CHUNK =
  * 미리 캐시되지 않은 조각을 받게 됐다(2026-10-31 빌드로 확인).
  */
 export const DEV_ONLY_SOURCE =
-  /(^|\/)src\/editor\/(planet|starSystem|gpuBench|secondMapLab|tuning|balance|skills|items|buildings|creatures|territory|content|battleReplayLab|recruit|worldLayout)\/|(^|\/)packages\/planet\/src\/generator\//;
+  /(^|\/)src\/editor\/(planet|starSystem|gpuBench|secondMapLab|tuning|balance|skills|items|buildings|gatherTiers|creatures|territory|content|battleReplayLab|recruit|worldLayout)\/|(^|\/)packages\/planet\/src\/generator\/|(^|\/)packages\/engine\/src\/buildings\/(buildingPreview|previewEntry)\.ts$/;
 
 /** 소스 맵(JSON 바이트)의 sources 중 개발자 도구 소스. 맵이 없거나 읽지 못하면 빈 목록 */
 function devSourcesOf(mapBytes) {

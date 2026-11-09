@@ -16,6 +16,7 @@ import { BackButton } from "../shell/BackButton.tsx";
 import { Icon } from "../ui/icons.tsx";
 import {
   CrateIcon,
+  DiceIcon,
   ForwardIcon,
   GaugeIcon,
   HouseIcon,
@@ -110,13 +111,22 @@ const DEV_TOOLS = {
     tagEn: "LIVE EDIT · Reserves P1~P4",
     ready: true,
   },
-  // 건물 편집기(docs/adr/2026-11-02-building-editor.md): 시설마다 레벨 구간별 건설 재료·자리·채집 칸 + N43 티어 확률 분포
+  // 건물 편집기(docs/adr/2026-11-02-building-editor.md): 시설마다 레벨 구간별 건설 재료·자리·채집 칸·2차맵 모습(3D 미리 보기)
   dev_buildings: {
     name: m.shell_route_dev_buildings,
     desc: m.dev_tool_buildings_desc,
     mark: <HouseIcon />,
+    tagKo: "LIVE EDIT · 2차맵 모습",
+    tagEn: "LIVE EDIT · Map look",
+    ready: true,
+  },
+  // 1차 생산 티어 확률(49 N43·D-513): 유효 스탯 구간 × T0~T9 가중치 표(건물 편집기 탭이던 것, 2026-11-09)
+  dev_gather_tiers: {
+    name: m.shell_route_dev_gather_tiers,
+    desc: m.dev_tool_gather_tiers_desc,
+    mark: <DiceIcon />,
     tagKo: "LIVE EDIT · N43 티어 확률",
-    tagEn: "LIVE EDIT · N43 Tier Prob",
+    tagEn: "LIVE EDIT · N43 Tier odds",
     ready: true,
   },
   // 크리처 편집기(/dev/creatures): 크리처 카탈로그·원형 초상화 영역 선택·특성 스탯 분배·고유 무기 범위·드롭 시뮬레이터
@@ -201,7 +211,7 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "시설·채집 티어 확률(N43), 아이템·총량 자원(P1~P4), 스킬·소모, 구인 카드를 담고(Draft) 검사 뒤 즉시 반영합니다.",
     subEn:
       "Stage, validate, and live-apply facilities, N43 gather tier probabilities, items (P1~P4 reserves), skills, and recruitment.",
-    routes: ["dev_creatures", "dev_buildings", "dev_items", "dev_skills", "dev_recruit"],
+    routes: ["dev_creatures", "dev_buildings", "dev_gather_tiers", "dev_items", "dev_skills", "dev_recruit"],
   },
   {
     id: "balance",

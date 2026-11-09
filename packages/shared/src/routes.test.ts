@@ -255,6 +255,7 @@ describe("주소 표", () => {
       // 아이템 편집기(docs/adr/2026-11-01-item-editor.md)
       dev_items: ["/dev/items", "dev", "shown", "dev_admin", ["item"]],
       dev_buildings: ["/dev/buildings", "dev", "shown", "dev_admin", ["facility"]],
+      dev_gather_tiers: ["/dev/gather-tiers", "dev", "shown", "dev_admin", []],
       dev_creatures: ["/dev/creatures", "dev", "shown", "dev_admin", ["creature"]],
       // 영토 층(docs/adr/2026-11-03-territory-layer.md 5절)
       dev_territory: ["/dev/territory", "dev", "shown", "dev_admin", []],

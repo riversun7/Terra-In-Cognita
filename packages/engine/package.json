@@ -16,9 +16,9 @@
     "@terra/planet": "workspace:*",
     "@terra/protocol": "workspace:*",
     "@terra/shared": "workspace:*",
-    "three": "0.186.1"
+    "three": "0.187.0"
   },
   "devDependencies": {
-    "@types/three": "0.186.0"
+    "@types/three": "0.187.0"
   }
 }

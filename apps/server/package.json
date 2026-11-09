@@ -20,27 +20,27 @@
     "bench:vision": "node bench/visionShare.ts"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "1.7.14",
-    "@fastify/static": "10.1.7",
-    "@fastify/websocket": "11.3.4",
+    "@better-auth/drizzle-adapter": "1.7.18",
+    "@fastify/static": "10.1.10",
+    "@fastify/websocket": "11.3.7",
     "@terra/content": "workspace:*",
     "@terra/planet": "workspace:*",
     "@terra/protocol": "workspace:*",
     "@terra/shared": "workspace:*",
     "@terra/sim": "workspace:*",
-    "@trpc/server": "11.19.0",
-    "better-auth": "1.7.14",
+    "@trpc/server": "11.24.0",
+    "better-auth": "1.7.18",
     "drizzle-orm": "1.0.0-rc.5",
-    "fastify": "5.12.7",
+    "fastify": "5.12.8",
     "pg": "8.23.1",
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@trpc/client": "11.19.0",
+    "@trpc/client": "11.24.0",
     "@types/pg": "8.23.1",
     "@types/ws": "8.18.2",
     "drizzle-kit": "1.0.0-rc.5",
     "tsx": "4.23.15",
-    "vite": "8.3.5"
+    "vite": "8.3.6"
   }
 }

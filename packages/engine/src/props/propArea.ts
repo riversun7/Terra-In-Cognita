@@ -34,7 +34,14 @@ function oriented(polygon: readonly GroundPoint[]): GroundPoint[] {
     const b = polygon[(i + 1) % polygon.length];
     if (a && b) sum += a.x * b.z - b.x * a.z;
   }
-  return sum >= 0 ? [...polygon] : [...polygon].reverse();
+  if (sum >= 0) return [...polygon];
+  // 거꾸로 복사(toReversed는 Firefox 115부터라 기기 코드에 쓰지 않는다)
+  const reversed: GroundPoint[] = [];
+  for (let i = polygon.length - 1; i >= 0; i--) {
+    const point = polygon[i];
+    if (point) reversed.push(point);
+  }
+  return reversed;
 }
 
 /** 점에서 볼록 다각형(차례 맞춤) 안쪽까지의 가장 작은 변 거리(m): 안이면 ≥ 0, 밖이면 음수 */

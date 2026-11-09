@@ -31,7 +31,7 @@ describe("소품 모델을 세울 땅", () => {
     expect(insideDistance(square, 5, 5)).toBeCloseTo(5, 9);
     expect(insideDistance(square, 12, 5)).toBeCloseTo(-2, 9);
     expect(polygonArea(square)).toBeCloseTo(100, 9);
-    expect(polygonArea([...square].reverse())).toBeCloseTo(100, 9);
+    expect(polygonArea(square.toReversed())).toBeCloseTo(100, 9);
   });
 
   it("가시거리가 화면보다 길면 화면이 보는 땅 전체(위 끝까지)를 덮는다", () => {

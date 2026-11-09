@@ -33,8 +33,10 @@ export type ItemSort = (typeof ITEM_SORTS)[number];
 export interface ItemQuery {
   readonly text: string;
   readonly category: ItemCategoryId | "all";
-  /** 중분류 ID, "all" = 거르지 않음 */
+  /** 중분류 ID, "all" = 거르지 않음, "-"(itemTree NO_SUBCATEGORY) = 중분류 없음 */
   readonly subcategory: string;
+  /** 무기 종류 ID(equip.weaponType), "all" = 거르지 않음 */
+  readonly weaponType: string;
   readonly slot: EquipSlot | "all";
   /** 유닛 종류 ID, "all" = 거르지 않음 */
   readonly kind: string;
@@ -52,6 +54,7 @@ export const EMPTY_QUERY: ItemQuery = {
   text: "",
   category: "all",
   subcategory: "all",
+  weaponType: "all",
   slot: "all",
   kind: "all",
   origin: "all",
@@ -66,20 +69,27 @@ const lower = (text: string): string => text.toLocaleLowerCase();
 
 /**
  * 찾기(ID·이름 ko/en·태그·대분류·중분류 ID, 낱말 여럿이면 모두 맞는 것)와 거르기. staged = 담은 변경이 있는 아이템 ID.
- * labels = 화면 글로도 찾을 대분류 이름(예 "장비")
+ * labels = 화면 글로도 찾을 대분류 이름(예 "장비"). subMajor = 중분류 ID → 대분류(중분류 없음 "-" 거르기: 중분류가 없거나 그 대분류의
+ * 중분류가 아닌 것, itemTree와 같은 규칙. 없으면 중분류 칸이 빈 것만)
  */
 export function filterItems(
   rows: readonly ItemRow[],
   query: ItemQuery,
   staged: ReadonlySet<string>,
   labels?: Readonly<Partial<Record<string, string>>>,
+  subMajor?: ReadonlyMap<string, ItemCategoryId>,
 ): ItemRow[] {
   const words = lower(query.text.trim())
     .split(/\s+/)
     .filter((word) => word !== "");
   return rows.filter((row) => {
     if (query.category !== "all" && row.category !== query.category) return false;
-    if (query.subcategory !== "all" && row.subcategory !== query.subcategory) return false;
+    if (query.subcategory === "-") {
+      const sorted =
+        row.subcategory !== null && (subMajor ? subMajor.get(row.subcategory) === row.category : true);
+      if (sorted) return false;
+    } else if (query.subcategory !== "all" && row.subcategory !== query.subcategory) return false;
+    if (query.weaponType !== "all" && row.weaponType !== query.weaponType) return false;
     if (query.slot !== "all" && row.slot !== query.slot) return false;
     if (query.kind !== "all" && row.kinds.length > 0 && !row.kinds.includes(query.kind)) return false;
     if (query.origin !== "all" && row.origin !== query.origin) return false;

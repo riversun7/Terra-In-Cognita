@@ -15,7 +15,9 @@
 // 시험·측정 주소: ?planet-time= 시각 멈춤, ?planet-sky=off, ?planet-sky-skip=night,moon,clouds, ?planet-sky-bench=<1|2|4>(HUD 하늘 줄),
 // ?planet-view=<위도>,<경도>[,<거리 km>] 처음 볼 곳(planetViewParam.ts).
 // 확대 단계(ADR 2026-11-07-planet-view): 오른쪽 사다리 [+]·[−](ZoomLadder, 엔진 zoomStep). 5단계 끝에서 더 키우면 가운데 2차맵으로
-// 들어가고(D-6018), 1단계 끝에서 더 줄이면 항성계 보기(PlanetSystemView)로 바뀐다. ?stage=<1~5>는 처음 단계(2차맵을 끝까지 줄여 오면 5).
+// 들어가고(D-6018), 1단계 끝에서 더 줄이면 항성계 보기(PlanetSystemView)로 바뀐다. 처음 단계는 늘 5(가장 가까이, 사용자 요청 2026-11-09),
+// ?stage=<1~5>가 있으면 그 단계.
+// 성능 판(PlanetPerfPanel)·고도 과장 막대는 운영진(gm·admin·dev)에게만 보인다(사용자 요청 2026-11-09). 성능 보고는 누구나 보낸다.
 import {
   type PickedCell,
   type PlanetEngine,
@@ -29,13 +31,12 @@ import {
 } from "@terra/engine/planet";
 import type { WorldCitiesResponse, WorldMapCity, WorldPosition } from "@terra/shared/worldMap";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { refreshSession } from "../auth/session.ts";
+import { refreshSession, useStaffView } from "../auth/session.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
-import { usePerfStats } from "../perf/usePerfStats.ts";
 import { setTelemetryView } from "../telemetry/reporter.ts";
 import { useMountFocus } from "../ui/useMountFocus.ts";
 import {
@@ -44,7 +45,7 @@ import {
   loadPlanetManifest,
   planetDescriptionOf,
 } from "./planetSource.ts";
-import { formatPixelRatio, pixelRatioOption } from "./pixelRatioParam.ts";
+import { pixelRatioOption } from "./pixelRatioParam.ts";
 import {
   createSkyClock,
   planetSkyMode,
@@ -59,6 +60,7 @@ import { type LoadPhase, type TileProblem, screenNotice } from "./planetNotice.t
 import { clusterView, focusView } from "./planetFocus.ts";
 import { PlanetCityPanel } from "./PlanetCityPanel.tsx";
 import { PlanetCommandPanel } from "./PlanetCommandPanel.tsx";
+import { PlanetPerfPanel } from "./PlanetPerfPanel.tsx";
 import { PlanetSystemView } from "./PlanetSystemView.tsx";
 import { ZoomLadder } from "./ZoomLadder.tsx";
 import { formatAtParam } from "./mapTarget.ts";
@@ -124,7 +126,8 @@ function PlanetMapView({
   const [layer, setLayer] = useState<PlanetLayer>("terrain");
   const [exaggeration, setExaggeration] = useState(DEFAULT_EXAGGERATION);
   const [picked, setPicked] = useState<{ cell: PickedCell | null; lines: string[] } | null>(null);
-  const perf = usePerfStats(monitor);
+  // 운영진(gm·admin·dev)만 고도 과장 막대를 본다. 성능 판은 PlanetPerfPanel이 스스로 가린다
+  const staff = useStaffView();
   // 지도 흐름: 도시·국가(world.cities), 내 자리, 고른 도시, 행성 면 레벨(가운데 2차맵 키)
   const overlayDraw = useRef<((projector: PlanetProjector) => void) | null>(null);
   const registerOverlay = useCallback((draw: ((projector: PlanetProjector) => void) | null) => {
@@ -197,11 +200,10 @@ function PlanetMapView({
         if (controller.signal.aborted) return;
         setMe(mine);
         setPlanet({ faceLevel: manifest.faceLevel, radiusM: manifest.radiusM });
-        const firstStage = stageParam(search);
-        const place = focusView(parseMapKey(keyParam), mine, manifest.radiusM);
-        // ?stage=가 있으면 거리는 그 단계로(처음 볼 곳의 거리를 쓰지 않는다)
-        const focus =
-          place && firstStage !== undefined ? { latDeg: place.latDeg, lonDeg: place.lonDeg } : place;
+        // 처음 단계: ?stage=가 없으면 늘 가장 가까운 5단계(사용자 요청 2026-11-09 "진입시 항상 최대 확대 상태로 시작").
+        // ?planet-view=에 거리가 있으면(시험·측정) 그 거리가 이긴다(엔진 initialView.distanceM)
+        const firstStage = stageParam(search) ?? FINEST_LEVEL;
+        const focus = focusView(parseMapKey(keyParam), mine);
         try {
           // 바이옴 이름은 서버 범례(자료, ko·en)에서
           const english = getLocale() === "en";
@@ -222,7 +224,7 @@ function PlanetMapView({
             debugCracks,
             ...pixelRatioOption(search),
             ...(focus ? { initialView: focus } : {}),
-            ...(firstStage === undefined ? {} : { initialStage: firstStage }),
+            initialStage: firstStage,
             ...planetViewOption(search),
             sky: skyMode(),
             ...(skyParams.benchRepeat === null ? {} : { gpuBenchRepeat: skyParams.benchRepeat }),
@@ -343,8 +345,6 @@ function PlanetMapView({
   const cell = picked?.cell ?? null;
   const firstMs = stats?.firstDisplayMs ?? null;
   const sky = stats?.sky;
-  const oneDecimal = (value: number | null | undefined): string =>
-    value === null || value === undefined ? "–" : fixed(value, 1);
 
   return (
     <section
@@ -468,67 +468,7 @@ function PlanetMapView({
             canZoomOut={!systemView}
           />
         ) : null}
-        <p className="map-panel map-perf" hidden={systemView}>
-          <span>
-            {perf
-              ? m.map_perf_frames({ fps: perf.fps, ms: perf.p95Ms })
-              : m.map_perf_frames({ fps: "–", ms: "–" })}
-            {perf?.memoryMb === undefined ? null : ` · ${m.map_perf_memory({ mb: perf.memoryMb })}`}
-          </span>
-          {stats ? (
-            <>
-              <span>
-                {m.planet_perf_tiles({
-                  drawn: stats.tilesDrawn,
-                  budget: stats.budgets.visibleTiles,
-                  loaded: stats.tilesLoaded,
-                  pending: stats.tilesPending,
-                })}
-              </span>
-              <span>
-                {m.planet_perf_gpu({
-                  calls: stats.drawCalls,
-                  tris: fixed(stats.triangles / 1000, 1),
-                  mb: fixed(stats.gpuBytes / (1024 * 1024), 1),
-                  memory: fixed(stats.memoryBytes / (1024 * 1024), 1),
-                })}
-              </span>
-              {/* 엔진 몫(고르기·올리기·그리기 명령, 최근 1초 p95). 위 줄의 프레임 시간은 화면 전체(브라우저 합성 포함)다 */}
-              <span>{m.map_perf_engine({ ms: fixed(stats.renderP95Ms, 1) })}</span>
-              <span>
-                {m.planet_perf_hits({
-                  tiles: stats.budgetHits.tiles,
-                  fetches: stats.budgetHits.fetches,
-                  uploads: stats.budgetHits.uploads,
-                  memory: stats.budgetHits.memory,
-                })}
-              </span>
-              <span>{m.planet_perf_first({ ms: firstMs === null ? "–" : fixed(firstMs, 0) })}</span>
-              {/* 쓰는 픽셀 비율 = min(기기, 상한)과 그리기 버퍼(실제 픽셀) — 선명도·비용 재기용 */}
-              <span>
-                {m.map_perf_pixels({
-                  ratio: formatPixelRatio(stats.pixelRatio),
-                  width: stats.drawingBufferWidth,
-                  height: stats.drawingBufferHeight,
-                })}
-              </span>
-              {/* 하늘 줄은 재기 모드(?planet-sky-bench=)에서만: 항성 바로 아래 위도·경도, 그리기 + 1화소 읽기 중앙값, 구름 면 굽기 최대, 달, 하늘 GPU 메모리 */}
-              {stats.gpuBench ? (
-                <span>
-                  {m.planet_perf_sky({
-                    lat: oneDecimal(stats.sky.subsolarLatDeg),
-                    lon: oneDecimal(stats.sky.subsolarLonDeg),
-                    gpu: fixed(stats.gpuBench.medianMs, 1),
-                    repeat: stats.gpuBench.repeat,
-                    bake: oneDecimal(stats.sky.cloudBakeMaxMs),
-                    moons: stats.sky.moonsDrawn,
-                    mb: fixed(stats.sky.gpuBytes / (1024 * 1024), 1),
-                  })}
-                </span>
-              ) : null}
-            </>
-          ) : null}
-        </p>
+        <PlanetPerfPanel monitor={monitor} stats={stats} hidden={systemView} />
       </header>
       {shown ? (
         <div className="map-panel map-notice" role={shown.tone}>
@@ -614,18 +554,21 @@ function PlanetMapView({
               </button>
             </div>
           </div>
-          <div className="planet-row planet-slider">
-            <label htmlFor="planet-exaggeration">{m.planet_exaggeration({ value: exaggeration })}</label>
-            <input
-              id="planet-exaggeration"
-              type="range"
-              min={MIN_EXAGGERATION}
-              max={MAX_EXAGGERATION}
-              step={1}
-              value={exaggeration}
-              onChange={(event) => changeExaggeration(Number(event.currentTarget.value))}
-            />
-          </div>
+          {/* 고도 과장 막대는 운영진(gm·admin·dev)에게만(사용자 요청 2026-11-09 "고도과장도 일반유저는 안된다"). 플레이어는 처음 값 그대로 */}
+          {staff ? (
+            <div className="planet-row planet-slider">
+              <label htmlFor="planet-exaggeration">{m.planet_exaggeration({ value: exaggeration })}</label>
+              <input
+                id="planet-exaggeration"
+                type="range"
+                min={MIN_EXAGGERATION}
+                max={MAX_EXAGGERATION}
+                step={1}
+                value={exaggeration}
+                onChange={(event) => changeExaggeration(Number(event.currentTarget.value))}
+              />
+            </div>
+          ) : null}
         </div>
       </footer>
     </section>

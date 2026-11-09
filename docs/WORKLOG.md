@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-09 12:25 | 1차맵 처음 5단계, 성능 판·고도 과장 막대는 운영진만 | Claude Code | [09-1225-map-view-fix](worklog/2026/11/09-1225-map-view-fix.md) |
 | 2026-11-09 11:50 | 2차맵 판 고침: 1차맵 단추 겹침·내 유닛 목록·보낼 유닛 이름·건물 판 하나 | Claude Code | [09-1150-map-panels-fix](worklog/2026/11/09-1150-map-panels-fix.md) |
 | 2026-11-08 23:20 | 아이템·스킬·건물 편집기 화면 개편(/dev/items·/dev/skills·/dev/buildings) | Claude Code | [08-2320-devtools-editors](worklog/2026/11/08-2320-devtools-editors.md) |
 | 2026-11-08 23:05 | 공성 결과 DB 시험 가끔 실패 고침 | Claude Code | [08-2305-war-outcomes-test-flake](worklog/2026/11/08-2305-war-outcomes-test-flake.md) |

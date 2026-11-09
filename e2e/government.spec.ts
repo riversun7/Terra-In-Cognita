@@ -210,8 +210,9 @@ test.describe("정부 판·지도자: 플레이어", () => {
       ).toBe("unknown_unit");
 
     await tapTag(page, tag);
-    await expect(page.locator(".map-screen")).toHaveAttribute("data-selected", String(unitId));
-    const sheet = page.locator(`[data-part="leader-sheet"][data-unit="${unitId}"]`);
+    // 플레이어가 지도자(남의 유닛)를 누르면 고르지 않고 정보 판 — 지도자 몫은 그 판 안(docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)")
+    await expect(page.locator(`.map-peek[data-unit="${unitId}"]`)).toBeVisible();
+    const sheet = page.locator(`.map-peek [data-part="leader-sheet"][data-unit="${unitId}"]`);
     await expect(sheet).toBeVisible({ timeout: 15_000 });
     await expect(sheet).toContainText(name);
     expect(await horizontalOverflow(page)).toEqual([]);

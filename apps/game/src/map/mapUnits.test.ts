@@ -6,6 +6,7 @@ import { resultText } from "./mapMessages.ts";
 import {
   canCommand,
   elsewhereText,
+  peekText,
   selectionText,
   sortMapUnits,
   unitControlOf,
@@ -116,6 +117,24 @@ describe("고른 유닛 다룸", () => {
     expect(selectionText({ kind: "other" }, "", 9, false, { unitId: 9, kind: "human", faction: null })).toBe(
       "무소속 휴먼 #9(서 있음)입니다. 정보만 볼 수 있습니다.",
     );
+  });
+
+  it("남의 유닛 정보 판(2026-11-09): 이름 + 주인·움직임 한 줄, 한눈 정보가 없으면 번호·움직임만", () => {
+    const faction = {
+      id: 16,
+      code: "npc_nation_16",
+      kind: "npc" as const,
+      name: { ko: "임시 국가 16", en: "Interim Nation 16" },
+    };
+    expect(peekText(9, true, null)).toEqual({ unit: "유닛 #9", line: "이동 중" });
+    expect(peekText(9, false, { unitId: 9, kind: "human", faction })).toEqual({
+      unit: "휴먼 #9",
+      line: "임시 국가 16 · 서 있음",
+    });
+    expect(peekText(9, true, { unitId: 9, kind: "human", faction: null })).toEqual({
+      unit: "휴먼 #9",
+      line: "무소속 · 이동 중",
+    });
   });
 
   it("637 나: 사이보그 본체 먼저, 그다음 유닛 화면처럼 손이 필요한 순(포로 → 부상 무거운 순 → 대기 → 쉼 → 일함), 같으면 이름·번호", () => {

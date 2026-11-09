@@ -3,7 +3,7 @@
 // - 630: 플레이어 카메라는 내 유닛 둘레로 묶인다 — 같은 쪽으로 여러 번 끌어도 카메라 목표가 내 사이보그에서 일정 거리 밖으로 가지 않는다.
 // - 631 다: 운영자 모드는 이 기기에서 기억한다(다시 열어도 켜진 채).
 // - 632 다: 목록 끝 "다른 곳에 내 유닛 N" — 누르면 유닛 화면.
-// - 636 나: 남의 유닛(시야 안)은 세력·종류까지 보인다.
+// - 636 나: 남의 유닛(시야 안)은 세력·종류까지 보인다(2026-11-09부터 누르면 뜨는 정보 판에).
 // - 612 나: 정찰이 돌아서면 화면 알림 [들어가기] → 본 2차맵 지도.
 // - 사진: 목록(다른 곳 줄)·정찰 알림 390 × 파스텔·다크.
 // 바뀜(docs/adr/2026-11-08-seamless-second-map.md WP-1·2): 카메라는 늘 기준 유닛(내 사이보그)을 따라가고 끌기는 돌리기다 — 630은 "끌어도 목표점이
@@ -168,9 +168,11 @@ test.describe("기획 답 630~637: 플레이어", () => {
     const box = await page.locator(".map-view canvas").boundingBox();
     if (!box) throw new Error("no canvas");
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2 - 6);
-    await expect(screen).toHaveAttribute("data-control", "other", { timeout: 5_000 });
-    await expect(page.locator(".map-hint p").first()).toContainText("시험 나라", { timeout: 10_000 });
-    await expect(page.locator(".map-hint p").first()).toContainText(message("ko", "roster_type_human"));
+    // 남의 유닛을 누르면 정보 판(고르지 않는다 — docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)")
+    const peek = page.locator(".map-peek");
+    await expect(peek).toBeVisible({ timeout: 5_000 });
+    await expect(peek.locator(".map-peek-line")).toContainText("시험 나라", { timeout: 10_000 });
+    await expect(peek.locator(".map-peek-title")).toContainText(message("ko", "roster_type_human"));
 
     await openNearby(page, "units");
     const line = page.locator(".map-units-elsewhere-open");

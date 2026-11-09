@@ -214,6 +214,24 @@ export function selectionText(
   }
 }
 
+/**
+ * 남의 유닛 정보 판 글(docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)"): 이름(지도자 이름·"종류 #번호", 한눈 정보가 없으면 "유닛 #번호"),
+ * 주인·움직임 한 줄(세력 이름 또는 무소속 · 이동 중/서 있음 — 한눈 정보가 없으면 움직임만)
+ */
+export function peekText(
+  unitId: number,
+  moving: boolean,
+  glance: MapUnitGlance | null,
+): { readonly unit: string; readonly line: string } {
+  const state = moving ? m.map_unit_state_moving() : m.map_unit_state_standing();
+  if (glance === null) return { unit: m.map_unit_number({ id: unitId }), line: state };
+  const unit = glance.name
+    ? m.map_unit_named({ type: kindLabel(glance.kind), name: localName(glance.name, String(unitId)) })
+    : m.roster_unnamed({ type: kindLabel(glance.kind), number: String(unitId) });
+  const owner = glance.faction ? factionLabel(glance.faction) : m.map_peek_free();
+  return { unit, line: m.map_peek_line({ owner, state }) };
+}
+
 /** 다른 곳 내 유닛 수 한 줄(632 다). 0이면 null(줄을 그리지 않는다) */
 export function elsewhereText(count: number): string | null {
   return count > 0 ? m.map_units_elsewhere({ count }) : null;

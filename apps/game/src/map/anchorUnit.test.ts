@@ -6,6 +6,7 @@ import {
   bottomSheetOf,
   chooseAnchor,
   commandUnit,
+  unitTapOf,
 } from "./anchorUnit.ts";
 
 const base: AnchorInput = {
@@ -82,9 +83,22 @@ describe("명령을 받을 유닛(사용자 지적 2026-11-09 문제3)", () => {
 });
 
 describe("아래 판 하나(사용자 지적 2026-11-09 문제4)", () => {
-  it("누른 건물·오브젝트 판이 먼저, 그다음 내 유닛 목록, 아니면 근처 판", () => {
-    expect(bottomSheetOf({ gatherOpen: true, unitsOpen: true })).toBe("gather");
-    expect(bottomSheetOf({ gatherOpen: false, unitsOpen: true })).toBe("units");
-    expect(bottomSheetOf({ gatherOpen: false, unitsOpen: false })).toBe("nearby");
+  it("누른 건물·오브젝트 판이 먼저, 그다음 남의 유닛 정보 판, 내 유닛 목록, 아니면 근처 판", () => {
+    expect(bottomSheetOf({ gatherOpen: true, peekOpen: true, unitsOpen: true })).toBe("gather");
+    expect(bottomSheetOf({ gatherOpen: false, peekOpen: true, unitsOpen: true })).toBe("peek");
+    expect(bottomSheetOf({ gatherOpen: false, peekOpen: false, unitsOpen: true })).toBe("units");
+    expect(bottomSheetOf({ gatherOpen: false, peekOpen: false, unitsOpen: false })).toBe("nearby");
+  });
+});
+
+describe("지도에서 누른 유닛(사용자 지적 2026-11-09 — 남의 유닛이 명령 유닛을 바꾸지 않는다)", () => {
+  it("플레이어: 내 유닛은 고르고, 남의 유닛은 정보 판만", () => {
+    expect(unitTapOf({ operator: false, own: true })).toBe("select");
+    expect(unitTapOf({ operator: false, own: false })).toBe("peek");
+  });
+
+  it("운영자 모드: 아무 유닛이나 고른다(그 유닛을 명령한다)", () => {
+    expect(unitTapOf({ operator: true, own: false })).toBe("select");
+    expect(unitTapOf({ operator: true, own: true })).toBe("select");
   });
 });

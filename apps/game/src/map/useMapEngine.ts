@@ -70,7 +70,8 @@ export interface MapEngineRefs {
   readonly mapKeyRef: RefObject<number>;
   readonly skyModeRef: RefObject<(() => PlanetSkyMode) | null>;
   readonly sessionRef: RefObject<MapSession | null>;
-  readonly selectFromMapRef: RefObject<(id: number | null) => void>;
+  /** 지도에서 유닛을 눌렀다. false면 고르지 않았다(남의 유닛 정보 판 — 엔진 고른 표시 그대로) */
+  readonly selectFromMapRef: RefObject<(id: number | null) => boolean>;
   readonly selectedRef: RefObject<number | null>;
   readonly anchorRef: RefObject<number | null>;
   readonly feedRef: RefObject<MapFeed | null>;
@@ -88,11 +89,19 @@ export interface MapEngineSetters {
   readonly setSnapshot: Dispatch<SetStateAction<HudSnapshot | null>>;
 }
 
-/** 엔진을 만들고 화면을 닫을 때 버린다. focus = 처음 카메라 대상, refollow = 기준 유닛 다시 따라가기(늘 같은 함수) */
+/**
+ * 엔진을 만들고 화면을 닫을 때 버린다. focus = 처음 카메라 대상, refollow = 기준 유닛 다시 따라가기(늘 같은 함수),
+ * closePeek = 남의 유닛 정보 판 닫기(늘 같은 함수 — 땅을 누르면 닫고 같은 누르기를 그대로 처리한다)
+ */
 export function useMapEngine(
   refs: MapEngineRefs,
   setters: MapEngineSetters,
-  options: { readonly focus: MapFocus | null; readonly gather: GatherState; readonly refollow: () => void },
+  options: {
+    readonly focus: MapFocus | null;
+    readonly gather: GatherState;
+    readonly refollow: () => void;
+    readonly closePeek: () => void;
+  },
 ): void {
   const {
     hostRef,
@@ -110,7 +119,7 @@ export function useMapEngine(
   } = refs;
   const { setZoomStage, setStatus, setCommand, setSelected, setSelection, setLiveMoving, setSnapshot } =
     setters;
-  const { focus, gather, refollow } = options;
+  const { focus, gather, refollow, closePeek } = options;
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return () => undefined;
@@ -165,17 +174,25 @@ export function useMapEngine(
       },
       onSelect: (id) => selectFromMapRef.current(id),
       // 그려 둔 옆 2차맵 땅: 고른 내 유닛을 그곳으로 보낸다(2차맵 사이 이동)
-      onNeighbourTap: createNeighbourTravel({
-        mapKeyRef,
-        selectedRef,
-        anchorRef,
-        feedRef,
-        unitsRef,
-        operatorRef,
-        setCommand,
-      }),
+      onNeighbourTap: (() => {
+        const travel = createNeighbourTravel({
+          mapKeyRef,
+          selectedRef,
+          anchorRef,
+          feedRef,
+          unitsRef,
+          operatorRef,
+          setCommand,
+        });
+        return (cell: { x: number; y: number }): void => {
+          closePeek();
+          travel(cell);
+        };
+      })(),
       // 고른 유닛이 내 유닛(운영자 모드면 아무 유닛)이면 누른 칸으로 보낸다. 경로는 서버가 찾아 unit_paths로 보낸다
       onGroundTap: (cell) => {
+        // 남의 유닛 정보 판은 땅을 누르면 닫힌다 — 같은 누르기가 아래대로 명령 유닛을 보낸다(사용자 지적 2026-11-09 "다른곳을 눌러 저절로 닫히게")
+        closePeek();
         // 경제 화면 [지도에서 고르기](WP3 연결점, economy/buildPick.ts): 짓기 자리를 고르는 중이면 그 칸을 돌려주고 생산 칸으로 돌아간다
         if (offerBuildPick(mapKeyRef.current, cell)) {
           navigate({ route: "economy_production" });
@@ -282,11 +299,12 @@ export function useMapEngine(
       engineRef.current = null;
       setTelemetryView(null);
     };
-    // 엔진은 화면에 하나다(처음 카메라 대상 focus와 함께). 채집 상태·ref·콜백은 늘 같은 객체다
+    // 엔진은 화면에 하나다(처음 카메라 대상 focus와 함께). 채집 상태·ref·콜백(closePeek 포함)은 늘 같은 객체다
   }, [
     focus,
     gather,
     refollow,
+    closePeek,
     hostRef,
     engineRef,
     needleRef,

@@ -359,9 +359,11 @@ export function createSecondMapEngine(
     onTap: (point) => {
       const slot = roster.pick(point, { camera, state, viewport, cellM, groundAt });
       if (slot >= 0) {
-        roster.selectedSlot = slot;
-        scheduler.request();
-        options.onSelect?.(roster.idAt(slot));
+        // 화면이 false를 돌려주면(남의 유닛을 살펴보기만 — 명령 유닛은 그대로) 고른 표시를 바꾸지 않는다
+        if (options.onSelect?.(roster.idAt(slot)) !== false) {
+          roster.selectedSlot = slot;
+          scheduler.request();
+        }
         return;
       }
       // 덧그림 층 표시(채집 오브젝트·건물 표시 등 — 누르기를 지나보내는 HTML)를 화면 거리로 고른다

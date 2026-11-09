@@ -2,6 +2,8 @@
 // 2차맵에서 NPC 국가 지도자(유닛 또는 머리 위 이름표 — map/leaderTags.ts)를 누르면 그 지도자를 고른 것이 되고, 이 판이 그 나라 수도 정부 판을
 // 묻는다(tRPC world.leaderGovernment — 서버가 지금 내 시야 안의 지도자인지 본다). 지도자 이름·나라·수도 한 줄 + [지도자와 이야기] → 정부 대화상자
 // (GovernmentDialog.tsx via "leader" — 머리가 지도자, 지연 조각). 고른 유닛이 지도자가 아니거나 답이 ready가 아니면 그리지 않는다.
+// 바뀜(docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)"): 플레이어가 지도자를 누르면 고르지 않고 남의 유닛 정보 판을 연다 — 이 판은
+// 그 정보 판 안의 몫(embedded)으로 그린다(판 하나). 운영자 모드는 지도자를 고르므로 따로 판으로 그린다.
 import type { GovernmentResponse } from "@terra/shared/government";
 import { Suspense, lazy, useEffect, useId, useState, useSyncExternalStore } from "react";
 import type { LeaderTagState } from "../map/leaderTags.ts";
@@ -20,9 +22,11 @@ interface LeaderSheetProps {
   /** 지금 고른 유닛 */
   readonly selected: number | null;
   readonly mapKey: number;
+  /** 정보 판 안에 넣는다(판 테두리 없이 위 가는 선으로 나눈다, 제목 h3) */
+  readonly embedded?: boolean;
 }
 
-export function LeaderSheet({ tags, selected, mapKey }: LeaderSheetProps) {
+export function LeaderSheet({ tags, selected, mapKey, embedded = false }: LeaderSheetProps) {
   useSyncExternalStore(
     (listener) => tags.subscribe(listener),
     () => tags.version,
@@ -45,9 +49,10 @@ export function LeaderSheet({ tags, selected, mapKey }: LeaderSheetProps) {
   if (leaderId === null || answer === null || answer.leader?.unitId !== leaderId) return null;
   if (answer.status !== "ready" || !answer.city || !answer.nation) return null;
   const { city, nation, leader } = answer;
+  const Heading = embedded ? "h3" : "h2";
   return (
     <section
-      className="map-panel gov-sheet"
+      className={embedded ? "gov-sheet gov-sheet-embedded" : "map-panel gov-sheet"}
       aria-labelledby={titleId}
       data-part="leader-sheet"
       data-unit={leaderId}
@@ -57,9 +62,9 @@ export function LeaderSheet({ tags, selected, mapKey }: LeaderSheetProps) {
         <LeaderMark className="gov-leader-mark" />
         {m.government_leader_kicker()}
       </p>
-      <h2 id={titleId} className="gov-sheet-title">
+      <Heading id={titleId} className="gov-sheet-title">
         {leaderTitle(leader)}
-      </h2>
+      </Heading>
       <p className="gov-muted">
         {m.government_leader_sheet_line({ nation: nationTitle(nation), city: cityTitle(city) })}
       </p>

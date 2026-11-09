@@ -9,7 +9,7 @@ import {
   type SubcategoryJson,
   type WeaponTypeJson,
 } from "@terra/shared/itemEditor";
-import { type ReactNode, useId } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 import { m } from "../../paraglide/messages.js";
 import { CompareProvider } from "../content/contentEditorCompare.tsx";
 import { CheckField, TextField } from "../content/contentEditorFields.tsx";
@@ -304,20 +304,7 @@ function NewHere({
   );
 }
 
-export function TaxonomyNode({
-  node,
-  tree,
-  items,
-  subs,
-  kinds,
-  list,
-  stage,
-  locale,
-  onPick,
-  onStage,
-  onOpenItem,
-  onShowItems,
-}: {
+type NodeProps = {
   node: TreeNodeRef | null;
   tree: readonly MajorNode[];
   items: readonly TreeItem[];
@@ -330,7 +317,22 @@ export function TaxonomyNode({
   onStage: (category: TaxonomyCategory, id: string, next: Staged<TaxonomyJson> | null) => void;
   onOpenItem: (id: string) => void;
   onShowItems: (patch: Partial<ItemQuery>) => void;
-}) {
+};
+
+function NodeBody({
+  node,
+  tree,
+  items,
+  subs,
+  kinds,
+  list,
+  stage,
+  locale,
+  onPick,
+  onStage,
+  onOpenItem,
+  onShowItems,
+}: NodeProps) {
   const takenOf = (category: "item_subcategories" | "weapon_types") =>
     new Set([
       ...(category === "item_subcategories" ? list.subcategories : list.weaponTypes).map(
@@ -491,5 +493,23 @@ export function TaxonomyNode({
       </EntryEditor>
       {itemsPart({ category: "equipment", weaponType: kind.id })(node)}
     </section>
+  );
+}
+
+export function TaxonomyNode(props: NodeProps) {
+  const anchor = useRef<HTMLDivElement>(null);
+  // 좁은 폭(나무와 마디가 한 칸씩)에서 중분류·무기 종류·중분류 없음 마디를 고르면 마디 판으로 내려간다(이 부품은 마디마다 새로 붙는다: key)
+  useEffect(() => {
+    const element = anchor.current;
+    const split = element?.closest<HTMLElement>(".ie-tax-split");
+    // 대분류(타일로도 고른다)는 내려가지 않는다: 나무를 이어서 고르게
+    if (!props.node || props.node.kind === "major" || !element || !split) return;
+    if (getComputedStyle(split).gridTemplateColumns.trim().split(/\s+/).length > 1) return;
+    element.scrollIntoView({ block: "start" });
+  }, [props.node]);
+  return (
+    <div ref={anchor} className="ie-node-anchor">
+      <NodeBody {...props} />
+    </div>
   );
 }

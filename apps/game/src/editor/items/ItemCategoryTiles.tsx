@@ -40,6 +40,7 @@ export function ItemCategoryTiles({
             data-category={category}
             data-empty={count === 0 ? "" : undefined}
             aria-pressed={selected === category}
+            title={name}
             onClick={() => onSelect(category)}
           >
             <span className="ie-tile-icon">

@@ -482,6 +482,13 @@
   .ie-tile-sub {
     display: none;
   }
+  /* 긴 이름(Consumables 등)은 글자 중간에서 꺾지 않고 줄임표(전체는 title) */
+  .ie-tile-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .ie-browse-tools {
     flex: 1 1 100%;
     margin-inline-start: 0;
@@ -618,6 +625,10 @@
 }
 .ie-tax-node {
   gap: var(--space-4);
+}
+.ie-node-anchor {
+  min-width: 0;
+  scroll-margin-top: calc(var(--dev-sticky-top) + var(--space-4));
 }
 .ie-node-head {
   display: grid;

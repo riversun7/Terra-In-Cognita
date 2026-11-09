@@ -165,12 +165,23 @@ test.describe("기획 답 630~637: 플레이어", () => {
     const screen = page.locator(".map-screen");
     await expect(screen).toHaveAttribute("data-focus", /\d+/);
     await page.waitForTimeout(1_200);
+    // 2차맵은 최대 확대(5/5)로 열려 카메라 목표와 유닛 사이가 화면에서 멀다: 한 단계 줄여 옛 처음 거리쯤에서 가운데를 누른다(unit-control 시험과 같다)
+    await page.locator(".zoom-ladder-out").click();
+    await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "4");
+    await page.waitForTimeout(800);
     const box = await page.locator(".map-view canvas").boundingBox();
     if (!box) throw new Error("no canvas");
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2 - 6);
     // 남의 유닛을 누르면 정보 판(고르지 않는다 — docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)")
     const peek = page.locator(".map-peek");
-    await expect(peek).toBeVisible({ timeout: 5_000 });
+    try {
+      await expect(peek).toBeVisible({ timeout: 5_000 });
+    } catch {
+      // 가운데에 유닛이 없으면 근처 판 유닛 탭의 남의 유닛 줄(내 사이보그도 여기서는 남의 유닛)로 연다
+      await openNearby(page, "units");
+      await page.locator('.map-nearby-row[data-kind="unit"][data-mine="false"]').first().click();
+      await expect(peek).toBeVisible({ timeout: 5_000 });
+    }
     await expect(peek.locator(".map-peek-line")).toContainText("시험 나라", { timeout: 10_000 });
     await expect(peek.locator(".map-peek-title")).toContainText(message("ko", "roster_type_human"));
 

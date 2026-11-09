@@ -47,7 +47,7 @@ import "./secondMapLab.css";
 
 /** 처음 여는 행성(월드 행성 = 서버 지형). 정의에 없으면 첫 행성 */
 const DEFAULT_PLANET = "s2_test_planet";
-/** 기본 보기(지금 게임 값): 정오, 낮밤 켬, 과장 ×1, 소품 모델 420m·2,500개 */
+/** 기본 보기(지금 게임 값): 정오, 낮밤 켬, 과장 ×1, 소품 모델 420m·5,000개(게임은 가시거리 단계가 상한을 고른다 — 처음 단계 5,000) */
 const DEFAULT_SETTINGS: LabSettings = {
   sky: true,
   hour: 12,
@@ -55,7 +55,7 @@ const DEFAULT_SETTINGS: LabSettings = {
   neighbours: false,
   grid: false,
   propSpanM: 420,
-  propCap: 2500,
+  propCap: 5000,
 };
 /** 처음 카메라: 화면 짧은 변 약 360m(소품 모델 거리 420m 안, 고저가 보이게. 엔진 기본은 약 70m) */
 const INITIAL_ZOOM = 9;

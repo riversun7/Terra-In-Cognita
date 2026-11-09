@@ -23,6 +23,7 @@ import {
   pixelsPerMetre,
   screenRay,
   spanForDistance,
+  withViewPitch,
 } from "./camera/cameraMath.ts";
 import { CameraGlide, FOLLOW_SMOOTH_MS } from "./camera/cameraGlide.ts";
 import { attachControls } from "./camera/controls.ts";
@@ -41,6 +42,7 @@ import { UNIT_NIGHT_LIFT, secondMapPlace } from "./lighting/secondMapLight.ts";
 import { rayHitsTerrain } from "./picking.ts";
 import { FrameScheduler } from "./render/frameScheduler.ts";
 import { RenderTimer } from "./render/renderStats.ts";
+import { ViewDistanceController } from "./render/viewDistance.ts";
 import { EngineLayers, createLayerView } from "./render/engineLayers.ts";
 import { acquireRenderer, defaultMaxPixelRatio, releaseRenderer } from "./render/sharedRenderer.ts";
 import { type BuiltTerrain, createTerrainBuilder } from "./terrain/terrainBuilder.ts";
@@ -56,6 +58,7 @@ import {
 import { type NeighbourTerrain, NeighbourTerrains, UNEXPLORED } from "./terrain/neighbourTerrains.ts";
 import { TerrainView } from "./terrain/terrainView.ts";
 import { cameraThroughPlacement, invertPlacement } from "./terrain/rebase.ts";
+import { propArea } from "./props/propArea.ts";
 import { type PropSource, PropView } from "./props/propView.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
 import { UnitRoster } from "./units/unitRoster.ts";
@@ -155,6 +158,15 @@ export function createSecondMapEngine(
 
   const neighbours = new NeighbourTerrains(builder);
   const propView = new PropView();
+  // 가시거리 자동 조절: 프레임 시간에 여유가 있으면 소품 모델 거리·상한을 한 단계씩 올리고, 느리면 내린다(render/viewDistance.ts)
+  const viewDistance = new ViewDistanceController();
+  propView.setReach(viewDistance.level.reachM, viewDistance.level.maxProps);
+  /** 화면이 보는 땅에 소품 모델을 (필요하면 다시) 세운다 */
+  const updateProps = (): boolean =>
+    propView.update(
+      spanForDistance(state.distance, viewport),
+      propArea(state, viewport, propView.limits.reachM),
+    );
   scene.add(neighbours.group, propView.group);
   let pendingNeighbours: readonly NeighbourTerrain[] | null = null;
   /** 격자 선(개발자 2차맵 시험, setViewOptions) */
@@ -206,6 +218,8 @@ export function createSecondMapEngine(
   };
 
   const applyCamera = (): void => {
+    // 그린 기울기는 거리에 따라 바뀐다(가까이 눕힘, camera/cameraMath.ts viewPitch). 어느 길로 거리를 바꿨든 그리기 전에 맞춘다
+    state = withViewPitch(state, limits);
     const position = cameraPosition(state);
     camera.position.set(position.x, position.y, position.z);
     camera.lookAt(state.targetX, state.targetY, state.targetZ);
@@ -263,8 +277,8 @@ export function createSecondMapEngine(
       }
     }
     applyCamera();
-    // 가까이면 카메라 둘레 소품 모델을 세운다(움직임이 크면 다시 세운다)
-    propView.update(state.targetX, state.targetZ, spanForDistance(state.distance, viewport));
+    // 가까이면 화면이 보는 땅(가시거리까지)에 소품 모델을 세운다(보는 땅이 세운 땅을 벗어나면 다시 세운다)
+    updateProps();
     // 카메라가 바뀌었으면 알린다(나침반·이웃 받기). 같은 값이면 부르지 않는다
     const view = `${state.targetX.toFixed(1)},${state.targetZ.toFixed(1)},${state.yaw.toFixed(3)},${state.distance.toFixed(0)}`;
     if (view !== lastView) {
@@ -285,7 +299,13 @@ export function createSecondMapEngine(
     renderer.render(scene, camera);
     const info = renderer.info.render;
     lastInfo = { calls: info.calls, triangles: info.triangles, points: info.points };
-    timer.record(started, performance.now() - started);
+    const spent = performance.now() - started;
+    timer.record(started, spent);
+    // 이어서 그린 프레임의 간격·엔진 시간으로 가시거리 단계를 고른다. 바뀌면 다음 프레임에 소품을 다시 세운다
+    if (viewDistance.record(deltaMs, spent)) {
+      propView.setReach(viewDistance.level.reachM, viewDistance.level.maxProps);
+      animating = true;
+    }
     return moving > 0 || animating || blending;
   };
   const scheduler = new FrameScheduler(frame);
@@ -582,6 +602,8 @@ export function createSecondMapEngine(
         props: propView.drawn,
         propSpanM: propView.limits.spanM,
         propCap: propView.limits.maxProps,
+        viewLevel: viewDistance.index,
+        viewReachM: propView.limits.reachM,
         grid,
         zoomStage: localZoomStage(state.distance, limits),
         following: glide.followId,
@@ -605,7 +627,7 @@ export function createSecondMapEngine(
       if (view.propSpanM !== undefined || view.propCap !== undefined) {
         const current = propView.limits;
         propView.setLimits(view.propSpanM ?? current.spanM, view.propCap ?? current.maxProps);
-        propView.update(state.targetX, state.targetZ, spanForDistance(state.distance, viewport));
+        updateProps();
       }
       scheduler.request();
     },

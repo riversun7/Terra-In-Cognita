@@ -470,6 +470,7 @@
   "map_perf_scene": "유닛 {units} · 그리기 {calls}회",
   "map_perf_engine": "엔진 {ms}ms",
   "map_perf_pixels": "픽셀 비율 {ratio} · 그리기 버퍼 {width}×{height}",
+  "map_perf_view": "가시거리 {reach}m · {level}단계 · 소품 {props}",
   "map_perf_light": "지역 {time} · 해 {sun}° · 달 {moon}%",
   "map_compass_label": "나침반: 바늘이 이 2차맵의 북쪽을 가리킵니다",
   "map_compass_north": "북",

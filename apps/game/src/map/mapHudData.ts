@@ -45,5 +45,8 @@ export function hudDataAttributes(
     "data-light-changes": light?.changes,
     "data-neighbours": stats?.neighbours,
     "data-props": stats?.props,
+    // 가시거리 자동 조절 단계(0부터)와 그 거리(m) — @terra/engine render/viewDistance.ts
+    "data-view-level": stats?.viewLevel,
+    "data-view-reach": stats ? Math.round(stats.viewReachM) : undefined,
   };
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CAMERA_FOV_RAD,
+  CLOSE_TILT_RAD,
   CLOSE_VIEW_SPAN_M,
   type CameraState,
   DEFAULT_PITCH_RAD,
@@ -14,6 +15,7 @@ import {
   cameraPosition,
   clampCamera,
   clampToArea,
+  closeTilt,
   distanceForSpan,
   groundUnder,
   initialCamera,
@@ -23,7 +25,12 @@ import {
   pixelsPerMetre,
   spanForDistance,
   transformAround,
+  TILT_FULL_ZOOM,
+  TILT_NONE_ZOOM,
   twoPointerChange,
+  VIEW_HORIZON_MARGIN_RAD,
+  viewPitch,
+  withViewPitch,
 } from "./cameraMath.ts";
 
 const PHONE: Viewport = { width: 390, height: 844 };
@@ -78,11 +85,15 @@ describe("clampCamera", () => {
       { targetX: -50, targetY: 3, targetZ: MAP + 50, yaw: 0, pitch: 80 * DEG, distance: 1 },
       limits,
     );
-    expect(state.pitch).toBeCloseTo(MAX_PITCH_RAD, 9);
+    // 사용자 기울기는 35~55°로 묶고, 가장 가까이에서 그린 기울기는 그만큼 눕힌다
+    expect(state.basePitch).toBeCloseTo(MAX_PITCH_RAD, 9);
+    expect(state.pitch).toBeCloseTo(MAX_PITCH_RAD - CLOSE_TILT_RAD, 9);
     expect(state.distance).toBe(limits.minDistance);
     expect(state.targetX).toBe(0);
     expect(state.targetZ).toBe(MAP);
-    expect(clampCamera({ ...state, pitch: 10 * DEG }, limits).pitch).toBeCloseTo(MIN_PITCH_RAD, 9);
+    const far = clampCamera({ ...state, basePitch: 10 * DEG, distance: limits.maxDistance }, limits);
+    expect(far.basePitch).toBeCloseTo(MIN_PITCH_RAD, 9);
+    expect(far.pitch).toBeCloseTo(MIN_PITCH_RAD, 9);
   });
 
   it("보기 범위(원 여러 개)가 있으면 목표점을 가장 가까운 원 안으로 옮긴다(안이면 그대로, 기획 정리 630)", () => {
@@ -116,7 +127,92 @@ describe("clampCamera", () => {
     expect(state.targetX).toBe(MAP / 2);
     expect(state.targetZ).toBe(MAP / 2);
     expect(state.targetY).toBe(7);
-    expect(state.pitch).toBeCloseTo(DEFAULT_PITCH_RAD, 9);
+    expect(state.basePitch).toBeCloseTo(DEFAULT_PITCH_RAD, 9);
+    // 처음 거리(가장 가까이 × 1.75)는 눕힘 구간 안이라 그린 기울기가 45°보다 낮다
+    expect(state.pitch).toBeLessThan(DEFAULT_PITCH_RAD);
+    expect(state.pitch).toBeCloseTo(viewPitch(DEFAULT_PITCH_RAD, state.distance, limits.minDistance), 12);
+  });
+});
+
+describe("가까이 눕힘(그린 기울기)", () => {
+  const limits = cameraLimitsFor(MAP, PHONE);
+  const min = limits.minDistance;
+  it("확대 TILT_FULL_ZOOM배까지는 다 눕히고(45° → 30°), TILT_NONE_ZOOM배부터는 그대로", () => {
+    expect(closeTilt(min, min)).toBeCloseTo(CLOSE_TILT_RAD, 12);
+    expect(closeTilt(min * TILT_FULL_ZOOM, min)).toBeCloseTo(CLOSE_TILT_RAD, 12);
+    expect(closeTilt(min * TILT_NONE_ZOOM, min)).toBe(0);
+    expect(closeTilt(min * 50, min)).toBe(0);
+    expect(viewPitch(DEFAULT_PITCH_RAD, min, min)).toBeCloseTo(30 * DEG, 12);
+    expect(viewPitch(DEFAULT_PITCH_RAD, min * 10, min)).toBeCloseTo(DEFAULT_PITCH_RAD, 12);
+  });
+
+  it("멀어질수록 그린 기울기가 한 방향으로만 커진다(튀지 않음)", () => {
+    let previous = -1;
+    for (let zoom = 1; zoom <= 6; zoom += 0.05) {
+      const pitch = viewPitch(DEFAULT_PITCH_RAD, min * zoom, min);
+      expect(pitch).toBeGreaterThanOrEqual(previous - 1e-12);
+      previous = pitch;
+    }
+  });
+
+  it("어떤 사용자 기울기·거리에서도 화면 위 끝 시선은 수평 아래(지평선이 보이지 않는다)", () => {
+    for (const base of [MIN_PITCH_RAD, DEFAULT_PITCH_RAD, MAX_PITCH_RAD]) {
+      for (const zoom of [1, 1.2, 2, 3, 8]) {
+        const pitch = viewPitch(base, min * zoom, min);
+        expect(pitch - CAMERA_FOV_RAD / 2).toBeGreaterThanOrEqual(
+          Math.min(base - CAMERA_FOV_RAD / 2, VIEW_HORIZON_MARGIN_RAD) - 1e-12,
+        );
+        const state = clampCamera(
+          {
+            targetX: 500,
+            targetY: 0,
+            targetZ: 500,
+            yaw: 0.3,
+            pitch: base,
+            basePitch: base,
+            distance: min * zoom,
+          },
+          limits,
+        );
+        expect(groundUnder(state, PHONE, { x: 0, y: 0 })).not.toBeNull();
+        expect(groundUnder(state, PHONE, { x: PHONE.width, y: 0 })).not.toBeNull();
+      }
+    }
+  });
+
+  it("가장 가까이 5단계에서 화면 위 끝 땅이 45° 때의 두 배 넘게 멀다", () => {
+    const at = (pitch: number) =>
+      groundUnder({ targetX: 0, targetY: 0, targetZ: 0, yaw: 0, pitch, distance: min * 1.5 }, PHONE, {
+        x: PHONE.width / 2,
+        y: 0,
+      });
+    const before = at(DEFAULT_PITCH_RAD);
+    const after = at(viewPitch(DEFAULT_PITCH_RAD, min * 1.5, min));
+    if (!before || !after) throw new Error("no ground");
+    expect(-after.z).toBeGreaterThan(-before.z * 2);
+  });
+
+  it("거리를 바꾸고 되돌리면 사용자 기울기가 그대로(확대·축소를 되풀이해도 쌓이지 않음)", () => {
+    let state = initialCamera(MAP, limits);
+    for (let i = 0; i < 20; i++) {
+      state = clampCamera({ ...state, distance: limits.maxDistance }, limits);
+      state = clampCamera({ ...state, distance: min }, limits);
+    }
+    expect(state.basePitch).toBeCloseTo(DEFAULT_PITCH_RAD, 12);
+    expect(clampCamera({ ...state, distance: limits.maxDistance }, limits).pitch).toBeCloseTo(
+      DEFAULT_PITCH_RAD,
+      12,
+    );
+  });
+
+  it("withViewPitch는 목표점을 묶지 않고 기울기만 다시 정한다", () => {
+    const state = withViewPitch(
+      { targetX: -999, targetY: 0, targetZ: -999, yaw: 0, pitch: DEFAULT_PITCH_RAD, distance: min },
+      limits,
+    );
+    expect(state.targetX).toBe(-999);
+    expect(state.pitch).toBeCloseTo(DEFAULT_PITCH_RAD - CLOSE_TILT_RAD, 12);
+    expect(withViewPitch(state, limits)).toBe(state);
   });
 });
 
@@ -227,7 +323,8 @@ describe("잡아 끌기·확대·회전", () => {
     const turned = orbit(base, 1, 1, limits);
     expect(turned.targetX).toBe(base.targetX);
     expect(turned.targetZ).toBe(base.targetZ);
-    expect(turned.pitch).toBeCloseTo(MAX_PITCH_RAD, 9);
+    expect(turned.basePitch).toBeCloseTo(MAX_PITCH_RAD, 9);
+    expect(turned.pitch).toBeCloseTo(viewPitch(MAX_PITCH_RAD, turned.distance, limits.minDistance), 12);
   });
 });
 

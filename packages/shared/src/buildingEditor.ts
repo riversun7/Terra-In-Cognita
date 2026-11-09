@@ -11,7 +11,18 @@ import type {
   LocalizedName,
 } from "./contentEdit.ts";
 import type { FacilityBuildJson, FacilityBuildRules, FacilityRepairJson } from "./facilityBuild.ts";
+import type { FacilityLookJson } from "./facilityLook.ts";
 
+export {
+  FACILITY_LOOK_COLORS,
+  FACILITY_LOOK_HEIGHT_DEFAULT,
+  FACILITY_LOOK_LIMITS,
+  FACILITY_LOOK_MODELS,
+  type FacilityLookColor,
+  type FacilityLookJson,
+  type FacilityLookModel,
+  cleanFacilityLook,
+} from "./facilityLook.ts";
 export {
   FACILITY_BUILD_LIMITS,
   FACILITY_LEVEL_MAX,
@@ -108,6 +119,8 @@ export interface FacilityJson {
   readonly durability?: number | undefined;
   /** 레벨 1 창고 용량(kg, 49 N50). 없으면 창고 없음 */
   readonly storageKg?: number | undefined;
+  /** 2차맵 겉모습(모델 종류·벽·지붕 색·높이 배율, docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)"). 그림 자료 */
+  readonly look?: FacilityLookJson | undefined;
 }
 
 /** 입력 칸 범위(팩 스키마와 같다. 서버 시험이 맞춰 본다) */

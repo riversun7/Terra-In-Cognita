@@ -576,6 +576,55 @@
   font-size: var(--font-size-xs);
   color: var(--dev-code);
 }
+/* tip 모양(건물 편집기, 2026-11-09): 구역 풀이는 근거 한 줄 + [i]로 펼침 */
+.ce-form-section-about {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+.ce-form-section-about > .ce-form-section-desc {
+  flex: 1 1 100%;
+}
+.ce-hint-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+  font-weight: var(--font-weight-strong);
+  line-height: 1;
+}
+.ce-hint-toggle[aria-expanded="true"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+/* 단위를 입력 칸 오른쪽에 붙인다 */
+.ce-input-unit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ce-input-unit > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ce-unit {
+  flex: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
 
 /* ── 칸: 이름표 줄·도움말·견주기 ── */
 .ce-field-head {
@@ -886,4 +935,10 @@
 .ce-pending[data-count="0"] {
   border-color: var(--color-border);
   box-shadow: none;
+}
+
+/* tip 모양의 접힌 풀이(작가 display 규칙이 hidden을 덮지 않게) */
+.ce-hint[hidden],
+.ce-form-section-desc[hidden] {
+  display: none;
 }

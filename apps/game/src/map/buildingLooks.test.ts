@@ -7,6 +7,7 @@ import {
   LOOKS_SETTLE_MS,
   accentOf,
   idsKey,
+  lookOf,
   startBuildingLooks,
   withLooks,
 } from "./buildingLooks.ts";
@@ -54,6 +55,23 @@ afterEach(() => {
 });
 
 describe("건물 겉모습 잇기", () => {
+  it("실효 팩 겉모습 자료(art)가 있으면 엔진 겉모습에 싣고, 없으면 칸이 없다(엔진이 시설 ID로 고른다)", () => {
+    const row = {
+      buildingId: 1,
+      facilityId: "farm",
+      level: 2,
+      state: "ok",
+      upgrading: false,
+      factionId: null,
+      mine: false,
+    } as const;
+    expect(lookOf({ ...row, art: { model: "temple", wall: "brick", heightPm: 1200 } }, [])).toMatchObject({
+      facility: "farm",
+      art: { model: "temple", wall: "brick", heightPm: 1200 },
+    });
+    expect(lookOf(row, [])).not.toHaveProperty("art");
+  });
+
   it("국가 색 번호는 world.cities 국가 차례(0~5), 없는 국가는 세력 ID로 돌려 쓰고, 국가 없음은 null", () => {
     const factions = [faction(40), faction(7), faction(9)];
     expect(accentOf(factions, 7)).toBe(1);

@@ -2,7 +2,7 @@
  * 건물 편집기(/dev/buildings) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 촘촘(data-density="compact").
  * 개발 화면 층(ADR 2026-11-02-dev-ui): 레벨 표는 공용 .dev-table, 표지는 .dev-badge.
  * 틀(머리·탭·목록·편집 판 머리·구역·칸 견주기·담은 변경 막대)은 공용 editor/content/contentEditorShell.css(2026-11-08 화면 개편).
- * 여기는 시설 칸 격자·레벨 구간·재료 줄·수리 줄·레벨 표·레시피·채집 확률표 탭만.
+ * 여기는 시설 칸 격자·레벨 구간·재료 줄·수리 줄·레벨 표·레시피·2차맵 모습만(1차 생산 티어 확률은 editor/gatherTiers/).
  * 조각 BuildingEditorScreen-*와 함께 내려온다(미리 캐시 밖, [Bb]uildingEditor).
  */
 .be-screen {
@@ -84,6 +84,10 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
   gap: var(--space-2) var(--space-3);
   min-width: 0;
+}
+/* 짝 칸(가로·세로, 모델·높이): 좁은 오른쪽 칸에서도 둘이 한 줄에 */
+.be-grid-pair {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
 }
 .be-mul {
   max-width: 14rem;
@@ -200,218 +204,161 @@
   color: var(--color-primary);
 }
 
-/* ── 1차 생산 · 티어 확률 분포 탭 (N43) ── */
-.be-prob-tab {
+/* ── 2차맵 모습(3D 미리 보기·모델·색·높이, 2026-11-09) ── */
+.be-detail {
+  container: be-detail / inline-size;
+}
+.be-look-body {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
 }
-.be-prob-banner-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-.be-prob-presets {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: var(--hairline) solid var(--color-border);
-}
-.be-prob-cards {
-  display: grid;
-  gap: var(--space-3);
-  min-width: 0;
-}
-.be-prob-card[data-staged="true"] {
-  border-color: var(--color-focus);
-}
-.be-prob-card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding-bottom: var(--space-2);
-  border-bottom: var(--hairline) solid var(--color-border);
-}
-.be-prob-stat-range {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-md);
-  color: var(--color-primary);
-}
-.dev-badge[data-invalid="true"] {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-}
-.be-prob-stack {
-  display: flex;
-  height: var(--space-2);
-  width: 100%;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface-2);
-  overflow: hidden;
-}
-.be-prob-stack-seg {
-  height: 100%;
-}
-.be-prob-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3);
-}
-@media (min-width: 52em) {
-  .be-prob-body {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+@container be-detail (min-width: 46rem) {
+  .be-look-body {
+    grid-template-columns: minmax(16rem, 26rem) minmax(0, 1fr);
+    align-items: start;
   }
 }
-.be-prob-chart,
-.be-prob-inputs {
+.be-look-preview,
+.be-look-fields {
   display: grid;
-  align-content: start;
   gap: var(--space-2);
   min-width: 0;
 }
-.be-prob-bars {
-  display: grid;
-  gap: var(--space-1);
+.be-look-fields {
+  gap: var(--space-3);
 }
-.be-prob-bar-row {
-  display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr) 6.5rem;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-xs);
-}
-.be-prob-bar-row[data-dim="true"] {
-  opacity: 0.45;
-}
-.be-prob-tier-label {
-  font-family: var(--font-mono);
-  font-weight: var(--font-weight-strong);
-}
-.be-prob-bar-track {
-  height: var(--space-2);
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface-2);
+.be-look-stage {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  min-width: 0;
   overflow: hidden;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface-2);
 }
-.be-prob-bar-fill {
-  height: 100%;
-  border-radius: var(--radius-pill);
-}
-.be-prob-bar-pct {
-  font-family: var(--font-mono);
-  text-align: end;
-  color: var(--color-text-muted);
-}
-.be-prob-input-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
-  gap: var(--space-2);
-}
-.be-prob-input-cell {
-  display: grid;
-  gap: var(--space-1);
-  font-size: var(--font-size-xs);
-}
-.be-prob-input-cell input {
+.be-look-canvas {
+  display: block;
   width: 100%;
-  min-width: 0;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+.be-look-canvas:active {
+  cursor: grabbing;
+}
+.be-look-canvas:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: calc(var(--focus-w) * -1);
+}
+.be-look-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.be-look-keys,
+.be-look-stats,
+.be-look-icon {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.be-look-stats {
   font-family: var(--font-mono);
-  text-align: end;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
 }
-.be-prob-row-presets {
-  padding-top: var(--space-1);
-}
-.be-prob-facility-grid {
+.be-look-view {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
 }
-.be-prob-facility-chip {
+.be-look-levels {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.be-look-levels > button[aria-pressed="true"],
+.be-look-view > button[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-strong);
+}
+.be-look-inline {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.be-look-view button,
+.be-look-view select {
+  min-height: var(--dev-touch-tap);
+}
+
+/* 색 견본(라디오 묶음 — 고른 것은 주색 테두리, 키 초점은 초점색) */
+.be-swatches {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.be-swatches > legend {
+  padding: 0;
+}
+.be-swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.be-swatch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.be-swatch > input {
+  position: absolute;
+  opacity: 0;
+  width: var(--hairline);
+  height: var(--hairline);
+  margin: 0;
+}
+.be-swatch-chip,
+.be-swatch-name {
+  display: inline-flex;
+  align-items: center;
+  min-width: var(--dev-touch-tap);
+  min-height: var(--dev-touch-tap);
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
-  background-color: var(--color-surface-2);
+}
+.be-swatch-name {
+  padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
 }
-
-/* 티어 색 (T0~T9, tokens.css 변수만 사용) */
-.be-prob-tier-label[data-tier="t0"] {
+.be-swatch > input:checked + .be-swatch-chip,
+.be-swatch > input:checked + .be-swatch-name {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 var(--focus-w) var(--color-primary);
+}
+.be-swatch > input:focus-visible + .be-swatch-chip,
+.be-swatch > input:focus-visible + .be-swatch-name {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-w);
+}
+.be-swatch-current {
+  margin: 0;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-}
-.be-prob-tier-label[data-tier="t1"] {
-  color: var(--color-success);
-}
-.be-prob-tier-label[data-tier="t2"] {
-  color: var(--color-stat-int);
-}
-.be-prob-tier-label[data-tier="t3"] {
-  color: var(--color-stat-wis);
-}
-.be-prob-tier-label[data-tier="t4"] {
-  color: var(--color-stat-vit);
-}
-.be-prob-tier-label[data-tier="t5"] {
-  color: var(--color-stat-dex);
-}
-.be-prob-tier-label[data-tier="t6"] {
-  color: var(--color-danger);
-}
-.be-prob-tier-label[data-tier="t7"] {
-  color: var(--color-sec-physical-attack);
-}
-.be-prob-tier-label[data-tier="t8"] {
-  color: var(--color-sec-elemental-attack);
-}
-.be-prob-tier-label[data-tier="t9"] {
-  color: var(--color-focus);
-}
-
-.be-prob-bar-fill[data-tier="t0"],
-.be-prob-stack-seg[data-tier="t0"] {
-  background-color: var(--color-text-muted);
-}
-.be-prob-bar-fill[data-tier="t1"],
-.be-prob-stack-seg[data-tier="t1"] {
-  background-color: var(--color-success);
-}
-.be-prob-bar-fill[data-tier="t2"],
-.be-prob-stack-seg[data-tier="t2"] {
-  background-color: var(--color-stat-int);
-}
-.be-prob-bar-fill[data-tier="t3"],
-.be-prob-stack-seg[data-tier="t3"] {
-  background-color: var(--color-stat-wis);
-}
-.be-prob-bar-fill[data-tier="t4"],
-.be-prob-stack-seg[data-tier="t4"] {
-  background-color: var(--color-stat-vit);
-}
-.be-prob-bar-fill[data-tier="t5"],
-.be-prob-stack-seg[data-tier="t5"] {
-  background-color: var(--color-stat-dex);
-}
-.be-prob-bar-fill[data-tier="t6"],
-.be-prob-stack-seg[data-tier="t6"] {
-  background-color: var(--color-danger);
-}
-.be-prob-bar-fill[data-tier="t7"],
-.be-prob-stack-seg[data-tier="t7"] {
-  background-color: var(--color-sec-physical-attack);
-}
-.be-prob-bar-fill[data-tier="t8"],
-.be-prob-stack-seg[data-tier="t8"] {
-  background-color: var(--color-sec-elemental-attack);
-}
-.be-prob-bar-fill[data-tier="t9"],
-.be-prob-stack-seg[data-tier="t9"] {
-  background-color: var(--color-focus);
 }

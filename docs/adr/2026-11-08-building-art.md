@@ -77,3 +77,12 @@
 - 좋은 점: 시설마다 알아볼 수 있는 모양(밭·통나무·갱도·굴뚝·첨탑·십자·기둥), 레벨·상태가 보인다. 밤에도 창 불빛으로 건물이 읽힌다. 건물 모델 위를 눌러도 건물 판이 열린다.
 - 감수할 점: 그리기 호출 +5(건물 2 → 최대 7), 건물당 삼각형 약 12 → 약 376. 겉모습을 받기 전 약 1초는 일반 집으로 보인다. 레벨·상태 바뀜은 최대 30초 늦게 보인다.
 - 다시 볼 조건: 휴대폰에서 도시 2차맵 p95가 33ms를 넘으면 먼 거리에서 작은 조각(창문·상자·깃발)을 빼는 거리 단계를 넣는다. 시설이 크게 늘면 종류별 모델을 콘텐츠 팩 `look` 칸(모델 종류·지붕 색)으로 옮긴다(그때 팩 판 올림). 지도 갱신에 겉모습을 실어야 할 만큼 자주 바뀌게 되면 프로토콜로 옮긴다.
+
+## 바뀜 (2026-11-09)
+- 까닭: 사용자(2026-11-09, `/dev/buildings`를 보며) "속성중에 2차맵에서 보여질 이미지, 폴리곤 이미지도 보여지고 수정하는등 가능하게해라". 위 "다시 볼 조건"의 "종류별 모델을 콘텐츠 팩 `look` 칸(모델 종류·지붕 색)으로 옮긴다(그때 팩 판 올림)"를 지금 한다. 가지 `work/building-editor-2`, 작업 기록 `docs/worklog/2026/11/09-2215-building-editor-2.md`.
+- **팩 칸**(core@59): 시설 `look` = `{ model?, wall?, roof?, heightPm? }`, 모두 선택. `model` = 모델 종류 16개(위 종류 표, `@terra/shared/facilityLook` `FACILITY_LOOK_MODELS`), `wall`·`roof` = 색 이름 15개(`FACILITY_LOOK_COLORS` → 엔진 색 표 `buildingPalette.ts` `LOOK_COLORS`), `heightPm` = 높이 배율 500~2000‰(바닥 판 위 조각의 높이·자리에 곱한다, 판은 그대로). 스키마는 `packages/content` `facilityEntrySchema.look`(strict). 출발값 = 엔진이 시설 ID로 고르던 모델(2차맵 시설 16개에 `model`만, 영토 비콘은 칸 없음) → 그림은 바뀌지 않는다.
+- **엔진**: `resolveLook`이 `look.art.model`을 시설 ID 표보다 먼저 쓰고(모르는 이름은 시설 ID로), 벽·지붕 색은 종류 모델의 집 벽·지붕(가마는 벽돌 몸, 광산은 권양탑 지붕, 야적장은 국가 색이 없을 때 천막)에 든다. 씨앗 난수 차례는 그대로라 색을 주지 않으면 조각이 바이트까지 같다(시험 `buildingModels.test.ts`). 시설 ID 표(`FACILITY_ART`)는 칸이 없는 옛 덮어쓰기 줄·옛 서버용으로 남긴다.
+- **자료 길**: 서버 `facilities.mapLooks` 응답 건물 줄에 선택 칸 `art`(실효 팩 `look`, 건물 서비스 목록 `FacilityDef.look`). 화면 `buildingLooks.ts`가 엔진 `BuildingLook.art`로 넘긴다. 건물 편집기가 바꾸면 바로 실효 값이 되고 2차맵은 다음 조회(최대 30초)에 바뀐다. 프로토콜·시뮬·DB는 그대로(판 올림 없음).
+- **편집기 미리 보기**: 새 진입점 `@terra/engine/buildingPreview`(`BuildingPreview`: 같은 `BuildingView`·고정 낮 빛 `FIXED_SECOND_MAP_LIGHT`, 평평한 땅·배치 칸 금·앞면 화살표, 끌기·휠·키 돌려 보기, 바뀔 때만 그림)와 `@terra/engine/buildingArt`(three 없는 이름표·색 표). 건물 편집기 조각만 지연 로딩한다(`buildingEditorPreview-*`, 미리 캐시 밖 — `DEV_ONLY_SOURCE`에 `buildingPreview.ts`·`previewEntry.ts`를 넣어 새면 `check-pwa`가 막는다).
+- 지도 아이콘·그림 파일은 없다(2차맵은 이 3D 모델만, 1차맵은 도시 판). 그래서 편집기는 그림 칸을 두지 않고 "없음"이라고 적는다.
+- 상태: 사용자가 화면을 본 뒤 통합 담당이 확정한다(이 절은 위 상태 줄을 바꾸지 않는다).

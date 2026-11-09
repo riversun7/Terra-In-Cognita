@@ -58,6 +58,8 @@ const SkillEditorScreen = lazy(() => import("../editor/skills/SkillEditorScreen.
 const ItemEditorScreen = lazy(() => import("../editor/items/ItemEditorScreen.tsx"));
 // 건물 편집기(틀 안): 조각 이름 BuildingEditorScreen-*(미리 캐시 규칙 [Bb]uildingEditor). 입력 칸·최근 바꿈은 contentEditor… 공용 부품
 const BuildingEditorScreen = lazy(() => import("../editor/buildings/BuildingEditorScreen.tsx"));
+// 1차 생산 티어 확률(틀 안, 49 N43): 조각 이름 GatherTierScreen-*(미리 캐시 규칙 [Gg]atherTier). 건물 편집기 조각은 가져오지 않는다
+const GatherTierScreen = lazy(() => import("../editor/gatherTiers/GatherTierScreen.tsx"));
 // 크리처 편집기(틀 안): 조각 이름 CreatureEditorScreen-*(미리 캐시 규칙 [Cc]reatureEditor)
 const CreatureEditorScreen = lazy(() => import("../editor/creatures/CreatureEditorScreen.tsx"));
 // 영토 층(틀 안): 조각 이름 TerritoryLabScreen-*(미리 캐시 규칙 [Tt]erritoryLab)
@@ -106,6 +108,7 @@ export const ROUTE_TITLES = {
   dev_skills: m.shell_route_dev_skills,
   dev_items: m.shell_route_dev_items,
   dev_buildings: m.shell_route_dev_buildings,
+  dev_gather_tiers: m.shell_route_dev_gather_tiers,
   dev_creatures: m.shell_route_dev_creatures,
   dev_territory: m.shell_route_dev_territory,
   dev_world_layout: m.shell_route_dev_world_layout,
@@ -234,6 +237,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <ItemEditorScreen initialId={match.search.item} />;
     case "dev_buildings":
       return <BuildingEditorScreen initialId={match.search.facility} />;
+    case "dev_gather_tiers":
+      return <GatherTierScreen />;
     case "dev_creatures":
       return <CreatureEditorScreen initialId={match.search.creature} />;
     case "dev_territory":

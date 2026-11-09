@@ -43,7 +43,7 @@
 
 ## 사용자 결정 대기
 - 색·굵기·언덕 뒤에도 보이기는 기본값으로 골랐다. 바꾸고 싶으면 알려 준다.
-- main 합치기·NAS 배포는 사용자 확인 뒤에 한다(앞 [멈추기] 고침과 함께).
+- main 합치기·NAS 배포: 사용자 승인(2026-11-09 "다른 작업 없으면 진행"). 최신 main 위에 다시 올리며 충돌 5곳을 손으로 풀었다(`SecondaryMapScreen.tsx` 한눈 정보·`mapHudData.ts` 가시거리 칸·`useMapEngine.ts` 옆 2차맵 누르기의 정보 판 닫기·`neighbourTravel.ts` 안내 모양·`secondMapEngine.ts` 가시거리 단계 — 모두 양쪽을 합침).
 
 ## 검사
 - 엔진·2차맵 단위 시험 640개 통과, 타입 검사·biome·oxlint 통과(Verified).

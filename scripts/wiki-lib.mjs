@@ -6,6 +6,7 @@ import path from "node:path";
 
 export const WIKI_DIR = "docs/wiki";
 export const PAGES_DIR = `${WIKI_DIR}/pages`;
+export const GUIDES_DIR = `${WIKI_DIR}/guides`;
 export const DESIGN_DIR = "docs/design";
 export const DECISION_LOG = `${DESIGN_DIR}/02_Decision_Log.md`;
 
@@ -132,6 +133,11 @@ export function chapterTitle(designFile) {
   }
   chapterTitles.set(designFile, title);
   return title;
+}
+
+/** 코드 울타리(```)와 한 줄 코드(`…`) 안을 뺀 글 — 보기로 적은 링크를 검사하지 않기 위해 */
+export function stripFences(text) {
+  return text.replace(/^```[\s\S]*?^```$/gm, "").replace(/`[^`\n]*`/g, "");
 }
 
 /** 한국어 가나다 순 */

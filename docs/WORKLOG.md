@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-09 22:42 | 플레이어 위키 P1: 항목 40개·길잡이 3개, 설정 화면에 도움말 입구 | Claude Code | [09-2242-player-wiki-p1](worklog/2026/11/09-2242-player-wiki-p1.md) |
 | 2026-11-09 22:02 | 플레이어 위키 틀: docs/wiki/ + 색인 생성기 + 검사, 보기 항목 5개 | Claude Code | [09-2202-player-wiki-skeleton](worklog/2026/11/09-2202-player-wiki-skeleton.md) |
 | 2026-11-09 20:40 | 운영자 모드 이동 빠르기 10배 → 100배 | Claude Code | [09-2040-operator-speed](worklog/2026/11/09-2040-operator-speed.md) |
 | 2026-11-09 19:45 | 2차맵 사이를 가는 중 [멈추기] 깜빡임 고침 | Claude Code | [09-1945-stop-flicker](worklog/2026/11/09-1945-stop-flicker.md) |

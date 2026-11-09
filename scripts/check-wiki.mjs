@@ -1,20 +1,23 @@
 // 위키 검사 — 손으로는 못 지키는 것만 본다 (docs/adr/2026-11-09-player-wiki.md 7절).
 // 머리 칸·필수 제목·항목끼리의 링크·기획서 링크·결정 ID가 실제로 있는지.
 // --stale: 인용한 결정에 "대체" 표시가 있는 항목을 알린다(실패 아님. 미러를 새로 복사한 뒤 쓴다).
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fail } from "./lib.mjs";
 import {
   DECISION_LOG,
   DESIGN_DIR,
   FIELDS,
+  GUIDES_DIR,
   ID_PATTERN,
   SECTIONS,
   STAGE_LABELS,
   STATUS_LABELS,
+  WIKI_DIR,
   parseSource,
   readEntries,
   sectionsOf,
+  stripFences,
 } from "./wiki-lib.mjs";
 
 const problems = [];
@@ -78,6 +81,10 @@ function checkFront(entry, seen) {
   }
   for (const name of [front.title, ...(Array.isArray(front.aliases) ? front.aliases : [])]) {
     if (typeof name !== "string" || name === "") continue;
+    if (name.includes(",")) {
+      problems.push(`${file}: 이름에 쉼표가 있다 — 목록은 ";"로 나눈다: "${name}"`);
+      continue;
+    }
     const owner = seen.get(name);
     if (owner) problems.push(`${file}: 이름 "${name}"을 ${owner}도 쓴다(한 개념 = 한 항목)`);
     else seen.set(name, file);
@@ -136,7 +143,7 @@ function checkBody(entry) {
     last = at;
   }
   if (body.includes("[[")) problems.push(`${file}: [[…]] 링크는 깃허브가 그리지 않는다`);
-  for (const [, target] of body.matchAll(/]\(([^)\s]+)\)/g)) {
+  for (const [, target] of stripFences(body).matchAll(/]\(([^)\s]+)\)/g)) {
     if (/^(https?:|mailto:)/.test(target)) continue;
     if (target.includes("#")) {
       problems.push(`${file}: 앵커(#)를 쓰지 않는다 — "${target}"`);
@@ -147,8 +154,40 @@ function checkBody(entry) {
   }
 }
 
+/** 손으로 쓴 다른 위키 문서(규칙·길잡이·시작) — 링크만 본다 */
+function checkPlainFile(file) {
+  const body = stripFences(readFileSync(file, "utf8"));
+  for (const [, target] of body.matchAll(/]\(([^)\s]+)\)/g)) {
+    if (/^(https?:|mailto:)/.test(target)) continue;
+    if (target.includes("#")) {
+      problems.push(`${file}: 앵커(#)를 쓰지 않는다 — "${target}"`);
+      continue;
+    }
+    if (!existsSync(path.join(path.dirname(file), target))) {
+      problems.push(`${file}: 링크가 가리키는 파일이 없다 — "${target}"`);
+    }
+  }
+}
+
+/** 위키 폴더의 손으로 쓴 문서 목록(자동 생성물은 뺀다) */
+function plainFiles() {
+  const generated = new Set(["index.md", "categories.md", "terms.md"]);
+  const top = existsSync(WIKI_DIR)
+    ? readdirSync(WIKI_DIR)
+        .filter((name) => name.endsWith(".md") && !generated.has(name))
+        .map((name) => path.join(WIKI_DIR, name))
+    : [];
+  const guides = existsSync(GUIDES_DIR)
+    ? readdirSync(GUIDES_DIR)
+        .filter((name) => name.endsWith(".md"))
+        .map((name) => path.join(GUIDES_DIR, name))
+    : [];
+  return [...top, ...guides];
+}
+
 const decisions = readDecisions();
 const seen = new Map();
+for (const file of plainFiles()) checkPlainFile(file);
 for (const entry of entries) {
   problems.push(...entry.problems);
   if (entry.problems.length > 0) continue;

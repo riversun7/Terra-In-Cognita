@@ -1,9 +1,11 @@
 // 위키 색인 생성 — docs/wiki/pages/*.md를 읽어 index.md·categories.md·terms.md를 만든다.
 // --check: 파일을 쓰지 않고, 생성물이 최신이 아니면 실패한다 (푸시 전·CI).
 // 규칙은 docs/wiki/README.md, 결정은 docs/adr/2026-11-09-player-wiki.md.
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { fail } from "./lib.mjs";
 import {
+  GUIDES_DIR,
   STAGE_LABELS,
   STATUS_LABELS,
   WIKI_DIR,
@@ -36,6 +38,19 @@ function link(entry) {
   return `[${entry.title}](pages/${entry.id}.md)`;
 }
 
+/** 길잡이 목록 — guides/*.md의 첫 제목을 읽는다 */
+function guideRows() {
+  if (!existsSync(GUIDES_DIR)) return [];
+  return readdirSync(GUIDES_DIR)
+    .filter((name) => name.endsWith(".md"))
+    .toSorted()
+    .map((name) => {
+      const text = readFileSync(path.join(GUIDES_DIR, name), "utf8");
+      const title = /^# (.+)$/m.exec(text)?.[1]?.trim() ?? name;
+      return `- [${title}](guides/${name})`;
+    });
+}
+
 /** 가나다 색인 — 항목과 다른 이름(넘겨주기)을 한 표에 섞어 찾기 쉽게 한다 */
 function buildIndex() {
   const rows = [];
@@ -54,13 +69,15 @@ function buildIndex() {
     }
   }
   rows.sort((a, b) => byKorean(a.key, b.key));
+  const guides = guideRows();
   return [
     "# 색인",
     "",
     HEAD,
     "",
-    `항목 ${entries.length}개. 가나다 순. 쓰는 규칙은 [README.md](README.md), 처음이면 [start.md](start.md).`,
+    `항목 ${entries.length}개. 가나다 순. 처음이면 [처음 오셨나요](start.md), 쓰는 규칙은 [README.md](README.md).`,
     "",
+    ...(guides.length > 0 ? ["## 길잡이", "", ...guides, "", "## 항목", ""] : []),
     "| 항목 | 한 줄 | 기능 | 글 |",
     "|---|---|---|---|",
     ...rows.map((row) => `| ${row.cells.join(" | ")} |`),

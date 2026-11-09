@@ -7,7 +7,8 @@
 // 유닛 조종(docs/adr/2026-11-07-unit-control.md): 플레이어는 내 유닛만 명령한다(땅 = 이동, [멈추기]). 남의 유닛을 누르면 고르지 않고 정보 판
 // (PeekCard — 명령 유닛은 그대로, 땅을 누르면 닫히고 같은 누르기로 내 유닛이 간다, "바뀜 (2026-11-09)"). dev·admin은
 // [운영자 모드]로 아무 유닛이나 명령하고 안개 없이(전체 보기) 본다(위 판에 "운영자"). 서버도 명령마다 소유·권한을 본다.
-// 옆 2차맵으로(WP14, EdgeTravel.tsx): 고른 내 유닛(없으면 내 사이보그)을 변 너머 옆 2차맵으로 보낸다(서버 2차맵 사이 이동).
+// 옆 2차맵으로는 걸어서 간다(사용자 지적 2026-11-09 "옆2차맵으로 이동 없애라 그냥 걸어가는거지"): 그려 둔 이웃 땅을 누르면 고른 내 유닛이 변까지
+// 걸어가 넘는다(neighbourTravel.ts, WP-3). 옛 [옆 2차맵으로] 판(WP14 EdgeTravel)은 지웠다(docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)").
 // 기획 답 630~637(ADR "바뀜"): 플레이어 카메라는 내 유닛·건물 둘레로 묶고(useCameraArea), 운영자 모드는 이 기기에서 기억한다(operatorMode.ts),
 // 목록은 유닛 화면 차례 + 다른 곳 내 유닛 수, 남의 유닛은 시야 안이면 세력·종류(useUnitGlance).
 // 픽셀 비율 재기: 주소에 ?pixel-ratio=<1~4>를 붙이면 엔진 상한을 바꾼다(시험용, pixelRatioParam.ts). HUD에 쓰는 값·그리기 버퍼가 보인다.
@@ -51,8 +52,6 @@ import type { MapFocus } from "./mapTarget.ts";
 import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
 import { CrossingNotice, CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
-import { EdgeTravel } from "./EdgeTravel.tsx";
-import { edgeUnitOf } from "./edgeTravelData.ts";
 import { ZoomLadder } from "./ZoomLadder.tsx";
 import { useAnchorFollow } from "./UnitFollow.tsx";
 import { blockedWithoutUnits, chooseAnchor, commandUnit, unitTapOf } from "./anchorUnit.ts";
@@ -506,7 +505,7 @@ function SecondMapView({
             selection.moving,
             glanceUnit === shown ? glance : null,
           );
-  // 명령을 받을 유닛 하나(건물 판 "보낼 유닛"·채집·[옆 2차맵으로]) — 안내 줄의 고른 유닛을 다룰 수 있으면 그 유닛(문제3)
+  // 명령을 받을 유닛 하나(건물 판 "보낼 유닛"·채집) — 안내 줄의 고른 유닛을 다룰 수 있으면 그 유닛(문제3)
   const actor = commandUnit({
     shown,
     shownCommandable: control !== null && control.kind !== "other",
@@ -634,14 +633,6 @@ function SecondMapView({
             )
           }
           followTo={following ? null : crossedTo}
-        />
-        {/* 옆 2차맵으로(WP14): 고른 내 유닛(없으면 내 사이보그)을 변 너머 옆 2차맵으로 보낸다 */}
-        <EdgeTravel
-          mapKey={mapKey}
-          unit={edgeUnitOf({ selected: actor, units: myUnits.units, cyborgUnitId: cyborg?.unitId ?? null })}
-          engineRef={engineRef}
-          hostRef={hostRef}
-          screenFollows={following ? (cyborg?.unitId ?? null) : null}
         />
         {nearbyTab === null || sheet !== "nearby" ? (
           <div className="map-actions">

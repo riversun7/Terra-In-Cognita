@@ -21,7 +21,7 @@ const REQUEST_TIMEOUT_MS = 10_000;
 /** 가는 중인 길을 다시 묻는 간격(ms, 1차맵 명령 판·2차맵 따라가기) */
 export const TRAVEL_POLL_MS = 5_000;
 
-/** 확인 단계 길. unitId가 없으면 내 사이보그 본체(2차맵 화면 [옆 2차맵으로]는 고른 유닛을 넘긴다 — WP14) */
+/** 확인 단계 길. unitId가 없으면 내 사이보그 본체 */
 export function loadTravelPlan(
   target: { readonly mapKey: number; readonly x: number; readonly y: number; readonly unitId?: number },
   signal?: AbortSignal,

@@ -232,9 +232,10 @@ describe("지도 전환·처음 보기", () => {
   });
 
   it("처음 볼 곳: 주소 키 > 내 자리, 둘 다 없으면 null", () => {
-    expect(focusView(null, { latDeg: 3, lonDeg: 4 }, 1000)).toEqual({ latDeg: 3, lonDeg: 4, distanceM: 350 });
-    expect(focusView(null, null, 1000)).toBeNull();
-    expect(focusView(-5, { latDeg: 3, lonDeg: 4 }, 1000)).toMatchObject({ latDeg: 3, lonDeg: 4 });
+    // 거리는 넣지 않는다(화면이 처음 확대 단계 5로 정한다)
+    expect(focusView(null, { latDeg: 3, lonDeg: 4 })).toEqual({ latDeg: 3, lonDeg: 4 });
+    expect(focusView(null, null)).toBeNull();
+    expect(focusView(-5, { latDeg: 3, lonDeg: 4 })).toEqual({ latDeg: 3, lonDeg: 4 });
   });
 
   it("묶음 다가가기: 거리 × 1/4, 거리를 모르면 그대로", () => {

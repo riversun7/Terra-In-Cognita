@@ -3,6 +3,8 @@
 //   천체 9개, 지금 행성 강조) → [+] = 1차맵 1단계. 가장 멀리에서 휠을 한 번 더 굴려도 항성계 보기다(끝 너머 밀기).
 // - [+]로 5단계 → 끝에서 한 번 더 = 가운데 2차맵(내 사이보그 맵)으로 들어간다(D-6018) → 2차맵 [−] 끝 = 1차맵 5단계(?stage=5).
 // - 돌림판: 끌어도 화면 위쪽은 북쪽(방위 0°), 세로로 많이 끌어도 위도는 80°를 넘지 않는다(data-camera).
+// - 처음 단계·운영진 표시(사용자 요청 2026-11-09): 1차맵은 늘 5단계로 연다. 성능 판(.map-perf)·고도 과장 막대는 운영진(dev·admin)에게만
+//   보이고 플레이어에게는 없다(2차맵 성능 판도). 운영진 시험은 과장 ×1 → ×20의 화소 차이를 잰다(표준 출력).
 // 사진: 390px × 파스텔·다크 × 한국어·영어(확대 단계·항성계 보기), 1440px 파스텔 항성계 보기, 2차맵 확대 단계(E2E_SHOTS_DIR).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -10,6 +12,55 @@ import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
+
+/** 두 사진(같은 크기 PNG)의 화소 평균 차이(0~255, RGB 평균) — 브라우저에서 푼다(PNG 해석 의존성 없이, vision.spec.ts와 같은 방식) */
+async function meanPixelDifference(page: Page, a: Buffer, b: Buffer): Promise<number> {
+  // 이 함수는 브라우저에서 돈다
+  return page.evaluate(
+    async (pngs) => {
+      const decoded: Uint8ClampedArray[] = [];
+      for (const base64 of pngs) {
+        const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+        const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("no 2d context");
+        context.drawImage(bitmap, 0, 0);
+        decoded.push(context.getImageData(0, 0, bitmap.width, bitmap.height).data);
+      }
+      const [x = new Uint8ClampedArray(), y = new Uint8ClampedArray()] = decoded;
+      let sum = 0;
+      for (let i = 0; i < x.length; i += 4) {
+        for (let c = 0; c < 3; c++) sum += Math.abs((x[i + c] ?? 0) - (y[i + c] ?? 0));
+      }
+      return sum / ((x.length / 4) * 3);
+    },
+    [a.toString("base64"), b.toString("base64")] as const,
+  );
+}
+
+/** 위 판·아래 판·도시 덧그림을 가리고 지도 가운데를 찍는다(가린 것은 되돌린다) */
+async function mapOnlyShot(page: Page, name?: string): Promise<Buffer> {
+  const style = await page.addStyleTag({
+    content: ".map-hud, .city-overlay { visibility: hidden !important; }",
+  });
+  await page.waitForTimeout(150);
+  if (name) await shot(page, name);
+  const size = page.viewportSize() ?? { width: 390, height: 844 };
+  const png = await page.screenshot({
+    clip: { x: 0, y: size.height * 0.2, width: size.width, height: size.height * 0.6 },
+    animations: "disabled",
+  });
+  await style.evaluate((element) => element.remove());
+  return png;
+}
+
+/** 고도 과장 막대를 옮기고 엔진이 받을 때까지(1초 요약) + 그린 프레임 */
+async function setExaggeration(page: Page, value: number): Promise<void> {
+  await page.locator("#planet-exaggeration").fill(String(value));
+  await expect(page.locator(".planet-screen")).toHaveAttribute("data-engine-exaggeration", String(value));
+  await page.waitForTimeout(400);
+}
 
 /** 확대 움직임(300ms)이 끝나고 엔진이 단계를 알릴 때까지 */
 const STEP_WAIT_MS = 450;
@@ -114,6 +165,9 @@ test.describe("확대 단계·항성계 보기: 플레이어", () => {
     const screen = page.locator(".planet-screen");
     const mine = await screen.getAttribute("data-me");
     expect(mine).toMatch(/^\d+$/);
+    // 처음부터 5단계다(사용자 요청 2026-11-09): 화면 가운데 2차맵 키(1초 요약)가 설 때까지 한 번 기다린다
+    await expect(screen).toHaveAttribute("data-zoom-stage", "5");
+    await page.waitForTimeout(1100);
     const seen: number[] = [await stageOf(page)];
     for (let i = 0; i < 10 && new URL(page.url()).pathname === "/map/planet"; i++) {
       await page.locator(".zoom-ladder-in").click();
@@ -185,6 +239,67 @@ test.describe("확대 단계·항성계 보기: 플레이어", () => {
     expect(deviceErrors).toEqual([]);
   });
 });
+
+// 사용자 요청 2026-11-09: 1차맵은 늘 가장 가까운 5단계로 열고, 성능 판(fps·ms·메모리·타일)은 운영진(gm·admin·dev)에게만 보인다
+test.describe("처음 단계·성능 판: 플레이어", () => {
+  test.use({ account: "player" });
+
+  test("1차맵은 5단계로 열리고 성능 판·고도 과장 막대가 없다. 2차맵에도 성능 판이 없다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(120_000);
+    await openPlanet(page);
+    await expect(page.locator(".planet-screen")).toHaveAttribute("data-zoom-stage", "5");
+    await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-rung", "5");
+    // 엔진 요약(data-frames)이 선 뒤에도 성능 판을 그리지 않는다
+    await expect(page.locator(".planet-screen")).toHaveAttribute("data-frames", /^\d+$/);
+    await expect(page.locator(".map-perf")).toHaveCount(0);
+    // 고도 과장 막대도 운영진만(플레이어는 처음 값 ×6 그대로)
+    await expect(page.locator("#planet-exaggeration")).toHaveCount(0);
+    await expect(page.locator(".planet-screen")).toHaveAttribute("data-engine-exaggeration", "6");
+    await page.goto("/map");
+    await expect(page.locator(".map-screen")).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+    // 1초 요약(엔진·프레임 값)이 몇 번 돈 뒤에도 성능 판이 없다
+    await page.waitForTimeout(1500);
+    await expect(page.locator(".map-perf")).toHaveCount(0);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+for (const account of ["dev", "admin"] as const) {
+  test.describe(`성능 판: 운영진 ${account}`, () => {
+    test.use({ account });
+
+    test(`1차맵 성능 판·고도 과장 막대, 2차맵 성능 판이 보인다 (${account})`, async ({
+      page,
+      deviceErrors,
+    }) => {
+      test.setTimeout(150_000);
+      await openPlanet(page, "?planet-sky=off");
+      const screen = page.locator(".planet-screen");
+      await expect(screen.locator(".map-perf")).toBeVisible();
+      await expect(screen.locator(".map-perf")).toContainText("fps");
+      await expect(page.locator("#planet-exaggeration")).toBeVisible();
+      // 막대가 엔진까지 간다. 처음 보기(5단계)에서 그림이 얼마나 바뀌는지 잰다(표준 출력, 작업 기록에 옮겨 적는다)
+      await expect(screen).toHaveAttribute("data-incomplete", "false", { timeout: 60_000 });
+      await setExaggeration(page, 1);
+      const low = await mapOnlyShot(page, account === "dev" ? "planet-exaggeration-x1-390" : undefined);
+      const lowAgain = await mapOnlyShot(page);
+      await setExaggeration(page, 20);
+      const high = await mapOnlyShot(page, account === "dev" ? "planet-exaggeration-x20-390" : undefined);
+      const noise = await meanPixelDifference(page, low, lowAgain);
+      const change = await meanPixelDifference(page, low, high);
+      console.log(
+        `[measure] ${account} planet exaggeration x1→x20 mean pixel diff ${change.toFixed(2)} (noise ${noise.toFixed(2)})`,
+      );
+      await page.goto("/map");
+      await expect(page.locator(".map-screen")).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+      await expect(page.locator(".map-screen .map-perf")).toBeVisible();
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+}
 
 const SHOT_CASES: { theme: Theme; language: Language }[] = [
   { theme: "pastel", language: "ko" },

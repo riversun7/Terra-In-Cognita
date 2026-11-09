@@ -66,6 +66,16 @@ export function isAdmin(state: SessionState): boolean {
   return state.kind === "signed_in" && state.user.roles.includes("admin");
 }
 
+const STAFF_ROLES: readonly string[] = ["gm", "admin", "dev"];
+
+/**
+ * 운영진(운영자 gm·관리자 admin·개발자 dev). 지도 성능 판(fps·ms·메모리·타일)처럼 운영진에게만 보이는 화면용이다
+ * (사용자 요청 2026-11-09 "일반 유저는 fps나 ms 표시 없애고 운영진만 보이게"). 권한 판정이 아니라 보이기만 정한다
+ */
+export function isStaff(state: SessionState): boolean {
+  return state.kind === "signed_in" && state.user.roles.some((role) => STAFF_ROLES.includes(role));
+}
+
 /** 개발 시험 도구(dev·admin). 서버가 요청마다 다시 확인한다 */
 export function hasDevTools(state: SessionState): boolean {
   return (

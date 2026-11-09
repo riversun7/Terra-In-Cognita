@@ -10,6 +10,7 @@ import {
   type SessionCheck,
   SESSION_RECHECK_MS,
   type SessionState,
+  isStaff,
   nextSessionState,
   shouldRecheck,
   toSessionCheck,
@@ -40,6 +41,11 @@ export function getSessionState(): SessionState {
 
 export function useSession(): SessionState {
   return useSyncExternalStore(subscribe, getSessionState);
+}
+
+/** 운영진(gm·admin·dev)에게만 보이는 화면인가 — 지도 성능 판 등(sessionState.ts isStaff) */
+export function useStaffView(): boolean {
+  return isStaff(useSession());
 }
 
 async function fetchSession(): Promise<SessionCheck> {

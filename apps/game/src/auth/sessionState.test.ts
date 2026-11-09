@@ -5,6 +5,7 @@ import {
   SESSION_RECHECK_MS,
   type SessionState,
   isAdmin,
+  isStaff,
   nextSessionState,
   parseSessionResponse,
   shouldRecheck,
@@ -87,5 +88,16 @@ describe("관리자 버튼", () => {
     expect(isAdmin(signedIn)).toBe(true);
     expect(isAdmin({ ...signedIn, user: { ...user, roles: ["player", "gm", "dev"] } })).toBe(false);
     expect(isAdmin({ kind: "signed_out" })).toBe(false);
+  });
+});
+
+describe("운영진 표시(지도 성능 판)", () => {
+  it("gm·admin·dev 중 하나가 있으면 운영진, player만이거나 로그인 안 했으면 아니다", () => {
+    expect(isStaff(signedIn)).toBe(true);
+    expect(isStaff({ ...signedIn, user: { ...user, roles: ["player", "gm"] } })).toBe(true);
+    expect(isStaff({ ...signedIn, user: { ...user, roles: ["dev"] } })).toBe(true);
+    expect(isStaff({ ...signedIn, user: { ...user, roles: ["player"] } })).toBe(false);
+    expect(isStaff({ ...signedIn, user: { ...user, roles: [] } })).toBe(false);
+    expect(isStaff({ kind: "signed_out" })).toBe(false);
   });
 });

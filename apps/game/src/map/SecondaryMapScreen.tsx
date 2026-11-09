@@ -17,8 +17,6 @@
 // 경계 너머 보기(ADR 2026-10-31-second-map-from-planet WP-4): 카메라가 경계에 다가오면 이웃 2차맵 지형을 받아 둘레에 그린다
 // (secondMapNeighbourLoader.ts). ?second-map-neighbours=all이면 처음부터 8장(개발자 3×3 이어 보기). 나침반은 그 2차맵의 북쪽을 가리킨다
 // (2차맵은 면 격자 틀이라 북쪽이 2차맵마다 돌아가 있다, 사용자 결정 U1).
-// 탐사한 곳이 없으면(유닛 없는 계정, S3 시야 안개) 온통 어두운 까닭을 알리고, dev·admin에게는 [운영자 모드]와
-// 개발자 2차맵 시험(/dev/second-map)을 가리킨다.
 // 확대 단계(ADR 2026-11-07-planet-view 1·2절): 오른쪽 사다리(ZoomLadder, "2차맵 3/5") [+]·[−]. 가장 멀리에서 [−]나 한 번 더 줄이기
 // (휠·두 손가락) = 이 2차맵 자리의 1차맵 5단계(D-6018, /map/planet?key=&stage=5).
 // 지도 조작(사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md): 채집 표시는 누르기를 지나보내 끌기가 걸리지 않고(엔진이 누르기만 화면 거리로
@@ -465,8 +463,6 @@ function SecondMapView({
 
   // 이 맵에 내 유닛이 없으면 들어갈 수 없다(WP-1 Q3 — 카메라가 따라갈 유닛이 없다). 운영자 모드는 들어간다
   const blocked = !notice && blockedWithoutUnits({ operator, units: myUnits.units });
-  // 탐사한 곳이 하나도 없으면(유닛 없는 계정) 안개로 온통 어둡다: 까닭과 할 일을 알린다(전체 보기면 안개가 없다, 들어갈 수 없으면 그 안내만)
-  const dark = !notice && !operator && !blocked && feed?.explored === 0;
   // 고른 유닛(늘 하나 — 엔진이 아직 고르기 전이면 기준 유닛)
   const shown = selected ?? anchor;
   // 고른 유닛을 어떻게 다루나(운영자·내 유닛·못 함·남의 유닛) — 목록의 줄 또는 시야 전송의 내 유닛 표시로
@@ -556,8 +552,6 @@ function SecondMapView({
       <SecondMapNotices
         notice={notice}
         blocked={blocked}
-        dark={dark}
-        devTools={devTools}
         mapKey={mapKey}
         onRetry={() => feedRef.current?.retry()}
       />

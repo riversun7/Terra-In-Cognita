@@ -2,6 +2,7 @@
 // player는 첫 접속에서 만든 사이보그(전역 준비)가 시작 도시를 탐사해 2차맵이 열리고, 시험 단추가 없다. dev·admin은 전체 보기 권한이
 // 있어 늘 열리고(사이보그 본체가 있다), [전체 보기](운영자 모드)로 거르지 않은 흐름을 본다. 표지로 본다.
 // 바뀜(사용자 지적 2026-11-09 "시험일꾼받기 기능 없애라"): [시험 일꾼 받기] 단추를 지웠다 — 유닛은 내 사이보그(와 둘레 유닛)로 본다.
+// 바뀜(2026-11-09): "탐사한 곳이 없어 어둡다" 안내를 지웠다(내 유닛이 없는 2차맵은 들어갈 수 없다 — 넘은 직후에만 틀리게 떴다).
 // 2차맵 낮밤(ADR 2026-10-28-s1-second-map "구현하며 정한 것 (2차맵 낮밤)"): ?second-map-time=<0~24>로 지역 시각을 멈추고
 // 빛 표지(data-light-*)와 화면 밝기를 본다. 사진은 낮·박명·밤 × 390·1440 × 기본 테마 둘(세계 색은 테마와 상관없다, HUD만 바뀐다).
 import type { Page } from "@playwright/test";
@@ -76,29 +77,6 @@ const MAP_CLIP = { x: 20, y: 480, width: 280, height: 200 };
 test.describe("dev", () => {
   test.use({ account: "dev" });
 
-  test("탐사한 곳이 없으면 온통 어둡고 까닭과 할 일을 알린다", async ({ page }) => {
-    // dev는 전역 준비가 만든 사이보그가 시작 도시를 탐사했다(첫 접속, docs/adr/2026-11-01-first-login-cyborg.md).
-    // 탐사 없는 화면은 서버의 탐사 칸 메시지를 빈 비트로 바꿔 본다(나머지 메시지는 그대로 넘긴다)
-    const emptyBits = Buffer.alloc(128).toString("base64");
-    await page.routeWebSocket(/\/ws$/, (socket) => {
-      const server = socket.connectToServer();
-      server.onMessage((data) => {
-        if (typeof data === "string" && data.includes('"t":"vision"')) {
-          const message: unknown = JSON.parse(data);
-          if (typeof message === "object" && message !== null) Reflect.set(message, "explored", emptyBits);
-          socket.send(JSON.stringify(message));
-        } else socket.send(data);
-      });
-    });
-    await page.goto("/map");
-    const screen = page.locator(".map-screen");
-    await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
-    const dark = page.locator(".map-dark");
-    await expect(dark).toBeVisible({ timeout: 15_000 });
-    await expect(dark.locator(".map-dark-lab")).toBeVisible();
-    await shot(page, "map-dark-dev-390");
-  });
-
   test("처음에는 내 사이보그가 있고 시험 일꾼 단추는 없으며, 전체 보기를 켜고 끌 수 있다", async ({
     page,
     deviceErrors,
@@ -110,8 +88,6 @@ test.describe("dev", () => {
     await expect
       .poll(async () => Number(await screen.getAttribute("data-units")), { timeout: 15_000 })
       .toBeGreaterThanOrEqual(1);
-    const dark = page.locator(".map-dark");
-    await expect(dark).toHaveCount(0, { timeout: 15_000 });
     await expect(page.locator(".map-dev-spawn")).toHaveCount(0);
     const observe = page.locator(".map-dev-observe");
     await expect(observe).toHaveAttribute("aria-pressed", "false");
@@ -369,7 +345,6 @@ test.describe("player", () => {
     await expect
       .poll(async () => Number(await screen.getAttribute("data-units")), { timeout: 15_000 })
       .toBeGreaterThanOrEqual(1);
-    await expect(page.locator(".map-dark")).toHaveCount(0);
     await expect(page.locator(".map-dev-observe")).toHaveCount(0);
   });
 });

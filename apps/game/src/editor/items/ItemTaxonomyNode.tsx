@@ -1,6 +1,7 @@
 // [아이템 분류] 탭의 고른 마디 — 대분류(고정 안내·기본 창고·아래 중분류·그 자리의 [새 중분류]), 중분류 없음(풀이·질문 897), 중분류(이름·켬·
-// 대분류·차례·창고·식품 칸, 무기·보조 무기면 아래 무기 종류·[새 무기 종류]·칸으로 묶인다는 풀이 질문 896), 무기 종류(이름·켬·칸·차례·탄약,
-// 보조 칸 종류면 "무기 아님" 질문 895). 칸은 공용 견주기(CompareProvider: 담음·팩과 다름·[되돌리기]·[팩 값으로])에 든다.
+// 대분류·차례·창고·식품 칸, 장비 중분류면 아래 장비 종류·[새 장비 종류]·상위 중분류 풀이), 장비 종류(이름·켬·칸·상위 중분류·차례·탄약).
+// D-497 기획 정리 895(이름 "장비 종류"·"보조 장비")·896(상위 중분류 칸). 칸은 공용 견주기(CompareProvider: 담음·팩과 다름·[되돌리기]·
+// [팩 값으로])에 든다.
 // 아래에 든 아이템(이름·ID·티어, 누르면 [아이템] 탭에서 연다)과 [아이템 탭에서 이 마디로 거르기].
 import {
   ITEM_LIMITS,
@@ -31,11 +32,10 @@ import {
   type TaxEntry,
   type TreeItem,
   type TreeNodeRef,
-  WEAPON_SLOT_SUBCATEGORY,
   findKind,
   findSub,
-  isOffhandKind,
   itemsOfNode,
+  slotForNewKind,
 } from "./itemTree.ts";
 
 /** 마디에 든 아이템을 몇 개까지 그리나(넘으면 [아이템] 탭으로 거른다) */
@@ -53,14 +53,6 @@ const DEFAULT_STORAGE: Readonly<Record<ItemCategoryId, "armory" | "food" | "gene
   document: "general",
   precious: "general",
 };
-
-/** 칸 → 그 칸 종류가 보이는 중분류의 거꾸로(새 무기 종류의 칸) */
-const slotOfSub = (subId: string): WeaponTypeJson["slot"] | null =>
-  subId === WEAPON_SLOT_SUBCATEGORY.weapon
-    ? "weapon"
-    : subId === WEAPON_SLOT_SUBCATEGORY.offhand
-      ? "offhand"
-      : null;
 
 /** 자료 이상 풀이 + 기획 질문 번호 */
 function Oddity({ text, question }: { text: string; question: number }) {
@@ -344,7 +336,7 @@ function NodeBody({
   const create =
     (
       category: "item_subcategories" | "weapon_types",
-      at: { major?: ItemCategoryId; slot?: WeaponTypeJson["slot"] },
+      at: { major?: ItemCategoryId; slot?: WeaponTypeJson["slot"]; subcategory?: string },
     ) =>
     (id: string, name: { ko: string; en: string }) => {
       onStage(category, id, {
@@ -433,7 +425,7 @@ function NodeBody({
     const sub = findSub(tree, node.id);
     const entry = subs.find((item) => item.id === node.id);
     if (!sub || !entry) return null;
-    const slot = sub.entry.major === "equipment" ? slotOfSub(sub.id) : null;
+    const equipment = sub.entry.major === "equipment";
     return (
       <section className="ie-panel ie-tax-node" data-node={`sub:${sub.id}`}>
         <NodeHead
@@ -445,23 +437,22 @@ function NodeBody({
         <EntryEditor category="item_subcategories" entry={entry} onStage={onStage}>
           {(draft, put) => ("major" in draft ? <SubcategoryFields draft={draft} onChange={put} /> : null)}
         </EntryEditor>
-        {slot ? (
+        {equipment ? (
           <>
-            <Oddity text={m.dev_items_tax_kind_link()} question={896} />
+            <p className="field-hint">{m.dev_items_tax_kind_link()}</p>
             <ChildLinks
               title={m.dev_items_tax_weapon_types()}
               links={sub.kinds.map((kind) => ({
                 node: { kind: "weapon", id: kind.id } as const,
                 label: kind.entry.name[locale],
                 count: kind.count,
-                odd: isOffhandKind(kind.entry),
               }))}
               onPick={onPick}
             />
             <NewHere
               label={m.dev_items_tax_new_kind({ name: sub.entry.name[locale] })}
               taken={takenOf("weapon_types")}
-              onCreate={create("weapon_types", { slot })}
+              onCreate={create("weapon_types", { slot: slotForNewKind(sub.kinds), subcategory: sub.id })}
             />
           </>
         ) : null}
@@ -482,14 +473,19 @@ function NodeBody({
         id={kind.id}
         count={kind.count}
       />
-      {isOffhandKind(kind.entry) ? (
-        <Oddity
-          text={`${m.dev_items_tax_offhand_odd()} — ${m.dev_items_tax_offhand_hint()}`}
-          question={895}
-        />
-      ) : null}
+      {parent ? null : <p className="field-hint">{m.dev_items_tax_loose_hint()}</p>}
       <EntryEditor category="weapon_types" entry={entry} onStage={onStage}>
-        {(draft, put) => ("slot" in draft ? <WeaponTypeFields draft={draft} onChange={put} /> : null)}
+        {(draft, put) =>
+          "slot" in draft ? (
+            <WeaponTypeFields
+              draft={draft}
+              parents={subs
+                .filter((item) => item.entry.major === "equipment")
+                .map((item) => ({ id: item.id, name: item.entry.name[locale] }))}
+              onChange={put}
+            />
+          ) : null
+        }
       </EntryEditor>
       {itemsPart({ category: "equipment", weaponType: kind.id })(node)}
     </section>

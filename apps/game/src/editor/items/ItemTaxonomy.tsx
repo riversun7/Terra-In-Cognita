@@ -1,7 +1,7 @@
 // [아이템 분류] 탭(2026-11-09 분류 나무, 사용자 "중분류랑 무기 종류가 왜 같이 있냐?") — [아이템] 탭과 같은 대분류 타일 → 분류 나무
-// (대분류 → 중분류 → 무기 종류, 마디마다 든 아이템 수) → 고른 마디(칸·든 아이템·그 자리의 [새로 만들기]). 태그는 나무의 단계가 아니라
-// 아래 따로 붙는 이름표 판이다. 자료 모양 그대로 보이고, 자료가 단계를 섞은 곳(보조 칸 종류·칸으로 묶인 무기 종류·중분류 없는 아이템)은
-// 표시와 기획 질문 번호를 단다(docs/questions/2026-11-09-item-classes.md 895~899). 나무 계산은 itemTree.ts(시험 itemTree.test.ts).
+// (대분류 → 중분류 → 장비 종류, 마디마다 든 아이템 수) → 고른 마디(칸·든 아이템·그 자리의 [새로 만들기]). 태그는 나무의 단계가 아니라
+// 아래 따로 붙는 이름표 판이다. 자료 모양 그대로 보이고, 중분류 없는 아이템은 표시와 기획 질문 번호를 단다(D-497 기획 정리 895~899:
+// 장비 종류 이름·상위 중분류 칸, docs/questions/2026-11-09-item-classes.md). 나무 계산은 itemTree.ts(시험 itemTree.test.ts).
 import type { ItemCategoryId, ItemEditorListResponse } from "@terra/shared/itemEditor";
 import { type ReactNode, useState } from "react";
 import { m } from "../../paraglide/messages.js";
@@ -19,7 +19,6 @@ import {
   buildItemTree,
   findKind,
   findSub,
-  isOffhandKind,
   isSubcategoryJson,
   isWeaponTypeJson,
   taxEntries,
@@ -117,7 +116,6 @@ function KindItem({
         node={node}
         level={2}
         count={kind.count}
-        odd={isOffhandKind(kind.entry)}
         current={current !== null && refKey(current) === refKey(node)}
         onPick={onPick}
       >

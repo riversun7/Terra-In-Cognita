@@ -1,4 +1,4 @@
-// 분류 자료 칸 부품 — 중분류 칸(대분류·차례·보관 창고·식품·식재료 계열)·무기 종류 칸(칸·차례·탄약 종류), 새 항목 칸, 태그 판(줄무늬 목록).
+// 분류 자료 칸 부품 — 중분류 칸(대분류·차례·보관 창고·식품·식재료 계열)·장비 종류 칸(칸·상위 중분류·차례·탄약 종류), 새 항목 칸, 태그 판(줄무늬 목록).
 // 칸은 path를 달아 편집 판 견주기(CompareProvider)에 든다. 고친 것은 아이템과 같은 담은 변경 묶음에 들어가 [적용] 한 번에 간다.
 // 팩 항목은 [팩 값으로], 만든 항목은 [지우기](ID 은퇴). 나무·고른 마디는 ItemTaxonomy(2026-11-09 분류 나무).
 import {
@@ -25,18 +25,28 @@ type Named = TaxonomyJson;
 
 /**
  * 새 항목 틀(켠 채로: 분류 자료는 그 자체로 세계에 나오지 않는다). 나무의 자리에서 만들면 그 자리 값이 들어간다:
- * 대분류 마디의 새 중분류 = 그 대분류(major), 중분류 마디의 새 무기 종류 = 그 중분류의 칸(slot)
+ * 대분류 마디의 새 중분류 = 그 대분류(major), 중분류 마디의 새 장비 종류 = 그 중분류(subcategory)와 칸(slot)
  */
 export function templateOf(
   category: TaxonomyCategory,
   id: string,
   name: { ko: string; en: string },
-  at?: { readonly major?: ItemCategoryId | undefined; readonly slot?: WeaponTypeJson["slot"] | undefined },
+  at?: {
+    readonly major?: ItemCategoryId | undefined;
+    readonly slot?: WeaponTypeJson["slot"] | undefined;
+    readonly subcategory?: string | undefined;
+  },
 ): Named {
   if (category === "item_subcategories")
     return { id, name, major: at?.major ?? "raw", enabled: true } satisfies SubcategoryJson;
   if (category === "weapon_types")
-    return { id, name, slot: at?.slot ?? "weapon", enabled: true } satisfies WeaponTypeJson;
+    return {
+      id,
+      name,
+      slot: at?.slot ?? "weapon",
+      ...(at?.subcategory === undefined ? {} : { subcategory: at.subcategory }),
+      enabled: true,
+    } satisfies WeaponTypeJson;
   return { id, name, enabled: true } satisfies ItemTagJson;
 }
 
@@ -174,13 +184,28 @@ export function SubcategoryFields({
   );
 }
 
+/** 상위 중분류 칸의 "없음" 값(콘텐츠 ID 꼴이 아니라 겹치지 않는다) */
+const NO_PARENT = "-";
+
 export function WeaponTypeFields({
   draft,
+  parents,
   onChange,
 }: {
   draft: WeaponTypeJson;
+  /** 고를 수 있는 상위 중분류(장비 대분류의 중분류, 실효 보기) */
+  parents: readonly { readonly id: string; readonly name: string }[];
   onChange: (next: WeaponTypeJson) => void;
 }) {
+  const parent = draft.subcategory ?? NO_PARENT;
+  // 지금 값이 목록에 없으면(지운 중분류 등) 그 ID를 그대로 보인다: 팩 검사가 참조 문제를 알린다
+  const parentOptions = [
+    { value: NO_PARENT, label: m.dev_items_tax_parent_none() },
+    ...parents.map((item) => ({ value: item.id, label: `${item.name} (${item.id})` })),
+    ...(parent !== NO_PARENT && !parents.some((item) => item.id === parent)
+      ? [{ value: parent, label: parent }]
+      : []),
+  ];
   return (
     <div className="ie-grid">
       <SelectField
@@ -195,6 +220,16 @@ export function WeaponTypeFields({
           // 탄약 종류는 보조 칸만(D-497): 무기 칸으로 바꾸면 뺀다
           const { ammo: _drop, ...rest } = draft;
           onChange(slot === "offhand" ? { ...draft, slot } : { ...rest, slot });
+        }}
+      />
+      <SelectField
+        label={m.dev_items_tax_parent()}
+        path="subcategory"
+        value={parent}
+        options={parentOptions}
+        onChange={(next) => {
+          const { subcategory: _drop, ...rest } = draft;
+          onChange(next === NO_PARENT ? rest : { ...rest, subcategory: next });
         }}
       />
       <NumberField

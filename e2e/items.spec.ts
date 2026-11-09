@@ -7,8 +7,9 @@
 //   대량 도구(WP-7): CSV 가져오기의 틀린 줄은 줄 번호로, 고친 줄·새 줄은 담아 적용. 크리쳐 전용 장비(D-494): 미리 보기·전투 실험실.
 // - player: 권한 없음 화면, tRPC items.*는 403.
 // - 화면 개편(2026-11-08): 칸마다 팩 값·지금 값 견주기와 [되돌리기], 찾기("/")·목록 키(↓·Enter)·Alt+↓ 다음 아이템·Ctrl+S 적용.
-// - 분류(2026-11-09): [아이템] 탭 대분류 타일 → 대분류 › 중분류 › 무기 종류 거르기·목록/격자·줄 빠른 동작([복제]),
-//   [아이템 분류] 탭 타일 → 나무(대분류 → 중분류 → 무기 종류) → 고른 마디의 칸·든 아이템, 태그 판은 나무 밖, 무기 종류 새로 만들기.
+// - 분류(2026-11-09): [아이템] 탭 대분류 타일 → 대분류 › 중분류 › 장비 종류 거르기·목록/격자·줄 빠른 동작([복제]),
+//   [아이템 분류] 탭 타일 → 나무(대분류 → 중분류 → 장비 종류) → 고른 마디의 칸·든 아이템, 태그 판은 나무 밖, 장비 종류 새로 만들기.
+//   D-497 정리 895~897(2026-11-10, core@60): 이름 "장비 종류"·"보조 장비", 장비 종류의 상위 중분류 칸(나무가 그 칸을 따른다), 중분류 채움.
 // - 사진: 390·1440 × 개발 화면 테마 네온·라이트 × 한국어·영어, 보이는 화면 크기(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui). 소모품 효과량 칸·
 //   미리 보기 판도 같은 조합으로 찍는다. 옛 자원(295·D-505): 광석·목축 부산물 거르기 목록, 시작 시세 칸·지금 세계 시세(시세 없음).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 아이템 편집기 분류의 덮어쓰기를 모두 지운다.
@@ -604,8 +605,9 @@ test.describe("화면 개편(넓은 폭)", () => {
     await expect(kind).toBeEnabled();
     await expect(kind.locator('option[value="blade"]')).toHaveCount(1);
     await expect(kind.locator('option[value="shield"]')).toHaveCount(1);
-    // 중분류 없음(장비의 시험 아이템은 중분류가 없다)
-    await page.locator(".ie-sub-filter").selectOption("-");
+    // 시험 검은 중분류 무기(core@60 D-497 정리 897로 채움), 장비에는 중분류 없는 아이템이 없다
+    await expect(page.locator('.ie-sub-filter option[value="-"]')).toHaveCount(0);
+    await page.locator(".ie-sub-filter").selectOption("weapon");
     await expect(row(page, "test_sword")).toBeVisible();
     // 줄 [복제] → 꺼진 사본이 담기고 편집 판에 열린다
     await row(page, "test_sword").locator("xpath=..").locator(".ie-row-duplicate").click();
@@ -639,15 +641,24 @@ test.describe("화면 개편(넓은 폭)", () => {
     const weaponBranch = tree.locator('li:has(> button[data-node="sub:weapon"])');
     await expect(weaponBranch.locator('[data-node="weapon:blade"]')).toBeVisible();
     const offhandBranch = tree.locator('li:has(> button[data-node="sub:offhand_weapon"])');
-    await expect(offhandBranch.locator('[data-node="weapon:shield"]')).toHaveAttribute("data-odd", "");
+    // 보조 칸 종류는 이름이 바뀐 중분류 "보조 장비" 아래, 자료 이상 표시 없음(D-497 정리 895)
+    await expect(offhandBranch.locator('[data-node="weapon:shield"]')).toBeVisible();
+    await expect(offhandBranch.locator('[data-node="weapon:shield"]')).not.toHaveAttribute("data-odd", "");
+    await expect(offhandBranch.locator('> button[data-node="sub:offhand_weapon"]')).toContainText(
+      "보조 장비",
+    );
     await expect(tree.locator('[data-node="sub:ore"]')).toHaveCount(0);
-    // 중분류 마디: 이름 칸(팩 값)·칸으로 묶인다는 풀이(질문 896)
+    // 중분류 마디: 이름 칸(팩 값)·상위 중분류 칸으로 붙는다는 풀이(자료 이상 표시 아님, D-497 정리 896)
     await tree.locator('[data-node="sub:weapon"]').click();
     const node = page.locator('.ie-tax-node[data-node="sub:weapon"]');
     await expect(
       node.locator(".ie-node-fields").getByLabel(message("ko", "dev_items_field_name_ko"), { exact: true }),
     ).toHaveValue("무기");
-    await expect(node.locator('.ie-oddity[data-question="896"]')).toBeVisible();
+    await expect(node.locator(".ie-oddity")).toHaveCount(0);
+    await expect(node).toContainText(message("ko", "dev_items_tax_kind_link"));
+    await expect(node.locator(".ie-node-children .ie-subheading")).toHaveText(
+      message("ko", "dev_items_tax_weapon_types"),
+    );
     // 태그 판은 나무 밖에 따로
     await expect(page.locator('.ie-tax[data-category="item_tags"]')).toBeVisible();
     await expect(tree.locator('[data-category="item_tags"]')).toHaveCount(0);
@@ -659,7 +670,7 @@ test.describe("화면 개편(넓은 폭)", () => {
     await ore.locator(".ie-show-items").click();
     await expect(page.locator(".ie-sub-filter")).toHaveValue("ore");
     await expect(page.locator(".ie-item")).toHaveCount(10);
-    // 무기 마디에서 새 무기 종류 → 칸 = 무기, 나무에서 무기 아래 보이고 고른 마디가 된다. 적용하면 서버 목록에 든다
+    // 무기 마디에서 새 장비 종류 → 칸 = 무기·상위 중분류 = 무기, 나무에서 무기 아래 보이고 고른 마디가 된다. 적용하면 서버 목록에 든다
     await page.getByRole("tab", { name: message("ko", "dev_items_tab_taxonomy"), exact: true }).click();
     await page.locator('.ie-taxonomy .ie-tile[data-category="equipment"]').click();
     await tree.locator('[data-node="sub:weapon"]').click();
@@ -677,9 +688,19 @@ test.describe("화면 개편(넓은 폭)", () => {
     await expect(
       created.locator(".ie-node-fields").getByLabel(message("ko", "dev_items_field_slot"), { exact: true }),
     ).toHaveValue("weapon");
+    const parentField = created
+      .locator(".ie-node-fields")
+      .getByLabel(message("ko", "dev_items_tax_parent"), { exact: true });
+    await expect(parentField).toHaveValue("weapon");
     await apply(page);
     const after = await trpc(page, "items.list");
-    expect(field(field(byId(field(after.data, "weaponTypes"), newId), "entry"), "slot")).toBe("weapon");
+    const createdEntry = field(byId(field(after.data, "weaponTypes"), newId), "entry");
+    expect(field(createdEntry, "slot")).toBe("weapon");
+    expect(field(createdEntry, "subcategory")).toBe("weapon");
+    // 상위 중분류를 보조 장비로 바꾸면 나무에서 그 아래로 옮겨진다(담은 변경, 적용 전)
+    await parentField.selectOption("offhand_weapon");
+    await expect(offhandBranch.locator(`[data-node="weapon:${newId}"]`)).toBeVisible();
+    await expect(weaponBranch.locator(`[data-node="weapon:${newId}"]`)).toHaveCount(0);
     await resetItems(page);
     expect(deviceErrors).toEqual([]);
   });
@@ -778,7 +799,11 @@ test.describe("배치·사진", () => {
         await expect(page.locator('.ie-tax-node[data-node="sub:weapon"]')).toBeVisible();
         await check("items-taxonomy");
         await page.locator('.ie-tree-node[data-node="weapon:shield"]').click();
-        await expect(page.locator('.ie-tax-node[data-node="weapon:shield"] .ie-oddity')).toBeVisible();
+        await expect(
+          page
+            .locator('.ie-tax-node[data-node="weapon:shield"] .ie-node-fields')
+            .getByLabel(message(language, "dev_items_tax_parent"), { exact: true }),
+        ).toHaveValue("offhand_weapon");
         await check("items-taxonomy-shield");
         await page.getByRole("tab", { name: message(language, "dev_items_tab_bulk") }).click();
         await expect(page.locator('[data-part="bulk-import"]')).toBeVisible();

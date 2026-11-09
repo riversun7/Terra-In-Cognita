@@ -181,6 +181,8 @@ const ISSUE_TEXT: Readonly<Record<string, (params: Params) => string>> = {
   item_weapon_type_slot: () => m.dev_items_issue_weapon_type_slot(),
   equip_weapon_type_slot: () => m.dev_items_issue_weapon_type_slot(),
   item_ammo_type: () => m.dev_items_issue_ammo_type(),
+  item_weapon_type_subcategory: () => m.dev_items_issue_weapon_type_subcategory(),
+  weapon_type_subcategory_major: () => m.dev_items_issue_weapon_type_subcategory_major(),
   item_spoils_self: () => m.dev_items_issue_spoils_self(),
   item_spoils_cycle: (p) => m.dev_items_issue_spoils_cycle({ chain: num(p, "chain") }),
   equip_kind_duplicate: () => m.dev_items_issue_duplicate(),

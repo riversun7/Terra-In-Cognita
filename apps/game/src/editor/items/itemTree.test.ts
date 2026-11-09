@@ -6,10 +6,10 @@ import {
   buildItemTree,
   findKind,
   findSub,
-  isOffhandKind,
   isSubcategoryJson,
   isWeaponTypeJson,
   itemsOfNode,
+  slotForNewKind,
   taxEntries,
   treeItems,
 } from "./itemTree.ts";
@@ -19,9 +19,16 @@ const sub = (id: string, major: SubcategoryJson["major"], order?: number) => ({
   id,
   entry: { id, name: name(id), major, enabled: true, ...(order === undefined ? {} : { order }) },
 });
-const kind = (id: string, slot: WeaponTypeJson["slot"], order?: number) => ({
+const kind = (id: string, slot: WeaponTypeJson["slot"], order?: number, parent?: string) => ({
   id,
-  entry: { id, name: name(id), slot, enabled: true, ...(order === undefined ? {} : { order }) },
+  entry: {
+    id,
+    name: name(id),
+    slot,
+    ...(parent === undefined ? {} : { subcategory: parent }),
+    enabled: true,
+    ...(order === undefined ? {} : { order }),
+  },
 });
 const item = (id: string, extra: Partial<TreeItem> = {}): TreeItem => ({
   id,
@@ -40,10 +47,14 @@ const SUBS = [
   sub("offhand_weapon", "equipment"),
   sub("armor", "equipment"),
 ];
-const KINDS = [kind("blade", "weapon"), kind("bow", "weapon"), kind("shield", "offhand")];
+const KINDS = [
+  kind("blade", "weapon", undefined, "weapon"),
+  kind("bow", "weapon", undefined, "weapon"),
+  kind("shield", "offhand", undefined, "offhand_weapon"),
+];
 
 describe("buildItemTree", () => {
-  it("대분류 9개가 늘 있고, 중분류는 major 대분류 아래, 무기 종류는 칸 관례로 무기·보조 무기 아래", () => {
+  it("대분류 9개가 늘 있고, 중분류는 major 대분류 아래, 장비 종류는 상위 중분류 칸 아래(D-497 정리 896)", () => {
     const tree = buildItemTree([], SUBS, KINDS);
     expect(tree.map((major) => major.id)).toEqual([
       "raw",
@@ -104,22 +115,43 @@ describe("buildItemTree", () => {
     const tree = buildItemTree(
       [],
       [sub("x", "raw"), sub("y", "raw", 5), sub("z", "raw"), sub("w", "raw", 1)],
-      [kind("k1", "weapon"), kind("k2", "weapon", 0)],
+      [kind("k1", "weapon", undefined, "weapon"), kind("k2", "weapon", 0, "weapon")],
     );
     expect(tree[0]?.subs.map((node) => node.id)).toEqual(["w", "y", "x", "z"]);
     expect(findSub(tree, "weapon")).toBeNull();
-    // 무기 칸 중분류가 없으면 무기 종류는 장비 대분류 바로 아래(이을 곳 없음)
+    // 상위 중분류가 지금 없으면 장비 종류는 장비 대분류 바로 아래(이을 곳 없음)
     const equipment = tree.find((major) => major.id === "equipment");
     expect(equipment?.looseKinds.map((k) => k.id)).toEqual(["k2", "k1"]);
     expect(findKind(tree, "k1")?.parent).toBeNull();
   });
 
-  it("보조 칸 종류(방패·화살통·탄창)는 표시가 붙는다", () => {
+  it("이름 관례가 아니라 자료: 칸과 상관없이 상위 중분류 아래, 칸이 없거나 장비 중분류가 아니면 상위 중분류 없음", () => {
+    const kinds = [
+      kind("twohand_axe", "weapon", undefined, "armor"),
+      kind("plain", "weapon"),
+      kind("ore_kind", "weapon", undefined, "ore"),
+      kind("shield", "offhand", undefined, "offhand_weapon"),
+    ];
+    const tree = buildItemTree([], SUBS, kinds);
+    expect(findKind(tree, "twohand_axe")?.parent?.id).toBe("armor");
+    expect(findKind(tree, "shield")?.parent?.id).toBe("offhand_weapon");
+    expect(findKind(tree, "plain")?.parent).toBeNull();
+    expect(findKind(tree, "ore_kind")?.parent).toBeNull();
+    const equipment = tree.find((major) => major.id === "equipment");
+    expect(equipment?.looseKinds.map((k) => k.id)).toEqual(["plain", "ore_kind"]);
+    // 원자재 중분류 아래에는 장비 종류를 달지 않는다
+    expect(tree.find((major) => major.id === "raw")?.subs.every((node) => node.kinds.length === 0)).toBe(
+      true,
+    );
+  });
+
+  it("새 장비 종류의 칸: 그 중분류 아래 종류의 칸 중 많은 쪽, 없으면 무기 칸", () => {
     const tree = buildItemTree([], SUBS, KINDS);
-    const found = findKind(tree, "shield");
-    expect(found?.parent?.id).toBe("offhand_weapon");
-    expect(found && isOffhandKind(found.kind.entry)).toBe(true);
-    expect(isOffhandKind(KINDS[0]?.entry ?? kind("q", "weapon").entry)).toBe(false);
+    const equipment = tree.find((major) => major.id === "equipment");
+    const kindsOf = (id: string) => equipment?.subs.find((node) => node.id === id)?.kinds ?? [];
+    expect(slotForNewKind(kindsOf("weapon"))).toBe("weapon");
+    expect(slotForNewKind(kindsOf("offhand_weapon"))).toBe("offhand");
+    expect(slotForNewKind(kindsOf("armor"))).toBe("weapon");
   });
 });
 

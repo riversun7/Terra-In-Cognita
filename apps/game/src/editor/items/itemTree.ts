@@ -1,10 +1,11 @@
-// 아이템 분류 나무 — 대분류(고정 9, D-497) → 중분류(major로 대분류에 붙음) → 무기 종류(장비 대분류의 무기·보조 무기 중분류 아래).
+// 아이템 분류 나무 — 대분류(고정 9, D-497) → 중분류(major로 대분류에 붙음) → 장비 종류(무기 칸·보조 칸, 자료 weapon_types: 상위 중분류 칸
+// subcategory로 장비 대분류의 중분류 아래).
 // [아이템] 탭(타일·잇따른 거르기)과 [아이템 분류] 탭(타일 → 나무 → 고른 마디)이 같은 나무를 쓴다. 계산이 없는 순수 함수만 둔다
 // (시험: itemTree.test.ts). docs/adr/2026-11-01-item-editor.md "바뀜 (2026-11-09 분류 나무)".
-// 자료 모양 그대로 보인다:
-// - 무기 종류는 스키마에서 중분류가 아니라 장착 칸(slot: weapon·offhand)에 묶인다. 나무는 팩 관례(장비 중분류 무기·보조 무기)로 칸 →
-//   중분류를 잇는다(WEAPON_SLOT_SUBCATEGORY). 그 중분류가 없으면 장비 대분류 바로 아래 "중분류 없이 붙은 무기 종류"로 둔다(질문 896).
-// - 중분류가 없는(또는 지금 없는 중분류를 가리키는) 아이템은 그 대분류의 "중분류 없음"으로 센다(질문 897).
+// 자료 모양 그대로 보인다(D-497 기획 정리 895~897, docs/questions/2026-11-09-item-classes.md):
+// - 장비 종류는 자기 상위 중분류 칸(subcategory) 아래에 보인다(896). 칸이 없거나 장비 중분류가 아닌 것을 가리키면 장비 대분류 바로 아래
+//   "상위 중분류 없음"으로 둔다.
+// - 중분류가 없는(또는 지금 없는 중분류를 가리키는) 아이템은 그 대분류의 "중분류 없음"으로 센다(897).
 import {
   ITEM_CATEGORY_IDS,
   type ItemCategoryId,
@@ -15,9 +16,6 @@ import {
   type WeaponTypeJson,
 } from "@terra/shared/itemEditor";
 import type { Staged, TaxonomyJson } from "./itemModel.ts";
-
-/** 무기 종류의 칸 → 그 종류를 보일 중분류 ID(팩 관례. 스키마에는 이 연결이 없다, 질문 896) */
-export const WEAPON_SLOT_SUBCATEGORY = { weapon: "weapon", offhand: "offhand_weapon" } as const;
 
 /** 거르기·나무에서 "중분류 없음"을 뜻하는 값(콘텐츠 ID 꼴 ^[a-z]…이 아니라 겹치지 않는다) */
 export const NO_SUBCATEGORY = "-";
@@ -139,8 +137,8 @@ function byOrder<T extends { readonly entry: { readonly order?: number | undefin
   );
 }
 
-/** 무기 종류가 보일 중분류 ID(칸 관례) */
-export const kindParentId = (kind: WeaponTypeJson): string => WEAPON_SLOT_SUBCATEGORY[kind.slot];
+/** 장비 종류의 상위 중분류 ID(자료 칸, 없으면 null) */
+export const kindParentId = (kind: WeaponTypeJson): string | null => kind.subcategory ?? null;
 
 /**
  * 나무 만들기. subs·kinds는 실효 보기(taxEntries)의 항목, items는 실효 아이템(treeItems).
@@ -173,7 +171,10 @@ export function buildItemTree(
     (kind): KindNode => ({ id: kind.id, entry: kind.entry, count: perKind.get(kind.id) ?? 0 }),
   );
   const equipmentSubs = new Set(subs.filter((sub) => sub.entry.major === "equipment").map((sub) => sub.id));
-  const placed = (kind: KindNode): boolean => equipmentSubs.has(kindParentId(kind.entry));
+  const placed = (kind: KindNode): boolean => {
+    const parent = kindParentId(kind.entry);
+    return parent !== null && equipmentSubs.has(parent);
+  };
   return ITEM_CATEGORY_IDS.map((major): MajorNode => {
     const mine = byOrder(subs.filter((sub) => sub.entry.major === major)).map(
       (sub): SubNode => ({
@@ -254,5 +255,11 @@ export function findKind(
   return null;
 }
 
-/** 무기 칸이 아닌 보조 칸 종류(방패·화살통·탄창): "무기 종류" 목록에 들어 있지만 무기가 아니다(질문 895) */
-export const isOffhandKind = (kind: WeaponTypeJson): boolean => kind.slot === "offhand";
+/**
+ * 중분류 마디에서 새로 만드는 장비 종류의 칸: 그 중분류 아래 이미 있는 종류의 칸 중 많은 쪽(같으면 무기 칸), 없으면 무기 칸.
+ * 이름 관례를 보지 않는다(D-497 정리 896)
+ */
+export function slotForNewKind(kinds: readonly KindNode[]): WeaponTypeJson["slot"] {
+  const offhand = kinds.filter((kind) => kind.entry.slot === "offhand").length;
+  return offhand * 2 > kinds.length ? "offhand" : "weapon";
+}

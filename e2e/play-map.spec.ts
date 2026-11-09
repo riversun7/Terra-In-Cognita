@@ -403,6 +403,12 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
     await expect(map).toHaveAttribute("data-travel", /^1\/\d+$/, { timeout: 15_000 });
     await expect(page.locator(".map-travel")).toBeVisible();
     await expect(page.locator(".map-units-toggle")).toBeVisible();
+    // 가는 동안 [멈추기]가 나타났다 사라지지 않는다(사용자 지적 2026-11-09): 내 사이보그를 고른 채 4초 동안 0.25초마다 본다
+    await expect(page.locator(".map-unit-stop")).toBeVisible({ timeout: 10_000 });
+    for (let sample = 0; sample < 16; sample++) {
+      await expect(page.locator(".map-unit-stop")).toHaveCount(1, { timeout: 100 });
+      await page.waitForTimeout(250);
+    }
 
     // 다시 명령 판: 가는 중을 그대로 보이고 [멈추기]로 그 자리에 선다
     await openCommandPanel(page, city);

@@ -52,7 +52,7 @@ import { screenNotice } from "./secondMapNotice.ts";
 import { CrossingNotice, CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
 import { ZoomLadder } from "./ZoomLadder.tsx";
 import { useAnchorFollow } from "./UnitFollow.tsx";
-import { blockedWithoutUnits, chooseAnchor, commandUnit, unitTapOf } from "./anchorUnit.ts";
+import { blockedWithoutUnits, chooseAnchor, commandUnit, showStop, unitTapOf } from "./anchorUnit.ts";
 import { useBottomSheet } from "./useBottomSheet.ts";
 import { openMap, useTravelFollow } from "./useCyborgTravel.ts";
 import { type MapSession, startMapSession } from "./mapSession.ts";
@@ -619,7 +619,15 @@ function SecondMapView({
         ) : null}
         {shown === null ? null : (
           <SelectedActions
-            onStop={control !== null && canCommand(control) && selection.moving ? stopSelected : null}
+            onStop={
+              showStop({
+                commandable: control !== null && canCommand(control),
+                moving: selection.moving,
+                travelling: going !== null && going.unitId === selected,
+              })
+                ? stopSelected
+                : null
+            }
           />
         )}
         {devTools ? (

@@ -16,6 +16,7 @@ import { offerBuildPick } from "../economy/buildPick.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
 import { setTelemetryView } from "../telemetry/reporter.ts";
+import { heldMoving } from "./anchorUnit.ts";
 import type { CommandNotice, SelectionState } from "./commandNotice.ts";
 import type { FeedStats, MapFeed } from "./feedTypes.ts";
 import type { GatherState } from "./gather/gatherState.ts";
@@ -147,6 +148,9 @@ export function useMapEngine(
       return north;
     };
     let lastMovingKey = "";
+    // 고른 유닛이 마지막으로 움직이던 때([멈추기] 깜빡임 막기 — anchorUnit.ts heldMoving)
+    let movingUnit: number | null = null;
+    let lastMovingAt: number | null = null;
     const engine = createSecondMapEngine(host, {
       serverNow,
       // 가장 멀리에서 한 번 더 줄이면 1차맵 5단계(D-6018)
@@ -262,7 +266,13 @@ export function useMapEngine(
       }
       const unit = id === null ? null : engine.unitState(id);
       const own = id !== null && feed.isOwn(id);
-      const moving = unit?.moving ?? false;
+      const now = Date.now();
+      if (id !== movingUnit) {
+        movingUnit = id;
+        lastMovingAt = null;
+      }
+      if (unit?.moving === true) lastMovingAt = now;
+      const moving = heldMoving(unit?.moving ?? false, lastMovingAt, now);
       setSelection((previous) =>
         previous.own === own && previous.moving === moving ? previous : { own, moving },
       );

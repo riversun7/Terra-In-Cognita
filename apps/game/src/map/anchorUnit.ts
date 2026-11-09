@@ -86,3 +86,26 @@ export function bottomSheetOf(input: {
   if (input.peekOpen) return "peek";
   return input.unitsOpen ? "units" : "nearby";
 }
+
+/** 움직임이 끊겨 보여도 "움직이는 중"으로 남겨 두는 시간(ms). 엔진 값은 1초마다 읽으니 한두 번 놓친 정도는 덮는다 */
+export const STOP_HOLD_MS = 2_000;
+
+/** 엔진의 움직임 값을 잠깐 붙잡는다: 지금 움직이거나, 같은 유닛이 방금(STOP_HOLD_MS 안) 움직였으면 참 */
+export function heldMoving(moving: boolean, lastMovingAt: number | null, now: number): boolean {
+  return moving || (lastMovingAt !== null && now - lastMovingAt < STOP_HOLD_MS);
+}
+
+/**
+ * [멈추기]를 보일까(사용자 지적 2026-11-09: 2차맵 사이를 가는 중에 단추가 나타났다 사라졌다 해서 누르기 어렵다).
+ * 엔진의 움직임만 보면 경로 구간 사이나 경계를 넘는 순간에 꺼진다 → 2차맵 사이를 가는 중(서버 travel 상태)이면 늘 보인다.
+ * moving은 heldMoving으로 붙잡은 값이다
+ */
+export function showStop(input: {
+  /** 고른 유닛을 명령할 수 있나(내 유닛·운영자 모드) */
+  readonly commandable: boolean;
+  readonly moving: boolean;
+  /** 고른 유닛이 2차맵 사이를 가는 중인가(구간 사이에도 참) */
+  readonly travelling: boolean;
+}): boolean {
+  return input.commandable && (input.moving || input.travelling);
+}

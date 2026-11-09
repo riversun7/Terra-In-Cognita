@@ -4,7 +4,8 @@
 
 - 받는 곳: 기획 세션(사용자에게 물을 것은 기획이 고른다).
 - PLAN 14장 번호: 895~899.
-- 상태: 답 기다림.
+- 상태: 답함 — 기획 정리 2026-11-09(D-497 포인터, 미러 `docs/design/02_Decision_Log.md`, 사용자 결정 아님): 895 나 · 896 나 · 897 나 · 898 가 · 899 가(모두 추천안). 기술 반영 2026-11-10(가지 `work/item-taxonomy-data`, 팩 `core@60`, 작업 기록 `docs/worklog/2026/11/10-*-item-taxonomy-data.md`).
+- 반영 메모(기술): 897의 `grain`·`timber`는 채우지 않았다. 중분류 작물·목재는 농장·벌목장 채집 추첨(`facilities.gather.subcategory`)의 사다리라, 넣으면 곡물 재배·원목 베기가 고정 산출에서 추첨으로 바뀌고 T0 추첨에 곡물·원목이 섞인다(규칙 변경, 추천안 "수치·규칙은 바꾸지 않음" 밖). `household_goods` → 버프(`buff_item`), `dev_placeholder` → 설계도(`blueprint`)는 기획이 고르지 않아 가장 가까운 것을 골랐다(둘 다 쿨 종류·보관 창고가 그대로인 중분류).
 - 지금 자료(팩 `core@58`, Verified: `content/core/*.json`을 읽어 셈): 대분류 9(코드 목록, 고정) · 중분류 36(`item_subcategories.json`, 칸 `major`로 대분류 하나에 붙음) · 무기 종류 14(`weapon_types.json`, 칸 `slot` = 무기 칸 11 + 보조 칸 3: 방패·화살통·탄창) · 태그 0(`item_tags.json`) · 아이템 168. 아이템은 `subcategory`(선택)로 중분류를, 장비는 `equip.weaponType`(선택)으로 무기 종류를 가리킨다. 무기 종류와 중분류 사이에는 자료 연결이 없다.
 - 지금 화면: 대분류 타일 → 나무. 무기 칸 종류는 중분류 "무기"(`weapon`) 아래, 보조 칸 종류는 "보조 무기"(`offhand_weapon`) 아래에 둔다(팩 관례, 코드 `apps/game/src/editor/items/itemTree.ts` `WEAPON_SLOT_SUBCATEGORY`). 그 중분류가 없어지면 장비 대분류 바로 아래 "이을 중분류가 없는 무기 종류"로 보인다. 중분류가 없는 아이템은 대분류마다 "중분류 없음" 마디로 센다.
 

@@ -216,3 +216,11 @@
 - **조각**: 화면 조각 `EffectDictionaryScreen-*`, 두 편집기가 같이 쓰는 고리 `EffectDictionaryLinks.tsx`(따로 조각이 될 수 있어 같은 앞머리). 미리 캐시 규칙에 `[Ee]ffectDictionary`(vite `globIgnores`·`scripts/pwa-build.mjs` `DEV_ONLY_CHUNK`), 개발 소스 `src/editor/effects/`(`DEV_ONLY_SOURCE`). 효과 사전 화면은 `editor/items/`의 모듈을 가져오지 않는다(같이 쓰면 규칙 밖 이름의 공용 조각이 될 수 있다) — 효과 수치·상태이상 이름은 `editor/effects/effectDictionaryText.ts`로 옮겼다.
 - 시험: `effectDictionaryModel.test.ts`(담기·묶음·거르기·다시 얹기), `itemEdit.db.test.ts`(`effectPack`), `routes.test.ts`, `pwa-build.test.mjs`, `e2e/effects.spec.ts`(개발자 홈에서 열기·고쳐 적용·쓰는 곳 고리·새 효과 만들고 지우기·두 편집기의 고리, 사진 개발 테마 둘 × 1440 + 390). `e2e/items.spec.ts`의 효과 사전 시험은 옮겼다.
 - 상태: 사용자가 화면을 본 뒤 통합 담당이 확정한다(이 절은 위 상태 줄을 바꾸지 않는다).
+
+## 바뀜 (2026-11-10, D-497 포인터 — 아이템 분류 질문 895~899, 팩 core@60)
+- 까닭: 기획 정리(2026-11-09, D-497 포인터, 사용자 결정 아님 — 모두 기술 추천안)가 질문 `docs/questions/2026-11-09-item-classes.md` 895~899에 답했다. 가지 `work/item-taxonomy-data`.
+- **895 이름만 바꿈**: 자료 모양·ID는 그대로(`weapon_types`, `offhand_weapon`). 화면 목록 이름 "무기 종류" → "장비 종류(무기 칸·보조 칸)" / "Gear kinds", 중분류 `offhand_weapon` 이름 "보조 무기" → "보조 장비 / Off-hand gear"(팩). 건물 편집기 수리 줄의 같은 목록 이름도 맞췄다. "무기 아님" 자료 이상 표시는 없앴다.
+- **896 상위 중분류 칸**: 무기 종류에 선택 칸 `subcategory`(참조 `item_subcategories`)를 더하고 14개를 채웠다(무기 칸 → `weapon`, 보조 칸 → `offhand_weapon`). 팩 검사 둘(`packages/content/src/validate/items.ts`): `weapon_type_subcategory_major`(상위 중분류는 장비 대분류의 것만), `item_weapon_type_subcategory`(무기 종류를 단 장비의 중분류 = 그 상위 중분류, 비어도 문제). 분류 나무는 이름 관례(`WEAPON_SLOT_SUBCATEGORY`, 없앰) 대신 이 칸을 따른다. 칸이 없거나 장비 중분류가 아니면 "상위 중분류 없는 장비 종류". 장비 종류 마디에 상위 중분류 고르기 칸(담은 변경 → [적용]), 장비 중분류 마디마다 [새 장비 종류](그 중분류 + 그 아래 종류의 많은 칸). 선택 칸이라 칸이 없는 옛 덮어쓰기 줄도 그대로 읽힌다(나무에서만 "상위 중분류 없음").
+- **897 중분류 채움**(팩): 괴 8 → 금속, 원소 지팡이 6·시험 검·시험 지팡이 → 무기, 시험 조끼·투구 → 방어구, 시험 반지 → 장신구, 시험 인공 심장 → 임플란트, 배급 식량 → 요리, 생활용품 → 버프(가장 가까운 것), 임시 아이템 → 설계도(가장 가까운 것). `grain`·`timber`는 채우지 않았다: 작물·목재는 채집 시설 추첨 사다리라 넣으면 산출 규칙이 바뀐다(기획에 다시 알림).
+- **898·899**: 바꾸지 않음(태그 비움, 대분류 9 고정).
+- 시험: `validate/items.test.ts`(상위 중분류 규칙), `itemTree.test.ts`(자료로 잇기·새 종류 칸), `overrideRules.test.ts`(배급 식량 중분류), `e2e/items.spec.ts`(분류 시험 둘·사진 시험 갱신).

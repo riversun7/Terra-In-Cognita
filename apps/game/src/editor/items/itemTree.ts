@@ -51,7 +51,7 @@ export interface SubNode {
   readonly id: string;
   readonly entry: SubcategoryJson;
   readonly count: number;
-  /** 이 중분류 아래 보이는 무기 종류(장비 무기·보조 무기만) */
+  /** 이 중분류 아래 보이는 장비 종류(상위 중분류 칸이 이 중분류인 것, 장비 대분류만) */
   readonly kinds: readonly KindNode[];
 }
 

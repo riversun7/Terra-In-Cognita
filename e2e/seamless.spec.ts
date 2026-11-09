@@ -11,6 +11,7 @@ import type { Page } from "@playwright/test";
 import { horizontalOverflow, shot } from "./helpers/screen.ts";
 import { type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
+import { sendCommands } from "./helpers/wsCommands.ts";
 
 /** 위치 단위/배치 칸(@terra/protocol POSITION_UNITS_PER_CELL) */
 const UNITS_PER_CELL = 1024;
@@ -264,7 +265,11 @@ test.describe("옆 2차맵 땅 누르기", () => {
     }
     expect(rig.travels).toContain(near);
     await expect(page.locator(".map-screen")).toHaveAttribute("data-command", /^(sent|travel_ok|[a-z_]+)$/);
+    // 서버에서 내 사이보그가 정말 떠났다: 멈춰 둔다(다음 시험 — unit-control 등 — 이 같은 사이보그를 2차맵 안에서 움직인다)
+    const cyborg = Number(await page.locator(".map-screen").getAttribute("data-cyborg"));
     expect(deviceErrors).toEqual([]);
+    const [cancel] = await sendCommands(page, [{ t: "travel_cancel", unitId: cyborg }]);
+    expect(Reflect.get(Object(cancel), "t")).toBe("travel_result");
   });
 });
 

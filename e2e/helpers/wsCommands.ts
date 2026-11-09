@@ -7,7 +7,7 @@ import { PROTOCOL_VERSION } from "../../packages/protocol/src/version.ts";
 /** 시험 2차맵 키(@terra/protocol S1_TEST_MAP_KEY = S2 시험 행성 F9 면 0 (282, 328)) */
 const S1_TEST_MAP_KEY = 312_905_547_382_793;
 
-/** 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들 */
+/** 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들(result, 2차맵 사이 이동은 travel_result) */
 export async function sendCommands(
   page: Page,
   commands: readonly Record<string, unknown>[],
@@ -48,7 +48,7 @@ export async function sendCommands(
             (reply) =>
               typeof reply === "object" &&
               reply !== null &&
-              Reflect.get(reply, "t") === "result" &&
+              ["result", "travel_result"].includes(String(Reflect.get(reply, "t"))) &&
               Reflect.get(reply, "id") === id,
           ),
         );

@@ -133,8 +133,10 @@ test.describe("정부 판·지도자: 플레이어", () => {
 
     const sheet = page.locator(".gov-sheet");
     await expect(sheet).toContainText(String(field(field(leader, "name"), "ko")));
-    // 채집 판(건물 판)은 그대로 함께 있다
-    await expect(page.locator(".gather-sheet[data-building]")).toBeVisible();
+    // 건물 하나에 판 하나(사용자 지적 2026-11-09 문제4): 정부 몫은 건물 판 안이고, 근처 판은 그동안 숨는다
+    await expect(page.locator(".gather-sheet[data-building] .gov-sheet")).toBeVisible();
+    await expect(page.locator(".map-hud-bottom > .map-panel.gov-sheet")).toHaveCount(0);
+    await expect(page.locator(".map-nearby")).toHaveCount(0);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
 

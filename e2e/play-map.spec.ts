@@ -214,11 +214,12 @@ test.describe("지도 흐름: 플레이어", () => {
     const map = page.locator(".map-screen");
     await expect(map).toHaveAttribute("data-map-key", key ?? "");
     await expect(map).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
-    // 572 다: [들어가기]는 도시 시청 자리(?at=)를 넘기므로 내 사이보그가 있는 맵이어도 그곳을 보고, [내 사이보그]로 돌아간다
+    // 572 다: [들어가기]는 도시 시청 자리(?at=)를 넘기므로 내 사이보그가 있는 맵이어도 그곳을 보고, [내 유닛 N] 목록으로 돌아간다
+    // (사용자 지적 2026-11-09 문제2 — 옛 [내 사이보그] 자리)
     await expect(map).toHaveAttribute("data-focus-source", "picked");
     if (key === mine) {
       await expect(map).toHaveAttribute("data-cyborg", /\d+/);
-      await expect(page.locator(".map-go-cyborg")).toBeVisible();
+      await expect(page.locator(".map-units-toggle")).toBeVisible();
     }
     await shot(page, "play-map-second-390");
 
@@ -353,14 +354,14 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
       .poll(async () => (await planet.getAttribute("data-me-at")) !== firstAt, { timeout: 20_000 })
       .toBe(true);
 
-    // 2차맵 화면(키 없음 = 내 사이보그를 따라 연다): 가는 중 한 줄(2차맵 1/N)·[내 사이보그]
+    // 2차맵 화면(키 없음 = 내 사이보그를 따라 연다): 가는 중 한 줄(2차맵 1/N)·[내 유닛 N]
     await page.goto("/map");
     const map = page.locator(".map-screen[data-map-key]");
     await expect(map).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
     await expect(map).toHaveAttribute("data-map-key", mine);
     await expect(map).toHaveAttribute("data-travel", /^1\/\d+$/, { timeout: 15_000 });
     await expect(page.locator(".map-travel")).toBeVisible();
-    await expect(page.locator(".map-go-cyborg")).toBeVisible();
+    await expect(page.locator(".map-units-toggle")).toBeVisible();
 
     // 다시 명령 판: 가는 중을 그대로 보이고 [멈추기]로 그 자리에 선다
     await openCommandPanel(page, city);
@@ -371,7 +372,7 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("572 다 → WP-1: ?at=이어도 카메라는 기준 유닛(내 사이보그)을 따라간다, [내 사이보그]도 그 자리", async ({
+  test("572 다 → WP-1: ?at=이어도 카메라는 기준 유닛(내 사이보그)을 따라간다, 내 유닛 목록의 사이보그 줄도 그 자리", async ({
     page,
     deviceErrors,
   }) => {
@@ -400,8 +401,12 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
         timeout: 20_000,
       })
       .toBe(true);
-    // [내 사이보그]: 그대로 내 사이보그 자리
-    await page.locator(".map-go-cyborg").click();
+    // [내 유닛 N] → 목록 첫 줄(사이보그 본체)을 누르면 그대로 내 사이보그 자리(사용자 지적 2026-11-09 문제2 — 옛 [내 사이보그])
+    await page.locator(".map-units-toggle").click();
+    const cyborgRow = page.locator(".map-unit-row").first();
+    await expect(cyborgRow).toHaveAttribute("data-kind", "cyborg_body", { timeout: 15_000 });
+    await cyborgRow.click();
+    await expect(page.locator(".map-units-list")).toHaveCount(0);
     await expect
       .poll(async () => Math.abs((await ratio()) - (cell.x + 0.5) / (cell.y + 0.5)) < 0.05, {
         timeout: 10_000,

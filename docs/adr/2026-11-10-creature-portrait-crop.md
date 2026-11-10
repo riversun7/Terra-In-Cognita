@@ -1,6 +1,6 @@
 # 크리처 원형 초상화 좌표: 단위와 계산을 한 곳에(`@terra/shared/portraitCrop`)
 
-- 상태: 확정
+- 상태: 제안 (구현함. 사용자 확인 뒤 확정)
 - 날짜: 2026-11-10
 - 관련: 작업 기록 `docs/worklog/2026/11/08-1650-creature-editor.md`(크리처 편집기), `docs/worklog/2026/11/10-2150-creature-portrait.md`, ADR `2026-11-02-dev-ui.md`(개발 화면 층), 팩 스키마 `packages/content/src/schema/creatures.ts` `portraitCrop`
 

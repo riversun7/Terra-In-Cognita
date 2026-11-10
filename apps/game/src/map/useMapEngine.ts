@@ -22,7 +22,7 @@ import type { FeedStats, MapFeed } from "./feedTypes.ts";
 import type { GatherState } from "./gather/gatherState.ts";
 import type { MapSession } from "./mapSession.ts";
 import type { MapFocus } from "./mapTarget.ts";
-import { canCommand, unitControlOf, unitName } from "./mapUnits.ts";
+import { canCommand, tapCommandOf, unitName } from "./mapUnits.ts";
 import { createNeighbourTravel } from "./neighbourTravel.ts";
 import { pixelRatioOption } from "./pixelRatioParam.ts";
 import { createSkyClock, reducedMotionList } from "./planetSky.ts";
@@ -177,6 +177,12 @@ export function useMapEngine(
         sessionRef.current?.onView(camera);
       },
       onSelect: (id) => selectFromMapRef.current(id),
+      // 내 유닛만 넉넉한 반경으로 고른다. 남의 유닛은 몸 위를 눌렀을 때만 — 빗나간 누르기는 땅 누르기(이동)다
+      // (docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-10)": 최대 확대에서 걷는 휴먼 둘레 땅을 눌러도 유닛이 걸려 이동이 어려웠다)
+      wideUnitTap: (id) =>
+        feedRef.current?.isOwn(id) === true || unitsRef.current?.some((unit) => unit.unitId === id) === true,
+      // 아무것도 없는 곳(하늘 등)을 눌러도 작은 창은 닫힌다
+      onTapMiss: closePeek,
       // 그려 둔 옆 2차맵 땅: 고른 내 유닛을 그곳으로 보낸다(2차맵 사이 이동)
       onNeighbourTap: (() => {
         const travel = createNeighbourTravel({
@@ -196,7 +202,7 @@ export function useMapEngine(
       })(),
       // 고른 유닛이 내 유닛(운영자 모드면 아무 유닛)이면 누른 칸으로 보낸다. 경로는 서버가 찾아 unit_paths로 보낸다
       onGroundTap: (cell) => {
-        // 남의 유닛 정보 판은 땅을 누르면 닫힌다 — 같은 누르기가 아래대로 명령 유닛을 보낸다(사용자 지적 2026-11-09 "다른곳을 눌러 저절로 닫히게")
+        // 남의 유닛 작은 창은 땅을 누르면 닫힌다 — 같은 누르기가 아래대로 명령 유닛을 보낸다(사용자 지적 2026-11-09 "다른곳을 눌러 저절로 닫히게")
         closePeek();
         // 경제 화면 [지도에서 고르기](WP3 연결점, economy/buildPick.ts): 짓기 자리를 고르는 중이면 그 칸을 돌려주고 생산 칸으로 돌아간다
         if (offerBuildPick(mapKeyRef.current, cell)) {
@@ -205,15 +211,18 @@ export function useMapEngine(
         }
         // 채집(gather/): 둘레 오브젝트·건물을 누르면 아래 작은 판(채집·들어가기·정보)을 연다
         if (gather.tapCell(cell)) return;
-        const unitId = selectedRef.current ?? anchorRef.current;
+        // 보낼 유닛: 고른 유닛 — 남의 유닛이 골라져 있으면 무시하고 기준 유닛(내 유닛)을 보낸다(사용자 지적 2026-11-10, mapUnits.ts tapCommandOf)
         const current = feedRef.current;
-        if (unitId === null || !current) return;
-        const mine = unitsRef.current?.find((unit) => unit.unitId === unitId);
-        const control = unitControlOf({
+        if (!current) return;
+        const target = tapCommandOf({
+          selected: selectedRef.current,
+          anchor: anchorRef.current,
           operator: operatorRef.current,
-          mine,
-          ownByFeed: current.isOwn(unitId),
+          units: unitsRef.current,
+          isOwn: (id) => current.isOwn(id),
         });
+        if (!target) return;
+        const { unitId, control, mine } = target;
         if (control.kind === "hold") {
           setCommand({ kind: "hold", hold: control.hold, label: mine ? unitName(mine) : String(unitId) });
           return;

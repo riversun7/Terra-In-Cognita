@@ -15,6 +15,7 @@ import type {
 } from "@terra/shared/mapUnits";
 import type { RosterJob } from "@terra/shared/roster";
 import { api } from "../net/api.ts";
+import { groundTapUnit } from "./anchorUnit.ts";
 import { m } from "../paraglide/messages.js";
 import { type Locale, getLocale } from "../paraglide/runtime.js";
 import {
@@ -171,6 +172,30 @@ export function unitControlOf(options: {
 /** 명령을 보낼 수 있는 다룸인가(운영자·내 유닛) */
 export const canCommand = (control: UnitControl): boolean =>
   control.kind === "operator" || control.kind === "own";
+
+/**
+ * 땅(이웃 땅)을 눌렀을 때 보낼 유닛과 그 다룸(사용자 지적 2026-11-10 "다른 유닛 클릭 후 이동지역 클릭시 무시하고 본인 유닛이 이동하게 하라"):
+ * 고른 유닛이 남의 유닛이면 무시하고 기준 유닛(내 유닛)을 보낸다(anchorUnit.ts groundTapUnit). 보낼 유닛이 없으면 null.
+ * 화면은 다룸에 따라 보내거나(운영자·내 유닛) 까닭을 알린다(못 움직이는 내 유닛·남의 유닛뿐)
+ */
+export function tapCommandOf(input: {
+  readonly selected: number | null;
+  readonly anchor: number | null;
+  readonly operator: boolean;
+  readonly units: readonly MapUnit[] | null;
+  /** 시야 전송이 내 유닛이라고 하나 */
+  readonly isOwn: (unitId: number) => boolean;
+}): { readonly unitId: number; readonly control: UnitControl; readonly mine: MapUnit | undefined } | null {
+  const mineOf = (unitId: number): MapUnit | undefined => input.units?.find((unit) => unit.unitId === unitId);
+  const controlOf = (unitId: number): UnitControl =>
+    unitControlOf({ operator: input.operator, mine: mineOf(unitId), ownByFeed: input.isOwn(unitId) });
+  const unitId = groundTapUnit({
+    selected: input.selected,
+    anchor: input.anchor,
+    commandable: (id) => controlOf(id).kind !== "other",
+  });
+  return unitId === null ? null : { unitId, control: controlOf(unitId), mine: mineOf(unitId) };
+}
 
 const HOLD_TEXT = {
   guardian: (unit: string) => m.map_unit_hold_guardian({ unit }),

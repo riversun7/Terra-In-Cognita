@@ -6,6 +6,7 @@ import {
   bottomSheetOf,
   chooseAnchor,
   commandUnit,
+  groundTapUnit,
   heldMoving,
   STOP_HOLD_MS,
   showStop,
@@ -94,15 +95,36 @@ describe("아래 판 하나(사용자 지적 2026-11-09 문제4)", () => {
   });
 });
 
-describe("지도에서 누른 유닛(사용자 지적 2026-11-09 — 남의 유닛이 명령 유닛을 바꾸지 않는다)", () => {
-  it("플레이어: 내 유닛은 고르고, 남의 유닛은 정보 판만", () => {
-    expect(unitTapOf({ operator: false, own: true })).toBe("select");
-    expect(unitTapOf({ operator: false, own: false })).toBe("peek");
+describe("지도에서 누른 유닛(사용자 지적 2026-11-09·2026-11-10 — 누르기만으로 명령 유닛이 바뀌지 않는다)", () => {
+  it("내 유닛은 고르고, 남의 유닛은 작은 창만(운영자 모드도 같다 — 규칙에 운영자 값이 없다)", () => {
+    expect(unitTapOf({ own: true, commanding: false })).toBe("select");
+    expect(unitTapOf({ own: false, commanding: false })).toBe("peek");
   });
 
-  it("운영자 모드: 아무 유닛이나 고른다(그 유닛을 명령한다)", () => {
-    expect(unitTapOf({ operator: true, own: false })).toBe("select");
-    expect(unitTapOf({ operator: true, own: true })).toBe("select");
+  it("이미 명령 유닛인 유닛(운영자가 [이 유닛 조종]으로 삼은 남의 유닛)을 다시 누르면 그대로 고른다", () => {
+    expect(unitTapOf({ own: false, commanding: true })).toBe("select");
+    expect(unitTapOf({ own: true, commanding: true })).toBe("select");
+  });
+});
+
+/** 다룰 수 있는 유닛(시험): 내 유닛 3번 */
+const own = (unitId: number): boolean => unitId === 3;
+
+describe("땅을 눌렀을 때 보낼 유닛(사용자 지적 2026-11-10 — 남의 유닛은 무시하고 내 유닛이 간다)", () => {
+  it("고른 유닛을 다룰 수 있으면 그 유닛", () => {
+    expect(groundTapUnit({ selected: 3, anchor: 3, commandable: own })).toBe(3);
+    // 운영자가 조종 중인 남의 유닛(운영자 모드면 모두 다룬다)
+    expect(groundTapUnit({ selected: 50, anchor: 3, commandable: () => true })).toBe(50);
+  });
+
+  it("고른 유닛이 남의 유닛이면 무시하고 기준 유닛(내 유닛)", () => {
+    expect(groundTapUnit({ selected: 50, anchor: 3, commandable: own })).toBe(3);
+  });
+
+  it("고른 유닛이 없으면 기준 유닛, 기준 유닛도 없으면 고른 유닛 그대로(화면이 '내 유닛만' 안내) 또는 null", () => {
+    expect(groundTapUnit({ selected: null, anchor: 3, commandable: own })).toBe(3);
+    expect(groundTapUnit({ selected: 50, anchor: null, commandable: own })).toBe(50);
+    expect(groundTapUnit({ selected: null, anchor: null, commandable: own })).toBeNull();
   });
 });
 

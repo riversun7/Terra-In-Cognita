@@ -9,6 +9,7 @@ import {
   peekText,
   selectionText,
   sortMapUnits,
+  tapCommandOf,
   unitControlOf,
   unitLabel,
   unitName,
@@ -29,6 +30,9 @@ function unit(overrides: Partial<MapUnit>): MapUnit {
     ...overrides,
   };
 }
+
+/** 시야 전송의 내 유닛 표시(시험): 3·5번 */
+const ownThreeOrFive = (id: number): boolean => id === 3 || id === 5;
 
 describe("줄 이름·상태", () => {
   it("사이보그 본체는 이름 · 내 사이보그(이름을 모르면 내 사이보그), 그 밖은 종류 #번호", () => {
@@ -117,6 +121,42 @@ describe("고른 유닛 다룸", () => {
     expect(selectionText({ kind: "other" }, "", 9, false, { unitId: 9, kind: "human", faction: null })).toBe(
       "무소속 휴먼 #9(서 있음)입니다. 정보만 볼 수 있습니다.",
     );
+  });
+
+  it("땅을 눌렀을 때 보낼 유닛(2026-11-10): 고른 유닛이 남의 유닛이면 무시하고 기준 유닛(내 유닛)", () => {
+    const units = [
+      unit({ unitId: 3, kind: "cyborg_body" }),
+      unit({ unitId: 5, kind: "guardian", hold: "guardian" }),
+    ];
+    const base = { operator: false, units, isOwn: ownThreeOrFive };
+    // 내 유닛이 골라져 있으면 그 유닛
+    expect(tapCommandOf({ ...base, selected: 3, anchor: 3 })).toMatchObject({
+      unitId: 3,
+      control: { kind: "own" },
+    });
+    // 남의 유닛(50)이 골라져 있어도 내 유닛(3)이 간다
+    expect(tapCommandOf({ ...base, selected: 50, anchor: 3 })).toMatchObject({
+      unitId: 3,
+      control: { kind: "own" },
+    });
+    // 못 움직이는 내 유닛은 그대로 그 유닛(까닭을 알린다 — 다른 유닛으로 바꾸지 않는다)
+    expect(tapCommandOf({ ...base, selected: 5, anchor: 3 })).toMatchObject({
+      unitId: 5,
+      control: { kind: "hold", hold: "guardian" },
+    });
+    // 운영자 모드: [이 유닛 조종]으로 삼은 남의 유닛이 간다
+    expect(tapCommandOf({ ...base, operator: true, selected: 50, anchor: 50 })).toMatchObject({
+      unitId: 50,
+      control: { kind: "operator" },
+    });
+    // 내 유닛이 이 맵에 없으면 남의 유닛뿐 → 화면이 "내 유닛만" 안내, 아무것도 없으면 null
+    expect(
+      tapCommandOf({ ...base, units: [], isOwn: () => false, selected: 50, anchor: null }),
+    ).toMatchObject({
+      unitId: 50,
+      control: { kind: "other" },
+    });
+    expect(tapCommandOf({ ...base, selected: null, anchor: null })).toBeNull();
   });
 
   it("남의 유닛 정보 판(2026-11-09): 이름 + 주인·움직임 한 줄, 한눈 정보가 없으면 번호·움직임만", () => {

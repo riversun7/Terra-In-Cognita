@@ -63,12 +63,33 @@ export function commandUnit(input: {
 }
 
 /**
- * 지도에서 누른 유닛을 어떻게 다루나(사용자 지적 2026-11-09 "이동하려는데 다른 유닛이 선택되는문제 … 애초에 다른 유닛을 이동시키는 기능은 없음.
- * 다른 유닛 눌려지면 상호작용 메뉴가 나오거나 다른곳을 눌러 저절로 닫히게 해야함"): 다룰 수 있는 유닛(내 유닛, 운영자 모드면 아무 유닛)이면
- * 고른다(명령 유닛이 된다). 남의 유닛이면 명령 유닛은 그대로 두고 그 유닛의 작은 정보 판만 연다(peek)
+ * 지도에서 누른 유닛을 어떻게 다루나(사용자 지적 2026-11-09 "이동하려는데 다른 유닛이 선택되는문제 … 다른 유닛 눌려지면 상호작용 메뉴가 나오거나
+ * 다른곳을 눌러 저절로 닫히게 해야함", 2026-11-10 "다른 유닛 클릭 후 이동지역 클릭시 무시하고 본인 유닛이 이동하게 하라"): 내 유닛이면 고른다(명령
+ * 유닛이 된다). 남의 유닛이면 누구든(운영자 모드도) 명령 유닛은 그대로 두고 그 유닛의 작은 창만 연다(peek) — 누르기만으로 명령 유닛이 바뀌지 않는다.
+ * 운영자는 작은 창의 [이 유닛 조종]으로만 남의 유닛을 명령 유닛으로 삼는다. 이미 명령 유닛인 유닛(운영자가 조종 중)을 다시 누르면 그대로 고른다
  */
-export function unitTapOf(input: { readonly operator: boolean; readonly own: boolean }): "select" | "peek" {
-  return input.operator || input.own ? "select" : "peek";
+export function unitTapOf(input: {
+  /** 내 유닛인가(시야 전송의 내 유닛 표시·이 2차맵 내 유닛 목록) */
+  readonly own: boolean;
+  /** 지금 명령 유닛(고른 유닛)인가 */
+  readonly commanding: boolean;
+}): "select" | "peek" {
+  return input.own || input.commanding ? "select" : "peek";
+}
+
+/**
+ * 땅을 눌렀을 때 보낼 유닛(사용자 지적 2026-11-10 "다른 유닛 클릭 후 이동지역 클릭시 무시하고 본인 유닛이 이동"): 고른 유닛을 다룰 수 있으면
+ * (내 유닛·운영자 모드) 그 유닛. 고른 유닛이 남의 유닛이면(운영자 모드를 끈 직후처럼 남은 고르기) 무시하고 기준 유닛(내 유닛)을 보낸다.
+ * 둘 다 없으면 null
+ */
+export function groundTapUnit(input: {
+  readonly selected: number | null;
+  readonly anchor: number | null;
+  /** 그 유닛을 다룰 수 있나(남의 유닛이 아님 — 지금 못 움직이는 내 유닛은 참: 까닭을 알린다) */
+  readonly commandable: (unitId: number) => boolean;
+}): number | null {
+  if (input.selected !== null && input.commandable(input.selected)) return input.selected;
+  return input.anchor ?? input.selected;
 }
 
 /**

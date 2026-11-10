@@ -144,15 +144,32 @@
   font-weight: var(--font-weight-strong);
 }
 
-/* 남의 유닛 정보 판(docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)") — 아래 판 자리의 판 하나. 390px에서는 판 너비, 넓은 화면은 왼쪽에 좁게.
+/* 남의 유닛 작은 창(상호작용 메뉴 — docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)"·"바뀜 (2026-11-10)") — 아래 판 자리에 뜨는 창 하나.
+   다른 판과 달리 떠 보이게: 강조 테두리·큰 그림자·둥근 모서리, 뜰 때 아래에서 살짝 올라온다. 390px에서는 판 너비, 넓은 화면은 왼쪽에 좁게.
    긴 이름·영어 안내도 줄바꿈 */
 .map-peek {
   order: -1;
   flex: 1 1 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-width: 0;
+  padding: var(--space-3);
+  border-color: var(--color-primary-lip);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+  animation: map-peek-in var(--duration-fast) var(--easing-out);
+}
+@keyframes map-peek-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-2));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-peek {
+    animation: none;
+  }
 }
 @media (min-width: 64em) {
   .map-peek {
@@ -178,12 +195,33 @@
   flex: none;
 }
 .map-peek-line,
+.map-peek-empty,
 .map-peek-note {
   margin: 0;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-snug);
   overflow-wrap: anywhere;
 }
+.map-peek-empty,
 .map-peek-note {
   color: var(--color-text-muted);
+}
+/* 할 수 있는 일 — 창 너비 단추가 한 줄씩(메뉴 모양). 긴 영어도 줄바꿈 */
+.map-peek-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--hairline) solid var(--color-border);
+}
+.map-peek-menu > button {
+  inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* 닫는 법 안내 — 가는 선 아래 작은 글 */
+.map-peek-note {
+  padding-top: var(--space-2);
+  border-top: var(--hairline) solid var(--color-border);
+  font-size: var(--font-size-xs);
 }

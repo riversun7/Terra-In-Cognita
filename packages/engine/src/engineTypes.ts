@@ -60,8 +60,15 @@ export interface SecondMapEngineOptions {
    * 명령 유닛은 그대로 두고 정보 판만 연다, docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)")
    */
   onSelect?: (unitId: number | null) => boolean | void;
+  /**
+   * 넉넉한 반경으로 고르는 유닛인가(내 유닛 — 화면 거리 22px + 몸 반 높이). false인 유닛(남의 유닛)은 화면의 몸 위를 눌렀을 때만 고르고
+   * 빗나간 누르기는 땅 누르기가 된다(picking.ts pickUnit, docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-10)"). 없으면 모두 넉넉히
+   */
+  wideUnitTap?: (unitId: number) => boolean;
   /** 유닛이 아닌 땅을 눌렀을 때 — 배치 칸 좌표 */
   onGroundTap?: (cell: { x: number; y: number }) => void;
+  /** 누른 곳에 아무것도 없을 때(유닛·덧그림 표시·땅·이웃 땅이 아님 — 하늘 등). 화면이 열어 둔 작은 창을 닫는 데 쓴다 */
+  onTapMiss?: () => void;
   /**
    * 지금 2차맵 밖, 그려 둔 이웃 2차맵 땅을 눌렀을 때 — 지금 2차맵 틀의 배치 칸 좌표(0~256 밖). 화면이 그 이웃 2차맵·칸으로 바꿔 보낸다
    * (docs/adr/2026-11-08-seamless-second-map.md WP-3)

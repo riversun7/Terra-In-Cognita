@@ -4,9 +4,10 @@
 // [임시] 앱 화면 흐름(홈·아래 탭)이 따로 설계되는 중이다. 그때 이 화면을 "지도" 탭으로 옮긴다: onClose·monitor만 받는다.
 // 자료는 서버에서 온다(mapFeed.ts, ADR 2026-10-28-s1-second-map "전송"). 연결·시계 차이는 앱의 연결 하나를 함께 쓴다(serverLink).
 // 고빈도 상태(유닛 위치)는 엔진 안 타입 배열에 있고, 이 화면은 1초마다 요약(stats)만 읽는다(PLAN 5.7).
-// 유닛 조종(docs/adr/2026-11-07-unit-control.md): 플레이어는 내 유닛만 명령한다(땅 = 이동, [멈추기]). 남의 유닛을 누르면 고르지 않고 정보 판
-// (PeekCard — 명령 유닛은 그대로, 땅을 누르면 닫히고 같은 누르기로 내 유닛이 간다, "바뀜 (2026-11-09)"). dev·admin은
-// [운영자 모드]로 아무 유닛이나 명령하고 안개 없이(전체 보기) 본다(위 판에 "운영자"). 서버도 명령마다 소유·권한을 본다.
+// 유닛 조종(docs/adr/2026-11-07-unit-control.md): 플레이어는 내 유닛만 명령한다(땅 = 이동, [멈추기]). 남의 유닛을 누르면 고르지 않고 작은 창
+// (PeekCard — 명령 유닛은 그대로, 다른 곳을 누르면 닫히고 땅이면 같은 누르기로 내 유닛이 간다, "바뀜 (2026-11-09)"). dev·admin은
+// [운영자 모드]로 안개 없이(전체 보기) 보고, 남의 유닛은 작은 창의 [이 유닛 조종]으로만 명령 유닛으로 삼는다(누르기만으로는 바뀌지 않는다 —
+// 사용자 지적 2026-11-10, "바뀜 (2026-11-10)"). 서버도 명령마다 소유·권한을 본다.
 // 옆 2차맵으로는 걸어서 간다(사용자 지적 2026-11-09 "옆2차맵으로 이동 없애라 그냥 걸어가는거지"): 그려 둔 이웃 땅을 누르면 고른 내 유닛이 변까지
 // 걸어가 넘는다(neighbourTravel.ts, WP-3). 옛 [옆 2차맵으로] 판(WP14 EdgeTravel)은 지웠다(docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)").
 // 기획 답 630~637(ADR "바뀜"): 플레이어 카메라는 내 유닛·건물 둘레로 묶고(useCameraArea), 운영자 모드는 이 기기에서 기억한다(operatorMode.ts),
@@ -227,29 +228,33 @@ function SecondMapView({
   );
   // 고른 유닛 따라가기(내 유닛·운영자 모드)와 2차맵 확대 단계(사다리, 엔진이 바뀔 때 알린다)
   const [zoomStage, setZoomStage] = useState(0);
-  // 지도에서 누른 유닛 — 유닛을 누를 때와 지도자 이름표를 누를 때 같다. 다룰 수 있는 유닛이면 고르고 기준 유닛이 된다(chooseAnchor).
-  // 플레이어가 남의 유닛을 누르면 고르지 않는다(false — 엔진도 고른 표시를 그대로 둔다): 명령 유닛은 그대로, 그 유닛의 정보 판만 연다
-  // (사용자 지적 2026-11-09 "이동하려는데 다른 유닛이 선택되는문제"). ref·상태 바꾸기·늘 같은 판 함수만 쓴다
-  const selectFromMapRef = useRef((id: number | null): boolean => {
-    const own =
-      id !== null &&
-      (feedRef.current?.isOwn(id) === true || unitsRef.current?.some((unit) => unit.unitId === id) === true);
-    if (id !== null && unitTapOf({ operator: operatorRef.current, own }) === "peek") {
-      openPeek({ unitId: id, moving: engineRef.current?.unitState(id)?.moving ?? false });
-      return false;
-    }
+  // 지도에서 누른 유닛 — 유닛을 누를 때와 지도자 이름표를 누를 때 같다. 내 유닛이면 고르고 기준 유닛이 된다(chooseAnchor).
+  // 남의 유닛이면(운영자 모드도) 고르지 않는다(false — 엔진도 고른 표시를 그대로 둔다): 명령 유닛은 그대로, 그 유닛의 작은 창만 연다
+  // (사용자 지적 2026-11-09 "이동하려는데 다른 유닛이 선택되는문제", 2026-11-10). ref·상태 바꾸기·늘 같은 판 함수만 쓴다
+  const isOwnUnit = (id: number): boolean =>
+    feedRef.current?.isOwn(id) === true || unitsRef.current?.some((unit) => unit.unitId === id) === true;
+  /** 그 유닛을 명령 유닛으로 삼는다(화면·엔진 고르기, 기준 유닛) */
+  const selectUnit = (id: number | null, moving?: boolean): void => {
     closePeek();
     if (id !== null) setLastPicked(id);
     selectedRef.current = id;
     setSelected(id);
+    setCommand(null);
     setSelection(
       id === null
         ? NO_SELECTION
-        : {
-            own: feedRef.current?.isOwn(id) ?? false,
-            moving: engineRef.current?.unitState(id)?.moving ?? false,
-          },
+        : { own: isOwnUnit(id), moving: engineRef.current?.unitState(id)?.moving ?? moving ?? false },
     );
+  };
+  /** 남의 유닛 작은 창을 연다(명령 유닛은 그대로) */
+  const peekUnit = (id: number): void =>
+    openPeek({ unitId: id, moving: engineRef.current?.unitState(id)?.moving ?? false });
+  const selectFromMapRef = useRef((id: number | null): boolean => {
+    if (id !== null && unitTapOf({ own: isOwnUnit(id), commanding: id === selectedRef.current }) === "peek") {
+      peekUnit(id);
+      return false;
+    }
+    selectUnit(id);
     return true;
   });
   // 주소를 넘은 2차맵으로 바꾸는 바깥 함수(최신 값)
@@ -405,38 +410,19 @@ function SecondMapView({
   /** 목록에서 고르기: 그 유닛을 고르고 카메라가 따라간다(엔진이 아직 모르는 유닛이면 목록의 칸으로). 좁은 화면이면 목록을 접어 땅을 누를 수 있게 한다 */
   const pickUnit = (unit: MapUnit): void => {
     const engine = engineRef.current;
-    selectedRef.current = unit.unitId;
-    setSelected(unit.unitId);
-    setCommand(null);
     engine?.select(unit.unitId);
-    const state = engine?.unitState(unit.unitId) ?? null;
-    setLastPicked(unit.unitId);
-    if (!state) engine?.setView({ x: unit.cellX + 0.5, y: unit.cellY + 0.5 });
-    setSelection({ own: true, moving: state?.moving ?? unit.moving });
+    if (!engine?.unitState(unit.unitId)) engine?.setView({ x: unit.cellX + 0.5, y: unit.cellY + 0.5 });
+    selectUnit(unit.unitId, unit.moving);
     if (!wideScreen()) {
       nearby.setExpanded(false);
       closeUnits();
     }
   };
 
-  /**
-   * 근처 판의 다른 유닛 줄: 플레이어는 지도에서 누를 때와 같이 정보 판(명령 유닛은 그대로). 운영자 모드는 그 유닛을 고른다(운영자 다룸 — 기준 유닛이 된다)
-   */
-  const inspectUnit = (unitId: number): void => {
-    const engine = engineRef.current;
-    if (!operator) {
-      openPeek({ unitId, moving: engine?.unitState(unitId)?.moving ?? false });
-      return;
-    }
-    selectedRef.current = unitId;
-    setSelected(unitId);
-    setCommand(null);
-    engine?.select(unitId);
-    setSelection({
-      own: feedRef.current?.isOwn(unitId) ?? false,
-      moving: engine?.unitState(unitId)?.moving ?? false,
-    });
-    if (!wideScreen()) nearby.setExpanded(false);
+  /** 작은 창의 [이 유닛 조종](운영자 모드): 그 남의 유닛을 명령 유닛으로 삼는다 — 이 단추만 명령 유닛을 남의 유닛으로 바꾼다 */
+  const controlUnit = (unitId: number): void => {
+    engineRef.current?.select(unitId);
+    selectUnit(unitId);
   };
 
   /** [멈추기]: 고른 유닛을 지금 자리에 세운다(stop_unit) */
@@ -448,9 +434,20 @@ function SecondMapView({
     setCommand(attempt.kind === "sent" ? { kind: "sent", unitId, action: "stop" } : { kind: attempt.kind });
   };
 
-  /** 운영자 모드를 끄면 자유 시점도 끈다(자유 시점은 운영자만) */
+  /** 운영자 모드를 끄면 자유 시점도 끄고, 조종하던 남의 유닛은 놓는다(고르기를 풀면 기준 유닛 = 내 유닛을 다시 고른다) */
   const toggleOperatorMode = (): void => {
-    if (operator) setFreeView(false);
+    if (operator) {
+      setFreeView(false);
+      closePeek();
+      if (selected !== null && !isOwnUnit(selected)) {
+        engineRef.current?.select(null);
+        selectedRef.current = null;
+        setSelected(null);
+        setSelection(NO_SELECTION);
+        // 다시 켰을 때 그 유닛이 누르지 않았는데 기준 유닛으로 돌아오지 않게 마지막 고르기도 잊는다
+        setLastPicked(null);
+      }
+    }
     toggleOperator();
   };
 
@@ -586,11 +583,19 @@ function SecondMapView({
             now={myUnits.at}
             selected={shown}
             onPickUnit={pickUnit}
-            onInspectUnit={inspectUnit}
+            onInspectUnit={(unitId) => void selectFromMapRef.current(unitId)}
           />
         ) : null}
         {sheet === "peek" && peek ? (
-          <PeekCard unitId={peek.unitId} moving={peek.moving} glance={glance} onClose={closePeek}>
+          <PeekCard
+            unitId={peek.unitId}
+            moving={peek.moving}
+            glance={glance}
+            ground={shown === null ? "none" : operator ? "operator" : "own"}
+            hasActions={leaderTags.isLeader(peek.unitId)}
+            onControl={operator ? () => controlUnit(peek.unitId) : null}
+            onClose={closePeek}
+          >
             <LeaderSheet tags={leaderTags} selected={peek.unitId} mapKey={mapKey} embedded />
           </PeekCard>
         ) : null}

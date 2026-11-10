@@ -227,3 +227,11 @@
     background-color: Canvas;
   }
 }
+
+/* 앱 빌드 한 줄 — 긴 값도 줄바꿈, 숫자 너비 고정 */
+.settings-build {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}

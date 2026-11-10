@@ -13,6 +13,13 @@ export interface ViewportPreset {
 export const VIEWPORTS = {
   /** 휴대폰 세로(기본) */
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+  /** 큰 휴대폰 세로(412×915, DPR 2.625 — 사용자 휴대폰 크기, 터치 시험) */
+  phoneLarge: {
+    viewport: { width: 412, height: 915 },
+    deviceScaleFactor: 2.625,
+    isMobile: true,
+    hasTouch: true,
+  },
   /** 휴대폰 가로 — 폭 단계는 중간(레일) */
   phoneLandscape: {
     viewport: { width: 844, height: 390 },

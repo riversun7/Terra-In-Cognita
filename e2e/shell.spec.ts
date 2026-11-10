@@ -6,6 +6,7 @@
 // (작업 기록 docs/worklog/2026/10/29-2310-app-shell-w1.md·30-0120-app-shell-w1-review.md).
 import type { Page } from "@playwright/test";
 import { login } from "./helpers/auth.ts";
+import { message } from "./helpers/messages.ts";
 import { horizontalOverflow } from "./helpers/screen.ts";
 import { deviceOptions, expect, test, watchDeviceErrors } from "./helpers/test.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
@@ -82,6 +83,18 @@ test.describe("플레이어", () => {
     await expect(page.locator(".map-screen")).toBeVisible();
     expect(await focused(page)).toBe("body");
     expect(deviceErrors).toEqual([]);
+  });
+
+  test("설정 화면에 지금 쓰는 앱 빌드가 보인다(옛 버전인지 가리기 — 사용자 지적 2026-11-10)", async ({
+    page,
+  }) => {
+    await page.goto("/settings");
+    const build = page.locator(".settings-build");
+    await expect(build).toBeVisible();
+    const id = (await build.getAttribute("data-build")) ?? "";
+    expect(id.length).toBeGreaterThan(0);
+    await expect(build).toHaveText(message("ko", "settings_about_build", { build: id }));
+    expect(await horizontalOverflow(page)).toEqual([]);
   });
 
   test("주소로 바로 연 /settings·/units는 초점을 옮기지 않는다(새로고침도)", async ({ page }) => {

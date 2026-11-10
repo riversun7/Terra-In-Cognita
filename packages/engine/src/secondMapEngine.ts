@@ -358,7 +358,7 @@ export function createSecondMapEngine(
     scheduler.request();
   };
 
-  // 누른 곳: 유닛(화면 거리, units/unitRoster.ts) → 건물(조각 상자, 땅보다 앞이면) → 땅
+  // 누른 곳: 유닛(내 유닛은 넉넉한 화면 거리·남의 유닛은 몸 위, units/unitRoster.ts) → 건물(조각 상자, 땅보다 앞이면) → 땅
   /** 누른 땅(m). outside = 지금 2차맵 밖(그려 둔 이웃 위) */
   const pickGround = (point: ScreenPoint): { x: number; z: number; outside?: true } | null => {
     if (!terrain) return null;
@@ -402,7 +402,7 @@ export function createSecondMapEngine(
       if (!active) scheduler.request();
     },
     onTap: (point) => {
-      const slot = roster.pick(point, { camera, state, viewport, cellM, groundAt });
+      const slot = roster.pick(point, { camera, state, viewport, cellM, groundAt }, options.wideUnitTap);
       if (slot >= 0) {
         // 화면이 false를 돌려주면(남의 유닛을 살펴보기만 — 명령 유닛은 그대로) 고른 표시를 바꾸지 않는다
         if (options.onSelect?.(roster.idAt(slot)) !== false) {
@@ -416,6 +416,7 @@ export function createSecondMapEngine(
       const ground = pickGround(point);
       if (ground?.outside) options.onNeighbourTap?.({ x: ground.x / cellM, y: ground.z / cellM });
       else if (ground) options.onGroundTap?.({ x: ground.x / cellM, y: ground.z / cellM });
+      else options.onTapMiss?.();
     },
     onZoomPush: (edge) => {
       if (!disposed) options.onZoomEdge?.(edge);

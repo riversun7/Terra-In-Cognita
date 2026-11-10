@@ -1,6 +1,6 @@
 // 2차맵 화면의 유닛 조종 몫 — [내 유닛 N]·내 유닛 목록·"다른 곳에 내 유닛 N" 줄·고른 유닛 단추([멈추기])·남의 유닛 정보 판·운영자 표시와 개발 단추.
-// 바뀜(사용자 지적 2026-11-09 "다른 유닛 눌려지면 상호작용 메뉴가 나오거나 다른곳을 눌러 저절로 닫히게 해야함"): 남의 유닛은 고르지 않고 정보 판(PeekCard)을
-// 연다. 고른 유닛이 늘 내 유닛이라 [내 유닛으로]는 없앴다.
+// 바뀜(사용자 지적 2026-11-09 "다른 유닛 눌려지면 상호작용 메뉴가 나오거나 다른곳을 눌러 저절로 닫히게 해야함"): 남의 유닛은 고르지 않고 작은 창(PeekCard)을
+// 연다. 고른 유닛이 늘 내 유닛이라 [내 유닛으로]는 없앴다. 2026-11-10: 운영자 모드도 같다 — 작은 창의 [이 유닛 조종]만 명령 유닛을 바꾼다.
 // 바뀜(사용자 지적 2026-11-09 문제2 "내 사이보그가 아니라 보유한 유닛목록을 띄워서 선택해야한다. 내 유닛선택이 아예 사라졌다"): [내 사이보그]
 // 단추 자리에 [내 유닛 N] → 이 2차맵의 내 유닛 목록(사이보그 본체가 첫 줄, 637 나 차례)을 다시 둔다. 근처 판 유닛 탭(가까운 차례, 남의 유닛 포함)은
 // 그대로다(docs/adr/2026-11-08-seamless-second-map.md "바뀜 3").
@@ -152,28 +152,52 @@ export function SelectedActions({
   );
 }
 
+/** 작은 창이 열린 동안 땅을 누르면 무엇이 가나(안내 줄): 내 유닛·운영자가 조종 중인 유닛·보낼 유닛 없음 */
+export type PeekGround = "own" | "operator" | "none";
+
+const PEEK_NOTE = {
+  own: () => m.map_peek_note(),
+  operator: () => m.map_peek_note_operator(),
+  none: () => m.map_peek_note_none(),
+} satisfies Record<PeekGround, () => string>;
+
 /**
- * 남의 유닛 정보 판(docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)"): 플레이어가 남의 유닛을 누르면 명령 유닛은 그대로 두고 이 판을 연다.
- * 이름·주인·움직임과 "땅을 누르면 닫고 내 유닛을 보낸다" 안내, [닫기]. 지도자면 지도자 몫(children — 지도자와 이야기)을 안에 둔다.
- * 땅을 누르면 화면이 닫는다(같은 누르기가 명령 유닛을 그곳으로 보낸다)
+ * 남의 유닛 작은 창(상호작용 메뉴 — docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)"·"바뀜 (2026-11-10)", 사용자 지적 2026-11-10
+ * "다른 유닛 클릭시 팝업으로 상호작용 메뉴띄우고 다른곳 클릭시 닫기"): 누구든(운영자 모드도) 남의 유닛을 누르면 명령 유닛은 그대로 두고 이 창을 연다.
+ * 이름, 주인·움직임 한 줄, 지금 할 수 있는 일(지도자면 지도자 몫 children — 지도자와 이야기, 운영자 모드면 [이 유닛 조종] — 이 단추만 명령 유닛을
+ * 바꾼다), 없으면 "할 수 있는 일이 아직 없다" 한 줄, 닫는 법 안내, [닫기]. 다른 곳을 누르면 화면이 닫는다(땅이면 같은 누르기로 명령 유닛이 간다)
  */
 export function PeekCard({
   unitId,
   moving,
   glance,
+  ground,
+  hasActions,
+  onControl,
   onClose,
   children,
 }: {
   readonly unitId: number;
   readonly moving: boolean;
   readonly glance: MapUnitGlance | null;
+  readonly ground: PeekGround;
+  /** children에 할 수 있는 일이 있나(지도자) — 없고 운영자도 아니면 "아직 없다" 줄 */
+  readonly hasActions: boolean;
+  /** 운영자 모드: 이 유닛을 명령 유닛으로 삼는다(없으면 단추 없음) */
+  readonly onControl: (() => void) | null;
   readonly onClose: () => void;
   readonly children?: ReactNode;
 }) {
   const titleId = useId();
   const text = peekText(unitId, moving, glance);
   return (
-    <section className="map-panel map-peek" aria-labelledby={titleId} data-unit={unitId}>
+    <section
+      className="map-panel map-peek"
+      role="dialog"
+      aria-labelledby={titleId}
+      data-unit={unitId}
+      data-ground={ground}
+    >
       <div className="map-peek-head">
         <h2 id={titleId} className="map-peek-title">
           {text.unit}
@@ -183,8 +207,21 @@ export function PeekCard({
         </button>
       </div>
       <p className="map-peek-line">{text.line}</p>
-      <p className="map-peek-note">{m.map_peek_note()}</p>
       {children}
+      {onControl ? (
+        <div className="map-peek-menu">
+          <button
+            type="button"
+            className="button-small map-operator-button map-peek-control"
+            onClick={onControl}
+          >
+            {m.map_peek_control()}
+          </button>
+        </div>
+      ) : hasActions ? null : (
+        <p className="map-peek-empty">{m.map_peek_no_actions()}</p>
+      )}
+      <p className="map-peek-note">{PEEK_NOTE[ground]()}</p>
     </section>
   );
 }

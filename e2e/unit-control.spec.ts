@@ -197,9 +197,12 @@ async function touchOtherUnitRow(page: Page, which: "first" | "last" = "first"):
   const rows = page.locator('.map-nearby-row[data-kind="unit"][data-mine="false"]');
   await expect(rows.first()).toBeVisible({ timeout: 15_000 });
   const other = which === "first" ? rows.first() : rows.last();
-  const otherId = (await other.getAttribute("data-id")) ?? "";
   await other.tap();
-  await expect(page.locator(`.map-peek[data-unit="${otherId}"]`)).toBeVisible();
+  // 줄은 가까운 차례로 다시 놓인다(휴먼이 걷는다) — 줄에서 미리 읽은 id가 아니라 열린 창의 유닛을 쓴다
+  const peek = page.locator(".map-peek");
+  await expect(peek).toBeVisible();
+  const otherId = (await peek.getAttribute("data-unit")) ?? "";
+  expect(otherId).toMatch(/^\d+$/);
   return otherId;
 }
 
@@ -303,10 +306,13 @@ test.describe("유닛 조종: 플레이어", () => {
     await openNearby(page, "units");
     const other = page.locator('.map-nearby-row[data-kind="unit"][data-mine="false"]').first();
     await expect(other).toBeVisible({ timeout: 15_000 });
-    const otherId = (await other.getAttribute("data-id")) ?? "";
     await other.click();
-    const peek = page.locator(`.map-peek[data-unit="${otherId}"]`);
+    // 줄은 가까운 차례로 다시 놓인다(휴먼이 걷는다) — 줄에서 미리 읽은 id가 아니라 열린 창의 유닛을 쓴다
+    const peek = page.locator(".map-peek");
     await expect(peek).toBeVisible();
+    const otherId = (await peek.getAttribute("data-unit")) ?? "";
+    expect(otherId).toMatch(/^\d+$/);
+    expect(otherId).not.toBe(cyborg);
     await expect(peek.locator(".map-peek-note")).toHaveText(message("ko", "map_peek_note"));
     // 명령 유닛은 그대로(옛: 남의 유닛이 고른 유닛이 되어 땅을 눌러도 "내 유닛만 움직일 수 있습니다")
     await expect(screen).toHaveAttribute("data-selected", cyborg);

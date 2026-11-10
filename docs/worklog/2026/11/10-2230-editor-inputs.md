@@ -71,9 +71,20 @@
 - `.ce-num > .ce-num-row > .input` 규칙의 선택자 깊이(`.ce-field .input`의 `min-width: 0`보다 앞서야 좁은 칸에서 글자 칸이 사라지지 않는다).
 - 끄는 동안 바깥에 알리는 간격(80ms)과 되돌리기 묶음 시간(1초)은 `contentEditorNumber.tsx`·`contentEditorUndo.ts` 한 곳.
 
+## 검증
+
+- Verified: `pnpm check`(`TEST_DATABASE_URL` 있음) 통과 — 시험 파일 571개·시험 4,389개. 새 단위 시험: `contentEditorNumeric.test.ts` 39개(막대 범위·로그 눈금·걸음, 다시 나누기·경계·균등, 묶음 바꾸기·채우기·곡선), `buildingModel.test.ts`에 구간 × 재료 표 2개.
+- Verified: `pnpm build`, `node scripts/check-pwa.mjs`, `pnpm check:bundle` 통과(main `6bb226d`을 합친 뒤). 새 조각은 `contentEditor…` 이름이라 미리 캐시 밖이다(개발 도구 화면이 늘지 않아 `DEV_ONLY_CHUNK`·도구 수는 그대로).
+- Verified: 화면 시험(main을 합친 뒤 한 번에) — `gather-tiers`·`tuning`·`items`·`skills`·`buildings`·`effects`·`creatures`·`balance`·`battleLab`·`dev-stagebar`·`recruit`·`formulas`·`dev` 232개 중 231개 통과, 1개 실패(`dev.spec.ts` "플레이어 … 권한 없음 화면": `/dev`로 간 뒤에도 홈이 보임 — 이 줄기가 고치지 않은 길. 아래 "알려진 문제").
+  - 새 시험: 막대 끌기 → 담김(아이템·설정 칸), 경계 끌기 → 두 칸이 바뀌고 합 1000·잠근 칸 그대로·키보드만 조작·균등·팩 값으로·Ctrl+Z(티어 확률), 열 고르기 → 더하기·선형 채우기·끌어 채우기 후 구간마다 합 1000(티어 확률), 등급 사다리 선형 채우기·곱하기·막대 끌기·Ctrl+Z(스킬), 레벨마다 나누기 → 재료 열 선형 채우기 → 레벨 표·합계(건물), 키보드만으로 ↑·Shift+↑·PageDown·Ctrl+Z(효과 사전), 범위 밖 값 맞춤(아이템·설정 칸).
+  - 바꾼 시험: 티어 확률 "합이 1000이 아니면 막는다" → "나머지가 따라 움직여 합 1000 그대로", 설정 칸 "↑↓ 줄 옮기기" → "Enter·Shift+Enter 줄, ↑ 값 한 걸음", "범위 밖 값은 떠나도 담기지 않는다" → "끝 값으로 맞춰 담긴다".
+  - 초상화 영역 선택기(다른 줄기, main에서 옴)의 수 칸 3개는 새 수 조작 칸으로 그대로 돈다(`creatures.spec.ts` 통과). 선택기의 Ctrl+Z와 편집기 Ctrl+Z가 겹치지 않게 했다(이미 받은 키는 건드리지 않는다).
+- Verified: 사진(네온·라이트 × 1440, 네온 390)으로 봄 — `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/editor-inputs-shots/final/`(`inputs-number-*`·`inputs-dist-*`·`inputs-ladder-*`·`inputs-matrix-*`·`inputs-levels-*`, 18장).
+- 검토: `web-design-guidelines`(키보드 대안·초점·aria·끄는 동안 글 고르기 막기·`Intl` 수 글·움직임 없음) → 팩 눈금·잠금 단추 hover, 백분율을 `Intl`로, 긴 칸 이름 줄바꿈을 고쳤다. `break-ui` 관점(390px·긴 ko/en·빈 값·큰 수)은 사진과 넘침 시험으로 봤다 — 좁은 칸에서 수 칸 줄이 옆 칸을 덮던 것(스킬 390px), 팩 값 눈금이 손잡이를 가려 끌 수 없던 것, 분포 칸 격자가 깨지던 것(`fit-content`를 `minmax` 안에 씀)을 찾아 고쳤다.
+
 ## 미검증·TODO·알려진 문제
 
-(검증 결과는 아래 "검증" 절)
+- 알려진 문제: `e2e/dev.spec.ts` "플레이어 › 사이드 메뉴에 [개발자]가 없고 … 권한 없음 화면" 1개가 마지막 묶음 실행(13개 파일을 이어 돌림)에서 실패했다(`/dev`로 간 직후 홈 화면이 보임). `dev.spec.ts`만 따로 다시 돌리면 12개 모두 통과했다(Verified). 이 줄기는 길 찾기·권한·개발자 홈을 바꾸지 않았다 — 까닭은 Unknown(부하나 앞 시험의 영향으로 보임, Assumed).
 
 - 남은 것(하지 않음):
   - 크리쳐 속성 점수 막대(`type="range"`)는 그대로다. 크리쳐 편집기 문구는 전처럼 코드에 직접 적혀 있다(다른 줄기 몫).

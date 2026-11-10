@@ -214,6 +214,9 @@ test.describe("플레이어", () => {
     await expect(drawer.locator('a.side-item[href="/settings"]')).toBeVisible();
     await expect(drawer.locator('a.side-item[href="/dev"]')).toHaveCount(0);
     await page.keyboard.press("Escape");
+    // 서랍을 닫으면 라우터가 겹침 기록 칸을 뒤로 가기로 뺀다. 그 전에 주소를 열면 뒤로 가기가 나중에 들어 홈으로 돌아간다
+    await expect(drawer).not.toHaveAttribute("open", "");
+    await expect.poll(() => overlayEntry(page)).toBeNull();
     for (const path of DEV_PATHS) {
       await page.goto(path);
       await expect(page.locator("#no-permission-title"), path).toBeVisible();

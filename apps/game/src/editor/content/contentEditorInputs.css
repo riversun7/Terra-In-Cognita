@@ -323,7 +323,7 @@
 }
 .ce-dist-part {
   display: grid;
-  grid-template-columns: minmax(3ch, fit-content(10rem)) minmax(0, 1fr) auto auto;
+  grid-template-columns: fit-content(10rem) minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
@@ -401,7 +401,7 @@
 /* 좁은 폭: 값·백분율·잠금을 막대 아래 줄로 */
 @media (max-width: 30rem) {
   .ce-dist-part {
-    grid-template-columns: minmax(3ch, fit-content(8rem)) minmax(0, 1fr) auto;
+    grid-template-columns: fit-content(8rem) minmax(0, 1fr) auto;
     grid-template-areas:
       "name slider slider"
       "name value lock";

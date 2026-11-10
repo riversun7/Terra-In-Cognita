@@ -81,7 +81,8 @@ export function useUndoShortcut(undo: () => void): void {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key.toLowerCase() !== "z" || !(event.ctrlKey || event.metaKey)) return;
-      if (event.shiftKey || event.altKey || isTextEntry(event.target)) return;
+      // 이미 받은 곳이 있으면(초상화 영역 선택기처럼 자기 되돌리기가 있는 조작부) 건드리지 않는다
+      if (event.defaultPrevented || event.shiftKey || event.altKey || isTextEntry(event.target)) return;
       if (document.querySelector("dialog[open]")) return;
       event.preventDefault();
       latest.current();

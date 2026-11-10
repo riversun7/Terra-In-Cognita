@@ -162,9 +162,10 @@
 .sk-cost-name {
   font-weight: var(--font-weight-strong);
 }
+/* 값 칸 + − / + 단추(휴대폰은 단추가 커서 더 넓다) */
 .sk-cost-input {
-  min-width: 6em;
-  max-width: 8em;
+  min-width: 8em;
+  max-width: 11em;
 }
 .sk-cost-apply {
   white-space: nowrap;

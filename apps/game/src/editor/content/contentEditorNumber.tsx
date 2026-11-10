@@ -41,6 +41,8 @@ const HOLD_FAST_AFTER = 15;
 const DRAG_COMMIT_MS = 80;
 /** 막대에서 팩 값 눈금에 달라붙는 거리(화소): 눈금을 누르거나 가까이 끌면 팩 값 */
 const PACK_SNAP_PX = 6;
+/** 손잡이를 잡았다고 보는 거리(화소): 이 안에서 누르면 값이 튀지 않고, 끈 만큼만 바뀐다 */
+const THUMB_GRAB_PX = 8;
 
 const formatInt = (value: number): string => new Intl.NumberFormat(getLocale()).format(value);
 /** 막대 끝 값 글(짧게: 1,000,000 → 100만·1M) */
@@ -207,9 +209,11 @@ export function SliderTrack({
   const pos = value === null ? null : valueToPos(value, range);
   const packPos =
     pack !== undefined && pack >= range.min && pack <= range.max ? valueToPos(pack, range) : null;
+  // 손잡이를 잡았을 때 누른 자리와 손잡이 가운데의 차이(화소) — 끄는 동안 그만큼 빼고 셈한다
+  const grab = useRef(0);
   const valueAt = (event: ReactPointerEvent<HTMLDivElement>): number => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const at = rect.width <= 0 ? 0 : (event.clientX - rect.left) / rect.width;
+    const at = rect.width <= 0 ? 0 : (event.clientX - grab.current - rect.left) / rect.width;
     // 팩 값 눈금 가까이에서는 팩 값에 달라붙는다(눈금을 누르면 팩 값)
     if (packPos !== null && pack !== undefined && Math.abs(at - packPos) * rect.width <= PACK_SNAP_PX)
       return pack;
@@ -263,6 +267,14 @@ export function SliderTrack({
             event.currentTarget.setPointerCapture(event.pointerId);
             if (focusable) event.currentTarget.focus({ preventScroll: true });
             onStart?.(event);
+            // 손잡이를 잡았으면 값은 그대로 두고 끌기만 시작한다(누르기만 해서 값이 조금씩 틀어지지 않게)
+            const rect = event.currentTarget.getBoundingClientRect();
+            const offset = pos === null ? Number.NaN : event.clientX - (rect.left + pos * rect.width);
+            if (Math.abs(offset) <= THUMB_GRAB_PX) {
+              grab.current = offset;
+              return;
+            }
+            grab.current = 0;
             onMove(valueAt(event));
           }}
           onPointerMove={(event) => {

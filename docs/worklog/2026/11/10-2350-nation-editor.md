@@ -1,6 +1,6 @@
 # 시작 국가 설정 편집기(/dev/nations) — 가상 이름·이름 만들기, 국가 마크(만들기·올리기·자르기), 국가마다 씨앗 값, 이 세계에 반영
 
-- 일시: 2026-11-10 23:00 (KST)
+- 일시: 2026-11-10 23:50 (KST)
 - 작업 도구: Claude Code
 - 관련: ADR `docs/adr/2026-11-10-nation-editor.md`(제안), ADR `2026-11-09-faction-profiles.md`·`2026-11-01-npc-brain-r5.md` "바뀜 (2026-11-10)", 질문 `docs/questions/2026-11-10-nation-editor.md` 901~915, PLAN 14장, 가지 `work/nation-editor`
 - 사용자 요청(2026-11-10, 원문): "시작 기본 npc국가세팅 에디터추가하고 반영하라. 임시국가, 임시화폐같은 명칭을 제대로 생성하나, 국가마크도 생성 및 유저는 업로드하여 일정 사이즈를 크롭?자를수있게 그외 사이보그나 유닛 수 등등 디테일한 조정"
@@ -37,7 +37,8 @@
 | `apps/game/src/editor/nations/*`, `ui/NationEmblem.tsx`·`nationEmblem.css` | 편집기 화면·모델·문구, 마크 그리기 |
 | `apps/game/src/editor/DevHome.tsx`·`devIcons.tsx`, `shell/routeViews.tsx`, `sections/ComingSoon.tsx`, `faction/FactionSide.tsx`, `messages/{ko,en}.json` | 개발자 홈 줄·경로·세력 카드 마크·메시지 216개 |
 | `apps/game/vite.config.ts`, `scripts/pwa-build.mjs`(+시험), `scripts/apply-tuning-diff.mjs` | 개발 조각 미리 캐시 제외(`[Nn]ationEditor`·`nations`), `tuning:apply`가 `nation_presets`를 받음 |
-| `e2e/nations.spec.ts`, `e2e/dev.spec.ts`, `e2e/faction.spec.ts` | 화면 시험, 도구 17줄, 세력 화면 이름(칼루누이·말라니 켈레와이) |
+| `e2e/nations.spec.ts`, `e2e/dev.spec.ts`, `e2e/faction.spec.ts` | 화면 시험, 도구 17줄·플레이어 권한 시험이 서랍 기록 칸을 기다림, 세력 화면 이름(칼루누이·말라니 켈레와이) |
+| `apps/server/src/npc/leaders.db.test.ts` | 지도자 이름을 팩의 가상 이름으로 봄 |
 | `docs/adr/*`, `docs/questions/2026-11-10-nation-editor.md`, `docs/PLAN.md` | 결정·질문 |
 
 ## 함께 바꿔야 하는 파일
@@ -52,7 +53,6 @@
 - 실효 프리셋 목록(`createLivePresets().list`)은 같은 배열을 제자리에서 바꾼다. 다른 곳에서 그 배열을 복사해 두면 저장이 들지 않는다.
 
 ## 미검증·TODO·알려진 문제
-- (검사 결과는 아래 "검사"에 적는다.)
 - 지도(1차맵·2차맵) 도시 이름표·정부 판 머리·운영자 콘솔에는 마크를 넣지 않았다(조회 모양·첫 화면 크기를 봐야 한다).
 - 세력 화면 국고 줄의 나라 화폐는 여전히 자산 코드(`cur:placeholder_cur_16`)로 보인다(옛 동작 — 화폐 이름을 잇는 일은 이 줄기 밖).
 - 이미 정해진 세계(NAS)의 세력·화폐 이름은 배포만으로 바뀌지 않는다: 편집기에서 [이 세계의 NPC 국가에 반영]을 눌러야 한다(질문 909). 정체성 줄이 아직 없는 세계는 처음 보일 때 새 이름으로 정해진다.
@@ -65,4 +65,11 @@
 - 질문 901~915(`docs/questions/2026-11-10-nation-editor.md`). 급한 것: 903(시작 유닛), 905(플레이어 마크 올리기), 909(NAS 반영을 누가 하나).
 
 ## 검사
-- (끝에 채운다)
+모두 main `6bb226d`를 합친 뒤(메시지 파일 충돌은 두 쪽 다 남겨 풀었다)에 돌렸다. Verified = 이 작업 트리에서 실행해 결과를 봄.
+- `TEST_DATABASE_URL=… pnpm check`: 통과 — 577파일 4,426시험(DB 시험 포함). 합친 직후 첫 실행은 린트에서 떨어졌다(합쳐 들어온 메시지 키를 옛 생성 파일 `src/paraglide`가 몰랐음 — 타입 검사·빌드가 다시 만든 뒤 통과).
+- `pnpm build` + `node scripts/check-pwa.mjs`: 통과(화면 주소 경로 예 54개). `pnpm check:bundle`: 첫 화면 JS 107,934 B / 상한 131,416 B(상한 그대로 — 편집기·이름 만들기는 `NationEditorScreen-*` 조각, 마크 그리기는 세력 화면·편집기 조각에만 든다).
+- `pnpm e2e nations.spec.ts dev.spec.ts faction.spec.ts`: 49시험 가운데 48 통과·1 실패 → 실패 하나(`dev.spec.ts` 플레이어 권한 시험: 서랍을 Esc로 닫은 직후 `/dev`를 열면 홈으로 돌아감)를 시험에서 고친 뒤 `pnpm e2e dev.spec.ts` 12시험 통과. `nations.spec.ts` 9시험은 합치기 전·뒤 두 번 통과, `faction.spec.ts` 28시험 통과.
+  - 그 실패의 까닭은 Assumed: 서랍을 닫을 때 라우터가 기록 칸을 뒤로 가기로 빼는데 시험이 기다리지 않았다(같은 파일의 관리자 시험은 기다린다). 고치기 전 두 번 실패, 고친 뒤 한 번 통과. 이 줄기의 코드가 그 타이밍을 바꿨는지는 가리지 못했다(Unknown).
+- 작업 중 따로 본 것(Verified): `nationEdit.db.test.ts` 8시험(권한·검사·저장·다시 켜기·거절·마크 올리기·이 세계에 반영·되돌리기), `npcSeed.db.test.ts` "국가마다 씨앗 값", 개발 서버(`tsx src/main.ts` + Vite)에서 그림 올리기·자르기·세력 화면 마크를 눈으로 확인.
+- 사진(저장소 밖): `nations-{neon,light}-{ko,en}-1440.png`, `nations-neon-ko-390.png`, `nations-light-en-390.png`, 마크 모음 `emblem-sheet.png`.
+- 돌리지 않은 것: 나머지 화면 시험 전체(바꾼 화면 spec만 돌렸다), NAS 배포·실제 휴대폰, `pnpm e2e` 가운데 이름을 보는 다른 spec은 `faction.spec.ts`뿐임을 글자 찾기로만 확인(Assumed).

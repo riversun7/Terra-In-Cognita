@@ -3,7 +3,8 @@
 // 묻는다(tRPC world.leaderGovernment — 서버가 지금 내 시야 안의 지도자인지 본다). 지도자 이름·나라·수도 한 줄 + [지도자와 이야기] → 정부 대화상자
 // (GovernmentDialog.tsx via "leader" — 머리가 지도자, 지연 조각). 고른 유닛이 지도자가 아니거나 답이 ready가 아니면 그리지 않는다.
 // 바뀜(docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)"): 플레이어가 지도자를 누르면 고르지 않고 남의 유닛 정보 판을 연다 — 이 판은
-// 그 정보 판 안의 몫(embedded)으로 그린다(판 하나). 운영자 모드는 지도자를 고르므로 따로 판으로 그린다.
+// 그 정보 판 안의 몫(embedded)으로 그린다(판 하나). 운영자가 작은 창의 [이 유닛 조종]으로 지도자를 명령 유닛으로 삼으면 따로 판으로 그린다
+// ("바뀜 (2026-11-10)" — 운영자 모드도 누르기만으로는 고르지 않는다).
 import type { GovernmentResponse } from "@terra/shared/government";
 import { Suspense, lazy, useEffect, useId, useState, useSyncExternalStore } from "react";
 import type { LeaderTagState } from "../map/leaderTags.ts";

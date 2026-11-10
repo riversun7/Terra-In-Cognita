@@ -181,6 +181,15 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
           {m.settings_help_open()}
         </button>
       </fieldset>
+      {/* 지금 이 기기가 쓰는 앱 빌드(배포 커밋 앞 12자, 개발 실행은 dev) — 고친 것이 안 보일 때 옛 버전인지 가린다
+          (사용자 지적 2026-11-10, docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-10)"). 새 버전 적용 규칙(pwa/updates.ts)은 그대로다 */}
+      <fieldset className="settings-section">
+        <legend className="section-title">{m.settings_about_legend()}</legend>
+        <p className="settings-build" data-build={__APP_BUILD__}>
+          {m.settings_about_build({ build: __APP_BUILD__ })}
+        </p>
+        <p className="setting-hint">{m.settings_about_hint()}</p>
+      </fieldset>
     </section>
   );
 }

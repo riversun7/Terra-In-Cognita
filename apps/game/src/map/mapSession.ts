@@ -55,8 +55,8 @@ export interface MapSessionOptions {
   readonly anchor: () => number | null;
   /** 기준 유닛이 이웃 2차맵에 나타났다 */
   readonly onArrived: (mapKey: number) => void;
-  /** 지도자 이름표를 눌렀다 */
-  readonly onPickLeader: (unitId: number) => void;
+  /** 지도자 이름표를 눌렀다. false면 고르지 않았다(남의 유닛 작은 창 — 엔진 고른 표시도 그대로 둔다) */
+  readonly onPickLeader: (unitId: number) => boolean;
   readonly onStatus: (status: FeedStatus) => void;
   readonly onCommand: (report: CommandReport) => void;
 }
@@ -160,15 +160,16 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     onNear: (keys) => neighbourVision.want(options.operator() ? [] : keys),
     seed: options.seed,
   });
-  // 지도자 이름표: 전송의 표시 종류(npc_leader)로 찾고 이름은 한눈 정보로. 누르면 그 지도자를 고른다. 채집 덧그림보다 먼저 붙인다
+  // 지도자 이름표: 전송의 표시 종류(npc_leader)로 찾고 이름은 한눈 정보로. 누르면 지도에서 그 지도자를 누른 것과 같다. 채집 덧그림보다 먼저 붙인다
   // (누르기를 먼저 받고 위에 그린다 — 지도자는 적고 표시는 많다)
   const detachLeaders = attachLeaderTags(engine, host, options.leaderTags, {
     mapKey,
     kinds: () => feedNow?.unitKinds() ?? NO_KINDS,
     loadGlance: (key, unitId, signal) => loadUnitGlance(key, unitId, signal).then((answer) => answer.glance),
+    // 화면이 고르지 않으면(남의 지도자 — 작은 창만 연다) 엔진 고른 표시도 옮기지 않는다. 옮기면 1초 요약이 그 지도자를 고른 유닛으로 맞춰
+    // 다음 땅 누르기가 "내 유닛만 움직일 수 있습니다"가 됐다(2026-11-09 고침에서 빠진 길 — docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-10)")
     onPick: (unitId) => {
-      engine.select(unitId);
-      options.onPickLeader(unitId);
+      if (options.onPickLeader(unitId)) engine.select(unitId);
     },
   });
   const detachGather = attachGatherOverlay(engine, host, gather, {

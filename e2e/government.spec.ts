@@ -231,6 +231,11 @@ test.describe("정부 판·지도자: 플레이어", () => {
     await expect(sheet).toContainText(name);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
+    // 이름표로 눌러도 지도자는 고른 유닛이 되지 않는다(옛: 엔진 고른 표시가 지도자로 옮겨 가 1초 뒤 고른 유닛이 지도자가 됐다 —
+    // 안내 줄 "정보만 볼 수 있습니다", 땅을 눌러도 내 유닛이 가지 않음. docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-10)")
+    await page.waitForTimeout(2_500);
+    await expect(page.locator(".map-screen")).not.toHaveAttribute("data-selected", String(unitId));
+    await expect(page.locator(".map-screen")).toHaveAttribute("data-control", "own");
 
     await sheet.locator(".gov-open").click();
     const dialog = page.locator("dialog.gov-dialog[open]");

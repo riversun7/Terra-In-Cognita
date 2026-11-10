@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app.ts";
 import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
-import { nationNamesOf, rankingPathsOf } from "./ranking/paths.ts";
+import { nationNamesOf, rankingPathsOf, syncNationNames } from "./ranking/paths.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
 import { combatCoefficientsFrom } from "@terra/sim";
 import { effectNamesOf } from "./battleReplay/names.ts";
@@ -11,7 +11,7 @@ import { createTuningState } from "./tuning/state.ts";
 import { formulaEntriesOf, statRowsOf, tuningEntriesOf, unitKindNamesOf } from "./world/combatCatalog.ts";
 import { createContentEditState } from "./contentEdit/state.ts";
 import { economyCatalogAccessor } from "./economyView/catalog.ts";
-import { nationPresetsOf } from "./npc/presets.ts";
+import { createLivePresets } from "./npc/presets.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
 import { createWorkerBaker } from "./planet/baker.ts";
 import { type PlanetSourceSpec, createPlanetSource, planetSpecsFromPack } from "./planet/sources.ts";
@@ -86,6 +86,24 @@ const tuning = createTuningState(
 // 팩 항목 실효 값(스킬·무기·유닛 종류 + 이 세계 DB의 덮어쓰기, docs/adr/2026-11-01-skill-editor.md 3·4절). 전투 자료를 읽는 곳은
 // 모두 이 접근자를 쓸 때마다 부른다(유닛 화면·정원사 웨이브 전투, 스킬 편집기 /dev/skills가 덮어쓴다)
 const contentEdit = createContentEditState(loaded.source);
+// 실효 국가 프리셋(팩 + 이 세계의 덮어쓰기 — 시작 국가 설정 편집기 /dev/nations, docs/adr/2026-11-10-nation-editor.md 5절): 서버 곳곳이
+// 이 목록 하나를 읽고, 덮어쓰기를 싣거나 저장할 때마다 내용을 맞춘다. 세계 씨앗은 처음 실을 때까지 기다린다(DB가 없으면 팩 그대로,
+// 덮어쓰기를 고르지 못해 싣지 못하면 90초 뒤 팩 값으로 차린다)
+const livePresets = createLivePresets(() => contentEdit.effective().nationPresets);
+const PRESETS_WAIT_MS = 90_000;
+let presetsLoaded: () => void = () => undefined;
+const presetsReady = config.databaseUrl
+  ? new Promise<void>((resolve) => {
+      presetsLoaded = resolve;
+      setTimeout(resolve, PRESETS_WAIT_MS).unref();
+    })
+  : undefined;
+// 랭킹 판의 세력 이름도 같은 목록을 따른다
+const rankingNations = new Map(nationNamesOf(loaded.pack));
+contentEdit.subscribe(() => {
+  if (livePresets.sync()) syncNationNames(rankingNations, livePresets.list);
+  presetsLoaded();
+});
 
 let app: FastifyInstance | undefined;
 const db = config.databaseUrl
@@ -116,7 +134,8 @@ app = await buildApp({
           testNations: config.npc.testNations,
           dayMs: config.npc.dayMs,
           gardenerWaves: config.npc.gardenerWaves,
-          presets: nationPresetsOf(loaded.pack),
+          presets: livePresets.list,
+          presetsReady,
         }
       : undefined,
   },
@@ -153,7 +172,7 @@ app = await buildApp({
   // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)"). 아이템·시설은 실효 항목(아이템·건물 편집기가 덮어쓴다)
   economyCatalog: economyCatalogAccessor(loaded.pack, content, () => contentEdit.effective()),
   // 랭킹(docs/adr/2026-11-07-ranking.md): 팩 경로 목록(공개 여부·지표)과 세력 이름(국가 프리셋)
-  ranking: { paths: rankingPathsOf(loaded.pack), nations: nationNamesOf(loaded.pack) },
+  ranking: { paths: rankingPathsOf(loaded.pack), nations: rankingNations },
   // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다
   // 2차맵 원자재 오브젝트 종류(docs/adr/2026-11-07-gather-objects.md): 팩 gather_objects
   gatherObjects: gatherKindsFromPack(loaded.pack),

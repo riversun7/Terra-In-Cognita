@@ -41,6 +41,8 @@ async function boot(options: {
   testMaps: number;
   npc?: boolean;
   rules?: typeof TEST_SOCIETY_COEFFICIENTS;
+  /** 국가 프리셋(없으면 팩 그대로) */
+  presets?: typeof presets;
 }): Promise<World> {
   const rules = options.rules;
   const world = startWorld({
@@ -54,7 +56,10 @@ async function boot(options: {
     onFatal: (error) => {
       throw error;
     },
-    npc: options.npc === false ? undefined : { testNations: 4, manual: true, presets },
+    npc:
+      options.npc === false
+        ? undefined
+        : { testNations: 4, manual: true, presets: options.presets ?? presets },
     cyborgRules: rules ? () => rules : undefined,
     holdings: { content: () => pack },
     facilities: { content: () => pack },
@@ -98,6 +103,65 @@ const nationPresets = [presets[15], ...presets.slice(0, 3)];
 const WANT = [2, 4, 3, 2];
 
 describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·기본 시설)", () => {
+  it("국가마다 씨앗 값(시작 국가 설정 편집기): 그 국가만 주거·처음 인구·기본 시설 수가 다르다", async () => {
+    // 국가 2(프리셋 1)만 주거 60·처음 인구 50%·농장 2·창고 2·벌목장 0·광산 0. 나머지는 설정 칸 값(주거 40 등)
+    const edited = presets.map((preset, index) =>
+      index === 0
+        ? {
+            ...preset,
+            personality: {
+              ...preset.personality,
+              startHousing: 60,
+              startPopulationPm: 500,
+              startFarms: 2,
+              startStorehouses: 2,
+              startLumberCamps: 0,
+              startMines: 0,
+            },
+          }
+        : preset,
+    );
+    const rules = {
+      ...TEST_SOCIETY_COEFFICIENTS,
+      worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, populationPm: 250 },
+    };
+    const world = await boot({ testMaps: 3, presets: edited, rules });
+    const lines = await rows<{ code: string; housing: number; humans: string; id: string }>(
+      test.db,
+      `select f.code, c.housing, c.id, (select count(*) from world_humans h where h.city_id = c.id) as humans
+         from world_cities c join factions f on f.id = c.faction_id where c.start order by c.id`,
+    );
+    const mine = lines.filter((line) => line.code === "placeholder_nation_01");
+    const others = lines.filter((line) => line.code !== "placeholder_nation_01");
+    expect(mine).toHaveLength(4);
+    // 새 시작 도시의 주거 = 국가 칸 60, 처음 인구 = 60 × 50% = 30(봇 12가 가까운 도시의 휴먼이 되어 더해질 수 있다)
+    for (const line of mine) {
+      expect(line.housing).toBeGreaterThanOrEqual(60);
+      expect(Number(line.humans)).toBeGreaterThanOrEqual(30);
+    }
+    // 다른 국가 = 설정 칸(주거 40 × 25% = 10)
+    for (const line of others) expect(Number(line.humans)).toBeLessThan(30);
+    expect(others.some((line) => line.housing === 40)).toBe(true);
+    const facilities = await seeded();
+    for (const line of mine)
+      expect(facilities.filter((row) => row.city_id === line.id).map((row) => row.facility_id)).toEqual([
+        "farm",
+        "farm",
+        "government_hall",
+        "storehouse",
+        "storehouse",
+      ]);
+    for (const line of others)
+      expect(facilities.filter((row) => row.city_id === line.id).map((row) => row.facility_id)).toEqual([
+        "farm",
+        "government_hall",
+        "lumber_camp",
+        "mine",
+        "storehouse",
+      ]);
+    expect(await world.checkInvariants()).toEqual([]);
+  });
+
   it("빈 세계: 국가 넷 × 나라 성격 수(2·4·3·2)를 2차맵 셋에 나누고, 팩 도시 이름, 도시마다 기본 시설 다섯, 다시 켜도 그대로", async () => {
     const world = await boot({ testMaps: 3 });
     const cities = await startCities();

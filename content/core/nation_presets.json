@@ -3,19 +3,26 @@
     {
       "id": "placeholder_nation_01",
       "name": {
-        "ko": "임시 국가 1",
-        "en": "Placeholder nation 1"
+        "ko": "메리데일",
+        "en": "Meridale"
       },
-      "shortName": "N01",
+      "shortName": "MRD",
       "color": "#c0392b",
+      "emblem": {
+        "shape": "shield",
+        "division": "chief",
+        "charge": "star",
+        "scheme": 0
+      },
+      "nameStyle": "prairie",
       "currency": {
         "code": "placeholder_cur_01",
         "name": {
-          "ko": "임시 화폐 1",
-          "en": "Placeholder currency 1"
+          "ko": "올더",
+          "en": "Alder"
         },
-        "symbol": "₳",
-        "ticker": "PCA"
+        "symbol": "Ⱥ",
+        "ticker": "ALD"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -44,8 +51,8 @@
       },
       "cityNames": ["Verdane", "Ashfield", "Millbrook", "Harrowgate", "Sheafton"],
       "leaderName": {
-        "ko": "임시 지도자 1",
-        "en": "Placeholder leader 1"
+        "ko": "졸란 하웰",
+        "en": "Jolan Harwell"
       },
       "humanNames": {
         "given": ["Alda", "Bren", "Corin", "Dela", "Edric", "Fenna", "Garet", "Hilde"],
@@ -56,19 +63,26 @@
     {
       "id": "placeholder_nation_02",
       "name": {
-        "ko": "임시 국가 2",
-        "en": "Placeholder nation 2"
+        "ko": "윈하이",
+        "en": "Yunhai"
       },
-      "shortName": "N02",
+      "shortName": "YNH",
       "color": "#2980b9",
+      "emblem": {
+        "shape": "circle",
+        "division": "border",
+        "charge": "leaf",
+        "scheme": 1
+      },
+      "nameStyle": "jade",
       "currency": {
         "code": "placeholder_cur_02",
         "name": {
-          "ko": "임시 화폐 2",
-          "en": "Placeholder currency 2"
+          "ko": "바오린",
+          "en": "Baolin"
         },
-        "symbol": "₢",
-        "ticker": "PCB"
+        "symbol": "Ƀ",
+        "ticker": "BLN"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -99,33 +113,51 @@
           }
         ]
       },
-      "cityNames": ["Ironhold", "Cinderforge", "Anvilmere", "Slagport", "Bellows"],
+      "cityNames": ["Taoming", "Qiwugang", "Shuluo", "Huatao", "Baigang", "Lingmen"],
       "leaderName": {
-        "ko": "임시 지도자 2",
-        "en": "Placeholder leader 2"
+        "ko": "펀위 밍샨",
+        "en": "Fenyu Mingshan"
       },
       "humanNames": {
-        "given": ["Bram", "Cora", "Dain", "Elsa", "Fost", "Greta", "Holt", "Ivor"],
-        "family": ["Anvil", "Coalby", "Forge", "Hammer", "Smith", "Tongs"]
+        "given": [
+          "Lanling",
+          "Hualin",
+          "Shulin",
+          "Jinwei",
+          "Qimei",
+          "Xialing",
+          "Heyun",
+          "Baihua",
+          "Fenyu",
+          "Mingmei"
+        ],
+        "family": ["Wushan", "Mingfang", "Yuntao", "Jinshan", "Qilu", "Zhenqin"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_03",
       "name": {
-        "ko": "임시 국가 3",
-        "en": "Placeholder nation 3"
+        "ko": "하루노시마",
+        "en": "Harunoshima"
       },
-      "shortName": "N03",
+      "shortName": "HRN",
       "color": "#27ae60",
+      "emblem": {
+        "shape": "hexagon",
+        "division": "fess",
+        "charge": "wave",
+        "scheme": 0
+      },
+      "nameStyle": "isle",
       "currency": {
         "code": "placeholder_cur_03",
         "name": {
-          "ko": "임시 화폐 3",
-          "en": "Placeholder currency 3"
+          "ko": "호시반",
+          "en": "Hoshiban"
         },
-        "symbol": "₣",
-        "ticker": "PCC"
+        "symbol": "Ħ",
+        "ticker": "HSB"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -156,62 +188,98 @@
           }
         ]
       },
-      "cityNames": ["Pinecrest", "Timberlake", "Barkmoor", "Resinvale", "Logrun"],
+      "cityNames": ["Hayomura", "Mazaki", "Kisuhama", "Nemagawa", "Kakosaki", "Marumura"],
       "leaderName": {
-        "ko": "임시 지도자 3",
-        "en": "Placeholder leader 3"
+        "ko": "미스키 가와세",
+        "en": "Misuki Kawase"
       },
       "humanNames": {
-        "given": ["Ash", "Birk", "Cedra", "Dunn", "Elm", "Fern", "Gale", "Hazel"],
-        "family": ["Bark", "Timber", "Pine", "Resin", "Sawyer", "Woods"]
+        "given": [
+          "Kahoto",
+          "Nakomi",
+          "Hami",
+          "Rakako",
+          "Misuki",
+          "Tokito",
+          "Neto",
+          "Yoruki",
+          "Miruko",
+          "Sutomi"
+        ],
+        "family": ["Tano", "Neda", "Torano", "Rumoto", "Tokimoto", "Mikase"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_04",
       "name": {
-        "ko": "임시 국가 4",
-        "en": "Placeholder nation 4"
+        "ko": "가온나라",
+        "en": "Gaonnara"
       },
-      "shortName": "N04",
+      "shortName": "GAN",
       "color": "#8e44ad",
+      "emblem": {
+        "shape": "circle",
+        "division": "pale",
+        "charge": "mountain",
+        "scheme": 2
+      },
+      "nameStyle": "haneul",
       "currency": {
         "code": "placeholder_cur_04",
         "name": {
-          "ko": "임시 화폐 4",
-          "en": "Placeholder currency 4"
+          "ko": "달닢",
+          "en": "Dalnip"
         },
-        "symbol": "₤",
-        "ticker": "PCD"
+        "symbol": "Đ",
+        "ticker": "DNP"
       },
       "tradeTaxBp": 200,
-      "cityNames": ["Northwatch", "Greystone", "Kettlebay", "Fernhill", "Marrow"],
+      "cityNames": ["Mirujae", "Soongol", "Dahanaru", "Ganeulgol", "Saenapyeong", "Seulrujae"],
       "leaderName": {
-        "ko": "임시 지도자 4",
-        "en": "Placeholder leader 4"
+        "ko": "가람 별뫼",
+        "en": "Garam Byeolmoe"
       },
       "humanNames": {
-        "given": ["Aric", "Brann", "Cass", "Dagny", "Eirik", "Freya", "Gunn", "Helga"],
-        "family": ["Frost", "Kettle", "Grey", "North", "Stone", "Watch"]
+        "given": [
+          "Bitsol",
+          "Sobin",
+          "Garam",
+          "Aragyeol",
+          "Sora",
+          "Gabin",
+          "Mineul",
+          "Dasol",
+          "Haneul",
+          "Saebyeol"
+        ],
+        "family": ["Neuldam", "Gamoe", "Ridam", "Hadam", "Bitnae", "Saenae"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_05",
       "name": {
-        "ko": "임시 국가 5",
-        "en": "Placeholder nation 5"
+        "ko": "윈미어",
+        "en": "Wynmere"
       },
-      "shortName": "N05",
+      "shortName": "WYN",
       "color": "#d35400",
+      "emblem": {
+        "shape": "shield",
+        "division": "quarterly",
+        "charge": "tower",
+        "scheme": 0
+      },
+      "nameStyle": "moor",
       "currency": {
         "code": "placeholder_cur_05",
         "name": {
-          "ko": "임시 화폐 5",
-          "en": "Placeholder currency 5"
+          "ko": "에들링",
+          "en": "Edling"
         },
-        "symbol": "₥",
-        "ticker": "PCE"
+        "symbol": "Ɇ",
+        "ticker": "EDL"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -238,33 +306,51 @@
           }
         ]
       },
-      "cityNames": ["Goldfield", "Oatmere", "Ryeholm", "Furrowdale", "Haybridge"],
+      "cityNames": ["Kespenham", "Robury", "Halby", "Edwick", "Rowynbury", "Marstead"],
       "leaderName": {
-        "ko": "임시 지도자 5",
-        "en": "Placeholder leader 5"
+        "ko": "엘윈 애시워스",
+        "en": "Elwyn Ashworth"
       },
       "humanNames": {
-        "given": ["Aldo", "Bea", "Cal", "Dora", "Ewan", "Flora", "Gil", "Hana"],
-        "family": ["Barley", "Field", "Gold", "Harrow", "Oat", "Rye"]
+        "given": [
+          "Ashla",
+          "Edbeth",
+          "Graric",
+          "Holwyn",
+          "Marwyn",
+          "Elwyn",
+          "Penric",
+          "Brybeth",
+          "Dunla",
+          "Halric"
+        ],
+        "family": ["Marwell", "Roley", "Elson", "Keswell", "Penworth", "Thornley"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_06",
       "name": {
-        "ko": "임시 국가 6",
-        "en": "Placeholder nation 6"
+        "ko": "헬가르드",
+        "en": "Helgard"
       },
-      "shortName": "N06",
+      "shortName": "HLG",
       "color": "#16a085",
+      "emblem": {
+        "shape": "shield",
+        "division": "pale",
+        "charge": "hammer",
+        "scheme": 2
+      },
+      "nameStyle": "fjord",
       "currency": {
         "code": "placeholder_cur_06",
         "name": {
-          "ko": "임시 화폐 6",
-          "en": "Placeholder currency 6"
+          "ko": "리크탈",
+          "en": "Riktal"
         },
-        "symbol": "₦",
-        "ticker": "PCF"
+        "symbol": "Ɍ",
+        "ticker": "RKT"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -295,33 +381,51 @@
           }
         ]
       },
-      "cityNames": ["Steelvale", "Coalmouth", "Hammerton", "Forgefall", "Rivetby"],
+      "cityNames": ["Linburg", "Osholm", "Helstad", "Kelstad", "Norhafen", "Thorvik"],
       "leaderName": {
-        "ko": "임시 지도자 6",
-        "en": "Placeholder leader 6"
+        "ko": "시그룬 달베르크",
+        "en": "Sigrun Dahlberg"
       },
       "humanNames": {
-        "given": ["Axel", "Brix", "Cole", "Dirk", "Erna", "Flint", "Gerd", "Hulda"],
-        "family": ["Bolt", "Coal", "Rivet", "Steel", "Vale", "Weld"]
+        "given": [
+          "Brandmar",
+          "Osrik",
+          "Norhild",
+          "Steinrun",
+          "Ulrun",
+          "Freyhild",
+          "Helmar",
+          "Garun",
+          "Linmar",
+          "Kelrik"
+        ],
+        "family": ["Linsen", "Kelmann", "Valberg", "Freydahl", "Gunmann", "Ulsen"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_07",
       "name": {
-        "ko": "임시 국가 7",
-        "en": "Placeholder nation 7"
+        "ko": "발몽드",
+        "en": "Valmonde"
       },
-      "shortName": "N07",
+      "shortName": "VLM",
       "color": "#f1c40f",
+      "emblem": {
+        "shape": "banner",
+        "division": "chief",
+        "charge": "wheat",
+        "scheme": 0
+      },
+      "nameStyle": "vine",
       "currency": {
         "code": "placeholder_cur_07",
         "name": {
-          "ko": "임시 화폐 7",
-          "en": "Placeholder currency 7"
+          "ko": "리송",
+          "en": "Lisson"
         },
-        "symbol": "₧",
-        "ticker": "PCG"
+        "symbol": "Ł",
+        "ticker": "LSN"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -352,62 +456,98 @@
           }
         ]
       },
-      "cityNames": ["Cedarfall", "Larchford", "Sprucewick", "Oakhollow", "Birchend"],
+      "cityNames": ["Berfort", "Lysbourg", "Aufort", "Viroville", "Marmont", "Fonchamp"],
       "leaderName": {
-        "ko": "임시 지도자 7",
-        "en": "Placeholder leader 7"
+        "ko": "오렐린 퐁클레르",
+        "en": "Aureline Fontclair"
       },
       "humanNames": {
-        "given": ["Alder", "Briar", "Cedric", "Della", "Eldon", "Fay", "Glen", "Holly"],
-        "family": ["Birch", "Cedar", "Larch", "Oak", "Spruce", "Yew"]
+        "given": [
+          "Fonbert",
+          "Jobert",
+          "Belline",
+          "Auline",
+          "Lysmie",
+          "Vilan",
+          "Delan",
+          "Marbert",
+          "Chamie",
+          "Roline"
+        ],
+        "family": ["Sanreau", "Monreau", "Lysmont", "Valnier", "Denier", "Marlard"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_08",
       "name": {
-        "ko": "임시 국가 8",
-        "en": "Placeholder nation 8"
+        "ko": "수리야바나",
+        "en": "Suryavana"
       },
-      "shortName": "N08",
+      "shortName": "SRV",
       "color": "#2c3e50",
+      "emblem": {
+        "shape": "diamond",
+        "division": "plain",
+        "charge": "flame",
+        "scheme": 0
+      },
+      "nameStyle": "monsoon",
       "currency": {
         "code": "placeholder_cur_08",
         "name": {
-          "ko": "임시 화폐 8",
-          "en": "Placeholder currency 8"
+          "ko": "이슈카",
+          "en": "Ishka"
         },
-        "symbol": "₨",
-        "ticker": "PCH"
+        "symbol": "Ɨ",
+        "ticker": "ISH"
       },
       "tradeTaxBp": 200,
-      "cityNames": ["Saltmarsh", "Dunmere", "Windrest", "Brackwater", "Lowtide"],
+      "cityNames": ["Navati", "Sudevati", "Tigram", "Rikot", "Dekakot", "Vipur"],
       "leaderName": {
-        "ko": "임시 지도자 8",
-        "en": "Placeholder leader 8"
+        "ko": "데비야 람다르",
+        "en": "Deviya Ramdar"
       },
       "humanNames": {
-        "given": ["Arlo", "Bryn", "Cove", "Dune", "Eda", "Finn", "Gull", "Hale"],
-        "family": ["Brack", "Dunmere", "Marsh", "Salt", "Tide", "Wind"]
+        "given": [
+          "Suta",
+          "Radev",
+          "Sudev",
+          "Deviya",
+          "Kajani",
+          "Jariya",
+          "Mavini",
+          "Shavita",
+          "Inya",
+          "Ridev"
+        ],
+        "family": ["Hadar", "Anram", "Karani", "Indar", "Yadar", "Viram"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_09",
       "name": {
-        "ko": "임시 국가 9",
-        "en": "Placeholder nation 9"
+        "ko": "베라조니아",
+        "en": "Verazonia"
       },
-      "shortName": "N09",
+      "shortName": "VRZ",
       "color": "#e84393",
+      "emblem": {
+        "shape": "hexagon",
+        "division": "bend",
+        "charge": "tree",
+        "scheme": 0
+      },
+      "nameStyle": "selva",
       "currency": {
         "code": "placeholder_cur_09",
         "name": {
-          "ko": "임시 화폐 9",
-          "en": "Placeholder currency 9"
+          "ko": "잘레타",
+          "en": "Jaleta"
         },
-        "symbol": "₩",
-        "ticker": "PCI"
+        "symbol": "Ɉ",
+        "ticker": "JLT"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -434,33 +574,51 @@
           }
         ]
       },
-      "cityNames": ["Grainhaven", "Millstead", "Orchardine", "Plowmere", "Seedholm"],
+      "cityNames": ["Caluz", "Nivale", "Ritiba", "Tamirim", "Taranda", "Javale"],
       "leaderName": {
-        "ko": "임시 지도자 9",
-        "en": "Placeholder leader 9"
+        "ko": "루아라 타바헤이라",
+        "en": "Luara Tavareira"
       },
       "humanNames": {
-        "given": ["Abel", "Bess", "Clem", "Dot", "Elmer", "Fran", "Gus", "Hattie"],
-        "family": ["Grain", "Mill", "Orchard", "Plow", "Seed", "Sheaf"]
+        "given": [
+          "Zudro",
+          "Tavenho",
+          "Sopanho",
+          "Zula",
+          "Rala",
+          "Majala",
+          "Guatana",
+          "Padro",
+          "Luranho",
+          "Tarala"
+        ],
+        "family": ["Jalva", "Soreira", "Tareira", "Romos", "Zumos", "Pareira"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_10",
       "name": {
-        "ko": "임시 국가 10",
-        "en": "Placeholder nation 10"
+        "ko": "사하미라",
+        "en": "Sahamira"
       },
-      "shortName": "N10",
+      "shortName": "SHM",
       "color": "#00b894",
+      "emblem": {
+        "shape": "square",
+        "division": "chevron",
+        "charge": "sun",
+        "scheme": 2
+      },
+      "nameStyle": "oasis",
       "currency": {
         "code": "placeholder_cur_10",
         "name": {
-          "ko": "임시 화폐 10",
-          "en": "Placeholder currency 10"
+          "ko": "자림",
+          "en": "Zarim"
         },
-        "symbol": "₪",
-        "ticker": "PCJ"
+        "symbol": "Ƶ",
+        "ticker": "ZRM"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -491,33 +649,51 @@
           }
         ]
       },
-      "cityNames": ["Copperton", "Brassmoor", "Smelterby", "Ingotvale", "Furnace Rock"],
+      "cityNames": ["Marfaqal", "Kitep", "Sasudar", "Sumarrah", "Nalinis", "Sutadar"],
       "leaderName": {
-        "ko": "임시 지도자 10",
-        "en": "Placeholder leader 10"
+        "ko": "나시라 하디자르",
+        "en": "Nasira Hadizar"
       },
       "humanNames": {
-        "given": ["Anton", "Bryce", "Cyra", "Duff", "Ennis", "Faye", "Garr", "Hester"],
-        "family": ["Brass", "Copper", "Furnace", "Ingot", "Smelt", "Ore"]
+        "given": [
+          "Susara",
+          "Sitadin",
+          "Zamarim",
+          "Nufer",
+          "Hasira",
+          "Lifafer",
+          "Ambara",
+          "Mardin",
+          "Khadin",
+          "Tamarra"
+        ],
+        "family": ["Zaris", "Kiris", "Famun", "Sizar", "Nuris", "Tahadi"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_11",
       "name": {
-        "ko": "임시 국가 11",
-        "en": "Placeholder nation 11"
+        "ko": "안드로테아",
+        "en": "Androthea"
       },
-      "shortName": "N11",
+      "shortName": "ADT",
       "color": "#6c5ce7",
+      "emblem": {
+        "shape": "circle",
+        "division": "border",
+        "charge": "anchor",
+        "scheme": 1
+      },
+      "nameStyle": "olive",
       "currency": {
         "code": "placeholder_cur_11",
         "name": {
-          "ko": "임시 화폐 11",
-          "en": "Placeholder currency 11"
+          "ko": "오리마타",
+          "en": "Orimata"
         },
-        "symbol": "₫",
-        "ticker": "PCK"
+        "symbol": "Ø",
+        "ticker": "ORM"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -548,62 +724,98 @@
           }
         ]
       },
-      "cityNames": ["Alderwood", "Thornwick", "Mapleton", "Elmstead", "Rowanby"],
+      "cityNames": ["Liphinos", "Phithos", "Rapolis", "Dropomene", "Podapolis", "Terakia"],
       "leaderName": {
-        "ko": "임시 지도자 11",
-        "en": "Placeholder leader 11"
+        "ko": "키라 로디스",
+        "en": "Kyra Lodis"
       },
       "humanNames": {
-        "given": ["Ansel", "Bella", "Cade", "Dara", "Emmet", "Flynn", "Gwen", "Hugh"],
-        "family": ["Alder", "Elm", "Maple", "Rowan", "Thorn", "Wick"]
+        "given": [
+          "Phidakles",
+          "Polikles",
+          "Thetena",
+          "Nedora",
+          "Miphina",
+          "Dakles",
+          "Kyraros",
+          "Lirana",
+          "Andora",
+          "Lianna"
+        ],
+        "family": ["Xetos", "Kydis", "Andis", "Thekis", "Radis", "Phikis"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_12",
       "name": {
-        "ko": "임시 국가 12",
-        "en": "Placeholder nation 12"
+        "ko": "누살라야",
+        "en": "Nusalaya"
       },
-      "shortName": "N12",
+      "shortName": "NSL",
       "color": "#fd79a8",
+      "emblem": {
+        "shape": "square",
+        "division": "fess",
+        "charge": "moon",
+        "scheme": 2
+      },
+      "nameStyle": "spice",
       "currency": {
         "code": "placeholder_cur_12",
         "name": {
-          "ko": "임시 화폐 12",
-          "en": "Placeholder currency 12"
+          "ko": "탈라왕",
+          "en": "Talawang"
         },
-        "symbol": "€",
-        "ticker": "PCL"
+        "symbol": "Ŧ",
+        "ticker": "TLW"
       },
       "tradeTaxBp": 200,
-      "cityNames": ["Stonereach", "Cliffmark", "Quarryhill", "Pebbleton", "Shalecross"],
+      "cityNames": ["Bamakarta", "Yalibaya", "Kepura", "Bawangi", "Nubaya", "Lingan"],
       "leaderName": {
-        "ko": "임시 지도자 12",
-        "en": "Placeholder leader 12"
+        "ko": "위라 산타마",
+        "en": "Wira Santama"
       },
       "humanNames": {
-        "given": ["Ari", "Bodil", "Clay", "Dorn", "Edda", "Fiske", "Gro", "Hakon"],
-        "family": ["Cliff", "Pebble", "Quarry", "Shale", "Slate", "Stone"]
+        "given": [
+          "Lusari",
+          "Tamadi",
+          "Nudi",
+          "Suti",
+          "Yabati",
+          "Ramawan",
+          "Kesawan",
+          "Maluti",
+          "Liwan",
+          "Kedi"
+        ],
+        "family": ["Banata", "Salinata", "Gawira", "Satama", "Kewira", "Liputra"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_13",
       "name": {
-        "ko": "임시 국가 13",
-        "en": "Placeholder nation 13"
+        "ko": "사마틀란",
+        "en": "Zamatlan"
       },
-      "shortName": "N13",
+      "shortName": "ZMT",
       "color": "#e17055",
+      "emblem": {
+        "shape": "hexagon",
+        "division": "border",
+        "charge": "sun",
+        "scheme": 0
+      },
+      "nameStyle": "sunstone",
       "currency": {
         "code": "placeholder_cur_13",
         "name": {
-          "ko": "임시 화폐 13",
-          "en": "Placeholder currency 13"
+          "ko": "코샬",
+          "en": "Coxal"
         },
-        "symbol": "₭",
-        "ticker": "PCM"
+        "symbol": "Ȼ",
+        "ticker": "CXL"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -630,33 +842,51 @@
           }
         ]
       },
-      "cityNames": ["Wheatley", "Barleyford", "Cornhollow", "Malting", "Granary"],
+      "cityNames": ["Matlatlan", "Notepec", "Capan", "Totlacalli", "Zatlan", "Matzin"],
       "leaderName": {
-        "ko": "임시 지도자 13",
-        "en": "Placeholder leader 13"
+        "ko": "야밀리 텍말",
+        "en": "Yamili Tecmal"
       },
       "humanNames": {
-        "given": ["Amos", "Belle", "Cyril", "Daisy", "Ezra", "Flo", "Grant", "Hope"],
-        "family": ["Bran", "Corn", "Grange", "Malt", "Wheat", "Miller"]
+        "given": [
+          "Caximo",
+          "Cohuatl",
+          "Zachimo",
+          "Xitena",
+          "Tlanona",
+          "Toli",
+          "Chimo",
+          "Leli",
+          "Caxili",
+          "Xinoli"
+        ],
+        "family": ["Tlanozin", "Tlamal", "Pacatl", "Minotec", "Zacatl", "Letec"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_14",
       "name": {
-        "ko": "임시 국가 14",
-        "en": "Placeholder nation 14"
+        "ko": "볼레시아",
+        "en": "Volesia"
       },
-      "shortName": "N14",
+      "shortName": "VLS",
       "color": "#0984e3",
+      "emblem": {
+        "shape": "shield",
+        "division": "chevron",
+        "charge": "sword",
+        "scheme": 0
+      },
+      "nameStyle": "birch",
       "currency": {
         "code": "placeholder_cur_14",
         "name": {
-          "ko": "임시 화폐 14",
-          "en": "Placeholder currency 14"
+          "ko": "야딘",
+          "en": "Yadyn"
         },
-        "symbol": "₮",
-        "ticker": "PCN"
+        "symbol": "Ɏ",
+        "ticker": "YDN"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -687,33 +917,51 @@
           }
         ]
       },
-      "cityNames": ["Tinmouth", "Leadwater", "Zincfold", "Gearhaven", "Boltwick"],
+      "cityNames": ["Stanik", "Lozegrad", "Midogorod", "Dovsk", "Bronitsa", "Slavegrad"],
       "leaderName": {
-        "ko": "임시 지도자 14",
-        "en": "Placeholder leader 14"
+        "ko": "미로샤 노블렌코",
+        "en": "Mirosha Novlenko"
       },
       "humanNames": {
-        "given": ["Alto", "Bix", "Cogan", "Dex", "Elio", "Fitz", "Gideon", "Hob"],
-        "family": ["Bolt", "Gear", "Lead", "Tin", "Wick", "Zinc"]
+        "given": [
+          "Ramimir",
+          "Doslav",
+          "Midomir",
+          "Vomir",
+          "Boslav",
+          "Rayasha",
+          "Yaslav",
+          "Stana",
+          "Kasha",
+          "Milomir"
+        ],
+        "family": ["Yavich", "Veski", "Vovich", "Kanonov", "Gorski", "Lovich"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_15",
       "name": {
-        "ko": "임시 국가 15",
-        "en": "Placeholder nation 15"
+        "ko": "미르자반",
+        "en": "Mirzavan"
       },
-      "shortName": "N15",
+      "shortName": "MZV",
       "color": "#b2bec3",
+      "emblem": {
+        "shape": "banner",
+        "division": "plain",
+        "charge": "crown",
+        "scheme": 2
+      },
+      "nameStyle": "saffron",
       "currency": {
         "code": "placeholder_cur_15",
         "name": {
-          "ko": "임시 화폐 15",
-          "en": "Placeholder currency 15"
+          "ko": "귈심",
+          "en": "Gulsim"
         },
-        "symbol": "₯",
-        "ticker": "PCO"
+        "symbol": "Ǥ",
+        "ticker": "GLS"
       },
       "tradeTaxBp": 200,
       "personality": {
@@ -744,43 +992,72 @@
           }
         ]
       },
-      "cityNames": ["Hollyhurst", "Yewdale", "Willowmere", "Ashgrove", "Hazelbrook"],
+      "cityNames": ["Balakent", "Shabazar", "Tikent", "Shadere", "Zerabazar", "Hashahr"],
       "leaderName": {
-        "ko": "임시 지도자 15",
-        "en": "Placeholder leader 15"
+        "ko": "수한 딜자데",
+        "en": "Suhan Dilzade"
       },
       "humanNames": {
-        "given": ["Aspen", "Bay", "Clover", "Dell", "Elowen", "Fennel", "Ginny", "Heath"],
-        "family": ["Ash", "Hazel", "Holly", "Willow", "Yew", "Grove"]
+        "given": [
+          "Mibadin",
+          "Danaz",
+          "Orlanaz",
+          "Shadin",
+          "Annaz",
+          "Miye",
+          "Lanaz",
+          "Zemidin",
+          "Suye",
+          "Yeldin"
+        ],
+        "family": ["Miban", "Fiordar", "Racan", "Guldar", "Karzade", "Fizade"]
       },
       "enabled": true
     },
     {
       "id": "placeholder_nation_16",
       "name": {
-        "ko": "임시 국가 16",
-        "en": "Placeholder nation 16"
+        "ko": "칼루누이",
+        "en": "Kalunui"
       },
-      "shortName": "N16",
+      "shortName": "KLN",
       "color": "#fdcb6e",
+      "emblem": {
+        "shape": "circle",
+        "division": "fess",
+        "charge": "bird",
+        "scheme": 1
+      },
+      "nameStyle": "reef",
       "currency": {
         "code": "placeholder_cur_16",
         "name": {
-          "ko": "임시 화폐 16",
-          "en": "Placeholder currency 16"
+          "ko": "우카우",
+          "en": "Ukau"
         },
-        "symbol": "₰",
-        "ticker": "PCP"
+        "symbol": "Ʉ",
+        "ticker": "UKU"
       },
       "tradeTaxBp": 200,
-      "cityNames": ["Highmoor", "Duskvale", "Emberly", "Frostmere", "Gloamhill"],
+      "cityNames": ["Kipombi", "Ngakwe", "Sotupuna", "Taroa", "Halele", "Lembi"],
       "leaderName": {
-        "ko": "임시 지도자 16",
-        "en": "Placeholder leader 16"
+        "ko": "말라니 켈레와이",
+        "en": "Malani Kelewai"
       },
       "humanNames": {
-        "given": ["Ambrose", "Bryony", "Caspian", "Delia", "Emrys", "Fenwick", "Gloria", "Hollis"],
-        "family": ["Dusk", "Ember", "Gloam", "Highmoor", "Mere", "Moor"]
+        "given": [
+          "Bangamea",
+          "Kalula",
+          "Ngani",
+          "Leku",
+          "Lewani",
+          "Leni",
+          "Moku",
+          "Tatuku",
+          "Tamea",
+          "Maluni"
+        ],
+        "family": ["Lebawai", "Nakatane", "Kasokele", "Wasombo", "Zimbo", "Hangawai"]
       },
       "enabled": true
     }

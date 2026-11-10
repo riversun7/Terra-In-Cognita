@@ -376,7 +376,12 @@ export { gardenerWaves, planetPollution } from "./gardenerSchema.ts";
 // 영토 비콘 표(docs/adr/2026-11-03-territory-layer.md)도 따로 둔다(이 파일 줄 수)
 export { territoryBeacons } from "./territorySchema.ts";
 // 팩 항목 덮어쓰기 표(스킬 편집기, docs/adr/2026-11-01-skill-editor.md 3절)도 같은 까닭으로 따로 둔다
-export { contentOverrideRevision, contentOverrides, contentRetiredIds } from "./contentEditSchema.ts";
+export {
+  contentOverrideRevision,
+  contentOverrides,
+  contentRetiredIds,
+  nationEmblems,
+} from "./contentEditSchema.ts";
 // 보유 물건·유닛 효과 표(docs/adr/2026-11-03-item-holdings.md)도 같은 까닭으로 따로 둔다
 export { itemHoldings, unitCooldowns, unitEffects } from "./holdingsSchema.ts";
 // 유닛 생명 수치 표(D-512: HP·아머·쉴드가 전투 뒤에도 남는다)도 같은 까닭으로 따로 둔다

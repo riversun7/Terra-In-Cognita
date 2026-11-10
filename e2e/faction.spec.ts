@@ -86,8 +86,8 @@ test.describe("플레이어(실제 자료만)", () => {
     await openFaction(page);
     const screen = page.locator("section.faction");
     // 나라 이름 = 팩 국가 프리셋(국가 1 = 16번째 프리셋), 지도자 = NPC 국가 지도자 사이보그 이름(docs/adr/2026-11-07-play-flow.md "WP-NPC")
-    await expect(screen.locator(".faction-name-text")).toHaveText("임시 국가 16");
-    await expect(screen.locator(".faction-card")).toContainText("임시 지도자 16");
+    await expect(screen.locator(".faction-name-text")).toHaveText("칼루누이");
+    await expect(screen.locator(".faction-card")).toContainText("말라니 켈레와이");
     await expect(screen.getByRole("heading", { name: message("ko", "faction_none_title") })).toHaveCount(0);
     await expect(screen.locator(".preview-notice")).toHaveCount(0);
     expect(deviceErrors).toEqual([]);
@@ -302,7 +302,7 @@ test.describe("dev 시안 자료", () => {
     await expect(toggle).toBeChecked();
     await screen.locator(".screen-switch").click();
     await expect(toggle).not.toBeChecked();
-    await expect(screen.locator(".faction-name-text")).toHaveText("임시 국가 16");
+    await expect(screen.locator(".faction-name-text")).toHaveText("칼루누이");
     await expect(screen.locator(".preview-notice")).toHaveCount(0);
     await screen.locator(".screen-switch").click();
     await expect(screen.locator(".faction-name-text")).toHaveText("Solace");

@@ -19,6 +19,9 @@ export const CONTENT_EDIT_CATEGORIES = [
   "facilities",
   "gather_tiers",
   "creatures",
+  // 시작 국가 설정 편집기(/dev/nations, docs/adr/2026-11-10-nation-editor.md): 국가 프리셋. DB 검사는 마이그레이션
+  // content_overrides_nation_presets가 넓힌다
+  "nation_presets",
 ] as const;
 export type ContentEditCategory = (typeof CONTENT_EDIT_CATEGORIES)[number];
 

@@ -99,6 +99,11 @@ export interface NpcSeedInput {
   readonly service: Pick<FacilityService, "facilities" | "seedBuilt">;
   readonly catalog: FacilityCatalog;
   readonly seed: WorldSeedCoefficients;
+  /**
+   * 세력 행 ID → 그 국가의 씨앗 값(국가 프리셋 성격 칸을 얹은 것 — npc/nations.ts nationSeedOf, docs/adr/2026-11-10-nation-editor.md 2절).
+   * 없거나 undefined면 seed(모든 국가 같은 설정 칸 값)
+   */
+  readonly seedOfFaction?: ((factionId: number) => WorldSeedCoefficients | undefined) | undefined;
   /** 2차맵 키 → 둘레 땅(행성 값). 없거나 undefined면 채집 시설 셋 다 */
   readonly landOf?: ((mapKey: number) => SeedLand | undefined) | undefined;
   readonly nowMs: number;
@@ -127,7 +132,7 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
     const map = maps.get(city.mapKey);
     const ownerId = input.ownerOfFaction(city.factionId);
     if (!map || ownerId === undefined) continue;
-    const plan = seedPlan(input.seed, input.landOf?.(city.mapKey));
+    const plan = seedPlan(input.seedOfFaction?.(city.factionId) ?? input.seed, input.landOf?.(city.mapKey));
     const anchors = anchorsOf(city.mapKey);
     const have = new Map<string, number>();
     for (const record of service.facilities.values())
@@ -201,6 +206,8 @@ export function seedNpcFacilitiesAtBoot(options: {
   readonly owners: ReadonlyMap<number, { readonly id: number; readonly factionId: number | null }>;
   readonly facilities: { readonly service: NpcSeedInput["service"]; readonly catalog: () => FacilityCatalog };
   readonly rules: () => { readonly worldSeed: WorldSeedCoefficients };
+  /** 세력 행 ID → 그 국가의 씨앗 값(없으면 설정 칸 값) */
+  readonly seedOfFaction?: NpcSeedInput["seedOfFaction"];
   /** 2차맵 지형 서비스(cellValues = 2차맵 칸의 행성 값). 없으면 채집 시설 셋 다 */
   readonly terrain?: { cellValues?(mapKey: number): SeedLand | undefined } | undefined;
   readonly log: { info(obj: object, message: string): void };
@@ -217,6 +224,7 @@ export function seedNpcFacilitiesAtBoot(options: {
     service: options.facilities.service,
     catalog: options.facilities.catalog(),
     seed: options.rules().worldSeed,
+    seedOfFaction: options.seedOfFaction,
     landOf: (mapKey) => options.terrain?.cellValues?.(mapKey),
     nowMs: options.nowMs,
   });

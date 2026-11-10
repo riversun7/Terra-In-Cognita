@@ -87,6 +87,8 @@ export function economyCatalogAccessor(
   effective: () => {
     readonly items: readonly ItemEntry[];
     readonly facilities?: readonly FacilityEntry[] | undefined;
+    /** 실효 국가 프리셋(시작 국가 설정 편집기가 덮어쓴다 — 나라 화폐 이름·거래세). 없으면 팩 */
+    readonly nationPresets?: readonly NationPresetEntry[] | undefined;
   },
 ): () => EconomyCatalogResponse {
   const base = economyCatalogEntriesOf(pack);
@@ -97,7 +99,12 @@ export function economyCatalogAccessor(
       built = {
         source: now,
         catalog: economyCatalogFrom(
-          { ...base, items: now.items, facilities: now.facilities ?? base.facilities },
+          {
+            ...base,
+            items: now.items,
+            facilities: now.facilities ?? base.facilities,
+            presets: now.nationPresets ?? base.presets,
+          },
           info,
         ),
       };

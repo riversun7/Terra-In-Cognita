@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-10 22:30 | 2차맵 남의 유닛 누르기 2 — 운영자 모드도 작은 창만, 남의 유닛은 몸 위만 걸림, 땅 누르기 = 내 유닛 | Claude Code | [10-2230-map-tap-2](worklog/2026/11/10-2230-map-tap-2.md) |
 | 2026-11-10 01:30 | 개발 도구 묶음 합치기(시험 일꾼 삭제·건물 편집기·아이템 분류·효과 사전) | Claude Code | [10-0130-devtools-batch-merge](worklog/2026/11/10-0130-devtools-batch-merge.md) |
 | 2026-11-10 00:25 | 아이템 분류 자료 정리 — 장비 종류 이름·상위 중분류 칸·중분류 채움 (D-497 정리 895~897) | Claude Code | [10-0025-item-taxonomy-data](worklog/2026/11/10-0025-item-taxonomy-data.md) |
 | 2026-11-09 23:30 | 시험 일꾼 다 없애기 — 프로토콜 20, 옛 행 부팅 정리, 시험 바꾸기 | Claude Code | [09-2330-test-workers-out](worklog/2026/11/09-2330-test-workers-out.md) |

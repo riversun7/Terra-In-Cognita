@@ -117,7 +117,6 @@
   min-width: 0;
 }
 .ce-filter-selects,
-.ce-crop-sliders,
 .ce-elements-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
@@ -185,6 +184,7 @@
 }
 
 /* ── 원형 초상화 배지 (CreatureTokenBadge) ── */
+/* 그림 자리(left·top·width·transform)는 @terra/shared/portraitCrop의 portraitImageStyle이 준다. 높이는 그림 비율을 따른다 */
 .ce-creature-token {
   position: relative;
   display: inline-flex;
@@ -201,7 +201,7 @@
   position: absolute;
   max-width: none;
   max-height: none;
-  object-fit: cover;
+  height: auto;
   pointer-events: none;
 }
 .ce-creature-token-empty {
@@ -211,6 +211,10 @@
 }
 
 /* ── 원형 초상화 영역 선택기 (CreaturePortraitCropper) ── */
+.ce-portrait-card {
+  /* 그림 상자의 가장 긴 변 */
+  --ce-crop-max: 22rem;
+}
 .ce-portrait-header,
 .ce-card-head {
   display: flex;
@@ -227,34 +231,51 @@
 }
 @media (min-width: 48em) {
   .ce-portrait-body {
-    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+    grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr);
   }
 }
-.ce-crop-stage {
-  position: relative;
+.ce-crop-column,
+.ce-token-preview-group {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* 테두리는 바깥 틀이 든다: 그림 상자(.ce-crop-stage)에는 테두리·안쪽 여백을 두지 않는다(상자 끝 = 그림 끝) */
+.ce-crop-frame {
+  display: flex;
+  justify-content: center;
   width: 100%;
-  aspect-ratio: 1 / 1;
-  max-width: 18rem;
+  max-width: var(--ce-crop-max);
   border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-sm);
   background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+/* 너비·비율은 그림 원본 크기에 맞춰 인라인으로 준다 */
+.ce-crop-stage {
+  position: relative;
+  flex: none;
   overflow: hidden;
   touch-action: none;
   user-select: none;
   cursor: crosshair;
 }
+.ce-crop-stage:focus-visible {
+  outline-offset: calc(-1 * var(--focus-w));
+}
 .ce-crop-source-img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: fill;
-  display: block;
   pointer-events: none;
 }
+/* 원: 상자 끝이 곧 원이다(자리·크기는 portraitRingRect의 %). 테두리는 안쪽 그림자, 바깥은 어둡게 덮는다 */
 .ce-crop-circle {
   position: absolute;
   border-radius: var(--radius-pill);
-  border: var(--border-w) solid var(--color-focus);
-  box-shadow: 0 0 0 999rem var(--color-overlay);
+  box-shadow:
+    inset 0 0 0 calc(var(--border-w) * 2) var(--color-focus),
+    0 0 0 999rem var(--color-overlay);
   cursor: move;
 }
 .ce-crop-crosshair {
@@ -267,28 +288,43 @@
   background-color: var(--color-focus);
   pointer-events: none;
 }
+/* 손잡이: 누르는 곳은 넉넉하게(휴대폰 44px), 보이는 점은 작게. 자리(원 테두리의 대각선)는 인라인 % */
 .ce-crop-handle {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  width: var(--space-4);
-  height: var(--space-4);
-  transform: translate(25%, 25%);
+  display: grid;
+  place-items: center;
+  width: var(--dev-touch-tap);
+  height: var(--dev-touch-tap);
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-pill);
+  cursor: nwse-resize;
+}
+.ce-crop-handle::after {
+  content: "";
+  width: var(--space-6);
+  height: var(--space-6);
   border: var(--border-w) solid var(--color-surface);
   border-radius: var(--radius-pill);
   background-color: var(--color-focus);
-  cursor: nwse-resize;
 }
 .ce-crop-empty {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 100%;
   padding: var(--space-3);
   text-align: center;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+}
+.ce-crop-help,
+.ce-crop-info {
+  margin: 0;
+  max-width: var(--ce-crop-max);
+}
+.ce-crop-info {
+  font-family: var(--font-mono);
 }
 .ce-portrait-controls,
 .be-detail,
@@ -297,10 +333,13 @@
   gap: var(--space-3);
   min-width: 0;
 }
+.ce-portrait-controls {
+  align-content: start;
+}
 .ce-token-preview-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: var(--hairline) solid var(--color-border);
@@ -308,22 +347,43 @@
   background-color: var(--color-surface-2);
 }
 .ce-token-preview-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
+  display: inline-grid;
+  justify-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 .ce-slider-label {
   display: grid;
   gap: var(--space-1);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  min-width: 0;
+}
+.ce-crop-slider {
+  width: 100%;
+  min-height: var(--dev-touch-tap);
+  margin: 0;
+}
+.ce-crop-numbers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8rem), 1fr));
+  gap: var(--space-2);
+  min-width: 0;
 }
 .ce-image-picker-row {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
   gap: var(--space-2);
+}
+.ce-image-select-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ce-image-select-row > * {
+  flex: 1 1 8rem;
+  min-width: 0;
 }
 
 /* ── 상세 판 & 서브 탭 ── */

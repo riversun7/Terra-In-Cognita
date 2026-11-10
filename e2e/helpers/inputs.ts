@@ -21,6 +21,12 @@ export async function dragSlider(page: Page, slider: Locator, from: number, to: 
   await page.mouse.up();
 }
 
+/** 막대의 폭 at 자리(0~1)를 한 번 누른다(팩 값 눈금 자리를 누르면 팩 값) */
+export async function clickSlider(page: Page, slider: Locator, at: number): Promise<void> {
+  const box = await boxOf(slider);
+  await page.mouse.click(box.x + box.width * at, box.y + box.height / 2);
+}
+
 /** 요소 가운데를 잡고 가로로 dx 화소(세로 dy) 끈다. keys = 끄는 동안 누를 보조 키 */
 export async function dragBy(
   page: Page,

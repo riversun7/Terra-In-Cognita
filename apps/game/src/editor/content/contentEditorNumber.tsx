@@ -3,7 +3,8 @@
 // - 글자는 부르는 쪽이 든다(text·onText). 조작(단추·막대·끌기·휠·화살표)은 onAdjust(다음 값)로만 알린다: 값은 늘 범위 안 정수다.
 // - − / + : 한 번 = 한 걸음, 누르고 있으면 잇달아(오래 누르면 5배). Shift = 10배, Alt = 1. 탭 차례에는 들지 않는다(글자 칸의 ↑↓가 같은 일).
 // - 글자 칸: ↑↓ = 한 걸음, Shift = 10배, PageUp/PageDown = 10배. 휠은 초점이 있을 때만. Alt+↑↓는 화면 단축키에 남긴다.
-// - 막대(role="slider"): 기술 범위가 넓으면 로그 눈금이나 값 둘레 창(contentEditorNumeric.sliderRange). 팩 값 자리에 눈금(누르면 팩 값).
+// - 막대(role="slider"): 기술 범위가 넓으면 로그 눈금이나 값 둘레 창(contentEditorNumeric.sliderRange). 팩 값 자리에 눈금(그 자리를
+//   누르거나 가까이 끌면 팩 값에 달라붙는다. 눈금은 보이기만 해서 손잡이를 가리지 않는다).
 //   끄는 동안 값은 화면에 바로 보이고 바깥에는 80ms 간격으로 알린다(놓을 때 마지막 값). 마우스로 누르면 글자 칸에 초점을 준다.
 // - 이름표 끌기(scrubRef): 좌우로 4화소에 한 걸음(Shift = 10배, Alt = 8화소에 1). 누르기만 하면 이름표 그대로(칸에 초점).
 // 막대는 <input>이 아니라 div다: 칸 안의 input은 글자 칸 하나뿐이다(시험·화면이 ".칸 input"으로 찾는다).
@@ -38,8 +39,8 @@ const HOLD_EVERY_MS = 70;
 const HOLD_FAST_AFTER = 15;
 /** 끄는 동안 바깥에 알리는 간격 */
 const DRAG_COMMIT_MS = 80;
-/** 막대에서 팩 값에 달라붙는 거리(막대 폭의 몫) */
-const PACK_SNAP = 0.015;
+/** 막대에서 팩 값 눈금에 달라붙는 거리(화소): 눈금을 누르거나 가까이 끌면 팩 값 */
+const PACK_SNAP_PX = 6;
 
 const formatInt = (value: number): string => new Intl.NumberFormat(getLocale()).format(value);
 /** 막대 끝 값 글(짧게: 1,000,000 → 100만·1M) */
@@ -182,7 +183,6 @@ export function SliderTrack({
   onMove,
   onEnd,
   onStart,
-  onPack,
   onKeyStep,
   disabled = false,
   focusable = false,
@@ -198,7 +198,6 @@ export function SliderTrack({
   onMove: (value: number) => void;
   onEnd: () => void;
   onStart?: ((event: ReactPointerEvent<HTMLDivElement>) => void) | undefined;
-  onPack?: (() => void) | undefined;
   /** 막대에 초점이 있을 때의 키(걸음 수: ±1, ±10, 끝 = ±Infinity) */
   onKeyStep?: ((steps: number) => void) | undefined;
   disabled?: boolean;
@@ -211,8 +210,9 @@ export function SliderTrack({
   const valueAt = (event: ReactPointerEvent<HTMLDivElement>): number => {
     const rect = event.currentTarget.getBoundingClientRect();
     const at = rect.width <= 0 ? 0 : (event.clientX - rect.left) / rect.width;
-    // 팩 값 눈금 가까이에서는 팩 값에 달라붙는다
-    if (packPos !== null && pack !== undefined && Math.abs(at - packPos) <= PACK_SNAP) return pack;
+    // 팩 값 눈금 가까이에서는 팩 값에 달라붙는다(눈금을 누르면 팩 값)
+    if (packPos !== null && pack !== undefined && Math.abs(at - packPos) * rect.width <= PACK_SNAP_PX)
+      return pack;
     return posToValue(at, range, step);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -250,6 +250,11 @@ export function SliderTrack({
           aria-valuenow={value ?? range.min}
           aria-valuetext={value === null ? undefined : `${formatInt(value)}${unit ?? ""}`}
           aria-disabled={disabled || undefined}
+          title={
+            packPos === null || pack === undefined
+              ? undefined
+              : m.dev_input_pack_tick({ value: formatInt(pack) })
+          }
           onKeyDown={onKeyDown}
           // 누를 때 초점을 옮기지 않는다(글자 칸의 ↑↓·휠이 이어지게). 탭 차례에 든 막대만 스스로 초점을 받는다
           onMouseDown={(event) => event.preventDefault()}
@@ -277,18 +282,8 @@ export function SliderTrack({
             <span className="ce-slider-thumb" style={{ insetInlineStart: `${pos * 100}%` }} />
           )}
         </div>
-        {packPos === null || pack === undefined ? null : onPack ? (
-          <button
-            type="button"
-            className="ce-slider-pack"
-            tabIndex={-1}
-            style={{ insetInlineStart: `${packPos * 100}%` }}
-            aria-label={m.dev_input_pack_tick({ value: formatInt(pack) })}
-            title={m.dev_input_pack_tick({ value: formatInt(pack) })}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={onPack}
-          />
-        ) : (
+        {/* 팩 값 눈금: 보이기만 한다(막대를 가리지 않게 — 눈금 자리를 누르면 막대가 팩 값에 달라붙는다) */}
+        {packPos === null ? null : (
           <span
             className="ce-slider-pack"
             aria-hidden="true"
@@ -532,7 +527,6 @@ export function NumberControl({
             drag.end();
             setFrozen(null);
           }}
-          onPack={pack === undefined || pack < min || pack > max ? undefined : () => onAdjust(pack)}
         />
       ) : null}
     </span>

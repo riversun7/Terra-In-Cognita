@@ -337,7 +337,7 @@ export function GradeSection({ draft, update }: { draft: SkillJson; update: Upda
         name={m.dev_skills_section_grades()}
         values={draft.gradePm}
         limits={L.gradePm}
-        unit={m.dev_content_unit_pm()}
+        unit="‰"
         rowLabel={(index) => m.dev_skills_grade({ grade: index + 1 })}
         pathOf={(index) => `gradePm[${index}]`}
         onChange={(gradePm) => update({ ...draft, gradePm })}

@@ -11,7 +11,7 @@
 // - 사진: 390·1440 × 개발 화면 테마 둘(네온 다크·라이트, ADR 2026-11-02-dev-ui) × 한국어·영어(E2E_SHOTS_DIR), 화면 크기.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(다른 줄기의 지원금·환생 값 시험을 흔들지 않게).
 import type { Page } from "@playwright/test";
-import { dragBy, dragSlider } from "./helpers/inputs.ts";
+import { clickSlider, dragBy, dragSlider } from "./helpers/inputs.ts";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
@@ -463,8 +463,8 @@ test.describe("개발자·데스크톱", () => {
     // 이름을 왼쪽으로 끌면 값이 준다(4화소에 한 걸음)
     await dragBy(page, target.locator(".tp-name"), -80);
     expect(Number(await input.inputValue())).toBe(dragged - 20 * 50);
-    // 팩 값 눈금을 누르면 팩 값(= 지금 값)이라 담음이 빠진다
-    await target.locator(".ce-slider-pack").click();
+    // 팩 값 눈금(1500 ÷ 10,000 자리)을 누르면 팩 값(= 지금 값)이라 담음이 빠진다
+    await clickSlider(page, slider, 0.15);
     await expect(input).toHaveValue("1500");
     await expect(target).not.toHaveAttribute("data-staged", "");
     await expect(page.locator(".tp-pending")).toHaveCount(0);

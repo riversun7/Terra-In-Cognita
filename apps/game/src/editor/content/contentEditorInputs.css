@@ -10,8 +10,10 @@
   gap: var(--space-1);
   min-width: 0;
 }
+/* 좁은 칸에서는 단위·단추가 다음 줄로 넘어간다(옆 칸을 밀거나 덮지 않게) */
 .ce-num-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: var(--space-1);
   min-width: 0;
@@ -23,16 +25,21 @@
   min-width: 5ch;
 }
 .ce-num-row > .ce-unit {
+  flex: 0 1 auto;
   align-self: center;
+  min-width: 0;
   padding-inline-start: var(--space-1);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .ce-step {
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--dev-touch-tap);
-  min-height: var(--dev-touch-tap);
+  /* 개발 화면의 누르는 곳(마우스 24px, 휴대폰 30px). 한 줄 전체를 쓰는 곳(설정 칸 패널)은 화면이 --dev-touch-tap으로 키운다 */
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
   padding: 0;
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-control);
@@ -154,28 +161,12 @@
 .ce-slider:active > .ce-slider-thumb {
   background-color: var(--color-focus);
 }
-/* 팩 값 눈금: 누르는 곳은 넓게, 보이는 줄은 가늘게 */
+/* 팩 값 눈금: 보이기만 한다(막대의 누름을 가리지 않는다) */
 .ce-slider-pack {
   position: absolute;
   inset-block: 0;
-  inline-size: var(--dev-touch-tap);
-  min-width: 0;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background-color: transparent;
-  box-shadow: none;
+  inline-size: var(--switch-thumb);
   translate: -50% 0;
-}
-button.ce-slider-pack {
-  cursor: pointer;
-}
-button.ce-slider-pack:hover::before,
-button.ce-slider-pack:hover::after {
-  background-color: var(--color-focus);
-}
-span.ce-slider-pack {
   pointer-events: none;
 }
 .ce-slider-pack::before {
@@ -199,11 +190,7 @@ span.ce-slider-pack {
   translate: -50% 0;
 }
 
-/* 표 칸: 단추를 좁게, 막대는 끝 글 없이 */
-.ce-num[data-compact] .ce-step {
-  min-width: var(--tap-size);
-  min-height: var(--tap-size);
-}
+/* 표 칸: 막대는 낮게, 끝 글 없이 */
 .ce-num[data-compact] .ce-slider {
   height: var(--tap-size);
 }

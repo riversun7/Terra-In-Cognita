@@ -5712,7 +5712,7 @@
   "dev_input_decrease": "{name} {step} 줄이기",
   "dev_input_increase": "{name} {step} 늘리기",
   "dev_input_slider": "{name} 조절 막대",
-  "dev_input_pack_tick": "팩 값 {value}(으)로",
+  "dev_input_pack_tick": "눈금 = 팩 값 {value}(눈금을 누르면 그 값)",
   "dev_input_clamped": "범위({range}) 밖이라 {value}(으)로 맞췄습니다.",
   "dev_input_scale_log": "로그 눈금",
   "dev_input_scrub_hint": "이름표를 좌우로 끌면 값이 바뀝니다(Shift = 10배, Alt = 잘게).",

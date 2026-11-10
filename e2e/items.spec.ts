@@ -14,7 +14,7 @@
 //   미리 보기 판도 같은 조합으로 찍는다. 옛 자원(295·D-505): 광석·목축 부산물 거르기 목록, 시작 시세 칸·지금 세계 시세(시세 없음).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 아이템 편집기 분류의 덮어쓰기를 모두 지운다.
 import type { Page } from "@playwright/test";
-import { dragSlider } from "./helpers/inputs.ts";
+import { clickSlider, dragSlider } from "./helpers/inputs.ts";
 import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
@@ -631,7 +631,7 @@ test.describe("화면 개편(넓은 폭)", () => {
     // 다시 고친 뒤 팩 값 눈금을 누르면 팩 값
     await tierField.locator('.ce-step[data-step="up"]').click();
     await expect(tierField).toHaveAttribute("data-staged", "");
-    await tierField.locator(".ce-slider-pack").click();
+    await clickSlider(page, slider, Number(original) / 9);
     await expect(tier).toHaveValue(original);
     await expect(tierField).not.toHaveAttribute("data-staged", "");
     expect(deviceErrors).toEqual([]);

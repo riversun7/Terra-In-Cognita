@@ -5712,7 +5712,7 @@
   "dev_input_decrease": "Decrease {name} by {step}",
   "dev_input_increase": "Increase {name} by {step}",
   "dev_input_slider": "{name} slider",
-  "dev_input_pack_tick": "Reset to pack value {value}",
+  "dev_input_pack_tick": "Tick = pack value {value} (click the tick to reset)",
   "dev_input_clamped": "Out of range ({range}); set to {value}.",
   "dev_input_scale_log": "log scale",
   "dev_input_scrub_hint": "Drag the label sideways to change the value (Shift = ×10, Alt = fine).",

@@ -34,6 +34,7 @@ import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
+import { useUndoShortcut } from "../content/contentEditorUndo.ts";
 import { EditorTabs, ExportPanel, KeyHelp, useEditorKeys } from "../content/contentEditorLayout.tsx";
 import {
   type ContentErrorInfo,
@@ -102,6 +103,8 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
   const [selected, setSelected] = useState<string | null>(initialId ?? null);
   const [view, setView] = useState<"list" | "detail">(initialId ? "detail" : "list");
   const staging = useItemStage();
+  // Ctrl/⌘+Z = 마지막 고침 되돌리기(수 칸·칸 밖에서. 글 칸은 브라우저 되돌리기)
+  useUndoShortcut(staging.undo);
   const stage = staging.stage;
   const [check, setCheck] = useState<{
     readonly key: string;

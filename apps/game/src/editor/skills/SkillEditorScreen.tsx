@@ -24,6 +24,7 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
+import { useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
 import {
@@ -176,8 +177,18 @@ export default function SkillEditorScreen({ initialId }: { initialId?: string | 
     if (next && next !== selected) select(next);
   };
 
+  // 초안 묶음을 바꾸기 전의 모습을 쌓는다(Ctrl+Z = 마지막 고침 되돌리기. 같은 스킬을 잇달아 고치면 한 칸으로 묶는다)
+  const undoStack = useUndoStack<ReadonlyMap<string, Draft>>();
+  useUndoShortcut(() => {
+    const previous = undoStack.pop();
+    if (previous === null) return;
+    setDrafts(previous);
+    notice.show([m.dev_input_undo_done()]);
+  });
+
   /** 초안을 담는다(지금 실효 항목과 같아지면 뺀다) */
   const stageDraft = (id: string, next: SkillJson): void => {
+    undoStack.record(drafts, `edit:${id}`);
     setDrafts((previous) => {
       const out = new Map(previous);
       const was = previous.get(id);
@@ -280,7 +291,10 @@ export default function SkillEditorScreen({ initialId }: { initialId?: string | 
     }));
     const count = changes.length;
     void send(changes, (next) => m.dev_skills_applied({ count, revision: next.revision })).then((ok) => {
-      if (ok) setDrafts(new Map());
+      if (ok) {
+        setDrafts(new Map());
+        undoStack.clear();
+      }
     });
   };
 

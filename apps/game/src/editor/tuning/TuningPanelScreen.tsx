@@ -17,6 +17,7 @@ import { AppLink } from "../../shell/AppLink.tsx";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
+import { useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import {
   type ConfirmRequest,
   TuningCells,
@@ -90,6 +91,11 @@ export default function TuningPanelScreen() {
   const [page, setPage] = useState<TuningPageTab>(storedPageTab);
   const [showDesc, setShowDesc] = useState(storedShowDesc);
   const [pending, setPending] = useState<Pending>(new Map());
+  const pendingRef = useRef<Pending>(pending);
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
+  const undoStack = useUndoStack<Pending>();
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
@@ -152,19 +158,29 @@ export default function TuningPanelScreen() {
     storeShowDesc(show);
   };
 
+  // 담은 변경을 바꾸기 전의 모습을 쌓는다(Ctrl+Z = 마지막 고침 되돌리기, 같은 칸을 잇달아 고치면 한 칸)
   const stage = (id: string, value: number | null): void => {
     const entry = entries.find((item) => item.id === id);
     if (!entry) return;
+    undoStack.record(pendingRef.current, id);
     setPending((previous) => stagedNext(previous, entry, value));
     problem.clear();
   };
   const unstage = (id: string): void => {
+    undoStack.record(pendingRef.current);
     setPending((previous) => {
       const next = new Map(previous);
       next.delete(id);
       return next;
     });
   };
+  const undo = (): void => {
+    const previous = undoStack.pop();
+    if (previous === null) return;
+    setPending(previous);
+    notice.show([m.dev_input_undo_done()]);
+  };
+  useUndoShortcut(undo);
 
   /** 담은 변경을 한 묶음으로 보낸다. 판 충돌이면 목록을 다시 받고 담은 것은 남긴다 */
   const send = async (confirmStructural: boolean): Promise<void> => {
@@ -181,6 +197,7 @@ export default function TuningPanelScreen() {
       notice.show([m.dev_tuning_applied({ count: pending.size, revision: next.revision })]);
       setLoad({ status: "ready", list: next });
       setPending(new Map());
+      undoStack.clear();
       setNote("");
     } catch (error: unknown) {
       const info = fail(error);
@@ -367,6 +384,12 @@ export default function TuningPanelScreen() {
                     <kbd>Ctrl</kbd>+<kbd>S</kbd>
                   </dt>
                   <dd>{m.dev_tuning_key_save()}</dd>
+                </div>
+                <div>
+                  <dt>
+                    <kbd>Ctrl</kbd>+<kbd>Z</kbd>
+                  </dt>
+                  <dd>{m.dev_tuning_key_undo()}</dd>
                 </div>
               </dl>
             </aside>

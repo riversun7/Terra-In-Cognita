@@ -11,7 +11,9 @@ import {
 import { useId } from "react";
 import { m } from "../../paraglide/messages.js";
 import { NumberField, RemoveButton, SelectField } from "../content/contentEditorFields.tsx";
+import { Sparkline } from "../content/contentEditorGrid.tsx";
 import { FormSection } from "../content/contentEditorLayout.tsx";
+import { BuildingBandMatrix } from "./BuildingBandMatrix.tsx";
 import {
   MATERIAL_CATEGORIES,
   addBand,
@@ -156,6 +158,12 @@ export function BuildingLevels({
   const pickable = list.items.filter((item) => MATERIAL_CATEGORIES.has(item.category));
   const nameOf = new Map(list.items.map((item) => [item.id, item.name[locale]]));
   const rows = levelRows(entry, list.items, list.rules, list.gatherLevelBonus);
+  // 모든 레벨의 재료 합계(아이템마다)
+  const totalByItem = new Map<string, number>();
+  for (const row of rows)
+    for (const stack of row.materials)
+      totalByItem.set(stack.item, (totalByItem.get(stack.item) ?? 0) + stack.qty);
+  const totals = [...totalByItem];
   const canAddBand =
     build !== undefined &&
     build.levels.length < FACILITY_BUILD_LIMITS.levels &&
@@ -182,6 +190,13 @@ export function BuildingLevels({
               onChange={(mulPm) => {
                 if (mulPm !== undefined) onEdit({ ...entry, build: { ...build, mulPm } });
               }}
+            />
+            <BuildingBandMatrix
+              entry={entry}
+              items={list.items}
+              rows={rows}
+              locale={locale}
+              onEdit={onEdit}
             />
             <div className="be-bands">
               {build.levels.map((band, index) => (
@@ -238,6 +253,23 @@ export function BuildingLevels({
                   </th>
                 ) : null}
               </tr>
+              {/* 레벨별 곡선: 재료 수량 합·시간·자리(꺾인 곳이 보이게) */}
+              <tr className="be-level-curves">
+                <th scope="row">{m.dev_buildings_curve_row()}</th>
+                <td>
+                  <Sparkline
+                    name={m.dev_buildings_col_materials()}
+                    values={rows.map((row) => row.materials.reduce((sum, stack) => sum + stack.qty, 0))}
+                  />
+                </td>
+                <td>
+                  <Sparkline name={m.dev_buildings_col_time()} values={rows.map((row) => row.timeMs)} />
+                </td>
+                <td>
+                  <Sparkline name={m.dev_buildings_col_slots_total()} values={rows.map((row) => row.slots)} />
+                </td>
+                {entry.gather ? <td /> : null}
+              </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
@@ -280,6 +312,28 @@ export function BuildingLevels({
                 </tr>
               ))}
             </tbody>
+            {/* 결과 읽기: 모든 레벨을 올리는 데 드는 합계 */}
+            <tfoot>
+              <tr className="be-level-total">
+                <th scope="row">{m.dev_buildings_level_total()}</th>
+                <td className="be-level-materials">
+                  {totals.length === 0 ? (
+                    <span className="dev-muted">—</span>
+                  ) : (
+                    <ul className="be-plain-list">
+                      {totals.map(([item, qty]) => (
+                        <li key={item}>
+                          {m.dev_buildings_material_qty({ name: nameOf.get(item) ?? item, qty })}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </td>
+                <td className="dev-num">{formatDuration(rows.reduce((sum, row) => sum + row.timeMs, 0))}</td>
+                <td className="dev-num">{rows.at(-1)?.slots ?? 0}</td>
+                {entry.gather ? <td className="dev-num">+{rows.at(-1)?.gatherBonus ?? 0}</td> : null}
+              </tr>
+            </tfoot>
           </table>
         </div>
       </FormSection>

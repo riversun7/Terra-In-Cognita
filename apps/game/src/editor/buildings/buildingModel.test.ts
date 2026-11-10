@@ -9,7 +9,9 @@ import {
   EMPTY_STAGE,
   addBand,
   addMaterial,
+  bandMatrix,
   bandRange,
+  bulkEditBandMatrix,
   changesOf,
   cleanFacility,
   formatDuration,
@@ -24,6 +26,7 @@ import {
   setLook,
   setMaterial,
   setRepair,
+  splitBandsPerLevel,
   stageDiscard,
   stageFacility,
   stageKeys,
@@ -159,6 +162,41 @@ describe("레벨 구간·재료 고치기", () => {
     expect(removeMaterial(added, 0, 2).build?.levels[0]?.materials).toHaveLength(2);
     const one = removeMaterial(MINE, 1, 0);
     expect(one).toBe(MINE);
+  });
+
+  it("구간 × 재료 표: 열 = 처음 나온 차례의 아이템, 없는 칸은 null", () => {
+    const matrix = bandMatrix(MINE);
+    expect(matrix.items).toEqual(["pine_log", "stone", "plank"]);
+    expect(matrix.cells).toEqual([
+      [{ line: 0, qty: 12 }, { line: 1, qty: 10 }, null],
+      [null, null, { line: 0, qty: 12 }],
+    ]);
+  });
+
+  it("레벨마다 구간으로 나누면 레벨 표는 그대로이고, 고른 칸을 묶어 바꾼다(없는 칸은 건너뜀, 범위 안)", () => {
+    const split = splitBandsPerLevel(MINE);
+    expect(split.build?.levels.map((band) => band.from)).toEqual([1, 2, 3, 4, 5]);
+    expect(levelRows(split, ITEMS, OLD_FACILITY_BUILD_RULES, 10).map((row) => row.materials)).toEqual(
+      levelRows(MINE, ITEMS, OLD_FACILITY_BUILD_RULES, 10).map((row) => row.materials),
+    );
+    // 이미 레벨마다 하나면 그대로
+    expect(splitBandsPerLevel(split)).toBe(split);
+    // plank 열(2)의 Lv2~Lv5(구간 1~4)를 12 → 4 선형으로: 먼저 끝 칸을 4로
+    const ends = bulkEditBandMatrix(split, ["4:2"], { kind: "set", value: 4 });
+    const filled = bulkEditBandMatrix(ends, ["1:2", "2:2", "3:2", "4:2", "0:2"], { kind: "linear" });
+    expect(filled.build?.levels.map((band) => band.materials.find((s) => s.item === "plank")?.qty)).toEqual([
+      undefined,
+      12,
+      9,
+      7,
+      4,
+    ]);
+    // 곱하기는 범위(1 이상)로 자른다
+    const scaled = bulkEditBandMatrix(MINE, ["0:0", "0:1"], { kind: "scale", percent: 1 });
+    expect(scaled.build?.levels[0]?.materials).toEqual([
+      { item: "pine_log", qty: 1 },
+      { item: "stone", qty: 1 },
+    ]);
   });
 
   it("구간이 덮는 레벨", () => {

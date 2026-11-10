@@ -25,6 +25,7 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
+import { useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
 import { EditorSummary, ExportPanel, KeyHelp, useEditorKeys } from "../content/contentEditorLayout.tsx";
@@ -108,10 +109,21 @@ export default function EffectDictionaryScreen({
   const text = useDeferredValue(query.text);
   // 비동기 흐름(다시 얹기)이 기다린 뒤에도 마지막 담은 변경에서 고치도록(그릴 때는 state만 읽는다)
   const stageRef = useRef(stage);
-  const setStage = (next: EffectStage): void => {
+  // 담은 변경을 바꾸기 전의 모습을 쌓는다(Ctrl+Z = 마지막 고침 되돌리기. 같은 효과를 잇달아 고치면 한 칸으로 묶는다)
+  const undoStack = useUndoStack<EffectStage>();
+  const setStage = (next: EffectStage, editKey?: string): void => {
+    undoStack.record(stageRef.current, editKey);
     stageRef.current = next;
     setStageState(next);
   };
+  const undo = (): void => {
+    const previous = undoStack.pop();
+    if (previous === null) return;
+    stageRef.current = previous;
+    setStageState(previous);
+    notice.show([m.dev_input_undo_done()]);
+  };
+  useUndoShortcut(undo);
 
   const fail = (error: unknown): ErrorInfo => {
     const info = contentErrorOf(error, EFFECT_REASONS);
@@ -228,7 +240,9 @@ export default function EffectDictionaryScreen({
         note: note.trim() === "" ? null : note,
       });
       setLoad({ status: "ready", list: next });
-      setStage(EMPTY);
+      stageRef.current = EMPTY;
+      setStageState(EMPTY);
+      undoStack.clear();
       setNote("");
       setHistory(null);
       notice.show([m.dev_effects_applied({ count: batch.length, revision: next.revision })]);
@@ -430,7 +444,7 @@ export default function EffectDictionaryScreen({
                   skillNames={new Map(list.skills.map((skill) => [skill.id, skill.name[locale]]))}
                   issues={issuesOf(issues, selected)}
                   locale={locale}
-                  onPut={(next) => setStage(stagePut(stageRef.current, row, next))}
+                  onPut={(next) => setStage(stagePut(stageRef.current, row, next), `edit:${selected}`)}
                   onRevert={() => {
                     if (row) setStage(stageRevert(stageRef.current, row));
                   }}

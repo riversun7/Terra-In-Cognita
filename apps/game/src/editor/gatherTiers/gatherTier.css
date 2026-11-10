@@ -116,12 +116,12 @@
   font-weight: var(--font-weight-strong);
 }
 .gt-bar-cell {
-  min-width: 8rem;
+  min-width: 6rem;
 }
 .gt-stack {
   display: flex;
   width: 100%;
-  min-width: 8rem;
+  min-width: 6rem;
   height: var(--space-3);
   border-radius: var(--radius-pill);
   background-color: var(--color-surface-2);
@@ -131,15 +131,106 @@
   flex-basis: 0;
   height: 100%;
 }
-.gt-actions {
+/* ── 구간 조절 판 ── */
+.gt-panel {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.gt-panel[data-staged] {
+  border-color: var(--color-focus);
+}
+.gt-panel-head {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
+}
+.gt-panel-head > .ce-panel-title {
+  margin: 0;
+}
+.gt-panel-pick,
+.gt-panel-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
-.gt-actions > button,
+.gt-panel-actions {
+  margin-inline-start: auto;
+}
+.gt-panel-pick > button,
+.gt-panel-pick > select,
+.gt-panel-actions > button,
 .gt-preset {
+  min-width: var(--dev-touch-tap);
   min-height: var(--dev-touch-tap);
+}
+.gt-panel-pick > button[aria-disabled="true"] {
+  opacity: 0.5;
+}
+.gt-panel-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.gt-avg {
+  font-family: var(--font-mono);
+  color: var(--color-primary);
+}
+.gt-over[data-over] {
+  color: var(--color-warning);
+}
+.gt-tier-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-xs);
+}
+.gt-tier-name {
+  color: var(--ce-tone, var(--color-text-muted));
+}
+.gt-tier-name[data-tone="0"] {
+  color: var(--color-text-muted);
+}
+
+/* ── 행렬: 줄 고르기·곡선·묶음 바꾸기 ── */
+.gt-adjust {
+  display: block;
+  width: 100%;
+  min-height: var(--dev-touch-tap);
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.gt-adjust:hover > .gt-range {
+  text-decoration: underline;
+}
+.gt-table tr[data-selected] > th,
+.gt-table tr[data-selected] > td {
+  background-color: var(--dev-row-selected);
+}
+.gt-curves > th {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  text-align: start;
+}
+.gt-curve {
+  padding: var(--space-1);
+}
+.gt-avg-cell {
+  font-family: var(--font-mono);
+}
+.gt-undo[aria-disabled="true"] {
+  opacity: 0.5;
 }
 
 /* 티어 색(T0~T9) — 머리 글자와 분포 막대 */

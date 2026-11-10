@@ -6,8 +6,10 @@
 // - 칸 문제(서버 검사 코드 문구)는 aria-describedby로 잇는다. hideLabel(표 칸)은 견주기 글 없이 표지(data-staged 등)만 단다.
 // - 풀이 모양(FieldHintStyle): "inline"(기본) = 칸 아래 한 줄, "tip" = 이름표 옆 [ⓘ]를 눌러야 펼친다(건물 편집기, 2026-11-09 개발자 편의
 //   개편 — 칸마다 긴 회색 글이 표를 밀어내지 않게). tip이면 단위는 입력 칸 오른쪽에 붙고 범위는 칸의 title·펼친 풀이에 든다.
+// - 정수 칸은 수 조작 칸(contentEditorNumber: − / + 단추, 막대, 이름표 끌기, ↑↓·휠)이다 — docs/adr/2026-11-10-editor-input-controls.md.
+//   표 칸(hideLabel)은 단추만 붙는다(막대는 slider로 켠다). 범위 밖 정수는 칸을 떠날 때 가까운 끝 값으로 맞추고 까닭을 적는다.
 // 조각: 편집기들이 같이 쓰는 모듈이라 rolldown이 따로 묶는다(이름 contentEditor…, 미리 캐시 규칙 [Cc]ontentEditor).
-import { type ReactNode, createContext, useContext, useId, useState } from "react";
+import { type ReactNode, type RefObject, createContext, useContext, useId, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import {
@@ -18,6 +20,8 @@ import {
   useFieldCompare,
 } from "./contentEditorCompare.tsx";
 import { parseInt32 } from "./contentEditorModel.ts";
+import { NumberControl } from "./contentEditorNumber.tsx";
+import { type NumberScale, clampInt } from "./contentEditorNumeric.ts";
 import "./contentEditor.css";
 import "./contentEditorShell.css";
 
@@ -120,6 +124,7 @@ function FieldHead({
   hideLabel,
   badges,
   tip,
+  labelRef,
 }: {
   id: string;
   label: string;
@@ -127,6 +132,8 @@ function FieldHead({
   badges: ReactNode;
   /** tip 모양의 [ⓘ] 단추(풀이가 있을 때만) */
   tip?: ReactNode;
+  /** 이름표(수 칸은 좌우로 끌어 값을 바꾼다) */
+  labelRef?: RefObject<HTMLLabelElement | null> | undefined;
 }) {
   if (hideLabel)
     return (
@@ -136,7 +143,7 @@ function FieldHead({
     );
   return (
     <span className="ce-field-head">
-      <label className="field-label" htmlFor={id}>
+      <label className="field-label" htmlFor={id} ref={labelRef}>
         {label}
       </label>
       {tip}
@@ -183,6 +190,11 @@ export function NumberField({
   desc,
   unit,
   path,
+  slider,
+  scale,
+  soft,
+  step,
+  pack,
 }: CommonProps & {
   value: number | undefined;
   min: number;
@@ -192,11 +204,25 @@ export function NumberField({
   optional?: boolean;
   /** 단위 글(‰·ms·g·칸 …) */
   unit?: string | undefined;
+  /** 막대를 보일까(기본: 이름표가 보이는 칸은 보이고 표 칸은 숨긴다) */
+  slider?: boolean | undefined;
+  /** 막대 눈금(기본: 범위 폭에 맞춰 고른다) */
+  scale?: NumberScale | undefined;
+  /** 막대가 덮을 범위(기술 범위보다 좁게) */
+  soft?: readonly [number, number] | undefined;
+  /** 한 걸음(기본: 범위 폭에 맞춘다) */
+  step?: number | undefined;
+  /** 팩 값(막대 눈금). path를 주면 견주기 판의 팩 값을 쓴다 */
+  pack?: number | undefined;
 }) {
   const id = useId();
   const problemId = useId();
   const hintId = useId();
+  const noteId = useId();
+  const labelRef = useRef<HTMLLabelElement>(null);
   const compare = useFieldCompare(path);
+  // 범위 밖 정수를 칸을 떠날 때 맞춘 까닭(다음 고침까지 보인다)
+  const [clamped, setClamped] = useState<string | null>(null);
   const shown = value === undefined ? "" : String(value);
   const [text, setText] = useState(shown);
   const [seen, setSeen] = useState(shown);
@@ -220,26 +246,32 @@ export function NumberField({
   const invalid = shownProblem !== undefined;
   const tipMode = useHintStyle() === "tip" && !hideLabel;
   const [tipOpen, setTipOpen] = useState(false);
+  const packValue = pack ?? (typeof compare?.packValue === "number" ? compare.packValue : undefined);
+  const setValue = (next: number): void => {
+    setClamped(null);
+    setText(String(next));
+    setSeen(String(next));
+    onChange(next);
+  };
   const input = (
-    <input
+    <NumberControl
       id={id}
-      className="input ce-number"
-      // 음수를 받을 수 있는 칸은 글 자판(iOS 숫자 자판에는 − 가 없다)
-      inputMode={min >= 0 ? "numeric" : "text"}
-      autoComplete="off"
-      spellCheck={false}
-      value={text}
-      title={
-        hideLabel && compare?.changed
-          ? m.dev_content_compare_pack_title({ value: compareText(compare.packValue) })
-          : tipMode
-            ? m.dev_content_range_label({ range })
-            : undefined
-      }
-      aria-invalid={invalid || undefined}
-      aria-describedby={joinIds(invalid && problemId, !hideLabel && hintId)}
-      onChange={(event) => {
-        const next = event.target.value;
+      label={label}
+      text={text}
+      value={parsed ?? (value === undefined ? null : value)}
+      min={min}
+      max={max}
+      pack={packValue}
+      unit={unit}
+      compact={hideLabel}
+      slider={slider}
+      scale={scale}
+      soft={soft}
+      step={step}
+      scrubRef={hideLabel ? undefined : labelRef}
+      onAdjust={setValue}
+      onText={(next) => {
+        setClamped(null);
         setText(next);
         if (optional && next.trim() === "") {
           setSeen("");
@@ -252,6 +284,25 @@ export function NumberField({
           onChange(number);
         }
       }}
+      inputProps={{
+        // 음수를 받을 수 있는 칸은 글 자판(iOS 숫자 자판에는 − 가 없다)
+        inputMode: min >= 0 ? "numeric" : "text",
+        title:
+          hideLabel && compare?.changed
+            ? m.dev_content_compare_pack_title({ value: compareText(compare.packValue) })
+            : tipMode
+              ? m.dev_content_range_label({ range })
+              : undefined,
+        "aria-invalid": invalid || undefined,
+        "aria-describedby": joinIds(invalid && problemId, clamped !== null && noteId, !hideLabel && hintId),
+        // 범위 밖 정수는 칸을 떠날 때 가까운 끝 값으로 맞춘다(정수가 아닌 글은 그대로 두고 까닭만 보인다)
+        onBlur: () => {
+          if (parsed !== null || !/^-?\d+$/.test(trimmed)) return;
+          const fixed = clampInt(Number(trimmed), min, max);
+          setValue(fixed);
+          setClamped(m.dev_input_clamped({ range, value: formatInt(fixed) }));
+        },
+      }}
     />
   );
   return (
@@ -261,6 +312,7 @@ export function NumberField({
         label={label}
         hideLabel={hideLabel}
         badges={<CompareBadges compare={compare} />}
+        labelRef={labelRef}
         tip={
           tipMode && (desc || hint) ? (
             <HintToggle
@@ -272,25 +324,14 @@ export function NumberField({
           ) : null
         }
       />
-      {tipMode && unit ? (
-        <span className="ce-input-unit">
-          {input}
-          <span className="ce-unit" aria-hidden="true">
-            {unit}
-          </span>
-        </span>
-      ) : (
-        input
-      )}
+      {input}
       {hideLabel ? null : (
-        <FieldHint
-          id={hintId}
-          desc={desc}
-          unit={unit}
-          range={range}
-          hint={hint}
-          hidden={tipMode && !tipOpen}
-        />
+        <FieldHint id={hintId} desc={desc} range={range} hint={hint} hidden={tipMode && !tipOpen} />
+      )}
+      {clamped === null ? null : (
+        <p id={noteId} className="field-hint ce-clamp-note" role="status">
+          {clamped}
+        </p>
       )}
       {hideLabel ? null : <CompareLine compare={compare} name={label} />}
       <FieldProblem id={problemId} text={shownProblem} />

@@ -2,6 +2,8 @@
 // 서버 묶음은 건물 편집기와 같은 buildings.save(put_gather_band·revert_gather_band·discard_sleeping)다(docs/adr/2026-11-02-building-editor.md
 // "바뀜 (2026-11-09)": 건물 편집기 탭을 따로 화면으로 옮김). 계산이 없는 순수 함수만(시험: gatherTierModel.test.ts).
 // 건물 편집기 조각(editor/buildings/)을 가져오지 않는다: 가져오면 둘이 같이 쓰는 조각이 미리 캐시 규칙 밖 이름으로 생긴다.
+// 칸을 바꾸면 같은 구간의 나머지가 따라 움직여 합이 늘 1000‰이다(공용 셈 editor/content/contentEditorNumeric.ts,
+// docs/adr/2026-11-10-editor-input-controls.md).
 import {
   type BuildingEditorChange,
   type BuildingEditorGatherBand,
@@ -9,6 +11,14 @@ import {
   GATHER_TIER_SLOTS,
   type GatherTierJson,
 } from "@terra/shared/buildingEditor";
+import {
+  type BulkOp,
+  bulkApply,
+  expectedIndex,
+  normalizeParts,
+  pickedByColumn,
+  redistribute,
+} from "../content/contentEditorNumeric.ts";
 
 /** 구간 하나의 담은 변경. base·baseHash = 고치기 시작할 때의 실효 구간·해시 */
 export type StagedBand =
@@ -216,3 +226,57 @@ export function withWeight(weights: readonly number[], tier: number, value: numb
 /** 가중치 합 */
 export const weightSum = (weights: readonly number[]): number =>
   weights.reduce((acc, value) => acc + value, 0);
+
+/** 칸 하나를 바꾸고 같은 구간의 나머지를 몫대로 맞춘다(합 1000‰ 그대로). held = 그대로 둘 칸(같은 구간에서 방금 친 칸) */
+export function balancedWeights(
+  base: readonly number[],
+  tier: number,
+  value: number,
+  held: ReadonlySet<number> = new Set(),
+): number[] {
+  const padded = Array.from({ length: GATHER_TIER_SLOTS }, (_, index) => base[index] ?? 0);
+  return redistribute(padded, tier, value, GATHER_BAND_WEIGHT_TOTAL, held);
+}
+
+/** 평균 티어(Σ 티어 × 몫 ÷ 합) 글 — 소수 둘째 자리. 합이 0이면 "—" */
+export function averageTierText(weights: readonly number[]): string {
+  const average = expectedIndex(weights);
+  return average === null ? "—" : average.toFixed(2);
+}
+
+/** 권장 최고 티어를 넘는 칸의 합(‰) */
+export const overTierSum = (weights: readonly number[], maxTier: number): number =>
+  weights.reduce((acc, value, tier) => (tier > maxTier ? acc + value : acc), 0);
+
+/**
+ * 고른 칸(열쇠 "줄:티어") 묶음 바꾸기: 티어 열마다 구간 차례로 셈하고(값으로·더하기·곱하기·채우기), 바뀐 구간은 고른 칸을 그대로 둔 채
+ * 나머지를 맞춰 합 1000‰로 만든다(고른 칸의 합이 1000을 넘으면 전체를 줄여 맞춘다)
+ */
+export function bulkEditBands(
+  stage: GatherStage,
+  bands: readonly BuildingEditorGatherBand[],
+  picked: Iterable<string>,
+  op: BulkOp,
+): GatherStage {
+  const matrix = bands.map((band) => [...draftBandOf(band, stage).weightsPm]);
+  const held = new Map<number, Set<number>>();
+  for (const [tier, rows] of pickedByColumn(picked)) {
+    if (tier < 0 || tier >= GATHER_TIER_SLOTS) continue;
+    const column = matrix.map((weights) => weights[tier] ?? 0);
+    const next = bulkApply(column, rows, op, { min: 0, max: GATHER_BAND_WEIGHT_TOTAL });
+    for (const row of rows) {
+      const weights = matrix[row];
+      if (!weights) continue;
+      weights[tier] = next[row] ?? 0;
+      held.set(row, (held.get(row) ?? new Set()).add(tier));
+    }
+  }
+  let out = stage;
+  for (const [row, tiers] of held) {
+    const band = bands[row];
+    const weights = matrix[row];
+    if (!band || !weights) continue;
+    out = editBand(out, band, normalizeParts(weights, GATHER_BAND_WEIGHT_TOTAL, tiers));
+  }
+  return out;
+}

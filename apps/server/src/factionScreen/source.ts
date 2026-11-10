@@ -12,9 +12,11 @@ import {
   REGIMES,
   type Regime,
 } from "@terra/shared/faction";
+import type { NationEmblemView } from "@terra/shared/nationEditor";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { World } from "../world/world.ts";
 import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
+import { loadEmblemHashes } from "../nationEdit/emblems.ts";
 import type { NationNameReads } from "../worldMap/reads.ts";
 import { readOccupationRows } from "./occupations.ts";
 
@@ -44,6 +46,8 @@ export interface FactionMembership {
   /** 화면 이름·지도자 이름(팩 국가 프리셋, 이름 출처가 있을 때 — "WP-NPC"). 없으면 null */
   readonly label?: LocalizedName | null;
   readonly leaderName?: LocalizedName | null;
+  /** 국가 마크(팩 국가 프리셋의 만든 마크, 이 세계에 올린 그림이 있으면 그 해시 — docs/adr/2026-11-10-nation-editor.md 4절) */
+  readonly emblem?: NationEmblemView | null;
 }
 
 export interface FactionReal {
@@ -151,7 +155,11 @@ export async function readFactionReal(db: Queryable, userId: string): Promise<Fa
  * 세력에 화면 이름·지도자 이름을 붙인다(팩 국가 프리셋 — "WP-NPC"). 지도자 이름은 지도자 유닛이 있을 때만(없는 지도자의 이름을 보이지 않는다).
  * 이름 출처가 없으면 그대로
  */
-export function withNationNames(real: FactionReal, names: NationNameReads | undefined): FactionReal {
+export function withNationNames(
+  real: FactionReal,
+  names: NationNameReads | undefined,
+  uploaded?: ReadonlyMap<string, string>,
+): FactionReal {
   const faction = real.faction;
   if (!faction || faction.code === null || !names) return real;
   const found = names.nationNames(faction.code);
@@ -160,6 +168,13 @@ export function withNationNames(real: FactionReal, names: NationNameReads | unde
     faction: {
       ...faction,
       label: found.name ?? null,
+      emblem: found.emblem
+        ? {
+            spec: found.emblem.spec,
+            color: found.emblem.color,
+            uploaded: uploaded?.get(found.emblem.preset) ?? null,
+          }
+        : null,
       leaderName:
         faction.leaderUnit === null || faction.leaderUnit === undefined ? null : (found.leader ?? null),
     },
@@ -181,10 +196,13 @@ export function createWorldFactionSource(
         await persistence.writer.durable();
       }
       const nationNames = names?.()?.nationNames;
-      return withNationNames(
-        await readFactionReal(persistence.pool, userId),
-        nationNames ? { nationNames } : undefined,
-      );
+      const real = await readFactionReal(persistence.pool, userId);
+      // 올린 국가 마크(있을 때만 그림이 먼저). 읽지 못해도 화면은 만든 마크로 뜬다
+      const uploaded =
+        nationNames && real.faction
+          ? await loadEmblemHashes(persistence.pool).catch(() => undefined)
+          : undefined;
+      return withNationNames(real, nationNames ? { nationNames } : undefined, uploaded);
     },
   };
 }

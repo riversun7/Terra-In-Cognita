@@ -23,6 +23,7 @@ import {
   HouseIcon,
   OrbitIcon,
   PawIcon,
+  CrestIcon,
   PersonCardIcon,
   ScaleIcon,
   SlidersIcon,
@@ -148,6 +149,15 @@ const DEV_TOOLS = {
     tagEn: "LIVE EDIT · Portrait & Stats",
     ready: true,
   },
+  // 시작 국가 설정(docs/adr/2026-11-10-nation-editor.md): 국가 프리셋 이름·화폐·국가 마크·시작 조건·국가마다 씨앗 값
+  dev_nations: {
+    name: m.shell_route_dev_nations,
+    desc: m.dev_tool_nations_desc,
+    mark: <CrestIcon />,
+    tagKo: "LIVE EDIT · 이름·마크·시작 수",
+    tagEn: "LIVE EDIT · Names & Emblems",
+    ready: true,
+  },
   // 영토 층(docs/adr/2026-11-03-territory-layer.md): 도시·비콘 볼록 껍질, 겹침 규칙, 1차맵 칸 표, 시험 세력 비콘 놓기
   dev_territory: {
     name: m.shell_route_dev_territory,
@@ -249,7 +259,14 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "S2 구체 행성 지형·기후, 항성계 공전·자전, 도시·비콘 영토 볼록 껍질, 2차맵 지형을 편집·검증합니다.",
     subEn:
       "Edit and inspect S2 planetary terrain/climate, star system orbits, territory convex hulls, and secondary map terrain.",
-    routes: ["dev_planet_editor", "dev_star_system", "dev_world_layout", "dev_territory", "dev_second_map"],
+    routes: [
+      "dev_planet_editor",
+      "dev_star_system",
+      "dev_nations",
+      "dev_world_layout",
+      "dev_territory",
+      "dev_second_map",
+    ],
   },
   {
     id: "diag",

@@ -64,6 +64,8 @@ const BuildingEditorScreen = lazy(() => import("../editor/buildings/BuildingEdit
 const GatherTierScreen = lazy(() => import("../editor/gatherTiers/GatherTierScreen.tsx"));
 // 크리처 편집기(틀 안): 조각 이름 CreatureEditorScreen-*(미리 캐시 규칙 [Cc]reatureEditor)
 const CreatureEditorScreen = lazy(() => import("../editor/creatures/CreatureEditorScreen.tsx"));
+// 시작 국가 설정(틀 안): 조각 이름 NationEditorScreen-*(미리 캐시 규칙 [Nn]ationEditor)
+const NationEditorScreen = lazy(() => import("../editor/nations/NationEditorScreen.tsx"));
 // 영토 층(틀 안): 조각 이름 TerritoryLabScreen-*(미리 캐시 규칙 [Tt]erritoryLab)
 const TerritoryLabScreen = lazy(() => import("../editor/territory/TerritoryLabScreen.tsx"));
 // 세계 배치(틀 안, D-528): 조각 이름 WorldLayoutScreen-*(미리 캐시 규칙 [Ww]orldLayout)
@@ -113,6 +115,7 @@ export const ROUTE_TITLES = {
   dev_buildings: m.shell_route_dev_buildings,
   dev_gather_tiers: m.shell_route_dev_gather_tiers,
   dev_creatures: m.shell_route_dev_creatures,
+  dev_nations: m.shell_route_dev_nations,
   dev_territory: m.shell_route_dev_territory,
   dev_world_layout: m.shell_route_dev_world_layout,
   dev_recruit: m.shell_route_dev_recruit,
@@ -246,6 +249,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <GatherTierScreen />;
     case "dev_creatures":
       return <CreatureEditorScreen initialId={match.search.creature} />;
+    case "dev_nations":
+      return <NationEditorScreen initialId={match.search.nation} />;
     case "dev_territory":
       return <TerritoryLabScreen />;
     case "dev_world_layout":

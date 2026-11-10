@@ -150,6 +150,7 @@ export function createContentCore(source: PackSource): ContentCore {
       facilities: [],
       gather_tiers: [],
       creatures: [],
+      nation_presets: [],
     };
     for (const category of CONTENT_EDIT_CATEGORIES) out[category] = entries.get(category) ?? [];
     return out;

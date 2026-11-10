@@ -41,6 +41,8 @@ export const WORLD_RESET_KEEP: Readonly<Record<string, string>> = {
   content_overrides: "스킬·아이템·건물 편집기 저장",
   content_override_revision: "편집기 저장 판",
   content_retired_ids: "편집기에서 지운 ID(다시 쓰지 않는다)",
+  nation_emblems:
+    "시작 국가 설정 편집기에서 올린 국가 마크(프리셋 ID마다, docs/adr/2026-11-10-nation-editor.md)",
   battle_lab_presets: "전투 실험실 프리셋",
   world_nation_placements:
     "고정 NPC 국가 자리(세계 배치 화면, D-528 — 세력 코드로 적어 새 세계가 처음부터 그 자리에 선다)",

@@ -122,7 +122,7 @@ export function precacheUrls(sw) {
  * 개발자 홈(DevHome)은 작은 목록이라 이 규칙 밖이다(미리 캐시된다).
  */
 export const DEV_ONLY_CHUNK =
-  /^assets\/(gpuBench|[Pp]lanetEditor|[Ss]tarSystem|[Ss]econdMapLab|[Tt]uningPanel|[Bb]alancePanel|[Ss]killEditor|[Ii]temEditor|[Bb]uildingEditor|[Gg]atherTier|[Cc]reatureEditor|[Tt]erritoryLab|[Ww]orldLayout|[Ee]ffectDictionary|generator-|cellReport-|[Cc]ontentEditor|[Bb]attleReplayLab|[Rr]ecruitLab)[^/]*\.(js|css)$/;
+  /^assets\/(gpuBench|[Pp]lanetEditor|[Ss]tarSystem|[Ss]econdMapLab|[Tt]uningPanel|[Bb]alancePanel|[Ss]killEditor|[Ii]temEditor|[Bb]uildingEditor|[Gg]atherTier|[Cc]reatureEditor|[Nn]ationEditor|[Tt]erritoryLab|[Ww]orldLayout|[Ee]ffectDictionary|generator-|cellReport-|[Cc]ontentEditor|[Bb]attleReplayLab|[Rr]ecruitLab)[^/]*\.(js|css)$/;
 
 /**
  * 개발자 도구만 쓰는 소스(소스 맵의 sources 경로). 개발자 도구 둘(행성 편집기·항성계 편집기)이 같이 쓰는 모듈은 따로 한 조각이
@@ -132,7 +132,7 @@ export const DEV_ONLY_CHUNK =
  * 미리 캐시되지 않은 조각을 받게 됐다(2026-10-31 빌드로 확인).
  */
 export const DEV_ONLY_SOURCE =
-  /(^|\/)src\/editor\/(planet|starSystem|gpuBench|secondMapLab|tuning|balance|skills|items|buildings|gatherTiers|creatures|territory|content|battleReplayLab|recruit|worldLayout|effects)\/|(^|\/)packages\/planet\/src\/generator\/|(^|\/)packages\/engine\/src\/buildings\/(buildingPreview|previewEntry)\.ts$/;
+  /(^|\/)src\/editor\/(planet|starSystem|gpuBench|secondMapLab|tuning|balance|skills|items|buildings|gatherTiers|creatures|nations|territory|content|battleReplayLab|recruit|worldLayout|effects)\/|(^|\/)packages\/planet\/src\/generator\/|(^|\/)packages\/engine\/src\/buildings\/(buildingPreview|previewEntry)\.ts$/;
 
 /** 소스 맵(JSON 바이트)의 sources 중 개발자 도구 소스. 맵이 없거나 읽지 못하면 빈 목록 */
 function devSourcesOf(mapBytes) {

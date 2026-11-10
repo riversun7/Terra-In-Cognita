@@ -39,6 +39,7 @@ type ComingSoonRoute = Exclude<
   | "dev_buildings"
   | "dev_gather_tiers"
   | "dev_creatures"
+  | "dev_nations"
   | "dev_territory"
   | "dev_world_layout"
   | "dev_recruit"

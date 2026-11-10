@@ -103,6 +103,7 @@ import type { ReplayName } from "@terra/protocol/battleReplay";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld, testMapKey } from "./world/world.ts";
 import { placementSourceOf } from "./world/placementService.ts";
+import { registerNationEmblemRoute } from "./nationEdit/emblems.ts";
 import { nationName } from "./npc/nations.ts";
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import type { NationNames } from "./ranking/paths.ts";
@@ -688,6 +689,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const viewAudit = (): boolean => opsSwitches.isOn("view_audit");
   // 요청의 출처 확인 기준 = 계정 경로와 같은 앱 출처(인증이 꺼지면 세션이 없어 보지 않는다)
   const editor = options.planetEditor;
+  registerNationEmblemRoute(app, options.db?.$client);
   await registerTrpc(app, {
     router: appRouter,
     createContext: createContextFactory({
@@ -764,6 +766,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       tuning: tuningShared,
       balance,
       contentEdit,
+      nationEdit: { testNations: options.world?.npc?.testNations ?? null },
       itemEdit,
       battleLab,
       battleReplay,

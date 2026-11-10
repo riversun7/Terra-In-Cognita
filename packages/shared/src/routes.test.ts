@@ -259,6 +259,8 @@ describe("주소 표", () => {
       dev_buildings: ["/dev/buildings", "dev", "shown", "dev_admin", ["facility"]],
       dev_gather_tiers: ["/dev/gather-tiers", "dev", "shown", "dev_admin", []],
       dev_creatures: ["/dev/creatures", "dev", "shown", "dev_admin", ["creature"]],
+      // 시작 국가 설정(docs/adr/2026-11-10-nation-editor.md)
+      dev_nations: ["/dev/nations", "dev", "shown", "dev_admin", ["nation"]],
       // 영토 층(docs/adr/2026-11-03-territory-layer.md 5절)
       dev_territory: ["/dev/territory", "dev", "shown", "dev_admin", []],
       // 세계 배치(D-528)

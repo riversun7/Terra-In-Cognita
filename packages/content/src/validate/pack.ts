@@ -8,6 +8,7 @@ import { checkFacilities } from "./facilities.ts";
 import { checkGather } from "./gather.ts";
 import { checkIdChanges } from "./idChanges.ts";
 import { checkItems } from "./items.ts";
+import { checkNations } from "./nations.ts";
 import { checkPlanetBiomeTables } from "./planets.ts";
 import { checkReferences } from "./references.ts";
 import { checkSchema } from "./schema.ts";
@@ -30,6 +31,7 @@ export function validatePack(source: PackSource, registry: CategoryRegistry = CA
     ...checkItems(schema.pack),
     ...checkGather(schema.pack),
     ...checkFacilities(schema.pack),
+    ...checkNations(schema.pack),
     ...checkIdChanges(schema.pack, registry),
   ];
   return { issues, pack: hasErrors(issues) ? undefined : schema.pack };

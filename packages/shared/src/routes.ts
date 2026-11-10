@@ -274,6 +274,15 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 시작 국가 설정(docs/adr/2026-11-10-nation-editor.md): 틀 안 빽빽한 편집 화면. 팩 국가 프리셋(이름·화폐·국가 마크·시작 조건)을 고친다.
+  // ?nation=<ID>는 그 국가를 바로 연다. 적용하면 그 세계에 바로 든다(이미 정해진 세력 정체성은 [이 세계에 반영]으로)
+  dev_nations: {
+    path: "/dev/nations",
+    search: ["nation"],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 영토 층(docs/adr/2026-11-03-territory-layer.md 5절): 틀 안 촘촘한 화면. 도시·비콘 껍질과 1차맵 칸 표를 보고 시험 세력 비콘을 놓는다
   dev_territory: {
     path: "/dev/territory",

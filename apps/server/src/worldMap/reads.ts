@@ -28,7 +28,7 @@ import type {
 } from "@terra/shared/worldMap";
 import { type GovernmentReads, governmentReadsOfWorld } from "../government/reads.ts";
 import { type NaturalizationReads, naturalizationReadsOfWorld } from "../citizenship/attach.ts";
-import { type NationPreset, nationLeaderName, nationName } from "../npc/nations.ts";
+import { type NationPreset, nationEmblemOf, nationLeaderName, nationName } from "../npc/nations.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { WorldDirectory } from "../world/gateway.ts";
 import type { QueryPool } from "../world/persist/load.ts";
@@ -392,6 +392,8 @@ export interface NationNameReads {
   nationNames(code: string): {
     readonly name: LocalizedName | undefined;
     readonly leader: LocalizedName | undefined;
+    /** 국가 마크(만든 마크 사양·색, 프리셋 ID — 올린 그림은 부르는 쪽이 DB에서 찾는다). 프리셋이 없으면 undefined */
+    readonly emblem?: ReturnType<typeof nationEmblemOf>;
   };
 }
 
@@ -519,7 +521,11 @@ export function worldMapReadsOf(options: {
     },
   });
   const nations: NationNameReads = {
-    nationNames: (code) => ({ name: nameOfCode(code), leader: leaderOfCode(code) }),
+    nationNames: (code) => ({
+      name: nameOfCode(code),
+      leader: leaderOfCode(code),
+      emblem: nationEmblemOf(code, options.presets),
+    }),
   };
   // 국적 바꾸기 조건(docs/adr/2026-11-08-citizenship.md): 정부 판과 같은 안개·이름
   const citizenship = naturalizationReadsOfWorld(world, {

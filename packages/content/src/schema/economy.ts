@@ -15,6 +15,14 @@ import {
   isFactionColor,
   isFactionShort,
 } from "@terra/shared/factionProfile";
+import { NAME_STYLE_IDS } from "@terra/shared/nameGen";
+import {
+  EMBLEM_CHARGES,
+  EMBLEM_DIVISIONS,
+  EMBLEM_SCHEME_COUNT,
+  EMBLEM_SHAPES,
+} from "@terra/shared/nationEmblem";
+import { NATION_SEED_LIMITS } from "@terra/shared/nationEditor";
 import { z } from "zod";
 import { EQUIP_SLOT_KINDS, PRIMARY_STAT_CODES } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
@@ -320,6 +328,43 @@ const nationPersonality = z.strictObject({
     .max(8)
     .optional(),
   startStock: z.array(stack).max(16).optional(),
+  /**
+   * 국가마다 세계 씨앗 값(docs/adr/2026-11-10-nation-editor.md 2절, 사용자 요청 2026-11-10 "유닛 수 등등 디테일한 조정"): 칸이 없으면 모든
+   * 국가가 같은 설정 칸 값(49 worldSeed — npc_seed_housing·npc_seed_population_pm·npc_seed_farms·npc_seed_lumber_camps·npc_seed_mines·
+   * npc_seed_storehouses). 범위는 그 설정 칸과 같다. 새로 서는 시작 도시·모자란 기본 시설·처음 인구에만 든다(이미 선 것은 고치지 않는다)
+   */
+  startHousing: z.int().min(NATION_SEED_LIMITS.housing.min).max(NATION_SEED_LIMITS.housing.max).optional(),
+  startPopulationPm: z
+    .int()
+    .min(NATION_SEED_LIMITS.populationPm.min)
+    .max(NATION_SEED_LIMITS.populationPm.max)
+    .optional(),
+  startFarms: z.int().min(NATION_SEED_LIMITS.facility.min).max(NATION_SEED_LIMITS.facility.max).optional(),
+  startLumberCamps: z
+    .int()
+    .min(NATION_SEED_LIMITS.facility.min)
+    .max(NATION_SEED_LIMITS.facility.max)
+    .optional(),
+  startMines: z.int().min(NATION_SEED_LIMITS.facility.min).max(NATION_SEED_LIMITS.facility.max).optional(),
+  startStorehouses: z
+    .int()
+    .min(NATION_SEED_LIMITS.facility.min)
+    .max(NATION_SEED_LIMITS.facility.max)
+    .optional(),
+});
+
+/**
+ * 국가 마크 사양(만든 마크 — docs/adr/2026-11-10-nation-editor.md 4절): 틀·나눔·상징·색 짜임. 색은 시그니처 컬러에서 낸다
+ * (@terra/shared/nationEmblem). 없으면 프리셋 ID로 정해지는 기본 마크. 편집기에서 올린 그림은 팩이 아니라 그 세계 DB에 있다
+ */
+const nationEmblem = z.strictObject({
+  shape: z.enum(EMBLEM_SHAPES),
+  division: z.enum(EMBLEM_DIVISIONS),
+  charge: z.enum(EMBLEM_CHARGES),
+  scheme: z
+    .int()
+    .min(0)
+    .max(EMBLEM_SCHEME_COUNT - 1),
 });
 
 export const nationPresetEntrySchema = z.strictObject({
@@ -362,6 +407,13 @@ export const nationPresetEntrySchema = z.strictObject({
       })
       .optional(),
   }),
+  /** 국가 마크(만든 마크 사양, 위). 없으면 프리셋 ID로 정해지는 기본 마크 */
+  emblem: nationEmblem.optional(),
+  /**
+   * 이름 말씨(편집기 [이름 만들기]가 쓰는 음절 표, @terra/shared/nameGen — 기획 30 §5.3 문화 모티프 16개에 하나씩 [임시]). 게임 규칙은
+   * 읽지 않는다(이름 후보를 만들 때만)
+   */
+  nameStyle: z.enum(NAME_STYLE_IDS).optional(),
   /** [임시] 거래세(만분율). NPC 세율은 규칙식(D-323, R5)이 바꾼다 */
   tradeTaxBp: z.int().min(0).max(10_000),
   /** 나라 성격(위). 없으면 모든 국가가 같은 기본 */
@@ -383,7 +435,7 @@ export const nationPresetEntrySchema = z.strictObject({
    * 수도 행정 건물 곁에 지도자 유닛을 세우고 세력 화면·정부 판·지도의 한눈 정보가 이 이름을 보인다. 없으면 화면이 "지도자"
    * 기획 정리 747 나("WP-NPC3"): 이 칸은 지도자(지금 통치자)만이다. 국가 대표 유닛(D-075 신화·전설·역사 인물, 여럿, 전투·수집 콘텐츠)은
    * 지도자와 따로 둔다 — TODO: 대표 유닛 목록 칸(예: representativeUnits)은 개발자 페이지에서 정하는 콘텐츠(D-398)가 생길 때 더한다(지금 칸 없음).
-   * 이름은 [임시] "임시 지도자 N" 그대로.
+   * 이름은 가상 이름 [임시](D-076, docs/adr/2026-11-10-nation-editor.md 3절).
    */
   leaderName: localizedText.optional(),
   /**

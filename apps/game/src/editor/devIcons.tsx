@@ -162,6 +162,16 @@ export function GlobePinIcon() {
   );
 }
 
+/** 시작 국가 설정(방패 문장 + 별) */
+export function CrestIcon() {
+  return (
+    <DevIcon>
+      <path d="M5 4h14v8c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9z" />
+      <path d="M12 8l1.2 2.5 2.8.3-2 1.9.5 2.8-2.5-1.4-2.5 1.4.5-2.8-2-1.9 2.8-.3z" />
+    </DevIcon>
+  );
+}
+
 /** 크리처 편집기(발바닥 표식) */
 export function PawIcon() {
   return (

@@ -11,6 +11,8 @@
 // (자리 차례 = 칸 자리마다 2차맵을 돈다). 켤 때마다 모자란 도시만 더한다(있는 도시는 그대로,
 // 옛 세계의 첫 장 고정 자리 도시도 그대로 — 멱등). 시작 도시는 주인이 바뀌지 않으므로(D-325·D-341) 지우거나 옮기지 않는다.
 // 체제는 국가 차례로 셋을 돌리고(시뮬 "mixed"와 같다), 성향은 NPC 사회 런타임이 세계 시드로 굴려 채운다(D-327).
+import { defaultFactionColor } from "@terra/shared/factionProfile";
+import { type NationEmblemSpec, emblemOfId } from "@terra/shared/nationEmblem";
 import { PLACEMENT_SIZE, type WorldSeedCoefficients, startCitiesFor } from "@terra/sim";
 import { ensureTestStartCities } from "../world/cities.ts";
 import type { QueryPool } from "../world/persist/load.ts";
@@ -67,6 +69,47 @@ export interface NationPersonality {
   readonly startNecessityHours?: number | undefined;
   /** 처음 창고 특산 물건: NPC 도시 하나가 한 번 받는 고정 양(팩 수량 = 묶음 단위, 554 다) */
   readonly startStock?: readonly { readonly item: string; readonly qty: number }[] | undefined;
+  /**
+   * 국가마다 세계 씨앗 값(docs/adr/2026-11-10-nation-editor.md 2절): 없으면 설정 칸(worldSeed). 새 시작 도시의 주거, 처음 인구 천분율,
+   * 시작 도시 하나의 농장·벌목장·광산·창고 수
+   */
+  readonly startHousing?: number | undefined;
+  readonly startPopulationPm?: number | undefined;
+  readonly startFarms?: number | undefined;
+  readonly startLumberCamps?: number | undefined;
+  readonly startMines?: number | undefined;
+  readonly startStorehouses?: number | undefined;
+}
+
+/** 국가 칸 값(정수)이 있으면 그 값, 없으면 설정 칸 값 */
+const pick = (value: number | undefined, fallback: number): number =>
+  value !== undefined && Number.isFinite(value) ? Math.trunc(value) : fallback;
+
+/**
+ * 국가 하나의 세계 씨앗 값: 설정 칸 값 위에 그 국가 프리셋 성격 칸의 값을 얹는다(칸이 없으면 설정 칸 그대로 — 같은 객체를 돌려준다).
+ * 시작 도시 수는 여기서 얹지 않는다(startCitiesFor가 설정 칸 범위 안으로 자른다)
+ */
+export function nationSeedOf(
+  seed: WorldSeedCoefficients,
+  personality: NationPersonality | undefined,
+): WorldSeedCoefficients {
+  if (!personality) return seed;
+  const next = {
+    startHousing: pick(personality.startHousing, seed.startHousing),
+    populationPm: pick(personality.startPopulationPm, seed.populationPm),
+    farms: pick(personality.startFarms, seed.farms),
+    lumberCamps: pick(personality.startLumberCamps, seed.lumberCamps),
+    mines: pick(personality.startMines, seed.mines),
+    storehouses: pick(personality.startStorehouses, seed.storehouses),
+  };
+  const same =
+    next.startHousing === seed.startHousing &&
+    next.populationPm === seed.populationPm &&
+    next.farms === seed.farms &&
+    next.lumberCamps === seed.lumberCamps &&
+    next.mines === seed.mines &&
+    next.storehouses === seed.storehouses;
+  return same ? seed : { ...seed, ...next };
 }
 
 /** 팩 국가 프리셋(D-086) 하나: 시험 국가의 코드·이름(질문 203 가: 시험 세력 + 프리셋 차례)·성격·도시 이름 */
@@ -83,6 +126,8 @@ export interface NationPreset {
   /** 세력 약어·시그니처 컬러(docs/adr/2026-11-09-faction-profiles.md, 팩 [임시]). 세력 정체성을 처음 정할 때 쓴다 */
   readonly shortName?: string | undefined;
   readonly color?: string | undefined;
+  /** 국가 마크 사양(만든 마크, docs/adr/2026-11-10-nation-editor.md 4절). 없으면 코드로 정해지는 기본 마크 */
+  readonly emblem?: NationEmblemSpec | undefined;
   /** 나라 화폐(원장 자산 = "cur:<code>")와 표시(기호·3글자 약어). 화폐 표시를 처음 정할 때 쓴다 */
   readonly currency?:
     | {
@@ -124,6 +169,23 @@ export function nationLeaderName(
 ): { ko: string; en: string } | undefined {
   const name = presetOfCode(code, presets)?.leaderName;
   return name ? { ko: name.ko, en: name.en } : undefined;
+}
+
+/**
+ * 세력 코드 → 국가 마크(만든 마크 사양·시그니처 컬러, 팩 국가 프리셋 — docs/adr/2026-11-10-nation-editor.md 4절). preset = 프리셋 ID(올린
+ * 그림을 찾는 키 — 국가 1 시험 NPC 세력은 16번째 프리셋). 프리셋이 없는 코드는 undefined
+ */
+export function nationEmblemOf(
+  code: string,
+  presets: readonly NationPreset[] = [],
+): { readonly preset: string; readonly spec: NationEmblemSpec; readonly color: string } | undefined {
+  const preset = presetOfCode(code, presets);
+  if (!preset) return undefined;
+  return {
+    preset: preset.code,
+    spec: preset.emblem ?? emblemOfId(preset.code),
+    color: preset.color ?? defaultFactionColor(presets.indexOf(preset)),
+  };
 }
 
 /**
@@ -294,6 +356,13 @@ export async function ensureTestNations(
   const have = new Map<number, number>();
   for (const row of cities.rows)
     if (row.start === true) have.set(Number(row.faction_id), (have.get(Number(row.faction_id)) ?? 0) + 1);
+  /** 세력 행 ID → 그 고정 국가 프리셋의 성격 칸 */
+  const personalityOfFaction = new Map<number, NationPersonality | undefined>();
+  for (const code of codes) {
+    const factionId = idOf.get(code);
+    if (factionId !== undefined)
+      personalityOfFaction.set(factionId, presetOfCode(code, options.presets)?.personality);
+  }
   const nations = codes.flatMap((code) => {
     const factionId = idOf.get(code);
     if (factionId === undefined) return [];
@@ -331,7 +400,16 @@ export async function ensureTestNations(
     await pool.query(
       `insert into world_cities (id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms)
        select coalesce((select max(id) from world_cities), 0) + 1, $1, $2, $3, $4, $5, true, $6, 1, $7`,
-      [factionId, options.planetId, spot.mapKey, spot.x, spot.y, startHousingOf(options.seed), options.nowMs],
+      [
+        factionId,
+        options.planetId,
+        spot.mapKey,
+        spot.x,
+        spot.y,
+        // 주거는 국가 프리셋 성격 칸이 먼저, 없으면 설정 칸(docs/adr/2026-11-10-nation-editor.md 2절)
+        startHousingOf(nationSeedOf(options.seed, personalityOfFaction.get(factionId))),
+        options.nowMs,
+      ],
     );
   const fixedNames = codes.flatMap((code) => {
     const factionId = idOf.get(code);

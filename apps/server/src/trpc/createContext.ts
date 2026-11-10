@@ -38,6 +38,7 @@ import { createSettingsServices } from "../settings/store.ts";
 import { type TuningShared, betterAuthTuningCheck, createTuningServices } from "../tuning/services.ts";
 import { createBuildingEditorServices } from "../buildingEdit/services.ts";
 import { createCreatureEditorServices } from "../creatureEdit/services.ts";
+import { type NationEditShared, createNationEditorServices } from "../nationEdit/services.ts";
 import { type ContentEditShared, createSkillEditorServices } from "../contentEdit/services.ts";
 import { type ItemEditShared, createItemEditorServices } from "../itemEdit/services.ts";
 import type { SummaryBackend } from "../summary/summary.ts";
@@ -137,6 +138,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   ranking?: RankingServices | undefined;
   /** 운영자 콘솔(앱에 하나, src/ops/services.ts). 인증이 켜져 있어야 쓴다 */
   ops?: OpsShared | undefined;
+  /** 시작 국가 설정 편집기의 서버 설정 값(고정 국가 수). 편집기 자체는 contentEdit·tuning이 있으면 선다 */
+  nationEdit?: NationEditShared | undefined;
 }
 
 /** 읽기 요청(출처 규칙이 쓰기보다 느슨하다: 주소창에서 연 것도 받는다). tRPC 조회는 GET, 쓰기는 POST다 */
@@ -270,6 +273,16 @@ export function createContextFactory(options: ContextFactoryOptions) {
           ? createCreatureEditorServices({
               db: authDeps.db,
               shared: options.contentEdit,
+              ip: request.ip,
+            })
+          : undefined,
+      nations:
+        authDeps && request && tuning && options.contentEdit
+          ? createNationEditorServices({
+              db: authDeps.db,
+              shared: options.contentEdit,
+              tuning,
+              nation: options.nationEdit,
               ip: request.ip,
             })
           : undefined,

@@ -52,7 +52,7 @@ import {
   createSettlement,
 } from "./settlement.ts";
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
-import { type NationPreset, nationName } from "../npc/nations.ts";
+import { type NationPreset, nationName, nationSeedOf, presetOfCode } from "../npc/nations.ts";
 import { relocateUnits } from "./relayout.ts";
 import {
   RETIRED_TEST_MAPS,
@@ -147,6 +147,11 @@ export interface WorldConfig {
         gardenerWaves?: boolean | undefined;
         /** 팩 국가 프리셋(시험 국가 2번부터의 코드·이름) */
         presets?: readonly NationPreset[] | undefined;
+        /**
+         * 실효 국가 프리셋(팩 + 이 세계의 덮어쓰기, 시작 국가 설정 편집기)을 실은 뒤 풀리는 약속. 있으면 세계 씨앗(국가·시작 도시)을 차리기
+         * 전에 기다린다(docs/adr/2026-11-10-nation-editor.md 5절). 없으면 기다리지 않는다(시험)
+         */
+        presetsReady?: Promise<void> | undefined;
       }
     | undefined;
   /** 보유 물건(실효 콘텐츠·설정 칸 실효 값·사이보그 1차 스탯). 없으면 빈 콘텐츠(시험) */
@@ -336,6 +341,8 @@ export function startWorld(
     let seeded: Awaited<ReturnType<typeof bootWorldSeed>> | undefined;
     // 세계 배치는 행성 값을 읽는다(행성 서비스가 캐시를 읽거나 굽는 동안 기다린다. 실패하면 옛 방식 — 2차맵 만들기가 따로 실패를 알린다)
     await terrainService?.ready.catch(() => undefined);
+    // 세계 씨앗은 실효 국가 프리셋을 읽는다(덮어쓰기를 실을 때까지 기다린다)
+    await config.npc?.presetsReady?.catch(() => undefined);
     for (let attempt = 1; !loaded; attempt++) {
       try {
         // 옛 시험 2차맵(깊은 바다 위)의 행을 지운다(지울 것이 없으면 그대로). U4 (가)
@@ -732,7 +739,16 @@ export function startWorld(
       if (unit.planetId !== TEST_PLANET_ID || !maps.has(unit.mapKey)) orphanUnits += 1;
     // 세계 씨앗: NPC 시작 도시 기본 시설·국가 지도자(봇을 채우기 전, 모자란 것만, 동기 — facilities/npcSeed.ts·npc/leaders.ts)
     const seedWith = { maps, cities, owners, facilities, log, rules: societyRules, terrain: terrainService };
-    if (config.npc) seedNpcAtBoot({ ...seedWith, planetId: TEST_PLANET_ID, nowMs: now(), ids: nextId });
+    // 국가마다 씨앗 값(국가 프리셋 성격 칸 — docs/adr/2026-11-10-nation-editor.md 2절): 고정 국가 세력 행 → 코드 → 프리셋
+    const fixedCodes = new Map(cyborgData.factions.map((faction) => [faction.id, faction.code]));
+    const seedOfFaction = (factionId: number) => {
+      const code = fixedCodes.get(factionId);
+      return code === undefined || code === null
+        ? undefined
+        : nationSeedOf(societyRules().worldSeed, presetOfCode(code, config.npc?.presets)?.personality);
+    };
+    if (config.npc)
+      seedNpcAtBoot({ ...seedWith, seedOfFaction, planetId: TEST_PLANET_ID, nowMs: now(), ids: nextId });
     paths.start();
     spawnBots();
     // 유닛을 다시 놓은 뒤에 전투 끝을 다시 건다(지난 끝 시각은 곧바로 적용된다)

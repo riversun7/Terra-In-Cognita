@@ -16,6 +16,7 @@ import {
   type ItemEntry,
   type ItemSubcategoryEntry,
   type ItemTagEntry,
+  type NationPresetEntry,
   type PackSource,
   type SkillEntry,
   type UnitKindEntry,
@@ -27,6 +28,7 @@ import {
   itemEntrySchema,
   itemSubcategoryEntrySchema,
   itemTagEntrySchema,
+  nationPresetEntrySchema,
   skillEntrySchema,
   unitKindEntrySchema,
   weaponTypeEntrySchema,
@@ -77,6 +79,11 @@ export interface ContentEffective {
   readonly gatherTiers: readonly GatherTierEntry[];
   /** 크리처(크리처 편집기가 덮어쓴다, /dev/creatures) */
   readonly creatures: readonly CreatureEntry[];
+  /**
+   * 국가 프리셋(시작 국가 설정 편집기가 덮어쓴다, /dev/nations — docs/adr/2026-11-10-nation-editor.md). 세계 씨앗·NPC 사회·경제 목록의
+   * 나라 화폐가 읽는다(src/npc/presets.ts livePresets)
+   */
+  readonly nationPresets: readonly NationPresetEntry[];
 }
 
 export interface ContentSnapshot {
@@ -127,6 +134,11 @@ export interface ContentEditState {
    * sleeping: 켤 때 잠재운 새 판 줄 키와 모르는 분류 줄(켤 때만 준다)
    */
   install(records: Iterable<ContentOverrideRecord>, revision: number, sleeping?: ContentSleepingInput): void;
+  /**
+   * 스냅숏을 바꿔 끼운 뒤(install — 켤 때 한 번, 저장할 때마다) 부를 함수를 건다. 실효 값을 따로 들고 있는 곳이 맞춰 고친다
+   * (국가 프리셋 목록 — src/npc/presets.ts createLivePresets). 듣는 함수가 던져도 저장은 그대로다
+   */
+  subscribe(listener: () => void): void;
   /** 지금 팩 판(manifest version) */
   readonly packVersion: number;
   /** 줄의 판(core@N)이 지금 팩보다 새로운가(팩 ID가 같고 N이 더 크다) */
@@ -154,6 +166,7 @@ function parseEffective(raw: RawEntries): ContentEffective {
     facilities: raw.facilities.map((entry) => facilityEntrySchema.parse(entry)),
     gatherTiers: raw.gather_tiers.map((entry) => gatherTierEntrySchema.parse(entry)),
     creatures: raw.creatures.map((entry) => creatureEntrySchema.parse(entry)),
+    nationPresets: raw.nation_presets.map((entry) => nationPresetEntrySchema.parse(entry)),
   };
 }
 
@@ -177,6 +190,16 @@ export function createContentEditState(source: PackSource): ContentEditState {
   let allRecords: readonly ContentOverrideRecord[] = [];
   const retired = new Map<ContentEditCategory, Set<string>>();
   let dropped = referencesOf(pack);
+  const listeners: (() => void)[] = [];
+  const notify = (): void => {
+    for (const listener of listeners) {
+      try {
+        listener();
+      } catch {
+        // 듣는 쪽 문제로 저장을 막지 않는다
+      }
+    }
+  };
 
   const hashOf = (category: ContentEditCategory, id: string): string | null => {
     const key = contentKey(category, id);
@@ -275,12 +298,17 @@ export function createContentEditState(source: PackSource): ContentEditState {
         current = { revision, overrides: new Map(), raw: core.packRaw, effective: pack };
         hashes = new Map();
         dropped = referencesOf(pack);
+        notify();
         return;
       }
       // 대입 한 번: 읽는 쪽은 앞 스냅숏이나 이 스냅숏만 본다
       current = { revision, overrides: map, raw, effective };
       hashes = new Map();
       dropped = referencesOf(effective);
+      notify();
+    },
+    subscribe(listener) {
+      listeners.push(listener);
     },
   };
 }

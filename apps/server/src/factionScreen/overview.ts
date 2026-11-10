@@ -74,6 +74,7 @@ function realSummary(membership: FactionMembership): FactionSummary {
     // 나라 이름·지도자 이름(팩 국가 프리셋, NPC 국가 지도자 사이보그 — docs/adr/2026-11-07-play-flow.md "WP-NPC")
     label: membership.label ?? null,
     leaderName: membership.leaderName ?? null,
+    emblem: membership.emblem ?? null,
     memberCount: membership.memberCount,
     cityCount: membership.cityCount,
     joinedAt: membership.joinedAt,

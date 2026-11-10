@@ -77,7 +77,7 @@ import { humanNameOf } from "./humanNames.ts";
 import { createHumanPlaces } from "./humanPlaces.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
-import { type NationPreset, nationPresetOf } from "./nations.ts";
+import { type NationPreset, nationPresetOf, nationSeedOf } from "./nations.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
 import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
@@ -470,7 +470,12 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   let seededHumans = 0;
   for (const city of [...cities.values()].toSorted((a, b) => a.id - b.id)) {
     if (!people.needsSeed(city.id)) continue;
-    const target = seedPopulationOf(city.housing, c.worldSeed.populationPm);
+    // 처음 인구 몫은 그 도시 주인이 따르는 나라 프리셋 성격 칸이 먼저, 없으면 설정 칸(docs/adr/2026-11-10-nation-editor.md 2절)
+    const citySeed = nationSeedOf(
+      c.worldSeed,
+      nationPresetOf(city.owner, nationLinkOf, o.presets ?? presets)?.personality,
+    );
+    const target = seedPopulationOf(city.housing, citySeed.populationPm);
     // 비율이 0이면(시험 계수표) 채운 것으로 치지 않는다 — 나중에 칸을 켜면 그때 채운다
     if (target === 0) continue;
     let have = 0;

@@ -14,6 +14,7 @@ import { getLocale } from "../paraglide/runtime.js";
 import { Fact, PreviewTag, SoonButton, StateChip } from "../sections/screenParts.tsx";
 import { amountText, dateText, durationText } from "../sections/screenText.ts";
 import { localName } from "../roster/rosterText.ts";
+import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { Icon } from "../ui/icons.tsx";
 import { FactionRanking } from "./FactionRanking.tsx";
 import { KIND_NAMES, LOCK_NAMES, REGIME_NAMES, STAGE_NAMES, assetName } from "./factionText.ts";
@@ -47,9 +48,19 @@ function FactionCard({ faction, rules }: { faction: FactionSummary; rules: Facti
   return (
     <section className="panel faction-card" aria-labelledby="faction-card-title">
       <div className="screen-section-head">
-        <span className="faction-mark" aria-hidden="true">
-          <Icon name="faction" />
-        </span>
+        {faction.emblem ? (
+          <NationEmblem
+            spec={faction.emblem.spec}
+            color={faction.emblem.color}
+            uploaded={faction.emblem.uploaded}
+            size={40}
+            className="faction-emblem"
+          />
+        ) : (
+          <span className="faction-mark" aria-hidden="true">
+            <Icon name="faction" />
+          </span>
+        )}
         <NameLine faction={faction} />
         {faction.preview === true ? <PreviewTag /> : null}
       </div>

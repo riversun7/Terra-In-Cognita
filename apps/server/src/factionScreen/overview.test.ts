@@ -86,6 +86,27 @@ describe("나라 이름·지도자 이름(WP-NPC)", () => {
     expect(view.faction?.leader).toBeNull();
   });
 
+  it("국가 마크: 프리셋의 만든 마크 사양·색을 싣고, 올린 그림이 있으면 그 해시도 싣는다", () => {
+    const spec = { shape: "circle", division: "fess", charge: "bird", scheme: 1 } as const;
+    const withEmblem = {
+      nationNames: (code: string) => ({
+        ...names.nationNames(code),
+        emblem:
+          code === "s3_test_npc" ? { preset: "placeholder_nation_16", spec, color: "#fdcb6e" } : undefined,
+      }),
+    };
+    const made = buildFactionOverview(withNationNames(CITIZEN, withEmblem), OFF);
+    expect(made.faction?.emblem).toEqual({ spec, color: "#fdcb6e", uploaded: null });
+    const hash = "ab".repeat(32);
+    const uploaded = buildFactionOverview(
+      withNationNames(CITIZEN, withEmblem, new Map([["placeholder_nation_16", hash]])),
+      OFF,
+    );
+    expect(uploaded.faction?.emblem?.uploaded).toBe(hash);
+    // 프리셋이 없는 세력은 마크가 없다(화면은 기본 표식)
+    expect(buildFactionOverview(withNationNames(CITIZEN, names), OFF).faction?.emblem).toBeNull();
+  });
+
   it("지도자 유닛이 없으면 지도자 이름을 싣지 않는다, 이름 출처가 없으면 그대로", () => {
     const view = buildFactionOverview(withNationNames(CITIZEN, names), OFF);
     expect(view.faction?.label?.ko).toBe("임시 국가 16");

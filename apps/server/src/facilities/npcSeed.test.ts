@@ -46,6 +46,38 @@ function setup() {
 }
 
 describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
+  it("국가마다 씨앗 값(seedOfFaction)이 있으면 그 국가 도시는 그 수로 세운다", () => {
+    const { map, facilities, service } = setup();
+    const cities = [city(1, 100, 128, 128), city(2, 200, 64, 64)];
+    const owners = new Map([
+      [100, 7],
+      [200, 8],
+    ]);
+    const result = seedNpcFacilities({
+      maps: new Map([[9, map]]),
+      cities,
+      planetId: "p",
+      ownerOfFaction: (factionId: number) => owners.get(factionId),
+      service,
+      catalog,
+      seed: START_WORLD_SEED,
+      // 세력 200만 농장 2·창고 2·벌목장 0·광산 0
+      seedOfFaction: (factionId: number) =>
+        factionId === 200
+          ? { ...START_WORLD_SEED, farms: 2, storehouses: 2, lumberCamps: 0, mines: 0 }
+          : undefined,
+      nowMs: 1_000,
+    });
+    expect(result.missing).toBe(0);
+    const of = (cityId: number) =>
+      [...facilities.values()]
+        .filter((record) => record.cityId === cityId)
+        .map((record) => record.facilityId)
+        .toSorted();
+    expect(of(1)).toEqual(["farm", "government_hall", "lumber_camp", "mine", "storehouse"]);
+    expect(of(2)).toEqual(["farm", "farm", "government_hall", "storehouse", "storehouse"]);
+  });
+
   it("시작 도시마다 행정 건물 + 설정 칸 수만큼 창고·농장·벌목장·광산을 다 지은 채로, 주인 = 그 세력 주체", () => {
     const { map, facilities, service } = setup();
     const cities = [city(1, 100, 128, 128), city(2, 200, 64, 64), city(3, 300, 200, 200, false)];

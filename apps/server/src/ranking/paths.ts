@@ -4,7 +4,7 @@ import { type ContentPack, rankingPathEntrySchema } from "@terra/content";
 import type { LocalizedName } from "@terra/shared/faction";
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import { z } from "zod";
-import { nationName } from "../npc/nations.ts";
+import { type NationPreset, nationName } from "../npc/nations.ts";
 import { nationPresetsOf } from "../npc/presets.ts";
 import { TEST_NPC_FACTION_CODE } from "../world/unitKinds.ts";
 
@@ -37,4 +37,15 @@ export function nationNamesOf(pack: ContentPack): NationNames {
   const first = nationName(TEST_NPC_FACTION_CODE, nationPresetsOf(pack));
   if (first) names.set(TEST_NPC_FACTION_CODE, first);
   return names;
+}
+
+/**
+ * 실효 국가 프리셋 목록에서 세력 이름 표를 다시 채운다(시작 국가 설정 편집기가 이름을 바꾸면 판의 세력 이름도 따라간다 —
+ * docs/adr/2026-11-10-nation-editor.md 5절). 같은 Map을 제자리에서 고친다(읽는 쪽은 그 Map 하나를 들고 있다)
+ */
+export function syncNationNames(names: Map<string, LocalizedName>, presets: readonly NationPreset[]): void {
+  names.clear();
+  for (const preset of presets) names.set(preset.code, preset.name);
+  const first = nationName(TEST_NPC_FACTION_CODE, presets);
+  if (first) names.set(TEST_NPC_FACTION_CODE, first);
 }

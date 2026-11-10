@@ -36,6 +36,7 @@
 .ne-item {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: var(--space-3);
   width: 100%;
   min-height: var(--dev-touch-tap);
@@ -311,6 +312,9 @@
   padding: 0;
   border: 0;
   min-width: 0;
+}
+.ne-rows > button {
+  justify-self: start;
 }
 .ne-names-count {
   font-weight: var(--font-weight-regular);

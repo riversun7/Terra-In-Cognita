@@ -14,7 +14,11 @@
 // 바뀜(사용자 지적 2026-11-09 "이동하려는데 다른 유닛이 선택되는문제 … 다른 유닛 눌려지면 상호작용 메뉴가 나오거나 다른곳을 눌러 저절로 닫히게",
 // docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)"): 플레이어가 남의 유닛을 누르면(지도·근처 판) 고르지 않고 정보 판(.map-peek)을 연다 —
 // 명령 유닛(내 사이보그)은 그대로, 땅을 누르면 판이 닫히고 같은 누르기로 내 사이보그가 간다(move_unit). 이 맵에 내 유닛이 없는 화면(가짜 목록)에서는
-// 땅을 눌러도 판만 닫히고 보내지 않는다. 사진: 정보 판 390 × 파스텔·다크 × 한국어·영어.
+// 땅을 눌러도 판만 닫히고 보내지 않는다.
+// 바뀜(사용자 지적 2026-11-10 "다른 유닛 클릭 후 이동지역 클릭시 무시하고 본인 유닛이 이동하게 하라. 다른 유닛 클릭시 팝업으로 상호작용 메뉴띄우고
+// 다른곳 클릭시 닫기", docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-10)"): 운영자 모드도 남의 유닛을 누르면 작은 창만 — [이 유닛 조종]을
+// 눌러야 명령 유닛이 바뀐다. 손가락(터치 흉내, 412×915)으로 본다: 창 열림 → 고른 유닛 그대로 → 땅 누르기 = 닫고 내 유닛 move_unit.
+// 남의 유닛은 몸 위를 눌러야 걸린다(빗나간 누르기 = 땅). 창은 밖(아래 안내 판)을 눌러도 닫힌다. 사진: 작은 창 390·412 × 파스텔·다크 × 한국어·영어 4장.
 import type { Page } from "@playwright/test";
 import { groundOffsets } from "./helpers/mapGround.ts";
 import { message } from "./helpers/messages.ts";
@@ -137,6 +141,66 @@ async function tapMap(page: Page, dx: number, dy: number): Promise<void> {
   const box = await page.locator(".map-view canvas").boundingBox();
   if (!box) throw new Error("no canvas");
   await page.mouse.click(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy);
+}
+
+/** 지도 캔버스 가운데에서 (dx, dy) CSS px 떨어진 곳을 손가락으로 누른다(터치 흉내 — 포인터 종류 touch) */
+async function touchMap(page: Page, dx: number, dy: number): Promise<void> {
+  const box = await page.locator(".map-view canvas").boundingBox();
+  if (!box) throw new Error("no canvas");
+  await page.touchscreen.tap(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy);
+}
+
+/** 기기가 보낸 이동 명령(move_unit)을 모은다 */
+async function watchMoves(page: Page): Promise<string[]> {
+  const sentMoves: string[] = [];
+  await page.routeWebSocket(/\/ws$/, (socket) => {
+    const server = socket.connectToServer();
+    socket.onMessage((data) => {
+      if (typeof data === "string" && data.includes('"t":"move_unit"')) sentMoves.push(data);
+      server.send(data);
+    });
+    server.onMessage((data) => socket.send(data));
+  });
+  return sentMoves;
+}
+
+/**
+ * 땅을 손가락으로 눌러 보낸다: 갈 수 있는 곳이 나올 때까지 자리를 바꿔 누른다. 첫 누르기에 작은 창이 닫히는지 본다(closes).
+ * 건물 판·다른 유닛 창이 열렸으면 닫고 다음 자리. 보냈으면 true
+ */
+async function touchGroundUntilSent(
+  page: Page,
+  grounds: readonly { dx: number; dy: number }[],
+  closes: boolean,
+): Promise<boolean> {
+  const screen = page.locator(".map-screen");
+  for (const [index, { dx, dy }] of grounds.entries()) {
+    await touchMap(page, dx, dy);
+    if (closes && index === 0) await expect(page.locator(".map-peek")).toHaveCount(0);
+    await page.waitForTimeout(300);
+    await expect(screen).not.toHaveAttribute("data-command", "sent", { timeout: 20_000 });
+    if ((await screen.getAttribute("data-command")) === "ok") return true;
+    const close = page.locator(".gather-sheet-close");
+    if (await close.count()) await close.first().tap();
+    const again = page.locator(".map-peek-close");
+    if (await again.count()) await again.tap();
+  }
+  return false;
+}
+
+/**
+ * 근처 판 유닛 탭의 남의 유닛 줄(가장 가까운 첫 줄, 또는 목록의 가장 먼 끝 줄)을 손가락으로 눌러 작은 창을 연다. 그 유닛 id.
+ * 줄은 가까운 차례라 걷는 휴먼에 따라 부를 때마다 다른 유닛일 수 있다
+ */
+async function touchOtherUnitRow(page: Page, which: "first" | "last" = "first"): Promise<string> {
+  await openNearby(page, "units");
+  const rows = page.locator('.map-nearby-row[data-kind="unit"][data-mine="false"]');
+  await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+  const other = which === "first" ? rows.first() : rows.last();
+  const otherId = (await other.getAttribute("data-id")) ?? "";
+  await other.tap();
+  await expect(page.locator(`.map-peek[data-unit="${otherId}"]`)).toBeVisible();
+  return otherId;
 }
 
 test.describe("유닛 조종: 플레이어", () => {
@@ -324,7 +388,17 @@ test.describe("유닛 조종: 플레이어", () => {
     await page.locator(".zoom-ladder-out").click();
     await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "4");
     await page.waitForTimeout(800);
-    await tapMap(page, 0, -6);
+    // 빗나간 누르기(몸에서 옆으로 24px — 옛 반경 22px + 몸 크기 안이었다): 남의 유닛은 몸 위를 눌러야 걸린다 → 그 유닛의 창이 열리지 않는다
+    // (땅 누르기가 된다 — docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-10)"). 다른 것이 눌려 열린 판은 닫는다
+    await touchMap(page, 24, -6);
+    await page.waitForTimeout(800);
+    await expect(page.locator(`.map-peek[data-unit="${cyborg}"]`)).toHaveCount(0);
+    for (const closer of [".gather-sheet-close", ".map-peek-close"]) {
+      const close = page.locator(closer);
+      if (await close.count()) await close.first().tap();
+    }
+    // 몸 위를 손가락으로 누른다
+    await touchMap(page, 0, -6);
     const peek = page.locator(".map-peek");
     try {
       await expect(peek).toBeVisible({ timeout: 5_000 });
@@ -344,7 +418,7 @@ test.describe("유닛 조종: 플레이어", () => {
     // 빈 땅을 누른다: 판이 닫히고, 명령 유닛(가짜 목록 유닛)은 이 맵에 없어 보내지 않는다(view_only)
     let viewOnly = false;
     for (const ground of grounds) {
-      await tapMap(page, ground.dx, ground.dy);
+      await touchMap(page, ground.dx, ground.dy);
       try {
         await expect(screen).toHaveAttribute("data-command", "view_only", { timeout: 2_500 });
         viewOnly = true;
@@ -360,35 +434,58 @@ test.describe("유닛 조종: 플레이어", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  for (const theme of ["pastel", "dark"] as const) {
-    for (const language of ["ko", "en"] as const) {
-      test.describe(`정보 판 390 ${theme} ${language}`, () => {
-        test.use({ ...VIEWPORTS.phone, theme, language });
-        test(`남의 유닛 정보 판 (390·${theme}·${language})`, async ({ page, deviceErrors }) => {
-          test.setTimeout(90_000);
-          await rewriteTrpc(page, { "summary.get": hideSummary });
-          await openMap(page);
-          await openNearby(page, "units");
-          const other = page.locator('.map-nearby-row[data-kind="unit"][data-mine="false"]').first();
-          await expect(other).toBeVisible({ timeout: 15_000 });
-          await other.click();
-          const peek = page.locator(".map-peek");
-          await expect(peek).toBeVisible();
-          await expect(peek.locator(".map-peek-close")).toHaveText(message(language, "map_peek_close"));
-          // 한눈 정보(세력·종류)가 오면 주인 줄에 " · "
-          await expect(peek.locator(".map-peek-line")).toContainText(" · ", { timeout: 10_000 });
-          expect(await horizontalOverflow(page)).toEqual([]);
-          expect(await smallTapTargets(page)).toEqual([]);
-          expect(await switchOverlaps(page)).toEqual([]);
-          await shot(page, `unit-peek-390-${theme}-${language}`);
-          // [닫기]로 닫으면 근처 판 자리로 돌아간다
-          await peek.locator(".map-peek-close").click();
-          await expect(peek).toHaveCount(0);
-          expect(deviceErrors).toEqual([]);
-        });
+  test.describe("손가락(412×915)", () => {
+    test.use({ ...VIEWPORTS.phoneLarge });
+    test("손가락: 남의 유닛 → 작은 창, 밖(안내 판)을 누르면 닫히고, 땅을 누르면 닫히며 내 사이보그가 간다", async ({
+      page,
+      deviceErrors,
+    }) => {
+      test.setTimeout(150_000);
+      const sentMoves = await watchMoves(page);
+      await rewriteTrpc(page, { "summary.get": hideSummary });
+      await openMap(page);
+      const screen = page.locator(".map-screen");
+      const cyborg = (await screen.getAttribute("data-cyborg")) ?? "";
+      expect(cyborg).toMatch(/^\d+$/);
+      await expect(screen).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
+      const grounds = (await groundOffsets(page)).slice(0, 8);
+      expect(grounds.length).toBeGreaterThan(0);
+
+      // 남의 유닛 줄을 손가락으로: 작은 창(대화상자 구실) — 플레이어에게는 [이 유닛 조종]이 없다
+      const otherId = await touchOtherUnitRow(page);
+      const peek = page.locator(".map-peek");
+      await expect(peek).toHaveAttribute("role", "dialog");
+      await expect(peek).toHaveAttribute("data-ground", "own");
+      await expect(peek.locator(".map-peek-control")).toHaveCount(0);
+      await expect(peek.locator(".map-peek-note")).toHaveText(message("ko", "map_peek_note"));
+      // 할 수 있는 일: 지도자면 지도자 몫, 아니면 "아직 없다" 한 줄
+      await expect(peek.locator('.map-peek-empty, [data-part="leader-sheet"]').first()).toBeVisible({
+        timeout: 15_000,
       });
-    }
-  }
+      await expect(screen).toHaveAttribute("data-selected", cyborg);
+      await expect(screen).toHaveAttribute("data-control", "own");
+      expect(await bottomSheets(page)).toEqual([expect.stringContaining("map-peek")]);
+      expect(await horizontalOverflow(page)).toEqual([]);
+      expect(await smallTapTargets(page)).toEqual([]);
+
+      // 창 밖(아래 안내 판)을 누르면 닫힌다 — 보내지 않는다
+      await page.locator(".map-hint").tap();
+      await expect(peek).toHaveCount(0);
+      expect(sentMoves).toEqual([]);
+      await expect(screen).toHaveAttribute("data-selected", cyborg);
+
+      // 다시 열고 땅을 누른다: 닫히고 같은 누르기로 내 사이보그가 간다
+      expect(await touchOtherUnitRow(page)).toMatch(/^\d+$/);
+      expect(await touchGroundUntilSent(page, grounds, true)).toBe(true);
+      expect(sentMoves.length).toBeGreaterThan(0);
+      expect(sentMoves.filter((data) => !data.includes(`"unitId":${cyborg},`))).toEqual([]);
+      expect(otherId).not.toBe(cyborg);
+      await expect(screen).toHaveAttribute("data-selected", cyborg);
+      const stop = page.locator(".map-unit-stop");
+      if (await stop.count()) await stop.tap({ timeout: 5_000 }).catch(() => undefined);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
 });
 
 test.describe("유닛 조종: 운영자", () => {
@@ -430,6 +527,121 @@ test.describe("유닛 조종: 운영자", () => {
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
   });
+});
+
+test.describe("유닛 조종: 운영자 손가락(412×915)", () => {
+  test.use({ account: "dev", ...VIEWPORTS.phoneLarge });
+
+  test("운영자 모드도 남의 유닛을 누르면 작은 창만 — 땅은 내 사이보그가 가고, [이 유닛 조종]을 눌러야 그 유닛이 간다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(240_000);
+    const sentMoves = await watchMoves(page);
+    await rewriteTrpc(page, { "summary.get": hideSummary });
+    await openMap(page);
+    const screen = page.locator(".map-screen");
+    const cyborg = (await screen.getAttribute("data-cyborg")) ?? "";
+    expect(cyborg).toMatch(/^\d+$/);
+    const toggle = page.locator(".map-operator-toggle");
+    await toggle.tap();
+    await expect(screen).toHaveAttribute("data-operator", "on");
+    await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
+    await expect(screen).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
+    const grounds = (await groundOffsets(page)).slice(0, 8);
+    expect(grounds.length).toBeGreaterThan(0);
+
+    // 남의 유닛을 눌러도 명령 유닛은 내 사이보그 그대로(옛: 그 유닛이 골라져 다음 땅 누르기가 그 유닛을 보냈다)
+    const otherId = await touchOtherUnitRow(page);
+    const peek = page.locator(".map-peek");
+    const control = peek.locator(".map-peek-control");
+    await expect(control).toHaveText(message("ko", "map_peek_control"));
+    await expect(peek).toHaveAttribute("data-ground", "operator");
+    await expect(peek.locator(".map-peek-note")).toHaveText(message("ko", "map_peek_note_operator"));
+    // 1초 요약이 엔진 고르기를 화면에 맞춘 뒤에도 그대로다
+    await page.waitForTimeout(1_500);
+    await expect(screen).toHaveAttribute("data-selected", cyborg);
+    await expect(screen).toHaveAttribute("data-anchor", cyborg);
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(await smallTapTargets(page)).toEqual([]);
+
+    // 땅을 누르면 창이 닫히고 내 사이보그가 간다(남의 유닛은 가지 않는다)
+    expect(await touchGroundUntilSent(page, grounds, true)).toBe(true);
+    expect(sentMoves.length).toBeGreaterThan(0);
+    expect(sentMoves.filter((data) => !data.includes(`"unitId":${cyborg},`))).toEqual([]);
+    await expect(screen).toHaveAttribute("data-selected", cyborg);
+    const stop = page.locator(".map-unit-stop");
+    if (await stop.count()) await stop.tap({ timeout: 5_000 }).catch(() => undefined);
+
+    // [이 유닛 조종]: 이 단추만 명령 유닛을 남의 유닛으로 바꾼다 → 땅을 누르면 그 유닛이 간다.
+    // 목록의 가장 먼 유닛을 조종한다: 카메라가 그 유닛을 따라가 내 사이보그가 화면 가운데 둘레에 없다(내 유닛은 넉넉한 반경이라 땅 자리에 걸리면 고른다)
+    const controlled = await touchOtherUnitRow(page, "last");
+    expect(controlled).not.toBe(cyborg);
+    await control.tap();
+    await expect(peek).toHaveCount(0);
+    await expect(screen).toHaveAttribute("data-selected", controlled);
+    await expect(screen).toHaveAttribute("data-control", "operator");
+    await expect(screen).toHaveAttribute("data-anchor", controlled);
+    const before = sentMoves.length;
+    const groundsNow = (await groundOffsets(page)).slice(0, 8);
+    expect(await touchGroundUntilSent(page, groundsNow, false)).toBe(true);
+    const later = sentMoves.slice(before);
+    expect(later.length).toBeGreaterThan(0);
+    expect(later.filter((data) => !data.includes(`"unitId":${controlled},`))).toEqual([]);
+    expect(otherId).toMatch(/^\d+$/);
+
+    // 운영자 모드를 끄면 조종하던 남의 유닛을 놓고 내 사이보그로 돌아온다
+    await toggle.tap();
+    await expect(screen).toHaveAttribute("data-operator", "off");
+    await expect(screen).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
+    await expect(screen).toHaveAttribute("data-control", "own");
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+/** 작은 창 사진 4장: 390·412 × 파스텔·다크 × 한국어·영어(플레이어 둘, 운영자 둘 — [이 유닛 조종]) */
+const PEEK_SHOTS = [
+  { account: "player", size: "390", viewport: VIEWPORTS.phone, theme: "pastel", language: "ko" },
+  { account: "player", size: "390", viewport: VIEWPORTS.phone, theme: "dark", language: "en" },
+  { account: "dev", size: "412", viewport: VIEWPORTS.phoneLarge, theme: "dark", language: "ko" },
+  { account: "dev", size: "412", viewport: VIEWPORTS.phoneLarge, theme: "pastel", language: "en" },
+] as const;
+
+test.describe("남의 유닛 작은 창 사진", () => {
+  for (const { account, size, viewport, theme, language } of PEEK_SHOTS) {
+    test.describe(`${account} ${size} ${theme} ${language}`, () => {
+      test.use({ account, ...viewport, theme, language });
+      test(`남의 유닛 작은 창 (${account}·${size}·${theme}·${language})`, async ({ page, deviceErrors }) => {
+        test.setTimeout(120_000);
+        await rewriteTrpc(page, { "summary.get": hideSummary });
+        await openMap(page);
+        const screen = page.locator(".map-screen");
+        if (account === "dev") {
+          await page.locator(".map-operator-toggle").tap();
+          await expect(screen).toHaveAttribute("data-operator", "on");
+          await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
+        }
+        await touchOtherUnitRow(page);
+        const peek = page.locator(".map-peek");
+        await expect(peek.locator(".map-peek-close")).toHaveText(message(language, "map_peek_close"));
+        // 한눈 정보(세력·종류)가 오면 주인 줄에 " · "
+        await expect(peek.locator(".map-peek-line")).toContainText(" · ", { timeout: 10_000 });
+        if (account === "dev")
+          await expect(peek.locator(".map-peek-control")).toHaveText(message(language, "map_peek_control"));
+        else await expect(peek.locator(".map-peek-control")).toHaveCount(0);
+        // 뜨는 움직임이 끝난 뒤 찍는다
+        await page.waitForTimeout(400);
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        expect(await switchOverlaps(page)).toEqual([]);
+        await shot(page, `unit-peek-${account}-${size}-${theme}-${language}`);
+        // [닫기]로 닫으면 근처 판 자리로 돌아간다
+        await peek.locator(".map-peek-close").tap();
+        await expect(peek).toHaveCount(0);
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
 });
 
 test.describe("유닛 조종 사진", () => {

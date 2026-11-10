@@ -11,7 +11,8 @@
 // (자리 차례 = 칸 자리마다 2차맵을 돈다). 켤 때마다 모자란 도시만 더한다(있는 도시는 그대로,
 // 옛 세계의 첫 장 고정 자리 도시도 그대로 — 멱등). 시작 도시는 주인이 바뀌지 않으므로(D-325·D-341) 지우거나 옮기지 않는다.
 // 체제는 국가 차례로 셋을 돌리고(시뮬 "mixed"와 같다), 성향은 NPC 사회 런타임이 세계 시드로 굴려 채운다(D-327).
-import type { NationEmblemSpec } from "@terra/shared/nationEmblem";
+import { defaultFactionColor } from "@terra/shared/factionProfile";
+import { type NationEmblemSpec, emblemOfId } from "@terra/shared/nationEmblem";
 import { PLACEMENT_SIZE, type WorldSeedCoefficients, startCitiesFor } from "@terra/sim";
 import { ensureTestStartCities } from "../world/cities.ts";
 import type { QueryPool } from "../world/persist/load.ts";
@@ -168,6 +169,23 @@ export function nationLeaderName(
 ): { ko: string; en: string } | undefined {
   const name = presetOfCode(code, presets)?.leaderName;
   return name ? { ko: name.ko, en: name.en } : undefined;
+}
+
+/**
+ * 세력 코드 → 국가 마크(만든 마크 사양·시그니처 컬러, 팩 국가 프리셋 — docs/adr/2026-11-10-nation-editor.md 4절). preset = 프리셋 ID(올린
+ * 그림을 찾는 키 — 국가 1 시험 NPC 세력은 16번째 프리셋). 프리셋이 없는 코드는 undefined
+ */
+export function nationEmblemOf(
+  code: string,
+  presets: readonly NationPreset[] = [],
+): { readonly preset: string; readonly spec: NationEmblemSpec; readonly color: string } | undefined {
+  const preset = presetOfCode(code, presets);
+  if (!preset) return undefined;
+  return {
+    preset: preset.code,
+    spec: preset.emblem ?? emblemOfId(preset.code),
+    color: preset.color ?? defaultFactionColor(presets.indexOf(preset)),
+  };
 }
 
 /**

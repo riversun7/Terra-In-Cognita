@@ -1,0 +1,385 @@
+// 시작 국가 설정 편집기 모델 — 담은 변경(국가마다 put·revert, 잠든 줄 버리기), 칸 고치기(성격 칸·목록), 미리 보기 셈(시작 도시·처음 인구),
+// 색 읽기 쉬움, 마크 자르기 셈. 계산만 하는 순수 함수(시험: nationModel.test.ts). docs/adr/2026-11-10-nation-editor.md
+import {
+  NATION_EMBLEM_UPLOAD,
+  type NationEditorChange,
+  type NationEditorRow,
+  type NationPersonalityJson,
+  type NationPresetJson,
+  type NationSeedDefaults,
+} from "@terra/shared/nationEditor";
+import { type NationEmblemSpec, contrastOf, emblemOfId } from "@terra/shared/nationEmblem";
+import { mergeThreeWay } from "../content/contentEditorModel.ts";
+
+/** 국가 하나의 담은 변경: 고친 항목 통째 또는 팩 값으로 되돌리기. base·baseHash = 고치기 시작할 때의 실효 항목·해시 */
+export type StagedNation =
+  | {
+      readonly op: "put";
+      readonly entry: NationPresetJson;
+      readonly base: NationPresetJson;
+      readonly baseHash: string;
+    }
+  | { readonly op: "revert"; readonly base: NationPresetJson; readonly baseHash: string };
+
+export interface NationStage {
+  readonly nations: ReadonlyMap<string, StagedNation>;
+  /** 버릴 잠든 줄(국가 ID) */
+  readonly discard: ReadonlySet<string>;
+}
+
+export const EMPTY_NATION_STAGE: NationStage = { nations: new Map(), discard: new Set() };
+
+/** 국가 하나의 담음을 바꾼다(null = 뺀다) */
+export function stageNation(stage: NationStage, id: string, next: StagedNation | null): NationStage {
+  const nations = new Map(stage.nations);
+  if (next === null) nations.delete(id);
+  else nations.set(id, next);
+  return { ...stage, nations };
+}
+
+export function stageNationDiscard(stage: NationStage, id: string, on: boolean): NationStage {
+  const discard = new Set(stage.discard);
+  if (on) discard.add(id);
+  else discard.delete(id);
+  return { ...stage, discard };
+}
+
+export const nationStageKeys = (stage: NationStage): string[] => [
+  ...stage.nations.keys(),
+  ...[...stage.discard].map((id) => `sleeping/${id}`),
+];
+
+/** 담은 변경 → 서버 묶음 */
+export function nationChangesOf(stage: NationStage): NationEditorChange[] {
+  const changes: NationEditorChange[] = [];
+  for (const [id, staged] of stage.nations) {
+    if (staged.op === "put") changes.push({ op: "put", entry: staged.entry, baseHash: staged.baseHash });
+    else changes.push({ op: "revert", id, baseHash: staged.baseHash });
+  }
+  for (const id of stage.discard) changes.push({ op: "discard_sleeping", id });
+  return changes;
+}
+
+/** 서버에 보낼 묶음: 초안의 빈 선택 칸을 뺀다(초안에는 치는 글자를 그대로 둔다) */
+export const nationBatchOf = (stage: NationStage): NationEditorChange[] =>
+  nationChangesOf(stage).map((change) =>
+    change.op === "put" ? { ...change, entry: cleanNation(change.entry) } : change,
+  );
+
+function cleanPersonality(p: NationPersonalityJson): NationPersonalityJson | undefined {
+  const out: NationPersonalityJson = {
+    ...(p.startCities === undefined ? {} : { startCities: p.startCities }),
+    ...(p.cityJobs && p.cityJobs.length > 0
+      ? { cityJobs: p.cityJobs.map((job) => ({ facility: job.facility, recipe: job.recipe })) }
+      : {}),
+    ...(p.startNecessityHours === undefined ? {} : { startNecessityHours: p.startNecessityHours }),
+    ...(p.startStock && p.startStock.length > 0
+      ? { startStock: p.startStock.map((stack) => ({ item: stack.item, qty: stack.qty })) }
+      : {}),
+    ...(p.startHousing === undefined ? {} : { startHousing: p.startHousing }),
+    ...(p.startPopulationPm === undefined ? {} : { startPopulationPm: p.startPopulationPm }),
+    ...(p.startFarms === undefined ? {} : { startFarms: p.startFarms }),
+    ...(p.startLumberCamps === undefined ? {} : { startLumberCamps: p.startLumberCamps }),
+    ...(p.startMines === undefined ? {} : { startMines: p.startMines }),
+    ...(p.startStorehouses === undefined ? {} : { startStorehouses: p.startStorehouses }),
+  };
+  return Object.keys(out).length === 0 ? undefined : out;
+}
+
+/**
+ * 선택 칸 중 빈 것을 뺀 JSON(팩 줄과 같은 칸 차례로 견주고 보낸다 — 내보내기가 팩 파일에 그대로 들어간다). 빈 글·빈 목록은 칸째 뺀다
+ * (스키마가 빈 약어·빈 이름 목록을 받지 않는다)
+ */
+export function cleanNation(entry: NationPresetJson): NationPresetJson {
+  const personality = entry.personality ? cleanPersonality(entry.personality) : undefined;
+  const given = entry.humanNames?.given ?? [];
+  const family = entry.humanNames?.family ?? [];
+  const leader = entry.leaderName;
+  return {
+    id: entry.id,
+    name: { ko: entry.name.ko, en: entry.name.en },
+    ...(entry.shortName === undefined || entry.shortName === "" ? {} : { shortName: entry.shortName }),
+    ...(entry.color === undefined || entry.color === "" ? {} : { color: entry.color }),
+    ...(entry.emblem
+      ? {
+          emblem: {
+            shape: entry.emblem.shape,
+            division: entry.emblem.division,
+            charge: entry.emblem.charge,
+            scheme: entry.emblem.scheme,
+          },
+        }
+      : {}),
+    ...(entry.nameStyle === undefined ? {} : { nameStyle: entry.nameStyle }),
+    currency: {
+      code: entry.currency.code,
+      name: { ko: entry.currency.name.ko, en: entry.currency.name.en },
+      ...(entry.currency.symbol === undefined || entry.currency.symbol === ""
+        ? {}
+        : { symbol: entry.currency.symbol }),
+      ...(entry.currency.ticker === undefined || entry.currency.ticker === ""
+        ? {}
+        : { ticker: entry.currency.ticker }),
+    },
+    tradeTaxBp: entry.tradeTaxBp,
+    ...(personality ? { personality } : {}),
+    ...(entry.cityNames && entry.cityNames.length > 0 ? { cityNames: [...entry.cityNames] } : {}),
+    ...(leader && (leader.ko !== "" || leader.en !== "")
+      ? { leaderName: { ko: leader.ko, en: leader.en } }
+      : {}),
+    ...(given.length > 0
+      ? { humanNames: { given: [...given], ...(family.length > 0 ? { family: [...family] } : {}) } }
+      : {}),
+    enabled: entry.enabled,
+  };
+}
+
+/** 성격 칸 하나를 바꾼다(undefined = 그 칸을 뺀다 — 설정 칸 기본값을 쓴다) */
+export function setPersonality<K extends keyof NationPersonalityJson>(
+  entry: NationPresetJson,
+  key: K,
+  value: NationPersonalityJson[K],
+): NationPresetJson {
+  const next: NationPersonalityJson = { ...entry.personality, [key]: value };
+  return { ...entry, personality: next };
+}
+
+/** 목록의 한 줄을 위·아래로 옮긴다(끝을 넘으면 그대로) */
+export function moveItem<T>(list: readonly T[], index: number, by: -1 | 1): T[] {
+  const to = index + by;
+  const out = [...list];
+  const item = out[index];
+  const other = out[to];
+  if (item === undefined || other === undefined) return out;
+  out[index] = other;
+  out[to] = item;
+  return out;
+}
+
+/** 목록 끝에 겹치지 않는 이름만 붙인다(상한까지) */
+export function appendUnique(list: readonly string[], names: readonly string[], max: number): string[] {
+  const out = [...list];
+  for (const name of names) {
+    if (out.length >= max) break;
+    if (!out.includes(name)) out.push(name);
+  }
+  return out;
+}
+
+/** 이 국가의 마크 사양(칸이 없으면 ID로 정해지는 기본 마크) */
+export const emblemOf = (entry: NationPresetJson): NationEmblemSpec => entry.emblem ?? emblemOfId(entry.id);
+
+/** 색 칸이 없을 때 미리 보기에 쓰는 회색 */
+export const FALLBACK_COLOR = "#888888";
+export const colorOf = (entry: NationPresetJson): string => entry.color ?? FALLBACK_COLOR;
+
+/** 이 국가가 실제로 받을 시작 수(국가 칸 → 설정 칸 기본값) */
+export interface NationStartCounts {
+  /** 시작 도시 수(설정 칸 아래 끝~위 끝 안으로 자른 값) */
+  readonly cities: number;
+  /** 새 시작 도시 하나의 주거 */
+  readonly housing: number;
+  /** 시작 도시 하나의 처음 인구 = ⌊주거 × 천분율 ÷ 1000⌋ */
+  readonly population: number;
+  /** 나라 전체 처음 인구 */
+  readonly totalPopulation: number;
+  /** 시작 도시 하나의 기본 시설 수(행정 건물 1 + 창고 + 채집 시설 — 채집 시설은 둘레 땅에 맞는 것만 선다, 여기는 위 끝) */
+  readonly facilities: number;
+}
+
+export function startCountsOf(entry: NationPresetJson, defaults: NationSeedDefaults): NationStartCounts {
+  const p = entry.personality ?? {};
+  const low = Math.min(defaults.startCitiesMin, defaults.startCitiesMax);
+  const high = Math.max(defaults.startCitiesMin, defaults.startCitiesMax);
+  const cities = p.startCities === undefined ? low : Math.max(low, Math.min(high, Math.trunc(p.startCities)));
+  const housing = p.startHousing ?? defaults.housing;
+  const population = Math.max(
+    0,
+    Math.floor((housing * (p.startPopulationPm ?? defaults.populationPm)) / 1000),
+  );
+  const facilities =
+    1 +
+    (p.startStorehouses ?? defaults.storehouses) +
+    (p.startFarms ?? defaults.farms) +
+    (p.startLumberCamps ?? defaults.lumberCamps) +
+    (p.startMines ?? defaults.mines);
+  return { cities, housing, population, totalPopulation: population * cities, facilities };
+}
+
+/** 지도 바탕 두 가지(밝은 테마·어두운 테마의 지도 판) — 색 표지가 구별되는지 보는 기준 [임시] */
+export const MAP_LIGHT = "#f4f1ea";
+export const MAP_DARK = "#12161c";
+/** 표지 위 글 색 후보 */
+const TEXT_LIGHT = "#ffffff";
+const TEXT_DARK = "#111418";
+/** 이 대비보다 낮으면 지도 바탕과 구별이 어렵다고 알린다 */
+export const COLOR_MIN_CONTRAST = 1.6;
+
+export interface ColorReadability {
+  /** 색 표지 위에 놓을 글 색(더 대비되는 쪽) */
+  readonly text: string;
+  /** 글과 색의 대비 */
+  readonly textContrast: number;
+  /** 밝은 지도 바탕·어두운 지도 바탕과의 대비 */
+  readonly onLight: number;
+  readonly onDark: number;
+  /** 두 바탕 모두와 구별되는가 */
+  readonly ok: boolean;
+}
+
+/** 시그니처 컬러가 지도 이름표에서 읽기 쉬운가(표지 위 글 색·지도 바탕과의 대비) */
+export function colorReadability(color: string): ColorReadability {
+  const light = contrastOf(color, TEXT_LIGHT);
+  const dark = contrastOf(color, TEXT_DARK);
+  const onLight = contrastOf(color, MAP_LIGHT);
+  const onDark = contrastOf(color, MAP_DARK);
+  return {
+    text: light >= dark ? TEXT_LIGHT : TEXT_DARK,
+    textContrast: Math.max(light, dark),
+    onLight,
+    onDark,
+    ok: Math.min(onLight, onDark) >= COLOR_MIN_CONTRAST,
+  };
+}
+
+/** 고르기 판의 색(두 지도 바탕 모두와 대비 2 이상인 중간 밝기 색 — 시험이 본다) */
+export const READABLE_COLORS = [
+  "#c0392b",
+  "#d35400",
+  "#b9770e",
+  "#8a7a12",
+  "#5d8a1e",
+  "#27ae60",
+  "#16a085",
+  "#0f8fa8",
+  "#2980b9",
+  "#0984e3",
+  "#4a69bd",
+  "#6c5ce7",
+  "#8e44ad",
+  "#b03a94",
+  "#e84393",
+  "#c2185b",
+  "#a04848",
+  "#8d6e63",
+  "#607d8b",
+  "#5f6f52",
+] as const;
+
+/** 금액 보기(미리 보기): 기호 + 자리 나눈 수 + 약어 */
+export function currencySample(entry: NationPresetJson, amount: number, locale: string): string {
+  const number = new Intl.NumberFormat(locale).format(amount);
+  const symbol = entry.currency.symbol ?? "";
+  const ticker = entry.currency.ticker ?? "";
+  return `${symbol === "" ? "" : `${symbol} `}${number}${ticker === "" ? "" : ` ${ticker}`}`;
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+const isName = (value: unknown): boolean =>
+  isObject(value) && typeof value.ko === "string" && typeof value.en === "string";
+
+/** 국가 프리셋 JSON의 꼭 있어야 하는 칸이 있는가(합친 결과를 다시 쓸 때 본다) */
+export function isNationJson(value: unknown): value is NationPresetJson {
+  return (
+    isObject(value) &&
+    typeof value.id === "string" &&
+    isName(value.name) &&
+    isObject(value.currency) &&
+    typeof value.currency.code === "string" &&
+    isName(value.currency.name) &&
+    typeof value.tradeTaxBp === "number" &&
+    typeof value.enabled === "boolean"
+  );
+}
+
+/**
+ * 그새 누가 같은 국가를 바꿨다(entry_changed): 내가 바꾼 칸만 새 항목 위에 다시 얹는다. 새 항목과 같아지면 담음에서 뺀다(null).
+ * conflicts = 양쪽이 다르게 바꾼 칸(내 값을 넣었다)
+ */
+export function rebaseNation(
+  mine: StagedNation,
+  latest: NationEditorRow,
+): { next: StagedNation | null; conflicts: readonly string[] } {
+  if (mine.op === "revert")
+    return { next: { op: "revert", base: latest.entry, baseHash: latest.hash }, conflicts: [] };
+  const result = mergeThreeWay(mine.base, mine.entry, latest.entry);
+  const merged = cleanNation(isNationJson(result.merged) ? result.merged : mine.entry);
+  const same = JSON.stringify(merged) === JSON.stringify(cleanNation(latest.entry));
+  return {
+    next: same ? null : { op: "put", entry: merged, base: latest.entry, baseHash: latest.hash },
+    conflicts: result.conflicts,
+  };
+}
+
+// ── 마크 자르기 ──────────────────────────────────────────────────────────────
+
+/** 자르기 상태: 확대(1 = 짧은 변 전체), 자를 정사각의 가운데(원본 px) */
+export interface CropState {
+  readonly zoom: number;
+  readonly cx: number;
+  readonly cy: number;
+}
+
+export const CROP_ZOOM = { min: 1, max: 8, step: 0.1 } as const;
+
+/** 처음 상태: 가운데, 짧은 변 전체 */
+export const initialCrop = (width: number, height: number): CropState => ({
+  zoom: 1,
+  cx: width / 2,
+  cy: height / 2,
+});
+
+/** 자를 정사각(원본 px): 한 변 = 짧은 변 ÷ 확대. 그림 밖으로 나가지 않게 가운데를 자른다 */
+export function cropRect(
+  width: number,
+  height: number,
+  state: CropState,
+): { sx: number; sy: number; size: number } {
+  const zoom = Math.max(CROP_ZOOM.min, Math.min(CROP_ZOOM.max, state.zoom));
+  const size = Math.max(1, Math.min(width, height) / zoom);
+  const half = size / 2;
+  const cx = Math.max(half, Math.min(width - half, state.cx));
+  const cy = Math.max(half, Math.min(height - half, state.cy));
+  return { sx: cx - half, sy: cy - half, size };
+}
+
+/** 가운데·확대를 범위 안으로 맞춘 상태 */
+export function clampCrop(width: number, height: number, state: CropState): CropState {
+  const zoom = Math.max(CROP_ZOOM.min, Math.min(CROP_ZOOM.max, state.zoom));
+  const rect = cropRect(width, height, { ...state, zoom });
+  return { zoom, cx: rect.sx + rect.size / 2, cy: rect.sy + rect.size / 2 };
+}
+
+/** 보기 칸(한 변 view px)에서 dx·dy px 끌었을 때: 그림이 손가락을 따라가게 가운데를 반대로 옮긴다 */
+export function dragCrop(
+  width: number,
+  height: number,
+  state: CropState,
+  dx: number,
+  dy: number,
+  view: number,
+): CropState {
+  const { size } = cropRect(width, height, state);
+  const scale = size / Math.max(1, view);
+  return clampCrop(width, height, { ...state, cx: state.cx - dx * scale, cy: state.cy - dy * scale });
+}
+
+/** 확대를 바꾼다(가운데는 그대로, 범위 안으로) */
+export const zoomCrop = (width: number, height: number, state: CropState, zoom: number): CropState =>
+  clampCrop(width, height, { ...state, zoom });
+
+/**
+ * RGBA 화소의 색 단계를 줄인다(채널마다 levels 단계 — PNG가 잘 줄게). 올릴 그림이 바이트 상한을 넘을 때만 쓴다. 알파는 그대로
+ */
+export function posterize(data: Uint8ClampedArray, levels: number): void {
+  const step = 255 / Math.max(1, levels - 1);
+  for (let i = 0; i < data.length; i += 4)
+    for (let c = 0; c < 3; c++) data[i + c] = Math.round(Math.round((data[i + c] ?? 0) / step) * step);
+}
+
+/** 색 단계를 줄여 보는 차례(처음은 그대로) */
+export const POSTERIZE_STEPS = [0, 64, 32, 16, 8] as const;
+
+export const EMBLEM_SIZE = NATION_EMBLEM_UPLOAD.size;
+export const EMBLEM_MAX_BYTES = NATION_EMBLEM_UPLOAD.maxBytes;

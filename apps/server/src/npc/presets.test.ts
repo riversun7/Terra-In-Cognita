@@ -4,7 +4,8 @@ import { loadContentPack } from "@terra/content/node";
 import { START_WORLD_SEED } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
-import { nationSeedOf } from "./nations.ts";
+import { syncNationNames } from "../ranking/paths.ts";
+import { nationEmblemOf, nationSeedOf } from "./nations.ts";
 import { createLivePresets, nationPresetsFrom, nationPresetsOf } from "./presets.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
@@ -138,5 +139,33 @@ describe("createLivePresets", () => {
     expect(live.list).toBe(list);
     expect(list[0]?.name.ko).toBe("새 이름");
     expect(list).toHaveLength(16);
+  });
+});
+
+describe("실효 목록을 따르는 것들", () => {
+  it("랭킹 판 세력 이름 표를 제자리에서 다시 채운다(국가 1 = 16번째 프리셋)", () => {
+    const names = new Map<string, { ko: string; en: string }>([["old_code", { ko: "옛", en: "Old" }]]);
+    syncNationNames(names, nationPresetsFrom(entries));
+    expect(names.has("old_code")).toBe(false);
+    expect(names.get("placeholder_nation_01")?.ko).toBe("메리데일");
+    expect(names.get("s3_test_npc")?.ko).toBe("칼루누이");
+  });
+
+  it("세력 코드 → 국가 마크(사양·색·프리셋 ID). 시험 NPC 세력은 16번째 프리셋", () => {
+    const presets = nationPresetsFrom(entries);
+    expect(nationEmblemOf("placeholder_nation_02", presets)).toEqual({
+      preset: "placeholder_nation_02",
+      spec: { shape: "circle", division: "border", charge: "leaf", scheme: 1 },
+      color: "#2980b9",
+    });
+    expect(nationEmblemOf("s3_test_npc", presets)?.preset).toBe("placeholder_nation_16");
+    expect(nationEmblemOf("unknown_code", presets)).toBeUndefined();
+    // 마크 칸이 없는 프리셋은 ID로 정해지는 기본 마크
+    const first = presets[0];
+    if (!first) throw new Error("no preset");
+    const { emblem: _emblem, ...bare } = first;
+    const fallback = nationEmblemOf(first.code, [bare]);
+    expect(fallback?.spec).toEqual(nationEmblemOf(first.code, [bare])?.spec);
+    expect(fallback?.spec.shape).toBeDefined();
   });
 });

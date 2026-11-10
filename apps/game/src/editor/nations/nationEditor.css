@@ -1,0 +1,470 @@
+/*
+ * 시작 국가 설정(/dev/nations) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 촘촘(data-density="compact").
+ * 개발 화면 층(ADR 2026-11-02-dev-ui): 표는 공용 .dev-table, 표지는 .dev-badge·.ce-badge.
+ * 틀(머리 칩·목록·편집 판 두 칸·담은 변경 막대)은 공용 editor/content/contentEditorShell.css. 조각 NationEditorScreen-*와 함께 내려온다.
+ * 국가 색·지도 바탕 색은 그림 자료라 style 속성으로 넣는다(여기에는 색 값을 적지 않는다).
+ */
+.ne-screen {
+  min-width: 0;
+}
+.ne-plain-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── 목록 ── */
+.ne-list {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ne-list-count {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.ne-list-rows {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ne-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--dev-touch-tap);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-inline-start: var(--focus-w) solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ne-item:hover {
+  background: var(--dev-row-hover);
+}
+.ne-item[aria-current="true"] {
+  background: var(--dev-row-selected);
+  border-color: var(--color-focus);
+}
+.ne-item[data-changed] {
+  border-inline-start-color: var(--color-warning);
+}
+.ne-item[data-staged] {
+  border-inline-start-color: var(--color-focus);
+}
+.ne-item-main {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.ne-item-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.ne-item-name-text {
+  min-width: 0;
+}
+.ne-item-summary {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.ne-item-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.ne-item-badges:empty {
+  display: none;
+}
+
+/* 색 표지(국가 시그니처 컬러 — 배경은 style 속성) */
+.ne-chip {
+  display: inline-block;
+  flex: none;
+  inline-size: var(--space-3);
+  block-size: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+}
+
+/* ── 편집 판 ── */
+.ne-detail {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.ne-issues {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+.ne-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-3);
+  align-items: start;
+  min-width: 0;
+}
+.ne-subtitle {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.ne-future {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: var(--focus-w) solid var(--color-warning);
+  background: var(--color-warning-surface);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+}
+.ne-computed {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.ne-locked {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ne-fixed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.ne-fixed > div {
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.ne-fixed dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.ne-fixed dd {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+}
+
+/* ── 미리 보기 ── */
+.ne-preview-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.ne-preview-emblems {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.ne-preview-text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+.ne-preview-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-lg);
+  overflow-wrap: anywhere;
+}
+.ne-preview-short {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.ne-preview-line {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.ne-preview-money {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.ne-preview-maps {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ne-map-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.ne-color-warn {
+  margin: 0;
+  color: var(--color-warning);
+}
+
+/* ── 색 고르기 ── */
+.ne-color {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.ne-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.ne-swatch {
+  inline-size: var(--dev-touch-tap);
+  block-size: var(--dev-touch-tap);
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 0;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.ne-swatch[aria-pressed="true"] {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--hairline);
+}
+
+/* ── 이름 만들기 ── */
+.ne-namegen {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  min-width: 0;
+}
+.ne-namegen-panel {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+}
+.ne-namegen-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ne-namegen-pick {
+  min-height: var(--dev-touch-tap);
+  padding: var(--space-1) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+.ne-namegen-pick:hover {
+  border-color: var(--color-focus);
+}
+
+/* ── 이름 목록·줄 목록 ── */
+.ne-names,
+.ne-rows {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.ne-names-count {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.ne-names-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ne-names-row,
+.ne-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.ne-row {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.ne-row > .ce-field {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+.ne-names-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--dev-touch-tap);
+}
+
+/* ── 국가 마크 ── */
+.ne-emblem {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.ne-emblem-show {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.ne-emblem-figure {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.ne-emblem[data-uploaded] .ne-emblem-made {
+  opacity: 0.5;
+}
+.ne-emblem-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+  gap: var(--space-3);
+}
+.ne-emblem-file {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--dev-touch-tap);
+  cursor: pointer;
+}
+.ne-emblem-file:focus-within {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* ── 자르기 ── */
+.ne-cropper {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-focus);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  min-width: 0;
+}
+.ne-cropper-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.ne-cropper-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-start;
+  min-width: 0;
+}
+.ne-cropper-view {
+  inline-size: min(100%, 20rem);
+  block-size: auto;
+  aspect-ratio: 1;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  cursor: grab;
+  touch-action: none;
+}
+.ne-cropper-view:active {
+  cursor: grabbing;
+}
+.ne-cropper-view:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.ne-cropper-side {
+  display: grid;
+  gap: var(--space-2);
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.ne-cropper-zoom {
+  inline-size: 100%;
+  min-height: var(--dev-touch-tap);
+}
+.ne-cropper-previews {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+.ne-cropper-small {
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+/* ── 이 세계에 반영 ── */
+.ne-apply {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ne-apply-summary {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+}
+.ne-apply-table {
+  width: 100%;
+}
+.ne-apply-table td {
+  overflow-wrap: anywhere;
+}
+.ne-apply-table tr[data-action="same"] td {
+  color: var(--color-text-muted);
+}
+.ne-apply-table tr[data-action="update"] td:nth-child(4) {
+  font-weight: var(--font-weight-strong);
+}

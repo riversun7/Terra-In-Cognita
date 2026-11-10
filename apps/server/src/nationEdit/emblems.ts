@@ -42,12 +42,15 @@ export async function loadEmblemInfo(pool: EmblemQueryable): Promise<Map<string,
   );
 }
 
+/** 줄을 글자 표로 읽는 조회(세계 저장 풀 QueryPool·시험 연결과 같은 모양) */
+export interface RowQueryable {
+  query(text: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
+}
+
 /** 프리셋 ID → 올린 마크 해시(게임 화면 조회용) */
-export async function loadEmblemHashes(pool: EmblemQueryable): Promise<Map<string, string>> {
-  const { rows } = await pool.query<{ preset_id: string; sha256: string }>(
-    "select preset_id, sha256 from nation_emblems",
-  );
-  return new Map(rows.map((row) => [row.preset_id, row.sha256]));
+export async function loadEmblemHashes(pool: RowQueryable): Promise<Map<string, string>> {
+  const { rows } = await pool.query("select preset_id, sha256 from nation_emblems");
+  return new Map(rows.map((row) => [String(row.preset_id), String(row.sha256)]));
 }
 
 /** 마크를 넣거나 바꾼다. 앞 해시(없었으면 null)를 돌려준다 */

@@ -129,6 +129,7 @@ export default defineConfig({
           "assets/[Bb]uildingEditor*.{js,css}",
           "assets/[Gg]atherTier*.{js,css}",
           "assets/[Cc]reatureEditor*.{js,css}",
+          "assets/[Nn]ationEditor*.{js,css}",
           "assets/[Tt]erritoryLab*.{js,css}",
           "assets/[Cc]ontentEditor*.{js,css}",
           "assets/[Bb]attleReplayLab*.{js,css}",

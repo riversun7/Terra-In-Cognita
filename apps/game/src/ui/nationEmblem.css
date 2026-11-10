@@ -1,0 +1,11 @@
+/* 국가 마크(ui/NationEmblem.tsx): 글 곁에 놓이는 작은 그림 */
+.nation-emblem {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+}
+
+.nation-emblem-image {
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}

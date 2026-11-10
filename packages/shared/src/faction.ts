@@ -7,6 +7,8 @@
 // [임시] 표시가 있는 값은 기획에 값이 없어 기술이 정한 기본안이다(docs/questions/2026-10-31-ui-faction-mail.md, 질문 153~162).
 // 기획 답 D-443(2026-10-31)이 기본안(가)을 받았다. 수치는 설정값(49)이고, 값이 없는 것만 [임시]로 남긴다.
 
+import type { NationEmblemView } from "./nationEditor.ts";
+
 /** 사람이 지은 이름이 아닌 것(아이템 등)의 두 언어 이름 — 콘텐츠 팩 이름과 같은 모양 */
 export interface LocalizedName {
   readonly ko: string;
@@ -294,6 +296,8 @@ export interface FactionSummary {
   readonly label?: LocalizedName | null;
   /** 지도자 이름(NPC 국가 지도자 사이보그, 팩 국가 프리셋 leaderName). 있으면 기기는 leader 대신 이것을 보인다 */
   readonly leaderName?: LocalizedName | null;
+  /** 국가 마크(팩 국가 프리셋의 만든 마크 사양·색, 올린 그림 해시 — docs/adr/2026-11-10-nation-editor.md 4절). 없으면 기본 표식 */
+  readonly emblem?: NationEmblemView | null;
   readonly memberCount: number;
   readonly cityCount: number;
   /** 내가 들어온 시각(서버 ms) */

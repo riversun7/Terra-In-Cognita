@@ -208,7 +208,9 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 국가 지도자·정부 판 (DB)", () 
     // 이 시험 세계는 도시 경제 입력이 없어 세율을 모른다(경제가 도는 서버는 그 나라 세율 — reads.test.ts)
     expect(answer.nation?.taxBp).toBeNull();
     expect(answer.leader?.here).toBe(true);
-    expect(answer.leader?.name?.ko).toMatch(/지도자/);
+    // 지도자 이름 = 그 국가 프리셋의 leaderName(팩 가상 이름, core@61)
+    expect(answer.leader?.name).toEqual(presetOfCode(String(capitalCode), presets)?.leaderName);
+    expect(answer.leader?.name?.ko).not.toMatch(/임시/);
     const farm = await rows<{ building_id: string }>(
       test.db,
       `select building_id from world_facilities where facility_id = 'farm' limit 1`,
@@ -247,7 +249,8 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 국가 지도자·정부 판 (DB)", () 
     expect(real.faction?.leaderUnit).toBe(
       Number(first.find((row) => row.faction_id === capital.faction_id)?.id),
     );
-    expect(real.faction?.leaderName?.ko).toMatch(/지도자/);
+    expect(real.faction?.leaderName).toEqual(nationLeaderName(String(real.faction?.code), presets));
+    expect(real.faction?.leaderName?.ko.length ?? 0).toBeGreaterThan(0);
     expect(real.faction?.label?.ko.length ?? 0).toBeGreaterThan(0);
 
     // 다시 켜도 그대로(같은 유닛, 더 세우지 않음)

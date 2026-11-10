@@ -1,31 +1,48 @@
 // 누른 곳 찾기 — 순수 코드(시험 대상).
-// - 유닛: 화면에 투영한 점 가운데 누른 곳에서 가장 가까운 것(화면 거리). 실제 크기 유닛은 작아서 누르는 반경을 넉넉히 둔다.
+// - 유닛: 화면에 투영한 점 가운데 누른 곳에서 가장 가까운 것(화면 거리). 내 유닛은 반경을 넉넉히, 남의 유닛은 몸 위를 눌렀을 때만(pickUnit).
 // - 땅: 시선을 따라 높이 지도(heightAt) 아래로 들어가는 첫 점(일정 간격으로 걷고 이분법으로 좁힌다).
 // - 건물: 조각마다 축 정렬 상자와 시선이 만나는 거리(rayBoxDistance, buildings/buildingView.ts pick).
 import type { GroundPoint, ScreenPoint, Vec3 } from "./camera/cameraMath.ts";
 
+/** 넉넉한 누르기 반경(CSS px) — 누름 영역 44px의 반. 내 유닛(넉넉히 고르는 유닛)에 쓴다. 몸 높이의 반을 더한다 */
+export const WIDE_TAP_RADIUS_PX = 22;
+/** 몸 누르기: 화면에 보이는 몸 상자 둘레로 더 받아 주는 거리(CSS px) — 손가락 오차 */
+export const BODY_TAP_MARGIN_PX = 6;
+/** 몸 누르기: 몸이 작게 보여도(먼 확대·점 표시) 받는 가장 작은 반 너비·반 높이(CSS px) — 28px 네모 */
+export const BODY_TAP_MIN_HALF_PX = 14;
+
 /**
- * 누른 곳(tap)에서 radius(CSS px) 안의 가장 가까운 점 번호. 없으면 -1.
- * visible[i]가 0인 점(카메라 뒤 등)은 보지 않는다. extra[i]가 있으면 그 점만 반경을 더 넓힌다(크게 보이는 유닛).
+ * 누른 유닛 찾기(사용자 지적 2026-11-10 "다른 유닛 클릭 후 이동지역 클릭시 무시하고 본인 유닛이 이동하게 하라",
+ * docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-10)"): 유닛마다 누르기 규칙이 둘이다.
+ * - 넉넉히(wide[i] ≠ 0, 내 유닛): 몸 가운데에서 WIDE_TAP_RADIUS_PX + 몸 반 높이 안(앞 규칙 그대로 — 작은 내 유닛도 쉽게 고른다).
+ * - 몸(그 밖, 남의 유닛): 누른 곳이 몸 상자(반 너비 halfW·반 높이 halfH) + BODY_TAP_MARGIN_PX 안일 때만. 상자가 작으면
+ *   BODY_TAP_MIN_HALF_PX까지 키운다. 빗나간 누르기는 유닛이 아니라 땅 누르기가 된다(이동이 쉽게).
+ * 규칙에 든 유닛 가운데 몸 가운데가 가장 가까운 것의 번호. 없으면 -1. visible[i]가 0인 점은 보지 않는다
  */
-export function pickNearest(
+export function pickUnit(
   xs: ArrayLike<number>,
   ys: ArrayLike<number>,
   visible: ArrayLike<number>,
   count: number,
   tap: ScreenPoint,
-  radius: number,
-  extra?: ArrayLike<number>,
+  halfW: ArrayLike<number>,
+  halfH: ArrayLike<number>,
+  wide: ArrayLike<number>,
 ): number {
   let best = -1;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (let i = 0; i < count; i++) {
     if (!visible[i]) continue;
-    const dx = (xs[i] ?? 0) - tap.x;
-    const dy = (ys[i] ?? 0) - tap.y;
+    const dx = Math.abs((xs[i] ?? 0) - tap.x);
+    const dy = Math.abs((ys[i] ?? 0) - tap.y);
     const distance = Math.hypot(dx, dy);
-    const limit = radius + (extra?.[i] ?? 0);
-    if (distance <= limit && distance < bestDistance) {
+    if (distance >= bestDistance) continue;
+    const bodyH = halfH[i] ?? 0;
+    const hit = wide[i]
+      ? distance <= WIDE_TAP_RADIUS_PX + bodyH
+      : dx <= Math.max(BODY_TAP_MIN_HALF_PX, (halfW[i] ?? 0) + BODY_TAP_MARGIN_PX) &&
+        dy <= Math.max(BODY_TAP_MIN_HALF_PX, bodyH + BODY_TAP_MARGIN_PX);
+    if (hit) {
       best = i;
       bestDistance = distance;
     }

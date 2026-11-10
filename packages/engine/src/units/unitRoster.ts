@@ -3,15 +3,12 @@
 import { type Camera, Vector3 } from "three";
 import { type CameraState, type ScreenPoint, type Viewport, pixelsPerMetre } from "../camera/cameraMath.ts";
 import type { UnitSpawn, UnitState } from "../engineTypes.ts";
-import { pickNearest } from "../picking.ts";
+import { pickUnit } from "../picking.ts";
 import { type UnitPath, UnitMotionStore } from "./unitMotion.ts";
 import type { UnitLook, UnitView } from "./unitView.ts";
 
-/** 누르는 반경(CSS px) — 누름 영역 44px의 반 */
-const TAP_RADIUS_PX = 22;
-
-/** 명단이 쓰는 유닛 그림 부분(칸 수·모습·키·표현 단계) */
-export type RosterUnitView = Pick<UnitView, "mode" | "setCount" | "setLook" | "heightOf">;
+/** 명단이 쓰는 유닛 그림 부분(칸 수·모습·키·몸 반지름·표현 단계) */
+export type RosterUnitView = Pick<UnitView, "mode" | "setCount" | "setLook" | "heightOf" | "radiusOf">;
 
 /** 누른 유닛을 찾을 때 쓰는 지금 화면 값 */
 export interface UnitPickView {
@@ -31,12 +28,14 @@ export class UnitRoster {
   private readonly now: () => number;
   private readonly slots = new Map<number, number>();
   private ids: number[] = [];
-  // 누르기 계산 버퍼(유닛마다 화면 자리·보이는지·늘린 반경)
+  // 누르기 계산 버퍼(유닛마다 화면 자리·보이는지·화면의 몸 반 높이·반 너비·넉넉히 고르는지)
   private readonly projected = new Vector3();
   private readonly screenX: Float32Array;
   private readonly screenY: Float32Array;
   private readonly onScreen: Uint8Array;
-  private readonly pickExtra: Float32Array;
+  private readonly pickHalfH: Float32Array;
+  private readonly pickHalfW: Float32Array;
+  private readonly pickWide: Uint8Array;
 
   /** now = 서버 시계(ms, 유닛 경로의 출발 시각과 같은 시계) */
   constructor(view: RosterUnitView, capacity: number, now: () => number) {
@@ -47,7 +46,9 @@ export class UnitRoster {
     this.screenX = new Float32Array(capacity);
     this.screenY = new Float32Array(capacity);
     this.onScreen = new Uint8Array(capacity);
-    this.pickExtra = new Float32Array(capacity);
+    this.pickHalfH = new Float32Array(capacity);
+    this.pickHalfW = new Float32Array(capacity);
+    this.pickWide = new Uint8Array(capacity);
   }
 
   /** 명단을 통째로 바꾼다: 모두 그 자리에 서 있고 고른 유닛은 없다 */
@@ -121,8 +122,11 @@ export class UnitRoster {
     return true;
   }
 
-  /** 누른 곳(CSS px)에서 가장 가까운 유닛 슬롯(화면 거리). 없으면 -1 */
-  pick(point: ScreenPoint, at: UnitPickView): number {
+  /**
+   * 누른 곳(CSS px)의 유닛 슬롯. 없으면 -1. wide(유닛 id) = 넉넉한 반경으로 고르는 유닛(내 유닛) — 그 밖은 화면의 몸 위를 눌렀을 때만
+   * (picking.ts pickUnit). wide가 없으면 모두 넉넉히(앞 규칙)
+   */
+  pick(point: ScreenPoint, at: UnitPickView, wide?: (unitId: number) => boolean): number {
     const n = this.motion.size;
     const ppm = pixelsPerMetre(at.state.distance, at.viewport);
     const model = this.view.mode === "model";
@@ -135,9 +139,21 @@ export class UnitRoster {
       this.onScreen[slot] = visible ? 1 : 0;
       this.screenX[slot] = ((this.projected.x + 1) / 2) * at.viewport.width;
       this.screenY[slot] = ((1 - this.projected.y) / 2) * at.viewport.height;
-      // 실제 크기로 크게 보이는 유닛은 몸 전체를 누를 수 있게 반경을 늘린다
-      this.pickExtra[slot] = model ? (height * ppm * Math.cos(at.state.pitch)) / 2 : 0;
+      // 실제 크기로 크게 보이는 유닛은 몸 전체를 누를 수 있게 화면의 몸 크기를 쓴다(점 표시면 0 — 가장 작은 크기)
+      this.pickHalfH[slot] = model ? (height * ppm * Math.cos(at.state.pitch)) / 2 : 0;
+      this.pickHalfW[slot] = model ? this.view.radiusOf(slot) * ppm : 0;
+      const id = this.ids[slot];
+      this.pickWide[slot] = wide === undefined || (id !== undefined && wide(id)) ? 1 : 0;
     }
-    return pickNearest(this.screenX, this.screenY, this.onScreen, n, point, TAP_RADIUS_PX, this.pickExtra);
+    return pickUnit(
+      this.screenX,
+      this.screenY,
+      this.onScreen,
+      n,
+      point,
+      this.pickHalfW,
+      this.pickHalfH,
+      this.pickWide,
+    );
   }
 }

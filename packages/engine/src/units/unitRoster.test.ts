@@ -26,6 +26,7 @@ function fakeView(mode: UnitDisplayMode = "icon"): RosterUnitView & { count: num
       this.looks[slot] = look;
     },
     heightOf: () => 2,
+    radiusOf: () => 0.4,
   };
 }
 
@@ -95,5 +96,12 @@ describe("UnitRoster", () => {
     const at = { camera, state, viewport, cellM: 1, groundAt: () => 0 };
     expect(roster.idAt(roster.pick({ x: 200, y: 200 }, at))).toBe(9);
     expect(roster.pick({ x: 0, y: 0 }, at)).toBe(-1);
+    // 가운데 유닛에서 20px 빗나간 누르기: 넉넉히 고르는 유닛(내 유닛)이면 고르고, 아니면(남의 유닛 — 몸 위만) 땅이다
+    expect(roster.idAt(roster.pick({ x: 220, y: 200 }, at))).toBe(9);
+    expect(roster.idAt(roster.pick({ x: 220, y: 200 }, at, (id) => id === 9))).toBe(9);
+    expect(roster.pick({ x: 220, y: 200 }, at, (id) => id === 7)).toBe(-1);
+    expect(roster.pick({ x: 220, y: 200 }, at, () => false)).toBe(-1);
+    // 몸 위(가장 작은 상자 반 14px 안)는 남의 유닛도 고른다
+    expect(roster.idAt(roster.pick({ x: 210, y: 195 }, at, () => false))).toBe(9);
   });
 });

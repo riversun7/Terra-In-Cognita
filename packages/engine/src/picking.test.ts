@@ -1,26 +1,80 @@
 import { describe, expect, it } from "vitest";
-import { pickNearest, rayBoxDistance, rayHitsTerrain } from "./picking.ts";
+import {
+  BODY_TAP_MARGIN_PX,
+  BODY_TAP_MIN_HALF_PX,
+  WIDE_TAP_RADIUS_PX,
+  pickUnit,
+  rayBoxDistance,
+  rayHitsTerrain,
+} from "./picking.ts";
 
-describe("pickNearest", () => {
+describe("pickUnit", () => {
   const xs = [10, 50, 52, 200];
   const ys = [10, 50, 50, 200];
   const visible = [1, 1, 1, 1];
+  const none = [0, 0, 0, 0];
+  const allWide = [1, 1, 1, 1];
+  const allBody = [0, 0, 0, 0];
 
-  it("반경 안에서 가장 가까운 점", () => {
-    expect(pickNearest(xs, ys, visible, 4, { x: 53, y: 51 }, 22)).toBe(2);
-    expect(pickNearest(xs, ys, visible, 4, { x: 49, y: 50 }, 22)).toBe(1);
+  it("넉넉히(내 유닛): 22px 안에서 가장 가까운 유닛", () => {
+    expect(pickUnit(xs, ys, visible, 4, { x: 53, y: 51 }, none, none, allWide)).toBe(2);
+    expect(pickUnit(xs, ys, visible, 4, { x: 49, y: 50 }, none, none, allWide)).toBe(1);
+    expect(pickUnit(xs, ys, visible, 4, { x: 200, y: 200 + WIDE_TAP_RADIUS_PX }, none, none, allWide)).toBe(
+      3,
+    );
+    expect(pickUnit(xs, ys, visible, 4, { x: 200, y: 201 + WIDE_TAP_RADIUS_PX }, none, none, allWide)).toBe(
+      -1,
+    );
   });
 
-  it("반경 밖이거나 안 보이는 점은 고르지 않는다", () => {
-    expect(pickNearest(xs, ys, visible, 4, { x: 120, y: 120 }, 22)).toBe(-1);
-    expect(pickNearest(xs, ys, [1, 0, 0, 1], 4, { x: 51, y: 50 }, 22)).toBe(-1);
+  it("반경 밖이거나 안 보이는 유닛은 고르지 않는다", () => {
+    expect(pickUnit(xs, ys, visible, 4, { x: 120, y: 120 }, none, none, allWide)).toBe(-1);
+    expect(pickUnit(xs, ys, [1, 0, 0, 1], 4, { x: 51, y: 50 }, none, none, allWide)).toBe(-1);
     // count 밖은 보지 않는다
-    expect(pickNearest(xs, ys, visible, 3, { x: 200, y: 200 }, 22)).toBe(-1);
+    expect(pickUnit(xs, ys, visible, 3, { x: 200, y: 200 }, none, none, allWide)).toBe(-1);
   });
 
-  it("크게 보이는 유닛은 반경을 더 넓힌다", () => {
-    expect(pickNearest(xs, ys, visible, 4, { x: 200, y: 240 }, 22)).toBe(-1);
-    expect(pickNearest(xs, ys, visible, 4, { x: 200, y: 240 }, 22, [0, 0, 0, 30])).toBe(3);
+  it("넉넉히: 크게 보이는 유닛은 몸 반 높이만큼 반경을 넓힌다", () => {
+    expect(pickUnit(xs, ys, visible, 4, { x: 200, y: 240 }, none, none, allWide)).toBe(-1);
+    expect(pickUnit(xs, ys, visible, 4, { x: 200, y: 240 }, none, [0, 0, 0, 30], allWide)).toBe(3);
+  });
+
+  it("몸(남의 유닛): 몸 상자 + 6px 안만 — 넉넉한 반경이면 걸렸을 빗나간 누르기는 유닛이 아니다", () => {
+    // 최대 확대의 휴먼(412×915 화면, 1m ≈ 10.3px, 기울기 30°): 몸 반 너비 3px·반 높이 8px → 가장 작은 상자(반 14px)
+    const halfW = [3, 3, 3, 3];
+    const halfH = [8, 8, 8, 8];
+    expect(pickUnit(xs, ys, visible, 4, { x: 200, y: 200 }, halfW, halfH, allBody)).toBe(3);
+    expect(pickUnit(xs, ys, visible, 4, { x: 214, y: 214 }, halfW, halfH, allBody)).toBe(3);
+    // 옆으로 15px, 위로 20px: 옛 반경(22 + 8 = 30px) 안이지만 몸 밖 → 땅
+    expect(pickUnit(xs, ys, visible, 4, { x: 215, y: 200 }, halfW, halfH, allBody)).toBe(-1);
+    expect(pickUnit(xs, ys, visible, 4, { x: 200, y: 180 }, halfW, halfH, allBody)).toBe(-1);
+    expect(pickUnit(xs, ys, visible, 4, { x: 200, y: 180 }, halfW, halfH, allWide)).toBe(3);
+  });
+
+  it("몸: 점 표시(몸 크기 0)도 가장 작은 상자(28px 네모)로 받는다", () => {
+    expect(BODY_TAP_MIN_HALF_PX).toBe(14);
+    expect(pickUnit(xs, ys, visible, 4, { x: 10 + 14, y: 10 - 14 }, none, none, allBody)).toBe(0);
+    expect(pickUnit(xs, ys, visible, 4, { x: 10 + 15, y: 10 }, none, none, allBody)).toBe(-1);
+  });
+
+  it("몸: 큰 유닛은 보이는 몸(너비·높이가 다르다) + 6px", () => {
+    expect(BODY_TAP_MARGIN_PX).toBe(6);
+    // 큰 탈것: 반 너비 31px, 반 높이 54px
+    const halfW = [0, 0, 0, 31];
+    const halfH = [0, 0, 0, 54];
+    expect(pickUnit(xs, ys, visible, 4, { x: 200 + 37, y: 200 - 60 }, halfW, halfH, allBody)).toBe(3);
+    expect(pickUnit(xs, ys, visible, 4, { x: 200 + 38, y: 200 }, halfW, halfH, allBody)).toBe(-1);
+    expect(pickUnit(xs, ys, visible, 4, { x: 200, y: 200 + 61 }, halfW, halfH, allBody)).toBe(-1);
+  });
+
+  it("내 유닛과 남의 유닛이 섞이면 규칙에 든 것 가운데 가장 가까운 유닛", () => {
+    // 1 = 내 유닛(넉넉히), 2 = 남의 유닛(몸) — 2px 떨어져 서 있다
+    const wide = [0, 1, 0, 0];
+    // 둘 다 걸리는 곳: 더 가까운 쪽
+    expect(pickUnit(xs, ys, visible, 4, { x: 54, y: 50 }, none, none, wide)).toBe(2);
+    expect(pickUnit(xs, ys, visible, 4, { x: 48, y: 50 }, none, none, wide)).toBe(1);
+    // 남의 유닛 몸 밖(52 + 16)이고 내 유닛 반경 안(50 + 18): 남의 유닛이 더 가까워도 내 유닛
+    expect(pickUnit(xs, ys, visible, 4, { x: 68, y: 50 }, none, none, wide)).toBe(1);
   });
 });
 

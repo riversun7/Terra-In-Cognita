@@ -35,6 +35,7 @@
     "./mapLooks": "./src/mapLooks.ts",
     "./mapUnits": "./src/mapUnits.ts",
     "./planetCalendar": "./src/planetCalendar.ts",
+    "./portraitCrop": "./src/portraitCrop.ts",
     "./ranking": "./src/ranking.ts",
     "./recruit": "./src/recruit.ts",
     "./fusion": "./src/fusion.ts",

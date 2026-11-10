@@ -209,6 +209,7 @@ export function CreatureDetail({
           <CreaturePortraitCropper
             image={draft.image}
             crop={draft.portraitCrop}
+            appliedCrop={row?.entry.portraitCrop}
             grade={draft.grade}
             availableImages={list.availableImages}
             autoDetectOnMount={autoDetectPortrait}

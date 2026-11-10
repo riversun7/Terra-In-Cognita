@@ -54,7 +54,10 @@ const enabled = z.boolean({
   error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔).",
 });
 
-/** 원본 이미지 위 원형 초상화 좌표(‰, 0~1000: 500 = 정중앙) */
+/**
+ * 원본 이미지 위 원형 초상화 좌표(‰): cxPm = 너비의 ‰, cyPm = 높이의 ‰(500 = 정중앙), radiusPm = 너비의 ‰.
+ * 원의 기준점은 가운데다. 범위·계산은 packages/shared/src/portraitCrop.ts(PORTRAIT_CROP_LIMITS)와 같아야 한다
+ */
 export const creaturePortraitCropSchema = z.strictObject({
   cxPm: z.int().min(0).max(1000),
   cyPm: z.int().min(0).max(1000),

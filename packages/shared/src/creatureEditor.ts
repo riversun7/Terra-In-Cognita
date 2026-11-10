@@ -56,12 +56,13 @@ export type CreaturePresetTag = (typeof CREATURE_PRESET_TAGS)[number];
 export const CREATURE_WEAPON_APPROPRIATES = ["str", "dex", "agi", "int"] as const;
 export type CreatureWeaponAppropriate = (typeof CREATURE_WEAPON_APPROPRIATES)[number];
 
+/** 원형 초상화 원 — 단위·계산은 portraitCrop.ts(고르는 쪽과 그리는 쪽이 같이 쓴다)가 기준이다 */
 export interface CreaturePortraitCrop {
-  /** 원 중심 X (0~1000‰, 500 = 가로 정중앙) */
+  /** 원 중심 X (그림 너비의 0~1000‰, 500 = 가로 정중앙) */
   readonly cxPm: number;
-  /** 원 중심 Y (0~1000‰, 500 = 세로 정중앙) */
+  /** 원 중심 Y (그림 높이의 0~1000‰, 500 = 세로 정중앙) */
   readonly cyPm: number;
-  /** 원 반지름 (50~500‰, 320 = 지름이 이미지의 64%) */
+  /** 원 반지름 (그림 너비의 50~500‰, 320 = 지름이 너비의 64%) */
   readonly radiusPm: number;
 }
 

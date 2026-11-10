@@ -341,6 +341,9 @@ export function KeyHelp() {
     { keys: ["↑", "↓"], text: m.dev_content_key_list() },
     { keys: ["Alt", "↑↓"], text: m.dev_content_key_step() },
     { keys: ["Ctrl", "S"], text: m.dev_content_key_save() },
+    // 수 칸 조작·되돌리기(docs/adr/2026-11-10-editor-input-controls.md)
+    { keys: ["Shift", "↑↓"], text: m.dev_content_key_number() },
+    { keys: ["Ctrl", "Z"], text: m.dev_content_key_undo() },
   ];
   return (
     <dl className="ce-keys" aria-label={m.dev_content_keys_label()}>

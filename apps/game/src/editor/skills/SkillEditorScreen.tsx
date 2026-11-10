@@ -24,7 +24,7 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
-import { useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
+import { editKeyOf, useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
 import {
@@ -188,7 +188,7 @@ export default function SkillEditorScreen({ initialId }: { initialId?: string | 
 
   /** 초안을 담는다(지금 실효 항목과 같아지면 뺀다) */
   const stageDraft = (id: string, next: SkillJson): void => {
-    undoStack.record(drafts, `edit:${id}`);
+    undoStack.record(drafts, editKeyOf(id, drafts.get(id)?.draft ?? byId.get(id)?.entry ?? null, next));
     setDrafts((previous) => {
       const out = new Map(previous);
       const was = previous.get(id);

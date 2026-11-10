@@ -394,7 +394,12 @@ export default function GatherTierScreen() {
             stage={stage}
             selected={selected}
             onSelect={setSelected}
-            onEdit={(row, weights) => push(editBand(stageRef.current, row, weights), `band:${row.entry.id}`)}
+            onEdit={(row, weights, source) =>
+              push(
+                editBand(stageRef.current, row, weights),
+                source === undefined ? undefined : `band:${row.entry.id}:${source}`,
+              )
+            }
             onRevert={(row) => push(revertBand(stageRef.current, row))}
             onUnstage={(id) => push(stageBand(stageRef.current, id, null))}
           />
@@ -406,7 +411,12 @@ export default function GatherTierScreen() {
               setSelected(id);
               document.querySelector(".gt-panel")?.scrollIntoView({ block: "nearest" });
             }}
-            onEdit={(row, weights) => push(editBand(stageRef.current, row, weights), `band:${row.entry.id}`)}
+            onEdit={(row, weights, source) =>
+              push(
+                editBand(stageRef.current, row, weights),
+                source === undefined ? undefined : `band:${row.entry.id}:${source}`,
+              )
+            }
             onBulk={(picked, op) => push(bulkEditBands(stageRef.current, bands, picked, op))}
           />
           <section className="ce-panel gt-facilities" aria-labelledby="gt-facilities-title">

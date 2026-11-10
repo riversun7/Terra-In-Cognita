@@ -1,4 +1,5 @@
 // 수 조작 칸(편집기 공용) — docs/adr/2026-11-10-editor-input-controls.md. 글자 칸 하나에 − / + 단추, 막대, 이름표 끌기를 붙인다.
+// - 빽빽한 표 칸(밸런스 가중치 표·전투 실험실)은 steppers={false}로 단추 없이 ↑↓·PageUp/PageDown·휠만 쓴다.
 // - 글자는 부르는 쪽이 든다(text·onText). 조작(단추·막대·끌기·휠·화살표)은 onAdjust(다음 값)로만 알린다: 값은 늘 범위 안 정수다.
 // - − / + : 한 번 = 한 걸음, 누르고 있으면 잇달아(오래 누르면 5배). Shift = 10배, Alt = 1. 탭 차례에는 들지 않는다(글자 칸의 ↑↓가 같은 일).
 // - 글자 칸: ↑↓ = 한 걸음, Shift = 10배, PageUp/PageDown = 10배. 휠은 초점이 있을 때만. Alt+↑↓는 화면 단축키에 남긴다.
@@ -237,11 +238,6 @@ export function SliderTrack({
   };
   return (
     <span className="ce-slider-row" data-scale={range.scale} data-soft={range.soft ? "" : undefined}>
-      {ends ? (
-        <span className="ce-slider-end" aria-hidden="true">
-          {formatEnd(range.min)}
-        </span>
-      ) : null}
       <span className="ce-slider-box">
         <div
           className="ce-slider"
@@ -301,15 +297,18 @@ export function SliderTrack({
         )}
       </span>
       {ends ? (
-        <span className="ce-slider-end" aria-hidden="true">
-          {formatEnd(range.max)}
-          {range.soft ? "+" : ""}
-          {range.scale === "log" ? (
-            <abbr className="ce-slider-scale" title={m.dev_input_scale_log()}>
-              {" "}
-              log
-            </abbr>
-          ) : null}
+        <span className="ce-slider-ends" aria-hidden="true">
+          <span>{formatEnd(range.min)}</span>
+          <span>
+            {formatEnd(range.max)}
+            {range.soft ? "+" : ""}
+            {range.scale === "log" ? (
+              <abbr className="ce-slider-scale" title={m.dev_input_scale_log()}>
+                {" "}
+                log
+              </abbr>
+            ) : null}
+          </span>
         </span>
       ) : null}
     </span>
@@ -340,6 +339,8 @@ export interface NumberControlProps {
   readonly step?: number | undefined;
   /** 이름표(좌우로 끌어 바꾼다) */
   readonly scrubRef?: RefObject<HTMLElement | null> | undefined;
+  /** − / + 단추(기본 켬). 빽빽한 표 칸은 끄고 ↑↓·휠만 쓴다 */
+  readonly steppers?: boolean | undefined;
   /** 잠금(고칠 수 없음) */
   readonly disabled?: boolean | undefined;
   readonly inputClassName?: string | undefined;
@@ -365,6 +366,7 @@ export function NumberControl({
   soft,
   step: fixedStep,
   scrubRef,
+  steppers = true,
   disabled = false,
   inputClassName,
   inputProps,
@@ -474,12 +476,14 @@ export function NumberControl({
       data-live={drag.live === null ? undefined : ""}
     >
       <span className="ce-num-row">
-        <Stepper
-          direction={-1}
-          label={m.dev_input_decrease({ name: label, step: stepText })}
-          disabled={disabled}
-          onStep={nudge}
-        />
+        {steppers ? (
+          <Stepper
+            direction={-1}
+            label={m.dev_input_decrease({ name: label, step: stepText })}
+            disabled={disabled}
+            onStep={nudge}
+          />
+        ) : null}
         <input
           {...inputProps}
           id={id}
@@ -494,12 +498,14 @@ export function NumberControl({
           onChange={(event) => onText(event.target.value)}
           onKeyDown={onKeyDown}
         />
-        <Stepper
-          direction={1}
-          label={m.dev_input_increase({ name: label, step: stepText })}
-          disabled={disabled}
-          onStep={nudge}
-        />
+        {steppers ? (
+          <Stepper
+            direction={1}
+            label={m.dev_input_increase({ name: label, step: stepText })}
+            disabled={disabled}
+            onStep={nudge}
+          />
+        ) : null}
         {unit ? (
           <span className="ce-unit" aria-hidden="true">
             {unit}

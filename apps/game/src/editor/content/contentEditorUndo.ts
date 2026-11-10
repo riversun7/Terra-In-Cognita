@@ -4,6 +4,7 @@
 // 글 칸(이름·메모)의 Ctrl+Z는 브라우저에 남긴다: 수 칸(data-num)과 칸 밖에서만 가로챈다. 적용한 뒤에는 clear()로 비운다.
 // 아이템 편집기는 같은 뜻의 자기 훅(useItemStage: 되돌리기·다시하기 단추)을 쓴다.
 import { useEffect, useRef, useState } from "react";
+import { leafDiff } from "./contentEditorPaths.ts";
 
 /** 되돌리기 칸 수 */
 const UNDO_LIMIT = 50;
@@ -11,6 +12,15 @@ const UNDO_LIMIT = 50;
 const COALESCE_MS = 1000;
 /** 지금 시각(ms, 되돌리기 칸 묶기에만. 누를 때 부른다) */
 const clockMs = (): number => Date.now();
+
+/**
+ * 항목 하나를 고친 되돌리기 칸 열쇠: 끝 칸 하나만 바뀌었으면 "<ID>:<경로>"(그 칸을 끌거나 치는 동안 한 칸으로 묶인다),
+ * 여러 칸이 한꺼번에 바뀌었으면(묶음 바꾸기·줄 더하기) undefined(늘 새 칸)
+ */
+export function editKeyOf(id: string, before: unknown, after: unknown): string | undefined {
+  const paths = leafDiff(before, after);
+  return paths.length === 1 ? `${id}:${paths[0]}` : undefined;
+}
 
 export interface UndoStack<T> {
   readonly canUndo: boolean;

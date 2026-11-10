@@ -265,6 +265,46 @@ const LAYOUTS: readonly { theme: DevTheme; language: Language; width: number; he
   { theme: "neon", language: "en", width: 390, height: 844 },
 ];
 
+test.describe("키보드만으로 고치기(넓은 폭, 2026-11-10)", () => {
+  test.use({ account: "dev", ...VIEWPORTS.desktop });
+
+  test("지속 시간 칸: ↑ = 한 걸음, Shift+↑ = 10걸음, PageDown = 10걸음 내림 → 담기고, Ctrl+Z로 되돌린다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await page.goto("/dev");
+    await resetItems(page);
+    await effectsReady(page);
+    await open(page, "burn");
+    const duration = editing(page).getByLabel(message("ko", "dev_effects_field_duration"), { exact: true });
+    const durationField = editing(page)
+      .locator(".ce-field")
+      .filter({ has: page.getByLabel(message("ko", "dev_effects_field_duration"), { exact: true }) });
+    await expect(duration).toHaveValue("3000");
+    // 넓은 범위(0 ~ 3,600,000ms)는 로그 눈금 막대, 걸음은 지금 값의 1/20쯤(3000 → 100)
+    await expect(durationField.locator(".ce-slider-row")).toHaveAttribute("data-scale", "log");
+    await duration.focus();
+    await page.keyboard.press("ArrowUp");
+    await expect(duration).toHaveValue("3100");
+    await expect(durationField).toHaveAttribute("data-staged", "");
+    await expect(bar(page)).toHaveAttribute("data-count", "1");
+    await page.keyboard.press("Shift+ArrowUp");
+    await expect(duration).toHaveValue("4100");
+    await page.keyboard.press("PageDown");
+    expect(Number(await duration.inputValue())).toBeLessThan(4100);
+    // 막대는 값을 알린다
+    await expect(durationField.locator('[role="slider"]')).toHaveAttribute(
+      "aria-valuenow",
+      await duration.inputValue(),
+    );
+    // Ctrl+Z: 같은 칸을 잇달아 고친 것은 한 칸 → 처음 값
+    await page.keyboard.press("Control+z");
+    await expect(duration).toHaveValue("3000");
+    await expect(bar(page)).toHaveAttribute("data-count", "0");
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
 test.describe("배치·사진", () => {
   test.use({ account: "admin" });
 

@@ -25,7 +25,7 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
-import { useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
+import { editKeyOf, useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { CheckLater } from "../content/contentEditorCheckLater.tsx";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
@@ -213,7 +213,7 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
         selected,
         sameJson(clean, base) ? null : { op: "put", entry: clean, base, baseHash },
       ),
-      `edit:${selected}`,
+      editKeyOf(selected, current?.op === "put" ? current.entry : row.entry, clean),
     );
   };
 

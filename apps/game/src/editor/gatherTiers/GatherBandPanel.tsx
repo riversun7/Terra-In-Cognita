@@ -8,8 +8,11 @@ import {
 } from "@terra/shared/buildingEditor";
 import { useId } from "react";
 import { m } from "../../paraglide/messages.js";
-import { DistributionControl, type DistributionPart } from "../content/contentEditorDistribution.tsx";
-import { shareText } from "../content/contentEditorNumeric.ts";
+import {
+  DistributionControl,
+  type DistributionPart,
+  shareLabel,
+} from "../content/contentEditorDistribution.tsx";
 import {
   type GatherStage,
   ROW_PRESETS,
@@ -48,7 +51,8 @@ export function GatherBandPanel({
   /** 고른 구간 ID(없거나 모르는 값이면 첫 구간) */
   selected: string | null;
   onSelect: (id: string) => void;
-  onEdit: (row: BuildingEditorGatherBand, weights: readonly number[]) => void;
+  /** source = 이어지는 조작의 열쇠(끌기·치기 — 되돌리기 한 칸으로 묶는다). 단추·프리셋은 없다 */
+  onEdit: (row: BuildingEditorGatherBand, weights: readonly number[], source?: string) => void;
   onRevert: (row: BuildingEditorGatherBand) => void;
   onUnstage: (id: string) => void;
 }) {
@@ -148,7 +152,7 @@ export function GatherBandPanel({
         total={GATHER_BAND_WEIGHT_TOTAL}
         pack={row.pack?.weightsPm}
         evenParts={new Set(TIERS.filter((tier) => tier <= maxTier))}
-        onChange={(next) => onEdit(row, next)}
+        onChange={(next, source) => onEdit(row, next, source)}
         renderReadout={(values) => {
           const over = overTierSum(values, maxTier);
           return (
@@ -164,7 +168,7 @@ export function GatherBandPanel({
               <span className="gt-over" data-over={over > 0 ? "" : undefined}>
                 {m.dev_gather_over_tier({
                   tier: maxTier,
-                  share: shareText(over, GATHER_BAND_WEIGHT_TOTAL),
+                  share: shareLabel(over, GATHER_BAND_WEIGHT_TOTAL),
                 })}
               </span>
             </>

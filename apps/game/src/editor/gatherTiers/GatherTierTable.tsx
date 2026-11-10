@@ -53,7 +53,7 @@ export function GatherTierTable({
   /** 위 판에 올린 구간 ID */
   selected: string | null;
   onSelect: (id: string) => void;
-  onEdit: (row: BuildingEditorGatherBand, weights: readonly number[]) => void;
+  onEdit: (row: BuildingEditorGatherBand, weights: readonly number[], source?: string) => void;
   /** 고른 칸(열쇠 "줄:티어") 묶음 바꾸기 */
   onBulk: (picked: Iterable<string>, op: BulkOp) => void;
 }) {
@@ -190,7 +190,7 @@ export function GatherTierTable({
                             const held = new Set(now?.row === index ? now.typed : []);
                             held.delete(tier);
                             now?.typed.add(tier);
-                            onEdit(row, balancedWeights(base, tier, parsed, held));
+                            onEdit(row, balancedWeights(base, tier, parsed, held), `cell:${tier}`);
                           }}
                         />
                         {grid.fillHandle(index, tier, (from, to, col) => {

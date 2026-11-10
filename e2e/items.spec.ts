@@ -14,6 +14,7 @@
 //   미리 보기 판도 같은 조합으로 찍는다. 옛 자원(295·D-505): 광석·목축 부산물 거르기 목록, 시작 시세 칸·지금 세계 시세(시세 없음).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 아이템 편집기 분류의 덮어쓰기를 모두 지운다.
 import type { Page } from "@playwright/test";
+import { dragSlider } from "./helpers/inputs.ts";
 import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
@@ -575,6 +576,64 @@ test.describe("화면 개편(넓은 폭)", () => {
     // 적용 뒤에는 그 칸이 팩과 다르다(덮어씀)
     await expect(tierField).toHaveAttribute("data-changed", "");
     await resetItems(page);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("수 조작 칸: 막대 끌기·[−] 단추·↑↓ 키로 고치면 바로 담기고, 팩 값 눈금·Ctrl+Z로 되돌린다(docs/adr/2026-11-10-editor-input-controls.md)", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await editorReady(page);
+    await resetItems(page);
+    await page.reload();
+    await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
+    await page.getByRole("searchbox", { name: message("ko", "dev_content_search_label") }).fill("raw iron_o");
+    await expect(page.locator(".ie-item")).toHaveCount(1);
+    await row(page, "iron_ore").click();
+    await expect(detail(page)).toHaveAttribute("data-item", "iron_ore");
+    const tier = editing(page).getByLabel(message("ko", "dev_items_field_tier"), { exact: true });
+    const tierField = editing(page)
+      .locator(".ce-field")
+      .filter({ has: page.getByLabel(message("ko", "dev_items_field_tier"), { exact: true }) });
+    const original = await tier.inputValue();
+    // 막대(role="slider")는 칸의 범위와 값을 알린다. 칸 안의 input은 글자 칸 하나뿐이다
+    const slider = tierField.locator('[role="slider"]');
+    await expect(slider).toHaveAttribute("aria-valuemin", "0");
+    await expect(slider).toHaveAttribute("aria-valuemax", "9");
+    await expect(slider).toHaveAttribute("aria-valuenow", original);
+    await expect(tierField.locator("input")).toHaveCount(1);
+    // 막대를 오른쪽 끝까지 끌면 9 → 담긴다
+    await dragSlider(page, slider, 0.5, 1);
+    await expect(tier).toHaveValue("9");
+    await expect(tierField).toHaveAttribute("data-staged", "");
+    await expect(bar(page)).toHaveAttribute("data-count", "1");
+    // [−] 단추 = 한 걸음
+    await tierField.locator('.ce-step[data-step="down"]').click();
+    await expect(tier).toHaveValue("8");
+    // 키보드만: ↓ = −1, PageDown = −10(범위 끝 0에서 멈춘다), ↑ = +1
+    await tier.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(tier).toHaveValue("7");
+    await page.keyboard.press("PageDown");
+    await expect(tier).toHaveValue("0");
+    await page.keyboard.press("ArrowUp");
+    await expect(tier).toHaveValue("1");
+    // 범위 밖 값은 칸을 떠날 때 가까운 끝 값으로 맞추고 까닭을 적는다
+    await tier.fill("99");
+    await tier.blur();
+    await expect(tier).toHaveValue("9");
+    await expect(tierField.locator(".ce-clamp-note")).toContainText("9");
+    await expect(tierField).not.toHaveAttribute("data-invalid", "");
+    // Ctrl+Z = 마지막 고침 되돌리기(같은 칸을 잇달아 고친 것은 한 칸)
+    await page.keyboard.press("Control+z");
+    await expect(tier).toHaveValue(original);
+    await expect(bar(page)).toHaveAttribute("data-count", "0");
+    // 다시 고친 뒤 팩 값 눈금을 누르면 팩 값
+    await tierField.locator('.ce-step[data-step="up"]').click();
+    await expect(tierField).toHaveAttribute("data-staged", "");
+    await tierField.locator(".ce-slider-pack").click();
+    await expect(tier).toHaveValue(original);
+    await expect(tierField).not.toHaveAttribute("data-staged", "");
     expect(deviceErrors).toEqual([]);
   });
 

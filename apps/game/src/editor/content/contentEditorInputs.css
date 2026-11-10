@@ -9,13 +9,6 @@
   display: grid;
   gap: var(--space-1);
   min-width: 0;
-  container-type: inline-size;
-}
-/* 좁은 칸(재료 수량 등)은 막대 끝 값 글을 숨긴다(범위는 풀이·title에 있다) */
-@container (max-width: 12rem) {
-  .ce-slider-end {
-    display: none;
-  }
 }
 .ce-num-row {
   display: flex;
@@ -23,10 +16,11 @@
   gap: var(--space-1);
   min-width: 0;
 }
-.ce-num-row > .input {
+/* .ce-field .input(폭 100%·최소 0)보다 앞서야 한다: 좁은 칸에서도 글자 칸이 사라지지 않게 */
+.ce-num > .ce-num-row > .input {
   flex: 1 1 auto;
   width: auto;
-  min-width: 4ch;
+  min-width: 5ch;
 }
 .ce-num-row > .ce-unit {
   align-self: center;
@@ -84,26 +78,30 @@
 
 /* ── 막대 ── */
 .ce-slider-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  display: grid;
   min-width: 0;
 }
-.ce-slider-end {
-  flex: none;
+/* 양 끝 값 글: 막대 아래 좌우 끝(좁은 칸에서도 막대를 밀어내지 않는다) */
+.ce-slider-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-block-start: calc(var(--space-2) * -1);
+  padding-inline: var(--space-1);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
   color: var(--color-text-muted);
   white-space: nowrap;
+  pointer-events: none;
 }
 .ce-slider-scale {
   text-decoration: none;
 }
 .ce-slider-box {
   position: relative;
-  flex: 1 1 auto;
-  min-width: var(--dev-range-w);
+  min-width: 0;
   /* 손잡이·눈금이 양 끝에서 잘리지 않게 */
   margin-inline: var(--space-2);
 }
@@ -173,6 +171,10 @@
 button.ce-slider-pack {
   cursor: pointer;
 }
+button.ce-slider-pack:hover::before,
+button.ce-slider-pack:hover::after {
+  background-color: var(--color-focus);
+}
 span.ce-slider-pack {
   pointer-events: none;
 }
@@ -204,9 +206,6 @@ span.ce-slider-pack {
 }
 .ce-num[data-compact] .ce-slider {
   height: var(--tap-size);
-}
-.ce-num[data-compact] .ce-slider-box {
-  min-width: 0;
 }
 
 /* ── 분포 막대(합이 정해진 묶음) ── */
@@ -337,7 +336,7 @@ span.ce-slider-pack {
 }
 .ce-dist-part {
   display: grid;
-  grid-template-columns: minmax(3ch, max-content) minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(3ch, fit-content(10rem)) minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
@@ -355,18 +354,18 @@ span.ce-slider-pack {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
-  white-space: nowrap;
+  /* 긴 이름은 줄을 바꾼다(막대를 밀어내지 않게) */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .ce-dist-chip {
+  flex: none;
   inline-size: var(--space-3);
   block-size: var(--space-3);
   border-radius: var(--radius-sm);
   background-color: var(--color-text-muted);
 }
-.ce-dist-part .ce-slider-box {
-  min-width: 0;
-}
-.ce-dist-part .ce-num-row > .input {
+.ce-dist-part .ce-num > .ce-num-row > .input {
   flex: none;
   width: 7ch;
   text-align: end;
@@ -393,6 +392,10 @@ span.ce-slider-pack {
   color: var(--color-text-muted);
   box-shadow: none;
 }
+.ce-dist-lock:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
 .ce-dist-lock[aria-pressed="true"] {
   border-color: var(--color-warning);
   background-color: var(--color-warning-surface);
@@ -411,7 +414,7 @@ span.ce-slider-pack {
 /* 좁은 폭: 값·백분율·잠금을 막대 아래 줄로 */
 @media (max-width: 30rem) {
   .ce-dist-part {
-    grid-template-columns: minmax(3ch, max-content) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(3ch, fit-content(8rem)) minmax(0, 1fr) auto;
     grid-template-areas:
       "name slider slider"
       "name value lock";
@@ -510,7 +513,7 @@ span.ce-slider-pack {
 .ce-bulk button {
   min-height: var(--dev-touch-tap);
 }
-.ce-bulk .ce-num-row > .input {
+.ce-bulk .ce-num > .ce-num-row > .input {
   flex: none;
   width: 9ch;
   text-align: end;
@@ -611,8 +614,8 @@ span.ce-slider-pack {
   gap: var(--space-2) var(--space-4);
   container-type: normal;
 }
-.ce-ladder-cell .ce-num-row > .input {
-  flex: 0 1 9ch;
+.ce-ladder-cell .ce-num > .ce-num-row > .input {
+  flex: 1 1 9ch;
   text-align: end;
   font-family: var(--font-mono);
 }

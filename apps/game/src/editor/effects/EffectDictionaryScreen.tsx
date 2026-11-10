@@ -25,7 +25,7 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
-import { useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
+import { editKeyOf, useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
 import { EditorSummary, ExportPanel, KeyHelp, useEditorKeys } from "../content/contentEditorLayout.tsx";
@@ -444,7 +444,12 @@ export default function EffectDictionaryScreen({
                   skillNames={new Map(list.skills.map((skill) => [skill.id, skill.name[locale]]))}
                   issues={issuesOf(issues, selected)}
                   locale={locale}
-                  onPut={(next) => setStage(stagePut(stageRef.current, row, next), `edit:${selected}`)}
+                  onPut={(next) =>
+                    setStage(
+                      stagePut(stageRef.current, row, next),
+                      editKeyOf(next.id, stageRef.current.get(next.id)?.entry ?? row?.entry ?? null, next),
+                    )
+                  }
                   onRevert={() => {
                     if (row) setStage(stageRevert(stageRef.current, row));
                   }}

@@ -7,6 +7,7 @@
 // 경계 손잡이는 포인터용이라 탭 차례 밖이다(키보드는 값 칸의 ↑↓). 값은 정수(‰)만 든다.
 import { type PointerEvent as ReactPointerEvent, type ReactNode, useId, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
+import { getLocale } from "../../paraglide/runtime.js";
 import { NumberControl, SliderTrack, useDragCommit } from "./contentEditorNumber.tsx";
 import {
   type SliderRange,
@@ -14,7 +15,6 @@ import {
   moveBoundary,
   normalizeParts,
   redistribute,
-  shareText,
 } from "./contentEditorNumeric.ts";
 import "./contentEditorInputs.css";
 
@@ -31,6 +31,15 @@ export interface DistributionPart {
 const sumOf = (values: readonly number[]): number => values.reduce((acc, value) => acc + value, 0);
 const sameValues = (a: readonly number[], b: readonly number[]): boolean =>
   a.length === b.length && a.every((value, index) => value === b[index]);
+
+/** 몫 글(백분율, 소수 한 자리, 그 언어의 자리 나눔) */
+export function shareLabel(value: number, total: number): string {
+  return new Intl.NumberFormat(getLocale(), {
+    style: "percent",
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(total > 0 ? value / total : 0);
+}
 
 /** 막대 칸에 이름을 적을 만큼 넓은 몫(‰ 단위가 아니라 합의 몫) */
 const SEG_LABEL_SHARE = 0.07;
@@ -137,8 +146,11 @@ export function DistributionControl({
   /** 팩 값(칸마다 눈금, [팩 값으로]) */
   pack?: readonly number[] | undefined;
   unit?: string;
-  /** 새 묶음(늘 합 = total인 정수) */
-  onChange: (next: number[]) => void;
+  /**
+   * 새 묶음(늘 합 = total인 정수). source = 이어지는 조작의 열쇠("part:3"·"boundary:0" — 끌기·치기·걸음. 화면이 되돌리기 한 칸으로
+   * 묶는 데 쓴다), 단추(균등·정규화·팩 값으로)는 undefined
+   */
+  onChange: (next: number[], source?: string) => void;
   /** 결과 읽기(기대값 등) — 끄는 동안의 값으로 부른다 */
   renderReadout?: ((values: readonly number[]) => ReactNode) | undefined;
   /** 덧붙일 단추(프리셋 등) */
@@ -150,7 +162,9 @@ export function DistributionControl({
   const baseId = useId();
   const barRef = useRef<HTMLDivElement>(null);
   const [locked, setLocked] = useState<ReadonlySet<number>>(new Set());
-  const drag = useDragCommit<number[]>(onChange);
+  // 끄는 조작의 열쇠(놓을 때까지 같은 값)
+  const source = useRef<string | undefined>(undefined);
+  const drag = useDragCommit<number[]>((next) => onChange(next, source.current));
   // 조작을 시작할 때의 묶음(끄는 동안·치는 동안 여기서 다시 셈한다)
   const base = useRef<readonly number[]>(values);
   // 경계를 끄는 동안에는 손잡이 짝을 그대로 둔다(칸이 0이 되어도 손잡이가 사라지지 않게)
@@ -163,11 +177,12 @@ export function DistributionControl({
   const sumOk = sum === total;
   const range: SliderRange = { min: 0, max: total, scale: "linear", soft: false };
 
-  const commit = (next: number[]): void => {
-    if (!sameValues(next, values)) onChange(next);
+  const commit = (next: number[], from?: string): void => {
+    if (!sameValues(next, values)) onChange(next, from);
   };
-  const grabBase = (): void => {
+  const grabBase = (from?: string): void => {
     base.current = [...shown];
+    source.current = from;
   };
 
   // 경계 손잡이 짝: 0이 아닌 이웃 칸끼리(끄는 동안에는 시작할 때의 짝)
@@ -184,7 +199,7 @@ export function DistributionControl({
     const width = barRef.current?.getBoundingClientRect().width ?? 0;
     if (width <= 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    grabBase();
+    grabBase(`boundary:${pair.left}`);
     boundary.current = { ...pair, x: event.clientX, width };
     setHandleBase([...shown]);
     setDragging(pair.left);
@@ -275,7 +290,7 @@ export function DistributionControl({
                 data-part={part.key}
                 data-locked={locked.has(index) ? "" : undefined}
                 style={{ flexGrow: value }}
-                title={`${part.label} ${value}${unit} (${shareText(value, sum)})`}
+                title={`${part.label} ${value}${unit} (${shareLabel(value, sum)})`}
               >
                 {value / sum >= SEG_LABEL_SHARE ? part.label : null}
               </span>
@@ -343,7 +358,7 @@ export function DistributionControl({
                 unit={unit}
                 ends={false}
                 disabled={isLocked}
-                onStart={grabBase}
+                onStart={() => grabBase(`part:${index}`)}
                 onMove={(next) => drag.move(redistribute(base.current, index, next, total, locked))}
                 onEnd={drag.end}
               />
@@ -355,15 +370,17 @@ export function DistributionControl({
                   max={reach}
                   unit={unit}
                   disabled={isLocked}
-                  onFocusBase={grabBase}
-                  onType={(next) => commit(redistribute(base.current, index, next, total, locked))}
+                  onFocusBase={() => grabBase(`part:${index}`)}
+                  onType={(next) =>
+                    commit(redistribute(base.current, index, next, total, locked), `part:${index}`)
+                  }
                   onStep={(next) => {
                     const after = redistribute(shown, index, next, total, locked);
                     base.current = after;
-                    commit(after);
+                    commit(after, `part:${index}`);
                   }}
                 />
-                <span className="ce-dist-share">{shareText(value, sum)}</span>
+                <span className="ce-dist-share">{shareLabel(value, sum)}</span>
               </span>
               <button
                 type="button"

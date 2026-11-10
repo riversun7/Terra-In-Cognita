@@ -18,7 +18,7 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
-import { useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
+import { editKeyOf, useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
 import {
@@ -247,7 +247,7 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
         selected,
         base !== null && sameJson(clean, base) ? null : { op: "put", entry: clean, base, baseHash },
       ),
-      `edit:${selected}`,
+      editKeyOf(selected, current?.op === "put" ? current.entry : (row?.entry ?? null), clean),
     );
   };
 

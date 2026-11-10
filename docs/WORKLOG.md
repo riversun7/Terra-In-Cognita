@@ -5,7 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
-| 2026-11-10 23:50 | 시작 국가 설정 편집기(/dev/nations) — 가상 이름·이름 만들기, 국가 마크(만들기·올리기·자르기), 국가마다 씨앗 값, 이 세계에 반영 | Claude Code | [10-2350-nation-editor](worklog/2026/11/10-2350-nation-editor.md) |
+| 2026-11-10 22:30 | 편집기 입력 조작: 수 조작 칸·분포 막대·표 묶음 바꾸기 | Claude Code | [10-2230-editor-inputs](worklog/2026/11/10-2230-editor-inputs.md) |
 | 2026-11-10 21:50 | 크리처 편집기 초상화 선택 범위 오차 고침: 고르는 쪽·그리는 쪽이 같은 계산을 쓴다 | Claude Code | [10-2150-creature-portrait](worklog/2026/11/10-2150-creature-portrait.md) |
 | 2026-11-10 01:30 | 개발 도구 묶음 합치기(시험 일꾼 삭제·건물 편집기·아이템 분류·효과 사전) | Claude Code | [10-0130-devtools-batch-merge](worklog/2026/11/10-0130-devtools-batch-merge.md) |
 | 2026-11-10 00:25 | 아이템 분류 자료 정리 — 장비 종류 이름·상위 중분류 칸·중분류 채움 (D-497 정리 895~897) | Claude Code | [10-0025-item-taxonomy-data](worklog/2026/11/10-0025-item-taxonomy-data.md) |

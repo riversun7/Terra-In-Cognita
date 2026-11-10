@@ -26,6 +26,8 @@ import { refreshSession } from "../../auth/session.ts";
 import { api } from "../../net/api.ts";
 import { m } from "../../paraglide/messages.js";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
+import { parseInt32 } from "../content/contentEditorModel.ts";
+import { NumberControl } from "../content/contentEditorNumber.tsx";
 import { isLabUnitShape, labErrorOf, nameIn, unitPresets } from "./lab/labModel.ts";
 import { labErrorText, unitTitle } from "./lab/labMessages.ts";
 import type { LabData } from "./lab/useLabData.ts";
@@ -79,6 +81,7 @@ function weaponLabel(weapon: BalanceWeaponView, locale: string): string {
 
 export function WeightTab({ data, locale }: { data: LabData; locale: string }) {
   const weaponId = useId();
+  const primaryId = useId();
   const sourceId = useId();
   const [source, setSource] = useState("");
   const countId = useId();
@@ -339,13 +342,20 @@ export function WeightTab({ data, locale }: { data: LabData; locale: string }) {
                 <label key={stat} className="bp-primary" data-field={stat}>
                   <span className="bp-primary-code">{primaryCode(stat)}</span>
                   <span className="visually-hidden">{primaryName(stat)}</span>
-                  <input
-                    className="input bp-primary-input"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    value={primaries[stat]}
-                    aria-invalid={parsed === null || undefined}
-                    onChange={(event) => setPrimaries({ ...primaries, [stat]: event.target.value })}
+                  {/* 공용 수 조작 칸(단추 없이): ↑↓ = 한 걸음, Shift 10배, PageUp/PageDown, 초점이 있을 때 휠 */}
+                  <NumberControl
+                    id={`${primaryId}-${stat}`}
+                    label={primaryName(stat)}
+                    text={primaries[stat]}
+                    value={parseInt32(primaries[stat], BALANCE_PRIMARY_MIN, BALANCE_PRIMARY_MAX)}
+                    min={BALANCE_PRIMARY_MIN}
+                    max={BALANCE_PRIMARY_MAX}
+                    compact
+                    steppers={false}
+                    inputClassName="bp-primary-input"
+                    onText={(text) => setPrimaries({ ...primaries, [stat]: text })}
+                    onAdjust={(next) => setPrimaries({ ...primaries, [stat]: String(next) })}
+                    inputProps={{ inputMode: "numeric", "aria-invalid": parsed === null || undefined }}
                   />
                 </label>
               ))}

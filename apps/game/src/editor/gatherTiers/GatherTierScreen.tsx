@@ -3,6 +3,8 @@
 // dev·admin, 틀 안, 촘촘(개발 화면 층). 서버는 건물 편집기와 같은 tRPC buildings.list·check·save·history(확률표 줄 = put_gather_band 등).
 // - 위: 요약 칩·내보내기·최근 바꿈, 전체 구간 프리셋. 가운데: 행렬 표(GatherTierTable). 아래: 이 표를 쓰는 채집 시설.
 // - 고친 칸은 바로 담기고(실효 값과 같아지면 빠진다) 막대의 [적용]이 묶음 하나로 보낸다. 입력이 1초 멈추면 buildings.check.
+// - 2026-11-10(docs/adr/2026-11-10-editor-input-controls.md): 표 위에 구간 조절 판(GatherBandPanel — 분포 막대·잠금·균등·정규화),
+//   표는 칸을 고치면 나머지가 따라 움직여 합이 늘 1000‰, 고른 칸 묶음 바꾸기·끌어 채우기, Ctrl+Z = 마지막 고침 되돌리기(기기 안).
 // - entry_changed·revision_conflict면 목록을 다시 받는다(확률표 구간은 통째라 내 담음은 그대로 두고 다시 검사·적용).
 // 조각 이름 GatherTierScreen-*(미리 캐시 규칙 [Gg]atherTier). 건물 편집기 조각(editor/buildings/)은 가져오지 않는다.
 import {
@@ -28,12 +30,15 @@ import { EditorSummary, ExportPanel } from "../content/contentEditorLayout.tsx";
 import { type ContentErrorInfo, contentErrorOf, stableJson } from "../content/contentEditorModel.ts";
 import { leafDiff } from "../content/contentEditorPaths.ts";
 import { PendingBar, type PendingEntry, type PendingStatus } from "../content/contentEditorPending.tsx";
+import { useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
+import { GatherBandPanel, bandRangeText } from "./GatherBandPanel.tsx";
 import { GatherTierTable } from "./GatherTierTable.tsx";
 import {
   BULK_PRESETS,
   EMPTY_GATHER_STAGE,
   type GatherStage,
   applyBulkPreset,
+  bulkEditBands,
   editBand,
   gatherChangesOf,
   gatherStageKeys,
@@ -83,6 +88,9 @@ export default function GatherTierScreen() {
   const [busy, setBusy] = useState(false);
   const [exported, setExported] = useState<TuningExportResponse | null>(null);
   const [history, setHistory] = useState<readonly BuildingEditorHistoryRow[] | null>(null);
+  // 구간 조절 판에 올린 구간(없으면 첫 구간)
+  const [selected, setSelected] = useState<string | null>(null);
+  const undoStack = useUndoStack<GatherStage>();
   const notice = useLiveLines();
   const problem = useLiveLines();
 
@@ -90,10 +98,20 @@ export default function GatherTierScreen() {
     stageRef.current = stage;
   }, [stage]);
 
-  const push = (next: GatherStage): void => {
+  /** 담은 변경을 바꾼다. editKey가 같은 고침이 1초 안에 이어지면(끌기·치기) 되돌리기 한 칸으로 묶는다 */
+  const push = (next: GatherStage, editKey?: string): void => {
+    undoStack.record(stageRef.current, editKey);
     stageRef.current = next;
     setStage(next);
   };
+  const undo = (): void => {
+    const previous = undoStack.pop();
+    if (previous === null) return;
+    stageRef.current = previous;
+    setStage(previous);
+    notice.show([m.dev_input_undo_done()]);
+  };
+  useUndoShortcut(undo);
 
   const fail = (error: unknown): ContentErrorInfo<BuildingEditorReason> => {
     const info = contentErrorOf(error, BUILDING_EDITOR_REASONS);
@@ -166,7 +184,9 @@ export default function GatherTierScreen() {
         note: note.trim() === "" ? null : note,
       });
       setLoad({ status: "ready", list: next });
-      push(EMPTY_GATHER_STAGE);
+      stageRef.current = EMPTY_GATHER_STAGE;
+      setStage(EMPTY_GATHER_STAGE);
+      undoStack.clear();
       setNote("");
       setHistory(null);
       notice.show([m.dev_buildings_applied({ count: batch.length, revision: next.revision })]);
@@ -207,12 +227,7 @@ export default function GatherTierScreen() {
 
   const rangeOf = (id: string): string => {
     const index = bands.findIndex((band) => band.entry.id === id);
-    const band = bands[index];
-    if (!band) return id;
-    const next = bands[index + 1]?.entry.from;
-    return next === undefined
-      ? m.dev_gather_stat_from({ from: band.entry.from })
-      : m.dev_gather_stat_range({ from: band.entry.from, to: next - 1 });
+    return index < 0 ? id : bandRangeText(bands, index);
   };
   const pendingEntries: PendingEntry[] = [
     ...[...stage.bands].map(
@@ -222,7 +237,10 @@ export default function GatherTierScreen() {
         name: m.dev_gather_pending_name({ range: rangeOf(id) }),
         kind: item.op === "put_gather_band" ? "put" : "revert",
         fields: item.op === "put_gather_band" ? leafDiff(item.base, item.entry).length : null,
-        onOpen: () => focusBand(id),
+        onOpen: () => {
+          setSelected(id);
+          focusBand(id);
+        },
         onRemove: () => push(stageBand(stageRef.current, id, null)),
       }),
     ),
@@ -362,13 +380,44 @@ export default function GatherTierScreen() {
                 {BULK_PRESET_TEXT[kind]()}
               </button>
             ))}
+            <button
+              type="button"
+              className="button-small gt-undo"
+              aria-disabled={!undoStack.canUndo || undefined}
+              onClick={undo}
+            >
+              {m.dev_input_undo()}
+            </button>
           </div>
+          <GatherBandPanel
+            bands={bands}
+            stage={stage}
+            selected={selected}
+            onSelect={setSelected}
+            onEdit={(row, weights, source) =>
+              push(
+                editBand(stageRef.current, row, weights),
+                source === undefined ? undefined : `band:${row.entry.id}:${source}`,
+              )
+            }
+            onRevert={(row) => push(revertBand(stageRef.current, row))}
+            onUnstage={(id) => push(stageBand(stageRef.current, id, null))}
+          />
           <GatherTierTable
             bands={bands}
             stage={stage}
-            onEdit={(row, weights) => push(editBand(stageRef.current, row, weights))}
-            onRevert={(row) => push(revertBand(stageRef.current, row))}
-            onUnstage={(id) => push(stageBand(stageRef.current, id, null))}
+            selected={selected ?? bands[0]?.entry.id ?? null}
+            onSelect={(id) => {
+              setSelected(id);
+              document.querySelector(".gt-panel")?.scrollIntoView({ block: "nearest" });
+            }}
+            onEdit={(row, weights, source) =>
+              push(
+                editBand(stageRef.current, row, weights),
+                source === undefined ? undefined : `band:${row.entry.id}:${source}`,
+              )
+            }
+            onBulk={(picked, op) => push(bulkEditBands(stageRef.current, bands, picked, op))}
           />
           <section className="ce-panel gt-facilities" aria-labelledby="gt-facilities-title">
             <h2 id="gt-facilities-title" className="ce-panel-title">

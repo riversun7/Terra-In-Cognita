@@ -7,6 +7,7 @@
 // - 사진: 390·1440(VIEWPORTS.desktop) × 개발 화면 테마 네온·라이트 × 한국어·영어(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 시설 덮어쓰기를 모두 지운다.
 import type { Page } from "@playwright/test";
+import { dragTo, inputValues } from "./helpers/inputs.ts";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
@@ -312,6 +313,68 @@ test.describe("수리 줄(D-512 323)", () => {
       .click();
     await stagebar(page).locator(".ce-confirm-yes").click();
     await resetBuildings(page);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("구간 × 재료 표(묶음 바꾸기, 2026-11-10)", () => {
+  test.use({ account: "dev", ...VIEWPORTS.desktop });
+
+  test("레벨마다 나눈 뒤 재료 열을 골라 선형 채우기하면 레벨 표·합계가 따라 바뀐다. 모서리 끌어 채우기, Ctrl+Z", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await freshEditor(page);
+    await row(page, "farm").click();
+    await expect(detail(page)).toHaveAttribute("data-facility", "farm");
+    const matrix = detail(page).locator(".be-matrix");
+    const cell = (bandIndex: number, item: string) =>
+      matrix.locator(`tr[data-band="${bandIndex}"] td[data-item="${item}"]`);
+    const plank = (): Promise<number[]> => inputValues(matrix.locator('td[data-item="plank"] input'));
+    // 팩: Lv1 소나무 8, Lv2~5 판자 8 → 구간 둘
+    await expect(matrix.locator("tbody tr")).toHaveCount(2);
+    // 합계 줄(모든 레벨): 판자 round(8 × L² × 0.8) = 26 + 58 + 102 + 160 = 346
+    const total = detail(page).locator(".be-level-total");
+    await expect(total).toContainText(
+      message("ko", "dev_buildings_material_qty", { name: "판자", qty: 346 }),
+    );
+    // [레벨마다 나누기] → 구간 다섯, 레벨 표는 그대로
+    await matrix.locator(".be-split-levels").click();
+    await expect(matrix.locator("tbody tr")).toHaveCount(5);
+    expect(await plank()).toEqual([8, 8, 8, 8]);
+    await expect(levelRow(page, 3)).toContainText(
+      message("ko", "dev_buildings_material_qty", { name: "판자", qty: 58 }),
+    );
+    // 끝 구간(Lv5)을 2로 치고, 머리로 판자 열을 골라 선형 채우기 → 8·6·4·2
+    await cell(4, "plank").locator("input").fill("2");
+    await matrix.locator('th[data-item="plank"] .ce-col-pick').click();
+    const bulk = matrix.locator(".ce-bulk");
+    await expect(bulk).toHaveAttribute("data-count", "4");
+    await bulk.locator(".ce-bulk-linear").click();
+    expect(await plank()).toEqual([8, 6, 4, 2]);
+    // 레벨 표: Lv3 = round(6 × 9 × 0.8) = 43, 합계 = 26 + 43 + 51 + 40 = 160
+    await expect(levelRow(page, 3)).toContainText(
+      message("ko", "dev_buildings_material_qty", { name: "판자", qty: 43 }),
+    );
+    await expect(total).toContainText(
+      message("ko", "dev_buildings_material_qty", { name: "판자", qty: 160 }),
+    );
+    await expect(stagebar(page)).toHaveAttribute("data-count", "1");
+    // 고르기를 풀고 Lv2 칸 모서리를 Lv4 칸까지 끌면 같은 값(8)으로 채운다
+    await bulk.locator(".ce-bulk-clear").click();
+    await cell(1, "plank").locator("input").click();
+    await dragTo(page, cell(1, "plank").locator(".ce-fill-handle"), cell(3, "plank"));
+    expect(await plank()).toEqual([8, 8, 8, 2]);
+    // Ctrl+Z = 끌어 채우기 되돌리기
+    await detail(page).locator(".be-level-table").click();
+    await page.keyboard.press("Control+z");
+    expect(await plank()).toEqual([8, 6, 4, 2]);
+    await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
+    await stagebar(page)
+      .getByRole("button", { name: message("ko", "dev_content_discard_all"), exact: true })
+      .click();
+    await stagebar(page).locator(".ce-confirm-yes").click();
+    await expect(stagebar(page)).toHaveCount(0);
     expect(deviceErrors).toEqual([]);
   });
 });

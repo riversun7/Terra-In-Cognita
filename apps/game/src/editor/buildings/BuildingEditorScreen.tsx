@@ -25,6 +25,7 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
+import { editKeyOf, useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { CheckLater } from "../content/contentEditorCheckLater.tsx";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
@@ -137,10 +138,21 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
     );
   }, []);
 
-  const pushStage = (next: BuildingStage): void => {
+  // 담은 변경을 바꾸기 전의 모습을 쌓는다(Ctrl+Z = 마지막 고침 되돌리기. 같은 시설을 잇달아 고치면 — 끌기·치기 — 한 칸으로 묶는다)
+  const undoStack = useUndoStack<BuildingStage>();
+  const pushStage = (next: BuildingStage, editKey?: string): void => {
+    undoStack.record(stageRef.current, editKey);
     stageRef.current = next;
     setStage(next);
   };
+  const undo = (): void => {
+    const previous = undoStack.pop();
+    if (previous === null) return;
+    stageRef.current = previous;
+    setStage(previous);
+    notice.show([m.dev_input_undo_done()]);
+  };
+  useUndoShortcut(undo);
 
   const list = load.status === "ready" ? load.list : null;
   const rows = list?.facilities ?? [];
@@ -201,6 +213,7 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
         selected,
         sameJson(clean, base) ? null : { op: "put", entry: clean, base, baseHash },
       ),
+      editKeyOf(selected, current?.op === "put" ? current.entry : row.entry, clean),
     );
   };
 
@@ -268,7 +281,9 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
         note: note.trim() === "" ? null : note,
       });
       setLoad({ status: "ready", list: next });
-      pushStage(EMPTY_STAGE);
+      stageRef.current = EMPTY_STAGE;
+      setStage(EMPTY_STAGE);
+      undoStack.clear();
       setNote("");
       setHistory(null);
       notice.show([m.dev_buildings_applied({ count: batch.length, revision: next.revision })]);

@@ -20,6 +20,7 @@ import {
   buildTimeAt,
   cleanFacilityLook,
 } from "@terra/shared/buildingEditor";
+import { type BulkOp, bulkApply, pickedByColumn } from "../content/contentEditorNumeric.ts";
 
 /** 시설 하나의 담은 변경: 고친 항목 통째 또는 팩 값으로 되돌리기. base·baseHash = 고치기 시작할 때의 실효 항목·해시 */
 export type StagedFacility =
@@ -221,6 +222,61 @@ export function removeMaterial(entry: FacilityJson, bandIndex: number, line: num
   const band = entry.build?.levels[bandIndex];
   if (!band || band.materials.length <= 1) return entry;
   return setBand(entry, bandIndex, { ...band, materials: band.materials.filter((_, at) => at !== line) });
+}
+
+/** 구간 × 재료 표: 열 = 구간들에 나오는 아이템(처음 나온 차례), 칸 = 그 구간의 재료 줄 차례와 수량(없으면 null) */
+export interface BandMatrix {
+  readonly items: readonly string[];
+  readonly cells: readonly (readonly ({ readonly line: number; readonly qty: number } | null)[])[];
+}
+
+export function bandMatrix(entry: FacilityJson): BandMatrix {
+  const levels = entry.build?.levels ?? [];
+  const items: string[] = [];
+  for (const band of levels)
+    for (const stack of band.materials) if (!items.includes(stack.item)) items.push(stack.item);
+  const cells = levels.map((band) =>
+    items.map((item) => {
+      const line = band.materials.findIndex((stack) => stack.item === item);
+      const stack = band.materials[line];
+      return stack ? { line, qty: stack.qty } : null;
+    }),
+  );
+  return { items, cells };
+}
+
+/**
+ * 구간 × 재료 표의 고른 칸(열쇠 "구간:열") 묶음 바꾸기: 재료 열마다 구간 차례로 셈한다(값으로·더하기·곱하기·채우기).
+ * 그 구간에 그 재료가 없는 칸은 건너뛴다. 수량은 범위(1 ~ 100만) 안 정수
+ */
+export function bulkEditBandMatrix(entry: FacilityJson, picked: Iterable<string>, op: BulkOp): FacilityJson {
+  const matrix = bandMatrix(entry);
+  let out = entry;
+  for (const [col, rows] of pickedByColumn(picked)) {
+    const present = rows.filter((row) => matrix.cells[row]?.[col] != null);
+    const column = matrix.cells.map((row) => row[col]?.qty ?? 0);
+    const next = bulkApply(column, present, op, FACILITY_BUILD_LIMITS.qty);
+    for (const row of present) {
+      const cell = matrix.cells[row]?.[col];
+      const item = matrix.items[col];
+      if (!cell || item === undefined) continue;
+      out = setMaterial(out, row, cell.line, { item, qty: next[row] ?? cell.qty });
+    }
+  }
+  return out;
+}
+
+/** 레벨마다 구간 하나로 나눈다(재료는 그 레벨이 쓰던 구간 것을 복사 — 레벨 표의 값은 그대로다). 레벨마다 따로 고칠 수 있게 */
+export function splitBandsPerLevel(entry: FacilityJson): FacilityJson {
+  const build = entry.build;
+  if (!build) return entry;
+  const levels: BuildLevelJson[] = [];
+  for (let level = 1; level <= maxLevelOf(entry); level++) {
+    const band = buildLevelAt(build, level);
+    if (band) levels.push({ from: level, materials: band.materials.map((stack) => ({ ...stack })) });
+  }
+  if (levels.length === 0 || levels.length === build.levels.length) return entry;
+  return withBuild(entry, { ...build, levels });
 }
 
 /** 건설 칸이 없는 시설에 처음 칸을 만든다(분류 배율 1000‰, Lv1 = 첫 아이템 1) */

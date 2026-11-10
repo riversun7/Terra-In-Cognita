@@ -4,6 +4,7 @@ import { LAB_LIMITS, normalizeLabName } from "@terra/shared/battleLab";
 import type { LocalizedName } from "@terra/shared/roster";
 import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { m } from "../../../paraglide/messages.js";
+import { NumberControl } from "../../content/contentEditorNumber.tsx";
 import { parseIntIn } from "./labModel.ts";
 
 export function NumberField(props: {
@@ -31,25 +32,36 @@ export function NumberField(props: {
       <label className={props.hideLabel ? "visually-hidden" : "bl-num-label"} htmlFor={id}>
         {props.label}
       </label>
-      <input
+      {/* 공용 수 조작 칸(빽빽한 격자라 단추 없이): ↑↓ = 한 걸음, Shift 10배, PageUp/PageDown 10배, 초점이 있을 때 휠 */}
+      <NumberControl
         id={id}
-        className="input bl-num-input"
-        inputMode="numeric"
-        autoComplete="off"
-        value={draft ?? String(props.value)}
-        aria-invalid={invalid || undefined}
-        title={props.hint ?? m.dev_lab_range({ min: props.min, max: props.max })}
-        onChange={(event) => {
-          const text = event.target.value;
+        label={typeof props.label === "string" ? props.label : (props.field ?? "")}
+        text={draft ?? String(props.value)}
+        value={draft === null ? props.value : (parseIntIn(draft, props.min, props.max) ?? props.value)}
+        min={props.min}
+        max={props.max}
+        compact
+        steppers={false}
+        inputClassName="bl-num-input"
+        onText={(text) => {
           setDraft(text);
           // 바로 맞는 값이면 곧바로 넣는다(미리 보기가 따라온다)
           const value = parseIntIn(text, props.min, props.max);
           if (value !== null && value !== props.value) props.onChange(value);
         }}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") commit();
-          if (event.key === "Escape") setDraft(null);
+        onAdjust={(value) => {
+          setDraft(null);
+          if (value !== props.value) props.onChange(value);
+        }}
+        inputProps={{
+          inputMode: "numeric",
+          "aria-invalid": invalid || undefined,
+          title: props.hint ?? m.dev_lab_range({ min: props.min, max: props.max }),
+          onBlur: commit,
+          onKeyDown: (event) => {
+            if (event.key === "Enter") commit();
+            if (event.key === "Escape") setDraft(null);
+          },
         }}
       />
     </div>

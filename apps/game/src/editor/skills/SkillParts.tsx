@@ -15,6 +15,7 @@ import { m } from "../../paraglide/messages.js";
 import { EffectRows, effectOptions } from "../content/contentEditorEffects.tsx";
 import { EffectDictionaryFooter, EffectDictionaryOpenLink } from "../effects/EffectDictionaryLinks.tsx";
 import { NumberField, RemoveButton, SelectField } from "../content/contentEditorFields.tsx";
+import { LadderEditor } from "../content/contentEditorLadder.tsx";
 import { FormSection } from "../content/contentEditorLayout.tsx";
 import { CONDITION_TEXT, PART_TEXT, elementText } from "./skillMessages.ts";
 
@@ -330,20 +331,17 @@ export function GradeSection({ draft, update }: { draft: SkillJson; update: Upda
       desc={m.dev_skills_section_grades_desc()}
       paths={["gradePm"]}
     >
-      <ul className="sk-grades">
-        {draft.gradePm.map((pm, index) => (
-          <li key={index} className="sk-grade">
-            <NumberField
-              label={m.dev_skills_grade({ grade: index + 1 })}
-              path={`gradePm[${index}]`}
-              value={pm}
-              min={L.gradePm.min}
-              max={L.gradePm.max}
-              onChange={(value) => update({ ...draft, gradePm: replaceAt(draft.gradePm, index, value ?? 0) })}
-            />
-          </li>
-        ))}
-      </ul>
+      {/* 등급마다 한 줄: 값 칸 + 막대(나란히 서서 곡선이 보인다), 여러 줄을 골라 묶음 바꾸기·채우기 */}
+      <LadderEditor
+        className="sk-grades"
+        name={m.dev_skills_section_grades()}
+        values={draft.gradePm}
+        limits={L.gradePm}
+        unit="‰"
+        rowLabel={(index) => m.dev_skills_grade({ grade: index + 1 })}
+        pathOf={(index) => `gradePm[${index}]`}
+        onChange={(gradePm) => update({ ...draft, gradePm })}
+      />
       <div className="ce-inline-actions">
         {draft.gradePm.length < L.grades ? (
           <button

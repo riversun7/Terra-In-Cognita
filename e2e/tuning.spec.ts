@@ -5,12 +5,13 @@
 // - 분야 페이지(2026-11-08): 분야(전체·세력·사회·NPC 두뇌·정원사·보유 아이템·전투 코어·경제 코어·기타)마다 그 분야 칸만, 칸 줄에 쉬운 풀이·단위·출처.
 //   넓은 폭은 왼쪽 목록(↑↓ 키로 옮김), 휴대폰은 고르기 상자. 고른 분야는 다시 열어도 남는다(localStorage).
 // - 화면 개편(2026-11-08): 찾기(풀이·출처 포함)·바꾼 것만·반영 범위·단위 거르기, 거르기 지우기, 값 칸 바로 검사(정수·범위),
-//   키("/" 찾기, ↑↓ 줄, Enter 담고 다음 줄, Esc 되돌림, Ctrl+S 적용), 담은 변경 막대(펼쳐 칸마다 담기 취소, 모두 취소),
+//   키("/" 찾기, Enter 담고 다음 줄, ↑↓ 값 한 걸음, Esc 되돌림, Ctrl+Z, Ctrl+S 적용), 값 칸 조작(단추·막대·이름 끌기), 담은 변경 막대(펼쳐 칸마다 담기 취소, 모두 취소),
 //   휴대폰 390px에서 화면 안 누르는 곳 44px.
 // - player: 권한 없음 화면, tRPC tuning.*는 403.
 // - 사진: 390·1440 × 개발 화면 테마 둘(네온 다크·라이트, ADR 2026-11-02-dev-ui) × 한국어·영어(E2E_SHOTS_DIR), 화면 크기.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(다른 줄기의 지원금·환생 값 시험을 흔들지 않게).
 import type { Page } from "@playwright/test";
+import { clickSlider, dragBy, dragSlider } from "./helpers/inputs.ts";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
@@ -288,7 +289,7 @@ test.describe("개발자", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("값 칸 바로 검사: 정수 아님·범위 밖이면 문구와 aria-invalid, [담기] 없음. Esc = 되돌림. 담은 변경 막대에서 담기 취소·모두 취소", async ({
+  test("값 칸 바로 검사: 정수 아님·범위 밖이면 문구와 aria-invalid, [담기] 없음(범위 밖은 떠날 때 끝 값으로 맞춤). Esc = 되돌림. 담은 변경 막대에서 담기 취소·모두 취소", async ({
     page,
     deviceErrors,
   }) => {
@@ -302,13 +303,23 @@ test.describe("개발자", () => {
     await expect(input).toHaveAttribute("aria-invalid", "true");
     await expect(target.locator(".tp-error")).toHaveText(message("ko", "dev_tuning_value_invalid"));
     await expect(target.locator(".tp-stage")).toHaveCount(0);
-    await input.fill("99999");
-    await expect(target.locator(".tp-error")).toContainText("10,000");
-    // 틀린 값은 칸을 떠나도 담기지 않는다
+    // 정수가 아닌 글은 칸을 떠나도 담기지 않는다
     await page.locator(".tp-search input").focus();
     await expect(target).not.toHaveAttribute("data-staged", "");
     await expect(page.locator(".tp-pending")).toHaveCount(0);
-    await input.focus();
+    await input.fill("99999");
+    await expect(target.locator(".tp-error")).toContainText("10,000");
+    // 범위 밖 정수는 칸을 떠날 때 가까운 끝 값(10,000)으로 맞춰 담고 까닭을 적는다
+    await page.locator(".tp-search input").focus();
+    await expect(input).toHaveValue("10000");
+    await expect(target.locator(".tp-clamped")).toContainText("10,000");
+    await expect(target).toHaveAttribute("data-staged", "");
+    await target.locator(".tp-unstage").click();
+    await expect(target).not.toHaveAttribute("data-staged", "");
+    await expect(page.locator(".tp-pending")).toHaveCount(0);
+    await expect(input).toHaveValue("1500");
+    // 친 글자는 Esc로 되돌린다
+    await input.fill("77");
     await input.press("Escape");
     await expect(input).toHaveValue("1500");
     await expect(input).toHaveAttribute("aria-invalid", "false");
@@ -349,7 +360,7 @@ test.describe("개발자", () => {
 test.describe("개발자·데스크톱", () => {
   test.use({ account: "dev", ...VIEWPORTS.desktop });
 
-  test("분야 목록: ↑↓로 옮기며 고름, 바뀐 칸 수 표시. 키: / 찾기, ↑↓ 줄, Enter 담고 다음 줄, Esc 되돌림, Ctrl+S 적용", async ({
+  test("분야 목록: ↑↓로 옮기며 고름, 바뀐 칸 수 표시. 키: / 찾기, Enter 담고 다음 줄(Shift = 앞 줄), ↑↓ 값 한 걸음, Esc 되돌림, Ctrl+Z, Ctrl+S 적용", async ({
     page,
     deviceErrors,
   }) => {
@@ -375,14 +386,26 @@ test.describe("개발자·데스크톱", () => {
     await page.keyboard.type("n39_grant");
     const inputs = page.locator(".tp-row .tp-input");
     await expect(inputs).toHaveCount(4);
-    // 첫 줄 값 칸에서 Enter(바꾸지 않음) = 다음 줄로, ↓·↑ = 줄 옮기기
+    // 첫 줄 값 칸에서 Enter(바꾸지 않음) = 다음 줄로, Shift+Enter = 앞 줄로
     await inputs.nth(0).focus();
     await page.keyboard.press("Enter");
     await expect(inputs.nth(1)).toBeFocused();
-    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
     await expect(inputs.nth(2)).toBeFocused();
+    await page.keyboard.press("Shift+Enter");
+    await expect(inputs.nth(1)).toBeFocused();
+    // ↑ = 값 한 걸음 올려 바로 담는다(줄은 옮기지 않는다), PageDown = 10걸음 내림. Ctrl+Z = 마지막 고침 되돌리기
+    const startValue = Number(await inputs.nth(1).inputValue());
     await page.keyboard.press("ArrowUp");
     await expect(inputs.nth(1)).toBeFocused();
+    const stepped = Number(await inputs.nth(1).inputValue());
+    expect(stepped).toBeGreaterThan(startValue);
+    await expect(page.locator(".tp-row[data-staged]")).toHaveCount(1);
+    await page.keyboard.press("PageDown");
+    expect(Number(await inputs.nth(1).inputValue())).toBeLessThan(stepped);
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".tp-row[data-staged]")).toHaveCount(0);
+    await expect(inputs.nth(1)).toHaveValue(String(startValue));
     // 친 글자를 Esc로 되돌림
     const before = await inputs.nth(1).inputValue();
     await page.keyboard.type("77");
@@ -405,6 +428,46 @@ test.describe("개발자·데스크톱", () => {
     await expect(row(page, secondId ?? "")).toHaveAttribute("data-changed", "");
     await expect(page.locator(".tp-changed-count")).toHaveAttribute("data-count", "2");
     await resetTuning(page);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("값 칸 조작: − / + 단추·막대 끌기·이름 끌기는 바로 담고, 막대의 팩 값 눈금은 팩 값으로 되돌린다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await panelReady(page);
+    await resetTuning(page);
+    await page.reload();
+    await page.locator(".tp-search input").fill("n39_grant_max");
+    const target = row(page, "n39_grant_max");
+    const input = target.locator(".tp-input");
+    await expect(input).toHaveValue("1500");
+    // 막대는 값·범위를 알린다(읽기 프로그램)
+    const slider = target.locator('[role="slider"]');
+    await expect(slider).toHaveAttribute("aria-valuenow", "1500");
+    await expect(slider).toHaveAttribute("aria-valuemin", "0");
+    await expect(slider).toHaveAttribute("aria-valuemax", "10000");
+    // [+] 한 번 = 한 걸음(범위 0~10,000이면 50) → 바로 담긴다
+    await target.locator('.ce-step[data-step="up"]').click();
+    await expect(input).toHaveValue("1550");
+    await expect(target).toHaveAttribute("data-staged", "");
+    await expect(target.locator(".tp-value-staged")).toContainText("1,550");
+    // 막대를 오른쪽으로 끌면 값이 커지고 담은 값·팩 대비 차이가 따라온다
+    await dragSlider(page, slider, 0.2, 0.6);
+    const dragged = Number(await input.inputValue());
+    expect(dragged).toBeGreaterThan(5000);
+    expect(dragged % 50).toBe(0);
+    await expect(slider).toHaveAttribute("aria-valuenow", String(dragged));
+    await expect(target.locator(".tp-value-staged .tp-delta")).toContainText("+");
+    await expect(page.locator(".tp-pending-count")).toContainText("1");
+    // 이름을 왼쪽으로 끌면 값이 준다(4화소에 한 걸음)
+    await dragBy(page, target.locator(".tp-name"), -80);
+    expect(Number(await input.inputValue())).toBe(dragged - 20 * 50);
+    // 팩 값 눈금(1500 ÷ 10,000 자리)을 누르면 팩 값(= 지금 값)이라 담음이 빠진다
+    await clickSlider(page, slider, 0.15);
+    await expect(input).toHaveValue("1500");
+    await expect(target).not.toHaveAttribute("data-staged", "");
+    await expect(page.locator(".tp-pending")).toHaveCount(0);
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -483,6 +546,8 @@ test.describe("배치·사진", () => {
         if (width === 390) expect(await smallInScreen(page)).toEqual([]);
         // 화면 크기 사진(한 화면에 보이는 줄 수를 본다)
         await shot(page, `tuning-${theme}-${language}-${width}`);
+        // 친 범위 밖 값은 되돌린다(그대로 떠나면 끝 값으로 맞춰 담긴다)
+        await row(page, "n39_grant_min").locator(".tp-input").press("Escape");
         // 담은 변경 막대를 펼친 모습
         await page.locator(".tp-pending-count").click();
         await expect(page.locator(".tp-pending-item")).toHaveCount(1);

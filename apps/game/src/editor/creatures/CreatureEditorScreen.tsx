@@ -18,6 +18,7 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
+import { editKeyOf, useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
 import {
@@ -171,10 +172,19 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
     );
   }, [ko, selected]);
 
-  const pushStage = (next: CreatureStage): void => {
+  // 담은 변경을 바꾸기 전의 모습을 쌓는다(Ctrl+Z = 마지막 고침 되돌리기. 같은 크리처를 잇달아 고치면 한 칸으로 묶는다)
+  const undoStack = useUndoStack<CreatureStage>();
+  const pushStage = (next: CreatureStage, editKey?: string): void => {
+    undoStack.record(stageRef.current, editKey);
     stageRef.current = next;
     setStage(next);
   };
+  useUndoShortcut(() => {
+    const previous = undoStack.pop();
+    if (previous === null) return;
+    stageRef.current = previous;
+    setStage(previous);
+  });
 
   const list = load.status === "ready" ? load.list : null;
   const rows = list?.creatures ?? [];
@@ -237,6 +247,7 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
         selected,
         base !== null && sameJson(clean, base) ? null : { op: "put", entry: clean, base, baseHash },
       ),
+      editKeyOf(selected, current?.op === "put" ? current.entry : (row?.entry ?? null), clean),
     );
   };
 
@@ -296,7 +307,9 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
         note: note.trim() === "" ? null : note,
       });
       setLoad({ status: "ready", list: next });
-      pushStage(EMPTY_CREATURE_STAGE);
+      stageRef.current = EMPTY_CREATURE_STAGE;
+      setStage(EMPTY_CREATURE_STAGE);
+      undoStack.clear();
       setNote("");
       setHistory(null);
       notice.show([

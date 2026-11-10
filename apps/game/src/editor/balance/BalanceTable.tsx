@@ -1,13 +1,15 @@
 // 밸런스 화면 가중치 표 — 행 × (1차 6 + 기본·상한·반감) 입력 칸. docs/adr/2026-11-01-balance-screen.md 7절.
 // 칸을 고치면(입력을 떠나거나 Enter) 담는다. 담은 칸은 강조, 세계 덮어쓰기(팩과 다름)는 다른 표시, 칸마다 되돌리기 버튼.
-// 좁은 화면은 표 안에서만 옆으로 민다(쪽 전체는 밀리지 않는다). 입력은 담은 값이 바뀌면 다시 그린다(key에 보이는 값).
+// 좁은 화면은 표 안에서만 옆으로 민다(쪽 전체는 밀리지 않는다). 칸은 공용 수 조작 칸(단추 없이 ↑↓·휠, 2026-11-10)이다.
 // 계산식으로 셈하는 행(팩 행 식·이 세계 행 식, docs/adr/2026-11-01-formula-editor.md 3절)은 행 머리에 표시하고 칸을 흐리게 한다:
 // 그 행의 가중치 칸은 고쳐도 값이 바뀌지 않는다(칸은 그대로 고칠 수 있다 — 식을 팩 식으로 되돌리면 다시 듣는다).
 import type { BalanceCellView, BalanceRowView } from "@terra/shared/balance";
 import { PRIMARY_STATS, type PrimaryStat } from "@terra/shared/roster";
 import type { StatCellField } from "@terra/shared/tuning";
-import { useState } from "react";
+import { STAT_CELL_LIMITS } from "@terra/shared/tuning";
+import { useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
+import { NumberControl } from "../content/contentEditorNumber.tsx";
 import { fieldText, primaryCode, primaryName } from "./balanceMessages.ts";
 import { type Pending, cellState, formatNumber, parseCellInput, shownValue } from "./balanceModel.ts";
 
@@ -25,12 +27,23 @@ interface CellProps {
 }
 
 function WeightCell({ row, cell, rowName, pending, locale, onStage, onUnstage }: CellProps) {
-  const [invalid, setInvalid] = useState(false);
+  const id = useId();
   const state = cellState(row, cell, pending);
   const shown = shownValue(row, cell, pending);
+  const shownText = String(shown);
+  // 글자는 칸이 든다: 칸을 떠나거나 Enter면 담는다. 바깥 값이 바뀌면(담김·되돌리기·↑↓) 글자를 그 값으로 맞춘다
+  const [text, setText] = useState(shownText);
+  const [seen, setSeen] = useState(shownText);
+  const [invalid, setInvalid] = useState(false);
+  if (seen !== shownText) {
+    setSeen(shownText);
+    setText(shownText);
+    setInvalid(false);
+  }
   const label = m.dev_balance_cell_label({ stat: rowName, field: fieldText(cell.field) });
-  const commit = (text: string): void => {
-    const value = parseCellInput(text, cell.field);
+  const limit = STAT_CELL_LIMITS[cell.field];
+  const commit = (raw: string): void => {
+    const value = parseCellInput(raw, cell.field);
     if (value === null) {
       setInvalid(true);
       return;
@@ -46,23 +59,36 @@ function WeightCell({ row, cell, rowName, pending, locale, onStage, onUnstage }:
       data-formula={row.formula === null ? undefined : ""}
     >
       <span className="bp-cell-box">
-        <input
-          key={`${cell.field}:${shown}`}
-          className="bp-input"
-          inputMode="numeric"
-          autoComplete="off"
-          /* 팩 값은 title(마우스)로만 보이므로 팩과 다른 칸은 읽는 이름에도 넣는다 */
-          aria-label={
-            state === "pack"
-              ? label
-              : `${label} (${m.dev_balance_cell_pack({ value: formatNumber(cell.pack, locale) })})`
-          }
-          aria-invalid={invalid || undefined}
-          title={m.dev_balance_cell_pack({ value: formatNumber(cell.pack, locale) })}
-          defaultValue={String(shown)}
-          onBlur={(event) => commit(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
+        {/* 공용 수 조작 칸(빽빽한 표라 단추 없이): ↑↓ = 한 걸음(바로 담긴다), Shift 10배, PageUp/PageDown 10배, 초점이 있을 때 휠 */}
+        <NumberControl
+          id={id}
+          label={label}
+          text={text}
+          value={parseCellInput(text, cell.field) ?? shown}
+          min={limit.min}
+          max={limit.max}
+          compact
+          steppers={false}
+          inputClassName="bp-input"
+          onText={setText}
+          onAdjust={(next) => {
+            setText(String(next));
+            setInvalid(false);
+            if (next !== shown) onStage(row, cell, next);
+          }}
+          inputProps={{
+            inputMode: "numeric",
+            /* 팩 값은 title(마우스)로만 보이므로 팩과 다른 칸은 읽는 이름에도 넣는다 */
+            "aria-label":
+              state === "pack"
+                ? label
+                : `${label} (${m.dev_balance_cell_pack({ value: formatNumber(cell.pack, locale) })})`,
+            "aria-invalid": invalid || undefined,
+            title: m.dev_balance_cell_pack({ value: formatNumber(cell.pack, locale) }),
+            onBlur: (event) => commit(event.currentTarget.value),
+            onKeyDown: (event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+            },
           }}
         />
         {state === "pack" ? null : (

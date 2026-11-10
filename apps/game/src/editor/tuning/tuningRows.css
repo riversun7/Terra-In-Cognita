@@ -248,37 +248,7 @@
   color: var(--tp-down);
 }
 
-/* 범위: 작은 막대(아래 끝 ~ 위 끝, 팩 값 = 속 빈 눈금, 지금 값 = 찬 눈금) + 글 */
-.tp-range {
-  position: relative;
-  flex: 0 0 auto;
-  width: var(--dev-range-w);
-  height: var(--stat-bar);
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface-2);
-  box-shadow: inset 0 0 0 var(--hairline) var(--color-border);
-}
-.tp-range-mark {
-  position: absolute;
-  top: 50%;
-  width: var(--stat-bar-lg);
-  height: var(--stat-bar-lg);
-  border-radius: var(--radius-pill);
-  transform: translate(-50%, -50%);
-}
-.tp-range-pack {
-  border: var(--hairline) solid var(--color-text-muted);
-  background-color: var(--color-surface);
-}
-.tp-range-now {
-  background-color: var(--color-primary);
-}
-.tp-row[data-changed] .tp-range-now {
-  background-color: var(--color-warning);
-}
-.tp-row[data-staged] .tp-range-now {
-  background-color: var(--color-focus);
-}
+/* 범위 글(막대는 값 칸 아래의 조절 막대가 한다: 팩 값 눈금 + 지금·담은 값) */
 .tp-range-text {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
@@ -290,13 +260,20 @@
 .tp-editor {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: var(--space-1) var(--space-2);
   flex: 1 1 auto;
   min-width: 0;
 }
-.tp-input {
+.tp-editor > .ce-num {
   grid-column: 1;
+}
+/* 값 칸 단추: 휴대폰에서 자주 누르는 조작부 크기 */
+.tp-editor .ce-step {
+  min-width: var(--dev-touch-tap);
+  min-height: var(--dev-touch-tap);
+}
+.tp-input {
   min-width: 0;
   min-height: var(--dev-touch-tap);
   text-align: end;
@@ -317,6 +294,7 @@
   flex: 0 0 auto;
 }
 .tp-error,
+.tp-clamped,
 .tp-preview {
   grid-column: 1 / -1;
   margin: 0;
@@ -329,7 +307,7 @@
 /* ── 줄: 넓은 폭(한 줄 격자) ── */
 @container tp-list (min-width: 50rem) {
   .tp-row {
-    grid-template-columns: 4.5em minmax(0, 1fr) 11em 10em 15em;
+    grid-template-columns: 4.5em minmax(0, 1fr) 11em 8em 19em;
     grid-template-areas: "code main values range edit";
     align-items: start;
     gap: var(--space-4) var(--space-6);
@@ -352,9 +330,6 @@
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-2);
-  }
-  .tp-range {
-    margin-block-start: var(--space-3);
   }
   .tp-r-edit {
     flex-wrap: wrap;

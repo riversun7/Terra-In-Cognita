@@ -7,9 +7,11 @@
 // - 사진: 390·1440 × 개발 테마 네온·라이트 × 한국어·영어(E2E_SHOTS_DIR). 칸을 하나 고쳐 담은 변경 막대·칸 견주기도 찍는다.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(유닛·사이보그 화면 시험을 흔들지 않게).
 import type { Page } from "@playwright/test";
+import { dragSlider, inputValues } from "./helpers/inputs.ts";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
+import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
@@ -246,6 +248,54 @@ test.describe("개발자", () => {
     const boltRow = rows.find((row) => field(row, "key") === "skills/fire_bolt");
     expect([field(swordRow, "staminaCost"), field(boltRow, "cost")]).toEqual([7, 9]);
     await resetSkills(page);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("등급 사다리(넓은 폭)", () => {
+  test.use({ account: "dev", ...VIEWPORTS.desktop });
+
+  test("등급 배율 줄을 골라 선형 채우기·곱하기로 한꺼번에 바꾸고, 줄 막대를 끌어 고친다. Ctrl+Z로 되돌린다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await editorReady(page);
+    await resetSkills(page);
+    await page.reload();
+    await expect(page.locator(".sk-screen")).toHaveAttribute("data-status", "ready");
+    await item(page, "power_strike").click();
+    await expect(editing(page)).toHaveAttribute("data-skill", "power_strike");
+    const ladder = editing(page).locator(".sk-grades");
+    const values = (): Promise<number[]> => inputValues(ladder.locator("tbody input"));
+    expect(await values()).toEqual([1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000]);
+    // 곡선(작은 막대)이 머리에 있다
+    await expect(ladder.locator("thead .ce-spark")).toHaveAttribute("data-shape", "up");
+    // 끝 등급을 2800으로 치고, 머리로 열 전체를 골라 선형 채우기 → 200씩
+    await ladder.locator('tr[data-ladder-row="9"] input').fill("2800");
+    await ladder.locator("thead .ce-col-pick").click();
+    const bulk = ladder.locator(".ce-bulk");
+    await expect(bulk).toHaveAttribute("data-count", "10");
+    await bulk.locator(".ce-bulk-linear").click();
+    expect(await values()).toEqual([1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800]);
+    await expect(editing(page)).toHaveAttribute("data-dirty", "");
+    // 곱하기 50%
+    await bulk.locator(".ce-bulk-op").selectOption("scale");
+    await bulk.locator("input").fill("50");
+    await bulk.locator(".ce-bulk-apply").click();
+    expect(await values()).toEqual([500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400]);
+    // 1등급 줄의 막대를 끌면 그 줄만 바뀐다
+    await bulk.locator(".ce-bulk-clear").click();
+    const first = ladder.locator('tr[data-ladder-row="0"]');
+    await dragSlider(page, first.locator('[role="slider"]'), 0.1, 0.9);
+    const dragged = (await values())[0] ?? 0;
+    expect(dragged).toBeGreaterThan(500);
+    expect((await values()).slice(1)).toEqual([600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400]);
+    // Ctrl+Z: 막대 끌기 → 곱하기 → 선형 채우기 차례로 되돌린다
+    await page.locator(".sk-screen h1").click();
+    await page.keyboard.press("Control+z");
+    expect(await values()).toEqual([500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400]);
+    await page.keyboard.press("Control+z");
+    expect(await values()).toEqual([1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800]);
     expect(deviceErrors).toEqual([]);
   });
 });

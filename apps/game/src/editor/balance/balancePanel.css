@@ -233,6 +233,15 @@
 .bp-cell[data-field="half"] .bp-input {
   inline-size: 10ch;
 }
+/* 공용 수 조작 칸 안에서도 칸 폭을 지킨다 */
+.bp-cell .ce-num > .ce-num-row > .bp-input {
+  flex: none;
+  inline-size: 8ch;
+}
+.bp-cell[data-field="base"] .ce-num > .ce-num-row > .bp-input,
+.bp-cell[data-field="half"] .ce-num > .ce-num-row > .bp-input {
+  inline-size: 10ch;
+}
 .bp-input:focus-visible {
   outline: var(--focus-w) solid var(--color-focus);
   outline-offset: var(--focus-offset);

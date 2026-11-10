@@ -444,6 +444,8 @@ function SecondMapView({
         selectedRef.current = null;
         setSelected(null);
         setSelection(NO_SELECTION);
+        // 다시 켰을 때 그 유닛이 누르지 않았는데 기준 유닛으로 돌아오지 않게 마지막 고르기도 잊는다
+        setLastPicked(null);
       }
     }
     toggleOperator();

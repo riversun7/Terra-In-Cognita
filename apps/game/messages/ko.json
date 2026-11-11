@@ -5171,6 +5171,7 @@
   "gather_object_regrow": "다 캤습니다. 다시 자람: {time}",
   "gather_object_facility": "{facility} 반경 안이면 그 시설에 바로 넣고 더 많이 캡니다",
   "gather_object_direct": "맡는 시설이 없어 창고·도시 창고까지 나릅니다",
+  "gather_object_station_only": "시설 일꾼만 거둡니다. 맡는 시설을 반경 안에 짓고 일꾼을 두세요.",
   "gather_object_details": "한 번에 {lots}묶음 · 기본 일 {seconds}초 · 다시 자람 {regrow}",
   "gather_minute_under": "1분 안",
   "gather_minutes": "{minutes}분",

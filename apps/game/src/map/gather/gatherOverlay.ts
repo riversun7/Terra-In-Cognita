@@ -70,8 +70,15 @@ interface Chip {
   transform: string;
 }
 
-/** 아이템 ID → 표시 무리(색): 원목·돌·광석·약초 */
-export function kindClass(item: string): "wood" | "stone" | "ore" | "herb" {
+/** 아이템 ID(+ 맡는 시설) → 표시 무리(색): 원목·돌·광석·약초·밭·목초지·물터 */
+export function kindClass(
+  item: string,
+  facility?: string | null,
+): "wood" | "stone" | "ore" | "herb" | "crop" | "animal" | "fish" {
+  // 밭·목초지·물터(시설 일꾼만, docs/adr/2026-11-11-city-catchment.md)는 맡는 시설로 가른다
+  if (facility === "farm") return "crop";
+  if (facility === "ranch") return "animal";
+  if (facility === "fishing_spot") return "fish";
   if (item.endsWith("_log")) return "wood";
   if (item === "stone" || item === "rubble") return "stone";
   if (item.endsWith("_ore") || item === "mithril" || item === "orichalcum") return "ore";
@@ -204,7 +211,7 @@ export function attachGatherOverlay(
         marker.key = key;
         marker.button.dataset.object = String(object.id);
         marker.button.dataset.state = depleted ? "depleted" : "ready";
-        marker.button.dataset.kind = kindClass(kind?.item ?? "");
+        marker.button.dataset.kind = kindClass(kind?.item ?? "", kind?.facility);
         const name = nameText(kind?.name ?? null, m.gather_object_unknown());
         marker.button.setAttribute(
           "aria-label",

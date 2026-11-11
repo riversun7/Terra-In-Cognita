@@ -5171,6 +5171,7 @@
   "gather_object_regrow": "Depleted. Regrows in {time}",
   "gather_object_facility": "Within a {facility}'s reach you deposit there and gather more",
   "gather_object_direct": "No facility handles this: carry it to storage or a city",
+  "gather_object_station_only": "Only facility workers harvest this. Build the facility nearby and assign workers.",
   "gather_object_details": "{lots} lot(s) per gather · base work {seconds} s · regrows in {regrow}",
   "gather_minute_under": "under a minute",
   "gather_minutes": "{minutes} min",

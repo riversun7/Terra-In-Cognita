@@ -24,6 +24,10 @@ export interface GatherKindView {
   /** 맡는 시설 ID와 이름(없으면 null) */
   readonly facility: string | null;
   readonly facilityName: GatherName | null;
+  /**
+   * 유닛이 직접 캘 수 있나. false = 맡는 시설의 일꾼만 쓴다(밭·목초지·물터 — docs/adr/2026-11-11-city-catchment.md). 없으면 직접 캔다(앞 판 응답)
+   */
+  readonly direct?: boolean;
 }
 
 /** 오브젝트 한 칸의 값 수(objects 배열 걸음): [번호, 종류 차례, 남은 번수, 다시 자라는 시각(서버 ms, 0 = 자라는 중 아님)] */

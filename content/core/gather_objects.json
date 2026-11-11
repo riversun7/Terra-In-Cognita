@@ -97,6 +97,68 @@
       "facility": "herb_field",
       "primary": "int",
       "secondary": "wis"
+    },
+    {
+      "id": "crop_field",
+      "name": { "ko": "밭", "en": "Crop field" },
+      "description": {
+        "ko": "풀·흙 땅에 일군 밭. 농장 일꾼만 거둔다(직접 캐지 못함). 기온·강수가 농사지을 만한 땅에만 선다.",
+        "en": "A field on grass or soil. Only farm workers harvest it (no direct gathering). Appears only where the climate allows farming."
+      },
+      "source": "plot",
+      "surfaces": ["grass", "dirt", "mud"],
+      "minCells": 32,
+      "material": "crop",
+      "item": "barley",
+      "lots": 1,
+      "workMs": 20000,
+      "uses": 5,
+      "regrowMs": 3600000,
+      "facility": "farm",
+      "primary": "vit",
+      "secondary": "int",
+      "direct": false
+    },
+    {
+      "id": "pasture",
+      "name": { "ko": "목초지", "en": "Pasture" },
+      "description": {
+        "ko": "가축을 먹이는 풀밭. 목장 일꾼만 쓴다(직접 캐지 못함). 기온·강수가 농사지을 만한 땅에만 선다.",
+        "en": "Grazing grassland. Only ranch workers use it (no direct gathering). Appears only where the climate allows farming."
+      },
+      "source": "plot",
+      "surfaces": ["grass"],
+      "minCells": 32,
+      "material": "livestock",
+      "item": "raw_meat",
+      "lots": 1,
+      "workMs": 20000,
+      "uses": 5,
+      "regrowMs": 3600000,
+      "facility": "ranch",
+      "primary": "wis",
+      "secondary": "agi",
+      "direct": false
+    },
+    {
+      "id": "fishing_water",
+      "name": { "ko": "물터", "en": "Fishing water" },
+      "description": {
+        "ko": "물고기가 사는 물(바다·호수·강·얕은 물). 낚시터 일꾼만 쓴다(직접 캐지 못함).",
+        "en": "Water with fish (sea, lake, river, shallows). Only fishing spot workers use it (no direct gathering)."
+      },
+      "source": "plot",
+      "surfaces": ["water", "shallow_water"],
+      "minCells": 16,
+      "item": "loach",
+      "lots": 1,
+      "workMs": 20000,
+      "uses": 5,
+      "regrowMs": 1800000,
+      "facility": "fishing_spot",
+      "primary": "agi",
+      "secondary": "dex",
+      "direct": false
     }
   ]
 }

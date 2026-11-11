@@ -56,6 +56,9 @@ export function serverEconomyCatalog(
               primary: gather.primary,
               secondary: gather.secondary,
               subcategory: gather.subcategory.id,
+              ...(gather.extraSubcategories
+                ? { extraSubcategories: gather.extraSubcategories.map((sub) => sub.id) }
+                : {}),
               mode: gather.mode ?? "roll",
               yieldBase: gather.yieldBase,
               yieldPerStatPm: gather.yieldPerStatPm,

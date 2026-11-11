@@ -16,6 +16,8 @@ export const FACILITY_PROTOCOL_VERSION = 10;
 export const STORAGE_PROTOCOL_VERSION = 11;
 /** 건물·영토 비콘 공격(facility_attack, 질문 381)이 생긴 프로토콜 버전 */
 export const ATTACK_PROTOCOL_VERSION = 12;
+/** 물가 조건 결과 코드 needs_water가 생긴 판(질문 947 나). 더 낮은 판 연결은 blocked_terrain을 받는다 */
+export const WATER_PLACE_PROTOCOL_VERSION = 21;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -214,6 +216,10 @@ export const FACILITY_RESULT_CODES = [
   "not_ruin",
   /** 그 폐허는 이미 주인이 있다(먼저 지은 쪽이 주인, D-510, 13 — 더 낮은 판 연결은 not_buildable) */
   "ruin_claimed",
+  /**
+   * 물가 조건(질문 947 나, 팩 needsWaterWithin — 낚시터): 건물 칸 둘레 N 배치 칸 안에 물 칸이 없다(21 — 더 낮은 판 연결은 blocked_terrain)
+   */
+  "needs_water",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];

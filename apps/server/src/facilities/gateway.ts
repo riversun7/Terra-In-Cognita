@@ -6,10 +6,12 @@
 // - 판정·저장은 서비스(service.ts)가 한다. 세계가 아직 없으면(부팅 중·DB 없음) busy.
 // - 행정 건물(폐허 정부, 프로토콜 13 — docs/adr/2026-11-07-ruins-restoration.md)의 새 코드 not_ruin·ruin_claimed는 13판 연결에만 가고 더 낮은
 //   판은 not_buildable을 받는다(그 판 기기가 모르는 코드라 메시지를 풀지 못한다).
+// - 물가 조건(프로토콜 21, 질문 947 나)의 새 코드 needs_water도 같다: 21판 연결에만 가고 20판은 blocked_terrain을 받는다.
 import {
   type ClientMessageOf,
   type FacilityResultCode,
   RUINS_PROTOCOL_VERSION,
+  WATER_PLACE_PROTOCOL_VERSION,
   encodeMessage,
 } from "@terra/protocol";
 import { PLACEMENT_SIZE } from "@terra/sim";
@@ -38,7 +40,7 @@ const LIMIT = { capacity: 10, refillPerMinute: 30 };
 export interface FacilityLink {
   send(text: string): void;
   viewer(): Promise<Viewer | null>;
-  /** 인사한 프로토콜 판(없으면 지금 판). 13 아래면 폐허 코드를 not_buildable로 */
+  /** 인사한 프로토콜 판(없으면 지금 판). 13 아래면 폐허 코드를 not_buildable로, 21 아래면 needs_water를 blocked_terrain으로 */
   protocolVersion?: number | undefined;
 }
 
@@ -150,9 +152,16 @@ export function createFacilityGateway(options: {
       let pending = 0;
       let closed = false;
       const old = (link.protocolVersion ?? RUINS_PROTOCOL_VERSION) < RUINS_PROTOCOL_VERSION;
+      const beforeWater =
+        (link.protocolVersion ?? WATER_PLACE_PROTOCOL_VERSION) < WATER_PLACE_PROTOCOL_VERSION;
       const reply = (id: number, result: FacilityCommandResult): void => {
         if (closed) return;
-        const shown = old && !result.ok && RUIN_CODES.has(result.code) ? fail("not_buildable") : result;
+        const shown =
+          old && !result.ok && RUIN_CODES.has(result.code)
+            ? fail("not_buildable")
+            : beforeWater && !result.ok && result.code === "needs_water"
+              ? fail("blocked_terrain")
+              : result;
         link.send(resultText(id, shown));
       };
       const process = async (message: FacilityClientMessage): Promise<void> => {

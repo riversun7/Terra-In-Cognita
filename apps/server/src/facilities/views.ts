@@ -145,6 +145,7 @@ function catalogView(
     stage: def.stage,
     maxLevel: def.maxLevel,
     footprint: def.footprint ?? null,
+    needsWaterWithin: def.needsWaterWithin ?? null,
     durability: def.durability,
     levels: def.build
       ? Array.from({ length: def.maxLevel }, (_, index) => {

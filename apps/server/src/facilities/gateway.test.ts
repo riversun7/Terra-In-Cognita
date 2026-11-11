@@ -63,7 +63,7 @@ function fakeService(calls: string[]): FacilityService {
 }
 
 /** 행정 건물 짓기가 늘 그 코드로 실패하는 서비스 */
-const ruinService = (code: "not_ruin" | "ruin_claimed"): FacilityService => ({
+const ruinService = (code: "not_ruin" | "ruin_claimed" | "needs_water"): FacilityService => ({
   ...fakeService([]),
   build: () => Promise.resolve({ ok: false, code }),
 });
@@ -191,5 +191,24 @@ describe("건물 연결 처리", () => {
     expect(now.sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: "not_ruin" }]);
     expect(claimed.sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: "ruin_claimed" }]);
     expect(old.sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: "not_buildable" }]);
+  });
+
+  it("물가 조건의 새 코드 needs_water는 21판 연결에만, 20판은 blocked_terrain(질문 947 나)", async () => {
+    const build = {
+      t: "facility_build",
+      id: 1,
+      mapKey: 9,
+      facility: "fishing_spot",
+      x: 3,
+      y: 4,
+      rotation: 0,
+    } as const;
+    const now = open(ruinService("needs_water"), player, undefined, 21);
+    now.socket.handle(build);
+    const old = open(ruinService("needs_water"), player, undefined, 20);
+    old.socket.handle(build);
+    for (let i = 0; i < 10; i++) await settle();
+    expect(now.sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: "needs_water" }]);
+    expect(old.sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: "blocked_terrain" }]);
   });
 });

@@ -204,7 +204,7 @@ export function ProductionOverviewPanel({
           </thead>
           <tbody>
             {rows.map((row) => {
-              const ladder = ladderOf(items, row.gather.subcategory);
+              const ladder = ladderOf(items, row.gather);
               const counts = ladder.map((tier) => tier.length);
               const total = counts.reduce((sum, count) => sum + count, 0);
               const tiers = counts.flatMap((count, tier) => (count > 0 ? [tier] : []));

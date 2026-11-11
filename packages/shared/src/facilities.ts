@@ -20,6 +20,11 @@ export interface FacilityCatalogView {
   readonly maxLevel: number;
   /** 2차맵 칸 크기(회전 전). 없으면 2차맵에 지을 수 없다 */
   readonly footprint: { readonly width: number; readonly height: number } | null;
+  /**
+   * 물가 조건(질문 947 나, 팩 needsWaterWithin — 낚시터): 건물 칸 둘레 이 배치 칸 수 안에 물 칸이 있어야 짓는다(@terra/shared/waterNearby,
+   * 물 표 = facilities.waterMask). 없으면 null(땅 조건 없음). 선택 칸이라 옛 서버 응답에는 없다
+   */
+  readonly needsWaterWithin?: number | null | undefined;
   /** 레벨 1 최대 내구도 */
   readonly durability: number;
   /** 레벨마다 재료·건설 시간(일꾼 없이, ms) */
@@ -263,3 +268,11 @@ export function materialStockAt(
   }
   return out;
 }
+
+/**
+ * 띄운 2차맵의 물 표(tRPC facilities.waterMask, 질문 947 나): 지형 칸마다 1비트(@terra/shared/waterNearby waterMaskToHex). 짓기 폼이 물가 조건
+ * 미리 보기에 쓴다(판정은 지을 때 서버가 같은 함수로). 띄우지 않은 2차맵은 unknown_map, 세계 준비 전은 not_ready
+ */
+export type FacilityWaterMaskResponse =
+  | { readonly status: "ready"; readonly mapKey: number; readonly size: number; readonly hex: string }
+  | { readonly status: "unknown_map" | "not_ready"; readonly mapKey: number };

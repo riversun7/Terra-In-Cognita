@@ -5,7 +5,14 @@
 // RecipeSpec·NecessitySpec은 기본 단위로 둔다. 거래소는 묶음 단위로 사고판다(goodsMarket lotSize).
 // 채집 티어 추첨(D-506): 시설에 gather가 있고 산출이 모두 그 중분류인 레시피는 산출 묶음마다 티어를 뽑는다(economy/gather.ts).
 // 선택 방식(gather.mode select, 농장·목장)은 뽑지 않고 일꾼 해금 티어에서 고른다(49 P8). 진행 속도·수확량은 simulator/economy.ts.
-import { GATHER_TIERS, type GatherBand, type GatherCatchRule, TEST_GATHER_BANDS } from "../economy/gather.ts";
+import {
+  GATHER_TIERS,
+  type GatherBand,
+  type GatherCatchRule,
+  TEST_GATHER_BANDS,
+  gatherLadderKey,
+  gatherSubcategories,
+} from "../economy/gather.ts";
 import { type NecessitySpec } from "../economy/upkeep.ts";
 import { type GatherMode, type RecipeSpec } from "../economy/production.ts";
 
@@ -52,6 +59,8 @@ export interface CatalogGather {
   readonly primary: string;
   readonly secondary: string;
   readonly subcategory: string;
+  /** 함께 내는 중분류(질문 946 나, 목장 = 축산물 + 목축 부산물). 없으면 주 중분류 하나 */
+  readonly extraSubcategories?: readonly string[] | undefined;
   readonly mode?: GatherMode | undefined;
   /** 옛 yield_base(개) */
   readonly yieldBase?: number | undefined;
@@ -105,7 +114,10 @@ export interface PreparedCatalog {
   readonly presets: readonly CatalogPreset[];
   /** 켜진 물건 자산 코드 → 묶음 크기(1이 아닌 것만) */
   readonly lotSize: ReadonlyMap<string, bigint>;
-  /** 중분류 → 티어별 켜진 물건 자산(팩 차례, 길이 GATHER_TIERS). 추첨 시설이 가리키는 중분류만 */
+  /**
+   * 사다리 키(gatherLadderKey — 중분류 하나면 그 ID, 여럿이면 "+"로 이음) → 티어별 켜진 물건 자산(팩 차례, 길이 GATHER_TIERS).
+   * 추첨 시설이 가리키는 사다리만
+   */
   readonly gatherLadders: ReadonlyMap<string, readonly (readonly string[])[]>;
   readonly gatherBands: readonly GatherBand[];
 }
@@ -122,15 +134,18 @@ export function prepareCatalog(catalog: EconomyCatalog): PreparedCatalog {
   const lots = new Map(items.map((item) => [item.id, item.lotSize ?? 1n]));
   // 시설은 켬·끔이 없다(늘 켜짐, 팩 core@32·사용자 답 2026-11-03)
   const facilities = new Map(catalog.facilities.map((facility) => [facility.id, facility]));
-  // 추첨 시설이 가리키는 중분류의 사다리(티어마다 켜진 물건, 팩 차례)
+  // 추첨 시설이 가리키는 사다리(티어마다 그 중분류들의 켜진 물건, 팩 차례 — 중분류 여럿이면 한 사다리로, 질문 946 나)
   const gatherLadders = new Map<string, string[][]>();
   for (const facility of facilities.values()) {
-    const sub = facility.gather?.subcategory;
-    if (sub === undefined || gatherLadders.has(sub)) continue;
+    if (!facility.gather) continue;
+    const key = gatherLadderKey(facility.gather);
+    if (gatherLadders.has(key)) continue;
+    const subs = new Set(gatherSubcategories(facility.gather));
     const ladder = Array.from({ length: GATHER_TIERS }, (): string[] => []);
     for (const item of items)
-      if (item.subcategory === sub) ladder[Math.min(GATHER_TIERS - 1, item.tier)]?.push(itemAsset(item.id));
-    gatherLadders.set(sub, ladder);
+      if (item.subcategory !== undefined && subs.has(item.subcategory))
+        ladder[Math.min(GATHER_TIERS - 1, item.tier)]?.push(itemAsset(item.id));
+    gatherLadders.set(key, ladder);
   }
   const base = (stack: { item: string; qty: bigint }) => ({
     asset: itemAsset(stack.item),
@@ -142,8 +157,10 @@ export function prepareCatalog(catalog: EconomyCatalog): PreparedCatalog {
     const stacks = [...recipe.inputs, ...recipe.outputs];
     if (stacks.some((stack) => !tierOf.has(stack.item))) continue;
     const gather = facilities.get(recipe.facility)?.gather;
+    const ladderSubs = gather ? gatherSubcategories(gather) : [];
     const rolled =
-      gather !== undefined && recipe.outputs.every((stack) => subOf.get(stack.item) === gather.subcategory);
+      gather !== undefined &&
+      recipe.outputs.every((stack) => ladderSubs.includes(subOf.get(stack.item) ?? ""));
     let rolledLots = 0n;
     for (const stack of recipe.outputs) rolledLots += stack.qty;
     recipes.set(recipe.id, {
@@ -156,7 +173,7 @@ export function prepareCatalog(catalog: EconomyCatalog): PreparedCatalog {
       ...(rolled
         ? {
             gather: {
-              subcategory: gather.subcategory,
+              subcategory: gatherLadderKey(gather),
               lots: Number(rolledLots),
               mode: gather.mode ?? "roll",
             },

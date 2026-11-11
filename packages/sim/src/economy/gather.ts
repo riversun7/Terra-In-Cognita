@@ -3,7 +3,7 @@
 // - 유효 스탯 = 일꾼의 1차 + 2차(시설마다: 광산 STR + VIT, 벌목 DEX + STR, 약초 INT + WIS, 낚시 AGI + DEX)
 //   + 시설 레벨 보너스(N43 n43_level_bonus × (레벨 − 1), [임시] 10). 시설 레벨은 티어를 막지 않는다(D-506, 제작 시설은 D-5001 그대로).
 // - 구간: from이 유효 스탯 이하인 마지막 구간(파일 차례 = from 차례, 첫 구간 from 0). 그 구간 가중치(‰, T0~T9, 합 1000)로 티어 하나.
-// - 아이템: 그 분류(중분류)의 그 티어 아이템. 없으면 더 낮은 티어로 내려간다. 같은 티어에 여럿이면 팩 차례 가운데 고르게 하나
+// - 아이템: 그 분류(중분류 — 시설이 여럿을 적으면 그 모두, 질문 946 나)의 그 티어 아이템. 없으면 더 낮은 티어로 내려간다. 같은 티어에 여럿이면 팩 차례 가운데 고르게 하나
 //   [Assumed: 옛 규칙이 같은 티어 여럿을 어떻게 골랐는지 확인하지 않았다]. T0까지 없으면 그 묶음은 아무것도 나오지 않는다.
 // - 산출 묶음 하나마다 한 번 뽑는다(옛 채집 한 번 = 묶음 1개). 난수는 부르는 쪽이 준다(시드 흐름).
 // 옛 1차 생산 규칙(기획 D-507, 49 N32·P8, docs/research/2026-11-02-old-primary-production.md, ADR economy-core "바뀜 (옛 1차 생산 규칙)"):
@@ -32,12 +32,15 @@ export {
   gatherBandIndex,
   gatherCatchPm,
   gatherChancesPm,
+  gatherLadderKey,
   gatherProgress,
   gatherStat,
+  gatherSubcategories,
   gatherYield,
   tierRequiredProgress,
   type GatherBand,
   type GatherCatchRule,
+  type GatherSubcategorySource,
   type GatherYieldRule,
 } from "@terra/shared/gatherMath";
 

@@ -26,6 +26,7 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       workersOf: (buildingId) => labor.workersAt(buildingId),
     },
     ownerOf: (userId) => settlement.findOwnerOfUser(userId),
+    map: (mapKey) => world.maps.get(mapKey),
     async mapLooks(viewer, mapKey, nowMs) {
       // 보는 건물만(시야 전송과 같은 규칙): 전체 보기, 내 건물, 아는 시야 칸
       const observer = canObserve(viewer);

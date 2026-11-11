@@ -54,6 +54,7 @@ export const FACILITY_ERROR_TEXT: Readonly<Record<FacilityResultCode | "offline"
     safe_zone: m.facility_error_safe_zone,
     not_ruin: m.facility_error_not_ruin,
     ruin_claimed: m.facility_error_ruin_claimed,
+    needs_water: m.facility_error_needs_water,
     internal_error: m.facility_error_internal_error,
     offline: m.facility_error_offline,
     timeout: m.facility_error_timeout,

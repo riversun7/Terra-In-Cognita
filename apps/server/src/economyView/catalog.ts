@@ -199,10 +199,14 @@ export function economyCatalogFrom(
     if (!recipe.enabled || !facilityIds.has(facility) || stacks.some((stack) => !tierOf.has(stack.item.id)))
       continue;
     // 채집 티어 추첨(선택 방식 포함): 시설에 gather가 있고 산출이 모두 그 중분류(시뮬 prepareCatalog와 같은 규칙)
+    // 중분류가 여럿이면(질문 946 나) 산출이 그 가운데 어느 것이든 된다
     const gather = gatherOf.get(facility);
+    const ladderSubs = gather
+      ? [gather.subcategory.id, ...(gather.extraSubcategories ?? []).map((sub) => sub.id)]
+      : [];
     const rolled =
       gather !== undefined &&
-      recipe.outputs.every((stack) => subOf.get(stack.item.id) === gather.subcategory.id);
+      recipe.outputs.every((stack) => ladderSubs.includes(subOf.get(stack.item.id) ?? ""));
     recipes.push({
       id: recipe.id,
       name: recipe.name,

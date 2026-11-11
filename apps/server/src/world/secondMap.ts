@@ -38,6 +38,7 @@ import {
   validatePlacement,
 } from "@terra/sim";
 import type { Rng } from "@terra/shared";
+import type { WaterMask } from "@terra/shared/waterNearby";
 import {
   type BotHome,
   arrivalIdleMs,
@@ -59,6 +60,7 @@ import { DEFAULT_WORLD_PLANET_ID, type WorldDomain } from "../db/schema.ts";
 import { HEALTHY, type UnitCondition, safePoint, unavailable } from "./unitCondition.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_TEST, wireKindOf } from "./unitKinds.ts";
 import { type ExploredStore, type MapVision, createMapVision } from "./vision.ts";
+import { waterMaskOfTerrain } from "./waterMask.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
 import { type WorldStats, recordPathOutcome } from "./worldStats.ts";
 
@@ -214,6 +216,8 @@ export interface SecondMap {
   replicaInit(): MapReplicaInit;
   /** 지형 이진 파일(처음 부를 때 만들고 계속 쓴다) */
   terrainFile(): TerrainFile;
+  /** 지형 칸 물 표(물가 조건, 질문 947 나 — 처음 부를 때 지형 파일에서 만들고 계속 쓴다, waterMask.ts) */
+  waterMask(): WaterMask;
   /** 시험용 봇이 count개가 되게 모자란 만큼 만든다(이미 있는 봇은 그대로 둔다) */
   spawnBots(count: number): void;
   /** 스스로 움직이지 않는 유닛 하나를 기준 칸 (x, y)에 세운다. ID가 있거나 설 수 없으면 false */
@@ -329,6 +333,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     });
   // 격자가 지형 비용 배열을 고친다(벌목 등) → 캐시가 든 원본과 나눠 쓰지 않게 복사한다
   const grid = createPlacementGrid(terrain.costs.slice());
+  let water: WaterMask | undefined;
   let edited = false;
   const units = new Map<number, UnitState>();
   const buildings = new Map<
@@ -659,6 +664,10 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     }),
     terrainFile(): TerrainFile {
       return terrain.file();
+    },
+    waterMask() {
+      water ??= waterMaskOfTerrain(terrain);
+      return water;
     },
     spawnBots(count) {
       const at = now();

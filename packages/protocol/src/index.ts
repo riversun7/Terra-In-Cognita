@@ -72,6 +72,7 @@ export {
 } from "./fusion.ts";
 export {
   ATTACK_PROTOCOL_VERSION,
+  WATER_PLACE_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
   FACILITY_RESULT_CODES,
   type FacilityResultCode,

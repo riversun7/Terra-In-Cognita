@@ -9,6 +9,7 @@ import {
 } from "@terra/shared/facilityBuild";
 import { FACILITY_LOOK_COLORS, FACILITY_LOOK_LIMITS, FACILITY_LOOK_MODELS } from "@terra/shared/facilityLook";
 import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
+import { GATHER_EXTRA_SUBCATEGORIES_MAX } from "@terra/shared/gatherMath";
 import {
   isCurrencySymbol,
   isCurrencyTicker,
@@ -125,6 +126,16 @@ export const facilityEntrySchema = z.strictObject({
       secondary: z.enum(PRIMARY_STAT_CODES),
       subcategory: ref("item_subcategories"),
       /**
+       * 함께 내는 중분류(질문 946 나, docs/adr/2026-11-11-production-six.md "바뀜 (2026-11-11, 946·947)"): 사다리 = 주 중분류 + 이 중분류들의
+       * 켜진 아이템을 티어마다 한데 모은 것(옛 목장 RANCH_T0~T9 = 축산물 + 목축 부산물 30개). 원자재 중분류만, 주 중분류·서로 겹치지 않게
+       * (2단계 검사 gather_subcategory_major·gather_subcategory_duplicate). 없으면 주 중분류 하나(앞 판 그대로)
+       */
+      extraSubcategories: z
+        .array(ref("item_subcategories"))
+        .min(1)
+        .max(GATHER_EXTRA_SUBCATEGORIES_MAX)
+        .optional(),
+      /**
        * 채집 방식(옛 ITM-10, 43 §4): roll = 확률표 추첨(기본, 광산·벌목장·약초원·낚시터), select = 선택 + 효율(농장·목장):
        * 해금 티어 min(⌊(주 + 보조) ÷ 20⌋, 9)(49 P8)에서 켜진 아이템이 있는 가장 높은 티어를 고른다
        */
@@ -190,6 +201,16 @@ export const facilityEntrySchema = z.strictObject({
       width: z.int().min(FACILITY_RUNTIME_LIMITS.footprint.min).max(FACILITY_RUNTIME_LIMITS.footprint.max),
       height: z.int().min(FACILITY_RUNTIME_LIMITS.footprint.min).max(FACILITY_RUNTIME_LIMITS.footprint.max),
     })
+    .optional(),
+  /**
+   * 물가 조건(질문 947 나, 옛 water_adjacent·낚시 반경 5칸 — docs/adr/2026-11-11-production-six.md "바뀜 (2026-11-11, 946·947)"): 있으면
+   * 2차맵에 놓을 때 건물 칸(회전한 칸 크기)에서 이 배치 칸 수 안(체비쇼프 거리 — 칸을 사방으로 이만큼 넓힌 네모)에 물 칸(지표 물·얕은 물)이
+   * 하나라도 있어야 한다. 서버 짓기·NPC 씨앗이 같은 함수(@terra/shared/waterNearby)로 본다. 출발값 = 낚시터 5. 없으면 땅 조건 없음
+   */
+  needsWaterWithin: z
+    .int()
+    .min(FACILITY_RUNTIME_LIMITS.needsWaterWithin.min)
+    .max(FACILITY_RUNTIME_LIMITS.needsWaterWithin.max)
     .optional(),
   /**
    * 레벨 1 최대 내구도(49 M15 "건물 에디터 입력값"). 레벨 L = 이 값 × (1 + (L − 1) × 설정 칸 m15_durability_step). 출발값 = 옛

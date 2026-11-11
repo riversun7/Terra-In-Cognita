@@ -209,3 +209,60 @@ describe("1차 생산 여섯 가지: 약초원·목장·낚시터", () => {
     expect(producedOnce()).toEqual(producedOnce());
   });
 });
+
+describe('목장 사다리 = 축산물 + 목축 부산물(질문 946 나, ADR production-six "바뀜 (2026-11-11, 946·947)")', () => {
+  const RANCH_BOTH: CatalogGather = { ...RANCH, extraSubcategories: ["livestock_byproduct"] };
+  const BOTH_CATALOG: EconomyCatalog = {
+    ...SIX_CATALOG,
+    items: [
+      ...SIX_CATALOG.items,
+      raw("feather", 0, "livestock_byproduct"),
+      raw("deer_hide", 1, "livestock_byproduct"),
+    ],
+    facilities: SIX_CATALOG.facilities.map((facility) =>
+      facility.id === "ranch" ? { ...facility, gather: RANCH_BOTH } : facility,
+    ),
+    recipes: SIX_CATALOG.recipes.map((recipe) =>
+      // 대표 산출이 부산물이어도 사다리 산출이다(산출이 모두 사다리 중분류 가운데 하나)
+      recipe.id === "raise_livestock" ? { ...recipe, outputs: [st("feather", 10)] } : recipe,
+    ),
+  };
+
+  it("사다리 키는 두 중분류를 잇고, 티어마다 두 중분류 물건이 팩 차례로 한 사다리에 든다", () => {
+    const prepared = prepareCatalog(BOTH_CATALOG);
+    expect(prepared.recipes.get("raise_livestock")?.gather).toEqual({
+      subcategory: "livestock_product+livestock_byproduct",
+      lots: 10,
+      mode: "select",
+    });
+    const ladder = prepared.gatherLadders.get("livestock_product+livestock_byproduct");
+    expect(ladder?.[0]).toEqual(["item:raw_meat", "item:feather"]);
+    expect(ladder?.[1]).toEqual(["item:venison", "item:deer_hide"]);
+    expect(ladder?.[2]).toEqual(["item:mutton"]);
+    // 다른 시설의 사다리 키는 그대로(중분류 하나 = 그 ID)
+    expect(prepared.gatherLadders.get("fish")?.[3]).toEqual(["item:mackerel"]);
+  });
+
+  it("해금 티어 T1에서 사슴 고기와 사슴 가죽을 함께 고른다(다른 시설 산출은 앞 판과 같다)", () => {
+    const run = (catalog: EconomyCatalog) =>
+      runSimulation({ scenario: scenarioWith(undefined), catalog, seed: 7, days: 5 }).economy?.produced ?? {};
+    const both = run(BOTH_CATALOG);
+    const qty = (id: string) => BigInt(both[`item:${id}`] ?? "0");
+    expect(qty("venison")).toBeGreaterThan(0n);
+    expect(qty("deer_hide")).toBeGreaterThan(0n);
+    expect(qty("raw_meat") + qty("feather") + qty("mutton")).toBe(0n);
+    // 약초·어류는 목장 사다리를 넓혀도 그대로다(시설마다 난수 흐름이 따로)
+    const before = run(SIX_CATALOG);
+    for (const id of [
+      "wild_herb",
+      "aloe",
+      "lavender",
+      "angelica_root",
+      "loach",
+      "carp",
+      "salmon",
+      "mackerel",
+    ])
+      expect(both[`item:${id}`]).toEqual(before[`item:${id}`]);
+  });
+});

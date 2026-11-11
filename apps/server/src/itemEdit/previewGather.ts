@@ -3,7 +3,7 @@
 // 초안이 켜진 채집 시설(팩 facilities gather)의 사다리(같은 중분류)에 있으면: 기준 유닛의 primary + secondary, 시설 Lv1~5의 유효 스탯
 // (+ 실효 레벨 보너스 N43), 한 번 캘 때 이 아이템이 나올 확률(만분율). 선택 방식(농장·목장)이면 해금 티어에서 고른다(레벨 보너스 없음).
 // 진행 속도·수확량·이 티어 한 번의 필요 진행과 시간, 스탯 표. 셈은 시뮬과 같은 @terra/sim 함수.
-// 사다리 = 그 세계 실효 아이템(초안이 같은 ID를 대신한다) 가운데 켜진 같은 중분류. 확률표는 팩 gather_tiers(세계 덮어쓰기 없음).
+// 사다리 = 그 세계 실효 아이템(초안이 같은 ID를 대신한다) 가운데 켜진 같은 중분류(시설이 함께 내는 중분류 포함, 질문 946 나). 확률표는 팩 gather_tiers(세계 덮어쓰기 없음).
 import type { FacilityEntry } from "@terra/content";
 import type { ItemGatherPreview, ItemGatherWork, ItemPreviewUnit } from "@terra/shared/itemEditor";
 import {
@@ -17,7 +17,7 @@ import {
   gatherYield,
   tierRequiredProgress,
 } from "@terra/sim";
-import { gatherCatchPm } from "@terra/shared/gatherMath";
+import { gatherCatchPm, gatherSubcategories } from "@terra/shared/gatherMath";
 
 /** 시설 레벨(D-5001 Lv1~5) */
 const LEVELS = [1, 2, 3, 4, 5] as const;
@@ -105,14 +105,21 @@ export function previewGather(
   const sub = draft.subcategory;
   if (sub === undefined || ctx.bands.length === 0) return null;
   // 시설은 늘 켜짐(켬·끔 없음, 팩 core@32)
-  const facility = ctx.facilities.find((entry) => entry.gather?.subcategory.id === sub);
+  // 사다리 중분류 = 주 + 함께 내는 것(질문 946 나 — 목장의 목축 부산물도 목장 사다리에 든다)
+  const subsOf = (gather: NonNullable<FacilityEntry["gather"]>): string[] =>
+    gatherSubcategories({
+      subcategory: gather.subcategory.id,
+      extraSubcategories: gather.extraSubcategories?.map((ref) => ref.id),
+    });
+  const facility = ctx.facilities.find((entry) => entry.gather && subsOf(entry.gather).includes(sub));
   const gather = facility?.gather;
   if (!facility || !gather) return null;
+  const subs = subsOf(gather);
   // 사다리: 초안이 같은 ID의 실효 항목을 대신한다(새로 만드는 초안이면 더한다)
   const pool = [...items.filter((item) => item.id !== draft.id), draft];
   const ladder = Array.from({ length: GATHER_TIERS }, (): string[] => []);
   for (const item of pool)
-    if (item.enabled && item.subcategory === sub)
+    if (item.enabled && item.subcategory !== undefined && subs.includes(item.subcategory))
       ladder[Math.min(GATHER_TIERS - 1, item.tier)]?.push(item.id);
   const tier = Math.min(GATHER_TIERS - 1, draft.tier);
   const sameTier = ladder[tier]?.length ?? 0;

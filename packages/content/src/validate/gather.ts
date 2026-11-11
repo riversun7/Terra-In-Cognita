@@ -2,6 +2,7 @@
 // - 확률표(gather_tiers): 첫 구간 from 0, 파일 차례로 from이 늘어나기만(gather_band_order). 구간이 하나도 없으면 시설 추첨이 못 돈다
 //   (gather_bands_missing, 추첨 시설이 있을 때만).
 // - 시설 추첨(facilities.gather): 채집 단계(stage gather) 시설에만(gather_stage), 중분류는 원자재(raw) 중분류만(gather_subcategory_major).
+//   함께 내는 중분류(extraSubcategories, 질문 946 나)도 원자재만이고 주 중분류·서로 겹치지 않는다(gather_subcategory_duplicate).
 // - 수확량(facilities.gather.yield*, D-507): 상한이 기본 개수보다 작으면 오류(gather_yield_cap).
 // 건설 재료(facilities.build) 검사는 facilities.ts.
 // 참조가 없는 경우는 참조 단계가 알린다. 항목은 스키마를 통과한 파싱 결과(참조 = ContentRef)다(items.ts와 같은 방식).
@@ -59,6 +60,31 @@ export function checkGather(pack: ContentPack): ContentIssue[] {
         "gather_subcategory_major",
         "티어 추첨 중분류는 원자재(raw) 중분류여야 합니다.",
       );
+    const extras = get(gather, "extraSubcategories");
+    const seen = new Set(sub instanceof ContentRef ? [sub.id] : []);
+    if (Array.isArray(extras))
+      extras.forEach((extra: unknown, index) => {
+        if (!(extra instanceof ContentRef)) return;
+        const path = `gather.extraSubcategories.${index}`;
+        const extraMajor = majorOf.get(extra.id);
+        if (extraMajor !== undefined && extraMajor !== "raw")
+          error(
+            "facilities.json",
+            facility.id,
+            path,
+            "gather_subcategory_major",
+            "함께 내는 중분류도 원자재(raw) 중분류여야 합니다.",
+          );
+        if (seen.has(extra.id))
+          error(
+            "facilities.json",
+            facility.id,
+            path,
+            "gather_subcategory_duplicate",
+            `중분류 ${extra.id}가 사다리에 두 번 들어갑니다. 주 중분류와 함께 내는 중분류는 서로 달라야 합니다.`,
+          );
+        seen.add(extra.id);
+      });
     if (bands.length === 0)
       error(
         "facilities.json",

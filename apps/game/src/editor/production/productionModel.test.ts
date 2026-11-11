@@ -178,7 +178,7 @@ describe("생산 종류·가공 시설·사다리", () => {
         item("old", 2, "fish", false),
         item("rubble", 0, "ore"),
       ],
-      "fish",
+      { subcategory: "fish" },
     );
     expect(ladder.map((tier) => tier.map((entry) => entry.id)).slice(0, 3)).toEqual([
       ["loach", "minnow"],
@@ -186,6 +186,29 @@ describe("생산 종류·가공 시설·사다리", () => {
       [],
     ]);
     expect(ladder).toHaveLength(10);
+  });
+
+  it("중분류 여럿(질문 946 나, 목장): 축산물 + 목축 부산물이 티어마다 한 사다리로(목록 차례), 겹친 중분류는 한 번", () => {
+    const items = [
+      item("raw_meat", 0, "livestock_product"),
+      item("feather", 0, "livestock_byproduct"),
+      item("egg", 0, "livestock_product"),
+      item("deer_hide", 1, "livestock_byproduct"),
+      item("rubble", 0, "ore"),
+    ];
+    const ladder = ladderOf(items, {
+      subcategory: "livestock_product",
+      extraSubcategories: ["livestock_byproduct", "livestock_product"],
+    });
+    expect(ladder.map((tier) => tier.map((entry) => entry.id)).slice(0, 2)).toEqual([
+      ["raw_meat", "feather", "egg"],
+      ["deer_hide"],
+    ]);
+    // 함께 내는 칸이 없으면 앞 판 그대로(주 중분류 하나)
+    expect(ladderOf(items, { subcategory: "livestock_product" })[0]?.map((entry) => entry.id)).toEqual([
+      "raw_meat",
+      "egg",
+    ]);
   });
 });
 

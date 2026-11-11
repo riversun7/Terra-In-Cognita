@@ -9,8 +9,9 @@
 // - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 채집 시설 카드에 일꾼 칸(직무 배치, WorkerParts.tsx — 명령은 노동 계약 길
 //   labor_assign·labor_unassign, 프로토콜 14). 짓기 폼은 2차맵을 고르고(서버가 띄운 것이 여럿이면), [지도에서 고르기]로 2차맵에서 칸을 눌러
 //   X·Y를 채운다(buildPick.ts 연결점).
-import type { FacilitiesOverviewResponse } from "@terra/shared/facilities";
+import type { FacilitiesOverviewResponse, FacilityWaterMaskResponse } from "@terra/shared/facilities";
 import { cityOfCell } from "@terra/shared/goodsPlaces";
+import { hasWaterNear, rotatedRect, waterMaskFromHex } from "@terra/shared/waterNearby";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { navigate } from "../shell/routerStore.ts";
@@ -31,7 +32,15 @@ import {
   stockAt,
 } from "./facilityText.ts";
 import { Loaded } from "./parts.tsx";
-import { NO_ARGS, useFacilities, useLabor, useNowTick, useRuins, useTemple } from "./queries.ts";
+import {
+  NO_ARGS,
+  useFacilities,
+  useLabor,
+  useNowTick,
+  useRuins,
+  useTemple,
+  useWaterMask,
+} from "./queries.ts";
 import { PlacesList } from "./StorageParts.tsx";
 import "./facilities.css";
 
@@ -39,6 +48,23 @@ const ROTATIONS = [0, 90, 180, 270] as const;
 
 /** 0~255 칸 */
 const isCell = (value: string): boolean => /^[0-9]{1,3}$/.test(value) && Number(value) <= 255;
+
+/**
+ * 짓기 폼의 물가 조건 상태(질문 947 나): none = 조건 없음, unknown = 물 표·칸을 아직 모름, ok = 둘레에 물, dry = 둘레에 물이 없음(서버가
+ * needs_water로 거절할 자리 — 단추를 막는다)
+ */
+export function waterStateOf(
+  mask: FacilityWaterMaskResponse | null,
+  radius: number | null,
+  footprint: { readonly width: number; readonly height: number } | null,
+  at: { readonly x: number; readonly y: number; readonly rotation: number } | null,
+): "none" | "unknown" | "ok" | "dry" {
+  if (radius === null || !footprint) return "none";
+  if (!at || mask?.status !== "ready") return "unknown";
+  const water = waterMaskFromHex(mask.hex, mask.size);
+  if (!water) return "unknown";
+  return hasWaterNear(water, rotatedRect(at.x, at.y, footprint, at.rotation), radius) ? "ok" : "dry";
+}
 
 function UnitPicker({
   data,
@@ -125,13 +151,22 @@ function BuildForm({
       ? cityOfCell(data.cities, mapKey, Number(x), Number(y))
       : undefined;
   const stock = stockAt(data, mapKey ?? -1, city?.id ?? null);
+  // 물가 조건(질문 947 나, 낚시터): 그 2차맵 물 표로 서버와 같은 함수(@terra/shared/waterNearby)를 미리 돌린다. 판정은 지을 때 서버
+  const waterRadius = chosen?.needsWaterWithin ?? null;
+  const water = useWaterMask(waterRadius !== null && mapKey !== undefined ? [String(mapKey)] : null);
+  const waterState = waterStateOf(
+    water.data,
+    waterRadius,
+    chosen?.footprint ?? null,
+    ready ? { x: Number(x), y: Number(y), rotation } : null,
+  );
   return (
     <form
       className="labor-form"
       aria-labelledby="facility-new-title"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!ready || !chosen || mapKey === undefined) return;
+        if (!ready || !chosen || mapKey === undefined || waterState === "dry") return;
         void run({
           t: "facility_build",
           mapKey,
@@ -230,6 +265,20 @@ function BuildForm({
           })}
         </p>
       ) : null}
+      {waterRadius !== null ? (
+        <p
+          className={waterState === "dry" ? "field-error eco-field-error" : "eco-footnote"}
+          data-part="facility-water"
+          data-water={waterState}
+          role={waterState === "dry" ? "alert" : undefined}
+        >
+          {waterState === "dry"
+            ? m.facility_build_water_dry({ cells: waterRadius })
+            : waterState === "ok"
+              ? m.facility_build_water_ok({ cells: waterRadius })
+              : m.facility_build_water_rule({ cells: waterRadius })}
+        </p>
+      ) : null}
       <p className="eco-footnote" data-part="facility-source">
         {city ? m.facility_build_city({ id: city.id }) : m.facility_build_no_city()}
       </p>
@@ -274,7 +323,12 @@ function BuildForm({
         <button
           type="submit"
           className="eco-submit"
-          disabled={busy || !ready || (level1 !== undefined && !canAfford(stock, level1.materials))}
+          disabled={
+            busy ||
+            !ready ||
+            waterState === "dry" ||
+            (level1 !== undefined && !canAfford(stock, level1.materials))
+          }
         >
           {m.facility_build()}
         </button>

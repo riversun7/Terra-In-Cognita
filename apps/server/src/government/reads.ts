@@ -10,6 +10,7 @@
 // 지도자 창구(governmentOfLeader — 2차맵에서 누른 NPC 국가 지도자가 지금 내 시야 안이면 그 나라 수도 행정 건물의 정부 판).
 // 바뀜("WP-NPC4"): 생필품 충족 = 지난 하루 끝에 저장한 값(781 나 — npc/cityDayStore.ts), 시장 이름(773 나 — npc/humanNames.ts).
 import type { GovernmentMayor, GovernmentResponse } from "@terra/shared/government";
+import type { NationEmblemView } from "@terra/shared/nationEditor";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { SimCity, SimFaction, SimUnit } from "@terra/sim";
 import type { Viewer } from "../trpc/context.ts";
@@ -60,6 +61,8 @@ export interface GovernmentSource {
   knownCityIds(viewer: Viewer): Promise<ReadonlySet<number>>;
   /** 세력 코드 → 나라 이름·지도자 이름(팩 국가 프리셋) */
   nationName(code: string): LocalizedName | undefined;
+  /** 세력 코드 → 국가 마크(만든 마크 + 올린 그림 해시). 없으면 마크 없이 보인다 */
+  nationEmblem?: ((code: string) => Promise<NationEmblemView | null>) | undefined;
   leaderName(code: string): LocalizedName | undefined;
   /**
    * 그 사람이 지금 그 유닛을 보는가(지도의 한눈 정보와 같은 규칙: 내 유닛·전체 보기 권한·시야 전송 MapVision.sees). 없으면 늘 못 본다
@@ -231,6 +234,10 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
           id: factionRow ?? city.owner,
           code,
           name: code === null ? null : (source.nationName(code) ?? null),
+          // 국가 마크(마크 조회가 있는 서버만 — 읽지 못해도 정부 판은 그대로 준다)
+          ...(source.nationEmblem && code !== null
+            ? { emblem: await source.nationEmblem(code).catch(() => null) }
+            : {}),
           fixed: faction?.fixed ?? false,
           mine: factionRow !== undefined && source.myFactionRow(viewer.id) === factionRow,
           taxBp: runtime.taxOf?.(city.owner) ?? null,
@@ -258,7 +265,7 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
 /** 월드(app.ts → worldMap/reads.ts worldMapReadsOf)로 정부 판 조회를 만든다. 아는 도시·이름은 지도 흐름 조회와 같은 함수 */
 export function governmentReadsOfWorld(
   world: Pick<World, "maps" | "persistence" | "npc">,
-  names: Pick<GovernmentSource, "knownCityIds" | "nationName" | "leaderName" | "seesUnit">,
+  names: Pick<GovernmentSource, "knownCityIds" | "nationName" | "nationEmblem" | "leaderName" | "seesUnit">,
 ): GovernmentReads {
   return createGovernmentReads({
     ...names,

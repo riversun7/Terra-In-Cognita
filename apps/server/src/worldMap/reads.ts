@@ -15,6 +15,7 @@ import { placementCellKey } from "@terra/planet/territory";
 import { planetCellValuesFromFile } from "@terra/planet/secondMap";
 import { CELL_UNITS, PLACEMENT_SIZE, TEST_GARDENER_COEFFICIENTS, positionAt } from "@terra/sim";
 import type { MapUnitGlance } from "@terra/shared/mapUnits";
+import type { NationEmblemView } from "@terra/shared/nationEditor";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import type {
@@ -26,7 +27,9 @@ import type {
   WorldPosition,
   WorldPositionResponse,
 } from "@terra/shared/worldMap";
+import { ownerIdentityOf } from "../factionIdentity/store.ts";
 import { type GovernmentReads, governmentReadsOfWorld } from "../government/reads.ts";
+import { loadEmblemHashes } from "../nationEdit/emblems.ts";
 import { type NaturalizationReads, naturalizationReadsOfWorld } from "../citizenship/attach.ts";
 import { type NationPreset, nationEmblemOf, nationLeaderName, nationName } from "../npc/nations.ts";
 import type { Viewer } from "../trpc/context.ts";
@@ -411,6 +414,7 @@ async function factionOfOwner(
   pool: QueryPool,
   owner: { readonly userId: string | null; readonly factionId: number | null } | undefined,
   nameOf: (code: string | null) => LocalizedName | null,
+  emblemOf?: (code: string) => Promise<NationEmblemView | null>,
 ): Promise<MapUnitGlance["faction"]> {
   if (!owner) return null;
   const factionId = owner.factionId ?? (owner.userId === null ? null : await myFactionOf(pool, owner.userId));
@@ -422,7 +426,15 @@ async function factionOfOwner(
   const row = result.rows[0];
   if (!row) return null;
   const code = typeof row.code === "string" ? row.code : null;
-  return { id: Number(row.id), code, kind: row.kind === "player" ? "player" : "npc", name: nameOf(code) };
+  // 국가 마크(읽지 못해도 이름은 그대로 준다)
+  const emblem = code === null || !emblemOf ? null : await emblemOf(code).catch(() => null);
+  return {
+    id: Number(row.id),
+    code,
+    kind: row.kind === "player" ? "player" : "npc",
+    name: nameOf(code),
+    emblem,
+  };
 }
 
 /**
@@ -450,6 +462,13 @@ export function worldMapReadsOf(options: {
   // 국가 1(시험 NPC 세력)도 사이보그 만들기·랭킹과 같은 이름(16번째 프리셋, nationName — WP1 6절. 지도에만 옛 "시험 NPC 세력"이 남아 있었다)
   const nameOfCode = (code: string): LocalizedName | undefined => nationName(code, options.presets);
   const leaderOfCode = (code: string): LocalizedName | undefined => nationLeaderName(code, options.presets);
+  // 국가 마크(만든 마크 사양·색 + 이 세계에 올린 그림 해시 — 정부 판·유닛 한눈 정보가 그린다). 프리셋이 없는 세력은 null
+  const emblemOfCode = async (code: string): Promise<NationEmblemView | null> => {
+    const made = nationEmblemOf(code, options.presets);
+    if (!made) return null;
+    const uploaded = await loadEmblemHashes(options.pool).catch(() => undefined);
+    return { spec: made.spec, color: made.color, uploaded: uploaded?.get(made.preset) ?? null };
+  };
   const sighted = (mapKey: number, viewer: Viewer) =>
     world.maps.get(mapKey)?.vision.sighted(visionViewerOf(world, viewer.id)) ?? Promise.resolve(undefined);
   const reads = createWorldMapReads({
@@ -498,9 +517,17 @@ export function worldMapReadsOf(options: {
       world.maps.get(mapKey)?.vision.sees(visionViewerOf(world, viewer.id), unitId) ?? false,
     observer: canObserve,
     factionOfOwner: (ownerId) =>
-      factionOfOwner(options.pool, world.persistence?.owners.get(ownerId), (code) =>
-        code === null ? null : (nameOfCode(code) ?? null),
+      factionOfOwner(
+        options.pool,
+        world.persistence?.owners.get(ownerId),
+        (code) => (code === null ? null : (nameOfCode(code) ?? null)),
+        emblemOfCode,
       ),
+    // 유저 유닛의 주인 줄: 그 유저가 정한 세력 정체성(docs/adr/2026-11-11-faction-identity.md 6절)
+    identityOfOwner: async (ownerId) => {
+      const userId = world.persistence?.owners.get(ownerId)?.userId ?? null;
+      return userId === null ? null : ownerIdentityOf(options.pool, userId);
+    },
     leaderName: leaderOfCode,
     // 고른 유닛의 추천 줄(1차 생산·전투 유형): 직무 산출과 같은 1차 스탯
     primaries: (unitId) => world.persistence?.holdings.primariesOf(unitId),
@@ -520,6 +547,7 @@ export function worldMapReadsOf(options: {
   const government = governmentReadsOfWorld(world, {
     knownCityIds: (viewer) => reads.knownCityIds(viewer),
     nationName: nameOfCode,
+    nationEmblem: emblemOfCode,
     leaderName: leaderOfCode,
     seesUnit: (viewer, mapKey, unitId) => {
       const map = world.maps.get(mapKey);

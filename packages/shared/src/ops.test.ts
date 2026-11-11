@@ -17,12 +17,10 @@ describe("운영 권한", () => {
     expect(Object.keys(OPS_ROLE_DEFAULTS).toSorted()).toEqual([...ROLES].toSorted());
     expect(OPS_ROLE_DEFAULTS.player).toEqual([]);
     expect(OPS_ROLE_DEFAULTS.gm).toEqual([...tier("monitor"), ...tier("light")]);
-    expect(OPS_ROLE_DEFAULTS.admin).toEqual([
-      ...tier("monitor"),
-      ...tier("light"),
-      ...tier("strong"),
-      "log_switch",
-    ]);
+    // 목록 차례(새 권한은 끝에 더한다)라 단계 차례와 다를 수 있어 묶음으로 견준다
+    expect([...OPS_ROLE_DEFAULTS.admin].toSorted()).toEqual(
+      [...tier("monitor"), ...tier("light"), ...tier("strong"), "log_switch"].toSorted(),
+    );
     expect(OPS_ROLE_DEFAULTS.dev).toEqual(OPS_PERMISSIONS);
   });
 
@@ -30,6 +28,9 @@ describe("운영 권한", () => {
     expect(effectiveOpsPermissions(["gm"], [])).not.toContain("ledger_grant");
     expect(effectiveOpsPermissions(["gm"], [])).not.toContain("log_switch");
     expect(effectiveOpsPermissions(["gm"], [])).toContain("account_ban");
+    // 플레이어 마크 내리기는 가벼운 통제다(docs/adr/2026-11-11-faction-identity.md 5절)
+    expect(effectiveOpsPermissions(["gm"], [])).toContain("emblem_moderate");
+    expect(effectiveOpsPermissions(["gm"], [])).not.toContain("faction_edit");
     expect(effectiveOpsPermissions(["admin"], [])).toContain("unit_teleport");
     expect(effectiveOpsPermissions(["admin"], [])).toContain("log_switch");
     expect(effectiveOpsPermissions(["admin"], [])).not.toContain("manage_grants");

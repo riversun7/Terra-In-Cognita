@@ -195,6 +195,32 @@ describe("world.government", () => {
     const early = createGovernmentReads(source({ runtime: () => undefined }));
     expect((await early.government(viewer, 10, NOW)).status).toBe("not_ready");
   });
+
+  it("나라 마크: 마크 조회가 있으면 nation.emblem(읽다 실패하면 null), 없으면 칸이 없다", async () => {
+    const emblem = {
+      spec: { shape: "circle", division: "fess", charge: "moon", scheme: 1 } as const,
+      color: "#2980b9",
+      uploaded: null,
+    };
+    const asked: string[] = [];
+    const reads = createGovernmentReads(
+      source({
+        nationEmblem: async (code) => {
+          asked.push(code);
+          return emblem;
+        },
+      }),
+    );
+    expect((await reads.government(viewer, 10, NOW)).nation).toMatchObject({ id: 2, emblem });
+    expect(asked).toEqual(["placeholder_nation_01"]);
+    const failing = createGovernmentReads(
+      source({ nationEmblem: () => Promise.reject(new Error("db down")) }),
+    );
+    expect((await failing.government(viewer, 10, NOW)).nation).toMatchObject({ id: 2, emblem: null });
+    expect((await createGovernmentReads(source()).government(viewer, 10, NOW)).nation).not.toHaveProperty(
+      "emblem",
+    );
+  });
 });
 
 describe("world.leaderGovernment(지도자 창구, 742 나)", () => {

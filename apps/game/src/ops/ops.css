@@ -345,3 +345,13 @@
   white-space: nowrap;
   overflow-wrap: normal;
 }
+/* 마크 관리 탭(EmblemsTab.tsx): 올린 그림과 자동 생성 마크를 나란히 */
+.ops-emblem-pair {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.ops-emblem-table td,
+.ops-emblem-table th {
+  vertical-align: middle;
+}

@@ -168,6 +168,35 @@ describe("기획 답 630~637", () => {
       kind: "cyborg_body",
       faction: null,
     });
+    // 유저 유닛의 주인이 정한 세력 정체성(docs/adr/2026-11-11-faction-identity.md 6절): 있으면 owner 칸, 읽다 실패해도 한눈 정보는 그대로
+    const identity = {
+      name: "하늘세력",
+      shortName: "HAN",
+      color: "#2980b9",
+      emblem: { shape: "shield", division: "plain", charge: "star", scheme: 0 } as const,
+      uploaded: null,
+    };
+    const withOwner = (identityOfOwner: (ownerId: number) => Promise<typeof identity | null>) =>
+      createMapUnitReads({
+        map: (key) => (key === MAP_KEY ? test.map : undefined),
+        ownerOfUser: (userId) => (userId === PLAYER.id ? 5 : undefined),
+        cyborgName: () => undefined,
+        identityOfOwner,
+      });
+    expect(
+      (
+        await withOwner(async (ownerId) => (ownerId === 5 ? identity : null)).unitGlance(
+          PLAYER,
+          MAP_KEY,
+          9,
+          NOW,
+        )
+      ).glance,
+    ).toEqual({ unitId: 9, kind: "cyborg_body", faction: null, owner: identity });
+    expect(
+      (await withOwner(() => Promise.reject(new Error("db down"))).unitGlance(PLAYER, MAP_KEY, 9, NOW))
+        .glance,
+    ).toEqual({ unitId: 9, kind: "cyborg_body", faction: null });
     test.map.stop();
   });
 

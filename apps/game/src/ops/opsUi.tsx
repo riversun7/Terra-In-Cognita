@@ -24,6 +24,7 @@ export const PERMISSION_LABELS: { readonly [P in OpsPermission]: () => string } 
   manage_grants: m.ops_perm_manage_grants,
   log_switch: m.ops_perm_log_switch,
   faction_edit: m.ops_perm_faction_edit,
+  emblem_moderate: m.ops_perm_emblem_moderate,
 };
 
 export const TIER_LABELS: { readonly [T in OpsTier]: () => string } = {

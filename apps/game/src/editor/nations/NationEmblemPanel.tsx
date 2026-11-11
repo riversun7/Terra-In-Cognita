@@ -14,22 +14,13 @@ import {
 import { type ChangeEvent, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { NationEmblem } from "../../ui/NationEmblem.tsx";
+import { loadImage } from "../../ui/emblemCanvas.ts";
 import { SelectField } from "../content/contentEditorFields.tsx";
 import { NationCropper } from "./NationCropper.tsx";
 import { colorOf, emblemOf } from "./nationModel.ts";
 import { CHARGE_TEXT, DIVISION_TEXT, SHAPE_TEXT } from "./nationText.ts";
 
 const SCHEMES = Array.from({ length: EMBLEM_SCHEME_COUNT }, (_, index) => String(index));
-
-/** 고른 파일을 그림으로 읽는다(못 읽으면 null). 주소는 부르는 쪽이 푼다 */
-function loadImage(url: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const image = new Image();
-    image.addEventListener("load", () => resolve(image.naturalWidth > 0 ? image : null));
-    image.addEventListener("error", () => resolve(null));
-    image.src = url;
-  });
-}
 
 export function NationEmblemPanel({
   entry,

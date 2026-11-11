@@ -11,6 +11,7 @@ import type { GovernmentResponse } from "@terra/shared/government";
 import { useEffect, useId, useRef } from "react";
 import { RecruitPanel } from "../economy/RecruitPanel.tsx";
 import { m } from "../paraglide/messages.js";
+import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { navigate } from "../shell/routerStore.ts";
 import { GovernmentDay } from "./GovernmentDay.tsx";
 import { type DeskRoute, GovernmentDesk } from "./GovernmentDesk.tsx";
@@ -84,6 +85,16 @@ export default function GovernmentDialog({ government, onClose, via = "building"
         </div>
         {via === "leader" ? <p className="gov-muted">{m.government_leader_desk_hint()}</p> : null}
         <p className="gov-chips">
+          {nation.emblem ? (
+            // 나라 마크(NPC 국가의 만든 마크·올린 그림 — docs/adr/2026-11-11-faction-identity.md 6절)
+            <NationEmblem
+              spec={nation.emblem.spec}
+              color={nation.emblem.color}
+              uploaded={nation.emblem.uploaded}
+              size={32}
+              className="gov-emblem"
+            />
+          ) : null}
           {nation.mine ? <span className="gov-chip">{m.government_chip_mine()}</span> : null}
           {city.capital ? <span className="gov-chip">{m.government_chip_capital()}</span> : null}
           {city.start ? <span className="gov-chip">{m.government_chip_start()}</span> : null}

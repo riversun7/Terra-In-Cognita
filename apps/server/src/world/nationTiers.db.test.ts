@@ -242,8 +242,18 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     );
     const facilitiesOf = (city: CityLine) =>
       facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id);
-    const big = ["farm", "farm", "government_hall", "storehouse", "storehouse"];
-    const plain = ["farm", "government_hall", "storehouse"];
+    // 숙소 셋(설정 칸 npc_seed_lodgings — docs/adr/2026-11-11-city-building-layout.md)
+    const big = [
+      "farm",
+      "farm",
+      "government_hall",
+      "lodging",
+      "lodging",
+      "lodging",
+      "storehouse",
+      "storehouse",
+    ];
+    const plain = ["farm", "government_hall", "lodging", "lodging", "lodging", "storehouse"];
     lists.forEach((list, index) => {
       for (const city of list) expect(facilitiesOf(city)).toEqual(index === 1 || index === 2 ? big : plain);
     });

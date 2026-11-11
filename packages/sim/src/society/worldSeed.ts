@@ -100,6 +100,29 @@ export interface WorldSeedCoefficients {
    * 수도를 그 도시로 옮긴다(작은 차이로 매일 오가지 않게). 서버만 읽는다(src/npc/capitals.ts)
    */
   readonly capitalSwitchDev: number;
+  /** [임시] 시작 도시 하나의 숙소 수(팩 시설 lodging, 생활 단계 — docs/adr/2026-11-11-city-building-layout.md). 일꾼의 밤 쉼터 */
+  readonly lodgings: number;
+  /**
+   * [임시] 도시 건물 배치(사용자 요청 2026-11-11 "건물들도 바둑판 배열이 아닌 전략적으로", docs/adr/2026-11-11-city-building-layout.md):
+   * 1 = 전략 배치(행정 건물 가운데 → 숙소 → 창고 → 채집소 겹, apps/server/src/facilities/cityLayout.ts), 0 = 옛 배치(가운데 마당 밖 고리마다
+   * 처음 맞는 자리). 서버만 읽는다
+   */
+  readonly cityLayoutMode: number;
+  /** [임시] 행정 건물 둘레 비우는 광장(배치 칸) */
+  readonly cityLayoutPlazaCells: number;
+  /** [임시] 가공·기타 건물이 서는 안쪽 고리 반경(행정 건물 가운데에서 배치 칸) */
+  readonly cityLayoutInnerCells: number;
+  /** [임시] 채집소가 서는 띠: 행정 건물 가운데에서 이 칸 이상 ~ 아래 칸 이하(배치 칸) */
+  readonly cityLayoutGatherMinCells: number;
+  readonly cityLayoutGatherMaxCells: number;
+  /** [임시] 채집소 자리 점수: 이 칸 안의 맡는 원자재 오브젝트 수 */
+  readonly cityLayoutGatherReachCells: number;
+  /** [임시] 창고 자리 = 행정 건물 → 채집소 묶음 길의 이 천분율 지점(1000 = 채집소 곁) */
+  readonly cityLayoutStoreRoutePm: number;
+  /** [임시] 숙소 자리 = 같은 길의 이 천분율 지점(일꾼이 일터와 가운데 사이에서 쉰다) */
+  readonly cityLayoutLodgeRoutePm: number;
+  /** [임시] 목표 칸을 흔드는 칸(도시마다 모양이 다르게) */
+  readonly cityLayoutJitterCells: number;
 }
 
 /** 출발값 — 모두 [임시](옛 규칙 없음, D-515). 시작 도시 2~4곳(60 §7.1), 기본 시설은 종류마다 하나 */
@@ -144,6 +167,19 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   workEndPm: 750,
   // 수도 옮기기: 발전도 10점(도시 등급 한 칸쯤) 넘게 앞서야 옮긴다
   capitalSwitchDev: 10,
+  // 도시 건물 배치(docs/adr/2026-11-11-city-building-layout.md): 전략 배치 켬.
+  // 띠: 옛 씨앗이 건물을 세우던 반경(가운데에서 48칸 안)과 채집소 반경(40칸) 안 — 채집소 20~42칸, 고리 9칸, 창고는 길의 75%, 숙소는 35%.
+  // 숙소 셋: 채집 구역(창고 수)마다 길 위 하나, 남는 것은 행정 건물의 빈 쪽(측정 docs/worklog/2026/11/12-0130-city-layout.md)
+  lodgings: 3,
+  cityLayoutMode: 1,
+  cityLayoutPlazaCells: 3,
+  cityLayoutInnerCells: 9,
+  cityLayoutGatherMinCells: 20,
+  cityLayoutGatherMaxCells: 42,
+  cityLayoutGatherReachCells: 14,
+  cityLayoutStoreRoutePm: 750,
+  cityLayoutLodgeRoutePm: 350,
+  cityLayoutJitterCells: 2,
 };
 
 /**

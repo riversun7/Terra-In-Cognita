@@ -41,6 +41,7 @@ import {
 } from "../npc/nations.ts";
 import { weightsOfFacilities } from "@terra/shared/catchment";
 import { catchmentViewOf } from "./catchmentView.ts";
+import type { CityLayoutService } from "../facilities/cityLayoutView.ts";
 import { type NationPlacement, loadPlacements, planNationMove } from "./nationPlacement.ts";
 import type { QueryPool } from "./persist/load.ts";
 import { cancelTierApply, requestTierApply } from "./tierApply.ts";
@@ -76,6 +77,8 @@ export interface PlacementServiceOptions {
   readonly testNations?: number | undefined;
   /** 영토 설정 칸(도시 영향권 — 더 세울 도시 자리 미리 보기). 없으면 출발값 */
   readonly territory?: (() => SocietyCoefficients["territory"]) | undefined;
+  /** 도시 건물 배치 미리 보기·다시 놓기 예약(facilities/cityLayoutView.ts). 없으면 그 조회가 not ready */
+  readonly cityLayout?: CityLayoutService | undefined;
 }
 
 export interface PlacementActor {
@@ -100,6 +103,8 @@ export interface PlacementService {
   cancelTierApply(actor: PlacementActor): Promise<boolean>;
   /** 고른 국가 수도 둘레 배후지 덮개(catchmentView.ts — 읽기만). 모르는 국가면 null */
   catchment(code: string): Promise<WorldCatchmentView | null | undefined>;
+  /** 도시 건물 배치(facilities/cityLayoutView.ts). 없으면 undefined */
+  readonly cityLayout: CityLayoutService | undefined;
 }
 
 interface NationRow {
@@ -467,6 +472,7 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
     },
 
     tierPlan: tierView,
+    cityLayout: o.cityLayout,
 
     async catchment(code) {
       if (!ready()) return undefined;
@@ -545,6 +551,7 @@ export function placementSourceOf(input: {
   readonly presets?: PlacementServiceOptions["presets"];
   readonly testNations?: number | undefined;
   readonly territory?: PlacementServiceOptions["territory"];
+  readonly cityLayout?: PlacementServiceOptions["cityLayout"];
 }): () => { readonly planetId: string; readonly service: PlacementService } | undefined {
   let made: PlacementService | undefined;
   return () => {
@@ -561,6 +568,7 @@ export function placementSourceOf(input: {
       presets: input.presets,
       testNations: input.testNations,
       territory: input.territory,
+      cityLayout: input.cityLayout,
     });
     return { planetId: input.planetId, service: made };
   };

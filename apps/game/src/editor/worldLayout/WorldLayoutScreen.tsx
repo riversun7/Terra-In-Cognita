@@ -7,6 +7,7 @@
 // 놓은 자리는 서버가 다음에 켤 때 세계에 든다(실행 중인 세계는 바꾸지 않는다). 390px에서는 지도 → 판 → 표가 한 칸씩 쌓인다.
 // 어느 행성에 놓는지는 범위 줄(scope/ScopeBar.tsx, 주소 ?planet=)에서 고른다 — 행성이 바뀌면 화면을 새로 읽는다(docs/adr/2026-11-11-planet-scope.md).
 // - 국력 등급 판(WorldTierPanel — "바뀜 (2026-11-11)"): 등급 배치 계획 미리 보기·다시 만들기, 이 세계에 반영(미리 보기 → 예약), 세울 수 있는 국가.
+// - 도시 건물 배치 판(WorldCityLayoutPanel — docs/adr/2026-11-11-city-building-layout.md): 지금 · 다시 놓은 뒤 그림·지표, 다시 놓기 예약.
 // 조각 이름 WorldLayoutScreen-*([Ww]orldLayout).
 import { decodeCellKey } from "@terra/planet";
 import type {
@@ -30,6 +31,7 @@ import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { cellAtLatLon } from "../planet/cellReport.ts";
 import type { LatLon } from "../planet/flatMapRender.ts";
 import { WorldCatchmentPanel } from "./WorldCatchmentPanel.tsx";
+import { WorldCityLayoutPanel } from "./WorldCityLayoutPanel.tsx";
 import { WorldLayoutMap } from "./WorldLayoutMap.tsx";
 import { WorldTierPanel } from "./WorldTierPanel.tsx";
 import { STATUS_TEXT, blockersText, placeFailText, tierText } from "./worldLayoutMessages.ts";
@@ -456,6 +458,7 @@ function WorldLayoutBody({ scope }: { scope: PlanetScope }) {
             onChoose={setChosen}
           />
           <WorldCatchmentPanel key={targetCode ?? ""} planetId={planetId} code={targetCode} busy={busy} />
+          <WorldCityLayoutPanel planetId={planetId} locale={locale} />
         </>
       ) : null}
     </section>

@@ -96,6 +96,7 @@ import { TEST_MAP_KEY, TEST_PLANET_ID, startWorld, testMapKey } from "./world/wo
 import { primaryPlanetId } from "./world/playablePlanets.ts";
 import { planetGaugesOf } from "./ops/planetReads.ts";
 import { placementSourceOf } from "./world/placementService.ts";
+import { cityLayoutServiceOf } from "./facilities/cityLayoutView.ts";
 import { registerNationEmblemRoute } from "./nationEdit/emblems.ts";
 import { nationName } from "./npc/nations.ts";
 import type { AppOptions } from "./appOptions.ts";
@@ -354,7 +355,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         // 세계 전투 시작 사양의 몸(입은 장비·버프, 사이보그 화면과 같은 셈 — docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")
         roster: rosterCatalog ? () => rosterCatalog : undefined,
         // 건물 짓기·노화·수리(docs/adr/2026-11-07-buildings-runtime.md): 실효 시설·아이템(건물·아이템 편집기 덮어쓰기가 바로 든다)
-        facilities: contentEditState ? { content: () => contentEditState.effective() } : undefined,
+        facilities: contentEditState
+          ? { content: () => contentEditState.effective(), gatherKinds: () => options.gatherObjects ?? [] }
+          : undefined,
         // NPC 도시 경제·거래소(docs/adr/2026-11-07-play-flow.md WP4): 경제 화면 목록 + 실효 아이템·시설·채집 확률표
         economy: serverEconomyCatalogAccessor(
           options.economyCatalog,
@@ -385,6 +388,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           presets: () => options.world?.npc?.presets ?? [],
           testNations: options.world?.npc?.testNations,
           territory: () => tuningState.society().territory,
+          // 도시 건물 배치 미리 보기·다시 놓기 예약(docs/adr/2026-11-11-city-building-layout.md)
+          cityLayout: cityLayoutServiceOf(
+            world,
+            options.db.$client,
+            () => tuningState.society().worldSeed,
+            now,
+            TEST_PLANET_ID,
+          ),
         })
       : undefined;
   // 구인 카드(D-469): 세계가 준비되고 NPC 사회 런타임이 돌 때만(거울 도시·시드가 런타임에 있다)

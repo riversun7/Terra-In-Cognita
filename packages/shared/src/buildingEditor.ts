@@ -94,6 +94,7 @@ export interface BuildingEditorGatherBand {
 /**
  * 생산 단계(@terra/content FACILITY_STAGES와 같다, D-114) + 영토(영토 비콘, D-485·49 N51) + 창고(일하지 않는 시설, N50·382)
  * + 신앙(신전, 46 §7·D-311) + 생명공학(생명과학 연구소, D-517) + 행정(폐허에 짓는 정부, D-510) + 의료(병원, D-521)
+ * + 생활(숙소, 48 §7.1·D-245 — docs/adr/2026-11-11-city-building-layout.md)
  */
 export const FACILITY_STAGE_IDS = [
   "gather",
@@ -106,6 +107,7 @@ export const FACILITY_STAGE_IDS = [
   "biotech",
   "government",
   "medical",
+  "living",
 ] as const;
 export type FacilityStageId = (typeof FACILITY_STAGE_IDS)[number];
 

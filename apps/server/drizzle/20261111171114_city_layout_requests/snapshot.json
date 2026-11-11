@@ -1,0 +1,177 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "48dada73-342b-4bee-8b7d-b5019c6b8649",
+  "prevIds": [
+    "d55bcbd5-e2ac-423b-80ff-bc4ac6c53c3e"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_city_layout_requests"
+      ],
+      "writes": [
+        "s|tbl|public.world_city_layout_requests",
+        "n|tbl|public.world_city_layout_requests",
+        "e|tbl|public.world_city_layout_requests",
+        "n|rel|public.world_city_layout_requests",
+        "n|type|public.world_city_layout_requests",
+        "n|rel|public.world_city_layout_requests_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_city_layout_requests"
+      ],
+      "writes": [
+        "s|fk|public.world_city_layout_requests.world_city_layout_requests_requested_by_users_id_fkey",
+        "n|fk|public.world_city_layout_requests.world_city_layout_requests_requested_by_users_id_fkey",
+        "e|fk|public.world_city_layout_requests.world_city_layout_requests_requested_by_users_id_fkey",
+        "n|con|public.world_city_layout_requests.world_city_layout_requests_requested_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_city_layout_requests",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.world_city_layout_requests.requested_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_city_layout_requests",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_city_layout_requests",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'s2_test_planet'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_city_layout_requests",
+        "name": "requested_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_city_layout_requests",
+        "name": "requested_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_city_layout_requests",
+        "name": "applied_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_city_layout_requests",
+        "name": "report",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_city_layout_requests",
+        "name": "world_city_layout_requests_requested_by_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "requested_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_city_layout_requests",
+        "name": "world_city_layout_requests_pkey",
+        "columns": [
+          "planet_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

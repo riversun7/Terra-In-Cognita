@@ -975,7 +975,7 @@ export { currencyProfiles, factionIdentities, factionProfiles, opsGrants, opsSwi
 // 플레이어 가문 구성원·신고(docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)")
 export { houseMembers, houseNotices, houseReports, houseRequests } from "./houseSchema.ts";
 // 고정 NPC 국가 자리(D-528 세계 배치 화면): worldPlacementSchema.ts
-export { worldNationPlacements, worldTierRequests } from "./worldPlacementSchema.ts";
+export { worldCityLayoutRequests, worldNationPlacements, worldTierRequests } from "./worldPlacementSchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

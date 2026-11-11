@@ -5,6 +5,9 @@
 // 직무·일이 없는 휴먼은 집(도시 시청 칸) 둘레만 걷는다. 보이는 움직임만 정한다(산출은 도시 경제가 센다 — 휴먼이 어디 있든 같다).
 // 일하는 때(기획 답 770 나, "WP-NPC4"): 일터를 받은 휴먼은 그 2차맵 지역 시각의 낮(설정 칸 npc_work_start_pm~npc_work_end_pm)에 일터로 간다 —
 // 2차맵 경도는 2차맵 빛(엔진 secondMapPlace)과 같은 셈(칸 가운데 방향의 경도)이다.
+// 숙소(docs/adr/2026-11-11-city-building-layout.md, 사용자 요청 2026-11-11 "숙소는 노동자 회복 루트"·기획 D-245 "가장 가까운 숙소"): 그 도시에
+// 숙소가 있으면 일터를 받은 휴먼의 집은 일터에서 가장 가까운 숙소 둘레다(밤에 거기서 쉰다 — 전략 배치는 숙소를 일터와 가운데 사이에 둔다).
+// 일이 없는 휴먼·경비대는 그대로 도시 시청 칸 둘레. 피로 회복·요금은 아직 없다(보이는 움직임만).
 import { isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import { type BuildingPlacement, footprintRect } from "@terra/sim";
@@ -42,6 +45,16 @@ export function workAreaOf(placement: BuildingPlacement): TripArea {
   };
 }
 
+/** 네모 가운데끼리 체비셰프 거리가 가장 짧은 네모(같으면 앞의 것). 없으면 undefined */
+export function nearestArea(areas: readonly TripArea[], from: TripArea): TripArea | undefined {
+  let best: { area: TripArea; d: number } | undefined;
+  for (const area of areas) {
+    const d = Math.max(Math.abs(area.x - from.x), Math.abs(area.y - from.y));
+    if (!best || d < best.d) best = { area, d };
+  }
+  return best?.area;
+}
+
 /**
  * 한 도시 휴먼의 집·일터(순수 함수). humans = 그 도시 휴먼 유닛 ID(차례 상관없음), facilities = 그 도시 시설 일꾼, areas = 그 도시 2차맵에 선
  * 건물의 일터 네모. 일꾼 수 합이 휴먼보다 많으면 앞 시설부터 채우고 끝난다
@@ -55,6 +68,8 @@ export function assignHumanPlaces(input: {
   readonly shift?: WorkShift | undefined;
   /** 경비대(일터를 받지 않고 늘 집 = 도시 시청 칸 둘레에 머문다). humans에 들어 있지 않은 유닛 ID */
   readonly guards?: readonly number[] | undefined;
+  /** 그 도시 숙소의 쉼터 네모(없거나 비면 일꾼도 시청 칸 둘레에서 쉰다) */
+  readonly lodgings?: readonly TripArea[] | undefined;
 }): Map<number, BotHome> {
   const shift = input.shift ?? DEFAULT_WORK_SHIFT;
   const out = new Map<number, BotHome>();
@@ -65,7 +80,15 @@ export function assignHumanPlaces(input: {
     for (let taken = 0; taken < facility.workers && next < humans.length; taken++) {
       const unitId = humans[next] ?? 0;
       next += 1;
-      out.set(unitId, work ? { x: input.home.x, y: input.home.y, work, shift } : { ...input.home });
+      const rest = work ? nearestArea(input.lodgings ?? [], work) : undefined;
+      out.set(
+        unitId,
+        work
+          ? rest
+            ? { x: rest.x, y: rest.y, homeRadius: rest.radius, work, shift }
+            : { x: input.home.x, y: input.home.y, work, shift }
+          : { ...input.home },
+      );
     }
   }
   for (; next < humans.length; next++) out.set(humans[next] ?? 0, { x: input.home.x, y: input.home.y });
@@ -96,6 +119,8 @@ export interface HumanPlacesInput {
   readonly maps: ReadonlyMap<number, PlacesMap>;
   /** 그 도시 시설 일꾼(도시 경제가 없으면 undefined — 모두 집 둘레) */
   readonly facilitiesOf?: ((cityId: number) => readonly WorkFacility[]) | undefined;
+  /** 그 도시 숙소 건물 ID(없으면 일꾼도 시청 칸 둘레에서 쉰다) */
+  readonly lodgingsOf?: ((cityId: number) => readonly number[]) | undefined;
   /** 일하는 지역 시각(지역 하루 천분율, 설정 칸 npc_work_start_pm·npc_work_end_pm). 없으면 DEFAULT_WORK_SHIFT의 값 */
   readonly workHours?: { readonly startPm: number; readonly endPm: number } | undefined;
 }
@@ -150,6 +175,10 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
           facilities: input.facilitiesOf?.(cityId) ?? [],
           areas: areasOf(place.mapKey, map),
           shift: shiftOf(place.mapKey),
+          lodgings: (input.lodgingsOf?.(cityId) ?? []).flatMap((id) => {
+            const area = areasOf(place.mapKey, map).get(id);
+            return area ? [area] : [];
+          }),
         });
         for (const [unitId, home] of homes) {
           seen.add(unitId);

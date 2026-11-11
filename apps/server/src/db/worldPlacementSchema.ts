@@ -41,3 +41,17 @@ export const worldTierRequests = pgTable("world_tier_requests", {
   appliedAtMs: bigint("applied_at_ms", { mode: "number" }),
   report: jsonb("report").$type<Record<string, unknown>>(),
 });
+
+/**
+ * 이미 선 NPC 도시 건물을 전략 배치로 다시 놓으라는 요청(docs/adr/2026-11-11-city-building-layout.md) — 행성 하나에 한 줄(다시 요청하면
+ * 덮어쓴다). 세계 배치 화면(/dev/world-layout)의 운영자 동작이 적고, 서버가 다음에 켤 때(facilities/cityRelayout.ts) NPC 국가 시작 도시의
+ * NPC 건물만 옮긴다(건물 ID·시설 줄·창고 물건은 그대로, 플레이어 것·플레이어가 걸린 건물은 건드리지 않는다). applied_at_ms = 든 시각
+ * (null = 다음 켤 때 들 차례), report = 든 결과 요약. 세계 자료라 시험 세계 새로 시작(reset-world)이 비운다
+ */
+export const worldCityLayoutRequests = pgTable("world_city_layout_requests", {
+  planetId: planetIdColumn().primaryKey(),
+  requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
+  requestedAtMs: bigint("requested_at_ms", { mode: "number" }).notNull(),
+  appliedAtMs: bigint("applied_at_ms", { mode: "number" }),
+  report: jsonb("report").$type<Record<string, unknown>>(),
+});

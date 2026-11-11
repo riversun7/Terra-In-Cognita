@@ -328,7 +328,8 @@
 /* ── 배후지 덮개(WorldCatchmentPanel — docs/adr/2026-11-11-city-catchment.md) ──
  * 격자 칸 하나 = 1차맵 칸(SVG 사용자 단위 1). 칸 칠 = 원자재 무리, 원 = 배후지 반경(실선 지금 세계 · 점선 계획), 고른 국가 원은 굵게.
  * SVG 선 굵기·점선은 격자 단위 수(칸의 몇 분의 일)라 px이 아니다. */
-.wl-catch {
+.wl-catch,
+.wl-city {
   display: grid;
   gap: var(--space-2);
   min-width: 0;
@@ -403,4 +404,92 @@
 }
 .wl-catch-legend li[data-catch-legend="plan"]::before {
   border-style: dashed;
+}
+
+/* 도시 건물 배치 판(docs/adr/2026-11-11-city-building-layout.md): 2차맵 배치 칸 좌표의 그림, 건물 몫 색 */
+.wl-city-map {
+  inline-size: 100%;
+  max-inline-size: 36rem;
+  aspect-ratio: 1;
+  border: var(--hairline) solid var(--color-border);
+}
+.wl-city-ground {
+  fill: var(--color-surface);
+}
+.wl-city-plaza {
+  fill: var(--color-surface-2);
+  stroke: var(--color-border);
+  stroke-width: 0.3;
+  stroke-dasharray: 1 0.6;
+}
+.wl-city-building {
+  stroke: var(--color-text);
+  stroke-width: 0.25;
+  fill-opacity: 0.85;
+}
+.wl-city-building[data-role="core"],
+.wl-city-legend li[data-role="core"]::before {
+  fill: var(--color-danger);
+  background-color: var(--color-danger);
+}
+.wl-city-building[data-role="living"],
+.wl-city-legend li[data-role="living"]::before {
+  fill: var(--color-stat-vit);
+  background-color: var(--color-stat-vit);
+}
+.wl-city-building[data-role="storage"],
+.wl-city-legend li[data-role="storage"]::before {
+  fill: var(--color-warning);
+  background-color: var(--color-warning);
+}
+.wl-city-building[data-role="gather"],
+.wl-city-legend li[data-role="gather"]::before {
+  fill: var(--color-success);
+  background-color: var(--color-success);
+}
+.wl-city-building[data-role="other"],
+.wl-city-legend li[data-role="other"]::before {
+  fill: var(--color-text-muted);
+  background-color: var(--color-text-muted);
+}
+.wl-city-building[data-pinned] {
+  stroke-dasharray: 0.8 0.5;
+  stroke-width: 0.4;
+}
+.wl-city-line {
+  fill: none;
+  stroke-width: 0.35;
+  stroke-linejoin: round;
+}
+.wl-city-line[data-line="route"] {
+  stroke: var(--color-stat-int);
+  stroke-dasharray: 1.2 0.8;
+}
+.wl-city-line[data-line="haul"] {
+  stroke: var(--color-warning);
+}
+.wl-city-legend li[data-line]::before {
+  block-size: var(--hairline);
+  border: 0;
+  background-color: var(--color-stat-int);
+}
+.wl-city-legend li[data-line="haul"]::before {
+  background-color: var(--color-warning);
+}
+.wl-city-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.wl-city-table tr[data-selected] th {
+  color: var(--color-primary);
+}
+.wl-city-pick {
+  white-space: nowrap;
+}
+.wl-city-table td {
+  white-space: nowrap;
 }

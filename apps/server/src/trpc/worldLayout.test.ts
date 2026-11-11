@@ -64,8 +64,18 @@ function fakeService(calls: { entries: unknown; actor: PlacementActor }[]): Plac
       return EMPTY_TIER_VIEW;
     },
     cancelTierApply: async () => true,
+    cityLayout: {
+      view: async () => EMPTY_CITY_VIEW,
+      request: async (actor) => {
+        calls.push({ entries: "city_relayout", actor });
+        return EMPTY_CITY_VIEW;
+      },
+      cancel: async () => false,
+    },
   };
 }
+
+const EMPTY_CITY_VIEW = { cities: [], totals: { cities: 0, moves: 0, pinned: 0 }, request: null };
 
 const EMPTY_TIER_VIEW = {
   nations: [],
@@ -127,5 +137,23 @@ describe("worldLayout 라우터", () => {
     await expect(player.worldLayout.tierPlan(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(player.worldLayout.requestTierApply(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(player.worldLayout.cancelTierApply(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("도시 건물 배치: 미리 보기는 읽기 권한, 다시 놓기 예약·취소는 놓기 권한, 본인·요청 IP로, 서비스가 없으면 WORLD_NOT_READY", async () => {
+    const calls: { entries: unknown; actor: PlacementActor }[] = [];
+    const caller = callerFor(ADMIN, fakeService(calls));
+    const input = { planetId: "s2_test_planet" };
+    expect((await caller.worldLayout.cityLayout(input)).totals.moves).toBe(0);
+    expect((await caller.worldLayout.requestCityRelayout(input)).request).toBeNull();
+    expect(calls).toEqual([{ entries: "city_relayout", actor: { userId: "u-admin", ip: "10.0.0.1" } }]);
+    expect(await caller.worldLayout.cancelCityRelayout(input)).toEqual({ cancelled: false });
+    const player = callerFor(PLAYER, fakeService(calls));
+    await expect(player.worldLayout.cityLayout(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(player.worldLayout.requestCityRelayout(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const bare = callerFor(ADMIN, { ...fakeService(calls), cityLayout: undefined });
+    await expect(bare.worldLayout.cityLayout(input)).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "WORLD_NOT_READY",
+    });
   });
 });

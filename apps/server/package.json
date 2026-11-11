@@ -17,7 +17,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/migrate.ts",
     "bench:second-map": "node bench/secondMapPaths.ts",
-    "bench:vision": "node bench/visionShare.ts"
+    "bench:vision": "node bench/visionShare.ts",
+    "bench:city-layout": "node bench/cityLayout.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.14",

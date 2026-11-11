@@ -282,8 +282,10 @@ export interface SecondMap {
     target: Point,
     options?: { readonly speedFactor?: number },
   ): Promise<CommandResult>;
-  /** ownerId = 건물 주인 주체(시험 건물은 놓은 사람, 없으면 null) */
-  placeBuilding(placement: BuildingPlacement, ownerId?: number | null): CommandResult;
+  /** ownerId = 건물 주인 주체(시험 건물은 놓은 사람, 없으면 null). reuseId = 치운 건물을 같은 ID로 다시 놓기(facilities/cityRelayout.ts) */
+  placeBuilding(placement: BuildingPlacement, ownerId?: number | null, reuseId?: number): CommandResult;
+  /** 그 칸 네모에 지금 유닛 몸이 걸치나(도시 건물 배치 계획이 유닛 선 칸을 피한다 — facilities/cityLayoutGround.ts) */
+  unitInRect(rect: CellRect): boolean;
   /** 놓을 수 있나만 본다(놓지 않음 — 폐허 정부 짓기 자리 제안, docs/adr/2026-11-07-ruins-restoration.md) */
   canPlace(placement: BuildingPlacement): boolean;
   removeBuilding(buildingId: number): CommandResult;
@@ -903,13 +905,14 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         requestRoute(unit, target, "command", COMMAND_NODE_BUDGET, resolve, moveOptions?.speedFactor),
       );
     },
-    placeBuilding(placement, ownerId = null) {
+    placeBuilding(placement, ownerId = null, reuseId) {
       if (buildings.size >= MAX_BUILDINGS) return { ok: false, code: "building_limit" };
+      if (reuseId !== undefined && buildings.has(reuseId)) return { ok: false, code: "invalid_request" };
       const check = validatePlacement(grid, placement);
       if (!check.ok)
         return { ok: false, code: check.problem === "invalid_input" ? "invalid_request" : check.problem };
       if (unitInRect(check.rect)) return { ok: false, code: "overlaps_unit" };
-      const id = allocateBuildingId();
+      const id = reuseId ?? allocateBuildingId();
       putBuilding(id, placement, ownerId);
       persist?.saveBuilding({ id, mapKey, planetId, domain: "land", ownerId, placement });
       replanBlockedUnits();
@@ -919,6 +922,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       }
       return { ok: true, buildingId: id };
     },
+    unitInRect,
     canPlace(placement) {
       if (buildings.size >= MAX_BUILDINGS) return false;
       const check = validatePlacement(grid, placement);

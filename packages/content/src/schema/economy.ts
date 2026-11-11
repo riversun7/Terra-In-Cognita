@@ -38,7 +38,8 @@ export { ITEM_CATEGORIES, itemEntrySchema, type ItemEntry } from "./items.ts";
  * + 신앙(일하지 않고 기도·헌금·환생·신격화 집전을 받는 신앙 시설, 46 §7·D-311) + 생명공학(비활성 휴먼을 유전자로 바꾸는 생명과학 연구소,
  * D-517·D-469 — 둘 다 docs/adr/2026-11-07-temple-religion.md) + 행정(폐허에 짓는 정부 = 행정 건물, D-510 —
  * docs/adr/2026-11-07-ruins-restoration.md) + 의료(다친 유닛을 돈을 받고 빨리 낫게 하는 병원, 의사 = 직무 배치 — D-521·D-311,
- * docs/adr/2026-11-08-injury.md)
+ * docs/adr/2026-11-08-injury.md) + 생활(일꾼이 쉬는 숙소 — 기획 48 §7.1·D-245·90 "생활 서비스", 지금은 NPC 휴먼의 밤 쉼터만,
+ * docs/adr/2026-11-11-city-building-layout.md)
  */
 export const FACILITY_STAGES = [
   "gather",
@@ -51,6 +52,7 @@ export const FACILITY_STAGES = [
   "biotech",
   "government",
   "medical",
+  "living",
 ] as const;
 
 /** 채집 방식: roll = 확률표 추첨, select = 선택 + 효율(옛 ITM-10) */

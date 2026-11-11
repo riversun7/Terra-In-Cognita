@@ -15,9 +15,18 @@ import { type CellKey, decodeCellKey, parseCellKey } from "@terra/planet";
 import { planetInputFromDefinition, runPlanetGenerator } from "@terra/planet/generator";
 import { planetCellValues, planetValuesFromGeneration } from "@terra/planet/secondMap";
 import { AVERAGE_CELL_EDGE_METERS, territoryMetric, territoryPoint } from "@terra/planet/territory";
-import { CATCHMENT_MATERIALS, weightsOfFacilities } from "@terra/shared/catchment";
+import {
+  CATCHMENT_MATERIALS,
+  MATERIAL_BIT,
+  type SupplyStock,
+  catchmentAreaMilli,
+  cellMaterials,
+  materialDemand,
+  stepCatchmentSupply,
+  weightsOfFacilities,
+} from "@terra/shared/catchment";
 import { territoryDistanceMilli } from "@terra/shared/territory";
-import { START_WORLD_SEED, plannedCityRadiusMilli } from "@terra/sim";
+import { START_WORLD_SEED, catchmentGrowthOf, catchmentSupplyOf, plannedCityRadiusMilli } from "@terra/sim";
 import { MAX_TEST_NATIONS, nationCode, nationStartOf, presetOfCode } from "../src/npc/nations.ts";
 import { nationPresetsOf } from "../src/npc/presets.ts";
 import { landGather } from "../src/facilities/npcSeed.ts";
@@ -173,6 +182,59 @@ const coverRows = cities.map((city) => {
   return { city, alone, own };
 });
 
+// 30일 채집 다툼(목표 크기 — 인구 = 주거, 등급 = 계획 등급, 수도는 더 크게; 가중치 = 국가 시작 채집 시설 수 가운데 NPC 씨앗이 그 땅에 짓는
+// 것, 원자재 = 칸 비트)
+const supplyRun = (() => {
+  const growth = catchmentGrowthOf(START_WORLD_SEED);
+  const rules = catchmentSupplyOf(START_WORLD_SEED);
+  const bitsOf = new Map<number, number>();
+  const capacity = (cell: number, material: (typeof CATCHMENT_MATERIALS)[number]): number => {
+    let bits = bitsOf.get(cell);
+    if (bits === undefined) {
+      bits = cellMaterials(land(parseCellKey(cell)), START_WORLD_SEED);
+      bitsOf.set(cell, bits);
+    }
+    return (bits & MATERIAL_BIT[material]) === 0 ? 0 : 1000;
+  };
+  const supplyCities = cities.map((city) => {
+    const start = startOfNation.get(city.nation);
+    const housing = start?.housing ?? START_WORLD_SEED.startHousing;
+    const size = {
+      population: city.capital ? Math.floor((housing * START_WORLD_SEED.catchmentCapitalPm) / 1000) : housing,
+      grade: START_WORLD_SEED.catchmentPlanGrade + (city.capital ? 1 : 0),
+      tech: start?.tech ?? 1,
+    };
+    const cells = catchmentCellsMilli(city.mapKey, city.needMilli, LEVEL);
+    const area = Math.max(catchmentAreaMilli(size, growth), cells.length * 1000);
+    // NPC 씨앗이 실제로 짓는 채집 시설만(도시 칸 행성 값 — landGather, 광산은 높은 땅에만)
+    const fit = landGather(land(city.mapKey), START_WORLD_SEED);
+    const all = weightsOfFacilities(start?.facilities ?? {});
+    const weights = {
+      ...all,
+      crop: fit.farm ? all.crop : 0,
+      wood: fit.lumber ? all.wood : 0,
+      ore: fit.mine ? all.ore : 0,
+    };
+    const max = Math.max(...CATCHMENT_MATERIALS.map((m) => weights[m] ?? 0));
+    const demand = Object.fromEntries(
+      CATCHMENT_MATERIALS.map((m) => [m, materialDemand(area, weights[m] ?? 0, max, rules)]),
+    );
+    return { id: city.id, cells, demand };
+  });
+  const stock: SupplyStock = new Map();
+  let last = new Map<number, number>();
+  for (let day = 0; day < 30; day++)
+    last = new Map(
+      [...stepCatchmentSupply(supplyCities, stock, capacity, rules)].map(([id, r]) => [id, r.totalPm]),
+    );
+  const values = [...last.values()];
+  return {
+    avg: Math.round(values.reduce((sum, v) => sum + v, 0) / Math.max(1, values.length)),
+    min: Math.min(...values),
+    stalled: values.filter((v) => v < START_WORLD_SEED.catchmentGrowthMinPm).length,
+  };
+})();
+
 const lines: string[] = [];
 lines.push(
   `# 도시 간격 측정 (${old ? "옛 배치" : fixed === undefined ? "도시 크기 배후지 배치" : `고정 반경 배후지 배치 R = ${fixed}칸`})`,
@@ -195,6 +257,9 @@ for (const [tier, list] of [...nearestSameByTier].toSorted((a, b) => a[0].locale
 const needs = cities.map((city) => city.needMilli / 1000);
 lines.push(
   `- 요구 반경(처음 기간 크기): ${stats(needs)}, 요구 반경으로 겹친 쌍(거리 < 두 반경 합): 같은 국가 ${needOverlapSame} · 다른 국가 ${needOverlapForeign}`,
+);
+lines.push(
+  `- 30일 채집 다툼(목표 크기, 원자재 = 칸 비트): 받은 몫 평균 ${supplyRun.avg}‰ · 최저 ${supplyRun.min}‰ · 성장 멈춤(< ${START_WORLD_SEED.catchmentGrowthMinPm}‰) 도시 ${supplyRun.stalled}/${cities.length}`,
 );
 lines.push(`- 붙은 도시 쌍(거리 ≤ 1.5칸 = 변·꼭짓점 이웃 2차맵): ${adjacentPairs}`);
 lines.push(`- 2차맵 하나에 도시 둘 이상: ${[...perMap.values()].filter((n) => n > 1).length}`);

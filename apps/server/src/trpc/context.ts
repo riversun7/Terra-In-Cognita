@@ -287,7 +287,8 @@ export interface RosterServices {
  */
 export interface CyborgReadServices {
   status(viewer: Viewer): CyborgStatusResponse;
-  creation(viewer: Viewer, now: number): CyborgCreationResponse;
+  /** 만들기 화면 자료(운영진이면 다시 굴리기 제한 없음, 올린 국가 마크는 DB에서 읽어 기다린다) */
+  creation(viewer: Viewer, now: number): CyborgCreationResponse | Promise<CyborgCreationResponse>;
   nameCheck(name: string): CyborgNameCheckResponse;
 }
 

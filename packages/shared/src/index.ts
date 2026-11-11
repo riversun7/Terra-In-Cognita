@@ -94,7 +94,7 @@ export {
   type LoginIdResult,
 } from "./loginId.ts";
 export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./passwordRules.ts";
-export { DEFAULT_ROLE, ROLES, isRole, type Role } from "./roles.ts";
+export { DEFAULT_ROLE, ROLES, STAFF_ROLES, hasStaffRole, isRole, type Role } from "./roles.ts";
 export { SAVED_ID_PATTERN, isSavedId } from "./savedId.ts";
 // 화면 주소 표·메뉴 항목(앱 뼈대, ADR 2026-10-29-app-shell). 홈 카드·처리할 일은 진입점이 따로다:
 // @terra/shared/dashboard, @terra/shared/inbox(첫 화면 묶음에 넣지 않는다)

@@ -70,6 +70,7 @@ export function nationJsonOf(entry: NationPresetEntry): NationPresetJson {
     ...(entry.personality ? { personality: personalityJsonOf(entry.personality) } : {}),
     ...(entry.cityNames ? { cityNames: [...entry.cityNames] } : {}),
     ...(entry.leaderName ? { leaderName: { ko: entry.leaderName.ko, en: entry.leaderName.en } } : {}),
+    ...(entry.intro ? { intro: { ko: entry.intro.ko, en: entry.intro.en } } : {}),
     ...(entry.humanNames
       ? {
           humanNames: {

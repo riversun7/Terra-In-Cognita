@@ -95,6 +95,8 @@ export function nationPresetsFrom(
           : {}),
         ...(entry.cityNames ? { cityNames: [...entry.cityNames] } : {}),
         ...(entry.leaderName ? { leaderName: { ko: entry.leaderName.ko, en: entry.leaderName.en } } : {}),
+        ...(entry.intro ? { intro: { ko: entry.intro.ko, en: entry.intro.en } } : {}),
+        tradeTaxBp: entry.tradeTaxBp,
         ...(entry.shortName ? { shortName: entry.shortName } : {}),
         ...(entry.color ? { color: entry.color } : {}),
         ...(entry.emblem ? { emblem: { ...entry.emblem } } : {}),

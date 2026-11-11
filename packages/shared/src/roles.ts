@@ -14,3 +14,11 @@ export const DEFAULT_ROLE: Role = "player";
 export function isRole(value: string): value is Role {
   return (ROLES as readonly string[]).includes(value);
 }
+
+/** 운영진 역할(운영자·관리자·개발자). 첫 접속 다시 굴리기 횟수 제한 없음(2026-11-11)처럼 "운영진만" 판정에 쓴다 */
+export const STAFF_ROLES: readonly Role[] = ["gm", "dev", "admin"];
+
+/** 역할 목록에 운영진 역할이 하나라도 있는가 */
+export function hasStaffRole(roles: readonly string[]): boolean {
+  return roles.some((role) => (STAFF_ROLES as readonly string[]).includes(role));
+}

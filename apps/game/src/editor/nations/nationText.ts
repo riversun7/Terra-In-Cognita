@@ -2,10 +2,11 @@
 // 표로 적는다). 오류·출처 문구는 건물 편집기와 같은 메시지(dev_buildings_*)를 쓴다. 이 조각에만 든다.
 import type { ContentEditOrigin, ContentIssueView } from "@terra/shared/contentEdit";
 import type { NameStyleId } from "@terra/shared/nameGen";
-import type {
-  NationApplyAction,
-  NationEditorCheckResponse,
-  NationEditorReason,
+import {
+  NATION_LIST_LIMITS,
+  type NationApplyAction,
+  type NationEditorCheckResponse,
+  type NationEditorReason,
 } from "@terra/shared/nationEditor";
 import type { EmblemCharge, EmblemDivision, EmblemShape } from "@terra/shared/nationEmblem";
 import { m } from "../../paraglide/messages.js";
@@ -142,6 +143,8 @@ export function nationIssueText(issue: ContentIssueView): string {
       return m.dev_nations_issue_name_unique();
     case "person_name_given":
       return m.dev_nations_issue_given_empty();
+    case "nation_intro_length":
+      return m.dev_nations_issue_intro_length({ max: NATION_LIST_LIMITS.introLength });
     case "ref_missing":
       return m.dev_buildings_issue_ref_missing({ id: param(issue, "id") });
     case "too_small":

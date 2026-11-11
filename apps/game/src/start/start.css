@@ -425,3 +425,32 @@
     animation: none;
   }
 }
+/* 나라 고르기 카드(2026-11-11 "더 자세한 정보"): 마크·등급 표지, 한 줄 소개, 고른 카드의 자세한 줄(이름 | 값 두 칸) */
+.start-nation-emblem {
+  flex: none;
+}
+.start-nation-tier {
+  border: var(--border-w) solid var(--color-border);
+  background: var(--color-surface-2);
+}
+.start-nation-intro {
+  color: var(--color-text);
+}
+.start-nation-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin-block-start: var(--space-1);
+  padding-block-start: var(--space-2);
+  border-block-start: var(--border-w) solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+.start-nation-fact {
+  display: contents;
+}
+.start-nation-fact-label {
+  color: var(--color-text-muted);
+}
+.start-nation-fact-value {
+  overflow-wrap: anywhere;
+}

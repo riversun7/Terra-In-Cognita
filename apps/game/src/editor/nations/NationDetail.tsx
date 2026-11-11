@@ -167,7 +167,7 @@ export function NationDetail({
           title={sectionTitles.identity}
           desc={m.dev_nations_section_identity_desc()}
           source="D-076 · D-5046"
-          paths={["name", "shortName", "color", "leaderName", "emblem", "nameStyle", "powerTier"]}
+          paths={["name", "shortName", "color", "leaderName", "intro", "emblem", "nameStyle", "powerTier"]}
         >
           <div className="ne-grid">
             <TextField
@@ -250,6 +250,24 @@ export function NationDetail({
               if (name) onEdit({ ...draft, leaderName: { ko: name.ko, en: name.en } });
             }}
           />
+          {/* 한 줄 소개(첫 접속 나라 고르기 카드, 2026-11-11 — [임시] 글, 실제 나라·인물 금지) */}
+          <div className="ne-grid">
+            <TextField
+              label={m.dev_nations_field_intro_ko()}
+              value={draft.intro?.ko ?? ""}
+              maxLength={NATION_LIST_LIMITS.introLength}
+              onChange={(ko) => onEdit({ ...draft, intro: { ko, en: draft.intro?.en ?? "" } })}
+              desc={m.dev_nations_field_intro_desc()}
+              path="intro.ko"
+            />
+            <TextField
+              label={m.dev_nations_field_intro_en()}
+              value={draft.intro?.en ?? ""}
+              maxLength={NATION_LIST_LIMITS.introLength}
+              onChange={(en) => onEdit({ ...draft, intro: { ko: draft.intro?.ko ?? "", en } })}
+              path="intro.en"
+            />
+          </div>
           <fieldset className="ne-color" data-readable={readable.ok ? "yes" : "no"}>
             <legend className="field-label">{m.dev_nations_field_color()}</legend>
             <div className="ne-swatches" role="group" aria-label={m.dev_nations_color_palette()}>

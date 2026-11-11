@@ -170,6 +170,7 @@ export function cleanNation(entry: NationPresetJson): NationPresetJson {
   const given = entry.humanNames?.given ?? [];
   const family = entry.humanNames?.family ?? [];
   const leader = entry.leaderName;
+  const intro = entry.intro;
   return {
     id: entry.id,
     name: { ko: entry.name.ko, en: entry.name.en },
@@ -203,6 +204,7 @@ export function cleanNation(entry: NationPresetJson): NationPresetJson {
     ...(leader && (leader.ko !== "" || leader.en !== "")
       ? { leaderName: { ko: leader.ko, en: leader.en } }
       : {}),
+    ...(intro && (intro.ko !== "" || intro.en !== "") ? { intro: { ko: intro.ko, en: intro.en } } : {}),
     ...(given.length > 0
       ? { humanNames: { given: [...given], ...(family.length > 0 ? { family: [...family] } : {}) } }
       : {}),

@@ -20,15 +20,20 @@ import { navigate } from "../shell/routerStore.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { ElementIcon } from "../ui/elementIcons.tsx";
 import { markCyborgElementsSet } from "./cyborgGate.ts";
+import {
+  type BasicElement,
+  EMPTY_ELEMENT_DRAFT,
+  type ElementDraft,
+  draftCounts,
+  elementCap,
+  plusAction,
+  pressPlus,
+} from "./elementDraft.ts";
 import { sendCyborgCommand } from "./cyborgCommands.ts";
 import { commandErrorText } from "./startText.ts";
 import "./elements.css";
 
-export type BasicElement = (typeof BASIC_ELEMENTS)[number];
-/** 고르는 중인 분배(4원소만, 0인 칸은 고르지 않은 칸) */
-export type ElementDraft = Readonly<Record<BasicElement, number>>;
-
-export const EMPTY_ELEMENT_DRAFT: ElementDraft = { water: 0, fire: 0, wind: 0, earth: 0 };
+// 고르는 중인 값의 모양·[+] 규칙은 elementDraft.ts(시험이 그 파일을 본다)
 
 const ELEMENT_NAMES = {
   water: m.start_element_water,
@@ -54,17 +59,6 @@ export function elementDraftValid(draft: ElementDraft, rule: ElementAllocationRu
   return checkElementAllocation(elementPayload(draft), rule).ok;
 }
 
-/** 고른 칸 수·남은 점수 */
-function draftCounts(draft: ElementDraft, rule: ElementAllocationRule) {
-  let used = 0;
-  let cells = 0;
-  for (const element of BASIC_ELEMENTS) {
-    used += draft[element];
-    if (draft[element] > 0) cells += 1;
-  }
-  return { left: rule.points - used, cells };
-}
-
 export function ElementsStep({
   draft,
   rule,
@@ -79,14 +73,24 @@ export function ElementsStep({
   const id = useId();
   const { left, cells } = draftCounts(draft, rule);
   const cellsFull = cells >= rule.cells;
-  const cap = Math.min(ELEMENT_MAX, rule.points);
+  const cap = elementCap(rule);
 
   const set = (element: BasicElement, value: number): void => {
     onDraft({ ...draft, [element]: Math.max(0, Math.min(cap, value)) });
   };
-  /** 이 칸에 더할 수 있는가: 남은 점수가 있고, 새 칸이면 고를 칸이 남았다 */
+  /**
+   * 이 칸에 더할 수 있는가: 남은 점수가 있으면 그 점수에서, 다 썼으면 가장 많은 다른 속성에서 1점을 옮겨 온다(2026-11-11, elementDraft.ts).
+   * 옮기면 칸 수를 넘을 때는 끈다
+   */
   const canAdd = (element: BasicElement): boolean =>
-    !disabled && left > 0 && draft[element] < cap && (draft[element] > 0 || !cellsFull);
+    !disabled && plusAction(draft, element, rule).kind !== "blocked";
+  /** 점수를 다 쓴 뒤 칸 수 때문에 막힌 속성이 있나(힌트) */
+  const swapBlocked =
+    left <= 0 &&
+    BASIC_ELEMENTS.some((element) => {
+      const action = plusAction(draft, element, rule);
+      return action.kind === "blocked" && action.reason === "swap_cells";
+    });
   /** 이 칸에 모두: 다른 칸을 비우고 이 칸에 점수를 다 넣는다(한 칸에 몰기, D-450 원문) */
   const putAll = (element: BasicElement): void => {
     onDraft({ ...EMPTY_ELEMENT_DRAFT, [element]: cap });
@@ -130,7 +134,7 @@ export function ElementsStep({
                 type="button"
                 className="button-small start-element-step start-element-more"
                 aria-label={m.start_elements_more({ element: elementText(element) })}
-                onClick={() => set(element, value + 1)}
+                onClick={() => onDraft(pressPlus(draft, element, rule))}
                 disabled={!canAdd(element)}
               >
                 +
@@ -165,7 +169,14 @@ export function ElementsStep({
         <p className="start-hint">{m.start_elements_cells_full({ max: formatNumber(rule.cells) })}</p>
       ) : left > 0 ? (
         <p className="start-hint">{m.start_elements_need({ points: formatNumber(rule.points) })}</p>
-      ) : null}
+      ) : (
+        // 점수를 다 썼다: [+]는 가장 많은 속성에서 1점을 옮겨 온다(2026-11-11). 세 번째 속성은 한 칸을 0으로 내려야 오른다
+        <p className="start-hint" data-hint="move">
+          {swapBlocked
+            ? m.start_elements_move_cells({ max: formatNumber(rule.cells) })
+            : m.start_elements_move()}
+        </p>
+      )}
       <p className="start-hint">{m.start_elements_edge()}</p>
       <p className="start-hint">{m.start_elements_later()}</p>
     </div>

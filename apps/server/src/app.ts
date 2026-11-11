@@ -60,6 +60,7 @@ import { createLaborGateway } from "./labor/gateway.ts";
 import { createFacilityGateway } from "./facilities/gateway.ts";
 import { facilityScreenSourceOf } from "./facilities/appSource.ts";
 import { type CyborgService, cyborgReadsOf } from "./cyborg/service.ts";
+import { loadEmblemHashes } from "./nationEdit/emblems.ts";
 import type { RecruitService } from "./recruit/service.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
 import { testRosterCatalog } from "./roster/catalog.ts";
@@ -608,7 +609,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       },
       cyborgs: () => {
         const service = cyborgService();
-        return service ? cyborgReadsOf(service) : undefined;
+        // 올린 국가 마크(나라 고르기 카드, 2026-11-11): DB가 있을 때만 읽는다
+        const pool = options.db?.$client;
+        return service
+          ? cyborgReadsOf(service, pool ? { emblemUploads: () => loadEmblemHashes(pool) } : {})
+          : undefined;
       },
       recruits: recruitService,
       fusion: fusionService,

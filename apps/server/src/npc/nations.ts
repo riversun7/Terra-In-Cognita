@@ -176,6 +176,10 @@ export interface NationPreset {
   readonly cityNames?: readonly string[] | undefined;
   /** 국가 지도자 사이보그 이름(docs/adr/2026-11-07-play-flow.md "WP-NPC", 팩 [임시]). 없으면 화면이 "지도자" */
   readonly leaderName?: { readonly ko: string; readonly en: string } | undefined;
+  /** 한 줄 소개(첫 접속 나라 고르기 카드, docs/adr/2026-11-01-first-login-cyborg.md "바뀜 (2026-11-11)", 팩 [임시]). 없으면 소개 줄 없음 */
+  readonly intro?: { readonly ko: string; readonly en: string } | undefined;
+  /** 팩 거래세(만분율, [임시]). 도시 경제가 돌면 그 세율이 먼저다(npc/currency.ts) */
+  readonly tradeTaxBp?: number | undefined;
   /** NPC 휴먼 이름 조각(기획 답 773 나, 번역 안 함 — npc/humanNames.ts, "WP-NPC4", 팩 [임시]). 없으면 화면이 "휴먼 #ID" */
   readonly humanNames?: { readonly given: readonly string[]; readonly family: readonly string[] } | undefined;
   /** 세력 약어·시그니처 컬러(docs/adr/2026-11-09-faction-profiles.md, 팩 [임시]). 세력 정체성을 처음 정할 때 쓴다 */

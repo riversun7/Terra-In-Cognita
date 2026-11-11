@@ -2,13 +2,16 @@
 // - 굴림 도중 다시 굴리기 횟수(N9)를 줄이거나 늘려도 남은 횟수는 0 아래로 가지 않고, 그때 상한으로 센다.
 // - 명령 하나는 시작할 때 받은 값 한 벌만 쓴다(만들기의 분배 검사·지원금이 서로 다른 값으로 섞이지 않는다).
 // TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
+import { loadContentPack } from "@terra/content/node";
 import { DEFAULT_CYBORG_APPEARANCE } from "@terra/shared/cyborg";
 import { type SocietyCoefficients, societyCoefficientsFrom } from "@terra/sim";
+import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
+import { cyborgReadsOf } from "./service.ts";
 
 let test: TestDatabase;
 const clock = 1_800_000_000_000;
@@ -72,6 +75,50 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기 × 설정 칸 바로
     current = withValues([["n9_initial_rerolls", 5]]);
     const again = await service.roll(user, "tech");
     expect(again).toMatchObject({ ok: true, roll: { rollsLeft: 2, rollsMax: 6 } });
+  });
+
+  it("팩 값 N9 = 5(사용자 요청 2026-11-11): 플레이어는 처음 1 + 다시 5번, 운영진(gm·admin·dev)은 제한 없음(서버 판정)", async () => {
+    const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+    if (!loaded.pack) throw new Error("content pack");
+    const values = new Map(
+      (loaded.pack.entries.get("tuning") ?? []).flatMap((raw) => {
+        const entry = raw as { id?: unknown; value?: unknown };
+        return typeof entry.id === "string" && typeof entry.value === "number"
+          ? [[entry.id, entry.value] as const]
+          : [];
+      }),
+    );
+    expect(values.get("n9_initial_rerolls")).toBe(5);
+    const packRules = societyCoefficientsFrom(values);
+    const world = await boot(() => packRules);
+    const service = world.persistence?.cyborgs;
+    if (!service) throw new Error("no cyborg service");
+    const reads = cyborgReadsOf(service);
+    // 플레이어: 6번 굴리고 막힌다
+    const player = await fakeUser("Pack_Player");
+    const playerView = await reads.creation({ id: player, loginId: "pack_player", roles: ["player"] }, clock);
+    expect(playerView.rules).toMatchObject({ rollsMax: 6, rollsUnlimited: false });
+    const lefts: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const result = await service.roll(player, "combat");
+      if (!result.ok || !result.roll) throw new Error("roll failed");
+      lefts.push(result.roll.rollsLeft);
+    }
+    expect(lefts).toEqual([5, 4, 3, 2, 1, 0]);
+    expect(await service.roll(player, "combat")).toEqual({ ok: false, code: "rolls_exhausted" });
+    // 운영진: 상한을 넘어 굴려도 막히지 않고, 화면 값은 늘 남은 = 상한·제한 없음
+    const staff = await fakeUser("Pack_Staff");
+    for (let i = 0; i < 9; i++) {
+      const result = await service.roll(staff, "tech", { unlimited: true });
+      expect(result).toMatchObject({ ok: true, roll: { rollsLeft: 6, rollsMax: 6 } });
+    }
+    const staffView = await reads.creation({ id: staff, loginId: "pack_staff", roles: ["gm"] }, clock);
+    expect(staffView.rules.rollsUnlimited).toBe(true);
+    expect(staffView.roll).toMatchObject({ rollsLeft: 6, rollsMax: 6 });
+    // 서버는 쓴 굴림을 그대로 센다: 같은 사람이 플레이어로 보면 다 쓴 것이다
+    const asPlayer = await reads.creation({ id: staff, loginId: "pack_staff", roles: ["player"] }, clock);
+    expect(asPlayer.roll).toMatchObject({ rollsLeft: 0 });
+    expect(await service.roll(staff, "tech")).toEqual({ ok: false, code: "rolls_exhausted" });
   });
 
   it("만들기 한 명령은 시작할 때 받은 값 한 벌만 쓴다: 명령 중에 값이 바뀌어도 분배 검사와 지원금이 같은 값", async () => {

@@ -99,6 +99,7 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       statMin: 1,
       statMax: 20,
       rollsMax: 4,
+      rollsUnlimited: false,
       elementCells: 2,
       elementPoints: 10,
     });

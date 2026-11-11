@@ -425,8 +425,8 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     // 가짜 행성은 온통 풀밭이라 자동 배치가 면 3 가운데 가까이 국가를 뒀을 수 있다 — 그러면 계획이 고른 빈 자리에 놓는다
     let home = spot;
     if (!placedOk) {
-      const suggestion = await service(tiered).suggest();
-      expect(suggestion?.plan?.nations.length).toBe(4);
+      const replanned = await service(tiered).suggest();
+      expect(replanned?.plan?.nations.length).toBe(4);
       home = cellKey(4, 9, 256, 256);
       const retry = await service(tiered).place([{ code: "placeholder_nation_05", mapKey: home }], {
         userId: admin,

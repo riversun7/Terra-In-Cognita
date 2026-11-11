@@ -10,7 +10,7 @@
 import type { HouseResultCode } from "@terra/protocol";
 import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
-import { foundHouse, unfoundedIdentities } from "./house.ts";
+import { foundHouse, houseOfUser, unfoundedIdentities } from "./house.ts";
 import type { HouseRules } from "./rules.ts";
 import { type IdentityQueryable, loadIdentity } from "./store.ts";
 
@@ -65,7 +65,9 @@ export function createHouseFounder(o: HouseFounderOptions): HouseFounder {
       if (nationId === undefined) return fail("no_cyborg");
       const identity = await loadIdentity(o.pool, userId);
       if (!identity) return fail("no_identity");
-      if (identity.factionId !== null) return fail("already_founded");
+      // 이미 가문이 있다: 창설했거나 다른 가문의 가문원이다(질문 985 — 사용자마다 한 가문)
+      if (identity.factionId !== null || (await houseOfUser(o.pool, userId)) !== null)
+        return fail("already_founded");
       const cost = o.rules().foundCost;
       if (input.cost !== cost.toString()) return fail("terms_changed");
       if (cost > 0n && (!o.wallet || o.wallet.balance(userId) < cost)) return fail("insufficient_funds");

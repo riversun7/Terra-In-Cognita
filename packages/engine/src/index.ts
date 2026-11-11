@@ -3,6 +3,7 @@
 // 시험 화면용 임시 자료(지형·유닛·건물, 가짜 행성)는 따로 `@terra/engine/mock`에 있다.
 // 1차맵(행성 LOD) 엔진은 다른 진입점 `@terra/engine/planet`이다(화면 조각마다 쓰는 엔진만 묶이게).
 export { createSecondMapEngine } from "./secondMapEngine.ts";
+export { LOCAL_ZOOM_STAGES } from "./camera/secondMapZoom.ts";
 export type {
   EngineLightStats,
   EngineStats,

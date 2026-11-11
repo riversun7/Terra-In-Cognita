@@ -35,6 +35,7 @@ import {
   GATHER_PROTOCOL_VERSION,
   HOSPITAL_PROTOCOL_VERSION,
   CITIZENSHIP_PROTOCOL_VERSION,
+  HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
@@ -585,6 +586,25 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         if (!context.house) {
           send({ t: "house_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        houseSocket ??= context.house.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        houseSocket.handle(message);
+        return;
+      }
+      case "house_invite":
+      case "house_apply":
+      case "house_answer":
+      case "house_withdraw":
+      case "house_leave":
+      case "house_kick": {
+        // 가문 가입은 프로토콜 23의 메시지다(질문 985 다). 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < HOUSE_MEMBER_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.house) {
+          send({ t: "house_member_result", id: message.id, ok: false, code: "busy" });
           return;
         }
         houseSocket ??= context.house.open({ send: sendText, viewer: context.viewer ?? signedOut });

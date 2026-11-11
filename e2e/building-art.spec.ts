@@ -110,9 +110,9 @@ async function centreOnBuildings(page: Page): Promise<void> {
   const size = page.viewportSize() ?? { width: 390, height: 844 };
   const cx = size.width / 2;
   const cy = size.height / 2;
-  // 2차맵은 최대 확대(5/5)로 열린다(사용자 지적 2026-11-09). 넓은 화면은 카메라가 따라가는 내 사이보그 둘레만 보여 도시 건물이
-  // 화면 밖일 수 있다: 표시가 안 보이면 한 단계씩(두 번까지) 줄인다
-  for (let step = 0; step < 2 && !(await markersSoon(page)); step++) {
+  // 2차맵은 최대 확대(6/6)로 열린다(사용자 지적 2026-11-09, 962 나). 넓은 화면은 카메라가 따라가는 내 사이보그 둘레만 보여 도시 건물이
+  // 화면 밖일 수 있다: 표시가 안 보이면 한 단계씩(세 번까지) 줄인다
+  for (let step = 0; step < 3 && !(await markersSoon(page)); step++) {
     await page.locator(".zoom-ladder-out").click();
     await page.waitForTimeout(800);
   }

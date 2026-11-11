@@ -7,6 +7,8 @@
 // 3. dev(다른 플레이어): 그 이름·약어를 쓸 수 없고(확인 문구·저장 거절), player의 정체성은 그대로다. player 가문을 신고한다(질문 930 나).
 // 4. admin: 운영자 콘솔 [마크 관리] 탭에 그 세력이 올린 그림·신고 수 1과 함께 보인다([신고 많은 차례]) → [마크 내리기](사유) → 내림(신고 0).
 // 5. player: 세력 화면에 자동 생성 마크 + 알림(사유) → [확인]하면 알림이 사라진다.
+// 6~10(질문 985 다·986 가): player가 dev(같은 나라)를 사이보그 이름으로 초대 → dev가 처리할 일·세력 화면에서 받음(가문원) → player가 소식 확인·
+//    내보냄 → dev가 소식을 보고 가문 이름 신고 → admin이 [이름 되돌리기] → player 칸에 "가문 #ID"·사유 소식·이름 대기 없음.
 // 사진 6장(E2E_SHOTS_DIR): 단계 390 파스텔·한국어(1), 단계 390 다크·영어, 자르기 390 파스텔·영어, 자르기 390 다크·한국어,
 // 세력 화면 칸 390 파스텔·한국어(2), 마크 관리 1440 네온(4).
 // 계정마다 속도 제한(저장 순간 10번, 그림 순간 5번)이 있어 저장은 player 2번·dev 1번(거절)만 한다. 사진 시험은 저장하지 않는다.
@@ -75,6 +77,8 @@ async function tallShot(page: Page, name: string): Promise<void> {
 
 const step = (page: Page): Locator => page.locator("form.fid-step");
 const card = (page: Page): Locator => page.locator("section.faction .fid-card");
+/** "내 가문" 칸의 가입 부분(질문 985 다) */
+const house = (page: Page): Locator => card(page).locator('[data-testid="house-section"]');
 
 /** /faction을 열고 정체성 칸이 그려질 때까지 */
 async function openFaction(page: Page): Promise<void> {
@@ -410,6 +414,140 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
       await page.reload();
       await expect(card(page)).toBeVisible({ timeout: 20_000 });
       await expect(card(page).locator('[data-testid="fid-notice"]')).toHaveCount(0);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+});
+
+// 가문 가입·이름 되돌리기(질문 985 다·986 가, docs/adr/2026-11-11-faction-identity.md "바뀜 (981~986 답)") — 위 묶음에 이어서 같은 서버·DB.
+// 시험 계정 player·dev는 같은 나라 시민이다(global-setup이 첫 나라로 사이보그를 만든다).
+test.describe("가문 가입·이름 되돌리기", () => {
+  test.describe("6. player: 같은 나라 시민을 초대한다", () => {
+    test.use({ account: "player" });
+
+    test("가문원 목록(가문장 1명) → 사이보그 이름으로 초대 → 대기 줄", async ({ page, deviceErrors }) => {
+      await openFaction(page);
+      const members = house(page).locator('[data-testid="house-members"]');
+      await expect(members.locator('[data-role="leader"]')).toContainText("E2EPlayer");
+      await expect(members.locator(".fid-house-row")).toHaveCount(1);
+      await house(page).locator("#fid-house-invite-name").fill("e2edev");
+      await house(page).locator(".fid-house-invite button[type='submit']").click();
+      await expect(house(page).locator(".fid-house-status")).toHaveText(
+        message("ko", "fid_house_done_invited"),
+      );
+      const requests = house(page).locator('[data-testid="house-requests"]');
+      await expect(requests.locator('[data-kind="invite"]')).toContainText("E2EDev");
+      expect(await horizontalOverflow(page)).toEqual([]);
+      await card(page).scrollIntoViewIfNeeded();
+      await shot(page, "house-leader-pastel-ko-390");
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe("7. dev: 초대를 받는다", () => {
+    test.use({ account: "dev" });
+
+    test("처리할 일에 초대 → 세력 화면에서 [받기] → 가문원(그 가문 이름이 보이고 [가문 창설]은 없다)", async ({
+      page,
+      deviceErrors,
+    }) => {
+      await openFaction(page);
+      const inbox = await trpcInPage(page, "inbox.list");
+      const items = field(inbox, "items");
+      expect(Array.isArray(items) ? items.map((item) => field(item, "kind")) : []).toContain("house_invite");
+      const offer = house(page).locator('[data-testid="house-offers"] [data-kind="invite"]');
+      await expect(offer).toContainText(made.name);
+      await offer.locator(".button-primary").click();
+      await expect(house(page).locator(".fid-house-status")).toHaveText(
+        message("ko", "fid_house_done_joined"),
+      );
+      await expect(card(page).locator(".fid-card-name")).toHaveText(made.name);
+      await expect(card(page).locator(".fid-card-link")).toHaveCount(0);
+      const members = house(page).locator('[data-testid="house-members"] .fid-house-row');
+      await expect(members).toHaveCount(2);
+      await expect(house(page)).toContainText(message("ko", "fid_house_leave"));
+      expect(await horizontalOverflow(page)).toEqual([]);
+      expect(await smallTapTargets(page)).toEqual([]);
+      await card(page).scrollIntoViewIfNeeded();
+      await shot(page, "house-member-pastel-ko-390");
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe("8. player: 소식을 보고 내보낸다", () => {
+    test.use({ account: "player" });
+
+    test("초대를 받았다는 소식 [확인] → dev [내보내기] 확인 줄 → 가문원 1명", async ({
+      page,
+      deviceErrors,
+    }) => {
+      await openFaction(page);
+      const notices = house(page).locator('[data-testid="house-notices"]');
+      await expect(notices.locator('[data-notice="invite_accepted"]')).toContainText("E2EDev");
+      await notices.locator('[data-notice="invite_accepted"] button').click();
+      await expect(house(page).locator('[data-testid="house-notices"]')).toHaveCount(0);
+      const row = house(page).locator('[data-testid="house-members"] [data-role="member"]');
+      await expect(row).toContainText("E2EDev");
+      await row.getByRole("button", { name: message("ko", "fid_house_kick") }).click();
+      await row.locator(".fid-house-confirm .button-primary").click();
+      await expect(house(page).locator(".fid-house-status")).toHaveText(
+        message("ko", "fid_house_done_kicked"),
+      );
+      await expect(house(page).locator('[data-testid="house-members"] .fid-house-row')).toHaveCount(1);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe("8b. dev: 내보내진 뒤", () => {
+    test.use({ account: "dev" });
+
+    test("내보냈다는 소식이 보이고, 그 가문 이름을 신고한다(마크 관리 목록에 다시 선다)", async ({
+      page,
+      deviceErrors,
+    }) => {
+      await openFaction(page);
+      await expect(house(page).locator('[data-notice="kicked"]')).toContainText(made.name);
+      await expect(house(page).locator('[data-testid="house-joinable"]')).toContainText(made.name);
+      const status = field(
+        await trpcInPage(page, "factionIdentity.report", { factionId: made.houseId }),
+        "status",
+      );
+      expect(status).toBe("reported");
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe("9. admin: 신고된 가문 이름을 되돌린다", () => {
+    test.use({ account: "admin", devTheme: "neon", ...VIEWPORTS.desktop });
+
+    test("[마크 관리] [이름 되돌리기](사유) → 되돌리고 신고가 지워져 목록에서 빠진다", async ({
+      page,
+      deviceErrors,
+    }) => {
+      await page.goto("/ops?tab=emblems");
+      const tab = page.locator(".ops-emblems");
+      await expect(tab).toBeVisible();
+      const row = tab.locator("tbody tr", { hasText: made.name });
+      await expect(row).toHaveCount(1);
+      await row.locator(".ops-emblem-reset-open").click();
+      await row.getByLabel(message("ko", "ops_emblems_reason")).fill("시험 사유: 신고된 이름");
+      await row.locator(".ops-emblem-reset-confirm").click();
+      await expect(tab).toContainText(message("ko", "ops_emblems_reset_done"));
+      // 되돌리면 신고를 처리한 것으로 지운다 — 그림·막힘·알림이 없는 가문은 목록에서 빠진다([신고 넘기기]와 같다)
+      await expect(tab.locator("tbody tr", { hasText: made.name })).toHaveCount(0);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe("10. player: 되돌린 뒤", () => {
+    test.use({ account: "player" });
+
+    test("소식(사유)이 보이고 이름 대기 없이 다시 정할 수 있다", async ({ page, deviceErrors }) => {
+      await openFaction(page);
+      await expect(card(page).locator(".fid-card-name")).toHaveText(`가문 #${made.houseId}`);
+      const notice = house(page).locator('[data-notice="name_reset"]');
+      await expect(notice).toContainText("시험 사유: 신고된 이름");
+      expect(field(await trpcInPage(page, "factionIdentity.mine"), "renameAt")).toBeNull();
       expect(deviceErrors).toEqual([]);
     });
   });

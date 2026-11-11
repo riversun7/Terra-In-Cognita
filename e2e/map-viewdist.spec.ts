@@ -1,8 +1,8 @@
 // 2차맵 가시거리 화면 시험 — 사용자 지적 2026-11-09 "주변시야가 왜 확대하면 더 안보이냐 오히려 축소하면 더 보이고 fps충분하면 가시거리 늘려라"
 // (docs/adr/2026-10-28-s1-second-map.md "바뀜 (2026-11-09)").
-// - 가장 가까이(5/5): 그린 기울기가 45°보다 낮고(가까이 눕힘) 화면 위 끝 땅이 화면 가운데 땅에서 200m 넘게 앞이다(전에는 약 120m).
+// - 가까이(5/6 — 962 나 전의 가장 가까이쯤): 그린 기울기가 45°보다 낮고(가까이 눕힘) 화면 위 끝 땅이 화면 가운데 땅에서 200m 넘게 앞이다(전에는 약 120m).
 //   가시거리 단계 표지(data-view-level·data-view-reach)가 붙는다.
-// - 측정(E2E_MEASURE=1, 작업 기록용): 5/5·3/5에서 화면 가운데 → 위 끝 땅 거리, 소품 모델 수, 가시거리 단계, 끄는 동안 fps·엔진 p95, 사진.
+// - 측정(E2E_MEASURE=1, 작업 기록용): 5/6·3/6에서 화면 가운데 → 위 끝 땅 거리, 소품 모델 수, 가시거리 단계, 끄는 동안 fps·엔진 p95, 사진.
 //   헤드리스 Chromium(SwiftShader) 값이라 휴대폰 값이 아니다.
 import type { Locator, Page } from "@playwright/test";
 import { type CameraState, groundUnder } from "../packages/engine/src/camera/cameraMath.ts";
@@ -28,7 +28,7 @@ async function openAt(page: Page, stage: number): Promise<Locator> {
 /** 확대 단계를 [+]·[−]로 맞춘다 */
 async function goStage(page: Page, stage: number): Promise<void> {
   const ladder = page.locator(".zoom-ladder");
-  await expect(ladder).toHaveAttribute("data-stage", /^[1-5]$/, { timeout: 15_000 });
+  await expect(ladder).toHaveAttribute("data-stage", /^[1-6]$/, { timeout: 15_000 });
   for (let k = 0; k < 8; k++) {
     const now = Number(await ladder.getAttribute("data-stage"));
     if (now === stage) break;
@@ -67,7 +67,7 @@ async function view(
 test.describe("dev", () => {
   test.use({ account: "dev" });
 
-  test("가장 가까이(5/5)에서 더 눕혀 화면 위 끝까지 200m 넘게 보이고, 가시거리 단계 표지가 붙는다", async ({
+  test("가까이(5/6)에서 더 눕혀 화면 위 끝까지 200m 넘게 보이고, 가시거리 단계 표지가 붙는다", async ({
     page,
     deviceErrors,
   }) => {
@@ -78,13 +78,13 @@ test.describe("dev", () => {
     expect(near.aheadM).toBeGreaterThan(200);
     await expect(screen).toHaveAttribute("data-view-level", /^[0-4]$/);
     expect(Number(await screen.getAttribute("data-view-reach"))).toBeGreaterThanOrEqual(120);
-    // 멀리(3/5)는 기본 기울기 45°로 돌아간다
+    // 멀리(3/6)는 기본 기울기 45°로 돌아간다
     await goStage(page, 3);
     expect((await view(page, screen)).pitchDeg).toBeCloseTo(45, 0);
     expect(deviceErrors).toEqual([]);
   });
 
-  test("측정: 5/5·3/5 위 끝 거리·소품·가시거리·끄는 동안 fps(E2E_MEASURE=1)", async ({ page }) => {
+  test("측정: 5/6·3/6 위 끝 거리·소품·가시거리·끄는 동안 fps(E2E_MEASURE=1)", async ({ page }) => {
     test.skip(process.env.E2E_MEASURE !== "1", "E2E_MEASURE=1일 때만 돈다");
     test.setTimeout(240_000);
     const tag = process.env.E2E_VIEWDIST_TAG ?? "after";
@@ -93,7 +93,7 @@ test.describe("dev", () => {
     for (const stage of [5, 3]) {
       await goStage(page, stage);
       const geometry = await view(page, screen);
-      await shot(page, `viewdist-${tag}-${stage}5`);
+      await shot(page, `viewdist-${tag}-${stage}6`);
       // 좌우로 끄는 6초(끌기는 따라가는 중이면 돌리기) 동안 그린 프레임 수와 엔진 p95
       const box = await page.locator(".map-view canvas").boundingBox();
       if (!box) throw new Error("no canvas");

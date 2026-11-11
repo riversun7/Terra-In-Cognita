@@ -75,9 +75,9 @@ async function unitListAndBuilding(page: Page, language: Language, suffix: strin
   const cyborg = (await screen.getAttribute("data-cyborg")) ?? "";
   expect(cyborg).toMatch(/^\d+$/);
   await expect(screen).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
-  // 들어오면 최대 확대(사다리 5/5, 사용자 지적 2026-11-09) — 카메라 범위(내 유닛 둘레)가 걸린 뒤에도
+  // 들어오면 최대 확대(사다리 6/6, 사용자 지적 2026-11-09·962 나) — 카메라 범위(내 유닛 둘레)가 걸린 뒤에도
   await page.waitForTimeout(1_500);
-  await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
+  await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "6");
   // 근처 판 펼침: 탭·[닫기]가 전환 단추에 가리지 않는다
   await openNearby(page, "units");
   await expect(page.locator(".map-nearby-row").first()).toBeVisible({ timeout: 15_000 });
@@ -387,10 +387,12 @@ test.describe("유닛 조종: 플레이어", () => {
     const screen = page.locator(".map-screen");
     const cyborg = (await screen.getAttribute("data-cyborg")) ?? "";
     // 카메라는 내 사이보그 둘레(가짜 목록 유닛의 칸 = 사이보그 칸의 카메라 범위)에 열린다(D-6017) → 가운데를 누르면 둘레 유닛을 누른다.
-    // 2차맵은 최대 확대(5/5)로 열려(사용자 지적 2026-11-09) 카메라 목표와 유닛 사이가 화면에서 멀다: 한 단계 줄여 옛 처음 거리쯤에서 누른다
+    // 2차맵은 최대 확대(6/6)로 열려(사용자 지적 2026-11-09) 카메라 목표와 유닛 사이가 화면에서 멀다: 두 단계 줄여 옛 처음 거리쯤(4/6)에서 누른다
     await expect(screen).toHaveAttribute("data-focus", /\d+/);
     const grounds = (await groundOffsets(page)).slice(0, 6);
     await page.waitForTimeout(1_200);
+    await page.locator(".zoom-ladder-out").click();
+    await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
     await page.locator(".zoom-ladder-out").click();
     await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "4");
     await page.waitForTimeout(800);
@@ -703,16 +705,17 @@ test.describe("내 유닛 목록·건물 판 하나·전환 단추 겹침(사용
 
   test.describe("진입 확대", () => {
     test.use({ account: "player" });
-    test("1차맵에 다녀와도 2차맵은 최대 확대(5/5)로 연다", async ({ page, deviceErrors }) => {
+    test("1차맵에 다녀와도 2차맵은 최대 확대(6/6)로 연다", async ({ page, deviceErrors }) => {
       test.setTimeout(150_000);
       await rewriteTrpc(page, { "summary.get": hideSummary });
       await openMap(page);
       const ladder = page.locator(".zoom-ladder");
-      await expect(ladder).toHaveAttribute("data-stage", "5");
-      // 두 단계 줄인 뒤 1차맵으로 갔다가 돌아온다
-      await ladder.locator(".zoom-ladder-out").click();
-      await page.waitForTimeout(150);
-      await ladder.locator(".zoom-ladder-out").click();
+      await expect(ladder).toHaveAttribute("data-stage", "6");
+      // 세 단계 줄인 뒤 1차맵으로 갔다가 돌아온다
+      for (let step = 0; step < 3; step++) {
+        await ladder.locator(".zoom-ladder-out").click();
+        await page.waitForTimeout(150);
+      }
       await expect(ladder).toHaveAttribute("data-stage", "3");
       await page.locator(".map-switch-button").click();
       await expect(page).toHaveURL((url) => url.pathname === "/map/planet");
@@ -723,9 +726,9 @@ test.describe("내 유닛 목록·건물 판 하나·전환 단추 겹침(사용
       await expect(page).toHaveURL((url) => url.pathname === "/map");
       const screen = page.locator(".map-screen[data-map-key]");
       await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 30_000 });
-      await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
+      await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "6");
       await page.waitForTimeout(1_500);
-      await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
+      await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "6");
       expect(deviceErrors).toEqual([]);
     });
   });

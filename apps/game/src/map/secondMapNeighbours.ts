@@ -154,7 +154,7 @@ export const FAR_EDGE = 0.45;
 const VIEW_REACH_FACTOR = 2.5;
 
 /**
- * 이웃을 받기 시작하는 거리(m): 2차맵 변의 NEAR_EDGE, 멀리 보면(카메라 거리) 화면에 드는 땅만큼 더(FAR_EDGE까지). 가까이(5/5)는 앞과 같고,
+ * 이웃을 받기 시작하는 거리(m): 2차맵 변의 NEAR_EDGE, 멀리 보면(카메라 거리) 화면에 드는 땅만큼 더(FAR_EDGE까지). 가까이(5·6단계)는 앞과 같고,
  * 줄여 볼 때 화면 끝이 빈 하늘로 보이기 전에 옆 2차맵을 받는다(사용자 지적 2026-11-11 "근처에서 미리 불러와")
  */
 export function nearMarginM(mapSizeM: number, cameraDistanceM: number): number {

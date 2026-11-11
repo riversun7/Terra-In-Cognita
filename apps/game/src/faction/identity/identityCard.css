@@ -19,7 +19,8 @@
   line-height: var(--line-height-tight);
   overflow-wrap: anywhere;
 }
-.fid-card-short {
+.fid-card-short,
+.fid-house-short {
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
@@ -40,4 +41,71 @@
 }
 .fid-notice-reason {
   overflow-wrap: anywhere;
+}
+/* 가문 가입 부분(HouseSection.tsx, 질문 985 다) — 가문원·요청·초대·가문 목록·소식 */
+.fid-house {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  min-width: 0;
+}
+.fid-house-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.fid-house-sub {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+}
+.fid-house-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fid-house-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+.fid-house-row-main {
+  display: flex;
+  flex: 1 1 10rem;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.fid-house-row-name {
+  font-weight: var(--font-weight-strong);
+}
+.fid-house-actions,
+.fid-house-confirm,
+.fid-house-invite-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.fid-house-invite-row .input {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+.fid-house-status {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+}
+.fid-house-status-error {
+  color: var(--color-danger);
 }

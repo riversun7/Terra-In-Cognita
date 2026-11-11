@@ -8,11 +8,14 @@
 import type { FactionReportStatus } from "@terra/shared/factionIdentity";
 import type { IdentityQueryable } from "./store.ts";
 
+/** 이름을 마지막으로 정한 시각을 이 값으로 두면 대기(설정 칸 어떤 값이든)가 이미 지났다 — 운영자가 이름을 되돌린 뒤(986 가) */
+export const RENAME_FREE = Number.MIN_SAFE_INTEGER;
+
 /** 하루(신고 횟수를 세는 창) */
 export const REPORT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
- * 정체성 줄에서 가문을 창설한다. 만든 가문 세력 행 ID, 정체성 줄이 없거나 이미 창설했으면 null.
+ * 정체성 줄에서 가문을 창설한다. 만든 가문 세력 행 ID, 정체성 줄이 없거나 이미 창설했거나 다른 가문의 가문원이면(질문 985) null.
  * 약어가 다른 세력 정체성과 겹치면 pg 고유 제약 오류(23505, faction_profiles_short_idx)가 난다 — 부르는 쪽이 읽는다
  */
 export async function foundHouse(
@@ -22,7 +25,8 @@ export async function foundHouse(
   const { rows } = await pool.query<{ id: string }>(
     `with ident as (
        select user_id, name, short_name, color from faction_identities
-        where user_id = $1 and faction_id is null for update
+        where user_id = $1 and faction_id is null
+          and not exists (select 1 from house_members m where m.user_id = $1) for update
      ),
      created as (insert into factions (kind, born_of) select 'player', $2::bigint from ident returning id),
      profile as (
@@ -45,13 +49,15 @@ export async function foundHouse(
   return row ? Number(row.id) : null;
 }
 
-/** 창설하지 않은 정체성 줄과 그 창설자의 나라(사이보그 시민권) — 서버를 켤 때 옛 정체성을 가문으로 옮긴다 */
+/** 창설하지 않은 정체성 줄과 그 창설자의 나라(사이보그 시민권) — 서버를 켤 때 옛 정체성을 가문으로 옮긴다. 다른 가문의 가문원은 뺀다 */
 export async function unfoundedIdentities(
   pool: IdentityQueryable,
 ): Promise<{ userId: string; nationId: number }[]> {
   const { rows } = await pool.query<{ user_id: string; faction_id: string }>(
     `select i.user_id, c.faction_id from faction_identities i join cyborgs c on c.user_id = i.user_id
-      where i.faction_id is null order by i.created_at_ms`,
+      where i.faction_id is null
+        and not exists (select 1 from house_members m where m.user_id = i.user_id)
+      order by i.created_at_ms`,
   );
   return rows.map((row) => ({ userId: row.user_id, nationId: Number(row.faction_id) }));
 }
@@ -111,4 +117,43 @@ export async function clearReports(pool: IdentityQueryable, factionId: number): 
     [factionId],
   );
   return rows.length;
+}
+
+/**
+ * 운영자가 신고된 가문 이름을 "가문 #ID"로 되돌린다(질문 986 가). resetShort면 약어도 "H<36진수 ID>"로. 이름 대기를 풀어(name_changed_at_ms =
+ * RENAME_FREE) 주인이 바로 다시 정한다. 세력 정체성(faction_profiles)도 같은 문장에서 바꾸고 그 가문의 신고를 지운다. 앞 값·주인, 가문이 없으면 null.
+ * 약어가 다른 세력과 겹치면 pg 고유 제약 오류(23505)가 난다 — 부르는 쪽이 읽는다
+ */
+export async function resetHouseName(
+  pool: IdentityQueryable,
+  input: {
+    factionId: number;
+    name: string;
+    nameKey: string;
+    shortName: string | null;
+    nowMs: number;
+    actorId: string;
+  },
+): Promise<{ ownerId: string; name: string; shortName: string; newShort: string } | null> {
+  const { rows } = await pool.query<{ user_id: string; name: string; short_name: string; new_short: string }>(
+    `with before as (
+       select user_id, name, short_name from faction_identities where faction_id = $1 for update
+     ),
+     changed as (
+       update faction_identities i set name = $2, name_key = $3, short_name = coalesce($4, i.short_name),
+         name_changed_at_ms = $7, updated_at_ms = $5
+         from before where i.user_id = before.user_id returning i.short_name
+     ),
+     profile as (
+       update faction_profiles p set name = $2, short_name = coalesce($4, p.short_name), updated_at_ms = $5,
+         updated_by = $6 where p.faction_id = $1 returning p.faction_id
+     ),
+     cleared as (delete from house_reports r where r.faction_id = $1 and exists (select 1 from before) returning r.id)
+     select before.user_id, before.name, before.short_name, changed.short_name as new_short from before, changed`,
+    [input.factionId, input.name, input.nameKey, input.shortName, input.nowMs, input.actorId, RENAME_FREE],
+  );
+  const row = rows[0];
+  return row
+    ? { ownerId: row.user_id, name: row.name, shortName: row.short_name, newShort: row.new_short }
+    : null;
 }

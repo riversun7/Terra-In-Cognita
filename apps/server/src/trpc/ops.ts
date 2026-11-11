@@ -293,6 +293,10 @@ export const opsRouter = router({
     takedown: opsProcedure("emblem_moderate")
       .input(z.strictObject({ userId: z.uuid(), reason, blockUploads: z.boolean().default(false) }))
       .mutation(({ ctx, input }) => identityOf(ctx.factionIdentity).opsTakedown(ctx.opsViewer, input)),
+    /** 신고된 가문 이름을 "가문 #ID"로 되돌린다(질문 986 가 — 주인은 대기 없이 다시 정한다). resetShort면 약어도 */
+    resetName: opsProcedure("emblem_moderate")
+      .input(z.strictObject({ userId: z.uuid(), reason, resetShort: z.boolean().default(false) }))
+      .mutation(({ ctx, input }) => identityOf(ctx.factionIdentity).opsResetName(ctx.opsViewer, input)),
     setBlocked: opsProcedure("emblem_moderate")
       .input(z.strictObject({ userId: z.uuid(), blocked: z.boolean() }))
       .mutation(({ ctx, input }) => identityOf(ctx.factionIdentity).opsSetBlocked(ctx.opsViewer, input)),

@@ -8652,6 +8652,78 @@
         "en": "After this many operator takedowns the account can no longer upload emblems."
       },
       "source": "ADR 2026-11-11-faction-identity \"바뀜 (926~935 답)\" · 질문 934"
+    },
+    {
+      "id": "house_member_max",
+      "code": "",
+      "name": {
+        "ko": "가문 인원 상한(가문장 포함)",
+        "en": "House member limit (incl. leader)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "가문에 들 수 있는 사람 수. 가문장도 센다. 초대를 받거나 신청을 받을 때 본다.",
+        "en": "How many players a house may hold, leader included. Checked when an invite or application is accepted."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (981~986 답)\" · 질문 985"
+    },
+    {
+      "id": "house_pending_max",
+      "code": "",
+      "name": {
+        "ko": "가문마다 대기 중인 초대·신청 상한",
+        "en": "Pending invites and applications per house"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "한 가문에 동시에 걸려 있는 초대와 가입 신청의 합.",
+        "en": "Open invites plus applications one house may have at once."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (981~986 답)\" · 질문 985"
+    },
+    {
+      "id": "house_apply_max",
+      "code": "",
+      "name": {
+        "ko": "사람마다 동시에 보낼 가입 신청 수",
+        "en": "Open house applications per player"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 100,
+      "desc": {
+        "ko": "한 사람이 답을 기다리며 동시에 걸어 둘 수 있는 가입 신청 수.",
+        "en": "How many applications one player may have waiting at once."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (981~986 답)\" · 질문 985"
+    },
+    {
+      "id": "house_request_ttl_ms",
+      "code": "",
+      "name": {
+        "ko": "가문 초대·신청 유효 시간(ms)",
+        "en": "House invite and application lifetime (ms)"
+      },
+      "value": 604800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 3600000,
+      "max": 31536000000,
+      "desc": {
+        "ko": "답이 없는 초대·가입 신청이 사라지기까지의 시간.",
+        "en": "Time before an unanswered invite or application disappears."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (981~986 답)\" · 질문 985"
     }
   ]
 }

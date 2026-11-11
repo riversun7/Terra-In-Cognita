@@ -2,6 +2,7 @@
 // 줄마다 올린 그림·자동 생성 마크·세력·주인·올린 때·크기·상태. [마크 내리기](사유는 주인에게 보인다, 그 계정의 올리기도 막을 수 있다),
 // [올리기 막기]·[올리기 다시 허용]. 권한 emblem_moderate(운영자부터). 맨 위 스위치 "플레이어 마크 올리기 허용"은 관리자·개발자(faction_edit)만 바꾼다.
 // 바뀜(질문 930 나·934 나): 신고 수 칸과 [신고 많은 차례] 고르기, [신고 넘기기], 내린 횟수(설정 칸 횟수에 이르면 올리기가 저절로 막힌다).
+// 바뀜(질문 986 가): 창설한 가문 줄에 [이름 되돌리기] — 이름을 "가문 #ID"로(약어도 고를 수 있다), 사유는 주인 소식, 주인은 기다리지 않고 다시 정한다.
 import type { OpsEmblemRow, OpsEmblemSort } from "@terra/shared/factionIdentity";
 import { useCallback, useState } from "react";
 import { api } from "../net/api.ts";
@@ -89,12 +90,81 @@ function Takedown({
   );
 }
 
+function ResetName({
+  row,
+  onDone,
+  onCancel,
+}: {
+  row: OpsEmblemRow;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [short, setShort] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  async function run(): Promise<void> {
+    if (pending) return;
+    setPending(true);
+    try {
+      const result = await api.ops.emblems.resetName.mutate({
+        userId: row.userId,
+        reason,
+        resetShort: short,
+      });
+      if (result.ok) onDone();
+      else setMessage(resultText(result.code));
+    } catch (error) {
+      setMessage(errorText(error));
+    } finally {
+      setPending(false);
+    }
+  }
+  return (
+    <div
+      className="ops-inline-edit ops-emblem-reset"
+      role="group"
+      aria-label={m.ops_emblems_reset_name_of({ name: row.name })}
+    >
+      <span className="dev-muted">{m.ops_emblems_reset_note()}</span>
+      <input
+        className="input ops-mid"
+        aria-label={m.ops_emblems_reason()}
+        placeholder={m.ops_emblems_reason()}
+        maxLength={200}
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+      />
+      <label className="ops-inline">
+        <input type="checkbox" checked={short} onChange={(event) => setShort(event.target.checked)} />
+        <span>{m.ops_emblems_reset_short()}</span>
+      </label>
+      <button
+        type="button"
+        className="button-small button-primary ops-emblem-reset-confirm"
+        aria-disabled={pending}
+        onClick={() => void run()}
+      >
+        {m.ops_emblems_confirm()}
+      </button>
+      <button type="button" className="button-small" onClick={onCancel}>
+        {m.cancel()}
+      </button>
+      {message ? (
+        <span className="ops-msg ops-msg-error" role="alert">
+          {message}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: boolean }) {
   const [sort, setSort] = useState<OpsEmblemSort>("recent");
   const loaded = useOpsLoad(
     useCallback((signal: AbortSignal) => api.ops.emblems.list.query({ sort }, { signal }), [sort]),
   );
-  const [acting, setActing] = useState<string | null>(null);
+  const [acting, setActing] = useState<{ userId: string; kind: "takedown" | "reset" } | null>(null);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const rows = loaded.data?.rows ?? [];
@@ -249,7 +319,17 @@ export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: b
                   {row.notice?.reason ? <span className="dev-muted"> · {row.notice.reason}</span> : null}
                 </td>
                 <td>
-                  {acting === row.userId ? (
+                  {acting?.userId === row.userId && acting.kind === "reset" ? (
+                    <ResetName
+                      row={row}
+                      onCancel={() => setActing(null)}
+                      onDone={() => {
+                        setActing(null);
+                        setMessage({ tone: "ok", text: m.ops_emblems_reset_done() });
+                        loaded.reload();
+                      }}
+                    />
+                  ) : acting?.userId === row.userId ? (
                     <Takedown
                       row={row}
                       onCancel={() => setActing(null)}
@@ -266,11 +346,21 @@ export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: b
                           type="button"
                           className="button-small ops-emblem-takedown-open"
                           aria-label={m.ops_emblems_takedown_of({ name: row.name })}
-                          onClick={() => setActing(row.userId)}
+                          onClick={() => setActing({ userId: row.userId, kind: "takedown" })}
                         >
                           {m.ops_emblems_takedown()}
                         </button>
                       ) : null}
+                      {row.factionId === null ? null : (
+                        <button
+                          type="button"
+                          className="button-small ops-emblem-reset-open"
+                          aria-label={m.ops_emblems_reset_name_of({ name: row.name })}
+                          onClick={() => setActing({ userId: row.userId, kind: "reset" })}
+                        >
+                          {m.ops_emblems_reset_name()}
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="button-small ops-emblem-block"

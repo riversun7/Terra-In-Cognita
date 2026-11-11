@@ -1,0 +1,796 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "78cb5950-3ac5-4b37-ace9-3b34241f431a",
+  "prevIds": [
+    "a9687173-eb49-4366-b7fe-03342df9f161"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_notices"
+      ],
+      "writes": [
+        "s|tbl|public.house_notices",
+        "n|tbl|public.house_notices",
+        "e|tbl|public.house_notices",
+        "n|rel|public.house_notices",
+        "n|type|public.house_notices",
+        "n|rel|public.house_notices_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_requests"
+      ],
+      "writes": [
+        "s|tbl|public.house_requests",
+        "n|tbl|public.house_requests",
+        "e|tbl|public.house_requests",
+        "n|rel|public.house_requests",
+        "n|type|public.house_requests",
+        "n|rel|public.house_requests_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "house_notices",
+        "house_notices_user_idx"
+      ],
+      "writes": [
+        "s|idx|public.house_notices_user_idx",
+        "n|idx|public.house_notices_user_idx",
+        "e|idx|public.house_notices_user_idx",
+        "n|rel|public.house_notices_user_idx"
+      ],
+      "reads": [
+        "n|tbl|public.house_notices",
+        "n|sch|public",
+        "n|col|public.house_notices.user_id",
+        "n|col|public.house_notices.created_at_ms"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "house_requests",
+        "house_requests_pair_idx"
+      ],
+      "writes": [
+        "s|idx|public.house_requests_pair_idx",
+        "n|idx|public.house_requests_pair_idx",
+        "e|idx|public.house_requests_pair_idx",
+        "n|rel|public.house_requests_pair_idx"
+      ],
+      "reads": [
+        "n|tbl|public.house_requests",
+        "n|sch|public",
+        "n|col|public.house_requests.faction_id",
+        "n|col|public.house_requests.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "house_requests",
+        "house_requests_user_idx"
+      ],
+      "writes": [
+        "s|idx|public.house_requests_user_idx",
+        "n|idx|public.house_requests_user_idx",
+        "e|idx|public.house_requests_user_idx",
+        "n|rel|public.house_requests_user_idx"
+      ],
+      "reads": [
+        "n|tbl|public.house_requests",
+        "n|sch|public",
+        "n|col|public.house_requests.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "house_requests",
+        "house_requests_expires_idx"
+      ],
+      "writes": [
+        "s|idx|public.house_requests_expires_idx",
+        "n|idx|public.house_requests_expires_idx",
+        "e|idx|public.house_requests_expires_idx",
+        "n|rel|public.house_requests_expires_idx"
+      ],
+      "reads": [
+        "n|tbl|public.house_requests",
+        "n|sch|public",
+        "n|col|public.house_requests.expires_at_ms"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_notices"
+      ],
+      "writes": [
+        "s|fk|public.house_notices.house_notices_user_id_users_id_fkey",
+        "n|fk|public.house_notices.house_notices_user_id_users_id_fkey",
+        "e|fk|public.house_notices.house_notices_user_id_users_id_fkey",
+        "n|con|public.house_notices.house_notices_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_notices",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.house_notices.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_notices"
+      ],
+      "writes": [
+        "s|fk|public.house_notices.house_notices_faction_id_factions_id_fkey",
+        "n|fk|public.house_notices.house_notices_faction_id_factions_id_fkey",
+        "e|fk|public.house_notices.house_notices_faction_id_factions_id_fkey",
+        "n|con|public.house_notices.house_notices_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_notices",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.house_notices.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_requests"
+      ],
+      "writes": [
+        "s|fk|public.house_requests.house_requests_faction_id_factions_id_fkey",
+        "n|fk|public.house_requests.house_requests_faction_id_factions_id_fkey",
+        "e|fk|public.house_requests.house_requests_faction_id_factions_id_fkey",
+        "n|con|public.house_requests.house_requests_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_requests",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.house_requests.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_requests"
+      ],
+      "writes": [
+        "s|fk|public.house_requests.house_requests_user_id_users_id_fkey",
+        "n|fk|public.house_requests.house_requests_user_id_users_id_fkey",
+        "e|fk|public.house_requests.house_requests_user_id_users_id_fkey",
+        "n|con|public.house_requests.house_requests_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_requests",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.house_requests.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_requests"
+      ],
+      "writes": [
+        "s|fk|public.house_requests.house_requests_created_by_users_id_fkey",
+        "n|fk|public.house_requests.house_requests_created_by_users_id_fkey",
+        "e|fk|public.house_requests.house_requests_created_by_users_id_fkey",
+        "n|con|public.house_requests.house_requests_created_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_requests",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.house_requests.created_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "house_notices",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "house_requests",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "house_notices_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "9223372036854775807",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "house_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "other_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "reason",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "count",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "created_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "house_requests_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "9223372036854775807",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "created_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "created_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "expires_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "house_notices_user_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "created_at_ms",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "house_requests_pair_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "faction_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "house_requests_user_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "house_requests_expires_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "expires_at_ms",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "house_notices_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "house_notices_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "house_requests_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "house_requests_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "house_requests_created_by_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "created_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "house_notices_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "house_requests_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_notices",
+        "name": "house_notices_reason",
+        "value": "char_length(\"reason\") <= 200",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_requests",
+        "name": "house_requests_kind",
+        "value": "\"kind\" in ('invite', 'apply')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

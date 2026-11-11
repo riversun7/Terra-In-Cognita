@@ -131,6 +131,10 @@ export interface EngineStats {
   neighbours: number;
   /** 세운 소품 모델 수(가까이만, 0이면 땅 색만) */
   props: number;
+  /** 세운 땅 잔소품(풀포기·자갈 등)·숲 아래 덤불 수(2026-11-11, 소품 상한의 절반까지) */
+  propClutter: number;
+  /** 유닛 앞이라 옅게 그리는 소품 모델 수(고른·따라가는 유닛과 카메라 사이, 기획 질문 996 다) */
+  propsFaded: number;
   /** 그린 이동 경로의 잘린 점 수(0이면 경로 없음)와 목적지 표시 여부(setRouteUnit·setMoveTarget) */
   routePoints: number;
   moveTarget: boolean;

@@ -54,6 +54,15 @@ export interface MapBounds {
   maxZ: number;
 }
 
+/** 소품 층이 있는 이웃 하나(소품 그림·엄폐 256², 지표 128² = 땅 잔소품) */
+export interface NeighbourPropLayer {
+  readonly id: string;
+  readonly art: Uint8Array;
+  readonly cover: Uint8Array;
+  readonly surface: Uint8Array;
+  readonly placement: NeighbourPlacement;
+}
+
 export class NeighbourTerrains {
   readonly group = new Group();
   private readonly entries = new Map<string, Entry>();
@@ -179,10 +188,11 @@ export class NeighbourTerrains {
   }
 
   /** 소품 층이 있는 이웃(소품 모델 세우기, propView.ts) */
-  propLayers(): { id: string; art: Uint8Array; cover: Uint8Array; placement: NeighbourPlacement }[] {
-    const out: { id: string; art: Uint8Array; cover: Uint8Array; placement: NeighbourPlacement }[] = [];
+  propLayers(): NeighbourPropLayer[] {
+    const out: NeighbourPropLayer[] = [];
     for (const [id, { terrain, placement }] of this.entries) {
-      if (terrain.art && terrain.cover) out.push({ id, art: terrain.art, cover: terrain.cover, placement });
+      if (terrain.art && terrain.cover)
+        out.push({ id, art: terrain.art, cover: terrain.cover, surface: terrain.surface, placement });
     }
     return out;
   }

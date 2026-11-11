@@ -54,6 +54,8 @@ export function hudDataAttributes(
     "data-light-changes": light?.changes,
     "data-neighbours": stats?.neighbours,
     "data-props": stats?.props,
+    // 유닛 앞이라 옅게 그린 소품 수(기획 질문 996 다)
+    "data-props-faded": stats?.propsFaded,
     // 가시거리 자동 조절 단계(0부터)와 그 거리(m) — @terra/engine render/viewDistance.ts
     "data-view-level": stats?.viewLevel,
     "data-view-reach": stats ? Math.round(stats.viewReachM) : undefined,

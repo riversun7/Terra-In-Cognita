@@ -46,6 +46,8 @@ export function inertEngine(): SecondMapEngine {
     light: lightStats(new SecondMapSky(null)),
     neighbours: 0,
     props: 0,
+    propClutter: 0,
+    propsFaded: 0,
     routePoints: 0,
     moveTarget: false,
     propSpanM: 0,

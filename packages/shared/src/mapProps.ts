@@ -15,6 +15,18 @@ export const MAP_PROP_ARTS = [
   "reeds",
   "boulder",
   "log",
+  // 2026-11-11 장식 소품(엄폐 0, 판정 없음 — 바이옴·환경 곡선으로 생성기가 놓아 그 땅다운 모습을 만든다. ADR 46 "바뀜 (2026-11-11)")
+  "cactus",
+  "dry_shrub",
+  "tall_grass",
+  "flowers",
+  "stones",
+  "driftwood",
+  "termite_mound",
+  "dead_tree",
+  "fern",
+  "ice_block",
+  "bones",
 ] as const;
 
 export type MapPropArt = (typeof MAP_PROP_ARTS)[number];

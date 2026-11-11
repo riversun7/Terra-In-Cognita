@@ -20,9 +20,24 @@ describe("2차맵 소품 이름표", () => {
       "boulder",
       "log",
     ]);
+    // 2026-11-11 장식 소품 11종(끝에 더함)
+    expect(MAP_PROP_ARTS.slice(8)).toEqual([
+      "cactus",
+      "dry_shrub",
+      "tall_grass",
+      "flowers",
+      "stones",
+      "driftwood",
+      "termite_mound",
+      "dead_tree",
+      "fern",
+      "ice_block",
+      "bones",
+    ]);
     expect(MAP_PROP_ARTS.length).toBeLessThanOrEqual(256);
     expect(mapPropArtCode("boulder")).toBe(6);
-    expect(mapPropArtCode("cactus")).toBe(-1);
+    expect(mapPropArtCode("cactus")).toBe(8);
+    expect(mapPropArtCode("unicorn_statue")).toBe(-1);
   });
 
   it("곡선 축 목록이 범위 표와 같고, 범위·덩이 크기가 맞다", () => {

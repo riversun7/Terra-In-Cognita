@@ -2,7 +2,8 @@
 import { MAP_PROP_ARTS } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import { PLACEMENT_CELLS } from "../terrain/terrainData.ts";
-import { buildPropTextureData, propLook, propSalt, propTint } from "./propLook.ts";
+import { SURFACE, TERRAIN_CELLS } from "../terrain/terrainData.ts";
+import { buildPropTextureData, groundClutter, propLook, propSalt, propTint, snowyCell } from "./propLook.ts";
 
 describe("소품 겉모습", () => {
   it("이름표의 그림마다 겉모습이 있고(none 제외), 모르는 번호는 없다", () => {
@@ -18,6 +19,30 @@ describe("소품 겉모습", () => {
     expect(propTint(2, tree)).toBeGreaterThan(propTint(1, tree));
     expect(propTint(1, tree)).toBeGreaterThan(propTint(0, tree));
     expect(propTint(0, 0)).toBe(0);
+    // 장식 소품(엄폐 0)은 엄폐 칸보다 옅고, 작은 것일수록 더 옅다(멀리서 땅 색이 얼룩지지 않게)
+    const grass = MAP_PROP_ARTS.indexOf("tall_grass");
+    const bones = MAP_PROP_ARTS.indexOf("bones");
+    expect(propTint(0, grass)).toBeLessThan(propTint(1, tree));
+    expect(propTint(0, bones)).toBeLessThan(propTint(0, grass));
+  });
+
+  it("땅 잔소품: 지표로 고르고(물·지표 없음은 없다), 몫 위의 굴림은 없다. 눈·얼음 지표 칸", () => {
+    const surface = new Uint8Array(TERRAIN_CELLS * TERRAIN_CELLS);
+    surface[0] = SURFACE.grass;
+    surface[1] = SURFACE.water;
+    surface[2] = SURFACE.snow;
+    surface[3] = SURFACE.shallowWater;
+    // 배치 칸 (0·1, 0) → 지형 칸 0, (2·3, 0) → 1, (4, 0) → 2, (6, 0) → 3
+    expect(groundClutter(surface, 0, 0.1, 0.5)).toBe("tuft");
+    expect(groundClutter(surface, 1, 0.1, 0.01)).toBe("blossom");
+    expect(groundClutter(surface, 0, 0.99, 0.5)).toBeNull();
+    expect(groundClutter(surface, 2, 0.01, 0.5)).toBeNull();
+    expect(groundClutter(surface, 4, 0.01, 0.5)).toBe("snowLump");
+    expect(groundClutter(surface, 6, 0.01, 0.5)).toBe("cattail");
+    expect(groundClutter(undefined, 0, 0.01, 0.5)).toBeNull();
+    expect(snowyCell(surface, 4)).toBe(true);
+    expect(snowyCell(surface, 0)).toBe(false);
+    expect(snowyCell(undefined, 4)).toBe(false);
   });
 
   it("텍스처: 칸마다 색과 세기(행 우선)", () => {

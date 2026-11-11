@@ -111,6 +111,238 @@
       ],
       "curves": { "humidity": { "min": 10, "idealMin": 70, "idealMax": 255, "max": 255 } },
       "clump": { "cells": 8, "threshold": 450 }
+    },
+    {
+      "id": "cactus",
+      "name": { "ko": "선인장", "en": "Cactus" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "cactus",
+      "cover": 0,
+      "biomes": [{ "biome": "desert", "weight": 45 }, { "biome": "savanna", "weight": 8 }],
+      "curves": {
+        "temperatureC": { "min": 8, "idealMin": 20, "idealMax": 45, "max": 52 },
+        "humidity": { "min": 0, "idealMin": 0, "idealMax": 60, "max": 120 }
+      },
+      "clump": { "cells": 16, "threshold": 350 },
+      "maxShare": 60
+    },
+    {
+      "id": "dry_shrub",
+      "name": { "ko": "마른 덤불", "en": "Dry shrub" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "dry_shrub",
+      "cover": 0,
+      "biomes": [
+        { "biome": "desert", "weight": 70 },
+        { "biome": "savanna", "weight": 60 },
+        { "biome": "grassland", "weight": 25 },
+        { "biome": "tundra", "weight": 30 },
+        { "biome": "alpine", "weight": 15 }
+      ],
+      "curves": { "humidity": { "min": 0, "idealMin": 0, "idealMax": 90, "max": 160 } },
+      "maxShare": 100
+    },
+    {
+      "id": "tall_grass",
+      "name": { "ko": "키 큰 풀", "en": "Tall grass" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "tall_grass",
+      "cover": 0,
+      "biomes": [
+        { "biome": "grassland", "weight": 180 },
+        { "biome": "savanna", "weight": 160 },
+        { "biome": "wetland", "weight": 90 },
+        { "biome": "temperate_forest", "weight": 60 },
+        { "biome": "tundra", "weight": 50 },
+        { "biome": "taiga", "weight": 40 },
+        { "biome": "tropical_rainforest", "weight": 40 }
+      ],
+      "curves": {
+        "temperatureC": { "min": -8, "idealMin": 4, "idealMax": 32, "max": 42 },
+        "humidity": { "min": 20, "idealMin": 60, "idealMax": 255, "max": 255 }
+      },
+      "clump": { "cells": 8, "threshold": 450 },
+      "maxShare": 250
+    },
+    {
+      "id": "flowers",
+      "name": { "ko": "꽃밭", "en": "Wildflowers" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "flowers",
+      "cover": 0,
+      "biomes": [
+        { "biome": "grassland", "weight": 60 },
+        { "biome": "alpine", "weight": 40 },
+        { "biome": "tundra", "weight": 35 },
+        { "biome": "temperate_forest", "weight": 30 },
+        { "biome": "wetland", "weight": 25 },
+        { "biome": "savanna", "weight": 20 }
+      ],
+      "curves": {
+        "temperatureC": { "min": -5, "idealMin": 6, "idealMax": 28, "max": 38 },
+        "slopePct": { "min": 0, "idealMin": 0, "idealMax": 40, "max": 120 }
+      },
+      "clump": { "cells": 4, "threshold": 600 },
+      "maxShare": 80
+    },
+    {
+      "id": "stones",
+      "name": { "ko": "돌무더기", "en": "Stones" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "stones",
+      "cover": 0,
+      "biomes": [
+        { "biome": "alpine", "weight": 90 },
+        { "biome": "tundra", "weight": 40 },
+        { "biome": "desert", "weight": 25 },
+        { "biome": "ice_sheet", "weight": 25 },
+        { "biome": "ocean_coastal", "weight": 25 },
+        { "biome": "taiga", "weight": 15 },
+        { "biome": "savanna", "weight": 10 },
+        { "biome": "grassland", "weight": 6 },
+        { "biome": "temperate_forest", "weight": 6 }
+      ],
+      "curves": { "slopePct": { "min": 0, "idealMin": 0, "idealMax": 600, "max": 1000 } },
+      "clump": { "cells": 8, "threshold": 400 },
+      "maxShare": 150
+    },
+    {
+      "id": "driftwood",
+      "name": { "ko": "떠밀려 온 나무", "en": "Driftwood" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "driftwood",
+      "cover": 0,
+      "biomes": [
+        { "biome": "ocean_coastal", "weight": 200 },
+        { "biome": "lake", "weight": 120 },
+        { "biome": "ocean_shelf", "weight": 120 },
+        { "biome": "desert", "weight": 100 },
+        { "biome": "savanna", "weight": 100 },
+        { "biome": "grassland", "weight": 100 },
+        { "biome": "temperate_forest", "weight": 100 },
+        { "biome": "taiga", "weight": 100 },
+        { "biome": "tundra", "weight": 100 },
+        { "biome": "tropical_rainforest", "weight": 100 },
+        { "biome": "wetland", "weight": 60 },
+        { "biome": "alpine", "weight": 40 }
+      ],
+      "curves": { "waterDistance": { "min": 0, "idealMin": 1, "idealMax": 2, "max": 5 } },
+      "maxShare": 30
+    },
+    {
+      "id": "termite_mound",
+      "name": { "ko": "흰개미 둔덕", "en": "Termite mound" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "termite_mound",
+      "cover": 0,
+      "biomes": [{ "biome": "savanna", "weight": 12 }, { "biome": "desert", "weight": 3 }],
+      "curves": { "temperatureC": { "min": 16, "idealMin": 22, "idealMax": 40, "max": 46 } },
+      "maxShare": 10
+    },
+    {
+      "id": "dead_tree",
+      "name": { "ko": "마른 나무", "en": "Dead tree" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "dead_tree",
+      "cover": 0,
+      "biomes": [
+        { "biome": "wetland", "weight": 12 },
+        { "biome": "savanna", "weight": 10 },
+        { "biome": "tundra", "weight": 8 },
+        { "biome": "desert", "weight": 4 },
+        { "biome": "taiga", "weight": 6 }
+      ],
+      "maxShare": 10
+    },
+    {
+      "id": "fern",
+      "name": { "ko": "고사리", "en": "Ferns" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "fern",
+      "cover": 0,
+      "biomes": [
+        { "biome": "tropical_rainforest", "weight": 120 },
+        { "biome": "temperate_forest", "weight": 60 },
+        { "biome": "wetland", "weight": 50 },
+        { "biome": "taiga", "weight": 30 }
+      ],
+      "curves": {
+        "humidity": { "min": 60, "idealMin": 120, "idealMax": 255, "max": 255 },
+        "temperatureC": { "min": -2, "idealMin": 8, "idealMax": 38, "max": 44 }
+      },
+      "maxShare": 200
+    },
+    {
+      "id": "ice_block",
+      "name": { "ko": "얼음덩이", "en": "Ice block" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "ice_block",
+      "cover": 0,
+      "biomes": [
+        { "biome": "ice_sheet", "weight": 40 },
+        { "biome": "tundra", "weight": 4 },
+        { "biome": "alpine", "weight": 4 }
+      ],
+      "curves": { "temperatureC": { "min": -100, "idealMin": -100, "idealMax": -4, "max": 2 } },
+      "clump": { "cells": 16, "threshold": 500 },
+      "maxShare": 60
+    },
+    {
+      "id": "bones",
+      "name": { "ko": "짐승 뼈", "en": "Animal bones" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "bones",
+      "cover": 0,
+      "biomes": [
+        { "biome": "desert", "weight": 3 },
+        { "biome": "savanna", "weight": 2 },
+        { "biome": "tundra", "weight": 2 }
+      ],
+      "maxShare": 2
     }
   ]
 }

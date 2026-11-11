@@ -1,4 +1,5 @@
-// 2차맵 시험용 소품 규칙 — 골든 해시가 콘텐츠 팩 수정에 흔들리지 않게 팩 값을 옮겨 적었다(2026-10-31 content/core map_props, 이름 뺌).
+// 2차맵 시험용 소품 규칙 — 골든 해시가 콘텐츠 팩 수정에 흔들리지 않게 팩 값을 옮겨 적었다(2026-10-31 content/core map_props, 이름·설명 뺌.
+// 2026-11-11 장식 소품 11종을 끝에 더함)
 // 팩과 같은지는 props.test.ts가 본다(다르면 여기를 팩에 맞추고 골든 해시를 고친다).
 import type { MapPropInput } from "./props.ts";
 
@@ -275,5 +276,452 @@ export const TEST_MAP_PROPS: readonly MapPropInput[] = [
       cells: 8,
       threshold: 450,
     },
+  },
+  {
+    id: "cactus",
+    placement: "scatter",
+    art: "cactus",
+    cover: 0,
+    biomes: [
+      {
+        biome: "desert",
+        weight: 45,
+      },
+      {
+        biome: "savanna",
+        weight: 8,
+      },
+    ],
+    curves: {
+      temperatureC: {
+        min: 8,
+        idealMin: 20,
+        idealMax: 45,
+        max: 52,
+      },
+      humidity: {
+        min: 0,
+        idealMin: 0,
+        idealMax: 60,
+        max: 120,
+      },
+    },
+    clump: {
+      cells: 16,
+      threshold: 350,
+    },
+    maxShare: 60,
+  },
+  {
+    id: "dry_shrub",
+    placement: "scatter",
+    art: "dry_shrub",
+    cover: 0,
+    biomes: [
+      {
+        biome: "desert",
+        weight: 70,
+      },
+      {
+        biome: "savanna",
+        weight: 60,
+      },
+      {
+        biome: "grassland",
+        weight: 25,
+      },
+      {
+        biome: "tundra",
+        weight: 30,
+      },
+      {
+        biome: "alpine",
+        weight: 15,
+      },
+    ],
+    curves: {
+      humidity: {
+        min: 0,
+        idealMin: 0,
+        idealMax: 90,
+        max: 160,
+      },
+    },
+    maxShare: 100,
+  },
+  {
+    id: "tall_grass",
+    placement: "scatter",
+    art: "tall_grass",
+    cover: 0,
+    biomes: [
+      {
+        biome: "grassland",
+        weight: 180,
+      },
+      {
+        biome: "savanna",
+        weight: 160,
+      },
+      {
+        biome: "wetland",
+        weight: 90,
+      },
+      {
+        biome: "temperate_forest",
+        weight: 60,
+      },
+      {
+        biome: "tundra",
+        weight: 50,
+      },
+      {
+        biome: "taiga",
+        weight: 40,
+      },
+      {
+        biome: "tropical_rainforest",
+        weight: 40,
+      },
+    ],
+    curves: {
+      temperatureC: {
+        min: -8,
+        idealMin: 4,
+        idealMax: 32,
+        max: 42,
+      },
+      humidity: {
+        min: 20,
+        idealMin: 60,
+        idealMax: 255,
+        max: 255,
+      },
+    },
+    clump: {
+      cells: 8,
+      threshold: 450,
+    },
+    maxShare: 250,
+  },
+  {
+    id: "flowers",
+    placement: "scatter",
+    art: "flowers",
+    cover: 0,
+    biomes: [
+      {
+        biome: "grassland",
+        weight: 60,
+      },
+      {
+        biome: "alpine",
+        weight: 40,
+      },
+      {
+        biome: "tundra",
+        weight: 35,
+      },
+      {
+        biome: "temperate_forest",
+        weight: 30,
+      },
+      {
+        biome: "wetland",
+        weight: 25,
+      },
+      {
+        biome: "savanna",
+        weight: 20,
+      },
+    ],
+    curves: {
+      temperatureC: {
+        min: -5,
+        idealMin: 6,
+        idealMax: 28,
+        max: 38,
+      },
+      slopePct: {
+        min: 0,
+        idealMin: 0,
+        idealMax: 40,
+        max: 120,
+      },
+    },
+    clump: {
+      cells: 4,
+      threshold: 600,
+    },
+    maxShare: 80,
+  },
+  {
+    id: "stones",
+    placement: "scatter",
+    art: "stones",
+    cover: 0,
+    biomes: [
+      {
+        biome: "alpine",
+        weight: 90,
+      },
+      {
+        biome: "tundra",
+        weight: 40,
+      },
+      {
+        biome: "desert",
+        weight: 25,
+      },
+      {
+        biome: "ice_sheet",
+        weight: 25,
+      },
+      {
+        biome: "ocean_coastal",
+        weight: 25,
+      },
+      {
+        biome: "taiga",
+        weight: 15,
+      },
+      {
+        biome: "savanna",
+        weight: 10,
+      },
+      {
+        biome: "grassland",
+        weight: 6,
+      },
+      {
+        biome: "temperate_forest",
+        weight: 6,
+      },
+    ],
+    curves: {
+      slopePct: {
+        min: 0,
+        idealMin: 0,
+        idealMax: 600,
+        max: 1000,
+      },
+    },
+    clump: {
+      cells: 8,
+      threshold: 400,
+    },
+    maxShare: 150,
+  },
+  {
+    id: "driftwood",
+    placement: "scatter",
+    art: "driftwood",
+    cover: 0,
+    biomes: [
+      {
+        biome: "ocean_coastal",
+        weight: 200,
+      },
+      {
+        biome: "lake",
+        weight: 120,
+      },
+      {
+        biome: "ocean_shelf",
+        weight: 120,
+      },
+      {
+        biome: "desert",
+        weight: 100,
+      },
+      {
+        biome: "savanna",
+        weight: 100,
+      },
+      {
+        biome: "grassland",
+        weight: 100,
+      },
+      {
+        biome: "temperate_forest",
+        weight: 100,
+      },
+      {
+        biome: "taiga",
+        weight: 100,
+      },
+      {
+        biome: "tundra",
+        weight: 100,
+      },
+      {
+        biome: "tropical_rainforest",
+        weight: 100,
+      },
+      {
+        biome: "wetland",
+        weight: 60,
+      },
+      {
+        biome: "alpine",
+        weight: 40,
+      },
+    ],
+    curves: {
+      waterDistance: {
+        min: 0,
+        idealMin: 1,
+        idealMax: 2,
+        max: 5,
+      },
+    },
+    maxShare: 30,
+  },
+  {
+    id: "termite_mound",
+    placement: "scatter",
+    art: "termite_mound",
+    cover: 0,
+    biomes: [
+      {
+        biome: "savanna",
+        weight: 12,
+      },
+      {
+        biome: "desert",
+        weight: 3,
+      },
+    ],
+    curves: {
+      temperatureC: {
+        min: 16,
+        idealMin: 22,
+        idealMax: 40,
+        max: 46,
+      },
+    },
+    maxShare: 10,
+  },
+  {
+    id: "dead_tree",
+    placement: "scatter",
+    art: "dead_tree",
+    cover: 0,
+    biomes: [
+      {
+        biome: "wetland",
+        weight: 12,
+      },
+      {
+        biome: "savanna",
+        weight: 10,
+      },
+      {
+        biome: "tundra",
+        weight: 8,
+      },
+      {
+        biome: "desert",
+        weight: 4,
+      },
+      {
+        biome: "taiga",
+        weight: 6,
+      },
+    ],
+    maxShare: 10,
+  },
+  {
+    id: "fern",
+    placement: "scatter",
+    art: "fern",
+    cover: 0,
+    biomes: [
+      {
+        biome: "tropical_rainforest",
+        weight: 120,
+      },
+      {
+        biome: "temperate_forest",
+        weight: 60,
+      },
+      {
+        biome: "wetland",
+        weight: 50,
+      },
+      {
+        biome: "taiga",
+        weight: 30,
+      },
+    ],
+    curves: {
+      humidity: {
+        min: 60,
+        idealMin: 120,
+        idealMax: 255,
+        max: 255,
+      },
+      temperatureC: {
+        min: -2,
+        idealMin: 8,
+        idealMax: 38,
+        max: 44,
+      },
+    },
+    maxShare: 200,
+  },
+  {
+    id: "ice_block",
+    placement: "scatter",
+    art: "ice_block",
+    cover: 0,
+    biomes: [
+      {
+        biome: "ice_sheet",
+        weight: 40,
+      },
+      {
+        biome: "tundra",
+        weight: 4,
+      },
+      {
+        biome: "alpine",
+        weight: 4,
+      },
+    ],
+    curves: {
+      temperatureC: {
+        min: -100,
+        idealMin: -100,
+        idealMax: -4,
+        max: 2,
+      },
+    },
+    clump: {
+      cells: 16,
+      threshold: 500,
+    },
+    maxShare: 60,
+  },
+  {
+    id: "bones",
+    placement: "scatter",
+    art: "bones",
+    cover: 0,
+    biomes: [
+      {
+        biome: "desert",
+        weight: 3,
+      },
+      {
+        biome: "savanna",
+        weight: 2,
+      },
+      {
+        biome: "tundra",
+        weight: 2,
+      },
+    ],
+    maxShare: 2,
   },
 ];

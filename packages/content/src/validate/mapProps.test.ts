@@ -64,7 +64,7 @@ describe("map_props 분류", () => {
 
   it("그림 종류는 이름표에 있는 것만(none 제외), 덩이 크기는 2의 거듭제곱 표만", () => {
     expect(problems([scatter({ art: "none" })])[0]?.[3]).toContain("그림 종류");
-    expect(problems([scatter({ art: "cactus" })])[0]?.[3]).toContain("그림 종류");
+    expect(problems([scatter({ art: "unicorn_statue" })])[0]?.[3]).toContain("그림 종류");
     expect(problems([scatter({ clump: { cells: 12, threshold: 500 } })])[0]?.[3]).toContain("덩이 크기");
   });
 

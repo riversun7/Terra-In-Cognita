@@ -4,6 +4,7 @@
 //   갇힌 곳 잇기는 차폐를 가장 적게 뚫는다(합성 격자).
 // - 빈 길이 2차맵 경계(면 경계 포함)를 넘어 이어지고, 엄폐 무늬가 경계에서 안쪽만큼 이어진다.
 // - 같은 바이옴이라도 환경(기온 등)에 따라 나무 그림 비중이 달라진다(사용자 요구).
+// - 장식 소품(엄폐 0, 2026-11-11)은 엄폐·판정 소품 칸을 바꾸지 않고 소품 종류만 늘린다.
 // - 반복 막기: 같은 바이옴 이웃 2차맵의 지문(지표·엄폐 몫, 높이 분위, 8×8 축소)이 서로 다르고 같은 지문이 없다.
 import { MAP_PROP_ARTS } from "@terra/shared";
 import { describe, expect, it } from "vitest";
@@ -17,7 +18,9 @@ import { type SecondMapTerrain, generateSecondMap } from "./generate.ts";
 import { SM_PLACEMENT, SM_TERRAIN, SM_VERTICES, mapCoords } from "./layout.ts";
 import { connectPockets } from "./pockets.ts";
 import { SM_CLIFF_RELIEF_CM, laneMask } from "./placement.ts";
+import { compileMapProps } from "./props.ts";
 import { SM_SURFACE } from "./surfaces.ts";
+import { TEST_MAP_PROPS } from "./testMapProps.ts";
 import { testPlanetValues, testPropRules } from "./testPlanetValues.ts";
 
 const LEVEL = 6;
@@ -154,6 +157,9 @@ const fingerprint = (t: SecondMapTerrain): number[] => {
 /** 지문 거리(유클리드) */
 const distance = (p: readonly number[], q: readonly number[]) =>
   Math.sqrt(p.reduce((sum, value, k) => sum + (value - (q[k] ?? 0)) * (value - (q[k] ?? 0)), 0));
+
+/** 2차맵에 쓰인 소품 그림 종류 수(없음 포함) */
+const kinds = (art: Uint8Array): number => new Set(art).size;
 
 describe("2차맵 배치", () => {
   const forests = forestMaps(200, 6);
@@ -359,6 +365,30 @@ describe("2차맵 배치", () => {
     const third = Math.floor(sorted.length / 3);
     expect(avg(sorted.slice(0, third))).toBeGreaterThan(avg(sorted.slice(-third)));
   });
+
+  it("장식 소품(엄폐 0)은 엄폐 층과 판정 소품 칸을 바꾸지 않고, 2차맵마다 소품 종류를 늘린다(2026-11-11)", () => {
+    // 판정 소품 = 숲 항목 + 엄폐가 있는 흩기 항목. 장식 소품은 팩 끝에 있어 그 칸이 모두 비었을 때만 놓인다
+    const judged = compileMapProps(
+      TEST_MAP_PROPS.filter((prop) => prop.placement === "forest" || (prop.cover ?? 0) > 0),
+      values.biomeIds,
+    );
+    const keys = forestMaps(0, 24);
+    expect(keys.length).toBeGreaterThan(10);
+    let richer = 0;
+    for (const key of keys) {
+      const full = terrain(key);
+      const base = generateSecondMap(values, key, judged);
+      expect(full.cover).toEqual(base.cover);
+      for (let i = 0; i < CELLS; i++) {
+        const before = base.art[i] ?? 0;
+        // 판정 소품 칸(원자재 오브젝트·숲 비용이 보는 그림)은 그대로, 빈 칸에만 장식이 더해진다
+        if (before !== 0) expect(full.art[i]).toBe(before);
+      }
+      if (kinds(full.art) >= kinds(base.art) + 2) richer += 1;
+    }
+    // 땅 2차맵 대부분에서 장식 소품이 두 종류 이상 더해진다
+    expect(richer / keys.length).toBeGreaterThan(0.6);
+  }, 60_000);
 
   it("반복 막기: 같은 바이옴 이웃 2차맵 쌍의 지문이 서로 떨어져 있고, 같은 지문이 없다", () => {
     const prints = new Map<number, number[]>();

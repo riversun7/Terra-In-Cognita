@@ -70,6 +70,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, NPC_START_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
 import { createNpcCapitals } from "./capitals.ts";
+import { createCatchmentStore, loadCatchment } from "./catchmentStore.ts";
 import { createCityDayStore } from "./cityDayStore.ts";
 import { createCityPeople, seedPopulationOf } from "./cityPeople.ts";
 import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./economy.ts";
@@ -589,6 +590,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     days: 0,
     gardenerMs: 0,
     waveResults: 0,
+    catchmentRows: 0,
   };
   // 기록기는 "N일째"를 시작 시각 + N × 24시간으로 센다 → 이어 돈 날 수와 UTC 0시 하루 끝에 맞춘 시작 시각을 준다
   // (하루를 줄인 측정 실행에서는 줄의 시각이 실제와 다르다)
@@ -629,6 +631,10 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       }
     },
   });
+  // 배후지 칸 재고·도시 결과(질문 1061 나, catchmentStore.ts): 행성 값이 있으면 켤 때 읽어 경제가 시설을 놓기 전에 넣는다
+  const catchmentStarted = performance.now();
+  const catchmentSaved = o.economy?.land ? await loadCatchment(o.pool, o.planetId) : undefined;
+  const catchmentLoadMs = Math.round((performance.now() - catchmentStarted) * 10) / 10;
   // 도시 경제(사회 규칙보다 먼저: 사회·판단이 경제 고리를 받는다)
   const econ = o.economy
     ? await startServerEconomy({
@@ -645,6 +651,17 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         goodsHome: ruinedGoodsHomeOf(world, persist.places, o.ruins?.nationOf),
         // 배후지 채집 다툼(npc/catchmentGeometry.ts): 도시 2차맵
         cityMapOf: (cityId) => persist.places.get(cityId)?.mapKey,
+        catchmentSaved,
+      })
+    : undefined;
+  const catchmentState = econ?.economy.catchment;
+  const catchmentStore = catchmentState
+    ? createCatchmentStore({
+        state: catchmentState,
+        writer,
+        planetId: o.planetId,
+        saved: catchmentSaved ?? { stock: [], cities: [] },
+        hasCity: (cityId) => world.cities.has(cityId),
       })
     : undefined;
   econRef.current = econ;
@@ -822,6 +839,9 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       seededGuards,
       housingRaised,
       foundedStats,
+      catchment: catchmentState
+        ? { cells: catchmentState.stock.size, cities: catchmentState.cities.size, loadMs: catchmentLoadMs }
+        : null,
       day: society.currentDay(),
       writes: first.rows,
     },
@@ -850,6 +870,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       const started = performance.now();
       const result = await persist.flush(society.currentDay());
       warPersist.flush(o.now());
+      metrics.catchmentRows += catchmentStore?.flush(o.now()) ?? 0;
       syncPeople();
       await persist.refillSpares(SPARE_FACTIONS);
       metrics.persistMs += performance.now() - started;
@@ -904,6 +925,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         gardenerWaves: gardener.run.waves.size,
         gardenerWaveResults: metrics.waveResults,
         pollutionCells: gardener.run.layer().size,
+        catchmentRows: metrics.catchmentRows,
+        catchmentCells: catchmentState?.stock.size ?? 0,
         ...econ?.takeMetrics(),
       };
       metrics.decisions = 0;
@@ -915,6 +938,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       metrics.days = 0;
       metrics.gardenerMs = 0;
       metrics.waveResults = 0;
+      metrics.catchmentRows = 0;
       return out;
     },
     stop() {

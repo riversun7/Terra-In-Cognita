@@ -373,6 +373,8 @@ export const planetLibraryVersions = pgTable(
 export { DEFAULT_WORLD_PLANET_ID };
 // 정원사 표(오염·웨이브)는 파일 크기 상한 때문에 따로 둔다(drizzle-kit은 이 파일의 내보내기만 읽는다)
 export { gardenerWaves, planetPollution } from "./gardenerSchema.ts";
+// 배후지 칸 재고(질문 1061 나)도 같은 까닭으로 따로 둔다
+export { catchmentCellStock } from "./catchmentSchema.ts";
 // 영토 비콘 표(docs/adr/2026-11-03-territory-layer.md)도 따로 둔다(이 파일 줄 수)
 export { territoryBeacons } from "./territorySchema.ts";
 // 팩 항목 덮어쓰기 표(스킬 편집기, docs/adr/2026-11-01-skill-editor.md 3절)도 같은 까닭으로 따로 둔다
@@ -426,6 +428,8 @@ export const factions = pgTable(
     capitalCityId: bigint("capital_city_id", { mode: "number" }),
     /** 그 나라가 정한 귀화 조건(D-526, 부호 있는 최소 단위: + 입회비 / − 지원금). null = 설정 칸 기본값(NPC 국가는 늘 null) */
     naturalizeFee: bigint("naturalize_fee", { mode: "bigint" }),
+    /** 가문 도시 자동 구인(질문 1041 다, docs/adr/2026-11-11-house-village.md "바뀜 (2026-11-12)"). 가문장이 끄면 손으로만 산다. NPC 세력은 쓰지 않는다 */
+    recruitAuto: boolean("recruit_auto").notNull().default(true),
   },
   (table) => [
     check("factions_kind", sql`${table.kind} in ('npc', 'player')`),
@@ -505,6 +509,8 @@ export const worldCities = pgTable(
     populationSeededAtMs: bigint("population_seeded_at_ms", { mode: "number" }),
     /** 지난 하루 끝(UTC 0시)의 생필품 충족 ‰(781 나 — 정부 판, npc/cityDayStore.ts). null = 아직 하루 끝 전 */
     necessitiesPm: smallint("necessities_pm"),
+    /** 지난 하루 끝 배후지 채집 다툼 결과(질문 1061 나, npc/catchmentStore.ts — 12칸: 반경·넓이·칸·겹친 칸·캐려는 양·합 몫·원자재 여섯 몫). null = 아직 */
+    catchment: integer("catchment").array(),
   },
   (table) => [
     index("world_cities_map_idx").on(table.mapKey),

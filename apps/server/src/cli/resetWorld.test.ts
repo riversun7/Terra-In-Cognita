@@ -31,6 +31,7 @@ describe("남길 표 목록", () => {
       "cyborgs",
       "second_map_pins",
       "summary_acks",
+      "catchment_cell_stock",
     ]) {
       expect(schemaTables).toContain(name);
       expect(Object.hasOwn(WORLD_RESET_KEEP, name)).toBe(false);

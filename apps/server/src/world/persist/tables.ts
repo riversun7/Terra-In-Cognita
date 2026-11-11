@@ -182,6 +182,13 @@ export const WORLD_TABLES = {
     key: ["id"],
     updateOnly: true,
   },
+  /** 도시의 지난 하루 끝 배후지 다툼 결과만 고친다(질문 1061 나, npc/catchmentStore.ts — cityDay와 같은 까닭으로 따로) */
+  cityCatchment: {
+    name: "world_cities",
+    columns: ["id", "catchment"],
+    key: ["id"],
+    updateOnly: true,
+  },
   /** 휴먼(유닛 하나 = 휴먼 하나: NPC 나라의 시험 봇·유저가 고용한 휴먼). 유닛 다음에 쓰고 유닛보다 먼저 지운다 */
   humans: {
     name: "world_humans",
@@ -328,6 +335,19 @@ export const WORLD_TABLES = {
     name: "planet_pollution",
     columns: ["planet_id", "cell_key", "value", "updated_at_ms"],
     key: ["planet_id", "cell_key"],
+  },
+  /** 배후지 칸 재고(질문 1061 나, npc/catchmentStore.ts). 상한으로 돌아온 칸은 지운다 */
+  catchmentStock: {
+    name: "catchment_cell_stock",
+    columns: ["planet_id", "cell_key", "ore", "wood", "herb", "crop", "livestock", "fish", "updated_at_ms"],
+    key: ["planet_id", "cell_key"],
+  },
+  /** 가문 도시 자동 구인 스위치만 고친다(질문 1041 다, factionIdentity/houseCity.ts) */
+  houseRecruitAuto: {
+    name: "factions",
+    columns: ["id", "recruit_auto"],
+    key: ["id"],
+    updateOnly: true,
   },
   /** 원자재 오브젝트 남은 번수·다시 자라는 시각(docs/adr/2026-11-07-gather-objects.md) — 채집 거래와 같은 커밋 */
   gatherObjects: {
@@ -726,6 +746,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "humans",
   "cityPeople",
   "cityDay",
+  "cityCatchment",
   "humanGrowth",
   "humanGuard",
   "cyborgUnits",
@@ -737,6 +758,8 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "factionWars",
   "npcSociety",
   "pollution",
+  "catchmentStock",
+  "houseRecruitAuto",
   "gatherObjects",
   "gardenerWaves",
   "ruins",

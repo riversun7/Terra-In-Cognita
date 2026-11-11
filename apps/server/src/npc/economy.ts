@@ -57,6 +57,7 @@ import {
 } from "@terra/sim";
 import type { CatchmentLand } from "@terra/shared/catchment";
 import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
+import { type CatchmentSaved, restoreCatchment } from "./catchmentStore.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { type MarketRegistry, createMarketRegistry } from "../market/books.ts";
 import { type FxRegistry, createFxRegistry } from "../market/fx.ts";
@@ -178,6 +179,8 @@ export interface ServerEconomyOptions {
    * 주인의 가장 오래된 다른 도시, 다른 도시가 없는 NPC 세력 물건은 소각, 유저 물건은 자리 없음)
    */
   readonly goodsHome?: RuinedGoodsHome | undefined;
+  /** 저장한 배후지 칸 재고·도시 결과(질문 1061 나, catchmentStore.ts). 배후지 다툼을 켤 때 시설을 놓기 전에 넣는다 */
+  readonly catchmentSaved?: CatchmentSaved | undefined;
 }
 
 /** 세력·사회 계수표 → 채집 손잡이(시뮬 run.ts와 같은 칸) */
@@ -299,6 +302,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     economy.catchment = createCatchmentState(planetCatchmentGeometry(land, o.cityMapOf, o.rules), () =>
       catchmentSettingsOf(o.rules().worldSeed, o.rules().territory),
     );
+  if (economy.catchment && o.catchmentSaved) restoreCatchment(economy.catchment, o.catchmentSaved, world);
   const run = runEconomy(economy, world, loop, o.rules().npc, o.goodsHome);
   // 처음 발행(E6): 찍는 나라마다 한 번
   for (const [currency, amount] of mintNationCurrencies({

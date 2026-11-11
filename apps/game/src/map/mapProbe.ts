@@ -17,7 +17,7 @@ export interface MapProbeSample {
   /** 엔진 유닛 수, 고른 유닛 */
   readonly units: number;
   readonly selected: number | null;
-  /** 확대 단계(1~5)와 카메라 거리(m) */
+  /** 확대 단계(1~6)와 카메라 거리(m) */
   readonly stage: number;
   readonly distance: number;
   /** 기준 유닛(없거나 엔진이 모르면 null)의 화면 자리(CSS px)와 2차맵 안 자리(배치 칸) */

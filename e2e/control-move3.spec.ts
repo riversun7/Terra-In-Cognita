@@ -165,7 +165,9 @@ test.describe("기획 답 630~637: 플레이어", () => {
     const screen = page.locator(".map-screen");
     await expect(screen).toHaveAttribute("data-focus", /\d+/);
     await page.waitForTimeout(1_200);
-    // 2차맵은 최대 확대(5/5)로 열려 카메라 목표와 유닛 사이가 화면에서 멀다: 한 단계 줄여 옛 처음 거리쯤에서 가운데를 누른다(unit-control 시험과 같다)
+    // 2차맵은 최대 확대(6/6)로 열려 카메라 목표와 유닛 사이가 화면에서 멀다: 두 단계 줄여 옛 처음 거리쯤(4단계)에서 가운데를 누른다(unit-control 시험과 같다)
+    await page.locator(".zoom-ladder-out").click();
+    await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
     await page.locator(".zoom-ladder-out").click();
     await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "4");
     await page.waitForTimeout(800);

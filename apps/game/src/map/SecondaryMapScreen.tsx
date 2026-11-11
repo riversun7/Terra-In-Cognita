@@ -18,23 +18,23 @@
 // 경계 너머 보기(ADR 2026-10-31-second-map-from-planet WP-4): 카메라가 경계에 다가오면 이웃 2차맵 지형을 받아 둘레에 그린다
 // (secondMapNeighbourLoader.ts). ?second-map-neighbours=all이면 처음부터 8장(개발자 3×3 이어 보기). 나침반은 그 2차맵의 북쪽을 가리킨다
 // (2차맵은 면 격자 틀이라 북쪽이 2차맵마다 돌아가 있다, 사용자 결정 U1).
-// 확대 단계(ADR 2026-11-07-planet-view 1·2절): 오른쪽 사다리(ZoomLadder, "2차맵 3/5") [+]·[−]. 가장 멀리에서 [−]나 한 번 더 줄이기
+// 확대 단계(ADR 2026-11-07-planet-view 1·2절): 오른쪽 사다리(ZoomLadder, "2차맵 3/6") [+]·[−]. 가장 멀리에서 [−]나 한 번 더 줄이기
 // (휠·두 손가락) = 이 2차맵 자리의 1차맵 5단계(D-6018, /map/planet?key=&stage=5).
 // 지도 조작(사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md): 채집 표시는 누르기를 지나보내 끌기가 걸리지 않고(엔진이 누르기만 화면 거리로
-// 고른다), 사다리는 2차맵 확대 단계 1~5(엔진 onZoomStage).
+// 고른다), 사다리는 2차맵 확대 단계 1~6(엔진 onZoomStage, 962 나로 하나 더).
 // 자유 시점 없애기(docs/adr/2026-11-08-seamless-second-map.md WP-1): 카메라는 늘 기준 유닛(anchorUnit.ts — 고른 내 유닛, 기본 내 사이보그)을
 // 따라가고 한 손가락 끌기는 돌리기다(UnitFollow.tsx). 늘 유닛 하나가 골라져 있다. 이 맵에 내 유닛이 없으면 들어갈 수 없다(안내 + [1차맵에서 보기]).
 // 운영자 모드에서만 [자유 시점](빨간 운영자 단추)으로 따라가기를 끄고 끌어서 옮긴다.
 // 근처 판(WP-2, nearby/): 자원·건물·유닛 탭, 기준 유닛에서 가까운 차례 20개씩. 지도에는 고른 탭 표시만(닫으면 없음). 옛 [내 유닛 N] 목록은 유닛 탭이다.
 // 로딩 없는 2차맵 이동(WP-3): 엔진과 자료 흐름 모음(mapFeedPool.ts)은 화면에 하나(useMapEngine.ts), 덧그림·이웃은 맵마다(mapSession.ts). 기준 유닛이
 // 붙여 둔 이웃 흐름에 나타나면(또는 변 옆에서 사라지면, 사이보그 길 조회가 넘었다고 하면) 엔진 rebase 뒤 같은 작업 안에서 모음만 바꾸고 주소를
-// 고친다(crossRef). 이웃 안개는 그 이웃 흐름의 탐사 칸. 걸어서 넘을 때 확대는 그대로다 — 5/5는 화면을 열 때만("바뀜 (2026-11-11)").
+// 고친다(crossRef). 이웃 안개는 그 이웃 흐름의 탐사 칸. 걸어서 넘을 때 확대는 그대로다 — 6/6(최대 확대)은 화면을 열 때만("바뀜 (2026-11-11)").
 // NPC 국가 지도자("WP-NPC3", 기획 정리 748 나·742 나): 머리 위 이름표(leaderTags.ts — 전송의 표시 종류), 지도자나 이름표를 누르면 그 지도자를
 // 고르고 아래 지도자 판(government/LeaderSheet.tsx) → 그 나라 수도 정부 판.
 // 사용자 지적 2026-11-09(docs/adr/2026-11-08-seamless-second-map.md "바뀜 3"): [내 사이보그] 자리에 [내 유닛 N] → 내 유닛 목록(사이보그가 첫 줄),
 // 아래 판 자리에는 판 하나만(누른 건물·오브젝트 판 > 내 유닛 목록 > 근처 판, bottomSheetOf — 행정 건물의 정부 몫은 건물 판 안),
 // 명령 유닛 하나(commandUnit)와 그 이름(unitLabel)을 안내 줄·건물 판이 함께 쓴다.
-import type { EngineStatus, SecondMapEngine } from "@terra/engine";
+import { type EngineStatus, LOCAL_ZOOM_STAGES, type SecondMapEngine } from "@terra/engine";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { refreshSession, useSession } from "../auth/session.ts";
 import { pendingBuildPick } from "../economy/buildPick.ts";
@@ -608,7 +608,7 @@ function SecondMapView({
           </span>
         </div>
         <ZoomLadder
-          rung={{ kind: "local", stage: zoomStage }}
+          rung={{ kind: "local", stage: zoomStage, stages: LOCAL_ZOOM_STAGES }}
           onZoomIn={() => engineRef.current?.zoomStep(1)}
           onZoomOut={() => {
             if (engineRef.current && !engineRef.current.zoomStep(-1)) openPlanetStage(mapKey);

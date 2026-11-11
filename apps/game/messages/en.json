@@ -738,7 +738,7 @@
   "zoom_out": "Zoom out",
   "zoom_caption_planet": "World",
   "zoom_caption_local": "Local",
-  "zoom_value_stage": "{stage}/5",
+  "zoom_value_stage": "{stage}/{stages}",
   "zoom_value_system": "System",
   "zoom_value_local": "Local",
   "zoom_no_local_map": "There is no local map to enter at the centre. Zoom in again near a city.",

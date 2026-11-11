@@ -59,8 +59,8 @@ const DEFAULT_SETTINGS: LabSettings = {
   propSpanM: 420,
   propCap: 5000,
 };
-/** 처음 카메라: 화면 짧은 변 약 360m(소품 모델 거리 420m 안, 고저가 보이게. 엔진 기본은 약 70m) */
-const INITIAL_ZOOM = 9;
+/** 처음 카메라: 화면 짧은 변 약 360m(소품 모델 거리 420m 안, 고저가 보이게. 엔진 기본은 약 70m) = 가장 가까운 짧은 변 15m × 24 */
+const INITIAL_ZOOM = 24;
 /** 이 면 레벨부터는 기기에서 행성을 처음 만들기 전에 묻는다(편집기 editorView.ts CONFIRM_PREVIEW_LEVEL과 같다) */
 const CONFIRM_BUILD_LEVEL = 9;
 /** 엔진 요약을 읽는 간격(ms) */

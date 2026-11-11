@@ -152,8 +152,9 @@ export function useMapEngine(
         if (edge === "out") openPlanetStage(mapKeyRef.current);
       },
       onZoomStage: setZoomStage,
-      // 들어오면 늘 가장 가까이(최대 확대, 사다리 5/5 — 사용자 지적 2026-11-09 "2차맵이나 1차맵은 진입시 항상 최대 확대 상태로 시작").
-      // 가장 가까운 거리는 보기 범위(카메라 묶기)가 바뀌어도 5단계라 단계 표시가 4로 내려가지 않는다. 옆 2차맵으로 걸어 넘을 때는 그대로 둔다
+      // 들어오면 늘 가장 가까이(최대 확대, 사다리 6/6 = 화면 짧은 변 15m — 사용자 지적 2026-11-09 "2차맵이나 1차맵은 진입시 항상 최대 확대
+      // 상태로 시작", 962 나로 더한 6단계도 글자 그대로 따른다: docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-11, 962)").
+      // 가장 가까운 거리는 보기 범위(카메라 묶기)가 바뀌어도 6단계라 단계 표시가 5로 내려가지 않는다. 옆 2차맵으로 걸어 넘을 때는 그대로 둔다
       initialZoom: ENTRY_ZOOM,
       onFollowBreak: refollow,
       unitCapacity: UNIT_CAPACITY,

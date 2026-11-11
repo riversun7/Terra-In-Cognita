@@ -15,6 +15,11 @@ export function useCameraArea(
   operator: boolean,
   units: readonly MapUnit[] | null,
   view: MapViewArea | null,
+  /**
+   * 범위를 그대로 둔다(옆 2차맵으로 넘은 직후 — 새 2차맵의 내 유닛 목록을 받기 전). 엔진이 넘을 때 범위를 새 틀로 옮겨 두므로 그동안 한계가
+   * 풀리지 않는다(풀리면 가장 멀리 한계가 바뀌어 확대 단계 표시가 깜빡였다, "바뀜 (2026-11-11)")
+   */
+  hold = false,
 ): RefObject<(sink: FeedSink) => FeedSink> {
   const exploredRef = useRef<Uint8Array | null>(null);
   // 자료 받기가 엔진에 넣는 탐사 칸을 옆에서 듣는 받는 곳(엔진 효과가 ref로 읽는다 — 늘 같은 함수)
@@ -32,10 +37,10 @@ export function useCameraArea(
       selected: () => sink.selected(),
     }),
   );
-  const latest = useRef({ operator, units, view });
+  const latest = useRef({ operator, units, view, hold });
   useEffect(() => {
-    latest.current = { operator, units, view };
-  }, [operator, units, view]);
+    latest.current = { operator, units, view, hold };
+  }, [operator, units, view, hold]);
   useEffect(() => {
     let lastKey: string | null = null;
     let lastEngine: SecondMapEngine | null = null;
@@ -48,6 +53,7 @@ export function useCameraArea(
         lastKey = null;
       }
       const now = latest.current;
+      if (now.hold) return;
       const area = cameraArea({
         operator: now.operator,
         view: now.view,

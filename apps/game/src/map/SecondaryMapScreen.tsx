@@ -26,14 +26,15 @@
 // 따라가고 한 손가락 끌기는 돌리기다(UnitFollow.tsx). 늘 유닛 하나가 골라져 있다. 이 맵에 내 유닛이 없으면 들어갈 수 없다(안내 + [1차맵에서 보기]).
 // 운영자 모드에서만 [자유 시점](빨간 운영자 단추)으로 따라가기를 끄고 끌어서 옮긴다.
 // 근처 판(WP-2, nearby/): 자원·건물·유닛 탭, 기준 유닛에서 가까운 차례 20개씩. 지도에는 고른 탭 표시만(닫으면 없음). 옛 [내 유닛 N] 목록은 유닛 탭이다.
-// 로딩 없는 2차맵 이동(WP-3): 엔진은 화면에 하나(useMapEngine.ts), 자료 구독·덧그림·이웃은 맵마다(mapSession.ts). 기준 유닛이 구독 중인 이웃에
-// 나타나면(또는 사이보그 길 조회가 넘었다고 하면) 엔진 rebase 뒤 모음만 바꾸고 주소를 고친다(crossRef). 이웃 안개는 그 이웃 구독의 탐사 칸.
+// 로딩 없는 2차맵 이동(WP-3): 엔진과 자료 흐름 모음(mapFeedPool.ts)은 화면에 하나(useMapEngine.ts), 덧그림·이웃은 맵마다(mapSession.ts). 기준 유닛이
+// 붙여 둔 이웃 흐름에 나타나면(또는 변 옆에서 사라지면, 사이보그 길 조회가 넘었다고 하면) 엔진 rebase 뒤 같은 작업 안에서 모음만 바꾸고 주소를
+// 고친다(crossRef). 이웃 안개는 그 이웃 흐름의 탐사 칸. 걸어서 넘을 때 확대는 그대로다 — 5/5는 화면을 열 때만("바뀜 (2026-11-11)").
 // NPC 국가 지도자("WP-NPC3", 기획 정리 748 나·742 나): 머리 위 이름표(leaderTags.ts — 전송의 표시 종류), 지도자나 이름표를 누르면 그 지도자를
 // 고르고 아래 지도자 판(government/LeaderSheet.tsx) → 그 나라 수도 정부 판.
 // 사용자 지적 2026-11-09(docs/adr/2026-11-08-seamless-second-map.md "바뀜 3"): [내 사이보그] 자리에 [내 유닛 N] → 내 유닛 목록(사이보그가 첫 줄),
 // 아래 판 자리에는 판 하나만(누른 건물·오브젝트 판 > 내 유닛 목록 > 근처 판, bottomSheetOf — 행정 건물의 정부 몫은 건물 판 안),
 // 명령 유닛 하나(commandUnit)와 그 이름(unitLabel)을 안내 줄·건물 판이 함께 쓴다.
-import type { EngineStatus, PlanetSkyMode, SecondMapEngine, TerrainInput } from "@terra/engine";
+import type { EngineStatus, SecondMapEngine } from "@terra/engine";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { refreshSession, useSession } from "../auth/session.ts";
 import { pendingBuildPick } from "../economy/buildPick.ts";
@@ -50,21 +51,16 @@ import { hudDataAttributes } from "./mapHudData.ts";
 import type { MapFocus } from "./mapTarget.ts";
 import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
-import { CrossingNotice, CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
+import { CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
 import { ZoomLadder } from "./ZoomLadder.tsx";
 import { useAnchorFollow } from "./UnitFollow.tsx";
 import { blockedWithoutUnits, chooseAnchor, commandUnit, showStop, unitTapOf } from "./anchorUnit.ts";
 import { useBottomSheet } from "./useBottomSheet.ts";
 import { openMap, useTravelFollow } from "./useCyborgTravel.ts";
-import { type MapSession, startMapSession } from "./mapSession.ts";
-import {
-  type HudSnapshot,
-  UNIT_CAPACITY,
-  openPlanetStage,
-  serverNow,
-  useMapEngine,
-  zoomToClosest,
-} from "./useMapEngine.ts";
+import { type MapFeedPool, createMapFeedPool } from "./mapFeedPool.ts";
+import { type MapHandover, type MapSession, startMapSession } from "./mapSession.ts";
+import { fetchTerrain } from "./terrainLoader.ts";
+import { type HudSnapshot, UNIT_CAPACITY, openPlanetStage, serverNow, useMapEngine } from "./useMapEngine.ts";
 import type { MapUnit } from "@terra/shared/mapUnits";
 import {
   type CommandNotice,
@@ -98,6 +94,8 @@ import "./map.css";
 
 /** 명령 안내를 지우기까지(ms) */
 const COMMAND_NOTICE_MS = 6_000;
+/** 넘을 2차맵 지형이 아직 서지 않았을 때 기다리는 시간(ms). 넘으면 화면을 새로 연다(앞 방식) */
+const CROSS_WAIT_MS = 4_000;
 
 interface SecondaryMapScreenProps {
   onClose: () => void;
@@ -170,11 +168,17 @@ function SecondMapView({
   const [mapKey, setMapKey] = useState(entryKey);
   const mapKeyRef = useRef(entryKey);
   const sessionRef = useRef<MapSession | null>(null);
-  /** 넘을 때 다음 모음에 넘기는 지형 */
-  const carryRef = useRef<ReadonlyMap<number, TerrainInput> | null>(null);
-  const skyModeRef = useRef<(() => PlanetSkyMode) | null>(null);
+  /** 자료 흐름 모음(구독한 2차맵들 — 넘어도 그대로)과 지금 2차맵 모음을 켜는 함수(아래 효과가 넣는다) */
+  const poolRef = useRef<MapFeedPool | null>(null);
+  const startRef = useRef<((key: number, handover: MapHandover | null) => void) | null>(null);
+  /** 지형을 기다리는 넘기(받아서 서면 다시 해 본다) */
+  const pendingCrossRef = useRef<{ next: number; timer: ReturnType<typeof setTimeout> } | null>(null);
+  /** 마지막으로 화면 안에서 넘은 때(기기 시계 ms) — 그보다 먼저 물은 길 조회 답은 넘기 신호로 쓰지 않는다 */
+  const crossedAtRef = useRef(0);
   // 넘은 뒤 새 2차맵 자료가 다 오기 전까지는 "받는 중" 안내를 띄우지 않는다(지형·유닛은 이미 보인다)
   const [switching, setSwitching] = useState(false);
+  /** 떠나온 2차맵(넘은 직후 새 내 유닛 목록이 오기 전에 앞 목록을 이름·개수에 쓴다) */
+  const [crossedFrom, setCrossedFrom] = useState<number | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const engineRef = useRef<SecondMapEngine | null>(null);
@@ -188,12 +192,21 @@ function SecondMapView({
     operator,
     operatorRef,
     toggle: toggleOperator,
-  } = useOperatorMode(devTools, () => feedRef.current?.refresh());
+  } = useOperatorMode(devTools, () => poolRef.current?.refresh());
   // 내 유닛 목록(서버, 5초마다) — 엔진 콜백은 ref로 읽는다. 플레이어 카메라는 내 유닛·건물 둘레(630)
-  // 지금 2차맵 답만 쓴다(넘은 직후 옛 2차맵 목록·범위가 새 틀에 걸리지 않게)
+  // 카메라 범위는 지금 2차맵 답만 쓴다(넘은 직후 옛 2차맵 좌표가 새 틀에 걸리지 않게 — 새 답이 올 때까지 엔진이 옮겨 둔 범위를 그대로 둔다).
+  // 이름·개수는 새 답이 올 때까지 떠나온 2차맵 답을 그대로 보인다(안내 줄·[내 유닛 N]이 넘는 순간 깜빡이지 않게)
   const unitsAnswer = useMapUnits(mapKey);
-  const myUnits = unitsAnswer.mapKey === mapKey ? unitsAnswer : NO_MAP_UNITS;
-  const cameraTap = useCameraArea(engineRef, operator, myUnits.units, myUnits.view);
+  const freshUnits = unitsAnswer.mapKey === mapKey;
+  const staleUnits = !freshUnits && crossedFrom !== null && unitsAnswer.mapKey === crossedFrom;
+  const myUnits = freshUnits || staleUnits ? unitsAnswer : NO_MAP_UNITS;
+  const cameraTap = useCameraArea(
+    engineRef,
+    operator,
+    freshUnits ? myUnits.units : null,
+    freshUnits ? myUnits.view : null,
+    staleUnits,
+  );
   const unitsRef = useRef<readonly MapUnit[] | null>(null);
   // 근처 판(덧그림과 같이 보는 상태, React 밖). 넓은 화면은 유닛 탭을 펼친 채 연다(옛 내 유닛 목록처럼)
   const [nearby] = useState(() =>
@@ -263,33 +276,58 @@ function SecondMapView({
     onSwitchedRef.current = onSwitched;
   }, [onSwitched]);
   /**
-   * 옆 2차맵으로 넘기(로딩 없는 2차맵 이동, WP-3): 엔진이 이웃 지형을 지금 2차맵으로 올리고(rebase) 앞 자료 모음을 멈춘 뒤 새 2차맵 모음을 켠다.
-   * 이웃 지형이 아직 없으면(받지 않음) 주소를 바꿔 화면을 새로 연다(앞 방식)
+   * 옆 2차맵으로 넘기(로딩 없는 2차맵 이동, WP-3): 엔진이 이웃 지형을 지금 2차맵으로 올리고(rebase) 앞 모음을 멈춘 뒤 새 2차맵 모음을 켠다 —
+   * 같은 작업 안에서(다음 프레임 전에) 끝내 유닛이 비는 프레임이 없다. 자료 흐름은 닫지 않고 받는 쪽만 바꾼다(mapFeedPool.ts). 확대·고른 유닛은
+   * 그대로다(걸어서 넘는 것은 "들어가기"가 아니다 — 사용자 지적 2026-11-11 "다음 맵으로 이동시 확대배율이 유지되게").
+   * 이웃 지형이 아직 서지 않았으면 그 지형을 받게 하고 기다린다(서면 다시). CROSS_WAIT_MS를 넘기면 주소를 바꿔 화면을 새로 연다(앞 방식)
    */
   const crossRef = useRef((next: number): void => {
     const engine = engineRef.current;
     const live = sessionRef.current;
+    const start = startRef.current;
     const from = mapKeyRef.current;
-    if (!engine || next === from) return;
-    const carried = live?.carry() ?? null;
+    if (!engine || !live || !start || next === from) return;
+    const kept = engine.selected();
+    // 기준 유닛의 보이던 자리는 지금 틀에서 읽어 둔다(rebase가 유닛을 비운다)
+    const pass = live.handover(next);
     if (!engine.rebase(String(next), String(from))) {
-      openMap(next);
+      live.prefetch(next);
+      if (pendingCrossRef.current?.next === next) return;
+      if (pendingCrossRef.current) clearTimeout(pendingCrossRef.current.timer);
+      const timer = setTimeout(() => {
+        if (pendingCrossRef.current?.next !== next) return;
+        pendingCrossRef.current = null;
+        openMap(next);
+      }, CROSS_WAIT_MS);
+      pendingCrossRef.current = { next, timer };
       return;
     }
-    // 옆 2차맵에 들어와도 최대 확대로(사용자 지적 2026-11-09 — 진입마다 5/5)
-    zoomToClosest(engine);
-    // 앞 2차맵 자료는 곧바로 멈춘다(새 틀의 엔진에 옛 2차맵 유닛을 넣지 않게)
-    live?.stop();
-    sessionRef.current = null;
-    feedRef.current = null;
-    carryRef.current = carried;
+    if (pendingCrossRef.current) clearTimeout(pendingCrossRef.current.timer);
+    pendingCrossRef.current = null;
+    live.stop();
     mapKeyRef.current = next;
+    crossedAtRef.current = Date.now();
+    start(next, pass);
+    // 새 목록에서 같은 유닛을 다시 고른다(엔진은 목록을 바꾸면 고르기를 푼다)
+    if (kept !== null) engine.select(kept);
+    setCrossedFrom(from);
     setSwitching(true);
     setMapKey(next);
     onSwitchedRef.current(next);
   });
   const crossTo = useCallback((next: number) => crossRef.current(next), []);
-  const { going, crossedTo } = useTravelFollow(cyborg?.unitId ?? null, mapKey, following, crossTo);
+  const { going, crossedTo } = useTravelFollow(
+    cyborg?.unitId ?? null,
+    mapKey,
+    following,
+    crossTo,
+    crossedAtRef,
+  );
+  // 가는 길의 다음 2차맵은 미리 받아 둔다(지형·흐름 — 변에 닿기 전에)
+  const nextOnRoute = following && going !== null ? (going.route[going.leg + 1] ?? null) : null;
+  useEffect(() => {
+    if (nextOnRoute !== null) sessionRef.current?.prefetch(nextOnRoute);
+  }, [nextOnRoute, mapKey]);
   const selectedMine =
     selected === null ? undefined : myUnits.units?.find((unit) => unit.unitId === selected);
   const anchor = chooseAnchor({
@@ -339,7 +377,6 @@ function SecondMapView({
       engineRef,
       needleRef,
       mapKeyRef,
-      skyModeRef,
       sessionRef,
       selectFromMapRef,
       selectedRef,
@@ -352,45 +389,63 @@ function SecondMapView({
     { focus, gather, refollow, closePeek },
   );
 
-  // 지금 2차맵의 자료 모음(mapSession.ts): 맵이 바뀌면(옆 2차맵으로 넘음) 앞 모음을 멈추고 새로 켠다
+  // 자료 흐름 모음(mapFeedPool.ts)과 지금 2차맵 모음(mapSession.ts): 화면을 열 때 들어온 2차맵으로 켠다. 옆 2차맵으로 넘으면 crossRef가
+  // 같은 작업 안에서 앞 모음을 멈추고 새 모음을 켠다(이 효과는 다시 돌지 않는다 — 흐름·엔진은 그대로)
   useEffect(() => {
     const engine = engineRef.current;
     const host = hostRef.current;
     if (!engine || !host) return () => undefined;
-    mapKeyRef.current = mapKey;
-    const seed = carryRef.current;
-    carryRef.current = null;
-    // 낮밤 시각은 그 2차맵 경도로(옆 2차맵이면 거의 같다)
-    const skyMode = skyModeRef.current;
-    if (skyMode) engine.setSky(skyMode());
-    const mapSession = startMapSession({
-      engine,
-      host,
-      mapKey,
-      unitCapacity: UNIT_CAPACITY,
-      gather,
-      nearby,
-      leaderTags,
-      tap: (sink) => cameraTap.current(sink),
-      operator: () => operatorRef.current,
+    const pool = createMapFeedPool({
+      link: serverLink,
+      fetchTerrain: (url) => fetchTerrain(url),
+      canCommand: () => operatorRef.current,
+      observe: () => operatorRef.current,
+      now: () => performance.now(),
       serverNow,
-      seed,
-      anchor: () => anchorRef.current,
-      onArrived: (key) => crossRef.current(key),
-      onPickLeader: (unitId) => selectFromMapRef.current(unitId),
-      onStatus: setFeedStatus,
-      onCommand: (report) => setCommand({ kind: "result", report }),
+      unitCapacity: UNIT_CAPACITY,
     });
-    sessionRef.current = mapSession;
-    feedRef.current = mapSession.feed;
-    return () => {
-      mapSession.stop();
-      if (sessionRef.current === mapSession) {
-        sessionRef.current = null;
-        feedRef.current = null;
-      }
+    poolRef.current = pool;
+    const start = (key: number, handover: MapHandover | null): void => {
+      const mapSession = startMapSession({
+        engine,
+        host,
+        mapKey: key,
+        pool,
+        unitCapacity: UNIT_CAPACITY,
+        gather,
+        nearby,
+        leaderTags,
+        tap: (sink) => cameraTap.current(sink),
+        serverNow,
+        handover,
+        anchor: () => anchorRef.current,
+        onArrived: (next) => crossRef.current(next),
+        onNeighbourReady: () => {
+          const pending = pendingCrossRef.current;
+          if (pending) crossRef.current(pending.next);
+        },
+        onPickLeader: (unitId) => selectFromMapRef.current(unitId),
+        onStatus: setFeedStatus,
+        onCommand: (report) => setCommand({ kind: "result", report }),
+      });
+      sessionRef.current = mapSession;
+      feedRef.current = mapSession.feed;
     };
-  }, [mapKey, gather, nearby, leaderTags, operatorRef, cameraTap, anchorRef]);
+    startRef.current = start;
+    mapKeyRef.current = entryKey;
+    start(entryKey, null);
+    return () => {
+      if (pendingCrossRef.current) clearTimeout(pendingCrossRef.current.timer);
+      pendingCrossRef.current = null;
+      startRef.current = null;
+      sessionRef.current?.stop();
+      sessionRef.current = null;
+      feedRef.current = null;
+      // 해제를 보낸다(엔진은 화면이 버린다)
+      pool.stop();
+      poolRef.current = null;
+    };
+  }, [entryKey, gather, nearby, leaderTags, operatorRef, cameraTap, anchorRef]);
 
   // 명령 안내는 잠시 보이고 지운다(보낸 뒤 결과를 기다리는 동안은 그대로)
   useEffect(() => {
@@ -557,7 +612,6 @@ function SecondMapView({
         mapKey={mapKey}
         onRetry={() => feedRef.current?.retry()}
       />
-      <CrossingNotice show={crossedTo !== null && following} />
       <footer className="map-hud map-hud-bottom">
         {sheet === "units" ? (
           <MyUnitsPanel

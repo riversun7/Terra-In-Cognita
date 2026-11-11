@@ -4,7 +4,6 @@
 import {
   type EngineStats,
   type EngineStatus,
-  type PlanetSkyMode,
   type SecondMapEngine,
   createSecondMapEngine,
   secondMapPlace,
@@ -23,6 +22,7 @@ import type { GatherState } from "./gather/gatherState.ts";
 import type { MapSession } from "./mapSession.ts";
 import type { MapFocus } from "./mapTarget.ts";
 import { canCommand, tapCommandOf, unitName } from "./mapUnits.ts";
+import { attachMapProbe, wantsMapProbe } from "./mapProbe.ts";
 import { createNeighbourTravel } from "./neighbourTravel.ts";
 import { pixelRatioOption } from "./pixelRatioParam.ts";
 import { createSkyClock, reducedMotionList } from "./planetSky.ts";
@@ -38,16 +38,11 @@ const FOCUS_POLL_MS = 100;
 /** 서버 시계 = 기기 시계 + 앱 연결이 잰 차이(다시 잴 때까지 앞의 값) */
 export const serverNow = (): number => Date.now() + serverLink.clockOffsetMs();
 
-/** 들어올 때 카메라 거리 = 가장 가까운 거리 × 이 값(1 = 최대 확대) */
+/**
+ * 들어올 때 카메라 거리 = 가장 가까운 거리 × 이 값(1 = 최대 확대). 화면을 열 때만 쓴다(처음 열기·1차맵에서 돌아오기 — 엔진을 새로 만든다).
+ * 걸어서 옆 2차맵으로 넘을 때는 확대를 그대로 둔다(사용자 지적 2026-11-11 "다음 맵으로 이동시 확대배율이 유지되게")
+ */
 const ENTRY_ZOOM = 1;
-
-/** 가장 가까이까지 [+] 횟수 상한(확대 단계 다섯 + 끝까지 한 번) */
-const STEPS_TO_CLOSEST = 6;
-
-/** 거듭 [+]로 가장 가까이까지 당긴다 — 옆 2차맵으로 넘었을 때(화면을 다시 만들지 않아 처음 거리가 다시 쓰이지 않는다) */
-export function zoomToClosest(engine: Pick<SecondMapEngine, "zoomStep">): void {
-  for (let i = 0; i < STEPS_TO_CLOSEST && engine.zoomStep(1); i++);
-}
 
 /** 이 2차맵 자리를 가운데로 1차맵 5단계를 연다(바꾸기: 뒤로 = 지도를 떠남, MapSwitch와 같다) */
 export function openPlanetStage(mapKey: number): void {
@@ -69,7 +64,6 @@ export interface MapEngineRefs {
   readonly engineRef: RefObject<SecondMapEngine | null>;
   readonly needleRef: RefObject<HTMLSpanElement | null>;
   readonly mapKeyRef: RefObject<number>;
-  readonly skyModeRef: RefObject<(() => PlanetSkyMode) | null>;
   readonly sessionRef: RefObject<MapSession | null>;
   /** 지도에서 유닛을 눌렀다. false면 고르지 않았다(남의 유닛 정보 판 — 엔진 고른 표시 그대로) */
   readonly selectFromMapRef: RefObject<(id: number | null) => boolean>;
@@ -109,7 +103,6 @@ export function useMapEngine(
     engineRef,
     needleRef,
     mapKeyRef,
-    skyModeRef,
     sessionRef,
     selectFromMapRef,
     selectedRef,
@@ -135,7 +128,6 @@ export function useMapEngine(
         utcForHour: (hour) => (place ? utcMsForLocalHour(place.lonDeg, hour) : null),
       });
     };
-    skyModeRef.current = skyMode;
     // 나침반 북쪽: 2차맵마다 다르다(면 격자 틀) — 지금 2차맵 것을 한 번 셈해 둔다
     let northKey = -1;
     let north: { x: number; z: number } | null = null;
@@ -159,11 +151,11 @@ export function useMapEngine(
       },
       onZoomStage: setZoomStage,
       // 들어오면 늘 가장 가까이(최대 확대, 사다리 5/5 — 사용자 지적 2026-11-09 "2차맵이나 1차맵은 진입시 항상 최대 확대 상태로 시작").
-      // 가장 가까운 거리는 보기 범위(카메라 묶기)가 바뀌어도 5단계라 단계 표시가 4로 내려가지 않는다. 옆 2차맵으로 넘을 때는 화면이 다시 당긴다
+      // 가장 가까운 거리는 보기 범위(카메라 묶기)가 바뀌어도 5단계라 단계 표시가 4로 내려가지 않는다. 옆 2차맵으로 걸어 넘을 때는 그대로 둔다
       initialZoom: ENTRY_ZOOM,
       onFollowBreak: refollow,
       unitCapacity: UNIT_CAPACITY,
-      // 낮밤 빛의 자리(처음 2차맵 — 옆 2차맵은 거의 같은 위도·경도다)
+      // 낮밤 빛의 자리(처음 2차맵 — 옆 2차맵은 거의 같은 위도·경도다. 넘어도 빛을 다시 잡지 않는다: 넘는 순간 밝기가 바뀌지 않게)
       mapKey: mapKeyRef.current,
       sky: skyMode(),
       ...pixelRatioOption(window.location.search),
@@ -194,6 +186,8 @@ export function useMapEngine(
           operatorRef,
           setCommand,
           markTarget: (cell) => engineRef.current?.setMoveTarget(cell),
+          // 보낸 옆 2차맵은 바로 받아 둔다(지형·흐름)
+          prefetch: (key) => sessionRef.current?.prefetch(key),
         });
         return (cell: { x: number; y: number }): void => {
           closePeek();
@@ -241,6 +235,10 @@ export function useMapEngine(
     });
     engineRef.current = engine;
     refollow();
+    // [시험용] ?map-probe=1: 프레임마다 유닛 수·확대·기준 유닛 화면 자리를 적는다(넘는 순간 재기, mapProbe.ts)
+    const detachProbe = wantsMapProbe(window.location.search)
+      ? attachMapProbe(engine, { mapKey: () => mapKeyRef.current, anchor: () => anchorRef.current })
+      : null;
     const onReducedMotion = (): void => engine.setSky(skyMode());
     reduced?.addEventListener("change", onReducedMotion);
     setTelemetryView(TELEMETRY_VIEW);
@@ -313,6 +311,7 @@ export function useMapEngine(
       clearInterval(timer);
       clearInterval(focusTimer);
       reduced?.removeEventListener("change", onReducedMotion);
+      detachProbe?.();
       // 모음(자료 구독)이 해제를 먼저 보낸다(아래 효과의 정리가 이 정리보다 뒤라 여기서 멈춘다 — 엔진을 버린 뒤에는 자료를 넣지 않는다)
       sessionRef.current?.stop();
       sessionRef.current = null;
@@ -331,7 +330,6 @@ export function useMapEngine(
     engineRef,
     needleRef,
     mapKeyRef,
-    skyModeRef,
     sessionRef,
     selectFromMapRef,
     selectedRef,

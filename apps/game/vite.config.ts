@@ -147,6 +147,8 @@ export default defineConfig({
   ],
   define: {
     __APP_BUILD__: JSON.stringify(process.env.APP_BUILD ?? "dev"),
+    // 차례로 늘어나는 빌드 번호(CI 실행 번호, 없으면 빈 글 — 개발 실행·손으로 만든 이미지). 설정 → 앱 정보(settings/buildInfo.ts)
+    __APP_BUILD_NUMBER__: JSON.stringify(process.env.APP_BUILD_NUMBER ?? ""),
   },
   server: {
     proxy: {

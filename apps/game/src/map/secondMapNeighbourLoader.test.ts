@@ -1,6 +1,6 @@
 // 이웃 받기: 경계 가까이 그쪽만, 모두 받기, 같은 이웃은 한 번만, 판 표지가 바뀌면 처음부터
 import type { NeighbourTerrain, TerrainInput } from "@terra/engine";
-import { cellKey } from "@terra/planet";
+import { cellKey, stepCell } from "@terra/planet";
 import { describe, expect, it } from "vitest";
 import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
 
@@ -65,14 +65,44 @@ describe("이웃 받기", () => {
     loader.stop();
   });
 
-  it("카메라 쪽 이웃이 바뀔 때만 알린다(이웃 안개 구독, WP-3): 가운데 = 알리지 않음, 오른쪽 변 = 하나, 모서리 = 셋", () => {
+  it("카메라 쪽 이웃을 알린다(이웃 흐름 붙이기, WP-3): 처음은 빈 목록이어도 한 번, 그 뒤는 바뀔 때만 — 오른쪽 변 = 하나, 모서리 = 셋", () => {
     const { loader, near } = setup(false);
     loader.setMain(`/api/maps/${KEY}/terrain?v=1.3.aaaaaaaa.bbbbbbbb`, SIZE);
     loader.onView(SIZE / 2, SIZE / 2);
+    loader.onView(SIZE / 2 + 1, SIZE / 2);
     loader.onView(SIZE - 10, SIZE / 2);
     loader.onView(SIZE - 5, SIZE / 2);
     loader.onView(SIZE - 5, SIZE - 5);
-    expect(near.map((keys) => keys.length)).toEqual([1, 3]);
+    expect(near.map((keys) => keys.length)).toEqual([0, 1, 3]);
+    loader.stop();
+  });
+
+  it("멀리 보면(받기 시작하는 거리를 넓힘) 변에서 멀어도 그쪽 이웃을 받는다", async () => {
+    const { loader, urls } = setup(false);
+    loader.setMain(`/api/maps/${KEY}/terrain?v=1.3.aaaaaaaa.bbbbbbbb`, SIZE);
+    // 변에서 500m: 기본(변의 20% = 300m)이면 받지 않고, 600m로 넓히면 받는다
+    loader.onView(SIZE - 500, SIZE / 2);
+    expect(urls).toEqual([]);
+    loader.onView(SIZE - 500, SIZE / 2, 600);
+    await settle();
+    expect(urls).toHaveLength(1);
+  });
+
+  it("want: 카메라와 상관없이 그 이웃을 받는다(기준 유닛이 가는 쪽). 지형 주소를 알기 전에 바랐으면 알게 된 뒤에", async () => {
+    const { loader, urls, lists } = setup(false);
+    const east = stepCell(KEY, 1, 0);
+    if (east === null) throw new Error("no east neighbour");
+    loader.want([east, 12345]);
+    expect(urls).toEqual([]);
+    loader.setMain(`/api/maps/${KEY}/terrain?v=1.3.aaaaaaaa.bbbbbbbb`, SIZE);
+    loader.onView(SIZE / 2, SIZE / 2);
+    await settle();
+    expect(urls).toHaveLength(1);
+    expect(lists.at(-1)?.map((item) => item.id)).toEqual([String(east)]);
+    // 같은 이웃은 다시 받지 않는다
+    loader.want([east]);
+    await settle();
+    expect(urls).toHaveLength(1);
     loader.stop();
   });
 });

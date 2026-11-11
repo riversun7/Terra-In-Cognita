@@ -328,7 +328,9 @@ export class PropView {
     const { x, z } = cellToWorld(source.placement, lx, lz, cellM);
     const y = this.groundAt(x, z);
     const size = 0.8 + cellRandom(cell, 3 + salt) * 0.45;
-    const turn = cellRandom(cell, 4 + salt) * Math.PI * 2;
+    // 돌림은 그 2차맵 틀 기준: 이웃이면 놓는 자리의 돌림(90°의 배수)을 더한다 — 넘어서 지금 2차맵이 돼도 같은 쪽을 본다
+    const placed = source.placement;
+    const turn = cellRandom(cell, 4 + salt) * Math.PI * 2 + (placed ? Math.atan2(placed.b, placed.a) : 0);
     const shade = 0.85 + cellRandom(cell, 5 + salt) * 0.3;
     this.rotation.setFromAxisAngle(this.up, turn);
     const h = look.heightM * size;

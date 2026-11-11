@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMockTerrain } from "../mock/mockTerrain.ts";
-import { SURFACE, TERRAIN_CELLS, TERRAIN_VERTICES } from "./terrainData.ts";
+import { SURFACE, TERRAIN_CELLS, TERRAIN_VERTICES, heightRangeM } from "./terrainData.ts";
 import { buildTerrainMesh } from "./terrainMesh.ts";
 import { NOISE_TEXTURE_SIZE, buildNoiseTextureData } from "./terrainNoise.ts";
 import {
@@ -196,5 +196,15 @@ describe("buildNoiseTextureData", () => {
         expect(Math.abs(cov / n / ((stds[a] ?? 1) * (stds[b] ?? 1)))).toBeLessThan(0.1);
       }
     }
+  });
+});
+
+describe("heightRangeM", () => {
+  it("꼭짓점 높이의 가장 낮은 값·높은 값(m) — 메시가 잰 범위와 같다", () => {
+    const terrain = createMockTerrain(7);
+    const mesh = buildTerrainMesh(terrain);
+    const range = heightRangeM(terrain);
+    expect(range.minHeightM).toBeCloseTo(mesh.minHeightM, 6);
+    expect(range.maxHeightM).toBeCloseTo(mesh.maxHeightM, 6);
   });
 });

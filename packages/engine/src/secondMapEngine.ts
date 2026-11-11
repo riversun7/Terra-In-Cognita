@@ -50,6 +50,7 @@ import {
   PLACEMENT_CELLS,
   TERRAIN_CELLS,
   type TerrainInput,
+  heightRangeM,
   mapSizeM,
   placementCellM,
   sampleHeightM,
@@ -59,6 +60,7 @@ import { type NeighbourTerrain, NeighbourTerrains, UNEXPLORED } from "./terrain/
 import { TerrainView } from "./terrain/terrainView.ts";
 import { cameraThroughPlacement, invertPlacement } from "./terrain/rebase.ts";
 import { propArea } from "./props/propArea.ts";
+import { propSalt } from "./props/propLook.ts";
 import { type PropSource, PropView } from "./props/propView.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
 import { UnitRoster } from "./units/unitRoster.ts";
@@ -161,6 +163,10 @@ export function createSecondMapEngine(
   let terrainVersion = 0;
   let minHeight = 0;
   let maxHeight = 0;
+  /** 높이 밝기 범위(m): 지형을 새로 만든 2차맵 값. 옆 2차맵으로 넘어도 그대로 둔다(이웃을 같은 범위로 칠해 경계·넘는 순간 밝기가 같게) */
+  let shade = { minHeightM: 0, maxHeightM: 0 };
+  /** 지금 2차맵 이름(소품 자리 소금 — 넘어도 같은 2차맵의 나무는 같은 자리에 선다) */
+  let mainId = options.mapKey === undefined ? null : String(options.mapKey);
   let mapSize = TERRAIN_CELLS * DEFAULT_CELL_M;
   let cellM = DEFAULT_CELL_M / 2;
   let pendingBuildings: readonly BuildingFootprint[] | null = null;
@@ -215,14 +221,22 @@ export function createSecondMapEngine(
     return neighbours.heightAt(x, z) ?? sampleHeightM(terrain, x, z);
   };
 
-  /** 소품 모델 층: 지금 2차맵 + 소품 층이 있는 이웃(이름 순서로 소금을 정한다) */
+  /**
+   * 소품 모델 층: 지금 2차맵 + 소품 층이 있는 이웃. 소금은 2차맵 이름에서 정한다(propSalt) — 옆 2차맵으로 넘어 지금 2차맵·이웃이 바뀌어도
+   * 같은 2차맵의 나무가 같은 자리·크기로 선다(사용자 지적 2026-11-11 "화면전환의 흔적")
+   */
   const syncPropSources = (): void => {
     const sources: PropSource[] = [];
     if (terrain?.art && terrain.cover)
-      sources.push({ art: terrain.art, cover: terrain.cover, placement: null, salt: 0 });
-    neighbours.propLayers().forEach((layer, index) => {
-      sources.push({ art: layer.art, cover: layer.cover, placement: layer.placement, salt: index + 1 });
-    });
+      sources.push({ art: terrain.art, cover: terrain.cover, placement: null, salt: propSalt(mainId) });
+    for (const layer of neighbours.propLayers()) {
+      sources.push({
+        art: layer.art,
+        cover: layer.cover,
+        placement: layer.placement,
+        salt: propSalt(layer.id),
+      });
+    }
     propView.setSources(sources, cellM, groundAt);
   };
 
@@ -453,6 +467,12 @@ export function createSecondMapEngine(
     async setTerrain(input) {
       const problem = terrainProblem(input);
       if (problem) throw new Error(`invalid terrain: ${problem}`);
+      // 옆 2차맵에서 넘어와 이미 그리고 있는 지형이면(같은 자료 — 이웃으로 받은 것을 올렸다) 다시 만들지 않는다: 메시·칸 크기·높이 밝기가
+      // 바뀌며 화면이 한 번 튀었다(사용자 지적 2026-11-11). 칸 크기·밝기 범위는 화면을 연 2차맵 값을 이어 쓴다
+      if (terrain && input.heights === terrain.heights && input.surface === terrain.surface) {
+        emit(contextLost ? { kind: "context-lost" } : { kind: "ready" });
+        return;
+      }
       const version = ++terrainVersion;
       emit({ kind: "loading" });
       let built: BuiltTerrain;
@@ -470,6 +490,7 @@ export function createSecondMapEngine(
       terrainSource = built.source;
       minHeight = built.mesh.minHeightM;
       maxHeight = built.mesh.maxHeightM;
+      shade = { minHeightM: minHeight, maxHeightM: maxHeight };
       mapSize = mapSizeM(input);
       cellM = placementCellM(input);
       terrainView.set(built.mesh, input, built.noise);
@@ -515,23 +536,40 @@ export function createSecondMapEngine(
       terrainView.setWalls(false);
       terrainView.setGrid(grid);
       terrain = taken.terrain;
+      mainId = id;
       // 더 늦게 오는 옛 2차맵 지형 결과는 버린다
       terrainVersion += 1;
       mapSize = mapSizeM(terrain);
       cellM = placementCellM(terrain);
+      // 누르기(시선 ∩ 땅)에 쓰는 높이 범위는 새 2차맵 것으로(밝기 범위 shade는 그대로 — 넘는 순간 밝기가 바뀌지 않게)
+      const range = heightRangeM(terrain);
+      minHeight = range.minHeightM;
+      maxHeight = range.maxHeightM;
       mainExplored = mainExplored === null ? null : (taken.explored ?? UNEXPLORED);
       terrainView.setExplored(mainExplored);
-      // 옛 2차맵 유닛·건물은 버린다(새 2차맵 자료 받기가 넣는다)
+      // 옛 2차맵 유닛·건물은 버린다(화면이 같은 작업 안에서 — 다음 프레임 전에 — 새 틀의 목록을 넣는다, mapSession.ts)
       roster.set([]);
-      // 경로·누른 목적지도 옛 2차맵 좌표다
+      // 경로는 새 목록의 경로로 다시 그린다. 누른 목적지는 새 틀로 옮긴다(넘은 뒤에도 고리가 누른 자리에 남는다)
       routeView.clear();
-      targetLife.set(null, 0, serverNow());
+      const half = 2;
+      targetLife.shift((cell) => ({
+        x: (back.a * (cell.x / half) + back.b * (cell.y / half) + back.tx) * half,
+        y: (back.cc * (cell.x / half) + back.d * (cell.y / half) + back.tz) * half,
+      }));
       buildingView.set([], cellM, groundAt);
       propView.setBlocked(footprintMask([], PLACEMENT_CELLS));
       pendingBuildings = null;
       syncPropSources();
-      // 보기 범위(플레이어 카메라 묶기)는 옛 2차맵 좌표다: 비우고 화면이 새 2차맵 값으로 다시 건다
-      viewArea = null;
+      // 보기 범위(플레이어 카메라 묶기)도 새 틀로 옮긴다: 비우면 가장 멀리 한계가 바뀌어 확대 단계 표시가 잠깐 달라졌다.
+      // 화면이 새 2차맵 값을 받으면 다시 건다
+      if (viewArea) {
+        const size = terrain.cellSizeM;
+        viewArea = viewArea.map((disc) => ({
+          x: (back.a * (disc.x / size) + back.b * (disc.z / size) + back.tx) * size,
+          z: (back.cc * (disc.x / size) + back.d * (disc.z / size) + back.tz) * size,
+          r: disc.r,
+        }));
+      }
       limits = computeLimits();
       state = clampCamera(state, limits);
       lastView = "";
@@ -549,10 +587,7 @@ export function createSecondMapEngine(
         pendingNeighbours = list;
         return;
       }
-      const changed = await neighbours.set(list, terrain.cellSizeM, {
-        minHeightM: minHeight,
-        maxHeightM: maxHeight,
-      });
+      const changed = await neighbours.set(list, terrain.cellSizeM, shade);
       if (disposed || !changed) return;
       // 이웃이 있으면 지금 2차맵 가장자리 벽을 숨긴다(이웃 땅과 이어 보이게). 소품 모델도 이웃까지 세운다
       terrainView.setWalls(neighbours.count === 0);

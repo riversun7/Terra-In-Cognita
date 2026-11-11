@@ -7,7 +7,14 @@
 // - 기기에 그 이웃 2차맵의 가짜 경로(내 사이보그)를 넣으면 기기가 넘는다: 주소 key·data-map-key가 이웃, data-switched="in-place", 지도 캔버스가
 //   같은 요소(화면을 다시 만들지 않음), 카메라 목표가 한 2차맵만큼 옮겨진 틀, "받는 중" 안내 없음 → 새 2차맵 자료 구독이 live.
 //   서버에서는 사이보그가 넘지 않았으므로 내 유닛 목록은 넘기 전 목록을 그대로 돌려준다(들어갈 수 없음 안내가 뜨지 않게).
+// 걸어서 넘기(사용자 지적 2026-11-11 "미세한 화면전환의 흔적", "다음 맵으로 이동시 확대배율이 유지되게" — ADR "바뀜 (2026-11-11)") — dev.
+// - 진짜로 넘는다: 운영자 빠르기로 내 사이보그를 변 앞에 세운 뒤 걷는 빠르기로 옆 2차맵에 보내고, 프레임 기록(?map-probe=1, mapProbe.ts)으로
+//   넘는 앞뒤를 본다: 확대 단계 그대로, 안내 판 없음, 기준 유닛이 프레임마다 있고 화면 자리가 튀지 않음, 유닛 수가 0이 되지 않음.
+//   E2E_MEASURE=1이면 가장 긴 프레임도 적는다(헤드리스 SwiftShader 값 — 휴대폰 값이 아니다). 끝나면 운영자 빠르기로 제자리에 돌려놓는다.
+// - 운영자 모드 100배로 2차맵 셋을 잇달아 넘는다: 확대 그대로·안내 없음, 구독·지형 받기가 쌓이지 않는다(적는다).
 import type { Page } from "@playwright/test";
+import type { MapProbeSample } from "../apps/game/src/map/mapProbe.ts";
+import { isCellKey, stepCell } from "../packages/planet/src/index.ts";
 import { horizontalOverflow, shot } from "./helpers/screen.ts";
 import { type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
@@ -179,7 +186,7 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
       .evaluate((element) => element.setAttribute("data-e2e-mark", "kept"));
     await page.waitForTimeout(1_200);
     const [bx = 0, bz = 0] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
-    // 한 단계 줄여 둔다: 넘으면 다시 최대 확대(사용자 지적 2026-11-09 "진입시 항상 최대 확대")
+    // 한 단계 줄여 둔다: 걸어서 넘으면 확대는 그대로다(사용자 지적 2026-11-11 "다음 맵으로 이동시 확대배율이 유지되게" — 5/5는 화면을 열 때만)
     const ladder = page.locator(".zoom-ladder");
     await expect(ladder).toHaveAttribute("data-stage", "5");
     await ladder.locator(".zoom-ladder-out").click();
@@ -203,8 +210,9 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     });
     await expect(map).toHaveAttribute("data-map-key", String(east), { timeout: 5_000 });
     await expect(map).toHaveAttribute("data-switched", "in-place");
-    // 넘으면 다시 최대 확대(5/5)
-    await expect(ladder).toHaveAttribute("data-stage", "5");
+    // 넘어도 확대 단계는 그대로(4/5)
+    await page.waitForTimeout(600);
+    await expect(ladder).toHaveAttribute("data-stage", "4");
     await expect(page).toHaveURL(
       (url) => url.pathname === "/map" && url.searchParams.get("key") === String(east),
     );
@@ -297,4 +305,252 @@ test.describe("이웃 안개 사진", () => {
       });
     });
   }
+});
+
+// ---------- 걸어서 넘기(실제 이동) ----------
+
+type ProbeSample = MapProbeSample;
+
+interface Position {
+  readonly mapKey: number;
+  readonly cellX: number;
+  readonly cellY: number;
+  readonly unitId: number;
+}
+
+/** 내 사이보그 자리(tRPC world.myPosition). 건너뛰는 중이거나 없으면 null */
+async function myPosition(side: Page): Promise<Position | null> {
+  const reply: unknown = await side.evaluate(() =>
+    fetch("/api/trpc/world.myPosition").then((response) => response.json()),
+  );
+  const position = field(field(field(reply, "result"), "data"), "position");
+  if (position === undefined || position === null || field(position, "hidden") === true) return null;
+  return {
+    mapKey: Number(field(position, "mapKey")),
+    cellX: Number(field(position, "cellX")),
+    cellY: Number(field(position, "cellY")),
+    unitId: Number(field(position, "unitId")),
+  };
+}
+
+/** 운영자 빠르기(전체 보기로 구독한 연결의 명령 — 100배)로 내 사이보그를 그 2차맵 칸으로 보낸다. 결과가 ok면 true */
+async function fastTravel(side: Page, from: number, unitId: number, to: Position): Promise<boolean> {
+  const replies = await sendCommands(side, [
+    { t: "subscribe", mapKey: from, observe: true },
+    { t: "travel_start", unitId, mapKey: to.mapKey, x: to.cellX, y: to.cellY, kind: "move" },
+  ]);
+  return field(replies[1], "ok") === true;
+}
+
+/** 내 사이보그가 그 2차맵의 그 칸 둘레(반지름 칸)에 설 때까지 기다린다 */
+async function waitAt(side: Page, target: Omit<Position, "unitId">, radius: number): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const at = await myPosition(side);
+        if (!at || at.mapKey !== target.mapKey) return 999;
+        return Math.max(Math.abs(at.cellX - target.cellX), Math.abs(at.cellY - target.cellY));
+      },
+      { timeout: 90_000, intervals: [500] },
+    )
+    .toBeLessThanOrEqual(radius);
+}
+
+/** 프레임 기록을 꺼낸다 */
+async function probeOf(page: Page): Promise<{ samples: ProbeSample[]; frames: number[] }> {
+  return page.evaluate(() => {
+    const probe = window.terraMapProbe;
+    return { samples: probe ? [...probe.samples] : [], frames: probe ? [...probe.frames] : [] };
+  });
+}
+
+/** 넘는 앞뒤(앞 beforeMs, 뒤 afterMs) 프레임 요약 */
+function crossingSummary(
+  probe: { samples: ProbeSample[]; frames: number[] },
+  crossedTo: number,
+  beforeMs: number,
+  afterMs: number,
+) {
+  const first = probe.samples.find((sample) => sample.mapKey === crossedTo);
+  if (!first) throw new Error("넘은 프레임이 기록에 없습니다");
+  const within = probe.samples.filter(
+    (sample) => sample.t >= first.t - beforeMs && sample.t <= first.t + afterMs,
+  );
+  let jump = 0;
+  let missing = 0;
+  let previous: ProbeSample | null = null;
+  for (const sample of within) {
+    if (sample.sx === null || sample.sy === null) missing += 1;
+    else if (previous && previous.sx !== null && previous.sy !== null)
+      jump = Math.max(jump, Math.hypot(sample.sx - previous.sx, sample.sy - previous.sy));
+    previous = sample;
+  }
+  const frames = probe.frames.filter((time) => time >= first.t - beforeMs && time <= first.t + afterMs);
+  let longest = 0;
+  for (let i = 1; i < frames.length; i++)
+    longest = Math.max(longest, (frames[i] ?? 0) - (frames[i - 1] ?? 0));
+  const numbers = (pick: (sample: ProbeSample) => number): { min: number; max: number } => ({
+    min: Math.min(...within.map(pick)),
+    max: Math.max(...within.map(pick)),
+  });
+  return {
+    frames: within.length,
+    stages: [...new Set(within.map((sample) => sample.stage))],
+    distance: numbers((sample) => Math.round(sample.distance * 10) / 10),
+    notices: numbers((sample) => sample.notices).max,
+    units: numbers((sample) => sample.units),
+    anchorMissingFrames: missing,
+    anchorJumpPx: Math.round(jump * 10) / 10,
+    props: numbers((sample) => sample.props),
+    selectedLost: within.filter((sample) => sample.selected === null).length,
+    hud: [...new Set(within.map((sample) => sample.hud))],
+    longestFrameMs: Math.round(longest),
+  };
+}
+
+/** 기기가 보낸 구독·지형 받기를 센다(쌓이는지 보기) */
+function countLoads(page: Page): { subscribes: number[]; terrains: string[]; refused: number } {
+  const loads = { subscribes: [] as number[], terrains: [] as string[], refused: 0 };
+  page.on("websocket", (socket) => {
+    socket.on("framesent", (frame) => {
+      const text = typeof frame.payload === "string" ? frame.payload : "";
+      if (text.includes('"t":"subscribe"')) loads.subscribes.push(Number(field(JSON.parse(text), "mapKey")));
+    });
+    socket.on("framereceived", (frame) => {
+      const text = typeof frame.payload === "string" ? frame.payload : "";
+      if (text.includes('"code":"rate_limited"')) loads.refused += 1;
+    });
+  });
+  page.on("request", (request) => {
+    if (request.url().includes("/terrain")) loads.terrains.push(new URL(request.url()).pathname);
+  });
+  return loads;
+}
+
+/** 변 앞에 세울 자리 후보(동쪽 변, 가운데 줄부터) */
+const EDGE_ROWS = [128, 100, 156, 72, 184] as const;
+const EDGE_COLUMN = 251;
+
+test.describe("걸어서 넘기", () => {
+  test.use({ account: "dev" });
+
+  test("따라가는 유닛이 걸어서 넘는 동안 확대·유닛·화면 자리가 이어지고, 운영자 100배로 잇달아 넘어도 쌓이지 않는다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(600_000);
+    const measure = process.env.E2E_MEASURE === "1";
+    const tag = process.env.E2E_SEAMLESS_TAG ?? "after";
+    const side = await page.context().newPage();
+    await side.goto("/health");
+    const home = await myPosition(side);
+    if (!home) throw new Error("dev 사이보그 자리를 모릅니다");
+    const east = isCellKey(home.mapKey) ? stepCell(home.mapKey, 1, 0) : null;
+    if (east === null) throw new Error("동쪽 이웃이 없습니다");
+    try {
+      // 1. 운영자 빠르기로 동쪽 변 앞에 세운다(설 수 있는 줄을 찾을 때까지)
+      let edge: Omit<Position, "unitId"> | null = null;
+      for (const row of EDGE_ROWS) {
+        const target = { mapKey: home.mapKey, cellX: EDGE_COLUMN, cellY: row, unitId: home.unitId };
+        if (!(await fastTravel(side, home.mapKey, home.unitId, target))) continue;
+        await waitAt(side, target, 3);
+        edge = target;
+        break;
+      }
+      if (!edge) throw new Error("동쪽 변 앞에 설 자리가 없습니다");
+
+      // 2. 플레이어 화면(운영자 모드 끔)을 열고 한 단계 줄여 둔다
+      const loads = countLoads(page);
+      await page.goto("/map?map-probe=1&second-map-sky=off&pixel-ratio=1");
+      const map = page.locator(".map-screen[data-map-key]");
+      await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+      await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+      await expect(map).toHaveAttribute("data-map-key", String(home.mapKey));
+      await expect(map).toHaveAttribute("data-operator", "off");
+      await expect(map).toHaveAttribute("data-follow", "on", { timeout: 15_000 });
+      const ladder = page.locator(".zoom-ladder");
+      await expect(ladder).toHaveAttribute("data-stage", "5");
+      await ladder.locator(".zoom-ladder-out").click();
+      await expect(ladder).toHaveAttribute("data-stage", "4");
+      await expect
+        .poll(async () => Number(await map.getAttribute("data-neighbours")), { timeout: 30_000 })
+        .toBeGreaterThan(0);
+      await page
+        .locator(".map-view canvas")
+        .evaluate((element) => element.setAttribute("data-e2e-mark", "kept"));
+      await page.waitForTimeout(1_500);
+      if (measure) await shot(page, `seamless-walk-${tag}-1-before`);
+
+      // 3. 걷는 빠르기로 옆 2차맵에 보낸다(전체 보기 구독이 없는 연결 — 100배가 아니다)
+      await page.evaluate(() => window.terraMapProbe?.clear());
+      const [started] = await sendCommands(side, [
+        { t: "travel_start", unitId: home.unitId, mapKey: east, x: 12, y: edge.cellY, kind: "move" },
+      ]);
+      expect(field(started, "ok")).toBe(true);
+      await expect(map).toHaveAttribute("data-map-key", String(east), { timeout: 120_000 });
+      if (measure) await shot(page, `seamless-walk-${tag}-2-crossed`);
+      await page.waitForTimeout(4_000);
+      const walkProbe = await probeOf(page);
+      console.log(
+        `[probe] ${JSON.stringify({
+          samples: walkProbe.samples.length,
+          keys: [...new Set(walkProbe.samples.map((sample) => sample.mapKey))],
+          kept: await page.locator('.map-view canvas[data-e2e-mark="kept"]').count(),
+          url: page.url(),
+        })}`,
+      );
+      const walk = crossingSummary(walkProbe, east, 1_500, 3_000);
+      console.log(`[measure] walk ${tag} ${JSON.stringify(walk)}`);
+      console.log(`[measure] walk loads ${tag} ${JSON.stringify(loads)}`);
+      // 화면을 다시 만들지 않았다, 안내 판 없음, 확대 그대로
+      await expect(page.locator('.map-view canvas[data-e2e-mark="kept"]')).toHaveCount(1);
+      expect(walk.notices).toBe(0);
+      expect(walk.stages).toEqual([4]);
+      await expect(ladder).toHaveAttribute("data-stage", "4");
+      // 유닛이 비지 않고, 기준 유닛이 프레임마다 있으며 화면 자리가 튀지 않는다
+      expect(walk.units.min).toBeGreaterThan(0);
+      expect(walk.anchorMissingFrames).toBe(0);
+      expect(walk.selectedLost).toBe(0);
+      expect(walk.anchorJumpPx).toBeLessThan(8);
+      await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+
+      // 4. 운영자 모드 100배로 2차맵 셋을 잇달아(동쪽으로 둘 더, 다시 서쪽으로 처음 2차맵까지)
+      const far = stepCell(east, 1, 0);
+      const farther = far === null ? null : stepCell(far, 1, 0);
+      if (farther !== null) {
+        await page.locator(".map-operator-toggle").click();
+        await expect(map).toHaveAttribute("data-operator", "on");
+        await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+        await page.waitForTimeout(1_500);
+        await page.evaluate(() => window.terraMapProbe?.clear());
+        loads.subscribes.length = 0;
+        loads.terrains.length = 0;
+        const begun = Date.now();
+        expect(
+          await fastTravel(side, east, home.unitId, { mapKey: farther, cellX: 128, cellY: 128, unitId: 0 }),
+        ).toBe(true);
+        await expect(map).toHaveAttribute("data-map-key", String(farther), { timeout: 120_000 });
+        await page.waitForTimeout(3_000);
+        const fast = crossingSummary(await probeOf(page), farther, 20_000, 2_500);
+        console.log(
+          `[measure] fast ${tag} ${JSON.stringify({ ...fast, seconds: (Date.now() - begun) / 1_000 })}`,
+        );
+        console.log(`[measure] fast loads ${tag} ${JSON.stringify(loads)}`);
+        if (measure) await shot(page, `seamless-fast-${tag}-3-far`);
+        expect(fast.notices).toBe(0);
+        expect(fast.stages).toEqual([4]);
+        expect(loads.refused).toBe(0);
+        // 2차맵 둘을 넘는 동안 구독은 2차맵마다 많아야 넷(지금 + 이웃 셋), 지형은 2차맵마다 한 번씩만 받는다
+        expect(loads.subscribes.length).toBeLessThanOrEqual(12);
+        expect(new Set(loads.terrains).size).toBe(loads.terrains.length);
+        await expect(page.locator('.map-view canvas[data-e2e-mark="kept"]')).toHaveCount(1);
+      }
+      expect(deviceErrors).toEqual([]);
+    } finally {
+      // 제자리로(다음 시험이 같은 사이보그를 처음 2차맵에서 쓴다)
+      const now = await myPosition(side);
+      if (now && (await fastTravel(side, now.mapKey, home.unitId, home))) await waitAt(side, home, 4);
+      await side.close();
+    }
+  });
 });

@@ -106,6 +106,10 @@ describe("공성 결과·마을·편입 제안·독립 투표(질문 198 가, D-
   });
 });
 
+/** 산 자리만(경비대 표시 없이) */
+const slots = (...args: Parameters<typeof recruitPicks>): number[] =>
+  recruitPicks(...args).map((pick) => pick.slot);
+
 describe("구인 규칙식(D-469, [임시] 목표 = 주거, 예비금 = 카드 값 × 2)", () => {
   const cards = [
     { slot: 0, total: 35, cost: 60n },
@@ -114,8 +118,6 @@ describe("구인 규칙식(D-469, [임시] 목표 = 주거, 예비금 = 카드 �
     { slot: 3, total: 30, cost: 50n },
   ];
   const base = { cards, taken: 0, population: 8, housing: 10, treasury: 10_000n };
-  const slots = (...args: Parameters<typeof recruitPicks>): number[] =>
-    recruitPicks(...args).map((pick) => pick.slot);
 
   it("모자란 만큼만, 토탈 스탯 높은 차례(같으면 싼 것)로 산다", () => {
     expect(slots(base, c)).toEqual([2, 1]);

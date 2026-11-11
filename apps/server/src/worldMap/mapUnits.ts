@@ -63,7 +63,9 @@ export interface MapUnitSource {
    * (docs/adr/2026-11-07-play-flow.md "WP-NPC4"). 없으면 NPC 휴먼도 시험 유닛으로 보인다
    */
   npcHuman?:
-    | ((unitId: number) => { readonly name: string | undefined; readonly guard?: boolean | undefined } | undefined)
+    | ((
+        unitId: number,
+      ) => { readonly name: string | undefined; readonly guard?: boolean | undefined } | undefined)
     | undefined;
   /**
    * 유닛의 1차 스탯(입은 장비·버프 포함, 직무 산출과 같은 값 — holdings primariesOf). 고른 유닛의 추천 줄이 읽는다

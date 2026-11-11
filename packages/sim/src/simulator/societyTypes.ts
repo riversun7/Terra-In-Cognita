@@ -89,7 +89,13 @@ export interface SocietyRun {
    * 구인 카드 한 장을 산다(도시 주인만, 값은 국고에서 소각). 산 휴먼, 못 사면 undefined. guard면 그 휴먼을 경비대로 들인다(직무 없음,
    * 기획 답 920 나 — NPC 구인 규칙식의 경비대 다시 채우기)
    */
-  recruit(hirer: SimFaction, cityId: number, slot: number, nowMs: number, guard?: boolean): SimUnit | undefined;
+  recruit(
+    hirer: SimFaction,
+    cityId: number,
+    slot: number,
+    nowMs: number,
+    guard?: boolean,
+  ): SimUnit | undefined;
   breakVassal(faction: SimFaction): void;
   /** 웨이브에 진 시작 도시가 아닌 도시: 폐허(D-105·D-464 217) */
   ruin(cityId: number, nowMs: number): void;

@@ -158,7 +158,18 @@ describe("경비대 다시 채우기(기획 답 920 나 — 구인 규칙식, �
     const { world, ctx } = npcContext(
       parseScenario({
         id: "test_guard_none",
-        factions: [{ code: "plain", count: 1, fixed: true, cities: 1, workers: 2, credit: "200000", tech: 1, housing: 10 }],
+        factions: [
+          {
+            code: "plain",
+            count: 1,
+            fixed: true,
+            cities: 1,
+            workers: 2,
+            credit: "200000",
+            tech: 1,
+            housing: 10,
+          },
+        ],
         npc: { decideEveryMs: 6 * HOUR },
       }),
     );

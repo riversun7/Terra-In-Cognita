@@ -181,7 +181,13 @@ describe("고른 유닛 다룸", () => {
       line: "임시 국가 16 · 서 있음",
     });
     expect(
-      peekText(9, false, { unitId: 9, kind: "human", faction, guard: true, name: { ko: "알다", en: "Alda" } }),
+      peekText(9, false, {
+        unitId: 9,
+        kind: "human",
+        faction,
+        guard: true,
+        name: { ko: "알다", en: "Alda" },
+      }),
     ).toEqual({ unit: "경비대 알다", line: "임시 국가 16 · 서 있음" });
   });
 

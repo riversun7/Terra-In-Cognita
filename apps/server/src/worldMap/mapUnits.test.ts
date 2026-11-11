@@ -249,11 +249,7 @@ describe("기획 답 630~637", () => {
       factionOfOwner: async () => faction,
       // 61 = 이름 있는 휴먼, 62 = 이름 목록 없는 나라의 휴먼, 63 = 시험 봇(휴먼 아님)
       npcHuman: (unitId) =>
-        unitId === 61
-          ? { name: "Alda Brook" }
-          : unitId === 62
-            ? { name: undefined, guard: true }
-            : undefined,
+        unitId === 61 ? { name: "Alda Brook" } : unitId === 62 ? { name: undefined, guard: true } : undefined,
     });
     expect((await reads.unitGlance(PLAYER, MAP_KEY, 61, NOW)).glance).toEqual({
       unitId: 61,

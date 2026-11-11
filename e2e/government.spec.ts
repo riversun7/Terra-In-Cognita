@@ -6,11 +6,12 @@
 // WebSocket recruit_hire가 성공한다. 지도자 유닛은 수도 행정 건물 곁에 서 있고 한눈 정보가 "지도자 이름"을 준다.
 // 지도자 창구("WP-NPC3", 기획 정리 742 나·743 나·748 나): 지도자 머리 위 이름표(지도자 표시 + 이름)가 늘 보이고, 이름표를 누르면 그 지도자를 고르고
 // 지도자 판 → [지도자와 이야기] → 수도 정부 판(머리 = 지도자, 도시 하루 값, 창구: 외교·의뢰·국적 상담).
+// 경비대 표시(기획 답 920 라): 수도의 경비대 휴먼은 한눈 정보에 guard 표시가 있고, 근처 판에서 그 유닛을 누르면 정보 판 제목이 "경비대 …"다.
 // 사진: 390 파스텔·다크(한국어) + 파스텔 영어(긴 문구), E2E_SHOTS_DIR.
 import type { Locator, Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
-import { openBuildingFromList } from "./helpers/nearby.ts";
+import { openBuildingFromList, openNearby } from "./helpers/nearby.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
@@ -204,6 +205,47 @@ test.describe("정부 판·지도자: 플레이어", () => {
     // [창고]: 대화상자를 닫고 경제 화면 창고 칸으로
     await dialog.locator(".gov-link").first().click();
     await expect(page).toHaveURL(/\/economy\/warehouse$/);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("경비대 표시(920 라): 수도 경비대의 한눈 정보 guard, 근처 판에서 누르면 정보 판 제목이 경비대", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(180_000);
+    await rewriteTrpc(page, { "summary.get": hideSummary });
+    const mapKey = await openMap(page);
+    await openNearby(page, "units");
+    const rows = page.locator('.map-nearby-row[data-kind="unit"][data-mine="false"]');
+    await expect(rows.first()).toBeVisible({ timeout: 30_000 });
+    // 보이는 남의 유닛 줄의 한눈 정보를 차례로 물어 경비대를 찾는다(경비대는 행정 건물 둘레에 머문다 — 첫 접속 자리 = 수도 곁)
+    const more = page.locator(".map-nearby-more");
+    let guardId: string | undefined;
+    for (let round = 0; round < 6 && guardId === undefined; round++) {
+      const ids = await rows.evaluateAll((list) => list.map((row) => row.getAttribute("data-id") ?? ""));
+      for (const id of ids) {
+        const glance = field(
+          await trpcData(page, "world.unitGlance", { mapKey, unitId: Number(id) }),
+          "glance",
+        );
+        if (field(glance, "kind") !== "human") continue;
+        if (field(glance, "guard") === true) {
+          guardId = id;
+          break;
+        }
+        // 일하는 휴먼에는 표시가 없다
+        expect(field(glance, "guard")).toBeUndefined();
+      }
+      if (guardId === undefined && (await more.count())) await more.click();
+    }
+    if (guardId === undefined) throw new Error("no guard human near the player");
+    await page.locator(`.map-nearby-row[data-kind="unit"][data-id="${guardId}"]`).click();
+    const peek = page.locator(`.map-peek[data-unit="${guardId}"]`);
+    await expect(peek).toBeVisible({ timeout: 10_000 });
+    await expect(peek.locator(".map-peek-title")).toContainText(message("ko", "map_unit_guard"), {
+      timeout: 10_000,
+    });
+    expect(await horizontalOverflow(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
   });
 

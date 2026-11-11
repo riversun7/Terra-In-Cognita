@@ -12,7 +12,13 @@ import { cellKey, decodeCellKey, parseCellKey } from "@terra/planet";
 import type { PlanetCellValues } from "@terra/planet/secondMap";
 import { placementCellKey, territoryMetric, territoryPoint } from "@terra/planet/territory";
 import { territoryDistanceMilli } from "@terra/shared/territory";
-import { DAY_MS, type SimWorld, TEST_SOCIETY_COEFFICIENTS, generateTempTerrain, seedFromCellKey } from "@terra/sim";
+import {
+  DAY_MS,
+  type SimWorld,
+  TEST_SOCIETY_COEFFICIENTS,
+  generateTempTerrain,
+  seedFromCellKey,
+} from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
@@ -182,6 +188,13 @@ const service = (presets: readonly NationPreset[]) =>
     presets: () => presets,
     testNations: 4,
   });
+
+/** 거울 세계에서 그 도시의 경비대 ID(ID 차례) */
+const guardsIn = (mirror: SimWorld, cityId: number): number[] =>
+  [...mirror.units.values()]
+    .filter((unit) => unit.city === cityId && unit.guard === true)
+    .map((unit) => unit.id)
+    .toSorted((a, b) => a - b);
 
 describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르지 않은 힘 분포)", () => {
   it("새 세계: 등급대로 도시·주거·인구·경비대·기술·국고·시설, 강한 나라는 멀고 넓게, 다시 켜도 그대로", async () => {
@@ -481,11 +494,6 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     };
     // 경비대 목표 = 자기 프리셋 등급 값(소국 2 · 초강대국 5 · 강대국 4 · 중견국 3)
     expect(CODES.map((code) => factionOf(code).guardsPerCity)).toEqual([2, 5, 4, 3]);
-    const guardsIn = (mirror: SimWorld, cityId: number): number[] =>
-      [...mirror.units.values()]
-        .filter((unit) => unit.city === cityId && unit.guard === true)
-        .map((unit) => unit.id)
-        .toSorted((a, b) => a - b);
     /** 경비대를 없앤다(전투에서 죽은 셈 — 거울 세계에서 빼면 다음 저장이 휴먼 행·유닛을 지운다) */
     const kill = (cityId: number, n: number): number[] => {
       const gone = guardsIn(npc.world, cityId).slice(0, n);
@@ -512,7 +520,8 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
         { account: npc.world.book.systemAccount(`sink:${ASSET_CREDIT}`, ASSET_CREDIT), amount: drain },
       ],
     });
-    for (const account of [...npc.world.book.accounts()]) {
+    // 돌면서 계정이 생길 수 있어 먼저 목록을 굳힌다
+    for (const account of Array.from(npc.world.book.accounts())) {
       if (account.ownerId !== small.id || !account.asset.startsWith("share_")) continue;
       const held = npc.world.book.balanceOf(small.id, account.asset);
       if (held > 0n)

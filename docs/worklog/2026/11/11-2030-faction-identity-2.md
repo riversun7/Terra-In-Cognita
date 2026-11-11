@@ -62,4 +62,11 @@
 - 질문 981~986(`docs/questions/2026-11-11-faction-identity.md`).
 
 ## 검사
-(아래 끝 검사 결과)
+Verified = 이 작업 트리에서 실행해 결과를 봄(무거운 검사는 `heavy.lock`을 기다려 돌렸다).
+- 작업 중: `packages/shared` `factionIdentity.test.ts` 9, `packages/protocol` 전체 22파일 121(새 `house.test.ts` 포함), `packages/sim` tuning 3파일 37, 서버 `src/factionIdentity` 3파일 29(TEST_DATABASE_URL — 새 `house.db.test.ts` 6: 창설 한 번·시민권 그대로·주체 없음, 비용 설정 칸·terms_changed·잔고·나라 국고, 2~4자·옛 5자, 옛 정체성 옮기기, 신고 하루 횟수·한 번·내 가문, 자동 막기 문턱), 서버 `src/ops`·`src/factionScreen`·`resetWorld`·`session` 7파일 50, 게임 `src/faction` 2파일 19.
+- `TEST_DATABASE_URL=… pnpm check`: 통과 — 611파일 4,728시험(DB 시험 포함), 포맷·린트·타입·경계·크기·다국어(6,649키)·디자인 값·콘텐츠 팩 core@65.
+- `pnpm build` + `node scripts/check-pwa.mjs`: 통과(화면 주소 경로 예 57개). `pnpm check:bundle`: 첫 화면 JS 108,697 B / 상한 131,416 B(상한 그대로).
+- `pnpm e2e faction-identity.spec.ts faction.spec.ts ops.spec.ts`: 48시험 통과(2.2분). faction-identity는 창설(WebSocket)·데이터 가문 표지·신고 tRPC·마크 관리 신고 수·신고 차례·세력 목록 가문을 본다. ops.spec 탭 9·권한 체크박스 16은 그대로(탭·권한을 더하지 않았다).
+- 사진(저장소 밖 `…/scratchpad/faction-identity-2-shots/`): `fid-step-pastel-ko-390.png`(창설 단계), `fid-card-pastel-ko-390.png`(내 가문 칸), `fid-ops-neon-ko-1440.png`(마크 관리 신고 칸·차례). 나머지 사진은 디스크 때문에 지웠다. 사진 뒤 마크 관리 차례 고르기 모양을 세력 탭과 같게 고쳤다(그 뒤 화면 시험은 돌리지 않음 — 타입·린트·`pnpm check`만).
+- `pnpm check:docs origin/main`: 통과.
+- 돌리지 않은 것: 나머지 화면 시험, 실제 휴대폰, NAS.

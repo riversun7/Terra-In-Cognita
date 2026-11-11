@@ -67,4 +67,12 @@
 - 질문 916~925. 급한 것: 918(NAS에 반영 예약만 할지, 세계를 새로 시작할지 — 자리까지 등급 계획대로 서려면 새로 시작이 깨끗하다), 919(NAS 고정 국가 수), 917(NPC 사이보그 부대).
 
 ## 검사
-(아래는 끝낼 때 채운다)
+Verified = 이 작업 트리에서 실행해 결과를 봄. 바탕 main `8370909`(origin/main `a90b374`은 설계 미러만 — 콘텐츠 호환 검사를 그 기준으로 돌림).
+- `TEST_DATABASE_URL=… pnpm check`: 통과 — 583파일 4,511시험(DB 시험 포함). 그 뒤 고친 것(놓기 검사의 등급 간격·world.ts 도우미 옮김)은 타입 검사·린트·`nationTiers.db.test.ts`·`nationPlacement.db.test.ts`·`world.db.test.ts`·`npcSeed.db.test.ts`를 따로 다시 돌려 통과.
+- `pnpm build` + `node scripts/check-pwa.mjs`: 통과. `pnpm check:bundle`: 첫 화면 JS 108,093 B / 상한 131,416 B(상한 그대로 — 화면은 `NationEditorScreen-*`·`WorldLayoutScreen-*` 조각).
+- `pnpm check:content origin/main`: 통과(core@62, 호환 4b 포함).
+- `pnpm e2e nations.spec.ts world-layout.spec.ts`: 18시험 가운데 17 통과·1 실패(`world-layout` 관리자 시험 — 등급 제안을 모두 놓으면 둘이 `too_close`) → 놓기 검사를 등급 간격으로 고친 뒤 `pnpm e2e world-layout.spec.ts` 7시험 통과. `nations.spec.ts` 11시험은 고치기 전 실행에서 통과(그 뒤 nations 화면 코드는 바꾸지 않음).
+- 시뮬 `pnpm --filter @terra/sim sim war16 --days 30`: 불변 조건 위반 0, 걸린 시간 약 2분 56초(등급 전 약 9초 — 공성이 0회 → 347회). 30일 끝 묶음별 도시 수: 초강대국 12 → 13, 강대국 12 → 16, 중견국 15 → 20, 소국 8 → 5, 도시국가 2 → 2. 고정 세력은 모두 살아 있다. 경비대는 공성에서 줄었다(초강대국 60 → 36).
+- 국가 16개 새 세계(DB 시험 틀, 위 "미검증" 참조): 도시 49·유닛 1,891·불변 조건 0.
+- 사진(저장소 밖, `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/nation-power-shots/`): `nations-power-{neon,light}-ko-1440.png`(나라별 합계 막대·등급 표), `world-layout-tiers-{neon,light}-ko-{1440,390}.png`(등급 배치 계획·반영·국가 세우기), `world-layout-{neon,light}-ko-{1440,390}.png`(지도), `nations-{neon,light}-{ko,en}-1440.png`, `nations-neon-ko-390.png`, `nations-light-en-390.png`.
+- 돌리지 않은 것: 다른 화면 시험 spec(시험 세계 도시 수가 11 → 15곳), NAS·실제 서버 메모리, 실제 휴대폰.

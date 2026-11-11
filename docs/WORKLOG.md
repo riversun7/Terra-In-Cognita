@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-11 17:45 | 국력 등급(NPC 국가의 고르지 않은 힘 분포) — 등급 표·경비대·등급 배치·이미 선 세계에 반영·랜덤 국가 추가 | Claude Code | [11-1745-nation-power](worklog/2026/11/11-1745-nation-power.md) |
 | 2026-11-11 09:30 | 묶음 합치기: 시작 국가 설정 편집기·편집기 입력 도구·남의 유닛 누르기 2 | Claude Code | [11-0930-nations-inputs-tap-merge](worklog/2026/11/11-0930-nations-inputs-tap-merge.md) |
 | 2026-11-10 23:50 | 시작 국가 설정 편집기(/dev/nations) — 가상 이름·이름 만들기, 국가 마크(만들기·올리기·자르기), 국가마다 씨앗 값, 이 세계에 반영 | Claude Code | [10-2350-nation-editor](worklog/2026/11/10-2350-nation-editor.md) |
 | 2026-11-10 22:30 | 2차맵 남의 유닛 누르기 2 — 운영자 모드도 작은 창만, 남의 유닛은 몸 위만 걸림, 땅 누르기 = 내 유닛 | Claude Code | [10-2230-map-tap-2](worklog/2026/11/10-2230-map-tap-2.md) |

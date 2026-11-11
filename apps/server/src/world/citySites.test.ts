@@ -1,6 +1,6 @@
 // 도시 배후지·지방 도시 자리 시험(docs/adr/2026-11-11-city-catchment.md) — 가짜 행성 값(면 레벨 6)에서 배후지 칸, 겹친 배후지 나누기,
 // 배후지 배치(간격·덮임·결정성·바둑판 아님).
-import { type CellKey, cellKey, decodeCellKey } from "@terra/planet";
+import { type CellKey, cellKey, decodeCellKey, parseCellKey } from "@terra/planet";
 import { territoryMetric, territoryPoint } from "@terra/planet/territory";
 import { territoryDistanceMilli } from "@terra/shared/territory";
 import { START_WORLD_SEED } from "@terra/sim";
@@ -26,8 +26,8 @@ function land(key: CellKey): LayoutLand {
   if (face === 0 && i >= 40) return { ...GRASS, elevationM: 700 };
   return GRASS;
 }
-const distance = (a: CellKey, b: CellKey): number =>
-  territoryDistanceMilli(territoryPoint(a), territoryPoint(b), metric);
+const distance = (a: number, b: number): number =>
+  territoryDistanceMilli(territoryPoint(parseCellKey(a)), territoryPoint(parseCellKey(b)), metric);
 
 const seed = { ...START_WORLD_SEED, layoutRegionCells: 12, layoutNationGapCells: 16 };
 const base = (overrides: Partial<LayoutInput> = {}): LayoutInput => ({
@@ -90,7 +90,7 @@ describe("배후지 칸", () => {
 describe("배후지 배치(지방 도시 자리)", () => {
   const result = planWorldLayout(base());
   const byFaction = (id: number) =>
-    result.spots.filter((entry) => entry.factionId === id).map((entry) => entry.spot.mapKey as CellKey);
+    result.spots.filter((entry) => entry.factionId === id).map((entry) => parseCellKey(entry.spot.mapKey));
 
   it("모든 도시가 자리를 받고, 같은 국가 도시는 배후지 지름(2R) 이상, 다른 국가 도시는 2R × 1.5 이상 떨어진다", () => {
     expect(result.short).toBe(0);
@@ -99,7 +99,7 @@ describe("배후지 배치(지방 도시 자리)", () => {
       for (const b of all) {
         if (a === b) continue;
         const gap = a.factionId === b.factionId ? 4000 : 6000;
-        expect(distance(a.spot.mapKey as CellKey, b.spot.mapKey as CellKey)).toBeGreaterThanOrEqual(gap);
+        expect(distance(a.spot.mapKey, b.spot.mapKey)).toBeGreaterThanOrEqual(gap);
       }
   });
 
@@ -119,12 +119,13 @@ describe("배후지 배치(지방 도시 자리)", () => {
   it("같은 입력이면 같은 결과, 수도에서 걸음이 고정 표(옛 (0,−s)·(−s,0)·(s,0)…)가 아니다", () => {
     expect(planWorldLayout(base())).toEqual(result);
     const old = planWorldLayout(base({ seed: { ...seed, catchmentRadiusCells: 0 } }));
-    const oldOwn = old.spots.filter((entry) => entry.factionId === 1).map((entry) => entry.spot.mapKey);
+    const oldOwn = old.spots
+      .filter((entry) => entry.factionId === 1)
+      .map((entry) => parseCellKey(entry.spot.mapKey));
     expect(byFaction(1)).not.toEqual(oldOwn);
     // 옛 배치: 붙은 2차맵(1칸)
     const [first, second] = oldOwn;
-    if (first !== undefined && second !== undefined)
-      expect(distance(first as CellKey, second as CellKey)).toBeLessThan(1600);
+    if (first !== undefined && second !== undefined) expect(distance(first, second)).toBeLessThan(1600);
   });
 
   it("이미 선 다른 세력 도시(피할 도시)와도 다른 국가 간격을 지킨다(지방 도시 — 수도 자리는 국가 자리 고르기가 정한다)", () => {
@@ -136,9 +137,7 @@ describe("배후지 배치(지방 도시 자리)", () => {
     const next = planWorldLayout(base({ obstacles: [obstacle] }));
     const home = cellKey(0, LEVEL, 30, 30);
     for (const entry of next.spots.filter((spot) => spot.spot.mapKey !== home))
-      expect(distance(entry.spot.mapKey as CellKey, obstacle.spot.mapKey as CellKey)).toBeGreaterThanOrEqual(
-        6000,
-      );
+      expect(distance(entry.spot.mapKey, obstacle.spot.mapKey)).toBeGreaterThanOrEqual(6000);
   });
 });
 

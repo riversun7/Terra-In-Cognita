@@ -287,7 +287,9 @@ const FACTION_SELECT = `
            and ($1::text is null or c.planet_id = $1)) as cities,
          (select count(*) from world_humans h join world_cities c on c.id = h.city_id where c.faction_id = f.id
            and ($1::text is null or c.planet_id = $1)) as humans,
-         (select count(*) from faction_members m where m.faction_id = f.id) as members,
+         -- 가문(kind = player)은 가문 구성원(house_members), 나라는 시민(faction_members) — D-216 이중 소속
+         case when f.kind = 'player' then (select count(*) from house_members hm where hm.faction_id = f.id)
+              else (select count(*) from faction_members m where m.faction_id = f.id) end as members,
          (select count(*) from faction_wars w where (w.faction_a = f.id or w.faction_b = f.id) and w.state = 'war') as wars,
          (select count(*) from faction_wars w where (w.faction_a = f.id or w.faction_b = f.id) and w.state = 'truce') as truces,
          (select count(*) from factions v where v.parent_id = f.id and v.dissolved_at_ms is null) as vassals,
@@ -314,6 +316,29 @@ export async function listFactions(
   return rows;
 }
 
+/**
+ * 가문(kind = player)마다 구성원의 소유 주체 — 가문은 자기 주체가 없어(국고·도시 없음) 유닛 수·행성 거르기를 구성원 유닛으로 센다
+ * (docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)")
+ */
+export async function houseMemberOwners(
+  db: OpsQueryable,
+  factionIds: readonly number[],
+): Promise<Map<number, number[]>> {
+  const result = new Map<number, number[]>();
+  if (factionIds.length === 0) return result;
+  const { rows } = await db.query<{ faction_id: string; owner_id: string }>(
+    `select m.faction_id, o.id as owner_id from house_members m join world_owners o on o.user_id = m.user_id
+      where m.faction_id = any($1::bigint[])`,
+    [factionIds],
+  );
+  for (const row of rows) {
+    const list = result.get(Number(row.faction_id)) ?? [];
+    list.push(Number(row.owner_id));
+    result.set(Number(row.faction_id), list);
+  }
+  return result;
+}
+
 export async function findFaction(db: OpsQueryable, factionId: number): Promise<FactionSqlRow | undefined> {
   const { rows } = await db.query<FactionSqlRow>(`${FACTION_SELECT} where f.id = $2`, [null, factionId]);
   return rows[0];
@@ -326,7 +351,8 @@ export async function factionMembers(
   const { rows } = await db.query<{ id: string; name: string }>(
     `select u.id, u.name from users u
       where u.id in (select user_id from faction_members where faction_id = $1
-                     union select user_id from cyborgs where faction_id = $1)
+                     union select user_id from cyborgs where faction_id = $1
+                     union select user_id from house_members where faction_id = $1)
       order by u.username limit 500`,
     [factionId],
   );

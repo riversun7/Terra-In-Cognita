@@ -48,6 +48,10 @@ export interface FactionMembership {
   readonly leaderName?: LocalizedName | null;
   /** 국가 마크(팩 국가 프리셋의 만든 마크, 이 세계에 올린 그림이 있으면 그 해시 — docs/adr/2026-11-10-nation-editor.md 4절) */
   readonly emblem?: NationEmblemView | null;
+  /**
+   * 내가 든 가문(나라 안의 가문, D-216 이중 소속 — docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"). 없으면 null·없음
+   */
+  readonly house?: { readonly name: string; readonly memberCount: number; readonly head: boolean } | null;
 }
 
 export interface FactionReal {
@@ -144,9 +148,29 @@ async function factionPart(db: Queryable, userId: string): Promise<FactionMember
   };
 }
 
+/** 내가 든 가문(가문 이름 = 플레이어가 정한 세력 정체성) */
+async function housePart(
+  db: Queryable,
+  userId: string,
+): Promise<{ readonly name: string; readonly memberCount: number; readonly head: boolean } | null> {
+  const found = await db.query(
+    `select p.name, m.role, (select count(*)::int from house_members x where x.faction_id = m.faction_id) as members
+       from house_members m join faction_profiles p on p.faction_id = m.faction_id where m.user_id = $1`,
+    [userId],
+  );
+  const row = found.rows[0];
+  if (row === undefined) return null;
+  return { name: String(row.name), memberCount: asNumber(row.members), head: row.role === "leader" };
+}
+
 /** DB에서 실제 자료를 읽는다(시험이 바로 부른다) */
 export async function readFactionReal(db: Queryable, userId: string): Promise<FactionReal> {
-  const [owner, faction] = await Promise.all([ownerPart(db, userId), factionPart(db, userId)]);
+  const [owner, nation, house] = await Promise.all([
+    ownerPart(db, userId),
+    factionPart(db, userId),
+    housePart(db, userId),
+  ]);
+  const faction = nation === null ? null : { ...nation, house };
   const occupations = faction === null ? null : await readOccupationRows(db, faction.id);
   return { owner, faction, occupations };
 }

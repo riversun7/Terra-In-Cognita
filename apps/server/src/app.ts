@@ -39,6 +39,8 @@ import { hospitalServiceOf } from "./hospital/attach.ts";
 import { createHospitalGateway } from "./hospital/gateway.ts";
 import { citizenshipServiceOf } from "./citizenship/attach.ts";
 import { createCitizenshipGateway } from "./citizenship/gateway.ts";
+import { attachHouses } from "./factionIdentity/attach.ts";
+import { TEST_HOUSE_RULES, houseRulesFrom } from "./factionIdentity/rules.ts";
 import { configureInjuryRules } from "./world/unitCondition.ts";
 import { createRuinGateway } from "./ruins/gateway.ts";
 import { marketSourceOf } from "./market/appSource.ts";
@@ -457,6 +459,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   // 랭킹(docs/adr/2026-11-07-ranking.md): 설정 칸 실효 값(부를 때마다), 집계 일정은 월드가 준비된 뒤 1분마다 경계를 본다(DB가 있는 월드만)
   const rankingCoefficients = tuningState ? () => tuningState.society().ranking : undefined;
+  // 플레이어 가문 설정 칸(창설 비용·약어 폭·이름 대기·신고·자동 막기)
+  const houseRules = tuningState ? () => houseRulesFrom(tuningState.society()) : () => TEST_HOUSE_RULES;
   const rankingPaths = options.ranking?.paths ?? [];
   const rankingPool = options.db?.$client;
   const ranking = createRankingServices({
@@ -650,6 +654,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       labor: laborService,
       facilities: world ? () => facilityScreenSourceOf(world) : undefined,
       factionRules: tuningState ? () => factionRulesFrom(tuningState.society()) : undefined,
+      houseRules,
       // 설정 칸 패널: 인증이 켜져 있을 때만 맥락이 서비스를 만든다
       tuning: tuningShared,
       balance,
@@ -759,6 +764,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const citizenshipGateway = world
     ? createCitizenshipGateway({ service: citizenshipServiceOf(world, { now }), now, log: app.log })
     : undefined;
+  // 가문 창설(docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"): DB가 있을 때만
+  const houseGateway = options.db
+    ? attachHouses({ db: options.db, world, rules: houseRules, now, log: app.log })
+    : undefined;
   const marketGateway = world
     ? createMarketGateway({ service: () => marketSource()?.service, now, log: app.log })
     : undefined;
@@ -810,6 +819,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         gather: gatherGateway,
         hospital: hospitalGateway,
         citizenship: citizenshipGateway,
+        house: houseGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

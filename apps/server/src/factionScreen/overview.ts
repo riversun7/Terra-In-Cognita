@@ -78,7 +78,8 @@ function realSummary(membership: FactionMembership): FactionSummary {
     memberCount: membership.memberCount,
     cityCount: membership.cityCount,
     joinedAt: membership.joinedAt,
-    family: null,
+    // 나라 안의 가문(D-216, 질문 926 나 — 정체성을 정하면 창설한다)
+    family: membership.house ?? null,
     overlord: membership.parent === null ? null : { faction: factionRef(membership.parent), tributePm: null },
     vassals: [],
     currency: null,

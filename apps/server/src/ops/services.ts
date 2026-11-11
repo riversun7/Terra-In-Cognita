@@ -202,6 +202,7 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     row: reads.FactionSqlRow,
     ids: Awaited<ReturnType<typeof identity>>,
     counts?: Map<number, number>,
+    memberOwners?: readonly number[],
   ): OpsFactionRow => {
     const ownerId = row.owner_id === null ? null : Number(row.owner_id);
     const id = Number(row.id);
@@ -232,7 +233,16 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
       dissolved: row.dissolved_at_ms !== null,
       cities: Number(row.cities),
       humans: Number(row.humans),
-      units: ownerId === null ? 0 : counts ? (counts.get(ownerId) ?? 0) : unitCount(ownerId),
+      // 가문은 자기 주체가 없다 — 구성원 유닛을 센다
+      units:
+        ownerId === null
+          ? (memberOwners ?? []).reduce(
+              (sum, member) => sum + (counts ? (counts.get(member) ?? 0) : unitCount(member)),
+              0,
+            )
+          : counts
+            ? (counts.get(ownerId) ?? 0)
+            : unitCount(ownerId),
       members: Number(row.members),
       ownerId,
       credit: credit(ownerId),
@@ -345,11 +355,18 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     async factions(input: Parameters<typeof reads.listFactions>[1]): Promise<OpsFactionRow[]> {
       const ids = await identity();
       const rows = await reads.listFactions(pool, input);
+      const houses = await reads.houseMemberOwners(
+        pool,
+        rows.filter((row) => row.kind === "player").map((row) => Number(row.id)),
+      );
       const counts = unitCounts(
-        new Set(rows.flatMap((row) => (row.owner_id === null ? [] : [Number(row.owner_id)]))),
+        new Set([
+          ...rows.flatMap((row) => (row.owner_id === null ? [] : [Number(row.owner_id)])),
+          ...[...houses.values()].flat(),
+        ]),
         input.planetId,
       );
-      const list = rows.map((row) => toFactionRow(row, ids, counts));
+      const list = rows.map((row) => toFactionRow(row, ids, counts, houses.get(Number(row.id))));
       return input.planetId === undefined ? list : list.filter((row) => row.cities > 0 || row.units > 0);
     },
 
@@ -357,7 +374,11 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
       const ids = await identity();
       const row = await reads.findFaction(pool, factionId);
       if (!row) return undefined;
-      const faction = toFactionRow(row, ids);
+      const houses =
+        row.kind === "player"
+          ? await reads.houseMemberOwners(pool, [factionId])
+          : new Map<number, number[]>();
+      const faction = toFactionRow(row, ids, undefined, houses.get(factionId));
       const world = shared.world();
       const units =
         faction.ownerId === null || !world
@@ -486,7 +507,7 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     async updateFaction(
       viewer: OpsViewer,
       input: { factionId: number; name: string; shortName: string; color: string; reason: string },
-    ): Promise<OpsActionResult<"not_found" | "invalid" | "short_taken">> {
+    ): Promise<OpsActionResult<"not_found" | "invalid" | "short_taken" | "player_owned">> {
       await identity();
       const result = await updateFactionProfile(pool, { ...input, actorId: viewer.id, nowMs: shared.now() });
       if (!result.ok) return result;

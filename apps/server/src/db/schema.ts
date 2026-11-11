@@ -972,6 +972,8 @@ export { nationalityChanges, userNationStandings } from "./citizenshipSchema.ts"
 
 /** 운영 권한 체크박스 표(docs/adr/2026-11-08-operator-console.md) */
 export { currencyProfiles, factionIdentities, factionProfiles, opsGrants, opsSwitches } from "./opsSchema.ts";
+// 플레이어 가문 구성원·신고(docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)")
+export { houseMembers, houseReports } from "./houseSchema.ts";
 // 고정 NPC 국가 자리(D-528 세계 배치 화면): worldPlacementSchema.ts
 export { worldNationPlacements, worldTierRequests } from "./worldPlacementSchema.ts";
 

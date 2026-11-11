@@ -15,8 +15,9 @@ const SOURCE_LABELS = {
   preset: m.ops_src_preset,
   default: m.ops_src_default,
   admin: m.ops_src_admin,
+  player: m.ops_src_player,
 } as const;
-const sourceText = (source: "preset" | "default" | "admin" | null): string =>
+const sourceText = (source: keyof typeof SOURCE_LABELS | null): string =>
   source === null ? m.ops_none() : SOURCE_LABELS[source]();
 
 interface FactionDetailProps {
@@ -94,7 +95,8 @@ export function FactionDetail({ factionId, can, open }: FactionDetailProps) {
               [m.ops_f_owner_id(), data.faction.ownerId ?? m.ops_none()],
             ]}
           />
-          {can("faction_edit") ? (
+          {/* 가문(플레이어가 정한 정체성)은 여기서 고치지 않는다 — 마크 관리 탭에서 다룬다 */}
+          {can("faction_edit") && data.faction.profileSource !== "player" ? (
             <details className="ops-details">
               <summary>{m.ops_fac_edit()}</summary>
               <FactionProfileEdit

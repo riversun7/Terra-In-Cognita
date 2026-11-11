@@ -273,7 +273,8 @@ export interface OpsSkillRow {
 }
 
 /** 정체성·화폐 표시 값이 어디서 왔나 */
-export type OpsProfileSource = "preset" | "default" | "admin";
+/** player = 가문을 창설한 플레이어가 정한 값(운영자 콘솔에서 고치지 않는다 — 마크 관리에서 다룬다) */
+export type OpsProfileSource = "preset" | "default" | "admin" | "player";
 
 export interface OpsFactionRow {
   id: number;

@@ -38,6 +38,7 @@ import { createSettingsServices } from "../settings/store.ts";
 import { type TuningShared, betterAuthTuningCheck, createTuningServices } from "../tuning/services.ts";
 import { createBuildingEditorServices } from "../buildingEdit/services.ts";
 import { createCreatureEditorServices } from "../creatureEdit/services.ts";
+import type { HouseRules } from "../factionIdentity/rules.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "../factionIdentity/services.ts";
 import { type NationEditShared, createNationEditorServices } from "../nationEdit/services.ts";
 import { type ContentEditShared, createSkillEditorServices } from "../contentEdit/services.ts";
@@ -108,6 +109,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   facilities?: (() => FacilityScreenSource | undefined) | undefined;
   /** 세력 화면 규칙 설정값(설정 칸 실효 값: 공물·민심 문턱·주기, 부를 때마다 읽는다). 없으면 sim 시험 계수표 */
   factionRules?: (() => FactionScreenRules) | undefined;
+  /** 플레이어 가문 설정값(설정 칸, 부를 때마다 읽는다 — factionIdentity/rules.ts). 없으면 sim 시험 계수표 */
+  houseRules?: (() => HouseRules) | undefined;
   /** 설정 칸 패널(접근자·속도 제한기·쓰기 차례, src/tuning/services.ts). 인증이 켜져 있어야 쓴다 */
   tuning?: TuningShared | undefined;
   /** 밸런스 화면(src/balance/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
@@ -194,6 +197,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
         pool: options.ops.pool,
         now: options.ops.now,
         presets: () => options.ops?.presets,
+        rules: options.houseRules,
       })
     : undefined;
   return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {

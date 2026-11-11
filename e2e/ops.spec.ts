@@ -1,5 +1,5 @@
 // 운영자 콘솔(/ops) 화면 시험 — docs/adr/2026-11-08-operator-console.md.
-// admin: 탭 여덟 개, 현황, 유저 상세(통제 판), 유닛, 감사 기록 거르기, 로그 스위치, 권한 부여 주소는 권한 없음.
+// admin: 탭 아홉 개(맨 끝 마크 관리는 e2e/faction.spec.ts가 본다), 현황, 유저 상세(통제 판), 유닛, 감사 기록 거르기, 로그 스위치, 권한 부여 주소는 권한 없음.
 // dev: 개발자 홈 → 운영 권한 부여(체크박스). player: 권한 없음 화면.
 // 사진: 1440 넓은 폭(목록 + 오른쪽 상세)과 390px, 개발 화면 테마 둘(네온·라이트)(ADR 2026-11-02-dev-ui).
 import type { Page } from "@playwright/test";
@@ -22,7 +22,8 @@ test.describe("운영자 콘솔 — admin", () => {
     await page.goto("/ops");
     await consoleShown(page);
     await expect(page.locator("html")).toHaveAttribute("data-surface", "dev");
-    await expect(page.locator(".ops-tabs [role='tab']")).toHaveCount(8);
+    // 탭 아홉: 앞 여덟 + 맨 끝 마크 관리(docs/adr/2026-11-11-faction-identity.md 5절 — e2e/faction.spec.ts가 본다)
+    await expect(page.locator(".ops-tabs [role='tab']")).toHaveCount(9);
     // 현황: 카드 넷 + 경보
     await expect(page.locator(".ops-grid .ops-card")).toHaveCount(4);
     // 유저 탭 → e2e_player 상세(통제 판)
@@ -162,12 +163,12 @@ test.describe("운영 권한 부여 — dev", () => {
     await expect(page.locator("#ops-grants-title")).toBeVisible();
     await page.locator("#main form input").fill("e2e_admin");
     await page.locator("#main form button[type='submit']").click();
-    // 관리자 역할 기본 = 권한 부여만 뺀 14개(잠김), 권한 부여 1개는 고를 수 있다
-    await expect(page.locator(".ops-grants input[type='checkbox']")).toHaveCount(15);
-    await expect(page.locator(".ops-grants input[type='checkbox']:disabled")).toHaveCount(14);
+    // 관리자 역할 기본 = 권한 부여만 뺀 15개(잠김 — 마크 관리 emblem_moderate 포함), 권한 부여 1개는 고를 수 있다
+    await expect(page.locator(".ops-grants input[type='checkbox']")).toHaveCount(16);
+    await expect(page.locator(".ops-grants input[type='checkbox']:disabled")).toHaveCount(15);
     await page.goto("/ops");
     await consoleShown(page);
-    await expect(page.locator(".ops-tabs [role='tab']")).toHaveCount(8);
+    await expect(page.locator(".ops-tabs [role='tab']")).toHaveCount(9);
     expect(deviceErrors).toEqual([]);
   });
 

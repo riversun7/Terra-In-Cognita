@@ -2,6 +2,7 @@
 // 없음"), 기획 46 §2(행정 건물 = 도시의 정부, 구인 카드 D-469)·D-510(행정 건물 = 옛 마을회관). 2차맵에서 행정 건물을 누르면 그 도시와 주인
 // 나라(이름·지도자·시장)·세율·행정 레벨·휴먼 수를 보이고, 구인 카드(recruit.board → WebSocket recruit_hire)·창고·거래소로 잇는다.
 // 읽기만 한다. 서버가 거른다: 내가 모르는 도시(1차맵 도시 안개와 같은 규칙)의 건물이면 unknown_building(없는 건물과 같은 답).
+import type { NationEmblemView } from "./nationEditor.ts";
 import type { LocalizedName, PrimaryStat } from "./roster.ts";
 
 /**
@@ -52,6 +53,8 @@ export interface GovernmentNation {
   readonly code: string | null;
   /** 화면 이름(팩 국가 프리셋). 없으면 null(화면은 코드) */
   readonly name: LocalizedName | null;
+  /** 국가 마크(팩 국가 프리셋의 만든 마크 + 이 세계에 올린 그림 — docs/adr/2026-11-11-faction-identity.md 6절). 프리셋이 없으면 null·없음 */
+  readonly emblem?: NationEmblemView | null;
   /** 고정 NPC 국가(D-324) */
   readonly fixed: boolean;
   /** 내가 든 나라인가(사이보그를 만들 때 고른 나라) */

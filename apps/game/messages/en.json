@@ -552,6 +552,7 @@
   "map_unit_selected_glance_free": "Unaffiliated {unit} ({state}). You can only view it.",
   "map_peek_free": "Unaffiliated",
   "map_peek_line": "{owner} · {state}",
+  "map_peek_owner": "Owner faction: {name} [{tag}]",
   "map_peek_note": "Tap anywhere else to close. Tap the ground to close this and send your unit there.",
   "map_peek_note_operator": "Tap anywhere else to close. Tap the ground to close this and send the unit you control now. To move this unit, press Control this unit.",
   "map_peek_note_none": "Tap anywhere else to close.",

@@ -2,6 +2,7 @@
 // - 올린 그림은 그 줄에 한 장(emblem_png)이다. 목록·조회는 그림 바이트를 읽지 않는다(해시·크기만). 그림 길(nationEdit/emblems.ts)이 해시로 읽는다.
 // - 세계 스위치 "플레이어 마크 올리기 허용": 표 ops_switches의 줄 player_emblem_block(켜짐 = 막음). 줄이 없으면 꺼짐 = 올릴 수 있다(기본 허용).
 import type { FactionIdentityNotice, FactionIdentityView, OpsEmblemRow } from "@terra/shared/factionIdentity";
+import type { MapUnitOwnerIdentity } from "@terra/shared/mapUnits";
 import {
   EMBLEM_CHARGES,
   EMBLEM_DIVISIONS,
@@ -328,11 +329,36 @@ export async function setUploadBlocked(
   return rows[0]?.before ?? null;
 }
 
-/** 소유 주체(유저) → 올린 그림 해시·정체성(지도의 유닛 한눈 정보가 쓴다). 정하지 않았으면 null */
-export async function identityOfUser(
-  pool: IdentityQueryable,
+/** 줄을 글자 표로 읽는 조회(세계 저장 풀 QueryPool과 같은 모양) */
+export interface RowQueryable {
+  query(text: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
+}
+
+/** 유저(유닛 주인)가 정한 세력 정체성 — 지도의 유닛 한눈 정보가 쓴다. 정하지 않았으면 null. 그림 바이트는 읽지 않는다 */
+export async function ownerIdentityOf(
+  pool: RowQueryable,
   userId: string,
-): Promise<FactionIdentityView | null> {
-  const row = await loadIdentity(pool, userId);
-  return row ? viewOf(row) : null;
+): Promise<MapUnitOwnerIdentity | null> {
+  const { rows } = await pool.query(
+    `select name, short_name, color, emblem_shape, emblem_division, emblem_charge, emblem_scheme, emblem_sha256
+       from faction_identities where user_id = $1`,
+    [userId],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  const shape = pick(EMBLEM_SHAPES, String(row.emblem_shape));
+  const division = pick(EMBLEM_DIVISIONS, String(row.emblem_division));
+  const charge = pick(EMBLEM_CHARGES, String(row.emblem_charge));
+  return {
+    name: String(row.name),
+    shortName: String(row.short_name),
+    color: String(row.color),
+    emblem: normalizeEmblem({
+      ...(shape === undefined ? {} : { shape }),
+      ...(division === undefined ? {} : { division }),
+      ...(charge === undefined ? {} : { charge }),
+      scheme: Number(row.emblem_scheme),
+    }),
+    uploaded: typeof row.emblem_sha256 === "string" ? row.emblem_sha256 : null,
+  };
 }

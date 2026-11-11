@@ -225,3 +225,7 @@
   border-top: var(--hairline) solid var(--color-border);
   font-size: var(--font-size-xs);
 }
+/* 한눈 정보의 세력 마크(나라 마크·주인이 정한 세력 마크): 글 앞에 작게 */
+.map-peek-emblem {
+  margin-inline-end: var(--space-1);
+}

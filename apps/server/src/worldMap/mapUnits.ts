@@ -49,6 +49,8 @@ export interface MapUnitSource {
   observer?: ((viewer: Viewer) => boolean) | undefined;
   /** 소유 주체 → 세력 정보(NPC 주체는 세력, 유저 주체는 가입한 국가). 없으면 null */
   factionOfOwner?: ((ownerId: number) => Promise<MapUnitGlance["faction"]>) | undefined;
+  /** 소유 주체(유저) → 그 유저가 정한 세력 정체성(docs/adr/2026-11-11-faction-identity.md). NPC 주체·정하지 않음이면 null */
+  identityOfOwner?: ((ownerId: number) => Promise<MapUnitGlance["owner"]>) | undefined;
   /** 세력 코드 → 그 나라 지도자 이름(팩 국가 프리셋, "WP-NPC"). 없으면 지도자 이름 없음 */
   leaderName?: ((code: string) => MapUnitGlance["name"] | undefined) | undefined;
   /**
@@ -161,6 +163,9 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
         (source.sees?.(mapKey, viewer, unitId) ?? false);
       if (!visible) return none;
       const faction = (await source.factionOfOwner?.(info.ownerId)) ?? null;
+      // 유저 유닛이면 주인이 정한 세력 정체성(이름·약어·마크). 읽지 못해도 한눈 정보는 그대로 준다
+      const owner = (await source.identityOfOwner?.(info.ownerId)?.catch(() => null)) ?? null;
+      const ownerPart = owner ? { owner } : {};
       // NPC 국가 지도자는 그 나라 지도자 이름(WP-NPC)
       const leader =
         info.kind === UNIT_KIND_NPC_LEADER && faction?.code
@@ -175,12 +180,19 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
             unitId,
             kind: "human",
             faction,
+            ...ownerPart,
             ...(human.name === undefined ? {} : { name: { ko: human.name, en: human.name } }),
           },
         };
       return {
         ...none,
-        glance: { unitId, kind: kindOf(info.kind), faction, ...(leader ? { name: leader } : {}) },
+        glance: {
+          unitId,
+          kind: kindOf(info.kind),
+          faction,
+          ...ownerPart,
+          ...(leader ? { name: leader } : {}),
+        },
       };
     },
   };

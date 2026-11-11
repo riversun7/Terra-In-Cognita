@@ -30,10 +30,11 @@ const TABS = [
   "npcs",
   "cities",
   "currencies",
-  "emblems",
   "units",
   "economy",
   "audit",
+  // 마크 관리(docs/adr/2026-11-11-faction-identity.md 5절)는 맨 끝에 둔다(앞 탭의 차례를 바꾸지 않는다)
+  "emblems",
 ] as const;
 type Tab = (typeof TABS)[number];
 

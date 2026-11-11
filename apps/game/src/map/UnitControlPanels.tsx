@@ -10,6 +10,7 @@
 import type { MapUnit, MapUnitGlance } from "@terra/shared/mapUnits";
 import { type ReactNode, useId } from "react";
 import { m } from "../paraglide/messages.js";
+import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { navigate } from "../shell/routerStore.ts";
 import { elsewhereText, peekText, unitName, unitStatusText } from "./mapUnits.ts";
 import "./unitControl.css";
@@ -206,7 +207,33 @@ export function PeekCard({
           {m.map_peek_close()}
         </button>
       </div>
-      <p className="map-peek-line">{text.line}</p>
+      <p className="map-peek-line">
+        {glance?.faction?.emblem ? (
+          <NationEmblem
+            spec={glance.faction.emblem.spec}
+            color={glance.faction.emblem.color}
+            uploaded={glance.faction.emblem.uploaded}
+            size={20}
+            className="map-peek-emblem"
+          />
+        ) : null}
+        {text.line}
+      </p>
+      {glance?.owner ? (
+        // 유저 유닛: 주인이 정한 세력 이름·약어·마크(docs/adr/2026-11-11-faction-identity.md 6절)
+        <p className="map-peek-line map-peek-owner" data-part="peek-owner">
+          <NationEmblem
+            spec={glance.owner.emblem}
+            color={glance.owner.color}
+            uploaded={glance.owner.uploaded}
+            size={20}
+            className="map-peek-emblem"
+          />
+          <span translate="no">
+            {m.map_peek_owner({ name: glance.owner.name, tag: glance.owner.shortName })}
+          </span>
+        </p>
+      ) : null}
       {children}
       {onControl ? (
         <div className="map-peek-menu">

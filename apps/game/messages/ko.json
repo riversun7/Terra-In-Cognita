@@ -552,6 +552,7 @@
   "map_unit_selected_glance_free": "무소속 {unit}({state})입니다. 정보만 볼 수 있습니다.",
   "map_peek_free": "무소속",
   "map_peek_line": "{owner} · {state}",
+  "map_peek_owner": "주인 세력: {name} [{tag}]",
   "map_peek_note": "다른 곳을 누르면 닫힙니다. 땅을 누르면 닫고 내 유닛을 그곳으로 보냅니다.",
   "map_peek_note_operator": "다른 곳을 누르면 닫힙니다. 땅을 누르면 닫고 지금 조종하는 유닛을 보냅니다. 이 유닛을 움직이려면 [이 유닛 조종]을 누르세요.",
   "map_peek_note_none": "다른 곳을 누르면 닫힙니다.",

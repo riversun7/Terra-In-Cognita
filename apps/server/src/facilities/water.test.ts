@@ -32,6 +32,16 @@ function riverMap(): TestMap {
   return test;
 }
 
+const city = (id: number, factionId: number, x: number): CityRow => ({
+  id,
+  factionId,
+  planetId: "p",
+  mapKey: 9,
+  cellX: x,
+  cellY: 128,
+  start: true,
+});
+
 describe("물가 조건(서버)", () => {
   it("shared 물 번호 = 프로토콜 지표 물·얕은 물, 2차맵 물 표는 지형 파일 지표 층에서", () => {
     expect(WATER_CODES_MATCH).toBe(true);
@@ -80,15 +90,6 @@ describe("물가 조건(서버)", () => {
         facilities.set(record.buildingId, record);
       },
     };
-    const city = (id: number, factionId: number, x: number): CityRow => ({
-      id,
-      factionId,
-      planetId: "p",
-      mapKey: 9,
-      cellX: x,
-      cellY: 128,
-      start: true,
-    });
     // 낚시터만 하나(다른 씨앗 0)
     const onlyFishing = {
       ...START_WORLD_SEED,

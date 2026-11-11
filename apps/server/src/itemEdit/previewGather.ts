@@ -95,6 +95,14 @@ function workOf(
   };
 }
 
+/** 사다리 중분류 = 주 + 함께 내는 것(질문 946 나 — 목장의 목축 부산물도 목장 사다리에 든다) */
+function subsOf(gather: NonNullable<FacilityEntry["gather"]>): string[] {
+  return gatherSubcategories({
+    subcategory: gather.subcategory.id,
+    extraSubcategories: gather.extraSubcategories?.map((ref) => ref.id),
+  });
+}
+
 /** 초안의 채집 미리 보기. 채집 시설 사다리에 없으면 null */
 export function previewGather(
   ctx: GatherContext,
@@ -105,12 +113,6 @@ export function previewGather(
   const sub = draft.subcategory;
   if (sub === undefined || ctx.bands.length === 0) return null;
   // 시설은 늘 켜짐(켬·끔 없음, 팩 core@32)
-  // 사다리 중분류 = 주 + 함께 내는 것(질문 946 나 — 목장의 목축 부산물도 목장 사다리에 든다)
-  const subsOf = (gather: NonNullable<FacilityEntry["gather"]>): string[] =>
-    gatherSubcategories({
-      subcategory: gather.subcategory.id,
-      extraSubcategories: gather.extraSubcategories?.map((ref) => ref.id),
-    });
   const facility = ctx.facilities.find((entry) => entry.gather && subsOf(entry.gather).includes(sub));
   const gather = facility?.gather;
   if (!facility || !gather) return null;

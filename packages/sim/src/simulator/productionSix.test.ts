@@ -210,6 +210,10 @@ describe("1차 생산 여섯 가지: 약초원·목장·낚시터", () => {
   });
 });
 
+/** 새 유닛(스탯 기본) 시나리오 5일 산출 */
+const producedWith = (catalog: EconomyCatalog) =>
+  runSimulation({ scenario: scenarioWith(undefined), catalog, seed: 7, days: 5 }).economy?.produced ?? {};
+
 describe('목장 사다리 = 축산물 + 목축 부산물(질문 946 나, ADR production-six "바뀜 (2026-11-11, 946·947)")', () => {
   const RANCH_BOTH: CatalogGather = { ...RANCH, extraSubcategories: ["livestock_byproduct"] };
   const BOTH_CATALOG: EconomyCatalog = {
@@ -244,15 +248,13 @@ describe('목장 사다리 = 축산물 + 목축 부산물(질문 946 나, ADR pr
   });
 
   it("해금 티어 T1에서 사슴 고기와 사슴 가죽을 함께 고른다(다른 시설 산출은 앞 판과 같다)", () => {
-    const run = (catalog: EconomyCatalog) =>
-      runSimulation({ scenario: scenarioWith(undefined), catalog, seed: 7, days: 5 }).economy?.produced ?? {};
-    const both = run(BOTH_CATALOG);
+    const both = producedWith(BOTH_CATALOG);
     const qty = (id: string) => BigInt(both[`item:${id}`] ?? "0");
     expect(qty("venison")).toBeGreaterThan(0n);
     expect(qty("deer_hide")).toBeGreaterThan(0n);
     expect(qty("raw_meat") + qty("feather") + qty("mutton")).toBe(0n);
     // 약초·어류는 목장 사다리를 넓혀도 그대로다(시설마다 난수 흐름이 따로)
-    const before = run(SIX_CATALOG);
+    const before = producedWith(SIX_CATALOG);
     for (const id of [
       "wild_herb",
       "aloe",

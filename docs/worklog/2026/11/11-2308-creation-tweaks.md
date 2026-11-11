@@ -43,7 +43,8 @@
 ## 검증
 - Verified: `pnpm vitest run`(서버 `src/cyborg/` 4파일 24개 통과, DB 포함), 게임 `elementDraft.test.ts` 7개 통과, `pnpm check:content origin/main` 통과(core@66).
 - Verified: e2e `first-login.spec.ts` `--grep "새 플레이어|390 pastel|다음 접속"` 4개 통과(390 파스텔 ko·en 사진: 나라 카드 넘침·작은 단추 없음).
-- 나머지 검사 결과는 아래 "끝 검사"에 적는다.
+- Verified(끝 검사): `pnpm check`(TEST_DATABASE_URL 포함) 통과 — 시험 614파일 4,756개 통과. `pnpm build`, `node scripts/check-pwa.mjs`, `pnpm check:bundle`, `pnpm check:docs origin/main` 통과.
+- 사진(390 파스텔): 나라 카드 ko·en, 속성 단계 en(스크래치 폴더, 저장소 밖).
 
 ## 미검증·TODO·알려진 문제
 - 운영진 제한 없음은 e2e로 보지 않았다(e2e 운영진 계정은 이미 사이보그가 있다). 서버 시험(게이트웨이·DB)이 본다.

@@ -4,6 +4,8 @@
 // - 배후지 칸: 도시 2차맵(1차맵 칸)에서 영토 거리(@terra/shared territoryDistanceMilli) R칸 안의 칸들(가운데 포함). 면 경계는 걸어서 넘는다.
 // - 덮임: @terra/shared/catchment(칸마다 여섯 원자재 비트 → 원자재마다 몫을 쓰는 시설 수로 가중 평균).
 // - 다툼(겹친 배후지): 한 칸은 가장 가까운 도시 하나의 것(같으면 작은 ID) — splitCatchments.
+// - 바뀜 (2026-11-12, 사용자 지적 "인구와 도시등급이 높을 수록 … 요구 영토범위가 넓어지고"): 반경이 도시마다 다르다(1000분율 칸,
+//   @terra/shared/catchment catchmentRadiusMilli·sim plannedCityRadiusMilli). 두 도시 간격 = (두 반경 합) × 천분율(cityPairGapMilli).
 // 순수 함수(행성 값은 부르는 쪽이 land로 넘긴다). 같은 입력이면 같은 결과다.
 import { type CellKey, parseCellKey, stepCell } from "@terra/planet";
 import { territoryMetric, territoryPoint } from "@terra/planet/territory";
@@ -14,7 +16,7 @@ import {
   type MaterialCounts,
   type MaterialWeights,
   cellMaterials,
-  cityGapMilli,
+  cityPairGapMilli,
   countMaterials,
   coveragePm,
   siteScore,
@@ -35,15 +37,20 @@ export function walkCell(start: CellKey, di: number, dj: number): CellKey | null
 
 /** 배후지 칸들(가운데 → 걸음 차례). 반경 0이면 가운데 하나 */
 export function catchmentCells(center: CellKey, radiusCells: number, faceLevel: number): CellKey[] {
-  const radius = Math.max(0, Math.trunc(radiusCells));
+  return catchmentCellsMilli(center, Math.max(0, Math.trunc(radiusCells)) * 1000, faceLevel);
+}
+
+/** 배후지 칸들(반경 1000분율 칸 — 도시 크기마다 다르다). 반경이 1칸 미만이면 가운데 하나 */
+export function catchmentCellsMilli(center: CellKey, radiusMilli: number, faceLevel: number): CellKey[] {
+  const limit = Math.max(0, Math.trunc(radiusMilli));
+  const reach = Math.floor(limit / 1000);
   const out: CellKey[] = [center];
-  if (radius === 0) return out;
+  if (reach === 0) return out;
   const metric = territoryMetric(faceLevel);
   const origin = territoryPoint(center);
-  const limit = radius * 1000;
   const seen = new Set<number>([center]);
-  for (let dj = -radius; dj <= radius; dj++)
-    for (let di = -radius; di <= radius; di++) {
+  for (let dj = -reach; dj <= reach; dj++)
+    for (let di = -reach; di <= reach; di++) {
       if (di === 0 && dj === 0) continue;
       const key = walkCell(center, di, dj);
       if (key === null || seen.has(key)) continue;
@@ -75,6 +82,8 @@ export function summarize(
 export interface CatchmentCity {
   readonly id: number;
   readonly mapKey: CellKey;
+  /** 이 도시 반경(1000분율 칸). 없으면 나누기에 준 반경 */
+  readonly radiusMilli?: number | undefined;
 }
 
 /**
@@ -93,7 +102,7 @@ export function splitCatchments(
   const cellsOf = new Map<number, CellKey[]>();
   for (const city of sorted) {
     const origin = territoryPoint(parseCellKey(city.mapKey));
-    const cells = catchmentCells(city.mapKey, radiusCells, faceLevel);
+    const cells = catchmentCellsMilli(city.mapKey, city.radiusMilli ?? radiusCells * 1000, faceLevel);
     cellsOf.set(city.id, cells);
     for (const key of cells) {
       seenBy.set(key, (seenBy.get(key) ?? 0) + 1);
@@ -115,8 +124,8 @@ export function splitCatchments(
 
 /** 배후지 덮임 셈 붙잡기(같은 배치 안에서 칸 비트·배후지 칸 목록을 한 번만 셈한다) */
 export interface CatchmentCache {
-  /** 그 칸이 가운데인 배후지의 덮임(가중치마다) */
-  cover(center: CellKey, weights: MaterialWeights): number;
+  /** 그 칸이 가운데인 배후지의 덮임(가중치마다). radiusMilli가 없으면 붙잡기를 만들 때 준 반경 */
+  cover(center: CellKey, weights: MaterialWeights, radiusMilli?: number): number;
 }
 
 export function createCatchmentCache(
@@ -126,7 +135,9 @@ export function createCatchmentCache(
   faceLevel: number,
 ): CatchmentCache {
   const bitsOf = new Map<number, number>();
-  const countsOf = new Map<number, { cells: number; counts: MaterialCounts }>();
+  // 반경(1000분율) → 가운데 → 칸 수
+  const countsOf = new Map<number, Map<number, { cells: number; counts: MaterialCounts }>>();
+  const fallback = Math.max(0, Math.trunc(radiusCells)) * 1000;
   const bits = (key: CellKey): number => {
     let value = bitsOf.get(key);
     if (value === undefined) {
@@ -136,12 +147,17 @@ export function createCatchmentCache(
     return value;
   };
   return {
-    cover(center, weights) {
-      let entry = countsOf.get(center);
+    cover(center, weights, radiusMilli = fallback) {
+      let byCenter = countsOf.get(radiusMilli);
+      if (!byCenter) {
+        byCenter = new Map();
+        countsOf.set(radiusMilli, byCenter);
+      }
+      let entry = byCenter.get(center);
       if (!entry) {
-        const cells = catchmentCells(center, radiusCells, faceLevel);
+        const cells = catchmentCellsMilli(center, radiusMilli, faceLevel);
         entry = { cells: cells.length, counts: countMaterials(cells.map(bits)) };
-        countsOf.set(center, entry);
+        byCenter.set(center, entry);
       }
       return coveragePm(entry.counts, entry.cells, weights);
     },
@@ -152,6 +168,8 @@ export function createCatchmentCache(
 export interface SpacedCity {
   readonly factionId: number;
   readonly point: TerritoryVec;
+  /** 그 도시 배후지 반경(1000분율 칸 — 크기마다 다르다) */
+  readonly radiusMilli: number;
 }
 
 /** 지방 도시 자리 고르기 입력(국가 하나) */
@@ -165,6 +183,10 @@ export interface CitySiteInput {
   /** 더 세울 도시 수 */
   readonly count: number;
   readonly rules: CatchmentRules;
+  /** 새 지방 도시의 배후지 반경(1000분율 칸, 처음 기간에 이를 크기 — sim plannedCityRadiusMilli) */
+  readonly radiusMilli: number;
+  /** 새 수도의 배후지 반경(needCapital일 때) */
+  readonly capitalRadiusMilli: number;
   /** 같은 국가 도시 사이 가장 짧은 거리의 바닥(1/1000칸 — 국력 등급 도시 걸음) */
   readonly minSameMilli: number;
   readonly weights: MaterialWeights;
@@ -186,32 +208,33 @@ function mixKey(salt: number, key: CellKey): number {
 }
 
 /**
- * 지방 도시 자리(docs/adr/2026-11-11-city-catchment.md 3절): 수도 둘레 찾는 반경 안 모든 칸 가운데 도시가 설 수 있고 모든 도시와 간격(같은 국가 =
- * max(2R × sameGapPm, 등급 걸음), 다른 국가 = 2R × foreignGapPm)을 지키는 칸에서, 자리 점수(배후지 덮임 − 수도 거리 몫)가 가장 높은 칸을 하나씩
- * 고른다(같으면 (소금, 키) 섞은 값이 작은 칸, 그래도 같으면 작은 키 — 고른 땅에서 고정 걸음 표처럼 줄 서지 않게). 첫 자리는 수도 2차맵
- * (needCapital). 고른 칸을 cities에 더하고 돌려준다
+ * 지방 도시 자리(docs/adr/2026-11-11-city-catchment.md 3절, "바뀜 (2026-11-12)"): 수도 둘레 찾는 반경 안 모든 칸 가운데 도시가 설 수 있고 모든
+ * 도시와 간격(같은 국가 = max((두 반경 합) × sameGapPm, 등급 걸음), 다른 국가 = (두 반경 합) × foreignGapPm)을 지키는 칸에서, 자리 점수(배후지
+ * 덮임 − 수도 거리 몫)가 가장 높은 칸을 하나씩 고른다(같으면 (소금, 키) 섞은 값이 작은 칸, 그래도 같으면 작은 키 — 고른 땅에서 고정 걸음
+ * 표처럼 줄 서지 않게). 첫 자리는 수도 2차맵(needCapital). 고른 칸을 cities에 더하고 돌려준다. 반경이 도시마다 달라(수도·큰 나라는 넓고 작은
+ * 나라는 좁다) 간격이 고르지 않다
  */
 export function pickCitySites(input: CitySiteInput): CellKey[] {
   const metric = territoryMetric(input.faceLevel);
   const homePoint = territoryPoint(input.home);
-  const sameGap = Math.max(cityGapMilli(input.rules, true), input.minSameMilli);
-  const foreignGap = cityGapMilli(input.rules, false);
   const search = Math.max(1, Math.trunc(input.rules.searchCells));
   const out: CellKey[] = [];
-  const spaced = (point: TerritoryVec): boolean =>
-    input.cities.every(
-      (city) =>
-        territoryDistanceMilli(point, city.point, metric) >=
-        (city.factionId === input.factionId ? sameGap : foreignGap),
-    );
-  const take = (key: CellKey, point: TerritoryVec): void => {
+  const spaced = (point: TerritoryVec, radiusMilli: number): boolean =>
+    input.cities.every((city) => {
+      const same = city.factionId === input.factionId;
+      const gap = cityPairGapMilli(radiusMilli, city.radiusMilli, same, input.rules);
+      return (
+        territoryDistanceMilli(point, city.point, metric) >= (same ? Math.max(gap, input.minSameMilli) : gap)
+      );
+    });
+  const take = (key: CellKey, point: TerritoryVec, radiusMilli: number): void => {
     out.push(key);
-    input.cities.push({ factionId: input.factionId, point });
+    input.cities.push({ factionId: input.factionId, point, radiusMilli });
   };
   let left = input.count;
   if (input.needCapital && left > 0) {
     if (!input.fits(input.home)) return out;
-    take(input.home, homePoint);
+    take(input.home, homePoint, input.capitalRadiusMilli);
     left -= 1;
   }
   if (left <= 0) return out;
@@ -226,14 +249,19 @@ export function pickCitySites(input: CitySiteInput): CellKey[] {
       const point = territoryPoint(key);
       const fromHome = territoryDistanceMilli(point, homePoint, metric);
       if (fromHome > search * 1000 || !input.fits(key)) continue;
-      const cover = input.cache.cover(key, input.weights);
-      pool.push({ key, point, score: siteScore(cover, fromHome, input.rules), tie: mixKey(input.salt, key) });
+      const cover = input.cache.cover(key, input.weights, input.radiusMilli);
+      pool.push({
+        key,
+        point,
+        score: siteScore(cover, fromHome, input.rules, input.radiusMilli),
+        tie: mixKey(input.salt, key),
+      });
     }
   pool.sort((a, b) => b.score - a.score || a.tie - b.tie || a.key - b.key);
   for (const entry of pool) {
     if (left <= 0) break;
-    if (!spaced(entry.point) || !input.fits(entry.key)) continue;
-    take(entry.key, entry.point);
+    if (!spaced(entry.point, input.radiusMilli) || !input.fits(entry.key)) continue;
+    take(entry.key, entry.point, input.radiusMilli);
     left -= 1;
   }
   return out;

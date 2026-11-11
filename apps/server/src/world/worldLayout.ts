@@ -27,6 +27,10 @@
 //      몫이 가장 높은 칸부터.
 //    - 수도 고르기 점수(가장 먼 점, 소국·도시국가 빼고)에 배후지 덮임을 곱한다(절반은 거리, 절반은 덮임).
 //    R = 0이면 1~3과 똑같은 결과다(옛 배치).
+// 5. 도시 크기에 따른 배후지(사용자 지적 2026-11-11 "인구와 도시등급이 높을 수록 … 요구 영토범위가 넓어지고", ADR 같은 파일 "바뀜 (2026-11-12)"):
+//    R > 0이면 반경이 도시마다 다르다 — 국가 등급의 주거(처음 기간에 찰 인구)·기술과 설정 칸 등급으로 잡은 반경(@terra/sim plannedCityRadiusMilli,
+//    수도는 더 크게). 간격 = (두 반경 합) × 천분율이라 초강대국 수도 둘레는 넓고 소국 도시는 촘촘하다(고른 바둑판이 아니다). 수도 고르기 덮임도 그
+//    국가 수도 반경으로 센다. 피할 도시(다른 세력 도시·폐허)는 catchmentMilli(없으면 기본 주거·기술 1의 지방 도시 반경).
 import {
   type CellKey,
   FACES,
@@ -45,7 +49,7 @@ import {
   territoryDistanceMilli,
 } from "@terra/shared/territory";
 import { type CatchmentRules, type MaterialWeights, weightsOfFacilities } from "@terra/shared/catchment";
-import { PLACEMENT_SIZE, type WorldSeedCoefficients } from "@terra/sim";
+import { PLACEMENT_SIZE, type WorldSeedCoefficients, plannedCityRadiusMilli } from "@terra/sim";
 import { type CatchmentCache, createCatchmentCache, pickCitySites, walkCell } from "./citySites.ts";
 
 export { walkCell };
@@ -102,6 +106,10 @@ export interface LayoutTier {
   readonly homeGapPm: number;
   /** 배후지 원자재 가중치(그 국가 시작 도시 채집 시설 수, 머리 주석 4). 없으면 농장·벌목장·광산 1씩 */
   readonly needs?: MaterialWeights | undefined;
+  /** 시작 도시 주거(처음 기간에 찰 인구 — 배후지 반경, 머리 주석 5). 없으면 설정 칸 startHousing */
+  readonly housing?: number | undefined;
+  /** 시작 기술 단계(배후지 반경). 없으면 1 */
+  readonly tech?: number | undefined;
 }
 
 /** 국가 시작 값(국력 등급) → 자리 고르기에 쓰는 등급 값. 등급이 없으면 undefined(옛 규칙) */
@@ -112,6 +120,8 @@ export function layoutTierOf(start: NationStart | undefined): LayoutTier | undef
     cityStepCells: start.cityStepCells,
     homeGapPm: start.homeGapPm,
     needs: weightsOfFacilities(start.facilities),
+    housing: start.housing,
+    tech: start.tech,
   };
 }
 
@@ -128,6 +138,8 @@ export interface LayoutObstacle {
   readonly spot: LayoutSpot;
   /** 그 도시의 지금 영향권 반경(1000분율 칸, D-104) */
   readonly radiusMilli: number;
+  /** 그 도시의 배후지 반경(1000분율 칸, 머리 주석 5). 없으면 기본 지방 도시 반경 */
+  readonly catchmentMilli?: number | undefined;
 }
 
 export interface LayoutInput {
@@ -174,6 +186,18 @@ export function catchmentRulesOf(seed: WorldSeedCoefficients): CatchmentRules {
     foreignGapPm: seed.catchmentForeignGapPm,
     searchCells: seed.catchmentSearchCells,
     compactPm: seed.catchmentCompactPm,
+  };
+}
+
+/** 국가 하나의 배후지 반경(1000분율 칸, 머리 주석 5): 지방 도시·수도 */
+export function nationCatchmentMilli(
+  seed: WorldSeedCoefficients,
+  tier: LayoutTier | undefined,
+): { readonly province: number; readonly capital: number } {
+  const city = { housing: tier?.housing ?? seed.startHousing, tech: tier?.tech ?? 1 };
+  return {
+    province: plannedCityRadiusMilli(seed, { ...city, capital: false }),
+    capital: plannedCityRadiusMilli(seed, { ...city, capital: true }),
   };
 }
 
@@ -301,6 +325,8 @@ function pickHomes(
     .filter((nation) => !fixed.has(nation.factionId) && nation.missing > 0)
     .toSorted((a, b) => rankOf(a) - rankOf(b));
   let anchor = [...fixed.values()][0];
+  const capitalMilli = (tier: LayoutTier | undefined): number =>
+    nationCatchmentMilli(input.seed, tier).capital;
   const quality = tiered ? landQuality(candidates, input.faceLevel) : undefined;
   const qualitySide = 2 * LAND_QUALITY_RINGS + 1;
   const qualityMax = qualitySide * qualitySide;
@@ -392,7 +418,10 @@ function pickHomes(
             ? 0.5 + (0.5 * (quality?.get(entry.key) ?? 0)) / qualityMax
             : 1;
         // 배후지(머리 주석 4): 절반은 거리, 절반은 배후지 덮임
-        const cover = cache ? 0.5 + cache.cover(entry.key, nation.tier?.needs ?? DEFAULT_NEEDS) / 2000 : 1;
+        const cover = cache
+          ? 0.5 +
+            cache.cover(entry.key, nation.tier?.needs ?? DEFAULT_NEEDS, capitalMilli(nation.tier)) / 2000
+          : 1;
         const score = weight === 1 && cover === 1 ? ratio : ratio * weight * cover;
         if (best < 0 || score > bestScore) {
           best = index;
@@ -451,8 +480,23 @@ export function planWorldLayout(input: LayoutInput): LayoutResult {
   for (const obstacle of input.obstacles) addCity(obstacle.factionId, obstacle.spot, obstacle.radiusMilli);
   for (const nation of input.nations)
     for (const spot of nation.placed) addCity(nation.factionId, spot, input.newRadiusMilli);
-  // 배후지 간격을 볼 도시(피할 도시 + 제자리 시작 도시 + 이번에 고른 도시 — pickCitySites가 더한다)
-  const spaced = cities.map((city) => ({ factionId: city.faction, point: city.point }));
+  // 배후지 간격을 볼 도시(피할 도시 + 제자리 시작 도시 + 이번에 고른 도시 — pickCitySites가 더한다). 반경은 머리 주석 5
+  const defaultMilli = nationCatchmentMilli(input.seed, undefined).province;
+  const spaced = [
+    ...input.obstacles.map((obstacle) => ({
+      factionId: obstacle.factionId,
+      point: spotPoint(obstacle.spot),
+      radiusMilli: obstacle.catchmentMilli ?? defaultMilli,
+    })),
+    ...input.nations.flatMap((nation) => {
+      const radius = nationCatchmentMilli(input.seed, nation.tier);
+      return nation.placed.map((spot, index) => ({
+        factionId: nation.factionId,
+        point: spotPoint(spot),
+        radiusMilli: index === 0 ? radius.capital : radius.province,
+      }));
+    }),
+  ];
   const offsets = ringOffsets(CITY_SEARCH_RINGS);
   const baseStride = Math.max(1, Math.trunc(input.seed.layoutCityStepCells));
   const spots: { factionId: number; spot: LayoutSpot }[] = [];
@@ -476,8 +520,11 @@ export function planWorldLayout(input: LayoutInput): LayoutResult {
         : undefined;
     };
     if (cache) {
-      // 배후지 배치(머리 주석 4): 간격을 지키며 배후지 덮임이 높은 칸부터
+      // 배후지 배치(머리 주석 4·5): 간격을 지키며 배후지 덮임이 높은 칸부터, 반경은 국가 크기
+      const radius = nationCatchmentMilli(input.seed, nation.tier);
       const picked = pickCitySites({
+        radiusMilli: radius.province,
+        capitalRadiusMilli: radius.capital,
         faceLevel: input.faceLevel,
         factionId: nation.factionId,
         home,

@@ -1,7 +1,13 @@
 // 세계 씨앗(고정 NPC 국가의 시작 도시 수·기본 시설 수) — 기획 D-6041(세력마다 시작 도시 여러 곳, 60 §7.1 "2~4곳")·46 §9.2(고정 국가)·
 // 90 §2.1(기본 NPC 국가·시작 도시 배치), docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗"·"WP5 나라 성격". 수치는 모두 [임시](D-515: 밸런싱
 // 단계에서 정한다). 시뮬은 읽지 않는다(서버가 켤 때 시험 세계를 차릴 때만 읽는다: apps/server/src/npc/nations.ts·facilities/npcSeed.ts·
-// world/worldLayout.ts — 국가 자리, docs/adr/2026-11-07-world-layout.md).
+// world/worldLayout.ts — 국가 자리, docs/adr/2026-11-07-world-layout.md). 배후지 칸(catchment*)은 시뮬 도시 경제도 읽는다(채집 다툼,
+// docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)").
+import {
+  type CatchmentGrowthRules,
+  type CatchmentSupplyRules,
+  catchmentRadiusMilli,
+} from "@terra/shared/catchment";
 
 export interface WorldSeedCoefficients {
   /**
@@ -205,4 +211,47 @@ export function startCitiesFor(seed: WorldSeedCoefficients, personality?: number
   const high = clamp(Math.max(seed.startCitiesMin, seed.startCitiesMax));
   if (personality === undefined || !Number.isFinite(personality)) return low;
   return Math.max(low, Math.min(high, Math.trunc(personality)));
+}
+
+/** 세계 씨앗 설정 칸 → 도시 크기에 따른 요구 배후지 규칙(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)") */
+export function catchmentGrowthOf(seed: WorldSeedCoefficients): CatchmentGrowthRules {
+  return {
+    cellsPerHundred: seed.catchmentCellsPerHundred,
+    gradeNeedBasePm: seed.catchmentGradeNeedBasePm,
+    gradeNeedStepPm: seed.catchmentGradeNeedStepPm,
+    techNeedPm: seed.catchmentTechNeedPm,
+    minRadiusMilli: seed.catchmentMinRadiusMilli,
+    maxRadiusMilli: seed.catchmentMaxRadiusMilli,
+  };
+}
+
+/** 세계 씨앗 설정 칸 → 칸 재고·다시 자람·캐려는 양 규칙 */
+export function catchmentSupplyOf(seed: WorldSeedCoefficients): CatchmentSupplyRules {
+  return {
+    stockPerCell: seed.catchmentStockPerCell,
+    regrowPm: seed.catchmentRegrowPm,
+    regrowFloor: seed.catchmentRegrowFloor,
+    drawPm: seed.catchmentDrawPm,
+  };
+}
+
+/**
+ * 시작 도시 배치에 쓰는 반경(1000분율 칸): 처음 기간에 이를 크기 — 인구 = 주거(구인 목표까지 찬다), 등급 = catchmentPlanGrade. 수도는 인구 ×
+ * catchmentCapitalPm, 등급 + 1(더 크게 자랄 자리를 미리 잡는다). 그래서 시작 도시가 자라도 바로 부딪치지 않는다
+ */
+export function plannedCityRadiusMilli(
+  seed: WorldSeedCoefficients,
+  city: { readonly housing: number; readonly tech: number; readonly capital: boolean },
+): number {
+  const housing = Math.max(0, Math.trunc(city.housing));
+  return catchmentRadiusMilli(
+    {
+      population: city.capital
+        ? Math.floor((housing * Math.max(1000, seed.catchmentCapitalPm)) / 1000)
+        : housing,
+      grade: seed.catchmentPlanGrade + (city.capital ? 1 : 0),
+      tech: city.tech,
+    },
+    catchmentGrowthOf(seed),
+  );
 }

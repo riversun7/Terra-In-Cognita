@@ -422,10 +422,6 @@
 .wl-catch-legend li[data-catch-legend="contested"]::before {
   border-color: var(--color-danger);
 }
-.wl-catch-table-wrap {
-  overflow-x: auto;
-  min-width: 0;
-}
 .wl-catch-table tr[data-contested] td {
   color: var(--color-danger);
 }

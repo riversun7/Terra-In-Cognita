@@ -1,6 +1,6 @@
 # 도시 크기에 따라 넓어지는 배후지·크기 간격·채집 다툼과 고갈
 
-- 일시: 2026-11-12 02:41 ~ (KST)
+- 일시: 2026-11-12 02:41 ~ 04:10 (KST)
 - 작업 도구: Claude Code
 - 관련: 가지 `work/catchment-2`(통합 머리 `12f3cce9b1`에서), ADR `2026-11-11-city-catchment.md` "바뀜 (2026-11-12)"(상태 제안 그대로), 질문 `docs/questions/2026-11-12-catchment-2.md`(1056~1065), 앞 줄기 작업 기록 `11-2250-city-spacing.md`
 
@@ -65,8 +65,12 @@ S2 시험 행성 F9, 팩 국가 프리셋 16개 국력 등급, 도시 49(못 세
 - 이 줄기를 NAS에 들이고 세계를 새로 시작하지 않으면 옛 바둑판 도시 대부분이 성장을 멈춘다(측정 옛 배치 47/49).
 - 광석: 낮은 땅 도시는 광산을 짓지 않는다(질문 1064 = 1020).
 
-## 검사
-- (끝 검사 결과는 아래에 적는다)
+## 검사(Verified: 실행)
+- 단위: shared `catchment`·`catchmentGrowth` 13, sim 전체 93파일 741 + `catchmentRun` 7, 서버 `citySites` 11·`worldLayout`·`worldLayoutTiers`, 게임 `editor/worldLayout` 7 — 통과.
+- DB: `worldLayout.db`·`nationPlacement.db`·`nationTiers.db`·tRPC `worldLayout` 11 통과.
+- 끝 검사 `pnpm check`(TEST_DATABASE_URL): 첫 번 — oxlint 경고 1(측정 스크립트 `values` 이름 가림) → 고침. 두 번째 — 626파일 4,835개 통과.
+- 빌드 + `check-pwa` 통과, `check:bundle` 첫 화면 108,782B / 상한 131,416B, `check:docs origin/main` 통과.
+- 화면: `e2e/world-layout.spec.ts` 9개 통과(배후지 덮개 2개 고침, 1440 네온·390 라이트 사진). 첫 사진에서 도시 표 머리가 첫 줄을 가려(자체 감싸개 안 고정 머리) 공용 `.dev-table-wrap`으로 바꾼 뒤 배후지 시험 2개 다시 통과.
 
 ## 사용자 결정 대기
 - 질문 1056~1065. 특히 1065(NAS 세계 새로 시작 시점)·1061(재고 저장).

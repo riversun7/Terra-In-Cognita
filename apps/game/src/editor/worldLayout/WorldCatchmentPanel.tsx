@@ -146,7 +146,7 @@ export function WorldCatchmentPanel({ planetId, code, busy }: Props) {
               planCover: meanCover(ownPlan) ?? "-",
             })}
           </p>
-          <div className="wl-catch-table-wrap">
+          <div className="dev-table-wrap">
             <table className="dev-table wl-catch-table" data-catch-table="">
               <thead>
                 <tr>

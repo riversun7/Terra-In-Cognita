@@ -74,14 +74,17 @@
   min-height: 0;
   max-width: 60%;
 }
+/* 단추 여섯: 세 칸씩 두 줄(돌림판·걷기·밤 / 멀리·가까이·처음 각도) */
 .start-preview-controls {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-2);
 }
 .start-preview-controls > button {
-  flex: 1 1 auto;
+  min-width: 0;
   min-height: var(--tap-size);
+  padding-inline: var(--space-2);
+  overflow-wrap: anywhere;
 }
 .start-preview-controls > button[aria-pressed="true"] {
   border-color: var(--color-text);
@@ -89,8 +92,18 @@
   color: var(--color-on-primary);
 }
 .start-preview-icon {
-  flex: 0 0 var(--tap-size);
   font-weight: var(--font-weight-strong);
+}
+
+/* 탭 여섯은 가로로 넘기지 않고 줄을 바꾼다(좁은 폭에서 마지막 "색" 탭이 화면 밖으로 숨지 않게) */
+.start-looks .screen-tabs {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+.start-looks .screen-tab {
+  flex: 1 1 auto;
+  min-height: var(--tap-size);
+  padding-inline: var(--space-2);
 }
 
 /* ── 프리셋 갤러리 ──────────────────────────── */
@@ -99,7 +112,7 @@
 }
 .start-presets {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 4.75rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 4.25rem), 1fr));
   gap: var(--space-2);
 }
 .start-preset {

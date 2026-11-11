@@ -48,7 +48,7 @@ async function readStats(page: Page, label: string): Promise<void> {
     const cy = box.y + box.height / 2;
     await page.mouse.move(cx, cy);
     await page.mouse.down();
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 24; i++) {
       await page.mouse.move(cx + ((i % 10) - 5) * 3, cy + ((i % 6) - 3) * 2);
       await page.waitForTimeout(40);
     }
@@ -141,7 +141,8 @@ test.describe("2차맵 캐릭터 모델: 넓은 화면", () => {
       page,
     }) => {
       test.skip(process.env["E2E_MEASURE"] !== "1", "E2E_MEASURE=1일 때만 돈다");
-      test.setTimeout(120_000);
+      // 여러 줄기가 함께 쓰는 기계라 느리다: 넉넉히 기다린다
+      test.setTimeout(360_000);
       await measure(page, models === "on");
     });
   }

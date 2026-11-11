@@ -354,7 +354,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         // 세계 전투 시작 사양의 몸(입은 장비·버프, 사이보그 화면과 같은 셈 — docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")
         roster: rosterCatalog ? () => rosterCatalog : undefined,
         // 건물 짓기·노화·수리(docs/adr/2026-11-07-buildings-runtime.md): 실효 시설·아이템(건물·아이템 편집기 덮어쓰기가 바로 든다)
-        facilities: contentEditState ? { content: () => contentEditState.effective() } : undefined,
+        facilities: contentEditState
+          ? { content: () => contentEditState.effective(), gatherKinds: () => options.gatherObjects ?? [] }
+          : undefined,
         // NPC 도시 경제·거래소(docs/adr/2026-11-07-play-flow.md WP4): 경제 화면 목록 + 실효 아이템·시설·채집 확률표
         economy: serverEconomyCatalogAccessor(
           options.economyCatalog,

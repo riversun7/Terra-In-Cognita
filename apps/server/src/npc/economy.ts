@@ -110,6 +110,11 @@ export interface NpcEconomyInput {
   readonly presets?: readonly NationPreset[] | undefined;
   /** 그 도시에 선 시설(다 지은 것, 일하는 상태) */
   readonly facilitiesIn: (cityId: number) => readonly CityFacility[];
+  /**
+   * 그 도시의 숙소(생활 단계 시설, 다 지은 것) 건물 ID — 일꾼의 밤 쉼터(humanPlaces.ts, docs/adr/2026-11-11-city-building-layout.md).
+   * 없으면 일꾼도 도시 시청 칸 둘레에서 쉰다
+   */
+  readonly lodgingsIn?: ((cityId: number) => readonly number[]) | undefined;
 }
 
 /** 시설 하나의 지금 생산(화면용) */

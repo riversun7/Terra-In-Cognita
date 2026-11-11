@@ -5319,6 +5319,7 @@
   "station_summary_workers": "gathering {working} · blocked {blocked} · resting {resting}",
   "station_summary_workers_facility": "working {working} · blocked {blocked} · resting {resting}",
   "economy_stage_medical": "Medical",
+  "economy_stage_living": "Living",
   "injury_stage_0": "Normal",
   "injury_stage_1": "Light",
   "injury_stage_2": "Serious",

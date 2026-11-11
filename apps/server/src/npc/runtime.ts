@@ -803,6 +803,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
               workers: run.facility.workers,
             }))
         : undefined,
+      lodgingsOf: o.economy?.lodgingsIn,
     });
     people.sync();
     people.flush();

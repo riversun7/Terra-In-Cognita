@@ -38,5 +38,17 @@ export function npcEconomyInputOf(
       }
       return out;
     },
+    lodgingsIn(cityId) {
+      const catalog = facilities.catalog();
+      const out: number[] = [];
+      for (const record of facilities.service.facilities.values())
+        if (
+          record.cityId === cityId &&
+          record.level >= 1 &&
+          catalog.facility(record.facilityId)?.stage === "living"
+        )
+          out.push(record.buildingId);
+      return out.toSorted((a, b) => a - b);
+    },
   };
 }

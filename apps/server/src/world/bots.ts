@@ -111,6 +111,8 @@ export interface BotHome {
   readonly work?: TripArea | undefined;
   /** 일하는 때(그 2차맵 경도·설정 칸). 없으면 DEFAULT_WORK_SHIFT */
   readonly shift?: WorkShift | undefined;
+  /** 집 둘레 반경(칸). 없으면 HOME_RADIUS_CELLS(도시 시청 칸 둘레). 숙소가 집인 일꾼은 숙소 둘레(docs/adr/2026-11-11-city-building-layout.md) */
+  readonly homeRadius?: number | undefined;
 }
 
 /**
@@ -148,7 +150,7 @@ export function atWork(shift: WorkShift, unitId: number, nowMs: number): boolean
 function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
   return home.work && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs)
     ? home.work
-    : { x: home.x, y: home.y, radius: HOME_RADIUS_CELLS };
+    : { x: home.x, y: home.y, radius: home.homeRadius ?? HOME_RADIUS_CELLS };
 }
 
 /**

@@ -139,6 +139,62 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "지방 도시 자리: 배후지 지름마다 빼는 덮임(‰)",
     "Province city site: coverage taken off per catchment diameter (‰)",
   ),
+  // 도시 건물 배치(docs/adr/2026-11-11-city-building-layout.md): 49에 칸이 없어 city_layout_*·npc_seed_lodgings
+  k("npc_seed_lodgings", "lodgings", "NPC 시작 도시 기본 숙소 수", "NPC start city lodgings"),
+  k(
+    "city_layout_mode",
+    "cityLayoutMode",
+    "도시 건물 배치(1 = 전략 배치, 0 = 옛 배치)",
+    "City building layout (1 = strategic, 0 = old rings)",
+  ),
+  k(
+    "city_layout_plaza_cells",
+    "cityLayoutPlazaCells",
+    "행정 건물 둘레 광장(칸)",
+    "Plaza around the government hall (cells)",
+  ),
+  k(
+    "city_layout_inner_cells",
+    "cityLayoutInnerCells",
+    "가공·기타 건물 안쪽 고리 반경(칸)",
+    "Inner ring radius for other buildings (cells)",
+  ),
+  k(
+    "city_layout_gather_min_cells",
+    "cityLayoutGatherMinCells",
+    "채집소 띠 안쪽 끝(행정 건물에서 칸)",
+    "Gathering station belt, inner edge (cells from the hall)",
+  ),
+  k(
+    "city_layout_gather_max_cells",
+    "cityLayoutGatherMaxCells",
+    "채집소 띠 바깥 끝(행정 건물에서 칸)",
+    "Gathering station belt, outer edge (cells from the hall)",
+  ),
+  k(
+    "city_layout_gather_reach_cells",
+    "cityLayoutGatherReachCells",
+    "채집소 자리 점수: 원자재를 세는 반경(칸)",
+    "Station site score: raw-material count radius (cells)",
+  ),
+  k(
+    "city_layout_store_route_pm",
+    "cityLayoutStoreRoutePm",
+    "창고 자리: 행정 건물 → 채집소 길의 천분율",
+    "Warehouse site: per mille along hall → stations",
+  ),
+  k(
+    "city_layout_lodge_route_pm",
+    "cityLayoutLodgeRoutePm",
+    "숙소 자리: 행정 건물 → 채집소 길의 천분율",
+    "Lodging site: per mille along hall → stations",
+  ),
+  k(
+    "city_layout_jitter_cells",
+    "cityLayoutJitterCells",
+    "배치 흔들기(칸, 도시마다 다른 모양)",
+    "Layout jitter (cells, each city looks different)",
+  ),
   // 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 49에 칸이 없어 map_spawn_*를 앞머리로 쓴다
   k(
     "map_spawn_max_loaded",

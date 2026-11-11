@@ -8,6 +8,7 @@
 import type { SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
+import type { GatherKind } from "../gather/kinds.ts";
 import type { GatherSite } from "../labor/gatherWork.ts";
 import type { LaborService } from "../labor/service.ts";
 import { type CityCell, cityLocation } from "@terra/shared/goodsPlaces";
@@ -32,6 +33,8 @@ import type { LoadedFacilities } from "./state.ts";
 /** 월드 설정의 건물 칸(app.ts가 실효 콘텐츠 접근자를 넘긴다) */
 export interface FacilitiesConfig {
   readonly content: () => CatalogSource;
+  /** 원자재 오브젝트 종류(팩 gather_objects) — NPC 도시 전략 배치의 채집소 자리(docs/adr/2026-11-11-city-building-layout.md). 없으면 빈 목록 */
+  readonly gatherKinds?: (() => readonly GatherKind[]) | undefined;
 }
 
 const EMPTY_SOURCE: CatalogSource = { facilities: [], items: [] };
@@ -43,6 +46,8 @@ export interface WorldFacilities {
   /** 전투 결과의 건물 피해를 받는 곳(전투 결과 적용이 같은 동기 처리로 부른다) */
   readonly damage: BuildingDamageSink;
   readonly catalog: () => FacilityCatalog;
+  /** 원자재 오브젝트 종류(설정에 없으면 빈 목록) */
+  readonly gatherKinds: () => readonly GatherKind[];
   /** 세력·사회 계수표(설정 칸 실효 값) */
   readonly rules: () => SocietyCoefficients;
   /** 노동 계약을 잇는다(계약 서비스가 건물 서비스보다 늦게 만들어진다) */
@@ -173,6 +178,7 @@ export function createWorldFacilities(input: {
     attack,
     damage: buildingDamageSinkOf(service, input.territory),
     catalog,
+    gatherKinds: () => input.config?.gatherKinds?.() ?? [],
     rules: input.rules,
     attachLabor(next) {
       labor = next;

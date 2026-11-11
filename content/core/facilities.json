@@ -1047,6 +1047,56 @@
       "look": {
         "model": "hospital"
       }
+    },
+    {
+      "id": "lodging",
+      "name": {
+        "ko": "숙소",
+        "en": "Lodging"
+      },
+      "stage": "living",
+      "maxLevel": 3,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 10
+              },
+              {
+                "item": "stone",
+                "qty": 6
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 10
+              },
+              {
+                "item": "brick",
+                "qty": 6
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 2
+      },
+      "durability": 200,
+      "look": {
+        "model": "house",
+        "roof": "thatch"
+      }
     }
   ]
 }

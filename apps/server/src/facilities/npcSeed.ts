@@ -8,15 +8,28 @@
 // 않으면 농장(식량 사슬 — 굶음 먼저, 532). 행성 값을 모르면(지형 서비스 없는 시험·개발) 셋 다(WP1 그대로). 레벨은 1.
 // 1차 생산 여섯 가지(docs/adr/2026-11-11-production-six.md): 약초원·목장·낚시터도 같은 표(SEED_GATHER)에 있고 수 출발값은 0이다.
 // 물가 조건(팩 needsWaterWithin, 질문 947 나 — 낚시터)이 있는 시설은 둘레에 물이 있는 자리만 고른다(플레이어 짓기와 같은 waterOk).
+// 자리(docs/adr/2026-11-11-city-building-layout.md): 설정 칸 city_layout_mode = 1(출발값)이면 전략 배치(cityLayout.ts — 행정 건물 가운데,
+// 숙소·창고는 채집소 묶음으로 가는 길 위, 채집소는 맡는 원자재가 많은 바깥 띠), 0이면 옛 배치(가운데 마당 밖 고리마다 처음 맞는 자리).
+// 숙소(lodging, 생활 단계) 수 = 설정 칸 npc_seed_lodgings — 일꾼의 밤 쉼터(npc/humanPlaces.ts).
 // 멱등: 도시마다 그 세력이 가진 같은 시설 줄(도시 ID 같음) 수를 세어 모자란 것만 더한다(있는 것은 그대로 — 관리자가 지운 시설은 다음 켤 때
 // 다시 선다). 재료·작업·일꾼 없이 선다(세계를 차리는 일이라 원장을 거치지 않는다 — 확인 대기, docs/questions/2026-11-07-play-seed.md).
 import { MATERIAL_BIT, cellMaterials } from "@terra/shared/catchment";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { type CityCell, cityOfCell } from "@terra/shared/goodsPlaces";
-import type { WorldSeedCoefficients } from "@terra/sim";
+import { PLACEMENT_SIZE, type WorldSeedCoefficients } from "@terra/sim";
+import type { GatherKind } from "../gather/kinds.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityCatalog } from "./catalog.ts";
+import { type LayoutExisting, type LayoutItem, planCityLayout } from "./cityLayout.ts";
+import {
+  cityLayoutRulesOf,
+  cityLayoutSeed,
+  layoutGroundOf,
+  layoutItemOf,
+  layoutObjectsOf,
+  layoutRoleOf,
+} from "./cityLayoutGround.ts";
 import type { FacilityService } from "./service.ts";
 import type { FacilityRecord } from "./state.ts";
 import { waterOk } from "./water.ts";
@@ -92,8 +105,14 @@ export function seedPlan(seed: WorldSeedCoefficients, land?: SeedLand): SeedItem
   return [
     { facility: "government_hall", count: 1 },
     { facility: "storehouse", count: seed.storehouses },
+    { facility: "lodging", count: Math.max(0, Math.trunc(seed.lodgings)) },
     ...SEED_GATHER.map((kind) => ({ facility: kind.facility, count: kind.fits(fit) ? kind.count(seed) : 0 })),
   ];
+}
+
+/** 전략 배치를 쓰나(설정 칸 city_layout_mode — 칸이 없는 옛 계수표는 옛 배치) */
+export function strategicLayout(seed: WorldSeedCoefficients): boolean {
+  return Math.trunc(seed.cityLayoutMode) === 1;
 }
 
 /** 가운데 칸 둘레 고리 r(체비셰프 거리 r)의 칸들: 위 → 오른쪽 → 아래 → 왼쪽(r = 0이면 가운데 하나) */
@@ -136,6 +155,8 @@ export interface NpcSeedInput {
   readonly seedOfFaction?: ((factionId: number) => WorldSeedCoefficients | undefined) | undefined;
   /** 2차맵 키 → 둘레 땅(행성 값). 없거나 undefined면 채집 시설 셋 다 */
   readonly landOf?: ((mapKey: number) => SeedLand | undefined) | undefined;
+  /** 원자재 오브젝트 종류(팩 gather_objects). 전략 배치의 채집소 자리가 본다. 없으면 방향만 흩는다 */
+  readonly gatherKinds?: readonly GatherKind[] | undefined;
   readonly nowMs: number;
 }
 
@@ -169,8 +190,82 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
       if (record.cityId === city.id && map.buildingOwner(record.buildingId) === ownerId)
         have.set(record.facilityId, (have.get(record.facilityId) ?? 0) + 1);
 
+    const citySeed = input.seedOfFaction?.(city.factionId) ?? input.seed;
+    const items = plan.flatMap((item) => {
+      const need = Math.max(0, item.count - (have.get(item.facility) ?? 0));
+      return Array.from({ length: need }, () => item.facility);
+    });
+    if (items.length === 0) continue;
+    const save = (
+      facility: string,
+      spot: { x: number; y: number; width: number; height: number },
+    ): boolean => {
+      const def = catalog.facility(facility);
+      const result = def ? map.placeBuilding({ ...spot, rotation: 0 }, ownerId) : undefined;
+      if (!def || !result?.ok || result.buildingId === undefined) return false;
+      const record: FacilityRecord = {
+        buildingId: result.buildingId,
+        facilityId: def.id,
+        level: 1,
+        conditionPpm: CONDITION_FULL,
+        conditionAtMs: input.nowMs,
+        builtAtMs: input.nowMs,
+        builtBy: null,
+        cityId: city.id,
+      };
+      service.seedBuilt(record);
+      return true;
+    };
+    if (strategicLayout(citySeed)) {
+      const kinds = input.gatherKinds ?? [];
+      const layoutItems: LayoutItem[] = [];
+      for (const facility of items) {
+        const item = layoutItemOf(catalog, facility, kinds);
+        if (item) layoutItems.push(item);
+        else missing += 1;
+      }
+      const placements = new Map<number, { x: number; y: number; width: number; height: number }>();
+      map.forEachBuilding((building) => placements.set(building.id, building.placement));
+      const existing: LayoutExisting[] = [];
+      for (const record of service.facilities.values()) {
+        const at = placements.get(record.buildingId);
+        if (record.cityId !== city.id || !at || map.buildingOwner(record.buildingId) !== ownerId) continue;
+        const role = layoutRoleOf(catalog.facility(record.facilityId)?.stage);
+        existing.push({
+          facility: record.facilityId,
+          role,
+          x: at.x,
+          y: at.y,
+          width: at.width,
+          height: at.height,
+        });
+      }
+      const ground = layoutGroundOf({
+        map,
+        catalog,
+        anchors,
+        cityId: city.id,
+        objects: layoutObjectsOf(map, kinds, input.landOf?.(city.mapKey), citySeed),
+      });
+      const layout = planCityLayout({
+        center: { x: city.cellX, y: city.cellY },
+        items: layoutItems,
+        existing,
+        ground,
+        rules: cityLayoutRulesOf(citySeed),
+        seed: cityLayoutSeed(city.mapKey, city.id),
+        size: PLACEMENT_SIZE,
+      });
+      missing += layout.missing.length;
+      for (const building of layout.placed) {
+        if (save(building.facility, building)) placed += 1;
+        else missing += 1;
+      }
+      continue;
+    }
+
     /**
-     * 그 크기 건물을 놓을 첫 자리(가까운 고리부터): 마당 밖, 둘레 길까지 놓을 수 있고, 건물 가운데가 이 도시 자리. fits가 있으면 그 자리도
+     * 옛 배치: 그 크기 건물을 놓을 첫 자리(가까운 고리부터): 마당 밖, 둘레 길까지 놓을 수 있고, 건물 가운데가 이 도시 자리. fits가 있으면 그 자리도
      * 채워야 한다(물가 조건 — 플레이어 짓기와 같은 waterOk, 질문 947 나)
      */
     const spotFor = (
@@ -197,35 +292,16 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
       return undefined;
     };
 
-    for (const item of plan) {
-      const def = catalog.facility(item.facility);
-      const need = Math.max(0, item.count - (have.get(item.facility) ?? 0));
-      if (need === 0) continue;
+    for (const facility of items) {
+      const def = catalog.facility(facility);
       if (!def?.footprint) {
-        missing += need;
+        missing += 1;
         continue;
       }
       const { width, height } = def.footprint;
-      for (let k = 0; k < need; k++) {
-        const spot = spotFor(width, height, (x, y) => waterOk(map, def, x, y, 0));
-        const result = spot ? map.placeBuilding({ ...spot, width, height, rotation: 0 }, ownerId) : undefined;
-        if (!result?.ok || result.buildingId === undefined) {
-          missing += need - k;
-          break;
-        }
-        const record: FacilityRecord = {
-          buildingId: result.buildingId,
-          facilityId: def.id,
-          level: 1,
-          conditionPpm: CONDITION_FULL,
-          conditionAtMs: input.nowMs,
-          builtAtMs: input.nowMs,
-          builtBy: null,
-          cityId: city.id,
-        };
-        service.seedBuilt(record);
-        placed += 1;
-      }
+      const spot = spotFor(width, height, (x, y) => waterOk(map, def, x, y, 0));
+      if (spot && save(facility, { ...spot, width, height })) placed += 1;
+      else missing += 1;
     }
   }
   return { placed, missing };
@@ -241,7 +317,12 @@ export function seedNpcFacilitiesAtBoot(options: {
   readonly cities: readonly CityRow[];
   readonly planetId: string;
   readonly owners: ReadonlyMap<number, { readonly id: number; readonly factionId: number | null }>;
-  readonly facilities: { readonly service: NpcSeedInput["service"]; readonly catalog: () => FacilityCatalog };
+  readonly facilities: {
+    readonly service: NpcSeedInput["service"];
+    readonly catalog: () => FacilityCatalog;
+    /** 원자재 오브젝트 종류(전략 배치의 채집소 자리). 없으면 방향만 흩는다 */
+    readonly gatherKinds?: (() => readonly GatherKind[]) | undefined;
+  };
   readonly rules: () => { readonly worldSeed: WorldSeedCoefficients };
   /** 세력 행 ID → 그 국가의 씨앗 값(없으면 설정 칸 값) */
   readonly seedOfFaction?: NpcSeedInput["seedOfFaction"];
@@ -263,6 +344,7 @@ export function seedNpcFacilitiesAtBoot(options: {
     seed: options.rules().worldSeed,
     seedOfFaction: options.seedOfFaction,
     landOf: (mapKey) => options.terrain?.cellValues?.(mapKey),
+    gatherKinds: options.facilities.gatherKinds?.(),
     nowMs: options.nowMs,
   });
   if (result.placed > 0 || result.missing > 0)

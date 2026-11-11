@@ -133,6 +133,7 @@ const STAGE_NAMES: Readonly<Record<string, () => string>> = {
   biotech: m.economy_stage_biotech,
   government: m.economy_stage_government,
   medical: m.economy_stage_medical,
+  living: m.economy_stage_living,
 };
 
 export function stageName(stage: string): string {

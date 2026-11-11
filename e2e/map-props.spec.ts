@@ -12,7 +12,16 @@ import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 const body = (page: Page) => page.locator(".sml-body");
 
 /** 2차맵 시험 화면 요약(1초마다 붙는다) */
-async function labStats(page: Page): Promise<Record<string, number>> {
+interface LabStats {
+  readonly props: number;
+  readonly clutter: number;
+  readonly drawCalls: number;
+  readonly triangles: number;
+  readonly renderP95Ms: number;
+  readonly viewSpanM: number;
+}
+
+async function labStats(page: Page): Promise<LabStats> {
   const read = async (name: string): Promise<number> => Number(await body(page).getAttribute(name));
   return {
     props: await read("data-props"),

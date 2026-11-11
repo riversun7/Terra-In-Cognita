@@ -1,5 +1,6 @@
 // 첫 접속 3단계 — 초기 스탯: 성향 고르기 → [굴리기](서버) → 여섯 스탯·합 → [다시 굴리기(남은 n번)]
-// (D-6039·D-445 168·169: 성향 넷, 처음 1번 + 다시 굴리기 3번, 성향을 바꿔 굴려도 한 번, 늘 마지막 값). 굴림은 서버가 하고 센다.
+// (D-6039·D-445 168·169: 성향 넷, 처음 1번 + 다시 굴리기 N번(설정 칸 N9 — 팩 값 5, 사용자 요청 2026-11-11), 성향을 바꿔 굴려도 한 번,
+// 늘 마지막 값). 굴림은 서버가 하고 센다. 운영진(gm·admin·dev)은 횟수 제한이 없다(서버가 판정, 화면은 rules.rollsUnlimited로 "제한 없음").
 // 여섯 스탯은 두 칸씩 묶어 스탯 색으로 보인다(STR·VIT, INT·WIS, DEX·AGI — 질문 181 가, roster/StatPairs.tsx).
 import type { CyborgCreationResponse, CyborgRollView, CyborgStats } from "@terra/shared/cyborg";
 import { PRIMARY_STATS, type PrimaryStat } from "@terra/shared/roster";
@@ -37,8 +38,9 @@ export function StatsStep({
 }) {
   const id = useId();
   const [rolling, setRolling] = useState(false);
+  const unlimited = data.rules.rollsUnlimited === true;
   const left = roll ? roll.rollsLeft : data.rules.rollsMax;
-  const exhausted = roll !== null && roll.rollsLeft <= 0;
+  const exhausted = !unlimited && roll !== null && roll.rollsLeft <= 0;
   const sum = roll ? PRIMARY_STATS.reduce((total, stat) => total + roll.stats[stat], 0) : 0;
 
   const press = async (): Promise<void> => {
@@ -96,12 +98,18 @@ export function StatsStep({
             ? m.start_stats_rolling()
             : roll === null
               ? m.start_stats_roll()
-              : m.start_stats_reroll({ left: formatNumber(left) })}
+              : unlimited
+                ? m.start_stats_reroll_unlimited()
+                : m.start_stats_reroll({ left: formatNumber(left) })}
         </button>
         <p className="start-hint">{m.start_stats_note()}</p>
       </div>
       {roll ? (
-        <div className="start-roll-result" data-rolls-left={roll.rollsLeft} aria-live="polite">
+        <div
+          className="start-roll-result"
+          data-rolls-left={unlimited ? "unlimited" : roll.rollsLeft}
+          aria-live="polite"
+        >
           {roll.temperament !== temperament && !exhausted ? (
             <p className="start-hint">
               {m.start_stats_other_temperament({ name: temperamentText(roll.temperament) })}

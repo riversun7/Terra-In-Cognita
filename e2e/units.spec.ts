@@ -153,7 +153,7 @@ test.describe("dev + 시안 자료", () => {
     // 단추는 가장 가까운 환생 시설로 가는 길(곧 열림). 신앙도는 시안 값
     const rebirth = page.locator(".cyborg-rebirth");
     // 분포는 생성 때처럼 성향을 골라 다시 굴린다(D-444 164): 다시 굴리기 횟수 = N9 3번
-    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_changes_body", { rerolls: 3 }));
+    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_changes_body", { rerolls: 5 }));
     // 비용 양은 팩 설정값(N7 만렙 50, N34 신앙도 50·화폐 10,000)
     await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_level_value", { max: 50, level: 23 }));
     await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_faith_value", { need: 50, value: 62 }));

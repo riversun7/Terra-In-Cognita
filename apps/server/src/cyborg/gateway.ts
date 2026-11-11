@@ -5,12 +5,14 @@
 // - 속성 분배(프로토콜 5, D-450): 5판 연결의 만들기는 분배(elements)를 꼭 보낸다(없으면 elements_invalid). 4판 연결의 만들기는
 //   분배 없이 서비스에 넘긴다 → "분배 기다림"으로 만들고 새 앱이 cyborg_elements로 한 번 나눈다.
 // - 3D 외형 한 번 고르기(프로토콜 22, 질문 961 나): cyborg_look을 서비스에 넘긴다(판 확인은 session.ts).
+// - 운영진은 다시 굴리기 횟수 제한이 없다(사용자 요청 2026-11-11): 로그인 사용자의 역할로 정해 서비스에 넘긴다.
 import {
   CYBORG_ELEMENTS_PROTOCOL_VERSION,
   type ClientMessageOf,
   type CyborgResultCode,
   encodeMessage,
 } from "@terra/protocol";
+import { hasStaffRole } from "@terra/shared";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { CyborgCommandResult, CyborgService } from "./service.ts";
@@ -67,10 +69,13 @@ export function createCyborgGateway(options: {
 
       const run = (
         service: CyborgService,
-        userId: string,
+        viewer: Viewer,
         message: CyborgClientMessage,
       ): Promise<CyborgCommandResult> => {
-        if (message.t === "cyborg_roll") return service.roll(userId, message.temperament);
+        const userId = viewer.id;
+        // 운영진(gm·admin·dev)은 다시 굴리기 횟수 제한이 없다(2026-11-11, 서버가 판정)
+        if (message.t === "cyborg_roll")
+          return service.roll(userId, message.temperament, { unlimited: hasStaffRole(viewer.roles) });
         if (message.t === "cyborg_elements") return service.allocateElements(userId, message.elements);
         if (message.t === "cyborg_look") return service.chooseLook(userId, message.look);
         if (message.elements === undefined && link.protocolVersion >= CYBORG_ELEMENTS_PROTOCOL_VERSION)
@@ -92,7 +97,7 @@ export function createCyborgGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
-        reply(message.id, await run(service, viewer.id, message));
+        reply(message.id, await run(service, viewer, message));
       };
 
       return {

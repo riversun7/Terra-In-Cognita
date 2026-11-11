@@ -23,7 +23,7 @@ import {
   EMBLEM_SCHEME_COUNT,
   EMBLEM_SHAPES,
 } from "@terra/shared/nationEmblem";
-import { NATION_SEED_LIMITS } from "@terra/shared/nationEditor";
+import { NATION_LIST_LIMITS, NATION_SEED_LIMITS } from "@terra/shared/nationEditor";
 import { NATION_TIER_LIMITS, POWER_TIERS } from "@terra/shared/nationTier";
 import { z } from "zod";
 import { EQUIP_SLOT_KINDS, PRIMARY_STAT_CODES } from "./combat.ts";
@@ -489,6 +489,20 @@ export const nationPresetEntrySchema = z.strictObject({
    * 이름은 가상 이름 [임시](D-076, docs/adr/2026-11-10-nation-editor.md 3절).
    */
   leaderName: localizedText.optional(),
+  /**
+   * 한 줄 소개(첫 접속 나라 고르기 카드 — 사용자 요청 2026-11-11 "간단소개", docs/adr/2026-11-01-first-login-cyborg.md "바뀜 (2026-11-11)").
+   * 가상 나라의 분위기 글 [임시](실제 나라 이름·실존 인물 금지). 게임 규칙은 읽지 않는다. 없으면 카드에 소개 줄이 없다
+   */
+  intro: localizedText
+    .refine(
+      (text) =>
+        text.ko.length <= NATION_LIST_LIMITS.introLength && text.en.length <= NATION_LIST_LIMITS.introLength,
+      {
+        error: `소개는 언어마다 ${NATION_LIST_LIMITS.introLength}자까지 적으세요.`,
+        params: { rule: "nation_intro_length" },
+      },
+    )
+    .optional(),
   /**
    * NPC 휴먼 이름(기획 답 773 나 — 이름 규칙 + 목록 콘텐츠, D-5045·D-398, docs/adr/2026-11-07-play-flow.md "WP-NPC4"). 이름 규칙 [임시] =
    * "이름 성"(성 목록이 없으면 이름만): 서버가 유닛 ID로 이름·성을 하나씩 결정적으로 고른다(그 휴먼이 사는 나라의 목록 — 반란·종주·태어날 때

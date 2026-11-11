@@ -27,8 +27,8 @@ function fakeService(calls: string[]): CyborgService {
       throw new Error("not used");
     },
     nameCheck: () => ({ ok: true, display: "x" }),
-    roll: (userId, temperament) => {
-      calls.push(`roll:${userId}:${temperament}`);
+    roll: (userId, temperament, options) => {
+      calls.push(`roll:${userId}:${temperament}${options?.unlimited ? ":unlimited" : ""}`);
       return ok({ ok: true, roll });
     },
     create: (userId, input) => {
@@ -146,6 +146,23 @@ describe("사이보그 연결 처리", () => {
     for (let i = 0; i < 4; i++) await settle();
     expect(calls).toEqual(["look:user-1:object"]);
     expect(sent).toEqual([{ t: "cyborg_result", id: 9, ok: false, code: "look_locked" }]);
+  });
+
+  it("운영진(gm·admin·dev)의 굴리기는 횟수 제한 없음으로 넘긴다(2026-11-11), 플레이어는 그대로", async () => {
+    const calls: string[] = [];
+    const roleSets: Viewer["roles"][] = [["player"], ["gm"], ["dev"], ["admin", "player"]];
+    for (const [index, roles] of roleSets.entries()) {
+      const who: Viewer = { id: `user-${index}`, loginId: `tester${index}`, roles };
+      const { socket } = open(fakeService(calls), who);
+      socket.handle({ t: "cyborg_roll", id: 1, temperament: "tech" });
+      for (let i = 0; i < 3; i++) await settle();
+    }
+    expect(calls).toEqual([
+      "roll:user-0:tech",
+      "roll:user-1:tech:unlimited",
+      "roll:user-2:tech:unlimited",
+      "roll:user-3:tech:unlimited",
+    ]);
   });
 
   it("프로토콜의 속성 코드는 공용 목록과 같은 차례다", () => {

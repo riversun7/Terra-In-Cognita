@@ -169,13 +169,13 @@ test.describe("첫 접속: 새 플레이어", () => {
     await next(page);
     await expectStep(page, "stats");
 
-    // 3. 초기 스탯: 굴리기 전에는 다음이 잠겨 있다. 굴림 4번(처음 1 + 다시 3), 합 60
+    // 3. 초기 스탯: 굴리기 전에는 다음이 잠겨 있다. 굴림 6번(처음 1 + 다시 5 — 팩 N9 값, 사용자 요청 2026-11-11), 합 60
     await expect(page.locator(".start-nav .button-primary")).toBeDisabled();
     await page.locator(".start-choice[data-temperament='combat'] input").check();
     const roll = page.locator(".start-roll-button");
     await roll.click();
     const result = page.locator(".start-roll-result");
-    await expect(result).toHaveAttribute("data-rolls-left", "3", { timeout: 15_000 });
+    await expect(result).toHaveAttribute("data-rolls-left", "5", { timeout: 15_000 });
     const sum = async (): Promise<number> => {
       const values = await page.locator(".start-roll-result .stat-value").allTextContents();
       return values.reduce((total, value) => total + Number(value), 0);
@@ -190,18 +190,30 @@ test.describe("첫 접속: 새 플레이어", () => {
     ).toEqual(["str", "vit", "int", "wis", "dex", "agi"]);
     await page.locator(".start-choice[data-temperament='tech'] input").check();
     await roll.click();
-    await expect(result).toHaveAttribute("data-rolls-left", "2", { timeout: 15_000 });
+    await expect(result).toHaveAttribute("data-rolls-left", "4", { timeout: 15_000 });
+    await expect(roll).toContainText("4");
     expect(await sum()).toBe(60);
     await next(page);
     await expectStep(page, "elements");
 
     // 4. 속성(D-450, N36): 10점을 다 나눠야 다음이 열린다. 한 칸에 모두 → 둘로 나눔 → 세 번째 칸은 못 고른다
+    // 바뀜(2026-11-11): 다 쓴 뒤 다른 속성 [+]는 가장 많은 속성에서 1점을 옮겨 온다(불 10 → 불 9·물 1), 세 번째 속성은 막힌다
     const nextButton = page.locator(".start-nav .button-primary");
+    const valueOf = (element: string) =>
+      page.locator(`.start-element[data-element='${element}'] .start-element-value`);
     await expect(nextButton).toBeDisabled();
     await elementButton(page, "fire", "all").click();
-    await expect(page.locator(".start-element[data-element='fire'] .start-element-value")).toHaveText("10");
+    await expect(valueOf("fire")).toHaveText("10");
     await expect(nextButton).toBeEnabled();
-    await expect(elementButton(page, "water", "more")).toBeDisabled();
+    await elementButton(page, "water", "more").click();
+    await expect(valueOf("fire")).toHaveText("9");
+    await expect(valueOf("water")).toHaveText("1");
+    await expect(nextButton).toBeEnabled();
+    await expect(elementButton(page, "earth", "more")).toBeDisabled();
+    await expect(page.locator(".start-elements .start-hint[data-hint='move']")).toBeVisible();
+    await elementButton(page, "water", "less").click();
+    await elementButton(page, "fire", "more").click();
+    await expect(valueOf("fire")).toHaveText("10");
     for (let i = 0; i < 3; i++) await elementButton(page, "fire", "less").click();
     await expect(nextButton).toBeDisabled();
     for (let i = 0; i < 3; i++) await elementButton(page, "wind", "more").click();
@@ -210,16 +222,37 @@ test.describe("첫 접속: 새 플레이어", () => {
     await expect(elementButton(page, "earth", "more")).toBeDisabled();
     await elementButton(page, "fire", "more").click();
     await expect(nextButton).toBeEnabled();
+    // 다 쓴 뒤 고른 두 칸끼리 옮긴다: 바람 + → 불 6·바람 4, 불 + → 불 7·바람 3
+    await elementButton(page, "wind", "more").click();
+    await expect(valueOf("wind")).toHaveText("4");
+    await elementButton(page, "fire", "more").click();
+    await expect(valueOf("fire")).toHaveText("7");
     await next(page);
     await expectStep(page, "faction");
 
     // 5·6. 세력(추천)·시작 도시(기본 선택 = 가장 덜 붐빔)
-    // 시험 국가가 넷이다(docs/adr/2026-11-01-npc-brain-r5.md 7절, 질문 203 가): 기본 선택 = 추천(가장 덜 붐빈) 세력
-    const recommended = page.locator(".start-choice[data-faction]:has(.start-badge)").first();
+    // 기본 선택 = 첫 추천 나라. 추천은 열린 나라가 3곳 넘으면 3곳, 아니면 1곳(2026-11-11 — 모든 카드 "추천"이 아니다)
+    const nations = page.locator(".start-choice[data-faction]");
+    const total = await nations.count();
+    const recommendedCards = page.locator(".start-choice[data-faction][data-recommended='true']");
+    await expect(recommendedCards).toHaveCount(total > 3 ? 3 : Math.min(1, total));
+    const recommended = recommendedCards.first();
     await expect(recommended.locator("input")).toBeChecked();
-    await expect(recommended.locator(".start-badge")).toBeVisible();
-    // 정착 지원금(D-455 190, N39 출발값 72 × 가장 덜 붐빈 세력 배율 1500‰)
-    await expect(recommended.locator(".start-faction-grant")).toHaveAttribute("data-grant", "108");
+    await expect(recommended.locator(".start-badge[data-badge='recommended']")).toBeVisible();
+    // 정착 지원금(D-455 190, N39): 서버가 정한 양
+    expect(
+      Number(await recommended.locator(".start-faction-grant").getAttribute("data-grant")),
+    ).toBeGreaterThan(0);
+    // 자세한 정보(2026-11-11 "인구수, 정책, 간단소개"): 카드마다 국력 등급·인구·도시·소개, 고른 카드만 지도자·체제·거래세·화폐·기술을 펼친다
+    await expect(recommended.locator(".start-nation-tier")).toBeVisible();
+    await expect(recommended.locator("[data-part='size']")).toContainText("인구");
+    await expect(recommended.locator(".start-nation-intro")).toContainText("[임시]");
+    await expect(recommended.locator(".start-nation-fact")).toHaveCount(6);
+    await expect(
+      recommended.locator(".start-nation-fact[data-fact='tax'] .start-nation-fact-value"),
+    ).toContainText("%");
+    await expect(page.locator(".start-nation-facts")).toHaveCount(1);
+    expect(await horizontalOverflow(page)).toEqual([]);
     await next(page);
     await expectStep(page, "city");
     await expect(page.locator(".start-choice[data-city] input").first()).toBeChecked();
@@ -397,6 +430,10 @@ test.describe("첫 접속 사진", () => {
         await shot(page, `first-login-4-elements-${width}-${theme}-${language}`, { fullPage: true });
         await next(page);
         await expectStep(page, "faction");
+        // 나라 카드(2026-11-11): 390에서도 가로로 넘치지 않고 고른 카드가 펼쳐진다
+        await expect(page.locator(".start-nation-facts")).toHaveCount(1);
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `first-login-5-faction-${width}-${theme}-${language}`, { fullPage: true });
         await next(page);
         await expectStep(page, "city");

@@ -50,6 +50,7 @@ export {
   CROWDING_BANDS,
   type CreationCity,
   type CreationFaction,
+  type CreationNationProfile,
   type CrowdingBand,
   type CyborgCreationResponse,
   type CyborgNameCheckResponse,

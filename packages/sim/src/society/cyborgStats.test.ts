@@ -17,7 +17,7 @@ describe("사이보그 초기 스탯 굴림(생성·환생 공용, D-6039·D-444
       ["tech", ["dex", "agi"]],
       ["trade", ["int", "wis"]],
     ]);
-    expect(c.cyborg.initialRerolls).toBe(3);
+    expect(c.cyborg.initialRerolls).toBe(5);
   });
 
   it("가운데 굴림이면 성향 평균(D-445 168: 성향 칸 14, 나머지 8)을 합 60 정수로 맞춘다", () => {
@@ -135,9 +135,11 @@ describe("사이보그 초기 스탯 굴림(생성·환생 공용, D-6039·D-444
   it("다시 굴리기는 처음 1번 + N9 횟수(생성과 환생이 같은 설정값), 성향을 바꿔 굴려도 1번, 다 쓰면 마지막 값(D-445 169)", () => {
     const rng = createRng(9);
     let rolls = firstStatRoll("combat", rng, c);
-    expect(rolls.rerollsLeft).toBe(3);
+    expect(rolls.rerollsLeft).toBe(5);
     expect(rolls.temperament).toBe("combat");
     for (const [left, temperament] of [
+      [4, "balanced"],
+      [3, "combat"],
       [2, "tech"],
       [1, "tech"],
       [0, "trade"],

@@ -504,7 +504,8 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
       { id: "tech", favored: ["dex", "agi"] },
       { id: "trade", favored: ["int", "wis"] },
     ],
-    initialRerolls: 3,
+    // 기획 49 N9 "3번" → 사용자 요청 2026-11-11 5번(팩 값과 같게 — 팩 = TEST 계수표, 질문 1011)
+    initialRerolls: 5,
     initialFavorMilli: 4000,
     initialSpreadMilli: 3000,
     startCrowdNormal: 20,

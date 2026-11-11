@@ -25,9 +25,8 @@ import { useMountFocus } from "../ui/useMountFocus.ts";
 import { loadWorldCities } from "../map/worldMapData.ts";
 import { markCyborgCreated, refreshCyborgGate } from "./cyborgGate.ts";
 import { sendCyborgCommand } from "./cyborgCommands.ts";
+import { EMPTY_ELEMENT_DRAFT, type ElementDraft } from "./elementDraft.ts";
 import {
-  EMPTY_ELEMENT_DRAFT,
-  type ElementDraft,
   ElementsOnly,
   ElementsStep,
   ElementsSummaryRow,

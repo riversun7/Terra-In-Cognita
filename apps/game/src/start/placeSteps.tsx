@@ -1,10 +1,11 @@
-// 첫 접속 4~6단계 — 세력(추천 지역 D-218, 지원금 금액은 공식이 오면 D-445 174), 시작 도시(붐빔·기본 = 가장 덜 붐빔 D-6041,
+// 첫 접속 4~6단계 — 세력(추천 지역 D-218 → 2026-11-11 추천 3곳·자세한 정보, 지원금 금액은 공식이 오면 D-445 174), 시작 도시(붐빔·기본 = 가장 덜 붐빔 D-6041,
 // 주변 자원·기후 D-445 175), 강하(요약 + [강하], 짧은 연출 D-445 179).
 // 시작 도시는 1차맵 작은 보기(StartCityMap, 지연 조각)에서 눌러 고르고, 목록은 접근성 대안으로 그대로 둔다. 둘레 땅·기후·1차맵 자리는
 // tRPC world.cities(docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름"). 그 조회가 없으면(실패) 지도·땅 없이 목록만.
 import type {
   CreationCity,
   CreationFaction,
+  CreationNationProfile,
   CyborgAppearance,
   CyborgCreationResponse,
   CyborgRollView,
@@ -19,7 +20,8 @@ import { formatNumber, primaryCode, primaryLabel } from "../roster/rosterText.ts
 import "../roster/statPairs.css";
 import { LandFacts } from "../map/LandFacts.tsx";
 import { landText } from "../map/landText.ts";
-import { crowdingText, temperamentText } from "./startText.ts";
+import { NationEmblem } from "../ui/NationEmblem.tsx";
+import { crowdingText, regimeText, temperamentText, tierText } from "./startText.ts";
 
 // 1차맵 작은 보기: 엔진·three.js는 이 조각에만(첫 접속 조각을 가볍게)
 const StartCityMap = lazy(() => import("./StartCityMap.tsx"));
@@ -29,6 +31,15 @@ const localName = (name: { ko: string; en: string }): string => (getLocale() ===
 const startCityName = (city: { readonly name: string | null; readonly number: number }): string =>
   city.name ?? m.start_city_name({ number: formatNumber(city.number) });
 
+/** 거래세(만분율) → "2%" */
+const taxText = (taxBp: number): string =>
+  new Intl.NumberFormat(getLocale(), { style: "percent", maximumFractionDigits: 2 }).format(taxBp / 10_000);
+
+/**
+ * 나라 고르기(2026-11-11 사용자 요청 "더 자세한 정보(인구수, 정책, 간단소개 등)"): 카드마다 마크·이름·국력 등급·추천, 인구·도시 수, 한 줄 소개,
+ * 정착 지원금. 고른 카드는 펼쳐 지도자·체제·거래세·화폐·기술 단계(·시작한 사이보그)를 보인다(390px에서 16장이 너무 길지 않게).
+ * 시작한 사이보그 수는 어느 나라든 1 이상일 때만 보인다(빈 세계에서 "사이보그 0"은 정보가 없다). 값은 서버 조회(cyborg.creation profile)다
+ */
 export function FactionStep({
   data,
   selected,
@@ -40,39 +51,145 @@ export function FactionStep({
 }) {
   const id = useId();
   if (data.factions.length === 0) return <p className="start-hint">{m.start_faction_empty()}</p>;
+  const showCyborgs = data.factions.some((faction) => faction.cyborgs > 0);
   return (
     <fieldset className="start-group">
       <legend className="visually-hidden">{m.start_step_faction()}</legend>
-      <div className="start-choices">
-        {data.factions.map((faction) => (
-          <label key={faction.id} className="start-choice" data-faction={faction.id}>
-            <input
-              type="radio"
-              name={`${id}-faction`}
-              checked={selected === faction.id}
-              onChange={() => onSelect(faction.id)}
-            />
-            <span className="start-choice-body">
-              <span className="start-choice-name">
-                {localName(faction.name)}
-                {faction.recommended ? (
-                  <span className="start-badge">{m.start_faction_recommended()}</span>
+      <div className="start-choices start-nations">
+        {data.factions.map((faction) => {
+          const profile = faction.profile;
+          const chosen = selected === faction.id;
+          return (
+            <label
+              key={faction.id}
+              className="start-choice start-nation"
+              data-faction={faction.id}
+              data-recommended={faction.recommended ? "true" : "false"}
+            >
+              <input
+                type="radio"
+                name={`${id}-faction`}
+                checked={chosen}
+                onChange={() => onSelect(faction.id)}
+              />
+              <span className="start-choice-body">
+                <span className="start-choice-name">
+                  {profile?.emblem ? (
+                    <NationEmblem
+                      spec={profile.emblem.spec}
+                      color={profile.emblem.color}
+                      uploaded={profile.emblem.uploaded}
+                      size={22}
+                      className="start-nation-emblem"
+                    />
+                  ) : null}
+                  {localName(faction.name)}
+                  {profile?.tier ? (
+                    <span className="start-badge start-nation-tier" data-tier={profile.tier}>
+                      {tierText(profile.tier)}
+                    </span>
+                  ) : null}
+                  {faction.recommended ? (
+                    <span className="start-badge" data-badge="recommended">
+                      {m.start_faction_recommended()}
+                    </span>
+                  ) : null}
+                </span>
+                {/* 크기 줄: 조각마다 줄을 바꾸지 않는다(390px에서 "사이보그 / 1"로 갈라지지 않게) */}
+                <span className="start-choice-meta start-nation-size" data-part="size">
+                  {sizeParts(faction, profile, showCyborgs).map((part, index) => (
+                    <span key={part.key} className="start-nation-size-part" data-size={part.key}>
+                      {index > 0 ? " · " : ""}
+                      {part.text}
+                    </span>
+                  ))}
+                </span>
+                {profile?.intro ? (
+                  <span className="start-choice-meta start-nation-intro">{localName(profile.intro)}</span>
                 ) : null}
+                {/* 정착 지원금(D-455 190·N39): 강하 때 한 번, 덜 붐빈 세력일수록 많다 */}
+                <span className="start-choice-meta start-faction-grant" data-grant={faction.grant}>
+                  {m.start_faction_grant({ amount: formatNumber(Number(faction.grant)) })}
+                </span>
+                {chosen && profile ? <NationFacts profile={profile} cyborgs={faction.cyborgs} /> : null}
               </span>
-              <span className="start-choice-meta">
-                {m.start_faction_cyborgs({ count: formatNumber(faction.cyborgs) })} ·{" "}
-                {m.start_faction_cities({ count: formatNumber(faction.cities.length) })}
-              </span>
-              {/* 정착 지원금(D-455 190·N39): 강하 때 한 번, 덜 붐빈 세력일수록 많다 */}
-              <span className="start-choice-meta start-faction-grant" data-grant={faction.grant}>
-                {m.start_faction_grant({ amount: formatNumber(Number(faction.grant)) })}
-              </span>
-            </span>
-          </label>
-        ))}
+            </label>
+          );
+        })}
       </div>
       <p className="start-hint">{m.start_faction_note()}</p>
     </fieldset>
+  );
+}
+
+/** 카드 크기 줄 조각: 인구 · 도시(시작 도시와 다를 때만 괄호) · 시작한 사이보그(어느 나라든 1 이상일 때만) */
+function sizeParts(
+  faction: CreationFaction,
+  profile: CreationNationProfile | undefined,
+  showCyborgs: boolean,
+): { readonly key: string; readonly text: string }[] {
+  const start = faction.cities.length;
+  const parts: { key: string; text: string }[] = [];
+  if (profile?.humans !== null && profile?.humans !== undefined)
+    parts.push({ key: "humans", text: m.start_nation_population({ count: formatNumber(profile.humans) }) });
+  const cities = profile?.cityCount ?? null;
+  parts.push({
+    key: "cities",
+    text:
+      cities !== null && cities !== start
+        ? m.start_nation_cities({ count: formatNumber(cities), start: formatNumber(start) })
+        : m.start_nation_cities_only({ count: formatNumber(cities ?? start) }),
+  });
+  if (showCyborgs)
+    parts.push({ key: "cyborgs", text: m.start_faction_cyborgs({ count: formatNumber(faction.cyborgs) }) });
+  return parts;
+}
+
+/** 고른 나라의 자세한 줄(지도자·체제·거래세·화폐·기술 단계·시작한 사이보그). 라벨 안이라 글 요소(span)만 쓴다 */
+function NationFacts({ profile, cyborgs }: { profile: CreationNationProfile; cyborgs: number }) {
+  const unknown = m.start_nation_unknown();
+  const currency = profile.currency;
+  const currencyMarks = currency ? [currency.symbol, currency.ticker].filter((mark) => mark !== null) : [];
+  const facts: { readonly key: string; readonly label: string; readonly value: string }[] = [
+    {
+      key: "leader",
+      label: m.start_nation_leader(),
+      value: profile.leaderName ? localName(profile.leaderName) : unknown,
+    },
+    {
+      key: "regime",
+      label: m.start_nation_regime(),
+      value: profile.regime ? regimeText(profile.regime) : unknown,
+    },
+    {
+      key: "tax",
+      label: m.start_nation_tax(),
+      value: profile.taxBp === null ? unknown : taxText(profile.taxBp),
+    },
+    {
+      key: "currency",
+      label: m.start_nation_currency(),
+      value: currency
+        ? `${localName(currency.name)}${currencyMarks.length > 0 ? ` (${currencyMarks.join(" · ")})` : ""}`
+        : unknown,
+    },
+    {
+      key: "tech",
+      label: m.start_nation_tech(),
+      value:
+        profile.tech === null ? unknown : m.start_nation_tech_value({ level: formatNumber(profile.tech) }),
+    },
+    { key: "cyborgs", label: m.start_nation_cyborgs(), value: formatNumber(cyborgs) },
+  ];
+  return (
+    <span className="start-nation-facts" data-part="details">
+      {facts.map((fact) => (
+        <span key={fact.key} className="start-nation-fact" data-fact={fact.key}>
+          <span className="start-nation-fact-label">{fact.label}</span>
+          <span className="start-nation-fact-value">{fact.value}</span>
+        </span>
+      ))}
+    </span>
   );
 }
 

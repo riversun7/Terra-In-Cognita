@@ -2632,7 +2632,7 @@
         "ko": "다시 굴리기 횟수",
         "en": "Initial rerolls"
       },
-      "value": 3,
+      "value": 5,
       "structural": false,
       "unit": "count",
       "min": 0,
@@ -2641,7 +2641,7 @@
         "ko": "사이보그를 만들 때(환생 때도) 다시 굴릴 수 있는 횟수.",
         "en": "Rerolls allowed when creating (and rebirthing) a cyborg."
       },
-      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\" · 사용자 요청 2026-11-11 5번(ADR 2026-11-01-first-login-cyborg \"바뀜 (2026-11-11)\")"
     },
     {
       "id": "n9_initial_favor",

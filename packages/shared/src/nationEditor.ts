@@ -40,6 +40,8 @@ export const NATION_LIST_LIMITS = {
   cityJobs: 8,
   startStock: 16,
   nameLength: 24,
+  /** 한 줄 소개(intro) 한 언어 글자 수 상한(첫 접속 나라 카드, 2026-11-11) */
+  introLength: 160,
   changesMax: 40,
   historyLimit: 30,
 } as const;
@@ -89,6 +91,8 @@ export interface NationPresetJson {
   readonly personality?: NationPersonalityJson | undefined;
   readonly cityNames?: readonly string[] | undefined;
   readonly leaderName?: LocalizedName | undefined;
+  /** 한 줄 소개(첫 접속 나라 고르기 카드, [임시] 글 — docs/adr/2026-11-01-first-login-cyborg.md "바뀜 (2026-11-11)") */
+  readonly intro?: LocalizedName | undefined;
   readonly humanNames?:
     | { readonly given: readonly string[]; readonly family?: readonly string[] | undefined }
     | undefined;

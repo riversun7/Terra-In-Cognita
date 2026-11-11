@@ -63,6 +63,10 @@
         "ko": "졸란 하웰",
         "en": "Jolan Harwell"
       },
+      "intro": {
+        "ko": "[임시] 끝없는 들판에 곡창을 일군 큰 나라. 넓은 땅과 많은 도시로 새 이주자를 받는다.",
+        "en": "[Placeholder] A vast grain-belt nation of endless plains, with room and many cities for newcomers."
+      },
       "humanNames": {
         "given": ["Alda", "Bren", "Corin", "Dela", "Edric", "Fenna", "Garet", "Hilde"],
         "family": ["Ashby", "Brook", "Fallow", "Meadow", "Reed", "Thatch"]
@@ -126,6 +130,10 @@
       "leaderName": {
         "ko": "펀위 밍샨",
         "en": "Fenyu Mingshan"
+      },
+      "intro": {
+        "ko": "[임시] 옥빛 강을 따라 늘어선 오래된 상업 도시들의 연합. 장인과 상인의 나라.",
+        "en": "[Placeholder] A league of old trading cities along a jade river. A land of artisans and merchants."
       },
       "humanNames": {
         "given": [
@@ -202,6 +210,10 @@
         "ko": "미스키 가와세",
         "en": "Misuki Kawase"
       },
+      "intro": {
+        "ko": "[임시] 안개 낀 섬들에 기댄 바다의 나라. 어업과 조선이 살림을 떠받친다.",
+        "en": "[Placeholder] A sea nation spread over misty isles, living on fishing and shipbuilding."
+      },
       "humanNames": {
         "given": [
           "Kahoto",
@@ -249,6 +261,10 @@
       "leaderName": {
         "ko": "가람 별뫼",
         "en": "Garam Byeolmoe"
+      },
+      "intro": {
+        "ko": "[임시] 높은 하늘 아래 산과 들이 어우러진 나라. 공동체의 결속을 무엇보다 아낀다.",
+        "en": "[Placeholder] A land of hills and fields under a high sky that values the bonds of its towns above all."
       },
       "humanNames": {
         "given": [
@@ -320,6 +336,10 @@
       "leaderName": {
         "ko": "엘윈 애시워스",
         "en": "Elwyn Ashworth"
+      },
+      "intro": {
+        "ko": "[임시] 바람 부는 황야의 오랜 왕가가 다스리는 강국. 양모와 석재로 부를 쌓았다.",
+        "en": "[Placeholder] A strong moorland realm of an old royal house, grown rich on wool and stone."
       },
       "humanNames": {
         "given": [
@@ -396,6 +416,10 @@
         "ko": "시그룬 달베르크",
         "en": "Sigrun Dahlberg"
       },
+      "intro": {
+        "ko": "[임시] 피오르와 침엽수림의 나라. 혹독한 겨울을 함께 견디는 단단한 사람들이 산다.",
+        "en": "[Placeholder] A land of fjords and pine forests, home to hardy folk who weather long winters together."
+      },
       "humanNames": {
         "given": [
           "Brandmar",
@@ -471,6 +495,10 @@
         "ko": "오렐린 퐁클레르",
         "en": "Aureline Fontclair"
       },
+      "intro": {
+        "ko": "[임시] 포도밭 언덕의 작은 나라. 좋은 술과 느긋한 장터로 이름났다.",
+        "en": "[Placeholder] A small nation of vineyard hills, known for fine wine and easygoing markets."
+      },
       "humanNames": {
         "given": [
           "Fonbert",
@@ -518,6 +546,10 @@
       "leaderName": {
         "ko": "데비야 람다르",
         "en": "Deviya Ramdar"
+      },
+      "intro": {
+        "ko": "[임시] 계절풍이 비를 몰고 오는 강 유역의 나라. 논과 향신료 밭이 넓게 펼쳐진다.",
+        "en": "[Placeholder] A river-basin nation fed by monsoon rains, with wide paddies and spice fields."
       },
       "humanNames": {
         "given": [
@@ -589,6 +621,10 @@
       "leaderName": {
         "ko": "루아라 타바헤이라",
         "en": "Luara Tavareira"
+      },
+      "intro": {
+        "ko": "[임시] 울창한 밀림을 품은 큰 나라. 목재와 약초가 넘치고 도시가 많다.",
+        "en": "[Placeholder] A great nation wrapped in deep jungle, rich in timber and herbs, with many cities."
       },
       "humanNames": {
         "given": [
@@ -665,6 +701,10 @@
         "ko": "나시라 하디자르",
         "en": "Nasira Hadizar"
       },
+      "intro": {
+        "ko": "[임시] 사막의 오아시스를 잇는 대상로의 작은 나라. 물과 길을 지키는 것이 곧 나라다.",
+        "en": "[Placeholder] A small nation of caravan roads between desert oases, where guarding water and roads is everything."
+      },
       "humanNames": {
         "given": [
           "Susara",
@@ -740,6 +780,10 @@
         "ko": "키라 로디스",
         "en": "Kyra Lodis"
       },
+      "intro": {
+        "ko": "[임시] 올리브 언덕 위 성벽 도시 하나로 이루어진 도시국가. 철학과 교역이 자랑이다.",
+        "en": "[Placeholder] A city-state of one walled town on olive hills, proud of its schools and trade."
+      },
       "humanNames": {
         "given": [
           "Phidakles",
@@ -787,6 +831,10 @@
       "leaderName": {
         "ko": "위라 산타마",
         "en": "Wira Santama"
+      },
+      "intro": {
+        "ko": "[임시] 향신료 섬들의 작은 나라. 바닷길 교역으로 먹고산다.",
+        "en": "[Placeholder] A small nation of spice islands that lives by its sea-lane trade."
       },
       "humanNames": {
         "given": [
@@ -858,6 +906,10 @@
       "leaderName": {
         "ko": "야밀리 텍말",
         "en": "Yamili Tecmal"
+      },
+      "intro": {
+        "ko": "[임시] 태양석 고원의 신전 도시들이 이끄는 강국. 돌을 다루는 솜씨가 뛰어나다.",
+        "en": "[Placeholder] A strong highland power led by sunstone temple cities, masters of stonework."
       },
       "humanNames": {
         "given": [
@@ -934,6 +986,10 @@
         "ko": "미로샤 노블렌코",
         "en": "Mirosha Novlenko"
       },
+      "intro": {
+        "ko": "[임시] 자작나무 숲과 강의 나라. 목재와 모피를 실어 나르는 강배가 바쁘다.",
+        "en": "[Placeholder] A land of birch woods and rivers, busy with barges of timber and furs."
+      },
       "humanNames": {
         "given": [
           "Ramimir",
@@ -1009,6 +1065,10 @@
         "ko": "수한 딜자데",
         "en": "Suhan Dilzade"
       },
+      "intro": {
+        "ko": "[임시] 사프란 들판 한가운데 선 도시국가. 비단길 같은 장터가 밤까지 붐빈다.",
+        "en": "[Placeholder] A city-state amid saffron fields whose bazaar stays busy well into the night."
+      },
       "humanNames": {
         "given": [
           "Mibadin",
@@ -1056,6 +1116,10 @@
       "leaderName": {
         "ko": "말라니 켈레와이",
         "en": "Malani Kelewai"
+      },
+      "intro": {
+        "ko": "[임시] 산호초 섬들의 작은 나라. 카누와 별자리로 바다를 건넌다.",
+        "en": "[Placeholder] A small nation of reef islands that crosses the sea by canoe and starlight."
       },
       "humanNames": {
         "given": [

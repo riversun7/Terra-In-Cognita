@@ -18,6 +18,7 @@
 // 쓰는 프로세스는 하나다(ADR 3): 메모리 표가 원본의 캐시이고, 같은 스레드라 두 요청이 같은 값을 보지 않는다.
 import type {
   CreationFaction,
+  CreationNationProfile,
   CyborgCreationResponse,
   CyborgNameCheckResponse,
   CyborgRollView,
@@ -29,7 +30,7 @@ import { cityLocation } from "@terra/shared/goodsPlaces";
 import { RELATION_SCORE_MAX, RELATION_SCORE_MIN } from "@terra/shared/faction";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { CyborgResultCode, CyborgRollWire } from "@terra/protocol";
-import { createRng } from "@terra/shared";
+import { createRng, hasStaffRole } from "@terra/shared";
 import {
   type SocietyCoefficients,
   TEST_SOCIETY_COEFFICIENTS,
@@ -70,9 +71,44 @@ export const defaultCyborgRules = (): CyborgRules => TEST_SOCIETY_COEFFICIENTS;
 /** K 굴림 한 번의 눈 수(kFromRolls: 0~9999) */
 const K_ROLL_SIDES = 10_000;
 
-/** 굴림 상한 = 처음 1번 + 다시 굴리기(N9, D-445 169) */
+/** 굴림 상한 = 처음 1번 + 다시 굴리기(N9, D-445 169 — 팩 값 5는 사용자 요청 2026-11-11) */
 export function rollLimit(rules: CyborgRules): number {
   return 1 + Math.max(0, rules.cyborg.initialRerolls);
+}
+
+/**
+ * 추천 나라(docs/adr/2026-11-01-first-login-cyborg.md "바뀜 (2026-11-11)"): 시작 도시 하나당 시작한 사이보그 수가 적은 차례 → 시작 도시가
+ * 많은 차례 → 세력 ID 차례로 앞의 RECOMMENDED_NATIONS곳(열린 나라가 그 수 이하면 1곳 — 모두 추천이면 뜻이 없다). 빈 세계에서는 시작 도시가
+ * 많은 나라가 된다
+ */
+export const RECOMMENDED_NATIONS = 3;
+
+export function recommendedNations(
+  open: readonly { readonly id: number; readonly cyborgs: number; readonly startCities: number }[],
+): ReadonlySet<number> {
+  const count = open.length > RECOMMENDED_NATIONS ? RECOMMENDED_NATIONS : Math.min(1, open.length);
+  const order = open
+    .filter((entry) => entry.startCities > 0)
+    // 사이보그 ÷ 시작 도시를 나눗셈 없이 견준다(a/b < c/d ⇔ a·d < c·b, 둘 다 양수)
+    .toSorted(
+      (a, b) =>
+        a.cyborgs * b.startCities - b.cyborgs * a.startCities || b.startCities - a.startCities || a.id - b.id,
+    );
+  return new Set(order.slice(0, count).map((entry) => entry.id));
+}
+
+/** 만들기 화면 자료를 부르는 사람에 따라 달라지는 것(tRPC cyborg.creation — cyborgReadsOf가 채운다) */
+export interface CreationView {
+  /** 운영진: 다시 굴리기 횟수 제한 없음(2026-11-11) */
+  readonly unlimitedRolls?: boolean | undefined;
+  /** 이 세계에 올린 국가 마크 그림(프리셋 ID → 해시). 못 읽었으면 없음(만든 마크만 보인다) */
+  readonly emblemUploads?: ReadonlyMap<string, string> | undefined;
+}
+
+/** 굴리기 명령의 부르는 사람 몫 */
+export interface RollOptions {
+  /** 운영진: 횟수 제한 없음(서버가 판정, 2026-11-11) */
+  readonly unlimited?: boolean | undefined;
 }
 
 /** 성장 K 여섯(N6 범위 균등, 숨김 D-417): 시드 하나로 굴림 여섯(0~9999) → 환생 리롤과 같은 kFromRolls */
@@ -111,9 +147,9 @@ export interface CreateInput {
 
 export interface CyborgService {
   status(userId: string): CyborgStatusResponse;
-  creation(userId: string, nowMs: number): CyborgCreationResponse;
+  creation(userId: string, nowMs: number, view?: CreationView): CyborgCreationResponse;
   nameCheck(input: string): CyborgNameCheckResponse;
-  roll(userId: string, temperament: string): Promise<CyborgCommandResult>;
+  roll(userId: string, temperament: string, options?: RollOptions): Promise<CyborgCommandResult>;
   create(userId: string, input: CreateInput): Promise<CyborgCommandResult>;
   /** 분배가 없는 사이보그에 속성을 한 번 나눈다(D-450) */
   allocateElements(userId: string, elements: unknown): Promise<CyborgCommandResult>;
@@ -205,6 +241,15 @@ export interface CyborgServiceOptions {
   log: { warn(obj: object, message: string): void };
   /** 세력 코드 → 화면 이름(시험 국가 = 팩 국가 프리셋 이름, docs/adr/2026-11-01-npc-brain-r5.md 7절). 없으면 코드 */
   factionName?: ((code: string) => LocalizedName | undefined) | undefined;
+  /**
+   * 나라 고르기 카드의 자세한 정보(2026-11-11, nationProfile.ts). 만들기 화면 자료 한 번마다 한 번 불러 세력 코드 → 정보 함수를 받는다(휴먼 수를
+   * 한 번만 센다). 없으면 정보 없이 이름·도시만
+   */
+  nationProfiles?:
+    | ((
+        emblemUploads: ReadonlyMap<string, string> | undefined,
+      ) => (code: string) => CreationNationProfile | undefined)
+    | undefined;
 }
 
 /** 시작 도시 칸에서 나선(가까운 고리부터, 고리 안은 위 → 오른쪽 → 아래 → 왼쪽)으로 칸을 돈다 */
@@ -218,17 +263,22 @@ export function* spiralCells(cx: number, cy: number, radius: number): Generator<
   }
 }
 
-function rollView(roll: RollRecord, rules: CyborgRules): CyborgRollWire {
+/** 굴림 → 화면 값. 횟수 제한이 없는 운영진은 늘 "남은 = 상한"(화면은 rules.rollsUnlimited로 "제한 없음"을 보인다 — 프로토콜은 그대로) */
+function rollView(roll: RollRecord, rules: CyborgRules, unlimited = false): CyborgRollWire {
   const max = rollLimit(rules);
   return {
     temperament: roll.temperament,
     stats: { ...roll.stats },
-    rollsLeft: Math.max(0, max - roll.rollsUsed),
+    rollsLeft: unlimited ? max : Math.max(0, max - roll.rollsUsed),
     rollsMax: max,
   };
 }
 
 const fail = (code: CyborgResultCode): CyborgCommandResult => ({ ok: false, code });
+
+/** 나라 정보 칸(있을 때만 — exactOptionalPropertyTypes) */
+const profileField = (profile: CreationNationProfile | undefined): { profile?: CreationNationProfile } =>
+  profile ? { profile } : {};
 
 /** 생성 속성 분배 규칙(N36 설정값) */
 const elementRule = (rules: CyborgRules) => ({
@@ -374,14 +424,22 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
           }
         : { cyborg: null };
     },
-    creation(userId, nowMs) {
+    creation(userId, nowMs, view = {}) {
       const rules = options.rules();
       const roll = rolls.get(userId);
+      const unlimited = view.unlimitedRolls === true;
       const { perFaction, perCity } = counts();
       const open = factions
         .map((faction) => ({ faction, cities: startCitiesOf(faction.id) }))
         .filter((entry) => entry.cities.length > 0);
-      const fewest = Math.min(...open.map((entry) => perFaction.get(entry.faction.id) ?? 0));
+      const recommended = recommendedNations(
+        open.map((entry) => ({
+          id: entry.faction.id,
+          cyborgs: perFaction.get(entry.faction.id) ?? 0,
+          startCities: entry.cities.length,
+        })),
+      );
+      const profileOf = options.nationProfiles?.(view.emblemUploads);
       const list: CreationFaction[] = open.map(({ faction, cities }) => ({
         id: faction.id,
         // 세력 이름 = 팩 국가 프리셋 이름(시험 NPC 세력 포함, npc/nations.ts nationName — docs/adr/2026-11-07-play-flow.md WP1)
@@ -389,7 +447,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
           ko: faction.code ?? `#${faction.id}`,
           en: faction.code ?? `#${faction.id}`,
         },
-        recommended: (perFaction.get(faction.id) ?? 0) === fewest,
+        recommended: recommended.has(faction.id),
         cyborgs: perFaction.get(faction.id) ?? 0,
         grant: String(
           grantFor(
@@ -413,18 +471,20 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
           })
           // 기본 선택 = 가장 덜 붐비는 곳(D-6041): 붐빔 적은 차례, 같으면 앞 도시
           .toSorted((a, b) => a.cyborgs - b.cyborgs || a.number - b.number),
+        ...profileField(faction.code === null ? undefined : profileOf?.(faction.code)),
       }));
-      const view: CyborgRollView | null = roll ? rollView(roll, rules) : null;
+      const rollNow: CyborgRollView | null = roll ? rollView(roll, rules, unlimited) : null;
       const record = byUser.get(userId);
       return {
         created: record !== undefined,
         elementsPending: record !== undefined && record.elements === null,
-        roll: view,
+        roll: rollNow,
         rules: {
           statSum: rules.cyborg.initialSum,
           statMin: rules.cyborg.initialMin,
           statMax: rules.cyborg.initialMax,
           rollsMax: rollLimit(rules),
+          rollsUnlimited: unlimited,
           elementCells: rules.cyborg.elementCells,
           elementPoints: rules.cyborg.elementPoints,
         },
@@ -442,21 +502,27 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       if (byName.has(parsed.key)) return { ok: false, code: "taken" };
       return { ok: true, display: parsed.display };
     },
-    async roll(userId, temperament) {
+    async roll(userId, temperament, rollOptions = {}) {
       if (!options.ready()) return fail("busy");
       if (byUser.has(userId)) return fail("already_created");
       const rules = options.rules();
       if (!temperamentOf(temperament, rules)) return fail("unknown_temperament");
       const previous = rolls.get(userId);
       const used = previous?.rollsUsed ?? 0;
+      // 운영진은 횟수 제한이 없다(2026-11-11). 쓴 굴림은 그대로 센다(역할을 잃으면 그때부터 상한이 걸린다)
+      const unlimited = rollOptions.unlimited === true;
       const limit = rollLimit(rules);
-      if (used >= limit) return fail("rolls_exhausted");
+      if (!unlimited && used >= limit) return fail("rolls_exhausted");
       const seed = options.seed() >>> 0;
       const rng = createRng(seed);
       // 환생과 같은 굴리기(처음 굴림 → 다시 굴리기, 남은 다시 굴리기 = 상한 − 쓴 굴림)
       const next = previous
         ? rerollStats(
-            { temperament: previous.temperament, spread: previous.stats, rerollsLeft: limit - used },
+            {
+              temperament: previous.temperament,
+              spread: previous.stats,
+              rerollsLeft: unlimited ? Math.max(1, limit - used) : limit - used,
+            },
             temperament,
             rng,
             rules,
@@ -474,7 +540,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       rolls.set(userId, record);
       writer.upsert("cyborgRolls", rollRow(record));
       await writer.durable();
-      return { ok: true, roll: rollView(record, rules) };
+      return { ok: true, roll: rollView(record, rules, unlimited) };
     },
     async create(userId, input) {
       if (!options.ready()) return fail("busy");
@@ -677,11 +743,25 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
   };
 }
 
-/** tRPC 조회 모양(로그인한 본인)으로 감싼다 */
-export function cyborgReadsOf(service: CyborgService): CyborgReadServices {
+/**
+ * tRPC 조회 모양(로그인한 본인)으로 감싼다. 운영진은 다시 굴리기 제한 없음(hasStaffRole). emblemUploads = 이 세계에 올린 국가 마크 해시(읽지
+ * 못하면 만든 마크만)
+ */
+export function cyborgReadsOf(
+  service: CyborgService,
+  extras: { readonly emblemUploads?: (() => Promise<ReadonlyMap<string, string>>) | undefined } = {},
+): CyborgReadServices {
   return {
     status: (viewer) => service.status(viewer.id),
-    creation: (viewer, nowMs) => service.creation(viewer.id, nowMs),
+    creation: async (viewer, nowMs) => {
+      const emblemUploads = extras.emblemUploads
+        ? await extras.emblemUploads().catch(() => undefined)
+        : undefined;
+      return service.creation(viewer.id, nowMs, {
+        unlimitedRolls: hasStaffRole(viewer.roles),
+        emblemUploads,
+      });
+    },
     nameCheck: (name) => service.nameCheck(name),
   };
 }

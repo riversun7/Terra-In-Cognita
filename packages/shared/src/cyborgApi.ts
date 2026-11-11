@@ -4,6 +4,9 @@
 import type { CharacterLook } from "./characterLook.ts";
 import type { CyborgAppearance } from "./cyborgLooks.ts";
 import type { CyborgNameProblem } from "./cyborgName.ts";
+import type { Regime } from "./faction.ts";
+import type { NationEmblemView } from "./nationEditor.ts";
+import type { PowerTier } from "./nationTier.ts";
 import type { LocalizedName, PrimaryStat } from "./roster.ts";
 
 /** 1차 스탯 여섯(STR·DEX·AGI·VIT·INT·WIS) */
@@ -56,10 +59,44 @@ export interface CreationCity {
   readonly crowding: CrowdingBand;
 }
 
+/**
+ * 나라 고르기 카드의 자세한 정보(사용자 요청 2026-11-11 "인구수, 정책, 간단소개 등" — docs/adr/2026-11-01-first-login-cyborg.md "바뀜 (2026-11-11)").
+ * 서버가 이미 가진 값을 읽기만 한다(팩 국가 프리셋 + NPC 사회 런타임 거울 세계 + 도시 경제 세율). 모르는 값은 null(화면 "—" 또는 줄 없음)
+ */
+export interface CreationNationProfile {
+  /** 국력 등급(팩 프리셋 powerTier, ./nationTier.ts). 없으면 null */
+  readonly tier: PowerTier | null;
+  /** 나라 인구 = 그 나라 도시에 사는 휴먼 수(NPC 사회 런타임). 런타임이 없으면 null */
+  readonly humans: number | null;
+  /** 그 나라가 지금 가진 도시 수(시작 도시 + 얻은 도시). 런타임이 없으면 null */
+  readonly cityCount: number | null;
+  /** 정권 체제(D-217) */
+  readonly regime: Regime | null;
+  /** 기술 단계 */
+  readonly tech: number | null;
+  /** 거래세(만분율, 도시 경제의 지금 세율 — 없으면 팩 프리셋 값) */
+  readonly taxBp: number | null;
+  /** 나라 화폐(팩 프리셋). 기호·3글자 약어는 없으면 null */
+  readonly currency: {
+    readonly name: LocalizedName;
+    readonly symbol: string | null;
+    readonly ticker: string | null;
+  } | null;
+  /** 국가 지도자 이름(팩 프리셋 leaderName) */
+  readonly leaderName: LocalizedName | null;
+  /** 국가 마크(만든 마크 + 이 세계에 올린 그림) */
+  readonly emblem: NationEmblemView | null;
+  /** 한 줄 소개(팩 프리셋 intro, [임시] 글) */
+  readonly intro: LocalizedName | null;
+}
+
 export interface CreationFaction {
   readonly id: number;
   readonly name: LocalizedName;
-  /** 추천 지역(D-218: 사이보그가 가장 적은 세력) */
+  /**
+   * 추천 나라(D-218 "사이보그가 가장 적은 세력"을 2026-11-11에 좁힘): 시작 도시 하나당 시작한 사이보그 수가 적은 차례 → 시작 도시가 많은 차례 →
+   * 세력 ID 차례로 앞의 3곳(열린 나라가 3곳 이하면 1곳). 새로 온 사람에게 자리(시작 도시)가 넉넉하고 지원금이 큰 나라다
+   */
   readonly recommended: boolean;
   /** 이 세력에 든 사이보그 수 */
   readonly cyborgs: number;
@@ -70,6 +107,8 @@ export interface CreationFaction {
   readonly grant: string;
   /** 시작 도시(D-6041). 기본 선택은 가장 덜 붐비는 곳(처음 것) */
   readonly cities: readonly CreationCity[];
+  /** 자세한 정보(2026-11-11). 옛 서버·프리셋이 없는 나라는 없음 */
+  readonly profile?: CreationNationProfile | undefined;
 }
 
 /** cyborg.creation — /start 화면 자료 */
@@ -88,6 +127,10 @@ export interface CyborgCreationResponse {
     readonly statMin: number;
     readonly statMax: number;
     readonly rollsMax: number;
+    /**
+     * 운영진(gm·admin·dev)은 다시 굴리기 횟수 제한이 없다(사용자 요청 2026-11-11 — 서버가 센다, 화면은 "제한 없음"). 옛 서버면 없음
+     */
+    readonly rollsUnlimited?: boolean | undefined;
     readonly elementCells: number;
     readonly elementPoints: number;
   };

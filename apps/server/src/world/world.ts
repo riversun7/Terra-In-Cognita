@@ -26,6 +26,7 @@ import {
   createCyborgService,
   defaultCyborgRules,
 } from "../cyborg/service.ts";
+import { nationProfilesOf } from "../cyborg/nationProfile.ts";
 import { type LoadedCyborgs, loadCyborgs } from "../cyborg/state.ts";
 import { type HoldingsConfig, type WorldHoldings, createWorldHoldings } from "../holdings/world.ts";
 import { type LoadedHoldings, loadHoldings } from "../holdings/state.ts";
@@ -501,6 +502,16 @@ export function startWorld(
       ready: () => status.state === "ready",
       log,
       factionName: (code) => nationName(code, config.npc?.presets),
+      // 나라 고르기 카드의 자세한 정보(2026-11-11): 실효 프리셋 + NPC 사회 런타임 거울 세계(부를 때마다 지금 npc를 읽는다)
+      nationProfiles: (uploads) =>
+        nationProfilesOf(
+          {
+            presets: config.npc?.presets ?? [],
+            world: () => npc?.world,
+            taxOf: (factionId) => npc?.economy?.economy.taxOf.get(factionId),
+          },
+          uploads,
+        ),
     });
     const societyRules = config.cyborgRules ?? defaultCyborgRules;
     const faceLevels = config.territory?.faceLevels ?? new Map([[TEST_PLANET_ID, EARTH_FACE_LEVEL]]);

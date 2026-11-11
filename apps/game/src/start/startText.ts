@@ -1,6 +1,8 @@
 // 첫 접속 화면 문구 표 — 서버 코드·목록 ID → 메시지 키(ko·en). 키로 고르는 문구는 표에 적는다(oxlint import(namespace)).
 // 모르는 ID(더 새 서버)는 표 밖이라 일반 문구나 ID로 보인다.
 import type { CrowdingBand, CyborgNameProblem } from "@terra/shared/cyborg";
+import type { Regime } from "@terra/shared/faction";
+import type { PowerTier } from "@terra/shared/nationTier";
 import type { CyborgResultCode } from "@terra/protocol";
 import { m } from "../paraglide/messages.js";
 
@@ -34,6 +36,26 @@ const CROWDING = {
 } satisfies Record<CrowdingBand, Text>;
 
 export const crowdingText = (band: CrowdingBand): string => CROWDING[band]();
+
+/** 국력 등급(나라 고르기 카드, 2026-11-11) */
+const TIERS = {
+  superpower: m.start_nation_tier_superpower,
+  great_power: m.start_nation_tier_great_power,
+  middle_power: m.start_nation_tier_middle_power,
+  small_state: m.start_nation_tier_small_state,
+  city_state: m.start_nation_tier_city_state,
+} satisfies Record<PowerTier, Text>;
+
+export const tierText = (tier: PowerTier): string => TIERS[tier]();
+
+/** 정권 체제(D-217) — 세력 화면과 같은 이름 키 */
+const REGIMES = {
+  dictatorship: m.faction_regime_dictatorship,
+  democracy: m.faction_regime_democracy,
+  capitalism: m.faction_regime_capitalism,
+} satisfies Record<Regime, Text>;
+
+export const regimeText = (regime: Regime): string => REGIMES[regime]();
 
 /** 명령 실패 → 문구. 이름 문제는 이름 단계로 돌아가 그 칸에 보인다(화면이 고른다) */
 const COMMAND_ERRORS = {

@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e7c5955a-971b-4ca3-8d84-e93ef8f60339",
+  "prevIds": [
+    "fb2e60c8-8d17-4f85-bef1-b43ae1ee87af"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "cyborgs",
+        "look"
+      ],
+      "writes": [
+        "s|col|public.cyborgs.look",
+        "n|col|public.cyborgs.look",
+        "e|col|public.cyborgs.look"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "look",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

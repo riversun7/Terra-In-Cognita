@@ -11,11 +11,14 @@
 //   시야 밖·없는 유닛은 같은 답(null).
 // - "WP-NPC4"(기획 답 773 나): NPC 도시 휴먼은 종류 "휴먼" + 휴먼 이름(그 나라 팩 목록, npc/humanNames.ts).
 // 세계 규칙·표는 바꾸지 않는다.
+import { type CharacterLook, characterLookForUnit } from "@terra/shared/characterLook";
 import type {
   MapUnit,
   MapUnitGlance,
   MapUnitGlanceResponse,
   MapUnitKind,
+  MapUnitLook,
+  MapUnitLooksResponse,
   MapUnitsResponse,
 } from "@terra/shared/mapUnits";
 import type { Viewer } from "../trpc/context.ts";
@@ -56,11 +59,18 @@ export interface MapUnitSource {
    * (docs/adr/2026-11-07-play-flow.md "WP-NPC4"). 없으면 NPC 휴먼도 시험 유닛으로 보인다
    */
   npcHuman?: ((unitId: number) => { readonly name: string | undefined } | undefined) | undefined;
+  /**
+   * 사이보그 본체 유닛의 3D 외형(저장한 것, 없으면 옛 외형에서 넘긴 값 — docs/adr/2026-11-11-character-3d.md 5절). 본체가 아니거나 자료가
+   * 없으면 undefined(그 유닛은 답에 싣지 않는다 — 기기가 기본 외형으로 그린다)
+   */
+  cyborgLook?: ((unitId: number) => CharacterLook | undefined) | undefined;
 }
 
 export interface MapUnitReads {
   mapUnits(viewer: Viewer, mapKey: number, nowMs: number): MapUnitsResponse;
   unitGlance(viewer: Viewer, mapKey: number, unitId: number, nowMs: number): Promise<MapUnitGlanceResponse>;
+  /** 그 2차맵에서 내가 보는 사이보그 본체·NPC 지도자의 3D 외형(메모리만 읽는다) */
+  unitLooks(viewer: Viewer, mapKey: number, nowMs: number): MapUnitLooksResponse;
 }
 
 /** 카메라 범위 여유(배치 칸): 시야 반지름 바깥으로 이만큼 더 본다(안개가 덮는 둘레). [임시] 화면 값 — 판정에 쓰지 않는다 */
@@ -148,6 +158,34 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
         (a, b) => Number(b.kind === "cyborg_body") - Number(a.kind === "cyborg_body") || a.unitId - b.unitId,
       );
       return { ...base, loaded: true, units, elsewhere, view };
+    },
+
+    unitLooks(viewer, mapKey, nowMs) {
+      const units: MapUnitLook[] = [];
+      const map = source.map(mapKey);
+      if (map) {
+        const ownerId = source.ownerOfUser(viewer.id);
+        const all = source.observer?.(viewer) ?? false;
+        map.forEachUnit((unit) => {
+          if (unit.kind !== UNIT_KIND_CYBORG && unit.kind !== UNIT_KIND_NPC_LEADER) return;
+          // 한눈 정보와 같은 규칙: 내 유닛·전체 보기·지금 시야 안일 때만(시야 밖 유닛이 있는지 새지 않게)
+          const visible =
+            all || unit.ownerId === ownerId || (source.sees?.(mapKey, viewer, unit.id) ?? false);
+          if (!visible) return;
+          if (unit.kind === UNIT_KIND_NPC_LEADER) {
+            units.push({
+              unitId: unit.id,
+              kind: "npc_leader",
+              look: characterLookForUnit(unit.id, "leader"),
+            });
+            return;
+          }
+          const look = source.cyborgLook?.(unit.id);
+          if (look) units.push({ unitId: unit.id, kind: "cyborg_body", look });
+        });
+        units.sort((a, b) => a.unitId - b.unitId);
+      }
+      return { status: "ready", mapKey, units, generatedAt: nowMs };
     },
 
     async unitGlance(viewer, mapKey, unitId, nowMs) {

@@ -229,6 +229,7 @@ describe("몸 계산", () => {
       initial: { str: 12, dex: 9, agi: 10, vit: 11, int: 8, wis: 10 },
       kPm: { str: 1100, dex: 950, agi: 1000, vit: 1050, int: 900, wis: 1000 },
       appearance: DEFAULT_CYBORG_APPEARANCE,
+      look: null,
       factionId: 1,
       startCityId: 1,
       unitId: 7,

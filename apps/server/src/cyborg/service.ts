@@ -23,6 +23,7 @@ import type {
   CyborgRollView,
   CyborgStatusResponse,
 } from "@terra/shared/cyborg";
+import { isCharacterLook, legacyAppearanceOf } from "@terra/shared/characterLook";
 import { checkElementAllocation, isCyborgAppearance, parseCyborgName } from "@terra/shared/cyborg";
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import { RELATION_SCORE_MAX, RELATION_SCORE_MIN } from "@terra/shared/faction";
@@ -52,6 +53,7 @@ import {
   type JoinableFaction,
   type LoadedCyborgs,
   type RollRecord,
+  cyborgLookOf,
   cyborgRow,
   rollRow,
 } from "./state.ts";
@@ -103,6 +105,8 @@ export interface CreateInput {
   readonly cityId: number;
   /** 속성 분배(D-450). 없으면 "분배 기다림"으로 만든다(4판 기기 — 5판 연결이 빠뜨리면 gateway가 먼저 막는다) */
   readonly elements?: unknown;
+  /** 3D 외형(선택 칸, docs/adr/2026-11-11-character-3d.md 5절). 없으면 옛 외형에서 넘긴 값으로 보인다 */
+  readonly look?: unknown;
 }
 
 export interface CyborgService {
@@ -359,6 +363,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
             cyborg: {
               name: record.name,
               appearance: record.appearance,
+              look: cyborgLookOf(record),
               elementsPending: record.elements === null,
             },
           }
@@ -474,8 +479,14 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const parsed = parseCyborgName(input.name);
       if (!parsed.ok) return fail(parsed.problem === "reserved" ? "name_reserved" : "name_invalid");
       if (byName.has(parsed.key)) return fail("name_taken");
-      const appearance = input.appearance;
-      if (!isCyborgAppearance(appearance)) return fail("appearance_invalid");
+      // 3D 외형(선택 칸): 맞지 않으면 만들지 않는다. 맞으면 옛 칸(2D 그림)은 그 외형에서 넘긴 값으로 맞춘다(기기가 보낸 옛 칸은 모양만 본다)
+      let look: CyborgRecord["look"] = null;
+      if (input.look !== undefined) {
+        if (!isCharacterLook(input.look)) return fail("appearance_invalid");
+        look = input.look;
+      }
+      if (!isCyborgAppearance(input.appearance)) return fail("appearance_invalid");
+      const appearance = look === null ? input.appearance : legacyAppearanceOf(look);
       const faction = factions.find((entry) => entry.id === input.factionId);
       const cities = faction ? startCitiesOf(faction.id) : [];
       if (!faction || cities.length === 0) return fail("unknown_faction");
@@ -506,6 +517,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         initial: roll.stats,
         kPm: growthK(options.seed(), rules),
         appearance,
+        look,
         factionId: faction.id,
         startCityId: city.id,
         unitId,

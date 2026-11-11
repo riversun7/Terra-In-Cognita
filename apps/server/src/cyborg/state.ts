@@ -2,6 +2,12 @@
 // docs/adr/2026-11-01-first-login-cyborg.md 2절·"바뀜 (D-450~D-453)". int8은 pg가 문자열로 주므로 숫자로 바꾼다. smallint[]는
 // 숫자 배열로 온다. 속성값(elements)이 null이면 아직 나누지 않은 사이보그다(프로토콜 5 전에 만든 것, 한 번 나눈다).
 import {
+  type CharacterLook,
+  characterLookFromLegacy,
+  characterSeedOf,
+  isCharacterLook,
+} from "@terra/shared/characterLook";
+import {
   type CyborgAppearance,
   DEFAULT_CYBORG_APPEARANCE,
   type ElementValues,
@@ -21,6 +27,11 @@ export interface CyborgRecord {
   readonly initial: Primaries;
   readonly kPm: Primaries;
   readonly appearance: CyborgAppearance;
+  /**
+   * 3D 외형(docs/adr/2026-11-11-character-3d.md 5절). null = 3D 외형을 고르기 전에 만든 사이보그(또는 옛 기기가 만든 것) —
+   * 보일 때 옛 외형에서 넘긴다(cyborgLookOf)
+   */
+  readonly look: CharacterLook | null;
   /** 지금 나라(세력 행 ID). 국적 바꾸기(귀화)가 바꾼다(docs/adr/2026-11-08-citizenship.md) */
   factionId: number;
   /** 내 도시(첫 접속 시작 도시, 귀화하면 귀화한 도시 — 구인 기본 도시·거래소 기본 도시·본체를 다시 놓는 곳) */
@@ -99,8 +110,8 @@ const numOrNull = (value: unknown): number | null =>
 export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
   const [cyborgRows, rollRows, factionRows, nationRows, standingRows] = await Promise.all([
     pool.query(
-      `select user_id, name, name_key, temperament, initial, k_pm, appearance, faction_id, start_city_id, unit_id,
-              level, exp, rebirths, faith, created_at_ms, elements, religion, faith_points, start_grant
+      `select user_id, name, name_key, temperament, initial, k_pm, appearance, look, faction_id, start_city_id,
+              unit_id, level, exp, rebirths, faith, created_at_ms, elements, religion, faith_points, start_grant
          from cyborgs order by created_at_ms, user_id`,
     ),
     pool.query(`select user_id, temperament, stats, rolls_used, seed, updated_at_ms from cyborg_rolls`),
@@ -134,6 +145,8 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
       initial: statsFromArray(row.initial),
       kPm: statsFromArray(row.k_pm),
       appearance: valid ? appearance : DEFAULT_CYBORG_APPEARANCE,
+      // 맞지 않는 값(목록에서 빠진 ID 등)은 없는 것으로 본다 — 옛 외형에서 넘긴 값으로 보인다
+      look: isCharacterLook(row.look) ? row.look : null,
       factionId: num(row.faction_id),
       startCityId: num(row.start_city_id),
       unitId: numOrNull(row.unit_id),
@@ -170,6 +183,11 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
   return { cyborgs, rolls, factions, fixedAppearances };
 }
 
+/** 보이는 3D 외형: 저장한 것, 없으면 옛 외형에서 넘긴 값(사용자 ID 씨앗 — 늘 같은 답) */
+export function cyborgLookOf(record: Pick<CyborgRecord, "userId" | "appearance" | "look">): CharacterLook {
+  return record.look ?? characterLookFromLegacy(record.appearance, characterSeedOf(record.userId));
+}
+
 /** 쓰기 대기열 한 줄(cyborgs) */
 export function cyborgRow(record: CyborgRecord): Row {
   return {
@@ -180,6 +198,7 @@ export function cyborgRow(record: CyborgRecord): Row {
     initial: statsToArray(record.initial),
     k_pm: statsToArray(record.kPm),
     appearance: record.appearance,
+    look: record.look,
     faction_id: record.factionId,
     start_city_id: record.startCityId,
     unit_id: record.unitId,

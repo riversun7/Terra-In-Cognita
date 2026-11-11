@@ -44,6 +44,7 @@ export {
   CYBORG_ELEMENT_IDS,
   CYBORG_PROTOCOL_VERSION,
   CYBORG_RESULT_CODES,
+  characterLookSchema,
   cyborgAppearanceSchema,
   cyborgElementsSchema,
   cyborgRollSchema,

@@ -634,6 +634,11 @@ export const cyborgs = pgTable(
     kPm: smallint("k_pm").array().notNull(),
     /** 외형 = 부위 ID 넷 + 색 ID 둘(D-6040, @terra/shared/cyborg CyborgAppearance) */
     appearance: jsonb("appearance").notNull(),
+    /**
+     * 3D 외형(@terra/shared/characterLook CharacterLook, docs/adr/2026-11-11-character-3d.md 5절). null = 3D 외형을 고르기 전에 만든
+     * 사이보그 — 옛 외형(appearance)에서 넘긴 값으로 보인다
+     */
+    look: jsonb("look"),
     factionId: bigint("faction_id", { mode: "number" })
       .notNull()
       .references(() => factions.id),

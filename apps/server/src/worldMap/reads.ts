@@ -38,6 +38,7 @@ import { visionViewerOf } from "../world/nationVision.ts";
 import { canObserve, canViewSecondMap } from "../world/visibility.ts";
 import { hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
 import { createTravelDanger } from "./travelDanger.ts";
+import { cyborgLookOf } from "../cyborg/state.ts";
 import { type MapUnitReads, createMapUnitReads } from "./mapUnits.ts";
 import { type TravelReads, createTravelReads } from "./travelReads.ts";
 
@@ -504,6 +505,13 @@ export function worldMapReadsOf(options: {
     // NPC 도시 휴먼 이름(773 나, "WP-NPC4"): 거울 세계 휴먼만
     npcHuman: (unitId) =>
       world.npc?.world.units.has(unitId) ? { name: world.npc.humanName(unitId) } : undefined,
+    // 사이보그 본체의 3D 외형(docs/adr/2026-11-11-character-3d.md 5절): 저장한 것, 없으면 옛 외형에서 넘긴 값
+    cyborgLook: (unitId) => {
+      const cyborgs = world.persistence?.cyborgs;
+      const userId = cyborgs?.userOfUnit(unitId);
+      const record = userId === undefined ? undefined : cyborgs?.record(userId);
+      return record ? cyborgLookOf(record) : undefined;
+    },
   });
   // 정부(행정 건물) 판(WP-NPC): 아는 도시·이름은 위와 같은 함수. 세력 화면은 nationNames로 나라·지도자 이름을 받는다
   // 지도자 창구(742 나, "WP-NPC3")는 한눈 정보와 같은 규칙으로 지도자가 보이는지 본다(내 유닛·전체 보기·시야 전송)

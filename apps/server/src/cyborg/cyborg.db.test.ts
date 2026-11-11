@@ -2,6 +2,14 @@
 // 서버 규칙: 굴림 합 60·칸 1~20, 굴림 횟수(처음 1 + 다시 굴리기 3, 서버 저장·다시 켜도 남음), 이름 규칙·사칭·고유(대소문자 무시),
 // 계정당 하나, 시작 도시 둘레에 세계 유닛으로 놓기(시야로 2차맵이 열림), 한 커밋 저장, 부팅이 잃은 본체를 다시 놓기(I13),
 // 속성 분배(D-450, N36: 4원소 두 칸까지 합 10, 분배 없는 옛 사이보그는 한 번 나눔), 본체 생활비(D-453: 유지비를 내고 못 내면 비효율).
+import {
+  CHARACTER_PRESETS,
+  DEFAULT_CHARACTER_LOOK,
+  characterLookFromLegacy,
+  characterSeedOf,
+  isCharacterLook,
+  legacyAppearanceOf,
+} from "@terra/shared/characterLook";
 import { DEFAULT_CYBORG_APPEARANCE, zeroElements } from "@terra/shared/cyborg";
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import { CELL_UNITS, positionAt } from "@terra/sim";
@@ -158,9 +166,16 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       code: "already_created",
     });
     expect(await service.roll(a, "tech")).toEqual({ ok: false, code: "already_created" });
+    // 3D 외형 없이 만든 사이보그(옛 기기): 옛 외형 그대로, 보이는 3D 외형은 옛 외형에서 넘긴 값(사용자 ID 씨앗)
     expect(service.status(a)).toEqual({
-      cyborg: { name: "Nova", appearance: DEFAULT_CYBORG_APPEARANCE, elementsPending: false },
+      cyborg: {
+        name: "Nova",
+        appearance: DEFAULT_CYBORG_APPEARANCE,
+        look: characterLookFromLegacy(DEFAULT_CYBORG_APPEARANCE, characterSeedOf(a)),
+        elementsPending: false,
+      },
     });
+    expect(service.record(a)?.look).toBeNull();
     expect(service.creation(a, clock)).toMatchObject({ created: true, elementsPending: false });
     expect(service.record(a)?.elements).toEqual({ ...zeroElements(), fire: 6, wind: 4 });
 
@@ -173,6 +188,70 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     const view = service.creation(b, clock);
     expect(view.factions[0]).toMatchObject({ recommended: true, cyborgs: 2 });
     expect(view.factions[0]?.cities[0]).toMatchObject({ cyborgs: 2, crowding: "quiet" });
+  });
+
+  it("3D 외형(docs/adr/2026-11-11-character-3d.md 5절): 서버가 목록·범위를 보고 저장한다. 옛 칸은 그 외형에서 넘긴 값, 다시 켜도 남는다", async () => {
+    const world = await boot();
+    const service = cyborgsOf(world);
+    const a = await fakeUser("Look_A");
+    const start = startOf(world, a);
+    const look = CHARACTER_PRESETS[12]?.look ?? DEFAULT_CHARACTER_LOOK;
+    const input = {
+      name: "Lumen",
+      appearance: DEFAULT_CYBORG_APPEARANCE,
+      ...start,
+      elements: fireWind,
+      look,
+    };
+    await service.roll(a, "tech");
+    // 목록 밖 ID·범위 밖 수·빠진 칸·더 있는 칸·옛 판은 만들지 않는다
+    for (const bad of [
+      { ...look, head: "tophat" },
+      { ...look, height: 150 },
+      { ...look, plating: 9 },
+      { ...look, primary: "#ff0000" },
+      { ...look, v: 1 },
+      { ...look, hat: "cap" },
+      { v: 2 },
+      "knight",
+      null,
+    ]) {
+      expect(await service.create(a, { ...input, look: bad })).toEqual({
+        ok: false,
+        code: "appearance_invalid",
+      });
+    }
+    expect(service.record(a)).toBeUndefined();
+    // 옛 칸 모양이 틀려도 만들지 않는다(둘 다 본다)
+    expect(await service.create(a, { ...input, appearance: { head: "dome" } })).toEqual({
+      ok: false,
+      code: "appearance_invalid",
+    });
+    expect(await service.create(a, input)).toEqual({ ok: true });
+    // 기기가 보낸 옛 칸(기본 외형)이 아니라 3D 외형에서 넘긴 값이 저장된다
+    expect(service.record(a)?.look).toEqual(look);
+    expect(service.record(a)?.appearance).toEqual(legacyAppearanceOf(look));
+    expect(service.status(a)).toMatchObject({ cyborg: { look, appearance: legacyAppearanceOf(look) } });
+    const stored = await rows<{ look: unknown; appearance: unknown }>(
+      test.db,
+      `select look, appearance from cyborgs where user_id = $1`,
+      [a],
+    );
+    expect(stored[0]?.look).toEqual(look);
+    expect(isCharacterLook(stored[0]?.look)).toBe(true);
+    expect(stored[0]?.appearance).toEqual(legacyAppearanceOf(look));
+    // 다시 켜도 같다. DB 값이 목록에서 빠진 ID면 없는 것으로 읽는다(옛 외형에서 넘긴 값으로 보인다)
+    const again = await restart(world);
+    expect(cyborgsOf(again).record(a)?.look).toEqual(look);
+    await test.db.$client.query(
+      `update cyborgs set look = jsonb_set(look, '{head}', '"tophat"') where user_id = $1`,
+      [a],
+    );
+    const fixed = await restart(again);
+    expect(cyborgsOf(fixed).record(a)?.look).toBeNull();
+    expect(cyborgsOf(fixed).status(a)).toMatchObject({
+      cyborg: { look: characterLookFromLegacy(legacyAppearanceOf(look), characterSeedOf(a)) },
+    });
   });
 
   it("놓기: 시작 도시 둘레의 내 세계 유닛(종류 3)이고 시야로 2차맵이 열린다. 한 커밋으로 남고 보유 유닛에는 들지 않는다", async () => {

@@ -64,6 +64,7 @@ import type {
   WorldMapReads,
 } from "./context.ts";
 import type { GatherReads } from "../gather/reads.ts";
+import type { ScopePlanetSource } from "../world/playablePlanets.ts";
 import { reasonedError } from "./init.ts";
 
 export interface ContextFactoryOptions extends TrpcContextOptions {
@@ -90,6 +91,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   territory?: (() => TerritoryReadServices | undefined) | undefined;
   /** 세계 배치 화면(기획 D-528, 세계가 준비되면 서비스). 없으면 늘 준비 전 */
   worldLayout?: (() => WorldLayoutSource | undefined) | undefined;
+  /** 범위 줄의 행성 목록 재료(콘텐츠 팩 행성 원본). 없으면 플레이 행성 ID만 보인다 */
+  planetScope?: (() => readonly ScopePlanetSource[]) | undefined;
   /** 지도 흐름 조회(세계가 준비되면 서비스, src/worldMap/reads.ts). 없으면 늘 준비 전 */
   worldMap?: (() => WorldMapReads | undefined) | undefined;
   /** 원자재 오브젝트 채집 조회(세계가 준비되면, src/gather/reads.ts). 없으면 늘 준비 전 */
@@ -230,6 +233,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       territory: options.territory,
       worldLayout:
         options.worldLayout && request ? { service: options.worldLayout, ip: request.ip } : undefined,
+      planetScope: options.planetScope,
       worldMap: options.worldMap,
       gather: options.gather,
       economy,

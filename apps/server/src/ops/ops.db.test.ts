@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
+import { primaryPlanetId } from "../world/playablePlanets.ts";
 import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { createOpsServices } from "./services.ts";
@@ -251,5 +252,29 @@ describe.skipIf(!TEST_DATABASE_URL)("운영자 콘솔(DB)", () => {
     if (!first) throw new Error("no faction");
     expect((await ops.faction(first.id))?.faction.id).toBe(first.id);
     expect(Array.isArray(await ops.cities({ search: "" }))).toBe(true);
+
+    // 행성 거르기(docs/adr/2026-11-11-planet-scope.md): 대표 행성으로 거르면 전체와 같고, 다른 행성 ID로 거르면 빈다
+    const planetId = primaryPlanetId();
+    const other = "other_planet";
+    expect((await ops.units({ planetId, limit: 10, offset: 0 })).total).toBe(
+      (await ops.units({ limit: 10, offset: 0 })).total,
+    );
+    expect((await ops.units({ planetId: other, limit: 10, offset: 0 })).total).toBe(0);
+    expect(await ops.cities({ search: "", planetId })).toEqual(await ops.cities({ search: "" }));
+    expect(await ops.cities({ search: "", planetId: other })).toEqual([]);
+    // 세력: 그 행성에 도시도 유닛도 없으면 빠진다
+    expect(await ops.factions({ kind: "all", includeDissolved: false, planetId: other })).toEqual([]);
+    const onPlanet = await ops.factions({ kind: "all", includeDissolved: false, planetId });
+    expect(onPlanet.every((row) => row.cities > 0 || row.units > 0)).toBe(true);
+    // 감사 기록: 유닛 통제는 행성이 남는다(지급·정지는 행성과 무관해 빠진다)
+    const scoped = await ops.audit({ action: "", planetId, limit: 50 });
+    expect(scoped.map((row) => row.action)).toEqual(["ops.unit.teleport", "ops.unit.heal"]);
+    expect(scoped[0]?.meta).toMatchObject({ planetId, unitId: unitA });
+    expect(await ops.audit({ action: "", planetId: other, limit: 50 })).toEqual([]);
+    // 현황: 행성마다 합(플레이 행성이 맨 앞)
+    const totals = (await ops.overview()).planets ?? [];
+    expect(totals[0]).toMatchObject({ planetId, playable: true, maps: world.maps.size });
+    expect(totals[0]?.units).toBe((await ops.overview()).world.units);
+    expect(totals.reduce((sum, row) => sum + row.cities, 0)).toBe((await ops.overview()).counts.cities);
   });
 });

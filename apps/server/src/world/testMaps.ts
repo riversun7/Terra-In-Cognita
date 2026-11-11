@@ -2,7 +2,7 @@
 // 내보낸다. 세계 배치(worldLayout.ts) 뒤로 시험 2차맵 줄은 봇 규모 시험·서버 시험·화면 시험 자리이고, 고정 국가의 시작 도시는 행성 위
 // 자기 자리(그 2차맵을 함께 띄운다, worldBoot.ts)에 선다. 옛 세계는 이 줄에 시작 도시가 있다(relayout.ts가 옮긴다).
 import { type CellKey, EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
-import { DEFAULT_WORLD_PLANET_ID } from "../db/schema.ts";
+import { primaryPlanetId } from "./playablePlanets.ts";
 
 /**
  * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
@@ -18,8 +18,11 @@ export const TEST_MAP_KEY: CellKey = cellKey(
   TEST_MAP_ORIGIN.j,
 );
 
-/** 시험 2차맵이 놓인 행성(콘텐츠 팩 ID). 지구가 팩에 들어오면 시험 2차맵도 옮긴다(D-372, S3 ADR "행성 ID·영역") */
-export const TEST_PLANET_ID: string = DEFAULT_WORLD_PLANET_ID;
+/**
+ * 시험 2차맵이 놓인 행성(콘텐츠 팩 ID) = 이 세계의 대표 플레이 행성(playablePlanets.ts, docs/adr/2026-11-11-planet-scope.md).
+ * 지구가 팩에 들어오면 시험 2차맵도 옮긴다(D-372, S3 ADR "행성 ID·영역")
+ */
+export const TEST_PLANET_ID: string = primaryPlanetId();
 /** 시험 2차맵 k번째(0 = TEST_MAP_KEY). 규모 시험(S1_TEST_MAPS)은 오른쪽으로 나란히 둔다 */
 export function testMapKey(index: number): CellKey {
   return cellKey(TEST_MAP_ORIGIN.face, EARTH_FACE_LEVEL, TEST_MAP_ORIGIN.i + index, TEST_MAP_ORIGIN.j);

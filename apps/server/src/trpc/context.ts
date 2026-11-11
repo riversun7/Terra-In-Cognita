@@ -61,6 +61,7 @@ import type { GovernmentReads } from "../government/reads.ts";
 import type { NaturalizationReads } from "../citizenship/attach.ts";
 import type { NationNameReads } from "../worldMap/reads.ts";
 import type { GatherReads } from "../gather/reads.ts";
+import type { ScopePlanetSource } from "../world/playablePlanets.ts";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -459,6 +460,8 @@ export interface TrpcContext {
   worldLayout?:
     | { readonly service: () => WorldLayoutSource | undefined; readonly ip: string | null }
     | undefined;
+  /** 범위 줄의 행성 목록 재료(콘텐츠 팩 행성 원본, docs/adr/2026-11-11-planet-scope.md). 없으면 플레이 행성 ID만 보인다 */
+  planetScope?: (() => readonly ScopePlanetSource[]) | undefined;
   /** 지도 흐름 조회(docs/adr/2026-11-07-play-flow.md "WP2"). 세계(DB)가 없거나 부팅 복구 전이면 undefined(not_ready로 답한다) */
   worldMap?: (() => WorldMapReads | undefined) | undefined;
   /** 원자재 오브젝트 채집·건물 들어가기 조회(docs/adr/2026-11-07-gather-objects.md). 세계(DB)가 없으면 undefined(not_ready로 답한다) */

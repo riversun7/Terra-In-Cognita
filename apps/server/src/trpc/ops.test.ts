@@ -11,6 +11,7 @@ import type { OpsSwitches } from "../ops/switches.ts";
 import { OPS_SWITCHES, type OpsSwitch } from "@terra/shared/ops";
 import { createRosterServices } from "../roster/services.ts";
 import { NO_VITALS } from "../vitals/reads.ts";
+import { type ScopePlanetSource, primaryPlanetId } from "../world/playablePlanets.ts";
 import type { TrpcContext, Viewer } from "./context.ts";
 import { createCallerFactory } from "./init.ts";
 import { appRouter } from "./router.ts";
@@ -62,7 +63,11 @@ function memorySwitches(): OpsSwitches {
   };
 }
 
-function callerFor(viewer: Viewer, grants: Record<string, string[]> = {}) {
+function callerFor(
+  viewer: Viewer,
+  grants: Record<string, string[]> = {},
+  planets?: readonly ScopePlanetSource[],
+) {
   const db = fakePool(grants);
   const ops = createOpsServices(
     {
@@ -82,6 +87,7 @@ function callerFor(viewer: Viewer, grants: Record<string, string[]> = {}) {
     admin: undefined,
     settings: undefined,
     ops,
+    planetScope: planets ? () => planets : undefined,
     planetEditor: undefined,
     home: createHomeServices(),
     roster: createRosterServices(),
@@ -181,5 +187,41 @@ describe("ops 라우터 권한", () => {
   it("감사 기록은 분류·한 사람 아이디로 거른다", async () => {
     const { caller } = callerFor(ADMIN);
     expect(await caller.ops.audit({ categories: ["ops", "account"], actorSearch: "rivers" })).toEqual([]);
+  });
+
+  it("행성 거르기: 플레이 행성은 받고, 아닌 행성은 NOT_FOUND(UNKNOWN_PLANET), 없으면 모든 행성", async () => {
+    const { caller } = callerFor(ADMIN);
+    const planetId = primaryPlanetId();
+    expect(await caller.ops.audit({ planetId })).toEqual([]);
+    expect(await caller.ops.npcs.factions({ planetId })).toEqual([]);
+    expect(await caller.ops.audit({})).toEqual([]);
+    for (const call of [
+      () => caller.ops.audit({ planetId: "s2_editor_planet" }),
+      () => caller.ops.npcs.factions({ planetId: "s2_editor_planet" }),
+      () => caller.ops.npcs.cities({ planetId: "s2_editor_planet" }),
+      () => caller.ops.units.list({ planetId: "s2_editor_planet" }),
+    ])
+      await expect(call()).rejects.toMatchObject({ code: "NOT_FOUND", message: "UNKNOWN_PLANET" });
+    // 모양이 틀린 값은 입력 검사에서 막힌다
+    await expect(caller.ops.audit({ planetId: "Mars; drop" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+});
+
+describe("planetScope 라우터", () => {
+  it("플레이 행성이 먼저다. 개발·운영 역할만 편집 전용 행성을 받는다", async () => {
+    const sources = [
+      { id: "s2_editor_planet", name: { ko: "편집 행성", en: "Editor planet" }, faceLevel: 9 },
+      { id: primaryPlanetId(), name: { ko: "시험 행성", en: "Test planet" }, faceLevel: 9 },
+    ];
+    const staff = await callerFor(GM, {}, sources).caller.planetScope.list();
+    expect(staff.primaryPlanetId).toBe(primaryPlanetId());
+    expect(staff.planets.map((planet) => [planet.id, planet.status])).toEqual([
+      [primaryPlanetId(), "playable"],
+      ["s2_editor_planet", "editor"],
+    ]);
+    const player = await callerFor(PLAYER, {}, sources).caller.planetScope.list();
+    expect(player.planets.map((planet) => planet.id)).toEqual([primaryPlanetId()]);
+    // 팩 행성 원본이 없는 서버(시험·행성 서비스 없음)도 플레이 행성은 보인다
+    expect((await callerFor(DEV).caller.planetScope.list()).planets).toHaveLength(1);
   });
 });

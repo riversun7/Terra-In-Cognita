@@ -125,6 +125,26 @@ export interface OpsAccess {
   granted: OpsPermission[];
 }
 
+/**
+ * 행성 하나의 합(현황 탭 행성별 표, docs/adr/2026-11-11-planet-scope.md). 2차맵·유닛은 메모리 월드, 나머지는 DB 기준.
+ * 전투는 표(world_battles)에 행성 칸이 없어 아직 행성별로 세지 못한다(ADR 후속)
+ */
+export interface OpsPlanetTotals {
+  planetId: string;
+  /** 이 세계의 플레이 행성인지(아니면 자료만 남은 행성 ID — 살펴볼 것) */
+  playable: boolean;
+  maps: number;
+  units: number;
+  moving: number;
+  cities: number;
+  humans: number;
+  buildings: number;
+  /** 오염이 쌓인 1차맵 칸 수(정원사) */
+  pollutionCells: number;
+  /** 오는 중·싸우는 중인 정원사 웨이브 수 */
+  activeWaves: number;
+}
+
 export interface OpsServerOverview {
   nowMs: number;
   uptimeSec: number;
@@ -156,6 +176,8 @@ export interface OpsServerOverview {
     audit24h: number;
     signups24h: number;
   };
+  /** 행성마다 합(플레이 행성이 먼저, 대표가 맨 앞). 옛 서버 응답에는 없다 */
+  planets?: OpsPlanetTotals[];
 }
 
 export interface OpsPlayerRow {

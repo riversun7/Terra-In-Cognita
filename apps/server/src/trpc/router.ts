@@ -20,6 +20,7 @@ import { router } from "./init.ts";
 import { mailRouter } from "./mail.ts";
 import { opsRouter } from "./ops.ts";
 import { planetEditorRouter } from "./planetEditor.ts";
+import { planetScopeRouter } from "./planetScope.ts";
 import { rankingRouter } from "./ranking.ts";
 import { recruitRouter } from "./recruit.ts";
 import { fusionRouter } from "./fusion.ts";
@@ -48,6 +49,8 @@ export const appRouter = router({
   ops: opsRouter,
   settings: settingsRouter,
   planetEditor: planetEditorRouter,
+  // 범위 줄(편집기·모니터링의 행성 고르기)이 읽는 행성 목록(docs/adr/2026-11-11-planet-scope.md)
+  planetScope: planetScopeRouter,
   // 개발자 설정 칸 패널(docs/adr/2026-11-01-dev-settings-panel.md 8절)
   tuning: tuningRouter,
   // 개발자 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 3절)

@@ -65,14 +65,30 @@ export function readServerMetrics(
 }
 
 /**
+ * 행성 하나의 1분 지표 줄(docs/adr/2026-11-11-planet-scope.md). 서버 줄("metric":"server")과 따로 남긴다:
+ * 서버 줄을 읽는 스크립트(ops/s3-ramp.sh·s3-ramp-summary.mjs, nas-metrics의 grep)는 그대로 돈다.
+ * 보는 법(NAS): docker logs tic-app | grep '"metric":"planet"'
+ */
+export interface PlanetMetrics {
+  metric: "planet";
+  planetId: string;
+  maps: number;
+  units: number;
+  moving: number;
+  subscribers: number;
+}
+
+/**
  * 주기적으로 지표를 기록한다. 멈추는 함수를 돌려준다.
  * extra: 같은 줄에 붙일 값(S1 2차맵 측정값, src/world/worldStats.ts). 부를 때마다 그 구간 값을 주고 비운다.
+ * planets: 행성마다 한 줄씩 더 남길 값(서버 줄 뒤에)
  */
 export function startServerMetrics(
   log: FastifyBaseLogger,
   wsConnections: () => number,
   intervalMs = 60_000,
   extra?: () => Record<string, number>,
+  planets?: () => readonly PlanetMetrics[],
 ): () => void {
   const histogram = monitorEventLoopDelay({ resolution: EVENT_LOOP_RESOLUTION_MS });
   histogram.enable();
@@ -89,6 +105,7 @@ export function startServerMetrics(
       { ...readServerMetrics(histogram, wsConnections(), EVENT_LOOP_RESOLUTION_MS, cpu), ...extra?.() },
       "server metrics",
     );
+    for (const planet of planets?.() ?? []) log.info(planet, "planet metrics");
     histogram.reset();
   }, intervalMs);
   // 이 타이머 때문에 프로세스가 안 꺼지는 일이 없게

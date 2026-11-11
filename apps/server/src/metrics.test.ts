@@ -117,4 +117,37 @@ describe("지표 한 줄", () => {
       vi.useRealTimers();
     }
   });
+
+  it("행성 줄은 서버 줄 뒤에 따로 남는다(서버 줄 모양은 그대로)", async () => {
+    vi.useFakeTimers();
+    try {
+      const app = Fastify({ logger: false });
+      const info = vi.spyOn(app.log, "info");
+      const planet = {
+        metric: "planet" as const,
+        planetId: "s2_test_planet",
+        maps: 6,
+        units: 1_000,
+        moving: 40,
+        subscribers: 2,
+      };
+      const stop = startServerMetrics(
+        app.log,
+        () => 1,
+        1_000,
+        undefined,
+        () => [planet],
+      );
+      await vi.advanceTimersByTimeAsync(1_000);
+      stop();
+      expect(info).toHaveBeenCalledTimes(2);
+      const [serverLine] = info.mock.calls[0] ?? [];
+      expect(serverLine).toMatchObject({ metric: "server", wsConnections: 1 });
+      // 서버 줄에 행성 칸이 섞이지 않는다(읽는 스크립트가 그대로 돈다)
+      expect(serverLine).not.toHaveProperty("planetId");
+      expect(info).toHaveBeenLastCalledWith(planet, "planet metrics");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

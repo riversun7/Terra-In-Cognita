@@ -2,11 +2,14 @@
 // 예외(ADR 3절): 운영자 통제(유닛·원장)는 게임 상태를 바꾸지만 WebSocket이 아니라 여기(tRPC 쓰기)로 받는다. 서버 한 프로세스의 같은 월드
 // 객체를 같은 쓰기 대기열로 바꾸므로 판정 결과는 같고, 플레이어 명령이 아니라 감사 기록을 남기는 운영 도구이기 때문이다.
 // 권한 부여(grants)는 개발자만(manage_grants), 운영 스위치(switches)는 관리자·개발자(log_switch).
-// 오류(error.data.code): UNAUTHORIZED, FORBIDDEN(권한 없음), PRECONDITION_FAILED(운영 서비스 없음 — DB 없는 서버), NOT_FOUND(대상 없음)
+// 오류(error.data.code): UNAUTHORIZED, FORBIDDEN(권한 없음), PRECONDITION_FAILED(운영 서비스 없음 — DB 없는 서버), NOT_FOUND(대상 없음,
+// "UNKNOWN_PLANET": 플레이 행성이 아닌 planetId)
+// 행성 거르기(docs/adr/2026-11-11-planet-scope.md): 세력·도시·유닛·감사 기록 조회는 planetId(선택)를 받는다. 없으면 모든 행성(옛 기기와 같다).
 import { AUDIT_CATEGORY_IDS, OPS_PERMISSIONS, OPS_SWITCHES, type OpsPermission } from "@terra/shared/ops";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { OpsServices } from "../ops/services.ts";
+import { isPlayablePlanet } from "../world/playablePlanets.ts";
 import { router, signedInProcedure } from "./init.ts";
 
 function services(ops: OpsServices | undefined): OpsServices {
@@ -33,6 +36,20 @@ const notFound = (): never => {
 const page = { limit: z.int().min(1).max(200).default(50), offset: z.int().min(0).max(1_000_000).default(0) };
 const reason = z.string().trim().max(200).default("");
 const id = z.int().min(1).max(Number.MAX_SAFE_INTEGER);
+/** 행성 거르기 입력(없으면 모든 행성) */
+const planetId = z
+  .string()
+  .min(2)
+  .max(48)
+  .regex(/^[a-z][a-z0-9_]*$/)
+  .optional();
+
+/** 고른 행성이 이 세계의 플레이 행성인지 본다(없으면 거르지 않음) */
+function scoped<T extends { planetId?: string | undefined }>(input: T): T {
+  if (input.planetId !== undefined && !isPlayablePlanet(input.planetId))
+    throw new TRPCError({ code: "NOT_FOUND", message: "UNKNOWN_PLANET" });
+  return input;
+}
 
 export const opsRouter = router({
   /** 내 운영 권한(화면이 탭·단추를 고른다). 콘솔 역할이 없으면 빈 목록 */
@@ -65,15 +82,22 @@ export const opsRouter = router({
         z.strictObject({
           kind: z.enum(["all", "npc", "player"]).default("npc"),
           includeDissolved: z.boolean().default(false),
+          planetId,
         }),
       )
-      .query(({ ctx, input }) => ctx.ops.factions(input)),
+      .query(({ ctx, input }) => ctx.ops.factions(scoped(input))),
     faction: opsProcedure("view_npcs")
       .input(z.strictObject({ factionId: id }))
       .query(async ({ ctx, input }) => (await ctx.ops.faction(input.factionId)) ?? notFound()),
     cities: opsProcedure("view_npcs")
-      .input(z.strictObject({ factionId: id.optional(), search: z.string().trim().max(40).default("") }))
-      .query(({ ctx, input }) => ctx.ops.cities(input)),
+      .input(
+        z.strictObject({
+          factionId: id.optional(),
+          search: z.string().trim().max(40).default(""),
+          planetId,
+        }),
+      )
+      .query(({ ctx, input }) => ctx.ops.cities(scoped(input))),
     /** 세력 정체성 고치기(이름·약어·색) — 관리자·개발자(faction_edit). 규칙은 @terra/shared/factionProfile, 서버가 다시 본다 */
     updateProfile: opsProcedure("faction_edit")
       .input(
@@ -111,6 +135,7 @@ export const opsRouter = router({
         z.strictObject({
           ownerKind: z.enum(["user", "faction"]).optional(),
           ownerId: id.optional(),
+          planetId,
           mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
           kind: z.int().min(0).max(32767).optional(),
           ...page,
@@ -127,7 +152,7 @@ export const opsRouter = router({
               : ["view_players", "view_npcs"];
         if (!need.every((permission) => access.permissions.includes(permission)))
           throw new TRPCError({ code: "FORBIDDEN", message: "FORBIDDEN" });
-        return ops.units(input);
+        return ops.units(scoped(input));
       }),
     /** 유닛 상세. 유저 유닛은 view_players, NPC 유닛은 view_npcs */
     get: signedInProcedure.input(z.strictObject({ unitId: id })).query(async ({ ctx, input }) => {
@@ -238,11 +263,13 @@ export const opsRouter = router({
         /** 한 사람·대상 아이디 일부 */
         actorSearch: z.string().trim().max(40).default(""),
         targetSearch: z.string().trim().max(40).default(""),
+        /** 이 행성에 한 동작만(meta.planetId). 비우면 모두 */
+        planetId,
         beforeId: id.optional(),
         limit: z.int().min(1).max(200).default(50),
       }),
     )
-    .query(({ ctx, input }) => ctx.ops.audit(input)),
+    .query(({ ctx, input }) => ctx.ops.audit(scoped(input))),
 
   /** 운영 스위치(조회 감사 기록, 기본 꺼짐) — 관리자 화면이 쓴다 */
   switches: router({

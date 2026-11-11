@@ -4,9 +4,11 @@
 // - planet: 모든 세력(개발 영토 화면 /dev/territory). 권한 territory: observe(dev·admin). 시야(D-103)로 거르지 않는다.
 // 오류(error.data.code): UNAUTHORIZED, FORBIDDEN, BAD_REQUEST(입력 형식), PRECONDITION_FAILED("WORLD_NOT_READY": 세계·DB 없음·부팅 전),
 // NOT_FOUND("UNKNOWN_PLANET": 영토를 셈하지 않는 행성)
+// planetId는 선택이다: 없으면 대표 플레이 행성(src/world/playablePlanets.ts, docs/adr/2026-11-11-planet-scope.md).
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { primaryPlanetId } from "../world/playablePlanets.ts";
 import type { TerritoryReadServices, TrpcContext } from "./context.ts";
 import { permissionProcedure, router, signedInProcedure } from "./init.ts";
 
@@ -15,7 +17,8 @@ const planetInput = z.strictObject({
     .string()
     .min(2)
     .max(48)
-    .regex(/^[a-z][a-z0-9_]*$/),
+    .regex(/^[a-z][a-z0-9_]*$/)
+    .default(primaryPlanetId),
 });
 
 function services(ctx: Pick<TrpcContext, "territory">): TerritoryReadServices {

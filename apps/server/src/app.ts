@@ -102,6 +102,8 @@ import {
 import type { ReplayName } from "@terra/protocol/battleReplay";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld, testMapKey } from "./world/world.ts";
+import { primaryPlanetId } from "./world/playablePlanets.ts";
+import { planetGaugesOf } from "./ops/planetReads.ts";
 import { placementSourceOf } from "./world/placementService.ts";
 import { registerNationEmblemRoute } from "./nationEdit/emblems.ts";
 import { nationName } from "./npc/nations.ts";
@@ -327,7 +329,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       })
     : undefined;
   planets?.start();
-  const worldPlanet = options.planets?.sources.find((source) => source.id === TEST_PLANET_ID);
+  // 세계 행성 = 대표 플레이 행성(src/world/playablePlanets.ts, docs/adr/2026-11-11-planet-scope.md)
+  const worldPlanet = options.planets?.sources.find((source) => source.id === primaryPlanetId());
   const terrain =
     options.world && options.secondMaps && planets && worldPlanet
       ? createTerrainService({
@@ -742,6 +745,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       // 영토 조회(내 세력·개발 화면 전체)
       territory: territoryService,
       worldLayout,
+      // 범위 줄의 행성 목록(이름·면 레벨은 팩 행성 원본에서)
+      planetScope: () => options.planets?.sources ?? [],
       worldMap: worldMapService,
       gather: gatherReads ? () => (worldGather?.current() ? gatherReads : undefined) : undefined,
       // 경제 화면: 팩 목록 + 월드 원장 잔고(읽기만) + 시안 자료
@@ -955,6 +960,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       () => wsConnections,
       metricsIntervalMs,
       world || planets || tuningState || contentState ? extras : undefined,
+      // 행성마다 한 줄("metric":"planet", docs/adr/2026-11-11-planet-scope.md): 2차맵·유닛·움직이는 수·보는 연결 수
+      world
+        ? () =>
+            planetGaugesOf(world.status().state === "ready" ? world : undefined).map((row) => ({
+              metric: "planet" as const,
+              ...row,
+            }))
+        : undefined,
     );
     app.addHook("onClose", async () => stopMetrics());
   }

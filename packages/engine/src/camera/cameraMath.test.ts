@@ -145,7 +145,10 @@ describe("가까이 눕힘(그린 기울기)", () => {
     expect(spanForDistance(min, PHONE)).toBeCloseTo(TILT_REFERENCE_SPAN_M, 6);
     expect(TILT_REFERENCE_SPAN_M).toBe(40);
     expect(viewPitch(DEFAULT_PITCH_RAD, limits.minDistance, min)).toBeCloseTo(30 * DEG, 12);
-    expect(clampCamera({ ...initialCamera(MAP, limits), distance: 0 }, limits).pitch).toBeCloseTo(30 * DEG, 12);
+    expect(clampCamera({ ...initialCamera(MAP, limits), distance: 0 }, limits).pitch).toBeCloseTo(
+      30 * DEG,
+      12,
+    );
   });
   it("확대 TILT_FULL_ZOOM배까지는 다 눕히고(45° → 30°), TILT_NONE_ZOOM배부터는 그대로", () => {
     expect(closeTilt(min, min)).toBeCloseTo(CLOSE_TILT_RAD, 12);

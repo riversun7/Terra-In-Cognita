@@ -167,16 +167,17 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   workEndPm: 750,
   // 수도 옮기기: 발전도 10점(도시 등급 한 칸쯤) 넘게 앞서야 옮긴다
   capitalSwitchDev: 10,
-  // 도시 건물 배치(docs/adr/2026-11-11-city-building-layout.md): 숙소 둘(일꾼 묶음 둘 — 시작 도시 채집소 2~8곳), 전략 배치 켬.
-  // 띠: 옛 씨앗이 건물을 세우던 반경(가운데에서 48칸 안)과 채집소 반경(40칸) 안 — 채집소 20~42칸, 고리 11칸, 창고는 길의 60%, 숙소는 35%
-  lodgings: 2,
+  // 도시 건물 배치(docs/adr/2026-11-11-city-building-layout.md): 전략 배치 켬.
+  // 띠: 옛 씨앗이 건물을 세우던 반경(가운데에서 48칸 안)과 채집소 반경(40칸) 안 — 채집소 20~42칸, 고리 9칸, 창고는 길의 75%, 숙소는 35%.
+  // 숙소 셋: 채집 구역(창고 수)마다 길 위 하나, 남는 것은 행정 건물의 빈 쪽(측정 docs/worklog/2026/11/12-0130-city-layout.md)
+  lodgings: 3,
   cityLayoutMode: 1,
   cityLayoutPlazaCells: 3,
-  cityLayoutInnerCells: 11,
+  cityLayoutInnerCells: 9,
   cityLayoutGatherMinCells: 20,
   cityLayoutGatherMaxCells: 42,
   cityLayoutGatherReachCells: 14,
-  cityLayoutStoreRoutePm: 600,
+  cityLayoutStoreRoutePm: 750,
   cityLayoutLodgeRoutePm: 350,
   cityLayoutJitterCells: 2,
 };

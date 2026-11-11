@@ -57,9 +57,9 @@ export interface LayoutGround {
   /** 이 칸이 이 도시 자리인가(가장 가까운 도시) */
   owns(x: number, y: number): boolean;
   /** 시설 조건(물가 등)이 맞나. 없으면 늘 맞다 */
-  fits?(facility: string, x: number, y: number): boolean;
+  readonly fits?: ((facility: string, x: number, y: number) => boolean) | undefined;
   /** 배치 칸 지형 비용(천분율, 0 = 막힘). 없으면 모두 1000 */
-  costAt?(x: number, y: number): number;
+  readonly costAt?: ((x: number, y: number) => number) | undefined;
   readonly objects: readonly LayoutObject[];
 }
 
@@ -78,11 +78,11 @@ export interface CityLayoutRules {
 /** 출발값(설정 칸 출발값과 같다) */
 export const CITY_LAYOUT_DEFAULTS: CityLayoutRules = {
   plazaCells: 3,
-  innerCells: 11,
+  innerCells: 9,
   gatherMinCells: 20,
   gatherMaxCells: 42,
   gatherReachCells: 14,
-  storeRoutePm: 600,
+  storeRoutePm: 750,
   lodgeRoutePm: 350,
   jitterCells: 2,
 };
@@ -97,6 +97,13 @@ const GATHER_LATTICE = 2;
 const CLAIMED_WEIGHT = 250;
 /** 채집소 후보: 띠 안쪽 끝에서 한 칸 멀어질 때마다 빼는 점수 */
 const GATHER_FAR_PENALTY = 15;
+/**
+ * 채집 구역 가운데 후보: 이미 고른 구역 가운데와 각도가 벌어질수록 더하는 점수(라디안당, 반 바퀴까지). 오브젝트 하나 = 1000점.
+ * 구역이 둘 이상이면 행정 건물의 다른 쪽에 서서 겹(창고·숙소)이 여러 쪽을 막는다
+ */
+const DISTRICT_SPREAD_PER_RAD = 3000;
+/** 채집소 후보: 자기 구역 가운데에서 한 칸 멀어질 때마다 빼는 점수(채집소가 구역에 모여 창고 하나가 맡는다) */
+const DISTRICT_PULL = 150;
 /** 채집소 후보: 위에서부터 이만큼 자리 찾기를 해 본다 */
 const GATHER_TRIES = 12;
 /** 황금각(라디안) — 오브젝트가 없을 때 채집소 방향을 흩는다 */
@@ -211,6 +218,16 @@ function meanRay(
   const norm = Math.sqrt(sx * sx + sy * sy);
   if (norm === 0 || points.length === 0) return undefined;
   return { dx: sx / norm, dy: sy / norm, distance: total / points.length };
+}
+
+/** angle과 angles 가운데 가장 가까운 것의 각도 차(라디안, 0 ~ π). 비면 0 */
+function angularGap(angles: readonly number[], angle: number): number {
+  let gap = angles.length === 0 ? 0 : Math.PI;
+  for (const other of angles) {
+    const diff = Math.abs(angle - other);
+    gap = Math.min(gap, diff > Math.PI ? 2 * Math.PI - diff : diff);
+  }
+  return gap;
 }
 
 /** 정수 칸으로 반올림(−0 없이) */
@@ -342,77 +359,128 @@ export function planCityLayout(input: CityLayoutInput): CityLayoutPlan {
     min2: rules.gatherMinCells * rules.gatherMinCells,
     max2: rules.gatherMaxCells * rules.gatherMaxCells,
   };
+  const reach2 = rules.gatherReachCells * rules.gatherReachCells;
+  const far = rules.gatherMaxCells + rules.gatherReachCells;
+  const far2 = far * far;
   const claimed = new Set<number>();
   const baseAngle = (rng.nextInt(3600) * Math.PI) / 1800;
-  let spread = 0;
-  for (const item of input.items.filter((entry) => entry.role === "gather")) {
+  const gatherItems = input.items.filter((entry) => entry.role === "gather");
+  const storageItems = input.items.filter((entry) => entry.role === "storage");
+
+  /** 띠 안 격자 칸마다 점수를 매겨 높은 차례(점수 0 이하는 뺀다). 같은 점수는 시드 굴림 */
+  const rankBand = (score: (at: { x: number; y: number }, d2: number) => number) => {
+    const out: { x: number; y: number; score: number }[] = [];
+    for (let dy = -rules.gatherMaxCells; dy <= rules.gatherMaxCells; dy += GATHER_LATTICE)
+      for (let dx = -rules.gatherMaxCells; dx <= rules.gatherMaxCells; dx += GATHER_LATTICE) {
+        const d2 = dx * dx + dy * dy;
+        if (d2 < band.min2 || d2 > band.max2) continue;
+        const at = { x: hallCenter.x + dx, y: hallCenter.y + dy };
+        if (at.x < 0 || at.y < 0 || at.x >= size || at.y >= size || !ground.owns(at.x, at.y)) continue;
+        const value = score(at, d2);
+        if (value > 0) out.push({ ...at, score: value * 64 + rng.nextInt(64) });
+      }
+    return out.toSorted((a, b) => b.score - a.score || a.y - b.y || a.x - b.x);
+  };
+
+  // 1a. 채집 구역: 창고 수만큼(적어도 하나, 채집소 수까지). 구역 가운데 = 띠 안에서 채집소들이 맡는 원자재가 많은 곳, 구역끼리 각도를 벌린다.
+  //     채집소는 자기 구역 가운데 가까이 모여(창고 하나가 그 구역을 맡는다 — 옮김 거리), 구역마다 창고·숙소가 행정 건물로 가는 길을 막는다
+  const allKinds = new Set(gatherItems.flatMap((entry) => entry.objectKinds ?? []));
+  const near = ground.objects
+    .map((object, index) => ({ object, index }))
+    .filter(({ object }) => dist2(object, hallCenter) <= far2);
+  const districtCount = Math.max(1, Math.min(gatherItems.length, storageItems.length));
+  const anchors: { x: number; y: number }[] = [];
+  for (let d = 0; d < (gatherItems.length > 0 ? districtCount : 0); d++) {
+    const taken = anchors.map((at) => angleOf(hallCenter, at));
+    const best = rankBand((at, d2) => {
+      let score = 0;
+      for (const { object } of near)
+        if (allKinds.has(object.kind) && dist2(object, at) <= reach2) score += 1000;
+      if (score === 0) return 0;
+      score -= GATHER_FAR_PENALTY * Math.max(0, Math.round(Math.sqrt(d2)) - rules.gatherMinCells);
+      return score + Math.round(DISTRICT_SPREAD_PER_RAD * angularGap(taken, angleOf(hallCenter, at)));
+    })[0];
+    if (best) anchors.push({ x: best.x, y: best.y });
+    else {
+      // 원자재가 없으면 띠 가운데 반경에서 황금각으로 흩은 방향
+      const radius = (rules.gatherMinCells + rules.gatherMaxCells) >> 1;
+      const angle = baseAngle + GOLDEN_ANGLE * d;
+      anchors.push({
+        x: hallCenter.x + cell(detCos(angle) * radius),
+        y: hallCenter.y + cell(detSin(angle) * radius),
+      });
+    }
+  }
+
+  // 1b. 채집소: 구역을 돌아가며(같은 종류가 다른 구역으로 가 같은 칸을 덜 다툰다), 맡는 원자재가 reach 안에 많고 구역 가운데에 가까운 곳
+  const districtOf = new Map<LayoutRect, number>();
+  gatherItems.forEach((item, order) => {
+    const district = order % Math.max(1, anchors.length);
+    const anchor = anchors[district] ?? hallCenter;
     const kinds = new Set(item.objectKinds ?? []);
-    const reach2 = rules.gatherReachCells * rules.gatherReachCells;
-    const far = rules.gatherMaxCells + rules.gatherReachCells;
-    const far2 = far * far;
-    const mine = ground.objects
-      .map((object, index) => ({ object, index }))
-      .filter(({ object }) => kinds.has(object.kind) && dist2(object, hallCenter) <= far2);
+    const mine = near.filter(({ object }) => kinds.has(object.kind));
     let rect: LayoutRect | undefined;
     if (mine.length > 0) {
-      const candidates: { x: number; y: number; score: number }[] = [];
-      for (let dy = -rules.gatherMaxCells; dy <= rules.gatherMaxCells; dy += GATHER_LATTICE)
-        for (let dx = -rules.gatherMaxCells; dx <= rules.gatherMaxCells; dx += GATHER_LATTICE) {
-          const d2 = dx * dx + dy * dy;
-          if (d2 < band.min2 || d2 > band.max2) continue;
-          const at = { x: hallCenter.x + dx, y: hallCenter.y + dy };
-          if (at.x < 0 || at.y < 0 || at.x >= size || at.y >= size || !ground.owns(at.x, at.y)) continue;
-          let score = 0;
-          for (const { object, index } of mine)
-            if (dist2(object, at) <= reach2) score += claimed.has(index) ? CLAIMED_WEIGHT : 1000;
-          if (score === 0) continue;
-          score -= GATHER_FAR_PENALTY * Math.max(0, Math.round(Math.sqrt(d2)) - rules.gatherMinCells);
-          candidates.push({ ...at, score: score * 64 + rng.nextInt(64) });
-        }
-      candidates.sort((a, b) => b.score - a.score || a.y - b.y || a.x - b.x);
-      for (const candidate of candidates.slice(0, GATHER_TRIES)) {
+      const ranked = rankBand((at, d2) => {
+        let score = 0;
+        for (const { object, index } of mine)
+          if (dist2(object, at) <= reach2) score += claimed.has(index) ? CLAIMED_WEIGHT : 1000;
+        if (score === 0) return 0;
+        score -= GATHER_FAR_PENALTY * Math.max(0, Math.round(Math.sqrt(d2)) - rules.gatherMinCells);
+        return score - DISTRICT_PULL * Math.round(Math.sqrt(dist2(at, anchor)));
+      });
+      for (const candidate of ranked.slice(0, GATHER_TRIES)) {
         rect = spotNear(item, candidate, band, 4);
         if (rect) break;
       }
     }
     if (!rect) {
-      // 오브젝트가 없거나 그 둘레에 못 놓으면: 띠 가운데 반경에서 황금각으로 흩은 방향
-      const radius = (rules.gatherMinCells + rules.gatherMaxCells) >> 1;
-      const angle = baseAngle + GOLDEN_ANGLE * spread;
-      spread += 1;
-      const aim = {
-        x: hallCenter.x + cell(detCos(angle) * radius) + jitter(),
-        y: hallCenter.y + cell(detSin(angle) * radius) + jitter(),
-      };
-      rect = spotNear(item, aim, band);
-      // 그래도 없으면(물가 조건 등) 띠 전체를 그 방향에서 가까운 차례로 훑는다
-      if (!rect) rect = scanBand(item, aim, band);
+      // 원자재가 없거나 그 둘레에 못 놓으면: 구역 가운데 둘레, 그래도 없으면(물가 조건 등) 띠 전체를 그쪽에서 가까운 차례로
+      const aim = { x: anchor.x + jitter(), y: anchor.y + jitter() };
+      rect = spotNear(item, aim, band) ?? scanBand(item, aim, band);
     }
     if (!rect) {
       missing.push(item);
-      continue;
+      return;
     }
     commit(item, rect);
+    const last = placed.at(-1);
+    if (last) districtOf.set(last, district);
     const middle = rectCenter(rect);
     for (const { object, index } of mine) if (dist2(object, middle) <= reach2) claimed.add(index);
-  }
+  });
 
-  // 2·3. 창고·숙소: 채집소 묶음 방향의 가운데 → 채집소 길 위
-  const stations = [
+  // 2·3. 창고·숙소: 행정 건물 → 채집소 묶음 길 위. 창고 묶음 = 채집 구역(이미 선 채집소는 가장 가까운 구역 가운데로), 숙소 묶음 = 각도로 나눔
+  const allStations = [
     ...input.existing.filter((building) => building.role === "gather"),
     ...placed.filter((building) => building.role === "gather"),
-  ].map(rectCenter);
-  const onRoute = (role: LayoutRole, routePm: number) => {
+  ];
+  const stations = allStations.map(rectCenter);
+  const storageGroups: number[][] =
+    anchors.length === 0
+      ? splitByAngle(hallCenter, stations, storageItems.length)
+      : anchors.map((_, district) =>
+          allStations.flatMap((building, index) => {
+            const own = districtOf.get(building);
+            const nearestAnchor =
+              own ??
+              anchors
+                .map((at, k) => ({ k, d: dist2(at, rectCenter(building)) }))
+                .toSorted((a, b) => a.d - b.d || a.k - b.k)[0]?.k;
+            return nearestAnchor === district ? [index] : [];
+          }),
+        );
+  const onRoute = (role: LayoutRole, routePm: number, groups: readonly number[][]) => {
     const items = input.items.filter((entry) => entry.role === role);
-    const groups = splitByAngle(hallCenter, stations, items.length);
     items.forEach((item, index) => {
       const members = groups[index];
-      const ray = members
-        ? meanRay(
-            hallCenter,
-            members.map((at) => stations[at] ?? hallCenter),
-          )
-        : undefined;
+      const ray =
+        members && members.length > 0
+          ? meanRay(
+              hallCenter,
+              members.map((at) => stations[at] ?? hallCenter),
+            )
+          : undefined;
       if (!ray) {
         fillGap(item);
         return;
@@ -455,8 +523,14 @@ export function planCityLayout(input: CityLayoutInput): CityLayoutPlan {
     else missing.push(item);
   }
 
-  onRoute("storage", rules.storeRoutePm);
-  onRoute("living", rules.lodgeRoutePm);
+  onRoute("storage", rules.storeRoutePm, storageGroups);
+  // 숙소 묶음 수 = 채집 구역 수까지(구역마다 길 위 하나). 남는 숙소는 빈 각도를 채운다(행정 건물의 다른 쪽도 막는다)
+  const lodgingCount = input.items.filter((entry) => entry.role === "living").length;
+  onRoute(
+    "living",
+    rules.lodgeRoutePm,
+    splitByAngle(hallCenter, stations, Math.min(lodgingCount, Math.max(1, anchors.length))),
+  );
   // 4. 나머지: 빈 각도 채우기
   for (const item of input.items.filter((entry) => entry.role === "other")) fillGap(item);
 

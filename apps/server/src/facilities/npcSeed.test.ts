@@ -84,6 +84,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "government_hall",
       "lodging",
       "lodging",
+      "lodging",
       "lumber_camp",
       "mine",
       "storehouse",
@@ -92,6 +93,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "farm",
       "farm",
       "government_hall",
+      "lodging",
       "lodging",
       "lodging",
       "storehouse",
@@ -119,8 +121,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     };
     const result = seedNpcFacilities(input);
     const perCity = seedPlan(START_WORLD_SEED).reduce((sum, item) => sum + item.count, 0);
-    // 행정 건물 1 + 창고 1 + 숙소 2 + 농장·벌목장·광산 1씩
-    expect(perCity).toBe(7);
+    // 행정 건물 1 + 창고 1 + 숙소 3 + 농장·벌목장·광산 1씩
+    expect(perCity).toBe(8);
     // 시작 도시가 아닌 도시(3)는 씨앗을 받지 않는다
     expect(result).toEqual({ placed: perCity * 2, missing: 0 });
     for (const record of facilities.values()) {
@@ -138,7 +140,16 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
         .filter((record) => record.cityId === 1)
         .map((record) => record.facilityId)
         .toSorted(),
-    ).toEqual(["farm", "government_hall", "lodging", "lodging", "lumber_camp", "mine", "storehouse"]);
+    ).toEqual([
+      "farm",
+      "government_hall",
+      "lodging",
+      "lodging",
+      "lodging",
+      "lumber_camp",
+      "mine",
+      "storehouse",
+    ]);
     // 전략 배치: 행정 건물은 도시 칸 가운데, 다른 건물은 광장(행정 건물 둘레 3칸 + 둘레 길)에 들지 않고 그 도시 자리(가장 가까운 도시)에 선다
     const rects = new Map<number, { x: number; y: number; width: number; height: number }>();
     map.forEachBuilding((building) => rects.set(building.id, building.placement));
@@ -179,7 +190,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       seed: oldSeed,
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 14, missing: 0 });
+    expect(result).toEqual({ placed: 16, missing: 0 });
     // 가운데 마당(둘레 길 포함)에는 짓지 않고, 건물은 그 도시 자리(가장 가까운 도시)에 선다
     map.forEachBuilding((building) => {
       const record = facilities.get(building.id);
@@ -213,8 +224,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       seed: START_WORLD_SEED,
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 6, missing: 1 });
-    expect(facilities.size).toBe(6);
+    expect(result).toEqual({ placed: 7, missing: 1 });
+    expect(facilities.size).toBe(7);
   });
 
   it("1차 생산 여섯 가지: 약초원·목장·낚시터도 같은 표에서 서고 수 출발값은 0이다", () => {
@@ -241,7 +252,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     ).toEqual([
       "government_hall:1",
       "storehouse:1",
-      "lodging:2",
+      "lodging:3",
       "lumber_camp:1",
       "mine:1",
       "herb_field:1",
@@ -256,7 +267,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     ).toEqual([
       "government_hall:1",
       "storehouse:1",
-      "lodging:2",
+      "lodging:3",
       "farm:1",
       "herb_field:1",
       "ranch:2",
@@ -302,10 +313,11 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       landOf: (mapKey) => (mapKey === 9 ? grass : undefined),
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 6, missing: 0 });
+    expect(result).toEqual({ placed: 7, missing: 0 });
     expect([...facilities.values()].map((record) => record.facilityId).toSorted()).toEqual([
       "farm",
       "government_hall",
+      "lodging",
       "lodging",
       "lodging",
       "lumber_camp",

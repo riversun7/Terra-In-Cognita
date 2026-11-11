@@ -81,6 +81,40 @@ describe("assignHumanPlaces", () => {
 });
 
 describe("createHumanPlaces", () => {
+  it("숙소가 있으면 일꾼의 집은 일터에서 가장 가까운 숙소 둘레(그 숙소 반경), 일 없는 휴먼·경비대는 시청 칸 둘레", () => {
+    const east = { x: 160, y: 128, radius: 5 };
+    const west = { x: 100, y: 128, radius: 5 };
+    const lodgeEast = { x: 145, y: 128, radius: 4 };
+    const lodgeWest = { x: 112, y: 130, radius: 4 };
+    const homes = assignHumanPlaces({
+      humans: [1, 2, 3],
+      guards: [9],
+      home,
+      facilities: [
+        { id: 10, buildingId: 10, workers: 1 },
+        { id: 11, buildingId: 11, workers: 1 },
+      ],
+      areas: new Map([
+        [10, east],
+        [11, west],
+      ]),
+      lodgings: [lodgeWest, lodgeEast],
+    });
+    expect(homes.get(1)).toMatchObject({ x: 145, y: 128, homeRadius: 4, work: east });
+    expect(homes.get(2)).toMatchObject({ x: 112, y: 130, homeRadius: 4, work: west });
+    expect(homes.get(3)).toEqual(home);
+    expect(homes.get(9)).toEqual(home);
+    // 숙소가 없으면 예전처럼 시청 칸
+    const none = assignHumanPlaces({
+      humans: [1],
+      home,
+      facilities: [{ id: 10, buildingId: 10, workers: 1 }],
+      areas: new Map([[10, east]]),
+    });
+    expect(none.get(1)).toMatchObject({ x: 128, y: 128, work: east });
+    expect(none.get(1)?.homeRadius).toBeUndefined();
+  });
+
   it("도시 2차맵에 선 휴먼만, 바뀐 휴먼만 2차맵에 넣는다", () => {
     const set = new Map<number, BotHome | null>();
     const onMap = new Set([1, 2, 3]);

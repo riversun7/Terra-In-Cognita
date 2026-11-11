@@ -8282,7 +8282,7 @@
         "ko": "NPC 시작 도시 기본 숙소 수",
         "en": "NPC start city lodgings"
       },
-      "value": 2,
+      "value": 3,
       "structural": false,
       "unit": "count",
       "min": 0,
@@ -8336,7 +8336,7 @@
         "ko": "가공·기타 건물 안쪽 고리 반경(칸)",
         "en": "Inner ring radius for other buildings (cells)"
       },
-      "value": 11,
+      "value": 9,
       "structural": false,
       "unit": "cells",
       "min": 2,
@@ -8408,7 +8408,7 @@
         "ko": "창고 자리: 행정 건물 → 채집소 길의 천분율",
         "en": "Warehouse site: per mille along hall → stations"
       },
-      "value": 600,
+      "value": 750,
       "structural": false,
       "unit": "pm",
       "min": 0,

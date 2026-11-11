@@ -24,7 +24,7 @@ function fakeGround(options: {
   readonly blocked?: (x: number, y: number) => boolean;
   readonly objects?: readonly LayoutObject[];
   readonly owns?: (x: number, y: number) => boolean;
-  readonly fits?: (facility: string, x: number, y: number) => boolean;
+  readonly fits?: ((facility: string, x: number, y: number) => boolean) | undefined;
 }): LayoutGround & { readonly placedRects: LayoutRect[] } {
   const placedRects: LayoutRect[] = [];
   const free = (x: number, y: number) =>
@@ -203,13 +203,20 @@ describe("도시 건물 배치 계획", () => {
     expect(result.hall).toMatchObject({ x: 100, y: 100 });
     expect(result.missing).toEqual([]);
     const stations = result.placed.filter((b) => b.role === "gather").map(rectCenter);
-    const angles = stations.map((at) => Math.atan2(at.y - 101, at.x - 101));
-    // 넷이 한쪽에 몰리지 않는다(가장 큰 각도 사이 < 반 바퀴 + 조금)
-    const sorted = angles.toSorted((a, b) => a - b);
-    const gaps = sorted.map(
-      (a, i) => ((sorted[i + 1] ?? (sorted[0] ?? 0) + 2 * Math.PI) - a) % (2 * Math.PI),
-    );
-    expect(Math.max(...gaps)).toBeLessThan(Math.PI * 1.2);
+    expect(stations).toHaveLength(4);
+    // 창고 둘 = 채집 구역 둘: 구역(채집소 2곳씩)은 행정 건물의 서로 다른 쪽(구역 가운데 각도 차 > 90°)에 모인다
+    const hall = { x: 101, y: 101 };
+    const angle = (at: { x: number; y: number }) => Math.atan2(at.y - hall.y, at.x - hall.x);
+    const mid = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    });
+    const [s0, s1, s2, s3] = stations;
+    if (!s0 || !s1 || !s2 || !s3) throw new Error("stations");
+    // 구역은 차례로 돌아가며 받는다(0·2 → 구역 0, 1·3 → 구역 1)
+    const diff = Math.abs(angle(mid(s0, s2)) - angle(mid(s1, s3)));
+    expect(Math.min(diff, 2 * Math.PI - diff)).toBeGreaterThan(Math.PI / 2);
+    expect(d(s0, s2)).toBeLessThan(d(s0, s1));
   });
 
   it("각도 묶음: 가장 큰 빈 각도에서 끊어 고르게 나눈다", () => {

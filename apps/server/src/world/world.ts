@@ -21,6 +21,7 @@ import { type BattleItems, createBattleItems } from "./battleItems.ts";
 import { type CityRow, cityCellsOf, loadCities } from "./cities.ts";
 import { attachHouseTies, houseTiesOf } from "./houseTies.ts";
 import { moveLeaderToCapital, seedNpcAtBoot } from "../npc/leaders.ts";
+import { applyCityRelayoutAtBoot } from "../facilities/cityRelayout.ts";
 import {
   type CyborgRules,
   type CyborgService,
@@ -785,6 +786,9 @@ export function startWorld(
         ? undefined
         : nationSeedOf(societyRules().worldSeed, ...seedPartsOf(presetOfCode(code, config.npc?.presets)));
     };
+    // 이미 선 NPC 도시 건물 다시 놓기 예약(씨앗 전, 예약이 있을 때만 — facilities/cityRelayout.ts)
+    if (config.npc)
+      await applyCityRelayoutAtBoot({ ...seedWith, pool: db, planetId: TEST_PLANET_ID, nowMs: now() });
     if (config.npc)
       seedNpcAtBoot({ ...seedWith, seedOfFaction, planetId: TEST_PLANET_ID, nowMs: now(), ids: nextId });
     paths.start();

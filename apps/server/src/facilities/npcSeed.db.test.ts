@@ -149,6 +149,9 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
         "farm",
         "farm",
         "government_hall",
+        "lodging",
+        "lodging",
+        "lodging",
         "storehouse",
         "storehouse",
       ]);
@@ -156,6 +159,9 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
       expect(facilities.filter((row) => row.city_id === line.id).map((row) => row.facility_id)).toEqual([
         "farm",
         "government_hall",
+        "lodging",
+        "lodging",
+        "lodging",
         "lumber_camp",
         "mine",
         "storehouse",
@@ -163,7 +169,7 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
     expect(await world.checkInvariants()).toEqual([]);
   });
 
-  it("빈 세계: 국가 넷 × 나라 성격 수(2·4·3·2)를 2차맵 셋에 나누고, 팩 도시 이름, 도시마다 기본 시설 다섯, 다시 켜도 그대로", async () => {
+  it("빈 세계: 국가 넷 × 나라 성격 수(2·4·3·2)를 2차맵 셋에 나누고, 팩 도시 이름, 도시마다 기본 시설 여덟(전략 배치), 다시 켜도 그대로", async () => {
     const world = await boot({ testMaps: 3 });
     const cities = await startCities();
     const perNation = codes.map((code) => cities.filter((city) => city.code === code));
@@ -180,11 +186,29 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
     expect(perNation[0]?.map((city) => city.map_key)).toEqual(mapKeys.slice(0, 2));
 
     const facilities = await seeded();
-    expect(facilities).toHaveLength(cities.length * 5);
+    expect(facilities).toHaveLength(cities.length * 8);
+    // 전략 배치(docs/adr/2026-11-11-city-building-layout.md): 행정 건물은 도시 칸 가운데(3×3 가운데 = 도시 칸). 그 칸에 원자재
+    // 오브젝트·막힌 땅이 있으면 가장 가까운 자리(몇 칸 안)
+    const halls = await rows<{ cell_x: number; cell_y: number; x: number; y: number }>(
+      test.db,
+      `select c.cell_x, c.cell_y, b.x, b.y from world_facilities wf join world_buildings b on b.id = wf.building_id
+         join world_cities c on c.id = wf.city_id where wf.facility_id = 'government_hall'`,
+    );
+    expect(halls).toHaveLength(cities.length);
+    for (const hall of halls)
+      expect(
+        Math.max(Math.abs(hall.x + 1 - hall.cell_x), Math.abs(hall.y + 1 - hall.cell_y)),
+      ).toBeLessThanOrEqual(3);
+    expect(
+      halls.filter((hall) => hall.x + 1 === hall.cell_x && hall.y + 1 === hall.cell_y).length,
+    ).toBeGreaterThan(halls.length / 2);
     for (const city of cities)
       expect(facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id)).toEqual([
         "farm",
         "government_hall",
+        "lodging",
+        "lodging",
+        "lodging",
         "lumber_camp",
         "mine",
         "storehouse",
@@ -226,7 +250,7 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
           expect(Math.hypot(other.cell_x - city.cell_x, other.cell_y - city.cell_y)).toBeGreaterThanOrEqual(
             32,
           );
-    expect(await seeded()).toHaveLength(after.length * 5);
+    expect(await seeded()).toHaveLength(after.length * 8);
     expect(await world.checkInvariants()).toEqual([]);
   }, 60_000);
 

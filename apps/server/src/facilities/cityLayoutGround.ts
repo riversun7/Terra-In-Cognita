@@ -69,7 +69,8 @@ export function layoutObjectsOf(
 
 /** 2차맵 → 계획 땅(위 머리 주석) */
 export function layoutGroundOf(options: {
-  readonly map: Pick<SecondMap, "mapKey" | "replicaInit" | "waterMask">;
+  readonly map: Pick<SecondMap, "mapKey" | "replicaInit" | "waterMask"> &
+    Partial<Pick<SecondMap, "unitInRect">>;
   readonly catalog: FacilityCatalog;
   /** 이 도시와 같은 2차맵 도시 칸들(가장 가까운 도시) */
   readonly anchors: readonly CityCell[];
@@ -98,6 +99,7 @@ export function layoutGroundOf(options: {
       return !def || waterOk(options.map, def, x, y, 0);
     },
     costAt: (x, y) => grid.terrainCost[y * PLACEMENT_SIZE + x] ?? 0,
+    occupied: options.map.unitInRect ? (rect) => options.map.unitInRect?.(rect) === true : undefined,
   };
 }
 

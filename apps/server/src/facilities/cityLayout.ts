@@ -34,6 +34,8 @@ export interface LayoutItem {
   readonly height: number;
   /** 채집소: 맡는 오브젝트 종류(오브젝트 kind 번호들). 없거나 비면 방향만 흩는다 */
   readonly objectKinds?: readonly number[] | undefined;
+  /** 부르는 쪽 표시(다시 놓기 = 건물 ID). 계획 결과에 그대로 실린다 */
+  readonly key?: number | undefined;
 }
 
 /** 이미 선 이 도시 건물(옮기지 않는다 — 묶음·빈 각도 셈에만 쓴다) */
@@ -58,6 +60,8 @@ export interface LayoutGround {
   owns(x: number, y: number): boolean;
   /** 시설 조건(물가 등)이 맞나. 없으면 늘 맞다 */
   readonly fits?: ((facility: string, x: number, y: number) => boolean) | undefined;
+  /** 건물 칸(둘레 길 빼고)에 지금 유닛이 서 있나. 없으면 늘 false */
+  readonly occupied?: ((rect: LayoutRect) => boolean) | undefined;
   /** 배치 칸 지형 비용(천분율, 0 = 막힘). 없으면 모두 1000 */
   readonly costAt?: ((x: number, y: number) => number) | undefined;
   readonly objects: readonly LayoutObject[];
@@ -114,6 +118,8 @@ export interface PlannedBuilding extends LayoutRect {
   readonly role: LayoutRole;
   /** 창고·숙소: 맡은 채집소 묶음 번호(없으면 undefined) */
   readonly group?: number | undefined;
+  /** 그 건물 항목의 key */
+  readonly key?: number | undefined;
 }
 
 export interface CityLayoutPlan {
@@ -268,7 +274,7 @@ export function planCityLayout(input: CityLayoutInput): CityLayoutPlan {
     if (!ground.owns(middle.x, middle.y)) return false;
     for (let yy = rect.y; yy < rect.y + rect.height; yy++)
       for (let xx = rect.x; xx < rect.x + rect.width; xx++) if (objectCells.has(yy * size + xx)) return false;
-    if (!ground.canPlace(margin)) return false;
+    if (!ground.canPlace(margin) || ground.occupied?.(rect) === true) return false;
     return !ground.fits || ground.fits(item.facility, rect.x, rect.y);
   };
 
@@ -334,7 +340,7 @@ export function planCityLayout(input: CityLayoutInput): CityLayoutPlan {
 
   const commit = (item: LayoutItem, rect: LayoutRect, group?: number) => {
     ground.place(rect);
-    placed.push({ ...rect, facility: item.facility, role: item.role, group });
+    placed.push({ ...rect, facility: item.facility, role: item.role, group, key: item.key });
   };
 
   // 0. 행정 건물: 도시 칸 가운데

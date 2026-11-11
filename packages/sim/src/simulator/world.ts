@@ -73,6 +73,11 @@ export interface SimFaction extends WarState {
    * 규칙식이 그 세력 도시마다 경비대를 이 수까지 구인 카드로 다시 채운다. 없거나 0이면 채우지 않는다(반란·마을 세력, 등급 없는 국가)
    */
   guardsPerCity?: number | undefined;
+  /**
+   * 플레이어 가문(서버만, docs/adr/2026-11-11-house-village.md): 판단(NPC 두뇌)을 돌리지 않고, 도시·구성원을 모두 잃어도 사라지지 않는다(가문은
+   * 도시 없이도 있다 D-213, 도시를 잃으면 도시 없는 세력으로 남는다 D-294). 시뮬은 만들지 않는다
+   */
+  player?: true | undefined;
 }
 
 /**

@@ -1,6 +1,8 @@
 // 가문 창설(프로토콜 22)·가입(23) 메시지 스키마 시험( docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)") — 왕복, 값 모양, 결과 코드
 import { describe, expect, it } from "vitest";
 import {
+  HOUSE_CITY_PROTOCOL_VERSION,
+  HOUSE_CITY_RESULT_CODES,
   HOUSE_MEMBER_ACTIONS,
   HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_MEMBER_RESULT_CODES,
@@ -96,5 +98,66 @@ describe("가문 가입 메시지(프로토콜 23, 질문 985 다)", () => {
         factionId: 1,
       }),
     ).toBe(false);
+  });
+});
+
+describe("가문장 넘기기·해산·가문 도시(프로토콜 24, 질문 1003 가·1005 가)", () => {
+  const USER = "0b6f3f7e-1a2b-4c3d-8e9f-0123456789ab";
+
+  it("판: 24부터", () => {
+    expect(HOUSE_CITY_PROTOCOL_VERSION).toBe(24);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOUSE_CITY_PROTOCOL_VERSION);
+  });
+
+  it("넘기기·해산이 왕복하고 가입 결과에 새 일·코드가 있다", () => {
+    for (const message of [
+      { t: "house_handover", id: 1, userId: USER },
+      { t: "house_dissolve", id: 2 },
+    ] as const)
+      expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
+    expect(decodes(decodeClientMessage, { t: "house_handover", id: 1, userId: "x" })).toBe(false);
+    for (const action of ["handed_over", "dissolved"] as const) {
+      expect(HOUSE_MEMBER_ACTIONS).toContain(action);
+      const ok = { t: "house_member_result", id: 1, ok: true, action, factionId: 9 } as const;
+      expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
+    }
+    for (const code of ["not_alone", "has_city"] as const) expect(HOUSE_MEMBER_RESULT_CODES).toContain(code);
+  });
+
+  it("마을 세우기·폐허 고르기: 봉신·독립과 체제, 자리 모양", () => {
+    const village = {
+      t: "house_village",
+      id: 3,
+      mapKey: 123456,
+      x: 40,
+      y: 50,
+      cost: "5000",
+      mode: "independent",
+      regime: "capitalism",
+    } as const;
+    expect(decodeClientMessage(encodeMessage(village))).toEqual(village);
+    expect(decodes(decodeClientMessage, { ...village, mode: "vassal", regime: undefined })).toBe(true);
+    expect(decodes(decodeClientMessage, { ...village, mode: "free" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...village, regime: "monarchy" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...village, x: -1 })).toBe(false);
+    const ruin = { t: "house_ruin", id: 4, ruinId: 77, mode: "vassal" } as const;
+    expect(decodeClientMessage(encodeMessage(ruin))).toEqual(ruin);
+  });
+
+  it("가문 도시 결과: 성공 칸과 실패 코드", () => {
+    const ok = {
+      t: "house_city_result",
+      id: 3,
+      ok: true,
+      factionId: 9,
+      mode: "vassal",
+      cityId: 120,
+      paid: "5000",
+    } as const;
+    expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
+    for (const code of HOUSE_CITY_RESULT_CODES) {
+      const fail = { t: "house_city_result", id: 3, ok: false, code } as const;
+      expect(decodeServerMessage(encodeMessage(fail))).toEqual(fail);
+    }
   });
 });

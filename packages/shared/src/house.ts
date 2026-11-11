@@ -60,6 +60,9 @@ export interface HouseOfferRow {
  * - nation_left: 나와 가문의 나라가 달라져 가문에서 빠졌다(내가 귀화했거나 가문장이 귀화해 가문이 옮겼다 — 983)
  * - house_moved: 가문장인 내가 귀화해 가문이 새 나라로 옮겼다(count = 빠진 가문원 수)
  * - name_reset: 운영자가 가문 이름을 "가문 #ID"로 되돌렸다(reason = 사유). 이름 바꾸기 대기 없이 다시 정한다(986)
+ * - leader_given: 가문장이 나에게 가문장을 넘겼다(other = 앞 가문장, 1003 가)
+ * - leader_changed: 가문장이 바뀌었다(other = 새 가문장)
+ * - city_gained: 가문이 도시를 얻었다(reason = vassal | independent, 1005 가)
  */
 export const HOUSE_NOTICE_KINDS = [
   "invite_accepted",
@@ -71,6 +74,9 @@ export const HOUSE_NOTICE_KINDS = [
   "nation_left",
   "house_moved",
   "name_reset",
+  "leader_given",
+  "leader_changed",
+  "city_gained",
 ] as const;
 export type HouseNoticeKind = (typeof HOUSE_NOTICE_KINDS)[number];
 
@@ -102,6 +108,40 @@ export interface HouseLimits {
   readonly requestTtlMs: number;
 }
 
+/** 가문이 도시를 처음 얻을 때 고른 상태(D-340): 나라의 봉신 | 독립 도시국가. 아직 도시를 얻지 않았으면 null */
+export type HouseCityStatus = "vassal" | "independent";
+
+/** 가문 도시 한 줄 */
+export interface HouseCityRow {
+  readonly id: number;
+  /** 도시 이름(아직 없으면 null) */
+  readonly name: string | null;
+  readonly mapKey: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** 가문 도시 칸(질문 1005 가 — 마을 세우기와 폐허 복원이 같은 봉신·독립 고르기) */
+export interface HouseCityView {
+  /** 고른 상태(아직이면 null — 처음 도시를 얻을 때 고른다) */
+  readonly status: HouseCityStatus | null;
+  /** 독립이면 그 체제 */
+  readonly regime: "dictatorship" | "democracy" | "capitalism" | null;
+  readonly cities: readonly HouseCityRow[];
+  /** 마을 세우기 값(10진 글자 최소 단위, 설정 칸 house_village_cost)·새 마을 주거(설정 칸 house_village_housing) */
+  readonly villageCost: string;
+  readonly villageHousing: number;
+  /**
+   * 가문장 사이보그 둘레에서 서버가 고른 마을 자리(다른 세력 영향권 밖·다른 도시와 띄움 — NPC 마을과 같은 규칙). 가문장이 아니거나 자리가
+   * 없거나 세계가 준비 중이면 null
+   */
+  readonly site: { readonly mapKey: number; readonly x: number; readonly y: number } | null;
+  /** 가문장이 주인이고 아직 가문 도시로 정하지 않은 폐허(되살리면 내 나라로 간다 — [가문 도시로] 고르기) */
+  readonly ruins: readonly { readonly id: number; readonly name: string | null }[];
+  /** 마을 세우기·폐허 고르기를 할 수 있나(NPC 사회 런타임이 돌 때만) */
+  readonly ready: boolean;
+}
+
 /** factionIdentity.house 응답 */
 export interface HouseView {
   /** 내 나라(사이보그 시민권). 사이보그가 없으면 null — 가입·초대를 할 수 없다 */
@@ -114,6 +154,8 @@ export interface HouseView {
         readonly members: readonly HouseMemberRow[];
         /** 대기 중인 요청(가문장만 받는다 — 가문원은 빈 목록) */
         readonly requests: readonly HouseRequestRow[];
+        /** 가문 도시(옛 서버는 보내지 않는다) */
+        readonly city?: HouseCityView | undefined;
       })
     | null;
   /** 내가 받은 초대·내가 보낸 신청(가문이 없을 때) */

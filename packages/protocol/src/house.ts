@@ -148,6 +148,11 @@ export const HOUSE_MEMBER_RESULT_CODES = [
   "self",
   /** 가문장은 나갈 수 없다 */
   "leader_cannot_leave",
+  // 24판부터(가문장 넘기기·해산 — 24판 연결에만 간다)
+  /** 혼자 남은 가문장만 해산한다 */
+  "not_alone",
+  /** 도시를 가진 가문은 해산할 수 없다 */
+  "has_city",
 ] as const;
 export type HouseMemberResultCode = (typeof HOUSE_MEMBER_RESULT_CODES)[number];
 
@@ -160,6 +165,9 @@ export const HOUSE_MEMBER_ACTIONS = [
   "withdrawn",
   "left",
   "kicked",
+  // 24판부터
+  "handed_over",
+  "dissolved",
 ] as const;
 export type HouseMemberAction = (typeof HOUSE_MEMBER_ACTIONS)[number];
 
@@ -180,6 +188,114 @@ const houseMemberResultMessage = z.discriminatedUnion("ok", [
   }),
 ]);
 
+// ---------- 가문장 넘기기·해산·가문 도시(프로토콜 24부터) ----------
+// 질문 1003 가(넘기기 + 혼자 남은 가문장의 해산)·1005 가(마을 세우기와 폐허 복원이 같은 봉신·독립 고르기, D-340·D-339),
+// docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 1001~1006 답)"·docs/adr/2026-11-11-house-village.md.
+// 넘기기·해산은 가입 결과(house_member_result)로 답한다. 가문 도시 명령은 house_city_result로 답한다.
+
+/** 가문장 넘기기·해산·가문 도시 메시지에 필요한 가장 낮은 프로토콜 버전 */
+export const HOUSE_CITY_PROTOCOL_VERSION = 24;
+
+/** 가문장이 가문원 한 명에게 가문장을 넘긴다(바로 넘어가고 소식이 간다 [임시] — 질문 1036) */
+export const houseHandoverMessage = z.object({
+  t: z.literal("house_handover"),
+  id: requestId,
+  userId,
+});
+
+/** 혼자 남은 가문장이 가문을 해산한다(이름·약어가 풀린다) */
+export const houseDissolveMessage = z.object({
+  t: z.literal("house_dissolve"),
+  id: requestId,
+});
+
+/** 가문이 도시를 처음 얻을 때 고르는 것(D-340): 나라의 봉신 | 독립 도시국가(체제를 함께 고른다) */
+export const HOUSE_CITY_MODES = ["vassal", "independent"] as const;
+export type HouseCityMode = (typeof HOUSE_CITY_MODES)[number];
+export const HOUSE_REGIMES = ["dictatorship", "democracy", "capitalism"] as const;
+export type HouseRegime = (typeof HOUSE_REGIMES)[number];
+
+const cityChoice = {
+  /** 봉신 | 독립. 이미 고른 가문은 지금 상태와 같아야 한다(바꾸지 못함) */
+  mode: z.enum(HOUSE_CITY_MODES),
+  /** 독립이면 체제(봉신이면 무시) */
+  regime: z.enum(HOUSE_REGIMES).optional(),
+};
+
+/** 가문장이 2차맵 칸에 가문 마을을 세운다(기기가 본 값을 함께 보낸다 — 다르면 terms_changed) */
+export const houseVillageMessage = z.object({
+  t: z.literal("house_village"),
+  id: requestId,
+  /** 2차맵 키(행성 칸 키)·배치 칸 */
+  mapKey: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  x: z.number().int().min(0).max(4095),
+  y: z.number().int().min(0).max(4095),
+  cost: amount,
+  ...cityChoice,
+});
+
+/** 가문장이 주인인 폐허를 되살리면 가문 도시가 되게 한다(같은 고르기, D-339 "D-340 틀") */
+export const houseRuinMessage = z.object({
+  t: z.literal("house_ruin"),
+  id: requestId,
+  ruinId: rowId,
+  ...cityChoice,
+});
+
+/** 가문 도시 명령 결과 코드 */
+export const HOUSE_CITY_RESULT_CODES = [
+  "sign_in_required",
+  "busy",
+  "rate_limited",
+  "internal_error",
+  "no_cyborg",
+  /** 가문이 없다 */
+  "no_house",
+  /** 가문장만 한다 */
+  "not_leader",
+  /** 이미 고른 상태와 다르다(봉신 ↔ 독립은 이 명령으로 바꾸지 못한다) */
+  "mode_locked",
+  /** 독립이면 체제를 고른다 */
+  "regime_required",
+  /** 지도 밖·가장자리·띄우지 않은 2차맵 */
+  "bad_spot",
+  /** 다른 도시·폐허와 너무 가깝다 */
+  "too_close",
+  /** 다른 세력의 영향권 안이다(D-519) */
+  "foreign_influence",
+  /** 그 자리에 놓을 수 없다(물·건물) */
+  "blocked",
+  /** 기기가 본 값이 지금과 다르다 */
+  "terms_changed",
+  "insufficient_funds",
+  /** 그런 폐허가 없다 */
+  "unknown_ruin",
+  /** 그 폐허의 주인이 아니다 */
+  "not_owner",
+] as const;
+export type HouseCityResultCode = (typeof HOUSE_CITY_RESULT_CODES)[number];
+
+const houseCityResultMessage = z.discriminatedUnion("ok", [
+  z.object({
+    t: z.literal("house_city_result"),
+    id: requestId,
+    ok: z.literal(true),
+    /** 가문(세력 행 ID)과 지금 상태 */
+    factionId: rowId,
+    mode: z.enum(HOUSE_CITY_MODES),
+    /** 세운 마을 ID(마을 세우기) 또는 되살아날 폐허 ID(폐허) */
+    cityId: rowId,
+    /** 낸 값(10진 문자열 최소 단위, 폐허는 "0") */
+    paid: amount,
+  }),
+  z.object({
+    t: z.literal("house_city_result"),
+    id: requestId,
+    ok: z.literal(false),
+    code: z.enum(HOUSE_CITY_RESULT_CODES),
+  }),
+]);
+
 export const houseClientMessages = [
   houseFoundMessage,
   houseInviteMessage,
@@ -188,5 +304,13 @@ export const houseClientMessages = [
   houseWithdrawMessage,
   houseLeaveMessage,
   houseKickMessage,
+  houseHandoverMessage,
+  houseDissolveMessage,
+  houseVillageMessage,
+  houseRuinMessage,
 ] as const;
-export const houseServerMessages = [houseResultMessage, houseMemberResultMessage] as const;
+export const houseServerMessages = [
+  houseResultMessage,
+  houseMemberResultMessage,
+  houseCityResultMessage,
+] as const;

@@ -145,6 +145,10 @@ export const factionIdentities = pgTable(
     foundedAtMs: bigint("founded_at_ms", { mode: "number" }),
     /** 운영자가 올린 마크를 내린 횟수(설정 칸 house_takedown_block 이상이면 올리기를 저절로 막는다, 질문 934 나) */
     takedownCount: integer("takedown_count").notNull().default(0),
+    /** 운영자가 가문 이름을 되돌린 횟수(설정 칸 house_name_reset_block 이상이면 이름 바꾸기를 저절로 막는다, 질문 1006 나) */
+    nameResetCount: integer("name_reset_count").notNull().default(0),
+    /** 이름·약어 바꾸기를 막았나(자동 막기 또는 운영자 — 운영자가 푼다) */
+    renameBlocked: boolean("rename_blocked").notNull().default(false),
   },
   (table) => [
     uniqueIndex("faction_identities_short_idx").on(sql`lower(${table.shortName})`),

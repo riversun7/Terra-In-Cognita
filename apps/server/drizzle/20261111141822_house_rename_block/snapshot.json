@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "d55bcbd5-e2ac-423b-80ff-bc4ac6c53c3e",
+  "prevIds": [
+    "78cb5950-3ac5-4b37-ace9-3b34241f431a"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "faction_identities",
+        "name_reset_count"
+      ],
+      "writes": [
+        "s|col|public.faction_identities.name_reset_count",
+        "n|col|public.faction_identities.name_reset_count",
+        "e|col|public.faction_identities.name_reset_count"
+      ],
+      "reads": [
+        "n|tbl|public.faction_identities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "faction_identities",
+        "rename_blocked"
+      ],
+      "writes": [
+        "s|col|public.faction_identities.rename_blocked",
+        "n|col|public.faction_identities.rename_blocked",
+        "e|col|public.faction_identities.rename_blocked"
+      ],
+      "reads": [
+        "n|tbl|public.faction_identities",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_identities",
+        "name": "name_reset_count",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_identities",
+        "name": "rename_blocked",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

@@ -8724,6 +8724,60 @@
         "en": "Time before an unanswered invite or application disappears."
       },
       "source": "ADR 2026-11-11-faction-identity \"바뀜 (981~986 답)\" · 질문 985"
+    },
+    {
+      "id": "house_name_reset_block",
+      "code": "",
+      "name": {
+        "ko": "이름을 몇 번 되돌리면 이름 바꾸기 자동 막기(0 = 끔)",
+        "en": "Name resets before renames are blocked (0 = off)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "운영자가 그 가문의 이름을 이만큼 되돌리면 그 가문의 이름·약어 바꾸기를 운영자가 풀 때까지 막는다.",
+        "en": "After this many operator name resets the house can no longer rename until an operator lifts the block."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (1001~1006 답)\" · 질문 1006"
+    },
+    {
+      "id": "house_village_cost",
+      "code": "",
+      "name": {
+        "ko": "가문 마을 세우기 값(최소 단위)",
+        "en": "House village founding cost (minor units)"
+      },
+      "value": 5000,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000,
+      "desc": {
+        "ko": "가문장이 마을을 세울 때 내는 값. 내 지갑에서 빠져 사라진다(NPC 마을 세우기 값과 같은 출발값).",
+        "en": "What a house leader pays to found a village. It leaves the wallet and is burned (same start value as NPC villages)."
+      },
+      "source": "ADR 2026-11-11-house-village · 질문 1005"
+    },
+    {
+      "id": "house_village_housing",
+      "code": "",
+      "name": {
+        "ko": "가문 새 마을 주거 수",
+        "en": "House new village housing"
+      },
+      "value": 8,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "가문이 새로 세운 마을의 주거 수(휴먼이 살 자리).",
+        "en": "Housing of a village a house founds (room for humans)."
+      },
+      "source": "ADR 2026-11-11-house-village · 질문 1005"
     }
   ]
 }

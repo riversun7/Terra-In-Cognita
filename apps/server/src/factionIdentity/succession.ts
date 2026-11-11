@@ -133,8 +133,8 @@ export function createHouseSuccession(o: {
                   exists(select 1 from world_owners where faction_id = $1) as owned`,
           [house.id],
         );
-        if ((rows[0]?.members ?? 0) > 1) return { ok: false, code: "not_alone" };
         if (rows[0]?.owned === true) return { ok: false, code: "has_city" };
+        if ((rows[0]?.members ?? 0) > 1) return { ok: false, code: "not_alone" };
         const ident = await q.query<{ name: string; short_name: string }>(
           "select name, short_name from faction_identities where faction_id = $1 for update",
           [house.id],

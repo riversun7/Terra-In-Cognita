@@ -244,6 +244,22 @@ function logRelayout(log: WorldBootLog, plan: RelayoutPlan, applied: boolean): v
   );
 }
 
+/** bootWorldSeed 결과 */
+export type SeedBoot = Awaited<ReturnType<typeof bootWorldSeed>>;
+
+/**
+ * 부팅을 다시 시도했을 때 앞 시도의 결과를 잇는다: 앞 시도가 옮긴 계획(유닛을 새 자리로)과 더 세운 도시 수(등급 반영 결과 기록)를 남긴다
+ */
+export function mergeSeedBoot(previous: SeedBoot | undefined, boot: SeedBoot): SeedBoot {
+  return {
+    ...boot,
+    relayout: boot.relayout ?? previous?.relayout,
+    tierApply: boot.tierApply
+      ? { citiesAdded: boot.tierApply.citiesAdded + (previous?.tierApply?.citiesAdded ?? 0) }
+      : previous?.tierApply,
+  };
+}
+
 /**
  * 부팅 때 세계 씨앗: 옛 자리 옮기기(계획·적용) → 고정 국가·모자란 시작 도시 → 띄울 2차맵 키. relayout = 적용한 계획(유닛 옮기기에 쓴다)
  */

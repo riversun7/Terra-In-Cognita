@@ -148,6 +148,25 @@ export function nationSeedOf(
   return same ? seed : { ...seed, ...next };
 }
 
+/** nationSeedOf에 넘길 프리셋의 두 칸(성격 칸·등급 줄) */
+export const seedPartsOf = (
+  preset: Pick<NationPreset, "personality" | "tier"> | undefined,
+): [NationPersonality | undefined, NationTierJson | undefined] => [preset?.personality, preset?.tier];
+
+/**
+ * 시험 NPC 세력(1번 국가)의 처음 국고 = 고정 국가 처음 화폐 × 그 국가(16번째 프리셋) 국력 등급 천분율(등급이 없으면 그대로 —
+ * docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)")
+ */
+export function startCreditOf(
+  base: bigint,
+  /** 설정 칸(NPC 사회를 끈 세계는 undefined — 그대로) */
+  seed: WorldSeedCoefficients | undefined,
+  presets: readonly NationPreset[] | undefined,
+): bigint {
+  if (!seed) return base;
+  return (base * BigInt(nationStartOf(seed, presetOfCode(TEST_NPC_FACTION_CODE, presets)).creditPm)) / 1000n;
+}
+
 /** 팩 국가 프리셋(D-086) 하나: 시험 국가의 코드·이름(질문 203 가: 시험 세력 + 프리셋 차례)·성격·도시 이름 */
 export interface NationPreset {
   readonly code: string;

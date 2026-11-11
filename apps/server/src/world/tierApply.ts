@@ -109,3 +109,21 @@ export async function markTierApplied(
   );
   return true;
 }
+
+/**
+ * 부팅 끝(NPC 사회 런타임이 켜진 뒤): 등급 반영 요청이 든 부팅이면 결과(더 세운 도시 + 런타임이 세운 휴먼·경비대)를 적는다.
+ * 요청이 없던 부팅(boot = undefined)은 아무것도 하지 않는다
+ */
+export async function finishTierApply(
+  pool: QueryPool,
+  planetId: string,
+  nowMs: number,
+  boot: { readonly citiesAdded: number } | undefined,
+  seeded: Omit<TierApplyReport, "citiesAdded">,
+  log: { info(obj: object, message: string): void },
+): Promise<void> {
+  if (!boot) return;
+  const report: TierApplyReport = { citiesAdded: boot.citiesAdded, ...seeded };
+  if (await markTierApplied(pool, planetId, nowMs, report))
+    log.info(report, "world tier apply: power tiers applied to the standing world");
+}

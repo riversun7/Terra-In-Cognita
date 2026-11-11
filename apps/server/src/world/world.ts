@@ -33,7 +33,7 @@ import { type VitalsRecord, loadVitals } from "../vitals/state.ts";
 import { type VitalsConfig, type WorldVitals, createWorldVitals } from "../vitals/world.ts";
 import { type LaborService, createLaborService } from "../labor/service.ts";
 import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
-import { UNIT_KIND_CYBORG_UNIT, TEST_NPC_FACTION_CODE } from "./unitKinds.ts";
+import { UNIT_KIND_CYBORG_UNIT } from "./unitKinds.ts";
 import { conditionColumns, createWorkInjury } from "./unitCondition.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
@@ -52,7 +52,14 @@ import {
   createSettlement,
 } from "./settlement.ts";
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
-import { type NationPreset, nationName, nationSeedOf, nationStartOf, presetOfCode } from "../npc/nations.ts";
+import {
+  type NationPreset,
+  nationName,
+  nationSeedOf,
+  presetOfCode,
+  seedPartsOf,
+  startCreditOf,
+} from "../npc/nations.ts";
 import { relocateUnits } from "./relayout.ts";
 import {
   RETIRED_TEST_MAPS,
@@ -62,8 +69,8 @@ import {
   retiredTestMapKey,
   testMapKey,
 } from "./testMaps.ts";
-import { markTierApplied } from "./tierApply.ts";
-import { bootWorldSeed } from "./worldBoot.ts";
+import { finishTierApply } from "./tierApply.ts";
+import { bootWorldSeed, mergeSeedBoot } from "./worldBoot.ts";
 import { type NpcRuntime, startNpcRuntime } from "../npc/runtime.ts";
 import { waveRewardItemsOf } from "../npc/waveRewards.ts";
 import type { TerritoryBeaconFacilityView } from "@terra/shared/territoryApi";
@@ -362,14 +369,7 @@ export function startWorld(
         const rules = (config.cyborgRules ?? defaultCyborgRules)();
         const opts = { npc: config.npc, terrain: terrainService, rules, relayout: config.relayout ?? false };
         const boot = await bootWorldSeed(db, { ...seedAt, ...opts });
-        seeded = {
-          ...boot,
-          relayout: boot.relayout ?? seeded?.relayout,
-          // 다시 시도해도 앞 시도가 더 세운 도시 수를 남긴다(등급 반영 결과 기록)
-          tierApply: boot.tierApply
-            ? { citiesAdded: boot.tierApply.citiesAdded + (seeded?.tierApply?.citiesAdded ?? 0) }
-            : seeded?.tierApply,
-        };
+        seeded = mergeSeedBoot(seeded, boot);
         cities = await loadCities(db);
         cyborgData = await loadCyborgs(db);
         beaconRows = await loadBeacons(db);
@@ -698,17 +698,8 @@ export function startWorld(
       ruins: createRuins({ owners, ledger, settlement, writer, cyborgs, facilities, now }, () => npc),
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다). NPC 사회 세계는 그 국가(1번)의 국력 등급 천분율만큼
-    // (docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)" — 등급이 없으면 옛 값 그대로)
-    const testNpcCredit = config.npc
-      ? (NPC_START_CREDIT *
-          BigInt(
-            nationStartOf(
-              (config.cyborgRules ?? defaultCyborgRules)().worldSeed,
-              presetOfCode(TEST_NPC_FACTION_CODE, config.npc.presets),
-            ).creditPm,
-          )) /
-        1000n
-      : NPC_START_CREDIT;
+    const npcSeed = config.npc ? (config.cyborgRules ?? defaultCyborgRules)().worldSeed : undefined;
+    const testNpcCredit = startCreditOf(NPC_START_CREDIT, npcSeed, config.npc?.presets);
     if (
       !loaded.accounts.some((account) => account.ownerId === npcOwnerId && account.asset === ASSET_CREDIT)
     ) {
@@ -764,11 +755,7 @@ export function startWorld(
       const code = fixedCodes.get(factionId);
       return code === undefined || code === null
         ? undefined
-        : nationSeedOf(
-            societyRules().worldSeed,
-            presetOfCode(code, config.npc?.presets)?.personality,
-            presetOfCode(code, config.npc?.presets)?.tier,
-          );
+        : nationSeedOf(societyRules().worldSeed, ...seedPartsOf(presetOfCode(code, config.npc?.presets)));
     };
     if (config.npc)
       seedNpcAtBoot({ ...seedWith, seedOfFaction, planetId: TEST_PLANET_ID, nowMs: now(), ids: nextId });
@@ -837,11 +824,7 @@ export function startWorld(
           // 국력 등급 반영 요청이 든 부팅(world/tierApply.ts): 이미 채운 시작 도시도 등급 값까지 주거·휴먼·경비대를 더한다
           tierApply: seeded?.tierApply !== undefined,
         });
-        if (seeded?.tierApply) {
-          const report = { citiesAdded: seeded.tierApply.citiesAdded, ...npc.seedReport };
-          if (await markTierApplied(db, TEST_PLANET_ID, now(), report))
-            log.info(report, "world tier apply: power tiers applied to the standing world");
-        }
+        await finishTierApply(db, TEST_PLANET_ID, now(), seeded?.tierApply, npc.seedReport, log);
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");
       }

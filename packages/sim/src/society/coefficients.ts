@@ -163,6 +163,11 @@ export interface SocietyCoefficients {
   readonly gatherTickMs: number;
   /** 광석 한 번 캘 때 g(49 N44, 기술 처리): 옛 1개 = 1kg(ITM-10 무게 1.0) → 1,000g. 기본 단위가 g인 아이템(묶음 > 1)에 쓴다 */
   readonly gatherOreGrams: number;
+  /**
+   * 전투 클래스 분류 문턱(‰, 기획 D-529 = 옛 CHR-1 §6.1): 3스탯 조합 = S3 × 1000 ≥ S1 × threeStatPm(옛 0.60), 범용 = S6 × 1000 ≥ S1 ×
+   * generalistPm(옛 0.80). 추천 표시에만 쓴다(@terra/shared/unitGuide — 판정·시뮬은 읽지 않는다, docs/adr/2026-11-11-production-six.md)
+   */
+  readonly combatClass: { readonly threeStatPm: number; readonly generalistPm: number };
   /** 포만감 효율 배율(N33): 포만감 이하 → 효율 ‰ (기존 50 이하 0.7, 30 이하 0) */
   readonly foodEfficiency: readonly { readonly atMost: number; readonly pm: number }[];
   /** 임금 비교 범위(N30 같은 도시 같은 직무 상위 25%, ‰) */
@@ -425,6 +430,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   gatherTierProgressStep: 30,
   gatherTickMs: 60_000,
   gatherOreGrams: 1000,
+  combatClass: { threeStatPm: 600, generalistPm: 800 },
   foodEfficiency: [
     { atMost: 30, pm: 0 },
     { atMost: 50, pm: 700 },

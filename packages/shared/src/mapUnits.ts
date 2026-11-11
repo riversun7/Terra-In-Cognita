@@ -3,7 +3,7 @@
 // 서버가 명령 때 소유·운영자 권한을 다시 본다(같은 함수 — 서버 src/world/unitControl.ts).
 // 바뀜(기획 답 630~637, docs/adr/2026-11-07-unit-control.md "바뀜 (기획 답 630~637)"): 다른 곳 내 유닛 수(632 다), 카메라 범위(630 — 내 유닛·건물
 // 둘레), 남의 유닛 한눈 정보(636 나 — 시야 안이면 세력·종류, tRPC world.unitGlance). 목록 차례(637 나)는 기기가 유닛 화면 규칙으로 정한다.
-import type { LocalizedName, RosterJob } from "./roster.ts";
+import type { LocalizedName, PrimaryStat, RosterJob } from "./roster.ts";
 
 /** 목록 한 줄의 종류: 사이보그 본체(플레이어 하나에 하나) + 보유 유닛 종류(roster UnitType 중 세계에 있는 것) */
 export const MAP_UNIT_KINDS = [
@@ -38,6 +38,11 @@ export interface MapUnit {
   readonly injuryUntilMs?: number | null | undefined;
   /** 지금 명령할 수 없는 까닭(없으면 null — 옮기고 세울 수 있다) */
   readonly hold: MapUnitHold | null;
+  /**
+   * 1차 스탯(입은 장비·버프 포함, 직무 산출과 같은 값) — 고른 유닛의 추천 한 줄(1차 생산·전투 유형, @terra/shared/unitGuide)이 읽는다.
+   * 옛 서버·스탯을 모르는 서버면 없음(추천 줄을 보이지 않는다)
+   */
+  readonly stats?: Readonly<Record<PrimaryStat, number>> | undefined;
 }
 
 export interface MapUnitsResponse {

@@ -1,4 +1,5 @@
 // 1차 생산 티어 확률 화면 시험 — /dev/gather-tiers (기획 49 N43·D-513, docs/adr/2026-11-02-building-editor.md "바뀜 (2026-11-09)").
+// 2026-11-11: 생산 편집기(/dev/production)의 확률 분포 탭이 됐다(docs/adr/2026-11-11-production-six.md). 옛 주소는 그 탭으로 열리고 부품은 그대로다.
 // - dev: 개발자 홈의 줄로 들어간다. 행렬 칸 하나를 고치면 같은 구간의 나머지가 따라 움직여 합이 1000 그대로 담기고, [적용]하면 그 세계에
 //   바로 든다(buildings.list). [팩 값으로]를 담아 적용하면 팩 값. 건물 편집기에는 확률 탭이 없다.
 // - 구간 조절 판(분포 막대): 경계 끌기·잠금·막대·키보드·균등·팩 값으로·Ctrl+Z. 행렬 묶음 바꾸기: 열 고르기·더하기·선형 채우기·끌어 채우기
@@ -75,9 +76,17 @@ test.describe("개발자", () => {
     page,
     deviceErrors,
   }) => {
+    // 생산 편집기의 확률 분포 탭으로 옮겼다(2026-11-11): 개발자 홈 → 생산 편집기 → [확률 분포]. 옛 주소도 그 탭으로 열린다
     await page.goto("/dev");
-    await page.locator('#main a.dev-tool[href="/dev/gather-tiers"]').click();
+    await page.locator('#main a.dev-tool[href="/dev/production"]').click();
+    await expect(page).toHaveURL((url) => url.pathname === "/dev/production");
+    await expect(screen(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    await page.locator('.pd-tab[data-tab="tiers"]').click();
+    await expect(screen(page)).toHaveAttribute("data-tab", "tiers");
+    await expect(page.locator(".gt-table")).toBeVisible();
+    await page.goto("/dev/gather-tiers");
     await expect(page).toHaveURL((url) => url.pathname === "/dev/gather-tiers");
+    await expect(screen(page)).toHaveAttribute("data-tab", "tiers");
     await expect(screen(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
     await resetBands(page);
     await page.reload();
@@ -251,6 +260,10 @@ test.describe("개발자", () => {
     const source = page.locator('.gt-table input[data-row="0"][data-tier="0"]');
     await source.click();
     const sourceValue = await source.inputValue();
+    // 생산 편집기 탭이 되어 표가 화면 아래쪽에 있다: 끌 줄들이 담은 변경 막대에 가리지 않게 화면 가운데로 올린다
+    await page
+      .locator('.gt-table td[data-grid-row="1"][data-grid-col="0"]')
+      .evaluate((cell) => cell.scrollIntoView({ block: "center" }));
     await dragTo(
       page,
       page.locator('.gt-table td[data-grid-row="0"][data-grid-col="0"] .ce-fill-handle'),

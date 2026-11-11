@@ -6,6 +6,7 @@
 // 채집 시설 종류는 둘레 땅을 따른다(기획 답 503 다, 60 §7.1 "주변 자원" — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"): 시작 도시 고르기
 // 판이 보이는 그 2차맵 칸의 행성 값으로 숲이 보이면 벌목장, 높은 땅이면 광산, 따뜻하고 비가 오면 농장(문턱은 설정 칸 [임시]). 아무것도 맞지
 // 않으면 농장(식량 사슬 — 굶음 먼저, 532). 행성 값을 모르면(지형 서비스 없는 시험·개발) 셋 다(WP1 그대로). 레벨은 1.
+// 1차 생산 여섯 가지(docs/adr/2026-11-11-production-six.md): 약초원·목장·낚시터도 같은 표(SEED_GATHER)에 있고 수 출발값은 0이다.
 // 멱등: 도시마다 그 세력이 가진 같은 시설 줄(도시 ID 같음) 수를 세어 모자란 것만 더한다(있는 것은 그대로 — 관리자가 지운 시설은 다음 켤 때
 // 다시 선다). 재료·작업·일꾼 없이 선다(세계를 차리는 일이라 원장을 거치지 않는다 — 확인 대기, docs/questions/2026-11-07-play-seed.md).
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
@@ -39,11 +40,33 @@ export interface SeedLand {
   readonly forest: number;
 }
 
+/**
+ * 씨앗 채집 시설 여섯 가지(1차 생산, docs/adr/2026-11-11-production-six.md): 시설 ID · 수(설정 칸) · 둘레 땅 조건. 차례 = 짓는 차례(앞 것이
+ * 가운데에 가깝다). 약초원 = 숲이 보이거나 농사지을 땅, 목장 = 농사지을 땅, 낚시터 = 조건 없음(씨앗이 보는 행성 값에 물이 없다 — 물가 판정은
+ * 다음 일). 새 셋의 수 출발값은 0이다
+ */
+const SEED_GATHER: readonly {
+  readonly facility: string;
+  readonly count: (seed: WorldSeedCoefficients) => number;
+  readonly fits: (land: LandFit) => boolean;
+}[] = [
+  { facility: "farm", count: (seed) => seed.farms, fits: (land) => land.farm },
+  { facility: "lumber_camp", count: (seed) => seed.lumberCamps, fits: (land) => land.lumber },
+  { facility: "mine", count: (seed) => seed.mines, fits: (land) => land.mine },
+  { facility: "herb_field", count: (seed) => seed.herbFields, fits: (land) => land.lumber || land.farm },
+  { facility: "ranch", count: (seed) => seed.ranches, fits: (land) => land.farm },
+  { facility: "fishing_spot", count: (seed) => seed.fishingSpots, fits: () => true },
+];
+
+/** 둘레 땅이 맞는 것(농사지을 땅·숲·높은 땅) */
+interface LandFit {
+  readonly farm: boolean;
+  readonly lumber: boolean;
+  readonly mine: boolean;
+}
+
 /** 둘레 땅에 맞는 채집 시설(기획 답 503 다). 아무것도 맞지 않으면 농장 하나 */
-export function landGather(
-  land: SeedLand,
-  seed: WorldSeedCoefficients,
-): { farm: boolean; lumber: boolean; mine: boolean } {
+export function landGather(land: SeedLand, seed: WorldSeedCoefficients): LandFit {
   const lumber = land.forest * 100 >= seed.lumberMinForestPct * 255;
   const mine = land.elevationM >= seed.mineMinHeightM;
   const farm = land.temperatureC >= seed.farmMinTempC && land.precipitationMm >= seed.farmMinRainMm;
@@ -56,13 +79,11 @@ export function landGather(
  * 나머지 수는 설정 칸. 채집 시설은 둘레 땅에 맞는 것만(land가 없으면 셋 다). 시설 ID는 팩 content/core/facilities.json
  */
 export function seedPlan(seed: WorldSeedCoefficients, land?: SeedLand): SeedItem[] {
-  const gather = land ? landGather(land, seed) : { farm: true, lumber: true, mine: true };
+  const fit = land ? landGather(land, seed) : { farm: true, lumber: true, mine: true };
   return [
     { facility: "government_hall", count: 1 },
     { facility: "storehouse", count: seed.storehouses },
-    { facility: "farm", count: gather.farm ? seed.farms : 0 },
-    { facility: "lumber_camp", count: gather.lumber ? seed.lumberCamps : 0 },
-    { facility: "mine", count: gather.mine ? seed.mines : 0 },
+    ...SEED_GATHER.map((kind) => ({ facility: kind.facility, count: kind.fits(fit) ? kind.count(seed) : 0 })),
   ];
 }
 

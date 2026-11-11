@@ -29,6 +29,7 @@ import { m } from "../paraglide/messages.js";
 import { BackButton } from "../shell/BackButton.tsx";
 import { AppLink } from "../shell/AppLink.tsx";
 import { LoadState, Meter, PreviewTag, Section, SoonButton, slotValueText } from "../roster/parts.tsx";
+import { UnitAdvice, guideStatsOf } from "../roster/UnitAdvice.tsx";
 import { PreviewSwitch } from "../roster/PreviewSwitch.tsx";
 import { formatNumber, localName, slotLabel } from "../roster/rosterText.ts";
 import { loadCyborg, useRosterQuery } from "../roster/useRosterQuery.ts";
@@ -168,6 +169,9 @@ function BodyLayout({ data, holdings }: { data: CyborgGetResponse; holdings: Cyb
           {body ? (
             <>
               <CoreStats body={body} names={data.names} />
+              <Section id={`${id}-advice`} title={m.unit_advice_label()}>
+                <UnitAdvice stats={guideStatsOf(body.stats.primaries)} />
+              </Section>
               <CombatSpecs body={body} names={data.names} />
             </>
           ) : (

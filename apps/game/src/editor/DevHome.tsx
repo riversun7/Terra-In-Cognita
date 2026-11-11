@@ -131,13 +131,14 @@ const DEV_TOOLS = {
     tagEn: "LIVE EDIT · Map look",
     ready: true,
   },
-  // 1차 생산 티어 확률(49 N43·D-513): 유효 스탯 구간 × T0~T9 가중치 표(건물 편집기 탭이던 것, 2026-11-09)
-  dev_gather_tiers: {
-    name: m.shell_route_dev_gather_tiers,
-    desc: m.dev_tool_gather_tiers_desc,
+  // 생산 편집기(docs/adr/2026-11-11-production-six.md): 1차 생산 여섯 가지 스탯 짝·사다리·미리 보기, 확률 분포(옛 1차 생산 티어 확률 화면),
+  // 스탯 매핑, 전투 클래스, 개요
+  dev_production: {
+    name: m.shell_route_dev_production,
+    desc: m.dev_tool_production_desc,
     mark: <DiceIcon />,
-    tagKo: "LIVE EDIT · N43 티어 확률",
-    tagEn: "LIVE EDIT · N43 Tier odds",
+    tagKo: "LIVE EDIT · 1차 생산 6종·N43",
+    tagEn: "LIVE EDIT · Six gathers · N43",
     ready: true,
   },
   // 크리처 편집기(/dev/creatures): 크리처 카탈로그·원형 초상화 영역 선택·특성 스탯 분배·고유 무기 범위·드롭 시뮬레이터
@@ -234,7 +235,7 @@ const DEV_SECTIONS: readonly DevSection[] = [
     routes: [
       "dev_creatures",
       "dev_buildings",
-      "dev_gather_tiers",
+      "dev_production",
       "dev_items",
       "dev_skills",
       "dev_effects",

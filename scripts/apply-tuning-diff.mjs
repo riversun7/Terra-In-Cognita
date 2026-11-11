@@ -19,6 +19,7 @@ import {
   applyFormulasDiff,
   applyStatRowsDiff,
   applyTuningDiff,
+  combatClassEntrySchema,
   creatureEntrySchema,
   effectEntrySchema,
   facilityEntrySchema,
@@ -51,6 +52,8 @@ export const ENTRY_FILES = {
   creatures: { file: "creatures.json", schema: creatureEntrySchema },
   // 국가 프리셋(시작 국가 설정 편집기 /dev/nations, docs/adr/2026-11-10-nation-editor.md)
   nation_presets: { file: "nation_presets.json", schema: nationPresetEntrySchema },
+  // 전투 클래스(생산 편집기 /dev/production 전투 클래스 탭, docs/adr/2026-11-11-production-six.md)
+  combat_classes: { file: "combat_classes.json", schema: combatClassEntrySchema },
 };
 
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;

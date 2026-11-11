@@ -8,6 +8,7 @@ import { useEffect, useId, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { UnitHoldings } from "../holdings/UnitHoldings.tsx";
 import { Meter, PreviewTag, Section, SkillList, SlotList, SoonButton, StatBlock } from "../roster/parts.tsx";
+import { UnitAdvice, guideStatsOf } from "../roster/UnitAdvice.tsx";
 import { InjuryBadge } from "../roster/InjuryBadge.tsx";
 import { VitalsMeters } from "../roster/VitalsMeters.tsx";
 import type { VitalsShown } from "../roster/useVitals.ts";
@@ -207,6 +208,7 @@ export function UnitDetail({
 
       <Section id={`${id}-stats`} title={m.roster_stats_title()}>
         <StatBlock stats={unit.stats} names={names} />
+        <UnitAdvice stats={guideStatsOf(unit.stats.primaries)} />
       </Section>
 
       {worldUnit === null ? (

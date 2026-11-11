@@ -1,6 +1,7 @@
 // 건물 편집기 화면 자료(docs/adr/2026-11-02-building-editor.md) — 스냅숏 하나로 만든다.
 // 파싱한 팩 항목(참조 = ContentRef)을 화면 JSON(참조 = ID 글자)으로 칸마다 옮긴다(형 검사가 모양을 지킨다).
 import type {
+  CombatClassEntry,
   FacilityEntry,
   GatherTierEntry,
   ItemEntry,
@@ -9,12 +10,14 @@ import type {
   WeaponTypeEntry,
 } from "@terra/content";
 import type {
+  BuildingEditorCombatClass,
   BuildingEditorFacility,
   BuildingEditorGatherBand,
   BuildingEditorItem,
   BuildingEditorRecipe,
   BuildingEditorSubcategory,
   BuildingEditorWeaponType,
+  CombatClassJson,
   FacilityJson,
   GatherTierJson,
 } from "@terra/shared/buildingEditor";
@@ -44,6 +47,7 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
             ...(gather.yieldBase === undefined ? {} : { yieldBase: gather.yieldBase }),
             ...(gather.yieldPerStatPm === undefined ? {} : { yieldPerStatPm: gather.yieldPerStatPm }),
             ...(gather.yieldCap === undefined ? {} : { yieldCap: gather.yieldCap }),
+            ...(gather.catch === undefined ? {} : { catch: { ...gather.catch } }),
           },
         }
       : {}),
@@ -169,4 +173,37 @@ export function gatherBandViews(
 /** 수리 줄 무기 종류 고르기(실효 무기 종류, 파일 차례, D-512 323) */
 export function weaponTypeOptions(entries: readonly WeaponTypeEntry[]): BuildingEditorWeaponType[] {
   return entries.map((entry) => ({ id: entry.id, name: nameOf(entry), slot: entry.slot }));
+}
+
+/** 화면 스탯 차례(STR·VIT·INT·WIS·DEX·AGI, @terra/shared PRIMARY_STATS) */
+const CLASS_STAT_ORDER = ["str", "vit", "int", "wis", "dex", "agi"] as const;
+
+/** 파싱한 전투 클래스 → 화면 JSON(팩 combat_classes.json 한 줄 모양, 조합 스탯은 화면 스탯 차례, 없는 선택 칸은 적지 않는다) */
+export function combatClassJsonOf(entry: CombatClassEntry): CombatClassJson {
+  return {
+    id: entry.id,
+    name: nameOf(entry),
+    stats: CLASS_STAT_ORDER.filter((stat) => entry.stats.includes(stat)),
+    ...(entry.group === undefined ? {} : { group: entry.group }),
+    ...(entry.role === undefined ? {} : { role: { ko: entry.role.ko, en: entry.role.en } }),
+    desc: { ko: entry.desc.ko, en: entry.desc.en },
+  };
+}
+
+/** 전투 클래스 표 목록(실효 항목·팩 항목·덮어쓰기·해시, D-529) */
+export function combatClassViews(
+  state: ContentEditState,
+  snapshot: ContentSnapshot,
+): BuildingEditorCombatClass[] {
+  const packById = new Map(state.pack.combatClasses.map((entry) => [entry.id, entry]));
+  return snapshot.effective.combatClasses.map((entry) => {
+    const pack = packById.get(entry.id);
+    return {
+      entry: combatClassJsonOf(entry),
+      origin: originOf(state, snapshot, "combat_classes", entry.id),
+      pack: pack ? combatClassJsonOf(pack) : null,
+      override: overrideViewOf(snapshot.overrides.get(contentKey("combat_classes", entry.id))),
+      hash: state.hashOf("combat_classes", entry.id) ?? "",
+    };
+  });
 }

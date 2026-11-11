@@ -9,6 +9,7 @@
 // 아이템 분류 자료(item_subcategories·item_tags·weapon_types)와 아이템 공통 칸·묶음(docs/adr/2026-11-01-item-editor.md 2절).
 // 채집·채굴 티어 확률표(gather_tiers, 49 N43·D-506): 유효 스탯 구간마다 T0~T9 가중치(docs/adr/2026-10-31-economy-core.md "바뀜 (300~302)").
 // 경로 랭킹 목록(ranking_paths, D-392·20 §7·§8): 경로마다 공개 여부·재는 것(docs/adr/2026-11-07-ranking.md).
+// 전투 클래스(combat_classes, D-529): 스탯 조합 → 클래스 이름·설명(추천 표시용, docs/adr/2026-11-11-production-six.md).
 // 2차맵 원자재 오브젝트(gather_objects): 채집 자리 종류·아이템·일·다시 자람(docs/adr/2026-11-07-gather-objects.md, 임시 데이터).
 import { z } from "zod";
 import {
@@ -26,6 +27,7 @@ import {
 } from "./items.ts";
 import { mapPropEntrySchema } from "./mapProps.ts";
 import { gatherObjectEntrySchema } from "./gatherObjects.ts";
+import { combatClassEntrySchema } from "./combatClasses.ts";
 import { creatureEntrySchema } from "./creatures.ts";
 import { effectEntrySchema, skillEntrySchema, unitKindEntrySchema } from "./combat.ts";
 import { biomeEntrySchema, planetEntrySchema, planetTemplateEntrySchema } from "./planets.ts";
@@ -77,4 +79,5 @@ export const CATEGORIES: CategoryRegistry = {
   planet_templates: { entry: planetTemplateEntrySchema },
   map_props: { entry: mapPropEntrySchema },
   gather_objects: { entry: gatherObjectEntrySchema },
+  combat_classes: { entry: combatClassEntrySchema },
 };

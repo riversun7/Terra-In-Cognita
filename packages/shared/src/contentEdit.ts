@@ -22,6 +22,9 @@ export const CONTENT_EDIT_CATEGORIES = [
   // 시작 국가 설정 편집기(/dev/nations, docs/adr/2026-11-10-nation-editor.md): 국가 프리셋. DB 검사는 마이그레이션
   // content_overrides_nation_presets가 넓힌다
   "nation_presets",
+  // 전투 클래스(생산 편집기 /dev/production 전투 클래스 탭, docs/adr/2026-11-11-production-six.md). DB 검사는 마이그레이션
+  // content_overrides_combat_classes가 넓힌다
+  "combat_classes",
 ] as const;
 export type ContentEditCategory = (typeof CONTENT_EDIT_CATEGORIES)[number];
 

@@ -48,6 +48,10 @@ const FACILITY_ART: Readonly<Record<string, BuildingArtKind>> = {
   farm: "farm",
   lumber_camp: "lumber",
   mine: "mine",
+  // 1차 생산 여섯 가지(팩 core@62): 전용 모델이 없어 가장 가까운 것을 쓴다(건물 그림 후속 — docs/adr/2026-11-11-production-six.md)
+  herb_field: "farm",
+  ranch: "farm",
+  fishing_spot: "lumber",
   smelter: "smelter",
   kitchen: "kitchen",
   workshop: "workshop",

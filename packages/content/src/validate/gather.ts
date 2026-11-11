@@ -77,6 +77,17 @@ export function checkGather(pack: ContentPack): ContentIssue[] {
         "gather_yield_cap",
         `수확량 상한(${cap})이 기본 개수(${base})보다 작습니다. 상한을 기본 개수 이상으로 적으세요.`,
       );
+    const catchRule = get(gather, "catch");
+    const catchBase = catchRule === undefined ? undefined : get(catchRule, "basePm");
+    const catchMax = catchRule === undefined ? undefined : get(catchRule, "maxPm");
+    if (typeof catchBase === "number" && typeof catchMax === "number" && catchMax < catchBase)
+      error(
+        "facilities.json",
+        facility.id,
+        "gather.catch.maxPm",
+        "gather_catch_range",
+        `성공 확률 상한(${catchMax}‰)이 기본(${catchBase}‰)보다 작습니다. 상한을 기본 이상으로 적으세요.`,
+      );
   }
   return issues;
 }

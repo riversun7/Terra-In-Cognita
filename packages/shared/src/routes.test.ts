@@ -257,7 +257,9 @@ describe("주소 표", () => {
       // 효과 사전(docs/adr/2026-11-01-item-editor.md "바뀜 (2026-11-09)")
       dev_effects: ["/dev/effects", "dev", "shown", "dev_admin", ["effect", "create"]],
       dev_buildings: ["/dev/buildings", "dev", "shown", "dev_admin", ["facility"]],
-      dev_gather_tiers: ["/dev/gather-tiers", "dev", "shown", "dev_admin", []],
+      // 생산 편집기(docs/adr/2026-11-11-production-six.md). 옛 1차 생산 티어 확률 주소는 그 화면의 확률 분포 탭으로 열린다
+      dev_production: ["/dev/production", "dev", "shown", "dev_admin", ["tab"]],
+      dev_gather_tiers: ["/dev/gather-tiers", "dev_production", "shown", "dev_admin", []],
       dev_creatures: ["/dev/creatures", "dev", "shown", "dev_admin", ["creature"]],
       // 시작 국가 설정(docs/adr/2026-11-10-nation-editor.md)
       dev_nations: ["/dev/nations", "dev", "shown", "dev_admin", ["nation"]],

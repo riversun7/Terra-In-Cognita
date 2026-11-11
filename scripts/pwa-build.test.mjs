@@ -284,6 +284,8 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
       "assets/buildingEditorPreview-B7p8V9w0.js",
       "assets/GatherTierScreen-G1t2T3s4.js",
       "assets/GatherTierScreen-G1t2T3s4.css",
+      "assets/ProductionEditorScreen-P1r2D3n4.js",
+      "assets/ProductionEditorScreen-P1r2D3n4.css",
       "assets/CreatureEditorScreen-C1r2E3a4.js",
       "assets/CreatureEditorScreen-C1r2E3a4.css",
       "assets/NationEditorScreen-N1a2T3n4.js",
@@ -399,7 +401,8 @@ describe("미리 캐시하는 조각의 소스(DEV_ONLY_SOURCE)", () => {
     // 건물 하나 미리 보기(건물 편집기만): 지도 화면이 쓰는 건물 그리기(buildingView.ts)는 밖
     expect(DEV_ONLY_SOURCE.test("../../../../packages/engine/src/buildings/buildingPreview.ts")).toBe(true);
     expect(DEV_ONLY_SOURCE.test("../../../../packages/engine/src/buildings/buildingView.ts")).toBe(false);
-    expect(DEV_ONLY_SOURCE.test("../../src/editor/gatherTiers/GatherTierScreen.tsx")).toBe(true);
+    expect(DEV_ONLY_SOURCE.test("../../src/editor/gatherTiers/GatherTierTable.tsx")).toBe(true);
+    expect(DEV_ONLY_SOURCE.test("../../src/editor/production/ProductionEditorScreen.tsx")).toBe(true);
     // 시작 국가 설정(/dev/nations): 편집 화면은 개발 조각, 게임 화면도 쓰는 국가 마크 그리기(ui/NationEmblem.tsx)는 밖
     expect(DEV_ONLY_SOURCE.test("../../src/editor/nations/NationEditorScreen.tsx")).toBe(true);
     expect(DEV_ONLY_SOURCE.test("../../src/ui/NationEmblem.tsx")).toBe(false);
@@ -423,7 +426,7 @@ describe("개발자 도구 조각 이름(DEV_ONLY_CHUNK가 기대는 규칙)", (
         "apps/game/src/editor/items/ItemEditorScreen.tsx",
         "apps/game/src/editor/effects/EffectDictionaryScreen.tsx",
         "apps/game/src/editor/buildings/BuildingEditorScreen.tsx",
-        "apps/game/src/editor/gatherTiers/GatherTierScreen.tsx",
+        "apps/game/src/editor/production/ProductionEditorScreen.tsx",
         "apps/game/src/editor/nations/NationEditorScreen.tsx",
         "apps/game/src/editor/battleReplayLab/BattleReplayLabScreen.tsx",
       ]),

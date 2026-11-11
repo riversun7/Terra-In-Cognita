@@ -21,6 +21,8 @@ import {
   type SkillEntry,
   type UnitKindEntry,
   type WeaponTypeEntry,
+  type CombatClassEntry,
+  combatClassEntrySchema,
   creatureEntrySchema,
   effectEntrySchema,
   facilityEntrySchema,
@@ -84,6 +86,11 @@ export interface ContentEffective {
    * 나라 화폐가 읽는다(src/npc/presets.ts livePresets)
    */
   readonly nationPresets: readonly NationPresetEntry[];
+  /**
+   * 전투 클래스 표(생산 편집기 전투 클래스 탭이 덮어쓴다, /dev/production — docs/adr/2026-11-11-production-six.md, D-529). 유닛 추천
+   * (trpc units.guide)이 읽는다. 판정에 쓰지 않는다
+   */
+  readonly combatClasses: readonly CombatClassEntry[];
 }
 
 export interface ContentSnapshot {
@@ -167,6 +174,7 @@ function parseEffective(raw: RawEntries): ContentEffective {
     gatherTiers: raw.gather_tiers.map((entry) => gatherTierEntrySchema.parse(entry)),
     creatures: raw.creatures.map((entry) => creatureEntrySchema.parse(entry)),
     nationPresets: raw.nation_presets.map((entry) => nationPresetEntrySchema.parse(entry)),
+    combatClasses: raw.combat_classes.map((entry) => combatClassEntrySchema.parse(entry)),
   };
 }
 

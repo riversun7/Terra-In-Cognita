@@ -12,6 +12,7 @@ import { type ReactNode, useId } from "react";
 import { m } from "../paraglide/messages.js";
 import { navigate } from "../shell/routerStore.ts";
 import { elsewhereText, peekText, unitName, unitStatusText } from "./mapUnits.ts";
+import { UnitAdvice } from "../roster/UnitAdvice.tsx";
 import "./unitControl.css";
 
 /** 목록 id(여닫기 단추의 aria-controls) */
@@ -109,6 +110,8 @@ export function MyUnitsPanel({
                 <span className="map-unit-name">{unitName(unit)}</span>
                 <span className="map-unit-status">{unitStatusText(unit, moving.has(unit.unitId), now)}</span>
               </button>
+              {/* 고른 내 유닛: 스탯 기준 추천 한 줄(1차 생산·전투 유형, docs/adr/2026-11-11-production-six.md) */}
+              {selected === unit.unitId && unit.stats ? <UnitAdvice stats={unit.stats} compact /> : null}
             </li>
           ))}
         </ul>

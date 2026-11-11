@@ -61,8 +61,9 @@ const ItemEditorScreen = lazy(() => import("../editor/items/ItemEditorScreen.tsx
 const EffectDictionaryScreen = lazy(() => import("../editor/effects/EffectDictionaryScreen.tsx"));
 // 건물 편집기(틀 안): 조각 이름 BuildingEditorScreen-*(미리 캐시 규칙 [Bb]uildingEditor). 입력 칸·최근 바꿈은 contentEditor… 공용 부품
 const BuildingEditorScreen = lazy(() => import("../editor/buildings/BuildingEditorScreen.tsx"));
-// 1차 생산 티어 확률(틀 안, 49 N43): 조각 이름 GatherTierScreen-*(미리 캐시 규칙 [Gg]atherTier). 건물 편집기 조각은 가져오지 않는다
-const GatherTierScreen = lazy(() => import("../editor/gatherTiers/GatherTierScreen.tsx"));
+// 생산 편집기(틀 안, docs/adr/2026-11-11-production-six.md): 조각 이름 ProductionEditorScreen-*(미리 캐시 규칙 [Pp]roductionEditor).
+// 옛 1차 생산 티어 확률 화면(/dev/gather-tiers)은 이 화면의 확률 분포 탭으로 열린다. 건물 편집기 조각은 가져오지 않는다
+const ProductionEditorScreen = lazy(() => import("../editor/production/ProductionEditorScreen.tsx"));
 // 크리처 편집기(틀 안): 조각 이름 CreatureEditorScreen-*(미리 캐시 규칙 [Cc]reatureEditor)
 const CreatureEditorScreen = lazy(() => import("../editor/creatures/CreatureEditorScreen.tsx"));
 // 시작 국가 설정(틀 안): 조각 이름 NationEditorScreen-*(미리 캐시 규칙 [Nn]ationEditor)
@@ -117,6 +118,7 @@ export const ROUTE_TITLES = {
   dev_items: m.shell_route_dev_items,
   dev_effects: m.shell_route_dev_effects,
   dev_buildings: m.shell_route_dev_buildings,
+  dev_production: m.shell_route_dev_production,
   dev_gather_tiers: m.shell_route_dev_gather_tiers,
   dev_creatures: m.shell_route_dev_creatures,
   dev_nations: m.shell_route_dev_nations,
@@ -249,8 +251,10 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <EffectDictionaryScreen initialId={match.search.effect} create={match.search.create === "1"} />;
     case "dev_buildings":
       return <BuildingEditorScreen initialId={match.search.facility} />;
+    case "dev_production":
+      return <ProductionEditorScreen key="production" initialTab={match.search.tab} />;
     case "dev_gather_tiers":
-      return <GatherTierScreen />;
+      return <ProductionEditorScreen key="gather-tiers" initialTab="tiers" />;
     case "dev_creatures":
       return <CreatureEditorScreen initialId={match.search.creature} />;
     case "dev_nations":

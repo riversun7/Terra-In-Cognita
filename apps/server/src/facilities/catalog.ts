@@ -101,6 +101,7 @@ function defOf(entry: FacilityEntry): FacilityDef {
           yieldBase: entry.gather.yieldBase,
           yieldPerStatPm: entry.gather.yieldPerStatPm,
           yieldCap: entry.gather.yieldCap,
+          catch: entry.gather.catch,
         }
       : undefined,
   };

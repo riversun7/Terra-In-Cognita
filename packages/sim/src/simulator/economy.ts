@@ -21,6 +21,7 @@ import { type FxMarket, createFxMarket } from "../economy/fxMarket.ts";
 import { type GoodsMarket, createGoodsMarket } from "../economy/goodsMarket.ts";
 import {
   accessibleTier,
+  gatherCatchPm,
   gatherProgress,
   gatherStat,
   gatherYield,
@@ -98,6 +99,8 @@ export interface EcoFacility {
   readonly progress: number;
   /** 한 번 캘 때 수확량(옛 gather_type_config): 산출 × 이 값. 스탯 짝이 없는 시설은 1 */
   readonly yieldPerLot: number;
+  /** 한 번 시도의 성공 ‰(낚시터 gather.catch). 성공 확률 규칙이 없는 시설은 undefined(늘 성공) */
+  readonly catchPm?: number | undefined;
   /** 생산 차례(추첨 난수의 차례) */
   batches: number;
   eventId: number | undefined;
@@ -412,7 +415,7 @@ export function workerEffects(
   rule: CatalogGather | undefined,
   plan: { level: number; primaryStat?: number | undefined; secondaryStat?: number | undefined },
   gather: GatherSettings,
-): Pick<EcoFacility, "gatherStat" | "selectTier" | "progress" | "yieldPerLot"> {
+): Pick<EcoFacility, "gatherStat" | "selectTier" | "progress" | "yieldPerLot" | "catchPm"> {
   const primary = plan.primaryStat ?? gather.defaultStat;
   const secondary = plan.secondaryStat ?? gather.defaultStat;
   if (!rule) return { gatherStat: 0, selectTier: 0, progress: 1, yieldPerLot: 1 };
@@ -425,6 +428,7 @@ export function workerEffects(
       perStatPm: rule.yieldPerStatPm ?? gather.yieldPerStatPm ?? 80,
       cap: rule.yieldCap,
     }),
+    ...(rule.catch ? { catchPm: gatherCatchPm(primary + secondary, rule.catch) } : {}),
   };
 }
 
@@ -467,6 +471,7 @@ function nextBatch(economy: Economy, world: SimWorld, facility: EcoFacility): Pe
       lotSize: economy.catalog.lotSize,
       selectTier: roll.mode === "select" ? facility.selectTier : undefined,
       yieldPerLot: facility.yieldPerLot,
+      successPm: facility.catchPm,
       harvestGrams: BigInt(rules.oreGrams ?? 1000),
     },
     rng,

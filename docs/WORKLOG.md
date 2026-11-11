@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-11 17:00 | 1차 생산 여섯 가지·생산 편집기·유닛 추천(생산 직군·전투 클래스) | Claude Code | [11-1700-production-six](worklog/2026/11/11-1700-production-six.md) |
 | 2026-11-11 17:00 | 행성 범위: 편집기·모니터링의 범위 줄과 행성 고르기 | Claude Code | [11-1700-planet-scope](worklog/2026/11/11-1700-planet-scope.md) |
 | 2026-11-11 09:30 | 묶음 합치기: 시작 국가 설정 편집기·편집기 입력 도구·남의 유닛 누르기 2 | Claude Code | [11-0930-nations-inputs-tap-merge](worklog/2026/11/11-0930-nations-inputs-tap-merge.md) |
 | 2026-11-10 23:50 | 시작 국가 설정 편집기(/dev/nations) — 가상 이름·이름 만들기, 국가 마크(만들기·올리기·자르기), 국가마다 씨앗 값, 이 세계에 반영 | Claude Code | [10-2350-nation-editor](worklog/2026/11/10-2350-nation-editor.md) |

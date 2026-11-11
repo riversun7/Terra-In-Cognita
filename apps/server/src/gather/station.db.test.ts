@@ -81,6 +81,8 @@ async function boot(): Promise<{ world: World; gather: WorldGather }> {
 const oreAssets = TEST_HOLDING_CONTENT.items
   .filter((item) => item.subcategory?.id === "ore")
   .map((item) => `item:${item.id}`);
+const assetsOf = (sub: string): string[] =>
+  TEST_HOLDING_CONTENT.items.filter((item) => item.subcategory?.id === sub).map((item) => `item:${item.id}`);
 const cropAssets = TEST_HOLDING_CONTENT.items
   .filter((item) => item.subcategory?.id === "crop")
   .map((item) => `item:${item.id}`);
@@ -295,6 +297,87 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     expect(current.station.haulNow(clock)).toBeGreaterThan(0);
     expect(sum(buildingLocation(farmId))).toBe(0n);
     expect(sum(cityLocation(cityId ?? 0))).toBe(cityBefore + stored);
+    expect(await world.checkInvariants()).toEqual([]);
+  });
+
+  it("목장·낚시터 직무 배치(1차 생산 여섯 가지): 농장처럼 시설 안 생산 — 그 사다리 물건이 채집소 창고에 쌓인다", async () => {
+    const { world, gather } = await boot();
+    const current = gather.current();
+    const p = world.persistence;
+    const map = [...world.maps.values()][0];
+    if (!current || !p || !map) throw new Error("gather is not ready");
+    const found = await rows<{ id: string }>(
+      test.db,
+      `insert into users (name, email, username) values ($1, $2, $3) returning id`,
+      ["Fake_six_station", "fake-six-station@id.placeholder.invalid", "fake_six_station"],
+    );
+    const userId = String(found[0]?.id);
+    const ownerId = p.settlement.ownerOfUser(userId, clock).id;
+    p.settlement.grantCredit(ownerId, 100_000n, clock);
+    const service = p.facilities.service;
+    for (const [item, qty] of Object.entries({ pine_log: 40, stone: 10 }))
+      expect(await service.devFacilityGrant(userId, item, qty, { mapKey: map.mapKey, x: 50, y: 50 })).toEqual(
+        { ok: true },
+      );
+    const buildAt = async (facility: string, x: number): Promise<number> => {
+      const built = await service.build(userId, { mapKey: map.mapKey, facility, x, y: 50, rotation: 0 });
+      if (!built.ok || built.buildingId === undefined)
+        throw new Error(`build failed: ${facility} ${JSON.stringify(built)}`);
+      return built.buildingId;
+    };
+    const ranchId = await buildAt("ranch", 50);
+    const dockId = await buildAt("fishing_spot", 60);
+    clock += 12 * HOUR;
+    service.finishDue(clock);
+    expect(service.facilities.get(ranchId)?.level).toBe(1);
+    expect(service.facilities.get(dockId)?.level).toBe(1);
+    // 오브젝트가 맡지 않는 채집 시설 = 시설 안 생산(농장과 같은 채집소 종류)
+    expect(current.station.site(ranchId)?.kind).toBe("facility");
+    expect(current.station.site(dockId)?.kind).toBe("facility");
+
+    const addHuman = (cellX: number): number => {
+      const unitId = p.nextId.unit();
+      expect(
+        map.addUnit({
+          id: unitId,
+          size: 1,
+          speed: WALK_SPEED,
+          cellX,
+          cellY: 30,
+          ownerId,
+          kind: UNIT_KIND_HUMAN,
+        }),
+      ).toBe(true);
+      return unitId;
+    };
+    const rancher = addHuman(30);
+    const fisher = addHuman(32);
+    expect(await p.labor.assign(userId, ranchId, rancher)).toEqual({ ok: true });
+    expect(await p.labor.assign(userId, dockId, fisher)).toEqual({ ok: true });
+
+    const sum = (assets: string[], location: number): bigint =>
+      assets.reduce((total, asset) => total + p.ledger.balanceOf(ownerId, asset, location), 0n);
+    const meat = assetsOf("livestock_product");
+    const fish = assetsOf("fish");
+    expect(meat.length).toBeGreaterThan(0);
+    expect(fish.length).toBeGreaterThan(0);
+    // 90분 정산(직무 피로 상한 전): 목장은 선택 방식 — 스탯 10·10 → 해금 T1(필요 진행 60 = 1시간에 하나)
+    clock += 90 * 60_000;
+    p.settlement.settleOwner(ownerId, clock);
+    expect(sum(meat, buildingLocation(ranchId))).toBeGreaterThan(0n);
+    // 목장 창고에는 축산물만, 낚시터 창고에는 어류만(없을 수도 — 성공 350‰)
+    expect(sum(fish, buildingLocation(ranchId))).toBe(0n);
+    expect(sum(meat, buildingLocation(dockId))).toBe(0n);
+    expect(current.station.status(rancher)).toMatchObject({ buildingId: ranchId, state: "working" });
+    expect(current.station.status(fisher)).toMatchObject({ buildingId: dockId });
+
+    const view = gatherReadsOf(() => gather.current()).station(
+      { id: userId, loginId: "fake_six_station", roles: [] },
+      dockId,
+      clock,
+    );
+    expect(view).toMatchObject({ status: "ok", kind: "facility", mine: true, objects: null });
+    expect(view.storage.capacityGrams).toBe("200000");
     expect(await world.checkInvariants()).toEqual([]);
   });
 });

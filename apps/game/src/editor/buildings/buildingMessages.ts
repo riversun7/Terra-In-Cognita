@@ -100,6 +100,8 @@ export function issueText(issue: ContentIssueView): string {
       return m.dev_buildings_issue_gather_major();
     case "gather_yield_cap":
       return m.dev_buildings_issue_yield_cap();
+    case "gather_catch_range":
+      return m.dev_prod_issue_catch_range();
     case "repair_targets_empty":
       return m.dev_buildings_issue_repair_targets();
     case "ref_missing":

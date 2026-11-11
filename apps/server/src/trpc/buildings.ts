@@ -9,6 +9,7 @@
 import {
   BUILDING_EDITOR_CHANGES_MAX,
   BUILDING_EDIT_CATEGORIES,
+  type CombatClassJson,
   type FacilityJson,
   type GatherTierJson,
 } from "@terra/shared/buildingEditor";
@@ -39,11 +40,21 @@ const gatherBandEntry = z.custom<GatherTierJson>(
     contentId.safeParse(Reflect.get(value, "id")).success,
 );
 
+const combatClassEntry = z.custom<CombatClassJson>(
+  (value) =>
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    contentId.safeParse(Reflect.get(value, "id")).success,
+);
+
 const change = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("put"), entry, baseHash }),
   z.strictObject({ op: z.literal("revert"), id: contentId, baseHash }),
   z.strictObject({ op: z.literal("put_gather_band"), entry: gatherBandEntry, baseHash }),
   z.strictObject({ op: z.literal("revert_gather_band"), id: contentId, baseHash }),
+  z.strictObject({ op: z.literal("put_combat_class"), entry: combatClassEntry, baseHash }),
+  z.strictObject({ op: z.literal("revert_combat_class"), id: contentId, baseHash }),
   z.strictObject({
     op: z.literal("discard_sleeping"),
     id: contentId,

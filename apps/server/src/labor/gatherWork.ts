@@ -144,6 +144,7 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
         lotSize: site.lotSize,
         selectTier: site.rule.mode === "select" ? effects.selectTier : undefined,
         yieldPerLot: effects.yieldPerLot,
+        successPm: effects.catchPm,
         harvestGrams: BigInt(settings.oreGrams ?? 1000),
       },
       createRng(lotSeed(input.unitId, seq)),

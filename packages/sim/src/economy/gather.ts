@@ -12,20 +12,34 @@
 //   migrations/index.js 642~736). 옛 마지막 코드는 1개 고정이었고 기획 D-507이 켰다. 광석은 개수 = 묶음 수(1개 = 1kg 묶음, 49 N44).
 // - 선택 + 효율(농장·목장): 해금 티어 = min(⌊(주 + 보조) ÷ 20⌋, 9)(49 P8, 옛 calcAccessibleTier)에서 켜진 아이템이 있는 가장 높은
 //   티어를 고르고 같은 티어 여럿이면 고르게(옛 ORDER BY tier DESC, RANDOM()). 추첨하지 않는다.
+// - 성공 확률(낚시터, docs/adr/2026-11-11-production-six.md): 한 번 시도마다 성공 ‰를 먼저 굴리고 성공한 번만 티어를 뽑는다
+//   (옛 BuildingGatherEngine.js runFishingWorkers 715~735, fishing_config 0.30·0.80·0.50).
 // 정수 연산만 쓴다(판정 코드 규칙).
 import type { Rng } from "@terra/shared";
+import {
+  GATHER_TIERS,
+  GATHER_WEIGHT_TOTAL,
+  type GatherBand,
+  gatherBandIndex,
+} from "@terra/shared/gatherMath";
 
-/** 티어 수(T0~T9, D-5001) */
-export const GATHER_TIERS = 10;
-/** 구간 가중치 합(‰) */
-export const GATHER_WEIGHT_TOTAL = 1000;
-
-export interface GatherBand {
-  /** 이 구간이 시작하는 유효 스탯(포함) */
-  readonly from: number;
-  /** T0~T9 가중치(‰, 합 1000) */
-  readonly weightsPm: readonly number[];
-}
+// 난수 없는 셈(구간 찾기·진행·수확량·필요 진행·해금 티어·성공 확률·나올 확률)은 @terra/shared/gatherMath에 있다(화면 미리 보기와 같은 식)
+export {
+  ACCESSIBLE_TIER_STEP,
+  GATHER_TIERS,
+  GATHER_WEIGHT_TOTAL,
+  accessibleTier,
+  gatherBandIndex,
+  gatherCatchPm,
+  gatherChancesPm,
+  gatherProgress,
+  gatherStat,
+  gatherYield,
+  tierRequiredProgress,
+  type GatherBand,
+  type GatherCatchRule,
+  type GatherYieldRule,
+} from "@terra/shared/gatherMath";
 
 /**
  * 시험·기본 확률표 = 팩 core gather_tiers(core@29, 시험이 맞춰 본다). 옛 표 %를 ‰로(22.3% → 223 등, 반올림 없이 합 1000),
@@ -45,54 +59,6 @@ export const TEST_GATHER_BANDS: readonly GatherBand[] = [
   { from: 200, weightsPm: [190, 190, 180, 160, 130, 80, 45, 20, 5, 0] },
   { from: 220, weightsPm: [195, 180, 170, 160, 130, 80, 40, 25, 15, 5] },
 ];
-
-/** 해금 티어 한 칸의 스탯 폭(49 P8 "÷ 20", 옛 calcAccessibleTier) */
-export const ACCESSIBLE_TIER_STEP = 20;
-
-/** 진행 속도(49 N32): 틱마다 진행 = max(1, ⌊주 스탯 ÷ 나눔⌋). 나눔 = 설정 칸 n32_main_divisor(옛 20) */
-export function gatherProgress(primary: number, divisor: number): number {
-  return Math.max(1, Math.floor(Math.max(0, primary) / Math.max(1, divisor)));
-}
-
-/** 수확량 규칙(시설마다, 옛 gather_type_config) */
-export interface GatherYieldRule {
-  /** 기본 개수(옛 yield_base 1) */
-  readonly base: number;
-  /** 보조 스탯 1점당 추가 개수(‰, 옛 yield_per_stat 0.10 → 100) */
-  readonly perStatPm: number;
-  /** 상한(옛 yield_cap). 없으면 상한 없음 */
-  readonly cap?: number | undefined;
-}
-
-/** 수확량: 한 번 캘 때 개수 = min(상한, 기본 + ⌊보조 × ‰ ÷ 1000⌋), 0 아래로 가지 않는다 */
-export function gatherYield(secondary: number, rule: GatherYieldRule): number {
-  const raw =
-    Math.max(0, rule.base) + Math.floor((Math.max(0, secondary) * Math.max(0, rule.perStatPm)) / 1000);
-  return rule.cap === undefined ? raw : Math.min(Math.max(0, rule.cap), raw);
-}
-
-/** 티어별 필요 진행(49 N44, 옛 tierRequiredProgress): max(기본, 기본 + 티어 × 걸음). 옛 값 30·30 → T0 30 … T9 300 */
-export function tierRequiredProgress(tier: number, base: number, step: number): number {
-  return Math.max(base, base + Math.max(0, tier) * step);
-}
-
-/** 선택 + 효율의 해금 티어(49 P8): min(⌊(주 + 보조) ÷ 20⌋, 9) */
-export function accessibleTier(primary: number, secondary: number): number {
-  const sum = Math.max(0, primary) + Math.max(0, secondary);
-  return Math.min(GATHER_TIERS - 1, Math.floor(sum / ACCESSIBLE_TIER_STEP));
-}
-
-/** 유효 스탯 = 일꾼 1차 + 2차 + 레벨 보너스 × (레벨 − 1). 레벨 1 아래는 보너스 0 */
-export function gatherStat(workerStat: number, level: number, bonusPerLevel: number): number {
-  return Math.max(0, workerStat) + Math.max(0, bonusPerLevel) * Math.max(0, level - 1);
-}
-
-/** 유효 스탯이 드는 구간 번호(from이 스탯 이하인 마지막 구간, 첫 구간보다 작으면 0). 구간이 없으면 -1 */
-export function gatherBandIndex(bands: readonly GatherBand[], stat: number): number {
-  let found = bands.length === 0 ? -1 : 0;
-  for (let i = 0; i < bands.length; i++) if ((bands[i]?.from ?? 0) <= stat) found = i;
-  return found;
-}
 
 /** 가중치(‰)로 티어 하나를 뽑는다. 합이 0이면 T0 */
 export function rollGatherTier(bands: readonly GatherBand[], stat: number, rng: Rng): number {
@@ -147,6 +113,11 @@ export interface GatherRoll {
    * 그 밖의 아이템은 한 개 = 기본 단위 하나 × 묶음 크기(1)
    */
   readonly harvestGrams?: bigint | undefined;
+  /**
+   * 한 번 시도의 성공 ‰(gatherCatchPm, 낚시터). 있으면 티어를 뽑기 전에 먼저 굴리고, 실패한 번은 빈 번이다(티어 난수를 쓰지 않는다).
+   * 없으면 늘 성공(난수를 더 쓰지 않는다 — 다른 시설의 결과는 그대로)
+   */
+  readonly successPm?: number | undefined;
 }
 
 /**
@@ -164,6 +135,10 @@ export function rollGatherOutputs(
   const each = BigInt(Math.max(0, roll.yieldPerLot ?? 1));
   let empty = 0;
   for (let i = 0; i < roll.lots; i++) {
+    if (roll.successPm !== undefined && rng.nextInt(GATHER_WEIGHT_TOTAL) >= roll.successPm) {
+      empty += 1;
+      continue;
+    }
     const tier =
       roll.selectTier === undefined
         ? rollGatherTier(roll.bands, roll.stat, rng)
@@ -189,28 +164,4 @@ export function rollGatherOutputs(
       if (count !== undefined) outputs.push({ asset, qty: count * unitOf(asset) });
     }
   return { outputs, tiers, landed, empty };
-}
-
-/** 구간 하나에서 티어별 확률(‰, 표시·시험용): 뽑은 티어 → 나오는 아이템 티어(없으면 내려감)로 모은다 */
-export function gatherChancesPm(
-  bands: readonly GatherBand[],
-  stat: number,
-  ladder: readonly (readonly string[])[],
-): { tierPm: number[]; emptyPm: number } {
-  const band = bands[gatherBandIndex(bands, stat)];
-  const tierPm = Array.from({ length: GATHER_TIERS }, () => 0);
-  let emptyPm = 0;
-  if (!band) return { tierPm, emptyPm: GATHER_WEIGHT_TOTAL };
-  for (let tier = 0; tier < GATHER_TIERS; tier++) {
-    const weight = band.weightsPm[tier] ?? 0;
-    let landed = -1;
-    for (let t = Math.min(tier, ladder.length - 1); t >= 0; t--)
-      if ((ladder[t]?.length ?? 0) > 0) {
-        landed = t;
-        break;
-      }
-    if (landed < 0) emptyPm += weight;
-    else tierPm[landed] = (tierPm[landed] ?? 0) + weight;
-  }
-  return { tierPm, emptyPm };
 }

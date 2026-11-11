@@ -12,6 +12,7 @@ import type {
 } from "./contentEdit.ts";
 import type { FacilityBuildJson, FacilityBuildRules, FacilityRepairJson } from "./facilityBuild.ts";
 import type { FacilityLookJson } from "./facilityLook.ts";
+import type { CombatClassRule, CombatClassView } from "./unitGuide.ts";
 
 export {
   FACILITY_LOOK_COLORS,
@@ -39,7 +40,8 @@ export {
 } from "./facilityBuild.ts";
 
 /** 건물 편집기 묶음이 고칠 수 있는 분류 */
-export const BUILDING_EDIT_CATEGORIES = ["facilities", "gather_tiers"] as const;
+/** 건물 편집기·1차 생산 티어 확률·생산 편집기(/dev/production — 전투 클래스 탭 combat_classes) */
+export const BUILDING_EDIT_CATEGORIES = ["facilities", "gather_tiers", "combat_classes"] as const;
 export type BuildingEditCategory = (typeof BUILDING_EDIT_CATEGORIES)[number];
 
 /** 1차 생산 티어 수(T0~T9 = 10, @terra/content GATHER_TIER_COUNT) 및 가중치 합(1000‰) */
@@ -51,6 +53,34 @@ export interface GatherTierJson {
   readonly id: string;
   readonly from: number;
   readonly weightsPm: readonly number[];
+}
+
+/** 팩 combat_classes.json 한 줄(JSON 모양 = @terra/shared/unitGuide CombatClassView, D-529) */
+export type CombatClassJson = CombatClassView;
+
+export interface BuildingEditorCombatClass {
+  readonly entry: CombatClassJson;
+  readonly origin: ContentEditOrigin;
+  readonly pack: CombatClassJson | null;
+  readonly override: ContentOverrideView | null;
+  readonly hash: string;
+}
+
+/** 전투 클래스 글 길이 상한(팩 localizedText와 같다 — 서버가 다시 본다) */
+export const COMBAT_CLASS_LIMITS = { nameMax: 200, textMax: 200 } as const;
+
+/**
+ * 1차 생산 손잡이(설정 칸 실효 값, 생산 편집기 미리 보기가 읽는다 — 고치는 곳은 설정 칸 패널): 진행 나눔(N32)·시설에 수확량 비율이
+ * 없을 때 보조 스탯 ‰(N32)·필요 진행 기본·걸음과 진행 1의 시간(N44)·광석 한 번 g(N44)·새 유닛 평균 스탯(N9 ÷ 6)
+ */
+export interface BuildingEditorGatherRules {
+  readonly progressDivisor: number;
+  readonly yieldPerStatPm: number;
+  readonly tierProgressBase: number;
+  readonly tierProgressStep: number;
+  readonly tickMs: number;
+  readonly oreGrams: number;
+  readonly defaultStat: number;
 }
 
 export interface BuildingEditorGatherBand {
@@ -97,6 +127,16 @@ export interface FacilityGatherJson {
   readonly yieldBase?: number | undefined;
   readonly yieldPerStatPm?: number | undefined;
   readonly yieldCap?: number | undefined;
+  /** 성공 확률(낚시터, 옛 fishing_config): min(maxPm, basePm + ⌊statPm × min(fullStat, 주 + 보조) ÷ fullStat⌋)‰. 없으면 늘 성공 */
+  readonly catch?: FacilityCatchJson | undefined;
+}
+
+/** 채집 성공 확률 칸(팩 facilities.gather.catch) */
+export interface FacilityCatchJson {
+  readonly basePm: number;
+  readonly maxPm: number;
+  readonly statPm: number;
+  readonly fullStat: number;
 }
 
 /** 팩 facilities.json 한 줄(JSON 모양). 켜기·끄기 칸은 없다(시설은 늘 켜짐, 사용자 답 2026-11-03) */
@@ -130,6 +170,8 @@ export const FACILITY_LIMITS = {
   yieldBase: { min: 0, max: 1000 },
   yieldPerStatPm: { min: 0, max: 100_000 },
   yieldCap: { min: 1, max: 1000 },
+  catchPm: { min: 0, max: 1000 },
+  catchFullStat: { min: 1, max: 100_000 },
   nameMax: 200,
 } as const;
 
@@ -200,6 +242,11 @@ export interface BuildingEditorListResponse {
   readonly rules: FacilityBuildRules;
   /** 채집 시설 레벨당 유효 스탯 보너스(설정 칸 N43 실효 값) */
   readonly gatherLevelBonus: number;
+  /** 1차 생산 손잡이(설정 칸 N32·N44 실효 값, 생산 편집기 미리 보기). 옛 서버면 없음 */
+  readonly gatherRules?: BuildingEditorGatherRules | undefined;
+  /** 전투 클래스 표(실효 combat_classes, D-529)와 분류 문턱(설정 칸 실효 값). 옛 서버면 없음 */
+  readonly combatClasses?: readonly BuildingEditorCombatClass[] | undefined;
+  readonly classRule?: CombatClassRule | undefined;
   /** 잠든 시설·확률표 줄(켤 때 적용하지 않고 DB에 둔 것) */
   readonly sleeping: readonly ContentSleepingRow[];
 }
@@ -214,6 +261,10 @@ export type BuildingEditorChange =
   | { readonly op: "put_gather_band"; readonly entry: GatherTierJson; readonly baseHash: string }
   /** 1차 생산 티어 확률표 덮어쓰기를 지운다(팩 값으로) */
   | { readonly op: "revert_gather_band"; readonly id: string; readonly baseHash: string }
+  /** 전투 클래스 한 줄 통째로(이름·역할·설명·조합 스탯, D-529). 표에 없는 ID는 받지 않는다(만들기 없음) */
+  | { readonly op: "put_combat_class"; readonly entry: CombatClassJson; readonly baseHash: string }
+  /** 전투 클래스 덮어쓰기를 지운다(팩 값으로) */
+  | { readonly op: "revert_combat_class"; readonly id: string; readonly baseHash: string }
   /** 잠든 줄 버리기 */
   | {
       readonly op: "discard_sleeping";

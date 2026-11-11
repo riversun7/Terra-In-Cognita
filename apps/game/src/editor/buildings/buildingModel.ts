@@ -88,6 +88,16 @@ function cleanGather(gather: FacilityGatherJson): FacilityGatherJson {
     ...(gather.yieldBase === undefined ? {} : { yieldBase: gather.yieldBase }),
     ...(gather.yieldPerStatPm === undefined ? {} : { yieldPerStatPm: gather.yieldPerStatPm }),
     ...(gather.yieldCap === undefined ? {} : { yieldCap: gather.yieldCap }),
+    ...(gather.catch === undefined
+      ? {}
+      : {
+          catch: {
+            basePm: gather.catch.basePm,
+            maxPm: gather.catch.maxPm,
+            statPm: gather.catch.statPm,
+            fullStat: gather.catch.fullStat,
+          },
+        }),
   };
 }
 

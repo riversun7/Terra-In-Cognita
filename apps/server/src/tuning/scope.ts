@@ -120,6 +120,9 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "gatherTierProgressStep",
   "gatherTickMs",
   "gatherOreGrams",
+  // 전투 클래스 추천 문턱(trpc units.guide, D-529): 조회마다 읽는다
+  "combatClass.threeStatPm",
+  "combatClass.generalistPm",
   // 노동 계약(labor/service.ts, 49 N48·D-479): 정산·명령·화면마다 읽는다. 임금 = 기준 단가(N27) × 고용주 조정(N28)
   "labor.wageCycleMs",
   "labor.depositDays",
@@ -310,6 +313,9 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "worldSeed.farms",
   "worldSeed.lumberCamps",
   "worldSeed.mines",
+  "worldSeed.herbFields",
+  "worldSeed.ranches",
+  "worldSeed.fishingSpots",
   "worldSeed.storehouses",
   // 옆 2차맵을 그때 띄우기(world/mapSpawnWorld.ts, docs/adr/2026-11-07-play-flow.md "WP15"): 띄울 때·1분마다 살필 때 읽는다
   "worldSeed.mapSpawnMaxLoaded",

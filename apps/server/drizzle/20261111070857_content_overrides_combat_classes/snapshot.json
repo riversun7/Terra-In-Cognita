@@ -1,0 +1,63 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "fd36f14d-9b5b-493d-9463-65ce399db0a1",
+  "prevIds": [
+    "fb2e60c8-8d17-4f85-bef1-b43ae1ee87af"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "content_overrides"
+      ],
+      "writes": [
+        "s|ck|public.content_overrides.content_overrides_category"
+      ],
+      "reads": [
+        "n|tbl|public.content_overrides",
+        "n|sch|public",
+        "n|col|public.content_overrides.category",
+        "e|col|public.content_overrides.category"
+      ],
+      "sqlHash": "6954725dde461451"
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "content_retired_ids"
+      ],
+      "writes": [
+        "s|ck|public.content_retired_ids.content_retired_ids_category"
+      ],
+      "reads": [
+        "n|tbl|public.content_retired_ids",
+        "n|sch|public",
+        "n|col|public.content_retired_ids.category",
+        "e|col|public.content_retired_ids.category"
+      ],
+      "sqlHash": "291a07812ef251fc"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"content_overrides\",\"content_overrides_category\"]",
+      "set": {
+        "value": "\"category\" in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities', 'gather_tiers', 'creatures', 'nation_presets', 'combat_classes')"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"content_retired_ids\",\"content_retired_ids_category\"]",
+      "set": {
+        "value": "\"category\" in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities', 'gather_tiers', 'creatures', 'nation_presets', 'combat_classes')"
+      }
+    }
+  ]
+}

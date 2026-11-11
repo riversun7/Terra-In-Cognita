@@ -127,4 +127,87 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
     expect(lots.lots).toBe(1);
     expect(lots.outputs).toEqual([{ asset: "item:potato", qty: 1n }]);
   });
+
+  it("약초원(추첨 INT + WIS)·목장(선택 WIS + AGI): 앞 셋과 같은 함수가 스탯 짝만 바꿔 돈다", () => {
+    const herb: CatalogGather = {
+      primary: "int",
+      secondary: "wis",
+      subcategory: "herb",
+      yieldBase: 1,
+      yieldPerStatPm: 100,
+      yieldCap: 8,
+    };
+    const stats: Primaries = { str: 1, dex: 1, agi: 30, vit: 1, int: 40, wis: 30 };
+    // INT 40 → 진행 2, WIS 30 → 한 번에 1 + 3 = 4개. T0만 있는 사다리: 30 진행 = 15주기에 묶음 하나
+    const herbs = gatherLots({ points: 0, seq: 0 }, 15, {
+      unitId: 21,
+      site: site(herb, ladderOf({ 0: ["item:wild_herb"] })),
+      primaries: stats,
+      settings,
+      cycleMs: CYCLE_MS,
+    });
+    expect(herbs.lots).toBe(1);
+    expect(herbs.outputs).toEqual([{ asset: "item:wild_herb", qty: 4n }]);
+    const ranch: CatalogGather = {
+      primary: "wis",
+      secondary: "agi",
+      subcategory: "livestock_product",
+      mode: "select",
+      yieldBase: 1,
+      yieldPerStatPm: 80,
+      yieldCap: 6,
+    };
+    // WIS 30 + AGI 30 = 60 → 해금 T3, 사다리는 T2까지 → 양고기(T2, 필요 진행 90). WIS 30 → 진행 1, AGI 30 → 1 + 2 = 3개
+    const meat = gatherLots({ points: 0, seq: 0 }, 90, {
+      unitId: 22,
+      site: site(ranch, ladderOf({ 0: ["item:raw_meat"], 2: ["item:mutton"] })),
+      primaries: stats,
+      settings,
+      cycleMs: CYCLE_MS,
+    });
+    expect(meat.lots).toBe(1);
+    expect(meat.outputs).toEqual([{ asset: "item:mutton", qty: 3n }]);
+  });
+
+  it("낚시터(성공 확률 뒤 추첨 AGI + DEX): 실패한 시도는 시간만 들고 아무것도 내지 않는다", () => {
+    const fishing: CatalogGather = {
+      primary: "agi",
+      secondary: "dex",
+      subcategory: "fish",
+      yieldBase: 1,
+      yieldPerStatPm: 100,
+      yieldCap: 5,
+      catch: { basePm: 300, maxPm: 800, statPm: 500, fullStat: 200 },
+    };
+    const loach = ladderOf({ 0: ["item:loach"] });
+    const input = {
+      unitId: 31,
+      site: site(fishing, loach),
+      primaries: tens,
+      settings,
+      cycleMs: CYCLE_MS,
+    };
+    // 스탯 10·10: 성공 350‰, 한 번에 2마리. 시도 하나 = T0 30주기 → 30,000주기 = 시도 1,000번
+    const result = gatherLots({ points: 0, seq: 0 }, 30_000, input);
+    expect(result.lots).toBe(1000);
+    const fish = Number(result.outputs[0]?.qty ?? 0n);
+    expect(result.outputs.map((stack) => stack.asset)).toEqual(["item:loach"]);
+    expect(fish % 2).toBe(0);
+    expect(Math.abs(fish / 2 - 350)).toBeLessThan(50);
+    // 성공 확률을 늘 성공(1000‰)으로 두면 시도마다 낚는다
+    const always = gatherLots({ points: 0, seq: 0 }, 30_000, {
+      ...input,
+      site: site({ ...fishing, catch: { basePm: 1000, maxPm: 1000, statPm: 0, fullStat: 200 } }, loach),
+    });
+    expect(always.outputs).toEqual([{ asset: "item:loach", qty: 2000n }]);
+    // 나눠 셈해도 같다(시도 차례마다 같은 난수)
+    let progress: GatherProgress = { points: 0, seq: 0 };
+    let total = 0n;
+    for (let i = 0; i < 100; i++) {
+      const step = gatherLots(progress, 300, input);
+      progress = step;
+      total += step.outputs[0]?.qty ?? 0n;
+    }
+    expect(total).toBe(result.outputs[0]?.qty);
+  });
 });

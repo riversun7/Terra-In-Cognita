@@ -17,6 +17,13 @@ export interface WorldSeedCoefficients {
   readonly lumberCamps: number;
   /** [임시] 시작 도시 하나의 광산 수(팩 시설 mine) */
   readonly mines: number;
+  /**
+   * [임시] 시작 도시 하나의 약초원·목장·낚시터 수(팩 시설 herb_field·ranch·fishing_spot, docs/adr/2026-11-11-production-six.md). 출발값 0 =
+   * 짓지 않는다(약초·축산물·어류를 쓰는 사슬이 NPC 경제에 아직 없다 — 확인 대기)
+   */
+  readonly herbFields: number;
+  readonly ranches: number;
+  readonly fishingSpots: number;
   /** [임시] 시작 도시 하나의 창고 수(팩 시설 storehouse) */
   readonly storehouses: number;
   /**
@@ -84,6 +91,9 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   farms: 1,
   lumberCamps: 1,
   mines: 1,
+  herbFields: 0,
+  ranches: 0,
+  fishingSpots: 0,
   storehouses: 1,
   // 옛 시작 도시와 같은 주거 40(npc/nations.ts 옛 START_CITY_HOUSING), 처음 인구는 그 3/4 = 30명(NPC 구인 목표 = 주거까지 남은 자리)
   startHousing: 40,

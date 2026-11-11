@@ -1,0 +1,511 @@
+{
+  "entries": [
+    {
+      "id": "warrior",
+      "name": {
+        "ko": "워리어",
+        "en": "Warrior"
+      },
+      "stats": ["str", "vit"],
+      "group": "physical",
+      "role": {
+        "ko": "정통 탱커",
+        "en": "Classic tank"
+      },
+      "desc": {
+        "ko": "정통 탱커. 높은 체력과 중갑, 거대 무기 사용.",
+        "en": "A classic tank: high health, heavy armor and great weapons."
+      }
+    },
+    {
+      "id": "slayer",
+      "name": {
+        "ko": "슬레이어",
+        "en": "Slayer"
+      },
+      "stats": ["str", "dex"],
+      "group": "physical",
+      "role": {
+        "ko": "정밀 파괴자",
+        "en": "Precise destroyer"
+      },
+      "desc": {
+        "ko": "정밀한 파괴자. 무거운 무기를 정확히 휘두름.",
+        "en": "A precise destroyer who swings heavy weapons accurately."
+      }
+    },
+    {
+      "id": "shock_trooper",
+      "name": {
+        "ko": "돌격병",
+        "en": "Shock Trooper"
+      },
+      "stats": ["str", "agi"],
+      "group": "physical",
+      "role": {
+        "ko": "빠른 돌진",
+        "en": "Fast charge"
+      },
+      "desc": {
+        "ko": "빠른 돌진과 묵직한 창/도끼 타격.",
+        "en": "Fast charges and heavy spear or axe blows."
+      }
+    },
+    {
+      "id": "guardian",
+      "name": {
+        "ko": "가디언",
+        "en": "Guardian"
+      },
+      "stats": ["vit", "agi"],
+      "group": "physical",
+      "role": {
+        "ko": "끈질긴 추격자",
+        "en": "Relentless pursuer"
+      },
+      "desc": {
+        "ko": "끈질긴 추격자. 잘 죽지 않으면서 계속 따라붙음.",
+        "en": "A relentless pursuer who is hard to kill and keeps closing in."
+      }
+    },
+    {
+      "id": "duelist",
+      "name": {
+        "ko": "듀얼리스트",
+        "en": "Duelist"
+      },
+      "stats": ["dex", "agi"],
+      "group": "physical",
+      "role": {
+        "ko": "쌍검/단검 특화",
+        "en": "Dual blades and daggers"
+      },
+      "desc": {
+        "ko": "빠른 연사와 회피, 쌍검이나 단검 특화.",
+        "en": "Rapid strikes and evasion, specialised in dual blades or daggers."
+      }
+    },
+    {
+      "id": "archmage",
+      "name": {
+        "ko": "아크메이지",
+        "en": "Archmage"
+      },
+      "stats": ["int", "wis"],
+      "group": "magic",
+      "role": {
+        "ko": "순수 마법사",
+        "en": "Pure mage"
+      },
+      "desc": {
+        "ko": "순수 마법사. 높은 화력과 풍부한 마나, 저항력.",
+        "en": "A pure mage: high firepower, deep mana and resistance."
+      }
+    },
+    {
+      "id": "swift_caster",
+      "name": {
+        "ko": "마법 검사",
+        "en": "Swift Caster"
+      },
+      "stats": ["int", "agi"],
+      "group": "magic",
+      "role": {
+        "ko": "치고 빠지기",
+        "en": "Hit and run"
+      },
+      "desc": {
+        "ko": "빠른 주문 시전과 치고 빠지는 마법 전투.",
+        "en": "Quick casting and hit-and-run magic combat."
+      }
+    },
+    {
+      "id": "sage_archer",
+      "name": {
+        "ko": "비술 사수",
+        "en": "Sage Archer"
+      },
+      "stats": ["int", "dex"],
+      "group": "magic",
+      "role": {
+        "ko": "마법 저격",
+        "en": "Magic sniping"
+      },
+      "desc": {
+        "ko": "마법 화살/탄환을 사용하는 원거리 저격.",
+        "en": "Long-range sniping with magic arrows or bullets."
+      }
+    },
+    {
+      "id": "monk",
+      "name": {
+        "ko": "몽크",
+        "en": "Monk"
+      },
+      "stats": ["wis", "agi"],
+      "group": "magic",
+      "role": {
+        "ko": "상태이상 면역",
+        "en": "Status immunity"
+      },
+      "desc": {
+        "ko": "유연한 신체와 정신력. 상태이상 면역 및 반격.",
+        "en": "A supple body and strong mind: status immunity and counterattacks."
+      }
+    },
+    {
+      "id": "tactician",
+      "name": {
+        "ko": "전술가",
+        "en": "Tactician"
+      },
+      "stats": ["wis", "dex"],
+      "group": "magic",
+      "role": {
+        "ko": "서포터",
+        "en": "Support"
+      },
+      "desc": {
+        "ko": "함정과 정밀 도구, 약점을 간파하는 서포터.",
+        "en": "A support who uses traps and precise tools and reads weak points."
+      }
+    },
+    {
+      "id": "battle_mage",
+      "name": {
+        "ko": "마검사",
+        "en": "Battle Mage"
+      },
+      "stats": ["str", "int"],
+      "group": "hybrid",
+      "role": {
+        "ko": "마력 전사",
+        "en": "Magic warrior"
+      },
+      "desc": {
+        "ko": "근접 타격에 마법 폭발을 섞는 마력 전사.",
+        "en": "A magic warrior who mixes spell bursts into melee blows."
+      }
+    },
+    {
+      "id": "inquisitor",
+      "name": {
+        "ko": "심판자",
+        "en": "Inquisitor"
+      },
+      "stats": ["str", "wis"],
+      "group": "hybrid",
+      "role": {
+        "ko": "CC 저항",
+        "en": "Control resistance"
+      },
+      "desc": {
+        "ko": "CC 저항과 물리 파괴력의 조화.",
+        "en": "Crowd-control resistance combined with physical power."
+      }
+    },
+    {
+      "id": "sentinel",
+      "name": {
+        "ko": "수호신",
+        "en": "Sentinel"
+      },
+      "stats": ["vit", "wis"],
+      "group": "hybrid",
+      "role": {
+        "ko": "물마 방어",
+        "en": "Physical and magic defense"
+      },
+      "desc": {
+        "ko": "물리/마법 방어력을 모두 갖춘 금강불괴.",
+        "en": "An unbreakable defender with both physical and magic defense."
+      }
+    },
+    {
+      "id": "siege_archer",
+      "name": {
+        "ko": "철갑 사수",
+        "en": "Siege Archer"
+      },
+      "stats": ["vit", "dex"],
+      "group": "hybrid",
+      "role": {
+        "ko": "인간 전차",
+        "en": "Human tank"
+      },
+      "desc": {
+        "ko": "중갑을 입고 버티며 급소를 쏘는 인간 전차.",
+        "en": "A human tank who holds the line in heavy armor and shoots weak points."
+      }
+    },
+    {
+      "id": "blood_mage",
+      "name": {
+        "ko": "혈법사",
+        "en": "Blood Mage"
+      },
+      "stats": ["vit", "int"],
+      "group": "hybrid",
+      "role": {
+        "ko": "생명력 마법",
+        "en": "Life-force magic"
+      },
+      "desc": {
+        "ko": "자신의 생명력을 태워 강력한 마법을 구사.",
+        "en": "Burns their own life force to cast powerful magic."
+      }
+    },
+    {
+      "id": "shadow_assassin",
+      "name": {
+        "ko": "그림자 암살자",
+        "en": "Shadow Assassin"
+      },
+      "stats": ["int", "dex", "agi"],
+      "desc": {
+        "ko": "빠른 속도와 해킹, 약점 타격에 특화된 암살자.",
+        "en": "An assassin specialised in speed, hacking and weak-point strikes."
+      }
+    },
+    {
+      "id": "blade_master",
+      "name": {
+        "ko": "검성",
+        "en": "Master"
+      },
+      "stats": ["str", "dex", "agi"],
+      "desc": {
+        "ko": "순수 물리 기술의 정점. 빠르고 정확한 연계 공격.",
+        "en": "The peak of pure physical skill: fast, accurate combo attacks."
+      }
+    },
+    {
+      "id": "special_agent",
+      "name": {
+        "ko": "특수 요원",
+        "en": "Special Agent"
+      },
+      "stats": ["vit", "dex", "agi"],
+      "desc": {
+        "ko": "튼튼하면서도 민첩하게 적의 사선을 피하는 딜러.",
+        "en": "A sturdy yet nimble damage dealer who slips out of the line of fire."
+      }
+    },
+    {
+      "id": "hunter",
+      "name": {
+        "ko": "추적자",
+        "en": "Hunter"
+      },
+      "stats": ["wis", "dex", "agi"],
+      "desc": {
+        "ko": "적을 감지하고 덫을 놓으며 끈질기게 괴롭히는 사냥꾼.",
+        "en": "A hunter who senses enemies, sets traps and harasses them relentlessly."
+      }
+    },
+    {
+      "id": "arcane_trooper",
+      "name": {
+        "ko": "마력 돌격병",
+        "en": "Arcane Trooper"
+      },
+      "stats": ["str", "int", "agi"],
+      "desc": {
+        "ko": "마력 가속을 통해 적진을 휘젓는 고기동 전사.",
+        "en": "A highly mobile warrior who tears through enemy lines with magic acceleration."
+      }
+    },
+    {
+      "id": "shock_infantry",
+      "name": {
+        "ko": "충격 보병",
+        "en": "Shock Infantry"
+      },
+      "stats": ["vit", "int", "agi"],
+      "desc": {
+        "ko": "마법 방어막을 두르고 빠르게 진입하는 탱커.",
+        "en": "A tank who rushes in behind a magic barrier."
+      }
+    },
+    {
+      "id": "illusionist",
+      "name": {
+        "ko": "환영 술사",
+        "en": "Illusionist"
+      },
+      "stats": ["int", "wis", "agi"],
+      "desc": {
+        "ko": "빠른 시전과 보호막, 환영을 이용한 교란 전문가.",
+        "en": "A disruption expert using quick casts, shields and illusions."
+      }
+    },
+    {
+      "id": "warlord",
+      "name": {
+        "ko": "워로드",
+        "en": "Warlord"
+      },
+      "stats": ["str", "vit", "agi"],
+      "desc": {
+        "ko": "튼튼한 체력으로 빠르게 돌진하여 적을 분쇄함.",
+        "en": "Charges fast on sturdy health and crushes the enemy."
+      }
+    },
+    {
+      "id": "ascetic_priest",
+      "name": {
+        "ko": "수행 사제",
+        "en": "Ascetic Priest"
+      },
+      "stats": ["str", "wis", "agi"],
+      "desc": {
+        "ko": "빠른 손놀림과 강인한 정신력의 격투 전문가.",
+        "en": "A martial expert with quick hands and a strong mind."
+      }
+    },
+    {
+      "id": "immortal",
+      "name": {
+        "ko": "불멸자",
+        "en": "Immortal"
+      },
+      "stats": ["vit", "wis", "agi"],
+      "desc": {
+        "ko": "죽지 않는 끈질김과 빠른 반응 속도의 생존 전문가.",
+        "en": "A survival expert with undying tenacity and quick reactions."
+      }
+    },
+    {
+      "id": "magic_gunner",
+      "name": {
+        "ko": "마탄 사수",
+        "en": "Spellshot Gunner"
+      },
+      "stats": ["str", "int", "dex"],
+      "desc": {
+        "ko": "마법 탄환과 화승총을 사용하는 고화력 저격수.",
+        "en": "A high-firepower sniper using magic bullets and a matchlock."
+      }
+    },
+    {
+      "id": "alchemist",
+      "name": {
+        "ko": "연금술사",
+        "en": "Alchemist"
+      },
+      "stats": ["vit", "int", "dex"],
+      "desc": {
+        "ko": "폭발성 도구와 중갑으로 무장한 중거리 투척병.",
+        "en": "A mid-range thrower armed with explosive tools and heavy armor."
+      }
+    },
+    {
+      "id": "mystic",
+      "name": {
+        "ko": "비술사",
+        "en": "Mystic"
+      },
+      "stats": ["int", "wis", "dex"],
+      "desc": {
+        "ko": "초장거리에서 속성 마법으로 적을 관통하는 저격 법사.",
+        "en": "A sniper mage who pierces enemies with elemental magic from extreme range."
+      }
+    },
+    {
+      "id": "heavy_infantry",
+      "name": {
+        "ko": "중장갑 보병",
+        "en": "Heavy Infantry"
+      },
+      "stats": ["str", "vit", "dex"],
+      "desc": {
+        "ko": "중갑을 입고 대형 방패와 검을 정밀하게 다룸.",
+        "en": "Wears heavy armor and handles a great shield and sword with precision."
+      }
+    },
+    {
+      "id": "heretic_inquisitor",
+      "name": {
+        "ko": "이단 심문관",
+        "en": "Heresy Inquisitor"
+      },
+      "stats": ["str", "wis", "dex"],
+      "desc": {
+        "ko": "적의 상태이상을 무시하며 급소를 찌르는 추격자.",
+        "en": "A pursuer who shrugs off status effects and strikes weak points."
+      }
+    },
+    {
+      "id": "ironclad_sniper",
+      "name": {
+        "ko": "철갑 저격수",
+        "en": "Ironclad Sniper"
+      },
+      "stats": ["vit", "wis", "dex"],
+      "desc": {
+        "ko": "중갑과 센서, 정밀 사격이 결합된 수성 특화 병과.",
+        "en": "A defense specialist combining heavy armor, sensors and precise shooting."
+      }
+    },
+    {
+      "id": "destroyer",
+      "name": {
+        "ko": "디스트로이어",
+        "en": "Destroyer"
+      },
+      "stats": ["str", "vit", "int"],
+      "desc": {
+        "ko": "무거운 중갑과 마법 강화 무기를 쓰는 파괴자.",
+        "en": "A destroyer in heavy armor wielding magic-enhanced weapons."
+      }
+    },
+    {
+      "id": "arcane_knight",
+      "name": {
+        "ko": "마도 기사",
+        "en": "Arcane Knight"
+      },
+      "stats": ["str", "int", "wis"],
+      "desc": {
+        "ko": "근접전과 속성 마법, 저항력을 고루 갖춘 하이브리드.",
+        "en": "A hybrid balanced across melee, elemental magic and resistance."
+      }
+    },
+    {
+      "id": "sage",
+      "name": {
+        "ko": "대현자",
+        "en": "Sage"
+      },
+      "stats": ["vit", "int", "wis"],
+      "desc": {
+        "ko": "높은 체력과 보호막으로 버티며 광역 마법 투사.",
+        "en": "Endures on high health and shields while casting area magic."
+      }
+    },
+    {
+      "id": "crusader",
+      "name": {
+        "ko": "성전사",
+        "en": "Crusader"
+      },
+      "stats": ["str", "vit", "wis"],
+      "desc": {
+        "ko": "물리/마법 방어력을 모두 갖춘 근접 탱커.",
+        "en": "A melee tank with both physical and magic defense."
+      }
+    },
+    {
+      "id": "generalist",
+      "name": {
+        "ko": "범용",
+        "en": "Generalist"
+      },
+      "stats": [],
+      "desc": {
+        "ko": "여섯 스탯이 고르게 높다. 자신의 전술을 스스로 개척하는 다재다능한 병과.",
+        "en": "All six stats are evenly high. A versatile unit that finds its own tactics."
+      }
+    }
+  ]
+}

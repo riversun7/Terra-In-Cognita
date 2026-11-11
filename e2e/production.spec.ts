@@ -106,10 +106,10 @@ test.describe("개발자", () => {
     await expect(tab(page, "tiers").locator(".pd-tab-count")).toHaveAttribute("data-count", "12");
     await expect(tab(page, "classes").locator(".pd-tab-count")).toHaveAttribute("data-count", "36");
 
-    // 처음 탭 = 첫 생산 종류(벌목장). 미리 보기: 스탯 10·10 → 유효 20 → 첫 구간. 농장은 선택 방식이라 해금 T1
+    // 처음 탭 = 첫 생산 종류(벌목장). 미리 보기: 스탯 10·10 → 유효 20 → 둘째 구간(20~39). 농장은 선택 방식이라 해금 T1
     await expect(screen(page)).toHaveAttribute("data-tab", "lumber_camp");
     await expect(page.locator(".pd-result")).toHaveAttribute("data-stat", "20");
-    await expect(page.locator(".pd-result")).toHaveAttribute("data-band", "0");
+    await expect(page.locator(".pd-result")).toHaveAttribute("data-band", "1");
     await tab(page, "farm").click();
     await expect(page.locator(".pd-result")).toHaveAttribute("data-select-tier", "1");
 
@@ -301,6 +301,8 @@ test.describe("배치·사진", () => {
           await expect(screen(page)).toHaveAttribute("data-tab", other);
           expect(await horizontalOverflow(page), other).toEqual([]);
           expect(await smallTapTargets(page), other).toEqual([]);
+          if (other === "overview" && width >= 1000 && theme === "neon")
+            await shot(page, `production-overview-${theme}-${width}`);
         }
         if (width >= 1000 && theme === "light") await shot(page, `production-classes-${theme}-${width}`);
         expect(deviceErrors).toEqual([]);

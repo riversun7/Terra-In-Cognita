@@ -273,6 +273,9 @@
 }
 
 /* ── 전투 클래스 ── */
+.pd-class-try {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
+}
 .pd-class-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -292,6 +295,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-start;
   gap: var(--space-2);
   width: 100%;
   min-height: var(--tap-size);

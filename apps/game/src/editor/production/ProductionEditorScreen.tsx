@@ -112,8 +112,8 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
     stageRef.current = next;
     setStage(next);
   };
-  const pushGather = (next: GatherStage, editKey?: string): void =>
-    push({ ...stageRef.current, gather: next }, editKey);
+  const pushGather = (update: (current: GatherStage) => GatherStage, editKey?: string): void =>
+    push({ ...stageRef.current, gather: update(stageRef.current.gather) }, editKey);
   const undo = (): void => {
     const previous = undoStack.pop();
     if (previous === null) return;
@@ -302,7 +302,7 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
           setTab("tiers");
           setBand(id);
         },
-        onRemove: () => pushGather(stageBand(stageRef.current.gather, id, null)),
+        onRemove: () => pushGather((current) => stageBand(current, id, null)),
       }),
     ),
     ...[...stage.gather.discard].map(
@@ -311,7 +311,7 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
         id,
         name: m.dev_gather_sleeping_title(),
         kind: "discard",
-        onRemove: () => pushGather(stageGatherDiscard(stageRef.current.gather, id, false)),
+        onRemove: () => pushGather((current) => stageGatherDiscard(current, id, false)),
       }),
     ),
   ];

@@ -46,8 +46,11 @@ export function ProductionTiersPanel({
   /** 구간 조절 판에 올린 구간(없으면 첫 구간) */
   selected: string | null;
   onSelect: (id: string) => void;
-  /** 담은 확률표를 바꾼다. editKey가 같으면 되돌리기 한 칸으로 묶는다 */
-  onStage: (next: GatherStage, editKey?: string) => void;
+  /**
+   * 담은 확률표를 바꾼다(가장 새 담음에서 — 끌어 채우기처럼 한 그림 안에 고침이 이어져도 앞 고침을 잃지 않게 함수로 받는다).
+   * editKey가 같으면 되돌리기 한 칸으로 묶는다
+   */
+  onStage: (update: (current: GatherStage) => GatherStage, editKey?: string) => void;
   onOpenType: (facility: string) => void;
   canUndo: boolean;
   onUndo: () => void;
@@ -78,7 +81,9 @@ export function ProductionTiersPanel({
                 <button
                   type="button"
                   aria-pressed={stage.discard.has(row.id)}
-                  onClick={() => onStage(stageGatherDiscard(stage, row.id, !stage.discard.has(row.id)))}
+                  onClick={() =>
+                    onStage((current) => stageGatherDiscard(current, row.id, !current.discard.has(row.id)))
+                  }
                 >
                   {m.dev_buildings_discard()}
                 </button>
@@ -95,7 +100,7 @@ export function ProductionTiersPanel({
             type="button"
             className="button-small"
             data-preset={kind}
-            onClick={() => onStage(applyBulkPreset(stage, bands, kind))}
+            onClick={() => onStage((current) => applyBulkPreset(current, bands, kind))}
           >
             {BULK_PRESET_TEXT[kind]()}
           </button>
@@ -116,12 +121,12 @@ export function ProductionTiersPanel({
         onSelect={onSelect}
         onEdit={(row, weights, source) =>
           onStage(
-            editBand(stage, row, weights),
+            (current) => editBand(current, row, weights),
             source === undefined ? undefined : `band:${row.entry.id}:${source}`,
           )
         }
-        onRevert={(row) => onStage(revertBand(stage, row))}
-        onUnstage={(id) => onStage(stageBand(stage, id, null))}
+        onRevert={(row) => onStage((current) => revertBand(current, row))}
+        onUnstage={(id) => onStage((current) => stageBand(current, id, null))}
       />
       <GatherTierTable
         bands={bands}
@@ -133,11 +138,11 @@ export function ProductionTiersPanel({
         }}
         onEdit={(row, weights, source) =>
           onStage(
-            editBand(stage, row, weights),
+            (current) => editBand(current, row, weights),
             source === undefined ? undefined : `band:${row.entry.id}:${source}`,
           )
         }
-        onBulk={(picked, op) => onStage(bulkEditBands(stage, bands, picked, op))}
+        onBulk={(picked, op) => onStage((current) => bulkEditBands(current, bands, picked, op))}
       />
       <section className="ce-panel gt-facilities" aria-labelledby="gt-facilities-title">
         <h3 id="gt-facilities-title" className="ce-panel-title">

@@ -85,6 +85,30 @@ describe("world.mapUnits", () => {
 });
 
 describe("기획 답 630~637", () => {
+  it("1차 스탯 출처가 있으면 목록 줄에 stats가 실린다(고른 유닛의 추천 줄), 없으면 칸이 없다", () => {
+    const { reads, map } = setup();
+    expect(reads.mapUnits(PLAYER, MAP_KEY, NOW).units.every((unit) => unit.stats === undefined)).toBe(true);
+    const withStats = createMapUnitReads({
+      map: (key) => (key === MAP_KEY ? map : undefined),
+      ownerOfUser: (userId) => (userId === PLAYER.id ? 5 : undefined),
+      cyborgName: () => undefined,
+      primaries: (unitId) =>
+        unitId === 7 ? { str: 40, dex: 10, agi: 5, vit: 30, int: 6, wis: 7 } : undefined,
+    });
+    const units = withStats.mapUnits(PLAYER, MAP_KEY, NOW).units;
+    // 화면 스탯 차례(STR·VIT·INT·WIS·DEX·AGI)로 싣는다
+    expect(units.find((unit) => unit.unitId === 7)?.stats).toEqual({
+      str: 40,
+      vit: 30,
+      int: 6,
+      wis: 7,
+      dex: 10,
+      agi: 5,
+    });
+    expect(units.find((unit) => unit.unitId === 9)?.stats).toBeUndefined();
+    map.stop();
+  });
+
   it("632 다: 다른 띄운 2차맵 + 건너뛰는 중인 내 유닛 수, 630: 카메라 범위(시야 + 여유)와 내 건물", () => {
     const test = setup();
     const other = createTestMap({ mapKey: 10 });

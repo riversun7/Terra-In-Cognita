@@ -77,3 +77,6 @@
 - `ContentEditState.subscribe(listener)`: 스냅숏을 바꿔 끼운 뒤 부른다(듣는 쪽이 던져도 저장은 그대로).
 - 마크 색: 색 짜임 0 = 시그니처 컬러 바탕, 1 = 밝은(또는 어두운) 바탕에 시그니처 컬러 상징, 2 = 짙은 바탕. 밝기 셈은 WCAG 식의 지수 2.4를 2.5로 근사한다(그림 색 고르기에만 쓴다, 판정 아님).
 - 팩의 화폐 기호 16개는 Latin Extended-B 글자다. 기기 글꼴에 없는 글자가 있는지는 재지 않았다(Unknown).
+
+## 바뀜 (2026-11-11, 플레이어 세력 정체성)
+- 질문 905의 사용자 답("플레이어도 npc 세력 구성처럼 세력생성시 동일하게 생성과정 필요. 용량제한걸고 크롭한부분만 저장하는 방법?")에 따라 플레이어도 같은 마크 사양·그리기·자르기·이름 만들기를 쓴다 — ADR `2026-11-11-faction-identity.md`(제안). 4절의 "권한: dev·admin만"은 이 편집기(국가 프리셋 마크)에 한한 것이고, 플레이어 올리기는 새 ADR의 길(`factionIdentity.save`, 엄격한 PNG 검사, 운영자 마크 관리)로 받는다. 그림 길 `GET /api/nation-emblems/<sha256>.png`는 플레이어가 올린 그림도 준다. 자르기 셈·캔버스 일은 `apps/game/src/ui/emblemCrop.ts`·`emblemCanvas.ts`로 옮겼고(편집기 모델이 같은 이름으로 다시 내보낸다), 색 고르기 판 20색은 `@terra/shared/factionIdentity` `FACTION_IDENTITY_COLORS`가 원본이다. 이 ADR의 나머지 결정은 그대로다.

@@ -24,6 +24,7 @@ import {
   trpcQuery,
 } from "../testDb.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "./services.ts";
+import { ownerIdentityOf } from "./store.ts";
 
 const PASSWORD = "fake pass phrase 7";
 
@@ -175,6 +176,15 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 세력 정체성 (DB)", () => 
       uploaded: null,
     });
     expect(obj((await mine(a)).identity).name).toBe("하늘세력");
+    // 지도의 유닛 한눈 정보가 읽는 주인 정체성(그림 바이트 없이)
+    expect(await ownerIdentityOf(test.db.$client, a.id)).toEqual({
+      name: "하늘세력",
+      shortName: "HAN",
+      color: "#2980b9",
+      emblem: EMBLEM,
+      uploaded: null,
+    });
+    expect(await ownerIdentityOf(test.db.$client, b.id)).toBeNull();
     const audit = await audits("faction.identity_create");
     expect(audit).toHaveLength(1);
     expect(audit[0]).toMatchObject({ actor_kind: "user", target_id: a.id, before: null });

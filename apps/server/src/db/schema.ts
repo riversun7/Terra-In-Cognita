@@ -966,7 +966,7 @@ export { warOutcomes } from "./warSchema.ts";
 export { nationalityChanges, userNationStandings } from "./citizenshipSchema.ts";
 
 /** 운영 권한 체크박스 표(docs/adr/2026-11-08-operator-console.md) */
-export { currencyProfiles, factionProfiles, opsGrants, opsSwitches } from "./opsSchema.ts";
+export { currencyProfiles, factionIdentities, factionProfiles, opsGrants, opsSwitches } from "./opsSchema.ts";
 // 고정 NPC 국가 자리(D-528 세계 배치 화면): worldPlacementSchema.ts
 export { worldNationPlacements } from "./worldPlacementSchema.ts";
 

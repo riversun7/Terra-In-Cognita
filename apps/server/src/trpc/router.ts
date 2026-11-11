@@ -15,6 +15,7 @@ import { vitalsRouter } from "./vitals.ts";
 import { dashboardRouter } from "./dashboard.ts";
 import { economyRouter } from "./economy.ts";
 import { factionRouter } from "./faction.ts";
+import { factionIdentityRouter } from "./factionIdentity.ts";
 import { inboxRouter } from "./inbox.ts";
 import { router } from "./init.ts";
 import { mailRouter } from "./mail.ts";
@@ -90,6 +91,8 @@ export const appRouter = router({
   economy: economyRouter,
   // 세력·우편 화면(조회만, D-439·D-270)
   faction: factionRouter,
+  // 내 세력 정체성(이름·약어·색·마크, docs/adr/2026-11-11-faction-identity.md)
+  factionIdentity: factionIdentityRouter,
   mail: mailRouter,
   // 영토 층 조회(docs/adr/2026-11-03-territory-layer.md 5절). 비콘 놓기·치우기는 WebSocket
   territory: territoryRouter,

@@ -38,6 +38,7 @@ import { createSettingsServices } from "../settings/store.ts";
 import { type TuningShared, betterAuthTuningCheck, createTuningServices } from "../tuning/services.ts";
 import { createBuildingEditorServices } from "../buildingEdit/services.ts";
 import { createCreatureEditorServices } from "../creatureEdit/services.ts";
+import { createFactionIdentityServices, createFactionIdentityShared } from "../factionIdentity/services.ts";
 import { type NationEditShared, createNationEditorServices } from "../nationEdit/services.ts";
 import { type ContentEditShared, createSkillEditorServices } from "../contentEdit/services.ts";
 import { type ItemEditShared, createItemEditorServices } from "../itemEdit/services.ts";
@@ -184,6 +185,14 @@ export function createContextFactory(options: ContextFactoryOptions) {
   const labor = createLaborScreenServices(options.labor);
   const facilities = createFacilityScreenServices(options.facilities);
   const ranking = options.ranking ?? createRankingServices({ paths: [] });
+  // 플레이어 세력 정체성(속도 제한기는 앱에 하나): 운영자 콘솔과 같은 풀·프리셋·시계를 쓴다
+  const identityShared = options.ops
+    ? createFactionIdentityShared({
+        pool: options.ops.pool,
+        now: options.ops.now,
+        presets: () => options.ops?.presets,
+      })
+    : undefined;
   return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {
     const authDeps = options.auth;
     const request = opts?.req;
@@ -209,6 +218,10 @@ export function createContextFactory(options: ContextFactoryOptions) {
       settings: authDeps ? createSettingsServices(authDeps.db) : undefined,
       ops:
         authDeps && request && options.ops ? createOpsServices(options.ops, { ip: request.ip }) : undefined,
+      factionIdentity:
+        authDeps && request && identityShared
+          ? createFactionIdentityServices(identityShared, { db: authDeps.db, ip: request.ip })
+          : undefined,
       planetEditor:
         authDeps && request && editor
           ? createPlanetEditorServices({

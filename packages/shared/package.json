@@ -11,6 +11,7 @@
     "./battleLab": "./src/battleLab.ts",
     "./battleReplay": "./src/battleReplay.ts",
     "./buildingEditor": "./src/buildingEditor.ts",
+    "./catchment": "./src/catchment.ts",
     "./characterLook": "./src/characterLook.ts",
     "./citizenship": "./src/citizenship.ts",
     "./contentEdit": "./src/contentEdit.ts",

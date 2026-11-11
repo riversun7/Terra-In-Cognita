@@ -192,3 +192,37 @@ export interface WorldTierApplyView {
     readonly report: Readonly<Record<string, unknown>> | null;
   } | null;
 }
+
+/**
+ * 배후지 덮개 도시 하나(docs/adr/2026-11-11-city-catchment.md): 가운데 칸에서 걸음(di, dj — 면 경계는 걸어서 넘은 칸)·배후지 덮임(‰, 그 국가
+ * 채집 시설 수로 가중)·국가 코드·고른 국가인가
+ */
+export interface WorldCatchmentCity {
+  readonly di: number;
+  readonly dj: number;
+  readonly cover: number;
+  readonly code: string;
+  readonly own: boolean;
+}
+
+/** 세계 배치 화면 배후지 덮개(tRPC worldLayout.catchment — 고른 국가 수도 둘레) */
+export interface WorldCatchmentView {
+  readonly code: string;
+  /** 배후지 반경·지방 도시 찾는 반경(1차맵 칸, 설정 칸 city_catchment_*). 반경 0 = 배후지 규칙 끔(옛 배치) */
+  readonly radiusCells: number;
+  readonly searchCells: number;
+  /** 같은 국가·다른 국가 도시 사이 가장 짧은 거리(1차맵 칸) */
+  readonly sameGapCells: number;
+  readonly foreignGapCells: number;
+  /** 격자 반 폭(칸): 격자 = (2 × span + 1)², 가운데 = 고른 국가 수도(지금 세계, 없으면 빈 세계 계획) */
+  readonly span: number;
+  /** 칸마다 여섯 원자재 비트(@terra/shared/catchment MATERIAL_BIT), 줄 차례(dj → di). 칸이 없으면(꼭짓점 너머) −1 */
+  readonly cells: readonly number[];
+  /** 지금 세계 도시(격자 안) */
+  readonly world: readonly WorldCatchmentCity[];
+  /** 빈 세계 등급 배치 계획(세계 새로 시작 뒤 설 자리, 격자 안) */
+  readonly plan: readonly WorldCatchmentCity[];
+  /** 배후지가 겹친 도시 쌍 수(행성 전체 — 지금 세계·계획) */
+  readonly overlapWorld: number;
+  readonly overlapPlan: number;
+}

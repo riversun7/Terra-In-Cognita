@@ -25,6 +25,7 @@ import type {
   WorldPlaceBlocker,
   WorldPlaceResult,
   WorldPlacementNationView,
+  WorldCatchmentView,
   WorldTierApplyView,
 } from "@terra/shared/worldPlacementApi";
 import { WORLD_PLACE_BLOCKERS } from "@terra/shared/worldPlacementApi";
@@ -38,6 +39,8 @@ import {
   nationStartOf,
   presetOfCode,
 } from "../npc/nations.ts";
+import { weightsOfFacilities } from "@terra/shared/catchment";
+import { catchmentViewOf } from "./catchmentView.ts";
 import { type NationPlacement, loadPlacements, planNationMove } from "./nationPlacement.ts";
 import type { QueryPool } from "./persist/load.ts";
 import { cancelTierApply, requestTierApply } from "./tierApply.ts";
@@ -95,6 +98,8 @@ export interface PlacementService {
   requestTierApply(actor: PlacementActor): Promise<WorldTierApplyView | undefined>;
   /** 아직 들지 않은 요청을 지운다(감사 기록 world.tier_apply_cancel). 지울 요청이 없으면 false */
   cancelTierApply(actor: PlacementActor): Promise<boolean>;
+  /** 고른 국가 수도 둘레 배후지 덮개(catchmentView.ts — 읽기만). 모르는 국가면 null */
+  catchment(code: string): Promise<WorldCatchmentView | null | undefined>;
 }
 
 interface NationRow {
@@ -462,6 +467,37 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
     },
 
     tierPlan: tierView,
+
+    async catchment(code) {
+      if (!ready()) return undefined;
+      const [nations, cities, placements] = await Promise.all([
+        loadNations(),
+        loadCities(),
+        loadPlacements(o.pool, o.planetId),
+      ]);
+      const plan = freshTierPlan(planBase(), planNations(nations, placements));
+      const codeOf = new Map(nations.map((nation) => [nation.factionId, nation.code]));
+      const row = nations.find((nation) => nation.code === code);
+      const planned = plan.nations.find((nation) => nation.code === code);
+      const capital = row ? capitalOf(row, cities)?.mapKey : undefined;
+      const center = capital ?? (planned ? parseMapKey(planned.home) : undefined);
+      if (center === undefined || !isCellKey(center)) return null;
+      return catchmentViewOf({
+        faceLevel,
+        land: landOf,
+        seed: o.seed(),
+        code,
+        center,
+        world: cities.flatMap((city) => {
+          const owner = codeOf.get(city.factionId);
+          return owner === undefined ? [] : [{ code: owner, mapKey: city.mapKey }];
+        }),
+        plan: plan.nations.flatMap((nation) =>
+          nation.cities.map((key) => ({ code: nation.code, mapKey: Number(key) })),
+        ),
+        needsOf: (owner) => weightsOfFacilities(startOf(owner).facilities),
+      });
+    },
 
     async requestTierApply(actor) {
       if (!ready()) return undefined;

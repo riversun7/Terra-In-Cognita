@@ -72,11 +72,20 @@ describe("채집 화면 상태", () => {
   });
 
   it("표시 무리: 원목·돌·광석·약초", () => {
-    expect(["pine_log", "stone", "copper_ore", "wild_herb"].map(kindClass)).toEqual([
+    expect(["pine_log", "stone", "copper_ore", "wild_herb"].map((item) => kindClass(item))).toEqual([
       "wood",
       "stone",
       "ore",
       "herb",
     ]);
+  });
+
+  it("표시 무리: 밭·목초지·물터는 맡는 시설로", () => {
+    expect([
+      kindClass("barley", "farm"),
+      kindClass("raw_meat", "ranch"),
+      kindClass("loach", "fishing_spot"),
+    ]).toEqual(["crop", "animal", "fish"]);
+    expect(kindClass("pine_log", "lumber_camp")).toBe("wood");
   });
 });

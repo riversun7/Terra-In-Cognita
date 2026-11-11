@@ -123,7 +123,9 @@ export function nearestReady(
   let best: GatherObjectEntry | undefined;
   let bestDistance = 0;
   for (const object of objects) {
-    if (kinds[object.kind]?.facility !== station.facilityId) continue;
+    const kind = kinds[object.kind];
+    // 밭·목초지·물터(direct false)는 일꾼만 쓴다 — [직접 캐기] 대상이 아니다
+    if (kind?.facility !== station.facilityId || kind.direct === false) continue;
     if (object.usesLeft <= 0 && object.regrowAtMs > nowMs) continue;
     const dx = object.x - station.x;
     const dy = object.y - station.y;

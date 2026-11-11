@@ -67,6 +67,20 @@ export interface WorldSeedCoefficients {
   /** [임시] 시작 도시가 설 땅: 강수(mm) 아래 끝(사막을 빼고 농사지을 땅) */
   readonly layoutLandMinRainMm: number;
   /**
+   * [임시] 도시 배후지(docs/adr/2026-11-11-city-catchment.md, 사용자 지적 2026-11-11 "도시를 유지하기 위한 주변 지형자원의 점유 영역이 겹쳐"):
+   * 도시 2차맵에서 이 반경(1차맵 칸) 안의 칸들이 그 도시의 자원 점유 영역이다. 0이면 배후지 규칙을 쓰지 않는다(옛 배치 — 수도 둘레 고리 ×
+   * 걸음). 지방 도시 자리는 배후지 덮임(여섯 원자재 몫, @terra/shared/catchment)이 높은 곳을 고르고, 도시 사이를 아래 간격만큼 띄운다
+   */
+  readonly catchmentRadiusCells: number;
+  /** [임시] 같은 국가 도시 사이 가장 짧은 거리 = 배후지 지름(2R) × 이 천분율(1000 = 배후지 가장자리가 닿아도 됨) */
+  readonly catchmentSameGapPm: number;
+  /** [임시] 다른 국가 도시 사이 가장 짧은 거리 = 2R × 이 천분율(배후지가 겹치지 않고 사이가 빈다) */
+  readonly catchmentForeignGapPm: number;
+  /** [임시] 지방 도시 자리를 찾는 반경(수도에서 1차맵 칸) */
+  readonly catchmentSearchCells: number;
+  /** [임시] 수도에서 배후지 지름 하나만큼 멀어질 때마다 자리 점수에서 빼는 덮임(‰) — 나라가 흩어지지 않게 */
+  readonly catchmentCompactPm: number;
+  /**
    * [임시] 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 서버가 그때 띄운 2차맵 상한(부팅 씨앗 2차맵 —
    * 시험 줄·도시 — 은 세지 않는다). 꽉 차면 빈 것을 내리고 띄우고, 빈 것이 없으면 띄우지 않는다. NAS 1GiB에서 2차맵 하나 약 5~7MB
    */
@@ -115,6 +129,13 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   layoutLandMinTempC: 8,
   layoutLandMaxTempC: 32,
   layoutLandMinRainMm: 300,
+  // 배후지: 반경 2칸(약 3km — 기획 42 §2.1 도시 영향권 1.1칸·대도시 1.9칸 사이), 같은 국가는 배후지가 닿을 만큼(4칸), 다른 국가는 1.5배(6칸),
+  // 수도에서 12칸 안을 찾고, 배후지 지름(4칸)마다 덮임 100‰을 뺀다
+  catchmentRadiusCells: 2,
+  catchmentSameGapPm: 1000,
+  catchmentForeignGapPm: 1500,
+  catchmentSearchCells: 12,
+  catchmentCompactPm: 100,
   // 그때 띄우기: 지금 NAS(17장 RSS 약 430MB)에 32장(약 +200MB)을 더해도 1GiB 안, 비우고 10분 뒤 내림
   mapSpawnMaxLoaded: 32,
   mapSpawnIdleMs: 10 * 60_000,

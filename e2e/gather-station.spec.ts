@@ -2,8 +2,8 @@
 // - player: 내 사이보그 2차맵의 시작 도시 시설 가운데 채집소(NPC 벌목장·광산·농장)의 건물 표시를 누르면 건물 판 안에 채집소 판(레벨·반경·버프·반경
 //   안 원자재·채집소 창고·일꾼)이 보이고, 원자재 채집소면 지도에 반경 고리가 그려진다. 판을 닫으면 고리도 지운다.
 // - admin: 경제 → 생산에서 벌목장을 짓고(개발 재료·바로 끝내기) 그 카드에 채집소 칸(반경·원자재·창고·자동 옮김)이 보인다.
-// - 농장(오브젝트 없는 facility 채집소, 기획 정리 756 ②): 시작 도시 농장 판에 수확·피로 버프(다시 자람·반경 없음)·채집소 창고·자동 옮김이 보이고
-//   반경 고리는 그리지 않는다. 경제 → 생산에서 지은 농장 카드에도 채집소 칸(시설 안 생산·버프·창고·자동 옮김)이 보인다.
+// - 농장(기획 정리 756 ② — 팩 core@66부터 밭 자리를 맡는 원자재 채집소, docs/adr/2026-11-11-city-catchment.md): 시작 도시 농장 판에 반경·수확·
+//   피로·다시 자람 버프·반경 안 원자재(밭)·채집소 창고가 보이고 반경 고리를 그린다. 경제 → 생산에서 지은 농장 카드에도 채집소 칸(반경)이 보인다.
 // - 사진(E2E_SHOTS_DIR): 채집소 판 390 파스텔 한국어·다크 영어, 채집소 칸 390 파스텔 한국어·다크 영어, 농장 판·농장 칸 같은 넷.
 import type { Locator, Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -28,8 +28,8 @@ async function openMap(page: Page): Promise<void> {
   await expect(page.locator(BUILDING_MARKER).first()).toBeVisible({ timeout: 30_000 });
 }
 
-/** 찾는 채집소: objects = 원자재 채집소만, any = 원자재 채집소 먼저 그다음 농장 등, facility = 농장 등(오브젝트 없음)만 */
-type Want = "objects" | "any" | "facility";
+/** 찾는 채집소: objects = 원자재 채집소만, any = 원자재 채집소 먼저 그다음 오브젝트 없는 채집소, farm = 농장만 */
+type Want = "objects" | "any" | "farm";
 
 /** 보이는 건물 표시 가운데 찾는 채집소 건물 ID. 없으면 빈 목록 */
 async function findStations(page: Page, want: Want): Promise<number[]> {
@@ -39,6 +39,7 @@ async function findStations(page: Page, want: Want): Promise<number[]> {
     .evaluate(async (list) => {
       const objects: number[] = [];
       const others: number[] = [];
+      const farms: number[] = [];
       for (const id of list) {
         if (!Number.isInteger(id)) continue;
         const input = encodeURIComponent(JSON.stringify({ buildingId: id }));
@@ -48,24 +49,25 @@ async function findStations(page: Page, want: Want): Promise<number[]> {
             ? Reflect.get(Reflect.get(reply, "result") ?? {}, "data")
             : undefined;
         if (typeof data !== "object" || data === null || Reflect.get(data, "status") !== "ok") continue;
+        if (Reflect.get(data, "facilityId") === "farm") farms.push(id);
         if (Reflect.get(data, "kind") === "objects") objects.push(id);
         else others.push(id);
       }
-      return { objects, others };
+      return { objects, others, farms };
     }, ids)
     .then((found) =>
       want === "objects"
         ? found.objects
-        : want === "facility"
-          ? found.others
+        : want === "farm"
+          ? found.farms
           : [...found.objects, ...found.others],
     );
 }
 
-/** 채집소 건물 판을 연다: 근처 판 건물 목록에서 찾는 채집소(원자재 채집소 먼저, facilityOnly면 농장 등만) 줄을 누른다 */
-async function openStationSheet(page: Page, facilityOnly = false): Promise<Locator> {
+/** 채집소 건물 판을 연다: 근처 판 건물 목록에서 찾는 채집소(원자재 채집소 먼저, farmOnly면 농장만) 줄을 누른다 */
+async function openStationSheet(page: Page, farmOnly = false): Promise<Locator> {
   await openMap(page);
-  const ids = await findStations(page, facilityOnly ? "facility" : "any");
+  const ids = await findStations(page, farmOnly ? "farm" : "any");
   const opened = ids[0] ?? null;
   expect(opened).not.toBeNull();
   await openBuildingFromList(page, opened ?? 0);
@@ -132,26 +134,25 @@ for (const look of LOOKS) {
   test.describe(`농장 채집소 판(756 ②) 390·${look.theme}·${look.language}`, () => {
     test.use({ account: "player", theme: look.theme, language: look.language, ...VIEWPORTS.phone });
 
-    test(`농장 판: 창고·수확·피로 버프·자동 옮김, 반경 고리 없음 (390·${look.theme}·${look.language})`, async ({
+    test(`농장 판: 밭 채집소 — 반경·버프·밭·창고·자동 옮김, 반경 고리 (390·${look.theme}·${look.language})`, async ({
       page,
       deviceErrors,
     }) => {
       test.setTimeout(240_000);
       const station = await openStationSheet(page, true);
-      await expect(station).toHaveAttribute("data-kind", "facility");
+      // 팩 core@66: 농장은 밭(plot)을 맡는 원자재 채집소(docs/adr/2026-11-11-city-catchment.md)
+      await expect(station).toHaveAttribute("data-kind", "objects");
       await expect(station).toContainText(message(look.language, "station_storage_title"));
-      await expect(station).toContainText(message(look.language, "station_facility_note"));
-      // 시작 도시 농장은 Lv 1: 채집량 +0% · 피로 −50%(다시 자람 없음)
+      // 시작 도시 농장은 Lv 1: 채집량 +0% · 피로 −50% · 다시 자람 −50%
       await expect(station.locator('[data-part="station-buffs"]')).toHaveText(
-        message(look.language, "station_buffs_line_facility", { gain: 0, fatigue: 50 }),
+        message(look.language, "station_buffs_line", { gain: 0, fatigue: 50, regrow: 50 }),
       );
       await expect(station.locator('[data-part="station-haul"]')).toBeVisible();
-      await expect(station).toContainText(message(look.language, "station_workers_note_facility"));
-      await expect(station.locator('[data-part="station-objects"]')).toHaveCount(0);
-      // 반경 고리는 그리지 않는다(오브젝트 없음)
+      await expect(station.locator('[data-part="station-objects"]')).toBeVisible();
+      // 반경 고리를 그린다
       await expect
         .poll(() => page.locator(".gather-ring").evaluate((element) => getComputedStyle(element).display))
-        .toBe("none");
+        .not.toBe("none");
       expect(await horizontalOverflow(page)).toEqual([]);
       expect(await smallTapTargets(page)).toEqual([]);
       await shot(page, `gather-station-farm-390-${look.theme}-${look.language}`);
@@ -172,14 +173,16 @@ async function gatherCard(
   language: Language,
   facility: "lumber_camp" | "farm",
 ): Promise<Locator> {
-  const kind = facility === "farm" ? "facility" : "objects";
   await rewriteTrpc(page, { "summary.get": hideSummary });
   await page.goto("/economy/production");
   const panel = facilitiesPanel(page);
   await expect(panel.locator('[data-part="facility-units"]')).toBeVisible({ timeout: 15_000 });
   const cards = panel.locator('li[data-part="facility-card"]');
-  const station = `[data-part="facility-station"][data-kind="${kind}"]`;
-  const existing = cards.filter({ has: page.locator(station) });
+  // 여섯 채집 시설이 모두 원자재 채집소(팩 core@66) — 카드는 시설 ID로 고른다
+  const station = '[data-part="facility-station"][data-kind="objects"]';
+  const existing = panel.locator(`li[data-part="facility-card"][data-facility="${facility}"]`).filter({
+    has: page.locator(station),
+  });
   if ((await existing.count()) > 0) return existing.first();
   const form = panel.locator("form.labor-form");
   const build = form.getByRole("button", { name: message(language, "facility_build"), exact: true });
@@ -223,17 +226,15 @@ for (const look of LOOKS) {
 }
 
 for (const look of LOOKS) {
-  test.describe(`농장 채집소 칸(건물 화면, 756 ②) 390·${look.theme}·${look.language}`, () => {
+  test.describe(`농장 채집소 칸(건물 화면, 756 ② · 밭) 390·${look.theme}·${look.language}`, () => {
     test.use({ account: "admin", theme: look.theme, language: look.language, ...VIEWPORTS.phone });
 
     test(`농장 카드의 채집소 칸 (390·${look.theme}·${look.language})`, async ({ page, deviceErrors }) => {
       test.setTimeout(120_000);
       const card = await gatherCard(page, look.language, "farm");
       const part = card.locator('[data-part="facility-station"]');
-      await expect(part).toContainText(message(look.language, "station_summary_title_facility"));
-      await expect(part).toContainText(
-        message(look.language, "station_buffs_line_facility", { gain: 0, fatigue: 50 }),
-      );
+      // 팩 core@66: 농장도 반경 안 밭을 쓰는 원자재 채집소
+      await expect(part).toContainText(message(look.language, "station_summary_title", { cells: 40 }));
       await expect(part.locator('[data-part="station-haul"]')).toBeVisible();
       expect(await horizontalOverflow(page)).toEqual([]);
       await elementShot(card, `gather-station-farm-card-390-${look.theme}-${look.language}`);

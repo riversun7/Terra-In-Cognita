@@ -24,6 +24,15 @@
 [data-kind="herb"] {
   --gather-color: var(--color-stat-wis);
 }
+[data-kind="crop"] {
+  --gather-color: var(--color-stat-vit);
+}
+[data-kind="animal"] {
+  --gather-color: var(--color-stat-str);
+}
+[data-kind="fish"] {
+  --gather-color: var(--color-stat-int);
+}
 
 .gather-marker {
   position: absolute;

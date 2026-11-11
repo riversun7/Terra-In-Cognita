@@ -8186,6 +8186,96 @@
       "source": "ADR 2026-11-07-world-layout [임시]"
     },
     {
+      "id": "city_catchment_radius_cells",
+      "code": "",
+      "name": {
+        "ko": "도시 배후지 반경(1차맵 칸, 0 = 옛 배치)",
+        "en": "City catchment radius (planet cells, 0 = old layout)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 16,
+      "desc": {
+        "ko": "도시가 둘레 땅 자원을 차지하는 반경. 지방 도시는 이 원 안에 여섯 원자재가 많은 곳에 서고, 도시끼리 이 원이 겹치지 않게 띄운다. 0이면 옛 배치(수도 둘레 바둑판).",
+        "en": "Radius of the land a city draws raw materials from. Province cities go where this circle holds the most of the six raw materials, spaced so circles do not overlap. 0 = old grid layout."
+      },
+      "source": "ADR 2026-11-11-city-catchment [임시]"
+    },
+    {
+      "id": "city_catchment_same_gap_pm",
+      "code": "",
+      "name": {
+        "ko": "같은 국가 도시 사이 = 배후지 지름 × 천분율",
+        "en": "Same-nation city gap = catchment diameter × per mille"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 4000,
+      "desc": {
+        "ko": "같은 나라 도시끼리 떨어질 거리. 1000이면 배후지 가장자리가 닿는다.",
+        "en": "How far apart one nation's cities stay. 1000 = catchment edges touch."
+      },
+      "source": "ADR 2026-11-11-city-catchment [임시]"
+    },
+    {
+      "id": "city_catchment_foreign_gap_pm",
+      "code": "",
+      "name": {
+        "ko": "다른 국가 도시 사이 = 배후지 지름 × 천분율",
+        "en": "Foreign city gap = catchment diameter × per mille"
+      },
+      "value": 1500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 8000,
+      "desc": {
+        "ko": "다른 나라 도시끼리 떨어질 거리. 1000보다 크면 배후지 사이가 빈다.",
+        "en": "How far apart cities of different nations stay. Above 1000 leaves free land between catchments."
+      },
+      "source": "ADR 2026-11-11-city-catchment [임시]"
+    },
+    {
+      "id": "city_catchment_search_cells",
+      "code": "",
+      "name": {
+        "ko": "지방 도시 자리 찾는 반경(수도에서 1차맵 칸)",
+        "en": "Province city search radius (planet cells from the capital)"
+      },
+      "value": 12,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 64,
+      "desc": {
+        "ko": "수도에서 이 거리 안에서 지방 도시 자리를 찾는다. 늘리면 더 넓게 퍼질 수 있다.",
+        "en": "Province cities are searched within this distance of the capital. Higher = can spread wider."
+      },
+      "source": "ADR 2026-11-11-city-catchment [임시]"
+    },
+    {
+      "id": "city_catchment_compact_pm",
+      "code": "",
+      "name": {
+        "ko": "지방 도시 자리: 배후지 지름마다 빼는 덮임(‰)",
+        "en": "Province city site: coverage taken off per catchment diameter (‰)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "수도에서 멀어질수록 자리 점수를 깎는다. 늘리면 수도 가까이 모이고, 0이면 자원만 본다.",
+        "en": "Lowers a site's score the farther it is from the capital. Higher = cities stay closer; 0 = resources only."
+      },
+      "source": "ADR 2026-11-11-city-catchment [임시]"
+    },
+    {
       "id": "map_spawn_max_loaded",
       "code": "",
       "name": {

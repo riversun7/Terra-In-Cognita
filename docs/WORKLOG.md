@@ -8,6 +8,7 @@
 | 2026-11-12 00:50 | 2026-11-11 둘째 묶음 합치기 (외형 다시 고르기·가문 창설·가문 가입·2차맵 6단계·생성 개선·2차맵 소품) | Claude Code | [12-0050-batch-1111b-merge](worklog/2026/11/12-0050-batch-1111b-merge.md) |
 | 2026-11-11 23:30 | 2차맵 소품 더 풍성하게(장식 11종·나무 변형·땅 잔소품)와 유닛 앞 나무 옅게 | Claude Code | [11-2330-map-props-rich](worklog/2026/11/11-2330-map-props-rich.md) |
 | 2026-11-11 23:08 | 첫 접속 다듬기 — 다시 굴리기 5번·운영진 제한 없음, 속성 옮기기, 나라 카드 자세한 정보 | Claude Code | [11-2308-creation-tweaks](worklog/2026/11/11-2308-creation-tweaks.md) |
+| 2026-11-11 22:50 ~ 2026-11-12 | NPC 도시 간격·배후지·여섯 원자재 얻는 길 | Claude Code | [11-2250-city-spacing](worklog/2026/11/11-2250-city-spacing.md) |
 | 2026-11-11 22:00 | 가문 가입·귀화 따라가기·운영자 이름 되돌리기 — 질문 981~986 답 | Claude Code | [11-2200-house-2](worklog/2026/11/11-2200-house-2.md) |
 | 2026-11-11 21:57 | 2차맵 확대 6단계(가장 가까이 15m)·고른 표시 고리 땅 가림 고침 | Claude Code | [11-2157-map-zoom-close](worklog/2026/11/11-2157-map-zoom-close.md) |
 | 2026-11-11 21:50 | NAS 고정 국가 16개(측정 뒤) — 세계 새로 시작 준비 | Claude Code | [11-2150-nas-16-nations](worklog/2026/11/11-2150-nas-16-nations.md) |

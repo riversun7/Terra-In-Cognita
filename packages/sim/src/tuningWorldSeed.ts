@@ -108,6 +108,37 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "고정 국가 자리: 시작 도시 땅 강수 아래 끝(mm)",
     "Fixed nation homes: start city land precipitation from (mm)",
   ),
+  // 도시 배후지(docs/adr/2026-11-11-city-catchment.md): 49에 칸이 없어 city_catchment_*를 앞머리로 쓴다
+  k(
+    "city_catchment_radius_cells",
+    "catchmentRadiusCells",
+    "도시 배후지 반경(1차맵 칸, 0 = 옛 배치)",
+    "City catchment radius (planet cells, 0 = old layout)",
+  ),
+  k(
+    "city_catchment_same_gap_pm",
+    "catchmentSameGapPm",
+    "같은 국가 도시 사이 = 배후지 지름 × 천분율",
+    "Same-nation city gap = catchment diameter × per mille",
+  ),
+  k(
+    "city_catchment_foreign_gap_pm",
+    "catchmentForeignGapPm",
+    "다른 국가 도시 사이 = 배후지 지름 × 천분율",
+    "Foreign city gap = catchment diameter × per mille",
+  ),
+  k(
+    "city_catchment_search_cells",
+    "catchmentSearchCells",
+    "지방 도시 자리 찾는 반경(수도에서 1차맵 칸)",
+    "Province city search radius (planet cells from the capital)",
+  ),
+  k(
+    "city_catchment_compact_pm",
+    "catchmentCompactPm",
+    "지방 도시 자리: 배후지 지름마다 빼는 덮임(‰)",
+    "Province city site: coverage taken off per catchment diameter (‰)",
+  ),
   // 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 49에 칸이 없어 map_spawn_*를 앞머리로 쓴다
   k(
     "map_spawn_max_loaded",

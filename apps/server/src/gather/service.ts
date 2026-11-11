@@ -99,6 +99,11 @@ export interface GatherDeps {
   /** 2차맵(= 1차맵 칸)의 오염 값(0 ~ 100,000) */
   pollution(mapKey: number): number;
   /**
+   * 2차맵(1차맵 칸) 행성 값의 원자재 비트(@terra/shared/catchment cellMaterials — 밭·목초지의 기후 조건). 없거나 undefined면 보지 않는다
+   * (행성 값 없는 임시 지형). 오브젝트 목록은 지형 판 표지마다 한 번 만들므로 문턱 설정 칸을 바꾸면 다음 시작 때 든다
+   */
+  materials?(mapKey: number): number | undefined;
+  /**
    * 채집 중 부상(docs/adr/2026-11-08-injury.md 5절, world/unitCondition.ts createGatherInjury): 캐기가 끝날 때마다 지난번 뒤로 지난 작업 주기
    * 경계를 굴린다. 없으면 다치지 않는다(시험)
    */
@@ -215,7 +220,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     if (!map) return undefined;
     const cached = objectCache.get(mapKey);
     if (cached?.version === map.terrainVersion) return cached;
-    const list = placeGatherObjects(mapLayers(map), deps.kinds());
+    const list = placeGatherObjects({ ...mapLayers(map), materials: deps.materials?.(mapKey) }, deps.kinds());
     const entry = {
       version: map.terrainVersion,
       list,
@@ -784,6 +789,8 @@ export function createGatherService(deps: GatherDeps): GatherService {
       const object = objects?.byId.get(input.objectId);
       const kind = object ? deps.kinds()[object.kind] : undefined;
       if (!object || !kind) return fail("unknown_object");
+      // 밭·목초지·물터는 맡는 시설의 일꾼만 쓴다(사용자 답 D-519, docs/adr/2026-11-11-city-catchment.md)
+      if (!kind.direct) return fail("unavailable");
       if (deps.store.read(input.mapKey, object.id, kind.uses, now()).usesLeft <= 0) return fail("depleted");
       if (!(await freeUnit(userId, unit.ownerId, input.unitId))) return fail("unavailable");
       const action = newAction(userId, unit.ownerId, input.unitId, input.mapKey, "gather");

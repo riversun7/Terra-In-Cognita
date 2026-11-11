@@ -79,6 +79,7 @@ export function gatherReadsOf(source: () => GatherWorld | undefined): GatherRead
             regrowMs: kind.regrowMs,
             facility: kind.facility,
             facilityName: facility ? facility.name : null,
+            ...(kind.direct ? {} : { direct: false }),
           };
         }),
         objects: objects.length % GATHER_OBJECT_STRIDE === 0 ? objects : [],

@@ -58,6 +58,7 @@ function fakeService(calls: { entries: unknown; actor: PlacementActor }[]): Plac
     },
     clear: async () => true,
     tierPlan: async () => EMPTY_TIER_VIEW,
+    catchment: async () => null,
     requestTierApply: async (actor) => {
       calls.push({ entries: "tier_apply", actor });
       return EMPTY_TIER_VIEW;

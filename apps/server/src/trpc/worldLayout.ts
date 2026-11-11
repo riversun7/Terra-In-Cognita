@@ -7,6 +7,7 @@
 // NOT_FOUND("UNKNOWN_PLANET": 세계 행성이 아님)
 // planetId는 선택이다: 없으면 대표 플레이 행성(src/world/playablePlanets.ts, docs/adr/2026-11-11-planet-scope.md).
 import type {
+  WorldCatchmentView,
   WorldLayoutPlanetView,
   WorldLayoutSuggestion,
   WorldPlaceResult,
@@ -51,6 +52,13 @@ export const worldLayoutRouter = router({
     .query(
       async ({ ctx, input }): Promise<WorldLayoutPlanetView> =>
         present(await serviceOf(ctx, input.planetId).view()),
+    ),
+  /** 고른 국가 수도 둘레 배후지 덮개(docs/adr/2026-11-11-city-catchment.md) — 모르는 국가·수도 없음이면 null */
+  catchment: permissionProcedure({ worldLayout: ["read"] })
+    .input(z.strictObject({ planetId, code }))
+    .query(
+      async ({ ctx, input }): Promise<WorldCatchmentView | null> =>
+        present(await serviceOf(ctx, input.planetId).catchment(input.code)),
     ),
   /** 자리를 고르지 않은 국가의 자동 배치 자리 */
   suggest: permissionProcedure({ worldLayout: ["read"] })

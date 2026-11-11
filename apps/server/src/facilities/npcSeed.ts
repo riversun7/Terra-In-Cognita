@@ -10,6 +10,7 @@
 // 물가 조건(팩 needsWaterWithin, 질문 947 나 — 낚시터)이 있는 시설은 둘레에 물이 있는 자리만 고른다(플레이어 짓기와 같은 waterOk).
 // 멱등: 도시마다 그 세력이 가진 같은 시설 줄(도시 ID 같음) 수를 세어 모자란 것만 더한다(있는 것은 그대로 — 관리자가 지운 시설은 다음 켤 때
 // 다시 선다). 재료·작업·일꾼 없이 선다(세계를 차리는 일이라 원장을 거치지 않는다 — 확인 대기, docs/questions/2026-11-07-play-seed.md).
+import { MATERIAL_BIT, cellMaterials } from "@terra/shared/catchment";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { type CityCell, cityOfCell } from "@terra/shared/goodsPlaces";
 import type { WorldSeedCoefficients } from "@terra/sim";
@@ -40,6 +41,8 @@ export interface SeedLand {
   readonly precipitationMm: number;
   /** 숲 밀도 0 ~ 255(화면 "숲 N%" = ⌊밀도 × 100 ÷ 255⌉) */
   readonly forest: number;
+  /** 물 비트(없으면 0 — 시작 도시 칸은 알맞은 땅이라 물이 없다) */
+  readonly water?: number | undefined;
 }
 
 /**
@@ -67,11 +70,15 @@ interface LandFit {
   readonly mine: boolean;
 }
 
-/** 둘레 땅에 맞는 채집 시설(기획 답 503 다). 아무것도 맞지 않으면 농장 하나 */
+/**
+ * 둘레 땅에 맞는 채집 시설(기획 답 503 다). 아무것도 맞지 않으면 농장 하나. 원자재 판정은 배후지·밭 자리와 같은 함수
+ * (@terra/shared/catchment cellMaterials — docs/adr/2026-11-11-city-catchment.md)
+ */
 export function landGather(land: SeedLand, seed: WorldSeedCoefficients): LandFit {
-  const lumber = land.forest * 100 >= seed.lumberMinForestPct * 255;
-  const mine = land.elevationM >= seed.mineMinHeightM;
-  const farm = land.temperatureC >= seed.farmMinTempC && land.precipitationMm >= seed.farmMinRainMm;
+  const bits = cellMaterials({ ...land, water: land.water ?? 0 }, seed);
+  const lumber = (bits & MATERIAL_BIT.wood) !== 0;
+  const mine = (bits & MATERIAL_BIT.ore) !== 0;
+  const farm = (bits & MATERIAL_BIT.crop) !== 0;
   if (!farm && !lumber && !mine) return { farm: true, lumber: false, mine: false };
   return { farm, lumber, mine };
 }

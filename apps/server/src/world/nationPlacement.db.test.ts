@@ -201,14 +201,14 @@ describe.skipIf(!TEST_DATABASE_URL)("사람이 고른 국가 자리·NPC 수도(
     await stop(world);
 
     const again = await boot();
-    // A: 시작 도시가 모두 새 자리(수도 2차맵 + 붙은 2차맵)로, 도시 ID 그대로
+    // A: 시작 도시가 모두 새 자리(수도 2차맵 + 배후지 간격으로 둘레 찾는 반경 안, docs/adr/2026-11-11-city-catchment.md)로, 도시 ID 그대로
     const afterA = await startCities(nationA.factionId);
     expect(afterA.map((city) => city.id)).toEqual(beforeA.map((city) => city.id));
     expect(afterA.some((city) => Number(city.map_key) === homeA)).toBe(true);
     for (const city of afterA)
-      expect(territoryDistanceMilli(pointOf(Number(city.map_key)), pointOf(homeA), metric)).toBeLessThan(
-        1600,
-      );
+      expect(
+        territoryDistanceMilli(pointOf(Number(city.map_key)), pointOf(homeA), metric),
+      ).toBeLessThanOrEqual(12_000);
     expect(await count(`select count(*) as n from audit_log where action = 'world.place_nation_city'`)).toBe(
       afterA.length,
     );

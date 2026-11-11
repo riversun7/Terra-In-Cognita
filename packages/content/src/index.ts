@@ -78,7 +78,11 @@ export {
   type RecipeEntry,
 } from "./schema/economy.ts";
 export { mapPropEntrySchema, type MapPropEntry } from "./schema/mapProps.ts";
-export { gatherObjectEntrySchema, type GatherObjectEntry } from "./schema/gatherObjects.ts";
+export {
+  GATHER_PLOT_SURFACES,
+  gatherObjectEntrySchema,
+  type GatherObjectEntry,
+} from "./schema/gatherObjects.ts";
 export {
   COMBAT_CLASS_GROUP_CODES,
   combatClassEntrySchema,

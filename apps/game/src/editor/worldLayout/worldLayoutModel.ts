@@ -6,6 +6,7 @@ import { cellsPerSide, isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import type { PlanetTileData } from "@terra/protocol/planetTile";
 import type {
+  WorldCatchmentCity,
   WorldFoundingView,
   WorldPlacementNationView,
   WorldTierApplyView,
@@ -223,4 +224,42 @@ export function addMarksOf(view: WorldTierApplyView, looks: ReadonlyMap<string, 
       ];
     });
   });
+}
+
+// ── 배후지 덮개(WorldCatchmentPanel — docs/adr/2026-11-11-city-catchment.md) ──
+
+/** 원자재 비트(@terra/shared/catchment MATERIAL_BIT — 화면 조각에 셈 모듈을 넣지 않으려고 값만 옮겼다) */
+const BIT = { ore: 1, wood: 2, crop: 8, fish: 32 } as const;
+
+/** 칸 칠 무리: 광석 > 물(어류만 — 바다·호수) > 숲 > 농사지을 땅 > 없음 */
+export function cellTone(bits: number): "none" | "ore" | "water" | "wood" | "crop" | "void" {
+  if (bits < 0) return "void";
+  if ((bits & BIT.ore) !== 0) return "ore";
+  if (bits === BIT.fish) return "water";
+  if ((bits & BIT.wood) !== 0) return "wood";
+  if ((bits & BIT.crop) !== 0) return "crop";
+  return "none";
+}
+
+/** 격자 칸(줄 차례 dj → di) → 자리·칠 무리(자리 글자가 열쇠 — 칸 자리는 바뀌지 않는다) */
+export function gridCells(
+  cells: readonly number[],
+  side: number,
+): {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly tone: ReturnType<typeof cellTone>;
+}[] {
+  return cells.map((bits, index) => {
+    const x = index % side;
+    const y = Math.floor(index / side);
+    return { id: `${x}:${y}`, x, y, tone: cellTone(bits) };
+  });
+}
+
+/** 도시 목록의 평균 덮임(‰, 내림). 없으면 null */
+export function meanCover(cities: readonly WorldCatchmentCity[]): number | null {
+  if (cities.length === 0) return null;
+  return Math.floor(cities.reduce((sum, city) => sum + city.cover, 0) / cities.length);
 }

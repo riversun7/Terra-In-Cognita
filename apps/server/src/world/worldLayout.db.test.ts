@@ -185,12 +185,16 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치(국가마다 행성 위 자�
       expect([city.cell_x, city.cell_y]).toEqual([128, 128]);
     }
     expect(world.maps.size).toBe(cities.length + 2);
-    // 한 국가 도시는 수도에서 한 칸, 다른 국가 도시와는 국가 간격(30칸)에 가깝게 멀다
+    // 한 국가 도시는 배후지 간격(2R = 4칸, docs/adr/2026-11-11-city-catchment.md) 이상·찾는 반경(12칸) 안, 다른 국가 도시와는 국가 간격(30칸)에
+    // 가깝게 멀다
     const lists = [...byFaction.values()];
     for (const [capital, ...rest] of lists)
       for (const city of rest)
-        if (capital)
-          expect(territoryDistanceMilli(pointOf(city), pointOf(capital), metric)).toBeLessThan(1600);
+        if (capital) {
+          const d = territoryDistanceMilli(pointOf(city), pointOf(capital), metric);
+          expect(d).toBeGreaterThanOrEqual(4000);
+          expect(d).toBeLessThanOrEqual(12_000);
+        }
     for (const [a, listA] of lists.entries())
       for (const [b, listB] of lists.entries())
         if (a !== b)

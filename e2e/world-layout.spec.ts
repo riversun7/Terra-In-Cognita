@@ -216,6 +216,55 @@ test.describe("국력 등급", () => {
   });
 });
 
+test.describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
+  test.use({ account: "admin" });
+
+  for (const { theme, width } of [
+    { theme: "neon" as const, width: 1440 },
+    { theme: "light" as const, width: 390 },
+  ] satisfies readonly { theme: DevTheme; width: number }[]) {
+    test.describe(`${theme}·${width}px`, () => {
+      test.use({
+        devTheme: theme,
+        ...(width >= 1000 ? VIEWPORTS.desktop : { viewport: { width, height: 844 } }),
+      });
+
+      test("고른 국가 수도 둘레 격자·지금(실선)·계획(점선) 배후지, 간격 값, 겹친 쌍 0", async ({
+        page,
+        deviceErrors,
+      }) => {
+        await openScreen(page);
+        const code = await page.locator(".wl-field select").inputValue();
+        const api = await trpc(page, "worldLayout.catchment", { planetId: PLANET, code });
+        expect(api.status).toBe(200);
+        const radius = Number(field(api.data, "radiusCells"));
+        const span = Number(field(api.data, "span"));
+        expect(radius).toBe(2);
+        expect(field(api.data, "sameGapCells")).toBe(4);
+        expect(field(api.data, "foreignGapCells")).toBe(6);
+        expect(list(field(api.data, "cells"))).toHaveLength((2 * span + 1) ** 2);
+        // 이 세계도 새 배치로 섰다 → 지금·계획 모두 배후지가 겹친 도시 쌍이 없다
+        expect(field(api.data, "overlapWorld")).toBe(0);
+        expect(field(api.data, "overlapPlan")).toBe(0);
+        const panel = page.locator(".wl-catch");
+        await panel
+          .getByRole("button", { name: message("ko", "dev_world_layout_catchment_show"), exact: true })
+          .click();
+        await expect(panel).toHaveAttribute("data-state", "ready");
+        await expect(panel.locator(".wl-catch-cell")).toHaveCount((2 * span + 1) ** 2);
+        await expect(panel.locator('[data-catch-city="world"][data-own]').first()).toBeVisible();
+        await expect(panel.locator('[data-catch-city="plan"]').first()).toBeAttached();
+        await expect(panel.locator("[data-catch-summary]")).toContainText("2");
+        await panel.evaluate((node) => node.scrollIntoView({ block: "start" }));
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `world-layout-catchment-${theme}-ko-${width}`);
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
+});
+
 test.describe("플레이어", () => {
   test.use({ account: "player" });
 

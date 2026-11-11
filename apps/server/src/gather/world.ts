@@ -13,6 +13,7 @@ import type { GatherKind } from "./kinds.ts";
 import { type GatherService, createGatherService } from "./service.ts";
 import { type ObjectStore, createObjectStore, loadObjectStates } from "./state.ts";
 import { type StationRuntime, createStationRuntime } from "./station.ts";
+import { cellMaterials } from "@terra/shared/catchment";
 
 /** 조회가 쓰는 채집 세계 */
 export interface GatherWorld {
@@ -94,6 +95,11 @@ export function startWorldGather(
         workersAt,
         primaries: (unitId) => parts.holdings.primariesOf(unitId),
         pollution: (mapKey) => world.npc?.gardener.run.layer().get(mapKey) ?? 0,
+        // 밭·목초지의 기후 조건: 그 2차맵 칸 행성 값의 원자재(문턱 = NPC 씨앗 설정 칸, docs/adr/2026-11-11-city-catchment.md)
+        materials: (mapKey) => {
+          const land = world.terrain?.cellValues?.(mapKey);
+          return land ? cellMaterials(land, rules().worldSeed) : undefined;
+        },
         // 채집 중 부상(D-521, docs/adr/2026-11-08-injury.md 5절): 직무 정산과 같은 판정·시드
         workInjury: createGatherInjury(),
         ready: () => world.status().state === "ready",

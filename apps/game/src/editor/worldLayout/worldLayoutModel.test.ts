@@ -4,7 +4,16 @@ import type { PlanetTileData } from "@terra/protocol/planetTile";
 import type { WorldPlacementNationView } from "@terra/shared/worldPlacementApi";
 import { describe, expect, it } from "vitest";
 import { cellAtLatLon } from "../planet/cellReport.ts";
-import { assembleFlatFields, latLonOfKey, marksOf, nationStatus, tileSlots } from "./worldLayoutModel.ts";
+import {
+  assembleFlatFields,
+  cellTone,
+  gridCells,
+  latLonOfKey,
+  marksOf,
+  meanCover,
+  nationStatus,
+  tileSlots,
+} from "./worldLayoutModel.ts";
 
 function tile(
   face: number,
@@ -102,5 +111,43 @@ describe("세계 배치 모형", () => {
       ["suggested", 1],
     ]);
     expect(marks.every((mark) => mark.x >= 0 && mark.x <= 1 && mark.y >= 0 && mark.y <= 1)).toBe(true);
+  });
+});
+
+describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
+  it("칸 칠 무리: 광석 > 물(어류만) > 숲 > 농사지을 땅 > 없음, 칸 없음 = void", () => {
+    expect([-1, 0, 1 | 2 | 8, 32, 2 | 4, 8 | 16 | 4, 8 | 32].map(cellTone)).toEqual([
+      "void",
+      "none",
+      "ore",
+      "water",
+      "wood",
+      "crop",
+      "crop",
+    ]);
+  });
+
+  it("격자 칸 자리(줄 차례)·평균 덮임", () => {
+    const cells = gridCells([0, 1, 2, 8, 32, 0, 0, 0, -1], 3);
+    expect(cells.map((cell) => cell.id)).toEqual([
+      "0:0",
+      "1:0",
+      "2:0",
+      "0:1",
+      "1:1",
+      "2:1",
+      "0:2",
+      "1:2",
+      "2:2",
+    ]);
+    expect(cells[8]?.tone).toBe("void");
+    expect(meanCover([])).toBeNull();
+    const city = { di: 0, dj: 0, code: "a", own: true };
+    expect(
+      meanCover([
+        { ...city, cover: 666 },
+        { ...city, cover: 1000 },
+      ]),
+    ).toBe(833);
   });
 });

@@ -62,6 +62,12 @@ function fakeTerrain(): TerrainService {
   };
 }
 
+// 가짜 지형(물·바위 섞임)에서 도시 둘레 인구 수를 보는 시험이라 도시 자리를 옛 배치(수도와 붙은 2차맵)로 고정한다(배후지 반경 0, docs/adr/2026-11-11-city-catchment.md — 배후지 배치는 world/citySites.test.ts·worldLayout.db.test.ts)
+const OLD_LAYOUT_RULES = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, catchmentRadiusCells: 0 },
+};
+
 let test: TestDatabase;
 const worlds: World[] = [];
 let clock = 0;
@@ -93,7 +99,7 @@ async function boot(): Promise<World> {
     terrain: fakeTerrain(),
     npc: { testNations: 4, manual: true, presets },
     // 처음 인구 칸은 팩 출발값(주거 40 × 750‰)
-    cyborgRules: () => TEST_SOCIETY_COEFFICIENTS,
+    cyborgRules: () => OLD_LAYOUT_RULES,
     holdings: { content: () => pack },
     facilities: { content: () => pack },
   });

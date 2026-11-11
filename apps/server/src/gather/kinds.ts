@@ -1,17 +1,30 @@
 // 원자재 오브젝트 종류(콘텐츠 gather_objects) → 서버 채집이 쓰는 모양 — docs/adr/2026-11-07-gather-objects.md.
 // 팩 항목은 2단계(참조)까지 통과한 파싱 결과라 아이템·시설이 참조 객체다. 정규 JSON(참조 → ID 문자열)으로 되돌린 뒤 스키마로 다시 읽는다
 // (map_props와 같은 방식, world/mapProps.ts). 그림 종류 이름은 소품 그림 번호(@terra/shared MAP_PROP_ARTS)로 바꿔 둔다.
-import { type ContentPack, gatherObjectEntrySchema } from "@terra/content";
+import { type ContentPack, GATHER_PLOT_SURFACES, gatherObjectEntrySchema } from "@terra/content";
+import { TERRAIN_SURFACE } from "@terra/protocol";
 import { mapPropArtCode } from "@terra/shared";
+import type { CatchmentMaterial } from "@terra/shared/catchment";
+
+/** 팩 지표 이름 → 지형 칸 지표 번호(@terra/protocol TERRAIN_SURFACE). 팩 이름 차례가 번호 차례다(시험이 본다) */
+export function plotSurfaceCode(name: (typeof GATHER_PLOT_SURFACES)[number]): number {
+  return name === "shallow_water" ? TERRAIN_SURFACE.shallowWater : TERRAIN_SURFACE[name];
+}
 
 export interface GatherKind {
   readonly id: string;
   readonly name: { readonly ko: string; readonly en: string };
-  readonly source: "prop" | "rock";
+  readonly source: "prop" | "rock" | "plot";
   /** source prop: 소품 그림 번호들 */
   readonly arts: readonly number[];
   /** source rock: 바위 지표 묶음 가운데 설 천분율 */
   readonly chancePm: number;
+  /** source plot: 지표 번호들·묶음 문턱(지형 칸 64칸 가운데)·있어야 하는 원자재(없으면 null) */
+  readonly surfaces: readonly number[];
+  readonly minCells: number;
+  readonly material: CatchmentMaterial | null;
+  /** 유닛이 직접 캘 수 있나(false = 맡는 시설의 일꾼만 — 밭·목초지·물터) */
+  readonly direct: boolean;
   /** 아이템 ID(item: 앞머리 없음) */
   readonly item: string;
   readonly lots: number;
@@ -35,6 +48,10 @@ export function gatherKindsFromPack(pack: ContentPack): GatherKind[] {
       source: kind.source,
       arts: kind.source === "prop" ? kind.arts.map(mapPropArtCode).filter((code) => code > 0) : [],
       chancePm: kind.source === "rock" ? kind.chancePm : 0,
+      surfaces: kind.source === "plot" ? kind.surfaces.map(plotSurfaceCode) : [],
+      minCells: kind.source === "plot" ? kind.minCells : 0,
+      material: kind.source === "plot" ? (kind.material ?? null) : null,
+      direct: kind.direct ?? true,
       item: kind.item.id,
       lots: kind.lots,
       workMs: kind.workMs,

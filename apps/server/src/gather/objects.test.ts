@@ -3,7 +3,8 @@ import { TERRAIN_SURFACE } from "@terra/protocol";
 import { TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { GatherKind } from "./kinds.ts";
-import { OBJECT_BLOCK_CELLS, blockRoll, placeGatherObjects } from "./objects.ts";
+import { MATERIAL_BIT } from "@terra/shared/catchment";
+import { OBJECT_BLOCK_CELLS, PLOT_BLOCK_CELLS, blockRoll, placeGatherObjects } from "./objects.ts";
 import {
   gatherDurationMs,
   gatherEfficiencyPm,
@@ -19,6 +20,10 @@ const kind = (over: Partial<GatherKind>): GatherKind => ({
   source: "prop",
   arts: [],
   chancePm: 0,
+  surfaces: [],
+  minCells: 0,
+  material: null,
+  direct: true,
   item: "pine_log",
   lots: 1,
   workMs: 20_000,
@@ -79,6 +84,63 @@ describe("오브젝트 자리", () => {
     // 그림 층이 없어도(임시 지형) 바위 오브젝트는 선다
     expect(placeGatherObjects({ mapKey: layers.mapKey, surface: layers.surface }, KINDS)).toHaveLength(1);
     expect(OBJECT_BLOCK_CELLS).toBe(8);
+  });
+});
+
+describe("밭·목초지·물터(plot) 자리 — docs/adr/2026-11-11-city-catchment.md", () => {
+  const field = kind({
+    id: "field",
+    source: "plot",
+    surfaces: [TERRAIN_SURFACE.grass, TERRAIN_SURFACE.dirt],
+    minCells: 32,
+    material: "crop",
+    facility: "farm",
+    direct: false,
+  });
+  const water = kind({
+    id: "water",
+    source: "plot",
+    surfaces: [TERRAIN_SURFACE.water],
+    minCells: 16,
+    facility: "fishing_spot",
+    direct: false,
+  });
+
+  it("16×16 묶음마다 하나, 자리 = 묶음 가운데에 가까운 그 지표 칸의 홀수 배치 칸, 소품 오브젝트와 겹치지 않음", () => {
+    const layers = blank();
+    const objects = placeGatherObjects(layers, [field]);
+    expect(objects).toHaveLength(PLOT_BLOCK_CELLS * PLOT_BLOCK_CELLS);
+    // 묶음 (0, 0): 가운데(16, 16 — 두 배 좌표)에 가장 가까운 지형 칸 (3, 3) → 배치 칸 (7, 7)
+    expect(objects[0]).toMatchObject({ x: 7, y: 7, id: 7 * 256 + 7, kind: 0 });
+    // 소품 오브젝트가 그 칸에 있으면 다음 가까운 칸
+    layers.art[7 * 256 + 7] = 2;
+    const mixed = placeGatherObjects(layers, [kind({ id: "conifer", arts: [2] }), field]);
+    const ids = mixed.map((object) => object.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(mixed[0]).toMatchObject({ id: 7 * 256 + 7, kind: 0 });
+    expect(mixed.find((object) => object.kind === 1 && object.x < 16 && object.y < 16)?.id).not.toBe(
+      7 * 256 + 7,
+    );
+  });
+
+  it("지표가 문턱보다 적으면 없고, 원자재 비트가 없으면(기후) 없다. 원자재를 모르면(임시 지형) 지표만 본다", () => {
+    const layers = blank();
+    expect(placeGatherObjects(layers, [water])).toHaveLength(0);
+    // 묶음 (0, 0) 지형 칸 8×8 가운데 위 두 줄(16칸)만 물
+    for (let ty = 0; ty < 2; ty++)
+      for (let tx = 0; tx < 8; tx++) layers.surface[ty * 128 + tx] = TERRAIN_SURFACE.water;
+    expect(placeGatherObjects(layers, [water]).map((object) => object.kind)).toEqual([0]);
+    expect(placeGatherObjects({ ...blank(), materials: 0 }, [field])).toHaveLength(0);
+    expect(placeGatherObjects({ ...blank(), materials: MATERIAL_BIT.crop }, [field])).toHaveLength(256);
+  });
+
+  it("맞는 종류가 여럿이면 (2차맵, 묶음) 굴림으로 하나 — 같은 입력이면 같은 결과", () => {
+    const pasture = { ...field, id: "pasture", facility: "ranch", material: "livestock" as const };
+    const a = placeGatherObjects(blank(), [field, pasture]);
+    const b = placeGatherObjects(blank(), [field, pasture]);
+    expect(a).toEqual(b);
+    const kinds = new Set(a.map((object) => object.kind));
+    expect(kinds).toEqual(new Set([0, 1]));
   });
 });
 

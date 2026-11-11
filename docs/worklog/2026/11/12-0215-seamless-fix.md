@@ -29,7 +29,8 @@
 
 ## 검사 결과
 - Verified: `pnpm e2e e2e/seamless.spec.ts --grep "다시 만들지 않고 넘는다|travel_start"` 2 통과. 고치기 전 실행: 사진 둘·걸어서 넘기 통과, 넘기·옆 땅 누르기 실패(위 `unknown_map`).
-- 최종 묶음(seamless + play-map + unit-control) 결과는 아래 "미검증·TODO"에 적는다.
+- Verified: `pnpm e2e e2e/seamless.spec.ts e2e/play-map.spec.ts e2e/unit-control.spec.ts` 49 통과(26.5분). 넘기 시험 `[subscribe]` = 넘기 전 [지금, 동쪽], 넘은 뒤 없음, 거절 없음.
+- 사진(player, 거절된 이웃 = 위쪽 온통 어둡게, 눈으로 확인): `seamless-neighbour-fog-390-pastel.png`·`-dark.png`(작업 폴더 밖 임시 폴더).
 - biome format·oxlint(`--deny-warnings`)·`tsc -p e2e/tsconfig.json` 통과.
 
 ## 미검증·TODO·알려진 문제

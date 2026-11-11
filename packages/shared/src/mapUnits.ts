@@ -3,6 +3,7 @@
 // 서버가 명령 때 소유·운영자 권한을 다시 본다(같은 함수 — 서버 src/world/unitControl.ts).
 // 바뀜(기획 답 630~637, docs/adr/2026-11-07-unit-control.md "바뀜 (기획 답 630~637)"): 다른 곳 내 유닛 수(632 다), 카메라 범위(630 — 내 유닛·건물
 // 둘레), 남의 유닛 한눈 정보(636 나 — 시야 안이면 세력·종류, tRPC world.unitGlance). 목록 차례(637 나)는 기기가 유닛 화면 규칙으로 정한다.
+import type { CharacterLook } from "./characterLook.ts";
 import type { LocalizedName, PrimaryStat, RosterJob } from "./roster.ts";
 
 /** 목록 한 줄의 종류: 사이보그 본체(플레이어 하나에 하나) + 보유 유닛 종류(roster UnitType 중 세계에 있는 것) */
@@ -93,5 +94,24 @@ export interface MapUnitGlanceResponse {
   readonly status: "ready" | "not_ready";
   /** 지금 시야 밖이거나 없는 유닛이면 null(같은 답 — 시야 밖 유닛이 있는지 새지 않게) */
   readonly glance: MapUnitGlance | null;
+  readonly generatedAt: number;
+}
+
+/**
+ * 2차맵 유닛 하나의 3D 외형(tRPC world.unitLooks — docs/adr/2026-11-11-character-3d.md 5절). 서버는 그 사람이 보는 유닛(내 유닛·전체 보기·지금
+ * 시야 안) 가운데 사이보그 본체(저장한 외형, 없으면 옛 외형에서 넘긴 값)와 NPC 국가 지도자(유닛 ID로 정한 기본 외형)만 준다. 나머지 걷는 유닛은
+ * 기기가 유닛 ID로 기본 외형을 만든다(characterLookForUnit). 꾸밈 자료다(판정에 쓰지 않는다)
+ */
+export interface MapUnitLook {
+  readonly unitId: number;
+  readonly kind: "cyborg_body" | "npc_leader";
+  readonly look: CharacterLook;
+}
+
+export interface MapUnitLooksResponse {
+  readonly status: "ready" | "not_ready";
+  readonly mapKey: number;
+  /** 유닛 ID 차례. 띄우지 않은 2차맵이면 빈 목록 */
+  readonly units: readonly MapUnitLook[];
   readonly generatedAt: number;
 }

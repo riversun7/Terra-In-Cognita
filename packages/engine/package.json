@@ -9,7 +9,8 @@
     "./mock": "./src/mock/index.ts",
     "./battle": "./src/battle/index.ts",
     "./buildingPreview": "./src/buildings/previewEntry.ts",
-    "./buildingArt": "./src/buildings/artEntry.ts"
+    "./buildingArt": "./src/buildings/artEntry.ts",
+    "./characterPreview": "./src/characters/previewEntry.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

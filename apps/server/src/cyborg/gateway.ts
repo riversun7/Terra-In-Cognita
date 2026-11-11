@@ -77,6 +77,7 @@ export function createCyborgGateway(options: {
           factionId: message.factionId,
           cityId: message.cityId,
           ...(message.elements === undefined ? {} : { elements: message.elements }),
+          ...(message.look === undefined ? {} : { look: message.look }),
         });
       };
 

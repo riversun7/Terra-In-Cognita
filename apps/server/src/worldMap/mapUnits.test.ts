@@ -1,6 +1,7 @@
 // 2차맵 내 유닛 목록 조회 시험(docs/adr/2026-11-07-unit-control.md) — 내 유닛만·사이보그 본체 먼저·명령할 수 없는 까닭·운영자 표시·띄우지 않은 맵.
 // 바뀜(기획 답 630~637): 다른 곳 내 유닛 수(632 다)·카메라 범위(630)·남의 유닛 한눈 정보(636 나 — 시야 안일 때만 세력·종류)
 // 바뀜(docs/adr/2026-11-07-play-flow.md "WP-NPC4", 773 나): NPC 도시 휴먼의 한눈 정보 = 종류 human + 휴먼 이름
+import { DEFAULT_CHARACTER_LOOK, characterLookForUnit } from "@terra/shared/characterLook";
 import { JOB_GATHER } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
@@ -251,6 +252,66 @@ describe("기획 답 630~637", () => {
     expect(map.vision.sees(viewer, 3)).toBe(false);
     expect(map.vision.sees(viewer, 99)).toBe(false);
     expect(map.vision.sees({ userId: "u-none", ownerId: undefined }, 2)).toBe(false);
+    map.stop();
+  });
+});
+
+/** 내 본체 9, 남의 본체 12(주체 6), 지도자 13(주체 7), 남의 휴먼 3 */
+function looksSetup(sees: (unitId: number) => boolean) {
+  const test = createTestMap({ mapKey: MAP_KEY });
+  const { map } = test;
+  map.addUnit({ id: 9, size: 1, speed: 437, cellX: 10, cellY: 11, ownerId: 5, kind: UNIT_KIND_CYBORG });
+  map.addUnit({ id: 12, size: 1, speed: 437, cellX: 60, cellY: 60, ownerId: 6, kind: UNIT_KIND_CYBORG });
+  map.addUnit({
+    id: 13,
+    size: 1,
+    speed: 437,
+    cellX: 70,
+    cellY: 70,
+    ownerId: 7,
+    kind: UNIT_KIND_NPC_LEADER,
+  });
+  map.addUnit({ id: 3, size: 1, speed: 437, cellX: 50, cellY: 50, ownerId: 6, kind: UNIT_KIND_HUMAN });
+  const other = { ...DEFAULT_CHARACTER_LOOK, head: "hex", primary: "crimson" } as const;
+  const reads = createMapUnitReads({
+    map: (key) => (key === MAP_KEY ? map : undefined),
+    ownerOfUser: (userId) => (userId === PLAYER.id ? 5 : undefined),
+    cyborgName: () => undefined,
+    sees: (_mapKey, _viewer, unitId) => sees(unitId),
+    observer: (viewer) => viewer.roles.includes("dev"),
+    cyborgLook: (unitId) => (unitId === 9 ? DEFAULT_CHARACTER_LOOK : unitId === 12 ? other : undefined),
+  });
+  return { ...test, reads, other };
+}
+
+describe("world.unitLooks (docs/adr/2026-11-11-character-3d.md 5절)", () => {
+  it("내 본체는 늘, 남의 본체·지도자는 지금 시야 안일 때만 준다. 휴먼은 싣지 않는다(기기가 유닛 ID로 만든다)", () => {
+    const hidden = looksSetup(() => false);
+    expect(hidden.reads.unitLooks(PLAYER, MAP_KEY, NOW)).toEqual({
+      status: "ready",
+      mapKey: MAP_KEY,
+      units: [{ unitId: 9, kind: "cyborg_body", look: DEFAULT_CHARACTER_LOOK }],
+      generatedAt: NOW,
+    });
+    hidden.map.stop();
+    const seen = looksSetup((unitId) => unitId === 12 || unitId === 13 || unitId === 3);
+    expect(seen.reads.unitLooks(PLAYER, MAP_KEY, NOW).units).toEqual([
+      { unitId: 9, kind: "cyborg_body", look: DEFAULT_CHARACTER_LOOK },
+      { unitId: 12, kind: "cyborg_body", look: seen.other },
+      { unitId: 13, kind: "npc_leader", look: characterLookForUnit(13, "leader") },
+    ]);
+    seen.map.stop();
+  });
+
+  it("전체 보기 권한이면 시야와 상관없이 모두, 띄우지 않은 2차맵이면 빈 목록", () => {
+    const { reads, map } = looksSetup(() => false);
+    expect(reads.unitLooks(DEV, MAP_KEY, NOW).units.map((unit) => unit.unitId)).toEqual([9, 12, 13]);
+    expect(reads.unitLooks(PLAYER, 12_345, NOW)).toEqual({
+      status: "ready",
+      mapKey: 12_345,
+      units: [],
+      generatedAt: NOW,
+    });
     map.stop();
   });
 });

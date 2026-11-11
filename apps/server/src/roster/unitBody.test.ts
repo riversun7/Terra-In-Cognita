@@ -44,6 +44,7 @@ const record: CyborgRecord = {
   initial: ten,
   kPm: { str: 1000, dex: 1000, agi: 1000, vit: 1000, int: 1000, wis: 1000 },
   appearance: DEFAULT_CYBORG_APPEARANCE,
+  look: null,
   factionId: 1,
   startCityId: 1,
   unitId: 7,

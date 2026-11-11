@@ -27,6 +27,7 @@ import {
 } from "./camera/cameraMath.ts";
 import { CameraGlide, FOLLOW_SMOOTH_MS } from "./camera/cameraGlide.ts";
 import { attachControls } from "./camera/controls.ts";
+import { CHARACTER_PICK_HALF_WIDTH_M, CharacterLayer } from "./characters/characterLayer.ts";
 import { localZoomStage, localZoomStepTarget } from "./camera/secondMapZoom.ts";
 import { inertEngine } from "./engineParts.ts";
 import type {
@@ -116,6 +117,7 @@ export function createSecondMapEngine(
     {
       setNightLift: (lift) => {
         unitView.setNightLift(lift);
+        characters.setNightLift(lift);
         // 건물: 몸 밤 빛·창문 불빛(밤 정도 = 유닛 밤 빛 ÷ 그 상한)
         buildingView.setNight(lift / UNIT_NIGHT_LIFT);
       },
@@ -127,11 +129,18 @@ export function createSecondMapEngine(
   let terrainView = new TerrainView();
   const buildingView = new BuildingView();
   const unitView = new UnitView(capacity);
+  // 캐릭터 모델 층: 외형이 붙은 유닛을 가까우면 모델로(characters/characterLayer.ts). 유닛 그림과 같이 보이고 숨는다
+  const characters = new CharacterLayer(capacity);
+  unitView.group.add(characters.group);
   scene.add(terrainView.group, buildingView.group, unitView.group);
   // 땅이 오기 전에는 유닛을 그리지 않는다(허공에 뜬 유닛이 잠깐 보이지 않게)
   unitView.group.visible = false;
   const roster = new UnitRoster(unitView, capacity, serverNow);
   const motion = roster.motion;
+  /** 유닛 명단이 바뀌면 캐릭터 층의 칸 ↔ 유닛을 다시 잇는다 */
+  const bindCharacters = (): void => characters.bind(motion.size, (slot) => roster.idAt(slot));
+  // 모델로 그린 유닛은 몸 위 누르기 폭을 모델 폭으로 넓힌다(캡슐보다 넓다)
+  roster.modelHalfWidthM = (slot) => (characters.drawnAs(slot) > 0 ? CHARACTER_PICK_HALF_WIDTH_M : 0);
   // 이동 경로·목적지 표시(units/routeView.ts): 화면이 정한 유닛(setRouteUnit)과 누른 목적지(setMoveTarget)
   const routeView = new RouteView();
   scene.add(routeView.group);
@@ -264,6 +273,15 @@ export function createSecondMapEngine(
       unitView.setMode("model");
   };
 
+  /** 고른 유닛을 마지막 프레임에 어떻게 그렸나(시험·HUD) */
+  const selectedDraw = (): EngineStats["selectedDraw"] => {
+    const slot = roster.selectedSlot;
+    if (slot < 0) return null;
+    if (unitView.mode === "icon") return "icon";
+    const as = characters.drawnAs(slot);
+    return as === 1 ? "character0" : as === 2 ? "character1" : "capsule";
+  };
+
   const layers = new EngineLayers(scene);
   const layerView = createLayerView({
     camera,
@@ -318,7 +336,23 @@ export function createSecondMapEngine(
     moving = motion.update(serverNow());
     const ppm = pixelsPerMetre(state.distance, viewport);
     chooseUnitMode(ppm);
-    unitView.update(motion.x, motion.y, cellM, groundAt, frustum, roster.selectedSlot, ppm);
+    // 모델로 그릴 유닛을 먼저 고른다(그 유닛은 캡슐을 건너뛴다)
+    characters.update({
+      count: motion.size,
+      x: motion.x,
+      y: motion.y,
+      moving: motion.moving,
+      cellM,
+      groundAt,
+      frustum,
+      targetX: state.targetX,
+      targetZ: state.targetZ,
+      pixelsPerMetre: ppm,
+      icons: unitView.mode === "icon",
+      level: viewDistance.index,
+      deltaMs,
+    });
+    unitView.update(motion.x, motion.y, cellM, groundAt, frustum, roster.selectedSlot, ppm, characters.drawn);
     const targeting = updateRoute(ppm);
     layers.after(layerView);
     renderer.render(scene, camera);
@@ -523,6 +557,7 @@ export function createSecondMapEngine(
       terrainView.setExplored(mainExplored);
       // 옛 2차맵 유닛·건물은 버린다(새 2차맵 자료 받기가 넣는다)
       roster.set([]);
+      bindCharacters();
       // 경로·누른 목적지도 옛 2차맵 좌표다
       routeView.clear();
       targetLife.set(null, 0, serverNow());
@@ -564,6 +599,13 @@ export function createSecondMapEngine(
 
     setUnits(units: readonly UnitSpawn[]) {
       roster.set(units);
+      bindCharacters();
+      scheduler.request();
+    },
+
+    setUnitModels(models) {
+      characters.setLooks(models);
+      bindCharacters();
       scheduler.request();
     },
 
@@ -631,7 +673,10 @@ export function createSecondMapEngine(
         points: lastInfo.points,
         units: motion.size,
         movingUnits: moving,
-        drawnUnits: unitView.mode === "model" ? unitView.drawnModels : motion.size,
+        drawnUnits: unitView.mode === "model" ? unitView.drawnModels + characters.models : motion.size,
+        characters: characters.models,
+        characterLod0: characters.lod0,
+        selectedDraw: selectedDraw(),
         unitMode: unitView.mode,
         pixelRatio,
         drawingBufferWidth: gl.drawingBufferWidth,
@@ -749,6 +794,7 @@ export function createSecondMapEngine(
       builder.dispose();
       terrainView.dispose();
       buildingView.dispose();
+      characters.dispose();
       unitView.dispose();
       routeView.dispose();
       scene.clear();

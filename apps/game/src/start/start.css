@@ -248,94 +248,7 @@
 }
 
 /* ── 외형 ──────────────────────────────── */
-.start-looks {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.start-looks-preview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-}
-.start-avatar {
-  width: 40%;
-  max-width: var(--card-min);
-  color: var(--color-text);
-}
-.start-presets {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 5.5rem), 1fr));
-  gap: var(--space-2);
-}
-.start-preset {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: var(--tap-size);
-  padding: var(--space-2);
-  overflow-wrap: anywhere;
-}
-.start-preset[aria-pressed="true"] {
-  border-color: var(--color-primary);
-  background: var(--color-surface-2);
-}
-.start-preset-face {
-  width: var(--mark-lg);
-  height: var(--mark-lg);
-  color: var(--color-text);
-}
-.start-part {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(3.5em, auto) auto;
-  align-items: center;
-  gap: var(--space-2);
-}
-.start-part-name {
-  overflow-wrap: anywhere;
-}
-.start-part-step {
-  min-width: var(--tap-size);
-  min-height: var(--tap-size);
-}
-.start-part-value {
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-.start-swatches {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--tap-size), 1fr));
-  gap: var(--space-2);
-}
-.start-swatch {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  min-height: var(--tap-size);
-  cursor: pointer;
-}
-.start-swatch input {
-  position: absolute;
-  opacity: 0;
-  inset: 0;
-  cursor: pointer;
-}
-.start-swatch-chip {
-  width: var(--tap-size);
-  height: var(--tap-size);
-  border: var(--border-w) solid var(--color-border);
-  border-radius: var(--radius-pill);
-}
-.start-swatch:has(input:checked) .start-swatch-chip {
-  outline: var(--focus-w) solid var(--color-text);
-  outline-offset: var(--focus-offset);
-}
-.start-swatch:has(input:focus-visible) .start-swatch-chip {
-  outline: var(--focus-w) solid var(--color-focus);
-  outline-offset: var(--focus-offset);
-}
+/* 외형 단계 스타일은 looks.css(LooksStep.tsx가 가져온다) */
 
 /* ── 초기 스탯 ──────────────────────────────── */
 .start-stats {
@@ -510,11 +423,5 @@
 @media (prefers-reduced-motion: reduce) {
   .start-scene-pod {
     animation: none;
-  }
-}
-
-@media (min-width: 40em) {
-  .start-avatar {
-    width: 30%;
   }
 }

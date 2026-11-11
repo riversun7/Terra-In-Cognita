@@ -5,6 +5,7 @@
 // - mapUnits: 2차맵 화면의 내 유닛 목록(사이보그 본체 먼저, 명령할 수 없는 까닭)과 운영자 권한(docs/adr/2026-11-07-unit-control.md).
 //   응답 타입은 @terra/shared/mapUnits. 명령(옮기기·멈추기)은 WebSocket move_unit·stop_unit. 다른 곳 내 유닛 수·카메라 범위(기획 답 632 다·630).
 // - unitGlance: 누른 남의 유닛의 세력·종류(기획 답 636 나) — 지금 내 시야 안일 때만, 아니면 glance null.
+// - unitLooks: 그 2차맵에서 내가 보는 사이보그 본체·NPC 지도자의 3D 외형(docs/adr/2026-11-11-character-3d.md 5절).
 // - government: 2차맵에서 누른 행정 건물의 정부 판(도시·주인 나라·지도자·세율·행정 레벨·휴먼 수, "WP-NPC"). 모르는 도시면 unknown_building.
 //   도시 하루 값(만족도·발전도·생필품 충족, 743 나 "WP-NPC3")도 함께.
 // - leaderGovernment: 2차맵에서 누른 NPC 국가 지도자의 정부 판(742 나 — 지도자 = 정부 창구, 그 나라 수도 행정 건물 판). 시야 밖이면 unknown_unit.
@@ -18,7 +19,7 @@ import type {
   WorldTravelPlanResponse,
   WorldTravelsResponse,
 } from "@terra/shared/worldMap";
-import type { MapUnitGlanceResponse, MapUnitsResponse } from "@terra/shared/mapUnits";
+import type { MapUnitGlanceResponse, MapUnitLooksResponse, MapUnitsResponse } from "@terra/shared/mapUnits";
 import type { GovernmentResponse } from "@terra/shared/government";
 import type { NaturalizationResponse } from "@terra/shared/citizenship";
 import { z } from "zod";
@@ -118,6 +119,13 @@ export const worldRouter = router({
         ? services.unitGlance(ctx.viewer, input.mapKey, input.unitId, ctx.now())
         : { status: "not_ready", glance: null, generatedAt: ctx.now() };
     }),
+  /** 그 2차맵에서 내가 보는 사이보그 본체·NPC 지도자의 3D 외형(docs/adr/2026-11-11-character-3d.md 5절, 읽기만) */
+  unitLooks: signedInProcedure.input(mapUnitsInput).query(({ ctx, input }): MapUnitLooksResponse => {
+    const services = ctx.worldMap?.();
+    return services?.unitLooks
+      ? services.unitLooks(ctx.viewer, input.mapKey, ctx.now())
+      : { status: "not_ready", mapKey: input.mapKey, units: [], generatedAt: ctx.now() };
+  }),
   /** 2차맵 행정 건물의 정부 판(읽기만 — 고용은 WebSocket recruit_hire) */
   government: signedInProcedure
     .input(governmentInput)

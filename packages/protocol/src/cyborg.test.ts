@@ -6,6 +6,7 @@ import {
   CYBORG_PROTOCOL_VERSION,
   CYBORG_RESULT_CODES,
   PROTOCOL_VERSION,
+  characterLookSchema,
   cyborgElementsSchema,
   ProtocolError,
   decodeClientMessage,
@@ -87,6 +88,49 @@ describe("사이보그 만들기 메시지", () => {
     expect(decodes(decodeClientMessage, { ...base, appearance, name: "" })).toBe(false);
     expect(decodes(decodeClientMessage, { ...base, appearance, cityId: 0 })).toBe(false);
     expect(decodes(decodeClientMessage, { t: "cyborg_roll", id: 1, temperament: "BIG" })).toBe(false);
+  });
+
+  it("3D 외형(선택 칸 look): 판 번호 2 + 부위·색 ID + 키·장갑 정수만, 다른 칸은 받지 않는다(목록·범위는 서버가 본다)", () => {
+    const look = {
+      v: 2,
+      build: "standard",
+      height: 100,
+      head: "round",
+      face: "visor",
+      top: "antenna",
+      torso: "suit",
+      arms: "plain",
+      legs: "boots",
+      back: "pack",
+      extra: "scarf",
+      plating: 1,
+      skin: "mint",
+      primary: "teal",
+      secondary: "charcoal",
+      accent: "lemon",
+      glow: "lemon",
+    } as const;
+    const create = {
+      t: "cyborg_create",
+      id: 2,
+      name: "철수",
+      appearance,
+      factionId: 1,
+      cityId: 3,
+      look,
+    } as const;
+    expect(decodeClientMessage(encodeMessage(create))).toEqual(create);
+    expect(Object.keys(characterLookSchema.shape)).toHaveLength(17);
+    expect(decodes(decodeClientMessage, { ...create, look: { ...look, v: 1 } })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...create, look: { ...look, hat: "cap" } })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...create, look: { ...look, head: "Round!" } })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...create, look: { ...look, height: 100.5 } })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...create, look: { ...look, plating: -1 } })).toBe(false);
+    const { glow: _glow, ...missing } = look;
+    expect(decodes(decodeClientMessage, { ...create, look: missing })).toBe(false);
+    // 모르는 최상위 칸은 버린다(z.object) — 그래서 이 칸을 모르는 옛 서버도 새 기기의 만들기를 받는다(프로토콜 판을 올리지 않았다)
+    const decoded = decodeClientMessage(JSON.stringify({ ...create, someday: 1 }));
+    expect(decoded).toEqual(create);
   });
 
   it("결과: 성공(굴림 있음·없음)과 실패 코드", () => {

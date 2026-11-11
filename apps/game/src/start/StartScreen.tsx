@@ -8,12 +8,8 @@
 // - 만들면 짧은 강하 연출(움직임 줄이기면 없음) 뒤 홈으로(D-445 179). 튜토리얼은 다음 단계다(D-445 176).
 // 좁은 폭(휴대폰 세로)이 기준이고, 넓은 폭은 가운데 한 열(--content-max)로 둔다. 지연 로딩 조각(shell/routeViews.tsx).
 import type { AccountView } from "@terra/shared";
-import {
-  type CyborgAppearance,
-  type CyborgCreationResponse,
-  type CyborgRollView,
-  DEFAULT_CYBORG_APPEARANCE,
-} from "@terra/shared/cyborg";
+import { type CharacterLook, DEFAULT_CHARACTER_LOOK, legacyAppearanceOf } from "@terra/shared/characterLook";
+import type { CyborgCreationResponse, CyborgRollView } from "@terra/shared/cyborg";
 import type { WorldCitiesResponse } from "@terra/shared/worldMap";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { refreshSession, signOut } from "../auth/session.ts";
@@ -39,7 +35,8 @@ import {
   elementPayload,
   ruleOf,
 } from "./elementsStep.tsx";
-import { LooksStep, NameStep } from "./nameLookSteps.tsx";
+import { LooksStep } from "./LooksStep.tsx";
+import { NameStep } from "./nameLookSteps.tsx";
 import { CityStep, DescentStep, FactionStep } from "./placeSteps.tsx";
 import { commandErrorText } from "./startText.ts";
 import { StatsStep } from "./statsStep.tsx";
@@ -91,7 +88,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [step, setStep] = useState<StartStep>("name");
   const [name, setName] = useState("");
-  const [look, setLook] = useState<CyborgAppearance>(DEFAULT_CYBORG_APPEARANCE);
+  const [look, setLook] = useState<CharacterLook>(DEFAULT_CHARACTER_LOOK);
   const [roll, setRoll] = useState<CyborgRollView | null>(null);
   const [temperament, setTemperament] = useState<string>("balanced");
   const [elements, setElements] = useState<ElementDraft>(EMPTY_ELEMENT_DRAFT);
@@ -192,7 +189,9 @@ export default function StartScreen({ user }: { user: AccountView }) {
     const result = await sendCyborgCommand({
       t: "cyborg_create",
       name,
-      appearance: look,
+      // 옛 칸(2D 그림용)은 3D 외형에서 넘긴 값이다. 서버도 look에서 다시 넘겨 맞춘다
+      appearance: legacyAppearanceOf(look),
+      look,
       factionId: place.faction.id,
       cityId: place.city.id,
       elements: elementPayload(elements),
@@ -200,7 +199,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
     if (result.ok) {
       const wait = prefersReducedMotion() ? 0 : DESCENT_SCENE_MS;
       setTimeout(() => {
-        markCyborgCreated(user.id, name.trim().normalize("NFC"), look);
+        markCyborgCreated(user.id, name.trim().normalize("NFC"), legacyAppearanceOf(look));
         navigate({ route: "home" }, { replace: true });
       }, wait);
       return;
@@ -344,7 +343,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
             ) : step === "descent" && place.faction && place.city && roll ? (
               <DescentStep
                 name={name}
-                look={look}
+                look={legacyAppearanceOf(look)}
                 roll={roll}
                 faction={place.faction}
                 city={place.city}

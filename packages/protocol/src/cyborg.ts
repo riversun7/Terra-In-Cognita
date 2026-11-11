@@ -38,6 +38,30 @@ export const cyborgAppearanceSchema = z.strictObject({
   accent: listId,
 });
 
+/**
+ * 3D 외형(2판, docs/adr/2026-11-11-character-3d.md 1·5절) = 판 번호 + 부위 ID 아홉 + 키 배율(%) + 겉 장갑 단계 + 색 ID 다섯. 모양만 본다 —
+ * 목록에 있는 ID·범위 안 값인지는 서버가 @terra/shared isCharacterLook으로 본다. 다른 칸은 받지 않는다
+ */
+export const characterLookSchema = z.strictObject({
+  v: z.literal(2),
+  build: listId,
+  height: z.number().int().min(1).max(1000),
+  head: listId,
+  face: listId,
+  top: listId,
+  torso: listId,
+  arms: listId,
+  legs: listId,
+  back: listId,
+  extra: listId,
+  plating: z.number().int().min(0).max(100),
+  skin: listId,
+  primary: listId,
+  secondary: listId,
+  accent: listId,
+  glow: listId,
+});
+
 /** 속성 한 칸 점수(0~10, D-182). 적지 않은 칸은 0 */
 const elementPoint = z.number().int().min(0).max(10).optional();
 
@@ -107,6 +131,12 @@ export const cyborgCreateMessage = z.object({
   cityId: rowId,
   /** 속성 분배(5판부터, D-450). 4판 기기는 보내지 않는다 → 서버가 "분배 기다림"으로 만든다 */
   elements: cyborgElementsSchema.optional(),
+  /**
+   * 3D 외형(선택 칸, docs/adr/2026-11-11-character-3d.md 5절). 보내면 서버가 저장하고 옛 칸 appearance는 이 외형에서 넘긴 값으로 맞춘다.
+   * 더하기만 한 선택 칸이라 프로토콜 판을 올리지 않았다: 옛 서버는 모르는 칸을 버리고(z.object) 옛 기기는 보내지 않는다 — 그러면 옛 외형에서
+   * 넘긴 3D 외형으로 보인다
+   */
+  look: characterLookSchema.optional(),
 });
 
 /** 속성 분배가 없는 내 사이보그에 한 번 나눈다(5판부터, D-450). 이미 나눴으면 elements_locked(다시 나누기는 환생 때) */

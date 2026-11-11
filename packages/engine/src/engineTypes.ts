@@ -7,6 +7,7 @@ import type { PlanetSkyMode } from "./planet/sky.ts";
 import type { EngineLayer } from "./render/engineLayers.ts";
 import type { NeighbourTerrain } from "./terrain/neighbourTerrains.ts";
 import type { TerrainInput } from "./terrain/terrainData.ts";
+import type { UnitModel } from "./characters/characterLayer.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
 import type { UnitDisplayMode, UnitLook } from "./units/unitView.ts";
 
@@ -139,6 +140,14 @@ export interface EngineStats {
   viewReachM: number;
   /** 격자 선을 그리는지 */
   grid: boolean;
+  /**
+   * 마지막 프레임에 캐릭터 모델로 그린 유닛 수와 그 가운데 가까운 단계(LOD0) 수(characters/characterLayer.ts — 나머지는 캡슐·점).
+   * drawnUnits에 든다
+   */
+  characters: number;
+  characterLod0: number;
+  /** 고른 유닛을 마지막 프레임에 어떻게 그렸나: 모델(가까운 단계·먼 단계)·캡슐·점. 고른 유닛이 없으면 null */
+  selectedDraw: "character0" | "character1" | "capsule" | "icon" | null;
 }
 
 /** 보기 설정(개발자 2차맵 시험). 빠진 값은 그대로 둔다 */
@@ -227,6 +236,11 @@ export interface SecondMapEngine {
   requestFrame(): void;
   /** 유닛 하나의 모습(키·굵기·색)을 바꾼다(쓰러짐 등). 없는 유닛이면 아무것도 하지 않는다 */
   setUnitLook(id: number, look: UnitLook): void;
+  /**
+   * 유닛 외형(캐릭터 3D 모델) 목록을 통째로 바꾼다(유닛 ID → 외형, docs/adr/2026-11-11-character-3d.md 4절). 외형이 있는 유닛은 가까우면
+   * 로우폴리 모델로, 멀거나 상한 밖이면 지금처럼 캡슐·점으로 그린다. 목록에 없는 유닛은 늘 캡슐·점이다. 유닛 목록(setUnits)과 따로 남는다
+   */
+  setUnitModels(models: readonly UnitModel[]): void;
   /**
    * 확대 한 단계(1 = 키우기 [+], −1 = 줄이기 [−]): 이웃 확대 단계의 대표 거리로 약 0.3초에 걸쳐 간다(화면 가운데 기준, 움직이는 중이면 그 목표에서
    * 센다). 이미 그쪽 끝이면 false(화면이 1차맵으로 넘어간다)

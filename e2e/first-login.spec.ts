@@ -5,7 +5,9 @@
 //   까맣지 않다(탐사 칸 > 0).
 // - legacy(속성 분배 전 프로토콜 4로 만든 사이보그): 다음 접속 때 /start의 속성 단계만 보이고, 한 번 나누면 홈으로.
 // - fresh_shots: 390px × 파스텔·다크·정거장, 1440px × 파스텔·다크 × 한국어·영어로 단계마다 사진(속성 단계는 빈 것·나눈 것), 외형
-//   단계에서 프리셋 그림 넷(만들지 않는다. 굴림은 처음 한 번만 쓴다).
+//   단계에서 탭 셋(프리셋·머리·색)과 프리셋 갤러리·프리셋 넷의 3D 미리 보기(만들지 않는다. 굴림은 처음 한 번만 쓴다).
+// 바뀜(docs/adr/2026-11-11-character-3d.md): 외형 단계가 3D 조립이다 — 미리 보기 엔진이 그리고(data-preview ready·삼각형 수), 프리셋 24개·
+//   부위 탭·색 견본·칸 잠금·무작위·되돌리기, 만든 뒤 서버에 3D 외형이 남고(cyborg.status look) 2차맵에서 내 사이보그가 모델로 보인다.
 // player·dev·admin은 전역 준비가 사이보그를 만들어 두었다("E2EPlayer" 등 — 이미 있는 이름 시험에 쓴다).
 import type { Page } from "@playwright/test";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -21,6 +23,50 @@ async function expectStep(page: Page, step: (typeof STEPS)[number]): Promise<voi
 
 async function next(page: Page): Promise<void> {
   await page.locator(".start-nav .button-primary").click();
+}
+
+/** 외형 단계의 탭(presets·body·head·outfit·gear·colors) */
+const tab = (page: Page, id: string) => page.locator(`.start-looks .screen-tab[id$='-tab-${id}']`);
+
+/** 외형 표지(data-look)의 칸 차례 = @terra/shared/characterLook CHARACTER_LOOK_KEYS */
+const LOOK_KEYS = [
+  "build",
+  "head",
+  "face",
+  "top",
+  "torso",
+  "arms",
+  "legs",
+  "back",
+  "extra",
+  "height",
+  "plating",
+  "skin",
+  "primary",
+  "secondary",
+  "accent",
+  "glow",
+] as const;
+
+/** 외형 표지 → 칸 이름·값(키·장갑은 수) */
+function lookOf(key: string): Record<string, string | number> {
+  const values = key.split(".");
+  const entries = LOOK_KEYS.map((name, index): [string, string | number] => {
+    const value = values[index] ?? "";
+    return [name, name === "height" || name === "plating" ? Number(value) : value];
+  });
+  return { v: 2, ...Object.fromEntries(entries) };
+}
+
+/** cyborg.status의 3D 외형(서버가 저장한 값) */
+async function savedLook(page: Page): Promise<unknown> {
+  return page.evaluate(async () => {
+    const response: unknown = await fetch("/api/trpc/cyborg.status").then((reply) => reply.json());
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
+    const pick = (value: unknown, key: string): unknown =>
+      typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
+    return pick(pick(pick(pick(response, "result"), "data"), "cyborg"), "look");
+  });
 }
 
 /** 속성 한 칸의 단추(less·more·all) */
@@ -73,16 +119,53 @@ test.describe("첫 접속: 새 플레이어", () => {
     await next(page);
     await expectStep(page, "looks");
 
-    // 2. 외형: 프리셋 → 부위 넘기기 → 색 → 무작위
+    // 2. 외형(3D 조립, docs/adr/2026-11-11-character-3d.md 3절): 프리셋 → 부위 둘 → 색 → 잠그고 무작위 → 되돌리기
     const avatar = page.locator(".start-avatar");
+    await expect(avatar).toHaveAttribute("data-preview", "ready", { timeout: 30_000 });
+    // 미리 보기 엔진이 가까운 단계 모델을 그렸다(삼각형 600 이하), 프리셋 24개에 썸네일 그림이 붙었다
+    const triangles = Number(await avatar.getAttribute("data-triangles"));
+    expect(triangles).toBeGreaterThan(100);
+    expect(triangles).toBeLessThanOrEqual(600);
+    await expect(page.locator(".start-preset")).toHaveCount(24);
+    await expect(page.locator(".start-preset img.start-preset-face")).toHaveCount(24, { timeout: 15_000 });
     const before = await avatar.getAttribute("data-look");
-    await page.locator(".start-preset").nth(2).click();
-    await expect(page.locator(".start-preset").nth(2)).toHaveAttribute("aria-pressed", "true");
-    await page.locator(".start-part").first().locator(".start-part-step").last().click();
-    await page.locator(".start-swatch").nth(5).click();
-    expect(await avatar.getAttribute("data-look")).not.toBe(before);
+    const knight = page.locator(".start-preset[data-preset='knight']");
+    await knight.click();
+    await expect(knight).toHaveAttribute("aria-pressed", "true");
+    const preset = (await avatar.getAttribute("data-look")) ?? "";
+    expect(preset).not.toBe(before);
+    expect(preset.split(".")).toHaveLength(16);
+    // 머리 탭: 머리 모양 다음 것, 옷 탭: 몸통 다음 것(칸마다 이름·n/N이 바뀐다)
+    await tab(page, "head").click();
+    const headRow = page.locator(".start-part[data-slot='head']");
+    const headBefore = await headRow.locator(".start-part-value").textContent();
+    await headRow.locator(".start-part-step").nth(1).click();
+    await expect(headRow.locator(".start-part-value")).not.toHaveText(headBefore ?? "");
+    await tab(page, "outfit").click();
+    await page.locator(".start-part[data-slot='torso'] .start-part-step").nth(1).click();
+    // 색 탭: 주색을 진홍으로
+    await tab(page, "colors").click();
+    await page.locator(".start-color-slot[data-slot='primary'] input").check();
+    await page.locator(".start-swatch[data-color='crimson'] input").check();
+    const edited = lookOf((await avatar.getAttribute("data-look")) ?? "");
+    expect(edited).toMatchObject({ build: "sturdy", head: "round", torso: "jacket", primary: "crimson" });
+    // 주색을 잠그고 [무작위]: 주색은 그대로, 다른 칸은 바뀐다. [되돌리기]는 바로 앞 외형으로
+    await page.locator(".start-color-tools .start-part-lock").click();
+    await expect(page.locator(".start-color-tools .start-part-lock")).toHaveAttribute("aria-pressed", "true");
+    const beforeRandom = await avatar.getAttribute("data-look");
     await page.locator(".start-random").click();
-    const chosen = await avatar.getAttribute("data-look");
+    const random = (await avatar.getAttribute("data-look")) ?? "";
+    expect(random).not.toBe(beforeRandom);
+    expect(lookOf(random).primary).toBe("crimson");
+    await page.locator(".start-undo").click();
+    await expect(avatar).toHaveAttribute("data-look", beforeRandom ?? "");
+    await page.locator(".start-random").click();
+    // 미리 보기는 키로도 돌린다(화살표·+ −·Home) — 오류 없이 그린다
+    const canvas = page.locator(".start-preview-canvas");
+    await canvas.focus();
+    for (const key of ["ArrowLeft", "ArrowUp", "+", "-", "Home"]) await page.keyboard.press(key);
+    const chosen = (await avatar.getAttribute("data-look")) ?? "";
+    expect(lookOf(chosen).primary).toBe("crimson");
     await next(page);
     await expectStep(page, "stats");
 
@@ -155,7 +238,9 @@ test.describe("첫 접속: 새 플레이어", () => {
     await next(page);
     await expectStep(page, "descent");
     await expect(page.locator(".start-summary-name")).toHaveText("새싹로봇");
-    await expect(page.locator(".start-summary-avatar")).toHaveAttribute("data-look", chosen ?? "");
+    // 요약의 2D 그림은 3D 외형에서 넘긴 옛 부위다(주색 진홍 → 가장 가까운 옛 색 산호)
+    const drawn = (await page.locator(".start-summary-avatar").getAttribute("data-look")) ?? "";
+    expect(drawn.split(".")[4]).toBe("coral");
     await expect(page.locator(".start-elements-summary dd")).toHaveText("불 7 · 바람 3");
 
     // 7. 강하 → 홈
@@ -169,7 +254,9 @@ test.describe("첫 접속: 새 플레이어", () => {
     // 사이보그 화면: 실제 이름·외형·스탯(본체 안내가 아니다)
     await page.goto("/cyborg");
     await expect(page.locator(".cyborg-name")).toHaveText("새싹로봇");
-    await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-look", chosen ?? "");
+    await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-look", drawn);
+    // 서버가 고른 3D 외형을 저장했다(cyborg.status의 look = 미리 보기의 외형)
+    expect(await savedLook(page)).toEqual(lookOf(chosen));
     await expect(page.locator(".cyborg .core-row")).toHaveCount(6);
     // 서버가 나눈 속성값을 저장했다(12칸, 차례 = ELEMENT_CODES: 물·빙결·불·폭렬·바람…)
     expect(await bodyElements(page)).toEqual([0, 0, 7, 0, 3, 0, 0, 0, 0, 0, 0, 0]);
@@ -184,6 +271,8 @@ test.describe("첫 접속: 새 플레이어", () => {
     await expect
       .poll(async () => Number(await screen.getAttribute("data-explored")), { timeout: 15_000 })
       .toBeGreaterThan(0);
+    // 내 사이보그(들어오면 골라져 있다)는 가까이 보면 캡슐이 아니라 3D 모델이다(docs/adr/2026-11-11-character-3d.md 4절)
+    await expect(screen).toHaveAttribute("data-selected-draw", /^character/, { timeout: 15_000 });
     await shot(page, "first-login-map-after-390");
     expect(deviceErrors).toEqual([]);
   });
@@ -252,17 +341,34 @@ test.describe("첫 접속 사진", () => {
         await shot(page, `first-login-1-name-${width}-${theme}-${language}`, { fullPage: true });
         await next(page);
         await expectStep(page, "looks");
+        // 3D 미리 보기와 프리셋 썸네일이 그려진 뒤에 찍는다. 돌림판을 끄면 같은 각도로 찍힌다
+        await expect(page.locator(".start-avatar")).toHaveAttribute("data-preview", "ready", {
+          timeout: 30_000,
+        });
+        await expect(page.locator(".start-preset img.start-preset-face")).toHaveCount(24, {
+          timeout: 15_000,
+        });
+        await page.locator(".start-preview-controls button").first().click();
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `first-login-2-looks-${width}-${theme}-${language}`, { fullPage: true });
-        // 그림(프리셋 넷): 한국어에서만 찍는다(그림에는 글자가 없다)
+        // 부위·색 탭(390에서 미리 보기 위·고르기 아래)
+        await tab(page, "head").click();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `first-login-2-looks-head-${width}-${theme}-${language}`, { fullPage: true });
+        await tab(page, "colors").click();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `first-login-2-looks-colors-${width}-${theme}-${language}`, { fullPage: true });
+        await tab(page, "presets").click();
+        // 그림(프리셋 갤러리 한 장 + 프리셋 넷의 미리 보기): 한국어에서만 찍는다
         if (language === "ko") {
-          for (const index of [0, 1, 2, 3]) {
-            await page.locator(".start-preset").nth(index).click();
-            await elementShot(
-              page.locator(".start-looks-preview"),
-              `avatar-preset-${String(index)}-${width}-${theme}`,
-            );
+          await elementShot(page.locator(".start-presets"), `character-presets-${width}-${theme}`);
+          for (const preset of ["guard", "mystic", "sentinel", "farmer"]) {
+            await page.locator(`.start-preset[data-preset='${preset}']`).click();
+            await page.waitForTimeout(150);
+            await elementShot(page.locator(".start-preview-stage"), `character-${preset}-${width}-${theme}`);
           }
         }
         await next(page);

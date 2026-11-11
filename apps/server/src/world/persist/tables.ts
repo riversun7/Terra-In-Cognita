@@ -85,6 +85,7 @@ export const WORLD_TABLES = {
       "initial",
       "k_pm",
       "appearance",
+      "look",
       "faction_id",
       "start_city_id",
       "unit_id",

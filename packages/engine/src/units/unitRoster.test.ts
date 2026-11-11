@@ -35,6 +35,9 @@ function spawn(id: number, x: number, y: number) {
   return { id, look: LOOK, x, y };
 }
 
+/** 넉넉히 고르는 유닛이 없다(모두 남의 유닛 — 몸 위만) */
+const other = (): boolean => false;
+
 describe("UnitRoster", () => {
   it("명단을 바꾸면 id ↔ 슬롯을 다시 잇고, 모두 서 있고, 고른 유닛을 지운다", () => {
     const view = fakeView();
@@ -126,7 +129,6 @@ describe("UnitRoster", () => {
     const roster = new UnitRoster(fakeView("model"), 2, () => 0);
     roster.set([spawn(9, 150, 150)]);
     const at = { camera, state, viewport, cellM: 1, groundAt: () => 0 };
-    const other = (): boolean => false;
     // 캡슐 반지름 0.4m = 40px: 가운데에서 52px 옆은 몸 밖이다
     expect(roster.idAt(roster.pick({ x: 400 + 30, y: 400 }, at, other))).toBe(9);
     expect(roster.pick({ x: 400 + 52, y: 400 }, at, other)).toBe(-1);

@@ -164,7 +164,10 @@ export function createHouseGateway(options: {
         const city = options.city?.();
         if (!city) return replyCity(message.id, cityFail("busy"));
         if (!cityLimiter.take(viewer.id)) return replyCity(message.id, cityFail("rate_limited"));
-        const choice = { mode: message.mode, ...(message.regime === undefined ? {} : { regime: message.regime }) };
+        const choice = {
+          mode: message.mode,
+          ...(message.regime === undefined ? {} : { regime: message.regime }),
+        };
         const result =
           message.t === "house_village"
             ? await city.village(viewer.id, {
@@ -177,7 +180,13 @@ export function createHouseGateway(options: {
             : await city.ruin(viewer.id, { ...choice, ruinId: message.ruinId });
         if (result.ok)
           options.log.info(
-            { userId: viewer.id, factionId: result.factionId, cityId: result.cityId, mode: result.mode, t: message.t },
+            {
+              userId: viewer.id,
+              factionId: result.factionId,
+              cityId: result.cityId,
+              mode: result.mode,
+              t: message.t,
+            },
             "house city",
           );
         replyCity(message.id, result);
@@ -195,9 +204,9 @@ export function createHouseGateway(options: {
             { userId: viewer.id, factionId: result.factionId, action: result.action },
             "house membership",
           );
-          await options.afterMembership?.().catch((error: unknown) =>
-            options.log.error({ err: error }, "house ties reload failed"),
-          );
+          await options
+            .afterMembership?.()
+            .catch((error: unknown) => options.log.error({ err: error }, "house ties reload failed"));
         }
         replyMember(message.id, result);
       };

@@ -54,7 +54,12 @@ export interface NpcHouses {
   /** from 둘레의 첫 마을 자리(NPC 마을과 같은 차례·규칙). own의 첫 세력을 세우는 쪽으로 본다 */
   siteNear(from: CityPlace, own: readonly number[]): CityPlace | undefined;
   /** 그 가문(소유 주체)이 마을을 세운다. 세운 도시 ID */
-  foundVillage(ownerId: number, place: Omit<CityPlace, "foundedAtMs">, housing: number, nowMs: number): number;
+  foundVillage(
+    ownerId: number,
+    place: Omit<CityPlace, "foundedAtMs">,
+    housing: number,
+    nowMs: number,
+  ): number;
   /** 가문 세력 행·도시 행을 쓰기 대기열에 넣는다(동기). 쓴 행 수 */
   flush(ownerId: number, cityId?: number): number;
   /** 세력 행 → 소유 주체(거울 세계에 있는 세력만) */

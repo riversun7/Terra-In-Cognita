@@ -85,11 +85,10 @@ export function createHouseSuccession(o: {
         ]);
         // 가문 정체성 줄을 새 가문장에게(그 사람의 창설 전 초안은 지운다 — 계정마다 한 줄)
         await q.query("delete from faction_identities where user_id = $1 and faction_id is null", [targetId]);
-        await q.query("update faction_identities set user_id = $1, updated_at_ms = $3 where faction_id = $2", [
-          targetId,
-          house.id,
-          now,
-        ]);
+        await q.query(
+          "update faction_identities set user_id = $1, updated_at_ms = $3 where faction_id = $2",
+          [targetId, house.id, now],
+        );
         const oldName = await cyborgNameOf(q, leaderId);
         const newName = await cyborgNameOf(q, targetId);
         await notify(q, {
@@ -115,7 +114,8 @@ export function createHouseSuccession(o: {
           });
         return { ok: true, action: "handed_over", factionId: house.id };
       });
-      if (result.ok) await audit(leaderId, "faction.house_handover", { factionId: result.factionId, to: targetId });
+      if (result.ok)
+        await audit(leaderId, "faction.house_handover", { factionId: result.factionId, to: targetId });
       return result;
     },
 

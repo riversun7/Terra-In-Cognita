@@ -87,3 +87,95 @@ describe("가문 연결 처리(가입 메시지)", () => {
     expect(none.sent).toEqual([{ t: "house_member_result", id: 2, ok: false, code: "busy" }]);
   });
 });
+
+describe("가문 연결 처리(넘기기·해산·가문 도시, 프로토콜 24)", () => {
+  it("넘기기·해산은 house_member_result, 마을·폐허 고르기는 house_city_result로 답하고 성공한 가입 일 뒤 시야 묶음을 다시 읽는다", async () => {
+    const calls: string[] = [];
+    let reloads = 0;
+    const sent: unknown[] = [];
+    const gateway = createHouseGateway({
+      founder: () => founder,
+      members: () => fakeMembers(calls),
+      succession: () => ({
+        handover: (userId, target) => {
+          calls.push(`handover:${userId}:${target}`);
+          return Promise.resolve({ ok: true, action: "handed_over", factionId: 40 });
+        },
+        dissolve: (userId) => {
+          calls.push(`dissolve:${userId}`);
+          return Promise.resolve({ ok: false, code: "not_alone" });
+        },
+      }),
+      city: () => ({
+        village: (userId, input) => {
+          calls.push(
+            `village:${userId}:${input.mapKey}:${input.x}:${input.y}:${input.mode}:${input.regime ?? "-"}`,
+          );
+          return Promise.resolve({ ok: true, factionId: 40, mode: input.mode, cityId: 77, paid: input.cost });
+        },
+        ruin: (userId, input) => {
+          calls.push(`ruin:${userId}:${input.ruinId}:${input.mode}`);
+          return Promise.resolve({ ok: false, code: "not_owner" });
+        },
+        view: () => Promise.reject(new Error("not used")),
+      }),
+      afterMembership: () => {
+        reloads += 1;
+        return Promise.resolve();
+      },
+      now: () => 0,
+      log,
+    });
+    const socket = gateway.open({
+      send: (text) => sent.push(decodeServerMessage(text)),
+      viewer: () => Promise.resolve(player),
+    });
+    socket.handle({ t: "house_handover", id: 1, userId: KICKED });
+    socket.handle({ t: "house_dissolve", id: 2 });
+    for (let i = 0; i < 10; i++) await settle();
+    socket.handle({
+      t: "house_village",
+      id: 3,
+      mapKey: 9,
+      x: 40,
+      y: 50,
+      cost: "5000",
+      mode: "independent",
+      regime: "democracy",
+    });
+    socket.handle({ t: "house_ruin", id: 4, ruinId: 12, mode: "vassal" });
+    for (let i = 0; i < 10; i++) await settle();
+    expect(calls).toEqual([
+      `handover:user-1:${KICKED}`,
+      "dissolve:user-1",
+      "village:user-1:9:40:50:independent:democracy",
+      "ruin:user-1:12:vassal",
+    ]);
+    expect(sent).toEqual([
+      { t: "house_member_result", id: 1, ok: true, action: "handed_over", factionId: 40 },
+      { t: "house_member_result", id: 2, ok: false, code: "not_alone" },
+      {
+        t: "house_city_result",
+        id: 3,
+        ok: true,
+        factionId: 40,
+        mode: "independent",
+        cityId: 77,
+        paid: "5000",
+      },
+      { t: "house_city_result", id: 4, ok: false, code: "not_owner" },
+    ]);
+    expect(reloads).toBe(1);
+  });
+
+  it("가문 도시 서비스가 없으면 busy", async () => {
+    const { sent, socket } = open(fakeMembers([]), player);
+    socket.handle({ t: "house_ruin", id: 5, ruinId: 1, mode: "vassal" });
+    socket.handle({ t: "house_dissolve", id: 6 });
+    for (let i = 0; i < 6; i++) await settle();
+    expect(sent).toEqual([
+      { t: "house_city_result", id: 5, ok: false, code: "busy" },
+      { t: "house_member_result", id: 6, ok: false, code: "busy" },
+    ]);
+  });
+});

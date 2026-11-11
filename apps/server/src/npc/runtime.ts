@@ -870,7 +870,13 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     gardener,
     economy: econ,
     flushRuins: () => void persist.flushRuins(),
-    houses: attachNpcHouses({ world, persist, hooks: () => hooks, nextOwnerId: o.nextOwnerId, rules: o.rules }),
+    houses: attachNpcHouses({
+      world,
+      persist,
+      hooks: () => hooks,
+      nextOwnerId: o.nextOwnerId,
+      rules: o.rules,
+    }),
     mayorOf: (cityId) => people.mayorOf(cityId),
     // 휴먼 이름(773 나): 그 휴먼 주인 세력이 따르는 나라의 목록(도시 이름과 같은 길)
     humanName(unitId) {

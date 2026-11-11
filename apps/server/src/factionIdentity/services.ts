@@ -372,7 +372,8 @@ export function createFactionIdentityServices(
       // 막혀도 색·마크는 저장한다). 다르면 rename_blocked
       const locked = await loadIdentity(pool, viewer.id);
       if (locked?.renameBlocked) {
-        if (input.name !== locked.name || input.shortName !== locked.shortName) throw rejected("rename_blocked");
+        if (input.name !== locked.name || input.shortName !== locked.shortName)
+          throw rejected("rename_blocked");
         return saveKept(viewer, input, locked);
       }
       const name = parseFactionName(input.name);

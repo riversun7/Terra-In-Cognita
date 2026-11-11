@@ -53,7 +53,11 @@ type CityWorld = Pick<World, "status" | "persistence" | "npc" | "maps">;
 const fail = (code: HouseCityResultCode): HouseCityResult => ({ ok: false, code });
 
 /** 자리 검사 결과 → 결과 코드 */
-const SITE_CODE = { edge: "bad_spot", too_close: "too_close", foreign_influence: "foreign_influence" } as const;
+const SITE_CODE = {
+  edge: "bad_spot",
+  too_close: "too_close",
+  foreign_influence: "foreign_influence",
+} as const;
 
 interface HouseRow {
   readonly id: number;
@@ -69,7 +73,11 @@ async function houseRowOf(q: IdentityQueryable, factionId: number): Promise<Hous
   );
   const row = rows[0];
   return row
-    ? { id: Number(row.id), name: row.name ?? `#${row.id}`, nation: row.born_of === null ? null : Number(row.born_of) }
+    ? {
+        id: Number(row.id),
+        name: row.name ?? `#${row.id}`,
+        nation: row.born_of === null ? null : Number(row.born_of),
+      }
     : null;
 }
 
@@ -95,7 +103,8 @@ export function createHouseCity(o: {
     const world = o.world();
     const persistence = world?.persistence;
     const npc = world?.npc;
-    if (!world || world.status().state !== "ready" || !persistence || !npc) return { ok: false, code: "busy" };
+    if (!world || world.status().state !== "ready" || !persistence || !npc)
+      return { ok: false, code: "busy" };
     if (!persistence.cyborgs.record(userId)) return { ok: false, code: "no_cyborg" };
     const mine = await membershipOf(o.pool, userId);
     if (!mine) return { ok: false, code: "no_house" };
@@ -106,12 +115,19 @@ export function createHouseCity(o: {
   };
 
   /** 고르기 검사: 이미 고른 가문은 그 상태여야, 처음이면 독립은 체제가 있어야 */
-  const choiceProblem = (npc: NpcRuntime, house: HouseRow, input: HouseCityChoice): HouseCityResultCode | null => {
+  const choiceProblem = (
+    npc: NpcRuntime,
+    house: HouseRow,
+    input: HouseCityChoice,
+  ): HouseCityResultCode | null => {
     const mirror = npc.houses.mirrorOf(house.id);
     if (mirror) return (mirror.vassal ? "vassal" : "independent") === input.mode ? null : "mode_locked";
     if (input.mode === "independent" && input.regime === undefined) return "regime_required";
     // 봉신은 나라가 거울 세계에 살아 있어야 한다
-    if (input.mode === "vassal" && (house.nation === null || npc.houses.ownerOfRow(house.nation) === undefined))
+    if (
+      input.mode === "vassal" &&
+      (house.nation === null || npc.houses.ownerOfRow(house.nation) === undefined)
+    )
       return "busy";
     return null;
   };
@@ -217,7 +233,14 @@ export function createHouseCity(o: {
         userId,
         house,
         "faction.house_village",
-        { cityId, mapKey: input.mapKey, x: input.x, y: input.y, paid: cost.toString(), regime: input.regime ?? null },
+        {
+          cityId,
+          mapKey: input.mapKey,
+          x: input.x,
+          y: input.y,
+          paid: cost.toString(),
+          regime: input.regime ?? null,
+        },
         mode,
       );
       return { ok: true, factionId: house.id, mode, cityId, paid: cost.toString() };
@@ -260,10 +283,15 @@ export function createHouseCity(o: {
       );
       const row = rows[0];
       const owned = row?.owned === true;
-      const cities = await o.pool.query<{ id: string; name: string | null; map_key: string; cell_x: number; cell_y: number }>(
-        "select id, name, map_key, cell_x, cell_y from world_cities where faction_id = $1 order by id",
-        [input.factionId],
-      );
+      const cities = await o.pool.query<{
+        id: string;
+        name: string | null;
+        map_key: string;
+        cell_x: number;
+        cell_y: number;
+      }>("select id, name, map_key, cell_x, cell_y from world_cities where faction_id = $1 order by id", [
+        input.factionId,
+      ]);
       const world = o.world();
       const npc = world?.status().state === "ready" ? world.npc : undefined;
       let site: HouseCityView["site"] = null;
@@ -296,10 +324,15 @@ export function createHouseCity(o: {
         const me = p.settlement.findOwnerOfUser(userId);
         const houseOwner = npc.houses.ownerOfRow(input.factionId);
         for (const ruin of [...npc.world.ruins.values()].toSorted((a, b) => a.id - b.id))
-          if (me !== undefined && ruin.claimant === me && (houseOwner === undefined || ruin.joinFaction !== houseOwner))
+          if (
+            me !== undefined &&
+            ruin.claimant === me &&
+            (houseOwner === undefined || ruin.joinFaction !== houseOwner)
+          )
             ruins.push({ id: ruin.id, name: npc.places.get(ruin.id)?.name ?? null });
       }
-      const regime = row?.regime === "dictatorship" || row?.regime === "capitalism" ? row.regime : "democracy";
+      const regime =
+        row?.regime === "dictatorship" || row?.regime === "capitalism" ? row.regime : "democracy";
       return {
         status: owned ? (row?.parent_id === null ? "independent" : "vassal") : null,
         regime: owned && row?.parent_id === null ? regime : null,

@@ -1,10 +1,14 @@
 // 가문 창설·가입 명령(WebSocket house_found → house_result, 프로토콜 22 / house_invite·house_apply·house_answer·house_withdraw·house_leave·
-// house_kick → house_member_result, 프로토콜 23) — 보내고 같은 요청 번호의 답을 기다린다.
+// house_kick → house_member_result, 프로토콜 23 / house_handover·house_dissolve → house_member_result, house_village·house_ruin →
+// house_city_result, 프로토콜 24) — 보내고 같은 요청 번호의 답을 기다린다.
 // 질문 926 나·985 다, docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"·"바뀜 (981~986 답)". 게임 상태를 바꾸는 명령은 WebSocket으로만.
 // 국적 바꾸기 명령(government/naturalizeCommands.ts)과 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
 import type {
+  HouseCityMode,
+  HouseCityResultCode,
   HouseMemberAction,
   HouseMemberResultCode,
+  HouseRegime,
   HouseResultCode,
   ServerMessage,
 } from "@terra/protocol";
@@ -25,7 +29,38 @@ export type HouseMemberRequest =
   | { readonly t: "house_answer"; readonly requestId: number; readonly accept: boolean }
   | { readonly t: "house_withdraw"; readonly requestId: number }
   | { readonly t: "house_leave" }
-  | { readonly t: "house_kick"; readonly userId: string };
+  | { readonly t: "house_kick"; readonly userId: string }
+  // 프로토콜 24(질문 1003 가)
+  | { readonly t: "house_handover"; readonly userId: string }
+  | { readonly t: "house_dissolve" };
+
+export type HouseCityOutcome =
+  | {
+      readonly ok: true;
+      readonly factionId: number;
+      readonly mode: HouseCityMode;
+      readonly cityId: number;
+      readonly paid: string;
+    }
+  | { readonly ok: false; readonly code: HouseCityResultCode | "offline" | "timeout" };
+
+/** 가문 도시 명령(프로토콜 24, 질문 1005 가): 마을 세우기 | 폐허를 가문 도시로 */
+export type HouseCityRequest =
+  | {
+      readonly t: "house_village";
+      readonly mapKey: number;
+      readonly x: number;
+      readonly y: number;
+      readonly cost: string;
+      readonly mode: HouseCityMode;
+      readonly regime?: HouseRegime;
+    }
+  | {
+      readonly t: "house_ruin";
+      readonly ruinId: number;
+      readonly mode: HouseCityMode;
+      readonly regime?: HouseRegime;
+    };
 
 const TIMEOUT_MS = 15_000;
 
@@ -86,6 +121,30 @@ export function sendHouseFound(cost: string, link: ServerLink = serverLink): Pro
       if (message.t !== "house_result" || message.id !== id) return null;
       return message.ok
         ? { ok: true, factionId: message.factionId, paid: message.paid }
+        : { ok: false, code: message.code };
+    },
+    (code) => ({ ok: false, code }),
+  );
+}
+
+/** 가문 도시 명령 하나를 보내고 결과를 기다린다 */
+export function sendHouseCity(
+  body: HouseCityRequest,
+  link: ServerLink = serverLink,
+): Promise<HouseCityOutcome> {
+  return request<HouseCityOutcome>(
+    link,
+    (id) => ({ ...body, id }),
+    (message, id) => {
+      if (message.t !== "house_city_result" || message.id !== id) return null;
+      return message.ok
+        ? {
+            ok: true,
+            factionId: message.factionId,
+            mode: message.mode,
+            cityId: message.cityId,
+            paid: message.paid,
+          }
         : { ok: false, code: message.code };
     },
     (code) => ({ ok: false, code }),

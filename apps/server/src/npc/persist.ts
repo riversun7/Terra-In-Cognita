@@ -281,7 +281,12 @@ export function createNpcPersist(
     });
   };
   /** 한 칸의 마을 자리 검사(가문 마을 — 같은 규칙 checkTownSite) */
-  const townSiteCheckOf = (mapKey: number, x: number, y: number, own: readonly number[]): TownSiteProblem | null =>
+  const townSiteCheckOf = (
+    mapKey: number,
+    x: number,
+    y: number,
+    own: readonly number[],
+  ): TownSiteProblem | null =>
     checkTownSite({
       mapKey,
       x,

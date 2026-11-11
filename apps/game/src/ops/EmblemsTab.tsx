@@ -19,6 +19,10 @@ function stateText(row: OpsEmblemRow): string {
   if (row.notice) parts.push(m.ops_emblems_state_removed());
   if (row.uploadBlocked) parts.push(m.ops_emblems_state_blocked());
   if (row.takedowns > 0) parts.push(m.ops_emblems_takedowns({ count: formatInt(row.takedowns) }));
+  // 이름 되돌린 횟수·이름 막힘(질문 1006 나 — 옛 서버는 칸을 보내지 않는다)
+  if ((row.nameResets ?? 0) > 0)
+    parts.push(m.ops_emblems_name_resets({ count: formatInt(row.nameResets ?? 0) }));
+  if (row.renameBlocked === true) parts.push(m.ops_emblems_rename_blocked());
   return parts.join(" · ");
 }
 
@@ -229,7 +233,10 @@ export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: b
           })}{" "}
           {loaded.data.autoBlockAt > 0
             ? m.ops_emblems_auto_block({ count: formatInt(loaded.data.autoBlockAt) })
-            : m.ops_emblems_auto_block_off()}
+            : m.ops_emblems_auto_block_off()}{" "}
+          {(loaded.data.renameBlockAt ?? 0) > 0
+            ? m.ops_emblems_rename_threshold({ count: formatInt(loaded.data.renameBlockAt ?? 0) })
+            : m.ops_emblems_rename_off()}
         </p>
       ) : null}
       {message ? (
@@ -376,6 +383,25 @@ export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: b
                       >
                         {row.uploadBlocked ? m.ops_emblems_unblock() : m.ops_emblems_block()}
                       </button>
+                      {row.factionId === null && row.renameBlocked !== true ? null : (
+                        <button
+                          type="button"
+                          className="button-small ops-emblem-rename-block"
+                          aria-disabled={pending}
+                          onClick={() =>
+                            void act(() =>
+                              api.ops.emblems.setRenameBlocked.mutate({
+                                userId: row.userId,
+                                blocked: row.renameBlocked !== true,
+                              }),
+                            )
+                          }
+                        >
+                          {row.renameBlocked === true
+                            ? m.ops_emblems_rename_unblock()
+                            : m.ops_emblems_rename_block()}
+                        </button>
+                      )}
                       {row.reports > 0 ? (
                         <button
                           type="button"

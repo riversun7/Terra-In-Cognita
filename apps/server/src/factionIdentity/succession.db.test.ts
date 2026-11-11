@@ -160,7 +160,10 @@ describe.skipIf(!TEST_DATABASE_URL)("가문장 넘기기·해산·이름 자동 
     await members().kick(leader, friend);
     // 소유 주체(도시)가 있는 가문은 해산하지 못한다
     const owner = 900_000 + serial;
-    await sql("insert into world_owners (id, faction_id, settled_at_ms) values ($1, $2, 0)", [owner, houseId]);
+    await sql("insert into world_owners (id, faction_id, settled_at_ms) values ($1, $2, 0)", [
+      owner,
+      houseId,
+    ]);
     expect(await service.dissolve(leader)).toEqual({ ok: false, code: "has_city" });
     await sql("delete from world_owners where id = $1", [owner]);
     // 신고가 있던 가문
@@ -175,7 +178,9 @@ describe.skipIf(!TEST_DATABASE_URL)("가문장 넘기기·해산·이름 자동 
     expect(faction).toEqual([{ dissolved_at_ms: String(clock) }]);
     expect(await rows(test.db, "select 1 from house_members where faction_id = $1", [houseId])).toEqual([]);
     expect(await rows(test.db, "select 1 from house_reports where faction_id = $1", [houseId])).toEqual([]);
-    expect(await rows(test.db, "select 1 from faction_profiles where faction_id = $1", [houseId])).toEqual([]);
+    expect(await rows(test.db, "select 1 from faction_profiles where faction_id = $1", [houseId])).toEqual(
+      [],
+    );
     // 정체성 줄은 초안(가문 없음, 이름 "가문 #ID" — 다시 창설하려면 이름을 정한다), 색은 그대로
     const mine = await identity().mine(viewer(leader));
     expect(mine.house).toBeNull();
@@ -189,7 +194,9 @@ describe.skipIf(!TEST_DATABASE_URL)("가문장 넘기기·해산·이름 자동 
     expect(await identity().report(viewer(friend), { factionId: houseId })).toEqual({ status: "unknown" });
     // 앞 가문장은 새 이름으로 다시 창설한다
     await save(leader, "다시가문", "AGN");
-    expect(await createHouseFounder({ ...deps(), rules: () => rules }).found(leader, { cost: "0" })).toMatchObject({
+    expect(
+      await createHouseFounder({ ...deps(), rules: () => rules }).found(leader, { cost: "0" }),
+    ).toMatchObject({
       ok: true,
     });
     expect((await audits("faction.house_dissolve")).at(-1)).toMatchObject({
@@ -227,7 +234,10 @@ describe.skipIf(!TEST_DATABASE_URL)("가문장 넘기기·해산·이름 자동 
     expect(kept.identity).toMatchObject({ name: houseResetName(houseId), color: "#27ae60" });
     const list = await service.opsList();
     expect(list.renameBlockAt).toBe(2);
-    expect(list.rows.find((row) => row.userId === leader)).toMatchObject({ nameResets: 2, renameBlocked: true });
+    expect(list.rows.find((row) => row.userId === leader)).toMatchObject({
+      nameResets: 2,
+      renameBlocked: true,
+    });
     const reset = await audits("ops.house_name_reset");
     expect(reset.at(-1)?.after).toMatchObject({ resets: 2, autoBlocked: true, renameBlocked: true });
     // 운영자가 푼다 → 새 이름을 정한다

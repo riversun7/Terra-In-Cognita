@@ -86,7 +86,8 @@ export function pickTownSite(input: {
       const x = from.cellX + Math.trunc((dx * distance) / 1000);
       const y = from.cellY + Math.trunc((dy * distance) / 1000);
       const own = (faction: number) => faction === input.founder;
-      if (siteProblem(from.mapKey, x, y, own, taken, foreign, metric, input.newRadiusMilli) !== null) continue;
+      if (siteProblem(from.mapKey, x, y, own, taken, foreign, metric, input.newRadiusMilli) !== null)
+        continue;
       return { planetId: from.planetId, mapKey: from.mapKey, cellX: x, cellY: y, foundedAtMs: input.nowMs };
     }
   }

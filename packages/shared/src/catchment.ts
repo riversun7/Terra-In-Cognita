@@ -152,3 +152,271 @@ export function siteScore(cover: number, fromHomeMilli: number, rules: Catchment
   if (diameter === 0) return cover;
   return cover - Math.max(0, Math.trunc(rules.compactPm)) * Math.floor(Math.max(0, fromHomeMilli) / diameter);
 }
+
+// ── 도시 크기에 따라 넓어지는 배후지(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)") ──
+// 사용자 지적(2026-11-11, 원문) "도시는 주변 영역에서 자원을 채집하여 유지해야하는데 인구와 도시등급이 높을 수록 높은자원과 기술을 요구하여
+// 요구 영토범위가 넓어지고, 인근 도시와 인접영토를 경쟁하면 두 도시 모두 자원고갈 문제라고."
+// - 요구 넓이(칸) = 인구 × (사람 100명 칸 ÷ 100) × 요구 배율(‰). 요구 배율 = 도시 등급(발전도 → 1~6, 기획 D-137·42 §2.3) 기본 + 걸음 ×
+//   (등급 − 1) + 기술 단계 × 기술 몫. 반경 = √(넓이 ÷ π), 아래·위 끝 안. 시뮬·서버 배치·서버 도시 경제·화면이 같은 함수를 쓴다.
+// - 두 도시 사이 가장 짧은 거리 = (두 반경 합) × 천분율(같은 국가·다른 국가). 반경이 도시마다 다르니 간격도 다르다(바둑판이 되지 않는다).
+// - 채집 다툼과 고갈: 칸마다 원자재마다 재고가 있고 하루마다 로지스틱으로 다시 자란다(재고가 반일 때 가장 많이 자람 = 한 칸이 버티는 양).
+//   도시는 요구 넓이에서 칸마다 "버티는 양 × drawPm"을 캐려 한다(혼자면 남는다). 배후지가 겹친 칸은 두 도시가 함께 캐서 버티는 양을 넘고,
+//   재고가 줄어 다시 자람도 줄어 두 도시 모두 받는 몫이 떨어진다(고갈). 받은 몫(‰)이 시설 생산 빠르기와 인구 늘리기(구인)를 정한다.
+
+/** 원주율 근사(1000분율) — 넓이 ↔ 반경. 정수 셈만 쓴다 */
+const PI_MILLI = 3142;
+
+/** 정수 제곱근(내림). Math.sqrt는 명세가 정확히 정한 값이라 결정적이다 */
+export function isqrt(value: number): number {
+  if (!(value > 0)) return 0;
+  let root = Math.floor(Math.sqrt(value));
+  while (root * root > value) root -= 1;
+  while ((root + 1) * (root + 1) <= value) root += 1;
+  return root;
+}
+
+/** 도시 크기 → 요구 배후지 규칙(세계 씨앗 설정 칸 city_catchment_* [임시]) */
+export interface CatchmentGrowthRules {
+  /** 사람 100명이 요구 배율 1000‰일 때 쓰는 1차맵 칸 수 */
+  readonly cellsPerHundred: number;
+  /** 도시 등급 1의 요구 배율(‰) */
+  readonly gradeNeedBasePm: number;
+  /** 도시 등급이 하나 오를 때마다 더하는 요구 배율(‰) — 높은 등급은 높은 티어 자원을 요구한다 */
+  readonly gradeNeedStepPm: number;
+  /** 기술 단계 하나마다 더하는 요구 배율(‰) */
+  readonly techNeedPm: number;
+  /** 반경 아래 끝·위 끝(1000분율 칸) */
+  readonly minRadiusMilli: number;
+  readonly maxRadiusMilli: number;
+}
+
+/** 도시 하나의 크기(요구 배후지를 정한다) */
+export interface CatchmentCitySize {
+  /** 사는 휴먼 수(경비대 포함) */
+  readonly population: number;
+  /** 도시 등급 1~6(마을~거대도시, @terra/shared/territory cityGrade) */
+  readonly grade: number;
+  /** 주인 세력 기술 단계 */
+  readonly tech: number;
+}
+
+/** 요구 배율(‰) = 등급 기본 + 걸음 × (등급 − 1) + 기술 × 기술 몫 */
+export function catchmentNeedPm(
+  size: Pick<CatchmentCitySize, "grade" | "tech">,
+  rules: CatchmentGrowthRules,
+): number {
+  const grade = Math.min(6, Math.max(1, Math.trunc(size.grade)));
+  const tech = Math.max(0, Math.trunc(size.tech));
+  return Math.max(
+    0,
+    Math.trunc(rules.gradeNeedBasePm) +
+      Math.trunc(rules.gradeNeedStepPm) * (grade - 1) +
+      Math.trunc(rules.techNeedPm) * tech,
+  );
+}
+
+/** 요구 넓이(1000분율 칸) = 인구 × 사람 100명 칸 × 요구 배율 ÷ 100 */
+export function catchmentAreaMilli(size: CatchmentCitySize, rules: CatchmentGrowthRules): number {
+  const population = Math.max(0, Math.trunc(size.population));
+  return Math.floor(
+    (population * Math.max(0, Math.trunc(rules.cellsPerHundred)) * catchmentNeedPm(size, rules)) / 100,
+  );
+}
+
+/** 요구 반경(1000분율 칸) = √(넓이 ÷ π), 아래 끝 ~ 위 끝 */
+export function catchmentRadiusMilli(size: CatchmentCitySize, rules: CatchmentGrowthRules): number {
+  const area = catchmentAreaMilli(size, rules);
+  // 반경(1000분율) = 1000 × √(넓이칸 ÷ π) = √(넓이(1000분율) × 1000 × 1000 ÷ 3142)
+  const radius = isqrt(Math.floor((area * 1_000_000) / PI_MILLI));
+  const low = Math.max(0, Math.trunc(rules.minRadiusMilli));
+  return Math.min(Math.max(low, Math.trunc(rules.maxRadiusMilli)), Math.max(low, radius));
+}
+
+/** 두 도시 사이 가장 짧은 거리(1/1000칸) = (두 반경 합) × 천분율(같은 국가 sameGapPm, 다른 국가 foreignGapPm) */
+export function cityPairGapMilli(
+  aRadiusMilli: number,
+  bRadiusMilli: number,
+  sameNation: boolean,
+  rules: Pick<CatchmentRules, "sameGapPm" | "foreignGapPm">,
+): number {
+  const pm = Math.max(0, Math.trunc(sameNation ? rules.sameGapPm : rules.foreignGapPm));
+  return Math.floor(((Math.max(0, aRadiusMilli) + Math.max(0, bRadiusMilli)) * pm) / 1000);
+}
+
+/** 원자재 재고·다시 자람 규칙(세계 씨앗 설정 칸 city_catchment_* [임시]) */
+export interface CatchmentSupplyRules {
+  /** 원자재가 있는 칸(100%) 하나의 재고 상한 */
+  readonly stockPerCell: number;
+  /** 하루 다시 자람 ‰(로지스틱 r: 재고 S → r × S × (상한 − S) ÷ 상한) */
+  readonly regrowPm: number;
+  /** 재고 0에서도 하루 다시 자라는 양(100% 칸 기준 — 씨가 남는다) */
+  readonly regrowFloor: number;
+  /** 도시가 요구 넓이에서 칸마다 캐려는 양 = 한 칸이 버티는 양 × 이 천분율(1000 미만이면 혼자서는 남는다) */
+  readonly drawPm: number;
+}
+
+/** 칸 하나의 재고 상한(그 칸 원자재 몫 ‰) */
+export function cellStockCap(capacityPm: number, rules: CatchmentSupplyRules): number {
+  return Math.floor(
+    (Math.max(0, Math.trunc(rules.stockPerCell)) * Math.min(1000, Math.max(0, capacityPm))) / 1000,
+  );
+}
+
+/** 하루 다시 자람: 로지스틱 + 바닥(상한 몫만큼). 상한이 0이면 0 */
+export function cellRegrow(stock: number, cap: number, rules: CatchmentSupplyRules): number {
+  if (cap <= 0) return 0;
+  const s = Math.min(cap, Math.max(0, stock));
+  const logistic = Math.floor((Math.max(0, Math.trunc(rules.regrowPm)) * s * (cap - s)) / (1000 * cap));
+  const floor = Math.floor(
+    (Math.max(0, Math.trunc(rules.regrowFloor)) * cap) / Math.max(1, rules.stockPerCell),
+  );
+  return logistic + floor;
+}
+
+/** 100% 칸 하나가 버티는 양(하루, 재고 반일 때 다시 자람 = r × 상한 ÷ 4 + 바닥) */
+export function sustainablePerCell(rules: CatchmentSupplyRules): number {
+  const cap = Math.max(0, Math.trunc(rules.stockPerCell));
+  return cellRegrow(cap >> 1, cap, rules);
+}
+
+/**
+ * 도시 하나가 원자재 하나를 하루에 캐려는 양 = 요구 넓이(칸) × 버티는 양 × drawPm × (그 원자재 가중치 ÷ 가장 큰 가중치).
+ * 가장 많이 쓰는 원자재는 요구 넓이 칸마다 버티는 양의 drawPm만큼 캐고, 덜 쓰는 원자재는 그 비율만큼 덜 캔다
+ */
+export function materialDemand(
+  areaMilli: number,
+  weight: number,
+  maxWeight: number,
+  rules: CatchmentSupplyRules,
+): number {
+  if (weight <= 0 || maxWeight <= 0) return 0;
+  const perCell = sustainablePerCell(rules);
+  return Math.floor(
+    (Math.max(0, areaMilli) * perCell * Math.max(0, Math.trunc(rules.drawPm)) * Math.min(weight, maxWeight)) /
+      (1_000_000 * maxWeight),
+  );
+}
+
+/** 하루 채집 다툼에 드는 도시 하나 */
+export interface SupplyCity {
+  readonly id: number;
+  /** 배후지 칸(키, 같은 키는 한 번) */
+  readonly cells: readonly number[];
+  /** 원자재마다 하루에 캐려는 양 */
+  readonly demand: Readonly<Partial<Record<CatchmentMaterial, number>>>;
+}
+
+/** 도시 하나가 하루에 받은 것 */
+export interface SupplyResult {
+  /** 원자재마다 받은 양 */
+  readonly got: Readonly<Record<CatchmentMaterial, number>>;
+  /** 원자재마다 받은 몫(‰, 캐려는 양이 0이면 1000) */
+  readonly supplyPm: Readonly<Record<CatchmentMaterial, number>>;
+  /** 모든 원자재를 합한 받은 몫(‰, 캐려는 양 합이 0이면 1000) */
+  readonly totalPm: number;
+  /** 다른 도시 배후지와 겹친 칸 수 */
+  readonly sharedCells: number;
+}
+
+/** 칸 재고 저장소: 칸 키 → 원자재 여섯의 재고(CATCHMENT_MATERIALS 차례). 처음 보는 칸은 상한으로 채운다 */
+export type SupplyStock = Map<number, number[]>;
+
+const emptyMaterials = (fill: number): Record<CatchmentMaterial, number> => ({
+  ore: fill,
+  wood: fill,
+  herb: fill,
+  crop: fill,
+  livestock: fill,
+  fish: fill,
+});
+
+/**
+ * 하루 채집 다툼(재고를 바꾼다): 원자재마다 도시는 캐려는 양을 제 배후지 칸 가운데 그 원자재가 있는 칸에 고르게 나눠 캔다(칸마다 ⌈양 ÷ 칸 수⌉).
+ * 한 칸을 여러 도시가 캐면 그 칸 재고 안에서 캐려는 양 비율로 나눈다(내림). 캔 뒤 칸마다 다시 자란다. 차례는 원자재 → 칸 키 → 도시 ID라
+ * 같은 입력이면 같은 결과다. capacityPm(칸, 원자재) = 그 칸의 원자재 몫(0이면 없음)
+ */
+export function stepCatchmentSupply(
+  cities: readonly SupplyCity[],
+  stock: SupplyStock,
+  capacityPm: (cell: number, material: CatchmentMaterial) => number,
+  rules: CatchmentSupplyRules,
+): Map<number, SupplyResult> {
+  const sorted = cities.toSorted((a, b) => a.id - b.id);
+  const got = new Map<number, Record<CatchmentMaterial, number>>();
+  const claimants = new Map<number, number>();
+  for (const city of sorted) {
+    got.set(city.id, emptyMaterials(0));
+    for (const cell of new Set(city.cells)) claimants.set(cell, (claimants.get(cell) ?? 0) + 1);
+  }
+  const touched = [...claimants.keys()].toSorted((a, b) => a - b);
+  const capOf = (cell: number, index: number): number => {
+    const material = CATCHMENT_MATERIALS[index];
+    return material ? cellStockCap(capacityPm(cell, material), rules) : 0;
+  };
+  for (const cell of touched)
+    if (!stock.has(cell))
+      stock.set(
+        cell,
+        CATCHMENT_MATERIALS.map((_, index) => capOf(cell, index)),
+      );
+  CATCHMENT_MATERIALS.forEach((material, index) => {
+    // 칸 → 도시마다 캐려는 양
+    const wants = new Map<number, { city: number; want: number }[]>();
+    for (const city of sorted) {
+      const demand = Math.max(0, Math.trunc(city.demand[material] ?? 0));
+      if (demand === 0) continue;
+      const own = [...new Set(city.cells)].filter((cell) => capOf(cell, index) > 0);
+      if (own.length === 0) continue;
+      const per = Math.ceil(demand / own.length);
+      for (const cell of own) {
+        const list = wants.get(cell) ?? [];
+        list.push({ city: city.id, want: per });
+        wants.set(cell, list);
+      }
+    }
+    for (const [cell, list] of [...wants].toSorted((a, b) => a[0] - b[0])) {
+      const row = stock.get(cell);
+      if (!row) continue;
+      const total = list.reduce((sum, entry) => sum + entry.want, 0);
+      let left = Math.min(capOf(cell, index), Math.max(0, row[index] ?? 0));
+      const take = Math.min(total, left);
+      for (const entry of list) {
+        const share = Math.floor((take * entry.want) / total);
+        const bag = got.get(entry.city);
+        if (bag) bag[material] += share;
+        left -= share;
+      }
+      row[index] = left;
+    }
+    // 캔 뒤 다시 자람(오늘 아무도 캐지 않은 칸도 — 배후지가 줄어든 도시의 옛 칸)
+    for (const [cell, row] of stock) {
+      const cap = capOf(cell, index);
+      const left = Math.min(cap, Math.max(0, row[index] ?? 0));
+      row[index] = Math.min(cap, left + cellRegrow(left, cap, rules));
+    }
+  });
+  const out = new Map<number, SupplyResult>();
+  for (const city of sorted) {
+    const bag = got.get(city.id) ?? emptyMaterials(0);
+    const supplyPm = emptyMaterials(1000);
+    let wantSum = 0;
+    let gotSum = 0;
+    for (const material of CATCHMENT_MATERIALS) {
+      const demand = Math.max(0, Math.trunc(city.demand[material] ?? 0));
+      if (demand === 0) continue;
+      const received = Math.min(demand, bag[material]);
+      supplyPm[material] = Math.floor((received * 1000) / demand);
+      wantSum += demand;
+      gotSum += received;
+    }
+    let sharedCells = 0;
+    for (const cell of new Set(city.cells)) if ((claimants.get(cell) ?? 0) > 1) sharedCells += 1;
+    out.set(city.id, {
+      got: bag,
+      supplyPm,
+      totalPm: wantSum === 0 ? 1000 : Math.floor((gotSum * 1000) / wantSum),
+      sharedCells,
+    });
+  }
+  return out;
+}

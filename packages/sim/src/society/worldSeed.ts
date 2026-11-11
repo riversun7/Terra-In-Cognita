@@ -81,6 +81,31 @@ export interface WorldSeedCoefficients {
   /** [임시] 수도에서 배후지 지름 하나만큼 멀어질 때마다 자리 점수에서 빼는 덮임(‰) — 나라가 흩어지지 않게 */
   readonly catchmentCompactPm: number;
   /**
+   * [임시] 도시 크기에 따라 넓어지는 배후지(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)", 사용자 지적 2026-11-11 "인구와
+   * 도시등급이 높을 수록 높은자원과 기술을 요구하여 요구 영토범위가 넓어지고"): 요구 넓이(칸) = 인구 × catchmentCellsPerHundred ÷ 100 ×
+   * 요구 배율(등급 기본 + 걸음 × (등급 − 1) + 기술 × 기술 몫, ‰), 반경 = √(넓이 ÷ π)(아래·위 끝 1000분율 칸). @terra/shared/catchment
+   */
+  readonly catchmentCellsPerHundred: number;
+  readonly catchmentGradeNeedBasePm: number;
+  readonly catchmentGradeNeedStepPm: number;
+  readonly catchmentTechNeedPm: number;
+  readonly catchmentMinRadiusMilli: number;
+  readonly catchmentMaxRadiusMilli: number;
+  /** [임시] 시작 도시 배치: 수도는 인구(주거) × 이 천분율, 등급 + 1로 반경을 잡는다(더 크게 자랄 자리) */
+  readonly catchmentCapitalPm: number;
+  /** [임시] 시작 도시 배치: 처음 기간에 이를 도시 등급(인구는 주거만큼 찬다고 본다) */
+  readonly catchmentPlanGrade: number;
+  /**
+   * [임시] 채집 다툼과 고갈: 칸 하나 원자재 재고 상한, 하루 로지스틱 다시 자람(‰)·바닥, 도시가 요구 넓이 칸마다 캐려는 양(칸이 버티는 양의 ‰),
+   * 구인(인구 늘리기)에 필요한 받은 몫(‰), 채집 시설 빠르기 바닥(‰)
+   */
+  readonly catchmentStockPerCell: number;
+  readonly catchmentRegrowPm: number;
+  readonly catchmentRegrowFloor: number;
+  readonly catchmentDrawPm: number;
+  readonly catchmentGrowthMinPm: number;
+  readonly catchmentYieldFloorPm: number;
+  /**
    * [임시] 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 서버가 그때 띄운 2차맵 상한(부팅 씨앗 2차맵 —
    * 시험 줄·도시 — 은 세지 않는다). 꽉 차면 빈 것을 내리고 띄우고, 빈 것이 없으면 띄우지 않는다. NAS 1GiB에서 2차맵 하나 약 5~7MB
    */
@@ -136,6 +161,22 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   catchmentForeignGapPm: 1500,
   catchmentSearchCells: 12,
   catchmentCompactPm: 100,
+  // 크기에 따라 넓어지는 배후지: 40명·등급 4·기술 2 ≈ 반경 2.07칸(옛 고정 2칸), 초강대국 수도(주거 60 × 1.25, 등급 5) ≈ 3.2칸, 소국 지방 도시 ≈ 1.8칸.
+  // 칸 재고 1000, 하루 40% 로지스틱 + 바닥 20(버티는 양 120), 요구 넓이 칸마다 버티는 양의 60%(혼자면 남고 둘이 다 겹치면 120% — 고갈)
+  catchmentCellsPerHundred: 27,
+  catchmentGradeNeedBasePm: 700,
+  catchmentGradeNeedStepPm: 150,
+  catchmentTechNeedPm: 50,
+  catchmentMinRadiusMilli: 1000,
+  catchmentMaxRadiusMilli: 8000,
+  catchmentCapitalPm: 1250,
+  catchmentPlanGrade: 4,
+  catchmentStockPerCell: 1000,
+  catchmentRegrowPm: 400,
+  catchmentRegrowFloor: 20,
+  catchmentDrawPm: 600,
+  catchmentGrowthMinPm: 900,
+  catchmentYieldFloorPm: 100,
   // 그때 띄우기: 지금 NAS(17장 RSS 약 430MB)에 32장(약 +200MB)을 더해도 1GiB 안, 비우고 10분 뒤 내림
   mapSpawnMaxLoaded: 32,
   mapSpawnIdleMs: 10 * 60_000,

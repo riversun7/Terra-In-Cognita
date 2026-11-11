@@ -8276,6 +8276,258 @@
       "source": "ADR 2026-11-11-city-catchment [임시]"
     },
     {
+      "id": "city_catchment_cells_per_100",
+      "code": "",
+      "name": {
+        "ko": "배후지: 사람 100명이 쓰는 1차맵 칸(요구 배율 1000‰)",
+        "en": "Catchment: planet cells per 100 people (need 1000‰)"
+      },
+      "value": 27,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 400,
+      "desc": {
+        "ko": "도시 인구가 이만큼 칸을 요구한다. 넓이 = 인구 × 이 값 ÷ 100 × 요구 배율. 늘리면 모든 도시 배후지가 넓어지고 도시 사이가 벌어진다.",
+        "en": "Land a city of 100 people needs. Area = population × this ÷ 100 × need. Higher = every catchment grows and cities spread apart."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_grade_need_base_pm",
+      "code": "",
+      "name": {
+        "ko": "배후지: 도시 등급 1(마을)의 요구 배율(‰)",
+        "en": "Catchment: need for city grade 1 (village, ‰)"
+      },
+      "value": 700,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "가장 작은 도시가 사람마다 요구하는 땅의 배율.",
+        "en": "Land need per person for the smallest city grade."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_grade_need_step_pm",
+      "code": "",
+      "name": {
+        "ko": "배후지: 도시 등급이 하나 오를 때 더하는 요구 배율(‰)",
+        "en": "Catchment: extra need per city grade (‰)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "높은 등급 도시는 높은 티어 자원을 요구해 사람마다 땅을 더 쓴다.",
+        "en": "Higher grades want higher-tier resources, so each person needs more land."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_tech_need_pm",
+      "code": "",
+      "name": {
+        "ko": "배후지: 기술 단계 하나마다 더하는 요구 배율(‰)",
+        "en": "Catchment: extra need per tech level (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "기술이 오르면 쓰는 자원이 늘어 배후지가 넓어진다.",
+        "en": "More tech uses more resources, so the catchment grows."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_min_radius_pm",
+      "code": "",
+      "name": {
+        "ko": "배후지 반경 아래 끝(1차맵 칸 × 1000)",
+        "en": "Catchment radius minimum (planet cells × 1000)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 64000,
+      "desc": {
+        "ko": "작은 도시도 이만큼은 차지한다.",
+        "en": "Even the smallest city claims this much."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_max_radius_pm",
+      "code": "",
+      "name": {
+        "ko": "배후지 반경 위 끝(1차맵 칸 × 1000)",
+        "en": "Catchment radius maximum (planet cells × 1000)"
+      },
+      "value": 8000,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 64000,
+      "desc": {
+        "ko": "아무리 큰 도시도 이 반경을 넘지 않는다.",
+        "en": "No city's catchment goes beyond this."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_capital_pm",
+      "code": "",
+      "name": {
+        "ko": "배후지 배치: 수도는 인구 × 천분율(등급 +1)로 잡는다",
+        "en": "Catchment layout: capital planned at population × per mille (grade +1)"
+      },
+      "value": 1250,
+      "structural": false,
+      "unit": "pm",
+      "min": 1000,
+      "max": 4000,
+      "desc": {
+        "ko": "시작 도시 자리를 고를 때 수도가 더 크게 자랄 것을 미리 잡는다.",
+        "en": "When placing start cities, room is kept for the capital to grow bigger."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_plan_grade",
+      "code": "",
+      "name": {
+        "ko": "배후지 배치: 시작 도시가 처음 기간에 이를 도시 등급",
+        "en": "Catchment layout: city grade start cities reach in the first period"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "level",
+      "min": 1,
+      "max": 6,
+      "desc": {
+        "ko": "시작 도시는 주거만큼 인구가 차고 이 등급이 된다고 보고 그 반경으로 띄운다(바로 부딪치지 않게).",
+        "en": "Start cities are spaced for the radius they reach with full housing at this grade, so they do not collide right away."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_stock_per_cell",
+      "code": "",
+      "name": {
+        "ko": "배후지 칸 하나의 원자재 재고 상한",
+        "en": "Catchment: raw material stock per cell"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000000,
+      "desc": {
+        "ko": "원자재가 있는 1차맵 칸 하나에 쌓이는 양.",
+        "en": "How much of a raw material one planet cell holds."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_regrow_pm",
+      "code": "",
+      "name": {
+        "ko": "배후지: 하루 다시 자람(로지스틱 ‰)",
+        "en": "Catchment: daily regrowth (logistic ‰)"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 2000,
+      "desc": {
+        "ko": "재고가 반일 때 가장 빨리 자란다. 다 캐면 거의 자라지 않는다.",
+        "en": "Regrows fastest at half stock; nearly stops when stripped bare."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_regrow_floor",
+      "code": "",
+      "name": {
+        "ko": "배후지: 재고 0에서도 하루 다시 자라는 양",
+        "en": "Catchment: daily regrowth even at zero stock"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "다 캐도 씨가 남아 이만큼은 자란다.",
+        "en": "Seeds remain, so this much grows back even when stripped."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_draw_pm",
+      "code": "",
+      "name": {
+        "ko": "배후지: 도시가 칸마다 캐려는 양(버티는 양의 ‰)",
+        "en": "Catchment: draw per cell (‰ of what a cell sustains)"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 4000,
+      "desc": {
+        "ko": "1000보다 작으면 혼자서는 남는다. 두 도시가 같은 칸을 캐면 넘쳐서 고갈된다.",
+        "en": "Below 1000 a lone city leaves a surplus. Two cities on the same cells overdraw and strip them."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_growth_min_pm",
+      "code": "",
+      "name": {
+        "ko": "배후지: 인구를 늘리는 데 필요한 받은 몫(‰)",
+        "en": "Catchment: supply needed to grow population (‰)"
+      },
+      "value": 900,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "배후지에서 받은 몫이 이보다 낮으면 NPC 도시가 구인하지 않는다(성장 멈춤).",
+        "en": "Below this supply, NPC cities stop recruiting (growth stalls)."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
+      "id": "city_catchment_yield_floor_pm",
+      "code": "",
+      "name": {
+        "ko": "배후지: 채집 시설 빠르기 바닥(‰)",
+        "en": "Catchment: gather facility speed floor (‰)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "받은 몫만큼 채집 시설이 느려지되 이 아래로는 내려가지 않는다.",
+        "en": "Gather facilities slow down with supply, but never below this."
+      },
+      "source": "ADR 2026-11-11-city-catchment 바뀜 (2026-11-12) [임시]"
+    },
+    {
       "id": "map_spawn_max_loaded",
       "code": "",
       "name": {

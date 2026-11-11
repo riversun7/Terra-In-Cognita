@@ -13,6 +13,8 @@
 | 파일 | 이유 |
 |---|---|
 | `content/core/tuning.json` | N9 `n9_initial_rerolls` 3 → 5(사용자 요청) |
+| `packages/sim/src/society/coefficients.ts` | TEST 계수표 `initialRerolls` 3 → 5(팩 = TEST 계수표 검사). 시뮬 실행은 이 값을 안 써서 SIM_VERSION 그대로 |
+| 시험: `sim/society/cyborgStats.test.ts`, `server/roster/roster.test.ts`, `e2e/units.spec.ts`(미실행) | 다시 굴리기 5번 |
 | `content/core/nation_presets.json`, `content/core/manifest.json` | 16개 프리셋 `intro`([임시]), 판 66 |
 | `packages/content/src/schema/economy.ts` | 프리셋 `intro` 선택 칸(언어마다 160자) |
 | `packages/shared/src/cyborgApi.ts`, `cyborg.ts` | `CreationNationProfile`, `CreationFaction.profile`, `rules.rollsUnlimited`, 추천 규칙 주석 |

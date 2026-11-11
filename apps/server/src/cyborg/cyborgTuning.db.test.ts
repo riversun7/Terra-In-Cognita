@@ -65,16 +65,16 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기 × 설정 칸 바로
     if (!service) throw new Error("no cyborg service");
     const user = await fakeUser("Tune_Roller");
     for (let i = 0; i < 3; i++) expect((await service.roll(user, "combat")).ok).toBe(true);
-    expect(service.creation(user, clock).roll).toMatchObject({ rollsLeft: 1, rollsMax: 4 });
-    // 개발자 패널: N9 다시 굴리기 3 → 1(상한 2). 이미 3번 굴렸다
+    expect(service.creation(user, clock).roll).toMatchObject({ rollsLeft: 3, rollsMax: 6 });
+    // 개발자 패널: N9 다시 굴리기 5 → 1(상한 2). 이미 3번 굴렸다
     current = withValues([["n9_initial_rerolls", 1]]);
     expect(service.creation(user, clock).roll).toMatchObject({ rollsLeft: 0, rollsMax: 2 });
     expect(service.creation(user, clock).rules.rollsMax).toBe(2);
     expect(await service.roll(user, "tech")).toEqual({ ok: false, code: "rolls_exhausted" });
-    // 3 → 5(상한 6): 다시 굴린다
-    current = withValues([["n9_initial_rerolls", 5]]);
+    // 1 → 7(상한 8): 다시 굴린다
+    current = withValues([["n9_initial_rerolls", 7]]);
     const again = await service.roll(user, "tech");
-    expect(again).toMatchObject({ ok: true, roll: { rollsLeft: 2, rollsMax: 6 } });
+    expect(again).toMatchObject({ ok: true, roll: { rollsLeft: 4, rollsMax: 8 } });
   });
 
   it("팩 값 N9 = 5(사용자 요청 2026-11-11): 플레이어는 처음 1 + 다시 5번, 운영진(gm·admin·dev)은 제한 없음(서버 판정)", async () => {

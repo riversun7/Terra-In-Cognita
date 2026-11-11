@@ -1,5 +1,5 @@
 // 사이보그 만들기 DB 통합 시험(docs/adr/2026-11-01-first-login-cyborg.md) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
-// 서버 규칙: 굴림 합 60·칸 1~20, 굴림 횟수(처음 1 + 다시 굴리기 3, 서버 저장·다시 켜도 남음), 이름 규칙·사칭·고유(대소문자 무시),
+// 서버 규칙: 굴림 합 60·칸 1~20, 굴림 횟수(처음 1 + 다시 굴리기 5, 서버 저장·다시 켜도 남음), 이름 규칙·사칭·고유(대소문자 무시),
 // 계정당 하나, 시작 도시 둘레에 세계 유닛으로 놓기(시야로 2차맵이 열림), 한 커밋 저장, 부팅이 잃은 본체를 다시 놓기(I13),
 // 속성 분배(D-450, N36: 4원소 두 칸까지 합 10, 분배 없는 옛 사이보그는 한 번 나눔), 본체 생활비(D-453: 유지비를 내고 못 내면 비효율).
 import {
@@ -89,7 +89,7 @@ const sum = (stats: Record<string, number>) => Object.values(stats).reduce((a, b
 const fireWind = { fire: 6, wind: 4 };
 
 describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
-  it("굴림: 합 60·칸 1~20, 처음 1번 + 다시 굴리기 3번까지, 다 쓰면 rolls_exhausted, 다시 켜도 횟수가 남는다", async () => {
+  it("굴림: 합 60·칸 1~20, 처음 1번 + 다시 굴리기 5번까지, 다 쓰면 rolls_exhausted, 다시 켜도 횟수가 남는다", async () => {
     let world = await boot();
     const user = await fakeUser("Roll_User");
     const service = cyborgsOf(world);
@@ -98,14 +98,14 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       statSum: 60,
       statMin: 1,
       statMax: 20,
-      rollsMax: 4,
+      rollsMax: 6,
       rollsUnlimited: false,
       elementCells: 2,
       elementPoints: 10,
     });
     expect(await service.roll(user, "berserker")).toEqual({ ok: false, code: "unknown_temperament" });
     const lefts: number[] = [];
-    for (const temperament of ["combat", "tech", "trade", "balanced"]) {
+    for (const temperament of ["combat", "tech", "trade", "combat", "tech", "balanced"]) {
       const result = await service.roll(user, temperament);
       if (!result.ok || !result.roll) throw new Error("roll failed");
       expect(result.roll.temperament).toBe(temperament);
@@ -116,21 +116,21 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       }
       lefts.push(result.roll.rollsLeft);
     }
-    expect(lefts).toEqual([3, 2, 1, 0]);
+    expect(lefts).toEqual([5, 4, 3, 2, 1, 0]);
     expect(await service.roll(user, "combat")).toEqual({ ok: false, code: "rolls_exhausted" });
     const saved = await rows<{ rolls_used: number; temperament: string }>(
       test.db,
       `select rolls_used, temperament from cyborg_rolls where user_id = $1`,
       [user],
     );
-    expect(saved).toEqual([{ rolls_used: 4, temperament: "balanced" }]);
+    expect(saved).toEqual([{ rolls_used: 6, temperament: "balanced" }]);
 
     world = await restart(world);
     const again = cyborgsOf(world);
     expect(again.creation(user, clock).roll).toMatchObject({
       temperament: "balanced",
       rollsLeft: 0,
-      rollsMax: 4,
+      rollsMax: 6,
     });
     expect(await again.roll(user, "tech")).toEqual({ ok: false, code: "rolls_exhausted" });
   });

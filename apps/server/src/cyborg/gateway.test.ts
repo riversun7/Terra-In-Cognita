@@ -150,8 +150,9 @@ describe("사이보그 연결 처리", () => {
 
   it("운영진(gm·admin·dev)의 굴리기는 횟수 제한 없음으로 넘긴다(2026-11-11), 플레이어는 그대로", async () => {
     const calls: string[] = [];
-    for (const [index, roles] of [["player"], ["gm"], ["dev"], ["admin", "player"]].entries()) {
-      const who: Viewer = { id: `user-${index}`, loginId: `tester${index}`, roles: roles as Viewer["roles"] };
+    const roleSets: Viewer["roles"][] = [["player"], ["gm"], ["dev"], ["admin", "player"]];
+    for (const [index, roles] of roleSets.entries()) {
+      const who: Viewer = { id: `user-${index}`, loginId: `tester${index}`, roles };
       const { socket } = open(fakeService(calls), who);
       socket.handle({ t: "cyborg_roll", id: 1, temperament: "tech" });
       for (let i = 0; i < 3; i++) await settle();

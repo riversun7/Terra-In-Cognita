@@ -30,6 +30,7 @@
 | `apps/game/src/editor/buildings/BuildingDetail.tsx`·`buildingModel.ts`·`buildingMessages.ts` | 함께 내는 중분류 고르기, 물가 조건 칸, 검사 문구, 칸 보존 |
 | `apps/game/src/editor/production/*` | 사다리 = 중분류 여럿(`ladderOf(items, gather)`), 사다리 중분류 줄 |
 | `apps/game/messages/{ko,en}.json` | 새 문구 10개(한·영) |
+| `apps/server/src/gather/station.db.test.ts` | 낚시터를 물가 자리에 짓고, 목장 창고 물건 = 축산물 + 목축 부산물(새 규칙에 맞춤) |
 | 시험: `waterNearby.test.ts`·`content validate/gather.test.ts`·`sim productionSix.test.ts`·`server facilities/catalog.test.ts`·`water.test.ts`·`gateway.test.ts`·`facilities.db.test.ts`·`itemEdit/previewGather.test.ts`·`productionModel.test.ts`·`e2e/facilities.spec.ts`·`e2e/production.spec.ts` | 사다리 여럿·물가 규칙 |
 
 ## 함께 바꿔야 하는 파일
@@ -45,10 +46,13 @@
 - Assumed: 옛 "반경 5칸"의 칸 크기가 새 배치 칸(약 5.9m)과 같다고 봤다(Unknown — 옛 칸 크기를 재지 않았다).
 - 낚을 때 물 확인은 따로 하지 않는다(지형이 바뀌지 않아 놓을 때 한 번으로 같다). 어종을 물 종류로 가르는 것(947 다)은 없다.
 - 목장 선택은 해금 티어 안 아이템을 고르게 고르므로 축산물·부산물 몫은 티어마다 아이템 수 비율이다(옛 `RANDOM()`과 같은 뜻, 옛 정확한 비율은 Unknown).
-- 검사·화면 시험 결과는 아래에 적는다.
+- 기준 커밋(a318e984a0)의 `apps/server/src/app.ts`가 1,006줄이라 `pnpm check`의 파일 크기 검사(상한 1,000줄)가 이 줄기와 상관없이 실패한다(Verified: 이 줄기는 그 파일을 고치지 않았다). 합치는 쪽에서 나눈다.
 
 ## 검사
-- (작업 끝에 채움)
+- `pnpm check`(TEST_DATABASE_URL): 포맷·린트·타입·모듈 경계 통과, 파일 크기는 위 `app.ts` 하나로 실패(이 줄기 밖). 그 뒤 단계를 따로 돌렸다: 다국어·디자인 값·콘텐츠(core@63) 통과, `pnpm test` 590파일 4,556개 중 1개 실패(`gather/station.db.test.ts` — 낚시터를 물가 아닌 자리에 짓던 시험) → 고친 뒤 그 파일 3개 통과(Verified).
+- 빌드(화면 시험 전역 준비가 만든 것) + `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 108,340B / 상한 131,416B(Verified).
+- 화면 시험 `pnpm e2e production.spec.ts facilities.spec.ts`: 13개 통과(1.5분, Verified). 새 시험: 짓기 폼 물가 줄(물 표를 물줄기 하나로 바꿔 자리를 정함 — 물 없음 경고·[짓기] 막힘·한 칸 옮기면 물가), 생산 편집기 목장 탭 수 30·사다리 중분류 줄·T1 줄에 가죽.
+- 사진: `facilities-water-pastel-ko-390.png`(짓기 폼 물가 줄), `production-fishing_spot-neon-390.png`(생산 편집기) — 세션 임시 폴더에만 둔다.
 
 ## 사용자 결정 대기
 - 960(옛 `/dev/gather-tiers` 주소·건물 편집기 채집 구역): 추천 나, 사용자가 화면을 본 뒤.

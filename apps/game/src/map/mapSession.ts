@@ -25,6 +25,7 @@ import {
 import { crossedNeighbour } from "./neighbourTap.ts";
 import { startNeighbourVision } from "./neighbourVision.ts";
 import { createUnitMerger } from "./unitMerge.ts";
+import { startUnitModels } from "./unitModels.ts";
 import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
 import { neighbourSpots, viewMap, wantsAllNeighbours } from "./secondMapNeighbours.ts";
 import { fetchTerrain } from "./terrainLoader.ts";
@@ -177,7 +178,9 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     serverNow: options.serverNow,
     nearby,
   });
-  const looks = startBuildingLooks(engine, mapKey, { onLooks: (rows) => nearby.setLooks(rows) });
+  // 유닛 3D 외형(unitModels.ts): 걷는 유닛에 외형을 붙여 엔진이 가까운 유닛을 모델로 그리게 한다(건물 겉모습 다음, 엔진 바로 앞)
+  const unitModels = startUnitModels(engine, mapKey);
+  const looks = startBuildingLooks(unitModels.sink, mapKey, { onLooks: (rows) => nearby.setLooks(rows) });
   /** 지금 2차맵 탐사 칸을 가로채 경계 이음을 더해 넣는다 */
   const mainFogSink = (next: FeedSink): FeedSink => {
     mainSink = next;
@@ -257,6 +260,7 @@ export function startMapSession(options: MapSessionOptions): MapSession {
       detachGather();
       detachLeaders();
       looks.stop();
+      unitModels.stop();
     },
   };
 }

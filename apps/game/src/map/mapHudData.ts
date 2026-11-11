@@ -20,6 +20,12 @@ export function hudDataAttributes(
     "data-units": stats?.units,
     "data-moving": stats?.movingUnits,
     "data-drawn-units": stats?.drawnUnits,
+    // 캐릭터 모델로 그린 유닛 수·가까운 단계 수, 고른 유닛을 어떻게 그렸나(docs/adr/2026-11-11-character-3d.md 4절)
+    "data-characters": stats?.characters,
+    "data-character-lod0": stats?.characterLod0,
+    "data-selected-draw": stats?.selectedDraw ?? undefined,
+    "data-draw-calls": stats?.drawCalls,
+    "data-triangles": stats?.triangles,
     "data-terrain-ms": stats?.terrainBuildMs?.toFixed(0),
     "data-terrain-source": stats?.terrainSource ?? undefined,
     "data-rev": feed?.rev ?? undefined,

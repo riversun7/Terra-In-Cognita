@@ -3,7 +3,7 @@
 // - 채집 표시 위에서 시작한 끌기: 카메라가 움직이고 아무것도 고르지 않고 판도 열리지 않는다. 표시를 짧게 누르면 그 표시의 판이 열린다.
 // - 따라가기: 목록에서 내 사이보그를 고르면 카메라가 따라가고(data-follow="on"), 보내면 가는 동안 카메라 목표가 사이보그 자리를 따라간다
 //   (1초 요약의 같은 순간: 카메라 목표(m) ÷ 사이보그 자리(배치 칸) = 칸 크기가 x·z 같고 시간이 지나도 같다). 끌면 끊기고(lost) [따라가기]로 다시.
-// - 확대 단계: 사다리 "2차맵 n/5"(data-stage), [−]·[+]가 한 단계씩, 가장 가까이에서 [+]는 그대로.
+// - 확대 단계: 사다리 "2차맵 n/6"(data-stage, 962 나로 여섯 단계), [−]·[+]가 한 단계씩, 가장 가까이에서 [+]는 그대로.
 // - 사진: 사다리·[따라가기] 390 × 파스텔·다크.
 // 바뀜(docs/adr/2026-11-08-seamless-second-map.md WP-1·2): 늘 유닛 하나가 골라져 있고(들어오면 내 사이보그) 카메라가 그 유닛을 따라간다. 끌기는
 // 따라가기를 끊지 않고 카메라를 돌린다(목표점은 그대로, 방위가 바뀐다). [따라가기]·[선택 해제]는 없다. 채집 표시는 근처 판 자원 탭일 때만 보인다.
@@ -135,6 +135,9 @@ test.describe("지도 조작: 플레이어", () => {
     const cyborg = (await map.getAttribute("data-cyborg")) ?? "";
     await expect(map).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
     await expect(page.locator(READY_MARKER)).toHaveCount(0);
+    // 들어오면 6/6(짧은 변 15m)이라 둘레 채집 표시가 화면 밖일 수 있다: 한 단계 줄여 옛 가장 가까이(40m)쯤에서 찾는다
+    await page.locator(".zoom-ladder-out").click();
+    await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
     await showResourceMarkers(page);
     const marker = await findMarker(page);
     await page.waitForTimeout(1_100);
@@ -232,9 +235,9 @@ test.describe("지도 조작: 플레이어", () => {
     await openMap(page);
     const ladder = page.locator(".zoom-ladder");
     await expect(ladder).toHaveAttribute("data-rung", "local");
-    await expect(ladder).toHaveAttribute("data-stage", /^[1-5]$/);
+    await expect(ladder).toHaveAttribute("data-stage", /^[1-6]$/);
     await expect(ladder.locator(".zoom-ladder-caption")).toHaveText(message("ko", "zoom_caption_local"));
-    await expect(ladder.locator(".zoom-ladder-dots .zoom-ladder-dot")).toHaveCount(5);
+    await expect(ladder.locator(".zoom-ladder-dots .zoom-ladder-dot")).toHaveCount(6);
     // 카메라 범위(내 유닛 둘레)가 걸리면 가장 멀리가 바뀐다: 한 번 더 기다린 뒤 잰다
     await page.waitForTimeout(1_500);
     const start = Number(await ladder.getAttribute("data-stage"));
@@ -246,21 +249,21 @@ test.describe("지도 조작: 플레이어", () => {
       await zoomIn.click();
       await expect(ladder).toHaveAttribute("data-stage", String(start));
     }
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 7; i++) {
       await zoomIn.click();
       await page.waitForTimeout(150);
     }
-    await expect(ladder).toHaveAttribute("data-stage", "5");
+    await expect(ladder).toHaveAttribute("data-stage", "6");
     await expect(ladder.locator(".zoom-ladder-value")).toHaveText(
-      message("ko", "zoom_value_stage", { stage: 5 }),
+      message("ko", "zoom_value_stage", { stage: 6, stages: 6 }),
     );
     await expect(page).toHaveURL((url) => url.pathname === "/map");
-    // [−] 두 번 = 3단계
+    // [−] 두 번 = 4단계
     await out.click();
     await page.waitForTimeout(150);
     await out.click();
-    await expect(ladder).toHaveAttribute("data-stage", "3");
-    await expect(ladder.locator(".zoom-ladder-dot[data-on]")).toHaveCount(3);
+    await expect(ladder).toHaveAttribute("data-stage", "4");
+    await expect(ladder.locator(".zoom-ladder-dot[data-on]")).toHaveCount(4);
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -282,7 +285,7 @@ test.describe("지도 조작 사진", () => {
           await expect(page.locator(".map-nearby-tab[aria-pressed=true]")).toContainText(
             message(language, "nearby_tab_resources"),
           );
-          await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", /^[1-5]$/);
+          await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", /^[1-6]$/);
           await page.waitForTimeout(1_200);
           expect(await horizontalOverflow(page)).toEqual([]);
           expect(await smallTapTargets(page)).toEqual([]);

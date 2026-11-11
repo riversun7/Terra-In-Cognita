@@ -738,7 +738,7 @@
   "zoom_out": "축소",
   "zoom_caption_planet": "1차맵",
   "zoom_caption_local": "2차맵",
-  "zoom_value_stage": "{stage}/5",
+  "zoom_value_stage": "{stage}/{stages}",
   "zoom_value_system": "항성계",
   "zoom_value_local": "2차맵",
   "zoom_no_local_map": "화면 가운데에 들어갈 수 있는 2차맵이 없습니다. 도시 가까이에서 다시 키워 보세요.",

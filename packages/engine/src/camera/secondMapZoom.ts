@@ -1,13 +1,16 @@
-// 2차맵 확대 단계(1~5) — 카메라 거리로 정한다(순수 함수, 시험 대상). 사용자 지적 2026-11-08 "화면 축소확대배율 표시 없음",
+// 2차맵 확대 단계(1~6) — 카메라 거리로 정한다(순수 함수, 시험 대상). 사용자 지적 2026-11-08 "화면 축소확대배율 표시 없음",
 // docs/adr/2026-11-08-map-input.md 3절. 1차맵 확대 단계(planet/zoomStages.ts, ADR 2026-11-07-planet-view 1절)와 같은 규칙이다:
-// - 거리 한계 [가장 가까이, 가장 멀리]를 로그 눈금으로 다섯 등분한다(1 = 가장 멀리·2차맵 전체 ~ 5 = 가장 가까이). 단계마다 거리 비가 같아
+// - 거리 한계 [가장 가까이, 가장 멀리]를 로그 눈금으로 여섯 등분한다(1 = 가장 멀리·2차맵 전체 ~ 6 = 가장 가까이). 단계마다 거리 비가 같아
 //   [+]·[−] 한 번의 느낌이 같다. 한계는 화면 크기와 보기 범위(플레이어 카메라 묶기, 기획 정리 630)에 따라 바뀌므로 단계도 그 한계 기준이다.
-// - [+]·[−]는 이웃 단계의 대표 거리로 간다(1단계 = 가장 멀리, 2~5단계 = 띠의 기하 평균). 5단계에서 [+]는 가장 가까이까지, 1단계에서 [−]는
+// - [+]·[−]는 이웃 단계의 대표 거리로 간다(1단계 = 가장 멀리, 2~6단계 = 띠의 기하 평균). 6단계에서 [+]는 가장 가까이까지, 1단계에서 [−]는
 //   가장 멀리까지 간 뒤 한 번 더 누르면 끝(null) = 화면이 이 2차맵 자리의 1차맵 5단계로 넘어간다(D-6018).
+// - 단계 수: 1차맵은 다섯, 2차맵은 여섯이다. 가장 가까이를 화면 짧은 변 40m → 15m로 당기며(기술 질문 962 나) 단계를 하나 더했다 —
+//   단계마다 거리 비(휴대폰 플레이어 약 2배)가 옛 다섯 단계와 거의 같아 1~5단계는 옛 느낌 그대로, 6단계가 새로 가까운 단계다
+//   (docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-11, 962)").
 // 1차맵 모듈을 가져오지 않는다: 2차맵 진입점(@terra/engine)에 행성 타일 코드가 묶이지 않게 같은 식을 따로 둔다.
 
-/** 2차맵 확대 단계 수(1차맵과 같다 — 사다리 점 다섯 개) */
-export const LOCAL_ZOOM_STAGES = 5;
+/** 2차맵 확대 단계 수(사다리 점 여섯 개 — 1차맵은 다섯) */
+export const LOCAL_ZOOM_STAGES = 6;
 /** 끝에 닿았다고 보는 여유(상대값) */
 const EDGE_EPSILON = 1e-6;
 
@@ -19,13 +22,13 @@ export interface DistanceRange {
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
-/** 단계 s(2~5)가 되는 거리 상한(m): 거리 < 상한이면 s단계 이상 */
+/** 단계 s(2~6)가 되는 거리 상한(m): 거리 < 상한이면 s단계 이상 */
 function stageBelow(stage: number, range: DistanceRange): number {
   const ratio = range.minDistance / range.maxDistance;
   return range.maxDistance * ratio ** ((stage - 1) / LOCAL_ZOOM_STAGES);
 }
 
-/** 거리 → 단계(1 = 가장 멂 ~ 5 = 가장 가까움). 한계가 한 점이면(줄일 수 없음) 5 */
+/** 거리 → 단계(1 = 가장 멂 ~ 6 = 가장 가까움). 한계가 한 점이면(줄일 수 없음) 가장 가까운 단계 */
 export function localZoomStage(distance: number, range: DistanceRange): number {
   if (range.maxDistance <= range.minDistance * (1 + EDGE_EPSILON)) return LOCAL_ZOOM_STAGES;
   let stage = 1;

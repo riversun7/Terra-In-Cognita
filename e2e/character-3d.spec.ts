@@ -1,7 +1,7 @@
 // 2차맵 캐릭터 3D 모델 화면 시험 — docs/adr/2026-11-11-character-3d.md 4절(사용자 요청 2026-11-11 "캐릭터 … 폴리곤 3d로 … 2차맵에서도 사용가능하게").
 // - player: 2차맵에 들어오면(내 사이보그가 골라져 있고 가장 가까운 확대) 내 사이보그는 캡슐이 아니라 3D 모델로 그려진다
 //   (data-selected-draw = character0·character1, data-characters ≥ 1). 멀리 줄이면 캡슐·점으로 돌아간다(모델 0).
-//   넓은 화면(1440)은 가까운 단계(character0), 좁은 화면(390)은 키가 작아 먼 단계(character1)다.
+//   넓은 화면(1440)은 가까운 단계(character0). 좁은 화면(390)도 가장 가까이(6/6, 짧은 변 15m — 962 나)는 가까운 단계이고 5/6은 먼 단계(character1)다.
 // - 서버: world.unitLooks가 내 사이보그의 외형을 준다(맞는 외형 모양).
 // - 측정(E2E_MEASURE=1, 작업 기록용): 도시 2차맵에서 가까이·멀리 그리기 호출·삼각형·엔진 p95·JS 메모리(헤드리스 SwiftShader라 휴대폰 값 아님).
 // - 사진: 가까이 본 2차맵 390·1440 × 파스텔.
@@ -27,7 +27,7 @@ async function openMap(page: Page, search = ""): Promise<string> {
   const cyborg = (await screen.getAttribute("data-cyborg")) ?? "";
   expect(cyborg).toMatch(/^\d+$/);
   await expect(screen).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
-  await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5", { timeout: 15_000 });
+  await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "6", { timeout: 15_000 });
   return cyborg;
 }
 
@@ -37,7 +37,7 @@ const stat = async (page: Page, name: string): Promise<number> =>
 /** 확대 사다리의 [−]를 눌러 단계 stage까지 줄인다 */
 async function zoomOutTo(page: Page, stage: number): Promise<void> {
   const ladder = page.locator(".zoom-ladder");
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 7; i++) {
     if (Number(await ladder.getAttribute("data-stage")) <= stage) break;
     await ladder.locator(".zoom-ladder-out").click();
     await page.waitForTimeout(600);
@@ -84,15 +84,15 @@ async function readStats(page: Page, label: string): Promise<void> {
   console.log(`[character-3d] ${label} ${values.join(" ")} jsHeapMB=${String(heapMb)}`);
 }
 
-/** 측정: 모델 켬(기본)·끔(?unit-models=0)으로 2차맵을 열어 5/5·3/5·1/5에서 잰다 */
+/** 측정: 모델 켬(기본)·끔(?unit-models=0)으로 2차맵을 열어 6/6·3/6·1/6에서 잰다 */
 async function measure(page: Page, models: boolean): Promise<void> {
   await openMap(page, models ? "" : "?unit-models=0");
   const label = models ? "models on" : "models off";
-  await readStats(page, `${label} 5/5`);
+  await readStats(page, `${label} 6/6`);
   await zoomOutTo(page, 3);
-  await readStats(page, `${label} 3/5`);
+  await readStats(page, `${label} 3/6`);
   await zoomOutTo(page, 1);
-  await readStats(page, `${label} 1/5`);
+  await readStats(page, `${label} 1/6`);
 }
 
 test.describe("2차맵 캐릭터 모델: 넓은 화면", () => {
@@ -105,12 +105,19 @@ test.describe("2차맵 캐릭터 모델: 넓은 화면", () => {
     test.setTimeout(90_000);
     const cyborg = await openMap(page);
     const screen = page.locator(".map-screen");
-    // 가까이(5/5): 고른 유닛(내 사이보그)이 가까운 단계 모델이다. 모델 수 ≥ 1, 가까운 단계 수 ≥ 1
+    // 가까이(6/6): 고른 유닛(내 사이보그)이 가까운 단계 모델이다. 모델 수 ≥ 1, 가까운 단계 수 ≥ 1
     await expect(screen).toHaveAttribute("data-selected-draw", "character0", { timeout: 15_000 });
     expect(await stat(page, "data-characters")).toBeGreaterThanOrEqual(1);
     expect(await stat(page, "data-character-lod0")).toBeGreaterThanOrEqual(1);
-    // 모델로 그린 유닛도 그린 유닛 수에 든다
-    expect(await stat(page, "data-drawn-units")).toBeGreaterThanOrEqual(await stat(page, "data-characters"));
+    // 모델로 그린 유닛도 그린 유닛 수에 든다 — 같은 1초 요약에서 둘을 함께 읽는다(따로 읽으면 사이에 요약이 바뀐다:
+    // 6/6은 화면이 좁아 걷는 유닛이 화면 끝을 자주 드나든다)
+    const together = await page
+      .locator(".map-screen")
+      .evaluate((element) => [
+        Number(element.getAttribute("data-drawn-units")),
+        Number(element.getAttribute("data-characters")),
+      ]);
+    expect(together[0]).toBeGreaterThanOrEqual(together[1] ?? 0);
 
     // 서버가 내 사이보그의 외형을 준다(world.unitLooks)
     const mapKey = (await screen.getAttribute("data-map-key")) ?? "";
@@ -154,13 +161,13 @@ test.describe("2차맵 캐릭터 모델: 넓은 화면", () => {
         expect.objectContaining({ unitIds: expect.arrayContaining([Number(cyborg)]) }),
       ]),
     );
-    // 중간(3/5): 캡슐로 그려도 같은 고리
-    await zoomOutTo(page, 3);
+    // 중간(2/6 — 넓은 화면 3/6은 키가 모델 문턱 9px 둘레라 모델일 수도 있다): 캡슐로 그려도 같은 고리
+    await zoomOutTo(page, 2);
     await expect(screen).toHaveAttribute("data-selected-draw", /^(capsule|icon)$/, { timeout: 15_000 });
     if ((await screen.getAttribute("data-selected-draw")) === "capsule")
       expect(await stat(page, "data-nation-rings")).toBeGreaterThanOrEqual(1);
 
-    // 멀리(1/5): 모델을 그리지 않는다 — 내 사이보그는 캡슐이나 점
+    // 멀리(1/6): 모델을 그리지 않는다 — 내 사이보그는 캡슐이나 점
     await zoomOutTo(page, 1);
     await expect(screen).toHaveAttribute("data-selected-draw", /^(capsule|icon)$/, { timeout: 15_000 });
     await expect(screen).toHaveAttribute("data-characters", "0");
@@ -184,13 +191,21 @@ test.describe("2차맵 캐릭터 모델: 넓은 화면", () => {
 test.describe("2차맵 캐릭터 모델: 좁은 화면", () => {
   test.use({ account: "player", ...VIEWPORTS.phone });
 
-  test("390에서는 키가 작아 먼 단계 모델로 그린다", async ({ page, deviceErrors }) => {
+  test("390 가장 가까이(6/6, 짧은 변 15m)는 키 약 47px라 가까운 단계 모델, 5/6(옛 가장 가까이쯤)은 먼 단계", async ({
+    page,
+    deviceErrors,
+  }) => {
     test.setTimeout(90_000);
     await openMap(page);
     const screen = page.locator(".map-screen");
-    await expect(screen).toHaveAttribute("data-selected-draw", /^character[01]$/, { timeout: 15_000 });
+    // 962 나: 휴대폰에서도 가장 가까이는 얼굴·장식이 보이는 가까운 단계(키 ≥ LOD0_MIN_PX 28px)
+    await expect(screen).toHaveAttribute("data-selected-draw", "character0", { timeout: 15_000 });
     expect(await stat(page, "data-characters")).toBeGreaterThanOrEqual(1);
+    expect(await stat(page, "data-character-lod0")).toBeGreaterThanOrEqual(1);
     await shot(page, "character-3d-map-close-390-pastel");
+    // 한 단계 줄이면(짧은 변 약 30~60m) 키가 28px 아래라 먼 단계(옛 가장 가까운 화면과 같은 그림)
+    await zoomOutTo(page, 5);
+    await expect(screen).toHaveAttribute("data-selected-draw", "character1", { timeout: 15_000 });
     expect(deviceErrors).toEqual([]);
   });
 });

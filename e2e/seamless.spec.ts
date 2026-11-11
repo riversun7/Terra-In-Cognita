@@ -191,8 +191,10 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
       .evaluate((element) => element.setAttribute("data-e2e-mark", "kept"));
     await page.waitForTimeout(1_200);
     const [bx = 0, bz = 0] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
-    // 한 단계 줄여 둔다: 걸어서 넘으면 확대는 그대로다(사용자 지적 2026-11-11 "다음 맵으로 이동시 확대배율이 유지되게" — 5/5는 화면을 열 때만)
+    // 두 단계 줄여 둔다: 걸어서 넘으면 확대는 그대로다(사용자 지적 2026-11-11 "다음 맵으로 이동시 확대배율이 유지되게" — 6/6은 화면을 열 때만)
     const ladder = page.locator(".zoom-ladder");
+    await expect(ladder).toHaveAttribute("data-stage", "6");
+    await ladder.locator(".zoom-ladder-out").click();
     await expect(ladder).toHaveAttribute("data-stage", "5");
     await ladder.locator(".zoom-ladder-out").click();
     await expect(ladder).toHaveAttribute("data-stage", "4");
@@ -217,7 +219,7 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     });
     await expect(map).toHaveAttribute("data-map-key", String(east), { timeout: 5_000 });
     await expect(map).toHaveAttribute("data-switched", "in-place");
-    // 넘어도 확대 단계는 그대로(4/5)
+    // 넘어도 확대 단계는 그대로(4/6)
     await page.waitForTimeout(600);
     await expect(ladder).toHaveAttribute("data-stage", "4");
     await expect(page).toHaveURL(
@@ -256,6 +258,9 @@ test.describe("옆 2차맵 땅 누르기", () => {
     if (!box) throw new Error("no canvas");
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height / 2;
+    // 6/6(짧은 변 15m)에서 한 단계 줄여 옛 가장 가까이(40m)쯤에서 휠로 줄인다
+    await page.locator(".zoom-ladder-out").click();
+    await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
     await page.mouse.move(cx, cy);
     for (let k = 0; k < 3; k++) {
       await page.mouse.wheel(0, 400);
@@ -298,7 +303,9 @@ test.describe("이웃 안개 사진", () => {
         const rig = await rigSocket(page);
         await keepMyUnits(page);
         await openAtEdge(page, rig);
-        // 멀리 보아 경계 양쪽이 보이게(가운데 = 내 사이보그)
+        // 멀리 보아 경계 양쪽이 보이게(가운데 = 내 사이보그). 6/6에서 한 단계 줄인 뒤 휠로
+        await page.locator(".zoom-ladder-out").click();
+        await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
         const box = await page.locator(".map-view canvas").boundingBox();
         if (!box) throw new Error("no canvas");
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -470,7 +477,7 @@ test.describe("걸어서 넘기", () => {
       }
       if (!edge) throw new Error("동쪽 변 앞에 설 자리가 없습니다");
 
-      // 2. 플레이어 화면(운영자 모드 끔)을 열고 한 단계 줄여 둔다
+      // 2. 플레이어 화면(운영자 모드 끔)을 열고 두 단계 줄여 둔다(6/6 → 4/6)
       const loads = countLoads(page);
       await page.goto("/map?map-probe=1&second-map-sky=off&pixel-ratio=1");
       const map = page.locator(".map-screen[data-map-key]");
@@ -480,6 +487,8 @@ test.describe("걸어서 넘기", () => {
       await expect(map).toHaveAttribute("data-operator", "off");
       await expect(map).toHaveAttribute("data-follow", "on", { timeout: 15_000 });
       const ladder = page.locator(".zoom-ladder");
+      await expect(ladder).toHaveAttribute("data-stage", "6");
+      await ladder.locator(".zoom-ladder-out").click();
       await expect(ladder).toHaveAttribute("data-stage", "5");
       await ladder.locator(".zoom-ladder-out").click();
       await expect(ladder).toHaveAttribute("data-stage", "4");

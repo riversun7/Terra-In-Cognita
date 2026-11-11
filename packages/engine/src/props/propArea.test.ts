@@ -5,6 +5,7 @@ import {
   cameraLimitsFor,
   clampCamera,
   groundUnder,
+  tiltDistance,
 } from "../camera/cameraMath.ts";
 import { insideDistance, polygonArea, propArea } from "./propArea.ts";
 
@@ -12,10 +13,10 @@ const PHONE: Viewport = { width: 411, height: 784 };
 const MAP = 128 * 11.7;
 const limits = cameraLimitsFor(MAP, PHONE);
 
-/** 확대 5단계 근처(가장 가까이 × 1.5) 카메라 — 그린 기울기는 clampCamera가 눕힌다 */
+/** 확대 5단계 근처(화면 짧은 변 약 60m = 눕힘 기준 × 1.5) 카메라 — 그린 기울기는 clampCamera가 눕힌다 */
 function closeCamera(yaw = 0): CameraState {
   return clampCamera(
-    { targetX: 700, targetY: 0, targetZ: 700, yaw, pitch: Math.PI / 4, distance: limits.minDistance * 1.5 },
+    { targetX: 700, targetY: 0, targetZ: 700, yaw, pitch: Math.PI / 4, distance: tiltDistance(limits) * 1.5 },
     limits,
   );
 }

@@ -55,6 +55,12 @@ const DOT_PX = 7;
 const SELECTED_DOT_PX = 13;
 /** 선택 링이 화면에서 가장 작을 때의 반지름(CSS px) */
 const RING_MIN_PX = 14;
+/**
+ * 선택 링 그리는 차례: 깊이를 쓰지 않으므로 땅을 다 그린 뒤에 그린다. 불투명 물체는 renderOrder가 같으면 재질 번호 차례라, 링보다 나중에 만든
+ * 지형 재질(이웃 2차맵 지형, 걸어 넘은 뒤 지금 지형으로 들인 이웃 지형)이 링을 덮었다(화소로 확인 — docs/adr/2026-11-11-character-3d.md
+ * "바뀜 (2026-11-11, 962)"). 나라 색 고리(18, nationRings.ts)보다 뒤, 경로 고리(19, routeView.ts)보다 앞
+ */
+export const SELECTION_RING_RENDER_ORDER = 18.5;
 /** 화면 밖 거르기에서 경계 구를 넉넉히(m) — 외곽선 두께 등 */
 const CULL_MARGIN_M = 0.5;
 
@@ -137,6 +143,7 @@ export class UnitView {
     this.dots.renderOrder = 20;
 
     this.ring = new Mesh(this.ringGeometry, this.ringMaterial);
+    this.ring.renderOrder = SELECTION_RING_RENDER_ORDER;
     this.selectedHull = new Mesh(this.geometry, this.highlightMaterial);
     this.selectedHull.matrixAutoUpdate = false;
 

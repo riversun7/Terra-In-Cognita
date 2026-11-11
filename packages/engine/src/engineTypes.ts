@@ -53,7 +53,8 @@ export interface SecondMapEngineOptions {
   /** 하늘(낮밤) 모드 — 1차맵과 같은 모양(구름은 쓰지 않는다). 없으면 끔 = 지금 고정 빛 */
   sky?: PlanetSkyMode;
   /**
-   * 처음 카메라 거리 = 가장 가까운 거리 × 이 값(기본 1.75: 화면 짧은 변 약 70m). 개발자 2차맵 시험은 고저를 보려고 멀리서 시작한다
+   * 처음 카메라 거리 = 가장 가까운 거리(화면 짧은 변 15m) × 이 값(기본 70 ÷ 15: 화면 짧은 변 약 70m). 1이면 최대 확대(6단계 끝).
+   * 개발자 2차맵 시험은 고저를 보려고 멀리서 시작한다
    */
   initialZoom?: number;
   onStatus?: (status: EngineStatus) => void;

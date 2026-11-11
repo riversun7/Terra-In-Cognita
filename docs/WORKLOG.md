@@ -9,6 +9,7 @@
 | 2026-11-11 23:08 | 첫 접속 다듬기 — 다시 굴리기 5번·운영진 제한 없음, 속성 옮기기, 나라 카드 자세한 정보 | Claude Code | [11-2308-creation-tweaks](worklog/2026/11/11-2308-creation-tweaks.md) |
 | 2026-11-11 22:00 | 가문 가입·귀화 따라가기·운영자 이름 되돌리기 — 질문 981~986 답 | Claude Code | [11-2200-house-2](worklog/2026/11/11-2200-house-2.md) |
 | 2026-11-11 21:57 | 2차맵 확대 6단계(가장 가까이 15m)·고른 표시 고리 땅 가림 고침 | Claude Code | [11-2157-map-zoom-close](worklog/2026/11/11-2157-map-zoom-close.md) |
+| 2026-11-11 21:50 | NAS 고정 국가 16개(측정 뒤) — 세계 새로 시작 준비 | Claude Code | [11-2150-nas-16-nations](worklog/2026/11/11-2150-nas-16-nations.md) |
 | 2026-11-11 21:40 | 2026-11-11 묶음 합치기 (행성 범위·생산 6종·캐릭터 3D·2차맵 경계·세력 정체성·국력 등급 + 후속 둘) | Claude Code | [11-2140-batch-1111-merge](worklog/2026/11/11-2140-batch-1111-merge.md) |
 | 2026-11-11 20:30 | 국력 등급 916~925 답 반영 — 경비대 다시 채우기(920 나)·경비대 표시(920 라) | Claude Code | [11-2030-nation-power-2](worklog/2026/11/11-2030-nation-power-2.md) |
 | 2026-11-11 20:30 | 가문 창설·신고·자동 막기 — 플레이어 세력 정체성 2(질문 926~935 답) | Claude Code | [11-2030-faction-identity-2](worklog/2026/11/11-2030-faction-identity-2.md) |

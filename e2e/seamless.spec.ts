@@ -727,6 +727,10 @@ test.describe("옆 2차맵 미리 띄우기", () => {
       for (const code of codes) expect(code).toBe("not_visible");
       // 아직 넘지 않았다: 지금 2차맵 그대로
       await expect(map).toHaveAttribute("data-map-key", String(home.mapKey));
+      // 경계 너머 내 시야 몫이 밝은 이웃(멀리 보아 경계 양쪽이 보이게)
+      await page.locator(".zoom-ladder-out").click();
+      await page.waitForTimeout(1_500);
+      await shot(page, "edge-preopen-vision-390");
       expect(deviceErrors).toEqual([]);
     } finally {
       // 다음 시험이 같은 사이보그를 쓴다: 처음 자리로 돌려보낸다(기다리지 않는다)

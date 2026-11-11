@@ -17,7 +17,7 @@ import {
   takeRecruitSlot,
   takenNow,
 } from "../society/recruitment.ts";
-import { JOB_GATHER, PHASE_WORK } from "../settle/settle.ts";
+import { JOB_GATHER, JOB_NONE, PHASE_WORK } from "../settle/settle.ts";
 import type { SimHooks } from "./npcRun.ts";
 import { type SimCity, type SimFaction, type SimUnit, type SimWorld, streamRng } from "./world.ts";
 
@@ -42,8 +42,11 @@ export interface RecruitView {
 export interface SocietyRecruit {
   /** 도시 주인(세력)이 그 도시에서 지금 보는 카드. 도시가 없거나 주인이 아니면 undefined */
   view(hirer: SimFaction, cityId: number, nowMs: number): RecruitView | undefined;
-  /** 카드 한 장을 산다(도시 주인만). 산 휴먼. 이미 샀거나 자리가 틀리거나 국고가 모자라면 undefined */
-  hire(hirer: SimFaction, cityId: number, slot: number, nowMs: number): SimUnit | undefined;
+  /**
+   * 카드 한 장을 산다(도시 주인만). 산 휴먼. 이미 샀거나 자리가 틀리거나 국고가 모자라면 undefined. guard면 경비대로 들인다(직무 없음 —
+   * 세계 차리기의 경비대와 같은 모양, 기획 답 920 나)
+   */
+  hire(hirer: SimFaction, cityId: number, slot: number, nowMs: number, guard?: boolean): SimUnit | undefined;
   /** 하루 끝: 오늘 센 세력별 고용 수를 "어제"로 넘긴다(하루 줄이 읽는다) */
   rollDay(): void;
   /** 지난 하루 끝까지 하루 동안 그 세력이 고용한 수 */
@@ -95,7 +98,7 @@ export function createSocietyRecruit(o: SocietyRecruitOptions): SocietyRecruit {
       if (!city || city.owner !== hirer.id) return undefined;
       return viewOf(hirer, city, nowMs);
     },
-    hire(hirer, cityId, slot, nowMs) {
+    hire(hirer, cityId, slot, nowMs, guard) {
       const city = world.cities.get(cityId);
       if (!hirer.alive || !city || city.owner !== hirer.id) return undefined;
       const view = viewOf(hirer, city, nowMs);
@@ -125,7 +128,7 @@ export function createSocietyRecruit(o: SocietyRecruitOptions): SocietyRecruit {
         id,
         city: city.id,
         owner: hirer.id,
-        job: { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 0 },
+        job: { job: guard === true ? JOB_NONE : JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 0 },
         pos: { x: rng.nextInt(POS_SPAN), y: rng.nextInt(POS_SPAN) },
         tripStep: 0,
         eventId: undefined,
@@ -134,6 +137,7 @@ export function createSocietyRecruit(o: SocietyRecruitOptions): SocietyRecruit {
         lifespanMs: lifespanMs(rng.nextInt(10_000), c),
         recruit: recruitProfileOf(card, c.recruit),
         rebirths: 0,
+        ...(guard === true ? { guard: true } : {}),
       };
       world.units.set(unit.id, unit);
       hirer.units.add(unit.id);

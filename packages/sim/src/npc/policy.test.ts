@@ -114,19 +114,46 @@ describe("구인 규칙식(D-469, [임시] 목표 = 주거, 예비금 = 카드 �
     { slot: 3, total: 30, cost: 50n },
   ];
   const base = { cards, taken: 0, population: 8, housing: 10, treasury: 10_000n };
+  const slots = (...args: Parameters<typeof recruitPicks>): number[] =>
+    recruitPicks(...args).map((pick) => pick.slot);
 
   it("모자란 만큼만, 토탈 스탯 높은 차례(같으면 싼 것)로 산다", () => {
-    expect(recruitPicks(base, c)).toEqual([2, 1]);
-    expect(recruitPicks({ ...base, population: 10 }, c)).toEqual([]);
-    expect(recruitPicks({ ...base, population: 0 }, c)).toEqual([2, 1, 0, 3]);
+    expect(slots(base, c)).toEqual([2, 1]);
+    expect(slots({ ...base, population: 10 }, c)).toEqual([]);
+    expect(slots({ ...base, population: 0 }, c)).toEqual([2, 1, 0, 3]);
   });
 
   it("이미 산 칸은 건너뛰고, 국고가 카드 값 × 예비 ‰ 아래면 그 카드는 사지 않는다", () => {
-    expect(recruitPicks({ ...base, taken: 0b0100 }, c)).toEqual([1, 0]);
+    expect(slots({ ...base, taken: 0b0100 }, c)).toEqual([1, 0]);
     // 국고 150: 70 × 2 = 140 ≤ 150 → 산 뒤 80, 78 × 2 > 80 → 못 삼, 60 × 2 > 80, 50 × 2 > 80
-    expect(recruitPicks({ ...base, population: 0, treasury: 150n }, c)).toEqual([2]);
-    expect(recruitPicks({ ...base, treasury: 0n }, c)).toEqual([]);
+    expect(slots({ ...base, population: 0, treasury: 150n }, c)).toEqual([2]);
+    expect(slots({ ...base, treasury: 0n }, c)).toEqual([]);
     // 목표 ‰ = 500이면 주거 10의 절반(5)까지만
-    expect(recruitPicks({ ...base, population: 4 }, { ...c, recruitTargetPm: 500 })).toEqual([2]);
+    expect(slots({ ...base, population: 4 }, { ...c, recruitTargetPm: 500 })).toEqual([2]);
+  });
+
+  it("경비대 다시 채우기(920 나): 모자란 경비대를 좋은 카드부터 먼저 사고, 등급 값에서 멈춘다", () => {
+    // 주거가 차 있어도(휴먼 10/10) 경비대 3 → 목표 5 = 둘만 경비대로 산다
+    expect(recruitPicks({ ...base, population: 10, guards: 3, guardTarget: 5 }, c)).toEqual([
+      { slot: 2, guard: true },
+      { slot: 1, guard: true },
+    ]);
+    // 경비대가 이미 목표면 사지 않는다(휴먼 목표도 차 있다)
+    expect(recruitPicks({ ...base, population: 10, guards: 5, guardTarget: 5 }, c)).toEqual([]);
+    // 휴먼 8/10, 경비대 4/5 → 경비대 하나(가장 좋은 카드) 다음 휴먼 하나(경비대도 휴먼이라 모자람 2 → 1)
+    expect(recruitPicks({ ...base, guards: 4, guardTarget: 5 }, c)).toEqual([
+      { slot: 2, guard: true },
+      { slot: 1, guard: false },
+    ]);
+    // 목표가 없으면 경비대를 사지 않는다(옛 결과 그대로)
+    expect(recruitPicks({ ...base, guards: 0 }, c).every((pick) => !pick.guard)).toBe(true);
+  });
+
+  it("경비대도 같은 값·예비금 규칙: 국고가 모자라면 채우지 않는다", () => {
+    expect(recruitPicks({ ...base, population: 10, guards: 0, guardTarget: 5, treasury: 0n }, c)).toEqual([]);
+    // 국고 150: 경비대 하나(70)만 산다
+    expect(recruitPicks({ ...base, population: 10, guards: 0, guardTarget: 5, treasury: 150n }, c)).toEqual([
+      { slot: 2, guard: true },
+    ]);
   });
 });

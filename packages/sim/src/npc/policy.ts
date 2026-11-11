@@ -120,10 +120,19 @@ export function independenceYes(traits: Traits, atWarWithRuler: boolean, c: NpcC
   return atWarWithRuler || traits.commerce >= c.voteCommerce;
 }
 
+/** 구인 규칙식이 고른 카드 한 장: 자리와 경비대로 들일지(기획 답 920 나) */
+export interface RecruitPick {
+  readonly slot: number;
+  readonly guard: boolean;
+}
+
 /**
  * 구인 규칙식(D-469, [임시] 기술 출발값): 도시 휴먼이 목표(주거 × recruitTargetPm ÷ 1000)보다 적으면 그 창의 남은 카드를 토탈 스탯이 높은
  * 차례로(같으면 싼 것, 같으면 앞 자리) 산다. 카드 하나를 살 때마다 국고가 그 값 × recruitReservePm ÷ 1000 이상이어야 한다.
- * 산 자리 목록(산 차례). 사람(유저 세력)이면 이 자리에 유저 명령이 들어간다
+ * 경비대 다시 채우기(기획 답 920 나, docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11, 916~925 답)"): 그 도시 경비대가 등급 값
+ * (guardTarget)보다 적으면 모자란 수만큼 먼저(좋은 카드부터) 경비대로 산다. 값·예비금은 같은 카드 규칙이고, 경비대도 휴먼이라 산 만큼 휴먼
+ * 목표의 모자람도 준다(경비대 채우기는 주거 목표와 따로 — 주거가 차 있어도 등급 값까지 채운다). population은 경비대를 포함한 그 도시 휴먼 수.
+ * 산 차례대로 돌려준다. 사람(유저 세력)이면 이 자리에 유저 명령이 들어간다
  */
 export function recruitPicks(
   input: {
@@ -132,22 +141,29 @@ export function recruitPicks(
     readonly population: number;
     readonly housing: number;
     readonly treasury: bigint;
+    /** 그 도시 경비대 수(population 안에 든다). 없으면 0 */
+    readonly guards?: number | undefined;
+    /** 경비대 목표(등급 값). 없거나 0이면 경비대를 사지 않는다 */
+    readonly guardTarget?: number | undefined;
   },
   c: NpcCoefficients,
-): number[] {
+): RecruitPick[] {
   const target = Math.floor((input.housing * c.recruitTargetPm) / 1000);
   let gap = target - input.population;
+  let guardGap = Math.max(0, (input.guardTarget ?? 0) - (input.guards ?? 0));
   let treasury = input.treasury;
-  const picks: number[] = [];
+  const picks: RecruitPick[] = [];
   const open = input.cards
     .filter((card) => (input.taken & (1 << card.slot)) === 0)
     .toSorted((a, b) => b.total - a.total || (a.cost < b.cost ? -1 : a.cost > b.cost ? 1 : a.slot - b.slot));
   for (const card of open) {
-    if (gap <= 0) break;
+    if (gap <= 0 && guardGap <= 0) break;
     if (treasury * 1000n < card.cost * BigInt(c.recruitReservePm) || treasury < card.cost) continue;
-    picks.push(card.slot);
+    const guard = guardGap > 0;
+    picks.push({ slot: card.slot, guard });
     treasury -= card.cost;
     gap -= 1;
+    if (guard) guardGap -= 1;
   }
   return picks;
 }

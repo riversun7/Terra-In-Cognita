@@ -72,7 +72,9 @@ test.describe("관리자", () => {
     const other = page.locator(".rl-cities .rl-city[aria-pressed='false']").first();
     if ((await other.count()) > 0) {
       await other.click();
-      await expect(page).toHaveURL(/\/dev\/recruit\?city=\d+$/);
+      // 범위 줄이 고른 행성을 주소에 다시 적는다(?planet=, docs/adr/2026-11-11-planet-scope.md)
+      await expect(page).toHaveURL(/\/dev\/recruit\?city=\d+(&planet=[a-z0-9_]+)?$/);
+      await expect(page).toHaveURL(/[?&]planet=s2_test_planet$/);
       await expect(page.locator(".rl-cities .rl-city[aria-pressed='true']")).toHaveCount(1);
     }
     expect(deviceErrors).toEqual([]);

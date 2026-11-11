@@ -67,6 +67,8 @@ test.describe("운영자 콘솔 — admin", () => {
     await expect(page.locator(".ops-side .ops-identity")).toContainText("E2E");
     // 화폐 탭: 첫 화폐의 약어를 두 번째 화폐 약어로 바꾸면 거절, 새 약어면 저장
     await page.locator(".ops-tabs [role='tab']").nth(4).click();
+    // 화폐 줄을 받은 뒤에 약어를 읽는다(받기 전이면 빈 목록이라 "겹치는 약어"를 모른다)
+    await expect(page.locator(".ops-main .dev-table tbody tr").nth(1)).toBeVisible();
     const tickers = await page.locator(".ops-main .dev-table tbody tr td:nth-child(2)").allInnerTexts();
     await page.locator(".ops-main .dev-table tbody tr").first().locator("button").last().click();
     const edit = page.locator(".ops-inline-edit");

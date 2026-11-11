@@ -189,7 +189,6 @@ function FixedBar({
       <span className="scope-chip" data-kind={kind}>
         {KIND_TEXT[kind]()}
       </span>
-      {kind === "library" ? <PlanetStatusChip status="library" /> : null}
       <span className="scope-note">
         {note}
         {tail ? <span className="scope-tail"> {tail}</span> : null}

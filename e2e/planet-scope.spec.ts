@@ -270,6 +270,11 @@ test.describe("사진 390", () => {
     await page.goto("/dev/world-layout");
     await expect(bar(page)).toHaveAttribute("data-planet", PLAYABLE);
     await expect(page.locator(".wl-screen")).toHaveAttribute("data-status", "ready", { timeout: 30_000 });
+    // 행성 평면 지도(타일 24장)가 그려진 뒤에 찍는다
+    await expect(page.locator(".wl-screen")).toHaveAttribute("data-planet", "ready", { timeout: 90_000 });
+    await expect(page.locator(".wl-map .flat-map-canvas")).toHaveAttribute("data-paint-ms", /\d/, {
+      timeout: 15_000,
+    });
     expect(await horizontalOverflow(page)).toEqual([]);
     await shot(page, "planet-scope-world-layout-390-neon");
   });

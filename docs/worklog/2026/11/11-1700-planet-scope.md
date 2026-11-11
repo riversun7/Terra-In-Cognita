@@ -52,8 +52,20 @@
 - `ALL_PLANETS`("*")는 행성 ID 모양이 아니어야 한다(주소 `?planet=*`).
 - 범위 줄 조각은 `src/editor/` 밖(`src/scope/`)에 둔다: 운영자 콘솔 조각(미리 캐시됨)이 같이 써서 개발 전용 소스 규칙(`DEV_ONLY_SOURCE`)에 넣으면 `check-pwa`가 실패한다.
 
+## 검사
+- `TEST_DATABASE_URL=… pnpm check`: 통과(Verified — 시험 파일 582개·시험 4,490개 통과, 포맷·린트·타입·경계·파일 크기·다국어 6,119키·디자인 값·콘텐츠 `core@61`).
+- 새로 쓴 단위·DB 시험(Verified, 위 실행에 든다): `packages/shared/src/planetScope.test.ts` 3, `apps/server/src/world/playablePlanets.test.ts` 5, `apps/server/src/metrics.test.ts` 행성 줄 1, `apps/server/src/trpc/ops.test.ts` 행성 거르기·`planetScope.list` 2, `apps/server/src/ops/ops.db.test.ts`(행성 거르기·감사 기록 행성·행성별 합을 같은 시험에 더함), `apps/game/src/scope/` 4.
+- 빌드 + `node scripts/check-pwa.mjs`: 통과(Verified). `pnpm check:bundle`: 첫 화면 JS 108,227B / 상한 131,416B(상한 그대로). 범위 줄 조각 = `ScopeBar` 7.8kB(gzip 2.9kB) + `planetScopeStore` 2.7kB(gzip 1.4kB) + CSS(gzip 0.7kB), 미리 캐시된다.
+- 화면 시험(Verified, `TEST_DATABASE_URL=… pnpm e2e …`, 빌드한 서버):
+  - `planet-scope.spec.ts` 9개 통과(주소 `?planet=` 왕복·틀린 값 고침, 2차맵 시험 편집 전용 행성, 운영자 콘솔 거르기, 감사 기록 행성, 적용 대상, 플레이어 목록, 사진).
+  - `dev.spec.ts` 14개 통과(범위 줄 표 19화면 + 관리자 화면 포함), `world-layout` 6·`territory` 6·`second-map-lab` 6·`star-system` 12·`planet-editor` 15·`dev-stagebar` 10·`tuning` 33개 통과. 고친 뒤 `ops` 11·`recruit` 10개 통과.
+  - `recruit.spec.ts`: 처음 1개 실패(주소가 `?city=3&planet=…`로 끝남 — 이번 변경의 결과) → 시험이 `&planet=`을 받게 고침.
+  - `ops.spec.ts`: 처음 1개 실패("화폐 약어 겹침 거절") — 화폐 줄을 받기 전에 약어 목록을 읽어 빈 목록이 되고, 대신 쓰는 값 "PCB"가 `core@61` 이름 바꿈 뒤로 겹치지 않는다(Assumed: main에서도 같은 경쟁 — main에서 돌려 보지는 않았다). 줄을 기다린 뒤 읽게 고침.
+  - `battle-replay.spec.ts` 사진 8개 실패("no moment with effects" — 둘째 싸움 순간을 못 찾음): 시범 전투 자료에 달린 것이고 이 줄기는 전투·팩·머리 줄 밖을 바꾸지 않았다(Assumed: main에서도 같다 — main에서 돌려 보지는 않았다. 같은 파일의 재생 시험 1개는 통과). 고치지 않았다.
+- 사진(`/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/planet-scope-shots/`): `planet-scope-tuning-1440-{neon,light}.png`, `planet-scope-ops-1440-{neon,light}.png`, `planet-scope-world-layout-390-neon.png`. 눈으로 확인: 네온·라이트 1440에서 범위 줄·행성별 합 표, 390에서 행성 고르기가 두 줄로 접히고 넘치지 않음.
+- 미실행: 실제 휴대폰, NAS의 `nas-metrics` 실행(워크플로 문법만 읽음 — 행성 줄 grep·SQL은 NAS에서 돌려 보지 않았다, Unknown).
+
 ## 미검증·TODO·알려진 문제
-- 검사 결과는 아래 "검사" 절.
 - 미룸(ADR 5·6절): 플레이어 화면의 행성 상수(`map/PlanetMapScreen.tsx`·`start/StartCityMap.tsx` `PLANET_ID`, 지도 줄기 몫), 전투의 행성별 수(`world_battles`에 행성 칸 없음), 행성마다 다른 설정 칸.
 - 플레이 행성이 둘 이상일 때의 화면(행성 바꾸면 조회가 바뀜)은 시험하지 못했다(Unknown: 세계에 행성이 하나다). 서버 거르기는 다른 행성 ID로 빈 결과를 본다(DB 시험).
 - 주소로 바로 연 화면이 아닌 앱 안 이동에서, 기억한 행성과 주소 행성이 다르면 조회가 한 번 더 나갈 수 있다(Assumed: 코드 읽기 — 행성이 하나라 재현 못 함).

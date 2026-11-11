@@ -12,9 +12,9 @@ import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 /** 2차맵을 열고 자료·지형이 서고 내 사이보그가 골라질 때까지 기다린다 */
-async function openMap(page: Page): Promise<string> {
+async function openMap(page: Page, search = ""): Promise<string> {
   await rewriteTrpc(page, { "summary.get": hideSummary });
-  await page.goto("/map");
+  await page.goto(`/map${search}`);
   const screen = page.locator(".map-screen[data-map-key]");
   await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 30_000 });
   await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
@@ -37,6 +37,56 @@ async function zoomOutTo(page: Page, stage: number): Promise<void> {
     await page.waitForTimeout(600);
   }
   await expect(ladder).toHaveAttribute("data-stage", String(stage));
+}
+
+/** 끌어서 이어 그리게 한 뒤 1초 요약(유닛·모델 수, 그리기 호출, 삼각형, 엔진 p95, JS 힙)을 적는다 */
+async function readStats(page: Page, label: string): Promise<void> {
+  const screen = page.locator(".map-screen");
+  const box = await page.locator(".map-screen canvas").first().boundingBox();
+  if (box) {
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    for (let i = 0; i < 40; i++) {
+      await page.mouse.move(cx + ((i % 10) - 5) * 3, cy + ((i % 6) - 3) * 2);
+      await page.waitForTimeout(40);
+    }
+    await page.mouse.up();
+  }
+  await page.waitForTimeout(1_200);
+  const names = [
+    "data-units",
+    "data-drawn-units",
+    "data-characters",
+    "data-character-lod0",
+    "data-draw-calls",
+    "data-triangles",
+    "data-engine-p95",
+    "data-view-level",
+    "data-unit-mode",
+    "data-props",
+  ];
+  const values: string[] = [];
+  for (const name of names) values.push(`${name.slice(5)}=${String(await screen.getAttribute(name))}`);
+  const heapMb = await page.evaluate(() => {
+    const memory: unknown = Reflect.get(performance, "memory");
+    const used: unknown =
+      typeof memory === "object" && memory !== null ? Reflect.get(memory, "usedJSHeapSize") : null;
+    return typeof used === "number" ? Math.round(used / 1024 / 1024) : null;
+  });
+  console.log(`[character-3d] ${label} ${values.join(" ")} jsHeapMB=${String(heapMb)}`);
+}
+
+/** 측정: 모델 켬(기본)·끔(?unit-models=0)으로 2차맵을 열어 5/5·3/5·1/5에서 잰다 */
+async function measure(page: Page, models: boolean): Promise<void> {
+  await openMap(page, models ? "" : "?unit-models=0");
+  const label = models ? "models on" : "models off";
+  await readStats(page, `${label} 5/5`);
+  await zoomOutTo(page, 3);
+  await readStats(page, `${label} 3/5`);
+  await zoomOutTo(page, 1);
+  await readStats(page, `${label} 1/5`);
 }
 
 test.describe("2차맵 캐릭터 모델: 넓은 화면", () => {
@@ -86,53 +136,15 @@ test.describe("2차맵 캐릭터 모델: 넓은 화면", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("측정: 가까이·멀리 그리기 호출·삼각형·엔진 p95(E2E_MEASURE=1)", async ({ page }) => {
-    test.skip(process.env["E2E_MEASURE"] !== "1", "E2E_MEASURE=1일 때만 돈다");
-    test.setTimeout(120_000);
-    await openMap(page);
-    const screen = page.locator(".map-screen");
-    const read = async (label: string): Promise<void> => {
-      // 끌어서 이어 그리게 한 뒤 1초 요약을 읽는다
-      const box = await page.locator(".map-canvas, .map-screen canvas").first().boundingBox();
-      if (box) {
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-        await page.mouse.down();
-        for (let i = 0; i < 30; i++) {
-          await page.mouse.move(box.x + box.width / 2 + ((i % 10) - 5) * 4, box.y + box.height / 2);
-          await page.waitForTimeout(40);
-        }
-        await page.mouse.up();
-      }
-      await page.waitForTimeout(1_200);
-      const names = [
-        "data-units",
-        "data-drawn-units",
-        "data-characters",
-        "data-character-lod0",
-        "data-draw-calls",
-        "data-triangles",
-        "data-engine-p95",
-        "data-view-level",
-        "data-unit-mode",
-      ];
-      const values: Record<string, string | null> = {};
-      for (const name of names) values[name] = await screen.getAttribute(name);
-      const memory = await page.evaluate(() => {
-        const perf: unknown = performance;
-        const used: unknown =
-          typeof perf === "object" && perf !== null
-            ? Reflect.get(Reflect.get(perf, "memory") ?? {}, "usedJSHeapSize")
-            : null;
-        return typeof used === "number" ? Math.round(used / 1024 / 1024) : null;
-      });
-      console.log(`[character-3d] ${label} ${JSON.stringify(values)} jsHeapMB=${String(memory)}`);
-    };
-    await read("close 5/5");
-    await zoomOutTo(page, 3);
-    await read("mid 3/5");
-    await zoomOutTo(page, 1);
-    await read("far 1/5");
-  });
+  for (const models of ["off", "on"] as const) {
+    test(`측정(모델 ${models}): 가까이·중간·멀리 그리기 호출·삼각형·엔진 p95(E2E_MEASURE=1)`, async ({
+      page,
+    }) => {
+      test.skip(process.env["E2E_MEASURE"] !== "1", "E2E_MEASURE=1일 때만 돈다");
+      test.setTimeout(120_000);
+      await measure(page, models === "on");
+    });
+  }
 });
 
 test.describe("2차맵 캐릭터 모델: 좁은 화면", () => {

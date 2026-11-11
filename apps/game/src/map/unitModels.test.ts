@@ -9,6 +9,7 @@ import {
   isWalker,
   startUnitModels,
   unitModelsOf,
+  wantsUnitModels,
 } from "./unitModels.ts";
 
 const walker = (id: number): UnitSpawn => ({
@@ -137,6 +138,20 @@ describe("2차맵 유닛 외형 잇기", () => {
     await vi.advanceTimersByTimeAsync(UNIT_LOOKS_POLL_MS);
     expect(load.mock.calls.length).toBeGreaterThanOrEqual(3);
     for (const list of models) expect(list).toEqual([{ id: 1, look: characterLookForUnit(1, "commoner") }]);
+    link.stop();
+  });
+
+  it("[시험용] ?unit-models=0이면 외형을 넘기지 않는다(유닛 목록만 지나간다)", async () => {
+    expect(wantsUnitModels("")).toBe(true);
+    expect(wantsUnitModels("?unit-models=1")).toBe(true);
+    expect(wantsUnitModels("?pixel-ratio=2&unit-models=0")).toBe(false);
+    const { engine, calls } = fakeEngine();
+    const load = vi.fn(() => Promise.resolve(response([])));
+    const link = startUnitModels(engine, 1, { load, enabled: false });
+    link.sink.setUnits([walker(1)]);
+    await vi.advanceTimersByTimeAsync(UNIT_LOOKS_POLL_MS);
+    expect(calls).toEqual(["units:1"]);
+    expect(load).not.toHaveBeenCalled();
     link.stop();
   });
 });

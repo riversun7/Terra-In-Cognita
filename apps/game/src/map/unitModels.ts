@@ -21,6 +21,14 @@ export const WALKER_MAX_RADIUS_M = 0.5;
 /** 기본 외형 캐시 상한(유닛 ID → 외형). 넘으면 비운다 */
 const DEFAULT_CACHE_LIMIT = 4096;
 
+/**
+ * [시험용] 주소에 ?unit-models=0을 붙이면 유닛을 모델로 그리지 않는다(모두 캡슐·점 — 앞뒤를 견줘 재는 데 쓴다, pixelRatioParam.ts와 같은 방식)
+ */
+export const UNIT_MODELS_PARAM = "unit-models";
+export function wantsUnitModels(search: string): boolean {
+  return new URLSearchParams(search).get(UNIT_MODELS_PARAM) !== "0";
+}
+
 export function loadUnitLooks(mapKey: number, signal?: AbortSignal): Promise<MapUnitLooksResponse> {
   return api.world.unitLooks.query({ mapKey }, { signal: signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
 }
@@ -52,6 +60,8 @@ export interface UnitModels {
 
 export interface UnitModelsOptions {
   readonly load?: (mapKey: number, signal: AbortSignal) => Promise<MapUnitLooksResponse>;
+  /** false면 외형을 넘기지 않는다(유닛 목록만 지나간다 — 시험용 ?unit-models=0). 기본 true */
+  readonly enabled?: boolean;
 }
 
 /** 엔진(engine)에 유닛 외형을 이어 준다. 화면을 닫을 때 stop */
@@ -61,6 +71,8 @@ export function startUnitModels(
   options: UnitModelsOptions = {},
 ): UnitModels {
   const load = options.load ?? loadUnitLooks;
+  // 끈 채로는 아무것도 묻지 않고 그대로 넘긴다
+  if (options.enabled === false) return { sink: engine, stop: () => undefined };
   let units: readonly UnitSpawn[] = [];
   let known = new Map<number, CharacterLook>();
   const defaults = new Map<number, CharacterLook>();

@@ -2,7 +2,7 @@
 
 - 상태: 제안
 - 날짜: 2026-11-11
-- 관련: docs/adr/2026-11-01-first-login-cyborg.md(1·2·4절 외형), docs/adr/2026-10-28-unit-display-real-size.md(유닛 표현 단계), docs/adr/2026-11-08-building-art.md(코드로 만든 로우폴리 모델·도형별 인스턴싱), docs/adr/2026-10-28-s1-second-map.md "바뀜 (2026-11-09)"(가시거리 자동 조절), docs/adr/2026-10-29-app-shell.md 11절(첫 화면 JS 상한), 기획 D-6040·D-064·D-065
+- 관련: docs/adr/2026-11-01-first-login-cyborg.md(1·2·4절 외형), docs/adr/2026-10-28-unit-display-real-size.md(유닛 표현 단계), docs/adr/2026-11-08-building-art.md(코드로 만든 로우폴리 모델·도형별 인스턴싱), docs/adr/2026-10-28-s1-second-map.md "바뀜 (2026-11-09)"(가시거리 자동 조절), docs/adr/2026-10-29-app-shell.md 11절(첫 화면 JS 상한), 기획 D-529(사용자 요청 2026-11-11)·D-6040·D-064·D-065
 
 ## 배경
 

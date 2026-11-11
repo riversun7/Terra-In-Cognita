@@ -58,7 +58,7 @@ export function attachHouses(options: {
     warn(obj: object, message: string): void;
     error(obj: object, message: string): void;
   };
-}): { gateway: HouseGateway; afterNaturalize(userId: string): Promise<void> } {
+}): { gateway: HouseGateway; afterNaturalize: (userId: string) => Promise<void> } {
   const pool = options.db.$client;
   /** 사용자의 나라: 세계가 준비됐으면 월드 사이보그 기록, 아니면 DB */
   const nationOf = (userId: string): number | undefined | Promise<number | undefined> => {
@@ -93,7 +93,7 @@ export function attachHouses(options: {
   });
   return {
     gateway,
-    async afterNaturalize(userId) {
+    afterNaturalize: async (userId: string) => {
       const result = await followNation(follow, userId);
       if (result.movedTo !== null || result.removed.length > 0)
         options.log.info(

@@ -58,7 +58,11 @@ const fail = (code: HouseResultCode): HouseFoundResult => ({ ok: false, code });
 const memberFail = (code: HouseMemberResultCode): HouseMemberResult => ({ ok: false, code });
 
 /** 가입 메시지 하나를 서비스에 넘긴다 */
-function runMember(members: HouseMembers, userId: string, message: HouseMemberClientMessage) {
+function runMember(
+  members: HouseMembers,
+  userId: string,
+  message: HouseMemberClientMessage,
+): Promise<HouseMemberResult> {
   switch (message.t) {
     case "house_invite":
       return members.invite(userId, message.name);
@@ -70,7 +74,8 @@ function runMember(members: HouseMembers, userId: string, message: HouseMemberCl
       return members.withdraw(userId, message.requestId);
     case "house_leave":
       return members.leave(userId);
-    case "house_kick":
+    default:
+      // house_kick(남은 하나)
       return members.kick(userId, message.userId);
   }
 }

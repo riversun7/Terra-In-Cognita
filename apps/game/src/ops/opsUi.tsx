@@ -68,6 +68,7 @@ const RESULT_LABELS: { readonly [code: string]: () => string } = {
   short_taken: m.ops_res_short_taken,
   ticker_taken: m.ops_res_ticker_taken,
   player_owned: m.ops_res_player_owned,
+  no_house: m.ops_res_no_house,
 };
 
 export function resultText(code: string): string {

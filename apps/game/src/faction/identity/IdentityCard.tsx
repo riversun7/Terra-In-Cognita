@@ -2,14 +2,18 @@
 // [가문 창설 마치기], 아직이면 [가문 창설].
 // 운영자가 올린 마크를 내렸으면 알림(사유)과 [확인]을 보인다. 자료는 factionIdentity.mine(세력 화면 조회와 따로 — 실패해도 세력 화면은 그대로).
 // docs/adr/2026-11-11-faction-identity.md 2·5절
+// 바뀜(질문 985 다): 가문원 목록·초대·가입 신청·나가기·가문 소식은 HouseSection(factionIdentity.house — 이 조회도 따로, 실패하면 그 부분만
+// 빠진다). 다른 사람의 가문에 든 가문원에게는 그 가문의 이름·마크가 보이고 [가문 창설] 링크는 없다(사용자마다 한 가문).
 import { type FactionIdentityMine, labelTextOn } from "@terra/shared/factionIdentity";
+import type { HouseView } from "@terra/shared/house";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { useScreenQuery } from "../../sections/useScreenQuery.ts";
 import { AppLink } from "../../shell/AppLink.tsx";
 import { NationEmblem } from "../../ui/NationEmblem.tsx";
 import { StatusIcon } from "../../ui/StatusIcon.tsx";
-import { dismissIdentityNotice, loadIdentityMine } from "./identityQueries.ts";
+import { HouseSection } from "./HouseSection.tsx";
+import { dismissIdentityNotice, loadHouseView, loadIdentityMine } from "./identityQueries.ts";
 import "./identityCard.css";
 
 function Notice({
@@ -56,12 +60,17 @@ function Notice({
 
 export function IdentityCard() {
   const { state } = useScreenQuery(loadIdentityMine);
+  const houseQuery = useScreenQuery(loadHouseView);
   const [changed, setChanged] = useState<FactionIdentityMine | null>(null);
+  const [houseChanged, setHouseChanged] = useState<HouseView | null>(null);
   const mine = changed ?? state.data;
+  const houseView = houseChanged ?? houseQuery.state.data;
   // 이 서버에 기능이 없거나(DB 없음) 받지 못했으면 칸을 그리지 않는다(세력 화면의 나머지는 그대로)
   if (mine === null) return null;
-  const identity = mine.identity;
-  const founded = mine.house !== null;
+  // 다른 사람의 가문에 든 가문원: 그 가문의 이름·마크를 보인다
+  const memberOf = houseView?.house?.role === "member" ? houseView.house : null;
+  const identity = memberOf ?? mine.identity;
+  const founded = mine.house !== null || memberOf !== null;
   return (
     <section
       className="panel faction-me fid-card"
@@ -98,13 +107,25 @@ export function IdentityCard() {
       )}
       {identity && !founded ? <p className="faction-muted">{m.faction_identity_draft()}</p> : null}
       <p className="faction-muted fid-card-note">{m.faction_identity_note()}</p>
-      <AppLink className="fid-card-link" to={{ route: "faction_identity" }}>
-        {founded
-          ? m.faction_identity_edit()
-          : identity
-            ? m.faction_identity_finish()
-            : m.faction_identity_start()}
-      </AppLink>
+      {memberOf ? null : (
+        <AppLink className="fid-card-link" to={{ route: "faction_identity" }}>
+          {founded
+            ? m.faction_identity_edit()
+            : identity
+              ? m.faction_identity_finish()
+              : m.faction_identity_start()}
+        </AppLink>
+      )}
+      {houseView ? (
+        <HouseSection
+          view={houseView}
+          onView={setHouseChanged}
+          onChanged={() => {
+            setHouseChanged(null);
+            houseQuery.refresh();
+          }}
+        />
+      ) : null}
     </section>
   );
 }

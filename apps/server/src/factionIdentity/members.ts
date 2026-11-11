@@ -192,6 +192,15 @@ const isMemberKeyViolation = (error: unknown): boolean =>
   Reflect.get(error, "code") === "23505" &&
   String(Reflect.get(error, "constraint") ?? "").startsWith("house_members");
 
+/** 그 사람을 가문원으로 넣고 그 사람의 다른 요청(받은 초대·보낸 신청)을 모두 지운다 */
+async function join(q: IdentityQueryable, userId: string, factionId: number, now: number): Promise<void> {
+  await q.query(
+    "insert into house_members (user_id, faction_id, role, joined_at_ms) values ($1, $2, 'member', $3)",
+    [userId, factionId, now],
+  );
+  await q.query("delete from house_requests where user_id = $1", [userId]);
+}
+
 export function createHouseMembers(o: HouseMemberOptions): HouseMembers {
   /** 명령 하나: 지난 요청을 지우고 fn을 한 트랜잭션에서, 커밋 뒤 감사 기록 */
   const run = async (
@@ -220,15 +229,6 @@ export function createHouseMembers(o: HouseMemberOptions): HouseMembers {
           after: note.after,
         });
     return result;
-  };
-
-  /** 그 사람을 가문원으로 넣고 그 사람의 다른 요청(받은 초대·보낸 신청)을 모두 지운다 */
-  const join = async (q: IdentityQueryable, userId: string, factionId: number, now: number) => {
-    await q.query(
-      "insert into house_members (user_id, faction_id, role, joined_at_ms) values ($1, $2, 'member', $3)",
-      [userId, factionId, now],
-    );
-    await q.query("delete from house_requests where user_id = $1", [userId]);
   };
 
   const sameNation = async (userId: string, nation: number | null): Promise<boolean> => {

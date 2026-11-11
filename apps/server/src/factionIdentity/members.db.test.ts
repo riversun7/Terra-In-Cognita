@@ -17,6 +17,7 @@ import { ownerIdentityOf } from "./store.ts";
 const EMBLEM = { shape: "shield", division: "pale", charge: "tree", scheme: 1 };
 const RELAXED = { capacity: 1000, refillPerMinute: 1000 };
 const viewer = (id: string, roles: readonly ("player" | "gm")[] = ["player"]) => ({ id, roles });
+const account = (userId: string) => ({ userId, roles: ["player" as const] });
 
 describe.skipIf(!TEST_DATABASE_URL)("가문 가입·귀화 따라가기 (DB)", () => {
   let test: TestDatabase;
@@ -452,7 +453,6 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·귀화 따라가기 (DB)", (
     await service.apply(applicant, houseId);
     await service.apply(applicant2, houseId);
     const [invites, applications, notices] = createHouseInboxProviders(test.db.$client);
-    const account = (userId: string) => ({ userId, roles: ["player" as const] });
     const invited = await invites?.collect(account(invitee), clock);
     expect(invited).toMatchObject([
       {

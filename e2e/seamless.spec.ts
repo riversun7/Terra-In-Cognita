@@ -665,6 +665,13 @@ test.describe("걸어서 넘기", () => {
 // 쪽으로 걷기 시작하면 서버가 그 이웃을 미리 띄우고, 사이보그 시야가 경계를 넘으면 그 몫을 볼 수 있게 한다 → 기기는 넘기 전에 그 이웃을
 // 구독해 vision을 받는다(unknown_map 거절 없음). 시야가 닿기 전 구독은 not_visible로 거절될 수 있고 기기가 다시 구독한다.
 
+/** 이동 명령마다 새 요청 ID(서버 명령 중복 방지가 같은 ID를 10분 동안 처음 결과로 돌려준다) */
+let commandIds = 20_000 + (Date.now() % 1_000_000) * 4;
+const nextCommandId = (): number => {
+  commandIds += 4;
+  return commandIds;
+};
+
 /** 설 수 있는 자리를 찾아 내 유닛을 그 2차맵 칸으로 보낸다(걷는 빠르기 — 보통 구독). 길을 받으면 true */
 async function walkTo(
   side: Page,
@@ -673,10 +680,14 @@ async function walkTo(
   cellX: number,
   cellY: number,
 ): Promise<boolean> {
-  const replies = await sendCommands(side, [
-    { t: "subscribe", mapKey },
-    { t: "move_unit", mapKey, unitId, x: cellX * UNITS_PER_CELL + 512, y: cellY * UNITS_PER_CELL + 512 },
-  ]);
+  const replies = await sendCommands(
+    side,
+    [
+      { t: "subscribe", mapKey },
+      { t: "move_unit", mapKey, unitId, x: cellX * UNITS_PER_CELL + 512, y: cellY * UNITS_PER_CELL + 512 },
+    ],
+    nextCommandId(),
+  );
   return field(replies[1], "ok") === true;
 }
 
@@ -758,16 +769,20 @@ test.describe("옆 2차맵 미리 띄우기 잼", () => {
       const home = await myPosition(side);
       if (!home) throw new Error("dev 사이보그 자리를 모릅니다");
       const move = async (cellX: number, cellY: number): Promise<boolean> => {
-        const replies = await sendCommands(side, [
-          { t: "subscribe", mapKey: home.mapKey, observe: true },
-          {
-            t: "move_unit",
-            mapKey: home.mapKey,
-            unitId: home.unitId,
-            x: cellX * UNITS_PER_CELL + 512,
-            y: cellY * UNITS_PER_CELL + 512,
-          },
-        ]);
+        const replies = await sendCommands(
+          side,
+          [
+            { t: "subscribe", mapKey: home.mapKey, observe: true },
+            {
+              t: "move_unit",
+              mapKey: home.mapKey,
+              unitId: home.unitId,
+              x: cellX * UNITS_PER_CELL + 512,
+              y: cellY * UNITS_PER_CELL + 512,
+            },
+          ],
+          nextCommandId(),
+        );
         return field(replies[1], "ok") === true;
       };
       mark("start");

@@ -520,51 +520,51 @@ export const TEST_MAP_PROPS: readonly MapPropInput[] = [
     biomes: [
       {
         biome: "ocean_coastal",
-        weight: 80,
+        weight: 200,
       },
       {
         biome: "lake",
-        weight: 50,
+        weight: 120,
       },
       {
         biome: "ocean_shelf",
-        weight: 40,
+        weight: 120,
       },
       {
         biome: "desert",
-        weight: 40,
+        weight: 100,
       },
       {
         biome: "savanna",
-        weight: 40,
+        weight: 100,
       },
       {
         biome: "grassland",
-        weight: 40,
+        weight: 100,
       },
       {
         biome: "temperate_forest",
-        weight: 40,
+        weight: 100,
       },
       {
         biome: "taiga",
-        weight: 40,
+        weight: 100,
       },
       {
         biome: "tundra",
-        weight: 40,
+        weight: 100,
       },
       {
         biome: "tropical_rainforest",
-        weight: 40,
+        weight: 100,
       },
       {
         biome: "wetland",
-        weight: 30,
+        weight: 60,
       },
       {
         biome: "alpine",
-        weight: 20,
+        weight: 40,
       },
     ],
     curves: {

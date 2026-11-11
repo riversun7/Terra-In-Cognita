@@ -25,11 +25,11 @@ const MAPS = {
 
 /** 골든 해시(SECOND_MAP_GENERATOR_VERSION 1, 행성 생성기 출력 판 3, S2 시험 행성 F6, 시험 소품 규칙 = 팩 map_props 사본) */
 const GOLDEN: Record<keyof typeof MAPS, string> = {
-  desert: "ec1c2113",
-  river: "5211b70a",
-  lake: "3c1e21b5",
+  desert: "a918e17e",
+  river: "fc9f4f6c",
+  lake: "a70a576b",
   ocean: "792d2bbd",
-  coast: "9e0cb325",
+  coast: "561beb6c",
 };
 
 /** 면 0 칸 (i, j)의 행성 값 배열 번호(F6, n = 64) */

@@ -1,0 +1,254 @@
+/* 외형 단계(LooksStep.tsx·CharacterPreviewPane.tsx) — docs/adr/2026-11-11-character-3d.md 3절.
+   좁은 폭(390px)이 기준: 위에 3D 미리 보기, 아래에 탭(프리셋·몸·머리·옷·장식·색). 넓은 폭도 가운데 한 열(--content-max)이다.
+   값은 tokens.css만 쓴다. 칠 색 견본만 세계 색(목록 값)을 style로 넣는다. */
+.start-looks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.start-looks-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.start-looks-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.start-looks-actions > * {
+  flex: 1 1 auto;
+}
+
+/* ── 3D 미리 보기 ───────────────────────────── */
+.start-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text);
+}
+.start-preview-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 46dvh;
+  overflow: hidden;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+}
+.start-preview-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+.start-preview-canvas:active {
+  cursor: grabbing;
+}
+.start-preview-canvas:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: calc(-1 * var(--focus-w));
+}
+.start-preview-canvas[hidden] {
+  display: none;
+}
+.start-preview-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-surface-2);
+  text-align: center;
+}
+.start-preview-drawing {
+  flex: 1 1 0;
+  min-height: 0;
+  max-width: 60%;
+}
+.start-preview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.start-preview-controls > button {
+  flex: 1 1 auto;
+  min-height: var(--tap-size);
+}
+.start-preview-controls > button[aria-pressed="true"] {
+  border-color: var(--color-text);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.start-preview-icon {
+  flex: 0 0 var(--tap-size);
+  font-weight: var(--font-weight-strong);
+}
+
+/* ── 프리셋 갤러리 ──────────────────────────── */
+.start-looks-panel {
+  min-width: 0;
+}
+.start-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 4.75rem), 1fr));
+  gap: var(--space-2);
+}
+.start-preset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap-size);
+  padding: var(--space-1);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+.start-preset[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-surface-2);
+}
+.start-preset-face {
+  width: var(--mark-lg);
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  color: var(--color-text);
+}
+
+/* ── 부위 칸 ────────────────────────────────── */
+.start-parts,
+.start-colors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.start-part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(4, auto);
+  align-items: center;
+  gap: var(--space-1);
+}
+.start-part-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.start-part-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.start-part-value {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.start-part-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0;
+}
+.start-part-lock[aria-pressed="true"] {
+  border-color: var(--color-text);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.start-icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+/* ── 색 ─────────────────────────────────────── */
+.start-color-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.start-color-slot {
+  position: relative;
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.start-color-slot input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.start-color-slot:has(input:checked) {
+  border-color: var(--color-text);
+  background: var(--color-surface-2);
+  font-weight: var(--font-weight-strong);
+}
+.start-color-slot:has(input:focus-visible) {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.start-color-dot {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+}
+.start-color-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-1);
+}
+.start-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tap-size), 1fr));
+  gap: var(--space-2);
+}
+.start-swatch {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  min-height: var(--tap-size);
+  cursor: pointer;
+}
+.start-swatch input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  cursor: pointer;
+}
+.start-swatch-chip {
+  width: var(--tap-size);
+  height: var(--tap-size);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+}
+.start-swatch:has(input:checked) .start-swatch-chip {
+  outline: var(--focus-w) solid var(--color-text);
+  outline-offset: var(--focus-offset);
+}
+.start-swatch:has(input:focus-visible) .start-swatch-chip {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}

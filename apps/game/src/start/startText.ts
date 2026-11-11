@@ -1,6 +1,6 @@
 // 첫 접속 화면 문구 표 — 서버 코드·목록 ID → 메시지 키(ko·en). 키로 고르는 문구는 표에 적는다(oxlint import(namespace)).
 // 모르는 ID(더 새 서버)는 표 밖이라 일반 문구나 ID로 보인다.
-import type { CrowdingBand, CyborgColorId, CyborgLookSlot, CyborgNameProblem } from "@terra/shared/cyborg";
+import type { CrowdingBand, CyborgNameProblem } from "@terra/shared/cyborg";
 import type { CyborgResultCode } from "@terra/protocol";
 import { m } from "../paraglide/messages.js";
 
@@ -26,37 +26,6 @@ const TEMPERAMENTS: Readonly<Record<string, Text>> = {
 };
 
 export const temperamentText = (id: string): string => TEMPERAMENTS[id]?.() ?? id;
-
-const PRESETS: Readonly<Record<string, Text>> = {
-  scout: m.start_preset_scout,
-  guard: m.start_preset_guard,
-  tinker: m.start_preset_tinker,
-  drifter: m.start_preset_drifter,
-};
-
-export const presetText = (id: string): string => PRESETS[id]?.() ?? id;
-
-const SLOTS = {
-  head: m.start_looks_slot_head,
-  face: m.start_looks_slot_face,
-  body: m.start_looks_slot_body,
-  limbs: m.start_looks_slot_limbs,
-} satisfies Record<CyborgLookSlot, Text>;
-
-export const slotText = (slot: CyborgLookSlot): string => SLOTS[slot]();
-
-const COLORS = {
-  mint: m.start_color_mint,
-  peach: m.start_color_peach,
-  sky: m.start_color_sky,
-  lilac: m.start_color_lilac,
-  lemon: m.start_color_lemon,
-  coral: m.start_color_coral,
-  slate: m.start_color_slate,
-  cream: m.start_color_cream,
-} satisfies Record<CyborgColorId, Text>;
-
-export const colorText = (id: CyborgColorId): string => COLORS[id]();
 
 const CROWDING = {
   quiet: m.start_crowding_quiet,

@@ -11,6 +11,8 @@ import {
 } from "./characterLayer.ts";
 
 const CELL_M = 5;
+/** 키 1.8m가 화면 px 픽셀로 보이는 확대(1m의 픽셀) */
+const ppmAt = (px: number): number => px / 1.8;
 
 /** 위에서 내려다보는 넓은 시야(원점 둘레 수백 m가 다 든다) */
 function wideFrustum(): Frustum {
@@ -108,7 +110,6 @@ describe("2차맵 캐릭터 층", () => {
     const layer = layerWith(5);
     layer.update(viewOf(5, 1, { icons: true }));
     expect(layer.models).toBe(0);
-    const ppmAt = (px: number): number => px / 1.8;
     layer.update(viewOf(5, 1, { pixelsPerMetre: ppmAt(MODEL_RETURN_PX + 1) }));
     expect(layer.models).toBe(5);
     // 켜진 뒤에는 MODEL_MIN_PX까지 버틴다

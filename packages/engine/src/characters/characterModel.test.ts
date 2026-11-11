@@ -48,6 +48,14 @@ function expectSane(model: CharacterModel, label: string): void {
   expect(model.triangles, label).toBe(countTriangles(model.parts));
 }
 
+/** 장식 없는 먼 단계 모델의 키(m) */
+const heightAt = (
+  height: number,
+  build: CharacterLook["build"] = "standard",
+  top: CharacterLook["top"] = "none",
+) =>
+  characterModel({ ...DEFAULT_CHARACTER_LOOK, height, build, top, back: "none", extra: "none" }, 1).heightM;
+
 describe("캐릭터 모델", () => {
   it("프리셋 24개: 단계 0은 600, 단계 1은 150 삼각형 안이고 모양이 멀쩡하다", () => {
     for (const preset of CHARACTER_PRESETS) {
@@ -123,19 +131,12 @@ describe("캐릭터 모델", () => {
   });
 
   it("키 배율·체형이 키에 반영된다", () => {
-    const at = (
-      height: number,
-      build: CharacterLook["build"] = "standard",
-      top: CharacterLook["top"] = "none",
-    ) =>
-      characterModel({ ...DEFAULT_CHARACTER_LOOK, height, build, top, back: "none", extra: "none" }, 1)
-        .heightM;
-    expect(at(100)).toBeCloseTo(BASE_HEIGHT_M, 1);
-    expect(at(110)).toBeGreaterThan(at(100));
-    expect(at(90)).toBeLessThan(at(100));
-    expect(at(110) / at(90)).toBeCloseTo(110 / 90, 2);
-    expect(at(100, "compact")).toBeLessThan(at(100, "standard"));
-    expect(at(100, "slender")).toBeGreaterThan(at(100, "standard"));
+    expect(heightAt(100)).toBeCloseTo(BASE_HEIGHT_M, 1);
+    expect(heightAt(110)).toBeGreaterThan(heightAt(100));
+    expect(heightAt(90)).toBeLessThan(heightAt(100));
+    expect(heightAt(110) / heightAt(90)).toBeCloseTo(110 / 90, 2);
+    expect(heightAt(100, "compact")).toBeLessThan(heightAt(100, "standard"));
+    expect(heightAt(100, "slender")).toBeGreaterThan(heightAt(100, "standard"));
   });
 
   it("묶음 축: 팔은 어깨 높이·좌우 대칭, 다리는 엉덩이 높이, 머리는 목", () => {

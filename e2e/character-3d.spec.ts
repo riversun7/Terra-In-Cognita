@@ -109,8 +109,15 @@ test.describe("2차맵 캐릭터 모델: 넓은 화면", () => {
     await expect(screen).toHaveAttribute("data-selected-draw", "character0", { timeout: 15_000 });
     expect(await stat(page, "data-characters")).toBeGreaterThanOrEqual(1);
     expect(await stat(page, "data-character-lod0")).toBeGreaterThanOrEqual(1);
-    // 모델로 그린 유닛도 그린 유닛 수에 든다
-    expect(await stat(page, "data-drawn-units")).toBeGreaterThanOrEqual(await stat(page, "data-characters"));
+    // 모델로 그린 유닛도 그린 유닛 수에 든다 — 같은 1초 요약에서 둘을 함께 읽는다(따로 읽으면 사이에 요약이 바뀐다:
+    // 6/6은 화면이 좁아 걷는 유닛이 화면 끝을 자주 드나든다)
+    const together = await page
+      .locator(".map-screen")
+      .evaluate((element) => [
+        Number(element.getAttribute("data-drawn-units")),
+        Number(element.getAttribute("data-characters")),
+      ]);
+    expect(together[0]).toBeGreaterThanOrEqual(together[1] ?? 0);
 
     // 서버가 내 사이보그의 외형을 준다(world.unitLooks)
     const mapKey = (await screen.getAttribute("data-map-key")) ?? "";

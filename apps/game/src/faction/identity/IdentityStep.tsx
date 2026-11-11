@@ -187,7 +187,8 @@ export function IdentityStep({
       if (outcome.ok) {
         onSaved({
           ...saved,
-          house: { factionId: outcome.factionId, foundedAt: Date.now(), nationId: null },
+          // 창설 시각·나라는 다음 조회가 채운다(화면은 곧 세력 화면으로 돌아간다)
+          house: { factionId: outcome.factionId, foundedAt: saved.identity?.updatedAt ?? 0, nationId: null },
         });
         return;
       }

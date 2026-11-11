@@ -368,7 +368,7 @@ export async function takeDownEmblem(
         sha256: row.sha256,
         bytes: row.bytes,
         takedowns: row.takedowns,
-        autoBlocked: row.auto_blocked === true,
+        autoBlocked: row.auto_blocked,
       }
     : null;
 }

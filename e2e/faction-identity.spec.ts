@@ -1,11 +1,11 @@
 // 세력 정체성 화면 시험 — /faction/identity·세력 화면의 "내 세력 이름과 마크" 칸·운영자 콘솔 마크 관리 탭
 // (docs/adr/2026-11-11-faction-identity.md). 차례대로 도는 한 묶음이다(같은 서버·DB — 앞 시험이 남긴 값을 뒤 시험이 본다).
-// 1. player: 세력 화면 칸 → [세력 정체성 정하기] → 이름 만들기·약어 후보·색·자동 생성 마크([다시 만들기]·틀 고르기) → 저장 → 칸에 이름·약어·마크.
-//    빈 칸으로는 끝나지 않는다(이름·약어가 있어야 한다).
+// 1. player: 세력 화면 "내 가문" 칸 → [가문 창설] → 이름 만들기·약어 후보·색·자동 생성 마크([다시 만들기]·틀 고르기) → [가문 창설]
+//    (정체성 저장 tRPC + 창설 WebSocket house_found — 질문 926 나) → 칸에 이름·약어·마크, 가문이 생겼다. 빈 칸으로는 끝나지 않는다.
 // 2. player: [그림 올리기] → 600 × 400 그림을 고르고 자르기(화살표 키·확대, 24·48·128 미리 보기) → 저장. 보낸 요청의 그림은 자른 256 × 256 PNG다
 //    (원본이 아니다 — 서명·IHDR·바이트 상한·허용 청크만). 세력 화면에 올린 그림이 보이고 그림 길이 image/png를 준다.
-// 3. dev(다른 플레이어): 그 이름·약어를 쓸 수 없고(확인 문구·저장 거절), player의 정체성은 그대로다.
-// 4. admin: 운영자 콘솔 [마크 관리] 탭에 그 세력이 올린 그림과 함께 보인다 → [마크 내리기](사유) → 내림.
+// 3. dev(다른 플레이어): 그 이름·약어를 쓸 수 없고(확인 문구·저장 거절), player의 정체성은 그대로다. player 가문을 신고한다(질문 930 나).
+// 4. admin: 운영자 콘솔 [마크 관리] 탭에 그 세력이 올린 그림·신고 수 1과 함께 보인다([신고 많은 차례]) → [마크 내리기](사유) → 내림(신고 0).
 // 5. player: 세력 화면에 자동 생성 마크 + 알림(사유) → [확인]하면 알림이 사라진다.
 // 사진 6장(E2E_SHOTS_DIR): 단계 390 파스텔·한국어(1), 단계 390 다크·영어, 자르기 390 파스텔·영어, 자르기 390 다크·한국어,
 // 세력 화면 칸 390 파스텔·한국어(2), 마크 관리 1440 네온(4).
@@ -120,8 +120,29 @@ async function pickImage(page: Page): Promise<Locator> {
   return view;
 }
 
-/** 시험 사이에 넘기는 값(player가 정한 이름·약어) */
-const made: { name: string; short: string } = { name: "", short: "" };
+/** 시험 사이에 넘기는 값(player가 정한 이름·약어·창설한 가문) */
+const made: { name: string; short: string; houseId: number } = { name: "", short: "", houseId: 0 };
+
+/** 화면 안에서 tRPC 조회·쓰기(같은 출처 — 브라우저가 출처 머리글을 붙인다). 결과 data */
+async function trpcInPage(page: Page, path: string, input?: unknown): Promise<unknown> {
+  return page.evaluate(
+    async ({ procedure, body }) => {
+      const response =
+        body === undefined
+          ? await fetch(`/api/trpc/${procedure}`)
+          : await fetch(`/api/trpc/${procedure}`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(body),
+            });
+      const json: unknown = await response.json();
+      return typeof json === "object" && json !== null
+        ? Reflect.get(Reflect.get(json, "result") ?? {}, "data")
+        : null;
+    },
+    { procedure: path, body: input },
+  );
+}
 
 test.describe.configure({ mode: "serial" });
 
@@ -141,6 +162,11 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
       const form = step(page);
       await expect(form).toHaveAttribute("data-mode", "create");
       await expect(page.locator("#fid-title")).toHaveText(message("ko", "fid_title_create"));
+      // 창설 비용(설정 칸 출발값 0)과 나라 시민으로 남는다는 안내, 마지막 단추는 [가문 창설]
+      await expect(form.locator('[data-testid="fid-found-cost"]')).toContainText(
+        message("ko", "fid_found_cost_free"),
+      );
+      await expect(form.locator(".fid-submit")).toHaveText(message("ko", "fid_submit_found"));
 
       // 빈 칸으로 누르면 이름 칸으로 가고 저장하지 않는다
       const calls = watchTrpc(page);
@@ -190,9 +216,14 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
       await tallShot(page, "fid-step-pastel-ko-390");
 
       await form.locator(".fid-submit").click();
-      // 저장하면 세력 화면으로 돌아가고 칸에 이름·약어·만든 마크
+      // 저장 + 창설하면 세력 화면으로 돌아가고 칸에 이름·약어·만든 마크, 가문이 생겼다
       await expect(page).toHaveURL(/\/faction$/);
       await expect(card(page)).toHaveAttribute("data-set", "");
+      await expect(card(page)).toHaveAttribute("data-house", "");
+      made.houseId = Number(
+        field(field(await trpcInPage(page, "factionIdentity.mine"), "house"), "factionId"),
+      );
+      expect(made.houseId).toBeGreaterThan(0);
       await expect(card(page).locator(".fid-card-name")).toHaveText(made.name);
       await expect(card(page).locator(".fid-card-short")).toHaveText(made.short);
       await expect(card(page).locator("svg.nation-emblem")).toBeVisible();
@@ -293,6 +324,11 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
       // dev에게는 정체성이 생기지 않았다
       await openFaction(page);
       await expect(card(page)).not.toHaveAttribute("data-set", "");
+      // player 가문 신고(질문 930 나): 받음 → 같은 가문 다시는 세지 않음
+      const report = (factionId: number) =>
+        trpcInPage(page, "factionIdentity.report", { factionId }).then((data) => field(data, "status"));
+      expect(await report(made.houseId)).toBe("reported");
+      expect(await report(made.houseId)).toBe("already");
       // 서버가 400을 준 요청은 브라우저가 콘솔 오류로 적는다 — 그 한 줄만 있다
       expect(deviceErrors.filter((entry) => !/factionIdentity\.save/.test(entry.text))).toEqual([]);
     });
@@ -319,6 +355,10 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
       await expect(row.locator("img.ops-emblem-up")).toBeVisible();
       await expect(row).toContainText(made.short);
       await expect(row).toContainText(message("ko", "ops_emblems_state_ok"));
+      // 신고 수(dev가 한 번)·신고 많은 차례로 봐도 첫 줄
+      await expect(row.locator(".ops-emblem-reports")).toHaveAttribute("data-reports", "1");
+      await tab.locator(".ops-emblem-sort select").selectOption("reports");
+      await expect(tab.locator("tbody tr").first()).toContainText(made.name);
       expect(await horizontalOverflow(page)).toEqual([]);
 
       await row.locator(".ops-emblem-takedown-open").click();
@@ -329,6 +369,23 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
       await expect(row).not.toHaveAttribute("data-uploaded", "");
       await expect(row.locator("img.ops-emblem-up")).toHaveCount(0);
       await expect(row).toContainText(message("ko", "ops_emblems_state_removed"));
+      // 내리면 신고도 처리된 것으로 지운다
+      await expect(row.locator(".ops-emblem-reports")).toHaveAttribute("data-reports", "0");
+      expect(deviceErrors).toEqual([]);
+    });
+
+    test("세력 목록에 가문이 플레이어 세력으로 보인다(이름 = 정한 이름, 구성원 1)", async ({
+      page,
+      deviceErrors,
+    }) => {
+      await page.goto("/ops?tab=npcs");
+      const toolbar = page.locator(".ops-main .ops-toolbar").first();
+      await toolbar.locator("select").first().selectOption("player");
+      const row = page.locator(".ops-main .dev-table tbody tr", { hasText: made.name });
+      await expect(row).toHaveCount(1);
+      await expect(row).toContainText(message("ko", "ops_kind_player"));
+      await row.locator("button.button-text").click();
+      await expect(page.locator(".ops-side")).toContainText(message("ko", "ops_src_player"));
       expect(deviceErrors).toEqual([]);
     });
   });

@@ -27,6 +27,8 @@ const reasonOf = async (run: Promise<unknown>): Promise<unknown> => {
   }
 };
 
+const viewer = (id: string, roles: readonly ("player" | "gm")[] = ["player"]) => ({ id, roles });
+
 describe.skipIf(!TEST_DATABASE_URL)("플레이어 가문 (DB)", () => {
   let test: TestDatabase;
   let nation = 0;
@@ -52,7 +54,6 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 가문 (DB)", () => {
       }),
       { db: test.db, ip: null },
     );
-  const viewer = (id: string, roles: readonly ("player" | "gm")[] = ["player"]) => ({ id, roles });
   const founder = (wallet?: HouseWallet, nationOf: (id: string) => number | undefined = () => nation) =>
     createHouseFounder({
       pool: test.db.$client,

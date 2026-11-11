@@ -359,8 +359,11 @@ test.describe("국력 등급·랜덤 국가", () => {
     const id = await candidate();
     const color = () => card.locator('.ne-random-part[data-part="color"] .ne-random-value').innerText();
     const before = await color();
-    await card.locator('.ne-random-reroll[data-part="color"]').click();
-    await expect.poll(color).not.toBe(before);
+    // 색은 먼 후보 여섯 가운데 시드로 고르므로 한 번 굴려 같은 색이 나올 수 있다 — 바뀔 때까지 몇 번 굴린다
+    for (let tries = 0; tries < 12 && (await color()) === before; tries += 1) {
+      await card.locator('.ne-random-reroll[data-part="color"]').click();
+    }
+    expect(await color()).not.toBe(before);
     expect(await candidate()).toBe(id);
     // [추가]: 목록 끝에 새 프리셋(담김), 편집 판이 열린다
     await panel.locator(".ne-random-add").click();

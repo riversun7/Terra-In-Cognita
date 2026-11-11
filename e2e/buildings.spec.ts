@@ -110,8 +110,10 @@ test.describe("개발자", () => {
     await expect(page.locator(".ce-side .be-badge-off")).toHaveCount(0);
     await row(page, "farm").click();
     await expect(detail(page)).toHaveAttribute("data-facility", "farm");
-    // 편집 판에 켜기 칸이 없다
-    await expect(detail(page).locator('input[type="checkbox"]')).toHaveCount(0);
+    // 편집 판에 켜기 칸이 없다(채집 사다리 중분류 더하기 칸 — 946 나 — 의 고르기는 켜기 칸이 아니다)
+    await expect(
+      detail(page).locator('input[type="checkbox"]:not([data-targets="extra-subcategories"] input)'),
+    ).toHaveCount(0);
     // 팩 값: Lv1 = 소나무 round(8 × 0.8) = 6, Lv2~ = 판자(켜짐) round(8 × 4 × 0.8) = 26
     await expect(levelRow(page, 1)).toContainText(
       message("ko", "dev_buildings_material_qty", { name: "소나무", qty: 6 }),

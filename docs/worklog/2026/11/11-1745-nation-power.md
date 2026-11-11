@@ -39,6 +39,8 @@
 | `e2e/nations.spec.ts`, `e2e/world-layout.spec.ts` | 화면 시험·사진 |
 | `docs/adr/*`, `docs/questions/*`, `docs/PLAN.md` | 결정·질문 |
 
+- 놓기 검사(`placementService.place`)도 등급 간격(국가 간격 × 두 국가 `homeGapPm` 평균)을 쓴다: 처음 화면 시험에서 등급 제안 넷 가운데 둘이 `too_close`로 막혀 고쳤다(DB 시험 `nationTiers.db.test.ts`에 "제안을 모두 놓으면 모두 ok"를 더함).
+
 ## 함께 바꿔야 하는 파일
 - 등급 표 칸을 더하면: `nationTierEntrySchema` · `@terra/shared/nationTier NationTierJson`·`resolveNationStart` · `npc/presets.ts nationTierJsonOf` · `editor/nations/nationModel.ts cleanTier`(칸 차례 = 팩 파일 차례) · `NationPowerPanel.tsx FIELDS` · `packages/sim/scenarios/war16.json`(시험 `npc/presets.test.ts`가 팩과 견준다).
 - 세계 씨앗이 세우는 시설 목록을 넓히면(같은 묶음 `production-six`): `npc/nations.ts nationSeedOf`가 등급 표의 넷만 설정 칸 모양으로 옮긴다 — 다른 시설 ID는 `nationStartOf(seed, preset).facilities[시설 ID]`를 읽는다.
@@ -57,7 +59,8 @@
 - 등급 표의 창고·농장·벌목장·광산 밖 시설 줄은 지금 세계 씨앗에 들지 않는다(자료로만 실린다).
 - `war16` 30일이 7초 → 약 3분으로 늘었다: 힘이 고르지 않아 공성이 실제로 일어난다(전에는 공성 0회). `sim:speed`의 war16 몫도 그만큼 는다.
 - 등급 배치의 "소국은 바닷가"는 땅 넓이 점수가 낮은 칸을 같은 조건일 때만 고른다(큰 이웃 사이가 먼저다).
-- `NationEditorScreen.tsx` 626줄(권장 600줄 초과 경고).
+- 세계 배치 화면 평면 지도에서 국가 넷이 첫 수도 둘레 48칸 안에 모여 표시(수도·계획 마름모)가 겹쳐 보인다(옛 동작 — 국가 간격 30칸이 행성 전체에 비해 작다).
+- 파일 크기 경고(600줄 초과, 실패 아님): `nationEditor.css` 640, `nationEdit.db.test.ts` 629, `npc/nations.ts` 613, `npc/runtime.ts` 903, `world/world.ts` 954(전부터 넘던 파일 포함).
 - 화면 시험은 바꾼 spec 둘만 돌렸다. 시험 세계의 도시 수가 11 → 15곳으로 늘어 다른 spec이 도시 수에 기대면 고쳐야 한다(글자 찾기로는 못 찾았다, Assumed).
 
 ## 사용자 결정 대기

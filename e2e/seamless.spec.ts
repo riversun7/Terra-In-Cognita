@@ -735,3 +735,57 @@ test.describe("옆 2차맵 미리 띄우기", () => {
     }
   });
 });
+
+// 잼(E2E_MEASURE=1, dev): 사이보그를 시작 2차맵 변 넷 가까이 차례로 세워(운영자 빠르기) 이웃 넷을 미리 띄우고, 가운데로 돌아와 내려가기까지
+// 기다린다. 서버 1분 지표(mapsOnDemand·mapsPreopened·rssMb — e2e/test-results/server.log)를 시각 표지([measure] 줄)와 맞춰 읽는다.
+// 세계 크기는 실행 환경 변수로 준다(예: NPC_TEST_NATIONS=16 S1_TEST_BOTS=1000).
+/** 잼 시각 표지(서버 1분 지표와 맞춰 읽는다) */
+const mark = (label: string): void => console.log(`[measure] ${new Date().toISOString()} ${label}`);
+
+test.describe("옆 2차맵 미리 띄우기 잼", () => {
+  test.use({ account: "dev" });
+  test.skip(process.env.E2E_MEASURE !== "1", "E2E_MEASURE=1일 때만(서버 1분 지표를 몇 번 기다린다)");
+
+  test("변 넷 가까이 서면 이웃 넷을 미리 띄우고, 떠나면 내린다(1분 지표)", async ({ page }) => {
+    test.setTimeout(900_000);
+    const side = await page.context().newPage();
+    try {
+      await side.goto("/health");
+      const home = await myPosition(side);
+      if (!home) throw new Error("dev 사이보그 자리를 모릅니다");
+      const move = async (cellX: number, cellY: number): Promise<boolean> => {
+        const replies = await sendCommands(side, [
+          { t: "subscribe", mapKey: home.mapKey, observe: true },
+          {
+            t: "move_unit",
+            mapKey: home.mapKey,
+            unitId: home.unitId,
+            x: cellX * UNITS_PER_CELL + 512,
+            y: cellY * UNITS_PER_CELL + 512,
+          },
+        ]);
+        return field(replies[1], "ok") === true;
+      };
+      mark("start");
+      await page.waitForTimeout(65_000);
+      mark("baseline");
+      for (const edge of EDGES) {
+        if (!(await move(edge.x, edge.y))) {
+          mark(`edge ${edge.x},${edge.y} blocked`);
+          continue;
+        }
+        await waitAt(side, { mapKey: home.mapKey, cellX: edge.x, cellY: edge.y }, 4);
+        mark(`edge ${edge.x},${edge.y}`);
+      }
+      await page.waitForTimeout(65_000);
+      mark("all edges");
+      expect(await move(home.cellX, home.cellY)).toBe(true);
+      await waitAt(side, { mapKey: home.mapKey, cellX: home.cellX, cellY: home.cellY }, 4);
+      mark("back home");
+      await page.waitForTimeout(200_000);
+      mark("after idle");
+    } finally {
+      await side.close();
+    }
+  });
+});

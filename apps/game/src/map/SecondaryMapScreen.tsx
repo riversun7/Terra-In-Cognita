@@ -58,6 +58,7 @@ import { blockedWithoutUnits, chooseAnchor, commandUnit, showStop, unitTapOf } f
 import { useBottomSheet } from "./useBottomSheet.ts";
 import { openMap, useTravelFollow } from "./useCyborgTravel.ts";
 import { type MapFeedPool, createMapFeedPool } from "./mapFeedPool.ts";
+import { probeEvent } from "./mapProbe.ts";
 import { type MapHandover, type MapSession, startMapSession } from "./mapSession.ts";
 import { fetchTerrain } from "./terrainLoader.ts";
 import { type HudSnapshot, UNIT_CAPACITY, openPlanetStage, serverNow, useMapEngine } from "./useMapEngine.ts";
@@ -291,12 +292,14 @@ function SecondMapView({
     // 기준 유닛의 보이던 자리는 지금 틀에서 읽어 둔다(rebase가 유닛을 비운다)
     const pass = live.handover(next);
     if (!engine.rebase(String(next), String(from))) {
+      probeEvent(`wait ${from} -> ${next}`);
       live.prefetch(next);
       if (pendingCrossRef.current?.next === next) return;
       if (pendingCrossRef.current) clearTimeout(pendingCrossRef.current.timer);
       const timer = setTimeout(() => {
         if (pendingCrossRef.current?.next !== next) return;
         pendingCrossRef.current = null;
+        probeEvent(`reopen ${next}`);
         openMap(next);
       }, CROSS_WAIT_MS);
       pendingCrossRef.current = { next, timer };
@@ -304,12 +307,14 @@ function SecondMapView({
     }
     if (pendingCrossRef.current) clearTimeout(pendingCrossRef.current.timer);
     pendingCrossRef.current = null;
+    probeEvent(`cross ${from} -> ${next} carried=${pass.carried !== null}`);
     live.stop();
     mapKeyRef.current = next;
     crossedAtRef.current = Date.now();
     start(next, pass);
     // 새 목록에서 같은 유닛을 다시 고른다(엔진은 목록을 바꾸면 고르기를 푼다)
-    if (kept !== null) engine.select(kept);
+    const again = kept ?? selectedRef.current;
+    if (again !== null) engine.select(again);
     setCrossedFrom(from);
     setSwitching(true);
     setMapKey(next);
@@ -327,7 +332,7 @@ function SecondMapView({
   const nextOnRoute = following && going !== null ? (going.route[going.leg + 1] ?? null) : null;
   useEffect(() => {
     if (nextOnRoute !== null) sessionRef.current?.prefetch(nextOnRoute);
-  }, [nextOnRoute, mapKey]);
+  }, [nextOnRoute]);
   const selectedMine =
     selected === null ? undefined : myUnits.units?.find((unit) => unit.unitId === selected);
   const anchor = chooseAnchor({

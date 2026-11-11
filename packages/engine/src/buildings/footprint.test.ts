@@ -4,8 +4,10 @@ import {
   footprintCells,
   footprintInside,
   footprintMask,
+  footprintOutsideCells,
   footprintRect,
   frontDirection,
+  outsideCellKey,
 } from "./footprint.ts";
 
 const base: BuildingFootprint = { id: 1, cellX: 10, cellY: 20, width: 4, depth: 2, rotation: 0, heightM: 6 };
@@ -45,5 +47,23 @@ describe("footprint", () => {
     expect(mask[20 * 256 + 10]).toBe(1);
     expect(mask[22 * 256 + 10]).toBe(0);
     expect(mask[255]).toBe(1);
+  });
+
+  it("2차맵 밖 칸(옆 2차맵 건물): 밖에 걸친 칸만 모으고, 안에만 있으면 null", () => {
+    expect(footprintOutsideCells([base], 256)).toBeNull();
+    // 오른쪽 변에 걸친 건물(254~257, 가로 4): 밖은 256·257 두 칸, 옆 2차맵 건물(266~269 × 20~21)은 모두 밖
+    const cells = footprintOutsideCells(
+      [
+        { ...base, id: 2, cellX: 254, cellY: 0, width: 4, depth: 1 },
+        { ...base, id: 3, cellX: 266 },
+        { ...base, id: 4, cellX: -3, cellY: -2, width: 1, depth: 1 },
+      ],
+      256,
+    );
+    expect(cells?.size).toBe(2 + 8 + 1);
+    expect(cells?.has(outsideCellKey(256, 0))).toBe(true);
+    expect(cells?.has(outsideCellKey(255, 0))).toBe(false);
+    expect(cells?.has(outsideCellKey(269, 21))).toBe(true);
+    expect(cells?.has(outsideCellKey(-3, -2))).toBe(true);
   });
 });

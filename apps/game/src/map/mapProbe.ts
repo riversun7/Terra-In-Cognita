@@ -31,7 +31,7 @@ export interface MapProbeSample {
   readonly neighbours: number;
   /** 지도 위 안내(.map-notice) 수 */
   readonly notices: number;
-  /** HUD 글(안내 줄 첫 줄 | 내 유닛 단추 | 확대 사다리) — 넘는 순간 바뀌는지 본다 */
+  /** HUD 글(안내 줄 첫 줄 | 내 유닛 단추 | 확대 사다리 | 지도 위 안내) — 넘는 순간 바뀌는지 본다 */
   readonly hud: string;
 }
 
@@ -39,6 +39,8 @@ export interface MapProbe {
   readonly samples: MapProbeSample[];
   /** 화면 프레임(requestAnimationFrame) 시각 — 엔진이 그리지 않은 프레임도 든다(긴 프레임 찾기) */
   readonly frames: number[];
+  /** 넘기 신호·넘기 등 일(시각 ms + 글) */
+  readonly events: string[];
   clear(): void;
 }
 
@@ -46,6 +48,12 @@ declare global {
   interface Window {
     terraMapProbe?: MapProbe;
   }
+}
+
+/** 기록 중이면 일 하나를 적는다(넘기 신호·넘기). 기록을 켜지 않았으면 아무것도 하지 않는다 */
+export function probeEvent(text: string): void {
+  if (typeof window === "undefined") return;
+  window.terraMapProbe?.events.push(`${performance.now().toFixed(0)} ${text}`);
 }
 
 /** 주소 검색 문자열에 ?map-probe=1이 있나 */
@@ -62,12 +70,15 @@ export function attachMapProbe(
 ): () => void {
   const samples: MapProbeSample[] = [];
   const frames: number[] = [];
+  const events: string[] = [];
   const probe: MapProbe = {
     samples,
     frames,
+    events,
     clear: () => {
       samples.length = 0;
       frames.length = 0;
+      events.length = 0;
     },
   };
   window.terraMapProbe = probe;
@@ -100,7 +111,7 @@ export function attachMapProbe(
         props: stats.props,
         neighbours: stats.neighbours,
         notices: document.querySelectorAll(".map-notice").length,
-        hud: `${textOf(".map-hint p")}|${textOf(".map-units-toggle")}|${textOf(".zoom-ladder")}`,
+        hud: `${textOf(".map-hint p")}|${textOf(".map-units-toggle")}|${textOf(".zoom-ladder")}|${textOf(".map-notice")}`,
       });
       if (samples.length > MAX_SAMPLES) samples.splice(0, samples.length - MAX_SAMPLES);
     },

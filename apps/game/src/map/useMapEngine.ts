@@ -15,7 +15,7 @@ import { offerBuildPick } from "../economy/buildPick.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
 import { setTelemetryView } from "../telemetry/reporter.ts";
-import { heldMoving } from "./anchorUnit.ts";
+import { heldMoving, heldSelection } from "./anchorUnit.ts";
 import type { CommandNotice, SelectionState } from "./commandNotice.ts";
 import type { FeedStats, MapFeed } from "./feedTypes.ts";
 import type { GatherState } from "./gather/gatherState.ts";
@@ -143,6 +143,8 @@ export function useMapEngine(
     // 고른 유닛이 마지막으로 움직이던 때([멈추기] 깜빡임 막기 — anchorUnit.ts heldMoving)
     let movingUnit: number | null = null;
     let lastMovingAt: number | null = null;
+    // 고른 유닛이 엔진에서 안 보이기 시작한 때(잠깐은 고른 채로 둔다 — anchorUnit.ts heldSelection)
+    let missingSince: number | null = null;
     const engine = createSecondMapEngine(host, {
       serverNow,
       // 가장 멀리에서 한 번 더 줄이면 1차맵 5단계(D-6018)
@@ -270,22 +272,31 @@ export function useMapEngine(
         engine.select(anchorNow);
         id = anchorNow;
       }
+      const now = Date.now();
+      // 고른 유닛이 잠깐 엔진에 없으면(빠르게 2차맵을 넘는 사이 — 운영자 100배) 곧바로 풀지 않는다: 풀면 기준 유닛도 풀려 카메라가 멈췄다
+      let holding = false;
+      if (id === null && selectedRef.current !== null) {
+        missingSince ??= now;
+        holding = heldSelection(missingSince, now);
+      } else missingSince = null;
+      if (holding) id = selectedRef.current;
       if (id !== selectedRef.current) {
         selectedRef.current = id;
         setSelected(id);
       }
       const unit = id === null ? null : engine.unitState(id);
-      const own = id !== null && feed.isOwn(id);
-      const now = Date.now();
+      // 붙잡는 동안은 내 유닛 표시도 앞 값 그대로(새 2차맵 자료가 그 유닛을 아직 모른다)
+      const own = holding ? null : id !== null && feed.isOwn(id);
       if (id !== movingUnit) {
         movingUnit = id;
         lastMovingAt = null;
       }
       if (unit?.moving === true) lastMovingAt = now;
       const moving = heldMoving(unit?.moving ?? false, lastMovingAt, now);
-      setSelection((previous) =>
-        previous.own === own && previous.moving === moving ? previous : { own, moving },
-      );
+      setSelection((previous) => {
+        const nextOwn = own ?? previous.own;
+        return previous.own === nextOwn && previous.moving === moving ? previous : { own: nextOwn, moving };
+      });
       // 내 유닛 목록의 "이동 중"은 엔진의 지금 값(바뀔 때만 상태를 바꾼다)
       const list = unitsRef.current ?? [];
       const movingIds = list

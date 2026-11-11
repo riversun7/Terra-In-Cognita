@@ -5,7 +5,7 @@
 // - 기기가 그 이웃을 받아 그리고(data-neighbours) 같은 연결로 구독한다(이웃 안개). 볼 수 있는 이웃(같은 나라 시작 도시 등)이면 서버가 vision을 보내고,
 //   볼 수 없으면 구독이 거절된다(온통 어둡게). 시험은 vision이 오는 변을 찾을 때까지 변을 바꿔 다시 연다. 사진(390 파스텔·다크).
 // - 기기에 그 이웃 2차맵의 가짜 경로(내 사이보그)를 넣으면 기기가 넘는다: 주소 key·data-map-key가 이웃, data-switched="in-place", 지도 캔버스가
-//   같은 요소(화면을 다시 만들지 않음), 카메라 목표가 한 2차맵만큼 옮겨진 틀, "받는 중" 안내 없음 → 새 2차맵 자료 구독이 live.
+//   같은 요소(화면을 다시 만들지 않음), 카메라 목표가 한 2차맵만큼 옮겨진 틀, "받는 중" 안내 없음, 확대 단계 그대로, 그 2차맵을 다시 구독하지 않음.
 //   서버에서는 사이보그가 넘지 않았으므로 내 유닛 목록은 넘기 전 목록을 그대로 돌려준다(들어갈 수 없음 안내가 뜨지 않게).
 // 걸어서 넘기(사용자 지적 2026-11-11 "미세한 화면전환의 흔적", "다음 맵으로 이동시 확대배율이 유지되게" — ADR "바뀜 (2026-11-11)") — dev.
 // - 진짜로 넘는다: 운영자 빠르기로 내 사이보그를 변 앞에 세운 뒤 걷는 빠르기로 옆 2차맵에 보내고, 프레임 기록(?map-probe=1, mapProbe.ts)으로
@@ -43,6 +43,8 @@ interface Rig {
   readonly travels: number[];
   /** 2차맵마다 마지막 스냅샷의 유닛 ID */
   readonly snapshotUnits: Map<number, Set<number>>;
+  /** 2차맵마다 서버가 마지막으로 보낸 rev(가짜 경로를 넣을 때 이어 붙인다) */
+  readonly revs: Map<number, number>;
   /** 기기에 서버 메시지를 넣는다 */
   inject(message: object): void;
 }
@@ -61,6 +63,7 @@ async function rigSocket(page: Page): Promise<Rig> {
     visions: [],
     travels: [],
     snapshotUnits: new Map(),
+    revs: new Map(),
     inject: (message) => toPage?.(JSON.stringify(message)),
   };
   await page.routeWebSocket(/\/ws$/, (socket) => {
@@ -100,6 +103,8 @@ async function rigSocket(page: Page): Promise<Rig> {
         rig.snapshotUnits.set(key, set);
       }
       if ((kind === "map_snapshot" || kind === "unit_paths") && Array.isArray(units)) {
+        const rev = Number(field(parsed, "rev"));
+        if (Number.isFinite(rev)) rig.revs.set(Number(field(parsed, "mapKey")), rev);
         for (const unit of units) {
           if (field(unit, "own") === true)
             Reflect.set(unit, "path", [rig.edge.x * UNITS_PER_CELL + 512, rig.edge.y * UNITS_PER_CELL + 512]);
@@ -192,15 +197,17 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     await ladder.locator(".zoom-ladder-out").click();
     await expect(ladder).toHaveAttribute("data-stage", "4");
 
-    // 넘기: 그 이웃 2차맵 경로에 내 사이보그가 나타난다
+    // 넘기: 그 이웃 2차맵 경로에 내 사이보그가 나타난다(그 2차맵 흐름의 rev에 이어 붙인다)
+    const eastRev = rig.revs.get(east) ?? 0;
     rig.inject({
       t: "unit_paths",
       mapKey: east,
-      fromRev: 1,
-      rev: 2,
+      fromRev: eastRev,
+      rev: eastRev + 1,
       units: [
         {
           id: cyborg,
+          own: true,
           size: 1,
           speed: 437,
           departAtMs: Date.now(),
@@ -224,9 +231,9 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     await page.waitForTimeout(1_200);
     const [ax = 0, az = 0] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
     expect(Math.hypot(ax - bx, az - bz)).toBeGreaterThan(300);
-    // 새 2차맵 자료 구독(실제 서버)
+    // 새 2차맵 자료는 이웃일 때 구독해 둔 흐름을 그대로 쓴다(다시 구독하지 않는다 — "바뀜 (2026-11-11)")
     await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
-    expect(rig.subscribed.filter((key) => key === east).length).toBeGreaterThanOrEqual(2);
+    expect(rig.subscribed.filter((key) => key === east).length).toBe(1);
     expect(main).not.toBe(east);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
@@ -357,10 +364,14 @@ async function waitAt(side: Page, target: Omit<Position, "unitId">, radius: numb
 }
 
 /** 프레임 기록을 꺼낸다 */
-async function probeOf(page: Page): Promise<{ samples: ProbeSample[]; frames: number[] }> {
+async function probeOf(page: Page): Promise<{ samples: ProbeSample[]; frames: number[]; events: string[] }> {
   return page.evaluate(() => {
     const probe = window.terraMapProbe;
-    return { samples: probe ? [...probe.samples] : [], frames: probe ? [...probe.frames] : [] };
+    return {
+      samples: probe ? [...probe.samples] : [],
+      frames: probe ? [...probe.frames] : [],
+      events: probe ? [...probe.events] : [],
+    };
   });
 }
 
@@ -496,7 +507,7 @@ test.describe("걸어서 넘기", () => {
           samples: walkProbe.samples.length,
           keys: [...new Set(walkProbe.samples.map((sample) => sample.mapKey))],
           kept: await page.locator('.map-view canvas[data-e2e-mark="kept"]').count(),
-          url: page.url(),
+          events: walkProbe.events,
         })}`,
       );
       const walk = crossingSummary(walkProbe, east, 1_500, 3_000);
@@ -531,7 +542,9 @@ test.describe("걸어서 넘기", () => {
         ).toBe(true);
         await expect(map).toHaveAttribute("data-map-key", String(farther), { timeout: 120_000 });
         await page.waitForTimeout(3_000);
-        const fast = crossingSummary(await probeOf(page), farther, 20_000, 2_500);
+        const fastProbe = await probeOf(page);
+        console.log(`[probe] fast events ${JSON.stringify(fastProbe.events)}`);
+        const fast = crossingSummary(fastProbe, farther, 20_000, 2_500);
         console.log(
           `[measure] fast ${tag} ${JSON.stringify({ ...fast, seconds: (Date.now() - begun) / 1_000 })}`,
         );

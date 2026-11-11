@@ -4,20 +4,28 @@
 // 새 2차맵으로 다시 켠다 — 같은 작업 안에서(다음 프레임 전에) 한다. 흐름은 닫지 않고 받는 쪽만 바꾼다(다시 구독하지 않는다).
 // - 넘기 신호: 기준 유닛이 붙여 둔 이웃 흐름에 새로 나타나면 onArrived(그 2차맵). 또 기준 유닛이 변 바로 옆에 있다가 지금 2차맵에서
 //   사라지면 그 변의 이웃(볼 수 없던 이웃은 구독이 거절돼 있어 나타남을 못 본다 — neighbourTap.ts crossedNeighbour, unitMerge.ts onCarryGone).
-// - 옆 2차맵 유닛: 붙여 둔 이웃 흐름의 유닛 움직임을 지금 2차맵 틀로 옮겨 지금 2차맵 유닛과 함께 엔진에 넣는다(unitMerge.ts).
+// - 옆 2차맵 유닛·건물: 붙여 둔 이웃 흐름의 유닛 움직임·건물 바닥을 지금 2차맵 틀로 옮겨 지금 2차맵 것과 함께 엔진에 넣는다
+//   (unitMerge.ts·buildingMerge.ts). 옆 2차맵 건물 겉모습은 한 번 받아 기억해 둔다(buildingLooks.ts — 넘은 직후에도 바로 붙는다).
 // - 이웃 안개 = 그 2차맵 탐사 칸(흐름의 vision) ∪ 변 가까이 선 내 유닛 시야를 옆 틀로 옮긴 칸(neighbourSight.ts — 1초마다, 경계에서 잘리지 않게).
 // 바뀜(2026-11-11, 사용자 지적 "미세한 화면전환의 흔적 근처에서 미리 불러와 완전히 자연스럽게"):
 // - 넘을 때 넘겨받는 것(handover): 받아 둔 지형, 이어 보일 유닛(기준 유닛의 보이던 자리 — 새 틀로 옮긴 것). 새 자료가 올 때까지 남은 그림으로
 //   두고 그 자리에서 잇는다(유닛이 비거나 한 칸 튀지 않는다).
 // - 미리 받기: 이웃을 받기 시작하는 거리를 멀리 볼수록 넓히고(nearMarginM), 기준 유닛의 경로가 변에서 끝나면(변을 넘으러 간다) 그쪽 이웃 지형과
 //   흐름을 바로 받는다(운영자 100배처럼 변까지 몇 초일 때). 운영자 모드도 이웃 흐름을 전체 보기로 붙인다(전에는 붙이지 않아 넘는 순간 유닛이 비었다).
-import { type SecondMapEngine, type TerrainInput, invertPlacement } from "@terra/engine";
-import { startBuildingLooks } from "./buildingLooks.ts";
+import {
+  type BuildingFootprint,
+  type SecondMapEngine,
+  type TerrainInput,
+  invertPlacement,
+} from "@terra/engine";
+import { cachedLooks, prefetchLooks, startBuildingLooks, withLooks } from "./buildingLooks.ts";
+import { createBuildingMerger } from "./buildingMerge.ts";
 import type { CommandReport, FeedSink, FeedStatus, MapFeed } from "./feedTypes.ts";
 import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
 import { type GatherState, gatherSink } from "./gather/gatherState.ts";
 import { type LeaderTagState, attachLeaderTags } from "./leaderTags.ts";
 import type { MapChannel, MapFeedPool } from "./mapFeedPool.ts";
+import { probeEvent } from "./mapProbe.ts";
 import { loadUnitGlance } from "./mapUnits.ts";
 import type { NearbyState } from "./nearby/nearbyState.ts";
 import {
@@ -30,7 +38,7 @@ import {
 import { crossedNeighbour } from "./neighbourTap.ts";
 import { type CarriedUnit, createUnitMerger } from "./unitMerge.ts";
 import { directionThroughPlacement, pathEnd, pointThroughPlacement } from "./unitBlend.ts";
-import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
+import { type NeighbourLoader, createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
 import {
   nearMarginM,
   neighbourSpots,
@@ -147,14 +155,14 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     mainShown = signature;
     mainSink.setExplored(bits);
   };
-  /** 받은 이웃 지형(받기 전에는 비어 있다 — 아래 neighbourLoader) */
-  let loadedNeighbours: () => Iterable<number> = () => [];
+  /** 이웃 지형 받기(아래에서 만든다 — 안개 셈이 받은 이웃을 읽는다) */
+  let loader: NeighbourLoader | null = null;
   /** 받은 이웃마다 안개 = 서버 탐사 칸 ∪ 내 유닛 시야(옆 틀) ∪ 지금 2차맵 경계 탐사 칸(옆 틀, 경계 이음) — 바뀐 것만 엔진에 */
   const refreshFog = (): void => {
     if (stopped) return;
     const points = [...myPoints(), ...edgeExploredPoints(mainServer ?? null)];
     pushMainFog();
-    for (const key of loadedNeighbours()) {
+    for (const key of loader?.terrains().keys() ?? []) {
       const spot = spotOf(key);
       // 서버 답(탐사 칸·거절)을 받은 이웃만: 넘어온 직후 옛 2차맵(이웃이 됨)은 엔진이 그 탐사 칸을 들고 있다 — 시야만으로 덮어쓰지 않는다
       if (!spot || !serverBits.has(key)) continue;
@@ -177,9 +185,12 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     unitAt: (id) => engine.unitState(id),
     now: options.serverNow,
     carry: options.anchor,
-    // 기준 유닛이 변 바로 옆에서 사라졌다 = 그 변의 이웃으로 넘어갔다(남은 그림으로 이어 보이고 화면이 넘는다)
-    onCarryGone: (_unitId, last) => {
-      const next = crossedNeighbour(mapKey, last, spots);
+    // 기준 유닛이 변 바로 옆에서(또는 변에서 끝나는 길을 걷다가) 사라졌다 = 그 변의 이웃으로 넘어갔다(남은 그림으로 이어 보이고 화면이 넘는다).
+    // 빠른 유닛(운영자 100배)은 화면에 보이던 자리가 변에 못 미쳐도 서버에서는 이미 넘었다 — 걷던 길의 끝으로도 본다
+    onCarryGone: (_unitId, last, goal) => {
+      const next =
+        crossedNeighbour(mapKey, last, spots) ?? (goal ? crossedNeighbour(mapKey, goal, spots) : null);
+      probeEvent(`gone ${mapKey} -> ${String(next)}`);
       if (next === null) return false;
       arrive(next);
       return true;
@@ -200,9 +211,11 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     },
     seed: handover?.terrains ?? null,
   });
-  loadedNeighbours = () => neighbourLoader.terrains().keys();
+  loader = neighbourLoader;
 
-  // ---------- 이웃 흐름(안개·유닛·넘기 신호) ----------
+  const buildings = createBuildingMerger((list) => engine.setBuildings(list));
+
+  // ---------- 이웃 흐름(안개·유닛·건물·넘기 신호) ----------
   /** 카메라 쪽 이웃, 기준 유닛이 가는 쪽 이웃, 따로 바란 이웃(prefetch) */
   let nearKeys: readonly number[] = [];
   let headingKeys: readonly number[] = [];
@@ -215,6 +228,10 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     if (!channel) return;
     attached.set(key, channel);
     const units = merger.neighbourSink(key, spot.placement);
+    /** 그 2차맵 건물(그 틀의 바닥)을 기억해 둔 겉모습과 함께 지금 틀로 넣는다 */
+    let buildingList: readonly BuildingFootprint[] = [];
+    const pushBuildings = (): void =>
+      buildings.setNeighbour(key, spot.placement, withLooks(buildingList, cachedLooks(key)));
     // 기준 유닛이 그 2차맵 목록에 있나(붙일 때 이미 있던 것은 넘기 신호가 아니다 — 방금 떠나온 2차맵에 아직 남은 줄)
     let present = false;
     let replaying = true;
@@ -225,12 +242,22 @@ export function startMapSession(options: MapSessionOptions): MapSession {
         units.setUnits(list);
         const anchor = options.anchor();
         const here = anchor !== null && list.some((unit) => unit.id === anchor);
-        if (here && !present && !replaying) arrive(key);
+        if (here && !present && !replaying) {
+          probeEvent(`seen ${mapKey} -> ${key}`);
+          arrive(key);
+        }
         present = here;
       },
       setUnitPath: units.setUnitPath,
-      // 옆 2차맵 건물은 아직 그리지 않는다
-      setBuildings: () => undefined,
+      // 옆 2차맵 건물도 그린다(넘는 순간 나타나지 않게). 겉모습은 한 번 받아 붙인다
+      setBuildings: (list) => {
+        buildingList = list;
+        pushBuildings();
+        if (list.length > 0)
+          void prefetchLooks(key).then((fresh) => {
+            if (fresh && !stopped && attached.get(key) === channel) pushBuildings();
+          });
+      },
       setExplored: (bits) => {
         serverBits.set(key, bits);
         refreshFog();
@@ -257,6 +284,7 @@ export function startMapSession(options: MapSessionOptions): MapSession {
       channel.attach(null);
       attached.delete(key);
       merger.clearNeighbour(key);
+      buildings.clearNeighbour(key);
     }
     pool.keep([mapKey, ...want]);
     for (const key of want) attachNeighbour(key);
@@ -279,7 +307,17 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     serverNow: options.serverNow,
     nearby,
   });
-  const looks = startBuildingLooks(engine, mapKey, { onLooks: (rows) => nearby.setLooks(rows) });
+  // 건물: 지금 2차맵 건물(겉모습을 붙인 것) + 옆 2차맵 건물을 함께 엔진에
+  const engineSink: FeedSink = {
+    setTerrain: (terrain) => engine.setTerrain(terrain),
+    setUnits: (list) => engine.setUnits(list),
+    setUnitPath: (id, path) => engine.setUnitPath(id, path),
+    setBuildings: (list) => buildings.setMain(list),
+    setExplored: (bits) => engine.setExplored(bits),
+    select: (id) => engine.select(id),
+    selected: () => engine.selected(),
+  };
+  const looks = startBuildingLooks(engineSink, mapKey, { onLooks: (rows) => nearby.setLooks(rows) });
   /** 지금 2차맵 탐사 칸을 가로채 경계 이음을 더해 넣는다 */
   const mainFogSink = (next: FeedSink): FeedSink => {
     mainSink = next;

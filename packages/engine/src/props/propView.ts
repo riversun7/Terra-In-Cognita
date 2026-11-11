@@ -20,6 +20,7 @@ import {
   Quaternion,
   Vector3,
 } from "three";
+import { outsideCellKey } from "../buildings/footprint.ts";
 import { type NeighbourPlacement, toLocal } from "../terrain/neighbourTerrains.ts";
 import { PLACEMENT_CELLS } from "../terrain/terrainData.ts";
 import { type PropArea, insideDistance, polygonArea } from "./propArea.ts";
@@ -131,6 +132,8 @@ export class PropView {
   private capacity = 0;
   /** 지금 2차맵에서 건물이 차지한 배치 칸(1이면 소품 모델을 세우지 않는다). null이면 없음 */
   private blocked: Uint8Array | null = null;
+  /** 옆 2차맵 건물이 차지한 칸(지금 2차맵 틀의 칸 열쇠, footprint.ts outsideCellKey). null이면 없음 */
+  private blockedOutside: ReadonlySet<number> | null = null;
 
   constructor() {
     this.allocate(MAX_PROPS);
@@ -213,9 +216,13 @@ export class PropView {
     this.group.visible = false;
   }
 
-  /** 건물이 차지한 칸(지금 2차맵, 배치 칸 256²). 다음 update에서 다시 세운다 — 나무가 건물 판을 뚫고 서지 않게 */
-  setBlocked(mask: Uint8Array | null): void {
+  /**
+   * 건물이 차지한 칸(지금 2차맵, 배치 칸 256²)과 옆 2차맵 건물이 차지한 칸(outside). 다음 update에서 다시 세운다 — 나무가 건물 판을 뚫고
+   * 서지 않게
+   */
+  setBlocked(mask: Uint8Array | null, outside: ReadonlySet<number> | null = null): void {
     this.blocked = mask;
+    this.blockedOutside = outside;
     this.built = null;
   }
 
@@ -308,6 +315,12 @@ export class PropView {
         if (forest && (cover[cell] ?? 0) < 2 && cellRandom(cell, 7 + source.salt) < 0.5) continue;
         const world = cellToWorld(placement, x + 0.5, z + 0.5, cellM);
         if (insideDistance(area.polygon, world.x, world.z) < -margin) continue;
+        // 옆 2차맵 건물 판 안(지금 2차맵 틀의 칸으로 본다)
+        if (
+          placement &&
+          this.blockedOutside?.has(outsideCellKey(Math.floor(world.x / cellM), Math.floor(world.z / cellM)))
+        )
+          continue;
         const nx = world.x - area.nearX;
         const nz = world.z - area.nearZ;
         out.push({ source, cell, shape: look.shape, distance2: nx * nx + nz * nz });

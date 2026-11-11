@@ -13,7 +13,13 @@
 // - 화면이 옆 2차맵으로 넘을 때 carryOut으로 그 유닛의 보이던 자리·걷던 쪽을 꺼내 새 틀로 옮겨 다음 합치기에 carryIn으로 넣는다(mapSession.ts).
 import type { NeighbourPlacement, UnitPath, UnitSpawn } from "@terra/engine";
 import type { FeedSink } from "./feedTypes.ts";
-import { type CellPoint, blendPath, pathThroughPlacement, pointThroughPlacement } from "./unitBlend.ts";
+import {
+  type CellPoint,
+  blendPath,
+  pathEnd,
+  pathThroughPlacement,
+  pointThroughPlacement,
+} from "./unitBlend.ts";
 
 /** 남은 그림을 두는 시간(ms)과 그동안 걷는 길이(배치 칸) */
 export const GHOST_MS = 4_000;
@@ -48,10 +54,10 @@ export interface UnitMergerOptions {
   /** 이어 보일 유닛(카메라가 따라가는 기준 유닛, 없으면 null) */
   readonly carry: () => number | null;
   /**
-   * 이어 보일 유닛이 지금 2차맵에서 사라졌다(last = 보이던 자리). 옆 2차맵으로 넘는 중이면 true — 남은 그림을 둔다. 아니면(시야 밖·쓰러짐)
-   * false
+   * 이어 보일 유닛이 지금 2차맵에서 사라졌다(last = 보이던 자리, goal = 걷던 경로의 끝 — 서 있었으면 null). 옆 2차맵으로 넘는 중이면 true —
+   * 남은 그림을 둔다. 아니면(시야 밖·쓰러짐) false
    */
-  readonly onCarryGone?: (unitId: number, last: CellPoint) => boolean;
+  readonly onCarryGone?: (unitId: number, last: CellPoint, goal: CellPoint | null) => boolean;
 }
 
 export interface UnitMerger {
@@ -202,7 +208,8 @@ export function createUnitMerger(options: UnitMergerOptions): UnitMerger {
               heading: previous.path ? headingOf(previous.path, now) : null,
               speed: previous.path?.speedCellsPerSec ?? 0,
             };
-            if (options.onCarryGone?.(gone.id, last) === true) setGhost(gone);
+            const goal = previous.path ? pathEnd(previous.path) : null;
+            if (options.onCarryGone?.(gone.id, last, goal) === true) setGhost(gone);
           }
           push();
         },

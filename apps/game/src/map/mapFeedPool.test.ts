@@ -23,6 +23,18 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/** 받는 쪽(가짜 엔진 + 상태·지형 알림 기록) */
+function target(engine = fakeEngine()) {
+  const statuses: FeedStatus[] = [];
+  const terrains: string[] = [];
+  const sink: ChannelTarget = {
+    ...engine.sink,
+    onStatus: (status) => statuses.push(status),
+    onTerrain: (url) => terrains.push(url),
+  };
+  return { engine, sink, statuses, terrains };
+}
+
 function setup(options: { maxChannels?: number } = {}) {
   const net = fakeLink();
   net.up();
@@ -45,22 +57,11 @@ function setup(options: { maxChannels?: number } = {}) {
     for (const part of snapshot({ rev, units })) net.receive(part);
     await settle();
   };
-  const target = (engine = fakeEngine()) => {
-    const statuses: FeedStatus[] = [];
-    const terrains: string[] = [];
-    const sink: ChannelTarget = {
-      ...engine.sink,
-      onStatus: (status) => statuses.push(status),
-      onTerrain: (url) => terrains.push(url),
-    };
-    return { engine, sink, statuses, terrains };
-  };
   return {
     net,
     pool,
     fetchTerrain,
     live,
-    target,
     setObserve: (value: boolean) => {
       observe = value;
     },
@@ -69,7 +70,7 @@ function setup(options: { maxChannels?: number } = {}) {
 
 describe("자료 흐름 모음", () => {
   it("흐름을 열면 구독하고, 받는 쪽 없이도 받아 기억했다가 붙이면 그대로 넣는다(다시 구독하지 않는다)", async () => {
-    const { net, pool, live, target } = setup();
+    const { net, pool, live } = setup();
     const channel = pool.open(MAP);
     expect(channel).not.toBeNull();
     expect(net.of("subscribe").map((message) => message.mapKey)).toEqual([MAP]);
@@ -95,7 +96,7 @@ describe("자료 흐름 모음", () => {
   });
 
   it("붙인 채 받으면 지형을 그리는 쪽에 넘기고, 탐사 칸(vision)도 기억한다", async () => {
-    const { net, pool, live, target } = setup();
+    const { net, pool, live } = setup();
     const first = target();
     const channel = pool.open(MAP);
     channel?.attach(first.sink);

@@ -170,7 +170,8 @@ export function createMapFeedPool(options: MapFeedPoolOptions): MapFeedPool {
     get: (mapKey) => channels.get(mapKey),
     keys: () => [...channels.keys()],
     keep(mapKeys) {
-      for (const key of [...channels.keys()]) if (!mapKeys.includes(key)) close(key);
+      // Map은 도는 중에 지나온 항목을 지워도 된다
+      for (const key of channels.keys()) if (!mapKeys.includes(key)) close(key);
     },
     refresh() {
       for (const channel of channels.values()) channel.feed.refresh();
@@ -178,7 +179,7 @@ export function createMapFeedPool(options: MapFeedPoolOptions): MapFeedPool {
     loadTerrain,
     stop() {
       stopped = true;
-      for (const key of [...channels.keys()]) close(key);
+      for (const key of channels.keys()) close(key);
     },
   };
 }

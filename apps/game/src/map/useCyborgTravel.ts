@@ -4,6 +4,7 @@
 import type { WorldTravel } from "@terra/shared/worldMap";
 import { useEffect, useState } from "react";
 import { navigate } from "../shell/routerStore.ts";
+import { probeEvent } from "./mapProbe.ts";
 import { TRAVEL_POLL_MS, loadTravels, travelOf } from "./travelData.ts";
 
 /** 길 조회 답과 그것을 물은 때(기기 시계 ms) */
@@ -70,6 +71,7 @@ export function useTravelFollow(
     if (crossedTo === null || !following) return;
     // 화면이 넘은 뒤에 물은 답만 믿는다
     if (crossedAt && askedAt <= crossedAt.current) return;
+    probeEvent(`poll -> ${crossedTo}`);
     onCross(crossedTo);
   }, [crossedTo, following, onCross, askedAt, crossedAt]);
   return { going, crossedTo };

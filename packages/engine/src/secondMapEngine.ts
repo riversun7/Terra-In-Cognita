@@ -6,7 +6,7 @@
 // 지도 조작(사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md): 누르기는 유닛 → 덧그림 층 표시(화면 거리) → 땅 차례, 고른 유닛 따라가기
 // (follow, 끌면 돌리기 — docs/adr/2026-11-08-seamless-second-map.md WP-1)·확대 단계 1~5(zoomStep은 단계 대표 거리로 미끄러짐, onZoomStage)는 camera/cameraGlide.ts·secondMapZoom.ts.
 import { Frustum, Matrix4, PerspectiveCamera, Scene, type WebGLRenderer } from "three";
-import { type BuildingFootprint, footprintMask } from "./buildings/footprint.ts";
+import { type BuildingFootprint, footprintMask, footprintOutsideCells } from "./buildings/footprint.ts";
 import { BuildingView } from "./buildings/buildingView.ts";
 import {
   CAMERA_FOV_RAD,
@@ -196,6 +196,12 @@ export function createSecondMapEngine(
     propView.update(
       spanForDistance(state.distance, viewport),
       propArea(state, viewport, propView.limits.reachM),
+    );
+  /** 건물 판 안에는 소품 모델을 세우지 않는다: 지금 2차맵 칸 표 + 옆 2차맵 건물(지금 틀로 옮겨 넣은 것)이 차지한 밖 칸 */
+  const blockProps = (buildings: readonly BuildingFootprint[]): void =>
+    propView.setBlocked(
+      footprintMask(buildings, PLACEMENT_CELLS),
+      footprintOutsideCells(buildings, PLACEMENT_CELLS),
     );
   scene.add(neighbours.group, propView.group);
   let pendingNeighbours: readonly NeighbourTerrain[] | null = null;
@@ -391,8 +397,11 @@ export function createSecondMapEngine(
       const groundDistance = hit
         ? Math.hypot(hit.x - ray.origin.x, hit.y - ray.origin.y, hit.z - ray.origin.z)
         : Number.POSITIVE_INFINITY;
-      if (building.distance <= groundDistance + BUILDING_PICK_SLACK_M)
-        return { x: building.x, z: building.z };
+      if (building.distance <= groundDistance + BUILDING_PICK_SLACK_M) {
+        // 옆 2차맵 건물(지금 틀로 옮겨 그린 것)이면 옆 2차맵 땅을 누른 것과 같다
+        const outside = building.x < 0 || building.z < 0 || building.x > mapSize || building.z > mapSize;
+        return outside ? { x: building.x, z: building.z, outside: true } : { x: building.x, z: building.z };
+      }
     }
     if (!hit) return null;
     if (hit.x < 0 || hit.z < 0 || hit.x > mapSize || hit.z > mapSize) {
@@ -505,7 +514,7 @@ export function createSecondMapEngine(
       }
       if (pendingBuildings) {
         buildingView.set(pendingBuildings, cellM, groundAt);
-        propView.setBlocked(footprintMask(pendingBuildings, PLACEMENT_CELLS));
+        blockProps(pendingBuildings);
         pendingBuildings = null;
       }
       emit(contextLost ? { kind: "context-lost" } : { kind: "ready" });
@@ -557,7 +566,7 @@ export function createSecondMapEngine(
         y: (back.cc * (cell.x / half) + back.d * (cell.y / half) + back.tz) * half,
       }));
       buildingView.set([], cellM, groundAt);
-      propView.setBlocked(footprintMask([], PLACEMENT_CELLS));
+      blockProps([]);
       pendingBuildings = null;
       syncPropSources();
       // 보기 범위(플레이어 카메라 묶기)도 새 틀로 옮긴다: 비우면 가장 멀리 한계가 바뀌어 확대 단계 표시가 잠깐 달라졌다.
@@ -628,7 +637,7 @@ export function createSecondMapEngine(
       }
       buildingView.set(buildings, cellM, groundAt);
       // 건물 판 안에는 나무 등 소품 모델을 세우지 않는다
-      propView.setBlocked(footprintMask(buildings, PLACEMENT_CELLS));
+      blockProps(buildings);
       scheduler.request();
     },
 

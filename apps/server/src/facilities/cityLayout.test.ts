@@ -100,6 +100,8 @@ const mid = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
   x: (a.x + b.x) / 2,
   y: (a.y + b.y) / 2,
 });
+/** 시험 땅의 도시 칸 둘레 호수(반경 20칸) */
+const lake = (x: number, y: number) => (x - 128) * (x - 128) + (y - 128) * (y - 128) < 20 * 20;
 /** 시험 땅의 세로 막힌 띠(x 140~146) */
 const blocked = (x: number) => x >= 140 && x <= 146;
 
@@ -221,7 +223,6 @@ describe("도시 건물 배치 계획", () => {
   });
 
   it("도시 칸 둘레가 막혀도(호수) 넓혀 찾아 행정 건물을 세우고 나머지도 그 둘레에 놓는다", () => {
-    const lake = (x: number, y: number) => (x - 128) * (x - 128) + (y - 128) * (y - 128) < 20 * 20;
     const result = plan(4, fakeGround({ blocked: lake, objects: OBJECTS }));
     expect(result.missing).toEqual([]);
     expect(result.placed).toHaveLength(ITEMS.length);

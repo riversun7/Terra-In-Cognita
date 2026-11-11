@@ -7974,6 +7974,60 @@
       "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
     {
+      "id": "npc_seed_herb_fields",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 기본 약초원 수",
+        "en": "NPC start city herb fields"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 4,
+      "desc": {
+        "ko": "처음 짓는 약초원 수([임시] 0 = 짓지 않음). 숲이 보이거나 농사지을 땅일 때만.",
+        "en": "Herb fields built in each NPC start city ([placeholder] 0 = none). Only with forest or farmland around."
+      },
+      "source": "ADR 2026-11-11-production-six · ADR 2026-11-07-play-flow \"WP1 세계 씨앗\""
+    },
+    {
+      "id": "npc_seed_ranches",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 기본 목장 수",
+        "en": "NPC start city ranches"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 4,
+      "desc": {
+        "ko": "처음 짓는 목장 수([임시] 0 = 짓지 않음). 농사지을 땅일 때만.",
+        "en": "Ranches built in each NPC start city ([placeholder] 0 = none). Only on farmland."
+      },
+      "source": "ADR 2026-11-11-production-six · ADR 2026-11-07-play-flow \"WP1 세계 씨앗\""
+    },
+    {
+      "id": "npc_seed_fishing_spots",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 기본 낚시터 수",
+        "en": "NPC start city fishing spots"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 4,
+      "desc": {
+        "ko": "처음 짓는 낚시터 수([임시] 0 = 짓지 않음). 물가 판정은 아직 없다.",
+        "en": "Fishing spots built in each NPC start city ([placeholder] 0 = none). No waterside check yet."
+      },
+      "source": "ADR 2026-11-11-production-six · ADR 2026-11-07-play-flow \"WP1 세계 씨앗\""
+    },
+    {
       "id": "world_layout_region_cells",
       "code": "",
       "name": {

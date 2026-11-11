@@ -97,6 +97,16 @@ export interface FacilityGatherJson {
   readonly yieldBase?: number | undefined;
   readonly yieldPerStatPm?: number | undefined;
   readonly yieldCap?: number | undefined;
+  /** 성공 확률(낚시터, 옛 fishing_config): min(maxPm, basePm + ⌊statPm × min(fullStat, 주 + 보조) ÷ fullStat⌋)‰. 없으면 늘 성공 */
+  readonly catch?: FacilityCatchJson | undefined;
+}
+
+/** 채집 성공 확률 칸(팩 facilities.gather.catch) */
+export interface FacilityCatchJson {
+  readonly basePm: number;
+  readonly maxPm: number;
+  readonly statPm: number;
+  readonly fullStat: number;
 }
 
 /** 팩 facilities.json 한 줄(JSON 모양). 켜기·끄기 칸은 없다(시설은 늘 켜짐, 사용자 답 2026-11-03) */
@@ -130,6 +140,8 @@ export const FACILITY_LIMITS = {
   yieldBase: { min: 0, max: 1000 },
   yieldPerStatPm: { min: 0, max: 100_000 },
   yieldCap: { min: 1, max: 1000 },
+  catchPm: { min: 0, max: 1000 },
+  catchFullStat: { min: 1, max: 100_000 },
   nameMax: 200,
 } as const;
 

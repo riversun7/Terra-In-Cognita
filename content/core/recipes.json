@@ -69,6 +69,57 @@
       "enabled": true
     },
     {
+      "id": "gather_herbs",
+      "name": {
+        "ko": "약초 채집",
+        "en": "Gather herbs"
+      },
+      "facility": "herb_field",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "wild_herb",
+          "qty": 10
+        }
+      ],
+      "work": 1000,
+      "enabled": true
+    },
+    {
+      "id": "raise_livestock",
+      "name": {
+        "ko": "가축 기르기",
+        "en": "Raise livestock"
+      },
+      "facility": "ranch",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "raw_meat",
+          "qty": 10
+        }
+      ],
+      "work": 1000,
+      "enabled": true
+    },
+    {
+      "id": "catch_fish",
+      "name": {
+        "ko": "낚시",
+        "en": "Catch fish"
+      },
+      "facility": "fishing_spot",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "loach",
+          "qty": 10
+        }
+      ],
+      "work": 1000,
+      "enabled": true
+    },
+    {
       "id": "smelt_iron",
       "name": {
         "ko": "철 제련",

@@ -168,6 +168,174 @@
       }
     },
     {
+      "id": "herb_field",
+      "name": {
+        "ko": "약초원",
+        "en": "Herb field"
+      },
+      "stage": "gather",
+      "slotsPerLevel": 10,
+      "pollution": 1,
+      "gather": {
+        "primary": "int",
+        "secondary": "wis",
+        "subcategory": "herb",
+        "yieldBase": 1,
+        "yieldPerStatPm": 100,
+        "yieldCap": 8
+      },
+      "build": {
+        "mulPm": 800,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 5
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 5
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 100,
+      "storageKg": 100,
+      "look": {
+        "model": "farm",
+        "roof": "moss"
+      }
+    },
+    {
+      "id": "ranch",
+      "name": {
+        "ko": "목장",
+        "en": "Ranch"
+      },
+      "stage": "gather",
+      "slotsPerLevel": 10,
+      "pollution": 1,
+      "gather": {
+        "primary": "wis",
+        "secondary": "agi",
+        "subcategory": "livestock_product",
+        "mode": "select",
+        "yieldBase": 1,
+        "yieldPerStatPm": 80,
+        "yieldCap": 6
+      },
+      "build": {
+        "mulPm": 800,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 8
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 8
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 4,
+        "height": 4
+      },
+      "durability": 150,
+      "storageKg": 300,
+      "look": {
+        "model": "farm",
+        "wall": "barn"
+      }
+    },
+    {
+      "id": "fishing_spot",
+      "name": {
+        "ko": "낚시터",
+        "en": "Fishing spot"
+      },
+      "stage": "gather",
+      "slotsPerLevel": 10,
+      "pollution": 1,
+      "gather": {
+        "primary": "agi",
+        "secondary": "dex",
+        "subcategory": "fish",
+        "yieldBase": 1,
+        "yieldPerStatPm": 100,
+        "yieldCap": 5,
+        "catch": {
+          "basePm": 300,
+          "maxPm": 800,
+          "statPm": 500,
+          "fullStat": 200
+        }
+      },
+      "build": {
+        "mulPm": 800,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 12
+              },
+              {
+                "item": "stone",
+                "qty": 3
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 12
+              },
+              {
+                "item": "brick",
+                "qty": 3
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 150,
+      "storageKg": 200,
+      "look": {
+        "model": "lumber",
+        "roof": "teal"
+      }
+    },
+    {
       "id": "smelter",
       "name": {
         "ko": "제련소",

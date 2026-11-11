@@ -5,7 +5,7 @@
 // RecipeSpec·NecessitySpec은 기본 단위로 둔다. 거래소는 묶음 단위로 사고판다(goodsMarket lotSize).
 // 채집 티어 추첨(D-506): 시설에 gather가 있고 산출이 모두 그 중분류인 레시피는 산출 묶음마다 티어를 뽑는다(economy/gather.ts).
 // 선택 방식(gather.mode select, 농장·목장)은 뽑지 않고 일꾼 해금 티어에서 고른다(49 P8). 진행 속도·수확량은 simulator/economy.ts.
-import { GATHER_TIERS, type GatherBand, TEST_GATHER_BANDS } from "../economy/gather.ts";
+import { GATHER_TIERS, type GatherBand, type GatherCatchRule, TEST_GATHER_BANDS } from "../economy/gather.ts";
 import { type NecessitySpec } from "../economy/upkeep.ts";
 import { type GatherMode, type RecipeSpec } from "../economy/production.ts";
 
@@ -59,6 +59,8 @@ export interface CatalogGather {
   readonly yieldPerStatPm?: number | undefined;
   /** 옛 yield_cap(개) */
   readonly yieldCap?: number | undefined;
+  /** 성공 확률 규칙(낚시터, 옛 fishing_config). 없으면 늘 성공 */
+  readonly catch?: GatherCatchRule | undefined;
 }
 
 export interface CatalogNecessity {

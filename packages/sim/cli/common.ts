@@ -105,6 +105,7 @@ function catalogOf(source: PackSource): EconomyCatalog {
                 yieldBase: facility.gather.yieldBase,
                 yieldPerStatPm: facility.gather.yieldPerStatPm,
                 yieldCap: facility.gather.yieldCap,
+                catch: facility.gather.catch,
               },
             }
           : {}),

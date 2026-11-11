@@ -12,6 +12,8 @@
 //   migrations/index.js 642~736). 옛 마지막 코드는 1개 고정이었고 기획 D-507이 켰다. 광석은 개수 = 묶음 수(1개 = 1kg 묶음, 49 N44).
 // - 선택 + 효율(농장·목장): 해금 티어 = min(⌊(주 + 보조) ÷ 20⌋, 9)(49 P8, 옛 calcAccessibleTier)에서 켜진 아이템이 있는 가장 높은
 //   티어를 고르고 같은 티어 여럿이면 고르게(옛 ORDER BY tier DESC, RANDOM()). 추첨하지 않는다.
+// - 성공 확률(낚시터, docs/adr/2026-11-11-production-six.md): 한 번 시도마다 성공 ‰를 먼저 굴리고 성공한 번만 티어를 뽑는다
+//   (옛 BuildingGatherEngine.js runFishingWorkers 715~735, fishing_config 0.30·0.80·0.50).
 // 정수 연산만 쓴다(판정 코드 규칙).
 import type { Rng } from "@terra/shared";
 
@@ -82,6 +84,24 @@ export function accessibleTier(primary: number, secondary: number): number {
   return Math.min(GATHER_TIERS - 1, Math.floor(sum / ACCESSIBLE_TIER_STEP));
 }
 
+/** 성공 확률 규칙(낚시터, 옛 fishing_config): 기본·상한·스탯 몫(‰)과 스탯 몫이 다 차는 스탯 합 */
+export interface GatherCatchRule {
+  readonly basePm: number;
+  readonly maxPm: number;
+  readonly statPm: number;
+  readonly fullStat: number;
+}
+
+/**
+ * 한 번 시도의 성공 ‰(옛 BuildingGatherEngine.js 715~716: min(상한, 기본 + 스탯 몫 × min(1, (주 + 보조) ÷ 200))):
+ * min(maxPm, basePm + ⌊statPm × min(fullStat, 스탯 합) ÷ fullStat⌋), 0~1000으로 자른다
+ */
+export function gatherCatchPm(statSum: number, rule: GatherCatchRule): number {
+  const full = Math.max(1, rule.fullStat);
+  const part = Math.floor((Math.max(0, rule.statPm) * Math.min(full, Math.max(0, statSum))) / full);
+  return Math.max(0, Math.min(GATHER_WEIGHT_TOTAL, Math.min(rule.maxPm, rule.basePm + part)));
+}
+
 /** 유효 스탯 = 일꾼 1차 + 2차 + 레벨 보너스 × (레벨 − 1). 레벨 1 아래는 보너스 0 */
 export function gatherStat(workerStat: number, level: number, bonusPerLevel: number): number {
   return Math.max(0, workerStat) + Math.max(0, bonusPerLevel) * Math.max(0, level - 1);
@@ -147,6 +167,11 @@ export interface GatherRoll {
    * 그 밖의 아이템은 한 개 = 기본 단위 하나 × 묶음 크기(1)
    */
   readonly harvestGrams?: bigint | undefined;
+  /**
+   * 한 번 시도의 성공 ‰(gatherCatchPm, 낚시터). 있으면 티어를 뽑기 전에 먼저 굴리고, 실패한 번은 빈 번이다(티어 난수를 쓰지 않는다).
+   * 없으면 늘 성공(난수를 더 쓰지 않는다 — 다른 시설의 결과는 그대로)
+   */
+  readonly successPm?: number | undefined;
 }
 
 /**
@@ -164,6 +189,10 @@ export function rollGatherOutputs(
   const each = BigInt(Math.max(0, roll.yieldPerLot ?? 1));
   let empty = 0;
   for (let i = 0; i < roll.lots; i++) {
+    if (roll.successPm !== undefined && rng.nextInt(GATHER_WEIGHT_TOTAL) >= roll.successPm) {
+      empty += 1;
+      continue;
+    }
     const tier =
       roll.selectTier === undefined
         ? rollGatherTier(roll.bands, roll.stat, rng)

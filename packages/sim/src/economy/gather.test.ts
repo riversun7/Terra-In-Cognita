@@ -8,6 +8,7 @@ import {
   TEST_GATHER_BANDS,
   accessibleTier,
   gatherBandIndex,
+  gatherCatchPm,
   gatherChancesPm,
   gatherProgress,
   gatherStat,
@@ -252,5 +253,41 @@ describe("옛 1차 생산 규칙(D-507, AntiGravt01 gather 엔진·ITM-10 값)",
     const halfBy = new Map(half.outputs.map((stack) => [stack.asset, stack.qty]));
     expect(halfBy.get("item:iron_ore")).toBe((byAsset.get("item:iron_ore") ?? 0n) / 2n);
     expect(halfBy.get("item:rubble")).toBe(byAsset.get("item:rubble"));
+  });
+});
+
+describe("성공 확률(낚시터, 옛 fishing_config 0.30·0.80·0.50·합 200)", () => {
+  const rule = { basePm: 300, maxPm: 800, statPm: 500, fullStat: 200 };
+
+  it("성공 ‰ = min(상한, 기본 + ⌊스탯 몫 × min(가득, 주 + 보조) ÷ 가득⌋)", () => {
+    // 옛 식: min(0.80, 0.30 + 0.50 × min(1, 합 ÷ 200))
+    expect([0, 20, 100, 199, 200, 400].map((stat) => gatherCatchPm(stat, rule))).toEqual([
+      300, 350, 550, 797, 800, 800,
+    ]);
+    // 상한이 기본 + 스탯 몫보다 낮으면 상한에서 멈춘다, 음수 스탯은 0으로
+    expect(gatherCatchPm(200, { ...rule, maxPm: 600 })).toBe(600);
+    expect(gatherCatchPm(-50, rule)).toBe(300);
+    // 0~1000‰ 밖으로 가지 않는다
+    expect(gatherCatchPm(500, { basePm: 900, maxPm: 5000, statPm: 900, fullStat: 100 })).toBe(1000);
+  });
+
+  it("성공한 번만 티어를 뽑는다: 성공 350‰면 2만 번 가운데 약 35%가 물건, 나머지는 빈 번", () => {
+    const fish: string[][] = [["item:loach"], ["item:carp"], ["item:salmon"], ["item:mackerel"]];
+    const { outputs, empty, tiers } = rollGatherOutputs(
+      { ladder: fish, bands: TEST_GATHER_BANDS, stat: 20, lots: 20_000, lotSize: new Map(), successPm: 350 },
+      createRng(21),
+    );
+    const caught = outputs.reduce((sum, stack) => sum + Number(stack.qty), 0);
+    expect(caught + empty).toBe(20_000);
+    expect(Math.abs(caught - 7000)).toBeLessThan(250);
+    // 뽑은 티어 수 = 성공한 번 수(실패한 번은 티어를 뽑지 않는다)
+    expect(tiers.reduce((sum, count) => sum + count, 0)).toBe(caught);
+  });
+
+  it("성공 0‰면 모두 빈 번, 성공 칸이 없으면 늘 성공(난수를 더 쓰지 않아 앞 결과와 같다)", () => {
+    const fish: string[][] = [["item:loach"]];
+    const base = { ladder: fish, bands: TEST_GATHER_BANDS, stat: 20, lots: 50, lotSize: new Map() };
+    expect(rollGatherOutputs({ ...base, successPm: 0 }, createRng(3)).empty).toBe(50);
+    expect(rollGatherOutputs(base, createRng(3)).outputs).toEqual([{ asset: "item:loach", qty: 50n }]);
   });
 });

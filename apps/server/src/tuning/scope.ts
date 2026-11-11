@@ -310,6 +310,9 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "worldSeed.farms",
   "worldSeed.lumberCamps",
   "worldSeed.mines",
+  "worldSeed.herbFields",
+  "worldSeed.ranches",
+  "worldSeed.fishingSpots",
   "worldSeed.storehouses",
   // 옆 2차맵을 그때 띄우기(world/mapSpawnWorld.ts, docs/adr/2026-11-07-play-flow.md "WP15"): 띄울 때·1분마다 살필 때 읽는다
   "worldSeed.mapSpawnMaxLoaded",

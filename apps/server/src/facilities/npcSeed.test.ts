@@ -160,6 +160,43 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     expect(facilities.size).toBe(4);
   });
 
+  it("1차 생산 여섯 가지: 약초원·목장·낚시터도 같은 표에서 서고 수 출발값은 0이다", () => {
+    const ids = seedPlan(START_WORLD_SEED).map((item) => item.facility);
+    expect(ids).toEqual([
+      "government_hall",
+      "storehouse",
+      "farm",
+      "lumber_camp",
+      "mine",
+      "herb_field",
+      "ranch",
+      "fishing_spot",
+    ]);
+    expect(seedPlan(START_WORLD_SEED).filter((item) => item.count > 0)).toHaveLength(5);
+    const six = { ...START_WORLD_SEED, herbFields: 1, ranches: 2, fishingSpots: 1 };
+    // 숲만 있는 추운 고원: 벌목장·광산 + 약초원(숲), 목장은 농사지을 땅이 아니라 서지 않는다. 낚시터는 땅 조건이 없다
+    const cold = { elevationM: 900, temperatureC: -5, precipitationMm: 100, forest: 200 };
+    expect(
+      seedPlan(six, cold)
+        .filter((item) => item.count > 0)
+        .map((item) => `${item.facility}:${item.count}`),
+    ).toEqual([
+      "government_hall:1",
+      "storehouse:1",
+      "lumber_camp:1",
+      "mine:1",
+      "herb_field:1",
+      "fishing_spot:1",
+    ]);
+    // 따뜻한 풀밭: 농장 + 약초원 + 목장
+    const warm = { elevationM: 50, temperatureC: 18, precipitationMm: 900, forest: 0 };
+    expect(
+      seedPlan(six, warm)
+        .filter((item) => item.count > 0)
+        .map((item) => `${item.facility}:${item.count}`),
+    ).toEqual(["government_hall:1", "storehouse:1", "farm:1", "herb_field:1", "ranch:2", "fishing_spot:1"]);
+  });
+
   it("채집 시설은 둘레 땅을 따른다(503 다): 숲 → 벌목장, 높은 땅 → 광산, 따뜻하고 비 오는 땅 → 농장, 아무것도 아니면 농장", () => {
     // 시험 2차맵 줄(초지·숲 밀도 15·고도 75m·15°C·강수 261mm)과 같은 값
     const grass: SeedLand = { elevationM: 75, temperatureC: 15, precipitationMm: 261, forest: 15 };

@@ -60,6 +60,7 @@ export function serverEconomyCatalog(
               yieldBase: gather.yieldBase,
               yieldPerStatPm: gather.yieldPerStatPm,
               yieldCap: gather.yieldCap,
+              catch: gather.catch,
             },
           }
         : {}),

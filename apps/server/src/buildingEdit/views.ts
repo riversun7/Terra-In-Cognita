@@ -44,6 +44,7 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
             ...(gather.yieldBase === undefined ? {} : { yieldBase: gather.yieldBase }),
             ...(gather.yieldPerStatPm === undefined ? {} : { yieldPerStatPm: gather.yieldPerStatPm }),
             ...(gather.yieldCap === undefined ? {} : { yieldCap: gather.yieldCap }),
+            ...(gather.catch === undefined ? {} : { catch: { ...gather.catch } }),
           },
         }
       : {}),

@@ -94,6 +94,7 @@
       "workMs": 15000,
       "uses": 3,
       "regrowMs": 1800000,
+      "facility": "herb_field",
       "primary": "int",
       "secondary": "wis"
     }

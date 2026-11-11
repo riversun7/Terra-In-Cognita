@@ -137,6 +137,19 @@ export const facilityEntrySchema = z.strictObject({
       yieldBase: z.int().min(0).max(1000).optional(),
       yieldPerStatPm: z.int().min(0).max(100_000).optional(),
       yieldCap: z.int().min(1).max(1000).optional(),
+      /**
+       * 성공 확률(낚시터, 옛 fishing_config·BuildingGatherEngine.js 638~642·715~716, docs/adr/2026-11-11-production-six.md): 한 번 시도할 때
+       * 성공 ‰ = min(maxPm, basePm + ⌊statPm × min(fullStat, 주 + 보조) ÷ fullStat⌋). 실패한 번은 아무것도 나오지 않는다(T0 시간은 든다).
+       * 옛 값 0.30·0.80·0.50·200 → 300·800·500·200. 없으면 늘 성공(광산·벌목장·약초원·농장·목장)
+       */
+      catch: z
+        .strictObject({
+          basePm: z.int().min(0).max(1000),
+          maxPm: z.int().min(0).max(1000),
+          statPm: z.int().min(0).max(1000),
+          fullStat: z.int().min(1).max(100_000),
+        })
+        .optional(),
     })
     .optional(),
   /**

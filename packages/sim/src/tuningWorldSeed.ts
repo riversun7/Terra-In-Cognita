@@ -61,6 +61,10 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 시작 도시 농장: 강수 문턱(mm)",
     "NPC start city farm: precipitation from (mm)",
   ),
+  // 1차 생산 여섯 가지(docs/adr/2026-11-11-production-six.md): 약초원·목장·낚시터 수(출발값 0)
+  k("npc_seed_herb_fields", "herbFields", "NPC 시작 도시 기본 약초원 수", "NPC start city herb fields"),
+  k("npc_seed_ranches", "ranches", "NPC 시작 도시 기본 목장 수", "NPC start city ranches"),
+  k("npc_seed_fishing_spots", "fishingSpots", "NPC 시작 도시 기본 낚시터 수", "NPC start city fishing spots"),
   // 국가 자리(docs/adr/2026-11-07-world-layout.md): 49에 칸이 없어 world_layout_*를 앞머리로 쓴다
   k(
     "world_layout_region_cells",

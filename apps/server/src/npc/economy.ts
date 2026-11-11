@@ -52,7 +52,11 @@ import {
   scheduleEconomy,
   scheduleProduce,
   workerEffects,
+  catchmentSettingsOf,
+  createCatchmentState,
 } from "@terra/sim";
+import type { CatchmentLand } from "@terra/shared/catchment";
+import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { type MarketRegistry, createMarketRegistry } from "../market/books.ts";
 import { type FxRegistry, createFxRegistry } from "../market/fx.ts";
@@ -110,6 +114,11 @@ export interface NpcEconomyInput {
   readonly presets?: readonly NationPreset[] | undefined;
   /** 그 도시에 선 시설(다 지은 것, 일하는 상태) */
   readonly facilitiesIn: (cityId: number) => readonly CityFacility[];
+  /**
+   * 배후지 채집 다툼(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)", 질문 1024 나·다): 1차맵 칸의 행성 값. 있고 설정 칸
+   * city_catchment_radius_cells > 0이면 NPC 도시 채집 시설이 배후지 칸에서 캔 몫만큼 내고, 몫이 문턱 아래면 구인하지 않는다. 없으면 옛 경제
+   */
+  readonly land?: ((mapKey: number) => CatchmentLand | undefined) | undefined;
 }
 
 /** 시설 하나의 지금 생산(화면용) */
@@ -157,6 +166,8 @@ export interface ServerEconomyOptions {
   readonly startMs: number;
   readonly now: () => number;
   readonly log: { info(obj: object, message: string): void; warn(obj: object, message: string): void };
+  /** 도시 → 그 도시 2차맵(1차맵 칸 키, 배후지 칸을 센다). 없으면 배후지 다툼을 켜지 않는다 */
+  readonly cityMapOf?: ((cityId: number) => number | undefined) | undefined;
   /**
    * 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535·540 나, npc/ruinsRuntime.ts — 2차맵 칸 거리·유저 나라). 없으면 시뮬 기본(거리를 모를 때:
    * 주인의 가장 오래된 다른 도시, 다른 도시가 없는 NPC 세력 물건은 소각, 유저 물건은 자리 없음)
@@ -277,6 +288,12 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       produced: new Map(),
     },
   };
+  // 배후지 채집 다툼: 행성 값이 있고 설정 칸이 켜져 있을 때(켤 때 한 번 정한다 — 끄려면 다시 켠다)
+  const land = o.input.land;
+  if (land && o.cityMapOf && o.rules().worldSeed.catchmentRadiusCells > 0)
+    economy.catchment = createCatchmentState(planetCatchmentGeometry(land, o.cityMapOf, o.rules), () =>
+      catchmentSettingsOf(o.rules().worldSeed, o.rules().territory),
+    );
   const run = runEconomy(economy, world, loop, o.rules().npc, o.goodsHome);
   // 처음 발행(E6): 찍는 나라마다 한 번
   for (const [currency, amount] of mintNationCurrencies({

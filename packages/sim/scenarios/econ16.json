@@ -98,5 +98,8 @@
     "perCapitaDaily": "200",
     "baseReserveBp": 2500,
     "fxLot": "100"
+  },
+  "catchment": {
+    "groupGap": 40
   }
 }

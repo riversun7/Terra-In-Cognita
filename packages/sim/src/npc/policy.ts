@@ -145,11 +145,16 @@ export function recruitPicks(
     readonly guards?: number | undefined;
     /** 경비대 목표(등급 값). 없거나 0이면 경비대를 사지 않는다 */
     readonly guardTarget?: number | undefined;
+    /**
+     * 배후지에서 받은 몫이 문턱 아래(성장 멈춤, docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)"): 주거 목표로는 사지 않는다(경비대
+     * 다시 채우기는 그대로 — 지키는 사람은 늘리는 것이 아니라 메우는 것)
+     */
+    readonly growthBlocked?: boolean | undefined;
   },
   c: NpcCoefficients,
 ): RecruitPick[] {
   const target = Math.floor((input.housing * c.recruitTargetPm) / 1000);
-  let gap = target - input.population;
+  let gap = input.growthBlocked === true ? Math.min(0, target - input.population) : target - input.population;
   let guardGap = Math.max(0, (input.guardTarget ?? 0) - (input.guards ?? 0));
   let treasury = input.treasury;
   const picks: RecruitPick[] = [];

@@ -16,6 +16,12 @@ import type { Scenario } from "./scenario.ts";
 import type { EconomyCatalog } from "./catalog.ts";
 import { defaultGatherStat } from "./economy.ts";
 import { type EconomyRun, type EconomySummary, attachEconomy, systemRule } from "./economyRun.ts";
+import {
+  catchmentSettingsOf,
+  createCatchmentState,
+  planeGeometry,
+  scenarioPlaneLayout,
+} from "./catchmentRun.ts";
 import { ruinedGoodsHome } from "./ruinedGoods.ts";
 import { type CombatSummary, attachCombat } from "./combatRun.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
@@ -66,8 +72,10 @@ import {
  *    저절로 회복)를 더함
  * 15: 요약 groups(시나리오 세력 묶음별 처음·끝 수, 국력 등급)
  * 16: 요약 npc.guardRefills(구인 규칙식이 경비대로 다시 채운 수, 기획 답 920 나)
+ * 17: 배후지 채집 다툼이 켜진 시나리오(catchment 칸)의 econ 줄·요약 economy 칸에 catchment(도시마다 [ID, 반경 1000분율 칸, 받은 몫 ‰, 겹친
+ *    칸], overlapped·stalled·supplyAvgPm)
  */
-export const SIM_OUTPUT_FORMAT = 16;
+export const SIM_OUTPUT_FORMAT = 17;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */
@@ -258,6 +266,12 @@ export function runSimulation(options: RunOptions): RunSummary {
           ruinedGoodsHome(world, simCityDistance),
         )
       : undefined;
+  // 배후지 채집 다툼(시나리오 catchment 칸, docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)"): 평면 배치
+  const plane = econ ? scenarioPlaneLayout(world, scenario, societyCoefficients.worldSeed) : undefined;
+  if (econ && plane)
+    econ.economy.catchment = createCatchmentState(planeGeometry(plane), () =>
+      catchmentSettingsOf(societyCoefficients.worldSeed, societyCoefficients.territory),
+    );
   const ctx: NpcContext = {
     world,
     loop,

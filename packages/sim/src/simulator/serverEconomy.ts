@@ -25,6 +25,18 @@ export {
   type RuinedGoodsHome,
 } from "./ruinedGoods.ts";
 export { runEconomy, type EconomyRun, type EconomySummary } from "./economyRun.ts";
+// 배후지 채집 다툼(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)" — 서버는 행성 1차맵 칸·원자재 비트로 칸 자리를 준다)
+export {
+  catchmentLine,
+  catchmentSettingsOf,
+  createCatchmentState,
+  facilitySupplyPm,
+  stepCatchment,
+  type CatchmentGeometry,
+  type CatchmentSettings,
+  type CatchmentState,
+  type CityCatchment,
+} from "./catchmentRun.ts";
 export { cityTargets, marketRefPrice, onTrade, placeCityBids } from "./npcTrade.ts";
 // 도시 일꾼 나누기(굶음 먼저, 기획 답 532 나 — docs/adr/2026-11-07-play-flow.md WP5)
 export { assignCityWorkers, type CityWorkSlot } from "./cityWorkers.ts";

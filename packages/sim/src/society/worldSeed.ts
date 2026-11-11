@@ -168,7 +168,8 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   catchmentSearchCells: 12,
   catchmentCompactPm: 100,
   // 크기에 따라 넓어지는 배후지: 40명·등급 4·기술 2 ≈ 반경 2.07칸(옛 고정 2칸), 초강대국 수도(주거 60 × 1.25, 등급 5) ≈ 3.2칸, 소국 지방 도시 ≈ 1.8칸.
-  // 칸 재고 1000, 하루 40% 로지스틱 + 바닥 20(버티는 양 120), 요구 넓이 칸마다 버티는 양의 60%(혼자면 남고 둘이 다 겹치면 120% — 고갈)
+  // 칸 재고 1000, 하루 40% 로지스틱 + 바닥 20(버티는 양 120), 배후지 칸마다 버티는 양의 75%(혼자면 재고 약 77%에서 머물고, 둘이 다 겹치면
+  // 150% — 열흘 남짓에 바닥나 바닥 다시 자람만 나눈다)
   catchmentCellsPerHundred: 27,
   catchmentGradeNeedBasePm: 700,
   catchmentGradeNeedStepPm: 150,
@@ -180,7 +181,7 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   catchmentStockPerCell: 1000,
   catchmentRegrowPm: 400,
   catchmentRegrowFloor: 20,
-  catchmentDrawPm: 600,
+  catchmentDrawPm: 750,
   catchmentGrowthMinPm: 900,
   catchmentYieldFloorPm: 100,
   // 그때 띄우기: 지금 NAS(17장 RSS 약 430MB)에 32장(약 +200MB)을 더해도 1GiB 안, 비우고 10분 뒤 내림

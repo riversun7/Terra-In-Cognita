@@ -8480,7 +8480,7 @@
         "ko": "배후지: 도시가 칸마다 캐려는 양(버티는 양의 ‰)",
         "en": "Catchment: draw per cell (‰ of what a cell sustains)"
       },
-      "value": 600,
+      "value": 750,
       "structural": false,
       "unit": "pm",
       "min": 0,

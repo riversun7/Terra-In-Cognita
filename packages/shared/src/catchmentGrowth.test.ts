@@ -57,22 +57,25 @@ describe("요구 반경", () => {
   });
 });
 
-describe("채집 다툼과 고갈", () => {
-  const all = (): number => 1000;
-  /** 칸 cells개를 가진 도시 하나(작물만 캔다), 요구 넓이 = 칸 수 */
-  const city = (id: number, cells: readonly number[], areaCells = cells.length) => ({
-    id,
-    cells,
-    demand: { crop: materialDemand(areaCells * 1000, 1, 1, SUPPLY) },
-  });
-  const run = (cities: ReturnType<typeof city>[], days: number) => {
-    const stock: SupplyStock = new Map();
-    let last = new Map<number, number>();
-    for (let day = 0; day < days; day++)
-      last = new Map([...stepCatchmentSupply(cities, stock, all, SUPPLY)].map(([id, r]) => [id, r.totalPm]));
-    return { last, stock };
-  };
+const all = (): number => 1000;
+/** 칸 cells개를 가진 도시 하나(작물만 캔다), 요구 넓이 = 칸 수 */
+const city = (id: number, cells: readonly number[], areaCells = cells.length) => ({
+  id,
+  cells,
+  demand: { crop: materialDemand(areaCells * 1000, 1, 1, SUPPLY) },
+});
+const tenCells = (from: number) => Array.from({ length: 10 }, (_, k) => from + k);
+const noCrop = (_cell: number, material: string): number => (material === "crop" ? 0 : 1000);
 
+const run = (cities: ReturnType<typeof city>[], days: number) => {
+  const stock: SupplyStock = new Map();
+  let last = new Map<number, number>();
+  for (let day = 0; day < days; day++)
+    last = new Map([...stepCatchmentSupply(cities, stock, all, SUPPLY)].map(([id, r]) => [id, r.totalPm]));
+  return { last, stock };
+};
+
+describe("채집 다툼과 고갈", () => {
   it("다시 자람은 재고 반에서 가장 많고, 0에서도 바닥만큼", () => {
     expect(cellRegrow(0, 1000, SUPPLY)).toBe(20);
     expect(sustainablePerCell(SUPPLY)).toBe(120);
@@ -91,10 +94,9 @@ describe("채집 다툼과 고갈", () => {
   });
 
   it("배후지가 겹치면 두 도시 모두 덜 받고, 겹친 칸이 많을수록 더 떨어진다(고갈)", () => {
-    const cells = (from: number) => Array.from({ length: 10 }, (_, k) => from + k);
-    const alone = run([city(1, cells(0))], 30).last.get(1) ?? 0;
-    const half = run([city(1, cells(0)), city(2, cells(5))], 30).last;
-    const full = run([city(1, cells(0)), city(2, cells(0))], 30).last;
+    const alone = run([city(1, tenCells(0))], 30).last.get(1) ?? 0;
+    const half = run([city(1, tenCells(0)), city(2, tenCells(5))], 30).last;
+    const full = run([city(1, tenCells(0)), city(2, tenCells(0))], 30).last;
     expect(alone).toBe(1000);
     expect(half.get(1)).toBeLessThan(1000);
     expect(half.get(2)).toBeLessThan(1000);
@@ -105,7 +107,6 @@ describe("채집 다툼과 고갈", () => {
   });
 
   it("원자재가 없는 칸은 캘 수 없고, 같은 입력이면 같은 결과", () => {
-    const noCrop = (_cell: number, material: string): number => (material === "crop" ? 0 : 1000);
     const stock: SupplyStock = new Map();
     const result = stepCatchmentSupply([city(1, [1, 2, 3])], stock, noCrop, SUPPLY).get(1);
     expect(result?.supplyPm.crop).toBe(0);

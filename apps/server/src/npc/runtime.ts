@@ -643,6 +643,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         now: o.now,
         log,
         goodsHome: ruinedGoodsHomeOf(world, persist.places, o.ruins?.nationOf),
+        // 배후지 채집 다툼(npc/catchmentGeometry.ts): 도시 2차맵
+        cityMapOf: (cityId) => persist.places.get(cityId)?.mapKey,
       })
     : undefined;
   econRef.current = econ;

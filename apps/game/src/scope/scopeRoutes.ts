@@ -41,6 +41,7 @@ const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope } = {
   dev_items: common(),
   dev_effects: common(),
   dev_buildings: common(),
+  dev_production: common(),
   dev_gather_tiers: common(),
   dev_creatures: common(),
   // 국가 프리셋은 팩 항목이다. [이 세계에 반영]은 세력 정체성·화폐 표시(세계에 하나)를 바꾼다 — 도시·유닛(행성 몫)은 건드리지 않는다

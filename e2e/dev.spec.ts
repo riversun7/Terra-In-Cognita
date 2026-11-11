@@ -239,6 +239,7 @@ const TOOL_SCOPES = [
   ["/dev/items", "common"],
   ["/dev/effects", "common"],
   ["/dev/buildings", "common"],
+  ["/dev/production", "common"],
   ["/dev/gather-tiers", "common"],
   ["/dev/creatures", "common"],
   ["/dev/nations", "common"],

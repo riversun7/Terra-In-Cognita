@@ -110,7 +110,12 @@ export function FacilityCard({
   // 재료 자리: 이 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 이 2차맵 내 유닛 화물(D-516 361)
   const stock = stockAt(data, facility.mapKey, facility.cityId);
   return (
-    <li className="facility-card" data-state={facility.state} data-part="facility-card">
+    <li
+      className="facility-card"
+      data-state={facility.state}
+      data-part="facility-card"
+      data-facility={facility.facilityId}
+    >
       <div className="facility-head">
         <span id={titleId} className="eco-row-title">
           {m.facility_card_title({

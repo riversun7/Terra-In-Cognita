@@ -9,6 +9,8 @@
 //   세운 땅은 둘레 여유(AREA_MARGIN)만큼 넓혀 두고, 지금 보는 땅이 그 안에 다 들어 있으면 다시 세우지 않는다.
 // - 땅 잔소품(2026-11-11, ADR 46 "바뀜"): 그림 없는 칸에 지표로 고른 풀포기·자갈·눈덩이·부들 등, 성긴 숲에서 나무를 그리지 않은 칸에
 //   고사리·버섯. 화면 아래(보는 사람)에서 가시거리 × CLUTTER_REACH_FACTOR 안, 모델 상한 × CLUTTER_CAP_FACTOR개까지.
+// - 유닛 앞 옅게(기획 질문 996 다, D-523 포인터): 카메라 → 내가 고른(따라가는) 유닛 몸 가운데 선분 둘레(반지름 setFade)의 소품 조각을 화면 점
+//   무늬로 덜 그린다(propFade.ts, 스크린 도어). 투명 그리기·정렬이 없어 그리기 호출이 늘지 않고, 프레임마다 값(uniform)만 바꾼다.
 import { Color, Group, InstancedMesh, Matrix4, MeshLambertMaterial, Quaternion, Vector3 } from "three";
 import { outsideCellKey } from "../buildings/footprint.ts";
 import { type NeighbourPlacement, toLocal } from "../terrain/neighbourTerrains.ts";
@@ -26,6 +28,7 @@ import {
   partGeometry,
 } from "./propParts.ts";
 import { VIEW_DISTANCE_LEVELS, VIEW_DISTANCE_START_LEVEL } from "../render/viewDistance.ts";
+import { type PropFade, createPropFade, fadeMaterial, segmentDistance } from "./propFade.ts";
 
 /** 소품 층 하나: 지금 2차맵(놓는 자리 null) 또는 이웃 2차맵(놓는 자리, 지형 칸 단위) */
 export interface PropSource {
@@ -110,6 +113,11 @@ export class PropView {
   private built: { polygon: readonly { x: number; z: number }[]; margin: number; area: number } | null = null;
   private drawnCount = 0;
   private clutterCount = 0;
+  /** 유닛 앞 옅게(모든 부품 재질이 같은 값을 쓴다) */
+  private readonly fade: PropFade = createPropFade();
+  /** 세운 소품 모델마다 몸 가운데(x, y, z)와 반지름·반높이(m) — 옅게 한 수 세기(HUD) */
+  private anchors = new Float32Array(0);
+  private anchorCount = 0;
   private readonly matrix = new Matrix4();
   private readonly position = new Vector3();
   private readonly rotation = new Quaternion();
@@ -151,7 +159,7 @@ export class PropView {
     const old = this.meshes.get(part);
     const mesh = new InstancedMesh(
       old?.geometry ?? partGeometry(part),
-      old && !Array.isArray(old.material) ? old.material : new MeshLambertMaterial(),
+      old && !Array.isArray(old.material) ? old.material : fadeMaterial(new MeshLambertMaterial(), this.fade),
       Math.max(1, capacity),
     );
     if (old) {
@@ -302,6 +310,8 @@ export class PropView {
     nearest(props, this.maxProps);
     nearest(clutter, Math.round(this.maxProps * CLUTTER_CAP_FACTOR));
     for (const part of PARTS) this.counts.set(part, 0);
+    if (this.anchors.length < props.length * 5) this.anchors = new Float32Array(props.length * 5);
+    this.anchorCount = 0;
     for (const candidate of props) this.place(candidate);
     for (const candidate of clutter) this.place(candidate);
     for (const [part, mesh] of this.meshes) {
@@ -417,9 +427,64 @@ export class PropView {
       r: (k) => cellRandom(cell, k + salt),
       ground: this.groundAt,
     };
-    if (look) buildShape(this.sink, look, ctx);
-    else if (clutter) buildClutter(this.sink, clutter, ctx);
+    if (look) {
+      buildShape(this.sink, look, ctx);
+      const half = (look.heightM * ctx.size) / 2;
+      const o = this.anchorCount * 5;
+      this.anchors[o] = x;
+      this.anchors[o + 1] = ctx.y + half;
+      this.anchors[o + 2] = z;
+      this.anchors[o + 3] = Math.max(0.5, half * 0.6);
+      this.anchors[o + 4] = half;
+      this.anchorCount += 1;
+    } else if (clutter) buildClutter(this.sink, clutter, ctx);
     else buildUndergrowth(this.sink, ctx, UNDERGROWTH_LEAF);
+  }
+
+  /**
+   * 유닛 앞 옅게: 카메라 자리 → 유닛 몸 가운데(세계 m)와 반지름(m). target이 null이면 끈다. 프레임마다 불러도 된다(값만 바꾼다)
+   */
+  setFade(
+    camera: { x: number; y: number; z: number } | null,
+    target: { x: number; y: number; z: number } | null,
+    radiusM: number,
+  ): void {
+    const { uniforms } = this.fade;
+    if (!camera || !target || !(radiusM > 0)) {
+      uniforms.uPropFadeOn.value = 0;
+      return;
+    }
+    uniforms.uPropFadeFrom.value.set(camera.x, camera.y, camera.z);
+    uniforms.uPropFadeTo.value.set(target.x, target.y, target.z);
+    uniforms.uPropFadeRadius.value = radiusM;
+    uniforms.uPropFadeOn.value = 1;
+  }
+
+  /** 지금 옅게 그리는 소품 모델 수(몸 가운데 둘레가 선분 반지름 안에 드는 것, HUD·시험). 꺼져 있거나 안 보이면 0 */
+  get fadedCount(): number {
+    const { uniforms } = this.fade;
+    if (!this.group.visible || uniforms.uPropFadeOn.value === 0) return 0;
+    const from = uniforms.uPropFadeFrom.value;
+    const to = uniforms.uPropFadeTo.value;
+    const radius = uniforms.uPropFadeRadius.value;
+    let count = 0;
+    for (let i = 0; i < this.anchorCount; i++) {
+      const o = i * 5;
+      const x = this.anchors[o] ?? 0;
+      const y = this.anchors[o + 1] ?? 0;
+      const z = this.anchors[o + 2] ?? 0;
+      const reach = radius + (this.anchors[o + 3] ?? 0);
+      const half = this.anchors[o + 4] ?? 0;
+      // 세로 축(바닥 ~ 꼭대기)을 다섯 점으로 본다: 한 점이라도 선분 둘레(유닛 앞)면 옅게 그리는 모델
+      for (let k = 0; k <= 4; k++) {
+        const near = segmentDistance(from, to, x, y - half + (half * k) / 2, z);
+        if (near.t < 0.999 && near.distance <= reach) {
+          count += 1;
+          break;
+        }
+      }
+    }
+    return count;
   }
 
   dispose(): void {

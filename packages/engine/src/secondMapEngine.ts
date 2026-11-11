@@ -83,6 +83,11 @@ const DEFAULT_UNIT_CAPACITY = 2048;
 /** 건물 상자가 땅 닿는 점보다 이만큼(m) 뒤여도 건물로 본다(바닥 판이 땅에 묻힌 곳) */
 const BUILDING_PICK_SLACK_M = 0.6;
 
+/** 유닛 앞 옅게: 반지름 = 화면 짧은 변의 이 몫(m 한계 안), 유닛 몸 가운데 높이(m, 땅에서) */
+const PROP_FADE_SPAN_SHARE = 0.14;
+const PROP_FADE_RADIUS_M = [1.6, 6] as const;
+const PROP_FADE_BODY_M = 0.9;
+
 export function createSecondMapEngine(
   container: HTMLElement,
   options: SecondMapEngineOptions = {},
@@ -317,6 +322,29 @@ export function createSecondMapEngine(
     return as === 1 ? "character0" : as === 2 ? "character1" : "capsule";
   };
 
+  /**
+   * 유닛 앞 소품 옅게(기획 질문 996 다): 고른 유닛, 없으면 따라가는 유닛의 몸 가운데와 카메라 사이 소품을 점 무늬로 덜 그린다.
+   * 앱은 내 유닛만 고르거나 따라간다(엔진은 주인을 모른다). 반지름 = 화면 짧은 변 × PROP_FADE_SPAN_SHARE(한계 안)
+   */
+  const updatePropFade = (): void => {
+    let slot = roster.selectedSlot;
+    if (slot < 0 && glide.followId !== null) slot = roster.slotOf(glide.followId);
+    const ux = slot >= 0 ? motion.x[slot] : undefined;
+    const uy = slot >= 0 ? motion.y[slot] : undefined;
+    if (ux === undefined || uy === undefined || !Number.isFinite(ux) || !Number.isFinite(uy)) {
+      propView.setFade(null, null, 0);
+      return;
+    }
+    const x = ux * cellM;
+    const z = uy * cellM;
+    const span = spanForDistance(state.distance, viewport);
+    const radius = Math.min(
+      PROP_FADE_RADIUS_M[1],
+      Math.max(PROP_FADE_RADIUS_M[0], span * PROP_FADE_SPAN_SHARE),
+    );
+    propView.setFade(camera.position, { x, y: groundAt(x, z) + PROP_FADE_BODY_M, z }, radius);
+  };
+
   const layers = new EngineLayers(scene);
   const layerView = createLayerView({
     camera,
@@ -369,6 +397,7 @@ export function createSecondMapEngine(
     }
     const blending = sceneLight.frame(performance.now());
     moving = motion.update(serverNow());
+    updatePropFade();
     const ppm = pixelsPerMetre(state.distance, viewport);
     chooseUnitMode(ppm);
     // 모델로 그릴 유닛을 먼저 고른다(그 유닛은 캡슐을 건너뛴다)
@@ -768,6 +797,7 @@ export function createSecondMapEngine(
         neighbours: neighbours.count,
         props: propView.drawn,
         propClutter: propView.clutterDrawn,
+        propsFaded: propView.fadedCount,
         routePoints: routeView.stats.points,
         moveTarget: routeView.stats.target,
         propSpanM: propView.limits.spanM,

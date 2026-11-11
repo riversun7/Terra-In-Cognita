@@ -343,7 +343,11 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     select: (id) => modelSink.select(id),
     selected: () => modelSink.selected(),
   };
-  const looks = startBuildingLooks(engineSink, mapKey, { onLooks: (rows) => nearby.setLooks(rows) });
+  const looks = startBuildingLooks(engineSink, mapKey, {
+    onLooks: (rows) => nearby.setLooks(rows),
+    // 유닛 발밑 나라 색 고리는 건물 깃발과 같은 국가 색 번호를 쓴다(질문 963 나)
+    onFactions: (list) => unitModels.setFactions(list),
+  });
   /** 지금 2차맵 탐사 칸을 가로채 경계 이음을 더해 넣는다 */
   const mainFogSink = (next: FeedSink): FeedSink => {
     mainSink = next;

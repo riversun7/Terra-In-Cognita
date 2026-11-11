@@ -142,6 +142,13 @@ export function markCyborgElementsSet(userId: string): void {
   set({ ...state, elementsPending: false });
 }
 
+/** 3D 외형을 한 번 골랐다(서버가 커밋한 뒤 답했다, 질문 961 나): 위 띠 얼굴(옛 2D 그림)을 그 외형에서 넘긴 값으로 바로 바꾼다 */
+export function markCyborgAppearance(appearance: CyborgAppearance): void {
+  if (state.status !== "ready") return;
+  request += 1;
+  set({ ...state, appearance });
+}
+
 export function getCyborgGate(): CyborgGateState {
   return state;
 }

@@ -315,10 +315,30 @@ function looksSetup(sees: (unitId: number) => boolean) {
   return { ...test, reads, other };
 }
 
+/** 나라 색 고리 시험용: 주인 5 → 나라 2, 주인 6 → 나라 1, 주인 7(지도자) → 나라 없음. 물은 주인 목록을 적는다 */
+function nationsSetup(sees: (unitId: number) => boolean) {
+  const base = looksSetup(sees);
+  const asked: number[][] = [];
+  const reads = createMapUnitReads({
+    map: (key) => (key === MAP_KEY ? base.map : undefined),
+    ownerOfUser: (userId) => (userId === PLAYER.id ? 5 : undefined),
+    cyborgName: () => undefined,
+    sees: (_mapKey, _viewer, unitId) => sees(unitId),
+    observer: (viewer) => viewer.roles.includes("dev"),
+    ownerNations: (ownerIds) => {
+      asked.push([...ownerIds].toSorted((a, b) => a - b));
+      return Promise.resolve(
+        new Map(ownerIds.map((id) => [id, id === 5 ? 2 : id === 6 ? 1 : null] as const)),
+      );
+    },
+  });
+  return { map: base.map, reads, asked };
+}
+
 describe("world.unitLooks (docs/adr/2026-11-11-character-3d.md 5절)", () => {
-  it("내 본체는 늘, 남의 본체·지도자는 지금 시야 안일 때만 준다. 휴먼은 싣지 않는다(기기가 유닛 ID로 만든다)", () => {
+  it("내 본체는 늘, 남의 본체·지도자는 지금 시야 안일 때만 준다. 휴먼은 싣지 않는다(기기가 유닛 ID로 만든다)", async () => {
     const hidden = looksSetup(() => false);
-    expect(hidden.reads.unitLooks(PLAYER, MAP_KEY, NOW)).toEqual({
+    expect(await hidden.reads.unitLooks(PLAYER, MAP_KEY, NOW)).toEqual({
       status: "ready",
       mapKey: MAP_KEY,
       units: [{ unitId: 9, kind: "cyborg_body", look: DEFAULT_CHARACTER_LOOK }],
@@ -326,7 +346,7 @@ describe("world.unitLooks (docs/adr/2026-11-11-character-3d.md 5절)", () => {
     });
     hidden.map.stop();
     const seen = looksSetup((unitId) => unitId === 12 || unitId === 13 || unitId === 3);
-    expect(seen.reads.unitLooks(PLAYER, MAP_KEY, NOW).units).toEqual([
+    expect((await seen.reads.unitLooks(PLAYER, MAP_KEY, NOW)).units).toEqual([
       { unitId: 9, kind: "cyborg_body", look: DEFAULT_CHARACTER_LOOK },
       { unitId: 12, kind: "cyborg_body", look: seen.other },
       { unitId: 13, kind: "npc_leader", look: characterLookForUnit(13, "leader") },
@@ -334,15 +354,39 @@ describe("world.unitLooks (docs/adr/2026-11-11-character-3d.md 5절)", () => {
     seen.map.stop();
   });
 
-  it("전체 보기 권한이면 시야와 상관없이 모두, 띄우지 않은 2차맵이면 빈 목록", () => {
+  it("전체 보기 권한이면 시야와 상관없이 모두, 띄우지 않은 2차맵이면 빈 목록", async () => {
     const { reads, map } = looksSetup(() => false);
-    expect(reads.unitLooks(DEV, MAP_KEY, NOW).units.map((unit) => unit.unitId)).toEqual([9, 12, 13]);
-    expect(reads.unitLooks(PLAYER, 12_345, NOW)).toEqual({
+    expect((await reads.unitLooks(DEV, MAP_KEY, NOW)).units.map((unit) => unit.unitId)).toEqual([9, 12, 13]);
+    expect(await reads.unitLooks(PLAYER, 12_345, NOW)).toEqual({
       status: "ready",
       mapKey: 12_345,
       units: [],
+      nations: [],
       generatedAt: NOW,
     });
     map.stop();
+  });
+
+  it("나라 색 고리(질문 963 나): 보는 유닛(종류와 상관없이)을 나라마다 모은다. 시야 밖·나라 없는 유닛은 빠진다. 주인 → 나라는 한 번에 묻는다", async () => {
+    // 시야 안 = 남의 휴먼 3만(남의 본체 12·지도자 13은 시야 밖)
+    const player = nationsSetup((unitId) => unitId === 3);
+    expect((await player.reads.unitLooks(PLAYER, MAP_KEY, NOW)).nations).toEqual([
+      { factionId: 1, unitIds: [3] },
+      { factionId: 2, unitIds: [9] },
+    ]);
+    expect(player.asked).toEqual([[5, 6]]);
+    player.map.stop();
+    // 전체 보기: 모두 보지만 지도자(주인 7)는 나라가 없어 빠진다
+    const dev = nationsSetup(() => false);
+    expect((await dev.reads.unitLooks(DEV, MAP_KEY, NOW)).nations).toEqual([
+      { factionId: 1, unitIds: [3, 12] },
+      { factionId: 2, unitIds: [9] },
+    ]);
+    expect(dev.asked).toEqual([[5, 6, 7]]);
+    dev.map.stop();
+    // 나라 조회가 없으면(옛 조립) 칸을 싣지 않는다
+    const plain = looksSetup(() => true);
+    expect((await plain.reads.unitLooks(PLAYER, MAP_KEY, NOW)).nations).toBeUndefined();
+    plain.map.stop();
   });
 });

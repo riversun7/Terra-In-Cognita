@@ -15,6 +15,11 @@ export const CYBORG_PROTOCOL_VERSION = 4;
  * 분배 없이 만들어지고(서버가 "분배 기다림"으로 둔다) 새 앱이 cyborg_elements로 한 번 나눈다
  */
 export const CYBORG_ELEMENTS_PROTOCOL_VERSION = 5;
+/**
+ * 3D 외형 한 번 고르기(cyborg_look)가 생긴 판(질문 961 나, docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-11, 961·963)"): 3D 외형을
+ * 고르기 전에 만든 사이보그(cyborgs.look 빈 값)가 한 번 무료로 고른다. 결과 코드 look_locked는 이 메시지의 답에만 간다
+ */
+export const CYBORG_LOOK_PROTOCOL_VERSION = 22;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 /** 기기가 정하는 요청 번호(2차맵 명령과 같은 규칙) */
@@ -146,6 +151,16 @@ export const cyborgElementsMessage = z.object({
   elements: cyborgElementsSchema,
 });
 
+/**
+ * 3D 외형을 고르기 전에 만든 내 사이보그가 3D 외형을 한 번 고른다(22판부터, 질문 961 나). 이미 3D 외형이 있으면 look_locked(다시 고르기는
+ * 환생 때 D-352, 그 밖에는 계정 서비스 D-7032). 서버가 isCharacterLook으로 보고 저장하며, 옛 칸 appearance는 이 외형에서 넘긴 값으로 맞춘다
+ */
+export const cyborgLookMessage = z.object({
+  t: z.literal("cyborg_look"),
+  id: requestId,
+  look: characterLookSchema,
+});
+
 // ---------- 서버 → 기기 ----------
 
 /** 만들기 결과 코드. 화면 문구는 기기가 코드로 고른다 */
@@ -179,8 +194,10 @@ export const CYBORG_RESULT_CODES = [
   "elements_invalid",
   /** 이미 속성을 나눴다(cyborg_elements는 한 번, 5판부터) */
   "elements_locked",
-  /** 사이보그가 아직 없다(cyborg_elements, 5판부터) */
+  /** 사이보그가 아직 없다(cyborg_elements 5판부터, cyborg_look 22판부터) */
   "no_cyborg",
+  /** 이미 3D 외형을 골랐다(cyborg_look은 한 번, 22판부터) */
+  "look_locked",
 ] as const;
 export type CyborgResultCode = (typeof CYBORG_RESULT_CODES)[number];
 
@@ -209,5 +226,10 @@ const cyborgResultMessage = z.discriminatedUnion("ok", [
   }),
 ]);
 
-export const cyborgClientMessages = [cyborgRollMessage, cyborgCreateMessage, cyborgElementsMessage] as const;
+export const cyborgClientMessages = [
+  cyborgRollMessage,
+  cyborgCreateMessage,
+  cyborgElementsMessage,
+  cyborgLookMessage,
+] as const;
 export const cyborgServerMessages = [cyborgResultMessage] as const;

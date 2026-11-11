@@ -67,6 +67,7 @@ import type { UnitPath } from "./units/unitMotion.ts";
 import { UnitRoster } from "./units/unitRoster.ts";
 import { RouteView } from "./units/routeView.ts";
 import { createTargetLife } from "./units/routePath.ts";
+import { NationRings } from "./units/nationRings.ts";
 import { UnitView } from "./units/unitView.ts";
 
 /** 지형이 오기 전 2차맵 크기(평균 칸 11.7m) */
@@ -134,13 +135,20 @@ export function createSecondMapEngine(
   // 캐릭터 모델 층: 외형이 붙은 유닛을 가까우면 모델로(characters/characterLayer.ts). 유닛 그림과 같이 보이고 숨는다
   const characters = new CharacterLayer(capacity);
   unitView.group.add(characters.group);
+  // 발밑 나라 색 고리(units/nationRings.ts, 질문 963 나): 캡슐·모델 모두. 유닛 그림과 같이 보이고 숨는다
+  const rings = new NationRings(capacity);
+  unitView.group.add(rings.group);
+  const ringRadiusOf = (slot: number): number => unitView.radiusOf(slot);
   scene.add(terrainView.group, buildingView.group, unitView.group);
   // 땅이 오기 전에는 유닛을 그리지 않는다(허공에 뜬 유닛이 잠깐 보이지 않게)
   unitView.group.visible = false;
   const roster = new UnitRoster(unitView, capacity, serverNow);
   const motion = roster.motion;
-  /** 유닛 명단이 바뀌면 캐릭터 층의 칸 ↔ 유닛을 다시 잇는다 */
-  const bindCharacters = (): void => characters.bind(motion.size, (slot) => roster.idAt(slot));
+  /** 유닛 명단이 바뀌면 캐릭터 층·나라 색 고리의 칸 ↔ 유닛을 다시 잇는다 */
+  const bindCharacters = (): void => {
+    characters.bind(motion.size, (slot) => roster.idAt(slot));
+    rings.bind(motion.size, (slot) => roster.idAt(slot));
+  };
   // 모델로 그린 유닛은 몸 위 누르기 폭을 모델 폭으로 넓힌다(캡슐보다 넓다)
   roster.modelHalfWidthM = (slot) => (characters.drawnAs(slot) > 0 ? CHARACTER_PICK_HALF_WIDTH_M : 0);
   // 이동 경로·목적지 표시(units/routeView.ts): 화면이 정한 유닛(setRouteUnit)과 누른 목적지(setMoveTarget)
@@ -373,6 +381,17 @@ export function createSecondMapEngine(
       deltaMs,
     });
     unitView.update(motion.x, motion.y, cellM, groundAt, frustum, roster.selectedSlot, ppm, characters.drawn);
+    rings.update({
+      count: motion.size,
+      x: motion.x,
+      y: motion.y,
+      cellM,
+      groundAt,
+      frustum,
+      radiusOf: ringRadiusOf,
+      pixelsPerMetre: ppm,
+      icons: unitView.mode === "icon",
+    });
     const targeting = updateRoute(ppm);
     layers.after(layerView);
     renderer.render(scene, camera);
@@ -653,6 +672,12 @@ export function createSecondMapEngine(
       scheduler.request();
     },
 
+    setUnitRings(list) {
+      rings.setRings(list);
+      bindCharacters();
+      scheduler.request();
+    },
+
     setUnitPath(id: number, path: UnitPath) {
       if (roster.setPath(id, path)) scheduler.request();
     },
@@ -721,6 +746,8 @@ export function createSecondMapEngine(
         characters: characters.models,
         characterLod0: characters.lod0,
         selectedDraw: selectedDraw(),
+        nationRings: rings.drawn,
+        selectedRing: rings.accentAt(roster.selectedSlot),
         unitMode: unitView.mode,
         pixelRatio,
         drawingBufferWidth: gl.drawingBufferWidth,
@@ -839,6 +866,7 @@ export function createSecondMapEngine(
       terrainView.dispose();
       buildingView.dispose();
       characters.dispose();
+      rings.dispose();
       unitView.dispose();
       routeView.dispose();
       scene.clear();

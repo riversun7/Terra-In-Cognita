@@ -1,6 +1,7 @@
-import type { UnitModel, UnitSpawn } from "@terra/engine";
+import type { UnitModel, UnitRing, UnitSpawn } from "@terra/engine";
 import { DEFAULT_CHARACTER_LOOK, characterLookForUnit } from "@terra/shared/characterLook";
 import type { MapUnitLooksResponse } from "@terra/shared/mapUnits";
+import type { WorldMapFaction } from "@terra/shared/worldMap";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FeedSink } from "./feedTypes.ts";
 import {
@@ -9,6 +10,7 @@ import {
   isWalker,
   startUnitModels,
   unitModelsOf,
+  unitRingsOf,
   wantsUnitModels,
 } from "./unitModels.ts";
 
@@ -41,7 +43,11 @@ const response = (units: MapUnitLooksResponse["units"]): MapUnitLooksResponse =>
 function fakeEngine() {
   const calls: string[] = [];
   const models: UnitModel[][] = [];
-  const engine: FeedSink & { setUnitModels(list: readonly UnitModel[]): void } = {
+  const rings: UnitRing[][] = [];
+  const engine: FeedSink & {
+    setUnitModels(list: readonly UnitModel[]): void;
+    setUnitRings(list: readonly UnitRing[]): void;
+  } = {
     setTerrain: () => Promise.resolve(),
     setUnits: (list) => {
       calls.push(`units:${list.length}`);
@@ -55,8 +61,12 @@ function fakeEngine() {
       calls.push(`models:${list.length}`);
       models.push([...list]);
     },
+    setUnitRings: (list) => {
+      calls.push(`rings:${list.length}`);
+      rings.push([...list]);
+    },
   };
-  return { engine, calls, models };
+  return { engine, calls, models, rings };
 }
 
 beforeEach(() => {
@@ -141,7 +151,7 @@ describe("2차맵 유닛 외형 잇기", () => {
     link.stop();
   });
 
-  it("[시험용] ?unit-models=0이면 외형을 넘기지 않는다(유닛 목록만 지나간다)", async () => {
+  it("[시험용] ?unit-models=0이면 외형을 넘기지 않는다(유닛 목록·나라 색 고리만 지나간다)", async () => {
     expect(wantsUnitModels("")).toBe(true);
     expect(wantsUnitModels("?unit-models=1")).toBe(true);
     expect(wantsUnitModels("?pixel-ratio=2&unit-models=0")).toBe(false);
@@ -150,8 +160,39 @@ describe("2차맵 유닛 외형 잇기", () => {
     const link = startUnitModels(engine, 1, { load, enabled: false });
     link.sink.setUnits([walker(1)]);
     await vi.advanceTimersByTimeAsync(UNIT_LOOKS_POLL_MS);
-    expect(calls).toEqual(["units:1"]);
-    expect(load).not.toHaveBeenCalled();
+    expect(calls.filter((call) => call.startsWith("models"))).toEqual([]);
+    expect(calls).toContain("units:1");
+    expect(calls).toContain("rings:0");
+    link.stop();
+  });
+
+  it("나라 색 고리(질문 963 나): 나라마다 유닛을 건물과 같은 국가 색 번호로 넘긴다. 국가 차례를 받으면 다시 칠한다", async () => {
+    const factions: readonly WorldMapFaction[] = [
+      { id: 4, code: "a", kind: "npc", name: null },
+      { id: 2, code: "b", kind: "npc", name: null },
+    ];
+    // 국가 차례 안의 나라 = 차례 번호, 밖의 나라 = 세력 ID로 돌려 쓴다(buildingLooks.ts accentOf와 같다)
+    expect(
+      unitRingsOf(
+        [
+          { factionId: 2, unitIds: [5, 6] },
+          { factionId: 9, unitIds: [7] },
+        ],
+        factions,
+      ),
+    ).toEqual([
+      { id: 5, accent: 1 },
+      { id: 6, accent: 1 },
+      { id: 7, accent: 3 },
+    ]);
+    const { engine, rings } = fakeEngine();
+    const load = vi.fn(() => Promise.resolve({ ...response([]), nations: [{ factionId: 2, unitIds: [5] }] }));
+    const link = startUnitModels(engine, 1, { load });
+    await vi.advanceTimersByTimeAsync(0);
+    // 국가 차례를 모르면 세력 ID로 돌려 쓴다
+    expect(rings.at(-1)).toEqual([{ id: 5, accent: 2 }]);
+    link.setFactions(factions);
+    expect(rings.at(-1)).toEqual([{ id: 5, accent: 1 }]);
     link.stop();
   });
 });

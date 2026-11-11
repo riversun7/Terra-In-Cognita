@@ -132,10 +132,26 @@ export interface MapUnitLook {
   readonly look: CharacterLook;
 }
 
+/**
+ * 나라 색 고리(질문 963 나, docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-11, 961·963)"): 한 나라(세력 행 ID)와 그 나라 유닛 ID들.
+ * 나라 = 유닛 주인의 국가(NPC 주체는 그 세력, 플레이어 주체는 가입한 국가 — 건물 깃발과 같은 값, facilities.mapLooks factionId).
+ * 기기가 건물과 같은 국가 색 번호로 칠한다. 꾸밈 자료다(판정에 쓰지 않는다)
+ */
+export interface MapUnitNation {
+  readonly factionId: number;
+  /** 유닛 ID 차례 */
+  readonly unitIds: readonly number[];
+}
+
 export interface MapUnitLooksResponse {
   readonly status: "ready" | "not_ready";
   readonly mapKey: number;
   /** 유닛 ID 차례. 띄우지 않은 2차맵이면 빈 목록 */
   readonly units: readonly MapUnitLook[];
+  /**
+   * 내가 보는 유닛(외형과 같은 규칙 — 내 유닛·전체 보기·지금 시야 안, 종류와 상관없이)의 나라. 세력 ID 차례. 나라가 없는 유닛은 빠진다
+   * (고리 없음). 옛 서버면 없음
+   */
+  readonly nations?: readonly MapUnitNation[];
   readonly generatedAt: number;
 }

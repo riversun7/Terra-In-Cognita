@@ -1,5 +1,6 @@
 // 사이보그 만들기 연결 처리 시험 — 로그인, 세계 준비 전, 속도 제한, 차례 처리, 결과 메시지 모양, 속성 분배(프로토콜 5)
 import { CYBORG_ELEMENT_IDS, decodeServerMessage } from "@terra/protocol";
+import { DEFAULT_CHARACTER_LOOK } from "@terra/shared/characterLook";
 import { ELEMENT_IDS } from "@terra/shared/cyborg";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
@@ -37,6 +38,10 @@ function fakeService(calls: string[]): CyborgService {
     allocateElements: (userId, elements) => {
       calls.push(`elements:${userId}:${JSON.stringify(elements)}`);
       return ok({ ok: true });
+    },
+    chooseLook: (userId, look) => {
+      calls.push(`look:${userId}:${typeof look}`);
+      return ok({ ok: false, code: "look_locked" });
     },
     livingUnpaid: () => false,
     record: () => undefined,
@@ -132,6 +137,15 @@ describe("사이보그 연결 처리", () => {
     v4.socket.handle(create);
     for (let i = 0; i < 4; i++) await settle();
     expect(calls).toEqual(['elements:user-1:{"earth":10}', "create:user-1:Nova:null"]);
+  });
+
+  it("3D 외형 한 번 고르기(22, 질문 961 나): 서비스에 넘기고 결과 코드를 돌려준다", async () => {
+    const calls: string[] = [];
+    const { sent, socket } = open(fakeService(calls), viewer, () => 0, 22);
+    socket.handle({ t: "cyborg_look", id: 9, look: DEFAULT_CHARACTER_LOOK });
+    for (let i = 0; i < 4; i++) await settle();
+    expect(calls).toEqual(["look:user-1:object"]);
+    expect(sent).toEqual([{ t: "cyborg_result", id: 9, ok: false, code: "look_locked" }]);
   });
 
   it("프로토콜의 속성 코드는 공용 목록과 같은 차례다", () => {

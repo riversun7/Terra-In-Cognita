@@ -88,20 +88,23 @@
  * 21: 물가 조건(facilities.ts, docs/adr/2026-11-11-production-six.md "바뀜 (2026-11-11, 946·947)", 질문 947 나) — facility_result 새 코드
  *    needs_water(낚시터처럼 팩 needsWaterWithin이 있는 시설을 물에서 먼 자리에 지으려 함). 21판 연결에만 가고 20판 연결은 blocked_terrain을
  *    받는다(그 판 기기가 모르는 코드라 메시지를 풀지 못한다). 다른 메시지는 그대로라 20판 기기는 그대로 받는다.
+ * 22: 3D 외형 한 번 고르기(cyborg.ts cyborg_look → cyborg_result, 질문 961 나, docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-11, 961·963)") —
+ *    3D 외형을 고르기 전에 만든 사이보그가 사이보그 화면에서 한 번 무료로 고른다. 결과 코드 look_locked는 이 메시지의 답에만 간다.
+ *    더하기만 했고 21판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
  */
-export const PROTOCOL_VERSION = 21;
+export const PROTOCOL_VERSION = 22;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
  * protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용). 6부터 4판 기기도, 7부터 5판 기기도, 8부터 6판 기기도, 9부터 7판 기기도,
  * 10부터 8판 기기도, 11부터 9판 기기도, 12부터 10판 기기도, 13부터 11판 기기도, 14부터 12판 기기도, 15부터 13판 기기도, 16부터 14판 기기도,
- * 17부터 15판 기기도, 18부터 16판 기기도, 19부터 17판 기기도, 20부터 18판 기기도, 21부터 19판 기기도 같다(현재 + 직전 1개).
+ * 17부터 15판 기기도, 18부터 16판 기기도, 19부터 17판 기기도, 20부터 18판 기기도, 21부터 19판 기기도, 22부터 20판 기기도 같다(현재 + 직전 1개).
  * (3에서는 예외로 2를 받지 않았다: 2판 기기는 걸러지지 않은 2차맵 흐름을 기대하는데, 시야 전송은 보안 규칙이라 그 흐름을 남기지
  * 않는다, S3 ADR 3절.)
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 20;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 21;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

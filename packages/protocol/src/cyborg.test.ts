@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CYBORG_ELEMENTS_PROTOCOL_VERSION,
   CYBORG_ELEMENT_IDS,
+  CYBORG_LOOK_PROTOCOL_VERSION,
   CYBORG_PROTOCOL_VERSION,
   CYBORG_RESULT_CODES,
   PROTOCOL_VERSION,
@@ -131,6 +132,36 @@ describe("사이보그 만들기 메시지", () => {
     // 모르는 최상위 칸은 버린다(z.object) — 그래서 이 칸을 모르는 옛 서버도 새 기기의 만들기를 받는다(프로토콜 판을 올리지 않았다)
     const decoded = decodeClientMessage(JSON.stringify({ ...create, someday: 1 }));
     expect(decoded).toEqual(create);
+  });
+
+  it("3D 외형 한 번 고르기(22, 질문 961 나): 외형만 싣는다. 모양이 틀리면 받지 않는다", () => {
+    expect(CYBORG_LOOK_PROTOCOL_VERSION).toBe(22);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(CYBORG_LOOK_PROTOCOL_VERSION);
+    expect(CYBORG_RESULT_CODES).toContain("look_locked");
+    const look = {
+      v: 2,
+      build: "standard",
+      height: 95,
+      head: "round",
+      face: "visor",
+      top: "none",
+      torso: "suit",
+      arms: "plain",
+      legs: "boots",
+      back: "none",
+      extra: "none",
+      plating: 0,
+      skin: "mint",
+      primary: "teal",
+      secondary: "charcoal",
+      accent: "lemon",
+      glow: "lemon",
+    } as const;
+    const pick = { t: "cyborg_look", id: 7, look } as const;
+    expect(decodeClientMessage(encodeMessage(pick))).toEqual(pick);
+    expect(decodes(decodeClientMessage, { t: "cyborg_look", id: 7 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...pick, look: { ...look, v: 1 } })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...pick, look: { ...look, extra: "Big!" } })).toBe(false);
   });
 
   it("결과: 성공(굴림 있음·없음)과 실패 코드", () => {

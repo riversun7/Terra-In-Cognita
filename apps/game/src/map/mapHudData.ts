@@ -24,6 +24,9 @@ export function hudDataAttributes(
     "data-characters": stats?.characters,
     "data-character-lod0": stats?.characterLod0,
     "data-selected-draw": stats?.selectedDraw ?? undefined,
+    // 발밑 나라 색 고리 수와 고른 유닛의 국가 색 번호(질문 963 나 — 화면 시험이 읽는다)
+    "data-nation-rings": stats?.nationRings,
+    "data-selected-ring": stats?.selectedRing ?? undefined,
     "data-draw-calls": stats?.drawCalls,
     "data-triangles": stats?.triangles,
     "data-terrain-ms": stats?.terrainBuildMs?.toFixed(0),

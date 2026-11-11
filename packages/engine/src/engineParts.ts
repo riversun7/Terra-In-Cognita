@@ -58,6 +58,8 @@ export function inertEngine(): SecondMapEngine {
     characters: 0,
     characterLod0: 0,
     selectedDraw: null,
+    nationRings: 0,
+    selectedRing: null,
   };
   const camera: CameraState = { targetX: 0, targetY: 0, targetZ: 0, yaw: 0, pitch: 0, distance: 0 };
   return {
@@ -83,6 +85,7 @@ export function inertEngine(): SecondMapEngine {
     requestFrame: () => undefined,
     setUnitLook: () => undefined,
     setUnitModels: () => undefined,
+    setUnitRings: () => undefined,
     zoomStep: () => false,
     setView: () => undefined,
     follow: () => undefined,

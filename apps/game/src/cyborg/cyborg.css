@@ -420,3 +420,15 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
+
+/* 머리 판 그림 아래 [외형 고르기](LookPick.tsx, 질문 961 나) */
+.cyborg-look-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+.cyborg-look-entry .roster-note {
+  margin: 0;
+}

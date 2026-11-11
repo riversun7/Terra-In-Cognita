@@ -10,6 +10,7 @@ import type {
 } from "@terra/shared/roster";
 import type { HomeQuery, RosterServices, Viewer } from "../trpc/context.ts";
 import type { CyborgService } from "../cyborg/service.ts";
+import { cyborgLookOf } from "../cyborg/state.ts";
 import { realCyborgBody } from "./cyborgBody.ts";
 import { type UnitGuideSource, unitGuideOf } from "./guide.ts";
 import { type RosterCatalog, namesFor, testRosterCatalog } from "./catalog.ts";
@@ -165,6 +166,9 @@ export function createRosterServices(
         // 다른 사람에게 보이는 이름은 사이보그 이름뿐이다(D-134). 만들기 전에는 계정 이름(본인만 본다)
         name: record?.name ?? viewer.loginId,
         appearance: record?.appearance ?? null,
+        // 3D 외형과 한 번 고르기(질문 961 나): 저장한 3D 외형이 없는 사이보그만 고를 수 있다(시안 자료는 고르지 않는다)
+        look: record ? cyborgLookOf(record) : null,
+        lookPick: record !== undefined && record.look === null && !query.preview,
         // 환생 조건·비용은 설정값이라 본체가 없어도(플레이어) 보낸다(D-440·D-441, N7·N34). 분포는 생성 때처럼 다시 굴린다:
         // 다시 굴리기 횟수 = 생성과 같은 N9 값(D-444 164)
         rebirth: {

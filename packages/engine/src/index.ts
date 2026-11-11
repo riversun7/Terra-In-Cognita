@@ -35,6 +35,7 @@ export {
 } from "./props/propView.ts";
 export type { UnitDisplayMode, UnitLook } from "./units/unitView.ts";
 export type { UnitModel } from "./characters/characterLayer.ts";
+export type { UnitRing } from "./units/nationRings.ts";
 export type { BuildingFootprint, QuarterTurns } from "./buildings/footprint.ts";
 export type { BuildingCondition, BuildingLook } from "./buildings/buildingLook.ts";
 export { disposeSharedRenderer } from "./render/sharedRenderer.ts";

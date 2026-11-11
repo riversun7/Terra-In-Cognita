@@ -254,6 +254,57 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     });
   });
 
+  it("3D 외형 한 번 고르기(질문 961 나): 3D 외형 없이 만든 사이보그만 한 번 고른다. 저장하면 옛 칸도 맞추고, 그 뒤로는 look_locked", async () => {
+    const world = await boot();
+    const service = cyborgsOf(world);
+    const a = await fakeUser("Relook_A");
+    const b = await fakeUser("Relook_B");
+    const none = await fakeUser("Relook_C");
+    const look = CHARACTER_PRESETS[5]?.look ?? DEFAULT_CHARACTER_LOOK;
+    // 사이보그가 없으면 no_cyborg
+    expect(await service.chooseLook(none, look)).toEqual({ ok: false, code: "no_cyborg" });
+    // a = 옛 기기(3D 외형 없음), b = 만들 때 3D 외형을 고름
+    await service.roll(a, "tech");
+    await service.roll(b, "tech");
+    const base = { appearance: DEFAULT_CYBORG_APPEARANCE, ...startOf(world, a), elements: fireWind };
+    expect(await service.create(a, { ...base, name: "Relook" })).toEqual({ ok: true });
+    expect(await service.create(b, { ...base, name: "Chosen", look: DEFAULT_CHARACTER_LOOK })).toEqual({
+      ok: true,
+    });
+    // 만들 때 고른 사이보그는 고를 수 없다
+    expect(await service.chooseLook(b, look)).toEqual({ ok: false, code: "look_locked" });
+    expect(service.record(b)?.look).toEqual(DEFAULT_CHARACTER_LOOK);
+    // 틀린 외형은 저장하지 않고 기회도 쓰지 않는다
+    for (const bad of [{ ...look, head: "tophat" }, { ...look, height: 150 }, { v: 2 }, null]) {
+      expect(await service.chooseLook(a, bad)).toEqual({ ok: false, code: "appearance_invalid" });
+    }
+    expect(service.record(a)?.look).toBeNull();
+    // 한 번 고른다: 저장하고 옛 칸(2D 그림)은 그 외형에서 넘긴 값
+    expect(await service.chooseLook(a, look)).toEqual({ ok: true });
+    expect(service.record(a)?.look).toEqual(look);
+    expect(service.record(a)?.appearance).toEqual(legacyAppearanceOf(look));
+    expect(service.status(a)).toMatchObject({ cyborg: { look, appearance: legacyAppearanceOf(look) } });
+    const stored = await rows<{ look: unknown; appearance: unknown }>(
+      test.db,
+      `select look, appearance from cyborgs where user_id = $1`,
+      [a],
+    );
+    expect(stored[0]?.look).toEqual(look);
+    expect(stored[0]?.appearance).toEqual(legacyAppearanceOf(look));
+    // 두 번째는 막는다(다른 외형이어도) — 다시 켜도 같다
+    expect(await service.chooseLook(a, DEFAULT_CHARACTER_LOOK)).toEqual({ ok: false, code: "look_locked" });
+    const again = await restart(world);
+    expect(cyborgsOf(again).record(a)?.look).toEqual(look);
+    expect(await cyborgsOf(again).chooseLook(a, DEFAULT_CHARACTER_LOOK)).toEqual({
+      ok: false,
+      code: "look_locked",
+    });
+    // 다른 길(속성 분배·신앙)이 사이보그 행을 다시 써도 고른 외형이 남는다
+    cyborgsOf(again).addFaith(a, 3);
+    const later = await restart(again);
+    expect(cyborgsOf(later).record(a)?.look).toEqual(look);
+  });
+
   it("놓기: 시작 도시 둘레의 내 세계 유닛(종류 3)이고 시야로 2차맵이 열린다. 한 커밋으로 남고 보유 유닛에는 들지 않는다", async () => {
     let world = await boot();
     const user = await fakeUser("Place_User");

@@ -26,12 +26,13 @@ export interface CyborgRecord {
   readonly temperament: string;
   readonly initial: Primaries;
   readonly kPm: Primaries;
-  readonly appearance: CyborgAppearance;
+  /** 옛 2D 외형. 3D 외형을 고르면 그 외형에서 넘긴 값으로 맞춘다(chooseLook) */
+  appearance: CyborgAppearance;
   /**
    * 3D 외형(docs/adr/2026-11-11-character-3d.md 5절). null = 3D 외형을 고르기 전에 만든 사이보그(또는 옛 기기가 만든 것) —
-   * 보일 때 옛 외형에서 넘긴다(cyborgLookOf)
+   * 보일 때 옛 외형에서 넘긴다(cyborgLookOf). 그런 사이보그는 한 번 고를 수 있다(chooseLook, 질문 961 나 — 고르면 다시 null이 되지 않는다)
    */
-  readonly look: CharacterLook | null;
+  look: CharacterLook | null;
   /** 지금 나라(세력 행 ID). 국적 바꾸기(귀화)가 바꾼다(docs/adr/2026-11-08-citizenship.md) */
   factionId: number;
   /** 내 도시(첫 접속 시작 도시, 귀화하면 귀화한 도시 — 구인 기본 도시·거래소 기본 도시·본체를 다시 놓는 곳) */

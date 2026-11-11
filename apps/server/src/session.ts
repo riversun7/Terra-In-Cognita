@@ -9,6 +9,7 @@ import {
   SECOND_MAP_PROTOCOL_VERSION,
   CYBORG_PROTOCOL_VERSION,
   CYBORG_ELEMENTS_PROTOCOL_VERSION,
+  CYBORG_LOOK_PROTOCOL_VERSION,
   TERRITORY_PROTOCOL_VERSION,
   RECRUIT_PROTOCOL_VERSION,
   ITEM_PROTOCOL_VERSION,
@@ -265,10 +266,16 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       }
       case "cyborg_roll":
       case "cyborg_create":
-      case "cyborg_elements": {
-        // 굴리기·만들기는 프로토콜 4, 속성 분배는 5의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다(2차맵 메시지와 같은 규칙)
+      case "cyborg_elements":
+      case "cyborg_look": {
+        // 굴리기·만들기는 프로토콜 4, 속성 분배는 5, 3D 외형 한 번 고르기는 22의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        // (2차맵 메시지와 같은 규칙)
         const needs =
-          message.t === "cyborg_elements" ? CYBORG_ELEMENTS_PROTOCOL_VERSION : CYBORG_PROTOCOL_VERSION;
+          message.t === "cyborg_look"
+            ? CYBORG_LOOK_PROTOCOL_VERSION
+            : message.t === "cyborg_elements"
+              ? CYBORG_ELEMENTS_PROTOCOL_VERSION
+              : CYBORG_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;

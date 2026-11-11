@@ -226,3 +226,72 @@ export interface WorldCatchmentView {
   readonly overlapWorld: number;
   readonly overlapPlan: number;
 }
+
+/** 도시 건물 배치 몫(docs/adr/2026-11-11-city-building-layout.md): 행정·채집소·창고·숙소·기타 */
+export type WorldCityLayoutRole = "core" | "gather" | "storage" | "living" | "other";
+
+/** 도시 건물 배치 지표(apps/server/src/facilities/cityLayoutMetrics.ts — 거리는 배치 칸, 소수 한 자리) */
+export interface WorldCityLayoutMetrics {
+  /** 행정 건물 가운데 ↔ 도시 칸(체비셰프 칸) */
+  readonly hallOffset: number;
+  /** 행정 건물 둘레 16방위 가운데 30칸 안에 건물이 있는 방위 수 */
+  readonly sectors: number;
+  /** 행정 건물에서 바깥으로 쏜 64줄 가운데 48칸 안에서 건물에 닿는 몫(‰) */
+  readonly screenPm: number;
+  readonly hallToStation: number | null;
+  readonly hallToStorage: number | null;
+  readonly hallToLodging: number | null;
+  /** 채집소 → 가장 가까운 창고 평균(옮김 거리) */
+  readonly haul: number | null;
+  /** (채집소 → 가장 가까운 숙소 + 숙소 → 행정 건물) ÷ (채집소 → 행정 건물) 평균(‰, 1000 = 숙소가 길 위) */
+  readonly commutePm: number | null;
+  /** 광장에서 걸어 닿지 못하는 건물 수(0이어야 한다) */
+  readonly walledIn: number;
+}
+
+export interface WorldCityLayoutRect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** 도시 건물 하나(지금 자리 + 다시 놓으면 갈 자리) */
+export interface WorldCityLayoutBuilding extends WorldCityLayoutRect {
+  readonly id: number;
+  readonly facility: string;
+  readonly role: WorldCityLayoutRole;
+  /** 플레이어가 걸려 옮기지 않는 건물(열린 노동 계약·임대 조건·구인 게시·직무 배치·건물 작업) */
+  readonly pinned: boolean;
+  /** 다시 놓으면 갈 자리(같으면 지금 자리, 자리를 못 찾거나 옮기지 않으면 null) */
+  readonly to: WorldCityLayoutRect | null;
+}
+
+/** NPC 국가 시작 도시 하나의 배치(지금 · 다시 놓은 뒤) */
+export interface WorldCityLayoutCity {
+  readonly cityId: number;
+  readonly code: string | null;
+  readonly name: string | null;
+  /** 2차맵 키(10진수 글자) */
+  readonly mapKey: string;
+  /** 도시 칸(배치 칸) */
+  readonly center: { readonly x: number; readonly y: number };
+  readonly movable: number;
+  readonly pinned: number;
+  readonly moves: number;
+  readonly stay: number;
+  readonly now: WorldCityLayoutMetrics;
+  readonly planned: WorldCityLayoutMetrics;
+  readonly buildings: readonly WorldCityLayoutBuilding[];
+}
+
+/** 이미 선 NPC 도시 건물 다시 놓기 미리 보기와 걸린 예약(다음 서버 시작 때 든다) */
+export interface WorldCityRelayoutView {
+  readonly cities: readonly WorldCityLayoutCity[];
+  readonly totals: { readonly cities: number; readonly moves: number; readonly pinned: number };
+  readonly request: {
+    readonly requestedAtMs: number;
+    readonly appliedAtMs: number | null;
+    readonly report: Readonly<Record<string, unknown>> | null;
+  } | null;
+}

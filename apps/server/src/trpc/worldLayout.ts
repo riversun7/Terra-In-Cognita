@@ -1,13 +1,15 @@
 // worldLayout 라우터 — 세계 배치 화면(/dev/world-layout, 기획 D-528, docs/adr/2026-11-07-world-layout.md "바뀜 (D-528)").
 // 고정 NPC 국가의 자리(수도 2차맵)를 보고 놓는다. 놓은 자리는 서버가 다음에 켤 때 세계에 든다(실시간 게임 상태를 바꾸는 명령이 아니라 개발자
 // 설정이라 tRPC다 — 설정 칸 패널과 같다). 서비스는 src/world/placementService.ts.
-// - view·suggest·tierPlan: 권한 worldLayout: read(dev·admin) / place·clear·requestTierApply·cancelTierApply: worldLayout: place
+// - view·suggest·tierPlan·cityLayout: 권한 worldLayout: read(dev·admin) / place·clear·requestTierApply·cancelTierApply·
+//   requestCityRelayout·cancelCityRelayout: worldLayout: place
 //   (dev·admin, 감사 기록). 국력 등급(사용자 답 2026-11-11): suggest가 등급 배치 계획을, tierPlan이 이미 선 세계에 더해질 것을 보인다
 // 오류(error.data.code): UNAUTHORIZED, FORBIDDEN, BAD_REQUEST(입력 형식), PRECONDITION_FAILED("WORLD_NOT_READY": 세계·DB·행성 값 없음),
 // NOT_FOUND("UNKNOWN_PLANET": 세계 행성이 아님)
 // planetId는 선택이다: 없으면 대표 플레이 행성(src/world/playablePlanets.ts, docs/adr/2026-11-11-planet-scope.md).
 import type {
   WorldCatchmentView,
+  WorldCityRelayoutView,
   WorldLayoutPlanetView,
   WorldLayoutSuggestion,
   WorldPlaceResult,
@@ -15,6 +17,7 @@ import type {
 } from "@terra/shared/worldPlacementApi";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import type { CityLayoutService } from "../facilities/cityLayoutView.ts";
 import { type PlacementService, parseMapKey } from "../world/placementService.ts";
 import { primaryPlanetId } from "../world/playablePlanets.ts";
 import type { TrpcContext } from "./context.ts";
@@ -38,6 +41,11 @@ function serviceOf(ctx: Pick<TrpcContext, "worldLayout">, planet: string): Place
   if (!ready) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "WORLD_NOT_READY" });
   if (ready.planetId !== planet) throw new TRPCError({ code: "NOT_FOUND", message: "UNKNOWN_PLANET" });
   return ready.service;
+}
+
+function cityLayoutOf(service: PlacementService): CityLayoutService {
+  if (!service.cityLayout) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "WORLD_NOT_READY" });
+  return service.cityLayout;
 }
 
 function present<T>(value: T | undefined): T {
@@ -115,6 +123,36 @@ export const worldLayoutRouter = router({
             ip: ctx.worldLayout?.ip ?? null,
           }),
         ),
+    ),
+  /** 도시 건물 배치: NPC 국가 시작 도시마다 지금·다시 놓은 뒤 배치와 지표, 걸린 예약(읽기만, docs/adr/2026-11-11-city-building-layout.md) */
+  cityLayout: permissionProcedure({ worldLayout: ["read"] })
+    .input(z.strictObject({ planetId }))
+    .query(
+      async ({ ctx, input }): Promise<WorldCityRelayoutView> =>
+        present(await cityLayoutOf(serviceOf(ctx, input.planetId)).view()),
+    ),
+  /** 도시 건물 다시 놓기 예약: 다음 서버 시작 때 NPC 건물만 옮긴다(같은 ID, 플레이어 것 제외). 감사 기록 */
+  requestCityRelayout: permissionProcedure({ worldLayout: ["place"] })
+    .input(z.strictObject({ planetId }))
+    .mutation(
+      async ({ ctx, input }): Promise<WorldCityRelayoutView> =>
+        present(
+          await cityLayoutOf(serviceOf(ctx, input.planetId)).request({
+            userId: ctx.viewer.id,
+            ip: ctx.worldLayout?.ip ?? null,
+          }),
+        ),
+    ),
+  /** 아직 들지 않은 도시 건물 다시 놓기 예약 지우기 */
+  cancelCityRelayout: permissionProcedure({ worldLayout: ["place"] })
+    .input(z.strictObject({ planetId }))
+    .mutation(
+      async ({ ctx, input }): Promise<{ cancelled: boolean }> => ({
+        cancelled: await cityLayoutOf(serviceOf(ctx, input.planetId)).cancel({
+          userId: ctx.viewer.id,
+          ip: ctx.worldLayout?.ip ?? null,
+        }),
+      }),
     ),
   /** 아직 들지 않은 반영 예약 지우기 */
   cancelTierApply: permissionProcedure({ worldLayout: ["place"] })

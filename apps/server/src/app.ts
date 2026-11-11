@@ -96,6 +96,7 @@ import { TEST_MAP_KEY, TEST_PLANET_ID, startWorld, testMapKey } from "./world/wo
 import { primaryPlanetId } from "./world/playablePlanets.ts";
 import { planetGaugesOf } from "./ops/planetReads.ts";
 import { placementSourceOf } from "./world/placementService.ts";
+import { cityLayoutServiceOf } from "./facilities/cityLayoutView.ts";
 import { registerNationEmblemRoute } from "./nationEdit/emblems.ts";
 import { nationName } from "./npc/nations.ts";
 import type { AppOptions } from "./appOptions.ts";
@@ -387,6 +388,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           presets: () => options.world?.npc?.presets ?? [],
           testNations: options.world?.npc?.testNations,
           territory: () => tuningState.society().territory,
+          // 도시 건물 배치 미리 보기·다시 놓기 예약(docs/adr/2026-11-11-city-building-layout.md)
+          cityLayout: cityLayoutServiceOf(
+            world,
+            options.db.$client,
+            () => tuningState.society().worldSeed,
+            now,
+            TEST_PLANET_ID,
+          ),
         })
       : undefined;
   // 구인 카드(D-469): 세계가 준비되고 NPC 사회 런타임이 돌 때만(거울 도시·시드가 런타임에 있다)

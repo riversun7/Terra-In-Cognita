@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-11 20:30 | 가문 창설·신고·자동 막기 — 플레이어 세력 정체성 2(질문 926~935 답) | Claude Code | [11-2030-faction-identity-2](worklog/2026/11/11-2030-faction-identity-2.md) |
 | 2026-11-11 19:50 | 목장 사다리 중분류 여럿·낚시터 물가 조건(질문 946 나·947 나) | Claude Code | [11-1950-production-six-2](worklog/2026/11/11-1950-production-six-2.md) |
 | 2026-11-11 18:54 | 캐릭터 3D 외형 — 로우폴리 부위 조립, 만들기 3D 미리 보기, 2차맵 유닛 모델 | Claude Code | [11-1854-character-3d](worklog/2026/11/11-1854-character-3d.md) |
 | 2026-11-11 18:30 | 걸어서 2차맵 넘기를 끊김 없이(확대 그대로·안내 없음·유닛·건물 이어 보이기) + 빌드 차례 번호 | Claude Code | [11-1830-map-seamless-2](worklog/2026/11/11-1830-map-seamless-2.md) |

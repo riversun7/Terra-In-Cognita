@@ -258,6 +258,9 @@ test.describe("옆 2차맵 땅 누르기", () => {
     if (!box) throw new Error("no canvas");
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height / 2;
+    // 6/6(짧은 변 15m)에서 한 단계 줄여 옛 가장 가까이(40m)쯤에서 휠로 줄인다
+    await page.locator(".zoom-ladder-out").click();
+    await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
     await page.mouse.move(cx, cy);
     for (let k = 0; k < 3; k++) {
       await page.mouse.wheel(0, 400);
@@ -300,7 +303,9 @@ test.describe("이웃 안개 사진", () => {
         const rig = await rigSocket(page);
         await keepMyUnits(page);
         await openAtEdge(page, rig);
-        // 멀리 보아 경계 양쪽이 보이게(가운데 = 내 사이보그)
+        // 멀리 보아 경계 양쪽이 보이게(가운데 = 내 사이보그). 6/6에서 한 단계 줄인 뒤 휠로
+        await page.locator(".zoom-ladder-out").click();
+        await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
         const box = await page.locator(".map-view canvas").boundingBox();
         if (!box) throw new Error("no canvas");
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);

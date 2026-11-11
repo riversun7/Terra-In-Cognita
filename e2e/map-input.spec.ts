@@ -135,6 +135,9 @@ test.describe("지도 조작: 플레이어", () => {
     const cyborg = (await map.getAttribute("data-cyborg")) ?? "";
     await expect(map).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
     await expect(page.locator(READY_MARKER)).toHaveCount(0);
+    // 들어오면 6/6(짧은 변 15m)이라 둘레 채집 표시가 화면 밖일 수 있다: 한 단계 줄여 옛 가장 가까이(40m)쯤에서 찾는다
+    await page.locator(".zoom-ladder-out").click();
+    await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
     await showResourceMarkers(page);
     const marker = await findMarker(page);
     await page.waitForTimeout(1_100);

@@ -1,7 +1,7 @@
 // 2차맵 캐릭터 3D 모델 화면 시험 — docs/adr/2026-11-11-character-3d.md 4절(사용자 요청 2026-11-11 "캐릭터 … 폴리곤 3d로 … 2차맵에서도 사용가능하게").
 // - player: 2차맵에 들어오면(내 사이보그가 골라져 있고 가장 가까운 확대) 내 사이보그는 캡슐이 아니라 3D 모델로 그려진다
 //   (data-selected-draw = character0·character1, data-characters ≥ 1). 멀리 줄이면 캡슐·점으로 돌아간다(모델 0).
-//   넓은 화면(1440)은 가까운 단계(character0), 좁은 화면(390)은 키가 작아 먼 단계(character1)다.
+//   넓은 화면(1440)은 가까운 단계(character0). 좁은 화면(390)도 가장 가까이(6/6, 짧은 변 15m — 962 나)는 가까운 단계이고 5/6은 먼 단계(character1)다.
 // - 서버: world.unitLooks가 내 사이보그의 외형을 준다(맞는 외형 모양).
 // - 측정(E2E_MEASURE=1, 작업 기록용): 도시 2차맵에서 가까이·멀리 그리기 호출·삼각형·엔진 p95·JS 메모리(헤드리스 SwiftShader라 휴대폰 값 아님).
 // - 사진: 가까이 본 2차맵 390·1440 × 파스텔.
@@ -154,8 +154,8 @@ test.describe("2차맵 캐릭터 모델: 넓은 화면", () => {
         expect.objectContaining({ unitIds: expect.arrayContaining([Number(cyborg)]) }),
       ]),
     );
-    // 중간(3/6): 캡슐로 그려도 같은 고리
-    await zoomOutTo(page, 3);
+    // 중간(2/6 — 넓은 화면 3/6은 키가 모델 문턱 9px 둘레라 모델일 수도 있다): 캡슐로 그려도 같은 고리
+    await zoomOutTo(page, 2);
     await expect(screen).toHaveAttribute("data-selected-draw", /^(capsule|icon)$/, { timeout: 15_000 });
     if ((await screen.getAttribute("data-selected-draw")) === "capsule")
       expect(await stat(page, "data-nation-rings")).toBeGreaterThanOrEqual(1);

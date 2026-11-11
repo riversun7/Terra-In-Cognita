@@ -10,6 +10,7 @@
 //   국가 색 번호), 점 표현이면 0. 서버는 world.unitLooks의 nations에 내 사이보그를 싣는다.
 // - 한 번 외형 고르기(961 나, relook 계정 = 3D 외형 없이 만든 사이보그): 사이보그 화면 [외형 고르기] → 창(만들기 외형 단계, 처음 값 = 옛 외형에서
 //   옮긴 외형) → 프리셋 → 확인 → 저장. 그 뒤 단추가 사라지고(cyborg.get lookPick false) 서버가 다시 보내도 look_locked. 사진 390 파스텔.
+//   초상(2026-11-12): 위 띠 얼굴·사이보그 화면 초상은 3D 외형 썸네일이고, 고르면 위 띠 얼굴이 바로 고른 외형으로 바뀐다.
 import type { Page } from "@playwright/test";
 import { PROTOCOL_VERSION } from "../packages/protocol/src/version.ts";
 import { shot } from "./helpers/screen.ts";
@@ -298,6 +299,11 @@ test.describe("3D 외형 한 번 고르기(질문 961 나)", () => {
     await expect(open).toBeVisible({ timeout: 20_000 });
     const before = await cyborgLook(page);
     expect(before.lookPick).toBe(true);
+    // 위 띠 얼굴 = 옛 외형에서 옮긴 3D 외형의 초상(초상 바뀜 2026-11-12)
+    const face = page.locator(".topbar-face-portrait");
+    await expect(face).toHaveAttribute("data-look", keyOf(before.look), { timeout: 15_000 });
+    await expect(face).toHaveAttribute("data-portrait", "3d", { timeout: 15_000 });
+    await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-look", keyOf(before.look));
     await open.click();
     const dialog = page.locator("dialog.cyborg-look-pick");
     await expect(dialog).toBeVisible({ timeout: 15_000 });
@@ -320,7 +326,14 @@ test.describe("3D 외형 한 번 고르기(질문 961 나)", () => {
     await dialog.locator(".cyborg-look-pick-save").click();
     await dialog.locator(".cyborg-look-pick-confirm").click();
     await expect(dialog).toHaveCount(0, { timeout: 20_000 });
+    // 고르면 위 띠 얼굴이 바로(다시 묻지 않고) 고른 외형의 초상으로 바뀐다(markCyborgAppearance)
+    await expect(face).toHaveAttribute("data-look", chosen);
+    await expect(face).toHaveAttribute("data-portrait", "3d", { timeout: 15_000 });
     await expect(open).toHaveCount(0, { timeout: 15_000 });
+    // 사이보그 화면 초상도 자료를 다시 받으면 고른 외형이다
+    await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-look", chosen, { timeout: 15_000 });
+    await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-portrait", "3d", { timeout: 15_000 });
+    await shot(page, "look-portrait-relook-390-pastel");
     const after = await cyborgLook(page);
     expect(after.lookPick).toBe(false);
     expect(keyOf(after.look)).toBe(chosen);

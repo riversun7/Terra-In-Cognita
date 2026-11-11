@@ -8,6 +8,7 @@
 //   단계에서 탭 셋(프리셋·머리·색)과 프리셋 갤러리·프리셋 넷의 3D 미리 보기(만들지 않는다. 굴림은 처음 한 번만 쓴다).
 // 바뀜(docs/adr/2026-11-11-character-3d.md): 외형 단계가 3D 조립이다 — 미리 보기 엔진이 그리고(data-preview ready·삼각형 수), 프리셋 24개·
 //   부위 탭·색 견본·칸 잠금·무작위·되돌리기, 만든 뒤 서버에 3D 외형이 남고(cyborg.status look) 2차맵에서 내 사이보그가 모델로 보인다.
+// 바뀜 (2026-11-12, 초상): 강하 요약·사이보그 화면·위 띠 얼굴은 고른 3D 외형의 썸네일 초상이다(data-portrait 3d, data-look = 3D 외형 표지).
 // player·dev·admin은 전역 준비가 사이보그를 만들어 두었다("E2EPlayer" 등 — 이미 있는 이름 시험에 쓴다).
 import type { Page } from "@playwright/test";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -271,15 +272,26 @@ test.describe("첫 접속: 새 플레이어", () => {
     await next(page);
     await expectStep(page, "descent");
     await expect(page.locator(".start-summary-name")).toHaveText("새싹로봇");
-    // 요약의 2D 그림은 3D 외형에서 넘긴 옛 부위다(주색 진홍 → 가장 가까운 옛 색 산호)
-    const drawn = (await page.locator(".start-summary-avatar").getAttribute("data-look")) ?? "";
-    expect(drawn.split(".")[4]).toBe("coral");
+    // 요약 초상은 고른 3D 외형을 썸네일 렌더러로 그린 그림이다(옛 2D 그림이 아니다 — 사용자 지적 2026-11-12, ADR character-3d "바뀜 (2026-11-12, 초상)")
+    const summary = page.locator(".start-summary-avatar");
+    await expect(summary).toHaveAttribute("data-look", chosen);
+    await expect(summary).toHaveAttribute("data-portrait", "3d", { timeout: 15_000 });
+    await expect(summary.locator("img.cyborg-portrait-image")).toHaveAttribute(
+      "src",
+      /^data:image\/png;base64,/,
+    );
+    const drawn = chosen;
     await expect(page.locator(".start-elements-summary dd")).toHaveText("불 7 · 바람 3");
 
     // 7. 강하 → 홈
     await page.locator(".start-descend").click();
     await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
     await expect(page.locator(".tabbar")).toBeVisible();
+    // 위 띠 얼굴도 같은 3D 외형의 머리·어깨 초상이다
+    const face = page.locator(".topbar-face-portrait");
+    await expect(face).toHaveAttribute("data-look", chosen, { timeout: 15_000 });
+    await expect(face).toHaveAttribute("data-portrait", "3d", { timeout: 15_000 });
+    await expect(face).toHaveAttribute("data-framing", "face");
     // 만든 뒤 /start는 홈으로
     await page.goto("/start");
     await expect(page).toHaveURL(/\/$/);
@@ -288,6 +300,7 @@ test.describe("첫 접속: 새 플레이어", () => {
     await page.goto("/cyborg");
     await expect(page.locator(".cyborg-name")).toHaveText("새싹로봇");
     await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-look", drawn);
+    await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-portrait", "3d", { timeout: 15_000 });
     // 만들 때 3D 외형을 골랐으니 한 번 고르기 단추가 없다(질문 961 나 — 3D 외형 없이 만든 사이보그만)
     await expect(page.locator(".cyborg-look-pick-open")).toHaveCount(0);
     // 서버가 고른 3D 외형을 저장했다(cyborg.status의 look = 미리 보기의 외형)
@@ -447,6 +460,10 @@ test.describe("첫 접속 사진", () => {
         await shot(page, `first-login-6-city-${width}-${theme}-${language}`, { fullPage: true });
         await next(page);
         await expectStep(page, "descent");
+        // 요약 초상(3D 외형 썸네일)이 그려진 뒤에 찍는다
+        await expect(page.locator(".start-summary-avatar")).toHaveAttribute("data-portrait", "3d", {
+          timeout: 15_000,
+        });
         expect(await horizontalOverflow(page)).toEqual([]);
         await shot(page, `first-login-7-descent-${width}-${theme}-${language}`, { fullPage: true });
         expect(deviceErrors).toEqual([]);

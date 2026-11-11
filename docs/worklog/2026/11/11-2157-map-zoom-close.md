@@ -40,8 +40,18 @@
 - 1차맵 사다리(다섯 단계)·1차맵 진입 확대.
 - 걸어서 넘을 때 확대 유지(map-seamless-2).
 
+## 시험 (Verified: 실행)
+- 엔진 단위 시험 `pnpm --filter @terra/engine`(vitest): 57파일 488개 통과(카메라·단계·눕힘 기준·고리 차례 포함).
+- `pnpm check`(TEST_DATABASE_URL 포함): 통과 — 613파일 4,746개.
+- `pnpm build` + `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 108,760B / 상한 131,416B.
+- 화면 시험(헤드리스 Chromium): character-3d·unit-control·seamless·map-input·control-move3·building-art·map-viewdist·selection-ring·play-map 묶음 한 번 = 73 통과·3 실패·3 건너뜀(측정 전용). 실패 셋은 6/6 진입 때문에 시험이 기대던 화면이 바뀐 것 → 고친 뒤 다시: map-input `:127`·seamless `:248` 통과, character-3d 전체 3 통과(2 건너뜀).
+  - map-input 채집 표시: 짧은 변 15m 화면에 둘레 표시가 없어 한 단계 줄인 뒤(5/6) 찾는다.
+  - seamless 옆 땅 누르기: 휠 세 번으로 옛 거리까지 못 줄어 먼저 [−] 한 번(5/6).
+  - character-3d 넓은 화면 중간: 새 3/6은 넓은 화면에서 키가 모델 문턱(9px) 둘레라 2/6으로. 모델 수 ≤ 그린 유닛 수는 같은 1초 요약에서 함께 읽게(따로 읽어 어긋났다).
+- 고른 표시 고리: `e2e/selection-ring.spec.ts` 통과(넘은 뒤 고리 화소 4,151). renderOrder 줄을 지우고 돌리면 0화소로 실패(Verified). 사진: 고치기 전·뒤 같은 자리.
+
 ## 미검증·TODO·알려진 문제
-- 결과는 아래 "시험"에 적는다.
+- seamless 이웃 안개 사진 시험(`:298`)은 [−] 한 번을 더한 뒤 다시 돌리지 않았다(미실행 — 첫 묶음에서는 [−] 없이 통과).
 - 휴대폰 실기기에서 6/6 보기는 보지 않았다(Unknown). 도시 가운데처럼 나무 덤불 안에 선 사이보그는 6/6에서 나무 갓이 화면을 덮는다(시험 세계 시작 자리 사진, Verified) → 질문 996.
 - 단계별 화면 길이(ADR 표)는 계산값(Assumed).
 

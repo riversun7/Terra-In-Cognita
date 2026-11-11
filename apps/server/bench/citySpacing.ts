@@ -227,11 +227,11 @@ const supplyRun = (() => {
     last = new Map(
       [...stepCatchmentSupply(supplyCities, stock, capacity, rules)].map(([id, r]) => [id, r.totalPm]),
     );
-  const values = [...last.values()];
+  const received = [...last.values()];
   return {
-    avg: Math.round(values.reduce((sum, v) => sum + v, 0) / Math.max(1, values.length)),
-    min: Math.min(...values),
-    stalled: values.filter((v) => v < START_WORLD_SEED.catchmentGrowthMinPm).length,
+    avg: Math.round(received.reduce((sum, v) => sum + v, 0) / Math.max(1, received.length)),
+    min: Math.min(...received),
+    stalled: received.filter((v) => v < START_WORLD_SEED.catchmentGrowthMinPm).length,
   };
 })();
 

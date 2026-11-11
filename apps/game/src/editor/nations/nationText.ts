@@ -2,10 +2,15 @@
 // 표로 적는다). 오류·출처 문구는 건물 편집기와 같은 메시지(dev_buildings_*)를 쓴다. 이 조각에만 든다.
 import type { ContentEditOrigin, ContentIssueView } from "@terra/shared/contentEdit";
 import type { NameStyleId } from "@terra/shared/nameGen";
-import type { NationApplyAction, NationEditorReason } from "@terra/shared/nationEditor";
+import type {
+  NationApplyAction,
+  NationEditorCheckResponse,
+  NationEditorReason,
+} from "@terra/shared/nationEditor";
 import type { EmblemCharge, EmblemDivision, EmblemShape } from "@terra/shared/nationEmblem";
 import { m } from "../../paraglide/messages.js";
 import type { ContentErrorInfo } from "../content/contentEditorModel.ts";
+import type { PendingStatus } from "../content/contentEditorPending.tsx";
 
 type Text = () => string;
 
@@ -151,3 +156,18 @@ export function nationIssueText(issue: ContentIssueView): string {
 /** 문제 줄 머리(국가 ID · 칸 경로) */
 export const nationIssueWhere = (issue: ContentIssueView): string =>
   [issue.id, issue.path].filter((part) => part !== null && part !== "").join(" › ");
+
+/** 검사 결과 → 막대 상태(오류가 있으면 [적용]을 막는다) */
+export function statusOf(keys: number, result: NationEditorCheckResponse | null | undefined): PendingStatus {
+  if (keys === 0 || result === undefined)
+    return { text: m.dev_buildings_checking(), tone: "busy", data: keys === 0 ? "idle" : "checking" };
+  if (result === null) return { text: m.dev_buildings_check_failed(), tone: "failed", data: "failed" };
+  const errors = result.issues.filter((issue) => issue.level === "error").length;
+  return errors > 0
+    ? { text: m.dev_buildings_check_blocked({ count: errors }), tone: "blocked", data: "blocked" }
+    : {
+        text: m.dev_buildings_check_ok({ advice: result.issues.length - errors }),
+        tone: "ok",
+        data: "ok",
+      };
+}

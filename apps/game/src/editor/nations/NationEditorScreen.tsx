@@ -35,11 +35,17 @@ import {
   stableJson,
 } from "../content/contentEditorModel.ts";
 import { leafDiff } from "../content/contentEditorPaths.ts";
-import { PendingBar, type PendingEntry, type PendingStatus } from "../content/contentEditorPending.tsx";
+import { PendingBar, type PendingEntry } from "../content/contentEditorPending.tsx";
 import { NationApplyWorld } from "./NationApplyWorld.tsx";
 import { NationDetail } from "./NationDetail.tsx";
 import { NationList } from "./NationList.tsx";
-import { NationPowerSection, type PowerPanel, createdRowsOf, liveTiersOf } from "./NationPowerSection.tsx";
+import {
+  NationPowerSection,
+  NationSleeping,
+  type PowerPanel,
+  createdRowsOf,
+  liveTiersOf,
+} from "./NationPowerSection.tsx";
 import {
   EMPTY_NATION_STAGE,
   type NationStage,
@@ -52,28 +58,13 @@ import {
   stageNationDiscard,
   stageTier,
 } from "./nationModel.ts";
-import { nationErrorText } from "./nationText.ts";
+import { nationErrorText, statusOf } from "./nationText.ts";
 import "./nationEditor.css";
 
 type Load =
   | { readonly status: "loading" }
   | { readonly status: "ready"; readonly list: NationEditorListResponse }
   | { readonly status: "failed"; readonly message: string };
-
-/** 검사 결과 → 막대 상태(오류가 있으면 [적용]을 막는다) */
-function statusOf(keys: number, result: NationEditorCheckResponse | null | undefined): PendingStatus {
-  if (keys === 0 || result === undefined)
-    return { text: m.dev_buildings_checking(), tone: "busy", data: keys === 0 ? "idle" : "checking" };
-  if (result === null) return { text: m.dev_buildings_check_failed(), tone: "failed", data: "failed" };
-  const errors = result.issues.filter((issue) => issue.level === "error").length;
-  return errors > 0
-    ? { text: m.dev_buildings_check_blocked({ count: errors }), tone: "blocked", data: "blocked" }
-    : {
-        text: m.dev_buildings_check_ok({ advice: result.issues.length - errors }),
-        tone: "ok",
-        data: "ok",
-      };
-}
 
 export default function NationEditorScreen({ initialId }: { initialId?: string | undefined }) {
   const locale = getLocale() === "en" ? "en" : "ko";
@@ -489,35 +480,11 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
               </span>
             }
           />
-          {sleeping.length > 0 ? (
-            <section className="ce-panel" aria-labelledby="ne-sleeping-title">
-              <h2 id="ne-sleeping-title" className="ce-panel-title">
-                {m.dev_nations_sleeping_title()}
-              </h2>
-              <ul className="ne-plain-list">
-                {sleeping.map((item) => (
-                  <li key={item.id} className="ce-inline-actions">
-                    <span>
-                      {m.dev_buildings_sleeping_line({
-                        id: item.id,
-                        reason: item.reason,
-                        version: item.contentVersion,
-                      })}
-                    </span>
-                    <button
-                      type="button"
-                      aria-pressed={stage.discard.has(item.id)}
-                      onClick={() =>
-                        pushStage(stageNationDiscard(stageRef.current, item.id, !stage.discard.has(item.id)))
-                      }
-                    >
-                      {m.dev_buildings_discard()}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+          <NationSleeping
+            rows={sleeping}
+            discard={stage.discard}
+            onToggle={(id, on) => pushStage(stageNationDiscard(stageRef.current, id, on))}
+          />
           <NationPowerSection
             panel={panel}
             list={list}

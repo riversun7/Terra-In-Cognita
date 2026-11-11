@@ -132,3 +132,43 @@ export function NationPowerSection({
     </section>
   );
 }
+
+/** 잠든 줄(이 판이 읽지 못해 적용하지 않고 둔 덮어쓰기) — 버릴 줄을 고른다 */
+export function NationSleeping({
+  rows,
+  discard,
+  onToggle,
+}: {
+  rows: NationEditorListResponse["sleeping"];
+  discard: ReadonlySet<string>;
+  onToggle: (id: string, on: boolean) => void;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <section className="ce-panel" aria-labelledby="ne-sleeping-title">
+      <h2 id="ne-sleeping-title" className="ce-panel-title">
+        {m.dev_nations_sleeping_title()}
+      </h2>
+      <ul className="ne-plain-list">
+        {rows.map((item) => (
+          <li key={item.id} className="ce-inline-actions">
+            <span>
+              {m.dev_buildings_sleeping_line({
+                id: item.id,
+                reason: item.reason,
+                version: item.contentVersion,
+              })}
+            </span>
+            <button
+              type="button"
+              aria-pressed={discard.has(item.id)}
+              onClick={() => onToggle(item.id, !discard.has(item.id))}
+            >
+              {m.dev_buildings_discard()}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

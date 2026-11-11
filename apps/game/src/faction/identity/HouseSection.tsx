@@ -47,7 +47,7 @@ function BadgeLine({ house, children }: { house: HouseBadge; children?: ReactNod
         <span className="fid-house-row-name" translate="no">
           {house.name}{" "}
           <span
-            className="fid-card-short"
+            className="fid-house-short"
             style={{ backgroundColor: house.color, color: labelTextOn(house.color) }}
           >
             {house.shortName}

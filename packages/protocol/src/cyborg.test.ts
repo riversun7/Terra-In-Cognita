@@ -129,7 +129,7 @@ describe("사이보그 만들기 메시지", () => {
     const { glow: _glow, ...missing } = look;
     expect(decodes(decodeClientMessage, { ...create, look: missing })).toBe(false);
     // 모르는 최상위 칸은 버린다(z.object) — 그래서 이 칸을 모르는 옛 서버도 새 기기의 만들기를 받는다(프로토콜 판을 올리지 않았다)
-    const decoded = decodeClientMessage(encodeMessage({ ...create, someday: 1 }));
+    const decoded = decodeClientMessage(JSON.stringify({ ...create, someday: 1 }));
     expect(decoded).toEqual(create);
   });
 

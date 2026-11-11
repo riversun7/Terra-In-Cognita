@@ -1,4 +1,3 @@
-import { Box3 } from "three";
 import { describe, expect, it } from "vitest";
 import { createCharacterGeometry, triangleCount } from "./characterGeometry.ts";
 import { CHARACTER_SHAPES, SHAPE_TRIANGLES } from "./characterParts.ts";
@@ -19,7 +18,9 @@ describe("캐릭터 단위 도형", () => {
       for (let i = 0; i < position.count * 3; i++) {
         expect(Number.isFinite(position.array[i]), shape).toBe(true);
       }
-      const box = new Box3().setFromBufferAttribute(position);
+      geometry.computeBoundingBox();
+      const box = geometry.boundingBox;
+      if (!box) throw new Error("no bounding box");
       for (const value of [box.min.x, box.min.y, box.min.z])
         expect(value, shape).toBeGreaterThanOrEqual(-0.5001);
       for (const value of [box.max.x, box.max.y, box.max.z]) expect(value, shape).toBeLessThanOrEqual(0.5001);

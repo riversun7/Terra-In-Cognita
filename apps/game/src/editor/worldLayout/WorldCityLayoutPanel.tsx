@@ -90,7 +90,7 @@ export function WorldCityLayoutPanel({ planetId, locale }: Props) {
   const request = view?.request ?? null;
   const pending = request !== null && request.appliedAtMs === null;
   return (
-    <section className="wl-catch wl-city" aria-labelledby="wl-city-title" data-state={load.status}>
+    <section className="wl-city" aria-labelledby="wl-city-title" data-state={load.status}>
       <div className="wl-actions">
         <h2 id="wl-city-title" className="wl-catch-title">
           {m.dev_world_layout_city_title()}

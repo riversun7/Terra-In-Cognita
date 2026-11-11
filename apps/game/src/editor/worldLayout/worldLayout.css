@@ -328,7 +328,8 @@
 /* ── 배후지 덮개(WorldCatchmentPanel — docs/adr/2026-11-11-city-catchment.md) ──
  * 격자 칸 하나 = 1차맵 칸(SVG 사용자 단위 1). 칸 칠 = 원자재 무리, 원 = 배후지 반경(실선 지금 세계 · 점선 계획), 고른 국가 원은 굵게.
  * SVG 선 굵기·점선은 격자 단위 수(칸의 몇 분의 일)라 px이 아니다. */
-.wl-catch {
+.wl-catch,
+.wl-city {
   display: grid;
   gap: var(--space-2);
   min-width: 0;

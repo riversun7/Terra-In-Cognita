@@ -778,8 +778,10 @@ test.describe("옆 2차맵 미리 띄우기 잼", () => {
           mark(`edge ${edge.x},${edge.y} blocked`);
           continue;
         }
-        await waitAt(side, { mapKey: home.mapKey, cellX: edge.x, cellY: edge.y }, 4);
-        mark(`edge ${edge.x},${edge.y}`);
+        // 막힌 칸이면 길이 그 가까이서 끝난다: 오래 기다리지 않고 닿은 자리를 적는다
+        await waitAt(side, { mapKey: home.mapKey, cellX: edge.x, cellY: edge.y }, 12).catch(() => undefined);
+        const at = await myPosition(side);
+        mark(`edge ${edge.x},${edge.y} at ${at ? `${at.mapKey}:${at.cellX},${at.cellY}` : "?"}`);
       }
       await page.waitForTimeout(65_000);
       mark("all edges");

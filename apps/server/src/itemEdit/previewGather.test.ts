@@ -107,7 +107,8 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       sameTier: 3,
     });
     expect(herb?.levels[0]?.chanceBp).toBe(2333);
-    // 사슴 고기(T1, 하나): 목장 선택 — 새 유닛 해금 ⌊20 ÷ 20⌋ = T1 → 100%, 생고기(T0)는 0
+    // 사슴 고기(T1): 목장 선택 — 새 유닛 해금 ⌊20 ÷ 20⌋ = T1. 목장 사다리 = 축산물 + 목축 부산물(질문 946 나, core@63)이라 T1은
+    // 사슴 고기·사슴 가죽·사슴뿔 셋 → 33.33%, 생고기(T0)는 0
     const venison = previewGather(ctx, find("venison"), pack.items, DEFAULT_PREVIEW_UNIT);
     expect(venison).toMatchObject({
       facility: "ranch",
@@ -115,8 +116,13 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       secondary: "agi",
       mode: "select",
       unitTier: 1,
+      sameTier: 3,
     });
-    expect(venison?.levels[0]?.chanceBp).toBe(10_000);
+    expect(venison?.levels[0]?.chanceBp).toBe(3333);
+    // 목축 부산물(사슴 가죽)도 목장 사다리에서 같은 몫으로 나온다
+    const hide = previewGather(ctx, find("deer_hide"), pack.items, DEFAULT_PREVIEW_UNIT);
+    expect(hide).toMatchObject({ facility: "ranch", mode: "select", sameTier: 3 });
+    expect(hide?.levels[0]?.chanceBp).toBe(3333);
     expect(previewGather(ctx, find("raw_meat"), pack.items, DEFAULT_PREVIEW_UNIT)?.levels[0]?.chanceBp).toBe(
       0,
     );

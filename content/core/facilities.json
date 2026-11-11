@@ -231,6 +231,7 @@
         "primary": "wis",
         "secondary": "agi",
         "subcategory": "livestock_product",
+        "extraSubcategories": ["livestock_byproduct"],
         "mode": "select",
         "yieldBase": 1,
         "yieldPerStatPm": 80,
@@ -328,6 +329,7 @@
         "width": 3,
         "height": 3
       },
+      "needsWaterWithin": 5,
       "durability": 150,
       "storageKg": 200,
       "look": {

@@ -7,6 +7,7 @@
 // - 사진: 390·1440 × 개발 화면 테마 네온·라이트(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 시설·클래스 덮어쓰기를 지운다.
 import type { Page } from "@playwright/test";
+import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
@@ -100,9 +101,11 @@ test.describe("개발자", () => {
     expect(await tabsOf("building")).toEqual(["farm", "ranch", "fishing_spot"]);
     expect(await tabsOf("common")).toEqual(["tiers", "mapping", "classes", "overview"]);
     expect((await tabsOf("process")).length).toBeGreaterThan(0);
-    // 수: 사다리 아이템(약초 30·어류 26)·확률표 구간 12·클래스 36
+    // 수: 사다리 아이템(약초 30·어류 26·목장 30)·확률표 구간 12·클래스 36
     await expect(tab(page, "herb_field").locator(".pd-tab-count")).toHaveAttribute("data-count", "30");
     await expect(tab(page, "fishing_spot").locator(".pd-tab-count")).toHaveAttribute("data-count", "26");
+    // 목장 = 축산물 13 + 목축 부산물 17(질문 946 나, core@63)
+    await expect(tab(page, "ranch").locator(".pd-tab-count")).toHaveAttribute("data-count", "30");
     await expect(tab(page, "tiers").locator(".pd-tab-count")).toHaveAttribute("data-count", "12");
     await expect(tab(page, "classes").locator(".pd-tab-count")).toHaveAttribute("data-count", "36");
 
@@ -178,6 +181,15 @@ test.describe("개발자", () => {
     await expect(page.locator('.pd-fields[data-part="catch"]')).toBeVisible();
     // 사다리 표 10줄(T0~T9)
     await expect(page.locator(".pd-ladder tbody tr")).toHaveCount(10);
+    await expect(page.locator('[data-part="ladder-subs"]')).toHaveText(
+      message("ko", "dev_prod_ladder_subs", { subs: "어류" }),
+    );
+    // 목장 사다리 = 축산물 + 목축 부산물(질문 946 나): T1 줄에 사슴 고기·사슴 가죽이 함께
+    await tab(page, "ranch").click();
+    await expect(page.locator('[data-part="ladder-subs"]')).toHaveText(
+      message("ko", "dev_prod_ladder_subs", { subs: "축산물 + 목축 부산물" }),
+    );
+    await expect(page.locator('.pd-ladder tr[data-tier="1"] .pd-ladder-items')).toContainText("가죽");
 
     // 개요: 여섯 줄, 표본 스탯 넷
     await tab(page, "overview").click();

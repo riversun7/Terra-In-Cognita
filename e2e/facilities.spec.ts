@@ -127,6 +127,55 @@ test.describe("건물", () => {
     expect(deviceErrors).toEqual([]);
   });
 
+  test("물가 조건(질문 947 나): 낚시터를 고르면 그 2차맵 물 표로 둘레 5칸 물을 미리 보고, 물이 없으면 [짓기]가 막힌다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    // 서버 물 표(facilities.waterMask)를 받은 뒤 물줄기 하나(지형 칸 열 100 = 배치 칸 x 200~201)로 바꿔 자리를 정해 둔다(판정 식은 같다)
+    let served = "";
+    // 물 표 모양은 @terra/shared/waterNearby와 같다(지형 칸마다 1비트, 행 우선, 바이트 안 낮은 비트부터, 16진수 두 자) — e2e는 작업공간
+    // 꾸러미를 가져오지 않아 여기서 만든다
+    const bits = new Uint8Array((128 * 128) / 8);
+    for (let ty = 0; ty < 128; ty++) {
+      const i = ty * 128 + 100;
+      bits[i >> 3] = (bits[i >> 3] ?? 0) | (1 << (i & 7));
+    }
+    const river = [...bits].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    await rewriteTrpc(page, {
+      "summary.get": hideSummary,
+      "facilities.waterMask": (data) => {
+        if (typeof data !== "object" || data === null) throw new Error("waterMask 응답 모양이 다릅니다");
+        served = String(Reflect.get(data, "status"));
+        if (served === "ready") Reflect.set(data, "hex", river);
+      },
+    });
+    await page.goto("/economy/production");
+    const facilities = panel(page);
+    const form = facilities.locator("form.labor-form");
+    await expect(form).toBeVisible({ timeout: 15_000 });
+    const water = form.locator('[data-part="facility-water"]');
+    // 물가 조건이 없는 시설(공방)에는 줄이 없다
+    await form.getByLabel(message("ko", "facility_field_facility")).selectOption("workshop");
+    await expect(water).toHaveCount(0);
+    await form.getByLabel(message("ko", "facility_field_facility")).selectOption("fishing_spot");
+    const build = form.getByRole("button", { name: message("ko", "facility_build"), exact: true });
+    // 3×3 오른쪽 끝 194 → 둘레 5칸 끝 199: 물 없음 → 경고·[짓기] 막힘
+    await form.getByLabel(message("ko", "facility_field_x")).fill("192");
+    await form.getByLabel(message("ko", "facility_field_y")).fill("60");
+    await expect(water).toHaveAttribute("data-water", "dry", { timeout: 10_000 });
+    await expect(water).toHaveText(message("ko", "facility_build_water_dry", { cells: 5 }));
+    await expect(water).toHaveAttribute("role", "alert");
+    await expect(build).toBeDisabled();
+    expect(served).toBe("ready");
+    // 한 칸 옮기면(끝 200) 물가
+    await form.getByLabel(message("ko", "facility_field_x")).fill("193");
+    await expect(water).toHaveAttribute("data-water", "ok");
+    await expect(water).toHaveText(message("ko", "facility_build_water_ok", { cells: 5 }));
+    expect(await horizontalOverflow(page)).toEqual([]);
+    await elementShot(form, "facilities-water-pastel-ko-390");
+    expect(deviceErrors).toEqual([]);
+  });
+
   for (const look of [
     { theme: "dark", language: "en", viewport: "phone", width: 390 },
     { theme: "pastel", language: "ko", viewport: "desktop", width: 1440 },

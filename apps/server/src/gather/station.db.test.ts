@@ -7,6 +7,7 @@ import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { UPKEEP_PERIOD_MS, WALK_SPEED } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_FACILITY_SOURCE } from "../facilities/testFacilities.ts";
+import { waterOk } from "../facilities/water.ts";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
@@ -319,14 +320,27 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
       expect(await service.devFacilityGrant(userId, item, qty, { mapKey: map.mapKey, x: 50, y: 50 })).toEqual(
         { ok: true },
       );
-    const buildAt = async (facility: string, x: number): Promise<number> => {
-      const built = await service.build(userId, { mapKey: map.mapKey, facility, x, y: 50, rotation: 0 });
+    const buildAt = async (facility: string, x: number, y = 50): Promise<number> => {
+      const built = await service.build(userId, { mapKey: map.mapKey, facility, x, y, rotation: 0 });
       if (!built.ok || built.buildingId === undefined)
         throw new Error(`build failed: ${facility} ${JSON.stringify(built)}`);
       return built.buildingId;
     };
     const ranchId = await buildAt("ranch", 50);
-    const dockId = await buildAt("fishing_spot", 60);
+    // 낚시터는 물가에만(질문 947 나, 팩 needsWaterWithin 5): 놓을 수 있는 물가 자리를 찾아 그 자리 재료로 짓는다
+    const fishing = p.facilities.catalog().facility("fishing_spot");
+    if (!fishing) throw new Error("no fishing_spot");
+    let dock: { x: number; y: number } | undefined;
+    for (let y = 8; y < 248 && !dock; y += 3)
+      for (let x = 8; x < 248 && !dock; x += 3)
+        if (map.canPlace({ x, y, width: 3, height: 3, rotation: 0 }) && waterOk(map, fishing, x, y, 0))
+          dock = { x, y };
+    if (!dock) throw new Error("no water-side spot");
+    for (const [item, qty] of Object.entries({ pine_log: 20, stone: 5 }))
+      expect(await service.devFacilityGrant(userId, item, qty, { mapKey: map.mapKey, ...dock })).toEqual({
+        ok: true,
+      });
+    const dockId = await buildAt("fishing_spot", dock.x, dock.y);
     clock += 12 * HOUR;
     service.finishDue(clock);
     expect(service.facilities.get(ranchId)?.level).toBe(1);
@@ -357,7 +371,8 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
 
     const sum = (assets: string[], location: number): bigint =>
       assets.reduce((total, asset) => total + p.ledger.balanceOf(ownerId, asset, location), 0n);
-    const meat = assetsOf("livestock_product");
+    // 목장 사다리 = 축산물 + 목축 부산물(질문 946 나, core@63)
+    const meat = [...assetsOf("livestock_product"), ...assetsOf("livestock_byproduct")];
     const fish = assetsOf("fish");
     expect(meat.length).toBeGreaterThan(0);
     expect(fish.length).toBeGreaterThan(0);
@@ -365,7 +380,7 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     clock += 90 * 60_000;
     p.settlement.settleOwner(ownerId, clock);
     expect(sum(meat, buildingLocation(ranchId))).toBeGreaterThan(0n);
-    // 목장 창고에는 축산물만, 낚시터 창고에는 어류만(없을 수도 — 성공 350‰)
+    // 목장 창고에는 목장 사다리 물건만, 낚시터 창고에는 어류만(없을 수도 — 성공 350‰)
     expect(sum(fish, buildingLocation(ranchId))).toBe(0n);
     expect(sum(meat, buildingLocation(dockId))).toBe(0n);
     expect(current.station.status(rancher)).toMatchObject({ buildingId: ranchId, state: "working" });

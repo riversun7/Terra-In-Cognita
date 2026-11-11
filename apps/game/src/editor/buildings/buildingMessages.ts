@@ -98,6 +98,8 @@ export function issueText(issue: ContentIssueView): string {
       return m.dev_buildings_issue_gather_stage();
     case "gather_subcategory_major":
       return m.dev_buildings_issue_gather_major();
+    case "gather_subcategory_duplicate":
+      return m.dev_buildings_issue_gather_duplicate();
     case "gather_yield_cap":
       return m.dev_buildings_issue_yield_cap();
     case "gather_catch_range":

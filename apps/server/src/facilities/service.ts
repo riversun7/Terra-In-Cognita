@@ -53,6 +53,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
 import type { FacilityCatalog, FacilityDef } from "./catalog.ts";
 import { type GoodsScope, grantGoods, hasGoods, spendGoods } from "./materials.ts";
+import { waterOk } from "./water.ts";
 import {
   type PlaceWorld,
   beaconMaterialScope,
@@ -482,6 +483,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (!def.footprint || !def.build || def.stage === "territory") return fail("not_buildable");
       const map = maps.get(input.mapKey);
       if (!map) return fail("unknown_map");
+      // 물가 조건(질문 947 나, 팩 needsWaterWithin — 낚시터): 건물 칸 둘레 N 배치 칸 안에 물 칸이 있어야 한다(NPC 씨앗과 같은 함수)
+      if (!waterOk(map, def, input.x, input.y, input.rotation)) return fail("needs_water");
       // 행정 건물(D-510): 주인 없는 폐허 자리에만 — 짓기 시작한 쪽이 주인
       let ruinId: number | undefined;
       if (def.stage === "government") {

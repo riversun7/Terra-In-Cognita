@@ -417,8 +417,10 @@ export {
   accessibleTier,
   gatherBandIndex,
   gatherChancesPm,
+  gatherLadderKey,
   gatherProgress,
   gatherStat,
+  gatherSubcategories,
   gatherYield,
   pickGatherItem,
   rollGatherOutputs,
@@ -426,6 +428,7 @@ export {
   tierRequiredProgress,
   type GatherBand,
   type GatherRoll,
+  type GatherSubcategorySource,
   type GatherYieldRule,
 } from "./economy/gather.ts";
 export {

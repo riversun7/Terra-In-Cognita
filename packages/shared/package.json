@@ -62,6 +62,7 @@
     "./tuning": "./src/tuning.ts",
     "./unitGuide": "./src/unitGuide.ts",
     "./vitals": "./src/vitals.ts",
+    "./waterNearby": "./src/waterNearby.ts",
     "./worldMap": "./src/worldMap.ts"
   },
   "scripts": {

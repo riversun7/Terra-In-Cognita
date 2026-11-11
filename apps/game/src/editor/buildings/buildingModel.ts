@@ -84,6 +84,9 @@ function cleanGather(gather: FacilityGatherJson): FacilityGatherJson {
     primary: gather.primary,
     secondary: gather.secondary,
     subcategory: gather.subcategory,
+    ...(gather.extraSubcategories === undefined || gather.extraSubcategories.length === 0
+      ? {}
+      : { extraSubcategories: [...gather.extraSubcategories] }),
     ...(gather.mode === undefined ? {} : { mode: gather.mode }),
     ...(gather.yieldBase === undefined ? {} : { yieldBase: gather.yieldBase }),
     ...(gather.yieldPerStatPm === undefined ? {} : { yieldPerStatPm: gather.yieldPerStatPm }),
@@ -115,6 +118,7 @@ export function cleanFacility(entry: FacilityJson): FacilityJson {
     ...(entry.footprint === undefined
       ? {}
       : { footprint: { width: entry.footprint.width, height: entry.footprint.height } }),
+    ...(entry.needsWaterWithin === undefined ? {} : { needsWaterWithin: entry.needsWaterWithin }),
     ...(entry.durability === undefined ? {} : { durability: entry.durability }),
     ...(entry.storageKg === undefined ? {} : { storageKg: entry.storageKg }),
     ...(entry.gather === undefined ? {} : { gather: cleanGather(entry.gather) }),

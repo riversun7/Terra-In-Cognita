@@ -17,4 +17,11 @@ export const facilitiesRouter = router({
   mapLooks: signedInProcedure
     .input(z.strictObject({ mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }))
     .query(({ ctx, input }) => (ctx.facilities ?? notReady).mapLooks(ctx.viewer, input.mapKey, ctx.now())),
+  /**
+   * 띄운 2차맵의 물 표(지형 칸마다 1비트, 16진수 — 질문 947 나): 짓기 폼의 물가 조건 미리 보기. 지형 파일(/api/maps/:mapKey/terrain)과 같은
+   * 공개 범위(로그인한 누구나)다
+   */
+  waterMask: signedInProcedure
+    .input(z.strictObject({ mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }))
+    .query(({ ctx, input }) => (ctx.facilities ?? notReady).waterMask(input.mapKey)),
 });

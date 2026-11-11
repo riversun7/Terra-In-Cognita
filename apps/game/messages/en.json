@@ -5962,7 +5962,7 @@
   "ops_emblems_switch": "Allow player emblem uploads",
   "ops_emblems_switch_sub": "When off, players can only use generated emblems. Images already uploaded stay visible.",
   "ops_emblems_switch_need": "Only admins and developers can change this.",
-  "ops_emblems_switch_on": "Allowed",
+  "ops_emblems_switch_on": "On",
   "ops_emblems_switch_off": "Off",
   "ops_emblems_summary": "{total} player factions with an identity · {uploaded} uploaded emblems",
   "ops_emblems_col_emblem": "Emblem",

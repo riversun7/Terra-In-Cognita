@@ -3,7 +3,7 @@
 - 일시: 2026-11-11 17:00 (KST)
 - 작업 도구: Claude Code
 - 관련: ADR `docs/adr/2026-11-11-faction-identity.md`(제안), ADR `2026-11-10-nation-editor.md`·`2026-11-09-faction-profiles.md` "바뀜 (2026-11-11)", 질문 `docs/questions/2026-11-11-faction-identity.md` 926~935, 질문 905 답 표시(`docs/questions/2026-11-10-nation-editor.md`), PLAN 14장, 가지 `work/faction-identity`
-- 사용자 답(2026-11-11, 질문 905, 원문): "답2. 플레이어도 npc 세력 구성처럼 세력생성시 동일하게 생성과정 필요. 용량제한걸고 크롭한부분만 저장하는 방법?"
+- 사용자 답(2026-11-11, 질문 905, 원문): "답2. 플레이어도 npc 세력 구성처럼 세력생성시 동일하게 생성과정 필요. 용량제한걸고 크롭한부분만 저장하는 방법?" — 기획 결정 D-529(미러 `5649349`, main `a90b374` — 이 가지는 그 전 main `8370909`에서 갈라졌다)
 
 ## 먼저 확인한 것
 - **플레이어가 세력을 만드는 길은 지금 없다**(Verified: 코드 읽기, main `8370909`). `factions`에 줄을 넣는 곳은 NPC 사회 런타임(`apps/server/src/npc/persist.ts`)과 시험 NPC 세력(`world/persist/load.ts`)뿐이고, 세력 화면의 [가문 창설]은 "곧 열림" 단추다. 플레이어는 첫 접속·귀화로 NPC 국가에 들고(`cyborgs.faction_id`·`faction_members`), 이끄는 것은 자기 소유 주체(`world_owners.user_id`) 하나다. `faction_profiles` 줄은 세력 행마다라 플레이어 것이 없다.

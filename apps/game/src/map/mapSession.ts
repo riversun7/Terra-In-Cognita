@@ -10,6 +10,9 @@
 // 바뀜(2026-11-11, 사용자 지적 "미세한 화면전환의 흔적 근처에서 미리 불러와 완전히 자연스럽게"):
 // - 넘을 때 넘겨받는 것(handover): 받아 둔 지형, 이어 보일 유닛(기준 유닛의 보이던 자리 — 새 틀로 옮긴 것). 새 자료가 올 때까지 남은 그림으로
 //   두고 그 자리에서 잇는다(유닛이 비거나 한 칸 튀지 않는다).
+// 바뀜(2026-11-12, 옆 2차맵 미리 띄우기 — ADR seamless-second-map "바뀜 (2026-11-12)"): 서버는 내 유닛이 변 가까이 오면 그 이웃을 미리 띄우고,
+// 내 유닛 시야가 경계를 넘으면 그 몫을 볼 수 있게 한다(구독을 받는다). 그래서 거절된(unknown_map·not_visible) 이웃 흐름은 내 유닛 시야가 그
+// 이웃에 닿거나 기준 유닛이 그 변으로 가는 동안 NEIGHBOUR_RETRY_MS마다 다시 구독해 본다(넘기 전에 지형·유닛·안개를 받는다).
 // - 미리 받기: 이웃을 받기 시작하는 거리를 멀리 볼수록 넓히고(nearMarginM), 기준 유닛의 경로가 변에서 끝나면(변을 넘으러 간다) 그쪽 이웃 지형과
 //   흐름을 바로 받는다(운영자 100배처럼 변까지 몇 초일 때). 운영자 모드도 이웃 흐름을 전체 보기로 붙인다(전에는 붙이지 않아 넘는 순간 유닛이 비었다).
 import {
@@ -54,6 +57,10 @@ const NO_KINDS: ReadonlyMap<number, string> = new Map();
 const SIGHT_TICK_MS = 1_000;
 /** 기준 유닛이 가는 쪽(경로 끝이 변)을 보는 간격(ms, 미리 받기) */
 const HEADING_TICK_MS = 250;
+/** 거절된 이웃 구독을 다시 해 보는 간격(ms) — 서버 구독 상한(분당 60번) 안: 이웃 3장이면 분당 36번 */
+const NEIGHBOUR_RETRY_MS = 5_000;
+/** 서버가 띄우거나 볼 수 있게 되면 바뀌는 거절(다시 해 본다) */
+const REFUSED_FOR_NOW: ReadonlySet<string> = new Set(["unknown_map", "not_visible"]);
 /** 함께 붙이는 이웃 흐름 수(지금 2차맵 + 3 = 서버 한 연결 상한 4) */
 export const MAX_NEIGHBOUR_CHANNELS = 3;
 
@@ -296,6 +303,24 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     });
     replaying = false;
   };
+  /** 이웃마다 마지막으로 다시 구독해 본 시각 */
+  const retriedAt = new Map<number, number>();
+  /** 거절된 이웃 흐름을 다시 구독해 본다: 내 유닛 시야가 그 이웃에 닿거나(서버가 경계 너머 시야로 받는다) 기준 유닛이 그 변으로 간다 */
+  const retryRefused = (): void => {
+    if (stopped) return;
+    const at = Date.now();
+    const points = myPoints();
+    for (const [key, neighbour] of attached) {
+      const phase = neighbour.feed.status().phase;
+      if (phase.kind !== "failed" || !REFUSED_FOR_NOW.has(phase.code) || awaited === key) continue;
+      const spot = spotOf(key);
+      if (!spot || at - (retriedAt.get(key) ?? 0) < NEIGHBOUR_RETRY_MS) continue;
+      if (!headingKeys.includes(key) && neighbourSightBits(spot.placement, points) === null) continue;
+      retriedAt.set(key, at);
+      probeEvent(`retry ${mapKey} -> ${key} (${phase.code})`);
+      neighbour.feed.retry();
+    }
+  };
   /** 붙일 이웃을 맞춘다: 가는 쪽 → 따로 바란 것 → 카메라 쪽 차례로 MAX_NEIGHBOUR_CHANNELS장까지. 빠진 흐름은 닫는다(구독 해제) */
   const syncChannels = (): void => {
     if (stopped) return;
@@ -403,7 +428,10 @@ export function startMapSession(options: MapSessionOptions): MapSession {
   nearKeys = carriedKeys;
   syncChannels();
 
-  const sightTimer = setInterval(refreshFog, SIGHT_TICK_MS);
+  const sightTimer = setInterval(() => {
+    refreshFog();
+    retryRefused();
+  }, SIGHT_TICK_MS);
   // 기준 유닛의 경로가 변 바로 옆에서 끝나면(변을 넘으러 간다) 그쪽 이웃 지형·흐름을 카메라와 상관없이 미리 받는다
   const headingTimer = setInterval(() => {
     const anchor = options.anchor();

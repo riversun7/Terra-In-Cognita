@@ -1,6 +1,8 @@
 // 정원사 웨이브 공성 전투의 시작 자료 — docs/adr/2026-11-01-gardener-r5b.md 2절, 기획 D-193·D-273·D-5050, D-464(질문 214·218)
 // 시뮬레이터(gardenerRun.ts → runBattle)와 서버(NPC 런타임 → 전투 서비스 battles.start)가 같은 함수로 만든다.
-// - 지도: 공성 전투맵(시나리오 siegeMapSize, 49 C3 128), 가운데 넥서스(시청). 웨이브는 서쪽 변에서, 수비는 넥서스 앞(시뮬 공성과 같은 자리).
+// - 지도: 공성 전투맵(시나리오 siegeMapSize, 49 C3 128). 도시 배치(layout)가 있으면 그 2차맵 구역(넥서스 = 행정 건물 실제 칸, 다른 건물 =
+//   장애물, D-533·질문 1046 가, combat/siegeArena.ts)이고 웨이브는 attackEdge 변에서 온다. 없으면 가운데 넥서스(시청)의 열린 맵, 서쪽 변.
+//   수비는 넥서스 앞(시뮬 공성과 같은 자리).
 // - 수비: 그 도시 휴먼(앞에서부터 공성 인원 상한까지, 질문 218 가) — 시뮬 공성과 같은 [임시] 휴먼 사양(combatRun.ts specOf).
 // - 웨이브: 정원사 크리쳐 strength마리. 한 마리의 몸은 [임시] 수비 휴먼과 같은 사양(같은 1차 스탯·방어구·스킬)이라 웨이브 세기는
 //   마리 수로 정해진다(D-322 "세기 = 세력 규모"). 물리형(공성 크리쳐, 돌진형, D-273·D-5050)은 칼(근접 물리)에 건물 피해 배율
@@ -20,6 +22,8 @@ import type {
 import type { CombatCoefficients } from "../combat/coefficients.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
 import { itemAt } from "../combat/equipment.ts";
+import type { Edge } from "../combat/battleTypes.ts";
+import { type SiegeLayout, oppositeEdge, siegeArena, siegePlacer } from "../combat/siegeArena.ts";
 import type { CombatSkill } from "../combat/skills.ts";
 import { PARTY_SIZE, kitOf, openMap, specOf } from "./combatRun.ts";
 import type { SimUnit } from "./world.ts";
@@ -56,6 +60,13 @@ export interface WaveBattleInput {
    * 실효 값을 여기로 넘긴다
    */
   readonly limitMs?: number | undefined;
+  /**
+   * 도시의 실제 2차맵 건물 배치(D-533, 질문 1046 가 — combat/siegeArena.ts). 있으면 넥서스 = 행정 건물 실제 칸, 다른 건물 = 장애물,
+   * 웨이브는 attackEdge 변에서 들어온다. 없으면 옛 열린 맵(가운데 넥서스, 서쪽 변 — 시뮬레이터 도시는 2차맵이 없다)
+   */
+  readonly layout?: SiegeLayout | undefined;
+  /** 웨이브가 들어오는 변(0 북, 1 동, 2 남, 3 서). 배치가 있을 때만 본다. 없으면 서 */
+  readonly attackEdge?: Edge | undefined;
 }
 
 /** 공성 크리쳐가 남았는지 보는 간격(틱). 결과는 간격과 상관없다(멈춘 틱만 이만큼 늦을 수 있다) */
@@ -142,9 +153,16 @@ export function waveBattleInit(
 ): BattleInit {
   const size = input.mapSize;
   const center = size / 2;
-  const map = openMap(size);
-  const nexus = [center - 1, center].flatMap((y) => [center - 1, center].map((x) => y * size + x));
-  map.buildings = [{ id: 1, cells: nexus, durability: input.nexusDurability, nexus: true }];
+  const edge: Edge = input.layout ? (input.attackEdge ?? 3) : 3;
+  const arena = input.layout ? siegeArena(input.layout, size, input.nexusDurability) : undefined;
+  const placer = arena ? siegePlacer(arena, edge) : undefined;
+  let map = arena?.map;
+  if (!map) {
+    const open = openMap(size);
+    const nexus = [center - 1, center].flatMap((y) => [center - 1, center].map((x) => y * size + x));
+    open.buildings = [{ id: 1, cells: nexus, durability: input.nexusDurability, nexus: true }];
+    map = open;
+  }
   const kit = kitOf(catalog);
   // 마법형: 같은 몸에 무기만 지팡이(속성 무기 — 건물 피해 0, 사거리가 길어 넥서스 둘레를 막지 않는다). 팩에 없으면 같은 몸
   const staff = catalog.equipment.find((item) => item.id === MAGIC_WEAPON);
@@ -162,6 +180,9 @@ export function waveBattleInit(
   const units: CombatUnitSpec[] = [];
   for (let index = 0; index < input.strength; index++) {
     const physical = index >= input.strength - input.physical;
+    // 배치가 있으면 들어오는 변의 3칸째 줄 빈 칸(없으면 그 크리쳐는 빠진다 — 128칸 맵에서는 일어나지 않는다)
+    const at = placer ? placer.attacker(index) : { x: 2 + Math.floor(index / 24), y: spreadY(index, center) };
+    if (!at) continue;
     const spec = specOf(
       creatureUnit(input.firstCreatureId + index),
       input.creatureTech,
@@ -171,14 +192,18 @@ export function waveBattleInit(
       {
         side: 1,
         party: 1 + Math.floor(index / PARTY_SIZE),
-        x: 2 + Math.floor(index / 24),
-        y: spreadY(index, center),
+        x: at.x,
+        y: at.y,
       },
       c,
     );
     units.push({ ...spec, buildingMulPm: physical ? SIEGE_BUILDING_MUL_PM : MAGIC_BUILDING_MUL_PM });
   }
   input.defenders.slice(0, input.maxDefenders).forEach((unit, index) => {
+    const at = placer
+      ? placer.defender(index)
+      : { x: center - 3 + Math.floor(index / 24), y: spreadY(index, center) };
+    if (!at) return;
     units.push(
       specOf(
         unit,
@@ -189,8 +214,8 @@ export function waveBattleInit(
         {
           side: 2,
           party: 101 + Math.floor(index / PARTY_SIZE),
-          x: center - 3 + Math.floor(index / 24),
-          y: spreadY(index, center),
+          x: at.x,
+          y: at.y,
         },
         c,
       ),
@@ -207,8 +232,8 @@ export function waveBattleInit(
     seed: input.seed,
     map,
     sides: [
-      { id: 1, faction: GARDENER_SIDE_FACTION, defender: false, edge: 3 },
-      { id: 2, faction: input.defenderFaction, defender: true, edge: 1 },
+      { id: 1, faction: GARDENER_SIDE_FACTION, defender: false, edge },
+      { id: 2, faction: input.defenderFaction, defender: true, edge: oppositeEdge(edge) },
     ],
     parties,
     units,

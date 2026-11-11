@@ -73,4 +73,9 @@
 - 질문 926~935(`docs/questions/2026-11-11-faction-identity.md`). 급한 것: 926(세력 창설 규칙 — 정체성을 정하는 것이 곧 가문 창설인가), 931(올리기 스위치 기본값), 930(신고 단추).
 
 ## 검사
-(아래는 끝낼 때 채운다)
+Verified = 이 작업 트리에서 실행해 결과를 봄. 여섯 줄기가 한 기계를 같이 써서 무거운 검사는 잠금(`heavy.lock`)을 기다려 돌렸다.
+- 작업 중 꾸러미 시험(Verified): `packages/shared` `pngChunks.test.ts`·`factionIdentity.test.ts`·`ops.test.ts`·`routes.test.ts` 48시험, 서버 `factionIdentity/png.test.ts` 9시험 + `factionIdentity.db.test.ts` 14시험(TEST_DATABASE_URL — 본인 것만·속도 제한·바꾸기·운영자 내리기·스위치 끔·사칭·대기), `worldMap/mapUnits.test.ts`·`government/reads.test.ts` 16시험, 게임 `faction/identity/identityModel.test.ts` + `editor/nations` 모델 26시험.
+- 타입 검사(`@terra/server`·`@terra/game`)·oxlint(바꾼 폴더)·`check:boundaries`·`check:size`·`check:i18n`(6,190키)·`check:contrast`(화면 CSS에 직접 쓴 색·px 없음)·`check:docs origin/main`·`check:wiki`: 통과(Verified).
+- 화면 시험 `pnpm e2e faction-identity.spec.ts`: 8시험 통과(Verified, 29.8초 — 빌드 뒤). 보낸 그림이 자른 256 × 256 PNG(원본 600 × 400 아님, 20만 바이트 이하, 허용 청크만)임을 요청 본문에서 확인.
+- 사진(저장소 밖, `…/scratchpad/faction-identity-shots/`): `fid-step-pastel-ko-390.png`, `fid-step-dark-en-390.png`, `fid-crop-pastel-en-390.png`, `fid-crop-dark-ko-390.png`, `fid-card-pastel-ko-390.png`, `fid-ops-neon-ko-1440.png`. 눈으로 확인: 파스텔·다크 두 테마의 단계·자르기, 네온 다크의 마크 관리.
+- 끝 검사(전체 `pnpm check`, 빌드 + `check-pwa` + `check:bundle`, 화면 시험 `faction-identity·faction·ops·nations·government·unit-control`): 아래 "끝 검사 결과"에 적는다.

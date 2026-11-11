@@ -95,6 +95,8 @@ export const CITY_LAYOUT_DEFAULTS: CityLayoutRules = {
 export const LAYOUT_MARGIN = 2;
 /** 목표 칸 둘레에서 자리를 찾는 반경(칸) */
 export const LAYOUT_SPOT_SEARCH = 12;
+/** 그 둘레에 자리가 없을 때(도시 칸 둘레가 물·막힌 땅) 넓혀 찾는 반경 — 옛 씨앗이 찾던 반경(48칸)과 같다 */
+export const LAYOUT_WIDE_SEARCH = 48;
 /** 채집소 후보 격자 간격(칸) */
 const GATHER_LATTICE = 2;
 /** 이미 맡은 오브젝트의 점수(‰, 안 맡은 것 = 1000) */
@@ -349,7 +351,7 @@ export function planCityLayout(input: CityLayoutInput): CityLayoutPlan {
       missing.push(item);
       continue;
     }
-    const rect = spotNear(item, center);
+    const rect = spotNear(item, center) ?? spotNear(item, center, undefined, LAYOUT_WIDE_SEARCH);
     if (!rect) {
       missing.push(item);
       continue;
@@ -496,7 +498,7 @@ export function planCityLayout(input: CityLayoutInput): CityLayoutPlan {
         x: hallCenter.x + cell(ray.dx * reach) + jitter(),
         y: hallCenter.y + cell(ray.dy * reach) + jitter(),
       };
-      const rect = spotNear(item, target);
+      const rect = spotNear(item, target) ?? spotNear(item, target, undefined, LAYOUT_WIDE_SEARCH);
       if (rect) commit(item, rect, index);
       else missing.push(item);
     });
@@ -524,7 +526,7 @@ export function planCityLayout(input: CityLayoutInput): CityLayoutPlan {
       x: hallCenter.x + cell(detCos(angle) * rules.innerCells) + jitter(),
       y: hallCenter.y + cell(detSin(angle) * rules.innerCells) + jitter(),
     };
-    const rect = spotNear(item, target);
+    const rect = spotNear(item, target) ?? spotNear(item, target, undefined, LAYOUT_WIDE_SEARCH);
     if (rect) commit(item, rect);
     else missing.push(item);
   }

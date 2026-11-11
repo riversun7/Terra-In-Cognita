@@ -220,6 +220,15 @@ describe("도시 건물 배치 계획", () => {
     expect(d(s0, s2)).toBeLessThan(d(s0, s1));
   });
 
+  it("도시 칸 둘레가 막혀도(호수) 넓혀 찾아 행정 건물을 세우고 나머지도 그 둘레에 놓는다", () => {
+    const lake = (x: number, y: number) => (x - 128) * (x - 128) + (y - 128) * (y - 128) < 20 * 20;
+    const result = plan(4, fakeGround({ blocked: lake, objects: OBJECTS }));
+    expect(result.missing).toEqual([]);
+    expect(result.placed).toHaveLength(ITEMS.length);
+    expect(d(rectCenter(result.hall), CENTER)).toBeGreaterThanOrEqual(20);
+    for (const building of result.placed) expect(lake(building.x, building.y)).toBe(false);
+  });
+
   it("각도 묶음: 가장 큰 빈 각도에서 끊어 고르게 나눈다", () => {
     const points = [
       { x: 10, y: 0 },

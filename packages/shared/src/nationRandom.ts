@@ -3,7 +3,7 @@
 // 순수 함수: 같은 (부분마다 시드, 이미 있는 프리셋)이면 같은 후보다. 부분(이름 말씨·국가 이름·화폐·지도자·색·마크·등급·도시 이름·사람 이름)마다
 // 시드가 따로라 하나만 다시 굴릴 수 있다. 이름은 이름 만들기(./nameGen.ts — 가상 이름, 길이 규칙 D-5046)에서 온다.
 // - 새 영구 ID: nation_<영어 이름 글자>_<수>, 화폐 코드 cur_<화폐 영어 이름 글자>_<수>. 이미 있거나 한 번 쓴(은퇴) ID는 건너뛴다.
-// - 약어·화폐 약어는 이미 있는 것과 겹치지 않는 3글자, 색은 이미 있는 색들과 가장 먼 후보.
+// - 약어·화폐 약어는 이미 있는 것과 겹치지 않는 3글자, 색은 이미 있는 색들과 먼 후보 여섯 가운데 하나.
 import type { LocalizedName } from "./contentEdit.ts";
 import { NAME_STYLE_IDS, type NameStyleId, generateNames, tickerCandidates } from "./nameGen.ts";
 import { NATION_CREATED_CURRENCY, NATION_CREATED_ID, type NationPresetJson } from "./nationEditor.ts";
@@ -86,21 +86,25 @@ export function colorDistance(a: string, b: string): number {
   return (ar - br) ** 2 + (ag - bg) ** 2 + (ab - bb) ** 2;
 }
 
-/** 이미 있는 색들과 가장 먼 후보(같은 거리면 시드가 고른 차례에서 앞) */
+/** 색을 고를 때 보는 먼 후보 수(다시 굴리면 이 안에서 바뀐다) */
+export const DISTINCT_COLOR_CHOICES = 6;
+
+/**
+ * 이미 있는 색들과 먼 후보 가운데 하나: 후보를 "이미 있는 색과의 가장 가까운 거리"가 먼 차례로 세워 앞의 DISTINCT_COLOR_CHOICES개에서
+ * 시드로 고른다(이미 있는 색과 같은 후보는 뺀다). 이미 있는 색이 없으면 모든 후보에서 고른다
+ */
 export function distinctColor(seed: number, taken: readonly string[]): string {
-  const start = createRng(seed >>> 0).nextInt(RANDOM_COLORS.length);
-  let best = RANDOM_COLORS[start] ?? "#888888";
-  let bestScore = -1;
-  for (let k = 0; k < RANDOM_COLORS.length; k++) {
-    const color = RANDOM_COLORS[(start + k) % RANDOM_COLORS.length];
-    if (color === undefined) continue;
-    const score = taken.reduce((min, other) => Math.min(min, colorDistance(color, other)), Infinity);
-    if (score > bestScore) {
-      best = color;
-      bestScore = score;
-    }
-  }
-  return best;
+  const rng = createRng(seed >>> 0);
+  if (taken.length === 0) return RANDOM_COLORS[rng.nextInt(RANDOM_COLORS.length)] ?? "#888888";
+  const ranked = RANDOM_COLORS.map((color, index) => ({
+    color,
+    index,
+    score: taken.reduce((min, other) => Math.min(min, colorDistance(color, other)), Infinity),
+  }))
+    .filter((entry) => entry.score > 0)
+    .toSorted((a, b) => b.score - a.score || a.index - b.index);
+  const pool = ranked.slice(0, DISTINCT_COLOR_CHOICES);
+  return pool[rng.nextInt(Math.max(1, pool.length))]?.color ?? RANDOM_COLORS[0] ?? "#888888";
 }
 
 /** 등급 고르기의 가중치(강대국은 드물게 — 팩 16개의 분포 2·3·5·4·2와 같다) [임시] */

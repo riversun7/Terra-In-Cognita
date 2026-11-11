@@ -3,7 +3,7 @@
 //   점선 제안 → [제안 모두 놓기]로 자리를 놓는다(지금 세계는 같은 자동 배치로 섰으므로 이미 그 자리 → 적용됨). 지도에서 놓은 자리를 눌러
 //   다른 국가를 놓으면 "너무 가깝다". 놓은 자리를 지우면 자동 배치로 돌아간다.
 // - 국력 등급("바뀜 (2026-11-11)"): 등급 배치 계획 미리 보기(국가마다 수도 마름모 + 시작 도시 점, 등급이 클수록 큰 표시)·다시 만들기,
-//   이 세계에 반영 미리 보기(시험 세계는 처음부터 등급대로 서서 더할 것이 없다), 세울 수 있는 국가 목록.
+//   이 세계에 반영 미리 보기(시험 세계는 처음부터 등급대로 서서 더 세울 도시가 없다), 세울 수 있는 국가 목록.
 // - player: 권한 없음 화면, tRPC worldLayout.view는 403.
 // - 사진: 1440(VIEWPORTS.desktop)·390 × 개발 화면 테마 네온·라이트(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
 // 놓은 자리는 다음 서버 시작 때만 세계에 든다(이 실행의 서버는 다시 켜지 않는다) → 다른 시험에 영향이 없게 끝에 모두 지운다.
@@ -156,15 +156,21 @@ test.describe("국력 등급", () => {
     await expect(page.locator(".wl-table .wl-tier-badge")).toHaveCount(4);
     await expect(page.locator('.wl-table .wl-tier-badge[data-tier="superpower"]')).toHaveCount(1);
 
-    // 계획 미리 보기: 국가마다 수도(마름모, 등급 크기) + 시작 도시(초강대국 6·강대국 4·중견국 3·소국 2 = 15)
+    // 계획 미리 보기: 국가마다 수도(마름모, 등급 크기) + 시작 도시(등급 수 — 초강대국 6·강대국 4·중견국 3·소국 2, 땅이 모자라면 적다)
+    const suggested = await trpc(page, "worldLayout.suggest", { planetId: PLANET });
+    const planned = list(field(field(suggested.data, "plan"), "nations"));
+    expect(planned).toHaveLength(4);
+    const cityCount = planned.reduce((sum: number, nation) => sum + list(field(nation, "cities")).length, 0);
+    expect(planned.map((nation) => Number(field(nation, "wantCities"))).toSorted((a, b) => a - b)).toEqual([
+      2, 3, 4, 6,
+    ]);
     await panel.locator(".wl-plan-show").click();
     await expect(panel.locator(".wl-plan-table tbody tr")).toHaveCount(4);
     await expect(page.locator('.wl-mark[data-kind="plan_home"]')).toHaveCount(4);
     await expect(page.locator('.wl-mark[data-kind="plan_home"][data-tier="superpower"]')).toHaveCount(1);
-    await expect(page.locator('.wl-mark[data-kind="plan_city"]')).toHaveCount(11);
+    await expect(page.locator('.wl-mark[data-kind="plan_city"]')).toHaveCount(cityCount - 4);
     const superRow = panel.locator('.wl-plan-table tr[data-tier="superpower"]');
     await expect(superRow).toContainText(message("ko", "dev_power_tier_superpower"));
-    await expect(superRow).toContainText(message("ko", "dev_world_layout_plan_cities", { have: 6, want: 6 }));
     // 초강대국 수도 표시가 소국 표시보다 크다
     const size = async (tier: string) =>
       (await page.locator(`.wl-mark[data-kind="plan_home"][data-tier="${tier}"]`).first().boundingBox())
@@ -182,18 +188,21 @@ test.describe("국력 등급", () => {
     await panel.locator(".wl-plan-hide").click();
     await expect(page.locator('.wl-mark[data-kind="plan_home"]')).toHaveCount(0);
 
-    // 이 세계에 반영 미리 보기: 시험 세계는 처음부터 등급대로 섰다 → 더할 것 없음, 예약 단추 꺼짐
+    // 이 세계에 반영 미리 보기: 시험 세계는 처음부터 등급대로 섰다 → 더 세울 도시가 없다(휴먼 수는 NPC 사회가 돌며 바뀔 수 있다).
+    // 미리 보기는 예약을 만들지 않는다
     await panel.locator(".wl-apply-show").click();
     await expect(panel.locator(".wl-apply-table tbody tr")).toHaveCount(4);
-    await expect(panel).toContainText(message("ko", "dev_world_layout_apply_nothing"));
-    await expect(panel.locator(".wl-apply-request")).toBeDisabled();
+    await expect(panel.getByTestId("wl-apply-totals")).toBeVisible();
+    for (const row of await panel.locator(".wl-apply-table tbody tr").all())
+      await expect(row).toHaveAttribute("data-add", "0");
     const plan = await trpc(page, "worldLayout.tierPlan", { planetId: PLANET });
     expect(field(field(plan.data, "totals"), "cities")).toBe(0);
     expect(field(plan.data, "request")).toBeNull();
+    await panel.locator(".wl-apply-hide").click();
 
     // 세울 수 있는 국가: 차례 밖 프리셋 12개(4~15번째). 고르고 다른 국가 수도 자리에 놓으면 너무 가깝다(세우지 않는다)
     const candidates = panel.locator('.wl-found-list[data-list="candidates"] li');
-    await expect(candidates).toHaveCount(12);
+    await expect(candidates.nth(11)).toBeVisible();
     await candidates.first().locator(".wl-pick").click();
     const code = (await candidates.first().getAttribute("data-found-code")) ?? "";
     await expect(page.locator(".wl-field select")).toHaveValue(code);

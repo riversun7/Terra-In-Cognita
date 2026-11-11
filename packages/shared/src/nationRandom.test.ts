@@ -4,6 +4,7 @@ import { isFactionColor, isFactionShort, isCurrencyTicker } from "./factionProfi
 import { NAME_LENGTH } from "./nameGen.ts";
 import type { NationPresetJson } from "./nationEditor.ts";
 import {
+  DISTINCT_COLOR_CHOICES,
   NATION_RANDOM_PARTS,
   RANDOM_COLORS,
   colorDistance,
@@ -105,12 +106,19 @@ describe("randomNation", () => {
 });
 
 describe("distinctColor", () => {
-  it("색 후보는 #rrggbb이고, 이미 있는 색과 가장 먼 것을 고른다", () => {
+  it("색 후보는 #rrggbb이고, 이미 있는 색과 먼 후보 여섯 가운데에서 시드로 고른다(다시 굴리면 바뀐다)", () => {
     expect(RANDOM_COLORS.every((color) => isFactionColor(color))).toBe(true);
     expect(new Set(RANDOM_COLORS).size).toBe(RANDOM_COLORS.length);
     const taken = ["#c0392b", "#2980b9"];
-    const picked = distinctColor(3, taken);
     const score = (color: string) => Math.min(...taken.map((other) => colorDistance(color, other)));
-    expect(RANDOM_COLORS.every((color) => score(color) <= score(picked))).toBe(true);
+    const ranked = RANDOM_COLORS.toSorted((a, b) => score(b) - score(a));
+    const top = new Set(ranked.slice(0, DISTINCT_COLOR_CHOICES));
+    const picks = new Set(Array.from({ length: 40 }, (_, seed) => distinctColor(seed, taken)));
+    expect([...picks].every((color) => top.has(color))).toBe(true);
+    expect(picks.size).toBeGreaterThan(1);
+    expect(distinctColor(3, taken)).toBe(distinctColor(3, taken));
+    // 이미 있는 색과 같은 후보는 고르지 않는다
+    const first = RANDOM_COLORS[0] ?? "";
+    expect(Array.from({ length: 40 }, (_, seed) => distinctColor(seed, [first])).includes(first)).toBe(false);
   });
 });

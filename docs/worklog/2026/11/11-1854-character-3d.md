@@ -64,7 +64,7 @@
 ## 검사
 Verified: 실행. 기기 = 공유 개발 컨테이너, `TEST_DATABASE_URL` 있음.
 - 단위 시험: 바꾼 꾸러미(engine·shared·protocol·game start·map·cyborg) 144파일 1,211개 통과, 서버 `cyborg/`(DB 포함) 16개·`worldMap/mapUnits.test.ts` 통과, 새 시험 = shared `characterLook` 13 · engine `characters/` 23(모델 8·도형 3·그리기 배열 4·층 8) · `unitRoster` 6 · protocol `cyborg` 6 · game `unitModels` 5 · 서버 DB `3D 외형` 1 · `world.unitLooks` 2.
-- `pnpm check`: 실행 중 — 다른 줄기와 같이 쓰는 잠금을 기다린다(결과는 이 줄을 고쳐 적는다). 그 전에 따로 돌린 것: 포맷·린트·타입 검사(전 꾸러미 + e2e)·모듈 경계·파일 크기·다국어(6,212키)·디자인 값·위키 검사 통과
+- `pnpm check`(`TEST_DATABASE_URL` 있음, 마지막 커밋 `313a366` 위): 통과 — 포맷·린트·타입·모듈 경계·파일 크기·다국어·디자인 값·콘텐츠 팩·단위 시험 584파일 4,521개. 그 전 두 번은 린트 경고 하나(`unitRoster.test.ts` 안쪽 함수)와 타입 오류 둘(`cyborg.test.ts` 모르는 칸 시험, `characterGeometry.test.ts` 경계 상자)로 실패해 고쳤다
 - 빌드 통과, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 통과(첫 화면 묶음 상한 안 — 미리 보기 엔진은 지연 조각 `characterPreview`, three는 첫 화면에 들지 않음).
 - 화면 시험(헤드리스 Chromium): `character-3d.spec.ts` 2개 + 측정 2개(`E2E_MEASURE=1`) 통과, `first-login.spec.ts` 6개(새 플레이어 흐름·속성 분배 전 사이보그·사진 390 파스텔·다크 × 한국어·영어) 통과, 원래 있던 `unit-control`·`play-map`·`building-art` 53개 통과.
 - 사진(`/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/character-3d-shots/`): 프리셋 표 `sheet-presets.png`, 유닛 기본 외형 표 `sheet-commoner.png`, 만들기 390 `creation-presets-390-pastel-ko.png`·`creation-presets-390-dark-en.png`·`creation-head-390-pastel-ko.png`·`creation-colors-390-dark-en.png`, 미리 보기 넷 `creation-preview-closeups.png`, 2차맵 가까이 `character-3d-map-close-1440-pastel.png`·`character-3d-map-close-390-pastel.png`.

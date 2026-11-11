@@ -1,0 +1,15 @@
+/* 사이보그 초상 칸(CyborgPortrait.tsx) — 칸의 폭은 부르는 쪽 클래스가 정하고, 안의 그림(3D 초상 img·옛 2D svg)은 그 폭을 채운다 */
+.cyborg-portrait {
+  display: inline-grid;
+  place-items: center;
+  max-width: 100%;
+}
+.cyborg-portrait > img,
+.cyborg-portrait > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.cyborg-portrait-image {
+  aspect-ratio: 1;
+}

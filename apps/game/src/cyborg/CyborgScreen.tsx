@@ -37,6 +37,7 @@ import { loadCyborg, useRosterQuery } from "../roster/useRosterQuery.ts";
 import { type VitalsShown, useVitals } from "../roster/useVitals.ts";
 import { VitalsMeters } from "../roster/VitalsMeters.tsx";
 import { CyborgAvatar } from "./CyborgAvatar.tsx";
+import { CyborgPortrait } from "./CyborgPortrait.tsx";
 import { CombatSpecs } from "./CombatSpecs.tsx";
 import { CoreStats } from "./CoreStats.tsx";
 import { Elements, Inventory, Rankings, Rebirth, SkillSlots, StatusFooter } from "./CyborgExtras.tsx";
@@ -278,12 +279,14 @@ function Hero({
       <div className="cyborg-bay">
         <div className="cyborg-stage">
           {data.appearance ? (
-            // 만든 사이보그의 외형(첫 접속, D-6040): 2D 그림
-            <CyborgAvatar
-              look={data.appearance}
-              halo
+            // 만든 사이보그의 외형: 3D 외형(저장한 것 또는 옛 외형에서 넘긴 값)의 초상. 그리는 동안·WebGL 없음·옛 서버면 2D 그림
+            // (docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 초상)")
+            <CyborgPortrait
+              look={data.look ?? null}
+              sizePx={HERO_PORTRAIT_PX}
               className="cyborg-avatar"
               label={m.cyborg_appearance_label({ name: data.name })}
+              fallback={<CyborgAvatar look={data.appearance} halo />}
             />
           ) : (
             <span className="roster-avatar roster-avatar-lg" data-type="cyborg" aria-hidden="true">
@@ -357,6 +360,9 @@ function Hero({
  * [외형 고르기](질문 961 나): 3D 외형을 고르기 전에 만든 사이보그에게만 보인다(서버 lookPick). 누르면 외형 고르기 창을 연다. 정하면 자료를 다시
  * 받고, 서버가 lookPick을 거두면 이 단추가 사라진다
  */
+/** 사이보그 화면 초상 크기(px) = 넓은 화면의 --avatar-hero-lg(좁은 화면은 CSS가 줄인다) */
+const HERO_PORTRAIT_PX = 220;
+
 function LookPickEntry({
   look,
   onSaved,

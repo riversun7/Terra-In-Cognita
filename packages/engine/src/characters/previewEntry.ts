@@ -3,6 +3,7 @@
 export {
   CharacterPreview,
   type CharacterPreviewStats,
+  type CharacterThumbnailFraming,
   renderCharacterThumbnails,
 } from "./characterPreview.ts";
 export { TRIANGLE_BUDGET } from "./characterModel.ts";

@@ -7,20 +7,8 @@ import type { CharacterPreview } from "@terra/engine/characterPreview";
 import { type CharacterLook, characterLookKey, legacyAppearanceOf } from "@terra/shared/characterLook";
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { CyborgAvatar } from "../cyborg/CyborgAvatar.tsx";
+import { loadPreviewEngine } from "../cyborg/previewEngine.ts";
 import { m } from "../paraglide/messages.js";
-
-type PreviewEngine = typeof import("@terra/engine/characterPreview");
-
-let enginePromise: Promise<PreviewEngine> | null = null;
-
-/** 미리 보기 엔진 조각을 받는다(한 번만). 실패하면 다음에 다시 받는다 */
-export function loadPreviewEngine(): Promise<PreviewEngine> {
-  enginePromise ??= import("@terra/engine/characterPreview").catch((error: unknown) => {
-    enginePromise = null;
-    throw error;
-  });
-  return enginePromise;
-}
 
 function reducedMotion(): boolean {
   try {

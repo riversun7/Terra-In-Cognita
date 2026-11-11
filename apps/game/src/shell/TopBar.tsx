@@ -1,10 +1,14 @@
 // 위 띠(D-6010, ADR 2026-10-29-app-shell 3절) — 본문 위에 붙는다(중간·넓음에서는 사이드 메뉴 오른쪽).
 // 왼쪽: [☰](좁음 + 배치 C는 서랍 열기, 중간은 레일 펴기·접기, 넓음·좁음 + 배치 A에는 없다 — CSS), 사이보그 얼굴(→ /cyborg).
-// 오른쪽: 알림 종(배지, → /inbox), 우편(→ /mail). 사이보그가 없어서 얼굴은 기본 실루엣이다. 아이디는 사이드 메뉴 머리에만 보인다.
+// 오른쪽: 알림 종(배지, → /inbox), 우편(→ /mail). 아이디는 사이드 메뉴 머리에만 보인다.
+// 얼굴: 내 사이보그의 3D 외형 초상(TopBarFace, 지연 조각 — docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 초상)").
+// 사이보그가 없거나·옛 서버(외형 없음)·조각을 받는 동안은 기본 실루엣이다.
 // 아이콘만 있는 단추라 이름은 aria-label로 준다(배지는 숫자만 두지 않는다: "알림 3개").
 // ☰의 읽는 이름: 좁은 폭은 "메뉴 열기"(서랍 대화 상자를 연다), 중간 폭은 "메뉴" + aria-expanded·aria-controls(레일).
 // 중간 폭에서 이름까지 펼치기·접기로 바꾸면 같은 상태를 두 번 읽는다("메뉴 접기, 펼쳐짐").
 // 개발·관리자 화면(devTheme이 있음)에서는 종 앞에 개발 화면 테마 단추(네온 다크 ↔ 라이트, devSurface.ts)를 둔다.
+import type { CharacterLook } from "@terra/shared/characterLook";
+import { Suspense, lazy } from "react";
 import { useInboxBellCount } from "../inbox/store.ts";
 import { m } from "../paraglide/messages.js";
 import { Icon } from "../ui/icons.tsx";
@@ -12,6 +16,8 @@ import { AppLink } from "./AppLink.tsx";
 import { CountBadge } from "./CountBadge.tsx";
 import { type DevTheme, setDevTheme } from "./devSurface.ts";
 import { SIDE_NAV_ID } from "./SideMenu.tsx";
+
+const TopBarFace = lazy(() => import("./TopBarFace.tsx"));
 
 interface TopBarProps {
   /** ☰를 눌렀을 때(서랍 열기 또는 레일 펴기·접기는 Shell이 폭 단계로 정한다) */
@@ -22,9 +28,11 @@ interface TopBarProps {
   current: string | null;
   /** 개발 화면 층의 테마(개발·관리자 화면일 때만). null이면 테마 단추를 그리지 않는다 */
   devTheme?: DevTheme | null;
+  /** 내 사이보그의 3D 외형(얼굴 초상). 없으면 기본 실루엣 */
+  look?: CharacterLook | null;
 }
 
-export function TopBar({ onMenu, railExpanded, current, devTheme = null }: TopBarProps) {
+export function TopBar({ onMenu, railExpanded, current, devTheme = null, look = null }: TopBarProps) {
   // 종 배지 수(완료를 뺀 처리할 일 줄 수, 묶음은 1줄 — ADR 37 7절). 0이면 배지를 그리지 않는다
   const alerts = useInboxBellCount();
   const rail = railExpanded !== null;
@@ -48,7 +56,13 @@ export function TopBar({ onMenu, railExpanded, current, devTheme = null }: TopBa
         aria-current={current === "cyborg" ? "page" : undefined}
       >
         <span className="topbar-face-ring">
-          <Icon name="cyborg" />
+          {look === null ? (
+            <Icon name="cyborg" />
+          ) : (
+            <Suspense fallback={<Icon name="cyborg" />}>
+              <TopBarFace look={look} />
+            </Suspense>
+          )}
         </span>
       </AppLink>
       <span className="topbar-spacer" />

@@ -299,6 +299,7 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
             railExpanded={layout.stage === "medium" ? railExpanded : null}
             current={current}
             devTheme={devSurface ? devTheme : null}
+            look={gate.status === "ready" ? gate.look : null}
           />
           <ConnectionNotice floating={false} showLost />
         </header>

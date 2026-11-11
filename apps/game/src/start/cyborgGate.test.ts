@@ -8,6 +8,7 @@ const ready: CyborgGateState = {
   userId: "u",
   name: "Nova",
   appearance: DEFAULT_CYBORG_APPEARANCE,
+  look: null,
   elementsPending: false,
 };
 /** 속성 분배 전에 만든 사이보그(프로토콜 5 전, D-450) */

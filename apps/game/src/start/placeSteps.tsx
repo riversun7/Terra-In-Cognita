@@ -6,14 +6,15 @@ import type {
   CreationCity,
   CreationFaction,
   CreationNationProfile,
-  CyborgAppearance,
   CyborgCreationResponse,
   CyborgRollView,
 } from "@terra/shared/cyborg";
+import { type CharacterLook, legacyAppearanceOf } from "@terra/shared/characterLook";
 import { PRIMARY_STAT_PAIRS } from "@terra/shared/roster";
 import type { WorldCitiesResponse } from "@terra/shared/worldMap";
 import { type ReactNode, Suspense, lazy, useId } from "react";
 import { CyborgAvatar } from "../cyborg/CyborgAvatar.tsx";
+import { CyborgPortrait } from "../cyborg/CyborgPortrait.tsx";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { formatNumber, primaryCode, primaryLabel } from "../roster/rosterText.ts";
@@ -267,6 +268,9 @@ function CityLandLine({ land }: { land: Parameters<typeof landText>[0] | null })
   return <span className="start-choice-meta start-city-ground">{`${line.ground} · ${line.climate}`}</span>;
 }
 
+/** 요약·강하 캡슐 초상 크기(px) = --mark-lg */
+const SUMMARY_PORTRAIT_PX = 72;
+
 export function DescentStep({
   name,
   look,
@@ -277,7 +281,8 @@ export function DescentStep({
   elements,
 }: {
   name: string;
-  look: CyborgAppearance;
+  /** 고른 3D 외형(요약 초상은 이 외형을 그린 3D 썸네일, 그리는 동안·WebGL 없음이면 넘긴 옛 2D 그림) */
+  look: CharacterLook;
   roll: CyborgRollView;
   faction: CreationFaction;
   city: CreationCity;
@@ -285,10 +290,16 @@ export function DescentStep({
   /** 속성 분배 요약 줄(elementsStep.tsx ElementsSummaryRow, D-450) */
   elements?: ReactNode;
 }) {
+  const legacy = legacyAppearanceOf(look);
   return (
     <div className="start-descent" data-descending={descending ? "true" : "false"}>
       <div className="start-summary">
-        <CyborgAvatar look={look} className="start-summary-avatar" />
+        <CyborgPortrait
+          look={look}
+          sizePx={SUMMARY_PORTRAIT_PX}
+          className="start-summary-avatar"
+          fallback={<CyborgAvatar look={legacy} />}
+        />
         <div className="start-summary-text">
           <p className="start-summary-name">{name.trim()}</p>
           <p className="start-choice-meta">{temperamentText(roll.temperament)}</p>
@@ -330,7 +341,13 @@ export function DescentStep({
       {descending ? (
         <div className="start-scene" role="status">
           <span className="start-scene-pod" aria-hidden="true">
-            <CyborgAvatar look={look} variant="face" className="start-scene-face" />
+            <CyborgPortrait
+              look={look}
+              framing="face"
+              sizePx={SUMMARY_PORTRAIT_PX}
+              className="start-scene-face"
+              fallback={<CyborgAvatar look={legacy} variant="face" />}
+            />
           </span>
           <span className="start-scene-text">{m.start_descent_scene()}</span>
         </div>

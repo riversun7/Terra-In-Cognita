@@ -80,14 +80,14 @@ class CharacterStage {
     return this.compiled;
   }
 
-  /** 자세를 넣고 카메라를 놓는다(가운데 = 키의 중간, 거리 = 키에 맞춤 × zoom) */
-  pose(pose: CharacterPose, yaw: number, pitch: number, zoom: number): void {
+  /** 자세를 넣고 카메라를 놓는다(가운데 = 키 × targetK — 기본은 키의 중간, 거리 = 키에 맞춤 × zoom) */
+  pose(pose: CharacterPose, yaw: number, pitch: number, zoom: number, targetK = 0.5): void {
     const compiled = this.compiled;
     this.meshes.begin();
     if (compiled) this.meshes.add(compiled, IDENTITY, pose);
     this.meshes.end();
     const height = compiled?.heightM ?? 1.8;
-    const targetY = height * 0.5;
+    const targetY = height * targetK;
     const fit = (height * 0.62) / Math.tan(((this.camera.fov / 2) * Math.PI) / 180);
     const r = fit * zoom;
     const cp = Math.cos(pitch);
@@ -327,6 +327,18 @@ export class CharacterPreview {
 }
 
 /**
+ * 썸네일 구도: body = 온몸(프리셋·요약·사이보그 화면), face = 머리와 어깨(위 띠 얼굴 같은 작은 동그라미).
+ * face는 머리 가운데쯤(키의 약 0.78)을 보고 더 가까이 선다(docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 초상)")
+ */
+export type CharacterThumbnailFraming = "body" | "face";
+
+const FRAMING: Readonly<Record<CharacterThumbnailFraming, { zoom: number; targetK: number; pitch: number }>> =
+  {
+    body: { zoom: 0.98, targetK: 0.5, pitch: 0.12 },
+    face: { zoom: 0.46, targetK: 0.78, pitch: 0.08 },
+  };
+
+/**
  * 외형마다 썸네일 한 장(정사각 sizePx × pixelRatio, 투명 배경 PNG data URL). 같은 그리기(가까운 단계 모델)로 조금 옆에서 본 모습이다.
  * 작은 렌더러 하나를 만들어 차례로 그리고 버린다. WebGL을 쓸 수 없으면 던진다
  */
@@ -334,7 +346,9 @@ export function renderCharacterThumbnails(
   looks: readonly CharacterLook[],
   sizePx: number,
   pixelRatio = 1,
+  framing: CharacterThumbnailFraming = "body",
 ): string[] {
+  const view = FRAMING[framing];
   const canvas = document.createElement("canvas");
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
   const stage = new CharacterStage(false);
@@ -347,7 +361,7 @@ export function renderCharacterThumbnails(
     stage.camera.updateProjectionMatrix();
     return looks.map((look) => {
       stage.set(look, 0);
-      stage.pose({ swing: 0, bob: 0 }, DEFAULT_YAW, 0.12, 0.98);
+      stage.pose({ swing: 0, bob: 0 }, DEFAULT_YAW, view.pitch, view.zoom, view.targetK);
       renderer.render(stage.scene, stage.camera);
       // 그린 바로 뒤(같은 작업 안)에 읽는다 — 그리기 버퍼를 남겨 두지 않아도 된다
       return canvas.toDataURL("image/png");

@@ -24,7 +24,8 @@ import { useEffect, useId, useState } from "react";
 import { CyborgAvatar } from "../cyborg/CyborgAvatar.tsx";
 import { m } from "../paraglide/messages.js";
 import { TabList, panelId, tabId } from "../sections/screenParts.tsx";
-import { CharacterPreviewPane, loadPreviewEngine } from "./CharacterPreviewPane.tsx";
+import { loadPreviewEngine } from "../cyborg/previewEngine.ts";
+import { CharacterPreviewPane } from "./CharacterPreviewPane.tsx";
 import { colorSlotText, lookColorText, lookKeyText, lookPresetText, lookValueText } from "./lookText.ts";
 import "./looks.css";
 

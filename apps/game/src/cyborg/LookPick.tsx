@@ -52,7 +52,7 @@ export default function LookPick({
     setState({ kind: "saving" });
     const result = await sendCyborgCommand({ t: "cyborg_look", look });
     if (result.ok) {
-      markCyborgAppearance(legacyAppearanceOf(look));
+      markCyborgAppearance(legacyAppearanceOf(look), look);
       onSaved();
       return;
     }

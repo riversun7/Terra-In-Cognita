@@ -198,7 +198,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
     if (result.ok) {
       const wait = prefersReducedMotion() ? 0 : DESCENT_SCENE_MS;
       setTimeout(() => {
-        markCyborgCreated(user.id, name.trim().normalize("NFC"), legacyAppearanceOf(look));
+        markCyborgCreated(user.id, name.trim().normalize("NFC"), legacyAppearanceOf(look), look);
         navigate({ route: "home" }, { replace: true });
       }, wait);
       return;
@@ -342,7 +342,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
             ) : step === "descent" && place.faction && place.city && roll ? (
               <DescentStep
                 name={name}
-                look={legacyAppearanceOf(look)}
+                look={look}
                 roll={roll}
                 faction={place.faction}
                 city={place.city}

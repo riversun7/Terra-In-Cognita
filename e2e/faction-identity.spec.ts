@@ -8,7 +8,7 @@
 // 4. admin: 운영자 콘솔 [마크 관리] 탭에 그 세력이 올린 그림·신고 수 1과 함께 보인다([신고 많은 차례]) → [마크 내리기](사유) → 내림(신고 0).
 // 5. player: 세력 화면에 자동 생성 마크 + 알림(사유) → [확인]하면 알림이 사라진다.
 // 6~10(질문 985 다·986 가): player가 dev(같은 나라)를 사이보그 이름으로 초대 → dev가 처리할 일·세력 화면에서 받음(가문원) → player가 소식 확인·
-//    내보냄 → admin이 [이름 되돌리기] → player 칸에 "가문 #ID"·사유 소식·이름 대기 없음.
+//    내보냄 → dev가 소식을 보고 가문 이름 신고 → admin이 [이름 되돌리기] → player 칸에 "가문 #ID"·사유 소식·이름 대기 없음.
 // 사진 6장(E2E_SHOTS_DIR): 단계 390 파스텔·한국어(1), 단계 390 다크·영어, 자르기 390 파스텔·영어, 자르기 390 다크·한국어,
 // 세력 화면 칸 390 파스텔·한국어(2), 마크 관리 1440 네온(4).
 // 계정마다 속도 제한(저장 순간 10번, 그림 순간 5번)이 있어 저장은 player 2번·dev 1번(거절)만 한다. 사진 시험은 저장하지 않는다.
@@ -77,6 +77,8 @@ async function tallShot(page: Page, name: string): Promise<void> {
 
 const step = (page: Page): Locator => page.locator("form.fid-step");
 const card = (page: Page): Locator => page.locator("section.faction .fid-card");
+/** "내 가문" 칸의 가입 부분(질문 985 다) */
+const house = (page: Page): Locator => card(page).locator('[data-testid="house-section"]');
 
 /** /faction을 열고 정체성 칸이 그려질 때까지 */
 async function openFaction(page: Page): Promise<void> {
@@ -420,8 +422,6 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
 // 가문 가입·이름 되돌리기(질문 985 다·986 가, docs/adr/2026-11-11-faction-identity.md "바뀜 (981~986 답)") — 위 묶음에 이어서 같은 서버·DB.
 // 시험 계정 player·dev는 같은 나라 시민이다(global-setup이 첫 나라로 사이보그를 만든다).
 test.describe("가문 가입·이름 되돌리기", () => {
-  const house = (page: Page): Locator => card(page).locator('[data-testid="house-section"]');
-
   test.describe("6. player: 같은 나라 시민을 초대한다", () => {
     test.use({ account: "player" });
 
@@ -438,6 +438,8 @@ test.describe("가문 가입·이름 되돌리기", () => {
       const requests = house(page).locator('[data-testid="house-requests"]');
       await expect(requests.locator('[data-kind="invite"]')).toContainText("E2EDev");
       expect(await horizontalOverflow(page)).toEqual([]);
+      await card(page).scrollIntoViewIfNeeded();
+      await shot(page, "house-leader-pastel-ko-390");
       expect(deviceErrors).toEqual([]);
     });
   });
@@ -492,6 +494,25 @@ test.describe("가문 가입·이름 되돌리기", () => {
         message("ko", "fid_house_done_kicked"),
       );
       await expect(house(page).locator('[data-testid="house-members"] .fid-house-row')).toHaveCount(1);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe("8b. dev: 내보내진 뒤", () => {
+    test.use({ account: "dev" });
+
+    test("내보냈다는 소식이 보이고, 그 가문 이름을 신고한다(마크 관리 목록에 다시 선다)", async ({
+      page,
+      deviceErrors,
+    }) => {
+      await openFaction(page);
+      await expect(house(page).locator('[data-notice="kicked"]')).toContainText(made.name);
+      await expect(house(page).locator('[data-testid="house-joinable"]')).toContainText(made.name);
+      const status = field(
+        await trpcInPage(page, "factionIdentity.report", { factionId: made.houseId }),
+        "status",
+      );
+      expect(status).toBe("reported");
       expect(deviceErrors).toEqual([]);
     });
   });

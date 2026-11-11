@@ -1,0 +1,134 @@
+/* 범위 줄(개발·운영 화면 머리) — docs/adr/2026-11-11-planet-scope.md. 값은 토큰만 쓴다(개발 화면 층: 네온 다크·라이트). */
+.scope-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  width: 100%;
+  max-width: var(--content-max-wide);
+  min-width: 0;
+  margin-inline: auto;
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-inline-start: var(--space-1) solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+}
+/* 아래 화면이 좁은 화면(.screen)이면 같은 너비로 맞춘다 */
+.frame-main:has(> .screen:not(.screen-wide)) > .scope-bar {
+  max-width: var(--content-max);
+}
+.scope-bar[data-scope="planet"] {
+  border-inline-start-color: var(--color-success);
+}
+.scope-bar[data-scope="library"],
+.scope-bar[data-scope="system"] {
+  border-inline-start-color: var(--color-warning);
+}
+.scope-bar[data-scope="none"] {
+  border-inline-start-color: var(--color-border);
+}
+/* 틀을 숨긴 화면의 머리 안: 머리 줄 아래 한 줄을 다 쓴다(테두리는 왼쪽 띠만) */
+.scope-bar-inline {
+  flex: 1 1 100%;
+  order: 99;
+  width: auto;
+  max-width: 100%;
+  margin-inline: 0;
+  padding: 0 var(--space-2);
+  border-block: 0;
+  border-inline-end: 0;
+  border-radius: 0;
+  background-color: transparent;
+}
+.scope-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.scope-chip {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+}
+.scope-chip[data-kind="common"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.scope-chip[data-kind="all"] {
+  border-color: var(--color-highlight);
+  color: var(--color-highlight);
+}
+.scope-status[data-status="playable"] {
+  border-color: var(--color-success);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+}
+.scope-status[data-status="editor"] {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+.scope-status[data-status="library"] {
+  color: var(--color-text-muted);
+}
+.scope-select {
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--dev-touch-tap);
+  font-weight: var(--font-weight-strong);
+}
+.scope-id {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.scope-note {
+  flex: 1 1 16em;
+  min-width: 0;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.scope-tail {
+  color: var(--color-text);
+}
+.scope-failed {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-danger);
+}
+/* 담은 변경 막대의 "적용 대상" */
+.scope-target {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+.scope-target[data-target="common"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.scope-target:not([data-target="common"]) {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+/* 운영자 콘솔: 행성과 상관없는 탭 안내·행성별 표 */
+.scope-tab-note {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}

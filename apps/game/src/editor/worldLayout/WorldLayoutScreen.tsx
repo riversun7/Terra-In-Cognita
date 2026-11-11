@@ -5,6 +5,7 @@
 // - 판: 놓을 국가 고르기 → [여기에 놓기](tRPC worldLayout.place) · [놓은 자리 지우기](clear) · [자동 제안 보기](suggest) → [제안 모두 놓기].
 // - 표: 국가마다 도시 수·수도(발전도)·자리 상태(자동·다음 시작 때 듦·적용됨·막힘 + 막는 것)·놓은 사람.
 // 놓은 자리는 서버가 다음에 켤 때 세계에 든다(실행 중인 세계는 바꾸지 않는다). 390px에서는 지도 → 판 → 표가 한 칸씩 쌓인다.
+// 어느 행성에 놓는지는 범위 줄(scope/ScopeBar.tsx, 주소 ?planet=)에서 고른다 — 행성이 바뀌면 화면을 새로 읽는다(docs/adr/2026-11-11-planet-scope.md).
 // 조각 이름 WorldLayoutScreen-*([Ww]orldLayout).
 import { decodeCellKey } from "@terra/planet";
 import type {
@@ -18,6 +19,8 @@ import { api } from "../../net/api.ts";
 import { apiErrorInfo } from "../../net/apiErrors.ts";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
+import { ScopeTarget } from "../../scope/ScopeBar.tsx";
+import { type PlanetScope, usePlanetScope } from "../../scope/planetScopeStore.ts";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
@@ -29,9 +32,6 @@ import { capitalCity, marksOf, nationStatus } from "./worldLayoutModel.ts";
 import { type FlatPlanet, loadFlatPlanet } from "./worldLayoutPlanet.ts";
 import "./worldLayout.css";
 
-/** 세계 행성(시험 행성) */
-const PLANET_ID = "s2_test_planet";
-
 type Load =
   | { readonly status: "loading" }
   | { readonly status: "ready"; readonly data: WorldLayoutPlanetView }
@@ -42,8 +42,8 @@ type PlanetLoad =
   | { readonly status: "ready"; readonly planet: FlatPlanet }
   | { readonly status: "failed" };
 
-function loadView(): Promise<Load> {
-  return api.worldLayout.view.query({ planetId: PLANET_ID }).then(
+function loadView(planetId: string): Promise<Load> {
+  return api.worldLayout.view.query({ planetId }).then(
     (data): Load => ({ status: "ready", data }),
     (error: unknown): Load => {
       const info = apiErrorInfo(error);
@@ -53,7 +53,14 @@ function loadView(): Promise<Load> {
   );
 }
 
+/** 범위 줄에서 고른 행성의 세계 배치. 행성이 바뀌면 새로 만든다(key) */
 export default function WorldLayoutScreen() {
+  const scope = usePlanetScope("edit");
+  return <WorldLayoutBody key={scope.planetId ?? ""} scope={scope} />;
+}
+
+function WorldLayoutBody({ scope }: { scope: PlanetScope }) {
+  const planetId = scope.planetId;
   const locale = getLocale() === "en" ? "en" : "ko";
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const [load, setLoad] = useState<Load>({ status: "loading" });
@@ -65,22 +72,23 @@ export default function WorldLayoutScreen() {
   const notice = useLiveLines();
   const problem = useLiveLines();
 
-  // 처음 한 번 읽는다(setState는 비동기 콜백 안이다). 지도 받기는 화면을 떠나면 멈춘다
+  // 처음 한 번 읽는다(setState는 비동기 콜백 안이다). 지도 받기는 화면을 떠나면 멈춘다. 행성을 아직 모르면(목록 받는 중) 기다린다
   const first = useRef(true);
   useEffect(() => {
+    if (planetId === undefined) return undefined;
     const abort = new AbortController();
     if (first.current) {
       first.current = false;
-      void loadView().then(setLoad);
+      void loadView(planetId).then(setLoad);
     }
-    loadFlatPlanet(PLANET_ID, abort.signal).then(
+    loadFlatPlanet(planetId, abort.signal).then(
       (value) => setPlanet({ status: "ready", planet: value }),
       () => {
         if (!abort.signal.aborted) setPlanet({ status: "failed" });
       },
     );
     return () => abort.abort();
-  }, []);
+  }, [planetId]);
 
   const data = load.status === "ready" ? load.data : null;
   const nameOf = (nation: WorldPlacementNationView): string => nation.name?.[locale] ?? nation.code;
@@ -92,7 +100,9 @@ export default function WorldLayoutScreen() {
   );
   const pickedCell = picked && data ? cellAtLatLon(data.faceLevel, picked.latDeg, picked.lonDeg) : null;
 
-  const reload = async (): Promise<void> => setLoad(await loadView());
+  const reload = async (): Promise<void> => {
+    if (planetId !== undefined) setLoad(await loadView(planetId));
+  };
 
   const report = (
     results: readonly WorldPlaceResult[],
@@ -134,7 +144,7 @@ export default function WorldLayoutScreen() {
 
   const place = (entries: readonly { code: string; mapKey: string }[]): Promise<void> =>
     run(async () => {
-      const results = await api.worldLayout.place.mutate({ planetId: PLANET_ID, placements: [...entries] });
+      const results = await api.worldLayout.place.mutate({ planetId, placements: [...entries] });
       report(results, new Map(entries.map((entry) => [entry.code, entry.mapKey])), data?.gapCells ?? 0);
       const placed = new Set(results.filter((result) => result.result === "ok").map((result) => result.code));
       setIdeas((old) => new Map([...old].filter(([code]) => !placed.has(code))));
@@ -142,13 +152,13 @@ export default function WorldLayoutScreen() {
 
   const clear = (nation: WorldPlacementNationView): Promise<void> =>
     run(async () => {
-      await api.worldLayout.clear.mutate({ planetId: PLANET_ID, code: nation.code });
+      await api.worldLayout.clear.mutate({ planetId, code: nation.code });
       notice.show([m.dev_world_layout_cleared({ nation: nameOf(nation) })]);
     });
 
   const suggest = (): Promise<void> =>
     run(async () => {
-      const result = await api.worldLayout.suggest.query({ planetId: PLANET_ID });
+      const result = await api.worldLayout.suggest.query({ planetId });
       setIdeas(new Map(result.homes.map((home) => [home.code, home.mapKey])));
       notice.show([
         result.homes.length === 0
@@ -164,6 +174,7 @@ export default function WorldLayoutScreen() {
       data-density="compact"
       data-status={load.status}
       data-planet={planet.status}
+      data-planet-id={planetId ?? ""}
       data-nations={data?.nations.length}
     >
       <div className="screen-header">
@@ -173,7 +184,13 @@ export default function WorldLayoutScreen() {
         <BackButton />
       </div>
       <p className="lead wl-lead">{m.dev_world_layout_lead()}</p>
-      {load.status === "loading" ? <p className="field-hint">{m.dev_world_layout_loading()}</p> : null}
+      {scope.status === "failed" ? (
+        <p role="alert" className="field-error">
+          {m.scope_load_failed()}
+        </p>
+      ) : load.status === "loading" ? (
+        <p className="field-hint">{m.dev_world_layout_loading()}</p>
+      ) : null}
       {load.status === "failed" ? (
         <div className="wl-actions">
           <p role="alert" className="field-error">
@@ -245,6 +262,7 @@ export default function WorldLayoutScreen() {
                 <p className="field-hint">{m.dev_world_layout_pick()}</p>
               )}
               <div className="wl-actions">
+                <ScopeTarget planet={scope.planet} />
                 <button
                   type="button"
                   className="button-small button-primary"

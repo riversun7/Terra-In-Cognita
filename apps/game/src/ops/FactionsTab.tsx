@@ -146,7 +146,7 @@ function downloadCsv(rows: readonly OpsFactionRow[]): void {
   URL.revokeObjectURL(url);
 }
 
-export function FactionsTab({ open }: { open: OpenDetail }) {
+export function FactionsTab({ open, planetId }: { open: OpenDetail; planetId?: string | undefined }) {
   const [kind, setKind] = useState<FactionKind>("all");
   const [regime, setRegime] = useState<Regime | "all">("all");
   const [search, setSearch] = useState("");
@@ -154,8 +154,8 @@ export function FactionsTab({ open }: { open: OpenDetail }) {
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "id", desc: false });
   const loaded = useOpsLoad(
     useCallback(
-      (signal: AbortSignal) => api.ops.npcs.factions.query({ kind, includeDissolved }, { signal }),
-      [kind, includeDissolved],
+      (signal: AbortSignal) => api.ops.npcs.factions.query({ kind, includeDissolved, planetId }, { signal }),
+      [kind, includeDissolved, planetId],
     ),
   );
   const data = loaded.data;

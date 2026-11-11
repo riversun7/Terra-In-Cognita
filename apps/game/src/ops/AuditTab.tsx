@@ -2,6 +2,7 @@
 // 거른다(사용자 요청 2026-11-08 "사람 운영자가 보기 쉽게, 필터로 특정 항목을 고를 수 있게"). 줄마다 [원본]으로 JSON을 펼쳐 본다.
 // [더 보기]는 마지막 ID 아래를 더 부른다.
 import { AUDIT_CATEGORY_IDS, type AuditCategory, type OpsAuditRow } from "@terra/shared/ops";
+import { auditPlanetId } from "@terra/shared/planetScope";
 import { type FormEvent, useCallback, useId, useState } from "react";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
@@ -14,6 +15,8 @@ import {
   categoryLabel,
   targetText,
 } from "./auditText.ts";
+import { planetLabel } from "../scope/ScopeBar.tsx";
+import { usePlanetScope } from "../scope/planetScopeStore.ts";
 import { LoadState, errorText, useOpsLoad } from "./opsUi.tsx";
 
 const PAGE = 50;
@@ -24,7 +27,31 @@ const clockFormat = new Intl.DateTimeFormat(getLocale(), {
   second: "2-digit",
 });
 
-function AuditRow({ row }: { row: OpsAuditRow }) {
+/** 팩 덮어쓰기·설정 칸을 바꾼 기록: 모든 행성에 같다(docs/adr/2026-11-11-planet-scope.md) */
+const COMMON_CATEGORIES: ReadonlySet<AuditCategory> = new Set(["tuning", "content"]);
+
+/**
+ * 그 기록이 어디에 한 일인가: 행성 이름(meta.planetId — 세계 배치·유닛 통제), 모든 행성 공통(설정 칸·팩 항목), 그 밖은 빈칸
+ */
+function AuditScope({ row, nameOf }: { row: OpsAuditRow; nameOf: (planetId: string) => string }) {
+  const planetId = auditPlanetId(row.meta);
+  if (planetId !== null)
+    return (
+      <span className="scope-target" data-target={planetId}>
+        {nameOf(planetId)}
+      </span>
+    );
+  const category = auditCategoryOf(row.action);
+  if (category && COMMON_CATEGORIES.has(category))
+    return (
+      <span className="scope-target" data-target="common">
+        {m.scope_audit_common()}
+      </span>
+    );
+  return <span className="dev-muted">{m.ops_none()}</span>;
+}
+
+function AuditRow({ row, nameOf }: { row: OpsAuditRow; nameOf: (planetId: string) => string }) {
   const [open, setOpen] = useState(false);
   const time = Date.parse(row.at);
   const category = auditCategoryOf(row.action);
@@ -44,6 +71,9 @@ function AuditRow({ row }: { row: OpsAuditRow }) {
         <td className="ops-audit-who" translate="no">
           {targetText(row)}
         </td>
+        <td className="ops-audit-scope">
+          <AuditScope row={row} nameOf={nameOf} />
+        </td>
         <td className="ops-audit-summary">{auditSummary(row) || m.ops_none()}</td>
         <td>
           <button type="button" className="button-text" aria-expanded={open} onClick={() => setOpen(!open)}>
@@ -53,7 +83,7 @@ function AuditRow({ row }: { row: OpsAuditRow }) {
       </tr>
       {open ? (
         <tr className="ops-audit-raw">
-          <td colSpan={7}>
+          <td colSpan={8}>
             <pre className="dev-code">
               {JSON.stringify(
                 {
@@ -76,6 +106,12 @@ function AuditRow({ row }: { row: OpsAuditRow }) {
 }
 
 export function AuditTable({ rows }: { rows: readonly OpsAuditRow[] }) {
+  // 행성 이름(범위 목록에 없는 ID는 그대로 보인다)
+  const scope = usePlanetScope("monitor");
+  const nameOf = (planetId: string): string => {
+    const planet = scope.playable.find((entry) => entry.id === planetId);
+    return planet ? planetLabel(planet) : planetId;
+  };
   if (rows.length === 0) return <p className="dev-muted">{m.ops_empty()}</p>;
   return (
     <div className="dev-table-wrap">
@@ -87,6 +123,7 @@ export function AuditTable({ rows }: { rows: readonly OpsAuditRow[] }) {
             <th scope="col">{m.audit_col_what()}</th>
             <th scope="col">{m.ops_col_actor()}</th>
             <th scope="col">{m.ops_col_target()}</th>
+            <th scope="col">{m.scope_label()}</th>
             <th scope="col">{m.ops_col_detail()}</th>
             <th scope="col">
               <span className="visually-hidden">{m.audit_detail()}</span>
@@ -95,7 +132,7 @@ export function AuditTable({ rows }: { rows: readonly OpsAuditRow[] }) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <AuditRow key={row.id} row={row} />
+            <AuditRow key={row.id} row={row} nameOf={nameOf} />
           ))}
         </tbody>
       </table>
@@ -112,7 +149,7 @@ interface AuditQuery {
 
 const EMPTY_QUERY: AuditQuery = { categories: [], actorSearch: "", targetSearch: "", action: "" };
 
-export function AuditTab() {
+export function AuditTab({ planetId }: { planetId?: string | undefined }) {
   const actorId = useId();
   const targetId = useId();
   const actionId = useId();
@@ -121,7 +158,10 @@ export function AuditTab() {
   const [more, setMore] = useState<OpsAuditRow[]>([]);
   const [moreError, setMoreError] = useState<string | null>(null);
   const loaded = useOpsLoad(
-    useCallback((signal: AbortSignal) => api.ops.audit.query({ ...query, limit: PAGE }, { signal }), [query]),
+    useCallback(
+      (signal: AbortSignal) => api.ops.audit.query({ ...query, planetId, limit: PAGE }, { signal }),
+      [query, planetId],
+    ),
   );
   const rows = [...(loaded.data ?? []), ...more];
 
@@ -152,7 +192,7 @@ export function AuditTab() {
     const last = rows.at(-1);
     if (!last) return;
     try {
-      const next = await api.ops.audit.query({ ...query, limit: PAGE, beforeId: last.id });
+      const next = await api.ops.audit.query({ ...query, planetId, limit: PAGE, beforeId: last.id });
       setMore((previous) => [...previous, ...next]);
       setMoreError(null);
     } catch (error) {

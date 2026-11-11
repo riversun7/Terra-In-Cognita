@@ -27,6 +27,8 @@ export interface OpsUnitFilter {
   /** 이 소유 주체들만(없으면 모두) */
   ownerIds?: ReadonlySet<number> | undefined;
   ownerKind?: OpsOwnerKind | undefined;
+  /** 이 행성의 2차맵에 있는 유닛만(없으면 모든 행성, docs/adr/2026-11-11-planet-scope.md) */
+  planetId?: string | undefined;
   mapKey?: number | undefined;
   kind?: number | undefined;
 }
@@ -76,6 +78,7 @@ export function listUnits(
 ): { units: OpsUnitCore[]; total: number } {
   const ids: { id: number; map: SecondMap }[] = [];
   for (const map of world.maps.values()) {
+    if (filter.planetId !== undefined && map.planetId !== filter.planetId) continue;
     if (filter.mapKey !== undefined && map.mapKey !== filter.mapKey) continue;
     map.forEachUnit((unit) => {
       if (filter.ownerIds && !filter.ownerIds.has(unit.ownerId)) return;

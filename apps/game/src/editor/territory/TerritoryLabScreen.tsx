@@ -14,6 +14,8 @@ import { api } from "../../net/api.ts";
 import { apiErrorInfo } from "../../net/apiErrors.ts";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
+import { ScopeTarget, planetLabel } from "../../scope/ScopeBar.tsx";
+import { type PlanetScope, usePlanetScope } from "../../scope/planetScopeStore.ts";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
@@ -24,16 +26,13 @@ import { BEACON_CODE_TEXT, factionLabel } from "./territoryMessages.ts";
 import { cellRows, factionColorToken, labCenter, layoutOf } from "./territoryModel.ts";
 import "./territoryLab.css";
 
-/** 세계 행성(시험 행성) */
-const PLANET_ID = "s2_test_planet";
-
 type Load =
   | { readonly status: "loading" }
   | { readonly status: "ready"; readonly data: TerritoryPlanetView }
   | { readonly status: "failed"; readonly notReady: boolean };
 
-function loadView(): Promise<Load> {
-  return api.territory.planet.query({ planetId: PLANET_ID }).then(
+function loadView(planetId: string): Promise<Load> {
+  return api.territory.planet.query({ planetId }).then(
     (data): Load => ({ status: "ready", data }),
     (error: unknown): Load => {
       const info = apiErrorInfo(error);
@@ -43,7 +42,14 @@ function loadView(): Promise<Load> {
   );
 }
 
+/** 범위 줄(scope/ScopeBar.tsx, 주소 ?planet=)에서 고른 행성의 영토. 행성이 바뀌면 새로 만든다(docs/adr/2026-11-11-planet-scope.md) */
 export default function TerritoryLabScreen() {
+  const scope = usePlanetScope("edit");
+  return <TerritoryLabBody key={scope.planetId ?? ""} scope={scope} />;
+}
+
+function TerritoryLabBody({ scope }: { scope: PlanetScope }) {
+  const planetId = scope.planetId;
   const locale = getLocale() === "en" ? "en" : "ko";
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const [load, setLoad] = useState<Load>({ status: "loading" });
@@ -53,13 +59,13 @@ export default function TerritoryLabScreen() {
   const notice = useLiveLines();
   const problem = useLiveLines();
 
-  // 처음 한 번 읽는다(setLoad는 비동기 콜백 안이다)
+  // 처음 한 번 읽는다(setLoad는 비동기 콜백 안이다). 행성을 아직 모르면(목록 받는 중) 기다린다
   const first = useRef(true);
   useEffect(() => {
-    if (!first.current) return;
+    if (!first.current || planetId === undefined) return;
     first.current = false;
-    void loadView().then(setLoad);
-  }, []);
+    void loadView(planetId).then(setLoad);
+  }, [planetId]);
 
   const data = load.status === "ready" ? load.data : null;
   const layout = useMemo(() => (data ? layoutOf(data) : null), [data]);
@@ -68,7 +74,9 @@ export default function TerritoryLabScreen() {
   const factionById = new Map((data?.factions ?? []).map((faction) => [faction.id, faction]));
   const nameOf = (id: number) => factionLabel(factionById.get(id), id, locale);
 
-  const reload = async (): Promise<void> => setLoad(await loadView());
+  const reload = async (): Promise<void> => {
+    if (planetId !== undefined) setLoad(await loadView(planetId));
+  };
 
   const run = async (command: Parameters<typeof sendBeaconCommand>[0], done: (id?: number) => string) => {
     setBusy(true);
@@ -93,6 +101,7 @@ export default function TerritoryLabScreen() {
       aria-labelledby="territory-title"
       data-density="compact"
       data-status={load.status}
+      data-planet-id={planetId ?? ""}
       data-beacons={data?.beacons.length}
     >
       <div className="screen-header">
@@ -102,7 +111,13 @@ export default function TerritoryLabScreen() {
         <BackButton />
       </div>
       <p className="lead tl-lead">{m.dev_territory_lead()}</p>
-      {load.status === "loading" ? <p className="field-hint">{m.dev_territory_loading()}</p> : null}
+      {scope.status === "failed" ? (
+        <p role="alert" className="field-error">
+          {m.scope_load_failed()}
+        </p>
+      ) : load.status === "loading" ? (
+        <p className="field-hint">{m.dev_territory_loading()}</p>
+      ) : null}
       {load.status === "failed" ? (
         <div className="tl-actions">
           <p role="alert" className="field-error">
@@ -124,7 +139,7 @@ export default function TerritoryLabScreen() {
                 cells: data.cells.length,
               })}
             </span>
-            <span className="dev-muted">{data.planetId}</span>
+            <ScopeTarget planet={scope.planet} />
             <button type="button" className="button-small" disabled={busy} onClick={() => void reload()}>
               {m.dev_territory_reload()}
             </button>
@@ -223,6 +238,9 @@ export default function TerritoryLabScreen() {
                     <button
                       type="button"
                       className="button-small button-primary"
+                      title={m.scope_target({
+                        target: scope.planet ? planetLabel(scope.planet) : data.planetId,
+                      })}
                       disabled={busy || chosenFaction === null || !data.beacon.enabled}
                       onClick={() =>
                         void run(

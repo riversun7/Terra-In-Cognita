@@ -18,6 +18,7 @@ import { text } from "../../ui/text.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { browserStorage } from "./crashSentinel.ts";
 import { type EditorDefinitions, EditorWorkspace, startPlanetOf } from "./EditorWorkspace.tsx";
+import ScopeBar from "../../scope/ScopeBar.tsx";
 import { type PromptRequest, PromptDialog } from "./PromptDialog.tsx";
 import { localName } from "./editorMessages.ts";
 import { type LibraryPlanet, type LibrarySummary, libraryApi } from "./libraryClient.ts";
@@ -250,6 +251,7 @@ function EditorLoader({ onClose, onRetry }: { onClose: () => void; onRetry: () =
           </select>
         </>
       ) : null}
+      <ScopeBar route="dev_planet_editor" inline />
     </>
   );
 

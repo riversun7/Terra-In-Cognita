@@ -22,6 +22,8 @@ import { formatLocalTime } from "../../map/secondMapSky.ts";
 import { fetchTerrain } from "../../map/terrainLoader.ts";
 import { api } from "../../net/api.ts";
 import { m } from "../../paraglide/messages.js";
+import ScopeBar from "../../scope/ScopeBar.tsx";
+import { usePlanetScope } from "../../scope/planetScopeStore.ts";
 import { createSecondMapPreviewClient } from "../../map/secondMapBuildClient.ts";
 import type { SecondMapPreviewStage } from "../planet/secondMapPreviewProtocol.ts";
 import { LabPanel, type LabPanelProps, type LabSettings } from "./LabPanel.tsx";
@@ -132,6 +134,7 @@ export default function SecondMapLabScreen({ onClose }: { onClose: () => void })
         <h1 id="sml-title" className="sml-title" tabIndex={-1}>
           {m.shell_route_dev_second_map()}
         </h1>
+        <ScopeBar route="dev_second_map" inline />
       </header>
       {load.kind === "ready" ? (
         <Lab definitions={load.definitions} />
@@ -163,7 +166,16 @@ function Lab({ definitions }: { definitions: LabDefinitions }) {
   const firstPlanet = definitions.planets.some((planet) => planet.id === DEFAULT_PLANET)
     ? DEFAULT_PLANET
     : (definitions.planets[0]?.id ?? DEFAULT_PLANET);
-  const [planetId, setPlanetId] = useState(firstPlanet);
+  // 행성은 범위 줄(머리, 주소 ?planet=)에서 고른 것이다(docs/adr/2026-11-11-planet-scope.md). 판에서 행성 표본을 고르면 그것이 먼저다
+  // (표본은 범위 목록에 없다 — 보기 전용 시작점)
+  const scope = usePlanetScope("lab");
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const scoped =
+    scope.planetId !== undefined && definitions.planets.some((planet) => planet.id === scope.planetId)
+      ? scope.planetId
+      : firstPlanet;
+  const planetId = templateId ?? scoped;
+  const scopeReady = scope.status !== "loading";
   const [status, setStatus] = useState<Status>({ kind: "loading", stage: null });
   const [map, setMap] = useState<LabMap | null>(null);
   const [settings, setSettings] = useState<LabSettings>(DEFAULT_SETTINGS);
@@ -237,10 +249,10 @@ function Lab({ definitions }: { definitions: LabDefinitions }) {
     run(planet, target);
   };
 
-  // 처음: 시험 2차맵
+  // 처음과 행성을 바꿨을 때: 그 행성의 시험 2차맵(범위 목록을 받은 뒤 — 주소로 고른 행성을 두 번 받지 않게)
   useEffect(() => {
-    run(firstPlanet, { kind: "test" });
-  }, [run, firstPlanet]);
+    if (scopeReady) run(planetId, { kind: "test" });
+  }, [run, planetId, scopeReady]);
 
   // 2차맵이 바뀌면 엔진을 새로 만든다(낮밤 자리가 2차맵 키에 달려 있다). 지형·보기는 아래 효과들이 건다
   useEffect(() => {
@@ -351,8 +363,12 @@ function Lab({ definitions }: { definitions: LabDefinitions }) {
   const onPreset = (preset: MapPreset | "test"): void =>
     open(planetId, preset === "test" ? { kind: "test" } : { kind: "preset", preset });
   const onPlanet = (next: string): void => {
-    setPlanetId(next);
-    open(next, { kind: "test" });
+    if (next === planetId) return;
+    setStatus({ kind: "loading", stage: null });
+    if (scope.planets.some((planet) => planet.id === next)) {
+      setTemplateId(null);
+      scope.select(next);
+    } else setTemplateId(next);
   };
 
   const light = stats?.light ?? null;

@@ -10,6 +10,7 @@ import type { RecruitBoardResponse, RecruitCardView } from "@terra/shared/recrui
 import { useEffect, useRef, useState } from "react";
 import { refreshSession } from "../../auth/session.ts";
 import { api } from "../../net/api.ts";
+import { usePlanetScope } from "../../scope/planetScopeStore.ts";
 import { field } from "../../net/json.ts";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
@@ -92,7 +93,29 @@ function elementText(card: RecruitCardView): string {
     .join(" · ");
 }
 
+/** 범위 줄(scope/ScopeBar.tsx, 주소 ?planet=)에서 고른 행성의 구인 도시. 행성이 바뀌면 새로 만든다(docs/adr/2026-11-11-planet-scope.md) */
 export default function RecruitLabScreen({ initialCity }: { initialCity?: string | undefined }) {
+  const scope = usePlanetScope("edit");
+  return (
+    <RecruitLabBody
+      key={scope.planetId ?? ""}
+      initialCity={initialCity}
+      planetId={scope.planetId}
+      scopeFailed={scope.status === "failed"}
+    />
+  );
+}
+
+function RecruitLabBody({
+  initialCity,
+  planetId,
+  scopeFailed,
+}: {
+  initialCity?: string | undefined;
+  /** 고른 행성(목록을 받는 중이면 undefined — 기다린다) */
+  planetId: string | undefined;
+  scopeFailed: boolean;
+}) {
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const locale = getLocale() === "en" ? "en" : "ko";
   const [load, setLoad] = useState<Load>({ status: "loading" });
@@ -102,7 +125,7 @@ export default function RecruitLabScreen({ initialCity }: { initialCity?: string
   const requested = useRef<number | undefined>(parseCity(initialCity));
 
   const fetchBoard = (cityId: number | undefined): Promise<void> =>
-    api.recruit.board.query(cityId === undefined ? undefined : { cityId }).then(
+    api.recruit.board.query({ ...(cityId === undefined ? {} : { cityId }), planetId }).then(
       (board) => setLoad({ status: "ready", board }),
       (error: unknown) => setLoad({ status: "failed", message: loadError(error) }),
     );
@@ -110,14 +133,14 @@ export default function RecruitLabScreen({ initialCity }: { initialCity?: string
   // 처음 한 번 받는다(받은 뒤 setLoad는 비동기 콜백 안이다)
   const first = useRef(true);
   useEffect(() => {
-    if (!first.current) return;
+    if (!first.current || planetId === undefined) return;
     first.current = false;
     const cityId = requested.current;
-    void api.recruit.board.query(cityId === undefined ? undefined : { cityId }).then(
+    void api.recruit.board.query({ ...(cityId === undefined ? {} : { cityId }), planetId }).then(
       (board) => setLoad({ status: "ready", board }),
       (error: unknown) => setLoad({ status: "failed", message: loadError(error) }),
     );
-  }, []);
+  }, [planetId]);
 
   const board = load.status === "ready" ? load.board : null;
 
@@ -157,6 +180,7 @@ export default function RecruitLabScreen({ initialCity }: { initialCity?: string
       aria-labelledby="recruit-title"
       data-density="compact"
       data-status={load.status}
+      data-planet-id={planetId ?? ""}
     >
       <div className="screen-header">
         <h1 id="recruit-title" className="screen-title" tabIndex={-1} ref={headingRef}>
@@ -166,7 +190,13 @@ export default function RecruitLabScreen({ initialCity }: { initialCity?: string
       </div>
       <p className="lead rl-lead">{m.dev_recruit_lead()}</p>
       <p className="field-hint rl-gap">{m.dev_recruit_ux_gap()}</p>
-      {load.status === "loading" ? <p className="field-hint">{m.dev_recruit_loading()}</p> : null}
+      {scopeFailed ? (
+        <p role="alert" className="field-error">
+          {m.scope_load_failed()}
+        </p>
+      ) : load.status === "loading" ? (
+        <p className="field-hint">{m.dev_recruit_loading()}</p>
+      ) : null}
       {load.status === "failed" ? (
         <div className="rl-actions">
           <p role="alert" className="field-error">

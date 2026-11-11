@@ -276,36 +276,46 @@ export interface FactionSqlRow {
   owner_id: string | null;
 }
 
+/**
+ * 세력 줄. $1 = 행성 ID(null이면 모든 행성): 도시·휴먼·주거·만족도는 그 행성 몫만 센다
+ * (세력은 세계에 하나이고 도시가 행성에 놓인다 — docs/adr/2026-11-11-planet-scope.md)
+ */
 const FACTION_SELECT = `
   select f.id, f.kind, f.code, f.parent_id, f.regime, f.fixed, f.tech_level, f.dissolved_at_ms, f.traits,
          f.research_progress, f.ai_step, f.born_of, f.rebel_of,
-         (select count(*) from world_cities c where c.faction_id = f.id) as cities,
-         (select count(*) from world_humans h join world_cities c on c.id = h.city_id where c.faction_id = f.id) as humans,
+         (select count(*) from world_cities c where c.faction_id = f.id
+           and ($1::text is null or c.planet_id = $1)) as cities,
+         (select count(*) from world_humans h join world_cities c on c.id = h.city_id where c.faction_id = f.id
+           and ($1::text is null or c.planet_id = $1)) as humans,
          (select count(*) from faction_members m where m.faction_id = f.id) as members,
          (select count(*) from faction_wars w where (w.faction_a = f.id or w.faction_b = f.id) and w.state = 'war') as wars,
          (select count(*) from faction_wars w where (w.faction_a = f.id or w.faction_b = f.id) and w.state = 'truce') as truces,
          (select count(*) from factions v where v.parent_id = f.id and v.dissolved_at_ms is null) as vassals,
-         (select coalesce(sum(c.housing), 0) from world_cities c where c.faction_id = f.id) as housing,
+         (select coalesce(sum(c.housing), 0) from world_cities c where c.faction_id = f.id
+           and ($1::text is null or c.planet_id = $1)) as housing,
          (select round(avg(h.satisfaction_milli)) from world_humans h join world_cities c on c.id = h.city_id
-           where c.faction_id = f.id) as satisfaction,
+           where c.faction_id = f.id and ($1::text is null or c.planet_id = $1)) as satisfaction,
          o.id as owner_id
     from factions f
     left join world_owners o on o.faction_id = f.id`;
 
+/** planetId를 주면 도시·휴먼 수가 그 행성 몫이다(세력 줄은 거르지 않는다 — 거르기는 services.ts가 유닛까지 보고 한다) */
 export async function listFactions(
   db: OpsQueryable,
-  input: { kind: "all" | "npc" | "player"; includeDissolved: boolean },
+  input: { kind: "all" | "npc" | "player"; includeDissolved: boolean; planetId?: string | undefined },
 ): Promise<FactionSqlRow[]> {
   const where: string[] = [];
   if (input.kind !== "all") where.push(`f.kind = '${input.kind === "npc" ? "npc" : "player"}'`);
   if (!input.includeDissolved) where.push("f.dissolved_at_ms is null");
   const filter = where.length > 0 ? `where ${where.join(" and ")}` : "";
-  const { rows } = await db.query<FactionSqlRow>(`${FACTION_SELECT} ${filter} order by f.id limit 1000`);
+  const { rows } = await db.query<FactionSqlRow>(`${FACTION_SELECT} ${filter} order by f.id limit 1000`, [
+    input.planetId ?? null,
+  ]);
   return rows;
 }
 
 export async function findFaction(db: OpsQueryable, factionId: number): Promise<FactionSqlRow | undefined> {
-  const { rows } = await db.query<FactionSqlRow>(`${FACTION_SELECT} where f.id = $1`, [factionId]);
+  const { rows } = await db.query<FactionSqlRow>(`${FACTION_SELECT} where f.id = $2`, [null, factionId]);
   return rows[0];
 }
 
@@ -366,10 +376,14 @@ interface CitySqlRow {
 
 export async function listCities(
   db: OpsQueryable,
-  input: { factionId?: number | undefined; search: string },
+  input: { factionId?: number | undefined; search: string; planetId?: string | undefined },
 ): Promise<(Omit<OpsCityRow, "factionName"> & { factionCode: string | null })[]> {
   const where: string[] = [];
   const values: unknown[] = [];
+  if (input.planetId !== undefined) {
+    values.push(input.planetId);
+    where.push(`c.planet_id = $${values.length}`);
+  }
   if (input.factionId !== undefined) {
     values.push(input.factionId);
     where.push(`c.faction_id = $${values.length}`);
@@ -455,6 +469,8 @@ export interface AuditFilter {
   actorSearch?: string | undefined;
   /** 대상 계정 아이디 일부(대소문자 무시) */
   targetSearch?: string | undefined;
+  /** 이 행성에 한 동작만(meta.planetId — 세계 배치·유닛 통제처럼 행성에 묶인 기록, docs/adr/2026-11-11-planet-scope.md) */
+  planetId?: string | undefined;
   /** 이 ID보다 작은 것(다음 쪽) */
   beforeId?: number | undefined;
   limit: number;
@@ -491,6 +507,10 @@ export async function listAudit(db: OpsQueryable, filter: AuditFilter): Promise<
   if (filter.targetSearch) {
     values.push(`%${likeEscape(filter.targetSearch)}%`);
     where.push(`t.username ilike $${values.length}`);
+  }
+  if (filter.planetId !== undefined) {
+    values.push(filter.planetId);
+    where.push(`a.meta->>'planetId' = $${values.length}`);
   }
   if (filter.beforeId !== undefined) {
     values.push(filter.beforeId);

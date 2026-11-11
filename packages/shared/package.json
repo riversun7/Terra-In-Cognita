@@ -38,6 +38,7 @@
     "./nationEditor": "./src/nationEditor.ts",
     "./nationEmblem": "./src/nationEmblem.ts",
     "./planetCalendar": "./src/planetCalendar.ts",
+    "./planetScope": "./src/planetScope.ts",
     "./portraitCrop": "./src/portraitCrop.ts",
     "./ranking": "./src/ranking.ts",
     "./recruit": "./src/recruit.ts",

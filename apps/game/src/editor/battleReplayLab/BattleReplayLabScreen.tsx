@@ -12,6 +12,7 @@ import BattleReplayView from "../../battle/BattleReplayView.tsx";
 import { type ReplayGround, loadReplayGround } from "../../battle/replayTerrain.ts";
 import { api } from "../../net/api.ts";
 import { m } from "../../paraglide/messages.js";
+import ScopeBar from "../../scope/ScopeBar.tsx";
 import "./battleReplayLab.css";
 
 type Loaded = {
@@ -134,6 +135,7 @@ export default function BattleReplayLabScreen({ onClose }: { onClose: () => void
             {m.battle_replay_lab_new()}
           </button>
         </form>
+        <ScopeBar route="dev_battle_replay" inline />
       </header>
       {loaded ? (
         <p className="brl-stats">

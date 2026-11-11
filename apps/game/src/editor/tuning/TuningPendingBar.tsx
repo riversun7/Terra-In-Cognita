@@ -3,6 +3,7 @@
 import type { TuningEntryView } from "@terra/shared/tuning";
 import { useId } from "react";
 import { m } from "../../paraglide/messages.js";
+import { ScopeTarget } from "../../scope/ScopeBar.tsx";
 import { type Pending, formatNumber } from "./tuningModel.ts";
 
 export interface TuningPendingBarProps {
@@ -66,6 +67,8 @@ export function TuningPendingBar({
           })}
         </ul>
       </details>
+      {/* 설정 칸은 세계에 하나다: 모든 행성 공통(docs/adr/2026-11-11-planet-scope.md) */}
+      <ScopeTarget />
       <label className="visually-hidden" htmlFor={noteId}>
         {m.dev_tuning_pending_note()}
       </label>

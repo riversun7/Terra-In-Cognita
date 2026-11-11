@@ -26,6 +26,7 @@ import {
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { World } from "../world/world.ts";
 import { type OpsQueryable, opsAccessOf } from "./access.ts";
+import { planetTotals } from "./planetReads.ts";
 import * as reads from "./reads.ts";
 import { NO_OPS_SWITCHES, type OpsSwitches } from "./switches.ts";
 import { type NationPreset, presetOfCode } from "../npc/nations.ts";
@@ -155,15 +156,17 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     units: base.ownerId === null ? 0 : counts ? (counts.get(base.ownerId) ?? 0) : unitCount(base.ownerId),
     credit: credit(base.ownerId),
   });
-  /** 소유 주체마다 유닛 수(한 번 훑기) */
-  const unitCounts = (ownerIds: ReadonlySet<number>): Map<number, number> => {
+  /** 소유 주체마다 유닛 수(한 번 훑기). planetId를 주면 그 행성의 2차맵만 */
+  const unitCounts = (ownerIds: ReadonlySet<number>, planetId?: string): Map<number, number> => {
     const counts = new Map<number, number>();
     const world = shared.world();
     if (!world || ownerIds.size === 0) return counts;
-    for (const map of world.maps.values())
+    for (const map of world.maps.values()) {
+      if (planetId !== undefined && map.planetId !== planetId) continue;
       map.forEachUnit((unit) => {
         if (ownerIds.has(unit.ownerId)) counts.set(unit.ownerId, (counts.get(unit.ownerId) ?? 0) + 1);
       });
+    }
     return counts;
   };
   const labelUnits = async (cores: readonly OpsUnitCore[]): Promise<OpsUnitRow[]> => {
@@ -239,6 +242,8 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
   const cityRows = async (input: {
     factionId?: number | undefined;
     search: string;
+    /** 이 행성의 도시만(없으면 모든 행성) */
+    planetId?: string | undefined;
   }): Promise<OpsCityRow[]> => {
     await identity();
     return (await reads.listCities(pool, input)).map(({ factionCode, ...city }) => ({
@@ -274,6 +279,8 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
           npcRuntime: world?.npc !== undefined,
         },
         ...db,
+        // 행성마다 합(docs/adr/2026-11-11-planet-scope.md): 화면이 고른 행성 줄을 요약 카드로 쓴다
+        planets: await planetTotals(pool, world),
       };
     },
 
@@ -331,13 +338,19 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
       };
     },
 
+    /**
+     * 세력 목록. planetId를 주면 도시·휴먼·유닛 수가 그 행성 몫이고, 그 행성에 도시도 유닛도 없는 세력은 뺀다
+     * (세력은 세계에 하나다 — 행성에 "있는" 세력만 본다, docs/adr/2026-11-11-planet-scope.md)
+     */
     async factions(input: Parameters<typeof reads.listFactions>[1]): Promise<OpsFactionRow[]> {
       const ids = await identity();
       const rows = await reads.listFactions(pool, input);
       const counts = unitCounts(
         new Set(rows.flatMap((row) => (row.owner_id === null ? [] : [Number(row.owner_id)]))),
+        input.planetId,
       );
-      return rows.map((row) => toFactionRow(row, ids, counts));
+      const list = rows.map((row) => toFactionRow(row, ids, counts));
+      return input.planetId === undefined ? list : list.filter((row) => row.cities > 0 || row.units > 0);
     },
 
     async faction(factionId: number): Promise<OpsFactionDetail | undefined> {
@@ -382,6 +395,8 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     async units(input: {
       ownerKind?: "user" | "faction" | undefined;
       ownerId?: number | undefined;
+      /** 이 행성의 유닛만(없으면 모든 행성) */
+      planetId?: string | undefined;
       mapKey?: number | undefined;
       kind?: number | undefined;
       limit: number;
@@ -395,6 +410,7 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
         {
           ownerKind: input.ownerKind,
           ownerIds: input.ownerId === undefined ? undefined : new Set([input.ownerId]),
+          planetId: input.planetId,
           mapKey: input.mapKey,
           kind: input.kind,
         },
@@ -615,7 +631,13 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
             ? { mapKey: before.mapKey, x: before.cellX, y: before.cellY, injury: before.injury }
             : null,
           after: input.action,
-          meta: { unitId: input.unitId, ownerId: before?.ownerId ?? null, reason: input.reason },
+          // planetId: 감사 기록을 행성으로 거른다(docs/adr/2026-11-11-planet-scope.md)
+          meta: {
+            unitId: input.unitId,
+            ownerId: before?.ownerId ?? null,
+            planetId: before?.planetId ?? null,
+            reason: input.reason,
+          },
         });
       }
       return { result };

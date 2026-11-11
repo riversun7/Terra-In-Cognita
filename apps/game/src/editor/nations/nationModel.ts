@@ -1,7 +1,6 @@
 // 시작 국가 설정 편집기 모델 — 담은 변경(국가마다 put·revert, 잠든 줄 버리기), 칸 고치기(성격 칸·목록), 미리 보기 셈(시작 도시·처음 인구),
 // 색 읽기 쉬움, 마크 자르기 셈. 계산만 하는 순수 함수(시험: nationModel.test.ts). docs/adr/2026-11-10-nation-editor.md
 import {
-  NATION_EMBLEM_UPLOAD,
   type NationEditorChange,
   type NationEditorRow,
   type NationPersonalityJson,
@@ -9,6 +8,7 @@ import {
   type NationSeedDefaults,
 } from "@terra/shared/nationEditor";
 import { type NationEmblemSpec, contrastOf, emblemOfId } from "@terra/shared/nationEmblem";
+import { FACTION_IDENTITY_COLORS } from "@terra/shared/factionIdentity";
 import { mergeThreeWay } from "../content/contentEditorModel.ts";
 
 /** 국가 하나의 담은 변경: 고친 항목 통째 또는 팩 값으로 되돌리기. base·baseHash = 고치기 시작할 때의 실효 항목·해시 */
@@ -243,28 +243,7 @@ export function colorReadability(color: string): ColorReadability {
 }
 
 /** 고르기 판의 색(두 지도 바탕 모두와 대비 2 이상인 중간 밝기 색 — 시험이 본다) */
-export const READABLE_COLORS = [
-  "#c0392b",
-  "#d35400",
-  "#b9770e",
-  "#8a7a12",
-  "#5d8a1e",
-  "#27ae60",
-  "#16a085",
-  "#0f8fa8",
-  "#2980b9",
-  "#0984e3",
-  "#4a69bd",
-  "#6c5ce7",
-  "#8e44ad",
-  "#b03a94",
-  "#e84393",
-  "#c2185b",
-  "#a04848",
-  "#8d6e63",
-  "#607d8b",
-  "#5f6f52",
-] as const;
+export const READABLE_COLORS = FACTION_IDENTITY_COLORS;
 
 /** 금액 보기(미리 보기): 기호 + 자리 나눈 수 + 약어 */
 export function currencySample(entry: NationPresetJson, amount: number, locale: string): string {
@@ -313,73 +292,17 @@ export function rebaseNation(
 }
 
 // ── 마크 자르기 ──────────────────────────────────────────────────────────────
-
-/** 자르기 상태: 확대(1 = 짧은 변 전체), 자를 정사각의 가운데(원본 px) */
-export interface CropState {
-  readonly zoom: number;
-  readonly cx: number;
-  readonly cy: number;
-}
-
-export const CROP_ZOOM = { min: 1, max: 8, step: 0.1 } as const;
-
-/** 처음 상태: 가운데, 짧은 변 전체 */
-export const initialCrop = (width: number, height: number): CropState => ({
-  zoom: 1,
-  cx: width / 2,
-  cy: height / 2,
-});
-
-/** 자를 정사각(원본 px): 한 변 = 짧은 변 ÷ 확대. 그림 밖으로 나가지 않게 가운데를 자른다 */
-export function cropRect(
-  width: number,
-  height: number,
-  state: CropState,
-): { sx: number; sy: number; size: number } {
-  const zoom = Math.max(CROP_ZOOM.min, Math.min(CROP_ZOOM.max, state.zoom));
-  const size = Math.max(1, Math.min(width, height) / zoom);
-  const half = size / 2;
-  const cx = Math.max(half, Math.min(width - half, state.cx));
-  const cy = Math.max(half, Math.min(height - half, state.cy));
-  return { sx: cx - half, sy: cy - half, size };
-}
-
-/** 가운데·확대를 범위 안으로 맞춘 상태 */
-export function clampCrop(width: number, height: number, state: CropState): CropState {
-  const zoom = Math.max(CROP_ZOOM.min, Math.min(CROP_ZOOM.max, state.zoom));
-  const rect = cropRect(width, height, { ...state, zoom });
-  return { zoom, cx: rect.sx + rect.size / 2, cy: rect.sy + rect.size / 2 };
-}
-
-/** 보기 칸(한 변 view px)에서 dx·dy px 끌었을 때: 그림이 손가락을 따라가게 가운데를 반대로 옮긴다 */
-export function dragCrop(
-  width: number,
-  height: number,
-  state: CropState,
-  dx: number,
-  dy: number,
-  view: number,
-): CropState {
-  const { size } = cropRect(width, height, state);
-  const scale = size / Math.max(1, view);
-  return clampCrop(width, height, { ...state, cx: state.cx - dx * scale, cy: state.cy - dy * scale });
-}
-
-/** 확대를 바꾼다(가운데는 그대로, 범위 안으로) */
-export const zoomCrop = (width: number, height: number, state: CropState, zoom: number): CropState =>
-  clampCrop(width, height, { ...state, zoom });
-
-/**
- * RGBA 화소의 색 단계를 줄인다(채널마다 levels 단계 — PNG가 잘 줄게). 올릴 그림이 바이트 상한을 넘을 때만 쓴다. 알파는 그대로
- */
-export function posterize(data: Uint8ClampedArray, levels: number): void {
-  const step = 255 / Math.max(1, levels - 1);
-  for (let i = 0; i < data.length; i += 4)
-    for (let c = 0; c < 3; c++) data[i + c] = Math.round(Math.round((data[i + c] ?? 0) / step) * step);
-}
-
-/** 색 단계를 줄여 보는 차례(처음은 그대로) */
-export const POSTERIZE_STEPS = [0, 64, 32, 16, 8] as const;
-
-export const EMBLEM_SIZE = NATION_EMBLEM_UPLOAD.size;
-export const EMBLEM_MAX_BYTES = NATION_EMBLEM_UPLOAD.maxBytes;
+// 셈은 ui/emblemCrop.ts로 옮겼다(플레이어 세력 정체성 화면과 같이 쓴다 — docs/adr/2026-11-11-faction-identity.md 2절). 이름은 그대로 내보낸다.
+export {
+  CROP_ZOOM,
+  type CropState,
+  EMBLEM_MAX_BYTES,
+  EMBLEM_SIZE,
+  POSTERIZE_STEPS,
+  clampCrop,
+  cropRect,
+  dragCrop,
+  initialCrop,
+  posterize,
+  zoomCrop,
+} from "../../ui/emblemCrop.ts";

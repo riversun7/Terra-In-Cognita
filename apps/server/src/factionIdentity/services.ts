@@ -151,6 +151,19 @@ export function presetTaken(
   return { name, short };
 }
 
+/** 감사 기록에 싣는 요약(그림 바이트는 싣지 않는다 — 해시·크기만) */
+const summary = (row: IdentityRow | null) =>
+  row === null
+    ? null
+    : {
+        name: row.name,
+        shortName: row.shortName,
+        color: row.color,
+        emblem: row.emblem,
+        sha256: row.uploaded?.hash ?? null,
+        bytes: row.uploaded?.bytes ?? null,
+      };
+
 /** pg 고유 제약 오류(23505)면 어느 칸인지 */
 function uniqueViolation(error: unknown): "name_taken" | "short_taken" | null {
   if (typeof error !== "object" || error === null || !("code" in error) || error.code !== "23505")
@@ -275,17 +288,6 @@ export function createFactionIdentityServices(
         throw error;
       }
       const after = await loadIdentity(pool, viewer.id);
-      const summary = (row: IdentityRow | null) =>
-        row === null
-          ? null
-          : {
-              name: row.name,
-              shortName: row.shortName,
-              color: row.color,
-              emblem: row.emblem,
-              sha256: row.uploaded?.hash ?? null,
-              bytes: row.uploaded?.bytes ?? null,
-            };
       await writeAudit(deps.db, {
         actor: actor(viewer, "user"),
         action: before === null ? "faction.identity_create" : "faction.identity_update",

@@ -44,6 +44,24 @@ const GOOD = makeTestPng(FACTION_EMBLEM_UPLOAD.size, FACTION_EMBLEM_UPLOAD.size)
 const OTHER = makeTestPng(FACTION_EMBLEM_UPLOAD.size, FACTION_EMBLEM_UPLOAD.size, [20, 90, 160, 255]);
 const newUpload = (png: Uint8Array) => ({ mode: "new", pngBase64: base64(png) }) as const;
 
+/** 서비스 직접 시험의 저장 요청 */
+const input = (patch: Record<string, unknown> = {}) => ({
+  name: "안개골",
+  shortName: "FOG",
+  color: "#8e44ad",
+  emblem: EMBLEM,
+  upload: { mode: "none" } as const,
+  ...patch,
+});
+const reasonOf = async (run: Promise<unknown>): Promise<unknown> => {
+  try {
+    await run;
+    return null;
+  } catch (error) {
+    return obj(obj(error).cause).reason ?? String(error);
+  }
+};
+
 interface Player {
   cookie: string;
   id: string;
@@ -391,22 +409,6 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 세력 정체성 (DB)", () => 
         }),
         { db: test.db, ip: null },
       );
-    const input = (patch: Record<string, unknown> = {}) => ({
-      name: "안개골",
-      shortName: "FOG",
-      color: "#8e44ad",
-      emblem: EMBLEM,
-      upload: { mode: "none" } as const,
-      ...patch,
-    });
-    const reasonOf = async (run: Promise<unknown>): Promise<unknown> => {
-      try {
-        await run;
-        return null;
-      } catch (error) {
-        return obj(obj(error).cause).reason ?? String(error);
-      }
-    };
     let e: Player;
     const viewerOf = (player: Player) => ({ id: player.id, roles: ["player"] as const });
 

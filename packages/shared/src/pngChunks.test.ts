@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { PNG_SIGNATURE, crc32, readPngHeader, stripPngChunks, walkPng } from "./pngChunks.ts";
 
-const ascii = (text: string): number[] => [...text].map((char) => char.charCodeAt(0));
+const ascii = (text: string): number[] => Array.from(text, (char) => char.charCodeAt(0));
 const u32 = (value: number): number[] => [
   value >>> 24,
   (value >>> 16) & 255,

@@ -58,15 +58,14 @@ export interface IdentityRow {
   readonly nameChangedAt: number;
 }
 
-/** 값이 있을 때만 그 칸을 둔다(exactOptionalPropertyTypes) */
-const optional = <K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } =>
-  value === undefined ? {} : ({ [key]: value } as { [P in K]?: V });
-
 /** 목록 안의 값이면 그 값(더 새 판이 넣은 모르는 값은 undefined → 기본 사양) */
 const pick = <T extends string>(list: readonly T[], value: string): T | undefined =>
   list.find((entry) => entry === value);
 
 function rowOf(raw: RawRow): IdentityRow {
+  const shape = pick(EMBLEM_SHAPES, raw.emblem_shape);
+  const division = pick(EMBLEM_DIVISIONS, raw.emblem_division);
+  const charge = pick(EMBLEM_CHARGES, raw.emblem_charge);
   return {
     userId: raw.user_id,
     name: raw.name,
@@ -74,9 +73,10 @@ function rowOf(raw: RawRow): IdentityRow {
     shortName: raw.short_name,
     color: raw.color,
     emblem: normalizeEmblem({
-      ...optional("shape", pick(EMBLEM_SHAPES, raw.emblem_shape)),
-      ...optional("division", pick(EMBLEM_DIVISIONS, raw.emblem_division)),
-      ...optional("charge", pick(EMBLEM_CHARGES, raw.emblem_charge)),
+      // 목록 밖의 값은 칸을 비워 기본 사양으로 읽는다(exactOptionalPropertyTypes: 없는 칸은 키째 뺀다)
+      ...(shape === undefined ? {} : { shape }),
+      ...(division === undefined ? {} : { division }),
+      ...(charge === undefined ? {} : { charge }),
       scheme: raw.emblem_scheme,
     }),
     uploaded:

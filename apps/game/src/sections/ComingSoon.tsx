@@ -54,6 +54,7 @@ type ComingSoonRoute = Exclude<
   | "economy_exchange"
   | "cyborg_ranking"
   | "faction_ranking"
+  | "faction_identity"
 >;
 
 const SECTIONS = {

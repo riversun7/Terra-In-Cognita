@@ -44,4 +44,33 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "마크를 몇 번 내리면 올리기 자동 막기(0 = 끔)",
     "Takedowns before uploads are blocked (0 = off)",
   ),
+  // 가문 가입(질문 985 다) — 49에 칸이 없다
+  k(
+    "house_member_max",
+    "",
+    "house.memberMax",
+    "가문 인원 상한(가문장 포함)",
+    "House member limit (incl. leader)",
+  ),
+  k(
+    "house_pending_max",
+    "",
+    "house.pendingMax",
+    "가문마다 대기 중인 초대·신청 상한",
+    "Pending invites and applications per house",
+  ),
+  k(
+    "house_apply_max",
+    "",
+    "house.applyMax",
+    "사람마다 동시에 보낼 가입 신청 수",
+    "Open house applications per player",
+  ),
+  k(
+    "house_request_ttl_ms",
+    "",
+    "house.requestTtlMs",
+    "가문 초대·신청 유효 시간(ms)",
+    "House invite and application lifetime (ms)",
+  ),
 ];

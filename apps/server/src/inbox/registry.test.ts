@@ -42,7 +42,9 @@ describe("처리할 일 등록부", () => {
   it("DB가 있으면 웨이브 예고(wave_incoming): 진군 중인 웨이브가 마감 = 도착 시각인 건이 된다", async () => {
     const seen: unknown[][] = [];
     const pool = {
-      query: async (_text: string, values?: unknown[]) => {
+      query: async (text: string, values?: unknown[]) => {
+        // 가문 제공 함수(house_*)는 빈 목록 — 이 시험은 웨이브만 본다
+        if (!text.includes("gardener_waves")) return { rows: [] };
         seen.push(values ?? []);
         return {
           rows: [{ id: "7", created_at_ms: String(NOW - 1000), arrive_at_ms: String(NOW + 8 * 3_600_000) }],
@@ -50,7 +52,12 @@ describe("처리할 일 등록부", () => {
       },
     };
     const providers = createInboxProviders({ pool });
-    expect(providers.map((provider) => provider.kind)).toEqual(["wave_incoming"]);
+    expect(providers.map((provider) => provider.kind)).toEqual([
+      "wave_incoming",
+      "house_invite",
+      "house_application",
+      "house_notice",
+    ]);
     const list = await collectInbox(providers, ACCOUNT, NOW, false);
     expect(list.items.map((item) => [item.id, item.category, item.deadlineAt])).toEqual([
       ["wave_incoming:wave_7", "threat", NOW + 8 * 3_600_000],

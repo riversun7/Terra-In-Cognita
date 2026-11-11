@@ -49,6 +49,8 @@ const fail = (code: NationalityResultCode): NationalityCommandResult => ({ ok: f
 export function createCitizenshipGateway(options: {
   /** 세계가 준비되면 서비스(없으면 busy) */
   service: () => CitizenshipService | undefined;
+  /** 귀화가 커밋된 뒤 답하기 전에 부른다(가문 나라 맞추기 — 질문 983 가). 실패해도 귀화 결과는 그대로 답한다 */
+  afterChange?: ((userId: string) => Promise<void>) | undefined;
   now: () => number;
   log: {
     info(obj: object, message: string): void;
@@ -91,6 +93,12 @@ export function createCitizenshipGateway(options: {
             },
             "nationality changed",
           );
+        if (result.ok && options.afterChange)
+          await options
+            .afterChange(viewer.id)
+            .catch((error: unknown) =>
+              options.log.error({ err: error, userId: viewer.id }, "after nationality change failed"),
+            );
         reply(message.id, result);
       };
 

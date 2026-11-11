@@ -25,6 +25,7 @@ import {
   parseFactionName,
   parseFactionShort,
 } from "@terra/shared/factionIdentity";
+import { type HouseView, houseResetName, houseResetShort } from "@terra/shared/house";
 import { emblemSeedOf } from "@terra/shared/nationEmblem";
 import type { Role } from "@terra/shared";
 import { writeAudit } from "../auth/store.ts";
@@ -34,7 +35,10 @@ import { decodeBase64 } from "../nationEdit/png.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import { reasonedError } from "../trpc/init.ts";
-import { clearReports, houseNation, reportHouse } from "./house.ts";
+import { nationFromDb } from "./found.ts";
+import { clearReports, houseNation, reportHouse, resetHouseName } from "./house.ts";
+import { dismissHouseNotices, readHouseView } from "./houseView.ts";
+import { notify } from "./members.ts";
 import { checkPlayerEmblemPng } from "./png.ts";
 import { type HouseRules, TEST_HOUSE_RULES } from "./rules.ts";
 import {
@@ -114,7 +118,9 @@ export interface FactionIdentitySaveInput {
   readonly upload: FactionEmblemUploadInput;
 }
 
-export type OpsEmblemResult = { ok: true } | { ok: false; code: "not_found" | "no_upload" };
+export type OpsEmblemResult =
+  | { ok: true }
+  | { ok: false; code: "not_found" | "no_upload" | "no_house" | "short_taken" };
 
 export interface FactionIdentityServices {
   mine(viewer: IdentityViewer): Promise<FactionIdentityMine>;
@@ -123,6 +129,18 @@ export interface FactionIdentityServices {
   dismissNotice(viewer: IdentityViewer): Promise<FactionIdentityMine>;
   /** 다른 가문의 마크·이름 신고(질문 930 나) */
   report(viewer: IdentityViewer, input: { factionId: number }): Promise<FactionReportResult>;
+  /** 내 가문·받은 초대·보낸 신청·가입할 수 있는 가문·가문 소식(질문 985 다) */
+  house(viewer: IdentityViewer): Promise<HouseView>;
+  /** 가문 소식을 확인했다(ids가 없으면 모두) */
+  dismissHouseNotices(
+    viewer: IdentityViewer,
+    input: { ids?: readonly number[] | undefined },
+  ): Promise<HouseView>;
+  /** 운영자가 신고된 가문 이름을 "가문 #ID"로 되돌린다(질문 986 가) */
+  opsResetName(
+    viewer: IdentityViewer,
+    input: { userId: string; reason: string; resetShort: boolean },
+  ): Promise<OpsEmblemResult>;
   /** 운영자 콘솔 "마크 관리" */
   opsList(input?: { sort?: OpsEmblemSort | undefined }): Promise<OpsEmblemList>;
   opsTakedown(
@@ -241,6 +259,14 @@ export function createFactionIdentityServices(
       short: players.short || profiles.short || presets.short,
     };
   };
+
+  const houseOf = async (viewer: IdentityViewer): Promise<HouseView> =>
+    readHouseView(pool, {
+      userId: viewer.id,
+      nationId: (await nationFromDb(pool, viewer.id)) ?? null,
+      rules: shared.rules(),
+      nowMs: shared.now(),
+    });
 
   return {
     mine: (viewer) => mineOf(viewer),
@@ -362,6 +388,53 @@ export function createFactionIdentityServices(
           after: { factionId: input.factionId },
         });
       return { status };
+    },
+
+    house: houseOf,
+
+    async dismissHouseNotices(viewer, input) {
+      await dismissHouseNotices(pool, viewer.id, input.ids ?? null);
+      return houseOf(viewer);
+    },
+
+    async opsResetName(viewer, input) {
+      const reason = input.reason.trim().slice(0, FACTION_NOTICE_REASON_MAX);
+      const row = await loadIdentity(pool, input.userId);
+      if (!row) return { ok: false, code: "not_found" };
+      if (row.factionId === null) return { ok: false, code: "no_house" };
+      const name = houseResetName(row.factionId);
+      const now = shared.now();
+      let reset: Awaited<ReturnType<typeof resetHouseName>>;
+      try {
+        reset = await resetHouseName(pool, {
+          factionId: row.factionId,
+          name,
+          nameKey: squash(name),
+          shortName: input.resetShort ? houseResetShort(row.factionId) : null,
+          nowMs: now,
+          actorId: viewer.id,
+        });
+      } catch (error) {
+        if (uniqueViolation(error)) return { ok: false, code: "short_taken" };
+        throw error;
+      }
+      if (!reset) return { ok: false, code: "no_house" };
+      await notify(pool, {
+        userId: reset.ownerId,
+        factionId: row.factionId,
+        kind: "name_reset",
+        houseName: name,
+        reason: reason === "" ? null : reason,
+        nowMs: now,
+      });
+      await writeAudit(deps.db, {
+        actor: actor(viewer, "admin"),
+        action: "ops.house_name_reset",
+        targetId: reset.ownerId,
+        before: { factionId: row.factionId, name: reset.name, shortName: reset.shortName },
+        after: { factionId: row.factionId, name, shortName: reset.newShort, reason },
+      });
+      return { ok: true };
     },
 
     async opsList(input) {

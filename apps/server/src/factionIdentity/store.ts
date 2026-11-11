@@ -393,14 +393,18 @@ export interface RowQueryable {
   query(text: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
-/** 유저(유닛 주인)가 창설한 가문의 정체성 — 지도의 유닛 한눈 정보가 쓴다. 창설하지 않았으면 null(저장만 한 초안은 남에게 보이지 않는다). 그림 바이트는 읽지 않는다 */
+/**
+ * 유저(유닛 주인)가 든 가문의 정체성 — 지도의 유닛 한눈 정보가 쓴다. 가문장(창설자)이든 가문원이든(질문 985) 그 가문의 이름·마크다. 가문에
+ * 들지 않았으면 null(저장만 한 초안은 남에게 보이지 않는다). 그림 바이트는 읽지 않는다
+ */
 export async function ownerIdentityOf(
   pool: RowQueryable,
   userId: string,
 ): Promise<MapUnitOwnerIdentity | null> {
   const { rows } = await pool.query(
-    `select name, short_name, color, emblem_shape, emblem_division, emblem_charge, emblem_scheme, emblem_sha256, faction_id
-       from faction_identities where user_id = $1 and faction_id is not null`,
+    `select i.name, i.short_name, i.color, i.emblem_shape, i.emblem_division, i.emblem_charge, i.emblem_scheme,
+            i.emblem_sha256, i.faction_id
+       from house_members m join faction_identities i on i.faction_id = m.faction_id where m.user_id = $1`,
     [userId],
   );
   const row = rows[0];

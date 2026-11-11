@@ -31,6 +31,7 @@
     "./government": "./src/government.ts",
     "./holdings": "./src/holdings.ts",
     "./hospital": "./src/hospital.ts",
+    "./house": "./src/house.ts",
     "./inbox": "./src/inbox.ts",
     "./itemEditor": "./src/itemEditor.ts",
     "./labor": "./src/labor.ts",

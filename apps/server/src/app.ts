@@ -760,13 +760,19 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const hospitalGateway = world
     ? createHospitalGateway({ service: hospitalService, now, log: app.log })
     : undefined;
-  // 국적 바꾸기(docs/adr/2026-11-08-citizenship.md): 세계가 준비되고 NPC 사회 런타임이 돌 때만(서비스가 busy로 답한다)
-  const citizenshipGateway = world
-    ? createCitizenshipGateway({ service: citizenshipServiceOf(world, { now }), now, log: app.log })
-    : undefined;
-  // 가문 창설(docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"): DB가 있을 때만
-  const houseGateway = options.db
+  // 가문 창설·가입(docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"·"바뀜 (981~986 답)"): DB가 있을 때만
+  const houses = options.db
     ? attachHouses({ db: options.db, world, rules: houseRules, now, log: app.log })
+    : undefined;
+  const houseGateway = houses?.gateway;
+  // 국적 바꾸기(docs/adr/2026-11-08-citizenship.md): 세계가 준비되고 NPC 사회 런타임이 돌 때만(서비스가 busy로 답한다). 귀화 뒤 가문 나라를 맞춘다(983 가)
+  const citizenshipGateway = world
+    ? createCitizenshipGateway({
+        service: citizenshipServiceOf(world, { now }),
+        afterChange: houses?.afterNaturalize,
+        now,
+        log: app.log,
+      })
     : undefined;
   const marketGateway = world
     ? createMarketGateway({ service: () => marketSource()?.service, now, log: app.log })

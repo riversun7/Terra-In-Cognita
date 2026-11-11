@@ -43,8 +43,8 @@ export interface InboxKindDefinition {
 }
 
 /**
- * 종류 표. 시안 자료(dev·admin만, 권한 home: preview)가 쓰는 8개 + 정찰 끝(scout_returned, 시안 자료 없음). 제공 함수가 있는 종류는
- * planned: false다(wave_incoming·scout_returned).
+ * 종류 표. 시안 자료(dev·admin만, 권한 home: preview)가 쓰는 8개 + 정찰 끝(scout_returned)·가문 초대·가입 신청·가문 소식(house_*, 시안
+ * 자료 없음). 제공 함수가 있는 종류는 planned: false다(wave_incoming·scout_returned·house_invite·house_application·house_notice).
  * 5분류를 모두 보이고, 묶기·마감 없음·바로 처리 0~2개를 고루 넣었다. 나머지 예약 ID는 ADR 37 7절 표에 있다.
  * 새 종류를 더하는 순서(ADR 37 7절): 이 표 → messages의 inbox_<종류>_title(ko·en) → 기기 inboxText.ts →
  * 그 시스템의 제공 함수·등록부 한 줄·시험 → 바로 처리 처리기 → 푸시 분류(W6, 이 표에 칸을 더한다).
@@ -125,6 +125,26 @@ export const INBOX_KINDS = {
     badge: null,
     planned: true,
   },
+  // 제안·결정: 받은 가문 초대(질문 985 다). 초대마다 한 줄, 마감 = 초대가 사라지는 시각. 세력 화면 "내 가문" 칸에서 받거나 거절한다
+  house_invite: {
+    category: "decision",
+    grouped: false,
+    route: "faction",
+    actions: [],
+    badge: "faction",
+    // 제공 함수: 서버 factionIdentity/houseInbox.ts(docs/adr/2026-11-11-faction-identity.md "바뀜 (981~986 답)")
+    planned: false,
+  },
+  // 제안·결정: 내 가문(가문장)에 온 가입 신청. 가문마다 묶는다(가입 신청 N건), 마감 = 가장 이른 신청이 사라지는 시각
+  house_application: {
+    category: "decision",
+    grouped: true,
+    route: "faction",
+    actions: [],
+    badge: "faction",
+    // 제공 함수: 서버 factionIdentity/houseInbox.ts
+    planned: false,
+  },
   // 완료: 제작 완료(D-114). 사건마다 한 줄이고 확인하면 사라진다(inbox.ack, 첫 완료 종류와 함께 만든다)
   craft_done: {
     category: "done",
@@ -133,6 +153,17 @@ export const INBOX_KINDS = {
     actions: [],
     badge: null,
     planned: true,
+  },
+  // 완료: 가문 소식(@terra/shared/house HOUSE_NOTICE_KINDS — 받음·거절·나감·내보냄·나라가 달라져 빠짐·가문 이름 되돌림). 소식마다 한 줄,
+  // 세력 화면 "내 가문" 칸에서 [확인]하면 사라진다(inbox.ack가 아직 없어 그 칸이 확인 저장이다)
+  house_notice: {
+    category: "done",
+    grouped: false,
+    route: "faction",
+    actions: [],
+    badge: null,
+    // 제공 함수: 서버 factionIdentity/houseInbox.ts
+    planned: false,
   },
 } as const satisfies { readonly [kind: string]: InboxKindDefinition };
 

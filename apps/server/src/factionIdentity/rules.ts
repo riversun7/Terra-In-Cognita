@@ -15,9 +15,16 @@ export interface HouseRules {
   readonly reportDaily: number;
   /** 마크를 이만큼 내리면 올리기 자동 막기(0 = 끔) */
   readonly takedownBlock: number;
+  /** 가문 가입(질문 985 다): 인원 상한·가문마다 대기 수·사람마다 신청 수(모두 1 이상)·요청 유효 시간(ms) */
+  readonly memberMax: number;
+  readonly pendingMax: number;
+  readonly applyMax: number;
+  readonly requestTtlMs: number;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
+/** 1 이상(틀리거나 0이면 1 — 상한이 0이면 아무도 들 수 없어 가문장만 남는다) */
+const atLeastOne = (value: number): number => Math.max(1, whole(value));
 
 /** 세력·사회 계수표 → 가문 설정값(틀린 값은 0·저장 폭으로 좁힌다) */
 export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
@@ -28,6 +35,10 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
     renameWaitMs: whole(h.renameWaitMs),
     reportDaily: whole(h.reportDaily),
     takedownBlock: whole(h.takedownBlock),
+    memberMax: atLeastOne(h.memberMax),
+    pendingMax: atLeastOne(h.pendingMax),
+    applyMax: atLeastOne(h.applyMax),
+    requestTtlMs: Math.max(60_000, whole(h.requestTtlMs)),
   };
 }
 

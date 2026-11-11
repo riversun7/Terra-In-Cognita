@@ -308,6 +308,8 @@ export interface SocietyCoefficients {
    * - renameWaitMs: 이름·약어를 다시 바꾸기까지 기다리는 시간(49 S20, D-328 — 질문 932 가: 변경권 없이 대기만).
    * - reportDaily: 계정마다 하루(24시간) 신고 횟수(질문 930 나).
    * - takedownBlock: 마크를 이만큼 내리면 그 계정의 올리기를 저절로 막는다(질문 934 나, 0 = 끔).
+   * - memberMax·pendingMax·applyMax·requestTtlMs: 가문 가입(질문 985 다) — 인원 상한(가문장 포함), 가문마다 대기 중인 초대·신청 수,
+   *   사람마다 보낼 수 있는 신청 수, 초대·신청이 사라지는 시간(ms). 기획에 값이 없어 모두 [임시] 출발값이다(D-515).
    */
   readonly house: {
     readonly foundCost: number;
@@ -316,6 +318,10 @@ export interface SocietyCoefficients {
     readonly renameWaitMs: number;
     readonly reportDaily: number;
     readonly takedownBlock: number;
+    readonly memberMax: number;
+    readonly pendingMax: number;
+    readonly applyMax: number;
+    readonly requestTtlMs: number;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -531,6 +537,10 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     renameWaitMs: 7 * 86_400_000,
     reportDaily: 5,
     takedownBlock: 3,
+    memberMax: 20,
+    pendingMax: 20,
+    applyMax: 3,
+    requestTtlMs: 7 * 86_400_000,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

@@ -45,4 +45,17 @@ export const factionIdentityRouter = router({
     .mutation(({ ctx, input }) => ctx.identity.report(ctx.identityViewer, input)),
   /** 운영자가 마크를 내렸다는 알림을 확인했다 */
   dismissNotice: identityProcedure.mutation(({ ctx }) => ctx.identity.dismissNotice(ctx.identityViewer)),
+  /**
+   * 내 가문(구성원·대기 중인 요청)·받은 초대·보낸 신청·가입할 수 있는 내 나라 가문·가문 소식(질문 985 다, @terra/shared/house HouseView).
+   * 초대·신청·받기·나가기·내보내기는 WebSocket 명령이다(프로토콜 23)
+   */
+  house: identityProcedure.query(({ ctx }) => ctx.identity.house(ctx.identityViewer)),
+  /** 가문 소식을 확인했다(ids가 없으면 모두). 게임 상태가 아니라 읽음 표시라 tRPC다 */
+  dismissHouseNotices: identityProcedure
+    .input(
+      z
+        .strictObject({ ids: z.array(z.int().positive().max(Number.MAX_SAFE_INTEGER)).max(100).optional() })
+        .optional(),
+    )
+    .mutation(({ ctx, input }) => ctx.identity.dismissHouseNotices(ctx.identityViewer, { ids: input?.ids })),
 });

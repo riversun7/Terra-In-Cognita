@@ -7,11 +7,17 @@
 // 틀을 숨긴 화면(행성 편집기·항성계·2차맵 시험·전투 다시보기)은 자기 머리에 <ScopeBar route="…" inline />을 둔다.
 import type { RouteId } from "@terra/shared";
 import { ALL_PLANETS, type PlanetScopeEntry, type PlanetScopeStatus } from "@terra/shared/planetScope";
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { useRoute } from "../shell/routerStore.ts";
-import { type PlanetScope, reloadPlanetScope, usePlanetScope } from "./planetScopeStore.ts";
+import {
+  type PlanetScope,
+  adoptPlanetFromUrl,
+  reloadPlanetScope,
+  usePlanetScope,
+  writePlanetUrl,
+} from "./planetScopeStore.ts";
 import { type PlanetGroup, type ScopeKind, routeScope } from "./scopeRoutes.ts";
 import "./scope.css";
 
@@ -94,6 +100,24 @@ function PlanetPicker({ scope, labelId }: { scope: PlanetScope; labelId: string 
   );
 }
 
+/**
+ * 주소 ?planet=과 고른 행성을 맞춘다. 처음(주소로 바로 연 화면·뒤로/앞으로): 주소에 값이 있으면 그것을 고른 값으로 삼는다.
+ * 그 뒤(고르기를 바꿈·목록을 받음·주소 값이 고를 수 없는 행성이었음): 고른 값을 주소에 적는다.
+ * 라우터 주소가 바뀌면(key — 화면이 검색어를 갈아 끼움, 같은 화면의 다른 기록 칸) 새로 만들어져 처음부터 다시 한다
+ */
+function PlanetUrlSync({ group, selected }: { group: PlanetGroup; selected: string | null }) {
+  const adopted = useRef(false);
+  useEffect(() => {
+    if (!adopted.current) {
+      adopted.current = true;
+      // 주소 값을 삼았으면 저장소가 바뀌어 다시 그려진다 → 그때 아래에서 주소를 맞춘다(같으면 아무것도 하지 않는다)
+      if (adoptPlanetFromUrl(group) && selected === null) return;
+    }
+    if (selected !== null) writePlanetUrl(selected);
+  }, [group, selected]);
+  return null;
+}
+
 function PlanetBar({
   group,
   note,
@@ -106,7 +130,9 @@ function PlanetBar({
   routeId: RouteId;
 }) {
   const labelId = useId();
-  const scope = usePlanetScope(group, { syncUrl: true, url: useRoute().url });
+  const scope = usePlanetScope(group);
+  // 라우터 주소: 화면이 검색어를 갈아 끼우면(예: 구인 시험의 ?city=) ?planet=을 다시 적는다
+  const routerUrl = useRoute().url;
   return (
     <div
       className={inline ? "scope-bar scope-bar-inline" : "scope-bar"}
@@ -116,6 +142,7 @@ function PlanetBar({
       data-route={routeId}
       data-planet={scope.selected ?? ""}
     >
+      <PlanetUrlSync key={routerUrl} group={group} selected={scope.selected} />
       <span id={labelId} className="scope-label">
         {m.scope_label()}
       </span>

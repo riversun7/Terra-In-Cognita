@@ -228,3 +228,68 @@ test.describe("플레이어", () => {
     expect(deviceErrors).toEqual([]);
   });
 });
+
+// 범위 줄(docs/adr/2026-11-11-planet-scope.md): 개발·운영 화면마다 "어디에 반영되는가"가 머리에 보인다.
+// 표는 화면 코드(apps/game/src/scope/scopeRoutes.ts)와 따로 적은 약속이다 — 화면의 범위를 바꾸면 여기도 바꾼다.
+// 도구를 더하면 한 줄 더한다(줄이 없으면 그 화면은 이 시험 밖이다). 행성 고르기·주소 ?planet=은 e2e/planet-scope.spec.ts가 본다.
+const TOOL_SCOPES = [
+  ["/dev/tuning", "common"],
+  ["/dev/balance", "common"],
+  ["/dev/skills", "common"],
+  ["/dev/items", "common"],
+  ["/dev/effects", "common"],
+  ["/dev/buildings", "common"],
+  ["/dev/gather-tiers", "common"],
+  ["/dev/creatures", "common"],
+  ["/dev/nations", "common"],
+  ["/dev/world-layout", "planet"],
+  ["/dev/territory", "planet"],
+  ["/dev/recruit", "planet"],
+  ["/dev/second-map", "planet"],
+  ["/dev/planet-editor", "library"],
+  ["/dev/star-system", "system"],
+  ["/dev/battle-replay", "none"],
+  ["/dev/gpu-bench", "none"],
+  ["/dev/ops-grants", "none"],
+  ["/ops", "planet"],
+] as const;
+
+test.describe("범위 줄", () => {
+  test.describe("개발자", () => {
+    test.use({ account: "dev" });
+
+    test("개발 도구·운영자 콘솔마다 범위 줄이 하나 있고 종류가 맞다. 개발자 홈에는 없다", async ({
+      page,
+    }) => {
+      test.slow();
+      for (const [path, scope] of TOOL_SCOPES) {
+        await page.goto(path);
+        const bar = page.locator(".scope-bar");
+        await expect(bar, path).toHaveCount(1, { timeout: 30_000 });
+        await expect(bar, path).toHaveAttribute("data-scope", scope);
+        await expect(bar.locator(".scope-label"), path).toBeVisible();
+        if (scope === "planet") {
+          // 행성 고르기: 플레이 행성이 하나여도 이름으로 보인다
+          await expect(bar.locator(".scope-select"), path).toBeVisible();
+          await expect(bar.locator(".scope-select option").first(), path).not.toBeEmpty();
+        } else {
+          await expect(bar.locator(".scope-chip").first(), path).toBeVisible();
+          await expect(bar.locator(".scope-select"), path).toHaveCount(0);
+        }
+        await expect(bar.locator(".scope-note"), path).not.toBeEmpty();
+      }
+      await page.goto("/dev");
+      await framed(page);
+      await expect(page.locator(".scope-bar")).toHaveCount(0);
+    });
+  });
+
+  test.describe("관리자", () => {
+    test.use({ account: "admin" });
+
+    test("관리자 화면: 행성과 무관(계정)", async ({ page }) => {
+      await page.goto("/admin");
+      await expect(page.locator(".scope-bar")).toHaveAttribute("data-scope", "none");
+    });
+  });
+});

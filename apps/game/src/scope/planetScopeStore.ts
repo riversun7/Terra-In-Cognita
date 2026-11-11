@@ -85,8 +85,8 @@ function planetFromUrl(): string | null {
   return planetOfSearch(window.location.search);
 }
 
-/** 주소의 ?planet=을 고친다(기록 칸을 쌓지 않는다). 다른 검색어·#조각은 그대로 둔다 */
-function writeUrl(planetId: string): void {
+/** 주소의 ?planet=을 고친다(기록 칸을 쌓지 않는다). 다른 검색어·#조각은 그대로 둔다. 이미 같으면 아무것도 하지 않는다 */
+export function writePlanetUrl(planetId: string): void {
   const url = new URL(window.location.href);
   if (url.searchParams.get(PLANET_PARAM) === planetId) return;
   url.searchParams.set(PLANET_PARAM, planetId);
@@ -101,6 +101,18 @@ function load(): void {
     (list) => update({ status: "ready", list }),
     () => update({ status: "failed" }),
   );
+}
+
+/**
+ * 주소의 ?planet= 값을 그 묶음의 고른 값으로 삼는다(주소로 바로 연 화면·뒤로/앞으로). 주소에 값이 있었으면 true.
+ * 그 화면이 고를 수 없는 값이면 고른 값 풀기(resolvePlanetChoice)가 건너뛴다
+ */
+export function adoptPlanetFromUrl(group: PlanetGroup): boolean {
+  const fromUrl = planetFromUrl();
+  if (fromUrl === null) return false;
+  const key = memoryKeyOf(group);
+  if (snapshot.chosen[key] !== fromUrl) update({ chosen: { ...snapshot.chosen, [key]: fromUrl } });
+  return true;
 }
 
 /** 목록을 다시 받는다(실패 뒤 [다시 시도]) */
@@ -134,35 +146,15 @@ export interface PlanetScope {
 }
 
 /**
- * 그 묶음의 행성 범위. 처음 쓰는 화면이 목록을 받고, 주소의 ?planet=을 읽어 고른 값으로 삼는다(틀린 값은 버린다).
- * syncUrl이면 고른 값을 주소에 적는다(범위 줄이 켠다 — 한 화면에 한 곳만)
+ * 그 묶음의 행성 범위. 처음 쓰는 화면이 목록을 받는다.
+ * 주소 ?planet=을 읽고 적는 것은 범위 줄(ScopeBar.tsx PlanetUrlSync → adoptPlanetFromUrl·writePlanetUrl)이 한다 — 한 화면에 한 곳만
  */
-export function usePlanetScope(
-  group: PlanetGroup,
-  options?: {
-    readonly syncUrl?: boolean;
-    /** 라우터의 지금 주소: 화면이 주소를 바꾸면(검색어 갈아 끼우기) ?planet=을 다시 적는다 */
-    readonly url?: string;
-  },
-): PlanetScope {
+export function usePlanetScope(group: PlanetGroup): PlanetScope {
   const state = useSyncExternalStore(subscribe, getSnapshot);
   const key = memoryKeyOf(group);
-  const syncUrl = options?.syncUrl === true;
   useEffect(() => {
     if (snapshot.status === "idle") load();
   }, []);
-  // 주소로 바로 연 화면·뒤로/앞으로: ?planet= 값을 고른 값으로
-  useEffect(() => {
-    if (!syncUrl) return undefined;
-    const adopt = (): void => {
-      const fromUrl = planetFromUrl();
-      if (fromUrl !== null && snapshot.chosen[key] !== fromUrl)
-        update({ chosen: { ...snapshot.chosen, [key]: fromUrl } });
-    };
-    adopt();
-    window.addEventListener("popstate", adopt);
-    return () => window.removeEventListener("popstate", adopt);
-  }, [syncUrl, key]);
 
   const list = state.list;
   const allowed = list ? allowedIds(group, list) : [];
@@ -174,13 +166,6 @@ export function usePlanetScope(
         allowed,
       })
     : null;
-  const routerUrl = options?.url;
-  useEffect(() => {
-    if (!syncUrl || selected === null) return;
-    // 라우터가 아는 주소에 고른 행성이 없으면(화면이 검색어를 갈아 끼웠다) 다시 적는다. 이미 맞으면 writeUrl이 아무것도 하지 않는다
-    if (routerUrl === undefined || planetOfSearch(routerUrl) !== selected) writeUrl(selected);
-  }, [syncUrl, selected, routerUrl]);
-
   const planets = list ? list.planets.filter((planet) => allowed.includes(planet.id)) : [];
   const planet = planets.find((entry) => entry.id === selected) ?? null;
   return {

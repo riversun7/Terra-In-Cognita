@@ -39,6 +39,15 @@ jobs:
             echo '```'
             docker logs --since "${MINUTES}m" tic-app 2>&1 | grep '"metric":"server"' | tail -n 1440
             echo '```'
+            # 행성마다 한 줄("metric":"planet", docs/adr/2026-11-11-planet-scope.md). 서버 줄과 따로라 위 구역은 그대로다
+            echo "### 행성별 1분 지표 (2차맵·유닛·이동 중·보는 연결)"
+            echo '```'
+            docker logs --since "${MINUTES}m" tic-app 2>&1 | grep '"metric":"planet"' | tail -n 1440 || true
+            echo '```'
+            echo "### 행성별 DB 수 (지금)"
+            echo '```'
+            sql "select planet_id, 'cities' as what, count(*) as n from world_cities group by planet_id union all select c.planet_id, 'humans', count(*) from world_humans h join world_cities c on c.id = h.city_id group by c.planet_id union all select planet_id, 'buildings', count(*) from world_buildings group by planet_id union all select planet_id, 'polluted_cells', count(*) from planet_pollution group by planet_id union all select planet_id, 'active_waves', count(*) from gardener_waves where state in ('marching', 'fighting') group by planet_id order by 1, 2"
+            echo '```'
             echo "### 행성 준비 (컨테이너 시작 뒤 전체)"
             echo '```'
             docker logs tic-app 2>&1 | grep '"msg":"planet ' | tail -n 50 || true

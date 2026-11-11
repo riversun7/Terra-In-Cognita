@@ -229,6 +229,7 @@ export class UnitView {
   /**
    * 위치를 반영한다. x·y는 배치 칸 좌표, cellM은 배치 칸 한 변(m), groundAt은 땅 높이(m), frustum은 카메라 시야.
    * selected는 고른 칸(없으면 -1), pixelsPerMetre는 목표점에서 1m의 CSS 픽셀(선택 링 최소 크기용).
+   * skip[칸]이 0이 아닌 유닛은 캡슐을 그리지 않는다(캐릭터 모델로 그린 유닛 — characters/characterLayer.ts). 고른 표시는 발밑 고리만 그린다.
    */
   update(
     x: Float32Array,
@@ -238,6 +239,7 @@ export class UnitView {
     frustum: Frustum,
     selected: number,
     pixelsPerMetre: number,
+    skip?: Uint8Array,
   ): void {
     const n = this.count;
     if (this.mode === "model") {
@@ -245,6 +247,7 @@ export class UnitView {
       const c = this.instanceColors;
       let drawn = 0;
       for (let i = 0; i < n; i++) {
+        if (skip !== undefined && skip[i] !== 0) continue;
         const wx = (x[i] ?? 0) * cellM;
         const wz = (y[i] ?? 0) * cellM;
         const height = this.heights[i] ?? 0;
@@ -282,6 +285,8 @@ export class UnitView {
       this.dotGeometry.getAttribute("position").needsUpdate = true;
     }
     this.updateSelection(x, y, cellM, groundAt, selected, pixelsPerMetre);
+    // 모델로 그린 유닛에는 캡슐 강조 외곽선을 씌우지 않는다(발밑 고리만)
+    if (skip !== undefined && selected >= 0 && skip[selected] !== 0) this.selectedHull.visible = false;
   }
 
   dispose(): void {

@@ -119,6 +119,13 @@ export interface WorldSeedCoefficients {
   /** [임시] 그때 띄운 2차맵이 비어 있은 지 이만큼(ms) 지나면 내린다(유닛·건물·도시·구독·이동이 없음) */
   readonly mapSpawnIdleMs: number;
   /**
+   * [임시] 옆 2차맵 미리 띄우기(docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)"): 플레이어 유닛이 변에서 이만큼(배치 칸) 안에
+   * 서거나 그 안에서 끝나는 길을 걸으면 그 변 너머 2차맵을 넘기 전에 띄운다. 0이면 미리 띄우지 않는다
+   */
+  readonly mapPreopenCells: number;
+  /** [임시] 미리 띄운 2차맵에 유닛이 들어서지 않은 채 비어 있으면(변 가까운 유닛도 없음) 이만큼(ms) 뒤 내린다 */
+  readonly mapPreopenIdleMs: number;
+  /**
    * [임시] NPC 휴먼이 일터에 가는 지역 시각(기획 답 770 나 — 아침에 일터, 밤에 집, 하늘 낮밤과 맞춤, docs/adr/2026-11-07-play-flow.md
    * "WP-NPC4"): 그 2차맵 지역 하루의 천분율(250 = 06:00, 750 = 18:00). 시작 > 끝이면 밤을 넘는 몫, 같으면 늘 집. 보이는 움직임만(D-142 —
    * 산출은 도시 경제가 센다). 개발자 패널에서 0·1000으로 두면 바로 모두 일터로 가는 모습을 볼 수 있다
@@ -210,6 +217,9 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   // 그때 띄우기: 지금 NAS(17장 RSS 약 430MB)에 32장(약 +200MB)을 더해도 1GiB 안, 비우고 10분 뒤 내림
   mapSpawnMaxLoaded: 32,
   mapSpawnIdleMs: 10 * 60_000,
+  // 미리 띄우기: 시야(24칸)보다 두 배 먼 48칸(약 280m) — 시야가 경계를 넘기 전에 띄워 둔다. 들어서지 않으면 비우고 2분 뒤 내림
+  mapPreopenCells: 48,
+  mapPreopenIdleMs: 2 * 60_000,
   // 낮밤 일: 06:00~18:00(춘분·추분에 해가 뜨고 지는 지역 시각 — 1차맵 하늘 자전축 [임시] 23.44°라 계절·위도에 따라 해 뜨는 때는 다르다)
   workStartPm: 250,
   workEndPm: 750,

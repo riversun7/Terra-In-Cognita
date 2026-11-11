@@ -8492,6 +8492,42 @@
       "source": "ADR 2026-11-07-play-flow \"WP15\" [임시]"
     },
     {
+      "id": "map_preopen_cells",
+      "code": "",
+      "name": {
+        "ko": "옆 2차맵 미리 띄우기: 변에서 이만큼(배치 칸) 안의 플레이어 유닛",
+        "en": "Pre-open neighbour map: player unit within this many cells of the edge"
+      },
+      "value": 48,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 128,
+      "desc": {
+        "ko": "플레이어 유닛이 변에서 이만큼 안에 서거나 그 안에서 끝나는 길을 걸으면 옆 2차맵을 넘기 전에 띄운다. 0이면 미리 띄우지 않는다.",
+        "en": "Loads the neighbour map before a player unit crosses, once the unit stands or is headed within this many cells of the edge. 0 = off."
+      },
+      "source": "ADR 2026-11-08-seamless-second-map \"바뀜 (2026-11-12)\" [임시]"
+    },
+    {
+      "id": "map_preopen_idle_ms",
+      "code": "",
+      "name": {
+        "ko": "미리 띄운 2차맵: 아무도 들어서지 않고 비어 있으면 내리기까지(ms)",
+        "en": "Pre-opened second map: time empty (never entered) before closing (ms)"
+      },
+      "value": 120000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 86400000,
+      "desc": {
+        "ko": "미리 띄운 2차맵에 유닛이 들어서지 않은 채 비어 있고 변 가까운 유닛도 없으면 이만큼 뒤 내린다.",
+        "en": "A pre-opened second map that no unit entered unloads this long after it empties and no unit is near its edge."
+      },
+      "source": "ADR 2026-11-08-seamless-second-map \"바뀜 (2026-11-12)\" [임시]"
+    },
+    {
       "id": "npc_work_start_pm",
       "code": "",
       "name": {

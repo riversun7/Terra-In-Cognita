@@ -293,6 +293,19 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "그때 띄운 2차맵: 비어 있으면 내리기까지(ms)",
     "On-demand second map: time empty before closing (ms)",
   ),
+  // 옆 2차맵 미리 띄우기(docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)"): 49에 칸이 없어 map_preopen_*를 앞머리로 쓴다
+  k(
+    "map_preopen_cells",
+    "mapPreopenCells",
+    "옆 2차맵 미리 띄우기: 변에서 이만큼(배치 칸) 안의 플레이어 유닛",
+    "Pre-open neighbour map: player unit within this many cells of the edge",
+  ),
+  k(
+    "map_preopen_idle_ms",
+    "mapPreopenIdleMs",
+    "미리 띄운 2차맵: 아무도 들어서지 않고 비어 있으면 내리기까지(ms)",
+    "Pre-opened second map: time empty (never entered) before closing (ms)",
+  ),
   // NPC 휴먼 낮밤 일(기획 답 770 나, docs/adr/2026-11-07-play-flow.md "WP-NPC4"): 49에 칸이 없어 npc_work_*를 앞머리로 쓴다
   k(
     "npc_work_start_pm",

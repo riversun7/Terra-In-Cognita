@@ -679,7 +679,7 @@ export function startWorld(
     const travelParts = { maps, writer, pool: db, now, log, settlement, cyborgs, planetId: TEST_PLANET_ID };
     const travel = createWorldTravel({ ...travelParts, ready: () => status.state === "ready" });
     // 옆 2차맵을 그때 띄우기(730 다, mapSpawnWorld.ts): 이동 서비스에 잇고 부팅이 함께 띄운 플레이어 2차맵을 센다
-    const spawnParts = { maps, factory, paths, pool: db, planetId: TEST_PLANET_ID, travel, now, log };
+    const spawnParts = { maps, factory, paths, pool: db, planetId: TEST_PLANET_ID, travel, owners, now, log };
     const spawnRules = {
       rules: societyRules,
       cities: () => cities,

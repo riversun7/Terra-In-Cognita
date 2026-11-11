@@ -38,6 +38,10 @@ const EDGES: readonly { readonly x: number; readonly y: number }[] = [
 interface Rig {
   /** 내 사이보그를 세울 자리(바꾸면 다음 스냅샷·경로부터) */
   edge: { readonly x: number; readonly y: number };
+  /** false면 내 사이보그 경로를 고치지 않는다(진짜로 걷는 시험) */
+  rewrite: boolean;
+  /** 구독이 거절된 차례(2차맵 키·결과 코드) — 한 번이라도 거절됐는지 본다 */
+  readonly refusals: { readonly mapKey: number; readonly code: string }[];
   /** 기기가 구독한 2차맵 키(차례대로) */
   readonly subscribed: number[];
   /** 구독이 거절된 2차맵 키 */
@@ -65,6 +69,8 @@ async function rigSocket(page: Page): Promise<Rig> {
   let toPage: ((text: string) => void) | null = null;
   const rig: Rig = {
     edge: EDGES[0] ?? { x: 250, y: 128 },
+    rewrite: true,
+    refusals: [],
     subscribed: [],
     refused: [],
     refusedCodes: new Map(),
@@ -103,6 +109,7 @@ async function rigSocket(page: Page): Promise<Rig> {
         if (key !== undefined) {
           rig.refused.push(key);
           rig.refusedCodes.set(key, String(field(parsed, "code")));
+          rig.refusals.push({ mapKey: key, code: String(field(parsed, "code")) });
         }
       }
       const units = field(parsed, "units");
@@ -113,7 +120,7 @@ async function rigSocket(page: Page): Promise<Rig> {
         for (const unit of units) set.add(Number(field(unit, "id")));
         rig.snapshotUnits.set(key, set);
       }
-      if ((kind === "map_snapshot" || kind === "unit_paths") && Array.isArray(units)) {
+      if ((kind === "map_snapshot" || kind === "unit_paths") && Array.isArray(units) && rig.rewrite) {
         const rev = Number(field(parsed, "rev"));
         if (Number.isFinite(rev)) rig.revs.set(Number(field(parsed, "mapKey")), rev);
         for (const unit of units) {
@@ -648,6 +655,157 @@ test.describe("걸어서 넘기", () => {
       // 제자리로(다음 시험이 같은 사이보그를 처음 2차맵에서 쓴다)
       const now = await myPosition(side);
       if (now && (await fastTravel(side, now.mapKey, home.unitId, home))) await waitAt(side, home, 4);
+      await side.close();
+    }
+  });
+});
+
+// ---------- 옆 2차맵 미리 띄우기(실제 걷기, player) ----------
+// docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)": 도시 간격 뒤로 시작 도시 옆 2차맵은 서버가 띄우지 않은 들판이다. 플레이어가 변
+// 쪽으로 걷기 시작하면 서버가 그 이웃을 미리 띄우고, 사이보그 시야가 경계를 넘으면 그 몫을 볼 수 있게 한다 → 기기는 넘기 전에 그 이웃을
+// 구독해 vision을 받는다(unknown_map 거절 없음). 시야가 닿기 전 구독은 not_visible로 거절될 수 있고 기기가 다시 구독한다.
+
+/** 이동 명령마다 새 요청 ID(서버 명령 중복 방지가 같은 ID를 10분 동안 처음 결과로 돌려준다) */
+let commandIds = 20_000 + (Date.now() % 1_000_000) * 4;
+const nextCommandId = (): number => {
+  commandIds += 4;
+  return commandIds;
+};
+
+/** 설 수 있는 자리를 찾아 내 유닛을 그 2차맵 칸으로 보낸다(걷는 빠르기 — 보통 구독). 길을 받으면 true */
+async function walkTo(
+  side: Page,
+  mapKey: number,
+  unitId: number,
+  cellX: number,
+  cellY: number,
+): Promise<boolean> {
+  const replies = await sendCommands(
+    side,
+    [
+      { t: "subscribe", mapKey },
+      { t: "move_unit", mapKey, unitId, x: cellX * UNITS_PER_CELL + 512, y: cellY * UNITS_PER_CELL + 512 },
+    ],
+    nextCommandId(),
+  );
+  return field(replies[1], "ok") === true;
+}
+
+test.describe("옆 2차맵 미리 띄우기", () => {
+  test.use({ account: "player" });
+
+  test("시작 도시 변으로 걸어가면 넘기 전에 옆 2차맵을 구독해 시야를 받는다(unknown_map 없음)", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(600_000);
+    const side = await page.context().newPage();
+    let home: Position | null = null;
+    try {
+      await side.goto("/health");
+      home = await myPosition(side);
+      if (!home) throw new Error("player 사이보그 자리를 모릅니다");
+      // 가까운 동·서 변으로(변 바로 옆 칸 — 기기가 가는 쪽 이웃으로 미리 받는다), 막혔으면 다른 줄
+      const east = home.cellX >= 128;
+      const neighbour = isCellKey(home.mapKey) ? stepCell(home.mapKey, east ? 1 : -1, 0) : null;
+      if (neighbour === null) throw new Error("옆 2차맵이 없습니다");
+      let walking = false;
+      for (const dy of [0, 8, -8, 16, -16, 32, -32]) {
+        const cellY = Math.min(250, Math.max(5, home.cellY + dy));
+        if (await walkTo(side, home.mapKey, home.unitId, east ? 254 : 1, cellY)) {
+          walking = true;
+          break;
+        }
+      }
+      expect(walking).toBe(true);
+      const startedAt = Date.now();
+      const rig = await rigSocket(page);
+      rig.rewrite = false;
+      await page.goto("/map");
+      const map = page.locator(".map-screen[data-map-key]");
+      await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+      await expect(map).toHaveAttribute("data-map-key", String(home.mapKey), { timeout: 30_000 });
+      // 걷는 동안: 그 이웃을 구독하고, 시야가 경계를 넘으면 vision을 받는다
+      await expect.poll(() => rig.subscribed.includes(neighbour), { timeout: 60_000 }).toBe(true);
+      await expect
+        .poll(() => rig.visions.includes(neighbour), { timeout: 420_000, intervals: [1_000] })
+        .toBe(true);
+      const walkedMs = Date.now() - startedAt;
+      const codes = rig.refusals.filter((item) => item.mapKey === neighbour).map((item) => item.code);
+      console.log(`[preopen] ${JSON.stringify({ home: home.mapKey, neighbour, walkedMs, refused: codes })}`);
+      // 서버가 띄우지 않았다는 거절은 없다(넘기 전에 미리 띄웠다). 시야가 닿기 전 거절은 볼 수 없음뿐
+      expect(codes).not.toContain("unknown_map");
+      for (const code of codes) expect(code).toBe("not_visible");
+      // 아직 넘지 않았다: 지금 2차맵 그대로
+      await expect(map).toHaveAttribute("data-map-key", String(home.mapKey));
+      // 경계 너머 내 시야 몫이 밝은 이웃(멀리 보아 경계 양쪽이 보이게)
+      await page.locator(".zoom-ladder-out").click();
+      await page.waitForTimeout(1_500);
+      await shot(page, "edge-preopen-vision-390");
+      expect(deviceErrors).toEqual([]);
+    } finally {
+      // 다음 시험이 같은 사이보그를 쓴다: 처음 자리로 돌려보낸다(기다리지 않는다)
+      if (home) await walkTo(side, home.mapKey, home.unitId, home.cellX, home.cellY).catch(() => false);
+      await side.close();
+    }
+  });
+});
+
+// 잼(E2E_MEASURE=1, dev): 사이보그를 시작 2차맵 변 넷 가까이 차례로 세워(운영자 빠르기) 이웃 넷을 미리 띄우고, 가운데로 돌아와 내려가기까지
+// 기다린다. 서버 1분 지표(mapsOnDemand·mapsPreopened·rssMb — e2e/test-results/server.log)를 시각 표지([measure] 줄)와 맞춰 읽는다.
+// 세계 크기는 실행 환경 변수로 준다(예: NPC_TEST_NATIONS=16 S1_TEST_BOTS=1000).
+/** 잼 시각 표지(서버 1분 지표와 맞춰 읽는다) */
+const mark = (label: string): void => console.log(`[measure] ${new Date().toISOString()} ${label}`);
+
+test.describe("옆 2차맵 미리 띄우기 잼", () => {
+  test.use({ account: "dev" });
+  test.skip(process.env.E2E_MEASURE !== "1", "E2E_MEASURE=1일 때만(서버 1분 지표를 몇 번 기다린다)");
+
+  test("변 넷 가까이 서면 이웃 넷을 미리 띄우고, 떠나면 내린다(1분 지표)", async ({ page }) => {
+    test.setTimeout(900_000);
+    const side = await page.context().newPage();
+    try {
+      await side.goto("/health");
+      const home = await myPosition(side);
+      if (!home) throw new Error("dev 사이보그 자리를 모릅니다");
+      const move = async (cellX: number, cellY: number): Promise<boolean> => {
+        const replies = await sendCommands(
+          side,
+          [
+            { t: "subscribe", mapKey: home.mapKey, observe: true },
+            {
+              t: "move_unit",
+              mapKey: home.mapKey,
+              unitId: home.unitId,
+              x: cellX * UNITS_PER_CELL + 512,
+              y: cellY * UNITS_PER_CELL + 512,
+            },
+          ],
+          nextCommandId(),
+        );
+        return field(replies[1], "ok") === true;
+      };
+      mark("start");
+      await page.waitForTimeout(65_000);
+      mark("baseline");
+      for (const edge of EDGES) {
+        if (!(await move(edge.x, edge.y))) {
+          mark(`edge ${edge.x},${edge.y} blocked`);
+          continue;
+        }
+        // 막힌 칸이면 길이 그 가까이서 끝난다: 오래 기다리지 않고 닿은 자리를 적는다
+        await waitAt(side, { mapKey: home.mapKey, cellX: edge.x, cellY: edge.y }, 12).catch(() => undefined);
+        const at = await myPosition(side);
+        mark(`edge ${edge.x},${edge.y} at ${at ? `${at.mapKey}:${at.cellX},${at.cellY}` : "?"}`);
+      }
+      await page.waitForTimeout(65_000);
+      mark("all edges");
+      expect(await move(home.cellX, home.cellY)).toBe(true);
+      await waitAt(side, { mapKey: home.mapKey, cellX: home.cellX, cellY: home.cellY }, 4);
+      mark("back home");
+      await page.waitForTimeout(200_000);
+      mark("after idle");
+    } finally {
       await side.close();
     }
   });

@@ -8,6 +8,10 @@
 //   유닛만이 아니라 모든 유닛 — 그때 띄운 2차맵에는 봇·NPC 휴먼이 서지 않는다), 건물 0, 도시·폐허 없음, 구독(시야·전체 보기) 없음, 이 2차맵에
 //   서거나 노리는 이동 없음(holds). 전투는 참가 유닛·건물이 2차맵에 남은 채 도는 인스턴스라 유닛·건물이 0이면 그 2차맵의 전투도 없다.
 //   부팅 씨앗 2차맵(시험 줄·도시)은 내리지 않는다.
+// - 미리 띄우기(openEarly, docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)"): 플레이어 유닛이 변 가까이 오면(edgeWatch.ts) 넘기
+//   전에 띄운다. 같은 상한을 쓰고, 꽉 찼으면 open처럼 가장 오래 빈 것을 내리고 띄운다(비운 것이 없으면 띄우지 않는다 — 기록만). 미리 띄운 2차맵은
+//   살피기에서 유닛이 서 있는 것을 보기 전까지 "미리 띄움"이라, 비면 설정 칸 map_preopen_idle_ms(짧게) 뒤 내린다. 변 가까운 플레이어 유닛은
+//   붙잡음(holds)이라 그동안은 비어 있지 않다.
 // - 다시 켜면: 플레이어 유닛·건물이 선 2차맵을 부팅이 함께 띄운다(bootExtraMaps — 유닛·건물 행의 map_key가 저장이다, 새 표 없음). 그 2차맵도
 //   그때 띄운 2차맵으로 세어 비면 내린다.
 import { performance } from "node:perf_hooks";
@@ -19,6 +23,8 @@ import type { BuildingRow, SecondMap, UnitRow } from "./secondMap.ts";
 
 /** 비운 2차맵을 살피는 간격(ms) */
 export const SPAWN_SWEEP_MS = 60_000;
+/** 켠 뒤 처음 afterSweep(미리 띄우기 다시 보기)까지(ms) — 부팅이 색인한 변 가까운 유닛의 이웃을 띄운다 */
+export const FIRST_AFTER_SWEEP_MS = 5_000;
 
 /** 설정 칸 실효 값(세력·사회 계수표 worldSeed 칸) */
 export interface MapSpawnRules {
@@ -26,6 +32,8 @@ export interface MapSpawnRules {
   readonly maxLoaded: number;
   /** 비어 있은 지 이만큼(ms) 지나면 내린다 */
   readonly idleMs: number;
+  /** 미리 띄운 2차맵(유닛이 들어선 적 없음)은 비어 있은 지 이만큼(ms) 지나면 내린다. 없으면 idleMs */
+  readonly preopenIdleMs?: number | undefined;
 }
 
 /** 띄우기 결과: ok 띄움(이미 있었음 포함), full 상한(비운 것도 없음), invalid 이 행성의 2차맵 키가 아님, failed 지형·DB 오류 */
@@ -37,6 +45,8 @@ export interface MapSpawner {
   /** 하나 더 띄울 자리가 있나(상한 아래이거나 지금 내릴 수 있는 빈 2차맵이 있다) */
   hasRoom(): boolean;
   open(mapKey: number): Promise<OpenOutcome>;
+  /** 미리 띄운다(변 가까운 플레이어 유닛 — 비면 더 빨리 내린다). 이미 띄웠으면 그대로 */
+  openEarly(mapKey: number): Promise<OpenOutcome>;
   /** 곧 띄울 2차맵의 지형을 미리 받아 둔다(보내기 때 — 닿을 때는 캐시에서) */
   prefetch(mapKey: number): void;
   /** 부팅이 함께 띄운 플레이어 2차맵을 그때 띄운 2차맵으로 센다(비면 내린다) */
@@ -45,6 +55,8 @@ export interface MapSpawner {
   sweep(): number;
   /** 그때 띄운 2차맵 키 */
   readonly onDemand: ReadonlySet<number>;
+  /** 그 가운데 미리 띄운 것(유닛이 서 있는 것을 아직 보지 못함) */
+  readonly early: ReadonlySet<number>;
   takeMetrics(): Record<string, number>;
   start(): void;
   stop(): void;
@@ -61,6 +73,8 @@ export interface MapSpawnDeps {
   /** 내리면 안 되는 까닭이 있나(도시·폐허, 이 2차맵에 서거나 노리는 이동) */
   holds(mapKey: number): boolean;
   rules(): MapSpawnRules;
+  /** 살피기 뒤(1분마다)와 켠 뒤 한 번 부른다(미리 띄우기 다시 보기 — edgeWatch.ts reconcile). 없으면 없음 */
+  readonly afterSweep?: (() => void) | undefined;
   readonly now: () => number;
   readonly log: {
     info(obj: object, message: string): void;
@@ -112,19 +126,37 @@ export function cityOnMap(
   return false;
 }
 
+/** 1분 지표의 셈(내보낼 때마다 새로) */
+const freshCounts = () => ({
+  opened: 0,
+  closed: 0,
+  refused: 0,
+  failed: 0,
+  openMsMax: 0,
+  early: 0,
+  earlyRefused: 0,
+});
+
 export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
   const { maps, factory, paths, now, log } = deps;
   const onDemand = new Set<number>();
+  const early = new Set<number>();
   const opening = new Map<number, Promise<OpenOutcome>>();
   /** 비어 있음을 처음 본 시각(그때 띄운 2차맵만) */
   const emptySince = new Map<number, number>();
   let timer: ReturnType<typeof setInterval> | undefined;
+  let firstTimer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
-  let counts = { opened: 0, closed: 0, refused: 0, failed: 0, openMsMax: 0 };
+  let counts = freshCounts();
 
-  const rules = (): MapSpawnRules => {
+  const rules = (): { maxLoaded: number; idleMs: number; preopenIdleMs: number } => {
     const read = deps.rules();
-    return { maxLoaded: Math.max(0, Math.trunc(read.maxLoaded)), idleMs: Math.max(0, read.idleMs) };
+    const idleMs = Math.max(0, read.idleMs);
+    return {
+      maxLoaded: Math.max(0, Math.trunc(read.maxLoaded)),
+      idleMs,
+      preopenIdleMs: Math.max(0, read.preopenIdleMs ?? idleMs),
+    };
   };
 
   const isEmpty = (mapKey: number): boolean => {
@@ -151,14 +183,18 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
     if (!map) return;
     maps.delete(mapKey);
     onDemand.delete(mapKey);
+    early.delete(mapKey);
     emptySince.delete(mapKey);
     paths.drop(mapKey);
     map.stop();
     counts.closed += 1;
-    log.info({ mapKey, reason, loaded: maps.size, onDemand: onDemand.size }, "second map closed");
+    log.info(
+      { mapKey, reason, loaded: maps.size, onDemand: onDemand.size, early: early.size },
+      "second map closed",
+    );
   };
 
-  const build = async (mapKey: number): Promise<OpenOutcome> => {
+  const build = async (mapKey: number, preopen: boolean): Promise<OpenOutcome> => {
     const started = performance.now();
     const { map, source } = await factory.build(mapKey);
     const rows = (await deps.rows?.(mapKey)) ?? { units: [], buildings: [] };
@@ -170,6 +206,7 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
     const restored = map.restore(rows.units, rows.buildings);
     maps.set(mapKey, map);
     onDemand.add(mapKey);
+    if (preopen) early.add(mapKey);
     emptySince.set(mapKey, now());
     paths.add(map.replicaInit());
     factory.prefetchAround([mapKey]);
@@ -185,6 +222,7 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
         buildings: rows.buildings.length - restored.badBuildings.length,
         loaded: maps.size,
         onDemand: onDemand.size,
+        early: preopen,
       },
       "second map opened on demand",
     );
@@ -193,52 +231,63 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
 
   const sweep = (): number => {
     if (stopped) return 0;
-    const { idleMs } = rules();
+    const { idleMs, preopenIdleMs } = rules();
     const at = now();
     let closed = 0;
     // 도는 중에 지금 항목을 지워도 된다(Set 순회는 지운 항목을 건너뛴다)
     for (const mapKey of onDemand) {
+      // 유닛이 들어섰다: 미리 띄운 것이 아니라 보통 그때 띄운 2차맵으로 센다(비면 idleMs)
+      if (early.has(mapKey) && (maps.get(mapKey)?.gauges().units ?? 0) > 0) early.delete(mapKey);
       if (!isEmpty(mapKey)) {
         emptySince.delete(mapKey);
         continue;
       }
       const since = emptySince.get(mapKey);
       if (since === undefined) emptySince.set(mapKey, at);
-      else if (at - since >= idleMs) {
+      else if (at - since >= (early.has(mapKey) ? preopenIdleMs : idleMs)) {
         unload(mapKey, "idle");
         closed += 1;
       }
     }
+    deps.afterSweep?.();
     return closed;
+  };
+
+  const openWith = (mapKey: number, preopen: boolean): Promise<OpenOutcome> => {
+    if (maps.has(mapKey)) return Promise.resolve("ok");
+    if (stopped || !deps.isMapKey(mapKey)) return Promise.resolve("invalid");
+    const pending = opening.get(mapKey);
+    if (pending) return pending;
+    if (onDemand.size + opening.size >= rules().maxLoaded) {
+      const spare = evictable()[0];
+      if (spare === undefined) {
+        // 미리 띄우기는 변 가까이 있는 동안 1분마다 다시 해 본다 — 기록만 남기면 줄이 쌓인다(수만 센다)
+        if (preopen) counts.earlyRefused += 1;
+        else {
+          counts.refused += 1;
+          log.info({ mapKey, onDemand: onDemand.size }, "second map not opened: on-demand maps are full");
+        }
+        return Promise.resolve("full");
+      }
+      unload(spare, "room");
+    }
+    if (preopen) counts.early += 1;
+    const run = build(mapKey, preopen)
+      .catch((error: unknown) => {
+        counts.failed += 1;
+        log.error({ err: error, mapKey }, "second map could not be opened");
+        return "failed" as const;
+      })
+      .finally(() => opening.delete(mapKey));
+    opening.set(mapKey, run);
+    return run;
   };
 
   return {
     canOpen: (mapKey) => !maps.has(mapKey) && deps.isMapKey(mapKey),
     hasRoom: () => onDemand.size + opening.size < rules().maxLoaded || evictable().length > 0,
-    open(mapKey) {
-      if (maps.has(mapKey)) return Promise.resolve("ok");
-      if (stopped || !deps.isMapKey(mapKey)) return Promise.resolve("invalid");
-      const pending = opening.get(mapKey);
-      if (pending) return pending;
-      if (onDemand.size + opening.size >= rules().maxLoaded) {
-        const spare = evictable()[0];
-        if (spare === undefined) {
-          counts.refused += 1;
-          log.info({ mapKey, onDemand: onDemand.size }, "second map not opened: on-demand maps are full");
-          return Promise.resolve("full");
-        }
-        unload(spare, "room");
-      }
-      const run = build(mapKey)
-        .catch((error: unknown) => {
-          counts.failed += 1;
-          log.error({ err: error, mapKey }, "second map could not be opened");
-          return "failed" as const;
-        })
-        .finally(() => opening.delete(mapKey));
-      opening.set(mapKey, run);
-      return run;
-    },
+    open: (mapKey) => openWith(mapKey, false),
+    openEarly: (mapKey) => openWith(mapKey, true),
     prefetch(mapKey) {
       if (!maps.has(mapKey) && deps.isMapKey(mapKey)) factory.prefetch(mapKey);
     },
@@ -252,25 +301,42 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
     },
     sweep,
     onDemand,
+    early,
     takeMetrics() {
-      const out = { mapsOnDemand: onDemand.size, mapOpens: counts.opened, mapCloses: counts.closed };
+      const out = {
+        mapsOnDemand: onDemand.size,
+        mapsPreopened: early.size,
+        mapOpens: counts.opened,
+        mapCloses: counts.closed,
+      };
       const extra = {
+        ...(counts.early > 0 ? { mapPreopens: counts.early } : {}),
+        ...(counts.earlyRefused > 0 ? { mapPreopenRefused: counts.earlyRefused } : {}),
         ...(counts.refused > 0 ? { mapOpenRefused: counts.refused } : {}),
         ...(counts.failed > 0 ? { mapOpenFailed: counts.failed } : {}),
         ...(counts.opened > 0 ? { mapOpenMsMax: counts.openMsMax } : {}),
       };
-      counts = { opened: 0, closed: 0, refused: 0, failed: 0, openMsMax: 0 };
+      counts = freshCounts();
       return { ...out, ...extra };
     },
     start() {
       if (timer || stopped) return;
       timer = setInterval(sweep, SPAWN_SWEEP_MS);
       timer.unref();
+      if (deps.afterSweep) {
+        firstTimer = setTimeout(() => {
+          firstTimer = undefined;
+          if (!stopped) deps.afterSweep?.();
+        }, FIRST_AFTER_SWEEP_MS);
+        firstTimer.unref();
+      }
     },
     stop() {
       stopped = true;
       if (timer) clearInterval(timer);
+      if (firstTimer) clearTimeout(firstTimer);
       timer = undefined;
+      firstTimer = undefined;
     },
   };
 }

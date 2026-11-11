@@ -62,9 +62,11 @@ function fakeTerrain(): TerrainService {
 }
 
 // 이미 띄운 옆 2차맵(붙은 시작 도시)으로 걷는 시험이라 옛 배치(수도와 붙은 2차맵)로 고정한다 — 배후지 배치에서는 지방 도시가 4칸 넘게 떨어져 사이 2차맵을 그때 띄운다(배후지 반경 0, docs/adr/2026-11-11-city-catchment.md — 배후지 배치는 world/citySites.test.ts·worldLayout.db.test.ts)
+// 띄우지 않은 2차맵 건너뛰기(593 나)·닿을 때 띄우기(WP15)를 보는 시험이라 옆 2차맵 미리 띄우기(map_preopen_cells, docs/adr/2026-11-08-seamless-second-map.md
+// "바뀜 (2026-11-12)")를 끈다 — 켜면 변으로 가는 구간마다 다음 2차맵을 미리 띄워 걸어서 지난다(미리 띄우기는 world/edgePreopen.db.test.ts)
 const OLD_LAYOUT_RULES = {
   ...TEST_SOCIETY_COEFFICIENTS,
-  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, catchmentRadiusCells: 0 },
+  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, catchmentRadiusCells: 0, mapPreopenCells: 0 },
 };
 
 const silent = { info: () => {}, warn: () => {}, error: () => {} };

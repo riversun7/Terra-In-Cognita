@@ -18,10 +18,12 @@ const ASSET_CREDIT = "s3_test_credit";
 export async function sendCommands(
   page: Page,
   commands: readonly Record<string, unknown>[],
+  /** 첫 요청 ID(서버는 같은 사용자·2차맵·ID 명령을 10분 동안 한 번만 한다 — 같은 명령을 다시 보낼 때는 바꾼다) */
+  firstId = 9000,
 ): Promise<unknown[]> {
   await page.goto("/health");
   return page.evaluate(
-    async ({ list, protocolVersion }) => {
+    async ({ list, protocolVersion, baseId }) => {
       const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws`);
       const replies: unknown[] = [];
       socket.addEventListener("message", (event) => {
@@ -48,7 +50,7 @@ export async function sendCommands(
       );
       const out: unknown[] = [];
       for (const [index, command] of list.entries()) {
-        const id = 9000 + index;
+        const id = baseId + index;
         socket.send(JSON.stringify({ ...command, id }));
         out.push(
           await wait(
@@ -63,7 +65,7 @@ export async function sendCommands(
       socket.close();
       return out;
     },
-    { list: commands, protocolVersion: PROTOCOL_VERSION },
+    { list: commands, protocolVersion: PROTOCOL_VERSION, baseId: firstId },
   );
 }
 

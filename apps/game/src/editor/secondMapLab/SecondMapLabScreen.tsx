@@ -6,7 +6,8 @@
 // - 높이 과장은 엔진에 넘기기 전 지형 입력에만 곱한다(labTerrain.ts). 칸 정보는 과장 전 값이다.
 // - 엔진 렌더러는 앱에 하나다: 이 화면이 엔진을 들고 있는 동안 다른 지도 화면은 열려 있지 않다(틀 숨김 전체 화면).
 // 시험·측정용 data-*: data-status(loading·ready·failed), data-source, data-map-key, data-exaggeration, data-grid, data-sky,
-// data-neighbours·data-props(엔진 요약), data-light-hour, data-error.
+// data-neighbours·data-props·data-clutter·data-draw-calls·data-triangles·data-render-p95·data-view-span(엔진 요약, 2026-11-11 소품 측정),
+// data-light-hour, data-error.
 import {
   type EngineStats,
   type PlanetSkyMode,
@@ -385,6 +386,11 @@ function Lab({ definitions }: { definitions: LabDefinitions }) {
       data-sky={settings.sky ? "on" : "off"}
       data-neighbours={stats?.neighbours}
       data-props={stats?.props}
+      data-clutter={stats?.propClutter}
+      data-draw-calls={stats?.drawCalls}
+      data-triangles={stats?.triangles}
+      data-render-p95={stats?.renderP95Ms.toFixed(2)}
+      data-view-span={stats ? Math.round(stats.viewSpanM) : undefined}
       data-light-hour={light?.localHours == null ? undefined : light.localHours.toFixed(2)}
     >
       <div className="sml-stage">

@@ -251,11 +251,18 @@ export function createSecondMapEngine(
   const syncPropSources = (): void => {
     const sources: PropSource[] = [];
     if (terrain?.art && terrain.cover)
-      sources.push({ art: terrain.art, cover: terrain.cover, placement: null, salt: propSalt(mainId) });
+      sources.push({
+        art: terrain.art,
+        cover: terrain.cover,
+        surface: terrain.surface,
+        placement: null,
+        salt: propSalt(mainId),
+      });
     for (const layer of neighbours.propLayers()) {
       sources.push({
         art: layer.art,
         cover: layer.cover,
+        surface: layer.surface,
         placement: layer.placement,
         salt: propSalt(layer.id),
       });
@@ -760,6 +767,7 @@ export function createSecondMapEngine(
         light: sceneLight.stats(),
         neighbours: neighbours.count,
         props: propView.drawn,
+        propClutter: propView.clutterDrawn,
         routePoints: routeView.stats.points,
         moveTarget: routeView.stats.target,
         propSpanM: propView.limits.spanM,

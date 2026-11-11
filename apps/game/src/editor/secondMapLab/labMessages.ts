@@ -62,6 +62,17 @@ const ART_TEXT: Readonly<Record<(typeof MAP_PROP_ARTS)[number], () => string>> =
   reeds: m.second_map_lab_art_reeds,
   boulder: m.second_map_lab_art_boulder,
   log: m.second_map_lab_art_log,
+  cactus: m.second_map_lab_art_cactus,
+  dry_shrub: m.second_map_lab_art_dry_shrub,
+  tall_grass: m.second_map_lab_art_tall_grass,
+  flowers: m.second_map_lab_art_flowers,
+  stones: m.second_map_lab_art_stones,
+  driftwood: m.second_map_lab_art_driftwood,
+  termite_mound: m.second_map_lab_art_termite_mound,
+  dead_tree: m.second_map_lab_art_dead_tree,
+  fern: m.second_map_lab_art_fern,
+  ice_block: m.second_map_lab_art_ice_block,
+  bones: m.second_map_lab_art_bones,
 };
 
 export function artText(code: number | null): string {

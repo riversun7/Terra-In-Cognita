@@ -79,6 +79,13 @@
 | `e2e/seamless.spec.ts`, `e2e/shell.spec.ts` | 걸어서 넘기 시험(프레임 기록), 넘어도 4/5·다시 구독 없음, 빌드 글 |
 | `docs/adr/2026-11-08-seamless-second-map.md`, `docs/questions/2026-11-11-map-seamless-2.md` | 바뀜 절, 질문 976~980 |
 
+## 검사 (Verified: 실행, 커밋 `719aada` + 문서)
+- `pnpm check`(`TEST_DATABASE_URL` 있음): 통과 — 시험 파일 581·시험 4,504.
+- `pnpm build` → `node scripts/check-pwa.mjs` 통과 → `pnpm check:bundle` 통과(첫 화면 JS 108,077 B / 상한 131,416 B).
+- 화면 시험: `seamless` 5(걸어서 넘기 측정 포함, `E2E_MEASURE=1`)·`unit-control` 21·`play-map` 23·`map-input` 7·`map-viewdist` 1(측정 1 건너뜀)·`shell` 16 모두 통과.
+- `battle-replay` 사진 8개 실패("no moment with effects" — 둘째 싸움 순간을 못 찾음), 재생 시험 1개 통과. 같은 실패를 이 줄기 엔진 변경과 상관없는 `planet-scope` 줄기도 적었다(그 작업 기록). 시범 전투 자료에 달린 것으로 본다 — Assumed(main에서는 돌려 보지 않았다). 고치지 않았다.
+- 사진(헤드리스, 픽셀 비율 1): 넘기 전·넘은 직후·100배로 돌아온 뒤(`seamless-walk-after-1-before`·`-2-crossed`, `seamless-fast-after-3-back`).
+
 ## 함께 바꿔야 하는 파일
 - 넘을 때 엔진에 넣는 차례를 바꾸면: `SecondaryMapScreen.tsx` `crossRef` ↔ `mapSession.ts`(시작 차례: 유닛 합치기 → 이어 보일 유닛 → 지금 2차맵 흐름 붙이기 → 이웃 흐름) ↔ `unitMerge.ts`.
 - 서버 한 연결 구독 상한(`apps/server/src/world/gateway.ts` `MAX_MAPS_PER_SOCKET` 4)을 바꾸면 `mapFeedPool.ts` `MAX_CHANNELS`·`mapSession.ts` `MAX_NEIGHBOUR_CHANNELS`.

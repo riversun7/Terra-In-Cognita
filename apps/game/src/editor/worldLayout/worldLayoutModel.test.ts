@@ -5,6 +5,8 @@ import type { WorldPlacementNationView } from "@terra/shared/worldPlacementApi";
 import { describe, expect, it } from "vitest";
 import { cellAtLatLon } from "../planet/cellReport.ts";
 import {
+  catchmentRows,
+  radiusCells,
   assembleFlatFields,
   cellTone,
   gridCells,
@@ -142,12 +144,32 @@ describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
     ]);
     expect(cells[8]?.tone).toBe("void");
     expect(meanCover([])).toBeNull();
-    const city = { di: 0, dj: 0, code: "a", own: true };
+    const city = {
+      di: 0,
+      dj: 0,
+      code: "a",
+      own: true,
+      radiusMilli: 1500,
+      targetMilli: 2400,
+      shared: 0,
+      population: 30,
+    };
     expect(
       meanCover([
         { ...city, cover: 666 },
         { ...city, cover: 1000 },
       ]),
     ).toBe(833);
+    // 도시 표: 지금 → 계획, 반경은 칸(소수 둘째 자리), 반경이 아주 작으면 원은 반 칸
+    const rows = catchmentRows(
+      [{ ...city, cover: 700, shared: 3 }],
+      [{ ...city, cover: 900, radiusMilli: 2400, population: null }],
+    );
+    expect(rows.map((row) => [row.kind, row.n, row.radius, row.target, row.shared, row.population])).toEqual([
+      ["world", 1, "1.50", "2.40", 3, 30],
+      ["plan", 1, "2.40", "2.40", 0, null],
+    ]);
+    expect(radiusCells(2400)).toBe(2.4);
+    expect(radiusCells(100)).toBe(0.5);
   });
 });

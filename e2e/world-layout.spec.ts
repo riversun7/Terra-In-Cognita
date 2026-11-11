@@ -229,7 +229,7 @@ test.describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
         ...(width >= 1000 ? VIEWPORTS.desktop : { viewport: { width, height: 844 } }),
       });
 
-      test("고른 국가 수도 둘레 격자·지금(실선)·계획(점선) 배후지, 간격 값, 겹친 쌍 0", async ({
+      test("고른 국가 수도 둘레 격자·지금(실선)·목표·계획(점선) 배후지, 도시 크기 간격, 겹친 쌍·다툼 칸 0, 도시 표", async ({
         page,
         deviceErrors,
       }) => {
@@ -240,8 +240,18 @@ test.describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
         const radius = Number(field(api.data, "radiusCells"));
         const span = Number(field(api.data, "span"));
         expect(radius).toBe(2);
-        expect(field(api.data, "sameGapCells")).toBe(4);
-        expect(field(api.data, "foreignGapCells")).toBe(6);
+        // 간격 = 고른 국가 지방 도시 둘의 목표 반경 합 × 천분율(바뀜 2026-11-12 — 국가 크기마다 다르다)
+        const same = Number(field(api.data, "sameGapCells"));
+        expect(same).toBeGreaterThan(3);
+        expect(Number(field(api.data, "foreignGapCells"))).toBeCloseTo(same * 1.5, 1);
+        // 도시마다 지금·목표 반경이 있고, 계획 도시는 다툼 칸이 없다
+        const planCities = list(field(api.data, "plan"));
+        expect(planCities.length).toBeGreaterThan(0);
+        for (const city of planCities) {
+          expect(Number(field(city, "targetMilli"))).toBeGreaterThanOrEqual(1000);
+          expect(field(city, "shared")).toBe(0);
+        }
+        expect(field(api.data, "contestedPlan")).toBe(0);
         expect(list(field(api.data, "cells"))).toHaveLength((2 * span + 1) ** 2);
         // 계획(새 배치)은 배후지가 겹친 도시 쌍이 없다. 지금 세계 값은 앞서 도는 시험(폐허 복원·자리 놓기 등)이 도시를 더해 바뀔 수
         // 있어 수로만 본다(시험 순서에 따라 달라진다)
@@ -255,7 +265,8 @@ test.describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
         await expect(panel.locator(".wl-catch-cell")).toHaveCount((2 * span + 1) ** 2);
         await expect(panel.locator('[data-catch-city="world"][data-own]').first()).toBeVisible();
         await expect(panel.locator('[data-catch-city="plan"]').first()).toBeAttached();
-        await expect(panel.locator("[data-catch-summary]")).toContainText("2");
+        await expect(panel.locator("[data-catch-summary]")).toContainText(same.toFixed(1));
+        await expect(panel.locator("[data-catch-table] tbody tr").first()).toBeVisible();
         await panel.evaluate((node) => node.scrollIntoView({ block: "start" }));
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);

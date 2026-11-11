@@ -258,6 +258,43 @@ export function gridCells(
   });
 }
 
+/** 반경(1000분율 칸) → 격자 단위 반경(칸). 너무 작으면 반 칸(점이 보이게) */
+export function radiusCells(radiusMilli: number): number {
+  return Math.max(0.5, radiusMilli / 1000);
+}
+
+/** 고른 국가 도시 표 한 줄(지금 도시 → 계획 도시 차례, 차례 번호 1부터) */
+export interface CatchmentRow {
+  readonly id: string;
+  readonly kind: "world" | "plan";
+  readonly n: number;
+  readonly population: number | null;
+  /** 칸(소수 둘째 자리 글자) */
+  readonly radius: string;
+  readonly target: string;
+  readonly shared: number;
+  readonly cover: number;
+}
+
+export function catchmentRows(
+  world: readonly WorldCatchmentCity[],
+  plan: readonly WorldCatchmentCity[],
+): CatchmentRow[] {
+  const row =
+    (kind: "world" | "plan") =>
+    (city: WorldCatchmentCity, index: number): CatchmentRow => ({
+      id: `${kind}-${index}`,
+      kind,
+      n: index + 1,
+      population: city.population,
+      radius: (city.radiusMilli / 1000).toFixed(2),
+      target: (city.targetMilli / 1000).toFixed(2),
+      shared: city.shared,
+      cover: city.cover,
+    });
+  return [...world.map(row("world")), ...plan.map(row("plan"))];
+}
+
 /** 도시 목록의 평균 덮임(‰, 내림). 없으면 null */
 export function meanCover(cities: readonly WorldCatchmentCity[]): number | null {
   if (cities.length === 0) return null;

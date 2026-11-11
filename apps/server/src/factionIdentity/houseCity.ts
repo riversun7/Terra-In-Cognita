@@ -81,6 +81,41 @@ async function houseRowOf(q: IdentityQueryable, factionId: number): Promise<Hous
     : null;
 }
 
+/** 고르기 검사: 이미 고른 가문은 그 상태여야, 처음이면 독립은 체제가 있어야 */
+const choiceProblem = (
+  npc: NpcRuntime,
+  house: HouseRow,
+  input: HouseCityChoice,
+): HouseCityResultCode | null => {
+  const mirror = npc.houses.mirrorOf(house.id);
+  if (mirror) return (mirror.vassal ? "vassal" : "independent") === input.mode ? null : "mode_locked";
+  if (input.mode === "independent" && input.regime === undefined) return "regime_required";
+  // 봉신은 나라가 거울 세계에 살아 있어야 한다
+  if (input.mode === "vassal" && (house.nation === null || npc.houses.ownerOfRow(house.nation) === undefined))
+    return "busy";
+  return null;
+};
+
+/** 가문을 들인다(이미 들였으면 그 주체) */
+const settle = (npc: NpcRuntime, house: HouseRow, input: HouseCityChoice, at: number): number | undefined =>
+  npc.houses.adopt({
+    rowId: house.id,
+    nationRowId: house.nation,
+    vassal: input.mode === "vassal",
+    regime: input.regime ?? "democracy",
+    nowMs: at,
+  });
+
+/** 내 편 세력(그 영향권 안에 세워도 된다): 가문 자신 + 봉신이면 나라 */
+const ownSide = (npc: NpcRuntime, house: HouseRow, mode: HouseCityMode): number[] => {
+  const out: number[] = [];
+  const mirror = npc.houses.mirrorOf(house.id);
+  if (mirror) out.push(mirror.ownerId);
+  const nation = house.nation === null ? undefined : npc.houses.ownerOfRow(house.nation);
+  if (mode === "vassal" && nation !== undefined) out.push(nation);
+  return out;
+};
+
 export function createHouseCity(o: {
   readonly pool: IdentityQueryable;
   readonly db?: Database | undefined;
@@ -112,44 +147,6 @@ export function createHouseCity(o: {
     const house = await houseRowOf(o.pool, mine.factionId);
     if (!house) return { ok: false, code: "no_house" };
     return { ok: true, world: { ...world, persistence }, npc, house };
-  };
-
-  /** 고르기 검사: 이미 고른 가문은 그 상태여야, 처음이면 독립은 체제가 있어야 */
-  const choiceProblem = (
-    npc: NpcRuntime,
-    house: HouseRow,
-    input: HouseCityChoice,
-  ): HouseCityResultCode | null => {
-    const mirror = npc.houses.mirrorOf(house.id);
-    if (mirror) return (mirror.vassal ? "vassal" : "independent") === input.mode ? null : "mode_locked";
-    if (input.mode === "independent" && input.regime === undefined) return "regime_required";
-    // 봉신은 나라가 거울 세계에 살아 있어야 한다
-    if (
-      input.mode === "vassal" &&
-      (house.nation === null || npc.houses.ownerOfRow(house.nation) === undefined)
-    )
-      return "busy";
-    return null;
-  };
-
-  /** 가문을 들인다(이미 들였으면 그 주체) */
-  const settle = (npc: NpcRuntime, house: HouseRow, input: HouseCityChoice, at: number): number | undefined =>
-    npc.houses.adopt({
-      rowId: house.id,
-      nationRowId: house.nation,
-      vassal: input.mode === "vassal",
-      regime: input.regime ?? "democracy",
-      nowMs: at,
-    });
-
-  /** 내 편 세력(그 영향권 안에 세워도 된다): 가문 자신 + 봉신이면 나라 */
-  const ownSide = (npc: NpcRuntime, house: HouseRow, mode: HouseCityMode): number[] => {
-    const out: number[] = [];
-    const mirror = npc.houses.mirrorOf(house.id);
-    if (mirror) out.push(mirror.ownerId);
-    const nation = house.nation === null ? undefined : npc.houses.ownerOfRow(house.nation);
-    if (mode === "vassal" && nation !== undefined) out.push(nation);
-    return out;
   };
 
   /** 커밋 뒤: 가문원 소식·시야 묶음·감사 기록 */

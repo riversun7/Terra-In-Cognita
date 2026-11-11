@@ -551,6 +551,59 @@ test.describe("가문 가입·이름 되돌리기", () => {
       expect(deviceErrors).toEqual([]);
     });
   });
+
+  // 가문 도시·해산(질문 1005 가·1003 가, docs/adr/2026-11-11-house-village.md) — player는 혼자 남은 가문장이다
+  test.describe("11. player: 가문 도시 칸", () => {
+    test.use({ account: "player" });
+
+    test("상태(아직)·처음 고르기·제안 자리·값이 보이고 [마을 세우기]가 서버까지 가서 답을 받는다(시험 계정 잔고는 값보다 적다)", async ({
+      page,
+      deviceErrors,
+    }) => {
+      await openFaction(page);
+      const city = house(page).locator('[data-testid="house-city"]');
+      await expect(city).toBeVisible();
+      await expect(city).toHaveAttribute("data-status", "none");
+      await expect(city).toContainText(message("ko", "fid_city_status_none"));
+      await expect(city.locator(".fid-city-choice")).toBeVisible();
+      // 독립을 고르면 체제 고르기가 보인다
+      await city.locator('input[name="fid-city-mode"]').nth(1).check();
+      await expect(city.locator("select")).toBeVisible();
+      await city.locator('input[name="fid-city-mode"]').first().check();
+      const found = city.locator('[data-testid="house-village-found"]');
+      await expect(found).toBeVisible();
+      await found.click();
+      await expect(city.locator(".fid-house-status-error")).toHaveText(
+        message("ko", "fid_city_error_insufficient_funds"),
+      );
+      await expect(city).toHaveAttribute("data-status", "none");
+      expect(await horizontalOverflow(page)).toEqual([]);
+      await city.scrollIntoViewIfNeeded();
+      await shot(page, "house-city-pastel-ko-390");
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe("12. player: 혼자 남은 가문장의 해산", () => {
+    test.use({ account: "player" });
+
+    test("[가문 해산] 확인 줄 → 해산 → 정체성은 초안(가문 창설 마치기)으로 남는다", async ({
+      page,
+      deviceErrors,
+    }) => {
+      await openFaction(page);
+      const button = house(page).getByRole("button", { name: message("ko", "fid_house_dissolve") });
+      await expect(button).toBeVisible();
+      await button.click();
+      await house(page).locator(".fid-house-confirm .button-primary").click();
+      await expect(house(page).locator(".fid-house-status")).toHaveText(
+        message("ko", "fid_house_done_dissolved"),
+      );
+      await expect(house(page).locator('[data-testid="house-members"]')).toHaveCount(0);
+      expect(field(await trpcInPage(page, "factionIdentity.mine"), "house")).toBeNull();
+      expect(deviceErrors).toEqual([]);
+    });
+  });
 });
 
 // 사진(저장하지 않는다): dev는 정체성을 정하지 않은 계정이라 늘 "정하기" 모습이다

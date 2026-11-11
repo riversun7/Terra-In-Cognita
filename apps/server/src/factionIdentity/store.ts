@@ -314,7 +314,7 @@ export async function listModeration(
        join users u on u.id = i.user_id
        left join cyborgs c on c.user_id = i.user_id
       where i.emblem_sha256 is not null or i.upload_blocked or i.notice_kind is not null
-         or i.rename_blocked or i.name_reset_count > 0
+         or i.rename_blocked
          or exists (select 1 from house_reports r where r.faction_id = i.faction_id)
       order by ${order}
       limit ${OPS_EMBLEM_LIMIT}`,

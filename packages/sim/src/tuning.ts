@@ -14,6 +14,7 @@ import { RECRUIT_TUNING_KEYS } from "./tuningRecruit.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
 import { GATHER_OBJECT_TUNING_KEYS } from "./tuningGather.ts";
+import { HOUSE_TUNING_KEYS } from "./tuningHouse.ts";
 import { LABOR_TUNING_KEYS } from "./tuningLabor.ts";
 import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
 import { RANKING_TUNING_KEYS } from "./tuningRanking.ts";
@@ -639,6 +640,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...SWITCH_TUNING_KEYS,
   // 2차맵 원자재 오브젝트 채집(49에 칸 없음 [임시], docs/adr/2026-11-07-gather-objects.md): tuningGather.ts
   ...GATHER_OBJECT_TUNING_KEYS,
+  // 플레이어 가문(49 S20, 질문 926~935 답): tuningHouse.ts
+  ...HOUSE_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

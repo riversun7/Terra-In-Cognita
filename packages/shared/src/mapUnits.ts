@@ -85,6 +85,8 @@ export interface MapUnitOwnerIdentity {
   readonly emblem: NationEmblemSpec;
   /** 올린 그림 해시(있으면 그림이 먼저) */
   readonly uploaded: string | null;
+  /** 그 가문 세력 행 ID([신고]가 보낸다 — 질문 930 나). 옛 서버면 없음 */
+  readonly houseId?: number;
 }
 
 /** 남의 유닛을 눌렀을 때의 한눈 정보(636 나): 지금 내 시야 안일 때만. 세력이 없으면(무소속 유저) faction null */

@@ -39,6 +39,10 @@ export const factionIdentityRouter = router({
   save: identityProcedure
     .input(z.strictObject({ name: nameText, shortName: nameText, color: z.string().max(16), emblem, upload }))
     .mutation(({ ctx, input }) => ctx.identity.save(ctx.identityViewer, input)),
+  /** 다른 가문의 마크·이름을 신고한다(질문 930 나, 하루 횟수는 설정 칸) */
+  report: identityProcedure
+    .input(z.strictObject({ factionId: z.int().positive().max(Number.MAX_SAFE_INTEGER) }))
+    .mutation(({ ctx, input }) => ctx.identity.report(ctx.identityViewer, input)),
   /** 운영자가 마크를 내렸다는 알림을 확인했다 */
   dismissNotice: identityProcedure.mutation(({ ctx }) => ctx.identity.dismissNotice(ctx.identityViewer)),
 });

@@ -8544,6 +8544,114 @@
         "en": "How often station storage is hauled to the city storage."
       },
       "source": "ADR 2026-11-07-gather-objects [임시]"
+    },
+    {
+      "id": "house_found_cost",
+      "code": "",
+      "name": {
+        "ko": "가문 창설 비용(최소 단위)",
+        "en": "House founding cost (minor units)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000,
+      "desc": {
+        "ko": "가문(플레이어 세력)을 만들 때 내는 값. 창설자 나라 국고로 간다. 0이면 공짜.",
+        "en": "Paid when founding a house (player faction); goes to the founder's nation treasury. 0 = free."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (926~935 답)\" · 질문 926"
+    },
+    {
+      "id": "s20_short_min",
+      "code": "S20",
+      "name": {
+        "ko": "세력 약어 최소 글자 수",
+        "en": "Faction tag minimum length"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 2,
+      "max": 5,
+      "desc": {
+        "ko": "새로 정하는 세력 약어(지도 태그)의 가장 짧은 길이.",
+        "en": "Shortest length of a newly chosen faction tag (map tag)."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (926~935 답)\" · 질문 928"
+    },
+    {
+      "id": "s20_short_max",
+      "code": "S20",
+      "name": {
+        "ko": "세력 약어 최대 글자 수",
+        "en": "Faction tag maximum length"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 2,
+      "max": 5,
+      "desc": {
+        "ko": "새로 정하는 세력 약어의 가장 긴 길이. 이미 정한 더 긴 약어는 그대로 둔다.",
+        "en": "Longest length of a newly chosen faction tag. Existing longer tags are kept."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (926~935 답)\" · 질문 928"
+    },
+    {
+      "id": "house_rename_wait_ms",
+      "code": "S20",
+      "name": {
+        "ko": "세력 이름·약어 변경 대기(ms)",
+        "en": "Faction rename wait (ms)"
+      },
+      "value": 604800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 31536000000,
+      "desc": {
+        "ko": "가문 이름·약어를 바꾼 뒤 다시 바꾸기까지 기다리는 시간. 색·마크는 바로 바꾼다.",
+        "en": "Time before a house may change its name or tag again. Colour and emblem change at once."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (926~935 답)\" · 질문 932"
+    },
+    {
+      "id": "house_report_daily",
+      "code": "",
+      "name": {
+        "ko": "하루 신고 횟수(계정마다)",
+        "en": "Reports per day (per account)"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "한 계정이 24시간 동안 다른 가문의 마크·이름을 신고할 수 있는 횟수.",
+        "en": "How many houses one account may report in 24 hours."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (926~935 답)\" · 질문 930"
+    },
+    {
+      "id": "house_takedown_block",
+      "code": "",
+      "name": {
+        "ko": "마크를 몇 번 내리면 올리기 자동 막기(0 = 끔)",
+        "en": "Takedowns before uploads are blocked (0 = off)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "운영자가 그 가문의 올린 마크를 이만큼 내리면 그 계정의 그림 올리기를 저절로 막는다.",
+        "en": "After this many operator takedowns the account can no longer upload emblems."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (926~935 답)\" · 질문 934"
     }
   ]
 }

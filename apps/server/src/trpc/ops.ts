@@ -6,6 +6,7 @@
 // "UNKNOWN_PLANET": 플레이 행성이 아닌 planetId)
 // 행성 거르기(docs/adr/2026-11-11-planet-scope.md): 세력·도시·유닛·감사 기록 조회는 planetId(선택)를 받는다. 없으면 모든 행성(옛 기기와 같다).
 import { AUDIT_CATEGORY_IDS, OPS_PERMISSIONS, OPS_SWITCHES, type OpsPermission } from "@terra/shared/ops";
+import { OPS_EMBLEM_SORTS } from "@terra/shared/factionIdentity";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { FactionIdentityServices } from "../factionIdentity/services.ts";
@@ -282,7 +283,13 @@ export const opsRouter = router({
    * 세계 스위치 "플레이어 마크 올리기 허용"(faction_edit)
    */
   emblems: router({
-    list: opsProcedure("emblem_moderate").query(({ ctx }) => identityOf(ctx.factionIdentity).opsList()),
+    list: opsProcedure("emblem_moderate")
+      .input(z.strictObject({ sort: z.enum(OPS_EMBLEM_SORTS).default("recent") }).optional())
+      .query(({ ctx, input }) => identityOf(ctx.factionIdentity).opsList(input)),
+    /** 그 가문의 신고를 넘긴다(질문 930 나) */
+    clearReports: opsProcedure("emblem_moderate")
+      .input(z.strictObject({ userId: z.uuid() }))
+      .mutation(({ ctx, input }) => identityOf(ctx.factionIdentity).opsClearReports(ctx.opsViewer, input)),
     takedown: opsProcedure("emblem_moderate")
       .input(z.strictObject({ userId: z.uuid(), reason, blockUploads: z.boolean().default(false) }))
       .mutation(({ ctx, input }) => identityOf(ctx.factionIdentity).opsTakedown(ctx.opsViewer, input)),

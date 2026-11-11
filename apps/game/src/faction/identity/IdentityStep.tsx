@@ -5,6 +5,9 @@
 // - [이름 만들기]: NPC 국가와 같은 이름 만들기의 후보. 고르면 약어 후보도 같이 바뀐다.
 // - 색: 지도에서 읽기 쉬운 색 20개. 마크: IdentityEmblemField.
 // - 맨 위 "게임에서 보이는 모습"이 고칠 때마다 바뀐다.
+// - 가문 창설(질문 926 나): 아직 가문이 없으면 [가문 창설]이 정체성을 저장한 뒤(tRPC — 그림이 WebSocket 메시지 한도보다 크다) WebSocket
+//   house_found로 창설한다. 창설 비용(설정 칸)을 단추 위에 보이고 그 값을 함께 보낸다. 저장은 됐는데 창설이 실패하면(잔고 등) 화면에
+//   남아 다시 누를 수 있다(저장한 초안은 그대로).
 import {
   FACTION_IDENTITY_COLORS,
   type FactionIdentityCheck,
@@ -16,7 +19,7 @@ import { refreshSession } from "../../auth/session.ts";
 import { apiErrorInfo } from "../../net/apiErrors.ts";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
-import { dateText } from "../../sections/screenText.ts";
+import { amountText, dateText } from "../../sections/screenText.ts";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { StatusIcon } from "../../ui/StatusIcon.tsx";
 import { text } from "../../ui/text.ts";
@@ -32,10 +35,13 @@ import {
   isChanged,
   liveProblems,
   nameSuggestions,
+  shortRuleOf,
   shortSuggestions,
 } from "./identityModel.ts";
+import { sendHouseFound } from "./houseCommands.ts";
 import { checkIdentity, saveIdentity } from "./identityQueries.ts";
 import {
+  HOUSE_RESULT_TEXT,
   isNameProblem,
   isShortProblem,
   nameProblemText,
@@ -97,15 +103,21 @@ function FieldError({ id, message }: { id: string; message: string | null }) {
 export function IdentityStep({
   mine,
   onSaved,
+  onDraftSaved,
   onCancel,
 }: {
   mine: FactionIdentityMine;
-  /** 저장이 끝났다(새 조회 결과) */
+  /** 저장(과 창설)이 끝났다(새 조회 결과) */
   onSaved: (next: FactionIdentityMine) => void;
+  /** 저장은 됐지만 창설은 아직(실패) — 화면이 새 조회 결과로 다시 그린다 */
+  onDraftSaved?: (next: FactionIdentityMine) => void;
   onCancel: () => void;
 }) {
   const id = useId();
   const creating = mine.identity === null;
+  // 가문을 아직 창설하지 않았다(정체성이 없거나 초안만 저장) — 마지막 단추가 [가문 창설]
+  const founding = mine.house === null;
+  const rule = shortRuleOf(mine);
   const [draft, setDraft] = useState<IdentityDraft>(() => draftOf(mine));
   /** 이름 만들기 차례(null = 닫힘)와 고른 후보의 로마자 이름(약어 후보용) */
   const [nameRound, setNameRound] = useState<number | null>(null);
@@ -118,10 +130,10 @@ export function IdentityStep({
   const shortRef = useRef<HTMLInputElement>(null);
 
   const renameLocked = mine.renameAt !== null;
-  const typed = submitted ? draftProblems(draft) : liveProblems(draft);
+  const typed = submitted ? draftProblems(draft, rule) : liveProblems(draft, rule);
   const nameTrim = draft.name.trim();
   const shortTrim = draft.shortName.trim();
-  const local = draftProblems(draft);
+  const local = draftProblems(draft, rule);
   const availability = useAvailability(
     local.name === null ? nameTrim : "",
     local.shortName === null ? shortTrim : "",
@@ -134,7 +146,7 @@ export function IdentityStep({
     serverError?.field === field ? serverError.message : null;
   const nameMessage = serverFor("name") ?? (nameProblem === null ? null : nameProblemText(nameProblem));
   const shortMessage =
-    serverFor("shortName") ?? (shortProblem === null ? null : shortProblemText(shortProblem));
+    serverFor("shortName") ?? (shortProblem === null ? null : shortProblemText(shortProblem, rule.range));
   const units = Math.min(cyborgNameUnits(nameTrim), 99);
   const names = nameRound === null ? [] : nameSuggestions(mine.seed, nameRound, getLocale());
   const shorts = renameLocked ? [] : shortSuggestions(nameTrim, pickedEnglish);
@@ -150,7 +162,7 @@ export function IdentityStep({
     if (saving) return;
     setSubmitted(true);
     failure.clear();
-    const problems = draftProblems(draft);
+    const problems = draftProblems(draft, rule);
     if (problems.name !== null) {
       nameRef.current?.focus();
       return;
@@ -159,13 +171,32 @@ export function IdentityStep({
       shortRef.current?.focus();
       return;
     }
-    if (!changed) {
+    if (!changed && !founding) {
       failure.show([m.fid_unchanged()]);
       return;
     }
     setSaving(true);
     try {
-      onSaved(await saveIdentity(inputOf(draft)));
+      const saved = changed ? await saveIdentity(inputOf(draft)) : mine;
+      if (saved.house !== null) {
+        onSaved(saved);
+        return;
+      }
+      // 가문 창설(WebSocket). 실패해도 저장한 초안은 그대로다
+      const outcome = await sendHouseFound(saved.foundCost);
+      if (outcome.ok) {
+        onSaved({
+          ...saved,
+          // 창설 시각·나라는 다음 조회가 채운다(화면은 곧 세력 화면으로 돌아간다)
+          house: { factionId: outcome.factionId, foundedAt: saved.identity?.updatedAt ?? 0, nationId: null },
+        });
+        return;
+      }
+      if (outcome.code === "short_taken") {
+        setServerError({ field: "shortName", message: HOUSE_RESULT_TEXT.short_taken() });
+        shortRef.current?.focus();
+      } else failure.show([HOUSE_RESULT_TEXT[outcome.code]()]);
+      onDraftSaved?.(saved);
     } catch (error) {
       const { reason, details } = rejectionOf(error);
       if (reason === null) {
@@ -179,7 +210,7 @@ export function IdentityStep({
         if (reason === "name_invalid" && detail !== undefined && isNameProblem(detail))
           message = nameProblemText(detail);
         if (reason === "short_invalid" && detail !== undefined && isShortProblem(detail))
-          message = shortProblemText(detail);
+          message = shortProblemText(detail, rule.range);
         setServerError({ field, message });
         if (field === "name") nameRef.current?.focus();
         else if (field === "shortName") shortRef.current?.focus();
@@ -277,7 +308,7 @@ export function IdentityStep({
             {m.fid_short_label()}
           </label>
           <p id={`${id}-short-hint`} className="field-hint">
-            {m.fid_short_hint()}
+            {m.fid_short_hint({ min: rule.range.min, max: rule.range.max })}
           </p>
           <input
             ref={shortRef}
@@ -358,10 +389,18 @@ export function IdentityStep({
         onChange={edit}
       />
 
+      {founding ? (
+        <p className="field-hint fid-found-cost" data-testid="fid-found-cost">
+          {mine.foundCost === "0"
+            ? m.fid_found_cost_free()
+            : m.fid_found_cost({ amount: amountText(mine.foundCost) })}{" "}
+          {m.fid_found_citizen()}
+        </p>
+      ) : null}
       <LiveMessage tone="error" lines={failure.lines} version={failure.version} />
       <div className="fid-actions fid-submit-row">
         <button type="submit" className="button-primary fid-submit" aria-disabled={saving}>
-          {saving ? m.fid_submitting() : creating ? m.fid_submit_create() : m.fid_submit_edit()}
+          {saving ? m.fid_submitting() : founding ? m.fid_submit_found() : m.fid_submit_edit()}
         </button>
         <button type="button" className="button-small fid-cancel" onClick={onCancel}>
           {m.cancel()}

@@ -17,6 +17,7 @@ import {
   nameSuggestions,
   pngDataUrl,
   rerollEmblem,
+  shortRuleOf,
   shortSuggestions,
 } from "./identityModel.ts";
 
@@ -27,6 +28,9 @@ const EMPTY: FactionIdentityMine = {
   renameAt: null,
   seed: 123_456,
   nameStyle: null,
+  house: null,
+  foundCost: "0",
+  shortRange: { min: 2, max: 4 },
 };
 const SAVED: FactionIdentityMine = {
   ...EMPTY,
@@ -100,7 +104,7 @@ describe("문제·요청", () => {
     expect(liveProblems({ ...draft, name: "하", shortName: "H" })).toEqual({ name: null, shortName: null });
     expect(draftProblems({ ...draft, name: "하", shortName: "H" })).toEqual({
       name: "too_short",
-      shortName: "invalid",
+      shortName: "too_short",
     });
     expect(liveProblems({ ...draft, name: "sky clan", shortName: "A-B" })).toEqual({
       name: "invalid_chars",
@@ -110,6 +114,17 @@ describe("문제·요청", () => {
       name: "real_place",
       shortName: "reserved",
     });
+  });
+
+  it("약어 폭: 새 약어는 설정 칸 폭(2~4자), 저장된 5자 약어는 그대로 두면 받는다(질문 928 나)", () => {
+    const rule = shortRuleOf(SAVED);
+    expect(draftProblems({ ...draft, shortName: "ABCDE" }, rule).shortName).toBe("too_long");
+    expect(liveProblems({ ...draft, shortName: "ABCDE" }, rule).shortName).toBe("too_long");
+    const legacy = { ...SAVED, identity: SAVED.identity ? { ...SAVED.identity, shortName: "CLOUD" } : null };
+    expect(draftProblems({ ...draft, shortName: "cloud" }, shortRuleOf(legacy)).shortName).toBeNull();
+    expect(draftProblems({ ...draft, shortName: "STORM" }, shortRuleOf(legacy)).shortName).toBe("too_long");
+    // 후보는 새 약어 폭 안에서만
+    expect(shortSuggestions("가나다라마바").every((short) => short.length <= 4)).toBe(true);
   });
 
   it("요청 모양: 앞뒤 빈칸을 떼고, 그림은 keep·none·new", () => {

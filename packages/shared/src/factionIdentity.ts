@@ -4,7 +4,9 @@
 // 저장하는 방법?" — NPC 국가와 같은 과정(이름·약어·색·마크 만들기 또는 올려서 자르기)을 플레이어 세력에도 쓴다.
 // - 이름 규칙 = 사이보그 이름 규칙(D-328 → D-134): 한글·영문·숫자, 한글 1자 = 2칸으로 3~16칸, 서버에서 하나(대소문자 무시), 사칭 막기
 //   + 실존 국가·도시 이름 막기(D-328, 목록은 [임시] — 같은 자리에 자료로 더한다). 한 언어로 넣고 번역하지 않는다(D-328 해석).
-// - 약어(지도 태그): 글자·숫자 2~5자(@terra/shared/factionProfile과 같은 폭 — 기획 D-328은 2~4자, 질문 928), 세계에서 하나.
+// - 약어(지도 태그): 글자·숫자, 새로 정하는 약어는 설정 칸 S20 폭(출발값 2~4자, D-328 — 질문 928 나). 이미 정한 5자 약어는 그대로 둔다
+//   (저장 폭은 @terra/shared/factionProfile과 같은 2~5자). 세계에서 하나.
+// - 정체성을 처음 정하면 그것이 곧 가문 창설이다(질문 926 나 — 세력 행을 만들고, 창설자는 자기 NPC 국가의 시민으로 남는다, D-216).
 // - 색: 지도 바탕 두 가지에서 읽기 쉬운 색 20개 가운데 하나(플레이어는 색 값을 직접 넣지 않는다).
 // - 마크: 만든 마크(@terra/shared/nationEmblem 사양) 또는 올린 그림(256 × 256 PNG, 바이트 상한 — 기기가 잘라 만든 것만).
 // 진입점은 @terra/shared/factionIdentity다(첫 화면 묶음에 들어가지 않게 index.ts에서 내보내지 않는다).
@@ -40,8 +42,30 @@ export const FACTION_EMBLEM_CHUNKS: ReadonlySet<string> = new Set([
 /** base64 글 길이 상한(바이트 상한의 4/3 + 채움) */
 export const FACTION_EMBLEM_BASE64_MAX = Math.ceil(FACTION_EMBLEM_UPLOAD.maxBytes / 3) * 4;
 
-/** 이름·약어를 다시 바꾸려면 기다리는 시간(D-328 "바꾸려면 실제 며칠을 기다린다", 49 S20 — 값이 없어 [임시] 7일) */
+/**
+ * 이름·약어를 다시 바꾸려면 기다리는 시간의 출발값(D-328 "바꾸려면 실제 며칠을 기다린다", 49 S20 — 질문 932 가). 실제 값은 설정 칸
+ * house_rename_wait_ms(서버가 읽는다). 이 상수는 설정 칸이 없는 서버·시험의 기본값이다
+ */
 export const FACTION_RENAME_WAIT_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** 약어 글자 수 폭 */
+export interface FactionShortRange {
+  readonly min: number;
+  readonly max: number;
+}
+
+/** 저장할 수 있는 약어 폭(표 검사 faction_identities_short·faction_profiles_short와 같다 — 옛 5자 약어도 담는다) */
+export const FACTION_SHORT_LIMITS: FactionShortRange = { min: 2, max: 5 };
+
+/** 새로 정하는 약어 폭의 출발값(D-328 "태그 2~4자", 49 S20 — 실제 값은 설정 칸 s20_short_min·s20_short_max) */
+export const FACTION_SHORT_DEFAULT_RANGE: FactionShortRange = { min: 2, max: 4 };
+
+/** 설정 칸 값을 저장 폭 안으로 좁힌다(최소 ≤ 최대) */
+export function clampShortRange(range: FactionShortRange): FactionShortRange {
+  const min = Math.min(Math.max(Math.trunc(range.min), FACTION_SHORT_LIMITS.min), FACTION_SHORT_LIMITS.max);
+  const max = Math.min(Math.max(Math.trunc(range.max), min), FACTION_SHORT_LIMITS.max);
+  return { min, max };
+}
 
 /** 사유 글(운영자가 마크를 내릴 때 주인에게 보이는 글) 길이 상한 */
 export const FACTION_NOTICE_REASON_MAX = 200;
@@ -145,7 +169,7 @@ export function parseFactionName(input: string): FactionNameResult {
 }
 
 /** 약어에 쓸 수 있는 글자: 한글 완성형·영문·숫자(이름과 같은 글자 — 모양이 비슷한 다른 나라 글자를 받지 않는다) */
-const SHORT_ALLOWED = /^[0-9A-Za-z가-힣]{2,5}$/u;
+const SHORT_ALLOWED = /^[0-9A-Za-z가-힣]+$/u;
 const SHORT_HAS_LETTER = /[A-Za-z가-힣]/u;
 /** [임시] 사칭으로 막는 약어(열쇠 = 소문자, 전체가 같을 때) */
 export const FACTION_SHORT_RESERVED: ReadonlySet<string> = new Set([
@@ -159,18 +183,33 @@ export const FACTION_SHORT_RESERVED: ReadonlySet<string> = new Set([
   "운영자",
 ]);
 
-export type FactionShortProblem = "empty" | "invalid" | "needs_letter" | "reserved";
+export type FactionShortProblem =
+  | "empty"
+  | "invalid"
+  | "too_short"
+  | "too_long"
+  | "needs_letter"
+  | "reserved";
 
 export type FactionShortResult =
   | { readonly ok: true; readonly display: string; readonly key: string }
   | { readonly ok: false; readonly problem: FactionShortProblem };
 
-/** 약어를 정규화하고 검사한다: 앞뒤 공백 제거 → NFC → 글자·길이 → 사칭 → 소문자 열쇠 */
-export function parseFactionShort(input: string): FactionShortResult {
+/**
+ * 약어를 정규화하고 검사한다: 앞뒤 공백 제거 → NFC → 글자 → 길이(range, 기본 = 저장 폭 2~5자) → 사칭 → 소문자 열쇠.
+ * 새로 정하는 약어는 설정 칸 폭(FACTION_SHORT_DEFAULT_RANGE 출발값)으로 부른다 — 이미 정한 약어를 그대로 두는 저장은 저장 폭으로 본다
+ */
+export function parseFactionShort(
+  input: string,
+  range: FactionShortRange = FACTION_SHORT_LIMITS,
+): FactionShortResult {
   if (input.length > 32) return { ok: false, problem: "invalid" };
   const display = input.trim().normalize("NFC");
   if (display.length === 0) return { ok: false, problem: "empty" };
   if (!SHORT_ALLOWED.test(display)) return { ok: false, problem: "invalid" };
+  const bounds = clampShortRange(range);
+  if (display.length < bounds.min) return { ok: false, problem: "too_short" };
+  if (display.length > bounds.max) return { ok: false, problem: "too_long" };
   if (!SHORT_HAS_LETTER.test(display)) return { ok: false, problem: "needs_letter" };
   const key = display.toLowerCase();
   if (FACTION_SHORT_RESERVED.has(key)) return { ok: false, problem: "reserved" };
@@ -219,13 +258,28 @@ export interface FactionIdentityNotice {
 /** 그림을 올릴 수 없는 까닭: 세계 스위치가 꺼짐 / 이 계정은 올리기가 막힘 */
 export type FactionUploadBlock = "switch_off" | "account_blocked";
 
+/** 창설한 가문(세력 행, kind = player — 질문 926 나). 창설자는 자기 NPC 국가의 시민으로 남는다(D-216 이중 소속) */
+export interface FactionHouseView {
+  /** 가문 세력 행 ID */
+  readonly factionId: number;
+  readonly foundedAt: number;
+  /** 가문이 든 나라(창설할 때 창설자의 나라 — factions.born_of). 없으면 null */
+  readonly nationId: number | null;
+}
+
 export interface FactionIdentityMine {
   /** 아직 정하지 않았으면 null */
   readonly identity: FactionIdentityView | null;
+  /** 가문을 창설했으면 그 가문(정체성만 저장하고 창설을 마치지 못했으면 null) */
+  readonly house: FactionHouseView | null;
+  /** 가문 창설 비용(10진 글자 최소 단위, 설정 칸 house_found_cost — 출발값 0). 기기가 본 값을 창설 명령에 실어 보낸다 */
+  readonly foundCost: string;
+  /** 새로 정하는 약어의 글자 수 폭(설정 칸 S20) */
+  readonly shortRange: FactionShortRange;
   /** 그림 올리기(null = 올릴 수 있다) */
   readonly uploadBlock: FactionUploadBlock | null;
   readonly notice: FactionIdentityNotice | null;
-  /** 이름·약어를 바꿀 수 있는 가장 이른 시각(지났거나 처음이면 null) */
+  /** 이름·약어를 바꿀 수 있는 가장 이른 시각(지났거나 처음이거나 창설 전이면 null — 대기는 창설한 가문에만) */
   readonly renameAt: number | null;
   /** 이름 만들기·기본 마크의 씨앗(계정마다 다르고 늘 같다) */
   readonly seed: number;
@@ -274,10 +328,31 @@ export const FACTION_IDENTITY_REASONS = [
 ] as const;
 export type FactionIdentityReason = (typeof FACTION_IDENTITY_REASONS)[number];
 
+// ── 신고(질문 930 나) ──
+
+/**
+ * 다른 가문의 마크·이름 신고 결과: 받음 / 이미 신고함(세지 않는다) / 오늘 신고 수를 다 씀(설정 칸 house_report_daily) / 내 가문 / 없는 가문
+ */
+export type FactionReportStatus = "reported" | "already" | "limit" | "own" | "unknown";
+
+export interface FactionReportResult {
+  readonly status: FactionReportStatus;
+}
+
 // ── 운영자 콘솔 "마크 관리" ──
+
+/** 목록 차례: 최근 올린 차례 / 신고가 많은 차례 */
+export const OPS_EMBLEM_SORTS = ["recent", "reports"] as const;
+export type OpsEmblemSort = (typeof OPS_EMBLEM_SORTS)[number];
 
 export interface OpsEmblemRow {
   readonly userId: string;
+  /** 가문 세력 행 ID(창설 전이면 null) */
+  readonly factionId: number | null;
+  /** 받은 신고 수(운영자가 넘기거나 마크를 내리면 0으로) */
+  readonly reports: number;
+  /** 지금까지 마크를 내린 횟수(설정 칸 house_takedown_block 이상이면 올리기가 저절로 막힌다 — 질문 934 나) */
+  readonly takedowns: number;
   /** 주인 로그인 아이디·사이보그 이름(없으면 null) */
   readonly loginId: string;
   readonly cyborgName: string | null;
@@ -300,4 +375,6 @@ export interface OpsEmblemList {
   readonly rows: readonly OpsEmblemRow[];
   /** 정체성을 정한 플레이어 세력 수 */
   readonly total: number;
+  /** 마크를 이만큼 내리면 올리기가 저절로 막힌다(설정 칸, 0 = 끔) */
+  readonly autoBlockAt: number;
 }

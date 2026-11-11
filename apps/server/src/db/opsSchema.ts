@@ -71,7 +71,8 @@ export const factionProfiles = pgTable(
     check("faction_profiles_name", sql`char_length(${table.name}) between 1 and 24`),
     check("faction_profiles_short", sql`char_length(${table.shortName}) between 2 and 5`),
     check("faction_profiles_color", sql`${table.color} ~ '^#[0-9a-f]{6}$'`),
-    check("faction_profiles_source", sql`${table.source} in ('preset', 'default', 'admin')`),
+    // player = 가문을 창설한 플레이어가 정한 값(faction_identities와 같이 바뀐다 — docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)")
+    check("faction_profiles_source", sql`${table.source} in ('preset', 'default', 'admin', 'player')`),
   ],
 );
 
@@ -134,6 +135,16 @@ export const factionIdentities = pgTable(
     updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
     /** 이름·약어를 마지막으로 정한 시각(다시 바꾸기까지 기다리는 시간의 기준, D-328) */
     nameChangedAtMs: bigint("name_changed_at_ms", { mode: "number" }).notNull(),
+    /**
+     * 이 정체성으로 창설한 가문(세력 행, kind = player — 질문 926 나). null = 정체성만 저장하고 창설을 마치지 못함. 앞으로 이 줄의 열쇠는
+     * 가문이다(user_id = 창설자). 계정 열쇠는 직전 판 앱이 읽어서 남긴다 — 다음 배포에서 정리(AGENTS.md 마이그레이션 규칙)
+     */
+    factionId: bigint("faction_id", { mode: "number" })
+      .unique()
+      .references(() => factions.id, { onDelete: "set null" }),
+    foundedAtMs: bigint("founded_at_ms", { mode: "number" }),
+    /** 운영자가 올린 마크를 내린 횟수(설정 칸 house_takedown_block 이상이면 올리기를 저절로 막는다, 질문 934 나) */
+    takedownCount: integer("takedown_count").notNull().default(0),
   },
   (table) => [
     uniqueIndex("faction_identities_short_idx").on(sql`lower(${table.shortName})`),

@@ -102,6 +102,7 @@ export {
   NATURALIZE_TERMS_PROTOCOL_VERSION,
   type NationalityResultCode,
 } from "./citizenship.ts";
+export { HOUSE_PROTOCOL_VERSION, HOUSE_RESULT_CODES, type HouseResultCode } from "./house.ts";
 export {
   HOSPITAL_PROTOCOL_VERSION,
   HOSPITAL_RESULT_CODES,

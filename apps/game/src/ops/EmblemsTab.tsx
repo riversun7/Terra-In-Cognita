@@ -1,7 +1,8 @@
 // 운영자 콘솔 · 마크 관리 탭(docs/adr/2026-11-11-faction-identity.md 5절) — 플레이어가 올린 세력 마크를 최근 올린 차례로 본다.
 // 줄마다 올린 그림·자동 생성 마크·세력·주인·올린 때·크기·상태. [마크 내리기](사유는 주인에게 보인다, 그 계정의 올리기도 막을 수 있다),
 // [올리기 막기]·[올리기 다시 허용]. 권한 emblem_moderate(운영자부터). 맨 위 스위치 "플레이어 마크 올리기 허용"은 관리자·개발자(faction_edit)만 바꾼다.
-import type { OpsEmblemRow } from "@terra/shared/factionIdentity";
+// 바뀜(질문 930 나·934 나): 신고 수 칸과 [신고 많은 차례] 고르기, [신고 넘기기], 내린 횟수(설정 칸 횟수에 이르면 올리기가 저절로 막힌다).
+import type { OpsEmblemRow, OpsEmblemSort } from "@terra/shared/factionIdentity";
 import { useCallback, useState } from "react";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
@@ -16,6 +17,7 @@ function stateText(row: OpsEmblemRow): string {
   if (row.uploaded) parts.push(m.ops_emblems_state_ok());
   if (row.notice) parts.push(m.ops_emblems_state_removed());
   if (row.uploadBlocked) parts.push(m.ops_emblems_state_blocked());
+  if (row.takedowns > 0) parts.push(m.ops_emblems_takedowns({ count: formatInt(row.takedowns) }));
   return parts.join(" · ");
 }
 
@@ -88,8 +90,9 @@ function Takedown({
 }
 
 export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: boolean }) {
+  const [sort, setSort] = useState<OpsEmblemSort>("recent");
   const loaded = useOpsLoad(
-    useCallback((signal: AbortSignal) => api.ops.emblems.list.query(undefined, { signal }), []),
+    useCallback((signal: AbortSignal) => api.ops.emblems.list.query({ sort }, { signal }), [sort]),
   );
   const [acting, setActing] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -136,6 +139,16 @@ export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: b
         <span className="dev-muted">
           {m.ops_emblems_switch_sub()} {canSwitch ? "" : m.ops_emblems_switch_need()}
         </span>
+        <label className="ops-inline ops-emblem-sort">
+          <span>{m.ops_emblems_sort()}</span>
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value === "reports" ? "reports" : "recent")}
+          >
+            <option value="recent">{m.ops_emblems_sort_recent()}</option>
+            <option value="reports">{m.ops_emblems_sort_reports()}</option>
+          </select>
+        </label>
       </div>
       <LoadState loaded={loaded} />
       {loaded.data ? (
@@ -143,7 +156,10 @@ export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: b
           {m.ops_emblems_summary({
             total: formatInt(loaded.data.total),
             uploaded: formatInt(rows.filter((row) => row.uploaded).length),
-          })}
+          })}{" "}
+          {loaded.data.autoBlockAt > 0
+            ? m.ops_emblems_auto_block({ count: formatInt(loaded.data.autoBlockAt) })
+            : m.ops_emblems_auto_block_off()}
         </p>
       ) : null}
       {message ? (
@@ -164,6 +180,9 @@ export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: b
               <th scope="col">{m.ops_emblems_col_uploaded()}</th>
               <th scope="col" className="dev-num">
                 {m.ops_emblems_col_size()}
+              </th>
+              <th scope="col" className="dev-num">
+                {m.ops_emblems_col_reports()}
               </th>
               <th scope="col">{m.ops_emblems_col_state()}</th>
               <th scope="col">{m.ops_emblems_col_actions()}</th>
@@ -222,6 +241,9 @@ export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: b
                       : m.ops_none()}
                 </td>
                 <td className="dev-num">{row.uploaded ? kb(row.uploaded.bytes) : m.ops_none()}</td>
+                <td className="dev-num ops-emblem-reports" data-reports={row.reports}>
+                  {formatInt(row.reports)}
+                </td>
                 <td>
                   {stateText(row)}
                   {row.notice?.reason ? <span className="dev-muted"> · {row.notice.reason}</span> : null}
@@ -264,6 +286,21 @@ export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: b
                       >
                         {row.uploadBlocked ? m.ops_emblems_unblock() : m.ops_emblems_block()}
                       </button>
+                      {row.reports > 0 ? (
+                        <button
+                          type="button"
+                          className="button-small ops-emblem-clear-reports"
+                          aria-disabled={pending}
+                          onClick={() =>
+                            void act(
+                              () => api.ops.emblems.clearReports.mutate({ userId: row.userId }),
+                              m.ops_emblems_reports_cleared(),
+                            )
+                          }
+                        >
+                          {m.ops_emblems_clear_reports()}
+                        </button>
+                      ) : null}
                     </span>
                   )}
                 </td>

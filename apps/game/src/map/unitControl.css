@@ -229,3 +229,17 @@
 .map-peek-emblem {
   margin-inline-end: var(--space-1);
 }
+/* 다른 가문 [신고](질문 930 나): 주인 세력 줄 아래 작은 단추, 확인 줄은 글 + 단추 둘이 줄바꿈된다 */
+.map-peek-report {
+  align-self: flex-start;
+  white-space: normal;
+}
+.map-peek-report-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.map-peek-report-result {
+  color: var(--color-text-muted);
+}

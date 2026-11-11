@@ -11,6 +11,8 @@ import {
   labelTextOn,
   parseFactionName,
   parseFactionShort,
+  FACTION_SHORT_DEFAULT_RANGE,
+  clampShortRange,
 } from "./factionIdentity.ts";
 import { contrastOf } from "./nationEmblem.ts";
 
@@ -41,6 +43,19 @@ describe("parseFactionName", () => {
 });
 
 describe("parseFactionShort", () => {
+  it("새 약어는 설정 칸 폭(출발값 2~4자, D-328·질문 928 나)으로, 저장 폭은 2~5자", () => {
+    expect(parseFactionShort("ABCDE", FACTION_SHORT_DEFAULT_RANGE)).toEqual({
+      ok: false,
+      problem: "too_long",
+    });
+    expect(parseFactionShort("ABCD", FACTION_SHORT_DEFAULT_RANGE).ok).toBe(true);
+    expect(parseFactionShort("ABCDE").ok).toBe(true);
+    // 설정 칸 값이 저장 폭 밖이면 저장 폭 안으로 좁힌다
+    expect(clampShortRange({ min: 0, max: 9 })).toEqual({ min: 2, max: 5 });
+    expect(clampShortRange({ min: 4, max: 3 })).toEqual({ min: 4, max: 4 });
+    expect(parseFactionShort("AB", { min: 3, max: 4 })).toEqual({ ok: false, problem: "too_short" });
+  });
+
   it("글자·숫자 2~5자, 열쇠는 소문자", () => {
     expect(parseFactionShort(" HAN ")).toEqual({ ok: true, display: "HAN", key: "han" });
     expect(parseFactionShort("하늘")).toEqual({ ok: true, display: "하늘", key: "하늘" });
@@ -49,8 +64,8 @@ describe("parseFactionShort", () => {
 
   it("길이 밖·기호·숫자만·사칭은 안 된다", () => {
     expect(parseFactionShort("")).toEqual({ ok: false, problem: "empty" });
-    expect(parseFactionShort("A")).toEqual({ ok: false, problem: "invalid" });
-    expect(parseFactionShort("ABCDEF")).toEqual({ ok: false, problem: "invalid" });
+    expect(parseFactionShort("A")).toEqual({ ok: false, problem: "too_short" });
+    expect(parseFactionShort("ABCDEF")).toEqual({ ok: false, problem: "too_long" });
     expect(parseFactionShort("A-B")).toEqual({ ok: false, problem: "invalid" });
     expect(parseFactionShort("123")).toEqual({ ok: false, problem: "needs_letter" });
     expect(parseFactionShort("GM")).toEqual({ ok: false, problem: "reserved" });

@@ -2,7 +2,9 @@
 // 계산만 하는 순수 함수(시험: identityModel.test.ts). docs/adr/2026-11-11-faction-identity.md 2절.
 import {
   FACTION_IDENTITY_COLORS,
+  FACTION_SHORT_DEFAULT_RANGE,
   type FactionIdentityInput,
+  type FactionShortRange,
   type FactionIdentityMine,
   type FactionIdentityReason,
   type FactionNameProblem,
@@ -79,7 +81,8 @@ export function nameSuggestions(seed: number, round: number, locale: string, cou
 export function shortSuggestions(name: string, english?: string): string[] {
   const out: string[] = [];
   const push = (value: string): void => {
-    if (parseFactionShort(value).ok && !out.includes(value)) out.push(value);
+    // 후보는 새 약어 폭(출발값 2~4자) 안에서만
+    if (parseFactionShort(value, FACTION_SHORT_DEFAULT_RANGE).ok && !out.includes(value)) out.push(value);
   };
   const latin = (english ?? name).replaceAll(/[^A-Za-z]/g, "");
   if (latin.length >= 3) for (const candidate of tickerCandidates(latin, new Set(), 3)) push(candidate);
@@ -96,22 +99,32 @@ export interface DraftProblems {
   readonly shortName: FactionShortProblem | null;
 }
 
-/** 기기에서 바로 보는 글자 규칙(겹침은 서버가 본다) */
-export function draftProblems(draft: IdentityDraft): DraftProblems {
+/** 약어 폭 맥락: 새로 정하는 약어 폭(설정 칸 S20)과 지금 저장된 약어(그대로 두면 옛 5자 약어도 받는다 — 질문 928 나) */
+export interface ShortRule {
+  readonly range: FactionShortRange;
+  readonly saved: string | null;
+}
+
+export const shortRuleOf = (mine: FactionIdentityMine): ShortRule => ({
+  range: mine.shortRange,
+  saved: mine.identity?.shortName ?? null,
+});
+
+/** 기기에서 바로 보는 글자 규칙(겹침은 서버가 본다). 약어는 서버와 같이: 저장된 약어 그대로면 저장 폭, 아니면 설정 칸 폭 */
+export function draftProblems(draft: IdentityDraft, rule?: ShortRule): DraftProblems {
   const name = parseFactionName(draft.name);
-  const short = parseFactionShort(draft.shortName);
+  const loose = parseFactionShort(draft.shortName);
+  const keep = loose.ok && rule?.saved != null && rule.saved.toLowerCase() === loose.key;
+  const short = keep ? loose : parseFactionShort(draft.shortName, rule?.range ?? FACTION_SHORT_DEFAULT_RANGE);
   return { name: name.ok ? null : name.problem, shortName: short.ok ? null : short.problem };
 }
 
 /** 치는 동안 보일 문제: 빈 칸·아직 짧은 것은 치는 중이라 알리지 않는다([정하기]를 누르면 모두 알린다) */
-export function liveProblems(draft: IdentityDraft): DraftProblems {
-  const all = draftProblems(draft);
+export function liveProblems(draft: IdentityDraft, rule?: ShortRule): DraftProblems {
+  const all = draftProblems(draft, rule);
   return {
     name: all.name === "empty" || all.name === "too_short" ? null : all.name,
-    shortName:
-      all.shortName === "empty" || (all.shortName === "invalid" && draft.shortName.trim().length < 2)
-        ? null
-        : all.shortName,
+    shortName: all.shortName === "empty" || all.shortName === "too_short" ? null : all.shortName,
   };
 }
 

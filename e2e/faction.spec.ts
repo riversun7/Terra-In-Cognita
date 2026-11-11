@@ -117,11 +117,11 @@ test.describe("플레이어(실제 자료만)", () => {
     expect(inputs.length).toBeGreaterThan(0);
     expect(inputs.every((input) => input === undefined)).toBe(true);
 
-    // 곧 열림 단추는 aria-disabled라 Playwright가 누를 수 없는 것으로 본다 → force(사람은 누를 수 있다)
-    await screen
-      .getByRole("button", { name: new RegExp(message("ko", "faction_found_family")) })
-      .click({ force: true });
-    await expect(screen.locator(".soon-live")).toContainText(message("ko", "screen_soon_pressed"));
+    // [가문 창설]은 이제 가문 창설 단계(세력 정체성)로 간다(질문 926 나 — 곧 열림이 아니다)
+    const found = screen
+      .locator("section.faction-card")
+      .getByRole("link", { name: message("ko", "faction_found_family"), exact: true });
+    await expect(found).toHaveAttribute("href", "/faction/identity");
     expect(commands).toEqual([]);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);

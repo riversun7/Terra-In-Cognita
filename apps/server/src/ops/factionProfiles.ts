@@ -20,7 +20,7 @@ import {
 import { type NationPreset, nationName, presetOfCode } from "../npc/nations.ts";
 import type { OpsQueryable } from "./access.ts";
 
-export type ProfileSource = "preset" | "default" | "admin";
+export type ProfileSource = "preset" | "default" | "admin" | "player";
 
 export interface FactionProfile {
   factionId: number;
@@ -277,7 +277,7 @@ const isUniqueViolation = (error: unknown): boolean =>
 
 export type FactionProfileUpdate =
   | { ok: true; before: FactionProfile; after: FactionProfile }
-  | { ok: false; code: "not_found" | "invalid" | "short_taken" };
+  | { ok: false; code: "not_found" | "invalid" | "short_taken" | "player_owned" };
 
 export async function updateFactionProfile(
   pool: OpsQueryable,
@@ -298,6 +298,8 @@ export async function updateFactionProfile(
     return { ok: false, code: "invalid" };
   const before = (await factionProfiles(pool)).get(input.factionId);
   if (!before) return { ok: false, code: "not_found" };
+  // 가문 정체성은 그 플레이어가 정한다(faction_identities와 같이 바뀐다). 운영자는 마크 관리에서 다룬다 — 이름 고치기는 다음 줄기(질문 929 다)
+  if (before.source === "player") return { ok: false, code: "player_owned" };
   try {
     await pool.query(
       `update faction_profiles set name = $2, short_name = $3, color = $4, source = 'admin', updated_at_ms = $5,

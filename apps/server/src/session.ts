@@ -35,6 +35,7 @@ import {
   GATHER_PROTOCOL_VERSION,
   HOSPITAL_PROTOCOL_VERSION,
   CITIZENSHIP_PROTOCOL_VERSION,
+  HOUSE_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -57,6 +58,7 @@ import type { TravelGateway, TravelSocket } from "./travel/gateway.ts";
 import type { GatherGateway, GatherSocket } from "./gather/gateway.ts";
 import type { HospitalGateway, HospitalSocket } from "./hospital/gateway.ts";
 import type { CitizenshipGateway, CitizenshipSocket } from "./citizenship/gateway.ts";
+import type { HouseGateway, HouseSocket } from "./factionIdentity/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -93,6 +95,8 @@ export interface SessionContext {
   hospital?: HospitalGateway | undefined;
   /** 국적 바꾸기(프로토콜 18, docs/adr/2026-11-08-citizenship.md). 없으면 busy */
   citizenship?: CitizenshipGateway | undefined;
+  /** 가문 창설(프로토콜 22, docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"). 없으면 busy */
+  house?: HouseGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -134,6 +138,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let gatherSocket: GatherSocket | undefined;
   let hospitalSocket: HospitalSocket | undefined;
   let citizenshipSocket: CitizenshipSocket | undefined;
+  let houseSocket: HouseSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -178,6 +183,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     gatherSocket?.close();
     hospitalSocket?.close();
     citizenshipSocket?.close();
+    houseSocket?.close();
     releasePresence?.();
   });
 
@@ -569,6 +575,20 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           viewer: context.viewer ?? signedOut,
         });
         citizenshipSocket.handle(message);
+        return;
+      }
+      case "house_found": {
+        // 가문 창설은 프로토콜 22의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < HOUSE_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.house) {
+          send({ t: "house_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        houseSocket ??= context.house.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        houseSocket.handle(message);
         return;
       }
     }

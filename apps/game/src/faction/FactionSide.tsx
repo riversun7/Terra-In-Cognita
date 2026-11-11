@@ -12,7 +12,8 @@ import type {
 import { formatCount } from "../home/numbers.ts";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
-import { Fact, PreviewTag, SoonButton, StateChip } from "../sections/screenParts.tsx";
+import { Fact, PreviewTag, StateChip } from "../sections/screenParts.tsx";
+import { AppLink } from "../shell/AppLink.tsx";
 import { amountText, dateText, durationText } from "../sections/screenText.ts";
 import { localName } from "../roster/rosterText.ts";
 import { NationEmblem } from "../ui/NationEmblem.tsx";
@@ -170,7 +171,10 @@ function NoFaction() {
       </p>
       <p className="lead">{m.faction_none_body()}</p>
       <div className="screen-actions">
-        <SoonButton label={m.faction_found_family()} />
+        {/* 가문 창설 = 정체성 단계(질문 926 나) */}
+        <AppLink className="button-small" to={{ route: "faction_identity" }}>
+          {m.faction_found_family()}
+        </AppLink>
       </div>
     </section>
   );

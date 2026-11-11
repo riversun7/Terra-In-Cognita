@@ -1,7 +1,7 @@
 // 플레이어 세력 정체성 DB 통합 시험 — docs/adr/2026-11-11-faction-identity.md.
 // tRPC(인증 앱, 기본 속도 제한): 처음 정하기(이름·약어·색·마크 한 번에)·확인·고치기, 본인 것만(다른 플레이어는 못 바꾸고 이름·약어를 못
 // 가져간다), 그림 올리기(그림 길 머리글, 바꾸면 앞 그림이 사라짐, 지우기), 운영자 내리기(권한·알림·감사 기록·올리기 막기), 세계 스위치 끔,
-// 이름 바꾸기 대기.
+// 이름 바꾸기 대기(가문을 창설한 뒤에만 — 질문 932 가). 가문 창설·신고·자동 막기·약어 폭은 house.db.test.ts.
 // 서비스 직접(시험 시계·느슨한 제한): 엄격한 PNG 검사 표, 국가 프리셋·NPC 세력 정체성 사칭, 대기 뒤 이름 바꾸기, 속도 제한.
 // TEST_DATABASE_URL이 있을 때만. 계정·그림은 시험용 가짜 값이다.
 import { FACTION_EMBLEM_UPLOAD } from "@terra/shared/factionIdentity";
@@ -23,6 +23,8 @@ import {
   trpcMutation,
   trpcQuery,
 } from "../testDb.ts";
+import { createHouseFounder } from "./found.ts";
+import { TEST_HOUSE_RULES } from "./rules.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "./services.ts";
 import { ownerIdentityOf } from "./store.ts";
 
@@ -176,8 +178,21 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 세력 정체성 (DB)", () => 
       uploaded: null,
     });
     expect(obj((await mine(a)).identity).name).toBe("하늘세력");
+    // 창설 전(초안)은 남의 한눈 정보에 보이지 않는다(질문 926 나 — 창설한 가문만)
+    expect(await ownerIdentityOf(test.db.$client, a.id)).toBeNull();
+    const nationRow = await rows<{ id: string }>(
+      test.db,
+      "insert into factions (kind, code) values ('npc', 'fake_identity_nation_a') returning id",
+    );
+    const founded = await createHouseFounder({
+      pool: test.db.$client,
+      rules: () => TEST_HOUSE_RULES,
+      now: () => Date.now(),
+      nationOf: () => Number(nationRow[0]?.id),
+    }).found(a.id, { cost: "0" });
     // 지도의 유닛 한눈 정보가 읽는 주인 정체성(그림 바이트 없이)
     expect(await ownerIdentityOf(test.db.$client, a.id)).toEqual({
+      houseId: founded.ok ? founded.factionId : -1,
       name: "하늘세력",
       shortName: "HAN",
       color: "#2980b9",
@@ -385,7 +400,20 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 세력 정체성 (DB)", () => 
     expect(audit.map((row) => row.after)).toEqual([{ uploadAllowed: false }, { uploadAllowed: true }]);
   });
 
-  it("이름·약어는 정한 뒤 기다려야 다시 바꾼다(색·마크는 바로)", async () => {
+  it("이름·약어는 가문을 창설한 뒤 기다려야 다시 바꾼다(색·마크는 바로)", async () => {
+    // 창설 전(초안)에는 대기가 없다
+    expect((await mine(b)).renameAt).toBeNull();
+    const nation = await rows<{ id: string }>(
+      test.db,
+      "insert into factions (kind, code) values ('npc', 'fake_identity_nation') returning id",
+    );
+    const founder = createHouseFounder({
+      pool: test.db.$client,
+      rules: () => TEST_HOUSE_RULES,
+      now: () => Date.now(),
+      nationOf: () => Number(nation[0]?.id),
+    });
+    expect(await founder.found(b.id, { cost: "0" })).toMatchObject({ ok: true });
     const renameAt = Number((await mine(b)).renameAt);
     expect(renameAt).toBeGreaterThan(Date.now());
     const mineB = { name: "구름골", shortName: "GRM" };
@@ -415,7 +443,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 세력 정체성 (DB)", () => 
           now: () => clock,
           presets: () => presets,
           limits: { saves: RELAXED, uploads: RELAXED, ...limits },
-          renameWaitMs: 60_000,
+          rules: () => ({ ...TEST_HOUSE_RULES, renameWaitMs: 60_000 }),
         }),
         { db: test.db, ip: null },
       );
@@ -485,7 +513,20 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 세력 정체성 (DB)", () => 
       const viewer = viewerOf(e);
       const first = await service.save(viewer, input());
       expect(first.identity?.name).toBe("안개골");
-      expect(first.renameAt).toBe(clock + 60_000);
+      // 창설 전에는 대기가 없고, 창설하면 마지막으로 이름을 정한 때부터 센다
+      expect(first.renameAt).toBeNull();
+      const nation = await rows<{ id: string }>(
+        test.db,
+        "insert into factions (kind, code) values ('npc', 'fake_identity_nation_e') returning id",
+      );
+      const founder = createHouseFounder({
+        pool: test.db.$client,
+        rules: () => TEST_HOUSE_RULES,
+        now: () => clock,
+        nationOf: () => Number(nation[0]?.id),
+      });
+      expect(await founder.found(e.id, { cost: "0" })).toMatchObject({ ok: true });
+      expect((await service.mine(viewer)).renameAt).toBe(clock + 60_000);
       clock += 30_000;
       expect(await reasonOf(service.save(viewer, input({ name: "이슬골" })))).toBe("rename_wait");
       clock += 31_000;

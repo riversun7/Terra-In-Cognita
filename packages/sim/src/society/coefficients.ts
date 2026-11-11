@@ -302,6 +302,22 @@ export interface SocietyCoefficients {
     readonly naturalizeStandingDropHostile: number;
   };
   /**
+   * 플레이어 가문(질문 926~935 답, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 926~935 답)"). 판정 코드는 쓰지 않는다(서버만).
+   * - foundCost: 가문 창설 비용(최소 단위, 창설자 → 창설자 나라 국고 [임시], 출발값 0 — 질문 926 나).
+   * - shortMin·shortMax: 새로 정하는 약어(지도 태그) 글자 수(49 S20 "태그 2~4자", D-328). 이미 정한 약어는 그대로 둔다.
+   * - renameWaitMs: 이름·약어를 다시 바꾸기까지 기다리는 시간(49 S20, D-328 — 질문 932 가: 변경권 없이 대기만).
+   * - reportDaily: 계정마다 하루(24시간) 신고 횟수(질문 930 나).
+   * - takedownBlock: 마크를 이만큼 내리면 그 계정의 올리기를 저절로 막는다(질문 934 나, 0 = 끔).
+   */
+  readonly house: {
+    readonly foundCost: number;
+    readonly shortMin: number;
+    readonly shortMax: number;
+    readonly renameWaitMs: number;
+    readonly reportDaily: number;
+    readonly takedownBlock: number;
+  };
+  /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
    * 최대 내구도가 이 값 이하면 파괴(분해만 가능).
    * 장비 전투 닳기(D-496 289, 49 N49·C20, docs/adr/2026-11-03-item-holdings.md): 전투마다 입은 장비가 wearChancePm(‰) 확률로 wearAmount
@@ -507,6 +523,14 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     naturalizeRestMs: 7 * 86_400_000,
     naturalizeStandingDrop: 20,
     naturalizeStandingDropHostile: 60,
+  },
+  house: {
+    foundCost: 0,
+    shortMin: 2,
+    shortMax: 4,
+    renameWaitMs: 7 * 86_400_000,
+    reportDaily: 5,
+    takedownBlock: 3,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

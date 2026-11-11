@@ -8,10 +8,14 @@
 // - 감사 기록: faction.identity_create·faction.identity_update(그림 바이트는 싣지 않고 해시·크기만), 운영자 ops.emblem_takedown·
 //   ops.emblem_block·ops.emblem_switch.
 // 조회·비실시간 기능이라 tRPC다(게임 판정에 쓰이는 값이 아니다 — 이름표·마크는 보이기만 한다).
+// 바뀜(질문 926~935 답, ADR "바뀜 (2026-11-11, 926~935 답)"): 정체성을 정하는 것이 곧 가문 창설이다(926 나). 창설 자체는 세력 행을 만들고
+// 값을 내는 게임 상태 명령이라 WebSocket house_found(found.ts)이고, 여기 저장은 그 앞 단계(정체성 줄 = 창설 전에는 초안)다. 이름 대기·
+// 약어 폭·신고 횟수·자동 막기 문턱은 설정 칸(rules.ts).
 import {
   FACTION_NOTICE_REASON_MAX,
-  FACTION_RENAME_WAIT_MS,
   type FactionIdentityCheck,
+  type FactionReportResult,
+  type OpsEmblemSort,
   type FactionEmblemUploadInput,
   type FactionIdentityMine,
   type FactionIdentityReason,
@@ -30,7 +34,9 @@ import { decodeBase64 } from "../nationEdit/png.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import { reasonedError } from "../trpc/init.ts";
+import { clearReports, houseNation, reportHouse } from "./house.ts";
 import { checkPlayerEmblemPng } from "./png.ts";
+import { type HouseRules, TEST_HOUSE_RULES } from "./rules.ts";
 import {
   type IdentityQueryable,
   type IdentityRow,
@@ -65,8 +71,8 @@ export interface FactionIdentityShared {
   /** 실효 국가 프리셋(이름·약어 사칭 검사). 부를 때마다 읽는다 */
   readonly presets: () => readonly NationPreset[];
   readonly limiters: { readonly saves: RateLimiter; readonly uploads: RateLimiter };
-  /** 이름·약어를 다시 바꾸기까지 기다리는 시간 */
-  readonly renameWaitMs: number;
+  /** 가문 설정값(설정 칸, 부를 때마다 읽는다) */
+  readonly rules: () => HouseRules;
 }
 
 export function createFactionIdentityShared(options: {
@@ -74,7 +80,7 @@ export function createFactionIdentityShared(options: {
   now: () => number;
   presets?: (() => readonly NationPreset[] | undefined) | undefined;
   limits?: Partial<FactionIdentityLimits> | undefined;
-  renameWaitMs?: number | undefined;
+  rules?: (() => HouseRules) | undefined;
 }): FactionIdentityShared {
   const limits = { ...DEFAULT_IDENTITY_LIMITS, ...options.limits };
   return {
@@ -85,7 +91,7 @@ export function createFactionIdentityShared(options: {
       saves: createRateLimiter({ ...limits.saves, now: options.now }),
       uploads: createRateLimiter({ ...limits.uploads, now: options.now }),
     },
-    renameWaitMs: options.renameWaitMs ?? FACTION_RENAME_WAIT_MS,
+    rules: options.rules ?? (() => TEST_HOUSE_RULES),
   };
 }
 
@@ -115,8 +121,10 @@ export interface FactionIdentityServices {
   check(viewer: IdentityViewer, input: { name: string; shortName: string }): Promise<FactionIdentityCheck>;
   save(viewer: IdentityViewer, input: FactionIdentitySaveInput): Promise<FactionIdentityMine>;
   dismissNotice(viewer: IdentityViewer): Promise<FactionIdentityMine>;
+  /** 다른 가문의 마크·이름 신고(질문 930 나) */
+  report(viewer: IdentityViewer, input: { factionId: number }): Promise<FactionReportResult>;
   /** 운영자 콘솔 "마크 관리" */
-  opsList(): Promise<OpsEmblemList>;
+  opsList(input?: { sort?: OpsEmblemSort | undefined }): Promise<OpsEmblemList>;
   opsTakedown(
     viewer: IdentityViewer,
     input: { userId: string; reason: string; blockUploads: boolean },
@@ -126,6 +134,8 @@ export interface FactionIdentityServices {
     input: { userId: string; blocked: boolean },
   ): Promise<OpsEmblemResult>;
   opsSetUploadAllowed(viewer: IdentityViewer, input: { allowed: boolean }): Promise<{ ok: true }>;
+  /** 그 가문의 신고를 넘긴다(문제없다고 봄) */
+  opsClearReports(viewer: IdentityViewer, input: { userId: string }): Promise<OpsEmblemResult>;
 }
 
 const rejected = (reason: FactionIdentityReason, details?: readonly string[]) =>
@@ -172,6 +182,13 @@ function uniqueViolation(error: unknown): "name_taken" | "short_taken" | null {
   return constraint.includes("short") ? "short_taken" : "name_taken";
 }
 
+/** 약어 검사: 지금 약어 그대로(대소문자만 다를 수 있음)면 저장 폭, 바꾸는 약어면 설정 칸 폭(S20) */
+function parseShortFor(input: string, before: IdentityRow | null, rules: HouseRules) {
+  const loose = parseFactionShort(input);
+  if (loose.ok && before !== null && before.shortName.toLowerCase() === loose.key) return loose;
+  return parseFactionShort(input, rules.shortRange);
+}
+
 export function createFactionIdentityServices(
   shared: FactionIdentityShared,
   deps: { db: Database; ip: string | null },
@@ -189,10 +206,21 @@ export function createFactionIdentityServices(
     loaded?: IdentityRow | null,
   ): Promise<FactionIdentityMine> => {
     const row = loaded === undefined ? await loadIdentity(pool, viewer.id) : loaded;
-    const switchOff = await uploadSwitchBlocked(pool);
-    const renameAt = row ? row.nameChangedAt + shared.renameWaitMs : 0;
+    const rules = shared.rules();
+    const [switchOff, nation] = await Promise.all([
+      uploadSwitchBlocked(pool),
+      row?.factionId == null ? Promise.resolve(null) : houseNation(pool, row.factionId),
+    ]);
+    // 이름 대기는 창설한 가문에만(창설 전 초안은 몇 번이고 고친다)
+    const renameAt = row?.factionId == null ? 0 : row.nameChangedAt + rules.renameWaitMs;
     return {
       identity: row ? viewOf(row) : null,
+      house:
+        row?.factionId == null
+          ? null
+          : { factionId: row.factionId, foundedAt: row.foundedAt ?? row.createdAt, nationId: nation },
+      foundCost: rules.foundCost.toString(),
+      shortRange: rules.shortRange,
       uploadBlock: switchOff ? "switch_off" : row?.uploadBlocked ? "account_blocked" : null,
       notice: row?.notice ?? null,
       renameAt: row && renameAt > shared.now() ? renameAt : null,
@@ -201,11 +229,11 @@ export function createFactionIdentityServices(
     };
   };
 
-  /** 이름·약어가 다른 세력(플레이어·NPC 정체성·국가 프리셋)과 겹치는가 */
-  const takenOf = async (userId: string, nameKey: string, shortKey: string) => {
+  /** 이름·약어가 다른 세력(플레이어·NPC·다른 가문 정체성·국가 프리셋)과 겹치는가. ownFaction = 내 가문(세지 않는다) */
+  const takenOf = async (userId: string, nameKey: string, shortKey: string, ownFaction: number | null) => {
     const [players, profiles] = await Promise.all([
       playerTaken(pool, userId, nameKey, shortKey),
-      profileTaken(pool, nameKey, shortKey),
+      profileTaken(pool, nameKey, shortKey, ownFaction),
     ]);
     const presets = presetTaken(shared.presets(), nameKey, shortKey);
     return {
@@ -218,11 +246,17 @@ export function createFactionIdentityServices(
     mine: (viewer) => mineOf(viewer),
 
     async check(viewer, input) {
+      const before = await loadIdentity(pool, viewer.id);
       const name = parseFactionName(input.name);
-      const short = parseFactionShort(input.shortName);
+      const short = parseShortFor(input.shortName, before, shared.rules());
       const taken =
         name.ok || short.ok
-          ? await takenOf(viewer.id, name.ok ? name.key : "", short.ok ? short.key : "")
+          ? await takenOf(
+              viewer.id,
+              name.ok ? name.key : "",
+              short.ok ? short.key : "",
+              before?.factionId ?? null,
+            )
           : { name: false, short: false };
       return {
         name: name.ok ? (taken.name ? "taken" : null) : name.problem,
@@ -231,22 +265,31 @@ export function createFactionIdentityServices(
     },
 
     async save(viewer, input) {
+      const rules = shared.rules();
       const name = parseFactionName(input.name);
       if (!name.ok) throw rejected("name_invalid", [name.problem]);
-      const short = parseFactionShort(input.shortName);
-      if (!short.ok) throw rejected("short_invalid", [short.problem]);
+      // 약어 폭은 저장 폭(2~5자)으로 먼저 보고, 바꾸는 약어면 아래에서 설정 칸 폭으로 다시 본다(이미 정한 긴 약어는 그대로 — 질문 928 나)
+      const loose = parseFactionShort(input.shortName);
+      if (!loose.ok) throw rejected("short_invalid", [loose.problem]);
       if (!isIdentityColor(input.color)) throw rejected("color_invalid");
       if (!isEmblemSpec(input.emblem)) throw rejected("emblem_invalid");
       // 글자 규칙(DB를 읽지 않는 검사)을 지난 요청만 센다
       if (!shared.limiters.saves.take(viewer.id)) throw rejected("rate_limited");
       const now = shared.now();
       const before = await loadIdentity(pool, viewer.id);
+      const short = parseShortFor(input.shortName, before, rules);
+      if (!short.ok) throw rejected("short_invalid", [short.problem]);
       const renamed =
         before === null || before.nameKey !== name.key || before.shortName.toLowerCase() !== short.key;
-      // 보이는 모양만 바뀐 것(대소문자)은 이름 바꾸기로 세지 않는다
-      if (before !== null && renamed && now < before.nameChangedAt + shared.renameWaitMs)
+      // 보이는 모양만 바뀐 것(대소문자)은 이름 바꾸기로 세지 않는다. 대기는 창설한 가문에만(질문 932 가 — 값은 설정 칸)
+      if (
+        before !== null &&
+        before.factionId !== null &&
+        renamed &&
+        now < before.nameChangedAt + rules.renameWaitMs
+      )
         throw rejected("rename_wait");
-      const taken = await takenOf(viewer.id, name.key, short.key);
+      const taken = await takenOf(viewer.id, name.key, short.key, before?.factionId ?? null);
       if (taken.name) throw rejected("name_taken");
       if (taken.short) throw rejected("short_taken");
 
@@ -303,9 +346,50 @@ export function createFactionIdentityServices(
       return mineOf(viewer);
     },
 
-    async opsList() {
-      const [listed, blocked] = await Promise.all([listModeration(pool), uploadSwitchBlocked(pool)]);
-      return { uploadAllowed: !blocked, rows: listed.rows, total: listed.total };
+    async report(viewer, input) {
+      const status = await reportHouse(pool, {
+        reporterId: viewer.id,
+        factionId: input.factionId,
+        nowMs: shared.now(),
+        dailyLimit: shared.rules().reportDaily,
+      });
+      if (status === "reported")
+        await writeAudit(deps.db, {
+          actor: actor(viewer, "user"),
+          action: "faction.house_report",
+          targetId: null,
+          before: null,
+          after: { factionId: input.factionId },
+        });
+      return { status };
+    },
+
+    async opsList(input) {
+      const [listed, blocked] = await Promise.all([
+        listModeration(pool, input?.sort ?? "recent"),
+        uploadSwitchBlocked(pool),
+      ]);
+      return {
+        uploadAllowed: !blocked,
+        rows: listed.rows,
+        total: listed.total,
+        autoBlockAt: shared.rules().takedownBlock,
+      };
+    },
+
+    async opsClearReports(viewer, input) {
+      const row = await loadIdentity(pool, input.userId);
+      if (!row) return { ok: false, code: "not_found" };
+      const cleared = row.factionId === null ? 0 : await clearReports(pool, row.factionId);
+      if (cleared > 0)
+        await writeAudit(deps.db, {
+          actor: actor(viewer, "admin"),
+          action: "ops.emblem_reports_clear",
+          targetId: input.userId,
+          before: { factionId: row.factionId, reports: cleared },
+          after: { reports: 0 },
+        });
+      return { ok: true };
     },
 
     async opsTakedown(viewer, input) {
@@ -317,6 +401,7 @@ export function createFactionIdentityServices(
         reason: reason === "" ? null : reason,
         blockUploads: input.blockUploads,
         nowMs: shared.now(),
+        autoBlockAt: shared.rules().takedownBlock,
       });
       if (!taken) return { ok: false, code: "no_upload" };
       await writeAudit(deps.db, {
@@ -324,7 +409,13 @@ export function createFactionIdentityServices(
         action: "ops.emblem_takedown",
         targetId: input.userId,
         before: { name: row.name, shortName: row.shortName, sha256: taken.sha256, bytes: taken.bytes },
-        after: { sha256: null, uploadBlocked: row.uploadBlocked || input.blockUploads, reason },
+        after: {
+          sha256: null,
+          uploadBlocked: row.uploadBlocked || input.blockUploads || taken.autoBlocked,
+          autoBlocked: taken.autoBlocked,
+          takedowns: taken.takedowns,
+          reason,
+        },
       });
       return { ok: true };
     },

@@ -67,6 +67,7 @@ const RESULT_LABELS: { readonly [code: string]: () => string } = {
   invalid: m.ops_res_invalid,
   short_taken: m.ops_res_short_taken,
   ticker_taken: m.ops_res_ticker_taken,
+  player_owned: m.ops_res_player_owned,
 };
 
 export function resultText(code: string): string {

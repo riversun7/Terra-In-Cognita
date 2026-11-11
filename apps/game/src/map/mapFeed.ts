@@ -474,7 +474,9 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       message.t === "travel_result" ||
       message.t === "gather_result" ||
       message.t === "hospital_result" ||
-      message.t === "nationality_result"
+      message.t === "nationality_result" ||
+      // 가문 창설 결과(프로토콜 22)는 가문 창설 화면이 받는다
+      message.t === "house_result"
     )
       return;
     if (message.mapKey !== mapKey) return;

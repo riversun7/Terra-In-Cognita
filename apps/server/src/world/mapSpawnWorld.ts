@@ -1,7 +1,8 @@
 // 그때 띄우기를 세계에 잇기 — docs/adr/2026-11-07-play-flow.md "WP15". world.ts(1,000줄 상한)는 이 함수를 한 번 부른다.
 // 설정 칸(세력·사회 계수표 worldSeed: map_spawn_max_loaded·map_spawn_idle_ms, 모두 [임시])은 띄울 때·살필 때마다 읽는다(실효 값).
 // 옆 2차맵 미리 띄우기·경계 너머 시야(edgeWatch.ts, docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)")도 여기서 잇는다: 2차맵 고리
-// (mapFactory attachEdge), 붙잡음(변 가까운 플레이어 유닛), 1분마다 다시 보기. 설정 칸 map_preopen_cells·map_preopen_idle_ms([임시]).
+// (mapFactory attachEdge), 붙잡음(변 가까운 플레이어 유닛), 1분마다 다시 보기. 설정 칸 map_preopen_cells·map_preopen_idle_ms([임시]) —
+// map_preopen_cells는 켤 때와 1분마다 읽어 둔다(바꾸면 1분 안에 걸린다).
 import type { SocietyCoefficients } from "@terra/sim";
 import type { TravelService } from "../travel/service.ts";
 import type { CityRow } from "./cities.ts";
@@ -40,10 +41,13 @@ export function attachMapSpawn(parts: {
   const isMapKey = sameLevelAs(parts.sample);
   // 미리 띄우기는 아래 spawner가 선 뒤에 부른다(유닛이 움직일 때 — 부팅 색인은 띄우지 않는다)
   const relay: { openEarly?: (mapKey: number) => void } = {};
+  let preopenCells = seed().mapPreopenCells;
   const edge = createEdgeWatch({
     maps: parts.maps,
     isPlayer: (ownerId) => (parts.owners.get(ownerId)?.userId ?? null) !== null,
-    preopenCells: () => seed().mapPreopenCells,
+    // 유닛이 움직일 때마다 계수표를 읽지 않는다(사이보그 만들기 등 한 명령 안에서 설정 칸을 한 벌만 읽는다 — cyborgTuning.db.test.ts):
+    // 켤 때와 1분마다(살피기 뒤) 읽어 둔 값을 쓴다
+    preopenCells: () => preopenCells,
     canOpen: (mapKey) => !parts.maps.has(mapKey) && isMapKey(mapKey),
     openEarly: (mapKey) => relay.openEarly?.(mapKey),
   });
@@ -62,7 +66,10 @@ export function attachMapSpawn(parts: {
       idleMs: seed().mapSpawnIdleMs,
       preopenIdleMs: seed().mapPreopenIdleMs,
     }),
-    afterSweep: () => edge.reconcile(parts.now()),
+    afterSweep: () => {
+      preopenCells = seed().mapPreopenCells;
+      edge.reconcile(parts.now());
+    },
     now: parts.now,
     log: parts.log,
   });

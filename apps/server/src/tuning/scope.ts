@@ -320,7 +320,7 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   // 옆 2차맵을 그때 띄우기(world/mapSpawnWorld.ts, docs/adr/2026-11-07-play-flow.md "WP15"): 띄울 때·1분마다 살필 때 읽는다
   "worldSeed.mapSpawnMaxLoaded",
   "worldSeed.mapSpawnIdleMs",
-  // 옆 2차맵 미리 띄우기(world/edgeWatch.ts, docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)"): 유닛이 움직일 때·1분마다 읽는다
+  // 옆 2차맵 미리 띄우기(world/edgeWatch.ts, docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)"): 1분마다(살피기) 읽는다
   "worldSeed.mapPreopenCells",
   "worldSeed.mapPreopenIdleMs",
   // NPC 휴먼 낮밤 일(npc/runtime.ts → humanPlaces.ts, docs/adr/2026-11-07-play-flow.md "WP-NPC4", 770 나): 휴먼 자리를 맞출 때마다 읽는다

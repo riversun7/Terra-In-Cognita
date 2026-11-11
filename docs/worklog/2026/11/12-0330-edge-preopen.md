@@ -45,7 +45,8 @@
 - Verified: DB 시험 `edgePreopen.db.test.ts` 1, `travel.db.test.ts` 3, `layoutTravel.db.test.ts` 2 통과(`TEST_DATABASE_URL`). 고치기 전 `travel.db.test.ts` 2개가 실패했다(변 16칸에 선 유닛이 북쪽 이웃을 미리 띄워 띄운 2차맵 목록이 늘었다, 정찰 시험의 "아직 모르는 2차맵"이 경계 너머 시야로 알려졌다 — 둘 다 새 규칙대로라 시험을 맞췄다).
 - Verified: `pnpm e2e e2e/seamless.spec.ts` 6 통과·1 건너뜀(잼, 7.4분). 새 player 시험: 걸은 시간 259초, 이웃 구독 거절은 모두 `not_visible`(시야가 닿기 전, 5초마다 다시), `unknown_map` 0, 넘기 전에 vision을 받음. 첫 실행은 미리 띄운 이웃 지형 404(기기 콘솔)로 실패 → `terrainRoute.ts` 고침 뒤 통과.
 - e2e 도우미 `sendCommands`에 첫 요청 ID 인자를 더했다: 같은 ID의 이동 명령을 서버 명령 중복 방지(10분)가 처음 결과로 돌려줘 두 번째 이동이 되지 않았다(잼 첫 실행, Verified). 기본값은 그대로 9000.
-- 마지막 검사(`pnpm check`·빌드·check-pwa·check:bundle·check:docs)는 아래 "마지막 검사"에 적는다.
+- Verified: 첫 `pnpm check`에서 `cyborg/cyborgTuning.db.test.ts` 1개 실패(사이보그 만들기 한 명령 안에서 설정 칸을 두 번 읽음 — 새로 선 사이보그 유닛의 움직임 알림이 `map_preopen_cells`를 읽었다). 미리 띄우기 거리는 켤 때와 1분마다(살피기 뒤) 읽어 둔 값을 쓰게 고쳤다(설정 칸을 바꾸면 1분 안에 걸린다). 고친 뒤 그 시험·미리 띄우기 시험·tuning 시험 46 통과.
+- Verified: 빌드·`node scripts/check-pwa.mjs`·`pnpm check:bundle` 통과(apps/game은 `mapSession.ts`만 바뀜).
 
 ## 잰 것
 Verified: `E2E_MEASURE=1 NPC_TEST_NATIONS=16 S1_TEST_BOTS=1000 pnpm e2e e2e/seamless.spec.ts --grep "미리 띄우기 잼"` — 빌드한 서버, 16국가(`npcFactions` 16), 유닛 2,896(봇 1,000 + NPC 휴먼 1,875 등), 부팅 씨앗 2차맵 55장. dev 사이보그를 시작 2차맵 변 넷 앞에 차례로 세움(운영자 빠르기). 서버 1분 지표(UTC):

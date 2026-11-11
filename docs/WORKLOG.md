@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-12 03:30 | 옆 2차맵 미리 띄우기·경계 너머 시야(edge-preopen) | Claude Code | [12-0330-edge-preopen](worklog/2026/11/12-0330-edge-preopen.md) |
 | 2026-11-12 02:15 | 이웃 안개 화면 시험을 도시 간격 세계에 맞춤(seamless-fix) | Claude Code | [12-0215-seamless-fix](worklog/2026/11/12-0215-seamless-fix.md) |
 | 2026-11-12 02:10 | 사이보그 초상을 3D 외형으로(강하 요약·사이보그 화면·위 띠 얼굴) | Claude Code | [12-0210-look-portrait](worklog/2026/11/12-0210-look-portrait.md) |
 | 2026-11-12 00:50 | 2026-11-11 둘째 묶음 합치기 (외형 다시 고르기·가문 창설·가문 가입·2차맵 6단계·생성 개선·2차맵 소품) | Claude Code | [12-0050-batch-1111b-merge](worklog/2026/11/12-0050-batch-1111b-merge.md) |

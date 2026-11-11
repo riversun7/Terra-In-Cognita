@@ -3,7 +3,13 @@ import { MAP_PROP_ARTS } from "@terra/shared";
 import { MeshLambertMaterial, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { PLACEMENT_CELLS, TERRAIN_CELLS } from "../terrain/terrainData.ts";
-import { createPropFade, fadeMaterial, segmentDistance } from "./propFade.ts";
+import {
+  type FadeShader,
+  createPropFade,
+  fadeMaterial,
+  patchFadeShader,
+  segmentDistance,
+} from "./propFade.ts";
 import { PropView } from "./propView.ts";
 
 describe("유닛 앞 옅게", () => {
@@ -20,13 +26,12 @@ describe("유닛 앞 옅게", () => {
   it("재질 셰이더에 조각이 들어가고 모든 재질이 같은 값을 쓴다", () => {
     const fade = createPropFade();
     const material = fadeMaterial(new MeshLambertMaterial(), fade);
-    const shader = {
-      uniforms: {} as Record<string, unknown>,
+    const shader: FadeShader = {
+      uniforms: {},
       vertexShader: "#include <common>\nvoid main(){\n#include <project_vertex>\n}",
       fragmentShader: "#include <common>\nvoid main(){\n#include <clipping_planes_fragment>\n}",
     };
-    // three가 컴파일 직전에 부르는 손잡이(인자 모양만 맞춘다)
-    material.onBeforeCompile(shader as never, undefined as never);
+    patchFadeShader(shader, fade);
     expect(shader.vertexShader).toContain("vPropFadeWorld");
     expect(shader.fragmentShader).toContain("discard");
     expect(shader.uniforms.uPropFadeTo).toBe(fade.uniforms.uPropFadeTo);

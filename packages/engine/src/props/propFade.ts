@@ -81,17 +81,27 @@ if ( uPropFadeOn > 0.5 ) {
   if ( propFade > ( float( propB ) + 0.5 ) / 16.0 ) discard;
 }`;
 
+/** 셰이더 원문 모양(three onBeforeCompile 인자의 필요한 칸) */
+export interface FadeShader {
+  uniforms: Record<string, unknown>;
+  vertexShader: string;
+  fragmentShader: string;
+}
+
+/** 셰이더에 옅게 조각과 값을 넣는다(시험이 바로 부른다) */
+export function patchFadeShader(shader: FadeShader, fade: PropFade): void {
+  Object.assign(shader.uniforms, fade.uniforms);
+  shader.vertexShader = shader.vertexShader
+    .replace("#include <common>", VERTEX_HEAD)
+    .replace("#include <project_vertex>", VERTEX_BODY);
+  shader.fragmentShader = shader.fragmentShader
+    .replace("#include <common>", FRAGMENT_HEAD)
+    .replace("#include <clipping_planes_fragment>", FRAGMENT_BODY);
+}
+
 /** 재질에 옅게 조각을 넣는다(같은 fade 값을 모든 부품 재질이 함께 쓴다). 넣은 재질을 돌려준다 */
 export function fadeMaterial<M extends Material>(material: M, fade: PropFade): M {
-  material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, fade.uniforms);
-    shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", VERTEX_HEAD)
-      .replace("#include <project_vertex>", VERTEX_BODY);
-    shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", FRAGMENT_HEAD)
-      .replace("#include <clipping_planes_fragment>", FRAGMENT_BODY);
-  };
+  material.onBeforeCompile = (shader) => patchFadeShader(shader, fade);
   material.customProgramCacheKey = () => "terra-prop-fade";
   return material;
 }

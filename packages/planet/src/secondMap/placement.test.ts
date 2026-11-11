@@ -158,6 +158,9 @@ const fingerprint = (t: SecondMapTerrain): number[] => {
 const distance = (p: readonly number[], q: readonly number[]) =>
   Math.sqrt(p.reduce((sum, value, k) => sum + (value - (q[k] ?? 0)) * (value - (q[k] ?? 0)), 0));
 
+/** 2차맵에 쓰인 소품 그림 종류 수(없음 포함) */
+const kinds = (art: Uint8Array): number => new Set(art).size;
+
 describe("2차맵 배치", () => {
   const forests = forestMaps(200, 6);
 
@@ -376,7 +379,6 @@ describe("2차맵 배치", () => {
       const full = terrain(key);
       const base = generateSecondMap(values, key, judged);
       expect(full.cover).toEqual(base.cover);
-      const kinds = (art: Uint8Array): number => new Set(art).size;
       for (let i = 0; i < CELLS; i++) {
         const before = base.art[i] ?? 0;
         // 판정 소품 칸(원자재 오브젝트·숲 비용이 보는 그림)은 그대로, 빈 칸에만 장식이 더해진다

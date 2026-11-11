@@ -487,3 +487,9 @@
 .wl-city-table tr[data-selected] th {
   color: var(--color-primary);
 }
+.wl-city-pick {
+  white-space: nowrap;
+}
+.wl-city-table td {
+  white-space: nowrap;
+}

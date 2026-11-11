@@ -2,8 +2,13 @@
 // 않는 문제", "로딩없이 2차맵 이동") — player.
 // 실제로 걸어서 변을 넘는 데 몇 분 걸려 시험은 연결을 가운데서 고쳐 흉내 낸다:
 // - 서버 → 기기: 내 사이보그(own) 경로를 2차맵 한 변 가까이(가운데 줄)에 선 것으로 바꾼다 → 카메라가 따라가 그쪽 이웃이 카메라 쪽이 된다.
-// - 기기가 그 이웃을 받아 그리고(data-neighbours) 같은 연결로 구독한다(이웃 안개). 볼 수 있는 이웃(같은 나라 시작 도시 등)이면 서버가 vision을 보내고,
-//   볼 수 없으면 구독이 거절된다(온통 어둡게). 시험은 vision이 오는 변을 찾을 때까지 변을 바꿔 다시 연다. 사진(390 파스텔·다크).
+// - 기기가 그 이웃을 받아 그리고(data-neighbours) 같은 연결로 구독한다(이웃 안개). 볼 수 있는 이웃이면 서버가 vision을 보내고,
+//   볼 수 없으면 구독이 거절된다(온통 어둡게). 시험은 바라는 답(vision 또는 거절)이 오는 변을 찾을 때까지 변을 바꿔 다시 연다.
+// - 도시 간격(ADR world-layout "바뀜 (2026-11-11, 도시 배후지 간격)") 뒤로 시작 도시 옆 2차맵은 띄우지 않은 2차맵이다(같은 나라 도시가 붙어 있지
+//   않다) → 이웃 구독은 unknown_map으로 거절되고 온통 어둡게 그린다. 맞는 규칙이다(ADR seamless-second-map "띄우지 않은 이웃(unknown_map)은 온통
+//   어둡게"). 그래서 거절 = 온통 어둡게는 player 사진 시험이 본다(390 파스텔·다크).
+// - 넘기·옆 땅 누르기는 볼 수 있는 이웃이 있어야 하는 그리기·넘기 시험이라 dev(운영자 모드 끔 — 이웃을 보통 구독으로 받는다, 전체 보기 권한이라
+//   not_visible은 없다)로 본다: 먼저 운영자 빠르기로 내 사이보그를 동쪽 이웃에 보냈다 돌아와 그 2차맵을 띄워 둔다(그때 띄우기, 비면 10분 뒤 내림).
 // - 기기에 그 이웃 2차맵의 가짜 경로(내 사이보그)를 넣으면 기기가 넘는다: 주소 key·data-map-key가 이웃, data-switched="in-place", 지도 캔버스가
 //   같은 요소(화면을 다시 만들지 않음), 카메라 목표가 한 2차맵만큼 옮겨진 틀, "받는 중" 안내 없음, 확대 단계 그대로, 그 2차맵을 다시 구독하지 않음.
 //   서버에서는 사이보그가 넘지 않았으므로 내 유닛 목록은 넘기 전 목록을 그대로 돌려준다(들어갈 수 없음 안내가 뜨지 않게).
@@ -37,6 +42,8 @@ interface Rig {
   readonly subscribed: number[];
   /** 구독이 거절된 2차맵 키 */
   readonly refused: number[];
+  /** 거절된 2차맵 키 → 결과 코드(not_visible·unknown_map 등, 실패 안내용) */
+  readonly refusedCodes: Map<number, string>;
   /** 기기가 받은 vision의 2차맵 키 */
   readonly visions: number[];
   /** 기기가 보낸 2차맵 사이 이동(travel_start)의 옆 2차맵 키 */
@@ -60,6 +67,7 @@ async function rigSocket(page: Page): Promise<Rig> {
     edge: EDGES[0] ?? { x: 250, y: 128 },
     subscribed: [],
     refused: [],
+    refusedCodes: new Map(),
     visions: [],
     travels: [],
     snapshotUnits: new Map(),
@@ -92,7 +100,10 @@ async function rigSocket(page: Page): Promise<Rig> {
       if (kind === "vision") rig.visions.push(Number(field(parsed, "mapKey")));
       if (kind === "result" && field(parsed, "ok") === false) {
         const key = subscribeIds.get(Number(field(parsed, "id")));
-        if (key !== undefined) rig.refused.push(key);
+        if (key !== undefined) {
+          rig.refused.push(key);
+          rig.refusedCodes.set(key, String(field(parsed, "code")));
+        }
       }
       const units = field(parsed, "units");
       if (kind === "map_snapshot" && Array.isArray(units)) {
@@ -133,11 +144,16 @@ async function keepMyUnits(page: Page): Promise<void> {
 }
 
 /**
- * 2차맵을 열고 카메라가 변 가까이 선 내 사이보그를 따라가 그쪽 이웃을 받아 구독할 때까지. 볼 수 있는 이웃(vision이 온다)이 나올 때까지 변을 바꿔
- * 다시 연다. 지금 2차맵과 그 이웃 키
+ * 2차맵을 열고 카메라가 변 가까이 선 내 사이보그를 따라가 그쪽 이웃을 받아 구독할 때까지. 바라는 답(want — "vision": 볼 수 있는 이웃,
+ * "refused": 구독이 거절된 이웃)이 나올 때까지 변을 바꿔 다시 연다. 지금 2차맵과 그 이웃 키
  */
-async function openAtEdge(page: Page, rig: Rig): Promise<{ main: number; near: number }> {
+async function openAtEdge(
+  page: Page,
+  rig: Rig,
+  want: "vision" | "refused",
+): Promise<{ main: number; near: number }> {
   const map = page.locator(".map-screen[data-map-key]");
+  const seen: string[] = [];
   for (const edge of EDGES) {
     rig.edge = edge;
     rig.subscribed.length = 0;
@@ -157,23 +173,64 @@ async function openAtEdge(page: Page, rig: Rig): Promise<{ main: number; near: n
     await expect
       .poll(() => rig.visions.includes(near) || rig.refused.includes(near), { timeout: 20_000 })
       .toBe(true);
-    if (rig.visions.includes(near)) return { main, near };
+    const got = rig.visions.includes(near) ? "vision" : "refused";
+    seen.push(`${main}→${near}:${got === "vision" ? "vision" : (rig.refusedCodes.get(near) ?? "?")}`);
+    if (got === want) return { main, near };
   }
-  throw new Error("볼 수 있는 이웃 2차맵이 없습니다");
+  throw new Error(`바라는 이웃(${want})이 없습니다: ${seen.join(", ")}`);
+}
+
+/**
+ * dev 사이보그 2차맵의 동쪽 이웃을 띄워 둔다(그때 띄우기 — docs/adr/2026-11-07-play-flow.md "WP15"): 운영자 빠르기로 그 2차맵에 보냈다가
+ * 제자리로 돌린다. 시작 도시 옆 2차맵은 부팅이 띄우지 않으므로(도시 간격) 이것이 없으면 이웃 구독이 unknown_map으로 거절된다
+ */
+async function spawnEastNeighbour(page: Page): Promise<number> {
+  const side = await page.context().newPage();
+  try {
+    await side.goto("/health");
+    const home = await myPosition(side);
+    if (!home) throw new Error("dev 사이보그 자리를 모릅니다");
+    const east = isCellKey(home.mapKey) ? stepCell(home.mapKey, 1, 0) : null;
+    if (east === null) throw new Error("동쪽 이웃이 없습니다");
+    let landed: Position | null = null;
+    for (const [cellX, cellY] of [
+      [128, 128],
+      [64, 128],
+      [192, 128],
+      [128, 64],
+      [128, 192],
+    ] as const) {
+      const target = { mapKey: east, cellX, cellY, unitId: home.unitId };
+      if (!(await fastTravel(side, home.mapKey, home.unitId, target))) continue;
+      landed = target;
+      break;
+    }
+    if (!landed) throw new Error("동쪽 이웃에 설 자리가 없습니다");
+    await waitAt(side, landed, 4);
+    expect(await fastTravel(side, east, home.unitId, home)).toBe(true);
+    await waitAt(side, home, 4);
+    return east;
+  } finally {
+    await side.close();
+  }
 }
 
 test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
-  test.use({ account: "player" });
+  // 그리기·넘기 시험: 볼 수 있는 이웃이 늘 있게 dev(전체 보기 권한, 운영자 모드 끔 — 이웃을 보통 구독으로 받는다)
+  test.use({ account: "dev" });
 
   test("변 가까이: 이웃을 구독해 안개를 받고, 기준 유닛이 이웃에 나타나면 화면을 다시 만들지 않고 넘는다", async ({
     page,
     deviceErrors,
   }) => {
     test.setTimeout(360_000);
+    const spawned = await spawnEastNeighbour(page);
     const rig = await rigSocket(page);
     await keepMyUnits(page);
-    const { main, near: east } = await openAtEdge(page, rig);
+    const { main, near: east } = await openAtEdge(page, rig, "vision");
+    expect(east).toBe(spawned);
     const map = page.locator(".map-screen[data-map-key]");
+    await expect(map).toHaveAttribute("data-operator", "off");
     const cyborg = Number(await map.getAttribute("data-cyborg"));
     expect(cyborg).toBeGreaterThan(0);
     // 옆 2차맵 유닛도 그린다: 엔진 유닛 수 = 지금 2차맵 스냅샷 유닛 + 옆 2차맵 스냅샷 유닛(겹치지 않는 것)
@@ -200,6 +257,7 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     await expect(ladder).toHaveAttribute("data-stage", "4");
 
     // 넘기: 그 이웃 2차맵 경로에 내 사이보그가 나타난다(그 2차맵 흐름의 rev에 이어 붙인다)
+    const subscribedBefore = rig.subscribed.length;
     const eastRev = rig.revs.get(east) ?? 0;
     rig.inject({
       t: "unit_paths",
@@ -235,7 +293,12 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     expect(Math.hypot(ax - bx, az - bz)).toBeGreaterThan(300);
     // 새 2차맵 자료는 이웃일 때 구독해 둔 흐름을 그대로 쓴다(다시 구독하지 않는다 — "바뀜 (2026-11-11)")
     await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
-    expect(rig.subscribed.filter((key) => key === east).length).toBe(1);
+    // 넘기 전 구독(거절 뒤 다시 보낸 것 포함)은 넘기와 상관없다 — 넘은 뒤로 그 2차맵 구독이 새로 없어야 한다
+    console.log(
+      `[subscribe] ${JSON.stringify({ east, before: rig.subscribed.slice(0, subscribedBefore), after: rig.subscribed.slice(subscribedBefore), refused: [...rig.refusedCodes] })}`,
+    );
+    expect(rig.subscribed.slice(0, subscribedBefore)).toContain(east);
+    expect(rig.subscribed.slice(subscribedBefore)).not.toContain(east);
     expect(main).not.toBe(east);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
@@ -243,16 +306,18 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
 });
 
 test.describe("옆 2차맵 땅 누르기", () => {
-  test.use({ account: "player" });
+  test.use({ account: "dev" });
 
   test("그려 둔 옆 2차맵 땅을 누르면 고른 내 유닛을 그 2차맵으로 보낸다(travel_start)", async ({
     page,
     deviceErrors,
   }) => {
     test.setTimeout(360_000);
+    await spawnEastNeighbour(page);
     const rig = await rigSocket(page);
     await keepMyUnits(page);
-    const { near } = await openAtEdge(page, rig);
+    const { near } = await openAtEdge(page, rig, "vision");
+    await expect(page.locator(".map-screen")).toHaveAttribute("data-operator", "off");
     // 멀리 보아 옆 2차맵이 화면에 넓게 들게 한 뒤, 가운데(내 사이보그) 둘레를 바깥부터 눌러 본다 — 옆 땅을 누를 때까지
     const box = await page.locator(".map-view canvas").boundingBox();
     if (!box) throw new Error("no canvas");
@@ -262,12 +327,12 @@ test.describe("옆 2차맵 땅 누르기", () => {
     await page.locator(".zoom-ladder-out").click();
     await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
     await page.mouse.move(cx, cy);
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < 5; k++) {
       await page.mouse.wheel(0, 400);
       await page.waitForTimeout(150);
     }
     await page.waitForTimeout(800);
-    for (const radius of [150, 110]) {
+    for (const radius of [180, 150, 110]) {
       for (let step = 0; step < 12 && rig.travels.length === 0; step++) {
         const angle = (step * Math.PI) / 6;
         const x = cx + Math.cos(angle) * radius;
@@ -285,7 +350,7 @@ test.describe("옆 2차맵 땅 누르기", () => {
     }
     expect(rig.travels).toContain(near);
     await expect(page.locator(".map-screen")).toHaveAttribute("data-command", /^(sent|travel_ok|[a-z_]+)$/);
-    // 서버에서 내 사이보그가 정말 떠났다: 멈춰 둔다(다음 시험 — unit-control 등 — 이 같은 사이보그를 2차맵 안에서 움직인다)
+    // 서버에서 내 사이보그가 정말 떠났다: 멈춰 둔다(다음 시험 — 걸어서 넘기 등 — 이 같은 사이보그를 쓴다)
     const cyborg = Number(await page.locator(".map-screen").getAttribute("data-cyborg"));
     expect(deviceErrors).toEqual([]);
     const [cancel] = await sendCommands(page, [{ t: "travel_cancel", unitId: cyborg }]);
@@ -294,6 +359,7 @@ test.describe("옆 2차맵 땅 누르기", () => {
 });
 
 test.describe("이웃 안개 사진", () => {
+  // 볼 수 없는 이웃(구독 거절) = 온통 어둡게: player 시작 도시 옆 2차맵(같은 나라 도시 없음 — 도시 간격)
   test.use({ account: "player" });
   for (const theme of ["pastel", "dark"] as const satisfies readonly Theme[]) {
     test.describe(`390 ${theme}`, () => {
@@ -302,7 +368,9 @@ test.describe("이웃 안개 사진", () => {
         test.setTimeout(360_000);
         const rig = await rigSocket(page);
         await keepMyUnits(page);
-        await openAtEdge(page, rig);
+        const { near } = await openAtEdge(page, rig, "refused");
+        expect(rig.refusedCodes.get(near)).toMatch(/^(not_visible|unknown_map)$/);
+        expect(rig.visions).not.toContain(near);
         // 멀리 보아 경계 양쪽이 보이게(가운데 = 내 사이보그). 6/6에서 한 단계 줄인 뒤 휠로
         await page.locator(".zoom-ladder-out").click();
         await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");

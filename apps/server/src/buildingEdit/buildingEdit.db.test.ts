@@ -315,4 +315,104 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 편집기 (DB)", () => {
     expect(facilityOf(obj(resultOf(reverted)), "farm")).toMatchObject({ origin: "pack", override: null });
     expect(roster.names.facilities.farm).toEqual({ ko: "농장", en: "Farm" });
   });
+
+  it("생산 편집기: 여섯 시설·손잡이·전투 클래스가 목록에 있고, 스탯 짝·클래스 이름을 고치면 유닛 추천 표(units.guide)가 바로 바뀐다", async () => {
+    const listed = await list();
+    const gatherIds = arr(listed.facilities)
+      .map((row) => obj(obj(row).entry))
+      .filter((entry) => entry.gather !== undefined)
+      .map((entry) => entry.id);
+    expect(gatherIds).toEqual(["farm", "lumber_camp", "mine", "herb_field", "ranch", "fishing_spot"]);
+    expect(obj(listed.gatherRules)).toMatchObject({
+      progressDivisor: 20,
+      tierProgressBase: 30,
+      tierProgressStep: 30,
+      tickMs: 60_000,
+      defaultStat: 10,
+    });
+    expect(listed.classRule).toEqual({ threeStatPm: 600, generalistPm: 800 });
+    expect(arr(listed.combatClasses)).toHaveLength(36);
+
+    // 유닛 추천 표는 로그인한 누구나 읽는다(플레이어)
+    const guide = async () => obj(resultOf(await trpcQuery(app, "units.guide", undefined, cookie.player)));
+    const before = await guide();
+    expect(arr(before.production).map((row) => obj(row).facility)).toEqual(gatherIds);
+    const typeOf = (body: Record<string, unknown>, id: string) =>
+      obj(arr(body.production).find((row) => obj(row).facility === id));
+    expect(typeOf(before, "fishing_spot")).toMatchObject({
+      primary: "agi",
+      secondary: "dex",
+      mode: "roll",
+      group: "building",
+    });
+    expect(typeOf(before, "herb_field")).toMatchObject({ primary: "int", secondary: "wis", group: "field" });
+    expect(arr(before.classes)).toHaveLength(36);
+
+    // 약초원 스탯 짝을 WIS + INT로 뒤집고, 워리어 이름을 고친다
+    const herb = facilityOf(listed, "herb_field");
+    const warrior = obj(arr(listed.combatClasses).find((row) => obj(obj(row).entry).id === "warrior"));
+    const saved = await save([
+      {
+        op: "put",
+        entry: {
+          ...obj(herb.entry),
+          gather: { ...obj(obj(herb.entry).gather), primary: "wis", secondary: "int" },
+        },
+        baseHash: herb.hash,
+      },
+      {
+        op: "put_combat_class",
+        entry: { ...obj(warrior.entry), name: { ko: "철벽 워리어", en: "Iron Warrior" } },
+        baseHash: warrior.hash,
+      },
+    ]);
+    expect(saved.statusCode).toBe(200);
+    const after = await guide();
+    expect(typeOf(after, "herb_field")).toMatchObject({ primary: "wis", secondary: "int" });
+    expect(obj(arr(after.classes).find((row) => obj(row).id === "warrior")).name).toEqual({
+      ko: "철벽 워리어",
+      en: "Iron Warrior",
+    });
+
+    // 같은 조합의 클래스가 둘이 되면 받지 않는다(조합마다 하나)
+    const relisted = obj(resultOf(saved));
+    const slayer = obj(arr(relisted.combatClasses).find((row) => obj(obj(row).entry).id === "slayer"));
+    const clash = await trpcQuery(
+      app,
+      "buildings.check",
+      {
+        changes: [
+          {
+            op: "put_combat_class",
+            entry: { ...obj(slayer.entry), stats: ["str", "vit"] },
+            baseHash: slayer.hash,
+          },
+        ],
+      },
+      cookie.dev,
+    );
+    const checked = obj(resultOf(clash));
+    expect(checked.ok).toBe(false);
+    expect(arr(checked.issues).map((issue) => obj(issue).code)).toContain("class_stats_duplicate");
+    // 표에 없는 ID는 만들 수 없다
+    const created = await save([
+      {
+        op: "put_combat_class",
+        entry: { ...obj(slayer.entry), id: "brand_new_class" },
+        baseHash: slayer.hash,
+      },
+    ]);
+    expect(errorOf(created)).toMatchObject({ code: "BAD_REQUEST", reason: "unknown_entry" });
+
+    // 되돌리면 팩 값
+    const herbNow = facilityOf(relisted, "herb_field");
+    const warriorNow = obj(arr(relisted.combatClasses).find((row) => obj(obj(row).entry).id === "warrior"));
+    expect(warriorNow.origin).toBe("edited");
+    const reverted = await save([
+      { op: "revert", id: "herb_field", baseHash: herbNow.hash },
+      { op: "revert_combat_class", id: "warrior", baseHash: warriorNow.hash },
+    ]);
+    expect(reverted.statusCode).toBe(200);
+    expect(typeOf(await guide(), "herb_field")).toMatchObject({ primary: "int", secondary: "wis" });
+  });
 });

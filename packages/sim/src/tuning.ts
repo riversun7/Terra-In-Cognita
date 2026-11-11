@@ -383,6 +383,23 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "Primary production progress tick (ms)",
   ),
   k("n44_ore_grams", "N44", "society", "gatherOreGrams", "광석 한 번 캘 때 무게(g)", "Ore per harvest (g)"),
+  // 전투 클래스 분류 문턱(D-529, 옛 CHR-1 §6.1 — 49에 칸이 없어 class_*를 앞머리로 쓴다)
+  k(
+    "class_three_stat_pm",
+    "",
+    "society",
+    "combatClass.threeStatPm",
+    "전투 클래스 3스탯 조합 문턱(S3 ÷ S1, ‰)",
+    "Combat class three-stat threshold (S3 ÷ S1, ‰)",
+  ),
+  k(
+    "class_generalist_pm",
+    "",
+    "society",
+    "combatClass.generalistPm",
+    "전투 클래스 범용 문턱(S6 ÷ S1, ‰)",
+    "Combat class generalist threshold (S6 ÷ S1, ‰)",
+  ),
   k(
     "n33_food_zero_at",
     "N33",

@@ -8028,6 +8028,42 @@
       "source": "ADR 2026-11-11-production-six · ADR 2026-11-07-play-flow \"WP1 세계 씨앗\""
     },
     {
+      "id": "class_three_stat_pm",
+      "code": "",
+      "name": {
+        "ko": "전투 클래스 3스탯 조합 문턱(S3 ÷ S1, ‰)",
+        "en": "Combat class three-stat threshold (S3 ÷ S1, ‰)"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "셋째로 높은 스탯이 가장 높은 스탯의 이 ‰ 이상이면 3스탯 조합 클래스(20종), 아니면 2스탯 조합(15종). 옛 값 0.60. 추천 표시에만 쓴다.",
+        "en": "If the third-highest stat is at least this ‰ of the highest, a three-stat class (20 kinds); otherwise a two-stat class (15 kinds). Old value 0.60. Used for the recommendation only."
+      },
+      "source": "D-529 · 옛 CHR-1 §6.1 · ADR 2026-11-11-production-six"
+    },
+    {
+      "id": "class_generalist_pm",
+      "code": "",
+      "name": {
+        "ko": "전투 클래스 범용 문턱(S6 ÷ S1, ‰)",
+        "en": "Combat class generalist threshold (S6 ÷ S1, ‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "가장 낮은 스탯이 가장 높은 스탯의 이 ‰ 이상이면 범용. 옛 값 0.80. 추천 표시에만 쓴다.",
+        "en": "If the lowest stat is at least this ‰ of the highest, generalist. Old value 0.80. Used for the recommendation only."
+      },
+      "source": "D-529 · 옛 CHR-1 §6.1 · ADR 2026-11-11-production-six"
+    },
+    {
       "id": "world_layout_region_cells",
       "code": "",
       "name": {

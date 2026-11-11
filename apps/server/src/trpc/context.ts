@@ -25,6 +25,7 @@ import type {
   CyborgStatusResponse,
 } from "@terra/shared/cyborg";
 import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster";
+import type { UnitGuideResponse } from "@terra/shared/unitGuide";
 import type { FactionOverviewResponse } from "@terra/shared/faction";
 import type { MailListResponse } from "@terra/shared/mail";
 import type { TuningExportResponse, TuningHistoryResponse, TuningListResponse } from "@terra/shared/tuning";
@@ -274,6 +275,8 @@ export interface HomeServices {
 export interface RosterServices {
   units(viewer: Viewer, query: HomeQuery): Promise<UnitsListResponse>;
   cyborg(viewer: Viewer, query: HomeQuery): Promise<CyborgGetResponse>;
+  /** 유닛 추천 표(1차 생산 스탯 짝·전투 클래스, docs/adr/2026-11-11-production-six.md) */
+  guide(now: number): UnitGuideResponse;
 }
 
 /**

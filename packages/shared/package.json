@@ -24,6 +24,7 @@
     "./faction": "./src/faction.ts",
     "./factionProfile": "./src/factionProfile.ts",
     "./formula": "./src/formula.ts",
+    "./gatherMath": "./src/gatherMath.ts",
     "./goodsPlaces": "./src/goodsPlaces.ts",
     "./government": "./src/government.ts",
     "./holdings": "./src/holdings.ts",
@@ -53,6 +54,7 @@
     "./territoryApi": "./src/territoryApi.ts",
     "./worldPlacementApi": "./src/worldPlacementApi.ts",
     "./tuning": "./src/tuning.ts",
+    "./unitGuide": "./src/unitGuide.ts",
     "./vitals": "./src/vitals.ts",
     "./worldMap": "./src/worldMap.ts"
   },

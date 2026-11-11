@@ -3,6 +3,7 @@
 import { type ContentIssue, hasErrors } from "../issue.ts";
 import type { ContentPack, PackSource } from "../pack.ts";
 import { CATEGORIES, type CategoryRegistry } from "../schema/categories.ts";
+import { checkCombatClasses } from "./combatClasses.ts";
 import { checkFormulas } from "./formulas.ts";
 import { checkFacilities } from "./facilities.ts";
 import { checkGather } from "./gather.ts";
@@ -30,6 +31,7 @@ export function validatePack(source: PackSource, registry: CategoryRegistry = CA
     ...checkFormulas(schema.pack),
     ...checkItems(schema.pack),
     ...checkGather(schema.pack),
+    ...checkCombatClasses(schema.pack),
     ...checkFacilities(schema.pack),
     ...checkNations(schema.pack),
     ...checkIdChanges(schema.pack, registry),

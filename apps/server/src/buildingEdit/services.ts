@@ -27,6 +27,7 @@ import type { Viewer } from "../trpc/context.ts";
 import { reasonedError } from "../trpc/init.ts";
 import type { TuningShared } from "../tuning/services.ts";
 import {
+  combatClassViews,
   facilityViews,
   gatherBandViews,
   itemOptions,
@@ -55,7 +56,10 @@ export interface BuildingEditorServices {
 
 /** 시설·채집 확률표 쪽 문제인가(시설·확률표 파일·모르는 파일) */
 const facilityIssue = (issue: ContentIssueView): boolean =>
-  issue.file === null || issue.file.startsWith("facilities") || issue.file.startsWith("gather_tiers");
+  issue.file === null ||
+  issue.file.startsWith("facilities") ||
+  issue.file.startsWith("gather_tiers") ||
+  issue.file.startsWith("combat_classes");
 
 /**
  * 화면 바꿈 → 덮어쓰기 묶음(잠든 줄 버리기는 따로). 지금 실효 시설·확률표에 없는 ID는 unknown_entry(만들기 없음), 같은 ID 두 번은 plan이
@@ -65,6 +69,7 @@ function putsOf(
   changes: readonly BuildingEditorChange[],
   knownFacilities: ReadonlySet<string>,
   knownBands: ReadonlySet<string>,
+  knownClasses: ReadonlySet<string>,
 ): { puts: ContentPut[]; discard: { category: BuildingEditCategory; id: string }[] } {
   const puts: ContentPut[] = [];
   const discard: { category: BuildingEditCategory; id: string }[] = [];
@@ -80,6 +85,17 @@ function putsOf(
         category: "gather_tiers",
         id,
         entry: change.op === "put_gather_band" ? Object.fromEntries(Object.entries(change.entry)) : null,
+        baseHash: change.baseHash,
+      });
+      continue;
+    }
+    if (change.op === "put_combat_class" || change.op === "revert_combat_class") {
+      const id = change.op === "put_combat_class" ? change.entry.id : change.id;
+      if (!knownClasses.has(id)) throw rejected("unknown_entry", [`combat_classes/${id}`]);
+      puts.push({
+        category: "combat_classes",
+        id,
+        entry: change.op === "put_combat_class" ? Object.fromEntries(Object.entries(change.entry)) : null,
         baseHash: change.baseHash,
       });
       continue;
@@ -110,6 +126,7 @@ export function createBuildingEditorServices(deps: {
   );
   const knownFacilities = (): Set<string> => new Set(state.effective().facilities.map((entry) => entry.id));
   const knownBands = (): Set<string> => new Set(state.effective().gatherTiers.map((entry) => entry.id));
+  const knownClasses = (): Set<string> => new Set(state.effective().combatClasses.map((entry) => entry.id));
 
   const list = (): Promise<BuildingEditorListResponse> => {
     const snapshot = state.snapshot();
@@ -129,6 +146,20 @@ export function createBuildingEditorServices(deps: {
         timeFactorPm: [...rules.timeFactorPm],
       },
       gatherLevelBonus: society.gatherLevelBonus,
+      gatherRules: {
+        progressDivisor: society.productionMainDivisor,
+        yieldPerStatPm: society.productionSubYieldPm,
+        tierProgressBase: society.gatherTierProgressBase,
+        tierProgressStep: society.gatherTierProgressStep,
+        tickMs: society.gatherTickMs,
+        oreGrams: society.gatherOreGrams,
+        defaultStat: Math.floor(Math.max(0, society.cyborg.initialSum) / 6),
+      },
+      combatClasses: combatClassViews(state, snapshot),
+      classRule: {
+        threeStatPm: society.combatClass.threeStatPm,
+        generalistPm: society.combatClass.generalistPm,
+      },
       sleeping: state
         .sleepingRows()
         .filter((row) => (BUILDING_EDIT_CATEGORIES as readonly string[]).includes(row.category)),
@@ -139,7 +170,7 @@ export function createBuildingEditorServices(deps: {
     list,
 
     check(changes) {
-      const { puts } = putsOf(changes, knownFacilities(), knownBands());
+      const { puts } = putsOf(changes, knownFacilities(), knownBands(), knownClasses());
       const plan = state.plan(puts);
       if (!plan.ok) {
         // entry_changed 등 검사기 밖의 까닭도 문제 한 줄로 보인다(코드 = 까닭)
@@ -166,7 +197,7 @@ export function createBuildingEditorServices(deps: {
     async save(viewer, input) {
       const note = normalizeTuningNote(input.note);
       if (note === false) throw rejected("invalid_note");
-      const { puts, discard } = putsOf(input.changes, knownFacilities(), knownBands());
+      const { puts, discard } = putsOf(input.changes, knownFacilities(), knownBands(), knownClasses());
       await applyContentBatch(
         { db, shared, ip: deps.ip },
         viewer,
@@ -177,12 +208,13 @@ export function createBuildingEditorServices(deps: {
     },
 
     async history() {
-      const [fac, tiers] = await Promise.all([
+      const [fac, tiers, classes] = await Promise.all([
         readContentHistory(db, BUILDING_EDITOR_HISTORY_LIMIT, { category: "facilities" }),
         readContentHistory(db, BUILDING_EDITOR_HISTORY_LIMIT, { category: "gather_tiers" }),
+        readContentHistory(db, BUILDING_EDITOR_HISTORY_LIMIT, { category: "combat_classes" }),
       ]);
       const seen = new Set<number>();
-      const rows = [...fac, ...tiers]
+      const rows = [...fac, ...tiers, ...classes]
         .toSorted((a, b) => (b.auditId ?? 0) - (a.auditId ?? 0))
         .filter((row) => {
           if (row.auditId === null) return true;

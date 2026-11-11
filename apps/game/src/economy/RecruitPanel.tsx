@@ -9,6 +9,7 @@ import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { RECRUIT_RESULT_TEXT, sendRecruitHire } from "../recruit/recruitCommands.ts";
+import { UnitAdvice } from "../roster/UnitAdvice.tsx";
 import { RECRUIT_STAT_PAIRS, activeElements, hireState, refreshLeft } from "../recruit/recruitModel.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { useCityText } from "./cityText.ts";
@@ -151,6 +152,7 @@ export function RecruitPanel({ cityId: fixedCity }: RecruitPanelProps = {}) {
                           <span className="eco-tag">{m.dev_recruit_cost({ amount: money(card.cost) })}</span>
                         </div>
                         <CardStats card={card} />
+                        <UnitAdvice stats={card.stats} compact />
                         {activeElements(card).length > 0 ? (
                           <p className="eco-row-meta">{elementText(card)}</p>
                         ) : null}

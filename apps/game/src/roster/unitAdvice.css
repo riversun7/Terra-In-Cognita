@@ -1,0 +1,71 @@
+/*
+ * 유닛 추천 칸(1차 생산·전투 유형) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 유닛 상세·사이보그 화면·구인 카드·2차맵 내 유닛 목록이 같이 쓴다(지연 조각끼리 공용).
+ */
+.unit-advice {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-2);
+}
+.unit-advice-block {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.unit-advice-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.unit-advice-jobs {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.unit-advice-job,
+.unit-advice-class {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.unit-advice-name {
+  font-weight: var(--font-weight-strong);
+}
+.unit-advice-reason {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.unit-advice-desc,
+.unit-advice-note {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.unit-advice-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.unit-advice-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.unit-advice-part {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

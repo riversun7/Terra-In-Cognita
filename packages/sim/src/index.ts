@@ -414,7 +414,6 @@ export {
   TEST_GATHER_BANDS,
   accessibleTier,
   gatherBandIndex,
-  gatherCatchPm,
   gatherChancesPm,
   gatherProgress,
   gatherStat,
@@ -424,7 +423,6 @@ export {
   rollGatherTier,
   tierRequiredProgress,
   type GatherBand,
-  type GatherCatchRule,
   type GatherRoll,
   type GatherYieldRule,
 } from "./economy/gather.ts";

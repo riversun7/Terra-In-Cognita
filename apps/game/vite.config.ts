@@ -128,6 +128,7 @@ export default defineConfig({
           "assets/[Ii]temEditor*.{js,css}",
           "assets/[Bb]uildingEditor*.{js,css}",
           "assets/[Gg]atherTier*.{js,css}",
+          "assets/[Pp]roductionEditor*.{js,css}",
           "assets/[Cc]reatureEditor*.{js,css}",
           "assets/[Nn]ationEditor*.{js,css}",
           "assets/[Tt]erritoryLab*.{js,css}",

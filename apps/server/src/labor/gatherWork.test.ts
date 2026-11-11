@@ -179,9 +179,10 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
       yieldCap: 5,
       catch: { basePm: 300, maxPm: 800, statPm: 500, fullStat: 200 },
     };
+    const loach = ladderOf({ 0: ["item:loach"] });
     const input = {
       unitId: 31,
-      site: site(fishing, ladderOf({ 0: ["item:loach"] })),
+      site: site(fishing, loach),
       primaries: tens,
       settings,
       cycleMs: CYCLE_MS,
@@ -196,10 +197,7 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
     // 성공 확률을 늘 성공(1000‰)으로 두면 시도마다 낚는다
     const always = gatherLots({ points: 0, seq: 0 }, 30_000, {
       ...input,
-      site: site(
-        { ...fishing, catch: { basePm: 1000, maxPm: 1000, statPm: 0, fullStat: 200 } },
-        input.site.ladder,
-      ),
+      site: site({ ...fishing, catch: { basePm: 1000, maxPm: 1000, statPm: 0, fullStat: 200 } }, loach),
     });
     expect(always.outputs).toEqual([{ asset: "item:loach", qty: 2000n }]);
     // 나눠 셈해도 같다(시도 차례마다 같은 난수)

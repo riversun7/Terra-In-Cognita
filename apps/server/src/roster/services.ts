@@ -11,6 +11,7 @@ import type {
 import type { HomeQuery, RosterServices, Viewer } from "../trpc/context.ts";
 import type { CyborgService } from "../cyborg/service.ts";
 import { realCyborgBody } from "./cyborgBody.ts";
+import { type UnitGuideSource, unitGuideOf } from "./guide.ts";
 import { type RosterCatalog, namesFor, testRosterCatalog } from "./catalog.ts";
 import {
   FATIGUE_MAX,
@@ -95,6 +96,8 @@ export function createRosterServices(
     gear?: (() => GearReader | undefined) | undefined;
     /** 사이보그 화면 랭킹 칸(경로마다 내 자리, docs/adr/2026-11-07-ranking.md). 없으면 빈 칸 */
     rankings?: ((userId: string) => Promise<CyborgRanking[]>) | undefined;
+    /** 유닛 추천 표의 출처(실효 팩 + 분류 문턱, roster/guide.ts). 없으면 빈 표 */
+    guide?: (() => UnitGuideSource | undefined) | undefined;
   } = {},
 ): RosterServices {
   const catalog = options.catalog ?? testRosterCatalog();
@@ -123,6 +126,9 @@ export function createRosterServices(
         preview: query.preview,
         generatedAt: query.now,
       };
+    },
+    guide(now: number) {
+      return unitGuideOf(options.guide?.(), now);
     },
     async cyborg(viewer: Viewer, query: HomeQuery): Promise<CyborgGetResponse> {
       const unitCount = await world.count(viewer.id, query.now);

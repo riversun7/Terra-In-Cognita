@@ -15,6 +15,11 @@ const listInput = z.strictObject({ preview: previewField }).optional();
 const nameInput = z.strictObject({ name: z.string().max(64) });
 
 export const unitsRouter = router({
+  /**
+   * 유닛 추천 표(1차 생산 여섯 가지의 스탯 짝·전투 클래스 표·분류 문턱 — 실효 팩 + 세계 덮어쓰기, docs/adr/2026-11-11-production-six.md).
+   * 추천 셈은 화면이 한다(@terra/shared/unitGuide). 표시만 하고 판정에 쓰지 않는다
+   */
+  guide: signedInProcedure.query(({ ctx }) => ctx.roster.guide(ctx.now())),
   /** 로그인한 본인의 유닛(잡힌 것 포함)·내가 잡은 포로, 시안이면 파티·직무 프리셋·관리인·경매소도 */
   list: signedInProcedure.input(listInput).query(({ ctx, input }) =>
     ctx.roster.units(ctx.viewer, {

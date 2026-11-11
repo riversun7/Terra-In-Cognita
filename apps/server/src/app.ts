@@ -715,6 +715,17 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         gear: () => (world?.status().state === "ready" ? world.persistence?.holdings.gearOf : undefined),
         // 사이보그 화면 랭킹 칸(경로마다 내 자리, docs/adr/2026-11-07-ranking.md)
         rankings: rankingPool ? (userId: string) => ranking.cyborgRankings(userId) : undefined,
+        // 유닛 추천 표(1차 생산 스탯 짝·전투 클래스, docs/adr/2026-11-11-production-six.md): 실효 팩과 설정 칸 실효 문턱
+        guide: contentEditState
+          ? () => {
+              const effective = contentEditState.effective();
+              return {
+                facilities: effective.facilities,
+                combatClasses: effective.combatClasses,
+                rule: tuningState?.society().combatClass,
+              };
+            }
+          : undefined,
       },
       cyborgs: () => {
         const service = cyborgService();

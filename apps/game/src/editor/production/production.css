@@ -1,0 +1,332 @@
+/*
+ * 생산 편집기(/dev/production) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 촘촘(data-density="compact").
+ * 개발 화면 층(ADR 2026-11-02-dev-ui): 표는 공용 .dev-table(좁은 폭은 표만 상자 안에서 가로로 민다), 표지는 .ce-badge·.dev-badge.
+ * 틀(머리 칩·담은 변경 막대)은 공용 editor/content/contentEditorShell.css. 조각 ProductionEditorScreen-*와 함께 내려온다.
+ */
+.pd-screen {
+  min-width: 0;
+}
+.pd-title-sub {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+.pd-icon {
+  width: var(--space-5);
+  height: var(--space-5);
+  flex: none;
+}
+
+/* ── 묶음 탭 줄(옛 생산 편집기) ── */
+.pd-tabs {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  min-width: 0;
+}
+.pd-tab-group {
+  display: grid;
+  grid-template-columns: minmax(0, 5rem) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pd-tab-group-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.pd-tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pd-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-3);
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-panel);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+  box-shadow: none;
+}
+.pd-tab:hover {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+.pd-tab[aria-selected="true"] {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+  border-color: var(--color-primary);
+}
+.pd-tab-count {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.pd-tab[aria-selected="true"] .pd-tab-count {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* ── 판 ── */
+.pd-panel,
+.pd-type,
+.pd-mapping,
+.pd-classes,
+.pd-process,
+.pd-tiers,
+.pd-class-lists {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.pd-section {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pd-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pd-head-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  overflow-wrap: anywhere;
+}
+.pd-head-actions {
+  margin-inline-start: auto;
+}
+.pd-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-3);
+  align-items: start;
+  min-width: 0;
+}
+.pd-warn,
+.pd-ok {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: var(--hairline) solid var(--color-border);
+  overflow-wrap: anywhere;
+}
+.pd-warn {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+  background: var(--color-warning-surface);
+}
+.pd-ok {
+  border-color: var(--color-success);
+  color: var(--color-success);
+  background: var(--color-success-surface);
+}
+.pd-muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.pd-block {
+  display: block;
+}
+.pd-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.pd-linkish {
+  min-height: var(--tap-size);
+  padding: 0 var(--space-1);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-primary);
+  font-weight: var(--font-weight-strong);
+  text-decoration: underline;
+  text-align: start;
+}
+.pd-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-size);
+}
+.pd-issues {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+.pd-issues > li[data-level="error"] {
+  color: var(--color-danger);
+}
+
+/* ── 표 ── */
+.pd-ladder,
+.pd-map-table,
+.pd-cover-table,
+.pd-overview-table,
+.pd-recipes {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.pd-ladder td,
+.pd-recipes td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.pd-ladder tr[data-empty] > * {
+  color: var(--color-text-muted);
+}
+.pd-tier {
+  font-family: var(--font-mono);
+}
+.pd-stat[data-stat="str"] {
+  color: var(--color-stat-str);
+}
+.pd-stat[data-stat="vit"] {
+  color: var(--color-stat-vit);
+}
+.pd-stat[data-stat="int"] {
+  color: var(--color-stat-int);
+}
+.pd-stat[data-stat="wis"] {
+  color: var(--color-stat-wis);
+}
+.pd-stat[data-stat="dex"] {
+  color: var(--color-stat-dex);
+}
+.pd-stat[data-stat="agi"] {
+  color: var(--color-stat-agi);
+}
+
+/* ── 미리 보기 ── */
+.pd-result {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+.pd-result-row {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+.pd-result-row > dt {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.pd-result-row > dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.pd-result-main {
+  border-color: var(--color-primary);
+}
+.pd-per-hour {
+  font-size: var(--font-size-lg);
+}
+.pd-chances {
+  display: flex;
+  min-width: 0;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.pd-chance {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border-inline-end: var(--hairline) solid var(--color-border);
+  background: var(--color-surface-2);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pd-chance:last-child {
+  border-inline-end: 0;
+}
+.pd-chance-empty {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+/* ── 전투 클래스 ── */
+.pd-class-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  min-width: 0;
+}
+.pd-class-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pd-class-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  text-align: start;
+}
+.pd-class-item:hover {
+  background: var(--color-surface-2);
+}
+.pd-class-item[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-surface-2);
+}
+.pd-class-name {
+  font-weight: var(--font-weight-strong);
+}
+.pd-class-result {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+}
+.pd-class-form {
+  position: sticky;
+  top: var(--space-2);
+}
+@media (min-width: 64rem) {
+  .pd-class-split {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+@media (max-width: 40rem) {
+  .pd-tab-group {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -20,6 +20,7 @@ import type {
 } from "@terra/shared/mapUnits";
 import type { Viewer } from "../trpc/context.ts";
 import {
+  type Primaries,
   BUILDING_VISION_CELLS,
   CELL_UNITS,
   PLACEMENT_SIZE,
@@ -56,6 +57,11 @@ export interface MapUnitSource {
    * (docs/adr/2026-11-07-play-flow.md "WP-NPC4"). 없으면 NPC 휴먼도 시험 유닛으로 보인다
    */
   npcHuman?: ((unitId: number) => { readonly name: string | undefined } | undefined) | undefined;
+  /**
+   * 유닛의 1차 스탯(입은 장비·버프 포함, 직무 산출과 같은 값 — holdings primariesOf). 고른 유닛의 추천 줄이 읽는다
+   * (docs/adr/2026-11-11-production-six.md). 없으면 스탯을 싣지 않는다
+   */
+  primaries?: ((unitId: number) => Primaries | undefined) | undefined;
 }
 
 export interface MapUnitReads {
@@ -74,6 +80,13 @@ function kindOf(kind: number): MapUnitKind {
   if (kind === UNIT_KIND_NPC_LEADER) return "npc_leader";
   const type = unitTypeOf(kind);
   return type === "creature" || type === "android" ? "test_unit" : type;
+}
+
+/** 판정 스탯 묶음 → 목록 줄의 stats 칸(없으면 칸을 두지 않는다) */
+function statsOf(primaries: Primaries | undefined): Pick<MapUnit, "stats"> {
+  if (!primaries) return {};
+  const { str, vit, int, wis, dex, agi } = primaries;
+  return { stats: { str, vit, int, wis, dex, agi } };
 }
 
 const clampCell = (value: number): number => Math.max(0, Math.min(PLACEMENT_SIZE - 1, value));
@@ -141,6 +154,7 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
           injury: injury.stage,
           injuryUntilMs: injury.untilMs,
           hold: unitHold(info, nowMs),
+          ...statsOf(source.primaries?.(unitId)),
         });
       }
       // 사이보그 본체 먼저, 그다음 ID 차례

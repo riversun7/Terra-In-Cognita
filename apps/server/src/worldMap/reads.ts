@@ -501,6 +501,8 @@ export function worldMapReadsOf(options: {
         code === null ? null : (nameOfCode(code) ?? null),
       ),
     leaderName: leaderOfCode,
+    // 고른 유닛의 추천 줄(1차 생산·전투 유형): 직무 산출과 같은 1차 스탯
+    primaries: (unitId) => world.persistence?.holdings.primariesOf(unitId),
     // NPC 도시 휴먼 이름(773 나, "WP-NPC4"): 거울 세계 휴먼만
     npcHuman: (unitId) =>
       world.npc?.world.units.has(unitId) ? { name: world.npc.humanName(unitId) } : undefined,

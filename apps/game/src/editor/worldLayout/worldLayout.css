@@ -133,6 +133,39 @@
 .wl-mark[data-kind="suggested"] {
   border-style: dashed;
 }
+/* 국력 등급 계획: 수도 = 마름모(등급이 클수록 크다), 계획 도시 = 작은 점, 반영하면 더 서는 도시 = 점선 고리 */
+.wl-mark[data-kind="plan_home"] {
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  border: var(--border-w) solid var(--color-overlay);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.wl-mark[data-kind="plan_home"][data-tier="superpower"] {
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+}
+.wl-mark[data-kind="plan_home"][data-tier="great_power"] {
+  inline-size: var(--space-6);
+  block-size: var(--space-6);
+}
+.wl-mark[data-kind="plan_home"][data-tier="middle_power"] {
+  inline-size: var(--space-5);
+  block-size: var(--space-5);
+}
+.wl-mark[data-kind="plan_home"][data-tier="city_state"] {
+  border-radius: var(--radius-pill);
+}
+.wl-mark[data-kind="plan_city"] {
+  border-radius: var(--radius-pill);
+}
+.wl-mark[data-kind="add_city"] {
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+  border: var(--border-w) dashed var(--wl-color);
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  box-shadow: 0 0 0 var(--hairline) var(--color-overlay);
+}
 .wl-mark[data-nation="1"],
 .wl-swatch[data-nation="1"] {
   --wl-color: var(--color-stat-str);
@@ -152,6 +185,12 @@
 .wl-mark[data-nation="5"],
 .wl-swatch[data-nation="5"] {
   --wl-color: var(--color-stat-vit);
+}
+
+/* 국가 시그니처 컬러(자료 색, 글자 색으로 받는다)가 있으면 차례 색 대신 쓴다 */
+.wl-mark[data-colored],
+.wl-swatch[data-colored] {
+  --wl-color: currentColor;
 }
 
 .wl-panel {
@@ -208,4 +247,80 @@
 }
 .wl-blocked {
   color: var(--color-danger);
+}
+
+/* ── 국력 등급 판(등급 배치 계획·이 세계에 반영·세울 수 있는 국가) — ADR 2026-11-07-world-layout "바뀜 (2026-11-11)" ── */
+.wl-tier {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.wl-tier p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.wl-tier-title,
+.wl-tier-subtitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+.wl-tier-subtitle {
+  font-size: var(--font-size-sm);
+}
+.wl-tier-block {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-block-start: var(--space-3);
+  border-block-start: var(--hairline) solid var(--color-border);
+}
+.wl-tier-notes {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.wl-tier-totals {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.wl-tier-badge {
+  margin-inline-start: var(--space-2);
+}
+.wl-found-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+.wl-found-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.wl-legend li[data-mark="plan_home"]::before {
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  border: var(--border-w) solid var(--color-text);
+  transform: rotate(45deg);
+}
+.wl-legend li[data-mark="plan_city"]::before {
+  border-radius: var(--radius-pill);
+}
+.wl-legend li[data-mark="add_city"]::before {
+  border-radius: var(--radius-pill);
+  border: var(--border-w) dashed var(--color-stat-int);
+  background-color: transparent;
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
 }

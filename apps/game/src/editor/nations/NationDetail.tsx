@@ -3,6 +3,7 @@
 // docs/adr/2026-11-10-nation-editor.md
 import type { ContentIssueView } from "@terra/shared/contentEdit";
 import { NAME_STYLE_IDS, type NameStyleId, tickerCandidates } from "@terra/shared/nameGen";
+import { isPowerTier } from "@terra/shared/nationTier";
 import {
   NATION_LIST_LIMITS,
   NATION_SEED_LIMITS,
@@ -157,6 +158,7 @@ export function NationDetail({
           entry={draft}
           uploaded={row.uploaded?.hash ?? null}
           defaults={list.defaults}
+          tiers={list.tiers.map((item) => item.entry)}
           locale={locale}
         />
 
@@ -165,7 +167,7 @@ export function NationDetail({
           title={sectionTitles.identity}
           desc={m.dev_nations_section_identity_desc()}
           source="D-076 · D-5046"
-          paths={["name", "shortName", "color", "leaderName", "emblem", "nameStyle"]}
+          paths={["name", "shortName", "color", "leaderName", "emblem", "nameStyle", "powerTier"]}
         >
           <div className="ne-grid">
             <TextField
@@ -189,6 +191,20 @@ export function NationDetail({
               onChange={(nameStyle) => onEdit({ ...draft, nameStyle })}
               desc={m.dev_nations_field_style_desc()}
               path="nameStyle"
+            />
+            <SelectField
+              label={m.dev_nations_field_tier()}
+              value={draft.powerTier ?? ""}
+              options={[
+                { value: "", label: m.dev_nations_tier_none() },
+                ...list.tiers.map((item) => ({ value: item.entry.id, label: item.entry.name[locale] })),
+              ]}
+              onChange={(value) => {
+                const { powerTier: _old, ...rest } = draft;
+                onEdit(isPowerTier(value) ? { ...rest, powerTier: value } : rest);
+              }}
+              desc={m.dev_nations_field_tier_desc()}
+              path="powerTier"
             />
           </div>
           <NameGenerator

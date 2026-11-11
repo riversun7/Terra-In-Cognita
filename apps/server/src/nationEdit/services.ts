@@ -120,6 +120,7 @@ export function createNationEditorServices(deps: {
       recipes: recipeOptions(recipes),
       items: itemOptions(snapshot.effective.items),
       sleeping: state.sleepingRows().filter((row) => row.category === "nation_presets"),
+      retiredIds: [...state.retiredIds("nation_presets")],
       testNations: deps.nation?.testNations ?? null,
       worldTools: true,
     };
@@ -165,7 +166,7 @@ export function createNationEditorServices(deps: {
         const id = change.entry.id;
         if (ids.has(id)) throw rejected("duplicate_entry", [`nation_presets/${id}`]);
         if (!NATION_CREATED_ID.test(id)) throw rejected("invalid_entry", [id, "id"]);
-        if (change.entry.enabled !== true) throw rejected("invalid_entry", [id, "enabled"]);
+        if (!change.entry.enabled) throw rejected("invalid_entry", [id, "enabled"]);
         const code = field(change.entry.currency, "code");
         if (typeof code !== "string" || !NATION_CREATED_CURRENCY.test(code))
           throw rejected("invalid_entry", [id, "currency.code"]);

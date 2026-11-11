@@ -146,6 +146,17 @@ const techs = async () =>
     )
   ).toSorted((a, b) => CODES.indexOf(a.code) - CODES.indexOf(b.code));
 
+/** 미리 보기가 아무것도 쓰지 않았는지 견줄 줄 수 */
+const snapshot = async (): Promise<number[]> => [
+  await count(`select count(*) as n from world_cities`),
+  await count(`select count(*) as n from world_units`),
+  await count(`select count(*) as n from world_humans`),
+  await count(`select count(*) as n from audit_log`),
+  await count(`select count(*) as n from world_tier_requests`),
+];
+const sumOf = (list: readonly CityLine[], key: "humans" | "guards"): number =>
+  list.reduce((n, city) => n + Number(city[key]), 0);
+
 async function newUser(name: string): Promise<string> {
   const found = await rows<{ id: string }>(
     test.db,
@@ -280,13 +291,6 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     expect((await techs()).map((row) => row.tech_level)).toEqual([1, 1, 1, 1]);
     // 미리 보기: 무엇이 더해지는지 — 아무것도 쓰지 않는다
     const admin = await newUser("TierAdmin");
-    const snapshot = async () => [
-      await count(`select count(*) as n from world_cities`),
-      await count(`select count(*) as n from world_units`),
-      await count(`select count(*) as n from world_humans`),
-      await count(`select count(*) as n from audit_log`),
-      await count(`select count(*) as n from world_tier_requests`),
-    ];
     const counts = await snapshot();
     const plan = await service(tiered).tierPlan();
     expect(await snapshot()).toEqual(counts);
@@ -338,12 +342,9 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
       expect(now).toMatchObject({ map_key: city.map_key, cell_x: city.cell_x, cell_y: city.cell_y });
     }
     const lists = byCode(after);
-    expect(lists.map((list) => [...new Set(list.map((city) => city.housing))].toSorted())).toEqual([
-      [40],
-      [60],
-      [50],
-      [40],
-    ]);
+    expect(
+      lists.map((list) => [...new Set(list.map((city) => city.housing))].toSorted((a, b) => a - b)),
+    ).toEqual([[40], [60], [50], [40]]);
     expect(lists.map((list) => [...new Set(list.map((city) => Number(city.guards)))])).toEqual([
       [2],
       [6],
@@ -352,14 +353,12 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     ]);
     expect(lists[1]?.every((city) => Number(city.humans) === 45)).toBe(true);
     expect(lists[0]?.every((city) => Number(city.humans) === 30)).toBe(true);
-    expect((await techs()).map((row) => row.tech_level)).toEqual([1, 3, 3, 2]);
+    expect((await techs()).map((tech) => tech.tech_level)).toEqual([1, 3, 3, 2]);
     // 미리 보기의 합 = 실제로 더해진 수
     const total = plan?.totals ?? { cities: 0, humans: 0, guards: 0 };
     expect(after.length - before.length).toBe(total.cities);
-    const sum = (list: readonly CityLine[], key: "humans" | "guards") =>
-      list.reduce((n, city) => n + Number(city[key]), 0);
-    expect(sum(after, "humans") - sum(before, "humans")).toBe(total.humans);
-    expect(sum(after, "guards")).toBe(total.guards);
+    expect(sumOf(after, "humans") - sumOf(before, "humans")).toBe(total.humans);
+    expect(sumOf(after, "guards")).toBe(total.guards);
     // 플레이어 유닛은 그대로
     expect(await playerUnits()).toEqual(mine);
     // 요청은 든 것으로 적히고 감사 기록이 남는다

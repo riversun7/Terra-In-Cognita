@@ -15,6 +15,7 @@ import {
   planWorldLayout,
   sampleLand,
   seedOfText,
+  spotPoint,
 } from "./worldLayout.ts";
 
 const LEVEL = 6;
@@ -86,6 +87,9 @@ const input = (overrides: Partial<LayoutInput> = {}): LayoutInput => ({
 const cellsBetween = (a: CellKey, b: CellKey): number =>
   territoryDistanceMilli(territoryPoint(a), territoryPoint(b), metric) / 1000;
 
+const idsOf = (tier: string): number[] =>
+  ORDER.flatMap((entry, index) => (entry === tier ? [index + 1] : []));
+
 describe("세계 배치: 국력 등급", () => {
   const result = planWorldLayout(input());
   const homeOf = (factionId: number): CellKey => {
@@ -93,14 +97,22 @@ describe("세계 배치: 국력 등급", () => {
     if (home === undefined) throw new Error(`no home ${factionId}`);
     return home;
   };
-  const idsOf = (tier: string): number[] =>
-    ORDER.flatMap((entry, index) => (entry === tier ? [index + 1] : []));
   const nearestOther = (factionId: number, among: readonly number[]): number =>
     Math.min(
       ...among
         .filter((other) => other !== factionId)
         .map((other) => cellsBetween(homeOf(factionId), homeOf(other))),
     );
+
+  /** 수도에서 가장 가까운 자기 도시까지(1차맵 칸) */
+  const spread = (factionId: number): number => {
+    const cities = result.spots
+      .filter((entry) => entry.factionId === factionId)
+      .map((entry) => spotPoint(entry.spot));
+    const [capital, ...rest] = cities;
+    if (capital === undefined || rest.length === 0) return 0;
+    return Math.min(...rest.map((point) => territoryDistanceMilli(capital, point, metric) / 1000));
+  };
 
   it("같은 입력이면 같은 자리(결정적), 16개 국가 모두 자리를 받고 등급마다 도시 수가 맞다", () => {
     const again = planWorldLayout(input());
@@ -162,14 +174,6 @@ describe("세계 배치: 국력 등급", () => {
   });
 
   it("도시 간격: 초강대국은 수도에서 두 칸 걸음으로 넓게, 중견국은 붙은 2차맵", () => {
-    const spread = (factionId: number): number => {
-      const cities = result.spots
-        .filter((entry) => entry.factionId === factionId)
-        .map((entry) => entry.spot.mapKey);
-      const [capital, ...rest] = cities;
-      if (capital === undefined || rest.length === 0) return 0;
-      return Math.min(...rest.map((key) => cellsBetween(capital as CellKey, key as CellKey)));
-    };
     for (const id of idsOf("superpower")) expect(spread(id)).toBeGreaterThan(1.7);
     for (const id of idsOf("middle_power")) expect(spread(id)).toBeLessThan(1.6);
   });

@@ -213,6 +213,9 @@ export function sampleLand(input: Pick<LayoutInput, "faceLevel" | "land" | "seed
   return out.toSorted((a, b) => a - b);
 }
 
+/** 국가의 등급 차례(등급이 없으면 중견국 자리) */
+const rankOf = (nation: LayoutNation): number => nation.tier?.rank ?? LAND_WEIGHT_MAX_RANK + 1;
+
 /** 두 국가 사이 띄울 거리의 천분율(두 값의 평균, 등급이 없으면 1000) */
 const pairPm = (a: LayoutTier | undefined, b: LayoutTier | undefined): number =>
   Math.round(((a?.homeGapPm ?? 1000) + (b?.homeGapPm ?? 1000)) / 2);
@@ -255,13 +258,13 @@ function pickHomes(
     else if (nation.home !== undefined && isCellKey(nation.home)) fixed.set(nation.factionId, nation.home);
   }
   // 강한 등급 먼저(같으면 국가 차례 — 등급이 없으면 중견국 자리, toSorted는 차례를 지킨다)
-  const rankOf = (nation: LayoutNation): number => nation.tier?.rank ?? LAND_WEIGHT_MAX_RANK + 1;
   const free = input.nations
     .filter((nation) => !fixed.has(nation.factionId) && nation.missing > 0)
     .toSorted((a, b) => rankOf(a) - rankOf(b));
   let anchor = [...fixed.values()][0];
   const quality = tiered ? landQuality(candidates, input.faceLevel) : undefined;
-  const qualityMax = (2 * LAND_QUALITY_RINGS + 1) ** 2;
+  const qualitySide = 2 * LAND_QUALITY_RINGS + 1;
+  const qualityMax = qualitySide * qualitySide;
   if (anchor === undefined && candidates.length > 0) {
     const firstFree = free[0];
     if (quality && firstFree && rankOf(firstFree) <= LAND_WEIGHT_MAX_RANK) {

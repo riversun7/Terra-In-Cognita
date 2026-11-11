@@ -33,6 +33,7 @@ import {
   MAX_TEST_NATIONS,
   type NationPreset,
   nationCode,
+  nationEmblemOf,
   nationStartOf,
   presetOfCode,
 } from "../npc/nations.ts";
@@ -40,15 +41,7 @@ import { type NationPlacement, loadPlacements, planNationMove } from "./nationPl
 import type { QueryPool } from "./persist/load.ts";
 import { cancelTierApply, requestTierApply } from "./tierApply.ts";
 import { type TierPlanNation, freshTierPlan, startViewOf, tierApplyPlan } from "./tierPlan.ts";
-import {
-  CITY_CELL,
-  type LayoutLand,
-  isSettleLand,
-  planWorldLayout,
-  ringOffsets,
-  seedOfText,
-  walkCell,
-} from "./worldLayout.ts";
+import { CITY_CELL, type LayoutLand, isSettleLand, ringOffsets, walkCell } from "./worldLayout.ts";
 
 /** 누른 칸이 알맞은 땅이 아니면 이 고리(1차맵 칸)까지 가장 가까운 알맞은 땅을 찾는다 */
 export const SNAP_CELLS = 12;
@@ -179,6 +172,11 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
   const presets = (): readonly NationPreset[] => o.presets?.() ?? [];
   const startOf = (code: string) => nationStartOf(o.seed(), presetOfCode(code, presets()));
   const avoidMaps = new Set<number>(o.testMapKeys);
+  /** 국가 시그니처 컬러(프리셋이 있으면) */
+  const colorOf = (code: string): { color?: string } => {
+    const color = nationEmblemOf(code, presets())?.color;
+    return color === undefined ? {} : { color };
+  };
   /**
    * 이 세계에 아직 서지 않은 켜진 국가 프리셋(세울 수 있는 국가): 세력 행이 없고, 16번째 프리셋(1번 시험 NPC 세력의 것)이 아닌 것.
    * 고정 국가 수 설정(testNations)을 모르면 후보를 내지 않는다
@@ -272,6 +270,7 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
           code: nation.code,
           name: o.nationName(nation.code) ?? null,
           start: startViewOf(startOf(nation.code)),
+          ...colorOf(nation.code),
           cities: cities
             .filter((city) => city.factionId === nation.factionId)
             .map((city) => ({
@@ -299,6 +298,7 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
           code: preset.code,
           name: { ko: preset.name.ko, en: preset.name.en },
           start: startViewOf(startOf(preset.code)),
+          ...colorOf(preset.code),
           mapKey: placement ? String(placement.mapKey) : null,
           placedAtMs: placement?.placedAtMs ?? null,
           placedBy: placedByName.get(preset.code) ?? null,

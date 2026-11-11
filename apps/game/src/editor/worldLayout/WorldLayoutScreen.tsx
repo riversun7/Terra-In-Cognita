@@ -5,12 +5,15 @@
 // - 판: 놓을 국가 고르기 → [여기에 놓기](tRPC worldLayout.place) · [놓은 자리 지우기](clear) · [자동 제안 보기](suggest) → [제안 모두 놓기].
 // - 표: 국가마다 도시 수·수도(발전도)·자리 상태(자동·다음 시작 때 듦·적용됨·막힘 + 막는 것)·놓은 사람.
 // 놓은 자리는 서버가 다음에 켤 때 세계에 든다(실행 중인 세계는 바꾸지 않는다). 390px에서는 지도 → 판 → 표가 한 칸씩 쌓인다.
+// - 국력 등급 판(WorldTierPanel — "바뀜 (2026-11-11)"): 등급 배치 계획 미리 보기·다시 만들기, 이 세계에 반영(미리 보기 → 예약), 세울 수 있는 국가.
 // 조각 이름 WorldLayoutScreen-*([Ww]orldLayout).
 import { decodeCellKey } from "@terra/planet";
 import type {
   WorldLayoutPlanetView,
   WorldPlaceResult,
   WorldPlacementNationView,
+  WorldTierApplyView,
+  WorldTierPlan,
 } from "@terra/shared/worldPlacementApi";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { refreshSession } from "../../auth/session.ts";
@@ -24,8 +27,16 @@ import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { cellAtLatLon } from "../planet/cellReport.ts";
 import type { LatLon } from "../planet/flatMapRender.ts";
 import { WorldLayoutMap } from "./WorldLayoutMap.tsx";
-import { STATUS_TEXT, blockersText, placeFailText } from "./worldLayoutMessages.ts";
-import { capitalCity, marksOf, nationStatus } from "./worldLayoutModel.ts";
+import { WorldTierPanel } from "./WorldTierPanel.tsx";
+import { STATUS_TEXT, blockersText, placeFailText, tierText } from "./worldLayoutMessages.ts";
+import {
+  addMarksOf,
+  capitalCity,
+  marksOf,
+  nationLooks,
+  nationStatus,
+  planMarksOf,
+} from "./worldLayoutModel.ts";
 import { type FlatPlanet, loadFlatPlanet } from "./worldLayoutPlanet.ts";
 import "./worldLayout.css";
 
@@ -62,6 +73,9 @@ export default function WorldLayoutScreen() {
   const [picked, setPicked] = useState<LatLon | null>(null);
   const [ideas, setIdeas] = useState<ReadonlyMap<string, string>>(new Map());
   const [busy, setBusy] = useState(false);
+  /** 국력 등급 배치 계획(미리 보기)·이 세계에 반영 미리 보기 */
+  const [plan, setPlan] = useState<WorldTierPlan | null>(null);
+  const [tierApply, setTierApply] = useState<WorldTierApplyView | null>(null);
   const notice = useLiveLines();
   const problem = useLiveLines();
 
@@ -85,10 +99,21 @@ export default function WorldLayoutScreen() {
   const data = load.status === "ready" ? load.data : null;
   const nameOf = (nation: WorldPlacementNationView): string => nation.name?.[locale] ?? nation.code;
   const nations = data?.nations ?? [];
+  const founding = data?.founding ?? [];
   const current = nations.find((nation) => nation.code === chosen) ?? nations[0];
+  /** 고른 것이 아직 서지 않은 국가(이 세계에 세우기)면 그 코드 */
+  const foundCode = founding.some((entry) => entry.code === chosen) ? chosen : null;
+  const looks = useMemo(() => nationLooks(data?.nations ?? [], data?.founding ?? [], locale), [data, locale]);
   const marks = useMemo(
-    () => (data ? marksOf(data.nations, ideas, (nation) => nation.name?.[locale] ?? nation.code) : []),
-    [data, ideas, locale],
+    () =>
+      data
+        ? [
+            ...marksOf(data.nations, ideas, (nation) => nation.name?.[locale] ?? nation.code),
+            ...(plan ? planMarksOf(plan, looks) : []),
+            ...(tierApply ? addMarksOf(tierApply, looks) : []),
+          ]
+        : [],
+    [data, ideas, locale, plan, tierApply, looks],
   );
   const pickedCell = picked && data ? cellAtLatLon(data.faceLevel, picked.latDeg, picked.lonDeg) : null;
 
@@ -103,12 +128,13 @@ export default function WorldLayoutScreen() {
     const bad: string[] = [];
     for (const result of results) {
       const nation = nations.find((entry) => entry.code === result.code);
-      const label = nation ? nameOf(nation) : result.code;
+      const label = nation ? nameOf(nation) : (looks.get(result.code)?.name ?? result.code);
       if (result.result !== "ok") {
         const near = nations.find((entry) => entry.code === result.near);
         bad.push(`${label}: ${placeFailText(result.result, near ? nameOf(near) : (result.near ?? ""), gap)}`);
       } else if (result.blocked.length > 0)
         bad.push(m.dev_world_layout_placed_blocked({ nation: label, reasons: blockersText(result.blocked) }));
+      else if (!nation) good.push(m.dev_world_layout_placed_found({ nation: label }));
       else if (result.mapKey !== asked.get(result.code))
         good.push(m.dev_world_layout_placed_snapped({ nation: label }));
       else good.push(m.dev_world_layout_placed({ nation: label }));
@@ -146,9 +172,16 @@ export default function WorldLayoutScreen() {
       notice.show([m.dev_world_layout_cleared({ nation: nameOf(nation) })]);
     });
 
+  const clearCode = (code: string): Promise<void> =>
+    run(async () => {
+      await api.worldLayout.clear.mutate({ planetId: PLANET_ID, code });
+      notice.show([m.dev_world_layout_cleared({ nation: looks.get(code)?.name ?? code })]);
+    });
+
   const suggest = (): Promise<void> =>
     run(async () => {
       const result = await api.worldLayout.suggest.query({ planetId: PLANET_ID });
+      setPlan(result.plan ?? null);
       setIdeas(new Map(result.homes.map((home) => [home.code, home.mapKey])));
       notice.show([
         result.homes.length === 0
@@ -156,6 +189,22 @@ export default function WorldLayoutScreen() {
           : m.dev_world_layout_suggest_shown({ count: result.homes.length }),
       ]);
     });
+
+  const previewApply = (): Promise<void> =>
+    run(async () => setTierApply(await api.worldLayout.tierPlan.query({ planetId: PLANET_ID })));
+  const requestApply = (): Promise<void> =>
+    run(async () => {
+      setTierApply(await api.worldLayout.requestTierApply.mutate({ planetId: PLANET_ID }));
+      notice.show([m.dev_world_layout_apply_requested()]);
+    });
+  const cancelApply = (): Promise<void> =>
+    run(async () => {
+      await api.worldLayout.cancelTierApply.mutate({ planetId: PLANET_ID });
+      setTierApply(await api.worldLayout.tierPlan.query({ planetId: PLANET_ID }));
+      notice.show([m.dev_world_layout_apply_cancelled()]);
+    });
+  /** [여기에 놓기]의 대상: 선 국가 또는 이 세계에 세울 국가 */
+  const targetCode = foundCode ?? current?.code ?? null;
 
   return (
     <section
@@ -225,12 +274,21 @@ export default function WorldLayoutScreen() {
               <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
               <label className="wl-field">
                 <span>{m.dev_world_layout_nation()}</span>
-                <select value={current?.code ?? ""} onChange={(event) => setChosen(event.target.value)}>
+                <select value={targetCode ?? ""} onChange={(event) => setChosen(event.target.value)}>
                   {data.nations.map((nation) => (
                     <option key={nation.code} value={nation.code}>
                       {nameOf(nation)}
                     </option>
                   ))}
+                  {founding.length > 0 ? (
+                    <optgroup label={m.dev_world_layout_found_group()}>
+                      {founding.map((entry) => (
+                        <option key={entry.code} value={entry.code}>
+                          {looks.get(entry.code)?.name ?? entry.code}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
                 </select>
               </label>
               {pickedCell && picked ? (
@@ -248,10 +306,10 @@ export default function WorldLayoutScreen() {
                 <button
                   type="button"
                   className="button-small button-primary"
-                  disabled={busy || !current || !pickedCell}
+                  disabled={busy || targetCode === null || !pickedCell}
                   onClick={() =>
-                    current && pickedCell
-                      ? void place([{ code: current.code, mapKey: String(pickedCell.key) }])
+                    targetCode !== null && pickedCell
+                      ? void place([{ code: targetCode, mapKey: String(pickedCell.key) }])
                       : undefined
                   }
                 >
@@ -260,8 +318,15 @@ export default function WorldLayoutScreen() {
                 <button
                   type="button"
                   className="button-small"
-                  disabled={busy || !current?.placement}
-                  onClick={() => (current ? void clear(current) : undefined)}
+                  disabled={
+                    busy ||
+                    (foundCode === null
+                      ? !current?.placement
+                      : !founding.some((entry) => entry.code === foundCode && entry.mapKey !== null))
+                  }
+                  onClick={() =>
+                    foundCode !== null ? void clearCode(foundCode) : current ? void clear(current) : undefined
+                  }
                 >
                   {m.dev_world_layout_clear()}
                 </button>
@@ -301,12 +366,30 @@ export default function WorldLayoutScreen() {
                       aria-current={nation.code === current?.code ? "true" : undefined}
                     >
                       <th scope="row">
-                        <span className="wl-swatch" data-nation={index % 6} aria-hidden="true" />
+                        <span
+                          className="wl-swatch"
+                          data-nation={index % 6}
+                          data-colored={nation.color === undefined ? undefined : ""}
+                          style={nation.color === undefined ? undefined : { color: nation.color }}
+                          aria-hidden="true"
+                        />
                         <button type="button" className="wl-pick" onClick={() => setChosen(nation.code)}>
                           {nameOf(nation)}
                         </button>
+                        {nation.start?.tier ? (
+                          <span className="dev-badge wl-tier-badge" data-tier={nation.start.tier}>
+                            {tierText(nation.start.tier)}
+                          </span>
+                        ) : null}
                       </th>
-                      <td className="dev-num">{nation.cities.length}</td>
+                      <td className="dev-num">
+                        {nation.start
+                          ? m.dev_world_layout_plan_cities({
+                              have: nation.cities.filter((city) => city.start).length,
+                              want: nation.start.cities,
+                            })
+                          : nation.cities.length}
+                      </td>
                       <td>
                         {capital
                           ? m.dev_world_layout_capital({
@@ -338,6 +421,21 @@ export default function WorldLayoutScreen() {
               </tbody>
             </table>
           </div>
+          <WorldTierPanel
+            plan={plan}
+            apply={tierApply}
+            founding={founding}
+            looks={looks}
+            locale={locale}
+            busy={busy}
+            onPlan={() => void suggest()}
+            onHidePlan={() => setPlan(null)}
+            onApplyPreview={() => void previewApply()}
+            onHideApply={() => setTierApply(null)}
+            onRequest={() => void requestApply()}
+            onCancel={() => void cancelApply()}
+            onChoose={setChosen}
+          />
         </>
       ) : null}
     </section>

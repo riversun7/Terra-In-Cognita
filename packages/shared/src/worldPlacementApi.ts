@@ -62,6 +62,8 @@ export interface WorldPlacementNationView {
   readonly placement: WorldPlacementView | null;
   /** 국력 등급 시작 값(더한 칸 — 옛 서버 응답에는 없다) */
   readonly start?: WorldTierStartView | undefined;
+  /** 국가 시그니처 컬러(#rrggbb, 팩 국가 프리셋 — 지도 표시 색. 더한 칸, 프리셋이 없으면 없다) */
+  readonly color?: string | undefined;
 }
 
 export interface WorldLayoutPlanetView {
@@ -114,6 +116,7 @@ export interface WorldFoundingView {
   readonly code: string;
   readonly name: LocalizedName | null;
   readonly start: WorldTierStartView;
+  readonly color?: string | undefined;
   /** 놓은 수도 2차맵(10진 글자). 없으면 아직 자리를 놓지 않은 후보 */
   readonly mapKey: string | null;
   readonly placedAtMs: number | null;

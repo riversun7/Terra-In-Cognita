@@ -95,6 +95,7 @@ const ERROR_TEXT: Readonly<Record<ContentErrorInfo<NationEditorReason>["key"], T
   emblem_too_large: m.dev_nations_error_emblem_too_large,
   emblem_unavailable: m.dev_nations_error_world_unavailable,
   world_unavailable: m.dev_nations_error_world_unavailable,
+  nation_standing: m.dev_nations_error_nation_standing,
   rate_limited: m.dev_buildings_error_rate_limited,
   unauthorized: m.dev_buildings_error_unauthorized,
   forbidden: m.dev_buildings_error_forbidden,

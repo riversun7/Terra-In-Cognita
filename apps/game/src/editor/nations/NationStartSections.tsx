@@ -1,5 +1,6 @@
 // 시작 국가 설정 편집 판의 수 구역 — 시작 조건(시작 도시 수·도시 이름·처음 창고) · 인구·유닛(주거·처음 인구·기본 시설·지도자·사람 이름) ·
-// 성격(도시 직무 = NPC 도시 경제가 읽는 특산). 국가 칸이 비면 설정 칸 값이 든다("기본값 N").
+// 성격(도시 직무 = NPC 도시 경제가 읽는 특산). 국가 칸이 비면 국력 등급 표 값("등급 기본값 N"), 등급도 없으면 설정 칸 값("기본값 N")이 든다
+// (docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)").
 // 이 수들은 앞으로 서는 시작 도시·모자란 기본 시설·처음 인구에만 든다(이미 선 것은 고치지 않는다) — docs/adr/2026-11-10-nation-editor.md 2절
 import {
   NATION_LIST_LIMITS,
@@ -12,7 +13,7 @@ import type { ReactNode } from "react";
 import { m } from "../../paraglide/messages.js";
 import { NumberField, RemoveButton, SelectField } from "../content/contentEditorFields.tsx";
 import { FormSection } from "../content/contentEditorLayout.tsx";
-import { setPersonality, startCountsOf } from "./nationModel.ts";
+import { setPersonality, startCountsOf, tierOf } from "./nationModel.ts";
 
 interface SectionProps {
   title: string;
@@ -22,8 +23,11 @@ interface SectionProps {
 }
 
 const fallback = (value: number): string => m.dev_nations_default({ value });
+/** 비우면 드는 값: 등급 값이 있으면 "등급 기본값 N", 없으면 설정 칸 "기본값 N" */
+const hintOf = (base: number, tierBase: number | undefined): string =>
+  tierBase === undefined ? fallback(base) : m.dev_nations_tier_default({ value: tierBase });
 
-/** 성격 칸의 선택 정수 칸 하나(비우면 설정 칸 기본값) */
+/** 성격 칸의 선택 정수 칸 하나(비우면 등급 표 값 → 설정 칸 기본값) */
 function SeedField({
   draft,
   field,
@@ -32,6 +36,7 @@ function SeedField({
   min,
   max,
   base,
+  tierBase,
   unit,
   onEdit,
 }: {
@@ -43,6 +48,8 @@ function SeedField({
   max: number;
   /** 설정 칸의 지금 값 */
   base: number;
+  /** 이 국가 등급 표의 값(등급이 없거나 그 칸이 등급에 없으면 undefined) */
+  tierBase?: number | undefined;
   unit?: string | undefined;
   onEdit: (next: NationPresetJson) => void;
 }) {
@@ -55,7 +62,7 @@ function SeedField({
       optional
       unit={unit}
       desc={desc}
-      hint={fallback(base)}
+      hint={hintOf(base, tierBase)}
       onChange={(value) => onEdit(setPersonality(draft, field, value))}
       path={`personality.${field}`}
     />
@@ -71,6 +78,10 @@ export function NationStartSection({
   onEdit,
 }: SectionProps & { locale: "ko" | "en"; names: ReactNode }) {
   const defaults = list.defaults;
+  const tier = tierOf(
+    draft,
+    list.tiers.map((row) => row.entry),
+  );
   const stock = draft.personality?.startStock ?? [];
   const items = list.items.map((item) => ({ value: item.id, label: item.name[locale] }));
   const setStock = (next: readonly { item: string; qty: number }[]): void =>
@@ -104,6 +115,7 @@ export function NationStartSection({
           min={NATION_SEED_LIMITS.startCities.min}
           max={NATION_SEED_LIMITS.startCities.max}
           base={defaults.startCitiesMin}
+          tierBase={tier?.startCities}
           onEdit={onEdit}
         />
         <SeedField
@@ -177,8 +189,12 @@ export function NationPeopleSection({
   onEdit,
 }: SectionProps & { names: ReactNode }) {
   const defaults = list.defaults;
-  const counts = startCountsOf(draft, defaults);
+  const tiers = list.tiers.map((row) => row.entry);
+  const tier = tierOf(draft, tiers);
+  const counts = startCountsOf(draft, defaults, tiers);
   const limits = NATION_SEED_LIMITS;
+  const tierFacility = (id: string): number | undefined =>
+    tier?.facilities.find((row) => row.facility === id)?.count;
   return (
     <FormSection
       name="people"
@@ -192,6 +208,8 @@ export function NationPeopleSection({
         "personality.startLumberCamps",
         "personality.startMines",
         "personality.startStorehouses",
+        "personality.startGuards",
+        "personality.startTech",
         "humanNames",
       ]}
     >
@@ -207,6 +225,7 @@ export function NationPeopleSection({
           min={limits.housing.min}
           max={limits.housing.max}
           base={defaults.housing}
+          tierBase={tier?.startHousing}
           onEdit={onEdit}
         />
         <SeedField
@@ -217,6 +236,7 @@ export function NationPeopleSection({
           min={limits.populationPm.min}
           max={limits.populationPm.max}
           base={defaults.populationPm}
+          tierBase={tier?.startPopulationPm}
           unit="‰"
           onEdit={onEdit}
         />
@@ -237,6 +257,7 @@ export function NationPeopleSection({
           min={limits.facility.min}
           max={limits.facility.max}
           base={defaults.farms}
+          tierBase={tierFacility("farm")}
           onEdit={onEdit}
         />
         <SeedField
@@ -246,6 +267,7 @@ export function NationPeopleSection({
           min={limits.facility.min}
           max={limits.facility.max}
           base={defaults.lumberCamps}
+          tierBase={tierFacility("lumber_camp")}
           onEdit={onEdit}
         />
         <SeedField
@@ -255,6 +277,7 @@ export function NationPeopleSection({
           min={limits.facility.min}
           max={limits.facility.max}
           base={defaults.mines}
+          tierBase={tierFacility("mine")}
           onEdit={onEdit}
         />
         <SeedField
@@ -264,10 +287,42 @@ export function NationPeopleSection({
           min={limits.facility.min}
           max={limits.facility.max}
           base={defaults.storehouses}
+          tierBase={tierFacility("storehouse")}
           onEdit={onEdit}
         />
       </div>
       <p className="field-hint">{m.dev_nations_facilities_note()}</p>
+      <div className="ne-grid">
+        <SeedField
+          draft={draft}
+          field="startGuards"
+          label={m.dev_nations_field_guards()}
+          desc={m.dev_nations_field_guards_desc()}
+          min={limits.guards.min}
+          max={limits.guards.max}
+          base={0}
+          tierBase={tier?.guardsPerCity}
+          onEdit={onEdit}
+        />
+        <SeedField
+          draft={draft}
+          field="startTech"
+          label={m.dev_nations_field_tech()}
+          desc={m.dev_nations_field_tech_desc()}
+          min={limits.tech.min}
+          max={limits.tech.max}
+          base={1}
+          tierBase={tier?.startTech}
+          onEdit={onEdit}
+        />
+      </div>
+      <p className="ne-computed" data-testid="ne-guards">
+        {m.dev_nations_guards_result({
+          guards: counts.guards,
+          cities: counts.cities,
+          total: counts.totalGuards,
+        })}
+      </p>
       <dl className="ne-fixed">
         <div>
           <dt>{m.dev_nations_fixed_hall()}</dt>

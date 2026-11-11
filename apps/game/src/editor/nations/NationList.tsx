@@ -1,6 +1,7 @@
 // 시작 국가 설정 편집기 왼쪽 목록 — 국가 16줄: 국가 마크 · 색 표지 · 이름 · 약어 · 시작 수(도시·인구·시설) · 표지(담음·덮어씀·서는 차례·올린 마크).
 // 목록이 짧아(프리셋 16개) 찾기·거르기 없이 다 보인다. 줄 단추 = .ne-item[data-nation=<ID>](시험이 고른다).
 import type { NationEditorRow, NationSeedDefaults } from "@terra/shared/nationEditor";
+import type { NationTierJson } from "@terra/shared/nationTier";
 import { m } from "../../paraglide/messages.js";
 import { NationEmblem } from "../../ui/NationEmblem.tsx";
 import { Badge } from "../content/contentEditorLayout.tsx";
@@ -12,6 +13,7 @@ export function NationList({
   selected,
   locale,
   defaults,
+  tiers,
   onSelect,
 }: {
   rows: readonly NationEditorRow[];
@@ -19,6 +21,8 @@ export function NationList({
   selected: string | null;
   locale: "ko" | "en";
   defaults: NationSeedDefaults;
+  /** 국력 등급 표(담은 값 포함) */
+  tiers: readonly NationTierJson[];
   onSelect: (id: string) => void;
 }) {
   return (
@@ -34,7 +38,8 @@ export function NationList({
               : staged?.op === "revert"
                 ? (row.pack ?? row.entry)
                 : row.entry;
-          const counts = startCountsOf(entry, defaults);
+          const counts = startCountsOf(entry, defaults, tiers);
+          const tier = tiers.find((item) => item.id === entry.powerTier);
           return (
             <li key={row.entry.id}>
               <button
@@ -73,8 +78,15 @@ export function NationList({
                     {row.slot === null ? null : (
                       <Badge tone="plain">{m.dev_nations_slot({ slot: row.slot })}</Badge>
                     )}
+                    {tier ? (
+                      <Badge tone="plain" className={`ne-tier-badge ne-tier-${tier.id}`}>
+                        {tier.name[locale]}
+                      </Badge>
+                    ) : null}
                     {staged ? <Badge tone="staged">{m.dev_nations_badge_staged()}</Badge> : null}
-                    {row.origin === "pack" ? null : (
+                    {row.origin === "created" ? (
+                      <Badge tone="created">{m.dev_nations_badge_created()}</Badge>
+                    ) : row.origin === "pack" ? null : (
                       <Badge tone="changed">{m.dev_nations_badge_changed()}</Badge>
                     )}
                     {row.uploaded ? <Badge tone="advice">{m.dev_nations_badge_uploaded()}</Badge> : null}

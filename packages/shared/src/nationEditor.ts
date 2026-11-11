@@ -163,6 +163,8 @@ export interface NationEditorListResponse {
   /** 처음 창고 특산 물건 고르기 */
   readonly items: readonly NationEditorOption[];
   readonly sleeping: readonly ContentSleepingRow[];
+  /** 한 번 쓰고 지운 국가 프리셋 ID(새 프리셋 ID로 다시 쓰지 못한다 — 랜덤 국가 추가가 건너뛴다) */
+  readonly retiredIds: readonly string[];
   /** 이 서버에서 서는 고정 국가 수(NPC_TEST_NATIONS). NPC 사회를 끈 서버는 null */
   readonly testNations: number | null;
   /** 마크 올리기·이 세계에 반영을 쓸 수 있나(DB가 있는 서버) */

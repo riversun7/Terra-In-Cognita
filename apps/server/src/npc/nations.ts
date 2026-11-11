@@ -126,7 +126,7 @@ export function nationStartOf(
 export function nationSeedOf(
   seed: WorldSeedCoefficients,
   personality: NationPersonality | undefined,
-  tier?: NationTierJson | undefined,
+  tier?: NationTierJson,
 ): WorldSeedCoefficients {
   if (!personality && !tier) return seed;
   const start = resolveNationStart(startDefaultsOf(seed), tier, personality);

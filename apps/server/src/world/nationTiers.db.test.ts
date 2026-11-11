@@ -5,12 +5,14 @@
 // 2. 이미 선 세계: 등급이 든 팩으로 켜도(배포) 그대로이고, 미리 보기는 아무것도 쓰지 않으며, 반영 예약 뒤 다음 켤 때 모자란 도시·주거·휴먼·
 //    경비대·기술만 더한다(옛 도시·플레이어 것은 그대로, 감사 기록, 불변 조건 0). 한 번 더 켜도 더 늘지 않는다.
 // 3. 이 세계에 이 국가 세우기: 차례 밖 프리셋에 자리를 놓으면 다음 켤 때 그 국가가 등급대로 선다.
+// 4. 경비대 다시 채우기(기획 답 920 나): 죽은 경비대를 NPC 판단의 구인 규칙식(@terra/sim — 시뮬과 같은 함수)이 구인 카드로 등급 값까지
+//    다시 채운다(값은 국고에서 소각, 경비대 표시 저장, 등급 값을 넘지 않음). 국고가 없으면 채우지 않는다.
 import { loadContentPack } from "@terra/content/node";
 import { cellKey, decodeCellKey, parseCellKey } from "@terra/planet";
 import type { PlanetCellValues } from "@terra/planet/secondMap";
 import { placementCellKey, territoryMetric, territoryPoint } from "@terra/planet/territory";
 import { territoryDistanceMilli } from "@terra/shared/territory";
-import { DAY_MS, TEST_SOCIETY_COEFFICIENTS, generateTempTerrain, seedFromCellKey } from "@terra/sim";
+import { DAY_MS, type SimWorld, TEST_SOCIETY_COEFFICIENTS, generateTempTerrain, seedFromCellKey } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
@@ -18,6 +20,7 @@ import type { NationPreset } from "../npc/nations.ts";
 import { nationPresetsOf } from "../npc/presets.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
+import { ASSET_CREDIT } from "./settlement.ts";
 import { createPlacementService } from "./placementService.ts";
 import type { TerrainService } from "./terrainService.ts";
 import { addTestUnits, legacyNationPresets } from "./testSupport.ts";
@@ -463,5 +466,99 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
       after?.nations.find((nation) => nation.code === "placeholder_nation_05")?.placement?.appliedAtMs,
     ).not.toBeNull();
     expect(await next.checkInvariants()).toEqual([]);
+  }, 120_000);
+
+  it("경비대 다시 채우기(920 나): 죽은 경비대를 구인 카드로 등급 값까지(값 소각·표시 저장), 국고가 없으면 채우지 않는다", async () => {
+    const world = await boot(tiered);
+    const npc = world.npc;
+    const persistence = world.persistence;
+    if (!npc || !persistence) throw new Error("npc runtime");
+    const factionOf = (code: string) => {
+      const found = [...npc.world.factions.values()].find((faction) => faction.code === code);
+      if (!found) throw new Error(code);
+      return found;
+    };
+    // 경비대 목표 = 자기 프리셋 등급 값(소국 2 · 초강대국 5 · 강대국 4 · 중견국 3)
+    expect(CODES.map((code) => factionOf(code).guardsPerCity)).toEqual([2, 5, 4, 3]);
+    const guardsIn = (mirror: SimWorld, cityId: number): number[] =>
+      [...mirror.units.values()]
+        .filter((unit) => unit.city === cityId && unit.guard === true)
+        .map((unit) => unit.id)
+        .toSorted((a, b) => a - b);
+    /** 경비대를 없앤다(전투에서 죽은 셈 — 거울 세계에서 빼면 다음 저장이 휴먼 행·유닛을 지운다) */
+    const kill = (cityId: number, n: number): number[] => {
+      const gone = guardsIn(npc.world, cityId).slice(0, n);
+      for (const id of gone) {
+        const unit = npc.world.units.get(id);
+        npc.world.units.delete(id);
+        if (unit) npc.world.factions.get(unit.owner)?.units.delete(id);
+      }
+      return gone;
+    };
+    const superpower = factionOf(CODES[1] ?? "");
+    const small = factionOf(CODES[0] ?? "");
+    const bigCity = Math.min(...superpower.cities);
+    const smallCity = Math.min(...small.cities);
+    const dead = kill(bigCity, 2);
+    kill(smallCity, 1);
+    // 소국 국고를 비운다(값을 소각하는 구인과 같은 거래 모양). 지분도 초강대국에 넘긴다(판단이 지분을 팔아 국고를 채우지 못하게)
+    const drain = npc.world.book.balanceOf(small.id, ASSET_CREDIT);
+    npc.world.book.post({
+      kind: "recruit",
+      atMs: clock,
+      entries: [
+        { account: npc.world.book.ownerAccount(small.id, ASSET_CREDIT), amount: -drain },
+        { account: npc.world.book.systemAccount(`sink:${ASSET_CREDIT}`, ASSET_CREDIT), amount: drain },
+      ],
+    });
+    for (const account of [...npc.world.book.accounts()]) {
+      if (account.ownerId !== small.id || !account.asset.startsWith("share_")) continue;
+      const held = npc.world.book.balanceOf(small.id, account.asset);
+      if (held > 0n)
+        npc.world.book.post({
+          kind: "transfer",
+          atMs: clock,
+          entries: [
+            { account: npc.world.book.ownerAccount(small.id, account.asset), amount: -held },
+            { account: npc.world.book.ownerAccount(superpower.id, account.asset), amount: held },
+          ],
+        });
+    }
+    await npc.tick(true);
+    await persistence.writer.durable();
+    expect(guardsIn(npc.world, bigCity)).toHaveLength(3);
+    const before = npc.world.book.balanceOf(superpower.id, ASSET_CREDIT);
+    // 판단 간격(6시간 ± 25%)이 한 번 지나도록 민다(하루 끝 전)
+    clock += 8 * 3_600_000;
+    await npc.tick(true);
+    await persistence.writer.durable();
+    const refilled = guardsIn(npc.world, bigCity);
+    expect(refilled).toHaveLength(5);
+    expect(refilled.some((id) => dead.includes(id))).toBe(false);
+    // 카드 값은 국고에서 나갔다(같은 판단에서 휴먼 구인도 함께 살 수 있어 줄었는지만 본다)
+    expect(npc.world.book.balanceOf(superpower.id, ASSET_CREDIT)).toBeLessThan(before);
+    // 국고가 없는 소국은 채우지 않았다
+    expect(guardsIn(npc.world, smallCity)).toHaveLength(1);
+    // 어느 도시도 등급 값을 넘지 않는다
+    for (const code of CODES) {
+      const faction = factionOf(code);
+      for (const cityId of faction.cities)
+        expect(guardsIn(npc.world, cityId).length).toBeLessThanOrEqual(faction.guardsPerCity ?? 0);
+    }
+    // 새 경비대는 경비대 표시·구인 카드 스탯과 함께 저장된다
+    const saved = await rows<{ unit_id: string; guard: boolean; stats: number[] | null }>(
+      test.db,
+      `select unit_id, guard, stats from world_humans where city_id = $1 and guard order by unit_id`,
+      [bigCity],
+    );
+    expect(saved.map((row) => Number(row.unit_id))).toEqual(refilled);
+    expect(saved.slice(-2).every((row) => row.stats?.length === 6)).toBe(true);
+    expect(await world.checkInvariants()).toEqual([]);
+    await stop(world);
+    // 다시 켜도 그대로(경비대 표시가 이어진다)
+    const again = await boot(tiered);
+    const mirror = again.npc?.world;
+    if (!mirror) throw new Error("npc runtime");
+    expect(guardsIn(mirror, bigCity)).toEqual(refilled);
   }, 120_000);
 });

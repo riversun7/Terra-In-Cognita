@@ -1,7 +1,7 @@
 // 범위 줄 — 개발·운영 화면 머리에 "이 화면에서 바꾼 것이 어디에 반영되는가"를 보인다(docs/adr/2026-11-11-planet-scope.md 3절).
 // 사용자 요청(2026-11-11): "행성을 선택이 필요한 에디터에 행성 선택하는 기능이 없어 어디에만 반영되는지 확인 불가."
 // - 모든 행성 공통(규칙·수치): 고정 표지 + 한 줄 풀이(이 세계의 덮어쓰기, 플레이 행성 모두에 같다).
-// - 행성 하나: 행성 고르기(상태 표지: 플레이 중·편집 전용) — 고른 값은 주소 ?planet=과 계정 기억에 남는다(planetScopeStore.ts).
+// - 행성 하나: 행성 고르기(상태 표지: 공개 행성·편집 전용, D-530 945 다) — 고른 값은 주소 ?planet=과 계정 기억에 남는다(planetScopeStore.ts).
 // - 보관함·항성계·행성과 무관: 고정 표지 + 풀이.
 // 틀이 보이는 개발·운영 화면은 주소 → 화면 표(shell/routeViews.tsx)가 화면 위에 그린다(편집기마다 고칠 것이 없다).
 // 틀을 숨긴 화면(행성 편집기·항성계·2차맵 시험·전투 다시보기)은 자기 머리에 <ScopeBar route="…" inline />을 둔다.
@@ -39,7 +39,7 @@ export function planetLabel(planet: Pick<PlanetScopeEntry, "id" | "name">): stri
   return (getLocale() === "en" ? planet.name.en : planet.name.ko) || planet.id;
 }
 
-/** 상태 표지(플레이 중·편집 전용·보관함) */
+/** 상태 표지(공개 행성·편집 전용·보관함) */
 export function PlanetStatusChip({ status }: { status: PlanetScopeStatus }) {
   return (
     <span className="scope-chip scope-status" data-status={status}>

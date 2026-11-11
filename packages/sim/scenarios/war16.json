@@ -8,7 +8,7 @@
       "fixed": true,
       "cities": 6,
       "workers": 270,
-      "guards": 6,
+      "guards": 5,
       "credit": "600000",
       "tech": 3,
       "housing": 60

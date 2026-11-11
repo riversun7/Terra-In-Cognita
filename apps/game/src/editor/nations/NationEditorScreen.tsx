@@ -193,6 +193,11 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
   };
   const revert = (): void => {
     if (!selected || !row) return;
+    // 아직 저장하지 않은 새 프리셋은 되돌릴 팩 값이 없다 — 담은 것을 뺀다(만들기 취소)
+    if (stageRef.current.created.has(selected)) {
+      pushStage(stageNation(stageRef.current, selected, null));
+      return;
+    }
     const current = stageRef.current.nations.get(selected);
     pushStage(
       stageNation(stageRef.current, selected, {

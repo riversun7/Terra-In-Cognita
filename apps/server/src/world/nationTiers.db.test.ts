@@ -201,7 +201,7 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     ]);
     expect(lists.map((list) => [...new Set(list.map((city) => Number(city.guards)))])).toEqual([
       [2],
-      [6],
+      [5],
       [4],
       [3],
     ]);
@@ -253,8 +253,8 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     expect(new Set(cities.map((city) => city.map_key)).size).toBe(15);
     expect(world.maps.size).toBe(17);
     const units = await count(`select count(*) as n from world_units`);
-    // 휴먼 556 + 경비대 65 + 지도자 4
-    expect(units).toBe(2 * 24 + 6 * 45 + 4 * 37 + 3 * 30 + (2 * 2 + 6 * 6 + 4 * 4 + 3 * 3) + 4);
+    // 휴먼 556 + 경비대 59 + 지도자 4
+    expect(units).toBe(2 * 24 + 6 * 45 + 4 * 37 + 3 * 30 + (2 * 2 + 6 * 5 + 4 * 4 + 3 * 3) + 4);
     expect(await world.checkInvariants()).toEqual([]);
     await stop(world);
 
@@ -308,13 +308,13 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
       { have: 3, want: 4, add: 1, surplus: 0 },
       { have: 2, want: 3, add: 1, surplus: 0 },
     ]);
-    // 초강대국: 옛 도시 넷의 주거 40 → 60, 휴먼 30 → 45(+15씩), 경비대 0 → 6, 새 도시 둘 × (45 + 6)
+    // 초강대국: 옛 도시 넷의 주거 40 → 60, 휴먼 30 → 45(+15씩), 경비대 0 → 5, 새 도시 둘 × (45 + 5)
     expect(row("placeholder_nation_01")).toMatchObject({
       housingRaised: 4,
       humans: { have: 120, add: 60 },
-      guards: { have: 0, add: 24 },
+      guards: { have: 0, add: 20 },
       newHumans: 90,
-      newGuards: 12,
+      newGuards: 10,
       tech: { from: 1, to: 3 },
     });
     // 소국: 주거는 내리지 않는다(40 그대로 — 처음 인구 30이 이미 등급 값 24보다 많다), 경비대만 2씩
@@ -347,7 +347,7 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     ).toEqual([[40], [60], [50], [40]]);
     expect(lists.map((list) => [...new Set(list.map((city) => Number(city.guards)))])).toEqual([
       [2],
-      [6],
+      [5],
       [4],
       [3],
     ]);

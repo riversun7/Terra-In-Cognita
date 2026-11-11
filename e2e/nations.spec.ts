@@ -2,6 +2,9 @@
 // - dev: 개발자 홈의 줄로 들어간다. 이름을 고치고(이름 만들기 후보도), 국가 마크를 다시 만들고, 시작 수(주거)를 바꾸면 담기고 [적용]하면 그
 //   세계에 바로 든다(nations.list). 그림을 올려 자르면(끌기·키·확대) 미리 보기에 그 그림이 보이고 그림 길이 PNG를 준다. [생성 마크로 되돌리기].
 //   [이 세계의 NPC 국가에 반영]은 미리 보기(바꾸지 않음)를 보인다. [팩 값으로]를 적용하면 팩 값.
+// - 국력 등급(docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"): [국력 등급] 판의 나라별 시작 합계 막대(16줄, 강한 등급 먼저)와 등급 표
+//   다섯 줄. 등급 표를 고치면 담기고 막대·"등급 기본값 N"이 바로 따른다. 국가의 등급을 바꾸면 미리 보기 수가 바뀐다.
+// - [랜덤 국가 추가]: 후보 카드 → [다시 굴리기]·부분 다시 굴리기 → [추가]하면 새 프리셋이 목록 끝에 담기고 [적용]하면 17번째로 든다.
 // - player: 권한 없음 화면.
 // - 사진 6장: 1440 × 개발 화면 테마 네온·라이트 × 한국어·영어, 390 × 네온 한국어·라이트 영어(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
 // 시험끼리 서버·DB를 같이 쓴다: 세계에 서지 않는 국가(5번째 프리셋)만 고치고, 처음과 끝에 덮어쓰기·올린 마크를 모두 지운다
@@ -57,11 +60,19 @@ async function resetNations(page: Page): Promise<void> {
       const removed = await trpc(page, "nations.removeEmblem", { id: field(field(row, "entry"), "id") });
       if (removed.status !== 200) throw new Error(`nations.removeEmblem ${removed.status}`);
     }
-  const changes = list(field(current.data, "nations")).flatMap((row) =>
-    field(row, "origin") === "edited"
-      ? [{ op: "revert", id: field(field(row, "entry"), "id"), baseHash: field(row, "hash") }]
-      : [],
-  );
+  // 고친 프리셋은 팩 값으로, 만든 프리셋(랜덤 국가 추가)은 지우고, 고친 등급 표 줄도 팩 값으로
+  const changes = [
+    ...list(field(current.data, "nations")).flatMap((row) =>
+      field(row, "origin") === "pack"
+        ? []
+        : [{ op: "revert", id: field(field(row, "entry"), "id"), baseHash: field(row, "hash") }],
+    ),
+    ...list(field(current.data, "tiers")).flatMap((row) =>
+      field(row, "origin") === "pack"
+        ? []
+        : [{ op: "revert_tier", id: field(field(row, "entry"), "id"), baseHash: field(row, "hash") }],
+    ),
+  ];
   if (changes.length === 0) return;
   const reverted = await trpc(page, "nations.save", { expectedRevision: revision, changes });
   if (reverted.status !== 200) throw new Error(`nations.save revert ${reverted.status}`);
@@ -272,6 +283,109 @@ test.describe("개발자", () => {
   });
 });
 
+test.describe("국력 등급·랜덤 국가", () => {
+  test.use({ account: "dev", ...VIEWPORTS.desktop });
+
+  test("국력 등급 판: 나라별 합계 막대 16줄·등급 표 다섯 줄, 등급 표와 국가 등급을 고치면 수가 바로 따른다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await fresh(page);
+    await page.locator(".ne-power-open").click();
+    const chart = page.getByTestId("ne-power-chart");
+    await expect(chart.locator("tbody tr")).toHaveCount(16);
+    // 강한 등급 먼저: 첫 두 줄 초강대국, 끝 두 줄 도시국가
+    await expect(chart.locator("tbody tr").nth(0)).toHaveAttribute("data-tier", "superpower");
+    await expect(chart.locator("tbody tr").nth(1)).toHaveAttribute("data-tier", "superpower");
+    await expect(chart.locator("tbody tr").nth(15)).toHaveAttribute("data-tier", "city_state");
+    const meridale = chart.locator('tr[data-nation="placeholder_nation_01"]');
+    // 초강대국: 도시 6 · 처음 인구 270 · 경비대 30
+    await expect(meridale.locator('.ne-power-bar[data-kind="cities"] .ne-power-value')).toHaveText("6");
+    await expect(meridale.locator('.ne-power-bar[data-kind="people"] .ne-power-value')).toHaveText("270");
+    await expect(meridale.locator('.ne-power-bar[data-kind="guards"] .ne-power-value')).toHaveText("30");
+    const cards = page.getByTestId("ne-tier-table").locator(".ne-tier-card");
+    await expect(cards).toHaveCount(5);
+
+    // 등급 표: 초강대국 시작 도시 6 → 5 → 담기고 막대가 따른다
+    const superCard = page.locator('.ne-tier-card[data-tier="superpower"]');
+    await superCard.getByLabel(message("ko", "dev_nations_field_start_cities"), { exact: true }).fill("5");
+    await expect(stagebar(page)).toHaveAttribute("data-count", "1");
+    await expect(meridale.locator('.ne-power-bar[data-kind="cities"] .ne-power-value')).toHaveText("5");
+    await expect(meridale.locator('.ne-power-bar[data-kind="people"] .ne-power-value')).toHaveText("225");
+
+    // 국가(강대국)의 등급 칸과 "등급 기본값": 주거 칸이 비어 있으면 등급 값 50
+    await item(page, NATION).click();
+    await expect(detail(page)).toHaveAttribute("data-nation", NATION);
+    const tier = detail(page).getByLabel(message("ko", "dev_nations_field_tier"), { exact: true });
+    await expect(tier).toHaveValue("great_power");
+    await expect(detail(page)).toContainText(message("ko", "dev_nations_tier_default", { value: 50 }));
+    await expect(detail(page).getByTestId("ne-guards")).toContainText("16");
+    // 도시국가로 바꾸면 도시 1곳·경비대 4명
+    await tier.selectOption("city_state");
+    await expect(detail(page).getByTestId("ne-guards")).toContainText(
+      message("ko", "dev_nations_guards_result", { guards: 4, cities: 1, total: 4 }),
+    );
+    await expect(stagebar(page)).toHaveAttribute("data-count", "2");
+    await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
+    await stagebar(page).locator(".ne-apply-batch").click();
+    await expect(stagebar(page)).toHaveCount(0);
+    const saved = (await trpc(page, "nations.list")).data;
+    expect(field(field(nationRow(saved, NATION), "entry"), "powerTier")).toBe("city_state");
+    const superTier = list(field(saved, "tiers")).find(
+      (row) => field(field(row, "entry"), "id") === "superpower",
+    );
+    expect(field(superTier, "origin")).toBe("edited");
+    expect(field(field(superTier, "entry"), "startCities")).toBe(5);
+    await resetNations(page);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("랜덤 국가 추가: 후보를 굴리고(전부·부분) 추가하면 목록 끝에 새 프리셋으로 담기고, 적용하면 17번째로 든다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await fresh(page);
+    await expect(page.locator(".ne-item")).toHaveCount(16);
+    await page.locator(".ne-random-open").click();
+    const panel = page.getByTestId("ne-random");
+    const card = panel.locator(".ne-random-card");
+    const candidate = () => card.getAttribute("data-candidate");
+    const first = await candidate();
+    expect(first).toMatch(/^nation_[a-z0-9]+_\d+$/);
+    // [다시 굴리기]: 다른 후보
+    await panel.locator(".ne-random-all").click();
+    await expect.poll(candidate).not.toBe(first);
+    // 색만 다시 굴리면 이름(= ID)은 그대로, 색 값만 바뀐다
+    const id = await candidate();
+    const color = () => card.locator('.ne-random-part[data-part="color"] .ne-random-value').innerText();
+    const before = await color();
+    await card.locator('.ne-random-reroll[data-part="color"]').click();
+    await expect.poll(color).not.toBe(before);
+    expect(await candidate()).toBe(id);
+    // [추가]: 목록 끝에 새 프리셋(담김), 편집 판이 열린다
+    await panel.locator(".ne-random-add").click();
+    await expect(page.locator(".ne-item")).toHaveCount(17);
+    await expect(page.locator(".ne-item").nth(16)).toHaveAttribute("data-nation", id ?? "");
+    await expect(detail(page)).toHaveAttribute("data-nation", id ?? "");
+    await expect(stagebar(page)).toHaveAttribute("data-count", "1");
+    await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
+    await stagebar(page).locator(".ne-apply-batch").click();
+    await expect(stagebar(page)).toHaveCount(0);
+    const saved = (await trpc(page, "nations.list")).data;
+    const ids = list(field(saved, "nations")).map((row) => field(field(row, "entry"), "id"));
+    expect(ids).toHaveLength(17);
+    expect(ids[16]).toBe(id);
+    expect(ids[0]).toBe("placeholder_nation_01");
+    expect(field(nationRow(saved, id ?? ""), "origin")).toBe("created");
+    // 지우면(되돌리기) 16개로 돌아가고 그 ID는 은퇴한다
+    await resetNations(page);
+    const end = (await trpc(page, "nations.list")).data;
+    expect(list(field(end, "nations"))).toHaveLength(16);
+    expect(list(field(end, "retiredIds"))).toContain(id);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
 test.describe("플레이어", () => {
   test.use({ account: "player" });
 
@@ -322,6 +436,16 @@ test.describe("배치·사진", () => {
         expect(await smallTapTargets(page)).toEqual([]);
         await page.evaluate(() => window.scrollTo(0, 0));
         await shot(page, `nations-${theme}-${language}-${width}`);
+        if (width >= 1000 && language === "ko") {
+          // 국력 등급 판(나라별 시작 합계 막대 + 등급 표)
+          await page.locator(".ne-power-open").click();
+          await expect(page.getByTestId("ne-power-chart").locator("tbody tr")).toHaveCount(16);
+          expect(await horizontalOverflow(page)).toEqual([]);
+          expect(await smallTapTargets(page)).toEqual([]);
+          await page.getByTestId("ne-power").evaluate((node) => node.scrollIntoView({ block: "start" }));
+          await shot(page, `nations-power-${theme}-${language}-${width}`);
+          await page.locator(".ne-power-close").click();
+        }
         if (width < 1000) {
           // 휴대폰: 목록으로 돌아가 목록도 본다
           await detail(page).locator(".ne-back").click();

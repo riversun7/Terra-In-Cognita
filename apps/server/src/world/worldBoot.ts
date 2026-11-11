@@ -10,7 +10,13 @@
 import { type CellKey, cellLevel, isCellKey } from "@terra/planet";
 import { cityGrade, gradeValue } from "@terra/shared/territory";
 import type { SocietyCoefficients } from "@terra/sim";
-import { type NationPreset, type StartCityPlacer, ensureWorldNations } from "../npc/nations.ts";
+import {
+  type NationPreset,
+  type StartCityPlacer,
+  ensureWorldNations,
+  nationStartOf,
+  presetOfCode,
+} from "../npc/nations.ts";
 import {
   type NationPlacement,
   loadPlacements,
@@ -396,9 +402,20 @@ async function applyPlacementMoves(
       factionId,
       cities: planet.cities,
       place: (count, except) =>
-        placeNow([{ factionId, missing: count, home: placementHome(placement) }], except).map(
-          (entry) => entry.spot,
-        ),
+        placeNow(
+          [
+            {
+              factionId,
+              missing: count,
+              home: placementHome(placement),
+              // 옮긴 도시도 그 국가 등급의 도시 간격으로 선다
+              tier: layoutTierOf(
+                nationStartOf(options.rules.worldSeed, presetOfCode(placement.code, options.npc?.presets)),
+              ),
+            },
+          ],
+          except,
+        ).map((entry) => entry.spot),
     });
     if (plan.reasons.length > 0) {
       await markPlacementBlocked(pool, planetId, placement.code, plan.reasons);

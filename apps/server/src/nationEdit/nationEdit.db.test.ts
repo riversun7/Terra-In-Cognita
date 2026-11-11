@@ -481,7 +481,7 @@ describe.skipIf(!TEST_DATABASE_URL)("시작 국가 설정 편집기 (DB)", () =>
       "city_state",
     ]);
     expect(obj(nationOf(body, FIRST).entry).powerTier).toBe("superpower");
-    expect(live.list[0]?.tier).toMatchObject({ id: "superpower", startCities: 6, guardsPerCity: 6 });
+    expect(live.list[0]?.tier).toMatchObject({ id: "superpower", startCities: 6, guardsPerCity: 5 });
     const top = tiers[0] ?? {};
     const entry = obj(top.entry);
     // 범위 밖 값·없는 시설은 팩 검사기가 막는다
@@ -515,7 +515,7 @@ describe.skipIf(!TEST_DATABASE_URL)("시작 국가 설정 편집기 (DB)", () =>
     const after = obj(resultOf(res));
     const row = arr(after.tiers).map(obj)[0] ?? {};
     expect(row).toMatchObject({ origin: "edited" });
-    expect(obj(row.pack)).toMatchObject({ startCities: 6, guardsPerCity: 6 });
+    expect(obj(row.pack)).toMatchObject({ startCities: 6, guardsPerCity: 5 });
     // 실효 프리셋의 등급 줄이 제자리에서 바뀐다(다음 세계 씨앗이 읽는다)
     expect(live.list[0]?.tier).toMatchObject({ startCities: 5, guardsPerCity: 8 });
     expect(live.list[0]?.tier?.facilities).toEqual([
@@ -540,7 +540,7 @@ describe.skipIf(!TEST_DATABASE_URL)("시작 국가 설정 편집기 (DB)", () =>
     const now = arr((await list()).tiers).map(obj)[0] ?? {};
     const reverted = await save([{ op: "revert_tier", id: "superpower", baseHash: now.hash }]);
     expect(reverted.statusCode).toBe(200);
-    expect(live.list[0]?.tier).toMatchObject({ startCities: 6, guardsPerCity: 6 });
+    expect(live.list[0]?.tier).toMatchObject({ startCities: 6, guardsPerCity: 5 });
   });
 
   it("새 프리셋 만들기(랜덤 국가 추가): 목록 끝에 붙고 앞 16개의 차례는 그대로, 겹치는 약어·틀린 ID는 거절, 지우면 ID가 은퇴한다", async () => {

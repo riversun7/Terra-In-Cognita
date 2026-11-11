@@ -27,7 +27,7 @@
           "count": 2
         }
       ],
-      "guardsPerCity": 6,
+      "guardsPerCity": 5,
       "startTech": 3,
       "startCreditPm": 3000,
       "cityStepCells": 2,

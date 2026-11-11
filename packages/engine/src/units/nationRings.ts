@@ -88,9 +88,10 @@ export class NationRings {
     this.mesh.instanceMatrix = this.matrixAttribute;
     this.mesh.instanceColor = this.colorAttribute;
     this.mesh.count = 0;
-    // 화면 밖 거르기는 이 파일이 고리마다 한다. 고른 표시 고리(renderOrder 0)보다 먼저 그린다
+    // 화면 밖 거르기는 이 파일이 고리마다 한다. 깊이를 쓰지 않으므로 땅·유닛을 다 그린 뒤에 그린다(먼저 그리면 땅이 덮는다 — 실행으로 확인).
+    // 경로 고리(19)·아이콘 점(20)보다는 먼저
     this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = -1;
+    this.mesh.renderOrder = 18;
     this.group.add(this.mesh);
   }
 

@@ -8,9 +8,10 @@ export const HARNESS_ENV = "E2E_HARNESS";
  * dev는 개발자 역할(계정 관리 권한 없이 홈 시안 자료·행성 편집기)이다. 시안 자료 시험은 admin 대신 dev로 본다(가장 좁은 역할).
  * player·dev·admin은 전역 준비가 사이보그를 만들어 둔다(첫 접속을 마친 계정). fresh·fresh_shots는 사이보그가 없는 새 플레이어다
  * (e2e/first-login.spec.ts: fresh는 끝까지 만들고, fresh_shots는 단계 사진만 찍는다). legacy는 프로토콜 4(속성 분배 전)로 만든
- * 사이보그라 속성 분배를 기다린다(D-450, 다음 접속 때 /start에서 한 번 나눈다).
+ * 사이보그라 속성 분배를 기다린다(D-450, 다음 접속 때 /start에서 한 번 나눈다). relook은 3D 외형 없이 만든 사이보그라 사이보그 화면에서
+ * 3D 외형을 한 번 고른다(질문 961 나, e2e/character-3d.spec.ts — 그 시험이 기회를 쓴다).
  */
-export type AccountName = "player" | "dev" | "admin" | "fresh" | "fresh_shots" | "legacy";
+export type AccountName = "player" | "dev" | "admin" | "fresh" | "fresh_shots" | "legacy" | "relook";
 export const ACCOUNT_NAMES = [
   "player",
   "dev",
@@ -18,6 +19,7 @@ export const ACCOUNT_NAMES = [
   "fresh",
   "fresh_shots",
   "legacy",
+  "relook",
 ] as const satisfies readonly AccountName[];
 
 export interface HarnessAccount {

@@ -58,6 +58,8 @@ const ACCOUNTS = {
   fresh_shots: { id: "e2e_fresh_shots", roles: "player" },
   // 속성 분배 전(프로토콜 4)에 만든 사이보그: 다음 접속 때 /start에서 속성을 한 번 나눈다(D-450)
   legacy: { id: "e2e_legacy", roles: "player" },
+  // 3D 외형 없이 만든 사이보그(옛 기기와 같다): 사이보그 화면에서 3D 외형을 한 번 고른다(질문 961 나, e2e/character-3d.spec.ts)
+  relook: { id: "e2e_relook", roles: "player" },
 } as const satisfies Record<AccountName, { id: string; roles: string }>;
 
 /** 만든 계정(아직 들어가지 않아 계정 ID를 모른다) */
@@ -306,6 +308,7 @@ const SETUP_CYBORGS = {
   // "admin"이 든 이름은 사칭 목록에 걸린다(D-134·D-445 171)
   admin: "E2EChief",
   legacy: "E2ELegacy",
+  relook: "E2ERelook",
 } as const satisfies Partial<Record<AccountName, string>>;
 
 /**
@@ -570,13 +573,14 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
       });
       return { id, password, storageState: path.join(runDir, `session-${name}.json`) };
     };
-    const [player, dev, admin, fresh, freshShots, legacy] = await Promise.all([
+    const [player, dev, admin, fresh, freshShots, legacy, relook] = await Promise.all([
       createAccount("player"),
       createAccount("dev"),
       createAccount("admin"),
       createAccount("fresh"),
       createAccount("fresh_shots"),
       createAccount("legacy"),
+      createAccount("relook"),
     ]);
 
     const logStream = createWriteStream(logFile);
@@ -629,11 +633,12 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
       fresh: await saveSession(baseURL, fresh),
       fresh_shots: await saveSession(baseURL, freshShots),
       legacy: await saveSession(baseURL, legacy),
+      relook: await saveSession(baseURL, relook),
     };
     await waitForPlanets(baseURL, accounts.admin.storageState);
     // 첫 접속을 마친 계정: player·dev·admin은 사이보그가 있어야 다른 시험의 화면이 열린다(없으면 /start로 간다).
     // fresh·fresh_shots는 사이보그 없이 둔다(첫 접속 시험). legacy는 속성 분배를 기다리는 사이보그로 둔다(아래)
-    for (const name of ["player", "dev", "admin", "legacy"] as const) {
+    for (const name of ["player", "dev", "admin", "legacy", "relook"] as const) {
       await createSetupCyborg(baseURL, accounts[name], SETUP_CYBORGS[name]);
     }
     // "분배 기다림"(elements null)은 최소 판 6부터 기기가 만들 수 없다(속성 분배 전에 만든 옛 사이보그만 그렇다).

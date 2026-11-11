@@ -255,6 +255,8 @@ test.describe("첫 접속: 새 플레이어", () => {
     await page.goto("/cyborg");
     await expect(page.locator(".cyborg-name")).toHaveText("새싹로봇");
     await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-look", drawn);
+    // 만들 때 3D 외형을 골랐으니 한 번 고르기 단추가 없다(질문 961 나 — 3D 외형 없이 만든 사이보그만)
+    await expect(page.locator(".cyborg-look-pick-open")).toHaveCount(0);
     // 서버가 고른 3D 외형을 저장했다(cyborg.status의 look = 미리 보기의 외형)
     expect(await savedLook(page)).toEqual(lookOf(chosen));
     await expect(page.locator(".cyborg .core-row")).toHaveCount(6);

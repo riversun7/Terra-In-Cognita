@@ -247,14 +247,15 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     lists.forEach((list, index) => {
       for (const city of list) expect(facilitiesOf(city)).toEqual(index === 1 || index === 2 ? big : plain);
     });
-    // 도시 간격: 초강대국·강대국은 수도에서 두 칸 걸음(넓게), 중견국·소국은 붙은 2차맵
+    // 도시 간격(docs/adr/2026-11-11-city-catchment.md): 모든 등급이 배후지 간격(2R = 4칸 — 등급 걸음 1·2칸보다 넓다) 이상, 찾는 반경(12칸) 안
     const spread = lists.map(([capital, ...rest]) =>
       capital ? Math.min(...rest.map((city) => cells(city, capital))) : 0,
     );
-    expect(spread[1]).toBeGreaterThan(1.7);
-    expect(spread[2]).toBeGreaterThan(1.7);
-    expect(spread[3]).toBeLessThan(1.6);
-    expect(spread[0]).toBeLessThan(1.6);
+    for (const [index, list] of lists.entries())
+      if (list.length > 1) {
+        expect(spread[index]).toBeGreaterThanOrEqual(3.999);
+        expect(spread[index]).toBeLessThanOrEqual(12);
+      }
     // 국가 사이: 초강대국 ↔ 강대국(간격 30 × 1.45)이 소국 ↔ 가장 가까운 이웃보다 멀다
     const capitals = lists.map((list) => list[0]);
     const between = (a: number, b: number) => {

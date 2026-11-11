@@ -1,6 +1,6 @@
-// 내 세력 정체성 정하기·고치기(/faction/identity) — 지연 로딩 조각(default export, shell/routeViews.tsx).
-// 사용자 결정(2026-11-11): 플레이어도 NPC 세력처럼 세력을 만들 때 같은 과정(이름·약어·색·마크)을 거친다. 지금 플레이어가 이끄는 세력은
-// 자기 소유 주체뿐이라(세력 창설 규칙이 아직 없다 — 질문 926) 이 화면이 그 과정이다. 창설 흐름이 생기면 IdentityStep을 그 안에 넣는다.
+// 가문 창설·내 가문 정체성 고치기(/faction/identity) — 지연 로딩 조각(default export, shell/routeViews.tsx).
+// 사용자 결정(2026-11-11): 플레이어도 NPC 세력처럼 세력을 만들 때 같은 과정(이름·약어·색·마크)을 거친다. 질문 926 나: 정체성을 정하는 것이
+// 곧 가문 창설이다 — 이 화면의 마지막 단추가 [가문 창설](IdentityStep), 창설한 뒤에는 같은 화면에서 고친다.
 // docs/adr/2026-11-11-faction-identity.md
 import type { FactionIdentityMine } from "@terra/shared/factionIdentity";
 import { useState } from "react";
@@ -23,7 +23,7 @@ export default function FactionIdentityScreen() {
     <section className="screen fid" aria-labelledby="fid-title">
       <div className="screen-header">
         <h1 id="fid-title" className="screen-title" tabIndex={-1}>
-          {mine?.identity ? m.fid_title_edit() : m.fid_title_create()}
+          {mine?.house ? m.fid_title_edit() : m.fid_title_create()}
         </h1>
         <BackButton />
       </div>
@@ -40,13 +40,14 @@ export default function FactionIdentityScreen() {
         )
       ) : (
         <IdentityStep
-          // 저장할 때마다 새 초안으로 다시 시작한다
-          key={mine.identity?.updatedAt ?? 0}
+          // 창설하면 새 초안으로 다시 시작한다(초안만 저장하고 창설이 실패한 때는 고치던 값·알림을 그대로 둔다)
+          key={mine.house?.factionId ?? 0}
           mine={mine}
           onSaved={(next) => {
             setSaved(next);
             goBack();
           }}
+          onDraftSaved={setSaved}
           onCancel={goBack}
         />
       )}

@@ -14,6 +14,7 @@ import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { navigate } from "../shell/routerStore.ts";
 import { elsewhereText, peekText, unitName, unitStatusText } from "./mapUnits.ts";
 import { UnitAdvice } from "../roster/UnitAdvice.tsx";
+import { HouseReport } from "../faction/identity/HouseReport.tsx";
 import "./unitControl.css";
 
 /** 목록 id(여닫기 단추의 aria-controls) */
@@ -237,6 +238,10 @@ export function PeekCard({
           </span>
         </p>
       ) : null}
+      {/* 다른 가문 [신고](질문 930 나) — 옛 서버면 가문 ID가 없어 단추가 없다 */}
+      {glance?.owner?.houseId === undefined ? null : (
+        <HouseReport houseId={glance.owner.houseId} name={glance.owner.name} />
+      )}
       {children}
       {onControl ? (
         <div className="map-peek-menu">

@@ -1,4 +1,5 @@
-// 세력 화면 옆 판의 "내 세력 이름과 마크" 칸 — 정했으면 마크·이름·약어 표지와 [고치기], 아직이면 [세력 정체성 정하기].
+// 세력 화면 옆 판의 "내 가문" 칸(질문 926 나 — 정체성을 정하면 곧 가문 창설) — 창설했으면 마크·이름·약어 표지와 [고치기], 초안만 저장했으면
+// [가문 창설 마치기], 아직이면 [가문 창설].
 // 운영자가 올린 마크를 내렸으면 알림(사유)과 [확인]을 보인다. 자료는 factionIdentity.mine(세력 화면 조회와 따로 — 실패해도 세력 화면은 그대로).
 // docs/adr/2026-11-11-faction-identity.md 2·5절
 import { type FactionIdentityMine, labelTextOn } from "@terra/shared/factionIdentity";
@@ -60,11 +61,13 @@ export function IdentityCard() {
   // 이 서버에 기능이 없거나(DB 없음) 받지 못했으면 칸을 그리지 않는다(세력 화면의 나머지는 그대로)
   if (mine === null) return null;
   const identity = mine.identity;
+  const founded = mine.house !== null;
   return (
     <section
       className="panel faction-me fid-card"
       aria-labelledby="fid-card-title"
       data-set={identity ? "" : undefined}
+      data-house={founded ? "" : undefined}
     >
       <h2 id="fid-card-title" className="screen-section-title">
         {m.faction_identity_title()}
@@ -93,9 +96,14 @@ export function IdentityCard() {
       ) : (
         <p className="faction-muted">{m.faction_identity_unset()}</p>
       )}
+      {identity && !founded ? <p className="faction-muted">{m.faction_identity_draft()}</p> : null}
       <p className="faction-muted fid-card-note">{m.faction_identity_note()}</p>
       <AppLink className="fid-card-link" to={{ route: "faction_identity" }}>
-        {identity ? m.faction_identity_edit() : m.faction_identity_start()}
+        {founded
+          ? m.faction_identity_edit()
+          : identity
+            ? m.faction_identity_finish()
+            : m.faction_identity_start()}
       </AppLink>
     </section>
   );

@@ -83,5 +83,5 @@ Verified = 이 작업 트리에서 실행해 결과를 봄. 여섯 줄기가 한
 - `TEST_DATABASE_URL=… pnpm check`: 통과(Verified) — 583파일 4,525시험(DB 시험 포함), 포맷·린트·타입·경계·크기·다국어·디자인 값·콘텐츠 팩.
 - `pnpm build` + `node scripts/check-pwa.mjs`: 통과(화면 주소 경로 예 55개 — `/faction/identity` 하나 늘었다). `pnpm check:bundle`: 첫 화면 JS 108,350 B / 상한 131,416 B(상한 그대로 — 어제 107,934 B에서 +416 B. 첫 화면 모듈은 바꾸지 않았고, 지연 조각이 늘며 공용 조각 나눔이 바뀐 몫으로 본다(Assumed, AGENTS 6장의 같은 현상 — 소스 맵으로 가르지 않았다). 정체성 화면·자르기 도구·마크 관리 탭은 각자 지연 조각).
 - `pnpm e2e faction-identity.spec.ts faction.spec.ts ops.spec.ts nations.spec.ts government.spec.ts unit-control.spec.ts`: 85시험 가운데 83 통과·2 실패(Verified, 25.8분 — 여섯 줄기가 기계를 같이 써서 느림). 실패 둘은 `ops.spec.ts`의 권한 부여 사진 시험이 운영 권한 체크박스를 15개로 세던 것(이 줄기가 `emblem_moderate`를 더해 16개) — 시험을 16개로 고쳤다. 고친 뒤 `pnpm e2e ops.spec.ts` 결과는 아래 줄.
-- 고친 뒤 `pnpm e2e ops.spec.ts`: (실행 중 — 결과를 채운다)
+- 고친 뒤 `pnpm e2e ops.spec.ts`: 11시험 통과(Verified, 29.4초). 그래서 바꾼 화면 spec 여섯은 모두 통과다(83 + 고친 둘).
 - 돌리지 않은 것: 나머지 화면 시험 전체(바꾼 화면 spec만), 실제 휴대폰·Safari·Firefox, NAS 배포.

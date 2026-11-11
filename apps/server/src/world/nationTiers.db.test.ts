@@ -113,7 +113,7 @@ async function stop(world: World): Promise<void> {
   worlds.splice(worlds.indexOf(world), 1);
 }
 
-interface CityLine {
+type CityLine = {
   id: string;
   code: string;
   map_key: string;
@@ -122,7 +122,7 @@ interface CityLine {
   housing: number;
   humans: string;
   guards: string;
-}
+};
 const startCities = () =>
   rows<CityLine>(
     test.db,

@@ -78,4 +78,10 @@ Verified = 이 작업 트리에서 실행해 결과를 봄. 여섯 줄기가 한
 - 타입 검사(`@terra/server`·`@terra/game`)·oxlint(바꾼 폴더)·`check:boundaries`·`check:size`·`check:i18n`(6,190키)·`check:contrast`(화면 CSS에 직접 쓴 색·px 없음)·`check:docs origin/main`·`check:wiki`: 통과(Verified).
 - 화면 시험 `pnpm e2e faction-identity.spec.ts`: 8시험 통과(Verified, 29.8초 — 빌드 뒤). 보낸 그림이 자른 256 × 256 PNG(원본 600 × 400 아님, 20만 바이트 이하, 허용 청크만)임을 요청 본문에서 확인.
 - 사진(저장소 밖, `…/scratchpad/faction-identity-shots/`): `fid-step-pastel-ko-390.png`, `fid-step-dark-en-390.png`, `fid-crop-pastel-en-390.png`, `fid-crop-dark-ko-390.png`, `fid-card-pastel-ko-390.png`, `fid-ops-neon-ko-1440.png`. 눈으로 확인: 파스텔·다크 두 테마의 단계·자르기, 네온 다크의 마크 관리.
-- 끝 검사(전체 `pnpm check`, 빌드 + `check-pwa` + `check:bundle`, 화면 시험 `faction-identity·faction·ops·nations·government·unit-control`): 아래 "끝 검사 결과"에 적는다.
+
+### 끝 검사 결과(main `8370909`에서 갈라진 가지 그대로 — 그 뒤 main `a90b374`는 기획 미러만 바꿨다)
+- `TEST_DATABASE_URL=… pnpm check`: 통과(Verified) — 583파일 4,525시험(DB 시험 포함), 포맷·린트·타입·경계·크기·다국어·디자인 값·콘텐츠 팩.
+- `pnpm build` + `node scripts/check-pwa.mjs`: 통과(화면 주소 경로 예 55개 — `/faction/identity` 하나 늘었다). `pnpm check:bundle`: 첫 화면 JS 108,350 B / 상한 131,416 B(상한 그대로 — 어제 107,934 B에서 +416 B. 첫 화면 모듈은 바꾸지 않았고, 지연 조각이 늘며 공용 조각 나눔이 바뀐 몫으로 본다(Assumed, AGENTS 6장의 같은 현상 — 소스 맵으로 가르지 않았다). 정체성 화면·자르기 도구·마크 관리 탭은 각자 지연 조각).
+- `pnpm e2e faction-identity.spec.ts faction.spec.ts ops.spec.ts nations.spec.ts government.spec.ts unit-control.spec.ts`: 85시험 가운데 83 통과·2 실패(Verified, 25.8분 — 여섯 줄기가 기계를 같이 써서 느림). 실패 둘은 `ops.spec.ts`의 권한 부여 사진 시험이 운영 권한 체크박스를 15개로 세던 것(이 줄기가 `emblem_moderate`를 더해 16개) — 시험을 16개로 고쳤다. 고친 뒤 `pnpm e2e ops.spec.ts` 결과는 아래 줄.
+- 고친 뒤 `pnpm e2e ops.spec.ts`: (실행 중 — 결과를 채운다)
+- 돌리지 않은 것: 나머지 화면 시험 전체(바꾼 화면 spec만), 실제 휴대폰·Safari·Firefox, NAS 배포.

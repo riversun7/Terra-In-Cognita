@@ -181,7 +181,8 @@ test.describe("운영 권한 부여 — dev", () => {
           await page.goto("/dev/ops-grants");
           await page.locator("#main form input").fill("e2e_admin");
           await page.locator("#main form button[type='submit']").click();
-          await expect(page.locator(".ops-grants input[type='checkbox']")).toHaveCount(15);
+          // 운영 권한 16개(마크 관리 emblem_moderate 포함 — docs/adr/2026-11-11-faction-identity.md 5절)
+          await expect(page.locator(".ops-grants input[type='checkbox']")).toHaveCount(16);
           await shot(page, `ops-grants-1440-${theme}`);
         });
       });

@@ -260,6 +260,10 @@ test.describe("개발자", () => {
     const source = page.locator('.gt-table input[data-row="0"][data-tier="0"]');
     await source.click();
     const sourceValue = await source.inputValue();
+    // 생산 편집기 탭이 되어 표가 화면 아래쪽에 있다: 끌 줄들이 담은 변경 막대에 가리지 않게 화면 가운데로 올린다
+    await page
+      .locator('.gt-table td[data-grid-row="1"][data-grid-col="0"]')
+      .evaluate((cell) => cell.scrollIntoView({ block: "center" }));
     await dragTo(
       page,
       page.locator('.gt-table td[data-grid-row="0"][data-grid-col="0"] .ce-fill-handle'),

@@ -39,8 +39,13 @@
   - `apps/server/src/labor/gatherWork.test.ts`(+2: 약초원·목장, 낚시터 성공 확률·나눠 셈해도 같음), `facilities/npcSeed.test.ts`(+1: 여섯 가지 씨앗 표), `gather/station.db.test.ts`(+1 DB: 목장·낚시터 직무 배치 → 채집소 창고), `roster/guide.test.ts`(5: 팩 스탯 짝 = 사용자 표, 클래스 36 = 2스탯 15 + 3스탯 20 + 범용, 옛 예시 이름), `buildingEdit/buildingEdit.db.test.ts`(+1 DB: 스탯 짝·클래스 이름 고치면 `units.guide`가 바뀜, 겹치는 조합 거절, 만들기 거절, 되돌리기), `itemEdit/previewGather.test.ts`(+1: 약초·축산물·어류 미리 보기).
   - `apps/game/src/editor/production/productionModel.test.ts`(11: 담은 변경·미리 보기 기대값·탭 주소).
 - 화면 시험(Verified, `pnpm e2e e2e/production.spec.ts --workers=1`, 헤드리스 Chromium): 8개 통과(1.5분) — 탭 줄·수, 스탯 매핑을 바꿔 담고 적용 → `units.guide`·광산 탭 미리 보기 바뀜 → 되돌림, 낚시터 성공 350‰, 개요·가공 시설, 전투 클래스 분류 미리 보기·이름 고치기, 플레이어 권한 없음, 유닛 상세·사이보그 추천(파스텔·다크), 넘침·작은 누르는 곳 없음(네온 1440·라이트 1440·네온 390).
-- 마지막 검사: 아래 "미검증" 절에 결과를 적는다.
-- 사진(저장소 밖): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/production-six-shots/` — `production-mine-neon-1440.png`, `production-mapping-light-1440.png`, `production-classes-light-1440.png`, `production-fishing_spot-neon-390.png`, `unit-advice-detail-pastel-390.png`, `unit-advice-detail-dark-390.png`. 눈으로 본 것: 넷(광산 네온 1440, 스탯 매핑 라이트 1440, 낚시터 네온 390, 유닛 추천 파스텔 390).
+- 마지막 검사(Verified, 커밋 `36f4395` 코드): `TEST_DATABASE_URL=… pnpm check` — 포맷·린트·타입·경계·크기(경고만)·다국어(6,221키)·대비(738쌍, 화면 CSS 93개)·콘텐츠(core@62)·단위·DB 시험 583파일 4,521개 통과.
+- 화면 시험 넓게(Verified, `pnpm e2e e2e/production.spec.ts e2e/gather-tiers.spec.ts e2e/dev.spec.ts e2e/buildings.spec.ts e2e/units.spec.ts e2e/recruit.spec.ts e2e/unit-control.spec.ts --workers=1`, 26.7분 — 여섯 줄기가 한 기계를 같이 써 느렸다): 90개 중 88 통과, 실패 2.
+  - `gather-tiers.spec.ts` 끌어 채우기(둘째 줄 값이 696, 기대 692): 진짜 버그 — 확률 분포 탭이 그림 때의 담음으로 고쳐 한 그림 안에 이어진 고침의 앞 것을 잃었다. 가장 새 담음에서 고치게 바꿨다(`ProductionTiersPanel` `onStage`가 함수를 받는다).
+  - `production.spec.ts` 첫 시험: 시험 기대가 틀렸다(유효 스탯 20은 둘째 구간 20~39 = 번호 1).
+  - 고친 뒤 두 파일 다시(Verified, `pnpm e2e e2e/production.spec.ts e2e/gather-tiers.spec.ts --workers=1`, 1.7분): 20개 중 19 통과 — `production.spec.ts` 8개 모두 통과. `gather-tiers.spec.ts` 끌어 채우기는 또 실패(같은 값 696): 모델을 같은 차례로 돌려 보니 692가 나온다(임시 시험으로 확인 — 더하기 10 → 선형 → 세 줄 채우기) → 셈이 아니라 끌기 자리 문제다. 생산 편집기 탭이 되어 표가 화면 아래로 내려가 셋째 줄이 아래 담은 변경 막대에 가려 끌기가 둘째 줄에서 끝났다. 시험이 끌기 전에 줄을 화면 가운데로 올리게 고쳤다. 그 시험 하나를 다시 돌린 결과는 "미검증" 절 첫 줄.
+- 빌드 검사(Verified, 위 화면 시험이 만든 빌드): `node scripts/check-pwa.mjs` 통과(미리 캐시에 `ProductionEditorScreen-*` 없음 — `sw.js`에서 확인), `pnpm check:bundle` 첫 화면 JS 108,202 B / 상한 131,416 B. 생산 편집기 조각 `ProductionEditorScreen-*.js` 약 82kB(gzip 24kB).
+- 사진(저장소 밖): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/production-six-shots/` — `production-mine-neon-1440.png`, `production-overview-neon-1440.png`, `production-mapping-light-1440.png`, `production-classes-light-1440.png`, `production-fishing_spot-neon-390.png`, `unit-advice-detail-pastel-390.png`, `unit-advice-detail-dark-390.png`, 확률 분포 탭 `gather-tiers-{neon,light}-{ko,en}-{390,1440}.png`. 눈으로 본 것: 광산 네온 1440, 개요 네온 1440, 스탯 매핑 라이트 1440, 전투 클래스 라이트 1440(그 뒤 줄 왼쪽 맞춤·스탯 칸 여섯 한 줄로 CSS를 고쳤다 — 고친 뒤 사진은 보지 않음), 낚시터 네온 390, 유닛 추천 파스텔 390, 확률 분포 네온 1440.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |

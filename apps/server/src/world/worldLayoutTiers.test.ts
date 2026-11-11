@@ -73,7 +73,8 @@ const nations: LayoutNation[] = ORDER.map((tier, index) => {
     tier: { rank: row.rank, cityStepCells: row.cityStepCells, homeGapPm: row.homeGapPm },
   };
 });
-const seed = { ...START_WORLD_SEED, layoutRegionCells: 12, layoutNationGapCells: 8 };
+// 옛 배치 규칙 시험(배후지 규칙은 citySites.test.ts — docs/adr/2026-11-11-city-catchment.md): 배후지 반경 0
+const seed = { ...START_WORLD_SEED, layoutRegionCells: 12, layoutNationGapCells: 8, catchmentRadiusCells: 0 };
 const input = (overrides: Partial<LayoutInput> = {}): LayoutInput => ({
   faceLevel: LEVEL,
   land,

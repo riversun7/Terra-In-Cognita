@@ -324,3 +324,83 @@
   inline-size: var(--icon-sm);
   block-size: var(--icon-sm);
 }
+
+/* ── 배후지 덮개(WorldCatchmentPanel — docs/adr/2026-11-11-city-catchment.md) ──
+ * 격자 칸 하나 = 1차맵 칸(SVG 사용자 단위 1). 칸 칠 = 원자재 무리, 원 = 배후지 반경(실선 지금 세계 · 점선 계획), 고른 국가 원은 굵게.
+ * SVG 선 굵기·점선은 격자 단위 수(칸의 몇 분의 일)라 px이 아니다. */
+.wl-catch {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.wl-catch-title {
+  margin: 0;
+  margin-inline-end: auto;
+  font-size: var(--font-size-md);
+}
+.wl-catch-map {
+  inline-size: 100%;
+  max-inline-size: 36rem;
+  aspect-ratio: 1;
+  border: var(--hairline) solid var(--color-border);
+  background-color: var(--color-surface);
+}
+.wl-catch-cell {
+  fill: var(--color-surface-2);
+  stroke: var(--color-border);
+  stroke-width: 0.03;
+}
+.wl-catch-cell[data-tone="void"] {
+  fill: var(--color-surface);
+}
+.wl-catch-cell[data-tone="ore"],
+.wl-catch-legend li[data-tone="ore"]::before {
+  fill: var(--color-warning);
+  background-color: var(--color-warning);
+}
+.wl-catch-cell[data-tone="water"],
+.wl-catch-legend li[data-tone="water"]::before {
+  fill: var(--color-stat-int);
+  background-color: var(--color-stat-int);
+}
+.wl-catch-cell[data-tone="wood"],
+.wl-catch-legend li[data-tone="wood"]::before {
+  fill: var(--color-success);
+  background-color: var(--color-success);
+}
+.wl-catch-cell[data-tone="crop"],
+.wl-catch-legend li[data-tone="crop"]::before {
+  fill: var(--color-stat-vit);
+  background-color: var(--color-stat-vit);
+}
+.wl-catch-cell:not([data-tone="none"], [data-tone="void"]) {
+  fill-opacity: 0.45;
+}
+.wl-catch-ring {
+  fill: none;
+  stroke: var(--color-text-muted);
+  stroke-width: 0.12;
+}
+[data-catch-city="plan"] .wl-catch-ring {
+  stroke-dasharray: 0.45 0.3;
+}
+[data-catch-city][data-own] .wl-catch-ring {
+  stroke: var(--color-text);
+  stroke-width: 0.22;
+}
+.wl-catch-dot {
+  fill: var(--color-text-muted);
+}
+[data-catch-city][data-own] .wl-catch-dot {
+  fill: var(--color-text);
+}
+.wl-catch-legend li[data-catch-legend]::before {
+  border-radius: var(--radius-pill);
+  border: var(--border-w) solid var(--color-text);
+  background-color: transparent;
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+}
+.wl-catch-legend li[data-catch-legend="plan"]::before {
+  border-style: dashed;
+}

@@ -29,6 +29,7 @@ import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { cellAtLatLon } from "../planet/cellReport.ts";
 import type { LatLon } from "../planet/flatMapRender.ts";
+import { WorldCatchmentPanel } from "./WorldCatchmentPanel.tsx";
 import { WorldLayoutMap } from "./WorldLayoutMap.tsx";
 import { WorldTierPanel } from "./WorldTierPanel.tsx";
 import { STATUS_TEXT, blockersText, placeFailText, tierText } from "./worldLayoutMessages.ts";
@@ -454,6 +455,7 @@ function WorldLayoutBody({ scope }: { scope: PlanetScope }) {
             onCancel={() => void cancelApply()}
             onChoose={setChosen}
           />
+          <WorldCatchmentPanel key={targetCode ?? ""} planetId={planetId} code={targetCode} busy={busy} />
         </>
       ) : null}
     </section>

@@ -143,9 +143,12 @@ export function cityGapMilli(rules: CatchmentRules, sameNation: boolean): number
   return Math.max(0, Math.trunc(rules.radiusCells)) * 2 * Math.max(0, Math.trunc(pm));
 }
 
-/** 자리 점수 = 덮임 − ⌊compactPm × 수도까지 거리 ÷ 배후지 지름⌋(반경 0이면 덮임 그대로) */
+/**
+ * 자리 점수 = 덮임 − compactPm × ⌊수도까지 거리 ÷ 배후지 지름⌋(반경 0이면 덮임 그대로). 지름 한 칸 띠 안에서는 거리가 점수를 바꾸지 않는다
+ * (같은 땅이 이어지면 가장 가까운 고리에 줄 서지 않고 띠 안에서 고르게 흩어진다)
+ */
 export function siteScore(cover: number, fromHomeMilli: number, rules: CatchmentRules): number {
   const diameter = Math.max(0, Math.trunc(rules.radiusCells)) * 2000;
   if (diameter === 0) return cover;
-  return cover - Math.floor((Math.max(0, rules.compactPm) * Math.max(0, fromHomeMilli)) / diameter);
+  return cover - Math.max(0, Math.trunc(rules.compactPm)) * Math.floor(Math.max(0, fromHomeMilli) / diameter);
 }

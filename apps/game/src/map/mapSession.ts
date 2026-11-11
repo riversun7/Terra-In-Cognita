@@ -342,6 +342,12 @@ export function startMapSession(options: MapSessionOptions): MapSession {
   };
 
   // ---------- 지금 2차맵 흐름 ----------
+  // 살아 있는 흐름 가운데 이 2차맵과 그 이웃(많아야 MAX_NEIGHBOUR_CHANNELS장)만 남긴다 — 이 2차맵 흐름이 아직 없어도 열 자리가 있다
+  const carriedKeys = pool
+    .keys()
+    .filter((key) => key !== mapKey && spotOf(key) !== undefined)
+    .slice(0, MAX_NEIGHBOUR_CHANNELS);
+  pool.keep([mapKey, ...carriedKeys]);
   const channel = pool.open(mapKey);
   if (!channel) throw new Error("map feed pool is full");
   const feed = channel.feed;
@@ -363,8 +369,8 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     onCommand: options.onCommand,
     onTerrain: noteTerrain,
   });
-  // 살아 있는 흐름 가운데 이 2차맵의 이웃은 바로 붙인다(방금 떠나온 2차맵 유닛이 비지 않게). 카메라가 움직이면 카메라 쪽 것으로 맞춘다
-  nearKeys = pool.keys().filter((key) => key !== mapKey && spotOf(key) !== undefined);
+  // 살아 있는 이웃 흐름은 바로 붙인다(방금 떠나온 2차맵 유닛·건물이 비지 않게). 카메라가 움직이면 카메라 쪽 것으로 맞춘다
+  nearKeys = carriedKeys;
   syncChannels();
 
   const sightTimer = setInterval(refreshFog, SIGHT_TICK_MS);

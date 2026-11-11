@@ -75,6 +75,8 @@ export interface UnitMerger {
   carryOut(): CarriedUnit | null;
   /** 넘어온 뒤: 이어 보일 유닛(이 합치기의 틀로 옮긴 것). 새 자료가 올 때까지 남은 그림으로 두고, 오면 그 자리에서 잇는다 */
   carryIn(unit: CarriedUnit): void;
+  /** 남은 그림을 거둔다(넘는 것이 아니었다 — 띄우지 않은 2차맵을 건너뛰는 중) */
+  dropGhost(): void;
   /** 남은 그림 타이머를 멈춘다 */
   stop(): void;
 }
@@ -282,6 +284,12 @@ export function createUnitMerger(options: UnitMergerOptions): UnitMerger {
       setGhost(unit);
       // 엔진에 아직 넣지 못해도(받는 쪽을 감싸기 전) 다음 경로는 이 자리에서 잇는다
       pendingShown = { id: unit.id, at: unit.at };
+      push();
+    },
+    dropGhost() {
+      if (!ghost) return;
+      ghost = null;
+      blend = null;
       push();
     },
     stop() {

@@ -101,8 +101,8 @@ export interface MapSession {
   viewMap(): string;
   /** 옆 2차맵 next로 넘을 때 다음 모음에 넘길 것(엔진 rebase 전에 부른다 — 기준 유닛의 보이던 자리를 지금 틀에서 읽는다). 멈추지는 않는다 */
   handover(next: number): MapHandover;
-  /** 그 옆 2차맵을 미리 받는다(지형·흐름) — 가는 길의 다음 2차맵, 지형을 기다리는 넘기 */
-  prefetch(mapKey: number): void;
+  /** 그 옆 2차맵을 미리 받는다(지형·흐름) — 가는 길의 다음 2차맵, 지형을 기다리는 넘기. 이 2차맵의 이웃이 아니면 false */
+  prefetch(mapKey: number): boolean;
   /** 멈춘다(받는 쪽을 뗀다. 흐름은 닫지 않는다 — 화면이 모음을 닫는다) */
   stop(): void;
 }
@@ -187,11 +187,22 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     carry: options.anchor,
     // 기준 유닛이 변 바로 옆에서(또는 변에서 끝나는 길을 걷다가) 사라졌다 = 그 변의 이웃으로 넘어갔다(남은 그림으로 이어 보이고 화면이 넘는다).
     // 빠른 유닛(운영자 100배)은 화면에 보이던 자리가 변에 못 미쳐도 서버에서는 이미 넘었다 — 걷던 길의 끝으로도 본다
+    // 그 이웃을 서버가 띄우지 않았다고 했으면(구독 답 unknown_map) 바로 넘지 않고 다시 구독해 본다: 목적지라 방금 띄웠으면(WP15) 열리고 그때
+    // 넘는다. 여전히 없으면 유닛은 그 2차맵을 건너뛰는 중이다(WP11 593 나 — 변 끝에서 사라졌다가 다음 띄운 2차맵에 나타난다): 넘지 않는다 —
+    // 열 수 없는 2차맵으로 화면을 넘기면 "아직 열려 있지 않습니다" 안내만 떴다. 나타나면 길 조회가 알린다
     onCarryGone: (_unitId, last, goal) => {
       const next =
         crossedNeighbour(mapKey, last, spots) ?? (goal ? crossedNeighbour(mapKey, goal, spots) : null);
-      probeEvent(`gone ${mapKey} -> ${String(next)}`);
+      const neighbour = next === null ? undefined : attached.get(next);
+      const phase = neighbour?.feed.status().phase ?? null;
+      const unloaded = phase?.kind === "failed" && phase.code === "unknown_map";
+      probeEvent(`gone ${mapKey} -> ${String(next)}${unloaded ? " (not loaded: asking again)" : ""}`);
       if (next === null) return false;
+      if (unloaded && neighbour) {
+        awaited = next;
+        neighbour.feed.retry();
+        return true;
+      }
       arrive(next);
       return true;
     },
@@ -221,6 +232,8 @@ export function startMapSession(options: MapSessionOptions): MapSession {
   let headingKeys: readonly number[] = [];
   let extraKeys: readonly number[] = [];
   const attached = new Map<number, MapChannel>();
+  /** 기준 유닛이 넘어갔을 이웃인데 서버가 띄우지 않았다고 했던 것: 다시 구독한 답을 기다린다(열리면 넘는다) */
+  let awaited: number | null = null;
   const attachNeighbour = (key: number): void => {
     const spot = spotOf(key);
     if (!spot || attached.has(key)) return;
@@ -266,6 +279,15 @@ export function startMapSession(options: MapSessionOptions): MapSession {
       selected: () => null,
       // 구독이 거절되면(볼 수 없는 2차맵) 탐사 칸이 없는 것과 같다 — 온통 어둡게
       onStatus: (status) => {
+        if (awaited === key && status.phase.kind === "live") {
+          awaited = null;
+          probeEvent(`opened ${mapKey} -> ${key}`);
+          arrive(key);
+        } else if (awaited === key && status.phase.kind === "failed") {
+          // 여전히 없다: 건너뛰는 중 — 남은 그림을 거둔다
+          awaited = null;
+          merger.dropGhost();
+        }
         if (status.phase.kind !== "failed" || serverBits.has(key)) return;
         serverBits.set(key, null);
         refreshFog();
@@ -413,10 +435,12 @@ export function startMapSession(options: MapSessionOptions): MapSession {
       return { terrains, mainUrl, carried };
     },
     prefetch(key) {
-      if (stopped || extraKeys.includes(key) || spotOf(key) === undefined) return;
+      if (spotOf(key) === undefined) return false;
+      if (stopped || extraKeys.includes(key)) return true;
       extraKeys = [key];
       neighbourLoader.want([...headingKeys, ...extraKeys]);
       syncChannels();
+      return true;
     },
     stop() {
       // 넘기와 화면 정리가 두 번 부를 수 있다

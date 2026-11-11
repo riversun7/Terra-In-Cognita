@@ -11,7 +11,7 @@
 // - 진짜로 넘는다: 운영자 빠르기로 내 사이보그를 변 앞에 세운 뒤 걷는 빠르기로 옆 2차맵에 보내고, 프레임 기록(?map-probe=1, mapProbe.ts)으로
 //   넘는 앞뒤를 본다: 확대 단계 그대로, 안내 판 없음, 기준 유닛이 프레임마다 있고 화면 자리가 튀지 않음, 유닛 수가 0이 되지 않음.
 //   E2E_MEASURE=1이면 가장 긴 프레임도 적는다(헤드리스 SwiftShader 값 — 휴대폰 값이 아니다). 끝나면 운영자 빠르기로 제자리에 돌려놓는다.
-// - 운영자 모드 100배로 2차맵 셋을 잇달아 넘는다: 확대 그대로·안내 없음, 구독·지형 받기가 쌓이지 않는다(적는다).
+// - 운영자 모드 100배로 옆 2차맵 ↔ 처음 2차맵을 세 번 잇달아 넘는다: 확대 그대로·안내 없음·유닛이 비지 않음, 구독·지형 받기가 쌓이지 않는다.
 import type { Page } from "@playwright/test";
 import type { MapProbeSample } from "../apps/game/src/map/mapProbe.ts";
 import { isCellKey, stepCell } from "../packages/planet/src/index.ts";
@@ -525,39 +525,47 @@ test.describe("걸어서 넘기", () => {
       expect(walk.anchorJumpPx).toBeLessThan(8);
       await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
 
-      // 4. 운영자 모드 100배로 2차맵 셋을 잇달아(동쪽으로 둘 더, 다시 서쪽으로 처음 2차맵까지)
-      const far = stepCell(east, 1, 0);
-      const farther = far === null ? null : stepCell(far, 1, 0);
-      if (farther !== null) {
-        await page.locator(".map-operator-toggle").click();
-        await expect(map).toHaveAttribute("data-operator", "on");
-        await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
-        await page.waitForTimeout(1_500);
-        await page.evaluate(() => window.terraMapProbe?.clear());
-        loads.subscribes.length = 0;
-        loads.terrains.length = 0;
-        const begun = Date.now();
-        expect(
-          await fastTravel(side, east, home.unitId, { mapKey: farther, cellX: 128, cellY: 128, unitId: 0 }),
-        ).toBe(true);
-        await expect(map).toHaveAttribute("data-map-key", String(farther), { timeout: 120_000 });
-        await page.waitForTimeout(3_000);
-        const fastProbe = await probeOf(page);
-        console.log(`[probe] fast events ${JSON.stringify(fastProbe.events)}`);
-        const fast = crossingSummary(fastProbe, farther, 20_000, 2_500);
-        console.log(
-          `[measure] fast ${tag} ${JSON.stringify({ ...fast, seconds: (Date.now() - begun) / 1_000 })}`,
-        );
-        console.log(`[measure] fast loads ${tag} ${JSON.stringify(loads)}`);
-        if (measure) await shot(page, `seamless-fast-${tag}-3-far`);
-        expect(fast.notices).toBe(0);
-        expect(fast.stages).toEqual([4]);
-        expect(loads.refused).toBe(0);
-        // 2차맵 둘을 넘는 동안 구독은 2차맵마다 많아야 넷(지금 + 이웃 셋), 지형은 2차맵마다 한 번씩만 받는다
-        expect(loads.subscribes.length).toBeLessThanOrEqual(12);
-        expect(new Set(loads.terrains).size).toBe(loads.terrains.length);
-        await expect(page.locator('.map-view canvas[data-e2e-mark="kept"]')).toHaveCount(1);
+      // 4. 운영자 모드 100배로 잇달아 넘는다: 옆 2차맵 ↔ 처음 2차맵을 세 번(둘 다 서버가 띄운 2차맵 — 띄우지 않은 2차맵은 건너뛴다)
+      await page.locator(".map-operator-toggle").click();
+      await expect(map).toHaveAttribute("data-operator", "on");
+      await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+      await page.waitForTimeout(2_500);
+      await page.evaluate(() => window.terraMapProbe?.clear());
+      loads.subscribes.length = 0;
+      loads.terrains.length = 0;
+      const begun = Date.now();
+      const hops = [
+        { from: east, to: { mapKey: home.mapKey, cellX: 128, cellY: edge.cellY, unitId: 0 } },
+        { from: home.mapKey, to: { mapKey: east, cellX: 128, cellY: edge.cellY, unitId: 0 } },
+        { from: east, to: { mapKey: home.mapKey, cellX: 200, cellY: edge.cellY, unitId: 0 } },
+      ];
+      for (const hop of hops) {
+        expect(await fastTravel(side, hop.from, home.unitId, hop.to)).toBe(true);
+        await expect(map).toHaveAttribute("data-map-key", String(hop.to.mapKey), { timeout: 120_000 });
       }
+      await page.waitForTimeout(3_000);
+      const fastProbe = await probeOf(page);
+      console.log(`[probe] fast events ${JSON.stringify(fastProbe.events)}`);
+      const fast = crossingSummary(fastProbe, home.mapKey, 3_000, 60_000);
+      console.log(
+        `[measure] fast ${tag} ${JSON.stringify({ ...fast, seconds: (Date.now() - begun) / 1_000 })}`,
+      );
+      console.log(`[measure] fast loads ${tag} ${JSON.stringify(loads)}`);
+      if (measure) await shot(page, `seamless-fast-${tag}-3-back`);
+      // 넘기 셋 모두 화면 안에서(다시 만들지 않음), 안내 없음, 확대 그대로, 유닛·고른 유닛이 비지 않는다
+      expect(fastProbe.events.filter((event) => event.includes(" cross ")).length).toBe(3);
+      expect(fastProbe.events.filter((event) => event.includes("reopen")).length).toBe(0);
+      expect(fast.notices).toBe(0);
+      expect(fast.stages).toEqual([4]);
+      expect(fast.units.min).toBeGreaterThan(0);
+      expect(fast.anchorMissingFrames).toBe(0);
+      expect(fast.selectedLost).toBe(0);
+      // 쌓이지 않는다: 두 2차맵 흐름을 그대로 쓰므로 새 구독은 다른 이웃 몫뿐(넘기마다 다시 구독하지 않는다), 지형은 2차맵마다 한 번만
+      expect(loads.refused).toBe(0);
+      expect(loads.subscribes.filter((key) => key === east || key === home.mapKey).length).toBe(0);
+      expect(new Set(loads.terrains).size).toBe(loads.terrains.length);
+      await expect(page.locator('.map-view canvas[data-e2e-mark="kept"]')).toHaveCount(1);
+      await expect(ladder).toHaveAttribute("data-stage", "4");
       expect(deviceErrors).toEqual([]);
     } finally {
       // 제자리로(다음 시험이 같은 사이보그를 처음 2차맵에서 쓴다)

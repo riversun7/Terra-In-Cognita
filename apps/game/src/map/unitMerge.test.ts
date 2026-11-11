@@ -193,6 +193,18 @@ describe("이어 보이기(카메라가 따라가는 유닛)", () => {
     }
   });
 
+  it("dropGhost: 넘는 것이 아니었으면 남은 그림을 바로 거둔다", () => {
+    const { engine, merger, main } = setup({ carry: 1 });
+    main.setUnits([spawn(1, 250, 100)]);
+    main.setUnitPath(1, walk([250, 100, 255.5, 100], 0, 1));
+    engine.state.now = 5_500;
+    main.setUnits([]);
+    expect(engine.ids()).toEqual([1]);
+    merger.dropGhost();
+    expect(engine.ids()).toEqual([]);
+    merger.stop();
+  });
+
   it("carryOut: 보이던 자리·걷던 쪽·속도", () => {
     const { engine, merger, main } = setup({ carry: 1 });
     expect(merger.carryOut()).toBeNull();

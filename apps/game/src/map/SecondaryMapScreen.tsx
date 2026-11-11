@@ -292,8 +292,13 @@ function SecondMapView({
     // 기준 유닛의 보이던 자리는 지금 틀에서 읽어 둔다(rebase가 유닛을 비운다)
     const pass = live.handover(next);
     if (!engine.rebase(String(next), String(from))) {
+      // 이웃이 아니면(띄우지 않은 2차맵을 건너뛰어 두 장 너머에 나타났다) 기다릴 지형이 없다: 그 2차맵을 새로 연다
+      if (!live.prefetch(next)) {
+        probeEvent(`reopen ${next} (not a neighbour)`);
+        openMap(next);
+        return;
+      }
       probeEvent(`wait ${from} -> ${next}`);
-      live.prefetch(next);
       if (pendingCrossRef.current?.next === next) return;
       if (pendingCrossRef.current) clearTimeout(pendingCrossRef.current.timer);
       const timer = setTimeout(() => {

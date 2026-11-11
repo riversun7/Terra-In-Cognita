@@ -4,6 +4,7 @@
 // - 판정·저장은 서비스(service.ts)가 한다. 세계가 아직 없으면(부팅 중·DB 없음) busy.
 // - 속성 분배(프로토콜 5, D-450): 5판 연결의 만들기는 분배(elements)를 꼭 보낸다(없으면 elements_invalid). 4판 연결의 만들기는
 //   분배 없이 서비스에 넘긴다 → "분배 기다림"으로 만들고 새 앱이 cyborg_elements로 한 번 나눈다.
+// - 3D 외형 한 번 고르기(프로토콜 21, 질문 961 나): cyborg_look을 서비스에 넘긴다(판 확인은 session.ts).
 import {
   CYBORG_ELEMENTS_PROTOCOL_VERSION,
   type ClientMessageOf,
@@ -14,7 +15,9 @@ import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { CyborgCommandResult, CyborgService } from "./service.ts";
 
-export type CyborgClientMessage = ClientMessageOf<"cyborg_roll" | "cyborg_create" | "cyborg_elements">;
+export type CyborgClientMessage = ClientMessageOf<
+  "cyborg_roll" | "cyborg_create" | "cyborg_elements" | "cyborg_look"
+>;
 
 const MAX_PENDING = 8;
 const LIMIT = { capacity: 10, refillPerMinute: 30 };
@@ -69,6 +72,7 @@ export function createCyborgGateway(options: {
       ): Promise<CyborgCommandResult> => {
         if (message.t === "cyborg_roll") return service.roll(userId, message.temperament);
         if (message.t === "cyborg_elements") return service.allocateElements(userId, message.elements);
+        if (message.t === "cyborg_look") return service.chooseLook(userId, message.look);
         if (message.elements === undefined && link.protocolVersion >= CYBORG_ELEMENTS_PROTOCOL_VERSION)
           return Promise.resolve(fail("elements_invalid"));
         return service.create(userId, {

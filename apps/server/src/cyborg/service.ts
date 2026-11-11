@@ -117,6 +117,11 @@ export interface CyborgService {
   create(userId: string, input: CreateInput): Promise<CyborgCommandResult>;
   /** 분배가 없는 사이보그에 속성을 한 번 나눈다(D-450) */
   allocateElements(userId: string, elements: unknown): Promise<CyborgCommandResult>;
+  /**
+   * 3D 외형을 고르기 전에 만든 사이보그(look 빈 값)가 3D 외형을 한 번 고른다(질문 961 나, docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-11,
+   * 961·963)"). 이미 있으면 look_locked. 옛 칸 appearance는 그 외형에서 넘긴 값으로 맞춘다
+   */
+  chooseLook(userId: string, look: unknown): Promise<CyborgCommandResult>;
   /** 본체 생활비(유닛 유지비)를 마지막 경계에 못 냈는가(D-453) */
   livingUnpaid(userId: string): boolean;
   /** 사이보그 자료(사이보그 화면·홈). 없으면 undefined */
@@ -562,6 +567,19 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         const owner = settlement.ownerOfUser(userId, at);
         record.startGrant = payGrant(userId, owner.id, record.factionId, grant, at);
       }
+      writer.upsert("cyborgs", cyborgRow(record));
+      await writer.durable();
+      return { ok: true };
+    },
+    async chooseLook(userId, look) {
+      if (!options.ready()) return fail("busy");
+      const record = byUser.get(userId);
+      if (!record) return fail("no_cyborg");
+      // 한 번만: 고른 3D 외형이 있으면(만들 때 골랐거나 이미 한 번 썼다) 바꾸지 않는다(다시 고르기는 환생 D-352·계정 서비스 D-7032)
+      if (record.look !== null) return fail("look_locked");
+      if (!isCharacterLook(look)) return fail("appearance_invalid");
+      record.look = look;
+      record.appearance = legacyAppearanceOf(look);
       writer.upsert("cyborgs", cyborgRow(record));
       await writer.durable();
       return { ok: true };

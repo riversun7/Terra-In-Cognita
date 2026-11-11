@@ -10,6 +10,8 @@
 // - 636 나: 남의 유닛 한눈 정보(glance) — 지금 내 시야 안(시야 전송과 같은 규칙, MapVision.sees)이거나 전체 보기 권한일 때만 세력·종류.
 //   시야 밖·없는 유닛은 같은 답(null).
 // - "WP-NPC4"(기획 답 773 나): NPC 도시 휴먼은 종류 "휴먼" + 휴먼 이름(그 나라 팩 목록, npc/humanNames.ts).
+// - 질문 963 나: 외형 조회(unitLooks)에 내가 보는 유닛(종류와 상관없이)의 나라를 싣는다 — 2차맵 발밑 나라 색 고리. 새 조회를 두지 않고 외형과
+//   같은 묻는 때(유닛 목록이 바뀌면·60초마다)·같은 보는 규칙을 쓴다.
 // 세계 규칙·표는 바꾸지 않는다.
 import { type CharacterLook, characterLookForUnit } from "@terra/shared/characterLook";
 import type {
@@ -19,6 +21,7 @@ import type {
   MapUnitKind,
   MapUnitLook,
   MapUnitLooksResponse,
+  MapUnitNation,
   MapUnitsResponse,
 } from "@terra/shared/mapUnits";
 import type { Viewer } from "../trpc/context.ts";
@@ -70,13 +73,21 @@ export interface MapUnitSource {
    * 없으면 undefined(그 유닛은 답에 싣지 않는다 — 기기가 기본 외형으로 그린다)
    */
   cyborgLook?: ((unitId: number) => CharacterLook | undefined) | undefined;
+  /**
+   * 소유 주체들 → 나라(세력 행 ID, 없으면 null) 한 번에(질문 963 나 — 건물 깃발과 같은 값, facilities/targets.ts ownerFactionsOf). 없으면 나라 색
+   * 고리를 싣지 않는다
+   */
+  ownerNations?: ((ownerIds: readonly number[]) => Promise<ReadonlyMap<number, number | null>>) | undefined;
 }
 
 export interface MapUnitReads {
   mapUnits(viewer: Viewer, mapKey: number, nowMs: number): MapUnitsResponse;
   unitGlance(viewer: Viewer, mapKey: number, unitId: number, nowMs: number): Promise<MapUnitGlanceResponse>;
-  /** 그 2차맵에서 내가 보는 사이보그 본체·NPC 지도자의 3D 외형(메모리만 읽는다) */
-  unitLooks(viewer: Viewer, mapKey: number, nowMs: number): MapUnitLooksResponse;
+  /**
+   * 그 2차맵에서 내가 보는 사이보그 본체·NPC 지도자의 3D 외형(메모리만 읽는다)과 내가 보는 유닛의 나라(나라 색 고리, 질문 963 나 — 플레이어
+   * 주체의 가입 국가만 DB에서 한 번에 읽는다)
+   */
+  unitLooks(viewer: Viewer, mapKey: number, nowMs: number): Promise<MapUnitLooksResponse>;
 }
 
 /** 카메라 범위 여유(배치 칸): 시야 반지름 바깥으로 이만큼 더 본다(안개가 덮는 둘레). [임시] 화면 값 — 판정에 쓰지 않는다 */
@@ -174,32 +185,46 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
       return { ...base, loaded: true, units, elsewhere, view };
     },
 
-    unitLooks(viewer, mapKey, nowMs) {
+    async unitLooks(viewer, mapKey, nowMs) {
       const units: MapUnitLook[] = [];
       const map = source.map(mapKey);
-      if (map) {
-        const ownerId = source.ownerOfUser(viewer.id);
-        const all = source.observer?.(viewer) ?? false;
-        map.forEachUnit((unit) => {
-          if (unit.kind !== UNIT_KIND_CYBORG && unit.kind !== UNIT_KIND_NPC_LEADER) return;
-          // 한눈 정보와 같은 규칙: 내 유닛·전체 보기·지금 시야 안일 때만(시야 밖 유닛이 있는지 새지 않게)
-          const visible =
-            all || unit.ownerId === ownerId || (source.sees?.(mapKey, viewer, unit.id) ?? false);
-          if (!visible) return;
-          if (unit.kind === UNIT_KIND_NPC_LEADER) {
-            units.push({
-              unitId: unit.id,
-              kind: "npc_leader",
-              look: characterLookForUnit(unit.id, "leader"),
-            });
-            return;
-          }
-          const look = source.cyborgLook?.(unit.id);
-          if (look) units.push({ unitId: unit.id, kind: "cyborg_body", look });
-        });
-        units.sort((a, b) => a.unitId - b.unitId);
+      if (!map) return { status: "ready", mapKey, units, nations: [], generatedAt: nowMs };
+      const ownerId = source.ownerOfUser(viewer.id);
+      const all = source.observer?.(viewer) ?? false;
+      /** 보는 유닛의 주인(나라 색 고리 — 종류와 상관없이) */
+      const owners = new Map<number, number[]>();
+      map.forEachUnit((unit) => {
+        // 한눈 정보와 같은 규칙: 내 유닛·전체 보기·지금 시야 안일 때만(시야 밖 유닛이 있는지 새지 않게)
+        const visible = all || unit.ownerId === ownerId || (source.sees?.(mapKey, viewer, unit.id) ?? false);
+        if (!visible) return;
+        const list = owners.get(unit.ownerId);
+        if (list) list.push(unit.id);
+        else owners.set(unit.ownerId, [unit.id]);
+        if (unit.kind === UNIT_KIND_NPC_LEADER) {
+          units.push({ unitId: unit.id, kind: "npc_leader", look: characterLookForUnit(unit.id, "leader") });
+          return;
+        }
+        if (unit.kind !== UNIT_KIND_CYBORG) return;
+        const look = source.cyborgLook?.(unit.id);
+        if (look) units.push({ unitId: unit.id, kind: "cyborg_body", look });
+      });
+      units.sort((a, b) => a.unitId - b.unitId);
+      const response: MapUnitLooksResponse = { status: "ready", mapKey, units, generatedAt: nowMs };
+      if (!source.ownerNations) return response;
+      // 주인 → 나라(건물 깃발과 같은 값). 나라마다 유닛 ID를 모은다(유닛마다 나라를 싣는 것보다 짧다)
+      const nationOf = await source.ownerNations([...owners.keys()]);
+      const byNation = new Map<number, number[]>();
+      for (const [owner, ids] of owners) {
+        const nation = nationOf.get(owner) ?? null;
+        if (nation === null) continue;
+        const list = byNation.get(nation);
+        if (list) list.push(...ids);
+        else byNation.set(nation, [...ids]);
       }
-      return { status: "ready", mapKey, units, generatedAt: nowMs };
+      const nations: MapUnitNation[] = [...byNation]
+        .map(([factionId, ids]) => ({ factionId, unitIds: ids.toSorted((a, b) => a - b) }))
+        .toSorted((a, b) => a.factionId - b.factionId);
+      return { ...response, nations };
     },
 
     async unitGlance(viewer, mapKey, unitId, nowMs) {

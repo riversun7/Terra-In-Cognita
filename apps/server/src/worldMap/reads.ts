@@ -39,6 +39,7 @@ import { canObserve, canViewSecondMap } from "../world/visibility.ts";
 import { hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
 import { createTravelDanger } from "./travelDanger.ts";
 import { cyborgLookOf } from "../cyborg/state.ts";
+import { ownerFactionsOf } from "../facilities/targets.ts";
 import { type MapUnitReads, createMapUnitReads } from "./mapUnits.ts";
 import { type TravelReads, createTravelReads } from "./travelReads.ts";
 
@@ -513,6 +514,11 @@ export function worldMapReadsOf(options: {
       const userId = cyborgs?.userOfUnit(unitId);
       const record = userId === undefined ? undefined : cyborgs?.record(userId);
       return record ? cyborgLookOf(record) : undefined;
+    },
+    // 나라 색 고리(질문 963 나): 건물 깃발과 같은 주인 → 나라(NPC 주체는 메모리, 플레이어는 가입한 국가를 DB에서 한 번에)
+    ownerNations: async (ownerIds) => {
+      const owners = world.persistence?.owners;
+      return owners ? ownerFactionsOf(options.pool, owners, ownerIds) : new Map();
     },
   });
   // 정부(행정 건물) 판(WP-NPC): 아는 도시·이름은 위와 같은 함수. 세력 화면은 nationNames로 나라·지도자 이름을 받는다

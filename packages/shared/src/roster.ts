@@ -7,6 +7,7 @@
 // - 2차 스탯은 서버가 계산해 보낸다(게임 앱은 판정 코드 packages/sim을 가져오지 않는다, AGENTS 4장).
 // - 금액·양은 최소 단위 정수 문자열이다(PLAN 4.7).
 
+import type { CharacterLook } from "./characterLook.ts";
 import type { CyborgAppearance } from "./cyborgLooks.ts";
 
 /**
@@ -672,6 +673,15 @@ export interface CyborgGetResponse {
   readonly name: string;
   /** 외형(만든 사이보그만, D-6040) */
   readonly appearance: CyborgAppearance | null;
+  /**
+   * 3D 외형(만든 사이보그만 — 저장한 것, 없으면 옛 외형에서 넘긴 값, docs/adr/2026-11-11-character-3d.md 5절). 옛 서버면 없음
+   */
+  readonly look?: CharacterLook | null;
+  /**
+   * 3D 외형을 한 번 고를 수 있다(질문 961 나): 3D 외형을 고르기 전에 만든 사이보그(저장한 3D 외형 없음). 고르면(WebSocket cyborg_look)
+   * false가 되고 다시 true가 되지 않는다. 시안·옛 서버면 없음(= 못 고름)
+   */
+  readonly lookPick?: boolean;
   /** 본체 자료(만든 사이보그 또는 시안, 없으면 null) */
   readonly body: CyborgBody | null;
   /** 보유 유닛 수(실제 세계 유닛, 포로로 잡힌 유닛 포함) */

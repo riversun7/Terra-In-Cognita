@@ -63,6 +63,7 @@ import {
   streamRng,
   traitsFromArray,
 } from "@terra/sim";
+import type { SiegeLayout } from "@terra/sim/siegeArena";
 import type { Ledger } from "../economy/ledger.ts";
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -144,6 +145,8 @@ export interface NpcRuntimeOptions {
    * 갈 곳). 없으면 정부 건물이 있는 폐허도 다 지은 것으로 치고, 행정 레벨은 그대로, 수호신만 있는 도시는 전투 없이 진다(시험)
    */
   readonly ruins?: NpcRuinsInput | undefined;
+  /** 도시의 실제 2차맵 배치 → 웨이브 공성 전투맵(D-533·질문 1046 가, facilities/siegeLayout.ts citySiegeLayoutOf). 없으면 열린 맵 */
+  readonly siegeLayout?: ((cityId: number, place: CityPlace) => SiegeLayout | undefined) | undefined;
   /** 수도가 바뀌었을 때(D-528, capitals.ts — 지도자를 새 수도 행정 건물 곁으로). 켤 때 처음 고른 것도 알린다 */
   readonly onCapitalMoved?:
     | ((owner: number, capital: { id: number; mapKey: number; cellX: number; cellY: number }) => void)
@@ -720,6 +723,10 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     timeScale: dayMs / DAY_MS,
     startBattle: o.startBattle,
     hasGuardians: o.ruins?.hasGuardians,
+    siegeLayout: (cityId) => {
+      const place = persist.places.get(cityId);
+      return place ? o.siegeLayout?.(cityId, place) : undefined;
+    },
     grantReward: o.waveRewardItems
       ? (ownerId, reward, atMs) =>
           grantWaveReward(ledger, ownerId, reward, o.waveRewardItems?.() ?? NO_ITEMS, atMs)

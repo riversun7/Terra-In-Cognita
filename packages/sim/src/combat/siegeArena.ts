@@ -11,6 +11,7 @@ import { createBattleMap } from "./battleMap.ts";
 import type { Edge } from "./battleTypes.ts";
 import { type SecondMapLayers, arenaFromSecondMap } from "./arena.ts";
 import { UNREACHABLE, distanceField } from "./fields.ts";
+import { mix32 } from "../math/hash.ts";
 
 /** 2차맵 배치 칸 직사각형(회전한 뒤 차지하는 칸) */
 export interface SiegeRect {
@@ -139,8 +140,13 @@ function toFrame(edge: Edge, size: number, x: number, y: number): { depth: numbe
 const spread = (index: number, center: number): number =>
   center + ((index + 1) >> 1) * (index % 2 === 0 ? 1 : -1);
 
+const EDGES: readonly Edge[] = [0, 1, 2, 3];
+
+/** 0~3 정수 → 변 */
+const edgeOf = (value: number): Edge => EDGES[value & 3] ?? 3;
+
 /** 맞은편 변 */
-export const oppositeEdge = (edge: Edge): Edge => ((edge + 2) % 4) as Edge;
+export const oppositeEdge = (edge: Edge): Edge => edgeOf(edge + 2);
 
 /** 시작 자리 고르기: 공격·수비 편 자리를 차례로 받는다. 한 번 준 칸은 다시 주지 않는다 */
 export interface SiegePlacer {
@@ -204,4 +210,12 @@ export function siegePlacer(arena: SiegeArena, edge: Edge): SiegePlacer {
       return near(fromFrame(edge, size, depth, clamp(spread(index, nexusLateral), low, high)));
     },
   };
+}
+
+/**
+ * [임시] 웨이브가 들어오는 변(0 북, 1 동, 2 남, 3 서): (세계 시드, 웨이브 ID)로 고른다. 모선 쪽 방향을 2차맵 축으로 옮기는 규칙은 기획
+ * 질문(1067)이다. 시뮬레이터 도시는 배치가 없어 이 값을 쓰지 않는다
+ */
+export function waveAttackEdge(seed: number, waveId: number): Edge {
+  return edgeOf(mix32(seed ^ Math.imul(waveId, 0x27d4_eb2f) ^ 0x5be0_cd19));
 }

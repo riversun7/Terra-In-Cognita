@@ -3,7 +3,9 @@
 // 붙잡고 떠나면 짧게 뒤 내린다(유닛이 들어선 2차맵은 보통 idle), 부팅 색인 뒤 다시 보기가 띄운다, 경계 너머 시야는 그 몫만 보인다(구독·탐사·
 // 남의 유닛).
 import { performance } from "node:perf_hooks";
+import { terrainPath } from "@terra/protocol";
 import { VISION_SIDE, WALK_SPEED, anchorCenter, hasBit } from "@terra/sim";
+import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import { type EdgeHooks, createEdgeWatch } from "./edgeWatch.ts";
 import type { MapFactory } from "./mapFactory.ts";
@@ -12,6 +14,7 @@ import type { StreamSubscriber } from "./mapStream.ts";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { createInlinePathService } from "./pathService.ts";
 import { type SecondMap, createSecondMap } from "./secondMap.ts";
+import { registerTerrainRoute } from "./terrainRoute.ts";
 import { flatTerrain, silentLog } from "./testSupport.ts";
 import { testMapKey } from "./world.ts";
 import { emptyWorldStats } from "./worldStats.ts";
@@ -46,7 +49,7 @@ function rig(rules: Partial<Rules> = {}) {
     () => [...maps.values()].map((map) => map.replicaInit()),
     () => performance.now(),
   );
-  const relay: { hooks?: EdgeHooks } = {};
+  const relay: { hooks?: EdgeHooks | undefined } = {};
   const edgeHooks: EdgeHooks = {
     moved: (mapKey, unit) => relay.hooks?.moved(mapKey, unit),
     sight: (mapKey, at) => relay.hooks?.sight(mapKey, at) ?? [],
@@ -300,5 +303,33 @@ describe("경계 너머 시야(2026-11-12)", () => {
     expect(moved).toEqual({ ok: true });
     r.clock.now += 60 * 60_000;
     expect(await east?.vision.canView({ userId: "u-player", ownerId: PLAYER })).toBe(true);
+  });
+
+  it("지형 경로: 볼 수 없는 미리 띄운 2차맵도 볼 수 있는 2차맵의 이웃이면 지형을 준다(띄우기 전과 같다), 이웃이 아니면 404", async () => {
+    const r = rig();
+    const home = r.maps.get(HOME);
+    place(home, 1, 128, 128);
+    expect(await r.spawner.openEarly(EAST)).toBe("ok");
+    expect(await r.spawner.open(FAR)).toBe("ok");
+    const east = r.maps.get(EAST);
+    const far = r.maps.get(FAR);
+    if (!east || !far) throw new Error("not opened");
+    const directory = {
+      map: (key: number) => r.maps.get(key),
+      stats: emptyWorldStats(),
+      ownerOfUser: () => PLAYER,
+    };
+    expect(await east.vision.canView({ userId: "u-player", ownerId: PLAYER })).toBe(false);
+    const app = Fastify({ logger: false });
+    registerTerrainRoute(app, {
+      world: directory,
+      viewer: () => Promise.resolve({ id: "u-player", loginId: "Fake_Player", roles: ["player"] }),
+    });
+    const get = (key: number, v: string) => app.inject({ method: "GET", url: terrainPath(key, v) });
+    expect((await get(HOME, home?.terrainVersion ?? "")).statusCode).toBe(200);
+    expect((await get(EAST, east.terrainVersion)).statusCode).toBe(200);
+    // 두 장 너머(FAR = HOME + 2)는 이웃이 아니다
+    expect((await get(FAR, far.terrainVersion)).statusCode).toBe(404);
+    await app.close();
   });
 });

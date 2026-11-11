@@ -19,6 +19,11 @@ import { TEST_PLANET_ID, type World, startWorld } from "../world/world.ts";
 import { createTravelDanger } from "../worldMap/travelDanger.ts";
 
 const HOUR = 3_600_000;
+/**
+ * 정찰 출발 칸 x: 동쪽 변에서 56칸 — 유닛 시야(24칸)가 옆 2차맵에 닿지 않는다(경계 너머 시야가 닿으면 그 2차맵을 "아는" 2차맵으로 본다,
+ * docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)")
+ */
+const SCOUT_X = 200;
 /** 정시 + 1ms에서 시작 */
 const T0 = 1_800_000_000_000 - (1_800_000_000_000 % UPKEEP_PERIOD_MS) + 1;
 
@@ -74,6 +79,14 @@ function persistence(world: World) {
 
 function mapsOf(world: World): SecondMap[] {
   return [...world.maps.values()];
+}
+
+/**
+ * 시험 2차맵 줄 셋(부팅 씨앗 — 띄운 차례의 앞). 변 가까이 선 내 유닛이 옆 2차맵을 미리 띄우면(docs/adr/2026-11-08-seamless-second-map.md
+ * "바뀜 (2026-11-12)") 띄운 2차맵 목록이 그 뒤로 늘어난다
+ */
+function seedKeys(world: World): number[] {
+  return [0, 1, 2].map((index) => mapAt(world, index).mapKey);
 }
 
 function mapAt(world: World, index: number): SecondMap {
@@ -173,7 +186,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 사이 이동(서버·DB)", () => {
     const plan = p.travel.plan(a.userId, { unitId: a.unitId, mapKey: target, x: 10, y: 40 });
     expect(plan).toMatchObject({
       ok: true,
-      plan: { working: true, route: mapsOf(first).map((m) => m.mapKey) },
+      plan: { working: true, route: seedKeys(first) },
     });
     expect(
       await p.travel.start(a.userId, { unitId: a.unitId, mapKey: target, x: 10, y: 40, kind: "move" }),
@@ -181,7 +194,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 사이 이동(서버·DB)", () => {
     await p.writer.durable();
     expect(
       await rows(test.db, "select leg, kind, route from world_travels where unit_id = $1", [a.unitId]),
-    ).toEqual([{ leg: 0, kind: "move", route: mapsOf(first).map((m) => String(m.mapKey)) }]);
+    ).toEqual([{ leg: 0, kind: "move", route: seedKeys(first).map(String) }]);
 
     // 변 끝(15칸) 걷는 동안도 그 2차맵이라 일한다 → 넘기 직전 정산으로 그때까지의 원목이 든다
     const before = woodAt(first, a.ownerId, city);
@@ -232,7 +245,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 사이 이동(서버·DB)", () => {
   it("정찰: 닿으면 돌아오는 길(줄 저장)·탐사 기록(확인 단계가 오염을 안다), 다시 켜도 돌아와 출발 자리에 선다", async () => {
     const first = await boot();
     const p = persistence(first);
-    const a = await setup(first, "scout", 240, 40);
+    const a = await setup(first, "scout", SCOUT_X, 40);
     const scouted = mapAt(first, 1).mapKey;
     const viewer: Viewer = { id: a.userId, loginId: "fake_scout", roles: ["player"] };
     const danger = createTravelDanger({
@@ -274,9 +287,9 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 사이 이동(서버·DB)", () => {
           scouted_map_key: String(scouted),
           user_id: a.userId,
           origin_map_key: String(mapAt(first, 0).mapKey),
-          origin_x: 240,
+          origin_x: SCOUT_X,
           origin_y: 40,
-          target_x: 240,
+          target_x: SCOUT_X,
           target_y: 40,
           leg: 0,
         },
@@ -299,7 +312,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 사이 이동(서버·DB)", () => {
       unknownMaps: 0,
     });
 
-    // 다시 켠다: 돌아오는 길이 이어져 출발 자리 (240, 40)에 선다
+    // 다시 켠다: 돌아오는 길이 이어져 출발 자리 (SCOUT_X, 40)에 선다
     await first.stop();
     worlds.splice(worlds.indexOf(first), 1);
     const second = await boot();
@@ -310,7 +323,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 사이 이동(서버·DB)", () => {
     ]);
     for (let step = 0; step < 4 && q.travel.active > 0; step++) await walkLeg(second, a.unitId);
     expect(q.travel.list(a.userId)).toMatchObject([
-      { state: "arrived", returning: true, mapKey: mapAt(second, 0).mapKey, cellX: 240, cellY: 40 },
+      { state: "arrived", returning: true, mapKey: mapAt(second, 0).mapKey, cellX: SCOUT_X, cellY: 40 },
     ]);
     expect(await second.checkInvariants()).toEqual([]);
   });

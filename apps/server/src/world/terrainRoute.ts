@@ -1,7 +1,8 @@
 // 2차맵 지형 이진 파일 — GET /api/maps/<2차맵 키>/terrain?v=<판 표지> (형식: packages/protocol terrain.ts)
 // - 로그인한 사용자만, 볼 수 있는 2차맵만(ADR 26). 없거나 볼 수 없으면 똑같이 404.
 // - 띄운 2차맵은 그 지형(고정본·생성기·임시 지형). 띄우지 않은 2차맵은 볼 수 있는 띄운 2차맵의 이웃일 때만
-//   지형 서비스가 만들어 준다(경계 너머 보기).
+//   지형 서비스가 만들어 준다(경계 너머 보기). 띄웠지만 볼 수 없는 2차맵(미리 띄운 옆 2차맵 — docs/adr/2026-11-08-seamless-second-map.md
+//   "바뀜 (2026-11-12)")도 같은 이웃 규칙으로 그 지형을 준다(전에는 띄우지 않았을 때 받던 이웃 지형이 띄우자 404가 됐다).
 // - 판 표지가 붙은 주소라 내용이 바뀌지 않는다 → 기기 캐시 1년(private: 공유 캐시에는 두지 않는다).
 //   표지가 지금과 다르면 404(옛 주소는 다시 만들 수 없다).
 // - 기기가 gzip을 받으면 미리 압축한 것을 준다(약 83KB → 더 작게).
@@ -75,7 +76,12 @@ export function registerTerrainRoute(
       const map = options.world.map(mapKey);
       let file: TerrainFile;
       if (map) {
-        if (!(await canViewSecondMap(options.world, viewer, map))) return notFound(reply, "MAP_NOT_FOUND");
+        // 볼 수 없는 띄운 2차맵도 볼 수 있는 2차맵의 이웃이면 지형은 준다(띄우지 않은 이웃과 같은 규칙 — 미리 띄운 옆 2차맵, 2026-11-12)
+        if (
+          !(await canViewSecondMap(options.world, viewer, map)) &&
+          !(await canViewNeighbour(options.world, viewer, mapKey))
+        )
+          return notFound(reply, "MAP_NOT_FOUND");
         if (request.query.v !== map.terrainVersion) return notFound(reply, "TERRAIN_VERSION_NOT_FOUND");
         file = map.terrainFile();
       } else {

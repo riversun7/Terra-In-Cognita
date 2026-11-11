@@ -61,6 +61,17 @@ export interface EdgeWatchDeps {
   openEarly(mapKey: number): void;
 }
 
+/** 그 변(SIDES 차례) 너머 2차맵 키: 변 가운데 칸에서 한 걸음(면 경계 포함, stepMapCell). 없으면 null */
+export function sideNeighbour(mapKey: number, side: number): number | null {
+  const step = SIDES[side];
+  if (!step) return null;
+  const last = PLACEMENT_SIZE - 1;
+  const middle = PLACEMENT_SIZE >> 1;
+  const x = step.dx > 0 ? last : step.dx < 0 ? 0 : middle;
+  const y = step.dy > 0 ? last : step.dy < 0 ? 0 : middle;
+  return stepMapCell(mapKey, PLACEMENT_SUBLEVELS, x, y, step.dx, step.dy)?.mapKey ?? null;
+}
+
 /** 변 넷(SIDES 차례: +x, −x, +y, −y)마다 점들이 변에서 가장 가까운 거리(단위) */
 function sideGaps(points: readonly Point[]): [number, number, number, number] {
   let minX = MAP_UNITS;
@@ -99,13 +110,7 @@ export function createEdgeWatch(deps: EdgeWatchDeps): EdgeWatch {
   const neighbours = (mapKey: number): (number | null)[] => {
     let known = across.get(mapKey);
     if (!known) {
-      const last = PLACEMENT_SIZE - 1;
-      const middle = PLACEMENT_SIZE >> 1;
-      known = SIDES.map((side) => {
-        const x = side.dx > 0 ? last : side.dx < 0 ? 0 : middle;
-        const y = side.dy > 0 ? last : side.dy < 0 ? 0 : middle;
-        return stepMapCell(mapKey, PLACEMENT_SUBLEVELS, x, y, side.dx, side.dy)?.mapKey ?? null;
-      });
+      known = SIDES.map((_, side) => sideNeighbour(mapKey, side));
       if (across.size >= CACHE_LIMIT) across.clear();
       across.set(mapKey, known);
     }

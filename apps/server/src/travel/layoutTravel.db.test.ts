@@ -61,6 +61,12 @@ function fakeTerrain(): TerrainService {
   };
 }
 
+// 이미 띄운 옆 2차맵(붙은 시작 도시)으로 걷는 시험이라 옛 배치(수도와 붙은 2차맵)로 고정한다 — 배후지 배치에서는 지방 도시가 4칸 넘게 떨어져 사이 2차맵을 그때 띄운다(배후지 반경 0, docs/adr/2026-11-11-city-catchment.md — 배후지 배치는 world/citySites.test.ts·worldLayout.db.test.ts)
+const OLD_LAYOUT_RULES = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, catchmentRadiusCells: 0 },
+};
+
 const silent = { info: () => {}, warn: () => {}, error: () => {} };
 
 let test: TestDatabase;
@@ -92,7 +98,7 @@ async function boot(): Promise<World> {
     },
     terrain: fakeTerrain(),
     npc: { testNations: 4, manual: true, presets },
-    cyborgRules: () => TEST_SOCIETY_COEFFICIENTS,
+    cyborgRules: () => OLD_LAYOUT_RULES,
     holdings: { content: () => pack },
     facilities: { content: () => pack },
   });

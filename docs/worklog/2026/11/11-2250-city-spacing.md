@@ -57,6 +57,7 @@
 | `apps/game/messages/{ko,en}.json` | 문구 열일곱(ko·en) |
 | `apps/server/src/world/worldLayout.test.ts`·`worldLayoutTiers.test.ts` | 옛 배치 시험은 R = 0으로 |
 | `apps/server/src/world/worldLayout.db.test.ts`·`nationPlacement.db.test.ts`·`nationTiers.db.test.ts` | 시작 도시 간격 기대를 배후지 간격(4칸 이상·12칸 안)으로 |
+| `apps/server/src/travel/layoutTravel.db.test.ts`·`npc/leaders.db.test.ts` | 옛 붙은 배치를 전제로 한 시험(이미 띄운 옆 2차맵으로 걷기·가짜 지형 도시 둘레 인구 25명 이상)이라 배후지 반경 0으로 고정 |
 | `apps/server/bench/citySpacing.ts`(새), `tsconfig.json`·`bench/tsconfig.json` | 측정 스크립트(서버 모듈을 가져와 상위 tsconfig로 검사) |
 | `e2e/world-layout.spec.ts`·`e2e/gather-station.spec.ts` | 배후지 덮개 시험, 농장 = 밭 채집소 |
 | ADR·질문·PLAN 14장 | 위 관련 |
@@ -71,13 +72,15 @@
 ## 검사(Verified: 실행)
 - 단위: 서버 배치·배후지·채집 시험(`citySites` 9, `worldLayout`·`worldLayoutTiers`, `gather/*` 20+3, `npcSeed` 5), shared `catchment` 5, sim 설정 칸 시험 37, 게임 `map/gather` 6·`editor/worldLayout` 7 — 통과.
 - DB: `worldLayout.db`·`nationPlacement.db`·`nationTiers.db`·`gather`·`station.db`·`npcSeed.db`·tRPC `worldLayout` 42개 통과(고친 뒤).
-- 화면: `e2e/world-layout.spec.ts` 9개 통과(새 배후지 덮개 2개 포함, 1440 네온·390 라이트 사진). `e2e/gather-station.spec.ts`는 아래 "끝 검사"에 적는다.
-- 끝 검사(`pnpm check`·빌드·`check-pwa`·`check:bundle`): 아래에 적는다.
+- 화면: `e2e/world-layout.spec.ts` 9개 통과(새 배후지 덮개 2개 포함, 1440 네온·390 라이트 사진), `e2e/gather-station.spec.ts` 9개 통과(농장 = 밭 채집소로 고침).
+- 시뮬: `econ16`·`war16` 시드 1·7일 종료 코드 0(불변 조건 위반 없음). 시뮬 코드는 바꾸지 않았다 → `SIM_VERSION` 그대로.
+- 끝 검사: `pnpm check`(TEST_DATABASE_URL) 첫 번 — oxlint 경고 7(시험의 `as CellKey`) → 고침. 두 번째 — 4,766개 가운데 DB 시험 2개 실패(옛 붙은 배치 전제, 위 표) → 배후지 반경 0으로 고정한 뒤 그 둘 통과(3개). 빌드 + `check-pwa` 통과, `check:bundle` 첫 화면 108,768B / 상한 131,416B, `check:docs origin/main` 통과.
 
 ## 미검증·TODO·알려진 문제
 - NPC 도시 경제는 아직 땅 자리를 쓰지 않는다(질문 1024 — 다음 줄기 추천). 시뮬 출력·`SIM_VERSION` 그대로.
 - 시작 도시가 있는 낮은 땅에는 광석이 없다(질문 1020).
 - 이미 선 NPC 농장이 반경 안 밭을 갖는지는 시작 도시 2차맵 여섯 곳의 지표(풀·흙 99%)로 추정(Assumed).
+- 같은 국가 도시가 붙은 2차맵이 아니게 되어 도시 사이를 걸으면 사이 2차맵을 그때 띄운다(WP15 상한 32) — NAS에 들이면 띄운 2차맵 수가 늘 수 있다(Unknown, 재지 않음).
 - 원자재 문턱 설정 칸을 바꾸면 밭·목초지 자리는 다음 시작 때 바뀐다(오브젝트 목록은 지형 판 표지마다 한 번).
 
 ## 사용자 결정 대기

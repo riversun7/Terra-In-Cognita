@@ -96,13 +96,19 @@ function plan(seed: number, ground = fakeGround({ objects: OBJECTS })) {
 }
 
 const d = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+const mid = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2,
+});
+/** 시험 땅의 세로 막힌 띠(x 140~146) */
+const blocked = (x: number) => x >= 140 && x <= 146;
 
 describe("도시 건물 배치 계획", () => {
   it("같은 시드면 같은 배치, 다른 시드면 다른 모양(흔들기)", () => {
     expect(plan(7).placed).toEqual(plan(7).placed);
-    const a = plan(7).placed.map((b) => `${b.x},${b.y}`);
-    const b = plan(8).placed.map((b) => `${b.x},${b.y}`);
-    expect(a).not.toEqual(b);
+    const seven = plan(7).placed.map((building) => `${building.x},${building.y}`);
+    const eight = plan(8).placed.map((building) => `${building.x},${building.y}`);
+    expect(seven).not.toEqual(eight);
   });
 
   it("행정 건물은 도시 칸 가운데, 광장(둘레 길 포함)에는 다른 건물이 없고 모두 놓인다", () => {
@@ -166,7 +172,6 @@ describe("도시 건물 배치 계획", () => {
 
   it("땅 조건: 막힌 칸·오브젝트 칸을 덮지 않고, 이 도시 자리만, 물가 조건을 지킨다", () => {
     // 가운데 오른쪽 세로 막힌 띠(x 140~146), 도시 자리는 y < 200, 농장은 x < 128에만
-    const blocked = (x: number) => x >= 140 && x <= 146;
     const ground = fakeGround({
       blocked,
       objects: OBJECTS,
@@ -207,10 +212,6 @@ describe("도시 건물 배치 계획", () => {
     // 창고 둘 = 채집 구역 둘: 구역(채집소 2곳씩)은 행정 건물의 서로 다른 쪽(구역 가운데 각도 차 > 90°)에 모인다
     const hall = { x: 101, y: 101 };
     const angle = (at: { x: number; y: number }) => Math.atan2(at.y - hall.y, at.x - hall.x);
-    const mid = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
-      x: (a.x + b.x) / 2,
-      y: (a.y + b.y) / 2,
-    });
     const [s0, s1, s2, s3] = stations;
     if (!s0 || !s1 || !s2 || !s3) throw new Error("stations");
     // 구역은 차례로 돌아가며 받는다(0·2 → 구역 0, 1·3 → 구역 1)
@@ -226,7 +227,7 @@ describe("도시 건물 배치 계획", () => {
       { x: -10, y: 0 },
       { x: -10, y: 1 },
     ];
-    const groups = splitByAngle({ x: 0, y: 0 }, points, 2).map((g) => g.toSorted());
+    const groups = splitByAngle({ x: 0, y: 0 }, points, 2).map((g) => g.toSorted((a, b) => a - b));
     expect(groups.toSorted((a, b) => (a[0] ?? 0) - (b[0] ?? 0))).toEqual([
       [0, 1],
       [2, 3],

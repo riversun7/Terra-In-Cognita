@@ -67,6 +67,11 @@ export function layoutObjectsOf(
   return placeGatherObjects({ ...mapLayers(map), materials }, kinds);
 }
 
+/** 계획 네모 → 돌리지 않은 배치 */
+const placement = (rect: LayoutRect) => ({ ...rect, rotation: 0 as const });
+/** 정수로 자르고 범위 안으로 */
+const int = (value: number, min: number, max: number) => Math.min(max, Math.max(min, Math.trunc(value)));
+
 /** 2차맵 → 계획 땅(위 머리 주석) */
 export function layoutGroundOf(options: {
   readonly map: Pick<SecondMap, "mapKey" | "replicaInit" | "waterMask"> &
@@ -84,7 +89,6 @@ export function layoutGroundOf(options: {
   for (const building of replica.buildings)
     if (!options.ignore?.has(building.id)) applyPlacement(grid, building.id, building.placement);
   let nextId = VIRTUAL_ID_BASE;
-  const placement = (rect: LayoutRect) => ({ ...rect, rotation: 0 as const });
   return {
     grid,
     objects: options.objects,
@@ -105,7 +109,6 @@ export function layoutGroundOf(options: {
 
 /** 세계 씨앗 계수표 → 배치 설정 칸 */
 export function cityLayoutRulesOf(seed: WorldSeedCoefficients): CityLayoutRules {
-  const int = (value: number, min: number, max: number) => Math.min(max, Math.max(min, Math.trunc(value)));
   const gatherMin = int(seed.cityLayoutGatherMinCells, 4, 120);
   return {
     plazaCells: int(seed.cityLayoutPlazaCells, 0, 16),

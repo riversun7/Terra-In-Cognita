@@ -77,6 +77,8 @@ const buildings = () =>
       order by b.id`,
   );
 
+const at = (lines: BuildingLine[], id: string) => lines.find((line) => line.id === id);
+
 describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 건물 다시 놓기(예약 → 다음 시작)", () => {
   it("NPC 건물만 같은 ID로 옮기고, 플레이어가 걸린 건물·다른 주인 건물은 그대로, 결과·감사 기록", async () => {
     const old = await boot(OLD);
@@ -117,7 +119,6 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 건물 다시 놓기(예약 → 
       after.filter((line) => known.has(line.id)).map((line) => [line.id, line.facility_id, line.city_id]),
     ).toEqual(before.map((line) => [line.id, line.facility_id, line.city_id]));
     expect(after.length - before.length).toBe(1);
-    const at = (lines: BuildingLine[], id: string) => lines.find((line) => line.id === id);
     expect([at(after, farm.id)?.x, at(after, farm.id)?.y]).toEqual([farm.x, farm.y]);
     expect([at(after, store.id)?.x, at(after, store.id)?.y]).toEqual([store.x, store.y]);
     // 옮긴 건물이 있고, 행정 건물은 대부분 도시 칸 가운데(몇 칸 안)

@@ -90,6 +90,11 @@ export interface RuinDeps {
   readonly cyborgs: CyborgService;
   readonly facilities: WorldFacilities;
   readonly now: () => number;
+  /**
+   * 그 사용자가 이끄는 도시 가진 가문(세력 행, docs/adr/2026-11-11-house-village.md). 있으면 그 가문장이 지은 정부의 폐허는 가문 도시로
+   * 되살아난다(이미 봉신·독립을 고른 가문 — 처음 고르기는 가문 명령 house_ruin). 없으면 지금처럼 사이보그 나라(질문 481)
+   */
+  readonly houseOf?: ((userId: string) => number | undefined) | undefined;
 }
 
 const fail = (code: RestorationResultCode): RuinCommandResult => ({ ok: false, code });
@@ -129,6 +134,9 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
   /** 소유 주체가 복원하면 도시가 드는 세력(유저 = 사이보그 나라, 세력 주체 = 그 세력). 거울 세계에 산 세력이어야 한다 */
   const joinOf = (runtime: NpcRuntime, ownerId: number): number | undefined => {
     const owner = d.owners.get(ownerId);
+    const house = owner?.userId ? d.houseOf?.(owner.userId) : undefined;
+    const houseOwner = house === undefined ? undefined : runtime.houses.ownerOfRow(house);
+    if (houseOwner !== undefined && runtime.world.factions.get(houseOwner)?.alive) return houseOwner;
     const record = owner?.userId ? d.cyborgs.record(owner.userId) : undefined;
     const join = record ? ownerOfFactionRow(record.factionId) : owner?.factionId ? ownerId : undefined;
     return join !== undefined && runtime.world.factions.get(join)?.alive ? join : undefined;

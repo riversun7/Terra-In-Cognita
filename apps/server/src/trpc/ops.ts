@@ -300,6 +300,12 @@ export const opsRouter = router({
     setBlocked: opsProcedure("emblem_moderate")
       .input(z.strictObject({ userId: z.uuid(), blocked: z.boolean() }))
       .mutation(({ ctx, input }) => identityOf(ctx.factionIdentity).opsSetBlocked(ctx.opsViewer, input)),
+    /** 이름·약어 바꾸기 막기·풀기(질문 1006 나 — 이름을 여러 번 되돌리면 저절로 막힌다) */
+    setRenameBlocked: opsProcedure("emblem_moderate")
+      .input(z.strictObject({ userId: z.uuid(), blocked: z.boolean() }))
+      .mutation(({ ctx, input }) =>
+        identityOf(ctx.factionIdentity).opsSetRenameBlocked(ctx.opsViewer, input),
+      ),
     setUploadAllowed: opsProcedure("faction_edit")
       .input(z.strictObject({ allowed: z.boolean() }))
       .mutation(({ ctx, input }) =>

@@ -284,6 +284,25 @@ export const WORLD_TABLES = {
     updateOnly: true,
   },
   /**
+   * 플레이어 가문 세력 상태(docs/adr/2026-11-11-house-village.md): 거울 세계가 바꾸는 칸만(체제·봉신 위 세력·기술·성향). 이름 코드·사라짐·
+   * 태어날 때 부모는 쓰지 않는다(가문 행은 가문 명령이 고친다 — 해산·귀화 따라가기 follow.ts)
+   */
+  houseFactionState: {
+    name: "factions",
+    columns: [
+      "id",
+      "regime",
+      "parent_id",
+      "tech_level",
+      "tech_blueprint",
+      "research_progress",
+      "traits",
+      "ai_step",
+    ],
+    key: ["id"],
+    updateOnly: true,
+  },
+  /**
    * NPC 수도(D-528, src/npc/capitals.ts)만 고친다. 세력 상태(factionState)는 이 칸을 쓰지 않는다(직전 판 앱이 세력 행을 써도 수도가 지워지지 않게)
    */
   factionCapital: {
@@ -697,6 +716,7 @@ export type WorldTable = keyof typeof WORLD_TABLES;
 export const WRITE_ORDER: readonly WorldTable[] = [
   "owners",
   "factionState",
+  "houseFactionState",
   "accounts",
   "cities",
   "factionCapital",

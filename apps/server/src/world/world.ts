@@ -19,6 +19,7 @@ import { createBattleApply } from "./battleApply.ts";
 import { createBattleWorld, createWorldBattleStart } from "./battleStart.ts";
 import { type BattleItems, createBattleItems } from "./battleItems.ts";
 import { type CityRow, cityCellsOf, loadCities } from "./cities.ts";
+import { attachHouseTies, houseTiesOf } from "./houseTies.ts";
 import { moveLeaderToCapital, seedNpcAtBoot } from "../npc/leaders.ts";
 import {
   type CyborgRules,
@@ -695,8 +696,24 @@ export function startWorld(
       labor,
       fusion,
       facilities,
-      ruins: createRuins({ owners, ledger, settlement, writer, cyborgs, facilities, now }, () => npc),
+      ruins: createRuins(
+        {
+          owners,
+          ledger,
+          settlement,
+          writer,
+          cyborgs,
+          facilities,
+          now,
+          // 도시 가진 가문의 가문장이 지은 정부 = 가문 도시(docs/adr/2026-11-11-house-village.md)
+          houseOf: (userId) => houseTiesOf(persistence)?.ledHouseOf(userId),
+        },
+        () => npc,
+      ),
     };
+    // 도시 가진 가문의 시야 묶음(houseTies.ts, D-250): 부팅 때 읽고 1분마다 다시 읽는다(가문 명령 뒤에도 다시 읽는다)
+    const ties = attachHouseTies(persistence, db);
+    await ties.reload();
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다). NPC 사회 세계는 그 국가(1번)의 국력 등급 천분율만큼
     const npcSeed = config.npc ? (config.cyborgRules ?? defaultCyborgRules)().worldSeed : undefined;
     const testNpcCredit = startCreditOf(NPC_START_CREDIT, npcSeed, config.npc?.presets);
@@ -773,7 +790,10 @@ export function startWorld(
 
     const writeHeartbeat = () => writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
     writeHeartbeat();
-    heartbeat = setInterval(writeHeartbeat, HEARTBEAT_MS);
+    heartbeat = setInterval(() => {
+      writeHeartbeat();
+      ties.reload().catch((error: unknown) => log.warn({ err: error }, "house ties reload failed"));
+    }, HEARTBEAT_MS);
     heartbeat.unref();
 
     const problems = [

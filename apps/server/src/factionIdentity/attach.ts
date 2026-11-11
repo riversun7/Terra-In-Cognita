@@ -10,10 +10,13 @@ import { ASSET_CREDIT } from "../world/settlement.ts";
 import { followAllHouses, followNation } from "./follow.ts";
 import { type HouseWallet, adoptUnfoundedIdentities, createHouseFounder, nationFromDb } from "./found.ts";
 import { type HouseGateway, createHouseGateway } from "./gateway.ts";
+import { type HouseCityService, createHouseCity } from "./houseCity.ts";
 import { createHouseMembers } from "./members.ts";
+import { createHouseSuccession } from "./succession.ts";
+import { houseTiesOf } from "../world/houseTies.ts";
 import type { HouseRules } from "./rules.ts";
 
-type HouseWorld = Pick<World, "status" | "persistence">;
+type HouseWorld = Pick<World, "status" | "persistence" | "npc" | "maps">;
 
 /** 월드 원장 지갑(세계가 준비됐을 때만) */
 function walletOf(world: HouseWorld | undefined): HouseWallet | undefined {
@@ -58,7 +61,12 @@ export function attachHouses(options: {
     warn(obj: object, message: string): void;
     error(obj: object, message: string): void;
   };
-}): { gateway: HouseGateway; afterNaturalize: (userId: string) => Promise<void> } {
+}): {
+  gateway: HouseGateway;
+  afterNaturalize: (userId: string) => Promise<void>;
+  /** 가문 도시(조회 — 세력 화면 "내 가문" 칸) */
+  city: HouseCityService;
+} {
   const pool = options.db.$client;
   /** 사용자의 나라: 세계가 준비됐으면 월드 사이보그 기록, 아니면 DB */
   const nationOf = (userId: string): number | undefined | Promise<number | undefined> => {
@@ -76,6 +84,14 @@ export function attachHouses(options: {
   })().catch((error: unknown) =>
     options.log.error({ err: error }, "faction identity: adopting saved identities failed"),
   );
+  const succession = createHouseSuccession({ pool, db: options.db, now: options.now });
+  const city = createHouseCity({
+    pool,
+    db: options.db,
+    rules: options.rules,
+    now: options.now,
+    world: () => options.world,
+  });
   const gateway = createHouseGateway({
     founder: () =>
       createHouseFounder({
@@ -88,11 +104,17 @@ export function attachHouses(options: {
       }),
     members: () =>
       createHouseMembers({ pool, db: options.db, rules: options.rules, now: options.now, nationOf }),
+    succession: () => succession,
+    city: () => city,
+    afterMembership: async () => {
+      await houseTiesOf(options.world?.persistence)?.reload();
+    },
     now: options.now,
     log: options.log,
   });
   return {
     gateway,
+    city,
     afterNaturalize: async (userId: string) => {
       const result = await followNation(follow, userId);
       if (result.movedTo !== null || result.removed.length > 0)

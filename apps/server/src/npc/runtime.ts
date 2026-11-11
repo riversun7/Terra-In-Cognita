@@ -74,6 +74,7 @@ import { createCityDayStore } from "./cityDayStore.ts";
 import { createCityPeople, seedPopulationOf } from "./cityPeople.ts";
 import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./economy.ts";
 import { humanNameOf } from "./humanNames.ts";
+import { type NpcHouses, attachNpcHouses } from "./houseRuntime.ts";
 import { createHumanPlaces } from "./humanPlaces.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
@@ -178,6 +179,8 @@ export interface NpcRuntime {
   readonly economy: ServerEconomy | undefined;
   /** 폐허·복원 사업 바뀜을 바로 쓰기 대기열에 넣는다(유저 폐허 명령 뒤 같은 동기 처리, ruinsPersist.ts) */
   flushRuins(): void;
+  /** 플레이어 가문 도시(마을 세우기·폐허 복원 고르기, houseRuntime.ts) */
+  readonly houses: NpcHouses;
   /** 그 도시 시장 유닛(기획 답 744 나, cityPeople.ts). 없으면 undefined */
   mayorOf(cityId: number): number | undefined;
   /** NPC 휴먼 이름(기획 답 773 나, humanNames.ts — 그 휴먼 나라의 팩 목록). 거울 세계 휴먼이 아니거나 목록이 없으면 undefined */
@@ -255,6 +258,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       blueprint: Math.max(row.techLevel, row.techBlueprint),
     };
     faction.aiStep = row.aiStep;
+    // 플레이어 가문(소유 주체가 있는 가문, houseRuntime.ts): 판단을 돌리지 않고 사라지지 않는다
+    if (row.player) faction.player = true;
     faction.rebelOf = row.rebelOfRowId === null ? null : (ownerOfRow.get(row.rebelOfRowId) ?? null);
     // 태어날 때 부모(기획 답 620 나 — 세력 행 born_of). 부모 세력이 사라졌으면(거울에 없음) 모른다
     faction.bornOf = row.bornOfRowId === null ? null : (ownerOfRow.get(row.bornOfRowId) ?? null);
@@ -606,6 +611,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         return;
       }
       if (event.payload.kind === EVENT_DECIDE) {
+        // 플레이어 가문은 판단하지 않는다(예약도 하지 않지만 옛 예약이 남았을 수 있다)
+        if (world.factions.get(event.payload.subject)?.player) return;
         if (o.rules().switches.npcAiEnabled === 0) {
           const faction = world.factions.get(event.payload.subject);
           if (faction?.alive) scheduleDecide(ctx, faction, sim.nowMs);
@@ -772,7 +779,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       tech: faction.tech,
     })),
   );
-  for (const faction of world.factions.values()) if (faction.alive) scheduleDecide(ctx, faction, startMs);
+  for (const faction of world.factions.values())
+    if (faction.alive && !faction.player) scheduleDecide(ctx, faction, startMs);
   loop.schedule(nextDayEnd(startMs, dayMs), { kind: EVENT_DAY, subject: 0 });
   reviewCapitals();
   const first = await persist.flush(society.currentDay());
@@ -862,6 +870,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     gardener,
     economy: econ,
     flushRuins: () => void persist.flushRuins(),
+    houses: attachNpcHouses({ world, persist, hooks: () => hooks, nextOwnerId: o.nextOwnerId, rules: o.rules }),
     mayorOf: (cityId) => people.mayorOf(cityId),
     // 휴먼 이름(773 나): 그 휴먼 주인 세력이 따르는 나라의 목록(도시 이름과 같은 길)
     humanName(unitId) {

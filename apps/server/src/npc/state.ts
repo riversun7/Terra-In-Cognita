@@ -22,7 +22,12 @@ export interface NpcFactionRow {
   readonly bornOfRowId: number | null;
   /** NPC가 고른 수도 도시(D-528, capitals.ts). null = 아직 */
   readonly capitalCityId: number | null;
+  /** 플레이어 가문(소유 주체가 있는 것 — 도시를 얻으며 봉신·독립을 고른 가문, docs/adr/2026-11-11-house-village.md) */
+  readonly player: boolean;
 }
+
+/** 플레이어 가문의 거울 세계 코드(DB 코드는 비운다 — 이름 코드는 NPC 세력만) */
+export const houseCodeOf = (rowId: number): string => `house_${String(rowId)}`;
 
 export interface NpcCityRow {
   readonly id: number;
@@ -144,9 +149,10 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
     await Promise.all([
       pool.query(
         `select f.id, o.id as owner_id, f.code, f.regime, f.fixed, f.parent_id, f.tech_level, f.tech_blueprint,
-              f.research_progress, f.traits, f.ai_step, f.rebel_of, f.born_of, f.capital_city_id
+              f.research_progress, f.traits, f.ai_step, f.rebel_of, f.born_of, f.capital_city_id, f.kind
        from factions f join world_owners o on o.faction_id = f.id
-       where f.kind = 'npc' and f.dissolved_at_ms is null and f.code is not null order by f.id`,
+       where f.dissolved_at_ms is null and ((f.kind = 'npc' and f.code is not null) or f.kind = 'player')
+       order by f.id`,
       ),
       pool.query(
         `select id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms,
@@ -186,7 +192,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
     factions: factions.rows.map((row) => ({
       rowId: num(row.id),
       ownerId: num(row.owner_id),
-      code: String(row.code),
+      code: row.kind === "player" ? houseCodeOf(num(row.id)) : String(row.code),
       regime: regimeOf(row.regime),
       fixed: row.fixed === true,
       parentRowId: numOrNull(row.parent_id),
@@ -198,6 +204,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       rebelOfRowId: numOrNull(row.rebel_of),
       bornOfRowId: numOrNull(row.born_of),
       capitalCityId: numOrNull(row.capital_city_id),
+      player: row.kind === "player",
     })),
     cities: cities.rows.map((row) => ({
       id: num(row.id),

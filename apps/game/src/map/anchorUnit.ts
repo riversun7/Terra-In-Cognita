@@ -130,3 +130,11 @@ export function showStop(input: {
 }): boolean {
   return input.commandable && (input.moving || input.travelling);
 }
+
+/** 고른 유닛이 엔진에 안 보여도 고른 채로 두는 시간(ms) — 빠르게 2차맵을 넘는 사이(운영자 100배)·새 자료가 오기 전 */
+export const SELECTION_HOLD_MS = 4_000;
+
+/** 고른 유닛이 missingSince부터 안 보인다: 아직 고른 채로 둘까 */
+export function heldSelection(missingSince: number, now: number): boolean {
+  return now - missingSince < SELECTION_HOLD_MS;
+}

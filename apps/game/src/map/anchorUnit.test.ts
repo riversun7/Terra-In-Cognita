@@ -8,6 +8,8 @@ import {
   commandUnit,
   groundTapUnit,
   heldMoving,
+  heldSelection,
+  SELECTION_HOLD_MS,
   STOP_HOLD_MS,
   showStop,
   unitTapOf,
@@ -142,5 +144,11 @@ describe("[멈추기] 깜빡임 막기(사용자 지적 2026-11-09)", () => {
     expect(heldMoving(false, 10_000 - STOP_HOLD_MS + 1, 10_000)).toBe(true);
     expect(heldMoving(false, 10_000 - STOP_HOLD_MS, 10_000)).toBe(false);
     expect(heldMoving(false, null, 10_000)).toBe(false);
+  });
+
+  it("고른 유닛이 잠깐 안 보여도 SELECTION_HOLD_MS 동안은 고른 채로", () => {
+    expect(heldSelection(10_000, 10_000)).toBe(true);
+    expect(heldSelection(10_000, 10_000 + SELECTION_HOLD_MS - 1)).toBe(true);
+    expect(heldSelection(10_000, 10_000 + SELECTION_HOLD_MS)).toBe(false);
   });
 });

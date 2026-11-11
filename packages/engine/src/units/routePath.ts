@@ -85,6 +85,8 @@ export interface TargetLife {
   set(target: { x: number; y: number } | null, revision: number, nowMs: number): void;
   /** 프레임마다: 그 유닛의 지금 경로 판·움직이는 중. 남아 있는 목적지(없으면 null)를 돌려준다 */
   update(revision: number, moving: boolean, nowMs: number): { x: number; y: number } | null;
+  /** 남아 있는 목적지를 다른 틀로 옮긴다(옆 2차맵으로 넘을 때 — 언제 거둘지는 그대로) */
+  shift(move: (cell: { x: number; y: number }) => { x: number; y: number }): void;
 }
 
 export function createTargetLife(waitMs = TARGET_WAIT_MS): TargetLife {
@@ -106,6 +108,9 @@ export function createTargetLife(waitMs = TARGET_WAIT_MS): TargetLife {
       if (fresh && moving) sawMoving = true;
       if ((sawMoving && !moving) || (!sawMoving && nowMs - setAt >= waitMs)) target = null;
       return target;
+    },
+    shift(move) {
+      if (target) target = move(target);
     },
   };
 }

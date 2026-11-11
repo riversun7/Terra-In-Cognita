@@ -1,5 +1,5 @@
-// 2차맵 화면의 내 사이보그 몫 — [내 사이보그](572 다: 1차맵에서 고른 곳을 보다가 돌아가기)와 2차맵 사이 이동(WP9) 가는 중 줄·넘어갈 때 안내·
-// [따라가기]. docs/adr/2026-11-07-play-flow.md "WP9 2차맵 사이 이동", 기획 D-139(2차맵 경계를 넘을 때 화면이 짧게 바뀐다).
+// 2차맵 화면의 내 사이보그 몫 — [내 사이보그](572 다: 1차맵에서 고른 곳을 보다가 돌아가기)와 2차맵 사이 이동(WP9) 가는 중 줄·[따라가기].
+// 넘어갈 때 안내 판("넘어가는 중")은 없앴다: 따라가는 화면은 아무것도 띄우지 않고 그대로 넘는다(사용자 지적 2026-11-11 "화면전환의 흔적"). docs/adr/2026-11-07-play-flow.md "WP9 2차맵 사이 이동", 기획 D-139(2차맵 경계를 넘을 때 화면이 짧게 바뀐다).
 // 바뀜(사용자 지적 2026-11-09 문제2): [내 사이보그] 자리는 [내 유닛 N](내 유닛 목록 — 사이보그가 첫 줄)이다(UnitControlPanels.tsx).
 import type { WorldTravel } from "@terra/shared/worldMap";
 import type { ReactNode } from "react";
@@ -21,16 +21,6 @@ export function TravelLine({ going }: { readonly going: WorldTravel | null }) {
           ? m.map_travel_returning(step)
           : m.map_travel_going(step)}
     </p>
-  );
-}
-
-/** 따라가는 화면에서 내 사이보그가 옆 2차맵으로 넘어갔다(곧 그 2차맵으로 바뀐다) */
-export function CrossingNotice({ show }: { readonly show: boolean }) {
-  if (!show) return null;
-  return (
-    <div className="map-panel map-notice map-crossing" role="status">
-      <p>{m.map_travel_crossing()}</p>
-    </div>
   );
 }
 

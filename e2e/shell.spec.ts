@@ -93,7 +93,13 @@ test.describe("플레이어", () => {
     await expect(build).toBeVisible();
     const id = (await build.getAttribute("data-build")) ?? "";
     expect(id.length).toBeGreaterThan(0);
-    await expect(build).toHaveText(message("ko", "settings_about_build", { build: id }));
+    // 차례 번호(CI 실행 번호)가 있으면 "빌드 307 (8370909)", 없으면(이 시험 빌드 — dev) "빌드 dev"(사용자 지적 2026-11-11)
+    const number = await build.getAttribute("data-build-number");
+    await expect(build).toHaveText(
+      number === null
+        ? message("ko", "settings_about_build", { build: id })
+        : message("ko", "settings_about_build_numbered", { number, build: id.slice(0, 7) }),
+    );
     expect(await horizontalOverflow(page)).toEqual([]);
   });
 

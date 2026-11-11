@@ -6,8 +6,11 @@ import {
   LOOKS_POLL_MS,
   LOOKS_SETTLE_MS,
   accentOf,
+  cachedLooks,
+  clearLooksCache,
   idsKey,
   lookOf,
+  prefetchLooks,
   startBuildingLooks,
   withLooks,
 } from "./buildingLooks.ts";
@@ -49,6 +52,7 @@ function fakeEngine(): FeedSink & { sets: BuildingFootprint[][] } {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  clearLooksCache();
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -143,6 +147,46 @@ describe("건물 겉모습 잇기", () => {
     looks.sink.setBuildings([building(5)]);
     await vi.advanceTimersByTimeAsync(LOOKS_SETTLE_MS);
     expect(engine.sets.at(-1)).toEqual([building(5)]);
+    looks.stop();
+  });
+});
+
+describe("겉모습 기억해 두기(옆 2차맵으로 넘을 때)", () => {
+  const row: MapLooksResponse["buildings"][number] = {
+    buildingId: 5,
+    facilityId: "farm",
+    level: 2,
+    state: "ok",
+    upgrading: false,
+    factionId: 7,
+    mine: false,
+  };
+
+  it("prefetchLooks: 한 번 받아 기억하고(다시 받지 않는다), 받지 못하면 false", async () => {
+    const load = vi.fn(async () => response([row]));
+    const loadFactions = vi.fn(async () => [faction(7)]);
+    expect(cachedLooks(40).size).toBe(0);
+    expect(await prefetchLooks(40, { load, loadFactions })).toBe(true);
+    expect(cachedLooks(40).get(5)).toMatchObject({ facility: "farm", level: 2, accent: 0 });
+    expect(await prefetchLooks(40, { load, loadFactions })).toBe(false);
+    expect(load).toHaveBeenCalledTimes(1);
+    load.mockRejectedValueOnce(new Error("offline"));
+    expect(await prefetchLooks(41, { load, loadFactions })).toBe(false);
+    expect(cachedLooks(41).size).toBe(0);
+    // 국가 차례는 한 번만 받는다
+    expect(loadFactions).toHaveBeenCalledTimes(1);
+  });
+
+  it("기억해 둔 겉모습이 있으면 조회를 기다리지 않고 처음부터 붙인다", async () => {
+    await prefetchLooks(40, { load: async () => response([row]), loadFactions: async () => [faction(7)] });
+    const engine = fakeEngine();
+    const looks = startBuildingLooks(engine, 40, {
+      load: () => new Promise(() => undefined),
+      loadFactions: () => new Promise(() => undefined),
+    });
+    looks.sink.setBuildings([building(5), building(6)]);
+    expect(engine.sets.at(-1)?.[0]?.look).toMatchObject({ facility: "farm" });
+    expect(engine.sets.at(-1)?.[1]?.look).toBeUndefined();
     looks.stop();
   });
 });

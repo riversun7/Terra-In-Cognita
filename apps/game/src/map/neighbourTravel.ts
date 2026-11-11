@@ -21,11 +21,14 @@ export interface NeighbourTravelInput {
   readonly setCommand: Dispatch<SetStateAction<CommandNotice | null>>;
   /** 목적지 표시(엔진 setMoveTarget, null이면 거둔다) — 보낼 때 누른 자리에, 거절되면 거둔다 */
   readonly markTarget?: (cell: { x: number; y: number } | null) => void;
+  /** 보낸 옆 2차맵을 미리 받는다(지형·자료 흐름 — 변에 닿기 전에, mapSession.ts prefetch) */
+  readonly prefetch?: (mapKey: number) => void;
 }
 
 /** 엔진 onNeighbourTap에 넘길 함수(지금 2차맵 틀의 배치 칸). 부를 때 ref를 읽는다 */
 export function createNeighbourTravel(input: NeighbourTravelInput): (cell: { x: number; y: number }) => void {
   const { mapKeyRef, selectedRef, anchorRef, feedRef, unitsRef, operatorRef, setCommand, markTarget } = input;
+  const { prefetch } = input;
   return (cell) => {
     const target = neighbourCellAt(mapKeyRef.current, cell);
     const command = tapCommandOf({
@@ -47,6 +50,7 @@ export function createNeighbourTravel(input: NeighbourTravelInput): (cell: { x: 
     }
     setCommand({ kind: "travel", unitId, outcome: null });
     markTarget?.(cell);
+    prefetch?.(target.mapKey);
     void sendTravelCommand({
       t: "travel_start",
       unitId,

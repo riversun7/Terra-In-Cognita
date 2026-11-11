@@ -21,6 +21,9 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY . .
 ARG APP_BUILD=dev
 ENV APP_BUILD=${APP_BUILD}
+# 차례로 늘어나는 빌드 번호(CI 실행 번호). 없으면(손으로 만든 이미지) 빈 값 — 화면은 커밋 앞자리만 보인다
+ARG APP_BUILD_NUMBER=
+ENV APP_BUILD_NUMBER=${APP_BUILD_NUMBER}
 RUN pnpm --filter @terra/game build && pnpm --filter @terra/server build
 # 서버 실행에 필요한 것만 모은다 (dist + 운영용 node_modules)
 RUN pnpm --filter @terra/server deploy --prod /out

@@ -55,6 +55,18 @@ describe("createTargetLife", () => {
     expect(life.update(4, false, 1_000 + TARGET_WAIT_MS)).toBeNull();
   });
 
+  it("shift: 남은 목적지를 다른 틀로 옮기고 거두는 규칙은 그대로", () => {
+    const life = createTargetLife();
+    life.set({ x: 260, y: 10 }, 4, 1_000);
+    life.shift((cell) => ({ x: cell.x - 256, y: cell.y }));
+    expect(life.update(4, false, 1_001)).toEqual({ x: 4, y: 10 });
+    expect(life.update(5, true, 1_002)).toEqual({ x: 4, y: 10 });
+    expect(life.update(5, false, 1_003)).toBeNull();
+    // 목적지가 없으면 아무 일도 없다
+    life.shift(() => ({ x: 1, y: 1 }));
+    expect(life.update(5, false, 1_004)).toBeNull();
+  });
+
   it("null로 거둔다", () => {
     const life = createTargetLife();
     life.set({ x: 1, y: 1 }, 0, 0);

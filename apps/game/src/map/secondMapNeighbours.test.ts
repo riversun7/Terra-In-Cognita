@@ -6,6 +6,7 @@ import {
   type NeighbourSpot,
   neighbourSpots,
   neighbourTerrainUrl,
+  nearMarginM,
   terrainVersionOf,
   viewMap,
   wantedDirections,
@@ -98,6 +99,13 @@ describe("이웃 받기", () => {
     expect(wantedDirections(750, 750, 1500)).toEqual([]);
     expect(wantedDirections(1450, 750, 1500)).toEqual(["1,0"]);
     expect(wantedDirections(-10, 1490, 1500).toSorted()).toEqual(["-1,0", "-1,1", "0,1"]);
+    // 받기 시작하는 거리를 넓히면 변에서 멀어도 그쪽
+    expect(wantedDirections(1000, 750, 1500)).toEqual([]);
+    expect(wantedDirections(1000, 750, 1500, 600)).toEqual(["1,0"]);
+    // 가까이(카메라 거리 짧음)는 변의 20%, 멀리 보면 화면에 드는 만큼, 많아야 변의 45%(양쪽을 함께 바라지 않는다)
+    expect(nearMarginM(1500, 100)).toBe(300);
+    expect(nearMarginM(1500, 200)).toBe(500);
+    expect(nearMarginM(1500, 5_000)).toBe(675);
     expect(viewMap(1600, 20, 1500)).toBe("1,0");
     expect(viewMap(700, -5, 1500)).toBe("0,-1");
     expect(wantsAllNeighbours("?second-map-neighbours=all&x=1")).toBe(true);

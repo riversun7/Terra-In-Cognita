@@ -74,3 +74,17 @@ export function buildPropTextureData(
   }
   return out;
 }
+
+/** 소금 범위(칸 해시에 섞는 작은 정수) */
+const SALT_RANGE = 4_096;
+
+/**
+ * 2차맵 이름 → 소품 소금. 같은 2차맵이면 지금 2차맵이든 이웃이든 같은 값이라, 옆 2차맵으로 넘어도 나무가 같은 자리에 선다
+ * (docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-11)"). 이름을 모르면 0
+ */
+export function propSalt(id: string | null): number {
+  if (id === null) return 0;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 0x01000193);
+  return (hash >>> 0) % SALT_RANGE;
+}

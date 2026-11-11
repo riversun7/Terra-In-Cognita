@@ -9,13 +9,14 @@
 //   시안 자료를 켜면 시안 본체의 칸·인벤토리를 그대로 보인다(바꾸는 동작 없음). docs/adr/2026-11-03-item-holdings.md "바뀜 (화면)".
 // - 핵심 사양·상세 전투 스펙에는 입은 장비·인공장기·1차 스탯 버프가 든다(서버 셈, 같은 ADR "바뀜 (2026-11-07 …)"). 보유 물건 목록이
 //   다시 오면(장착·해제·사용 뒤) 사이보그 자료를 다시 받는다.
+// - 3D 외형을 고르기 전에 만든 사이보그는 그림 아래 [외형 고르기]로 3D 외형을 한 번 고른다(LookPick.tsx, 질문 961 나).
 // - 환생은 "곧 열림"이다. 환생 단추는 "가장 가까운 환생 시설로 가는 길"이다(D-441).
 // - 좁은 폭은 판을 위에서 아래로(머리 → 핵심 사양 → 전투 스펙 → 스킬 → 속성 → 인벤토리 → 환생 → 랭킹),
 //   넓은 폭(64em 이상)은 머리 판을 가로로 길게(인공장기 | 그림 | 장비) 두고 그 아래 두 열(왼쪽 핵심 사양·전투 스펙, 오른쪽 나머지).
 // 지연 로딩 조각(routeViews.tsx). 그림·이 화면 코드는 첫 화면 묶음에 들어가지 않는다.
 import type { CyborgBody, CyborgGetResponse, RosterNames, RosterSlot } from "@terra/shared/roster";
 import type { HoldingsListResponse } from "@terra/shared/holdings";
-import { useEffect, useId, useRef } from "react";
+import { Suspense, lazy, useEffect, useId, useRef, useState } from "react";
 import { DevGrant } from "../holdings/DevGrant.tsx";
 import { SlotTileButton } from "../holdings/HoldingParts.tsx";
 import { ReplaceDialog, SlotSheet } from "../holdings/HoldingsDialogs.tsx";
@@ -40,6 +41,9 @@ import { CombatSpecs } from "./CombatSpecs.tsx";
 import { CoreStats } from "./CoreStats.tsx";
 import { Elements, Inventory, Rankings, Rebirth, SkillSlots, StatusFooter } from "./CyborgExtras.tsx";
 import "./cyborg.css";
+
+// 3D 외형 한 번 고르기 창(질문 961 나): 누를 때 받는다(미리 보기 엔진·외형 단계 코드를 이 조각에 넣지 않는다)
+const LookPick = lazy(() => import("./LookPick.tsx"));
 
 export default function CyborgScreen() {
   const id = useId();
@@ -120,7 +124,7 @@ function WithHoldings({
       : null;
   return (
     <>
-      <BodyLayout data={data} holdings={{ controller, view }} />
+      <BodyLayout data={data} holdings={{ controller, view }} onReload={onHoldingsChanged} />
       <SlotSheet view={view} controller={controller} names={data.names} />
       <ReplaceDialog view={view} controller={controller} />
     </>
@@ -153,7 +157,16 @@ function InventoryBody({
   );
 }
 
-function BodyLayout({ data, holdings }: { data: CyborgGetResponse; holdings: CyborgHoldings | null }) {
+function BodyLayout({
+  data,
+  holdings,
+  onReload,
+}: {
+  data: CyborgGetResponse;
+  holdings: CyborgHoldings | null;
+  /** 사이보그 자료를 다시 받는다(외형을 고른 뒤 — 실제 사이보그만) */
+  onReload?: () => void;
+}) {
   const id = useId();
   const body = data.body;
   // 생명 수치(D-512): 실제 본체만(시안 본체에는 붙이지 않는다). 보유 물건 목록이 다시 오면(회복 물약 등) 같이 다시 받는다
@@ -163,7 +176,12 @@ function BodyLayout({ data, holdings }: { data: CyborgGetResponse; holdings: Cyb
   return (
     <>
       {data.preview ? <p className="roster-notice">{m.roster_preview_notice()}</p> : null}
-      <Hero data={data} holdings={holdings} vitals={data.preview ? undefined : vitals.cyborg} />
+      <Hero
+        data={data}
+        holdings={holdings}
+        vitals={data.preview ? undefined : vitals.cyborg}
+        onReload={onReload}
+      />
       <div className="cyborg-columns">
         <div className="cyborg-column">
           {body ? (
@@ -230,10 +248,12 @@ function Hero({
   data,
   holdings,
   vitals,
+  onReload,
 }: {
   data: CyborgGetResponse;
   holdings: CyborgHoldings | null;
   vitals: VitalsShown | undefined;
+  onReload: (() => void) | undefined;
 }) {
   const id = useId();
   const body = data.body;
@@ -270,6 +290,9 @@ function Hero({
               {Array.from(data.name)[0] ?? "?"}
             </span>
           )}
+          {data.lookPick && data.look && holdings && onReload ? (
+            <LookPickEntry look={data.look} onSaved={onReload} />
+          ) : null}
         </div>
         <SlotGroup
           id={`${id}-organs`}
@@ -326,6 +349,45 @@ function Hero({
           {m.cyborg_units_link({ count: formatNumber(data.unitCount) })}
         </AppLink>
       </p>
+    </div>
+  );
+}
+
+/**
+ * [외형 고르기](질문 961 나): 3D 외형을 고르기 전에 만든 사이보그에게만 보인다(서버 lookPick). 누르면 외형 고르기 창을 연다. 정하면 자료를 다시
+ * 받고, 서버가 lookPick을 거두면 이 단추가 사라진다
+ */
+function LookPickEntry({
+  look,
+  onSaved,
+}: {
+  look: NonNullable<CyborgGetResponse["look"]>;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="cyborg-look-entry">
+      <button
+        type="button"
+        className="button-small cyborg-look-pick-open"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      >
+        {m.cyborg_look_pick()}
+      </button>
+      <p className="roster-note">{m.cyborg_look_pick_note()}</p>
+      {open ? (
+        <Suspense fallback={null}>
+          <LookPick
+            initial={look}
+            onClose={() => setOpen(false)}
+            onSaved={() => {
+              setOpen(false);
+              onSaved();
+            }}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

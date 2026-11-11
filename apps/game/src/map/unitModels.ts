@@ -4,10 +4,15 @@
 // - 외형: tRPC world.unitLooks가 준 것(사이보그 본체 = 고른 외형, NPC 지도자)이 먼저, 나머지는 유닛 ID로 만든 수수한 기본 외형.
 //   받은 외형은 목록·범위를 다시 본다(isCharacterLook). 답이 실패해도 지도는 그대로다(기본 외형으로 그린다).
 // - 묻는 때: 처음, 유닛 목록(ID 묶음)이 바뀌면 조금 뒤, 그 밖에는 60초마다. 숨긴 탭에서는 쉰다.
-import type { SecondMapEngine, UnitModel, UnitSpawn } from "@terra/engine";
+// - 발밑 나라 색 고리(질문 963 나): 같은 답의 나라(nations — 보는 유닛, 종류와 상관없이)를 건물 깃발과 같은 국가 색 번호(buildingLooks.ts
+//   accentOf, world.cities 국가 차례)로 바꿔 엔진에 넘긴다. 국가 차례는 건물 겉모습이 받은 것을 같이 쓴다(setFactions — 한 번만 묻는다).
+//   ?unit-models=0이어도 고리는 그린다(모델만 끈다).
+import type { SecondMapEngine, UnitModel, UnitRing, UnitSpawn } from "@terra/engine";
 import { type CharacterLook, characterLookForUnit, isCharacterLook } from "@terra/shared/characterLook";
-import type { MapUnitLooksResponse } from "@terra/shared/mapUnits";
+import type { MapUnitLooksResponse, MapUnitNation } from "@terra/shared/mapUnits";
+import type { WorldMapFaction } from "@terra/shared/worldMap";
 import { api } from "../net/api.ts";
+import { accentOf } from "./buildingLooks.ts";
 import type { FeedSink } from "./feedTypes.ts";
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -52,9 +57,25 @@ export function unitModelsOf(
   return out;
 }
 
+/** 나라 목록 → 유닛 발밑 고리(국가 색 번호, 건물 깃발과 같은 번호). 나라가 없는 유닛은 목록에 없다 */
+export function unitRingsOf(
+  nations: readonly MapUnitNation[],
+  factions: readonly WorldMapFaction[],
+): UnitRing[] {
+  const out: UnitRing[] = [];
+  for (const nation of nations) {
+    const accent = accentOf(factions, nation.factionId);
+    if (accent === null) continue;
+    for (const id of nation.unitIds) out.push({ id, accent });
+  }
+  return out;
+}
+
 export interface UnitModels {
   /** 엔진 앞에 끼우는 자료 받는 쪽(유닛 목록을 볼 뿐 바꾸지 않는다) */
   readonly sink: FeedSink;
+  /** 국가 차례(world.cities — 건물 겉모습이 받은 것). 받으면 고리 색을 다시 정한다 */
+  setFactions(list: readonly WorldMapFaction[]): void;
   stop(): void;
 }
 
@@ -66,13 +87,15 @@ export interface UnitModelsOptions {
 
 /** 엔진(engine)에 유닛 외형을 이어 준다. 화면을 닫을 때 stop */
 export function startUnitModels(
-  engine: FeedSink & Pick<SecondMapEngine, "setUnitModels">,
+  engine: FeedSink & Pick<SecondMapEngine, "setUnitModels" | "setUnitRings">,
   mapKey: number,
   options: UnitModelsOptions = {},
 ): UnitModels {
   const load = options.load ?? loadUnitLooks;
-  // 끈 채로는 아무것도 묻지 않고 그대로 넘긴다
-  if (options.enabled === false) return { sink: engine, stop: () => undefined };
+  // 모델을 끄면(시험용) 외형은 넘기지 않고 나라 색 고리만 넘긴다
+  const models = options.enabled !== false;
+  let nations: readonly MapUnitNation[] = [];
+  let factions: readonly WorldMapFaction[] = [];
   let units: readonly UnitSpawn[] = [];
   let known = new Map<number, CharacterLook>();
   const defaults = new Map<number, CharacterLook>();
@@ -92,7 +115,10 @@ export function startUnitModels(
   };
 
   const push = (): void => {
-    if (!stopped) engine.setUnitModels(unitModelsOf(units, known, fallback));
+    if (!stopped && models) engine.setUnitModels(unitModelsOf(units, known, fallback));
+  };
+  const pushRings = (): void => {
+    if (!stopped) engine.setUnitRings(unitRingsOf(nations, factions));
   };
 
   const refresh = async (): Promise<void> => {
@@ -101,14 +127,16 @@ export function startUnitModels(
     try {
       const response = await load(mapKey, AbortSignal.timeout(REQUEST_TIMEOUT_MS));
       if (stopped || response.status !== "ready") return;
-      const signature = JSON.stringify(response.units);
+      const signature = JSON.stringify([response.units, response.nations ?? []]);
       if (signature === lastSignature) return;
       lastSignature = signature;
       // 받은 외형은 다시 본다(목록 밖 ID·범위 밖 값은 버린다 — 그 유닛은 기본 외형)
       known = new Map(
         response.units.filter((row) => isCharacterLook(row.look)).map((row) => [row.unitId, row.look]),
       );
+      nations = response.nations ?? [];
       push();
+      pushRings();
     } catch {
       // 외형은 그림만 바꾼다: 실패하면 다음 차례에 다시 묻는다
     } finally {
@@ -156,6 +184,10 @@ export function startUnitModels(
 
   return {
     sink,
+    setFactions(list) {
+      factions = list;
+      pushRings();
+    },
     stop() {
       stopped = true;
       clearInterval(timer);

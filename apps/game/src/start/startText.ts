@@ -55,6 +55,7 @@ const COMMAND_ERRORS = {
   elements_invalid: m.start_error_elements,
   elements_locked: m.start_error_elements_locked,
   no_cyborg: m.start_error_no_cyborg,
+  look_locked: m.cyborg_look_pick_locked,
   offline: m.start_error_offline,
   timeout: m.start_error_retry,
 } satisfies Record<CyborgResultCode | "offline" | "timeout", Text>;

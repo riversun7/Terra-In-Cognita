@@ -73,6 +73,8 @@ export interface BuildingLooksOptions {
   readonly loadFactions?: (signal: AbortSignal) => Promise<readonly WorldMapFaction[]>;
   /** 새 겉모습 답을 받았을 때(근처 목록 건물 탭의 이름·내 것) */
   readonly onLooks?: (rows: readonly MapBuildingLook[]) => void;
+  /** 국가 차례를 받았을 때(유닛 발밑 나라 색 고리가 같은 번호를 쓴다 — unitModels.ts, 질문 963 나) */
+  readonly onFactions?: (list: readonly WorldMapFaction[]) => void;
 }
 
 /** 엔진(engine)에 건물 겉모습을 이어 준다. 화면을 닫을 때 stop */
@@ -131,6 +133,7 @@ export function startBuildingLooks(
     .then((list) => {
       factions = list;
       lastSignature = "";
+      if (!stopped) options.onFactions?.(list);
     })
     .catch(() => undefined)
     .finally(() => void refresh());

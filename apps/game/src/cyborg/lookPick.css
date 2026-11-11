@@ -1,0 +1,29 @@
+/* 3D 외형 한 번 고르기 창(LookPick.tsx, 질문 961 나) — 창 틀은 보유 물건 창(holdings.css .holdings-dialog)과 같다.
+   안의 외형 단계는 만들기 화면 그대로(start/looks.css). 값은 tokens.css만 쓴다. */
+.cyborg-look-pick-panel {
+  min-width: 0;
+}
+.cyborg-look-pick-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cyborg-look-pick-status {
+  margin: 0;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.cyborg-look-pick-status[data-state="confirm"],
+.cyborg-look-pick-status[data-state="failed"] {
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+}
+.cyborg-look-pick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.cyborg-look-pick-actions > button {
+  flex: 1 1 8em;
+  min-height: var(--control-h);
+}

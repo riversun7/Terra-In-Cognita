@@ -16,6 +16,7 @@ import {
   facilityEntrySchema,
   gatherTierEntrySchema,
   nationPresetEntrySchema,
+  nationTierEntrySchema,
   necessityEntrySchema,
   recipeEntrySchema,
 } from "./economy.ts";
@@ -65,6 +66,8 @@ export const CATEGORIES: CategoryRegistry = {
   recipes: { entry: recipeEntrySchema },
   necessities: { entry: necessityEntrySchema },
   nation_presets: { entry: nationPresetEntrySchema },
+  // 국력 등급 표(등급마다 한 줄, docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)")
+  nation_tiers: { entry: nationTierEntrySchema },
   gather_tiers: { entry: gatherTierEntrySchema },
   ranking_paths: { entry: rankingPathEntrySchema },
   stat_rows: { entry: statRowEntrySchema },

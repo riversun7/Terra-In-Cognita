@@ -17,6 +17,7 @@ import {
   type ItemSubcategoryEntry,
   type ItemTagEntry,
   type NationPresetEntry,
+  type NationTierEntry,
   type PackSource,
   type SkillEntry,
   type UnitKindEntry,
@@ -31,6 +32,7 @@ import {
   itemSubcategoryEntrySchema,
   itemTagEntrySchema,
   nationPresetEntrySchema,
+  nationTierEntrySchema,
   skillEntrySchema,
   unitKindEntrySchema,
   weaponTypeEntrySchema,
@@ -91,6 +93,8 @@ export interface ContentEffective {
    * (trpc units.guide)이 읽는다. 판정에 쓰지 않는다
    */
   readonly combatClasses: readonly CombatClassEntry[];
+  /** 국력 등급 표(같은 편집기의 등급 탭 — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"). 국가 프리셋의 powerTier가 가리킨다 */
+  readonly nationTiers: readonly NationTierEntry[];
 }
 
 export interface ContentSnapshot {
@@ -175,6 +179,7 @@ function parseEffective(raw: RawEntries): ContentEffective {
     creatures: raw.creatures.map((entry) => creatureEntrySchema.parse(entry)),
     nationPresets: raw.nation_presets.map((entry) => nationPresetEntrySchema.parse(entry)),
     combatClasses: raw.combat_classes.map((entry) => combatClassEntrySchema.parse(entry)),
+    nationTiers: raw.nation_tiers.map((entry) => nationTierEntrySchema.parse(entry)),
   };
 }
 

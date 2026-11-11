@@ -16,7 +16,7 @@ import { nationPresetsOf } from "../npc/presets.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { mapTerrainFromTemp } from "../world/mapTerrain.ts";
 import type { TerrainService } from "../world/terrainService.ts";
-import { flatTerrain } from "../world/testSupport.ts";
+import { flatTerrain, legacyNationPresets } from "../world/testSupport.ts";
 import { nationLookupOf } from "../world/nationVision.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { OPEN_SEARCH_MAPS, mapRoute, sideToward } from "./route.ts";
@@ -24,7 +24,8 @@ import { OPEN_SEARCH_MAPS, mapRoute, sideToward } from "./route.ts";
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
-const presets = nationPresetsOf(loaded.pack);
+// 옛 규칙(등급 없음, 성격 칸 도시 수 4·3·2)을 보는 시험이다 — 국력 등급 씨앗은 world/nationTiers.db.test.ts
+const presets = legacyNationPresets(nationPresetsOf(loaded.pack));
 
 /** 가짜 행성 값: 면 5는 바다, 나머지는 풀밭(15°C·강수 400mm·숲 없음·고도 120m) */
 function cellValues(mapKey: number): PlanetCellValues {

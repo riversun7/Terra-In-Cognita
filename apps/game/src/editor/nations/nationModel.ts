@@ -9,6 +9,13 @@ import {
 } from "@terra/shared/nationEditor";
 import { type NationEmblemSpec, contrastOf, emblemOfId } from "@terra/shared/nationEmblem";
 import { FACTION_IDENTITY_COLORS } from "@terra/shared/factionIdentity";
+import {
+  type NationStart,
+  type NationStartDefaults,
+  type NationTierJson,
+  nationStartTotals,
+  resolveNationStart,
+} from "@terra/shared/nationTier";
 import { mergeThreeWay } from "../content/contentEditorModel.ts";
 
 /** 국가 하나의 담은 변경: 고친 항목 통째 또는 팩 값으로 되돌리기. base·baseHash = 고치기 시작할 때의 실효 항목·해시 */
@@ -21,20 +28,58 @@ export type StagedNation =
     }
   | { readonly op: "revert"; readonly base: NationPresetJson; readonly baseHash: string };
 
+/** 국력 등급 표 한 줄의 담은 변경(국가와 같은 꼴) */
+export type StagedTier =
+  | {
+      readonly op: "put";
+      readonly entry: NationTierJson;
+      readonly base: NationTierJson;
+      readonly baseHash: string;
+    }
+  | { readonly op: "revert"; readonly base: NationTierJson; readonly baseHash: string };
+
 export interface NationStage {
   readonly nations: ReadonlyMap<string, StagedNation>;
   /** 버릴 잠든 줄(국가 ID) */
   readonly discard: ReadonlySet<string>;
+  /** 국력 등급 표 줄(등급 ID) */
+  readonly tiers: ReadonlyMap<string, StagedTier>;
+  /** 이번에 새로 만드는 프리셋 ID(nations에 put으로 들어 있다 — 랜덤 국가 추가) */
+  readonly created: ReadonlySet<string>;
 }
 
-export const EMPTY_NATION_STAGE: NationStage = { nations: new Map(), discard: new Set() };
+export const EMPTY_NATION_STAGE: NationStage = {
+  nations: new Map(),
+  discard: new Set(),
+  tiers: new Map(),
+  created: new Set(),
+};
 
 /** 국가 하나의 담음을 바꾼다(null = 뺀다) */
 export function stageNation(stage: NationStage, id: string, next: StagedNation | null): NationStage {
   const nations = new Map(stage.nations);
   if (next === null) nations.delete(id);
   else nations.set(id, next);
-  return { ...stage, nations };
+  // 새로 만드는 프리셋을 빼면 만들기도 함께 빠진다
+  if (next !== null || !stage.created.has(id)) return { ...stage, nations };
+  const created = new Set(stage.created);
+  created.delete(id);
+  return { ...stage, nations, created };
+}
+
+/** 새 프리셋(랜덤 국가 추가)을 담는다 */
+export function stageCreatedNation(stage: NationStage, entry: NationPresetJson): NationStage {
+  const nations = new Map(stage.nations);
+  nations.set(entry.id, { op: "put", entry, base: entry, baseHash: "" });
+  return { ...stage, nations, created: new Set([...stage.created, entry.id]) };
+}
+
+/** 등급 표 한 줄의 담음을 바꾼다(null = 뺀다) */
+export function stageTier(stage: NationStage, id: string, next: StagedTier | null): NationStage {
+  const tiers = new Map(stage.tiers);
+  if (next === null) tiers.delete(id);
+  else tiers.set(id, next);
+  return { ...stage, tiers };
 }
 
 export function stageNationDiscard(stage: NationStage, id: string, on: boolean): NationStage {
@@ -47,13 +92,20 @@ export function stageNationDiscard(stage: NationStage, id: string, on: boolean):
 export const nationStageKeys = (stage: NationStage): string[] => [
   ...stage.nations.keys(),
   ...[...stage.discard].map((id) => `sleeping/${id}`),
+  ...[...stage.tiers.keys()].map((id) => `tier/${id}`),
 ];
 
 /** 담은 변경 → 서버 묶음 */
 export function nationChangesOf(stage: NationStage): NationEditorChange[] {
   const changes: NationEditorChange[] = [];
+  // 등급 표가 먼저(같은 묶음에서 프리셋이 가리키는 등급 줄이 있어야 한다)
+  for (const [id, staged] of stage.tiers) {
+    if (staged.op === "put") changes.push({ op: "put_tier", entry: staged.entry, baseHash: staged.baseHash });
+    else changes.push({ op: "revert_tier", id, baseHash: staged.baseHash });
+  }
   for (const [id, staged] of stage.nations) {
-    if (staged.op === "put") changes.push({ op: "put", entry: staged.entry, baseHash: staged.baseHash });
+    if (staged.op === "put" && stage.created.has(id)) changes.push({ op: "create", entry: staged.entry });
+    else if (staged.op === "put") changes.push({ op: "put", entry: staged.entry, baseHash: staged.baseHash });
     else changes.push({ op: "revert", id, baseHash: staged.baseHash });
   }
   for (const id of stage.discard) changes.push({ op: "discard_sleeping", id });
@@ -63,8 +115,29 @@ export function nationChangesOf(stage: NationStage): NationEditorChange[] {
 /** 서버에 보낼 묶음: 초안의 빈 선택 칸을 뺀다(초안에는 치는 글자를 그대로 둔다) */
 export const nationBatchOf = (stage: NationStage): NationEditorChange[] =>
   nationChangesOf(stage).map((change) =>
-    change.op === "put" ? { ...change, entry: cleanNation(change.entry) } : change,
+    change.op === "put" || change.op === "create"
+      ? { ...change, entry: cleanNation(change.entry) }
+      : change.op === "put_tier"
+        ? { ...change, entry: cleanTier(change.entry) }
+        : change,
   );
+
+/** 등급 표 한 줄(팩 파일과 같은 칸 차례 — 내보내기가 팩 파일에 그대로 들어간다) */
+export function cleanTier(entry: NationTierJson): NationTierJson {
+  return {
+    id: entry.id,
+    name: { ko: entry.name.ko, en: entry.name.en },
+    startCities: entry.startCities,
+    startHousing: entry.startHousing,
+    startPopulationPm: entry.startPopulationPm,
+    facilities: entry.facilities.map((row) => ({ facility: row.facility, count: row.count })),
+    guardsPerCity: entry.guardsPerCity,
+    startTech: entry.startTech,
+    startCreditPm: entry.startCreditPm,
+    cityStepCells: entry.cityStepCells,
+    homeGapPm: entry.homeGapPm,
+  };
+}
 
 function cleanPersonality(p: NationPersonalityJson): NationPersonalityJson | undefined {
   const out: NationPersonalityJson = {
@@ -82,6 +155,8 @@ function cleanPersonality(p: NationPersonalityJson): NationPersonalityJson | und
     ...(p.startLumberCamps === undefined ? {} : { startLumberCamps: p.startLumberCamps }),
     ...(p.startMines === undefined ? {} : { startMines: p.startMines }),
     ...(p.startStorehouses === undefined ? {} : { startStorehouses: p.startStorehouses }),
+    ...(p.startGuards === undefined ? {} : { startGuards: p.startGuards }),
+    ...(p.startTech === undefined ? {} : { startTech: p.startTech }),
   };
   return Object.keys(out).length === 0 ? undefined : out;
 }
@@ -111,6 +186,7 @@ export function cleanNation(entry: NationPresetJson): NationPresetJson {
         }
       : {}),
     ...(entry.nameStyle === undefined ? {} : { nameStyle: entry.nameStyle }),
+    ...(entry.powerTier === undefined ? {} : { powerTier: entry.powerTier }),
     currency: {
       code: entry.currency.code,
       name: { ko: entry.currency.name.ko, en: entry.currency.name.en },
@@ -173,9 +249,9 @@ export const emblemOf = (entry: NationPresetJson): NationEmblemSpec => entry.emb
 export const FALLBACK_COLOR = "#888888";
 export const colorOf = (entry: NationPresetJson): string => entry.color ?? FALLBACK_COLOR;
 
-/** 이 국가가 실제로 받을 시작 수(국가 칸 → 설정 칸 기본값) */
+/** 이 국가가 실제로 받을 시작 수(국가 칸 → 국력 등급 표 → 설정 칸 기본값) */
 export interface NationStartCounts {
-  /** 시작 도시 수(설정 칸 아래 끝~위 끝 안으로 자른 값) */
+  /** 시작 도시 수 */
   readonly cities: number;
   /** 새 시작 도시 하나의 주거 */
   readonly housing: number;
@@ -185,25 +261,59 @@ export interface NationStartCounts {
   readonly totalPopulation: number;
   /** 시작 도시 하나의 기본 시설 수(행정 건물 1 + 창고 + 채집 시설 — 채집 시설은 둘레 땅에 맞는 것만 선다, 여기는 위 끝) */
   readonly facilities: number;
+  /** 시작 도시 하나의 경비대·나라 전체 경비대 */
+  readonly guards: number;
+  readonly totalGuards: number;
 }
 
-export function startCountsOf(entry: NationPresetJson, defaults: NationSeedDefaults): NationStartCounts {
-  const p = entry.personality ?? {};
-  const low = Math.min(defaults.startCitiesMin, defaults.startCitiesMax);
-  const high = Math.max(defaults.startCitiesMin, defaults.startCitiesMax);
-  const cities = p.startCities === undefined ? low : Math.max(low, Math.min(high, Math.trunc(p.startCities)));
-  const housing = p.startHousing ?? defaults.housing;
-  const population = Math.max(
-    0,
-    Math.floor((housing * (p.startPopulationPm ?? defaults.populationPm)) / 1000),
-  );
-  const facilities =
-    1 +
-    (p.startStorehouses ?? defaults.storehouses) +
-    (p.startFarms ?? defaults.farms) +
-    (p.startLumberCamps ?? defaults.lumberCamps) +
-    (p.startMines ?? defaults.mines);
-  return { cities, housing, population, totalPopulation: population * cities, facilities };
+/** 설정 칸의 지금 값 → 시작 값 풀기의 바닥 값(@terra/shared/nationTier) */
+export function startDefaultsOf(defaults: NationSeedDefaults): NationStartDefaults {
+  return {
+    startCitiesMin: defaults.startCitiesMin,
+    startCitiesMax: defaults.startCitiesMax,
+    housing: defaults.housing,
+    populationPm: defaults.populationPm,
+    facilities: {
+      farm: defaults.farms,
+      lumber_camp: defaults.lumberCamps,
+      mine: defaults.mines,
+      storehouse: defaults.storehouses,
+    },
+    cityStepCells: defaults.cityStepCells,
+  };
+}
+
+/** 이 국가의 등급 표 줄(등급 칸이 없거나 줄이 없으면 undefined) */
+export const tierOf = (
+  entry: NationPresetJson,
+  tiers: readonly NationTierJson[],
+): NationTierJson | undefined =>
+  entry.powerTier === undefined ? undefined : tiers.find((tier) => tier.id === entry.powerTier);
+
+/** 이 국가의 시작 값(서버 세계 씨앗과 같은 풀기) */
+export const nationStartOf = (
+  entry: NationPresetJson,
+  defaults: NationSeedDefaults,
+  tiers: readonly NationTierJson[],
+): NationStart => resolveNationStart(startDefaultsOf(defaults), tierOf(entry, tiers), entry.personality);
+
+export function startCountsOf(
+  entry: NationPresetJson,
+  defaults: NationSeedDefaults,
+  tiers: readonly NationTierJson[] = [],
+): NationStartCounts {
+  const start = nationStartOf(entry, defaults, tiers);
+  const totals = nationStartTotals(start);
+  const facilities = 1 + Object.values(start.facilities).reduce((sum, count) => sum + count, 0);
+  return {
+    cities: start.startCities,
+    housing: start.housing,
+    population: start.populationPerCity,
+    totalPopulation: totals.population,
+    facilities,
+    guards: start.guardsPerCity,
+    totalGuards: totals.guards,
+  };
 }
 
 /** 지도 바탕 두 가지(밝은 테마·어두운 테마의 지도 판) — 색 표지가 구별되는지 보는 기준 [임시] */

@@ -510,6 +510,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           seed: () => tuningState.society().worldSeed,
           nationName: (code) => nationName(code, options.world?.npc?.presets),
           now,
+          // 국력 등급·세울 수 있는 국가(실효 프리셋 — 저장하면 제자리에서 바뀐다)
+          presets: () => options.world?.npc?.presets ?? [],
+          testNations: options.world?.npc?.testNations,
+          territory: () => tuningState.society().territory,
         })
       : undefined;
   // 구인 카드(D-469): 세계가 준비되고 NPC 사회 런타임이 돌 때만(거울 도시·시드가 런타임에 있다)

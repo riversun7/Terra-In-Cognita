@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -42,6 +43,11 @@ export const worldHumans = pgTable(
      * 쓰기 대기열 humans 행은 이 칸을 쓰지 않는다(humanGrowth만 — 다른 쓰기가 덮지 않게)
      */
     kPm: smallint("k_pm").array(),
+    /**
+     * 경비대(국력 등급 씨앗 — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"): NPC 나라 도시의 상비 전투 휴먼. 일꾼으로 세지 않고
+     * 행정 건물 둘레에 머물며 그 도시가 공격받을 때 먼저 수비로 나선다. 쓰기 대기열 humans 행은 이 칸을 쓰지 않는다(humanGuard만)
+     */
+    guard: boolean("guard").notNull().default(false),
   },
   (table) => [
     index("world_humans_city_idx").on(table.cityId),

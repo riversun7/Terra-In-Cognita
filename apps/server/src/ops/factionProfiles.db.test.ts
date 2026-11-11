@@ -1,6 +1,7 @@
 // 세력 정체성·화폐 표시 DB 시험 — TEST_DATABASE_URL이 있을 때만(docs/adr/2026-11-09-faction-profiles.md).
 // 처음 정하기(고정 NPC 나라 = 팩 프리셋, 반란 세력 = 기본값·따르는 나라 화폐), 한 번 정한 값은 다시 정하지 않음, 약어·티커 고유,
 // 관리자 수정(겹치면 거절·틀린 값 거절), 운영자 콘솔 세력·화폐 목록에 실린다.
+import { legacyNationPresets } from "../world/testSupport.ts";
 import { loadContentPack } from "@terra/content/node";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
@@ -22,7 +23,8 @@ import { createOpsServices } from "./services.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.pack) throw new Error("content pack");
-const presets = nationPresetsOf(loaded.pack);
+// 옛 규칙(등급 없음, 성격 칸 도시 수 4·3·2)을 보는 시험이다 — 국력 등급 씨앗은 world/nationTiers.db.test.ts
+const presets = legacyNationPresets(nationPresetsOf(loaded.pack));
 const NOW = 1_800_000_000_000;
 
 let test: TestDatabase;

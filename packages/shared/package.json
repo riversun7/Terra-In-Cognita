@@ -40,6 +40,8 @@
     "./nameGen": "./src/nameGen.ts",
     "./nationEditor": "./src/nationEditor.ts",
     "./nationEmblem": "./src/nationEmblem.ts",
+    "./nationRandom": "./src/nationRandom.ts",
+    "./nationTier": "./src/nationTier.ts",
     "./planetCalendar": "./src/planetCalendar.ts",
     "./planetScope": "./src/planetScope.ts",
     "./pngChunks": "./src/pngChunks.ts",

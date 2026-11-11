@@ -2,8 +2,32 @@
 // 나라 성격·도시 이름(기획 답 504 다·510 다·531 다·533 다·554 다, D-518 — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"·"WP10"),
 // 지도자 이름(같은 ADR "WP-NPC"), 휴먼 이름 조각(같은 ADR "WP-NPC4", 기획 답 773 나),
 // 국가마다 세계 씨앗 값·국가 마크 사양·실효 프리셋(시작 국가 설정 편집기 /dev/nations — docs/adr/2026-11-10-nation-editor.md)
-import { type ContentPack, type NationPresetEntry, nationPresetEntrySchema } from "@terra/content";
+import {
+  type ContentPack,
+  type NationPresetEntry,
+  type NationTierEntry,
+  nationPresetEntrySchema,
+  nationTierEntrySchema,
+} from "@terra/content";
+import type { NationTierJson } from "@terra/shared/nationTier";
 import type { NationPreset } from "./nations.ts";
+
+/** 파싱한 등급 표 줄 → JSON 모양(시설 참조 = ID 글) */
+export function nationTierJsonOf(entry: NationTierEntry): NationTierJson {
+  return {
+    id: entry.id,
+    name: { ko: entry.name.ko, en: entry.name.en },
+    startCities: entry.startCities,
+    startHousing: entry.startHousing,
+    startPopulationPm: entry.startPopulationPm,
+    facilities: entry.facilities.map((row) => ({ facility: row.facility.id, count: row.count })),
+    guardsPerCity: entry.guardsPerCity,
+    startTech: entry.startTech,
+    startCreditPm: entry.startCreditPm,
+    cityStepCells: entry.cityStepCells,
+    homeGapPm: entry.homeGapPm,
+  };
+}
 
 /** 값이 있는 수 칸만 남긴다(exactOptionalPropertyTypes: 없는 칸은 키째 뺀다) */
 function numbers<K extends string>(
@@ -17,15 +41,24 @@ function numbers<K extends string>(
   return out;
 }
 
-/** 파싱한 국가 프리셋(켜진 것만, 준 차례) → 서버가 쓰는 모양. 프리셋 ID가 세력 코드가 된다 */
-export function nationPresetsFrom(entries: readonly NationPresetEntry[]): NationPreset[] {
+/**
+ * 파싱한 국가 프리셋(켜진 것만, 준 차례) → 서버가 쓰는 모양. 프리셋 ID가 세력 코드가 된다. tiers = 국력 등급 표(프리셋 칸 powerTier가
+ * 가리키는 줄을 프리셋에 붙인다 — 줄이 없으면 등급 없음)
+ */
+export function nationPresetsFrom(
+  entries: readonly NationPresetEntry[],
+  tiers: readonly NationTierEntry[] = [],
+): NationPreset[] {
+  const tierById = new Map(tiers.map((tier) => [tier.id, nationTierJsonOf(tier)]));
   return entries
     .filter((entry) => entry.enabled)
     .map((entry) => {
       const personality = entry.personality;
+      const tier = entry.powerTier === undefined ? undefined : tierById.get(entry.powerTier);
       return {
         code: entry.id,
         name: { ko: entry.name.ko, en: entry.name.en },
+        ...(tier ? { tier } : {}),
         ...(personality
           ? {
               personality: {
@@ -38,6 +71,8 @@ export function nationPresetsFrom(entries: readonly NationPresetEntry[]): Nation
                   startLumberCamps: personality.startLumberCamps,
                   startMines: personality.startMines,
                   startStorehouses: personality.startStorehouses,
+                  startGuards: personality.startGuards,
+                  startTech: personality.startTech,
                 }),
                 ...(personality.cityJobs
                   ? {
@@ -87,8 +122,13 @@ export function nationPresetsOf(pack: ContentPack): NationPreset[] {
     (pack.entries.get("nation_presets") ?? []).map((raw) =>
       nationPresetEntrySchema.parse(JSON.parse(JSON.stringify(raw))),
     ),
+    (pack.entries.get("nation_tiers") ?? []).map((raw) =>
+      nationTierEntrySchema.parse(JSON.parse(JSON.stringify(raw))),
+    ),
   );
 }
+
+const NO_TIERS: readonly NationTierEntry[] = [];
 
 /**
  * 실효 국가 프리셋 목록(팩 + 이 세계의 덮어쓰기 — 시작 국가 설정 편집기). 서버 곳곳이 같은 배열 하나를 들고 있으므로(세계 씨앗·NPC 사회·
@@ -97,18 +137,25 @@ export function nationPresetsOf(pack: ContentPack): NationPreset[] {
  * - source: 지금 실효 프리셋(ContentEditState.effective().nationPresets — 스냅숏마다 같은 객체)
  * - sync(): source가 바뀌었으면 내용을 바꾼다(바뀌었는지 돌려준다). 덮어쓰기를 실은 뒤·저장한 뒤 부른다
  */
-export function createLivePresets(source: () => readonly NationPresetEntry[]): {
+export function createLivePresets(
+  source: () => readonly NationPresetEntry[],
+  /** 지금 실효 국력 등급 표(ContentEditState.effective().nationTiers). 없으면 등급 없음 */
+  tierSource: () => readonly NationTierEntry[] = () => NO_TIERS,
+): {
   readonly list: readonly NationPreset[];
   sync(): boolean;
 } {
   let seen: readonly NationPresetEntry[] | undefined;
+  let seenTiers: readonly NationTierEntry[] | undefined;
   const list: NationPreset[] = [];
   const sync = (): boolean => {
     const now = source();
-    if (now === seen) return false;
+    const tiers = tierSource();
+    if (now === seen && tiers === seenTiers) return false;
     seen = now;
+    seenTiers = tiers;
     // 한 번에 바꿔 끼운다(동기 — 읽는 쪽이 반쯤 바뀐 목록을 보지 않는다)
-    list.splice(0, list.length, ...nationPresetsFrom(now));
+    list.splice(0, list.length, ...nationPresetsFrom(now, tiers));
     return true;
   };
   sync();

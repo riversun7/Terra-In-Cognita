@@ -12,6 +12,7 @@ import {
   type TempTerrain,
   WALK_SPEED,
 } from "@terra/sim";
+import type { NationPreset } from "../npc/nations.ts";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { type PathOutcome, type PathService, createInlinePathService } from "./pathService.ts";
 import { type SecondMap, createSecondMap } from "./secondMap.ts";
@@ -230,4 +231,20 @@ export function testEncounter(
       testFighter(ids[3], 2, 2, 18, 12),
     ],
   };
+}
+
+/**
+ * 국력 등급 전의 팩 국가 프리셋 흉내(시험): 등급을 떼고 옛 성격 칸의 시작 도시 수(4·3·2·없음 되풀이)를 넣는다. 옛 규칙(설정 칸·성격 칸)을
+ * 보는 시험이 쓴다 — 등급 씨앗은 world/nationTiers.db.test.ts가 본다
+ */
+export function legacyNationPresets(presets: readonly NationPreset[]): NationPreset[] {
+  const cities = [4, 3, 2, undefined];
+  return presets.map((preset, index) => {
+    const { tier: _tier, ...rest } = preset;
+    const startCities = cities[index % cities.length];
+    return {
+      ...rest,
+      personality: { ...preset.personality, ...(startCities === undefined ? {} : { startCities }) },
+    };
+  });
 }

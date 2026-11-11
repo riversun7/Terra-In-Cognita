@@ -23,8 +23,10 @@ export const CONTENT_EDIT_CATEGORIES = [
   // content_overrides_nation_presets가 넓힌다
   "nation_presets",
   // 전투 클래스(생산 편집기 /dev/production 전투 클래스 탭, docs/adr/2026-11-11-production-six.md). DB 검사는 마이그레이션
-  // content_overrides_combat_classes가 넓힌다
+  // nation_power_combat_classes가 넓힌다(국력 등급 줄기와 합쳐 하나로)
   "combat_classes",
+  // 국력 등급 표(/dev/nations 등급 탭, docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"). DB 검사는 마이그레이션 nation_power_combat_classes가 넓힌다
+  "nation_tiers",
 ] as const;
 export type ContentEditCategory = (typeof CONTENT_EDIT_CATEGORIES)[number];
 

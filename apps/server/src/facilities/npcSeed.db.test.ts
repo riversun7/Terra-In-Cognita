@@ -9,13 +9,14 @@ import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
 import { nationPresetsOf } from "../npc/presets.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
-import { silentLog } from "../world/testSupport.ts";
+import { legacyNationPresets, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld, testMapKey } from "../world/world.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
-const presets = nationPresetsOf(loaded.pack);
+// 옛 규칙(등급 없음, 성격 칸 도시 수 4·3·2)을 보는 시험이다 — 국력 등급 씨앗은 world/nationTiers.db.test.ts
+const presets = legacyNationPresets(nationPresetsOf(loaded.pack));
 /** 옛 세계 흉내: 국가마다 시작 도시 하나 */
 const ONE_CITY = {
   ...TEST_SOCIETY_COEFFICIENTS,

@@ -9,11 +9,14 @@ import type {
   NationPersonalityJson,
   NationPresetJson,
   NationSeedDefaults,
+  NationTierRow,
 } from "@terra/shared/nationEditor";
+import { POWER_TIERS } from "@terra/shared/nationTier";
 import { START_WORLD_SEED, type WorldSeedCoefficients, startCitiesFor } from "@terra/sim";
 import { type ContentEditState, type ContentSnapshot, contentKey } from "../contentEdit/state.ts";
 import { originOf, overrideViewOf } from "../contentEdit/views.ts";
 import { MAX_TEST_NATIONS, startHousingOf } from "../npc/nations.ts";
+import { nationTierJsonOf } from "../npc/presets.ts";
 
 const nameOf = (entry: { name: { ko: string; en: string } }) => ({ ko: entry.name.ko, en: entry.name.en });
 
@@ -33,6 +36,8 @@ function personalityJsonOf(p: NonNullable<NationPresetEntry["personality"]>): Na
     ...(p.startLumberCamps === undefined ? {} : { startLumberCamps: p.startLumberCamps }),
     ...(p.startMines === undefined ? {} : { startMines: p.startMines }),
     ...(p.startStorehouses === undefined ? {} : { startStorehouses: p.startStorehouses }),
+    ...(p.startGuards === undefined ? {} : { startGuards: p.startGuards }),
+    ...(p.startTech === undefined ? {} : { startTech: p.startTech }),
   };
 }
 
@@ -54,6 +59,7 @@ export function nationJsonOf(entry: NationPresetEntry): NationPresetJson {
         }
       : {}),
     ...(entry.nameStyle === undefined ? {} : { nameStyle: entry.nameStyle }),
+    ...(entry.powerTier === undefined ? {} : { powerTier: entry.powerTier }),
     currency: {
       code: entry.currency.code,
       name: { ko: entry.currency.name.ko, en: entry.currency.name.en },
@@ -119,6 +125,24 @@ export function nationViews(
   });
 }
 
+/** 국력 등급 표(등급 차례). 팩·덮어쓰기에 줄이 없는 등급은 빠진다 */
+export function tierViews(state: ContentEditState, snapshot: ContentSnapshot): NationTierRow[] {
+  const packById = new Map(state.pack.nationTiers.map((entry) => [entry.id, entry]));
+  const order = new Map(POWER_TIERS.map((id, index) => [id, index]));
+  return snapshot.effective.nationTiers
+    .toSorted((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+    .map((entry) => {
+      const pack = packById.get(entry.id);
+      return {
+        entry: nationTierJsonOf(entry),
+        origin: originOf(state, snapshot, "nation_tiers", entry.id),
+        pack: pack ? nationTierJsonOf(pack) : null,
+        override: overrideViewOf(snapshot.overrides.get(contentKey("nation_tiers", entry.id))),
+        hash: state.hashOf("nation_tiers", entry.id) ?? "",
+      };
+    });
+}
+
 /** 처음 창고 생필품 시간분 기본(npc/economy.ts, 기획 답 554 다) */
 const DEFAULT_NECESSITY_HOURS = 48;
 
@@ -134,6 +158,7 @@ export function seedDefaultsOf(seed: WorldSeedCoefficients = START_WORLD_SEED): 
     mines: seed.mines,
     storehouses: seed.storehouses,
     necessityHours: DEFAULT_NECESSITY_HOURS,
+    cityStepCells: Math.max(1, Math.trunc(seed.layoutCityStepCells)),
   };
 }
 

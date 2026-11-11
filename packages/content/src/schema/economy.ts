@@ -23,6 +23,7 @@ import {
   EMBLEM_SHAPES,
 } from "@terra/shared/nationEmblem";
 import { NATION_SEED_LIMITS } from "@terra/shared/nationEditor";
+import { NATION_TIER_LIMITS, POWER_TIERS } from "@terra/shared/nationTier";
 import { z } from "zod";
 import { EQUIP_SLOT_KINDS, PRIMARY_STAT_CODES } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
@@ -329,7 +330,11 @@ const personNames = (max: number) =>
  * - startStock: 처음 창고 특산 물건 — NPC 도시 하나가 처음 한 번 받는 고정 양(팩 수량 = 묶음 단위). 생필품은 위 시간분으로 받는다(554 다)
  */
 const nationPersonality = z.strictObject({
-  startCities: z.int().min(1).max(4).optional(),
+  startCities: z
+    .int()
+    .min(NATION_SEED_LIMITS.startCities.min)
+    .max(NATION_SEED_LIMITS.startCities.max)
+    .optional(),
   startNecessityHours: z
     .int()
     .min(0)
@@ -364,6 +369,12 @@ const nationPersonality = z.strictObject({
     .min(NATION_SEED_LIMITS.facility.min)
     .max(NATION_SEED_LIMITS.facility.max)
     .optional(),
+  /**
+   * 국가마다 경비대 수(시작 도시 하나)·처음 기술 단계(docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"): 칸이 없으면 국력 등급 표
+   * (nation_tiers) 값, 등급도 없으면 경비대 0·기술 1
+   */
+  startGuards: z.int().min(NATION_SEED_LIMITS.guards.min).max(NATION_SEED_LIMITS.guards.max).optional(),
+  startTech: z.int().min(NATION_SEED_LIMITS.tech.min).max(NATION_SEED_LIMITS.tech.max).optional(),
 });
 
 /**
@@ -427,6 +438,12 @@ export const nationPresetEntrySchema = z.strictObject({
    * 읽지 않는다(이름 후보를 만들 때만)
    */
   nameStyle: z.enum(NAME_STYLE_IDS).optional(),
+  /**
+   * 국력 등급(사용자 답 2026-11-11 "실제 강대국 분포처럼" — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"): 등급 표(nation_tiers)의
+   * 그 줄이 시작 도시 수·주거·처음 인구·기본 시설·경비대·기술·국고·자리 간격의 기본값이 된다(성격 칸의 국가마다 값이 먼저). 없으면 등급 없이
+   * 옛 규칙(설정 칸 worldSeed)
+   */
+  powerTier: z.enum(POWER_TIERS).optional(),
   /** [임시] 거래세(만분율). NPC 세율은 규칙식(D-323, R5)이 바꾼다 */
   tradeTaxBp: z.int().min(0).max(10_000),
   /** 나라 성격(위). 없으면 모든 국가가 같은 기본 */
@@ -468,3 +485,37 @@ export const nationPresetEntrySchema = z.strictObject({
   enabled,
 });
 export type NationPresetEntry = z.output<typeof nationPresetEntrySchema>;
+
+/**
+ * 국력 등급 표 한 줄(분류 nation_tiers, 사용자 답 2026-11-11 — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"). ID = 등급
+ * (@terra/shared/nationTier POWER_TIERS). 수치는 모두 [임시](질문 916). 시설 수는 시설 ID마다 적는다(둘레 땅에 맞는 것만 선다, 줄이 없는
+ * 시설은 설정 칸 값)
+ */
+export const nationTierEntrySchema = z.strictObject({
+  id: z.enum(POWER_TIERS),
+  name: localizedText,
+  startCities: z.int().min(NATION_TIER_LIMITS.startCities.min).max(NATION_TIER_LIMITS.startCities.max),
+  startHousing: z.int().min(NATION_TIER_LIMITS.housing.min).max(NATION_TIER_LIMITS.housing.max),
+  startPopulationPm: z
+    .int()
+    .min(NATION_TIER_LIMITS.populationPm.min)
+    .max(NATION_TIER_LIMITS.populationPm.max),
+  facilities: z
+    .array(
+      z.strictObject({
+        facility: ref("facilities"),
+        count: z.int().min(NATION_TIER_LIMITS.facilityCount.min).max(NATION_TIER_LIMITS.facilityCount.max),
+      }),
+    )
+    .max(NATION_TIER_LIMITS.facilities)
+    .refine((rows) => new Set(rows.map((row) => row.facility.id)).size === rows.length, {
+      error: "시설이 겹칩니다. 시설마다 한 줄만 적으세요.",
+      params: { rule: "tier_facility_unique" },
+    }),
+  guardsPerCity: z.int().min(NATION_TIER_LIMITS.guardsPerCity.min).max(NATION_TIER_LIMITS.guardsPerCity.max),
+  startTech: z.int().min(NATION_TIER_LIMITS.startTech.min).max(NATION_TIER_LIMITS.startTech.max),
+  startCreditPm: z.int().min(NATION_TIER_LIMITS.startCreditPm.min).max(NATION_TIER_LIMITS.startCreditPm.max),
+  cityStepCells: z.int().min(NATION_TIER_LIMITS.cityStepCells.min).max(NATION_TIER_LIMITS.cityStepCells.max),
+  homeGapPm: z.int().min(NATION_TIER_LIMITS.homeGapPm.min).max(NATION_TIER_LIMITS.homeGapPm.max),
+});
+export type NationTierEntry = z.output<typeof nationTierEntrySchema>;

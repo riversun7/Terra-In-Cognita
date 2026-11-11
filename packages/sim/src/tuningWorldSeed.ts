@@ -23,8 +23,8 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
   k(
     "d6041_start_cities_max",
     "startCitiesMax",
-    "고정 NPC 국가 시작 도시 수 위 끝(프리셋 성격 칸 상한)",
-    "Fixed NPC nation start cities (high, cap for the preset value)",
+    "고정 NPC 국가 시작 도시 수 위 끝(프리셋 성격 칸·국력 등급 값의 상한)",
+    "Fixed NPC nation start cities (high, cap for the preset and power tier value)",
   ),
   k("npc_seed_farms", "farms", "NPC 시작 도시 기본 농장 수", "NPC start city farms"),
   k("npc_seed_lumber_camps", "lumberCamps", "NPC 시작 도시 기본 벌목장 수", "NPC start city lumber camps"),

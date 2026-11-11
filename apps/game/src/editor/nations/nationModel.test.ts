@@ -1,5 +1,6 @@
 // 시작 국가 설정 편집기 모델 시험 — 담음·보낼 묶음, 빈 칸 빼기, 시작 수 셈, 색 읽기 쉬움, 다시 얹기, 마크 자르기 셈. 값은 시험용이다.
 import type { NationEditorRow, NationPresetJson, NationSeedDefaults } from "@terra/shared/nationEditor";
+import type { NationTierJson } from "@terra/shared/nationTier";
 import { contrastOf } from "@terra/shared/nationEmblem";
 import { describe, expect, it } from "vitest";
 import {
@@ -10,6 +11,7 @@ import {
   READABLE_COLORS,
   appendUnique,
   cleanNation,
+  cleanTier,
   clampCrop,
   colorReadability,
   cropRect,
@@ -25,8 +27,10 @@ import {
   posterize,
   rebaseNation,
   setPersonality,
+  stageCreatedNation,
   stageNation,
   stageNationDiscard,
+  stageTier,
   startCountsOf,
   zoomCrop,
 } from "./nationModel.ts";
@@ -52,6 +56,7 @@ const defaults: NationSeedDefaults = {
   mines: 1,
   storehouses: 1,
   necessityHours: 48,
+  cityStepCells: 1,
 };
 const HASH = "a".repeat(64);
 const rowOf = (entry: NationPresetJson, hash = HASH): NationEditorRow => ({
@@ -139,6 +144,8 @@ describe("startCountsOf", () => {
       population: 30,
       totalPopulation: 90,
       facilities: 5,
+      guards: 0,
+      totalGuards: 0,
     });
     const custom = {
       ...base,
@@ -151,6 +158,8 @@ describe("startCountsOf", () => {
       population: 30,
       totalPopulation: 120,
       facilities: 5,
+      guards: 0,
+      totalGuards: 0,
     });
     const { personality: _none, ...bare } = base;
     expect(startCountsOf(bare, defaults).cities).toBe(2);
@@ -257,5 +266,127 @@ describe("마크 자르기 셈", () => {
     const data = new Uint8ClampedArray([13, 130, 250, 77, 0, 255, 127, 255]);
     posterize(data, 2);
     expect([...data]).toEqual([0, 255, 255, 77, 0, 255, 0, 255]);
+  });
+});
+
+describe("국력 등급(등급 표·새 프리셋)", () => {
+  const tier: NationTierJson = {
+    id: "great_power",
+    name: { ko: "강대국", en: "Great power" },
+    startCities: 4,
+    startHousing: 50,
+    startPopulationPm: 800,
+    facilities: [
+      { facility: "farm", count: 2 },
+      { facility: "mine", count: 0 },
+    ],
+    guardsPerCity: 4,
+    startTech: 3,
+    startCreditPm: 2000,
+    cityStepCells: 2,
+    homeGapPm: 1300,
+  };
+
+  it("시작 수: 국가 칸 → 등급 표 → 설정 칸, 경비대는 도시 수만큼 곱한다", () => {
+    const plain: NationPresetJson = { ...base, personality: {} };
+    // 등급 없음: 설정 칸(도시 아래 끝 2, 주거 40, 시설 넷 + 행정 건물)
+    expect(startCountsOf(plain, defaults, [tier])).toMatchObject({
+      cities: 2,
+      housing: 40,
+      population: 30,
+      facilities: 5,
+      guards: 0,
+      totalGuards: 0,
+    });
+    const tiered: NationPresetJson = { ...plain, powerTier: "great_power" };
+    // 설정 칸 위 끝(4)이 등급 도시 수를 막는다. 시설 = 행정 1 + 농장 2 + 벌목 1 + 광산 0 + 창고 1
+    expect(startCountsOf(tiered, defaults, [tier])).toEqual({
+      cities: 4,
+      housing: 50,
+      population: 40,
+      totalPopulation: 160,
+      facilities: 5,
+      guards: 4,
+      totalGuards: 16,
+    });
+    // 국가 칸이 등급 값을 이긴다
+    const own = { ...tiered, personality: { startGuards: 1, startHousing: 20, startCities: 3 } };
+    expect(startCountsOf(own, defaults, [tier])).toMatchObject({
+      cities: 3,
+      housing: 20,
+      guards: 1,
+      totalGuards: 3,
+    });
+    // 등급 표에 그 줄이 없으면 등급 없음과 같다
+    expect(startCountsOf(tiered, defaults, [])).toMatchObject({ cities: 2, guards: 0 });
+  });
+
+  it("cleanNation은 등급 칸·경비대·기술 칸을 팩 줄 차례로 남긴다", () => {
+    const entry: NationPresetJson = {
+      ...base,
+      nameStyle: "olive",
+      powerTier: "city_state",
+      personality: { startTech: 2, startGuards: 5, startCities: 1 },
+    };
+    const clean = cleanNation(entry);
+    expect(Object.keys(clean)).toEqual([
+      "id",
+      "name",
+      "shortName",
+      "color",
+      "nameStyle",
+      "powerTier",
+      "currency",
+      "tradeTaxBp",
+      "personality",
+      "cityNames",
+      "enabled",
+    ]);
+    expect(clean.personality).toEqual({ startCities: 1, startGuards: 5, startTech: 2 });
+  });
+
+  it("등급 줄을 담으면 묶음 앞에 put_tier로, 새 프리셋은 create로 나간다(빼면 만들기도 빠진다)", () => {
+    const created: NationPresetJson = {
+      ...base,
+      id: "nation_new_1",
+      shortName: "",
+      powerTier: "great_power",
+    };
+    let stage = stageCreatedNation(EMPTY_NATION_STAGE, created);
+    stage = stageTier(stage, "great_power", {
+      op: "put",
+      entry: { ...tier, startCities: 5 },
+      base: tier,
+      baseHash: HASH,
+    });
+    expect(nationStageKeys(stage)).toEqual(["nation_new_1", "tier/great_power"]);
+    const batch = nationBatchOf(stage);
+    expect(batch.map((change) => change.op)).toEqual(["put_tier", "create"]);
+    const [tierChange, create] = batch;
+    expect(tierChange?.op === "put_tier" ? tierChange.entry.startCities : 0).toBe(5);
+    // 빈 약어는 보낼 때 뺀다
+    expect(create?.op === "create" && Object.hasOwn(create.entry, "shortName")).toBe(false);
+    stage = stageTier(stage, "great_power", { op: "revert", base: tier, baseHash: HASH });
+    expect(nationChangesOf(stage)[0]).toEqual({ op: "revert_tier", id: "great_power", baseHash: HASH });
+    stage = stageNation(stageTier(stage, "great_power", null), "nation_new_1", null);
+    expect(nationStageKeys(stage)).toEqual([]);
+    expect(stage.created.size).toBe(0);
+  });
+
+  it("cleanTier는 팩 파일과 같은 칸 차례다", () => {
+    const messy = { ...tier, homeGapPm: 1300, id: tier.id };
+    expect(Object.keys(cleanTier(messy))).toEqual([
+      "id",
+      "name",
+      "startCities",
+      "startHousing",
+      "startPopulationPm",
+      "facilities",
+      "guardsPerCity",
+      "startTech",
+      "startCreditPm",
+      "cityStepCells",
+      "homeGapPm",
+    ]);
   });
 });

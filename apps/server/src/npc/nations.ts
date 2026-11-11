@@ -13,6 +13,12 @@
 // 체제는 국가 차례로 셋을 돌리고(시뮬 "mixed"와 같다), 성향은 NPC 사회 런타임이 세계 시드로 굴려 채운다(D-327).
 import { defaultFactionColor } from "@terra/shared/factionProfile";
 import { type NationEmblemSpec, emblemOfId } from "@terra/shared/nationEmblem";
+import {
+  type NationStart,
+  type NationStartDefaults,
+  type NationTierJson,
+  resolveNationStart,
+} from "@terra/shared/nationTier";
 import { PLACEMENT_SIZE, type WorldSeedCoefficients, startCitiesFor } from "@terra/sim";
 import { ensureTestStartCities } from "../world/cities.ts";
 import type { QueryPool } from "../world/persist/load.ts";
@@ -79,28 +85,58 @@ export interface NationPersonality {
   readonly startLumberCamps?: number | undefined;
   readonly startMines?: number | undefined;
   readonly startStorehouses?: number | undefined;
+  /** 시작 도시 하나의 경비대 수·처음 기술 단계(없으면 국력 등급 표, 등급도 없으면 0·1) */
+  readonly startGuards?: number | undefined;
+  readonly startTech?: number | undefined;
 }
 
-/** 국가 칸 값(정수)이 있으면 그 값, 없으면 설정 칸 값 */
-const pick = (value: number | undefined, fallback: number): number =>
-  value !== undefined && Number.isFinite(value) ? Math.trunc(value) : fallback;
+/** 설정 칸(49 worldSeed) → 국가 시작 값의 바닥 값(@terra/shared/nationTier resolveNationStart) */
+export function startDefaultsOf(seed: WorldSeedCoefficients): NationStartDefaults {
+  return {
+    startCitiesMin: startCitiesFor(seed),
+    startCitiesMax: startCitiesFor(seed, Number.MAX_SAFE_INTEGER),
+    housing: startHousingOf(seed),
+    populationPm: seed.populationPm,
+    facilities: {
+      farm: seed.farms,
+      lumber_camp: seed.lumberCamps,
+      mine: seed.mines,
+      storehouse: seed.storehouses,
+    },
+    cityStepCells: seed.layoutCityStepCells,
+  };
+}
 
 /**
- * 국가 하나의 세계 씨앗 값: 설정 칸 값 위에 그 국가 프리셋 성격 칸의 값을 얹는다(칸이 없으면 설정 칸 그대로 — 같은 객체를 돌려준다).
- * 시작 도시 수는 여기서 얹지 않는다(startCitiesFor가 설정 칸 범위 안으로 자른다)
+ * 국가 하나의 시작 값(시작 도시 수·주거·처음 인구·시설·경비대·기술·국고·자리 간격): 국가 프리셋 성격 칸 → 국력 등급 표 → 설정 칸
+ * (docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"). 프리셋이 없으면 설정 칸 값(등급 없음)
+ */
+export function nationStartOf(
+  seed: WorldSeedCoefficients,
+  preset: Pick<NationPreset, "personality" | "tier"> | undefined,
+): NationStart {
+  return resolveNationStart(startDefaultsOf(seed), preset?.tier, preset?.personality);
+}
+
+/**
+ * 국가 하나의 세계 씨앗 값: 설정 칸 값 위에 그 국가의 등급 표 값·프리셋 성격 칸의 값을 얹는다(바뀐 칸이 없으면 설정 칸 그대로 — 같은 객체를
+ * 돌려준다). 시작 도시 수는 여기서 얹지 않는다(nationStartOf.startCities). 시설 수는 지금 씨앗이 세우는 넷(농장·벌목장·광산·창고)만
+ * 옮긴다 — 등급 표의 다른 시설 줄은 nationStartOf.facilities에 있다(씨앗이 시설 목록을 넓히면 그 값을 읽는다)
  */
 export function nationSeedOf(
   seed: WorldSeedCoefficients,
   personality: NationPersonality | undefined,
+  tier?: NationTierJson,
 ): WorldSeedCoefficients {
-  if (!personality) return seed;
+  if (!personality && !tier) return seed;
+  const start = resolveNationStart(startDefaultsOf(seed), tier, personality);
   const next = {
-    startHousing: pick(personality.startHousing, seed.startHousing),
-    populationPm: pick(personality.startPopulationPm, seed.populationPm),
-    farms: pick(personality.startFarms, seed.farms),
-    lumberCamps: pick(personality.startLumberCamps, seed.lumberCamps),
-    mines: pick(personality.startMines, seed.mines),
-    storehouses: pick(personality.startStorehouses, seed.storehouses),
+    startHousing: start.housing,
+    populationPm: start.populationPm,
+    farms: start.facilities.farm ?? seed.farms,
+    lumberCamps: start.facilities.lumber_camp ?? seed.lumberCamps,
+    mines: start.facilities.mine ?? seed.mines,
+    storehouses: start.facilities.storehouse ?? seed.storehouses,
   };
   const same =
     next.startHousing === seed.startHousing &&
@@ -110,6 +146,25 @@ export function nationSeedOf(
     next.mines === seed.mines &&
     next.storehouses === seed.storehouses;
   return same ? seed : { ...seed, ...next };
+}
+
+/** nationSeedOf에 넘길 프리셋의 두 칸(성격 칸·등급 줄) */
+export const seedPartsOf = (
+  preset: Pick<NationPreset, "personality" | "tier"> | undefined,
+): [NationPersonality | undefined, NationTierJson | undefined] => [preset?.personality, preset?.tier];
+
+/**
+ * 시험 NPC 세력(1번 국가)의 처음 국고 = 고정 국가 처음 화폐 × 그 국가(16번째 프리셋) 국력 등급 천분율(등급이 없으면 그대로 —
+ * docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)")
+ */
+export function startCreditOf(
+  base: bigint,
+  /** 설정 칸(NPC 사회를 끈 세계는 undefined — 그대로) */
+  seed: WorldSeedCoefficients | undefined,
+  presets: readonly NationPreset[] | undefined,
+): bigint {
+  if (!seed) return base;
+  return (base * BigInt(nationStartOf(seed, presetOfCode(TEST_NPC_FACTION_CODE, presets)).creditPm)) / 1000n;
 }
 
 /** 팩 국가 프리셋(D-086) 하나: 시험 국가의 코드·이름(질문 203 가: 시험 세력 + 프리셋 차례)·성격·도시 이름 */
@@ -128,6 +183,11 @@ export interface NationPreset {
   readonly color?: string | undefined;
   /** 국가 마크 사양(만든 마크, docs/adr/2026-11-10-nation-editor.md 4절). 없으면 코드로 정해지는 기본 마크 */
   readonly emblem?: NationEmblemSpec | undefined;
+  /**
+   * 국력 등급 표의 그 줄(프리셋 칸 powerTier가 가리키는 실효 값 — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"). 없으면 등급 없이
+   * 옛 규칙(설정 칸)
+   */
+  readonly tier?: NationTierJson | undefined;
   /** 나라 화폐(원장 자산 = "cur:<code>")와 표시(기호·3글자 약어). 화폐 표시를 처음 정할 때 쓴다 */
   readonly currency?:
     | {
@@ -305,7 +365,13 @@ export interface ExistingCity extends CitySpot {
  * 자리, docs/adr/2026-11-07-world-layout.md). 없으면 옛 방식(시험 2차맵들에 나눔, planStartCities)
  */
 export type StartCityPlacer = (
-  nations: readonly { readonly factionId: number; readonly code: string; readonly missing: number }[],
+  nations: readonly {
+    readonly factionId: number;
+    readonly code: string;
+    readonly missing: number;
+    /** 국력 등급으로 푼 그 국가의 시작 값(자리 차례·도시 간격·국가 간격 — world/worldLayout.ts). 없으면 등급 없음 */
+    readonly start?: NationStart | undefined;
+  }[],
   existing: readonly ExistingCity[],
   ruins: readonly CitySpot[],
 ) => readonly { readonly factionId: number; readonly spot: CitySpot }[];
@@ -328,16 +394,39 @@ export async function ensureTestNations(
     seed: WorldSeedCoefficients;
     /** 새 시작 도시 자리(행성 값이 있는 세계). 없으면 시험 2차맵들에 나눈다 */
     placer?: StartCityPlacer | undefined;
+    /**
+     * 이미 선 국가도 국력 등급의 시작 도시 수까지 채운다(세계 배치 화면의 "등급 분포 반영" 요청이 든 부팅만 — world/tierApply.ts). 아니면
+     * 이미 시작 도시가 선 국가는 옛 규칙(설정 칸 아래 끝~위 끝)까지만 채운다: 배포만으로 선 세계의 도시 수가 바뀌지 않는다
+     */
+    grow?: boolean | undefined;
+    /**
+     * 차례(count) 밖에서 이 세계에 세울 국가의 프리셋 코드(세계 배치 화면의 "이 세계에 이 국가 세우기" — 자리를 놓은 프리셋,
+     * world/worldBoot.ts). 켜진 프리셋의 코드만 받는다(프리셋 ID가 세력 코드). 차례로 서는 국가와 겹치면 한 번만 선다
+     */
+    extraCodes?: readonly string[] | undefined;
   },
 ): Promise<number> {
   const count = Math.max(1, Math.min(MAX_TEST_NATIONS, options.count));
   await pool.query(`update factions set fixed = true where code = $1`, [TEST_NPC_FACTION_CODE]);
-  for (let n = 2; n <= count; n++) {
-    const code = nationCode(n, options.presets);
+  const byCount = Array.from({ length: count }, (_, index) => nationCode(index + 1, options.presets));
+  // 1번(시험 NPC 세력)의 프리셋(16번째)은 따로 세우지 않는다(같은 나라가 둘이 된다)
+  const firstPreset = presetOfCode(TEST_NPC_FACTION_CODE, options.presets)?.code;
+  const extra = [...new Set(options.extraCodes ?? [])].filter(
+    (code) =>
+      !byCount.includes(code) &&
+      code !== firstPreset &&
+      (options.presets ?? []).some((preset) => preset.code === code),
+  );
+  const codes = [...byCount, ...extra];
+  for (let n = 2; n <= codes.length; n++) {
+    const code = codes[n - 1] ?? nationCode(n, options.presets);
     const regime = REGIMES[(n - 1) % REGIMES.length] ?? "democracy";
+    // 처음 기술 단계 = 국력 등급 표(없으면 1). 이미 있는 세력 행은 고치지 않는다
+    const tech = nationStartOf(options.seed, presetOfCode(code, options.presets)).tech;
     await pool.query(
-      `insert into factions (kind, code, regime, fixed) values ('npc', $1, $2, true) on conflict (code) do nothing`,
-      [code, regime],
+      `insert into factions (kind, code, regime, fixed, tech_level, tech_blueprint) values ('npc', $1, $2, true, $3, $3)
+       on conflict (code) do nothing`,
+      [code, regime, tech],
     );
     await pool.query(
       `insert into world_owners (id, faction_id, settled_at_ms)
@@ -346,7 +435,6 @@ export async function ensureTestNations(
       [code, options.nowMs],
     );
   }
-  const codes = Array.from({ length: count }, (_, index) => nationCode(index + 1, options.presets));
   const factions = await pool.query(`select id, code from factions where code = any($1::text[])`, [codes]);
   const idOf = new Map(factions.rows.map((row) => [String(row.code), Number(row.id)]));
   const cities = await pool.query(
@@ -356,19 +444,32 @@ export async function ensureTestNations(
   const have = new Map<number, number>();
   for (const row of cities.rows)
     if (row.start === true) have.set(Number(row.faction_id), (have.get(Number(row.faction_id)) ?? 0) + 1);
-  /** 세력 행 ID → 그 고정 국가 프리셋의 성격 칸 */
-  const personalityOfFaction = new Map<number, NationPersonality | undefined>();
-  for (const code of codes) {
-    const factionId = idOf.get(code);
-    if (factionId !== undefined)
-      personalityOfFaction.set(factionId, presetOfCode(code, options.presets)?.personality);
-  }
+  /** 세력 행 ID → 그 고정 국가의 시작 값(국력 등급) */
+  const startOfFaction = new Map<number, NationStart>();
+  /** 이번에 처음 서는 국가(시작 도시가 하나도 없음) — 처음 기술 단계를 맞춘다 */
+  const fresh: { factionId: number; tech: number }[] = [];
   const nations = codes.flatMap((code) => {
     const factionId = idOf.get(code);
     if (factionId === undefined) return [];
-    const want = startCitiesFor(options.seed, presetOfCode(code, options.presets)?.personality?.startCities);
-    return [{ factionId, code, missing: Math.max(0, want - (have.get(factionId) ?? 0)) }];
+    const preset = presetOfCode(code, options.presets);
+    const start = nationStartOf(options.seed, preset);
+    startOfFaction.set(factionId, start);
+    const had = have.get(factionId) ?? 0;
+    if (had === 0 || options.grow === true) fresh.push({ factionId, tech: start.tech });
+    // 이미 선 국가는 요청이 있을 때만 등급 수까지(위 grow), 아니면 옛 규칙까지만 채운다
+    const want =
+      had === 0 || options.grow === true
+        ? start.startCities
+        : Math.min(start.startCities, startCitiesFor(options.seed, preset?.personality?.startCities));
+    return [{ factionId, code, missing: Math.max(0, want - had), start }];
   });
+  // 처음 서는 국가(와 등급 반영 요청이 든 국가)의 기술 단계를 등급 값까지 올린다(내리지 않는다 — 1번 시험 NPC 세력 행은 먼저 만들어져 있다)
+  for (const { factionId, tech } of fresh)
+    if (tech > 1)
+      await pool.query(
+        `update factions set tech_level = greatest(tech_level, $2), tech_blueprint = greatest(tech_blueprint, $2) where id = $1`,
+        [factionId, tech],
+      );
   // 폐허 자리(docs/adr/2026-11-07-ruins-restoration.md)도 찬 자리로 친다(복원되면 같은 자리에 도시가 돌아온다)
   const ruins = await pool.query(`select map_key, cell_x, cell_y from world_ruins where planet_id = $1`, [
     options.planetId,
@@ -406,8 +507,8 @@ export async function ensureTestNations(
         spot.mapKey,
         spot.x,
         spot.y,
-        // 주거는 국가 프리셋 성격 칸이 먼저, 없으면 설정 칸(docs/adr/2026-11-10-nation-editor.md 2절)
-        startHousingOf(nationSeedOf(options.seed, personalityOfFaction.get(factionId))),
+        // 주거는 국가 프리셋 성격 칸 → 국력 등급 표 → 설정 칸(docs/adr/2026-11-10-nation-editor.md 2절·"바뀜 (2026-11-11)")
+        startHousingOf({ ...options.seed, startHousing: startOfFaction.get(factionId)?.housing ?? 0 }),
         options.nowMs,
       ],
     );
@@ -505,14 +606,18 @@ export async function ensureWorldNations(
     seed: WorldSeedCoefficients;
     /** 새 시작 도시 자리(행성 값이 있는 세계, ensureTestNations) */
     placer?: StartCityPlacer | undefined;
+    /** 이미 선 국가도 국력 등급 수까지 채운다(등급 분포 반영 요청, ensureTestNations) */
+    grow?: boolean | undefined;
+    /** 차례 밖에서 세울 국가의 프리셋 코드(ensureTestNations) */
+    extraCodes?: readonly string[] | undefined;
   },
-): Promise<void> {
+): Promise<number> {
   const { npc, planetId, mapKeys, nowMs } = options;
   if (!npc) {
     await ensureTestStartCities(pool, TEST_NPC_FACTION_CODE, planetId, mapKeys, nowMs);
-    return;
+    return 0;
   }
-  await ensureTestNations(pool, {
+  return ensureTestNations(pool, {
     count: npc.testNations,
     planetId,
     mapKeys,
@@ -520,5 +625,7 @@ export async function ensureWorldNations(
     presets: npc.presets,
     seed: options.seed,
     placer: options.placer,
+    grow: options.grow,
+    extraCodes: options.extraCodes,
   });
 }

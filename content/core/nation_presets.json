@@ -15,6 +15,7 @@
         "scheme": 0
       },
       "nameStyle": "prairie",
+      "powerTier": "superpower",
       "currency": {
         "code": "placeholder_cur_01",
         "name": {
@@ -26,7 +27,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 4,
         "cityJobs": [
           {
             "facility": "farm",
@@ -49,7 +49,16 @@
           }
         ]
       },
-      "cityNames": ["Verdane", "Ashfield", "Millbrook", "Harrowgate", "Sheafton"],
+      "cityNames": [
+        "Verdane",
+        "Ashfield",
+        "Millbrook",
+        "Harrowgate",
+        "Sheafton",
+        "Barleywick",
+        "Oatmere",
+        "Granbury"
+      ],
       "leaderName": {
         "ko": "졸란 하웰",
         "en": "Jolan Harwell"
@@ -75,6 +84,7 @@
         "scheme": 1
       },
       "nameStyle": "jade",
+      "powerTier": "great_power",
       "currency": {
         "code": "placeholder_cur_02",
         "name": {
@@ -86,7 +96,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 3,
         "cityJobs": [
           {
             "facility": "mine",
@@ -150,6 +159,7 @@
         "scheme": 0
       },
       "nameStyle": "isle",
+      "powerTier": "middle_power",
       "currency": {
         "code": "placeholder_cur_03",
         "name": {
@@ -161,7 +171,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 2,
         "cityJobs": [
           {
             "facility": "lumber_camp",
@@ -225,6 +234,7 @@
         "scheme": 2
       },
       "nameStyle": "haneul",
+      "powerTier": "middle_power",
       "currency": {
         "code": "placeholder_cur_04",
         "name": {
@@ -272,6 +282,7 @@
         "scheme": 0
       },
       "nameStyle": "moor",
+      "powerTier": "great_power",
       "currency": {
         "code": "placeholder_cur_05",
         "name": {
@@ -283,7 +294,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 4,
         "cityJobs": [
           {
             "facility": "farm",
@@ -343,6 +353,7 @@
         "scheme": 2
       },
       "nameStyle": "fjord",
+      "powerTier": "middle_power",
       "currency": {
         "code": "placeholder_cur_06",
         "name": {
@@ -354,7 +365,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 3,
         "cityJobs": [
           {
             "facility": "mine",
@@ -418,6 +428,7 @@
         "scheme": 0
       },
       "nameStyle": "vine",
+      "powerTier": "small_state",
       "currency": {
         "code": "placeholder_cur_07",
         "name": {
@@ -429,7 +440,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 2,
         "cityJobs": [
           {
             "facility": "lumber_camp",
@@ -493,6 +503,7 @@
         "scheme": 0
       },
       "nameStyle": "monsoon",
+      "powerTier": "middle_power",
       "currency": {
         "code": "placeholder_cur_08",
         "name": {
@@ -540,6 +551,7 @@
         "scheme": 0
       },
       "nameStyle": "selva",
+      "powerTier": "superpower",
       "currency": {
         "code": "placeholder_cur_09",
         "name": {
@@ -551,7 +563,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 4,
         "cityJobs": [
           {
             "facility": "farm",
@@ -611,6 +622,7 @@
         "scheme": 2
       },
       "nameStyle": "oasis",
+      "powerTier": "small_state",
       "currency": {
         "code": "placeholder_cur_10",
         "name": {
@@ -622,7 +634,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 3,
         "cityJobs": [
           {
             "facility": "mine",
@@ -686,6 +697,7 @@
         "scheme": 1
       },
       "nameStyle": "olive",
+      "powerTier": "city_state",
       "currency": {
         "code": "placeholder_cur_11",
         "name": {
@@ -697,7 +709,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 2,
         "cityJobs": [
           {
             "facility": "lumber_camp",
@@ -761,6 +772,7 @@
         "scheme": 2
       },
       "nameStyle": "spice",
+      "powerTier": "small_state",
       "currency": {
         "code": "placeholder_cur_12",
         "name": {
@@ -808,6 +820,7 @@
         "scheme": 0
       },
       "nameStyle": "sunstone",
+      "powerTier": "great_power",
       "currency": {
         "code": "placeholder_cur_13",
         "name": {
@@ -819,7 +832,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 4,
         "cityJobs": [
           {
             "facility": "farm",
@@ -879,6 +891,7 @@
         "scheme": 0
       },
       "nameStyle": "birch",
+      "powerTier": "middle_power",
       "currency": {
         "code": "placeholder_cur_14",
         "name": {
@@ -890,7 +903,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 3,
         "cityJobs": [
           {
             "facility": "mine",
@@ -954,6 +966,7 @@
         "scheme": 2
       },
       "nameStyle": "saffron",
+      "powerTier": "city_state",
       "currency": {
         "code": "placeholder_cur_15",
         "name": {
@@ -965,7 +978,6 @@
       },
       "tradeTaxBp": 200,
       "personality": {
-        "startCities": 2,
         "cityJobs": [
           {
             "facility": "lumber_camp",
@@ -1029,6 +1041,7 @@
         "scheme": 1
       },
       "nameStyle": "reef",
+      "powerTier": "small_state",
       "currency": {
         "code": "placeholder_cur_16",
         "name": {

@@ -1,7 +1,13 @@
 // 세계 씨앗(고정 NPC 국가의 시작 도시 수·기본 시설 수) — 기획 D-6041(세력마다 시작 도시 여러 곳, 60 §7.1 "2~4곳")·46 §9.2(고정 국가)·
 // 90 §2.1(기본 NPC 국가·시작 도시 배치), docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗"·"WP5 나라 성격". 수치는 모두 [임시](D-515: 밸런싱
 // 단계에서 정한다). 시뮬은 읽지 않는다(서버가 켤 때 시험 세계를 차릴 때만 읽는다: apps/server/src/npc/nations.ts·facilities/npcSeed.ts·
-// world/worldLayout.ts — 국가 자리, docs/adr/2026-11-07-world-layout.md).
+// world/worldLayout.ts — 국가 자리, docs/adr/2026-11-07-world-layout.md). 배후지 칸(catchment*)은 시뮬 도시 경제도 읽는다(채집 다툼,
+// docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)").
+import {
+  type CatchmentGrowthRules,
+  type CatchmentSupplyRules,
+  catchmentRadiusMilli,
+} from "@terra/shared/catchment";
 
 export interface WorldSeedCoefficients {
   /**
@@ -81,6 +87,31 @@ export interface WorldSeedCoefficients {
   /** [임시] 수도에서 배후지 지름 하나만큼 멀어질 때마다 자리 점수에서 빼는 덮임(‰) — 나라가 흩어지지 않게 */
   readonly catchmentCompactPm: number;
   /**
+   * [임시] 도시 크기에 따라 넓어지는 배후지(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)", 사용자 지적 2026-11-11 "인구와
+   * 도시등급이 높을 수록 높은자원과 기술을 요구하여 요구 영토범위가 넓어지고"): 요구 넓이(칸) = 인구 × catchmentCellsPerHundred ÷ 100 ×
+   * 요구 배율(등급 기본 + 걸음 × (등급 − 1) + 기술 × 기술 몫, ‰), 반경 = √(넓이 ÷ π)(아래·위 끝 1000분율 칸). @terra/shared/catchment
+   */
+  readonly catchmentCellsPerHundred: number;
+  readonly catchmentGradeNeedBasePm: number;
+  readonly catchmentGradeNeedStepPm: number;
+  readonly catchmentTechNeedPm: number;
+  readonly catchmentMinRadiusMilli: number;
+  readonly catchmentMaxRadiusMilli: number;
+  /** [임시] 시작 도시 배치: 수도는 인구(주거) × 이 천분율, 등급 + 1로 반경을 잡는다(더 크게 자랄 자리) */
+  readonly catchmentCapitalPm: number;
+  /** [임시] 시작 도시 배치: 처음 기간에 이를 도시 등급(인구는 주거만큼 찬다고 본다) */
+  readonly catchmentPlanGrade: number;
+  /**
+   * [임시] 채집 다툼과 고갈: 칸 하나 원자재 재고 상한, 하루 로지스틱 다시 자람(‰)·바닥, 도시가 요구 넓이 칸마다 캐려는 양(칸이 버티는 양의 ‰),
+   * 구인(인구 늘리기)에 필요한 받은 몫(‰), 채집 시설 빠르기 바닥(‰)
+   */
+  readonly catchmentStockPerCell: number;
+  readonly catchmentRegrowPm: number;
+  readonly catchmentRegrowFloor: number;
+  readonly catchmentDrawPm: number;
+  readonly catchmentGrowthMinPm: number;
+  readonly catchmentYieldFloorPm: number;
+  /**
    * [임시] 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 서버가 그때 띄운 2차맵 상한(부팅 씨앗 2차맵 —
    * 시험 줄·도시 — 은 세지 않는다). 꽉 차면 빈 것을 내리고 띄우고, 빈 것이 없으면 띄우지 않는다. NAS 1GiB에서 2차맵 하나 약 5~7MB
    */
@@ -159,6 +190,23 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   catchmentForeignGapPm: 1500,
   catchmentSearchCells: 12,
   catchmentCompactPm: 100,
+  // 크기에 따라 넓어지는 배후지: 40명·등급 4·기술 2 ≈ 반경 2.07칸(옛 고정 2칸), 초강대국 수도(주거 60 × 1.25, 등급 5) ≈ 3.2칸, 소국 지방 도시 ≈ 1.8칸.
+  // 칸 재고 1000, 하루 40% 로지스틱 + 바닥 20(버티는 양 120), 배후지 칸마다 버티는 양의 75%(혼자면 재고 약 77%에서 머물고, 둘이 다 겹치면
+  // 150% — 열흘 남짓에 바닥나 바닥 다시 자람만 나눈다)
+  catchmentCellsPerHundred: 27,
+  catchmentGradeNeedBasePm: 700,
+  catchmentGradeNeedStepPm: 150,
+  catchmentTechNeedPm: 50,
+  catchmentMinRadiusMilli: 1000,
+  catchmentMaxRadiusMilli: 8000,
+  catchmentCapitalPm: 1250,
+  catchmentPlanGrade: 4,
+  catchmentStockPerCell: 1000,
+  catchmentRegrowPm: 400,
+  catchmentRegrowFloor: 20,
+  catchmentDrawPm: 750,
+  catchmentGrowthMinPm: 900,
+  catchmentYieldFloorPm: 100,
   // 그때 띄우기: 지금 NAS(17장 RSS 약 430MB)에 32장(약 +200MB)을 더해도 1GiB 안, 비우고 10분 뒤 내림
   mapSpawnMaxLoaded: 32,
   mapSpawnIdleMs: 10 * 60_000,
@@ -200,4 +248,47 @@ export function startCitiesFor(seed: WorldSeedCoefficients, personality?: number
   const high = clamp(Math.max(seed.startCitiesMin, seed.startCitiesMax));
   if (personality === undefined || !Number.isFinite(personality)) return low;
   return Math.max(low, Math.min(high, Math.trunc(personality)));
+}
+
+/** 세계 씨앗 설정 칸 → 도시 크기에 따른 요구 배후지 규칙(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)") */
+export function catchmentGrowthOf(seed: WorldSeedCoefficients): CatchmentGrowthRules {
+  return {
+    cellsPerHundred: seed.catchmentCellsPerHundred,
+    gradeNeedBasePm: seed.catchmentGradeNeedBasePm,
+    gradeNeedStepPm: seed.catchmentGradeNeedStepPm,
+    techNeedPm: seed.catchmentTechNeedPm,
+    minRadiusMilli: seed.catchmentMinRadiusMilli,
+    maxRadiusMilli: seed.catchmentMaxRadiusMilli,
+  };
+}
+
+/** 세계 씨앗 설정 칸 → 칸 재고·다시 자람·캐려는 양 규칙 */
+export function catchmentSupplyOf(seed: WorldSeedCoefficients): CatchmentSupplyRules {
+  return {
+    stockPerCell: seed.catchmentStockPerCell,
+    regrowPm: seed.catchmentRegrowPm,
+    regrowFloor: seed.catchmentRegrowFloor,
+    drawPm: seed.catchmentDrawPm,
+  };
+}
+
+/**
+ * 시작 도시 배치에 쓰는 반경(1000분율 칸): 처음 기간에 이를 크기 — 인구 = 주거(구인 목표까지 찬다), 등급 = catchmentPlanGrade. 수도는 인구 ×
+ * catchmentCapitalPm, 등급 + 1(더 크게 자랄 자리를 미리 잡는다). 그래서 시작 도시가 자라도 바로 부딪치지 않는다
+ */
+export function plannedCityRadiusMilli(
+  seed: WorldSeedCoefficients,
+  city: { readonly housing: number; readonly tech: number; readonly capital: boolean },
+): number {
+  const housing = Math.max(0, Math.trunc(city.housing));
+  return catchmentRadiusMilli(
+    {
+      population: city.capital
+        ? Math.floor((housing * Math.max(1000, seed.catchmentCapitalPm)) / 1000)
+        : housing,
+      grade: seed.catchmentPlanGrade + (city.capital ? 1 : 0),
+      tech: city.tech,
+    },
+    catchmentGrowthOf(seed),
+  );
 }

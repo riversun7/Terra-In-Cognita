@@ -390,6 +390,8 @@ function recruitPolicy(ctx: NpcContext, faction: SimFaction, nowMs: number): voi
         treasury: ctx.world.book.balanceOf(faction.id, asset),
         guards: guardsByCity.get(cityId) ?? 0,
         guardTarget,
+        // 배후지에서 받은 몫이 문턱 아래면 인구를 늘리지 않는다(catchmentRun.ts — 지난 하루 끝 값, 없으면 다 받음)
+        growthBlocked: (city.supplyPm ?? 1000) < ctx.c.worldSeed.catchmentGrowthMinPm,
       },
       ctx.c.npc,
     );

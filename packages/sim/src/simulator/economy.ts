@@ -38,6 +38,7 @@ import {
   tierCappedByLevel,
 } from "../economy/production.ts";
 import { dueNecessities, payNecessities } from "../economy/upkeep.ts";
+import { type CatchmentState, facilitySupplyPm } from "./catchmentRun.ts";
 import {
   type CatalogGather,
   type EconomyCatalog,
@@ -147,6 +148,11 @@ export interface Economy {
   /** 도시 → 사는 유닛 수(유닛은 도시를 옮기지 않는다) */
   readonly cityUnits: Map<number, number>;
   readonly cargo: Map<number, Cargo>;
+  /**
+   * 배후지 채집 다툼(catchmentRun.ts, docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)"). 있으면 채집 시설 빠르기 = 그 원자재의 지난
+   * 하루 받은 몫. 없으면 땅을 보지 않는다(옛 경제)
+   */
+  catchment?: CatchmentState | undefined;
   nextOrderId(): number;
   nextCargoId(): number;
   /** 오늘 센 값(하루 줄에 쓰고 비운다) */
@@ -445,6 +451,15 @@ function pointsPerHour(facility: EcoFacility): number {
  *   난수 = 흐름 7(시설, 생산 차례). 일하는 사람이 없으면 undefined(예약하지 않는다)
  */
 function nextBatch(economy: Economy, world: SimWorld, facility: EcoFacility): PendingBatch | undefined {
+  const batch = plainBatch(economy, world, facility);
+  // 배후지 받은 몫만큼 느려진다(채집 시설만, 바닥 위 — catchmentRun.ts)
+  const supplyPm = facilitySupplyPm(economy.catchment, facility.city, facility.recipe.facility);
+  if (!batch || supplyPm >= 1000) return batch;
+  return { outputs: batch.outputs, durationMs: Math.ceil((batch.durationMs * 1000) / supplyPm) };
+}
+
+/** 배후지를 보지 않은 다음 한 번(nextBatch 머리 주석) */
+function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): PendingBatch | undefined {
   const roll = facility.recipe.gather;
   const ladder = roll ? economy.catalog.gatherLadders.get(roll.subcategory) : undefined;
   if (!roll || !ladder) {

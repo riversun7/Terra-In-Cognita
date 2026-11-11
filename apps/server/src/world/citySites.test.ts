@@ -7,7 +7,14 @@ import { START_WORLD_SEED } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { catchmentViewOf } from "./catchmentView.ts";
 import { catchmentCells, createCatchmentCache, splitCatchments } from "./citySites.ts";
-import { type LayoutInput, type LayoutLand, planWorldLayout, seedOfText } from "./worldLayout.ts";
+import {
+  type LayoutInput,
+  type LayoutLand,
+  type LayoutTier,
+  nationCatchmentMilli,
+  planWorldLayout,
+  seedOfText,
+} from "./worldLayout.ts";
 
 const LEVEL = 6;
 const metric = territoryMetric(LEVEL);
@@ -142,7 +149,7 @@ describe("배후지 배치(지방 도시 자리)", () => {
 });
 
 describe("세계 배치 화면 배후지 덮개(catchmentViewOf)", () => {
-  it("수도 둘레 (2 × (찾는 반경 + R) + 1)² 격자, 도시 걸음·덮임·고른 국가, 겹친 쌍", () => {
+  it("수도 둘레 (2 × (찾는 반경 + 4) + 1)² 격자, 도시마다 지금·목표 반경·덮임·겹친 칸, 겹친 쌍(거리 < 두 반경 합)", () => {
     const center = cellKey(0, LEVEL, 30, 30);
     const view = catchmentViewOf({
       faceLevel: LEVEL,
@@ -151,26 +158,86 @@ describe("세계 배치 화면 배후지 덮개(catchmentViewOf)", () => {
       code: "a",
       center,
       world: [
-        { code: "a", mapKey: center },
-        { code: "b", mapKey: cellKey(0, LEVEL, 31, 30) },
+        { code: "a", mapKey: center, radiusMilli: 1500, targetMilli: 2500, population: 30 },
+        { code: "b", mapKey: cellKey(0, LEVEL, 32, 30), targetMilli: 2000, population: 40 },
+        { code: "b", mapKey: cellKey(0, LEVEL, 30, 36), radiusMilli: 1000, targetMilli: 2000 },
       ],
       plan: [
-        { code: "a", mapKey: center },
-        { code: "a", mapKey: cellKey(0, LEVEL, 45, 30) },
+        { code: "a", mapKey: center, targetMilli: 2500 },
+        { code: "a", mapKey: cellKey(0, LEVEL, 47, 30), targetMilli: 2000 },
       ],
       needsOf: () => ({ crop: 1, wood: 1, ore: 1 }),
+      provinceMilli: 2000,
     });
-    expect(view.span).toBe(14);
-    expect(view.cells).toHaveLength(29 * 29);
-    expect(view.world).toEqual([
-      { di: 0, dj: 0, cover: 666, code: "a", own: true },
-      { di: 1, dj: 0, cover: 666, code: "b", own: false },
-    ]);
-    // 격자 밖(15칸) 도시는 덮개에 없다
-    expect(view.plan).toHaveLength(1);
+    expect(view.span).toBe(16);
+    expect(view.cells).toHaveLength(33 * 33);
+    const [a, b, c] = view.world;
+    expect(a).toMatchObject({
+      di: 0,
+      dj: 0,
+      code: "a",
+      own: true,
+      radiusMilli: 1500,
+      targetMilli: 2500,
+      population: 30,
+    });
+    expect(b).toMatchObject({ di: 2, dj: 0, code: "b", own: false, radiusMilli: 2000, targetMilli: 2000 });
+    // a(1.5칸)와 b(2칸)는 2칸 떨어져 겹치고, c(1칸)는 6칸 떨어져 혼자다
+    expect(a?.shared).toBeGreaterThan(0);
+    expect(b?.shared).toBeGreaterThan(0);
+    expect(c?.shared).toBe(0);
+    expect(c?.population).toBeNull();
     expect(view.overlapWorld).toBe(1);
+    expect(view.contestedWorld).toBe(a?.shared);
+    // 격자 밖(17칸) 계획 도시는 덮개에 없지만 겹침 셈에는 든다(행성 전체)
+    expect(view.plan).toHaveLength(1);
     expect(view.overlapPlan).toBe(0);
+    expect(view.contestedPlan).toBe(0);
     expect(view.sameGapCells).toBe(4);
     expect(view.foreignGapCells).toBe(6);
+  });
+});
+
+describe("도시 크기에 따른 배후지 배치(바뀜 2026-11-12)", () => {
+  const big: LayoutTier = { rank: 0, cityStepCells: 1, homeGapPm: 1000, housing: 60, tech: 3 };
+  const small: LayoutTier = { rank: 3, cityStepCells: 1, homeGapPm: 1000, housing: 32, tech: 1 };
+  const input = base({
+    nations: [
+      { factionId: 1, missing: 4, placed: [], home: cellKey(0, LEVEL, 20, 20), tier: big },
+      { factionId: 2, missing: 3, placed: [], home: cellKey(1, LEVEL, 20, 20), tier: small },
+    ],
+  });
+  const result = planWorldLayout(input);
+  const own = (id: number) =>
+    result.spots.filter((entry) => entry.factionId === id).map((entry) => entry.spot.mapKey);
+
+  it("큰 나라·수도는 반경이 넓고, 같은 국가 두 도시 사이는 (두 반경 합) 이상", () => {
+    const bigR = nationCatchmentMilli(seed, big);
+    const smallR = nationCatchmentMilli(seed, small);
+    expect(bigR.capital).toBeGreaterThan(bigR.province);
+    expect(bigR.province).toBeGreaterThan(smallR.province);
+    expect(result.short).toBe(0);
+    for (const [id, radius] of [
+      [1, bigR],
+      [2, smallR],
+    ] as const) {
+      const cities = own(id);
+      cities.forEach((a, i) =>
+        cities.forEach((b, j) => {
+          if (j <= i) return;
+          const gap = (i === 0 ? radius.capital : radius.province) + radius.province;
+          expect(distance(a, b)).toBeGreaterThanOrEqual(gap);
+        }),
+      );
+    }
+  });
+
+  it("작은 나라의 가장 가까운 도시 간격이 큰 나라 간격 바닥보다 짧을 수 있다(고른 바둑판이 아니다)", () => {
+    const bigR = nationCatchmentMilli(seed, big);
+    const smallCities = own(2);
+    const nearest = Math.min(
+      ...smallCities.flatMap((a, i) => smallCities.slice(i + 1).map((b) => distance(a, b))),
+    );
+    expect(nearest).toBeLessThan(2 * bigR.province);
   });
 });

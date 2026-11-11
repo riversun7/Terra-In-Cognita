@@ -5,6 +5,9 @@
 // - 잰다: 도시 사이 거리(1차맵 칸·km), 가장 가까운 도시(같은 국가·다른 국가), 2차맵 나눠 쓰기, 수도에서 지방 도시 걸음(바둑판 모양),
 //   배후지(반경 R) 겹침(둘 이상 배후지에 든 칸, 겹친 도시 쌍)과 도시마다 덮임(혼자일 때 · 가장 가까운 도시가 나눠 가진 뒤).
 // - --old: 배후지 규칙을 끈 옛 배치(설정 칸 city_catchment_radius_cells = 0)로 잰다.
+// - --fixed <칸>: 도시 크기와 상관없이 고정 반경(반경 아래 끝 = 위 끝 = 칸 × 1000) — 앞 줄기(city-spacing) 배치를 다시 잰다.
+// - 바뀜 (2026-11-12, ADR "바뀜 (2026-11-12)"): 도시마다 요구 반경(처음 기간에 이를 크기 — 국가 등급 주거·기술, 수도는 더 크게)을 함께 보인다.
+//   겹침 = 거리 < 두 요구 반경 합, 가장 가까운 거리의 변동 계수(표준편차 ÷ 평균 — 고른 바둑판이면 0에 가깝다), 등급마다 같은 국가 가장 가까운 거리.
 // 표는 Markdown이다. pnpm test에는 없다(행성 생성에 십수 초).
 import { fileURLToPath } from "node:url";
 import { loadContentPack } from "@terra/content/node";
@@ -12,19 +15,30 @@ import { type CellKey, decodeCellKey, parseCellKey } from "@terra/planet";
 import { planetInputFromDefinition, runPlanetGenerator } from "@terra/planet/generator";
 import { planetCellValues, planetValuesFromGeneration } from "@terra/planet/secondMap";
 import { AVERAGE_CELL_EDGE_METERS, territoryMetric, territoryPoint } from "@terra/planet/territory";
-import { CATCHMENT_MATERIALS, weightsOfFacilities } from "@terra/shared/catchment";
+import {
+  CATCHMENT_MATERIALS,
+  MATERIAL_BIT,
+  type SupplyStock,
+  catchmentAreaMilli,
+  cellMaterials,
+  materialDemand,
+  stepCatchmentSupply,
+  weightsOfFacilities,
+} from "@terra/shared/catchment";
 import { territoryDistanceMilli } from "@terra/shared/territory";
-import { START_WORLD_SEED } from "@terra/sim";
+import { START_WORLD_SEED, catchmentGrowthOf, catchmentSupplyOf, plannedCityRadiusMilli } from "@terra/sim";
 import { MAX_TEST_NATIONS, nationCode, nationStartOf, presetOfCode } from "../src/npc/nations.ts";
 import { nationPresetsOf } from "../src/npc/presets.ts";
 import { landGather } from "../src/facilities/npcSeed.ts";
-import { catchmentCells, splitCatchments, summarize } from "../src/world/citySites.ts";
+import { catchmentCellsMilli, splitCatchments, summarize } from "../src/world/citySites.ts";
 import { testMapKey } from "../src/world/testMaps.ts";
 import { freshTierPlan } from "../src/world/tierPlan.ts";
 
 const args = process.argv.slice(2);
 const old = args.includes("--old");
-const radius = Number(args.find((arg) => !arg.startsWith("--")) ?? 2);
+const fixedAt = args.indexOf("--fixed");
+const fixed = fixedAt >= 0 ? Number(args[fixedAt + 1] ?? 2) : undefined;
+const radius = fixed ?? 2;
 const LEVEL = 9;
 const KM = AVERAGE_CELL_EDGE_METERS / 1000;
 
@@ -42,7 +56,11 @@ const values = planetValuesFromGeneration(
 );
 const land = (key: CellKey) => planetCellValues(values, key);
 const presets = nationPresetsOf(pack);
-const seed = old ? { ...START_WORLD_SEED, catchmentRadiusCells: 0 } : START_WORLD_SEED;
+const seed = old
+  ? { ...START_WORLD_SEED, catchmentRadiusCells: 0 }
+  : fixed === undefined
+    ? START_WORLD_SEED
+    : { ...START_WORLD_SEED, catchmentMinRadiusMilli: fixed * 1000, catchmentMaxRadiusMilli: fixed * 1000 };
 const avoidMaps = new Set<number>(Array.from({ length: 6 }, (_, index) => testMapKey(index)));
 const nations = Array.from({ length: MAX_TEST_NATIONS }, (_, index) => {
   const code = nationCode(index + 1, presets);
@@ -59,8 +77,11 @@ interface City {
   readonly tier: string;
   readonly mapKey: CellKey;
   readonly capital: boolean;
+  /** 요구 반경(1000분율 칸 — 새 규칙의 처음 기간 크기, 모드와 상관없이 같은 값으로 잰다) */
+  readonly needMilli: number;
 }
 const cities: City[] = [];
+const startOfNation = new Map(nations.map((nation) => [nation.code, nation.start]));
 for (const nation of plan.nations)
   nation.cities.forEach((key, index) => {
     cities.push({
@@ -69,6 +90,11 @@ for (const nation of plan.nations)
       tier: nation.tier ?? "-",
       mapKey: parseCellKey(Number(key)),
       capital: index === 0,
+      needMilli: plannedCityRadiusMilli(START_WORLD_SEED, {
+        housing: startOfNation.get(nation.code)?.housing ?? START_WORLD_SEED.startHousing,
+        tech: startOfNation.get(nation.code)?.tech ?? 1,
+        capital: index === 0,
+      }),
     });
   });
 const dist = (a: City, b: City) =>
@@ -87,6 +113,9 @@ const nearestSame: number[] = [];
 const nearestForeign: number[] = [];
 let overlapPairsSame = 0;
 let overlapPairsForeign = 0;
+let needOverlapSame = 0;
+let needOverlapForeign = 0;
+const nearestSameByTier = new Map<string, number[]>();
 let adjacentPairs = 0;
 for (const a of cities) {
   let any = Infinity;
@@ -104,8 +133,13 @@ for (const a of cities) {
         else overlapPairsForeign += 1;
       }
       if (d <= 1.5) adjacentPairs += 1;
+      if (d * 1000 < a.needMilli + b.needMilli) {
+        if (a.nation === b.nation) needOverlapSame += 1;
+        else needOverlapForeign += 1;
+      }
     }
   }
+  if (same < Infinity) nearestSameByTier.set(a.tier, [...(nearestSameByTier.get(a.tier) ?? []), same]);
   if (any < Infinity) nearestAny.push(any);
   if (same < Infinity) nearestSame.push(same);
   if (foreign < Infinity) nearestForeign.push(foreign);
@@ -129,20 +163,82 @@ const offsetsOf = (nation: string): string => {
 };
 
 const split = splitCatchments(
-  cities.map((city) => ({ id: city.id, mapKey: city.mapKey })),
+  cities.map((city) => ({ id: city.id, mapKey: city.mapKey, radiusMilli: city.needMilli })),
   radius,
   LEVEL,
 );
+/** 변동 계수(표준편차 ÷ 평균) */
+const cv = (list: readonly number[]): string => {
+  if (list.length < 2) return "-";
+  const mean = list.reduce((sum, value) => sum + value, 0) / list.length;
+  const variance = list.reduce((sum, value) => sum + (value - mean) * (value - mean), 0) / list.length;
+  return (Math.sqrt(variance) / mean).toFixed(3);
+};
 const startOfCode = new Map(nations.map((nation) => [nation.code, nation.start]));
 const coverRows = cities.map((city) => {
   const weights = weightsOfFacilities(startOfCode.get(city.nation)?.facilities ?? {});
-  const alone = summarize(catchmentCells(city.mapKey, radius, LEVEL), land, seed, weights);
+  const alone = summarize(catchmentCellsMilli(city.mapKey, city.needMilli, LEVEL), land, seed, weights);
   const own = summarize(split.own.get(city.id) ?? [], land, seed, weights);
   return { city, alone, own };
 });
 
+// 30일 채집 다툼(목표 크기 — 인구 = 주거, 등급 = 계획 등급, 수도는 더 크게; 가중치 = 국가 시작 채집 시설 수 가운데 NPC 씨앗이 그 땅에 짓는
+// 것, 원자재 = 칸 비트)
+const supplyRun = (() => {
+  const growth = catchmentGrowthOf(START_WORLD_SEED);
+  const rules = catchmentSupplyOf(START_WORLD_SEED);
+  const bitsOf = new Map<number, number>();
+  const capacity = (cell: number, material: (typeof CATCHMENT_MATERIALS)[number]): number => {
+    let bits = bitsOf.get(cell);
+    if (bits === undefined) {
+      bits = cellMaterials(land(parseCellKey(cell)), START_WORLD_SEED);
+      bitsOf.set(cell, bits);
+    }
+    return (bits & MATERIAL_BIT[material]) === 0 ? 0 : 1000;
+  };
+  const supplyCities = cities.map((city) => {
+    const start = startOfNation.get(city.nation);
+    const housing = start?.housing ?? START_WORLD_SEED.startHousing;
+    const size = {
+      population: city.capital ? Math.floor((housing * START_WORLD_SEED.catchmentCapitalPm) / 1000) : housing,
+      grade: START_WORLD_SEED.catchmentPlanGrade + (city.capital ? 1 : 0),
+      tech: start?.tech ?? 1,
+    };
+    const cells = catchmentCellsMilli(city.mapKey, city.needMilli, LEVEL);
+    const area = Math.max(catchmentAreaMilli(size, growth), cells.length * 1000);
+    // NPC 씨앗이 실제로 짓는 채집 시설만(도시 칸 행성 값 — landGather, 광산은 높은 땅에만)
+    const fit = landGather(land(city.mapKey), START_WORLD_SEED);
+    const all = weightsOfFacilities(start?.facilities ?? {});
+    const weights = {
+      ...all,
+      crop: fit.farm ? all.crop : 0,
+      wood: fit.lumber ? all.wood : 0,
+      ore: fit.mine ? all.ore : 0,
+    };
+    const max = Math.max(...CATCHMENT_MATERIALS.map((m) => weights[m] ?? 0));
+    const demand = Object.fromEntries(
+      CATCHMENT_MATERIALS.map((m) => [m, materialDemand(area, weights[m] ?? 0, max, rules)]),
+    );
+    return { id: city.id, cells, demand };
+  });
+  const stock: SupplyStock = new Map();
+  let last = new Map<number, number>();
+  for (let day = 0; day < 30; day++)
+    last = new Map(
+      [...stepCatchmentSupply(supplyCities, stock, capacity, rules)].map(([id, r]) => [id, r.totalPm]),
+    );
+  const received = [...last.values()];
+  return {
+    avg: Math.round(received.reduce((sum, v) => sum + v, 0) / Math.max(1, received.length)),
+    min: Math.min(...received),
+    stalled: received.filter((v) => v < START_WORLD_SEED.catchmentGrowthMinPm).length,
+  };
+})();
+
 const lines: string[] = [];
-lines.push(`# 도시 간격 측정 (${old ? "옛 배치" : "배후지 배치"}, 배후지 반경 R = ${radius}칸)`);
+lines.push(
+  `# 도시 간격 측정 (${old ? "옛 배치" : fixed === undefined ? "도시 크기 배후지 배치" : `고정 반경 배후지 배치 R = ${fixed}칸`})`,
+);
 lines.push("");
 lines.push(
   `- 행성 s2_test_planet F${LEVEL}, 국가 ${plan.nations.length}/${MAX_TEST_NATIONS}, 도시 ${cities.length}, 못 세운 도시 ${plan.short}, 계획 ${planMs.toFixed(0)}ms`,
@@ -151,10 +247,24 @@ lines.push(`- 1차맵 칸 = 2차맵 하나 = 평균 ${KM.toFixed(4)}km`);
 lines.push(`- 가장 가까운 도시(아무나): ${stats(nearestAny)}`);
 lines.push(`- 가장 가까운 같은 국가 도시: ${stats(nearestSame)}`);
 lines.push(`- 가장 가까운 다른 국가 도시: ${stats(nearestForeign)}`);
+lines.push(
+  `- 가장 가까운 거리 변동 계수(표준편차 ÷ 평균, 바둑판이면 0에 가깝다): 아무나 ${cv(nearestAny)} · 같은 국가 ${cv(nearestSame)}`,
+);
+for (const [tier, list] of [...nearestSameByTier].toSorted((a, b) => a[0].localeCompare(b[0])))
+  lines.push(
+    `- 등급 ${tier} 같은 국가 가장 가까운 도시: ${stats(list)} (도시 ${list.length}, 변동 계수 ${cv(list)})`,
+  );
+const needs = cities.map((city) => city.needMilli / 1000);
+lines.push(
+  `- 요구 반경(처음 기간 크기): ${stats(needs)}, 요구 반경으로 겹친 쌍(거리 < 두 반경 합): 같은 국가 ${needOverlapSame} · 다른 국가 ${needOverlapForeign}`,
+);
+lines.push(
+  `- 30일 채집 다툼(목표 크기, 원자재 = 칸 비트): 받은 몫 평균 ${supplyRun.avg}‰ · 최저 ${supplyRun.min}‰ · 성장 멈춤(< ${START_WORLD_SEED.catchmentGrowthMinPm}‰) 도시 ${supplyRun.stalled}/${cities.length}`,
+);
 lines.push(`- 붙은 도시 쌍(거리 ≤ 1.5칸 = 변·꼭짓점 이웃 2차맵): ${adjacentPairs}`);
 lines.push(`- 2차맵 하나에 도시 둘 이상: ${[...perMap.values()].filter((n) => n > 1).length}`);
 lines.push(
-  `- 배후지(반경 ${radius}칸 = ${(radius * KM).toFixed(1)}km) 겹친 도시 쌍(거리 < 2R): 같은 국가 ${overlapPairsSame} · 다른 국가 ${overlapPairsForeign}, 둘 이상 배후지에 든 칸 ${split.shared}`,
+  `- 배후지(반경 ${radius}칸 = ${(radius * KM).toFixed(1)}km) 겹친 도시 쌍(거리 < 2R): 같은 국가 ${overlapPairsSame} · 다른 국가 ${overlapPairsForeign}, 둘 이상 요구 배후지에 든 칸 ${split.shared}`,
 );
 const meanOf = (list: readonly number[]) =>
   list.length === 0 ? 0 : Math.round(list.reduce((sum, value) => sum + value, 0) / list.length);
@@ -180,13 +290,13 @@ for (const nation of plan.nations)
   );
 lines.push("");
 lines.push(
-  `| 도시 | 국가 | 칸 수 혼자→몫 | 덮임‰ 혼자→몫 | ${CATCHMENT_MATERIALS.join(" · ")} (혼자 칸 수) |`,
+  `| 도시 | 국가 | 요구 반경 | 칸 수 혼자→몫 | 덮임‰ 혼자→몫 | ${CATCHMENT_MATERIALS.join(" · ")} (혼자 칸 수) |`,
 );
-lines.push("|---|---|---|---|---|");
+lines.push("|---|---|---|---|---|---|");
 for (const row of coverRows) {
   const c = decodeCellKey(row.city.mapKey);
   lines.push(
-    `| ${c.face}:${c.i},${c.j}${row.city.capital ? " ★" : ""} | ${row.city.nation} | ${row.alone.cells}→${row.own.cells} | ${row.alone.coverPm}→${row.own.coverPm} | ${CATCHMENT_MATERIALS.map((m) => row.alone.counts[m]).join(" · ")} |`,
+    `| ${c.face}:${c.i},${c.j}${row.city.capital ? " ★" : ""} | ${row.city.nation} | ${(row.city.needMilli / 1000).toFixed(2)} | ${row.alone.cells}→${row.own.cells} | ${row.alone.coverPm}→${row.own.coverPm} | ${CATCHMENT_MATERIALS.map((m) => row.alone.counts[m]).join(" · ")} |`,
   );
 }
 console.log(lines.join("\n"));

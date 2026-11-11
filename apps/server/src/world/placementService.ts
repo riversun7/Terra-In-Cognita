@@ -17,7 +17,6 @@
 import { type CellKey, cellLevel, isCellKey } from "@terra/planet";
 import { territoryMetric, territoryPoint } from "@terra/planet/territory";
 import type { LocalizedName } from "@terra/shared/roster";
-import { territoryDistanceMilli } from "@terra/shared/territory";
 import type {
   WorldFoundingView,
   WorldLayoutPlanetView,
@@ -29,7 +28,13 @@ import type {
   WorldTierApplyView,
 } from "@terra/shared/worldPlacementApi";
 import { WORLD_PLACE_BLOCKERS } from "@terra/shared/worldPlacementApi";
-import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS, type WorldSeedCoefficients } from "@terra/sim";
+import {
+  type SocietyCoefficients,
+  TEST_SOCIETY_COEFFICIENTS,
+  type WorldSeedCoefficients,
+  catchmentGrowthOf,
+  plannedCityRadiusMilli,
+} from "@terra/sim";
 import type { PlanetCellValues } from "@terra/planet/secondMap";
 import {
   MAX_TEST_NATIONS,
@@ -39,7 +44,8 @@ import {
   nationStartOf,
   presetOfCode,
 } from "../npc/nations.ts";
-import { weightsOfFacilities } from "@terra/shared/catchment";
+import { catchmentRadiusMilli, weightsOfFacilities } from "@terra/shared/catchment";
+import { cityGrade, territoryDistanceMilli } from "@terra/shared/territory";
 import { catchmentViewOf } from "./catchmentView.ts";
 import type { CityLayoutService } from "../facilities/cityLayoutView.ts";
 import { type NationPlacement, loadPlacements, planNationMove } from "./nationPlacement.ts";
@@ -122,6 +128,10 @@ interface CityRow {
   readonly start: boolean;
   readonly development: number;
   readonly name: string | null;
+  /** 사는 휴먼 수(배후지 지금 반경) */
+  readonly population: number;
+  /** 주인 세력 기술 단계(배후지 지금 반경) */
+  readonly tech: number;
 }
 
 const knownBlockers: ReadonlySet<string> = new Set(WORLD_PLACE_BLOCKERS);
@@ -170,8 +180,10 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
   };
   const loadCities = async (): Promise<CityRow[]> => {
     const result = await o.pool.query(
-      `select id, faction_id, map_key, cell_x, cell_y, start, development, name from world_cities
-       where planet_id = $1 order by id`,
+      `select c.id, c.faction_id, c.map_key, c.cell_x, c.cell_y, c.start, c.development, c.name,
+         (select count(*) from world_humans h where h.city_id = c.id) as population,
+         (select f.tech_level from factions f where f.id = c.faction_id) as tech
+       from world_cities c where c.planet_id = $1 order by c.id`,
       [o.planetId],
     );
     return result.rows.map((row) => ({
@@ -183,6 +195,8 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
       start: row.start === true,
       development: Number(row.development ?? 0),
       name: typeof row.name === "string" ? row.name : null,
+      population: Number(row.population ?? 0),
+      tech: Number(row.tech ?? 1),
     }));
   };
   const distanceCells = (a: CellKey, b: CellKey): number =>
@@ -488,6 +502,23 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
       const capital = row ? capitalOf(row, cities)?.mapKey : undefined;
       const center = capital ?? (planned ? parseMapKey(planned.home) : undefined);
       if (center === undefined || !isCellKey(center)) return null;
+      // 반경(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)"): 지금 = 인구·발전도 등급·기술, 목표 = 국가 등급의 처음 기간 크기
+      const seed = o.seed();
+      const territory = (o.territory ?? (() => TEST_SOCIETY_COEFFICIENTS.territory))();
+      const targetOf = (owner: string, capitalCity: boolean): number => {
+        const start = startOf(owner);
+        return plannedCityRadiusMilli(seed, {
+          housing: start.housing,
+          tech: start.tech,
+          capital: capitalCity,
+        });
+      };
+      const capitals = new Set(
+        nations.flatMap((nation) => {
+          const city = capitalOf(nation, cities);
+          return city ? [city.id] : [];
+        }),
+      );
       return catchmentViewOf({
         faceLevel,
         land: landOf,
@@ -496,12 +527,30 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
         center,
         world: cities.flatMap((city) => {
           const owner = codeOf.get(city.factionId);
-          return owner === undefined ? [] : [{ code: owner, mapKey: city.mapKey }];
+          if (owner === undefined) return [];
+          const radiusMilli = catchmentRadiusMilli(
+            { population: city.population, grade: cityGrade(city.development, territory), tech: city.tech },
+            catchmentGrowthOf(seed),
+          );
+          return [
+            {
+              code: owner,
+              mapKey: city.mapKey,
+              radiusMilli,
+              targetMilli: targetOf(owner, capitals.has(city.id)),
+              population: city.population,
+            },
+          ];
         }),
         plan: plan.nations.flatMap((nation) =>
-          nation.cities.map((key) => ({ code: nation.code, mapKey: Number(key) })),
+          nation.cities.map((key, index) => ({
+            code: nation.code,
+            mapKey: Number(key),
+            targetMilli: targetOf(nation.code, index === 0),
+          })),
         ),
         needsOf: (owner) => weightsOfFacilities(startOf(owner).facilities),
+        provinceMilli: targetOf(code, false),
       });
     },
 

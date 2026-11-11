@@ -385,6 +385,17 @@
 [data-catch-city="plan"] .wl-catch-ring {
   stroke-dasharray: 0.45 0.3;
 }
+/* 목표 반경(처음 기간에 이를 크기): 가는 점선 */
+.wl-catch-target {
+  fill: none;
+  stroke: var(--color-text-muted);
+  stroke-width: 0.06;
+  stroke-dasharray: 0.12 0.18;
+}
+/* 다툼(다른 배후지와 겹침 — 둘 다 고갈): 위험 색 */
+[data-catch-city][data-contested] .wl-catch-ring {
+  stroke: var(--color-danger);
+}
 [data-catch-city][data-own] .wl-catch-ring {
   stroke: var(--color-text);
   stroke-width: 0.22;
@@ -492,4 +503,14 @@
 }
 .wl-city-table td {
   white-space: nowrap;
+}
+.wl-catch-legend li[data-catch-legend="target"]::before {
+  border-style: dotted;
+  border-color: var(--color-text-muted);
+}
+.wl-catch-legend li[data-catch-legend="contested"]::before {
+  border-color: var(--color-danger);
+}
+.wl-catch-table tr[data-contested] td {
+  color: var(--color-danger);
 }

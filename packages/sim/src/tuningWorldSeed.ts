@@ -195,6 +195,91 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "배치 흔들기(칸, 도시마다 다른 모양)",
     "Layout jitter (cells, each city looks different)",
   ),
+  // 도시 크기에 따라 넓어지는 배후지·채집 다툼(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)")
+  k(
+    "city_catchment_cells_per_100",
+    "catchmentCellsPerHundred",
+    "배후지: 사람 100명이 쓰는 1차맵 칸(요구 배율 1000‰)",
+    "Catchment: planet cells per 100 people (need 1000‰)",
+  ),
+  k(
+    "city_catchment_grade_need_base_pm",
+    "catchmentGradeNeedBasePm",
+    "배후지: 도시 등급 1(마을)의 요구 배율(‰)",
+    "Catchment: need for city grade 1 (village, ‰)",
+  ),
+  k(
+    "city_catchment_grade_need_step_pm",
+    "catchmentGradeNeedStepPm",
+    "배후지: 도시 등급이 하나 오를 때 더하는 요구 배율(‰)",
+    "Catchment: extra need per city grade (‰)",
+  ),
+  k(
+    "city_catchment_tech_need_pm",
+    "catchmentTechNeedPm",
+    "배후지: 기술 단계 하나마다 더하는 요구 배율(‰)",
+    "Catchment: extra need per tech level (‰)",
+  ),
+  k(
+    "city_catchment_min_radius_pm",
+    "catchmentMinRadiusMilli",
+    "배후지 반경 아래 끝(1차맵 칸 × 1000)",
+    "Catchment radius minimum (planet cells × 1000)",
+  ),
+  k(
+    "city_catchment_max_radius_pm",
+    "catchmentMaxRadiusMilli",
+    "배후지 반경 위 끝(1차맵 칸 × 1000)",
+    "Catchment radius maximum (planet cells × 1000)",
+  ),
+  k(
+    "city_catchment_capital_pm",
+    "catchmentCapitalPm",
+    "배후지 배치: 수도는 인구 × 천분율(등급 +1)로 잡는다",
+    "Catchment layout: capital planned at population × per mille (grade +1)",
+  ),
+  k(
+    "city_catchment_plan_grade",
+    "catchmentPlanGrade",
+    "배후지 배치: 시작 도시가 처음 기간에 이를 도시 등급",
+    "Catchment layout: city grade start cities reach in the first period",
+  ),
+  k(
+    "city_catchment_stock_per_cell",
+    "catchmentStockPerCell",
+    "배후지 칸 하나의 원자재 재고 상한",
+    "Catchment: raw material stock per cell",
+  ),
+  k(
+    "city_catchment_regrow_pm",
+    "catchmentRegrowPm",
+    "배후지: 하루 다시 자람(로지스틱 ‰)",
+    "Catchment: daily regrowth (logistic ‰)",
+  ),
+  k(
+    "city_catchment_regrow_floor",
+    "catchmentRegrowFloor",
+    "배후지: 재고 0에서도 하루 다시 자라는 양",
+    "Catchment: daily regrowth even at zero stock",
+  ),
+  k(
+    "city_catchment_draw_pm",
+    "catchmentDrawPm",
+    "배후지: 도시가 칸마다 캐려는 양(버티는 양의 ‰)",
+    "Catchment: draw per cell (‰ of what a cell sustains)",
+  ),
+  k(
+    "city_catchment_growth_min_pm",
+    "catchmentGrowthMinPm",
+    "배후지: 인구를 늘리는 데 필요한 받은 몫(‰)",
+    "Catchment: supply needed to grow population (‰)",
+  ),
+  k(
+    "city_catchment_yield_floor_pm",
+    "catchmentYieldFloorPm",
+    "배후지: 채집 시설 빠르기 바닥(‰)",
+    "Catchment: gather facility speed floor (‰)",
+  ),
   // 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 49에 칸이 없어 map_spawn_*를 앞머리로 쓴다
   k(
     "map_spawn_max_loaded",

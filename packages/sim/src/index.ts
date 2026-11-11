@@ -276,6 +276,9 @@ export {
   START_CITIES_LIMIT,
   START_WORLD_SEED,
   type WorldSeedCoefficients,
+  catchmentGrowthOf,
+  catchmentSupplyOf,
+  plannedCityRadiusMilli,
   startCitiesFor,
 } from "./society/worldSeed.ts";
 // 오염·정원사(R5b, docs/adr/2026-11-01-gardener-r5b.md): 순수 규칙, 시뮬·서버가 같이 쓰는 실행 접착·웨이브 전투

@@ -36,6 +36,7 @@ import type { SimLoop } from "./loop.ts";
 import type { Scenario } from "./scenario.ts";
 import type { SimEvent, SimHooks } from "./npcRun.ts";
 import type { SimWorld } from "./world.ts";
+import { catchmentLine, stepCatchment } from "./catchmentRun.ts";
 
 /** 시스템 계정 앞머리 → 건드려도 되는 거래 종류(물건·돈이 생기고 사라지는 사건을 정해 둔다) */
 const SYSTEM_KINDS: Readonly<Record<string, readonly string[]>> = {
@@ -79,6 +80,8 @@ export interface EconomySummary {
   readonly money: Record<string, string>;
   readonly fx: Record<string, string>;
   readonly priceIndexMilli: Record<string, number | null>;
+  /** 배후지 채집 다툼(있을 때만, 출력 형식 17): 마지막 하루 끝 도시마다 [ID, 반경, 받은 몫, 겹친 칸] 등 */
+  readonly catchment?: Record<string, unknown> | undefined;
 }
 
 export interface EconomyRun {
@@ -229,6 +232,8 @@ export function runEconomy(
     endOfDay(nowMs) {
       // 중앙은행 공식 계수 = NPC 판단 계수표의 bank* 칸(설정 칸, 서버는 rules().npc)
       bankDay(economy, world, nowMs, centralBankRuleOf(npc));
+      // 배후지 채집 다툼(있을 때만): 다음 하루의 채집 빠르기·성장 문턱
+      if (economy.catchment) stepCatchment(economy.catchment, economy, world);
     },
     bidsPlaced: () => bids,
     dayLine() {
@@ -271,6 +276,7 @@ export function runEconomy(
         fx: record(fx),
         shortUnits: record(economy.today.shortUnits),
         inputShort: economy.today.inputShort,
+        ...(economy.catchment ? { catchment: catchmentLine(economy.catchment) } : {}),
       };
       economy.today.shortUnits.clear();
       economy.today.dueByCity.clear();
@@ -310,6 +316,7 @@ export function runEconomy(
         money: record(money),
         fx: record(fx),
         priceIndexMilli: record(index),
+        ...(economy.catchment ? { catchment: catchmentLine(economy.catchment) } : {}),
       };
     },
   };

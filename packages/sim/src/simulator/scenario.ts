@@ -2,6 +2,7 @@
 // 세력·도시·유닛·처음 자산을 적는 시험 세계 설명이다(JSON 파일, packages/sim/scenarios/). 콘텐츠 팩 분류가 아니다:
 // 국가 프리셋·아이템·레시피·시설의 팩 형식은 그 규칙을 만드는 단계(R2·R4)에서 정하고, 그때 이 설명이 팩 ID를 가리키게 된다.
 // NPC 판단(무엇을 해 볼지)은 npc/brain.ts(R5), 결과는 진짜 규칙(R4b 세력·사회)이 정한다. 시나리오는 판단 간격만 바꾼다.
+import { CATCHMENT_MATERIALS, type CatchmentMaterial } from "@terra/shared/catchment";
 import type { Regime } from "../society/shares.ts";
 
 export interface ScenarioFaction {
@@ -35,6 +36,11 @@ export interface ScenarioFaction {
   readonly researchLevel: number;
   /** 도시마다 행정 건물 레벨(1~5, D-469 구인 카드). [임시] 기본 1(옛 마을회관) — 행정 건물을 올리는 길이 아직 없다 */
   readonly adminLevel: number;
+  /**
+   * 배후지 평면 배치(시나리오 catchment 칸이 있을 때): 이 묶음 세력 하나의 도시 사이 칸(한 줄로 선다). 없으면 처음 기간 요구 반경의 지름
+   * (가장자리가 닿는다 — 서버 배치와 같은 sameGapPm 1000)
+   */
+  readonly catchmentStep?: number | undefined;
 }
 
 export interface ScenarioFacilityPlan {
@@ -126,6 +132,17 @@ export const DEFAULT_SCENARIO_SOCIETY: ScenarioSociety = {
   researchPerLevelDaily: 6000,
 };
 
+/**
+ * 배후지 채집 다툼(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)"). 있으면 경제가 도시마다 배후지에서 원자재를 캐고(칸 재고·다시 자람),
+ * 겹친 배후지는 함께 캔다. 시뮬은 행성이 없어 평면 배치다: 세력 차례 k의 처음 자리 (k × groupGap, 0), 그 세력 도시 j는 (x, j × 묶음 칸)
+ */
+export interface ScenarioCatchment {
+  /** 세력 처음 자리 사이 칸 */
+  readonly groupGap: number;
+  /** 원자재마다 칸 몫(‰, 모든 칸 같음). 없는 원자재는 1000 */
+  readonly richnessPm: Readonly<Partial<Record<CatchmentMaterial, number>>>;
+}
+
 export interface Scenario {
   readonly id: string;
   /** 콘텐츠 팩 행성 ID(있으면 실행 도구가 팩에 있는지 본다) */
@@ -135,6 +152,8 @@ export interface Scenario {
   readonly trips?: ScenarioTrips | undefined;
   readonly economy?: ScenarioEconomy | undefined;
   readonly combat?: ScenarioCombat | undefined;
+  /** 배후지 채집 다툼(경제가 있을 때만 쓴다) */
+  readonly catchment?: ScenarioCatchment | undefined;
   readonly society: ScenarioSociety;
   readonly gardener: ScenarioGardener;
 }
@@ -239,6 +258,9 @@ export function parseScenario(value: unknown): Scenario {
         5,
       ),
       adminLevel: optionalInt(field(item, "adminLevel"), `${at}.adminLevel`, 1, 1, 5),
+      ...(field(item, "catchmentStep") === undefined
+        ? {}
+        : { catchmentStep: int(field(item, "catchmentStep"), `${at}.catchmentStep`, 0, 10_000) }),
     };
   });
   const npcValue = field(value, "npc");
@@ -323,7 +345,21 @@ export function parseScenario(value: unknown): Scenario {
   if (gardenerEnabled !== undefined && typeof gardenerEnabled !== "boolean")
     throw new ScenarioError("gardener.enabled: boolean expected");
   const gardener: ScenarioGardener = { enabled: gardenerEnabled !== false };
-  return { id, planet, factions, npc, trips, economy, combat, society, gardener };
+  const catchmentValue = field(value, "catchment");
+  let catchment: ScenarioCatchment | undefined;
+  if (catchmentValue !== undefined) {
+    const richness: Partial<Record<CatchmentMaterial, number>> = {};
+    const richValue = field(catchmentValue, "richnessPm");
+    for (const material of CATCHMENT_MATERIALS) {
+      const raw = field(richValue, material);
+      if (raw !== undefined) richness[material] = int(raw, `catchment.richnessPm.${material}`, 0, 1000);
+    }
+    catchment = {
+      groupGap: int(field(catchmentValue, "groupGap"), "catchment.groupGap", 1, 100_000),
+      richnessPm: richness,
+    };
+  }
+  return { id, planet, factions, npc, trips, economy, combat, catchment, society, gardener };
 }
 
 function optionalList<T>(

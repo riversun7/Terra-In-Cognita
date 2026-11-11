@@ -105,6 +105,11 @@ export interface SimCity {
   development: number;
   /** 다음 반란 판정을 할 수 있는 시각(반란 뒤 쉬는 시간) */
   nextRebellionMs: number;
+  /**
+   * 지난 하루 끝 배후지에서 받은 몫(‰, 모든 원자재 합 — catchmentRun.ts, docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)"). 없으면 다 받음.
+   * NPC 구인 규칙식이 문턱 아래면 인구를 늘리지 않는다(성장 멈춤)
+   */
+  supplyPm?: number | undefined;
 }
 
 /**

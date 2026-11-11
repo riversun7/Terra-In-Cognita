@@ -10,6 +10,7 @@
 // - 636 나: 남의 유닛 한눈 정보(glance) — 지금 내 시야 안(시야 전송과 같은 규칙, MapVision.sees)이거나 전체 보기 권한일 때만 세력·종류.
 //   시야 밖·없는 유닛은 같은 답(null).
 // - "WP-NPC4"(기획 답 773 나): NPC 도시 휴먼은 종류 "휴먼" + 휴먼 이름(그 나라 팩 목록, npc/humanNames.ts).
+// - 기획 답 920 라: 경비대 휴먼(거울 세계 SimUnit.guard)은 한눈 정보에 guard 표시(기기가 "경비대"로 적는다).
 // 세계 규칙·표는 바꾸지 않는다.
 import { type CharacterLook, characterLookForUnit } from "@terra/shared/characterLook";
 import type {
@@ -61,7 +62,9 @@ export interface MapUnitSource {
    * 그 유닛이 NPC 도시 휴먼(NPC 사회 런타임 거울 세계)이면 이름(기획 답 773 나, 없으면 undefined)을 든 답, 휴먼이 아니면 undefined
    * (docs/adr/2026-11-07-play-flow.md "WP-NPC4"). 없으면 NPC 휴먼도 시험 유닛으로 보인다
    */
-  npcHuman?: ((unitId: number) => { readonly name: string | undefined } | undefined) | undefined;
+  npcHuman?:
+    | ((unitId: number) => { readonly name: string | undefined; readonly guard?: boolean | undefined } | undefined)
+    | undefined;
   /**
    * 유닛의 1차 스탯(입은 장비·버프 포함, 직무 산출과 같은 값 — holdings primariesOf). 고른 유닛의 추천 줄이 읽는다
    * (docs/adr/2026-11-11-production-six.md). 없으면 스탯을 싣지 않는다
@@ -234,6 +237,7 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
             faction,
             ...ownerPart,
             ...(human.name === undefined ? {} : { name: { ko: human.name, en: human.name } }),
+            ...(human.guard === true ? { guard: true as const } : {}),
           },
         };
       return {

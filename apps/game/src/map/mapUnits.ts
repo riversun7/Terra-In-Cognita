@@ -250,9 +250,11 @@ export function peekText(
 ): { readonly unit: string; readonly line: string } {
   const state = moving ? m.map_unit_state_moving() : m.map_unit_state_standing();
   if (glance === null) return { unit: m.map_unit_number({ id: unitId }), line: state };
+  // 경비대(920 라)는 종류 대신 "경비대"
+  const type = glance.guard === true ? m.map_unit_guard() : kindLabel(glance.kind);
   const unit = glance.name
-    ? m.map_unit_named({ type: kindLabel(glance.kind), name: localName(glance.name, String(unitId)) })
-    : m.roster_unnamed({ type: kindLabel(glance.kind), number: String(unitId) });
+    ? m.map_unit_named({ type, name: localName(glance.name, String(unitId)) })
+    : m.roster_unnamed({ type, number: String(unitId) });
   const owner = glance.faction ? factionLabel(glance.faction) : m.map_peek_free();
   return { unit, line: m.map_peek_line({ owner, state }) };
 }

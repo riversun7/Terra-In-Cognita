@@ -107,6 +107,11 @@ export interface MapUnitGlance {
   readonly owner?: MapUnitOwnerIdentity | null;
   /** 유닛 이름(NPC 국가 지도자면 팩 국가 프리셋 leaderName). 없으면 null·없음(기기는 "종류 #번호") */
   readonly name?: LocalizedName | null;
+  /**
+   * NPC 도시 휴먼 가운데 경비대(국력 등급의 도시 상비 전투 휴먼, 기획 답 920 라 — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11,
+   * 916~925 답)")면 true. 기기는 종류 대신 "경비대"로 적는다. 아니면 없음
+   */
+  readonly guard?: true;
 }
 
 export interface MapUnitGlanceResponse {

@@ -23,6 +23,7 @@ import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { ASSET_CREDIT } from "./settlement.ts";
 import { createPlacementService } from "./placementService.ts";
 import type { TerrainService } from "./terrainService.ts";
+import { worldMapReadsOf } from "../worldMap/reads.ts";
 import { addTestUnits, legacyNationPresets } from "./testSupport.ts";
 import { type World, startWorld, testMapKey } from "./world.ts";
 
@@ -553,6 +554,18 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     );
     expect(saved.map((row) => Number(row.unit_id))).toEqual(refilled);
     expect(saved.slice(-2).every((row) => row.stats?.length === 6)).toBe(true);
+    // 한눈 정보(tRPC world.unitGlance와 같은 조회, 920 라): 경비대는 guard 표시, 다른 휴먼은 없음
+    const reads = worldMapReadsOf({ world, pool: test.db.$client, planetId: PLANET, faceLevel: 9 })();
+    if (!reads) throw new Error("reads");
+    const dev = { id: "00000000-0000-4000-8000-000000000920", loginId: "guarddev", roles: ["dev" as const] };
+    const mapKey = npc.places.get(bigCity)?.mapKey ?? 0;
+    const glanceOf = async (unitId: number) => (await reads.unitGlance(dev, mapKey, unitId, clock)).glance;
+    const guardId = refilled.at(-1) ?? 0;
+    expect(await glanceOf(guardId)).toMatchObject({ unitId: guardId, kind: "human", guard: true });
+    const worker = [...npc.world.units.values()].find((unit) => unit.city === bigCity && unit.guard !== true);
+    const workerGlance = await glanceOf(worker?.id ?? 0);
+    expect(workerGlance).toMatchObject({ kind: "human" });
+    expect(workerGlance && "guard" in workerGlance).toBe(false);
     expect(await world.checkInvariants()).toEqual([]);
     await stop(world);
     // 다시 켜도 그대로(경비대 표시가 이어진다)

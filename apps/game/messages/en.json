@@ -681,6 +681,7 @@
   "map_unit_kind_npc_leader": "Leader",
   "map_leader_tag_label": "Leader {name} — tap for the government desk",
   "map_unit_named": "{type} {name}",
+  "map_unit_guard": "Guard",
   "map_unit_faction_number": "Faction #{id}",
   "map_unit_selected_glance": "{unit} of {faction} ({state}). You can only view it.",
   "map_unit_selected_glance_free": "Unaffiliated {unit} ({state}). You can only view it.",

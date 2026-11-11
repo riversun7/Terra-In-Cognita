@@ -1,6 +1,6 @@
 # 도시 건물 전략 배치·숙소·이미 선 도시 다시 놓기
 
-- 일시: 2026-11-12 01:30 ~ (KST)
+- 일시: 2026-11-12 01:30 ~ 03:20 (KST)
 - 작업 도구: Claude Code
 - 관련: 가지 `work/city-layout`(통합 머리 `0f9ba0dd27`에서), ADR `2026-11-11-city-building-layout.md`(새, 제안), `2026-11-11-city-catchment.md`·`2026-11-07-play-flow.md`·`2026-11-07-buildings-runtime.md` "바뀜 (2026-11-11 …)", 질문 `docs/questions/2026-11-12-city-layout.md`(1046~1055)
 
@@ -75,7 +75,9 @@ Verified = 이 작업 트리에서 실행해 결과를 봄.
 - 단위: 서버 배치·씨앗·조회 관련 39파일 321개(DB 시험 제외), sim 93파일 741개, content 14파일 129개, shared 43파일 433개, 게임 editor·economy 50파일 471개 — 통과.
 - DB: `npcSeed.db.test.ts` 4개, `cityRelayout.db.test.ts` 1개(옛 배치로 선 세계 → 예약 → 다시 켬: NPC 건물 같은 ID로 옮김, 임대 걸린 농장·주인 바꾼 창고 그대로, 행정 건물 도시 칸 4칸 안, 결과·감사 기록, 다시 켜도 한 번만) — 통과.
 - `pnpm check:content --no-compat`: core@71 통과.
-- (끝 검사·화면 시험은 아래 "끝 검사"에)
+- 끝 검사: `TEST_DATABASE_URL=… pnpm check` 통과 — 627파일 4,833시험(DB 시험 포함, 첫 번에는 시험 파일 린트 경고 하나 → 고침). `pnpm build` + `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 108,784 B / 상한 131,416 B(상한 그대로). `pnpm check:docs origin/main`·`check:contrast`·`check:content --no-compat`(core@71) 통과.
+- 화면(`pnpm e2e`): `city-layout.spec.ts` 3개(운영자 판 — 새 세계 15도시 모두 행정 치우침 3칸 안·갇힘 0·숙소 있음, 다시 놓기 미리 보기 옮길 건물 0; 시작 도시 2차맵 390 파스텔·다크 사진) + `building-art.spec.ts` 건물 누르기 1개(도우미를 `e2e/helpers/cityMap.ts`로 옮긴 뒤) 통과. 판 사진에서 좁은 화면 도시 이름이 한 글자씩 꺾여 고친 뒤 다시 찍음. building-art 사진 시험·world-layout spec은 돌리지 않았다.
+- 사진(이 세션 임시 폴더 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/city-layout-shots/`): `city-layout-map-pastel-ko-390.png`·`city-layout-map-dark-ko-390.png`·`city-layout-panel-light-ko-390.png`.
 
 ## 미검증·TODO·알려진 문제
 - 공성 전투는 2차맵 배치를 쓰지 않는다(질문 1046) — "시간을 번다"는 지금 2차맵 걷기에서만.

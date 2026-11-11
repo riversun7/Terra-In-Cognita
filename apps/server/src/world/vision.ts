@@ -11,11 +11,16 @@
 // - 탐사 기록(사용자마다 128바이트)은 내 유닛·건물의 시야로만 채운다(기술 기본안, 기획 질문 S3-Q2). 바뀌면 vision 메시지로
 //   알리고 EXPLORED_SAVE_MS마다 저장한다. 건물은 탐사한 칸에 있으면 보낸다(마지막 본 모습 D-152는 뒤로 미뤘다).
 // - 볼 수 있는지(구독·지형 파일): 전체 보기 권한, 이 2차맵에 내 유닛·건물이 있음, 한 칸이라도 탐사함(사용자 결정 U3), 같은 나라
-//   유닛·건물이 있음(같은 나라 시야 공유).
+//   유닛·건물이 있음(같은 나라 시야 공유), 옆 2차맵에 선 내 유닛의 시야가 경계를 넘어 이 2차맵에 닿음(아래).
+// - 경계 너머 시야(docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)"): 옆 2차맵 변 가까이 선 플레이어 유닛의 시야 원이 이
+//   2차맵에 닿으면(source.border — world/edgeWatch.ts가 그 유닛 자리를 이 2차맵의 늘인 틀로 옮겨 준다) 그 몫을 내 덮개에 더한다. 그래서
+//   그 몫은 내 유닛이 이 2차맵에 선 것과 같다: 탐사 기록에 남고, 그 안의 남의 유닛·건물이 보이고, 이 2차맵을 볼 수 있다(구독). 같은 나라
+//   덮개도 같은 나라 사람 유닛의 경계 너머 시야를 품는다. 원 모양·반지름은 2차맵 안 시야와 같다(경계에서 잘리지 않는다).
 import { type BuildingWire, type UnitMotionWire, VISION_BYTES, encodeMessage } from "@terra/protocol";
 import {
   BUILDING_VISION_CELLS,
   type BuildingPlacement,
+  CELL_UNITS,
   type Motion,
   type Point,
   UNIT_VISION_CELLS,
@@ -50,6 +55,34 @@ export type NationLookup = (ownerId: number) => number | undefined;
 
 const UNIT_RADIUS = visionRadius(UNIT_VISION_CELLS);
 const BUILDING_RADIUS = visionRadius(BUILDING_VISION_CELLS);
+/** 시야 칸 한 변(단위) */
+const UNITS_PER_VISION_CELL = VISION_CELL * CELL_UNITS;
+/** 유닛 시야 원이 2차맵 밖에서 경계 너머에 닿는 가장 먼 거리(단위, 변에서) — edgeWatch.ts가 이 안의 유닛만 준다 */
+export const BORDER_SIGHT_UNITS = UNIT_RADIUS * UNITS_PER_VISION_CELL;
+
+/** 옆 2차맵에 선 내 유닛 하나의 시야 자리: 이 2차맵의 늘인 틀(단위, 2차맵 밖) — world/edgeWatch.ts */
+export interface BorderSight {
+  readonly ownerId: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** 2차맵 밖 자리의 유닛 시야 원을 덮개에 더한다(2차맵 안 칸만 — stampVision과 같은 원, 가운데가 밖이어도 된다) */
+function stampBorder(cover: Uint16Array, sight: BorderSight): void {
+  const cx = Math.floor(sight.x / UNITS_PER_VISION_CELL);
+  const cy = Math.floor(sight.y / UNITS_PER_VISION_CELL);
+  const limit = UNIT_RADIUS * UNIT_RADIUS + UNIT_RADIUS;
+  for (let dy = -UNIT_RADIUS; dy <= UNIT_RADIUS; dy++) {
+    const y = cy + dy;
+    if (y < 0 || y >= VISION_SIDE) continue;
+    for (let dx = -UNIT_RADIUS; dx <= UNIT_RADIUS; dx++) {
+      const x = cx + dx;
+      if (x < 0 || x >= VISION_SIDE || dx * dx + dy * dy > limit) continue;
+      const index = y * VISION_SIDE + x;
+      cover[index] = (cover[index] ?? 0) + 1;
+    }
+  }
+}
 
 export interface VisionUnit {
   readonly id: number;
@@ -71,6 +104,8 @@ export interface VisionSource {
   units(): Iterable<VisionUnit>;
   unit(id: number): VisionUnit | undefined;
   buildings(): Iterable<VisionBuilding>;
+  /** 옆 2차맵에 선 플레이어 유닛 가운데 시야가 이 2차맵에 닿는 것(경계 너머 시야, world/edgeWatch.ts). 없으면 없음 */
+  border?: ((at: number) => readonly BorderSight[]) | undefined;
 }
 
 /** 탐사 기록 저장(월드 쓰기 대기열). 없으면 메모리에만 */
@@ -237,6 +272,7 @@ export function createMapVision(options: {
     for (const building of source.buildings()) {
       if (building.ownerId === ownerId) stampVision(cover, buildingCell(building.placement), BUILDING_RADIUS);
     }
+    for (const sight of source.border?.(at) ?? []) if (sight.ownerId === ownerId) stampBorder(cover, sight);
     return cover;
   };
   const computeCover = (group: Group): Uint16Array => coverOf(group.viewer.ownerId);
@@ -267,6 +303,8 @@ export function createMapVision(options: {
       if (building.ownerId !== null && isMember(share, building.ownerId))
         stampVision(share.cover, buildingCell(building.placement), BUILDING_RADIUS);
     }
+    for (const sight of source.border?.(at) ?? [])
+      if (isMember(share, sight.ownerId)) stampBorder(share.cover, sight);
     nationShares.set(nation, share);
     options.stats.visionNationCovers += 1;
     return share;
@@ -460,6 +498,8 @@ export function createMapVision(options: {
       if (viewer.ownerId !== undefined) {
         for (const unit of source.units()) if (unit.ownerId === viewer.ownerId) return true;
         for (const building of source.buildings()) if (building.ownerId === viewer.ownerId) return true;
+        // 옆 2차맵에 선 내 유닛의 시야가 경계를 넘어 닿는다(그 몫만 보인다 — 나머지는 탐사 기록대로 어둡다)
+        for (const sight of source.border?.(now()) ?? []) if (sight.ownerId === viewer.ownerId) return true;
       }
       // 같은 나라 유닛·건물이 있는 2차맵도 볼 수 있다(같은 나라 시야 공유 — 내 나라 다른 도시를 들어가 본다, 질문 746 나)
       if (shareFor(viewer)?.cover.some((count) => count > 0)) return true;

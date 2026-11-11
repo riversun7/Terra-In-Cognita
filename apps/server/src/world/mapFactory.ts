@@ -11,6 +11,7 @@ import type { WorldWriter } from "./persist/writer.ts";
 import { type MapPin, loadPins, savePin } from "./pins.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
 import type { TerrainService } from "./terrainService.ts";
+import type { EdgeHooks } from "./edgeWatch.ts";
 import type { ExploredStore } from "./vision.ts";
 import type { WorldStats } from "./worldStats.ts";
 
@@ -49,11 +50,19 @@ export interface MapFactory {
   prefetchAround(mapKeys: readonly number[]): void;
   /** 그 2차맵 하나의 지형을 미리 받는다(그때 띄울 목적지) */
   prefetch(mapKey: number): void;
+  /** 변 가까운 유닛 고리를 잇는다(edgeWatch.ts — 이미 만든 2차맵도 이것을 부른다). 없으면 없음 */
+  attachEdge?(hooks: EdgeHooks): void;
 }
 
 export function createMapFactory(parts: MapFactoryParts): MapFactory {
   const { maps, paths, terrain: terrainService, now, stats, log, planetId } = parts;
   let store: MapFactoryStore | undefined;
+  let edgeHooks: EdgeHooks | undefined;
+  /** 2차맵마다 넘기는 고리(잇기 전에 만든 2차맵도 이은 뒤에는 그 고리를 부른다) */
+  const edge: EdgeHooks = {
+    moved: (mapKey, unit) => edgeHooks?.moved(mapKey, unit),
+    sight: (mapKey, at) => edgeHooks?.sight(mapKey, at) ?? [],
+  };
 
   /** 2차맵 지형: 고정본 → 지형 서비스(캐시 → 생성기). 지형 서비스가 없으면 S1 임시 지형 */
   const terrainFor = async (
@@ -111,6 +120,7 @@ export function createMapFactory(parts: MapFactoryParts): MapFactory {
       allocateUnitId: store?.ids.unit,
       allocateBuildingId: store?.ids.building,
       onFirstEdit: pinned || !store ? undefined : pinner(store.db, mapKey),
+      edge,
     });
 
   const prefetchAround = (mapKeys: readonly number[]): void => {
@@ -132,6 +142,9 @@ export function createMapFactory(parts: MapFactoryParts): MapFactory {
   return {
     attach(next) {
       store = next;
+    },
+    attachEdge(hooks) {
+      edgeHooks = hooks;
     },
     async createMaps(mapKeys) {
       const pins = await pinsOf(mapKeys);

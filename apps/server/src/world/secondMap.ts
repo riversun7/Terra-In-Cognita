@@ -59,6 +59,7 @@ import { type Scheduler, createScheduler } from "./scheduler.ts";
 import { DEFAULT_WORLD_PLANET_ID, type WorldDomain } from "../db/schema.ts";
 import { HEALTHY, type UnitCondition, safePoint, unavailable } from "./unitCondition.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_TEST, wireKindOf } from "./unitKinds.ts";
+import type { EdgeHooks } from "./edgeWatch.ts";
 import { type ExploredStore, type MapVision, createMapVision } from "./vision.ts";
 import { waterMaskOfTerrain } from "./waterMask.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
@@ -197,6 +198,8 @@ export interface SecondMapOptions {
    * (PLAN 5.5, ADR 2026-10-31-second-map-from-planet 6절)
    */
   onFirstEdit?: (() => void) | undefined;
+  /** 봇 아닌 유닛의 움직임 알림·경계 너머 시야(옆 2차맵 미리 띄우기, edgeWatch.ts — 2026-11-12). 없으면 없음 */
+  edge?: EdgeHooks | undefined;
 }
 
 export type { TerrainFile } from "./mapTerrain.ts";
@@ -378,6 +381,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       units: () => units.values(),
       unit: (id) => units.get(id),
       buildings: () => buildings.values(),
+      border: options.edge ? (at) => options.edge?.sight(mapKey, at) ?? [] : undefined,
     },
   });
 
@@ -417,6 +421,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     stream.unitChanged(rev, unit.entry);
     vision.unitChanged(unit);
     save(unit);
+    if (!unit.bot) options.edge?.moved(mapKey, unit);
   };
 
   const cancelEvent = (unit: UnitState): void => {
@@ -617,6 +622,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     rev += 1;
     stream.unitChanged(rev, unit.entry);
     vision.unitChanged(unit);
+    if (!unit.bot) options.edge?.moved(mapKey, unit);
     return unit;
   };
 

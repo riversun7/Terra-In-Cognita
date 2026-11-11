@@ -30,7 +30,7 @@ import { ContentHistory } from "../content/contentEditorHistory.tsx";
 import { EditorSummary, ExportPanel } from "../content/contentEditorLayout.tsx";
 import { type ContentErrorInfo, contentErrorOf, stableJson } from "../content/contentEditorModel.ts";
 import { leafDiff } from "../content/contentEditorPaths.ts";
-import { PendingBar, type PendingEntry, type PendingStatus } from "../content/contentEditorPending.tsx";
+import { PendingBar, type PendingEntry } from "../content/contentEditorPending.tsx";
 import { useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import { bandRangeText } from "../gatherTiers/GatherBandPanel.tsx";
 import { type GatherStage, stageBand, stageGatherDiscard } from "../gatherTiers/gatherTierModel.ts";
@@ -62,7 +62,7 @@ import {
   unstageClass,
   unstageFacility,
 } from "./productionModel.ts";
-import { issueText } from "./productionText.ts";
+import { issueText, statusOf } from "./productionText.ts";
 import "./production.css";
 
 type Load =
@@ -80,21 +80,6 @@ const FALLBACK_RULES: BuildingEditorGatherRules = {
   oreGrams: 1000,
   defaultStat: 10,
 };
-
-/** 검사 결과 → 막대 상태(오류가 있으면 [적용]을 막는다) */
-function statusOf(keys: number, result: BuildingEditorCheckResponse | null | undefined): PendingStatus {
-  if (keys === 0 || result === undefined)
-    return { text: m.dev_buildings_checking(), tone: "busy", data: keys === 0 ? "idle" : "checking" };
-  if (result === null) return { text: m.dev_buildings_check_failed(), tone: "failed", data: "failed" };
-  const errors = result.issues.filter((issue) => issue.level === "error").length;
-  return errors > 0
-    ? { text: m.dev_buildings_check_blocked({ count: errors }), tone: "blocked", data: "blocked" }
-    : {
-        text: m.dev_buildings_check_ok({ advice: result.issues.length - errors }),
-        tone: "ok",
-        data: "ok",
-      };
-}
 
 export default function ProductionEditorScreen({ initialTab }: { initialTab?: string | undefined }) {
   const locale = getLocale() === "en" ? "en" : "ko";
@@ -180,7 +165,12 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
   const rules = list?.gatherRules ?? FALLBACK_RULES;
   const classRule = list?.classRule ?? OLD_COMBAT_CLASS_RULE;
   const levelBonus = list?.gatherLevelBonus ?? 0;
-  const types = productionTypeRows(list?.facilities ?? [], stage);
+  // 탭 줄과 같은 차례: 필드채집 먼저, 그다음 건물생산(묶음 안은 팩 차례)
+  const packOrder = productionTypeRows(list?.facilities ?? [], stage);
+  const types = [
+    ...packOrder.filter((row) => row.type.group === "field"),
+    ...packOrder.filter((row) => row.type.group === "building"),
+  ];
   const processes = processRows(list?.facilities ?? []);
   const shownBands = draftBands(bands, stage);
   const sleeping = (list?.sleeping ?? []).filter((row) => row.category === "gather_tiers");

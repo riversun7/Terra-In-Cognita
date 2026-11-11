@@ -17,6 +17,7 @@ import {
   gatherYield,
   tierRequiredProgress,
 } from "@terra/sim";
+import { gatherCatchPm } from "@terra/shared/gatherMath";
 
 /** 시설 레벨(D-5001 Lv1~5) */
 const LEVELS = [1, 2, 3, 4, 5] as const;
@@ -128,11 +129,13 @@ export function previewGather(
     for (let t = unitTier; t >= 0 && landedTier < 0; t--) if ((ladder[t]?.length ?? 0) > 0) landedTier = t;
     return landedTier === tier ? Math.floor(10_000 / sameTier) : 0;
   };
+  const catchPm = gather.catch ? gatherCatchPm(unitStat, gather.catch) : 1000;
   const levels = LEVELS.map((level) => {
     if (mode === "select") return { level, stat: unitStat, band: -1, chanceBp: selectBp() };
     const stat = gatherStat(unitStat, level, ctx.levelBonus);
     const { tierPm } = gatherChancesPm(ctx.bands, stat, ladder);
-    const landPm = tierPm[tier] ?? 0;
+    // 성공 확률(낚시터 gather.catch): 성공한 시도만 티어를 뽑는다 → 그 티어 확률 × 성공 ‰
+    const landPm = Math.floor(((tierPm[tier] ?? 0) * catchPm) / 1000);
     const chanceBp = draft.enabled && sameTier > 0 ? Math.floor((landPm * 10) / sameTier) : 0;
     return { level, stat, band: gatherBandIndex(ctx.bands, stat), chanceBp };
   });

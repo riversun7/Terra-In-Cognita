@@ -106,9 +106,11 @@ test.describe("개발자", () => {
     await expect(tab(page, "tiers").locator(".pd-tab-count")).toHaveAttribute("data-count", "12");
     await expect(tab(page, "classes").locator(".pd-tab-count")).toHaveAttribute("data-count", "36");
 
-    // 처음 탭 = 첫 생산 종류(농장). 미리 보기: 스탯 10·10 → 유효 20, 선택 방식이라 해금 T1
-    await expect(screen(page)).toHaveAttribute("data-tab", "farm");
+    // 처음 탭 = 첫 생산 종류(벌목장). 미리 보기: 스탯 10·10 → 유효 20 → 첫 구간. 농장은 선택 방식이라 해금 T1
+    await expect(screen(page)).toHaveAttribute("data-tab", "lumber_camp");
     await expect(page.locator(".pd-result")).toHaveAttribute("data-stat", "20");
+    await expect(page.locator(".pd-result")).toHaveAttribute("data-band", "0");
+    await tab(page, "farm").click();
     await expect(page.locator(".pd-result")).toHaveAttribute("data-select-tier", "1");
 
     // 스탯 매핑: 팩 값은 고름. 광산 주 스탯을 DEX로 바꾸면 치우침 알림 + 담김

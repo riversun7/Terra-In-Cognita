@@ -1,8 +1,10 @@
 // 생산 편집기 문구 표(oxlint: 메시지 이름을 계산해 읽지 않는다, 표로 적는다) — 스탯 약자·이름, 묶음, 방식, 검사 문제 코드
+import type { BuildingEditorCheckResponse } from "@terra/shared/buildingEditor";
 import type { ContentIssueView } from "@terra/shared/contentEdit";
 import type { PrimaryStat } from "@terra/shared/roster";
 import type { CombatClassGroup, ProductionGroup } from "@terra/shared/unitGuide";
 import { m } from "../../paraglide/messages.js";
+import type { PendingStatus } from "../content/contentEditorPending.tsx";
 
 type Text = () => string;
 
@@ -72,4 +74,22 @@ export function decimal(value: number, locale: string): string {
 /** ‰ → % 글(350 → "35%", 5 → "0.5%") */
 export function percentOfPm(pm: number, locale: string): string {
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(pm / 10)}%`;
+}
+
+/** 검사 결과 → 막대 상태(오류가 있으면 [적용]을 막는다) */
+export function statusOf(
+  keys: number,
+  result: BuildingEditorCheckResponse | null | undefined,
+): PendingStatus {
+  if (keys === 0 || result === undefined)
+    return { text: m.dev_buildings_checking(), tone: "busy", data: keys === 0 ? "idle" : "checking" };
+  if (result === null) return { text: m.dev_buildings_check_failed(), tone: "failed", data: "failed" };
+  const errors = result.issues.filter((issue) => issue.level === "error").length;
+  return errors > 0
+    ? { text: m.dev_buildings_check_blocked({ count: errors }), tone: "blocked", data: "blocked" }
+    : {
+        text: m.dev_buildings_check_ok({ advice: result.issues.length - errors }),
+        tone: "ok",
+        data: "ok",
+      };
 }

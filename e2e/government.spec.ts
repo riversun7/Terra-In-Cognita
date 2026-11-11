@@ -135,7 +135,10 @@ test.describe("정부 판·지도자: 플레이어", () => {
     expect(field(nation, "mine")).toBe(true);
     expect(field(nation, "fixed")).toBe(true);
     expect(field(leader, "here")).toBe(true);
-    expect(String(field(field(leader, "name"), "ko"))).toContain("지도자");
+    // 지도자 이름은 팩 국가 프리셋의 가상 이름이다(시작 국가 설정 — 옛 "임시 지도자 N"이 아니다)
+    const leaderName = String(field(field(leader, "name"), "ko"));
+    expect(leaderName).not.toBe("");
+    expect(leaderName).not.toContain("임시");
     // 처음 인구(WP-NPC2, 749 다): 시험 봇과 상관없이 시작 도시마다 주거 × 비율(팩 출발값 40 × 750‰ = 30, 설 곳이 모자라면 조금 적다)
     expect(Number(field(city, "humans"))).toBeGreaterThanOrEqual(25);
     // 자동 시장(744 나): 그 도시 휴먼 하나. 처음 인구도 행정 레벨 구인 카드 규칙의 스탯(774 나 — 기본값 아님), 이름은 그 나라 팩 목록(773 나)
@@ -168,7 +171,7 @@ test.describe("정부 판·지도자: 플레이어", () => {
     const dialog = page.locator("dialog.gov-dialog[open]");
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('[data-part="government-nation"] dd')).not.toHaveText("");
-    await expect(dialog.locator('[data-part="government-leader"] dd')).toContainText("지도자");
+    await expect(dialog.locator('[data-part="government-leader"] dd')).toContainText(leaderName);
     await expect(dialog.locator('[data-part="government-mayor"] dd')).toContainText(
       message("ko", "government_mayor_named", {
         name: String(mayorName),

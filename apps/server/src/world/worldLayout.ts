@@ -28,7 +28,6 @@ import {
   decodeCellKey,
   isCellKey,
   parseCellKey,
-  stepCell,
 } from "@terra/planet";
 import { placementCellKey, territoryMetric, territoryPoint } from "@terra/planet/territory";
 import { type NationStart, isPowerTier, tierRank } from "@terra/shared/nationTier";
@@ -39,6 +38,9 @@ import {
   territoryDistanceMilli,
 } from "@terra/shared/territory";
 import { PLACEMENT_SIZE, type WorldSeedCoefficients } from "@terra/sim";
+import { walkCell } from "./citySites.ts";
+
+export { walkCell };
 
 /** 국가 자리를 고를 때 면 한 변에서 보는 칸 수(면 레벨 9 = 512칸 → 8칸마다 하나, 행성 전체 약 2만 5천 칸) */
 export const SAMPLE_CELLS_PER_FACE = 64;
@@ -168,18 +170,6 @@ function mix(seed: number): number {
 /** 2차맵 안 배치 칸 자리의 영토 점 */
 export function spotPoint(spot: LayoutSpot): TerritoryVec {
   return territoryPoint(placementCellKey(parseCellKey(spot.mapKey), spot.x, spot.y));
-}
-
-/** 칸 키에서 (di, dj)만큼 걸어간 칸(한 칸씩 걸어 면 경계를 넘는다). 꼭짓점 쪽으로 칸이 없으면 null */
-export function walkCell(start: CellKey, di: number, dj: number): CellKey | null {
-  let key: CellKey | null = start;
-  const steps = Math.max(Math.abs(di), Math.abs(dj));
-  for (let k = 0; k < steps && key !== null; k++) {
-    const si = k < Math.abs(di) ? Math.sign(di) : 0;
-    const sj = k < Math.abs(dj) ? Math.sign(dj) : 0;
-    key = stepCell(key, si, sj);
-  }
-  return key;
 }
 
 /** 고리 r(체비쇼프)의 걸음들: 맨해튼 거리가 짧은 것(변 이웃) 먼저, 같으면 (dj, di) 차례 */

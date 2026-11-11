@@ -47,6 +47,7 @@ import {
 import { bodyKindText, failureText, starTypeName } from "./systemMessages.ts";
 import { type SystemRecord, type SystemSummary, systemsApi } from "./systemsClient.ts";
 import "../planet/planetEditor.css";
+import ScopeBar from "../../scope/ScopeBar.tsx";
 import "./starSystem.css";
 
 /** 마지막으로 연 항성계(이 기기의 편의. 못 쓰면 기억하지 않는다) */
@@ -443,6 +444,7 @@ function SystemLoader({ onClose, onNavigate, onRetry }: StarSystemScreenProps & 
             {m.star_system_new()}
           </button>
         ) : null}
+        <ScopeBar route="dev_star_system" inline />
       </header>
       {shown ? (
         <>

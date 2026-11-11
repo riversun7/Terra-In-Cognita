@@ -4,8 +4,11 @@
 // - 검사 상태(서버 검사가 있는 편집기만, 문제가 있으면 [적용]을 막는다) · 화면이 주는 도구(되돌리기·다시하기) · 메모(감사 기록, 200자) ·
 //   [검사] · [모두 취소](묻고 버린다, 아직 보내지 않은 것만) · [적용](한 묶음, Ctrl/⌘+S).
 // - 시험이 고르는 이름은 화면이 준다(classes: 막대·메모·적용·모두 취소). data-count·data-check는 막대에 단다.
+// - "적용 대상: 모든 행성 공통"(scope/ScopeBar.tsx ScopeTarget): 이 막대를 쓰는 편집기는 모두 팩 덮어쓰기라 세계의 모든 행성에 같다
+//   (docs/adr/2026-11-11-planet-scope.md).
 import { type ReactNode, useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
+import { ScopeTarget } from "../../scope/ScopeBar.tsx";
 
 export type PendingKind = "put" | "revert" | "create" | "discard";
 
@@ -135,6 +138,7 @@ export function PendingBar({
         ) : (
           <strong className="ce-pending-count ce-pending-empty">{countText}</strong>
         )}
+        <ScopeTarget />
         {status ? (
           <span className="ce-pending-status" role="status" data-tone={status.tone}>
             {status.text}

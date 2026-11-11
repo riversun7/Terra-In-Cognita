@@ -5,12 +5,15 @@ import { m } from "../paraglide/messages.js";
 import type { OpenDetail } from "./OpsConsole.tsx";
 import { LoadState, formatInt, useOpsLoad } from "./opsUi.tsx";
 
-export function CitiesTab({ open }: { open: OpenDetail }) {
+export function CitiesTab({ open, planetId }: { open: OpenDetail; planetId?: string | undefined }) {
   const searchId = useId();
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const loaded = useOpsLoad(
-    useCallback((signal: AbortSignal) => api.ops.npcs.cities.query({ search }, { signal }), [search]),
+    useCallback(
+      (signal: AbortSignal) => api.ops.npcs.cities.query({ search, planetId }, { signal }),
+      [search, planetId],
+    ),
   );
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();

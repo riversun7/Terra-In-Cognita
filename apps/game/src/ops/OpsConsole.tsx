@@ -2,11 +2,15 @@
 // 탭은 내 운영 권한(api.ops.me)으로 고른다. 화면에서 가리는 것은 편의일 뿐이고, 서버가 요청마다 권한을 본다.
 // 유저와 NPC를 탭으로 나눈다. 방대한 자료(스탯·스킬·보유 물건)는 목록에서 줄을 눌러 상세(오른쪽·아래 판)로 옮겨 본다.
 // 주소 검색어 ?tab=·?user=·?faction=·?unit=은 처음 열 때만 읽는다(바로 연 링크). 그 뒤 탭·상세는 화면 안 상태다.
+// 행성 거르기(docs/adr/2026-11-11-planet-scope.md): 범위 줄(화면 위, 주소 ?planet=)에서 고른 행성으로 현황·세력·도시·유닛·감사 기록을 거른다.
+// "전체"(처음 값)면 거르지 않는다. 유저·화폐·경제 탭은 세계 전체라 거르지 않는다(탭 위에 한 줄로 알린다).
 import type { AccountView, RouteMatch } from "@terra/shared";
 import { OPS_PERMISSIONS, type OpsPermission } from "@terra/shared/ops";
 import { type ReactNode, useCallback, useId, useState } from "react";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
+import { planetLabel } from "../scope/ScopeBar.tsx";
+import { usePlanetScope } from "../scope/planetScopeStore.ts";
 import { useMountFocus } from "../ui/useMountFocus.ts";
 import { AuditTab } from "./AuditTab.tsx";
 import { EconomyTab } from "./EconomyTab.tsx";
@@ -48,6 +52,9 @@ const TAB_LABELS: { readonly [T in Tab]: () => string } = {
   economy: m.ops_tab_economy,
   audit: m.ops_tab_audit,
 };
+
+/** 행성으로 거르는 탭(나머지는 세계 전체) */
+const PLANET_TABS: ReadonlySet<Tab> = new Set(["overview", "npcs", "cities", "units", "audit"]);
 
 const isTab = (value: string | undefined): value is Tab =>
   value !== undefined && (TABS as readonly string[]).includes(value);
@@ -99,32 +106,44 @@ export default function OpsConsole({ viewer, match }: OpsConsoleProps) {
   const visibleTabs = TABS.filter((value) => TAB_NEEDS[value].some(can));
   const shownTab = tab !== null && visibleTabs.includes(tab) ? tab : (visibleTabs[0] ?? null);
   const open: OpenDetail = setDetail;
+  // 고른 행성(전체면 undefined). 행성이 바뀌면 거르는 탭을 새로 만든다(쪽·더 보기 줄을 비운다)
+  const scope = usePlanetScope("monitor");
+  const planetId = scope.planetId;
+  const planetKey = planetId ?? "all";
 
   let body: ReactNode = null;
   switch (shownTab) {
     case "overview":
-      body = <OverviewTab />;
+      body = <OverviewTab planetId={planetId} />;
       break;
     case "players":
       body = <PlayersTab open={open} />;
       break;
     case "npcs":
-      body = <FactionsTab open={open} />;
+      body = <FactionsTab key={planetKey} open={open} planetId={planetId} />;
       break;
     case "cities":
-      body = <CitiesTab open={open} />;
+      body = <CitiesTab key={planetKey} open={open} planetId={planetId} />;
       break;
     case "currencies":
       body = <CurrenciesTab open={open} canEdit={can("faction_edit")} />;
       break;
     case "units":
-      body = <UnitsTab open={open} canUsers={can("view_players")} canNpcs={can("view_npcs")} />;
+      body = (
+        <UnitsTab
+          key={planetKey}
+          open={open}
+          canUsers={can("view_players")}
+          canNpcs={can("view_npcs")}
+          planetId={planetId}
+        />
+      );
       break;
     case "economy":
       body = <EconomyTab />;
       break;
     case "audit":
-      body = <AuditTab />;
+      body = <AuditTab key={planetKey} planetId={planetId} />;
       break;
     case null:
       body = null;
@@ -179,7 +198,13 @@ export default function OpsConsole({ viewer, match }: OpsConsoleProps) {
           role="tabpanel"
           id={`${tabsId}-panel`}
           aria-labelledby={shownTab ? `${tabsId}-${shownTab}` : undefined}
+          data-planet={shownTab && PLANET_TABS.has(shownTab) ? planetKey : "world"}
         >
+          {shownTab === null ? null : !PLANET_TABS.has(shownTab) ? (
+            <p className="scope-tab-note">{m.scope_tab_world()}</p>
+          ) : scope.planet ? (
+            <p className="scope-tab-note">{m.scope_tab_filtered({ planet: planetLabel(scope.planet) })}</p>
+          ) : null}
           {body}
         </div>
         {side ? (

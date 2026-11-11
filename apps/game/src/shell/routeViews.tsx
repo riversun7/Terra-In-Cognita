@@ -5,7 +5,7 @@
 // 화면 안 useMountFocus(ui/useMountFocus.ts)는 앱 안에서 옮겨 연 화면에서만 초점을 옮긴다(MountFocusContext):
 // 주소로 바로 열거나 새로고침한 화면은 옮기지 않는다(ADR 37 1절). 앱 안 이동의 초점은 틀(Shell.tsx)도 새 화면 제목에 둔다.
 // 주소 표에 줄이 늘면 ROUTE_TITLES·renderRoute에서 타입 오류가 난다.
-import type { AccountView, RouteId, RouteMatch } from "@terra/shared";
+import { type AccountView, ROUTES, type RouteId, type RouteMatch } from "@terra/shared";
 import { type ReactNode, Suspense, lazy, useEffect } from "react";
 import { m } from "../paraglide/messages.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
@@ -14,6 +14,7 @@ import { ChunkErrorBoundary } from "../ui/ChunkErrorBoundary.tsx";
 import { LiveMessage } from "../ui/LiveMessage.tsx";
 import { MountFocusContext } from "../ui/useMountFocus.ts";
 import { BackButton } from "./BackButton.tsx";
+import { isDevSurfaceRoute } from "./devSurface.ts";
 import { NoPermission } from "./NoPermission.tsx";
 import { NotFound } from "./NotFound.tsx";
 import { goBack, navigate } from "./routerStore.ts";
@@ -74,6 +75,9 @@ const WorldLayoutScreen = lazy(() => import("../editor/worldLayout/WorldLayoutSc
 const RecruitLabScreen = lazy(() => import("../editor/recruit/RecruitLabScreen.tsx"));
 // 전투 다시보기(틀 숨김): 조각 이름 BattleReplayLabScreen-*(미리 캐시 규칙 [Bb]attleReplayLab). 보기 화면(src/battle/)·엔진은 같이 쓴다
 const BattleReplayLabScreen = lazy(() => import("../editor/battleReplayLab/BattleReplayLabScreen.tsx"));
+// 범위 줄(docs/adr/2026-11-11-planet-scope.md): 틀이 보이는 개발·운영 화면 위에 "어디에 반영되는가"(모든 행성 공통·행성 고르기)를 그린다.
+// 화면과 같은 Suspense 안이라 함께 나타난다. 틀을 숨긴 화면은 자기 머리에 둔다(scope/ScopeBar.tsx inline)
+const ScopeBar = lazy(() => import("../scope/ScopeBar.tsx"));
 // 지도: Three.js·엔진은 이 조각들과 함께만 내려온다. 떠나면 내린다(ADR 37 11절). 화면은 { onClose, monitor }만 받는다
 const SecondaryMapScreen = lazy(() => import("../map/SecondaryMapScreen.tsx"));
 const PlanetMapScreen = lazy(() => import("../map/PlanetMapScreen.tsx"));
@@ -316,6 +320,9 @@ export function RouteView({
             </p>
           }
         >
+          {isDevSurfaceRoute(match.id) && ROUTES[match.id].frame === "shown" ? (
+            <ScopeBar route={match.id} />
+          ) : null}
           {renderRoute(match, user, monitor)}
           <RouteSettled version={version} onSettled={onSettled} />
         </Suspense>

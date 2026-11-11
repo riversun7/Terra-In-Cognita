@@ -18,10 +18,13 @@ export function UnitsTab({
   open,
   canUsers,
   canNpcs,
+  planetId,
 }: {
   open: OpenDetail;
   canUsers: boolean;
   canNpcs: boolean;
+  /** 이 행성의 유닛만(없으면 모든 행성) */
+  planetId?: string | undefined;
 }) {
   // 둘 다 볼 수 없으면 볼 수 있는 쪽으로 처음부터 거른다(서버가 둘 다 없는 조회를 막는다)
   const initialOwner: OwnerKind = canUsers && canNpcs ? "" : canUsers ? "user" : "faction";
@@ -35,6 +38,7 @@ export function UnitsTab({
         api.ops.units.list.query(
           {
             ...(ownerKind === "" ? {} : { ownerKind }),
+            planetId,
             ...(query.mapKey === undefined ? {} : { mapKey: query.mapKey }),
             ...(query.kind === undefined ? {} : { kind: query.kind }),
             limit: PAGE,
@@ -42,7 +46,7 @@ export function UnitsTab({
           },
           { signal },
         ),
-      [ownerKind, query],
+      [ownerKind, query, planetId],
     ),
   );
   const rows = loaded.data?.rows ?? [];

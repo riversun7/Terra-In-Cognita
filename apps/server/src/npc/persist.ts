@@ -12,7 +12,7 @@ import { HOMELESS, type SimFaction, type SimWorld, recruitElementSlots, traitsTo
 import { type ServerGardener, storedGardenerOf } from "./gardener.ts";
 import { nextCityName } from "./nations.ts";
 import { createRuinsPersist } from "./ruinsPersist.ts";
-import { type TownSiteCity, pickTownSite } from "./townSites.ts";
+import { type TownSiteCity, type TownSiteProblem, checkTownSite, pickTownSite } from "./townSites.ts";
 import type { QueryPool, OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -104,6 +104,14 @@ export interface NpcPersist {
   flushRuins(): number;
   /** 그 도시(붐비는 도시) 둘레의 마을 자리(다른 세력 영향권 밖, townSites.ts). founder = 세우는 세력. 없으면 undefined */
   townSiteFrom(fromCityId: number, founder: number): CityPlace | undefined;
+  /** 플레이어 가문을 들인다: 소유 주체 ↔ 가문 행, 소유 주체 줄 저장(docs/adr/2026-11-11-house-village.md) */
+  adoptHouse(ownerId: number, rowId: number): void;
+  /** 가문 세력 행과 그 도시 행만 바로 넣는다(동기, 가문 도시 명령 뒤 — 원장 거래와 같은 쓰기 묶음). 쓴 행 수 */
+  flushHouse(ownerId: number, cityId?: number): number;
+  /** 그 칸이 마을 자리인가(NPC 마을과 같은 규칙 — townSites.ts checkTownSite). own = 내 편 세력(그 밖의 영향권은 남의 것) */
+  siteCheck(mapKey: number, x: number, y: number, own: readonly number[]): TownSiteProblem | null;
+  /** from 둘레의 첫 마을 자리(NPC 마을과 같은 차례) */
+  siteNear(from: CityPlace, founder: number | undefined): CityPlace | undefined;
 }
 
 /** 웨이브 줄의 저장 모습(바뀌었는지 견줄 때) */
@@ -258,6 +266,35 @@ export function createNpcPersist(
       nowMs: o.now(),
     });
   };
+
+  /** 자리 검사가 보는 도시 목록(자리·주인·영향권) */
+  const siteCities = (): TownSiteCity[] => {
+    const rules = o.territory?.();
+    return [...places].map(([id, place]) => {
+      const city = world.cities.get(id);
+      return {
+        id,
+        place,
+        owner: city && rules ? city.owner : null,
+        radiusMilli: city && rules ? rules.influenceOf(city.development) : 0,
+      };
+    });
+  };
+  /** 한 칸의 마을 자리 검사(가문 마을 — 같은 규칙 checkTownSite) */
+  const townSiteCheckOf = (
+    mapKey: number,
+    x: number,
+    y: number,
+    own: readonly number[],
+  ): TownSiteProblem | null =>
+    checkTownSite({
+      mapKey,
+      x,
+      y,
+      own,
+      cities: siteCities(),
+      newRadiusMilli: o.territory?.().newRadiusMilli ?? 0,
+    });
 
   /**
    * 자리가 없는 새 마을(자리 검사 canFound를 거치지 않은 길 — 보통은 그 검사가 자리를 미리 잡는다): 부모 세력 첫 도시 둘레. 그 세력 도시가
@@ -414,6 +451,38 @@ export function createNpcPersist(
   };
   const ruins = createRuinsPersist({ world, writer, places, rowOf, saveCity, nameCity });
 
+  /** 세력 행 하나를 쓴다(바뀌었을 때만). 플레이어 가문은 거울이 바꾸는 칸만(houseFactionState — 이름 코드·사라짐·부모는 가문 명령 몫). 쓴 행 수 */
+  const saveFaction = (f: SimFaction, nowMs: number): number => {
+    const rowId = rowOf.get(f.id);
+    if (rowId === undefined) return 0;
+    const sig = factionSig(f);
+    if (savedFactions.get(f.id) === sig) return 0;
+    const common = {
+      id: rowId,
+      regime: f.regime,
+      parent_id: f.overlord === null ? null : (rowOf.get(f.overlord) ?? null),
+      tech_level: f.tech,
+      tech_blueprint: Math.max(f.tech, f.research.blueprint),
+      research_progress: f.research.progress,
+      traits: traitsToArray(f.traits),
+      ai_step: f.aiStep,
+    };
+    if (f.player) writer.upsert("houseFactionState", common);
+    else {
+      if (!f.alive && !diedAt.has(f.id)) diedAt.set(f.id, nowMs);
+      writer.upsert("factionState", {
+        ...common,
+        code: f.code,
+        dissolved_at_ms: f.alive ? null : (diedAt.get(f.id) ?? nowMs),
+        rebel_of: f.rebelOf === null ? null : (rowOf.get(f.rebelOf) ?? null),
+        // 태어날 때 부모(기획 답 620 나): 다시 켜도 화폐·나라 성격·도시 이름이 부모 나라를 따른다
+        born_of: f.bornOf === null ? null : (rowOf.get(f.bornOf) ?? null),
+      });
+    }
+    savedFactions.set(f.id, sig);
+    return 1;
+  };
+
   const insertSpareRow = async (): Promise<number> => {
     const found = await o.pool.query(
       `insert into factions (kind, dissolved_at_ms) values ('npc', $1) returning id`,
@@ -472,6 +541,22 @@ export function createNpcPersist(
       return from ? siteFrom(from, founder) : undefined;
     },
     flushRuins: () => ruins.flush(o.now()),
+    adoptHouse(ownerId, rowId) {
+      rowOf.set(ownerId, rowId);
+      saveOwner(ownerId, rowId);
+    },
+    flushHouse(ownerId, cityId) {
+      const f = world.factions.get(ownerId);
+      let rows = f ? saveFaction(f, o.now()) : 0;
+      if (cityId !== undefined) rows += saveCity(cityId);
+      return rows;
+    },
+    siteCheck(mapKey, x, y, own) {
+      return townSiteCheckOf(mapKey, x, y, own);
+    },
+    siteNear(from, founder) {
+      return siteFrom(from, founder ?? Number.NaN);
+    },
     async flush(day) {
       const count = { rows: 0, recruited: 0, deaths: 0, owners: 0 };
       // 늦게 넣는 세력 행(예비가 모자랐을 때)
@@ -484,30 +569,8 @@ export function createNpcPersist(
       }
       const nowMs = o.now();
       // 세력: 새 세력은 예비 행을 받았다(소유 주체는 그때 저장) → 이름·상태를 고친다
-      for (const f of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
-        const rowId = rowOf.get(f.id);
-        if (rowId === undefined) continue;
-        const sig = factionSig(f);
-        if (savedFactions.get(f.id) === sig) continue;
-        if (!f.alive && !diedAt.has(f.id)) diedAt.set(f.id, nowMs);
-        writer.upsert("factionState", {
-          id: rowId,
-          code: f.code,
-          regime: f.regime,
-          parent_id: f.overlord === null ? null : (rowOf.get(f.overlord) ?? null),
-          tech_level: f.tech,
-          tech_blueprint: Math.max(f.tech, f.research.blueprint),
-          research_progress: f.research.progress,
-          traits: traitsToArray(f.traits),
-          ai_step: f.aiStep,
-          dissolved_at_ms: f.alive ? null : (diedAt.get(f.id) ?? nowMs),
-          rebel_of: f.rebelOf === null ? null : (rowOf.get(f.rebelOf) ?? null),
-          // 태어날 때 부모(기획 답 620 나): 다시 켜도 화폐·나라 성격·도시 이름이 부모 나라를 따른다
-          born_of: f.bornOf === null ? null : (rowOf.get(f.bornOf) ?? null),
-        });
-        savedFactions.set(f.id, sig);
-        count.rows += 1;
-      }
+      for (const f of [...world.factions.values()].toSorted((a, b) => a.id - b.id))
+        count.rows += saveFaction(f, nowMs);
       // 폐허·복원 사업(복원한 도시 행은 자리의 세운 시각을 고친 뒤 여기서 먼저 쓴다)
       count.rows += ruins.flush(nowMs);
       // 도시

@@ -1,0 +1,2 @@
+ALTER TABLE "faction_identities" ADD COLUMN "name_reset_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "faction_identities" ADD COLUMN "rename_blocked" boolean DEFAULT false NOT NULL;

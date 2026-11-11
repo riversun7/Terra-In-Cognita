@@ -2,8 +2,8 @@
 // - 창설(foundHouse): 정체성 줄(faction_identities, 아직 가문 없음) 하나에서 세력 행(factions kind = player, born_of = 창설자 나라)·세력
 //   정체성(faction_profiles source = player)·가문장 줄(house_members)을 만들고 정체성 줄에 가문을 잇는다. 한 문장(데이터를 바꾸는 CTE)이라
 //   하나라도 실패하면(약어 겹침 등) 아무것도 남지 않는다. 같은 줄을 두 번 창설하지 않는다(faction_id is null 조건 + 줄 잠금).
-// - 가문은 소유 주체(world_owners)를 만들지 않는다: 국고·도시가 없고, 나라 소속(faction_members·cyborgs.faction_id)은 그대로라 같은 나라
-//   시야 공유(D-250)·화폐(따르는 나라)가 바뀌지 않는다. 도시를 얻을 때 봉신·독립을 고르는 길(D-216·D-340)이 생기면 그때 주체를 만든다.
+// - 창설한 가문은 소유 주체(world_owners)를 만들지 않는다: 국고·도시가 없고, 나라 소속(faction_members·cyborgs.faction_id)은 그대로라 같은
+//   나라 시야 공유(D-250)·화폐(따르는 나라)가 바뀌지 않는다. 도시를 얻으며 봉신·독립을 고르면 그때 주체를 만든다(houseCity.ts, 질문 1005 가).
 // - 신고(reportHouse): 계정마다 가문 하나에 한 줄, 하루(24시간) 횟수는 설정 칸으로 센다.
 import type { FactionReportStatus } from "@terra/shared/factionIdentity";
 import type { IdentityQueryable } from "./store.ts";
@@ -133,27 +133,64 @@ export async function resetHouseName(
     shortName: string | null;
     nowMs: number;
     actorId: string;
+    /** 되돌린 횟수가 이 값에 이르면 이름 바꾸기를 저절로 막는다(설정 칸 house_name_reset_block, 0 = 끔 — 질문 1006 나) */
+    autoBlockAt: number;
   },
-): Promise<{ ownerId: string; name: string; shortName: string; newShort: string } | null> {
-  const { rows } = await pool.query<{ user_id: string; name: string; short_name: string; new_short: string }>(
+): Promise<{
+  ownerId: string;
+  name: string;
+  shortName: string;
+  newShort: string;
+  resets: number;
+  autoBlocked: boolean;
+} | null> {
+  const { rows } = await pool.query<{
+    user_id: string;
+    name: string;
+    short_name: string;
+    new_short: string;
+    resets: number;
+    auto_blocked: boolean;
+  }>(
     `with before as (
-       select user_id, name, short_name from faction_identities where faction_id = $1 for update
+       select user_id, name, short_name, rename_blocked from faction_identities where faction_id = $1 for update
      ),
      changed as (
        update faction_identities i set name = $2, name_key = $3, short_name = coalesce($4, i.short_name),
-         name_changed_at_ms = $7, updated_at_ms = $5
-         from before where i.user_id = before.user_id returning i.short_name
+         name_changed_at_ms = $7, updated_at_ms = $5, name_reset_count = i.name_reset_count + 1,
+         rename_blocked = i.rename_blocked or ($8::int > 0 and i.name_reset_count + 1 >= $8::int)
+         from before where i.user_id = before.user_id
+       returning i.short_name, i.name_reset_count as resets,
+         (not before.rename_blocked and $8::int > 0 and i.name_reset_count >= $8::int) as auto_blocked
      ),
      profile as (
        update faction_profiles p set name = $2, short_name = coalesce($4, p.short_name), updated_at_ms = $5,
          updated_by = $6 where p.faction_id = $1 returning p.faction_id
      ),
      cleared as (delete from house_reports r where r.faction_id = $1 and exists (select 1 from before) returning r.id)
-     select before.user_id, before.name, before.short_name, changed.short_name as new_short from before, changed`,
-    [input.factionId, input.name, input.nameKey, input.shortName, input.nowMs, input.actorId, RENAME_FREE],
+     select before.user_id, before.name, before.short_name, changed.short_name as new_short, changed.resets,
+            changed.auto_blocked
+       from before, changed`,
+    [
+      input.factionId,
+      input.name,
+      input.nameKey,
+      input.shortName,
+      input.nowMs,
+      input.actorId,
+      RENAME_FREE,
+      Math.max(0, Math.trunc(input.autoBlockAt)),
+    ],
   );
   const row = rows[0];
   return row
-    ? { ownerId: row.user_id, name: row.name, shortName: row.short_name, newShort: row.new_short }
+    ? {
+        ownerId: row.user_id,
+        name: row.name,
+        shortName: row.short_name,
+        newShort: row.new_short,
+        resets: row.resets,
+        autoBlocked: row.auto_blocked,
+      }
     : null;
 }

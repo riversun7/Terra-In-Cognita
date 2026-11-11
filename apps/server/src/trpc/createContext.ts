@@ -39,6 +39,7 @@ import { type TuningShared, betterAuthTuningCheck, createTuningServices } from "
 import { createBuildingEditorServices } from "../buildingEdit/services.ts";
 import { createCreatureEditorServices } from "../creatureEdit/services.ts";
 import type { HouseRules } from "../factionIdentity/rules.ts";
+import type { HouseCityService } from "../factionIdentity/houseCity.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "../factionIdentity/services.ts";
 import { type NationEditShared, createNationEditorServices } from "../nationEdit/services.ts";
 import { type ContentEditShared, createSkillEditorServices } from "../contentEdit/services.ts";
@@ -111,6 +112,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   factionRules?: (() => FactionScreenRules) | undefined;
   /** 플레이어 가문 설정값(설정 칸, 부를 때마다 읽는다 — factionIdentity/rules.ts). 없으면 sim 시험 계수표 */
   houseRules?: (() => HouseRules) | undefined;
+  /** 가문 도시 조회(세계가 있는 앱 — factionIdentity/houseCity.ts) */
+  houseCity?: (() => HouseCityService | undefined) | undefined;
   /** 설정 칸 패널(접근자·속도 제한기·쓰기 차례, src/tuning/services.ts). 인증이 켜져 있어야 쓴다 */
   tuning?: TuningShared | undefined;
   /** 밸런스 화면(src/balance/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
@@ -198,6 +201,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
         now: options.ops.now,
         presets: () => options.ops?.presets,
         rules: options.houseRules,
+        houseCity: options.houseCity,
       })
     : undefined;
   return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {

@@ -80,25 +80,75 @@ export function pickTownSite(input: {
   const { from } = input;
   const taken = input.cities.filter((city) => city.place.mapKey === from.mapKey).map((city) => city.place);
   const metric = isCellKey(from.mapKey) ? territoryMetric(cellLevel(parseCellKey(from.mapKey))) : undefined;
-  const foreign: FoundingCity[] = [];
-  for (const city of input.cities) {
-    if (city.owner === null) continue;
-    const point = pointOf(city.place.mapKey, city.place.cellX, city.place.cellY);
-    if (point) foreign.push({ id: city.id, faction: city.owner, point, radiusMilli: city.radiusMilli });
-  }
-  const own = (faction: number) => faction === input.founder;
+  const foreign = foreignOf(input.cities);
   for (const distance of TOWN_DISTANCES) {
     for (const [dx, dy] of DIRECTIONS) {
       const x = from.cellX + Math.trunc((dx * distance) / 1000);
       const y = from.cellY + Math.trunc((dy * distance) / 1000);
-      if (x < MAP_MARGIN || y < MAP_MARGIN || x >= MAP_SIZE - MAP_MARGIN || y >= MAP_SIZE - MAP_MARGIN)
-        continue;
-      if (taken.some((p) => Math.max(Math.abs(p.cellX - x), Math.abs(p.cellY - y)) < TOWN_SPACING)) continue;
-      const point = pointOf(from.mapKey, x, y);
-      if (metric && point && foundingConflict(foreign, metric, own, point, input.newRadiusMilli) !== null)
+      const own = (faction: number) => faction === input.founder;
+      if (siteProblem(from.mapKey, x, y, own, taken, foreign, metric, input.newRadiusMilli) !== null)
         continue;
       return { planetId: from.planetId, mapKey: from.mapKey, cellX: x, cellY: y, foundedAtMs: input.nowMs };
     }
   }
   return undefined;
+}
+
+/** 마을 자리가 안 되는 까닭: 지도 가장자리 | 다른 도시·폐허와 가까움 | 다른 세력 영향권(D-519) */
+export type TownSiteProblem = "edge" | "too_close" | "foreign_influence";
+
+/** 한 칸의 마을 자리 검사(pickTownSite와 같은 규칙 — NPC 마을과 플레이어 가문 마을이 함께 쓴다, docs/adr/2026-11-11-house-village.md) */
+function siteProblem(
+  mapKey: number,
+  x: number,
+  y: number,
+  own: (faction: number) => boolean,
+  taken: readonly CityPlace[],
+  foreign: readonly FoundingCity[],
+  metric: ReturnType<typeof territoryMetric> | undefined,
+  newRadiusMilli: number,
+): TownSiteProblem | null {
+  if (x < MAP_MARGIN || y < MAP_MARGIN || x >= MAP_SIZE - MAP_MARGIN || y >= MAP_SIZE - MAP_MARGIN)
+    return "edge";
+  if (taken.some((p) => Math.max(Math.abs(p.cellX - x), Math.abs(p.cellY - y)) < TOWN_SPACING))
+    return "too_close";
+  const point = pointOf(mapKey, x, y);
+  if (metric && point && foundingConflict(foreign, metric, own, point, newRadiusMilli) !== null)
+    return "foreign_influence";
+  return null;
+}
+
+/** 정해진 칸 하나가 마을 자리인가(가문 마을 세우기 — 고른 칸을 그대로 본다). 되면 null */
+export function checkTownSite(input: {
+  readonly mapKey: number;
+  readonly x: number;
+  readonly y: number;
+  /** 내 편 세력(그 영향권 안은 된다 — 봉신 가문은 자기 나라 영향권 안에 세운다) */
+  readonly own: readonly number[];
+  readonly cities: readonly TownSiteCity[];
+  readonly newRadiusMilli: number;
+}): TownSiteProblem | null {
+  const taken = input.cities.filter((city) => city.place.mapKey === input.mapKey).map((city) => city.place);
+  const metric = isCellKey(input.mapKey) ? territoryMetric(cellLevel(parseCellKey(input.mapKey))) : undefined;
+  return siteProblem(
+    input.mapKey,
+    input.x,
+    input.y,
+    (faction) => input.own.includes(faction),
+    taken,
+    foreignOf(input.cities),
+    metric,
+    input.newRadiusMilli,
+  );
+}
+
+/** 주인이 있는 도시 → 영향권 겹침 검사 입력 */
+function foreignOf(cities: readonly TownSiteCity[]): FoundingCity[] {
+  const out: FoundingCity[] = [];
+  for (const city of cities) {
+    if (city.owner === null) continue;
+    const point = pointOf(city.place.mapKey, city.place.cellX, city.place.cellY);
+    if (point) out.push({ id: city.id, faction: city.owner, point, radiusMilli: city.radiusMilli });
+  }
+  return out;
 }

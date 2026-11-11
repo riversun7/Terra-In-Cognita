@@ -37,6 +37,7 @@ import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import { reasonedError } from "../trpc/init.ts";
 import { nationFromDb } from "./found.ts";
 import { clearReports, houseNation, reportHouse, resetHouseName } from "./house.ts";
+import type { HouseCityService } from "./houseCity.ts";
 import { dismissHouseNotices, readHouseView } from "./houseView.ts";
 import { notify } from "./members.ts";
 import { checkPlayerEmblemPng } from "./png.ts";
@@ -50,6 +51,7 @@ import {
   loadIdentity,
   playerTaken,
   profileTaken,
+  setRenameBlocked,
   setUploadBlocked,
   setUploadSwitchBlocked,
   takeDownEmblem,
@@ -77,6 +79,8 @@ export interface FactionIdentityShared {
   readonly limiters: { readonly saves: RateLimiter; readonly uploads: RateLimiter };
   /** 가문 설정값(설정 칸, 부를 때마다 읽는다) */
   readonly rules: () => HouseRules;
+  /** 가문 도시 조회(마을·폐허 고르기 — 세계가 있는 앱만, houseCity.ts) */
+  readonly houseCity?: (() => HouseCityService | undefined) | undefined;
 }
 
 export function createFactionIdentityShared(options: {
@@ -85,6 +89,7 @@ export function createFactionIdentityShared(options: {
   presets?: (() => readonly NationPreset[] | undefined) | undefined;
   limits?: Partial<FactionIdentityLimits> | undefined;
   rules?: (() => HouseRules) | undefined;
+  houseCity?: (() => HouseCityService | undefined) | undefined;
 }): FactionIdentityShared {
   const limits = { ...DEFAULT_IDENTITY_LIMITS, ...options.limits };
   return {
@@ -96,6 +101,7 @@ export function createFactionIdentityShared(options: {
       uploads: createRateLimiter({ ...limits.uploads, now: options.now }),
     },
     rules: options.rules ?? (() => TEST_HOUSE_RULES),
+    houseCity: options.houseCity,
   };
 }
 
@@ -148,6 +154,11 @@ export interface FactionIdentityServices {
     input: { userId: string; reason: string; blockUploads: boolean },
   ): Promise<OpsEmblemResult>;
   opsSetBlocked(
+    viewer: IdentityViewer,
+    input: { userId: string; blocked: boolean },
+  ): Promise<OpsEmblemResult>;
+  /** 이름·약어 바꾸기 막기·풀기(질문 1006 나) */
+  opsSetRenameBlocked(
     viewer: IdentityViewer,
     input: { userId: string; blocked: boolean },
   ): Promise<OpsEmblemResult>;
@@ -242,6 +253,7 @@ export function createFactionIdentityServices(
       uploadBlock: switchOff ? "switch_off" : row?.uploadBlocked ? "account_blocked" : null,
       notice: row?.notice ?? null,
       renameAt: row && renameAt > shared.now() ? renameAt : null,
+      renameBlocked: row?.renameBlocked === true,
       seed: emblemSeedOf(viewer.id),
       nameStyle: null,
     };
@@ -260,13 +272,77 @@ export function createFactionIdentityServices(
     };
   };
 
-  const houseOf = async (viewer: IdentityViewer): Promise<HouseView> =>
-    readHouseView(pool, {
+  /** 그림 올리기 입력 → 저장할 값(검사를 지난 것만) */
+  const uploadOf = async (
+    viewer: IdentityViewer,
+    input: FactionEmblemUploadInput,
+    before: IdentityRow | null,
+  ): Promise<"keep" | null | { png: Uint8Array; sha256: string }> => {
+    if (input.mode === "keep") return "keep";
+    if (input.mode === "none") return null;
+    if (await uploadSwitchBlocked(pool)) throw rejected("upload_off");
+    if (before?.uploadBlocked) throw rejected("upload_blocked");
+    if (!shared.limiters.uploads.take(viewer.id)) throw rejected("rate_limited");
+    const png = decodeBase64(input.pngBase64);
+    if (!png) throw rejected("emblem_not_png");
+    const problem = checkPlayerEmblemPng(png);
+    if (problem) throw rejected(problem);
+    return { png, sha256: sha256Hex(png) };
+  };
+
+  /** 이름이 막힌 가문의 저장: 이름·약어는 지금 값 그대로, 색·마크만(질문 1006 나) */
+  const saveKept = async (
+    viewer: IdentityViewer,
+    input: FactionIdentitySaveInput,
+    before: IdentityRow,
+  ): Promise<FactionIdentityMine> => {
+    if (!isIdentityColor(input.color)) throw rejected("color_invalid");
+    if (!isEmblemSpec(input.emblem)) throw rejected("emblem_invalid");
+    if (!shared.limiters.saves.take(viewer.id)) throw rejected("rate_limited");
+    const upload = await uploadOf(viewer, input.upload, before);
+    await updateIdentity(pool, {
+      userId: viewer.id,
+      name: before.name,
+      nameKey: before.nameKey,
+      shortName: before.shortName,
+      color: input.color,
+      emblem: {
+        shape: input.emblem.shape,
+        division: input.emblem.division,
+        charge: input.emblem.charge,
+        scheme: input.emblem.scheme,
+      },
+      upload,
+      nowMs: shared.now(),
+      renamed: false,
+    });
+    const after = await loadIdentity(pool, viewer.id);
+    await writeAudit(deps.db, {
+      actor: actor(viewer, "user"),
+      action: "faction.identity_update",
+      targetId: viewer.id,
+      before: summary(before),
+      after: summary(after),
+    });
+    return mineOf(viewer, after);
+  };
+
+  const houseOf = async (viewer: IdentityViewer): Promise<HouseView> => {
+    const view = await readHouseView(pool, {
       userId: viewer.id,
       nationId: (await nationFromDb(pool, viewer.id)) ?? null,
       rules: shared.rules(),
       nowMs: shared.now(),
     });
+    const city = shared.houseCity?.();
+    if (!view.house || !city) return view;
+    // 가문 도시 줄(질문 1005 가): 봉신·독립 상태·도시·가문장의 마을 자리 제안·고를 폐허
+    const cityView = await city.view(viewer.id, {
+      factionId: view.house.factionId,
+      leader: view.house.role === "leader",
+    });
+    return { ...view, house: { ...view.house, city: cityView } };
+  };
 
   return {
     mine: (viewer) => mineOf(viewer),
@@ -292,6 +368,14 @@ export function createFactionIdentityServices(
 
     async save(viewer, input) {
       const rules = shared.rules();
+      // 이름 바꾸기가 막힌 가문(질문 1006 나): 지금 이름·약어 그대로면 이름 규칙을 보지 않는다(운영자가 되돌린 "가문 #ID"에는 '#'이 있다 —
+      // 막혀도 색·마크는 저장한다). 다르면 rename_blocked
+      const locked = await loadIdentity(pool, viewer.id);
+      if (locked?.renameBlocked) {
+        if (input.name !== locked.name || input.shortName !== locked.shortName)
+          throw rejected("rename_blocked");
+        return saveKept(viewer, input, locked);
+      }
       const name = parseFactionName(input.name);
       if (!name.ok) throw rejected("name_invalid", [name.problem]);
       // 약어 폭은 저장 폭(2~5자)으로 먼저 보고, 바꾸는 약어면 아래에서 설정 칸 폭으로 다시 본다(이미 정한 긴 약어는 그대로 — 질문 928 나)
@@ -319,18 +403,7 @@ export function createFactionIdentityServices(
       if (taken.name) throw rejected("name_taken");
       if (taken.short) throw rejected("short_taken");
 
-      let upload: "keep" | null | { png: Uint8Array; sha256: string } = "keep";
-      if (input.upload.mode === "none") upload = null;
-      else if (input.upload.mode === "new") {
-        if (await uploadSwitchBlocked(pool)) throw rejected("upload_off");
-        if (before?.uploadBlocked) throw rejected("upload_blocked");
-        if (!shared.limiters.uploads.take(viewer.id)) throw rejected("rate_limited");
-        const png = decodeBase64(input.upload.pngBase64);
-        if (!png) throw rejected("emblem_not_png");
-        const problem = checkPlayerEmblemPng(png);
-        if (problem) throw rejected(problem);
-        upload = { png, sha256: sha256Hex(png) };
-      }
+      const upload = await uploadOf(viewer, input.upload, before);
 
       const write = {
         userId: viewer.id,
@@ -413,6 +486,7 @@ export function createFactionIdentityServices(
           shortName: input.resetShort ? houseResetShort(row.factionId) : null,
           nowMs: now,
           actorId: viewer.id,
+          autoBlockAt: shared.rules().nameResetBlock,
         });
       } catch (error) {
         if (uniqueViolation(error)) return { ok: false, code: "short_taken" };
@@ -432,8 +506,30 @@ export function createFactionIdentityServices(
         action: "ops.house_name_reset",
         targetId: reset.ownerId,
         before: { factionId: row.factionId, name: reset.name, shortName: reset.shortName },
-        after: { factionId: row.factionId, name, shortName: reset.newShort, reason },
+        after: {
+          factionId: row.factionId,
+          name,
+          shortName: reset.newShort,
+          reason,
+          resets: reset.resets,
+          autoBlocked: reset.autoBlocked,
+          renameBlocked: row.renameBlocked || reset.autoBlocked,
+        },
       });
+      return { ok: true };
+    },
+
+    async opsSetRenameBlocked(viewer, input) {
+      const before = await setRenameBlocked(pool, input.userId, input.blocked);
+      if (before === null) return { ok: false, code: "not_found" };
+      if (before !== input.blocked)
+        await writeAudit(deps.db, {
+          actor: actor(viewer, "admin"),
+          action: "ops.house_rename_block",
+          targetId: input.userId,
+          before: { renameBlocked: before },
+          after: { renameBlocked: input.blocked },
+        });
       return { ok: true };
     },
 
@@ -447,6 +543,7 @@ export function createFactionIdentityServices(
         rows: listed.rows,
         total: listed.total,
         autoBlockAt: shared.rules().takedownBlock,
+        renameBlockAt: shared.rules().nameResetBlock,
       };
     },
 

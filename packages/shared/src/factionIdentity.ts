@@ -281,6 +281,11 @@ export interface FactionIdentityMine {
   readonly notice: FactionIdentityNotice | null;
   /** 이름·약어를 바꿀 수 있는 가장 이른 시각(지났거나 처음이거나 창설 전이면 null — 대기는 창설한 가문에만) */
   readonly renameAt: number | null;
+  /**
+   * 운영자가 이름을 여러 번 되돌려 이름·약어 바꾸기가 막혔나(질문 1006 나 — 운영자가 풀 때까지). 막혀도 색·마크는 지금 이름 그대로 저장한다.
+   * 옛 서버는 이 칸을 보내지 않는다(없으면 false)
+   */
+  readonly renameBlocked?: boolean | undefined;
   /** 이름 만들기·기본 마크의 씨앗(계정마다 다르고 늘 같다) */
   readonly seed: number;
   /** 이름 만들기 말씨(내 나라 프리셋의 말씨, 없으면 null) */
@@ -316,6 +321,7 @@ export const FACTION_IDENTITY_REASONS = [
   "color_invalid",
   "emblem_invalid",
   "rename_wait",
+  "rename_blocked",
   "upload_off",
   "upload_blocked",
   "emblem_not_png",
@@ -364,6 +370,10 @@ export interface OpsEmblemRow {
   readonly uploaded: { readonly hash: string; readonly bytes: number; readonly at: number } | null;
   /** 이 계정의 그림 올리기를 막았나 */
   readonly uploadBlocked: boolean;
+  /** 운영자가 이름을 되돌린 횟수(설정 칸 house_name_reset_block 이상이면 이름 바꾸기가 저절로 막힌다 — 질문 1006 나) */
+  readonly nameResets: number;
+  /** 이름·약어 바꾸기를 막았나 */
+  readonly renameBlocked: boolean;
   /** 마지막으로 내린 기록(주인이 아직 확인하지 않은 알림) */
   readonly notice: FactionIdentityNotice | null;
 }
@@ -377,4 +387,6 @@ export interface OpsEmblemList {
   readonly total: number;
   /** 마크를 이만큼 내리면 올리기가 저절로 막힌다(설정 칸, 0 = 끔) */
   readonly autoBlockAt: number;
+  /** 이름을 이만큼 되돌리면 이름 바꾸기가 저절로 막힌다(설정 칸 house_name_reset_block, 0 = 끔) */
+  readonly renameBlockAt: number;
 }

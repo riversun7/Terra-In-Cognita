@@ -26,7 +26,8 @@ export const UPLOAD_BLOCK_SWITCH = "player_emblem_block";
 /** 그림 바이트를 뺀 열 */
 const COLUMNS = `user_id, name, name_key, short_name, color, emblem_shape, emblem_division, emblem_charge, emblem_scheme,
   emblem_sha256, emblem_bytes, emblem_uploaded_at_ms, upload_blocked, notice_kind, notice_reason, notice_at_ms,
-  created_at_ms, updated_at_ms, name_changed_at_ms, faction_id, founded_at_ms, takedown_count`;
+  created_at_ms, updated_at_ms, name_changed_at_ms, faction_id, founded_at_ms, takedown_count, name_reset_count,
+  rename_blocked`;
 
 interface RawRow {
   user_id: string;
@@ -51,6 +52,8 @@ interface RawRow {
   faction_id: string | number | null;
   founded_at_ms: string | number | null;
   takedown_count: number;
+  name_reset_count: number;
+  rename_blocked: boolean;
 }
 
 export interface IdentityRow {
@@ -71,6 +74,9 @@ export interface IdentityRow {
   readonly foundedAt: number | null;
   /** 운영자가 마크를 내린 횟수 */
   readonly takedowns: number;
+  /** 운영자가 이름을 되돌린 횟수·이름 바꾸기 막힘(질문 1006 나) */
+  readonly nameResets: number;
+  readonly renameBlocked: boolean;
 }
 
 /** 목록 안의 값이면 그 값(더 새 판이 넣은 모르는 값은 undefined → 기본 사양) */
@@ -113,6 +119,8 @@ function rowOf(raw: RawRow): IdentityRow {
     factionId: raw.faction_id === null ? null : Number(raw.faction_id),
     foundedAt: raw.founded_at_ms === null ? null : Number(raw.founded_at_ms),
     takedowns: raw.takedown_count,
+    nameResets: raw.name_reset_count,
+    renameBlocked: raw.rename_blocked,
   };
 }
 
@@ -306,6 +314,7 @@ export async function listModeration(
        join users u on u.id = i.user_id
        left join cyborgs c on c.user_id = i.user_id
       where i.emblem_sha256 is not null or i.upload_blocked or i.notice_kind is not null
+         or i.rename_blocked
          or exists (select 1 from house_reports r where r.faction_id = i.faction_id)
       order by ${order}
       limit ${OPS_EMBLEM_LIMIT}`,
@@ -327,6 +336,8 @@ export async function listModeration(
         emblem: row.emblem,
         uploaded: row.uploaded,
         uploadBlocked: row.uploadBlocked,
+        nameResets: row.nameResets,
+        renameBlocked: row.renameBlocked,
         notice: row.notice,
       };
     }),
@@ -383,6 +394,21 @@ export async function setUploadBlocked(
     `with before as (select user_id, upload_blocked from faction_identities where user_id = $1 for update)
      update faction_identities i set upload_blocked = $2 from before where i.user_id = before.user_id
      returning before.upload_blocked as before`,
+    [userId, blocked],
+  );
+  return rows[0]?.before ?? null;
+}
+
+/** 이 계정(가문 정체성 줄)의 이름·약어 바꾸기를 막거나 푼다(질문 1006 나). 앞 값(줄이 없으면 null) */
+export async function setRenameBlocked(
+  pool: IdentityQueryable,
+  userId: string,
+  blocked: boolean,
+): Promise<boolean | null> {
+  const { rows } = await pool.query<{ before: boolean }>(
+    `with before as (select user_id, rename_blocked from faction_identities where user_id = $1 for update)
+     update faction_identities i set rename_blocked = $2 from before where i.user_id = before.user_id
+     returning before.rename_blocked as before`,
     [userId, blocked],
   );
   return rows[0]?.before ?? null;

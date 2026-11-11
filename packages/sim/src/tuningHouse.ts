@@ -73,4 +73,20 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "가문 초대·신청 유효 시간(ms)",
     "House invite and application lifetime (ms)",
   ),
+  // 이름 되돌리기 자동 막기(질문 1006 나)·가문 마을(질문 1005 가) — 49에 칸이 없다
+  k(
+    "house_name_reset_block",
+    "",
+    "house.nameResetBlock",
+    "이름을 몇 번 되돌리면 이름 바꾸기 자동 막기(0 = 끔)",
+    "Name resets before renames are blocked (0 = off)",
+  ),
+  k(
+    "house_village_cost",
+    "",
+    "house.villageCost",
+    "가문 마을 세우기 값(최소 단위)",
+    "House village founding cost (minor units)",
+  ),
+  k("house_village_housing", "", "house.villageHousing", "가문 새 마을 주거 수", "House new village housing"),
 ];

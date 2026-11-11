@@ -660,6 +660,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       facilities: world ? () => facilityScreenSourceOf(world) : undefined,
       factionRules: tuningState ? () => factionRulesFrom(tuningState.society()) : undefined,
       houseRules,
+      // 가문 도시 조회: 아래에서 가문 게이트웨이와 함께 만든다(부를 때 읽는다)
+      houseCity: () => houses?.city,
       // 설정 칸 패널: 인증이 켜져 있을 때만 맥락이 서비스를 만든다
       tuning: tuningShared,
       balance,

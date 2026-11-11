@@ -60,6 +60,7 @@ const REASONS: Readonly<Record<FactionIdentityReason, Text>> = {
   color_invalid: m.fid_error_color,
   emblem_invalid: m.fid_error_emblem_spec,
   rename_wait: m.fid_error_rename_wait,
+  rename_blocked: m.fid_error_rename_blocked,
   upload_off: m.fid_upload_off,
   upload_blocked: m.fid_upload_blocked,
   emblem_not_png: m.fid_error_emblem,

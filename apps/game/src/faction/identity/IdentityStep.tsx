@@ -129,8 +129,12 @@ export function IdentityStep({
   const nameRef = useRef<HTMLInputElement>(null);
   const shortRef = useRef<HTMLInputElement>(null);
 
-  const renameLocked = mine.renameAt !== null;
-  const typed = submitted ? draftProblems(draft, rule) : liveProblems(draft, rule);
+  // 이름 막힘(질문 1006 나): 운영자가 이름을 여러 번 되돌렸다 — 지금 이름("가문 #ID"일 수 있다) 그대로 두고 색·마크만 저장한다
+  const renameBlocked = mine.renameBlocked === true;
+  const renameLocked = mine.renameAt !== null || renameBlocked;
+  const checked = (problems: ReturnType<typeof draftProblems>) =>
+    renameBlocked ? { ...problems, name: null, shortName: null } : problems;
+  const typed = checked(submitted ? draftProblems(draft, rule) : liveProblems(draft, rule));
   const nameTrim = draft.name.trim();
   const shortTrim = draft.shortName.trim();
   const local = draftProblems(draft, rule);
@@ -162,7 +166,7 @@ export function IdentityStep({
     if (saving) return;
     setSubmitted(true);
     failure.clear();
-    const problems = draftProblems(draft, rule);
+    const problems = checked(draftProblems(draft, rule));
     if (problems.name !== null) {
       nameRef.current?.focus();
       return;
@@ -346,17 +350,19 @@ export function IdentityStep({
           )}
         </div>
         <p className="fid-availability" role="status" data-state={availability.kind}>
-          {renameLocked
-            ? m.fid_rename_wait({ date: dateText(mine.renameAt ?? 0) })
-            : availability.kind === "checking"
-              ? m.fid_checking()
-              : taken !== null &&
-                  taken.name === null &&
-                  taken.shortName === null &&
-                  nameTrim !== "" &&
-                  shortTrim !== ""
-                ? m.fid_available()
-                : ""}
+          {renameBlocked
+            ? m.fid_rename_blocked()
+            : renameLocked
+              ? m.fid_rename_wait({ date: dateText(mine.renameAt ?? 0) })
+              : availability.kind === "checking"
+                ? m.fid_checking()
+                : taken !== null &&
+                    taken.name === null &&
+                    taken.shortName === null &&
+                    nameTrim !== "" &&
+                    shortTrim !== ""
+                  ? m.fid_available()
+                  : ""}
         </p>
       </div>
 

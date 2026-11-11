@@ -194,6 +194,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     nowMs: number,
   ): void => {
     if (!faction.alive || faction.cities.size > 0 || faction.units.size > 0) return;
+    // 플레이어 가문은 도시 없는 세력으로 남는다(D-213·D-294 — 가문 행은 가문장이 해산한다)
+    if (faction.player) return;
     if (into) {
       if (o.hooks) o.hooks.factionDied(faction, into, nowMs);
       else transferAsset(world, faction, into, TEST_ASSET_CREDIT, 1n, nowMs);
@@ -664,7 +666,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
 
       // 떠도는 세력은 구성원이 모두 떠나면(수명) 사라진다(D-294·D-464 217)
       for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
-        if (!faction.alive || faction.cities.size > 0 || faction.units.size > 0) continue;
+        if (!faction.alive || faction.cities.size > 0 || faction.units.size > 0 || faction.player) continue;
         counts.dispersed += 1;
         dieIfEmpty(faction, "dispersed", undefined, nowMs);
       }

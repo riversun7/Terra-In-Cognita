@@ -186,6 +186,7 @@ export function fieldOfReason(reason: FactionIdentityReason): IdentityField {
     case "no_upload":
       return "upload";
     case "rename_wait":
+    case "rename_blocked":
     case "rate_limited":
       return "form";
     default: {

@@ -1,6 +1,7 @@
 // 세력 화면 "내 가문" 칸의 가입 부분(질문 985 다 — 초대 + 신청, 같은 나라 시민만) — 가문원 목록·가문장의 초대·대기 중인 요청(받기·거절·거두기)·
 // 내보내기, 가문원의 나가기, 가문이 없으면 받은 초대·보낸 신청과 내 나라 가문 목록([가입 신청]), 가문 소식([확인]).
 // 자료는 tRPC factionIdentity.house, 바꾸는 명령은 WebSocket(houseCommands.ts sendHouseMember, 프로토콜 23). 명령 뒤에는 자료를 다시 받는다.
+// 프로토콜 24(질문 1003 가·1005 가): 가문장의 [가문장 넘기기]·혼자 남은 가문장의 [가문 해산](도시 없는 가문만), 가문 도시 부분(HouseCityBlock.tsx).
 // docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)"
 import { labelTextOn } from "@terra/shared/factionIdentity";
 import type { HouseBadge, HouseView } from "@terra/shared/house";
@@ -8,6 +9,7 @@ import { type ReactNode, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { dateText } from "../../sections/screenText.ts";
 import { NationEmblem } from "../../ui/NationEmblem.tsx";
+import { HouseCityBlock } from "./HouseCityBlock.tsx";
 import { type HouseMemberRequest, sendHouseMember } from "./houseCommands.ts";
 import { HOUSE_ACTION_TEXT, HOUSE_MEMBER_ERROR_TEXT, houseNoticeText } from "./houseText.ts";
 import { dismissHouseNotices } from "./identityQueries.ts";
@@ -156,10 +158,12 @@ function MyHouse({
   house,
   limits,
   command,
+  onChanged,
 }: {
   house: NonNullable<HouseView["house"]>;
   limits: HouseView["limits"];
   command: ReturnType<typeof useHouseCommand>;
+  onChanged: () => void;
 }) {
   const [name, setName] = useState("");
   const leader = house.role === "leader";
@@ -185,13 +189,22 @@ function MyHouse({
                 </span>
               </span>
               {leader && member.role === "member" ? (
-                <ConfirmButton
-                  label={m.fid_house_kick()}
-                  question={m.fid_house_kick_confirm({ name: member.name ?? m.fid_house_someone() })}
-                  confirm={m.fid_house_kick_yes()}
-                  disabled={busy}
-                  onConfirm={() => void run({ t: "house_kick", userId: member.userId })}
-                />
+                <span className="fid-house-actions">
+                  <ConfirmButton
+                    label={m.fid_house_handover()}
+                    question={m.fid_house_handover_confirm({ name: member.name ?? m.fid_house_someone() })}
+                    confirm={m.fid_house_handover_yes()}
+                    disabled={busy}
+                    onConfirm={() => void run({ t: "house_handover", userId: member.userId })}
+                  />
+                  <ConfirmButton
+                    label={m.fid_house_kick()}
+                    question={m.fid_house_kick_confirm({ name: member.name ?? m.fid_house_someone() })}
+                    confirm={m.fid_house_kick_yes()}
+                    disabled={busy}
+                    onConfirm={() => void run({ t: "house_kick", userId: member.userId })}
+                  />
+                </span>
               ) : null}
             </li>
           ))}
@@ -283,8 +296,20 @@ function MyHouse({
           </ul>
         </div>
       ) : null}
+      {house.city ? <HouseCityBlock city={house.city} leader={leader} onChanged={onChanged} /> : null}
       {leader ? (
-        <p className="faction-muted">{m.fid_house_leader_note()}</p>
+        <>
+          <p className="faction-muted">{m.fid_house_leader_note()}</p>
+          {house.members.length <= 1 && house.city?.status == null ? (
+            <ConfirmButton
+              label={m.fid_house_dissolve()}
+              question={m.fid_house_dissolve_confirm()}
+              confirm={m.fid_house_dissolve_yes()}
+              disabled={busy}
+              onConfirm={() => void run({ t: "house_dissolve" })}
+            />
+          ) : null}
+        </>
       ) : (
         <ConfirmButton
           label={m.fid_house_leave()}
@@ -406,7 +431,9 @@ export function HouseSection({
   return (
     <div className="fid-house" data-testid="house-section">
       <Notices view={view} onView={onView} />
-      {view.house ? <MyHouse house={view.house} limits={view.limits} command={command} /> : null}
+      {view.house ? (
+        <MyHouse house={view.house} limits={view.limits} command={command} onChanged={onChanged} />
+      ) : null}
       {view.house ? null : <NoHouse view={view} command={command} />}
       {command.status ? (
         <p

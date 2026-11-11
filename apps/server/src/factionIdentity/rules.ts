@@ -20,6 +20,11 @@ export interface HouseRules {
   readonly pendingMax: number;
   readonly applyMax: number;
   readonly requestTtlMs: number;
+  /** 운영자가 이름을 이만큼 되돌리면 이름·약어 바꾸기 자동 막기(질문 1006 나, 0 = 끔) */
+  readonly nameResetBlock: number;
+  /** 가문 마을 세우기 값(최소 단위)·새 마을 주거 수(1 이상) — 질문 1005 가 */
+  readonly villageCost: bigint;
+  readonly villageHousing: number;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -39,6 +44,9 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
     pendingMax: atLeastOne(h.pendingMax),
     applyMax: atLeastOne(h.applyMax),
     requestTtlMs: Math.max(60_000, whole(h.requestTtlMs)),
+    nameResetBlock: whole(h.nameResetBlock),
+    villageCost: BigInt(whole(h.villageCost)),
+    villageHousing: atLeastOne(h.villageHousing),
   };
 }
 

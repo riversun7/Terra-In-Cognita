@@ -103,6 +103,13 @@ export {
   type NationalityResultCode,
 } from "./citizenship.ts";
 export {
+  HOUSE_CITY_MODES,
+  HOUSE_CITY_PROTOCOL_VERSION,
+  HOUSE_CITY_RESULT_CODES,
+  HOUSE_REGIMES,
+  type HouseCityMode,
+  type HouseCityResultCode,
+  type HouseRegime,
   HOUSE_MEMBER_ACTIONS,
   HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_MEMBER_RESULT_CODES,

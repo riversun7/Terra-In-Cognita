@@ -2,6 +2,7 @@
 // 소유 주체 → 나라(세력 행 ID): NPC 국가 주체(world_owners.faction_id) = 그 나라(그 나라 휴먼·지도자·시설), 유저 주체 = 그 사용자 사이보그가 든
 // 나라(cyborgs.faction_id — 귀화하면 바로 바뀐다). 사이보그가 없는 유저·모르는 주체는 나라가 없다(공유 없음).
 // 부를 때마다 월드 저장 층을 읽는다(국적 바꾸기 뒤 다음 시야 틱부터 새 나라). 시야(vision.ts)는 소유 주체마다 한 번만 묻는다.
+import { houseTiesOf } from "./houseTies.ts";
 import type { NationLookup, VisionViewer } from "./vision.ts";
 import type { WorldPersistence } from "./world.ts";
 
@@ -15,8 +16,11 @@ export function nationOfOwner(source: NationSource, ownerId: number): number | u
   const p = source.persistence;
   const owner = p?.owners.get(ownerId);
   if (!p || !owner) return undefined;
-  if (owner.factionId !== null) return owner.factionId;
-  return owner.userId === null ? undefined : p.cyborgs.record(owner.userId)?.factionId;
+  // 도시를 가진 플레이어 가문(houseTies.ts, D-250): 봉신 가문 주체 → 위 나라, 독립 가문 주체·가문원 → 그 가문
+  const ties = houseTiesOf(p);
+  if (owner.factionId !== null) return ties?.nationOfHouse(owner.factionId) ?? owner.factionId;
+  if (owner.userId === null) return undefined;
+  return ties?.independentOfUser(owner.userId) ?? p.cyborgs.record(owner.userId)?.factionId;
 }
 
 /** 시야에 넘기는 나라 찾기(월드를 잡아 두고 부를 때마다 읽는다) */

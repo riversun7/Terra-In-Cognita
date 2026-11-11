@@ -17,7 +17,7 @@ import { stepMapCell } from "@terra/planet/secondMap";
 import { CELL_UNITS, type Motion, PLACEMENT_SIZE, type Point, positionAt } from "@terra/sim";
 import { type Frame, MAP_UNITS, SIDES, applyFrame, neighbourFrame } from "../travel/frame.ts";
 import type { SecondMap } from "./secondMap.ts";
-import { BORDER_SIGHT_UNITS, type BorderSight } from "./vision.ts";
+import { BORDER_SIGHT_UNITS, type BorderSight } from "./borderSight.ts";
 
 /** 경계 너머 시야를 센 것을 다시 쓰는 시간(ms, 시야 틱 안) */
 const SIGHT_REUSE_MS = 250;

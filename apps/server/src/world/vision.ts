@@ -20,7 +20,6 @@ import { type BuildingWire, type UnitMotionWire, VISION_BYTES, encodeMessage } f
 import {
   BUILDING_VISION_CELLS,
   type BuildingPlacement,
-  CELL_UNITS,
   type Motion,
   type Point,
   UNIT_VISION_CELLS,
@@ -38,6 +37,7 @@ import {
   visionCellOf,
   visionRadius,
 } from "@terra/sim";
+import { type BorderSight, stampBorder } from "./borderSight.ts";
 import { type MapStream, type StreamStats, type StreamSubscriber, createMapStream } from "./mapStream.ts";
 import { type SizedEntry, motionToWire, sized } from "./wire.ts";
 
@@ -55,35 +55,6 @@ export type NationLookup = (ownerId: number) => number | undefined;
 
 const UNIT_RADIUS = visionRadius(UNIT_VISION_CELLS);
 const BUILDING_RADIUS = visionRadius(BUILDING_VISION_CELLS);
-/** 시야 칸 한 변(단위) */
-const UNITS_PER_VISION_CELL = VISION_CELL * CELL_UNITS;
-/** 유닛 시야 원이 2차맵 밖에서 경계 너머에 닿는 가장 먼 거리(단위, 변에서) — edgeWatch.ts가 이 안의 유닛만 준다 */
-export const BORDER_SIGHT_UNITS = UNIT_RADIUS * UNITS_PER_VISION_CELL;
-
-/** 옆 2차맵에 선 내 유닛 하나의 시야 자리: 이 2차맵의 늘인 틀(단위, 2차맵 밖) — world/edgeWatch.ts */
-export interface BorderSight {
-  readonly ownerId: number;
-  readonly x: number;
-  readonly y: number;
-}
-
-/** 2차맵 밖 자리의 유닛 시야 원을 덮개에 더한다(2차맵 안 칸만 — stampVision과 같은 원, 가운데가 밖이어도 된다) */
-function stampBorder(cover: Uint16Array, sight: BorderSight): void {
-  const cx = Math.floor(sight.x / UNITS_PER_VISION_CELL);
-  const cy = Math.floor(sight.y / UNITS_PER_VISION_CELL);
-  const limit = UNIT_RADIUS * UNIT_RADIUS + UNIT_RADIUS;
-  for (let dy = -UNIT_RADIUS; dy <= UNIT_RADIUS; dy++) {
-    const y = cy + dy;
-    if (y < 0 || y >= VISION_SIDE) continue;
-    for (let dx = -UNIT_RADIUS; dx <= UNIT_RADIUS; dx++) {
-      const x = cx + dx;
-      if (x < 0 || x >= VISION_SIDE || dx * dx + dy * dy > limit) continue;
-      const index = y * VISION_SIDE + x;
-      cover[index] = (cover[index] ?? 0) + 1;
-    }
-  }
-}
-
 export interface VisionUnit {
   readonly id: number;
   readonly ownerId: number;

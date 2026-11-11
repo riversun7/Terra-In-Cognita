@@ -520,7 +520,10 @@ test.describe("가문 가입·이름 되돌리기", () => {
   test.describe("9. admin: 신고된 가문 이름을 되돌린다", () => {
     test.use({ account: "admin", devTheme: "neon", ...VIEWPORTS.desktop });
 
-    test('[마크 관리] [이름 되돌리기](사유) → 이름이 "가문 #ID"', async ({ page, deviceErrors }) => {
+    test("[마크 관리] [이름 되돌리기](사유) → 되돌리고 신고가 지워져 목록에서 빠진다", async ({
+      page,
+      deviceErrors,
+    }) => {
       await page.goto("/ops?tab=emblems");
       const tab = page.locator(".ops-emblems");
       await expect(tab).toBeVisible();
@@ -530,7 +533,8 @@ test.describe("가문 가입·이름 되돌리기", () => {
       await row.getByLabel(message("ko", "ops_emblems_reason")).fill("시험 사유: 신고된 이름");
       await row.locator(".ops-emblem-reset-confirm").click();
       await expect(tab).toContainText(message("ko", "ops_emblems_reset_done"));
-      await expect(tab.locator("tbody tr", { hasText: `가문 #${made.houseId}` })).toHaveCount(1);
+      // 되돌리면 신고를 처리한 것으로 지운다 — 그림·막힘·알림이 없는 가문은 목록에서 빠진다([신고 넘기기]와 같다)
+      await expect(tab.locator("tbody tr", { hasText: made.name })).toHaveCount(0);
       expect(deviceErrors).toEqual([]);
     });
   });

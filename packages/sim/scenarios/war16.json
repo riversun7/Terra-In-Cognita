@@ -3,13 +3,59 @@
   "planet": "s2_test_planet",
   "factions": [
     {
-      "code": "npc",
-      "count": 16,
+      "code": "npc_super",
+      "count": 2,
+      "fixed": true,
+      "cities": 6,
+      "workers": 270,
+      "guards": 6,
+      "credit": "600000",
+      "tech": 3,
+      "housing": 60
+    },
+    {
+      "code": "npc_great",
+      "count": 3,
       "fixed": true,
       "cities": 4,
-      "workers": 40,
+      "workers": 148,
+      "guards": 4,
+      "credit": "400000",
+      "tech": 3,
+      "housing": 50
+    },
+    {
+      "code": "npc_middle",
+      "count": 5,
+      "fixed": true,
+      "cities": 3,
+      "workers": 90,
+      "guards": 3,
       "credit": "200000",
-      "tech": 3
+      "tech": 2,
+      "housing": 40
+    },
+    {
+      "code": "npc_small",
+      "count": 4,
+      "fixed": true,
+      "cities": 2,
+      "workers": 48,
+      "guards": 2,
+      "credit": "120000",
+      "tech": 1,
+      "housing": 32
+    },
+    {
+      "code": "npc_city",
+      "count": 2,
+      "fixed": true,
+      "cities": 1,
+      "workers": 36,
+      "guards": 4,
+      "credit": "160000",
+      "tech": 2,
+      "housing": 48
     }
   ],
   "npc": {

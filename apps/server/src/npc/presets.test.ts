@@ -7,7 +7,9 @@ import {
 } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
 import { START_WORLD_SEED } from "@terra/sim";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { syncNationNames } from "../ranking/paths.ts";
 import { nationEmblemOf, nationSeedOf, nationStartOf } from "./nations.ts";
@@ -140,6 +142,48 @@ describe("nationPresetsFrom", () => {
     const first = entries[0];
     if (!first) throw new Error("no entry");
     expect(nationPresetsFrom([{ ...first, enabled: false }])).toEqual([]);
+  });
+});
+
+describe("시뮬 시나리오 war16", () => {
+  it("세력 묶음 다섯이 팩 등급 표와 같다(세력 수·도시·처음 인구·경비대·기술·주거·국고 비율)", () => {
+    const scenario: unknown = JSON.parse(
+      readFileSync(new URL("../../../../packages/sim/scenarios/war16.json", import.meta.url), "utf8"),
+    );
+    const groups = z
+      .object({
+        factions: z.array(
+          z.object({
+            code: z.string(),
+            count: z.number(),
+            cities: z.number(),
+            workers: z.number(),
+            guards: z.number(),
+            tech: z.number(),
+            housing: z.number(),
+            credit: z.string(),
+          }),
+        ),
+      })
+      .parse(scenario).factions;
+    const presets = nationPresetsOf(pack);
+    const order = ["superpower", "great_power", "middle_power", "small_state", "city_state"];
+    expect(groups).toHaveLength(order.length);
+    order.forEach((id, index) => {
+      const group = groups[index];
+      const preset = presets.find((entry) => entry.tier?.id === id);
+      const start = nationStartOf(START_WORLD_SEED, preset);
+      expect(group).toMatchObject({
+        count: presets.filter((entry) => entry.tier?.id === id).length,
+        cities: start.startCities,
+        workers: start.startCities * start.populationPerCity,
+        guards: start.guardsPerCity,
+        tech: start.tech,
+        housing: start.housing,
+        // 중견국 200,000을 1000‰로 본 국고
+        credit: String((200_000 * start.creditPm) / 1000),
+      });
+    });
   });
 });
 

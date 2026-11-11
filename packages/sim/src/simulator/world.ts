@@ -14,7 +14,7 @@ import {
   settleOwnerPeriod,
   testSettleAccounts,
 } from "../settle/owner.ts";
-import { JOB_GATHER, PHASE_WORK, TEST_JOB_RULES, type JobState } from "../settle/settle.ts";
+import { JOB_GATHER, JOB_NONE, PHASE_WORK, TEST_JOB_RULES, type JobState } from "../settle/settle.ts";
 import {
   type InjuryCoefficients,
   type InjuryState,
@@ -367,6 +367,27 @@ export function createWorld(
         units.set(unit.id, unit);
         faction.units.add(unit.id);
       }
+      // 경비대(국력 등급 씨앗): 도시마다 정해진 수, 직무 없음
+      for (const cityId of own)
+        for (let g = 0; g < (group.guards ?? 0); g++) {
+          const unit: SimUnit = {
+            id: nextUnitId(),
+            city: cityId,
+            owner: id,
+            job: { job: JOB_NONE, phase: PHASE_WORK, progressMs: 0, fatigue: 0 },
+            pos: { x: setup.nextInt(0x4_0000), y: setup.nextInt(0x4_0000) },
+            tripStep: 0,
+            eventId: undefined,
+            satisfactionMilli: 60_000,
+            bornAtMs: startMs,
+            lifespanMs: 0,
+            recruit: null,
+            rebirths: 0,
+            guard: true,
+          };
+          units.set(unit.id, unit);
+          faction.units.add(unit.id);
+        }
       if (group.credit > 0n)
         book.post({
           kind: "issue",

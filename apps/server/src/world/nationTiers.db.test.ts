@@ -392,6 +392,16 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
   it("이 세계에 이 국가 세우기: 차례 밖 프리셋에 자리를 놓으면 다음 켤 때 등급대로 선다", async () => {
     const world = await boot(tiered);
     const admin = await newUser("FoundAdmin");
+    // 등급 배치 제안을 모두 놓으면 모두 받는다(놓기 검사도 등급 간격 — 소국이 가까워도 too_close가 아니다). 새 세계는 이미 그 자리
+    const suggestion = await service(tiered).suggest();
+    const homes = suggestion?.homes ?? [];
+    expect(homes).toHaveLength(4);
+    const placedAll = await service(tiered).place(
+      homes.map((home) => ({ code: home.code, mapKey: Number(home.mapKey) })),
+      { userId: admin, ip: null },
+    );
+    expect(placedAll?.map((result) => result.result)).toEqual(["ok", "ok", "ok", "ok"]);
+    for (const home of homes) await service(tiered).clear(home.code, { userId: admin, ip: null });
     const view = await service(tiered).view();
     const founding = view?.founding ?? [];
     // 선 국가 넷의 프리셋(16번째·1~3번째)은 후보가 아니다. 5번째(강대국)는 후보

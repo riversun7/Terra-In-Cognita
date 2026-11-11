@@ -2,7 +2,8 @@
 // docs/adr/2026-11-07-world-layout.md "바뀜 (D-528)". 화면 /dev/world-layout(dev·admin, 권한 worldLayout: read·place).
 // - view: 고정 NPC 국가마다 도시(발전도·수도)와 놓은 자리(놓은 사람·든 시각·막는 것).
 // - place: 국가 자리(수도 2차맵)를 적는다. 누른 칸이 알맞은 땅이 아니면 SNAP_CELLS 안의 가장 가까운 알맞은 땅으로 옮긴다(없으면 not_land).
-//   다른 국가 자리(놓은 자리, 없으면 지금 수도 2차맵)와 국가 간격(설정 칸 world_layout_nation_gap_cells)보다 가까우면 too_close, 시험
+//   다른 국가 자리(놓은 자리, 없으면 지금 수도 2차맵)와 국가 간격(설정 칸 world_layout_nation_gap_cells × 두 국가 국력 등급 간격의 평균)보다
+//   가까우면 too_close, 시험
 //   2차맵 줄 둘레 국가 간격 안이면 reserved. 시작 도시가 선 국가는 지금 막는 것을 미리 보고 blocked에 적는다(다음 시작 때 다시 본다).
 //   세계는 지금 바꾸지 않는다: 서버가 다음에 켤 때 세계 씨앗이 든다(nationPlacement.ts — 실행 중인 2차맵·NPC 런타임을 옮기지 않는다 [임시, 질문 861]).
 // - clear: 자리를 지운다(자동 배치로 돌아감 — 이미 선 도시는 그대로).
@@ -41,7 +42,15 @@ import { type NationPlacement, loadPlacements, planNationMove } from "./nationPl
 import type { QueryPool } from "./persist/load.ts";
 import { cancelTierApply, requestTierApply } from "./tierApply.ts";
 import { type TierPlanNation, freshTierPlan, startViewOf, tierApplyPlan } from "./tierPlan.ts";
-import { CITY_CELL, type LayoutLand, isSettleLand, ringOffsets, walkCell } from "./worldLayout.ts";
+import {
+  CITY_CELL,
+  type LayoutLand,
+  isSettleLand,
+  layoutTierOf,
+  pairPm,
+  ringOffsets,
+  walkCell,
+} from "./worldLayout.ts";
 
 /** 누른 칸이 알맞은 땅이 아니면 이 고리(1차맵 칸)까지 가장 가까운 알맞은 땅을 찾는다 */
 export const SNAP_CELLS = 12;
@@ -363,9 +372,12 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
           fail("reserved");
           continue;
         }
+        // 다른 국가와 띄울 거리 = 국가 간격 × 두 국가 국력 등급 간격의 평균(세계 배치·등급 배치 계획과 같은 규칙 — 소국은 가깝게, 강대국은 멀게)
+        const mine = layoutTierOf(startOf(nation.code));
+        const gapWith = (code: string): number => (gap * pairPm(mine, layoutTierOf(startOf(code)))) / 1000;
         let near: string | null = null;
         for (const [code, home] of [...homes].toSorted((a, b) => a[0].localeCompare(b[0])))
-          if (code !== nation.code && distanceCells(key, home) < gap) {
+          if (code !== nation.code && distanceCells(key, home) < gapWith(code)) {
             near = code;
             break;
           }

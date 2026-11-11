@@ -217,7 +217,7 @@ export function sampleLand(input: Pick<LayoutInput, "faceLevel" | "land" | "seed
 const rankOf = (nation: LayoutNation): number => nation.tier?.rank ?? LAND_WEIGHT_MAX_RANK + 1;
 
 /** 두 국가 사이 띄울 거리의 천분율(두 값의 평균, 등급이 없으면 1000) */
-const pairPm = (a: LayoutTier | undefined, b: LayoutTier | undefined): number =>
+export const pairPm = (a: LayoutTier | undefined, b: LayoutTier | undefined): number =>
   Math.round(((a?.homeGapPm ?? 1000) + (b?.homeGapPm ?? 1000)) / 2);
 
 /**

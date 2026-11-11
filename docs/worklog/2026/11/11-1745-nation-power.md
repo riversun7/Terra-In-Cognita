@@ -35,7 +35,7 @@
 | `apps/server/src/nationEdit/services.ts`·`views.ts`, `trpc/nations.ts`·`worldLayout.ts`, `contentEdit/core.ts`·`state.ts`, `app.ts`, `main.ts` | 등급 표·새 프리셋 저장, tRPC 더하기 |
 | `apps/server/src/db/populationSchema.ts`·`worldPlacementSchema.ts`·`contentEditSchema.ts`·`schema.ts`, `drizzle/20261111070141_nation_power/` | 열 `world_humans.guard`, 표 `world_tier_requests`, 분류 검사에 `nation_tiers` |
 | `apps/server/src/world/nationTiers.db.test.ts`·`worldLayoutTiers.test.ts`(새), `testSupport.ts`, 옛 시험 열 개 | 등급 씨앗·반영·세우기 시험, 옛 규칙 시험은 `legacyNationPresets`(등급 없는 프리셋)로 |
-| `apps/game/src/editor/nations/*`(`NationPowerPanel`·`NationPowerSection`·`NationRandomPanel` 새), `editor/worldLayout/*`(`WorldTierPanel` 새), `messages/{ko,en}.json` | 화면·모델·문구(메시지 96개) |
+| `apps/game/src/editor/nations/*`(`NationPowerPanel`·`NationPowerSection`·`NationRandomPanel` 새), `editor/worldLayout/*`(`WorldTierPanel` 새), `messages/{ko,en}.json` | 화면·모델·문구(메시지 95개) |
 | `e2e/nations.spec.ts`, `e2e/world-layout.spec.ts` | 화면 시험·사진 |
 | `docs/adr/*`, `docs/questions/*`, `docs/PLAN.md` | 결정·질문 |
 
@@ -52,7 +52,7 @@
 
 ## 미검증·TODO·알려진 문제
 - NAS에서 돌리지 않았다(Unknown): 미리 보기 수·반영 뒤 메모리·틱 시간. 시험 자료(2·4·3·2곳 세계)로는 도시 +4·휴먼 +238·경비대 +59.
-- 국가 16개 서버(도시 49·휴먼 1,698·경비대 177)의 메모리·부팅 시간은 재지 않았다(Unknown, 질문 919).
+- 국가 16개 새 세계는 DB 시험 틀로만 재 보았다(Verified, 한 번 — 가짜 행성 값·임시 지형·시험 2차맵 2장): 국가 16, 시작 도시 49(자리 모자람 0), 유닛 1,891(휴먼 1,698 + 경비대 177 + 지도자 16), 띄운 2차맵 51장, 부팅 4.4초, 불변 조건 위반 0. 실제 서버(지형 워커·경로 워커·NAS 1GiB)의 메모리·틱 시간은 재지 않았다(Unknown, 질문 919).
 - 경비대는 지도에서 다른 NPC 휴먼과 겉모습이 같다(프로토콜 칸을 더하지 않았다). 죽은 경비대를 다시 채우지 않는다(질문 920).
 - 등급 표의 창고·농장·벌목장·광산 밖 시설 줄은 지금 세계 씨앗에 들지 않는다(자료로만 실린다).
 - `war16` 30일이 7초 → 약 3분으로 늘었다: 힘이 고르지 않아 공성이 실제로 일어난다(전에는 공성 0회). `sim:speed`의 war16 몫도 그만큼 는다.

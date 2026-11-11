@@ -72,6 +72,8 @@ export interface NpcCounts {
   taxChanges: number;
   /** 구인 규칙식으로 산 카드 수(D-469) */
   recruits: number;
+  /** 그 가운데 경비대로 다시 채운 수(기획 답 920 나) */
+  guardRefills: number;
 }
 
 export function emptyNpcCounts(): NpcCounts {
@@ -89,6 +91,7 @@ export function emptyNpcCounts(): NpcCounts {
     peaceRefused: 0,
     taxChanges: 0,
     recruits: 0,
+    guardRefills: 0,
   };
 }
 
@@ -359,12 +362,20 @@ function taxPolicy(ctx: NpcContext, faction: SimFaction, view: FactionView, nowM
 
 /**
  * 구인 규칙식(D-469 "NPC도 이런 경로를 통해 인구를 늘리며 생산발전", npc/policy.ts recruitPicks): 그 세력 도시마다(ID 차례) 휴먼이
- * 목표보다 적으면 그 창의 남은 카드를 산다. 행동 하나와 따로 판단마다 돈다(세율과 같은 자리)
+ * 목표보다 적으면 그 창의 남은 카드를 산다. 경비대가 등급 값(SimFaction.guardsPerCity)보다 적으면 먼저 경비대로 다시 채운다(기획 답 920 나).
+ * 행동 하나와 따로 판단마다 돈다(세율과 같은 자리). 서버 NPC 런타임도 이 함수를 그대로 부른다
  */
 function recruitPolicy(ctx: NpcContext, faction: SimFaction, nowMs: number): void {
   const society = ctx.society;
   if (!society) return;
   const byCity = citizens(ctx, faction);
+  const guardTarget = faction.guardsPerCity ?? 0;
+  const guardsByCity = new Map<number, number>();
+  if (guardTarget > 0)
+    for (const unitId of faction.units) {
+      const unit = ctx.world.units.get(unitId);
+      if (unit?.guard === true) guardsByCity.set(unit.city, (guardsByCity.get(unit.city) ?? 0) + 1);
+    }
   const asset = treasuryAssetOf(ctx, faction);
   for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
     const city = ctx.world.cities.get(cityId);
@@ -377,10 +388,16 @@ function recruitPolicy(ctx: NpcContext, faction: SimFaction, nowMs: number): voi
         population: byCity.get(cityId)?.n ?? 0,
         housing: city.housing,
         treasury: ctx.world.book.balanceOf(faction.id, asset),
+        guards: guardsByCity.get(cityId) ?? 0,
+        guardTarget,
       },
       ctx.c.npc,
     );
-    for (const slot of picks) if (society.recruit(faction, cityId, slot, nowMs)) ctx.counts.recruits += 1;
+    for (const pick of picks)
+      if (society.recruit(faction, cityId, pick.slot, nowMs, pick.guard)) {
+        ctx.counts.recruits += 1;
+        if (pick.guard) ctx.counts.guardRefills += 1;
+      }
   }
 }
 

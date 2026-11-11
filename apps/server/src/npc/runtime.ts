@@ -494,6 +494,11 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     const faction = factions.get(owner);
     return faction?.fixed ? presetOfCode(faction.code, seedPresets) : undefined;
   };
+  // 경비대 목표(기획 답 920 나): 고정 국가 = 자기 프리셋의 등급 값(성격 칸 → 등급 표 → 0). 판단마다 구인 규칙식(@terra/sim npcRun 구인 —
+  // 시뮬과 같은 함수)이 그 세력 도시마다 이 수까지 구인 카드로 다시 채운다. 반란·마을 세력은 0(채우지 않음)
+  for (const faction of factions.values())
+    if (faction.fixed)
+      faction.guardsPerCity = nationStartOf(c.worldSeed, ownPresetOf(faction.id)).guardsPerCity;
   const spawn = (cityId: number, guard: boolean): void => {
     const unitId = o.nextUnitId();
     const rng = streamRng(seed, STREAM_SOCIETY, unitId, 0);

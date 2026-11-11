@@ -1,10 +1,17 @@
-// 경비대(국력 등급 씨앗) 시뮬 시험 — 시나리오 guards 칸, 수비·원정 차례, 요약의 묶음별 수.
-// docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)". 값은 시험용 가짜다.
+// 경비대(국력 등급 씨앗) 시뮬 시험 — 시나리오 guards 칸, 수비·원정 차례, 요약의 묶음별 수, 구인 규칙식의 다시 채우기(기획 답 920 나).
+// docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"·"바뀜 (2026-11-11, 916~925 답)". 값은 시험용 가짜다.
 import { describe, expect, it } from "vitest";
+import { TEST_ASSET_CREDIT } from "../settle/owner.ts";
 import { JOB_NONE } from "../settle/settle.ts";
+import { TEST_SOCIETY_COEFFICIENTS } from "../society/coefficients.ts";
+import { systemRule } from "./economyRun.ts";
+import { createSimLoop } from "./loop.ts";
+import { createMetricsRecorder } from "./metrics.ts";
+import { type NpcContext, type SimEvent, decide, emptyNpcCounts } from "./npcRun.ts";
 import { runSimulation } from "./run.ts";
-import { parseScenario } from "./scenario.ts";
-import { createWorld, defenseOrder, expeditionOrder } from "./world.ts";
+import { type Scenario, parseScenario } from "./scenario.ts";
+import { attachSociety } from "./society.ts";
+import { type SimWorld, createWorld, defenseOrder, expeditionOrder } from "./world.ts";
 
 const tiers = parseScenario({
   id: "test_tiers",
@@ -52,5 +59,122 @@ describe("경비대(시나리오 guards)", () => {
     expect(JSON.stringify(runSimulation({ scenario: tiers, seed: 3, days: 10 }))).toBe(
       JSON.stringify(summary),
     );
+  });
+});
+
+const HOUR = 3_600_000;
+
+/** 시뮬 run.ts와 같은 모양의 NPC 판단 맥락(경제·전투 없이) */
+function npcContext(scenario: Scenario): { world: SimWorld; ctx: NpcContext } {
+  const world = createWorld(scenario, 5, 0, { systemRule });
+  const recorder = createMetricsRecorder({ startMs: 0, sink: () => {} });
+  const loop = createSimLoop<SimEvent>({ startMs: 0, handle: () => {} });
+  const ctx: NpcContext = {
+    world,
+    loop,
+    recorder,
+    c: TEST_SOCIETY_COEFFICIENTS,
+    decideEveryMs: 6 * HOUR,
+    settings: scenario.society,
+    trips: undefined,
+    counts: emptyNpcCounts(),
+  };
+  ctx.society = attachSociety(
+    {
+      world,
+      settings: scenario.society,
+      recorder,
+      c: TEST_SOCIETY_COEFFICIENTS,
+      hooks: undefined,
+      combat: undefined,
+      scheduleFaction: () => {},
+      scheduleUnit: () => {},
+      cancel: () => {},
+    },
+    0,
+  );
+  return { world, ctx };
+}
+
+/** 그 도시의 경비대 ID(ID 차례) */
+const guardsIn = (world: SimWorld, cityId: number): number[] =>
+  [...world.units.values()]
+    .filter((unit) => unit.city === cityId && unit.guard === true)
+    .map((unit) => unit.id)
+    .toSorted((a, b) => a - b);
+
+/** 경비대 둘을 없앤다(전투에서 죽은 셈 — 세력·세계에서 뺀다) */
+function killGuards(world: SimWorld, cityId: number, n: number): void {
+  for (const id of guardsIn(world, cityId).slice(0, n)) {
+    const unit = world.units.get(id);
+    world.units.delete(id);
+    if (unit) world.factions.get(unit.owner)?.units.delete(id);
+  }
+}
+
+// 휴먼 목표가 이미 찬 세력(주거 = 일꾼 + 경비대): 구인 규칙식이 사는 카드는 경비대 몫뿐이다
+const refill = (credit: string): Scenario =>
+  parseScenario({
+    id: "test_guard_refill",
+    factions: [
+      { code: "big", count: 1, fixed: true, cities: 1, workers: 10, guards: 4, credit, tech: 1, housing: 14 },
+    ],
+    npc: { decideEveryMs: 6 * HOUR },
+  });
+
+describe("경비대 다시 채우기(기획 답 920 나 — 구인 규칙식, 시뮬·서버 같은 함수)", () => {
+  it("죽은 경비대를 구인 카드로 등급 값까지 다시 채우고, 카드 값을 국고에서 소각한다. 등급 값을 넘지 않는다", () => {
+    const { world, ctx } = npcContext(refill("200000"));
+    const faction = world.factions.get(1);
+    if (!faction) throw new Error("faction");
+    expect(faction.guardsPerCity).toBe(4);
+    killGuards(world, 1, 2);
+    expect(guardsIn(world, 1)).toHaveLength(2);
+    const before = world.book.balanceOf(1, TEST_ASSET_CREDIT);
+    decide(ctx, 1, HOUR);
+    const guards = guardsIn(world, 1);
+    expect(guards).toHaveLength(4);
+    expect(ctx.counts.guardRefills).toBe(2);
+    // 새 경비대는 직무 없이(세계 차리기와 같은 모양) 구인 카드 스탯을 받는다
+    const fresh = guards.slice(2).map((id) => world.units.get(id));
+    expect(fresh.every((unit) => unit?.job.job === JOB_NONE && unit.recruit !== null)).toBe(true);
+    const spent = before - world.book.balanceOf(1, TEST_ASSET_CREDIT);
+    expect(spent).toBeGreaterThan(0n);
+    // 다음 판단(같은 창): 이미 등급 값이라 더 사지 않는다
+    decide(ctx, 1, 2 * HOUR);
+    expect(guardsIn(world, 1)).toHaveLength(4);
+    expect(ctx.counts.guardRefills).toBe(2);
+  });
+
+  it("국고가 없으면 채우지 않는다(공짜로 세우지 않는다)", () => {
+    const { world, ctx } = npcContext(refill("0"));
+    killGuards(world, 1, 3);
+    decide(ctx, 1, HOUR);
+    expect(guardsIn(world, 1)).toHaveLength(1);
+    expect(ctx.counts.guardRefills).toBe(0);
+  });
+
+  it("등급 값이 없는 세력(guards 칸 없음)은 경비대를 사지 않는다", () => {
+    const { world, ctx } = npcContext(
+      parseScenario({
+        id: "test_guard_none",
+        factions: [
+          {
+            code: "plain",
+            count: 1,
+            fixed: true,
+            cities: 1,
+            workers: 2,
+            credit: "200000",
+            tech: 1,
+            housing: 10,
+          },
+        ],
+        npc: { decideEveryMs: 6 * HOUR },
+      }),
+    );
+    decide(ctx, 1, HOUR);
+    expect([...world.units.values()].some((unit) => unit.guard === true)).toBe(false);
+    expect(ctx.counts.guardRefills).toBe(0);
   });
 });

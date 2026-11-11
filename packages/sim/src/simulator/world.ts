@@ -68,6 +68,11 @@ export interface SimFaction extends WarState {
   aiStep: number;
   /** 다음 판단 예약 번호 */
   eventId: number | undefined;
+  /**
+   * 도시마다 경비대 목표 수(국력 등급 값, 기획 답 920 나 — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11, 916~925 답)"). NPC 구인
+   * 규칙식이 그 세력 도시마다 경비대를 이 수까지 구인 카드로 다시 채운다. 없거나 0이면 채우지 않는다(반란·마을 세력, 등급 없는 국가)
+   */
+  guardsPerCity?: number | undefined;
 }
 
 /**
@@ -327,6 +332,8 @@ export function createWorld(
         // 성향은 (세계 시드, 세력)으로 굴린다(D-327: 행성마다 무작위)
         traits: rollTraits(streamRng(seed, STREAM_TRAITS, id, 0), npc),
       });
+      // 경비대 목표(등급 값): 처음 세운 수까지 구인 규칙식이 다시 채운다(기획 답 920 나)
+      if ((group.guards ?? 0) > 0) faction.guardsPerCity = group.guards;
       factions.set(id, faction);
       const own: number[] = [];
       for (let c = 0; c < group.cities; c++) {

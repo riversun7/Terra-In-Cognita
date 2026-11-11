@@ -175,6 +175,20 @@ describe("고른 유닛 다룸", () => {
       unit: "휴먼 #9",
       line: "무소속 · 이동 중",
     });
+    // 경비대(920 라): 종류 대신 "경비대", 이름이 있으면 이름과 함께
+    expect(peekText(9, false, { unitId: 9, kind: "human", faction, guard: true })).toEqual({
+      unit: "경비대 #9",
+      line: "임시 국가 16 · 서 있음",
+    });
+    expect(
+      peekText(9, false, {
+        unitId: 9,
+        kind: "human",
+        faction,
+        guard: true,
+        name: { ko: "알다", en: "Alda" },
+      }),
+    ).toEqual({ unit: "경비대 알다", line: "임시 국가 16 · 서 있음" });
   });
 
   it("637 나: 사이보그 본체 먼저, 그다음 유닛 화면처럼 손이 필요한 순(포로 → 부상 무거운 순 → 대기 → 쉼 → 일함), 같으면 이름·번호", () => {

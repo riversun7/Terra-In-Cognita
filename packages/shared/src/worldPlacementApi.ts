@@ -60,6 +60,8 @@ export interface WorldPlacementNationView {
   readonly name: LocalizedName | null;
   readonly cities: readonly WorldPlacementCityView[];
   readonly placement: WorldPlacementView | null;
+  /** 국력 등급 시작 값(더한 칸 — 옛 서버 응답에는 없다) */
+  readonly start?: WorldTierStartView | undefined;
 }
 
 export interface WorldLayoutPlanetView {
@@ -71,6 +73,8 @@ export interface WorldLayoutPlanetView {
   /** 국가를 두지 않는 2차맵(시험 2차맵 줄 — 둘레 국가 간격 안도 안 된다, 10진 글자) */
   readonly reserved: readonly string[];
   readonly nations: readonly WorldPlacementNationView[];
+  /** 이 세계에 아직 서지 않은 켜진 국가 프리셋(더한 칸): 자리를 놓으면 다음 시작 때 그 국가가 선다 */
+  readonly founding?: readonly WorldFoundingView[] | undefined;
 }
 
 export interface WorldPlaceResult {
@@ -87,4 +91,101 @@ export interface WorldPlaceResult {
 export interface WorldLayoutSuggestion {
   /** 자리를 고르지 않은 국가마다 자동 배치가 고른 수도 2차맵(10진 글자) */
   readonly homes: readonly { readonly code: string; readonly mapKey: string }[];
+  /** 등급 배치 계획(더한 칸): 빈 세계로 보고 모든 국가(세울 국가 포함)를 등급대로 고른 자리와 시작 도시 */
+  readonly plan?: WorldTierPlan | undefined;
+}
+
+// ── 국력 등급(사용자 답 2026-11-11 "실제 강대국 분포처럼 알아서 배치", docs/adr/2026-11-07-world-layout.md "바뀜 (2026-11-11)") ──
+// 아래 칸은 모두 더한 것이다(옛 화면은 모르는 칸을 읽지 않는다).
+
+/** 국가 하나의 등급 시작 값 요약(등급이 없으면 tier = null, 수는 옛 규칙 값) */
+export interface WorldTierStartView {
+  /** @terra/shared/nationTier POWER_TIERS 가운데 하나(없으면 null) */
+  readonly tier: string | null;
+  readonly cities: number;
+  /** 시작 도시 하나의 처음 인구·경비대 */
+  readonly populationPerCity: number;
+  readonly guardsPerCity: number;
+  readonly tech: number;
+}
+
+/** 이 세계에 아직 서지 않은 켜진 국가 프리셋(세울 수 있는 국가). mapKey가 있으면 자리를 놓아 다음 시작 때 선다 */
+export interface WorldFoundingView {
+  readonly code: string;
+  readonly name: LocalizedName | null;
+  readonly start: WorldTierStartView;
+  /** 놓은 수도 2차맵(10진 글자). 없으면 아직 자리를 놓지 않은 후보 */
+  readonly mapKey: string | null;
+  readonly placedAtMs: number | null;
+  readonly placedBy: string | null;
+}
+
+/** 등급 배치 계획(빈 세계로 보고 등급대로 고른 자리 — 미리 보기)의 국가 한 줄 */
+export interface WorldTierPlanNation {
+  readonly code: string;
+  readonly tier: string | null;
+  /** 수도 2차맵(10진 글자) */
+  readonly home: string;
+  /** 시작 도시가 설 2차맵(수도 먼저, 10진 글자) */
+  readonly cities: readonly string[];
+  /** 등급이 바라는 시작 도시 수(자리가 모자라면 cities가 더 짧다) */
+  readonly wantCities: number;
+  readonly population: number;
+  readonly guards: number;
+  /** 사람이 놓은 자리를 그대로 썼나 */
+  readonly placed: boolean;
+}
+
+export interface WorldTierPlan {
+  readonly nations: readonly WorldTierPlanNation[];
+  /** 국가 수도 사이 가장 짧은 거리(1차맵 칸, 등급 간격으로 나눈 값)·찾은 반경 */
+  readonly minGapCells: number | null;
+  readonly regionCells: number;
+  /** 자리가 모자라 세우지 못한 시작 도시 수 */
+  readonly short: number;
+}
+
+/** 이미 선 세계에 등급 분포를 반영할 때의 국가 한 줄(미리 보기 — DB 읽기만) */
+export interface WorldTierApplyNation {
+  readonly code: string;
+  readonly name: LocalizedName | null;
+  readonly tier: string | null;
+  /** 시작 도시: 지금·등급이 바라는 수·더 세울 수(자리가 있는 만큼)·등급보다 많은 수(지우지 않는다) */
+  readonly cities: {
+    readonly have: number;
+    readonly want: number;
+    readonly add: number;
+    readonly surplus: number;
+  };
+  /** 더 세울 도시의 2차맵(10진 글자) */
+  readonly addAt: readonly string[];
+  /** 지금 있는 시작 도시에서: 주거를 올릴 도시 수, 더 세울 휴먼·경비대(새 도시 몫은 newHumans·newGuards) */
+  readonly housingRaised: number;
+  readonly humans: { readonly have: number; readonly add: number };
+  readonly guards: { readonly have: number; readonly add: number };
+  readonly newHumans: number;
+  readonly newGuards: number;
+  /** 기술 단계: 지금 → 반영 뒤(내리지 않는다) */
+  readonly tech: { readonly from: number; readonly to: number };
+}
+
+export interface WorldTierApplyView {
+  readonly nations: readonly WorldTierApplyNation[];
+  readonly totals: {
+    readonly cities: number;
+    readonly humans: number;
+    readonly guards: number;
+    readonly housingRaised: number;
+    /** 등급보다 많아 그대로 두는 시작 도시 수 */
+    readonly surplusCities: number;
+  };
+  /** 지금 세계의 유닛 수(world_units 줄 수 — 늘어나는 양을 견줄 바탕) */
+  readonly unitsNow: number;
+  /** 걸려 있는 요청(없으면 null). appliedAtMs가 null이면 다음 서버 시작 때 든다 */
+  readonly request: {
+    readonly requestedAtMs: number;
+    readonly requestedBy: string | null;
+    readonly appliedAtMs: number | null;
+    readonly report: Readonly<Record<string, unknown>> | null;
+  } | null;
 }

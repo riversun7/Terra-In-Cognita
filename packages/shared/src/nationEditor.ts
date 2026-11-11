@@ -12,16 +12,20 @@ import type {
 } from "./contentEdit.ts";
 import type { NameStyleId } from "./nameGen.ts";
 import type { NationEmblemSpec } from "./nationEmblem.ts";
+import type { NationTierJson, PowerTier } from "./nationTier.ts";
 
 /**
  * 국가마다 세계 씨앗 값의 범위(팩 스키마·편집기 입력이 같이 쓴다). 설정 칸(49 worldSeed — npc_seed_housing·npc_seed_population_pm·
  * npc_seed_farms 등)과 같은 범위다
  */
 export const NATION_SEED_LIMITS = {
-  startCities: { min: 1, max: 4 },
+  // 등급이 있는 프리셋은 8곳까지(등급 표와 같은 범위 — ./nationTier.ts), 등급이 없으면 설정 칸 아래 끝~위 끝 안으로 자른다
+  startCities: { min: 1, max: 8 },
   housing: { min: 4, max: 1000 },
   populationPm: { min: 0, max: 1000 },
   facility: { min: 0, max: 4 },
+  guards: { min: 0, max: 12 },
+  tech: { min: 1, max: 5 },
   necessityHours: { min: 0, max: 24 * 30 },
   tradeTaxBp: { min: 0, max: 10_000 },
   stockQty: { min: 1, max: 1_000_000 },
@@ -60,6 +64,9 @@ export interface NationPersonalityJson {
   readonly startLumberCamps?: number | undefined;
   readonly startMines?: number | undefined;
   readonly startStorehouses?: number | undefined;
+  /** 시작 도시 하나의 경비대 수·처음 기술 단계(국가마다 값 — 없으면 등급 표, 등급도 없으면 0·1) */
+  readonly startGuards?: number | undefined;
+  readonly startTech?: number | undefined;
 }
 
 /** 팩 국가 프리셋 한 줄(JSON 모양 — 참조는 ID 글) */
@@ -70,6 +77,8 @@ export interface NationPresetJson {
   readonly color?: string | undefined;
   readonly emblem?: NationEmblemSpec | undefined;
   readonly nameStyle?: NameStyleId | undefined;
+  /** 국력 등급(없으면 등급 없이 옛 규칙 — ./nationTier.ts) */
+  readonly powerTier?: PowerTier | undefined;
   readonly currency: {
     readonly code: string;
     readonly name: LocalizedName;
@@ -106,6 +115,15 @@ export interface NationEditorRow {
   readonly slot: number | null;
 }
 
+/** 국력 등급 표 한 줄(실효·팩·덮어쓰기·해시 — 같은 편집기의 등급 판) */
+export interface NationTierRow {
+  readonly entry: NationTierJson;
+  readonly origin: ContentEditOrigin;
+  readonly pack: NationTierJson | null;
+  readonly override: ContentOverrideView | null;
+  readonly hash: string;
+}
+
 /** 세계 씨앗 설정 칸의 지금 실효 값(국가 칸이 비었을 때 드는 값 — 편집기가 "기본값 N"으로 보인다) */
 export interface NationSeedDefaults {
   readonly startCitiesMin: number;
@@ -118,6 +136,8 @@ export interface NationSeedDefaults {
   readonly storehouses: number;
   /** 처음 창고 생필품 시간분 기본(서버 기본 48시간, 554 다) */
   readonly necessityHours: number;
+  /** 한 국가 시작 도시 사이 칸(설정 칸 world_layout_city_step_cells) */
+  readonly cityStepCells: number;
 }
 
 export interface NationEditorOption {
@@ -134,6 +154,8 @@ export interface NationEditorListResponse {
   readonly contentVersion: string;
   readonly revision: number;
   readonly nations: readonly NationEditorRow[];
+  /** 국력 등급 표(등급 차례 — 줄이 없는 등급은 없다) */
+  readonly tiers: readonly NationTierRow[];
   readonly defaults: NationSeedDefaults;
   /** 도시 직무 고르기: 시설·레시피(레시피의 시설이 맞아야 한다) */
   readonly facilities: readonly NationEditorOption[];
@@ -150,7 +172,16 @@ export interface NationEditorListResponse {
 export type NationEditorChange =
   | { readonly op: "put"; readonly entry: NationPresetJson; readonly baseHash: string }
   | { readonly op: "revert"; readonly id: string; readonly baseHash: string }
-  | { readonly op: "discard_sleeping"; readonly id: string };
+  | { readonly op: "discard_sleeping"; readonly id: string }
+  /** 새 프리셋 만들기(랜덤 국가 추가 — 새 ID, 목록 끝에 붙는다) */
+  | { readonly op: "create"; readonly entry: NationPresetJson }
+  /** 국력 등급 표 한 줄 고치기·팩 값으로 되돌리기 */
+  | { readonly op: "put_tier"; readonly entry: NationTierJson; readonly baseHash: string }
+  | { readonly op: "revert_tier"; readonly id: string; readonly baseHash: string };
+
+/** 새로 만드는 프리셋 ID·화폐 코드의 모양(팩 16개의 placeholder_* 와 겹치지 않는다. 한 번 쓴 ID는 다시 쓰지 않는다) */
+export const NATION_CREATED_ID = /^nation_[a-z0-9]{2,24}_[0-9]{1,4}$/;
+export const NATION_CREATED_CURRENCY = /^cur_[a-z0-9]{2,24}_[0-9]{1,4}$/;
 
 export const NATION_EDITOR_REASONS = [
   "invalid_entry",
@@ -160,6 +191,8 @@ export const NATION_EDITOR_REASONS = [
   "entry_changed",
   "entry_too_large",
   "revision_conflict",
+  // 만든 프리셋: 이 세계에 이미 선 국가는 지우지 못한다
+  "nation_standing",
   // 마크 올리기
   "emblem_not_png",
   "emblem_wrong_size",

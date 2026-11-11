@@ -188,6 +188,21 @@ export interface SimUnit {
   rebirths: number;
   /** 부상(D-521: 작업 중·전투 뒤 확률, 단계별 자연 치유). 없으면 초록 */
   injury?: InjuryState | undefined;
+  /**
+   * 경비대(국력 등급 씨앗, docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"): 도시의 상비 전투 휴먼. 일꾼으로 배치하지 않고, 그 도시가
+   * 공격받으면 먼저 수비로 나서고(defenseOrder), 원정에는 다른 유닛이 모자랄 때만 나선다. 그 밖의 규칙(생필품·만족도·수명·세력 힘)은 휴먼과 같다
+   */
+  guard?: boolean | undefined;
+}
+
+/** 수비 차례: 경비대 먼저, 그다음 유닛 ID 차례 */
+export function defenseOrder(a: Pick<SimUnit, "id" | "guard">, b: Pick<SimUnit, "id" | "guard">): number {
+  return Number(b.guard === true) - Number(a.guard === true) || a.id - b.id;
+}
+
+/** 원정 차례: 경비대는 맨 뒤(다른 유닛이 모자랄 때만), 그 안은 유닛 ID 차례 */
+export function expeditionOrder(a: Pick<SimUnit, "id" | "guard">, b: Pick<SimUnit, "id" | "guard">): number {
+  return Number(a.guard === true) - Number(b.guard === true) || a.id - b.id;
 }
 
 export interface SimWorld {

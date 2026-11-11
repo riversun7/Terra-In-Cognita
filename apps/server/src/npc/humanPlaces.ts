@@ -53,6 +53,8 @@ export function assignHumanPlaces(input: {
   readonly areas: ReadonlyMap<number, TripArea>;
   /** 일터를 받은 휴먼의 일하는 때(없으면 DEFAULT_WORK_SHIFT) */
   readonly shift?: WorkShift | undefined;
+  /** 경비대(일터를 받지 않고 늘 집 = 도시 시청 칸 둘레에 머문다). humans에 들어 있지 않은 유닛 ID */
+  readonly guards?: readonly number[] | undefined;
 }): Map<number, BotHome> {
   const shift = input.shift ?? DEFAULT_WORK_SHIFT;
   const out = new Map<number, BotHome>();
@@ -67,6 +69,7 @@ export function assignHumanPlaces(input: {
     }
   }
   for (; next < humans.length; next++) out.set(humans[next] ?? 0, { x: input.home.x, y: input.home.y });
+  for (const unitId of input.guards ?? []) out.set(unitId, { x: input.home.x, y: input.home.y });
   return out;
 }
 
@@ -81,7 +84,10 @@ export interface PlacesMap {
 
 export interface HumanPlacesInput {
   /** 거울 세계 휴먼(유닛 ID → 도시) */
-  readonly units: ReadonlyMap<number, { readonly id: number; readonly city: number }>;
+  readonly units: ReadonlyMap<
+    number,
+    { readonly id: number; readonly city: number; readonly guard?: boolean | undefined }
+  >;
   /** 도시 자리(2차맵·시청 칸) */
   readonly places: ReadonlyMap<
     number,
@@ -103,7 +109,9 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
     sync(input) {
       // 도시마다 그 도시 휴먼(그 도시 2차맵에 서 있는 것만 — 다른 2차맵 도시로 옮겨 간 휴먼은 그대로)
       const byCity = new Map<number, number[]>();
+      const guards = new Set<number>();
       for (const unit of input.units.values()) {
+        if (unit.guard === true) guards.add(unit.id);
         const list = byCity.get(unit.city);
         if (list) list.push(unit.id);
         else byCity.set(unit.city, [unit.id]);
@@ -136,7 +144,8 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
         if (!place || !map) continue;
         const here = humans.filter((id) => map.unitInfo(id) !== undefined);
         const homes = assignHumanPlaces({
-          humans: here,
+          humans: here.filter((id) => !guards.has(id)),
+          guards: here.filter((id) => guards.has(id)),
           home: { x: place.cellX, y: place.cellY },
           facilities: input.facilitiesOf?.(cityId) ?? [],
           areas: areasOf(place.mapKey, map),

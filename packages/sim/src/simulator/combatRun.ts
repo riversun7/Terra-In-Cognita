@@ -20,7 +20,7 @@ import { specFromStats } from "../combat/unitSpec.ts";
 import { NO_INJURY, START_INJURY_COEFFICIENTS, combatInjuryStage, injure } from "../society/injury.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioCombat } from "./scenario.ts";
-import type { SimFaction, SimUnit, SimWorld } from "./world.ts";
+import { type SimFaction, type SimUnit, type SimWorld, defenseOrder, expeditionOrder } from "./world.ts";
 
 export interface CombatSummary {
   readonly battles: number;
@@ -190,14 +190,14 @@ export function attachCombat(
   let ticks = 0;
 
   const pick = (faction: SimFaction, count: number, cityId?: number): SimUnit[] => {
-    const out: SimUnit[] = [];
-    for (const id of [...faction.units].toSorted((a, b) => a - b)) {
+    // 도시 수비(cityId)는 경비대 먼저, 원정은 경비대를 맨 뒤로(다른 유닛이 모자랄 때만 나선다) — 경비대가 없으면 유닛 ID 차례 그대로
+    const pool: SimUnit[] = [];
+    for (const id of faction.units) {
       const unit = world.units.get(id);
       if (!unit || (cityId !== undefined && unit.city !== cityId)) continue;
-      out.push(unit);
-      if (out.length >= count) break;
+      pool.push(unit);
     }
-    return out;
+    return pool.toSorted(cityId === undefined ? expeditionOrder : defenseOrder).slice(0, count);
   };
 
   /** 한 편의 유닛을 열(x)에 세로로 늘어세운다(파티 6명씩) */

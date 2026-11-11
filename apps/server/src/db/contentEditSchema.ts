@@ -46,7 +46,7 @@ export const contentOverrides = pgTable(
     // facilities를 더한다(넓히기만: 직전 판 앱은 모르는 분류의 줄을 읽을 때 거른다 — 잠든 줄 unknown_category)
     check(
       "content_overrides_category",
-      sql`${table.category} in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities', 'gather_tiers', 'creatures', 'nation_presets')`,
+      sql`${table.category} in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities', 'gather_tiers', 'creatures', 'nation_presets', 'nation_tiers')`,
     ),
     check("content_overrides_id_format", sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}$'`),
     check("content_overrides_note_length", sql`${table.note} is null or char_length(${table.note}) <= 200`),
@@ -86,7 +86,7 @@ export const contentRetiredIds = pgTable(
     primaryKey({ columns: [table.category, table.id] }),
     check(
       "content_retired_ids_category",
-      sql`${table.category} in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities', 'gather_tiers', 'creatures', 'nation_presets')`,
+      sql`${table.category} in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities', 'gather_tiers', 'creatures', 'nation_presets', 'nation_tiers')`,
     ),
     check("content_retired_ids_id_format", sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],

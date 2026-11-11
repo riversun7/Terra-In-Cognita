@@ -89,7 +89,10 @@ const contentEdit = createContentEditState(loaded.source);
 // 실효 국가 프리셋(팩 + 이 세계의 덮어쓰기 — 시작 국가 설정 편집기 /dev/nations, docs/adr/2026-11-10-nation-editor.md 5절): 서버 곳곳이
 // 이 목록 하나를 읽고, 덮어쓰기를 싣거나 저장할 때마다 내용을 맞춘다. 세계 씨앗은 처음 실을 때까지 기다린다(DB가 없으면 팩 그대로,
 // 덮어쓰기를 고르지 못해 싣지 못하면 90초 뒤 팩 값으로 차린다)
-const livePresets = createLivePresets(() => contentEdit.effective().nationPresets);
+const livePresets = createLivePresets(
+  () => contentEdit.effective().nationPresets,
+  () => contentEdit.effective().nationTiers,
+);
 const PRESETS_WAIT_MS = 90_000;
 let presetsLoaded: () => void = () => undefined;
 const presetsReady = config.databaseUrl

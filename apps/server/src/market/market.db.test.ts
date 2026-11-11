@@ -14,7 +14,7 @@ import { nationPresetsOf } from "../npc/presets.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { createWorldSummaryBackend } from "../world/summarySources.ts";
-import { silentLog } from "../world/testSupport.ts";
+import { silentLog, legacyNationPresets } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { marketSourceOf } from "./appSource.ts";
 import { serverEconomyCatalogAccessor } from "./catalog.ts";
@@ -22,7 +22,8 @@ import { serverEconomyCatalogAccessor } from "./catalog.ts";
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
-const packPresets = nationPresetsOf(loaded.pack);
+// 옛 규칙(등급 없음 — 시작 도시마다 시설 하나씩)을 보는 시험이다. 국력 등급 씨앗은 world/nationTiers.db.test.ts
+const packPresets = legacyNationPresets(nationPresetsOf(loaded.pack));
 const economy = serverEconomyCatalogAccessor(
   economyCatalogFromPack(loaded.pack, { version: "core@test", placeholder: true }),
   () => pack,

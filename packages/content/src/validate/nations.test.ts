@@ -69,6 +69,48 @@ describe("checkNations", () => {
     expect(codes([nation(1), second])).toEqual(["nation_2:nation_currency_code_taken"]);
   });
 
+  it("국력 등급을 적었는데 등급 표에 그 줄이 없으면 오류, 있으면 통과", () => {
+    expect(codes([nation(1, { powerTier: "great_power" })])).toEqual(["nation_1:nation_tier_missing"]);
+    const tier = {
+      id: "great_power",
+      name,
+      startCities: 4,
+      startHousing: 50,
+      startPopulationPm: 750,
+      facilities: [{ facility: "farm", count: 2 }],
+      guardsPerCity: 4,
+      startTech: 3,
+      startCreditPm: 2000,
+      cityStepCells: 2,
+      homeGapPm: 1300,
+    };
+    const withTiers = (tiers: unknown[]) =>
+      validatePack(
+        fixture({
+          "items.json": items,
+          "facilities.json": facilities,
+          "recipes.json": recipes,
+          "nation_presets.json": { entries: [nation(1, { powerTier: "great_power" })] },
+          "nation_tiers.json": { entries: tiers },
+        }),
+      ).issues.filter((issue) => issue.level === "error");
+    expect(withTiers([tier])).toEqual([]);
+    // 등급 ID는 정해진 다섯뿐이고, 시설은 팩에 있어야 하고, 한 등급에 같은 시설을 두 번 적지 않는다
+    expect(withTiers([{ ...tier, id: "empire" }]).length).toBeGreaterThan(0);
+    expect(withTiers([{ ...tier, facilities: [{ facility: "nope", count: 1 }] }]).length).toBeGreaterThan(0);
+    expect(
+      withTiers([
+        {
+          ...tier,
+          facilities: [
+            { facility: "farm", count: 1 },
+            { facility: "farm", count: 2 },
+          ],
+        },
+      ]).length,
+    ).toBeGreaterThan(0);
+  });
+
   it("꺼진 프리셋은 겹쳐도 보지 않는다", () => {
     expect(codes([nation(1), nation(2, { shortName: "N1A", enabled: false })])).toEqual([]);
   });

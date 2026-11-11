@@ -49,16 +49,16 @@ describe("시험 국가 코드·이름(질문 203 가, D-460)", () => {
 
 describe("시작 도시 자리(세계 씨앗, D-6041)", () => {
   it("국가마다 도시 수 = 프리셋 성격 칸을 설정 칸 아래~위 끝 안으로(504 다), 칸이 없으면 모든 국가 아래 끝(504 나)", () => {
-    expect([undefined, 4, 3, 2].map((count) => startCitiesFor(START_WORLD_SEED, count))).toEqual([
-      2, 4, 3, 2,
+    expect([undefined, 4, 3, 2, 9].map((count) => startCitiesFor(START_WORLD_SEED, count))).toEqual([
+      2, 4, 3, 2, 8,
     ]);
     // 위 끝 3이면 큰 나라(4)도 3, 아래 끝보다 작은 칸은 아래 끝
     const capped = { ...START_WORLD_SEED, startCitiesMin: 2, startCitiesMax: 3 };
     expect([undefined, 4, 1].map((count) => startCitiesFor(capped, count))).toEqual([2, 3, 2]);
-    // 거꾸로 넣어도 같고, 1~4 밖은 자른다. 시험이 아래·위 끝을 1로 두면 모든 국가 하나
+    // 거꾸로 넣어도 같고, 1~8 밖은 자른다. 시험이 아래·위 끝을 1로 두면 모든 국가 하나
     const swapped = { ...START_WORLD_SEED, startCitiesMin: 4, startCitiesMax: 2 };
     expect([undefined, 3].map((count) => startCitiesFor(swapped, count))).toEqual([2, 3]);
-    expect(startCitiesFor({ ...START_WORLD_SEED, startCitiesMin: 0, startCitiesMax: 9 }, 7)).toBe(4);
+    expect(startCitiesFor({ ...START_WORLD_SEED, startCitiesMin: 0, startCitiesMax: 9 }, 9)).toBe(8);
     expect(startCitiesFor({ ...START_WORLD_SEED, startCitiesMin: 1, startCitiesMax: 1 }, 4)).toBe(1);
   });
 

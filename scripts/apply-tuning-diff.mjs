@@ -27,6 +27,7 @@ import {
   itemSubcategoryEntrySchema,
   itemTagEntrySchema,
   nationPresetEntrySchema,
+  nationTierEntrySchema,
   skillEntrySchema,
   tuningDiffSchema,
   unitKindEntrySchema,
@@ -51,6 +52,8 @@ export const ENTRY_FILES = {
   creatures: { file: "creatures.json", schema: creatureEntrySchema },
   // 국가 프리셋(시작 국가 설정 편집기 /dev/nations, docs/adr/2026-11-10-nation-editor.md)
   nation_presets: { file: "nation_presets.json", schema: nationPresetEntrySchema },
+  // 국력 등급 표(같은 편집기의 등급 탭, docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)")
+  nation_tiers: { file: "nation_tiers.json", schema: nationTierEntrySchema },
 };
 
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;

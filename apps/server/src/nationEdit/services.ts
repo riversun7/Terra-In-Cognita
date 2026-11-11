@@ -9,6 +9,8 @@
 import { type RecipeEntry, readCategoryFile, recipeEntrySchema } from "@terra/content";
 import type { ContentIssueView } from "@terra/shared/contentEdit";
 import {
+  NATION_CREATED_CURRENCY,
+  NATION_CREATED_ID,
   NATION_LIST_LIMITS,
   type NationApplyResponse,
   type NationEditorChange,
@@ -30,7 +32,14 @@ import type { TuningShared } from "../tuning/services.ts";
 import { planNationApply, writeNationApply } from "./applyWorld.ts";
 import { loadEmblemInfo, removeEmblem, saveEmblem, sha256Hex } from "./emblems.ts";
 import { checkEmblemPng, decodeBase64 } from "./png.ts";
-import { facilityOptions, itemOptions, nationViews, recipeOptions, seedDefaultsOf } from "./views.ts";
+import {
+  facilityOptions,
+  itemOptions,
+  nationViews,
+  recipeOptions,
+  seedDefaultsOf,
+  tierViews,
+} from "./views.ts";
 
 /** 받지 않은 요청(BAD_REQUEST)의 message. 무엇이 틀렸는지는 data.reason(@terra/shared NATION_EDITOR_REASONS) */
 export const NATION_EDITOR_REJECTED = "NATION_EDITOR_REJECTED";
@@ -61,7 +70,9 @@ export interface NationEditShared {
 }
 
 const nationIssue = (issue: ContentIssueView): boolean =>
-  issue.file === null || issue.file.startsWith("nation_presets");
+  issue.file === null || issue.file.startsWith("nation_presets") || issue.file.startsWith("nation_tiers");
+
+type NationPutCategory = "nation_presets" | "nation_tiers";
 
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null && !Array.isArray(value) ? Reflect.get(value, key) : undefined;
@@ -103,6 +114,7 @@ export function createNationEditorServices(deps: {
       contentVersion: shared.pack.contentVersion,
       revision: snapshot.revision,
       nations: nationViews(state, snapshot, uploaded, deps.nation?.testNations ?? null),
+      tiers: tierViews(state, snapshot),
       defaults: seedDefaultsOf(deps.tuning?.state.society().worldSeed),
       facilities: facilityOptions(snapshot.effective.facilities),
       recipes: recipeOptions(recipes),
@@ -114,39 +126,82 @@ export function createNationEditorServices(deps: {
   };
 
   /**
-   * 화면 바꿈 → 덮어쓰기 묶음. 지금 실효 프리셋에 없는 ID는 unknown_entry(만들기 없음), 켬·끔과 화폐 코드를 바꾼 항목은 invalid_entry
-   * (국가 차례·원장 자산 코드는 고치지 않는다)
+   * 화면 바꿈 → 덮어쓰기 묶음.
+   * - put·revert: 지금 실효 프리셋에 없는 ID는 unknown_entry. 켬·끔과 화폐 코드를 바꾼 항목은 invalid_entry(국가 차례·원장 자산 코드는
+   *   고치지 않는다). 팩에 없는(편집기에서 만든) 프리셋의 revert = 지우기(ID는 은퇴 — 다시 쓰지 않는다).
+   * - create: 새 프리셋(랜덤 국가 추가). ID는 nation_<글자>_<수>, 화폐 코드는 cur_<글자>_<수>(팩 16개와 겹치지 않는 새 영구 ID), 켜진 채로만.
+   *   실효 목록 끝에 붙어 이미 있는 프리셋의 차례는 그대로다(국가 차례 = 켜진 프리셋의 차례 — 앞 16개가 그대로라 선 세계의 국가 코드가
+   *   어긋나지 않는다). 이름·약어·화폐 약어·화폐 코드 겹침은 팩 검사기가 본다.
+   * - put_tier·revert_tier: 국력 등급 표 한 줄(등급 다섯은 고정 — 만들거나 지우지 않는다).
    */
   const putsOf = (
     changes: readonly NationEditorChange[],
-  ): { puts: ContentPut[]; discard: { category: "nation_presets"; id: string }[] } => {
+  ): { puts: ContentPut[]; discard: { category: "nation_presets"; id: string }[]; removed: string[] } => {
     const ids = known();
+    const snapshot = state.snapshot();
+    const tierIds = new Set(snapshot.effective.nationTiers.map((entry) => entry.id as string));
     const puts: ContentPut[] = [];
     const discard: { category: "nation_presets"; id: string }[] = [];
+    const removed: string[] = [];
+    const put = (category: NationPutCategory, id: string, entry: object | null, baseHash: string | null) =>
+      puts.push({
+        category,
+        id,
+        entry: entry === null ? null : Object.fromEntries(Object.entries(entry)),
+        baseHash,
+      });
     for (const change of changes) {
       if (change.op === "discard_sleeping") {
         discard.push({ category: "nation_presets", id: change.id });
+        continue;
+      }
+      if (change.op === "put_tier" || change.op === "revert_tier") {
+        const id = change.op === "put_tier" ? change.entry.id : change.id;
+        if (!tierIds.has(id)) throw rejected("unknown_entry", [`nation_tiers/${id}`]);
+        put("nation_tiers", id, change.op === "put_tier" ? change.entry : null, change.baseHash);
+        continue;
+      }
+      if (change.op === "create") {
+        const id = change.entry.id;
+        if (ids.has(id)) throw rejected("duplicate_entry", [`nation_presets/${id}`]);
+        if (!NATION_CREATED_ID.test(id)) throw rejected("invalid_entry", [id, "id"]);
+        if (change.entry.enabled !== true) throw rejected("invalid_entry", [id, "enabled"]);
+        const code = field(change.entry.currency, "code");
+        if (typeof code !== "string" || !NATION_CREATED_CURRENCY.test(code))
+          throw rejected("invalid_entry", [id, "currency.code"]);
+        put("nation_presets", id, change.entry, null);
         continue;
       }
       const id = change.op === "put" ? change.entry.id : change.id;
       const now = ids.get(id);
       if (!now) throw rejected("unknown_entry", [`nation_presets/${id}`]);
       if (change.op === "revert") {
-        puts.push({ category: "nation_presets", id, entry: null, baseHash: change.baseHash });
+        // 팩에 없는 프리셋을 되돌리면 지워진다 — 이 세계에 선 국가인지 저장 전에 본다(save)
+        if (state.packEntry("nation_presets", id) === undefined) removed.push(id);
+        put("nation_presets", id, null, change.baseHash);
         continue;
       }
       if (change.entry.enabled !== now.enabled) throw rejected("invalid_entry", [id, "enabled"]);
       if (field(change.entry.currency, "code") !== now.currencyCode)
         throw rejected("invalid_entry", [id, "currency.code"]);
-      puts.push({
-        category: "nation_presets",
-        id,
-        entry: Object.fromEntries(Object.entries(change.entry)),
-        baseHash: change.baseHash,
-      });
+      put("nation_presets", id, change.entry, change.baseHash);
     }
     if (puts.length > NATION_LIST_LIMITS.changesMax) throw rejected("invalid_entry", ["changes"]);
-    return { puts, discard };
+    return { puts, discard, removed };
+  };
+
+  /**
+   * 지우려는 만든 프리셋이 이 세계에 서 있나(세력 행이 있거나 세울 자리가 놓여 있다): 지우면 그 국가의 이름·화폐·도시 이름이 사라진다.
+   * 서 있는 프리셋 ID를 돌려준다
+   */
+  const standing = async (presetIds: readonly string[]): Promise<string[]> => {
+    if (presetIds.length === 0) return [];
+    const found = await pool.query(
+      `select code from factions where code = any($1::text[])
+       union select faction_code from world_nation_placements where faction_code = any($1::text[])`,
+      [[...presetIds]],
+    );
+    return found.rows.map((row) => String(row.code)).toSorted();
   };
 
   /** 묶음 검사: 팩 검사기. 오류가 있으면 ok = false */
@@ -182,7 +237,9 @@ export function createNationEditorServices(deps: {
     async save(viewer, input) {
       const note = normalizeTuningNote(input.note);
       if (note === false) throw rejected("invalid_note");
-      const { puts, discard } = putsOf(input.changes);
+      const { puts, discard, removed } = putsOf(input.changes);
+      const blocked = await standing(removed);
+      if (blocked.length > 0) throw rejected("nation_standing", blocked);
       await applyContentBatch(
         { db, shared, ip: deps.ip },
         viewer,
@@ -193,9 +250,21 @@ export function createNationEditorServices(deps: {
     },
 
     async history() {
-      const rows = await readContentHistory(db, NATION_LIST_LIMITS.historyLimit, {
-        category: "nation_presets",
-      });
+      // 국가 프리셋 줄과 국력 등급 표 줄이 든 바꿈을 시각 차례로 합친다
+      const [presets, tiers] = await Promise.all([
+        readContentHistory(db, NATION_LIST_LIMITS.historyLimit, { category: "nation_presets" }),
+        readContentHistory(db, NATION_LIST_LIMITS.historyLimit, { category: "nation_tiers" }),
+      ]);
+      const seen = new Set<string>();
+      const rows = [...presets, ...tiers]
+        .filter((row) => {
+          const key = `${String(row.auditId)}:${String(row.at)}:${String(row.revision)}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .toSorted((a, b) => b.at - a.at)
+        .slice(0, NATION_LIST_LIMITS.historyLimit);
       return { rows };
     },
 

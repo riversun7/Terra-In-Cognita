@@ -7771,7 +7771,7 @@
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 4,
+      "max": 8,
       "desc": {
         "ko": "고정 NPC 나라마다 시작 도시 수의 아래 끝.",
         "en": "Fewest start cities per fixed NPC nation."
@@ -7782,14 +7782,14 @@
       "id": "d6041_start_cities_max",
       "code": "",
       "name": {
-        "ko": "고정 NPC 국가 시작 도시 수 위 끝(프리셋 성격 칸 상한)",
-        "en": "Fixed NPC nation start cities (high, cap for the preset value)"
+        "ko": "고정 NPC 국가 시작 도시 수 위 끝(프리셋 성격 칸·국력 등급 값의 상한)",
+        "en": "Fixed NPC nation start cities (high, cap for the preset and power tier value)"
       },
-      "value": 4,
+      "value": 8,
       "structural": false,
       "unit": "count",
       "min": 1,
-      "max": 4,
+      "max": 8,
       "desc": {
         "ko": "고정 NPC 나라마다 시작 도시 수의 위 끝.",
         "en": "Most start cities per fixed NPC nation."

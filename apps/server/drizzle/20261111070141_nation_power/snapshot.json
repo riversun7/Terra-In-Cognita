@@ -1,0 +1,261 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "2200331e-304c-4b49-98aa-905f6446944a",
+  "prevIds": [
+    "fb2e60c8-8d17-4f85-bef1-b43ae1ee87af"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_tier_requests"
+      ],
+      "writes": [
+        "s|tbl|public.world_tier_requests",
+        "n|tbl|public.world_tier_requests",
+        "e|tbl|public.world_tier_requests",
+        "n|rel|public.world_tier_requests",
+        "n|type|public.world_tier_requests",
+        "n|rel|public.world_tier_requests_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_humans",
+        "guard"
+      ],
+      "writes": [
+        "s|col|public.world_humans.guard",
+        "n|col|public.world_humans.guard",
+        "e|col|public.world_humans.guard"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_tier_requests"
+      ],
+      "writes": [
+        "s|fk|public.world_tier_requests.world_tier_requests_requested_by_users_id_fkey",
+        "n|fk|public.world_tier_requests.world_tier_requests_requested_by_users_id_fkey",
+        "e|fk|public.world_tier_requests.world_tier_requests_requested_by_users_id_fkey",
+        "n|con|public.world_tier_requests.world_tier_requests_requested_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_tier_requests",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.world_tier_requests.requested_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "content_overrides"
+      ],
+      "writes": [
+        "s|ck|public.content_overrides.content_overrides_category"
+      ],
+      "reads": [
+        "n|tbl|public.content_overrides",
+        "n|sch|public",
+        "n|col|public.content_overrides.category",
+        "e|col|public.content_overrides.category"
+      ],
+      "sqlHash": "4eabc6e7777c2f75"
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "content_retired_ids"
+      ],
+      "writes": [
+        "s|ck|public.content_retired_ids.content_retired_ids_category"
+      ],
+      "reads": [
+        "n|tbl|public.content_retired_ids",
+        "n|sch|public",
+        "n|col|public.content_retired_ids.category",
+        "e|col|public.content_retired_ids.category"
+      ],
+      "sqlHash": "3cb2ca1759d84d5b"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_tier_requests",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "guard",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_tier_requests",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'s2_test_planet'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_tier_requests",
+        "name": "requested_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_tier_requests",
+        "name": "requested_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_tier_requests",
+        "name": "applied_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_tier_requests",
+        "name": "report",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_tier_requests",
+        "name": "world_tier_requests_requested_by_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "requested_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_tier_requests",
+        "name": "world_tier_requests_pkey",
+        "columns": [
+          "planet_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"content_overrides\",\"content_overrides_category\"]",
+      "set": {
+        "value": "\"category\" in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities', 'gather_tiers', 'creatures', 'nation_presets', 'nation_tiers')"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"content_retired_ids\",\"content_retired_ids_category\"]",
+      "set": {
+        "value": "\"category\" in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities', 'gather_tiers', 'creatures', 'nation_presets', 'nation_tiers')"
+      }
+    }
+  ]
+}

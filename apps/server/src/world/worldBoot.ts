@@ -30,10 +30,13 @@ import {
   planRelayout,
 } from "./relayout.ts";
 import type { TerrainService } from "./terrainService.ts";
+import { tierApplyPending } from "./tierApply.ts";
 import {
   type LayoutObstacle,
   type LayoutSpot,
+  type LayoutTier,
   cellLabel,
+  layoutTierOf,
   planWorldLayout,
   seedOfText,
 } from "./worldLayout.ts";
@@ -143,7 +146,12 @@ function layoutPlacer(
   planet: { readonly cities: readonly PlanetCity[]; readonly ruins: readonly LayoutSpot[] },
 ):
   | ((
-      nations: readonly { factionId: number; missing: number; home?: CellKey | undefined }[],
+      nations: readonly {
+        factionId: number;
+        missing: number;
+        home?: CellKey | undefined;
+        tier?: LayoutTier | undefined;
+      }[],
       except: ReadonlySet<number>,
     ) => {
       factionId: number;
@@ -185,6 +193,7 @@ function layoutPlacer(
         missing: nation.missing,
         placed: cities.filter((city) => inPlace(city) && city.factionId === nation.factionId),
         home: nation.home,
+        tier: nation.tier,
       })),
       obstacles,
       newRadiusMilli,
@@ -235,10 +244,19 @@ function logRelayout(log: WorldBootLog, plan: RelayoutPlan, applied: boolean): v
 export async function bootWorldSeed(
   pool: QueryPool & WriterPool,
   options: WorldSeedBootOptions,
-): Promise<{ mapKeys: CellKey[]; relayout: RelayoutPlan | undefined }> {
+): Promise<{
+  mapKeys: CellKey[];
+  relayout: RelayoutPlan | undefined;
+  /** 국력 등급 반영 요청이 든 부팅이면 더 세운 시작 도시 수(tierApply.ts — 나머지는 NPC 사회 런타임이 든다). 요청이 없으면 undefined */
+  tierApply: { citiesAdded: number } | undefined;
+}> {
   const { npc, planetId, testMapKeys, nowMs, log } = options;
+  // 등급 분포 반영 요청(운영자 동작): 이미 선 국가도 등급 수까지 시작 도시를 채운다
+  const grow = npc ? await tierApplyPending(pool, planetId).catch(() => false) : false;
   let placer: StartCityPlacer | undefined;
   let relayout: RelayoutPlan | undefined;
+  /** 자리를 놓아 이 세계에 세울 국가(차례 밖 프리셋 — 세계 배치 화면 "이 세계에 이 국가 세우기") */
+  let extraCodes: string[] = [];
   /** 사람이 고른 자리에 이번에 시작 도시를 세운 국가(세력 코드) */
   const homed: string[] = [];
   if (npc) {
@@ -280,6 +298,10 @@ export async function bootWorldSeed(
       }
       // 사람이 고른 국가 자리(D-528): 시작 도시가 선 국가를 새 자리로(막히면 그대로, 까닭을 적는다)
       const placements = await loadPlacements(pool, planetId);
+      // 놓은 자리의 코드 가운데 켜진 프리셋 코드 = 세울 국가(이미 선 국가·차례로 서는 국가는 ensureTestNations가 한 번만 세운다)
+      extraCodes = [...placements.keys()].filter((code) =>
+        (npc.presets ?? []).some((preset) => preset.code === code),
+      );
       const moved = await applyPlacementMoves(pool, options, placements, planet, place);
       if (moved.length > 0) {
         relayout = { moves: [...(relayout?.moves ?? []), ...moved], kept: relayout?.kept ?? [] };
@@ -292,7 +314,13 @@ export async function bootWorldSeed(
       placer = (nations) => {
         // 자리를 고른 국가: 제자리 시작 도시가 없을 때만 그 자리가 수도다(worldLayout.ts home)
         const spots = placeFinal(
-          nations.map((nation) => ({ ...nation, home: placementHome(placements.get(nation.code)) })),
+          nations.map((nation) => ({
+            factionId: nation.factionId,
+            missing: nation.missing,
+            home: placementHome(placements.get(nation.code)),
+            // 국력 등급(자리 차례·국가 간격·도시 간격 — worldLayout.ts 머리 주석 3)
+            tier: layoutTierOf(nation.start),
+          })),
           new Set(),
         );
         for (const nation of nations) {
@@ -310,16 +338,23 @@ export async function bootWorldSeed(
       };
     }
   }
-  await ensureWorldNations(pool, {
+  const citiesAdded = await ensureWorldNations(pool, {
     npc,
     planetId,
     mapKeys: testMapKeys,
     nowMs,
     seed: options.rules.worldSeed,
     placer,
+    grow,
+    extraCodes,
   });
   await markPlacementsApplied(pool, planetId, homed, nowMs);
-  return { mapKeys: await worldMapKeys(pool, planetId, testMapKeys, log), relayout };
+  if (grow) log.info({ citiesAdded }, "world tier apply: start cities added for the requested power tiers");
+  return {
+    mapKeys: await worldMapKeys(pool, planetId, testMapKeys, log),
+    relayout,
+    tierApply: grow ? { citiesAdded } : undefined,
+  };
 }
 
 /**

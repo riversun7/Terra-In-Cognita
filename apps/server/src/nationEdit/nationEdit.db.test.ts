@@ -157,7 +157,7 @@ describe.skipIf(!TEST_DATABASE_URL)("시작 국가 설정 편집기 (DB)", () =>
     expect(String(first.hash)).toMatch(/^[0-9a-f]{64}$/);
     expect(body.defaults).toMatchObject({
       startCitiesMin: 2,
-      startCitiesMax: 4,
+      startCitiesMax: 8,
       housing: 40,
       populationPm: 750,
       farms: 1,
@@ -229,7 +229,7 @@ describe.skipIf(!TEST_DATABASE_URL)("시작 국가 설정 편집기 (DB)", () =>
       name: { ko: "레드메사" },
       shortName: "RMS",
       emblem: { shape: "circle", charge: "sun" },
-      personality: { startHousing: 60, startPopulationPm: 500, startFarms: 2, startCities: 4 },
+      personality: { startHousing: 60, startPopulationPm: 500, startFarms: 2 },
     });
     expect(live.list[0]?.name.ko).toBe("레드메사");
     // 경제 목록의 나라 화폐 이름

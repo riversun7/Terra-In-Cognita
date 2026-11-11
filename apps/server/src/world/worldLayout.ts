@@ -10,6 +10,16 @@
 // 2. 시작 도시: 국가마다 수도 2차맵 가운데가 첫 도시(수도), 다음 도시는 수도에서 설정 칸 걸음만큼 떨어진 2차맵(변 이웃 먼저 — 띄운
 //    2차맵끼리 이어져 걸어서 오간다)의 가운데. 2차맵 하나에 도시 하나, 알맞은 땅, 다른 세력 도시 영향권과 닿지 않는 곳(@terra/shared
 //    foundingConflict — NPC 마을 자리와 같은 규칙)만 고른다. 자리가 모자라면 고른 만큼만 돌려준다(부르는 쪽이 기록에 남긴다).
+// 3. 국력 등급(사용자 답 2026-11-11 "실제 강대국 분포처럼 알아서 배치", docs/adr/2026-11-07-world-layout.md "바뀜 (2026-11-11)"): 국가에
+//    등급 값(tier)이 있으면
+//    - 자리 고르는 차례 = 강한 등급 먼저(같으면 국가 차례).
+//    - 국가 사이 띄울 거리 = 국가 간격 × 두 국가 homeGapPm의 평균(강대국끼리 멀고 소국끼리 가깝다).
+//    - 초강대국·강대국: "가장 먼 점" 점수에 땅 넓이 점수(둘레 본 칸 가운데 알맞은 땅 몫)를 곱해 넓고 좋은 땅을 차지한다.
+//    - 중견국: 가장 먼 점 그대로(강대국 사이 빈 곳을 메운다).
+//    - 소국·도시국가: 띄울 거리를 지키는 칸 가운데 큰 이웃 둘과의 거리 합이 가장 짧은 칸(큰 나라 사이·국경), 같으면 땅 넓이 점수가 낮은 칸
+//      (바닷가·땅 끝).
+//    - 한 국가 시작 도시 사이 칸 = 등급의 cityStepCells(강대국은 수도 + 넓게 퍼진 지방 도시).
+//    등급 값이 하나도 없으면 1·2와 똑같은 결과다(옛 세계·시험).
 import {
   type CellKey,
   FACES,
@@ -21,6 +31,7 @@ import {
   stepCell,
 } from "@terra/planet";
 import { placementCellKey, territoryMetric, territoryPoint } from "@terra/planet/territory";
+import { type NationStart, isPowerTier, tierRank } from "@terra/shared/nationTier";
 import {
   type FoundingCity,
   type TerritoryVec,
@@ -65,7 +76,32 @@ export interface LayoutNation {
    * 제자리 시작 도시가 없을 때 그 국가의 고정 수도가 된다(가장 먼 점 고르기를 하지 않는다)
    */
   readonly home?: CellKey | undefined;
+  /** 국력 등급 값(없으면 등급 없음 = 중견국처럼 고르고 설정 칸 간격을 쓴다, 머리 주석 3) */
+  readonly tier?: LayoutTier | undefined;
 }
+
+/** 국가 하나의 등급 값(자리 고르기에 쓰는 것만 — @terra/shared/nationTier NationStart에서 온다) */
+export interface LayoutTier {
+  /** 0 = 가장 강함(POWER_TIERS 차례) */
+  readonly rank: number;
+  /** 한 국가 시작 도시 사이 칸 */
+  readonly cityStepCells: number;
+  /** 다른 국가 수도와 띄우는 거리 = 국가 간격 × 이 천분율(두 국가 값의 평균) */
+  readonly homeGapPm: number;
+}
+
+/** 국가 시작 값(국력 등급) → 자리 고르기에 쓰는 등급 값. 등급이 없으면 undefined(옛 규칙) */
+export function layoutTierOf(start: NationStart | undefined): LayoutTier | undefined {
+  if (!start || !isPowerTier(start.tier)) return undefined;
+  return { rank: tierRank(start.tier), cityStepCells: start.cityStepCells, homeGapPm: start.homeGapPm };
+}
+
+/** 땅 넓이 점수를 곱하는 등급(이 차례까지 — 초강대국·강대국) */
+export const LAND_WEIGHT_MAX_RANK = 1;
+/** 큰 이웃 사이에 끼워 넣는 등급(이 차례부터 — 소국·도시국가) */
+export const BETWEEN_MIN_RANK = 3;
+/** 땅 넓이 점수: 본 칸 격자에서 둘레 이 고리까지(5 × 5칸) 알맞은 땅 수 */
+export const LAND_QUALITY_RINGS = 2;
 
 /** 피할 도시(다른 세력 도시·폐허 자리 등 — 같은 2차맵에 새 시작 도시를 두지 않고 영향권과 닿지 않게) */
 export interface LayoutObstacle {
@@ -177,22 +213,64 @@ export function sampleLand(input: Pick<LayoutInput, "faceLevel" | "land" | "seed
   return out.toSorted((a, b) => a - b);
 }
 
-/** 수도 고르기: 고정 수도 + 가장 먼 점 고르기(반경 안). 반경을 넓혀도 간격을 못 채우면 행성 전체에서 고른 값 */
+/** 두 국가 사이 띄울 거리의 천분율(두 값의 평균, 등급이 없으면 1000) */
+const pairPm = (a: LayoutTier | undefined, b: LayoutTier | undefined): number =>
+  Math.round(((a?.homeGapPm ?? 1000) + (b?.homeGapPm ?? 1000)) / 2);
+
+/**
+ * 땅 넓이 점수(1 ~ (2 × 고리 + 1)²): 본 칸 격자에서 그 칸 둘레 알맞은 땅 수(자기 포함). 넓은 땅 한가운데가 높고 바닷가·땅 끝이 낮다.
+ * 면 경계는 걸어서 넘는다(꼭짓점 쪽으로 칸이 없으면 세지 않는다)
+ */
+export function landQuality(candidates: readonly CellKey[], faceLevel: number): Map<CellKey, number> {
+  const step = Math.max(1, Math.floor(cellsPerSide(faceLevel) / SAMPLE_CELLS_PER_FACE));
+  const land = new Set<number>(candidates);
+  const out = new Map<CellKey, number>();
+  for (const key of candidates) {
+    let count = 0;
+    for (let dj = -LAND_QUALITY_RINGS; dj <= LAND_QUALITY_RINGS; dj++)
+      for (let di = -LAND_QUALITY_RINGS; di <= LAND_QUALITY_RINGS; di++) {
+        const near = di === 0 && dj === 0 ? key : walkCell(key, di * step, dj * step);
+        if (near !== null && land.has(near)) count += 1;
+      }
+    out.set(key, count);
+  }
+  return out;
+}
+
+/**
+ * 수도 고르기: 고정 수도 + 가장 먼 점 고르기(반경 안). 반경을 넓혀도 간격을 못 채우면 행성 전체에서 고른 값.
+ * 국력 등급 값이 있으면 머리 주석 3(강한 등급 먼저·등급마다 띄울 거리·땅 넓이·큰 이웃 사이)대로 고른다
+ */
 function pickHomes(
   input: LayoutInput,
   candidates: readonly CellKey[],
 ): { homes: Map<number, CellKey>; regionCells: number; minGapMilli: number | null } {
   const metric = territoryMetric(input.faceLevel);
   const fixed = new Map<number, CellKey>();
+  const tierOf = new Map(input.nations.map((nation) => [nation.factionId, nation.tier]));
+  const tiered = input.nations.some((nation) => nation.tier !== undefined);
   for (const nation of input.nations) {
     const first = nation.placed[0];
     if (first && isCellKey(first.mapKey)) fixed.set(nation.factionId, first.mapKey);
     else if (nation.home !== undefined && isCellKey(nation.home)) fixed.set(nation.factionId, nation.home);
   }
-  const free = input.nations.filter((nation) => !fixed.has(nation.factionId) && nation.missing > 0);
+  // 강한 등급 먼저(같으면 국가 차례 — 등급이 없으면 중견국 자리, toSorted는 차례를 지킨다)
+  const rankOf = (nation: LayoutNation): number => nation.tier?.rank ?? LAND_WEIGHT_MAX_RANK + 1;
+  const free = input.nations
+    .filter((nation) => !fixed.has(nation.factionId) && nation.missing > 0)
+    .toSorted((a, b) => rankOf(a) - rankOf(b));
   let anchor = [...fixed.values()][0];
-  if (anchor === undefined && candidates.length > 0)
-    anchor = candidates[mix(input.worldSeed) % candidates.length];
+  const quality = tiered ? landQuality(candidates, input.faceLevel) : undefined;
+  const qualityMax = (2 * LAND_QUALITY_RINGS + 1) ** 2;
+  if (anchor === undefined && candidates.length > 0) {
+    const firstFree = free[0];
+    if (quality && firstFree && rankOf(firstFree) <= LAND_WEIGHT_MAX_RANK) {
+      // 첫 강대국: 세계 시드로 고른 칸에서 시작해 땅 넓이 점수가 가장 높은 칸들 가운데 하나(시드 차례)
+      const best = Math.max(...quality.values());
+      const top = candidates.filter((key) => quality.get(key) === best);
+      anchor = top[mix(input.worldSeed) % top.length];
+    } else anchor = candidates[mix(input.worldSeed) % candidates.length];
+  }
   const planetMilli = Math.PI * metric.milliPerRadian;
   const gapMilli = input.seed.layoutNationGapCells * 1000;
   const anchorPoint = anchor === undefined ? undefined : territoryPoint(anchor);
@@ -204,47 +282,97 @@ function pickHomes(
   let regionCells = Math.max(1, input.seed.layoutRegionCells);
   for (;;) {
     const homes = new Map(fixed);
-    const chosen: TerritoryVec[] = [...fixed.values()].map((key) => territoryPoint(key));
+    const chosen: { p: TerritoryVec; tier: LayoutTier | undefined }[] = [...fixed].map(([id, key]) => ({
+      p: territoryPoint(key),
+      tier: tierOf.get(id),
+    }));
     const region = pool.filter((entry) => entry.fromAnchor <= regionCells * 1000);
-    // 후보마다 이미 고른 수도와의 가장 짧은 거리(새 수도마다 줄인다)
-    const nearest = region.map((entry) =>
-      chosen.reduce((best, p) => Math.min(best, territoryDistanceMilli(entry.p, p, metric)), Infinity),
-    );
+    const taken = new Set<number>(homes.values());
+    // 고른 수도마다 후보까지의 거리(한 번만 셈한다 — 새 수도를 고를 때 한 줄씩 는다)
+    const distanceTo = (p: TerritoryVec): Float64Array =>
+      Float64Array.from(region, (entry) => territoryDistanceMilli(entry.p, p, metric));
+    const distances: Float64Array[] = chosen.map((home) => distanceTo(home.p));
     for (const nation of free) {
+      const rank = rankOf(nation);
+      // 후보마다: 이미 고른 수도와의 "띄울 거리로 나눈 거리"의 가장 작은 값(등급이 없으면 거리 그대로), 큰 이웃 둘과의 거리 합
       let best = -1;
+      let bestScore = -1;
+      let bestBetween: { ok: boolean; sum: number; quality: number } | undefined;
       for (let index = 0; index < region.length; index++) {
         const entry = region[index];
-        if (!entry || [...homes.values()].includes(entry.key)) continue;
-        const d = nearest[index] ?? Infinity;
-        const bestD = best < 0 ? -1 : (nearest[best] ?? Infinity);
+        if (!entry || taken.has(entry.key)) continue;
         // 처음 고르는 수도(고정 수도 없음)는 첫 수도 자리(세계 시드)다
         if (chosen.length === 0) {
           if (entry.key === anchor) best = index;
           continue;
         }
-        if (best < 0 || d > bestD) best = index;
+        let ratio = Infinity;
+        let near1 = Infinity;
+        let near2 = Infinity;
+        for (let k = 0; k < chosen.length; k++) {
+          const other = chosen[k];
+          const d = distances[k]?.[index];
+          if (!other || d === undefined) continue;
+          const pm = tiered ? pairPm(nation.tier, other.tier) : 1000;
+          ratio = Math.min(ratio, pm === 1000 ? d : (d * 1000) / pm);
+          if ((other.tier?.rank ?? LAND_WEIGHT_MAX_RANK + 1) < BETWEEN_MIN_RANK) {
+            if (d < near1) {
+              near2 = near1;
+              near1 = d;
+            } else if (d < near2) near2 = d;
+          }
+        }
+        if (tiered && rank >= BETWEEN_MIN_RANK && near1 < Infinity) {
+          // 소국·도시국가: 띄울 거리를 지키는 칸 가운데 큰 이웃 둘과의 거리 합이 가장 짧은 칸(같으면 땅 끝 → 작은 키)
+          const now = {
+            ok: ratio >= gapMilli,
+            sum: near1 + (near2 < Infinity ? near2 : near1),
+            quality: quality?.get(entry.key) ?? 0,
+          };
+          const better =
+            !bestBetween ||
+            (now.ok && !bestBetween.ok) ||
+            (now.ok === bestBetween.ok &&
+              (now.ok
+                ? now.sum < bestBetween.sum ||
+                  (now.sum === bestBetween.sum && now.quality < bestBetween.quality)
+                : ratio > bestScore));
+          if (better) {
+            best = index;
+            bestBetween = now;
+            bestScore = ratio;
+          }
+          continue;
+        }
+        // 초강대국·강대국은 땅 넓이 점수를 곱한다(절반은 거리, 절반은 땅)
+        const weight =
+          tiered && rank <= LAND_WEIGHT_MAX_RANK
+            ? 0.5 + (0.5 * (quality?.get(entry.key) ?? 0)) / qualityMax
+            : 1;
+        const score = weight === 1 ? ratio : ratio * weight;
+        if (best < 0 || score > bestScore) {
+          best = index;
+          bestScore = score;
+        }
       }
       const picked = best < 0 ? undefined : region[best];
       if (!picked) break;
       homes.set(nation.factionId, picked.key);
-      chosen.push(picked.p);
-      for (let index = 0; index < region.length; index++) {
-        const entry = region[index];
-        if (entry)
-          nearest[index] = Math.min(
-            nearest[index] ?? Infinity,
-            territoryDistanceMilli(entry.p, picked.p, metric),
-          );
-      }
+      taken.add(picked.key);
+      chosen.push({ p: picked.p, tier: nation.tier });
+      distances.push(distanceTo(picked.p));
     }
+    // 국가 사이 가장 짧은 "띄울 거리로 나눈 거리"(등급이 없으면 거리 그대로)
     let minGapMilli: number | null = null;
     for (let a = 0; a < chosen.length; a++)
       for (let b = a + 1; b < chosen.length; b++) {
         const pa = chosen[a];
         const pb = chosen[b];
         if (!pa || !pb) continue;
-        const d = territoryDistanceMilli(pa, pb, metric);
-        minGapMilli = minGapMilli === null ? d : Math.min(minGapMilli, d);
+        const d = territoryDistanceMilli(pa.p, pb.p, metric);
+        const pm = tiered ? pairPm(pa.tier, pb.tier) : 1000;
+        const scaled = pm === 1000 ? d : (d * 1000) / pm;
+        minGapMilli = minGapMilli === null ? scaled : Math.min(minGapMilli, scaled);
       }
     const enough =
       homes.size >= fixed.size + free.length && (minGapMilli === null || minGapMilli >= gapMilli);
@@ -279,7 +407,7 @@ export function planWorldLayout(input: LayoutInput): LayoutResult {
   for (const nation of input.nations)
     for (const spot of nation.placed) addCity(nation.factionId, spot, input.newRadiusMilli);
   const offsets = ringOffsets(CITY_SEARCH_RINGS);
-  const stride = Math.max(1, Math.trunc(input.seed.layoutCityStepCells));
+  const baseStride = Math.max(1, Math.trunc(input.seed.layoutCityStepCells));
   const spots: { factionId: number; spot: LayoutSpot }[] = [];
   let short = 0;
   for (const nation of input.nations) {
@@ -289,6 +417,8 @@ export function planWorldLayout(input: LayoutInput): LayoutResult {
       short += Math.max(0, left);
       continue;
     }
+    // 한 국가 시작 도시 사이 칸: 등급 값(강대국은 넓게), 없으면 설정 칸
+    const stride = Math.max(1, Math.trunc(nation.tier?.cityStepCells ?? baseStride));
     const own = (faction: number) => faction === nation.factionId;
     const fits = (mapKey: CellKey): LayoutSpot | undefined => {
       if (usedMaps.has(mapKey) || input.avoidMaps?.has(mapKey)) return undefined;

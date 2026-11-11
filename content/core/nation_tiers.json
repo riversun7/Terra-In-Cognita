@@ -1,0 +1,169 @@
+{
+  "entries": [
+    {
+      "id": "superpower",
+      "name": {
+        "ko": "초강대국",
+        "en": "Superpower"
+      },
+      "startCities": 6,
+      "startHousing": 60,
+      "startPopulationPm": 750,
+      "facilities": [
+        {
+          "facility": "storehouse",
+          "count": 2
+        },
+        {
+          "facility": "farm",
+          "count": 2
+        },
+        {
+          "facility": "lumber_camp",
+          "count": 2
+        },
+        {
+          "facility": "mine",
+          "count": 2
+        }
+      ],
+      "guardsPerCity": 6,
+      "startTech": 3,
+      "startCreditPm": 3000,
+      "cityStepCells": 2,
+      "homeGapPm": 1600
+    },
+    {
+      "id": "great_power",
+      "name": {
+        "ko": "강대국",
+        "en": "Great power"
+      },
+      "startCities": 4,
+      "startHousing": 50,
+      "startPopulationPm": 750,
+      "facilities": [
+        {
+          "facility": "storehouse",
+          "count": 2
+        },
+        {
+          "facility": "farm",
+          "count": 2
+        },
+        {
+          "facility": "lumber_camp",
+          "count": 1
+        },
+        {
+          "facility": "mine",
+          "count": 1
+        }
+      ],
+      "guardsPerCity": 4,
+      "startTech": 3,
+      "startCreditPm": 2000,
+      "cityStepCells": 2,
+      "homeGapPm": 1300
+    },
+    {
+      "id": "middle_power",
+      "name": {
+        "ko": "중견국",
+        "en": "Middle power"
+      },
+      "startCities": 3,
+      "startHousing": 40,
+      "startPopulationPm": 750,
+      "facilities": [
+        {
+          "facility": "storehouse",
+          "count": 1
+        },
+        {
+          "facility": "farm",
+          "count": 1
+        },
+        {
+          "facility": "lumber_camp",
+          "count": 1
+        },
+        {
+          "facility": "mine",
+          "count": 1
+        }
+      ],
+      "guardsPerCity": 3,
+      "startTech": 2,
+      "startCreditPm": 1000,
+      "cityStepCells": 1,
+      "homeGapPm": 1000
+    },
+    {
+      "id": "small_state",
+      "name": {
+        "ko": "소국",
+        "en": "Small state"
+      },
+      "startCities": 2,
+      "startHousing": 32,
+      "startPopulationPm": 750,
+      "facilities": [
+        {
+          "facility": "storehouse",
+          "count": 1
+        },
+        {
+          "facility": "farm",
+          "count": 1
+        },
+        {
+          "facility": "lumber_camp",
+          "count": 1
+        },
+        {
+          "facility": "mine",
+          "count": 0
+        }
+      ],
+      "guardsPerCity": 2,
+      "startTech": 1,
+      "startCreditPm": 600,
+      "cityStepCells": 1,
+      "homeGapPm": 700
+    },
+    {
+      "id": "city_state",
+      "name": {
+        "ko": "도시국가",
+        "en": "City-state"
+      },
+      "startCities": 1,
+      "startHousing": 48,
+      "startPopulationPm": 750,
+      "facilities": [
+        {
+          "facility": "storehouse",
+          "count": 2
+        },
+        {
+          "facility": "farm",
+          "count": 1
+        },
+        {
+          "facility": "lumber_camp",
+          "count": 0
+        },
+        {
+          "facility": "mine",
+          "count": 0
+        }
+      ],
+      "guardsPerCity": 4,
+      "startTech": 2,
+      "startCreditPm": 800,
+      "cityStepCells": 1,
+      "homeGapPm": 500
+    }
+  ]
+}

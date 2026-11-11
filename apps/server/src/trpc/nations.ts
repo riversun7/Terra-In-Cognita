@@ -5,6 +5,7 @@
 // 오류(error.data.code): UNAUTHORIZED, FORBIDDEN, TOO_MANY_REQUESTS("rate_limited"), BAD_REQUEST(입력 형식, 또는 data.reason =
 // NATION_EDITOR_REASONS), CONFLICT("revision_conflict"), NOT_FOUND(message "NATION_EDITOR_UNAVAILABLE": 인증이나 팩이 없는 서버).
 import { NATION_EMBLEM_UPLOAD, NATION_LIST_LIMITS, type NationPresetJson } from "@terra/shared/nationEditor";
+import { type NationTierJson, isPowerTier } from "@terra/shared/nationTier";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { TuningAction } from "./context.ts";
@@ -24,10 +25,22 @@ const entry = z.custom<NationPresetJson>(
     contentId.safeParse(Reflect.get(value, "id")).success,
 );
 
+/** 국력 등급 표 한 줄도 모양만 본다(객체, 등급 ID) — 칸마다의 규칙은 팩 스키마 */
+const tierEntry = z.custom<NationTierJson>(
+  (value) =>
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    isPowerTier(Reflect.get(value, "id")),
+);
+
 const change = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("put"), entry, baseHash }),
   z.strictObject({ op: z.literal("revert"), id: contentId, baseHash }),
   z.strictObject({ op: z.literal("discard_sleeping"), id: contentId }),
+  z.strictObject({ op: z.literal("create"), entry }),
+  z.strictObject({ op: z.literal("put_tier"), entry: tierEntry, baseHash }),
+  z.strictObject({ op: z.literal("revert_tier"), id: contentId, baseHash }),
 ]);
 const changes = z.array(change).min(1).max(NATION_LIST_LIMITS.changesMax);
 

@@ -8,22 +8,38 @@
 // - clear: 자리를 지운다(자동 배치로 돌아감 — 이미 선 도시는 그대로).
 // - suggest: 자리를 고르지 않은 국가의 자동 배치 자리(가장 먼 점 고르기, 빈 세계로 보고 놓은 자리는 고정 수도).
 // 놓기·지우기는 감사 기록(audit_log, actor_kind admin, world.place_nation·world.clear_nation_place)을 남긴다.
+// 국력 등급(사용자 답 2026-11-11, 같은 ADR "바뀜 (2026-11-11)"):
+// - view: 국가마다 등급 시작 값(start)과 이 세계에 아직 서지 않은 켜진 국가 프리셋(founding — 자리를 놓으면 다음 시작 때 그 국가가 선다).
+// - place: 아직 서지 않은 국가 프리셋 코드도 받는다(이 세계에 이 국가 세우기 — 감사 기록 world.found_nation). 같은 땅·간격 검사.
+// - suggest: 등급대로 고른 자리(강한 등급 먼저·등급 간격·땅 넓이) + 빈 세계 등급 배치 계획(plan — 모든 국가의 수도·시작 도시).
+// - tierPlan·requestTierApply·cancelTierApply: 이미 선 세계에 등급 분포를 반영(tierApply.ts·tierPlan.ts — 더하기만, 다음 시작 때).
 import { type CellKey, cellLevel, isCellKey } from "@terra/planet";
 import { territoryMetric, territoryPoint } from "@terra/planet/territory";
 import type { LocalizedName } from "@terra/shared/roster";
 import { territoryDistanceMilli } from "@terra/shared/territory";
 import type {
+  WorldFoundingView,
   WorldLayoutPlanetView,
   WorldLayoutSuggestion,
   WorldPlaceBlocker,
   WorldPlaceResult,
   WorldPlacementNationView,
+  WorldTierApplyView,
 } from "@terra/shared/worldPlacementApi";
 import { WORLD_PLACE_BLOCKERS } from "@terra/shared/worldPlacementApi";
-import type { WorldSeedCoefficients } from "@terra/sim";
+import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS, type WorldSeedCoefficients } from "@terra/sim";
 import type { PlanetCellValues } from "@terra/planet/secondMap";
+import {
+  MAX_TEST_NATIONS,
+  type NationPreset,
+  nationCode,
+  nationStartOf,
+  presetOfCode,
+} from "../npc/nations.ts";
 import { type NationPlacement, loadPlacements, planNationMove } from "./nationPlacement.ts";
 import type { QueryPool } from "./persist/load.ts";
+import { cancelTierApply, requestTierApply } from "./tierApply.ts";
+import { type TierPlanNation, freshTierPlan, startViewOf, tierApplyPlan } from "./tierPlan.ts";
 import {
   CITY_CELL,
   type LayoutLand,
@@ -49,6 +65,12 @@ export interface PlacementServiceOptions {
   /** 세력 코드 → 나라 이름(팩 국가 프리셋) */
   readonly nationName: (code: string) => LocalizedName | undefined;
   readonly now: () => number;
+  /** 실효 국가 프리셋(국력 등급·세울 수 있는 국가). 없으면 등급 없음·세울 국가 없음(옛 동작) */
+  readonly presets?: (() => readonly NationPreset[]) | undefined;
+  /** 이 서버의 고정 국가 수(NPC_TEST_NATIONS — 차례로 서는 국가). 없으면 세울 국가 후보를 내지 않는다 */
+  readonly testNations?: number | undefined;
+  /** 영토 설정 칸(도시 영향권 — 더 세울 도시 자리 미리 보기). 없으면 출발값 */
+  readonly territory?: (() => SocietyCoefficients["territory"]) | undefined;
 }
 
 export interface PlacementActor {
@@ -65,6 +87,12 @@ export interface PlacementService {
   ): Promise<WorldPlaceResult[] | undefined>;
   clear(code: string, actor: PlacementActor): Promise<boolean>;
   suggest(): Promise<WorldLayoutSuggestion | undefined>;
+  /** 이미 선 세계에 국력 등급 분포를 반영하면 더해지는 것(미리 보기 — DB 읽기만)과 걸린 요청 */
+  tierPlan(): Promise<WorldTierApplyView | undefined>;
+  /** 반영 요청을 적는다(다음 서버 시작 때 든다, 감사 기록 world.tier_apply_request). 적은 뒤의 미리 보기를 돌려준다 */
+  requestTierApply(actor: PlacementActor): Promise<WorldTierApplyView | undefined>;
+  /** 아직 들지 않은 요청을 지운다(감사 기록 world.tier_apply_cancel). 지울 요청이 없으면 false */
+  cancelTierApply(actor: PlacementActor): Promise<boolean>;
 }
 
 interface NationRow {
@@ -148,6 +176,70 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
   const distanceCells = (a: CellKey, b: CellKey): number =>
     territoryDistanceMilli(territoryPoint(a), territoryPoint(b), metric) / 1000;
 
+  const presets = (): readonly NationPreset[] => o.presets?.() ?? [];
+  const startOf = (code: string) => nationStartOf(o.seed(), presetOfCode(code, presets()));
+  const avoidMaps = new Set<number>(o.testMapKeys);
+  /**
+   * 이 세계에 아직 서지 않은 켜진 국가 프리셋(세울 수 있는 국가): 세력 행이 없고, 16번째 프리셋(1번 시험 NPC 세력의 것)이 아닌 것.
+   * 고정 국가 수 설정(testNations)을 모르면 후보를 내지 않는다
+   */
+  const foundable = (nations: readonly NationRow[]): NationPreset[] => {
+    if (o.testNations === undefined) return [];
+    const list = presets();
+    const standing = new Set(nations.map((nation) => nation.code));
+    // 차례로 서는 국가 코드(부팅이 만든다 — 아직 세력 행이 없어도 후보가 아니다)
+    const count = Math.max(1, Math.min(MAX_TEST_NATIONS, o.testNations));
+    for (let n = 1; n <= count; n++) standing.add(nationCode(n, list));
+    return list.filter((preset, index) => index !== MAX_TEST_NATIONS - 1 && !standing.has(preset.code));
+  };
+  /** 등급 계획에 넣을 국가: 선 국가 + 자리를 놓아 세울 국가(음수 ID) */
+  const planNations = (
+    nations: readonly NationRow[],
+    placements: ReadonlyMap<string, NationPlacement>,
+  ): TierPlanNation[] => {
+    const homeOf = (code: string): CellKey | undefined => {
+      const placed = placements.get(code)?.mapKey;
+      return placed !== undefined && isCellKey(placed) ? placed : undefined;
+    };
+    return [
+      ...nations.map((nation) => ({
+        code: nation.code,
+        factionId: nation.factionId,
+        start: startOf(nation.code),
+        home: homeOf(nation.code),
+      })),
+      ...foundable(nations)
+        .filter((preset) => placements.has(preset.code))
+        .map((preset, index) => ({
+          code: preset.code,
+          factionId: -1 - index,
+          start: startOf(preset.code),
+          home: homeOf(preset.code),
+        })),
+    ];
+  };
+  const planBase = () => ({ faceLevel, land: landOf, seed: o.seed(), planetId: o.planetId, avoidMaps });
+  const tierView = async (): Promise<WorldTierApplyView | undefined> => {
+    if (!ready()) return undefined;
+    const [nations, placements] = await Promise.all([loadNations(), loadPlacements(o.pool, o.planetId)]);
+    const list = presets();
+    return tierApplyPlan(
+      o.pool,
+      { ...planBase(), territory: (o.territory ?? (() => TEST_SOCIETY_COEFFICIENTS.territory))() },
+      nations.map((nation) => {
+        const placed = placements.get(nation.code)?.mapKey;
+        return {
+          code: nation.code,
+          factionId: nation.factionId,
+          start: startOf(nation.code),
+          home: placed !== undefined && isCellKey(placed) ? placed : undefined,
+          name: o.nationName(nation.code) ?? null,
+          tiered: presetOfCode(nation.code, list)?.tier !== undefined,
+        };
+      }),
+    );
+  };
+
   /** 알맞은 땅으로 옮긴 칸(누른 칸 → 고리 차례). 없으면 undefined */
   const snap = (key: CellKey, seed: WorldSeedCoefficients): CellKey | undefined => {
     if (isSettleLand(landOf(key), seed)) return key;
@@ -179,6 +271,7 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
           factionId: nation.factionId,
           code: nation.code,
           name: o.nationName(nation.code) ?? null,
+          start: startViewOf(startOf(nation.code)),
           cities: cities
             .filter((city) => city.factionId === nation.factionId)
             .map((city) => ({
@@ -200,12 +293,24 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
             : null,
         };
       });
+      const founding: WorldFoundingView[] = foundable(nations).map((preset) => {
+        const placement = placements.get(preset.code);
+        return {
+          code: preset.code,
+          name: { ko: preset.name.ko, en: preset.name.en },
+          start: startViewOf(startOf(preset.code)),
+          mapKey: placement ? String(placement.mapKey) : null,
+          placedAtMs: placement?.placedAtMs ?? null,
+          placedBy: placedByName.get(preset.code) ?? null,
+        };
+      });
       return {
         planetId: o.planetId,
         faceLevel,
         gapCells: o.seed().layoutNationGapCells,
         reserved: o.testMapKeys.map(String),
         nations: out,
+        founding,
       };
     },
 
@@ -225,8 +330,18 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
         if (home !== undefined && isCellKey(home)) homes.set(nation.code, home);
       }
       const results: WorldPlaceResult[] = [];
+      // 아직 서지 않은 국가 프리셋(이 세계에 이 국가 세우기): 세력 행이 없으므로 옮길 것이 없다
+      const candidates = new Set(foundable(nations).map((preset) => preset.code));
+      // 이미 자리를 놓은 세울 국가의 자리도 국가 간격 검사에 넣는다
+      for (const code of candidates) {
+        const placed = placements.get(code)?.mapKey;
+        if (placed !== undefined && isCellKey(placed)) homes.set(code, placed);
+      }
       for (const entry of entries) {
-        const nation = nations.find((row) => row.code === entry.code);
+        const nation =
+          nations.find((row) => row.code === entry.code) ??
+          (candidates.has(entry.code) ? { factionId: -1, code: entry.code, capitalCityId: null } : undefined);
+        const founding = nation !== undefined && nation.factionId < 0;
         const fail = (result: WorldPlaceResult["result"], near: string | null = null): void => {
           results.push({ code: entry.code, result, mapKey: null, blocked: [], near });
         };
@@ -292,7 +407,7 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
         await auditPlace(
           o.pool,
           actor,
-          "world.place_nation",
+          founding ? "world.found_nation" : "world.place_nation",
           before ? { mapKey: before.mapKey } : null,
           { mapKey: key },
           { planetId: o.planetId, faction: nation.code, asked: entry.mapKey, blocked: preview.reasons },
@@ -326,30 +441,33 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
     async suggest() {
       if (!ready() || first === undefined) return undefined;
       const [nations, placements] = await Promise.all([loadNations(), loadPlacements(o.pool, o.planetId)]);
-      const result = planWorldLayout({
-        faceLevel,
-        land: landOf,
-        seed: o.seed(),
-        worldSeed: seedOfText(o.planetId),
-        nations: nations.map((nation) => {
-          const placed = placements.get(nation.code)?.mapKey;
-          return {
-            factionId: nation.factionId,
-            missing: 1,
-            placed: [],
-            home: placed !== undefined && isCellKey(placed) ? placed : undefined,
-          };
-        }),
-        obstacles: [],
-        newRadiusMilli: 0,
-        avoidMaps: new Set<number>(o.testMapKeys),
+      // 빈 세계로 보고 등급대로(강한 등급 먼저·등급 간격·땅 넓이) 고른다. 놓은 자리는 고정 수도, 세울 국가(자리를 놓은 것)도 함께
+      const plan = freshTierPlan(planBase(), planNations(nations, placements));
+      const homes = plan.nations
+        .filter((nation) => !placements.has(nation.code))
+        .map((nation) => ({ code: nation.code, mapKey: nation.home }));
+      return { homes, plan };
+    },
+
+    tierPlan: tierView,
+
+    async requestTierApply(actor) {
+      if (!ready()) return undefined;
+      const nowMs = o.now();
+      await requestTierApply(o.pool, { planetId: o.planetId, userId: actor.userId, nowMs });
+      const view = await tierView();
+      await auditPlace(o.pool, actor, "world.tier_apply_request", null, view?.totals ?? null, {
+        planetId: o.planetId,
+        atMs: nowMs,
       });
-      const homes = nations.flatMap((nation) => {
-        if (placements.has(nation.code)) return [];
-        const home = result.homes.get(nation.factionId);
-        return home === undefined ? [] : [{ code: nation.code, mapKey: String(home) }];
-      });
-      return { homes };
+      return view;
+    },
+
+    async cancelTierApply(actor) {
+      const cancelled = await cancelTierApply(o.pool, o.planetId);
+      if (cancelled)
+        await auditPlace(o.pool, actor, "world.tier_apply_cancel", null, null, { planetId: o.planetId });
+      return cancelled;
     },
   };
 }
@@ -376,6 +494,9 @@ export function placementSourceOf(input: {
   readonly seed: () => WorldSeedCoefficients;
   readonly nationName: (code: string) => LocalizedName | undefined;
   readonly now: () => number;
+  readonly presets?: PlacementServiceOptions["presets"];
+  readonly testNations?: number | undefined;
+  readonly territory?: PlacementServiceOptions["territory"];
 }): () => { readonly planetId: string; readonly service: PlacementService } | undefined {
   let made: PlacementService | undefined;
   return () => {
@@ -389,6 +510,9 @@ export function placementSourceOf(input: {
       seed: input.seed,
       nationName: input.nationName,
       now: input.now,
+      presets: input.presets,
+      testNations: input.testNations,
+      territory: input.territory,
     });
     return { planetId: input.planetId, service: made };
   };

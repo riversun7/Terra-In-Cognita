@@ -968,7 +968,7 @@ export { nationalityChanges, userNationStandings } from "./citizenshipSchema.ts"
 /** 운영 권한 체크박스 표(docs/adr/2026-11-08-operator-console.md) */
 export { currencyProfiles, factionProfiles, opsGrants, opsSwitches } from "./opsSchema.ts";
 // 고정 NPC 국가 자리(D-528 세계 배치 화면): worldPlacementSchema.ts
-export { worldNationPlacements } from "./worldPlacementSchema.ts";
+export { worldNationPlacements, worldTierRequests } from "./worldPlacementSchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

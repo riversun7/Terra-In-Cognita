@@ -50,7 +50,7 @@ import {
   updateRelations,
 } from "./gardenerFactions.ts";
 import type { GardenerOptions, GardenerRun, GardenerWave, ResolvedWave } from "./gardenerTypes.ts";
-import { type SimCity, type SimFaction, type SimUnit, streamRng } from "./world.ts";
+import { type SimCity, type SimFaction, type SimUnit, defenseOrder, streamRng } from "./world.ts";
 
 export type {
   GardenerOptions,
@@ -136,7 +136,8 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
   const unitsIn = (cityId: number): SimUnit[] => {
     const out: SimUnit[] = [];
     for (const unit of world.units.values()) if (unit.city === cityId) out.push(unit);
-    return out.toSorted((a, b) => a.id - b.id);
+    // 경비대가 먼저 수비로 나선다(수비 상한 안에서 앞에서부터 뽑는다)
+    return out.toSorted(defenseOrder);
   };
 
   const addAt = (cityId: number, amount: number): void => {

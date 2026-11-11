@@ -63,6 +63,8 @@ export interface NpcHumanRow {
   /** 구인 카드의 스탯 6·속성 12칸(처음부터 있던 휴먼은 null) */
   readonly stats: number[] | null;
   readonly elements: number[] | null;
+  /** 경비대(국력 등급 씨앗) */
+  readonly guard: boolean;
 }
 
 /** 구인 카드 산 칸(고용 주체 × 도시) */
@@ -153,7 +155,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
        from world_cities order by id`,
       ),
       pool.query(
-        `select unit_id, city_id, satisfaction_milli, born_at_ms, lifespan_ms, rebirths, level, stats, elements
+        `select unit_id, city_id, satisfaction_milli, born_at_ms, lifespan_ms, rebirths, level, stats, elements, guard
        from world_humans order by unit_id`,
       ),
       pool.query(`select faction_a, faction_b, state, at_ms from faction_wars order by faction_a, faction_b`),
@@ -227,6 +229,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       level: Math.max(1, num(row.level ?? 1)),
       stats: numsOrNull(row.stats),
       elements: numsOrNull(row.elements),
+      guard: row.guard === true,
     })),
     draws,
     wars: wars.rows.map((row) => ({

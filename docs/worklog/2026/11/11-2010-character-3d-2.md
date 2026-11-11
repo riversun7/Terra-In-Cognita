@@ -42,8 +42,9 @@
 ## 검사
 Verified: 실행(공유 개발 컨테이너, `TEST_DATABASE_URL` 있음).
 - 단위: protocol 21파일 119개, server `cyborg/gateway.test.ts`·`worldMap/mapUnits.test.ts` 18개(새 2), server DB `cyborg.db.test.ts` 10개(새 1: 한 번만·잘못된 외형은 기회 안 씀·다시 켜도 막힘·다른 길이 행을 다시 써도 남음), engine 56파일 481개(새 `nationRings` 4), game `unitModels`·`buildingLooks` 11개(새 1).
-- `pnpm check`: 아래 "전체 검사" 줄.
-- 빌드 통과, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 통과(첫 화면 JS 108,487 B / 상한 131,416 B — 통합을 합치기 전 값). `LookPick` 조각 3.3 kB(미리 보기 엔진·외형 단계는 지연 조각).
+- `pnpm check`(`TEST_DATABASE_URL` 있음, 통합을 합친 뒤 `45603f2` 위): 통과 — 포맷·린트·타입·경계·파일 크기·다국어(6,626키)·디자인 값·콘텐츠 팩(core@64)·단위 시험 610파일 4,726개.
+- 빌드 통과, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 통과(첫 화면 JS 108,703 B / 상한 131,416 B, 합친 뒤), `pnpm check:docs origin/main` 통과. `LookPick` 조각 3.3 kB(미리 보기 엔진·외형 단계는 지연 조각).
+- 합친 뒤 화면 시험 다시: `character-3d.spec.ts` 3개 통과(2개 건너뜀), `first-login.spec.ts`의 새 플레이어 흐름·속성 분배 전 사이보그 2개 통과(만들 때 3D 외형을 고른 사이보그에는 [외형 고르기]가 없다는 확인 더함). 사진 시험(first-login 사진 묶음)은 디스크 때문에 돌리지 않았다.
 - 화면 시험(헤드리스 Chromium): `character-3d.spec.ts` 3개 통과(측정 2개는 `E2E_MEASURE` 없어 건너뜀) — 넓은 화면 모델·고리(5/5 고리 ≥ 1·`data-selected-ring` 0~5·`nations`에 내 사이보그, 3/5 캡슐이면 고리 ≥ 1, 점이면 0), 390 먼 단계, relook 한 번 고르기(단추 → 창 처음 값 = 넘긴 외형 → 기사 프리셋 → 확인·더 고르기·정하기 → 단추 사라짐·`lookPick` false·저장 외형 = 고른 것 → 새로 고쳐도 없음 → WebSocket 직접 보내기 `look_locked`).
 - 사진(`/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/character-3d-2-shots/`): `character-3d-map-close-1440-pastel.png`(발밑 빨간 고리), `character-3d-map-close-390-pastel.png`, `character-3d-relook-390-pastel.png`(확인 단계).
 

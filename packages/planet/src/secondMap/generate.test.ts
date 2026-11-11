@@ -12,6 +12,8 @@ import { testPlanetValues, testPropRules } from "./testPlanetValues.ts";
 import { SECOND_MAP_GENERATOR_VERSION } from "./version.ts";
 
 const values = testPlanetValues(6);
+/** 장식 소품 그림 번호의 시작(선인장) */
+const DECOR_ART_MIN = MAP_PROP_ARTS.indexOf("cactus");
 const rules = testPropRules();
 const MAPS = {
   desert: cellKey(0, 6, 7, 7),
@@ -23,11 +25,11 @@ const MAPS = {
 
 /** 골든 해시(SECOND_MAP_GENERATOR_VERSION 1, 행성 생성기 출력 판 3, S2 시험 행성 F6, 시험 소품 규칙 = 팩 map_props 사본) */
 const GOLDEN: Record<keyof typeof MAPS, string> = {
-  desert: "9f9b2110",
-  river: "da3af0f9",
-  lake: "bb7f20c6",
+  desert: "ec1c2113",
+  river: "5211b70a",
+  lake: "3c1e21b5",
   ocean: "792d2bbd",
-  coast: "afb6a4cf",
+  coast: "9e0cb325",
 };
 
 /** 면 0 칸 (i, j)의 행성 값 배열 번호(F6, n = 64) */
@@ -69,8 +71,9 @@ describe("2차맵 생성기", () => {
         const art = map.art[i] ?? 0;
         expect(cover).toBeLessThanOrEqual(2);
         expect(art).toBeLessThan(MAP_PROP_ARTS.length);
-        // 팩 소품은 모두 엄폐 1·2라 그림이 있으면 엄폐가 있다(숲 칸에 그림 항목이 없을 때만 엄폐만 있다)
-        if (art !== 0) expect(cover).toBeGreaterThan(0);
+        // 판정 소품(숲·바위·덤불·갈대·쓰러진 나무, 그림 1~7)은 엄폐 1·2라 그림이 있으면 엄폐가 있다(숲 칸에 그림 항목이 없을 때만
+        // 엄폐만 있다). 2026-11-11 장식 소품(그림 8~)은 엄폐 0이다
+        if (art !== 0) expect(cover > 0).toBe(art < DECOR_ART_MIN);
       }
       const codes: readonly number[] = Object.values(SM_SURFACE);
       for (const code of map.surface) expect(codes.includes(code)).toBe(true);

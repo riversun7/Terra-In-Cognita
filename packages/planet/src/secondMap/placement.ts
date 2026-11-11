@@ -345,13 +345,21 @@ function forestArt(
   return best?.art ?? 0;
 }
 
-/** 흩기 소품 하나의 칸마다 놓일 몫(천분율). 몫 상한이 걸리면 2차맵 전체를 같은 비율로 줄인다 */
+/**
+ * 흩기 소품 하나의 칸마다 놓일 몫(천분율). 몫 상한이 걸리면 2차맵 전체를 같은 비율로 줄인다.
+ * 이 2차맵 어디에도 비중이 없으면 null(덩이 노이즈를 만들지 않는다 — 장식 소품을 더해 규칙이 늘어서, 2026-11-11).
+ * 비중이 0인 지형 칸은 배치 칸 넷을 건너뛴다(결과는 칸마다 계산과 같다)
+ */
 function scatterChances(
   input: PlacementInput,
   rule: PropRule,
   env: Environment,
   waterCell: Uint8Array,
-): Uint16Array {
+): Uint16Array | null {
+  const weights = terrainWeights(rule, env, input.biome);
+  let any = false;
+  for (let tc = 0; tc < TERRAIN_CELLS && !any; tc++) if (waterCell[tc] !== 1 && weights[tc] !== 0) any = true;
+  if (!any) return null;
   const out = new Uint16Array(PLACEMENT_CELLS);
   const clump =
     rule.clumpLog2 > 0
@@ -362,20 +370,25 @@ function scatterChances(
         )
       : undefined;
   const boost = rule.clumpLog2 > 0 ? 1000 - rule.clumpThreshold : 1000;
-  const weights = terrainWeights(rule, env, input.biome);
   const waterCurve = waterCurveOf(rule);
   let total = 0;
-  for (let py = 0; py < SM_PLACEMENT; py++) {
-    for (let px = 0; px < SM_PLACEMENT; px++) {
-      const tc = terrainOf(px, py);
-      if (waterCell[tc] === 1 || weights[tc] === 0) continue;
-      const pi = py * SM_PLACEMENT + px;
-      if (clump && permille(clump[pi] ?? 0) < rule.clumpThreshold) continue;
-      const weight = cellWeight(weights[tc] ?? 0, waterCurve, env.waterDistance[pi] ?? 0);
-      if (weight === 0) continue;
-      const chance = Math.min(1000, Math.floor((weight * 1000) / boost));
-      out[pi] = chance;
-      total += chance;
+  for (let r = 0; r < SM_TERRAIN; r++) {
+    for (let c = 0; c < SM_TERRAIN; c++) {
+      const tc = r * SM_TERRAIN + c;
+      const terrainWeight = weights[tc] ?? 0;
+      if (waterCell[tc] === 1 || terrainWeight === 0) continue;
+      // 지형 칸 하나 = 배치 칸 2×2
+      for (let dy = 0; dy < 2; dy++) {
+        for (let dx = 0; dx < 2; dx++) {
+          const pi = (2 * r + dy) * SM_PLACEMENT + 2 * c + dx;
+          if (clump && permille(clump[pi] ?? 0) < rule.clumpThreshold) continue;
+          const weight = cellWeight(terrainWeight, waterCurve, env.waterDistance[pi] ?? 0);
+          if (weight === 0) continue;
+          const chance = Math.min(1000, Math.floor((weight * 1000) / boost));
+          out[pi] = chance;
+          total += chance;
+        }
+      }
     }
   }
   const cap = rule.maxShareCells * 1000;
@@ -441,8 +454,16 @@ export function placeProps(input: PlacementInput): Placement {
 
   // 흩기 소품: 이 2차맵의 바이옴에 비중이 있는 것만
   const present = new Set(biome);
-  const active = rules.scatter.filter((rule) => [...present].some((b) => (rule.biomeWeight[b] ?? 0) > 0));
-  const chances = active.map((rule) => scatterChances(input, rule, env, waterCell));
+  const candidates = rules.scatter.filter((rule) => [...present].some((b) => (rule.biomeWeight[b] ?? 0) > 0));
+  // 비중이 하나도 없는 규칙은 뺀다(차례는 그대로라 결과는 같다)
+  const active: PropRule[] = [];
+  const chances: Uint16Array[] = [];
+  for (const rule of candidates) {
+    const chance = scatterChances(input, rule, env, waterCell);
+    if (!chance) continue;
+    active.push(rule);
+    chances.push(chance);
+  }
   for (let pi = 0; pi < PLACEMENT_CELLS; pi++) {
     if (cover[pi] !== 0 || art[pi] !== 0) continue;
     for (let k = 0; k < active.length; k++) {

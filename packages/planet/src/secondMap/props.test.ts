@@ -19,7 +19,7 @@ const boulder = {
 
 describe("2차맵 소품 규칙", () => {
   it("시험 사본이 팩 map_props와 같다(이름·설명 뺌). 다르면 사본을 고치고 골든 해시를 고친다", () => {
-    const pack = mapPropsJson.entries.map(({ name: _name, ...rest }) => rest);
+    const pack = mapPropsJson.entries.map(({ name: _name, description: _description, ...rest }) => rest);
     expect(TEST_MAP_PROPS).toEqual(pack);
   });
 
@@ -77,7 +77,7 @@ describe("2차맵 소품 규칙", () => {
 
   it("틀린 입력은 RangeError: 그림·배치 방식·곡선 축·곡선 순서·엄폐·덩이·같은 ID", () => {
     const bad = [
-      { ...boulder, art: "cactus" },
+      { ...boulder, art: "unicorn_statue" },
       { ...boulder, art: "none" },
       { ...boulder, placement: "grid" },
       { ...boulder, curves: { wind: { min: 0, idealMin: 1, idealMax: 2, max: 3 } } },

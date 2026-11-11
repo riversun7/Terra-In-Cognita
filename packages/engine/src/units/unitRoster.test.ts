@@ -7,6 +7,7 @@ import {
   cameraLimitsFor,
   cameraPosition,
   initialCamera,
+  pixelsPerMetre,
 } from "../camera/cameraMath.ts";
 import { type RosterUnitView, UnitRoster } from "./unitRoster.ts";
 import type { UnitDisplayMode, UnitLook } from "./unitView.ts";
@@ -103,5 +104,37 @@ describe("UnitRoster", () => {
     expect(roster.pick({ x: 220, y: 200 }, at, () => false)).toBe(-1);
     // 몸 위(가장 작은 상자 반 14px 안)는 남의 유닛도 고른다
     expect(roster.idAt(roster.pick({ x: 210, y: 195 }, at, () => false))).toBe(9);
+  });
+
+  it("모델로 그린 유닛은 몸 위 누르기 폭이 모델 폭까지 넓어진다(남의 유닛도 팔·어깨 위를 누르면 고른다)", () => {
+    const viewport: Viewport = { width: 800, height: 800 };
+    const mapSize = 300;
+    const base: CameraState = initialCamera(mapSize, cameraLimitsFor(mapSize, viewport));
+    // 가까이: 1m가 약 100px이 되게 거리를 줄인다
+    const state: CameraState = {
+      ...base,
+      distance: base.distance * (pixelsPerMetre(base.distance, viewport) / 100),
+    };
+    const ppm = pixelsPerMetre(state.distance, viewport);
+    expect(ppm).toBeCloseTo(100, 0);
+    const camera = new PerspectiveCamera((CAMERA_FOV_RAD * 180) / Math.PI, 1, 0.1, 10_000);
+    const position = cameraPosition(state);
+    camera.position.set(position.x, position.y, position.z);
+    camera.lookAt(state.targetX, state.targetY, state.targetZ);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+    const roster = new UnitRoster(fakeView("model"), 2, () => 0);
+    roster.set([spawn(9, 150, 150)]);
+    const at = { camera, state, viewport, cellM: 1, groundAt: () => 0 };
+    const other = (): boolean => false;
+    // 캡슐 반지름 0.4m = 40px: 가운데에서 52px 옆은 몸 밖이다
+    expect(roster.idAt(roster.pick({ x: 400 + 30, y: 400 }, at, other))).toBe(9);
+    expect(roster.pick({ x: 400 + 52, y: 400 }, at, other)).toBe(-1);
+    // 모델 반 너비 0.55m = 55px로 넓히면 고른다. 0을 주는 칸은 그대로
+    roster.modelHalfWidthM = () => 0.55;
+    expect(roster.idAt(roster.pick({ x: 400 + 52, y: 400 }, at, other))).toBe(9);
+    expect(roster.pick({ x: 400 + 70, y: 400 }, at, other)).toBe(-1);
+    roster.modelHalfWidthM = () => 0;
+    expect(roster.pick({ x: 400 + 52, y: 400 }, at, other)).toBe(-1);
   });
 });

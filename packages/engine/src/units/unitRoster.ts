@@ -23,6 +23,11 @@ export class UnitRoster {
   readonly motion: UnitMotionStore;
   /** 고른 유닛의 슬롯(-1 = 없음) */
   selectedSlot = -1;
+  /**
+   * 그 칸의 유닛을 모델로 그릴 때의 몸 반 너비(m, 0 = 캡슐 굵기 그대로). 캐릭터 모델은 캡슐보다 넓어(팔·어깨) 몸 위 누르기 폭을 이 값까지
+   * 넓힌다(characters/characterLayer.ts — 엔진이 건다)
+   */
+  modelHalfWidthM: ((slot: number) => number) | null = null;
   private readonly view: RosterUnitView;
   private readonly capacity: number;
   private readonly now: () => number;
@@ -141,7 +146,9 @@ export class UnitRoster {
       this.screenY[slot] = ((1 - this.projected.y) / 2) * at.viewport.height;
       // 실제 크기로 크게 보이는 유닛은 몸 전체를 누를 수 있게 화면의 몸 크기를 쓴다(점 표시면 0 — 가장 작은 크기)
       this.pickHalfH[slot] = model ? (height * ppm * Math.cos(at.state.pitch)) / 2 : 0;
-      this.pickHalfW[slot] = model ? this.view.radiusOf(slot) * ppm : 0;
+      this.pickHalfW[slot] = model
+        ? Math.max(this.view.radiusOf(slot), this.modelHalfWidthM?.(slot) ?? 0) * ppm
+        : 0;
       const id = this.ids[slot];
       this.pickWide[slot] = wide === undefined || (id !== undefined && wide(id)) ? 1 : 0;
     }

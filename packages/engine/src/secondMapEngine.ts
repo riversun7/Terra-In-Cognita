@@ -27,7 +27,7 @@ import {
 } from "./camera/cameraMath.ts";
 import { CameraGlide, FOLLOW_SMOOTH_MS } from "./camera/cameraGlide.ts";
 import { attachControls } from "./camera/controls.ts";
-import { CharacterLayer } from "./characters/characterLayer.ts";
+import { CHARACTER_PICK_HALF_WIDTH_M, CharacterLayer } from "./characters/characterLayer.ts";
 import { localZoomStage, localZoomStepTarget } from "./camera/secondMapZoom.ts";
 import { inertEngine } from "./engineParts.ts";
 import type {
@@ -139,6 +139,8 @@ export function createSecondMapEngine(
   const motion = roster.motion;
   /** 유닛 명단이 바뀌면 캐릭터 층의 칸 ↔ 유닛을 다시 잇는다 */
   const bindCharacters = (): void => characters.bind(motion.size, (slot) => roster.idAt(slot));
+  // 모델로 그린 유닛은 몸 위 누르기 폭을 모델 폭으로 넓힌다(캡슐보다 넓다)
+  roster.modelHalfWidthM = (slot) => (characters.drawnAs(slot) > 0 ? CHARACTER_PICK_HALF_WIDTH_M : 0);
   // 이동 경로·목적지 표시(units/routeView.ts): 화면이 정한 유닛(setRouteUnit)과 누른 목적지(setMoveTarget)
   const routeView = new RouteView();
   scene.add(routeView.group);

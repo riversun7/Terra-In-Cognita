@@ -34,6 +34,8 @@ export const MODEL_MIN_PX = 9;
 export const MODEL_RETURN_PX = 10;
 /** 가까운 단계(LOD0)로 그리는 가장 작은 화면 키(CSS px) */
 export const LOD0_MIN_PX = 28;
+/** 모델로 그린 유닛의 몸 위 누르기 반 너비(m) — 팔까지의 보통 폭(캡슐 반지름 0.3m보다 넓다) */
+export const CHARACTER_PICK_HALF_WIDTH_M = 0.45;
 /** 화면 밖 거르기 경계 구 반지름(m): 키·팔·등 장식을 넉넉히 */
 const CULL_RADIUS_M = 1.4;
 /** 걸음 한 바퀴(두 걸음)의 길이(m)와 다리 흔들림 크기(라디안)·몸 위아래(m) */

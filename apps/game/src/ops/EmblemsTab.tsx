@@ -142,7 +142,6 @@ export function EmblemsTab({ open, canSwitch }: { open: OpenDetail; canSwitch: b
         <label className="ops-inline ops-emblem-sort">
           <span>{m.ops_emblems_sort()}</span>
           <select
-            className="input"
             value={sort}
             onChange={(event) => setSort(event.target.value === "reports" ? "reports" : "recent")}
           >

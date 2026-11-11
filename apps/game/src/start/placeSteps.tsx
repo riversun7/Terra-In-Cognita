@@ -95,19 +95,14 @@ export function FactionStep({
                     </span>
                   ) : null}
                 </span>
-                <span className="start-choice-meta" data-part="size">
-                  {profile?.humans !== null && profile?.humans !== undefined
-                    ? `${m.start_nation_population({ count: formatNumber(profile.humans) })} · `
-                    : ""}
-                  {profile?.cityCount !== null && profile?.cityCount !== undefined
-                    ? m.start_nation_cities({
-                        count: formatNumber(profile.cityCount),
-                        start: formatNumber(faction.cities.length),
-                      })
-                    : m.start_faction_cities({ count: formatNumber(faction.cities.length) })}
-                  {showCyborgs
-                    ? ` · ${m.start_faction_cyborgs({ count: formatNumber(faction.cyborgs) })}`
-                    : ""}
+                {/* 크기 줄: 조각마다 줄을 바꾸지 않는다(390px에서 "사이보그 / 1"로 갈라지지 않게) */}
+                <span className="start-choice-meta start-nation-size" data-part="size">
+                  {sizeParts(faction, profile, showCyborgs).map((part, index) => (
+                    <span key={part.key} className="start-nation-size-part" data-size={part.key}>
+                      {index > 0 ? " · " : ""}
+                      {part.text}
+                    </span>
+                  ))}
                 </span>
                 {profile?.intro ? (
                   <span className="start-choice-meta start-nation-intro">{localName(profile.intro)}</span>
@@ -125,6 +120,29 @@ export function FactionStep({
       <p className="start-hint">{m.start_faction_note()}</p>
     </fieldset>
   );
+}
+
+/** 카드 크기 줄 조각: 인구 · 도시(시작 도시와 다를 때만 괄호) · 시작한 사이보그(어느 나라든 1 이상일 때만) */
+function sizeParts(
+  faction: CreationFaction,
+  profile: CreationNationProfile | undefined,
+  showCyborgs: boolean,
+): { readonly key: string; readonly text: string }[] {
+  const start = faction.cities.length;
+  const parts: { key: string; text: string }[] = [];
+  if (profile?.humans !== null && profile?.humans !== undefined)
+    parts.push({ key: "humans", text: m.start_nation_population({ count: formatNumber(profile.humans) }) });
+  const cities = profile?.cityCount ?? null;
+  parts.push({
+    key: "cities",
+    text:
+      cities !== null && cities !== start
+        ? m.start_nation_cities({ count: formatNumber(cities), start: formatNumber(start) })
+        : m.start_nation_cities_only({ count: formatNumber(cities ?? start) }),
+  });
+  if (showCyborgs)
+    parts.push({ key: "cyborgs", text: m.start_faction_cyborgs({ count: formatNumber(faction.cyborgs) }) });
+  return parts;
 }
 
 /** 고른 나라의 자세한 줄(지도자·체제·거래세·화폐·기술 단계·시작한 사이보그). 라벨 안이라 글 요소(span)만 쓴다 */

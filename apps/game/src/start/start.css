@@ -454,3 +454,6 @@
 .start-nation-fact-value {
   overflow-wrap: anywhere;
 }
+.start-nation-size-part {
+  white-space: nowrap;
+}

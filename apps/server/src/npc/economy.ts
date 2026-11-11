@@ -304,10 +304,15 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     return owner ? personalityOfFaction(world, owner, presets) : undefined;
   };
 
+  /** 도시마다 경비대 수(일꾼으로 세지 않는다 — 생필품은 다른 휴먼처럼 쓴다) */
+  const cityGuards = new Map<number, number>();
   const recount = (): void => {
     economy.cityUnits.clear();
-    for (const unit of world.units.values())
+    cityGuards.clear();
+    for (const unit of world.units.values()) {
       economy.cityUnits.set(unit.city, (economy.cityUnits.get(unit.city) ?? 0) + 1);
+      if (unit.guard === true) cityGuards.set(unit.city, (cityGuards.get(unit.city) ?? 0) + 1);
+    }
   };
   recount();
 
@@ -382,7 +387,11 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         yieldPerLot: effects.yieldPerLot,
       });
     }
-    const workers = assignCityWorkers(slots, economy.cityUnits.get(cityId) ?? 0, catalog.necessities);
+    const workers = assignCityWorkers(
+      slots,
+      Math.max(0, (economy.cityUnits.get(cityId) ?? 0) - (cityGuards.get(cityId) ?? 0)),
+      catalog.necessities,
+    );
     // 지금 시설과 견준다: 없어진 것은 멈추고, 새것·바뀐 것은 새로 놓는다
     for (const [id, facility] of economy.facilities) {
       if (facility.city !== cityId) continue;

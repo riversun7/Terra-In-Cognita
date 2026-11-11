@@ -139,9 +139,9 @@ describe("사이보그 연결 처리", () => {
     expect(calls).toEqual(['elements:user-1:{"earth":10}', "create:user-1:Nova:null"]);
   });
 
-  it("3D 외형 한 번 고르기(21, 질문 961 나): 서비스에 넘기고 결과 코드를 돌려준다", async () => {
+  it("3D 외형 한 번 고르기(22, 질문 961 나): 서비스에 넘기고 결과 코드를 돌려준다", async () => {
     const calls: string[] = [];
-    const { sent, socket } = open(fakeService(calls), viewer, () => 0, 21);
+    const { sent, socket } = open(fakeService(calls), viewer, () => 0, 22);
     socket.handle({ t: "cyborg_look", id: 9, look: DEFAULT_CHARACTER_LOOK });
     for (let i = 0; i < 4; i++) await settle();
     expect(calls).toEqual(["look:user-1:object"]);

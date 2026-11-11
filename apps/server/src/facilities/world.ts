@@ -93,7 +93,7 @@ export function gatherSiteOf(
     facilityId: def.id,
     level: record.level,
     rule: def.gather,
-    ladder: catalog.gatherLadder(def.gather.subcategory),
+    ladder: catalog.gatherLadder(def.gather),
     bands: catalog.gatherBands,
     lotSize: catalog.lotSize,
     cityId: record.cityId ?? buildingPlace(service.places, buildingId)?.cityId ?? null,

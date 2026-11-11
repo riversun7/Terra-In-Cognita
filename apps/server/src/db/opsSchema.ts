@@ -2,7 +2,19 @@
 // 계정마다 역할 기본(@terra/shared OPS_ROLE_DEFAULTS) 위에 더 준 운영 권한. 빼기는 없다(역할 기본은 늘 가진다).
 // 세계 밖 표(계정 설정)라 시험 세계 새로 시작(reset-world)에서 남긴다(src/cli/resetWorld.ts 남길 표 목록).
 import { sql } from "drizzle-orm";
-import { bigint, boolean, check, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  bytea,
+  check,
+  index,
+  integer,
+  pgTable,
+  smallint,
+  text,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { factions, users } from "./schema.ts";
 
 export const opsGrants = pgTable(
@@ -83,5 +95,65 @@ export const currencyProfiles = pgTable(
     check("currency_profiles_symbol", sql`char_length(${table.symbol}) between 1 and 3`),
     check("currency_profiles_ticker", sql`${table.ticker} ~ '^[A-Z]{3}$'`),
     check("currency_profiles_source", sql`${table.source} in ('preset', 'default', 'admin')`),
+  ],
+);
+
+/**
+ * 플레이어 세력 정체성(docs/adr/2026-11-11-faction-identity.md): 플레이어가 이끄는 세력(지금은 자기 소유 주체 — 계정마다 하나)의 이름·약어·
+ * 시그니처 컬러·마크. 플레이어가 "세력 정체성 정하기"에서 직접 정한다(NPC 국가는 faction_profiles + 팩 프리셋).
+ * - 이름은 서버에서 하나(name_key = 소문자 열쇠), 약어도 하나(대소문자 무시). NPC 세력 이름·약어와 겹치는지는 서버가 넣기 전에 본다.
+ * - 마크: 만든 마크 사양(네 칸)은 늘 있고, 올린 그림(256 × 256 PNG — 기기가 잘라 만든 것)은 이 줄에 한 장만 둔다(다시 올리면 덮어쓰고,
+ *   지우거나 운영자가 내리면 비운다 — 가리키는 곳이 없는 그림이 남지 않는다). 원본 파일은 받지 않는다.
+ * - upload_blocked: 운영자가 이 계정의 그림 올리기를 막았다. notice_*: 운영자가 마크를 내렸을 때 주인에게 보이는 알림(확인하면 비운다).
+ * 세계 표라 시험 세계 새로 시작(reset-world)에서 지운다. 계정이 지워지면 함께 지운다
+ */
+export const factionIdentities = pgTable(
+  "faction_identities",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    nameKey: text("name_key").notNull().unique(),
+    shortName: text("short_name").notNull(),
+    color: text("color").notNull(),
+    emblemShape: text("emblem_shape").notNull(),
+    emblemDivision: text("emblem_division").notNull(),
+    emblemCharge: text("emblem_charge").notNull(),
+    emblemScheme: smallint("emblem_scheme").notNull(),
+    emblemPng: bytea("emblem_png"),
+    /** PNG 바이트의 SHA-256(16진수 소문자) — 그림 길 /api/nation-emblems/<sha256>.png의 주소 */
+    emblemSha256: text("emblem_sha256"),
+    emblemBytes: integer("emblem_bytes"),
+    emblemUploadedAtMs: bigint("emblem_uploaded_at_ms", { mode: "number" }),
+    uploadBlocked: boolean("upload_blocked").notNull().default(false),
+    noticeKind: text("notice_kind"),
+    noticeReason: text("notice_reason"),
+    noticeAtMs: bigint("notice_at_ms", { mode: "number" }),
+    createdAtMs: bigint("created_at_ms", { mode: "number" }).notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+    /** 이름·약어를 마지막으로 정한 시각(다시 바꾸기까지 기다리는 시간의 기준, D-328) */
+    nameChangedAtMs: bigint("name_changed_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("faction_identities_short_idx").on(sql`lower(${table.shortName})`),
+    index("faction_identities_sha256").on(table.emblemSha256),
+    check("faction_identities_name", sql`char_length(${table.name}) between 1 and 24`),
+    check("faction_identities_short", sql`char_length(${table.shortName}) between 2 and 5`),
+    check("faction_identities_color", sql`${table.color} ~ '^#[0-9a-f]{6}$'`),
+    check("faction_identities_scheme", sql`${table.emblemScheme} between 0 and 15`),
+    check(
+      "faction_identities_upload",
+      sql`num_nonnulls(${table.emblemPng}, ${table.emblemSha256}, ${table.emblemBytes}, ${table.emblemUploadedAtMs}) in (0, 4)`,
+    ),
+    check("faction_identities_sha256_format", sql`${table.emblemSha256} ~ '^[0-9a-f]{64}$'`),
+    check(
+      "faction_identities_bytes",
+      sql`${table.emblemBytes} is null or (${table.emblemBytes} > 0 and ${table.emblemBytes} <= 200000)`,
+    ),
+    check(
+      "faction_identities_notice",
+      sql`${table.noticeKind} is null or ${table.noticeKind} = 'emblem_removed'`,
+    ),
   ],
 );

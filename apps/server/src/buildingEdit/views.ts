@@ -43,6 +43,9 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
             primary: gather.primary,
             secondary: gather.secondary,
             subcategory: gather.subcategory.id,
+            ...(gather.extraSubcategories === undefined
+              ? {}
+              : { extraSubcategories: gather.extraSubcategories.map((sub) => sub.id) }),
             ...(gather.mode === undefined ? {} : { mode: gather.mode }),
             ...(gather.yieldBase === undefined ? {} : { yieldBase: gather.yieldBase }),
             ...(gather.yieldPerStatPm === undefined ? {} : { yieldPerStatPm: gather.yieldPerStatPm }),
@@ -75,6 +78,8 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
     ...(entry.footprint
       ? { footprint: { width: entry.footprint.width, height: entry.footprint.height } }
       : {}),
+    // 물가 조건(질문 947 나)
+    ...(entry.needsWaterWithin === undefined ? {} : { needsWaterWithin: entry.needsWaterWithin }),
     ...(entry.durability === undefined ? {} : { durability: entry.durability }),
     ...(entry.storageKg === undefined ? {} : { storageKg: entry.storageKg }),
     // 2차맵 겉모습(docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)")

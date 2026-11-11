@@ -103,3 +103,30 @@ export function gatherChancesPm(
   }
   return { tierPm, emptyPm };
 }
+
+/** 함께 내는 중분류 수 상한(팩 facilities.gather.extraSubcategories, 질문 946 나) */
+export const GATHER_EXTRA_SUBCATEGORIES_MAX = 4;
+
+/** 사다리 중분류를 읽는 채집 칸 모양(팩 줄·시뮬 목록·서버 정의가 모두 이 두 칸을 가진다) */
+export interface GatherSubcategorySource {
+  /** 주 사다리 중분류 */
+  readonly subcategory: string;
+  /** 함께 내는 중분류(질문 946 나 — 목장 = 축산물 + 목축 부산물, 옛 RANCH_T0~T9 30개). 없으면 주 중분류 하나 */
+  readonly extraSubcategories?: readonly string[] | undefined;
+}
+
+/**
+ * 채집 사다리에 드는 중분류(주 중분류 + 함께 내는 중분류, 적힌 차례, 겹치는 것은 한 번). 사다리는 티어마다 이 중분류들의 켜진 아이템을
+ * 팩 차례로 모은 것이다 — 추첨(roll)은 뽑은 티어에서, 선택(select)은 해금 티어에서 그 묶음 가운데 하나를 고른다(docs/adr/2026-11-11-production-six.md
+ * "바뀜 (2026-11-11, 946·947)")
+ */
+export function gatherSubcategories(gather: GatherSubcategorySource): string[] {
+  const out = [gather.subcategory];
+  for (const sub of gather.extraSubcategories ?? []) if (!out.includes(sub)) out.push(sub);
+  return out;
+}
+
+/** 사다리 키(중분류를 "+"로 잇는다 — 중분류 하나면 그 ID 그대로라 옛 키와 같다). 시뮬·서버가 사다리를 붙잡아 둘 때 쓴다 */
+export function gatherLadderKey(gather: GatherSubcategorySource): string {
+  return gatherSubcategories(gather).join("+");
+}

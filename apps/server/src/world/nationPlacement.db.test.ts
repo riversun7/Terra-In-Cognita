@@ -18,14 +18,15 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { createPlacementService } from "./placementService.ts";
 import type { TerrainService } from "./terrainService.ts";
-import { addTestUnits } from "./testSupport.ts";
+import { addTestUnits, legacyNationPresets } from "./testSupport.ts";
 import { UNIT_KIND_NPC_LEADER } from "./unitKinds.ts";
 import { type World, startWorld, testMapKey } from "./world.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
-const presets = nationPresetsOf(loaded.pack);
+// 옛 규칙(등급 없음, 성격 칸 도시 수 4·3·2)을 보는 시험이다 — 국력 등급 씨앗은 world/nationTiers.db.test.ts
+const presets = legacyNationPresets(nationPresetsOf(loaded.pack));
 const metric = territoryMetric(9);
 const PLANET = "s2_test_planet";
 /** 놓아 볼 자리(면 1~4 가운데 — 시험 2차맵 줄(면 0)과 멀다) */

@@ -148,12 +148,30 @@ export function neighbourTerrainUrl(mainUrl: string, key: number): string | null
 
 /** 이 비율(2차맵 변 길이에 대한) 안으로 목표점이 경계에 다가오면 그쪽 이웃을 받는다 */
 export const NEAR_EDGE = 0.2;
+/** 멀리 볼 때 넓히는 상한(변 길이의 비율). 절반보다 작아야 양쪽 이웃을 함께 바라지 않는다(많아야 3장) */
+export const FAR_EDGE = 0.45;
+/** 카메라 거리 × 이 값 = 화면 위 끝 땅까지의 거리 어림(가장 가까이 눕힌 기울기 약 28°에서 약 2.5배, 45°에서는 약 0.8배) */
+const VIEW_REACH_FACTOR = 2.5;
 
 /**
- * 카메라 목표점(m)과 2차맵 변 길이(m) → 받을 이웃 방향("ox,oy"). 경계 가까이·너머의 쪽, 둘 다면 대각까지
+ * 이웃을 받기 시작하는 거리(m): 2차맵 변의 NEAR_EDGE, 멀리 보면(카메라 거리) 화면에 드는 땅만큼 더(FAR_EDGE까지). 가까이(5/5)는 앞과 같고,
+ * 줄여 볼 때 화면 끝이 빈 하늘로 보이기 전에 옆 2차맵을 받는다(사용자 지적 2026-11-11 "근처에서 미리 불러와")
  */
-export function wantedDirections(targetX: number, targetZ: number, mapSizeM: number): string[] {
-  const near = mapSizeM * NEAR_EDGE;
+export function nearMarginM(mapSizeM: number, cameraDistanceM: number): number {
+  const reach = Number.isFinite(cameraDistanceM) ? cameraDistanceM * VIEW_REACH_FACTOR : 0;
+  return Math.min(mapSizeM * FAR_EDGE, Math.max(mapSizeM * NEAR_EDGE, reach));
+}
+
+/**
+ * 카메라 목표점(m)과 2차맵 변 길이(m) → 받을 이웃 방향("ox,oy"). 경계 가까이(marginM 안, 기본 변의 NEAR_EDGE)·너머의 쪽, 둘 다면 대각까지
+ */
+export function wantedDirections(
+  targetX: number,
+  targetZ: number,
+  mapSizeM: number,
+  marginM: number = mapSizeM * NEAR_EDGE,
+): string[] {
+  const near = marginM;
   const xs: number[] = [0];
   const ys: number[] = [0];
   if (targetX < near) xs.push(-1);

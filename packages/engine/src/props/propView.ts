@@ -20,6 +20,7 @@ import {
   Quaternion,
   Vector3,
 } from "three";
+import { outsideCellKey } from "../buildings/footprint.ts";
 import { type NeighbourPlacement, toLocal } from "../terrain/neighbourTerrains.ts";
 import { PLACEMENT_CELLS } from "../terrain/terrainData.ts";
 import { type PropArea, insideDistance, polygonArea } from "./propArea.ts";
@@ -131,6 +132,8 @@ export class PropView {
   private capacity = 0;
   /** 지금 2차맵에서 건물이 차지한 배치 칸(1이면 소품 모델을 세우지 않는다). null이면 없음 */
   private blocked: Uint8Array | null = null;
+  /** 옆 2차맵 건물이 차지한 칸(지금 2차맵 틀의 칸 열쇠, footprint.ts outsideCellKey). null이면 없음 */
+  private blockedOutside: ReadonlySet<number> | null = null;
 
   constructor() {
     this.allocate(MAX_PROPS);
@@ -213,9 +216,13 @@ export class PropView {
     this.group.visible = false;
   }
 
-  /** 건물이 차지한 칸(지금 2차맵, 배치 칸 256²). 다음 update에서 다시 세운다 — 나무가 건물 판을 뚫고 서지 않게 */
-  setBlocked(mask: Uint8Array | null): void {
+  /**
+   * 건물이 차지한 칸(지금 2차맵, 배치 칸 256²)과 옆 2차맵 건물이 차지한 칸(outside). 다음 update에서 다시 세운다 — 나무가 건물 판을 뚫고
+   * 서지 않게
+   */
+  setBlocked(mask: Uint8Array | null, outside: ReadonlySet<number> | null = null): void {
     this.blocked = mask;
+    this.blockedOutside = outside;
     this.built = null;
   }
 
@@ -308,6 +315,12 @@ export class PropView {
         if (forest && (cover[cell] ?? 0) < 2 && cellRandom(cell, 7 + source.salt) < 0.5) continue;
         const world = cellToWorld(placement, x + 0.5, z + 0.5, cellM);
         if (insideDistance(area.polygon, world.x, world.z) < -margin) continue;
+        // 옆 2차맵 건물 판 안(지금 2차맵 틀의 칸으로 본다)
+        if (
+          placement &&
+          this.blockedOutside?.has(outsideCellKey(Math.floor(world.x / cellM), Math.floor(world.z / cellM)))
+        )
+          continue;
         const nx = world.x - area.nearX;
         const nz = world.z - area.nearZ;
         out.push({ source, cell, shape: look.shape, distance2: nx * nx + nz * nz });
@@ -328,7 +341,9 @@ export class PropView {
     const { x, z } = cellToWorld(source.placement, lx, lz, cellM);
     const y = this.groundAt(x, z);
     const size = 0.8 + cellRandom(cell, 3 + salt) * 0.45;
-    const turn = cellRandom(cell, 4 + salt) * Math.PI * 2;
+    // 돌림은 그 2차맵 틀 기준: 이웃이면 놓는 자리의 돌림(90°의 배수)을 더한다 — 넘어서 지금 2차맵이 돼도 같은 쪽을 본다
+    const placed = source.placement;
+    const turn = cellRandom(cell, 4 + salt) * Math.PI * 2 + (placed ? Math.atan2(placed.b, placed.a) : 0);
     const shade = 0.85 + cellRandom(cell, 5 + salt) * 0.3;
     this.rotation.setFromAxisAngle(this.up, turn);
     const h = look.heightM * size;

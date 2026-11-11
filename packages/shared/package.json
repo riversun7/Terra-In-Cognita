@@ -23,6 +23,7 @@
     "./facilityLook": "./src/facilityLook.ts",
     "./facilityRuntime": "./src/facilityRuntime.ts",
     "./faction": "./src/faction.ts",
+    "./factionIdentity": "./src/factionIdentity.ts",
     "./factionProfile": "./src/factionProfile.ts",
     "./formula": "./src/formula.ts",
     "./gatherMath": "./src/gatherMath.ts",
@@ -39,8 +40,11 @@
     "./nameGen": "./src/nameGen.ts",
     "./nationEditor": "./src/nationEditor.ts",
     "./nationEmblem": "./src/nationEmblem.ts",
+    "./nationRandom": "./src/nationRandom.ts",
+    "./nationTier": "./src/nationTier.ts",
     "./planetCalendar": "./src/planetCalendar.ts",
     "./planetScope": "./src/planetScope.ts",
+    "./pngChunks": "./src/pngChunks.ts",
     "./portraitCrop": "./src/portraitCrop.ts",
     "./ranking": "./src/ranking.ts",
     "./recruit": "./src/recruit.ts",
@@ -58,6 +62,7 @@
     "./tuning": "./src/tuning.ts",
     "./unitGuide": "./src/unitGuide.ts",
     "./vitals": "./src/vitals.ts",
+    "./waterNearby": "./src/waterNearby.ts",
     "./worldMap": "./src/worldMap.ts"
   },
   "scripts": {

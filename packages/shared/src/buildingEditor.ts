@@ -123,6 +123,8 @@ export interface FacilityGatherJson {
   readonly secondary: FacilityStatId;
   /** 사다리 중분류(원자재 중분류) */
   readonly subcategory: string;
+  /** 함께 내는 중분류(질문 946 나 — 사다리 = 주 + 이것들, 티어마다 한데). 없으면 주 하나 */
+  readonly extraSubcategories?: readonly string[] | undefined;
   readonly mode?: GatherModeId | undefined;
   readonly yieldBase?: number | undefined;
   readonly yieldPerStatPm?: number | undefined;
@@ -155,6 +157,8 @@ export interface FacilityJson {
   readonly repair?: readonly FacilityRepairJson[] | undefined;
   /** 2차맵 칸 크기(회전 전). 없으면 2차맵에 지을 수 없다(docs/adr/2026-11-07-buildings-runtime.md) */
   readonly footprint?: { readonly width: number; readonly height: number } | undefined;
+  /** 물가 조건: 건물 칸에서 이 배치 칸 수 안에 물 칸이 있어야 놓는다(질문 947 나, 낚시터 5). 없으면 땅 조건 없음 */
+  readonly needsWaterWithin?: number | undefined;
   /** 레벨 1 최대 내구도(49 M15). 없으면 100 */
   readonly durability?: number | undefined;
   /** 레벨 1 창고 용량(kg, 49 N50). 없으면 창고 없음 */

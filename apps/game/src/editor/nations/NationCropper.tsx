@@ -2,71 +2,18 @@
 // - 보기 칸을 끌면 그림이 따라오고, 확대는 미닫이·휠·[+]/[−] 키. 화살표 키는 자를 자리를 그쪽으로 조금씩(Shift = 크게) 옮긴다.
 // - 옆에 24·48·128px 미리 보기를 같이 그린다(실제로 쓰이는 크기).
 // - [잘라서 올리기]: 캔버스에서 PNG를 만들고, 바이트 상한을 넘으면 색 단계를 줄여 다시 만든다(그래도 넘으면 알린다). 새 의존성 없음.
-// 셈은 nationModel.ts(cropRect·dragCrop·zoomCrop·posterize)에 있다.
+// 셈은 ui/emblemCrop.ts(cropRect·dragCrop·zoomCrop·posterize — nationModel.ts가 다시 내보낸다)에 있다.
 import { type KeyboardEvent, type PointerEvent, type WheelEvent, useEffect, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
-import {
-  CROP_ZOOM,
-  type CropState,
-  EMBLEM_MAX_BYTES,
-  EMBLEM_SIZE,
-  POSTERIZE_STEPS,
-  cropRect,
-  dragCrop,
-  initialCrop,
-  posterize,
-  zoomCrop,
-} from "./nationModel.ts";
+import { drawCrop, encodeEmblem } from "../../ui/emblemCanvas.ts";
+import { CROP_ZOOM, type CropState, EMBLEM_SIZE, dragCrop, initialCrop, zoomCrop } from "./nationModel.ts";
 
 /** 보기 칸 한 변(캔버스 px, 화면에서는 CSS로 줄어든다) */
 const VIEW = 320;
 const PREVIEWS = [24, 48, 128] as const;
 
-function draw(
-  canvas: HTMLCanvasElement | null,
-  image: HTMLImageElement,
-  crop: CropState,
-  size: number,
-): void {
-  const context = canvas?.getContext("2d");
-  if (!canvas || !context) return;
-  const rect = cropRect(image.naturalWidth, image.naturalHeight, crop);
-  context.clearRect(0, 0, size, size);
-  context.imageSmoothingQuality = "high";
-  context.drawImage(image, rect.sx, rect.sy, rect.size, rect.size, 0, 0, size, size);
-}
-
-const toBlob = (canvas: HTMLCanvasElement): Promise<Blob | null> =>
-  new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-
-async function toBase64(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let text = "";
-  const CHUNK = 0x8000;
-  for (let at = 0; at < bytes.length; at += CHUNK)
-    text += String.fromCharCode(...bytes.subarray(at, at + CHUNK));
-  return btoa(text);
-}
-
-/** 자른 정사각을 256 × 256 PNG(base64)로. 상한을 넘으면 색 단계를 줄여 본다. 끝까지 넘으면 null */
-export async function encodeEmblem(image: HTMLImageElement, crop: CropState): Promise<string | null> {
-  const canvas = document.createElement("canvas");
-  canvas.width = EMBLEM_SIZE;
-  canvas.height = EMBLEM_SIZE;
-  const context = canvas.getContext("2d");
-  if (!context) return null;
-  for (const levels of POSTERIZE_STEPS) {
-    draw(canvas, image, crop, EMBLEM_SIZE);
-    if (levels > 0) {
-      const pixels = context.getImageData(0, 0, EMBLEM_SIZE, EMBLEM_SIZE);
-      posterize(pixels.data, levels);
-      context.putImageData(pixels, 0, 0);
-    }
-    const blob = await toBlob(canvas);
-    if (blob && blob.size <= EMBLEM_MAX_BYTES) return toBase64(blob);
-  }
-  return null;
-}
+// 그리기·256 × 256 PNG 만들기는 ui/emblemCanvas.ts에 있다(플레이어 세력 정체성 화면과 같이 쓴다)
+const draw = drawCrop;
 
 export function NationCropper({
   image,

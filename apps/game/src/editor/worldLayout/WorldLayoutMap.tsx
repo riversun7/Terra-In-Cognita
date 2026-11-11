@@ -1,6 +1,7 @@
 // 세계 배치 지도 — 행성 편집기 평면 미니맵(FlatMap, 1차맵 타일로 칠함) 위에 국가 도시·수도·놓은 자리·자동 제안 표시를 겹친다.
 // 표시는 보기만 하는 겹(pointer-events: none) — 누르기는 FlatMap이 받아 위도·경도를 알린다(고른 점 고리도 FlatMap이 그린다).
-// 색 = 국가 차례로 개발 화면 토큰 --color-stat-* 여섯을 돌려 쓴다(worldLayout.css data-nation).
+// 색 = 국가 시그니처 컬러(팩 프리셋 — 있으면), 없으면 국가 차례로 개발 화면 토큰 --color-stat-* 여섯을 돌려 쓴다(worldLayout.css data-nation).
+// 국력 등급 계획 표시(plan_home·plan_city·add_city)는 등급이 클수록 크다(data-tier).
 import { m } from "../../paraglide/messages.js";
 import { FlatMap } from "../planet/FlatMap.tsx";
 import type { LatLon } from "../planet/flatMapRender.ts";
@@ -35,7 +36,14 @@ export function WorldLayoutMap({ planet, marks, picked, onPick }: Props) {
             data-kind={mark.kind}
             data-nation={mark.nation % COLORS}
             data-code={mark.code}
-            style={{ left: `${(mark.x * 100).toFixed(3)}%`, top: `${(mark.y * 100).toFixed(3)}%` }}
+            data-tier={mark.tier}
+            data-colored={mark.color === undefined ? undefined : ""}
+            style={{
+              left: `${(mark.x * 100).toFixed(3)}%`,
+              top: `${(mark.y * 100).toFixed(3)}%`,
+              // 국가 시그니처 컬러(자료 색) — 글자 색으로 주고 CSS가 currentColor로 그린다
+              ...(mark.color === undefined ? {} : { color: mark.color }),
+            }}
             title={mark.label}
           />
         ))}

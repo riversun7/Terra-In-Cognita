@@ -1,16 +1,24 @@
 // 건물 화면 조회(tRPC facilities.overview) — docs/adr/2026-11-07-buildings-runtime.md
 // 세계(DB)가 있고 준비되면 건물 서비스의 자료, 아니면 빈 자료(status "not_ready", 규칙 값은 출발값)다.
-import type { FacilitiesOverviewResponse, FacilityTargetView } from "@terra/shared/facilities";
+import type {
+  FacilitiesOverviewResponse,
+  FacilityTargetView,
+  FacilityWaterMaskResponse,
+} from "@terra/shared/facilities";
 import { OLD_FACILITY_RUNTIME_RULES as R } from "@terra/shared/facilityRuntime";
 import type { MapLooksResponse } from "@terra/shared/mapLooks";
+import { waterMaskToHex } from "@terra/shared/waterNearby";
 import { rolesAllow } from "../auth/permissions.ts";
 import type { Viewer } from "../trpc/context.ts";
+import type { SecondMap } from "../world/secondMap.ts";
 import { type BeaconEntry, type FacilityViewSource, facilitiesOverview } from "./views.ts";
 
 export interface FacilityScreenServices {
   overview(viewer: Viewer, nowMs: number): Promise<FacilitiesOverviewResponse>;
   /** 2차맵 건물 겉모습(시설·레벨·상태·국가, mapLooks.ts — ADR 2026-11-08-building-art) */
   mapLooks(viewer: Viewer, mapKey: number, nowMs: number): Promise<MapLooksResponse>;
+  /** 띄운 2차맵의 물 표(물가 조건 미리 보기, 질문 947 나) */
+  waterMask(mapKey: number): FacilityWaterMaskResponse;
 }
 
 /** 세계가 준비됐을 때의 자료 */
@@ -24,6 +32,8 @@ export interface FacilityScreenSource {
   targetsOf(userId: string, nowMs: number): Promise<readonly FacilityTargetView[]>;
   /** 띄운 2차맵의 건물 가운데 그 사람이 보는 것의 겉모습(주인 → 국가는 DB에서 찾는다) */
   mapLooks(viewer: Viewer, mapKey: number, nowMs: number): Promise<MapLooksResponse>;
+  /** 띄운 2차맵(없으면 undefined) — 물 표 */
+  map(mapKey: number): Pick<SecondMap, "waterMask"> | undefined;
 }
 
 function notReady(nowMs: number, dev: boolean): FacilitiesOverviewResponse {
@@ -67,6 +77,14 @@ export function createFacilityScreenServices(
       const found = source?.();
       if (!found) return { status: "not_ready", mapKey, buildings: [], generatedAt: nowMs };
       return found.mapLooks(viewer, mapKey, nowMs);
+    },
+    waterMask(mapKey) {
+      const found = source?.();
+      if (!found) return { status: "not_ready", mapKey };
+      const map = found.map(mapKey);
+      if (!map) return { status: "unknown_map", mapKey };
+      const mask = map.waterMask();
+      return { status: "ready", mapKey, size: mask.size, hex: waterMaskToHex(mask) };
     },
   };
 }

@@ -4,6 +4,7 @@
 import {
   type BuildingEditorGatherRules,
   type BuildingEditorItem,
+  type BuildingEditorSubcategory,
   FACILITY_LEVEL_MAX,
   FACILITY_LIMITS,
   FACILITY_STAT_IDS,
@@ -12,7 +13,7 @@ import {
   type FacilityJson,
 } from "@terra/shared/buildingEditor";
 import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
-import type { GatherBand } from "@terra/shared/gatherMath";
+import { type GatherBand, gatherSubcategories } from "@terra/shared/gatherMath";
 import { PRIMARY_STATS, type PrimaryStat } from "@terra/shared/roster";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
@@ -45,6 +46,7 @@ function bandText(bands: readonly GatherBand[], index: number): string {
 export function ProductionTypePanel({
   row,
   items,
+  subcategories,
   bands,
   rules,
   levelBonus,
@@ -56,6 +58,8 @@ export function ProductionTypePanel({
 }: {
   row: ProductionTypeRow;
   items: readonly BuildingEditorItem[];
+  /** 중분류 이름(사다리 중분류 줄) */
+  subcategories: readonly BuildingEditorSubcategory[];
   /** 화면에 보일 확률표(담은 변경을 얹은 것) */
   bands: readonly GatherBand[];
   rules: BuildingEditorGatherRules;
@@ -71,7 +75,11 @@ export function ProductionTypePanel({
   const [primary, setPrimary] = useState(rules.defaultStat);
   const [secondary, setSecondary] = useState(rules.defaultStat);
   const [level, setLevel] = useState(1);
-  const ladder = ladderOf(items, gather.subcategory);
+  const ladder = ladderOf(items, gather);
+  // 사다리에 드는 중분류(주 + 함께 내는 것, 질문 946 나) — 이름이 없으면 ID
+  const ladderSubs = gatherSubcategories(gather)
+    .map((id) => subcategories.find((sub) => sub.id === id)?.name[locale] ?? id)
+    .join(" + ");
   const itemCount = ladder.reduce((sum, tier) => sum + tier.length, 0);
   const preview = typePreview({
     gather,
@@ -299,6 +307,9 @@ export function ProductionTypePanel({
         <h3 id="pd-ladder-title" className="ce-panel-title">
           {m.dev_prod_section_ladder({ count: itemCount })}
         </h3>
+        <p className="field-hint" data-part="ladder-subs">
+          {m.dev_prod_ladder_subs({ subs: ladderSubs })}
+        </p>
         <div className="dev-table-wrap">
           <table className="dev-table pd-ladder">
             <thead>

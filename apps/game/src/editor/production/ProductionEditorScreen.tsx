@@ -323,10 +323,7 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
         key: row.type.facility,
         label: row.draft.name[locale],
         icon: facilityIcon(row.type.facility, "type"),
-        count: ladderOf(list?.items ?? [], row.gather.subcategory).reduce(
-          (sum, tier) => sum + tier.length,
-          0,
-        ),
+        count: ladderOf(list?.items ?? [], row.gather).reduce((sum, tier) => sum + tier.length, 0),
         staged: row.staged ? 1 : 0,
       }));
   const groups: ProductionTabGroup[] = [
@@ -489,6 +486,7 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
                 key={activeType.type.facility}
                 row={activeType}
                 items={list.items}
+                subcategories={list.subcategories}
                 bands={shownBands}
                 rules={rules}
                 levelBonus={levelBonus}

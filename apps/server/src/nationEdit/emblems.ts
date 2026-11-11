@@ -91,8 +91,13 @@ export function registerNationEmblemRoute(app: FastifyInstance, pool: EmblemQuer
   app.get<{ Params: { file: string } }>("/api/nation-emblems/:file", async (request, reply) => {
     const hash = HASH_FILE.exec(request.params.file)?.[1];
     if (hash === undefined) return reply.code(404).send();
+    // 운영진이 올린 국가 마크 + 플레이어가 올린 세력 마크(표 faction_identities, docs/adr/2026-11-11-faction-identity.md 3절 — 같은 길,
+    // 같은 머리글. 운영자가 내리거나 주인이 지우면 그 줄에서 사라져 404가 된다)
     const { rows } = await pool.query<{ png: Buffer }>(
-      "select png from nation_emblems where sha256 = $1 limit 1",
+      `select png from nation_emblems where sha256 = $1
+       union all
+       select emblem_png as png from faction_identities where emblem_sha256 = $1
+       limit 1`,
       [hash],
     );
     const png = rows[0]?.png;

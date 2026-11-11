@@ -14,6 +14,11 @@ export interface ScenarioFaction {
   readonly cities: number;
   /** 세력마다 처음 일꾼 수(도시에 고르게 나눈다, 시험 직무 채집) */
   readonly workers: number;
+  /**
+   * 도시마다 경비대 수(국력 등급 씨앗 — 서버 세계 씨앗과 같은 뜻, docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"). 일꾼과 따로
+   * 세고 직무가 없다(생필품·만족도·수명·세력 힘은 휴먼과 같다). 그 도시가 공격받으면 먼저 수비로 나선다. 기본 0
+   */
+  readonly guards?: number | undefined;
   /** 처음 시험 화폐(최소 단위) */
   readonly credit: bigint;
   /** 처음 기술 단계 */
@@ -198,6 +203,7 @@ export function parseScenario(value: unknown): Scenario {
       fixed,
       cities: int(field(item, "cities"), `${at}.cities`, 1, 10_000),
       workers: int(field(item, "workers"), `${at}.workers`, 0, 1_000_000),
+      guards: optionalInt(field(item, "guards"), `${at}.guards`, 0, 0, 1000),
       credit: amount(field(item, "credit"), `${at}.credit`),
       tech: int(field(item, "tech"), `${at}.tech`, 1, 1000),
       cityPlan: optionalList(field(item, "cityPlan"), `${at}.cityPlan`, (plan, path) => ({

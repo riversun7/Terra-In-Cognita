@@ -55,6 +55,34 @@ export function footprintMask(buildings: readonly BuildingFootprint[], gridSize:
   return mask;
 }
 
+/** 2차맵 밖 칸(지금 2차맵 틀의 배치 칸 좌표, −gridSize ~ 2 × gridSize)의 열쇠 — 옆 2차맵 건물이 차지한 칸 모음에 쓴다 */
+export function outsideCellKey(x: number, y: number): number {
+  return (y + 1024) * 4096 + (x + 1024);
+}
+
+/**
+ * 건물이 차지한 칸 가운데 지금 2차맵 밖의 칸(옆 2차맵 건물 — 지금 2차맵 틀로 옮겨 넣은 것). 소품 모델이 옆 2차맵 건물 판 안에도 서지 않게
+ * 거른다(넘는 순간 그 나무가 사라지지 않게, docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-11)"). 없으면 null
+ */
+export function footprintOutsideCells(
+  buildings: readonly BuildingFootprint[],
+  gridSize: number,
+): Set<number> | null {
+  let cells: Set<number> | null = null;
+  for (const building of buildings) {
+    const rect = footprintRect(building);
+    if (rect.x0 >= 0 && rect.y0 >= 0 && rect.x1 <= gridSize && rect.y1 <= gridSize) continue;
+    for (let y = rect.y0; y < rect.y1; y++) {
+      for (let x = rect.x0; x < rect.x1; x++) {
+        if (x >= 0 && y >= 0 && x < gridSize && y < gridSize) continue;
+        cells ??= new Set();
+        cells.add(outsideCellKey(x, y));
+      }
+    }
+  }
+  return cells;
+}
+
 /** 2차맵(gridSize × gridSize) 안에 다 들어가는지 */
 export function footprintInside(footprint: BuildingFootprint, gridSize: number): boolean {
   const rect = footprintRect(footprint);

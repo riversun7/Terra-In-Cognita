@@ -26,6 +26,7 @@ export {
 export { FIXED_POINT_SCALE, type UnitPath } from "./units/unitMotion.ts";
 export type { EngineLayer, EngineLayerView } from "./render/engineLayers.ts";
 export type { NeighbourPlacement, NeighbourTerrain } from "./terrain/neighbourTerrains.ts";
+export { invertPlacement } from "./terrain/rebase.ts";
 export {
   MAX_PROPS,
   PROP_CAP_RANGE,

@@ -205,6 +205,16 @@ export const WORLD_TABLES = {
     key: ["unit_id"],
     updateOnly: true,
   },
+  /**
+   * 휴먼의 경비대 표시만 고친다(국력 등급 씨앗 — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"). humans 행은 이 칸을 쓰지 않는다
+   * (유저 휴먼을 쓰는 다른 곳이 이 칸을 몰라도 된다). 휴먼 행 다음에 쓴다
+   */
+  humanGuard: {
+    name: "world_humans",
+    columns: ["unit_id", "guard"],
+    key: ["unit_id"],
+    updateOnly: true,
+  },
   /** 사이보그 유닛(D-470 융합, 유닛 하나 = 한 줄). 유닛 다음에 쓰고 유닛보다 먼저 지운다 */
   cyborgUnits: {
     name: "cyborg_units",
@@ -697,6 +707,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "cityPeople",
   "cityDay",
   "humanGrowth",
+  "humanGuard",
   "cyborgUnits",
   "unitSkills",
   "unitFaith",

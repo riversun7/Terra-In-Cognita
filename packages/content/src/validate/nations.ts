@@ -4,6 +4,8 @@
 // - 화폐 약어(currency.ticker)도 하나여야 한다(nation_ticker_taken). 화폐 코드(currency.code)도 하나여야 한다(nation_currency_code_taken —
 //   원장 자산 "cur:<코드>"가 겹친다).
 // - 도시 직무(personality.cityJobs)의 레시피는 그 시설의 레시피여야 한다(nation_job_facility — 다르면 서버가 그 줄을 쓰지 않는다).
+// - 국력 등급(powerTier)을 적은 프리셋의 등급은 등급 표(nation_tiers)에 줄이 있어야 한다(nation_tier_missing — 없으면 서버가 등급 없이
+//   옛 규칙으로 세운다). docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)".
 // 꺼진 프리셋은 보지 않는다. 항목은 스키마를 통과한 파싱 결과(참조 = ContentRef)다.
 import type { ContentIssue } from "../issue.ts";
 import type { ContentPack } from "../pack.ts";
@@ -34,8 +36,21 @@ export function checkNations(pack: ContentPack): ContentIssue[] {
   const shorts = new Map<string, string>();
   const tickers = new Map<string, string>();
   const codes = new Map<string, string>();
+  const tiers = new Set((pack.entries.get("nation_tiers") ?? []).map((tier) => tier.id));
   for (const nation of pack.entries.get("nation_presets") ?? []) {
     if (get(nation, "enabled") === false) continue;
+    const tier = get(nation, "powerTier");
+    if (typeof tier === "string" && !tiers.has(tier))
+      issues.push({
+        stage: "references",
+        level: "error",
+        file: "nation_presets.json",
+        id: nation.id,
+        path: "powerTier",
+        code: "nation_tier_missing",
+        params: { tier },
+        message: `국력 등급 ${tier}의 줄이 등급 표(nation_tiers.json)에 없습니다.`,
+      });
     const short = get(nation, "shortName");
     if (typeof short === "string") {
       const key = short.toLowerCase();

@@ -9,7 +9,11 @@ export interface WorldSeedCoefficients {
    * (기획 답 504 다 — 칸이 없으면 나 "모든 국가 같은 수")
    */
   readonly startCitiesMin: number;
-  /** [임시] 국가 하나의 시작 도시 수 위 끝. 프리셋 성격 칸의 수는 아래 끝~위 끝 안으로 자른다(둘이 거꾸로면 작은 값이 아래 끝) */
+  /**
+   * [임시] 국가 하나의 시작 도시 수 위 끝. 프리셋 성격 칸의 수는 아래 끝~위 끝 안으로 자른다(둘이 거꾸로면 작은 값이 아래 끝).
+   * 국력 등급이 있는 프리셋(사용자 답 2026-11-11 "실제 강대국 분포처럼", docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)")의 시작 도시
+   * 수도 이 값을 넘지 않는다(아래 끝은 등급에 들지 않는다 — 도시국가는 한 곳). 그래서 출발값을 4 → 8로 올렸다(초강대국 6곳)
+   */
   readonly startCitiesMax: number;
   /** [임시] 시작 도시 하나의 농장 수(팩 시설 farm) */
   readonly farms: number;
@@ -87,7 +91,7 @@ export interface WorldSeedCoefficients {
 /** 출발값 — 모두 [임시](옛 규칙 없음, D-515). 시작 도시 2~4곳(60 §7.1), 기본 시설은 종류마다 하나 */
 export const START_WORLD_SEED: WorldSeedCoefficients = {
   startCitiesMin: 2,
-  startCitiesMax: 4,
+  startCitiesMax: 8,
   farms: 1,
   lumberCamps: 1,
   mines: 1,
@@ -121,8 +125,10 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   capitalSwitchDev: 10,
 };
 
-/** 시작 도시 수가 놓일 수 있는 범위(60 §7.1 "2~4곳"을 넘지 않게, 칸이 1까지는 받는다) */
-export const START_CITIES_LIMIT = { min: 1, max: 4 } as const;
+/**
+ * 시작 도시 수가 놓일 수 있는 범위(60 §7.1 "2~4곳"이 출발이고, 국력 등급의 강대국은 더 많다 — 사용자 답 2026-11-11. 칸이 1까지는 받는다)
+ */
+export const START_CITIES_LIMIT = { min: 1, max: 8 } as const;
 
 /** 시작 도시 수 범위 안으로 자른다(정수) */
 const clamp = (value: number) =>

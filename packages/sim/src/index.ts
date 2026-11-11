@@ -264,6 +264,8 @@ export {
   type SimFaction,
   type SimRuin,
   type SimUnit,
+  defenseOrder,
+  expeditionOrder,
   type SimWorld,
 } from "./simulator/world.ts";
 // 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md)·공성 결과 셋(docs/adr/2026-11-07-war-outcomes.md): 규칙·시뮬·서버 같은 실행
@@ -415,8 +417,10 @@ export {
   accessibleTier,
   gatherBandIndex,
   gatherChancesPm,
+  gatherLadderKey,
   gatherProgress,
   gatherStat,
+  gatherSubcategories,
   gatherYield,
   pickGatherItem,
   rollGatherOutputs,
@@ -424,6 +428,7 @@ export {
   tierRequiredProgress,
   type GatherBand,
   type GatherRoll,
+  type GatherSubcategorySource,
   type GatherYieldRule,
 } from "./economy/gather.ts";
 export {

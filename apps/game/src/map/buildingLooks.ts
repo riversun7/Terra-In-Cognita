@@ -62,6 +62,58 @@ export function idsKey(buildings: readonly BuildingFootprint[]): string {
   return ids.sort((a, b) => a - b).join(",");
 }
 
+/** 2차맵마다 마지막으로 받은 겉모습 — 옆 2차맵으로 넘은 직후·옆 2차맵 건물에 바로 붙인다(조회를 기다리며 일반 집으로 보였다 바뀌지 않게) */
+const LOOKS_CACHE_MAPS = 12;
+const looksCache = new Map<number, ReadonlyMap<number, BuildingLook>>();
+let factionsCache: readonly WorldMapFaction[] | null = null;
+
+function rememberLooks(mapKey: number, looks: ReadonlyMap<number, BuildingLook>): void {
+  looksCache.delete(mapKey);
+  looksCache.set(mapKey, looks);
+  for (const key of looksCache.keys()) {
+    if (looksCache.size <= LOOKS_CACHE_MAPS) break;
+    looksCache.delete(key);
+  }
+}
+
+const NO_LOOKS: ReadonlyMap<number, BuildingLook> = new Map();
+
+/** 그 2차맵의 기억해 둔 겉모습(없으면 빈 표) */
+export function cachedLooks(mapKey: number): ReadonlyMap<number, BuildingLook> {
+  return looksCache.get(mapKey) ?? NO_LOOKS;
+}
+
+/**
+ * 옆 2차맵 건물 겉모습을 한 번 받아 기억해 둔다(이미 있으면 받지 않는다). 새로 받았으면 true. 실패는 조용히 false(그림만 바꾼다 — 볼 수 없는
+ * 2차맵이면 서버가 주지 않는다)
+ */
+export async function prefetchLooks(
+  mapKey: number,
+  options: Pick<BuildingLooksOptions, "load" | "loadFactions"> = {},
+): Promise<boolean> {
+  if (looksCache.has(mapKey)) return false;
+  try {
+    const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+    const loadFactions =
+      options.loadFactions ??
+      ((abort: AbortSignal) => loadWorldCities(abort).then((world) => world.factions));
+    const factions: readonly WorldMapFaction[] = factionsCache ?? (await loadFactions(signal));
+    factionsCache = factions;
+    const response = await (options.load ?? loadMapLooks)(mapKey, AbortSignal.timeout(REQUEST_TIMEOUT_MS));
+    if (response.status !== "ok" || looksCache.has(mapKey)) return false;
+    rememberLooks(mapKey, new Map(response.buildings.map((row) => [row.buildingId, lookOf(row, factions)])));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 기억해 둔 겉모습을 비운다(시험) */
+export function clearLooksCache(): void {
+  looksCache.clear();
+  factionsCache = null;
+}
+
 export interface BuildingLooks {
   /** 엔진 앞에 끼우는 자료 받는 쪽(건물만 겉모습을 붙인다) */
   readonly sink: FeedSink;
@@ -88,8 +140,9 @@ export function startBuildingLooks(
     options.loadFactions ?? ((signal) => loadWorldCities(signal).then((world) => world.factions));
   const controller = new AbortController();
   let buildings: readonly BuildingFootprint[] = [];
-  let looks = new Map<number, BuildingLook>();
-  let factions: readonly WorldMapFaction[] = [];
+  // 기억해 둔 겉모습으로 시작한다(넘어온 직후 — 조회가 오면 바꾼다)
+  let looks: ReadonlyMap<number, BuildingLook> = cachedLooks(mapKey);
+  let factions: readonly WorldMapFaction[] = factionsCache ?? [];
   let lastIds = "";
   let lastSignature = "";
   let settle: ReturnType<typeof setTimeout> | undefined;
@@ -111,6 +164,7 @@ export function startBuildingLooks(
       if (signature === lastSignature) return;
       lastSignature = signature;
       looks = new Map(response.buildings.map((row) => [row.buildingId, lookOf(row, factions)]));
+      rememberLooks(mapKey, looks);
       options.onLooks?.(response.buildings);
       push();
     } catch {
@@ -132,6 +186,7 @@ export function startBuildingLooks(
   void loadFactions(controller.signal)
     .then((list) => {
       factions = list;
+      factionsCache = list;
       lastSignature = "";
       if (!stopped) options.onFactions?.(list);
     })

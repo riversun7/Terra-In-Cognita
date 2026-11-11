@@ -7,6 +7,7 @@
 // 판이 보이는 그 2차맵 칸의 행성 값으로 숲이 보이면 벌목장, 높은 땅이면 광산, 따뜻하고 비가 오면 농장(문턱은 설정 칸 [임시]). 아무것도 맞지
 // 않으면 농장(식량 사슬 — 굶음 먼저, 532). 행성 값을 모르면(지형 서비스 없는 시험·개발) 셋 다(WP1 그대로). 레벨은 1.
 // 1차 생산 여섯 가지(docs/adr/2026-11-11-production-six.md): 약초원·목장·낚시터도 같은 표(SEED_GATHER)에 있고 수 출발값은 0이다.
+// 물가 조건(팩 needsWaterWithin, 질문 947 나 — 낚시터)이 있는 시설은 둘레에 물이 있는 자리만 고른다(플레이어 짓기와 같은 waterOk).
 // 멱등: 도시마다 그 세력이 가진 같은 시설 줄(도시 ID 같음) 수를 세어 모자란 것만 더한다(있는 것은 그대로 — 관리자가 지운 시설은 다음 켤 때
 // 다시 선다). 재료·작업·일꾼 없이 선다(세계를 차리는 일이라 원장을 거치지 않는다 — 확인 대기, docs/questions/2026-11-07-play-seed.md).
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
@@ -17,6 +18,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityCatalog } from "./catalog.ts";
 import type { FacilityService } from "./service.ts";
 import type { FacilityRecord } from "./state.ts";
+import { waterOk } from "./water.ts";
 
 /** 도시 가운데 빈 마당 반지름(칸): 이 네모 안에는 짓지 않는다(사이보그가 서고 휴먼이 모이는 곳) */
 export const SEED_PLAZA_RADIUS = 5;
@@ -160,8 +162,15 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
       if (record.cityId === city.id && map.buildingOwner(record.buildingId) === ownerId)
         have.set(record.facilityId, (have.get(record.facilityId) ?? 0) + 1);
 
-    /** 그 크기 건물을 놓을 첫 자리(가까운 고리부터): 마당 밖, 둘레 길까지 놓을 수 있고, 건물 가운데가 이 도시 자리 */
-    const spotFor = (width: number, height: number): { x: number; y: number } | undefined => {
+    /**
+     * 그 크기 건물을 놓을 첫 자리(가까운 고리부터): 마당 밖, 둘레 길까지 놓을 수 있고, 건물 가운데가 이 도시 자리. fits가 있으면 그 자리도
+     * 채워야 한다(물가 조건 — 플레이어 짓기와 같은 waterOk, 질문 947 나)
+     */
+    const spotFor = (
+      width: number,
+      height: number,
+      fits?: (x: number, y: number) => boolean,
+    ): { x: number; y: number } | undefined => {
       for (let r = SEED_PLAZA_RADIUS + 1; r <= SEED_SEARCH_RADIUS; r++) {
         for (const cell of ringCells(city.cellX, city.cellY, r)) {
           const x = cell.x - (width >> 1);
@@ -175,7 +184,7 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
             height: height + 2 * SEED_MARGIN,
             rotation: 0,
           } as const;
-          if (map.canPlace(margin)) return { x, y };
+          if (map.canPlace(margin) && (!fits || fits(x, y))) return { x, y };
         }
       }
       return undefined;
@@ -191,7 +200,7 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
       }
       const { width, height } = def.footprint;
       for (let k = 0; k < need; k++) {
-        const spot = spotFor(width, height);
+        const spot = spotFor(width, height, (x, y) => waterOk(map, def, x, y, 0));
         const result = spot ? map.placeBuilding({ ...spot, width, height, rotation: 0 }, ownerId) : undefined;
         if (!result?.ok || result.buildingId === undefined) {
           missing += need - k;

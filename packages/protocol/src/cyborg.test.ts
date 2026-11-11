@@ -134,8 +134,8 @@ describe("사이보그 만들기 메시지", () => {
     expect(decoded).toEqual(create);
   });
 
-  it("3D 외형 한 번 고르기(21, 질문 961 나): 외형만 싣는다. 모양이 틀리면 받지 않는다", () => {
-    expect(CYBORG_LOOK_PROTOCOL_VERSION).toBe(21);
+  it("3D 외형 한 번 고르기(22, 질문 961 나): 외형만 싣는다. 모양이 틀리면 받지 않는다", () => {
+    expect(CYBORG_LOOK_PROTOCOL_VERSION).toBe(22);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(CYBORG_LOOK_PROTOCOL_VERSION);
     expect(CYBORG_RESULT_CODES).toContain("look_locked");
     const look = {

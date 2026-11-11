@@ -6,7 +6,10 @@ import {
   GATHER_TIERS,
   type GatherBand,
   type RepairRule,
+  type GatherSubcategorySource,
   TEST_GATHER_BANDS,
+  gatherLadderKey,
+  gatherSubcategories,
   itemAsset,
 } from "@terra/sim";
 import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
@@ -23,6 +26,8 @@ export interface FacilityDef {
   readonly maxLevel: number;
   readonly slotsPerLevel: number;
   readonly footprint: { readonly width: number; readonly height: number } | undefined;
+  /** 물가 조건(배치 칸 반경, 팩 needsWaterWithin — 질문 947 나). 없으면 땅 조건 없음 */
+  readonly needsWaterWithin?: number | undefined;
   /** 레벨 1 최대 내구도(M15) */
   readonly durability: number;
   readonly storageKg: number | undefined;
@@ -49,10 +54,10 @@ export interface FacilityCatalog {
   /** 원장 물자(보유 물건이 아닌 아이템)인가 — 개발 시험 재료 받기 */
   isGoods(item: string): boolean;
   /**
-   * 채집 사다리: 중분류의 티어별 켜진 아이템 자산(item:<ID>, 팩 차례, 길이 10) — @terra/sim simulator/catalog.ts prepareCatalog와 같은 규칙
-   * (WP3 플레이어 생산, gatherWork.ts)
+   * 채집 사다리: 시설 채집 칸의 중분류들(주 + 함께 내는 것, 질문 946 나)의 티어별 켜진 아이템 자산(item:<ID>, 팩 차례, 길이 10) —
+   * @terra/sim simulator/catalog.ts prepareCatalog와 같은 규칙(WP3 플레이어 생산, gatherWork.ts)
    */
-  gatherLadder(subcategory: string): readonly (readonly string[])[];
+  gatherLadder(gather: GatherSubcategorySource): readonly (readonly string[])[];
   /** 채집 티어 확률표(팩 gather_tiers 실효 값, 없으면 시험 표 — 팩 core 값과 같다) */
   readonly gatherBands: readonly GatherBand[];
   /** 켜진 아이템 자산 → 묶음 크기(1이 아닌 것만, 광석 1kg = 1,000g) */
@@ -75,6 +80,7 @@ function defOf(entry: FacilityEntry): FacilityDef {
     maxLevel: entry.maxLevel ?? 5,
     slotsPerLevel: entry.slotsPerLevel,
     footprint: entry.footprint ? { width: entry.footprint.width, height: entry.footprint.height } : undefined,
+    ...(entry.needsWaterWithin === undefined ? {} : { needsWaterWithin: entry.needsWaterWithin }),
     durability: entry.durability ?? DEFAULT_FACILITY_DURABILITY,
     storageKg: entry.storageKg,
     look: cleanFacilityLook(entry.look),
@@ -97,6 +103,9 @@ function defOf(entry: FacilityEntry): FacilityDef {
           primary: entry.gather.primary,
           secondary: entry.gather.secondary,
           subcategory: entry.gather.subcategory.id,
+          ...(entry.gather.extraSubcategories
+            ? { extraSubcategories: entry.gather.extraSubcategories.map((sub) => sub.id) }
+            : {}),
           mode: entry.gather.mode,
           yieldBase: entry.gather.yieldBase,
           yieldPerStatPm: entry.gather.yieldPerStatPm,
@@ -153,14 +162,16 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
           item.use === undefined
         );
       },
-      gatherLadder(subcategory) {
-        const found = ladders.get(subcategory);
+      gatherLadder(gather) {
+        const key = gatherLadderKey(gather);
+        const found = ladders.get(key);
         if (found) return found;
+        const subs = new Set(gatherSubcategories(gather));
         const ladder = Array.from({ length: GATHER_TIERS }, (): string[] => []);
         for (const item of enabled)
-          if (item.subcategory?.id === subcategory)
+          if (item.subcategory !== undefined && subs.has(item.subcategory.id))
             ladder[Math.min(GATHER_TIERS - 1, item.tier)]?.push(itemAsset(item.id));
-        ladders.set(subcategory, ladder);
+        ladders.set(key, ladder);
         return ladder;
       },
       gatherBands:

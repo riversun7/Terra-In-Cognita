@@ -18,6 +18,7 @@ import {
   isMarketColorChoice,
   languageMarketColors,
 } from "./marketColors.ts";
+import { buildInfo } from "./buildInfo.ts";
 import { chooseMarketColors, chooseTheme, setFollowSystem, useSettings } from "./settings.ts";
 import "./settings.css";
 
@@ -125,6 +126,7 @@ function openWiki(): void {
 }
 
 export default function SettingsPage({ onClose }: { onClose: () => void }) {
+  const build = buildInfo(__APP_BUILD__, __APP_BUILD_NUMBER__);
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const { device, theme } = useSettings();
   const followId = useId();
@@ -181,12 +183,19 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
           {m.settings_help_open()}
         </button>
       </fieldset>
-      {/* 지금 이 기기가 쓰는 앱 빌드(배포 커밋 앞 12자, 개발 실행은 dev) — 고친 것이 안 보일 때 옛 버전인지 가린다
-          (사용자 지적 2026-11-10, docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-10)"). 새 버전 적용 규칙(pwa/updates.ts)은 그대로다 */}
+      {/* 지금 이 기기가 쓰는 앱 빌드 — 고친 것이 안 보일 때 옛 버전인지 가린다(사용자 지적 2026-11-10, docs/adr/2026-11-07-unit-control.md
+          "바뀜 (2026-11-10)"). 차례로 늘어나는 번호(CI 실행 번호)를 앞에, 커밋 앞자리를 괄호에(사용자 지적 2026-11-11, buildInfo.ts).
+          개발 실행은 dev. 새 버전 적용 규칙(pwa/updates.ts)은 그대로다 */}
       <fieldset className="settings-section">
         <legend className="section-title">{m.settings_about_legend()}</legend>
-        <p className="settings-build" data-build={__APP_BUILD__}>
-          {m.settings_about_build({ build: __APP_BUILD__ })}
+        <p
+          className="settings-build"
+          data-build={__APP_BUILD__}
+          data-build-number={build.number ?? undefined}
+        >
+          {build.number === null
+            ? m.settings_about_build({ build: build.build })
+            : m.settings_about_build_numbered({ number: build.number, build: build.build })}
         </p>
         <p className="setting-hint">{m.settings_about_hint()}</p>
       </fieldset>

@@ -99,6 +99,24 @@ export function placementCellM(input: Pick<TerrainInput, "cellSizeM">): number {
   return input.cellSizeM / PLACEMENT_PER_TERRAIN;
 }
 
+/** 땅 높이 범위(m) — 꼭짓점 높이의 가장 낮은 값·높은 값(누르기의 시선 ∩ 땅 범위) */
+export function heightRangeM(input: Pick<TerrainInput, "heights" | "baseHeightM">): {
+  minHeightM: number;
+  maxHeightM: number;
+} {
+  let low = Number.POSITIVE_INFINITY;
+  let high = Number.NEGATIVE_INFINITY;
+  for (const value of input.heights) {
+    if (value < low) low = value;
+    if (value > high) high = value;
+  }
+  if (low > high) return { minHeightM: input.baseHeightM, maxHeightM: input.baseHeightM };
+  return {
+    minHeightM: input.baseHeightM + low * HEIGHT_UNIT_M,
+    maxHeightM: input.baseHeightM + high * HEIGHT_UNIT_M,
+  };
+}
+
 /** 꼭짓점 (열, 행)의 높이(m). 범위 밖은 가장자리 값 */
 export function vertexHeightM(input: TerrainInput, col: number, row: number): number {
   const c = Math.min(TERRAIN_VERTICES - 1, Math.max(0, col));

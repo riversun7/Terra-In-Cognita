@@ -2,7 +2,7 @@
 import { MAP_PROP_ARTS } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import { PLACEMENT_CELLS } from "../terrain/terrainData.ts";
-import { buildPropTextureData, propLook, propTint } from "./propLook.ts";
+import { buildPropTextureData, propLook, propSalt, propTint } from "./propLook.ts";
 
 describe("소품 겉모습", () => {
   it("이름표의 그림마다 겉모습이 있고(none 제외), 모르는 번호는 없다", () => {
@@ -30,5 +30,18 @@ describe("소품 겉모습", () => {
     expect(data.length).toBe(size * 4);
     expect(data[300 * 4 + 3]).toBe(190);
     expect(data[3]).toBe(0);
+  });
+});
+
+describe("propSalt", () => {
+  it("같은 2차맵 이름이면 같은 값, 이름을 모르면 0, 작은 정수 범위", () => {
+    expect(propSalt(null)).toBe(0);
+    expect(propSalt("109927540457481")).toBe(propSalt("109927540457481"));
+    expect(propSalt("109927540457481")).not.toBe(propSalt("109929687941129"));
+    for (const id of ["a", "109927540457481", "east"]) {
+      expect(Number.isInteger(propSalt(id))).toBe(true);
+      expect(propSalt(id)).toBeGreaterThanOrEqual(0);
+      expect(propSalt(id)).toBeLessThan(4_096);
+    }
   });
 });

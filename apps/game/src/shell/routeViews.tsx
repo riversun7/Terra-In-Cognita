@@ -32,6 +32,7 @@ const StartScreen = lazy(() => import("../start/StartScreen.tsx"));
 const EconomyScreen = lazy(() => import("../economy/EconomyScreen.tsx"));
 // 세력 화면(D-439, 기획 46): 내 세력·도시·외교·전쟁·투표·지분. 규칙 전 칸은 곧 열림, dev·admin은 시안 자료
 const FactionScreen = lazy(() => import("../faction/FactionScreen.tsx"));
+const FactionIdentityScreen = lazy(() => import("../faction/identity/FactionIdentityScreen.tsx"));
 // 랭킹 화면(docs/adr/2026-11-07-ranking.md): 경로 판·세력 판. 메뉴가 아니라 사이보그·세력 화면 안에서 연다(D-6010)
 const RankingScreen = lazy(() => import("../ranking/RankingScreen.tsx"));
 // 우편 화면(D-270): 받은·보낸 우편, 쓰기(칸 검사만, 보내기는 곧 열림)
@@ -102,6 +103,7 @@ export const ROUTE_TITLES = {
   cyborg: m.nav_cyborg,
   cyborg_ranking: m.ranking_title,
   faction_ranking: m.ranking_title,
+  faction_identity: m.fid_title_create,
   inbox: m.shell_route_inbox,
   mail: m.shell_mail,
   settings: m.settings_title,
@@ -269,6 +271,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <BattleReplayLabScreen onClose={goBack} />;
     case "faction":
       return <FactionScreen />;
+    case "faction_identity":
+      return <FactionIdentityScreen />;
     case "mail":
       return <MailScreen />;
     case "units":

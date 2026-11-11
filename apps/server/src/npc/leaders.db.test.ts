@@ -5,6 +5,7 @@
 // 3. 세력 화면 실제 자료가 지도자 유닛을 읽고(leader_unit), 팩 이름을 붙인다.
 // 4. (WP-NPC2) 시험 봇은 시험 2차맵 줄에만 서고, 시작 도시 휴먼은 처음 인구 규칙(주거 40 × 750‰ = 30)으로 서며, 정부 판에 자동 시장이 보인다.
 // 5. (WP-NPC4) 처음 인구 휴먼도 스탯(774 나)·이름(773 나 — 그 나라 팩 목록)을 받는다.
+import { legacyNationPresets } from "../world/testSupport.ts";
 import { loadContentPack } from "@terra/content/node";
 import { decodeCellKey, parseCellKey } from "@terra/planet";
 import type { PlanetCellValues } from "@terra/planet/secondMap";
@@ -25,7 +26,8 @@ import { nationPresetsOf } from "./presets.ts";
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
-const presets = nationPresetsOf(loaded.pack);
+// 옛 규칙(등급 없음, 성격 칸 도시 수 4·3·2)을 보는 시험이다 — 국력 등급 씨앗은 world/nationTiers.db.test.ts
+const presets = legacyNationPresets(nationPresetsOf(loaded.pack));
 
 /** 가짜 행성 값: 면 5는 바다, 나머지는 풀밭(15°C·강수 400mm·숲 없음·고도 120m) */
 function cellValues(mapKey: number): PlanetCellValues {

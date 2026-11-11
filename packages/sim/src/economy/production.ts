@@ -31,7 +31,8 @@ export interface RecipeSpec {
   /** 산출 가운데 가장 높은 티어 */
   readonly tier: number;
   /**
-   * 채집 티어 추첨(D-506): 있으면 산출(outputs)은 대표값이고, 한 번 돌릴 때마다 lots개 묶음의 티어를 그 중분류 사다리에서 뽑는다
+   * 채집 티어 추첨(D-506): 있으면 산출(outputs)은 대표값이고, 한 번 돌릴 때마다 lots개 묶음의 티어를 그 사다리에서 뽑는다.
+   * subcategory = 사다리 키(gatherLadderKey: 중분류 하나면 그 ID, 여럿이면 "+"로 이음 — 질문 946 나)
    * (gather.ts rollGatherOutputs). mode "select"(농장·목장 선택 + 효율, 49 P8)면 뽑지 않고 일꾼 해금 티어에서 고른다. 없으면 산출 그대로
    */
   readonly gather?:

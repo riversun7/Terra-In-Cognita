@@ -2,6 +2,7 @@
 // 가짜 시계로 짓기(재료 빼기·일꾼 단축·끝)·노화(30% 멈춤·사용 닳음)·30% 미만 생산 멈춤·수리·장비 수리·다시 켠 뒤 복구를 본다.
 // "바뀜 (창고·직무)": 재료 자리(도시 창고·창고 시설·화물만), 창고 시설 넣기·꺼내기·용량, 사라진 창고의 물건, 작업 동안 직무 산출 없음.
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
+import { waterMaskFromHex } from "@terra/shared/waterNearby";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { UPKEEP_PERIOD_MS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -12,7 +13,9 @@ import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { facilityScreenSourceOf } from "./appSource.ts";
 import { goodsAsset, goodsStock, grantGoods } from "./materials.ts";
+import { createFacilityScreenServices } from "./screen.ts";
 import { facilitiesOverview } from "./views.ts";
+import { waterOk } from "./water.ts";
 import { TEST_FACILITY_SOURCE } from "./testFacilities.ts";
 
 const HOUR = 3_600_000;
@@ -463,5 +466,74 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     expect(p.ledger.balanceOf(a.ownerId, pine, cityLocation(cityId))).toBe(8n);
     await p.writer.durable();
     expect(await world.checkInvariants()).toEqual([]);
+  });
+});
+
+describe.skipIf(!TEST_DATABASE_URL)("물가 조건(질문 947 나, 팩 낚시터 needsWaterWithin 5)", () => {
+  it("물에서 먼 자리는 needs_water(재료·칸 그대로), 물가 자리는 짓는다. 화면 물 표 = 서버 물 표", async () => {
+    const world = await boot();
+    const p = persistence(world);
+    const service = p.facilities.service;
+    const a = await setup(world, "angler", 1, {});
+    const fishing = p.facilities.catalog().facility("fishing_spot");
+    if (!fishing) throw new Error("no fishing_spot");
+    // 놓을 수 있는(빈 땅) 3×3 자리 가운데 물가인 첫 자리·물이 먼 첫 자리(시험 2차맵 S1 임시 지형에는 물이 있다)
+    let wet: { x: number; y: number } | undefined;
+    let dry: { x: number; y: number } | undefined;
+    for (let y = 8; y < 248 && (!wet || !dry); y += 3)
+      for (let x = 8; x < 248 && (!wet || !dry); x += 3) {
+        if (!a.map.canPlace({ x, y, width: 3, height: 3, rotation: 0 })) continue;
+        if (waterOk(a.map, fishing, x, y, 0)) wet ??= { x, y };
+        else dry ??= { x, y };
+      }
+    if (!wet || !dry) throw new Error(`spots not found: ${JSON.stringify({ wet, dry })}`);
+    // 재료는 물가 자리가 속한 도시 창고(또는 내 유닛 화물)로 — 짓는 자리의 재료 규칙(D-516 361)
+    for (const [item, qty] of [
+      ["pine_log", 40],
+      ["stone", 20],
+    ] as const)
+      expect(await service.devFacilityGrant(a.userId, item, qty, { mapKey: a.map.mapKey, ...wet })).toEqual({
+        ok: true,
+      });
+    const buildings = () => {
+      let count = 0;
+      a.map.forEachBuilding(() => {
+        count += 1;
+      });
+      return count;
+    };
+    const before = buildings();
+    expect(
+      await service.build(a.userId, { mapKey: a.map.mapKey, facility: "fishing_spot", ...dry, rotation: 0 }),
+    ).toEqual({ ok: false, code: "needs_water" });
+    expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(40n);
+    expect(goodsStock(p.ledger, a.ownerId, "stone")).toBe(20n);
+    expect(buildings()).toBe(before);
+    const built = await service.build(a.userId, {
+      mapKey: a.map.mapKey,
+      facility: "fishing_spot",
+      ...wet,
+      rotation: 0,
+    });
+    expect(built).toMatchObject({ ok: true, buildingId: expect.any(Number) });
+    expect(buildings()).toBe(before + 1);
+    // 화면 조회(facilities.waterMask)는 같은 물 표를 16진수로 준다 — 짓기 폼이 같은 함수로 미리 본다
+    const screen = createFacilityScreenServices(() => facilityScreenSourceOf(world));
+    const view = screen.waterMask(a.map.mapKey);
+    expect(view.status).toBe("ready");
+    if (view.status === "ready") {
+      const mask = waterMaskFromHex(view.hex, view.size);
+      expect(mask).toEqual(a.map.waterMask());
+    }
+    expect(screen.waterMask(999_999).status).toBe("unknown_map");
+    const source = facilityScreenSourceOf(world);
+    if (!source) throw new Error("no source");
+    const overview = facilitiesOverview(
+      source.view,
+      { userId: a.userId, ownerId: a.ownerId, nowMs: clock, dev: false },
+      [],
+    );
+    expect(overview.catalog.find((entry) => entry.id === "fishing_spot")?.needsWaterWithin).toBe(5);
+    expect(overview.catalog.find((entry) => entry.id === "farm")?.needsWaterWithin).toBeNull();
   });
 });

@@ -18,12 +18,14 @@ import type {
 import {
   GATHER_TIERS,
   type GatherBand,
+  type GatherSubcategorySource,
   accessibleTier,
   gatherBandIndex,
   gatherCatchPm,
   gatherChancesPm,
   gatherProgress,
   gatherStat,
+  gatherSubcategories,
   gatherYield,
   tierRequiredProgress,
 } from "@terra/shared/gatherMath";
@@ -167,6 +169,9 @@ export function withGather(entry: FacilityJson, patch: Partial<FacilityGatherJso
     primary: merged.primary,
     secondary: merged.secondary,
     subcategory: merged.subcategory,
+    ...(merged.extraSubcategories === undefined || merged.extraSubcategories.length === 0
+      ? {}
+      : { extraSubcategories: merged.extraSubcategories }),
     ...(merged.mode === undefined ? {} : { mode: merged.mode }),
     ...(merged.yieldBase === undefined ? {} : { yieldBase: merged.yieldBase }),
     ...(merged.yieldPerStatPm === undefined ? {} : { yieldPerStatPm: merged.yieldPerStatPm }),
@@ -219,14 +224,18 @@ export function processRows(facilities: readonly BuildingEditorFacility[]): Buil
   return facilities.filter((row) => ["process", "part", "finish"].includes(row.entry.stage));
 }
 
-/** 사다리: 그 중분류의 켜진 아이템을 티어마다(목록 차례, 길이 10) */
+/**
+ * 사다리: 채집 칸의 중분류들(주 + 함께 내는 것, 질문 946 나)의 켜진 아이템을 티어마다(목록 차례, 길이 10) — 시뮬·서버 사다리와 같은 규칙
+ * (@terra/shared/gatherMath gatherSubcategories)
+ */
 export function ladderOf(
   items: readonly BuildingEditorItem[],
-  subcategory: string,
+  gather: GatherSubcategorySource,
 ): readonly (readonly BuildingEditorItem[])[] {
+  const subs = new Set(gatherSubcategories(gather));
   const ladder = Array.from({ length: GATHER_TIERS }, (): BuildingEditorItem[] => []);
   for (const item of items)
-    if (item.enabled && item.subcategory === subcategory)
+    if (item.enabled && item.subcategory !== null && subs.has(item.subcategory))
       ladder[Math.min(GATHER_TIERS - 1, Math.max(0, item.tier))]?.push(item);
   return ladder;
 }

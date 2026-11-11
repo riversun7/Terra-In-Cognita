@@ -77,7 +77,7 @@ import { humanNameOf } from "./humanNames.ts";
 import { createHumanPlaces } from "./humanPlaces.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
-import { type NationPreset, nationPresetOf, nationSeedOf } from "./nations.ts";
+import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
 import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
@@ -147,6 +147,21 @@ export interface NpcRuntimeOptions {
   readonly onCapitalMoved?:
     | ((owner: number, capital: { id: number; mapKey: number; cellX: number; cellY: number }) => void)
     | undefined;
+  /**
+   * 국력 등급 분포를 이미 선 세계에 반영하라는 요청이 든 부팅(world/tierApply.ts — 세계 배치 화면의 운영자 동작): 고정 국가의 이미 인구를 채운
+   * 시작 도시도 등급 값까지 주거·휴먼·경비대를 더한다(모자란 만큼만, 지우지 않는다). 없으면 새 시작 도시만 채운다
+   */
+  readonly tierApply?: boolean | undefined;
+}
+
+/** 켤 때 세운 것(국력 등급 씨앗 — 요청 결과 기록·시험이 본다) */
+export interface NpcSeedReport {
+  /** 처음 인구로 세운 휴먼(경비대 빼고) */
+  readonly humans: number;
+  /** 세운 경비대 */
+  readonly guards: number;
+  /** 등급 반영 요청으로 주거를 올린 도시 수 */
+  readonly housingRaised: number;
 }
 
 export interface NpcRuntime {
@@ -173,6 +188,8 @@ export interface NpcRuntime {
   capitalOf(owner: number): number | undefined;
   /** 지난 호출 뒤 구간의 지표(서버 1분 지표 한 줄에 붙인다) */
   takeMetrics(): Record<string, number>;
+  /** 켤 때 세운 휴먼·경비대(국력 등급 씨앗) */
+  readonly seedReport: NpcSeedReport;
   stop(): void;
 }
 /**
@@ -350,6 +367,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       lifespanMs: row.lifespanMs,
       rebirths: row.rebirths,
       recruit: recruitOf(row),
+      ...(row.guard ? { guard: true } : {}),
     });
   }
   let nextCity = state.maxCityId;
@@ -468,29 +486,53 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   const people = createCityPeople({ world, writer, rows: state.cities });
   const cityDay = createCityDayStore({ writer, rows: state.cities });
   let seededHumans = 0;
+  let seededGuards = 0;
+  let housingRaised = 0;
+  const seedPresets = o.presets ?? presets;
+  /** 세력의 자기 국가 프리셋(고정 국가 — 세력 코드 = 프리셋). 반란·마을 세력은 undefined */
+  const ownPresetOf = (owner: number): NationPreset | undefined => {
+    const faction = factions.get(owner);
+    return faction?.fixed ? presetOfCode(faction.code, seedPresets) : undefined;
+  };
+  const spawn = (cityId: number, guard: boolean): void => {
+    const unitId = o.nextUnitId();
+    const rng = streamRng(seed, STREAM_SOCIETY, unitId, 0);
+    const life = lifespanMs(rng.nextInt(10_000), c);
+    human(unitId, cityId, {
+      lifespanMs: life,
+      bornAtMs: startMs - Math.floor((life * rng.nextInt(10_000)) / 10_000),
+      ...(guard ? { guard: true } : {}),
+    });
+    if (guard) seededGuards += 1;
+    else seededHumans += 1;
+  };
   for (const city of [...cities.values()].toSorted((a, b) => a.id - b.id)) {
-    if (!people.needsSeed(city.id)) continue;
-    // 처음 인구 몫은 그 도시 주인이 따르는 나라 프리셋 성격 칸이 먼저, 없으면 설정 칸(docs/adr/2026-11-10-nation-editor.md 2절)
-    const citySeed = nationSeedOf(
-      c.worldSeed,
-      nationPresetOf(city.owner, nationLinkOf, o.presets ?? presets)?.personality,
-    );
-    const target = seedPopulationOf(city.housing, citySeed.populationPm);
-    // 비율이 0이면(시험 계수표) 채운 것으로 치지 않는다 — 나중에 칸을 켜면 그때 채운다
-    if (target === 0) continue;
-    let have = 0;
-    for (const unit of units.values()) if (unit.city === city.id) have += 1;
-    for (let n = have; n < target; n++) {
-      const unitId = o.nextUnitId();
-      const rng = streamRng(seed, STREAM_SOCIETY, unitId, 0);
-      const life = lifespanMs(rng.nextInt(10_000), c);
-      human(unitId, city.id, {
-        lifespanMs: life,
-        bornAtMs: startMs - Math.floor((life * rng.nextInt(10_000)) / 10_000),
-      });
-      seededHumans += 1;
+    const first = people.needsSeed(city.id);
+    // 등급 반영 요청(tierApply): 고정 국가의 이미 채운 시작 도시도 등급 값까지 더한다(자기 프리셋이 있는 국가만 — 반란·점령으로 주인이 바뀐
+    // 도시는 건드리지 않는다)
+    const topUp = !first && o.tierApply === true && city.start && ownPresetOf(city.owner)?.tier !== undefined;
+    if (!first && !topUp) continue;
+    // 처음 인구 몫·경비대 수: 그 도시 주인이 따르는 나라 프리셋 성격 칸 → 국력 등급 표 → 설정 칸
+    // (docs/adr/2026-11-10-nation-editor.md 2절·"바뀜 (2026-11-11)")
+    const start = nationStartOf(c.worldSeed, nationPresetOf(city.owner, nationLinkOf, seedPresets));
+    if (topUp && start.housing > city.housing) {
+      city.housing = start.housing;
+      housingRaised += 1;
     }
-    people.markSeeded(city.id, startMs);
+    const target = seedPopulationOf(city.housing, start.populationPm);
+    // 비율이 0이면(시험 계수표) 채운 것으로 치지 않는다 — 나중에 칸을 켜면 그때 채운다
+    if (target === 0 && start.guardsPerCity === 0) continue;
+    let have = 0;
+    let guards = 0;
+    for (const unit of units.values()) {
+      if (unit.city !== city.id) continue;
+      if (unit.guard === true) guards += 1;
+      else have += 1;
+    }
+    for (let n = have; n < target; n++) spawn(city.id, false);
+    // 경비대(등급 씨앗): 시작 도시 하나에 정해진 수(처음 인구와 따로 센다). 처음 저장이 휴먼과 같은 길로 도시 둘레에 세운다
+    for (let n = guards; n < start.guardsPerCity; n++) spawn(city.id, true);
+    if (first && target > 0) people.markSeeded(city.id, startMs);
   }
   // 처음부터 있던 휴먼의 스탯·속성(774 나): 저장된 스탯이 없는 휴먼(처음 인구·옛 봇 휴먼 — NAS 세계 포함)만 그 도시 행정 레벨 구인 카드 규칙으로
   // (세계 시드, 유닛 ID)에서 굴린다. 결정적이고 지우는 것은 없다. 나이·수명은 이미 저장돼 있다(world_humans 칸이 not null). 바뀐 휴먼은 처음 저장이
@@ -512,12 +554,17 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   for (const faction of factions.values()) {
     if (!faction.fixed) continue;
     if ([...ledger.accounts()].some((a) => a.ownerId === faction.id && a.asset === ASSET_CREDIT)) continue;
+    // 처음 국고 = 고정 국가 처음 화폐 × 국력 등급 천분율(등급이 없으면 1000‰ — 옛 값 그대로)
+    const credit =
+      (NPC_START_CREDIT *
+        BigInt(nationStartOf(c.worldSeed, presetOfCode(faction.code, seedPresets)).creditPm)) /
+      1000n;
     ledger.post({
       kind: "issue",
       atMs: startMs,
       entries: [
-        { account: ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT), amount: -NPC_START_CREDIT },
-        { account: ledger.ownerAccount(faction.id, ASSET_CREDIT), amount: NPC_START_CREDIT },
+        { account: ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT), amount: -credit },
+        { account: ledger.ownerAccount(faction.id, ASSET_CREDIT), amount: credit },
       ],
     });
   }
@@ -756,6 +803,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       humans: units.size,
       adopted,
       seededHumans,
+      seededGuards,
+      housingRaised,
       foundedStats,
       day: society.currentDay(),
       writes: first.rows,
@@ -801,6 +850,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
 
   return {
     tick,
+    seedReport: { humans: seededHumans, guards: seededGuards, housingRaised },
     world,
     places: persist.places,
     society,

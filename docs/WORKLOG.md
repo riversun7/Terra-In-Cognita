@@ -5,9 +5,13 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-11 19:50 | 목장 사다리 중분류 여럿·낚시터 물가 조건(질문 946 나·947 나) | Claude Code | [11-1950-production-six-2](worklog/2026/11/11-1950-production-six-2.md) |
 | 2026-11-11 18:54 | 캐릭터 3D 외형 — 로우폴리 부위 조립, 만들기 3D 미리 보기, 2차맵 유닛 모델 | Claude Code | [11-1854-character-3d](worklog/2026/11/11-1854-character-3d.md) |
+| 2026-11-11 18:30 | 걸어서 2차맵 넘기를 끊김 없이(확대 그대로·안내 없음·유닛·건물 이어 보이기) + 빌드 차례 번호 | Claude Code | [11-1830-map-seamless-2](worklog/2026/11/11-1830-map-seamless-2.md) |
+| 2026-11-11 17:45 | 국력 등급(NPC 국가의 고르지 않은 힘 분포) — 등급 표·경비대·등급 배치·이미 선 세계에 반영·랜덤 국가 추가 | Claude Code | [11-1745-nation-power](worklog/2026/11/11-1745-nation-power.md) |
 | 2026-11-11 17:00 | 1차 생산 여섯 가지·생산 편집기·유닛 추천(생산 직군·전투 클래스) | Claude Code | [11-1700-production-six](worklog/2026/11/11-1700-production-six.md) |
 | 2026-11-11 17:00 | 행성 범위: 편집기·모니터링의 범위 줄과 행성 고르기 | Claude Code | [11-1700-planet-scope](worklog/2026/11/11-1700-planet-scope.md) |
+| 2026-11-11 17:00 | 플레이어 세력 정체성 — NPC 국가와 같은 만들기 과정(이름·약어·색·마크), 그림 올리기(자른 256 × 256만), 운영자 마크 관리 | Claude Code | [11-1700-faction-identity](worklog/2026/11/11-1700-faction-identity.md) |
 | 2026-11-11 09:30 | 묶음 합치기: 시작 국가 설정 편집기·편집기 입력 도구·남의 유닛 누르기 2 | Claude Code | [11-0930-nations-inputs-tap-merge](worklog/2026/11/11-0930-nations-inputs-tap-merge.md) |
 | 2026-11-10 23:50 | 시작 국가 설정 편집기(/dev/nations) — 가상 이름·이름 만들기, 국가 마크(만들기·올리기·자르기), 국가마다 씨앗 값, 이 세계에 반영 | Claude Code | [10-2350-nation-editor](worklog/2026/11/10-2350-nation-editor.md) |
 | 2026-11-10 22:30 | 2차맵 남의 유닛 누르기 2 — 운영자 모드도 작은 창만, 남의 유닛은 몸 위만 걸림, 땅 누르기 = 내 유닛 | Claude Code | [10-2230-map-tap-2](worklog/2026/11/10-2230-map-tap-2.md) |

@@ -4,6 +4,8 @@
 // 바뀜(기획 답 630~637, docs/adr/2026-11-07-unit-control.md "바뀜 (기획 답 630~637)"): 다른 곳 내 유닛 수(632 다), 카메라 범위(630 — 내 유닛·건물
 // 둘레), 남의 유닛 한눈 정보(636 나 — 시야 안이면 세력·종류, tRPC world.unitGlance). 목록 차례(637 나)는 기기가 유닛 화면 규칙으로 정한다.
 import type { CharacterLook } from "./characterLook.ts";
+import type { NationEmblemView } from "./nationEditor.ts";
+import type { NationEmblemSpec } from "./nationEmblem.ts";
 import type { LocalizedName, PrimaryStat, RosterJob } from "./roster.ts";
 
 /** 목록 한 줄의 종류: 사이보그 본체(플레이어 하나에 하나) + 보유 유닛 종류(roster UnitType 중 세계에 있는 것) */
@@ -75,6 +77,16 @@ export interface MapViewArea {
   readonly buildings: readonly { readonly x: number; readonly y: number }[];
 }
 
+/** 유닛 주인(유저)이 정한 세력 정체성 — 한눈 정보의 주인 줄 */
+export interface MapUnitOwnerIdentity {
+  readonly name: string;
+  readonly shortName: string;
+  readonly color: string;
+  readonly emblem: NationEmblemSpec;
+  /** 올린 그림 해시(있으면 그림이 먼저) */
+  readonly uploaded: string | null;
+}
+
 /** 남의 유닛을 눌렀을 때의 한눈 정보(636 나): 지금 내 시야 안일 때만. 세력이 없으면(무소속 유저) faction null */
 export interface MapUnitGlance {
   readonly unitId: number;
@@ -85,7 +97,14 @@ export interface MapUnitGlance {
     readonly kind: "npc" | "player";
     /** 화면 이름(팩 국가 프리셋 등). 없으면 null(기기는 "세력 #ID") */
     readonly name: LocalizedName | null;
+    /** 국가 마크(팩 국가 프리셋의 만든 마크 + 이 세계에 올린 그림). 프리셋이 없는 세력이면 null·없음 */
+    readonly emblem?: NationEmblemView | null;
   } | null;
+  /**
+   * 유저 유닛이면 그 주인이 정한 세력 정체성(이름·약어·색·마크 — docs/adr/2026-11-11-faction-identity.md). 정하지 않았거나 NPC 유닛이면
+   * null·없음
+   */
+  readonly owner?: MapUnitOwnerIdentity | null;
   /** 유닛 이름(NPC 국가 지도자면 팩 국가 프리셋 leaderName). 없으면 null·없음(기기는 "종류 #번호") */
   readonly name?: LocalizedName | null;
 }

@@ -1,0 +1,372 @@
+// 세력 정체성 정하기 단계 — 세력을 만들 때 NPC 국가와 같은 과정으로 이름·약어·시그니처 컬러·마크를 정한다(사용자 결정 2026-11-11).
+// 다시 쓸 수 있는 한 단계다: 조회 결과(mine)를 받아 초안을 고치고, [정하기]를 누르면 네 가지를 한 요청으로 보낸다(하나라도 틀리면 아무것도
+// 바뀌지 않는다 — 건너뛰기·기본값으로 끝내기는 없다). 지금은 /faction/identity 화면이 쓰고, 세력 창설 흐름이 생기면 그 안에 넣는다.
+// - 이름·약어: 기기가 같은 규칙 함수로 바로 안내하고(@terra/shared/factionIdentity), 겹치는지는 서버에 묻는다(잠깐 멈추면 확인).
+// - [이름 만들기]: NPC 국가와 같은 이름 만들기의 후보. 고르면 약어 후보도 같이 바뀐다.
+// - 색: 지도에서 읽기 쉬운 색 20개. 마크: IdentityEmblemField.
+// - 맨 위 "게임에서 보이는 모습"이 고칠 때마다 바뀐다.
+import {
+  FACTION_IDENTITY_COLORS,
+  type FactionIdentityCheck,
+  type FactionIdentityMine,
+} from "@terra/shared/factionIdentity";
+import { CYBORG_NAME_MAX_UNITS, cyborgNameUnits } from "@terra/shared/cyborg";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { refreshSession } from "../../auth/session.ts";
+import { apiErrorInfo } from "../../net/apiErrors.ts";
+import { m } from "../../paraglide/messages.js";
+import { getLocale } from "../../paraglide/runtime.js";
+import { dateText } from "../../sections/screenText.ts";
+import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
+import { StatusIcon } from "../../ui/StatusIcon.tsx";
+import { text } from "../../ui/text.ts";
+import { IdentityEmblemField } from "./IdentityEmblemField.tsx";
+import { IdentityPreview } from "./IdentityPreview.tsx";
+import {
+  type IdentityDraft,
+  type IdentityField,
+  draftOf,
+  draftProblems,
+  fieldOfReason,
+  inputOf,
+  isChanged,
+  liveProblems,
+  nameSuggestions,
+  shortSuggestions,
+} from "./identityModel.ts";
+import { checkIdentity, saveIdentity } from "./identityQueries.ts";
+import {
+  isNameProblem,
+  isShortProblem,
+  nameProblemText,
+  reasonText,
+  rejectionOf,
+  shortProblemText,
+} from "./identityText.ts";
+
+/** 치기를 멈춘 뒤 서버에 겹침을 묻기까지 */
+const CHECK_DELAY_MS = 450;
+
+type Availability =
+  | { readonly kind: "idle" }
+  | { readonly kind: "checking" }
+  | { readonly kind: "done"; readonly result: FactionIdentityCheck };
+
+/** 이름·약어가 겹치는지 서버에 묻는다(치기를 멈추면). 글자 규칙에 걸린 칸은 묻지 않는다 */
+function useAvailability(name: string, shortName: string, enabled: boolean): Availability {
+  const [state, setState] = useState<{ key: string; value: Availability }>({
+    key: "",
+    value: { kind: "idle" },
+  });
+  const key = `${name}\n${shortName}`;
+  useEffect(() => {
+    if (!enabled || (name === "" && shortName === "")) return undefined;
+    const control = new AbortController();
+    const timer = setTimeout(() => {
+      setState({ key, value: { kind: "checking" } });
+      checkIdentity(name, shortName, control.signal).then(
+        (result) => {
+          if (!control.signal.aborted) setState({ key, value: { kind: "done", result } });
+        },
+        () => {
+          if (!control.signal.aborted) setState({ key, value: { kind: "idle" } });
+        },
+      );
+    }, CHECK_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+      control.abort();
+    };
+  }, [name, shortName, key, enabled]);
+  return state.key === key ? state.value : { kind: "idle" };
+}
+
+function FieldError({ id, message }: { id: string; message: string | null }) {
+  return (
+    <p id={id} className="field-error fid-field-error" role="status">
+      {message === null ? null : (
+        <>
+          <StatusIcon tone="error" />
+          <span>{message}</span>
+        </>
+      )}
+    </p>
+  );
+}
+
+export function IdentityStep({
+  mine,
+  onSaved,
+  onCancel,
+}: {
+  mine: FactionIdentityMine;
+  /** 저장이 끝났다(새 조회 결과) */
+  onSaved: (next: FactionIdentityMine) => void;
+  onCancel: () => void;
+}) {
+  const id = useId();
+  const creating = mine.identity === null;
+  const [draft, setDraft] = useState<IdentityDraft>(() => draftOf(mine));
+  /** 이름 만들기 차례(null = 닫힘)와 고른 후보의 로마자 이름(약어 후보용) */
+  const [nameRound, setNameRound] = useState<number | null>(null);
+  const [pickedEnglish, setPickedEnglish] = useState<string | undefined>(undefined);
+  const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [serverError, setServerError] = useState<{ field: IdentityField; message: string } | null>(null);
+  const failure = useLiveLines();
+  const nameRef = useRef<HTMLInputElement>(null);
+  const shortRef = useRef<HTMLInputElement>(null);
+
+  const renameLocked = mine.renameAt !== null;
+  const typed = submitted ? draftProblems(draft) : liveProblems(draft);
+  const nameTrim = draft.name.trim();
+  const shortTrim = draft.shortName.trim();
+  const local = draftProblems(draft);
+  const availability = useAvailability(
+    local.name === null ? nameTrim : "",
+    local.shortName === null ? shortTrim : "",
+    !renameLocked,
+  );
+  const taken = availability.kind === "done" ? availability.result : null;
+  const nameProblem = typed.name ?? (taken?.name === "taken" ? "taken" : null);
+  const shortProblem = typed.shortName ?? (taken?.shortName === "taken" ? "taken" : null);
+  const serverFor = (field: IdentityField): string | null =>
+    serverError?.field === field ? serverError.message : null;
+  const nameMessage = serverFor("name") ?? (nameProblem === null ? null : nameProblemText(nameProblem));
+  const shortMessage =
+    serverFor("shortName") ?? (shortProblem === null ? null : shortProblemText(shortProblem));
+  const units = Math.min(cyborgNameUnits(nameTrim), 99);
+  const names = nameRound === null ? [] : nameSuggestions(mine.seed, nameRound, getLocale());
+  const shorts = renameLocked ? [] : shortSuggestions(nameTrim, pickedEnglish);
+  const changed = isChanged(draft, mine);
+
+  const edit = (next: IdentityDraft): void => {
+    setDraft(next);
+    if (serverError) setServerError(null);
+  };
+
+  const submit = async (event: FormEvent): Promise<void> => {
+    event.preventDefault();
+    if (saving) return;
+    setSubmitted(true);
+    failure.clear();
+    const problems = draftProblems(draft);
+    if (problems.name !== null) {
+      nameRef.current?.focus();
+      return;
+    }
+    if (problems.shortName !== null) {
+      shortRef.current?.focus();
+      return;
+    }
+    if (!changed) {
+      failure.show([m.fid_unchanged()]);
+      return;
+    }
+    setSaving(true);
+    try {
+      onSaved(await saveIdentity(inputOf(draft)));
+    } catch (error) {
+      const { reason, details } = rejectionOf(error);
+      if (reason === null) {
+        const info = apiErrorInfo(error);
+        if (info.sessionEnded) void refreshSession();
+        failure.show([m.fid_error_failed(), text({ key: info.key })]);
+      } else {
+        const field = fieldOfReason(reason);
+        const detail = details[0];
+        let message = reasonText(reason);
+        if (reason === "name_invalid" && detail !== undefined && isNameProblem(detail))
+          message = nameProblemText(detail);
+        if (reason === "short_invalid" && detail !== undefined && isShortProblem(detail))
+          message = shortProblemText(detail);
+        setServerError({ field, message });
+        if (field === "name") nameRef.current?.focus();
+        else if (field === "shortName") shortRef.current?.focus();
+        else if (field === "form" || field === "color") failure.show([message]);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form
+      className="fid-step"
+      onSubmit={(event) => void submit(event)}
+      noValidate
+      data-mode={creating ? "create" : "edit"}
+    >
+      <p className="fid-lead">{m.fid_lead()}</p>
+      <IdentityPreview draft={draft} />
+
+      <div className="fid-group">
+        <div className="field">
+          <label className="field-label" htmlFor={`${id}-name`}>
+            {m.fid_name_label()}
+          </label>
+          <p id={`${id}-name-hint`} className="field-hint">
+            {m.fid_name_hint()}{" "}
+            <span className="fid-count">
+              {m.start_name_count({ used: String(units), max: String(CYBORG_NAME_MAX_UNITS) })}
+            </span>
+          </p>
+          <input
+            ref={nameRef}
+            id={`${id}-name`}
+            className="input fid-name-input"
+            value={draft.name}
+            onChange={(event) => {
+              setPickedEnglish(undefined);
+              edit({ ...draft, name: event.target.value });
+            }}
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            maxLength={32}
+            readOnly={renameLocked}
+            aria-invalid={nameMessage !== null}
+            aria-describedby={`${id}-name-hint ${id}-name-error`}
+          />
+          <FieldError id={`${id}-name-error`} message={nameMessage} />
+          {renameLocked ? null : (
+            <div className="fid-namegen">
+              <button
+                type="button"
+                className="button-small fid-namegen-open"
+                aria-expanded={nameRound !== null}
+                onClick={() => setNameRound(nameRound === null ? 0 : null)}
+              >
+                {m.fid_namegen_open()}
+              </button>
+              {nameRound === null ? null : (
+                <div className="fid-namegen-panel" role="group" aria-label={m.fid_namegen_open()}>
+                  <ul className="fid-chips">
+                    {names.map((name) => (
+                      <li key={name.en}>
+                        <button
+                          type="button"
+                          className="fid-chip fid-namegen-pick"
+                          translate="no"
+                          onClick={() => {
+                            setPickedEnglish(name.en);
+                            edit({ ...draft, name: name.text });
+                          }}
+                        >
+                          {name.text}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className="button-small fid-namegen-more"
+                    onClick={() => setNameRound(nameRound + 1)}
+                  >
+                    {m.fid_namegen_more()}
+                  </button>
+                  <p className="field-hint">{m.fid_namegen_note()}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="field">
+          <label className="field-label" htmlFor={`${id}-short`}>
+            {m.fid_short_label()}
+          </label>
+          <p id={`${id}-short-hint`} className="field-hint">
+            {m.fid_short_hint()}
+          </p>
+          <input
+            ref={shortRef}
+            id={`${id}-short`}
+            className="input fid-short-input"
+            value={draft.shortName}
+            onChange={(event) => edit({ ...draft, shortName: event.target.value })}
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            maxLength={8}
+            readOnly={renameLocked}
+            aria-invalid={shortMessage !== null}
+            aria-describedby={`${id}-short-hint ${id}-short-error`}
+          />
+          <FieldError id={`${id}-short-error`} message={shortMessage} />
+          {shorts.length === 0 ? null : (
+            <div className="fid-short-suggest" role="group" aria-label={m.fid_short_suggest()}>
+              <span className="fid-suggest-label">{m.fid_short_suggest()}</span>
+              <ul className="fid-chips">
+                {shorts.map((short) => (
+                  <li key={short}>
+                    <button
+                      type="button"
+                      className="fid-chip fid-short-pick"
+                      translate="no"
+                      onClick={() => edit({ ...draft, shortName: short })}
+                    >
+                      {short}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <p className="fid-availability" role="status" data-state={availability.kind}>
+          {renameLocked
+            ? m.fid_rename_wait({ date: dateText(mine.renameAt ?? 0) })
+            : availability.kind === "checking"
+              ? m.fid_checking()
+              : taken !== null &&
+                  taken.name === null &&
+                  taken.shortName === null &&
+                  nameTrim !== "" &&
+                  shortTrim !== ""
+                ? m.fid_available()
+                : ""}
+        </p>
+      </div>
+
+      <fieldset className="fid-group fid-colors">
+        <legend className="fid-section-title">{m.fid_color_label()}</legend>
+        <p className="field-hint">{m.fid_color_hint()}</p>
+        <div className="fid-swatches" role="radiogroup" aria-label={m.fid_color_label()}>
+          {FACTION_IDENTITY_COLORS.map((color, index) => (
+            <label key={color} className="fid-swatch" data-checked={draft.color === color ? "" : undefined}>
+              <input
+                type="radio"
+                className="fid-swatch-input"
+                name={`${id}-color`}
+                value={color}
+                checked={draft.color === color}
+                onChange={() => edit({ ...draft, color })}
+                aria-label={m.fid_color_n({ n: index + 1 })}
+              />
+              <span className="fid-swatch-dot" style={{ backgroundColor: color }} aria-hidden="true" />
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <IdentityEmblemField
+        draft={draft}
+        seed={mine.seed}
+        uploadBlock={mine.uploadBlock}
+        error={serverFor("upload") ?? serverFor("emblem")}
+        onChange={edit}
+      />
+
+      <LiveMessage tone="error" lines={failure.lines} version={failure.version} />
+      <div className="fid-actions fid-submit-row">
+        <button type="submit" className="button-primary fid-submit" aria-disabled={saving}>
+          {saving ? m.fid_submitting() : creating ? m.fid_submit_create() : m.fid_submit_edit()}
+        </button>
+        <button type="button" className="button-small fid-cancel" onClick={onCancel}>
+          {m.cancel()}
+        </button>
+      </div>
+    </form>
+  );
+}

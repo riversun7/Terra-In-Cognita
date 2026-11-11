@@ -472,3 +472,168 @@
 .ne-apply-table tr[data-action="update"] td:nth-child(4) {
   font-weight: var(--font-weight-strong);
 }
+
+/* ── 국력 등급 판(요약 막대·등급 표) — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)" ── */
+.ne-power,
+.ne-random {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.ne-power-subtitle {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+}
+.ne-power-chart {
+  min-width: 0;
+  overflow-x: auto;
+}
+.ne-power-table {
+  inline-size: 100%;
+}
+.ne-power-caption {
+  padding-block-end: var(--space-2);
+  text-align: start;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.ne-power-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ne-power-name:hover,
+.ne-power-name:focus-visible {
+  text-decoration: underline;
+}
+/* 막대: 값 ÷ 가장 큰 값의 폭(수는 글로도 적는다) */
+.ne-power-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 6rem;
+}
+.ne-power-fill {
+  --ne-bar: var(--color-stat-int);
+  flex: none;
+  block-size: var(--space-3);
+  min-inline-size: var(--hairline);
+  max-inline-size: calc(100% - 3rem);
+  border-radius: var(--radius-sm);
+  background-color: var(--ne-bar);
+}
+.ne-power-bar[data-kind="people"] .ne-power-fill {
+  --ne-bar: var(--color-stat-agi);
+}
+.ne-power-bar[data-kind="guards"] .ne-power-fill {
+  --ne-bar: var(--color-stat-str);
+}
+.ne-power-value {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-sm);
+}
+.ne-power-table tr[data-tier="superpower"] th,
+.ne-power-table tr[data-tier="great_power"] th {
+  font-weight: var(--font-weight-strong);
+}
+.ne-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-3);
+  align-items: start;
+  min-width: 0;
+}
+.ne-tier-card {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+.ne-tier-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-1);
+  font-weight: var(--font-weight-strong);
+}
+.ne-tier-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8rem), 1fr));
+  gap: var(--space-2);
+  align-items: start;
+  min-width: 0;
+}
+.ne-tier-facility {
+  display: flex;
+  align-items: end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* ── 랜덤 국가 추가 ── */
+.ne-random-card {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+.ne-random-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.ne-random-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+.ne-random-names p {
+  margin: 0;
+}
+.ne-random-parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+.ne-random-part {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.ne-random-part dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.ne-random-part dd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  min-width: 0;
+}
+.ne-random-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+}

@@ -44,3 +44,17 @@ const PLACE_FAIL_TEXT: Readonly<Record<Exclude<WorldPlaceCode, "ok" | "too_close
 export function blockersText(list: readonly WorldPlaceBlocker[]): string {
   return list.map((code) => BLOCKER_TEXT[code]()).join(", ");
 }
+
+/** 국력 등급 ID → 이름(@terra/shared/nationTier POWER_TIERS). 등급이 없거나 모르는 값이면 "등급 없음" */
+const TIER_TEXT: Readonly<Record<string, Text>> = {
+  superpower: m.dev_power_tier_superpower,
+  great_power: m.dev_power_tier_great_power,
+  middle_power: m.dev_power_tier_middle_power,
+  small_state: m.dev_power_tier_small_state,
+  city_state: m.dev_power_tier_city_state,
+};
+
+export function tierText(tier: string | null | undefined): string {
+  const text = tier ? TIER_TEXT[tier] : undefined;
+  return text ? text() : m.dev_power_tier_none();
+}

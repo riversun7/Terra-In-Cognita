@@ -1,0 +1,341 @@
+/*
+ * 내 세력 정체성 정하기·고치기(/faction/identity) — 휴대폰 세로 한 열이 기준, 넓으면 가운데 한 열.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다. 시그니처 컬러·지도 바탕·마크는 세계의 색이라 그림(SVG·견본 칸)이 값을 바로 쓴다(인라인).
+ */
+
+.fid-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.fid-lead {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-body);
+}
+.fid-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.fid-section-title {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+.fid-count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* 알림 줄은 늘 자리를 둔다(문구가 생겨도 아래 칸이 밀리지 않게 한 줄 높이) */
+.fid-field-error,
+.fid-availability {
+  min-height: calc(var(--font-size-sm) * var(--line-height-snug));
+  margin: 0;
+}
+.fid-availability {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.fid-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.fid-submit-row {
+  padding-block-start: var(--space-2);
+}
+.fid-submit {
+  flex: 1 1 auto;
+}
+
+/* ── 게임에서 보이는 모습 ───────────────────── */
+.fid-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.fid-preview-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.fid-preview-sizes {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+.fid-preview-rows {
+  display: flex;
+  flex: 1 1 var(--card-min);
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.fid-preview-caption {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.fid-preview-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+}
+.fid-preview-name {
+  min-width: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+.fid-preview-card[data-empty] .fid-preview-name {
+  color: var(--color-text-muted);
+}
+.fid-preview-short,
+.fid-card-short {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+}
+.fid-preview-maps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+}
+.fid-map-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.fid-map-chip {
+  flex: none;
+  width: var(--status-dot);
+  height: var(--status-dot);
+  border-radius: var(--radius-pill);
+}
+
+/* ── 후보(이름 만들기·약어 후보) ─────────────── */
+.fid-namegen,
+.fid-namegen-panel,
+.fid-short-suggest {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.fid-suggest-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.fid-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fid-chip {
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-md);
+}
+
+/* ── 색 고르기 ──────────────────────────────── */
+.fid-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tap-size), 1fr));
+  gap: var(--space-2);
+}
+.fid-swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  border: var(--border-w) solid transparent;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.fid-swatch[data-checked] {
+  border-color: var(--color-text);
+  background-color: var(--color-surface-2);
+}
+.fid-swatch-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.fid-swatch:has(:focus-visible) {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.fid-swatch-dot {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+}
+
+/* ── 마크 ───────────────────────────────────── */
+.fid-emblem-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+.fid-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.fid-mode {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+.fid-mode[data-checked] {
+  border-color: var(--color-text);
+  background-color: var(--color-surface-2);
+}
+.fid-mode-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.fid-mode:has(:focus-visible) {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.fid-made,
+.fid-upload {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.fid-picks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--card-min), 1fr));
+  gap: var(--space-3);
+}
+.fid-upload-state,
+.fid-upload-off {
+  margin: 0;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-snug);
+}
+.fid-upload-off {
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+
+/* ── 자르기 ─────────────────────────────────── */
+.fid-cropper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.fid-cropper-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+}
+.fid-cropper-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+/* 보기 칸: 캔버스 320px을 폭에 맞춰 줄인다(정사각 유지). 끌 때 화면이 따라 움직이지 않게 터치 동작을 끈다 */
+.fid-cropper-view {
+  flex: 0 1 auto;
+  width: 100%;
+  max-width: calc(var(--avatar-preview) + var(--mark-lg) + var(--mark-lg));
+  height: auto;
+  aspect-ratio: 1;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  cursor: grab;
+  touch-action: none;
+}
+.fid-cropper-view:active {
+  cursor: grabbing;
+}
+.fid-cropper-side {
+  display: flex;
+  flex: 1 1 var(--card-min);
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.fid-cropper-zoom {
+  width: 100%;
+  min-height: var(--tap-size);
+  accent-color: var(--color-primary);
+}
+.fid-cropper-previews {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+.fid-cropper-small {
+  flex: none;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}

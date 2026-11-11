@@ -157,7 +157,7 @@ describe.skipIf(!TEST_DATABASE_URL)("시작 국가 설정 편집기 (DB)", () =>
     expect(String(first.hash)).toMatch(/^[0-9a-f]{64}$/);
     expect(body.defaults).toMatchObject({
       startCitiesMin: 2,
-      startCitiesMax: 4,
+      startCitiesMax: 8,
       housing: 40,
       populationPm: 750,
       farms: 1,
@@ -229,7 +229,7 @@ describe.skipIf(!TEST_DATABASE_URL)("시작 국가 설정 편집기 (DB)", () =>
       name: { ko: "레드메사" },
       shortName: "RMS",
       emblem: { shape: "circle", charge: "sun" },
-      personality: { startHousing: 60, startPopulationPm: 500, startFarms: 2, startCities: 4 },
+      personality: { startHousing: 60, startPopulationPm: 500, startFarms: 2 },
     });
     expect(live.list[0]?.name.ko).toBe("레드메사");
     // 경제 목록의 나라 화폐 이름
@@ -464,5 +464,165 @@ describe.skipIf(!TEST_DATABASE_URL)("시작 국가 설정 편집기 (DB)", () =>
     const row = nationOf(obj(resultOf(res)), FIRST);
     expect(row).toMatchObject({ origin: "pack", override: null });
     expect(obj(row.entry).name).toEqual({ ko: "메리데일", en: "Meridale" });
+  });
+  it("국력 등급 표: 목록에 다섯 줄, 고치면 실효 프리셋의 등급 값이 바로 바뀌고 내보내기에 실린다. 되돌리면 팩 값", async () => {
+    const live = createLivePresets(
+      () => content.effective().nationPresets,
+      () => content.effective().nationTiers,
+    );
+    content.subscribe(() => live.sync());
+    const body = await list();
+    const tiers = arr(body.tiers).map(obj);
+    expect(tiers.map((row) => obj(row.entry).id)).toEqual([
+      "superpower",
+      "great_power",
+      "middle_power",
+      "small_state",
+      "city_state",
+    ]);
+    expect(obj(nationOf(body, FIRST).entry).powerTier).toBe("superpower");
+    expect(live.list[0]?.tier).toMatchObject({ id: "superpower", startCities: 6, guardsPerCity: 5 });
+    const top = tiers[0] ?? {};
+    const entry = obj(top.entry);
+    // 범위 밖 값·없는 시설은 팩 검사기가 막는다
+    const bad = obj(
+      resultOf(
+        await trpcQuery(
+          app,
+          "nations.check",
+          { changes: [{ op: "put_tier", entry: { ...entry, startCities: 99 }, baseHash: top.hash }] },
+          cookie.dev,
+        ),
+      ),
+    );
+    expect(bad.ok).toBe(false);
+    const res = await save([
+      {
+        op: "put_tier",
+        entry: {
+          ...entry,
+          startCities: 5,
+          guardsPerCity: 8,
+          facilities: [
+            { facility: "storehouse", count: 3 },
+            { facility: "kitchen", count: 1 },
+          ],
+        },
+        baseHash: top.hash,
+      },
+    ]);
+    expect(res.statusCode).toBe(200);
+    const after = obj(resultOf(res));
+    const row = arr(after.tiers).map(obj)[0] ?? {};
+    expect(row).toMatchObject({ origin: "edited" });
+    expect(obj(row.pack)).toMatchObject({ startCities: 6, guardsPerCity: 5 });
+    // 실효 프리셋의 등급 줄이 제자리에서 바뀐다(다음 세계 씨앗이 읽는다)
+    expect(live.list[0]?.tier).toMatchObject({ startCities: 5, guardsPerCity: 8 });
+    expect(live.list[0]?.tier?.facilities).toEqual([
+      { facility: "storehouse", count: 3 },
+      { facility: "kitchen", count: 1 },
+    ]);
+    const exported = obj(resultOf(await trpcQuery(app, "tuning.export", undefined, cookie.dev)));
+    const diff = tuningDiffSchema.parse(exported.diff);
+    expect(
+      diff.entries?.find((item) => item.category === "nation_tiers" && item.id === "superpower")?.entry
+        .startCities,
+    ).toBe(5);
+    const history = obj(resultOf(await trpcQuery(app, "nations.history", undefined, cookie.dev)));
+    expect(obj(arr(obj(arr(history.rows)[0]).changes)[0])).toMatchObject({
+      category: "nation_tiers",
+      id: "superpower",
+    });
+    // 등급은 만들지 못한다(다섯 줄 고정) — 모르는 등급 ID는 입력에서 거절
+    const unknown = await save([{ op: "put_tier", entry: { ...entry, id: "empire" }, baseHash: top.hash }]);
+    expect(errorOf(unknown).code).toBe("BAD_REQUEST");
+    // 되돌리기
+    const now = arr((await list()).tiers).map(obj)[0] ?? {};
+    const reverted = await save([{ op: "revert_tier", id: "superpower", baseHash: now.hash }]);
+    expect(reverted.statusCode).toBe(200);
+    expect(live.list[0]?.tier).toMatchObject({ startCities: 6, guardsPerCity: 5 });
+  });
+
+  it("새 프리셋 만들기(랜덤 국가 추가): 목록 끝에 붙고 앞 16개의 차례는 그대로, 겹치는 약어·틀린 ID는 거절, 지우면 ID가 은퇴한다", async () => {
+    const body = await list();
+    const before = arr(body.nations).map((row) => obj(obj(row).entry).id);
+    const fresh = {
+      id: "nation_tessara_1",
+      name: { ko: "테사라", en: "Tessara" },
+      shortName: "TSR",
+      color: "#3b7dd8",
+      emblem: { shape: "hexagon", division: "plain", charge: "tower", scheme: 0 },
+      nameStyle: "olive",
+      powerTier: "great_power",
+      currency: { code: "cur_tessin_1", name: { ko: "테신", en: "Tessin" }, symbol: "T", ticker: "TSN" },
+      tradeTaxBp: 200,
+      cityNames: ["Tessapolis", "Korinth"],
+      leaderName: { ko: "아리온 테사", en: "Arion Tessa" },
+      humanNames: { given: ["Arion", "Lyra"], family: ["Tessa"] },
+      enabled: true,
+    };
+    const rejectCreate = async (entry: Record<string, unknown>) =>
+      errorOf(await save([{ op: "create", entry }]));
+    // ID·화폐 코드 모양, 꺼진 채 만들기, 이미 있는 ID, 겹치는 약어
+    expect(await rejectCreate({ ...fresh, id: "placeholder_nation_17" })).toMatchObject({
+      reason: "invalid_entry",
+    });
+    expect(
+      await rejectCreate({ ...fresh, currency: { ...fresh.currency, code: "placeholder_cur_17" } }),
+    ).toMatchObject({ reason: "invalid_entry" });
+    expect(await rejectCreate({ ...fresh, enabled: false })).toMatchObject({ reason: "invalid_entry" });
+    expect(await rejectCreate({ ...fresh, id: FIRST })).toMatchObject({ reason: "duplicate_entry" });
+    expect(await rejectCreate({ ...fresh, shortName: "MRD" })).toMatchObject({ reason: "invalid_entry" });
+    const res = await save([{ op: "create", entry: fresh }]);
+    expect(res.statusCode).toBe(200);
+    const after = obj(resultOf(res));
+    const ids = arr(after.nations).map((row) => obj(obj(row).entry).id);
+    expect(ids).toEqual([...before, "nation_tessara_1"]);
+    const made = nationOf(after, "nation_tessara_1");
+    expect(made).toMatchObject({ origin: "created", pack: null, slot: null });
+    // 서버가 읽는 프리셋: 앞 16개 차례 그대로(국가 차례가 어긋나지 않는다), 17번째에 새 프리셋 + 등급 줄
+    const presets = nationPresetsFrom(content.effective().nationPresets, content.effective().nationTiers);
+    expect(presets.slice(0, 16).map((preset) => preset.code)).toEqual(before);
+    expect(presets[16]).toMatchObject({
+      code: "nation_tessara_1",
+      tier: { id: "great_power" },
+      currency: { code: "cur_tessin_1" },
+    });
+    // 경제 목록에 새 나라 화폐가 든다(원장 자산 cur:<코드> — 그 나라가 설 때 처음 발행한다)
+    const catalog = obj(resultOf(await trpcQuery(app, "economy.catalog", undefined, cookie.dev)));
+    expect(arr(catalog.currencies).some((item) => obj(item).nation === "nation_tessara_1")).toBe(true);
+    // 내보내기에 새 항목이 실린다(팩에 넣을 때 from = null)
+    const exported = obj(resultOf(await trpcQuery(app, "tuning.export", undefined, cookie.dev)));
+    const diff = tuningDiffSchema.parse(exported.diff);
+    const change = diff.entries?.find(
+      (item) => item.category === "nation_presets" && item.id === "nation_tessara_1",
+    );
+    expect(change?.from ?? null).toBeNull();
+    // 고칠 수 있다(다른 프리셋처럼), 켬·끔과 화폐 코드는 여전히 못 바꾼다
+    const edited = await save([{ op: "put", entry: { ...fresh, tradeTaxBp: 300 }, baseHash: made.hash }]);
+    expect(edited.statusCode).toBe(200);
+    const row = nationOf(obj(resultOf(edited)), "nation_tessara_1");
+    expect(
+      errorOf(await save([{ op: "put", entry: { ...fresh, enabled: false }, baseHash: row.hash }])),
+    ).toMatchObject({
+      reason: "invalid_entry",
+    });
+    // 이 세계에 선(세력 행이 있는) 국가의 프리셋은 지우지 못한다
+    await test.db.$client.query(
+      `insert into factions (kind, code, regime, fixed) values ('npc', 'nation_tessara_1', 'democracy', true)`,
+    );
+    expect(errorOf(await save([{ op: "revert", id: "nation_tessara_1", baseHash: row.hash }]))).toMatchObject(
+      {
+        reason: "nation_standing",
+      },
+    );
+    await test.db.$client.query(`delete from factions where code = 'nation_tessara_1'`);
+    // 지우면 목록에서 빠지고 ID는 은퇴한다(같은 ID로 다시 만들지 못한다)
+    const removed = await save([{ op: "revert", id: "nation_tessara_1", baseHash: row.hash }]);
+    expect(removed.statusCode).toBe(200);
+    const end = obj(resultOf(removed));
+    expect(arr(end.nations).map((item) => obj(obj(item).entry).id)).toEqual(before);
+    expect(arr(end.retiredIds)).toContain("nation_tessara_1");
+    expect(await rejectCreate(fresh)).toMatchObject({ code: "BAD_REQUEST" });
   });
 });

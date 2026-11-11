@@ -1,11 +1,18 @@
 // 국가 프리셋 읽기·실효 목록 시험 — docs/adr/2026-11-10-nation-editor.md 2·5절. 값은 팩 자료와 시험용 가짜다.
-import { type NationPresetEntry, nationPresetEntrySchema } from "@terra/content";
+import {
+  type NationPresetEntry,
+  type NationTierEntry,
+  nationPresetEntrySchema,
+  nationTierEntrySchema,
+} from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
 import { START_WORLD_SEED } from "@terra/sim";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { syncNationNames } from "../ranking/paths.ts";
-import { nationEmblemOf, nationSeedOf } from "./nations.ts";
+import { nationEmblemOf, nationSeedOf, nationStartOf } from "./nations.ts";
 import { createLivePresets, nationPresetsFrom, nationPresetsOf } from "./presets.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
@@ -13,6 +20,9 @@ if (!loaded.pack) throw new Error("content pack");
 const pack = loaded.pack;
 const entries: NationPresetEntry[] = (pack.entries.get("nation_presets") ?? []).map((raw) =>
   nationPresetEntrySchema.parse(JSON.parse(JSON.stringify(raw))),
+);
+const tiers: NationTierEntry[] = (pack.entries.get("nation_tiers") ?? []).map((raw) =>
+  nationTierEntrySchema.parse(JSON.parse(JSON.stringify(raw))),
 );
 
 const distinct = (values: readonly (string | undefined)[]): number => new Set(values).size;
@@ -73,7 +83,45 @@ describe("nationPresetsFrom", () => {
       currency: { code: "placeholder_cur_01", name: { ko: "올더", en: "Alder" }, ticker: "ALD" },
       leaderName: { en: "Jolan Harwell" },
     });
-    expect(presets).toEqual(nationPresetsFrom(entries));
+    expect(presets).toEqual(nationPresetsFrom(entries, tiers));
+  });
+
+  it("국력 등급: 16개가 초강대국 2·강대국 3·중견국 5·소국 4·도시국가 2로 나뉘고 등급 표의 줄이 프리셋에 붙는다", () => {
+    const presets = nationPresetsOf(pack);
+    const count = new Map<string, number>();
+    for (const preset of presets)
+      count.set(preset.tier?.id ?? "none", (count.get(preset.tier?.id ?? "none") ?? 0) + 1);
+    expect(Object.fromEntries(count)).toEqual({
+      superpower: 2,
+      great_power: 3,
+      middle_power: 5,
+      small_state: 4,
+      city_state: 2,
+    });
+    // 국가 넷(NAS 설정: 1번 = 16번째 프리셋, 2~4번 = 프리셋 1~3)이 등급 넷에 하나씩
+    expect([presets[15], presets[0], presets[1], presets[2]].map((preset) => preset?.tier?.id)).toEqual([
+      "small_state",
+      "superpower",
+      "great_power",
+      "middle_power",
+    ]);
+    // 강한 등급일수록 도시·인구·경비대 합이 크다(도시국가는 도시 하나에 모인다)
+    const totals = (id: string) => {
+      const preset = presets.find((entry) => entry.tier?.id === id);
+      const start = nationStartOf(START_WORLD_SEED, preset);
+      return {
+        cities: start.startCities,
+        people: start.startCities * start.populationPerCity,
+        tech: start.tech,
+      };
+    };
+    expect(totals("superpower")).toEqual({ cities: 6, people: 270, tech: 3 });
+    expect(totals("great_power")).toEqual({ cities: 4, people: 148, tech: 3 });
+    expect(totals("middle_power")).toEqual({ cities: 3, people: 90, tech: 2 });
+    expect(totals("small_state")).toEqual({ cities: 2, people: 48, tech: 1 });
+    expect(totals("city_state")).toEqual({ cities: 1, people: 36, tech: 2 });
+    // 등급 표 없이 읽으면 등급이 붙지 않는다(옛 팩)
+    expect(nationPresetsFrom(entries).every((preset) => preset.tier === undefined)).toBe(true);
   });
 
   it("국가마다 씨앗 값 칸을 성격 칸에 옮기고, 없는 칸은 키째 없다", () => {
@@ -97,10 +145,70 @@ describe("nationPresetsFrom", () => {
   });
 });
 
+describe("시뮬 시나리오 war16", () => {
+  it("세력 묶음 다섯이 팩 등급 표와 같다(세력 수·도시·처음 인구·경비대·기술·주거·국고 비율)", () => {
+    const scenario: unknown = JSON.parse(
+      readFileSync(new URL("../../../../packages/sim/scenarios/war16.json", import.meta.url), "utf8"),
+    );
+    const groups = z
+      .object({
+        factions: z.array(
+          z.object({
+            code: z.string(),
+            count: z.number(),
+            cities: z.number(),
+            workers: z.number(),
+            guards: z.number(),
+            tech: z.number(),
+            housing: z.number(),
+            credit: z.string(),
+          }),
+        ),
+      })
+      .parse(scenario).factions;
+    const presets = nationPresetsOf(pack);
+    const order = ["superpower", "great_power", "middle_power", "small_state", "city_state"];
+    expect(groups).toHaveLength(order.length);
+    order.forEach((id, index) => {
+      const group = groups[index];
+      const preset = presets.find((entry) => entry.tier?.id === id);
+      const start = nationStartOf(START_WORLD_SEED, preset);
+      expect(group).toMatchObject({
+        count: presets.filter((entry) => entry.tier?.id === id).length,
+        cities: start.startCities,
+        workers: start.startCities * start.populationPerCity,
+        guards: start.guardsPerCity,
+        tech: start.tech,
+        housing: start.housing,
+        // 중견국 200,000을 1000‰로 본 국고
+        credit: String((200_000 * start.creditPm) / 1000),
+      });
+    });
+  });
+});
+
 describe("nationSeedOf", () => {
   it("성격 칸이 없으면 설정 칸 값 그대로(같은 객체)", () => {
     expect(nationSeedOf(START_WORLD_SEED, undefined)).toBe(START_WORLD_SEED);
     expect(nationSeedOf(START_WORLD_SEED, { startCities: 3 })).toBe(START_WORLD_SEED);
+  });
+
+  it("등급 표 값을 얹고 국가 칸이 그 위에 든다", () => {
+    const tier = nationPresetsFrom(entries, tiers)[0]?.tier;
+    expect(tier?.id).toBe("superpower");
+    expect(nationSeedOf(START_WORLD_SEED, undefined, tier)).toMatchObject({
+      startHousing: 60,
+      populationPm: 750,
+      farms: 2,
+      lumberCamps: 2,
+      mines: 2,
+      storehouses: 2,
+    });
+    expect(nationSeedOf(START_WORLD_SEED, { startFarms: 0, startHousing: 44 }, tier)).toMatchObject({
+      startHousing: 44,
+      farms: 0,
+      mines: 2,
+    });
   });
 
   it("있는 칸만 얹는다", () => {

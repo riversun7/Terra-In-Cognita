@@ -8,6 +8,7 @@
 import { AUDIT_CATEGORY_IDS, OPS_PERMISSIONS, OPS_SWITCHES, type OpsPermission } from "@terra/shared/ops";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import type { FactionIdentityServices } from "../factionIdentity/services.ts";
 import type { OpsServices } from "../ops/services.ts";
 import { isPlayablePlanet } from "../world/playablePlanets.ts";
 import { router, signedInProcedure } from "./init.ts";
@@ -15,6 +16,11 @@ import { router, signedInProcedure } from "./init.ts";
 function services(ops: OpsServices | undefined): OpsServices {
   if (!ops) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "OPS_UNAVAILABLE" });
   return ops;
+}
+
+function identityOf(identity: FactionIdentityServices | undefined): FactionIdentityServices {
+  if (!identity) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "OPS_UNAVAILABLE" });
+  return identity;
 }
 
 /** 운영 권한 하나가 있어야 한다(기본 거부). ctx.opsViewer = 확인한 운영자 */
@@ -270,6 +276,25 @@ export const opsRouter = router({
       }),
     )
     .query(({ ctx, input }) => ctx.ops.audit(scoped(input))),
+
+  /**
+   * 마크 관리(docs/adr/2026-11-11-faction-identity.md 5절): 플레이어가 올린 세력 마크 보기·내리기·그 계정의 올리기 막기(emblem_moderate),
+   * 세계 스위치 "플레이어 마크 올리기 허용"(faction_edit)
+   */
+  emblems: router({
+    list: opsProcedure("emblem_moderate").query(({ ctx }) => identityOf(ctx.factionIdentity).opsList()),
+    takedown: opsProcedure("emblem_moderate")
+      .input(z.strictObject({ userId: z.uuid(), reason, blockUploads: z.boolean().default(false) }))
+      .mutation(({ ctx, input }) => identityOf(ctx.factionIdentity).opsTakedown(ctx.opsViewer, input)),
+    setBlocked: opsProcedure("emblem_moderate")
+      .input(z.strictObject({ userId: z.uuid(), blocked: z.boolean() }))
+      .mutation(({ ctx, input }) => identityOf(ctx.factionIdentity).opsSetBlocked(ctx.opsViewer, input)),
+    setUploadAllowed: opsProcedure("faction_edit")
+      .input(z.strictObject({ allowed: z.boolean() }))
+      .mutation(({ ctx, input }) =>
+        identityOf(ctx.factionIdentity).opsSetUploadAllowed(ctx.opsViewer, input),
+      ),
+  }),
 
   /** 운영 스위치(조회 감사 기록, 기본 꺼짐) — 관리자 화면이 쓴다 */
   switches: router({

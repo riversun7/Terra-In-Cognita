@@ -1,6 +1,6 @@
 // 건물 편집기 편집 판(2026-11-08 화면 개편: 공용 머리·구역·칸 견주기) — 시설 하나: 머리(이름·ID·출처·고친 사람·이전/다음·[담기 취소]·
 // [팩 값으로]), 검사 문제(칸 옆에도 보인다), 기본(이름·단계·최고 레벨·레벨당 자리·오염), 건설 재료(레벨 구간·
-// 레벨 표, BuildingLevels), 채집(스탯 짝·사다리 중분류·방식·수확량), 장비 수리 줄(BuildingRepair, D-512 323), 레시피(읽기만, 아이템
+// 레벨 표, BuildingLevels), 채집(스탯 짝·사다리 중분류·함께 내는 중분류·방식·수확량), 장비 수리 줄(BuildingRepair, D-512 323), 레시피(읽기만, 아이템
 // 편집기로 가는 고리), 검사 문제. 기본 칸에 건물 런타임 값(레벨 1 최대 내구도 M15·창고 용량 N50, docs/adr/2026-11-07-buildings-runtime.md)도
 // 둔다. 2차맵 칸 크기는 "2차맵 모습" 구역(BuildingLookSection: 3D 미리 보기·모델·색·높이, 2026-11-09)에 있다.
 // 칸 풀이는 tip 모양([i]로 펼침), 구역 바로 가기는 편집 판 머리와 함께 붙는다(2026-11-09 개발자 편의 개편).
@@ -24,14 +24,20 @@ import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
 import { m } from "../../paraglide/messages.js";
 import { AppLink } from "../../shell/AppLink.tsx";
 import { type CompareSource, CompareProvider } from "../content/contentEditorCompare.tsx";
-import { FieldHintProvider, NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
+import {
+  CheckField,
+  FieldHintProvider,
+  NumberField,
+  SelectField,
+  TextField,
+} from "../content/contentEditorFields.tsx";
 import { Badge, EntryHead, FormSection, SectionJump } from "../content/contentEditorLayout.tsx";
 import { joinPath, pathParts } from "../content/contentEditorPaths.ts";
 import { BuildingLevels } from "./BuildingLevels.tsx";
 import { BuildingLookSection } from "./BuildingLookSection.tsx";
 import { BuildingRepair } from "./BuildingRepair.tsx";
 import { MODE_TEXT, ORIGIN_TEXT, STAGE_TEXT, STAT_TEXT, issueText, issueWhere } from "./buildingMessages.ts";
-import { newGather, setGather } from "./buildingModel.ts";
+import { newGather, setGather, toggleIn } from "./buildingModel.ts";
 
 function GatherSection({
   list,
@@ -50,6 +56,11 @@ function GatherSection({
   const subs = list.subcategories
     .filter((sub) => sub.major === "raw" || sub.id === gather?.subcategory)
     .map((sub) => ({ value: sub.id, label: `${sub.name[locale]} (${sub.id})` }));
+  // 함께 내는 중분류(질문 946 나): 주 중분류가 아닌 원자재 중분류(이미 적힌 것은 원자재가 아니어도 보인다 — 검사가 알린다)
+  const extras = gather?.extraSubcategories ?? [];
+  const extraOptions = list.subcategories.filter(
+    (sub) => sub.id !== gather?.subcategory && (sub.major === "raw" || extras.includes(sub.id)),
+  );
   return (
     <FormSection
       name="gather"
@@ -118,6 +129,27 @@ function GatherSection({
               onChange={(yieldCap) => set({ ...gather, yieldCap })}
             />
           </div>
+          <fieldset className="be-targets" data-targets="extra-subcategories">
+            <legend className="field-label">{m.dev_buildings_field_extra_subcategories()}</legend>
+            {extraOptions.map((sub) => (
+              <CheckField
+                key={sub.id}
+                path="gather.extraSubcategories"
+                label={`${sub.name[locale]} (${sub.id})`}
+                checked={extras.includes(sub.id)}
+                onChange={(on) => {
+                  const next = toggleIn(
+                    extras,
+                    sub.id,
+                    on,
+                    extraOptions.map((option) => option.id),
+                  );
+                  set({ ...gather, extraSubcategories: next.length === 0 ? undefined : next });
+                }}
+              />
+            ))}
+            <p className="field-hint">{m.dev_buildings_extra_subcategories_hint()}</p>
+          </fieldset>
           <div className="ce-inline-actions">
             <button type="button" onClick={() => onEdit(setGather(entry, undefined))}>
               {m.dev_buildings_remove_gather()}
@@ -341,7 +373,16 @@ export function BuildingDetail({
               title={m.dev_buildings_section_basic()}
               desc={m.dev_buildings_basic_desc()}
               source="M15 · N50"
-              paths={["name", "stage", "maxLevel", "slotsPerLevel", "pollution", "durability", "storageKg"]}
+              paths={[
+                "name",
+                "stage",
+                "maxLevel",
+                "slotsPerLevel",
+                "pollution",
+                "durability",
+                "storageKg",
+                "needsWaterWithin",
+              ]}
             >
               <div className="be-grid">
                 <TextField
@@ -413,6 +454,16 @@ export function BuildingDetail({
                   max={FACILITY_RUNTIME_LIMITS.storageKg.max}
                   hint={m.dev_buildings_storage_hint()}
                   onChange={(storageKg) => edit({ ...draft, storageKg })}
+                />
+                <NumberField
+                  label={m.dev_buildings_field_needs_water()}
+                  path="needsWaterWithin"
+                  optional
+                  value={draft.needsWaterWithin}
+                  min={FACILITY_RUNTIME_LIMITS.needsWaterWithin.min}
+                  max={FACILITY_RUNTIME_LIMITS.needsWaterWithin.max}
+                  hint={m.dev_buildings_needs_water_hint()}
+                  onChange={(needsWaterWithin) => edit({ ...draft, needsWaterWithin })}
                 />
               </div>
             </FormSection>

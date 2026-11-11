@@ -5,7 +5,12 @@
 import { cellsPerSide, isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import type { PlanetTileData } from "@terra/protocol/planetTile";
-import type { WorldPlacementNationView } from "@terra/shared/worldPlacementApi";
+import type {
+  WorldFoundingView,
+  WorldPlacementNationView,
+  WorldTierApplyView,
+  WorldTierPlan,
+} from "@terra/shared/worldPlacementApi";
 import { type FlatMapFields, type LatLon, flatMapFraction } from "../planet/flatMapRender.ts";
 
 /** 평면 지도에 쓰는 맵 레벨 = 면 레벨 − 이 값(F9 → 레벨 6, 면마다 64 × 64칸) */
@@ -88,9 +93,16 @@ export function capitalCity(
 /** 지도 위 표시 하나(위치 = 평면 지도 비율 0~1, flatMapFraction) */
 export interface MapMark {
   readonly id: string;
-  readonly kind: "city" | "capital" | "placed" | "suggested";
-  /** 국가 차례(색 돌려 쓰기) */
+  /**
+   * 도시·수도·놓은 자리·제안 + 국력 등급 계획(plan_home = 계획의 수도, plan_city = 계획의 시작 도시, add_city = 반영하면 더 서는 도시)
+   */
+  readonly kind: "city" | "capital" | "placed" | "suggested" | "plan_home" | "plan_city" | "add_city";
+  /** 국가 차례(색 돌려 쓰기 — 시그니처 컬러가 없을 때) */
   readonly nation: number;
+  /** 국가 시그니처 컬러(#rrggbb, 팩 프리셋). 있으면 이 색으로 그린다 */
+  readonly color?: string | undefined;
+  /** 국력 등급(표시 크기) */
+  readonly tier?: string | undefined;
   /** 국가 세력 코드 */
   readonly code: string;
   readonly x: number;
@@ -110,7 +122,17 @@ export function marksOf(
       const point = latLonOfText(key);
       if (!point) return;
       const at = flatMapFraction(point);
-      out.push({ id, kind, nation: index, code: nation.code, x: at.x, y: at.y, label });
+      out.push({
+        id,
+        kind,
+        nation: index,
+        code: nation.code,
+        x: at.x,
+        y: at.y,
+        label,
+        ...(nation.color === undefined ? {} : { color: nation.color }),
+        ...(nation.start?.tier ? { tier: nation.start.tier } : {}),
+      });
     };
     for (const city of nation.cities)
       add(`c${city.id}`, city.capital ? "capital" : "city", city.mapKey, city.name ?? nameOf(nation));
@@ -119,4 +141,86 @@ export function marksOf(
     if (idea !== undefined) add(`s${nation.code}`, "suggested", idea, nameOf(nation));
   });
   return out;
+}
+
+/** 국가 코드 → 지도 표시 바탕(이름·색·등급·차례): 선 국가 + 세울 수 있는 국가(선 국가 뒤 차례) */
+export interface NationLook {
+  readonly index: number;
+  readonly name: string;
+  readonly color?: string | undefined;
+  readonly tier?: string | undefined;
+}
+
+export function nationLooks(
+  nations: readonly WorldPlacementNationView[],
+  founding: readonly WorldFoundingView[],
+  locale: "ko" | "en",
+): Map<string, NationLook> {
+  const out = new Map<string, NationLook>();
+  const put = (
+    entry: Pick<WorldPlacementNationView, "code" | "name" | "color" | "start">,
+    index: number,
+  ): void => {
+    out.set(entry.code, {
+      index,
+      name: entry.name?.[locale] ?? entry.code,
+      ...(entry.color === undefined ? {} : { color: entry.color }),
+      ...(entry.start?.tier ? { tier: entry.start.tier } : {}),
+    });
+  };
+  nations.forEach((nation, index) => put(nation, index));
+  founding.forEach((entry, index) => put(entry, nations.length + index));
+  return out;
+}
+
+/** 국력 등급 배치 계획의 표시(국가마다 수도 + 시작 도시) */
+export function planMarksOf(plan: WorldTierPlan, looks: ReadonlyMap<string, NationLook>): MapMark[] {
+  const out: MapMark[] = [];
+  for (const nation of plan.nations) {
+    const look = looks.get(nation.code);
+    const base = {
+      nation: look?.index ?? 0,
+      code: nation.code,
+      label: look?.name ?? nation.code,
+      ...(look?.color === undefined ? {} : { color: look.color }),
+      ...(nation.tier ? { tier: nation.tier } : {}),
+    };
+    const add = (id: string, kind: MapMark["kind"], key: string): void => {
+      const point = latLonOfText(key);
+      if (!point) return;
+      const at = flatMapFraction(point);
+      out.push({ id, kind, x: at.x, y: at.y, ...base });
+    };
+    // 도시가 먼저(수도 표시가 위에 그려진다)
+    nation.cities.forEach((key, index) => {
+      if (key !== nation.home) add(`pc${nation.code}:${String(index)}`, "plan_city", key);
+    });
+    add(`ph${nation.code}`, "plan_home", nation.home);
+  }
+  return out;
+}
+
+/** 등급 분포를 반영하면 더 서는 도시의 표시 */
+export function addMarksOf(view: WorldTierApplyView, looks: ReadonlyMap<string, NationLook>): MapMark[] {
+  return view.nations.flatMap((nation) => {
+    const look = looks.get(nation.code);
+    return nation.addAt.flatMap((key, index) => {
+      const point = latLonOfText(key);
+      if (!point) return [];
+      const at = flatMapFraction(point);
+      return [
+        {
+          id: `ad${nation.code}:${String(index)}`,
+          kind: "add_city" as const,
+          nation: look?.index ?? 0,
+          code: nation.code,
+          x: at.x,
+          y: at.y,
+          label: look?.name ?? nation.code,
+          ...(look?.color === undefined ? {} : { color: look.color }),
+          ...(nation.tier ? { tier: nation.tier } : {}),
+        },
+      ];
+    });
+  });
 }

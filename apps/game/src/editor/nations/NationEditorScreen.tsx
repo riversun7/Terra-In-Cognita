@@ -35,10 +35,17 @@ import {
   stableJson,
 } from "../content/contentEditorModel.ts";
 import { leafDiff } from "../content/contentEditorPaths.ts";
-import { PendingBar, type PendingEntry, type PendingStatus } from "../content/contentEditorPending.tsx";
+import { PendingBar, type PendingEntry } from "../content/contentEditorPending.tsx";
 import { NationApplyWorld } from "./NationApplyWorld.tsx";
 import { NationDetail } from "./NationDetail.tsx";
 import { NationList } from "./NationList.tsx";
+import {
+  NationPowerSection,
+  NationSleeping,
+  type PowerPanel,
+  createdRowsOf,
+  liveTiersOf,
+} from "./NationPowerSection.tsx";
 import {
   EMPTY_NATION_STAGE,
   type NationStage,
@@ -49,29 +56,15 @@ import {
   rebaseNation,
   stageNation,
   stageNationDiscard,
+  stageTier,
 } from "./nationModel.ts";
-import { nationErrorText } from "./nationText.ts";
+import { nationErrorText, statusOf } from "./nationText.ts";
 import "./nationEditor.css";
 
 type Load =
   | { readonly status: "loading" }
   | { readonly status: "ready"; readonly list: NationEditorListResponse }
   | { readonly status: "failed"; readonly message: string };
-
-/** 검사 결과 → 막대 상태(오류가 있으면 [적용]을 막는다) */
-function statusOf(keys: number, result: NationEditorCheckResponse | null | undefined): PendingStatus {
-  if (keys === 0 || result === undefined)
-    return { text: m.dev_buildings_checking(), tone: "busy", data: keys === 0 ? "idle" : "checking" };
-  if (result === null) return { text: m.dev_buildings_check_failed(), tone: "failed", data: "failed" };
-  const errors = result.issues.filter((issue) => issue.level === "error").length;
-  return errors > 0
-    ? { text: m.dev_buildings_check_blocked({ count: errors }), tone: "blocked", data: "blocked" }
-    : {
-        text: m.dev_buildings_check_ok({ advice: result.issues.length - errors }),
-        tone: "ok",
-        data: "ok",
-      };
-}
 
 export default function NationEditorScreen({ initialId }: { initialId?: string | undefined }) {
   const locale = getLocale() === "en" ? "en" : "ko";
@@ -90,6 +83,7 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
   const [exported, setExported] = useState<TuningExportResponse | null>(null);
   const [history, setHistory] = useState<readonly NationEditorHistoryRow[] | null>(null);
   const [applied, setApplied] = useState<NationApplyResponse | null>(null);
+  const [panel, setPanel] = useState<PowerPanel>(null);
   const notice = useLiveLines();
   const problem = useLiveLines();
 
@@ -135,7 +129,18 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
   }, []);
 
   const list = load.status === "ready" ? load.list : null;
-  const rows = list?.nations ?? [];
+  // 목록 = 서버 줄 + 이번에 새로 만드는 프리셋(랜덤 국가 추가 — 저장 전)
+  const rows = [...(list?.nations ?? []), ...createdRowsOf(stage)];
+  /** 국력 등급 표를 담은 값으로 바꿔 끼운 목록(등급 기본값·요약이 담은 값을 따른다) */
+  const liveList = list
+    ? (() => {
+        const tiers = liveTiersOf(list, stage);
+        return {
+          ...list,
+          tiers: list.tiers.map((item, index) => ({ ...item, entry: tiers[index] ?? item.entry })),
+        };
+      })()
+    : null;
   const sleeping = list?.sleeping ?? [];
   const row = selected ? rows.find((item) => item.entry.id === selected) : undefined;
   const staged = selected ? stage.nations.get(selected) : undefined;
@@ -171,16 +176,19 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
     const current = stageRef.current.nations.get(selected);
     const base = current ? current.base : row.entry;
     const baseHash = current ? current.baseHash : row.hash;
+    // 새로 만드는 프리셋은 처음 후보와 같아져도 담은 채로 둔다(빼면 만들기가 사라진다)
+    const same = !stageRef.current.created.has(selected) && sameJson(cleanNation(next), cleanNation(base));
     pushStage(
-      stageNation(
-        stageRef.current,
-        selected,
-        sameJson(cleanNation(next), cleanNation(base)) ? null : { op: "put", entry: next, base, baseHash },
-      ),
+      stageNation(stageRef.current, selected, same ? null : { op: "put", entry: next, base, baseHash }),
     );
   };
   const revert = (): void => {
     if (!selected || !row) return;
+    // 아직 저장하지 않은 새 프리셋은 되돌릴 팩 값이 없다 — 담은 것을 뺀다(만들기 취소)
+    if (stageRef.current.created.has(selected)) {
+      pushStage(stageNation(stageRef.current, selected, null));
+      return;
+    }
     const current = stageRef.current.nations.get(selected);
     pushStage(
       stageNation(stageRef.current, selected, {
@@ -214,6 +222,15 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
     let next = stageRef.current;
     const lines: string[] = [];
     for (const key of changedKeys) {
+      if (key.startsWith("nation_tiers/")) {
+        // 등급 줄: 내 값을 새 줄 위에 그대로 얹는다(칸마다 합치지 않는다 — 줄이 작다)
+        const id = key.slice("nation_tiers/".length);
+        const mine = next.tiers.get(id);
+        const latest = fresh.tiers.find((item) => item.entry.id === id);
+        if (mine && latest)
+          next = stageTier(next, id, { ...mine, base: latest.entry, baseHash: latest.hash });
+        continue;
+      }
       const id = key.startsWith("nation_presets/") ? key.slice("nation_presets/".length) : key;
       const mine = next.nations.get(id);
       const latest = fresh.nations.find((item) => item.entry.id === id);
@@ -315,7 +332,7 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  }, [latest]);
   useEffect(() => {
     const onLeave = (event: BeforeUnloadEvent): void => {
       if (keys.length > 0) event.preventDefault();
@@ -335,6 +352,19 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
         fields: item.op === "put" ? leafDiff(cleanNation(item.base), cleanNation(item.entry)).length : null,
         onOpen: () => select(id),
         onRemove: () => pushStage(stageNation(stageRef.current, id, null)),
+      }),
+    ),
+    ...[...stage.tiers].map(
+      ([id, item]): PendingEntry => ({
+        key: `tier/${id}`,
+        id,
+        name: m.dev_nations_tier_pending({
+          tier: list?.tiers.find((tier) => tier.entry.id === id)?.entry.name[locale] ?? id,
+        }),
+        kind: item.op === "put" ? "put" : "revert",
+        fields: item.op === "put" ? leafDiff(item.base, item.entry).length : null,
+        onOpen: () => setPanel("power"),
+        onRemove: () => pushStage(stageTier(stageRef.current, id, null)),
       }),
     ),
     ...[...stage.discard].map(
@@ -405,6 +435,22 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
                 <AppLink to={{ route: "dev_tuning" }} className="button-small">
                   {m.dev_nations_open_tuning()}
                 </AppLink>
+                <button
+                  type="button"
+                  className="ne-power-open"
+                  aria-pressed={panel === "power"}
+                  onClick={() => setPanel(panel === "power" ? null : "power")}
+                >
+                  {m.dev_nations_power_open()}
+                </button>
+                <button
+                  type="button"
+                  className="ne-random-open"
+                  aria-pressed={panel === "random"}
+                  onClick={() => setPanel(panel === "random" ? null : "random")}
+                >
+                  {m.dev_nations_random_open()}
+                </button>
                 {list.worldTools ? (
                   <button
                     type="button"
@@ -434,35 +480,33 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
               </span>
             }
           />
-          {sleeping.length > 0 ? (
-            <section className="ce-panel" aria-labelledby="ne-sleeping-title">
-              <h2 id="ne-sleeping-title" className="ce-panel-title">
-                {m.dev_nations_sleeping_title()}
-              </h2>
-              <ul className="ne-plain-list">
-                {sleeping.map((item) => (
-                  <li key={item.id} className="ce-inline-actions">
-                    <span>
-                      {m.dev_buildings_sleeping_line({
-                        id: item.id,
-                        reason: item.reason,
-                        version: item.contentVersion,
-                      })}
-                    </span>
-                    <button
-                      type="button"
-                      aria-pressed={stage.discard.has(item.id)}
-                      onClick={() =>
-                        pushStage(stageNationDiscard(stageRef.current, item.id, !stage.discard.has(item.id)))
-                      }
-                    >
-                      {m.dev_buildings_discard()}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+          <NationSleeping
+            rows={sleeping}
+            discard={stage.discard}
+            onToggle={(id, on) => pushStage(stageNationDiscard(stageRef.current, id, on))}
+          />
+          <NationPowerSection
+            panel={panel}
+            list={list}
+            rows={rows.map((item) => {
+              const mine = stage.nations.get(item.entry.id);
+              return {
+                entry:
+                  mine?.op === "put"
+                    ? mine.entry
+                    : mine?.op === "revert"
+                      ? (item.pack ?? item.entry)
+                      : item.entry,
+                uploaded: item.uploaded?.hash ?? null,
+                slot: item.slot,
+              };
+            })}
+            stage={stage}
+            locale={locale}
+            onStage={pushStage}
+            onSelect={select}
+            onClose={() => setPanel(null)}
+          />
           {applied ? (
             <NationApplyWorld
               result={applied}
@@ -496,6 +540,7 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
                 selected={selected}
                 locale={locale}
                 defaults={list.defaults}
+                tiers={liveList?.tiers.map((item) => item.entry) ?? []}
                 onSelect={select}
               />
             </aside>
@@ -503,7 +548,7 @@ export default function NationEditorScreen({ initialId }: { initialId?: string |
               {selected && row && draft ? (
                 <NationDetail
                   key={selected}
-                  list={list}
+                  list={liveList ?? list}
                   row={row}
                   draft={draft}
                   locale={locale}

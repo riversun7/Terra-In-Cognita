@@ -571,6 +571,8 @@ export function createNpcPersist(
           stats: unit.recruit ? [...unit.recruit.stats] : null,
           elements: unit.recruit ? recruitElementSlots(unit.recruit.elements) : null,
         });
+        // 경비대 표시는 세울 때 한 번 쓴다(바뀌지 않는다, 쓰기 표 humanGuard — 휴먼 행 다음 차례)
+        if (!saved && unit.guard === true) writer.upsert("humanGuard", { unit_id: unit.id, guard: true });
         savedHumans.set(unit.id, { sig, owner: unit.owner });
         count.rows += 1;
       }

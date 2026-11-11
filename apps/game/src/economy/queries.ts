@@ -15,7 +15,7 @@ import type {
   MarketCitiesResponse,
   MarketItemsResponse,
 } from "@terra/shared/economy";
-import type { FacilitiesOverviewResponse } from "@terra/shared/facilities";
+import type { FacilitiesOverviewResponse, FacilityWaterMaskResponse } from "@terra/shared/facilities";
 import type { LaborJobsResponse, LaborOverviewResponse } from "@terra/shared/labor";
 import type { RecruitBoardResponse } from "@terra/shared/recruit";
 import type { RuinsOverviewResponse } from "@terra/shared/ruins";
@@ -188,6 +188,10 @@ export const useLaborJobs = createQuery<LaborJobsResponse>(([city = ""], _previe
 /** 건물(짓기·레벨업·노화·수리, docs/adr/2026-11-07-buildings-runtime.md) */
 export const useFacilities = createQuery<FacilitiesOverviewResponse>((_args, _preview, signal) =>
   api.facilities.overview.query(undefined, { signal }),
+);
+/** 2차맵 물 표(짓기 폼의 물가 조건 미리 보기, 질문 947 나). args = [2차맵 키 글자] */
+export const useWaterMask = createQuery<FacilityWaterMaskResponse>(([mapKey = "0"], _preview, signal) =>
+  api.facilities.waterMask.query({ mapKey: Number(mapKey) }, { signal }),
 );
 
 /** 신전·생명과학 연구소(비활성 휴먼 환생·신격화·유전자 변환, D-517 — docs/adr/2026-11-07-temple-religion.md) */

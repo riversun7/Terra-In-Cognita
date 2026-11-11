@@ -57,8 +57,21 @@ function fakeService(calls: { entries: unknown; actor: PlacementActor }[]): Plac
       }));
     },
     clear: async () => true,
+    tierPlan: async () => EMPTY_TIER_VIEW,
+    requestTierApply: async (actor) => {
+      calls.push({ entries: "tier_apply", actor });
+      return EMPTY_TIER_VIEW;
+    },
+    cancelTierApply: async () => true,
   };
 }
+
+const EMPTY_TIER_VIEW = {
+  nations: [],
+  totals: { cities: 0, humans: 0, guards: 0, housingRaised: 0, surplusCities: 0 },
+  unitsNow: 0,
+  request: null,
+};
 
 describe("worldLayout 라우터", () => {
   it("플레이어는 FORBIDDEN, 서비스가 없으면 WORLD_NOT_READY, 다른 행성은 UNKNOWN_PLANET", async () => {
@@ -99,5 +112,19 @@ describe("worldLayout 라우터", () => {
         placements: [{ code: "npc_a", mapKey: key }],
       }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("국력 등급 반영: 미리 보기는 읽기 권한, 예약·취소는 놓기 권한(플레이어 FORBIDDEN), 본인·요청 IP로", async () => {
+    const calls: { entries: unknown; actor: PlacementActor }[] = [];
+    const caller = callerFor(ADMIN, fakeService(calls));
+    const input = { planetId: "s2_test_planet" };
+    expect((await caller.worldLayout.tierPlan(input)).totals.cities).toBe(0);
+    expect((await caller.worldLayout.requestTierApply(input)).request).toBeNull();
+    expect(calls).toEqual([{ entries: "tier_apply", actor: { userId: "u-admin", ip: "10.0.0.1" } }]);
+    expect(await caller.worldLayout.cancelTierApply(input)).toEqual({ cancelled: true });
+    const player = callerFor(PLAYER, fakeService(calls));
+    await expect(player.worldLayout.tierPlan(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(player.worldLayout.requestTierApply(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(player.worldLayout.cancelTierApply(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

@@ -77,6 +77,8 @@ export const FACILITY_RUNTIME_LIMITS = {
   durability: { min: 1, max: 1_000_000 },
   /** 레벨 1 창고 용량(kg, N50) */
   storageKg: { min: 1, max: 10_000_000 },
+  /** 물가 조건 반경(배치 칸, 질문 947 나 — 팩 facilities.needsWaterWithin) */
+  needsWaterWithin: { min: 1, max: 64 },
 } as const;
 
 /** 상태 이름(옛 경제 문서 문턱) */

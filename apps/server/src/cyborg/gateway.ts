@@ -4,7 +4,7 @@
 // - 판정·저장은 서비스(service.ts)가 한다. 세계가 아직 없으면(부팅 중·DB 없음) busy.
 // - 속성 분배(프로토콜 5, D-450): 5판 연결의 만들기는 분배(elements)를 꼭 보낸다(없으면 elements_invalid). 4판 연결의 만들기는
 //   분배 없이 서비스에 넘긴다 → "분배 기다림"으로 만들고 새 앱이 cyborg_elements로 한 번 나눈다.
-// - 3D 외형 한 번 고르기(프로토콜 21, 질문 961 나): cyborg_look을 서비스에 넘긴다(판 확인은 session.ts).
+// - 3D 외형 한 번 고르기(프로토콜 22, 질문 961 나): cyborg_look을 서비스에 넘긴다(판 확인은 session.ts).
 import {
   CYBORG_ELEMENTS_PROTOCOL_VERSION,
   type ClientMessageOf,

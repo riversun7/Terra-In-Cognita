@@ -7,6 +7,7 @@ import type { GovernmentResponse } from "@terra/shared/government";
 import { Suspense, lazy, useEffect, useId, useState, useSyncExternalStore } from "react";
 import type { GatherState } from "../map/gather/gatherState.ts";
 import { m } from "../paraglide/messages.js";
+import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { ChunkErrorBoundary } from "../ui/ChunkErrorBoundary.tsx";
 import { cityTitle, leaderTitle, loadGovernment, nationTitle } from "./governmentData.ts";
 import "./government.css";
@@ -65,6 +66,17 @@ export function GovernmentSheet({ state, embedded = false }: GovernmentSheetProp
         {m.government_sheet_title({ city: cityTitle(city) })}
       </Heading>
       <p className="gov-muted">
+        {nation.emblem ? (
+          <>
+            <NationEmblem
+              spec={nation.emblem.spec}
+              color={nation.emblem.color}
+              uploaded={nation.emblem.uploaded}
+              size={20}
+              className="gov-emblem"
+            />{" "}
+          </>
+        ) : null}
         {m.government_sheet_line({ nation: nationTitle(nation), leader: leaderTitle(leader) })}
       </p>
       <div className="gov-actions">

@@ -1,4 +1,4 @@
-// 사이보그 만들기 명령(WebSocket, 프로토콜 4·5·21) — cyborg_roll·cyborg_create·cyborg_elements·cyborg_look(3D 외형 한 번 고르기, 질문 961 나)을
+// 사이보그 만들기 명령(WebSocket, 프로토콜 4·5·22) — cyborg_roll·cyborg_create·cyborg_elements·cyborg_look(3D 외형 한 번 고르기, 질문 961 나)을
 // 보내고 같은 요청 번호의 cyborg_result를 기다린다.
 // docs/adr/2026-11-01-first-login-cyborg.md 4절. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // - 연결이 아직 인사 전이면 인사가 끝날 때까지 기다렸다 보낸다(만들기 화면을 켠 직후). 기다림·답 모두 TIMEOUT_MS 안.

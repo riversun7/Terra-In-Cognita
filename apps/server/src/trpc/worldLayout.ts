@@ -1,7 +1,8 @@
 // worldLayout 라우터 — 세계 배치 화면(/dev/world-layout, 기획 D-528, docs/adr/2026-11-07-world-layout.md "바뀜 (D-528)").
 // 고정 NPC 국가의 자리(수도 2차맵)를 보고 놓는다. 놓은 자리는 서버가 다음에 켤 때 세계에 든다(실시간 게임 상태를 바꾸는 명령이 아니라 개발자
 // 설정이라 tRPC다 — 설정 칸 패널과 같다). 서비스는 src/world/placementService.ts.
-// - view·suggest: 권한 worldLayout: read(dev·admin) / place·clear: worldLayout: place(dev·admin, 감사 기록)
+// - view·suggest·tierPlan: 권한 worldLayout: read(dev·admin) / place·clear·requestTierApply·cancelTierApply: worldLayout: place
+//   (dev·admin, 감사 기록). 국력 등급(사용자 답 2026-11-11): suggest가 등급 배치 계획을, tierPlan이 이미 선 세계에 더해질 것을 보인다
 // 오류(error.data.code): UNAUTHORIZED, FORBIDDEN, BAD_REQUEST(입력 형식), PRECONDITION_FAILED("WORLD_NOT_READY": 세계·DB·행성 값 없음),
 // NOT_FOUND("UNKNOWN_PLANET": 세계 행성이 아님)
 // planetId는 선택이다: 없으면 대표 플레이 행성(src/world/playablePlanets.ts, docs/adr/2026-11-11-planet-scope.md).
@@ -9,6 +10,7 @@ import type {
   WorldLayoutPlanetView,
   WorldLayoutSuggestion,
   WorldPlaceResult,
+  WorldTierApplyView,
 } from "@terra/shared/worldPlacementApi";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -82,6 +84,36 @@ export const worldLayoutRouter = router({
     .mutation(
       async ({ ctx, input }): Promise<{ cleared: boolean }> => ({
         cleared: await serviceOf(ctx, input.planetId).clear(input.code, {
+          userId: ctx.viewer.id,
+          ip: ctx.worldLayout?.ip ?? null,
+        }),
+      }),
+    ),
+  /** 국력 등급 분포를 이미 선 세계에 반영하면 더해지는 것(미리 보기 — DB 읽기만)과 걸린 요청 */
+  tierPlan: permissionProcedure({ worldLayout: ["read"] })
+    .input(z.strictObject({ planetId }))
+    .query(
+      async ({ ctx, input }): Promise<WorldTierApplyView> =>
+        present(await serviceOf(ctx, input.planetId).tierPlan()),
+    ),
+  /** 반영 예약: 다음 서버 시작 때 든다(더하기만 — 지우거나 옮기지 않는다). 감사 기록 */
+  requestTierApply: permissionProcedure({ worldLayout: ["place"] })
+    .input(z.strictObject({ planetId }))
+    .mutation(
+      async ({ ctx, input }): Promise<WorldTierApplyView> =>
+        present(
+          await serviceOf(ctx, input.planetId).requestTierApply({
+            userId: ctx.viewer.id,
+            ip: ctx.worldLayout?.ip ?? null,
+          }),
+        ),
+    ),
+  /** 아직 들지 않은 반영 예약 지우기 */
+  cancelTierApply: permissionProcedure({ worldLayout: ["place"] })
+    .input(z.strictObject({ planetId }))
+    .mutation(
+      async ({ ctx, input }): Promise<{ cancelled: boolean }> => ({
+        cancelled: await serviceOf(ctx, input.planetId).cancelTierApply({
           userId: ctx.viewer.id,
           ip: ctx.worldLayout?.ip ?? null,
         }),

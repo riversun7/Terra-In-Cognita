@@ -65,7 +65,7 @@ import {
  *    거래)·govRebuilt(옛 세력이 정부를 재건 = 다시 전쟁)·looted(끝 날 남은 약탈 상태)·expelled(점령 상태를 힘으로 몰아냄)·recovered(점령 상태
  *    저절로 회복)를 더함
  */
-export const SIM_OUTPUT_FORMAT = 14;
+export const SIM_OUTPUT_FORMAT = 15;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */
@@ -144,6 +144,16 @@ export interface RunSummary {
     ore: string;
     upkeepArrears: number;
   };
+  /**
+   * 시나리오 세력 묶음마다(국력 등급 — 초강대국·강대국… 묶음을 따로 적은 시나리오가 등급별 결과를 본다, 출력 형식 15): 처음 차린 수와
+   * 끝났을 때 그 묶음 세력의 살아 있는 수·도시·유닛(경비대 포함). 실행 중에 생긴 세력(반란·마을)은 넣지 않는다
+   */
+  readonly groups: readonly {
+    code: string;
+    factions: number;
+    start: { cities: number; units: number; guards: number; tech: number };
+    end: { alive: number; cities: number; units: number; guards: number };
+  }[];
   readonly events: { processed: number; byKind: Record<string, number> };
   /** 경제(시나리오에 economy 칸이 없으면 null) */
   readonly economy: EconomySummary | null;
@@ -433,6 +443,34 @@ export function runSimulation(options: RunOptions): RunSummary {
       ore: totalOwnerAsset(world, TEST_ASSET_ORE).toString(),
       upkeepArrears: arrears,
     },
+    groups: scenario.factions.map((group) => {
+      const codes = new Set(
+        Array.from({ length: group.count }, (_, index) =>
+          group.count === 1 ? group.code : `${group.code}_${String(index + 1).padStart(2, "0")}`,
+        ),
+      );
+      const end = { alive: 0, cities: 0, units: 0, guards: 0 };
+      for (const faction of world.factions.values()) {
+        if (!codes.has(faction.code) || !faction.alive) continue;
+        end.alive += 1;
+        end.cities += faction.cities.size;
+        end.units += faction.units.size;
+        for (const id of faction.units) if (world.units.get(id)?.guard === true) end.guards += 1;
+      }
+      // 처음 수도 끝 수처럼 묶음 합계다(세력 수 × 세력 하나의 수)
+      const guards = (group.guards ?? 0) * group.cities * group.count;
+      return {
+        code: group.code,
+        factions: group.count,
+        start: {
+          cities: group.cities * group.count,
+          units: group.workers * group.count + guards,
+          guards,
+          tech: group.tech,
+        },
+        end,
+      };
+    }),
     events: { processed: loop.processed, byKind: kinds },
     economy: econ ? econ.summary() : null,
     combat: ctx.combat ? ctx.combat.summary() : null,

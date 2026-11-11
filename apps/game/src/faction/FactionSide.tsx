@@ -1,4 +1,5 @@
 // 세력 화면 옆 판 — 내 세력·가문 요약(46 §1), 내 몫(실제 자료), 잠긴 메뉴(D-5055). 넓은 화면은 왼쪽 옆 판, 좁으면 맨 위.
+// 내 세력 이름과 마크 칸은 identity/IdentityCard.tsx(factionIdentity.mine, docs/adr/2026-11-11-faction-identity.md).
 // 고정 NPC 국가(D-324)는 표를 붙인다. 공물은 주마다 국고의 비율이다(D-443 설정값). 세력 순위 칸은 FactionRanking.tsx(ranking.mine).
 // 나라 이름·지도자는 서버가 준 두 언어 이름(label·leaderName — 팩 국가 프리셋, NPC 국가 지도자 사이보그)이 있으면 그것을 보인다("WP-NPC").
 import type {
@@ -17,6 +18,7 @@ import { localName } from "../roster/rosterText.ts";
 import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { Icon } from "../ui/icons.tsx";
 import { FactionRanking } from "./FactionRanking.tsx";
+import { IdentityCard } from "./identity/IdentityCard.tsx";
 import { KIND_NAMES, LOCK_NAMES, REGIME_NAMES, STAGE_NAMES, assetName } from "./factionText.ts";
 import { formatPermille } from "./factionView.ts";
 
@@ -243,6 +245,7 @@ export function FactionSide({ view }: { view: FactionOverviewResponse }) {
     <aside className="faction-side" aria-label={m.faction_side_label()}>
       {view.faction === null ? <NoFaction /> : <FactionCard faction={view.faction} rules={view.rules} />}
       <MyHoldings me={view.me} />
+      <IdentityCard />
       <FactionRanking />
       <Locks locks={view.locks} />
     </aside>

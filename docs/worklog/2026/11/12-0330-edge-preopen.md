@@ -46,6 +46,7 @@
 - Verified: `pnpm e2e e2e/seamless.spec.ts` 6 통과·1 건너뜀(잼, 7.4분). 새 player 시험: 걸은 시간 259초, 이웃 구독 거절은 모두 `not_visible`(시야가 닿기 전, 5초마다 다시), `unknown_map` 0, 넘기 전에 vision을 받음. 첫 실행은 미리 띄운 이웃 지형 404(기기 콘솔)로 실패 → `terrainRoute.ts` 고침 뒤 통과.
 - e2e 도우미 `sendCommands`에 첫 요청 ID 인자를 더했다: 같은 ID의 이동 명령을 서버 명령 중복 방지(10분)가 처음 결과로 돌려줘 두 번째 이동이 되지 않았다(잼 첫 실행, Verified). 기본값은 그대로 9000.
 - Verified: 첫 `pnpm check`에서 `cyborg/cyborgTuning.db.test.ts` 1개 실패(사이보그 만들기 한 명령 안에서 설정 칸을 두 번 읽음 — 새로 선 사이보그 유닛의 움직임 알림이 `map_preopen_cells`를 읽었다). 미리 띄우기 거리는 켤 때와 1분마다(살피기 뒤) 읽어 둔 값을 쓰게 고쳤다(설정 칸을 바꾸면 1분 안에 걸린다). 고친 뒤 그 시험·미리 띄우기 시험·tuning 시험 46 통과.
+- Verified: 고친 뒤 `pnpm check`(TEST_DATABASE_URL) 통과 — 시험 파일 627·시험 4,838. `pnpm check:docs origin/main` 통과.
 - Verified: 빌드·`node scripts/check-pwa.mjs`·`pnpm check:bundle` 통과(apps/game은 `mapSession.ts`만 바뀜).
 
 ## 잰 것

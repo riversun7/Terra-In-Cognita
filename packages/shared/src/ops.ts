@@ -12,6 +12,8 @@ import type { Role } from "./roles.ts";
  * - manage_grants: 다른 계정에 운영 권한 체크박스 주기(개발자만)
  * - log_switch: 조회 감사 기록 켜기·끄기(관리자·개발자)
  * - faction_edit: 세력 정체성(이름·약어·색)·화폐 표시(이름·기호·3글자 약어) 고치기(강한 통제 — 관리자·개발자)
+ * - emblem_moderate: 플레이어가 올린 세력 마크 보기·내리기·그 계정의 올리기 막기(가벼운 통제 — docs/adr/2026-11-11-faction-identity.md 5절).
+ *   세계 스위치 "플레이어 마크 올리기 허용"을 바꾸는 것은 faction_edit다
  */
 export const OPS_PERMISSIONS = [
   "view_players",
@@ -29,6 +31,7 @@ export const OPS_PERMISSIONS = [
   "manage_grants",
   "log_switch",
   "faction_edit",
+  "emblem_moderate",
 ] as const;
 
 export type OpsPermission = (typeof OPS_PERMISSIONS)[number];
@@ -52,6 +55,7 @@ export const OPS_PERMISSION_TIER: { readonly [P in OpsPermission]: OpsTier } = {
   manage_grants: "manage",
   log_switch: "manage",
   faction_edit: "strong",
+  emblem_moderate: "light",
 };
 
 export function isOpsPermission(value: string): value is OpsPermission {

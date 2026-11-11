@@ -161,6 +161,14 @@ export const ROUTES = {
     frame: "shown",
     access: "everyone",
   },
+  // 내 세력 정체성 정하기·고치기(이름·약어·색·마크 — docs/adr/2026-11-11-faction-identity.md)
+  faction_identity: {
+    path: "/faction/identity",
+    search: [],
+    parent: "faction",
+    frame: "shown",
+    access: "everyone",
+  },
   // ?item=<항목 ID>: 한 항목을 강조한다(inbox.ts 항목 ID 규칙)
   inbox: { path: "/inbox", search: ["item"], parent: "home", frame: "shown", access: "everyone" },
   mail: { path: "/mail", search: [], parent: "home", frame: "shown", access: "everyone" },

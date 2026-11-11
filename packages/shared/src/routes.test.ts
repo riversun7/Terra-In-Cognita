@@ -236,6 +236,7 @@ describe("주소 표", () => {
       // 랭킹 판(docs/adr/2026-11-07-ranking.md, D-6010 사이보그·세력 화면 안)
       cyborg_ranking: ["/cyborg/ranking", "cyborg", "shown", "everyone", ["path"]],
       faction_ranking: ["/faction/ranking", "faction", "shown", "everyone", []],
+      faction_identity: ["/faction/identity", "faction", "shown", "everyone", []],
       inbox: ["/inbox", "home", "shown", "everyone", ["item"]],
       mail: ["/mail", "home", "shown", "everyone", []],
       settings: ["/settings", "home", "shown", "everyone", []],

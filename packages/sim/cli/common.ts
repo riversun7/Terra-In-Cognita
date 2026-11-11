@@ -79,6 +79,7 @@ function catalogOf(source: PackSource): EconomyCatalog {
       startPrice: BigInt(item.startPrice),
       ...(item.subcategory ? { subcategory: id(item.subcategory) } : {}),
       ...(item.lotSize === undefined ? {} : { lotSize: BigInt(item.lotSize) }),
+      ...(item.weight === undefined ? {} : { weight: item.weight }),
       enabled: item.enabled,
     })),
     recipes: parseFile(source, "recipes.json", (raw) => recipeEntrySchema.parse(raw)).map((recipe) => ({

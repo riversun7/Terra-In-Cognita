@@ -39,6 +39,8 @@ export function serverEconomyCatalog(
       startPrice: BigInt(item.startPrice),
       ...(subcategory === undefined ? {} : { subcategory }),
       ...(item.lotSize === undefined ? {} : { lotSize: BigInt(item.lotSize) }),
+      // 채집소 → 창고 옮김 시간(질문 1050 가)이 보는 무게(g, 기본 단위 하나)
+      ...(entry?.weight === undefined ? {} : { weight: entry.weight }),
       // 화면 목록은 켜진 항목만 싣는다
       enabled: true,
     };

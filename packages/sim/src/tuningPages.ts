@@ -10,6 +10,7 @@ import { GATHER_OBJECT_TUNING_KEYS } from "./tuningGather.ts";
 import { HOUSE_TUNING_KEYS } from "./tuningHouse.ts";
 import { INJURY_TUNING_KEYS } from "./tuningInjury.ts";
 import { LABOR_TUNING_KEYS } from "./tuningLabor.ts";
+import { LOGISTICS_TUNING_KEYS } from "./tuningLogistics.ts";
 import { RECRUIT_TUNING_KEYS } from "./tuningRecruit.ts";
 import { RESTORATION_TUNING_KEYS } from "./tuningRestoration.ts";
 import { TEMPLE_TUNING_KEYS } from "./tuningTemple.ts";
@@ -26,6 +27,7 @@ const GROUP_PAGES: readonly (readonly [readonly TuningKey[], TuningPage])[] = [
   [LABOR_TUNING_KEYS, "economy"],
   [BUILD_TUNING_KEYS, "economy"],
   [GATHER_OBJECT_TUNING_KEYS, "economy"],
+  [LOGISTICS_TUNING_KEYS, "economy"],
   [WAR_TUNING_KEYS, "society"],
   [TEMPLE_TUNING_KEYS, "society"],
   [RESTORATION_TUNING_KEYS, "society"],

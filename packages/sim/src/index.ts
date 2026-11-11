@@ -986,6 +986,8 @@ export {
   type TechState,
 } from "./society/tech.ts";
 export * from "./society/labor.ts";
+export * from "./society/logistics.ts";
+export { LOGISTICS_TUNING_KEYS } from "./tuningLogistics.ts";
 export * from "./society/injury.ts";
 export {
   attachSociety,

@@ -38,6 +38,8 @@ import {
   tierCappedByLevel,
 } from "../economy/production.ts";
 import { dueNecessities, payNecessities } from "../economy/upkeep.ts";
+import { START_GATHER_OBJECTS } from "../society/gatherObjects.ts";
+import { haulTimeMs } from "../society/logistics.ts";
 import { type CatchmentState, facilitySupplyPm } from "./catchmentRun.ts";
 import {
   type CatalogGather,
@@ -102,6 +104,16 @@ export interface EcoFacility {
   readonly yieldPerLot: number;
   /** 한 번 시도의 성공 ‰(낚시터 gather.catch). 성공 확률 규칙이 없는 시설은 undefined(늘 성공) */
   readonly catchPm?: number | undefined;
+  /**
+   * 숙소 셈 배율(‰, 질문 1047 다 — society/logistics.ts restDutyPm): 일꾼이 쉬는 곳(숙소 레벨·숙소 없는 집·노숙)과 일터 ↔ 쉼터 거리로 정한
+   * 일한 몫을 기준(숙소 없는 집, 거리 0)에 견준 값. 생산 속도에 곱한다. 없으면 1000(예전과 같다 — 시뮬 시나리오는 시설 자리가 없다)
+   */
+  readonly dutyPm?: number | undefined;
+  /**
+   * 채집소 → 창고 옮김(질문 1050 가 — society/logistics.ts haulTimeMs): 칸 수와 화물 상한(g). 있으면 한 번의 산출 무게를 일꾼들이 나눠 나르는
+   * 시간을 그 번 시간에 더한다. 없으면 옮김 시간 0(예전과 같다)
+   */
+  readonly haul?: { readonly cells: number; readonly carryG: number } | undefined;
   /** 생산 차례(추첨 난수의 차례) */
   batches: number;
   eventId: number | undefined;
@@ -298,6 +310,10 @@ export function createEconomy(
             level: plan.level,
             workers,
             ...workerEffects(facility.gather, plan, gather),
+            ...(plan.dutyPm === undefined ? {} : { dutyPm: plan.dutyPm }),
+            ...(plan.haulCells === undefined || plan.haulCells <= 0
+              ? {}
+              : { haul: { cells: plan.haulCells, carryG: START_GATHER_OBJECTS.carryGrams } }),
             batches: 0,
             eventId: undefined,
           });
@@ -438,9 +454,23 @@ export function workerEffects(
   };
 }
 
-/** 시설의 시간당 작업량(일꾼 × 기준 효율 × 진행 속도) */
+/** 숙소 셈 배율(‰, 없으면 1000) */
+function dutyOf(facility: EcoFacility): number {
+  return Math.max(1, Math.trunc(facility.dutyPm ?? 1000));
+}
+
+/** 시설의 시간당 작업량(일꾼 × 기준 효율 × 진행 속도 × 숙소 셈 배율) */
 function pointsPerHour(facility: EcoFacility): number {
-  return facility.workers * BASE_EFFICIENCY * facility.progress;
+  return Math.floor((facility.workers * BASE_EFFICIENCY * facility.progress * dutyOf(facility)) / 1000);
+}
+
+/** 한 번의 산출을 창고로 나르는 시간(ms, 시설에 옮김 칸이 없으면 0) — 무게는 팩 물건 weight(g, 기본 단위 하나) */
+function haulOfBatch(economy: Economy, facility: EcoFacility, outputs: PendingBatch["outputs"]): number {
+  const haul = facility.haul;
+  if (!haul || haul.cells <= 0) return 0;
+  let grams = 0n;
+  for (const stack of outputs) grams += stack.qty * (economy.catalog.weightG.get(stack.asset) ?? 0n);
+  return haulTimeMs(grams, haul.cells, facility.workers, haul.carryG);
 }
 
 /**
@@ -451,11 +481,14 @@ function pointsPerHour(facility: EcoFacility): number {
  *   난수 = 흐름 7(시설, 생산 차례). 일하는 사람이 없으면 undefined(예약하지 않는다)
  */
 function nextBatch(economy: Economy, world: SimWorld, facility: EcoFacility): PendingBatch | undefined {
-  const batch = plainBatch(economy, world, facility);
+  const plain = plainBatch(economy, world, facility);
+  if (!plain) return undefined;
   // 배후지 받은 몫만큼 느려진다(채집 시설만, 바닥 위 — catchmentRun.ts)
   const supplyPm = facilitySupplyPm(economy.catchment, facility.city, facility.recipe.facility);
-  if (!batch || supplyPm >= 1000) return batch;
-  return { outputs: batch.outputs, durationMs: Math.ceil((batch.durationMs * 1000) / supplyPm) };
+  const worked = supplyPm >= 1000 ? plain.durationMs : Math.ceil((plain.durationMs * 1000) / supplyPm);
+  // 채집소 → 창고 옮김 시간을 그 번에 더한다(질문 1050 가, 시설에 옮김 칸이 있을 때만)
+  const durationMs = worked + haulOfBatch(economy, facility, plain.outputs);
+  return durationMs === plain.durationMs ? plain : { outputs: plain.outputs, durationMs };
 }
 
 /** 배후지를 보지 않은 다음 한 번(nextBatch 머리 주석) */
@@ -472,7 +505,8 @@ function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): P
       durationMs,
     };
   }
-  const speed = facility.workers * facility.progress;
+  // 일꾼 × 진행 속도 × 숙소 셈 배율(‰ — 시간 셈에서 1000으로 나눈다)
+  const speed = facility.workers * facility.progress * dutyOf(facility);
   if (speed <= 0) return undefined;
   const rules = economy.gather;
   const rng = streamRng(world.seed, STREAM_GATHER, facility.id, facility.batches);
@@ -497,7 +531,7 @@ function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): P
   result.landed.forEach((count, tier) => {
     progress += count * tierRequiredProgress(tier, base, step);
   });
-  const durationMs = Math.max(1, Math.ceil((progress * (rules.tickMs ?? 60_000)) / speed));
+  const durationMs = Math.max(1, Math.ceil((progress * (rules.tickMs ?? 60_000) * 1000) / speed));
   return { outputs: result.outputs, durationMs };
 }
 

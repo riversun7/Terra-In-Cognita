@@ -8852,6 +8852,96 @@
       "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
+      "id": "lodging_recovery_mode",
+      "code": "",
+      "name": {
+        "ko": "숙소 회복을 도시 생산에 셈(1 = 셈, 0 = 쉼터 자리만)",
+        "en": "Count lodging recovery in city output (1 = on, 0 = rest spot only)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "1이면 NPC 일꾼이 쉬는 곳(숙소 레벨·집·노숙)과 일터까지 거리가 도시 생산 속도에 든다. 0이면 숙소는 밤에 쉬는 자리일 뿐이다.",
+        "en": "1 = where NPC workers rest (lodging level, home, homeless) and how far it is from work change city output. 0 = lodging is only a place to sleep."
+      },
+      "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12)\" · 질문 1047·1050 [임시]"
+    },
+    {
+      "id": "lodging_beds_per_level",
+      "code": "",
+      "name": {
+        "ko": "숙소 레벨당 침대 수",
+        "en": "Lodging beds per level"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 200,
+      "desc": {
+        "ko": "숙소 하나의 수용 인원 = 레벨 × 이 값. 시작 도시 숙소 수도 주거 ÷ 이 값으로 정한다.",
+        "en": "Beds in one lodging = level × this. Start cities get housing ÷ this lodgings."
+      },
+      "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12)\" · 질문 1047·1050 [임시]"
+    },
+    {
+      "id": "lodging_fee_per_night",
+      "code": "",
+      "name": {
+        "ko": "숙소 하룻밤 요금(최소 단위)",
+        "en": "Lodging fee per night (minor units)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "일꾼이 남의 숙소에서 한 번 쉴 때 숙소 주인이 받는 돈. 도시 주인 세력의 숙소는 같은 주머니라 오가지 않는다.",
+        "en": "What a lodging owner gets each time a worker from another owner rests there. Lodgings of the city's own faction charge nothing."
+      },
+      "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12)\" · 질문 1047·1050 [임시]"
+    },
+    {
+      "id": "lodging_home_recovery_pm",
+      "code": "",
+      "name": {
+        "ko": "숙소 없는 집 회복 배율(‰)",
+        "en": "Recovery at a home without lodging (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 10000,
+      "desc": {
+        "ko": "숙소 침대가 모자라 집에서 쉬는 일꾼의 피로 회복 배율. 숙소는 레벨마다 N24 주거 등급 배율을 쓴다.",
+        "en": "Fatigue recovery of workers who rest at home because lodging beds ran out. Lodgings use the N24 housing grade rate per level."
+      },
+      "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12)\" · 질문 1047·1050 [임시]"
+    },
+    {
+      "id": "haul_distance_mode",
+      "code": "",
+      "name": {
+        "ko": "채집소 → 창고 옮김에 거리 셈(1 = 셈, 0 = 바로)",
+        "en": "Station to storehouse haul takes distance time (1 = on, 0 = instant)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "1이면 채집소 물건을 창고까지 걸어 나르는 시간이 든다(화물 상한 gather_obj_carry_g씩 왕복). 0이면 거리와 상관없이 바로 옮긴다.",
+        "en": "1 = goods are walked from the station to the storehouse (round trips of gather_obj_carry_g each). 0 = moved instantly at any distance."
+      },
+      "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12)\" · 질문 1047·1050 [임시]"
+    },
+    {
       "id": "house_found_cost",
       "code": "",
       "name": {

@@ -40,11 +40,11 @@ describe("건물 편집기 화면 자료", () => {
     expect(raw.length).toBeGreaterThanOrEqual(8);
     for (const line of raw) expect(facilityJsonOf(facilityEntrySchema.parse(line))).toEqual(line);
     const rawBands = readCategoryFile(loaded.source, "gather_tiers").entries;
-    expect(rawBands).toHaveLength(12);
+    expect(rawBands).toHaveLength(14);
     for (const line of rawBands) expect(gatherTierJsonOf(gatherTierEntrySchema.parse(line))).toEqual(line);
     const state = createContentEditState(loaded.source);
     const bands = gatherBandViews(state, state.snapshot());
-    expect(bands).toHaveLength(12);
+    expect(bands).toHaveLength(14);
     expect(bands[0]?.entry.id).toBe("band_000");
     expect(bands[0]?.origin).toBe("pack");
   });

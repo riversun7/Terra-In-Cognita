@@ -51,7 +51,9 @@ const args = process.argv.slice(2);
 // --pack <폴더>: 다른 콘텐츠 팩으로 잰다(아이템 무게 전·후 견주기, 질문 1094)
 const packAt = args.indexOf("--pack");
 const packDir = packAt >= 0 ? args[packAt + 1] : undefined;
-const cityCount = Number(args.find((arg, i) => !arg.startsWith("--") && i !== packAt + 1) ?? 12);
+const cityCount = Number(
+  args.find((arg, i) => !arg.startsWith("--") && (packAt < 0 || i !== packAt + 1)) ?? 12,
+);
 const LEVEL = 9;
 
 const loaded = loadContentPack(packDir ?? fileURLToPath(new URL("../../../content/core", import.meta.url)));
@@ -359,7 +361,7 @@ lines.push("");
 // 채집소 옮김(아이템 무게, 질문 1094·1090 가): 운반꾼 하나, 자동 옮김 간격 안에 가득 찬 창고를 비우나
 const every = rules.gatherObjects.stationHaulMs;
 lines.push(
-  `채집소 옮김(팩 ${loaded.pack.version}, 운반꾼 하나, 화물 상한 ${rules.gatherObjects.carryGrams / 1000}kg, 자동 옮김 ${every / 60_000}분)`,
+  `채집소 옮김(팩 core@${loaded.pack.manifest.version}, 운반꾼 하나, 화물 상한 ${rules.gatherObjects.carryGrams / 1000}kg, 자동 옮김 ${every / 60_000}분)`,
 );
 lines.push("");
 lines.push(

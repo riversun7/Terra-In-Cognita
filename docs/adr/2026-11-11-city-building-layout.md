@@ -159,6 +159,6 @@
   - 화면: 채집소 판 "유닛 N이(가) 짐을 지고 나르는 중, M분 뒤 도시 창고에 닿음"(ko·en, 응답 `haul.porterUnitId`).
 - 피로 바퀴 움직임(1095 가, `world/bots.ts WorkShift.cycle`, `npc/cityRest.ts restCycleOf`): NPC 일꾼은 지역 낮·밤 대신 생산 셈과 같은 일·쉼 바퀴(일 = 피로 상한 × 일 주기 2시간, 쉼 = 쉼터 회복 + 오감)로 일터 ↔ 쉼터를 오간다 — 지치면 스스로 쉼터로(48 §7.1). 바퀴 시작은 유닛마다 흩는다(질문 1139). 설정 칸 `worker_rest_cycle_mode`(1, 0이면 옛 낮·밤 `npc_work_start_pm`·`npc_work_end_pm`). 생산 셈은 처음부터 피로 바퀴였다(Verified: `restDutyPm`·`settle.ts advanceJob`). 플레이어 일꾼은 2차맵에서 따로 걷지 않고 정산 엔진의 피로 바퀴만 쓴다(예전과 같다).
 - 아이템 무게(1094, 팩 core@76): 무게가 없던 17개에 옛 아이템 표(`AntiGravt01/docs/GDD/Item/Consolidated_Item.md` ITM-10 원자재 표, 요리 1인분 `weight_per_serving`) 값 — 곡물 200g(옛 주식 곡물 밀·쌀 0.2kg), 원목 2kg(옛 목재 T0~T9 2kg), 배급 식량 500g. 표에 없는 생활용품·시험 장비·임시 아이템은 [임시] 값(질문 1137). 표에 있는 원자재(광석·통나무·작물·약초·생선·목장)는 팩에 이미 그 값이 있었다(Verified).
-- 측정: 작업 기록 `docs/worklog/2026/11/12-1630-logistics-2.md`.
+- 측정: 작업 기록 `docs/worklog/2026/11/12-1712-logistics-2.md`.
 - 판: 팩 core@76(아이템 무게 17개 + 설정 칸 `worker_rest_cycle_mode`), 마이그레이션 없음, 프로토콜 그대로(결과 코드는 있던 것), `SIM_VERSION` 그대로(시뮬 기본 시나리오 결과가 같다 — 측정 3).
 - 다시 볼 조건: 질문 1131~1140 답, 운송 줄기(1093 — 가공 시설 ↔ 창고 거리, 짐 저장), 플레이어 유닛 주거.

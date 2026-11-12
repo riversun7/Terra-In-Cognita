@@ -5,7 +5,7 @@
 // [임시] 전투 유닛 사양은 기술 단계에서 만든 시험값이다(1차 스탯·장비·스킬, 기획 Step 5·9). 유닛 부상·포로는 세계 쪽 일이다.
 import { mix32 } from "../math/hash.ts";
 import { runBattle } from "../combat/battle.ts";
-import type { BattleInit, BattleResult, CombatUnitSpec } from "../combat/battleTypes.ts";
+import type { BattleInit, BattleResult, CombatUnitSpec, Edge } from "../combat/battleTypes.ts";
 import type { BattleMapInput } from "../combat/battleMap.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "../combat/coefficients.ts";
 import {
@@ -21,7 +21,7 @@ import { specFromStats } from "../combat/unitSpec.ts";
 import { NO_INJURY, START_INJURY_COEFFICIENTS, combatInjuryStage, injure } from "../society/injury.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioCombat } from "./scenario.ts";
-import { siegeArena, siegeNexusDurability, siegePlacer } from "../combat/siegeArena.ts";
+import { oppositeEdge, siegeArena, siegeNexusDurability, siegePlacer } from "../combat/siegeArena.ts";
 import type { SimCitySiegeLayouts } from "./citySiegeRun.ts";
 import { type SimFaction, type SimUnit, type SimWorld, defenseOrder, expeditionOrder } from "./world.ts";
 
@@ -54,8 +54,11 @@ export interface CombatRun {
 }
 
 export const PARTY_SIZE = 6;
-/** [임시] 시뮬 공성의 공격 변(서쪽, 옛 열린 맵과 같다 — 사람의 공성은 선포 때 변을 고른다 D-233, 시뮬 세력은 고르지 않는다) */
-const SIM_SIEGE_EDGE = 3;
+/**
+ * 시뮬 공성의 공격 변을 모를 때(서쪽, 옛 열린 맵과 같다). 바뀜 (2026-11-12, 기획 D-535 — 질문 1112 가): 배치 전투맵이면 공격 세력이 오는 쪽
+ * (attackEdgeOf — 공격 세력의 가장 가까운 도시 쪽 변, 웨이브와 같은 edgeToward 규칙)
+ */
+const SIM_SIEGE_EDGE: Edge = 3;
 
 export function openMap(size: number): BattleMapInput {
   const cells = size * size;
@@ -161,11 +164,11 @@ export function simUnitLevel(tech: number): number {
   return 31 + tech * 8;
 }
 
-/** 공격 쪽 = 편 1(서쪽 변), 수비 쪽 = 편 2(동쪽 변) */
-function sides(attacker: SimFaction, defender: SimFaction) {
+/** 공격 쪽 = 편 1(들어오는 변, 기본 서쪽), 수비 쪽 = 편 2(맞은편 변) */
+function sides(attacker: SimFaction, defender: SimFaction, edge: Edge = SIM_SIEGE_EDGE) {
   return [
-    { id: 1, faction: attacker.id, defender: false, edge: 3 as const },
-    { id: 2, faction: defender.id, defender: true, edge: 1 as const },
+    { id: 1, faction: attacker.id, defender: false, edge },
+    { id: 2, faction: defender.id, defender: true, edge: oppositeEdge(edge) },
   ] as const;
 }
 
@@ -188,6 +191,11 @@ export function attachCombat(
    * 지금 내구도, 공격 편은 [임시] 서쪽 변). 없거나 undefined면 옛 열린 맵
    */
   siegeLayout?: SimCitySiegeLayouts,
+  /**
+   * 공성 공격 편이 들어오는 변(질문 1112 가 — 공격 세력의 가장 가까운 도시 쪽, run.ts가 합성 격자로 셈한다). 없거나 undefined면 서쪽. 배치 전투맵에만
+   * 쓴다(열린 맵은 옛 진형 그대로)
+   */
+  attackEdgeOf?: (attacker: SimFaction, cityId: number) => Edge | undefined,
 ): CombatRun {
   const kit = kitOf(catalog);
   const skillCache = new Map<string, CombatSkill[]>();
@@ -320,10 +328,12 @@ export function attachCombat(
       const layout = siegeLayout?.(cityId);
       let map: BattleMapInput;
       let units: CombatUnitSpec[];
+      let edge: Edge = SIM_SIEGE_EDGE;
       if (layout) {
-        // 도시 배치 전투맵(서버와 같은 siegeArena·시작 자리): 공격 쪽은 서쪽 변의 3칸째 줄, 수비 쪽은 넥서스 앞(빈 칸이 없으면 빠진다)
+        // 도시 배치 전투맵(서버와 같은 siegeArena·시작 자리): 공격 쪽은 오는 쪽 변(1112 가)의 3칸째 줄, 수비 쪽은 넥서스 앞(빈 칸이 없으면 빠진다)
         const arena = siegeArena(layout, size, siegeNexusDurability(layout, settings.nexusDurability));
-        const placer = siegePlacer(arena, SIM_SIEGE_EDGE);
+        edge = attackEdgeOf?.(attacker, cityId) ?? SIM_SIEGE_EDGE;
+        const placer = siegePlacer(arena, edge);
         map = arena.map;
         units = [
           ...placed(pick(attacker, settings.siegeUnits), attacker.tech, 1, 1, (i) => placer.attacker(i)),
@@ -351,7 +361,7 @@ export function attachCombat(
           kind: "siege",
           seed: mix32(world.seed ^ Math.imul(battles + 1, 0x9e37_79b1)),
           map,
-          sides: sides(attacker, defender),
+          sides: sides(attacker, defender, edge),
           parties: partiesOf(units),
           units,
         },

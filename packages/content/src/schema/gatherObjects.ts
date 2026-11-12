@@ -11,6 +11,14 @@
 // - source "outcrop"(노두, 기획 D-534 — 질문 1083 나 "낮은 땅 플레이어도 서버가 놓는 노두에서 석재·구리"): 16×16 배치 칸 묶음 가운데 surfaces
 //   지표가 있는 묶음에서 (2차맵 키, 묶음, 종류) 굴림이 chancePm × 그 2차맵 광석 고도 몫(@terra/shared/catchment oreSharePm) ÷ 1000 안이면 선다
 //   — 낮은 땅은 드물고 산지는 많다(NPC 배후지와 같은 고도 몫). art = 기기가 그 자리에 세우는 소품 그림(지형 파일에는 없다 — 생성기 판 그대로).
+//   share = "wood"면 광석 몫 대신 그 2차맵 목재 몫(@terra/shared/catchment woodSharePm — 숲·목재 바닥)을 곱한다(사용자 결정 2026-11-12 "건축시
+//   목재와 석재는 필수이다" — 숲이 없는 땅의 관목·나뭇가지 더미).
+// - source "site"(지형별 오브젝트, 기획 D-536 — 모든 지형 5종 이상, 42 §5 표): 노두 뒤에 16×16 배치 칸 묶음마다, 그 2차맵(1차맵 칸) 바이옴의
+//   천분율(biomes)로 선다. 자리 = surfaces 지표 지형 칸 가운데 묶음 가운데에 가까운 빈 칸(shore면 물가, coast면 바닷가 2차맵만).
+//   물 위 자리(surfaces = water만)는 배로만 닿는다(배는 아직 없다).
+// - source "school"(움직이는 어군, 기획 D-536 "심해는 배로 이동하여 어군같이 물고기떼"): 바이옴마다 2차맵 하나에 count개. 서버가 물 칸 위
+//   닫힌 길(집 자리 둘레 range 안)을 결정적으로 정하고, 자리는 시각의 함수다(@terra/shared/fishSchool). reach 안 물가에 선 유닛이 낚고,
+//   0이면 배로만 닿는다.
 // 지금 값은 모두 [임시]다(D-515).
 import { MAP_PROP_ARTS } from "@terra/shared";
 import { CATCHMENT_MATERIALS } from "@terra/shared/catchment";
@@ -92,19 +100,67 @@ const outcropObject = z.strictObject({
   source: z.literal("outcrop"),
   /** 이 노두가 서는 지표(하나 이상) */
   surfaces: z.array(z.enum(GATHER_PLOT_SURFACES)).min(1, { error: "지표(surfaces)를 하나 이상 적으세요." }),
-  /** 광석 몫 1000(산지)일 때 묶음(16×16 배치 칸) 하나에 설 천분율. 실제 = chancePm × 광석 몫 ÷ 1000 */
+  /** 몫 1000일 때 묶음(16×16 배치 칸) 하나에 설 천분율. 실제 = chancePm × 그 2차맵 몫(share) ÷ 1000 */
   chancePm: z.int().min(1).max(1000),
+  /** 곱하는 몫: 광석 고도 몫(기본) 또는 목재 몫 */
+  share: z.enum(["ore", "wood"]).optional(),
   /** 기기가 그 자리에 세우는 소품 그림(없으면 표시 단추만) */
   art: art.optional(),
 });
 
+/** 2차맵(1차맵 칸) 바이옴마다 값 하나(site: 묶음마다 설 천분율, school: 2차맵 하나의 어군 수) */
+const biomeChance = z.strictObject({ biome: ref("biomes"), chancePm: z.int().min(1).max(1000) });
+const biomeCount = z.strictObject({ biome: ref("biomes"), count: z.int().min(1).max(32) });
+
+/** 바이옴 목록에 같은 바이옴이 두 번 나오지 않는다 */
+function uniqueBiomes(list: readonly { readonly biome: { readonly id: string } }[]): boolean {
+  const ids = list.map((item) => item.biome.id);
+  return new Set(ids).size === ids.length;
+}
+
+const siteObject = z.strictObject({
+  ...common,
+  source: z.literal("site"),
+  /** 이 자리가 서는 지표(하나 이상). 물(water)만이면 배로만 닿는다(배는 아직 없다 — 기획 D-536 질문 1221) */
+  surfaces: z.array(z.enum(GATHER_PLOT_SURFACES)).min(1, { error: "지표(surfaces)를 하나 이상 적으세요." }),
+  /** 2차맵(1차맵 칸) 바이옴마다 묶음(16×16 배치 칸) 하나에 설 천분율 — 개발자 페이지에서 고치는 "양"(D-398) */
+  biomes: z
+    .array(biomeChance)
+    .min(1, { error: "바이옴 천분율을 하나 이상 적으세요." })
+    .refine(uniqueBiomes, { error: "같은 바이옴을 두 번 적지 마세요." }),
+  /** 물가: 자리 지형 칸에서 물(물·얕은 물 지표)까지 이 지형 칸 수 안이어야 한다(없으면 보지 않는다) */
+  shore: z.int().min(1).max(8).optional(),
+  /** 바닷가만: 그 2차맵 칸의 행성 물 비트에 바다나 해안이 있어야 한다(호숫가·강가는 빼기) */
+  coast: z.boolean().optional(),
+  /** 기기가 그 자리에 세우는 소품 그림 */
+  art,
+});
+
+const schoolObject = z.strictObject({
+  ...common,
+  source: z.literal("school"),
+  /** 2차맵(1차맵 칸) 바이옴마다 그 2차맵에 둘 어군 수 — 개발자 페이지에서 고치는 "양"(D-398) */
+  biomes: z
+    .array(biomeCount)
+    .min(1, { error: "바이옴 어군 수를 하나 이상 적으세요." })
+    .refine(uniqueBiomes, { error: "같은 바이옴을 두 번 적지 마세요." }),
+  /** 헤엄 빠르기(배치 칸 ÷ 분) */
+  speed: z.int().min(1).max(240),
+  /** 헤엄 범위: 집 자리에서 이 배치 칸 안의 물 칸들을 돈다 */
+  range: z.int().min(2).max(96),
+  /** 물가에서 낚을 수 있는 거리(배치 칸). 0 = 배로만(배는 아직 없다 — 질문 1221) */
+  reach: z.int().min(0).max(16),
+  /** 기기가 그리는 어군 그림(움직이는 인스턴스) */
+  art,
+});
+
 export const gatherObjectEntrySchema = z.discriminatedUnion(
   "source",
-  [propObject, rockObject, plotObject, outcropObject],
+  [propObject, rockObject, plotObject, outcropObject, siteObject, schoolObject],
   {
     error: (issue) =>
       issue.code === "invalid_union"
-        ? '자리 종류(source)는 "prop"·"rock"·"plot"·"outcrop" 가운데 하나입니다.'
+        ? '자리 종류(source)는 "prop"·"rock"·"plot"·"outcrop"·"site"·"school" 가운데 하나입니다.'
         : undefined,
   },
 );

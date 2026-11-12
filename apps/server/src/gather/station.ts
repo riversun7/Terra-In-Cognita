@@ -416,7 +416,12 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     const route = routeOf(target.buildingId);
     const rules = deps.rules();
     if (!route) return false;
-    const timeMs = (grams: bigint): number => haulMs(grams, route.cells, 1, rules);
+    // 운영자 빠르기 표시(world/operatorPace.ts)가 달린 운반꾼은 걸음처럼 나르는 시간도 그 배수로 준다(사용자 지적 2026-11-12) [임시]
+    const pace = maps.get(target.mapKey)?.paceOf(porter) ?? 1;
+    const timeMs = (grams: bigint): number => {
+      const ms = haulMs(grams, route.cells, 1, rules);
+      return ms <= 0 ? ms : Math.ceil(ms / pace);
+    };
     let grams = 0n;
     for (const load of loads) grams += load.grams;
     if (timeMs(grams) <= 0) return false;

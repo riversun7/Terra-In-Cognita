@@ -32,7 +32,11 @@ describe("설정 칸 여러 칸 규칙 검사(D1)", () => {
     ["employer_order", [["n28_adjust_max", 700]]],
     ["food_order", [["n33_food_zero_at", 60]]],
     ["n45_fit", [["n45_cards_min_l2", 6]]],
-    ["n45_fit", [["n45_stats_max_l4", 60]]],
+    ["n45_fit", [["n45_stats_max_l4", 59]]],
+    // Lv4·Lv5 덤(D-535 1158 나): 기본 10 + 덤 ≤ 원소 수 최소 2 × 10, 굴림 1~8번
+    ["n45_fit", [["n45_element_bonus_l5", 11]]],
+    ["n45_fit", [["n45_stat_rolls_l4", 0]]],
+    ["n45_fit", [["n45_stat_rolls_l5", 9]]],
     ["n45_fit", [["n45_elements_max", 5]]],
     ["n45_fit", [["n45_element_points", 21]]],
     ["n45_fit", [["n45_element_points", 2]]],

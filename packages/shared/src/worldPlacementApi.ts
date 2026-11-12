@@ -216,17 +216,22 @@ export interface WorldCatchmentCity {
   readonly population: number | null;
   /** 배후지 광석 몫 평균(‰ — 고도 몫, 기획 D-533). 1000이면 모두 산지 */
   readonly orePm: number;
-  /** 배후지 광석 가운데 산지 몫(‰ — 높은 티어 광석이 나오는 몫, 광석이 없으면 0) */
+  /** 배후지 광석 가운데 높은 티어 몫(‰ — 산지 1000·산지 밖 ore_flat_high_pm의 광석 몫 가중 평균, 광석이 없으면 0) */
   readonly highOrePm: number;
 }
 
-/** 광석 고도 몫 규칙(설정 칸 ore_share_*·npc_seed_mine_height_m·ore_low_tier_max — 기획 D-533) */
+/** 광석 고도 몫 규칙(설정 칸 ore_share_*·npc_seed_mine_height_m·ore_low_tier_max — 기획 D-533, ore_high_min_m·ore_flat_high_pm — D-535) */
 export interface WorldOreShareView {
   readonly lowPm: number;
   readonly hillM: number;
   readonly hillPm: number;
+  /** 광석 몫 1000 고도(m) */
   readonly mountainM: number;
   readonly lowTierMax: number;
+  /** 높은 티어 광석 산지 고도(m) */
+  readonly highM: number;
+  /** 산지 밖 높은 티어 몫(‰) */
+  readonly flatHighPm: number;
 }
 
 /** 세계 배치 화면 배후지 덮개(tRPC worldLayout.catchment — 고른 국가 수도 둘레) */

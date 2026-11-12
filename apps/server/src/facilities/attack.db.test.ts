@@ -119,6 +119,18 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
     const innerId = inner.buildingId;
     clock = inner.doneAtMs ?? clock;
     p.facilities.service.finishDue(clock);
+    // 이웃 야적장(질문 1114 가 — 전투맵 창 안의 둘레 시설도 결과 목표다)
+    const near = await p.facilities.service.build(owner, {
+      mapKey: TEST_MAP_KEY,
+      facility: "stockpile",
+      x: 60,
+      y: 70,
+      rotation: 0,
+    });
+    if (!near.ok || near.buildingId === undefined) throw new Error(`build failed: ${JSON.stringify(near)}`);
+    const nearId = near.buildingId;
+    clock = near.doneAtMs ?? clock;
+    p.facilities.service.finishDue(clock);
     const built = await p.facilities.service.build(owner, {
       mapKey: TEST_MAP_KEY,
       facility: "stockpile",
@@ -175,9 +187,10 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
     const source = facilityScreenSourceOf(world);
     const seen = await source?.targetsOf(raider, clock);
     expect(seen?.map((target) => [target.kind, target.id, target.durability])).toEqual([
+      ["facility", nearId, expect.any(Number)],
       ["facility", yard, 15],
     ]);
-    expect(seen?.[0]?.unitIds).toEqual(raiders.toSorted((a, b) => a - b));
+    expect(seen?.find((target) => target.id === yard)?.unitIds).toEqual(raiders.toSorted((a, b) => a - b));
     expect(await source?.targetsOf(owner, clock)).toEqual([]);
 
     const started = await attack.attack(raider, { buildingId: yard }, raiders);
@@ -193,9 +206,10 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
     // 넥서스 = 지금 내구도 점(15), 목표 = 그 시설, 전쟁이 아니다
     expect(battle[0]?.war).toBe(false);
     expect(battle[0]?.nexus).toBe(15);
-    expect(typeof init === "object" && init !== null ? targetsOf(init) : []).toEqual([
-      { building: 1, kind: "facility", id: yard },
-    ]);
+    // 목표 = 대상(넥서스) + 창 안의 둘레 시설(질문 1114 가 — 부서지면 세계 시설도 깎인다)
+    const targets = typeof init === "object" && init !== null ? targetsOf(init) : [];
+    expect(targets[0]).toEqual({ building: 1, kind: "facility", id: yard });
+    expect(targets.slice(1)).toContainEqual({ building: expect.any(Number), kind: "facility", id: nearId });
     // 전투맵 = 2차맵 구역(D-533·질문 1046 가): 넥서스 칸 수 = 야적장 실제 칸 수
     let area = 0;
     world.maps.get(TEST_MAP_KEY)?.forEachBuilding((building) => {

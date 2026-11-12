@@ -268,4 +268,30 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 짓기 일꾼 상한",
     "NPC builders per construction (cap)",
   ),
+  // 도시 등급별 건물 수 상한·수리 문턱(기획 D-535 — 질문 1143 나·1114 가 [임시])
+  ...(
+    [
+      ["마을", "village"],
+      ["읍", "town"],
+      ["소도시", "small city"],
+      ["도시", "city"],
+      ["대도시", "metropolis"],
+      ["거대도시", "megacity"],
+    ] as const
+  ).map(([ko, en], index) =>
+    k(
+      `npc_build_cap_l${index + 1}`,
+      "",
+      `buildCapByGrade.${index}`,
+      `NPC 도시 건물 수 상한: ${ko}`,
+      `NPC city building cap: ${en}`,
+    ),
+  ),
+  k(
+    "npc_build_repair_below_pm",
+    "",
+    "buildRepairBelowPm",
+    "NPC가 고치는 시설 상태 문턱(‰)",
+    "NPC repair threshold (facility condition ‰)",
+  ),
 ];

@@ -21,7 +21,7 @@ describe("2차맵 소품 이름표", () => {
       "log",
     ]);
     // 2026-11-11 장식 소품 11종(끝에 더함)
-    expect(MAP_PROP_ARTS.slice(8)).toEqual([
+    expect(MAP_PROP_ARTS.slice(8, 21)).toEqual([
       "cactus",
       "dry_shrub",
       "tall_grass",
@@ -37,6 +37,9 @@ describe("2차맵 소품 이름표", () => {
       "outcrop_stone",
       "outcrop_copper",
     ]);
+    // 2026-11-12 지형별 오브젝트(D-536, 끝에 더함): 노두 뒤 첫 번호가 그대로다
+    expect(MAP_PROP_ARTS.indexOf("snowdrift")).toBe(21);
+    expect(MAP_PROP_ARTS.at(-1)).toBe("shore_rock");
     expect(MAP_PROP_ARTS.length).toBeLessThanOrEqual(256);
     expect(mapPropArtCode("boulder")).toBe(6);
     expect(mapPropArtCode("cactus")).toBe(8);

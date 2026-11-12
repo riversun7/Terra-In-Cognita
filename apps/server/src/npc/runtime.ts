@@ -80,7 +80,7 @@ import { type HouseRecruit, createHouseRecruit } from "./houseRecruit.ts";
 import { type NpcHouses, attachNpcHouses } from "./houseRuntime.ts";
 import { restCycleOf } from "./cityRest.ts";
 import { createHumanPlaces } from "./humanPlaces.ts";
-import { npcBuildRunOf } from "./cityBuild.ts";
+import { nationBuildTargets, npcBuildRunOf } from "./cityBuild.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
@@ -153,6 +153,8 @@ export interface NpcRuntimeOptions {
   readonly ruins?: NpcRuinsInput | undefined;
   /** 도시의 실제 2차맵 배치 → 웨이브 공성 전투맵(D-533·질문 1046 가, facilities/siegeLayout.ts citySiegeLayoutOf). 없으면 열린 맵 */
   readonly siegeLayout?: ((cityId: number, place: CityPlace) => SiegeLayout | undefined) | undefined;
+  /** 2차맵 건물이 세계 시설인가(웨이브 전투맵의 성벽·둘레 시설 피해 목표 — 질문 1114 가). 없으면 목표를 달지 않는다 */
+  readonly isFacility?: ((buildingId: number) => boolean) | undefined;
   /** 수도가 바뀌었을 때(D-528, capitals.ts — 지도자를 새 수도 행정 건물 곁으로). 켤 때 처음 고른 것도 알린다 */
   readonly onCapitalMoved?:
     | ((owner: number, capital: { id: number; mapKey: number; cellX: number; cellY: number }) => void)
@@ -702,6 +704,12 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   // NPC 증축(질문 1101 나, cityBuild.ts — 시뮬과 같은 판단 buildPolicy, 자리 = 전략 배치, 짓기 = 건물 서비스)
   ctx.build = npcBuildRunOf({
     econ,
+    // 나라 성격 목표(질문 1142 다): 국력 등급 처음 시설 수 ∨ 특산 줄 시설 수
+    targetsOf: (faction, cityId) =>
+      nationBuildTargets(
+        nationStartOf(o.rules().worldSeed, nationPresetOf(faction.id, nationLinkOf, seedPresets)).facilities,
+        econ?.cityJobsOf(cityId) ?? [],
+      ),
     world: o.economy?.build,
     ledger,
     places: persist.places,
@@ -766,6 +774,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     timeScale: dayMs / DAY_MS,
     startBattle: o.startBattle,
     hasGuardians: o.ruins?.hasGuardians,
+    isFacility: o.isFacility,
     siegeLayout: (cityId) => {
       const place = persist.places.get(cityId);
       return place ? o.siegeLayout?.(cityId, place) : undefined;

@@ -109,6 +109,13 @@ export interface RosterCondition {
   readonly cap: number;
   readonly preferredGrade: number;
   readonly housingGrade: number;
+  /** 선호 주거 몫·선호 음식 몫(D-535 1151 나). 옛 서버는 없음 */
+  readonly housingPrefer?: number | undefined;
+  readonly foodPrefer?: number | undefined;
+  /** 좋아하는 음식(식품 중분류 이름). 모르면 없음 */
+  readonly favoriteFood?: LocalizedName | undefined;
+  /** 선호 주거 종류: "home" = 집, 그 밖 = 생활 시설 이름. 모르면 없음 */
+  readonly preferredHousing?: LocalizedName | "home" | undefined;
 }
 
 /** 화물 한 줄(원장 자산 코드, 양 = 정수 문자열) */

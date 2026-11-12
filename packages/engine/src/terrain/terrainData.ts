@@ -145,6 +145,25 @@ export function sampleHeightM(input: TerrainInput, x: number, z: number): number
   return a + fv * (c - a) + fu * (d - c);
 }
 
+/**
+ * 세계 좌표 (x, z)의 수면 높이(m) — 물 위 소품·어군(기획 D-536)이 선다. 가장 가까운 꼭짓점의 물 높이(waterLevels, 없으면 waterLevelM)가
+ * 땅보다 높으면 그 높이, 아니면 땅 높이
+ */
+export function sampleSurfaceM(input: TerrainInput, x: number, z: number): number {
+  const ground = sampleHeightM(input, x, z);
+  const col = Math.min(TERRAIN_CELLS, Math.max(0, Math.round(x / input.cellSizeM)));
+  const row = Math.min(TERRAIN_CELLS, Math.max(0, Math.round(z / input.cellSizeM)));
+  const levels = input.waterLevels;
+  const unit = levels ? (levels[row * TERRAIN_VERTICES + col] ?? NO_WATER_UNITS) : undefined;
+  const water =
+    unit === undefined
+      ? input.waterLevelM
+      : unit === NO_WATER_UNITS
+        ? Number.NEGATIVE_INFINITY
+        : input.baseHeightM + unit * HEIGHT_UNIT_M;
+  return Math.max(ground, water);
+}
+
 /** 세계 좌표가 가리키는 지형 칸의 지표 코드. 2차맵 밖이면 -1 */
 export function surfaceAt(input: TerrainInput, x: number, z: number): number {
   const col = Math.floor(x / input.cellSizeM);

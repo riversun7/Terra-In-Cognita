@@ -551,8 +551,7 @@ export function startWorld(
       now,
       draws: await loadRecruitDraws(db),
     });
-    // 생명 수치(D-512): 보유 물건이 전투 밖 회복 물약을 쓸 때 부른다(holdings/world.ts) → 보유 물건보다 먼저 만든다.
-    // 몸 자료의 입은 장비·버프는 보유 물건을 부를 때 찾는다(아래에서 잇는다)
+    // 생명 수치(D-512): 보유 물건이 전투 밖 회복 물약을 쓸 때 부른다(holdings/world.ts) → 먼저 만든다. 입은 장비·버프는 아래에서 잇는다
     let gearOf: (unitId: number, nowMs: number) => UnitGear = noGear;
     const vitals = createWorldVitals({
       loaded: vitalsData,
@@ -633,7 +632,8 @@ export function startWorld(
       },
       now,
       ready: () => status.state === "ready",
-      necessitiesOf: (cityId) => npc?.necessitiesOf(cityId),
+      npc: () => npc,
+      cellValues: (mapKey) => terrainService?.cellValues?.(mapKey),
     });
     // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
     const labor = createLaborService({
@@ -861,6 +861,7 @@ export function startWorld(
           // 폐허 2: 정부 건물·행정 레벨(489 다)·수호신(472 가)·유저 나라(535 폐허 창고 물건)
           ruins: npcRuinsInputOf(() => persistence, owners, now),
           siegeLayout: citySiegeLayoutOf(maps, facilities, now),
+          isFacility: (buildingId) => facilities.service.facilities.has(buildingId),
           // 수도가 바뀌면 지도자가 새 수도 행정 건물 곁으로(D-528, npc/leaders.ts)
           onCapitalMoved: (ownerId, capital) => {
             moveLeaderToCapital({ maps, facilities: facilities.service.facilities, ownerId, capital });

@@ -5,6 +5,10 @@
 //   (npc_seed_lumber_forest_pct·npc_seed_mine_height_m·npc_seed_farm_temp_c·npc_seed_farm_rain_mm — 새 수치를 만들지 않는다).
 //   바뀜 (2026-11-12, 기획 D-533): 광석은 있음/없음 대신 고도 몫(oreSharePm), 자리 점수는 몫으로 센다(cellSharesPm·shareCoveragePm, 질문 1027 다).
 //   바뀜 (2026-11-12, 기획 D-534 — 질문 1080 가): 채집 다툼의 목재도 숲 밀도 몫(forestSharePm)이다 — 광석이 고도 몫을 쓰는 것과 같은 꼴.
+//   바뀜 (2026-11-12, 기획 D-536): 목재·약초·목장은 자원마다 좋아하는 바이옴 무리와 다른 시드 노이즈로 몫을 낸다(woodSharePm·herbSharePm·
+//   livestockSharePm — 셋이 같은 숲 칸에 몰리지 않게). 사막은 전략 자원 자리(STRATEGIC_SLOT_BIT)로 비워 둔다.
+//   바뀜 (2026-11-12, 기획 D-535 — 질문 1121 "기준을 낮춰라 또는 평지도 드물게 소량 분포하게 하라"): 높은 티어 광석의 산지 고도는 따로 된 설정 칸
+//   (oreHighMinM — 광석 비트·highOrePm)이고, 산지 밖 땅도 높은 티어를 드물게 낸다(oreFlatHighPm — highOrePm·oreTierCapOf).
 // - 도시 배후지 = 도시 2차맵에서 반경 R(1차맵 칸, 설정 칸 city_catchment_radius_cells) 안의 칸들. 배후지 덮임(‰) = 원자재마다 "배후지 칸 가운데
 //   그 원자재가 있는 칸 몫"을 그 도시가 쓰는 시설 수로 가중 평균한 값이다. 세계 배치(서버 world/citySites.ts)와 화면(/dev/world-layout 덮개)이
 //   같은 함수를 쓴다.
@@ -49,12 +53,56 @@ export interface CatchmentLand {
   readonly precipitationMm: number;
   /** 물 비트(바다 1·호수 2·강 4·해안 8) */
   readonly water: number;
+  /**
+   * 바이옴 ID(행성 바이옴 표 — 목재·약초·목장이 좋아하는 바이옴, 기획 D-536). 없거나 표 밖이면 "other" 무리(resourceBiomeGroup)
+   */
+  readonly biomeId?: string | null | undefined;
+  /** 칸 자리(면·면 레벨·i·j — 자원 노이즈 resourceNoisePm). 하나라도 없으면 노이즈는 가운데 값(500) */
+  readonly face?: number | undefined;
+  readonly faceLevel?: number | undefined;
+  readonly i?: number | undefined;
+  readonly j?: number | undefined;
 }
 
-/** 문턱(설정 칸 worldSeed — NPC 시작 도시 채집 시설 고르기와 같은 칸) */
-export interface CatchmentThresholds {
+/**
+ * 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536 — 설정 칸 resource_* [임시], 아래 "목재·약초·목장" 머리 주석). 몫(‰)은 무리 배율 × 노이즈 배율
+ */
+export interface ResourceBiomeRules {
+  /** 목재 배율(‰): 숲 무리(타이가·온대림·열대우림) / 그 밖의 땅(습지 맹그로브·사바나 아카시아·외딴 나무). 목재 몫 = 숲 밀도 몫 × 이 배율 */
+  readonly woodForestPm: number;
+  readonly woodOtherPm: number;
+  /**
+   * 목재 바닥(‰, 사용자 결정 2026-11-12 "건축시 목재와 석재는 필수이다" — 기본 재료 바닥 보장): 물·빙상이 아닌 마른 땅은 숲이 없어도 관목·흩어진
+   * 나무로 목재 몫이 이만큼(노이즈 배율 전) 있다. 목재 몫 = max(숲 밀도 몫 × 무리 배율, 이 값) × 노이즈 배율
+   */
+  readonly woodBaselinePm: number;
+  /** 약초 배율(‰): 습지 / 고산 초지 / 숲 가장자리·빈터(숲 무리 — 목재 노이즈가 낮은 곳을 따른다) / 그 밖의 땅 */
+  readonly herbWetlandPm: number;
+  readonly herbAlpinePm: number;
+  readonly herbForestPm: number;
+  readonly herbOtherPm: number;
+  /** 숲 무리 약초 노이즈가 "목재 노이즈의 반대(빈터)"를 따르는 몫(‰). 0이면 약초 노이즈만, 1000이면 빈터만 */
+  readonly herbClearingPm: number;
+  /** 목장 배율(‰): 목초지 무리(초지·사바나·툰드라) / 그 밖의 땅 */
+  readonly livestockPasturePm: number;
+  readonly livestockOtherPm: number;
+  /** 노이즈 격자 간격(1차맵 칸, 1 ~ 64) — 많은 곳·적은 곳 덩어리 크기 */
+  readonly resourceNoiseCells: number;
+  /** 노이즈 배율 바닥(‰): 노이즈가 가장 낮은 곳도 무리 배율의 이 몫은 남는다 */
+  readonly resourceNoiseFloorPm: number;
+  /** 원자재마다 노이즈 시드(서로 다르면 많은 곳이 비켜 간다) */
+  readonly woodNoiseSeed: number;
+  readonly herbNoiseSeed: number;
+  readonly livestockNoiseSeed: number;
+  /** 약초·축산물 있음 비트(cellMaterials) 문턱(‰): 몫이 이 이상이면 있음(2차맵 목초지 밭·배후지 칸 수) */
+  readonly resourceBitMinPm: number;
+}
+
+/** 문턱(설정 칸 worldSeed — NPC 시작 도시 채집 시설 고르기와 같은 칸) + 목재·약초·목장 바이옴 규칙(기획 D-536) */
+export interface CatchmentThresholds extends ResourceBiomeRules {
   readonly lumberMinForestPct: number;
-  readonly mineMinHeightM: number;
+  /** 높은 티어 광석 산지 고도(m, 설정 칸 ore_high_min_m — 기획 D-535). 이 이상이면 광석 비트(산지) */
+  readonly oreHighMinM: number;
   readonly farmMinTempC: number;
   readonly farmMinRainMm: number;
 }
@@ -64,28 +112,265 @@ const DEEP_WATER = 1 | 2;
 
 /**
  * 칸 하나에 있는 원자재 비트:
- * - 목재: 숲 % ≥ 벌목장 문턱(물 잠긴 칸 아님). 광석: 칸 고도 ≥ 산지 고도(산지 광석 — 높은 티어가 나오는 칸. 하위 광석의 몫은 oreSharePm).
- *   작물: 기온·강수가 농장 문턱 이상(물 잠긴 칸 아님).
- * - 약초: 숲이나 농사지을 땅(NPC 씨앗의 약초원 규칙과 같다). 축산물: 농사지을 땅(목장 규칙과 같다). 어류: 물 비트가 하나라도 있는 칸.
+ * - 목재: 목재 몫(woodSharePm — 숲·목재 바닥) × 100 ≥ 벌목장 문턱 % × 1000(NPC 씨앗 벌목장). 바뀜 (2026-11-12, 기본 재료 바닥): 옛 "숲 % ≥ 문턱"에서
+ *   목재 몫으로 — 숲이 없는 마른 땅도 목재 바닥이 있어 벌목장이 선다. 광석: 칸 고도 ≥ 높은 티어 산지 고도(oreHighMinM — 산지 광석, 높은 티어가
+ *   그대로 나오는 칸. 하위 광석의 몫은 oreSharePm, 산지 밖 높은 티어 몫은 highOrePm). 작물: 기온·강수가 농장 문턱 이상(물 잠긴 칸 아님).
+ * - 약초·축산물: 바이옴 몫(herbSharePm·livestockSharePm, 기획 D-536)이 resourceBitMinPm 이상. 어류: 물 비트가 하나라도 있는 칸.
+ * - 전략 자원 자리(STRATEGIC_SLOT_BIT): 사막 무리의 마른 칸(기획 D-536 — 지금은 아무 원자재도 아니다, isStrategicSlot).
  */
 export function cellMaterials(land: CatchmentLand | undefined, t: CatchmentThresholds): number {
   if (!land) return 0;
   const drowned = (land.water & DEEP_WATER) !== 0;
   let bits = 0;
-  const wood = !drowned && land.forest * 100 >= t.lumberMinForestPct * 255;
+  const wood = !drowned && woodSharePm(land, t) * 100 >= t.lumberMinForestPct * 1000;
   const crop = !drowned && land.temperatureC >= t.farmMinTempC && land.precipitationMm >= t.farmMinRainMm;
-  if (!drowned && land.elevationM >= t.mineMinHeightM) bits |= MATERIAL_BIT.ore;
+  const bitMin = Math.max(1, Math.trunc(t.resourceBitMinPm));
+  if (!drowned && land.elevationM >= t.oreHighMinM) bits |= MATERIAL_BIT.ore;
   if (wood) bits |= MATERIAL_BIT.wood;
-  if (wood || crop) bits |= MATERIAL_BIT.herb;
-  if (crop) bits |= MATERIAL_BIT.crop | MATERIAL_BIT.livestock;
+  if (herbSharePm(land, t) >= bitMin) bits |= MATERIAL_BIT.herb;
+  if (crop) bits |= MATERIAL_BIT.crop;
+  if (livestockSharePm(land, t) >= bitMin) bits |= MATERIAL_BIT.livestock;
   if (land.water !== 0) bits |= MATERIAL_BIT.fish;
+  if (isStrategicSlot(land)) bits |= STRATEGIC_SLOT_BIT;
   return bits;
+}
+
+// ── 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536, 사용자 2026-11-12 원문 "목재와 약초 목장 분포가 너무 겹친다, 또한 자원이 없는 사막에는
+//    추후 석유같은 전략 자원을 배치할수도") ──
+// - 자원마다 좋아하는 바이옴 무리: 목재 = 숲(타이가·온대림·열대우림), 약초 = 습지·숲 가장자리·빈터·고산 초지, 목장 = 초지·사바나·툰드라.
+//   무리 배율(‰)은 설정 칸(ResourceBiomeRules). 바이옴 ID → 무리 표는 RESOURCE_BIOME_GROUPS(팩 core 바이옴 ID — 표 밖은 "other").
+// - 같은 무리 안에서도 자원마다 다른 시드의 노이즈(resourceNoisePm, 0 ~ 1000)를 곱해 많은 곳이 비켜 간다: 배율 = 바닥 + (1000 − 바닥) × 노이즈.
+//   숲 무리 약초는 목재 노이즈의 반대(빈터)를 herbClearingPm만큼 따른다 — 나무가 성긴 곳에 약초가 난다.
+// - 노이즈 = 정육면체 위 정수 값 노이즈(격자 간격 resourceNoiseCells 칸, 부드러운 삼선형 보간). 칸 가운데의 정육면체 점(cellCubePoint)을
+//   쓰므로 면 경계에서 끊기지 않는다(@terra/planet secondMap/layout.ts cubePoint와 같은 점 — 서버 시험이 본다). 정수 셈만 쓴다.
+// - 사막은 전략 자원 자리다(STRATEGIC_SLOT_BIT·isStrategicSlot): 지금은 아무것도 나지 않는다. 석유 같은 총량 자원(43 §1)을 넣을 때 이 자리를
+//   원자재로 바꾼다(비트 64는 여섯 원자재 비트 밖이라 지금 소비자는 보지 않는다).
+
+/** 목재·약초·목장이 보는 바이옴 무리 */
+export type ResourceBiomeGroup =
+  | "forest"
+  | "wetland"
+  | "alpine"
+  | "pasture"
+  | "desert"
+  | "ice"
+  | "water"
+  | "other";
+
+/** 바이옴 ID(팩 core biomes.json) → 무리. 표 밖 바이옴은 "other"(그 밖의 땅 배율) */
+export const RESOURCE_BIOME_GROUPS: Readonly<Record<string, ResourceBiomeGroup>> = {
+  taiga: "forest",
+  temperate_forest: "forest",
+  tropical_rainforest: "forest",
+  wetland: "wetland",
+  alpine: "alpine",
+  grassland: "pasture",
+  savanna: "pasture",
+  tundra: "pasture",
+  desert: "desert",
+  ice_sheet: "ice",
+  ocean_deep: "water",
+  ocean_shelf: "water",
+  ocean_coastal: "water",
+  lake: "water",
+};
+
+/** 바이옴 ID → 무리(없거나 표 밖이면 "other") */
+export function resourceBiomeGroup(biomeId: string | null | undefined): ResourceBiomeGroup {
+  if (typeof biomeId !== "string" || !Object.hasOwn(RESOURCE_BIOME_GROUPS, biomeId)) return "other";
+  return RESOURCE_BIOME_GROUPS[biomeId] ?? "other";
+}
+
+/**
+ * 전략 자원 자리 비트(기획 D-536 "사막은 전략 자원 자리로 남긴다", 43 §1 총량 자원). 여섯 원자재 비트(1 ~ 32) 밖이다 — 지금은 아무 원자재도
+ * 아니고, 석유 같은 총량 자원을 넣을 때 이 자리에 붙인다(그때 CATCHMENT_MATERIALS·MATERIAL_BIT에 원자재를 더한다)
+ */
+export const STRATEGIC_SLOT_BIT = 64;
+
+/** 전략 자원 자리(사막 무리의 마른 칸)인지 — 기획 D-536. 지금은 표시·예약만 한다 */
+export function isStrategicSlot(land: CatchmentLand | undefined): boolean {
+  return !!land && (land.water & DEEP_WATER) === 0 && resourceBiomeGroup(land.biomeId) === "desert";
+}
+
+/** 면마다 축(@terra/planet faces.ts FACE_FRAMES와 같다 — S2 면 배치. 서버 시험이 같은지 본다): [법선, u축, v축] */
+const CUBE_FRAMES: readonly (readonly [readonly number[], readonly number[], readonly number[]])[] = [
+  [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+  ],
+  [
+    [0, 1, 0],
+    [-1, 0, 0],
+    [0, 0, 1],
+  ],
+  [
+    [0, 0, 1],
+    [-1, 0, 0],
+    [0, -1, 0],
+  ],
+  [
+    [-1, 0, 0],
+    [0, 0, -1],
+    [0, -1, 0],
+  ],
+  [
+    [0, -1, 0],
+    [0, 0, -1],
+    [1, 0, 0],
+  ],
+  [
+    [0, 0, -1],
+    [0, 1, 0],
+    [1, 0, 0],
+  ],
+];
+
+/**
+ * 면 레벨 F 칸 (face, i, j) 가운데의 정육면체 점(정수, 성분 −2^F ~ 2^F): N·법선 + (2i + 1 − N)·u축 + (2j + 1 − N)·v축(N = 2^F). 칸 하나가
+ * 2만큼이다. @terra/planet cubePoint(face, F + 1, 2i + 1, 2j + 1)의 절반과 같다. 면이 틀리면 undefined
+ */
+export function cellCubePoint(
+  face: number,
+  faceLevel: number,
+  i: number,
+  j: number,
+): [number, number, number] | undefined {
+  const frame = CUBE_FRAMES[face];
+  if (!frame || !Number.isInteger(faceLevel) || faceLevel < 0 || faceLevel > 22) return undefined;
+  const n = 1 << faceLevel;
+  const [normal, uAxis, vAxis] = frame;
+  const u = 2 * Math.trunc(i) + 1 - n;
+  const v = 2 * Math.trunc(j) + 1 - n;
+  const at = (k: number) => n * (normal[k] ?? 0) + u * (uAxis[k] ?? 0) + v * (vAxis[k] ?? 0);
+  return [at(0), at(1), at(2)];
+}
+
+/** 격자점 값(0 ~ 1000): 32비트 정수 섞기(murmur3 fmix) */
+function latticeValue(seed: number, x: number, y: number, z: number): number {
+  let h = Math.imul(seed | 0, 0x27d4eb2d) ^ Math.imul(x | 0, 0x165667b1);
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b) ^ Math.imul(y | 0, 0x9e3779b1);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) ^ Math.imul(z | 0, 0x27d4eb2f);
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) % 1001;
+}
+
+/** 부드러운 걸음 무게(0 ~ span): f²(3·span − 2f) ÷ span² (내림) */
+function smoothWeight(f: number, span: number): number {
+  return Math.floor((f * f * (3 * span - 2 * f)) / (span * span));
+}
+
+/**
+ * 칸의 자원 노이즈(0 ~ 1000, 정수): 정육면체 점에서 격자 간격 cells 칸 값 노이즈를 부드러운 삼선형으로 보간한다. 칸 자리(면·면 레벨·i·j)가
+ * 없으면 500. 같은 시드·자리면 늘 같은 값이다
+ */
+export function resourceNoisePm(land: CatchmentLand | undefined, seed: number, cells: number): number {
+  if (
+    !land ||
+    land.face === undefined ||
+    land.faceLevel === undefined ||
+    land.i === undefined ||
+    land.j === undefined
+  )
+    return 500;
+  const point = cellCubePoint(land.face, land.faceLevel, land.i, land.j);
+  if (!point) return 500;
+  // 칸 하나 = 정육면체 점 2만큼
+  const span = 2 * Math.min(64, Math.max(1, Math.trunc(cells)));
+  const base = point.map((value) => Math.floor(value / span));
+  const weight = point.map((value, k) => smoothWeight(value - (base[k] ?? 0) * span, span));
+  const [bx = 0, by = 0, bz = 0] = base;
+  const [wx = 0, wy = 0, wz = 0] = weight;
+  let sum = 0;
+  for (let dz = 0; dz <= 1; dz++)
+    for (let dy = 0; dy <= 1; dy++)
+      for (let dx = 0; dx <= 1; dx++) {
+        const w = (dx ? wx : span - wx) * (dy ? wy : span - wy) * (dz ? wz : span - wz);
+        if (w !== 0) sum += w * latticeValue(seed, bx + dx, by + dy, bz + dz);
+      }
+  return clampPm(Math.floor(sum / (span * span * span)));
+}
+
+/**
+ * 노이즈 배율(‰) = 1000 + (1000 − 바닥) × (노이즈 − 500) ÷ 500: 노이즈 0이면 바닥, 500이면 1000, 1000이면 2000 − 바닥. 가운데가 1000이라 무리
+ * 평균 몫은 거의 그대로이고(몫은 1000에서 자른다) 많은 곳·적은 곳만 생긴다
+ */
+function noiseScalePm(noise: number, rules: ResourceBiomeRules): number {
+  const swing = 1000 - clampPm(rules.resourceNoiseFloorPm);
+  return 1000 + Math.trunc((swing * (clampPm(noise) - 500)) / 500);
+}
+
+/** 칸이 물에 잠겼는지(바다·호수) */
+const drownedLand = (land: CatchmentLand): boolean => (land.water & DEEP_WATER) !== 0;
+
+/**
+ * 목재 몫(‰): max(숲 밀도 몫 × 무리 배율(숲 = woodForestPm, 그 밖 = woodOtherPm), 목재 바닥 woodBaselinePm) × 목재 노이즈 배율. 물·얼음 = 0
+ */
+export function woodSharePm(land: CatchmentLand | undefined, rules: ResourceBiomeRules): number {
+  if (!land || drownedLand(land)) return 0;
+  const group = resourceBiomeGroup(land.biomeId);
+  if (group === "water" || group === "ice") return 0;
+  const groupPm = clampPm(group === "forest" ? rules.woodForestPm : rules.woodOtherPm);
+  const base = Math.max(
+    Math.floor((forestSharePm(land.forest) * groupPm) / 1000),
+    clampPm(rules.woodBaselinePm),
+  );
+  const scale = noiseScalePm(resourceNoisePm(land, rules.woodNoiseSeed, rules.resourceNoiseCells), rules);
+  return clampPm(Math.floor((base * scale) / 1000));
+}
+
+/**
+ * 약초 몫(‰): 무리 배율(습지·고산 초지·숲 가장자리·빈터·그 밖, 물·얼음 = 0) × 약초 노이즈 배율. 숲 무리는 노이즈가 "약초 노이즈"와 "목재 노이즈의
+ * 반대(빈터)"를 herbClearingPm으로 섞은 값이다
+ */
+export function herbSharePm(land: CatchmentLand | undefined, rules: ResourceBiomeRules): number {
+  if (!land || drownedLand(land)) return 0;
+  const group = resourceBiomeGroup(land.biomeId);
+  if (group === "water" || group === "ice") return 0;
+  const groupPm = clampPm(
+    group === "wetland"
+      ? rules.herbWetlandPm
+      : group === "alpine"
+        ? rules.herbAlpinePm
+        : group === "forest"
+          ? rules.herbForestPm
+          : rules.herbOtherPm,
+  );
+  if (groupPm === 0) return 0;
+  let noise = resourceNoisePm(land, rules.herbNoiseSeed, rules.resourceNoiseCells);
+  if (group === "forest") {
+    const clearing = clampPm(rules.herbClearingPm);
+    const open = 1000 - resourceNoisePm(land, rules.woodNoiseSeed, rules.resourceNoiseCells);
+    noise = Math.floor((noise * (1000 - clearing) + open * clearing) / 1000);
+  }
+  return clampPm(Math.floor((groupPm * noiseScalePm(noise, rules)) / 1000));
+}
+
+/** 축산물(목장) 몫(‰): 무리 배율(목초지 = livestockPasturePm, 물·얼음 = 0, 그 밖 = livestockOtherPm) × 목장 노이즈 배율 */
+export function livestockSharePm(land: CatchmentLand | undefined, rules: ResourceBiomeRules): number {
+  if (!land || drownedLand(land)) return 0;
+  const group = resourceBiomeGroup(land.biomeId);
+  if (group === "water" || group === "ice") return 0;
+  const groupPm = clampPm(group === "pasture" ? rules.livestockPasturePm : rules.livestockOtherPm);
+  if (groupPm === 0) return 0;
+  const scale = noiseScalePm(
+    resourceNoisePm(land, rules.livestockNoiseSeed, rules.resourceNoiseCells),
+    rules,
+  );
+  return clampPm(Math.floor((groupPm * scale) / 1000));
 }
 
 // ── 광석 고도 몫(기획 D-533 — 질문 1020·1064 "석재·구리는 어디서나 조금(고도에 따른 몫), 높은 티어 광석은 산지", D-507 "하위 광석은 건축 재료") ──
 // - 낮은 땅도 광석(잡석·석재·구리 = 하위 티어)을 조금 캔다. 몫(‰) = 고도의 꺾은선: 0m 이하 = oreShareLowPm, 언덕 고도(oreShareHillM) =
 //   oreShareHillPm, 산지 고도(mineMinHeightM, 옛 광산 문턱) 이상 = 1000. 사이는 곧게 잇는다(내림). 바다·호수에 잠긴 칸은 0.
-// - 높은 티어 광석(oreLowTierMax 위 — 철부터)은 산지 칸에서만 나온다(highOrePm). 광석 비트(MATERIAL_BIT.ore)는 이제 "산지 광석"이다.
+// - 높은 티어 광석(oreLowTierMax 위 — 철부터)은 산지 칸에서 그대로 나온다(highOrePm). 광석 비트(MATERIAL_BIT.ore)는 이제 "산지 광석"이다.
+//   바뀜 (2026-11-12, 기획 D-535): 산지 = 고도 ≥ oreHighMinM(몫 곡선의 1000 고도 mineMinHeightM과 따로 — 시험 행성의 알맞은 땅은 500m에 닿지
+//   않는다). 산지 밖 마른 땅도 높은 티어를 oreFlatHighPm(‰)만큼 낸다(드물게 — 티어 추첨이 그 몫만 남긴다, oreTierCapOf). 몫 곡선은 그대로라
+//   낮은 땅은 광석 자체도 적다(소량).
 // - 2차맵 생성기 판은 올리지 않는다(질문 1064 나): 1차맵 칸 몫만 바꾸고 2차맵 오브젝트는 그대로다.
 
 /** 광석 고도 몫 규칙(세계 씨앗 설정 칸 ore_share_* [임시] + 산지 고도 npc_seed_mine_height_m) */
@@ -96,12 +381,20 @@ export interface OreShareRules {
   readonly oreShareHillM: number;
   /** 언덕 고도의 광석 몫(‰) */
   readonly oreShareHillPm: number;
-  /** 산지 고도(m) — 이 이상이면 몫 1000이고 높은 티어 광석이 나온다(옛 NPC 광산 문턱 칸) */
+  /** 몫 1000 고도(m) — 이 이상이면 광석 몫 1000(옛 NPC 광산 문턱 칸 npc_seed_mine_height_m). 높은 티어 산지 고도는 oreHighMinM */
   readonly mineMinHeightM: number;
 }
 
-/** 칸 원자재 판정 규칙(문턱 + 광석 고도 몫) — 세계 씨앗 계수표가 그대로 맞는다 */
-export type CatchmentLandRules = CatchmentThresholds & OreShareRules;
+/** 높은 티어 광석 규칙(설정 칸 ore_high_min_m·ore_flat_high_pm [임시] — 기획 D-535) */
+export interface HighOreRules {
+  /** 높은 티어 광석 산지 고도(m) — 이 이상인 마른 땅은 높은 티어 몫 1000 */
+  readonly oreHighMinM: number;
+  /** 산지 밖 마른 땅의 높은 티어 몫(‰) — 0이면 옛 규칙(산지에서만) */
+  readonly oreFlatHighPm: number;
+}
+
+/** 칸 원자재 판정 규칙(문턱 + 광석 고도 몫 + 높은 티어) — 세계 씨앗 계수표가 그대로 맞는다 */
+export type CatchmentLandRules = CatchmentThresholds & OreShareRules & HighOreRules;
 
 /** 두 점 (x0, y0)·(x1, y1)을 곧게 이은 선의 x 값(내림). x1 ≤ x0이면 y1 */
 function lerpDown(x: number, x0: number, y0: number, x1: number, y1: number): number {
@@ -126,9 +419,29 @@ export function oreSharePm(land: CatchmentLand | undefined, rules: OreShareRules
   return clampPm(lerpDown(elevation, hillM, hill, mountainM, 1000));
 }
 
-/** 칸 광석 가운데 높은 티어가 나오는 몫(‰): 산지 칸(광석 비트)이면 1000, 아니면 0 */
-export function highOrePm(land: CatchmentLand | undefined, rules: CatchmentThresholds): number {
-  return (cellMaterials(land, rules) & MATERIAL_BIT.ore) === 0 ? 0 : 1000;
+/**
+ * 칸 광석 가운데 높은 티어가 나오는 몫(‰): 산지 칸(고도 ≥ oreHighMinM)이면 1000, 산지 밖 마른 땅은 oreFlatHighPm(0 ~ 1000), 칸이 없거나
+ * 바다·호수에 잠긴 칸은 0
+ */
+export function highOrePm(land: CatchmentLand | undefined, rules: HighOreRules): number {
+  if (!land || (land.water & DEEP_WATER) !== 0) return 0;
+  return land.elevationM >= rules.oreHighMinM ? 1000 : clampPm(rules.oreFlatHighPm);
+}
+
+/** 광산 티어 막기: 산지 밖 가장 높은 티어(maxTier)와, 그 위 티어를 뽑았을 때 그대로 두는 몫(‰) */
+export interface OreTierCap {
+  readonly maxTier: number;
+  readonly keepAbovePm: number;
+}
+
+/**
+ * 광석 채집의 티어 막기(시뮬 광산·서버 NPC 광산·플레이어 광산이 같은 셈 — @terra/sim rollGatherOutputs tierCap): 높은 티어 몫(‰, 배후지 평균이나
+ * 그 2차맵 칸 highOrePm)이 1000 이상이면 막지 않는다(undefined). 아니면 lowTierMax 위를 뽑은 번은 그 몫만큼만 그대로 두고 나머지는
+ * lowTierMax로 내린다 — 평지(oreFlatHighPm)는 높은 티어가 드물고 산지는 그대로다
+ */
+export function oreTierCapOf(highPm: number, lowTierMax: number): OreTierCap | undefined {
+  if (highPm >= 1000) return undefined;
+  return { maxTier: Math.max(0, Math.trunc(lowTierMax)), keepAbovePm: clampPm(highPm) };
 }
 
 /** 원자재마다 칸 몫(‰) */
@@ -141,24 +454,25 @@ export function forestSharePm(forest: number): number {
 
 /**
  * 칸 하나의 원자재 몫(‰):
- * - supply(채집 다툼의 칸 재고 상한): 광석 = 고도 몫, 목재 = 숲 밀도 몫(질문 1080 가), 나머지 = 비트(있으면 1000).
- * - site(시작 도시 자리 점수 — 질문 1027 다 "있음/없음 대신 몫"): supply에 더해 약초 = max(목재 몫, 작물 비트).
- * 물에 잠긴 칸의 목재는 0이다
+ * - supply(채집 다툼의 칸 재고 상한): 광석 = 고도 몫, 목재·약초·축산물 = 바이옴 몫(woodSharePm·herbSharePm·livestockSharePm, 기획 D-536),
+ *   작물·어류 = 비트(있으면 1000).
+ * - site(시작 도시 자리 점수 — 질문 1027 다 "있음/없음 대신 몫"): supply와 같다. 바뀜 (2026-11-12, 기획 D-536): 옛 site 약초(max(목재 몫,
+ *   작물 비트))는 바이옴 몫으로 바뀌어 두 셈이 같아졌다(부르는 쪽은 그대로 둔다).
+ * 물에 잠긴 칸의 목재·약초·축산물은 0이다
  */
 export function cellSharesPm(
   land: CatchmentLand | undefined,
   rules: CatchmentLandRules,
-  mode: "supply" | "site",
+  _mode: "supply" | "site",
 ): MaterialShares {
   const bits = cellMaterials(land, rules);
   const bit = (material: CatchmentMaterial) => ((bits & MATERIAL_BIT[material]) === 0 ? 0 : 1000);
-  const wood = !land || (land.water & DEEP_WATER) !== 0 ? 0 : forestSharePm(land.forest);
   return {
     ore: oreSharePm(land, rules),
-    wood,
-    herb: mode === "site" ? Math.max(wood, bit("crop")) : bit("herb"),
+    wood: woodSharePm(land, rules),
+    herb: herbSharePm(land, rules),
     crop: bit("crop"),
-    livestock: bit("livestock"),
+    livestock: livestockSharePm(land, rules),
     fish: bit("fish"),
   };
 }

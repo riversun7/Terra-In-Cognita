@@ -2,7 +2,8 @@
 import { decodeServerMessage } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
-import { OPERATOR_SPEED_FACTOR } from "../world/gateway.ts";
+import { OPERATOR_SPEED_FACTOR, type PaceMap } from "../world/operatorPace.ts";
+import { createTestMap } from "../world/testSupport.ts";
 import { createTravelGateway } from "./gateway.ts";
 import type { TravelService } from "./service.ts";
 
@@ -37,9 +38,19 @@ function fakeService(calls: string[]): TravelService {
   };
 }
 
-function connect(service: TravelService | undefined, who: Viewer | null, observing = false) {
+function connect(
+  service: TravelService | undefined,
+  who: Viewer | null,
+  observing = false,
+  maps?: () => Iterable<PaceMap>,
+) {
   const sent: unknown[] = [];
-  const gateway = createTravelGateway({ service: () => service, now: () => 0, log: { error: () => {} } });
+  const gateway = createTravelGateway({
+    service: () => service,
+    maps,
+    now: () => 0,
+    log: { error: () => {} },
+  });
   const socket = gateway.open({
     send: (text) => sent.push(decodeServerMessage(text)),
     viewer: () => Promise.resolve(who),
@@ -88,5 +99,22 @@ describe("2차맵 사이 이동 연결 처리", () => {
       "start:dev-1:5:9:10,20:scout:x1",
       "start:user-1:5:9:10,20:scout:x1",
     ]);
+  });
+
+  it("보내기·멈추기도 다른 유닛 명령처럼 그 유닛의 운영자 빠르기 표시를 단다·지운다(world/operatorPace.ts)", async () => {
+    const { map } = createTestMap();
+    map.addUnit({ id: 5, size: 1, speed: 437, cellX: 10, cellY: 10 });
+    const dev: Viewer = { id: "dev-1", loginId: "dev", roles: ["dev"] };
+    connect(fakeService([]), dev, true, () => [map]).socket.handle(start);
+    for (let i = 0; i < 8; i++) await settle();
+    expect(map.paceOf(5)).toBe(OPERATOR_SPEED_FACTOR);
+    // 거절된 멈추기(not_traveling)는 그대로, 된 보통 보내기는 지운다
+    connect(fakeService([]), player, false, () => [map]).socket.handle(cancel);
+    for (let i = 0; i < 8; i++) await settle();
+    expect(map.paceOf(5)).toBe(OPERATOR_SPEED_FACTOR);
+    connect(fakeService([]), player, false, () => [map]).socket.handle(start);
+    for (let i = 0; i < 8; i++) await settle();
+    expect(map.paceOf(5)).toBe(1);
+    map.stop();
   });
 });

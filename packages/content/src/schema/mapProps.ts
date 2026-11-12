@@ -2,7 +2,8 @@
 // 판정이 있는 소품(숲·큰 바위·덤불·갈대·쓰러진 나무)과, 2026-11-11부터 엄폐 0 장식 소품(선인장·키 큰 풀·꽃밭·돌무더기·떠밀려 온 나무 등,
 // 바이옴·환경 곡선으로 그 땅다운 모습을 만든다. ADR 46 "바뀜 (2026-11-11)")을 둔다. 칸마다 작은 풀포기·자갈은 기기 장식이라 팩에 없다.
 // - forest: 숲 칸(행성 숲 밀도와 노이즈로 차폐·은폐를 정한 칸, ADR 35 질문 27 기본안)의 나무 그림을 고른다. 엄폐 값은 숲 나누기가 정한다.
-// - scatter: 자기 엄폐 값(0 없음·1 은폐·2 차폐)으로 흩어 놓는다. 차폐는 지나갈 수 없다(D-227 ①).
+// - scatter: 자기 엄폐 값(0 없음·1 은폐·2 차폐)으로 흩어 놓는다. 차폐는 지나갈 수 없다(D-227 ①). water = true면 물 칸에만 놓는
+//   장식(엄폐 0, 기획 D-536 대륙붕·심해·호수).
 // - 비중: 바이옴마다 기본 비중(천분율) × 환경 곡선 값(0 ~ 1000)의 곱. scatter는 배치 칸 가운데 그 소품이 놓일 천분율,
 //   forest는 숲 칸에서 나무 그림끼리의 상대 비중이다.
 // - 곡선 {min, idealMin, idealMax, max}: min 이하·max 이상 0, idealMin ~ idealMax 1000, 그 사이는 곧게 잇는다.
@@ -65,6 +66,11 @@ const scatterProp = z.strictObject({
     .optional(),
   /** 한 2차맵 안 몫 상한(배치 칸 천분율). 넘으면 그 2차맵 전체의 비중을 같은 비율로 줄인다 */
   maxShare: z.int().min(1).max(1000).optional(),
+  /**
+   * 물 위 소품(기획 D-536 — 대륙붕·심해·호수·얕은 여울): true면 마른 칸 대신 물 칸(물·얕은 물 지표)에만 놓는다. 판정이 없는 장식만이라
+   * 엄폐 값은 0이어야 한다. 없으면 false(마른 칸)
+   */
+  water: z.boolean().optional(),
 });
 
 export const mapPropEntrySchema = z
@@ -73,6 +79,14 @@ export const mapPropEntrySchema = z
       issue.code === "invalid_union" ? '배치 방식(placement)은 "forest"나 "scatter"입니다.' : undefined,
   })
   .superRefine((entry, ctx) => {
+    // 물 위 소품은 장식만(엄폐 0) — 물 칸 엄폐는 판정(시야·통과)에 쓰지 않는다
+    if (entry.placement === "scatter" && entry.water === true && entry.cover !== 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["cover"],
+        message: "물 위 소품(water: true)은 엄폐 값(cover)이 0이어야 합니다.",
+      });
+    }
     // 필드 검사가 실패해도 불리므로(Zod 4.6.7) 모양을 다시 보고 틀리면 건너뛴다
     if (!Array.isArray(entry.biomes)) return;
     const seen = new Set<string>();

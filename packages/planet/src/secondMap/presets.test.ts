@@ -65,6 +65,7 @@ describe("2차맵 칸 값", () => {
       face: 0,
       i: 8,
       j: 15,
+      faceLevel: 6,
       elevationM: values.elevationM[c],
       temperatureC: values.temperatureC[c],
       humidity: values.humidity[c],

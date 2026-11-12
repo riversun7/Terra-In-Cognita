@@ -1012,16 +1012,16 @@
         "ko": "채집 시설 레벨당 티어 보너스(유효 스탯)",
         "en": "Gathering facility tier bonus per level (effective stat)"
       },
-      "value": 10,
+      "value": 5,
       "structural": false,
       "unit": "points",
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "채집 시설 레벨 하나가 높은 티어를 뽑는 데 더하는 유효 스탯.",
-        "en": "Effective stat added per gathering-facility level when rolling the tier."
+        "ko": "채집 시설 레벨 하나가 높은 티어를 뽑는 데 더하는 유효 스탯. 10 → 5(Lv5 +20, 컨디션 상한 ±40의 절반 — 시설 레벨보다 관리가 더 크게, D-535 1155 나) [임시].",
+        "en": "Effective stat added per gathering-facility level when rolling the tier. 10 → 5 (level 5 = +20, half the ±40 condition cap, so care matters more than facility level; D-535 1155) [temporary]."
       },
-      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\""
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\" · ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
     },
     {
       "id": "n44_tier_progress_base",
@@ -1672,6 +1672,42 @@
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
+      "id": "n45_element_bonus_l1",
+      "code": "N45",
+      "name": {
+        "ko": "구인 속성 점수 덤, 행정 건물 Lv1",
+        "en": "Recruit element point bonus, administrative building level 1"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 30,
+      "desc": {
+        "ko": "Lv1 구인 휴먼이 기본 속성 점수에 더 받는 점수(Lv4·5가 토탈 말고 다른 이점으로 나뉜다) [임시].",
+        "en": "Extra element points a recruited human gets at admin level 1, on top of the base points (levels 4–5 differ by this rather than totals) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
+      "id": "n45_stat_rolls_l1",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 굴림 횟수(큰 값), 행정 건물 Lv1",
+        "en": "Recruit total rolls (best kept), administrative building level 1"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "Lv1 카드 토탈을 이 횟수만큼 범위 안에서 굴려 가장 큰 값을 쓴다(1 = 균등, 옛 규칙) [임시].",
+        "en": "Admin level 1 card totals are rolled this many times within the range and the highest is kept (1 = uniform, the old rule) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
       "id": "n45_cards_min_l2",
       "code": "N45",
       "name": {
@@ -1742,6 +1778,42 @@
         "en": "Highest total stats at admin level 2."
       },
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
+    },
+    {
+      "id": "n45_element_bonus_l2",
+      "code": "N45",
+      "name": {
+        "ko": "구인 속성 점수 덤, 행정 건물 Lv2",
+        "en": "Recruit element point bonus, administrative building level 2"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 30,
+      "desc": {
+        "ko": "Lv2 구인 휴먼이 기본 속성 점수에 더 받는 점수(Lv4·5가 토탈 말고 다른 이점으로 나뉜다) [임시].",
+        "en": "Extra element points a recruited human gets at admin level 2, on top of the base points (levels 4–5 differ by this rather than totals) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
+      "id": "n45_stat_rolls_l2",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 굴림 횟수(큰 값), 행정 건물 Lv2",
+        "en": "Recruit total rolls (best kept), administrative building level 2"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "Lv2 카드 토탈을 이 횟수만큼 범위 안에서 굴려 가장 큰 값을 쓴다(1 = 균등, 옛 규칙) [임시].",
+        "en": "Admin level 2 card totals are rolled this many times within the range and the highest is kept (1 = uniform, the old rule) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
     },
     {
       "id": "n45_cards_min_l3",
@@ -1816,6 +1888,42 @@
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
+      "id": "n45_element_bonus_l3",
+      "code": "N45",
+      "name": {
+        "ko": "구인 속성 점수 덤, 행정 건물 Lv3",
+        "en": "Recruit element point bonus, administrative building level 3"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 30,
+      "desc": {
+        "ko": "Lv3 구인 휴먼이 기본 속성 점수에 더 받는 점수(Lv4·5가 토탈 말고 다른 이점으로 나뉜다) [임시].",
+        "en": "Extra element points a recruited human gets at admin level 3, on top of the base points (levels 4–5 differ by this rather than totals) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
+      "id": "n45_stat_rolls_l3",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 굴림 횟수(큰 값), 행정 건물 Lv3",
+        "en": "Recruit total rolls (best kept), administrative building level 3"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "Lv3 카드 토탈을 이 횟수만큼 범위 안에서 굴려 가장 큰 값을 쓴다(1 = 균등, 옛 규칙) [임시].",
+        "en": "Admin level 3 card totals are rolled this many times within the range and the highest is kept (1 = uniform, the old rule) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
       "id": "n45_cards_min_l4",
       "code": "N45",
       "name": {
@@ -1858,16 +1966,16 @@
         "ko": "구인 토탈 스탯 최소, 행정 건물 Lv4",
         "en": "Recruit total stats min, administrative building level 4"
       },
-      "value": 65,
+      "value": 60,
       "structural": false,
       "unit": "points",
       "min": 6,
       "max": 100,
       "desc": {
-        "ko": "Lv4 토탈 스탯 최소.",
-        "en": "Lowest total stats at admin level 4."
+        "ko": "Lv4 토탈 스탯 최소. Lv3과 같은 60(휴먼 최대 80 아래에서 겹쳐 다른 이점으로 나눈다, D-535 1158 나) [임시].",
+        "en": "Lowest total stats at admin level 4. Same 60 as level 3 (totals overlap under the human max of 80, so other advantages set the levels apart; D-535 1158) [temporary]."
       },
-      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
     },
     {
       "id": "n45_stats_max_l4",
@@ -1886,6 +1994,42 @@
         "en": "Highest total stats at admin level 4."
       },
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
+    },
+    {
+      "id": "n45_element_bonus_l4",
+      "code": "N45",
+      "name": {
+        "ko": "구인 속성 점수 덤, 행정 건물 Lv4",
+        "en": "Recruit element point bonus, administrative building level 4"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 30,
+      "desc": {
+        "ko": "Lv4 구인 휴먼이 기본 속성 점수에 더 받는 점수(Lv4·5가 토탈 말고 다른 이점으로 나뉜다) [임시].",
+        "en": "Extra element points a recruited human gets at admin level 4, on top of the base points (levels 4–5 differ by this rather than totals) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
+      "id": "n45_stat_rolls_l4",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 굴림 횟수(큰 값), 행정 건물 Lv4",
+        "en": "Recruit total rolls (best kept), administrative building level 4"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "Lv4 카드 토탈을 이 횟수만큼 범위 안에서 굴려 가장 큰 값을 쓴다(1 = 균등, 옛 규칙) [임시].",
+        "en": "Admin level 4 card totals are rolled this many times within the range and the highest is kept (1 = uniform, the old rule) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
     },
     {
       "id": "n45_cards_min_l5",
@@ -1930,16 +2074,16 @@
         "ko": "구인 토탈 스탯 최소, 행정 건물 Lv5",
         "en": "Recruit total stats min, administrative building level 5"
       },
-      "value": 70,
+      "value": 60,
       "structural": false,
       "unit": "points",
       "min": 6,
       "max": 100,
       "desc": {
-        "ko": "Lv5 토탈 스탯 최소.",
-        "en": "Lowest total stats at admin level 5."
+        "ko": "Lv5 토탈 스탯 최소. Lv3과 같은 60(D-535 1158 나) [임시].",
+        "en": "Lowest total stats at admin level 5. Same 60 as level 3 (D-535 1158) [temporary]."
       },
-      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
     },
     {
       "id": "n45_stats_max_l5",
@@ -1958,6 +2102,42 @@
         "en": "Highest total stats at admin level 5."
       },
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
+    },
+    {
+      "id": "n45_element_bonus_l5",
+      "code": "N45",
+      "name": {
+        "ko": "구인 속성 점수 덤, 행정 건물 Lv5",
+        "en": "Recruit element point bonus, administrative building level 5"
+      },
+      "value": 6,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 30,
+      "desc": {
+        "ko": "Lv5 구인 휴먼이 기본 속성 점수에 더 받는 점수(Lv4·5가 토탈 말고 다른 이점으로 나뉜다) [임시].",
+        "en": "Extra element points a recruited human gets at admin level 5, on top of the base points (levels 4–5 differ by this rather than totals) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
+      "id": "n45_stat_rolls_l5",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 굴림 횟수(큰 값), 행정 건물 Lv5",
+        "en": "Recruit total rolls (best kept), administrative building level 5"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "Lv5 카드 토탈을 이 횟수만큼 범위 안에서 굴려 가장 큰 값을 쓴다(1 = 균등, 옛 규칙) [임시].",
+        "en": "Admin level 5 card totals are rolled this many times within the range and the highest is kept (1 = uniform, the old rule) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
     },
     {
       "id": "d130_shares_per_city",
@@ -7926,8 +8106,8 @@
       "id": "npc_seed_lumber_forest_pct",
       "code": "",
       "name": {
-        "ko": "NPC 시작 도시 벌목장: 둘레 숲 % 문턱",
-        "en": "NPC start city lumber camp: surrounding forest % from"
+        "ko": "NPC 시작 도시 벌목장: 둘레 목재 몫 % 문턱",
+        "en": "NPC start city lumber camp: surrounding wood share % from"
       },
       "value": 5,
       "structural": false,
@@ -7935,8 +8115,8 @@
       "min": 0,
       "max": 100,
       "desc": {
-        "ko": "둘레 숲이 이 % 이상이어야 벌목장을 짓는다.",
-        "en": "Build a lumber camp only with at least this % forest around."
+        "ko": "그 칸 목재 몫(숲 밀도 몫·목재 바닥, %)이 이 이상이면 벌목장을 짓고 목재 있음으로 센다.",
+        "en": "Build a lumber camp (and count wood as present) when the cell's wood share (forest density share or wood floor, %) is at least this."
       },
       "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
@@ -7944,16 +8124,16 @@
       "id": "npc_seed_mine_height_m",
       "code": "",
       "name": {
-        "ko": "산지 고도(m): 광석 몫 1000·높은 티어 광석",
-        "en": "Mountain height (m): full ore share and high-tier ore"
+        "ko": "광석 몫 1000 고도(m)",
+        "en": "Full ore share height (m)"
       },
       "value": 500,
       "structural": false,
       "min": -12000,
       "max": 12000,
       "desc": {
-        "ko": "칸 고도가 이 이상이면 산지다: 광석 몫 1000이고 높은 티어 광석(철부터)이 나온다. 광산은 마른 땅 어디에나 선다(기획 D-533).",
-        "en": "Cells at or above this height are mountains: full ore share and high-tier ore (iron and up). Mines stand on any dry land (D-533)."
+        "ko": "칸 고도가 이 이상이면 광석 몫이 1000이다. 광산은 마른 땅 어디에나 선다(기획 D-533). 높은 티어 광석의 산지 고도는 ore_high_min_m(기획 D-535).",
+        "en": "Cells at or above this height have full ore share. Mines stand on any dry land (D-533). The mountain height for high-tier ore is ore_high_min_m (D-535)."
       },
       "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041 · D-533 바뀜 (2026-11-12)"
     },
@@ -8732,16 +8912,16 @@
         "ko": "NPC 도시 건물 수 상한(증축)",
         "en": "NPC city building cap (expansion)"
       },
-      "value": 16,
+      "value": 32,
       "structural": false,
       "unit": "count",
       "min": 0,
       "max": 64,
       "desc": {
-        "ko": "NPC 도시는 이 수(행정 건물·성벽 빼고)까지 유저와 같은 규칙(재료·짓는 시간·일꾼)으로 숙소·농장·채집 시설을 더 짓는다. 0이면 짓지 않는다.",
-        "en": "NPC cities add lodgings, farms and gather facilities by the player rules (materials, build time, workers) up to this many buildings (government hall and walls excluded). 0 turns it off."
+        "ko": "NPC 도시 건물 수 상한의 전체 끝(행정 건물·성벽 빼고). 도시마다 상한은 도시 등급 표(npc_build_cap_l1~l6)와 이 값 가운데 작은 값이다. 0이면 짓지도 레벨을 올리지도 않는다.",
+        "en": "Overall top of the NPC city building cap (government hall and walls excluded). Each city's cap is the smaller of its grade table value (npc_build_cap_l1–l6) and this. 0 turns building and upgrading off."
       },
-      "source": "기획 D-534 · 질문 1101 나 · 질문 1141~1144 [임시]"
+      "source": "기획 D-534 · 질문 1101 나 · 기획 D-535 질문 1143 나 [임시]"
     },
     {
       "id": "npc_build_gather_max",
@@ -8796,6 +8976,132 @@
         "en": "Up to this many idle humans help a construction (the time cut uses the player build formula)."
       },
       "source": "기획 D-534 · 질문 1101 나 · 질문 1141~1144 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l1",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 마을",
+        "en": "NPC city building cap: village"
+      },
+      "value": 8,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 마을인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade village builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l2",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 읍",
+        "en": "NPC city building cap: town"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 읍인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade town builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l3",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 소도시",
+        "en": "NPC city building cap: small city"
+      },
+      "value": 12,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 소도시인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade small city builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l4",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 도시",
+        "en": "NPC city building cap: city"
+      },
+      "value": 16,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 도시인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade city builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l5",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 대도시",
+        "en": "NPC city building cap: metropolis"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 대도시인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade metropolis builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l6",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 거대도시",
+        "en": "NPC city building cap: megacity"
+      },
+      "value": 24,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 거대도시인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade megacity builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_repair_below_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC가 고치는 시설 상태 문턱(‰)",
+        "en": "NPC repair threshold (facility condition ‰)"
+      },
+      "value": 700,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 도시는 상태가 이 값 아래인 시설(전투에서 부서진 성벽·건물 포함)을 유저 수리와 같은 재료·시간으로 가득까지 고친다. 짓기·레벨 올리기보다 먼저. 0이면 고치지 않는다.",
+        "en": "NPC cities repair facilities below this condition (including walls and buildings broken in battle) to full with the player repair materials and time, before building or upgrading. 0 turns it off."
+      },
+      "source": "기획 D-535 · 질문 1114 가 [임시]"
     },
     {
       "id": "gather_obj_carry_g",
@@ -9650,16 +9956,16 @@
         "ko": "광석 몫: 해수면(0m 이하) 땅(‰)",
         "en": "Ore share: sea-level land (‰)"
       },
-      "value": 150,
+      "value": 350,
       "structural": false,
       "unit": "pm",
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "낮은 땅도 석재·구리(하위 광석)를 이 몫만큼 캔다. 언덕·산지로 갈수록 몫이 커진다.",
-        "en": "Low land still yields stone and copper (low-tier ore) at this share. The share grows toward hills and mountains."
+        "ko": "낮은 땅도 석재·구리(하위 광석)를 이 몫만큼 캔다(건축 기본 재료 바닥). 언덕·산지로 갈수록 몫이 커진다.",
+        "en": "Low land still yields stone and copper (low-tier ore) at this share (floor for basic building materials). The share grows toward hills and mountains."
       },
-      "source": "기획 D-533 (질문 1020·1064) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 광석 몫) [임시]"
+      "source": "기획 D-533 · 사용자 결정 2026-11-12 기본 재료 바닥 보장 · ADR 2026-11-11-city-catchment 바뀜 [임시]"
     },
     {
       "id": "ore_share_hill_m",
@@ -9685,16 +9991,16 @@
         "ko": "광석 몫: 언덕 고도에서(‰)",
         "en": "Ore share: at hill height (‰)"
       },
-      "value": 400,
+      "value": 550,
       "structural": false,
       "unit": "pm",
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "언덕 고도의 광석 몫. 산지 고도(npc_seed_mine_height_m) 이상은 1000.",
-        "en": "Ore share at hill height. At or above mountain height (npc_seed_mine_height_m) it is 1000."
+        "ko": "언덕 고도의 광석 몫. 광석 몫 1000 고도(npc_seed_mine_height_m) 이상은 1000.",
+        "en": "Ore share at hill height. At or above the full ore share height (npc_seed_mine_height_m) it is 1000."
       },
-      "source": "기획 D-533 (질문 1020·1064) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 광석 몫) [임시]"
+      "source": "기획 D-533 · 사용자 결정 2026-11-12 기본 재료 바닥 보장 · ADR 2026-11-11-city-catchment 바뀜 [임시]"
     },
     {
       "id": "ore_low_tier_max",
@@ -9708,10 +10014,329 @@
       "min": 0,
       "max": 9,
       "desc": {
-        "ko": "산지가 아닌 광석은 이 티어(2 = 구리)까지만 낸다. 더 높은 티어를 뽑으면 배후지 광석 가운데 산지 몫만큼만 그대로 나온다.",
-        "en": "Ore outside mountains yields up to this tier (2 = copper). Higher rolls come out only in proportion to the catchment's mountain ore."
+        "ko": "산지가 아닌 광석은 이 티어(2 = 구리)까지만 낸다. 더 높은 티어를 뽑으면 높은 티어 몫(산지 1000, 산지 밖 ore_flat_high_pm)만큼만 그대로 나온다.",
+        "en": "Ore outside mountains yields up to this tier (2 = copper). Higher rolls come out only by the high-tier share (mountains 1000, elsewhere ore_flat_high_pm)."
       },
       "source": "기획 D-533 (질문 1020·1064) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 광석 몫) [임시]"
+    },
+    {
+      "id": "resource_wood_forest_pm",
+      "code": "",
+      "name": {
+        "ko": "목재 배율: 숲 바이옴(‰)",
+        "en": "Wood scale: forest biomes (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "타이가·온대림·열대우림의 목재 몫 = 숲 밀도 몫 × 이 배율 × 목재 노이즈.",
+        "en": "Wood share in taiga, temperate forest and rainforest = forest density share × this × wood noise."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_wood_other_pm",
+      "code": "",
+      "name": {
+        "ko": "목재 배율: 그 밖의 땅(‰)",
+        "en": "Wood scale: other land (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "숲 바이옴이 아닌 땅(습지 맹그로브·사바나 아카시아·외딴 나무)의 목재 배율. 물·빙상은 0.",
+        "en": "Wood scale on non-forest land (wetland mangroves, savanna acacias, lone trees). Water and ice sheets are 0."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_wood_baseline_pm",
+      "code": "",
+      "name": {
+        "ko": "목재 바닥: 숲이 없는 마른 땅(‰)",
+        "en": "Wood floor: dry land without forest (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "건축에 꼭 드는 목재가 어디서나 나오게, 물·빙상이 아닌 마른 땅은 숲이 없어도 관목·흩어진 나무로 목재 몫이 이만큼 있다(노이즈 배율 전).",
+        "en": "Wood is needed for every building, so dry land other than water and ice sheets keeps this wood share from shrubs and scattered trees (before the noise scale)."
+      },
+      "source": "사용자 결정 2026-11-12 (기본 재료 바닥 보장) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_wetland_pm",
+      "code": "",
+      "name": {
+        "ko": "약초 배율: 습지(‰)",
+        "en": "Herb scale: wetland (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "습지의 약초 몫(약초 노이즈를 곱한다).",
+        "en": "Herb share in wetlands (times the herb noise)."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_alpine_pm",
+      "code": "",
+      "name": {
+        "ko": "약초 배율: 고산 초지(‰)",
+        "en": "Herb scale: alpine meadow (‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "고산 바이옴의 약초 몫(고산 초지).",
+        "en": "Herb share in the alpine biome (alpine meadows)."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_forest_pm",
+      "code": "",
+      "name": {
+        "ko": "약초 배율: 숲 가장자리·빈터(‰)",
+        "en": "Herb scale: forest edge and clearings (‰)"
+      },
+      "value": 450,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "숲 바이옴의 약초 몫. 나무가 성긴 곳(목재 노이즈가 낮은 곳)에서 커진다.",
+        "en": "Herb share in forest biomes. Grows where trees are sparse (low wood noise)."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_other_pm",
+      "code": "",
+      "name": {
+        "ko": "약초 배율: 그 밖의 땅(‰)",
+        "en": "Herb scale: other land (‰)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "그 밖의 땅(초지 들꽃·사막 선인장 등)의 약초 배율. 물·빙상은 0.",
+        "en": "Herb scale on other land (meadow flowers, desert cacti). Water and ice sheets are 0."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_clearing_pm",
+      "code": "",
+      "name": {
+        "ko": "숲 약초가 빈터를 따르는 몫(‰)",
+        "en": "Forest herbs following clearings (‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "숲 바이옴 약초 노이즈에서 '목재 노이즈의 반대(빈터)'가 차지하는 몫. 높을수록 약초가 나무 많은 곳을 비켜 간다.",
+        "en": "Share of the forest herb noise taken from the inverse wood noise (clearings). Higher keeps herbs away from dense wood."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_livestock_pasture_pm",
+      "code": "",
+      "name": {
+        "ko": "목장 배율: 초지·사바나·툰드라(‰)",
+        "en": "Livestock scale: grassland, savanna, tundra (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "목초지 바이옴의 축산물 몫(목장 노이즈를 곱한다).",
+        "en": "Livestock share in pasture biomes (times the livestock noise)."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_livestock_other_pm",
+      "code": "",
+      "name": {
+        "ko": "목장 배율: 그 밖의 땅(‰)",
+        "en": "Livestock scale: other land (‰)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "목초지가 아닌 땅의 축산물 배율. 물·빙상은 0.",
+        "en": "Livestock scale on non-pasture land. Water and ice sheets are 0."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_noise_cells",
+      "code": "",
+      "name": {
+        "ko": "자원 노이즈 격자 간격(1차맵 칸)",
+        "en": "Resource noise grid spacing (planet cells)"
+      },
+      "value": 8,
+      "structural": false,
+      "min": 1,
+      "max": 64,
+      "desc": {
+        "ko": "목재·약초·목장 노이즈 덩어리 크기. 배후지보다 크면 도시마다 많은 자원이 달라진다.",
+        "en": "Size of the wood, herb and livestock noise patches. Larger than a catchment so cities differ in their rich resource."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_noise_floor_pm",
+      "code": "",
+      "name": {
+        "ko": "자원 노이즈 바닥(‰)",
+        "en": "Resource noise floor (‰)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "노이즈 배율은 바닥 ~ (2000 − 바닥)‰이고 가운데가 1000이다. 노이즈가 가장 낮은 곳도 바이옴 배율의 이 몫은 남고, 바이옴 평균 몫은 거의 그대로다.",
+        "en": "The noise scale runs from the floor to 2000 − floor ‰, centred on 1000. The lowest spots keep this share of the biome scale, and biome averages stay about the same."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_wood_seed",
+      "code": "",
+      "name": {
+        "ko": "목재 노이즈 시드",
+        "en": "Wood noise seed"
+      },
+      "value": 5361,
+      "structural": false,
+      "min": 0,
+      "max": 2147483647,
+      "desc": {
+        "ko": "목재 많은 곳의 자리. 세 시드가 다르면 많은 곳이 서로 비켜 간다.",
+        "en": "Where wood is rich. Different seeds keep the rich spots apart."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_seed",
+      "code": "",
+      "name": {
+        "ko": "약초 노이즈 시드",
+        "en": "Herb noise seed"
+      },
+      "value": 70913,
+      "structural": false,
+      "min": 0,
+      "max": 2147483647,
+      "desc": {
+        "ko": "약초 많은 곳의 자리.",
+        "en": "Where herbs are rich."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_livestock_seed",
+      "code": "",
+      "name": {
+        "ko": "목장 노이즈 시드",
+        "en": "Livestock noise seed"
+      },
+      "value": 288149,
+      "structural": false,
+      "min": 0,
+      "max": 2147483647,
+      "desc": {
+        "ko": "목장 많은 곳의 자리.",
+        "en": "Where livestock is rich."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_bit_min_pm",
+      "code": "",
+      "name": {
+        "ko": "약초·축산물 있음 문턱(칸 몫 ‰)",
+        "en": "Herb and livestock present from (cell share ‰)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "칸 몫이 이 이상이면 그 칸에 약초·축산물이 있다고 본다(2차맵 목초지 밭, 배후지 칸 수).",
+        "en": "A cell counts as having herbs or livestock from this share (second-map pastures, catchment cell counts)."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "ore_high_min_m",
+      "code": "",
+      "name": {
+        "ko": "높은 티어 광석: 산지 고도(m)",
+        "en": "High-tier ore: mountain height (m)"
+      },
+      "value": 200,
+      "structural": false,
+      "min": -12000,
+      "max": 12000,
+      "desc": {
+        "ko": "칸 고도가 이 이상인 마른 땅은 산지다: 높은 티어 광석(철부터)이 그대로 나오고 광산 국가 지방 도시 자리 점수가 센다. 시험 행성 알맞은 땅(기온 8~32°C)의 위 0.6%가 200m 이상(500m 이상은 없음).",
+        "en": "Dry cells at or above this height are mountains: high-tier ore (iron and up) comes out in full and mining nations' town site score counts them. On the test planet the top 0.6% of temperate land (8-32°C) is above 200 m (none above 500 m)."
+      },
+      "source": "기획 D-535 (질문 1121) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 높은 티어 광석) [임시]"
+    },
+    {
+      "id": "ore_flat_high_pm",
+      "code": "",
+      "name": {
+        "ko": "높은 티어 광석: 산지 밖 몫(‰)",
+        "en": "High-tier ore: share outside mountains (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "산지 밖 마른 땅의 광산이 높은 티어(산지 밖 가장 높은 티어 위)를 뽑으면 이 천분율만큼만 그대로 나오고 나머지는 내려간다. 0이면 산지에서만 나온다.",
+        "en": "When a mine outside mountains rolls a high tier (above the highest tier outside mountains), only this per mille stays; the rest drops down. 0 means mountains only."
+      },
+      "source": "기획 D-535 (질문 1121) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 높은 티어 광석) [임시]"
     },
     {
       "id": "n9_human_sum_max",
@@ -9928,6 +10553,78 @@
         "en": "Units with at least this initial stat sum prefer grade 3 housing [temporary]."
       },
       "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_prefer_housing_match",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 선호 주거 종류에서 쉼",
+        "en": "Condition: resting in preferred housing type"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "지금 쉬는 곳(숙소·집)이 그 유닛의 선호 주거 종류면 더하는 값 [임시].",
+        "en": "Added when the unit rests in its preferred housing type (lodging or home) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
+    },
+    {
+      "id": "condition_prefer_housing_miss",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 선호 주거 종류가 아님",
+        "en": "Condition: not the preferred housing type"
+      },
+      "value": -5,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "선호 주거 종류가 아닌 곳에서 쉬거나 노숙할 때 더하는 값(음수) [임시].",
+        "en": "Added when the unit rests elsewhere or is homeless (negative) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
+    },
+    {
+      "id": "condition_prefer_food_match",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 좋아하는 음식이 도시 창고에 있음",
+        "en": "Condition: favourite food in the city warehouse"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "그 도시 창고에 유닛이 좋아하는 식품 중분류 물건이 있으면 더하는 값 [임시].",
+        "en": "Added when the city warehouse holds the unit's favourite food subcategory [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
+    },
+    {
+      "id": "condition_prefer_food_miss",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 좋아하는 음식이 도시 창고에 없음",
+        "en": "Condition: favourite food missing from the city warehouse"
+      },
+      "value": -10,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "그 도시 창고에 좋아하는 식품 중분류 물건이 없으면 더하는 값(음수) [임시].",
+        "en": "Added when the city warehouse has none of the favourite food subcategory (negative) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
     }
   ]
 }

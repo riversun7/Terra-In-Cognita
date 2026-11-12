@@ -117,6 +117,7 @@ export function cityRestPlacesOf(
           area,
           level: record.level,
           ownerId: owners.get(record.buildingId) ?? null,
+          ...(record.seeded === true ? { seeded: true } : {}),
         });
       else if (stage === "storage" && owners.get(record.buildingId) === storeOwner)
         stores.push({ x: area.x, y: area.y });

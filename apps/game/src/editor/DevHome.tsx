@@ -178,6 +178,15 @@ const DEV_TOOLS = {
     ready: true,
   },
   // 구인 카드 시험(D-469): 도시마다 내 카드·도시 주인(NPC) 카드, WebSocket으로 고용해 본다(행정 건물 화면 전)
+  // 지형 오브젝트 편집기(기획 D-536·D-398): 지형마다 2차맵 오브젝트 종류·양, 차이 내보내기
+  dev_terrain_objects: {
+    name: m.shell_route_dev_terrain_objects,
+    desc: m.dev_tool_terrain_objects_desc,
+    mark: <Icon name="map" />,
+    tagKo: "EXPORT · 지형 D-536",
+    tagEn: "EXPORT · Terrain D-536",
+    ready: true,
+  },
   dev_recruit: {
     name: m.shell_route_dev_recruit,
     desc: m.dev_tool_recruit_desc,
@@ -267,6 +276,7 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "dev_world_layout",
       "dev_territory",
       "dev_second_map",
+      "dev_terrain_objects",
     ],
   },
   {

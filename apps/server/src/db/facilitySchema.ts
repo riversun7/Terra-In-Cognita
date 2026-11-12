@@ -3,7 +3,18 @@
 // 건물 행(world_buildings)·유닛·물건에 외래 키를 두지 않는다: 건물은 관리자가 지우고 유닛은 NPC 런타임이 지운다 → 건물 서비스가
 // 부팅·분마다 사라진 건물의 시설 줄과 작업 줄을 지운다(작업에 쓴 재료는 돌려주지 않는다 — 다 쓴 것으로 친다).
 import { sql } from "drizzle-orm";
-import { bigint, check, index, integer, jsonb, pgTable, smallint, text, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  smallint,
+  text,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 /**
  * 시설 한 줄(2차맵 건물 하나 = 시설 하나). facility_id = 팩 시설 ID, level = 다 지은 레벨(처음 짓는 동안 0).
@@ -23,6 +34,8 @@ export const worldFacilities = pgTable(
     builtAtMs: bigint("built_at_ms", { mode: "number" }).notNull(),
     builtBy: uuid("built_by"),
     cityId: bigint("city_id", { mode: "number" }),
+    // 세계 씨앗이 세운 시설(질문 1131 나 — 씨앗 숙소 침대는 인구 상한에 더하지 않는다). 열 더하기만(직전 판 앱은 false로 넣는다)
+    seeded: boolean("seeded").notNull().default(false),
   },
   (table) => [
     check("world_facilities_level", sql`${table.level} between 0 and 5`),

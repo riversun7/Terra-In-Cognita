@@ -130,6 +130,20 @@ export interface NpcBuildInput {
   readonly ms: number;
 }
 
+/**
+ * NPC 레벨 올리기·수리 입력(질문 1146 나·1114 가, npc/cityBuild.ts — 플레이어 레벨업·수리와 같은 규칙): 재료·시간·고칠 양은 @terra/sim
+ * buildPolicy가 플레이어와 같은 식으로 셈해 넘긴다. 건물 주인 = ownerId여야 한다
+ */
+export interface NpcJobInput {
+  readonly kind: "upgrade" | "repair";
+  readonly ownerId: number;
+  readonly buildingId: number;
+  readonly materials: readonly JobMaterial[];
+  readonly ms: number;
+  /** 수리로 더할 상태(ppm). 레벨 올리기면 쓰지 않는다 */
+  readonly restorePpm?: number | undefined;
+}
+
 export interface FacilityService {
   build(userId: string, input: FacilityBuildInput): Promise<FacilityCommandResult>;
   /**
@@ -137,6 +151,11 @@ export interface FacilityService {
    * 묶지 않는다 — NPC 휴먼은 소유 주체 정산을 받지 않아 일꾼 수는 시간 셈에만 든다). 동기(쓰기 대기열 같은 묶음)
    */
   npcBuild(input: NpcBuildInput): FacilityCommandResult;
+  /**
+   * NPC 레벨 올리기·수리(질문 1146 나·1114 가): 플레이어 upgrade·repair와 같이 그 건물이 선 도시 창고·창고 시설에서 재료를 빼고 작업을 건다(일꾼
+   * 유닛을 묶지 않는다). 동기(쓰기 대기열 같은 묶음)
+   */
+  npcJob(input: NpcJobInput): FacilityCommandResult;
   upgrade(userId: string, buildingId: number, unitIds: readonly number[]): Promise<FacilityCommandResult>;
   repair(
     userId: string,
@@ -628,6 +647,48 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       });
       if (ms === 0) finish(job);
       return { ok: true, buildingId: record.buildingId, doneAtMs: at + ms };
+    },
+
+    npcJob(input) {
+      const at = now();
+      const found = myFacility(input.ownerId, input.buildingId);
+      if (typeof found === "string") return fail(found);
+      const { record, def } = found;
+      if (jobOn((job) => job.buildingId === input.buildingId && job.kind !== "equipment"))
+        return fail("job_running");
+      if (record.level < 1) return fail("under_construction");
+      if (input.kind === "upgrade" && (record.level >= def.maxLevel || !def.build)) return fail("max_level");
+      let restore = 0;
+      if (input.kind === "repair") {
+        advance(record, at);
+        restore = Math.min(
+          Math.max(0, Math.trunc(input.restorePpm ?? 0)),
+          CONDITION_FULL - record.conditionPpm,
+        );
+        if (restore <= 0) return fail("not_damaged");
+      }
+      // 재료 자리: 그 건물이 선 도시의 도시 창고·그 도시의 NPC 창고 시설(유닛 화물은 보지 않는다 — npcBuild와 같다)
+      const place = buildingPlace(places, input.buildingId);
+      const scope = place ? materialScope(places, input.ownerId, place.mapKey, place.cityId, false) : [];
+      const reason = input.kind === "upgrade" ? "facility_upgrade" : "facility_repair";
+      if (!spendGoods(ledger, input.ownerId, input.materials, at, reason, scope))
+        return fail("insufficient_materials");
+      const ms = Math.max(0, Math.trunc(input.ms));
+      const job = newJob({
+        kind: input.kind,
+        ownerId: input.ownerId,
+        buildingId: input.buildingId,
+        beaconId: null,
+        holdingId: null,
+        targetLevel: input.kind === "upgrade" ? record.level + 1 : null,
+        restorePpm: input.kind === "repair" ? restore : null,
+        unitIds: [],
+        materials: [...input.materials],
+        startedAtMs: at,
+        doneAtMs: at + ms,
+      });
+      if (ms === 0) finish(job);
+      return { ok: true, doneAtMs: at + ms };
     },
 
     async upgrade(userId, buildingId, unitIds) {

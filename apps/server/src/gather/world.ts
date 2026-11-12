@@ -14,7 +14,7 @@ import type { GatherKind } from "./kinds.ts";
 import { type GatherService, createGatherService } from "./service.ts";
 import { type ObjectStore, createObjectStore, loadObjectStates } from "./state.ts";
 import { type StationRuntime, createStationRuntime } from "./station.ts";
-import { cellMaterials, oreSharePm } from "@terra/shared/catchment";
+import { cellMaterials, oreSharePm, woodSharePm } from "@terra/shared/catchment";
 
 /** 조회가 쓰는 채집 세계 */
 export interface GatherWorld {
@@ -108,6 +108,16 @@ export function startWorldGather(
           const land = world.terrain?.cellValues?.(mapKey);
           return land ? oreSharePm(land, rules().worldSeed) : undefined;
         },
+        // 관목·나뭇가지 더미(사용자 결정 2026-11-12 기본 재료 바닥 보장): 그 2차맵 칸 목재 몫(숲·목재 바닥, NPC 배후지와 같은 설정 칸)
+        woodSharePm: (mapKey) => {
+          const land = world.terrain?.cellValues?.(mapKey);
+          return land ? woodSharePm(land, rules().worldSeed) : undefined;
+        },
+        // 지형별 오브젝트·어군(기획 D-536): 그 2차맵 칸 행성 값의 바이옴·물 비트
+        terrainKind: (mapKey) => {
+          const land = world.terrain?.cellValues?.(mapKey);
+          return land ? { biomeId: land.biomeId, waterBits: land.water } : undefined;
+        },
         // 채집 중 부상(D-521, docs/adr/2026-11-08-injury.md 5절): 직무 정산과 같은 판정·시드
         workInjury: createGatherInjury(),
         ready: () => world.status().state === "ready",
@@ -122,7 +132,8 @@ export function startWorldGather(
         store,
         places,
         works,
-        objects: (mapKey) => service.objects(mapKey),
+        // 어군(기획 D-536)은 정산 시각의 자리로 반경을 본다
+        objects: (mapKey) => service.objectsAt(mapKey, options.now()),
         pollution: (mapKey) => world.npc?.gardener.run.layer().get(mapKey) ?? 0,
         // 운반꾼(질문 1090 가): 그 채집소 일꾼 가운데 채집 줄이 없는 유닛
         workersAt,
@@ -144,6 +155,8 @@ export function startWorldGather(
         now: options.now,
         npc: () => world.npc,
       });
+      // 컨디션 주거 = 그 일꾼의 쉼터(D-535 1152 나, facilities/world.ts attachRest)
+      facilities.attachRest((unitId) => workerRest.restOf(unitId));
       built = {
         service,
         store,

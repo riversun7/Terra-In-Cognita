@@ -63,6 +63,9 @@ describe("자원 분포 지도 셈", () => {
       const index = face * n * n + j * n + i;
       expect(planes[0]?.[index]).toBe(pmToByte(shares.ore));
       expect(planes[1]?.[index]).toBe(pmToByte(shares.wood));
+      // 약초·축산물은 칸 자리 노이즈를 쓴다(기획 D-536) — 행성 값 읽개에 붙인 자리가 서버 경제(PlanetCellValues)와 같은 값을 낸다
+      expect(planes[2]?.[index]).toBe(pmToByte(shares.herb));
+      expect(planes[4]?.[index]).toBe(pmToByte(shares.livestock));
       expect(planes[5]?.[index]).toBe(pmToByte(shares.fish));
       expect(high[index]).toBe(pmToByte(highOrePm(land, rules)));
       if (shares.ore > 0) landWithOre += 1;
@@ -73,6 +76,13 @@ describe("자원 분포 지도 셈", () => {
   it("규칙 열쇠: 몫 규칙 칸이 바뀌면 다르다", () => {
     expect(resourceRulesKey(rules)).not.toBe(
       resourceRulesKey({ ...rules, oreShareHillPm: rules.oreShareHillPm + 1 }),
+    );
+    // 목재·약초·목장 바이옴 규칙(기획 D-536)
+    expect(resourceRulesKey(rules)).not.toBe(
+      resourceRulesKey({ ...rules, herbNoiseSeed: rules.herbNoiseSeed + 1 }),
+    );
+    expect(resourceRulesKey(rules)).not.toBe(
+      resourceRulesKey({ ...rules, livestockPasturePm: rules.livestockPasturePm - 1 }),
     );
   });
 

@@ -10,6 +10,7 @@ import {
   type GatherInsideUnit,
   type GatherLoopsResponse,
   type GatherObjectsResponse,
+  type GatherSchoolView,
 } from "@terra/shared/gather";
 import type { Viewer } from "../trpc/context.ts";
 import { buildingPlace } from "../facilities/places.ts";
@@ -58,10 +59,19 @@ export function gatherReadsOf(source: () => GatherWorld | undefined): GatherRead
       const kinds = gather.kinds();
       const catalog = gather.places()?.catalog();
       const objects: number[] = [];
+      const schools: GatherSchoolView[] = [];
       for (const object of list) {
         const kind = kinds[object.kind];
         const state = gather.store.read(mapKey, object.id, kind?.uses ?? 1, nowMs);
         objects.push(object.id, object.kind, state.usesLeft, state.regrowAtMs);
+        // 움직이는 어군(기획 D-536): 길·한 바퀴 시간·어긋남 — 기기가 같은 함수로 자리를 낸다
+        if (object.route)
+          schools.push({
+            id: object.id,
+            points: [...object.route.points],
+            periodMs: object.route.periodMs,
+            phaseMs: object.route.phaseMs,
+          });
       }
       return {
         status: "ok",
@@ -81,9 +91,11 @@ export function gatherReadsOf(source: () => GatherWorld | undefined): GatherRead
             facilityName: facility ? facility.name : null,
             ...(kind.direct ? {} : { direct: false }),
             ...(kind.art > 0 ? { art: kind.art } : {}),
+            ...(kind.boat === true ? { boat: true } : {}),
           };
         }),
         objects: objects.length % GATHER_OBJECT_STRIDE === 0 ? objects : [],
+        ...(schools.length > 0 ? { schools } : {}),
         generatedAt: nowMs,
       };
     },

@@ -69,6 +69,10 @@ export const ENTRY_DIFF_CATEGORIES = [
   "nation_presets",
   "combat_classes",
   "nation_tiers",
+  // 지형 오브젝트 편집기(/dev/terrain-objects, 기획 D-536·D-398): 소품 규칙·채집 오브젝트. 덮어쓰기 층(바로 적용)은 없고 내보내기 → 적용만
+  // (소품 규칙은 2차맵 지형 캐시 열쇠라 다음 시작 때 든다)
+  "map_props",
+  "gather_objects",
 ] as const;
 
 export const entriesDiffChangeSchema = z.strictObject({

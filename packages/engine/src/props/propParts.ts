@@ -12,6 +12,7 @@ import {
   IcosahedronGeometry,
   OctahedronGeometry,
 } from "three";
+import { buildKit } from "./propKits.ts";
 import type { ClutterKind, PropLook } from "./propLook.ts";
 
 /** 부품(기하) 종류 */
@@ -463,6 +464,10 @@ export function buildShape(put: PartSink, look: PropLook, ctx: ShapeContext): vo
       put("chip", x, y + 0.12, z, 0.22, 0.16, 0.26, turn, 0, bone);
       return;
     }
+    case "kit":
+      // 지형별 오브젝트(기획 D-536)
+      buildKit(put, look, ctx);
+      return;
     default: {
       const unknown: never = look.shape;
       void unknown;

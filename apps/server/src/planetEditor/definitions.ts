@@ -134,6 +134,9 @@ export function buildPlanetEditorDefinitions(input: PlanetEditorBuildInput): Pla
       mapProps: input.raw.mapProps.map((entry, index) =>
         copyObject(entry, `map_props.json entries[${index}]`),
       ),
+      gatherObjects: (input.raw.gatherObjects ?? []).map((entry, index) =>
+        copyObject(entry, `gather_objects.json entries[${index}]`),
+      ),
     },
     timings,
     templateTimings,

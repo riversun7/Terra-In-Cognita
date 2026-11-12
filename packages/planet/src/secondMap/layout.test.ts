@@ -1,3 +1,4 @@
+import { cellCubePoint } from "@terra/shared/catchment";
 import { describe, expect, it } from "vitest";
 import { cellKey } from "../cellKey.ts";
 import { FACES, type Face } from "../faces.ts";
@@ -69,5 +70,20 @@ describe("2차맵 격자", () => {
         if (Math.abs(a) <= big) expect(floorDiv(a, b), `${a} / ${b}`).toBe(exactFloorDiv(a, b));
       }
     }
+  });
+});
+
+describe("자원 노이즈 정육면체 점(@terra/shared cellCubePoint, 기획 D-536)", () => {
+  it("칸 가운데 점의 절반이 cubePoint(F + 1, 2i + 1, 2j + 1)와 같다 — 면 축 표를 따로 들고 있어도 같은 점", () => {
+    for (const face of FACES)
+      for (const [i, j] of [
+        [0, 0],
+        [31, 0],
+        [0, 31],
+        [17, 9],
+      ] as const) {
+        const half = cellCubePoint(face, 5, i, j);
+        expect(half?.map((value) => value * 2)).toEqual(cubePoint(face, 6, 2 * i + 1, 2 * j + 1));
+      }
   });
 });

@@ -80,4 +80,32 @@ export const CONDITION_TUNING_KEYS: readonly TuningKey[] = [
     "컨디션: 선호 주거 3등급이 되는 초기 스탯 합",
     "Condition: initial stat sum preferring grade 3 housing",
   ),
+  k(
+    "condition_prefer_housing_match",
+    "",
+    "condition.preferHousingMatch",
+    "컨디션: 선호 주거 종류에서 쉼",
+    "Condition: resting in preferred housing type",
+  ),
+  k(
+    "condition_prefer_housing_miss",
+    "",
+    "condition.preferHousingMiss",
+    "컨디션: 선호 주거 종류가 아님",
+    "Condition: not the preferred housing type",
+  ),
+  k(
+    "condition_prefer_food_match",
+    "",
+    "condition.preferFoodMatch",
+    "컨디션: 좋아하는 음식이 도시 창고에 있음",
+    "Condition: favourite food in the city warehouse",
+  ),
+  k(
+    "condition_prefer_food_miss",
+    "",
+    "condition.preferFoodMiss",
+    "컨디션: 좋아하는 음식이 도시 창고에 없음",
+    "Condition: favourite food missing from the city warehouse",
+  ),
 ];

@@ -10,7 +10,7 @@
       "subcategory": "blueprint",
       "tier": 0,
       "startPrice": 1,
-      "weight": 10,
+      "weight": 20,
       "enabled": false
     },
     {
@@ -126,7 +126,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 100,
-      "weight": 1500,
+      "weight": 1200,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -166,7 +166,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 100,
-      "weight": 1500,
+      "weight": 1800,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -208,7 +208,7 @@
       "subcategory": "armor",
       "tier": 1,
       "startPrice": 100,
-      "weight": 3000,
+      "weight": 4000,
       "equip": {
         "slot": "body",
         "stats": [
@@ -236,7 +236,7 @@
       "subcategory": "armor",
       "tier": 1,
       "startPrice": 100,
-      "weight": 1500,
+      "weight": 1400,
       "equip": {
         "slot": "head",
         "stats": [
@@ -282,7 +282,7 @@
       "subcategory": "implant",
       "tier": 1,
       "startPrice": 100,
-      "weight": 500,
+      "weight": 400,
       "equip": {
         "slot": "organ",
         "stats": [
@@ -315,7 +315,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
-      "weight": 1500,
+      "weight": 1800,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -357,7 +357,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
-      "weight": 1500,
+      "weight": 1800,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -404,7 +404,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
-      "weight": 1500,
+      "weight": 1800,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -446,7 +446,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
-      "weight": 1500,
+      "weight": 1800,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -493,7 +493,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
-      "weight": 1500,
+      "weight": 1800,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -540,7 +540,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
-      "weight": 1500,
+      "weight": 1800,
       "equip": {
         "slot": "weapon",
         "stats": [

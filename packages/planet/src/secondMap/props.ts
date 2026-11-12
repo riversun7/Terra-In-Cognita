@@ -31,6 +31,8 @@ export interface MapPropInput {
   readonly curves?: Readonly<Partial<Record<string, MapPropCurveInput | undefined>>> | undefined;
   readonly clump?: { readonly cells: number; readonly threshold: number } | undefined;
   readonly maxShare?: number | undefined;
+  /** 물 칸에만 놓는 장식(흩기만, 엄폐 0 — 기획 D-536). 없으면 마른 칸 */
+  readonly water?: boolean | undefined;
 }
 
 /** 곡선 축 번호(MAP_PROP_CURVE_AXIS_NAMES 순서) */
@@ -80,6 +82,8 @@ export interface PropRule {
   readonly maxShareCells: number;
   /** ID에서 만든 소금(순서와 무관) */
   readonly salt: number;
+  /** 물 칸에만 놓는다(흩기 장식, 엄폐 0) */
+  readonly water: boolean;
 }
 
 export interface PropRuleSet {
@@ -176,6 +180,8 @@ function compileProp(
   }
   const share = scatter ? (prop.maxShare ?? 0) : 0;
   if (!isInt(share, 0, 1000)) throw new RangeError(`map prop ${prop.id}: maxShare must be 1 ~ 1000`);
+  const water = scatter && prop.water === true;
+  if (water && cover !== 0) throw new RangeError(`map prop ${prop.id}: water props must have cover 0`);
   return {
     id: prop.id,
     art,
@@ -186,6 +192,7 @@ function compileProp(
     clumpThreshold,
     maxShareCells: Math.floor((share * 65_536) / 1000),
     salt: mix32(fnvText(FNV_OFFSET, prop.id)),
+    water,
   };
 }
 
@@ -207,6 +214,8 @@ function ruleHash(
         fnvInt(fnvInt(fnvInt(s, rule.cover), rule.clumpLog2), rule.clumpThreshold),
         rule.maxShareCells,
       );
+      // 물 위 소품만 표지를 더한다(물 위 소품이 없는 규칙은 앞 판과 같은 해시 — 2026-11-12)
+      if (rule.water) s = fnvInt(s, 0x7761_7472);
       for (const weight of rule.biomeWeight) s = fnvInt(s, weight);
       for (const curve of rule.curves) {
         s = fnvInt(
@@ -304,6 +313,7 @@ export function mapPropInputsFromJson(list: readonly unknown[]): MapPropInput[] 
       cover: optionalNumber(raw.cover, `${what}.cover`),
       clump: clumpValue,
       maxShare: optionalNumber(raw.maxShare, `${what}.maxShare`),
+      water: raw.water === true ? true : undefined,
     };
   });
 }

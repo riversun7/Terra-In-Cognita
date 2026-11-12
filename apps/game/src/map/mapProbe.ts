@@ -31,7 +31,7 @@ export interface MapProbeSample {
   readonly neighbours: number;
   /** 지도 위 안내(.map-notice) 수 */
   readonly notices: number;
-  /** HUD 글(안내 줄 첫 줄 | 내 유닛 단추 | 확대 사다리 | 지도 위 안내) — 넘는 순간 바뀌는지 본다 */
+  /** HUD 글(안내 줄 첫 줄 | 아래 탭 [유닛] | 확대 사다리 | 지도 위 안내) — 넘는 순간 바뀌는지 본다 */
   readonly hud: string;
 }
 
@@ -111,7 +111,7 @@ export function attachMapProbe(
         props: stats.props,
         neighbours: stats.neighbours,
         notices: document.querySelectorAll(".map-notice").length,
-        hud: `${textOf(".map-hint p")}|${textOf(".map-units-toggle")}|${textOf(".zoom-ladder")}|${textOf(".map-notice")}`,
+        hud: `${textOf(".map-hint p")}|${textOf(".map-nav-units")}|${textOf(".zoom-ladder")}|${textOf(".map-notice")}`,
       });
       if (samples.length > MAX_SAMPLES) samples.splice(0, samples.length - MAX_SAMPLES);
     },

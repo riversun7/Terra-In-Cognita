@@ -343,6 +343,456 @@
         { "biome": "tundra", "weight": 2 }
       ],
       "maxShare": 2
+    },
+    {
+      "id": "snowdrift",
+      "name": { "ko": "눈더미", "en": "Snowdrift" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 느려짐 판정은 아직 없다(질문 1223).",
+        "en": "Decoration (cover 0). Slowing has no rules effect yet (question 1223)."
+      },
+      "placement": "scatter",
+      "art": "snowdrift",
+      "cover": 0,
+      "biomes": [{ "biome": "ice_sheet", "weight": 60 }, { "biome": "tundra", "weight": 20 }],
+      "curves": { "temperatureC": { "min": -100, "idealMin": -100, "idealMax": -4, "max": 2 } },
+      "clump": { "cells": 16, "threshold": 450 },
+      "maxShare": 60
+    },
+    {
+      "id": "crevasse",
+      "name": { "ko": "빙하 균열", "en": "Crevasse" },
+      "description": {
+        "ko": "차폐(엄폐 2): 지나갈 수 없는 얼음 틈.",
+        "en": "Blocking (cover 2): an ice crack that cannot be crossed."
+      },
+      "placement": "scatter",
+      "art": "crevasse",
+      "cover": 2,
+      "biomes": [{ "biome": "ice_sheet", "weight": 8 }],
+      "clump": { "cells": 32, "threshold": 700 },
+      "maxShare": 12
+    },
+    {
+      "id": "ice_fossil",
+      "name": { "ko": "얼음 속 화석", "en": "Fossil in ice" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 나오는 자원(화석) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
+        "en": "Decoration (cover 0). Its resource (fossil) has no item yet, so it is not a gather object (question 1224)."
+      },
+      "placement": "scatter",
+      "art": "ice_fossil",
+      "cover": 0,
+      "biomes": [{ "biome": "ice_sheet", "weight": 2 }],
+      "maxShare": 3
+    },
+    {
+      "id": "frost_pool",
+      "name": { "ko": "동토 웅덩이", "en": "Frost pool" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "frost_pool",
+      "cover": 0,
+      "biomes": [{ "biome": "tundra", "weight": 10 }],
+      "clump": { "cells": 8, "threshold": 500 },
+      "maxShare": 20
+    },
+    {
+      "id": "berry_bush",
+      "name": { "ko": "베리 덤불", "en": "Berry bush" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 나오는 자원(베리) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
+        "en": "Decoration (cover 0). Its resource (berries) has no item yet, so it is not a gather object (question 1224)."
+      },
+      "placement": "scatter",
+      "art": "berry_bush",
+      "cover": 0,
+      "biomes": [
+        { "biome": "taiga", "weight": 25 },
+        { "biome": "temperate_forest", "weight": 8 },
+        { "biome": "tundra", "weight": 6 }
+      ],
+      "clump": { "cells": 8, "threshold": 450 },
+      "maxShare": 40
+    },
+    {
+      "id": "sand_dune",
+      "name": { "ko": "모래언덕", "en": "Sand dune" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 느려짐 판정은 아직 없다(질문 1223).",
+        "en": "Decoration (cover 0). Slowing has no rules effect yet (question 1223)."
+      },
+      "placement": "scatter",
+      "art": "sand_dune",
+      "cover": 0,
+      "biomes": [{ "biome": "desert", "weight": 50 }],
+      "clump": { "cells": 32, "threshold": 500 },
+      "maxShare": 40
+    },
+    {
+      "id": "salt_flat",
+      "name": { "ko": "소금 평원", "en": "Salt flat" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 나오는 자원(소금) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
+        "en": "Decoration (cover 0). Its resource (salt) has no item yet, so it is not a gather object (question 1224)."
+      },
+      "placement": "scatter",
+      "art": "salt_flat",
+      "cover": 0,
+      "biomes": [{ "biome": "desert", "weight": 15 }],
+      "curves": { "humidity": { "min": 0, "idealMin": 0, "idealMax": 40, "max": 90 } },
+      "clump": { "cells": 32, "threshold": 550 },
+      "maxShare": 40
+    },
+    {
+      "id": "oil_seep",
+      "name": { "ko": "석유 스밈", "en": "Oil seep" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 추후 전략 자원(석유) 자리 — 지금은 채집하지 않는다(D-536).",
+        "en": "Decoration (cover 0). A future strategic resource (oil) spot — not gatherable yet (D-536)."
+      },
+      "placement": "scatter",
+      "art": "oil_seep",
+      "cover": 0,
+      "biomes": [{ "biome": "desert", "weight": 2 }],
+      "maxShare": 4
+    },
+    {
+      "id": "waterhole",
+      "name": { "ko": "물웅덩이", "en": "Waterhole" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "waterhole",
+      "cover": 0,
+      "biomes": [{ "biome": "savanna", "weight": 4 }, { "biome": "desert", "weight": 1 }],
+      "maxShare": 6
+    },
+    {
+      "id": "vines",
+      "name": { "ko": "덩굴", "en": "Vines" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 나오는 자원(섬유) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
+        "en": "Decoration (cover 0). Its resource (fiber) has no item yet, so it is not a gather object (question 1224)."
+      },
+      "placement": "scatter",
+      "art": "vines",
+      "cover": 0,
+      "biomes": [{ "biome": "tropical_rainforest", "weight": 60 }, { "biome": "wetland", "weight": 10 }],
+      "clump": { "cells": 8, "threshold": 400 },
+      "maxShare": 80
+    },
+    {
+      "id": "fruit_tree",
+      "name": { "ko": "과일나무", "en": "Fruit tree" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 나오는 자원(과일) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
+        "en": "Decoration (cover 0). Its resource (fruit) has no item yet, so it is not a gather object (question 1224)."
+      },
+      "placement": "scatter",
+      "art": "fruit_tree",
+      "cover": 0,
+      "biomes": [{ "biome": "tropical_rainforest", "weight": 12 }, { "biome": "savanna", "weight": 3 }],
+      "maxShare": 20
+    },
+    {
+      "id": "mud_pool",
+      "name": { "ko": "늪 웅덩이", "en": "Mud pool" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 느려짐 판정은 아직 없다(질문 1223).",
+        "en": "Decoration (cover 0). Slowing has no rules effect yet (question 1223)."
+      },
+      "placement": "scatter",
+      "art": "mud_pool",
+      "cover": 0,
+      "biomes": [{ "biome": "wetland", "weight": 25 }, { "biome": "tropical_rainforest", "weight": 8 }],
+      "curves": { "humidity": { "min": 120, "idealMin": 180, "idealMax": 255, "max": 255 } },
+      "clump": { "cells": 8, "threshold": 500 },
+      "maxShare": 40
+    },
+    {
+      "id": "peat_mound",
+      "name": { "ko": "이탄 더미", "en": "Peat mound" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 나오는 자원(연료) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
+        "en": "Decoration (cover 0). Its resource (fuel) has no item yet, so it is not a gather object (question 1224)."
+      },
+      "placement": "scatter",
+      "art": "peat_mound",
+      "cover": 0,
+      "biomes": [{ "biome": "wetland", "weight": 20 }, { "biome": "tundra", "weight": 4 }],
+      "clump": { "cells": 16, "threshold": 500 },
+      "maxShare": 30
+    },
+    {
+      "id": "rock_spire",
+      "name": { "ko": "절벽 바위", "en": "Rock spire" },
+      "description": {
+        "ko": "차폐(엄폐 2): 가파른 비탈의 바위 기둥, 지나갈 수 없다.",
+        "en": "Blocking (cover 2): a rock pillar on steep slopes that cannot be crossed."
+      },
+      "placement": "scatter",
+      "art": "rock_spire",
+      "cover": 2,
+      "biomes": [{ "biome": "alpine", "weight": 20 }],
+      "curves": { "slopePct": { "min": 30, "idealMin": 80, "idealMax": 1000, "max": 1000 } },
+      "clump": { "cells": 16, "threshold": 500 },
+      "maxShare": 30
+    },
+    {
+      "id": "cave_entrance",
+      "name": { "ko": "동굴 입구", "en": "Cave entrance" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 들어가기는 아직 없다(던전 기획 뒤).",
+        "en": "Decoration (cover 0). Entering is not in the game yet (after the dungeon design)."
+      },
+      "placement": "scatter",
+      "art": "cave_entrance",
+      "cover": 0,
+      "biomes": [{ "biome": "alpine", "weight": 2 }],
+      "curves": { "slopePct": { "min": 20, "idealMin": 60, "idealMax": 1000, "max": 1000 } },
+      "maxShare": 3
+    },
+    {
+      "id": "beach_dune",
+      "name": { "ko": "모래사장 둔덕", "en": "Beach dune" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "beach_dune",
+      "cover": 0,
+      "biomes": [
+        { "biome": "ocean_coastal", "weight": 80 },
+        { "biome": "desert", "weight": 30 },
+        { "biome": "savanna", "weight": 30 },
+        { "biome": "grassland", "weight": 30 },
+        { "biome": "temperate_forest", "weight": 30 },
+        { "biome": "taiga", "weight": 30 },
+        { "biome": "tundra", "weight": 30 },
+        { "biome": "tropical_rainforest", "weight": 30 },
+        { "biome": "wetland", "weight": 30 }
+      ],
+      "curves": { "waterDistance": { "min": 1, "idealMin": 1, "idealMax": 3, "max": 5 } },
+      "clump": { "cells": 8, "threshold": 400 },
+      "maxShare": 60
+    },
+    {
+      "id": "shell_bed",
+      "name": { "ko": "조개·해초 밭", "en": "Shell bed" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 나오는 자원(조개) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
+        "en": "Decoration (cover 0). Its resource (shellfish) has no item yet, so it is not a gather object (question 1224)."
+      },
+      "placement": "scatter",
+      "art": "shell_bed",
+      "cover": 0,
+      "biomes": [
+        { "biome": "ocean_coastal", "weight": 40 },
+        { "biome": "lake", "weight": 10 },
+        { "biome": "desert", "weight": 12 },
+        { "biome": "savanna", "weight": 12 },
+        { "biome": "grassland", "weight": 12 },
+        { "biome": "temperate_forest", "weight": 12 },
+        { "biome": "taiga", "weight": 12 },
+        { "biome": "tundra", "weight": 12 },
+        { "biome": "tropical_rainforest", "weight": 12 },
+        { "biome": "wetland", "weight": 12 }
+      ],
+      "curves": { "waterDistance": { "min": 0, "idealMin": 1, "idealMax": 1, "max": 3 } },
+      "maxShare": 30
+    },
+    {
+      "id": "salt_pan",
+      "name": { "ko": "소금밭", "en": "Salt pan" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 나오는 자원(소금) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
+        "en": "Decoration (cover 0). Its resource (salt) has no item yet, so it is not a gather object (question 1224)."
+      },
+      "placement": "scatter",
+      "art": "salt_flat",
+      "cover": 0,
+      "biomes": [
+        { "biome": "ocean_coastal", "weight": 40 },
+        { "biome": "desert", "weight": 6 },
+        { "biome": "savanna", "weight": 6 },
+        { "biome": "grassland", "weight": 6 },
+        { "biome": "temperate_forest", "weight": 6 },
+        { "biome": "taiga", "weight": 6 },
+        { "biome": "tundra", "weight": 6 },
+        { "biome": "tropical_rainforest", "weight": 6 },
+        { "biome": "wetland", "weight": 6 }
+      ],
+      "curves": {
+        "waterDistance": { "min": 1, "idealMin": 1, "idealMax": 3, "max": 6 },
+        "humidity": { "min": 0, "idealMin": 0, "idealMax": 140, "max": 200 }
+      },
+      "clump": { "cells": 16, "threshold": 500 },
+      "maxShare": 20
+    },
+    {
+      "id": "mud_flat",
+      "name": { "ko": "진흙밭", "en": "Mud flat" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "mud_flat",
+      "cover": 0,
+      "biomes": [
+        { "biome": "lake", "weight": 40 },
+        { "biome": "wetland", "weight": 15 },
+        { "biome": "ocean_coastal", "weight": 10 }
+      ],
+      "curves": { "waterDistance": { "min": 0, "idealMin": 1, "idealMax": 2, "max": 4 } },
+      "clump": { "cells": 8, "threshold": 450 },
+      "maxShare": 40
+    },
+    {
+      "id": "ford_ripple",
+      "name": { "ko": "얕은 여울", "en": "Shallow ford" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "ford_ripple",
+      "cover": 0,
+      "biomes": [{ "biome": "ocean_coastal", "weight": 30 }, { "biome": "lake", "weight": 20 }],
+      "maxShare": 30,
+      "water": true
+    },
+    {
+      "id": "kelp",
+      "name": { "ko": "해초 숲", "en": "Kelp forest" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "kelp",
+      "cover": 0,
+      "biomes": [{ "biome": "ocean_shelf", "weight": 40 }, { "biome": "ocean_coastal", "weight": 20 }],
+      "curves": { "temperatureC": { "min": -5, "idealMin": 2, "idealMax": 18, "max": 24 } },
+      "clump": { "cells": 16, "threshold": 450 },
+      "maxShare": 40,
+      "water": true
+    },
+    {
+      "id": "coral",
+      "name": { "ko": "산호초", "en": "Coral reef" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "coral",
+      "cover": 0,
+      "biomes": [{ "biome": "ocean_shelf", "weight": 30 }, { "biome": "ocean_coastal", "weight": 10 }],
+      "curves": { "temperatureC": { "min": 18, "idealMin": 24, "idealMax": 32, "max": 36 } },
+      "clump": { "cells": 16, "threshold": 500 },
+      "maxShare": 40,
+      "water": true
+    },
+    {
+      "id": "seabed_vein",
+      "name": { "ko": "해저 광맥", "en": "Seabed vein" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 추후 해양 시설 자리 — 지금은 채집하지 않는다(D-536).",
+        "en": "Decoration (cover 0). A future sea facility spot — not gatherable yet (D-536)."
+      },
+      "placement": "scatter",
+      "art": "seabed_vein",
+      "cover": 0,
+      "biomes": [{ "biome": "ocean_shelf", "weight": 3 }],
+      "maxShare": 5,
+      "water": true
+    },
+    {
+      "id": "iceberg",
+      "name": { "ko": "빙산", "en": "Iceberg" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "iceberg",
+      "cover": 0,
+      "biomes": [
+        { "biome": "ocean_deep", "weight": 15 },
+        { "biome": "ocean_shelf", "weight": 8 },
+        { "biome": "lake", "weight": 10 }
+      ],
+      "curves": { "temperatureC": { "min": -100, "idealMin": -100, "idealMax": -5, "max": 2 } },
+      "clump": { "cells": 32, "threshold": 550 },
+      "maxShare": 15,
+      "water": true
+    },
+    {
+      "id": "sea_current",
+      "name": { "ko": "해류", "en": "Sea current" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 배를 빠르게·느리게 하는 판정은 배와 함께(질문 1221).",
+        "en": "Decoration (cover 0). Speeding up or slowing boats comes with boats (question 1221)."
+      },
+      "placement": "scatter",
+      "art": "sea_current",
+      "cover": 0,
+      "biomes": [{ "biome": "ocean_deep", "weight": 10 }, { "biome": "ocean_shelf", "weight": 4 }],
+      "clump": { "cells": 32, "threshold": 600 },
+      "maxShare": 20,
+      "water": true
+    },
+    {
+      "id": "seabed_oil",
+      "name": { "ko": "해저 석유", "en": "Seabed oil" },
+      "description": {
+        "ko": "장식 소품(엄폐 0). 추후 전략 자원(석유) 자리 — 지금은 채집하지 않는다(D-536).",
+        "en": "Decoration (cover 0). A future strategic resource (oil) spot — not gatherable yet (D-536)."
+      },
+      "placement": "scatter",
+      "art": "seabed_oil",
+      "cover": 0,
+      "biomes": [{ "biome": "ocean_deep", "weight": 2 }, { "biome": "ocean_shelf", "weight": 1 }],
+      "maxShare": 3,
+      "water": true
+    },
+    {
+      "id": "lily_pads",
+      "name": { "ko": "연잎", "en": "Lily pads" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "lily_pads",
+      "cover": 0,
+      "biomes": [{ "biome": "lake", "weight": 40 }, { "biome": "wetland", "weight": 10 }],
+      "curves": { "temperatureC": { "min": -4, "idealMin": 6, "idealMax": 32, "max": 38 } },
+      "clump": { "cells": 8, "threshold": 450 },
+      "maxShare": 40,
+      "water": true
+    },
+    {
+      "id": "islet",
+      "name": { "ko": "작은 섬", "en": "Islet" },
+      "description": {
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
+      },
+      "placement": "scatter",
+      "art": "islet",
+      "cover": 0,
+      "biomes": [{ "biome": "lake", "weight": 5 }, { "biome": "ocean_coastal", "weight": 1 }],
+      "maxShare": 5,
+      "water": true
     }
   ]
 }

@@ -124,8 +124,12 @@
  * 29: 목재 숲 밀도 몫(기획 D-534 — 질문 1080 가, simulator/catchmentRun.ts "바뀜 (2026-11-12)"): 배후지 목재 칸 몫 = 숲 밀도 몫(광석 고도 몫과
  *    같은 꼴). 시나리오 catchment.forest·세력 묶음 catchmentForest가 평면 칸 숲 밀도를 준다. 숲이 없는 시나리오(econ16·catchment4 등)는 결과가
  *    26과 같다(서버 NPC 도시 경제는 행성 숲 밀도로 달라진다)
+ * 30: 높은 티어 광석 분포(기획 D-535 — 질문 1121 "기준을 낮춰라 또는 평지도 드물게 소량 분포하게 하라", simulator/catchmentRun.ts
+ *    "바뀜 (2026-11-12)"): 산지 = 고도 ≥ ore_high_min_m(200 [임시], 옛 500), 산지 밖 마른 땅도 높은 티어 몫 ore_flat_high_pm(50‰ [임시]) —
+ *    광산 티어 막기는 @terra/shared/catchment oreTierCapOf. econ16은 벌목장 통나무 벌목(cut_logs, 1144 나)을 더해 결과가 달라진다. 고도가 없는
+ *    시나리오(catchment4·stub16·war16·synthetic)는 결과가 29와 같다
  */
-export const SIM_VERSION = 29;
+export const SIM_VERSION = 30;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

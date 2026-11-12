@@ -70,6 +70,8 @@ export function resourceRulesKey(rules: CatchmentLandRules): string {
     rules.oreShareLowPm,
     rules.oreShareHillM,
     rules.oreShareHillPm,
+    rules.oreHighMinM,
+    rules.oreFlatHighPm,
   ].join(",");
 }
 

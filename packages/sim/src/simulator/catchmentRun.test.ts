@@ -174,7 +174,10 @@ describe("광석 고도 몫(기획 D-533)", () => {
     expect(elevated(350).capacityPm(planeCell(0, 0), "ore")).toBe(700);
     expect(elevated(600).capacityPm(planeCell(0, 0), "ore")).toBe(1000);
     expect(elevated(0).capacityPm(planeCell(0, 0), "crop")).toBe(1000);
-    expect(elevated(0).highOrePm?.(planeCell(0, 0))).toBe(0);
+    // 높은 티어 몫(기획 D-535): 산지 200m 이상 1000, 산지 밖 50(ore_flat_high_pm [임시])
+    expect(elevated(0).highOrePm?.(planeCell(0, 0))).toBe(50);
+    expect(elevated(199).highOrePm?.(planeCell(0, 0))).toBe(50);
+    expect(elevated(200).highOrePm?.(planeCell(0, 0))).toBe(1000);
     expect(elevated(600).highOrePm?.(planeCell(0, 0))).toBe(1000);
     // 고도가 없는 평면(옛 시나리오)은 그대로
     const plain = planeGeometry({ at: new Map() });
@@ -212,7 +215,7 @@ describe("광석 고도 몫(기획 D-533)", () => {
   });
 
   it("땅 몫 = 칸 몫 평균, 산지 몫 = 광석 몫으로 가중한 산지 칸 몫", () => {
-    // x = 0은 산지, x = 1은 해수면: 광석 (1000 + 150) ÷ 2, 산지 몫 1000 × 1000 ÷ 1150
+    // x = 0은 산지, x = 1은 해수면: 광석 (1000 + 150) ÷ 2, 높은 티어 몫 (1000 × 1000 + 150 × 50) ÷ 1150(산지 밖 50 — 기획 D-535)
     const geometry = planeGeometry({
       at: new Map(),
       elevationAt: (x) => (x === 0 ? 800 : 0),
@@ -221,7 +224,7 @@ describe("광석 고도 몫(기획 D-533)", () => {
     const land = landShares(geometry, [planeCell(0, 0), planeCell(1, 0), planeCell(1, 0)]);
     expect(land.landPm.ore).toBe(575);
     expect(land.landPm.wood).toBe(1000);
-    expect(land.highOrePm).toBe(869);
+    expect(land.highOrePm).toBe(876);
     expect(landShares(geometry, [])).toEqual({
       landPm: { ore: 0, wood: 0, herb: 0, crop: 0, livestock: 0, fish: 0 },
       highOrePm: 0,

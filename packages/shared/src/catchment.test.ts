@@ -15,11 +15,18 @@ import {
   countMaterials,
   coveragePm,
   materialOfFacility,
+  oreTierCapOf,
   siteScore,
   weightsOfFacilities,
 } from "./catchment.ts";
 
-const T = { lumberMinForestPct: 5, mineMinHeightM: 500, farmMinTempC: 5, farmMinRainMm: 250 };
+const T = {
+  lumberMinForestPct: 5,
+  mineMinHeightM: 500,
+  oreHighMinM: 500,
+  farmMinTempC: 5,
+  farmMinRainMm: 250,
+};
 const LAND = { forest: 0, elevationM: 100, temperatureC: 15, precipitationMm: 400, water: 0 };
 
 describe("칸 원자재", () => {
@@ -83,7 +90,7 @@ const oreCapacity = (cell: number, material: string): number =>
   material !== "ore" ? 0 : cell === 1 ? 1000 : 250;
 
 describe("광석 고도 몫(기획 D-533 — 석재·구리는 어디서나 조금, 높은 티어는 산지)", () => {
-  const ORE = { ...T, oreShareLowPm: 150, oreShareHillM: 200, oreShareHillPm: 400 };
+  const ORE = { ...T, oreShareLowPm: 150, oreShareHillM: 200, oreShareHillPm: 400, oreFlatHighPm: 0 };
 
   it("고도 꺾은선: 0m 이하 150 · 200m 400 · 500m 이상 1000, 사이는 곧게(내림). 물에 잠긴 칸 0", () => {
     expect(oreSharePm({ ...LAND, elevationM: -30 }, ORE)).toBe(150);
@@ -101,9 +108,30 @@ describe("광석 고도 몫(기획 D-533 — 석재·구리는 어디서나 조�
     // 언덕 몫이 낮은 몫보다 작으면 낮은 몫, 언덕이 산지보다 높으면 산지에서 꺾는다
     expect(oreSharePm({ ...LAND, elevationM: 100 }, { ...ORE, oreShareHillPm: 50 })).toBe(150);
     expect(oreSharePm({ ...LAND, elevationM: 600 }, { ...ORE, oreShareHillM: 900 })).toBe(1000);
-    // 높은 티어는 산지 칸만
+    // 높은 티어는 산지 칸만(산지 밖 몫 0)
     expect(highOrePm({ ...LAND, elevationM: 499 }, ORE)).toBe(0);
     expect(highOrePm({ ...LAND, elevationM: 500 }, ORE)).toBe(1000);
+  });
+
+  it("높은 티어 광석(기획 D-535): 산지 고도는 따로 된 칸, 산지 밖 마른 땅은 드물게(oreFlatHighPm), 잠긴 칸은 0", () => {
+    const rules = { ...ORE, oreHighMinM: 200, oreFlatHighPm: 50 };
+    expect(highOrePm({ ...LAND, elevationM: 199 }, rules)).toBe(50);
+    expect(highOrePm({ ...LAND, elevationM: 200 }, rules)).toBe(1000);
+    expect(highOrePm({ ...LAND, elevationM: -20 }, rules)).toBe(50);
+    expect(highOrePm({ ...LAND, water: 4 }, rules)).toBe(50);
+    expect(highOrePm({ ...LAND, water: 1, elevationM: 900 }, rules)).toBe(0);
+    expect(highOrePm(undefined, rules)).toBe(0);
+    expect(highOrePm(LAND, { ...rules, oreFlatHighPm: 5000 })).toBe(1000);
+    // 광석 비트(산지)도 같은 고도를 따른다 — 몫 곡선의 1000 고도(mineMinHeightM)와 따로
+    expect(cellMaterials({ ...LAND, temperatureC: 0, elevationM: 200 }, rules)).toBe(MATERIAL_BIT.ore);
+    expect(oreSharePm({ ...LAND, elevationM: 200 }, rules)).toBe(400);
+  });
+
+  it("광산 티어 막기: 높은 티어 몫 1000이면 막지 않고, 아니면 그 몫만 남긴다", () => {
+    expect(oreTierCapOf(1000, 2)).toBeUndefined();
+    expect(oreTierCapOf(50, 2)).toEqual({ maxTier: 2, keepAbovePm: 50 });
+    expect(oreTierCapOf(0, 2.7)).toEqual({ maxTier: 2, keepAbovePm: 0 });
+    expect(oreTierCapOf(-5, -1)).toEqual({ maxTier: 0, keepAbovePm: 0 });
   });
 
   it("칸 몫: supply는 광석 = 고도 몫·목재 = 숲 밀도 몫(질문 1080 가, 나머지 비트), site는 약초 = max(목재, 작물)(질문 1027 다)", () => {

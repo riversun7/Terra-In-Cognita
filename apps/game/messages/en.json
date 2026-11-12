@@ -6226,7 +6226,7 @@
   "dev_world_layout_catchment_kind_plan": "Plan {n}",
   "dev_world_layout_catchment_col_ore": "Ore share ‰",
   "dev_world_layout_catchment_col_high_ore": "Mountain share ‰",
-  "dev_world_layout_catchment_ore_rule": "Ore share by height: 0 m {low}‰ · {hillM} m {hill}‰ · {mountainM} m and up 1000‰ (mountain). Outside mountains up to T{tier} (stone, copper); higher tiers only by the mountain share",
+  "dev_world_layout_catchment_ore_rule": "Ore share by height: 0 m {low}‰ · {hillM} m {hill}‰ · {mountainM} m and up 1000‰. Tiers above T{tier}: in full on mountains from {highM} m, only {flat}‰ elsewhere",
   "dev_lab_tab_matrix": "Matchups",
   "dev_lab_tab_sensitivity": "Stat influence",
   "dev_an_lead_matrix": "Pits primary-stat distributions with the same total against each other, many seeded battles per pair, using the server's combat judgement (the same Monte Carlo as the battle lab). Same seed, same result.",

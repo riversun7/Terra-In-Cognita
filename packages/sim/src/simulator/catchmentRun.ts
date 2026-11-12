@@ -12,6 +12,8 @@
 //   (광석 = 고도 몫). 도시마다 땅 몫(원자재마다 배후지 칸 몫 평균 ‰)을 셈해 캐려는 양 = 위 양 × 땅 몫 ÷ 1000(땅이 내는 만큼 캔다 — 가난한
 //   땅만으로는 받은 몫이 떨어지지 않는다. 받은 몫은 다툼·고갈만 본다). 채집 시설 빠르기 = 받은 몫 × 땅 몫 ÷ 1000(바닥 위 — 낮은 땅 광산은
 //   느리다). 광산이 산지 밖 가장 높은 티어(lowOreTierMax) 위를 뽑으면 배후지 광석 가운데 산지 몫(highOrePm)만큼만 그 티어로 나온다(oreTierCap).
+// - 바뀜 (2026-11-12, 기획 D-535 — 질문 1121): 칸 높은 티어 몫은 @terra/shared/catchment highOrePm(산지 1000, 산지 밖 oreFlatHighPm)이고
+//   티어 막기는 oreTierCapOf(플레이어 광산과 같은 함수)다. 시뮬 평면도 같은 함수를 쓴다.
 // - 바뀜 (2026-11-12, 기획 D-534 — 질문 1080 가): 목재도 칸 몫(숲 밀도 몫, @terra/shared/catchment forestSharePm)이다. 서버는 행성 칸 숲 밀도,
 //   시뮬 평면은 시나리오 catchment.forest·세력 묶음 catchmentForest(없으면 숲을 보지 않는다 — 옛 결과 그대로). 땅 몫·빠르기는 광석과 같은 셈이다.
 // 정수 셈만 쓰고 난수가 없다(도시 ID·칸 키 차례) — 같은 시드면 같은 결과다.
@@ -19,6 +21,8 @@ import {
   CATCHMENT_MATERIALS,
   type CatchmentGrowthRules,
   type CatchmentLand,
+  type HighOreRules,
+  type OreTierCap,
   type OreShareRules,
   type CatchmentMaterial,
   type CatchmentSupplyRules,
@@ -28,8 +32,10 @@ import {
   catchmentRadiusMilli,
   materialDemand,
   forestSharePm,
+  highOrePm,
   materialOfFacility,
   oreSharePm,
+  oreTierCapOf,
   stepCatchmentSupply,
 } from "@terra/shared/catchment";
 import { type TerritoryCoefficients, cityGrade } from "@terra/shared/territory";
@@ -48,7 +54,7 @@ export interface CatchmentGeometry {
   cellsOf(cityId: number, radiusMilli: number): readonly number[];
   /** 칸의 원자재 몫(‰, 0이면 없음) */
   capacityPm(cell: number, material: CatchmentMaterial): number;
-  /** 칸 광석 가운데 높은 티어가 나오는 몫(‰ — 산지 칸 1000). 없으면 모든 칸 1000(티어를 막지 않는다) */
+  /** 칸 광석 가운데 높은 티어가 나오는 몫(‰ — 산지 칸 1000, 산지 밖 oreFlatHighPm). 없으면 모든 칸 1000(티어를 막지 않는다) */
   highOrePm?(cell: number): number;
 }
 
@@ -117,12 +123,6 @@ export function facilitySupplyPm(
   return Math.max(floor, Math.floor((supply * Math.min(1000, city.landPm[material])) / 1000));
 }
 
-/** 광산 티어 막기: 산지 밖 가장 높은 티어와, 그 위 티어를 그대로 두는 몫(‰) */
-export interface OreTierCap {
-  readonly maxTier: number;
-  readonly keepAbovePm: number;
-}
-
 /**
  * 광석 채집 시설(광산)의 티어 막기(모듈 머리 주석 "바뀜 (2026-11-12)"). 배후지가 없거나 광석 시설이 아니거나 아직 하루 끝 전이면 undefined
  * (막지 않는다). 산지 몫이 1000이면 막지 않는다
@@ -134,11 +134,8 @@ export function oreTierCap(
 ): OreTierCap | undefined {
   if (!state || materialOfFacility(facility) !== "ore") return undefined;
   const city = state.cities.get(cityId);
-  if (!city || city.highOrePm >= 1000) return undefined;
-  return {
-    maxTier: Math.max(0, Math.trunc(state.settings().lowOreTierMax)),
-    keepAbovePm: Math.max(0, city.highOrePm),
-  };
+  if (!city) return undefined;
+  return oreTierCapOf(city.highOrePm, state.settings().lowOreTierMax);
 }
 
 /** 경제 자료 가운데 배후지 하루가 읽는 것(Economy의 일부 — 순환 import를 피한다) */
@@ -292,12 +289,13 @@ export interface PlaneLayout {
   /** 원자재마다 칸 몫(‰, 모든 칸 같음). 없으면 1000 */
   readonly richnessPm?: Readonly<Partial<Record<CatchmentMaterial, number>>> | undefined;
   /**
-   * 칸 x 자리 → 땅 고도(m). 있고 값이 있으면 광석 몫 = richnessPm.ore × 고도 몫(oreSharePm) ÷ 1000, 산지 몫 = 산지 고도 이상이면 1000.
+   * 칸 x 자리 → 땅 고도(m). 있고 값이 있으면 광석 몫 = richnessPm.ore × 고도 몫(oreSharePm) ÷ 1000, 높은 티어 몫 = highOrePm(산지 고도 이상
+   * 1000, 아래는 oreFlatHighPm).
    * 없으면 고도를 보지 않는다
    */
   readonly elevationAt?: ((x: number) => number | undefined) | undefined;
   /** 고도 몫 규칙(elevationAt이 있을 때) */
-  readonly oreRules?: OreShareRules | undefined;
+  readonly oreRules?: (OreShareRules & HighOreRules) | undefined;
   /** 칸 x 자리 → 숲 밀도(0 ~ 255). 있고 값이 있으면 목재 몫 = richnessPm.wood × 숲 밀도 몫 ÷ 1000(질문 1080 가). 없으면 숲을 보지 않는다 */
   readonly forestAt?: ((x: number) => number | undefined) | undefined;
 }
@@ -339,7 +337,7 @@ export function planeGeometry(layout: PlaneLayout): CatchmentGeometry {
     highOrePm(cell) {
       const elevationM = planeElevation(layout, cell);
       if (elevationM === undefined || !layout.oreRules) return 1000;
-      return elevationM >= layout.oreRules.mineMinHeightM ? 1000 : 0;
+      return highOrePm(planeLand(elevationM), layout.oreRules);
     },
   };
 }

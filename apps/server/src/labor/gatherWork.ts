@@ -37,6 +37,11 @@ export interface GatherSite {
   readonly lotSize: ReadonlyMap<string, bigint>;
   /** 건물이 선 도시(산출이 가는 도시 창고). 그 2차맵에 도시가 없으면 null */
   readonly cityId: number | null;
+  /**
+   * 광산 티어 막기(기획 D-535 — 그 2차맵 칸 높은 티어 몫, @terra/shared/catchment oreTierCapOf. 시뮬·NPC 광산과 같은 rollGatherOutputs tierCap).
+   * 없으면 막지 않는다
+   */
+  readonly tierCap?: { readonly maxTier: number; readonly keepAbovePm: number } | undefined;
 }
 
 /** 채집 손잡이 = 세력·사회 계수표의 설정 칸 값(시뮬레이터 simulator/run.ts attachEconomy와 같은 대응) */
@@ -159,6 +164,7 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
         yieldPerLot: effects.yieldPerLot,
         successPm: effects.catchPm,
         harvestGrams: BigInt(settings.oreGrams ?? 1000),
+        tierCap: site.tierCap,
       },
       createRng(lotSeed(input.unitId, seq)),
     );

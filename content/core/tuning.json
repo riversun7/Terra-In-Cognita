@@ -7944,16 +7944,16 @@
       "id": "npc_seed_mine_height_m",
       "code": "",
       "name": {
-        "ko": "산지 고도(m): 광석 몫 1000·높은 티어 광석",
-        "en": "Mountain height (m): full ore share and high-tier ore"
+        "ko": "광석 몫 1000 고도(m)",
+        "en": "Full ore share height (m)"
       },
       "value": 500,
       "structural": false,
       "min": -12000,
       "max": 12000,
       "desc": {
-        "ko": "칸 고도가 이 이상이면 산지다: 광석 몫 1000이고 높은 티어 광석(철부터)이 나온다. 광산은 마른 땅 어디에나 선다(기획 D-533).",
-        "en": "Cells at or above this height are mountains: full ore share and high-tier ore (iron and up). Mines stand on any dry land (D-533)."
+        "ko": "칸 고도가 이 이상이면 광석 몫이 1000이다. 광산은 마른 땅 어디에나 선다(기획 D-533). 높은 티어 광석의 산지 고도는 ore_high_min_m(기획 D-535).",
+        "en": "Cells at or above this height have full ore share. Mines stand on any dry land (D-533). The mountain height for high-tier ore is ore_high_min_m (D-535)."
       },
       "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041 · D-533 바뀜 (2026-11-12)"
     },
@@ -9691,8 +9691,8 @@
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "언덕 고도의 광석 몫. 산지 고도(npc_seed_mine_height_m) 이상은 1000.",
-        "en": "Ore share at hill height. At or above mountain height (npc_seed_mine_height_m) it is 1000."
+        "ko": "언덕 고도의 광석 몫. 광석 몫 1000 고도(npc_seed_mine_height_m) 이상은 1000.",
+        "en": "Ore share at hill height. At or above the full ore share height (npc_seed_mine_height_m) it is 1000."
       },
       "source": "기획 D-533 (질문 1020·1064) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 광석 몫) [임시]"
     },
@@ -9708,10 +9708,45 @@
       "min": 0,
       "max": 9,
       "desc": {
-        "ko": "산지가 아닌 광석은 이 티어(2 = 구리)까지만 낸다. 더 높은 티어를 뽑으면 배후지 광석 가운데 산지 몫만큼만 그대로 나온다.",
-        "en": "Ore outside mountains yields up to this tier (2 = copper). Higher rolls come out only in proportion to the catchment's mountain ore."
+        "ko": "산지가 아닌 광석은 이 티어(2 = 구리)까지만 낸다. 더 높은 티어를 뽑으면 높은 티어 몫(산지 1000, 산지 밖 ore_flat_high_pm)만큼만 그대로 나온다.",
+        "en": "Ore outside mountains yields up to this tier (2 = copper). Higher rolls come out only by the high-tier share (mountains 1000, elsewhere ore_flat_high_pm)."
       },
       "source": "기획 D-533 (질문 1020·1064) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 광석 몫) [임시]"
+    },
+    {
+      "id": "ore_high_min_m",
+      "code": "",
+      "name": {
+        "ko": "높은 티어 광석: 산지 고도(m)",
+        "en": "High-tier ore: mountain height (m)"
+      },
+      "value": 200,
+      "structural": false,
+      "min": -12000,
+      "max": 12000,
+      "desc": {
+        "ko": "칸 고도가 이 이상인 마른 땅은 산지다: 높은 티어 광석(철부터)이 그대로 나오고 광산 국가 지방 도시 자리 점수가 센다. 시험 행성 알맞은 땅(기온 8~32°C)의 위 0.6%가 200m 이상(500m 이상은 없음).",
+        "en": "Dry cells at or above this height are mountains: high-tier ore (iron and up) comes out in full and mining nations' town site score counts them. On the test planet the top 0.6% of temperate land (8-32°C) is above 200 m (none above 500 m)."
+      },
+      "source": "기획 D-535 (질문 1121) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 높은 티어 광석) [임시]"
+    },
+    {
+      "id": "ore_flat_high_pm",
+      "code": "",
+      "name": {
+        "ko": "높은 티어 광석: 산지 밖 몫(‰)",
+        "en": "High-tier ore: share outside mountains (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "산지 밖 마른 땅의 광산이 높은 티어(산지 밖 가장 높은 티어 위)를 뽑으면 이 천분율만큼만 그대로 나오고 나머지는 내려간다. 0이면 산지에서만 나온다.",
+        "en": "When a mine outside mountains rolls a high tier (above the highest tier outside mountains), only this per mille stays; the rest drops down. 0 means mountains only."
+      },
+      "source": "기획 D-535 (질문 1121) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 높은 티어 광석) [임시]"
     },
     {
       "id": "n9_human_sum_max",

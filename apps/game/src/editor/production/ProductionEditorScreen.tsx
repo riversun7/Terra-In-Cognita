@@ -2,7 +2,7 @@
 // 전부에 적용하며 각각의 스탯이 주력 보조로 골고루 쓰이게 해야한다", 기획 D-513(옛 생산 편집기 기준)·43 §4. docs/adr/2026-11-11-production-six.md.
 // 옛 "Production Editor — 1차 생산 파라미터 편집"의 짜임: 묶음 탭 줄(필드채집 · 건물생산 · 2차가공 · 공용)과 탭마다의 수.
 // - 필드채집(벌목장·광산·약초원)·건물생산(농장·목장·낚시터): 스탯 짝·방식·수확량·성공 확률·사다리·미리 보기(ProductionTypePanel).
-// - 2차가공: 가공 시설과 레시피(읽기만). 공용: 확률 분포(옛 /dev/gather-tiers 화면 — 이 주소는 이 탭으로 열린다)·스탯 매핑·전투 클래스(D-529)·개요.
+// - 2차가공: 가공 시설과 레시피(읽기만). 공용: 확률 분포(옛 /dev/gather-tiers 화면 — 이 주소는 이 탭으로 열린다)·예상 확률(D-534)·스탯 매핑·전투 클래스(D-529)·개요.
 // dev·admin, 틀 안, 촘촘(개발 화면 층). 서버는 건물 편집기와 같은 tRPC buildings.list·check·save·history다(시설 = put, 확률표 = put_gather_band,
 // 전투 클래스 = put_combat_class). 고친 칸은 바로 담기고(실효 값과 같아지면 빠진다) 막대의 [적용]이 묶음 하나로 보낸다. 입력이 1초 멈추면 검사.
 // 조각 이름 ProductionEditorScreen-*(미리 캐시 규칙 [Pp]roductionEditor). 건물 편집기 조각(editor/buildings/)은 가져오지 않는다.
@@ -36,6 +36,7 @@ import { bandRangeText } from "../gatherTiers/GatherBandPanel.tsx";
 import { type GatherStage, stageBand, stageGatherDiscard } from "../gatherTiers/gatherTierModel.ts";
 import { gatherErrorText } from "../gatherTiers/gatherTierText.ts";
 import { ProductionClassPanel } from "./ProductionClassPanel.tsx";
+import { ProductionExpectPanel } from "./ProductionExpectPanel.tsx";
 import {
   ProductionMappingPanel,
   ProductionOverviewPanel,
@@ -350,6 +351,8 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
           count: bands.length,
           staged: stage.gather.bands.size + stage.gather.discard.size,
         },
+        // 예상 채집 확률표(D-534): 초기 합 × 레벨, 컨디션·시설 레벨 손잡이
+        { key: "expect", label: m.dev_prod_tab_expect(), icon: COMMON_ICON.expect },
         { key: "mapping", label: m.dev_prod_tab_mapping(), icon: COMMON_ICON.mapping, count: types.length },
         {
           key: "classes",
@@ -521,6 +524,7 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
                 onUndo={undo}
               />
             ) : null}
+            {active.kind === "expect" ? <ProductionExpectPanel bands={shownBands} rules={rules} /> : null}
             {active.kind === "mapping" ? (
               <ProductionMappingPanel
                 rows={types}

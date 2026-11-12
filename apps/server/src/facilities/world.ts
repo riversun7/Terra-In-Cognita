@@ -5,10 +5,12 @@
 //   damage(건물 서비스·영토 서비스)가 받는다.
 // - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 계약 서비스를 이을 때 채집 산출 자료(채집 시설의 정의·레벨·도시·
 //   자리 수, 유닛 1차 스탯)를 함께 넘긴다(gatherSiteOf). 임대형 임차인 몫의 건물 창고 남은 자리(storage.ts roomGrams, WP8 523 ②)도 함께.
-import type { SocietyCoefficients } from "@terra/sim";
+// - 컨디션(D-534, labor/condition.ts): 채집 정산과 유닛 화면에 그 유닛의 관리 보너스를 넘긴다(주거 = 주인의 그 도시 숙소, 음식 = 도시 생필품 충족).
+import type { ConditionParts, SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
 import type { GatherKind } from "../gather/kinds.ts";
+import { type ConditionSource, workerCondition } from "../labor/condition.ts";
 import type { GatherSite } from "../labor/gatherWork.ts";
 import type { LaborService } from "../labor/service.ts";
 import { type CityCell, cityLocation } from "@terra/shared/goodsPlaces";
@@ -52,6 +54,34 @@ export interface WorldFacilities {
   readonly rules: () => SocietyCoefficients;
   /** 노동 계약을 잇는다(계약 서비스가 건물 서비스보다 늦게 만들어진다) */
   attachLabor(labor: LaborService): void;
+  /**
+   * 유닛 컨디션(D-534): 일하는 채집 시설의 도시(없으면 지금 2차맵에서 ID가 가장 작은 도시)의 주거·음식으로 센다. 유닛이 띄운 2차맵에 없으면
+   * undefined
+   */
+  condition(unitId: number): ConditionParts | undefined;
+}
+
+/** 숙소(생활 단계 시설) 가운데 그 주인이 그 도시에 가진 다 지은 것의 가장 높은 레벨(없으면 undefined) */
+export function ownerLodgingLevel(
+  service: Pick<FacilityService, "facilities">,
+  catalog: FacilityCatalog,
+  maps: ReadonlyMap<number, SecondMap>,
+  ownerId: number,
+  cityId: number,
+): number | undefined {
+  let best: number | undefined;
+  for (const record of service.facilities.values()) {
+    if (record.level <= 0 || record.cityId !== cityId || (best !== undefined && record.level <= best))
+      continue;
+    if (catalog.facility(record.facilityId)?.stage !== "living") continue;
+    for (const map of maps.values()) {
+      const owner = map.buildingOwner(record.buildingId);
+      if (owner === undefined) continue;
+      if (owner === ownerId) best = record.level;
+      break;
+    }
+  }
+  return best;
 }
 
 /**
@@ -137,6 +167,8 @@ export function createWorldFacilities(input: {
   >;
   readonly now: () => number;
   readonly ready: () => boolean;
+  /** 도시의 지난 하루 끝 생필품 충족 ‰(NPC 런타임 cityDayStore, 컨디션 음식 몫). 없으면 모름 */
+  readonly necessitiesOf?: ((cityId: number) => number | undefined) | undefined;
 }): WorldFacilities {
   const catalog = facilityCatalogOf(input.config?.content ?? (() => EMPTY_SOURCE));
   let labor: LaborService | undefined;
@@ -173,6 +205,40 @@ export function createWorldFacilities(input: {
     now: input.now,
     ready: input.ready,
   });
+  const ownerOfUnit = (unitId: number): number | undefined => {
+    for (const map of input.maps.values()) {
+      const info = map.unitInfo(unitId);
+      if (info) return info.ownerId;
+    }
+    return undefined;
+  };
+  const conditionSource: ConditionSource = {
+    initialSum: (unitId) => input.holdings.initialSumOf(unitId),
+    lodgingLevel: (unitId, cityId) => {
+      const owner = ownerOfUnit(unitId);
+      return owner === undefined
+        ? undefined
+        : ownerLodgingLevel(service, catalog(), input.maps, owner, cityId);
+    },
+    necessitiesPm: (cityId) => input.necessitiesOf?.(cityId),
+  };
+  /** 유닛 화면의 도시: 일하는 채집 시설의 도시, 없으면 지금 2차맵에서 ID가 가장 작은 도시 */
+  const cityOfUnit = (unitId: number): number | null | undefined => {
+    const buildingId = labor?.assignedTo(unitId);
+    if (buildingId !== undefined) {
+      const site = gatherSiteOf(service, catalog(), buildingId);
+      if (site) return site.cityId;
+    }
+    for (const map of input.maps.values()) {
+      if (!map.unitInfo(unitId)) continue;
+      const ids = input
+        .cities()
+        .filter((city) => city.mapKey === map.mapKey)
+        .map((city) => city.id);
+      return ids.length > 0 ? Math.min(...ids) : null;
+    }
+    return undefined;
+  };
   return {
     service,
     attack,
@@ -199,7 +265,15 @@ export function createWorldFacilities(input: {
             buildingId,
           ),
         weightGrams: (asset) => assetWeightG(catalog(), asset),
+        // 컨디션(D-534): 그 채집 시설이 선 도시의 주거·음식
+        condition: (unitId, cityId) => workerCondition(unitId, cityId, conditionSource, input.rules()).total,
       });
+    },
+    condition(unitId) {
+      const cityId = cityOfUnit(unitId);
+      return cityId === undefined
+        ? undefined
+        : workerCondition(unitId, cityId, conditionSource, input.rules());
     },
   };
 }

@@ -1646,7 +1646,7 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000,
+      "max": 100,
       "desc": {
         "ko": "Lv1 구인 휴먼 토탈 스탯 최소.",
         "en": "Lowest total stats at admin level 1."
@@ -1664,7 +1664,7 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000,
+      "max": 100,
       "desc": {
         "ko": "Lv1 구인 휴먼 토탈 스탯 최대.",
         "en": "Highest total stats at admin level 1."
@@ -1718,7 +1718,7 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000,
+      "max": 100,
       "desc": {
         "ko": "Lv2 토탈 스탯 최소.",
         "en": "Lowest total stats at admin level 2."
@@ -1736,7 +1736,7 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000,
+      "max": 100,
       "desc": {
         "ko": "Lv2 토탈 스탯 최대.",
         "en": "Highest total stats at admin level 2."
@@ -1790,7 +1790,7 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000,
+      "max": 100,
       "desc": {
         "ko": "Lv3 토탈 스탯 최소.",
         "en": "Lowest total stats at admin level 3."
@@ -1808,7 +1808,7 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000,
+      "max": 100,
       "desc": {
         "ko": "Lv3 토탈 스탯 최대.",
         "en": "Highest total stats at admin level 3."
@@ -1858,11 +1858,11 @@
         "ko": "구인 토탈 스탯 최소, 행정 건물 Lv4",
         "en": "Recruit total stats min, administrative building level 4"
       },
-      "value": 80,
+      "value": 65,
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000,
+      "max": 100,
       "desc": {
         "ko": "Lv4 토탈 스탯 최소.",
         "en": "Lowest total stats at admin level 4."
@@ -1876,11 +1876,11 @@
         "ko": "구인 토탈 스탯 최대, 행정 건물 Lv4",
         "en": "Recruit total stats max, administrative building level 4"
       },
-      "value": 100,
+      "value": 80,
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000,
+      "max": 100,
       "desc": {
         "ko": "Lv4 토탈 스탯 최대.",
         "en": "Highest total stats at admin level 4."
@@ -1930,11 +1930,11 @@
         "ko": "구인 토탈 스탯 최소, 행정 건물 Lv5",
         "en": "Recruit total stats min, administrative building level 5"
       },
-      "value": 100,
+      "value": 70,
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000,
+      "max": 100,
       "desc": {
         "ko": "Lv5 토탈 스탯 최소.",
         "en": "Lowest total stats at admin level 5."
@@ -1948,11 +1948,11 @@
         "ko": "구인 토탈 스탯 최대, 행정 건물 Lv5",
         "en": "Recruit total stats max, administrative building level 5"
       },
-      "value": 120,
+      "value": 80,
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 1000,
+      "max": 100,
       "desc": {
         "ko": "Lv5 토탈 스탯 최대.",
         "en": "Highest total stats at admin level 5."
@@ -2582,7 +2582,7 @@
       "structural": false,
       "unit": "points",
       "min": 6,
-      "max": 600,
+      "max": 100,
       "desc": {
         "ko": "처음 굴린 1차 스탯 여섯 칸의 합.",
         "en": "Sum of the six primary stats on the first roll."
@@ -6399,11 +6399,11 @@
         "ko": "스탯 유전자 총합 상한",
         "en": "Stat gene total cap"
       },
-      "value": 600,
+      "value": 80,
       "structural": false,
       "unit": "points",
       "min": 0,
-      "max": 1000000,
+      "max": 100,
       "desc": {
         "ko": "스탯 유전자 총합의 상한.",
         "en": "Cap on a stat gene's total."
@@ -9712,6 +9712,222 @@
         "en": "Ore outside mountains yields up to this tier (2 = copper). Higher rolls come out only in proportion to the catchment's mountain ore."
       },
       "source": "기획 D-533 (질문 1020·1064) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 광석 몫) [임시]"
+    },
+    {
+      "id": "n9_human_sum_max",
+      "code": "N9",
+      "name": {
+        "ko": "휴먼 초기 스탯 합 최대(100 이하)",
+        "en": "Human initial stat sum max (100 or less)"
+      },
+      "value": 80,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 100,
+      "desc": {
+        "ko": "구인 카드·인큐베이터·유전자 총합이 넘지 못하는 휴먼 초기 스탯 합(D-534: 상위 콘텐츠로 80, 어떤 경우에도 100 이하).",
+        "en": "Human initial stat sum that recruit cards, incubation and gene totals cannot exceed (D-534: up to 80, never above 100)."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "n9_creature_sum_max",
+      "code": "N9",
+      "name": {
+        "ko": "크리쳐 초기 스탯 합 최대(100 이하)",
+        "en": "Creature initial stat sum max (100 or less)"
+      },
+      "value": 80,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 100,
+      "desc": {
+        "ko": "크리쳐 편집기가 받는 초기 스탯 합 상한(D-534: 상위 콘텐츠로 80, 어떤 경우에도 100 이하).",
+        "en": "Initial stat sum cap the creature editor accepts (D-534: up to 80, never above 100)."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_cap",
+      "code": "N43",
+      "name": {
+        "ko": "컨디션 합계 상한(±)",
+        "en": "Condition total cap (±)"
+      },
+      "value": 40,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "주거·음식 컨디션 합을 자르는 ± 상한. 채집 유효 스탯에 더한다(D-534 출발 ±40).",
+        "en": "± cap on the housing and food condition total added to the gathering effective stat (D-534, starts at ±40)."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_housing_match",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 선호 등급 이상 숙소",
+        "en": "Condition: lodging at or above preferred grade"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "선호 주거 등급 이상인 숙소에서 쉬는 유닛의 주거 몫 [임시].",
+        "en": "Housing part for a unit resting in lodging at or above its preferred grade [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_housing_short_step",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 선호보다 한 등급 낮을 때마다 빼는 값",
+        "en": "Condition: cut per grade below preferred"
+      },
+      "value": 15,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "숙소 등급이 선호보다 한 등급 낮을 때마다 주거 몫에서 빼는 값 [임시].",
+        "en": "Cut from the housing part per grade the lodging falls below the preferred grade [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_housing_home",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 숙소 없는 집",
+        "en": "Condition: home without lodging"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "숙소 없이 도시 주거 수 안에서 쉬는 유닛의 주거 몫 [임시].",
+        "en": "Housing part for a unit resting at home within the city's housing, without lodging [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_housing_homeless",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 노숙",
+        "en": "Condition: homeless"
+      },
+      "value": -20,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "노숙하는 유닛의 주거 몫 [임시].",
+        "en": "Housing part for a homeless unit [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_food_full",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 생필품 가득",
+        "en": "Condition: necessities full"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "생필품 충족 1000‰일 때의 음식 몫 [임시].",
+        "en": "Food part at full necessities (1000‰) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_food_hungry",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 생필품 없음",
+        "en": "Condition: necessities empty"
+      },
+      "value": -20,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "생필품 충족 0‰일 때의 음식 몫 [임시].",
+        "en": "Food part with no necessities (0‰) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_food_neutral_pm",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 음식 몫이 0인 생필품 충족(‰)",
+        "en": "Condition: necessities level with no food effect (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "이 생필품 충족(‰)에서 음식 몫이 0이고 위·아래로 선형 [임시].",
+        "en": "Necessities level (‰) where the food part is 0, linear above and below [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_prefer_grade2_from",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 선호 주거 2등급이 되는 초기 스탯 합",
+        "en": "Condition: initial stat sum preferring grade 2 housing"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "초기 스탯 합이 이 값 이상이면 선호 주거 등급이 2 [임시].",
+        "en": "Units with at least this initial stat sum prefer grade 2 housing [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_prefer_grade3_from",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 선호 주거 3등급이 되는 초기 스탯 합",
+        "en": "Condition: initial stat sum preferring grade 3 housing"
+      },
+      "value": 70,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "초기 스탯 합이 이 값 이상이면 선호 주거 등급이 3 [임시].",
+        "en": "Units with at least this initial stat sum prefer grade 3 housing [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition"
     }
   ]
 }

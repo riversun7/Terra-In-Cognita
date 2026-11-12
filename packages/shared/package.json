@@ -28,6 +28,8 @@
     "./factionProfile": "./src/factionProfile.ts",
     "./formula": "./src/formula.ts",
     "./gatherMath": "./src/gatherMath.ts",
+    "./gatherExpect": "./src/gatherExpect.ts",
+    "./statGrowth": "./src/statGrowth.ts",
     "./goodsPlaces": "./src/goodsPlaces.ts",
     "./government": "./src/government.ts",
     "./holdings": "./src/holdings.ts",

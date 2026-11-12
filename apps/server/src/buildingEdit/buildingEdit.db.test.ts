@@ -329,6 +329,13 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 편집기 (DB)", () => {
       tierProgressStep: 30,
       tickMs: 60_000,
       defaultStat: 10,
+      // 예상 채집 확률표(D-534): 성장률 0.1·K 0.8~1.2·만렙 50·시설 레벨당 10·컨디션 ±40
+      growthPm: 100,
+      kMinPm: 800,
+      kMaxPm: 1200,
+      maxLevel: 50,
+      levelBonus: 10,
+      conditionCap: 40,
     });
     expect(listed.classRule).toEqual({ threeStatPm: 600, generalistPm: 800 });
     expect(arr(listed.combatClasses)).toHaveLength(36);

@@ -62,7 +62,22 @@ interface PreviewUnitDef {
   readonly moving?: boolean;
   readonly cargo?: readonly (readonly [string, string])[];
   readonly satisfaction: number | null;
+  /** 컨디션 [주거 몫, 음식 몫](D-534 시안, 상한 ±40으로 자른 합을 보인다) */
+  readonly condition?: readonly [number, number];
   readonly party: string | null;
+}
+
+/** 시안 컨디션(D-534): 상한 ±40(설정 칸 condition_cap 출발값)으로 자른 합 */
+function previewCondition(housing: number, food: number, preferredGrade: number, housingGrade: number) {
+  const cap = 40;
+  return {
+    total: Math.max(-cap, Math.min(cap, housing + food)),
+    housing,
+    food,
+    cap,
+    preferredGrade,
+    housingGrade,
+  };
 }
 
 const K_EVEN = p6([1000, 1000, 1000, 1000, 1000, 1000]);
@@ -88,6 +103,7 @@ const UNITS: readonly PreviewUnitDef[] = [
     job: { kind: "facility", facility: "mine", phase: "work" },
     energy: 46,
     satisfaction: 72,
+    condition: [20, 12],
     party: "pa1",
   },
   {
@@ -107,6 +123,7 @@ const UNITS: readonly PreviewUnitDef[] = [
     job: { kind: "facility", facility: "farm", phase: "rest" },
     energy: 108,
     satisfaction: 55,
+    condition: [-20, -10],
     party: "pa1",
   },
   {
@@ -290,6 +307,9 @@ function previewUnit(catalog: RosterCatalog, def: PreviewUnitDef, now: number): 
     moving: def.moving ?? false,
     cargo: (def.cargo ?? []).map(([asset, amount]) => ({ asset, amount })),
     satisfaction: def.satisfaction,
+    ...(def.condition
+      ? { condition: previewCondition(def.condition[0], def.condition[1], 2, def.condition[0] > 0 ? 2 : 0) }
+      : {}),
     party: def.party,
     ...body,
     preview: true,
@@ -433,6 +453,8 @@ export function previewCyborg(catalog: RosterCatalog): CyborgBody {
     religion: "preview_sun",
     faithPoints: 140,
     living: { unpaid: false, efficiencyPm: 1000 },
+    // 시안 컨디션(D-534): 선호 숙소 + 생필품 가득 = +40(상한)
+    condition: previewCondition(20, 20, 2, 3),
     ...body,
     // 시안은 Lv 23(만렙 아님)이라 K·처음 값을 보내지 않는다(D-449). 속성값은 body.elements(장비 밖 값 + 장비 속성값)
     growth: null,

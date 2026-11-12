@@ -69,6 +69,10 @@ export interface WorldHoldings {
   readonly gearOf: (unitId: number, nowMs: number) => UnitGear;
   /** 유닛의 1차 스탯(입은 장비·버프 포함, 사이보그 화면과 같은 셈) — 공방 장인 실력·수리 시간(건물 서비스) */
   readonly primariesOf: (unitId: number) => Primaries;
+  /**
+   * 유닛의 초기 스탯 합(컨디션 선호 주거 등급, D-534): 만든 사이보그면 저장한 처음 값의 합, 그 밖에는 [임시] 기본 몸(1차 모두 10)의 합
+   */
+  readonly initialSumOf: (unitId: number) => number;
   /** 가중치 표 실효 값(제작 직무 행) */
   readonly statTable: () => readonly StatRow[] | undefined;
   /** 공방 수리 작업 중인 물건 확인을 잇는다(건물 서비스가 만들어진 뒤) */
@@ -198,6 +202,13 @@ export function createWorldHoldings(input: {
     access,
     gearOf,
     primariesOf,
+    initialSumOf: (unitId) => {
+      const userId = cyborgs.userOfUnit(unitId);
+      const record = userId === undefined ? undefined : cyborgs.record(userId);
+      if (!record) return BASELINE_PRIMARY * 6;
+      const p = record.initial;
+      return p.str + p.dex + p.agi + p.vit + p.int + p.wis;
+    },
     statTable: () => config?.statTable?.(),
     setLocked(next) {
       locked = next;

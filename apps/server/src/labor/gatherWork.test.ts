@@ -210,4 +210,22 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
     }
     expect(total).toBe(result.outputs[0]?.qty);
   });
+
+  it("컨디션(관리 보너스, D-534)은 추첨 유효 스탯에 더한다: 90·90(180 구간, T9 없음) + 40 → 220 구간(T9 있음), 상한 넘는 값은 자른다", () => {
+    const ores = ladderOf(
+      Object.fromEntries(Array.from({ length: GATHER_TIERS }, (_, tier) => [tier, [`item:t${tier}`]])),
+    );
+    const strong: Primaries = { ...tens, str: 90, dex: 90 };
+    const input = { unitId: 21, site: site(wood, ores), primaries: strong, settings, cycleMs: CYCLE_MS };
+    const top = (condition: number | undefined) =>
+      gatherLots({ points: 0, seq: 0 }, 150_000, { ...input, condition }).outputs.find(
+        (stack) => stack.asset === "item:t9",
+      )?.qty ?? 0n;
+    expect(top(undefined)).toBe(0n);
+    expect(top(40)).toBeGreaterThan(0n);
+    // 설정 칸 condition_cap(출발 40)으로 자른다 → 1000을 줘도 40과 같다
+    expect(gatherLots({ points: 0, seq: 0 }, 5000, { ...input, condition: 1000 })).toEqual(
+      gatherLots({ points: 0, seq: 0 }, 5000, { ...input, condition: 40 }),
+    );
+  });
 });

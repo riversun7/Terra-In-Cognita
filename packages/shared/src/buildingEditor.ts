@@ -81,6 +81,16 @@ export interface BuildingEditorGatherRules {
   readonly tickMs: number;
   readonly oreGrams: number;
   readonly defaultStat: number;
+  /**
+   * 예상 채집 확률표(D-534) 손잡이: 성장률 N5(‰)·K 범위 N6(‰)·만렙 N7·시설 레벨당 유효 스탯 N43·컨디션 합계 상한(condition_cap).
+   * 옛 서버면 없음(화면은 팩 출발값으로 센다)
+   */
+  readonly growthPm?: number | undefined;
+  readonly kMinPm?: number | undefined;
+  readonly kMaxPm?: number | undefined;
+  readonly maxLevel?: number | undefined;
+  readonly levelBonus?: number | undefined;
+  readonly conditionCap?: number | undefined;
 }
 
 export interface BuildingEditorGatherBand {

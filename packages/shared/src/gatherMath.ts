@@ -68,9 +68,12 @@ export function gatherCatchPm(statSum: number, rule: GatherCatchRule): number {
   return Math.max(0, Math.min(GATHER_WEIGHT_TOTAL, Math.min(rule.maxPm, rule.basePm + part)));
 }
 
-/** 유효 스탯 = 일꾼 1차 + 2차 + 레벨 보너스 × (레벨 − 1). 레벨 1 아래는 보너스 0 */
-export function gatherStat(workerStat: number, level: number, bonusPerLevel: number): number {
-  return Math.max(0, workerStat) + Math.max(0, bonusPerLevel) * Math.max(0, level - 1);
+/**
+ * 유효 스탯 = max(0, 일꾼 1차 + 2차 + 컨디션) + 레벨 보너스 × (레벨 − 1). 레벨 1 아래는 보너스 0.
+ * 컨디션(관리 보너스, D-534 — 선호에 맞는 주거·음식으로 ±, 합계 상한은 부르는 쪽이 자른 값)은 유효 스탯에 더한다(D-502 더하기). 없으면 0
+ */
+export function gatherStat(workerStat: number, level: number, bonusPerLevel: number, condition = 0): number {
+  return Math.max(0, workerStat + condition) + Math.max(0, bonusPerLevel) * Math.max(0, level - 1);
 }
 
 /** 유효 스탯이 드는 구간 번호(from이 스탯 이하인 마지막 구간, 첫 구간보다 작으면 0). 구간이 없으면 -1 */

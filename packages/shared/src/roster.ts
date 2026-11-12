@@ -98,6 +98,19 @@ export interface RosterInjury {
   readonly healPm?: number | undefined;
 }
 
+/**
+ * 컨디션(몸 상태 = 관리 보너스, D-534): 선호에 맞는 주거·음식으로 붙는 ±. 서버가 센 값(@terra/sim unitCondition)을 보이기만 한다.
+ * total = 주거 몫 + 음식 몫을 ±cap으로 자른 값(채집 유효 스탯에 더한다), preferredGrade = 선호 주거 등급(1~3), housingGrade = 지금 숙소 등급(모르면 0)
+ */
+export interface RosterCondition {
+  readonly total: number;
+  readonly housing: number;
+  readonly food: number;
+  readonly cap: number;
+  readonly preferredGrade: number;
+  readonly housingGrade: number;
+}
+
 /** 화물 한 줄(원장 자산 코드, 양 = 정수 문자열) */
 export interface RosterCargo {
   readonly asset: string;
@@ -220,6 +233,8 @@ export interface RosterUnit {
   readonly cargo: readonly RosterCargo[];
   /** 만족도(휴먼, D-219·D-253 = 충성도). 0~100. 없으면 null */
   readonly satisfaction: number | null;
+  /** 컨디션(관리 보너스, D-534 — 만족도와 따로). 서버가 모르면(시안·옛 서버·띄운 2차맵 밖) 없음 */
+  readonly condition?: RosterCondition | undefined;
   /** 파티 ID(시안만) */
   readonly party: string | null;
   readonly stats: RosterStats;
@@ -608,6 +623,8 @@ export interface CyborgBody {
    * 보유 유닛 수(주거 상한 D-153)에는 세지 않는다
    */
   readonly living: { readonly unpaid: boolean; readonly efficiencyPm: number };
+  /** 컨디션(관리 보너스, D-534). 시안·옛 서버·세계 준비 전이면 없음 */
+  readonly condition?: RosterCondition | undefined;
   readonly stats: RosterStats;
   /**
    * 2차 스탯 풀이(stats.secondary와 같은 행, 상세 전투 스펙의 펼친 줄). 값은 걸린 효과를 뺀 기본이다: 버프가 없으면 stats.secondary와 같고,

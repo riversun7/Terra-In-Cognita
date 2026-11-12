@@ -99,14 +99,14 @@ test.describe("개발자", () => {
         .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tab")));
     expect(await tabsOf("field")).toEqual(["lumber_camp", "mine", "herb_field"]);
     expect(await tabsOf("building")).toEqual(["farm", "ranch", "fishing_spot"]);
-    expect(await tabsOf("common")).toEqual(["tiers", "mapping", "classes", "overview"]);
+    expect(await tabsOf("common")).toEqual(["tiers", "expect", "mapping", "classes", "overview"]);
     expect((await tabsOf("process")).length).toBeGreaterThan(0);
-    // 수: 사다리 아이템(약초 30·어류 26·목장 30)·확률표 구간 12·클래스 36
+    // 수: 사다리 아이템(약초 30·어류 26·목장 30)·확률표 구간 14(D-534 240·260 구간)·클래스 36
     await expect(tab(page, "herb_field").locator(".pd-tab-count")).toHaveAttribute("data-count", "30");
     await expect(tab(page, "fishing_spot").locator(".pd-tab-count")).toHaveAttribute("data-count", "26");
     // 목장 = 축산물 13 + 목축 부산물 17(질문 946 나, core@63)
     await expect(tab(page, "ranch").locator(".pd-tab-count")).toHaveAttribute("data-count", "30");
-    await expect(tab(page, "tiers").locator(".pd-tab-count")).toHaveAttribute("data-count", "12");
+    await expect(tab(page, "tiers").locator(".pd-tab-count")).toHaveAttribute("data-count", "14");
     await expect(tab(page, "classes").locator(".pd-tab-count")).toHaveAttribute("data-count", "36");
 
     // 처음 탭 = 첫 생산 종류(벌목장). 미리 보기: 스탯 10·10 → 유효 20 → 둘째 구간(20~39). 농장은 선택 방식이라 해금 T1

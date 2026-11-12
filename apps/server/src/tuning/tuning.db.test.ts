@@ -268,7 +268,8 @@ describe.skipIf(!TEST_DATABASE_URL)("설정 칸 패널 (DB)", () => {
     expect(errorOf(await apply("dev", [{ id: "nope_entry", value: 1 }]))).toMatchObject({
       reason: "unknown_entry",
     });
-    expect(errorOf(await apply("dev", [{ id: "n9_initial_sum", value: 200 }]))).toEqual({
+    // 칸 최대 9 × 6 = 54 < 합 60(합은 D-534 절대 상한 100이 막아 올리지 않는다)
+    expect(errorOf(await apply("dev", [{ id: "n9_initial_max", value: 9 }]))).toEqual({
       code: "BAD_REQUEST",
       reason: "rules_conflict",
       details: ["n9_fit"],
@@ -306,27 +307,27 @@ describe.skipIf(!TEST_DATABASE_URL)("설정 칸 패널 (DB)", () => {
   });
 
   it("함께 바꿔야 맞는 칸은 한 묶음으로 받고, 되돌리기가 규칙 문제를 만들면 거절, 함께 되돌리면 된다", async () => {
-    expect(errorOf(await apply("dev", [{ id: "n9_initial_sum", value: 150 }]))).toMatchObject({
+    expect(errorOf(await apply("dev", [{ id: "n9_initial_max", value: 9 }]))).toMatchObject({
       reason: "rules_conflict",
     });
     const both = await apply("dev", [
-      { id: "n9_initial_sum", value: 150 },
-      { id: "n9_initial_max", value: 30 },
+      { id: "n9_initial_sum", value: 54 },
+      { id: "n9_initial_max", value: 9 },
     ]);
     expect(both.statusCode, both.body).toBe(200);
-    expect(state.society().cyborg.initialSum).toBe(150);
-    expect(errorOf(await apply("dev", [{ id: "n9_initial_max", value: null }]))).toEqual({
+    expect(state.society().cyborg.initialSum).toBe(54);
+    expect(errorOf(await apply("dev", [{ id: "n9_initial_sum", value: null }]))).toEqual({
       code: "BAD_REQUEST",
       reason: "rules_conflict",
       details: ["n9_fit"],
     });
     // 팩 값으로 보내도 되돌리기다
     const back = await apply("dev", [
-      { id: "n9_initial_sum", value: 60 },
-      { id: "n9_initial_max", value: null },
+      { id: "n9_initial_sum", value: null },
+      { id: "n9_initial_max", value: 20 },
     ]);
     expect(back.statusCode, back.body).toBe(200);
-    expect(entryOf(resultOf(back), "n9_initial_sum").override).toBeNull();
+    expect(entryOf(resultOf(back), "n9_initial_max").override).toBeNull();
     // 바뀌는 것이 없는 묶음은 판을 올리지 않는다
     const revision = await revisionNow();
     expect((await apply("dev", [{ id: "n9_initial_sum", value: null }])).statusCode).toBe(200);
@@ -354,8 +355,8 @@ describe.skipIf(!TEST_DATABASE_URL)("설정 칸 패널 (DB)", () => {
     expect(obj(history[0])).toMatchObject({
       action: "apply",
       changes: [
-        { id: "n9_initial_sum", before: 150, after: null },
-        { id: "n9_initial_max", before: 30, after: null },
+        { id: "n9_initial_sum", before: 54, after: null },
+        { id: "n9_initial_max", before: 9, after: null },
       ],
     });
     expect(obj(history.at(-1))).toMatchObject({

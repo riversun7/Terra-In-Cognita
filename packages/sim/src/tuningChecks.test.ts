@@ -14,7 +14,7 @@ describe("설정 칸 여러 칸 규칙 검사(D1)", () => {
   });
 
   it.each([
-    ["n9_fit", [["n9_initial_sum", 200]]],
+    ["n9_fit", [["n9_initial_sum", 5]]],
     ["n9_fit", [["n9_initial_min", 11]]],
     ["n9_fit", [["n9_initial_min", 0]]],
     ["n9_fit", [["n9_initial_max", 9]]],
@@ -32,18 +32,25 @@ describe("설정 칸 여러 칸 규칙 검사(D1)", () => {
     ["employer_order", [["n28_adjust_max", 700]]],
     ["food_order", [["n33_food_zero_at", 60]]],
     ["n45_fit", [["n45_cards_min_l2", 6]]],
-    ["n45_fit", [["n45_stats_max_l4", 70]]],
+    ["n45_fit", [["n45_stats_max_l4", 60]]],
     ["n45_fit", [["n45_elements_max", 5]]],
     ["n45_fit", [["n45_element_points", 21]]],
     ["n45_fit", [["n45_element_points", 2]]],
     ["n45_fit", [["n45_refresh_every", 0]]],
+    // 초기 스탯 합 상한(D-534): 사이보그 합·휴먼·크리쳐 최대 ≤ 100, 구인 토탈·유전자 총합 ≤ 휴먼 최대, 컨디션 상한 ≥ 0
+    ["stat_sum_cap", [["n9_initial_sum", 101]]],
+    ["stat_sum_cap", [["n9_human_sum_max", 101]]],
+    ["stat_sum_cap", [["n9_creature_sum_max", 120]]],
+    ["stat_sum_cap", [["n45_stats_max_l5", 90]]],
+    ["stat_sum_cap", [["n47_total_max", 90]]],
+    ["stat_sum_cap", [["condition_cap", -1]]],
   ] as const)("%s ← %j", (problem, values) => {
     expect(tuningProblems(withValues(values))).toEqual([problem]);
   });
 
   it("문제 코드는 공용 목록(@terra/shared TUNING_PROBLEMS) 안이고, 새로 생긴 문제만 고른다", () => {
     const broken = withValues([
-      ["n9_initial_sum", 200],
+      ["n9_initial_sum", 5],
       ["n6_k_min", 1300],
     ]);
     const problems = tuningProblems(broken);

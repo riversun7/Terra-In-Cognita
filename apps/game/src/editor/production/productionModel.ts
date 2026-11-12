@@ -367,9 +367,10 @@ export function sampleStats(defaultStat: number): readonly number[] {
 export type ProductionTab =
   | { readonly kind: "type"; readonly facility: string }
   | { readonly kind: "process"; readonly facility: string }
-  | { readonly kind: "tiers" | "mapping" | "classes" | "overview" };
+  | { readonly kind: "tiers" | "expect" | "mapping" | "classes" | "overview" };
 
-export const COMMON_TABS = ["tiers", "mapping", "classes", "overview"] as const;
+/** 공용 탭(expect = 예상 채집 확률표, D-534) */
+export const COMMON_TABS = ["tiers", "expect", "mapping", "classes", "overview"] as const;
 export type CommonTab = (typeof COMMON_TABS)[number];
 
 /** 탭 → 주소 값(?tab=) */

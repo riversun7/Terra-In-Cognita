@@ -33,9 +33,9 @@ const ORE_LADDER: string[][] = [
 ];
 
 describe("채집 티어 확률표(TEST_GATHER_BANDS = 팩 core gather_tiers)", () => {
-  it("구간은 20 단위 12개, 첫 구간 0, 구간마다 T0~T9 가중치 합 1000", () => {
+  it("구간은 20 단위 14개, 첫 구간 0, 구간마다 T0~T9 가중치 합 1000", () => {
     expect(TEST_GATHER_BANDS.map((band) => band.from)).toEqual([
-      0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220,
+      0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260,
     ]);
     for (const band of TEST_GATHER_BANDS) {
       expect(band.weightsPm).toHaveLength(GATHER_TIERS);
@@ -48,7 +48,14 @@ describe("채집 티어 확률표(TEST_GATHER_BANDS = 팩 core gather_tiers)", (
       expect(band.weightsPm).toEqual([700, 150, 100, 50, 0, 0, 0, 0, 0, 0]);
     // 나머지는 옛 표 %를 ‰로(160~179의 22.3% → 223, 반올림 없음)
     expect(TEST_GATHER_BANDS[8]?.weightsPm).toEqual([223, 210, 200, 170, 110, 50, 23, 10, 4, 0]);
-    expect(TEST_GATHER_BANDS[11]?.weightsPm).toEqual([195, 180, 170, 160, 130, 80, 40, 25, 15, 5]);
+  });
+
+  it("T9는 200~219에서 드물게, 220부터 늘어난다(D-534, 49 N43)", () => {
+    const t9 = TEST_GATHER_BANDS.map((band) => band.weightsPm[9] ?? 0);
+    // 199까지 T9 없음
+    expect(t9.slice(0, 10).every((pm) => pm === 0)).toBe(true);
+    // 200~219 드물게(2‰), 220부터 오른다
+    expect(t9.slice(10)).toEqual([2, 15, 25, 35]);
   });
 });
 
@@ -69,7 +76,7 @@ function histogram(stat: number, seed: number): number[] {
 describe("구간 찾기", () => {
   it("from이 스탯 이하인 마지막 구간, 마지막 구간은 위 끝이 없다", () => {
     expect([at(0), at(19), at(20), at(39), at(40), at(59), at(60)]).toEqual([0, 0, 1, 1, 2, 2, 3]);
-    expect([at(219), at(220), at(240), at(10_000)]).toEqual([10, 11, 11, 11]);
+    expect([at(219), at(220), at(240), at(259), at(260), at(10_000)]).toEqual([10, 11, 12, 12, 13, 13]);
     expect(at(-5)).toBe(0);
     expect(gatherBandIndex([], 50)).toBe(-1);
   });
@@ -81,6 +88,9 @@ describe("레벨 보너스(N43)", () => {
     expect(gatherStat(20, 2, 10)).toBe(30);
     expect(gatherStat(20, 5, 10)).toBe(60);
     expect(gatherStat(20, 5, 0)).toBe(20);
+    // 컨디션(관리 보너스, D-534)은 일꾼 스탯에 더한다. 음수여도 0 아래로 가지 않고 레벨 보너스는 그대로
+    expect(gatherStat(176, 1, 10, 40)).toBe(216);
+    expect(gatherStat(20, 3, 10, -40)).toBe(20);
     // Lv5 + 보너스 10이면 새 유닛(20)이 60~79 구간: T4가 열린다
     const band = TEST_GATHER_BANDS[gatherBandIndex(TEST_GATHER_BANDS, gatherStat(20, 5, 10))];
     expect(band?.weightsPm[4]).toBe(10);

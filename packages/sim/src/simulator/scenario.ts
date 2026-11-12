@@ -66,6 +66,11 @@ export interface ScenarioFacilityPlan {
   readonly primaryStat?: number | undefined;
   readonly secondaryStat?: number | undefined;
   /**
+   * 일꾼 컨디션(관리 보너스, D-534 — society/condition.ts unitCondition 합계). 시뮬 유닛에는 주거·음식 선호가 없어 측정 시나리오가 적는다.
+   * 추첨 유효 스탯에 더한다(계수표 condition.cap으로 자른다). 없으면 0
+   */
+  readonly condition?: number | undefined;
+  /**
    * 숙소 셈 배율(‰, 질문 1047 다 — 서버는 2차맵 숙소·일터 자리로 정한다). 시뮬 도시에는 건물 자리가 없어 측정 시나리오가 적는다. 없으면 1000
    */
   readonly dutyPm?: number | undefined;
@@ -256,6 +261,9 @@ export function parseScenario(value: unknown): Scenario {
         ...(field(plan, "secondaryStat") === undefined
           ? {}
           : { secondaryStat: int(field(plan, "secondaryStat"), `${path}.secondaryStat`, 0, 100_000) }),
+        ...(field(plan, "condition") === undefined
+          ? {}
+          : { condition: int(field(plan, "condition"), `${path}.condition`, -100, 100) }),
         ...(field(plan, "dutyPm") === undefined
           ? {}
           : { dutyPm: int(field(plan, "dutyPm"), `${path}.dutyPm`, 1, 10_000) }),

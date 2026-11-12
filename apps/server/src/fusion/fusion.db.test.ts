@@ -352,8 +352,12 @@ describe.skipIf(!TEST_DATABASE_URL)("유전자(D-478·D-516)", () => {
     const result = await fusion.synthesize(userId, { a, b });
     if (!result.ok || result.gene === undefined || result.total === undefined) throw new Error("synth");
     const step = Math.max(1, Math.floor((mean * OLD_FUSION_COEFFICIENTS.geneStepPm) / 1000));
+    // 총합 상한(n47_total_max, D-534 출발 80)으로 자른다
     expect(result.total).toBe(
-      result.outcome === "up" ? mean + step : result.outcome === "down" ? mean - step : mean,
+      Math.min(
+        OLD_FUSION_COEFFICIENTS.geneTotalMax,
+        result.outcome === "up" ? mean + step : result.outcome === "down" ? mean - step : mean,
+      ),
     );
     const after = await fusion.overview({ id: userId, devGrant: true }, clock);
     const stats = after.genes.filter((g) => g.kind === "stat");

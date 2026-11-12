@@ -10,6 +10,7 @@ import { UnitHoldings } from "../holdings/UnitHoldings.tsx";
 import { Meter, PreviewTag, Section, SkillList, SlotList, SoonButton, StatBlock } from "../roster/parts.tsx";
 import { UnitAdvice, guideStatsOf } from "../roster/UnitAdvice.tsx";
 import { InjuryBadge } from "../roster/InjuryBadge.tsx";
+import { ConditionFact } from "../roster/ConditionFact.tsx";
 import { VitalsMeters } from "../roster/VitalsMeters.tsx";
 import type { VitalsShown } from "../roster/useVitals.ts";
 import {
@@ -137,6 +138,7 @@ export function UnitDetail({
               <InjuryBadge injury={unit.injury} now={now} showHealthy />
             </dd>
           </div>
+          {unit.condition ? <ConditionFact condition={unit.condition} /> : null}
           {unit.captive ? (
             <div>
               <dt>{m.units_fact_captive()}</dt>

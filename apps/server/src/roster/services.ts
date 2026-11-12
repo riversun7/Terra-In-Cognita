@@ -4,10 +4,12 @@
 import type {
   CyborgGetResponse,
   CyborgRanking,
+  RosterCondition,
   RosterPrisoner,
   RosterUnit,
   UnitsListResponse,
 } from "@terra/shared/roster";
+import type { ConditionParts } from "@terra/sim";
 import type { HomeQuery, RosterServices, Viewer } from "../trpc/context.ts";
 import type { CyborgService } from "../cyborg/service.ts";
 import { cyborgLookOf } from "../cyborg/state.ts";
@@ -29,6 +31,25 @@ import { EMPTY_WORLD_ROSTER, type WorldRosterRow, type WorldRosterSource } from 
 
 const worldId = (id: number): string => `w${id}`;
 
+/** 유닛 컨디션을 읽는 곳(건물 서비스 facilities/world.ts condition, 세계가 준비된 뒤). 모르면 undefined */
+export type ConditionReader = (unitId: number) => ConditionParts | undefined;
+
+/** 서버 컨디션 → 화면 한 줄(상한 = 설정 칸 condition_cap) */
+export function rosterConditionOf(
+  parts: ConditionParts | undefined,
+  cap: number,
+): RosterCondition | undefined {
+  if (!parts) return undefined;
+  return {
+    total: parts.total,
+    housing: parts.housing,
+    food: parts.food,
+    cap,
+    preferredGrade: parts.preferredGrade,
+    housingGrade: parts.housingGrade,
+  };
+}
+
 /** 유닛이 지닌 것을 읽는 곳(보유 물건 서비스, 세계가 준비된 뒤). 유닛 ID·시각 → 입은 물건·걸린 효과 */
 export type GearReader = (unitId: number, nowMs: number) => UnitGear;
 
@@ -36,7 +57,12 @@ export type GearReader = (unitId: number, nowMs: number) => UnitGear;
  * 실제 세계 유닛 → 화면 한 줄. 이름·레벨이 아직 없다. 스탯 = [임시] 기본 몸 + 입은 장비·1차 스탯 버프(사이보그 화면·세계 전투 시작과
  * 같은 unitBody.ts, docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")
  */
-export function realUnit(catalog: RosterCatalog, row: WorldRosterRow, gear: UnitGear = NO_GEAR): RosterUnit {
+export function realUnit(
+  catalog: RosterCatalog,
+  row: WorldRosterRow,
+  gear: UnitGear = NO_GEAR,
+  condition?: RosterCondition,
+): RosterUnit {
   return {
     id: worldId(row.id),
     name: null,
@@ -51,6 +77,7 @@ export function realUnit(catalog: RosterCatalog, row: WorldRosterRow, gear: Unit
     moving: row.moving,
     cargo: row.cargo,
     satisfaction: null,
+    ...(condition ? { condition } : {}),
     party: null,
     ...effectiveView(catalog, BASELINE_BASE, gear),
     preview: false,
@@ -99,6 +126,8 @@ export function createRosterServices(
     rankings?: ((userId: string) => Promise<CyborgRanking[]>) | undefined;
     /** 유닛 추천 표의 출처(실효 팩 + 분류 문턱, roster/guide.ts). 없으면 빈 표 */
     guide?: (() => UnitGuideSource | undefined) | undefined;
+    /** 유닛 컨디션(D-534, 세계가 준비되면 건물 서비스)과 지금 상한(설정 칸 condition_cap). 없으면 화면에 컨디션 없음 */
+    condition?: (() => { readonly read: ConditionReader; readonly cap: number } | undefined) | undefined;
   } = {},
 ): RosterServices {
   const catalog = options.catalog ?? testRosterCatalog();
@@ -107,10 +136,25 @@ export function createRosterServices(
     const read = options.gear?.();
     return read && unitId !== null ? read(unitId, nowMs) : NO_GEAR;
   };
+  /** 본체 컨디션 칸(세계가 준비되지 않았거나 본체가 2차맵에 없으면 칸 없음) */
+  const cyborgConditionOf = (unitId: number | null): { condition?: RosterCondition } => {
+    const condition = options.condition?.();
+    if (!condition || unitId === null) return {};
+    const view = rosterConditionOf(condition.read(unitId), condition.cap);
+    return view ? { condition: view } : {};
+  };
   return {
     async units(viewer: Viewer, query: HomeQuery): Promise<UnitsListResponse> {
       const real = await world.read(viewer.id, query.now);
-      const units = real.units.map((row) => realUnit(catalog, row, gearOf(row.id, query.now)));
+      const condition = options.condition?.();
+      const units = real.units.map((row) =>
+        realUnit(
+          catalog,
+          row,
+          gearOf(row.id, query.now),
+          condition ? rosterConditionOf(condition.read(row.id), condition.cap) : undefined,
+        ),
+      );
       const prisoners = real.prisoners.map(realPrisoner);
       if (query.preview) {
         units.push(...previewUnits(catalog, query.now));
@@ -148,6 +192,7 @@ export function createRosterServices(
                 query.now,
               ),
               rankings: (await options.rankings?.(viewer.id)) ?? [],
+              ...cyborgConditionOf(record.unitId),
             }
           : null;
       const names = body

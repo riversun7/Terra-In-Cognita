@@ -8,6 +8,7 @@ import type {
   LocalizedName,
 } from "./contentEdit.ts";
 import { createRng } from "./rng.ts";
+import { STAT_SUM_ABSOLUTE_MAX } from "./statGrowth.ts";
 
 export const CREATURE_CATEGORIES = [
   "beast",
@@ -257,14 +258,17 @@ export function resolveCreatureImageUrl(image: string | undefined): string | nul
   return `/creatures/${trimmed}`;
 }
 
-/** 등급별 6스탯 총합 기준 예산(기획 D-5024·50_Content_Rules §3.4) */
+/**
+ * 등급별 6스탯 총합 기준 예산(기획 D-5024·50_Content_Rules §3.4). 바뀜(D-534, 2026-11-12): 크리쳐 초기 합은 상위 콘텐츠로 최대 80, 어떤 경우에도
+ * 100 이하(statGrowth.ts STAT_SUM_ABSOLUTE_MAX) → 보스 72·전설 78·신화 80 [임시](옛 78·92·110). 팩 검사(creature_stat_sum)가 설정 칸 상한을 본다
+ */
 export const CREATURE_GRADE_STAT_BUDGET: Readonly<Record<CreatureGrade, number>> = {
   common: 36,
   rare: 48,
   epic: 62,
-  boss: 78,
-  legendary: 92,
-  mythic: 110,
+  boss: 72,
+  legendary: 78,
+  mythic: 80,
 };
 
 /** 성향별 6스탯 기본 가중치(STR, DEX, AGI, VIT, INT, WIS) */
@@ -309,7 +313,10 @@ export function allocateCreatureStats(opts: {
   readonly secondaryStat?: CreaturePrimaryCode | undefined;
   readonly customBudget?: number | undefined;
 }): CreaturePrimariesJson {
-  const budget = Math.max(6, Math.min(5994, opts.customBudget ?? CREATURE_GRADE_STAT_BUDGET[opts.grade]));
+  const budget = Math.max(
+    6,
+    Math.min(STAT_SUM_ABSOLUTE_MAX, opts.customBudget ?? CREATURE_GRADE_STAT_BUDGET[opts.grade]),
+  );
   const baseW = TENDENCY_WEIGHTS[opts.tendency];
   const sizeW = SIZE_MODIFIERS[opts.size];
   const raw = CREATURE_PRIMARY_CODES.map((code, idx) => {

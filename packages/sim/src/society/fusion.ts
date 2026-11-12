@@ -9,6 +9,7 @@
 //   D-478·D-516: 수명이 다한 휴먼·크리쳐에서 그 유닛의 스탯 유전자 하나(총합·분포·속성)와 스킬마다 스킬 유전자 하나가 남는다.
 // 판정은 정수와 시드 굴림만 쓴다(AGENTS 4장). 배율은 ‰. 1차 스탯 배열 차례는 STR·DEX·AGI·VIT·INT·WIS(사이보그·구인 휴먼과 같다).
 import type { Rng } from "@terra/shared";
+import { STAT_SUM_ABSOLUTE_MAX, capStatSum } from "@terra/shared/statGrowth";
 
 /** 1차 스탯 수(배열 차례 STR·DEX·AGI·VIT·INT·WIS) */
 export const FUSION_STAT_COUNT = 6;
@@ -42,7 +43,7 @@ export interface FusionCoefficients {
   readonly geneKeepPm: number;
   /** 합성 때 총합이 오르내리는 양(바탕 총합의 ‰, 1 이상) [임시] */
   readonly geneStepPm: number;
-  /** 스탯 유전자 총합 상한(합성이 끝없이 오르지 않게, D-516) [임시] */
+  /** 스탯 유전자 총합 상한(합성이 끝없이 오르지 않게, D-516) [임시]. D-534: 휴먼·크리쳐 최대 80 → 출발 80, 어떤 경우에도 100 이하 */
   readonly geneTotalMax: number;
   /** 합성 때 속성값 오차 범위(± 점, D-481 "평균에 오차 범위") [임시] */
   readonly geneElementVariance: number;
@@ -75,7 +76,7 @@ export const OLD_FUSION_COEFFICIENTS: FusionCoefficients = {
   geneDownPm: 300,
   geneKeepPm: 400,
   geneStepPm: 50,
-  geneTotalMax: 600,
+  geneTotalMax: 80,
   geneElementVariance: 1,
   incubateBaseStat: 10,
   geneConvertCurrency: 1000,
@@ -103,7 +104,8 @@ export function fusionBonusPm(rng: Rng, c: FusionCoefficients): number {
 
 /**
  * 융합 스탯(옛 craftCyborg): 칸마다 ⌊(큰 쪽 × 몫 + 작은 쪽 × (1000 − 몫)) ÷ 1000⌋ → × 보너스 ‰ 반올림(⌊(값 × ‰ + 500) ÷ 1000⌋).
- * 몸 쪽(STR·DEX·AGI)은 부품(안드로이드) 몫이 physicalDonorPm, 마음 쪽(VIT·INT·WIS)은 휴먼 몫이 mentalHumanPm
+ * 몸 쪽(STR·DEX·AGI)은 부품(안드로이드) 몫이 physicalDonorPm, 마음 쪽(VIT·INT·WIS)은 휴먼 몫이 mentalHumanPm.
+ * 합이 절대 상한(D-534 100)을 넘으면 칸 비례로 줄인다(@terra/shared capStatSum)
  */
 export function fuseStats(
   human: readonly number[],
@@ -113,13 +115,14 @@ export function fuseStats(
 ): number[] {
   const h = sixStats(human);
   const d = sixStats(donor);
-  return h.map((humanValue, index) => {
+  const fused = h.map((humanValue, index) => {
     const donorValue = d[index] ?? 0;
     const physical = FUSION_PHYSICAL_STATS.includes(index);
     const donorPm = physical ? c.physicalDonorPm : 1000 - c.mentalHumanPm;
     const mixed = Math.floor((donorValue * donorPm + humanValue * (1000 - donorPm)) / 1000);
     return Math.floor((mixed * bonusPm + 500) / 1000);
   });
+  return capStatSum(fused, STAT_SUM_ABSOLUTE_MAX);
 }
 
 /** 융합 결과 범위(화면 미리 보기): 칸마다 보너스 최소·최대일 때 */

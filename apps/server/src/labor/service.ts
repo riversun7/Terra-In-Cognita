@@ -106,6 +106,8 @@ export interface LaborService {
   unitAway(unitId: number): boolean;
   /** 건물에 지금 일하는 계약(active)이 있나 — 건물 사용 닳음(D-509) */
   buildingInUse(buildingId: number): boolean;
+  /** 유닛이 일하는 건물(직무 배치, 없으면 열린 노동 계약). 없으면 undefined — 유닛 화면 컨디션(D-534)의 도시 */
+  assignedTo(unitId: number): number | undefined;
   /**
    * 정산 뒤 고리(소유 주체 정산이 산출 거래를 넣은 뒤 부른다): 그 주체의 유예가 끝난 임대형 계약의 남은 물건을 시설 주인에게, 일이 끝난
    * 플레이어 유닛의 직무 끄기
@@ -410,6 +412,7 @@ export function createLaborService(options: {
     outputsFor,
     contracts,
     unitBusy: (unitId) => working(unitId) || (options.unitAway?.(unitId) ?? false),
+    assignedTo: (unitId) => work.assignedTo(unitId) ?? openContractOf(unitId)?.buildingId,
     unitAway: (unitId) => options.unitAway?.(unitId) ?? false,
     workersAt,
     workplaceOf(unitId) {

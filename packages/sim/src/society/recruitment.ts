@@ -2,6 +2,8 @@
 // 옛 규칙(AntiGravt01 terra-server/routes/building/hq_routes.js):
 // - 카드 3~5장 무작위, 12시간마다 갱신(쌓이지 않음: 갱신하면 안 산 카드는 사라진다), 산 카드는 목록에서 빠진다.
 // - 토탈 스탯: 행정 건물 등급 범위 안 균등(Lv1 30~45 · Lv2 45~60 · Lv3 60~80 = 옛 마을회관·영주관·시청). Lv4·Lv5는 옛 값이 없다([임시]).
+//   바뀜(D-534, 2026-11-12): 휴먼 초기 합은 상위 콘텐츠로 최대 80(설정 칸 n9_human_sum_max — 설정 칸 검사 stat_sum_cap이 레벨 범위를 막는다),
+//   어떤 경우에도 100 이하(@terra/shared STAT_SUM_ABSOLUTE_MAX, 굴린 토탈을 여기서 한 번 더 자른다). Lv4·Lv5 [임시] 65~80·70~80.
 // - 6스탯 분배: 칸마다 max(1, ⌊토탈 ÷ 12⌋)를 먼저 주고, 남은 점수를 아무 칸에 1~3점씩 나눈다.
 // - 속성: 10점을 기본 4원소(물·불·바람·땅) 가운데 2~3개에 나눈다(빛·어둠 0). 칸마다 1점 이상.
 // - 비용 = 등급 × 50 + (토탈 − 그 등급 최소) × 2 (도시 화폐). 옛 코드는 지갑에서 빼기만 했다(받는 쪽 없음 = 소각).
@@ -10,6 +12,7 @@
 // "그 창에서 산 칸"뿐이다(RecruitDraw). 카드 수·범위·주기·비용·속성 점수는 설정값(D-5032, 팩 tuning n45_*).
 import { BASIC_ELEMENTS, ELEMENT_IDS, ELEMENT_MAX } from "@terra/shared/cyborg";
 import { type Rng, createRng } from "@terra/shared";
+import { STAT_SUM_ABSOLUTE_MAX } from "@terra/shared/statGrowth";
 import { mix32 } from "../math/hash.ts";
 
 /** 행정 건물 레벨 상한(구조, D-469 Lv1~5) */
@@ -161,7 +164,7 @@ export function rollRecruitCards(level: number, rng: Rng, c: RecruitCoefficients
   const statsMax = Math.max(rule.statsMin, rule.statsMax);
   const cards: RecruitCard[] = [];
   for (let slot = 0; slot < count; slot++) {
-    const total = rule.statsMin + rng.nextInt(statsMax - rule.statsMin + 1);
+    const total = Math.min(STAT_SUM_ABSOLUTE_MAX, rule.statsMin + rng.nextInt(statsMax - rule.statsMin + 1));
     const stats = distributeRecruitStats(total, rng);
     const elements = distributeRecruitElements(rng, c);
     cards.push({ slot, level: grade, total, stats, elements, cost: recruitCost(grade, total, c) });
@@ -230,7 +233,7 @@ export function rollFoundingProfile(adminLevel: number, rng: Rng, c: RecruitCoef
   const rule = recruitLevelRule(Math.max(1, adminLevel), c);
   const statsMin = rule?.statsMin ?? RECRUIT_STAT_COUNT * 10;
   const statsMax = Math.max(statsMin, rule?.statsMax ?? statsMin);
-  const total = statsMin + rng.nextInt(statsMax - statsMin + 1);
+  const total = Math.min(STAT_SUM_ABSOLUTE_MAX, statsMin + rng.nextInt(statsMax - statsMin + 1));
   const stats = distributeRecruitStats(total, rng);
   const elements = distributeRecruitElements(rng, c);
   return { level: Math.max(1, c.startLevel), stats, elements };
@@ -250,7 +253,7 @@ export function recruitElementsFromSlots(slots: readonly number[]): RecruitEleme
   return { water: at("water"), fire: at("fire"), wind: at("wind"), earth: at("earth") };
 }
 
-/** 옛 값(49 N45 출발값). Lv4·Lv5는 옛 값이 없어 [임시]: 카드 수 하나씩 더, 토탈 80~100·100~120 */
+/** 옛 값(49 N45 출발값). Lv4·Lv5는 옛 값이 없어 [임시]: 카드 수 하나씩 더, 토탈 65~80·70~80(D-534 휴먼 최대 80) */
 export const OLD_RECRUIT_COEFFICIENTS: RecruitCoefficients = {
   refreshMs: 12 * 3_600_000,
   costPerLevel: 50,
@@ -263,7 +266,7 @@ export const OLD_RECRUIT_COEFFICIENTS: RecruitCoefficients = {
     { cardsMin: 3, cardsMax: 5, statsMin: 30, statsMax: 45 },
     { cardsMin: 3, cardsMax: 5, statsMin: 45, statsMax: 60 },
     { cardsMin: 3, cardsMax: 5, statsMin: 60, statsMax: 80 },
-    { cardsMin: 4, cardsMax: 6, statsMin: 80, statsMax: 100 },
-    { cardsMin: 5, cardsMax: 7, statsMin: 100, statsMax: 120 },
+    { cardsMin: 4, cardsMax: 6, statsMin: 65, statsMax: 80 },
+    { cardsMin: 5, cardsMax: 7, statsMin: 70, statsMax: 80 },
   ],
 };

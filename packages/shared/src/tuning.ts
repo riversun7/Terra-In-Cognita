@@ -127,6 +127,8 @@ export const TUNING_PROBLEMS = [
   "n45_fit",
   // 가중치 표(stat_rows): 켜진 모든 행에서 가중치가 0인 1차 스탯(가치 없는 1차, D-458). docs/adr/2026-11-01-balance-screen.md 1절
   "stat_primary_unused",
+  // 초기 스탯 합 상한(D-534): 사이보그 합 N9·휴먼·크리쳐 최대 ≤ 100, 구인 카드 토탈·유전자 총합 상한 ≤ 휴먼 최대, 컨디션 상한 ≥ 0
+  "stat_sum_cap",
 ] as const;
 export type TuningProblem = (typeof TUNING_PROBLEMS)[number];
 

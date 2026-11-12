@@ -12,6 +12,7 @@ import {
 import { useState } from "react";
 import { NumberField } from "../content/contentEditorFields.tsx";
 import { CATEGORY_LABELS, ELEMENT_LABELS, PRESET_TAG_LABELS, STAT_LABELS } from "./creatureModel.ts";
+import { STAT_SUM_ABSOLUTE_MAX } from "@terra/shared/statGrowth";
 
 const TENDENCY_OPTIONS: readonly {
   readonly value: CreatureStatTendency;
@@ -180,7 +181,7 @@ export function CreatureStatsTab({
             label={ko ? "총합 예산 지정 (비우면 등급 자동)" : "Custom Total Budget (optional)"}
             value={customBudget}
             min={6}
-            max={6000}
+            max={STAT_SUM_ABSOLUTE_MAX}
             optional
             onChange={setCustomBudget}
           />

@@ -239,12 +239,19 @@ export interface SecondMap {
   missingEvents(): number;
   /** 불변 조건 I7: 몸이 건물 칸에 걸친 서 있는 유닛 수 */
   unitsInBuildings(): number;
-  /** speedFactor = 이 이동 하나의 빠르기 배수(운영자 모드, 기본 1 — 유닛 속도는 그대로) */
+  /**
+   * speedFactor = 이 이동 하나의 빠르기 배수(유닛 속도는 그대로). 없으면 그 유닛의 운영자 빠르기 표시(setPace, operatorPace.ts — 표시가
+   * 없으면 1)
+   */
   moveUnit(
     unitId: number,
     target: Point,
     options?: { readonly speedFactor?: number },
   ): Promise<CommandResult>;
+  /** 운영자 빠르기 표시(operatorPace.ts)를 바꾼다 — 1이면 지운다. 앞 값(유닛이 없으면 undefined). 메모리에만, 유닛이 2차맵을 떠나면 지운다 */
+  setPace(unitId: number, factor: number): number | undefined;
+  /** 그 유닛의 운영자 빠르기 표시(없으면 1) */
+  paceOf(unitId: number): number;
   /** ownerId = 건물 주인 주체(시험 건물은 놓은 사람, 없으면 null). reuseId = 치운 건물을 같은 ID로 다시 놓기(facilities/cityRelayout.ts) */
   placeBuilding(placement: BuildingPlacement, ownerId?: number | null, reuseId?: number): CommandResult;
   /** 그 칸 네모에 지금 유닛 몸이 걸치나(도시 건물 배치 계획이 유닛 선 칸을 피한다 — facilities/cityLayoutGround.ts) */
@@ -301,6 +308,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
   let water: WaterMask | undefined;
   let edited = false;
   const units = new Map<number, UnitState>();
+  /** 운영자 빠르기 표시(유닛 ID → 배수, 1은 두지 않는다 — operatorPace.ts) */
+  const paces = new Map<number, number>();
   const buildings = new Map<
     number,
     { id: number; ownerId: number | null; placement: BuildingPlacement; entry: SizedEntry<BuildingWire> }
@@ -535,7 +544,15 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       if (unit.planning || at >= arrivalAt(unit.motion)) continue;
       if (!remainingPathBlocked(grid, unit.motion, unit.size, at)) continue;
       stats.paths.blockedReplans += 1;
-      requestRoute(unit, unit.destination, "bot", COMMAND_NODE_BUDGET);
+      // 다시 찾은 길도 하던 이동의 빠르기 그대로(운영자 빠르기·2차맵 사이 이동의 빠르기 — operatorPace.ts)
+      requestRoute(
+        unit,
+        unit.destination,
+        "bot",
+        COMMAND_NODE_BUDGET,
+        undefined,
+        unit.motion.speed / unit.speed,
+      );
     }
   };
 
@@ -793,6 +810,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       // 진행 중인 경로 결과는 버려진다(isCurrent가 지운 유닛을 거른다)
       unit.routeSeq += 1;
       units.delete(unitId);
+      paces.delete(unitId);
       rev += 1;
       stream.unitHidden(rev, unitId);
       vision.unitRemoved(unitId, unit.ownerId);
@@ -833,6 +851,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       // 진행 중인 경로 결과는 버려진다(isCurrent가 뺀 유닛을 거른다)
       unit.routeSeq += 1;
       units.delete(unitId);
+      paces.delete(unitId);
       rev += 1;
       stream.unitHidden(rev, unitId);
       vision.unitRemoved(unitId, unit.ownerId);
@@ -882,10 +901,19 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       if (!unit) return Promise.resolve({ ok: false, code: "unknown_unit" });
       // [임시] 포로·중태는 명령을 받지 않는다. 전용 결과 코드는 전투 화면(L1) 때 프로토콜에 더한다
       if (unavailable(unit.condition, now())) return Promise.resolve({ ok: false, code: "invalid_request" });
+      const speedFactor = moveOptions?.speedFactor ?? paces.get(unitId) ?? 1;
       return new Promise((resolve) =>
-        requestRoute(unit, target, "command", COMMAND_NODE_BUDGET, resolve, moveOptions?.speedFactor),
+        requestRoute(unit, target, "command", COMMAND_NODE_BUDGET, resolve, speedFactor),
       );
     },
+    setPace(unitId, factor) {
+      if (!units.has(unitId)) return undefined;
+      const previous = paces.get(unitId) ?? 1;
+      if (factor === 1) paces.delete(unitId);
+      else paces.set(unitId, factor);
+      return previous;
+    },
+    paceOf: (unitId) => paces.get(unitId) ?? 1,
     placeBuilding(placement, ownerId = null, reuseId) {
       if (buildings.size >= MAX_BUILDINGS) return { ok: false, code: "building_limit" };
       if (reuseId !== undefined && buildings.has(reuseId)) return { ok: false, code: "invalid_request" };

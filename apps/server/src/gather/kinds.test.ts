@@ -58,14 +58,25 @@ describe("원자재 오브젝트 종류", () => {
       art: mapPropArtCode("outcrop_copper"),
     });
     expect(byId.get("stone_outcrop")?.surfaces).toContain(TERRAIN_SURFACE.grass);
-    // 노두는 지형별 오브젝트(2026-11-12 D-536) 앞이다: 앞 종류 차례는 그대로
+    // 노두는 지형별 오브젝트(2026-11-12 D-536) 앞이고, 관목 땔감(목재 몫 노두)은 그 뒤 맨 끝이다: 앞 종류 차례는 그대로
     const ids = kinds.map((kind) => kind.id);
     expect(ids.indexOf("copper_outcrop")).toBe(ids.indexOf("stone_outcrop") + 1);
+    expect(ids.at(-1)).toBe("brushwood");
     expect(
       kinds
-        .slice(ids.indexOf("copper_outcrop") + 1)
+        .slice(ids.indexOf("copper_outcrop") + 1, -1)
         .every((kind) => kind.source === "site" || kind.source === "school"),
     ).toBe(true);
+    // 관목 땔감(사용자 결정 2026-11-12 기본 재료 바닥 보장): 목재 몫을 곱하는 노두, 벌목장이 맡고 소나무 원목
+    expect(byId.get("brushwood")).toMatchObject({
+      source: "outcrop",
+      share: "wood",
+      item: "pine_log",
+      facility: "lumber_camp",
+      direct: true,
+      art: mapPropArtCode("log"),
+    });
+    expect(byId.get("stone_outcrop")?.share).toBe("ore");
     expect(
       kinds
         .filter((kind) => kind.source === "prop" || kind.source === "rock" || kind.source === "plot")

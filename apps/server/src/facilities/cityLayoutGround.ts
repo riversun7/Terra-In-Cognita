@@ -2,7 +2,7 @@
 // docs/adr/2026-11-11-city-building-layout.md. 씨앗(npcSeed.ts)·다시 놓기(cityRelayout.ts)·미리 보기(cityLayoutView.ts)가 같은 길을 쓴다.
 // - 격자 = 2차맵 지형 비용 + 지금 건물(ignore에 든 건물 — 다시 놓을 NPC 건물 — 은 빼고). 유닛은 보지 않는다(실제로 놓을 때 2차맵이 본다).
 // - 원자재 오브젝트: 그 2차맵 지형에서 채집과 같은 함수(gather/objects.ts placeGatherObjects)로 정한 자리.
-import { cellMaterials, oreSharePm } from "@terra/shared/catchment";
+import { cellMaterials, oreSharePm, woodSharePm } from "@terra/shared/catchment";
 import { type CityCell, cityOfCell } from "@terra/shared/goodsPlaces";
 import type { WorldSeedCoefficients } from "@terra/sim";
 import { PLACEMENT_SIZE, applyPlacement, createPlacementGrid, validatePlacement } from "@terra/sim";
@@ -52,9 +52,14 @@ export function layoutObjectsOf(
   if (kinds.length === 0) return [];
   const value = land ? { ...land, water: land.water ?? 0 } : undefined;
   const materials = value ? cellMaterials(value, seed) : undefined;
-  // 노두(질문 1083 나): 채집과 같은 광석 고도 몫
+  // 노두(질문 1083 나): 채집과 같은 광석 고도 몫·목재 몫(관목 — 기본 재료 바닥 보장)
   return placeGatherObjects(
-    { ...mapLayers(map), materials, oreSharePm: value ? oreSharePm(value, seed) : undefined },
+    {
+      ...mapLayers(map),
+      materials,
+      oreSharePm: value ? oreSharePm(value, seed) : undefined,
+      woodSharePm: value ? woodSharePm(value, seed) : undefined,
+    },
     kinds,
   );
 }

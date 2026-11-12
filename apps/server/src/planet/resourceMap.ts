@@ -72,6 +72,23 @@ export function resourceRulesKey(rules: CatchmentLandRules): string {
     rules.oreShareHillPm,
     rules.oreHighMinM,
     rules.oreFlatHighPm,
+    // 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536)
+    rules.woodForestPm,
+    rules.woodOtherPm,
+    rules.woodBaselinePm,
+    rules.herbWetlandPm,
+    rules.herbAlpinePm,
+    rules.herbForestPm,
+    rules.herbOtherPm,
+    rules.herbClearingPm,
+    rules.livestockPasturePm,
+    rules.livestockOtherPm,
+    rules.resourceNoiseCells,
+    rules.resourceNoiseFloorPm,
+    rules.woodNoiseSeed,
+    rules.herbNoiseSeed,
+    rules.livestockNoiseSeed,
+    rules.resourceBitMinPm,
   ].join(",");
 }
 
@@ -96,12 +113,15 @@ export async function computeResourcePlanes(
   for (let start = 0; start < reader.count; start += SLICE_CELLS) {
     const end = Math.min(reader.count, start + SLICE_CELLS);
     for (let c = start; c < end; c++) {
-      const land = reader.cell(c);
-      const shares = cellSharesPm(land, rules, "supply");
       const face = Math.floor(c / (n * n));
       const rest = c - face * n * n;
-      const j = Math.floor(rest / n) >> shift;
-      const i = (rest % n) >> shift;
+      const cellJ = Math.floor(rest / n);
+      const cellI = rest % n;
+      // 칸 자리(면·i·j)를 붙인다 — 목재·약초·목장 노이즈(기획 D-536)가 서버 경제(PlanetCellValues)와 같은 값을 내게
+      const land = { ...reader.cell(c), face, i: cellI, j: cellJ };
+      const shares = cellSharesPm(land, rules, "supply");
+      const j = cellJ >> shift;
+      const i = cellI >> shift;
       const target = face * m * m + j * m + i;
       CATCHMENT_MATERIALS.forEach((material, k) => {
         const plane = sums[k];

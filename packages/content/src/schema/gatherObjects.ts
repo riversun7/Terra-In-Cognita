@@ -11,6 +11,8 @@
 // - source "outcrop"(노두, 기획 D-534 — 질문 1083 나 "낮은 땅 플레이어도 서버가 놓는 노두에서 석재·구리"): 16×16 배치 칸 묶음 가운데 surfaces
 //   지표가 있는 묶음에서 (2차맵 키, 묶음, 종류) 굴림이 chancePm × 그 2차맵 광석 고도 몫(@terra/shared/catchment oreSharePm) ÷ 1000 안이면 선다
 //   — 낮은 땅은 드물고 산지는 많다(NPC 배후지와 같은 고도 몫). art = 기기가 그 자리에 세우는 소품 그림(지형 파일에는 없다 — 생성기 판 그대로).
+//   share = "wood"면 광석 몫 대신 그 2차맵 목재 몫(@terra/shared/catchment woodSharePm — 숲·목재 바닥)을 곱한다(사용자 결정 2026-11-12 "건축시
+//   목재와 석재는 필수이다" — 숲이 없는 땅의 관목·나뭇가지 더미).
 // - source "site"(지형별 오브젝트, 기획 D-536 — 모든 지형 5종 이상, 42 §5 표): 노두 뒤에 16×16 배치 칸 묶음마다, 그 2차맵(1차맵 칸) 바이옴의
 //   천분율(biomes)로 선다. 자리 = surfaces 지표 지형 칸 가운데 묶음 가운데에 가까운 빈 칸(shore면 물가, coast면 바닷가 2차맵만).
 //   물 위 자리(surfaces = water만)는 배로만 닿는다(배는 아직 없다).
@@ -98,8 +100,10 @@ const outcropObject = z.strictObject({
   source: z.literal("outcrop"),
   /** 이 노두가 서는 지표(하나 이상) */
   surfaces: z.array(z.enum(GATHER_PLOT_SURFACES)).min(1, { error: "지표(surfaces)를 하나 이상 적으세요." }),
-  /** 광석 몫 1000(산지)일 때 묶음(16×16 배치 칸) 하나에 설 천분율. 실제 = chancePm × 광석 몫 ÷ 1000 */
+  /** 몫 1000일 때 묶음(16×16 배치 칸) 하나에 설 천분율. 실제 = chancePm × 그 2차맵 몫(share) ÷ 1000 */
   chancePm: z.int().min(1).max(1000),
+  /** 곱하는 몫: 광석 고도 몫(기본) 또는 목재 몫 */
+  share: z.enum(["ore", "wood"]).optional(),
   /** 기기가 그 자리에 세우는 소품 그림(없으면 표시 단추만) */
   art: art.optional(),
 });

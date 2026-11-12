@@ -45,9 +45,9 @@ describe("원자재별 채집 예상(사이보그 판 효율 묶음)", () => {
       "fish",
     ]);
     const ore = rows.find((row) => row.facility === "mine");
-    // 광산 STR 10 + VIT 7 = 17 → 구간 0~19(T0 70%·T1 15%·T2 10%·T3 5%)
+    // 광산 STR 10 + VIT 7 = 17 → 구간 0~19(팩 gather_tiers 그대로 — 지금 T0 50%·T1 35%·T2 10%·T3 5%)
     expect(ore).toMatchObject({ primary: "str", secondary: "vit", stat: 17, bandFrom: 0, bandNext: 20 });
-    expect(ore?.tierPm).toEqual([700, 150, 100, 50, 0, 0, 0, 0, 0, 0]);
+    expect(ore?.tierPm).toEqual(source.gatherTiers[0]?.weightsPm);
     // 낚시터 AGI 15 + DEX 12 = 27 → 구간 20, 성공 ‰ = 300 + ⌊500 × 27 ÷ 200⌋ = 367
     const fish = rows.find((row) => row.facility === "fishing_spot");
     expect(fish).toMatchObject({ stat: 27, bandFrom: 20, catchPm: 367 });

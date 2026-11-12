@@ -116,6 +116,8 @@ export interface GatherDeps {
    * 않는다(행성 값 없는 임시 지형)
    */
   oreSharePm?(mapKey: number): number | undefined;
+  /** 2차맵(1차맵 칸) 행성 값의 목재 몫(‰, @terra/shared/catchment woodSharePm — 목재 몫 노두가 설 몫). 없으면 그 노두를 두지 않는다 */
+  woodSharePm?(mapKey: number): number | undefined;
   /**
    * 2차맵(1차맵 칸)의 바이옴 ID와 물 비트(행성 값 — 지형별 오브젝트·어군이 설 조건, 기획 D-536). 없거나 undefined면 지형별 오브젝트·어군을
    * 두지 않는다(행성 값 없는 임시 지형)
@@ -268,6 +270,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
         ...mapLayers(map),
         materials: deps.materials?.(mapKey),
         oreSharePm: deps.oreSharePm?.(mapKey),
+        woodSharePm: deps.woodSharePm?.(mapKey),
         biomeId: terrainKind?.biomeId,
         waterBits: terrainKind?.waterBits,
       },

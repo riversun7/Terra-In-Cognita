@@ -57,7 +57,7 @@ describe("어군 그리기", () => {
     view.set([{ ...route, art: MAP_PROP_ARTS.indexOf("boulder") }]);
     expect(view.update(0, 5.86, () => 0, wideFrustum(), 3)).toBe(false);
     view.dispose();
-    for (const name of ["kelp", "coral", "iceberg", "fish_school", "whale_pod", "lily_pads"])
+    for (const name of ["kelp", "coral", "iceberg", "fish_school", "whale_pod", "lily_pads"] as const)
       expect(propLook(MAP_PROP_ARTS.indexOf(name))?.float, name).toBe(true);
     expect(propLook(MAP_PROP_ARTS.indexOf("sand_dune"))?.float).toBeUndefined();
   });

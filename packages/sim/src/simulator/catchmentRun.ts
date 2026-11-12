@@ -298,6 +298,11 @@ export interface PlaneLayout {
   readonly oreRules?: (OreShareRules & HighOreRules) | undefined;
   /** 칸 x 자리 → 숲 밀도(0 ~ 255). 있고 값이 있으면 목재 몫 = richnessPm.wood × 숲 밀도 몫 ÷ 1000(질문 1080 가). 없으면 숲을 보지 않는다 */
   readonly forestAt?: ((x: number) => number | undefined) | undefined;
+  /**
+   * 목재 바닥(‰, 사용자 결정 2026-11-12 기본 재료 바닥 보장 — @terra/shared/catchment woodSharePm과 같은 뜻): forestAt이 있을 때 목재 몫 =
+   * richnessPm.wood × max(숲 밀도 몫, 이 값) ÷ 1000. 없으면 0(바닥 없음)
+   */
+  readonly woodBaselinePm?: number | undefined;
 }
 
 const PLANE_HALF = 1 << 19;
@@ -328,7 +333,9 @@ export function planeGeometry(layout: PlaneLayout): CatchmentGeometry {
       const rich = Math.min(1000, Math.max(0, Math.trunc(layout.richnessPm?.[material] ?? 1000)));
       if (material === "wood") {
         const forest = layout.forestAt?.(planeX(cell));
-        return forest === undefined ? rich : Math.floor((rich * forestSharePm(forest)) / 1000);
+        if (forest === undefined) return rich;
+        const baseline = Math.min(1000, Math.max(0, Math.trunc(layout.woodBaselinePm ?? 0)));
+        return Math.floor((rich * Math.max(forestSharePm(forest), baseline)) / 1000);
       }
       const elevationM = material === "ore" ? planeElevation(layout, cell) : undefined;
       if (elevationM === undefined || !layout.oreRules) return rich;
@@ -421,6 +428,7 @@ export function scenarioPlaneLayout(
             const k = groupOf(x);
             return k >= 0 ? forests[k] : config.forest;
           },
+          woodBaselinePm: seed.woodBaselinePm,
         }
       : {}),
   };

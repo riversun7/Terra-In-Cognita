@@ -12,6 +12,7 @@ import type { FacilityRecord } from "../facilities/state.ts";
 import { mapTerrainFromTemp } from "../world/mapTerrain.ts";
 import { createInlinePathService } from "../world/pathService.ts";
 import { type SecondMap, createSecondMap } from "../world/secondMap.ts";
+import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
 import { flatTerrain, silentLog } from "../world/testSupport.ts";
 import { UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { testMapKey } from "../world/world.ts";
@@ -257,6 +258,29 @@ describe("원자재 오브젝트 채집", () => {
     await r.maps.get(K[0] ?? 0)?.moveUnit(1, { x: 60 * 1024, y: 60 * 1024 });
     await until(() => loopOf(r)?.phase === "done");
     expect(loopOf(r)).toMatchObject({ stop: "interrupted" });
+    r.gather.stop();
+  });
+});
+
+describe("운영자 빠르기 표시(world/operatorPace.ts, 사용자 지적 2026-11-12)", () => {
+  it("표시가 달린 유닛은 채집 줄 걸음(오브젝트·넣는 곳)과 들어가기 걸음이 모두 100배, 없는 유닛은 보통", async () => {
+    const r = rig();
+    const map = r.maps.get(K[0] ?? 0);
+    placeMine(r, 20, 30);
+    placeMine(r, 24, 30, 2);
+    map?.setPace(1, OPERATOR_SPEED_FACTOR);
+    expect((await r.gather.start(USER, { unitId: 1, mapKey: K[0] ?? 0, objectId: FIRST })).ok).toBe(true);
+    expect((await r.gather.start(USER, { unitId: 2, mapKey: K[0] ?? 0, objectId: SECOND })).ok).toBe(true);
+    expect(map?.unitInfo(1)?.motion.speed).toBe(WALK_SPEED * OPERATOR_SPEED_FACTOR);
+    expect(map?.unitInfo(2)?.motion.speed).toBe(WALK_SPEED);
+    // 화물이 차서 도시로 가는 걸음도 그 표시를 읽는다
+    await until(() => loopOf(r)?.phase === "to_deposit");
+    expect(map?.unitInfo(1)?.motion.speed).toBe(WALK_SPEED * OPERATOR_SPEED_FACTOR);
+    // 들어가기 걸음
+    const placed = map?.placeBuilding({ x: 60, y: 60, width: 2, height: 2, rotation: 0 }, 8);
+    if (!placed?.ok || placed.buildingId === undefined) throw new Error("no building");
+    expect(await r.gather.enter(USER, { unitId: 1, buildingId: placed.buildingId })).toEqual({ ok: true });
+    expect(map?.unitInfo(1)?.motion.speed).toBe(WALK_SPEED * OPERATOR_SPEED_FACTOR);
     r.gather.stop();
   });
 });

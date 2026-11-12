@@ -21,6 +21,8 @@ export interface GatherKind {
   readonly chancePm: number;
   /** source outcrop·site·school: 기기가 그 자리에 세우는(어군은 움직이며 그리는) 소품 그림 번호(0 = 없음) */
   readonly art: number;
+  /** source outcrop: 설 몫으로 곱하는 2차맵 몫(광석 고도 몫 또는 목재 몫). 없으면 광석 고도 몫 */
+  readonly share?: "ore" | "wood" | undefined;
   /**
    * source site: 2차맵(1차맵 칸) 바이옴 ID → 묶음(16×16 배치 칸)에 설 천분율. source school: 바이옴 ID → 2차맵 하나의 어군 수.
    * 그 밖은 빈 표(기획 D-536 — 지형별 오브젝트). 아래 칸들은 없으면 0·false·빈 표(앞 판 종류·시험 모양)
@@ -76,6 +78,7 @@ export function gatherKindsFromPack(pack: ContentPack): GatherKind[] {
       arts: kind.source === "prop" ? kind.arts.map(mapPropArtCode).filter((code) => code > 0) : [],
       chancePm: kind.source === "rock" || kind.source === "outcrop" ? kind.chancePm : 0,
       art: artName ? Math.max(0, mapPropArtCode(artName)) : 0,
+      share: kind.source === "outcrop" ? (kind.share ?? "ore") : "ore",
       biomes,
       shore: kind.source === "site" ? (kind.shore ?? 0) : 0,
       coast: kind.source === "site" ? kind.coast === true : false,

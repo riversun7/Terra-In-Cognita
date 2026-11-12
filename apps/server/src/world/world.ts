@@ -551,8 +551,7 @@ export function startWorld(
       now,
       draws: await loadRecruitDraws(db),
     });
-    // 생명 수치(D-512): 보유 물건이 전투 밖 회복 물약을 쓸 때 부른다(holdings/world.ts) → 보유 물건보다 먼저 만든다.
-    // 몸 자료의 입은 장비·버프는 보유 물건을 부를 때 찾는다(아래에서 잇는다)
+    // 생명 수치(D-512): 보유 물건이 전투 밖 회복 물약을 쓸 때 부른다(holdings/world.ts) → 먼저 만든다. 입은 장비·버프는 아래에서 잇는다
     let gearOf: (unitId: number, nowMs: number) => UnitGear = noGear;
     const vitals = createWorldVitals({
       loaded: vitalsData,

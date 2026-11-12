@@ -5,8 +5,7 @@
 import { type ClientMessageOf, type TravelResultCode, encodeMessage } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
-import { OPERATOR_SPEED_FACTOR } from "../world/gateway.ts";
-import { canCommandAnyUnit } from "../world/unitControl.ts";
+import { OPERATOR_SPEED_FACTOR, type PaceMap, isOperatorMode, withPace } from "../world/operatorPace.ts";
 import type { TravelCommandResult, TravelService } from "./service.ts";
 
 export type TravelClientMessage = ClientMessageOf<"travel_start" | "travel_cancel">;
@@ -72,6 +71,8 @@ function run(service: TravelService, viewer: Viewer, message: TravelClientMessag
 export function createTravelGateway(options: {
   /** 세계가 준비되면 서비스(없으면 busy) */
   service: () => TravelService | undefined;
+  /** 띄운 2차맵(운영자 빠르기 표시를 단다 — world/operatorPace.ts). 없으면 표시하지 않는다(길의 빠르기는 그대로 정한다) */
+  maps?: (() => Iterable<PaceMap>) | undefined;
   now: () => number;
   log: { error(obj: object, message: string): void };
 }): TravelGateway {
@@ -92,8 +93,12 @@ export function createTravelGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
-        const operatorFast = link.observing?.() === true && canCommandAnyUnit(viewer.roles);
-        reply(message.id, await run(service, viewer, message, operatorFast));
+        const operatorFast = isOperatorMode(link.observing?.() === true, viewer.roles);
+        // 길의 빠르기는 길이 든다(service.ts). 표시는 다른 유닛 명령과 같은 규칙으로 단다·지운다(world/operatorPace.ts)
+        const result = await withPace(options.maps?.() ?? [], message.unitId, operatorFast, () =>
+          run(service, viewer, message, operatorFast),
+        );
+        reply(message.id, result);
       };
 
       return {

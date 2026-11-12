@@ -43,9 +43,10 @@ describe("채집 티어 확률표(TEST_GATHER_BANDS = 팩 core gather_tiers)", (
     }
   });
 
-  it("가장 낮은 구간([임시] 0~39)도 T3까지 나온다: T0 700·T1 150·T2 100·T3 50‰, T4 위는 0(사용자 답 300)", () => {
+  it("가장 낮은 구간([임시] 0~39)도 T3까지 나온다: T0 500·T1 350·T2 100·T3 50‰(기본 재료 바닥 — 석재 T1), T4 위는 0(사용자 답 300)", () => {
     for (const band of TEST_GATHER_BANDS.slice(0, 2))
-      expect(band.weightsPm).toEqual([700, 150, 100, 50, 0, 0, 0, 0, 0, 0]);
+      expect(band.weightsPm).toEqual([500, 350, 100, 50, 0, 0, 0, 0, 0, 0]);
+    expect(TEST_GATHER_BANDS[2]?.weightsPm).toEqual([500, 350, 120, 30, 0, 0, 0, 0, 0, 0]);
     // 나머지는 옛 표 %를 ‰로(160~179의 22.3% → 223, 반올림 없음)
     expect(TEST_GATHER_BANDS[8]?.weightsPm).toEqual([223, 210, 200, 170, 110, 50, 23, 10, 4, 0]);
   });
@@ -98,9 +99,9 @@ describe("레벨 보너스(N43)", () => {
 });
 
 describe("티어 뽑기 분포(시드 난수 10만 번)", () => {
-  it("새 유닛(STR 10 + VIT 10 = 20): T0 70%·T1 15%·T2 10%·T3 5% (±0.4%p), T4 위는 0", () => {
+  it("새 유닛(STR 10 + VIT 10 = 20): T0 50%·T1 35%·T2 10%·T3 5% (±0.4%p), T4 위는 0", () => {
     const counts = histogram(20, 1);
-    const expected = [70_000, 15_000, 10_000, 5_000];
+    const expected = [50_000, 35_000, 10_000, 5_000];
     expected.forEach((value, tier) => expect(Math.abs((counts[tier] ?? 0) - value)).toBeLessThan(400));
     expect(counts.slice(4).every((value) => value === 0)).toBe(true);
   });

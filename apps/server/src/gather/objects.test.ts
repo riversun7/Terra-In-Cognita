@@ -205,6 +205,26 @@ describe("노두(outcrop) 자리 — 기획 D-534 질문 1083 나", () => {
     };
     expect(placeGatherObjects(wet, [stone])).toEqual([]);
   });
+
+  it("목재 몫 노두(관목 땔감 — 기본 재료 바닥 보장)는 광석 몫이 아니라 목재 몫을 곱한다", () => {
+    const brush = {
+      ...stone,
+      id: "brushwood",
+      share: "wood" as const,
+      art: 3,
+      item: "pine_log",
+      facility: "lumber_camp",
+    };
+    // 광석 몫만 있으면 관목은 없고, 목재 몫만 있으면 관목만
+    expect(placeGatherObjects({ ...blank(), oreSharePm: 1000 }, [brush])).toEqual([]);
+    const woody = placeGatherObjects({ ...blank(), woodSharePm: 300 }, [stone, brush]);
+    expect(woody.length).toBeGreaterThan(0);
+    expect(woody.every((object) => object.kind === 1)).toBe(true);
+    // 앞 종류(돌 노두)는 목재 몫 종류를 더해도 그대로
+    const both = placeGatherObjects({ ...blank(), oreSharePm: 500, woodSharePm: 300 }, [stone, brush]);
+    const stones = placeGatherObjects({ ...blank(), oreSharePm: 500 }, [stone]);
+    expect(both.filter((object) => object.kind === 0)).toEqual(stones);
+  });
 });
 
 describe("채집 셈", () => {

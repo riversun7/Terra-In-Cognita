@@ -8,6 +8,7 @@
 // 3. 빈 길: 전역 배치 칸 좌표(면 레벨 F+8)에서 16칸 간격 + 노이즈로 ±4칸 흔든 폭 2칸 띠, 가로·세로. 길에서는 차폐가 은폐로 바뀐다
 //    (차폐 소품은 놓지 않는다). 흔드는 방향은 면 축의 3D 방향 부호로 정해 면 경계 너머에서도 같은 띠로 이어진다.
 // 4. 흩기 소품: 숲이 없는 마른 칸에 map_props의 scatter 항목을 우선순위대로. 놓일 몫 = 비중(덩이 안이면 늘림, 몫 상한이면 줄임).
+//    물 위 소품(water, 기획 D-536)은 거꾸로 물 칸에만 놓는다(엄폐 0 장식이라 판정·마른 칸 결과는 그대로다).
 // 5. 갇힌 곳 잇기: 크기 등급 1이 설 수 있는 덩이 가운데 엄폐(차폐) 때문에 본 덩이(가장자리에 닿는 덩이)와 끊긴 덩이마다
 //    차폐를 가장 적게 지나는 길을 은폐로 뚫는다. 그래서 2차맵 안 땅은 물·벼랑으로 갈린 곳을 빼고 모두 이어진다(ADR 35 생성기 시험).
 // 수치는 [임시](ADR 35 출발값, Step 5 설정값 전)다. 바꾸면 SECOND_MAP_GENERATOR_VERSION을 올린다.
@@ -357,8 +358,11 @@ function scatterChances(
   waterCell: Uint8Array,
 ): Uint16Array | null {
   const weights = terrainWeights(rule, env, input.biome);
+  // 놓을 칸: 보통은 마른 칸, 물 위 소품(rule.water, 기획 D-536)은 물 칸만
+  const skip = rule.water ? 0 : 1;
   let any = false;
-  for (let tc = 0; tc < TERRAIN_CELLS && !any; tc++) if (waterCell[tc] !== 1 && weights[tc] !== 0) any = true;
+  for (let tc = 0; tc < TERRAIN_CELLS && !any; tc++)
+    if (waterCell[tc] !== skip && weights[tc] !== 0) any = true;
   if (!any) return null;
   const out = new Uint16Array(PLACEMENT_CELLS);
   const clump =
@@ -376,7 +380,7 @@ function scatterChances(
     for (let c = 0; c < SM_TERRAIN; c++) {
       const tc = r * SM_TERRAIN + c;
       const terrainWeight = weights[tc] ?? 0;
-      if (waterCell[tc] === 1 || terrainWeight === 0) continue;
+      if (waterCell[tc] === skip || terrainWeight === 0) continue;
       // 지형 칸 하나 = 배치 칸 2×2
       for (let dy = 0; dy < 2; dy++) {
         for (let dx = 0; dx < 2; dx++) {

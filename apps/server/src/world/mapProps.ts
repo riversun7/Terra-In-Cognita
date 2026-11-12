@@ -18,6 +18,6 @@ export function mapPropInputsFromPack(pack: ContentPack): MapPropInput[] {
       curves: prop.curves,
     };
     if (prop.placement === "forest") return common;
-    return { ...common, cover: prop.cover, clump: prop.clump, maxShare: prop.maxShare };
+    return { ...common, cover: prop.cover, clump: prop.clump, maxShare: prop.maxShare, water: prop.water };
   });
 }

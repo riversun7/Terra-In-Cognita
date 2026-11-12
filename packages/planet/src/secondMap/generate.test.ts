@@ -23,13 +23,16 @@ const MAPS = {
   coast: cellKey(0, 6, 47, 1),
 } as const;
 
-/** 골든 해시(SECOND_MAP_GENERATOR_VERSION 1, 행성 생성기 출력 판 3, S2 시험 행성 F6, 시험 소품 규칙 = 팩 map_props 사본) */
+/**
+ * 골든 해시(SECOND_MAP_GENERATOR_VERSION 1, 행성 생성기 출력 판 3, S2 시험 행성 F6, 시험 소품 규칙 = 팩 map_props 사본).
+ * 2026-11-12 소품 규칙(팩 core@77 지형별 장식·물 위 소품, 기획 D-536)이 바뀌어 고쳤다 — 생성기 코드는 앞 규칙에서 같은 해시를 낸다(작업 기록)
+ */
 const GOLDEN: Record<keyof typeof MAPS, string> = {
-  desert: "a918e17e",
-  river: "fc9f4f6c",
-  lake: "a70a576b",
-  ocean: "792d2bbd",
-  coast: "561beb6c",
+  desert: "d818ec09",
+  river: "0f227059",
+  lake: "0ac58d89",
+  ocean: "e69e35a6",
+  coast: "22ddfbb0",
 };
 
 /** 면 0 칸 (i, j)의 행성 값 배열 번호(F6, n = 64) */

@@ -45,7 +45,8 @@ async function navOverlaps(page: Page): Promise<string[]> {
     const box = nav.getBoundingClientRect();
     const hits: string[] = [];
     for (const element of document.querySelectorAll(
-      ".map-hud-top > *, .map-hud-bottom > *, .map-hud-bottom button, .map-hud-bottom .map-panel, .map-city",
+      // 판 단위로 본다(스크롤 목록 안의 줄은 목록 상자 밖으로 나가도 잘려 보이지 않는다)
+      ".map-hud-top > *, .map-hud-bottom > *, .map-hud-bottom .map-panel, .map-city",
     )) {
       const rect = element.getBoundingClientRect();
       if (rect.width < 1 || rect.height < 1) continue;
@@ -600,8 +601,8 @@ test.describe("유닛 조종: 운영자 손가락(412×915)", () => {
     expect(later.filter((data) => !data.includes(`"unitId":${controlled},`))).toEqual([]);
     expect(otherId).toMatch(/^\d+$/);
 
-    // 운영자 모드를 끄면 조종하던 남의 유닛을 놓고 내 사이보그로 돌아온다
-    await toggle.tap();
+    // 운영자 모드를 끄면 조종하던 남의 유닛을 놓고 내 사이보그로 돌아온다(운영 메뉴는 땅을 누를 때 닫혔다 — 다시 연다)
+    await (await operatorToggle(page)).tap();
     await expect(screen).toHaveAttribute("data-operator", "off");
     await expect(screen).toHaveAttribute("data-selected", cyborg, { timeout: 15_000 });
     await expect(screen).toHaveAttribute("data-control", "own");

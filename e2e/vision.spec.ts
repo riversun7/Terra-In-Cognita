@@ -183,7 +183,8 @@ test.describe("2차맵 낮밤", () => {
         test.use({ ...viewport, theme });
 
         test(`2차맵 낮·박명·밤 (${size}·${theme})`, async ({ page }) => {
-          test.setTimeout(120_000);
+          // 다섯 번 다시 열고(운영 메뉴 여닫기 포함) 사진 넷 — 여러 줄기가 같이 도는 기계에서 120초를 넘겼다(2026-11-12)
+          test.setTimeout(240_000);
           await openMap(page, "");
           const screen = page.locator(".map-screen");
           for (const [name, hour] of Object.entries(DAY_NIGHT_HOURS)) {
@@ -223,7 +224,8 @@ test.describe("경계 너머 보기", () => {
     page,
     deviceErrors,
   }) => {
-    test.setTimeout(120_000);
+    // 이웃 8장 + 끌기 16번 — 여러 줄기가 같이 도는 기계에서 120초를 넘겼다(2026-11-12)
+    test.setTimeout(240_000);
     await openMap(page, "?second-map-neighbours=all&second-map-sky=off");
     const screen = page.locator(".map-screen");
     await expect(screen).toHaveAttribute("data-neighbours", "8", { timeout: 30_000 });
@@ -236,6 +238,7 @@ test.describe("경계 너머 보기", () => {
     await expect(await operatorToggle(page)).toHaveAttribute("aria-pressed", "true");
     await (await freeViewToggle(page)).click();
     await expect(screen).toHaveAttribute("data-free-view", "on");
+    await closeOperatorMenu(page);
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
 
     // 오른쪽 경계 쪽으로 끈다(손가락 아래 땅이 따라온다: 왼쪽으로 끌면 화면이 동쪽으로 간다)

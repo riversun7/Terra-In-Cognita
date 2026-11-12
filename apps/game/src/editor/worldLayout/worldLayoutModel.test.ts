@@ -153,6 +153,8 @@ describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
       targetMilli: 2400,
       shared: 0,
       population: 30,
+      orePm: 150,
+      highOrePm: 0,
     };
     expect(
       meanCover([
@@ -163,11 +165,22 @@ describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
     // 도시 표: 지금 → 계획, 반경은 칸(소수 둘째 자리), 반경이 아주 작으면 원은 반 칸
     const rows = catchmentRows(
       [{ ...city, cover: 700, shared: 3 }],
-      [{ ...city, cover: 900, radiusMilli: 2400, population: null }],
+      [{ ...city, cover: 900, radiusMilli: 2400, population: null, orePm: 620, highOrePm: 480 }],
     );
-    expect(rows.map((row) => [row.kind, row.n, row.radius, row.target, row.shared, row.population])).toEqual([
-      ["world", 1, "1.50", "2.40", 3, 30],
-      ["plan", 1, "2.40", "2.40", 0, null],
+    expect(
+      rows.map((row) => [
+        row.kind,
+        row.n,
+        row.radius,
+        row.target,
+        row.shared,
+        row.population,
+        row.ore,
+        row.highOre,
+      ]),
+    ).toEqual([
+      ["world", 1, "1.50", "2.40", 3, 30, 150, 0],
+      ["plan", 1, "2.40", "2.40", 0, null, 620, 480],
     ]);
     expect(radiusCells(2400)).toBe(2.4);
     expect(radiusCells(100)).toBe(0.5);

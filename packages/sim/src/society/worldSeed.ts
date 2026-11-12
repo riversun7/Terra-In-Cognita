@@ -51,8 +51,23 @@ export interface WorldSeedCoefficients {
    * 숲 밀도가 이 %(0~100, 화면의 "숲 N%"와 같은 셈) 이상이면 벌목장
    */
   readonly lumberMinForestPct: number;
-  /** [임시] 칸 고도(게임 m)가 이 값 이상이면 광산(산·고원) */
+  /**
+   * [임시] 칸 고도(게임 m)가 이 값 이상이면 산지: 광석 몫 1000, 높은 티어 광석이 나온다(기획 D-533, @terra/shared/catchment oreSharePm).
+   * 옛 뜻은 "광산을 짓는 문턱"이었다 — 이제 광산은 마른 땅 어디에나 선다
+   */
   readonly mineMinHeightM: number;
+  /**
+   * [임시] 광석 고도 몫(기획 D-533 — 질문 1020·1064 "석재·구리는 어디서나 조금(고도에 따른 몫)"): 0m 이하 땅의 몫(‰), 언덕 고도(m)와 그 몫(‰).
+   * 산지 고도(mineMinHeightM) 이상은 1000, 사이는 곧게 잇는다
+   */
+  readonly oreShareLowPm: number;
+  readonly oreShareHillM: number;
+  readonly oreShareHillPm: number;
+  /**
+   * [임시] 산지가 아닌 광석이 낼 수 있는 가장 높은 티어(D-507 "하위 광석(잡석·석재·구리)은 건축 재료" = T0~T2). 광산이 이보다 높은 티어를
+   * 뽑으면 배후지 광석 가운데 산지 몫만큼만 그 티어로 나오고 나머지는 이 티어로 내려간다
+   */
+  readonly oreLowTierMax: number;
   /** [임시] 기온(°C)이 이 값 이상이고 강수(mm)가 아래 값 이상이면 농장(농사지을 땅) */
   readonly farmMinTempC: number;
   readonly farmMinRainMm: number;
@@ -180,6 +195,11 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   // 시작 도시 판의 숲 표시 문턱(숲 밀도 13/255 ≈ 5%)과 같다: 판에 숲이 보이면 벌목장
   lumberMinForestPct: 5,
   mineMinHeightM: 500,
+  // 광석 고도 몫: 해수면 15%, 언덕(200m) 40%, 산지(500m) 100% — 낮은 땅 도시도 석재·구리를 조금 캔다. 산지가 아니면 구리(T2)까지
+  oreShareLowPm: 150,
+  oreShareHillM: 200,
+  oreShareHillPm: 400,
+  oreLowTierMax: 2,
   farmMinTempC: 5,
   farmMinRainMm: 250,
   // 국가 자리: 지금 시험 행성(반지름 약 531km)에서 국가 넷이 수십~백 km 떨어지게, 사막·추운 땅을 빼고(기온 8~32°C·강수 300mm 이상)

@@ -121,6 +121,12 @@ export interface GatherRoll {
    * 없으면 늘 성공(난수를 더 쓰지 않는다 — 다른 시설의 결과는 그대로)
    */
   readonly successPm?: number | undefined;
+  /**
+   * 티어 막기(광석 고도 몫 — 기획 D-533 "높은 티어 광석은 산지", simulator/catchmentRun.ts oreTierCap). 추첨으로 maxTier 위가 나오면
+   * keepAbovePm(‰)만큼만 그대로 두고 나머지는 maxTier로 내린다(그때만 난수를 하나 더 쓴다. 0이면 난수 없이 늘 내린다). 선택 방식은 보지 않는다.
+   * 없으면 막지 않는다(다른 시설의 결과는 그대로)
+   */
+  readonly tierCap?: { readonly maxTier: number; readonly keepAbovePm: number } | undefined;
 }
 
 /**
@@ -142,10 +148,15 @@ export function rollGatherOutputs(
       empty += 1;
       continue;
     }
-    const tier =
+    let tier =
       roll.selectTier === undefined
         ? rollGatherTier(roll.bands, roll.stat, rng)
         : Math.max(0, Math.min(GATHER_TIERS - 1, roll.selectTier));
+    const cap = roll.selectTier === undefined ? roll.tierCap : undefined;
+    if (cap && tier > cap.maxTier) {
+      const keep = cap.keepAbovePm > 0 && rng.nextInt(GATHER_WEIGHT_TOTAL) < cap.keepAbovePm;
+      if (!keep) tier = Math.max(0, cap.maxTier);
+    }
     tiers[tier] = (tiers[tier] ?? 0) + 1;
     const asset = pickGatherItem(roll.ladder, tier, rng);
     if (asset === undefined || each === 0n) {

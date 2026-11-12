@@ -269,28 +269,32 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "storehouse:1",
       "lodging:3",
       "farm:1",
+      "mine:1",
       "herb_field:1",
       "ranch:2",
       "fishing_spot:1",
     ]);
   });
 
-  it("채집 시설은 둘레 땅을 따른다(503 다): 숲 → 벌목장, 높은 땅 → 광산, 따뜻하고 비 오는 땅 → 농장, 아무것도 아니면 농장", () => {
-    // 시험 2차맵 줄(초지·숲 밀도 15·고도 75m·15°C·강수 261mm)과 같은 값
+  it("채집 시설은 둘레 땅을 따른다(503 다): 숲 → 벌목장, 마른 땅 → 광산(D-533 고도 몫), 따뜻하고 비 오는 땅 → 농장, 농장·벌목장이 아니면 농장", () => {
+    // 시험 2차맵 줄(초지·숲 밀도 15·고도 75m·15°C·강수 261mm)과 같은 값. 낮은 땅도 광석 몫이 있어 광산이 선다(기획 D-533)
     const grass: SeedLand = { elevationM: 75, temperatureC: 15, precipitationMm: 261, forest: 15 };
-    expect(landGather(grass, START_WORLD_SEED)).toEqual({ farm: true, lumber: true, mine: false });
+    expect(landGather(grass, START_WORLD_SEED)).toEqual({ farm: true, lumber: true, mine: true });
+    // 바다·호수에 잠긴 칸은 광석 몫이 없다
+    expect(landGather({ ...grass, water: 1 }, START_WORLD_SEED).mine).toBe(false);
     // 화면 숲 표시 문턱(밀도 13 ≈ 5%)과 같다
     expect(landGather({ ...grass, forest: 12 }, START_WORLD_SEED).lumber).toBe(false);
     expect(landGather({ ...grass, forest: 13 }, START_WORLD_SEED).lumber).toBe(true);
+    // 추운 산지: 광산만 맞지만 식량 사슬을 위해 농장도(광산만 있는 도시는 굶는다)
     expect(
       landGather({ elevationM: 900, temperatureC: -5, precipitationMm: 100, forest: 0 }, START_WORLD_SEED),
-    ).toEqual({ farm: false, lumber: false, mine: true });
+    ).toEqual({ farm: true, lumber: false, mine: true });
     expect(
       landGather({ elevationM: 10, temperatureC: 30, precipitationMm: 50, forest: 0 }, START_WORLD_SEED),
     ).toEqual({
       farm: true,
       lumber: false,
-      mine: false,
+      mine: true,
     });
     const plan = seedPlan(START_WORLD_SEED, grass);
     expect(plan.filter((item) => item.count > 0).map((item) => item.facility)).toEqual([
@@ -299,6 +303,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "lodging",
       "farm",
       "lumber_camp",
+      "mine",
     ]);
 
     const { map, facilities, service } = setup();
@@ -313,7 +318,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       landOf: (mapKey) => (mapKey === 9 ? grass : undefined),
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 7, missing: 0 });
+    expect(result).toEqual({ placed: 8, missing: 0 });
     expect([...facilities.values()].map((record) => record.facilityId).toSorted()).toEqual([
       "farm",
       "government_hall",
@@ -321,6 +326,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "lodging",
       "lodging",
       "lumber_camp",
+      "mine",
       "storehouse",
     ]);
   });

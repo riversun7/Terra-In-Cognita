@@ -4,9 +4,17 @@
 // - 지금 세계 도시 반경 = 지금 크기(인구·발전도 → 도시 등급·주인 기술, @terra/shared/catchment catchmentRadiusMilli), 목표 반경 = 처음 기간에
 //   이를 크기(국가 등급 주거·기술, 수도는 더 크게 — 시작 도시 배치가 쓰는 값). 계획 도시는 목표 반경.
 // - 다툼: 도시마다 다른 도시 배후지와 겹친 칸 수(shared), 둘 이상 배후지에 든 칸 수(contested), 겹친 쌍(거리 < 두 반경 합).
+// - 광석 고도 몫(2026-11-12, 기획 D-533): 도시마다 배후지 광석 몫 평균(orePm)과 산지 몫(highOrePm — 높은 티어), 몫 규칙(ore)을 함께 보인다.
 import { type CellKey, isCellKey } from "@terra/planet";
 import { territoryMetric, territoryPoint } from "@terra/planet/territory";
-import { type MaterialWeights, cellMaterials, cityPairGapMilli } from "@terra/shared/catchment";
+import {
+  type CatchmentLand,
+  type MaterialWeights,
+  cellMaterials,
+  cityPairGapMilli,
+  highOrePm,
+  oreSharePm,
+} from "@terra/shared/catchment";
 import { territoryDistanceMilli } from "@terra/shared/territory";
 import type { WorldCatchmentCity, WorldCatchmentView } from "@terra/shared/worldPlacementApi";
 import type { WorldSeedCoefficients } from "@terra/sim";
@@ -45,6 +53,24 @@ export interface CatchmentViewInput {
 const SPAN_MARGIN = 4;
 
 const radiusOf = (city: CatchmentViewCity): number => city.radiusMilli ?? city.targetMilli;
+
+/** 배후지 칸들의 광석 몫 평균(‰)과 산지 몫(‰ = Σ 몫 × 산지 ÷ Σ 몫 — 시뮬 catchmentRun landShares와 같은 셈) */
+export function oreOfCells(
+  cells: readonly number[],
+  land: (key: number) => CatchmentLand | undefined,
+  seed: WorldSeedCoefficients,
+): { orePm: number; highOrePm: number } {
+  if (cells.length === 0) return { orePm: 0, highOrePm: 0 };
+  let sum = 0;
+  let high = 0;
+  for (const cell of cells) {
+    const value = land(cell);
+    const share = oreSharePm(value, seed);
+    sum += share;
+    high += share * highOrePm(value, seed);
+  }
+  return { orePm: Math.floor(sum / cells.length), highOrePm: sum === 0 ? 0 : Math.floor(high / sum) };
+}
 
 /** 목록의 다툼: 겹친 쌍(거리 < 두 반경 합), 도시마다 겹친 칸, 둘 이상 배후지에 든 칸 */
 function contest(
@@ -104,6 +130,11 @@ export function catchmentViewOf(input: CatchmentViewInput): WorldCatchmentView {
       const spot = isCellKey(city.mapKey) ? at.get(city.mapKey) : undefined;
       if (!spot || !isCellKey(city.mapKey)) return [];
       const radiusMilli = radiusOf(city);
+      const ore = oreOfCells(
+        catchmentCellsMilli(city.mapKey, radiusMilli, input.faceLevel),
+        (key) => (isCellKey(key) ? landOf(key) : undefined),
+        input.seed,
+      );
       return [
         {
           di: spot.di,
@@ -115,6 +146,8 @@ export function catchmentViewOf(input: CatchmentViewInput): WorldCatchmentView {
           targetMilli: city.targetMilli,
           shared: sharedOf[index] ?? 0,
           population: city.population ?? null,
+          orePm: ore.orePm,
+          highOrePm: ore.highOrePm,
         },
       ];
     });
@@ -126,6 +159,13 @@ export function catchmentViewOf(input: CatchmentViewInput): WorldCatchmentView {
     foreignGapCells: cityPairGapMilli(input.provinceMilli, input.provinceMilli, false, rules) / 1000,
     span,
     cells: cells.length === side * side ? cells : [],
+    ore: {
+      lowPm: input.seed.oreShareLowPm,
+      hillM: input.seed.oreShareHillM,
+      hillPm: input.seed.oreShareHillPm,
+      mountainM: input.seed.mineMinHeightM,
+      lowTierMax: input.seed.oreLowTierMax,
+    },
     world: place(input.world, worldContest.sharedOf),
     plan: place(input.plan, planContest.sharedOf),
     overlapWorld: worldContest.pairs,

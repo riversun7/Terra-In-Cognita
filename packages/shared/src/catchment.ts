@@ -3,6 +3,7 @@
 // 도시간의 자원경쟁으로 서로 발전하지 못한다. … 6가지 원자재의 획득방식 구현이 중요하다."
 // - 1차맵 칸(= 2차맵 하나)의 행성 값으로 그 칸에 여섯 원자재가 있는지 본다(있음/없음 비트). 문턱은 NPC 시작 도시 채집 시설 고르기와 같은 설정 칸
 //   (npc_seed_lumber_forest_pct·npc_seed_mine_height_m·npc_seed_farm_temp_c·npc_seed_farm_rain_mm — 새 수치를 만들지 않는다).
+//   바뀜 (2026-11-12, 기획 D-533): 광석은 있음/없음 대신 고도 몫(oreSharePm), 자리 점수는 몫으로 센다(cellSharesPm·shareCoveragePm, 질문 1027 다).
 // - 도시 배후지 = 도시 2차맵에서 반경 R(1차맵 칸, 설정 칸 city_catchment_radius_cells) 안의 칸들. 배후지 덮임(‰) = 원자재마다 "배후지 칸 가운데
 //   그 원자재가 있는 칸 몫"을 그 도시가 쓰는 시설 수로 가중 평균한 값이다. 세계 배치(서버 world/citySites.ts)와 화면(/dev/world-layout 덮개)이
 //   같은 함수를 쓴다.
@@ -62,7 +63,8 @@ const DEEP_WATER = 1 | 2;
 
 /**
  * 칸 하나에 있는 원자재 비트:
- * - 목재: 숲 % ≥ 벌목장 문턱(물 잠긴 칸 아님). 광석: 칸 고도 ≥ 광산 문턱. 작물: 기온·강수가 농장 문턱 이상(물 잠긴 칸 아님).
+ * - 목재: 숲 % ≥ 벌목장 문턱(물 잠긴 칸 아님). 광석: 칸 고도 ≥ 산지 고도(산지 광석 — 높은 티어가 나오는 칸. 하위 광석의 몫은 oreSharePm).
+ *   작물: 기온·강수가 농장 문턱 이상(물 잠긴 칸 아님).
  * - 약초: 숲이나 농사지을 땅(NPC 씨앗의 약초원 규칙과 같다). 축산물: 농사지을 땅(목장 규칙과 같다). 어류: 물 비트가 하나라도 있는 칸.
  */
 export function cellMaterials(land: CatchmentLand | undefined, t: CatchmentThresholds): number {
@@ -77,6 +79,111 @@ export function cellMaterials(land: CatchmentLand | undefined, t: CatchmentThres
   if (crop) bits |= MATERIAL_BIT.crop | MATERIAL_BIT.livestock;
   if (land.water !== 0) bits |= MATERIAL_BIT.fish;
   return bits;
+}
+
+// ── 광석 고도 몫(기획 D-533 — 질문 1020·1064 "석재·구리는 어디서나 조금(고도에 따른 몫), 높은 티어 광석은 산지", D-507 "하위 광석은 건축 재료") ──
+// - 낮은 땅도 광석(잡석·석재·구리 = 하위 티어)을 조금 캔다. 몫(‰) = 고도의 꺾은선: 0m 이하 = oreShareLowPm, 언덕 고도(oreShareHillM) =
+//   oreShareHillPm, 산지 고도(mineMinHeightM, 옛 광산 문턱) 이상 = 1000. 사이는 곧게 잇는다(내림). 바다·호수에 잠긴 칸은 0.
+// - 높은 티어 광석(oreLowTierMax 위 — 철부터)은 산지 칸에서만 나온다(highOrePm). 광석 비트(MATERIAL_BIT.ore)는 이제 "산지 광석"이다.
+// - 2차맵 생성기 판은 올리지 않는다(질문 1064 나): 1차맵 칸 몫만 바꾸고 2차맵 오브젝트는 그대로다.
+
+/** 광석 고도 몫 규칙(세계 씨앗 설정 칸 ore_share_* [임시] + 산지 고도 npc_seed_mine_height_m) */
+export interface OreShareRules {
+  /** 0m 이하(해수면 땅)의 광석 몫(‰) */
+  readonly oreShareLowPm: number;
+  /** 언덕 고도(m) */
+  readonly oreShareHillM: number;
+  /** 언덕 고도의 광석 몫(‰) */
+  readonly oreShareHillPm: number;
+  /** 산지 고도(m) — 이 이상이면 몫 1000이고 높은 티어 광석이 나온다(옛 NPC 광산 문턱 칸) */
+  readonly mineMinHeightM: number;
+}
+
+/** 칸 원자재 판정 규칙(문턱 + 광석 고도 몫) — 세계 씨앗 계수표가 그대로 맞는다 */
+export type CatchmentLandRules = CatchmentThresholds & OreShareRules;
+
+/** 두 점 (x0, y0)·(x1, y1)을 곧게 이은 선의 x 값(내림). x1 ≤ x0이면 y1 */
+function lerpDown(x: number, x0: number, y0: number, x1: number, y1: number): number {
+  if (x1 <= x0) return y1;
+  return y0 + Math.floor(((y1 - y0) * (x - x0)) / (x1 - x0));
+}
+
+/** 0 ~ 1000으로 자른 정수 */
+const clampPm = (value: number): number => Math.min(1000, Math.max(0, Math.trunc(value)));
+
+/** 칸의 광석 몫(‰, 0 ~ 1000): 고도 꺾은선(위 머리 주석). 칸이 없거나 바다·호수에 잠긴 칸은 0 */
+export function oreSharePm(land: CatchmentLand | undefined, rules: OreShareRules): number {
+  if (!land || (land.water & DEEP_WATER) !== 0) return 0;
+  const low = clampPm(rules.oreShareLowPm);
+  const mountainM = Math.trunc(rules.mineMinHeightM);
+  const hillM = Math.min(mountainM, Math.max(0, Math.trunc(rules.oreShareHillM)));
+  const hill = Math.max(low, clampPm(rules.oreShareHillPm));
+  const elevation = Math.trunc(land.elevationM);
+  if (elevation >= mountainM) return 1000;
+  if (elevation <= 0) return low;
+  if (elevation <= hillM) return clampPm(lerpDown(elevation, 0, low, hillM, hill));
+  return clampPm(lerpDown(elevation, hillM, hill, mountainM, 1000));
+}
+
+/** 칸 광석 가운데 높은 티어가 나오는 몫(‰): 산지 칸(광석 비트)이면 1000, 아니면 0 */
+export function highOrePm(land: CatchmentLand | undefined, rules: CatchmentThresholds): number {
+  return (cellMaterials(land, rules) & MATERIAL_BIT.ore) === 0 ? 0 : 1000;
+}
+
+/** 원자재마다 칸 몫(‰) */
+export type MaterialShares = Readonly<Record<CatchmentMaterial, number>>;
+
+/**
+ * 칸 하나의 원자재 몫(‰):
+ * - supply(채집 다툼의 칸 재고 상한): 광석 = 고도 몫, 나머지 = 비트(있으면 1000).
+ * - site(시작 도시 자리 점수 — 질문 1027 다 "있음/없음 대신 몫"): supply에 더해 목재 = 숲 밀도 그대로(0~255 → ‰), 약초 = max(목재 몫, 작물 비트).
+ */
+export function cellSharesPm(
+  land: CatchmentLand | undefined,
+  rules: CatchmentLandRules,
+  mode: "supply" | "site",
+): MaterialShares {
+  const bits = cellMaterials(land, rules);
+  const bit = (material: CatchmentMaterial) => ((bits & MATERIAL_BIT[material]) === 0 ? 0 : 1000);
+  const drowned = !land || (land.water & DEEP_WATER) !== 0;
+  const wood =
+    mode === "site"
+      ? drowned
+        ? 0
+        : Math.min(1000, Math.floor((Math.max(0, Math.trunc(land.forest)) * 1000) / 255))
+      : bit("wood");
+  return {
+    ore: oreSharePm(land, rules),
+    wood,
+    herb: mode === "site" ? Math.max(wood, bit("crop")) : bit("herb"),
+    crop: bit("crop"),
+    livestock: bit("livestock"),
+    fish: bit("fish"),
+  };
+}
+
+/** 칸 몫 목록 → 원자재마다 몫 합(‰ × 칸) */
+export function sumShares(list: readonly MaterialShares[]): MaterialShares {
+  const out = { ore: 0, wood: 0, herb: 0, crop: 0, livestock: 0, fish: 0 };
+  for (const shares of list) for (const material of CATCHMENT_MATERIALS) out[material] += shares[material];
+  return out;
+}
+
+/**
+ * 몫으로 센 배후지 덮임(0 ~ 1000‰): 원자재마다 (몫 합 ÷ 배후지 칸 수)를 가중치로 평균한다(내림). 비트 셈(coveragePm)과 같은 꼴이다 —
+ * 몫이 모두 0·1000이면 같은 값이다
+ */
+export function shareCoveragePm(sums: MaterialShares, cells: number, weights: MaterialWeights): number {
+  if (cells <= 0) return 0;
+  let sum = 0;
+  let weightSum = 0;
+  for (const material of CATCHMENT_MATERIALS) {
+    const weight = Math.max(0, Math.trunc(weights[material] ?? 0));
+    if (weight === 0) continue;
+    weightSum += weight;
+    sum += weight * Math.min(1000, Math.floor(Math.max(0, sums[material]) / cells));
+  }
+  return weightSum === 0 ? 0 : Math.floor(sum / weightSum);
 }
 
 /** 원자재마다 칸 수 */
@@ -337,7 +444,8 @@ const emptyMaterials = (fill: number): Record<CatchmentMaterial, number> => ({
 });
 
 /**
- * 하루 채집 다툼(재고를 바꾼다): 원자재마다 도시는 캐려는 양을 제 배후지 칸 가운데 그 원자재가 있는 칸에 고르게 나눠 캔다(칸마다 ⌈양 ÷ 칸 수⌉).
+ * 하루 채집 다툼(재고를 바꾼다): 원자재마다 도시는 캐려는 양을 제 배후지 칸 가운데 그 원자재가 있는 칸에 재고 상한 비례로 나눠 캔다
+ * (칸마다 ⌈양 × 칸 상한 ÷ 상한 합⌉ — 상한이 같으면 ⌈양 ÷ 칸 수⌉).
  * 한 칸을 여러 도시가 캐면 그 칸 재고 안에서 캐려는 양 비율로 나눈다(내림). 캔 뒤 칸마다 다시 자란다. 차례는 원자재 → 칸 키 → 도시 ID라
  * 같은 입력이면 같은 결과다. capacityPm(칸, 원자재) = 그 칸의 원자재 몫(0이면 없음)
  */
@@ -373,10 +481,11 @@ export function stepCatchmentSupply(
       if (demand === 0) continue;
       const own = [...new Set(city.cells)].filter((cell) => capOf(cell, index) > 0);
       if (own.length === 0) continue;
-      const per = Math.ceil(demand / own.length);
+      // 칸 재고 상한에 비례해 나눠 캔다(광석 고도 몫 — 산지 칸에서 더, 낮은 땅에서 덜). 상한이 모두 같으면 ⌈양 ÷ 칸 수⌉(옛 셈과 같다)
+      const capSum = own.reduce((sum, cell) => sum + capOf(cell, index), 0);
       for (const cell of own) {
         const list = wants.get(cell) ?? [];
-        list.push({ city: city.id, want: per });
+        list.push({ city: city.id, want: Math.ceil((demand * capOf(cell, index)) / capSum) });
         wants.set(cell, list);
       }
     }

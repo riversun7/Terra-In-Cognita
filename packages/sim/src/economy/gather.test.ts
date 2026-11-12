@@ -291,3 +291,52 @@ describe("성공 확률(낚시터, 옛 fishing_config 0.30·0.80·0.50·합 200)
     expect(rollGatherOutputs(base, createRng(3)).outputs).toEqual([{ asset: "item:loach", qty: 50n }]);
   });
 });
+
+/** 높은 스탯 광석 4,000번(티어 막기 시험) */
+const roll = (tierCap?: { maxTier: number; keepAbovePm: number }) =>
+  rollGatherOutputs(
+    {
+      ladder: ORE_LADDER,
+      bands: TEST_GATHER_BANDS,
+      stat: 220,
+      lots: 4000,
+      lotSize: new Map(),
+      ...(tierCap ? { tierCap } : {}),
+    },
+    createRng(7),
+  );
+/** 그 티어 위로 나온 수 */
+const above = (landed: readonly number[], maxTier: number) =>
+  landed.slice(maxTier + 1).reduce((sum, count) => sum + count, 0);
+
+describe("광석 티어 막기(기획 D-533 — 높은 티어 광석은 산지)", () => {
+  it("산지 몫 0이면 T2 위가 모두 T2(구리)로 내려가고, 1000에 가까울수록 그대로 나온다", () => {
+    const free = roll();
+    expect(above(free.landed, 2)).toBeGreaterThan(1000);
+    const low = roll({ maxTier: 2, keepAbovePm: 0 });
+    expect(above(low.landed, 2)).toBe(0);
+    // T0~T1은 막지 않는다(같은 난수로 같은 티어)
+    expect(low.landed.slice(0, 2)).toEqual(free.landed.slice(0, 2));
+    expect(low.landed[2]).toBe((free.landed[2] ?? 0) + above(free.landed, 2));
+    const half = roll({ maxTier: 2, keepAbovePm: 500 });
+    const kept = above(half.landed, 2);
+    expect(kept).toBeGreaterThan(above(free.landed, 2) * 0.4);
+    expect(kept).toBeLessThan(above(free.landed, 2) * 0.6);
+  });
+
+  it("선택 방식(농장)은 막지 않는다", () => {
+    const out = rollGatherOutputs(
+      {
+        ladder: ORE_LADDER,
+        bands: TEST_GATHER_BANDS,
+        stat: 0,
+        lots: 3,
+        lotSize: new Map(),
+        selectTier: 5,
+        tierCap: { maxTier: 2, keepAbovePm: 0 },
+      },
+      createRng(1),
+    );
+    expect(out.landed[5]).toBe(3);
+  });
+});

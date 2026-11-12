@@ -214,6 +214,19 @@ export interface WorldCatchmentCity {
   readonly shared: number;
   /** 사는 휴먼 수(지금 세계). 계획 도시는 null */
   readonly population: number | null;
+  /** 배후지 광석 몫 평균(‰ — 고도 몫, 기획 D-533). 1000이면 모두 산지 */
+  readonly orePm: number;
+  /** 배후지 광석 가운데 산지 몫(‰ — 높은 티어 광석이 나오는 몫, 광석이 없으면 0) */
+  readonly highOrePm: number;
+}
+
+/** 광석 고도 몫 규칙(설정 칸 ore_share_*·npc_seed_mine_height_m·ore_low_tier_max — 기획 D-533) */
+export interface WorldOreShareView {
+  readonly lowPm: number;
+  readonly hillM: number;
+  readonly hillPm: number;
+  readonly mountainM: number;
+  readonly lowTierMax: number;
 }
 
 /** 세계 배치 화면 배후지 덮개(tRPC worldLayout.catchment — 고른 국가 수도 둘레) */
@@ -227,8 +240,12 @@ export interface WorldCatchmentView {
   readonly foreignGapCells: number;
   /** 격자 반 폭(칸): 격자 = (2 × span + 1)², 가운데 = 고른 국가 수도(지금 세계, 없으면 빈 세계 계획) */
   readonly span: number;
-  /** 칸마다 여섯 원자재 비트(@terra/shared/catchment MATERIAL_BIT), 줄 차례(dj → di). 칸이 없으면(꼭짓점 너머) −1 */
+  /**
+   * 칸마다 여섯 원자재 비트(@terra/shared/catchment MATERIAL_BIT — 광석 비트 = 산지 광석), 줄 차례(dj → di). 칸이 없으면(꼭짓점 너머) −1
+   */
   readonly cells: readonly number[];
+  /** 광석 고도 몫 규칙(칸마다 몫은 고도로 정해진다 — 산지 밖도 하위 광석을 조금) */
+  readonly ore: WorldOreShareView;
   /** 지금 세계 도시(격자 안) */
   readonly world: readonly WorldCatchmentCity[];
   /** 빈 세계 등급 배치 계획(세계 새로 시작 뒤 설 자리, 격자 안) */

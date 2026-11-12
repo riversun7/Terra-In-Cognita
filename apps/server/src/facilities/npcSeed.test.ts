@@ -326,7 +326,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "herb_field:1",
       "fishing_spot:1",
     ]);
-    // 따뜻한 풀밭: 농장 + 약초원 + 목장
+    // 따뜻한 풀밭: 농장 + 벌목장(목재 바닥 — 사용자 결정 2026-11-12 기본 재료 바닥 보장) + 약초원 + 목장
     const warm = { elevationM: 50, temperatureC: 18, precipitationMm: 900, forest: 0 };
     expect(
       seedPlan(six, warm)
@@ -337,6 +337,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "storehouse:1",
       "lodging:4",
       "farm:1",
+      "lumber_camp:1",
       "mine:1",
       "herb_field:1",
       "ranch:2",
@@ -350,15 +351,21 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     expect(landGather(grass, START_WORLD_SEED)).toEqual({ farm: true, lumber: true, mine: true });
     // 바다·호수에 잠긴 칸은 광석 몫이 없다
     expect(landGather({ ...grass, water: 1 }, START_WORLD_SEED).mine).toBe(false);
-    // 화면 숲 표시 문턱(밀도 13 ≈ 5%)과 같다
-    expect(landGather({ ...grass, forest: 12 }, START_WORLD_SEED).lumber).toBe(false);
-    expect(landGather({ ...grass, forest: 13 }, START_WORLD_SEED).lumber).toBe(true);
-    // 추운 산지: 광산만 맞지만 식량 사슬을 위해 농장도(광산만 있는 도시는 굶는다)
+    // 목재 바닥(사용자 결정 2026-11-12 기본 재료 바닥 보장): 숲이 없는 마른 땅도 목재 몫 300‰ ≥ 문턱 5% → 벌목장. 바닥 0이면 숲 밀도 몫 ×
+    // 그 밖 배율(300‰)이 문턱 이상이어야 한다
+    expect(landGather({ ...grass, forest: 0 }, START_WORLD_SEED).lumber).toBe(true);
+    const noFloor = { ...START_WORLD_SEED, woodBaselinePm: 0 };
+    expect(landGather({ ...grass, forest: 0 }, noFloor).lumber).toBe(false);
+    expect(landGather({ ...grass, forest: 255 }, noFloor).lumber).toBe(true);
+    // 추운 산지: 광산·벌목장(목재 바닥), 식량 사슬을 위해 농장도(광산만 있는 도시는 굶는다)
     expect(
-      landGather({ elevationM: 900, temperatureC: -5, precipitationMm: 100, forest: 0 }, START_WORLD_SEED),
+      landGather({ elevationM: 900, temperatureC: -5, precipitationMm: 100, forest: 0 }, noFloor),
     ).toEqual({ farm: true, lumber: false, mine: true });
     expect(
-      landGather({ elevationM: 10, temperatureC: 30, precipitationMm: 50, forest: 0 }, NO_WALLS),
+      landGather(
+        { elevationM: 10, temperatureC: 30, precipitationMm: 50, forest: 0 },
+        { ...NO_WALLS, woodBaselinePm: 0 },
+      ),
     ).toEqual({
       farm: true,
       lumber: false,

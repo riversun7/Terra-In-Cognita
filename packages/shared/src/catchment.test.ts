@@ -31,6 +31,7 @@ import {
 const RES = {
   woodForestPm: 1000,
   woodOtherPm: 300,
+  woodBaselinePm: 300,
   herbWetlandPm: 1000,
   herbAlpinePm: 800,
   herbForestPm: 450,
@@ -59,8 +60,9 @@ const LAND = {
 describe("칸 원자재", () => {
   it("숲 → 목재·약초, 농사지을 땅 → 작물, 목초지 → 축산물, 높은 땅 → 광석, 물 비트 → 어류, 사막 → 전략 자원 자리", () => {
     expect(cellMaterials(undefined, T)).toBe(0);
-    // 초지: 작물(기후) + 축산물(목초지 무리). 약초는 그 밖의 땅 100‰ < 문턱 150‰
-    expect(cellMaterials(LAND, T)).toBe(MATERIAL_BIT.crop | MATERIAL_BIT.livestock);
+    // 초지: 작물(기후) + 축산물(목초지 무리) + 목재(목재 바닥 300‰ ≥ 벌목장 문턱 5%). 약초는 그 밖의 땅 100‰ < 문턱 150‰
+    expect(cellMaterials(LAND, T)).toBe(MATERIAL_BIT.crop | MATERIAL_BIT.livestock | MATERIAL_BIT.wood);
+    expect(cellMaterials(LAND, { ...T, woodBaselinePm: 0 })).toBe(MATERIAL_BIT.crop | MATERIAL_BIT.livestock);
     expect(cellMaterials({ ...LAND, temperatureC: 0, forest: 13, biomeId: "temperate_forest" }, T)).toBe(
       MATERIAL_BIT.wood | MATERIAL_BIT.herb,
     );
@@ -71,9 +73,9 @@ describe("칸 원자재", () => {
     expect(cellMaterials({ ...LAND, water: 4 }, T) & MATERIAL_BIT.fish).toBe(MATERIAL_BIT.fish);
     expect(cellMaterials({ ...LAND, water: 4 }, T) & MATERIAL_BIT.crop).toBe(MATERIAL_BIT.crop);
     expect(cellMaterials({ ...LAND, water: 1, forest: 200, elevationM: 900 }, T)).toBe(MATERIAL_BIT.fish);
-    // 사막: 여섯 원자재 밖의 전략 자원 자리 비트만(기획 D-536)
+    // 사막: 여섯 원자재 밖의 전략 자원 자리 비트(기획 D-536) + 목재 바닥
     expect(cellMaterials({ ...LAND, temperatureC: 30, precipitationMm: 100, biomeId: "desert" }, T)).toBe(
-      STRATEGIC_SLOT_BIT,
+      STRATEGIC_SLOT_BIT | MATERIAL_BIT.wood,
     );
   });
 
@@ -149,12 +151,13 @@ describe("광석 고도 몫(기획 D-533 — 석재·구리는 어디서나 조�
 
   it("칸 몫: 광석 = 고도 몫, 목재·약초·축산물 = 바이옴 몫(기획 D-536), 작물·어류 = 비트. site와 supply는 같다", () => {
     const forest = { ...LAND, forest: 51, temperatureC: 0, biomeId: "taiga" };
-    const shares = { ore: 275, wood: 200, herb: 450, crop: 0, livestock: 0, fish: 0 };
+    // 목재 = max(숲 밀도 몫 200, 목재 바닥 300)
+    const shares = { ore: 275, wood: 300, herb: 450, crop: 0, livestock: 0, fish: 0 };
     expect(cellSharesPm(forest, ORE, "supply")).toEqual(shares);
     expect(cellSharesPm(forest, ORE, "site")).toEqual(shares);
     expect(cellSharesPm(LAND, ORE, "site")).toEqual({
       ore: 275,
-      wood: 0,
+      wood: 300,
       herb: 100,
       crop: 1000,
       livestock: 1000,
@@ -230,6 +233,10 @@ describe("목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536)", (
     expect(woodSharePm({ ...full, biomeId: "temperate_forest" }, RES)).toBe(1000);
     expect(woodSharePm({ ...full, biomeId: "savanna" }, RES)).toBe(300);
     expect(woodSharePm({ ...full, biomeId: "ice_sheet" }, RES)).toBe(0);
+    // 목재 바닥(기본 재료 바닥 보장): 숲이 없는 마른 땅도 300‰, 바닥 0이면 숲 밀도 몫 × 배율만
+    expect(woodSharePm({ ...LAND, biomeId: "desert" }, RES)).toBe(300);
+    expect(woodSharePm({ ...LAND, biomeId: "desert" }, { ...RES, woodBaselinePm: 0 })).toBe(0);
+    expect(woodSharePm({ ...LAND, forest: 128, biomeId: "taiga" }, RES)).toBe(501);
     expect(woodSharePm({ ...full, biomeId: "taiga", water: 2 }, RES)).toBe(0);
     expect(herbSharePm({ ...LAND, biomeId: "wetland" }, RES)).toBe(1000);
     expect(herbSharePm({ ...LAND, biomeId: "alpine" }, RES)).toBe(800);
@@ -333,6 +340,6 @@ describe("목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536)", (
     expect(STRATEGIC_SLOT_BIT & Object.values(MATERIAL_BIT).reduce((sum, bit) => sum | bit, 0)).toBe(0);
     expect(
       cellSharesPm(desert, { ...T, oreShareLowPm: 150, oreShareHillM: 200, oreShareHillPm: 400 }, "supply"),
-    ).toEqual({ ore: 275, wood: 0, herb: 100, crop: 1000, livestock: 0, fish: 0 });
+    ).toEqual({ ore: 275, wood: 300, herb: 100, crop: 1000, livestock: 0, fish: 0 });
   });
 });

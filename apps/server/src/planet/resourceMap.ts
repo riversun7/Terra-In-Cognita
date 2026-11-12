@@ -73,6 +73,7 @@ export function resourceRulesKey(rules: CatchmentLandRules): string {
     // 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536)
     rules.woodForestPm,
     rules.woodOtherPm,
+    rules.woodBaselinePm,
     rules.herbWetlandPm,
     rules.herbAlpinePm,
     rules.herbForestPm,

@@ -90,12 +90,12 @@ describe("배후지 칸", () => {
       LEVEL,
     );
     const needs = { crop: 1, wood: 1, ore: 1 };
-    // 풀밭(100m, 숲 60): 작물 1000 + 목재 ⌊60 × 1000 ÷ 255⌋ = 235 × 초지 배율 300‰ = 70(기획 D-536 — 칸 자리가 없어 노이즈 배율 1000)
-    // + 광석 150 + (400 − 150) × 100 ÷ 200 = 275 → ⌊1345 ÷ 3⌋
-    expect(cache.cover(cellKey(0, LEVEL, 20, 20), needs)).toBe(448);
-    // 언덕(700m ≥ 산지 500m): 광석 1000 → ⌊2070 ÷ 3⌋
-    expect(cache.cover(cellKey(0, LEVEL, 50, 20), needs)).toBe(690);
-    expect(cache.cover(cellKey(0, LEVEL, 40, 20), needs)).toBeGreaterThan(448);
+    // 풀밭(100m, 숲 60): 작물 1000 + 목재 max(⌊60 × 1000 ÷ 255⌋ = 235 × 초지 배율 300‰ = 70, 목재 바닥 300)(기획 D-536·기본 재료 바닥 —
+    // 칸 자리가 없어 노이즈 배율 1000) + 광석 350 + (550 − 350) × 100 ÷ 200 = 450 → ⌊1750 ÷ 3⌋
+    expect(cache.cover(cellKey(0, LEVEL, 20, 20), needs)).toBe(583);
+    // 언덕(700m ≥ 산지 500m): 광석 1000 → ⌊2300 ÷ 3⌋
+    expect(cache.cover(cellKey(0, LEVEL, 50, 20), needs)).toBe(766);
+    expect(cache.cover(cellKey(0, LEVEL, 40, 20), needs)).toBeGreaterThan(583);
   });
 });
 

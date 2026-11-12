@@ -14,7 +14,7 @@ import type { GatherKind } from "./kinds.ts";
 import { type GatherService, createGatherService } from "./service.ts";
 import { type ObjectStore, createObjectStore, loadObjectStates } from "./state.ts";
 import { type StationRuntime, createStationRuntime } from "./station.ts";
-import { cellMaterials, oreSharePm } from "@terra/shared/catchment";
+import { cellMaterials, oreSharePm, woodSharePm } from "@terra/shared/catchment";
 
 /** 조회가 쓰는 채집 세계 */
 export interface GatherWorld {
@@ -107,6 +107,11 @@ export function startWorldGather(
         oreSharePm: (mapKey) => {
           const land = world.terrain?.cellValues?.(mapKey);
           return land ? oreSharePm(land, rules().worldSeed) : undefined;
+        },
+        // 관목·나뭇가지 더미(사용자 결정 2026-11-12 기본 재료 바닥 보장): 그 2차맵 칸 목재 몫(숲·목재 바닥, NPC 배후지와 같은 설정 칸)
+        woodSharePm: (mapKey) => {
+          const land = world.terrain?.cellValues?.(mapKey);
+          return land ? woodSharePm(land, rules().worldSeed) : undefined;
         },
         // 채집 중 부상(D-521, docs/adr/2026-11-08-injury.md 5절): 직무 정산과 같은 판정·시드
         workInjury: createGatherInjury(),

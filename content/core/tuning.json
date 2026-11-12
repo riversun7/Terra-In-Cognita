@@ -7926,8 +7926,8 @@
       "id": "npc_seed_lumber_forest_pct",
       "code": "",
       "name": {
-        "ko": "NPC 시작 도시 벌목장: 둘레 숲 % 문턱",
-        "en": "NPC start city lumber camp: surrounding forest % from"
+        "ko": "NPC 시작 도시 벌목장: 둘레 목재 몫 % 문턱",
+        "en": "NPC start city lumber camp: surrounding wood share % from"
       },
       "value": 5,
       "structural": false,
@@ -7935,8 +7935,8 @@
       "min": 0,
       "max": 100,
       "desc": {
-        "ko": "둘레 숲이 이 % 이상이어야 벌목장을 짓는다.",
-        "en": "Build a lumber camp only with at least this % forest around."
+        "ko": "그 칸 목재 몫(숲 밀도 몫·목재 바닥, %)이 이 이상이면 벌목장을 짓고 목재 있음으로 센다.",
+        "en": "Build a lumber camp (and count wood as present) when the cell's wood share (forest density share or wood floor, %) is at least this."
       },
       "source": "ADR 2026-11-07-play-flow \"WP1 세계 씨앗\" · D-6041"
     },
@@ -9650,16 +9650,16 @@
         "ko": "광석 몫: 해수면(0m 이하) 땅(‰)",
         "en": "Ore share: sea-level land (‰)"
       },
-      "value": 150,
+      "value": 350,
       "structural": false,
       "unit": "pm",
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "낮은 땅도 석재·구리(하위 광석)를 이 몫만큼 캔다. 언덕·산지로 갈수록 몫이 커진다.",
-        "en": "Low land still yields stone and copper (low-tier ore) at this share. The share grows toward hills and mountains."
+        "ko": "낮은 땅도 석재·구리(하위 광석)를 이 몫만큼 캔다(건축 기본 재료 바닥). 언덕·산지로 갈수록 몫이 커진다.",
+        "en": "Low land still yields stone and copper (low-tier ore) at this share (floor for basic building materials). The share grows toward hills and mountains."
       },
-      "source": "기획 D-533 (질문 1020·1064) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 광석 몫) [임시]"
+      "source": "기획 D-533 · 사용자 결정 2026-11-12 기본 재료 바닥 보장 · ADR 2026-11-11-city-catchment 바뀜 [임시]"
     },
     {
       "id": "ore_share_hill_m",
@@ -9685,7 +9685,7 @@
         "ko": "광석 몫: 언덕 고도에서(‰)",
         "en": "Ore share: at hill height (‰)"
       },
-      "value": 400,
+      "value": 550,
       "structural": false,
       "unit": "pm",
       "min": 0,
@@ -9694,7 +9694,7 @@
         "ko": "언덕 고도의 광석 몫. 산지 고도(npc_seed_mine_height_m) 이상은 1000.",
         "en": "Ore share at hill height. At or above mountain height (npc_seed_mine_height_m) it is 1000."
       },
-      "source": "기획 D-533 (질문 1020·1064) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 광석 몫) [임시]"
+      "source": "기획 D-533 · 사용자 결정 2026-11-12 기본 재료 바닥 보장 · ADR 2026-11-11-city-catchment 바뀜 [임시]"
     },
     {
       "id": "ore_low_tier_max",
@@ -9748,6 +9748,24 @@
         "en": "Wood scale on non-forest land (wetland mangroves, savanna acacias, lone trees). Water and ice sheets are 0."
       },
       "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_wood_baseline_pm",
+      "code": "",
+      "name": {
+        "ko": "목재 바닥: 숲이 없는 마른 땅(‰)",
+        "en": "Wood floor: dry land without forest (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "건축에 꼭 드는 목재가 어디서나 나오게, 물·빙상이 아닌 마른 땅은 숲이 없어도 관목·흩어진 나무로 목재 몫이 이만큼 있다(노이즈 배율 전).",
+        "en": "Wood is needed for every building, so dry land other than water and ice sheets keeps this wood share from shrubs and scattered trees (before the noise scale)."
+      },
+      "source": "사용자 결정 2026-11-12 (기본 재료 바닥 보장) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
     },
     {
       "id": "resource_herb_wetland_pm",

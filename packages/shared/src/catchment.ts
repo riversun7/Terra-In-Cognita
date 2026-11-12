@@ -69,6 +69,11 @@ export interface ResourceBiomeRules {
   /** 목재 배율(‰): 숲 무리(타이가·온대림·열대우림) / 그 밖의 땅(습지 맹그로브·사바나 아카시아·외딴 나무). 목재 몫 = 숲 밀도 몫 × 이 배율 */
   readonly woodForestPm: number;
   readonly woodOtherPm: number;
+  /**
+   * 목재 바닥(‰, 사용자 결정 2026-11-12 "건축시 목재와 석재는 필수이다" — 기본 재료 바닥 보장): 물·빙상이 아닌 마른 땅은 숲이 없어도 관목·흩어진
+   * 나무로 목재 몫이 이만큼(노이즈 배율 전) 있다. 목재 몫 = max(숲 밀도 몫 × 무리 배율, 이 값) × 노이즈 배율
+   */
+  readonly woodBaselinePm: number;
   /** 약초 배율(‰): 습지 / 고산 초지 / 숲 가장자리·빈터(숲 무리 — 목재 노이즈가 낮은 곳을 따른다) / 그 밖의 땅 */
   readonly herbWetlandPm: number;
   readonly herbAlpinePm: number;
@@ -104,7 +109,8 @@ const DEEP_WATER = 1 | 2;
 
 /**
  * 칸 하나에 있는 원자재 비트:
- * - 목재: 숲 % ≥ 벌목장 문턱(물 잠긴 칸 아님 — NPC 씨앗 벌목장 규칙 그대로). 광석: 칸 고도 ≥ 산지 고도(산지 광석 — 높은 티어가 나오는 칸.
+ * - 목재: 목재 몫(woodSharePm — 숲·목재 바닥) × 100 ≥ 벌목장 문턱 % × 1000(NPC 씨앗 벌목장). 바뀜 (2026-11-12, 기본 재료 바닥): 옛 "숲 % ≥ 문턱"에서
+ *   목재 몫으로 — 숲이 없는 마른 땅도 목재 바닥이 있어 벌목장이 선다. 광석: 칸 고도 ≥ 산지 고도(산지 광석 — 높은 티어가 나오는 칸.
  *   하위 광석의 몫은 oreSharePm). 작물: 기온·강수가 농장 문턱 이상(물 잠긴 칸 아님).
  * - 약초·축산물: 바이옴 몫(herbSharePm·livestockSharePm, 기획 D-536)이 resourceBitMinPm 이상. 어류: 물 비트가 하나라도 있는 칸.
  * - 전략 자원 자리(STRATEGIC_SLOT_BIT): 사막 무리의 마른 칸(기획 D-536 — 지금은 아무 원자재도 아니다, isStrategicSlot).
@@ -113,7 +119,7 @@ export function cellMaterials(land: CatchmentLand | undefined, t: CatchmentThres
   if (!land) return 0;
   const drowned = (land.water & DEEP_WATER) !== 0;
   let bits = 0;
-  const wood = !drowned && land.forest * 100 >= t.lumberMinForestPct * 255;
+  const wood = !drowned && woodSharePm(land, t) * 100 >= t.lumberMinForestPct * 1000;
   const crop = !drowned && land.temperatureC >= t.farmMinTempC && land.precipitationMm >= t.farmMinRainMm;
   const bitMin = Math.max(1, Math.trunc(t.resourceBitMinPm));
   if (!drowned && land.elevationM >= t.mineMinHeightM) bits |= MATERIAL_BIT.ore;
@@ -298,14 +304,20 @@ function noiseScalePm(noise: number, rules: ResourceBiomeRules): number {
 /** 칸이 물에 잠겼는지(바다·호수) */
 const drownedLand = (land: CatchmentLand): boolean => (land.water & DEEP_WATER) !== 0;
 
-/** 목재 몫(‰): 숲 밀도 몫 × 무리 배율(숲 = woodForestPm, 물·얼음 = 0, 그 밖 = woodOtherPm) × 목재 노이즈 배율 */
+/**
+ * 목재 몫(‰): max(숲 밀도 몫 × 무리 배율(숲 = woodForestPm, 그 밖 = woodOtherPm), 목재 바닥 woodBaselinePm) × 목재 노이즈 배율. 물·얼음 = 0
+ */
 export function woodSharePm(land: CatchmentLand | undefined, rules: ResourceBiomeRules): number {
   if (!land || drownedLand(land)) return 0;
   const group = resourceBiomeGroup(land.biomeId);
   if (group === "water" || group === "ice") return 0;
   const groupPm = clampPm(group === "forest" ? rules.woodForestPm : rules.woodOtherPm);
+  const base = Math.max(
+    Math.floor((forestSharePm(land.forest) * groupPm) / 1000),
+    clampPm(rules.woodBaselinePm),
+  );
   const scale = noiseScalePm(resourceNoisePm(land, rules.woodNoiseSeed, rules.resourceNoiseCells), rules);
-  return clampPm(Math.floor((Math.floor((forestSharePm(land.forest) * groupPm) / 1000) * scale) / 1000));
+  return clampPm(Math.floor((base * scale) / 1000));
 }
 
 /**

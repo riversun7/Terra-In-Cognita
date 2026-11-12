@@ -75,6 +75,8 @@ export interface WorldSeedCoefficients {
    */
   readonly woodForestPm: number;
   readonly woodOtherPm: number;
+  /** [임시] 목재 바닥(‰, 사용자 결정 2026-11-12 기본 재료 바닥 보장): 숲이 없는 마른 땅의 목재 몫(관목·흩어진 나무, 노이즈 배율 전) */
+  readonly woodBaselinePm: number;
   readonly herbWetlandPm: number;
   readonly herbAlpinePm: number;
   readonly herbForestPm: number;
@@ -239,10 +241,11 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   // 시작 도시 판의 숲 표시 문턱(숲 밀도 13/255 ≈ 5%)과 같다: 판에 숲이 보이면 벌목장
   lumberMinForestPct: 5,
   mineMinHeightM: 500,
-  // 광석 고도 몫: 해수면 15%, 언덕(200m) 40%, 산지(500m) 100% — 낮은 땅 도시도 석재·구리를 조금 캔다. 산지가 아니면 구리(T2)까지
-  oreShareLowPm: 150,
+  // 광석 고도 몫: 해수면 35%, 언덕(200m) 55%, 산지(500m) 100% — 낮은 땅 도시도 석재·구리를 캔다. 산지가 아니면 구리(T2)까지.
+  // 바뀜 (2026-11-12, 사용자 결정 "일반 땅에서도 기본 건축에 필요한 광물은 채집가능해야함" — 기본 재료 바닥 보장): 해수면 15 → 35%, 언덕 40 → 55%
+  oreShareLowPm: 350,
   oreShareHillM: 200,
-  oreShareHillPm: 400,
+  oreShareHillPm: 550,
   oreLowTierMax: 2,
   // 목재·약초·목장(D-536): 목재 = 숲 무리 100%·그 밖 30%(숲 밀도 몫에 곱함), 약초 = 습지 100%·고산 초지 80%·숲 가장자리·빈터 45%(목재 노이즈
   // 반대를 80% 따름)·그 밖 10%, 목장 = 초지·사바나·툰드라 100%·그 밖 0. 노이즈 격자 8칸(배후지 지름 약 4칸의 두 배 — 도시마다 섞임이 다르다),
@@ -250,6 +253,8 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   // S2 시험 행성에서 잰 값(apps/server/bench/resourceOverlap.ts — 숲에서 목재·약초 칸 상관 −0.85, 둘 다 500‰ 이상인 땅 칸 3%)
   woodForestPm: 1000,
   woodOtherPm: 300,
+  // 목재 바닥(사용자 결정 2026-11-12 "건축시 목재와 석재는 필수이다" — 기본 재료 바닥 보장): 마른 땅 어디나 300‰(관목·흩어진 나무)
+  woodBaselinePm: 300,
   herbWetlandPm: 1000,
   herbAlpinePm: 800,
   herbForestPm: 450,

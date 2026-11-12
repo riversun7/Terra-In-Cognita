@@ -168,10 +168,10 @@ const elevated = (elevationM: number) =>
   });
 
 describe("광석 고도 몫(기획 D-533)", () => {
-  it("평면 칸 고도 → 광석 몫(해수면 150 · 언덕 200m 400 · 산지 500m 1000)과 산지 몫", () => {
-    expect(elevated(0).capacityPm(planeCell(0, 0), "ore")).toBe(150);
-    expect(elevated(200).capacityPm(planeCell(0, 0), "ore")).toBe(400);
-    expect(elevated(350).capacityPm(planeCell(0, 0), "ore")).toBe(700);
+  it("평면 칸 고도 → 광석 몫(해수면 350 · 언덕 200m 550 · 산지 500m 1000 — 기본 재료 바닥)과 산지 몫", () => {
+    expect(elevated(0).capacityPm(planeCell(0, 0), "ore")).toBe(350);
+    expect(elevated(200).capacityPm(planeCell(0, 0), "ore")).toBe(550);
+    expect(elevated(350).capacityPm(planeCell(0, 0), "ore")).toBe(775);
     expect(elevated(600).capacityPm(planeCell(0, 0), "ore")).toBe(1000);
     expect(elevated(0).capacityPm(planeCell(0, 0), "crop")).toBe(1000);
     expect(elevated(0).highOrePm?.(planeCell(0, 0))).toBe(0);
@@ -191,6 +191,15 @@ describe("광석 고도 몫(기획 D-533)", () => {
     expect(geometry.capacityPm(planeCell(0, 0), "wood")).toBe(500);
     expect(geometry.capacityPm(planeCell(1, 0), "wood")).toBe(100);
     expect(geometry.capacityPm(planeCell(2, 0), "wood")).toBe(500);
+    // 목재 바닥(사용자 결정 2026-11-12 기본 재료 바닥 보장): 숲 51(200‰) < 바닥 300‰ → 500 × 300 ÷ 1000
+    const floored = planeGeometry({
+      at: new Map(),
+      richnessPm: { wood: 500 },
+      forestAt: (x) => (x === 0 ? 255 : 51),
+      woodBaselinePm: 300,
+    });
+    expect(floored.capacityPm(planeCell(1, 0), "wood")).toBe(150);
+    expect(floored.capacityPm(planeCell(0, 0), "wood")).toBe(500);
     expect(geometry.capacityPm(planeCell(1, 0), "ore")).toBe(1000);
     expect(landShares(geometry, [planeCell(0, 0), planeCell(1, 0)]).landPm.wood).toBe(300);
     // 시나리오: 세력 묶음 숲(catchmentForest)이 시나리오 숲(catchment.forest)보다 앞선다
@@ -212,16 +221,16 @@ describe("광석 고도 몫(기획 D-533)", () => {
   });
 
   it("땅 몫 = 칸 몫 평균, 산지 몫 = 광석 몫으로 가중한 산지 칸 몫", () => {
-    // x = 0은 산지, x = 1은 해수면: 광석 (1000 + 150) ÷ 2, 산지 몫 1000 × 1000 ÷ 1150
+    // x = 0은 산지, x = 1은 해수면: 광석 (1000 + 350) ÷ 2, 산지 몫 1000 × 1000 ÷ 1350
     const geometry = planeGeometry({
       at: new Map(),
       elevationAt: (x) => (x === 0 ? 800 : 0),
       oreRules: START_WORLD_SEED,
     });
     const land = landShares(geometry, [planeCell(0, 0), planeCell(1, 0), planeCell(1, 0)]);
-    expect(land.landPm.ore).toBe(575);
+    expect(land.landPm.ore).toBe(675);
     expect(land.landPm.wood).toBe(1000);
-    expect(land.highOrePm).toBe(869);
+    expect(land.highOrePm).toBe(740);
     expect(landShares(geometry, [])).toEqual({
       landPm: { ore: 0, wood: 0, herb: 0, crop: 0, livestock: 0, fish: 0 },
       highOrePm: 0,

@@ -79,7 +79,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       [4, 50, 2, 300],
       [5, 60, 3, 600],
     ]);
-    expect(shown?.bands[0]).toEqual({ from: 0, to: 19, weightsPm: [700, 150, 100, 50, 0, 0, 0, 0, 0, 0] });
+    expect(shown?.bands[0]).toEqual({ from: 0, to: 19, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0] });
     expect(shown?.bands.at(-1)?.to).toBeNull();
   });
 
@@ -97,7 +97,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
   });
 
   it("새 세 사다리(1차 생산 여섯 가지): 약초 = 약초원 추첨, 축산물 = 목장 선택, 어류 = 낚시터 추첨 × 성공 확률", () => {
-    // 자생초(T0, 같은 티어 셋): 새 유닛 20 → T0 700‰ ÷ 3 = 23.33%
+    // 자생초(T0, 같은 티어 셋): 새 유닛 20 → T0 500‰ ÷ 3 = 16.66%(기본 재료 바닥으로 T0 700 → 500)
     const herb = previewGather(ctx, find("wild_herb"), pack.items, DEFAULT_PREVIEW_UNIT);
     expect(herb).toMatchObject({
       facility: "herb_field",
@@ -106,7 +106,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       mode: "roll",
       sameTier: 3,
     });
-    expect(herb?.levels[0]?.chanceBp).toBe(2333);
+    expect(herb?.levels[0]?.chanceBp).toBe(1666);
     // 사슴 고기(T1): 목장 선택 — 새 유닛 해금 ⌊20 ÷ 20⌋ = T1. 목장 사다리 = 축산물 + 목축 부산물(질문 946 나, core@63)이라 T1은
     // 사슴 고기·사슴 가죽·사슴뿔 셋 → 33.33%, 생고기(T0)는 0
     const venison = previewGather(ctx, find("venison"), pack.items, DEFAULT_PREVIEW_UNIT);
@@ -126,7 +126,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(previewGather(ctx, find("raw_meat"), pack.items, DEFAULT_PREVIEW_UNIT)?.levels[0]?.chanceBp).toBe(
       0,
     );
-    // 미꾸라지(T0, 같은 티어 둘): 낚시터 — 성공 300 + ⌊500 × 20 ÷ 200⌋ = 350‰ → T0 700‰ × 0.35 = 245‰ ÷ 2 = 12.25%
+    // 미꾸라지(T0, 같은 티어 둘): 낚시터 — 성공 300 + ⌊500 × 20 ÷ 200⌋ = 350‰ → T0 500‰ × 0.35 = 175‰ ÷ 2 = 8.75%
     const loach = previewGather(ctx, find("loach"), pack.items, DEFAULT_PREVIEW_UNIT);
     expect(loach).toMatchObject({
       facility: "fishing_spot",
@@ -135,7 +135,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       mode: "roll",
       sameTier: 2,
     });
-    expect(loach?.levels[0]?.chanceBp).toBe(1225);
+    expect(loach?.levels[0]?.chanceBp).toBe(875);
   });
 
   it("진행·수확량(D-507): 철광석 = 새 유닛 속도 ×1·한 번에 2개(1 + ⌊10 × 0.10⌋)·T3 필요 진행 120 = 2시간, 광석 한 번 1,000g", () => {

@@ -58,7 +58,17 @@ describe("원자재 오브젝트 종류", () => {
       art: mapPropArtCode("outcrop_copper"),
     });
     expect(byId.get("stone_outcrop")?.surfaces).toContain(TERRAIN_SURFACE.grass);
-    expect(kinds.slice(-2).map((kind) => kind.id)).toEqual(["stone_outcrop", "copper_outcrop"]);
+    expect(kinds.slice(-3).map((kind) => kind.id)).toEqual(["stone_outcrop", "copper_outcrop", "brushwood"]);
+    // 관목 땔감(사용자 결정 2026-11-12 기본 재료 바닥 보장): 목재 몫을 곱하는 노두, 벌목장이 맡고 소나무 원목
+    expect(byId.get("brushwood")).toMatchObject({
+      source: "outcrop",
+      share: "wood",
+      item: "pine_log",
+      facility: "lumber_camp",
+      direct: true,
+      art: mapPropArtCode("log"),
+    });
+    expect(byId.get("stone_outcrop")?.share).toBe("ore");
     expect(kinds.filter((kind) => kind.source !== "outcrop").every((kind) => kind.art === 0)).toBe(true);
   });
 });

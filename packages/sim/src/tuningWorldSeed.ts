@@ -40,8 +40,8 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
   k(
     "npc_seed_lumber_forest_pct",
     "lumberMinForestPct",
-    "NPC 시작 도시 벌목장: 둘레 숲 % 문턱",
-    "NPC start city lumber camp: surrounding forest % from",
+    "NPC 시작 도시 벌목장: 둘레 목재 몫 % 문턱",
+    "NPC start city lumber camp: surrounding wood share % from",
   ),
   k(
     "npc_seed_mine_height_m",
@@ -316,6 +316,12 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
   // 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536): 49에 칸이 없어 resource_*를 앞머리로 쓴다
   k("resource_wood_forest_pm", "woodForestPm", "목재 배율: 숲 바이옴(‰)", "Wood scale: forest biomes (‰)"),
   k("resource_wood_other_pm", "woodOtherPm", "목재 배율: 그 밖의 땅(‰)", "Wood scale: other land (‰)"),
+  k(
+    "resource_wood_baseline_pm",
+    "woodBaselinePm",
+    "목재 바닥: 숲이 없는 마른 땅(‰)",
+    "Wood floor: dry land without forest (‰)",
+  ),
   k("resource_herb_wetland_pm", "herbWetlandPm", "약초 배율: 습지(‰)", "Herb scale: wetland (‰)"),
   k("resource_herb_alpine_pm", "herbAlpinePm", "약초 배율: 고산 초지(‰)", "Herb scale: alpine meadow (‰)"),
   k(

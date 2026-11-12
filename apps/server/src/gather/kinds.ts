@@ -21,6 +21,8 @@ export interface GatherKind {
   readonly chancePm: number;
   /** source outcrop: 기기가 그 자리에 세우는 소품 그림 번호(0 = 없음) */
   readonly art: number;
+  /** source outcrop: 설 몫으로 곱하는 2차맵 몫(광석 고도 몫 또는 목재 몫). 없으면 광석 고도 몫 */
+  readonly share?: "ore" | "wood" | undefined;
   /** source plot·outcrop: 지표 번호들. plot: 묶음 문턱(지형 칸 64칸 가운데)·있어야 하는 원자재(없으면 null) */
   readonly surfaces: readonly number[];
   readonly minCells: number;
@@ -51,6 +53,7 @@ export function gatherKindsFromPack(pack: ContentPack): GatherKind[] {
       arts: kind.source === "prop" ? kind.arts.map(mapPropArtCode).filter((code) => code > 0) : [],
       chancePm: kind.source === "rock" || kind.source === "outcrop" ? kind.chancePm : 0,
       art: kind.source === "outcrop" && kind.art ? Math.max(0, mapPropArtCode(kind.art)) : 0,
+      share: kind.source === "outcrop" ? (kind.share ?? "ore") : "ore",
       surfaces: kind.source === "plot" || kind.source === "outcrop" ? kind.surfaces.map(plotSurfaceCode) : [],
       minCells: kind.source === "plot" ? kind.minCells : 0,
       material: kind.source === "plot" ? (kind.material ?? null) : null,

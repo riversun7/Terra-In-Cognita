@@ -108,6 +108,8 @@ export interface GatherDeps {
    * 않는다(행성 값 없는 임시 지형)
    */
   oreSharePm?(mapKey: number): number | undefined;
+  /** 2차맵(1차맵 칸) 행성 값의 목재 몫(‰, @terra/shared/catchment woodSharePm — 목재 몫 노두가 설 몫). 없으면 그 노두를 두지 않는다 */
+  woodSharePm?(mapKey: number): number | undefined;
   /**
    * 채집 중 부상(docs/adr/2026-11-08-injury.md 5절, world/unitCondition.ts createGatherInjury): 캐기가 끝날 때마다 지난번 뒤로 지난 작업 주기
    * 경계를 굴린다. 없으면 다치지 않는다(시험)
@@ -228,7 +230,12 @@ export function createGatherService(deps: GatherDeps): GatherService {
     const cached = objectCache.get(mapKey);
     if (cached?.version === map.terrainVersion) return cached;
     const list = placeGatherObjects(
-      { ...mapLayers(map), materials: deps.materials?.(mapKey), oreSharePm: deps.oreSharePm?.(mapKey) },
+      {
+        ...mapLayers(map),
+        materials: deps.materials?.(mapKey),
+        oreSharePm: deps.oreSharePm?.(mapKey),
+        woodSharePm: deps.woodSharePm?.(mapKey),
+      },
       deps.kinds(),
     );
     const entry = {

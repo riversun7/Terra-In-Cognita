@@ -199,6 +199,27 @@
       "facility": "mine",
       "primary": "str",
       "secondary": "vit"
+    },
+    {
+      "id": "brushwood",
+      "name": { "ko": "관목 땔감", "en": "Brushwood" },
+      "description": {
+        "ko": "숲이 없는 땅에도 자라는 관목과 쓰러진 가지. 소나무 원목을 조금씩 얻는다. 목재 몫이 큰 땅일수록 자주 보인다.",
+        "en": "Shrubs and fallen branches that grow even where there is no forest. Yields a little pine log. More common where the wood share is high."
+      },
+      "source": "outcrop",
+      "share": "wood",
+      "surfaces": ["grass", "dirt", "gravel", "sand"],
+      "chancePm": 200,
+      "art": "log",
+      "item": "pine_log",
+      "lots": 1,
+      "workMs": 16000,
+      "uses": 3,
+      "regrowMs": 3600000,
+      "facility": "lumber_camp",
+      "primary": "dex",
+      "secondary": "str"
     }
   ]
 }

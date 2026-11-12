@@ -51,6 +51,8 @@ export interface ObjectLayers {
   readonly materials?: number | undefined;
   /** 그 2차맵(1차맵 칸) 행성 값의 광석 고도 몫(‰, @terra/shared/catchment oreSharePm). 없으면 노두(outcrop)를 두지 않는다 */
   readonly oreSharePm?: number | undefined;
+  /** 그 2차맵(1차맵 칸) 행성 값의 목재 몫(‰, @terra/shared/catchment woodSharePm). 없으면 목재 몫 노두(share "wood")를 두지 않는다 */
+  readonly woodSharePm?: number | undefined;
 }
 
 /** 밭·목초지·물터 묶음 한 변(배치 칸) */
@@ -234,7 +236,9 @@ function outcropObjects(
   taken: ReadonlySet<number>,
 ): GatherObject[] {
   const orePm = Math.min(1000, Math.max(0, Math.trunc(layers.oreSharePm ?? 0)));
-  if (orePm === 0) return [];
+  // 목재 몫 노두(관목·나뭇가지 더미 — 사용자 결정 2026-11-12 기본 재료 바닥 보장)는 목재 몫을 곱한다
+  const woodPm = Math.min(1000, Math.max(0, Math.trunc(layers.woodSharePm ?? 0)));
+  if (orePm === 0 && woodPm === 0) return [];
   const art = layers.art && layers.art.length === PLACEMENT_SIZE * PLACEMENT_SIZE ? layers.art : undefined;
   const outcropKinds: number[] = [];
   kinds.forEach((kind, index) => {
@@ -253,7 +257,8 @@ function outcropObjects(
       for (const index of outcropKinds) {
         const kind = kinds[index];
         if (!kind) continue;
-        if (blockRoll(layers.mapKey, block + OUTCROP_SALT, index) * 1000 >= kind.chancePm * orePm) continue;
+        const sharePm = kind.share === "wood" ? woodPm : orePm;
+        if (blockRoll(layers.mapKey, block + OUTCROP_SALT, index) * 1000 >= kind.chancePm * sharePm) continue;
         // 그 지표 지형 칸 가운데 묶음 가운데에 가장 가까운 빈 칸(같으면 작은 칸)
         let best = -1;
         let bestDistance = 0;

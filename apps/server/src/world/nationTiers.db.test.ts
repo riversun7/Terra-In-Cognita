@@ -48,6 +48,9 @@ const CODES = ["s3_test_npc", "placeholder_nation_01", "placeholder_nation_02", 
 /** 시설 목록에 광산 수만큼 더해 차례로(기획 D-533 — 낮은 땅에도 광산) */
 const withMines = (list: readonly string[], mines: number): string[] =>
   [...list, ...Array.from({ length: mines }, () => "mine")].toSorted();
+/** 벌목장 더하기(목재 바닥 — 사용자 결정 2026-11-12 기본 재료 바닥 보장: 숲이 없는 풀밭에도 벌목장이 선다) */
+const withLumber = (list: readonly string[], camps: number): string[] =>
+  [...list, ...Array.from({ length: camps }, () => "lumber_camp")].toSorted();
 /** 숙소 수 = ⌈주거 ÷ Lv1 침대 10⌉, 위 끝 8(질문 1049 나, facilities/npcSeed.ts seedLodgings) */
 const lodgingsOf = (city: { housing: number }): string[] =>
   Array.from({ length: Math.min(8, Math.ceil(city.housing / 10)) }, () => "lodging");
@@ -242,7 +245,7 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     expect(small !== undefined && middle !== undefined && small < middle).toBe(true);
     expect(middle !== undefined && great !== undefined && middle < great).toBe(true);
     expect(great !== undefined && superpower !== undefined && great < superpower).toBe(true);
-    // 기본 시설(풀밭: 농장만 땅에 맞는다): 초강대국·강대국 = 농장 2·창고 2, 중견국·소국 = 농장 1·창고 1
+    // 기본 시설(풀밭: 농장 + 목재 바닥 벌목장): 초강대국·강대국 = 농장 2·창고 2, 중견국·소국 = 농장 1·창고 1
     const facilities = await rows<{ city_id: string; facility_id: string }>(
       test.db,
       // 성벽 고리(질문 1048 가)는 기본 시설과 따로 센다(facilities/npcSeed.db.test.ts)
@@ -255,7 +258,13 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     const big = ["farm", "farm", "government_hall", "storehouse", "storehouse"];
     const plain = ["farm", "government_hall", "storehouse"];
     // 등급 시작 시설 광산 수: 초강대국 2 · 강대국 1 · 중견국 1 · 소국 0
-    const expected = [plain, withMines(big, 2), withMines(big, 1), withMines(plain, 1)];
+    // 등급 시작 시설 벌목장 수: 초강대국 2 · 강대국 1 · 중견국 1 · 소국 1(목재 바닥으로 풀밭에도 선다)
+    const expected = [
+      withLumber(plain, 1),
+      withLumber(withMines(big, 2), 2),
+      withLumber(withMines(big, 1), 1),
+      withLumber(withMines(plain, 1), 1),
+    ];
     lists.forEach((list, index) => {
       for (const city of list)
         expect(facilitiesOf(city)).toEqual([...(expected[index] ?? plain), ...lodgingsOf(city)].toSorted());

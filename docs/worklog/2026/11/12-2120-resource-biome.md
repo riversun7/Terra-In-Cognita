@@ -62,7 +62,10 @@
 - 관목 땔감·돌 노두 수는 지표가 모두 풀인 가짜 2차맵으로 쟀다(실제 시작 도시 2차맵은 Unknown).
 
 ## 검사
-- (끝에 채운다)
+- Verified: `pnpm check`(TEST_DATABASE_URL 있음) — 파일 658개 가운데 657 통과, 시험 5,025개 가운데 5,024 통과. 실패 1 = `apps/server/src/world/nationTiers.db.test.ts`(풀밭 도시에 목재 바닥 벌목장이 더 선다 — 기대값을 등급 벌목장 수로 고침), 고친 뒤 그 파일만 다시 돌려 4/4 통과.
+- Verified: `pnpm build` + `node scripts/check-pwa.mjs` + `pnpm check:bundle` 통과(build-exit 0, `apps/game`은 범례 문구만 바뀜).
+- Verified: `pnpm e2e e2e/world-layout.spec.ts e2e/planet-view.spec.ts` 26 통과(5.3분). 자원 지도 화면 시험에 약초·목장을 더했다: 평균 픽셀 차이 광석→목재 38.22, 목재→약초 33.59, 약초→목장 25.78(문턱 0.5).
+- 사진: `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/resource-biome-shots/planet-resource-{wood,herb,livestock}.png`, `planet-layer-resource-390-{pastel,dark}.png`.
 
 ## 사용자 결정 대기
 - 질문 1211~1219(모두 추천안을 [임시]로 넣음, 1213·1217 나는 넣지 않음).

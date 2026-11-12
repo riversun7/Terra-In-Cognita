@@ -7,11 +7,18 @@ import { type RefObject, useCallback, useEffect, useRef } from "react";
 import type { GatherState } from "./gather/gatherState.ts";
 import { buildingCentre } from "./nearby/nearbyData.ts";
 
+/** 건물이 화면 짧은 변에 차지할 몫의 역수(건물 한 변 × 이 값 = 보이는 폭) — 가장 가까운 확대에서는 카메라가 건물 벽 안에 들었다 */
+const SPAN_PER_SIZE = 3;
+/** 보이는 폭 하한(m) */
+const MIN_SPAN_M = 40;
+
 export function useBuildingLook(
   engineRef: RefObject<SecondMapEngine | null>,
   gather: GatherState,
   /** 기준 유닛 따라가기를 다시 켠다(UnitFollow.tsx useAnchorFollow) */
   refollow: () => void,
+  /** 배치 칸 한 변(m, 지형 전 0) — 부를 때 읽는다 */
+  cellM: () => number,
 ): (buildingId: number) => void {
   // 카메라를 옮겨 둔 건물(없으면 null — 따라가는 중)
   const lookingRef = useRef<number | null>(null);
@@ -33,12 +40,17 @@ export function useBuildingLook(
       const building = gather.buildings.find((entry) => entry.id === buildingId);
       if (engine && building) {
         const centre = buildingCentre(building);
+        const size = Math.max(building.width, building.depth) * cellM();
         lookingRef.current = buildingId;
         engine.follow(null);
-        engine.setView({ x: centre.x, y: centre.y });
+        engine.setView({
+          x: centre.x,
+          y: centre.y,
+          ...(size > 0 ? { spanM: Math.max(MIN_SPAN_M, size * SPAN_PER_SIZE) } : {}),
+        });
       }
       gather.open({ kind: "building", id: buildingId });
     },
-    [engineRef, gather],
+    [engineRef, gather, cellM],
   );
 }

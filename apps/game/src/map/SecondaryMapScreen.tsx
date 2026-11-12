@@ -227,6 +227,8 @@ function SecondMapView({
     (listener) => nearby.subscribe(listener),
     () => nearby.tab,
   );
+  // 배치 칸 한 변(m) — 도시 화면에서 건물을 볼 때 보이는 폭을 정한다(부를 때 읽는다)
+  const nearbyCellM = useCallback(() => nearby.cellM, [nearby]);
   const [liveMoving, setLiveMoving] = useState<ReadonlySet<number>>(() => new Set());
   const [selection, setSelection] = useState<SelectionState>(NO_SELECTION);
   const [status, setStatus] = useState<EngineStatus>({ kind: "loading" });
@@ -368,7 +370,7 @@ function SecondMapView({
   });
   const { refollow, anchorRef } = useAnchorFollow(engineRef, anchor);
   // 도시 화면 줄 → 카메라를 그 건물로(판이 열린 동안), 건물 판 열기
-  const lookAtBuilding = useBuildingLook(engineRef, gather, refollow);
+  const lookAtBuilding = useBuildingLook(engineRef, gather, refollow, nearbyCellM);
   useEffect(() => {
     nearby.setAnchor(anchor);
   }, [nearby, anchor]);

@@ -228,6 +228,10 @@ const specOf = (p: ReturnType<typeof all>, weapon: WeaponSpec, level = 1) =>
     moveIntervalMs: 1000,
   });
 
+/** 1차 모두 10에 AGI만 바꾼 맨손 유닛의 기본 공격 간격(ms) */
+const bareIntervalAt = (agi: number, level = 1): number =>
+  specOf({ ...all(10), agi }, UNARMED_PHYSICAL, level).attackIntervalMs;
+
 describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 간격 AGI(D-502, 사용자 답 296~298)", () => {
   const c = TEST_COMBAT_COEFFICIENTS;
   /** 사용자 예의 검: 공격력 20·적정 STR 25(명중·크리·간격 적정은 [임시] DEX·AGI 12) */
@@ -278,19 +282,17 @@ describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 
 
   it("맨손 간격 = 2,000 ÷ (AGI ÷ 그 레벨 보통 유닛 AGI)², 0.25~5초(사용자 답 1252)", () => {
     // Lv 1 기준 AGI 10: 10 → 2,000ms, 20 → 500ms, 15 → 888ms, 7 → 4,081ms, 6 이하 → 5,000ms(상한), 100 → 250ms(하한)
-    const at = (agi: number, level = 1) =>
-      specOf({ ...all(10), agi }, UNARMED_PHYSICAL, level).attackIntervalMs;
-    expect(at(10)).toBe(2000);
-    expect(at(20)).toBe(500);
-    expect(at(15)).toBe(888);
-    expect(at(7)).toBe(4081);
-    expect(at(6)).toBe(5000);
-    expect(at(0)).toBe(5000);
-    expect(at(100)).toBe(250);
+    expect(bareIntervalAt(10)).toBe(2000);
+    expect(bareIntervalAt(20)).toBe(500);
+    expect(bareIntervalAt(15)).toBe(888);
+    expect(bareIntervalAt(7)).toBe(4081);
+    expect(bareIntervalAt(6)).toBe(5000);
+    expect(bareIntervalAt(0)).toBe(5000);
+    expect(bareIntervalAt(100)).toBe(250);
     // 초기 10인 유닛은 레벨이 올라도 약 2초(Lv 10 AGI 19 → 2,000, Lv 30 AGI 39 → 2,000·38 → 2,109)
-    expect(at(19, 10)).toBe(2000);
-    expect(at(39, 30)).toBe(2000);
-    expect(at(38, 30)).toBe(2109);
+    expect(bareIntervalAt(19, 10)).toBe(2000);
+    expect(bareIntervalAt(39, 30)).toBe(2000);
+    expect(bareIntervalAt(38, 30)).toBe(2109);
   });
 
   it("맨손 스킬 사양(타고난 무기·맨손 속성 자료)도 맨손 크리 식을 쓴다", () => {

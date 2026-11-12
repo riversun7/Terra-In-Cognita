@@ -152,23 +152,23 @@ describe("배후지 배치(지방 도시 자리)", () => {
   });
 });
 
+// 넓은 낮은 땅 + 수도에서 6칸 떨어진 작은 추운 산지(고도 700m — 도시는 서지 못하고 배후지에만 든다)
+const patchLand = (key: CellKey): LayoutLand => {
+  const { face, i, j } = decodeCellKey(key);
+  if (face >= 2) return { ...GRASS, water: 1, elevationM: -200, forest: 0 };
+  if (face === 0 && i >= 36 && i <= 37 && j >= 29 && j <= 31)
+    return { ...GRASS, elevationM: 700, temperatureC: -20 };
+  return GRASS;
+};
+const patchLandOf = (key: CellKey) => {
+  const cell = patchLand(key);
+  return { ...cell, forest: cell.forest ?? 0 };
+};
 describe("광산 국가의 산지 점수(질문 1079 나)", () => {
-  // 넓은 낮은 땅 + 수도에서 6칸 떨어진 작은 추운 산지(고도 700m — 도시는 서지 못하고 배후지에만 든다)
-  const patchLand = (key: CellKey): LayoutLand => {
-    const { face, i, j } = decodeCellKey(key);
-    if (face >= 2) return { ...GRASS, water: 1, elevationM: -200, forest: 0 };
-    if (face === 0 && i >= 36 && i <= 37 && j >= 29 && j <= 31)
-      return { ...GRASS, elevationM: 700, temperatureC: -20 };
-    return GRASS;
-  };
-  const landOf = (key: CellKey) => {
-    const cell = patchLand(key);
-    return { ...cell, forest: cell.forest ?? 0 };
-  };
   const home = cellKey(0, LEVEL, 30, 30);
   const picks = (weights: { crop?: number; wood?: number; ore?: number }, mountainSitePm: number) => {
     const rules = catchmentRulesOf(seed);
-    const cache = createCatchmentCache(landOf, seed, rules.radiusCells, LEVEL);
+    const cache = createCatchmentCache(patchLandOf, seed, rules.radiusCells, LEVEL);
     const sites = pickCitySites({
       faceLevel: LEVEL,
       factionId: 1,

@@ -168,7 +168,7 @@ for (const look of LOOKS) {
       await openNearby(page, "resources");
       const ids = new Set(found.objects.map(String));
       let row: Locator | null = null;
-      for (let page_ = 0; page_ < 60 && row === null; page_++) {
+      for (let step = 0; step < 60 && row === null; step++) {
         const rows = page.locator('.map-nearby-row[data-kind="object"]');
         const count = await rows.count();
         for (let index = 0; index < count && row === null; index++) {

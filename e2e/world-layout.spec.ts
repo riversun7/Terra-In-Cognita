@@ -229,7 +229,7 @@ test.describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
         ...(width >= 1000 ? VIEWPORTS.desktop : { viewport: { width, height: 844 } }),
       });
 
-      test("고른 국가 수도 둘레 격자·지금(실선)·목표·계획(점선) 배후지, 도시 크기 간격, 겹친 쌍·다툼 칸 0, 도시 표", async ({
+      test("고른 국가 수도 둘레 격자·지금(실선)·목표·계획(점선) 배후지, 도시 크기 간격, 겹친 쌍·다툼 칸 0, 버티는 도시 수, 도시 표", async ({
         page,
         deviceErrors,
       }) => {
@@ -257,6 +257,12 @@ test.describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
         // 있어 수로만 본다(시험 순서에 따라 달라진다)
         expect(typeof field(api.data, "overlapWorld")).toBe("number");
         expect(field(api.data, "overlapPlan")).toBe(0);
+        // 국가 땅이 버티는 도시 수(질문 1025 나): 등급 표 도시 수 이상(어림, 다른 국가 계획 도시를 피함)
+        const sustain = field(api.data, "sustain");
+        const sustainCities = Number(field(sustain, "cities"));
+        expect(sustainCities).toBeGreaterThanOrEqual(1);
+        expect(Number(field(sustain, "landCells"))).toBeGreaterThan(0);
+        expect(Number(field(sustain, "tierCities"))).toBeGreaterThan(0);
         const panel = page.locator(".wl-catch");
         await panel
           .getByRole("button", { name: message("ko", "dev_world_layout_catchment_show"), exact: true })
@@ -266,6 +272,7 @@ test.describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
         await expect(panel.locator('[data-catch-city="world"][data-own]').first()).toBeVisible();
         await expect(panel.locator('[data-catch-city="plan"]').first()).toBeAttached();
         await expect(panel.locator("[data-catch-summary]")).toContainText(same.toFixed(1));
+        await expect(panel.locator(`[data-catch-sustain="${sustainCities}"]`)).toBeVisible();
         await expect(panel.locator("[data-catch-table] tbody tr").first()).toBeVisible();
         await panel.evaluate((node) => node.scrollIntoView({ block: "start" }));
         await page.evaluate(() => document.fonts.ready.then(() => undefined));

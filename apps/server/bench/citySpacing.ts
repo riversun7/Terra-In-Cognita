@@ -8,6 +8,7 @@
 // - --fixed <칸>: 도시 크기와 상관없이 고정 반경(반경 아래 끝 = 위 끝 = 칸 × 1000) — 앞 줄기(city-spacing) 배치를 다시 잰다.
 // - 바뀜 (2026-11-12, ADR "바뀜 (2026-11-12)"): 도시마다 요구 반경(처음 기간에 이를 크기 — 국가 등급 주거·기술, 수도는 더 크게)을 함께 보인다.
 //   겹침 = 거리 < 두 요구 반경 합, 가장 가까운 거리의 변동 계수(표준편차 ÷ 평균 — 고른 바둑판이면 0에 가깝다), 등급마다 같은 국가 가장 가까운 거리.
+// - 바뀜 (2026-11-12, 질문 1025 나): 국가마다 땅이 버티는 도시 수(어림, world/catchmentView.ts sustainOf — 세계 배치 화면과 같은 함수).
 // 표는 Markdown이다. pnpm test에는 없다(행성 생성에 십수 초).
 import { fileURLToPath } from "node:url";
 import { loadContentPack } from "@terra/content/node";
@@ -30,6 +31,7 @@ import { START_WORLD_SEED, catchmentGrowthOf, catchmentSupplyOf, plannedCityRadi
 import { MAX_TEST_NATIONS, nationCode, nationStartOf, presetOfCode } from "../src/npc/nations.ts";
 import { nationPresetsOf } from "../src/npc/presets.ts";
 import { landGather } from "../src/facilities/npcSeed.ts";
+import { sustainOf } from "../src/world/catchmentView.ts";
 import { catchmentCellsMilli, splitCatchments, summarize } from "../src/world/citySites.ts";
 import { testMapKey } from "../src/world/testMaps.ts";
 import { freshTierPlan } from "../src/world/tierPlan.ts";
@@ -299,4 +301,42 @@ for (const row of coverRows) {
     `| ${c.face}:${c.i},${c.j}${row.city.capital ? " ★" : ""} | ${row.city.nation} | ${(row.city.needMilli / 1000).toFixed(2)} | ${row.alone.cells}→${row.own.cells} | ${row.alone.coverPm}→${row.own.coverPm} | ${CATCHMENT_MATERIALS.map((m) => row.alone.counts[m]).join(" · ")} |`,
   );
 }
+// 국가 땅이 버티는 도시 수(질문 1025 나): 다른 국가 계획 도시는 피한다
+lines.push("");
+lines.push("| 국가 | 등급 | 등급 표 도시 | 땅이 버티는 도시 | 알맞은 빈 땅 칸 | ms |");
+lines.push("|---|---|---|---|---|---|");
+const planCities = cities.map((city) => ({
+  code: city.nation,
+  mapKey: city.mapKey,
+  targetMilli: city.needMilli,
+}));
+let sustainMs = 0;
+for (const nation of plan.nations) {
+  const capital = cities.find((city) => city.nation === nation.code && city.capital);
+  const province = plannedCityRadiusMilli(START_WORLD_SEED, {
+    housing: startOfNation.get(nation.code)?.housing ?? START_WORLD_SEED.startHousing,
+    tech: startOfNation.get(nation.code)?.tech ?? 1,
+    capital: false,
+  });
+  if (!capital) continue;
+  const t1 = performance.now();
+  const sustain = sustainOf({
+    faceLevel: LEVEL,
+    land,
+    seed,
+    code: nation.code,
+    center: capital.mapKey,
+    world: [],
+    plan: planCities,
+    needsOf: (code) => weightsOfFacilities(startOfNation.get(code)?.facilities ?? {}),
+    provinceMilli: province,
+    capitalMilli: capital.needMilli,
+  });
+  const ms = performance.now() - t1;
+  sustainMs += ms;
+  lines.push(
+    `| ${nation.code} | ${nation.tier ?? "-"} | ${nation.cities.length} | ${sustain ? `${sustain.cities}${sustain.capped ? "+" : ""}` : "-"} | ${sustain?.landCells ?? "-"} | ${ms.toFixed(0)} |`,
+  );
+}
+lines.push(`- 버티는 도시 셈 합 ${sustainMs.toFixed(0)}ms`);
 console.log(lines.join("\n"));

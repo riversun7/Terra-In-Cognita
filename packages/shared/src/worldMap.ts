@@ -55,6 +55,8 @@ export interface WorldMapCity {
   readonly lonDeg: number;
   /** 기본 NPC 국가의 시작 도시(D-341) */
   readonly start: boolean;
+  /** 그 국가의 수도(세력 행 capital_city_id, D-528 — 1차맵 영토 레이어 표시). 옛 서버는 없다 */
+  readonly capital?: boolean | undefined;
   /** 도시 등급 1 ~ 6(M2)·영향권 반경(1000분율 칸, M3). 영토를 셈하지 못했으면 null */
   readonly grade: number | null;
   readonly radiusMilli: number | null;

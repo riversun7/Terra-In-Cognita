@@ -1,6 +1,7 @@
 // 행성 목록 정보·타일 경로 — ADR 2026-10-29-s2-planet-lod "전송" (형식: packages/protocol planetTile.ts·planetManifest.ts)
 //   GET /api/planets/<행성 ID>                         목록 정보 JSON (private, no-cache + ETag)
 //   GET /api/planets/<행성 ID>/tiles/<타일 ID>?v=<버전>  압축한 타일 그대로 (gzip, private 1년 immutable)
+//   GET /api/planets/<행성 ID>/resources/<원자재>       자원 분포 지도(공개 행성만, gzip, private no-cache + ETag — resourceMap.ts)
 // - 로그인한 사용자만(S1 지형 파일과 같다). 1차맵 지형은 모두에게 같은 파일이다(ADR 26).
 // - 오류는 코드만 보낸다(no-store): 401 SIGN_IN_REQUIRED, 404 PLANET_NOT_FOUND·TILE_NOT_FOUND·TILE_VERSION_NOT_FOUND,
 //   409 PLANET_NOT_READY(굽는 중, Retry-After), 429 RATE_LIMITED(Retry-After).
@@ -8,11 +9,18 @@
 import { createHash } from "node:crypto";
 import { promisify } from "node:util";
 import { gunzip } from "node:zlib";
-import { PLANET_MANIFEST_ROUTE, PLANET_TILE_CACHE_CONTROL, PLANET_TILE_ROUTE } from "@terra/protocol";
+import {
+  PLANET_MANIFEST_ROUTE,
+  PLANET_RESOURCE_CACHE_CONTROL,
+  PLANET_RESOURCE_ROUTE,
+  PLANET_TILE_CACHE_CONTROL,
+  PLANET_TILE_ROUTE,
+} from "@terra/protocol";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { acceptsGzip } from "../world/terrainRoute.ts";
+import type { ResourceMapService } from "./resourceMap.ts";
 import type { PlanetService } from "./service.ts";
 
 const gunzipAsync = promisify(gunzip);
@@ -30,6 +38,8 @@ export interface PlanetRouteLimits {
   manifestPerUser: { capacity: number; refillPerMinute: number };
   /** 서버 전체 타일(NAS 대역폭·CPU) */
   tilesOverall: { capacity: number; refillPerMinute: number };
+  /** 사용자별 자원 분포 지도(원자재를 바꿀 때마다 하나, 304가 대부분) */
+  resourcesPerUser: { capacity: number; refillPerMinute: number };
 }
 
 export const DEFAULT_PLANET_ROUTE_LIMITS: PlanetRouteLimits = {
@@ -37,6 +47,7 @@ export const DEFAULT_PLANET_ROUTE_LIMITS: PlanetRouteLimits = {
   tilesPerUser: { capacity: 2_048, refillPerMinute: 2_048 },
   manifestPerUser: { capacity: 30, refillPerMinute: 60 },
   tilesOverall: { capacity: 20_000, refillPerMinute: 30_000 },
+  resourcesPerUser: { capacity: 30, refillPerMinute: 60 },
 };
 
 /** 굽는 중일 때 기기가 다시 묻기까지(초) */
@@ -47,6 +58,8 @@ export interface PlanetRouteOptions {
   viewer: (request: FastifyRequest) => Promise<Viewer | null>;
   now: () => number;
   limits?: Partial<PlanetRouteLimits> | undefined;
+  /** 자원 분포 지도(공개 행성, 세계 설정 칸이 있을 때). 없으면 경로가 404 */
+  resources?: ResourceMapService | undefined;
 }
 
 /**
@@ -76,6 +89,7 @@ export function registerPlanetRoutes(app: FastifyInstance, options: PlanetRouteO
   const tilesPerUser = createRateLimiter({ ...limits.tilesPerUser, now });
   const manifestPerUser = createRateLimiter({ ...limits.manifestPerUser, now });
   const tilesOverall = createRateLimiter({ ...limits.tilesOverall, now });
+  const resourcesPerUser = createRateLimiter({ ...limits.resourcesPerUser, now });
 
   /** 주소별 제한 → 로그인 확인. 통과하면 사용자, 아니면 답을 보내고 undefined */
   const admit = async (request: FastifyRequest, reply: FastifyReply): Promise<Viewer | undefined> => {
@@ -158,6 +172,42 @@ export function registerPlanetRoutes(app: FastifyInstance, options: PlanetRouteO
       const raw = await gunzipAsync(found.gzip);
       planets.recordTileResponse(200, raw.byteLength);
       return reply.send(raw);
+    },
+  );
+
+  app.get<{ Params: { planetId: string; material: string } }>(
+    PLANET_RESOURCE_ROUTE,
+    async (request, reply) => {
+      const viewer = await admit(request, reply);
+      if (!viewer) return reply;
+      if (!resourcesPerUser.take(viewer.id))
+        return rateLimited(reply, resourcesPerUser.retryAfterMs(viewer.id));
+      if (!options.resources) return sendError(reply, 404, "PLANET_NOT_FOUND");
+      const found = await options.resources.get(request.params.planetId, request.params.material);
+      switch (found.kind) {
+        case "unknown_planet":
+          return sendError(reply, 404, "PLANET_NOT_FOUND");
+        case "unknown_material":
+          return sendError(reply, 404, "MATERIAL_NOT_FOUND");
+        case "not_ready":
+          reply.header("retry-after", String(NOT_READY_RETRY_SECONDS));
+          return sendError(reply, 409, "PLANET_NOT_READY");
+        case "ok":
+          break;
+      }
+      const { file } = found;
+      reply
+        .header("content-type", "application/octet-stream")
+        .header("cache-control", PLANET_RESOURCE_CACHE_CONTROL)
+        .header("etag", file.etag)
+        .header("vary", "accept-encoding");
+      if (request.headers["if-none-match"] === file.etag) return reply.code(304).send();
+      if (acceptsGzip(request.headers["accept-encoding"])) {
+        return reply
+          .header("content-encoding", "gzip")
+          .send(Buffer.from(file.gzip.buffer, file.gzip.byteOffset, file.gzip.byteLength));
+      }
+      return reply.send(await gunzipAsync(file.gzip));
     },
   );
 }

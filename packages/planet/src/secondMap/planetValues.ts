@@ -186,32 +186,52 @@ export interface PlanetValuesCell {
   readonly forest: number;
 }
 
-/**
- * 파일에서 칸 하나(배열 번호 = 면 × n² + j × n + i)의 값만 읽는다. 전체를 풀지 않는다(서버가 행성 값 22MB를 한 벌 더 만들지 않게,
- * 개발자 2차맵 시험). 번호가 범위 밖이면 RangeError
- */
-export function readPlanetValuesCell(bytes: Uint8Array, cell: number): PlanetValuesCell {
+/** 파일에서 칸을 여럿 읽는 읽개 — 머리(바이옴 표)를 한 번만 푼다(자원 분포 지도처럼 칸 전체를 훑을 때) */
+export interface PlanetValuesReader {
+  readonly faceLevel: number;
+  /** 칸 수(6 × n²) */
+  readonly count: number;
+  /** 칸 하나(배열 번호 = 면 × n² + j × n + i). 범위 밖이면 RangeError */
+  cell(index: number): PlanetValuesCell;
+}
+
+/** 행성 값 파일 → 칸 읽개(전체를 풀지 않는다). 파일이 틀리면 RangeError */
+export function planetValuesReader(bytes: Uint8Array): PlanetValuesReader {
   const { data, view, faceLevel, count, biomeIds, at } = readHeader(bytes);
-  if (!Number.isInteger(cell) || cell < 0 || cell >= count)
-    throw new RangeError(`cell ${cell} is outside the planet`);
   // 배열 차례: 고도 i16, 기온 i8, 강수 u16, 호수 수면 i16, 바이옴·습도·물·하천·숲·흐름·웅덩이 u8
   const elevationAt = at;
   const temperatureAt = elevationAt + count * 2;
   const precipitationAt = temperatureAt + count;
   const lakeAt = precipitationAt + count * 2;
   const bytesAt = lakeAt + count * 2;
-  const u8 = (k: number): number => data[bytesAt + k * count + cell] ?? 0;
   return {
     faceLevel,
-    biomeId: biomeIds[u8(0)] ?? null,
-    elevationM: view.getInt16(elevationAt + cell * 2, true),
-    temperatureC: view.getInt8(temperatureAt + cell),
-    precipitationMm: view.getUint16(precipitationAt + cell * 2, true),
-    humidity: u8(1),
-    water: u8(2),
-    river: u8(3),
-    forest: u8(4),
+    count,
+    cell(index) {
+      if (!Number.isInteger(index) || index < 0 || index >= count)
+        throw new RangeError(`cell ${index} is outside the planet`);
+      const u8 = (k: number): number => data[bytesAt + k * count + index] ?? 0;
+      return {
+        faceLevel,
+        biomeId: biomeIds[u8(0)] ?? null,
+        elevationM: view.getInt16(elevationAt + index * 2, true),
+        temperatureC: view.getInt8(temperatureAt + index),
+        precipitationMm: view.getUint16(precipitationAt + index * 2, true),
+        humidity: u8(1),
+        water: u8(2),
+        river: u8(3),
+        forest: u8(4),
+      };
+    },
   };
+}
+
+/**
+ * 파일에서 칸 하나(배열 번호 = 면 × n² + j × n + i)의 값만 읽는다. 전체를 풀지 않는다(서버가 행성 값 22MB를 한 벌 더 만들지 않게,
+ * 개발자 2차맵 시험). 번호가 범위 밖이면 RangeError
+ */
+export function readPlanetValuesCell(bytes: Uint8Array, cell: number): PlanetValuesCell {
+  return planetValuesReader(bytes).cell(cell);
 }
 
 /** 파일 바이트 → 행성 값. 마법·형식 판·길이가 틀리면 RangeError */

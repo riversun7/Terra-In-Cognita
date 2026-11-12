@@ -201,6 +201,17 @@ export {
   type PlanetTileData,
 } from "./planetTile.ts";
 export {
+  PLANET_RESOURCE_CACHE_CONTROL,
+  PLANET_RESOURCE_FORMAT_VERSION,
+  PLANET_RESOURCE_MAX_LEVEL,
+  PLANET_RESOURCE_ROUTE,
+  decodePlanetResource,
+  encodePlanetResource,
+  planetResourcePath,
+  pmToByte,
+  type PlanetResourceData,
+} from "./planetResource.ts";
+export {
   PLANET_FIELDS_HASH_PATTERN,
   PLANET_ID_PATTERN,
   PLANET_STATUSES,

@@ -20,8 +20,10 @@ export {
   decodePlanetValues,
   encodePlanetValues,
   planetValuesFromGeneration,
+  planetValuesReader,
   receiverDirections,
   type PlanetValues,
+  type PlanetValuesReader,
 } from "./planetValues.ts";
 export {
   MAP_PRESETS,

@@ -75,10 +75,13 @@
 - 숙소 요금 거래(`lodging_fee`)는 남의 숙소에서만 생긴다. 지금 NPC 일꾼이 플레이어 숙소를 쓰는 세계를 DB 시험으로 만들지 않았다(미실행 — 단위 시험은 계획만 본다).
 - 채집소 나르는 중 상태는 메모리다(다시 켜면 물건은 채집소 창고에 남아 다음 정시에 다시 떠난다).
 - 손으로 옮기기는 여전히 바로(질문 1091). 플레이어 일꾼은 숙소 회복을 받지 않는다(질문 1088).
-- 시험·검사 결과는 아래 "검사"에 적는다.
+- 숙소 카드(침대·쉬는 일꾼) 줄은 화면 시험·사진으로 보지 않았다(플레이어가 숙소를 가진 시험 세계가 없다 — 타입 검사·코드만, 미실행).
 
 ## 검사
-- (작업 끝에 채운다)
+- Verified: `pnpm check`(TEST_DATABASE_URL) — 포맷·린트·타입·경계 통과, 파일 크기에서 `packages/sim/src/index.ts` 1,001줄로 한 번 실패 → 내보내기 줄을 빼 999줄로 고친 뒤 크기·다국어(6,883키)·디자인 값·콘텐츠·`pnpm test` 다시: 처음 634파일 중 DB 시험 2파일 4건 실패(시작 도시 숙소 수 3 → 4를 기대값이 몰랐다) → `npcSeed.db.test.ts`·`nationTiers.db.test.ts`가 주거로 숙소 수를 세게 고친 뒤 두 파일 8건 통과. 나머지 632파일 4,882건 통과.
+- Verified: `pnpm build` + `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 108,912 B / 상한 131,416 B.
+- Verified: `pnpm e2e e2e/gather-station.spec.ts` 9건 통과(5.0분), 옮김 줄 사진을 더한 농장 판 2건 다시 통과. 사진(저장소 밖): `gather-station-haul-route-390-{pastel-ko,dark-en}.png`, `gather-station-farm-390-dark-en.png` — 시작 도시 농장 "창고까지 6칸 · 지금 짐 나르기 1분 안".
+- Verified: `pnpm check:content origin/main`(호환 포함), `pnpm check:docs origin/main` 통과.
 
 ## 사용자 결정 대기
 - 질문 1086~1095(`docs/questions/2026-11-12-worker-logistics.md`).

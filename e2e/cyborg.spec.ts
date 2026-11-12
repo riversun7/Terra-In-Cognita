@@ -119,6 +119,7 @@ test.describe("플레이어: 사이보그 화면", () => {
         .evaluateAll((list) => list.map((row) => row.getAttribute("data-sec")));
     expect(await rowsOf("vitals")).toEqual([
       "hp",
+      "hp_regen",
       "armor_hp",
       "shield_hp",
       "shield_regen",

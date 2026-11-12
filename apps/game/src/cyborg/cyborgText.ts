@@ -53,6 +53,8 @@ export type CombatGroup = (typeof COMBAT_GROUPS)[number];
 
 const COMBAT_ROWS: readonly (readonly [string, CombatGroup])[] = [
   ["hp", "vitals"],
+  // HP 회복(D-514)은 HP 바로 아래(2026-11-12: 표에 없어 기타 묶음이 생기던 것)
+  ["hp_regen", "vitals"],
   ["armor_hp", "vitals"],
   ["shield_hp", "vitals"],
   ["shield_regen", "vitals"],

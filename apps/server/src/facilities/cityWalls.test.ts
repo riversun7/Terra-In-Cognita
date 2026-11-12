@@ -157,8 +157,8 @@ describe("성벽 고리", () => {
     for (const building of replica.buildings) applyPlacement(grid, building.id, building.placement);
     const reach = (blocked: ReadonlySet<number>): boolean => {
       const start = 2 * PLACEMENT_SIZE + 2;
-      const hall = found.rect;
-      const goal = (hall.y - 1) * PLACEMENT_SIZE + hall.x + 1;
+      const rect = found.rect;
+      const goal = (rect.y - 1) * PLACEMENT_SIZE + rect.x + 1;
       const seen = new Uint8Array(PLACEMENT_SIZE * PLACEMENT_SIZE);
       const queue = [start];
       seen[start] = 1;

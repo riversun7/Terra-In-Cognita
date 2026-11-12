@@ -96,12 +96,14 @@ export interface SimCitySiegeInput {
 /** 시뮬 도시 칸(평지 배치 칸 가운데) */
 export const SIM_CITY_CELL = { x: PLACEMENT_SIZE >> 1, y: PLACEMENT_SIZE >> 1 } as const;
 
+/** 0 이상 정수 수 */
+const count = (value: number) => Math.max(0, Math.trunc(value));
+
 /** 시뮬 도시의 건물 차례(위 머리 주석 — 서버 seedPlan·villagePlan의 땅 모름 차례) */
 export function simCityFacilities(
   input: Pick<SimCitySiegeInput, "start" | "housing" | "seed" | "bedsPerLevel">,
 ): string[] {
   const { seed } = input;
-  const count = (value: number) => Math.max(0, Math.trunc(value));
   if (!input.start)
     return ["government_hall", ...Array.from({ length: count(seed.villageLodgings) }, () => "lodging")];
   const lodgings = Math.min(

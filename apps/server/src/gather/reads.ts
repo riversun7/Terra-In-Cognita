@@ -80,6 +80,7 @@ export function gatherReadsOf(source: () => GatherWorld | undefined): GatherRead
             facility: kind.facility,
             facilityName: facility ? facility.name : null,
             ...(kind.direct ? {} : { direct: false }),
+            ...(kind.art > 0 ? { art: kind.art } : {}),
           };
         }),
         objects: objects.length % GATHER_OBJECT_STRIDE === 0 ? objects : [],

@@ -1981,6 +1981,8 @@
   "second_map_lab_art_fern": "고사리",
   "second_map_lab_art_ice_block": "얼음덩이",
   "second_map_lab_art_bones": "짐승 뼈",
+  "second_map_lab_art_outcrop_stone": "돌 노두",
+  "second_map_lab_art_outcrop_copper": "구리 노두",
   "second_map_lab_art_unknown": "모르는 그림 {code}",
   "second_map_lab_no_layer": "–",
   "economy_tabs_label": "경제 칸",

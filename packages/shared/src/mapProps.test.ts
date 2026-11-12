@@ -33,6 +33,9 @@ describe("2차맵 소품 이름표", () => {
       "fern",
       "ice_block",
       "bones",
+      // 2026-11-12 노두(서버 채집 오브젝트 그림, 끝에 더함)
+      "outcrop_stone",
+      "outcrop_copper",
     ]);
     expect(MAP_PROP_ARTS.length).toBeLessThanOrEqual(256);
     expect(mapPropArtCode("boulder")).toBe(6);

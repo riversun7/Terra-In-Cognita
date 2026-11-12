@@ -10,6 +10,12 @@ import type { TerrainInput } from "./terrain/terrainData.ts";
 import type { UnitModel } from "./characters/characterLayer.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
 import type { UnitRing } from "./units/nationRings.ts";
+
+/** 덮어 세울 소품 하나: 지금 2차맵 배치 칸(y × 256 + x)과 그림 번호(@terra/shared MAP_PROP_ARTS) */
+export interface ObjectProp {
+  readonly cell: number;
+  readonly art: number;
+}
 import type { UnitDisplayMode, UnitLook } from "./units/unitView.ts";
 
 export type EngineStatus =
@@ -257,6 +263,11 @@ export interface SecondMapEngine {
    * 캡슐·모델 모두 같은 고리, 점 표현이면 그리지 않는다. 유닛 목록(setUnits)과 따로 남는다
    */
   setUnitRings(rings: readonly UnitRing[]): void;
+  /**
+   * 서버가 놓는 채집 오브젝트의 소품 그림(노두 등 — 지형 파일에 없는 그림, 기획 D-534 질문 1083 나). 지금 2차맵 배치 칸마다 그림 번호를 덮어
+   * 가까이 소품 모델로 세운다(기기 장식, 판정 아님). 목록을 통째로 바꾼다. 빈 목록이면 지형 그림 그대로
+   */
+  setObjectProps(props: readonly ObjectProp[]): void;
   /**
    * 확대 한 단계(1 = 키우기 [+], −1 = 줄이기 [−]): 이웃 확대 단계의 대표 거리로 약 0.3초에 걸쳐 간다(화면 가운데 기준, 움직이는 중이면 그 목표에서
    * 센다). 이미 그쪽 끝이면 false(화면이 1차맵으로 넘어간다)

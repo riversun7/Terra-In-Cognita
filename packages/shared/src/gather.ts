@@ -28,6 +28,11 @@ export interface GatherKindView {
    * 유닛이 직접 캘 수 있나. false = 맡는 시설의 일꾼만 쓴다(밭·목초지·물터 — docs/adr/2026-11-11-city-catchment.md). 없으면 직접 캔다(앞 판 응답)
    */
   readonly direct?: boolean;
+  /**
+   * 기기가 이 종류 오브젝트 자리에 세우는 소품 그림 번호(@terra/shared MAP_PROP_ARTS — 노두처럼 지형 파일에 없는 그림, 기획 D-534 질문 1083 나).
+   * 없으면 지형 그림 그대로(앞 판 응답)
+   */
+  readonly art?: number;
 }
 
 /** 오브젝트 한 칸의 값 수(objects 배열 걸음): [번호, 종류 차례, 남은 번수, 다시 자라는 시각(서버 ms, 0 = 자라는 중 아님)] */

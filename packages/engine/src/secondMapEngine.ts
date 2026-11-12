@@ -33,6 +33,7 @@ import { inertEngine } from "./engineParts.ts";
 import type {
   EngineStats,
   EngineStatus,
+  ObjectProp,
   SecondMapEngine,
   SecondMapEngineOptions,
   UnitSpawn,
@@ -253,11 +254,19 @@ export function createSecondMapEngine(
    * 소품 모델 층: 지금 2차맵 + 소품 층이 있는 이웃. 소금은 2차맵 이름에서 정한다(propSalt) — 옆 2차맵으로 넘어 지금 2차맵·이웃이 바뀌어도
    * 같은 2차맵의 나무가 같은 자리·크기로 선다(사용자 지적 2026-11-11 "화면전환의 흔적")
    */
+  // 서버 채집 오브젝트의 소품 그림(노두, setObjectProps): 지금 2차맵 그림 층 사본에 덮는다
+  let objectProps: readonly ObjectProp[] = [];
+  const mainArt = (art: Uint8Array): Uint8Array => {
+    if (objectProps.length === 0) return art;
+    const out = art.slice();
+    for (const prop of objectProps) if (prop.cell >= 0 && prop.cell < out.length) out[prop.cell] = prop.art;
+    return out;
+  };
   const syncPropSources = (): void => {
     const sources: PropSource[] = [];
     if (terrain?.art && terrain.cover)
       sources.push({
-        art: terrain.art,
+        art: mainArt(terrain.art),
         cover: terrain.cover,
         surface: terrain.surface,
         placement: null,
@@ -619,6 +628,8 @@ export function createSecondMapEngine(
       if (!terrain || disposed) return false;
       const taken = neighbours.take(id);
       if (!taken) return false;
+      // 덮어 세운 오브젝트 소품은 옛 2차맵 것이다 — 부르는 쪽이 새 2차맵 목록을 다시 넣는다
+      objectProps = [];
       // 옛 2차맵 칸 좌표 → 새 2차맵 칸 좌표. 이웃 지형은 지금 2차맵 칸 크기로 맞춰 그렸으니 같은 칸 크기로 옮긴다
       const back = invertPlacement(taken.placement);
       state = cameraThroughPlacement(state, back, terrain.cellSizeM);
@@ -711,6 +722,13 @@ export function createSecondMapEngine(
     setUnitRings(list) {
       rings.setRings(list);
       bindCharacters();
+      scheduler.request();
+    },
+
+    setObjectProps(props) {
+      if (props.length === 0 && objectProps.length === 0) return;
+      objectProps = props;
+      syncPropSources();
       scheduler.request();
     },
 

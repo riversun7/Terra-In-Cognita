@@ -9,6 +9,11 @@
 //   한다(materials가 없으면 — 행성 값 없는 임시 지형 — 원자재를 보지 않는다). 맞는 종류가 여럿이면 (2차맵 키, 묶음) 굴림으로 하나.
 //   자리 = 그 지표 지형 칸 가운데 묶음 가운데에 가장 가까운 칸의 배치 칸(오른쪽 아래 — 홀수 좌표). 그 칸에 이미 오브젝트가 있으면 다음 가까운
 //   칸. 소품·바위 오브젝트는 그대로다(번호·자리 — 앞 판 상태 줄이 그대로 맞는다).
+// - 노두(outcrop) 종류(기획 D-534 — 질문 1083 나 "낮은 땅 플레이어도 서버가 놓는 노두에서 석재·구리"): 밭·목초지·물터 뒤에 같은 16×16 묶음마다
+//   많아야 하나. 묶음 안에 그 종류 지표 지형 칸이 하나라도 있고 (2차맵 키, 묶음, 종류) 굴림 < chancePm × 광석 몫 ÷ 1000이면(종류는 팩 차례로 첫
+//   맞는 것) 그 지표 지형 칸 가운데 묶음 가운데에 가장 가까운 빈 칸의 배치 칸에 둔다. 광석 몫 = 그 2차맵(1차맵 칸) 행성 값의 고도 몫(NPC 배후지와
+//   같은 @terra/shared/catchment oreSharePm) — 없으면(행성 값 없는 임시 지형) 노두가 없다. 소품 그림이 선 칸은 건너뛴다. 앞 종류들의 번호·자리는
+//   그대로다(생성기 판 그대로).
 // - 오브젝트 번호 = 그 자리 배치 칸 차례(y × 256 + x) — 같은 2차맵 지형이면 늘 같다(고정본 2차맵도 같은 지형이라 같다).
 // [임시] 숨김 자원(ADR 46 5절 "서버 비밀 소금")은 쓰지 않는다: 광맥 자리는 지형 파일을 아는 기기가 계산할 수 있다(확인 대기, 질문 666).
 // 정수 연산만 쓴다(판정 코드 규칙).
@@ -44,6 +49,8 @@ export interface ObjectLayers {
   readonly surface: Uint8Array;
   /** 그 2차맵(1차맵 칸) 행성 값의 원자재 비트(@terra/shared/catchment cellMaterials). 없으면 plot 종류의 원자재 조건을 보지 않는다 */
   readonly materials?: number | undefined;
+  /** 그 2차맵(1차맵 칸) 행성 값의 광석 고도 몫(‰, @terra/shared/catchment oreSharePm). 없으면 노두(outcrop)를 두지 않는다 */
+  readonly oreSharePm?: number | undefined;
 }
 
 /** 밭·목초지·물터 묶음 한 변(배치 칸) */
@@ -217,8 +224,64 @@ function plotObjects(
 
 /** plot 굴림 소금(소품·바위 묶음 번호와 겹치지 않게) */
 const PLOT_SALT = 0x1_0000;
+/** 노두 굴림 소금(plot 굴림과 겹치지 않게) */
+const OUTCROP_SALT = 0x2_0000;
 
-/** 그 2차맵의 오브젝트(번호 차례 = 위에서 아래·왼쪽에서 오른쪽 묶음 차례, 밭·목초지·물터는 그 뒤에 묶음 차례) */
+/** 노두: 묶음마다 팩 차례로 첫 맞는 종류 하나와 자리(머리 주석). taken = 이미 놓인 오브젝트 번호 */
+function outcropObjects(
+  layers: ObjectLayers,
+  kinds: readonly GatherKind[],
+  taken: ReadonlySet<number>,
+): GatherObject[] {
+  const orePm = Math.min(1000, Math.max(0, Math.trunc(layers.oreSharePm ?? 0)));
+  if (orePm === 0) return [];
+  const art = layers.art && layers.art.length === PLACEMENT_SIZE * PLACEMENT_SIZE ? layers.art : undefined;
+  const outcropKinds: number[] = [];
+  kinds.forEach((kind, index) => {
+    if (kind.source === "outcrop" && kind.surfaces.length > 0 && kind.chancePm > 0) outcropKinds.push(index);
+  });
+  if (outcropKinds.length === 0) return [];
+  const span = PLOT_BLOCK_CELLS / PLACEMENT_PER_TERRAIN;
+  const blocks = PLACEMENT_SIZE / PLOT_BLOCK_CELLS;
+  const half = PLOT_BLOCK_CELLS;
+  const out: GatherObject[] = [];
+  for (let by = 0; by < blocks; by++)
+    for (let bx = 0; bx < blocks; bx++) {
+      const block = by * blocks + bx;
+      const cx = bx * PLOT_BLOCK_CELLS * 2 + half;
+      const cy = by * PLOT_BLOCK_CELLS * 2 + half;
+      for (const index of outcropKinds) {
+        const kind = kinds[index];
+        if (!kind) continue;
+        if (blockRoll(layers.mapKey, block + OUTCROP_SALT, index) * 1000 >= kind.chancePm * orePm) continue;
+        // 그 지표 지형 칸 가운데 묶음 가운데에 가장 가까운 빈 칸(같으면 작은 칸)
+        let best = -1;
+        let bestDistance = 0;
+        for (let ty = by * span; ty < (by + 1) * span; ty++)
+          for (let tx = bx * span; tx < (bx + 1) * span; tx++) {
+            if (!kind.surfaces.includes(layers.surface[ty * TERRAIN_SIZE + tx] ?? -1)) continue;
+            const x = tx * PLACEMENT_PER_TERRAIN + 1;
+            const y = ty * PLACEMENT_PER_TERRAIN + 1;
+            const cell = y * PLACEMENT_SIZE + x;
+            // 소품(나무·바위 등)이 선 칸은 건너뛴다(기기가 노두 그림을 덮어 세운다 — 소품을 지우지 않게)
+            if (taken.has(cell) || (art?.[cell] ?? 0) !== 0) continue;
+            const dx = x * 2 + 1 - cx;
+            const dy = y * 2 + 1 - cy;
+            const distance = dx * dx + dy * dy;
+            if (best < 0 || distance < bestDistance || (distance === bestDistance && cell < best)) {
+              best = cell;
+              bestDistance = distance;
+            }
+          }
+        if (best < 0) continue;
+        out.push({ id: best, kind: index, x: best % PLACEMENT_SIZE, y: Math.floor(best / PLACEMENT_SIZE) });
+        break;
+      }
+    }
+  return out;
+}
+
+/** 그 2차맵의 오브젝트(번호 차례 = 위에서 아래·왼쪽에서 오른쪽 묶음 차례, 밭·목초지·물터, 노두는 그 뒤에 묶음 차례) */
 export function placeGatherObjects(layers: ObjectLayers, kinds: readonly GatherKind[]): GatherObject[] {
   if (layers.surface.length !== TERRAIN_SIZE * TERRAIN_SIZE)
     throw new RangeError("surface does not match the terrain size");
@@ -232,6 +295,9 @@ export function placeGatherObjects(layers: ObjectLayers, kinds: readonly GatherK
       if (object) out.push(object);
     }
   const taken = new Set(out.map((object) => object.id));
-  out.push(...plotObjects(layers, kinds, layers.materials, taken));
+  const plots = plotObjects(layers, kinds, layers.materials, taken);
+  out.push(...plots);
+  for (const object of plots) taken.add(object.id);
+  out.push(...outcropObjects(layers, kinds, taken));
   return out;
 }

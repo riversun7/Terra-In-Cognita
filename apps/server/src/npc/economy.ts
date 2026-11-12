@@ -461,6 +461,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         : undefined;
     if (plan) restPlans.set(cityId, plan);
     else restPlans.delete(cityId);
+    // 인구 상한 = 주거 + 숙소 침대(질문 1089 나, @terra/sim cityHousingCap): 구인 규칙식·붐빔·만족도 주거가 본다
+    if (city) city.beds = plan?.bedTotal ?? 0;
     const logisticsOf = (id: number): Pick<EcoFacility, "dutyPm" | "haul"> => {
       const rest = plan?.facilities.get(id);
       if (!rest) return {};

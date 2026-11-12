@@ -7,6 +7,7 @@ import type { PlaceWorld } from "../facilities/places.ts";
 import type { JobRecord } from "../facilities/state.ts";
 import type { StorageContext } from "../facilities/storage.ts";
 import type { LaborWorkerEntry } from "../labor/service.ts";
+import { type WorkerRest, attachWorkerRest } from "../labor/workerRest.ts";
 import { createGatherInjury } from "../world/unitCondition.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import type { GatherKind } from "./kinds.ts";
@@ -31,6 +32,8 @@ export interface GatherWorld {
   rules(): SocietyCoefficients;
   /** 건물 작업(레벨 올리는 중 등) */
   jobs(): ReadonlyMap<number, JobRecord>;
+  /** 플레이어 일꾼 쉼터(숙소 회복, 질문 1088 가) */
+  readonly workerRest: WorkerRest;
 }
 
 export interface WorldGather {
@@ -116,12 +119,31 @@ export function startWorldGather(
         works,
         objects: (mapKey) => service.objects(mapKey),
         pollution: (mapKey) => world.npc?.gardener.run.layer().get(mapKey) ?? 0,
+        // 운반꾼(질문 1090 가): 그 채집소 일꾼 가운데 채집 줄이 없는 유닛
+        workersAt,
+        busy: (unitId) => service.acting(unitId),
       });
       parts.labor.attachStation(station.hook);
+      // 손으로 옮기기도 운반꾼·거리 시간(질문 1091 가)
+      facilities.service.attachStorageOut((ownerId, input, atMs) =>
+        station.haulOut(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs),
+      );
+      // 플레이어 일꾼도 숙소에서 회복한다(질문 1088 가, labor/workerRest.ts) — 세계가 준비된 뒤 정산에 잇는다(DB가 있는 세계만 일꾼이 있다)
+      const workerRest = attachWorkerRest({
+        settlement: parts.settlement,
+        labor: parts.labor,
+        facilities,
+        maps: world.maps,
+        ledger: parts.ledger,
+        rules,
+        now: options.now,
+        npc: () => world.npc,
+      });
       built = {
         service,
         store,
         station,
+        workerRest,
         rules,
         jobs: () => facilities.service.jobs,
         kinds: options.kinds,

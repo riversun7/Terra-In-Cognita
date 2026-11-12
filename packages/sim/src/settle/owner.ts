@@ -56,6 +56,11 @@ export interface OwnerSettleInput {
   /** 구간 동안의 접속 상태(접속 중 = null). 구간 안에서 바뀌지 않아야 한다 */
   readonly offlineSinceMs: number | null;
   readonly rules?: JobRules | undefined;
+  /**
+   * 유닛마다 직무 규칙(입력 jobs와 같은 차례, 없는 칸은 rules). 서버 플레이어 일꾼이 쉬는 곳(숙소·집)의 회복 배율을 얹는다(질문 1088 가 — NPC
+   * 일꾼과 같은 숙소 규칙, apps/server/src/labor/workerRest.ts). 없으면 모두 rules(예전과 같다). 시뮬은 쓰지 않는다
+   */
+  readonly unitRules?: readonly (JobRules | undefined)[] | undefined;
   readonly upkeepPerUnit?: bigint | undefined;
   readonly upkeepPeriodMs?: number | undefined;
   /**
@@ -133,7 +138,7 @@ export function settleOwnerPeriod(
   const { fromMs, toMs } = input;
   if (toMs <= fromMs)
     return { jobs: input.jobs, cycles: 0, upkeepPaid: 0, upkeepUnpaid: 0, lastUpkeepPaid: null };
-  const rules = input.rules ?? TEST_JOB_RULES;
+  const baseRules = input.rules ?? TEST_JOB_RULES;
   let cycles = 0;
   // 계약 몫으로 간 산출(계정 → 수, 처음 나온 차례). 기본 창고 몫은 cycles − 물건 산출 주기 − 이 합
   const routed = new Map<number, number>();
@@ -144,6 +149,7 @@ export function settleOwnerPeriod(
   const goodsFrom = new Map<number, bigint>();
   const goodsTo = new Map<number, bigint>();
   const jobs = input.jobs.map((job, index) => {
+    const rules = input.unitRules?.[index] ?? baseRules;
     // 직무 없는 유닛은 산출 없이 쉰다(피로 회복, settle.ts restIdle)
     if (job.job === JOB_NONE) return settleJob(job, fromMs, toMs, input.offlineSinceMs, rules).state;
     const segments = input.outputs?.[index];

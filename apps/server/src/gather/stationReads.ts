@@ -10,6 +10,7 @@ import type {
   GatherStationResponse,
   GatherStationUpgrade,
   GatherStationWorker,
+  GatherStationWorkerRest,
   GatherStationWorkerState,
 } from "@terra/shared/gatherStation";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
@@ -148,6 +149,16 @@ export function stationView(
       ? null
       : BigInt(storageCapacityAt(def.storageKg, Math.max(1, site.level), rules.facilityRuntime)) * 1000n;
 
+  // 일꾼 쉼터(질문 1088 가): 숙소(레벨)·집과 회복 배율
+  const restView = (unitId: number): GatherStationWorkerRest | null => {
+    const rest = gather.workerRest.restOf(unitId);
+    if (!rest || rest.place.kind === "homeless") return null;
+    return {
+      kind: rest.place.kind,
+      level: rest.place.kind === "lodging" ? rest.place.level : 0,
+      recoveryPm: rest.recoveryPm,
+    };
+  };
   // 일꾼(직무 배치·노동 계약)
   const units = new Map<number, { mapKey: number; phase: number; fatigue: number }>();
   for (const map of world.maps.values())
@@ -166,6 +177,7 @@ export function stationView(
       lots: atStation?.lots ?? 0,
       fatigue: unit?.fatigue ?? 0,
       settledAtMs: atStation?.settledAtMs ?? null,
+      rest: restView(entry.unitId),
     };
   });
 
@@ -232,6 +244,7 @@ export function stationView(
       toStore: route ? route.storeId !== null : false,
       tripMs: route ? haulMs(myGrams, route.cells, route.carriers, rules) : null,
       arriveAtMs: station.trip(buildingId)?.arriveAtMs ?? null,
+      porterUnitId: station.trip(buildingId)?.porter ?? null,
     },
     slots: Math.max(0, record?.level ?? 0) * Math.max(0, site.slotsPerLevel),
     workers: workers.toSorted((a, b) => a.unitId - b.unitId),

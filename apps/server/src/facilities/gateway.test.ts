@@ -26,6 +26,7 @@ function fakeService(calls: string[]): FacilityService {
     pausesFor: () => undefined,
     damage: () => false,
     attachGovernment: () => {},
+    attachStorageOut: () => {},
     seedBuilt: () => {},
     npcBuild: notUsed,
     places: { maps: new Map(), facilities: new Map(), catalog: notUsed, cities: () => [] },

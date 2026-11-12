@@ -8,6 +8,7 @@ import type {
   GatherStationKind,
   GatherStationResponse,
   GatherStationWorker,
+  GatherStationWorkerRest,
   GatherStationWorkerState,
 } from "@terra/shared/gatherStation";
 import { api } from "../../net/api.ts";
@@ -94,6 +95,14 @@ export function workerStateText(
       return unhandled;
     }
   }
+}
+
+/** 일꾼이 쉬는 곳(질문 1088 가): 숙소 Lv·집과 회복 배율(‰ → ×1.5) */
+export function restText(rest: GatherStationWorkerRest): string {
+  const rate = (Math.max(0, rest.recoveryPm) / 1000).toFixed(1);
+  return rest.kind === "lodging"
+    ? m.station_worker_rest_lodging({ level: rest.level, rate })
+    : m.station_worker_rest_home({ rate });
 }
 
 export function workerViaText(worker: GatherStationWorker): string {

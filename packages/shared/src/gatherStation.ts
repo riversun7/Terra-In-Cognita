@@ -51,6 +51,20 @@ export interface GatherStationWorker {
   readonly fatigue: number;
   /** 마지막으로 정산된 시각(서버 ms, 없으면 null) */
   readonly settledAtMs: number | null;
+  /**
+   * 쉬는 곳(질문 1088 가 — 플레이어 일꾼도 그 도시 숙소의 빈 침대에서 NPC 일꾼과 같은 규칙으로 회복, 없으면 집). 숙소 회복을 껐거나 도시 밖이면
+   * null·없음(예전 규칙)
+   */
+  readonly rest?: GatherStationWorkerRest | null | undefined;
+}
+
+/** 일꾼 하나가 쉬는 곳과 회복 배율 */
+export interface GatherStationWorkerRest {
+  readonly kind: "lodging" | "home";
+  /** 숙소 레벨(집이면 0) */
+  readonly level: number;
+  /** 회복 배율(‰, 1000 = 숙소 없는 집 기본) */
+  readonly recoveryPm: number;
 }
 
 /** 반경 안 오브젝트 합 */
@@ -132,6 +146,8 @@ export interface GatherStationResponse {
     readonly toStore?: boolean | undefined;
     readonly tripMs?: number | null | undefined;
     readonly arriveAtMs?: number | null | undefined;
+    /** 나르는 중이면 운반꾼 유닛 ID(질문 1090 가 — 그 채집소 일꾼 하나가 화물을 지고 걷는다) */
+    readonly porterUnitId?: number | null | undefined;
   };
   readonly slots: number;
   readonly workers: readonly GatherStationWorker[];

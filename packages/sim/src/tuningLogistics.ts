@@ -38,4 +38,10 @@ export const LOGISTICS_TUNING_KEYS: readonly TuningKey[] = [
     "채집소 → 창고 옮김에 거리 셈(1 = 셈, 0 = 바로)",
     "Station to storehouse haul takes distance time (1 = on, 0 = instant)",
   ),
+  k(
+    "worker_rest_cycle_mode",
+    "restCycleMode",
+    "NPC 일꾼이 피로 바퀴로 일터 ↔ 쉼터를 오감(1 = 피로 바퀴, 0 = 지역 낮·밤)",
+    "NPC workers walk between work and rest on the fatigue cycle (1 = fatigue, 0 = local day/night)",
+  ),
 ];

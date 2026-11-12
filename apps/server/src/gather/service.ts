@@ -159,6 +159,8 @@ export interface GatherService {
   insideOf(buildingId: number): readonly { readonly unitId: number; readonly ownerId: number }[];
   runDue(): void;
   readonly active: number;
+  /** 그 유닛에 채집 줄이 있나(채집소 운반꾼 고르기가 뺀다, 질문 1090 가) */
+  acting(unitId: number): boolean;
   stop(): void;
 }
 
@@ -856,6 +858,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
       return out.toSorted((a, b) => a.unitId - b.unitId);
     },
     runDue,
+    acting: (unitId) => actions.has(unitId),
     get active() {
       return actions.size;
     },

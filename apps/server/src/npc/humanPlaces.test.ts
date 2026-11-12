@@ -124,6 +124,18 @@ describe("createHumanPlaces", () => {
     });
     expect(planned.get(1)).toMatchObject({ x: 112, y: 130, homeRadius: 4, work: east });
     expect(planned.get(2)).toMatchObject({ x: 128, y: 128, work: east });
+    // 피로 바퀴(질문 1095 가): 같은 차례의 바퀴가 일하는 때에 얹힌다
+    const cycle = { workMs: 7_200_000, periodMs: 21_600_000 };
+    const cycled = assignHumanPlaces({
+      humans: [1, 2],
+      home,
+      facilities: [{ id: 10, buildingId: 10, workers: 2 }],
+      areas: new Map([[10, east]]),
+      rests: [lodgeWest, undefined],
+      cycles: [cycle, undefined],
+    });
+    expect(cycled.get(1)?.shift?.cycle).toEqual(cycle);
+    expect(cycled.get(2)?.shift?.cycle).toBeUndefined();
   });
 
   it("도시 2차맵에 선 휴먼만, 바뀐 휴먼만 2차맵에 넣는다", () => {

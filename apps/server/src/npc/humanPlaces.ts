@@ -10,11 +10,18 @@
 // 일이 없는 휴먼·경비대는 그대로 도시 시청 칸 둘레.
 // 쉼터 계획(질문 1047 다, npc/cityRest.ts — 도시 경제가 맞출 때마다 셈): 있으면 일꾼마다 그 계획의 숙소(침대 수 안, 길 위가 먼저)에서 쉬고, 침대가
 // 모자란 일꾼은 시청 칸 둘레(집)에서 쉰다. 같은 계획이 생산 속도 배율을 정하므로 보이는 쉼터와 셈이 같다.
+// 피로 바퀴(질문 1095 가, 설정 칸 worker_rest_cycle_mode 1): 일꾼은 낮·밤 대신 생산 셈과 같은 일·쉼 바퀴로 일터 ↔ 쉼터를 오간다(지치면 스스로 쉼터로).
 import { isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import { type BuildingPlacement, footprintRect } from "@terra/sim";
-import { type BotHome, DEFAULT_WORK_SHIFT, type TripArea, type WorkShift } from "../world/bots.ts";
-import type { CityRestPlan } from "./cityRest.ts";
+import {
+  type BotHome,
+  DEFAULT_WORK_SHIFT,
+  type RestCycle,
+  type TripArea,
+  type WorkShift,
+} from "../world/bots.ts";
+import type { CityRestPlan, WorkerRest } from "./cityRest.ts";
 
 /** [임시] 일터 네모 = 건물 가운데 칸 둘레, 건물 반 폭 + 이 칸(건물 칸은 설 수 없어 그 둘레에서 고른다) */
 export const WORK_MARGIN_CELLS = 3;
@@ -78,6 +85,8 @@ export function assignHumanPlaces(input: {
    * 일터에서 가장 가까운 숙소(lodgings)
    */
   readonly rests?: readonly (TripArea | undefined)[] | undefined;
+  /** 일꾼마다 피로 바퀴(rests와 같은 차례, 질문 1095 가). 있으면 그 일꾼은 낮·밤 대신 이 바퀴로 일터 ↔ 쉼터를 오간다 */
+  readonly cycles?: readonly (RestCycle | undefined)[] | undefined;
 }): Map<number, BotHome> {
   const shift = input.shift ?? DEFAULT_WORK_SHIFT;
   const out = new Map<number, BotHome>();
@@ -94,12 +103,14 @@ export function assignHumanPlaces(input: {
         : input.rests
           ? input.rests[order]
           : nearestArea(input.lodgings ?? [], work);
+      const cycle = input.cycles?.[order];
+      const own = cycle ? { ...shift, cycle } : shift;
       out.set(
         unitId,
         work
           ? rest
-            ? { x: rest.x, y: rest.y, homeRadius: rest.radius, work, shift }
-            : { x: input.home.x, y: input.home.y, work, shift }
+            ? { x: rest.x, y: rest.y, homeRadius: rest.radius, work, shift: own }
+            : { x: input.home.x, y: input.home.y, work, shift: own }
           : { ...input.home },
       );
     }
@@ -138,6 +149,8 @@ export interface HumanPlacesInput {
   readonly restOf?: ((cityId: number) => CityRestPlan | undefined) | undefined;
   /** 일하는 지역 시각(지역 하루 천분율, 설정 칸 npc_work_start_pm·npc_work_end_pm). 없으면 DEFAULT_WORK_SHIFT의 값 */
   readonly workHours?: { readonly startPm: number; readonly endPm: number } | undefined;
+  /** 쉼터 계획 일꾼 하나의 피로 바퀴(질문 1095 가, npc/cityRest.ts restCycleOf). 없거나 undefined면 낮·밤 */
+  readonly restCycle?: ((worker: WorkerRest) => RestCycle | undefined) | undefined;
 }
 
 /** 지난번에 넣은 자리(유닛 ID → 모양 글자)와 견줘 바뀐 휴먼만 2차맵에 넣는다. 넣은 수를 돌려준다 */
@@ -199,6 +212,9 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
             ?.workers.map((worker) =>
               worker.lodgingId === null ? undefined : areasOf(place.mapKey, map).get(worker.lodgingId),
             ),
+          cycles: input.restCycle
+            ? input.restOf?.(cityId)?.workers.map((worker) => input.restCycle?.(worker))
+            : undefined,
         });
         for (const [unitId, home] of homes) {
           seen.add(unitId);

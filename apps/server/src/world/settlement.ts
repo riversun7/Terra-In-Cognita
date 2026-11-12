@@ -19,6 +19,7 @@
 //   직무 정산과 같은 동기 처리에서 부른다(나눠 정산해도 같다 — 경계·난수가 실제 시각·유닛으로만 정해진다).
 import {
   JOB_NONE,
+  type JobRules,
   type JobState,
   type OutputSegment,
   TEST_ASSET_CREDIT,
@@ -85,8 +86,21 @@ export interface Settlement {
   afterSettle(hook: ((ownerId: number, toMs: number) => void) | undefined): void;
   /** 작업 중 부상 고리(D-521): 직무 정산 전에 유닛마다 (정산 전 직무, 구간, 접속 상태)로 부른다 */
   injureWork(hook: WorkInjuryHook | undefined): void;
+  /**
+   * 일꾼 쉼터 고리(질문 1088 가, labor/workerRest.ts): 주체를 정산할 때마다 (주체, 유닛들, 구간)으로 불러 유닛마다 직무 규칙(쉼터 회복 배율)을 받는다.
+   * undefined면 모두 기본 규칙(예전과 같다)
+   */
+  restRules(hook: RestRulesHook | undefined): void;
   stop(): void;
 }
+
+/** 일꾼 쉼터 고리 하나: 유닛 차례대로 직무 규칙(없는 칸 = 기본) */
+export type RestRulesHook = (
+  ownerId: number,
+  units: readonly { readonly id: number }[],
+  fromMs: number,
+  toMs: number,
+) => readonly (JobRules | undefined)[] | undefined;
 
 /** 작업 중 부상 고리 하나(유닛 하나, 정산 전 직무 상태, 구간, 접속 상태) */
 export type WorkInjuryHook = (
@@ -213,6 +227,7 @@ export function createSettlement(options: {
   let pauser: OutputPauses | undefined;
   let after: ((ownerId: number, toMs: number) => void) | undefined;
   let injury: WorkInjuryHook | undefined;
+  let restHook: RestRulesHook | undefined;
   const weightOf = options.upkeepWeightPm;
 
   const settleWith = (owner: OwnerRow, units: readonly UnitRef[], toMs: number): SettleReport => {
@@ -247,6 +262,8 @@ export function createSettlement(options: {
         offlineSinceMs: offline,
         outputs: special ? units.map(outputOf) : undefined,
         upkeepWeightPm: weightOf ? units.reduce((sum, unit) => sum + weightOf(unit.kind), 0) : undefined,
+        // 일꾼 쉼터(질문 1088 가): 숙소·집 회복 배율을 얹은 유닛별 규칙
+        unitRules: restHook?.(owner.id, units, from, toMs),
       },
       ledger,
       testSettleAccounts(ledger, owner.id),
@@ -364,6 +381,9 @@ export function createSettlement(options: {
     },
     injureWork(hook) {
       injury = hook;
+    },
+    restRules(hook) {
+      restHook = hook;
     },
     stop() {
       clearInterval(sweepTimer);

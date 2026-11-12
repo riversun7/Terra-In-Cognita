@@ -12,6 +12,11 @@ export interface LogisticsCoefficients {
   readonly homeRecoveryPm: number;
   /** [임시] 1 = 채집소 산출을 창고로 나르는 시간을 셈한다, 0 = 옛(거리 상관없이 바로) */
   readonly haulMode: number;
+  /**
+   * [임시] 1 = NPC 일꾼이 피로 바퀴(일 = 피로 상한 × 일 주기, 쉼 = 쉼터 회복)로 일터 ↔ 쉼터를 오간다(질문 1095 가, 48 §7.1 "한도에 닿으면
+   * 스스로 숙소로"), 0 = 옛(지역 낮에 일터·밤에 쉼터, npc_work_start_pm·npc_work_end_pm)
+   */
+  readonly restCycleMode: number;
 }
 
 export const START_LOGISTICS: LogisticsCoefficients = {
@@ -20,4 +25,5 @@ export const START_LOGISTICS: LogisticsCoefficients = {
   lodgingFeePerNight: 1,
   homeRecoveryPm: 1000,
   haulMode: 1,
+  restCycleMode: 1,
 };

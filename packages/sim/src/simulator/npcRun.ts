@@ -11,6 +11,7 @@ import type { EventKey } from "../events/eventKey.ts";
 import { type FactionView, type NpcAction, type RivalView, decideAction, peaceScore } from "../npc/brain.ts";
 import { nextTaxBp, occupationChoice, recruitPicks } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
+import { cityHousingCap } from "../society/logistics.ts";
 import { shareAsset } from "../society/shares.ts";
 import { rebuildCost } from "../society/warOutcomes.ts";
 import { inTruce, recordFight } from "../society/wars.ts";
@@ -194,7 +195,7 @@ export function factionView(ctx: NpcContext, faction: SimFaction, nowMs: number)
     sum += here?.sum ?? 0;
     food = Math.min(food, ctx.hooks?.foodPmOf?.(cityId) ?? 1000);
     // 붐빔 = 주거가 꽉 찼고 마을로 떠날 사람이 모자라지 않다(society.found와 같은 조건)
-    if ((here?.n ?? 0) >= city.housing && (here?.n ?? 0) >= settings.founders) crowded = true;
+    if ((here?.n ?? 0) >= cityHousingCap(city) && (here?.n ?? 0) >= settings.founders) crowded = true;
     if (sellableCity(ctx, faction, cityId)) sellable = true;
     maxResearch = Math.max(maxResearch, city.researchLevel);
     // 연구 시설을 올릴 도시 = society.buildResearch와 같은 차례(발전도 높은 것, 같으면 작은 ID)
@@ -395,7 +396,7 @@ export function recruitPolicy(ctx: NpcContext, faction: SimFaction, nowMs: numbe
         cards: view.cards,
         taken: view.taken,
         population: byCity.get(cityId)?.n ?? 0,
-        housing: city.housing,
+        housing: cityHousingCap(city),
         treasury: ctx.world.book.balanceOf(faction.id, asset),
         guards: guardsByCity.get(cityId) ?? 0,
         guardTarget,

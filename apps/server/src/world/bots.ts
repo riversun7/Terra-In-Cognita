@@ -111,6 +111,17 @@ export interface WorkShift {
   readonly lonDeg: number;
   readonly startPm: number;
   readonly endPm: number;
+  /**
+   * 피로 바퀴(질문 1095 가, 설정 칸 worker_rest_cycle_mode 1): 있으면 낮·밤 대신 이 바퀴로 일한다 — 바퀴(periodMs) 가운데 앞 workMs가 일터, 나머지가
+   * 쉼터(오감 포함). 휴먼마다 바퀴 시작을 유닛 ID 해시로 흩는다(한꺼번에 쉬러 가지 않게). 바퀴는 도시 경제 생산 셈(npc/cityRest.ts)과 같다
+   */
+  readonly cycle?: RestCycle | undefined;
+}
+
+/** 일·쉼 한 바퀴(ms) */
+export interface RestCycle {
+  readonly workMs: number;
+  readonly periodMs: number;
 }
 
 /** [임시] 설정 칸이 없을 때(시험) 일하는 때: 06:00~18:00(춘분·추분에 해가 뜨고 지는 때) */
@@ -154,6 +165,12 @@ function inShift(t: number, startPm: number, endPm: number): boolean {
 
 /** 그 유닛이 지금 일하는 때인가(그 2차맵 지역 시각의 낮, 유닛마다 조금 흩은 출근·퇴근) */
 export function atWork(shift: WorkShift, unitId: number, nowMs: number): boolean {
+  const cycle = shift.cycle;
+  if (cycle && cycle.periodMs > 0) {
+    // 피로 바퀴: 바퀴 시작을 유닛마다 흩는다
+    const offset = (mix32(Math.imul(unitId, 0x2545_f491)) >>> 0) % cycle.periodMs;
+    return (((nowMs + offset) % cycle.periodMs) + cycle.periodMs) % cycle.periodMs < cycle.workMs;
+  }
   const jitter = (mix32(Math.imul(unitId, 0x2545_f491)) >>> 0) % (WORK_JITTER_PM + 1);
   const t = (localDayPm(nowMs, shift.lonDeg) - jitter + 1000) % 1000;
   return inShift(t, shift.startPm, shift.endPm);

@@ -79,7 +79,7 @@ describe("선호(D-535 1151 나)", () => {
   it("(시드, 유닛)으로 정해지고 후보 차례와 상관없다, 유닛마다 고루 퍼진다", () => {
     const a = unitPreferences(42, 7, choices);
     expect(
-      unitPreferences(42, 7, { foods: [...choices.foods].reverse(), housings: ["home", "lodging"] }),
+      unitPreferences(42, 7, { foods: choices.foods.toReversed(), housings: ["home", "lodging"] }),
     ).toEqual(a);
     expect(choices.foods).toContain(a.food);
     const foods = new Set<string | null>();

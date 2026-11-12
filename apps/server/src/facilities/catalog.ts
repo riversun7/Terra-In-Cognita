@@ -149,7 +149,7 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
     const items = new Map(current.items.map((item) => [item.id, item]));
     const enabled = current.items.filter((item) => item.enabled);
     const ladders = new Map<string, string[][]>();
-    const subs = new Map((current.itemSubcategories ?? []).map((sub) => [sub.id, sub]));
+    const subcategoryById = new Map((current.itemSubcategories ?? []).map((sub) => [sub.id, sub]));
     const value: FacilityCatalog = {
       facility: (id) => byId.get(id),
       facilities: defs,
@@ -194,12 +194,12 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
           .filter((item) => (item.lotSize ?? 1) !== 1)
           .map((item) => [itemAsset(item.id), BigInt(item.lotSize ?? 1)]),
       ),
-      foodSubcategories: [...subs.values()]
+      foodSubcategories: [...subcategoryById.values()]
         .filter((sub) => sub.food === true && sub.enabled)
         .map((sub) => sub.id),
       subcategoryOf: (id) => items.get(id)?.subcategory?.id,
       subcategoryName(id) {
-        const sub = subs.get(id);
+        const sub = subcategoryById.get(id);
         return sub ? { ko: sub.name.ko, en: sub.name.en } : undefined;
       },
     };

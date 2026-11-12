@@ -80,7 +80,7 @@ describe("서버 컨디션(주거 = 쉼터 배정, 음식 = 도시 생필품 충
 describe("도시 창고 식품 중분류(facilities/world.ts cityFoodSubcategories)", () => {
   it("주인 있는 도시 창고 계정의 잔고 > 0 아이템만, 건물 창고·화물·잔고 0은 뺀다", async () => {
     const { cityFoodSubcategories } = await import("../facilities/world.ts");
-    const accounts = [
+    const accounts: { ownerId: number | null; asset: string; location: number; balance: bigint }[] = [
       { ownerId: 1, asset: "item:salmon", location: 5, balance: 3n },
       { ownerId: 2, asset: "item:wheat", location: 5, balance: 0n },
       { ownerId: 2, asset: "item:wheat", location: -4, balance: 9n },
@@ -91,7 +91,9 @@ describe("도시 창고 식품 중분류(facilities/world.ts cityFoodSubcategori
     const subs: Record<string, string> = { salmon: "fish", wheat: "crop", carrot: "crop", ration: "dish" };
     const map = cityFoodSubcategories(
       // 시험용 가짜 원장(계정 목록만)
-      { accounts: () => accounts.values() as never },
+      {
+        accounts: () => accounts.map((row, index) => ({ id: index + 1, systemCode: null, ...row })).values(),
+      },
       (item) => subs[item],
     );
     expect([...(map.get(5) ?? [])]).toEqual(["fish"]);

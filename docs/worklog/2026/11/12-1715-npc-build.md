@@ -36,6 +36,11 @@
 - 국고 합(나라마다 다른 화폐를 그냥 더한 값)은 증축 켬이 끔보다 29% 적다 — 재료 사기와 걸어 둔 매수 주문 몫(Assumed: 둘을 나눠 재지 않음). 인구는 자라지 않는다: 시뮬 주거가 고정이고 숙소가 주거를 늘리지 않는다(질문 1089 — logistics-2 줄기).
 - 서버(Verified: DB 시험 `cityBuild.db.test.ts`): 도시 둘(국가 둘 × 도시 하나), 재료를 채우고 3시간 → 도시마다 농장 하나(레벨 0 + 짓기 작업, `builtBy` 없음), 3시간 더 → 레벨 1, 도시 경제 생산에 들어감, 다시 켜도 시설 줄 그대로, NPC 휴먼 모두 크기 1·걷기.
 
+## 검사 (Verified: 실행)
+- `pnpm check`(TEST_DATABASE_URL 있음): 통과 — 시험 파일 646개·시험 4,945개.
+- `pnpm check:content origin/main`: 통과(core@76). `pnpm check:docs origin/main`: 통과.
+- `apps/game`은 바꾸지 않아 빌드·`check-pwa`·`check:bundle`·화면 시험은 돌리지 않았다.
+
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
 |---|---|

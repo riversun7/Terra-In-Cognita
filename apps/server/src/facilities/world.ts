@@ -254,7 +254,7 @@ export function createWorldFacilities(input: {
   const cityOfUnit = (unitId: number): number | null | undefined => {
     const buildingId = labor?.assignedTo(unitId);
     if (buildingId !== undefined) {
-      const site = gatherSiteOf(service, catalog(), buildingId, oreCap);
+      const site = gatherSiteOf(service, catalog(), buildingId);
       if (site) return site.cityId;
     }
     for (const map of input.maps.values()) {

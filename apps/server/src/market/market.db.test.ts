@@ -124,9 +124,10 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     const econ = npc?.economy;
     if (!npc || !persistence || !econ) throw new Error("city economy");
     const { ledger, writer } = persistence;
-    // 도시 셋 × (세계 씨앗 시설 농장·벌목장·광산 + 주방 건물이 없어 도시 직무 주방), 처음 창고는 도시마다 한 번
+    // 도시 셋 × (세계 씨앗 시설 농장·벌목장·광산 + 주방 건물이 없어 도시 직무 주방 + 벌목장 건물이 원목을 맡아 남은 도시 직무 통나무 — 1144 나),
+    // 처음 창고는 도시마다 한 번
     expect(npc.world.cities.size).toBe(3);
-    expect(econ.economy.facilities.size).toBe(12);
+    expect(econ.economy.facilities.size).toBe(15);
     await writer.durable();
     expect(await count(`select id from ledger_transactions where idempotency_key like 'npc_endow:%'`)).toBe(
       3,
@@ -355,18 +356,8 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
   });
 
   it("나라 성격(531 다·533 다·553 나·554 다·600 나): 국가마다 도시 직무·처음 창고가 다르고, 모자란 생필품은 굶음 먼저 일꾼을 둔다(532 나)", async () => {
-    // 농업 나라(팩 프리셋 1)에 벌목장 특산을 하나 더 얹는다(벌목장 건물 하나 < 벌목장 특산 둘 — 600 나)
-    const presets = packPresets.map((preset, index) =>
-      index === 0 && preset.personality?.cityJobs
-        ? {
-            ...preset,
-            personality: {
-              ...preset.personality,
-              cityJobs: [...preset.personality.cityJobs, { facility: "lumber_camp", recipe: "cut_logs" }],
-            },
-          }
-        : preset,
-    );
+    // 농업 나라(팩 프리셋 1)는 벌목장 특산이 둘이다(원목·통나무 — 1144 나, 벌목장 건물 하나 < 벌목장 특산 둘 — 600 나)
+    const presets = packPresets;
     const world = await boot(presets);
     const npc = world.npc;
     const econ = npc?.economy;
@@ -395,8 +386,8 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(econ.production(indCity ?? 0).map((run) => run.facility.recipe.id)).toEqual(
       expect.arrayContaining(["smelt_iron", "make_household_goods", "cook_ration"]),
     );
-    // 553 나: 건물은 그 시설의 특산 레시피(특산이 없으면 팩 첫 레시피) — 공업 나라는 벌목장 특산이 없어 세계 씨앗 벌목장 건물이 팩 첫
-    // 레시피(원목)
+    // 553 나: 건물은 그 시설의 특산 레시피(특산이 없으면 팩 첫 레시피) — 공업 나라의 첫 벌목장 특산은 원목(1144 나로 원목·통나무 둘)이라
+    // 세계 씨앗 벌목장 건물이 원목
     for (const run of econ.production(indCity ?? 0))
       if (run.buildingId !== null && run.facility.recipe.facility === "lumber_camp")
         expect(run.facility.recipe.id).toBe("cut_timber");

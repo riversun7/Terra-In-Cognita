@@ -81,6 +81,11 @@ export interface FacilityView {
   readonly storage: boolean;
   /** 건물 창고에 든 무게(kg, 모든 주인, 올림). 창고 시설·상한이 있는 시설(채집 시설의 임대형 몫, 523 ②)만, 그 밖은 null */
   readonly storedKg: number | null;
+  /**
+   * 숙소(생활 단계, 질문 1047 다): 침대 = 레벨 × 설정 칸 lodging_beds_per_level, 쉬는 일꾼 = 그 도시 NPC 일꾼 쉼터 계획에서 이 숙소를 쓰는 수
+   * (NPC 사회가 꺼져 있으면 null). 숙소가 아니면 없음
+   */
+  readonly lodging?: { readonly beds: number; readonly occupants: number | null } | null | undefined;
   /** 건물이 선 도시(재료를 꺼내는 도시 창고, @terra/shared/goodsPlaces). 그 2차맵에 도시가 없으면 null */
   readonly cityId: number | null;
   readonly job: FacilityJobView | null;

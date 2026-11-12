@@ -140,6 +140,13 @@ export function FacilityCard({
           : facility.storedKg !== null
             ? ` · ${m.facility_storage_used({ used: facility.storedKg, kg: facility.storageKg })}`
             : ` · ${m.facility_storage({ kg: facility.storageKg })}`}
+        {facility.lodging
+          ? ` · ${
+              facility.lodging.occupants === null
+                ? m.facility_lodging_beds({ beds: facility.lodging.beds })
+                : m.facility_lodging_use({ used: facility.lodging.occupants, beds: facility.lodging.beds })
+            }`
+          : ""}
       </p>
       {facility.idleMsToDisabled !== null && facility.works ? (
         <p className="eco-footnote">

@@ -13,6 +13,7 @@ import type {
   GatherStationWorkerState,
 } from "@terra/shared/gatherStation";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
+import { haulMs } from "@terra/sim";
 import { buildingLocation } from "@terra/shared/goodsPlaces";
 import { storageCapacityAt } from "@terra/shared/facilityRuntime";
 import { assetWeightG, materialScope, storedGrams } from "../facilities/places.ts";
@@ -198,6 +199,10 @@ export function stationView(
   }
 
   const haulEvery = Math.max(0, Math.floor(rules.gatherObjects.stationHaulMs));
+  const route = station.haulRoute(buildingId);
+  // 지금 든 내 몫 무게(옮김 시간 셈)
+  let myGrams = 0n;
+  for (const line of goods) myGrams += BigInt(line.grams);
   return {
     status: "ok",
     buildingId,
@@ -222,6 +227,11 @@ export function stationView(
     haul: {
       everyMs: haulEvery,
       nextAtMs: site.cityId !== null ? station.nextHaulAt(nowMs) : null,
+      // 옮김 거리(질문 1050 가): 칸·창고까지인지·지금 든 내 몫을 나르는 시간·나르는 중이면 닿는 시각
+      cells: route ? route.cells : null,
+      toStore: route ? route.storeId !== null : false,
+      tripMs: route ? haulMs(myGrams, route.cells, route.carriers, rules) : null,
+      arriveAtMs: station.trip(buildingId)?.arriveAtMs ?? null,
     },
     slots: Math.max(0, record?.level ?? 0) * Math.max(0, site.slotsPerLevel),
     workers: workers.toSorted((a, b) => a.unitId - b.unitId),

@@ -24,6 +24,12 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       catalog: facilities.catalog,
       unitBusy: (unitId) => labor.unitBusy(unitId),
       workersOf: (buildingId) => labor.workersAt(buildingId),
+      // 숙소를 쓰는 NPC 일꾼(도시 경제 쉼터 계획, 질문 1047 다)
+      lodgingOccupants: (buildingId, cityId) => {
+        if (cityId === null) return undefined;
+        const plan = world.npc?.economy?.restPlan(cityId);
+        return plan ? (plan.occupancy.get(buildingId) ?? 0) : undefined;
+      },
     },
     ownerOf: (userId) => settlement.findOwnerOfUser(userId),
     map: (mapKey) => world.maps.get(mapKey),

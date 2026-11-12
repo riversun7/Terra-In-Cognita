@@ -35,7 +35,8 @@
   - `pnpm check`: 641 파일 중 1 실패(씨앗 수 기대값) → 고친 뒤 그 파일 8/8 통과. 나머지 4,918 시험 통과.
   - `check:docs`·`check:content`(core@74)·빌드·`check-pwa`·`check:bundle`(첫 화면 108,889 B / 131,416 B) 통과.
   - 화면 시험 11종(world-layout·city-layout·gather-station·faction-identity·production·facilities·nations·ruins·play-map·government·buildings) 112 통과·실패 0.
-- NAS에서 돌려 보지 않았다. 세계를 새로 시작하지 않으면 다음 켤 때 생기는 것(코드로 확인, 미실행)
+- NAS 배포(CI 315, 2026-11-12 10:57 KST) 뒤 nas-metrics(Verified): 건물 403 → 790(광산·숙소·성벽 고리가 더해짐), 도시 49·휴먼 1,871 그대로, 시설 274, RSS 540MB(메모리 54%), 루프 p99 3.1 → 1.2ms(켠 첫 1분 최대 484ms), DB 실패 0. 배후지 줄(`catchmentRows`)은 첫 하루 끝(UTC 0시) 전이라 0.
+- 세계를 새로 시작하지 않을 때 켤 때 생기는 것(코드로 확인 + 위 건물 수)
   - 기존 시작 도시에 광산(광산을 쓰는 국가)·숙소(주거 ÷ 침대)·성벽 고리가 더해진다.
   - 마을에 행정 건물·숙소가 더해진다.
 - 시작 도시 자리는 49곳 중 44곳이 바뀐다(ore-share 측정). 새 자리는 세계 새로 시작 뒤에만 든다 → 사용자 결정 대기.

@@ -17,8 +17,10 @@ import {
   type PrimaryInfluence,
   ROLL_FORMULAS,
   bareAppropriateScope,
+  critFormulaIdOf,
   evaluateFormula,
   explainFormula,
+  intervalFormulaIdOf,
   isCombatFormulaId,
   parseFormula,
   primaryInfluence,
@@ -97,6 +99,8 @@ function programsOf(
       stamina_cost: pick("stamina_cost"),
       real_stamina_regen: pick("real_stamina_regen"),
       evade_chance: pick("evade_chance"),
+      bare_crit: pick("bare_crit"),
+      bare_interval: pick("bare_interval"),
     },
   };
 }
@@ -207,7 +211,7 @@ export interface SampleStamina {
   readonly regenPerMinute: number;
   /** 기본 공격 한 번 소모(밀리점, 식 stamina_cost) */
   readonly costMilli: number;
-  /** 공격 간격(ms, 식 attack_interval) */
+  /** 공격 간격(ms, 식 attack_interval — 맨손은 bare_interval) */
   readonly intervalMs: number;
   /** 초당 회복 ≥ 초당 소모(일반 공격이 이어진다, D-511) */
   readonly sustained: boolean;
@@ -229,7 +233,8 @@ export function sampleStaminaOf(
     );
     const v = result.values;
     const costMilli = Math.max(0, v.stamina_cost);
-    const intervalMs = Math.max(1, Math.floor(v.attack_interval / 1000));
+    // 맨손은 맨손 간격 식(bare_interval, 2026-11-12), 무기는 attack_interval — 판정과 같은 고르기
+    const intervalMs = Math.max(1, Math.floor(v[intervalFormulaIdOf(weapon.unarmed)] / 1000));
     const regenPerMinute = Math.max(0, Math.floor(v.real_stamina_regen / 1000));
     return {
       weapon,
@@ -245,10 +250,23 @@ export function sampleStaminaOf(
   });
 }
 
-/** 이 무기로 판정이 이 식을 쓰나(맨손 적정 식은 맨손일 때만. 실제 공격력은 맨손도 쓴다: 스탯 공격력 + 무기 몫 0, D-502) */
+/**
+ * 이 무기로 판정이 이 식을 쓰나(맨손 적정 식은 맨손일 때만. 실제 공격력은 맨손도 쓴다: 스탯 공격력 + 무기 몫 0, D-502).
+ * 크리·공격 간격은 맨손이면 맨손 식(bare_crit·bare_interval), 무기면 무기 틀 식(real_crit·attack_interval) — 2026-11-12
+ */
 export function slotUsedBy(slot: FormulaSlotView, weapon: FormulaWeaponView): boolean {
-  if (slot.key === "bare_appropriate") return weapon.unarmed;
-  return true;
+  switch (slot.key) {
+    case "bare_appropriate":
+      return weapon.unarmed;
+    case "real_crit":
+    case "bare_crit":
+      return critFormulaIdOf(weapon.unarmed) === slot.key;
+    case "attack_interval":
+    case "bare_interval":
+      return intervalFormulaIdOf(weapon.unarmed) === slot.key;
+    default:
+      return true;
+  }
 }
 
 /** 미리 보기(식이 틀리면 null) */

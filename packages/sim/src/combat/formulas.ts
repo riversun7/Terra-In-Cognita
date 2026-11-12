@@ -1,5 +1,5 @@
 // 전투 계산식 — docs/adr/2026-11-01-formula-editor.md "판정 코드"
-// 실제 공격력(스탯 공격력 + 무기 몫, D-502)·명중·크리, 맨손 적정 DEX·AGI, 크리 배율, 공격 간격, STA 점수·적정 STA 점수(레벨 식, D-511)·
+// 실제 공격력(스탯 공격력 + 무기 몫, D-502)·명중·크리, 맨손 적정 DEX·AGI, 맨손 크리·간격(옛 맨손 규칙, 2026-11-12), 크리 배율, 공격 간격, STA 점수·적정 STA 점수(레벨 식, D-511)·
 // 스태미나 소모·실제 스태미나 회복, 최종 회피를
 // 개발자 모드에서 고치는 식(@terra/shared/formula)으로 셈한다. 식은 계수표(CombatCoefficients.formulas)에 실린다: 읽은 구문 나무는
 // 직렬화할 수 있는 값이라 전투 시작 자료·스냅숏과 같이 다닌다. 식이 없으면 기본 식(= 지금 코드와 같은 결과)이다.
@@ -12,6 +12,8 @@ import {
   attackIntervalScope,
   attackScope,
   bareAppropriateScope,
+  bareCritScope,
+  bareIntervalScope,
   compileFormulaOrThrow,
   critMultiplierScope,
   dexFrameScope,
@@ -47,6 +49,8 @@ function setOf(make: (id: CombatFormulaId) => FormulaProgram): CombatFormulaSet 
     stamina_cost: make("stamina_cost"),
     real_stamina_regen: make("real_stamina_regen"),
     evade_chance: make("evade_chance"),
+    bare_crit: make("bare_crit"),
+    bare_interval: make("bare_interval"),
   };
 }
 
@@ -115,6 +119,38 @@ export function dexFrameValue(
 /** 맨손 적정 DEX·AGI(밀리점, 식 bare_appropriate — 기본 = 레벨 × 1.5 + 10). 0 이하면 0(적정 없음 → 비율 100%) */
 export function bareAppropriateMilli(level: number, c: CombatCoefficients): number {
   return nonNegative(evaluateFormula(formulaOf("bare_appropriate", c), bareAppropriateScope(level)));
+}
+
+/**
+ * 맨손 크리 확률(‰, 식 bare_crit — 기본 = 옛 맨손 규칙 500 × e ÷ (e + 200), e = DEX × 0.7 + AGI × 0.3). 0 이상 정수.
+ * 맨손 자료(unarmed)의 공격 사양만 쓴다(formula.ts realCritPm). W = 맨손 자료 크리, A = 맨손 적정(밀리점)
+ */
+export function bareCritPm(
+  weaponCritPm: number,
+  dex: number,
+  agi: number,
+  appropriateMilli: number,
+  c: CombatCoefficients,
+): number {
+  return nonNegative(
+    evaluateFormulaInt(formulaOf("bare_crit", c), bareCritScope(weaponCritPm, dex, agi, appropriateMilli)),
+  );
+}
+
+/**
+ * 맨손 공격 간격(ms, 식 bare_interval — 기본 = 맨손 간격 ÷ clamp(AGI ÷ 맨손 적정, 0.5, 2), 옛 맨손 공속). 1ms 이상.
+ * 맨손 자료(unarmed)로 기본 공격할 때만(unitSpec.ts)
+ */
+export function bareIntervalMs(
+  intervalMs: number,
+  agi: number,
+  appropriateMilli: number,
+  c: CombatCoefficients,
+): number {
+  return Math.max(
+    1,
+    evaluateFormulaInt(formulaOf("bare_interval", c), bareIntervalScope(intervalMs, agi, appropriateMilli)),
+  );
 }
 
 /** 크리 배율(‰, N12) 식 */

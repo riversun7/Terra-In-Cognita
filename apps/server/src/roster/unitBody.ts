@@ -19,17 +19,21 @@ import type {
   RosterBuffs,
   RosterCombat,
   RosterModifierStat,
+  RosterMove,
   RosterStats,
 } from "@terra/shared/roster";
 import {
+  CELL_UNITS,
   type CombatSkill,
   type CombatUnitSpec,
   type EffectHolder,
   MIN_MOVE_SPEED_PM,
   type ModifierStat,
   type Modifiers,
+  PLACEMENT_SIZE,
   type Primaries,
   type StartEffect,
+  WALK_SPEED,
   activeStartEffects,
   appropriateMilliOf,
   bareAppropriateMilli,
@@ -267,6 +271,19 @@ const SUMMARY_PLACE: SpecPlace = {
   buildingMulPm: 1000,
 };
 
+/**
+ * 사이보그 판 이동 속도 줄(사용자 요청 2026-11-12): 서버가 실제로 쓰는 걷기 빠르기(@terra/sim WALK_SPEED — 사이보그·휴먼 유닛 speed)와
+ * 칸 단위, 화면 요약 자리의 전투 걸음 간격. 1차 스탯 몫은 없다(기획 48 §3.2 — 이동 속도는 2차 스탯이 아니고 AGI 관계는 미결)
+ */
+export function rosterMoveOf(): RosterMove {
+  return {
+    walk: WALK_SPEED,
+    cellUnits: CELL_UNITS,
+    mapCells: PLACEMENT_SIZE,
+    battleMs: SUMMARY_PLACE.moveIntervalMs,
+  };
+}
+
 /** 스킬 ID → 전투 스킬(장비 스킬은 등급 1, 전투 실험실·시뮬과 같다). 모르는 ID는 뺀다 */
 function skillsFor(catalog: RosterCatalog, ids: readonly string[]): CombatSkill[] {
   const combat = catalog.combat;
@@ -366,8 +383,19 @@ export function combatSummaryOfSpec(catalog: RosterCatalog, spec: BodySpec, part
       real: realAttackOf(a, cap, c),
     },
     hit: { weaponPm: a.weaponHitPm, part: part(a.dex, a.dexAppropriateMilli), real: realHitPm(a, c) },
-    crit: { weaponPm: a.weaponCritPm, part: part(a.dex, a.dexAppropriateMilli), real: realCritPm(a, c) },
-    interval: { weaponMs: weapon.intervalMs, part: part(agi, agiAppropriate), real: unit.attackIntervalMs },
+    // 맨손 자료면 크리·간격은 옛 맨손 규칙 식(bare_crit·bare_interval, 2026-11-12) — 화면은 그 식 풀이를 보인다
+    crit: {
+      weaponPm: a.weaponCritPm,
+      part: part(a.dex, a.dexAppropriateMilli),
+      real: realCritPm(a, c),
+      ...(a.unarmed === true ? { bare: { agi } } : {}),
+    },
+    interval: {
+      weaponMs: weapon.intervalMs,
+      part: part(agi, agiAppropriate),
+      real: unit.attackIntervalMs,
+      ...(weapon.unarmed === true ? { bare: true } : {}),
+    },
     staminaRegen: {
       row: Math.max(0, parts.loadout.stats.stamina_regen ?? 0),
       score: unit.staminaScore,

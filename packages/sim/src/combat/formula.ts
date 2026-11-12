@@ -3,6 +3,7 @@
 // - 공격력(D-502, 사용자 답 296~298, D-420·D-438 1 대체) = 스탯 공격력(2차 물리·속성 공격력 = (STR + VIT) ÷ 2·(INT + WIS) ÷ 2)
 //   + 무기 공격력 × min(N10 1, STR(속성은 INT) ÷ 무기 적정 STR·INT). 명중·크리 = 무기 값 × min(N10, DEX ÷ 적정 DEX). 적정은 1차 스탯
 //   단위이고 몫마다 하나다(섞지 않음). 적정이 없으면 비율 100%. 맨손은 무기 몫 0, 적정 DEX = 계산식 bare_appropriate(레벨 × 1.5 + 10).
+//   맨손 크리는 따로 식 bare_crit(옛 맨손 규칙, 사용자 요청 2026-11-12 — DEX·AGI가 적정을 넘어도 오른다).
 // - 판정(D-419): 명중 굴림(0~9999 < 명중‰ × 10) → 회피 굴림(회피 = 확률 모양 + 상대 보정 N11, 최종 1%~85% 사용자 답 277) → 크리 굴림 →
 //   크리 배율 자리 굴림(N12 범위). 굴림은 늘 넷을 뽑는다(결정성).
 // - 피해는 두 몫이다(D-459, 48 §4.5a). 물리 무기·스킬: 물리 몫 P = 실제 물리 공격력, 속성 몫 E = P × Σ(옵션 계수 × 그 칸 값).
@@ -16,7 +17,7 @@
 //   docs/adr/2026-11-01-formula-editor.md). 기본 식은 아래 statPlusWeapon·weaponScaled·evadeFinalPm과 같은 결과다.
 import { type CombatCoefficients, affinityRatePm } from "./coefficients.ts";
 import type { Modifiers } from "./effects.ts";
-import { attackValue, critMultiplierPm, dexFrameValue, evadeChancePm } from "./formulas.ts";
+import { attackValue, bareCritPm, critMultiplierPm, dexFrameValue, evadeChancePm } from "./formulas.ts";
 
 /** 속성 12칸 차례(D-167 코드): water frost fire blaze wind lightning earth crystal light holy dark necro. 계열 = ⌊칸 ÷ 2⌋ */
 export const ELEMENT_COUNT = 12;
@@ -39,6 +40,11 @@ export interface AttackProfile {
   /** 공격자 DEX와 무기 적정 DEX(밀리점, 명중·크리가 같이 쓴다. 맨손은 bare_appropriate) */
   readonly dex: number;
   readonly dexAppropriateMilli: number;
+  /**
+   * 맨손 자료(사람형 맨손·맨손 속성, 팩 unit_kinds unarmed)의 사양인가. 참이면 크리 확률은 맨손 식 bare_crit(옛 맨손 규칙 — DEX·AGI가
+   * 적정을 넘어도 오른다, 사용자 요청 2026-11-12). 없으면 무기
+   */
+  readonly unarmed?: boolean | undefined;
   /** 크리 배율 최소(2차 스탯 ‰). 최대 = 최소 + N12 폭, 그 사이 자리는 시드 굴림 */
   readonly critMulPm: number;
   /** 공격자 AGI(회피 상대 보정 N11) */
@@ -286,8 +292,13 @@ export function realHitPm(attack: AttackProfile, c: CombatCoefficients): number 
   );
 }
 
-/** 실제 크리 확률(‰, 식 real_crit: 무기 크리 × min(N10, DEX ÷ 적정 DEX)) */
+/**
+ * 실제 크리 확률(‰). 무기: 식 real_crit(무기 크리 × min(N10, DEX ÷ 적정 DEX)). 맨손 자료: 식 bare_crit(옛 맨손 규칙
+ * (DEX × 0.7 + AGI × 0.3) ÷ (합 + 200) × 50%, 사용자 요청 2026-11-12)
+ */
 export function realCritPm(attack: AttackProfile, c: CombatCoefficients): number {
+  if (attack.unarmed === true)
+    return bareCritPm(attack.weaponCritPm, attack.dex, attack.agi ?? 0, attack.dexAppropriateMilli, c);
   return dexFrameValue(
     "real_crit",
     attack.weaponCritPm,

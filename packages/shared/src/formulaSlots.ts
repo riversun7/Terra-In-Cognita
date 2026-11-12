@@ -6,6 +6,8 @@
 // - 전투 식(팩 formulas): 칸 키 = 식 ID. 기본 식(DEFAULT_COMBAT_FORMULAS)은 지금 코드와 같은 결과를 내는 식이다.
 //   공격력 = 스탯 공격력 + 무기 몫(D-502): 무기 몫·명중·크리·공격 간격은 무기의 1차 적정 스탯(몫마다 하나: 공격 STR·INT, 명중·크리 DEX,
 //   공격 간격 AGI) 대비 비율을 N10(1000‰)까지 곱한다(사용자 답 296~298). 맨손의 적정 DEX·AGI는 bare_appropriate(옛 규칙 레벨 × 1.5 + 10).
+//   맨손 기본 공격의 크리 확률·공격 간격은 옛 프로젝트 맨손 규칙 칸(bare_crit·bare_interval, 사용자 요청 2026-11-12 "맨손인경우 크리확률이나
+//   공격속도 공식을 제대로 구현하라" — 무기 틀 min(1, 스탯 ÷ 적정)에서는 스탯이 적정을 넘어도 그대로였다).
 //   스태미나 소모·회복도 적정 스탯 개념이다(D-511): 적정 STA 점수 = 레벨 식 stamina_appropriate(맨손 적정과 같은 틀), 소모는 적정 ÷ 점수를
 //   곱하고(stamina_cost), 회복은 2차 스탯 스태미나 회복 × 점수 ÷ 적정(real_stamina_regen). 보통 유닛은 어느 레벨이든 배율 1이다.
 // - 단위: points(점수·정수), pm(천분율 ‰), x(배, 비율), ms, roll(굴림 0~9999), level(레벨).
@@ -56,6 +58,8 @@ export const COMBAT_FORMULA_IDS = [
   "stamina_cost",
   "real_stamina_regen",
   "evade_chance",
+  "bare_crit",
+  "bare_interval",
 ] as const;
 export type CombatFormulaId = (typeof COMBAT_FORMULA_IDS)[number];
 
@@ -159,6 +163,18 @@ export const COMBAT_FORMULA_SLOTS: Readonly<Record<CombatFormulaId, FormulaSlot>
     "pm",
     { min: 0, max: 1000 },
   ),
+  // 맨손 크리 확률(‰, 사용자 요청 2026-11-12 · 옛 calcCritChanceUnarmed): W 맨손 자료 크리(‰), DEX, AGI, A 맨손 적정 DEX·AGI(bare_appropriate)
+  bare_crit: combatSlot(
+    "bare_crit",
+    [v("W", "pm"), v("DEX", "points"), v("AGI", "points"), v("A", "points")],
+    "pm",
+    { min: 0, max: 1000 },
+  ),
+  // 맨손 공격 간격(ms, 사용자 요청 2026-11-12 · 옛 calcAttackSpeed 맨손): I 맨손 자료 간격, AGI, A 맨손 적정 AGI(bare_appropriate)
+  bare_interval: combatSlot("bare_interval", [v("I", "ms"), v("AGI", "points"), v("A", "points")], "ms", {
+    min: 100,
+    max: 60_000,
+  }),
 };
 
 /**
@@ -191,7 +207,28 @@ export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> 
     "# 최종 회피는 1%~85%(옛 기획 회피율 §6, 사용자 답 277)",
     "clamp(E + rel, 10, 850)",
   ].join("\n"),
+  bare_crit: [
+    "# [임시] 옛 프로젝트 맨손 크리(calcCritChanceUnarmed): (DEX × 0.7 + AGI × 0.3) ÷ (합 + 200) × 50%",
+    "e = max(0, DEX) * 0.7 + max(0, AGI) * 0.3",
+    "floor(500 * e / (e + 200))",
+  ].join("\n"),
+  bare_interval: [
+    "# [임시] 옛 프로젝트 맨손 공속(calcAttackSpeed): 공속 = min(2, AGI ÷ 맨손 적정), 최소 0.5 → 간격 = 맨손 간격 ÷ 공속",
+    "r = if(A <= 0, 1, clamp(max(0, AGI) / A, 0.5, 2))",
+    "max(1, floor(I / r))",
+  ].join("\n"),
 };
+
+/**
+ * 판정이 크리 확률·기본 공격 간격에 쓰는 식(사용자 요청 2026-11-12): 맨손 자료(unarmed)는 옛 맨손 규칙 칸(bare_crit·bare_interval),
+ * 무기는 무기 틀 칸(real_crit·attack_interval). 판정(sim formula.ts realCritPm·unitSpec.ts)과 미리 보기가 같은 고르기를 쓴다
+ */
+export function critFormulaIdOf(unarmed: boolean): "real_crit" | "bare_crit" {
+  return unarmed ? "bare_crit" : "real_crit";
+}
+export function intervalFormulaIdOf(unarmed: boolean): "attack_interval" | "bare_interval" {
+  return unarmed ? "bare_interval" : "attack_interval";
+}
 
 /** 굴림 칸이 있는 식(화면은 굴림 0·중간·9999를 함께 보인다) */
 export const ROLL_FORMULAS: readonly CombatFormulaId[] = ["crit_multiplier"];
@@ -330,6 +367,21 @@ export function dexFrameScope(
 /** 맨손 적정 DEX·AGI 식(bare_appropriate): 레벨 */
 export function bareAppropriateScope(level: number): FormulaScope {
   return { LV: int(level) };
+}
+
+/** 맨손 크리 식(bare_crit): 맨손 자료 크리(‰)·DEX·AGI·맨손 적정(밀리점) */
+export function bareCritScope(
+  weapon: number,
+  dex: number,
+  agi: number,
+  appropriateMilli: number,
+): FormulaScope {
+  return { W: int(weapon), DEX: int(dex), AGI: int(agi), A: pm(appropriateMilli) };
+}
+
+/** 맨손 공격 간격 식(bare_interval): 맨손 자료 간격(ms)·AGI·맨손 적정 AGI(밀리점) */
+export function bareIntervalScope(intervalMs: number, agi: number, appropriateMilli: number): FormulaScope {
+  return { I: int(intervalMs), AGI: int(agi), A: pm(appropriateMilli) };
 }
 
 /** 크리 배율 식: 크리 배율 점수(‰)·범위 폭(‰)·굴림 */

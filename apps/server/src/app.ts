@@ -617,6 +617,17 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
               }
             : undefined;
         },
+        // 사이보그 판 원자재별 채집 예상(2026-11-12): 실효 팩 채집 시설·티어 구간·중분류 이름
+        gatherSheet: contentEditState
+          ? () => {
+              const effective = contentEditState.effective();
+              return {
+                facilities: effective.facilities,
+                gatherTiers: effective.gatherTiers,
+                itemSubcategories: effective.itemSubcategories,
+              };
+            }
+          : undefined,
         // 유닛 추천 표(1차 생산 스탯 짝·전투 클래스, docs/adr/2026-11-11-production-six.md): 실효 팩과 설정 칸 실효 문턱
         guide: contentEditState
           ? () => {

@@ -87,6 +87,22 @@
         "en": "Final evade (‰)"
       },
       "expression": "r = max(0, DA) / AA\nfavor = min(FAVOR_CAP, floor(FAVOR_SLOPE * (r - 1)))\nunfavor = max(-UNFAVOR_CAP, trunc(UNFAVOR_SLOPE * (r - 1)))\nrel = if(AA <= 0, if(DA > 0, FAVOR_CAP, 0), if(r >= 1, favor, unfavor))\n# 최종 회피는 1%~85%(옛 기획 회피율 §6, 사용자 답 277)\nclamp(E + rel, 10, 850)"
+    },
+    {
+      "id": "bare_crit",
+      "name": {
+        "ko": "맨손 크리 확률(‰)",
+        "en": "Bare-hand crit chance (‰)"
+      },
+      "expression": "# [임시] 옛 프로젝트 맨손 크리(calcCritChanceUnarmed): (DEX × 0.7 + AGI × 0.3) ÷ (합 + 200) × 50%\ne = max(0, DEX) * 0.7 + max(0, AGI) * 0.3\nfloor(500 * e / (e + 200))"
+    },
+    {
+      "id": "bare_interval",
+      "name": {
+        "ko": "맨손 공격 간격(ms)",
+        "en": "Bare-hand attack interval (ms)"
+      },
+      "expression": "# [임시] 옛 프로젝트 맨손 공속(calcAttackSpeed): 공속 = min(2, AGI ÷ 맨손 적정), 최소 0.5 → 간격 = 맨손 간격 ÷ 공속\nr = if(A <= 0, 1, clamp(max(0, AGI) / A, 0.5, 2))\nmax(1, floor(I / r))"
     }
   ]
 }

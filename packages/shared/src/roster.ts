@@ -554,8 +554,26 @@ export interface RosterCombat {
     readonly real: number;
   };
   readonly hit: { readonly weaponPm: number; readonly part: RosterWeaponPart; readonly real: number };
-  readonly crit: { readonly weaponPm: number; readonly part: RosterWeaponPart; readonly real: number };
-  readonly interval: { readonly weaponMs: number; readonly part: RosterWeaponPart; readonly real: number };
+  readonly crit: {
+    readonly weaponPm: number;
+    readonly part: RosterWeaponPart;
+    readonly real: number;
+    /**
+     * 맨손 자료로 셈했나(옛 맨손 규칙 식 bare_crit, 2026-11-12): 있으면 크리 = (DEX × 0.7 + AGI × 0.3) ÷ (합 + 200) × 50%(기본 식)이고
+     * part.stat = DEX, agi = AGI다. 없으면 무기 틀(무기 크리 × 비율). 옛 서버는 없음
+     */
+    readonly bare?: { readonly agi: number } | undefined;
+  };
+  readonly interval: {
+    readonly weaponMs: number;
+    readonly part: RosterWeaponPart;
+    readonly real: number;
+    /**
+     * 맨손 기본 공격 간격(옛 맨손 공속 식 bare_interval, 2026-11-12): 참이면 간격 = 맨손 간격 ÷ clamp(AGI ÷ 맨손 적정, 0.5, 2)(기본 식),
+     * part = AGI·맨손 적정. 없으면 무기 틀
+     */
+    readonly bare?: boolean | undefined;
+  };
   readonly staminaRegen: {
     /** 2차 스탯 행 stamina_regen 값(적정 STA에서의 분당 회복) */
     readonly row: number;
@@ -564,6 +582,61 @@ export interface RosterCombat {
     /** 실제 분당 회복(판정 값) */
     readonly real: number;
   };
+}
+
+/**
+ * 이동 속도(사이보그 판 기동 묶음, 사용자 요청 2026-11-12 "기동에 이동속도가 왜 없는가?"). 기획 48 §3.2: 이동 속도는 2차 스탯이 아니고
+ * 수단·도로가 정한다(D-414·D-5052), 전투맵 걸음은 유닛 데이터(D-223), AGI와의 관계는 미결 → 1차 스탯 몫이 없다. 서버가 실제로 쓰는 값을
+ * 그대로 보낸다(@terra/sim WALK_SPEED·CELL_UNITS, 전투 사양의 걸음 간격). 전투 수치 버프 move_speed 몫은 RosterBuffs.moveSpeedPm(전투맵만)
+ */
+export interface RosterMove {
+  /** 2차맵 걷기 빠르기(단위/초) — 서버 유닛 speed */
+  readonly walk: number;
+  /** 배치 칸 한 칸의 단위 수(1024) */
+  readonly cellUnits: number;
+  /** 2차맵 한 변의 배치 칸 수(256, 한 장을 건너는 시간 셈) */
+  readonly mapCells: number;
+  /** 전투맵 한 칸 걷는 간격(ms, 버프 전) */
+  readonly battleMs: number;
+}
+
+/**
+ * 원자재 하나의 채집 예상(사이보그 판 효율 묶음, 사용자 요청 2026-11-12 "효율에 스탯에 따른 원자재별 티어구간이나 최적 작업을 보여줌").
+ * 서버가 판정과 같은 함수로 셈한다(@terra/sim workerEffects — 유효 스탯·해금 티어·진행·수확량·성공 확률, @terra/shared/gatherMath
+ * gatherBandIndex — 팩 gather_tiers 구간, @terra/shared/unitGuide recommendProduction — 최적 작업). 시설 레벨 1(레벨 보너스 0) 기준이다
+ */
+export interface RosterGather {
+  /** 채집 시설 ID(팩 facilities)와 이름 */
+  readonly facility: string;
+  readonly name: LocalizedName;
+  /** 주 중분류(ore·wood·herb·crop·livestock_product·fish, 그림 고르기)와 이름 */
+  readonly subcategory: string;
+  readonly material: LocalizedName;
+  /** roll = 확률표 추첨, select = 해금 티어에서 고름(농장·목장) */
+  readonly mode: "roll" | "select";
+  readonly primary: PrimaryStat;
+  readonly secondary: PrimaryStat;
+  /** 1차 값(몸 + 장비·버프) */
+  readonly primaryValue: number;
+  readonly secondaryValue: number;
+  /** 컨디션(관리 보너스, 상한으로 자른 값, 모르면 0) */
+  readonly condition: number;
+  /** 추첨 유효 스탯 = 주 + 보조 + 컨디션(시설 레벨 1) */
+  readonly stat: number;
+  /** 유효 스탯이 든 구간의 시작과 다음 구간 시작(마지막이면 null) */
+  readonly bandFrom: number;
+  readonly bandNext: number | null;
+  /** T0~T9 확률(‰, 합 1000). select는 해금 티어 한 칸 1000 */
+  readonly tierPm: readonly number[];
+  /** 해금 티어(⌊(주 + 보조, 컨디션 반씩) ÷ 20⌋, 최대 9) */
+  readonly selectTier: number;
+  /** 진행 속도(틱마다)·한 번 캘 때 개수 */
+  readonly progress: number;
+  readonly yieldPerLot: number;
+  /** 한 번 시도의 성공 ‰(낚시터). 없으면 늘 성공 */
+  readonly catchPm?: number | undefined;
+  /** 이 유닛의 최적 작업(주 + 보조가 가장 큰 1차 생산, 유닛 추천과 같은 고르기) */
+  readonly best: boolean;
 }
 
 /**
@@ -670,6 +743,10 @@ export interface CyborgBody {
   readonly combat?: RosterCombat | undefined;
   /** 버프 몫(만든 사이보그만, 걸린 효과가 없으면 0들). 없으면(시안·옛 서버) 화면은 몫을 보이지 않는다 */
   readonly buffs?: RosterBuffs | undefined;
+  /** 이동 속도(기동 묶음 줄, 사용자 요청 2026-11-12). 없으면(옛 서버) 버프 몫이 있을 때만 줄을 보인다 */
+  readonly move?: RosterMove | undefined;
+  /** 원자재별 채집(효율 묶음 줄, 사용자 요청 2026-11-12, 팩 차례). 없으면(채집 시설 표가 없는 서버·옛 서버) 줄 없음 */
+  readonly gather?: readonly RosterGather[] | undefined;
   readonly inventory: readonly CyborgItem[];
   readonly rankings: readonly CyborgRanking[];
   /** 시안 자료인지(만든 사이보그면 false) */

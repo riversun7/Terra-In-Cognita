@@ -133,8 +133,11 @@
  *    "바뀜 (2026-11-12)"): 산지 = 고도 ≥ ore_high_min_m(200 [임시], 옛 500), 산지 밖 마른 땅도 높은 티어 몫 ore_flat_high_pm(50‰ [임시]) —
  *    광산 티어 막기는 @terra/shared/catchment oreTierCapOf. econ16은 벌목장 통나무 벌목(cut_logs, 1144 나)을 더해 결과가 달라진다. 고도가 없는
  *    시나리오(catchment4·stub16·war16·synthetic)는 결과가 29와 같다
+ * 32: 맨손 크리·기본 공격 간격(사용자 요청 2026-11-12 "맨손인경우 크리확률이나 공격속도 공식을 제대로 구현하라", 계산식 bare_crit·bare_interval):
+ *    맨손 자료(unarmed) 공격 사양의 크리 = 옛 맨손 규칙 500‰ × e ÷ (e + 200)(e = DEX × 0.7 + AGI × 0.3), 맨손 기본 공격 간격 = 맨손 간격 ÷
+ *    clamp(AGI ÷ 맨손 적정, 0.5, 2). 맨손으로 싸우는 유닛이 있는 전투 결과가 달라진다(시험 칼을 든 시뮬 유닛·발톱 크리쳐는 그대로)
  */
-export const SIM_VERSION = 31;
+export const SIM_VERSION = 32;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

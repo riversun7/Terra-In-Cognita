@@ -5,7 +5,10 @@
 // - 돌림판: 끌어도 화면 위쪽은 북쪽(방위 0°), 세로로 많이 끌어도 위도는 80°를 넘지 않는다(data-camera).
 // - 처음 단계·운영진 표시(사용자 요청 2026-11-09): 1차맵은 늘 5단계로 연다. 성능 판(.map-perf)·고도 과장 막대는 운영진(dev·admin)에게만
 //   보이고 플레이어에게는 없다(2차맵 성능 판도). 운영진 시험은 과장 ×1 → ×20의 화소 차이를 잰다(표준 출력).
-// 사진: 390px × 파스텔·다크 × 한국어·영어(확대 단계·항성계 보기), 1440px 파스텔 항성계 보기, 2차맵 확대 단계(E2E_SHOTS_DIR).
+// - 레이어(사용자 요청 2026-11-12, ADR 2026-11-07-planet-view "바뀜 (2026-11-12)"): 지형 → 고도(범례 m, 그림이 바뀐다) → 자원 분포(서버
+//   지도를 받아 엔진에 넣는다, 원자재를 바꾸면 그림이 바뀐다) → 영토(자원 지도를 버리고, 영토 덧그림을 진하게, 누른 곳의 국가 줄).
+// 사진: 390px × 파스텔·다크 × 한국어·영어(확대 단계·항성계 보기), 1440px 파스텔 항성계 보기, 2차맵 확대 단계,
+// 390px × 파스텔·다크 레이어 셋(고도·자원·영토)(E2E_SHOTS_DIR).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -302,6 +305,112 @@ for (const account of ["dev", "admin"] as const) {
     });
   });
 }
+
+/** 레이어 버튼을 누르고 엔진이 받을 때까지(1초 요약) + 그린 프레임 */
+async function chooseLayer(page: Page, layer: string): Promise<void> {
+  const button = page.locator(`[data-layer-option="${layer}"]`);
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".planet-screen")).toHaveAttribute("data-engine-layer", layer);
+  await page.waitForTimeout(400);
+}
+
+/** 레이어를 시험하는 보기: 3단계(나라가 보이는 거리), 하늘 끔(낮밤이 색을 바꾸지 않게) */
+const LAYER_VIEW = "?stage=3&planet-sky=off";
+
+test.describe("레이어: 플레이어", () => {
+  test.use({ account: "player" });
+
+  test("고도·자원 분포·영토: 엔진 레이어·범례·자원 지도 받기·버리기·누른 곳의 국가", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(180_000);
+    await openPlanet(page, LAYER_VIEW);
+    const screen = page.locator(".planet-screen");
+    await expect(screen).toHaveAttribute("data-incomplete", "false", { timeout: 60_000 });
+    await expect(page.locator("[data-layer-option]")).toHaveCount(5);
+    const terrain = await mapOnlyShot(page);
+
+    await chooseLayer(page, "elevation");
+    await expect(page.locator('[data-legend="elevation"]')).toContainText(
+      message("ko", "planet_elevation_land"),
+    );
+    await expect(page.locator('[data-legend="elevation"] .planet-legend-ticks')).toContainText(" m");
+    const elevation = await mapOnlyShot(page);
+    const elevationChange = await meanPixelDifference(page, terrain, elevation);
+
+    await chooseLayer(page, "resource");
+    await expect(screen).toHaveAttribute("data-material", "ore");
+    await expect(screen).toHaveAttribute("data-resource", "ready", { timeout: 60_000 });
+    await expect(screen).toHaveAttribute("data-resource-bytes", /^[1-9]\d*$/);
+    await expect(page.locator('[data-legend="resource"]')).toContainText(
+      message("ko", "planet_resource_high"),
+    );
+    const ore = await mapOnlyShot(page);
+    await page.locator("#planet-material").selectOption("wood");
+    await expect(screen).toHaveAttribute("data-material", "wood");
+    await expect(screen).toHaveAttribute("data-resource", "ready", { timeout: 30_000 });
+    await page.waitForTimeout(1200);
+    const wood = await mapOnlyShot(page);
+    const materialChange = await meanPixelDifference(page, ore, wood);
+
+    // 다른 레이어로 가면 자원 지도를 버린다(텍스처 메모리 0). 영토 덧그림은 진하게
+    await chooseLayer(page, "territory");
+    await expect(screen).toHaveAttribute("data-resource-bytes", "0");
+    await expect(page.locator(".city-overlay")).toHaveAttribute("data-emphasis", "territory");
+    await expect(page.locator('[data-legend="territory"]')).toContainText(
+      message("ko", "planet_territory_capital"),
+    );
+    // 땅을 한 번 누르면 누른 칸 줄 끝에 국가(또는 영토 밖) 줄
+    const size = page.viewportSize() ?? { width: 390, height: 844 };
+    await page.mouse.click(size.width * 0.3, size.height * 0.33);
+    await expect(screen).toHaveAttribute("data-picked", /\d/);
+    const outside = message("ko", "planet_territory_outside");
+    const territoryPrefix = message("ko", "planet_territory_at", { nation: "" });
+    await expect(page.locator(".planet-readout [role=status]")).toContainText(
+      new RegExp(`${outside.replace(/[()]/g, "\\$&")}|${territoryPrefix}`),
+    );
+    console.log(
+      `[measure] planet layers mean pixel diff terrain→elevation ${elevationChange.toFixed(2)}, ore→wood ${materialChange.toFixed(2)}`,
+    );
+    expect(elevationChange).toBeGreaterThan(2);
+    expect(materialChange).toBeGreaterThan(0.5);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("레이어 사진", () => {
+  test.use({ account: "player" });
+
+  for (const theme of ["pastel", "dark"] as const) {
+    test.describe(`390 ${theme}`, () => {
+      test.use({ theme, language: "ko" });
+
+      test(`고도·자원·영토 레이어 (390·${theme})`, async ({ page, deviceErrors }) => {
+        test.setTimeout(150_000);
+        await openPlanet(page, LAYER_VIEW);
+        await expect(page.locator(".planet-screen")).toHaveAttribute("data-incomplete", "false", {
+          timeout: 60_000,
+        });
+        await chooseLayer(page, "elevation");
+        await shot(page, `planet-layer-elevation-390-${theme}`);
+        await chooseLayer(page, "resource");
+        await expect(page.locator(".planet-screen")).toHaveAttribute("data-resource", "ready", {
+          timeout: 60_000,
+        });
+        await page.waitForTimeout(400);
+        expect(await smallTapTargets(page)).toEqual([]);
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `planet-layer-resource-390-${theme}`);
+        await chooseLayer(page, "territory");
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `planet-layer-territory-390-${theme}`);
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
+});
 
 const SHOT_CASES: { theme: Theme; language: Language }[] = [
   { theme: "pastel", language: "ko" },

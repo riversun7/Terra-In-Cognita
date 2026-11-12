@@ -23,6 +23,14 @@ const OPTIONS: BuildOption[] = [
   { facility: "kitchen", stage: "finish", gather: false },
 ];
 const counts = (entries: Record<string, number>) => new Map(Object.entries(entries));
+/** 레벨 올리기 시험의 시설 몫 */
+const UPGRADE_SPECS: Readonly<Record<string, { stage: string; maxLevel: number }>> = {
+  farm: { stage: "gather", maxLevel: 5 },
+  mine: { stage: "gather", maxLevel: 5 },
+  lodging: { stage: "living", maxLevel: 3 },
+  government_hall: { stage: "government", maxLevel: 3 },
+};
+const upgradeSpec = (facility: string) => UPGRADE_SPECS[facility];
 const choose = (needs: Parameters<typeof chooseCityBuild>[0], c = TEST_NPC_COEFFICIENTS) =>
   chooseCityBuild(needs, OPTIONS, TRAITS, c, RULES);
 
@@ -124,13 +132,6 @@ describe("NPC 증축 판단(질문 1101 나)", () => {
   });
 
   it("레벨 올리기 후보: 붐비면 낮은 숙소 먼저, 아니면 일꾼 많은 생산 시설(같으면 낮은 레벨·열쇠 차례), 상한·행정 건물 빼고(1146 나)", () => {
-    const spec = (facility: string) =>
-      ({
-        farm: { stage: "gather", maxLevel: 5 },
-        mine: { stage: "gather", maxLevel: 5 },
-        lodging: { stage: "living", maxLevel: 3 },
-        government_hall: { stage: "government", maxLevel: 3 },
-      })[facility];
     const list: SiteFacility[] = [
       { key: 1, facility: "farm", level: 1, workers: 2 },
       { key: 2, facility: "mine", level: 2, workers: 4 },
@@ -140,8 +141,10 @@ describe("NPC 증축 판단(질문 1101 나)", () => {
       { key: 6, facility: "government_hall", level: 1, workers: 0 },
       { key: 7, facility: "farm", level: 5, workers: 9 },
     ];
-    expect(rankCityUpgrades(list, { humans: 10, housingCap: 40 }, spec).map((f) => f.key)).toEqual([3, 2, 1]);
-    expect(rankCityUpgrades(list, { humans: 40, housingCap: 40 }, spec).map((f) => f.key)).toEqual([
+    expect(rankCityUpgrades(list, { humans: 10, housingCap: 40 }, upgradeSpec).map((f) => f.key)).toEqual([
+      3, 2, 1,
+    ]);
+    expect(rankCityUpgrades(list, { humans: 40, housingCap: 40 }, upgradeSpec).map((f) => f.key)).toEqual([
       5, 4, 3, 2, 1,
     ]);
   });

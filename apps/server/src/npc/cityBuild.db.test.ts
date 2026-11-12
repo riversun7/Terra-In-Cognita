@@ -153,10 +153,9 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 증축 (DB, 질문 1101 나)", (
       npc.economy?.production(record.cityId ?? -1).some((run) => run.buildingId === record.buildingId),
     );
     // 나라 성격 목표(질문 1142 다)로 가공·완제품 시설(주방 등)도 서고 그 특산을 돌린다
-    const producingKinds = new Set([
-      ...["farm", "lumber_camp", "mine", "herb_field", "ranch", "fishing_spot"],
-      ...["kitchen", "smelter", "workshop", "sawmill", "kiln"],
-    ]);
+    const producingKinds = new Set(
+      "farm lumber_camp mine herb_field ranch fishing_spot kitchen smelter workshop sawmill kiln".split(" "),
+    );
     expect(producing.length).toBe(done.filter((record) => producingKinds.has(record.facilityId)).length);
     // 특산이 건물로 옮겨 갔다: 지은 가공·완제품 시설은 그 나라 특산 레시피를 돌린다(도시 직무가 아니라 건물 ID로)
     const moved = done.filter((entry) =>

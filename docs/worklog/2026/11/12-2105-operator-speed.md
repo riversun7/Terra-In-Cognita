@@ -37,7 +37,7 @@
 
 ## 미검증·TODO·알려진 문제
 - `pnpm check`(DB 시험 포함, `TEST_DATABASE_URL`): 통과 — 660 파일, 5,030 시험(**Verified**: 실행). `pnpm check:docs origin/main` 통과. `apps/game`은 바꾸지 않아 빌드·`check-pwa`·`check:bundle`은 따로 돌리지 않았다(화면 시험 전역 준비가 빌드했다).
-- 화면 시험(`operator-speed.spec`·`unit-control.spec`·`gather-station.spec`·`unit-looks.spec`, 36개): 34 통과, 2 실패(**Verified**: 실행, 37.8분 — 여러 줄기가 한 기계를 나눠 쓰는 중). 새 `operator-speed.spec`(보통 연결 들어가기 = 기본 빠르기, 운영자 연결 = 100배) 통과. 실패 둘은 플레이어(운영자 모드 아님) 흐름의 화면 기다림이다: `unit-control.spec.ts:212`는 [멈추기] 단추가 다시 그려져 누르기가 120초를 넘었고, `:352`는 view_only를 찾는 되풀이가 90초를 넘었다. 플레이어 명령은 운영자 표시를 달지 않으므로(지우기만) 이 고침과 상관없다고 본다(**Assumed**). 두 시험만 따로 다시 돌린 결과는 아래 줄.
+- 화면 시험(`operator-speed.spec`·`unit-control.spec`·`gather-station.spec`·`unit-looks.spec`, 36개): 34 통과, 2 실패(**Verified**: 실행, 37.8분 — 여러 줄기가 한 기계를 나눠 쓰는 중). 새 `operator-speed.spec`(보통 연결 들어가기 = 기본 빠르기, 운영자 연결 = 100배) 통과. 실패 둘은 플레이어(운영자 모드 아님) 흐름의 화면 기다림이다: `unit-control.spec.ts:212`는 [멈추기] 단추가 다시 그려져 누르기가 120초를 넘었고, `:352`는 view_only를 찾는 되풀이가 90초를 넘었다. 플레이어 명령은 운영자 표시를 달지 않으므로(지우기만) 이 고침과 상관없다고 본다(**Assumed**). 두 시험만 따로 다시 돌리니 2/2 통과(**Verified**: 실행, 2.8분) — 부하 때문에 흔들린 것으로 본다.
 - 운영자 모드 판정은 명령마다 본다(역할은 연결의 로그인 캐시, 전체 보기는 구독 상태). 운영자가 남의 유닛에 채집·들어가기를 시킬 수는 없다(채집 서비스 소유 판정 그대로, **Verified**: 코드).
 - 휴대폰에서 직접 눌러 보지 않았다(**Unknown**).
 

@@ -79,6 +79,7 @@ import { humanNameOf } from "./humanNames.ts";
 import { type HouseRecruit, createHouseRecruit } from "./houseRecruit.ts";
 import { type NpcHouses, attachNpcHouses } from "./houseRuntime.ts";
 import { createHumanPlaces } from "./humanPlaces.ts";
+import { npcBuildRunOf } from "./cityBuild.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
@@ -697,6 +698,15 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     hooks,
   };
   ctxRef.ctx = ctx;
+  // NPC 증축(질문 1101 나, cityBuild.ts — 시뮬과 같은 판단 buildPolicy, 자리 = 전략 배치, 짓기 = 건물 서비스)
+  ctx.build = npcBuildRunOf({
+    econ,
+    world: o.economy?.build,
+    ledger,
+    places: persist.places,
+    rules: o.rules,
+    log,
+  });
   const society = attachSociety(
     {
       world,

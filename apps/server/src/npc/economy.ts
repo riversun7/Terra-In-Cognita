@@ -61,6 +61,7 @@ import type { CatchmentLand } from "@terra/shared/catchment";
 import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
 import { type CatchmentSaved, restoreCatchment } from "./catchmentStore.ts";
 import type { CityRestPlan, RestFacility } from "./cityRest.ts";
+import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { type MarketRegistry, createMarketRegistry } from "../market/books.ts";
 import { type FxRegistry, createFxRegistry } from "../market/fx.ts";
@@ -140,6 +141,8 @@ export interface NpcEconomyInput {
    * city_catchment_radius_cells > 0이면 NPC 도시 채집 시설이 배후지 칸에서 캔 몫만큼 내고, 몫이 문턱 아래면 구인하지 않는다. 없으면 옛 경제
    */
   readonly land?: ((mapKey: number) => CatchmentLand | undefined) | undefined;
+  /** NPC 증축 짓기 자리(질문 1101 나, cityBuild.ts — 건물 서비스·2차맵). 없으면 NPC가 짓지 않는다 */
+  readonly build?: NpcBuildWorld | undefined;
 }
 
 /** 시설 하나의 지금 생산(화면용) */
@@ -165,6 +168,8 @@ export interface ServerEconomy {
   beforeDay(nowMs: number): void;
   /** 하루 끝(세력·사회 하루 끝 뒤): 하루 줄 기록·시설 다시 맞추기 */
   afterDay(nowMs: number, day: number): void;
+  /** 그 도시의 생산 시설을 지금 건물대로 다시 맞춘다(NPC 증축이 다 지은 건물을 다음 판단에 넣는다 — 질문 1101 나, cityBuild.ts) */
+  refreshCity(cityId: number, nowMs: number): void;
   /** 그 도시의 생산 시설(화면용, 시설 ID 차례) */
   production(cityId: number): FacilityRun[];
   /** 그 도시 일꾼 쉼터·옮김 계획(마지막 맞추기, 없으면 undefined — 휴먼 집·일터와 화면이 본다) */
@@ -639,6 +644,10 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       syncAll(nowMs);
     },
     restPlan: (cityId) => restPlans.get(cityId),
+    refreshCity(cityId, nowMs) {
+      recount();
+      syncCity(cityId, nowMs);
+    },
     production(cityId) {
       const out: FacilityRun[] = [];
       for (const facility of economy.facilities.values()) {

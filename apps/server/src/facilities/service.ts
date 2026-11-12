@@ -108,8 +108,28 @@ export interface FacilityBuildInput {
   readonly unitIds?: readonly number[] | undefined;
 }
 
+/**
+ * NPC 증축 짓기 입력(질문 1101 나, npc/cityBuild.ts — 플레이어 짓기와 같은 규칙): 재료·시간은 @terra/sim buildPolicy가 플레이어와 같은 식
+ * (buildCostAt·buildTimeAt·withBuilders)으로 셈해 넘긴다. 자리는 전략 배치 함수(npcPlacement.ts)가 고른 칸이다
+ */
+export interface NpcBuildInput {
+  readonly ownerId: number;
+  readonly mapKey: number;
+  readonly cityId: number;
+  readonly facility: string;
+  readonly x: number;
+  readonly y: number;
+  readonly materials: readonly JobMaterial[];
+  readonly ms: number;
+}
+
 export interface FacilityService {
   build(userId: string, input: FacilityBuildInput): Promise<FacilityCommandResult>;
+  /**
+   * NPC 증축 짓기(질문 1101 나): 플레이어 짓기와 같이 그 도시 창고·창고 시설에서 재료를 빼고, 건물 칸을 놓고(레벨 0), 짓기 작업을 건다(일꾼 유닛을
+   * 묶지 않는다 — NPC 휴먼은 소유 주체 정산을 받지 않아 일꾼 수는 시간 셈에만 든다). 동기(쓰기 대기열 같은 묶음)
+   */
+  npcBuild(input: NpcBuildInput): FacilityCommandResult;
   upgrade(userId: string, buildingId: number, unitIds: readonly number[]): Promise<FacilityCommandResult>;
   repair(
     userId: string,
@@ -545,6 +565,53 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (ms === 0) finish(job);
       if (ruinId !== undefined) government?.claimed(ruinId, me, record.buildingId, at);
       return done({ ok: true, buildingId: record.buildingId, doneAtMs: at + ms });
+    },
+
+    npcBuild(input) {
+      const at = now();
+      const def = options.catalog().facility(input.facility);
+      if (!def) return fail("unknown_facility");
+      if (!def.footprint || !def.build || def.stage === "territory" || def.stage === "government")
+        return fail("not_buildable");
+      const map = maps.get(input.mapKey);
+      if (!map) return fail("unknown_map");
+      if (!waterOk(map, def, input.x, input.y, 0)) return fail("needs_water");
+      // 재료 자리: 그 도시 창고·그 도시의 내 창고 시설(유닛 화물은 보지 않는다 — NPC 휴먼은 화물을 들지 않는다)
+      const scope = materialScope(places, input.ownerId, input.mapKey, input.cityId, false);
+      if (!hasGoods(ledger, input.ownerId, input.materials, scope)) return fail("insufficient_materials");
+      const { width, height } = def.footprint;
+      const placed = map.placeBuilding({ x: input.x, y: input.y, width, height, rotation: 0 }, input.ownerId);
+      if (!placed.ok) return fail(PLACE_CODES[placed.code] ?? "out_of_bounds");
+      if (placed.buildingId === undefined) return fail("internal_error");
+      spendGoods(ledger, input.ownerId, input.materials, at, "facility_build", scope);
+      const ms = Math.max(0, Math.trunc(input.ms));
+      const record: FacilityRecord = {
+        buildingId: placed.buildingId,
+        facilityId: def.id,
+        level: 0,
+        conditionPpm: CONDITION_FULL,
+        conditionAtMs: at + ms,
+        builtAtMs: at,
+        builtBy: null,
+        cityId: input.cityId,
+      };
+      facilities.set(record.buildingId, record);
+      saveFacility(record);
+      const job = newJob({
+        kind: "build",
+        ownerId: input.ownerId,
+        buildingId: record.buildingId,
+        beaconId: null,
+        holdingId: null,
+        targetLevel: 1,
+        restorePpm: null,
+        unitIds: [],
+        materials: [...input.materials],
+        startedAtMs: at,
+        doneAtMs: at + ms,
+      });
+      if (ms === 0) finish(job);
+      return { ok: true, buildingId: record.buildingId, doneAtMs: at + ms };
     },
 
     async upgrade(userId, buildingId, unitIds) {

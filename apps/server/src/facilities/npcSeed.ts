@@ -20,22 +20,14 @@
 import { MATERIAL_BIT, cellMaterials, oreSharePm } from "@terra/shared/catchment";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { type CityCell, cityOfCell } from "@terra/shared/goodsPlaces";
-import { PLACEMENT_SIZE, START_LOGISTICS, type WorldSeedCoefficients } from "@terra/sim";
+import { START_LOGISTICS, type WorldSeedCoefficients } from "@terra/sim";
 import type { GatherKind } from "../gather/kinds.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityCatalog } from "./catalog.ts";
-import { type LayoutExisting, type LayoutItem, planCityLayout } from "./cityLayout.ts";
 import { cityWallRulesOf, seedCityWalls } from "./cityWalls.ts";
 import { cityHall } from "./siegeLayout.ts";
-import {
-  cityLayoutRulesOf,
-  cityLayoutSeed,
-  layoutGroundOf,
-  layoutItemOf,
-  layoutObjectsOf,
-  layoutRoleOf,
-} from "./cityLayoutGround.ts";
+import { planNpcSpots } from "./npcPlacement.ts";
 import type { FacilityService } from "./service.ts";
 import type { FacilityRecord } from "./state.ts";
 import { waterOk } from "./water.ts";
@@ -266,46 +258,19 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
       return true;
     };
     if (strategicLayout(citySeed)) {
-      const kinds = input.gatherKinds ?? [];
-      const layoutItems: LayoutItem[] = [];
-      for (const facility of items) {
-        const item = layoutItemOf(catalog, facility, kinds);
-        if (item) layoutItems.push(item);
-        else missing += 1;
-      }
-      const placements = new Map<number, { x: number; y: number; width: number; height: number }>();
-      map.forEachBuilding((building) => placements.set(building.id, building.placement));
-      const existing: LayoutExisting[] = [];
-      for (const record of service.facilities.values()) {
-        const at = placements.get(record.buildingId);
-        if (record.cityId !== city.id || !at || map.buildingOwner(record.buildingId) !== ownerId) continue;
-        const role = layoutRoleOf(catalog.facility(record.facilityId)?.stage);
-        existing.push({
-          facility: record.facilityId,
-          role,
-          x: at.x,
-          y: at.y,
-          width: at.width,
-          height: at.height,
-        });
-      }
-      const ground = layoutGroundOf({
+      const layout = planNpcSpots({
         map,
         catalog,
+        facilities: service.facilities,
+        city,
+        ownerId,
         anchors,
-        cityId: city.id,
-        objects: layoutObjectsOf(map, kinds, input.landOf?.(city.mapKey), citySeed),
+        items,
+        kinds: input.gatherKinds ?? [],
+        land: input.landOf?.(city.mapKey),
+        seed: citySeed,
       });
-      const layout = planCityLayout({
-        center: { x: city.cellX, y: city.cellY },
-        items: layoutItems,
-        existing,
-        ground,
-        rules: cityLayoutRulesOf(citySeed),
-        seed: cityLayoutSeed(city.mapKey, city.id),
-        size: PLACEMENT_SIZE,
-      });
-      missing += layout.missing.length;
+      missing += layout.missing;
       for (const building of layout.placed) {
         if (save(building.facility, building)) placed += 1;
         else missing += 1;

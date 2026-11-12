@@ -31,6 +31,14 @@ export function npcEconomyInputOf(
     catalog,
     presets,
     land,
+    // NPC 증축(질문 1101 나): 건물 서비스로 짓고 전략 배치로 자리를 고른다
+    build: {
+      service: facilities.service,
+      catalog: facilities.catalog,
+      maps,
+      gatherKinds: facilities.gatherKinds,
+      landOf: land,
+    },
     facilitiesIn(cityId) {
       const out: CityFacility[] = [];
       for (const record of facilities.service.facilities.values()) {

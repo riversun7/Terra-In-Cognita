@@ -9,6 +9,7 @@ import type { Page } from "@playwright/test";
 import { isCellKey, stepCell } from "../packages/planet/src/index.ts";
 import { type Place, fastMove, fastTravel, myPosition, waitAt } from "./helpers/cyborgTravel.ts";
 import { expect, test } from "./helpers/test.ts";
+import { shot } from "./helpers/screen.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 
 /** 2차맵을 열고 자료·지형이 서고 내 사이보그가 골라질 때까지 기다린다(가장 가까이 6/6) */
@@ -69,6 +70,11 @@ test.describe("2차맵 유닛 겉모습: 운영자 빠르기", () => {
       const screen = page.locator(".map-screen");
       // 고치기 전: 탈것 겉모습(낮고 넓은 노란 캡슐)이라 모델 대상이 아니어서 "capsule"
       await expect(screen).toHaveAttribute("data-selected-draw", "character0", { timeout: 20_000 });
+      // 이름표: 내 사이보그 머리 위에 사이보그 이름(전역 준비가 만든 이름)
+      const ownTag = page.locator(`.unit-name[data-role="own"][data-unit="${cyborg}"]`);
+      await expect(ownTag).toBeVisible({ timeout: 20_000 });
+      await expect(ownTag).toHaveText("E2EDev");
+      await expect(page.locator(".unit-name-overlay")).toHaveAttribute("aria-hidden", "true");
 
       // 2. 새로 고쳐도(다시 구독 — 같은 움직임을 다시 받는다) 그대로
       await page.reload();
@@ -104,6 +110,16 @@ test.describe("2차맵 유닛 겉모습: 운영자 빠르기", () => {
       expect(crossed).toBe(true);
       await expect(map).toHaveAttribute("data-switched", "in-place");
       await expect(screen).toHaveAttribute("data-selected-draw", "character0", { timeout: 20_000 });
+      // 넘은 2차맵에서도 이름표가 따라온다. 멀리(1/6) 줄여도 내 사이보그 이름은 남는다
+      await expect(ownTag).toBeVisible({ timeout: 20_000 });
+      const ladder = page.locator(".zoom-ladder");
+      for (let i = 0; i < 6 && Number(await ladder.getAttribute("data-stage")) > 1; i++) {
+        await ladder.locator(".zoom-ladder-out").click();
+        await page.waitForTimeout(600);
+      }
+      await expect(ladder).toHaveAttribute("data-stage", "1");
+      await expect(ownTag).toBeVisible();
+      await expect(page.locator('.unit-name[data-role="other"]:visible')).toHaveCount(0);
       expect(deviceErrors).toEqual([]);
     } finally {
       const now = await myPosition(side);
@@ -112,3 +128,64 @@ test.describe("2차맵 유닛 겉모습: 운영자 빠르기", () => {
     }
   });
 });
+
+/** 끌어서 이어 그리게 한 뒤 1초 요약(유닛·모델 수, 그리기 호출, 삼각형, 엔진 p95, 이름표 수)을 적는다 */
+async function readStats(page: Page, label: string): Promise<void> {
+  const box = await page.locator(".map-screen canvas").first().boundingBox();
+  if (box) {
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    for (let i = 0; i < 24; i++) {
+      await page.mouse.move(cx + ((i % 10) - 5) * 3, cy + ((i % 6) - 3) * 2);
+      await page.waitForTimeout(40);
+    }
+    await page.mouse.up();
+  }
+  await page.waitForTimeout(1_200);
+  const screen = page.locator(".map-screen");
+  const names = [
+    "data-units",
+    "data-drawn-units",
+    "data-characters",
+    "data-character-lod0",
+    "data-draw-calls",
+    "data-triangles",
+    "data-engine-p95",
+    "data-view-level",
+  ];
+  const values: string[] = [];
+  for (const name of names) values.push(`${name.slice(5)}=${String(await screen.getAttribute(name))}`);
+  const tags = await page.locator(".unit-name-overlay").getAttribute("data-names");
+  console.log(`[unit-looks] ${label} ${values.join(" ")} names=${String(tags)}`);
+}
+
+for (const theme of ["pastel", "dark"] as const) {
+  test.describe(`2차맵 유닛 겉모습: 390 ${theme}`, () => {
+    test.use({ account: "player", theme });
+
+    test(`가장 가까이(6/6)에서 유닛 이름표·모델, 멀리(1/6)는 내 사이보그 이름만 — 사진 390 ${theme}`, async ({
+      page,
+      deviceErrors,
+    }) => {
+      test.setTimeout(120_000);
+      const cyborg = await openMap(page);
+      const screen = page.locator(".map-screen");
+      await expect(screen).toHaveAttribute("data-selected-draw", "character0", { timeout: 20_000 });
+      await expect(page.locator(`.unit-name[data-role="own"][data-unit="${cyborg}"]`)).toHaveText(
+        "E2EPlayer",
+        {
+          timeout: 20_000,
+        },
+      );
+      // 다른 유닛 이름표는 상한(10) 안
+      await page.waitForTimeout(1_500);
+      const others = await page.locator('.unit-name[data-role="other"]:visible').count();
+      expect(others).toBeLessThanOrEqual(10);
+      await readStats(page, `6/6 ${theme}`);
+      await shot(page, `unit-looks-map-390-${theme}`);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+}

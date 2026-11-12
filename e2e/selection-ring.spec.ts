@@ -11,13 +11,15 @@ import { expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 
 /**
- * 화면 가운데(따라가는 사이보그) 둘레 좌우 띠(가운데에서 30~58 CSS px, 위아래 20px)의 고리 노란 화소 수. 캡슐 외곽선은 띠 안쪽이다
- * (6/6 휴대폰: 1m = 26px, 캡슐 반지름 약 0.8m → 외곽선 약 24px, 고리 바깥 반지름 = 몸 × 2.4 ≈ 50px)
+ * 화면 가운데(따라가는 사이보그) 둘레 좌우 띠(가운데에서 14~26 CSS px, 위아래 12px)의 고리 노란 화소 수. 몸(3D 모델 반 너비 0.45m ≈ 12px)은
+ * 띠 안쪽이다(6/6 휴대폰: 1m = 26px, 고리 바깥 반지름 = 몸 반지름 0.3m × 2.4 ≈ 19px, 안쪽 0.78배 ≈ 15px).
+ * 바뀜(2026-11-12, e2e/unit-looks.spec.ts): 예전에는 운영자 빠르기로 옮긴 사이보그가 탈것 캡슐(반지름 0.75m — 고리 약 47px)로 그려져
+ * 띠가 30~58px였다. 이제 사이보그는 늘 걷는 유닛(모델)이라 고리가 몸 가까이 있다
  */
 async function ringPixels(page: Page): Promise<number> {
   const box = await page.locator(".map-view canvas").boundingBox();
   if (!box) throw new Error("no canvas");
-  const half = { x: 60, y: 20 };
+  const half = { x: 26, y: 12 };
   const clip = {
     x: box.x + box.width / 2 - half.x,
     y: box.y + box.height / 2 - half.y,
@@ -38,7 +40,7 @@ async function ringPixels(page: Page): Promise<number> {
       context.drawImage(image, 0, 0);
       const pixels = context.getImageData(0, 0, image.width, image.height).data;
       // 화면 배율(사진 화소 / CSS px)
-      const scale = image.width / 120;
+      const scale = image.width / 52;
       let count = 0;
       for (let y = 0; y < image.height; y++) {
         for (let x = 0; x < image.width; x++) {
@@ -53,7 +55,7 @@ async function ringPixels(page: Page): Promise<number> {
       }
       return count;
     },
-    { data: png.toString("base64"), inner: 30 },
+    { data: png.toString("base64"), inner: 14 },
   );
 }
 

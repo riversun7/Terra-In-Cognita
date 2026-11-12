@@ -264,6 +264,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     view.applyCamera(pose, aspect, near, far);
     view.setPixelRatio(pixelRatio);
     view.setAtmosphere(state.distance > radiusM * ATMOSPHERE_MIN_DISTANCE);
+    view.setElevationMax(maxElevationM());
     const planes = frustumPlanes(
       multiplyMatrices(
         perspectiveMatrix(GLOBE_FOV_RAD, aspect, near, far),
@@ -488,6 +489,11 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       scheduler.request();
     },
 
+    setResourceMap(map) {
+      view.setResourceMap(map);
+      scheduler.request();
+    },
+
     setSky(mode) {
       sky.setMode(skyModeOf(mode));
     },
@@ -560,6 +566,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
         firstDisplayMs,
         exaggeration,
         layer,
+        resourceMapBytes: view.resourceMapBytes,
         pixelRatio,
         drawingBufferWidth: gl.drawingBufferWidth,
         drawingBufferHeight: gl.drawingBufferHeight,

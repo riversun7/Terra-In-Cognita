@@ -40,6 +40,7 @@ export function inertPlanetEngine(
     firstDisplayMs: null,
     exaggeration,
     layer,
+    resourceMapBytes: 0,
     pixelRatio: 1,
     drawingBufferWidth: 0,
     drawingBufferHeight: 0,
@@ -50,6 +51,7 @@ export function inertPlanetEngine(
   };
   return {
     setLayer: () => undefined,
+    setResourceMap: () => undefined,
     setSky: () => undefined,
     setExaggeration: () => undefined,
     pickAt: () => null,

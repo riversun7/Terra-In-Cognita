@@ -266,7 +266,7 @@ export interface CloseNightRule {
  */
 export const CLOSE_NIGHT_RULE: CloseNightRule = { closest: 0.6, fullFromRadii: 0.5 };
 
-/** 기후 레이어(자료 색·범례)의 낮밤 세기 배율. 1이면 밤 쪽 범례 색이 탁해졌다(시제품 사진) */
+/** 자료 레이어(지형이 아닌 기후·고도·자원·영토 — 자료 색·범례)의 낮밤 세기 배율. 1이면 밤 쪽 범례 색이 탁해졌다(시제품 사진) */
 export const CLIMATE_NIGHT_FACTOR = 0.35;
 
 /**
@@ -285,7 +285,7 @@ export function nightStrength(
   const high = Math.log(rule.fullFromRadii * radiusM);
   const u = high > low ? clamp01((Math.log(distanceM) - low) / (high - low)) : 1;
   const strength = rule.closest + (1 - rule.closest) * smoothstep01(u);
-  return layer === "climate" ? strength * CLIMATE_NIGHT_FACTOR : strength;
+  return layer === "terrain" ? strength : strength * CLIMATE_NIGHT_FACTOR;
 }
 
 /** 구름 걷힘: 거리(목표점에서 카메라까지)가 nearRadii × R 안쪽이면 구름이 없고 farRadii × R 밖은 온전하다 */

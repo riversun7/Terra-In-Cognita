@@ -8294,6 +8294,24 @@
       "source": "ADR 2026-11-11-city-catchment [임시]"
     },
     {
+      "id": "city_catchment_mountain_site_pm",
+      "code": "",
+      "name": {
+        "ko": "지방 도시 자리: 광산 국가의 산지 점수(‰)",
+        "en": "Province city site: mountain bonus for mining nations (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 2000,
+      "desc": {
+        "ko": "광산을 쓰는 국가는 지방 도시 자리 점수에 배후지 산지 몫 × 이 값 ÷ 1000을 더한다. 산지 쪽 도시가 생겨 철을 캔다. 0이면 더하지 않는다.",
+        "en": "Nations with mines add the catchment's mountain share × this ÷ 1000 to a province city site's score, so some cities sit near mountains and mine iron. 0 = off."
+      },
+      "source": "기획 D-534 (질문 1079 나) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 산지 점수) [임시]"
+    },
+    {
       "id": "npc_seed_lodgings",
       "code": "",
       "name": {

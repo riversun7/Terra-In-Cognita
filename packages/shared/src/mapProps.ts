@@ -27,6 +27,10 @@ export const MAP_PROP_ARTS = [
   "fern",
   "ice_block",
   "bones",
+  // 2026-11-12 노두(기획 D-534 — 질문 1083 나): 생성기는 놓지 않는다. 서버가 놓는 채집 오브젝트(gather_objects source "outcrop")의 그림 —
+  // 기기가 오브젝트 자리에 이 그림을 덮어 세운다(지형 파일·생성기 판은 그대로)
+  "outcrop_stone",
+  "outcrop_copper",
 ] as const;
 
 export type MapPropArt = (typeof MAP_PROP_ARTS)[number];

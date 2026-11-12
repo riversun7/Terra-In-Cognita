@@ -29,7 +29,8 @@ export type PropShape =
   | "deadTree"
   | "fern"
   | "iceBlock"
-  | "bones";
+  | "bones"
+  | "outcrop";
 
 export interface PropLook {
   readonly shape: PropShape;
@@ -39,6 +40,8 @@ export interface PropLook {
   readonly heightM: number;
   /** 엄폐 없는 칸의 땅 색 섞기 세기(0~255). 없으면 60. 작은 장식은 옅게(멀리서 땅 색이 얼룩지지 않게) */
   readonly tint?: number;
+  /** 광맥 조각 색(노두 — 없으면 바위 색) */
+  readonly vein?: Rgb;
 }
 
 /** 그림 이름 → 겉모습. 이름표에 없는 그림(새 콘텐츠)은 그리지 않는다 */
@@ -61,6 +64,21 @@ const LOOKS: Readonly<Record<string, PropLook>> = {
   fern: { shape: "fern", color: [0.3, 0.56, 0.28], heightM: 1, tint: 55 },
   ice_block: { shape: "iceBlock", color: [0.78, 0.89, 0.96], heightM: 1.8, tint: 70 },
   bones: { shape: "bones", color: [0.92, 0.9, 0.84], heightM: 0.3, tint: 15 },
+  // 노두(기획 D-534 질문 1083 나): 서버 채집 오브젝트 자리에 기기가 덮어 세운다. 낮고 넓은 바위 + 광맥 조각(돌 = 밝은 회색, 구리 = 푸른 녹)
+  outcrop_stone: {
+    shape: "outcrop",
+    color: [0.62, 0.6, 0.56],
+    heightM: 1.4,
+    tint: 40,
+    vein: [0.82, 0.8, 0.74],
+  },
+  outcrop_copper: {
+    shape: "outcrop",
+    color: [0.52, 0.48, 0.44],
+    heightM: 1.4,
+    tint: 40,
+    vein: [0.33, 0.68, 0.56],
+  },
 };
 
 /** 그림 번호 → 겉모습(없음·모름이면 undefined) */

@@ -419,6 +419,41 @@ export function buildShape(put: PartSink, look: PropLook, ctx: ShapeContext): vo
       }
       return;
     }
+    case "outcrop": {
+      // 땅에서 비죽 나온 바위: 낮고 넓은 큰 바위 + 옆 바위 조각 + 윗면에 광맥 조각 셋(노두, 질문 1083 나 — 삼각형 아끼기)
+      const stone = ctx.snowy ? extra.copy(SNOW).multiplyScalar(0.92) : shaded(look, ctx);
+      put("rock", x, y + h * 0.18, z, h * 0.95, h * 0.5, h * 0.75, turn, 0.12, stone);
+      const side = offset(ctx, h * 0.75, (variant - 0.5) * h);
+      put(
+        "chip",
+        side.x,
+        ctx.ground(side.x, side.z) + h * 0.1,
+        side.z,
+        h * 0.45,
+        h * 0.35,
+        h * 0.4,
+        turn + 2,
+        0,
+        shaded(look, ctx, 0.92, 0.92, 0.92),
+      );
+      const vein = look.vein ?? look.color;
+      for (let k = 0; k < 3; k++) {
+        const spot = offset(ctx, (ctx.r(160 + k) - 0.5) * h * 0.9, (ctx.r(165 + k) - 0.5) * h * 0.6);
+        put(
+          "chip",
+          spot.x,
+          y + h * (0.42 + 0.1 * ctx.r(170 + k)),
+          spot.z,
+          h * 0.18,
+          h * 0.12,
+          h * 0.16,
+          turn + k * 2.1,
+          0,
+          extra.setRGB(vein[0] * ctx.shade, vein[1] * ctx.shade, vein[2] * ctx.shade),
+        );
+      }
+      return;
+    }
     case "bones": {
       const bone = shaded(look, ctx);
       for (let k = 0; k < 3; k++) {

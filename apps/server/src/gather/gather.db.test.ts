@@ -21,6 +21,7 @@ const KINDS: GatherKind[] = [
     source: "rock",
     arts: [],
     chancePm: 1000,
+    art: 0,
     surfaces: [],
     minCells: 0,
     material: null,

@@ -7,6 +7,8 @@
 // - 다툼(겹친 배후지): 한 칸은 가장 가까운 도시 하나의 것(같으면 작은 ID) — splitCatchments.
 // - 바뀜 (2026-11-12, 사용자 지적 "인구와 도시등급이 높을 수록 … 요구 영토범위가 넓어지고"): 반경이 도시마다 다르다(1000분율 칸,
 //   @terra/shared/catchment catchmentRadiusMilli·sim plannedCityRadiusMilli). 두 도시 간격 = (두 반경 합) × 천분율(cityPairGapMilli).
+// - 바뀜 (2026-11-12, 기획 D-534 — 질문 1079 나 "광산 국가는 지방 도시 자리에 산지 점수"): 광산을 쓰는 국가(가중치에 광석)의 지방 도시 자리 점수에
+//   배후지 산지 몫(산지 칸 몫 ‰ — 높은 티어 광석이 나오는 칸) × 설정 칸 city_catchment_mountain_site_pm ÷ 1000을 더한다(mountainSitePm). 수도는 그대로.
 // 순수 함수(행성 값은 부르는 쪽이 land로 넘긴다). 같은 입력이면 같은 결과다.
 import { type CellKey, parseCellKey, stepCell } from "@terra/planet";
 import { territoryMetric, territoryPoint } from "@terra/planet/territory";
@@ -17,6 +19,7 @@ import {
   type MaterialCounts,
   type MaterialShares,
   type MaterialWeights,
+  MATERIAL_BIT,
   cellMaterials,
   cellSharesPm,
   cityPairGapMilli,
@@ -133,6 +136,8 @@ export function splitCatchments(
 export interface CatchmentCache {
   /** 그 칸이 가운데인 배후지의 덮임(가중치마다). radiusMilli가 없으면 붙잡기를 만들 때 준 반경 */
   cover(center: CellKey, weights: MaterialWeights, radiusMilli?: number): number;
+  /** 그 칸이 가운데인 배후지의 산지 몫(‰ — 산지 칸 수 × 1000 ÷ 배후지 칸 수, 질문 1079 나) */
+  mountain(center: CellKey, radiusMilli?: number): number;
 }
 
 export function createCatchmentCache(
@@ -141,32 +146,48 @@ export function createCatchmentCache(
   radiusCells: number,
   faceLevel: number,
 ): CatchmentCache {
-  const sharesOf = new Map<number, MaterialShares>();
-  // 반경(1000분율) → 가운데 → 칸 수·몫 합
-  const countsOf = new Map<number, Map<number, { cells: number; sums: MaterialShares }>>();
+  const sharesOf = new Map<number, { shares: MaterialShares; mountain: boolean }>();
+  // 반경(1000분율) → 가운데 → 칸 수·몫 합·산지 칸 수
+  const countsOf = new Map<number, Map<number, { cells: number; sums: MaterialShares; mountains: number }>>();
   const fallback = Math.max(0, Math.trunc(radiusCells)) * 1000;
-  const shares = (key: CellKey): MaterialShares => {
+  const cellOf = (key: CellKey): { shares: MaterialShares; mountain: boolean } => {
     let value = sharesOf.get(key);
     if (value === undefined) {
-      value = cellSharesPm(land(key), rules, "site");
+      const cell = land(key);
+      value = {
+        shares: cellSharesPm(cell, rules, "site"),
+        mountain: (cellMaterials(cell, rules) & MATERIAL_BIT.ore) !== 0,
+      };
       sharesOf.set(key, value);
     }
     return value;
   };
+  const entryOf = (center: CellKey, radiusMilli: number) => {
+    let byCenter = countsOf.get(radiusMilli);
+    if (!byCenter) {
+      byCenter = new Map();
+      countsOf.set(radiusMilli, byCenter);
+    }
+    let entry = byCenter.get(center);
+    if (!entry) {
+      const cells = catchmentCellsMilli(center, radiusMilli, faceLevel).map(cellOf);
+      entry = {
+        cells: cells.length,
+        sums: sumShares(cells.map((cell) => cell.shares)),
+        mountains: cells.filter((cell) => cell.mountain).length,
+      };
+      byCenter.set(center, entry);
+    }
+    return entry;
+  };
   return {
     cover(center, weights, radiusMilli = fallback) {
-      let byCenter = countsOf.get(radiusMilli);
-      if (!byCenter) {
-        byCenter = new Map();
-        countsOf.set(radiusMilli, byCenter);
-      }
-      let entry = byCenter.get(center);
-      if (!entry) {
-        const cells = catchmentCellsMilli(center, radiusMilli, faceLevel);
-        entry = { cells: cells.length, sums: sumShares(cells.map(shares)) };
-        byCenter.set(center, entry);
-      }
+      const entry = entryOf(center, radiusMilli);
       return shareCoveragePm(entry.sums, entry.cells, weights);
+    },
+    mountain(center, radiusMilli = fallback) {
+      const entry = entryOf(center, radiusMilli);
+      return entry.cells === 0 ? 0 : Math.floor((entry.mountains * 1000) / entry.cells);
     },
   };
 }
@@ -204,6 +225,11 @@ export interface CitySiteInput {
   readonly cities: SpacedCity[];
   /** 같은 점수 자리를 가르는 소금(세계 시드와 국가 — 같은 땅이 고르게 이어질 때 바둑판이 되지 않게) */
   readonly salt: number;
+  /**
+   * 지방 도시 자리 점수에 더하는 산지 몫 배율(‰, 설정 칸 city_catchment_mountain_site_pm — 질문 1079 나). 가중치에 광석이 있는 국가(광산을 쓰는
+   * 국가)만 더한다. 없거나 0이면 더하지 않는다
+   */
+  readonly mountainSitePm?: number | undefined;
 }
 
 /** 32비트 섞기(같은 점수 자리 가르기) */
@@ -217,7 +243,7 @@ function mixKey(salt: number, key: CellKey): number {
 /**
  * 지방 도시 자리(docs/adr/2026-11-11-city-catchment.md 3절, "바뀜 (2026-11-12)"): 수도 둘레 찾는 반경 안 모든 칸 가운데 도시가 설 수 있고 모든
  * 도시와 간격(같은 국가 = max((두 반경 합) × sameGapPm, 등급 걸음), 다른 국가 = (두 반경 합) × foreignGapPm)을 지키는 칸에서, 자리 점수(배후지
- * 덮임 − 수도 거리 몫)가 가장 높은 칸을 하나씩 고른다(같으면 (소금, 키) 섞은 값이 작은 칸, 그래도 같으면 작은 키 — 고른 땅에서 고정 걸음
+ * 덮임 + 광산 국가의 산지 몫 − 수도 거리 몫)가 가장 높은 칸을 하나씩 고른다(같으면 (소금, 키) 섞은 값이 작은 칸, 그래도 같으면 작은 키 — 고른 땅에서 고정 걸음
  * 표처럼 줄 서지 않게). 첫 자리는 수도 2차맵(needCapital). 고른 칸을 cities에 더하고 돌려준다. 반경이 도시마다 달라(수도·큰 나라는 넓고 작은
  * 나라는 좁다) 간격이 고르지 않다
  */
@@ -225,6 +251,8 @@ export function pickCitySites(input: CitySiteInput): CellKey[] {
   const metric = territoryMetric(input.faceLevel);
   const homePoint = territoryPoint(input.home);
   const search = Math.max(1, Math.trunc(input.rules.searchCells));
+  // 광산 국가의 산지 점수(질문 1079 나): 배후지 산지 몫 × 배율 ÷ 1000
+  const mountainPm = (input.weights.ore ?? 0) > 0 ? Math.max(0, Math.trunc(input.mountainSitePm ?? 0)) : 0;
   const out: CellKey[] = [];
   const spaced = (point: TerritoryVec, radiusMilli: number): boolean =>
     input.cities.every((city) => {
@@ -257,10 +285,12 @@ export function pickCitySites(input: CitySiteInput): CellKey[] {
       const fromHome = territoryDistanceMilli(point, homePoint, metric);
       if (fromHome > search * 1000 || !input.fits(key)) continue;
       const cover = input.cache.cover(key, input.weights, input.radiusMilli);
+      const mountain =
+        mountainPm === 0 ? 0 : Math.floor((input.cache.mountain(key, input.radiusMilli) * mountainPm) / 1000);
       pool.push({
         key,
         point,
-        score: siteScore(cover, fromHome, input.rules, input.radiusMilli),
+        score: siteScore(cover + mountain, fromHome, input.rules, input.radiusMilli),
         tie: mixKey(input.salt, key),
       });
     }

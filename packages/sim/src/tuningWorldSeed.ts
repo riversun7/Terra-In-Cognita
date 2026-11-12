@@ -139,6 +139,12 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "지방 도시 자리: 배후지 지름마다 빼는 덮임(‰)",
     "Province city site: coverage taken off per catchment diameter (‰)",
   ),
+  k(
+    "city_catchment_mountain_site_pm",
+    "catchmentMountainSitePm",
+    "지방 도시 자리: 광산 국가의 산지 점수(‰)",
+    "Province city site: mountain bonus for mining nations (‰)",
+  ),
   // 도시 건물 배치(docs/adr/2026-11-11-city-building-layout.md): 49에 칸이 없어 city_layout_*·npc_seed_lodgings
   k("npc_seed_lodgings", "lodgings", "NPC 시작 도시 기본 숙소 수", "NPC start city lodgings"),
   // 마을 건물(질문 1052 다): 49에 칸이 없어 npc_village_lodgings

@@ -8,6 +8,9 @@
 // - source "plot"(밭·목초지·물터, docs/adr/2026-11-11-city-catchment.md): 지표 칸 묶음(16×16 배치 칸) 가운데 surfaces 지표가 minCells칸
 //   이상인 곳. material이 있으면 그 2차맵(1차맵 칸)의 행성 값에 그 원자재가 있어야 선다(@terra/shared/catchment cellMaterials — 기후·고도).
 //   direct = false면 유닛이 직접 캐지 못하고 맡는 시설의 일꾼만 쓴다(사용자 답 D-519 "일부 원자재는 목장이나 농장 같은 시설을 통해 작업").
+// - source "outcrop"(노두, 기획 D-534 — 질문 1083 나 "낮은 땅 플레이어도 서버가 놓는 노두에서 석재·구리"): 16×16 배치 칸 묶음 가운데 surfaces
+//   지표가 있는 묶음에서 (2차맵 키, 묶음, 종류) 굴림이 chancePm × 그 2차맵 광석 고도 몫(@terra/shared/catchment oreSharePm) ÷ 1000 안이면 선다
+//   — 낮은 땅은 드물고 산지는 많다(NPC 배후지와 같은 고도 몫). art = 기기가 그 자리에 세우는 소품 그림(지형 파일에는 없다 — 생성기 판 그대로).
 // 지금 값은 모두 [임시]다(D-515).
 import { MAP_PROP_ARTS } from "@terra/shared";
 import { CATCHMENT_MATERIALS } from "@terra/shared/catchment";
@@ -84,10 +87,25 @@ const plotObject = z.strictObject({
   material: z.enum(CATCHMENT_MATERIALS).optional(),
 });
 
-export const gatherObjectEntrySchema = z.discriminatedUnion("source", [propObject, rockObject, plotObject], {
-  error: (issue) =>
-    issue.code === "invalid_union"
-      ? '자리 종류(source)는 "prop"·"rock"·"plot" 가운데 하나입니다.'
-      : undefined,
+const outcropObject = z.strictObject({
+  ...common,
+  source: z.literal("outcrop"),
+  /** 이 노두가 서는 지표(하나 이상) */
+  surfaces: z.array(z.enum(GATHER_PLOT_SURFACES)).min(1, { error: "지표(surfaces)를 하나 이상 적으세요." }),
+  /** 광석 몫 1000(산지)일 때 묶음(16×16 배치 칸) 하나에 설 천분율. 실제 = chancePm × 광석 몫 ÷ 1000 */
+  chancePm: z.int().min(1).max(1000),
+  /** 기기가 그 자리에 세우는 소품 그림(없으면 표시 단추만) */
+  art: art.optional(),
 });
+
+export const gatherObjectEntrySchema = z.discriminatedUnion(
+  "source",
+  [propObject, rockObject, plotObject, outcropObject],
+  {
+    error: (issue) =>
+      issue.code === "invalid_union"
+        ? '자리 종류(source)는 "prop"·"rock"·"plot"·"outcrop" 가운데 하나입니다.'
+        : undefined,
+  },
+);
 export type GatherObjectEntry = z.output<typeof gatherObjectEntrySchema>;

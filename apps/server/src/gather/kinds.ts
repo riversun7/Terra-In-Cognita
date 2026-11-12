@@ -14,12 +14,14 @@ export function plotSurfaceCode(name: (typeof GATHER_PLOT_SURFACES)[number]): nu
 export interface GatherKind {
   readonly id: string;
   readonly name: { readonly ko: string; readonly en: string };
-  readonly source: "prop" | "rock" | "plot";
+  readonly source: "prop" | "rock" | "plot" | "outcrop";
   /** source prop: 소품 그림 번호들 */
   readonly arts: readonly number[];
-  /** source rock: 바위 지표 묶음 가운데 설 천분율 */
+  /** source rock: 바위 지표 묶음 가운데 설 천분율. source outcrop: 광석 몫 1000일 때 묶음에 설 천분율(× 광석 몫 ÷ 1000) */
   readonly chancePm: number;
-  /** source plot: 지표 번호들·묶음 문턱(지형 칸 64칸 가운데)·있어야 하는 원자재(없으면 null) */
+  /** source outcrop: 기기가 그 자리에 세우는 소품 그림 번호(0 = 없음) */
+  readonly art: number;
+  /** source plot·outcrop: 지표 번호들. plot: 묶음 문턱(지형 칸 64칸 가운데)·있어야 하는 원자재(없으면 null) */
   readonly surfaces: readonly number[];
   readonly minCells: number;
   readonly material: CatchmentMaterial | null;
@@ -47,8 +49,9 @@ export function gatherKindsFromPack(pack: ContentPack): GatherKind[] {
       name: { ko: kind.name.ko, en: kind.name.en },
       source: kind.source,
       arts: kind.source === "prop" ? kind.arts.map(mapPropArtCode).filter((code) => code > 0) : [],
-      chancePm: kind.source === "rock" ? kind.chancePm : 0,
-      surfaces: kind.source === "plot" ? kind.surfaces.map(plotSurfaceCode) : [],
+      chancePm: kind.source === "rock" || kind.source === "outcrop" ? kind.chancePm : 0,
+      art: kind.source === "outcrop" && kind.art ? Math.max(0, mapPropArtCode(kind.art)) : 0,
+      surfaces: kind.source === "plot" || kind.source === "outcrop" ? kind.surfaces.map(plotSurfaceCode) : [],
       minCells: kind.source === "plot" ? kind.minCells : 0,
       material: kind.source === "plot" ? (kind.material ?? null) : null,
       direct: kind.direct ?? true,

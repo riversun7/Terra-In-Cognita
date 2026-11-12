@@ -123,6 +123,11 @@
  *    설정 칸 city_layout_mode = 0이면 옛 열린 맵. 전투 칸이 있는 시나리오(war16 등)·정원사 웨이브 결과가 달라진다. 출력 형식 17
  */
 export const SIM_VERSION = 28;
+ * 29: 목재 숲 밀도 몫(기획 D-534 — 질문 1080 가, simulator/catchmentRun.ts "바뀜 (2026-11-12)"): 배후지 목재 칸 몫 = 숲 밀도 몫(광석 고도 몫과
+ *    같은 꼴). 시나리오 catchment.forest·세력 묶음 catchmentForest가 평면 칸 숲 밀도를 준다. 숲이 없는 시나리오(econ16·catchment4 등)는 결과가
+ *    26과 같다(서버 NPC 도시 경제는 행성 숲 밀도로 달라진다)
+ */
+export const SIM_VERSION = 29;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

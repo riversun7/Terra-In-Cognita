@@ -2009,6 +2009,8 @@
   "second_map_lab_art_fern": "Ferns",
   "second_map_lab_art_ice_block": "Ice block",
   "second_map_lab_art_bones": "Animal bones",
+  "second_map_lab_art_outcrop_stone": "Stone outcrop",
+  "second_map_lab_art_outcrop_copper": "Copper outcrop",
   "second_map_lab_art_unknown": "Unknown art {code}",
   "second_map_lab_no_layer": "–",
   "economy_tabs_label": "Economy sections",

@@ -159,6 +159,46 @@
       "primary": "agi",
       "secondary": "dex",
       "direct": false
+    },
+    {
+      "id": "stone_outcrop",
+      "name": { "ko": "돌 노두", "en": "Stone outcrop" },
+      "description": {
+        "ko": "땅 위로 드러난 바위. 석재를 캔다. 높은 땅일수록 자주 보이고, 낮은 땅에도 드물게 있다.",
+        "en": "Bedrock showing through the ground. Yields stone. Common on high ground, rare but present in lowlands."
+      },
+      "source": "outcrop",
+      "surfaces": ["grass", "dirt", "gravel", "sand", "rock"],
+      "chancePm": 120,
+      "art": "outcrop_stone",
+      "item": "stone",
+      "lots": 1,
+      "workMs": 24000,
+      "uses": 4,
+      "regrowMs": 3600000,
+      "facility": "mine",
+      "primary": "str",
+      "secondary": "vit"
+    },
+    {
+      "id": "copper_outcrop",
+      "name": { "ko": "구리 노두", "en": "Copper outcrop" },
+      "description": {
+        "ko": "푸른 녹이 낀 바위 노두. 구리 광석을 캔다. 높은 땅일수록 자주 보이고, 낮은 땅에도 드물게 있다.",
+        "en": "A rock outcrop streaked with green. Yields copper ore. Common on high ground, rare but present in lowlands."
+      },
+      "source": "outcrop",
+      "surfaces": ["grass", "dirt", "gravel", "sand", "rock"],
+      "chancePm": 60,
+      "art": "outcrop_copper",
+      "item": "copper_ore",
+      "lots": 1,
+      "workMs": 30000,
+      "uses": 4,
+      "regrowMs": 3600000,
+      "facility": "mine",
+      "primary": "str",
+      "secondary": "vit"
     }
   ]
 }

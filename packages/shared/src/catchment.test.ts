@@ -5,6 +5,7 @@ import {
   type SupplyStock,
   cellMaterials,
   cellSharesPm,
+  forestSharePm,
   highOrePm,
   oreSharePm,
   shareCoveragePm,
@@ -105,11 +106,11 @@ describe("광석 고도 몫(기획 D-533 — 석재·구리는 어디서나 조�
     expect(highOrePm({ ...LAND, elevationM: 500 }, ORE)).toBe(1000);
   });
 
-  it("칸 몫: supply는 광석만 몫(나머지 비트), site는 목재 = 숲 밀도·약초 = max(목재, 작물)(질문 1027 다)", () => {
+  it("칸 몫: supply는 광석 = 고도 몫·목재 = 숲 밀도 몫(질문 1080 가, 나머지 비트), site는 약초 = max(목재, 작물)(질문 1027 다)", () => {
     const forest = { ...LAND, forest: 51, temperatureC: 0 };
     expect(cellSharesPm(forest, ORE, "supply")).toEqual({
       ore: 275,
-      wood: 1000,
+      wood: 200,
       herb: 1000,
       crop: 0,
       livestock: 0,
@@ -125,6 +126,12 @@ describe("광석 고도 몫(기획 D-533 — 석재·구리는 어디서나 조�
     });
     expect(cellSharesPm({ ...LAND, forest: 51 }, ORE, "site").herb).toBe(1000);
     expect(cellSharesPm({ ...LAND, water: 1, forest: 200 }, ORE, "site").wood).toBe(0);
+    expect(cellSharesPm({ ...LAND, water: 2, forest: 200 }, ORE, "supply").wood).toBe(0);
+    // 강·해안 칸(잠기지 않음)의 숲은 그대로, 숲 밀도 255 = 1000
+    expect(cellSharesPm({ ...LAND, water: 4, forest: 255 }, ORE, "supply").wood).toBe(1000);
+    expect(forestSharePm(0)).toBe(0);
+    expect(forestSharePm(128)).toBe(501);
+    expect(forestSharePm(999)).toBe(1000);
   });
 
   it("몫 덮임 = 원자재마다 (몫 합 ÷ 칸 수)의 가중 평균. 몫이 0·1000이면 비트 덮임과 같다", () => {

@@ -12,6 +12,8 @@
 //   (광석 = 고도 몫). 도시마다 땅 몫(원자재마다 배후지 칸 몫 평균 ‰)을 셈해 캐려는 양 = 위 양 × 땅 몫 ÷ 1000(땅이 내는 만큼 캔다 — 가난한
 //   땅만으로는 받은 몫이 떨어지지 않는다. 받은 몫은 다툼·고갈만 본다). 채집 시설 빠르기 = 받은 몫 × 땅 몫 ÷ 1000(바닥 위 — 낮은 땅 광산은
 //   느리다). 광산이 산지 밖 가장 높은 티어(lowOreTierMax) 위를 뽑으면 배후지 광석 가운데 산지 몫(highOrePm)만큼만 그 티어로 나온다(oreTierCap).
+// - 바뀜 (2026-11-12, 기획 D-534 — 질문 1080 가): 목재도 칸 몫(숲 밀도 몫, @terra/shared/catchment forestSharePm)이다. 서버는 행성 칸 숲 밀도,
+//   시뮬 평면은 시나리오 catchment.forest·세력 묶음 catchmentForest(없으면 숲을 보지 않는다 — 옛 결과 그대로). 땅 몫·빠르기는 광석과 같은 셈이다.
 // 정수 셈만 쓰고 난수가 없다(도시 ID·칸 키 차례) — 같은 시드면 같은 결과다.
 import {
   CATCHMENT_MATERIALS,
@@ -25,6 +27,7 @@ import {
   catchmentAreaMilli,
   catchmentRadiusMilli,
   materialDemand,
+  forestSharePm,
   materialOfFacility,
   oreSharePm,
   stepCatchmentSupply,
@@ -295,6 +298,8 @@ export interface PlaneLayout {
   readonly elevationAt?: ((x: number) => number | undefined) | undefined;
   /** 고도 몫 규칙(elevationAt이 있을 때) */
   readonly oreRules?: OreShareRules | undefined;
+  /** 칸 x 자리 → 숲 밀도(0 ~ 255). 있고 값이 있으면 목재 몫 = richnessPm.wood × 숲 밀도 몫 ÷ 1000(질문 1080 가). 없으면 숲을 보지 않는다 */
+  readonly forestAt?: ((x: number) => number | undefined) | undefined;
 }
 
 const PLANE_HALF = 1 << 19;
@@ -323,6 +328,10 @@ export function planeGeometry(layout: PlaneLayout): CatchmentGeometry {
     },
     capacityPm(cell, material) {
       const rich = Math.min(1000, Math.max(0, Math.trunc(layout.richnessPm?.[material] ?? 1000)));
+      if (material === "wood") {
+        const forest = layout.forestAt?.(planeX(cell));
+        return forest === undefined ? rich : Math.floor((rich * forestSharePm(forest)) / 1000);
+      }
       const elevationM = material === "ore" ? planeElevation(layout, cell) : undefined;
       if (elevationM === undefined || !layout.oreRules) return rich;
       return Math.floor((rich * oreSharePm(planeLand(elevationM), layout.oreRules)) / 1000);
@@ -362,8 +371,9 @@ export function scenarioPlaneLayout(
   const config = scenario.catchment;
   if (!config) return undefined;
   const at = new Map<number, { x: number; y: number }>();
-  // 세력 차례 → 땅 고도(묶음 칸 catchmentElevationM, 없으면 시나리오 elevationM)
+  // 세력 차례 → 땅 고도(묶음 칸 catchmentElevationM, 없으면 시나리오 elevationM)·숲 밀도(catchmentForest, 없으면 시나리오 forest)
   const elevations: (number | undefined)[] = [];
+  const forests: (number | undefined)[] = [];
   let index = 0;
   for (const faction of world.factions.values()) {
     const group = scenario.factions.find(
@@ -383,9 +393,16 @@ export function scenarioPlaneLayout(
     const x = index * config.groupGap;
     [...faction.cities].toSorted((a, b) => a - b).forEach((cityId, j) => at.set(cityId, { x, y: j * step }));
     elevations.push(group?.catchmentElevationM ?? config.elevationM);
+    forests.push(group?.catchmentForest ?? config.forest);
     index += 1;
   }
   const hasElevation = elevations.some((value) => value !== undefined);
+  const hasForest = forests.some((value) => value !== undefined);
+  // 칸 x에서 가장 가까운 세력 처음 자리(먼 칸 — 실행 중 세운 마을 — 은 -1)
+  const groupOf = (x: number): number => {
+    const k = Math.floor((x + Math.floor(config.groupGap / 2)) / config.groupGap);
+    return k >= 0 && k < elevations.length ? k : -1;
+  };
   return {
     at,
     richnessPm: config.richnessPm,
@@ -393,10 +410,19 @@ export function scenarioPlaneLayout(
       ? {
           // 칸 x에서 가장 가까운 세력 처음 자리의 고도(먼 칸 — 실행 중 세운 마을 — 은 시나리오 고도)
           elevationAt: (x: number) => {
-            const k = Math.floor((x + Math.floor(config.groupGap / 2)) / config.groupGap);
-            return k >= 0 && k < elevations.length ? elevations[k] : config.elevationM;
+            const k = groupOf(x);
+            return k >= 0 ? elevations[k] : config.elevationM;
           },
           oreRules: seed,
+        }
+      : {}),
+    ...(hasForest
+      ? {
+          // 칸 x에서 가장 가까운 세력 처음 자리의 숲 밀도(먼 칸은 시나리오 숲)
+          forestAt: (x: number) => {
+            const k = groupOf(x);
+            return k >= 0 ? forests[k] : config.forest;
+          },
         }
       : {}),
   };

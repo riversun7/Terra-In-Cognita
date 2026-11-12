@@ -25,6 +25,7 @@ import { cachedLooks, prefetchLooks, startBuildingLooks, withLooks } from "./bui
 import { createBuildingMerger } from "./buildingMerge.ts";
 import type { CommandReport, FeedSink, FeedStatus, MapFeed } from "./feedTypes.ts";
 import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
+import { attachObjectProps } from "./gather/objectProps.ts";
 import { type GatherState, gatherSink } from "./gather/gatherState.ts";
 import { type LeaderTagState, attachLeaderTags } from "./leaderTags.ts";
 import type { MapChannel, MapFeedPool } from "./mapFeedPool.ts";
@@ -358,6 +359,8 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     serverNow: options.serverNow,
     nearby,
   });
+  // 노두 등 서버 채집 오브젝트의 소품 그림(질문 1083 나): 오브젝트 자리에 덮어 세운다
+  const detachObjectProps = attachObjectProps(engine, gather, mapKey);
   // 유닛 3D 외형(unitModels.ts): 유닛에 외형·몸을 붙여 엔진이 가까운 유닛을 모델로 그리게 한다(엔진 바로 앞). 붙은 옆 2차맵 유닛도 같이 묻는다
   const unitModels = startUnitModels(engine, mapKey, {
     enabled: wantsUnitModels(window.location.search),
@@ -505,6 +508,7 @@ export function startMapSession(options: MapSessionOptions): MapSession {
       for (const neighbour of attached.values()) neighbour.attach(null);
       attached.clear();
       detachGather();
+      detachObjectProps();
       detachLeaders();
       detachNames();
       looks.stop();

@@ -2,6 +2,7 @@
 import { GATHER_PLOT_SURFACES } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
 import { TERRAIN_SURFACE } from "@terra/protocol";
+import { mapPropArtCode } from "@terra/shared";
 import { CATCHMENT_MATERIALS, MATERIAL_FACILITY } from "@terra/shared/catchment";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
@@ -39,5 +40,25 @@ describe("원자재 오브젝트 종류", () => {
     });
     // 나무·바위·광맥·약초 덤불은 그대로 직접 캔다
     expect(kinds.filter((kind) => kind.source !== "plot").every((kind) => kind.direct)).toBe(true);
+  });
+
+  it("노두(질문 1083 나): 돌·구리 노두는 outcrop, 광산이 맡고 직접 캔다, 기기 그림 번호가 있고 앞 종류 차례는 그대로(끝에 더함)", () => {
+    const byId = new Map(kinds.map((kind) => [kind.id, kind]));
+    expect(byId.get("stone_outcrop")).toMatchObject({
+      source: "outcrop",
+      item: "stone",
+      facility: "mine",
+      direct: true,
+      art: mapPropArtCode("outcrop_stone"),
+    });
+    expect(byId.get("copper_outcrop")).toMatchObject({
+      source: "outcrop",
+      item: "copper_ore",
+      facility: "mine",
+      art: mapPropArtCode("outcrop_copper"),
+    });
+    expect(byId.get("stone_outcrop")?.surfaces).toContain(TERRAIN_SURFACE.grass);
+    expect(kinds.slice(-2).map((kind) => kind.id)).toEqual(["stone_outcrop", "copper_outcrop"]);
+    expect(kinds.filter((kind) => kind.source !== "outcrop").every((kind) => kind.art === 0)).toBe(true);
   });
 });

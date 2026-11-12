@@ -40,6 +40,8 @@ export const TAP_RADIUS_CELLS = 2;
 export interface GatherState {
   readonly kinds: readonly GatherKindView[];
   readonly objects: readonly GatherObjectEntry[];
+  /** 오브젝트 목록의 2차맵(아직 없으면 null) — 옆 2차맵으로 넘은 직후 옛 목록을 새 2차맵에 그리지 않게 */
+  readonly objectsMapKey: number | null;
   readonly loops: readonly GatherLoopView[];
   /** 지도 자료의 건물 칸(덧그림이 건물 표시를 놓는다) */
   readonly buildings: readonly BuildingFootprint[];
@@ -125,6 +127,7 @@ export function createGatherState(): GatherState {
   const state = {
     kinds: [] as readonly GatherKindView[],
     objects: [] as readonly GatherObjectEntry[],
+    objectsMapKey: null as number | null,
     loops: [] as readonly GatherLoopView[],
     sheet: null as GatherSheet | null,
     ring: null as StationRing | null,
@@ -140,6 +143,9 @@ export function createGatherState(): GatherState {
     },
     get objects() {
       return state.objects;
+    },
+    get objectsMapKey() {
+      return state.objectsMapKey;
     },
     get loops() {
       return state.loops;
@@ -165,6 +171,7 @@ export function createGatherState(): GatherState {
     setObjects(response) {
       state.kinds = response.kinds;
       state.objects = decodeObjects(response);
+      state.objectsMapKey = response.mapKey;
       byId = new Map(state.objects.map((object) => [object.id, object]));
       changed();
     },

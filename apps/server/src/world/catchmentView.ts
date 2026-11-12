@@ -166,6 +166,7 @@ export function sustainOf(input: CatchmentViewInput): WorldCatchmentSustain | nu
     fits,
     cities: spaced,
     salt: 0,
+    mountainSitePm: input.seed.catchmentMountainSitePm,
   });
   return {
     cities: picked.length,

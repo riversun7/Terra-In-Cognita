@@ -4,6 +4,7 @@
 // - 1차맵 칸(= 2차맵 하나)의 행성 값으로 그 칸에 여섯 원자재가 있는지 본다(있음/없음 비트). 문턱은 NPC 시작 도시 채집 시설 고르기와 같은 설정 칸
 //   (npc_seed_lumber_forest_pct·npc_seed_mine_height_m·npc_seed_farm_temp_c·npc_seed_farm_rain_mm — 새 수치를 만들지 않는다).
 //   바뀜 (2026-11-12, 기획 D-533): 광석은 있음/없음 대신 고도 몫(oreSharePm), 자리 점수는 몫으로 센다(cellSharesPm·shareCoveragePm, 질문 1027 다).
+//   바뀜 (2026-11-12, 기획 D-534 — 질문 1080 가): 채집 다툼의 목재도 숲 밀도 몫(forestSharePm)이다 — 광석이 고도 몫을 쓰는 것과 같은 꼴.
 // - 도시 배후지 = 도시 2차맵에서 반경 R(1차맵 칸, 설정 칸 city_catchment_radius_cells) 안의 칸들. 배후지 덮임(‰) = 원자재마다 "배후지 칸 가운데
 //   그 원자재가 있는 칸 몫"을 그 도시가 쓰는 시설 수로 가중 평균한 값이다. 세계 배치(서버 world/citySites.ts)와 화면(/dev/world-layout 덮개)이
 //   같은 함수를 쓴다.
@@ -133,10 +134,16 @@ export function highOrePm(land: CatchmentLand | undefined, rules: CatchmentThres
 /** 원자재마다 칸 몫(‰) */
 export type MaterialShares = Readonly<Record<CatchmentMaterial, number>>;
 
+/** 숲 밀도(0 ~ 255) → 목재 몫(‰, 0 ~ 1000, 내림). 숲 밀도 255 = 1000 */
+export function forestSharePm(forest: number): number {
+  return Math.min(1000, Math.floor((Math.max(0, Math.trunc(forest)) * 1000) / 255));
+}
+
 /**
  * 칸 하나의 원자재 몫(‰):
- * - supply(채집 다툼의 칸 재고 상한): 광석 = 고도 몫, 나머지 = 비트(있으면 1000).
- * - site(시작 도시 자리 점수 — 질문 1027 다 "있음/없음 대신 몫"): supply에 더해 목재 = 숲 밀도 그대로(0~255 → ‰), 약초 = max(목재 몫, 작물 비트).
+ * - supply(채집 다툼의 칸 재고 상한): 광석 = 고도 몫, 목재 = 숲 밀도 몫(질문 1080 가), 나머지 = 비트(있으면 1000).
+ * - site(시작 도시 자리 점수 — 질문 1027 다 "있음/없음 대신 몫"): supply에 더해 약초 = max(목재 몫, 작물 비트).
+ * 물에 잠긴 칸의 목재는 0이다
  */
 export function cellSharesPm(
   land: CatchmentLand | undefined,
@@ -145,13 +152,7 @@ export function cellSharesPm(
 ): MaterialShares {
   const bits = cellMaterials(land, rules);
   const bit = (material: CatchmentMaterial) => ((bits & MATERIAL_BIT[material]) === 0 ? 0 : 1000);
-  const drowned = !land || (land.water & DEEP_WATER) !== 0;
-  const wood =
-    mode === "site"
-      ? drowned
-        ? 0
-        : Math.min(1000, Math.floor((Math.max(0, Math.trunc(land.forest)) * 1000) / 255))
-      : bit("wood");
+  const wood = !land || (land.water & DEEP_WATER) !== 0 ? 0 : forestSharePm(land.forest);
   return {
     ore: oreSharePm(land, rules),
     wood,

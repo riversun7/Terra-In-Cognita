@@ -73,6 +73,8 @@ const ART_TEXT: Readonly<Record<(typeof MAP_PROP_ARTS)[number], () => string>> =
   fern: m.second_map_lab_art_fern,
   ice_block: m.second_map_lab_art_ice_block,
   bones: m.second_map_lab_art_bones,
+  outcrop_stone: m.second_map_lab_art_outcrop_stone,
+  outcrop_copper: m.second_map_lab_art_outcrop_copper,
 };
 
 export function artText(code: number | null): string {

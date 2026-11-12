@@ -20,6 +20,7 @@ const kind = (over: Partial<GatherKind>): GatherKind => ({
   source: "prop",
   arts: [],
   chancePm: 0,
+  art: 0,
   surfaces: [],
   minCells: 0,
   material: null,
@@ -141,6 +142,68 @@ describe("밭·목초지·물터(plot) 자리 — docs/adr/2026-11-11-city-catch
     expect(a).toEqual(b);
     const kinds = new Set(a.map((object) => object.kind));
     expect(kinds).toEqual(new Set([0, 1]));
+  });
+});
+
+describe("노두(outcrop) 자리 — 기획 D-534 질문 1083 나", () => {
+  const stone = kind({
+    id: "stone_outcrop",
+    source: "outcrop",
+    surfaces: [TERRAIN_SURFACE.grass, TERRAIN_SURFACE.dirt],
+    chancePm: 400,
+    art: 20,
+    item: "stone",
+    facility: "mine",
+  });
+  const copper = { ...stone, id: "copper_outcrop", chancePm: 200, art: 21, item: "copper_ore" };
+  const field = kind({
+    id: "field",
+    source: "plot",
+    surfaces: [TERRAIN_SURFACE.grass],
+    minCells: 32,
+    facility: "farm",
+    direct: false,
+  });
+
+  it("광석 몫이 없으면(임시 지형·물) 없고, 몫이 클수록 많다(같은 굴림 — 낮은 땅 ⊂ 산지)", () => {
+    expect(placeGatherObjects(blank(), [stone, copper])).toEqual([]);
+    expect(placeGatherObjects({ ...blank(), oreSharePm: 0 }, [stone, copper])).toEqual([]);
+    const low = placeGatherObjects({ ...blank(), oreSharePm: 200 }, [stone, copper]);
+    const high = placeGatherObjects({ ...blank(), oreSharePm: 1000 }, [stone, copper]);
+    expect(low.length).toBeGreaterThan(0);
+    expect(high.length).toBeGreaterThan(low.length * 2);
+    // 16×16 묶음마다 많아야 하나
+    expect(high.length).toBeLessThanOrEqual(PLOT_BLOCK_CELLS * PLOT_BLOCK_CELLS);
+    const highIds = new Set(high.map((object) => object.id));
+    for (const object of low) expect(highIds.has(object.id)).toBe(true);
+    expect(new Set(high.map((object) => object.kind))).toEqual(new Set([0, 1]));
+    // 같은 입력 = 같은 결과
+    expect(placeGatherObjects({ ...blank(), oreSharePm: 200 }, [stone, copper])).toEqual(low);
+  });
+
+  it("앞 종류(소품·밭) 번호·자리는 그대로, 노두는 그 뒤·빈 칸·지표 칸·소품 없는 칸에만", () => {
+    const layers = { ...blank(), oreSharePm: 1000 };
+    layers.art[9] = 2;
+    const before = placeGatherObjects(layers, [kind({ id: "conifer", arts: [2] }), field]);
+    const after = placeGatherObjects(layers, [kind({ id: "conifer", arts: [2] }), field, stone]);
+    expect(after.slice(0, before.length)).toEqual(before);
+    const outcrops = after.slice(before.length);
+    expect(outcrops.length).toBeGreaterThan(0);
+    const ids = after.map((object) => object.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const object of outcrops) {
+      expect(object.kind).toBe(2);
+      expect(layers.art[object.id]).toBe(0);
+      expect(object.x % 2).toBe(1);
+      expect(object.y % 2).toBe(1);
+    }
+    // 지표가 맞지 않으면(모두 물) 없다
+    const wet = {
+      ...blank(),
+      oreSharePm: 1000,
+      surface: new Uint8Array(128 * 128).fill(TERRAIN_SURFACE.water),
+    };
+    expect(placeGatherObjects(wet, [stone])).toEqual([]);
   });
 });
 

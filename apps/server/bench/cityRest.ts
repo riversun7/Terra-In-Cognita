@@ -7,6 +7,7 @@
 // 표는 Markdown이다. pnpm test에는 없다(행성 생성에 십수 초).
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
+import { recipeEntrySchema } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
 import { type CellKey, decodeCellKey, parseCellKey } from "@terra/planet";
 import { planetInputFromDefinition, runPlanetGenerator } from "@terra/planet/generator";
@@ -47,10 +48,13 @@ import { freshTierPlan } from "../src/world/tierPlan.ts";
 import { emptyWorldStats } from "../src/world/worldStats.ts";
 
 const args = process.argv.slice(2);
-const cityCount = Number(args.find((arg) => !arg.startsWith("--")) ?? 12);
+// --pack <폴더>: 다른 콘텐츠 팩으로 잰다(아이템 무게 전·후 견주기, 질문 1094)
+const packAt = args.indexOf("--pack");
+const packDir = packAt >= 0 ? args[packAt + 1] : undefined;
+const cityCount = Number(args.find((arg, i) => !arg.startsWith("--") && i !== packAt + 1) ?? 12);
 const LEVEL = 9;
 
-const loaded = loadContentPack(fileURLToPath(new URL("../../../content/core", import.meta.url)));
+const loaded = loadContentPack(packDir ?? fileURLToPath(new URL("../../../content/core", import.meta.url)));
 if (!loaded.pack || !loaded.source) throw new Error("content/core does not validate");
 const pack = loaded.pack;
 const effective = createContentEditState(loaded.source).effective();
@@ -191,6 +195,26 @@ const totals = new Map<
   { duty: number; commute: number; work: number; rest: number; output: number; n: number }
 >();
 const haulRows: { cells: number; roundS: number; per100S: number }[] = [];
+/** 채집소마다 아이템 무게로 잰 옮김(질문 1094·1090 가): 시설 → 칸·한 묶음 무게·가득 찬 창고 무게 */
+const stationRows: { facility: string; cells: number; batchG: number; fullG: number }[] = [];
+/** 인구 상한(질문 1089 나): 도시마다 주거·침대 */
+const capRows: { housing: number; beds: number }[] = [];
+/** 레시피(시설 → 첫 레시피 산출): recipes.json 원문을 스키마로 읽는다 */
+const recipesText = loaded.source.files.get("recipes.json");
+const recipesRaw: unknown = recipesText === undefined ? {} : JSON.parse(recipesText);
+const recipeList: unknown =
+  typeof recipesRaw === "object" && recipesRaw !== null ? Reflect.get(recipesRaw, "entries") : undefined;
+const recipes = (Array.isArray(recipeList) ? (recipeList as readonly unknown[]) : []).map((raw) =>
+  recipeEntrySchema.parse(raw),
+);
+/** 시설의 첫 레시피 한 묶음 무게(g, 팩 아이템 무게 — 무게가 없으면 0) */
+const batchGramsOf = (facilityId: string): number => {
+  const recipe = recipes.find((entry) => entry.facility.id === facilityId);
+  return (recipe?.outputs ?? []).reduce(
+    (sum, out) => sum + out.qty * (catalog.unitWeightOf(out.item.id) ?? 0),
+    0,
+  );
+};
 lines.push(`# 숙소 회복·채집소 옮김 측정 (s2_test_planet F${LEVEL}, 도시 ${picked.length})`);
 lines.push("");
 lines.push(
@@ -276,7 +300,17 @@ for (const city of picked) {
       roundS: (2 * cells * walkMsPerCell()) / 1000,
       per100S: haulTimeMs(100_000n, cells, 1, rules.gatherObjects.carryGrams) / 1000,
     });
+    const record = facilities.get(id);
+    const def = record ? catalog.facility(record.facilityId) : undefined;
+    if (record && def)
+      stationRows.push({
+        facility: record.facilityId,
+        cells,
+        batchG: batchGramsOf(record.facilityId),
+        fullG: (def.storageKg ?? 0) * 1000,
+      });
   }
+  capRows.push({ housing: seed.startHousing, beds: cases[0]?.[1].bedTotal ?? 0 });
   map.stop();
 }
 
@@ -309,6 +343,40 @@ for (const [from, to] of [
     (rows.reduce((sum, row) => sum + pick(row), 0) / rows.length).toFixed(1);
   lines.push(
     `| ${from}~${to === 999 ? "" : to} | ${rows.length} | ${mean((r) => r.cells)} | ${mean((r) => r.roundS)} | ${mean((r) => r.per100S)} |`,
+  );
+}
+lines.push("");
+// 인구 상한(질문 1089 나): 예전 max(주거, 침대) → 주거 + 침대
+const capN = Math.max(1, capRows.length);
+const capMean = (pick: (row: (typeof capRows)[number]) => number) =>
+  (capRows.reduce((sum, row) => sum + pick(row), 0) / capN).toFixed(1);
+lines.push("| 인구 상한(도시 평균) | 주거 | 침대 | 예전 max(주거, 침대) | 지금 주거 + 침대 |");
+lines.push("|---|---|---|---|---|");
+lines.push(
+  `| 시작 도시 ${capRows.length} | ${capMean((r) => r.housing)} | ${capMean((r) => r.beds)} | ${capMean((r) => Math.max(r.housing, r.beds))} | ${capMean((r) => r.housing + r.beds)} |`,
+);
+lines.push("");
+// 채집소 옮김(아이템 무게, 질문 1094·1090 가): 운반꾼 하나, 자동 옮김 간격 안에 가득 찬 창고를 비우나
+const every = rules.gatherObjects.stationHaulMs;
+lines.push(
+  `채집소 옮김(팩 ${loaded.pack.version}, 운반꾼 하나, 화물 상한 ${rules.gatherObjects.carryGrams / 1000}kg, 자동 옮김 ${every / 60_000}분)`,
+);
+lines.push("");
+lines.push(
+  "| 시설 | 채집소 | 평균 칸 | 한 묶음(첫 레시피) kg | 한 묶음 나르기(초) | 가득 찬 창고 kg | 가득 찬 창고 나르기(초) | 간격 넘는 채집소 |",
+);
+lines.push("|---|---|---|---|---|---|---|---|");
+for (const facility of [...new Set(stationRows.map((row) => row.facility))].toSorted()) {
+  const rows = stationRows.filter((row) => row.facility === facility);
+  const n = Math.max(1, rows.length);
+  const mean = (pick: (row: (typeof rows)[number]) => number) =>
+    rows.reduce((sum, row) => sum + pick(row), 0) / n;
+  const carry = rules.gatherObjects.carryGrams;
+  const batchS = mean((row) => haulTimeMs(BigInt(Math.round(row.batchG)), row.cells, 1, carry) / 1000);
+  const fullS = mean((row) => haulTimeMs(BigInt(row.fullG), row.cells, 1, carry) / 1000);
+  const over = rows.filter((row) => haulTimeMs(BigInt(row.fullG), row.cells, 1, carry) > every).length;
+  lines.push(
+    `| ${facility} | ${rows.length} | ${mean((r) => r.cells).toFixed(1)} | ${(mean((r) => r.batchG) / 1000).toFixed(2)} | ${batchS.toFixed(1)} | ${(mean((r) => r.fullG) / 1000).toFixed(0)} | ${fullS.toFixed(1)} | ${over} |`,
   );
 }
 console.log(lines.join("\n"));

@@ -146,7 +146,10 @@ export function planCityRelayout(deps: RelayoutDeps, inputs: RelayoutInputs): Ci
         id: record.buildingId,
         facility: record.facilityId,
         rect,
-        pinned: inputs.pinned.has(record.buildingId),
+        // 성벽(방어 단계, 질문 1048 가)은 행정 건물 둘레 고리라 다른 건물처럼 옮기지 않는다
+        pinned:
+          inputs.pinned.has(record.buildingId) ||
+          deps.catalog.facility(record.facilityId)?.stage === "defense",
       });
     }
     if (mine.length === 0) continue;

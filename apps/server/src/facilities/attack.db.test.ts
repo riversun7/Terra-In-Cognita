@@ -196,6 +196,16 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
     expect(typeof init === "object" && init !== null ? targetsOf(init) : []).toEqual([
       { building: 1, kind: "facility", id: yard },
     ]);
+    // 전투맵 = 2차맵 구역(D-533·질문 1046 가): 넥서스 칸 수 = 야적장 실제 칸 수
+    let area = 0;
+    world.maps.get(TEST_MAP_KEY)?.forEachBuilding((building) => {
+      if (building.id === yard) area = building.placement.width * building.placement.height;
+    });
+    const shape = await rows<{ nexus_cells: number }>(
+      test.db,
+      `select jsonb_array_length(init->'map'->'buildings'->0->'cells')::int as nexus_cells from world_battles`,
+    );
+    expect(shape[0]?.nexus_cells).toBe(area);
     // 아직 끝나지 않았다(결과는 끝 시각에)
     expect(p.facilities.service.facilities.get(yard)?.conditionPpm).toBe(CONDITION_FULL / 2);
 

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-12 09:30 | 공성 전투맵 = 도시 실제 2차맵 배치, 성벽 고리(질문 1046 가·1048 가) | Claude Code | [12-0930-siege-layout](worklog/2026/11/12-0930-siege-layout.md) |
 | 2026-11-12 08:45 ~ 10:30 | 배후지 칸 재고 저장·마을 건물 배치·가문 도시 자동 구인·국가 땅이 버티는 도시 수 | Claude Code | [12-0920-catchment-db](worklog/2026/11/12-0920-catchment-db.md) |
 | 2026-11-12 08:40 ~ 10:00 | 광석 고도 몫 — 석재·구리는 어디서나 조금, 높은 티어는 산지 | Claude Code | [12-0905-ore-share](worklog/2026/11/12-0905-ore-share.md) |
 | 2026-11-12 05:20 | 옆 2차맵 미리 열기 합치기 | Claude Code | [12-0520-edge-preopen-merge](worklog/2026/11/12-0520-edge-preopen-merge.md) |

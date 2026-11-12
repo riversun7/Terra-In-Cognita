@@ -90,13 +90,21 @@ const startCities = () =>
     `select c.id, f.code, c.map_key, c.cell_x, c.cell_y, c.name from world_cities c join factions f on f.id = c.faction_id
      where c.start order by c.id`,
   );
+/** 기본 시설(성벽 고리는 따로 — walls) */
 const seeded = () =>
   rows<{ city_id: string; facility_id: string; level: number; owner_ok: boolean }>(
     test.db,
     `select wf.city_id, wf.facility_id, wf.level,
             (b.owner_id = (select o.id from world_owners o join world_cities c on c.faction_id = o.faction_id
                            where c.id = wf.city_id)) as owner_ok
-     from world_facilities wf join world_buildings b on b.id = wf.building_id order by wf.city_id, wf.facility_id`,
+     from world_facilities wf join world_buildings b on b.id = wf.building_id
+     where wf.facility_id <> 'city_wall' order by wf.city_id, wf.facility_id`,
+  );
+/** 도시마다 성벽 수(질문 1048 가, cityWalls.ts) */
+const walls = () =>
+  rows<{ city_id: string; n: number }>(
+    test.db,
+    `select city_id, count(*)::int as n from world_facilities where facility_id = 'city_wall' group by city_id order by city_id`,
   );
 const codes = ["s3_test_npc", ...presets.slice(0, 3).map((preset) => preset.code)];
 /** 국가 1 = 16번째 프리셋(성격 칸 없음 → 아래 끝 2), 2~4 = 프리셋 1~3(팩 성격 칸 4·3·2) */
@@ -187,6 +195,10 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
 
     const facilities = await seeded();
     expect(facilities).toHaveLength(cities.length * 8);
+    // 성벽 고리(설정 칸 city_wall_mode 1): 도시마다 행정 건물 둘레에 몇 토막
+    const wallRows = await walls();
+    expect(wallRows).toHaveLength(cities.length);
+    for (const row of wallRows) expect(row.n).toBeGreaterThanOrEqual(4);
     // 전략 배치(docs/adr/2026-11-11-city-building-layout.md): 행정 건물은 도시 칸 가운데(3×3 가운데 = 도시 칸). 그 칸에 원자재
     // 오브젝트·막힌 땅이 있으면 가장 가까운 자리(몇 칸 안)
     const halls = await rows<{ cell_x: number; cell_y: number; x: number; y: number }>(
@@ -229,6 +241,7 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
     const again = await boot({ testMaps: 3 });
     expect(await startCities()).toEqual(cities);
     expect(await seeded()).toEqual(facilities);
+    expect(await walls()).toEqual(wallRows);
     expect(await again.checkInvariants()).toEqual([]);
   }, 60_000);
 

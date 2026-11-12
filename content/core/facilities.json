@@ -1097,6 +1097,35 @@
         "model": "house",
         "roof": "thatch"
       }
+    },
+    {
+      "id": "city_wall",
+      "name": {
+        "ko": "성벽",
+        "en": "City wall"
+      },
+      "stage": "defense",
+      "maxLevel": 1,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "stone",
+                "qty": 20
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 4,
+        "height": 1
+      },
+      "durability": 20000
     }
   ]
 }

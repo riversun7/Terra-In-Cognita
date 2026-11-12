@@ -25,6 +25,8 @@ import type { CityRow } from "../world/cities.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityCatalog } from "./catalog.ts";
 import { type LayoutExisting, type LayoutItem, planCityLayout } from "./cityLayout.ts";
+import { cityWallRulesOf, seedCityWalls } from "./cityWalls.ts";
+import { cityHall } from "./siegeLayout.ts";
 import {
   cityLayoutRulesOf,
   cityLayoutSeed,
@@ -327,6 +329,26 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
       if (spot && save(facility, { ...spot, width, height })) placed += 1;
       else missing += 1;
     }
+  }
+  // 성벽 고리(질문 1048 가, cityWalls.ts): 행정 건물이 선 뒤, 그 도시에 성벽이 하나도 없을 때만
+  for (const city of starts) {
+    const map = maps.get(city.mapKey);
+    const ownerId = input.ownerOfFaction(city.factionId);
+    const hall =
+      map &&
+      cityHall(map, { records: service.facilities, catalog }, city.id, { x: city.cellX, y: city.cellY });
+    if (!map || ownerId === undefined || !hall) continue;
+    const rules = cityWallRulesOf(input.seedOfFaction?.(city.factionId) ?? input.seed);
+    placed += seedCityWalls({
+      map,
+      cityId: city.id,
+      ownerId,
+      hall: hall.rect,
+      rules,
+      catalog,
+      service,
+      nowMs: input.nowMs,
+    });
   }
   return { placed, missing };
 }

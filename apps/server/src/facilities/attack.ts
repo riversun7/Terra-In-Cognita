@@ -5,10 +5,11 @@
 //   않는다, 전쟁 상대끼리는 악명 없음) → 누구나 남의 시설·다른 세력 비콘을 칠 수 있다. 도시 시가지(D-146, 영향권 반경 ÷ 3) 안은 공성 시간에만
 //   (D-184, 기획 45 "시가지 안의 시설은 공성 시간에 공격받는다") → 공성 선포가 아직 없어 늘 safe_zone. 내 것·내 세력 것은 못 친다
 //   (own_target). 전쟁 중인 세력끼리면 전쟁 전투(진 유닛은 포로, D-187). 악명·현상금은 아직 없다(TODO).
-// - 전투: 넥서스 = 대상(지금 내구도 점, 2×2칸, 가운데), 공격 = 내 유닛(그 건물·비콘 칸의 2차맵에 있는 것, 비활성·수호신은 unit_busy), 수비 = 그
+// - 전투: 넥서스 = 대상(지금 내구도 점). 전투맵 = 그 2차맵 구역(D-533·질문 1046 가, sim combat/siegeArena.ts — 대상 건물 실제 칸이 넥서스,
+//   다른 건물은 실제 칸의 장애물, 지형 복사). 공격 편은 내 유닛들이 있는 쪽 변에서 들어온다. 비콘 자리에 건물이 겹치면 옛 열린 맵(가운데 2×2).
+//   공격 = 내 유닛(그 건물·비콘 칸의 2차맵에 있는 것, 비활성·수호신은 unit_busy), 수비 = 그
 //   주인(비콘은 그 세력)의 유닛 가운데 근처(ATTACK_DEFENDER_RADIUS칸)에 있는 것(비활성·수호신 빼고 — 그 도시 수호신은 도시 방어가 넣는다,
-//   기획 답 452 다·456 가). [임시] 열린 공성 맵(일반 크기 64, 정원사 웨이브와 같은 틀) — 2차맵 구역 복사는
-//   전투맵 인스턴스 ADR(2026-10-29-combat-map-instances.md)의 다음 단계. 몸은 세계 전투와 같은 셈(bodies·생명 수치·물약·탄).
+//   기획 답 452 다·456 가). [임시] 전투맵 한 변은 일반 크기 64. 몸은 세계 전투와 같은 셈(bodies·생명 수치·물약·탄).
 // - 결과(battleTargets.ts): 전투 서비스가 끝 시각에 결과를 적용할 때 같은 동기 처리로 상태(ppm)를 줄인다(0이면 폐허 = 기능 정지, 366).
 import {
   type BattleInit,
@@ -16,11 +17,14 @@ import {
   CELL_UNITS,
   type CombatCoefficients,
   type CombatUnitSpec,
+  type Edge,
   PLACEMENT_SIZE,
+  footprintRect,
   type SocietyCoefficients,
   positionAt,
 } from "@terra/sim";
-import { advanceCondition, durabilityPoints, maxDurabilityAt } from "@terra/shared/facilityRuntime";
+import { durabilityPoints } from "@terra/shared/facilityRuntime";
+import { type SiegeLayout, oppositeEdge, siegeArena, siegePlacer } from "@terra/sim/siegeArena";
 import type { TerritoryService } from "../territory/service.ts";
 import type { BattleBodies } from "../world/battleBodies.ts";
 import type { BattleTarget, BuildingDamageSink, WorldBattleInit } from "../world/battleTargets.ts";
@@ -32,6 +36,7 @@ import { unavailable } from "../world/unitCondition.ts";
 import type { FacilityCatalog } from "./catalog.ts";
 import { buildingCell } from "./places.ts";
 import type { FacilityCommandResult, FacilityService, FacilityTarget } from "./service.ts";
+import { beaconSiegeLayout, facilityPoints, siegeLayoutOn } from "./siegeLayout.ts";
 
 /** [임시] 건물 공격 전투맵 한 변(49 C3 일반 크기 64 — 건물 하나라 공성 128보다 작게) */
 export const ATTACK_MAP_SIZE = 64;
@@ -90,6 +95,12 @@ const fail = (code: Extract<FacilityCommandResult, { ok: false }>["code"]): Faci
 const spreadY = (index: number, center: number): number =>
   center + ((index + 1) >> 1) * (index % 2 === 0 ? 1 : -1);
 
+/** 열린 맵 가운데 2×2 넥서스 칸 */
+function openNexus(size: number): number[] {
+  const center = size / 2;
+  return [center - 1, center].flatMap((y) => [center - 1, center].map((x) => y * size + x));
+}
+
 /** 유닛이 지금 선 2차맵 배치 칸 */
 function unitCell(map: SecondMap, unitId: number, at: number): { x: number; y: number } | undefined {
   const info = map.unitInfo(unitId);
@@ -112,6 +123,20 @@ interface AttackTarget {
   readonly defenderOwner: number;
   /** 그 유닛 주인이 수비 편인가 */
   readonly defends: (ownerId: number) => boolean;
+  /** 전투맵 입력(2차맵 실제 배치). 없으면 옛 열린 맵 */
+  readonly layout: SiegeLayout | undefined;
+}
+
+/** 공격 편이 들어오는 변: 넥서스 가운데 → 공격 유닛 평균 자리의 큰 축 쪽(같으면 동서). 유닛 자리를 모르면 서 */
+export function arrivalEdge(
+  nexus: { readonly x: number; readonly y: number },
+  from: readonly { readonly x: number; readonly y: number }[],
+): Edge {
+  if (from.length === 0) return 3;
+  const dx = from.reduce((sum, at) => sum + at.x, 0) - nexus.x * from.length;
+  const dy = from.reduce((sum, at) => sum + at.y, 0) - nexus.y * from.length;
+  if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 1 : 3;
+  return dy > 0 ? 2 : 0;
 }
 
 /**
@@ -174,6 +199,12 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
     );
     return found.rows.length > 0;
   };
+  const layoutSource = (at: number) => ({
+    records: options.service.facilities,
+    catalog: options.catalog(),
+    rules: options.rules(),
+    at,
+  });
   /** 대상 찾기: 시설(남의 2차맵 건물) 또는 다른 세력 비콘. 칠 수 없으면 결과 코드 */
   const resolve = async (
     me: number,
@@ -194,19 +225,19 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
       const owner = cell.ownerId;
       const faction = owner === null ? null : await factionOfOwner(owner);
       if (myFaction !== null && faction === myFaction) return "own_target";
-      // 화면 자료와 같은 셈(노화를 지금까지 흐르게, 사용 닳음은 분마다 건물 서비스가 넣는다)
-      const ppm =
-        record.level >= 1 && at > record.conditionAtMs
-          ? advanceCondition(record.conditionPpm, at - record.conditionAtMs, false, rt)
-          : record.conditionPpm;
+      let rect: ReturnType<typeof footprintRect> | undefined;
+      map.forEachBuilding((building) => {
+        if (building.id === target.buildingId) rect = footprintRect(building.placement);
+      });
       return {
         ref: { kind: "facility", id: target.buildingId },
         map,
         center: { x: cell.x, y: cell.y },
-        points: durabilityPoints(ppm, maxDurabilityAt(def.durability, Math.max(1, record.level), rt)),
+        points: facilityPoints(record, def.durability, at, rt),
         faction,
         defenderOwner: owner ?? 0,
         defends: (ownerId) => owner !== null && ownerId === owner,
+        layout: rect ? siegeLayoutOn(map, rect, target.buildingId, layoutSource(at)) : undefined,
       };
     }
     const state = options.territory()?.beaconState(target.beaconId, at);
@@ -230,6 +261,7 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
       faction: row.factionId,
       defenderOwner: treasuryOf(row.factionId),
       defends: (ownerId) => sameFaction.has(ownerId),
+      layout: beaconSiegeLayout(map, { x: PLACEMENT_SIZE >> 1, y: PLACEMENT_SIZE >> 1 }, layoutSource(at)),
     };
   };
 
@@ -254,7 +286,10 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
     return null;
   };
 
-  /** 공성 시작 자료(열린 맵, 가운데 넥서스 = 대상). 몸을 만들 수 없으면 undefined */
+  /**
+   * 공성 시작 자료. 2차맵 배치가 있으면 그 구역(넥서스 = 대상 실제 칸, 공격 편은 들어오는 변 3칸째 줄, 수비 편은 넥서스 앞), 없으면 열린 맵
+   * 가운데 넥서스. 몸을 만들 수 없거나 설 칸이 없으면 undefined
+   */
   const initOf = (
     me: number,
     target: AttackTarget,
@@ -265,33 +300,32 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
     const size = ATTACK_MAP_SIZE;
     const center = size / 2;
     const cells = size * size;
-    const nexus = [center - 1, center].flatMap((y) => [center - 1, center].map((x) => y * size + x));
+    const from = attackers.flatMap((id) => unitCell(target.map, id, at) ?? []);
+    const edge: Edge = target.layout ? arrivalEdge(target.center, from) : 3;
+    const arena = target.layout ? siegeArena(target.layout, size, target.points) : undefined;
+    const placer = arena ? siegePlacer(arena, edge) : undefined;
     const units: CombatUnitSpec[] = [];
-    const place = (id: number, side: number, party: number, x: number, y: number) =>
-      options.bodies.build(
-        id,
-        { id, side, party, x, y, moveIntervalMs: MOVE_INTERVAL_MS, buildingMulPm: BUILDING_MUL_PM },
-        at,
-      );
+    const place = (id: number, side: number, party: number, cell: { x: number; y: number } | undefined) =>
+      cell
+        ? options.bodies.build(
+            id,
+            { id, side, party, ...cell, moveIntervalMs: MOVE_INTERVAL_MS, buildingMulPm: BUILDING_MUL_PM },
+            at,
+          )
+        : undefined;
     for (const [index, id] of attackers.entries()) {
-      const spec = place(
-        id,
-        1,
-        1 + Math.floor(index / PARTY_SIZE),
-        2 + Math.floor(index / 24),
-        spreadY(index, center),
-      );
+      const cell = placer
+        ? placer.attacker(index)
+        : { x: 2 + Math.floor(index / 24), y: spreadY(index, center) };
+      const spec = place(id, 1, 1 + Math.floor(index / PARTY_SIZE), cell);
       if (!spec) return undefined;
       units.push(spec);
     }
     for (const [index, id] of defenders.entries()) {
-      const spec = place(
-        id,
-        2,
-        101 + Math.floor(index / PARTY_SIZE),
-        center - 3 - Math.floor(index / 24),
-        spreadY(index, center),
-      );
+      const cell = placer
+        ? placer.defender(index)
+        : { x: center - 3 - Math.floor(index / 24), y: spreadY(index, center) };
+      const spec = place(id, 2, 101 + Math.floor(index / PARTY_SIZE), cell);
       if (!spec) return undefined;
       units.push(spec);
     }
@@ -305,16 +339,16 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
       id: 0,
       kind: "siege",
       seed: options.seed() >>> 0,
-      map: {
+      map: arena?.map ?? {
         size,
         passable: new Uint8Array(cells).fill(1),
         cover: new Uint8Array(cells),
         height: new Int32Array(cells),
-        buildings: [{ id: NEXUS_ID, cells: nexus, durability: target.points, nexus: true }],
+        buildings: [{ id: NEXUS_ID, cells: openNexus(size), durability: target.points, nexus: true }],
       },
       sides: [
-        { id: 1, faction: me, defender: false, edge: 3 },
-        { id: 2, faction: target.defenderOwner, defender: true, edge: 1 },
+        { id: 1, faction: me, defender: false, edge },
+        { id: 2, faction: target.defenderOwner, defender: true, edge: oppositeEdge(edge) },
       ],
       parties,
       units,

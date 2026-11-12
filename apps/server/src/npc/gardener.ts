@@ -33,6 +33,7 @@ import {
   streamRng,
   waveBattleInit,
 } from "@terra/sim";
+import { type SiegeLayout, waveAttackEdge } from "@terra/sim/siegeArena";
 import type { NpcState } from "./state.ts";
 import { type GrantedItem, rewardRecordOf } from "./waveRewards.ts";
 
@@ -184,6 +185,11 @@ export interface ServerGardenerOptions {
    * 자료에 수호신을 수비 편으로 넣는다, temple/cityDefense.ts). 없으면 수비 휴먼이 없는 도시는 전투 없이 진다
    */
   readonly hasGuardians?: ((cityId: number) => boolean) | undefined;
+  /**
+   * 도시의 실제 2차맵 건물 배치(D-533·질문 1046 가, facilities/siegeLayout.ts). 있으면 웨이브 공성 전투맵 = 그 구역(넥서스 = 행정 건물),
+   * 없으면(행정 건물 없음·2차맵 없음) 옛 열린 맵
+   */
+  readonly siegeLayout?: ((cityId: number) => SiegeLayout | undefined) | undefined;
   readonly log: { warn(obj: object, message: string): void; error(obj: object, message: string): void };
 }
 
@@ -275,6 +281,8 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
           maxDefenders: WAVE_DEFENDERS,
           // 공성 제한 시간(C2): 설정 칸 실효 값(전투 서비스는 시험 계수표로 전투를 만든다)
           limitMs: combat.limitMs.siege,
+          layout: o.siegeLayout?.(wave.city),
+          attackEdge: waveAttackEdge(o.seed, wave.id),
         },
         o.catalog(),
         combat,

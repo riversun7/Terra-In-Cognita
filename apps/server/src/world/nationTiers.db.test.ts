@@ -242,7 +242,8 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     // 기본 시설(풀밭: 농장만 땅에 맞는다): 초강대국·강대국 = 농장 2·창고 2, 중견국·소국 = 농장 1·창고 1
     const facilities = await rows<{ city_id: string; facility_id: string }>(
       test.db,
-      `select city_id, facility_id from world_facilities order by city_id, facility_id`,
+      // 성벽 고리(질문 1048 가)는 기본 시설과 따로 센다(facilities/npcSeed.db.test.ts)
+      `select city_id, facility_id from world_facilities where facility_id <> 'city_wall' order by city_id, facility_id`,
     );
     const facilitiesOf = (city: CityLine) =>
       facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id);

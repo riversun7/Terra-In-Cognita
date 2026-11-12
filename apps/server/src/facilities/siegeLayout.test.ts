@@ -1,5 +1,11 @@
 // 공성 전투맵 입력 = 실제 2차맵 배치(siegeLayout.ts) 시험 — 평평한 시험 2차맵에 NPC 시작 도시 기본 시설을 세우고 본다. 값은 형식 확인용이다.
-import { START_WORLD_SEED, TEST_SOCIETY_COEFFICIENTS, createBattleMap, footprintRect } from "@terra/sim";
+import {
+  type BattleMap,
+  START_WORLD_SEED,
+  TEST_SOCIETY_COEFFICIENTS,
+  createBattleMap,
+  footprintRect,
+} from "@terra/sim";
 import { siegeArena, siegePlacer } from "@terra/sim/siegeArena";
 import { afterEach, describe, expect, it } from "vitest";
 import { type TestMap, createTestMap } from "../world/testSupport.ts";
@@ -36,6 +42,35 @@ function seededCity() {
   return { map: test.map, records, source };
 }
 
+/** 넥서스 칸에서 편 side가 4방향으로 걸어 to에 닿나(대각선 모서리 규칙이 있어 4방향과 같다) */
+function reaches(map: BattleMap, from: number, to: number, side: number): boolean {
+  const size = map.size;
+  const seen = new Uint8Array(size * size);
+  const queue = [from];
+  seen[from] = 1;
+  for (let i = 0; i < queue.length; i++) {
+    const cell = queue[i] ?? 0;
+    if (cell === to) return true;
+    const x = cell % size;
+    const y = (cell - x) / size;
+    for (const [dx, dy] of [
+      [0, -1],
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+    ] as const) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const next = ny * size + nx;
+      if (nx < 0 || ny < 0 || nx >= size || ny >= size || seen[next] === 1) continue;
+      if (!map.passableFor(next, side, new Set())) continue;
+      seen[next] = 1;
+      queue.push(next);
+    }
+  }
+  return false;
+}
+
 describe("공성 전투맵 입력(실제 2차맵 배치)", () => {
   it("넥서스 = 그 도시 행정 건물 실제 칸, 다른 시설은 실제 칸의 장애물", () => {
     const { map, records, source } = seededCity();
@@ -58,8 +93,20 @@ describe("공성 전투맵 입력(실제 2차맵 배치)", () => {
       expect(arena.sources.get(id)).toBe(building.id);
       seen += 1;
     });
-    expect(seen).toBe(arena.map.buildings.length);
+    const gates = arena.map.buildings.filter((building) => building.gateSide !== undefined);
+    expect(seen).toBe(arena.map.buildings.length - gates.length);
     expect(seen).toBeGreaterThan(5);
+    // 성벽 고리(설정 칸 출발값 켬): 성벽은 뚫리는 막음, 고리의 빈 칸은 수비 편(2)만 지나가는 성문
+    const walls = arena.map.buildings.filter((building) => building.wall === true);
+    expect(walls.length).toBeGreaterThanOrEqual(4);
+    expect(gates.length).toBeGreaterThanOrEqual(4);
+    expect(gates.every((gate) => gate.gateSide === 2)).toBe(true);
+    // 고리가 닫혔다: 공격 편(1)은 바깥(맨 윗줄 5번 칸)에서 넥서스로 걸어 닿지 못한다(뚫어야 한다)
+    const nexusCell = arena.map.buildings[0]?.cells[0] ?? 0;
+    const outside = 5;
+    expect(battleMap.passableFor(outside, 1, new Set())).toBe(true);
+    expect(reaches(battleMap, nexusCell, outside, 1)).toBe(false);
+    expect(reaches(battleMap, nexusCell, outside, 2)).toBe(true);
     // 다른 도시 ID면 행정 건물이 없다 → 열린 맵
     expect(citySiegeLayout(map, 2, { x: 128, y: 128 }, source)).toBeUndefined();
     // 시작 자리는 모두 정해진다

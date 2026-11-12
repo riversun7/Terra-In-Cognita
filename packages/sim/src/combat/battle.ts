@@ -10,6 +10,7 @@
 import { createRng } from "@terra/shared";
 import { mix32 } from "../math/hash.ts";
 import { type BattleMap, createBattleMap } from "./battleMap.ts";
+import { breachField, breachTarget, hasBreakable } from "./breach.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, msToTicks, regenOnTick } from "./coefficients.ts";
 import { NEIGHBORS, UNREACHABLE, distanceField, stepAllowed } from "./fields.ts";
 import { hasStatus, modifiersOf, moveIntervalMs, shieldRegenPerMinute, tickEffects } from "./effects.ts";
@@ -97,6 +98,17 @@ function makeBattle(
   let attackFields = new Map<number, Int32Array | null>();
   const staticFields = new Map<string, Int32Array>();
   let destroyedKey = "";
+  // 성벽·성문이 있는 공성이면 공격 편은 넥서스까지 뚫기 거리장을 쓴다(breach.ts, 질문 1048 가). 없으면 옛 판정 그대로
+  const breakable = hasBreakable(map);
+  const breachFields = new Map<string, Int32Array | null>();
+  const breachTo = (side: number, gone: ReadonlySet<number>): Int32Array | null => {
+    const key = `${side}|${destroyedKey}`;
+    if (!breachFields.has(key)) {
+      const nexus = map.buildings.find((building) => building.nexus && !gone.has(building.id));
+      breachFields.set(key, nexus ? breachField(map, nexus.cells, side, gone) : null);
+    }
+    return breachFields.get(key) ?? null;
+  };
 
   const passFor = (side: number, gone: ReadonlySet<number>) => (cell: number) =>
     map.passableFor(cell, side, gone);
@@ -197,6 +209,9 @@ function makeBattle(
     }
   };
 
+  const siegeAttacker = (unit: UnitState): boolean =>
+    state.kind === "siege" && state.sides.some((side) => side.id === unit.side && !side.defender);
+
   const nexusOf = (gone: ReadonlySet<number>): number | undefined =>
     map.buildings.find((building) => building.nexus && !gone.has(building.id))?.id;
 
@@ -206,6 +221,10 @@ function makeBattle(
       // 공성 공격 쪽은 보이는 적이 없으면 넥서스로 간다(기억한 자리보다 목표가 먼저)
       let sources = side.lastSeen;
       if (side.visible.length === 0 && state.kind === "siege" && !side.defender) {
+        if (breakable) {
+          attackFields.set(side.id, breachTo(side.id, gone));
+          continue;
+        }
         const nexus = nexusOf(gone);
         sources = nexus === undefined ? [] : (nexusCells.get(nexus) ?? []);
       }
@@ -247,6 +266,22 @@ function makeBattle(
     unit.y = (bestCell - unit.x) / size;
     // 느리게·빠르게(효과 move_speed)는 다음 걸음까지의 간격에 든다
     unit.nextMoveMs = state.tick * c.tickMs + moveIntervalMs(unit, unit.moveIntervalMs);
+  };
+
+  /** 성벽 뚫기: 사거리 안 넥서스 쪽 막음을 치고(준비가 안 됐으면 기다린다), 없으면 뚫기 장을 따라 걷는다 */
+  const breach = (
+    unit: UnitState,
+    occupied: Int32Array,
+    gone: ReadonlySet<number>,
+    canMove: boolean,
+  ): void => {
+    const field = breachTo(unit.side, gone);
+    if (!field) return;
+    const nowMs = state.tick * c.tickMs;
+    const wall = breachTarget(map, field, unit, gone);
+    if (wall !== undefined) {
+      if (ready(unit, nowMs, c)) attackBuilding(unit, wall, nowMs);
+    } else if (canMove) stepAlong(unit, field, occupied, gone);
   };
 
   const inRangeOfBuilding = (unit: UnitState, buildingId: number): boolean =>
@@ -412,13 +447,20 @@ function makeBattle(
       const goal = target;
       if (useSkill(unit, goal, rng, gone, nowMs)) return;
       if (ready(unit, nowMs, c) && attackUnit(unit, goal, rng, gone, nowMs)) return;
-      if (canMove && chebyshev(unit.x, unit.y, goal.x, goal.y) > unit.range) {
+      if ((canMove || breakable) && chebyshev(unit.x, unit.y, goal.x, goal.y) > unit.range) {
         const cell = goal.y * size + goal.x;
         const field =
           command?.kind === "attack"
             ? staticField(`cell:${unit.side}:${cell}`, () => [cell], unit.side, gone)
             : (attackFields.get(unit.side) ?? null);
-        stepAlong(unit, field, occupied, gone);
+        // 성벽 너머 적이라 걸어 닿지 못하면 공성 공격 편은 뚫는다
+        if (
+          breakable &&
+          siegeAttacker(unit) &&
+          (field?.[unit.y * size + unit.x] ?? UNREACHABLE) === UNREACHABLE
+        )
+          breach(unit, occupied, gone, canMove);
+        else if (canMove) stepAlong(unit, field, occupied, gone);
       }
       return;
     }
@@ -427,6 +469,10 @@ function makeBattle(
     if (state.kind === "siege" && side && !side.defender) {
       const nexus = nexusOf(gone);
       if (nexus !== undefined && ready(unit, nowMs, c) && attackBuilding(unit, nexus, nowMs)) return;
+      if (breakable) {
+        breach(unit, occupied, gone, canMove);
+        return;
+      }
     }
     if (canMove) stepAlong(unit, attackFields.get(unit.side) ?? null, occupied, gone);
   };
@@ -540,6 +586,7 @@ function makeBattle(
     if (key !== destroyedKey) {
       destroyedKey = key;
       staticFields.clear();
+      breachFields.clear();
     }
     computeSight(gone);
     if (state.tick % msToTicks(c.fieldMs, c) === 0 || attackFields.size === 0) refreshAttackFields(gone);

@@ -10,7 +10,8 @@ import type { BattleBuildingInput, BattleMapInput } from "./battleMap.ts";
 import { createBattleMap } from "./battleMap.ts";
 import type { Edge } from "./battleTypes.ts";
 import { type SecondMapLayers, arenaFromSecondMap } from "./arena.ts";
-import { UNREACHABLE, distanceField } from "./fields.ts";
+import { breachField } from "./breach.ts";
+import { UNREACHABLE } from "./fields.ts";
 import { mix32 } from "../math/hash.ts";
 
 /** 2차맵 배치 칸 직사각형(회전한 뒤 차지하는 칸) */
@@ -26,6 +27,15 @@ export interface SiegeLayoutBuilding extends SiegeRect {
   /** 2차맵 건물 ID(결과를 되돌릴 때 쓴다) */
   readonly sourceId: number;
   readonly durability: number;
+  /** 성벽 시설(질문 1048 가 — 부수면 뚫린다, battleMap.ts wall) */
+  readonly wall?: boolean | undefined;
+}
+
+/** 전투 때 닫히는 성문: 성벽 고리의 빈 칸(2차맵에서는 사람이 지나가는 틈, 전투에서는 수비 편만 지나감) */
+export interface SiegeGate {
+  /** 2차맵 배치 칸 */
+  readonly cells: readonly { readonly x: number; readonly y: number }[];
+  readonly durability: number;
 }
 
 export interface SiegeLayout {
@@ -39,6 +49,8 @@ export interface SiegeLayout {
   readonly buildings: readonly SiegeLayoutBuilding[];
   /** 2차맵 지형 층. 없으면 평지 */
   readonly terrain: SecondMapLayers | null;
+  /** 성문(없으면 없음) */
+  readonly gates?: readonly SiegeGate[] | undefined;
 }
 
 export interface SiegeArena {
@@ -81,8 +93,16 @@ export function siegeOrigin(layout: SiegeLayout, size: number): { x: number; y: 
   return { x: clamp(cx - (size >> 1), 0, high), y: clamp(cy - (size >> 1), 0, high) };
 }
 
-/** 2차맵 배치 → 공성 전투맵. 넥서스 내구도는 부르는 쪽이 정한다(웨이브는 [임시] 고정값, 건물 공격은 지금 내구도 점) */
-export function siegeArena(layout: SiegeLayout, size: number, nexusDurability: number): SiegeArena {
+/**
+ * 2차맵 배치 → 공성 전투맵. 넥서스 내구도는 부르는 쪽이 정한다(웨이브는 [임시] 고정값, 건물 공격은 지금 내구도 점). 성문은 수비 편
+ * (defenderSide)만 지나간다
+ */
+export function siegeArena(
+  layout: SiegeLayout,
+  size: number,
+  nexusDurability: number,
+  defenderSide = 2,
+): SiegeArena {
   if (size > layout.mapCells) throw new RangeError("siege map larger than the second map");
   const origin = siegeOrigin(layout, size);
   const cells = size * size;
@@ -114,8 +134,32 @@ export function siegeArena(layout: SiegeLayout, size: number, nexusDurability: n
     if (own.length === 0) continue;
     for (const cell of own) taken[cell] = 1;
     const id = buildings.length + 1;
-    buildings.push({ id, cells: own, durability: Math.max(1, building.durability), nexus: false });
+    buildings.push({
+      id,
+      cells: own,
+      durability: Math.max(1, building.durability),
+      nexus: false,
+      ...(building.wall === true ? { wall: true } : {}),
+    });
     sources.set(id, building.sourceId);
+  }
+  for (const gate of layout.gates ?? []) {
+    const own = gate.cells
+      .map((at) => ({ x: at.x - origin.x, y: at.y - origin.y }))
+      .filter((at) => at.x >= 0 && at.y >= 0 && at.x < size && at.y < size)
+      .map((at) => at.y * size + at.x)
+      .filter((cell) => taken[cell] === 0 && ground.passable[cell] === 1)
+      .toSorted((a, b) => a - b);
+    const cellsOnce = own.filter((cell, index) => own[index - 1] !== cell);
+    if (cellsOnce.length === 0) continue;
+    for (const cell of cellsOnce) taken[cell] = 1;
+    buildings.push({
+      id: buildings.length + 1,
+      cells: cellsOnce,
+      durability: Math.max(1, gate.durability),
+      nexus: false,
+      gateSide: defenderSide,
+    });
   }
   return { map: { ...ground, buildings }, origin, nexusId: SIEGE_NEXUS_ID, sources };
 }
@@ -166,8 +210,8 @@ export function siegePlacer(arena: SiegeArena, edge: Edge): SiegePlacer {
   const none = new Set<number>();
   const nexus = arena.map.buildings.find((building) => building.id === arena.nexusId);
   const nexusCells = nexus ? [...nexus.cells] : [];
-  // 넥서스에서 걸어 닿는 칸(성문은 없다고 보고 편과 상관없이 — 시작 자리를 넥서스와 이어진 땅에 둔다)
-  const field = distanceField(battleMap, nexusCells, (cell) => battleMap.passableFor(cell, 0, none));
+  // 넥서스에서 걸어(성벽·성문은 뚫어서) 닿는 칸 — 시작 자리를 넥서스와 이어진 땅에 둔다. 편 0은 어느 성문의 편도 아니다
+  const field = breachField(battleMap, nexusCells, 0, none);
   const used = new Uint8Array(size * size);
   let nearDepth = size;
   let lateralSum = 0;

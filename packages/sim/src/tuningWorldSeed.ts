@@ -195,6 +195,21 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "배치 흔들기(칸, 도시마다 다른 모양)",
     "Layout jitter (cells, each city looks different)",
   ),
+  // 성벽 고리(질문 1048 가, docs/adr/2026-11-11-city-building-layout.md "바뀜 (2026-11-12)"): 49에 칸이 없어 city_wall_*
+  k(
+    "city_wall_mode",
+    "cityWallMode",
+    "성벽 고리(1 = 세움, 0 = 없음)",
+    "City wall ring (1 = build, 0 = none)",
+  ),
+  k(
+    "city_wall_ring_cells",
+    "cityWallRingCells",
+    "성벽 고리: 행정 건물에서 거리(칸)",
+    "City wall ring: distance from the hall (cells)",
+  ),
+  k("city_wall_gates", "cityWallGates", "성벽 틈(성문) 수", "City wall gaps (gates)"),
+  k("city_wall_gate_cells", "cityWallGateCells", "성벽 틈 폭(칸)", "City wall gap width (cells)"),
   // 도시 크기에 따라 넓어지는 배후지·채집 다툼(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)")
   k(
     "city_catchment_cells_per_100",

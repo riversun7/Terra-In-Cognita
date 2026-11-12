@@ -5,12 +5,14 @@
 //   없으면 undefined → 부르는 쪽이 옛 열린 맵을 쓴다(폐허·행정 건물 없는 옛 세계 도시).
 // - 건물 공격: 넥서스 = 대상 건물 실제 칸. 비콘(2차맵 건물이 아님)은 2차맵 가운데 2×2 자리, 그 자리에 건물이 있으면 undefined.
 // - 장애물 = 같은 2차맵의 다른 모든 건물(전투맵 창 밖은 siegeArena가 뺀다). 내구도 = 시설이면 지금 내구도 점, 아니면 [임시] 1,000.
+// - 성벽(방어 단계 시설, 질문 1048 가)은 부수면 뚫리는 막음, 그 도시 성벽 고리의 빈 칸은 수비 편만 지나가는 성문(cityWalls.ts).
 import { decodeTerrain } from "@terra/protocol";
 import { advanceCondition, durabilityPoints, maxDurabilityAt } from "@terra/shared/facilityRuntime";
 import { type SecondMapLayers, type SocietyCoefficients, footprintRect } from "@terra/sim";
 import type { SiegeLayout, SiegeRect } from "@terra/sim/siegeArena";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityCatalog } from "./catalog.ts";
+import { DEFENSE_STAGE, cityGates } from "./cityWalls.ts";
 import type { FacilityRecord } from "./state.ts";
 
 /** [임시] 시설 줄이 없는 건물(시험 건물 등)의 장애물 내구도. 장애물은 지금 전투에서 부서지지 않는다(넥서스만 친다) */
@@ -70,7 +72,9 @@ export function siegeLayoutOn(
     const def = record ? source.catalog.facility(record.facilityId) : undefined;
     const durability =
       record && def ? facilityPoints(record, def.durability, source.at, rt) : OBSTACLE_DURABILITY;
-    buildings.push({ sourceId: building.id, ...rect, durability });
+    // 성벽(방어 단계)은 부수면 뚫린다(질문 1048 가)
+    const wall = def?.stage === DEFENSE_STAGE;
+    buildings.push({ sourceId: building.id, ...rect, durability, ...(wall ? { wall } : {}) });
   });
   return {
     mapCells: Math.round(Math.sqrt(map.replicaInit().terrainCost.length)),
@@ -102,7 +106,9 @@ export function cityHall(
   return best ? { id: best.id, rect: best.rect } : undefined;
 }
 
-/** 도시 공성 입력: 넥서스 = 행정 건물. 행정 건물이 없으면 undefined(옛 열린 맵) */
+/**
+ * 도시 공성 입력: 넥서스 = 행정 건물, 그 도시 성벽 고리의 빈 칸은 성문(cityWalls.ts cityGates). 행정 건물이 없으면 undefined(옛 열린 맵)
+ */
 export function citySiegeLayout(
   map: SecondMap,
   cityId: number,
@@ -110,7 +116,19 @@ export function citySiegeLayout(
   source: SiegeLayoutSource,
 ): SiegeLayout | undefined {
   const hall = cityHall(map, source, cityId, cell);
-  return hall ? siegeLayoutOn(map, hall.rect, hall.id, source) : undefined;
+  if (!hall) return undefined;
+  const layout = siegeLayoutOn(map, hall.rect, hall.id, source);
+  const walls = layout.buildings.filter(
+    (building) => building.wall === true && source.records.get(building.sourceId)?.cityId === cityId,
+  );
+  if (walls.length === 0) return layout;
+  const taken = new Set<number>();
+  const size = layout.mapCells;
+  for (const building of layout.buildings)
+    for (let y = building.y; y < building.y + building.height; y++)
+      for (let x = building.x; x < building.x + building.width; x++) taken.add(y * size + x);
+  const gates = cityGates(hall.rect, walls, (x, y) => taken.has(y * size + x));
+  return { ...layout, gates };
 }
 
 /** 비콘 공격 입력: 2차맵 가운데 2×2 자리. 그 자리에 건물이 있으면 undefined(옛 열린 맵) */

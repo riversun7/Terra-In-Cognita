@@ -39,7 +39,7 @@ export { ITEM_CATEGORIES, itemEntrySchema, type ItemEntry } from "./items.ts";
  * D-517·D-469 — 둘 다 docs/adr/2026-11-07-temple-religion.md) + 행정(폐허에 짓는 정부 = 행정 건물, D-510 —
  * docs/adr/2026-11-07-ruins-restoration.md) + 의료(다친 유닛을 돈을 받고 빨리 낫게 하는 병원, 의사 = 직무 배치 — D-521·D-311,
  * docs/adr/2026-11-08-injury.md) + 생활(일꾼이 쉬는 숙소 — 기획 48 §7.1·D-245·90 "생활 서비스", 지금은 NPC 휴먼의 밤 쉼터만,
- * docs/adr/2026-11-11-city-building-layout.md)
+ * docs/adr/2026-11-11-city-building-layout.md) + 방어(성벽 — 공성 전투에서 뚫어야 지나간다, 질문 1048 가, 같은 ADR "바뀜 (2026-11-12)")
  */
 export const FACILITY_STAGES = [
   "gather",
@@ -53,6 +53,7 @@ export const FACILITY_STAGES = [
   "government",
   "medical",
   "living",
+  "defense",
 ] as const;
 
 /** 채집 방식: roll = 확률표 추첨, select = 선택 + 효율(옛 ITM-10) */

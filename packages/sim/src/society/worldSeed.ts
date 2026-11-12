@@ -161,6 +161,17 @@ export interface WorldSeedCoefficients {
   readonly cityLayoutLodgeRoutePm: number;
   /** [임시] 목표 칸을 흔드는 칸(도시마다 모양이 다르게) */
   readonly cityLayoutJitterCells: number;
+  /**
+   * [임시] 성벽 고리(질문 1048 가, docs/adr/2026-11-11-city-building-layout.md "바뀜 (2026-11-12)"): 1 = NPC 시작 도시가 행정 건물 둘레에
+   * 성벽(팩 city_wall) 고리를 세운다, 0 = 세우지 않는다. 서버만 읽는다(apps/server/src/facilities/cityWalls.ts)
+   */
+  readonly cityWallMode: number;
+  /** [임시] 성벽 고리 = 행정 건물 칸에서 이 체비쇼프 거리(배치 칸, 광장 바로 밖) */
+  readonly cityWallRingCells: number;
+  /** [임시] 고리의 틈(성문) 수 — 2차맵에서는 사람이 지나가는 틈, 공성 전투에서는 수비 편만 지나가는 성문 */
+  readonly cityWallGates: number;
+  /** [임시] 틈 하나의 폭(칸) */
+  readonly cityWallGateCells: number;
 }
 
 /** 출발값 — 모두 [임시](옛 규칙 없음, D-515). 시작 도시 2~4곳(60 §7.1), 기본 시설은 종류마다 하나 */
@@ -238,6 +249,11 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   cityLayoutStoreRoutePm: 750,
   cityLayoutLodgeRoutePm: 350,
   cityLayoutJitterCells: 2,
+  // 성벽 고리(질문 1048 가): 광장(3칸) 바로 밖 4칸 고리, 변마다 가운데 2칸 틈 넷(측정 docs/worklog/2026/11/12-0400-siege-layout.md)
+  cityWallMode: 1,
+  cityWallRingCells: 4,
+  cityWallGates: 4,
+  cityWallGateCells: 2,
 };
 
 /**

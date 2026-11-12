@@ -5,6 +5,7 @@
 // - 엄폐 값(ADR 46: 배치 칸 u8): 0 없음, 1 은폐(수풀), 2 차폐. 시야에만 쓴다.
 // - 바닥 높이: 16배 cm 정수(ADR 35 "칸 높이"). 구역 최저점을 0으로 둔다.
 // - 건물: 장애물·차폐. 성문(gateSide)은 그 편만 지나가고(질문 97), 부서지면 누구나 지나가며 시선도 막지 않는다.
+//   성벽(wall, 질문 1048 가)은 아무도 못 지나가고, 부서지면 성문처럼 누구나 지나가며 시선도 막지 않는다(breach.ts가 뚫는다).
 //   다른 건물은 부서져도 전투가 끝날 때까지 막힘·차폐로 남는다(ADR 35 "무너진 건물 자리도 차폐").
 // - 물(수상 층)은 아직 없다: 물 칸은 지상 통과에서 막힘으로만 둔다(R3 범위, ADR combat-core).
 
@@ -22,6 +23,8 @@ export interface BattleBuildingInput {
   readonly nexus: boolean;
   /** 성문이면 지나갈 수 있는 편 ID */
   readonly gateSide?: number | undefined;
+  /** 성벽(부서지면 뚫린다, 질문 1048 가). 없으면 보통 건물 */
+  readonly wall?: boolean | undefined;
 }
 
 export interface BattleMapInput {
@@ -77,6 +80,7 @@ export function createBattleMap(input: BattleMapInput): BattleMap {
       const id = buildingAt[cell] ?? 0;
       if (id === 0) return true;
       const building = byId.get(id);
+      if (building?.wall === true) return destroyed.has(id);
       if (building?.gateSide === undefined) return false;
       return building.gateSide === side || destroyed.has(id);
     },
@@ -84,7 +88,8 @@ export function createBattleMap(input: BattleMapInput): BattleMap {
       if (input.cover[cell] === COVER_BLOCK) return true;
       const id = buildingAt[cell] ?? 0;
       if (id === 0) return false;
-      return !(byId.get(id)?.gateSide !== undefined && destroyed.has(id));
+      const building = byId.get(id);
+      return !((building?.gateSide !== undefined || building?.wall === true) && destroyed.has(id));
     },
     inEdgeBand(cell, band) {
       const x = cell % size;

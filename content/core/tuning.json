@@ -8456,6 +8456,78 @@
       "source": "ADR 2026-11-11-city-building-layout [임시]"
     },
     {
+      "id": "city_wall_mode",
+      "code": "",
+      "name": {
+        "ko": "성벽 고리(1 = 세움, 0 = 없음)",
+        "en": "City wall ring (1 = build, 0 = none)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "1이면 NPC 시작 도시가 행정 건물 둘레에 성벽 고리를 세운다. 공성 전투에서 공격 편은 성벽이나 성문을 부숴야 넥서스에 닿는다.",
+        "en": "1 = NPC start cities build a wall ring around the hall. In a siege, attackers must break a wall or gate to reach the nexus."
+      },
+      "source": "ADR 2026-11-11-city-building-layout 바뀜 (2026-11-12), 질문 1048 가 [임시]"
+    },
+    {
+      "id": "city_wall_ring_cells",
+      "code": "",
+      "name": {
+        "ko": "성벽 고리: 행정 건물에서 거리(칸)",
+        "en": "City wall ring: distance from the hall (cells)"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "cells",
+      "min": 2,
+      "max": 16,
+      "desc": {
+        "ko": "행정 건물 칸에서 이 거리의 네모 고리에 성벽이 선다. 광장 바로 밖이 출발값이다.",
+        "en": "Walls stand on the square ring this far from the hall. Starts just outside the plaza."
+      },
+      "source": "ADR 2026-11-11-city-building-layout 바뀜 (2026-11-12), 질문 1048 가 [임시]"
+    },
+    {
+      "id": "city_wall_gates",
+      "code": "",
+      "name": {
+        "ko": "성벽 틈(성문) 수",
+        "en": "City wall gaps (gates)"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "고리에 남기는 틈 수. 2차맵에서는 사람이 지나가고, 공성 전투에서는 수비 편만 지나가는 성문이 된다.",
+        "en": "Gaps left in the ring. People walk through them on the map; in a siege they become gates only defenders pass."
+      },
+      "source": "ADR 2026-11-11-city-building-layout 바뀜 (2026-11-12), 질문 1048 가 [임시]"
+    },
+    {
+      "id": "city_wall_gate_cells",
+      "code": "",
+      "name": {
+        "ko": "성벽 틈 폭(칸)",
+        "en": "City wall gap width (cells)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 6,
+      "desc": {
+        "ko": "틈 하나의 폭.",
+        "en": "Width of one gap."
+      },
+      "source": "ADR 2026-11-11-city-building-layout 바뀜 (2026-11-12), 질문 1048 가 [임시]"
+    },
+    {
       "id": "map_spawn_max_loaded",
       "code": "",
       "name": {

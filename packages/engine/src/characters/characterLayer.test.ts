@@ -195,9 +195,10 @@ describe("2차맵 캐릭터 층", () => {
     expect(layer.pickHalfWidth(1)).toBeCloseTo((0.45 * 6) / 1.8);
     expect(layer.pickHalfWidth(3)).toBeGreaterThan(0.7);
     // 맞지 않는 몸 종류·배율은 버리거나 묶는다
-    // @ts-expect-error 목록 밖 몸 종류
+    const dragon = { kind: "dragon", seed: 1 };
     layer.setLooks([
-      { id: 1, body: { kind: "dragon", seed: 1 } },
+      // @ts-expect-error 목록 밖 몸 종류
+      { id: 1, body: dragon },
       { id: 2, look: characterLookForUnit(2, "commoner"), scale: Number.NaN },
     ]);
     layer.bind(2, (slot) => slot + 1);

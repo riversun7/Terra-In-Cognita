@@ -13,6 +13,7 @@ import {
   type BattleInit,
   type CombatCatalog,
   type CombatCoefficients,
+  type Edge,
   type GardenerCoefficients,
   type GardenerRun,
   type GardenerWave,
@@ -33,13 +34,14 @@ import {
   streamRng,
   waveBattleInit,
 } from "@terra/sim";
-import { type SiegeLayout, waveAttackEdge } from "@terra/sim/siegeArena";
+import { cellCenter, cellCorners } from "@terra/planet/projection";
+import { type SiegeLayout, edgeToward, waveAttackEdge } from "@terra/sim/siegeArena";
 import type { NpcState } from "./state.ts";
 import { type GrantedItem, rewardRecordOf } from "./waveRewards.ts";
 
 /** 정원사 크리쳐 전투 유닛 ID 시작(세계 유닛 ID와 겹치지 않게, 시뮬과 같은 값) */
 const WAVE_CREATURE_ID_BASE = 1_900_000_000;
-/** 웨이브 공성 전투맵·넥서스·수비 인원(49 C3, 시뮬 시나리오 기본과 같다, 질문 218 가) */
+/** 웨이브 공성 전투맵·넥서스(열린 맵일 때만 — 배치가 있으면 행정 건물 내구도)·수비 인원(49 C3, 시뮬 시나리오 기본과 같다, 질문 218 가) */
 const WAVE_MAP_SIZE = 128;
 const WAVE_NEXUS = 2000;
 const WAVE_DEFENDERS = 10;
@@ -151,6 +153,40 @@ export function pickMothershipCell(seed: number): CellKey {
   const span = 2 ** EARTH_FACE_LEVEL;
   const face = FACES[rng.nextInt(FACES.length)] ?? 0;
   return cellKey(face, EARTH_FACE_LEVEL, rng.nextInt(span), rng.nextInt(span));
+}
+
+/**
+ * 웨이브가 들어오는 변(질문 1067 가 — 1·2차맵 진군 표시 D-196과 같은 방향): 도시 칸(2차맵 키)에서 모함 칸으로의 방향을 그 2차맵 축으로 옮긴다.
+ * 2차맵 x = 면 i가 커지는 쪽, 행(y) = 면 j가 작아지는 쪽(planet secondMap/layout.ts). 축 방향 = 칸 꼭짓점의 i·j 변 차이, 방향 = (모함 칸 중심 −
+ * 도시 칸 중심)을 그 축에 비춘 값(edgeToward). 칸 키가 아니거나 같은 칸이면 시드로 고른다(waveAttackEdge)
+ */
+export function waveEdgeOnPlanet(
+  cityCell: number | undefined,
+  mothershipCell: number,
+  seed: number,
+  waveId: number,
+): Edge {
+  if (
+    cityCell !== undefined &&
+    isCellKey(cityCell) &&
+    isCellKey(mothershipCell) &&
+    cityCell !== mothershipCell
+  ) {
+    const [c00, c10, c11, c01] = cellCorners(cityCell);
+    const from = cellCenter(cityCell);
+    const to = cellCenter(mothershipCell);
+    let dx = 0;
+    let dy = 0;
+    for (let k = 0; k < 3; k++) {
+      const d = (to[k] ?? 0) - (from[k] ?? 0);
+      // i 쪽 = (i+1 변) − (i 변), j 쪽 = (j+1 변) − (j 변)
+      dx += d * ((c10[k] ?? 0) + (c11[k] ?? 0) - (c00[k] ?? 0) - (c01[k] ?? 0));
+      dy -= d * ((c11[k] ?? 0) + (c01[k] ?? 0) - (c00[k] ?? 0) - (c10[k] ?? 0));
+    }
+    const edge = edgeToward(dx, dy);
+    if (edge !== undefined) return edge;
+  }
+  return waveAttackEdge(seed, waveId);
 }
 
 export interface ServerGardenerOptions {
@@ -277,12 +313,13 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
           creatureTech: owner.tech,
           firstCreatureId: WAVE_CREATURE_ID_BASE,
           mapSize: WAVE_MAP_SIZE,
+          // 배치가 있으면 행정 건물의 지금 내구도(질문 1069 가, waveBattleInit), 없으면(열린 맵) 이 값
           nexusDurability: WAVE_NEXUS,
           maxDefenders: WAVE_DEFENDERS,
           // 공성 제한 시간(C2): 설정 칸 실효 값(전투 서비스는 시험 계수표로 전투를 만든다)
           limitMs: combat.limitMs.siege,
           layout: o.siegeLayout?.(wave.city),
-          attackEdge: waveAttackEdge(o.seed, wave.id),
+          attackEdge: waveEdgeOnPlanet(o.cellOf(wave.city), mothershipCell, o.seed, wave.id),
         },
         o.catalog(),
         combat,

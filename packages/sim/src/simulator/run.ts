@@ -24,6 +24,10 @@ import {
 } from "./catchmentRun.ts";
 import { ruinedGoodsHome } from "./ruinedGoods.ts";
 import { type CombatSummary, attachCombat } from "./combatRun.ts";
+import type { Edge } from "../combat/battleTypes.ts";
+import { edgeToward, waveAttackEdge } from "../combat/siegeArena.ts";
+import type { SiegeCityKit } from "../city/citySiege.ts";
+import { simCitySiegeLayouts } from "./citySiegeRun.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
 import type { CombatFormulaSet } from "../combat/formulas.ts";
 import { combatCoefficientsFrom, societyCoefficientsFrom } from "../tuning.ts";
@@ -111,6 +115,16 @@ function simCityDistance(from: number, to: number): number | undefined {
   return (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
 }
 
+/**
+ * 정원사 웨이브가 들어오는 변(질문 1067 가): 도시 격자 자리에서 모함 칸(격자 끝, attachGardener의 mothershipCell과 같다)으로의 방향.
+ * 격자 축 = 2차맵 축(x 동쪽, y 남쪽)으로 읽는다. 격자 밖 도시·같은 칸이면 시드로 고른다
+ */
+function simWaveEdge(cityId: number, seed: number, waveId: number): Edge {
+  const at = simCityXY(cityId);
+  const toward = at ? edgeToward(SIM_GRID_SIZE - 1 - at.x, SIM_GRID_SIZE - 1 - at.y) : undefined;
+  return toward ?? waveAttackEdge(seed, waveId);
+}
+
 /** 요약에 남기는 불변 조건 위반 문장 수 */
 const FIRST_PROBLEMS = 10;
 
@@ -132,6 +146,8 @@ export interface RunOptions {
   readonly tuning?: ReadonlyMap<string, number> | undefined;
   /** 전투 계산식 묶음(콘텐츠 팩 formulas + 차이의 식, docs/adr/2026-11-01-formula-editor.md). 없으면 기본 식 */
   readonly combatFormulas?: CombatFormulaSet | undefined;
+  /** 도시 공성 전투맵의 시설 발자국·내구도(팩 facilities, 질문 1068 가 — city/citySiege.ts). 없으면 TEST_SIEGE_KIT */
+  readonly siegeKit?: SiegeCityKit | undefined;
   /** 경제 목록(시나리오에 economy 칸이 있으면 꼭 준다. 실행 도구가 콘텐츠 팩에서 만든다) */
   readonly catalog?: EconomyCatalog | undefined;
   /** 하루가 끝날 때마다(진행 표시용, 판정에 영향 없음) */
@@ -272,6 +288,8 @@ export function runSimulation(options: RunOptions): RunSummary {
     econ.economy.catchment = createCatchmentState(planeGeometry(plane), () =>
       catchmentSettingsOf(societyCoefficients.worldSeed, societyCoefficients.territory),
     );
+  // 도시 공성 전투맵 = 평지 전략 배치 + 성벽(질문 1068 가 — 서버와 같은 siegeArena). 공성·정원사 웨이브가 같이 쓴다
+  const siegeLayouts = simCitySiegeLayouts(world, societyCoefficients, seed, options.siegeKit);
   const ctx: NpcContext = {
     world,
     loop,
@@ -289,6 +307,7 @@ export function runSimulation(options: RunOptions): RunSummary {
           combatRecorder,
           options.combatCatalog,
           combatCoefficientsFrom(options.tuning ?? new Map(), undefined, options.combatFormulas),
+          siegeLayouts,
         )
       : undefined,
     encounterPerMille: scenario.combat?.encounterPerMille,
@@ -353,6 +372,9 @@ export function runSimulation(options: RunOptions): RunSummary {
             mapSize: scenario.combat?.siegeMapSize ?? DEFAULT_WAVE_MAP,
             nexusDurability: scenario.combat?.nexusDurability ?? DEFAULT_NEXUS,
             maxDefenders: scenario.combat?.siegeUnits ?? DEFAULT_WAVE_DEFENDERS,
+            // 도시 배치(질문 1068 가)·모함 쪽 변(질문 1067 가 — 합성 격자 칸 방향, 서버는 행성 칸 방향)
+            layout: siegeLayouts(wave.city),
+            attackEdge: simWaveEdge(wave.city, seed, wave.id),
           },
           options.combatCatalog ?? TEST_COMBAT_CATALOG,
           combatCoefficients,

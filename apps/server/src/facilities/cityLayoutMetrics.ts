@@ -7,7 +7,7 @@
 // - 출퇴근 돌아감(‰): 채집소마다 (채집소 → 가장 가까운 숙소 + 숙소 → 행정 건물) ÷ (채집소 → 행정 건물) 평균. 1000이면 숙소가 길 위에 있다.
 // - 갇힌 건물: 광장에서 걸어서(건물·막힌 칸을 피해) 그 건물 곁 칸에 닿지 못하는 건물 수(0이어야 한다 — 자기 유닛이 지나간다).
 import { detAtan2, detCos, detSin } from "@terra/shared";
-import { type LayoutRect, type LayoutRole, grow, rectCenter } from "./cityLayout.ts";
+import { type LayoutRect, type LayoutRole, grow, rectCenter } from "@terra/sim/city";
 
 /** 둘레 덮임 방위 수 */
 export const RING_SECTORS = 16;

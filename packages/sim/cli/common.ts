@@ -39,6 +39,7 @@ import {
   parseScenario,
   withStatTable,
 } from "../src/index.ts";
+import { type SiegeCityKit, siegeKitFrom } from "../src/city/index.ts";
 
 /** 저장소의 기본 콘텐츠 팩 */
 export const DEFAULT_PACK_DIR = fileURLToPath(new URL("../../../content/core", import.meta.url));
@@ -218,6 +219,8 @@ export function readPack(
   formulaEntries: FormulaEntry[];
   combatFormulas: CombatFormulaSet;
   tuning: Map<string, number>;
+  /** 도시 공성 전투맵의 시설 발자국·내구도(팩 facilities, 질문 1068 가) */
+  siegeKit: SiegeCityKit;
 } {
   const loaded = loadContentPack(dir);
   if (hasErrors(loaded.issues) || !loaded.pack || !loaded.version || !loaded.hash || !loaded.source) {
@@ -249,6 +252,7 @@ export function readPack(
         entry.value,
       ]),
     ),
+    siegeKit: siegeKitFrom(parseFile(source, "facilities.json", (raw) => facilityEntrySchema.parse(raw))),
   };
 }
 

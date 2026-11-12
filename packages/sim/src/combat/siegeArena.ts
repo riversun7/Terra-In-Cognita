@@ -3,6 +3,9 @@
 // 서버(정원사 웨이브·건물 공격)와 시뮬레이터(웨이브 시작 자료 waveBattleInit)가 같은 함수로 전투맵과 시작 자리를 만든다.
 // - 창: 넥서스(행정 건물·공격 대상 건물) 가운데를 중심으로 한 변 size칸. 2차맵 밖으로 나가면 안쪽으로 민다(이웃 2차맵 이어 복사는 아직 없다).
 // - 넥서스 = 그 건물의 실제 칸(전투 건물 ID 1). 창 안(일부라도)의 다른 건물 = 실제 칸의 장애물(ID 2…, 시선도 막는다 — battleMap.ts).
+//   보통 건물은 공격 편이 부숴 길을 낼 수 있다(breakable, 질문 1073 — 성벽과 둘레 건물이 시간을 나눠 번다, 비용 = 내구도, breach.ts).
+// - 넥서스 내구도(질문 1069 가): 넥서스가 배치의 건물이면 그 건물의 지금 내구도(siegeNexusDurability), 아니면 부르는 쪽 값.
+// - 들어오는 변(질문 1067 가): 웨이브는 모함 쪽(edgeToward — 1·2차맵 진군 표시 D-196과 같은 방향), 방향을 모르면 시드로 고른다.
 // - 지형(있으면): 2차맵 배치 칸 지형 비용·엄폐·높이(arena.ts arenaFromSecondMap). 없으면 평지.
 // - 시작 자리: 공격 편은 들어오는 변의 3칸째 줄(D-222), 수비 편은 넥서스의 공격 쪽 앞 3칸(광장). 그 칸이 막혔거나(건물·물) 넥서스까지
 //   걸어 닿지 못하거나 이미 찼으면 가까운 고리부터 빈 칸을 찾는다. 정수만 쓴다(같은 입력이면 같은 결과).
@@ -94,8 +97,18 @@ export function siegeOrigin(layout: SiegeLayout, size: number): { x: number; y: 
 }
 
 /**
- * 2차맵 배치 → 공성 전투맵. 넥서스 내구도는 부르는 쪽이 정한다(웨이브는 [임시] 고정값, 건물 공격은 지금 내구도 점). 성문은 수비 편
- * (defenderSide)만 지나간다
+ * 넥서스 내구도(질문 1069 가): 넥서스가 배치의 건물(nexusSourceId)이고 그 건물이 목록에 있으면 그 지금 내구도(행정 건물·대상 건물 — 서버는
+ * 시설 내구도 점, 시뮬레이터 도시는 팩 내구도 × 레벨), 아니면 fallback(비콘·옛 열린 맵)
+ */
+export function siegeNexusDurability(layout: SiegeLayout, fallback: number): number {
+  if (layout.nexusSourceId === null) return fallback;
+  const own = layout.buildings.find((building) => building.sourceId === layout.nexusSourceId);
+  return own ? Math.max(1, own.durability) : fallback;
+}
+
+/**
+ * 2차맵 배치 → 공성 전투맵. 넥서스 내구도는 부르는 쪽이 정한다(웨이브·건물 공격 모두 그 건물의 지금 내구도 — siegeNexusDurability). 성문은
+ * 수비 편(defenderSide)만 지나간다
  */
 export function siegeArena(
   layout: SiegeLayout,
@@ -139,7 +152,8 @@ export function siegeArena(
       cells: own,
       durability: Math.max(1, building.durability),
       nexus: false,
-      ...(building.wall === true ? { wall: true } : {}),
+      // 성벽이 아닌 건물도 부숴 길을 낼 수 있다(질문 1073)
+      ...(building.wall === true ? { wall: true } : { breakable: true }),
     });
     sources.set(id, building.sourceId);
   }
@@ -257,8 +271,18 @@ export function siegePlacer(arena: SiegeArena, edge: Edge): SiegePlacer {
 }
 
 /**
- * [임시] 웨이브가 들어오는 변(0 북, 1 동, 2 남, 3 서): (세계 시드, 웨이브 ID)로 고른다. 모선 쪽 방향을 2차맵 축으로 옮기는 규칙은 기획
- * 질문(1067)이다. 시뮬레이터 도시는 배치가 없어 이 값을 쓰지 않는다
+ * 들어오는 변(질문 1067 가 — 1·2차맵 진군 표시 D-196과 맞춘다): 도시에서 웨이브가 오는 곳(모함)까지의 방향을 2차맵 축(x = 동쪽, y = 남쪽)으로
+ * 옮긴 (dx, dy)에서 더 큰 축의 변. 두 축이 같으면 동·서(x) 쪽. 방향이 없으면(0, 0 — 모함이 그 도시 칸) undefined → 부르는 쪽이
+ * waveAttackEdge로 고른다. 서버(행성 칸 방향, npc/gardener.ts)와 시뮬레이터(합성 격자 칸 방향)가 같은 함수를 부른다
+ */
+export function edgeToward(dx: number, dy: number): Edge | undefined {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx === 0 && dy === 0)) return undefined;
+  if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 1 : 3;
+  return dy > 0 ? 2 : 0;
+}
+
+/**
+ * 방향을 모를 때의 웨이브 변(0 북, 1 동, 2 남, 3 서): (세계 시드, 웨이브 ID)로 고른다(모함이 그 도시 칸 위일 때 — edgeToward가 undefined)
  */
 export function waveAttackEdge(seed: number, waveId: number): Edge {
   return edgeOf(mix32(seed ^ Math.imul(waveId, 0x27d4_eb2f) ^ 0x5be0_cd19));

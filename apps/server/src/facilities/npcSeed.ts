@@ -25,7 +25,7 @@ import type { GatherKind } from "../gather/kinds.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityCatalog } from "./catalog.ts";
-import { type LayoutExisting, type LayoutItem, planCityLayout } from "./cityLayout.ts";
+import { type LayoutExisting, type LayoutItem, planCityLayout } from "@terra/sim/city";
 import { cityWallRulesOf, seedCityWalls } from "./cityWalls.ts";
 import { cityHall } from "./siegeLayout.ts";
 import {

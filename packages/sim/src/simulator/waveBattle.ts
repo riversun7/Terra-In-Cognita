@@ -1,7 +1,8 @@
 // 정원사 웨이브 공성 전투의 시작 자료 — docs/adr/2026-11-01-gardener-r5b.md 2절, 기획 D-193·D-273·D-5050, D-464(질문 214·218)
 // 시뮬레이터(gardenerRun.ts → runBattle)와 서버(NPC 런타임 → 전투 서비스 battles.start)가 같은 함수로 만든다.
 // - 지도: 공성 전투맵(시나리오 siegeMapSize, 49 C3 128). 도시 배치(layout)가 있으면 그 2차맵 구역(넥서스 = 행정 건물 실제 칸, 다른 건물 =
-//   장애물, D-533·질문 1046 가, combat/siegeArena.ts)이고 웨이브는 attackEdge 변에서 온다. 없으면 가운데 넥서스(시청)의 열린 맵, 서쪽 변.
+//   장애물, D-533·질문 1046 가, combat/siegeArena.ts)이고 웨이브는 attackEdge 변(모함 쪽, 질문 1067 가)에서 온다. 넥서스 내구도 = 행정 건물의
+//   지금 내구도(질문 1069 가). 없으면 가운데 넥서스(시청)의 열린 맵, 서쪽 변.
 //   수비는 넥서스 앞(시뮬 공성과 같은 자리).
 // - 수비: 그 도시 휴먼(앞에서부터 공성 인원 상한까지, 질문 218 가) — 시뮬 공성과 같은 [임시] 휴먼 사양(combatRun.ts specOf).
 // - 웨이브: 정원사 크리쳐 strength마리. 한 마리의 몸은 [임시] 수비 휴먼과 같은 사양(같은 1차 스탯·방어구·스킬)이라 웨이브 세기는
@@ -23,7 +24,13 @@ import type { CombatCoefficients } from "../combat/coefficients.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
 import { itemAt } from "../combat/equipment.ts";
 import type { Edge } from "../combat/battleTypes.ts";
-import { type SiegeLayout, oppositeEdge, siegeArena, siegePlacer } from "../combat/siegeArena.ts";
+import {
+  type SiegeLayout,
+  oppositeEdge,
+  siegeArena,
+  siegeNexusDurability,
+  siegePlacer,
+} from "../combat/siegeArena.ts";
 import type { CombatSkill } from "../combat/skills.ts";
 import { PARTY_SIZE, kitOf, openMap, specOf } from "./combatRun.ts";
 import type { SimUnit } from "./world.ts";
@@ -52,6 +59,10 @@ export interface WaveBattleInput {
   /** 정원사 크리쳐 전투 유닛 ID의 시작(세계 유닛 ID와 겹치지 않게) */
   readonly firstCreatureId: number;
   readonly mapSize: number;
+  /**
+   * 넥서스 내구도: 옛 열린 맵·배치에 넥서스 건물이 없을 때만 쓴다. 배치가 있으면 행정 건물의 지금 내구도(질문 1069 가,
+   * combat/siegeArena.ts siegeNexusDurability)
+   */
   readonly nexusDurability: number;
   /** 수비 인원 상한(질문 218 가) */
   readonly maxDefenders: number;
@@ -62,7 +73,7 @@ export interface WaveBattleInput {
   readonly limitMs?: number | undefined;
   /**
    * 도시의 실제 2차맵 건물 배치(D-533, 질문 1046 가 — combat/siegeArena.ts). 있으면 넥서스 = 행정 건물 실제 칸, 다른 건물 = 장애물,
-   * 웨이브는 attackEdge 변에서 들어온다. 없으면 옛 열린 맵(가운데 넥서스, 서쪽 변 — 시뮬레이터 도시는 2차맵이 없다)
+   * 웨이브는 attackEdge 변에서 들어온다. 없으면 옛 열린 맵(가운데 넥서스, 서쪽 변). 시뮬레이터 도시는 평지 배치(city/citySiege.ts)
    */
   readonly layout?: SiegeLayout | undefined;
   /** 웨이브가 들어오는 변(0 북, 1 동, 2 남, 3 서). 배치가 있을 때만 본다. 없으면 서 */
@@ -154,7 +165,9 @@ export function waveBattleInit(
   const size = input.mapSize;
   const center = size / 2;
   const edge: Edge = input.layout ? (input.attackEdge ?? 3) : 3;
-  const arena = input.layout ? siegeArena(input.layout, size, input.nexusDurability) : undefined;
+  const arena = input.layout
+    ? siegeArena(input.layout, size, siegeNexusDurability(input.layout, input.nexusDurability))
+    : undefined;
   const placer = arena ? siegePlacer(arena, edge) : undefined;
   let map = arena?.map;
   if (!map) {

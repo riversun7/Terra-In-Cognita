@@ -1,5 +1,6 @@
 // 시뮬레이터 전투 — docs/adr/2026-10-31-combat-core.md "시뮬레이터"
-// 시나리오에 combat 칸이 있으면 대리 규칙의 도시 빼앗기를 공성 전투로 정하고(공격 쪽이 이기면 도시가 넘어감), 세력 판단마다
+// 시나리오에 combat 칸이 있으면 대리 규칙의 도시 빼앗기를 공성 전투로 정하고(공격 쪽이 이기면 도시가 넘어감 — 전투맵은 도시 평지 배치 +
+// 성벽, 질문 1068 가, citySiegeRun.ts. 설정 칸이 옛 배치면 열린 맵), 세력 판단마다
 // 확률로 조우 전투를 연다. 모든 전투는 무관측 빨리감기(같은 판정, D-189)로 끝까지 돌린다.
 // [임시] 전투 유닛 사양은 기술 단계에서 만든 시험값이다(1차 스탯·장비·스킬, 기획 Step 5·9). 유닛 부상·포로는 세계 쪽 일이다.
 import { mix32 } from "../math/hash.ts";
@@ -20,6 +21,8 @@ import { specFromStats } from "../combat/unitSpec.ts";
 import { NO_INJURY, START_INJURY_COEFFICIENTS, combatInjuryStage, injure } from "../society/injury.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioCombat } from "./scenario.ts";
+import { siegeArena, siegeNexusDurability, siegePlacer } from "../combat/siegeArena.ts";
+import type { SimCitySiegeLayouts } from "./citySiegeRun.ts";
 import { type SimFaction, type SimUnit, type SimWorld, defenseOrder, expeditionOrder } from "./world.ts";
 
 export interface CombatSummary {
@@ -51,6 +54,8 @@ export interface CombatRun {
 }
 
 export const PARTY_SIZE = 6;
+/** [임시] 시뮬 공성의 공격 변(서쪽, 옛 열린 맵과 같다 — 사람의 공성은 선포 때 변을 고른다 D-233, 시뮬 세력은 고르지 않는다) */
+const SIM_SIEGE_EDGE = 3;
 
 export function openMap(size: number): BattleMapInput {
   const cells = size * size;
@@ -178,6 +183,11 @@ export function attachCombat(
   recorder: MetricsRecorder,
   catalog: CombatCatalog = TEST_COMBAT_CATALOG,
   c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS,
+  /**
+   * 도시 → 공성 전투맵 입력(질문 1068 가 — 평지 전략 배치 + 성벽, citySiegeRun.ts). 있으면 공성은 서버와 같은 siegeArena(넥서스 = 행정 건물
+   * 지금 내구도, 공격 편은 [임시] 서쪽 변). 없거나 undefined면 옛 열린 맵
+   */
+  siegeLayout?: SimCitySiegeLayouts,
 ): CombatRun {
   const kit = kitOf(catalog);
   const skillCache = new Map<string, CombatSkill[]>();
@@ -225,6 +235,30 @@ export function attachCombat(
         },
         c,
       );
+    });
+
+  /** 한 편의 유닛을 자리 고르기(siegePlacer)가 준 칸에 세운다(파티 6명씩). 자리가 없으면 그 유닛은 빠진다 */
+  const placed = (
+    units: readonly SimUnit[],
+    tech: number,
+    side: number,
+    partyBase: number,
+    at: (index: number) => { x: number; y: number } | undefined,
+  ): CombatUnitSpec[] =>
+    units.flatMap((unit, index) => {
+      const spot = at(index);
+      if (!spot) return [];
+      return [
+        specOf(
+          unit,
+          tech,
+          catalog,
+          kit,
+          skillCache,
+          { side, party: partyBase + Math.floor(index / PARTY_SIZE), x: spot.x, y: spot.y },
+          c,
+        ),
+      ];
     });
 
   const fight = (
@@ -283,14 +317,30 @@ export function attachCombat(
     siege(attacker, defender, cityId, nowMs) {
       const size = settings.siegeMapSize;
       const center = size / 2;
-      const map = openMap(size);
-      const nexus = [center - 1, center].flatMap((y) => [center - 1, center].map((x) => y * size + x));
-      map.buildings = [{ id: 1, cells: nexus, durability: settings.nexusDurability, nexus: true }];
-      // 공격 쪽은 서쪽 변의 3칸째 줄(D-222), 수비 쪽은 넥서스 앞
-      const units = [
-        ...line(pick(attacker, settings.siegeUnits), attacker.tech, 1, 2, center, 1),
-        ...line(pick(defender, settings.siegeUnits, cityId), defender.tech, 2, center - 3, center, 101),
-      ];
+      const layout = siegeLayout?.(cityId);
+      let map: BattleMapInput;
+      let units: CombatUnitSpec[];
+      if (layout) {
+        // 도시 배치 전투맵(서버와 같은 siegeArena·시작 자리): 공격 쪽은 서쪽 변의 3칸째 줄, 수비 쪽은 넥서스 앞(빈 칸이 없으면 빠진다)
+        const arena = siegeArena(layout, size, siegeNexusDurability(layout, settings.nexusDurability));
+        const placer = siegePlacer(arena, SIM_SIEGE_EDGE);
+        map = arena.map;
+        units = [
+          ...placed(pick(attacker, settings.siegeUnits), attacker.tech, 1, 1, (i) => placer.attacker(i)),
+          ...placed(pick(defender, settings.siegeUnits, cityId), defender.tech, 2, 101, (i) =>
+            placer.defender(i),
+          ),
+        ];
+      } else {
+        map = openMap(size);
+        const nexus = [center - 1, center].flatMap((y) => [center - 1, center].map((x) => y * size + x));
+        map.buildings = [{ id: 1, cells: nexus, durability: settings.nexusDurability, nexus: true }];
+        // 공격 쪽은 서쪽 변의 3칸째 줄(D-222), 수비 쪽은 넥서스 앞
+        units = [
+          ...line(pick(attacker, settings.siegeUnits), attacker.tech, 1, 2, center, 1),
+          ...line(pick(defender, settings.siegeUnits, cityId), defender.tech, 2, center - 3, center, 101),
+        ];
+      }
       sieges += 1;
       const result = fight(
         "siege",

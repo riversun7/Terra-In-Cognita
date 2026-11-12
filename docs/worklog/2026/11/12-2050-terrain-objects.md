@@ -49,7 +49,7 @@
 |---|---|
 | `packages/shared/src/mapProps.ts`(+시험) | 그림 이름표 50개를 끝에 더함(21번부터) |
 | `packages/content/src/schema/mapProps.ts`, `gatherObjects.ts` | `water` 칸, source `site`·`school` |
-| `packages/planet/src/secondMap/props.ts`, `placement.ts`, `testMapProps.ts`, `generate.test.ts` | 물 위 소품(규칙 해시 표지), 팩 사본·골든 해시 |
+| `packages/planet/src/secondMap/props.ts`, `placement.ts`, `testMapProps.ts`, `testMapPropsTerrain.ts`(새 — 1,000줄 상한으로 나눔), `generate.test.ts` | 물 위 소품(규칙 해시 표지), 팩 사본·골든 해시 |
 | `content/core/map_props.json`, `gather_objects.json`, `manifest.json` | 장식 28·채집 자리 23·어군 5, core@77 |
 | `packages/shared/src/fishSchool.ts`(+시험), `package.json` | 어군 자리 함수(서버·기기 공용) |
 | `apps/server/src/gather/terrainObjects.ts`(+시험), `objectHash.ts`, `objects.ts`, `kinds.ts`(+시험), `service.ts`, `world.ts`, `reads.ts`, `packages/shared/src/gather.ts` | 지형별 자리·어군 자리, 낚는 거리·배 조건, 정산 시각 자리, 조회 칸 |

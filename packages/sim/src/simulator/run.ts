@@ -46,6 +46,7 @@ import {
 import { type NpcCityGrade, npcCityGrades, simNpcBuilder } from "./npcBuild.ts";
 import {
   type SimFaction,
+  type SimWorld,
   TEST_ASSET_CREDIT,
   TEST_ASSET_ORE,
   checkWorld,
@@ -149,6 +150,24 @@ function simBuildTargets(
     cache.set(faction.code, out);
     return out;
   };
+}
+
+/**
+ * 시뮬 세력 공성이 들어오는 변(질문 1112 가, 기획 D-535 — 웨이브와 같은 "오는 쪽" 규칙): 공격 세력 도시 가운데 그 도시와 합성 격자 거리가 가장
+ * 가까운 도시(같으면 작은 ID) 쪽 변(edgeToward). 공격 세력에 도시가 없거나 격자 밖·같은 칸이면 undefined(서쪽)
+ */
+function simSiegeEdge(world: SimWorld, attacker: SimFaction, cityId: number): Edge | undefined {
+  const at = simCityXY(cityId);
+  if (!at) return undefined;
+  let best: { d: number; id: number; x: number; y: number } | undefined;
+  for (const from of attacker.cities) {
+    if (from === cityId || !world.cities.has(from)) continue;
+    const xy = simCityXY(from);
+    if (!xy) continue;
+    const d = (xy.x - at.x) * (xy.x - at.x) + (xy.y - at.y) * (xy.y - at.y);
+    if (!best || d < best.d || (d === best.d && from < best.id)) best = { d, id: from, ...xy };
+  }
+  return best ? edgeToward(best.x - at.x, best.y - at.y) : undefined;
 }
 
 /** 요약에 남기는 불변 조건 위반 문장 수 */
@@ -335,6 +354,7 @@ export function runSimulation(options: RunOptions): RunSummary {
           options.combatCatalog,
           combatCoefficientsFrom(options.tuning ?? new Map(), undefined, options.combatFormulas),
           siegeLayouts,
+          (attacker, cityId) => simSiegeEdge(world, attacker, cityId),
         )
       : undefined,
     encounterPerMille: scenario.combat?.encounterPerMille,

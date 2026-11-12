@@ -536,14 +536,6 @@ function SecondMapView({
     toggleOperator();
   };
 
-  // 판이 바뀌면(특히 큰 도시 화면을 닫으면) 지도를 한 번 다시 그린다: 엔진은 바뀔 때만 그리는데, 큰 판에 가려 있던 캔버스 자리가 판을 닫은 뒤
-  // 다음 프레임까지 비어(투명) 보였다(2026-11-12 헤드리스 화면 시험에서 재현 — 브라우저가 가린 자리의 그림을 버린다)
-  useEffect(() => {
-    // 도시 화면은 지도 대부분을 덮는다 — 열 때는 그릴 것이 없다
-    if (sheet === "city") return;
-    engineRef.current?.requestFrame();
-  }, [sheet, engineRef]);
-
   // 아래 탭: 열린 탭(판 자리 하나 — 근처 판은 탭을 골라 둔 동안만 열린 것으로 친다), 다시 누르면 닫는다
   const navActive: MapNavTab | null =
     sheet === "units" || sheet === "city"

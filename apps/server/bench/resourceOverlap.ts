@@ -11,6 +11,7 @@
 // - --planet <ID>: 다른 팩 행성(기본 s2_test_planet).
 // 표는 Markdown이다. pnpm test에는 없다(행성 생성에 십수 초).
 import { fileURLToPath } from "node:url";
+import { facilityEntrySchema, gatherTierEntrySchema } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
 import { type CellKey, FACES, cellKey, parseCellKey } from "@terra/planet";
 import { planetInputFromDefinition, runPlanetGenerator } from "@terra/planet/generator";
@@ -203,8 +204,10 @@ lines.push(
 );
 
 // ── 기본 건축 재료: 통나무·석재 하루 양과 창고 + 숙소 Lv1 날 수 ──
+// 팩 항목은 참조 객체가 든 파싱 결과라 정규 JSON으로 되돌려 스키마로 다시 읽는다(gather/kinds.ts와 같은 방식)
+const reparse = (entry: unknown): unknown => JSON.parse(JSON.stringify(entry));
 const bands = (pack.entries.get("gather_tiers") ?? [])
-  .map((entry) => entry as unknown as { from: number; weightsPm: number[] })
+  .map((entry) => gatherTierEntrySchema.parse(reparse(entry)))
   .toSorted((a, b) => a.from - b.from);
 const STAT = 20; // 주 10 + 보조 10(레벨 1)
 const band = bands.findLast((entry) => entry.from <= STAT) ?? bands[0];
@@ -222,25 +225,25 @@ const perDay = (landPm: number, tier: number): number =>
       YIELD *
       WORKERS *
       (Math.max(floorPm, landPm) / 1000);
-const facilities = new Map((pack.entries.get("facilities") ?? []).map((entry) => [entry.id, entry]));
-const needOf = (id: string, item: string): number => {
-  const raw = facilities.get(id) as unknown as
-    | { build?: { levels?: { materials?: { item: { id: string }; qty: number }[] }[] } }
-    | undefined;
-  // 재료 item은 팩 참조(ContentRef — category·id)
-  return raw?.build?.levels?.[0]?.materials?.find((m) => m.item.id === item)?.qty ?? 0;
-};
+const facilities = new Map(
+  (pack.entries.get("facilities") ?? []).map((entry) => [
+    entry.id,
+    facilityEntrySchema.parse(reparse(entry)),
+  ]),
+);
+const needOf = (id: string, item: string): number =>
+  facilities.get(id)?.build?.levels[0]?.materials.find((m) => m.item.id === item)?.qty ?? 0;
 const needLogs = needOf("storehouse", "pine_log") + needOf("lodging", "pine_log");
 const needStone = needOf("storehouse", "stone") + needOf("lodging", "stone");
 const daysFor = (woodPm: number, orePm: number): number =>
   Math.max(needLogs / Math.max(1e-9, perDay(woodPm, 0)), needStone / Math.max(1e-9, perDay(orePm, 1)));
+const mid = (list: number[]) => list[Math.floor(list.length / 2)] ?? 0;
+const day = (value: number) => (value > 9999 ? "∞" : value.toFixed(1));
 const summarizeBuild = (label: string, rows: readonly { wood: number; ore: number }[]) => {
   if (rows.length === 0) return;
   const logs = rows.map((r) => perDay(r.wood, 0)).toSorted((a, b) => a - b);
   const stone = rows.map((r) => perDay(r.ore, 1)).toSorted((a, b) => a - b);
   const days = rows.map((r) => daysFor(r.wood, r.ore)).toSorted((a, b) => a - b);
-  const mid = (list: number[]) => list[Math.floor(list.length / 2)] ?? 0;
-  const day = (value: number) => (value > 9999 ? "∞" : value.toFixed(1));
   lines.push(
     `| ${label} | ${rows.length} | ${mean(rows.map((r) => r.wood)).toFixed(0)} | ${mean(rows.map((r) => r.ore)).toFixed(0)} | ${(logs[0] ?? 0).toFixed(1)} · ${mid(logs).toFixed(1)} | ${(stone[0] ?? 0).toFixed(1)} · ${mid(stone).toFixed(1)} | ${day(mid(days))} · ${day(days.at(-1) ?? 0)} |`,
   );

@@ -82,7 +82,9 @@ describe.skipIf(!TEST_DATABASE_URL)("배후지 칸 재고 저장", () => {
       test.db,
       "select id, catchment from world_cities order by id",
     );
-    expect(cityRows[0]?.catchment).toEqual([2070, 13_000, 3, 1, 900, 640, 640, 640, 640, 640, 640, 640, 500, 500, 500, 500, 500, 500, 100]);
+    expect(cityRows[0]?.catchment).toEqual([
+      2070, 13_000, 3, 1, 900, 640, 640, 640, 640, 640, 640, 640, 500, 500, 500, 500, 500, 500, 100,
+    ]);
     expect(cityRows[1]?.catchment).toBeNull();
 
     // 다시 켬: 읽어 넣으면 같은 재고, 받은 몫이 도시에 든다

@@ -225,7 +225,10 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
     if (!map || ownerId === undefined) continue;
     const factionSeed = input.seedOfFaction?.(city.factionId) ?? input.seed;
     const plan = city.start
-      ? seedPlan(factionSeed, input.landOf?.(city.mapKey), { housing: city.housing, bedsPerLevel: input.bedsPerLevel })
+      ? seedPlan(factionSeed, input.landOf?.(city.mapKey), {
+          housing: city.housing,
+          bedsPerLevel: input.bedsPerLevel,
+        })
       : villagePlan(factionSeed);
     const anchors = anchorsOf(city.mapKey);
     const have = new Map<string, number>();

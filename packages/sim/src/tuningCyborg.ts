@@ -43,6 +43,7 @@ export const CYBORG_TUNING_KEYS: readonly TuningKey[] = [
   k("n9_initial_rerolls", "N9", "cyborg.initialRerolls", "다시 굴리기 횟수", "Initial rerolls"),
   k("n9_initial_favor", "N9", "cyborg.initialFavorMilli", "성향 평균 올림", "Temperament boost"),
   k("n9_initial_spread", "N9", "cyborg.initialSpreadMilli", "스탯 표준편차", "Initial stat spread"),
+  k("n9_initial_favor_floor", "N9", "cyborg.initialFavorFloor", "성향 칸 바닥", "Temperament stat floor"),
   k(
     "n34_rebirth_faith",
     "N34",

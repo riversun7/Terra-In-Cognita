@@ -91,8 +91,17 @@ describe("사이보그 초기 스탯 굴림(생성·환생 공용, D-6039·D-444
       int: 5,
       wis: 5,
     });
-    // 굴림이 모두 끝(0)이면 모든 칸이 하한에 걸려 고르게 나뉜다
+    // 굴림이 모두 끝(0)이면 모든 칸이 하한에 걸려 고르게 나뉘고, 성향 칸은 바닥(12)까지 올린 만큼 나머지에서 덜어 낸다
     expect(rollStatSpread("tech", constantRng(0), c)).toEqual({
+      str: 9,
+      dex: 12,
+      agi: 12,
+      vit: 9,
+      int: 9,
+      wis: 9,
+    });
+    // 균형 성향은 바닥이 없다
+    expect(rollStatSpread("balanced", constantRng(0), c)).toEqual({
       str: 10,
       dex: 10,
       agi: 10,
@@ -100,6 +109,24 @@ describe("사이보그 초기 스탯 굴림(생성·환생 공용, D-6039·D-444
       int: 10,
       wis: 10,
     });
+  });
+
+  it("성향을 고르면 그 두 칸은 바닥(설정 칸 n9_initial_favor_floor, 출발값 12) 아래로 나오지 않는다(사용자 지시 2026-11-12)", () => {
+    for (const id of ["combat", "tech", "trade"] as const) {
+      const favored = c.cyborg.temperaments.find((t) => t.id === id)?.favored ?? [];
+      expect(favored).toHaveLength(2);
+      for (let seed = 1; seed <= 500; seed += 1) {
+        const spread = rollStatSpread(id, createRng(seed), c);
+        for (const stat of favored) expect(spread[stat]).toBeGreaterThanOrEqual(12);
+        expect(Object.values(spread).reduce((sum, value) => sum + value, 0)).toBe(60);
+      }
+    }
+    // 바닥을 바꾸면 따른다
+    const high = { ...c, cyborg: { ...c.cyborg, initialFavorFloor: 15 } };
+    for (let seed = 1; seed <= 200; seed += 1) {
+      const spread = rollStatSpread("trade", createRng(seed), high);
+      expect(Math.min(spread.int, spread.wis)).toBeGreaterThanOrEqual(15);
+    }
   });
 
   it("어느 시드든 합 60·칸 1~20이고, 같은 시드·성향이면 같은 값이다", () => {

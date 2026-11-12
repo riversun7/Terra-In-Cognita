@@ -251,6 +251,8 @@ export interface SocietyCoefficients {
     readonly initialFavorMilli: number;
     /** 칸마다 정규분포 표준편차(밀리점, 옛 CHR-1 §4.2 "약 3" → 3000, D-445 168 "표준편차 약 3") */
     readonly initialSpreadMilli: number;
+    /** 성향 칸 바닥(고른 두 칸은 이 값 아래로 나오지 않는다, 사용자 지시 2026-11-12 "선택된 둘다 12이상") */
+    readonly initialFavorFloor: number;
     /**
      * 첫 접속 시작 도시 붐빔 띠(D-6041·D-445 175 설정값, 그 도시에서 시작한 사이보그 수): 이 수부터 보통, 다음 수부터 붐빔.
      * 출발값 20·50(docs/adr/2026-11-01-first-login-cyborg.md)
@@ -520,6 +522,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     initialRerolls: 5,
     initialFavorMilli: 4000,
     initialSpreadMilli: 3000,
+    initialFavorFloor: 12,
     startCrowdNormal: 20,
     startCrowdBusy: 50,
     skillGradeBase: 3,

@@ -9,6 +9,8 @@
 // - 다시 굴리기는 처음 1번 + N9 횟수(출발값 3)이고 성향을 바꿔
 //   굴려도 1번, 마지막 값만 남는다(D-445 169). 이 횟수 하나를 생성과 환생이 함께 쓴다(D-444 164).
 //   굴림 상태(StatRolls)는 서버가 들고 있는다(서버 권위).
+// - 바뀜(2026-11-12, 사용자 지시 "선택된 둘다 12이상으로 나오던지하게해라"): 성향을 고르면 그 성향 칸은 바닥값(설정 칸
+//   n9_initial_favor_floor, 출발값 12) 아래로 나오지 않는다. 바닥까지 올린 만큼은 나머지 칸에서 무게 비례로 덜어 합 60을 지킨다.
 // - 시드 난수(Rng)는 부르는 쪽이 준다(같은 시드·성향이면 같은 값).
 import type { Rng } from "@terra/shared";
 import type { Primaries } from "../combat/stats.ts";
@@ -51,7 +53,7 @@ function normalTwentyThousandths(rng: Rng): number {
  * 합을 칸들의 무게 비례로 나눈다(가장 큰 나머지, 같으면 칸 차례 앞쪽). 칸 범위를 넘으면 그 칸을 끝값에 묶고 남은 합을 다시
  * 나눈다(칸 하나 이상이 묶일 때마다 다시, 많아야 칸 수만큼)
  */
-function fitSum(weights: readonly number[], sum: number, min: number, max: number): number[] {
+function fitSum(weights: readonly number[], sum: number, mins: readonly number[], max: number): number[] {
   const out: number[] = weights.map(() => 0);
   const fixed: boolean[] = weights.map(() => false);
   for (let round = 0; round <= weights.length; round += 1) {
@@ -69,11 +71,11 @@ function fitSum(weights: readonly number[], sum: number, min: number, max: numbe
       spare -= 1;
     }
     const over = parts.filter((part) => part.value > max);
-    const under = over.length > 0 ? [] : parts.filter((part) => part.value < min);
+    const under = over.length > 0 ? [] : parts.filter((part) => part.value < (mins[part.index] ?? 0));
     for (const part of parts) out[part.index] = part.value;
     if (over.length === 0 && under.length === 0) return out;
     for (const part of over.length > 0 ? over : under) {
-      out[part.index] = over.length > 0 ? max : min;
+      out[part.index] = over.length > 0 ? max : (mins[part.index] ?? 0);
       fixed[part.index] = true;
     }
   }
@@ -84,11 +86,19 @@ function fitSum(weights: readonly number[], sum: number, min: number, max: numbe
 export function rollStatSpread(temperamentId: string, rng: Rng, c: SocietyCoefficients): Primaries {
   const temperament = temperamentOf(temperamentId, c);
   if (temperament === undefined) throw new RangeError(`unknown temperament: ${temperamentId}`);
-  const { initialSum, initialMin, initialMax, initialFavorMilli, initialSpreadMilli } = c.cyborg;
+  const { initialSum, initialMin, initialMax, initialFavorMilli, initialSpreadMilli, initialFavorFloor } =
+    c.cyborg;
   const count = PRIMARY_STATS.length;
   if (initialMin < 1 || initialMin * count > initialSum || initialMax * count < initialSum)
     throw new RangeError("N9 sum and per-stat range do not fit");
   const favored = PRIMARY_STATS.filter((stat) => temperament.favored.includes(stat));
+  // 성향 칸 바닥(칸 범위 안으로 묶고, 성향 칸 바닥 + 나머지 칸 최소가 합을 넘으면 바닥을 낮춘다)
+  const floorCap =
+    favored.length === 0
+      ? initialMin
+      : Math.floor((initialSum - initialMin * (count - favored.length)) / favored.length);
+  const favorFloor = Math.max(initialMin, Math.min(initialMax, floorCap, initialFavorFloor));
+  const mins = PRIMARY_STATS.map((stat) => (favored.includes(stat) ? favorFloor : initialMin));
   const base = Math.floor((initialSum * 1000) / count);
   const others = count - favored.length;
   const favorMean = others === 0 ? base : base + initialFavorMilli;
@@ -96,12 +106,13 @@ export function rollStatSpread(temperamentId: string, rng: Rng, c: SocietyCoeffi
   const weights = PRIMARY_STATS.map((stat) => {
     const mean = favored.includes(stat) ? favorMean : otherMean;
     const value = mean + Math.floor((initialSpreadMilli * normalTwentyThousandths(rng)) / 20_000);
+    // 무게는 칸 최소로만 묶는다(바닥으로 묶으면 낮게 굴린 성향 칸의 몫이 오히려 커진다) — 바닥은 합 맞추기에서 지킨다
     return Math.min(initialMax * 1000, Math.max(initialMin * 1000, value));
   });
   const [str = 0, dex = 0, agi = 0, vit = 0, int = 0, wis = 0] = fitSum(
     weights,
     initialSum,
-    initialMin,
+    mins,
     initialMax,
   );
   return { str, dex, agi, vit, int, wis };

@@ -13,6 +13,7 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "cyborg.initialRerolls",
   "cyborg.initialFavorMilli",
   "cyborg.initialSpreadMilli",
+  "cyborg.initialFavorFloor",
   "cyborg.kMinPm",
   "cyborg.kMaxPm",
   "cyborg.startCrowdNormal",

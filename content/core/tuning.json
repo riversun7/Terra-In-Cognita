@@ -2680,6 +2680,24 @@
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-450~D-455)\""
     },
     {
+      "id": "n9_initial_favor_floor",
+      "code": "N9",
+      "name": {
+        "ko": "성향 칸 바닥",
+        "en": "Temperament stat floor"
+      },
+      "value": 12,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 20,
+      "desc": {
+        "ko": "성향을 고르면 그 성향의 두 스탯은 이 값 아래로 나오지 않는다. 모자란 만큼은 나머지 스탯에서 덜어 합을 지킨다.",
+        "en": "With a temperament chosen, its two stats never roll below this. The difference comes out of the other stats, keeping the sum."
+      },
+      "source": "사용자 지시 2026-11-12 \"선택된 둘다 12이상으로 나오던지하게해라\" (ADR 2026-11-01-first-login-cyborg \"바뀜 (2026-11-12)\")"
+    },
+    {
       "id": "n34_rebirth_faith",
       "code": "N34",
       "name": {

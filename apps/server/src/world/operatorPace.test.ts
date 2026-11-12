@@ -104,7 +104,7 @@ describe("명령 규칙(markPace·withPace)", () => {
     markPace([a.map, b.map], 1, false);
     expect(b.map.paceOf(1)).toBe(1);
     // 없는 유닛은 아무것도 하지 않는다
-    markPace([a.map, b.map], 99, true)();
+    markPace([a.map, b.map], 99, true).undo();
     a.map.stop();
     b.map.stop();
   });
@@ -122,6 +122,23 @@ describe("명령 규칙(markPace·withPace)", () => {
     // 던지면 되돌리고 다시 던진다
     await expect(withPace([map], 1, false, () => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
     expect(map.paceOf(1)).toBe(OPERATOR_SPEED_FACTOR);
+    map.stop();
+  });
+
+  it("늦게 거절된 명령(다른 연결의 새 명령에 밀림)은 그 뒤 명령이 단 표시를 되돌리지 않는다", () => {
+    const { map } = createTestMap();
+    map.addUnit({ id: 1, size: 1, speed: WALK_SPEED, cellX: 10, cellY: 10 });
+    // 운영자 명령 A가 달고, 끝나기 전에 운영자 명령 B가 단다. A가 superseded로 거절되어도 B의 표시는 그대로
+    const first = markPace([map], 1, true);
+    const second = markPace([map], 1, true);
+    first.undo();
+    expect(map.paceOf(1)).toBe(OPERATOR_SPEED_FACTOR);
+    second.release();
+    // 보통 명령 C가 지운 뒤 늦게 거절된 운영자 명령 D도 C의 지움을 되돌리지 않는다
+    const late = markPace([map], 1, true);
+    markPace([map], 1, false).release();
+    late.undo();
+    expect(map.paceOf(1)).toBe(1);
     map.stop();
   });
 });

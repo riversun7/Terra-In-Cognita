@@ -27,20 +27,42 @@ export function isOperatorMode(observing: boolean, roles: readonly Role[]): bool
 }
 
 /**
- * 유닛 하나의 표시를 단다(operator면 OPERATOR_SPEED_FACTOR, 아니면 지움). 되돌리는 함수를 준다 — 그사이 다른 명령이 표시를 바꿨으면
- * 되돌리지 않는다. 유닛을 띄운 2차맵이 없으면 아무것도 하지 않는다
+ * 유닛마다 가장 나중에 표시를 단 명령의 번호. 명령 하나가 늦게 거절되어도(예: 다른 연결의 새 명령에 밀린 superseded) 그 뒤 명령이 단
+ * 표시를 되돌리지 않게 한다. 명령이 끝나면 지운다
  */
-export function markPace(maps: Iterable<PaceMap>, unitId: number, operator: boolean): () => void {
+const latestMark = new Map<number, number>();
+let markCounter = 0;
+
+/** 단 표시 하나: 되돌리기(거절된 명령)·놓기(끝난 명령) */
+export interface PaceMark {
+  undo(): void;
+  release(): void;
+}
+
+/**
+ * 유닛 하나의 표시를 단다(operator면 OPERATOR_SPEED_FACTOR, 아니면 지움). 그 뒤 다른 명령이 표시를 달았으면 되돌리지 않는다.
+ * 유닛을 띄운 2차맵이 없으면 아무것도 하지 않는다
+ */
+export function markPace(maps: Iterable<PaceMap>, unitId: number, operator: boolean): PaceMark {
   const factor = operator ? OPERATOR_SPEED_FACTOR : 1;
+  markCounter += 1;
+  const token = markCounter;
+  latestMark.set(unitId, token);
+  const release = (): void => {
+    if (latestMark.get(unitId) === token) latestMark.delete(unitId);
+  };
   for (const map of maps) {
     if (map.unitInfo(unitId) === undefined) continue;
     const previous = map.setPace(unitId, factor);
-    if (previous === undefined || previous === factor) return () => {};
-    return () => {
-      if (map.paceOf(unitId) === factor) map.setPace(unitId, previous);
+    return {
+      undo: () => {
+        if (previous !== undefined && latestMark.get(unitId) === token) map.setPace(unitId, previous);
+        release();
+      },
+      release,
     };
   }
-  return () => {};
+  return { undo: release, release };
 }
 
 /** 유닛 명령 하나를 돌린다: 먼저 표시를 달고(명령이 시작하는 걸음이 읽는다), 결과가 실패면 되돌린다 */
@@ -50,13 +72,14 @@ export async function withPace<R extends { readonly ok: boolean }>(
   operator: boolean,
   run: () => Promise<R>,
 ): Promise<R> {
-  const undo = markPace(maps, unitId, operator);
+  const mark = markPace(maps, unitId, operator);
   try {
     const result = await run();
-    if (!result.ok) undo();
+    if (result.ok) mark.release();
+    else mark.undo();
     return result;
   } catch (error) {
-    undo();
+    mark.undo();
     throw error;
   }
 }

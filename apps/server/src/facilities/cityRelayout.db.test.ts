@@ -127,6 +127,8 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 건물 다시 놓기(예약 → 
       return was && (was.x !== line.x || was.y !== line.y);
     });
     expect(moved.length).toBeGreaterThan(5);
+    // 행정 건물이 옮겨진 도시는 성벽 고리도 새 자리 둘레로 옮긴다(질문 1071 가)
+    expect(moved.some((line) => line.facility_id === "city_wall")).toBe(true);
     const halls = after.filter((line) => line.facility_id === "government_hall");
     for (const hall of halls)
       expect(

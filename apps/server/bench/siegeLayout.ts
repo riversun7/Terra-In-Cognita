@@ -8,6 +8,8 @@
 // - 전략: 전략 배치(모드 1)의 2차맵 구역(지형 + 건물) — 지금 서버
 // - 전략(평지): 전략 배치 건물만(지형 없음) — 건물 효과만 따로
 // - 전략+성벽 N: 전략 배치 + 성벽 고리(설정 칸 city_wall_* 출발값, 질문 1048 가), 성벽·성문 내구도 N(5천·2만·6만)
+// - (건물 못 뚫음): 보통 건물을 부숴 길을 낼 수 없게(질문 1073 가 전 판정), (넥서스 2천): 넥서스 = 옛 고정 2,000(질문 1069 가 전 판정).
+//   그 밖은 지금 판정: 넥서스 = 행정 건물 지금 내구도, 공격 편은 보통 건물도 부숴 길을 낸다(2026-11-12, 기획 D-534)
 // 잰다: 넥서스(행정 건물)에 처음 닿은 틱(공격 편 첫 건물 피해), 끝 틱, 이긴 편. 두 경우:
 // - 걷기: 수비 없음, 물리형 크리쳐 strength마리 — 길이 얼마나 길어졌나
 // - 웨이브: 수비 휴먼 defenders명 + 크리쳐 strength(물리형 physical) — 실제 웨이브 모양
@@ -223,17 +225,45 @@ function fight(layout: SiegeLayout | undefined, edge: Edge, seed: number, walk: 
   };
 }
 
-const KINDS = ["open", "old", "next", "flat", "wall5k", "wall20k", "wall60k"] as const;
+const KINDS = [
+  "open",
+  "old",
+  "next",
+  "nextSolid",
+  "flat",
+  "wall5k",
+  "wall20k",
+  "wall20kSolid",
+  "wall20kN2000",
+  "wall60k",
+] as const;
 type Kind = (typeof KINDS)[number];
 const LABEL: Record<Kind, string> = {
   open: "열린",
   old: "옛 배치",
   next: "전략",
+  nextSolid: "전략(건물 못 뚫음)",
   flat: "전략(평지)",
   wall5k: "전략+성벽 5천",
   wall20k: "전략+성벽 2만",
+  wall20kSolid: "전략+성벽 2만(건물 못 뚫음)",
+  wall20kN2000: "전략+성벽 2만(넥서스 2천)",
   wall60k: "전략+성벽 6만",
 };
+/** 보통 건물을 부숴 길을 낼 수 없게(질문 1073 전 판정) */
+const solid = (layout: SiegeLayout | undefined): SiegeLayout | undefined =>
+  layout && {
+    ...layout,
+    buildings: layout.buildings.map((b) => (b.wall === true ? b : { ...b, solid: true })),
+  };
+/** 넥서스 내구도를 옛 고정 2,000으로(질문 1069 전 판정) */
+const nexus2000 = (layout: SiegeLayout | undefined): SiegeLayout | undefined =>
+  layout && {
+    ...layout,
+    buildings: layout.buildings.map((b) =>
+      b.sourceId === layout.nexusSourceId ? { ...b, durability: NEXUS } : b,
+    ),
+  };
 /** 성벽·성문 내구도만 바꾼 배치(성벽 고리 효과를 내구도마다) */
 const withWalls = (layout: SiegeLayout | undefined, durability: number): SiegeLayout | undefined =>
   layout && {
@@ -260,9 +290,12 @@ for (const [cityIndex, city] of picked.entries()) {
     open: undefined,
     old: old.withTerrain,
     next: next.withTerrain,
+    nextSolid: solid(next.withTerrain),
     flat: next.flat,
     wall5k: withWalls(walled.withTerrain, 5000),
     wall20k: withWalls(walled.withTerrain, 20_000),
+    wall20kSolid: solid(withWalls(walled.withTerrain, 20_000)),
+    wall20kN2000: nexus2000(withWalls(walled.withTerrain, 20_000)),
     wall60k: withWalls(walled.withTerrain, 60_000),
   };
   const cc = decodeCellKey(city.mapKey);

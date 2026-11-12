@@ -32,6 +32,8 @@ export interface SiegeLayoutBuilding extends SiegeRect {
   readonly durability: number;
   /** 성벽 시설(질문 1048 가 — 부수면 뚫린다, battleMap.ts wall) */
   readonly wall?: boolean | undefined;
+  /** 부숴 길을 낼 수 없는 건물(측정용 — 질문 1073 전 판정과 견준다). 없으면 보통 건물은 부술 수 있다 */
+  readonly solid?: boolean | undefined;
 }
 
 /** 전투 때 닫히는 성문: 성벽 고리의 빈 칸(2차맵에서는 사람이 지나가는 틈, 전투에서는 수비 편만 지나감) */
@@ -153,7 +155,7 @@ export function siegeArena(
       durability: Math.max(1, building.durability),
       nexus: false,
       // 성벽이 아닌 건물도 부숴 길을 낼 수 있다(질문 1073)
-      ...(building.wall === true ? { wall: true } : { breakable: true }),
+      ...(building.wall === true ? { wall: true } : building.solid === true ? {} : { breakable: true }),
     });
     sources.set(id, building.sourceId);
   }

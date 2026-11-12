@@ -5,6 +5,8 @@
 // - 잰다: 도시 사이 거리(1차맵 칸·km), 가장 가까운 도시(같은 국가·다른 국가), 2차맵 나눠 쓰기, 수도에서 지방 도시 걸음(바둑판 모양),
 //   배후지(반경 R) 겹침(둘 이상 배후지에 든 칸, 겹친 도시 쌍)과 도시마다 덮임(혼자일 때 · 가장 가까운 도시가 나눠 가진 뒤).
 // - --old: 배후지 규칙을 끈 옛 배치(설정 칸 city_catchment_radius_cells = 0)로 잰다.
+// - --planet <ID>: 다른 팩 행성(기본 s2_test_planet). --mountain-m <m>: 산지 고도를 바꿔 잰다.
+// - --no-mountain: 광산 국가 산지 점수(설정 칸 city_catchment_mountain_site_pm)를 0으로 — 질문 1079 나 전 배치.
 // - --fixed <칸>: 도시 크기와 상관없이 고정 반경(반경 아래 끝 = 위 끝 = 칸 × 1000) — 앞 줄기(city-spacing) 배치를 다시 잰다.
 // - 바뀜 (2026-11-12, ADR "바뀜 (2026-11-12)"): 도시마다 요구 반경(처음 기간에 이를 크기 — 국가 등급 주거·기술, 수도는 더 크게)을 함께 보인다.
 //   겹침 = 거리 < 두 요구 반경 합, 가장 가까운 거리의 변동 계수(표준편차 ÷ 평균 — 고른 바둑판이면 0에 가깝다), 등급마다 같은 국가 가장 가까운 거리.
@@ -12,6 +14,8 @@
 // - 바뀜 (2026-11-12, 기획 D-533 광석 고도 몫): 30일 채집 다툼이 서버 NPC 경제와 같은 칸 몫(@terra/shared/catchment cellSharesPm "supply" —
 //   광석 = 고도 몫)과 땅 몫(캐려는 양 × 배후지 칸 몫 평균)을 쓴다. 광석을 얻는 도시(배후지 광석 몫 > 0)·높은 티어(산지 칸)·광산 빠르기
 //   (받은 몫 × 땅 몫, 바닥 위)·하루 광석 캔 양과 도시 칸 고도를 함께 보인다.
+// - 바뀜 (2026-11-12, 기획 D-534 — 질문 1079 나·1080 가): 높은 티어 광석을 얻는 국가(광산 도시 배후지에 산지 칸)·하루 산지 광석 양(철 이상이
+//   나올 수 있는 몫 = 캔 광석 × 산지 몫 — 철 어림)과 목재(땅 몫 = 숲 밀도 몫 평균·벌목장 빠르기·하루 캔 양)를 함께 보인다.
 // 표는 Markdown이다. pnpm test에는 없다(행성 생성에 십수 초).
 import { fileURLToPath } from "node:url";
 import { loadContentPack } from "@terra/content/node";
@@ -48,6 +52,8 @@ import { freshTierPlan } from "../src/world/tierPlan.ts";
 
 const args = process.argv.slice(2);
 const old = args.includes("--old");
+// --no-mountain: 광산 국가 산지 점수를 끈 배치(질문 1079 나 전과 같다)
+const noMountain = args.includes("--no-mountain");
 const fixedAt = args.indexOf("--fixed");
 const fixed = fixedAt >= 0 ? Number(args[fixedAt + 1] ?? 2) : undefined;
 const radius = fixed ?? 2;
@@ -57,8 +63,11 @@ const KM = AVERAGE_CELL_EDGE_METERS / 1000;
 const loaded = loadContentPack(fileURLToPath(new URL("../../../content/core", import.meta.url)));
 if (!loaded.pack) throw new Error("content/core does not validate");
 const pack = loaded.pack;
-const planet = (pack.entries.get("planets") ?? []).find((entry) => entry.id === "s2_test_planet");
-if (!planet) throw new Error("content/core has no s2_test_planet");
+// --planet <ID>: 다른 팩 행성으로 잰다(기본 s2_test_planet — 지금 세계 행성)
+const planetAt = args.indexOf("--planet");
+const planetId = planetAt >= 0 ? (args[planetAt + 1] ?? "s2_test_planet") : "s2_test_planet";
+const planet = (pack.entries.get("planets") ?? []).find((entry) => entry.id === planetId);
+if (!planet) throw new Error(`content/core has no ${planetId}`);
 const input = planetInputFromDefinition(planet, pack.entries.get("biomes") ?? [], LEVEL);
 const details = runPlanetGenerator(input);
 const values = planetValuesFromGeneration(
@@ -68,18 +77,26 @@ const values = planetValuesFromGeneration(
 );
 const land = (key: CellKey) => planetCellValues(values, key);
 const presets = nationPresetsOf(pack);
+// --mountain-m <m>: 산지 고도(설정 칸 npc_seed_mine_height_m)를 바꿔 잰다(산지가 먼 행성에서 규칙이 듣는지 보기)
+const mountainAt = args.indexOf("--mountain-m");
+const mountainM = mountainAt >= 0 ? Number(args[mountainAt + 1]) : undefined;
+const baseSeed = {
+  ...START_WORLD_SEED,
+  ...(noMountain ? { catchmentMountainSitePm: 0 } : {}),
+  ...(mountainM === undefined ? {} : { mineMinHeightM: mountainM }),
+};
 const seed = old
-  ? { ...START_WORLD_SEED, catchmentRadiusCells: 0 }
+  ? { ...baseSeed, catchmentRadiusCells: 0 }
   : fixed === undefined
-    ? START_WORLD_SEED
-    : { ...START_WORLD_SEED, catchmentMinRadiusMilli: fixed * 1000, catchmentMaxRadiusMilli: fixed * 1000 };
+    ? baseSeed
+    : { ...baseSeed, catchmentMinRadiusMilli: fixed * 1000, catchmentMaxRadiusMilli: fixed * 1000 };
 const avoidMaps = new Set<number>(Array.from({ length: 6 }, (_, index) => testMapKey(index)));
 const nations = Array.from({ length: MAX_TEST_NATIONS }, (_, index) => {
   const code = nationCode(index + 1, presets);
   return { code, factionId: index + 1, start: nationStartOf(seed, presetOfCode(code, presets)) };
 });
 const t0 = performance.now();
-const plan = freshTierPlan({ faceLevel: LEVEL, land, seed, planetId: "s2_test_planet", avoidMaps }, nations);
+const plan = freshTierPlan({ faceLevel: LEVEL, land, seed, planetId, avoidMaps }, nations);
 const planMs = performance.now() - t0;
 
 const metric = territoryMetric(LEVEL);
@@ -197,15 +214,15 @@ const coverRows = cities.map((city) => {
 // 30일 채집 다툼(목표 크기 — 인구 = 주거, 등급 = 계획 등급, 수도는 더 크게; 가중치 = 국가 시작 채집 시설 수 가운데 NPC 씨앗이 그 땅에 짓는
 // 것, 원자재 = 칸 몫 — 서버 npc/catchmentGeometry.ts·시뮬 catchmentRun.ts와 같은 셈)
 const supplyRun = (() => {
-  const growth = catchmentGrowthOf(START_WORLD_SEED);
-  const rules = catchmentSupplyOf(START_WORLD_SEED);
+  const growth = catchmentGrowthOf(baseSeed);
+  const rules = catchmentSupplyOf(baseSeed);
   const sharesOf = new Map<number, number[]>();
   const shares = (cell: number): number[] => {
     let row = sharesOf.get(cell);
     if (row === undefined) {
       const value = land(parseCellKey(cell));
-      const supply = cellSharesPm(value, START_WORLD_SEED, "supply");
-      row = [...CATCHMENT_MATERIALS.map((m) => supply[m]), highOrePm(value, START_WORLD_SEED)];
+      const supply = cellSharesPm(value, baseSeed, "supply");
+      row = [...CATCHMENT_MATERIALS.map((m) => supply[m]), highOrePm(value, baseSeed)];
       sharesOf.set(cell, row);
     }
     return row;
@@ -214,16 +231,16 @@ const supplyRun = (() => {
     shares(cell)[CATCHMENT_MATERIALS.indexOf(material)] ?? 0;
   const supplyCities = cities.map((city) => {
     const start = startOfNation.get(city.nation);
-    const housing = start?.housing ?? START_WORLD_SEED.startHousing;
+    const housing = start?.housing ?? baseSeed.startHousing;
     const size = {
-      population: city.capital ? Math.floor((housing * START_WORLD_SEED.catchmentCapitalPm) / 1000) : housing,
-      grade: START_WORLD_SEED.catchmentPlanGrade + (city.capital ? 1 : 0),
+      population: city.capital ? Math.floor((housing * baseSeed.catchmentCapitalPm) / 1000) : housing,
+      grade: baseSeed.catchmentPlanGrade + (city.capital ? 1 : 0),
       tech: start?.tech ?? 1,
     };
     const cells = catchmentCellsMilli(city.mapKey, city.needMilli, LEVEL);
     const area = Math.max(catchmentAreaMilli(size, growth), cells.length * 1000);
     // NPC 씨앗이 실제로 짓는 채집 시설만(도시 칸 행성 값 — landGather, 광산은 높은 땅에만)
-    const fit = landGather(land(city.mapKey), START_WORLD_SEED);
+    const fit = landGather(land(city.mapKey), baseSeed);
     const all = weightsOfFacilities(start?.facilities ?? {});
     const weights = {
       ...all,
@@ -250,15 +267,25 @@ const supplyRun = (() => {
       landPm,
       highOrePm: high,
       mine: (weights.ore ?? 0) > 0,
+      lumber: (weights.wood ?? 0) > 0,
     };
   });
   const stock: SupplyStock = new Map();
-  let last = new Map<number, { totalPm: number; orePm: number; oreGot: number }>();
+  let last = new Map<
+    number,
+    { totalPm: number; orePm: number; oreGot: number; woodPm: number; woodGot: number }
+  >();
   for (let day = 0; day < 30; day++)
     last = new Map(
       [...stepCatchmentSupply(supplyCities, stock, capacity, rules)].map(([id, r]) => [
         id,
-        { totalPm: r.totalPm, orePm: r.supplyPm.ore, oreGot: r.got.ore },
+        {
+          totalPm: r.totalPm,
+          orePm: r.supplyPm.ore,
+          oreGot: r.got.ore,
+          woodPm: r.supplyPm.wood,
+          woodGot: r.got.wood,
+        },
       ]),
     );
   const received = [...last.values()].map((r) => r.totalPm);
@@ -267,9 +294,22 @@ const supplyRun = (() => {
     supplyCities.map((city) => {
       const r = last.get(city.id);
       const speed = city.mine ? Math.max(floor, Math.floor(((r?.orePm ?? 0) * city.landPm.ore) / 1000)) : 0;
+      const woodSpeed = city.lumber
+        ? Math.max(floor, Math.floor(((r?.woodPm ?? 0) * city.landPm.wood) / 1000))
+        : 0;
       return [
         city.id,
-        { orePm: city.landPm.ore, highOrePm: city.highOrePm, mine: city.mine, speed, oreGot: r?.oreGot ?? 0 },
+        {
+          orePm: city.landPm.ore,
+          highOrePm: city.highOrePm,
+          mine: city.mine,
+          speed,
+          oreGot: r?.oreGot ?? 0,
+          woodLandPm: city.landPm.wood,
+          lumber: city.lumber,
+          woodSpeed,
+          woodGot: r?.woodGot ?? 0,
+        },
       ];
     }),
   );
@@ -287,7 +327,7 @@ lines.push(
 );
 lines.push("");
 lines.push(
-  `- 행성 s2_test_planet F${LEVEL}, 국가 ${plan.nations.length}/${MAX_TEST_NATIONS}, 도시 ${cities.length}, 못 세운 도시 ${plan.short}, 계획 ${planMs.toFixed(0)}ms`,
+  `- 행성 ${planetId} F${LEVEL}, 국가 ${plan.nations.length}/${MAX_TEST_NATIONS}, 도시 ${cities.length}, 못 세운 도시 ${plan.short}, 계획 ${planMs.toFixed(0)}ms`,
 );
 lines.push(`- 1차맵 칸 = 2차맵 하나 = 평균 ${KM.toFixed(4)}km`);
 lines.push(`- 가장 가까운 도시(아무나): ${stats(nearestAny)}`);
@@ -348,6 +388,33 @@ lines.push(
 );
 lines.push(
   `- 30일째 하루 광석 캔 양(배후지 재고 단위, 광산 도시): ${pmStats(mines.map((row) => row.oreGot))}`,
+);
+// 높은 티어 광석(질문 1079 나): 광산 도시 가운데 배후지에 산지 칸이 있는 도시·국가, 하루 산지 광석 양(캔 광석 × 산지 몫 — 철 이상 어림)
+const highCities = cities.filter((city) => {
+  const row = supplyRun.perCity.get(city.id);
+  return row?.mine === true && row.highOrePm > 0;
+});
+const highNations = new Set(highCities.map((city) => city.nation));
+const highPerDay = cities.map((city) => {
+  const row = supplyRun.perCity.get(city.id);
+  return row?.mine ? Math.floor((row.oreGot * row.highOrePm) / 1000) : 0;
+});
+lines.push(
+  `- 높은 티어(T3+) 광석을 얻는 광산 도시(배후지에 산지 칸): ${highCities.length}/${mines.length} · 국가 ${highNations.size}/${plan.nations.length}${highNations.size > 0 ? ` (${[...highNations].join(", ")})` : ""}`,
+);
+lines.push(
+  `- 30일째 하루 산지 광석 양(캔 광석 × 산지 몫 — 철 이상이 나올 수 있는 몫, 재고 단위): 합 ${highPerDay.reduce((sum, value) => sum + value, 0)} · 그런 도시 ${pmStats(highPerDay.filter((value) => value > 0))}`,
+);
+// 목재(질문 1080 가 — 채집 다툼도 숲 밀도 몫)
+const lumbers = ore.filter((row) => row.lumber);
+lines.push(
+  `- 배후지 목재 땅 몫(‰, 벌목장 도시 ${lumbers.length}): ${pmStats(lumbers.map((row) => row.woodLandPm))}`,
+);
+lines.push(
+  `- 벌목장 빠르기(30일째 받은 몫 × 땅 몫, 바닥 위): ${pmStats(lumbers.map((row) => row.woodSpeed))}`,
+);
+lines.push(
+  `- 30일째 하루 목재 캔 양(재고 단위, 벌목장 도시): 합 ${lumbers.reduce((sum, row) => sum + row.woodGot, 0)} · ${pmStats(lumbers.map((row) => row.woodGot))}`,
 );
 lines.push("");
 lines.push("| 국가 | 등급 | 도시 | 수도에서 걸음 (di,dj) |");

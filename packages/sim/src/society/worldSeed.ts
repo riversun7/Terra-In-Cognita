@@ -102,6 +102,11 @@ export interface WorldSeedCoefficients {
   /** [임시] 수도에서 배후지 지름 하나만큼 멀어질 때마다 자리 점수에서 빼는 덮임(‰) — 나라가 흩어지지 않게 */
   readonly catchmentCompactPm: number;
   /**
+   * [임시] 광산 국가의 산지 점수(기획 D-534 — 질문 1079 나 "광산 국가는 지방 도시 자리에 산지 점수(철 캐는 국가가 생김)"): 광산을 쓰는 국가
+   * (시작 시설에 광산)의 지방 도시 자리 점수에 배후지 산지 몫(산지 칸 몫 ‰) × 이 천분율 ÷ 1000을 더한다. 0이면 더하지 않는다
+   */
+  readonly catchmentMountainSitePm: number;
+  /**
    * [임시] 도시 크기에 따라 넓어지는 배후지(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)", 사용자 지적 2026-11-11 "인구와
    * 도시등급이 높을 수록 높은자원과 기술을 요구하여 요구 영토범위가 넓어지고"): 요구 넓이(칸) = 인구 × catchmentCellsPerHundred ÷ 100 ×
    * 요구 배율(등급 기본 + 걸음 × (등급 − 1) + 기술 × 기술 몫, ‰), 반경 = √(넓이 ÷ π)(아래·위 끝 1000분율 칸). @terra/shared/catchment
@@ -236,6 +241,8 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   catchmentForeignGapPm: 1500,
   catchmentSearchCells: 12,
   catchmentCompactPm: 100,
+  // 산지 점수: 배후지가 모두 산지면 +500‰(덮임 평균 약 730의 2/3) — 산지 칸이 몇 개만 있어도 낮은 땅 자리보다 앞선다
+  catchmentMountainSitePm: 500,
   // 크기에 따라 넓어지는 배후지: 40명·등급 4·기술 2 ≈ 반경 2.07칸(옛 고정 2칸), 초강대국 수도(주거 60 × 1.25, 등급 5) ≈ 3.2칸, 소국 지방 도시 ≈ 1.8칸.
   // 칸 재고 1000, 하루 40% 로지스틱 + 바닥 20(버티는 양 120), 배후지 칸마다 버티는 양의 75%(혼자면 재고 약 77%에서 머물고, 둘이 다 겹치면
   // 150% — 열흘 남짓에 바닥나 바닥 다시 자람만 나눈다)

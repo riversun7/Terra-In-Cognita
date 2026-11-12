@@ -537,6 +537,7 @@ export function planWorldLayout(input: LayoutInput): LayoutResult {
         fits: (key) => fits(key) !== undefined,
         cities: spaced,
         salt: mix(input.worldSeed ^ Math.imul(nation.factionId, 0x2545_f491)),
+        mountainSitePm: input.seed.catchmentMountainSitePm,
       });
       for (const key of picked) {
         const spot = { mapKey: key, x: CITY_CELL, y: CITY_CELL };

@@ -6,11 +6,13 @@ import { territoryDistanceMilli } from "@terra/shared/territory";
 import { START_WORLD_SEED } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { SUSTAIN_CAP, catchmentViewOf, sustainOf } from "./catchmentView.ts";
-import { catchmentCells, createCatchmentCache, splitCatchments } from "./citySites.ts";
+import { catchmentCells, createCatchmentCache, pickCitySites, splitCatchments } from "./citySites.ts";
 import {
   type LayoutInput,
   type LayoutLand,
   type LayoutTier,
+  catchmentRulesOf,
+  isSettleLand,
   nationCatchmentMilli,
   planWorldLayout,
   seedOfText,
@@ -147,6 +149,59 @@ describe("배후지 배치(지방 도시 자리)", () => {
     const home = cellKey(0, LEVEL, 30, 30);
     for (const entry of next.spots.filter((spot) => spot.spot.mapKey !== home))
       expect(distance(entry.spot.mapKey, obstacle.spot.mapKey)).toBeGreaterThanOrEqual(6000);
+  });
+});
+
+describe("광산 국가의 산지 점수(질문 1079 나)", () => {
+  // 넓은 낮은 땅 + 수도에서 6칸 떨어진 작은 추운 산지(고도 700m — 도시는 서지 못하고 배후지에만 든다)
+  const patchLand = (key: CellKey): LayoutLand => {
+    const { face, i, j } = decodeCellKey(key);
+    if (face >= 2) return { ...GRASS, water: 1, elevationM: -200, forest: 0 };
+    if (face === 0 && i >= 36 && i <= 37 && j >= 29 && j <= 31)
+      return { ...GRASS, elevationM: 700, temperatureC: -20 };
+    return GRASS;
+  };
+  const landOf = (key: CellKey) => {
+    const cell = patchLand(key);
+    return { ...cell, forest: cell.forest ?? 0 };
+  };
+  const home = cellKey(0, LEVEL, 30, 30);
+  const picks = (weights: { crop?: number; wood?: number; ore?: number }, mountainSitePm: number) => {
+    const rules = catchmentRulesOf(seed);
+    const cache = createCatchmentCache(landOf, seed, rules.radiusCells, LEVEL);
+    const sites = pickCitySites({
+      faceLevel: LEVEL,
+      factionId: 1,
+      home,
+      needCapital: true,
+      count: 4,
+      rules,
+      radiusMilli: 2000,
+      capitalRadiusMilli: 2500,
+      minSameMilli: 0,
+      weights,
+      cache,
+      fits: (key) => isSettleLand(patchLand(key), seed),
+      cities: [],
+      salt: 7,
+      mountainSitePm,
+    });
+    return { sites, mountain: sites.slice(1).map((key) => cache.mountain(key, 2000)) };
+  };
+
+  it("광산 국가는 배후지에 산지 칸이 든 지방 도시 자리를 고르고, 수도는 그대로다", () => {
+    const off = picks({ crop: 3, wood: 3, ore: 1 }, 0);
+    const on = picks({ crop: 3, wood: 3, ore: 1 }, 500);
+    expect(off.mountain.every((pm) => pm === 0)).toBe(true);
+    expect(on.mountain.some((pm) => pm > 0)).toBe(true);
+    expect(on.sites[0]).toBe(home);
+    expect(off.sites[0]).toBe(home);
+  });
+
+  it("광산을 쓰지 않는 국가(가중치에 광석 없음)는 산지 점수를 받지 않는다", () => {
+    const off = picks({ crop: 1, wood: 1 }, 0);
+    const on = picks({ crop: 1, wood: 1 }, 500);
+    expect(on.sites).toEqual(off.sites);
   });
 });
 

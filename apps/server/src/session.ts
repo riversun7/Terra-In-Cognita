@@ -38,6 +38,7 @@ import {
   HOUSE_CITY_PROTOCOL_VERSION,
   HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_PROTOCOL_VERSION,
+  HOUSE_RECRUIT_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -625,6 +626,21 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           if (message.t === "house_handover" || message.t === "house_dissolve")
             send({ t: "house_member_result", id: message.id, ok: false, code: "busy" });
           else send({ t: "house_city_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        houseSocket ??= context.house.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        houseSocket.handle(message);
+        return;
+      }
+      case "house_recruit_auto":
+      case "house_recruit_hire": {
+        // 가문 도시 구인은 프로토콜 25의 메시지다(질문 1041 다)
+        if (protocolVersion < HOUSE_RECRUIT_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.house) {
+          send({ t: "house_recruit_result", id: message.id, ok: false, code: "busy" });
           return;
         }
         houseSocket ??= context.house.open({ send: sendText, viewer: context.viewer ?? signedOut });

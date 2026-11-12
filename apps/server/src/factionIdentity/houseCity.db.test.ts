@@ -1,6 +1,6 @@
 // 가문 도시 DB 통합 시험(질문 1005 가, D-216·D-340·D-339, docs/adr/2026-11-11-house-village.md) — TEST_DATABASE_URL이 있을 때만. 계정은 가짜 값이다.
 // 봉신 마을: 가문장만·기기가 본 값·자리 규칙(가장자리·다른 도시와 가까움·다른 나라 영향권)·값 소각·가문 소유 주체·위 세력 = 나라·지분 1000주·
-// 가문원 소식·시야 묶음(가문 주체 → 나라)·고른 상태는 바꾸지 못함·도시 가진 가문은 해산 못 함·다시 켜도 거울 세계에 가문(판단 없음).
+// 가문원 소식·시야 묶음(가문 주체 → 나라)·고른 상태는 바꾸지 못함·도시 가진 가문은 해산 못 함·다시 켜도 거울 세계에 가문(판단은 자동 구인만).
 // 독립 + 폐허 고르기: 가문장이 정부를 지어 주인이 된 폐허를 가문 도시로(독립은 체제를 고름) → 되살아날 세력 = 가문, 위 세력 없음·체제,
 // 가문원 시야 = 가문(옛 나라와 따로), 같은 상태로 마을도 세운다.
 import { loadContentPack } from "@terra/content/node";
@@ -309,7 +309,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 도시(질문 1005 가)", () => {
       cities: [{ id: cityId, mapKey: site.mapKey }],
     });
 
-    // 다시 켜도 거울 세계에 가문(판단 없음, 도시 그대로)
+    // 다시 켜도 거울 세계에 가문(도시 그대로). 판단 사건은 걸리지만 자동 구인만 돈다(질문 1041 다, houseRecruit.db.test.ts)
     await world.stop();
     worlds.splice(0);
     world = await boot();
@@ -317,7 +317,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 도시(질문 1005 가)", () => {
     const mirror = npc.houses.mirrorOf(factionId);
     expect(mirror).toMatchObject({ ownerId: owner, vassal: true, cities: [cityId] });
     expect(npc.world.factions.get(owner)?.player).toBe(true);
-    expect(npc.world.factions.get(owner)?.eventId).toBeUndefined();
+    expect(npc.world.factions.get(owner)?.eventId).toBeDefined();
     await npc.tick(true);
     expect(
       await rows(test.db, "select code, dissolved_at_ms, parent_id from factions where id = $1", [factionId]),

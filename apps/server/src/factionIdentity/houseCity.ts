@@ -19,6 +19,7 @@ import type { NpcRuntime } from "../npc/runtime.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import { ASSET_CREDIT, SYSTEM_SINK_CREDIT } from "../world/settlement.ts";
 import type { World } from "../world/world.ts";
+import { houseRecruitView } from "./houseRecruit.ts";
 import { membershipOf, notify } from "./members.ts";
 import type { HouseRules } from "./rules.ts";
 import type { IdentityQueryable } from "./store.ts";
@@ -65,7 +66,7 @@ interface HouseRow {
   readonly nation: number | null;
 }
 
-async function houseRowOf(q: IdentityQueryable, factionId: number): Promise<HouseRow | null> {
+export async function houseRowOf(q: IdentityQueryable, factionId: number): Promise<HouseRow | null> {
   const { rows } = await q.query<{ id: string; born_of: string | null; name: string | null }>(
     `select f.id, f.born_of, p.name from factions f left join faction_profiles p on p.faction_id = f.id
       where f.id = $1 and f.kind = 'player' and f.dissolved_at_ms is null`,
@@ -345,6 +346,10 @@ export function createHouseCity(o: {
         site,
         ruins,
         ready: npc !== undefined,
+        recruit:
+          npc && world?.persistence
+            ? houseRecruitView(npc, world.persistence, { ...input, userId }, o.now())
+            : null,
       };
     },
   };

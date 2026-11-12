@@ -120,6 +120,13 @@ export {
   type HouseResultCode,
 } from "./house.ts";
 export {
+  HOUSE_RECRUIT_PAYERS,
+  HOUSE_RECRUIT_PROTOCOL_VERSION,
+  HOUSE_RECRUIT_RESULT_CODES,
+  type HouseRecruitPayer,
+  type HouseRecruitResultCode,
+} from "./houseRecruit.ts";
+export {
   HOSPITAL_PROTOCOL_VERSION,
   HOSPITAL_RESULT_CODES,
   type HospitalResultCode,

@@ -245,6 +245,7 @@ export {
   decide,
   emptyNpcCounts,
   factionView,
+  recruitPolicy,
   rivalView,
   scheduleDecide,
   type Blocs,

@@ -6,6 +6,7 @@ import {
   type ClientMessageOf,
   type HouseCityResultCode,
   type HouseMemberResultCode,
+  type HouseRecruitResultCode,
   type HouseResultCode,
   encodeMessage,
 } from "@terra/protocol";
@@ -14,6 +15,7 @@ import type { Viewer } from "../trpc/context.ts";
 import type { HouseFounder, HouseFoundResult } from "./found.ts";
 import type { HouseCityResult, HouseCityService } from "./houseCity.ts";
 import type { HouseMemberResult, HouseMembers } from "./members.ts";
+import type { HouseRecruitResult, HouseRecruitService } from "./houseRecruit.ts";
 import type { HouseSuccession } from "./succession.ts";
 
 export type HouseMemberClientMessage = ClientMessageOf<
@@ -27,10 +29,12 @@ export type HouseMemberClientMessage = ClientMessageOf<
   | "house_dissolve"
 >;
 export type HouseCityClientMessage = ClientMessageOf<"house_village" | "house_ruin">;
+export type HouseRecruitClientMessage = ClientMessageOf<"house_recruit_auto" | "house_recruit_hire">;
 export type HouseClientMessage =
   | ClientMessageOf<"house_found">
   | HouseMemberClientMessage
-  | HouseCityClientMessage;
+  | HouseCityClientMessage
+  | HouseRecruitClientMessage;
 
 const MAX_PENDING = 4;
 const LIMIT = { capacity: 3, refillPerMinute: 6 };
@@ -82,6 +86,20 @@ function cityText(id: number, result: HouseCityResult): string {
     : encodeMessage({ t: "house_city_result", id, ok: false, code: result.code });
 }
 
+function recruitText(id: number, result: HouseRecruitResult): string {
+  return result.ok
+    ? encodeMessage({
+        t: "house_recruit_result",
+        id,
+        ok: true,
+        auto: result.auto,
+        ...(result.unitId === undefined ? {} : { unitId: result.unitId }),
+        ...(result.payer === undefined ? {} : { payer: result.payer }),
+      })
+    : encodeMessage({ t: "house_recruit_result", id, ok: false, code: result.code });
+}
+
+const recruitFail = (code: HouseRecruitResultCode): HouseRecruitResult => ({ ok: false, code });
 const fail = (code: HouseResultCode): HouseFoundResult => ({ ok: false, code });
 const cityFail = (code: HouseCityResultCode): HouseCityResult => ({ ok: false, code });
 const memberFail = (code: HouseMemberResultCode): HouseMemberResult => ({ ok: false, code });
@@ -123,6 +141,8 @@ export function createHouseGateway(options: {
   succession?: (() => HouseSuccession | undefined) | undefined;
   /** 가문 도시(마을 세우기·폐허 고르기, 프로토콜 24, 없으면 busy) */
   city?: (() => HouseCityService | undefined) | undefined;
+  /** 가문 도시 구인(자동 켬·끔·사기, 프로토콜 25, 없으면 busy) */
+  recruit?: (() => HouseRecruitService | undefined) | undefined;
   /** 가입·넘기기·해산이 성공한 뒤(시야 묶음 다시 읽기 — 독립 가문의 가문원이 바뀐다) */
   afterMembership?: (() => Promise<void>) | undefined;
   now: () => number;
@@ -148,11 +168,16 @@ export function createHouseGateway(options: {
       const replyCity = (id: number, result: HouseCityResult): void => {
         if (!closed) link.send(cityText(id, result));
       };
+      const replyRecruit = (id: number, result: HouseRecruitResult): void => {
+        if (!closed) link.send(recruitText(id, result));
+      };
       const answer = (
         message: HouseClientMessage,
-        code: HouseResultCode & HouseMemberResultCode & HouseCityResultCode,
+        code: HouseResultCode & HouseMemberResultCode & HouseCityResultCode & HouseRecruitResultCode,
       ): void => {
         if (message.t === "house_found") reply(message.id, fail(code));
+        else if (message.t === "house_recruit_auto" || message.t === "house_recruit_hire")
+          replyRecruit(message.id, recruitFail(code));
         else if (message.t === "house_village" || message.t === "house_ruin")
           replyCity(message.id, cityFail(code));
         else replyMember(message.id, memberFail(code));
@@ -210,8 +235,33 @@ export function createHouseGateway(options: {
         }
         replyMember(message.id, result);
       };
+      const processRecruit = async (message: HouseRecruitClientMessage): Promise<void> => {
+        const viewer = await link.viewer();
+        if (closed) return;
+        if (!viewer) return replyRecruit(message.id, recruitFail("sign_in_required"));
+        const recruit = options.recruit?.();
+        if (!recruit) return replyRecruit(message.id, recruitFail("busy"));
+        if (!memberLimiter.take(viewer.id)) return replyRecruit(message.id, recruitFail("rate_limited"));
+        const result =
+          message.t === "house_recruit_auto"
+            ? await recruit.setAuto(viewer.id, message.on)
+            : await recruit.hire(viewer.id, {
+                cityId: message.cityId,
+                window: message.window,
+                slot: message.slot,
+                cost: message.cost,
+              });
+        if (result.ok)
+          options.log.info(
+            { userId: viewer.id, t: message.t, auto: result.auto, unitId: result.unitId ?? null },
+            "house recruit",
+          );
+        replyRecruit(message.id, result);
+      };
       const process = async (message: HouseClientMessage): Promise<void> => {
         if (message.t === "house_village" || message.t === "house_ruin") return processCity(message);
+        if (message.t === "house_recruit_auto" || message.t === "house_recruit_hire")
+          return processRecruit(message);
         if (message.t !== "house_found") return processMember(message);
         const viewer = await link.viewer();
         if (closed) return;

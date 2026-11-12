@@ -1,6 +1,6 @@
 // 가문 창설·가입 명령(WebSocket house_found → house_result, 프로토콜 22 / house_invite·house_apply·house_answer·house_withdraw·house_leave·
 // house_kick → house_member_result, 프로토콜 23 / house_handover·house_dissolve → house_member_result, house_village·house_ruin →
-// house_city_result, 프로토콜 24) — 보내고 같은 요청 번호의 답을 기다린다.
+// house_city_result, 프로토콜 24 / house_recruit_auto·house_recruit_hire → house_recruit_result, 프로토콜 25) — 보내고 같은 요청 번호의 답을 기다린다.
 // 질문 926 나·985 다, docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"·"바뀜 (981~986 답)". 게임 상태를 바꾸는 명령은 WebSocket으로만.
 // 국적 바꾸기 명령(government/naturalizeCommands.ts)과 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
 import type {
@@ -8,6 +8,8 @@ import type {
   HouseCityResultCode,
   HouseMemberAction,
   HouseMemberResultCode,
+  HouseRecruitPayer,
+  HouseRecruitResultCode,
   HouseRegime,
   HouseResultCode,
   ServerMessage,
@@ -60,6 +62,21 @@ export type HouseCityRequest =
       readonly ruinId: number;
       readonly mode: HouseCityMode;
       readonly regime?: HouseRegime;
+    };
+
+export type HouseRecruitOutcome =
+  | { readonly ok: true; readonly auto: boolean; readonly payer?: HouseRecruitPayer | undefined }
+  | { readonly ok: false; readonly code: HouseRecruitResultCode | "offline" | "timeout" };
+
+/** 가문 도시 구인 명령(프로토콜 25, 질문 1041 다): 자동 켬·끔 | 카드 한 장 사기(본 창·자리·값) */
+export type HouseRecruitRequest =
+  | { readonly t: "house_recruit_auto"; readonly on: boolean }
+  | {
+      readonly t: "house_recruit_hire";
+      readonly cityId: number;
+      readonly window: number;
+      readonly slot: number;
+      readonly cost: string;
     };
 
 const TIMEOUT_MS = 15_000;
@@ -145,6 +162,24 @@ export function sendHouseCity(
             cityId: message.cityId,
             paid: message.paid,
           }
+        : { ok: false, code: message.code };
+    },
+    (code) => ({ ok: false, code }),
+  );
+}
+
+/** 가문 도시 구인 명령 하나를 보내고 결과를 기다린다 */
+export function sendHouseRecruit(
+  body: HouseRecruitRequest,
+  link: ServerLink = serverLink,
+): Promise<HouseRecruitOutcome> {
+  return request<HouseRecruitOutcome>(
+    link,
+    (id) => ({ ...body, id }),
+    (message, id) => {
+      if (message.t !== "house_recruit_result" || message.id !== id) return null;
+      return message.ok
+        ? { ok: true, auto: message.auto, payer: message.payer }
         : { ok: false, code: message.code };
     },
     (code) => ({ ok: false, code }),

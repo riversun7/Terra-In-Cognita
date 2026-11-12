@@ -1,11 +1,12 @@
 // 세력 화면 "내 가문" 칸의 가문 도시 부분(질문 1005 가 — 마을 세우기와 폐허 복원이 같은 봉신·독립 고르기, D-340·D-339).
 // 상태(아직 / 봉신 / 독립 + 체제)·가문 도시 목록, 가문장이면 처음 고르기(봉신 | 독립 + 체제)·마을 세우기(서버가 고른 내 사이보그 둘레 자리)·
-// 내가 주인인 폐허를 가문 도시로. 자료는 tRPC factionIdentity.house의 house.city, 명령은 WebSocket(houseCommands.ts sendHouseCity, 프로토콜 24).
+// 내가 주인인 폐허를 가문 도시로, 가문 도시 구인(HouseRecruitBlock.tsx, 질문 1041 다). 자료는 tRPC factionIdentity.house의 house.city, 명령은 WebSocket(houseCommands.ts sendHouseCity, 프로토콜 24).
 // docs/adr/2026-11-11-house-village.md
 import type { HouseRegime } from "@terra/protocol";
 import type { HouseCityView } from "@terra/shared/house";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
+import { HouseRecruitBlock } from "./HouseRecruitBlock.tsx";
 import { type HouseCityRequest, sendHouseCity } from "./houseCommands.ts";
 import { HOUSE_CITY_ERROR_TEXT } from "./houseText.ts";
 
@@ -76,6 +77,9 @@ export function HouseCityBlock({
           ))}
         </ul>
       )}
+      {city.recruit ? (
+        <HouseRecruitBlock recruit={city.recruit} names={city.cities} leader={leader} onChanged={onChanged} />
+      ) : null}
       {!leader ? (
         <p className="faction-muted">{m.fid_city_member_note()}</p>
       ) : !city.ready ? (

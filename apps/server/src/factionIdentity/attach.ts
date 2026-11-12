@@ -11,6 +11,7 @@ import { followAllHouses, followNation } from "./follow.ts";
 import { type HouseWallet, adoptUnfoundedIdentities, createHouseFounder, nationFromDb } from "./found.ts";
 import { type HouseGateway, createHouseGateway } from "./gateway.ts";
 import { type HouseCityService, createHouseCity } from "./houseCity.ts";
+import { createHouseRecruitService } from "./houseRecruit.ts";
 import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
@@ -92,6 +93,12 @@ export function attachHouses(options: {
     now: options.now,
     world: () => options.world,
   });
+  const recruit = createHouseRecruitService({
+    pool,
+    db: options.db,
+    now: options.now,
+    world: () => options.world,
+  });
   const gateway = createHouseGateway({
     founder: () =>
       createHouseFounder({
@@ -106,6 +113,7 @@ export function attachHouses(options: {
       createHouseMembers({ pool, db: options.db, rules: options.rules, now: options.now, nationOf }),
     succession: () => succession,
     city: () => city,
+    recruit: () => recruit,
     afterMembership: async () => {
       await houseTiesOf(options.world?.persistence)?.reload();
     },

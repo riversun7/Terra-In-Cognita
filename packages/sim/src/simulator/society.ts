@@ -576,7 +576,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     },
 
     recruitView: (hirer, cityId, nowMs) => recruits.view(hirer, cityId, nowMs),
-    recruit: (hirer, cityId, slot, nowMs, guard) => recruits.hire(hirer, cityId, slot, nowMs, guard),
+    recruit: (hirer, cityId, slot, nowMs, guard, prepaid) =>
+      recruits.hire(hirer, cityId, slot, nowMs, guard, prepaid),
 
     endOfDay(nowMs) {
       day += 1;

@@ -1,8 +1,8 @@
 // 플레이어 가문을 NPC 사회 런타임의 거울 세계에 들이기 — docs/adr/2026-11-11-house-village.md(질문 1005 가, D-213·D-216·D-340·D-339).
 // 가문이 도시를 처음 얻을 때(마을 세우기·폐허 복원) 봉신·독립을 고르면 그때 가문에 소유 주체(world_owners — 국고·원장 계정)를 만들고 거울
 // 세계 세력(SimFaction, player 표시)으로 둔다. 그 뒤 가문 도시는 NPC 도시와 같은 규칙을 탄다(D-212 "유저와 NPC가 같은 규칙"): 만족도·반란·
-// 공물(봉신 → 나라, 시뮬 societyPayouts)·배당·점령·정원사 웨이브·도시 경제. 다른 점: 판단(NPC 두뇌)을 돌리지 않는다(runtime.ts가 player
-// 세력에는 판단을 예약하지 않는다), 도시를 모두 잃어도 사라지지 않는다(@terra/sim dieIfEmpty — 가문 행 해산은 가문장 몫).
+// 공물(봉신 → 나라, 시뮬 societyPayouts)·배당·점령·정원사 웨이브·도시 경제. 다른 점: 판단(NPC 두뇌)을 돌리지 않는다(판단 사건은
+// 받지만 자동 구인만 — houseRecruit.ts, 질문 1041 다), 도시를 모두 잃어도 사라지지 않는다(@terra/sim dieIfEmpty — 가문 행 해산은 가문장 몫).
 // - 봉신: 위 세력(overlord) = 가문 나라(factions.born_of)의 소유 주체. 체제는 나라 체제를 따른다(D-339 해석과 같은 결 [임시]).
 // - 독립: 위 세력 없음 + 고른 체제(D-340 "독립 도시국가로 세우면 체제도 그때 정한다"). 태어날 때 부모(bornOf) = 가문 나라(화폐·도시 이름이
 //   부모 나라를 따른다 — 기획 답 601 나·620 나, 독립 가문이 자기 화폐를 찍는 길(D-299)은 아직 없다).
@@ -72,6 +72,8 @@ export function attachNpcHouses(o: {
   readonly hooks: () => SimHooks | undefined;
   readonly nextOwnerId: () => number;
   readonly rules: () => SocietyCoefficients;
+  /** 가문을 들인 뒤(판단 사건을 건다 — 자동 구인, houseRecruit.ts) */
+  readonly onAdopt?: ((faction: SimFaction, nowMs: number) => void) | undefined;
 }): NpcHouses {
   const { world, persist } = o;
   const ownerOfRow = (rowId: number): number | undefined => {
@@ -118,6 +120,7 @@ export function attachNpcHouses(o: {
       persist.adoptHouse(ownerId, input.rowId);
       // 화폐·세율은 나라를 따른다(반란·새 마을 세력과 같은 고리)
       if (nation) o.hooks()?.factionBorn(faction, nation);
+      o.onAdopt?.(faction, input.nowMs);
       return ownerId;
     },
 

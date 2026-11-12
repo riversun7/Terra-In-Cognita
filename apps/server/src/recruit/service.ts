@@ -78,7 +78,7 @@ function statsView(stats: readonly number[]): RecruitCardView["stats"] {
   return { str: at(0), dex: at(1), agi: at(2), vit: at(3), int: at(4), wis: at(5) };
 }
 
-function cardView(card: RecruitCard, taken: number): RecruitCardView {
+export function cardView(card: RecruitCard, taken: number): RecruitCardView {
   return {
     slot: card.slot,
     level: card.level,

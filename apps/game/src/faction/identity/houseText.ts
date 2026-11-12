@@ -1,6 +1,11 @@
 // 가문 가입 문구 표 — 결과 코드·한 일·가문 소식 종류 → 메시지(oxlint: 메시지 이름을 계산해 읽지 않는다, 표로 적는다).
 // 질문 985 다·983 가·986 가, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)".
-import type { HouseCityResultCode, HouseMemberAction, HouseMemberResultCode } from "@terra/protocol";
+import type {
+  HouseCityResultCode,
+  HouseMemberAction,
+  HouseMemberResultCode,
+  HouseRecruitResultCode,
+} from "@terra/protocol";
 import { type HouseNoticeKind, type HouseNoticeRow, isHouseNoticeKind } from "@terra/shared/house";
 import { m } from "../../paraglide/messages.js";
 
@@ -64,6 +69,25 @@ export const HOUSE_CITY_ERROR_TEXT: Readonly<Record<HouseCityResultCode | "offli
   insufficient_funds: m.fid_city_error_insufficient_funds,
   unknown_ruin: m.fid_city_error_unknown_ruin,
   not_owner: m.fid_city_error_not_owner,
+  offline: m.fid_found_offline,
+  timeout: m.fid_found_offline,
+};
+
+/** 가문 도시 구인 결과(프로토콜 25, 질문 1041 다) */
+export const HOUSE_RECRUIT_ERROR_TEXT: Readonly<
+  Record<HouseRecruitResultCode | "offline" | "timeout", Text>
+> = {
+  sign_in_required: m.fid_found_sign_in,
+  busy: m.fid_found_busy,
+  rate_limited: m.fid_error_rate_limited,
+  internal_error: m.fid_house_error_failed,
+  no_cyborg: m.fid_house_no_cyborg,
+  no_house: m.fid_city_error_no_house,
+  not_leader: m.fid_house_error_not_leader,
+  not_house_city: m.fid_recruit_error_not_house_city,
+  cards_changed: m.fid_recruit_error_cards_changed,
+  taken: m.fid_recruit_error_taken,
+  insufficient_funds: m.fid_recruit_error_insufficient_funds,
   offline: m.fid_found_offline,
   timeout: m.fid_found_offline,
 };

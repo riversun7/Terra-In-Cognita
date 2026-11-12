@@ -75,6 +75,7 @@ import { createCityDayStore } from "./cityDayStore.ts";
 import { createCityPeople, seedPopulationOf } from "./cityPeople.ts";
 import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./economy.ts";
 import { humanNameOf } from "./humanNames.ts";
+import { type HouseRecruit, createHouseRecruit } from "./houseRecruit.ts";
 import { type NpcHouses, attachNpcHouses } from "./houseRuntime.ts";
 import { createHumanPlaces } from "./humanPlaces.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
@@ -182,6 +183,8 @@ export interface NpcRuntime {
   flushRuins(): void;
   /** 플레이어 가문 도시(마을 세우기·폐허 복원 고르기, houseRuntime.ts) */
   readonly houses: NpcHouses;
+  /** 가문 도시 구인(자동 켬·끔, 손으로 사기 — 질문 1041 다, houseRecruit.ts) */
+  readonly houseRecruit: HouseRecruit;
   /** 그 도시 시장 유닛(기획 답 744 나, cityPeople.ts). 없으면 undefined */
   mayorOf(cityId: number): number | undefined;
   /** NPC 휴먼 이름(기획 답 773 나, humanNames.ts — 그 휴먼 나라의 팩 목록). 거울 세계 휴먼이 아니거나 목록이 없으면 undefined */
@@ -600,6 +603,11 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     sink: (line) => log.info({ npcMetrics: line }, "npc society metrics"),
   });
   const ctxRef: { ctx?: NpcContext } = {};
+  // 가문 도시 구인(질문 1041 다): 자동을 끈 가문은 켤 때 DB에서 읽는다
+  const houseRecruit = createHouseRecruit({
+    ctx: () => ctxRef.ctx,
+    off: state.factions.flatMap((row) => (row.player && !row.recruitAuto ? [row.ownerId] : [])),
+  });
   const econRef: { current?: ServerEconomy | undefined } = {};
   const loop = createSimLoop<SimEvent>({
     startMs,
@@ -613,8 +621,9 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         return;
       }
       if (event.payload.kind === EVENT_DECIDE) {
-        // 플레이어 가문은 판단하지 않는다(예약도 하지 않지만 옛 예약이 남았을 수 있다)
-        if (world.factions.get(event.payload.subject)?.player) return;
+        // 플레이어 가문은 판단하지 않고 자동 구인만(houseRecruit.ts)
+        const house = world.factions.get(event.payload.subject);
+        if (house?.player) return houseRecruit.decide(house, sim.nowMs);
         if (o.rules().switches.npcAiEnabled === 0) {
           const faction = world.factions.get(event.payload.subject);
           if (faction?.alive) scheduleDecide(ctx, faction, sim.nowMs);
@@ -798,8 +807,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       tech: faction.tech,
     })),
   );
-  for (const faction of world.factions.values())
-    if (faction.alive && !faction.player) scheduleDecide(ctx, faction, startMs);
+  for (const faction of world.factions.values()) if (faction.alive) scheduleDecide(ctx, faction, startMs);
   loop.schedule(nextDayEnd(startMs, dayMs), { kind: EVENT_DAY, subject: 0 });
   reviewCapitals();
   const first = await persist.flush(society.currentDay());
@@ -894,7 +902,9 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     gardener,
     economy: econ,
     flushRuins: () => void persist.flushRuins(),
+    houseRecruit,
     houses: attachNpcHouses({
+      onAdopt: (faction, nowMs) => houseRecruit.schedule(faction, nowMs),
       world,
       persist,
       hooks: () => hooks,

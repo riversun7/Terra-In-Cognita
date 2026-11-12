@@ -2,6 +2,7 @@
 // 옮긴다), 986 가(운영자가 신고된 이름을 "가문 #ID"로 되돌린다). docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)".
 // 바꾸는 명령(초대·신청·받기·거절·거두기·나가기·내보내기)은 WebSocket(@terra/protocol house.ts)이다. 이 파일은 조회 모양과 공용 값만 둔다.
 import type { NationEmblemSpec } from "./nationEmblem.ts";
+import type { RecruitCardView } from "./recruit.ts";
 
 /** 가문 안 역할: 가문장 | 가문원 */
 export type HouseRole = "leader" | "member";
@@ -140,6 +141,29 @@ export interface HouseCityView {
   readonly ruins: readonly { readonly id: number; readonly name: string | null }[];
   /** 마을 세우기·폐허 고르기를 할 수 있나(NPC 사회 런타임이 돌 때만) */
   readonly ready: boolean;
+  /** 가문 도시 구인(질문 1041 다 — 가문을 거울 세계에 들인 뒤에만, 옛 서버는 보내지 않는다) */
+  readonly recruit?: HouseRecruitView | null | undefined;
+}
+
+/** 가문 도시 하나의 구인(인구·주거·가문장이 보는 지금 창 카드) */
+export interface HouseRecruitCity {
+  readonly id: number;
+  readonly population: number;
+  readonly housing: number;
+  /** 가문장만(가문원은 빈 목록) */
+  readonly cards: readonly RecruitCardView[];
+}
+
+/** 가문 도시 구인 칸(자동 구인 = NPC와 같은 구인 규칙식, 끄면 가문장이 손으로 산다) */
+export interface HouseRecruitView {
+  readonly auto: boolean;
+  /** 가문 국고(그 가문 화폐 최소 단위)·가문장 지갑(기준 통화, 가문장만 — 국고가 모자라면 여기서 낸다 [임시]) */
+  readonly treasury: string;
+  readonly leaderWallet: string | null;
+  /** 갱신 창(사기 명령이 보낸다)·다음 갱신 시각 */
+  readonly window: number;
+  readonly endsAtMs: number;
+  readonly cities: readonly HouseRecruitCity[];
 }
 
 /** factionIdentity.house 응답 */

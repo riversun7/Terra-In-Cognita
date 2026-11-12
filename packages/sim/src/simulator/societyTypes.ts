@@ -95,6 +95,7 @@ export interface SocietyRun {
     slot: number,
     nowMs: number,
     guard?: boolean,
+    prepaid?: boolean,
   ): SimUnit | undefined;
   breakVassal(faction: SimFaction): void;
   /** 웨이브에 진 시작 도시가 아닌 도시: 폐허(D-105·D-464 217) */

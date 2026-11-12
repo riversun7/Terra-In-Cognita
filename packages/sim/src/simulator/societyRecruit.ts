@@ -44,9 +44,17 @@ export interface SocietyRecruit {
   view(hirer: SimFaction, cityId: number, nowMs: number): RecruitView | undefined;
   /**
    * 카드 한 장을 산다(도시 주인만). 산 휴먼. 이미 샀거나 자리가 틀리거나 국고가 모자라면 undefined. guard면 경비대로 들인다(직무 없음 —
-   * 세계 차리기의 경비대와 같은 모양, 기획 답 920 나)
+   * 세계 차리기의 경비대와 같은 모양, 기획 답 920 나). prepaid면 값을 부르는 쪽이 이미 냈다(국고를 보지도 빼지도 않는다 — 서버 가문장이
+   * 제 지갑으로 사는 길, 질문 1041 다 [임시]. 시뮬은 쓰지 않는다)
    */
-  hire(hirer: SimFaction, cityId: number, slot: number, nowMs: number, guard?: boolean): SimUnit | undefined;
+  hire(
+    hirer: SimFaction,
+    cityId: number,
+    slot: number,
+    nowMs: number,
+    guard?: boolean,
+    prepaid?: boolean,
+  ): SimUnit | undefined;
   /** 하루 끝: 오늘 센 세력별 고용 수를 "어제"로 넘긴다(하루 줄이 읽는다) */
   rollDay(): void;
   /** 지난 하루 끝까지 하루 동안 그 세력이 고용한 수 */
@@ -98,7 +106,7 @@ export function createSocietyRecruit(o: SocietyRecruitOptions): SocietyRecruit {
       if (!city || city.owner !== hirer.id) return undefined;
       return viewOf(hirer, city, nowMs);
     },
-    hire(hirer, cityId, slot, nowMs, guard) {
+    hire(hirer, cityId, slot, nowMs, guard, prepaid) {
       const city = world.cities.get(cityId);
       if (!hirer.alive || !city || city.owner !== hirer.id) return undefined;
       const view = viewOf(hirer, city, nowMs);
@@ -111,8 +119,8 @@ export function createSocietyRecruit(o: SocietyRecruitOptions): SocietyRecruit {
       );
       if (!card || !draw) return undefined;
       const asset = o.treasuryAsset(hirer);
-      if (book.balanceOf(hirer.id, asset) < card.cost) return undefined;
-      if (card.cost > 0n)
+      if (prepaid !== true && book.balanceOf(hirer.id, asset) < card.cost) return undefined;
+      if (prepaid !== true && card.cost > 0n)
         book.post({
           kind: "recruit",
           atMs: nowMs,
@@ -144,7 +152,7 @@ export function createSocietyRecruit(o: SocietyRecruitOptions): SocietyRecruit {
       o.hooks?.unitsChanged?.(city.id, 1);
       o.scheduleUnit(unit.id, nowMs);
       counts.recruited += 1;
-      counts.spent.set(asset, (counts.spent.get(asset) ?? 0n) + card.cost);
+      if (prepaid !== true) counts.spent.set(asset, (counts.spent.get(asset) ?? 0n) + card.cost);
       today.set(hirer.id, (today.get(hirer.id) ?? 0) + 1);
       return unit;
     },

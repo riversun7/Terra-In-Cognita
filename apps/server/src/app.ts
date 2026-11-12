@@ -769,7 +769,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     ? createRecruitGateway({ service: recruitService, now, log: app.log })
     : undefined;
   const itemGateway = world ? createItemGateway({ access: holdingsAccess, now, log: app.log }) : undefined;
-  const laborGateway = world ? createLaborGateway({ service: laborService, now, log: app.log }) : undefined;
+  // 유닛 명령 게이트웨이는 운영자 빠르기 표시를 그 유닛이 선 2차맵에 단다(world/operatorPace.ts)
+  const paceMaps = () => world?.maps.values() ?? [];
+  const laborGateway = world
+    ? createLaborGateway({ service: laborService, maps: paceMaps, now, log: app.log })
+    : undefined;
   const fusionGateway = world
     ? createFusionGateway({ service: fusionService, now, log: app.log })
     : undefined;
@@ -810,6 +814,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const travelGateway = world
     ? createTravelGateway({
         service: () => (world.status().state === "ready" ? world.persistence?.travel : undefined),
+        maps: paceMaps,
         now,
         log: app.log,
       })
@@ -818,6 +823,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const gatherGateway = worldGather
     ? createGatherGateway({
         service: () => (world?.status().state === "ready" ? worldGather.current()?.service : undefined),
+        maps: paceMaps,
         now,
         log: app.log,
       })

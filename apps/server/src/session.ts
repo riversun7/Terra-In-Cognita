@@ -387,6 +387,8 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send: sendText,
           viewer: context.viewer ?? signedOut,
           protocolVersion,
+          // 운영자 모드(전체 보기) 연결의 직무 배치는 그 유닛에 운영자 빠르기 표시(world/operatorPace.ts)
+          observing: () => worldSocket?.observing() === true,
         });
         laborSocket.handle(message);
         return;
@@ -544,7 +546,12 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "gather_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        gatherSocket ??= context.gather.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        gatherSocket ??= context.gather.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          // 운영자 모드(전체 보기) 연결의 채집·들어가기도 운영자 빠르기(world/operatorPace.ts)
+          observing: () => worldSocket?.observing() === true,
+        });
         gatherSocket.handle(message);
         return;
       }

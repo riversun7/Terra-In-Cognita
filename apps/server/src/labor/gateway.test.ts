@@ -2,6 +2,8 @@
 import { decodeServerMessage } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
+import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
+import { createTestMap } from "../world/testSupport.ts";
 import { createLaborGateway } from "./gateway.ts";
 import type { LaborService } from "./service.ts";
 
@@ -154,5 +156,35 @@ describe("노동 계약 연결 처리", () => {
     for (let i = 0; i < 4; i++) await settle();
     expect(signedOut.sent).toEqual([{ t: "labor_result", id: 1, ok: false, code: "sign_in_required" }]);
     expect(booting.sent).toEqual([{ t: "labor_result", id: 2, ok: false, code: "busy" }]);
+  });
+
+  it("운영자 모드(전체 보기 + dev·admin) 직무 배치·일자리 받기는 그 유닛에 운영자 빠르기 표시, 보통 연결의 풀기는 지운다", async () => {
+    const { map } = createTestMap();
+    map.addUnit({ id: 9, size: 1, speed: 437, cellX: 10, cellY: 10 });
+    const dev: Viewer = { id: "dev-1", loginId: "dev", roles: ["player", "dev"] };
+    const connect = (who: Viewer, observing: boolean) => {
+      const gateway = createLaborGateway({
+        service: () => fakeService([]),
+        maps: () => [map],
+        now: () => 0,
+        log: { error: () => {} },
+      });
+      return gateway.open({ send: () => {}, viewer: () => Promise.resolve(who), observing: () => observing });
+    };
+    connect(dev, true).handle({ t: "labor_assign", id: 1, buildingId: 3, unitId: 9 });
+    for (let i = 0; i < 4; i++) await settle();
+    expect(map.paceOf(9)).toBe(OPERATOR_SPEED_FACTOR);
+    // 거절된 풀기(not_assigned)는 표시를 그대로 둔다. 된 명령(일자리 받기)은 보통 연결이면 지운다
+    connect(viewer, false).handle({ t: "labor_unassign", id: 2, unitId: 9 });
+    for (let i = 0; i < 4; i++) await settle();
+    expect(map.paceOf(9)).toBe(OPERATOR_SPEED_FACTOR);
+    connect(dev, false).handle({ t: "labor_accept_job", id: 3, jobId: 4, unitId: 9 });
+    for (let i = 0; i < 4; i++) await settle();
+    expect(map.paceOf(9)).toBe(1);
+    // 유닛이 없는 명령(계약 끝내기)은 표시와 상관없다
+    connect(dev, true).handle({ t: "labor_terminate", id: 4, contractId: 9 });
+    for (let i = 0; i < 4; i++) await settle();
+    expect(map.paceOf(9)).toBe(1);
+    map.stop();
   });
 });

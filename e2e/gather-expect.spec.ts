@@ -70,6 +70,8 @@ test.describe("개발자 + 시안 자료: 컨디션 한 줄", () => {
   test.use({ account: "dev", preview: "dev", ...VIEWPORTS.desktop });
 
   test("유닛 상세와 사이보그 화면에 컨디션(합계·주거·음식·상한)이 보인다", async ({ page, deviceErrors }) => {
+    // 요약 창이 열려 누르기를 가리지 않게 숨긴다
+    await rewriteTrpc(page, { "summary.get": hideSummary });
     await page.goto("/units");
     await expect(page.locator(".units-panel")).toBeVisible();
     await expect(page.locator(".units-panel .status")).toHaveCount(0, { timeout: 15_000 });
@@ -83,7 +85,6 @@ test.describe("개발자 + 시안 자료: 컨디션 한 줄", () => {
       message("ko", "roster_condition_parts", { housing: "+20", food: "+12", cap: "40" }),
     );
     // 사이보그 화면(시안 본체 +40)
-    await rewriteTrpc(page, { "summary.get": hideSummary });
     await page.goto("/cyborg");
     await expect(page.locator(".cyborg-profile")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("unit-condition").locator(".roster-condition-total")).toHaveText("+40");

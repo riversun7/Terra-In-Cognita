@@ -3,7 +3,8 @@
 // 무엇을 지을지는 npc/build.ts chooseCityBuild(주거·식량·배후지 원자재 몫), 재료·짓는 시간·일꾼은 플레이어 짓기와 같은 식이다:
 // - 재료 = 팩 시설 레벨 1 구간(buildCostAt), 그 도시 창고에서 뺀다(서버는 플레이어 짓기와 같은 자리 차례 — 도시 창고·창고 시설).
 // - 재료가 모자라면 그 재료를 도시 목표 재고에 넣는다(Economy.buildWants → npcTrade.ts cityTargets): 거래 판단이 국고로 도시 매입 호가·수입·
-//   내 도시끼리 나누기를 한다. 모자란 재료 값(지난 값) × 예비 ‰만큼 국고가 있을 때만 넣는다(NPC 판단 reservePm).
+//   내 도시끼리 나누기를 한다. 모자란 재료 값(지난 값) × 예비 ‰만큼 국고가 있고, 모자란 재료마다 세계 어느 시설이 내는 물건일 때만 넣는다
+//   (NPC 판단 reservePm).
 // - 짓는 시간 = buildTimeAt(무게 × M14) → 일 없는 휴먼(설정 칸 npc_build_builders_max까지)을 일꾼으로 withBuilders.
 // - 도시마다 한 번에 하나. 다 지은 건물은 그 세력의 다음 판단 때 생산에 든다(settle — 시뮬·서버 같은 때).
 // 자리·건물 칸은 실행 자리(NpcBuilder)가 정한다: 시뮬은 경제 시설만(자리 없음), 서버는 전략 배치 함수(facilities/cityLayout.ts)와 건물 서비스.
@@ -72,6 +73,20 @@ export function idleHumans(economy: Economy, world: SimWorld, cityId: number, gu
   return Math.max(0, (economy.cityUnits.get(cityId) ?? 0) - guards - working);
 }
 
+/**
+ * 세계 어디선가 나오는 물건(시설 레시피 산출, 추첨 레시피면 그 사다리의 물건) — 구할 길이 있는 재료인지 본다. 판단 한 번에 한 번 셈한다
+ */
+function producedAssets(economy: Economy): Set<string> {
+  const out = new Set<string>();
+  for (const facility of economy.facilities.values()) {
+    for (const stack of facility.recipe.outputs) out.add(stack.asset);
+    const roll = facility.recipe.gather;
+    const ladder = roll ? economy.catalog.gatherLadders.get(roll.subcategory) : undefined;
+    for (const tier of ladder ?? []) for (const asset of tier) out.add(asset);
+  }
+  return out;
+}
+
 /** 채집 시설 → 배후지 몫(땅 몫 × 받은 몫 ÷ 1000). 배후지를 모르면 undefined */
 function gatherPmOf(
   economy: Economy,
@@ -110,6 +125,7 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
   }
   const treasuryAsset = economy.currencyOf.get(faction.id) ?? economy.base;
   let funds = world.book.balanceOf(faction.id, treasuryAsset);
+  const produced = producedAssets(economy);
   for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
     wants.delete(cityId);
     const site = builder.site(faction, cityId);
@@ -140,8 +156,10 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
       if (builder.start(faction, cityId, pick, materials, ms, nowMs)) ctx.counts.builds += 1;
       continue;
     }
-    // 재료를 산다: 모자란 몫의 지난 값 × 예비 ‰만큼 국고가 있을 때만 도시 목표 재고에 넣는다(같은 판단의 다른 도시 몫은 뺀다)
+    // 재료를 산다: 모자란 몫의 지난 값 × 예비 ‰만큼 국고가 있을 때만 도시 목표 재고에 넣는다(같은 판단의 다른 도시 몫은 뺀다).
+    // 구할 길이 없는 재료(세계 어느 시설도 내지 않는 물건)면 넣지 않는다 — 채워지지 않는 매수 호가에 국고가 묶인다
     let cost = 0n;
+    let obtainable = true;
     const need = new Map<string, bigint>();
     for (const stack of materials) {
       const asset = itemAsset(stack.item);
@@ -149,10 +167,11 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
       need.set(asset, (need.get(asset) ?? 0n) + qty);
       const short = qty - world.book.balanceOf(faction.id, asset, cityId);
       if (short <= 0n) continue;
+      if (!produced.has(asset) && world.book.balanceOf(faction.id, asset, cityId) <= 0n) obtainable = false;
       const lot = lotSizeOf(economy.catalog, asset);
       cost += ((short + lot - 1n) / lot) * marketRefPrice(economy, cityId, asset);
     }
-    if (funds * 1000n < cost * BigInt(c.npc.reservePm)) continue;
+    if (!obtainable || funds * 1000n < cost * BigInt(c.npc.reservePm)) continue;
     funds -= cost;
     wants.set(cityId, need);
   }

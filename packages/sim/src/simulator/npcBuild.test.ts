@@ -17,17 +17,29 @@ const CATALOG: EconomyCatalog = {
     ...TEST_CATALOG.items,
     { id: "pine_log", tier: 0, category: "raw", startPrice: 1n, weight: 2000, enabled: true },
   ],
+  recipes: [
+    ...TEST_CATALOG.recipes,
+    {
+      id: "cut_logs",
+      facility: "lumber_camp",
+      inputs: [],
+      outputs: [{ item: "pine_log", qty: 10n }],
+      work: 1000,
+      enabled: true,
+    },
+  ],
   facilities: [
     ...TEST_CATALOG.facilities.map((facility) => ({ ...facility, build: wood(8) })),
     { id: "lodging", stage: "living", slotsPerLevel: 0, build: wood(10) },
   ],
 };
 
-/** 도시마다 통나무 넉넉히(재료를 사지 않고 바로 짓는다) */
+/** 도시마다 통나무 넉넉히 + 통나무 벌목(세계가 통나무를 낸다 — 모자라면 거래로 산다) */
 const SCENARIO = parseScenario({
   ...TEST_ECONOMY_SCENARIO_RAW,
   factions: TEST_ECONOMY_SCENARIO_RAW.factions.map((group) => ({
     ...group,
+    cityPlan: [...group.cityPlan, { facility: "lumber_camp", recipe: "cut_logs", level: 1, workers: 1 }],
     stock: [...group.stock, { item: "pine_log", qty: "400" }],
   })),
 });
@@ -55,8 +67,8 @@ describe("NPC 도시 증축(질문 1101 나)", () => {
 
   it("도시 건물 수 상한까지만 짓는다(도시 8곳 × 상한 − 처음 시설)", () => {
     const summary = run(20, new Map([["npc_build_max_buildings", 5]]));
-    // 처음 시설: 농업 도시 3·공업 도시 4 → 더 지을 수 있는 수 = 4 × 2 + 4 × 1 = 12
-    expect(summary.npc.builds).toBeLessThanOrEqual(12);
+    // 처음 시설: 농업 도시 4·공업 도시 5 → 더 지을 수 있는 수 = 4 × 1 + 4 × 0 = 4
+    expect(summary.npc.builds).toBeLessThanOrEqual(4);
     expect(summary.npc.builds).toBeGreaterThan(0);
   });
 });

@@ -75,10 +75,30 @@ function parts(world: World) {
   return { persistence, npc };
 }
 
-/** 15분씩 민다(끝난 짓기 작업도 그 시각으로 적용한다) */
-async function advance(world: World, ms: number): Promise<void> {
+/** NPC 도시 창고 짓기 재료를 그 양까지 채운다(시험값 — 도시 거래 판단이 남는 물건을 팔아도 판단 때 재료가 있게) */
+function stock(world: World, qty: bigint): void {
+  const { persistence, npc } = parts(world);
+  for (const [cityId, city] of npc.world.cities)
+    for (const item of MATERIALS) {
+      const asset = `item:${item}`;
+      const gap = qty - persistence.ledger.balanceOf(city.owner, asset, cityId);
+      if (gap <= 0n) continue;
+      persistence.ledger.post({
+        kind: "endow",
+        atMs: clock,
+        entries: [
+          { account: persistence.ledger.systemAccount(`source:${asset}`, asset), amount: -gap },
+          { account: persistence.ledger.ownerAccount(city.owner, asset, cityId), amount: gap },
+        ],
+      });
+    }
+}
+
+/** 15분씩 민다(끝난 짓기 작업도 그 시각으로 적용한다). refill이면 재료를 채운 뒤 민다 */
+async function advance(world: World, ms: number, refill = false): Promise<void> {
   const { persistence, npc } = parts(world);
   for (let passed = 0; passed < ms; passed += 15 * 60_000) {
+    if (refill) stock(world, 200n);
     clock += 15 * 60_000;
     persistence.facilities.service.finishDue(clock);
     await npc.tick();
@@ -92,19 +112,6 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 증축 (DB, 질문 1101 나)", (
     const { persistence, npc } = parts(world);
     const service = persistence.facilities.service;
     const before = new Set(service.facilities.keys());
-    // NPC 도시 창고에 짓기 재료(시험값)
-    for (const [cityId, city] of npc.world.cities)
-      for (const item of MATERIALS) {
-        const asset = `item:${item}`;
-        persistence.ledger.post({
-          kind: "endow",
-          atMs: clock,
-          entries: [
-            { account: persistence.ledger.systemAccount(`source:${asset}`, asset), amount: -500n },
-            { account: persistence.ledger.ownerAccount(city.owner, asset, cityId), amount: 500n },
-          ],
-        });
-      }
     const stockOf = () => {
       let total = 0n;
       for (const [cityId, city] of npc.world.cities)
@@ -112,8 +119,9 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 증축 (DB, 질문 1101 나)", (
           total += persistence.ledger.balanceOf(city.owner, `item:${item}`, cityId);
       return total;
     };
+    stock(world, 200n);
     const stocked = stockOf();
-    await advance(world, 3 * HOUR_MS);
+    await advance(world, 3 * HOUR_MS, true);
 
     const added = [...service.facilities.values()].filter((record) => !before.has(record.buildingId));
     expect(added.length).toBeGreaterThan(0);
@@ -125,8 +133,12 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 증축 (DB, 질문 1101 나)", (
         true,
       );
     }
-    // 재료는 창고에서 빠졌다(플레이어 짓기와 같은 facility_build 거래)
-    expect(stockOf()).toBeLessThan(stocked);
+    // 재료는 창고에서 빠졌다(플레이어 짓기와 같은 facility_build 거래 — 소멸 계정 sink로)
+    expect(stocked).toBeGreaterThan(0n);
+    const sunk = persistence.ledger.balance(
+      persistence.ledger.systemAccount("sink:item:pine_log", "item:pine_log"),
+    );
+    expect(sunk).toBeGreaterThan(0n);
 
     // 작업이 끝난 생산 시설은 다음 판단 뒤 도시 경제 생산에 든다
     await advance(world, 3 * HOUR_MS);

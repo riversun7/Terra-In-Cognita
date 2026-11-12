@@ -1,7 +1,8 @@
 // 2차맵 시험용 소품 규칙 — 골든 해시가 콘텐츠 팩 수정에 흔들리지 않게 팩 값을 옮겨 적었다(2026-10-31 content/core map_props, 이름·설명 뺌.
-// 2026-11-11 장식 소품 11종을 끝에 더함)
+// 2026-11-11 장식 소품 11종, 2026-11-12 지형별 오브젝트(D-536) 장식·물 위 소품을 끝에 더함)
 // 팩과 같은지는 props.test.ts가 본다(다르면 여기를 팩에 맞추고 골든 해시를 고친다).
 import type { MapPropInput } from "./props.ts";
+import { TEST_TERRAIN_MAP_PROPS } from "./testMapPropsTerrain.ts";
 
 export const TEST_MAP_PROPS: readonly MapPropInput[] = [
   {
@@ -724,4 +725,5 @@ export const TEST_MAP_PROPS: readonly MapPropInput[] = [
     ],
     maxShare: 2,
   },
+  ...TEST_TERRAIN_MAP_PROPS,
 ];

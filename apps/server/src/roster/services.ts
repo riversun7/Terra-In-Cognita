@@ -9,7 +9,8 @@ import type {
   RosterUnit,
   UnitsListResponse,
 } from "@terra/shared/roster";
-import type { ConditionParts } from "@terra/sim";
+import { type ConditionParts, HOME_HOUSING } from "@terra/sim";
+import type { WorkerConditionView } from "../labor/condition.ts";
 import type { HomeQuery, RosterServices, Viewer } from "../trpc/context.ts";
 import type { CyborgService } from "../cyborg/service.ts";
 import { cyborgLookOf } from "../cyborg/state.ts";
@@ -32,14 +33,16 @@ import { EMPTY_WORLD_ROSTER, type WorldRosterRow, type WorldRosterSource } from 
 const worldId = (id: number): string => `w${id}`;
 
 /** 유닛 컨디션을 읽는 곳(건물 서비스 facilities/world.ts condition, 세계가 준비된 뒤). 모르면 undefined */
-export type ConditionReader = (unitId: number) => ConditionParts | undefined;
+export type ConditionReader = (unitId: number) => WorkerConditionView | ConditionParts | undefined;
 
-/** 서버 컨디션 → 화면 한 줄(상한 = 설정 칸 condition_cap) */
+/** 서버 컨디션 → 화면 한 줄(상한 = 설정 칸 condition_cap). 선호(D-535 1151 나)가 있으면 선호 몫·이름도 */
 export function rosterConditionOf(
-  parts: ConditionParts | undefined,
+  parts: WorkerConditionView | ConditionParts | undefined,
   cap: number,
 ): RosterCondition | undefined {
   if (!parts) return undefined;
+  const view = "preferences" in parts ? parts : undefined;
+  const housing = view?.preferences.housing;
   return {
     total: parts.total,
     housing: parts.housing,
@@ -47,6 +50,14 @@ export function rosterConditionOf(
     cap,
     preferredGrade: parts.preferredGrade,
     housingGrade: parts.housingGrade,
+    housingPrefer: parts.housingPrefer,
+    foodPrefer: parts.foodPrefer,
+    ...(view?.favoriteFoodName ? { favoriteFood: view.favoriteFoodName } : {}),
+    ...(housing === HOME_HOUSING
+      ? { preferredHousing: "home" as const }
+      : view?.preferredHousingName
+        ? { preferredHousing: view.preferredHousingName }
+        : {}),
   };
 }
 

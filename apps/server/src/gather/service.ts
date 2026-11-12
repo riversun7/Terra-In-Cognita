@@ -40,6 +40,7 @@ import {
 } from "./deposit.ts";
 import { enterBuilding } from "./enter.ts";
 import type { GatherKind } from "./kinds.ts";
+import { schoolCell } from "@terra/shared/fishSchool";
 import { type GatherObject, placeGatherObjects } from "./objects.ts";
 import {
   cellDistance2,
@@ -59,6 +60,13 @@ export const RECENT_MS = 10 * 60_000;
 const RETRY_MS = 2_000;
 /** 오브젝트 둘레 설 칸 찾는 반경(배치 칸) */
 const OBJECT_STAND_CELLS = 4;
+/** 어군을 낚는 동안 봐 주는 여유(배치 칸) — 캐는 사이 어군이 조금 헤엄쳐도 놓치지 않게 [임시] */
+const SCHOOL_REACH_SLACK = 2;
+
+/** 오브젝트의 시각 nowMs 자리(배치 칸). 어군은 길 위 지금 자리, 그 밖은 놓인 자리 */
+function livePlace(object: GatherObject, nowMs: number): CellPoint {
+  return object.route ? schoolCell(object.route, nowMs) : { x: object.x, y: object.y };
+}
 /** 건물·도시 둘레 설 칸 찾는 반경(배치 칸) */
 const BUILDING_STAND_CELLS = 14;
 /** setTimeout 지연 상한 */
@@ -111,6 +119,11 @@ export interface GatherDeps {
   /** 2차맵(1차맵 칸) 행성 값의 목재 몫(‰, @terra/shared/catchment woodSharePm — 목재 몫 노두가 설 몫). 없으면 그 노두를 두지 않는다 */
   woodSharePm?(mapKey: number): number | undefined;
   /**
+   * 2차맵(1차맵 칸)의 바이옴 ID와 물 비트(행성 값 — 지형별 오브젝트·어군이 설 조건, 기획 D-536). 없거나 undefined면 지형별 오브젝트·어군을
+   * 두지 않는다(행성 값 없는 임시 지형)
+   */
+  terrainKind?(mapKey: number): { readonly biomeId: string | null; readonly waterBits: number } | undefined;
+  /**
    * 채집 중 부상(docs/adr/2026-11-08-injury.md 5절, world/unitCondition.ts createGatherInjury): 캐기가 끝날 때마다 지난번 뒤로 지난 작업 주기
    * 경계를 굴린다. 없으면 다치지 않는다(시험)
    */
@@ -158,8 +171,10 @@ export interface GatherService {
   /** 채집을 멈춘다(그 자리에 선다, 든 화물은 그대로) */
   halt(userId: string, unitId: number): GatherCommandResult;
   enter(userId: string, input: { unitId: number; buildingId: number }): Promise<GatherCommandResult>;
-  /** 그 2차맵의 오브젝트(자리는 지형에서, 상태는 저장소에서) */
+  /** 그 2차맵의 오브젝트(자리는 지형에서, 상태는 저장소에서). 어군은 집 자리(x, y)와 길(route) */
   objects(mapKey: number): readonly GatherObject[] | undefined;
+  /** 그 2차맵의 오브젝트, 어군은 시각 nowMs의 자리로(채집소 반경 셈 — 기획 D-536 움직이는 어군) */
+  objectsAt(mapKey: number, nowMs: number): readonly GatherObject[] | undefined;
   /** 내 줄(진행 중 + 최근 끝난 것) */
   loops(userId: string): GatherLoopView[];
   /** 그 건물 안 유닛(들어가기로 머묾) */
@@ -181,15 +196,35 @@ function commandCode(code: ResultCode): GatherResultCode {
   return "no_path";
 }
 
-/** 목표 칸에서 가장 가까운 설 칸(체비쇼프 고리, 고리 안은 from에 가까운 칸). 없으면 null */
+/**
+ * 목표 칸에서 가장 가까운 설 칸(체비쇼프 고리, 고리 안은 from에 가까운 칸). 없으면 null.
+ * anyRing이면 반경 안 모든 설 칸 가운데 from에 가장 가까운 칸(어군 — 낚는 거리 안이면 건너편 물가보다 유닛 쪽 물가로)
+ */
 function standNear(
   map: SecondMap,
   target: CellPoint,
   size: SizeClass,
   radius: number,
   from: CellPoint,
+  anyRing = false,
 ): CellPoint | null {
   const top = PLACEMENT_SIZE - size;
+  if (anyRing) {
+    let best: CellPoint | null = null;
+    let bestDistance = 0;
+    for (let dy = -radius; dy <= radius; dy++)
+      for (let dx = -radius; dx <= radius; dx++) {
+        const cell = { x: target.x + dx, y: target.y + dy };
+        if (cell.x < 0 || cell.y < 0 || cell.x > top || cell.y > top) continue;
+        if (!map.isStandable(cell.x, cell.y, size)) continue;
+        const distance = cellDistance2(cell.x, cell.y, from.x, from.y);
+        if (!best || distance < bestDistance) {
+          best = cell;
+          bestDistance = distance;
+        }
+      }
+    return best;
+  }
   for (let ring = 0; ring <= radius; ring++) {
     let best: CellPoint | null = null;
     let bestDistance = 0;
@@ -229,12 +264,15 @@ export function createGatherService(deps: GatherDeps): GatherService {
     if (!map) return undefined;
     const cached = objectCache.get(mapKey);
     if (cached?.version === map.terrainVersion) return cached;
+    const terrainKind = deps.terrainKind?.(mapKey);
     const list = placeGatherObjects(
       {
         ...mapLayers(map),
         materials: deps.materials?.(mapKey),
         oreSharePm: deps.oreSharePm?.(mapKey),
         woodSharePm: deps.woodSharePm?.(mapKey),
+        biomeId: terrainKind?.biomeId,
+        waterBits: terrainKind?.waterBits,
       },
       deps.kinds(),
     );
@@ -405,12 +443,34 @@ export function createGatherService(deps: GatherDeps): GatherService {
       return Promise.resolve(fail("unknown_object"));
     }
     const here = anchorAt(positionAt(where.info.motion, now()), where.info.size);
-    const goal = standNear(where.map, object, where.info.size, OBJECT_STAND_CELLS, here);
+    // 어군(기획 D-536)은 지금 자리에서 낚는 거리(reach) 안 물가 설 칸으로. reach 0(배로만)이면 설 칸이 없다
+    const reach = object.route ? (deps.kinds()[object.kind]?.reach ?? 0) : OBJECT_STAND_CELLS;
+    const goal =
+      reach > 0
+        ? standNear(
+            where.map,
+            livePlace(object, now()),
+            where.info.size,
+            reach,
+            here,
+            object.route !== undefined,
+          )
+        : null;
     if (!goal) {
       finish(action, "no_path");
       return Promise.resolve(fail("no_path"));
     }
     return walk(action, goal, "to_object");
+  };
+
+  /** 어군이 지금 유닛에서 낚는 거리(reach + 여유 2칸) 안인가. 어군이 아니면 늘 true */
+  const withinReach = (action: Action, object: GatherObject): boolean => {
+    if (!object.route) return true;
+    const here = hereOf(action);
+    if (!here) return false;
+    const place = livePlace(object, now());
+    const reach = (deps.kinds()[object.kind]?.reach ?? 0) + SCHOOL_REACH_SLACK;
+    return Math.max(Math.abs(place.x - here.x), Math.abs(place.y - here.y)) <= reach;
   };
 
   const goToDeposit = async (action: Action): Promise<void> => {
@@ -486,6 +546,12 @@ export function createGatherService(deps: GatherDeps): GatherService {
       await moveOn(action);
       return;
     }
+    // 어군이 헤엄쳐 멀어졌으면 다시 쫓아간다(물가 설 칸으로)
+    const target = objectsOf(action.mapKey)?.byId.get(action.objectId);
+    if (target && !withinReach(action, target)) {
+      await goToObject(action);
+      return;
+    }
     const primary = statOf(deps.primaries(action.unitId), kind.primary) ?? 0;
     const duration = gatherDurationMs(kind, primary, deps.rules().productionMainDivisor);
     action.phase = "gathering";
@@ -506,6 +572,11 @@ export function createGatherService(deps: GatherDeps): GatherService {
     const object = objectsOf(action.mapKey)?.byId.get(action.objectId);
     if (!object) {
       finish(action, "interrupted");
+      return;
+    }
+    // 캐는 동안 어군이 낚는 거리 밖으로 헤엄쳐 갔으면 이번 한 번은 놓치고 다시 쫓아간다
+    if (!withinReach(action, object)) {
+      await goToObject(action);
       return;
     }
     const rules = deps.rules();
@@ -808,6 +879,8 @@ export function createGatherService(deps: GatherDeps): GatherService {
       if (!object || !kind) return fail("unknown_object");
       // 밭·목초지·물터는 맡는 시설의 일꾼만 쓴다(사용자 답 D-519, docs/adr/2026-11-11-city-catchment.md)
       if (!kind.direct) return fail("unavailable");
+      // 배로만 닿는 오브젝트(물 위 자리·낚는 거리 0 어군 — 배는 아직 없다, 기획 D-536 질문 1221)
+      if (kind.boat === true) return fail("unavailable");
       if (deps.store.read(input.mapKey, object.id, kind.uses, now()).usesLeft <= 0) return fail("depleted");
       if (!(await freeUnit(userId, unit.ownerId, input.unitId))) return fail("unavailable");
       const action = newAction(userId, unit.ownerId, input.unitId, input.mapKey, "gather");
@@ -846,6 +919,13 @@ export function createGatherService(deps: GatherDeps): GatherService {
       return walkToBuilding(action);
     },
     objects: (mapKey) => objectsOf(mapKey)?.list,
+    objectsAt(mapKey, nowMs) {
+      const list = objectsOf(mapKey)?.list;
+      if (!list) return undefined;
+      return list.some((object) => object.route)
+        ? list.map((object) => (object.route ? { ...object, ...livePlace(object, nowMs) } : object))
+        : list;
+    },
     loops(userId) {
       const ownerId = deps.ownerOf(userId);
       if (ownerId === undefined) return [];

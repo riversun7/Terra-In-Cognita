@@ -61,6 +61,7 @@ export function seedCityWalls(input: CityWallSeedInput): number {
       builtAtMs: input.nowMs,
       builtBy: null,
       cityId: input.cityId,
+      seeded: true,
     };
     input.service.seedBuilt(record);
     placed += 1;

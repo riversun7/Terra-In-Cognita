@@ -43,12 +43,7 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 시작 도시 벌목장: 둘레 목재 몫 % 문턱",
     "NPC start city lumber camp: surrounding wood share % from",
   ),
-  k(
-    "npc_seed_mine_height_m",
-    "mineMinHeightM",
-    "산지 고도(m): 광석 몫 1000·높은 티어 광석",
-    "Mountain height (m): full ore share and high-tier ore",
-  ),
+  k("npc_seed_mine_height_m", "mineMinHeightM", "광석 몫 1000 고도(m)", "Full ore share height (m)"),
   k(
     "npc_seed_farm_temp_c",
     "farmMinTempC",
@@ -364,6 +359,14 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "resourceBitMinPm",
     "약초·축산물 있음 문턱(칸 몫 ‰)",
     "Herb and livestock present from (cell share ‰)",
+  ),
+  // 높은 티어 광석 분포(기획 D-535, 질문 1121): 산지 고도를 낮추고 산지 밖에도 드물게
+  k("ore_high_min_m", "oreHighMinM", "높은 티어 광석: 산지 고도(m)", "High-tier ore: mountain height (m)"),
+  k(
+    "ore_flat_high_pm",
+    "oreFlatHighPm",
+    "높은 티어 광석: 산지 밖 몫(‰)",
+    "High-tier ore: share outside mountains (‰)",
   ),
   // 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 49에 칸이 없어 map_spawn_*를 앞머리로 쓴다
   k(

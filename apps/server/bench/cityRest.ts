@@ -200,7 +200,7 @@ const haulRows: { cells: number; roundS: number; per100S: number }[] = [];
 /** 채집소마다 아이템 무게로 잰 옮김(질문 1094·1090 가): 시설 → 칸·한 묶음 무게·가득 찬 창고 무게 */
 const stationRows: { facility: string; cells: number; batchG: number; fullG: number }[] = [];
 /** 인구 상한(질문 1089 나): 도시마다 주거·침대 */
-const capRows: { housing: number; beds: number }[] = [];
+const capRows: { housing: number; beds: number; capBeds: number; oneMore: number }[] = [];
 /** 레시피(시설 → 첫 레시피 산출): recipes.json 원문을 스키마로 읽는다 */
 const recipesText = loaded.source.files.get("recipes.json");
 const recipesRaw: unknown = recipesText === undefined ? {} : JSON.parse(recipesText);
@@ -237,7 +237,8 @@ for (const city of picked) {
     const area = areas.get(record.buildingId);
     if (!def || !area) continue;
     if (def.gather) stations.push(record.buildingId);
-    else if (def.stage === "living") lodgings.push({ id: record.buildingId, area, level: 1, ownerId: 1 });
+    else if (def.stage === "living")
+      lodgings.push({ id: record.buildingId, area, level: 1, ownerId: 1, seeded: record.seeded === true });
     else if (def.stage === "storage") stores.push({ x: area.x, y: area.y });
   }
   const people = Math.floor((seed.startHousing * seed.populationPm) / 1000);
@@ -312,7 +313,17 @@ for (const city of picked) {
         fullG: (def.storageKg ?? 0) * 1000,
       });
   }
-  capRows.push({ housing: seed.startHousing, beds: cases[0]?.[1].bedTotal ?? 0 });
+  // 숙소 하나를 더 지으면(씨앗 뒤 숙소 — NPC 증축·플레이어) 상한에 드는 침대
+  const extra = planCityRest({
+    ...base,
+    lodgings: [...lodgings, { id: 2_000_000, area: { x: 140, y: 140, radius: 1 }, level: 1, ownerId: 1 }],
+  });
+  capRows.push({
+    housing: seed.startHousing,
+    beds: cases[0]?.[1].bedTotal ?? 0,
+    capBeds: cases[0]?.[1].capBeds ?? 0,
+    oneMore: extra.capBeds,
+  });
   map.stop();
 }
 
@@ -348,14 +359,16 @@ for (const [from, to] of [
   );
 }
 lines.push("");
-// 인구 상한(질문 1089 나): 예전 max(주거, 침대) → 주거 + 침대
+// 인구 상한(질문 1089 나 → 1131 나): 예전 max(주거, 침대) → 주거 + 침대 → 주거 + 씨앗 뒤 침대(씨앗 숙소 Lv1 침대는 빼고)
 const capN = Math.max(1, capRows.length);
 const capMean = (pick: (row: (typeof capRows)[number]) => number) =>
   (capRows.reduce((sum, row) => sum + pick(row), 0) / capN).toFixed(1);
-lines.push("| 인구 상한(도시 평균) | 주거 | 침대 | 예전 max(주거, 침대) | 지금 주거 + 침대 |");
-lines.push("|---|---|---|---|---|");
 lines.push(
-  `| 시작 도시 ${capRows.length} | ${capMean((r) => r.housing)} | ${capMean((r) => r.beds)} | ${capMean((r) => Math.max(r.housing, r.beds))} | ${capMean((r) => r.housing + r.beds)} |`,
+  "| 인구 상한(도시 평균) | 주거 | 침대 | 예전 max(주거, 침대) | 1089 나 주거 + 침대 | 지금 주거 + 씨앗 뒤 침대 | 숙소 하나 더 지으면 |",
+);
+lines.push("|---|---|---|---|---|---|---|");
+lines.push(
+  `| 시작 도시 ${capRows.length} | ${capMean((r) => r.housing)} | ${capMean((r) => r.beds)} | ${capMean((r) => Math.max(r.housing, r.beds))} | ${capMean((r) => r.housing + r.beds)} | ${capMean((r) => r.housing + r.capBeds)} | ${capMean((r) => r.housing + r.oneMore)} |`,
 );
 lines.push("");
 // 채집소 옮김(아이템 무게, 질문 1094·1090 가): 운반꾼 하나, 자동 옮김 간격 안에 가득 찬 창고를 비우나

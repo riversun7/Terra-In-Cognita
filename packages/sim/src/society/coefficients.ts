@@ -166,7 +166,7 @@ export interface SocietyCoefficients {
   readonly productionSubYieldPm: number;
   /**
    * [임시] 채집 시설 레벨의 상위 티어 확률 보너스(49 N43, D-506 301): 티어 추첨의 유효 스탯 += 이 값 × (레벨 − 1).
-   * 출발값 없음(사용자 확인 대기) → 10점(economy/gather.ts gatherStat)
+   * 출발값 없음(사용자 확인 대기) → 10점 → 5점(기획 D-535 1155 나 — 시설 레벨보다 컨디션이 더 크게, economy/gather.ts gatherStat)
    */
   readonly gatherLevelBonus: number;
   /** 컨디션(관리 보너스, D-534, 팩 tuning 경로 "condition.*" [임시]): 주거·음식 → 유효 스탯 ±, 합계 상한. society/condition.ts */
@@ -475,7 +475,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   lifeSkillBonusPerGrade: 2,
   productionMainDivisor: 20,
   productionSubYieldPm: 80,
-  gatherLevelBonus: 10,
+  gatherLevelBonus: 5,
   condition: { ...START_CONDITION },
   statSums: { humanMax: 80, creatureMax: 80 },
   gatherTierProgressBase: 30,

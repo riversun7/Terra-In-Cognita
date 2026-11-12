@@ -1,5 +1,5 @@
 // 화면 시험 도우미 — 내 사이보그 자리 묻기와 운영자 빠르기로 보내기(selection-ring.spec.ts·unit-looks.spec.ts가 함께 쓴다).
-// 운영자 빠르기: 전체 보기(observe)로 구독한 연결에서 보낸 이동은 서버가 OPERATOR_SPEED_FACTOR(100)배로 보낸다(apps/server/src/world/gateway.ts).
+// 운영자 빠르기: 전체 보기(observe)로 구독한 연결에서 보낸 이동은 서버가 OPERATOR_SPEED_FACTOR(100)배로 보낸다(apps/server/src/world/operatorPace.ts).
 import type { Page } from "@playwright/test";
 import { expect } from "./test.ts";
 import { sendCommands } from "./wsCommands.ts";

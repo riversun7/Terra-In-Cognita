@@ -41,7 +41,9 @@ describe("채집·들어가기 메시지(프로토콜 17)", () => {
     expect(decodeClientMessage(encodeMessage(stop))).toEqual(stop);
     const enter = { t: "unit_enter", id: 3, unitId: 7, buildingId: 42 } as const;
     expect(decodeClientMessage(encodeMessage(enter))).toEqual(enter);
-    expect(decodes(decodeClientMessage, { ...start, objectId: 65_536 })).toBe(false);
+    // 움직이는 어군 번호(65,536부터, 프로토콜 26)는 받고 2^20부터는 막는다
+    expect(decodes(decodeClientMessage, { ...start, objectId: 65_600 })).toBe(true);
+    expect(decodes(decodeClientMessage, { ...start, objectId: 0x10_0000 })).toBe(false);
     expect(decodes(decodeClientMessage, { ...start, unitId: 0 })).toBe(false);
     expect(decodes(decodeClientMessage, { ...enter, buildingId: -1 })).toBe(false);
   });

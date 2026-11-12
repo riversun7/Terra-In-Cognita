@@ -469,3 +469,62 @@ describe("유닛 조종 권한(docs/adr/2026-11-07-unit-control.md, 프로토콜
     map.stop();
   });
 });
+
+/** 유닛을 (x, 10)으로 옮기는 이동 명령 */
+const moveTo = (id: number, unitId: number, x: number): SecondMapClientMessage => {
+  const target = anchorCenter(x, 10, 1);
+  return { t: "move_unit", id, mapKey: MAP_KEY, unitId, x: target.x, y: target.y };
+};
+/** 명령 없이 그 유닛을 걷게 하는 길(채집 줄·들어가기·운반꾼처럼 moveUnit을 빠르기 없이 부른다)의 빠르기 */
+const followUpSpeed = async (map: ReturnType<typeof setup>["map"], x: number) => {
+  const result = map.moveUnit(1, anchorCenter(x, 10, 1));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(await result).toEqual({ ok: true });
+  return map.unitInfo(1)?.motion.speed;
+};
+
+describe("운영자 빠르기 표시(operatorPace.ts, 사용자 지적 2026-11-12)", () => {
+  it("운영자 모드 이동 명령 뒤로 그 유닛을 걷게 하는 다른 길도 100배, 주인의 보통 명령이 오면 다시 보통", async () => {
+    const { gateway, map } = setup();
+    map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
+    const admin = link(ADMIN);
+    const operator = gateway.open(admin);
+    operator.handle({ t: "subscribe", id: 1, mapKey: MAP_KEY, observe: true });
+    operator.handle(moveTo(2, 1, 30));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(admin.received).map((m) => m.ok)).toEqual([true, true]);
+    expect(map.unitInfo(1)?.motion.speed).toBe(437 * 100);
+    expect(await followUpSpeed(map, 40)).toBe(437 * 100);
+    // 주인(플레이어 보기)이 보낸 명령은 표시를 지운다 — 그 이동도, 뒤의 다른 길도 보통
+    const player = link(PLAYER);
+    const own = gateway.open(player);
+    own.handle({ t: "subscribe", id: 1, mapKey: MAP_KEY });
+    own.handle(moveTo(2, 1, 20));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(player.received).map((m) => m.ok)).toEqual([true, true]);
+    expect(map.unitInfo(1)?.motion.speed).toBe(437);
+    expect(await followUpSpeed(map, 50)).toBe(437);
+    map.stop();
+  });
+
+  it("운영자 모드 멈추기도 표시를 단다. 전체 보기가 아닌 운영자의 명령은 보통", async () => {
+    const { gateway, map } = setup();
+    map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
+    const admin = link(ADMIN);
+    const operator = gateway.open(admin);
+    operator.handle({ t: "subscribe", id: 1, mapKey: MAP_KEY, observe: true });
+    operator.handle({ t: "stop_unit", id: 2, mapKey: MAP_KEY, unitId: 1 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(admin.received).map((m) => m.ok)).toEqual([true, true]);
+    expect(map.paceOf(1)).toBe(100);
+    expect(await followUpSpeed(map, 30)).toBe(437 * 100);
+    // 같은 운영자라도 그 2차맵을 전체 보기로 보지 않는 연결이면 운영자 모드가 아니다
+    const plain = link(DEV);
+    gateway.open(plain).handle(moveTo(1, 1, 20));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(plain.received).map((m) => m.ok)).toEqual([true]);
+    expect(map.unitInfo(1)?.motion.speed).toBe(437);
+    expect(map.paceOf(1)).toBe(1);
+    map.stop();
+  });
+});

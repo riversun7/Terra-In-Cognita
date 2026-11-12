@@ -79,12 +79,14 @@ const ENDOW_KEY = "npc_endow:";
 const CITY_JOB_BASE = 1_000_000_000_000;
 /**
  * [임시] 기본 도시 직무(국가 프리셋에 성격 칸 cityJobs가 없을 때, 기획 답 531 다의 "칸이 없으면"): 그 도시에 이 시설 건물이 없으면 휴먼이
- * 이 레시피를 Lv1로 돌린다(시뮬 econ16 농업 나라 계획과 같은 세 가지 — 생필품 식량 사슬과 목재). 건물이 있으면 건물이 대신한다
+ * 이 레시피를 Lv1로 돌린다(시뮬 econ16 농업 나라 계획과 같은 것 — 생필품 식량 사슬과 목재). 건물이 있으면 건물이 대신한다.
+ * 바뀜 (2026-11-12, 기획 D-535 정리 1144 나): 통나무 벌목(cut_logs)도 — 짓기 레벨 1 재료(통나무)를 모든 나라가 스스로 캔다
  */
 export const CITY_JOBS: readonly { readonly facility: string; readonly recipe: string }[] = [
   { facility: "farm", recipe: "farm_grain" },
   { facility: "kitchen", recipe: "cook_ration" },
   { facility: "lumber_camp", recipe: "cut_timber" },
+  { facility: "lumber_camp", recipe: "cut_logs" },
 ];
 
 /**
@@ -170,6 +172,8 @@ export interface ServerEconomy {
   afterDay(nowMs: number, day: number): void;
   /** 그 도시의 생산 시설을 지금 건물대로 다시 맞춘다(NPC 증축이 다 지은 건물을 다음 판단에 넣는다 — 질문 1101 나, cityBuild.ts) */
   refreshCity(cityId: number, nowMs: number): void;
+  /** 그 도시 주인 나라의 특산 줄(나라 성격 칸 cityJobs, 없으면 기본 셋 — NPC 증축 목표 질문 1142 다가 본다) */
+  cityJobsOf(cityId: number): readonly { readonly facility: string; readonly recipe: string }[];
   /** 그 도시의 생산 시설(화면용, 시설 ID 차례) */
   production(cityId: number): FacilityRun[];
   /** 그 도시 일꾼 쉼터·옮김 계획(마지막 맞추기, 없으면 undefined — 휴먼 집·일터와 화면이 본다) */
@@ -462,8 +466,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         : undefined;
     if (plan) restPlans.set(cityId, plan);
     else restPlans.delete(cityId);
-    // 인구 상한 = 주거 + 숙소 침대(질문 1089 나, @terra/sim cityHousingCap): 구인 규칙식·붐빔·만족도 주거가 본다
-    if (city) city.beds = plan?.bedTotal ?? 0;
+    // 인구 상한 = 주거 + 씨앗 뒤 숙소 침대(질문 1089 나·1131 나, @terra/sim cityHousingCap): 구인 규칙식·붐빔·만족도 주거가 본다
+    if (city) city.beds = plan?.capBeds ?? 0;
     const logisticsOf = (id: number): Pick<EcoFacility, "dutyPm" | "haul"> => {
       const rest = plan?.facilities.get(id);
       if (!rest) return {};
@@ -647,6 +651,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       syncAll(nowMs);
     },
     restPlan: (cityId) => restPlans.get(cityId),
+    cityJobsOf: (cityId) => personalityOfCity(cityId)?.cityJobs ?? CITY_JOBS,
     refreshCity(cityId, nowMs) {
       recount();
       syncCity(cityId, nowMs);

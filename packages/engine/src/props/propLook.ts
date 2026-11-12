@@ -30,7 +30,9 @@ export type PropShape =
   | "fern"
   | "iceBlock"
   | "bones"
-  | "outcrop";
+  | "outcrop"
+  /** 지형별 오브젝트(기획 D-536): propKits.ts가 kit 이름으로 짓는다 */
+  | "kit";
 
 export interface PropLook {
   readonly shape: PropShape;
@@ -40,9 +42,92 @@ export interface PropLook {
   readonly heightM: number;
   /** 엄폐 없는 칸의 땅 색 섞기 세기(0~255). 없으면 60. 작은 장식은 옅게(멀리서 땅 색이 얼룩지지 않게) */
   readonly tint?: number;
-  /** 광맥 조각 색(노두 — 없으면 바위 색) */
+  /** 광맥 조각 색(노두 — 없으면 바위 색). kit 모양은 덧색(꽃·물·이끼 등) */
   readonly vein?: Rgb;
+  /** shape kit의 모델 이름(propKits.ts) */
+  readonly kit?: string;
+  /** 물 위 소품: 땅(바닥) 대신 수면 높이에 세운다(기획 D-536 대륙붕·심해·호수) */
+  readonly float?: boolean;
 }
+
+/** kit 겉모습 하나(모양 kit, 이름·색·높이·땅 색 세기·덧색, 물 위면 float) */
+const kit = (
+  name: string,
+  color: Rgb,
+  heightM: number,
+  tint: number,
+  vein?: Rgb,
+  float = false,
+): PropLook => ({
+  shape: "kit",
+  kit: name,
+  color,
+  heightM,
+  tint,
+  ...(vein ? { vein } : {}),
+  ...(float ? { float: true } : {}),
+});
+
+/** 지형별 2차맵 오브젝트(기획 D-536, 42 §5 표) 겉모습 — 장식(생성기)과 서버 채집 오브젝트 그림 [임시: 눈으로 맞춘 색] */
+const TERRAIN_LOOKS: Readonly<Record<string, PropLook>> = {
+  snowdrift: kit("snowdrift", [0.9, 0.93, 0.96], 0.7, 45),
+  crevasse: kit("crevasse", [0.2, 0.32, 0.45], 0.2, 70, [0.86, 0.92, 0.97]),
+  ice_fossil: kit("fossil", [0.7, 0.84, 0.92], 1.2, 30, [0.9, 0.86, 0.76]),
+  meteorite: { shape: "outcrop", color: [0.3, 0.27, 0.26], heightM: 1.2, tint: 40, vein: [0.85, 0.5, 0.25] },
+  moss_rock: kit("mossRock", [0.5, 0.5, 0.47], 2.2, 40, [0.42, 0.55, 0.32]),
+  reindeer_moss: kit("mossTufts", [0.76, 0.78, 0.66], 0.25, 35, [0.62, 0.7, 0.52]),
+  frost_pool: kit("pool", [0.62, 0.6, 0.52], 0.1, 40, [0.5, 0.66, 0.78]),
+  permafrost_vein: {
+    shape: "outcrop",
+    color: [0.45, 0.4, 0.36],
+    heightM: 1.2,
+    tint: 40,
+    vein: [0.33, 0.68, 0.56],
+  },
+  polar_herb: kit("herb", [0.42, 0.56, 0.4], 0.5, 30, [0.82, 0.78, 0.95]),
+  mushroom_patch: kit("mushrooms", [0.9, 0.87, 0.8], 0.35, 25, [0.72, 0.3, 0.2]),
+  berry_bush: kit("berries", [0.3, 0.48, 0.28], 1.2, 45, [0.62, 0.12, 0.3]),
+  herb_patch: kit("herb", [0.42, 0.64, 0.34], 0.6, 35, [0.97, 0.95, 0.85]),
+  wild_grain: kit("grain", [0.86, 0.74, 0.38], 1.1, 45),
+  sandstone: { shape: "outcrop", color: [0.78, 0.6, 0.42], heightM: 1.6, tint: 45, vein: [0.88, 0.72, 0.52] },
+  sand_dune: kit("dune", [0.88, 0.78, 0.55], 1.2, 35),
+  salt_flat: kit("saltFlat", [0.93, 0.92, 0.88], 0.1, 55, [0.98, 0.98, 0.96]),
+  oasis: kit("oasis", [0.36, 0.58, 0.3], 7, 50, [0.28, 0.55, 0.7]),
+  oil_seep: kit("oilSeep", [0.16, 0.14, 0.13], 0.1, 50, [0.3, 0.26, 0.34]),
+  tree_baobab: kit("baobab", [0.6, 0.5, 0.42], 12, 60, [0.42, 0.56, 0.28]),
+  waterhole: kit("pool", [0.55, 0.45, 0.32], 0.1, 50, [0.3, 0.5, 0.62]),
+  tree_giant: kit("giantTree", [0.18, 0.46, 0.22], 22, 70, [0.24, 0.54, 0.26]),
+  vines: kit("vines", [0.26, 0.5, 0.22], 2.4, 45, [0.32, 0.6, 0.28]),
+  tropical_herb: kit("herb", [0.24, 0.56, 0.3], 0.8, 35, [0.98, 0.5, 0.36]),
+  fruit_tree: kit("fruitTree", [0.3, 0.54, 0.26], 6, 55, [0.95, 0.56, 0.18]),
+  mud_pool: kit("pool", [0.38, 0.32, 0.24], 0.1, 45, [0.3, 0.28, 0.2]),
+  peat_mound: kit("peat", [0.28, 0.22, 0.16], 0.6, 45, [0.48, 0.5, 0.3]),
+  swamp_herb: kit("herb", [0.34, 0.5, 0.3], 0.7, 35, [0.86, 0.84, 0.4]),
+  tree_mangrove: kit("mangrove", [0.26, 0.46, 0.28], 7, 60, [0.38, 0.3, 0.22]),
+  rock_spire: kit("spire", [0.52, 0.5, 0.48], 7, 70, [0.6, 0.58, 0.56]),
+  alpine_herb: kit("herb", [0.4, 0.58, 0.36], 0.4, 30, [0.6, 0.42, 0.85]),
+  cave_entrance: kit("cave", [0.46, 0.44, 0.42], 4, 60),
+  scree: kit("scree", [0.58, 0.57, 0.55], 0.8, 40),
+  beach_dune: kit("dune", [0.9, 0.84, 0.66], 0.8, 30, [0.62, 0.7, 0.42]),
+  tide_rock: kit("tideRock", [0.34, 0.35, 0.37], 2, 45, [0.32, 0.5, 0.3]),
+  shell_bed: kit("shells", [0.95, 0.92, 0.86], 0.2, 20, [0.92, 0.66, 0.66]),
+  ford_ripple: kit("ripple", [0.72, 0.84, 0.88], 0.1, 25, undefined, true),
+  kelp: kit("kelp", [0.3, 0.38, 0.18], 0.6, 45, [0.38, 0.46, 0.2], true),
+  coral: kit("coral", [0.95, 0.5, 0.48], 0.25, 45, [0.98, 0.72, 0.36], true),
+  shipwreck: kit("wreck", [0.4, 0.3, 0.22], 2.5, 50, [0.6, 0.5, 0.36], true),
+  seabed_vein: kit("seaMarker", [0.2, 0.26, 0.32], 0.1, 40, [0.92, 0.78, 0.3], true),
+  fish_school: kit("fish", [0.55, 0.62, 0.7], 0.3, 0, undefined, true),
+  fish_school_big: kit("fish", [0.4, 0.48, 0.58], 0.6, 0, undefined, true),
+  whale_pod: kit("fish", [0.3, 0.34, 0.4], 1.5, 0, undefined, true),
+  hydro_vent: kit("vent", [0.22, 0.2, 0.2], 2.4, 50, [0.88, 0.9, 0.92], true),
+  iceberg: kit("iceberg", [0.86, 0.93, 0.98], 6, 70, [0.7, 0.85, 0.95], true),
+  sea_current: kit("current", [0.6, 0.76, 0.88], 0.1, 25, undefined, true),
+  seabed_oil: kit("seaMarker", [0.1, 0.1, 0.12], 0.1, 45, [0.36, 0.3, 0.46], true),
+  lily_pads: kit("lily", [0.3, 0.56, 0.3], 0.1, 40, [0.96, 0.7, 0.8], true),
+  mud_flat: kit("mudFlat", [0.46, 0.38, 0.28], 0.1, 40, [0.36, 0.3, 0.22]),
+  islet: kit("islet", [0.86, 0.8, 0.6], 1, 60, [0.34, 0.54, 0.28], true),
+  shore_rock: kit("tideRock", [0.5, 0.5, 0.47], 1.8, 40, [0.44, 0.52, 0.34]),
+};
 
 /** 그림 이름 → 겉모습. 이름표에 없는 그림(새 콘텐츠)은 그리지 않는다 */
 const LOOKS: Readonly<Record<string, PropLook>> = {
@@ -79,6 +164,7 @@ const LOOKS: Readonly<Record<string, PropLook>> = {
     tint: 40,
     vein: [0.33, 0.68, 0.56],
   },
+  ...TERRAIN_LOOKS,
 };
 
 /** 그림 번호 → 겉모습(없음·모름이면 undefined) */

@@ -938,13 +938,13 @@ test.describe("배치·사진", () => {
         const lot = value.getByLabel(message(language, "dev_items_field_lot_size"), { exact: true });
         await expect(lot).toHaveValue("1000");
         await expect(value).toContainText(message(language, "dev_items_lot_hint_weight", { size: "1 kg" }));
-        // 기준 유닛(새 사이보그 STR 10 + VIT 10 = 20): Lv1 5%(0~39 구간 T3 50‰), Lv5(+40 = 60) 6%(60~79 구간 T3 60‰, 은 T4가 켜져
-        // T4 몫 1%는 은으로 — core@31까지는 꺼진 은 몫이 철로 내려와 7%)
+        // 기준 유닛(새 사이보그 STR 10 + VIT 10 = 20): Lv1 5%(0~39 구간 T3 50‰), Lv5(레벨당 5 → +20 = 40, 기획 D-535 1155 나) 3%(40~59 구간
+        // T3 30‰. 레벨당 10이던 때는 60~79 구간 6%)
         const gather = detail(page).locator('.ie-preview [data-part="gather"]');
         await expect(gather.locator('[data-level="1"] [data-part="chance"]')).toHaveText("5.00%", {
           timeout: 15_000,
         });
-        await expect(gather.locator('[data-level="5"] [data-part="chance"]')).toHaveText("6.00%");
+        await expect(gather.locator('[data-level="5"] [data-part="chance"]')).toHaveText("3.00%");
         await expect(gather.locator('[data-part="gather-summary"]')).toContainText("STR+VIT");
         // 옛 1차 생산 규칙(D-507): 진행·수확량 — 새 유닛 STR 10 → 진행 ×1, VIT 10 → 한 번에 2개, T3 필요 진행 120, 광석 한 개 1,000 g
         const work = gather.locator('[data-part="gather-work"]');

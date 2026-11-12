@@ -27,7 +27,12 @@ const economy = serverEconomyCatalogAccessor(
 const RULES = {
   ...TEST_SOCIETY_COEFFICIENTS,
   worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, startCitiesMin: 1, startCitiesMax: 1 },
-  npc: { ...TEST_SOCIETY_COEFFICIENTS.npc, decideEveryMs: HOUR_MS },
+  // 도시 등급 상한(질문 1143 나)은 첫 하루 끝 전 발전도 0 = 등급 1이라 씨앗 도시가 이미 넘는다 → 이 시험은 모든 등급 16(옛 한 값)
+  npc: {
+    ...TEST_SOCIETY_COEFFICIENTS.npc,
+    decideEveryMs: HOUR_MS,
+    buildCapByGrade: [16, 16, 16, 16, 16, 16],
+  },
 };
 const MATERIALS = ["pine_log", "stone", "rubble"];
 
@@ -147,8 +152,25 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 증축 (DB, 질문 1101 나)", (
     const producing = done.filter((record) =>
       npc.economy?.production(record.cityId ?? -1).some((run) => run.buildingId === record.buildingId),
     );
-    const producingKinds = new Set(["farm", "lumber_camp", "mine", "herb_field", "ranch", "fishing_spot"]);
+    // 나라 성격 목표(질문 1142 다)로 가공·완제품 시설(주방 등)도 서고 그 특산을 돌린다
+    const producingKinds = new Set(
+      "farm lumber_camp mine herb_field ranch fishing_spot kitchen smelter workshop sawmill kiln".split(" "),
+    );
     expect(producing.length).toBe(done.filter((record) => producingKinds.has(record.facilityId)).length);
+    // 특산이 건물로 옮겨 갔다: 지은 가공·완제품 시설은 그 나라 특산 레시피를 돌린다(도시 직무가 아니라 건물 ID로)
+    const moved = done.filter((entry) =>
+      ["kitchen", "smelter", "workshop", "sawmill"].includes(entry.facilityId),
+    );
+    for (const record of moved) {
+      const runs = npc.economy?.production(record.cityId ?? -1) ?? [];
+      expect(runs.find((run) => run.buildingId === record.buildingId)?.facility.recipe.facility).toBe(
+        record.facilityId,
+      );
+      // 그 시설 특산 줄이 하나뿐인 나라(시험 프리셋)는 도시 직무로 남은 그 시설이 없다
+      expect(
+        runs.filter((run) => run.buildingId === null && run.facility.recipe.facility === record.facilityId),
+      ).toEqual([]);
+    }
 
     // NPC 도시 휴먼은 모두 크기 1·걷기(질문 1106 가)
     for (const unitId of npc.world.units.keys()) {

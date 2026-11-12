@@ -240,6 +240,8 @@ export function catchmentViewOf(input: CatchmentViewInput): WorldCatchmentView {
       hillPm: input.seed.oreShareHillPm,
       mountainM: input.seed.mineMinHeightM,
       lowTierMax: input.seed.oreLowTierMax,
+      highM: input.seed.oreHighMinM,
+      flatHighPm: input.seed.oreFlatHighPm,
     },
     world: place(input.world, worldContest.sharedOf),
     plan: place(input.plan, planContest.sharedOf),

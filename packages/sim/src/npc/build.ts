@@ -9,6 +9,15 @@
 //   모자라면 300 + 몫 ÷ 5 + 상업 성향 ÷ 10. 땅을 모르면(배후지 없음) 이미 가진 채집 시설만 몫 500으로 친다
 // - 생산 시설(농장·채집)은 일할 휴먼(경비대 빼고)이 지금 생산 시설 수보다 많을 때만(지은 건물마다 일꾼이 하나는 있게)
 // - 도시 건물 수(행정 건물·성벽 빼고)가 상한이면 짓지 않는다. 상한 0 = 증축 끔
+// 바뀜 (2026-11-12, 기획 D-535 — 질문 1142 다·1143 나·1146 나·1114 가):
+// - 나라 성격(1142 다): 국가 프리셋 특산 줄(cityJobs)의 시설 수와 국력 등급 처음 시설 수 가운데 큰 값이 목표다(targets). 모자라면 650 + 모자란 수
+//   × 10 — 건물이 없어 휴먼이 도시 직무로 돌리던 특산이 건물로 옮겨 간다. 채집 시설은 그 땅 몫이 0이라고 알면 짓지 않는다(특산은 도시 직무로 남는다)
+// - 숙소: 침대가 휴먼보다 적거나 휴먼이 인구 상한에 닿았고 생필품이 넉넉하면(붐빔 — 숙소를 지어야 상한이 오른다, 1131 나) 숙소
+// - 건물 수 상한 = 도시 등급(발전도 → 1~6, D-137) 표(설정 칸 npc_build_cap_l1~l6 [임시]), 전체 끝 npc_build_max_buildings(0 = 끔) — 1143 나
+// - 상한에 닿으면 레벨 올리기(1146 나, rankCityUpgrades): 숙소가 찼으면(붐빔) 가장 낮은 숙소, 아니면 일꾼이 가장 많은 생산 시설(같으면 낮은 레벨 →
+//   ID 차례), 한 번에 한 레벨. 재료·시간은 플레이어 레벨업과 같은 식(팩 buildCostAt·buildTimeAt, 부르는 쪽)
+// - 수리(1114 가, chooseCityRepair): 상태가 문턱(설정 칸 npc_build_repair_below_pm [임시]) 아래인 시설을 가장 낮은 것부터 가득까지 — 짓기·레벨
+//   올리기보다 먼저. 전투에서 부서진 성벽·건물의 수리 재료가 그 도시를 지키는 값이 된다
 import type { NpcCoefficients } from "./coefficients.ts";
 import type { Traits } from "./traits.ts";
 
@@ -41,11 +50,37 @@ export interface CityBuildNeeds {
   readonly counts: ReadonlyMap<string, number>;
   /** 채집 시설 → 배후지 몫(땅 몫 × 받은 몫 ÷ 1000, ‰). undefined = 땅을 모름 */
   readonly gatherPm?: ReadonlyMap<string, number> | undefined;
+  /** 나라 성격 목표(시설 ID → 수, 1142 다 — 특산 줄·국력 등급 처음 시설). 없으면 목표 없음 */
+  readonly targets?: ReadonlyMap<string, number> | undefined;
+  /** 그 도시 숙소 침대 합(쉼터 자리). 없으면 숙소 수 × 레벨당 침대 */
+  readonly beds?: number | undefined;
+  /** 그 도시 인구 상한(society/logistics.ts cityHousingCap). 휴먼이 닿으면 숙소를 짓는다. 없으면 보지 않는다 */
+  readonly housingCap?: number | undefined;
 }
 
 /** 숙소 레벨당 침대(설정 칸 lodging_beds_per_level)를 넘긴다 — 이 파일은 logistics 계수표를 모른다 */
 export interface BuildChoiceRules {
   readonly bedsPerLevel: number;
+  /** 이 도시의 건물 수 상한(buildingCapOf — 도시 등급). 없으면 설정 칸 npc_build_max_buildings */
+  readonly cap?: number | undefined;
+  /** 재료를 구할 길이 없는 시설(고르지 않는다 — 다음 점수의 시설을 고른다). 없으면 모두 고를 수 있다 */
+  readonly blocked?: ReadonlySet<string> | undefined;
+}
+
+/** 도시 등급 수(D-137, @terra/shared/territory CITY_GRADE_COUNT와 같다) */
+const GRADES = 6;
+
+/**
+ * 도시 등급(1~6)의 건물 수 상한(1143 나): 등급 표(npc_build_cap_l1~l6) 값, 전체 끝 npc_build_max_buildings. 전체 끝이 0이면 0(증축·레벨 올리기
+ * 끔). 표가 비었으면 전체 끝
+ */
+export function buildingCapOf(grade: number, c: NpcCoefficients): number {
+  const top = Math.max(0, Math.trunc(c.buildMaxBuildings));
+  if (top === 0) return 0;
+  const index = Math.min(GRADES, Math.max(1, Math.trunc(grade))) - 1;
+  const table = c.buildCapByGrade ?? [];
+  const value = table[Math.min(index, table.length - 1)];
+  return value === undefined ? top : Math.min(top, Math.max(0, Math.trunc(value)));
 }
 
 /** 상한에 세는 건물 수 */
@@ -71,11 +106,18 @@ function scoreOf(
 ): number | undefined {
   const have = needs.counts.get(option.facility) ?? 0;
   if (option.facility === BUILD_LODGING) {
-    const want = ceilDiv(needs.humans, rules.bedsPerLevel);
-    return have < want ? 700 + (want - have) * 20 : undefined;
+    const beds = needs.beds ?? have * Math.max(1, rules.bedsPerLevel);
+    if (beds < needs.humans) return 700 + ceilDiv(needs.humans - beds, rules.bedsPerLevel) * 20;
+    // 붐빔(1131 나): 씨앗 숙소는 주거 몫이라 상한을 올리지 않는다 → 상한에 닿으면 숙소를 더 지어야 자란다. 생필품이 모자란 도시는 늘리지 않는다
+    return needs.housingCap !== undefined && needs.humans >= needs.housingCap && needs.foodPm >= 1000
+      ? 700
+      : undefined;
   }
   if (BUILD_PRODUCING_STAGES.has(option.stage) && needs.workers <= producing) return undefined;
   const land = needs.gatherPm?.get(option.facility);
+  // 나라 성격 목표(1142 다): 특산 줄·국력 등급 처음 시설
+  const target = needs.targets?.get(option.facility) ?? 0;
+  if (have < target && !(option.gather && land !== undefined && land <= 0)) return 650 + (target - have) * 10;
   if (option.facility === BUILD_FARM) {
     // 농사지을 땅이 없다고 아는데 농장이 이미 있으면 더 짓지 않는다(땅이 없는 도시도 농장 하나는 둔다 — 씨앗 규칙과 같다)
     if (land !== undefined && land <= 0 && have > 0) return undefined;
@@ -99,7 +141,7 @@ export function chooseCityBuild(
   c: NpcCoefficients,
   rules: BuildChoiceRules,
 ): string | undefined {
-  const cap = Math.max(0, Math.trunc(c.buildMaxBuildings));
+  const cap = Math.max(0, Math.trunc(rules.cap ?? c.buildMaxBuildings));
   if (cap === 0) return undefined;
   const stages = new Map(options.map((option) => [option.facility, option.stage]));
   if (countedBuildings(needs.counts, (facility) => stages.get(facility)) >= cap) return undefined;
@@ -108,9 +150,67 @@ export function chooseCityBuild(
     if (BUILD_PRODUCING_STAGES.has(stages.get(facility) ?? "")) producing += n;
   let best: { facility: string; score: number } | undefined;
   for (const option of options) {
-    if (BUILD_UNCOUNTED_STAGES.has(option.stage)) continue;
+    if (BUILD_UNCOUNTED_STAGES.has(option.stage) || rules.blocked?.has(option.facility) === true) continue;
     const score = scoreOf(option, needs, traits, c, rules, producing);
     if (score !== undefined && (!best || score > best.score)) best = { facility: option.facility, score };
   }
   return best?.facility;
+}
+
+/** 그 도시에 다 지은 시설 하나(레벨 올리기·수리 후보) */
+export interface SiteFacility {
+  /** 실행 자리의 열쇠(시뮬 = 경제 시설 ID, 서버 = 건물 ID) */
+  readonly key: number;
+  readonly facility: string;
+  readonly level: number;
+  /** 지금 일꾼 수(도시 경제) */
+  readonly workers: number;
+  /** 상태(ppm, 가득 1,000,000 — @terra/shared/facilityRuntime). 모르면 undefined(시뮬 — 수리하지 않는다) */
+  readonly conditionPpm?: number | undefined;
+}
+
+/** 레벨 올리기에 쓰는 시설 몫 */
+export interface UpgradeSpec {
+  readonly stage: string;
+  readonly maxLevel: number;
+}
+
+/**
+ * 건물 수 상한에 닿은 도시의 레벨 올리기 후보(1146 나, 앞이 먼저): 짓기 재료 표가 있고 레벨 상한 아래인 다 지은 시설 가운데(행정 건물·성벽 빼고)
+ * 휴먼이 인구 상한에 닿았으면(붐빔) 숙소를 낮은 레벨 차례로 맨 앞에, 그다음 생산 시설을 일꾼 많은 차례(같으면 낮은 레벨 → 열쇠 차례). 부르는 쪽은
+ * 재료를 구할 수 있는 첫 후보를 올린다(세계 어느 시설도 내지 않는 재료가 드는 시설은 건너뛴다)
+ */
+export function rankCityUpgrades(
+  facilities: readonly SiteFacility[],
+  needs: Pick<CityBuildNeeds, "humans" | "housingCap">,
+  specOf: (facility: string) => UpgradeSpec | undefined,
+): SiteFacility[] {
+  const open = facilities.filter((entry) => {
+    const spec = specOf(entry.facility);
+    return (
+      spec !== undefined &&
+      !BUILD_UNCOUNTED_STAGES.has(spec.stage) &&
+      entry.level >= 1 &&
+      entry.level < spec.maxLevel
+    );
+  });
+  const byLevel = (a: SiteFacility, b: SiteFacility) => a.level - b.level || a.key - b.key;
+  const crowded = needs.housingCap !== undefined && needs.humans >= needs.housingCap;
+  const lodgings = crowded ? open.filter((entry) => entry.facility === BUILD_LODGING).toSorted(byLevel) : [];
+  const producing = open
+    .filter((entry) => BUILD_PRODUCING_STAGES.has(specOf(entry.facility)?.stage ?? ""))
+    .toSorted((a, b) => b.workers - a.workers || byLevel(a, b));
+  return [...lodgings, ...producing];
+}
+
+/** 수리할 시설(1114 가): 상태가 문턱(‰) 아래인 것 가운데 가장 낮은 것(같으면 열쇠 차례). 문턱 0 = 수리 끔 */
+export function chooseCityRepair(
+  facilities: readonly SiteFacility[],
+  belowPm: number,
+): SiteFacility | undefined {
+  const floor = Math.max(0, Math.trunc(belowPm)) * 1000;
+  if (floor === 0) return undefined;
+  return facilities
+    .filter((entry) => entry.level >= 1 && entry.conditionPpm !== undefined && entry.conditionPpm < floor)
+    .toSorted((a, b) => (a.conditionPpm ?? 0) - (b.conditionPpm ?? 0) || a.key - b.key)[0];
 }

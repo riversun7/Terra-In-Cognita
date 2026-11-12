@@ -53,6 +53,10 @@ export function serverEconomyCatalog(
       stage: facility.stage,
       slotsPerLevel: facility.slotsPerLevel,
       pollution: facilityEntries.get(facility.id)?.pollution ?? 0,
+      // NPC 레벨 올리기(질문 1146 나): 레벨 상한
+      ...(facilityEntries.get(facility.id)?.maxLevel === undefined
+        ? {}
+        : { maxLevel: facilityEntries.get(facility.id)?.maxLevel }),
       // NPC 증축(질문 1101 나, @terra/sim npcBuild.ts): 실효 짓기 재료(건물 편집기 덮어쓰기가 든다)
       ...(build
         ? {

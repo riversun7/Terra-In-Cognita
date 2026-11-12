@@ -70,6 +70,8 @@ export function resourceRulesKey(rules: CatchmentLandRules): string {
     rules.oreShareLowPm,
     rules.oreShareHillM,
     rules.oreShareHillPm,
+    rules.oreHighMinM,
+    rules.oreFlatHighPm,
     // 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536)
     rules.woodForestPm,
     rules.woodOtherPm,

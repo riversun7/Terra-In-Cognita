@@ -41,7 +41,7 @@ export const UNIT_KIND_NPC_LEADER = 7;
 
 /**
  * 탈것으로 보이는 기본 빠르기(고정소수점 단위/초): 걷기(437 = 약 0.43칸/초)와 차(4,813 = 약 4.8칸/초) 사이, 2칸/초. 유닛의 기본 빠르기(UnitState.speed)로
- * 본다 — 움직임 빠르기(운영자 모드 이동은 100배, gateway.ts OPERATOR_SPEED_FACTOR)로 보지 않는다(사용자 지적 2026-11-12 "내 사이보그도 갑자기 기존
+ * 본다 — 움직임 빠르기(운영자 모드 이동은 100배, operatorPace.ts OPERATOR_SPEED_FACTOR)로 보지 않는다(사용자 지적 2026-11-12 "내 사이보그도 갑자기 기존
  * 노란원통 모델로 돌아가는 문제", docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 유닛 겉모습)")
  */
 export const VEHICLE_MIN_SPEED = 2_000;

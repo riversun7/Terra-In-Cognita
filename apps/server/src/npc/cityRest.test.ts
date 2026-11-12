@@ -69,6 +69,20 @@ describe("planCityRest", () => {
     // 숙소 침대 10이 주거가 되어 넷 모두 숙소
     expect(lodged.workers.every((w) => w.place.kind === "lodging")).toBe(true);
     expect(lodged.bedTotal).toBe(10);
+    expect(lodged.capBeds).toBe(10);
+    // 씨앗 숙소(질문 1131 나): 쉼터 자리는 그대로, 인구 상한에는 Lv1 침대를 더하지 않는다(올린 레벨만큼만)
+    const seeded = planCityRest({
+      ...base,
+      housing: 2,
+      lodgings: [
+        { id: 60, area: area(115, 100), level: 1, ownerId: 1, seeded: true },
+        { id: 61, area: area(118, 100), level: 2, ownerId: 1, seeded: true },
+        { id: 62, area: area(121, 100), level: 1, ownerId: 9 },
+      ],
+      facilities: [{ id: 7, buildingId: 7, workers: 4, station: true }],
+    });
+    expect(seeded.bedTotal).toBe(40);
+    expect(seeded.capBeds).toBe(20);
     // 침대 2 + 집 2 = 넷까지, 다섯째는 노숙(예전 max(주거, 침대)면 둘째 숙소 뒤 둘이 노숙)
     const mixed = planCityRest({
       ...base,

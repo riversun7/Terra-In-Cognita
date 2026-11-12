@@ -28,6 +28,12 @@
           "recipe": "cut_timber",
           "level": 1,
           "workers": 1
+        },
+        {
+          "facility": "lumber_camp",
+          "recipe": "cut_logs",
+          "level": 1,
+          "workers": 1
         }
       ],
       "stock": [
@@ -71,6 +77,12 @@
         {
           "facility": "lumber_camp",
           "recipe": "cut_timber",
+          "level": 1,
+          "workers": 1
+        },
+        {
+          "facility": "lumber_camp",
+          "recipe": "cut_logs",
           "level": 1,
           "workers": 1
         }

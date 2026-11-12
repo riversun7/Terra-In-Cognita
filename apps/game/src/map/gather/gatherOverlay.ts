@@ -18,7 +18,7 @@ import { m } from "../../paraglide/messages.js";
 import { type Point, buildingCentre, objectCentre, rankByDistance } from "../nearby/nearbyData.ts";
 import type { NearbyState } from "../nearby/nearbyState.ts";
 import { kgText, nameText, phaseText } from "./gatherData.ts";
-import type { GatherObjectEntry, GatherSheet, GatherState } from "./gatherState.ts";
+import { type GatherObjectEntry, type GatherSheet, type GatherState, livePoint } from "./gatherState.ts";
 import { createStationRing } from "./stationRing.ts";
 
 /** 한 화면에 놓는 오브젝트 표시 수 */
@@ -190,7 +190,8 @@ export function attachGatherOverlay(
       state.objects,
       view,
       anchorAt(),
-      objectCentre,
+      // 움직이는 어군(기획 D-536)은 서버 시각의 지금 자리
+      (object: GatherObjectEntry) => objectCentre(livePoint(object, now)),
       (object: GatherObjectEntry) => object.id,
       MARKER_LIFT_M,
       Math.min(nearby.limit, MARKERS),

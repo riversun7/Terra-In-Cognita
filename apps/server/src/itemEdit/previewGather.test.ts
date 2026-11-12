@@ -50,7 +50,8 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
   const ctx = {
     facilities: pack.facilities,
     bands: pack.bands.map((band) => ({ from: band.from, weightsPm: [...band.weightsPm] })),
-    levelBonus: TEST_SOCIETY_COEFFICIENTS.gatherLevelBonus,
+    // 레벨 보너스는 10으로 고정해 구간 넘김을 본다(팩 출발값은 10 → 5, 기획 D-535 1155 나)
+    levelBonus: 10,
     rules: TEST_SOCIETY_COEFFICIENTS,
   };
   const find = (id: string): GatherItem => {

@@ -6,6 +6,8 @@
 // - 결과 적용(battleApply.ts, 결과 기록과 같은 동기 처리 = 같은 커밋): 잃은 내구도 = 시작 내구도 − 끝 내구도(0 아래는 0). 세계 쪽 상태(ppm)를
 //   잃은 점 × 가득 ÷ 최대 내구도만큼 줄인다(올림, 건물 서비스·영토 서비스). 끝 내구도가 0이면 상태 0 = 폐허(기능 정지와 같다, 칸은 그대로,
 //   수리로 되돌린다 — 366). 비콘은 30% 미만이면 꼭짓점이 아니고 0이어도 지우지 않는다(380). 한 전투는 한 번만 적용된다(결과 기록).
+// - 바뀜 (2026-11-12, 기획 D-535 — 질문 1114 가): 공성 전투맵(도시 실제 배치)의 성벽·둘레 건물도 목표다(siegeFacilityTargets — 건물 공격·정원사
+//   웨이브). 전투에서 깎이거나 부서진 만큼 세계 시설 상태가 줄고, 수리(플레이어·NPC 증축 수리)로 되돌린다 — 수리 재료가 성벽을 지키는 값이다.
 import type { BattleInit } from "@terra/sim";
 import type { BattleOutcome } from "./battles.ts";
 
@@ -100,4 +102,19 @@ export function applyBuildingDamage(
     }
   }
   return { damaged, ruined, missing };
+}
+
+/**
+ * 공성 전투맵의 시설 목표(질문 1114 가): 전투 건물 ID → 2차맵 건물 ID(siegeArena sources) 가운데 세계 시설인 것. skip = 따로 다루는 전투 건물
+ * (넥서스 — 건물 공격은 대상 목표를 이미 달고, 웨이브는 정원사 결과 규칙이 정한다). 전투 건물 ID 차례
+ */
+export function siegeFacilityTargets(
+  sources: ReadonlyMap<number, number>,
+  isFacility: (buildingId: number) => boolean,
+  skip: number,
+): BattleTarget[] {
+  const out: BattleTarget[] = [];
+  for (const [building, id] of [...sources].toSorted((a, b) => a[0] - b[0]))
+    if (building !== skip && isFacility(id)) out.push({ building, kind: "facility", id });
+  return out;
 }

@@ -2,9 +2,12 @@
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다.
 // - 사용자별 속도 제한(순간 10번, 분당 30번 — 건물·이동 명령과 같음). 밀린 요청이 MAX_PENDING을 넘으면 busy. 세계가 아직 없으면 busy.
 // - 소유·자리 판정과 걷기·캐기는 서비스(service.ts)가 한다. 기기는 유닛·오브젝트 번호·건물만 보낸다(서버 권위).
+// - 운영자 모드(같은 연결이 2차맵 전체 보기 + 모든 유닛 명령 권한) 명령은 그 유닛에 운영자 빠르기 표시를 단다 — 채집 줄 왕복·들어가기 걸음이
+//   2차맵 이동 명령처럼 빠르다(사용자 지적 2026-11-12, world/operatorPace.ts). 아니면 표시를 지운다.
 import { type ClientMessageOf, type GatherResultCode, encodeMessage } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
+import { type PaceMap, isOperatorMode, withPace } from "../world/operatorPace.ts";
 import type { GatherCommandResult, GatherService } from "./service.ts";
 
 export type GatherClientMessage = ClientMessageOf<"gather_start" | "gather_stop" | "unit_enter">;
@@ -15,6 +18,8 @@ const LIMIT = { capacity: 10, refillPerMinute: 30 };
 export interface GatherLink {
   send(text: string): void;
   viewer(): Promise<Viewer | null>;
+  /** 같은 연결이 2차맵을 전체 보기(운영자 모드)로 구독 중인가(world/gateway.ts). 없으면 아니다 */
+  observing?(): boolean;
 }
 
 export interface GatherSocket {
@@ -56,6 +61,8 @@ function run(service: GatherService, viewer: Viewer, message: GatherClientMessag
 export function createGatherGateway(options: {
   /** 세계가 준비되면 서비스(없으면 busy) */
   service: () => GatherService | undefined;
+  /** 띄운 2차맵(운영자 빠르기 표시를 단다). 없으면 표시하지 않는다 */
+  maps?: (() => Iterable<PaceMap>) | undefined;
   now: () => number;
   log: { error(obj: object, message: string): void };
 }): GatherGateway {
@@ -76,7 +83,13 @@ export function createGatherGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
-        reply(message.id, await run(service, viewer, message));
+        const operator = isOperatorMode(link.observing?.() === true, viewer.roles);
+        reply(
+          message.id,
+          await withPace(options.maps?.() ?? [], message.unitId, operator, () =>
+            run(service, viewer, message),
+          ),
+        );
       };
 
       return {

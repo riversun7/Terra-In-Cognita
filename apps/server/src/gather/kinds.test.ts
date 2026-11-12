@@ -58,7 +58,15 @@ describe("원자재 오브젝트 종류", () => {
       art: mapPropArtCode("outcrop_copper"),
     });
     expect(byId.get("stone_outcrop")?.surfaces).toContain(TERRAIN_SURFACE.grass);
-    expect(kinds.slice(-3).map((kind) => kind.id)).toEqual(["stone_outcrop", "copper_outcrop", "brushwood"]);
+    // 노두는 지형별 오브젝트(2026-11-12 D-536) 앞이고, 관목 땔감(목재 몫 노두)은 그 뒤 맨 끝이다: 앞 종류 차례는 그대로
+    const ids = kinds.map((kind) => kind.id);
+    expect(ids.indexOf("copper_outcrop")).toBe(ids.indexOf("stone_outcrop") + 1);
+    expect(ids.at(-1)).toBe("brushwood");
+    expect(
+      kinds
+        .slice(ids.indexOf("copper_outcrop") + 1, -1)
+        .every((kind) => kind.source === "site" || kind.source === "school"),
+    ).toBe(true);
     // 관목 땔감(사용자 결정 2026-11-12 기본 재료 바닥 보장): 목재 몫을 곱하는 노두, 벌목장이 맡고 소나무 원목
     expect(byId.get("brushwood")).toMatchObject({
       source: "outcrop",
@@ -69,6 +77,32 @@ describe("원자재 오브젝트 종류", () => {
       art: mapPropArtCode("log"),
     });
     expect(byId.get("stone_outcrop")?.share).toBe("ore");
-    expect(kinds.filter((kind) => kind.source !== "outcrop").every((kind) => kind.art === 0)).toBe(true);
+    expect(
+      kinds
+        .filter((kind) => kind.source === "prop" || kind.source === "rock" || kind.source === "plot")
+        .every((kind) => kind.art === 0),
+    ).toBe(true);
+  });
+
+  it("지형별 오브젝트(D-536): site·school은 그림·바이옴 표가 있고, 물 위 자리·낚는 거리 0 어군은 배로만", () => {
+    const byId = new Map(kinds.map((kind) => [kind.id, kind]));
+    expect(byId.get("tide_rock")).toMatchObject({
+      source: "site",
+      item: "stone",
+      coast: true,
+      shore: 1,
+      boat: false,
+    });
+    expect(byId.get("tide_rock")?.biomes?.get("ocean_coastal")).toBe(120);
+    expect(byId.get("shipwreck")).toMatchObject({ source: "site", boat: true });
+    expect(byId.get("school_coastal")).toMatchObject({
+      source: "school",
+      reach: 6,
+      boat: false,
+      facility: "fishing_spot",
+    });
+    expect(byId.get("school_deep")).toMatchObject({ source: "school", reach: 0, boat: true });
+    for (const kind of kinds.filter((entry) => entry.source === "site" || entry.source === "school"))
+      expect(kind.art).toBeGreaterThan(0);
   });
 });

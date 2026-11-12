@@ -4,6 +4,9 @@
 // - 토탈 스탯: 행정 건물 등급 범위 안 균등(Lv1 30~45 · Lv2 45~60 · Lv3 60~80 = 옛 마을회관·영주관·시청). Lv4·Lv5는 옛 값이 없다([임시]).
 //   바뀜(D-534, 2026-11-12): 휴먼 초기 합은 상위 콘텐츠로 최대 80(설정 칸 n9_human_sum_max — 설정 칸 검사 stat_sum_cap이 레벨 범위를 막는다),
 //   어떤 경우에도 100 이하(@terra/shared STAT_SUM_ABSOLUTE_MAX, 굴린 토탈을 여기서 한 번 더 자른다). Lv4·Lv5 [임시] 65~80·70~80.
+//   바뀜(D-535 1158 나, 2026-11-12): 상한 80 아래에서 Lv3~5 토탈이 겹치므로 Lv4·Lv5는 토탈 범위를 Lv3과 같은 60~80으로 두고 다른 이점으로
+//   나눈다 [임시] — 카드 수(Lv4 4~6·Lv5 5~7), 속성 점수 덤(레벨 칸 elementBonus, Lv4 +3·Lv5 +6), 토탈 여러 번 굴려 큰 값(레벨 칸 statRolls,
+//   Lv4 2번·Lv5 3번 → 같은 60~80이라도 높은 쪽으로 쏠린다). Lv1~3은 덤 0·한 번이라 옛 굴림과 같다.
 // - 6스탯 분배: 칸마다 max(1, ⌊토탈 ÷ 12⌋)를 먼저 주고, 남은 점수를 아무 칸에 1~3점씩 나눈다.
 // - 속성: 10점을 기본 4원소(물·불·바람·땅) 가운데 2~3개에 나눈다(빛·어둠 0). 칸마다 1점 이상.
 // - 비용 = 등급 × 50 + (토탈 − 그 등급 최소) × 2 (도시 화폐). 옛 코드는 지갑에서 빼기만 했다(받는 쪽 없음 = 소각).
@@ -30,6 +33,23 @@ export interface RecruitLevelRule {
   /** 토탈 스탯 범위(양 끝 포함, 균등) */
   readonly statsMin: number;
   readonly statsMax: number;
+  /** 속성 점수 덤(elementPoints에 더한다, D-535 1158 나 — Lv1~3은 0) */
+  readonly elementBonus: number;
+  /** 토탈 굴림 횟수(가장 큰 값을 쓴다, 1~RECRUIT_STAT_ROLLS_MAX. Lv1~3은 1 = 균등) */
+  readonly statRolls: number;
+}
+
+/** 토탈 굴림 횟수 상한 */
+export const RECRUIT_STAT_ROLLS_MAX = 8;
+
+/** 레벨 규칙의 토탈 굴리기: statRolls번 균등으로 굴려 가장 큰 값(100으로 자름). 한 번이면 옛 굴림과 같은 난수를 쓴다 */
+export function rollRecruitTotal(rule: RecruitLevelRule, rng: Rng): number {
+  const statsMax = Math.max(rule.statsMin, rule.statsMax);
+  const rolls = Math.max(1, Math.min(RECRUIT_STAT_ROLLS_MAX, Math.trunc(rule.statRolls)));
+  let best = 0;
+  for (let i = 0; i < rolls; i++)
+    best = Math.max(best, rule.statsMin + rng.nextInt(statsMax - rule.statsMin + 1));
+  return Math.min(STAT_SUM_ABSOLUTE_MAX, best);
 }
 
 export interface RecruitCoefficients {
@@ -121,7 +141,7 @@ export function distributeRecruitStats(total: number, rng: Rng): number[] {
  * 받게 1~(남은 점수 − 남은 칸 수)를 굴리고 마지막 칸이 나머지를 받는다. 칸 상한(10)을 넘지 않게 굴림 범위를 묶는다(옛 값 10점·2~3칸에서는
  * 묶음이 걸리지 않아 옛 규칙과 같다)
  */
-export function distributeRecruitElements(rng: Rng, c: RecruitCoefficients): RecruitElements {
+export function distributeRecruitElements(rng: Rng, c: RecruitCoefficients, bonus = 0): RecruitElements {
   const out: Record<(typeof BASIC_ELEMENTS)[number], number> = { water: 0, fire: 0, wind: 0, earth: 0 };
   const min = Math.max(1, Math.min(BASIC_ELEMENTS.length, c.elementsMin));
   const max = Math.max(min, Math.min(BASIC_ELEMENTS.length, c.elementsMax));
@@ -137,7 +157,11 @@ export function distributeRecruitElements(rng: Rng, c: RecruitCoefficients): Rec
     order[j] = a;
   }
   const active = order.slice(0, count);
-  let remaining = Math.max(count, c.elementPoints);
+  // 점수 = 기본 + 레벨 덤(D-535 1158 나), 고른 칸 상한(칸 수 × 10)을 넘지 않는다
+  let remaining = Math.min(
+    count * ELEMENT_MAX,
+    Math.max(count, c.elementPoints + Math.max(0, Math.trunc(bonus))),
+  );
   active.forEach((element, index) => {
     const left = active.length - index - 1;
     if (left === 0) {
@@ -161,12 +185,11 @@ export function rollRecruitCards(level: number, rng: Rng, c: RecruitCoefficients
   const cardsMin = Math.max(0, Math.min(RECRUIT_CARDS_CAP, rule.cardsMin));
   const cardsMax = Math.max(cardsMin, Math.min(RECRUIT_CARDS_CAP, rule.cardsMax));
   const count = cardsMin + rng.nextInt(cardsMax - cardsMin + 1);
-  const statsMax = Math.max(rule.statsMin, rule.statsMax);
   const cards: RecruitCard[] = [];
   for (let slot = 0; slot < count; slot++) {
-    const total = Math.min(STAT_SUM_ABSOLUTE_MAX, rule.statsMin + rng.nextInt(statsMax - rule.statsMin + 1));
+    const total = rollRecruitTotal(rule, rng);
     const stats = distributeRecruitStats(total, rng);
-    const elements = distributeRecruitElements(rng, c);
+    const elements = distributeRecruitElements(rng, c, rule.elementBonus);
     cards.push({ slot, level: grade, total, stats, elements, cost: recruitCost(grade, total, c) });
   }
   return cards;
@@ -225,17 +248,19 @@ export function recruitProfileOf(card: RecruitCard, c: RecruitCoefficients): Rec
 
 /**
  * 처음 인구 휴먼의 자료(기획 답 774 나 — 처음부터 있던 휴먼도 스탯·속성, docs/adr/2026-11-07-play-flow.md "WP-NPC4"): 그 도시 행정 레벨의
- * 구인 카드 한 장과 같은 굴림(토탈 = 레벨 범위 안 균등 → 6스탯 분배 → 속성 분배, 값은 받지 않는다)과 고용한 휴먼과 같은 시작 레벨.
+ * 구인 카드 한 장과 같은 굴림(토탈 = 레벨 범위 안 균등(Lv4·5는 여러 번 굴려 큰 값) → 6스탯 분배 → 속성 분배(레벨 덤 포함), 값은 받지 않는다)과 고용한 휴먼과 같은 시작 레벨.
  * 행정 레벨이 0(행정 건물 없음)이면 Lv1 규칙 [임시]. 레벨 규칙이 하나도 없으면 토탈 = 6스탯 × 10(화면 기본값과 같은 합)
  * 시뮬 처음 휴먼(시나리오 workers, simulator/society.ts)과 서버 처음 인구·옛 휴먼 채우기(apps/server/src/npc/runtime.ts)가 같은 함수다
  */
 export function rollFoundingProfile(adminLevel: number, rng: Rng, c: RecruitCoefficients): RecruitProfile {
   const rule = recruitLevelRule(Math.max(1, adminLevel), c);
-  const statsMin = rule?.statsMin ?? RECRUIT_STAT_COUNT * 10;
-  const statsMax = Math.max(statsMin, rule?.statsMax ?? statsMin);
-  const total = Math.min(STAT_SUM_ABSOLUTE_MAX, statsMin + rng.nextInt(statsMax - statsMin + 1));
+  const fixed = RECRUIT_STAT_COUNT * 10;
+  const total = rollRecruitTotal(
+    rule ?? { cardsMin: 0, cardsMax: 0, statsMin: fixed, statsMax: fixed, elementBonus: 0, statRolls: 1 },
+    rng,
+  );
   const stats = distributeRecruitStats(total, rng);
-  const elements = distributeRecruitElements(rng, c);
+  const elements = distributeRecruitElements(rng, c, rule?.elementBonus ?? 0);
   return { level: Math.max(1, c.startLevel), stats, elements };
 }
 
@@ -253,7 +278,10 @@ export function recruitElementsFromSlots(slots: readonly number[]): RecruitEleme
   return { water: at("water"), fire: at("fire"), wind: at("wind"), earth: at("earth") };
 }
 
-/** 옛 값(49 N45 출발값). Lv4·Lv5는 옛 값이 없어 [임시]: 카드 수 하나씩 더, 토탈 65~80·70~80(D-534 휴먼 최대 80) */
+/**
+ * 옛 값(49 N45 출발값). Lv4·Lv5는 옛 값이 없어 [임시](D-535 1158 나): 토탈은 Lv3과 같은 60~80(D-534 휴먼 최대 80), 카드 수 하나씩 더,
+ * 속성 점수 덤 +3·+6, 토탈 굴림 2번·3번(큰 값)
+ */
 export const OLD_RECRUIT_COEFFICIENTS: RecruitCoefficients = {
   refreshMs: 12 * 3_600_000,
   costPerLevel: 50,
@@ -263,10 +291,10 @@ export const OLD_RECRUIT_COEFFICIENTS: RecruitCoefficients = {
   elementsMax: 3,
   startLevel: 1,
   levels: [
-    { cardsMin: 3, cardsMax: 5, statsMin: 30, statsMax: 45 },
-    { cardsMin: 3, cardsMax: 5, statsMin: 45, statsMax: 60 },
-    { cardsMin: 3, cardsMax: 5, statsMin: 60, statsMax: 80 },
-    { cardsMin: 4, cardsMax: 6, statsMin: 65, statsMax: 80 },
-    { cardsMin: 5, cardsMax: 7, statsMin: 70, statsMax: 80 },
+    { cardsMin: 3, cardsMax: 5, statsMin: 30, statsMax: 45, elementBonus: 0, statRolls: 1 },
+    { cardsMin: 3, cardsMax: 5, statsMin: 45, statsMax: 60, elementBonus: 0, statRolls: 1 },
+    { cardsMin: 3, cardsMax: 5, statsMin: 60, statsMax: 80, elementBonus: 0, statRolls: 1 },
+    { cardsMin: 4, cardsMax: 6, statsMin: 60, statsMax: 80, elementBonus: 3, statRolls: 2 },
+    { cardsMin: 5, cardsMax: 7, statsMin: 60, statsMax: 80, elementBonus: 6, statRolls: 3 },
   ],
 };

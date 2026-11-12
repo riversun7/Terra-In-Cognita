@@ -43,8 +43,9 @@ import {
   scheduleDecide,
   scheduleTrip,
 } from "./npcRun.ts";
-import { simNpcBuilder } from "./npcBuild.ts";
+import { type NpcCityGrade, npcCityGrades, simNpcBuilder } from "./npcBuild.ts";
 import {
+  type SimFaction,
   TEST_ASSET_CREDIT,
   TEST_ASSET_ORE,
   checkWorld,
@@ -80,8 +81,10 @@ import {
  * 17: 배후지 채집 다툼이 켜진 시나리오(catchment 칸)의 econ 줄·요약 economy 칸에 catchment(도시마다 [ID, 반경 1000분율 칸, 받은 몫 ‰, 겹친
  *    칸], overlapped·stalled·supplyAvgPm)
  * 18: 요약 npc.builds·buildsDone(NPC 증축 — 짓기 시작한 수·다 지어 생산에 넣은 수, 질문 1101 나)
+ * 19: 요약 npc.upgrades·repairs(NPC 레벨 올리기·수리 시작한 수, 질문 1146 나·1114 가), 경제가 있는 시나리오의 npc.cities(도시 등급마다 끝
+ *    도시 수·건물 수·레벨 합·휴먼·인구 상한, 질문 1143 나)
  */
-export const SIM_OUTPUT_FORMAT = 18;
+export const SIM_OUTPUT_FORMAT = 19;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */
@@ -125,6 +128,49 @@ function simWaveEdge(cityId: number, seed: number, waveId: number): Edge {
   const at = simCityXY(cityId);
   const toward = at ? edgeToward(SIM_GRID_SIZE - 1 - at.x, SIM_GRID_SIZE - 1 - at.y) : undefined;
   return toward ?? waveAttackEdge(seed, waveId);
+}
+
+/**
+ * 시뮬 세력의 나라 성격 목표(질문 1142 다): 세력 코드가 시작하는 시나리오 세력 묶음의 도시 계획(cityPlan) 시설 수. 묶음이 없거나 계획이 없으면
+ * undefined
+ */
+function simBuildTargets(
+  scenario: Scenario,
+): (faction: SimFaction, cityId: number) => ReadonlyMap<string, number> | undefined {
+  const cache = new Map<string, ReadonlyMap<string, number> | undefined>();
+  return (faction) => {
+    if (cache.has(faction.code)) return cache.get(faction.code);
+    const group = scenario.factions.find((entry) => faction.code.startsWith(entry.code));
+    let out: Map<string, number> | undefined;
+    for (const plan of group?.cityPlan ?? []) {
+      out ??= new Map();
+      out.set(plan.facility, (out.get(plan.facility) ?? 0) + 1);
+    }
+    cache.set(faction.code, out);
+    return out;
+  };
+}
+
+/**
+ * 시뮬 세력 공성이 들어오는 변(질문 1112 가, 기획 D-535 — 웨이브와 같은 "오는 쪽" 규칙): 공격 세력 도시 가운데 그 도시와 합성 격자 거리가 가장
+ * 가까운 도시(같으면 작은 ID) 쪽 변(edgeToward). 공격 세력에 도시가 없거나 격자 밖·같은 칸이면 undefined(서쪽)
+ */
+export function simSiegeEdge(
+  attackerCities: Iterable<number>,
+  cityId: number,
+  hasCity: (id: number) => boolean = () => true,
+): Edge | undefined {
+  const at = simCityXY(cityId);
+  if (!at) return undefined;
+  let best: { d: number; id: number; x: number; y: number } | undefined;
+  for (const from of attackerCities) {
+    if (from === cityId || !hasCity(from)) continue;
+    const xy = simCityXY(from);
+    if (!xy) continue;
+    const d = (xy.x - at.x) * (xy.x - at.x) + (xy.y - at.y) * (xy.y - at.y);
+    if (!best || d < best.d || (d === best.d && from < best.id)) best = { d, id: from, ...xy };
+  }
+  return best ? edgeToward(best.x - at.x, best.y - at.y) : undefined;
 }
 
 /** 요약에 남기는 불변 조건 위반 문장 수 */
@@ -190,7 +236,7 @@ export interface RunSummary {
   /** 세력·사회(R4b 규칙) */
   readonly society: SocietySummary;
   /** NPC 판단(R5) */
-  readonly npc: NpcCounts;
+  readonly npc: NpcCounts & { readonly cities?: readonly NpcCityGrade[] };
   /** 정원사(R5b). 시나리오에서 껐으면 null */
   readonly gardener: GardenerSummary | null;
   readonly ledger: { transactions: number; accounts: number };
@@ -311,11 +357,24 @@ export function runSimulation(options: RunOptions): RunSummary {
           options.combatCatalog,
           combatCoefficientsFrom(options.tuning ?? new Map(), undefined, options.combatFormulas),
           siegeLayouts,
+          (attacker, cityId) => simSiegeEdge(attacker.cities, cityId, (id) => world.cities.has(id)),
         )
       : undefined,
     encounterPerMille: scenario.combat?.encounterPerMille,
-    // NPC 증축(질문 1101 나): 경제가 있을 때만(재료·국고가 경제에 있다)
-    build: econ ? { economy: econ.economy, builder: simNpcBuilder(econ.economy, world, loop) } : undefined,
+    // NPC 증축(질문 1101 나): 경제가 있을 때만(재료·국고가 경제에 있다). 숙소 침대는 인구 상한에(1131 나), 나라 성격 목표 = 세력 묶음 도시
+    // 계획의 시설 수(1142 다 — 시뮬 세력의 특산)
+    build: econ
+      ? {
+          economy: econ.economy,
+          builder: simNpcBuilder(
+            econ.economy,
+            world,
+            loop,
+            () => societyCoefficients.logistics.lodgingBedsPerLevel,
+          ),
+          targetsOf: simBuildTargets(scenario),
+        }
+      : undefined,
   };
   ctxRef.ctx = ctx;
   const society = attachSociety(
@@ -518,7 +577,7 @@ export function runSimulation(options: RunOptions): RunSummary {
     economy: econ ? econ.summary() : null,
     combat: ctx.combat ? ctx.combat.summary() : null,
     society: society.summary(),
-    npc: ctx.counts,
+    npc: { ...ctx.counts, ...(ctx.build ? { cities: npcCityGrades(ctx, ctx.build) } : {}) },
     gardener: gardenerRef.run ? gardenerRef.run.summary() : null,
     ledger: { transactions: world.audit.transactions, accounts: [...world.book.accounts()].length },
     invariants: { checks, violations, first },

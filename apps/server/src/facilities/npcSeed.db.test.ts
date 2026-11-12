@@ -83,13 +83,17 @@ type CityLine = {
   cell_x: number;
   cell_y: number;
   name: string | null;
+  housing: number;
 };
 const startCities = () =>
   rows<CityLine>(
     test.db,
-    `select c.id, f.code, c.map_key, c.cell_x, c.cell_y, c.name from world_cities c join factions f on f.id = c.faction_id
+    `select c.id, f.code, c.map_key, c.cell_x, c.cell_y, c.name, c.housing from world_cities c join factions f on f.id = c.faction_id
      where c.start order by c.id`,
   );
+/** 숙소 수 = ⌈주거 ÷ Lv1 침대 10⌉, 위 끝 8(질문 1049 나, npcSeed.ts seedLodgings) — 시설 목록(이름 차례)에 넣는다 */
+const withLodgings = (list: readonly string[], housing: number): string[] =>
+  [...list, ...Array.from({ length: Math.min(8, Math.ceil(housing / 10)) }, () => "lodging")].toSorted();
 const seeded = () =>
   rows<{ city_id: string; facility_id: string; level: number; owner_ok: boolean }>(
     test.db,
@@ -145,27 +149,13 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
     expect(others.some((line) => line.housing === 40)).toBe(true);
     const facilities = await seeded();
     for (const line of mine)
-      expect(facilities.filter((row) => row.city_id === line.id).map((row) => row.facility_id)).toEqual([
-        "farm",
-        "farm",
-        "government_hall",
-        "lodging",
-        "lodging",
-        "lodging",
-        "storehouse",
-        "storehouse",
-      ]);
+      expect(facilities.filter((row) => row.city_id === line.id).map((row) => row.facility_id)).toEqual(
+        withLodgings(["farm", "farm", "government_hall", "storehouse", "storehouse"], Number(line.housing)),
+      );
     for (const line of others)
-      expect(facilities.filter((row) => row.city_id === line.id).map((row) => row.facility_id)).toEqual([
-        "farm",
-        "government_hall",
-        "lodging",
-        "lodging",
-        "lodging",
-        "lumber_camp",
-        "mine",
-        "storehouse",
-      ]);
+      expect(facilities.filter((row) => row.city_id === line.id).map((row) => row.facility_id)).toEqual(
+        withLodgings(["farm", "government_hall", "lumber_camp", "mine", "storehouse"], Number(line.housing)),
+      );
     expect(await world.checkInvariants()).toEqual([]);
   });
 
@@ -186,7 +176,9 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
     expect(perNation[0]?.map((city) => city.map_key)).toEqual(mapKeys.slice(0, 2));
 
     const facilities = await seeded();
-    expect(facilities).toHaveLength(cities.length * 8);
+    expect(facilities).toHaveLength(
+      cities.reduce((sum, city) => sum + withLodgings([], Number(city.housing)).length + 5, 0),
+    );
     // 전략 배치(docs/adr/2026-11-11-city-building-layout.md): 행정 건물은 도시 칸 가운데(3×3 가운데 = 도시 칸). 그 칸에 원자재
     // 오브젝트·막힌 땅이 있으면 가장 가까운 자리(몇 칸 안)
     const halls = await rows<{ cell_x: number; cell_y: number; x: number; y: number }>(
@@ -203,16 +195,9 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
       halls.filter((hall) => hall.x + 1 === hall.cell_x && hall.y + 1 === hall.cell_y).length,
     ).toBeGreaterThan(halls.length / 2);
     for (const city of cities)
-      expect(facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id)).toEqual([
-        "farm",
-        "government_hall",
-        "lodging",
-        "lodging",
-        "lodging",
-        "lumber_camp",
-        "mine",
-        "storehouse",
-      ]);
+      expect(facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id)).toEqual(
+        withLodgings(["farm", "government_hall", "lumber_camp", "mine", "storehouse"], Number(city.housing)),
+      );
     expect(facilities.every((row) => row.level === 1 && row.owner_ok)).toBe(true);
 
     // 사이보그 만들기 목록: 국가 넷, 국가마다 나라 성격 수, 이름 = 팩 국가 프리셋(국가 1 = 16번째 프리셋), 도시 이름 = 팩
@@ -250,7 +235,9 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
           expect(Math.hypot(other.cell_x - city.cell_x, other.cell_y - city.cell_y)).toBeGreaterThanOrEqual(
             32,
           );
-    expect(await seeded()).toHaveLength(after.length * 8);
+    expect(await seeded()).toHaveLength(
+      after.reduce((sum, city) => sum + withLodgings([], Number(city.housing)).length + 5, 0),
+    );
     expect(await world.checkInvariants()).toEqual([]);
   }, 60_000);
 

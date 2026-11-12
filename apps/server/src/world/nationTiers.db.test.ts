@@ -242,20 +242,16 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     );
     const facilitiesOf = (city: CityLine) =>
       facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id);
-    // 숙소 셋(설정 칸 npc_seed_lodgings — docs/adr/2026-11-11-city-building-layout.md)
-    const big = [
-      "farm",
-      "farm",
-      "government_hall",
-      "lodging",
-      "lodging",
-      "lodging",
-      "storehouse",
-      "storehouse",
-    ];
-    const plain = ["farm", "government_hall", "lodging", "lodging", "lodging", "storehouse"];
+    // 숙소 수 = ⌈주거 ÷ Lv1 침대 10⌉, 위 끝 8(질문 1049 나, facilities/npcSeed.ts seedLodgings)
+    const lodgings = (city: CityLine) =>
+      Array.from({ length: Math.min(8, Math.ceil(Number(city.housing) / 10)) }, () => "lodging");
+    const big = ["farm", "farm", "government_hall", "storehouse", "storehouse"];
+    const plain = ["farm", "government_hall", "storehouse"];
     lists.forEach((list, index) => {
-      for (const city of list) expect(facilitiesOf(city)).toEqual(index === 1 || index === 2 ? big : plain);
+      for (const city of list)
+        expect(facilitiesOf(city)).toEqual(
+          [...(index === 1 || index === 2 ? big : plain), ...lodgings(city)].toSorted(),
+        );
     });
     // 도시 간격(docs/adr/2026-11-11-city-catchment.md): 모든 등급이 배후지 간격(2R = 4칸 — 등급 걸음 1·2칸보다 넓다) 이상, 찾는 반경(12칸) 안
     const spread = lists.map(([capital, ...rest]) =>

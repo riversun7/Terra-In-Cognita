@@ -182,6 +182,35 @@ describe("광석 고도 몫(기획 D-533)", () => {
     expect(plain.highOrePm?.(planeCell(0, 0))).toBe(1000);
   });
 
+  it("평면 칸 숲 밀도 → 목재 몫(질문 1080 가 — 숲 밀도 255 = 1000), 숲이 없는 평면은 그대로", () => {
+    const geometry = planeGeometry({
+      at: new Map(),
+      richnessPm: { wood: 500 },
+      forestAt: (x) => (x === 0 ? 255 : x === 1 ? 51 : undefined),
+    });
+    expect(geometry.capacityPm(planeCell(0, 0), "wood")).toBe(500);
+    expect(geometry.capacityPm(planeCell(1, 0), "wood")).toBe(100);
+    expect(geometry.capacityPm(planeCell(2, 0), "wood")).toBe(500);
+    expect(geometry.capacityPm(planeCell(1, 0), "ore")).toBe(1000);
+    expect(landShares(geometry, [planeCell(0, 0), planeCell(1, 0)]).landPm.wood).toBe(300);
+    // 시나리오: 세력 묶음 숲(catchmentForest)이 시나리오 숲(catchment.forest)보다 앞선다
+    const agri = TEST_ECONOMY_SCENARIO_RAW.factions[0];
+    const sc = parseScenario({
+      ...TEST_ECONOMY_SCENARIO_RAW,
+      id: "forest_share_test",
+      factions: [
+        { ...agri, code: "dense", count: 1, cities: 1, catchmentForest: 255 },
+        { ...agri, code: "plain", count: 1, cities: 1 },
+      ],
+      catchment: { groupGap: 40, forest: 51 },
+    });
+    expect(sc.factions[0]?.catchmentForest).toBe(255);
+    expect(sc.catchment?.forest).toBe(51);
+    expect(() =>
+      parseScenario({ ...TEST_ECONOMY_SCENARIO_RAW, catchment: { groupGap: 40, forest: 300 } }),
+    ).toThrow();
+  });
+
   it("땅 몫 = 칸 몫 평균, 산지 몫 = 광석 몫으로 가중한 산지 칸 몫", () => {
     // x = 0은 산지, x = 1은 해수면: 광석 (1000 + 150) ÷ 2, 산지 몫 1000 × 1000 ÷ 1150
     const geometry = planeGeometry({

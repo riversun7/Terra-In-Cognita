@@ -114,8 +114,11 @@
  *    시설 빠르기 = 받은 몫 × 땅 몫, 칸마다 캐는 양은 칸 재고 상한 비례, 광산은 산지 밖 가장 높은 티어(ore_low_tier_max) 위를 배후지 산지 몫만큼만
  *    낸다. 시나리오 catchment.elevationM·세력 묶음 catchmentElevationM이 평면 칸 고도를 준다. 고도가 없는 시나리오(econ16·catchment4 등)는
  *    결과가 25와 같다(서버 NPC 도시 경제는 행성 고도로 달라진다)
+ * 27: 목재 숲 밀도 몫(기획 D-534 — 질문 1080 가, simulator/catchmentRun.ts "바뀜 (2026-11-12)"): 배후지 목재 칸 몫 = 숲 밀도 몫(광석 고도 몫과
+ *    같은 꼴). 시나리오 catchment.forest·세력 묶음 catchmentForest가 평면 칸 숲 밀도를 준다. 숲이 없는 시나리오(econ16·catchment4 등)는 결과가
+ *    26과 같다(서버 NPC 도시 경제는 행성 숲 밀도로 달라진다)
  */
-export const SIM_VERSION = 26;
+export const SIM_VERSION = 27;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

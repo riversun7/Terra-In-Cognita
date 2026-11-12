@@ -46,6 +46,11 @@ export interface ScenarioFaction {
    * 고도를 보지 않는다(광석 몫 = richnessPm, 산지 몫 1000 — 옛 결과 그대로)
    */
   readonly catchmentElevationM?: number | undefined;
+  /**
+   * 배후지 평면 배치의 숲 밀도(0 ~ 255, 이 묶음 세력 둘레 칸 — 목재 = 숲 밀도 몫, 기획 D-534 질문 1080 가). 없으면 시나리오 catchment.forest,
+   * 그것도 없으면 숲을 보지 않는다(목재 몫 = richnessPm — 옛 결과 그대로)
+   */
+  readonly catchmentForest?: number | undefined;
 }
 
 export interface ScenarioFacilityPlan {
@@ -154,6 +159,8 @@ export interface ScenarioCatchment {
   readonly richnessPm: Readonly<Partial<Record<CatchmentMaterial, number>>>;
   /** 모든 칸의 땅 고도(m, 세력 묶음 catchmentElevationM이 앞선다). 없으면 고도를 보지 않는다 */
   readonly elevationM?: number | undefined;
+  /** 모든 칸의 숲 밀도(0 ~ 255, 세력 묶음 catchmentForest가 앞선다). 없으면 숲을 보지 않는다 */
+  readonly forest?: number | undefined;
 }
 
 export interface Scenario {
@@ -290,6 +297,9 @@ export function parseScenario(value: unknown): Scenario {
               12_000,
             ),
           }),
+      ...(field(item, "catchmentForest") === undefined
+        ? {}
+        : { catchmentForest: int(field(item, "catchmentForest"), `${at}.catchmentForest`, 0, 255) }),
     };
   });
   const npcValue = field(value, "npc");
@@ -384,12 +394,14 @@ export function parseScenario(value: unknown): Scenario {
       if (raw !== undefined) richness[material] = int(raw, `catchment.richnessPm.${material}`, 0, 1000);
     }
     const elevation = field(catchmentValue, "elevationM");
+    const forest = field(catchmentValue, "forest");
     catchment = {
       groupGap: int(field(catchmentValue, "groupGap"), "catchment.groupGap", 1, 100_000),
       richnessPm: richness,
       ...(elevation === undefined
         ? {}
         : { elevationM: int(elevation, "catchment.elevationM", -12_000, 12_000) }),
+      ...(forest === undefined ? {} : { forest: int(forest, "catchment.forest", 0, 255) }),
     };
   }
   return { id, planet, factions, npc, trips, economy, combat, catchment, society, gardener };

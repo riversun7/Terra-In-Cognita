@@ -97,6 +97,7 @@ function catalogOf(source: PackSource): EconomyCatalog {
         stage: facility.stage,
         slotsPerLevel: facility.slotsPerLevel,
         pollution: facility.pollution ?? 0,
+        ...(facility.maxLevel === undefined ? {} : { maxLevel: facility.maxLevel }),
         // NPC 증축(질문 1101 나): 짓기 재료(레벨 구간별)
         ...(facility.build
           ? {

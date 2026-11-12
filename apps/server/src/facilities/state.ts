@@ -15,6 +15,11 @@ export interface FacilityRecord {
   readonly builtBy: string | null;
   /** 건물이 선 도시(재료를 꺼내는 도시 창고, D-516 361). 모르면 null(직전 판 앱이 넣은 줄 — 건물 서비스가 칸에서 다시 정한다) */
   cityId: number | null;
+  /**
+   * 세계 씨앗이 세운 시설(NPC 시작 도시·마을 기본 시설·성벽, 질문 1131 나 — 기획 D-535). 씨앗 숙소의 Lv1 침대는 인구 상한에 더하지 않는다(시작 도시
+   * 상한 = 주거 그대로). 없으면 false(지은 시설)
+   */
+  seeded?: boolean | undefined;
 }
 
 export const JOB_KINDS = ["build", "upgrade", "repair", "beacon_repair", "equipment"] as const;
@@ -71,7 +76,7 @@ const numOrNull = (value: unknown): number | null => (value === null ? null : Nu
 
 export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities> {
   const facilities = await pool.query(
-    `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id
+    `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id, seeded
      from world_facilities order by building_id`,
   );
   const jobs = await pool.query(
@@ -90,6 +95,7 @@ export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities>
       builtAtMs: Number(row.built_at_ms),
       builtBy: typeof row.built_by === "string" ? row.built_by : null,
       cityId: numOrNull(row.city_id),
+      ...(row.seeded === true ? { seeded: true } : {}),
     })),
     jobs: jobs.rows.flatMap((row) => {
       const kind: unknown = row.kind;
@@ -125,6 +131,7 @@ export const facilityRow = (record: FacilityRecord) => ({
   built_at_ms: record.builtAtMs,
   built_by: record.builtBy,
   city_id: record.cityId,
+  seeded: record.seeded === true,
 });
 
 export const jobRow = (job: JobRecord) => ({

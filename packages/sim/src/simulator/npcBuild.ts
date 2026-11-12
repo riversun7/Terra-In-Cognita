@@ -8,10 +8,37 @@
 // - 짓는 시간 = buildTimeAt(무게 × M14) → 일 없는 휴먼(설정 칸 npc_build_builders_max까지)을 일꾼으로 withBuilders.
 // - 도시마다 한 번에 하나. 다 지은 건물은 그 세력의 다음 판단 때 생산에 든다(settle — 시뮬·서버 같은 때).
 // 자리·건물 칸은 실행 자리(NpcBuilder)가 정한다: 시뮬은 경제 시설만(자리 없음), 서버는 전략 배치 함수(facilities/cityLayout.ts)와 건물 서비스.
+// 바뀜 (2026-11-12, 기획 D-535 — 질문 1142 다·1143 나·1146 나·1114 가, 1131 나): 도시마다 한 번에 하나 — 수리(상태 문턱 아래, 플레이어 수리와 같은
+// 재료·시간) → 짓기(나라 성격 목표·주거·식량·배후지, 건물 수 상한 = 도시 등급 표) → 상한에 닿았으면 레벨 올리기(플레이어 레벨업과 같은 재료·시간).
+// 모자란 재료는 셋 모두 같은 길(도시 목표 재고)로 산다. 숙소 침대는 인구 상한에 더한다(시뮬 짓기 자리가 도시 beds에 적는다 — 시뮬 도시에는 씨앗
+// 숙소가 없다).
 import { materialOfFacility } from "@terra/shared/catchment";
-import { type BuildStackJson, buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
-import { withBuilders } from "@terra/shared/facilityRuntime";
-import { type BuildOption, chooseCityBuild } from "../npc/build.ts";
+import {
+  type BuildStackJson,
+  FACILITY_LEVEL_MAX,
+  buildCostAt,
+  buildTimeAt,
+} from "@terra/shared/facilityBuild";
+import {
+  CONDITION_FULL,
+  repairMaterialsFor,
+  repairRestorePpm,
+  repairTimeMs,
+  withBuilders,
+} from "@terra/shared/facilityRuntime";
+import { cityGrade } from "@terra/shared/territory";
+import {
+  BUILD_LODGING,
+  BUILD_UNCOUNTED_STAGES,
+  type BuildOption,
+  type SiteFacility,
+  buildingCapOf,
+  chooseCityBuild,
+  chooseCityRepair,
+  countedBuildings,
+  rankCityUpgrades,
+} from "../npc/build.ts";
+import { cityHousingCap } from "../society/logistics.ts";
 import { itemAsset, lotSizeOf } from "./catalog.ts";
 import { type Economy, scheduleProduce, workerEffects } from "./economy.ts";
 import type { SimLoop } from "./loop.ts";
@@ -23,8 +50,12 @@ import type { SimFaction, SimWorld } from "./world.ts";
 export interface NpcBuildSite {
   /** 그 세력이 그 도시에 가진 시설 수(짓는 중 포함, 시설 ID → 수) */
   readonly counts: ReadonlyMap<string, number>;
-  /** 짓는 중(다 지었지만 아직 생산에 넣지 않은 것 포함) */
+  /** 짓는 중(다 지었지만 아직 생산에 넣지 않은 것 포함 — 레벨 올리기·수리도) */
   readonly busy: boolean;
+  /** 다 지은 시설(레벨 올리기·수리 후보, 1146 나·1114 가). 없으면 레벨을 올리지도 고치지도 않는다 */
+  readonly facilities?: readonly SiteFacility[] | undefined;
+  /** 그 도시 숙소 침대 합(쉼터 자리). 없으면 숙소 수 × 레벨당 침대 */
+  readonly beds?: number | undefined;
 }
 
 /** 짓기 실행 자리(시뮬·서버) */
@@ -43,12 +74,41 @@ export interface NpcBuilder {
     ms: number,
     nowMs: number,
   ): boolean;
+  /** 레벨 올리기(1146 나): 재료를 빼고 한 레벨 올리기 작업을 건다. 못 하면 false. 없으면 레벨을 올리지 않는다 */
+  upgrade?(
+    faction: SimFaction,
+    cityId: number,
+    key: number,
+    materials: readonly BuildStackJson[],
+    ms: number,
+    nowMs: number,
+  ): boolean;
+  /** 수리(1114 가): 재료를 빼고 restorePpm만큼 고치는 작업을 건다. 못 하면 false. 없으면 고치지 않는다 */
+  repair?(
+    faction: SimFaction,
+    cityId: number,
+    key: number,
+    materials: readonly BuildStackJson[],
+    restorePpm: number,
+    ms: number,
+    nowMs: number,
+  ): boolean;
 }
 
 export interface NpcBuildRun {
   readonly builder: NpcBuilder;
   readonly economy: Economy;
+  /**
+   * 나라 성격 목표(1142 다): 그 세력 그 도시의 시설 ID → 목표 수(국가 프리셋 특산 줄 수·국력 등급 처음 시설 수 가운데 큰 값 — 서버, 시나리오 세력
+   * 묶음 도시 계획 — 시뮬). 없으면 목표 없음
+   */
+  readonly targetsOf?:
+    | ((faction: SimFaction, cityId: number) => ReadonlyMap<string, number> | undefined)
+    | undefined;
 }
+
+/** 수리 한 번에 이을 걸음 수 상한(가득까지 — repairRestorePpm이 모자란 몫에서 자른다) */
+const REPAIR_ALL_STEPS = CONDITION_FULL;
 
 /** 짓기 재료가 있는 시설(팩 차례) */
 export function buildOptions(economy: Economy): BuildOption[] {
@@ -126,34 +186,135 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
   const treasuryAsset = economy.currencyOf.get(faction.id) ?? economy.base;
   let funds = world.book.balanceOf(faction.id, treasuryAsset);
   const produced = producedAssets(economy);
+  const stageOf = (facility: string) => economy.catalog.facilities.get(facility)?.stage;
+  const upgradeSpec = (facility: string) => {
+    const spec = economy.catalog.facilities.get(facility);
+    return spec?.build ? { stage: spec.stage, maxLevel: spec.maxLevel ?? FACILITY_LEVEL_MAX } : undefined;
+  };
+  const weight = (item: string) => lotWeightOf(economy, item);
   for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
+    /** 재료를 모두 구할 길이 있나(그 도시에 있거나 세계 어느 시설이 낸다) */
+    const canObtain = (materials: readonly BuildStackJson[]): boolean =>
+      materials.every((stack) => {
+        const asset = itemAsset(stack.item);
+        return produced.has(asset) || world.book.balanceOf(faction.id, asset, cityId) >= BigInt(stack.qty);
+      });
     wants.delete(cityId);
     const site = builder.site(faction, cityId);
-    if (!site || site.busy) continue;
-    const pick = chooseCityBuild(
-      {
-        humans: economy.cityUnits.get(cityId) ?? 0,
-        workers: Math.max(0, (economy.cityUnits.get(cityId) ?? 0) - (guards.get(cityId) ?? 0)),
-        foodPm: ctx.hooks?.foodPmOf?.(cityId) ?? 1000,
-        counts: site.counts,
-        gatherPm: gatherPmOf(economy, cityId, options),
-      },
-      options,
-      faction.traits,
-      c.npc,
-      { bedsPerLevel: c.logistics.lodgingBedsPerLevel },
+    const city = world.cities.get(cityId);
+    if (!site || site.busy || !city) continue;
+    const humans = economy.cityUnits.get(cityId) ?? 0;
+    const housingCap = cityHousingCap(city);
+    const cap = buildingCapOf(cityGrade(city.development, c.territory), c.npc);
+    const helpers = Math.min(
+      Math.max(0, c.npc.buildBuildersMax),
+      idleHumans(economy, world, cityId, guards.get(cityId) ?? 0),
     );
-    const build = pick === undefined ? undefined : economy.catalog.facilities.get(pick)?.build;
-    if (pick === undefined || !build) continue;
-    const materials = buildCostAt(build, 1).filter((stack) => stack.qty > 0);
-    if (builder.has(faction, cityId, materials)) {
-      const helpers = Math.min(
-        Math.max(0, c.npc.buildBuildersMax),
-        idleHumans(economy, world, cityId, guards.get(cityId) ?? 0),
+    const facilities = site.facilities ?? [];
+    let action: { materials: BuildStackJson[]; run: () => boolean } | undefined;
+    // 1. 수리(1114 가): 상태 문턱 아래 — 플레이어 수리와 같은 재료(그 레벨 짓기 재료 × 고친 몫)·시간
+    const fix = builder.repair ? chooseCityRepair(facilities, c.npc.buildRepairBelowPm ?? 0) : undefined;
+    if (fix && builder.repair) {
+      const build = economy.catalog.facilities.get(fix.facility)?.build;
+      const restore = repairRestorePpm(
+        fix.conditionPpm ?? CONDITION_FULL,
+        REPAIR_ALL_STEPS,
+        c.facilityRuntime,
       );
-      const raw = buildTimeAt(build, 1, (item) => lotWeightOf(economy, item), c.facilityBuild).ms;
-      const ms = withBuilders(raw, helpers, c.facilityRuntime);
-      if (builder.start(faction, cityId, pick, materials, ms, nowMs)) ctx.counts.builds += 1;
+      const level = Math.max(1, fix.level);
+      const materials = build ? repairMaterialsFor(buildCostAt(build, level), restore) : [];
+      const ms = repairTimeMs(
+        build ? buildTimeAt(build, level, weight, c.facilityBuild).ms : 0,
+        restore,
+        helpers,
+        c.facilityRuntime,
+      );
+      const repair = builder.repair.bind(builder);
+      if (restore > 0)
+        action = {
+          materials,
+          run: () => {
+            const ok = repair(faction, cityId, fix.key, materials, restore, ms, nowMs);
+            if (ok) ctx.counts.repairs += 1;
+            return ok;
+          },
+        };
+    }
+    // 2. 짓기(상한 아래): 나라 성격 목표·주거·식량·배후지
+    if (!action && cap > 0) {
+      const pick = chooseCityBuild(
+        {
+          humans,
+          workers: Math.max(0, humans - (guards.get(cityId) ?? 0)),
+          foodPm: ctx.hooks?.foodPmOf?.(cityId) ?? 1000,
+          counts: site.counts,
+          gatherPm: gatherPmOf(economy, cityId, options),
+          targets: run.targetsOf?.(faction, cityId),
+          beds: site.beds,
+          housingCap,
+        },
+        options,
+        faction.traits,
+        c.npc,
+        {
+          bedsPerLevel: c.logistics.lodgingBedsPerLevel,
+          cap,
+          blocked: new Set(
+            options
+              .filter((option) => {
+                const build = economy.catalog.facilities.get(option.facility)?.build;
+                return !build || !canObtain(buildCostAt(build, 1));
+              })
+              .map((option) => option.facility),
+          ),
+        },
+      );
+      const build = pick === undefined ? undefined : economy.catalog.facilities.get(pick)?.build;
+      if (pick !== undefined && build) {
+        const materials = buildCostAt(build, 1).filter((stack) => stack.qty > 0);
+        const ms = withBuilders(
+          buildTimeAt(build, 1, weight, c.facilityBuild).ms,
+          helpers,
+          c.facilityRuntime,
+        );
+        action = {
+          materials,
+          run: () => {
+            const ok = builder.start(faction, cityId, pick, materials, ms, nowMs);
+            if (ok) ctx.counts.builds += 1;
+            return ok;
+          },
+        };
+      }
+    }
+    // 3. 상한에 닿았으면 레벨 올리기(1146 나): 한 번에 한 레벨, 플레이어 레벨업과 같은 재료·시간. 구할 길이 없는 재료가 드는 시설은 건너뛴다
+    if (!action && cap > 0 && builder.upgrade && countedBuildings(site.counts, stageOf) >= cap) {
+      const upgrade = builder.upgrade.bind(builder);
+      for (const target of rankCityUpgrades(facilities, { humans, housingCap }, upgradeSpec)) {
+        const build = economy.catalog.facilities.get(target.facility)?.build;
+        if (!build) continue;
+        const level = target.level + 1;
+        const materials = buildCostAt(build, level).filter((stack) => stack.qty > 0);
+        if (!canObtain(materials)) continue;
+        const ms = withBuilders(
+          buildTimeAt(build, level, weight, c.facilityBuild).ms,
+          helpers,
+          c.facilityRuntime,
+        );
+        action = {
+          materials,
+          run: () => {
+            const ok = upgrade(faction, cityId, target.key, materials, ms, nowMs);
+            if (ok) ctx.counts.upgrades += 1;
+            return ok;
+          },
+        };
+        break;
+      }
+    }
+    if (!action) continue;
+    if (builder.has(faction, cityId, action.materials)) {
+      action.run();
       continue;
     }
     // 재료를 산다: 모자란 몫의 지난 값 × 예비 ‰만큼 국고가 있을 때만 도시 목표 재고에 넣는다(같은 판단의 다른 도시 몫은 뺀다).
@@ -161,7 +322,7 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
     let cost = 0n;
     let obtainable = true;
     const need = new Map<string, bigint>();
-    for (const stack of materials) {
+    for (const stack of action.materials) {
       const asset = itemAsset(stack.item);
       const qty = BigInt(stack.qty);
       need.set(asset, (need.get(asset) ?? 0n) + qty);
@@ -177,12 +338,60 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
   }
 }
 
-/** 시뮬 짓기 자리: 경제 시설만(자리 없음). 다 지으면 그 시설의 첫 레시피로 레벨 1, 일꾼 = 일 없는 휴먼(자리 수까지) */
-export function simNpcBuilder(economy: Economy, world: SimWorld, loop: SimLoop<SimEvent>): NpcBuilder {
-  /** 도시 → 짓는 것 */
-  const active = new Map<number, { facility: string; doneAtMs: number }>();
-  /** 도시 → 생산하지 않는 다 지은 시설 수(숙소 등) */
-  const extra = new Map<number, Map<string, number>>();
+/** 도시 등급 하나의 끝 상태(요약 npc.cities — 질문 1143 나·1146 나 측정) */
+export interface NpcCityGrade {
+  readonly grade: number;
+  readonly cities: number;
+  /** 건물 수 합(상한에 세는 것 — 행정 건물·성벽 빼고, 짓는 중 포함) */
+  readonly buildings: number;
+  /** 다 지은 시설 레벨 합(같은 시설 몫) */
+  readonly levels: number;
+  /** 휴먼 합·인구 상한 합 */
+  readonly humans: number;
+  readonly housingCap: number;
+}
+
+/** 살아 있는 세력 도시를 도시 등급으로 묶은 끝 상태(등급 차례) */
+export function npcCityGrades(ctx: NpcContext, run: NpcBuildRun): NpcCityGrade[] {
+  const { world, c } = ctx;
+  const stageOf = (facility: string) => run.economy.catalog.facilities.get(facility)?.stage;
+  const byGrade = new Map<
+    number,
+    { cities: number; buildings: number; levels: number; humans: number; housingCap: number }
+  >();
+  for (const city of [...world.cities.values()].toSorted((a, b) => a.id - b.id)) {
+    const faction = world.factions.get(city.owner);
+    const site = faction ? run.builder.site(faction, city.id) : undefined;
+    if (!site) continue;
+    const grade = cityGrade(city.development, c.territory);
+    const entry = byGrade.get(grade) ?? { cities: 0, buildings: 0, levels: 0, humans: 0, housingCap: 0 };
+    entry.cities += 1;
+    entry.buildings += countedBuildings(site.counts, stageOf);
+    for (const facility of site.facilities ?? [])
+      if (!BUILD_UNCOUNTED_STAGES.has(stageOf(facility.facility) ?? "")) entry.levels += facility.level;
+    entry.humans += run.economy.cityUnits.get(city.id) ?? 0;
+    entry.housingCap += cityHousingCap(city);
+    byGrade.set(grade, entry);
+  }
+  return [...byGrade].toSorted((a, b) => a[0] - b[0]).map(([grade, entry]) => ({ grade, ...entry }));
+}
+
+/**
+ * 시뮬 짓기 자리: 경제 시설만(자리 없음). 다 지으면 그 시설의 첫 레시피로 레벨 1, 일꾼 = 일 없는 휴먼(자리 수까지). 생산하지 않는 시설(숙소 등)은
+ * 레벨만 센다 — 숙소 침대(레벨 × lodging_beds_per_level)는 도시 beds에 적어 인구 상한에 더한다(1131 나: 시뮬 도시에는 씨앗 숙소가 없어 지은 숙소는
+ * 모두 센다). 레벨 올리기(1146 나)는 끝나면 그 시설 레벨 + 1(자리·일꾼·채집 효과를 다시 셈). 시뮬 시설에는 상태가 없어 수리하지 않는다.
+ * bedsPerLevel = 숙소 레벨당 침대(부를 때마다 읽는다)
+ */
+export function simNpcBuilder(
+  economy: Economy,
+  world: SimWorld,
+  loop: SimLoop<SimEvent>,
+  bedsPerLevel: () => number = () => 0,
+): NpcBuilder {
+  /** 도시 → 짓는 것(짓기 = facility, 레벨 올리기 = key) */
+  const active = new Map<number, { facility: string; key: number | null; doneAtMs: number }>();
+  /** 생산하지 않는 다 지은 시설(숙소 등): 열쇠 → 도시·시설·레벨 */
+  const extra = new Map<number, { city: number; facility: string; level: number }>();
   let nextId = 0;
   /** 시나리오 시설 ID(1부터 센 차례)와 겹치지 않는 시뮬 증축 시설 ID */
   const BUILT_FACILITY_BASE = 1_000_000;
@@ -195,17 +404,25 @@ export function simNpcBuilder(economy: Economy, world: SimWorld, loop: SimLoop<S
     for (const unit of world.units.values()) if (unit.city === cityId && unit.guard === true) n += 1;
     return n;
   };
+  /** 도시 숙소 침대 = 그 도시 지은 숙소 레벨 합 × 레벨당 침대 */
+  const refreshBeds = (cityId: number): void => {
+    const city = world.cities.get(cityId);
+    if (!city) return;
+    let levels = 0;
+    for (const entry of extra.values())
+      if (entry.city === cityId && entry.facility === BUILD_LODGING) levels += entry.level;
+    city.beds = levels * Math.max(0, Math.trunc(bedsPerLevel()));
+  };
   const activate = (cityId: number, facility: string, nowMs: number): void => {
     const spec = economy.catalog.facilities.get(facility);
     const recipe = firstRecipe(facility);
-    if (!spec || !recipe) {
-      const counts = extra.get(cityId) ?? new Map<string, number>();
-      counts.set(facility, (counts.get(facility) ?? 0) + 1);
-      extra.set(cityId, counts);
-      return;
-    }
     nextId += 1;
     const id = BUILT_FACILITY_BASE + nextId;
+    if (!spec || !recipe) {
+      extra.set(id, { city: cityId, facility, level: 1 });
+      if (facility === BUILD_LODGING) refreshBeds(cityId);
+      return;
+    }
     const built = {
       id,
       city: cityId,
@@ -219,10 +436,48 @@ export function simNpcBuilder(economy: Economy, world: SimWorld, loop: SimLoop<S
     economy.facilities.set(id, built);
     scheduleProduce(economy, world, loop, built, nowMs);
   };
+  /** 레벨 올리기 끝: 레벨 + 1. 생산 시설은 자리가 늘어난 만큼 일 없는 휴먼을 더 넣고 채집 효과를 다시 셈한다(다음 생산부터) */
+  const levelUp = (cityId: number, key: number): void => {
+    const other = extra.get(key);
+    if (other) {
+      other.level += 1;
+      if (other.facility === BUILD_LODGING) refreshBeds(cityId);
+      return;
+    }
+    const facility = economy.facilities.get(key);
+    const spec = facility ? economy.catalog.facilities.get(facility.recipe.facility) : undefined;
+    if (!facility || !spec) return;
+    const level = facility.level + 1;
+    const free = idleHumans(economy, world, cityId, guardsIn(cityId));
+    const workers = Math.min(spec.slotsPerLevel * level, facility.workers + free);
+    economy.facilities.set(key, {
+      ...facility,
+      level,
+      workers,
+      ...workerEffects(spec.gather, { level }, economy.gather),
+    });
+  };
   const has = (faction: SimFaction, cityId: number, materials: readonly BuildStackJson[]): boolean =>
     materials.every(
       (stack) => world.book.balanceOf(faction.id, itemAsset(stack.item), cityId) >= BigInt(stack.qty),
     );
+  /** 재료를 도시 창고에서 뺀다(sink, 감사 규칙 facility_build) */
+  const spend = (
+    faction: SimFaction,
+    cityId: number,
+    materials: readonly BuildStackJson[],
+    nowMs: number,
+  ) => {
+    const { book } = world;
+    const entries: { account: number; amount: bigint }[] = [];
+    for (const stack of materials) {
+      const asset = itemAsset(stack.item);
+      const qty = BigInt(stack.qty);
+      entries.push({ account: book.ownerAccount(faction.id, asset, cityId), amount: -qty });
+      entries.push({ account: book.systemAccount(`sink:${asset}`, asset), amount: qty });
+    }
+    if (entries.length > 0) book.post({ kind: "facility_build", atMs: nowMs, entries });
+  };
   return {
     has,
     settle(faction, nowMs) {
@@ -231,33 +486,57 @@ export function simNpcBuilder(economy: Economy, world: SimWorld, loop: SimLoop<S
         const job = active.get(cityId);
         if (!job || job.doneAtMs > nowMs) continue;
         active.delete(cityId);
-        activate(cityId, job.facility, nowMs);
-        done += 1;
+        if (job.key === null) {
+          activate(cityId, job.facility, nowMs);
+          done += 1;
+        } else levelUp(cityId, job.key);
       }
       return done;
     },
     site(_faction, cityId) {
       if (!world.cities.has(cityId)) return undefined;
-      const counts = new Map(extra.get(cityId) ?? []);
+      const counts = new Map<string, number>();
+      const facilities: SiteFacility[] = [];
+      let beds = 0;
+      for (const [key, entry] of extra)
+        if (entry.city === cityId) {
+          counts.set(entry.facility, (counts.get(entry.facility) ?? 0) + 1);
+          facilities.push({ key, facility: entry.facility, level: entry.level, workers: 0 });
+          if (entry.facility === BUILD_LODGING) beds += entry.level;
+        }
       for (const facility of economy.facilities.values())
-        if (facility.city === cityId)
+        if (facility.city === cityId) {
           counts.set(facility.recipe.facility, (counts.get(facility.recipe.facility) ?? 0) + 1);
+          facilities.push({
+            key: facility.id,
+            facility: facility.recipe.facility,
+            level: facility.level,
+            workers: facility.workers,
+          });
+        }
       const job = active.get(cityId);
-      if (job) counts.set(job.facility, (counts.get(job.facility) ?? 0) + 1);
-      return { counts, busy: job !== undefined };
+      if (job && job.key === null) counts.set(job.facility, (counts.get(job.facility) ?? 0) + 1);
+      // 시뮬 도시 주거(집)는 침대가 있는 자리로 친다(쉼터 셈이 없다) → 숙소는 붐빌 때만 짓는다
+      const city = world.cities.get(cityId);
+      return {
+        counts,
+        busy: job !== undefined,
+        facilities: facilities.toSorted((a, b) => a.key - b.key),
+        beds: (city?.housing ?? 0) + beds * Math.max(0, bedsPerLevel()),
+      };
     },
     start(faction, cityId, facility, materials, ms, nowMs) {
       if (active.has(cityId) || !has(faction, cityId, materials)) return false;
-      const { book } = world;
-      const entries: { account: number; amount: bigint }[] = [];
-      for (const stack of materials) {
-        const asset = itemAsset(stack.item);
-        const qty = BigInt(stack.qty);
-        entries.push({ account: book.ownerAccount(faction.id, asset, cityId), amount: -qty });
-        entries.push({ account: book.systemAccount(`sink:${asset}`, asset), amount: qty });
-      }
-      if (entries.length > 0) book.post({ kind: "facility_build", atMs: nowMs, entries });
-      active.set(cityId, { facility, doneAtMs: nowMs + ms });
+      spend(faction, cityId, materials, nowMs);
+      active.set(cityId, { facility, key: null, doneAtMs: nowMs + ms });
+      return true;
+    },
+    upgrade(faction, cityId, key, materials, ms, nowMs) {
+      const owned = extra.get(key)?.city ?? economy.facilities.get(key)?.city;
+      if (owned !== cityId || active.has(cityId) || !has(faction, cityId, materials)) return false;
+      spend(faction, cityId, materials, nowMs);
+      const facility = extra.get(key)?.facility ?? economy.facilities.get(key)?.recipe.facility ?? "";
+      active.set(cityId, { facility, key, doneAtMs: nowMs + ms });
       return true;
     },
   };

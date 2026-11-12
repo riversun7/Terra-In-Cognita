@@ -60,6 +60,8 @@ export interface CatalogFacility {
    * 같은 식으로 재료·시간을 셈한다. 없으면 NPC가 짓지 않는다
    */
   readonly build?: FacilityBuildJson | undefined;
+  /** 레벨 상한(팩 facilities maxLevel, 없으면 FACILITY_LEVEL_MAX). NPC 레벨 올리기(질문 1146 나)가 본다 */
+  readonly maxLevel?: number | undefined;
 }
 
 /** 시설의 채집 칸(수확량 칸이 없으면 기본 1개 + 설정 칸 N32 비율, 상한 없음) */

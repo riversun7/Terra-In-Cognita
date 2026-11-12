@@ -79,6 +79,9 @@ export interface NpcCounts {
   /** NPC 증축(질문 1101 나, npcBuild.ts): 짓기 시작한 수·다 지어 생산에 넣은 수 */
   builds: number;
   buildsDone: number;
+  /** 레벨 올리기 시작한 수(1146 나)·수리 시작한 수(1114 가) */
+  upgrades: number;
+  repairs: number;
 }
 
 export function emptyNpcCounts(): NpcCounts {
@@ -99,6 +102,8 @@ export function emptyNpcCounts(): NpcCounts {
     guardRefills: 0,
     builds: 0,
     buildsDone: 0,
+    upgrades: 0,
+    repairs: 0,
   };
 }
 

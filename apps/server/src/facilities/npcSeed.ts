@@ -253,6 +253,7 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
         builtAtMs: input.nowMs,
         builtBy: null,
         cityId: city.id,
+        seeded: true,
       };
       service.seedBuilt(record);
       return true;

@@ -91,6 +91,12 @@ export interface NpcCoefficients {
   readonly buildGatherMax: number;
   readonly buildFarmHumans: number;
   readonly buildBuildersMax: number;
+  /**
+   * [임시] 도시 등급(1~6, D-137)마다 건물 수 상한(질문 1143 나, 설정 칸 npc_build_cap_l1~l6). buildMaxBuildings가 전체 끝(0 = 끔). 없으면 전체 끝
+   */
+  readonly buildCapByGrade?: readonly number[] | undefined;
+  /** [임시] 이 상태(‰) 아래인 시설을 NPC가 고친다(질문 1114 가, 설정 칸 npc_build_repair_below_pm). 0 = 고치지 않는다 */
+  readonly buildRepairBelowPm?: number | undefined;
   /** 굶어 멈춤(D-220, 기술 정의): 국고 0 + 생필품 충족 이 ‰ 미만이 이 날 수 이어짐 */
   readonly stallFoodPm: number;
   readonly stallDays: number;
@@ -146,10 +152,12 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   spendDivisorShort: 2,
   spendDivisor: 4,
   cityBidPct: 90,
-  buildMaxBuildings: 16,
+  buildMaxBuildings: 32,
   buildGatherMax: 3,
   buildFarmHumans: 12,
   buildBuildersMax: 4,
+  buildCapByGrade: [8, 10, 12, 16, 20, 24],
+  buildRepairBelowPm: 700,
   recruitTargetPm: 1000,
   recruitReservePm: 2000,
   restoreClaimScore: 400,

@@ -208,9 +208,12 @@ describe("광석 고도 몫(기획 D-533 — 석재·구리는 어디서나 조�
   });
 });
 
-describe("목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536)", () => {
-  const at = (face: number, i: number, j: number) => ({ ...LAND, face, faceLevel: 9, i, j });
+/** 면 레벨 9 칸 자리가 있는 초지 땅(노이즈 시험) */
+const at = (face: number, i: number, j: number) => ({ ...LAND, face, faceLevel: 9, i, j });
+/** 평균 */
+const mean = (list: number[]) => list.reduce((sum, value) => sum + value, 0) / list.length;
 
+describe("목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536)", () => {
   it("바이옴 무리: 숲·습지·고산·목초지·사막·얼음·물, 표 밖은 other", () => {
     expect(resourceBiomeGroup("taiga")).toBe("forest");
     expect(resourceBiomeGroup("tundra")).toBe("pasture");
@@ -282,7 +285,6 @@ describe("목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536)", (
         wood.push(resourceNoisePm(at(0, i, j), RES.woodNoiseSeed, 8));
         livestock.push(resourceNoisePm(at(0, i, j), RES.livestockNoiseSeed, 8));
       }
-    const mean = (list: number[]) => list.reduce((sum, value) => sum + value, 0) / list.length;
     const mw = mean(wood);
     const ml = mean(livestock);
     let cov = 0;

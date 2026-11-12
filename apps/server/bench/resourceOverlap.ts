@@ -7,7 +7,7 @@
 // 표는 Markdown이다. pnpm test에는 없다(행성 생성에 십수 초).
 import { fileURLToPath } from "node:url";
 import { loadContentPack } from "@terra/content/node";
-import { type CellKey, type Face, cellKey, parseCellKey } from "@terra/planet";
+import { type CellKey, FACES, cellKey, parseCellKey } from "@terra/planet";
 import { planetInputFromDefinition, runPlanetGenerator } from "@terra/planet/generator";
 import { planetCellValues, planetValuesFromGeneration } from "@terra/planet/secondMap";
 import { type CatchmentMaterial, cellSharesPm } from "@terra/shared/catchment";
@@ -47,10 +47,10 @@ const shares: Record<Three, number[]> = { wood: [], herb: [], livestock: [] };
 const forestOnly: Record<Three, number[]> = { wood: [], herb: [], livestock: [] };
 const FOREST = new Set(["taiga", "temperate_forest", "tropical_rainforest"]);
 const biomeSums = new Map<string, { cells: number; wood: number; herb: number; livestock: number }>();
-for (let face = 0; face < 6; face++)
+for (const face of FACES)
   for (let j = 0; j < n; j++)
     for (let i = 0; i < n; i++) {
-      const value = land(cellKey(face as Face, LEVEL, i, j));
+      const value = land(cellKey(face, LEVEL, i, j));
       if ((value.water & 3) !== 0) continue;
       const s = cellSharesPm(value, seed, "supply");
       for (const material of THREE) shares[material].push(s[material]);

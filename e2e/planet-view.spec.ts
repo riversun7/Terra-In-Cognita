@@ -354,6 +354,20 @@ test.describe("레이어: 플레이어", () => {
     await page.waitForTimeout(1200);
     const wood = await mapOnlyShot(page);
     const materialChange = await meanPixelDifference(page, ore, wood);
+    await shot(page, "planet-resource-wood");
+    // 목재·약초·목장은 서로 다른 바이옴·노이즈를 따른다(기획 D-536) — 셋의 지도가 다르게 보인다
+    const materialShot = async (material: string) => {
+      await page.locator("#planet-material").selectOption(material);
+      await expect(screen).toHaveAttribute("data-material", material);
+      await expect(screen).toHaveAttribute("data-resource", "ready", { timeout: 30_000 });
+      await page.waitForTimeout(1200);
+      await shot(page, `planet-resource-${material}`);
+      return mapOnlyShot(page);
+    };
+    const herb = await materialShot("herb");
+    const livestock = await materialShot("livestock");
+    const woodHerb = await meanPixelDifference(page, wood, herb);
+    const herbLivestock = await meanPixelDifference(page, herb, livestock);
 
     // 다른 레이어로 가면 자원 지도를 버린다(텍스처 메모리 0). 영토 덧그림은 진하게
     await chooseLayer(page, "territory");
@@ -372,10 +386,12 @@ test.describe("레이어: 플레이어", () => {
       new RegExp(`${outside.replace(/[()]/g, "\\$&")}|${territoryPrefix}`),
     );
     console.log(
-      `[measure] planet layers mean pixel diff terrain→elevation ${elevationChange.toFixed(2)}, ore→wood ${materialChange.toFixed(2)}`,
+      `[measure] planet layers mean pixel diff terrain→elevation ${elevationChange.toFixed(2)}, ore→wood ${materialChange.toFixed(2)}, wood→herb ${woodHerb.toFixed(2)}, herb→livestock ${herbLivestock.toFixed(2)}`,
     );
     expect(elevationChange).toBeGreaterThan(2);
     expect(materialChange).toBeGreaterThan(0.5);
+    expect(woodHerb).toBeGreaterThan(0.5);
+    expect(herbLivestock).toBeGreaterThan(0.5);
     expect(deviceErrors).toEqual([]);
   });
 });

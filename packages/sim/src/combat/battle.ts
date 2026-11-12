@@ -268,7 +268,10 @@ function makeBattle(
     unit.nextMoveMs = state.tick * c.tickMs + moveIntervalMs(unit, unit.moveIntervalMs);
   };
 
-  /** 성벽 뚫기: 사거리 안 넥서스 쪽 막음을 치고(준비가 안 됐으면 기다린다), 없으면 뚫기 장을 따라 걷는다 */
+  /**
+   * 성벽 뚫기: 사거리 안 넥서스 쪽 막음을 치고(준비가 안 됐으면 기다린다), 없으면 뚫기 장을 따라 걷는다. 건물을 부수지 못하는 유닛(건물 피해
+   * 배율 0 — 마법형 크리쳐, D-5043)은 막음을 치지 않고 넥서스까지 걸어 닿는 길로 간다(길이 없으면 뚫기 장을 따라 막음 앞까지)
+   */
   const breach = (
     unit: UnitState,
     occupied: Int32Array,
@@ -277,6 +280,17 @@ function makeBattle(
   ): void => {
     const field = breachTo(unit.side, gone);
     if (!field) return;
+    if (unit.buildingMulPm <= 0) {
+      if (!canMove) return;
+      const nexus = nexusOf(gone);
+      const walk =
+        nexus === undefined
+          ? null
+          : staticField(`nexus:${unit.side}:${nexus}`, () => nexusCells.get(nexus) ?? [], unit.side, gone);
+      const reachable = walk !== null && (walk[unit.y * size + unit.x] ?? UNREACHABLE) !== UNREACHABLE;
+      stepAlong(unit, reachable ? walk : field, occupied, gone);
+      return;
+    }
     const nowMs = state.tick * c.tickMs;
     const wall = breachTarget(map, field, unit, gone);
     if (wall !== undefined) {

@@ -6,7 +6,7 @@ import { PLACEMENT_SIZE, type WorldSeedCoefficients } from "@terra/sim";
 import type { GatherKind } from "../gather/kinds.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityCatalog } from "./catalog.ts";
-import { type LayoutExisting, type LayoutItem, type PlannedBuilding, planCityLayout } from "./cityLayout.ts";
+import { type LayoutExisting, type LayoutItem, type PlannedBuilding, planCityLayout } from "@terra/sim/city";
 import {
   cityLayoutRulesOf,
   cityLayoutSeed,

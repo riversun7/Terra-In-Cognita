@@ -46,6 +46,7 @@ function measure(spec: string): Row {
     combatCatalog: pack?.combat,
     combatFormulas: pack?.combatFormulas,
     tuning: pack?.tuning,
+    siegeKit: pack?.siegeKit,
     seed: Number(values.seed),
     days,
     onDay: () => {

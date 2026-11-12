@@ -1,6 +1,7 @@
 // 성벽 뚫기 — 질문 1048 가(성벽·성문 시설이 공격을 늦춘다), D-533 "둘레 건물이 공격을 늦춤", 기획 45 "경로탐색은 건물을 장애물로만 본다.
-// 성벽·골목의 방어 가치가 남는다"(D-135). 전투맵에 부술 수 있는 막음(성벽 wall·성문 gateSide)이 있을 때만 쓴다 — 없으면 옛 판정 그대로.
-// - 뚫기 거리장: 넥서스 칸에서 넓혀 가는 걸음 비용. 지나갈 수 있는 칸 1, 그 편을 막는 서 있는 성벽·성문 칸은 1 + 뚫기 비용(시작 내구도 ÷
+// 성벽·골목의 방어 가치가 남는다"(D-135). 전투맵에 부술 수 있는 막음(성벽 wall·성문 gateSide·보통 건물 breakable — 질문 1073, 공격 편이 둘레
+// 건물을 부숴 길을 낸다: 성벽과 둘레 건물이 시간을 나눠 번다)이 있을 때만 쓴다 — 없으면 옛 판정 그대로.
+// - 뚫기 거리장: 넥서스 칸에서 넓혀 가는 걸음 비용. 지나갈 수 있는 칸 1, 그 편을 막는 서 있는 막음 칸은 1 + 뚫기 비용(시작 내구도 ÷
 //   BREACH_POINTS_PER_STEP, 올림, 1~BREACH_MAX_STEPS). 다른 건물·막힌 지형은 못 지나간다. 대각선은 양옆 두 칸이 모두 지나가거나 뚫을 수
 //   있어야 한다(fields.ts 모서리 규칙). 돌아가는 길이 뚫기보다 짧으면 돌아간다.
 // - 공성 공격 편 유닛은 사거리 안 막음 칸 가운데 장 값이 지금 칸보다 작은(넥서스 쪽) 것을 친다. 정수·고정 이웃 차례(같은 입력이면 같은 장).
@@ -12,17 +13,24 @@ export const BREACH_POINTS_PER_STEP = 100;
 /** [임시] 막음 하나의 뚫기 비용 상한(걸음) */
 export const BREACH_MAX_STEPS = 200;
 
-/** 전투맵에 부술 수 있는 막음(성벽·성문)이 있나 */
+/** 부술 수 있는 막음인가(성벽·성문·부술 수 있는 보통 건물) */
+const breakableKind = (building: {
+  readonly wall?: boolean | undefined;
+  readonly breakable?: boolean | undefined;
+  readonly gateSide?: number | undefined;
+}): boolean => building.wall === true || building.breakable === true || building.gateSide !== undefined;
+
+/** 전투맵에 부술 수 있는 막음(성벽·성문·보통 건물)이 있나 */
 export function hasBreakable(map: BattleMap): boolean {
-  return map.buildings.some((building) => building.wall === true || building.gateSide !== undefined);
+  return map.buildings.some(breakableKind);
 }
 
-/** 그 칸이 편 side를 막는 서 있는 성벽·성문이면 그 건물, 아니면 undefined */
+/** 그 칸이 편 side를 막는 서 있는 막음(성벽·성문·보통 건물)이면 그 건물, 아니면 undefined */
 function blockingBreakable(map: BattleMap, cell: number, side: number, gone: ReadonlySet<number>) {
   const id = map.buildingAt[cell] ?? 0;
   if (id === 0 || gone.has(id)) return undefined;
   const building = map.buildings.find((entry) => entry.id === id);
-  if (!building || (building.wall !== true && building.gateSide === undefined)) return undefined;
+  if (!building || !breakableKind(building)) return undefined;
   return building.gateSide === side ? undefined : building;
 }
 
@@ -83,7 +91,7 @@ export function breachField(
 }
 
 /**
- * 칠 막음: 유닛 사거리(체비쇼프) 안 칸 가운데 그 편을 막는 서 있는 성벽·성문이고 장 값이 지금 칸보다 작은 것 — 가장 작은 값, 같으면 작은
+ * 칠 막음: 유닛 사거리(체비쇼프) 안 칸 가운데 그 편을 막는 서 있는 막음이고 장 값이 지금 칸보다 작은 것 — 가장 작은 값, 같으면 작은
  * 건물 ID. 없으면 undefined
  */
 export function breachTarget(

@@ -5,7 +5,16 @@ import { createBattleMap } from "./battleMap.ts";
 import { TEST_COMBAT_CATALOG } from "./catalog.ts";
 import { TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
 import { UNREACHABLE, distanceField } from "./fields.ts";
-import { type SiegeLayout, siegeArena, siegeOrigin, siegePlacer } from "./siegeArena.ts";
+import {
+  type SiegeLayout,
+  edgeToward,
+  siegeArena,
+  siegeNexusDurability,
+  siegeOrigin,
+  siegePlacer,
+  waveAttackEdge,
+} from "./siegeArena.ts";
+import { breachField, breachTarget, hasBreakable } from "./breach.ts";
 import { runWaveToEnd, waveBattleInit } from "../simulator/waveBattle.ts";
 import type { SimUnit } from "../simulator/world.ts";
 
@@ -163,5 +172,98 @@ describe("siegeArena", () => {
       64 * 128 + 64,
     ]);
     expect(open.sides.map((side) => side.edge)).toEqual([3, 1]);
+  });
+
+  it("들어오는 변 = 모함 쪽(질문 1067 가): 더 큰 축, 같으면 동·서, 방향이 없으면 undefined", () => {
+    expect(edgeToward(10, 3)).toBe(1);
+    expect(edgeToward(-10, 3)).toBe(3);
+    expect(edgeToward(2, 9)).toBe(2);
+    expect(edgeToward(2, -9)).toBe(0);
+    expect(edgeToward(5, 5)).toBe(1);
+    expect(edgeToward(-5, -5)).toBe(3);
+    expect(edgeToward(0, 0)).toBeUndefined();
+    expect(edgeToward(Number.NaN, 1)).toBeUndefined();
+    // 방향을 모르면 시드로 고른 변(늘 같은 값)
+    expect(waveAttackEdge(7, 3)).toBe(waveAttackEdge(7, 3));
+  });
+
+  it("넥서스 내구도 = 행정 건물의 지금 내구도(질문 1069 가), 건물이 아니면 부르는 쪽 값", () => {
+    expect(siegeNexusDurability(layout(), 2000)).toBe(10);
+    expect(siegeNexusDurability(layout({ nexusSourceId: null }), 2000)).toBe(2000);
+    expect(siegeNexusDurability(layout({ nexusSourceId: 999 }), 2000)).toBe(2000);
+    const init = waveBattleInit(
+      {
+        battleId: 1,
+        seed: 1,
+        defenderFaction: 2,
+        defenders: [],
+        defenderTech: 1,
+        strength: 1,
+        physical: 1,
+        creatureTech: 1,
+        firstCreatureId: 1000,
+        mapSize: 128,
+        nexusDurability: 2000,
+        maxDefenders: 0,
+        layout: layout(),
+        attackEdge: 3,
+      },
+      TEST_COMBAT_CATALOG,
+      TEST_COMBAT_COEFFICIENTS,
+    );
+    expect(init.map.buildings.find((building) => building.nexus)?.durability).toBe(10);
+  });
+
+  it("보통 건물은 부숴 길을 낼 수 있다(질문 1073): 돌아가는 길이 길면 친다, 부서지면 지나가고 시선은 막는다", () => {
+    // 행정 건물을 둘레 건물 넷(내구도 100)이 빈틈 없이 감싼다 — 넥서스까지 걷는 길이 없다
+    const hall = { x: 126, y: 126, width: 4, height: 4 };
+    const closed = layout({
+      nexus: hall,
+      nexusSourceId: null,
+      buildings: [
+        { sourceId: 1, x: 122, y: 122, width: 12, height: 4, durability: 100 },
+        { sourceId: 2, x: 122, y: 130, width: 12, height: 4, durability: 100 },
+        { sourceId: 3, x: 122, y: 126, width: 4, height: 4, durability: 100 },
+        { sourceId: 4, x: 130, y: 126, width: 4, height: 4, durability: 100 },
+      ],
+    });
+    const arena = siegeArena(closed, 128, 300);
+    expect(arena.map.buildings.filter((building) => building.breakable === true)).toHaveLength(4);
+    const map = createBattleMap(arena.map);
+    expect(hasBreakable(map)).toBe(true);
+    const nexusCells = arena.map.buildings.find((building) => building.nexus)?.cells ?? [];
+    const field = breachField(map, nexusCells, 1, new Set());
+    // 서쪽 건물(3) 바로 바깥에서는 그 건물이 칠 막음
+    const outside = { x: 121 - arena.origin.x, y: 127 - arena.origin.y };
+    expect(breachTarget(map, field, { ...outside, range: 1, side: 1 }, new Set())).toBeDefined();
+    const westId = [...arena.sources].find(([, source]) => source === 3)?.[0] ?? 0;
+    const westCell = (127 - arena.origin.y) * 128 + (123 - arena.origin.x);
+    expect(map.passableFor(westCell, 1, new Set())).toBe(false);
+    expect(map.passableFor(westCell, 1, new Set([westId]))).toBe(true);
+    expect(map.blocksSight(westCell, new Set([westId]))).toBe(true);
+    // 크리쳐는 둘레 건물을 부수고 넥서스를 무너뜨린다
+    const init = waveBattleInit(
+      {
+        battleId: 1,
+        seed: 3,
+        defenderFaction: 2,
+        defenders: [],
+        defenderTech: 1,
+        strength: 4,
+        physical: 4,
+        creatureTech: 1,
+        firstCreatureId: 1000,
+        mapSize: 128,
+        nexusDurability: 300,
+        maxDefenders: 0,
+        layout: closed,
+        attackEdge: 3,
+      },
+      TEST_COMBAT_CATALOG,
+      TEST_COMBAT_COEFFICIENTS,
+    );
+    const { result, state } = runWaveToEnd(createBattle(init, TEST_COMBAT_COEFFICIENTS), []);
+    expect(result?.reason).toBe("nexus");
+    expect(state.buildings.some((building) => building.id !== 1 && building.durability <= 0)).toBe(true);
   });
 });

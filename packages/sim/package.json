@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./siegeArena": "./src/combat/siegeArena.ts"
+    "./siegeArena": "./src/combat/siegeArena.ts",
+    "./city": "./src/city/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p bench/tsconfig.json && tsc --noEmit -p cli/tsconfig.json",

@@ -172,3 +172,8 @@
 - 측정: 작업 기록 `docs/worklog/2026/11/12-1712-logistics-2.md`.
 - 판: 팩 core@76(아이템 무게 17개 + 설정 칸 `worker_rest_cycle_mode`), 마이그레이션 없음, 프로토콜 그대로(결과 코드는 있던 것), `SIM_VERSION` 그대로(시뮬 기본 시나리오 결과가 같다 — 측정 3).
 - 다시 볼 조건: 질문 1131~1140 답, 운송 줄기(1093 — 가공 시설 ↔ 창고 거리, 짐 저장), 플레이어 유닛 주거.
+
+## 바뀜 (2026-11-12, D-534 — 질문 1068·1070·1071 기술 추천)
+- 배치 함수·성벽 고리는 판정 꾸러미에 있다(질문 1068 가): `apps/server/src/facilities/cityLayout.ts` → `packages/sim/src/city/cityLayout.ts`(이름 바꾸기), 고리 계획·성문·설정 칸 읽기(`cityWallRulesOf`·`ringSides`·`gateIndices`·`planCityWalls`·`cityGates`·`cityLayoutRulesOf`·`cityLayoutSeed`·`layoutRoleOf`)도 `@terra/sim/city`. 서버 `cityWalls.ts`·`cityLayoutGround.ts`는 다시 내보내고 2차맵에 세우는 일만 한다. 시뮬레이터 도시가 같은 함수로 평지 배치 + 성벽을 세운다(ADR `2026-10-31-combat-core.md` "바뀜 (2026-11-12, D-534)").
+- 성문은 공성 전투에서만 닫힌다(질문 1070 가): 2차맵 배치 격자·경로탐색에는 편이 없어 틈은 누구나 지나간다. 시험으로 묶었다(바깥 → 행정 건물 앞은 틈으로만 이어지고, 그 틈이 공성 입력의 성문이다 — `cityWalls.test.ts`).
+- 다시 놓기가 성벽 고리를 다시 세운다(질문 1071 가, `cityRelayout.ts`): 성벽은 다른 건물처럼 계획하지 않고, 첫 계획의 새 행정 건물 자리 둘레에 고리 토막을 잡아(유닛이 선 칸 제외) 있던 성벽을 같은 ID로 토막 차례대로 옮긴 뒤 그 땅에서 다시 계획한다(세로 변 90° 돌림 — 옮기기에 돌림 칸). 토막이 모자라면 토막과 겹치지 않는 성벽만 제자리에 남기고, 그럴 수 없거나 행정 건물 자리가 달라지면 성벽은 옮기지 않는다. 짓거나 지우지 않는 규칙은 그대로.

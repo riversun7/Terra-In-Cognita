@@ -13,7 +13,7 @@ import {
   planCityLayout,
   rectCenter,
   splitByAngle,
-} from "./cityLayout.ts";
+} from "@terra/sim/city";
 import { layoutMetrics } from "./cityLayoutMetrics.ts";
 
 const SIZE = 256;

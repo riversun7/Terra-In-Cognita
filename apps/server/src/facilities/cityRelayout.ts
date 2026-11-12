@@ -6,15 +6,29 @@
 // - 예약(world_city_layout_requests, 감사 기록 world.city_relayout_request) → 서버가 다음에 켤 때 한 번(world.ts, 세계 씨앗 직전 — 경로 서비스를
 //   켜기 전, 동기): 같은 계획을 다시 세워 건물을 옮긴다. 건물 ID는 그대로(치우고 같은 ID로 다시 놓기 — 시설 줄·창고 물건·직무가 ID로 이어진다).
 //   도시 하나 안에서 하나라도 못 놓으면(유닛이 선 칸 등) 그 도시는 모두 제자리로 되돌린다. 든 결과·감사 기록 world.city_relayout.
+// - 성벽 고리(질문 1071 가, 기획 D-534): 그 도시 성벽(방어 단계)은 다른 건물을 다 계획한 뒤 새 행정 건물 자리 둘레에 같은 고리 함수(@terra/sim/city
+//   planCityWalls)로 다시 세운다 — 있던 성벽을 같은 ID로 고리 토막 차례대로 옮긴다(건물 ID 차례 → 토막 차례, 세로 변은 90° 돌림). 고리 토막이
+//   성벽보다 적으면(새 자리 둘레가 막힘) 남는 성벽은 제자리, 많으면 빈 토막은 공성 때 성문이 된다(cityGates). 행정 건물이 없는 도시·플레이어가
+//   걸린 성벽은 옮기지 않는다.
 // - 하지 않는 것: 건물을 짓거나 지우지 않는다(모자란 숙소 등은 같은 부팅의 세계 씨앗이 더한다), 플레이어 것은 옮기지 않는다, 가문·반란 세력 도시는
 //   건드리지 않는다(kind = npc 시작 도시만).
 import type { CityCell } from "@terra/shared/goodsPlaces";
-import { PLACEMENT_SIZE, type WorldSeedCoefficients } from "@terra/sim";
+import { PLACEMENT_SIZE, type Rotation, type WorldSeedCoefficients, footprintRect } from "@terra/sim";
 import type { GatherKind } from "../gather/kinds.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityCatalog } from "./catalog.ts";
-import { type LayoutExisting, type LayoutItem, type LayoutRect, planCityLayout } from "./cityLayout.ts";
+import {
+  CITY_WALL_FACILITY,
+  DEFENSE_STAGE,
+  type LayoutExisting,
+  type LayoutItem,
+  type LayoutRect,
+  cityWallRulesOf,
+  overlaps,
+  planCityLayout,
+  planCityWalls,
+} from "@terra/sim/city";
 import {
   cityLayoutRulesOf,
   cityLayoutSeed,
@@ -95,12 +109,14 @@ export interface RelayoutDeps {
   readonly land?: ((mapKey: number) => SeedLand | undefined) | undefined;
 }
 
-/** 건물 하나 옮기기 */
+/** 건물 하나 옮기기(from·to = 돌리기 전 배치 크기, 돌림은 fromRotation·toRotation — 없으면 0) */
 export interface RelayoutMove {
   readonly buildingId: number;
   readonly facility: string;
   readonly from: LayoutRect;
   readonly to: LayoutRect;
+  readonly fromRotation?: Rotation | undefined;
+  readonly toRotation?: Rotation | undefined;
 }
 
 export interface CityRelayoutPlan {
@@ -132,12 +148,15 @@ export function planCityRelayout(deps: RelayoutDeps, inputs: RelayoutInputs): Ci
   for (const city of inputs.cities) {
     const map = deps.maps.get(city.mapKey);
     if (!map) continue;
+    // 차지한 칸(돌린 건물은 돌린 뒤 크기)과 돌리기 전 배치(성벽을 옮길 때 되돌릴 자리)
     const placements = new Map<number, LayoutRect>();
+    const raw = new Map<number, { rect: LayoutRect; rotation: Rotation }>();
     map.forEachBuilding((building) => {
-      const { x, y, width, height } = building.placement;
-      placements.set(building.id, { x, y, width, height });
+      const { x, y, width, height, rotation } = building.placement;
+      placements.set(building.id, footprintRect(building.placement));
+      raw.set(building.id, { rect: { x, y, width, height }, rotation });
     });
-    const mine: { id: number; facility: string; rect: LayoutRect; pinned: boolean }[] = [];
+    const mine: { id: number; facility: string; rect: LayoutRect; pinned: boolean; wall: boolean }[] = [];
     for (const record of deps.facilities.values()) {
       const rect = placements.get(record.buildingId);
       if (record.cityId !== city.id || !rect || map.buildingOwner(record.buildingId) !== city.ownerId)
@@ -146,16 +165,21 @@ export function planCityRelayout(deps: RelayoutDeps, inputs: RelayoutInputs): Ci
         id: record.buildingId,
         facility: record.facilityId,
         rect,
-        // 성벽(방어 단계, 질문 1048 가)은 행정 건물 둘레 고리라 다른 건물처럼 옮기지 않는다
-        pinned:
-          inputs.pinned.has(record.buildingId) ||
-          deps.catalog.facility(record.facilityId)?.stage === "defense",
+        pinned: inputs.pinned.has(record.buildingId),
+        // 성벽(방어 단계, 질문 1048 가)은 다른 건물처럼 계획하지 않고 새 행정 건물 둘레 고리로 다시 세운다(질문 1071 가)
+        wall: deps.catalog.facility(record.facilityId)?.stage === DEFENSE_STAGE,
       });
     }
     if (mine.length === 0) continue;
     const roleOf = (facility: string) => layoutRoleOf(deps.catalog.facility(facility)?.stage);
+    // 행정 건물이 없으면 고리를 둘 곳이 없다: 성벽은 그 자리에 둔다(옛 동작)
+    const hasHall = mine.some((building) => !building.wall && roleOf(building.facility) === "core");
+    for (const building of mine) if (building.wall && !hasHall) building.pinned = true;
+    const walls = mine
+      .filter((building) => building.wall && !building.pinned)
+      .toSorted((a, b) => a.id - b.id);
     const movable = mine
-      .filter((building) => !building.pinned)
+      .filter((building) => !building.pinned && !building.wall)
       .toSorted(
         (a, b) =>
           ROLE_ORDER.indexOf(roleOf(a.facility)) - ROLE_ORDER.indexOf(roleOf(b.facility)) || a.id - b.id,
@@ -174,23 +198,107 @@ export function planCityRelayout(deps: RelayoutDeps, inputs: RelayoutInputs): Ci
         facility: building.facility,
         role: roleOf(building.facility),
       }));
-    const ground = layoutGroundOf({
-      map,
-      catalog: deps.catalog,
-      anchors: inputs.anchors.filter((anchor) => anchor.mapKey === city.mapKey),
-      cityId: city.id,
-      objects: layoutObjectsOf(map, deps.gatherKinds, deps.land?.(city.mapKey), deps.seed),
-      ignore: new Set(movable.map((building) => building.id)),
-    });
-    const layout = planCityLayout({
-      center: { x: city.cellX, y: city.cellY },
-      items,
-      existing,
-      ground,
-      rules,
-      seed: cityLayoutSeed(city.mapKey, city.id),
-      size: PLACEMENT_SIZE,
-    });
+    const groundOf = () =>
+      layoutGroundOf({
+        map,
+        catalog: deps.catalog,
+        anchors: inputs.anchors.filter((anchor) => anchor.mapKey === city.mapKey),
+        cityId: city.id,
+        objects: layoutObjectsOf(map, deps.gatherKinds, deps.land?.(city.mapKey), deps.seed),
+        ignore: new Set([...movable, ...walls].map((building) => building.id)),
+      });
+    const planOn = (ground: ReturnType<typeof groundOf>) =>
+      planCityLayout({
+        center: { x: city.cellX, y: city.cellY },
+        items,
+        existing,
+        ground,
+        rules,
+        seed: cityLayoutSeed(city.mapKey, city.id),
+        size: PLACEMENT_SIZE,
+      });
+    const hall = mine.find((building) => !building.wall && roleOf(building.facility) === "core");
+    /** 계획에서 행정 건물 자리(옮기면 새 자리, 아니면 지금 자리) */
+    const hallIn = (plan: ReturnType<typeof planOn>): LayoutRect | undefined => {
+      if (!hall) return undefined;
+      const spot = plan.placed.find((building) => building.key === hall.id);
+      return spot ? { x: spot.x, y: spot.y, width: spot.width, height: spot.height } : hall.rect;
+    };
+    let ground = groundOf();
+    let layout = planOn(ground);
+    // 성벽 고리(질문 1071 가): 첫 계획의 새 행정 건물 자리 둘레에 고리 토막을 먼저 잡고(남는 성벽은 제자리), 그 땅에서 다시 계획한다.
+    // 행정 건물 자리는 고리(광장 밖)와 상관없이 같게 나온다 — 다르면 고리를 옮기지 않는다
+    const wallMoves: RelayoutMove[] = [];
+    const wallTargets = new Map<number, LayoutRect>();
+    const hallRect = hallIn(layout);
+    if (hallRect && walls.length > 0) {
+      const reserved = groundOf();
+      const wallDef = deps.catalog.facility(CITY_WALL_FACILITY)?.footprint;
+      const first = walls[0];
+      const length = wallDef
+        ? Math.max(wallDef.width, wallDef.height)
+        : Math.max(first?.rect.width ?? 1, first?.rect.height ?? 1);
+      const ring = planCityWalls(hallRect, cityWallRulesOf(deps.seed), length, (placement) => {
+        const rect = footprintRect(placement);
+        // 유닛이 선 칸에는 놓지 않는다(옮길 때 2차맵이 거절하면 그 도시 전체가 되돌려진다 — 씨앗 seedCityWalls와 같다)
+        if (!reserved.canPlace(rect) || reserved.occupied?.(rect) === true) return false;
+        reserved.place(rect);
+        return true;
+      });
+      // 고리 토막이 성벽보다 적으면 남는 성벽은 제자리 — 고리 토막과 겹치지 않는 것(큰 ID부터)만 남길 수 있다. 모자라면 고리를 옮기지 않는다
+      const spots = ring.map((placement) => footprintRect(placement));
+      const hits = (rect: LayoutRect) => spots.some((spot) => overlaps(spot, rect));
+      const stayCount = Math.max(0, walls.length - ring.length);
+      const stays = new Set(
+        walls
+          .filter((wall) => !hits(wall.rect))
+          .map((wall) => wall.id)
+          .toSorted((x, y) => y - x)
+          .slice(0, stayCount),
+      );
+      const ringOk = stays.size === stayCount;
+      const movers = walls.filter((wall) => !stays.has(wall.id));
+      for (const wall of walls) if (stays.has(wall.id)) reserved.place(wall.rect);
+      movers.forEach((wall, index) => {
+        const spot = ring[index];
+        if (!spot || !ringOk) return;
+        const before = raw.get(wall.id);
+        const fromRotation = before?.rotation ?? 0;
+        const from = before?.rect ?? wall.rect;
+        const to = { x: spot.x, y: spot.y, width: spot.width, height: spot.height };
+        wallTargets.set(wall.id, footprintRect(spot));
+        if (to.x === from.x && to.y === from.y && spot.rotation === fromRotation) return;
+        wallMoves.push({
+          buildingId: wall.id,
+          facility: wall.facility,
+          from,
+          to,
+          fromRotation,
+          toRotation: spot.rotation,
+        });
+      });
+      const again = planOn(reserved);
+      const hallAgain = hallIn(again);
+      if (
+        ringOk &&
+        hallAgain &&
+        hallAgain.x === hallRect.x &&
+        hallAgain.y === hallRect.y &&
+        hallAgain.width === hallRect.width &&
+        hallAgain.height === hallRect.height
+      ) {
+        ground = reserved;
+        layout = again;
+      } else {
+        // 성벽은 제자리: 다른 건물이 그 칸을 피하게 다시 계획한다(옛 동작)
+        wallMoves.length = 0;
+        wallTargets.clear();
+        const keep = groundOf();
+        for (const wall of walls) keep.place(wall.rect);
+        ground = keep;
+        layout = planOn(keep);
+      }
+    }
     const target = new Map<number, LayoutRect>();
     for (const building of layout.placed)
       if (building.key !== undefined)
@@ -206,6 +314,8 @@ export function planCityRelayout(deps: RelayoutDeps, inputs: RelayoutInputs): Ci
       if (to && (to.x !== building.rect.x || to.y !== building.rect.y))
         moves.push({ buildingId: building.id, facility: building.facility, from: building.rect, to });
     }
+    for (const [id, rect] of wallTargets) target.set(id, rect);
+    moves.push(...wallMoves);
     const metrics = (useTarget: boolean) =>
       layoutMetrics({
         center: { x: city.cellX, y: city.cellY },
@@ -219,10 +329,10 @@ export function planCityRelayout(deps: RelayoutDeps, inputs: RelayoutInputs): Ci
       });
     out.push({
       city,
-      movable: movable.length,
-      pinned: mine.length - movable.length,
+      movable: movable.length + walls.length,
+      pinned: mine.length - movable.length - walls.length,
       moves,
-      stay: movable.filter((building) => !target.has(building.id)).length,
+      stay: [...movable, ...walls].filter((building) => !target.has(building.id)).length,
       now: metrics(false),
       planned: metrics(true),
       buildings: mine.map((building) => ({
@@ -266,7 +376,11 @@ export function applyCityRelayout(
     const done: RelayoutMove[] = [];
     let failed = false;
     for (const move of plan.moves) {
-      const result = map.placeBuilding({ ...move.to, rotation: 0 }, owner, move.buildingId);
+      const result = map.placeBuilding(
+        { ...move.to, rotation: move.toRotation ?? 0 },
+        owner,
+        move.buildingId,
+      );
       if (!result.ok) {
         failed = true;
         break;
@@ -276,7 +390,8 @@ export function applyCityRelayout(
     if (failed) {
       // 되돌리기: 새 자리에 놓은 것을 치우고 모두 옛 자리에(옛 자리는 처음 상태라 늘 놓인다)
       for (const move of done) map.removeBuilding(move.buildingId);
-      for (const move of plan.moves) map.placeBuilding({ ...move.from, rotation: 0 }, owner, move.buildingId);
+      for (const move of plan.moves)
+        map.placeBuilding({ ...move.from, rotation: move.fromRotation ?? 0 }, owner, move.buildingId);
       rolledBack += 1;
       continue;
     }

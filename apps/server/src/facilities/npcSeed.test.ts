@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { CityRow } from "../world/cities.ts";
 import { type TestMap, createTestMap } from "../world/testSupport.ts";
 import { facilityCatalogOf } from "./catalog.ts";
-import { LAYOUT_MARGIN, grow, overlaps, rectCenter } from "./cityLayout.ts";
+import { LAYOUT_MARGIN, grow, overlaps, rectCenter } from "@terra/sim/city";
 import {
   SEED_MARGIN,
   SEED_PLAZA_RADIUS,

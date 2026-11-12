@@ -6,7 +6,8 @@
 // - 바닥 높이: 16배 cm 정수(ADR 35 "칸 높이"). 구역 최저점을 0으로 둔다.
 // - 건물: 장애물·차폐. 성문(gateSide)은 그 편만 지나가고(질문 97), 부서지면 누구나 지나가며 시선도 막지 않는다.
 //   성벽(wall, 질문 1048 가)은 아무도 못 지나가고, 부서지면 성문처럼 누구나 지나가며 시선도 막지 않는다(breach.ts가 뚫는다).
-//   다른 건물은 부서져도 전투가 끝날 때까지 막힘·차폐로 남는다(ADR 35 "무너진 건물 자리도 차폐").
+//   부술 수 있는 보통 건물(breakable, 질문 1073 — 공성 전투맵의 넥서스 아닌 건물)은 부서지면 누구나 지나가지만 시선은 계속 막는다(무너진 자리
+//   차폐, ADR 35). 그 밖의 건물은 부서져도 전투가 끝날 때까지 막힘·차폐로 남는다(ADR 35 "무너진 건물 자리도 차폐").
 // - 물(수상 층)은 아직 없다: 물 칸은 지상 통과에서 막힘으로만 둔다(R3 범위, ADR combat-core).
 
 export const COVER_NONE = 0;
@@ -25,6 +26,8 @@ export interface BattleBuildingInput {
   readonly gateSide?: number | undefined;
   /** 성벽(부서지면 뚫린다, 질문 1048 가). 없으면 보통 건물 */
   readonly wall?: boolean | undefined;
+  /** 부술 수 있는 보통 건물(부서지면 지나갈 수 있고 시선은 계속 막는다, 질문 1073). 공성 공격 편이 길을 낼 때 친다(breach.ts) */
+  readonly breakable?: boolean | undefined;
 }
 
 export interface BattleMapInput {
@@ -80,7 +83,7 @@ export function createBattleMap(input: BattleMapInput): BattleMap {
       const id = buildingAt[cell] ?? 0;
       if (id === 0) return true;
       const building = byId.get(id);
-      if (building?.wall === true) return destroyed.has(id);
+      if (building?.wall === true || building?.breakable === true) return destroyed.has(id);
       if (building?.gateSide === undefined) return false;
       return building.gateSide === side || destroyed.has(id);
     },

@@ -4,10 +4,11 @@
 // 목표(C16a) = 오염 합 ≥ 기준(30,000)인 도시에 오는 웨이브의 약 1/3이 이김. 크리쳐 한 마리 = 수비 휴먼 한 명([임시], D-5024 전).
 // 사용: pnpm --filter @terra/sim gardener:cal [--seeds 1,2,…] [--sums 10000,20000,30000,45000,60000]
 //        [--defenders 10] [--tech 3] [--cities 4] [--humans 40] [--set 항목ID=값,…] [--grid base:4,6,8/divisor:200,100,50]
-//        [--detail] [--stamina-cost N]
+//        [--detail] [--stamina-cost N] [--open]
 //   --set: 팩 설정 칸 값 위에 얹는다(예: c16_strength_base=6). --grid: 세기 기본 × 물리형 나눗수 조합마다 목표 구간 승률만 낸다.
 //   --detail: 합마다(--grid면 조합마다) 끝난 까닭(넥서스·전멸·공성 크리쳐 다 잃음·공성 제한)과 전투 시간(평균·최대 초)·CPU(ms)도 낸다.
 //   --stamina-cost: 모든 무기·타고난 무기의 기본 공격 스태미나 소모를 N으로(메모리에서만, 질문 274 견주기. 팩은 그대로).
+//   --open: 옛 열린 맵(가운데 넥서스 2,000)으로 잰다. 기본은 시뮬 도시와 같은 평지 배치 + 성벽(질문 1068 가, 넥서스 = 행정 건물 내구도).
 //   걸린 시간은 표준 오류. 결과는 같은 입력이면 같다(전투 시드 = --seeds). CPU 값만 기계에 따라 다르다.
 import { parseArgs } from "node:util";
 import {
@@ -26,6 +27,8 @@ import {
   type SimUnit,
   type WeaponSpec,
 } from "../src/index.ts";
+import { simCitySiegeLayout } from "../src/city/index.ts";
+import type { SiegeLayout } from "../src/combat/siegeArena.ts";
 import { DEFAULT_PACK_DIR, readPack } from "./common.ts";
 
 const { values } = parseArgs({
@@ -40,6 +43,7 @@ const { values } = parseArgs({
     grid: { type: "string" },
     detail: { type: "boolean", default: false },
     "stamina-cost": { type: "string" },
+    open: { type: "boolean", default: false },
   },
 });
 
@@ -134,6 +138,9 @@ function waveOutcome(tuning: ReadonlyMap<string, number>, sum: number, seed: num
       mapSize: 128,
       nexusDurability: 2000,
       maxDefenders: defendersN,
+      // 시뮬 도시와 같은 평지 배치 + 성벽(질문 1068 가). --open이면 옛 열린 맵. 변은 [임시] 서쪽(모함 방향을 모른다)
+      layout: values.open ? undefined : layoutOf(tuning),
+      attackEdge: 3,
     },
     combatCatalog,
     combat,
@@ -153,6 +160,29 @@ function waveOutcome(tuning: ReadonlyMap<string, number>, sum: number, seed: num
           ? "spent"
           : "limit";
   return { end, battleMs, cpuMs };
+}
+
+/** 시뮬 시작 도시(주거 --humans, 행정 레벨 1)의 공성 입력(설정 칸마다 한 번) */
+const layouts = new Map<ReadonlyMap<string, number>, SiegeLayout | undefined>();
+function layoutOf(tuning: ReadonlyMap<string, number>): SiegeLayout | undefined {
+  if (!layouts.has(tuning)) {
+    const c = societyCoefficientsFrom(tuning);
+    layouts.set(
+      tuning,
+      simCitySiegeLayout({
+        cityId: 1,
+        start: true,
+        housing: scale.humans,
+        adminLevel: 1,
+        seed: c.worldSeed,
+        kit: pack.siegeKit,
+        runtime: c.facilityRuntime,
+        bedsPerLevel: c.logistics.lodgingBedsPerLevel,
+        layoutSeed: 1,
+      }),
+    );
+  }
+  return layouts.get(tuning);
 }
 
 /** 웨이브가 이겼나 */

@@ -61,6 +61,7 @@ const {
   formulaEntries,
   combatFormulas: packFormulas,
   tuning: packTuning,
+  siegeKit,
   ...content
 } = pack;
 const tuning = values.tuning === undefined ? packTuning : withTuningDiff(packTuning, values.tuning);
@@ -81,6 +82,7 @@ const summary = runSimulation({
   combatCatalog: combat,
   combatFormulas,
   tuning,
+  siegeKit,
   checkEveryDays: Number(values["check-every"]),
   sink: values.out === undefined ? undefined : (line) => lines.push(line),
 });

@@ -52,8 +52,13 @@
 - 도시 창고 식품 표는 30초 들고 쓴다(원장 전체를 한 번 훑음). 10만 계정 규모 비용은 재지 않았다(Unknown).
 - 시뮬 도시 시설은 컨디션 0이라 시뮬 결과 그대로(아래 검사).
 
-## 검사
-(아래 채움)
+## 검사 (Verified, 실행)
+- `pnpm check`(TEST_DATABASE_URL): 포맷·린트·타입·경계·크기·다국어·대비·콘텐츠(core@77) 통과. 시험 5,015 통과 / 14 실패 — 실패는 모두 DB 시험 7개 파일의 `Hook timed out in 30000ms`(세 줄기가 한 DB를 같이 씀)였고, 그 7개 + `buildingEdit.db.test.ts`를 `--hookTimeout 180000 --no-file-parallelism`로 다시 돌려 8개 파일 21개 모두 통과.
+- 시험 추가·고침: sim `condition.test.ts`(선호 4), `recruitment.test.ts`(Lv4·5 1), `tuningChecks.test.ts`(n45_fit 3), shared `gatherExpect.test.ts`(해금 티어·레벨 보너스 2), `itemWeights.test.ts`(2), server `labor/condition.test.ts`(쉼터·선호·도시 창고 식품, 5).
+- 시뮬 결과 그대로: econ16·war16 60일 요약이 옛 값(`--tuning`으로 레벨 보너스 10·구인 Lv4·5 옛 값)을 얹은 실행과 바이트까지 같다(`cmp`) → `SIM_VERSION` 그대로.
+- `pnpm build` 통과, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 108,929 B / 상한 131,416 B.
+- e2e(헤드리스 Playwright): `gather-expect.spec.ts` 6/6(선택 해금 티어 줄·레벨당 5·선호 한 줄 확인 포함), `cyborg.spec.ts` 17/17 — 합계 23 통과. `items.spec.ts`의 광산 Lv5 확률 줄(6% → 3%)은 고쳤지만 돌리지 않았다(미실행).
+- 사진: `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/condition-2-shots/gather-expect-{neon-ko-1440,light-en-1440,neon-en-390,light-ko-390}.png`, `cyborg-d459-vitals-1440-dark-ko.png`.
 
 ## 사용자 결정 대기
 - 질문 1196~1203(`docs/questions/2026-11-12-condition-2.md`).

@@ -1,6 +1,6 @@
 // 건물 서비스가 읽는 시설·아이템 정의(실효 콘텐츠 = 팩 + 건물 편집기·아이템 편집기 덮어쓰기, 바로 든다 D-461)
 // docs/adr/2026-11-07-buildings-runtime.md. 팩 참조(ContentRef)를 ID 글자로 바꾼 모양이고, 실효 목록이 바뀔 때만 다시 만든다.
-import type { FacilityEntry, GatherTierEntry, ItemEntry } from "@terra/content";
+import type { FacilityEntry, GatherTierEntry, ItemEntry, ItemSubcategoryEntry } from "@terra/content";
 import {
   type CatalogGather,
   GATHER_TIERS,
@@ -62,6 +62,12 @@ export interface FacilityCatalog {
   readonly gatherBands: readonly GatherBand[];
   /** 켜진 아이템 자산 → 묶음 크기(1이 아닌 것만, 광석 1kg = 1,000g) */
   readonly lotSize: ReadonlyMap<string, bigint>;
+  /** 식품 중분류 ID(item_subcategories food: true, 켜진 것 — 컨디션 좋아하는 음식 후보, D-535 1151 나). 중분류 목록이 없으면 빈 목록 */
+  readonly foodSubcategories: readonly string[];
+  /** 아이템의 중분류 ID(없으면 undefined) */
+  subcategoryOf(item: string): string | undefined;
+  /** 중분류 이름(목록에 없으면 undefined) */
+  subcategoryName(id: string): LocalizedName | undefined;
 }
 
 export interface CatalogSource {
@@ -69,6 +75,8 @@ export interface CatalogSource {
   readonly items: readonly ItemEntry[];
   /** 채집 티어 확률표(실효 콘텐츠에 있다 — contentEdit ContentEffective.gatherTiers). 없으면 시험 표 */
   readonly gatherTiers?: readonly GatherTierEntry[] | undefined;
+  /** 아이템 중분류(실효 콘텐츠에 있다 — 컨디션 좋아하는 음식 후보·이름). 없으면 빈 목록 */
+  readonly itemSubcategories?: readonly ItemSubcategoryEntry[] | undefined;
 }
 
 function defOf(entry: FacilityEntry): FacilityDef {
@@ -123,6 +131,7 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
         facilities: readonly FacilityEntry[];
         items: readonly ItemEntry[];
         tiers: readonly GatherTierEntry[] | undefined;
+        subs: readonly ItemSubcategoryEntry[] | undefined;
         value: FacilityCatalog;
       }
     | undefined;
@@ -131,7 +140,8 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
     if (
       cached?.facilities === current.facilities &&
       cached.items === current.items &&
-      cached.tiers === current.gatherTiers
+      cached.tiers === current.gatherTiers &&
+      cached.subs === current.itemSubcategories
     )
       return cached.value;
     const defs = current.facilities.map(defOf);
@@ -139,6 +149,7 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
     const items = new Map(current.items.map((item) => [item.id, item]));
     const enabled = current.items.filter((item) => item.enabled);
     const ladders = new Map<string, string[][]>();
+    const subs = new Map((current.itemSubcategories ?? []).map((sub) => [sub.id, sub]));
     const value: FacilityCatalog = {
       facility: (id) => byId.get(id),
       facilities: defs,
@@ -183,8 +194,22 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
           .filter((item) => (item.lotSize ?? 1) !== 1)
           .map((item) => [itemAsset(item.id), BigInt(item.lotSize ?? 1)]),
       ),
+      foodSubcategories: [...subs.values()]
+        .filter((sub) => sub.food === true && sub.enabled)
+        .map((sub) => sub.id),
+      subcategoryOf: (id) => items.get(id)?.subcategory?.id,
+      subcategoryName(id) {
+        const sub = subs.get(id);
+        return sub ? { ko: sub.name.ko, en: sub.name.en } : undefined;
+      },
     };
-    cached = { facilities: current.facilities, items: current.items, tiers: current.gatherTiers, value };
+    cached = {
+      facilities: current.facilities,
+      items: current.items,
+      tiers: current.gatherTiers,
+      subs: current.itemSubcategories,
+      value,
+    };
     return value;
   };
 }

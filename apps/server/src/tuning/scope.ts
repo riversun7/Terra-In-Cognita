@@ -132,6 +132,10 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "condition.foodNeutralPm",
   "condition.preferGrade2From",
   "condition.preferGrade3From",
+  "condition.preferHousingMatch",
+  "condition.preferHousingMiss",
+  "condition.preferFoodMatch",
+  "condition.preferFoodMiss",
   "statSums.humanMax",
   "statSums.creatureMax",
   // 전투 클래스 추천 문턱(trpc units.guide, D-529): 조회마다 읽는다

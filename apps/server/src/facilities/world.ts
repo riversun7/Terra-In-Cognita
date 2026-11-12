@@ -5,15 +5,16 @@
 //   damage(건물 서비스·영토 서비스)가 받는다.
 // - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 계약 서비스를 이을 때 채집 산출 자료(채집 시설의 정의·레벨·도시·
 //   자리 수, 유닛 1차 스탯)를 함께 넘긴다(gatherSiteOf). 임대형 임차인 몫의 건물 창고 남은 자리(storage.ts roomGrams, WP8 523 ②)도 함께.
-// - 컨디션(D-534, labor/condition.ts): 채집 정산과 유닛 화면에 그 유닛의 관리 보너스를 넘긴다(주거 = 주인의 그 도시 숙소, 음식 = 도시 생필품 충족).
-import type { ConditionParts, SocietyCoefficients } from "@terra/sim";
+// - 컨디션(D-534·D-535, labor/condition.ts): 채집 정산과 유닛 화면에 그 유닛의 관리 보너스를 넘긴다(주거 = 쉼터 배정 — 채집 세계가 attachRest로
+//   늦게 잇는다, 음식 = 도시 생필품 충족, 선호 = 세계 시드·유닛 ID, 좋아하는 음식 = 그 도시 창고에 그 중분류가 있나).
+import { HOME_HOUSING, type RestPlace, type SocietyCoefficients, unitPreferences } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
 import type { GatherKind } from "../gather/kinds.ts";
-import { type ConditionSource, workerCondition } from "../labor/condition.ts";
+import { type ConditionSource, type WorkerConditionView, workerCondition } from "../labor/condition.ts";
 import type { GatherSite } from "../labor/gatherWork.ts";
 import type { LaborService } from "../labor/service.ts";
-import { type CityCell, cityLocation } from "@terra/shared/goodsPlaces";
+import { type CityCell, cityLocation, placeOfLocation } from "@terra/shared/goodsPlaces";
 import type { BeaconConstruction, TerritoryService } from "../territory/service.ts";
 import type { BuildingDamageSink } from "../world/battleTargets.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -55,33 +56,42 @@ export interface WorldFacilities {
   /** 노동 계약을 잇는다(계약 서비스가 건물 서비스보다 늦게 만들어진다) */
   attachLabor(labor: LaborService): void;
   /**
-   * 유닛 컨디션(D-534): 일하는 채집 시설의 도시(없으면 지금 2차맵에서 ID가 가장 작은 도시)의 주거·음식으로 센다. 유닛이 띄운 2차맵에 없으면
-   * undefined
+   * 유닛 컨디션(D-534·D-535): 일하는 채집 시설의 도시(없으면 지금 2차맵에서 ID가 가장 작은 도시)의 주거·음식·선호로 센다. 유닛이 띄운 2차맵에
+   * 없으면 undefined
    */
-  condition(unitId: number): ConditionParts | undefined;
+  condition(unitId: number): WorkerConditionView | undefined;
+  /** 플레이어 일꾼 쉼터를 잇는다(채집 세계가 세계 준비 뒤 labor/workerRest.ts로 만든다 — D-535 1152 나) */
+  attachRest(read: RestReader): void;
 }
 
-/** 숙소(생활 단계 시설) 가운데 그 주인이 그 도시에 가진 다 지은 것의 가장 높은 레벨(없으면 undefined) */
-export function ownerLodgingLevel(
-  service: Pick<FacilityService, "facilities">,
-  catalog: FacilityCatalog,
-  maps: ReadonlyMap<number, SecondMap>,
-  ownerId: number,
-  cityId: number,
-): number | undefined {
-  let best: number | undefined;
-  for (const record of service.facilities.values()) {
-    if (record.level <= 0 || record.cityId !== cityId || (best !== undefined && record.level <= best))
-      continue;
-    if (catalog.facility(record.facilityId)?.stage !== "living") continue;
-    for (const map of maps.values()) {
-      const owner = map.buildingOwner(record.buildingId);
-      if (owner === undefined) continue;
-      if (owner === ownerId) best = record.level;
-      break;
+/** 유닛의 지금 쉼터(labor/workerRest.ts restOf의 모양). 일꾼이 아니면 undefined */
+export type RestReader = (
+  unitId: number,
+) => { readonly cityId: number; readonly place: RestPlace; readonly lodgingId: number | null } | undefined;
+
+/** 도시 창고 식품 중분류 표를 다시 셈하기까지(ms) */
+const CITY_FOOD_TTL_MS = 30_000;
+
+/** 도시마다 창고(모든 주인)에 잔고가 있는 아이템의 중분류(원장을 한 번 훑는다) */
+export function cityFoodSubcategories(
+  ledger: Pick<Ledger, "accounts">,
+  subcategoryOf: (item: string) => string | undefined,
+): Map<number, Set<string>> {
+  const out = new Map<number, Set<string>>();
+  for (const account of ledger.accounts()) {
+    if (account.ownerId === null || account.balance <= 0n || !account.asset.startsWith("item:")) continue;
+    const place = placeOfLocation(account.location);
+    if (place.kind !== "city" || place.id === null) continue;
+    const sub = subcategoryOf(account.asset.slice(5));
+    if (sub === undefined) continue;
+    let set = out.get(place.id);
+    if (!set) {
+      set = new Set();
+      out.set(place.id, set);
     }
+    set.add(sub);
   }
-  return best;
+  return out;
 }
 
 /**
@@ -167,8 +177,18 @@ export function createWorldFacilities(input: {
   >;
   readonly now: () => number;
   readonly ready: () => boolean;
-  /** 도시의 지난 하루 끝 생필품 충족 ‰(NPC 런타임 cityDayStore, 컨디션 음식 몫). 없으면 모름 */
-  readonly necessitiesOf?: ((cityId: number) => number | undefined) | undefined;
+  /**
+   * NPC 런타임(없으면 undefined): 도시의 지난 하루 끝 생필품 충족 ‰(cityDayStore, 컨디션 음식 몫)과 세계 시드(컨디션 선호, D-535 1151 나 —
+   * 구인 카드와 같은 시드). 런타임이 없으면 음식은 모름, 시드는 0
+   */
+  readonly npc?:
+    | (() =>
+        | {
+            necessitiesOf(cityId: number): number | undefined;
+            readonly world: { readonly seed: number };
+          }
+        | undefined)
+    | undefined;
 }): WorldFacilities {
   const catalog = facilityCatalogOf(input.config?.content ?? (() => EMPTY_SOURCE));
   let labor: LaborService | undefined;
@@ -205,22 +225,50 @@ export function createWorldFacilities(input: {
     now: input.now,
     ready: input.ready,
   });
-  const ownerOfUnit = (unitId: number): number | undefined => {
-    for (const map of input.maps.values()) {
-      const info = map.unitInfo(unitId);
-      if (info) return info.ownerId;
-    }
-    return undefined;
-  };
+  let readRest: RestReader | undefined;
+  let cityFood: { atMs: number; map: Map<number, Set<string>> } | undefined;
   const conditionSource: ConditionSource = {
     initialSum: (unitId) => input.holdings.initialSumOf(unitId),
-    lodgingLevel: (unitId, cityId) => {
-      const owner = ownerOfUnit(unitId);
-      return owner === undefined
-        ? undefined
-        : ownerLodgingLevel(service, catalog(), input.maps, owner, cityId);
+    rest: (unitId, cityId) => {
+      const rest = readRest?.(unitId);
+      if (!rest || rest.cityId !== cityId) return undefined;
+      const lodgingFacility =
+        rest.lodgingId === null ? undefined : service.facilities.get(rest.lodgingId)?.facilityId;
+      return { housing: rest.place, lodgingFacility };
     },
-    necessitiesPm: (cityId) => input.necessitiesOf?.(cityId),
+    necessitiesPm: (cityId) => input.npc?.()?.necessitiesOf(cityId),
+    preferences: (unitId) => {
+      const current = catalog();
+      const housings = current.facilities.filter((def) => def.stage === "living").map((def) => def.id);
+      return unitPreferences(input.npc?.()?.world.seed ?? 0, unitId, {
+        foods: current.foodSubcategories,
+        housings: [...housings, HOME_HOUSING],
+      });
+    },
+    foodInCity: (cityId, subcategory) => {
+      const nowMs = input.now();
+      if (!cityFood || nowMs - cityFood.atMs >= CITY_FOOD_TTL_MS || nowMs < cityFood.atMs) {
+        const current = catalog();
+        cityFood = {
+          atMs: nowMs,
+          map: cityFoodSubcategories(input.ledger, (id) => current.subcategoryOf(id)),
+        };
+      }
+      return cityFood.map.get(cityId)?.has(subcategory) ?? false;
+    },
+  };
+  /** 컨디션 + 선호 이름(화면) */
+  const conditionView = (unitId: number, cityId: number | null): WorkerConditionView => {
+    const parts = workerCondition(unitId, cityId, conditionSource, input.rules());
+    const current = catalog();
+    const food = parts.preferences.food;
+    const housing = parts.preferences.housing;
+    return {
+      ...parts,
+      favoriteFoodName: food === null ? undefined : current.subcategoryName(food),
+      preferredHousingName:
+        housing === null ? undefined : housing === HOME_HOUSING ? undefined : current.facility(housing)?.name,
+    };
   };
   /** 유닛 화면의 도시: 일하는 채집 시설의 도시, 없으면 지금 2차맵에서 ID가 가장 작은 도시 */
   const cityOfUnit = (unitId: number): number | null | undefined => {
@@ -265,15 +313,16 @@ export function createWorldFacilities(input: {
             buildingId,
           ),
         weightGrams: (asset) => assetWeightG(catalog(), asset),
-        // 컨디션(D-534): 그 채집 시설이 선 도시의 주거·음식
+        // 컨디션(D-534·D-535): 그 채집 시설이 선 도시의 쉼터·음식·선호
         condition: (unitId, cityId) => workerCondition(unitId, cityId, conditionSource, input.rules()).total,
       });
     },
     condition(unitId) {
       const cityId = cityOfUnit(unitId);
-      return cityId === undefined
-        ? undefined
-        : workerCondition(unitId, cityId, conditionSource, input.rules());
+      return cityId === undefined ? undefined : conditionView(unitId, cityId);
+    },
+    attachRest(read) {
+      readRest = read;
     },
   };
 }

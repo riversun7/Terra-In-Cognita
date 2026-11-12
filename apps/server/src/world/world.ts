@@ -633,7 +633,7 @@ export function startWorld(
       },
       now,
       ready: () => status.state === "ready",
-      necessitiesOf: (cityId) => npc?.necessitiesOf(cityId),
+      npc: () => npc,
     });
     // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
     const labor = createLaborService({

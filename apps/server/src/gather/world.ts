@@ -144,6 +144,8 @@ export function startWorldGather(
         now: options.now,
         npc: () => world.npc,
       });
+      // 컨디션 주거 = 그 일꾼의 쉼터(D-535 1152 나, facilities/world.ts attachRest)
+      facilities.attachRest((unitId) => workerRest.restOf(unitId));
       built = {
         service,
         store,

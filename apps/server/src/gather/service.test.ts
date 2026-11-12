@@ -86,6 +86,9 @@ const catalog: FacilityCatalog = {
   gatherLadder: () => [],
   gatherBands: [],
   lotSize: new Map(),
+  foodSubcategories: [],
+  subcategoryOf: () => undefined,
+  subcategoryName: () => undefined,
 };
 
 interface Rig {

@@ -53,15 +53,23 @@ test.describe("개발자: 예상 확률 탭", () => {
     await expect(cell(page, 30, 50).locator(".pd-expect-stat")).toHaveText("186~246");
     await expect(topTier(page, 30, 50)).not.toHaveText("0");
     await expect(cell(page, 30, 50)).toHaveAttribute("data-top", "true");
-    // 시설 레벨 5: 레벨당 +10 → +40 더
+    // 선택 방식(농장·목장) 해금 티어도 컨디션을 받는다(D-535 1154 나): 15·15 Lv20 T3~T4 → +40이면 T5~T6
+    await expect(page.getByTestId("expect-select-30-20")).toHaveText(
+      message("ko", "dev_prod_expect_select", { min: 5, max: 6 }),
+    );
+    // 시설 레벨 5: 레벨당 +5(D-535 1155 나) → +20 더 — 컨디션 상한 +40보다 작다
     await page.getByTestId("expect-facility").fill("5");
     await expect(page.getByTestId("expect-facility-value")).toHaveText("Lv5");
-    await expect(cell(page, 30, 50).locator(".pd-expect-stat")).toHaveText("226~286");
-    await expect(cell(page, 30, 1).locator(".pd-expect-stat")).toHaveText("110");
-    // 컨디션 −40: 0 아래로 가지 않는다(레벨 1의 20·20 = 20 + 레벨 보너스 40 = 60, 컨디션은 40까지 깎는다)
+    await expect(cell(page, 30, 50).locator(".pd-expect-stat")).toHaveText("206~266");
+    await expect(cell(page, 30, 1).locator(".pd-expect-stat")).toHaveText("90");
+    // 시설 레벨은 해금 티어를 올리지 않는다
+    await expect(page.getByTestId("expect-select-30-20")).toHaveText(
+      message("ko", "dev_prod_expect_select", { min: 5, max: 6 }),
+    );
+    // 컨디션 −40: 0 아래로 가지 않는다(레벨 1의 20·20 = 20, 컨디션은 20까지만 깎고 + 레벨 보너스 20)
     await page.getByTestId("expect-condition").fill("-40");
     await expect(page.getByTestId("expect-condition-value")).toHaveText("−40");
-    await expect(cell(page, 20, 1).locator(".pd-expect-stat")).toHaveText("40");
+    await expect(cell(page, 20, 1).locator(".pd-expect-stat")).toHaveText("20");
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -75,14 +83,23 @@ test.describe("개발자 + 시안 자료: 컨디션 한 줄", () => {
     await page.goto("/units");
     await expect(page.locator(".units-panel")).toBeVisible();
     await expect(page.locator(".units-panel .status")).toHaveCount(0, { timeout: 15_000 });
-    // 시안 Mina: 주거 +20 · 음식 +12 = +32
+    // 시안 Mina: 주거 +20 · 음식 +12 + 좋아하는 음식(어류) +10 · 선호 주거(집인데 숙소) −5 = +37
     await page.locator(".units-row").filter({ hasText: "Mina" }).locator(".units-row-main").click();
     const line = page.locator(".units-detail").getByTestId("unit-condition");
     await expect(line.locator("dt")).toHaveText(message("ko", "roster_condition"));
-    await expect(line.locator(".roster-condition-total")).toHaveText("+32");
+    await expect(line.locator(".roster-condition-total")).toHaveText("+37");
     await expect(line.locator(".roster-condition-total")).toHaveAttribute("data-tone", "good");
-    await expect(line.locator(".roster-condition-parts")).toHaveText(
+    await expect(line.locator(".roster-condition-parts").first()).toHaveText(
       message("ko", "roster_condition_parts", { housing: "+20", food: "+12", cap: "40" }),
+    );
+    // 선호 한 줄(D-535 1151 나)
+    await expect(line.getByTestId("unit-condition-prefer")).toHaveText(
+      message("ko", "roster_condition_prefer", {
+        food: "어류",
+        foodPart: "+10",
+        housing: message("ko", "roster_condition_home"),
+        housingPart: "−5",
+      }),
     );
     // 사이보그 화면(시안 본체 +40)
     await page.goto("/cyborg");

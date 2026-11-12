@@ -159,7 +159,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 편집기 (DB)", () => {
       msPerKg: 10_000,
       timeFactorPm: [1000, 1500, 2500, 2500, 2500],
     });
-    expect(body.gatherLevelBonus).toBe(10);
+    expect(body.gatherLevelBonus).toBe(5);
   });
 
   it("검사: 구간 오류는 코드가 붙은 문제로, 꺼진 재료는 권고로 보인다(저장하지 않는다)", async () => {
@@ -329,12 +329,12 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 편집기 (DB)", () => {
       tierProgressStep: 30,
       tickMs: 60_000,
       defaultStat: 10,
-      // 예상 채집 확률표(D-534): 성장률 0.1·K 0.8~1.2·만렙 50·시설 레벨당 10·컨디션 ±40
+      // 예상 채집 확률표(D-534): 성장률 0.1·K 0.8~1.2·만렙 50·시설 레벨당 5(D-535 1155 나)·컨디션 ±40
       growthPm: 100,
       kMinPm: 800,
       kMaxPm: 1200,
       maxLevel: 50,
-      levelBonus: 10,
+      levelBonus: 5,
       conditionCap: 40,
     });
     expect(listed.classRule).toEqual({ threeStatPm: 600, generalistPm: 800 });

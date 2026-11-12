@@ -1,7 +1,7 @@
 // 예상 확률 탭 — 기획 D-534(사용자 원문 "각 대략적인 스탯별(총합30,40,50 등), 레벨별(1,20,40,50,60) 등 예상되는 채집확률구간도 에디터에서
 // 볼수있게"), 48 §8. docs/adr/2026-11-12-unit-condition.md.
 // 줄 = 두 스탯(주 + 보조) 초기 합, 칸 = 레벨. 칸마다 K 범위(N6)의 유효 스탯 범위와 T0~T9 확률. 컨디션(관리 보너스)·시설 레벨 손잡이를 옮기면 바로
-// 다시 센다. 셈은 판정과 같은 @terra/shared/gatherExpect(성장 primaryAtLevel·유효 스탯 gatherStat·구간 gatherBandIndex)이고, 확률표는 담은
+// 다시 센다. 칸 아래에 선택 방식(농장·목장) 해금 티어 범위도 보인다(D-535 1154 나 — 컨디션을 반씩 두 스탯에). 셈은 판정과 같은 @terra/shared/gatherExpect(성장 primaryAtLevel·유효 스탯 gatherStat·구간 gatherBandIndex)이고, 확률표는 담은
 // 변경을 얹은 지금 표(draftBands)라 확률 분포 탭에서 고친 값이 바로 보인다. 계산만 한다(서버에 보내지 않는다).
 import type { BuildingEditorGatherRules } from "@terra/shared/buildingEditor";
 import {
@@ -15,8 +15,8 @@ import { useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import "../gatherTiers/gatherTier.css";
 
-/** 옛 서버(손잡이 칸 없음)일 때의 값 = 팩 출발값(N5 100‰·N6 800~1200‰·N43 10·컨디션 ±40) */
-const FALLBACK = { growthPm: 100, kMinPm: 800, kMaxPm: 1200, levelBonus: 10, conditionCap: 40 } as const;
+/** 옛 서버(손잡이 칸 없음)일 때의 값 = 팩 출발값(N5 100‰·N6 800~1200‰·N43 5·컨디션 ±40) */
+const FALLBACK = { growthPm: 100, kMinPm: 800, kMaxPm: 1200, levelBonus: 5, conditionCap: 40 } as const;
 /** 시설 레벨 범위(D-5001 Lv1~5) */
 const FACILITY_LEVEL_MAX = 5;
 /** T9 = 최고 티어(D-534 "티어 10") */
@@ -72,6 +72,11 @@ function ExpectCell({ cell }: { cell: GatherExpectCell }) {
       </ol>
       <span className="pd-expect-avg">
         {m.dev_prod_expect_avg({ tier: (cell.averageTierMilli / 1000).toFixed(2) })}
+      </span>
+      <span className="pd-expect-avg" data-testid={`expect-select-${cell.sum}-${cell.level}`}>
+        {cell.selectMin === cell.selectMax
+          ? m.dev_prod_expect_select_one({ tier: cell.selectMin })
+          : m.dev_prod_expect_select({ min: cell.selectMin, max: cell.selectMax })}
       </span>
     </td>
   );

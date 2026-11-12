@@ -1012,16 +1012,16 @@
         "ko": "채집 시설 레벨당 티어 보너스(유효 스탯)",
         "en": "Gathering facility tier bonus per level (effective stat)"
       },
-      "value": 10,
+      "value": 5,
       "structural": false,
       "unit": "points",
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "채집 시설 레벨 하나가 높은 티어를 뽑는 데 더하는 유효 스탯.",
-        "en": "Effective stat added per gathering-facility level when rolling the tier."
+        "ko": "채집 시설 레벨 하나가 높은 티어를 뽑는 데 더하는 유효 스탯. 10 → 5(Lv5 +20, 컨디션 상한 ±40의 절반 — 시설 레벨보다 관리가 더 크게, D-535 1155 나) [임시].",
+        "en": "Effective stat added per gathering-facility level when rolling the tier. 10 → 5 (level 5 = +20, half the ±40 condition cap, so care matters more than facility level; D-535 1155) [temporary]."
       },
-      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\""
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\" · ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
     },
     {
       "id": "n44_tier_progress_base",
@@ -9928,6 +9928,78 @@
         "en": "Units with at least this initial stat sum prefer grade 3 housing [temporary]."
       },
       "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_prefer_housing_match",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 선호 주거 종류에서 쉼",
+        "en": "Condition: resting in preferred housing type"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "지금 쉬는 곳(숙소·집)이 그 유닛의 선호 주거 종류면 더하는 값 [임시].",
+        "en": "Added when the unit rests in its preferred housing type (lodging or home) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
+    },
+    {
+      "id": "condition_prefer_housing_miss",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 선호 주거 종류가 아님",
+        "en": "Condition: not the preferred housing type"
+      },
+      "value": -5,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "선호 주거 종류가 아닌 곳에서 쉬거나 노숙할 때 더하는 값(음수) [임시].",
+        "en": "Added when the unit rests elsewhere or is homeless (negative) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
+    },
+    {
+      "id": "condition_prefer_food_match",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 좋아하는 음식이 도시 창고에 있음",
+        "en": "Condition: favourite food in the city warehouse"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "그 도시 창고에 유닛이 좋아하는 식품 중분류 물건이 있으면 더하는 값 [임시].",
+        "en": "Added when the city warehouse holds the unit's favourite food subcategory [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
+    },
+    {
+      "id": "condition_prefer_food_miss",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 좋아하는 음식이 도시 창고에 없음",
+        "en": "Condition: favourite food missing from the city warehouse"
+      },
+      "value": -10,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "그 도시 창고에 좋아하는 식품 중분류 물건이 없으면 더하는 값(음수) [임시].",
+        "en": "Added when the city warehouse has none of the favourite food subcategory (negative) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
     }
   ]
 }

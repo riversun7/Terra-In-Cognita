@@ -61,10 +61,15 @@ export function cityCatchmentOf(values: readonly number[]): CityCatchment | unde
     livestock: at(10),
     fish: at(11),
   };
-  const n = CATCHMENT_MATERIALS.length;
-  const landPm = Object.fromEntries(
-    CATCHMENT_MATERIALS.map((material, index) => [material, at(6 + n + index)]),
-  ) as Record<CatchmentMaterial, number>;
+  // 땅 몫은 같은 차례로 12~17칸, 산지 몫은 18칸
+  const landPm: Record<CatchmentMaterial, number> = {
+    ore: at(12),
+    wood: at(13),
+    herb: at(14),
+    crop: at(15),
+    livestock: at(16),
+    fish: at(17),
+  };
   return {
     radiusMilli: at(0),
     areaMilli: at(1),
@@ -74,7 +79,7 @@ export function cityCatchmentOf(values: readonly number[]): CityCatchment | unde
     totalPm: at(5),
     supplyPm,
     landPm,
-    highOrePm: at(6 + 2 * n),
+    highOrePm: at(18),
   };
 }
 

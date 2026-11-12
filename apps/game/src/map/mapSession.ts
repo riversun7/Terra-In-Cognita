@@ -369,6 +369,7 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     labels: unitModels.labels,
     own: () => options.ownUnit?.() ?? null,
     isLeader: (unitId) => options.leaderTags.isLeader(unitId),
+    leaderIds: () => options.leaderTags.ids,
   });
   const modelSink = unitModels.sink;
   // 건물: 지금 2차맵 건물(겉모습을 붙인 것) + 옆 2차맵 건물을 함께 엔진에. 유닛은 외형을 붙이는 쪽을 거쳐 엔진에

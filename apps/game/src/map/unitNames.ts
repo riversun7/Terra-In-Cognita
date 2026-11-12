@@ -26,6 +26,23 @@ const TAGS = NAME_MAX + 2;
 /** 겹침 판정에 쓰는 이름표 높이(CSS px) — 글자 한 줄 + 안쪽 여백(--font-size-xs × 줄 높이 + 테두리 둘레) */
 const TAG_HEIGHT_PX = 22;
 
+/** 지도자 이름표 높이(m, leaderTags.ts TAG_LIFT_M)와 넉넉히 잡은 너비(CSS px — 이름표 최대 너비 --tap-size × 4) */
+const LEADER_TAG_LIFT_M = 2.4;
+const LEADER_TAG_WIDTH_PX = 176;
+/** 늘 보이는 이름표를 비키려고 위로 올리는 최대 줄 수 */
+const MAX_LIFTS = 3;
+/** 한 줄 올림(CSS px) — 이름표 높이 + 틈 */
+const LIFT_STEP_PX = TAG_HEIGHT_PX + 4;
+
+/** 앞서 놓은 상자와 겹치지 않을 때까지 한 줄씩 올린다(최대 lifts줄). 그래도 겹치면 null(lifts = 0이면 그 자리에서만 본다) */
+export function liftClear(box: Placed, placed: readonly Placed[], lifts: number): Placed | null {
+  for (let step = 0; step <= lifts; step++) {
+    const moved = { ...box, y: box.y - step * LIFT_STEP_PX };
+    if (!placed.some((other) => overlaps(moved, other))) return moved;
+  }
+  return lifts > 0 ? { ...box, y: box.y - lifts * LIFT_STEP_PX } : null;
+}
+
 /** 이름표 종류: 내 사이보그·고른 유닛·다른 유닛(색이 다르다) */
 type TagRole = "own" | "selected" | "other";
 
@@ -75,6 +92,8 @@ export interface UnitNameOptions {
   readonly own: () => number | null;
   /** NPC 국가 지도자인가(지도자 이름표가 따로 그린다) */
   readonly isLeader: (unitId: number) => boolean;
+  /** 지금 보이는 지도자 유닛(그 이름표와 겹치지 않게 비킨다) */
+  readonly leaderIds: () => readonly number[];
 }
 
 export function attachUnitNames(
@@ -129,14 +148,15 @@ export function attachUnitNames(
       }
       if (tag.element.hidden) tag.element.hidden = false;
       if (tag.width === 0) tag.width = tag.element.offsetWidth;
-      const box = { x, y, width: tag.width };
-      // 다른 유닛 이름표는 앞서 놓은 것(내 사이보그·고른 유닛 먼저)과 겹치면 건너뛴다
-      if (role === "other" && placed.some((other) => overlaps(box, other))) {
+      // 다른 유닛 이름표는 앞서 놓은 것(지도자 이름표·내 사이보그·고른 유닛 먼저)과 겹치면 건너뛰고, 늘 보이는 이름표는 겹치지 않을 때까지
+      // 한 줄씩 위로 올린다(지도자 옆에 선 내 사이보그 — 지도자 이름표 아래 가려지지 않게)
+      const box = liftClear({ x, y, width: tag.width }, placed, role === "other" ? 0 : MAX_LIFTS);
+      if (!box) {
         tag.element.hidden = true;
         return;
       }
       placed.push(box);
-      const transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+      const transform = `translate(${box.x}px, ${box.y}px) translate(-50%, -100%)`;
       if (tag.transform !== transform) {
         tag.transform = transform;
         tag.element.style.transform = transform;
@@ -152,6 +172,12 @@ export function attachUnitNames(
       return { x: Math.round(point.x), y: Math.round(point.y) };
     };
 
+    // 지도자 이름표 자리(leaderTags.ts와 같은 높이 — 유닛 바닥 위 2.4m, 너비는 이름표 최대 너비로 넉넉히)
+    for (const unitId of options.leaderIds()) {
+      const unit = engine.unitState(unitId);
+      const point = unit ? view.project(unit.x, unit.y, LEADER_TAG_LIFT_M) : null;
+      if (point) placed.push({ x: Math.round(point.x), y: Math.round(point.y), width: LEADER_TAG_WIDTH_PX });
+    }
     const own = options.own();
     const selected = engine.selected();
     const always: [number, TagRole][] = [];

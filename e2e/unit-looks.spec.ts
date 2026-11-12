@@ -165,7 +165,7 @@ for (const theme of ["pastel", "dark"] as const) {
   test.describe(`2차맵 유닛 겉모습: 390 ${theme}`, () => {
     test.use({ account: "player", theme });
 
-    test(`가장 가까이(6/6)에서 유닛 이름표·모델, 멀리(1/6)는 내 사이보그 이름만 — 사진 390 ${theme}`, async ({
+    test(`가장 가까이(6/6)에서 내 사이보그 모델·이름표(지도자 이름표와 겹치지 않음), 다른 유닛 이름은 상한 안 — 사진 390 ${theme}`, async ({
       page,
       deviceErrors,
     }) => {
@@ -179,6 +179,18 @@ for (const theme of ["pastel", "dark"] as const) {
           timeout: 20_000,
         },
       );
+      // 지도자 옆에 서 있어도 내 사이보그 이름표는 지도자 이름표와 겹치지 않는다(위로 비킨다)
+      const ownBox = await page.locator(`.unit-name[data-role="own"][data-unit="${cyborg}"]`).boundingBox();
+      for (const pill of await page.locator(".leader-tag:not([hidden]) .leader-tag-pill").all()) {
+        const leaderBox = await pill.boundingBox();
+        if (!ownBox || !leaderBox) continue;
+        const apart =
+          ownBox.x + ownBox.width <= leaderBox.x ||
+          leaderBox.x + leaderBox.width <= ownBox.x ||
+          ownBox.y + ownBox.height <= leaderBox.y ||
+          leaderBox.y + leaderBox.height <= ownBox.y;
+        expect(apart).toBe(true);
+      }
       // 다른 유닛 이름표는 상한(10) 안
       await page.waitForTimeout(1_500);
       const others = await page.locator('.unit-name[data-role="other"]:visible').count();

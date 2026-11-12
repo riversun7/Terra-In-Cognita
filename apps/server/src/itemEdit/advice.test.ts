@@ -40,8 +40,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const objectOf = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
 
 describe("아이템 권고", () => {
-  it("지금 팩 항목: 무게·중분류·설명이 없다(저장은 막지 않는다)", () => {
-    expect(codes(item("grain"))).toEqual(
+  it("무게·중분류·설명이 없다(저장은 막지 않는다) — 곡물에서 무게를 뺀 항목(팩 core@76부터 모든 아이템에 무게, 질문 1094)", () => {
+    const noWeight = item("grain", (raw) =>
+      Object.fromEntries(Object.entries(raw).filter(([key]) => key !== "weight")),
+    );
+    expect(codes(noWeight)).toEqual(
       expect.arrayContaining(["advice_no_weight", "advice_no_subcategory", "advice_no_description"]),
     );
   });

@@ -89,7 +89,11 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 이름(601 나)", () => {
     expect(npc.places.get(parentCity ?? 0)?.name).toBe(names[0]);
     for (const id of parent.cities) {
       const city = npc.world.cities.get(id);
-      if (city) city.housing = 4;
+      // 붐비게: 주거 4, 숙소 침대도 빼고 셈(인구 상한 = 주거 + 침대, 질문 1089 나)
+      if (city) {
+        city.housing = 4;
+        city.beds = 0;
+      }
     }
     // 공격 성향이 높으면 새 가문이 독립을 고른다(종주 없음, 반란 부모도 없음 — 태어날 때 부모로만 나라를 안다)
     parent.traits = { aggression: 1000, commerce: 500, faith: 500, station: 500 };

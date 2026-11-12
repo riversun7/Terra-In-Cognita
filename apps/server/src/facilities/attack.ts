@@ -27,7 +27,12 @@ import { durabilityPoints } from "@terra/shared/facilityRuntime";
 import { type SiegeLayout, oppositeEdge, siegeArena, siegePlacer } from "@terra/sim/siegeArena";
 import type { TerritoryService } from "../territory/service.ts";
 import type { BattleBodies } from "../world/battleBodies.ts";
-import type { BattleTarget, BuildingDamageSink, WorldBattleInit } from "../world/battleTargets.ts";
+import {
+  type BattleTarget,
+  type BuildingDamageSink,
+  type WorldBattleInit,
+  siegeFacilityTargets,
+} from "../world/battleTargets.ts";
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -353,7 +358,13 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
       parties,
       units,
       ...(limitMs === undefined ? {} : { limitMs }),
-      targets: [{ building: NEXUS_ID, ...target.ref }],
+      // 대상(넥서스) + 전투맵의 성벽·둘레 시설(질문 1114 가 — 부서진 만큼 세계에도 깎인다)
+      targets: [
+        { building: NEXUS_ID, ...target.ref },
+        ...(arena
+          ? siegeFacilityTargets(arena.sources, (id) => options.service.facilities.has(id), NEXUS_ID)
+          : []),
+      ],
     };
   };
 

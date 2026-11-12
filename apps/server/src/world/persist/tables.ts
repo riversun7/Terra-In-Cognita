@@ -573,6 +573,7 @@ export const WORLD_TABLES = {
       "built_at_ms",
       "built_by",
       "city_id",
+      "seeded",
     ],
     key: ["building_id"],
   },

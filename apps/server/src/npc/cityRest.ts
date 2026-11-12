@@ -35,6 +35,8 @@ export interface RestLodging {
   readonly area: TripArea;
   readonly level: number;
   readonly ownerId: number | null;
+  /** 세계 씨앗이 세운 숙소(질문 1131 나): Lv1 침대는 시작 도시 주거에 든 것이라 인구 상한에 더하지 않는다 */
+  readonly seeded?: boolean | undefined;
 }
 
 export interface CityRestInput {
@@ -79,8 +81,13 @@ export interface CityRestPlan {
   readonly beds: ReadonlyMap<number, number>;
   /** 숙소 건물 ID → 주인(요금을 받는 쪽) */
   readonly owners: ReadonlyMap<number, number | null>;
-  /** 그 도시 숙소 침대 합(인구 상한에 더한다 — 질문 1089 나) */
+  /** 그 도시 숙소 침대 합(쉼터 자리) */
   readonly bedTotal: number;
+  /**
+   * 인구 상한에 더하는 침대(질문 1089 나 + 1131 나, 기획 D-535) = 침대 합 − 씨앗 숙소의 Lv1 침대. 시작 도시는 씨앗 그대로면 상한 = 주거
+   * (npc_seed_housing), 씨앗 뒤에 지은 숙소(NPC 증축·플레이어)와 씨앗 숙소를 올린 레벨만큼 오른다
+   */
+  readonly capBeds: number;
 }
 
 const cheb = (a: { x: number; y: number }, b: { x: number; y: number }): number =>
@@ -105,10 +112,12 @@ export function planCityRest(input: CityRestInput): CityRestPlan {
   const lodgings = input.lodgings.toSorted((a, b) => a.id - b.id);
   const beds = new Map<number, number>();
   let bedTotal = 0;
+  let capBeds = 0;
   for (const lodging of lodgings) {
     const n = lodgingBeds(lodging.level, rules);
     beds.set(lodging.id, n);
     bedTotal += n;
+    capBeds += Math.max(0, n - (lodging.seeded === true ? lodgingBeds(1, rules) : 0));
   }
   // 집 자리(주거 수). 침대를 받은 일꾼은 집 자리를 쓰지 않는다 — 인구 상한 = 집 + 침대(cityHousingCap)
   const homes = Math.max(0, Math.trunc(input.housing));
@@ -172,6 +181,7 @@ export function planCityRest(input: CityRestInput): CityRestPlan {
     beds,
     owners: new Map(lodgings.map((l) => [l.id, l.ownerId])),
     bedTotal,
+    capBeds,
   };
 }
 

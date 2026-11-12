@@ -8732,16 +8732,16 @@
         "ko": "NPC 도시 건물 수 상한(증축)",
         "en": "NPC city building cap (expansion)"
       },
-      "value": 16,
+      "value": 32,
       "structural": false,
       "unit": "count",
       "min": 0,
       "max": 64,
       "desc": {
-        "ko": "NPC 도시는 이 수(행정 건물·성벽 빼고)까지 유저와 같은 규칙(재료·짓는 시간·일꾼)으로 숙소·농장·채집 시설을 더 짓는다. 0이면 짓지 않는다.",
-        "en": "NPC cities add lodgings, farms and gather facilities by the player rules (materials, build time, workers) up to this many buildings (government hall and walls excluded). 0 turns it off."
+        "ko": "NPC 도시 건물 수 상한의 전체 끝(행정 건물·성벽 빼고). 도시마다 상한은 도시 등급 표(npc_build_cap_l1~l6)와 이 값 가운데 작은 값이다. 0이면 짓지도 레벨을 올리지도 않는다.",
+        "en": "Overall top of the NPC city building cap (government hall and walls excluded). Each city's cap is the smaller of its grade table value (npc_build_cap_l1–l6) and this. 0 turns building and upgrading off."
       },
-      "source": "기획 D-534 · 질문 1101 나 · 질문 1141~1144 [임시]"
+      "source": "기획 D-534 · 질문 1101 나 · 기획 D-535 질문 1143 나 [임시]"
     },
     {
       "id": "npc_build_gather_max",
@@ -8796,6 +8796,132 @@
         "en": "Up to this many idle humans help a construction (the time cut uses the player build formula)."
       },
       "source": "기획 D-534 · 질문 1101 나 · 질문 1141~1144 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l1",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 마을",
+        "en": "NPC city building cap: village"
+      },
+      "value": 8,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 마을인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade village builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l2",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 읍",
+        "en": "NPC city building cap: town"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 읍인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade town builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l3",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 소도시",
+        "en": "NPC city building cap: small city"
+      },
+      "value": 12,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 소도시인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade small city builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l4",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 도시",
+        "en": "NPC city building cap: city"
+      },
+      "value": 16,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 도시인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade city builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l5",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 대도시",
+        "en": "NPC city building cap: metropolis"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 대도시인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade metropolis builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_cap_l6",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 거대도시",
+        "en": "NPC city building cap: megacity"
+      },
+      "value": 24,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "도시 등급이 거대도시인 NPC 도시는 건물(행정 건물·성벽 빼고)을 이 수까지 더 짓고, 닿으면 있는 시설의 레벨을 하나씩 올린다(유저와 같은 재료·짓는 시간).",
+        "en": "An NPC city of grade megacity builds up to this many buildings (government hall and walls excluded); at the cap it upgrades existing facilities one level at a time (player materials and build time)."
+      },
+      "source": "기획 D-535 · 질문 1143 나 · 질문 1146 나 [임시]"
+    },
+    {
+      "id": "npc_build_repair_below_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC가 고치는 시설 상태 문턱(‰)",
+        "en": "NPC repair threshold (facility condition ‰)"
+      },
+      "value": 700,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 도시는 상태가 이 값 아래인 시설(전투에서 부서진 성벽·건물 포함)을 유저 수리와 같은 재료·시간으로 가득까지 고친다. 짓기·레벨 올리기보다 먼저. 0이면 고치지 않는다.",
+        "en": "NPC cities repair facilities below this condition (including walls and buildings broken in battle) to full with the player repair materials and time, before building or upgrading. 0 turns it off."
+      },
+      "source": "기획 D-535 · 질문 1114 가 [임시]"
     },
     {
       "id": "gather_obj_carry_g",

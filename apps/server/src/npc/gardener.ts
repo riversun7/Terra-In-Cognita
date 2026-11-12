@@ -35,7 +35,14 @@ import {
   waveBattleInit,
 } from "@terra/sim";
 import { cellCenter, cellCorners } from "@terra/planet/projection";
-import { type SiegeLayout, edgeToward, waveAttackEdge } from "@terra/sim/siegeArena";
+import {
+  SIEGE_NEXUS_ID,
+  type SiegeLayout,
+  edgeToward,
+  siegeArena,
+  waveAttackEdge,
+} from "@terra/sim/siegeArena";
+import { type WorldBattleInit, siegeFacilityTargets } from "../world/battleTargets.ts";
 import type { NpcState } from "./state.ts";
 import { type GrantedItem, rewardRecordOf } from "./waveRewards.ts";
 
@@ -226,6 +233,11 @@ export interface ServerGardenerOptions {
    * 없으면(행정 건물 없음·2차맵 없음) 옛 열린 맵
    */
   readonly siegeLayout?: ((cityId: number) => SiegeLayout | undefined) | undefined;
+  /**
+   * 2차맵 건물이 세계 시설인가(질문 1114 가 — 웨이브 공성 전투맵의 성벽·둘레 시설을 전투 결과 목표로 단다, world/battleTargets.ts). 없으면 목표를
+   * 달지 않는다(넥서스 = 행정 건물은 정원사 결과 규칙)
+   */
+  readonly isFacility?: ((buildingId: number) => boolean) | undefined;
   readonly log: { warn(obj: object, message: string): void; error(obj: object, message: string): void };
 }
 
@@ -301,7 +313,8 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
       const owner = city ? o.world.factions.get(city.owner) : undefined;
       if (!owner) return true;
       const combat = o.combatRules();
-      const init = waveBattleInit(
+      const layout = o.siegeLayout?.(wave.city);
+      const waveInit = waveBattleInit(
         {
           battleId: wave.id,
           seed: mix32(o.seed ^ Math.imul(wave.id, 0x2545_f491) ^ 0x6a09_e667),
@@ -318,12 +331,19 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
           maxDefenders: WAVE_DEFENDERS,
           // 공성 제한 시간(C2): 설정 칸 실효 값(전투 서비스는 시험 계수표로 전투를 만든다)
           limitMs: combat.limitMs.siege,
-          layout: o.siegeLayout?.(wave.city),
+          layout,
           attackEdge: waveEdgeOnPlanet(o.cellOf(wave.city), mothershipCell, o.seed, wave.id),
         },
         o.catalog(),
         combat,
       );
+      // 성벽·둘레 시설 목표(질문 1114 가): 전투에서 깎인 만큼 세계 시설도 깎인다. 넥서스(행정 건물)는 정원사 결과 규칙이 정한다
+      const isFacility = o.isFacility;
+      const targets =
+        layout && isFacility
+          ? siegeFacilityTargets(siegeArena(layout, WAVE_MAP_SIZE, 1).sources, isFacility, SIEGE_NEXUS_ID)
+          : [];
+      const init: WorldBattleInit = targets.length > 0 ? { ...waveInit, targets } : waveInit;
       if (!o.startBattle) {
         const { result } = runWaveToEnd(createBattle(init, combat), []);
         return result?.winner === 1;

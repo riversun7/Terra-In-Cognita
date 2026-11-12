@@ -34,6 +34,14 @@ const CATALOG: EconomyCatalog = {
   ],
 };
 
+/** 레벨 2도 통나무(레벨 올리기를 볼 수 있게 — 팩은 판자·벽돌) */
+const LEVELLED: EconomyCatalog = {
+  ...CATALOG,
+  facilities: CATALOG.facilities.map((facility) =>
+    facility.build ? { ...facility, maxLevel: 3, build: wood(4) } : facility,
+  ),
+};
+
 /** 도시마다 통나무 넉넉히 + 통나무 벌목(세계가 통나무를 낸다 — 모자라면 거래로 산다) */
 const SCENARIO = parseScenario({
   ...TEST_ECONOMY_SCENARIO_RAW,
@@ -70,5 +78,21 @@ describe("NPC 도시 증축(질문 1101 나)", () => {
     // 처음 시설: 농업 도시 4·공업 도시 5 → 더 지을 수 있는 수 = 4 × 1 + 4 × 0 = 4
     expect(summary.npc.builds).toBeLessThanOrEqual(4);
     expect(summary.npc.builds).toBeGreaterThan(0);
+  });
+
+  it("상한에 닿으면 레벨을 올리고(1146 나), 지은 숙소 침대가 인구 상한에 더해진다(1131 나)", () => {
+    const tuning = new Map([
+      ["npc_build_max_buildings", 6],
+      ...[1, 2, 3, 4, 5, 6].map((grade): [string, number] => [`npc_build_cap_l${grade}`, 6]),
+    ]);
+    const summary = runSimulation({ scenario: SCENARIO, catalog: LEVELLED, seed: 3, days: 20, tuning });
+    expect(summary.npc.upgrades).toBeGreaterThan(0);
+    expect(summary.npc.repairs).toBe(0);
+    const cities = summary.npc.cities ?? [];
+    expect(cities.reduce((sum, grade) => sum + grade.cities, 0)).toBeGreaterThan(0);
+    // 레벨 합이 건물 수보다 크다(올린 시설이 있다), 상한(6)을 넘지 않는다
+    for (const grade of cities) expect(grade.buildings).toBeLessThanOrEqual(6 * grade.cities);
+    expect(cities.reduce((sum, grade) => sum + grade.levels - grade.buildings, 0)).toBeGreaterThan(0);
+    expect(summary.invariants).toMatchObject({ violations: 0, first: [] });
   });
 });

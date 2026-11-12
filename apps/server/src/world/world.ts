@@ -861,6 +861,7 @@ export function startWorld(
           // 폐허 2: 정부 건물·행정 레벨(489 다)·수호신(472 가)·유저 나라(535 폐허 창고 물건)
           ruins: npcRuinsInputOf(() => persistence, owners, now),
           siegeLayout: citySiegeLayoutOf(maps, facilities, now),
+          isFacility: (buildingId) => facilities.service.facilities.has(buildingId),
           // 수도가 바뀌면 지도자가 새 수도 행정 건물 곁으로(D-528, npc/leaders.ts)
           onCapitalMoved: (ownerId, capital) => {
             moveLeaderToCapital({ maps, facilities: facilities.service.facilities, ownerId, capital });

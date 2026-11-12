@@ -15,6 +15,7 @@ import {
 } from "../economy/gather.ts";
 import { type NecessitySpec } from "../economy/upkeep.ts";
 import { type GatherMode, type RecipeSpec } from "../economy/production.ts";
+import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
 
 export interface CatalogItem {
   readonly id: string;
@@ -54,6 +55,11 @@ export interface CatalogFacility {
    * mode roll(추첨, 유효 스탯 = primary + secondary) 또는 select(해금 티어, 49 P8), 수확량 규칙(옛 gather_type_config)
    */
   readonly gather?: CatalogGather | undefined;
+  /**
+   * 짓기 재료(팩 facilities build, 레벨 구간별 — @terra/shared/facilityBuild). NPC 증축(질문 1101 나, simulator/npcBuild.ts)이 플레이어 짓기와
+   * 같은 식으로 재료·시간을 셈한다. 없으면 NPC가 짓지 않는다
+   */
+  readonly build?: FacilityBuildJson | undefined;
 }
 
 /** 시설의 채집 칸(수확량 칸이 없으면 기본 1개 + 설정 칸 N32 비율, 상한 없음) */

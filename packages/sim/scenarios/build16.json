@@ -1,0 +1,117 @@
+{
+  "id": "build16",
+  "planet": "s2_test_planet",
+  "factions": [
+    {
+      "code": "agri",
+      "count": 8,
+      "fixed": true,
+      "cities": 4,
+      "workers": 40,
+      "credit": "0",
+      "tech": 3,
+      "cityPlan": [
+        {
+          "facility": "farm",
+          "recipe": "farm_grain",
+          "level": 1,
+          "workers": 2
+        },
+        {
+          "facility": "kitchen",
+          "recipe": "cook_ration",
+          "level": 1,
+          "workers": 1
+        },
+        {
+          "facility": "lumber_camp",
+          "recipe": "cut_timber",
+          "level": 1,
+          "workers": 1
+        },
+        {
+          "facility": "lumber_camp",
+          "recipe": "cut_logs",
+          "level": 1,
+          "workers": 1
+        }
+      ],
+      "stock": [
+        {
+          "item": "ration",
+          "qty": "240"
+        },
+        {
+          "item": "household_goods",
+          "qty": "20"
+        }
+      ]
+    },
+    {
+      "code": "ind",
+      "count": 8,
+      "fixed": true,
+      "cities": 4,
+      "workers": 40,
+      "credit": "0",
+      "tech": 3,
+      "cityPlan": [
+        {
+          "facility": "mine",
+          "recipe": "mine_iron_ore",
+          "level": 1,
+          "workers": 2
+        },
+        {
+          "facility": "smelter",
+          "recipe": "smelt_iron",
+          "level": 1,
+          "workers": 1
+        },
+        {
+          "facility": "workshop",
+          "recipe": "make_household_goods",
+          "level": 1,
+          "workers": 1
+        },
+        {
+          "facility": "lumber_camp",
+          "recipe": "cut_timber",
+          "level": 1,
+          "workers": 1
+        },
+        {
+          "facility": "lumber_camp",
+          "recipe": "cut_logs",
+          "level": 1,
+          "workers": 1
+        }
+      ],
+      "stock": [
+        {
+          "item": "ration",
+          "qty": "240"
+        },
+        {
+          "item": "household_goods",
+          "qty": "20"
+        }
+      ]
+    }
+  ],
+  "npc": {
+    "decideEveryMs": 21600000
+  },
+  "economy": {
+    "tradeEveryMs": 10800000,
+    "fxEveryMs": 3600000,
+    "shipMs": 7200000,
+    "orderLifeMs": 604800000,
+    "perCapitaDaily": "200",
+    "baseReserveBp": 2500,
+    "fxLot": "100"
+  },
+  "catchment": {
+    "groupGap": 40
+  }
+}

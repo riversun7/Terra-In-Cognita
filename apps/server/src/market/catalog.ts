@@ -47,11 +47,24 @@ export function serverEconomyCatalog(
   });
   const facilities = response.facilities.map((facility) => {
     const gather = facilityEntries.get(facility.id)?.gather;
+    const build = facilityEntries.get(facility.id)?.build;
     return {
       id: facility.id,
       stage: facility.stage,
       slotsPerLevel: facility.slotsPerLevel,
       pollution: facilityEntries.get(facility.id)?.pollution ?? 0,
+      // NPC 증축(질문 1101 나, @terra/sim npcBuild.ts): 실효 짓기 재료(건물 편집기 덮어쓰기가 든다)
+      ...(build
+        ? {
+            build: {
+              mulPm: build.mulPm,
+              levels: build.levels.map((band) => ({
+                from: band.from,
+                materials: band.materials.map((stack) => ({ item: stack.item.id, qty: stack.qty })),
+              })),
+            },
+          }
+        : {}),
       ...(gather
         ? {
             gather: {

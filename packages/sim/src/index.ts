@@ -384,6 +384,7 @@ export {
 } from "./simulator/catalog.ts";
 // 경제 실행·NPC 거래 규칙(서버 NPC 도시 경제가 같은 함수를 쓴다, docs/adr/2026-11-07-play-flow.md WP4)
 export * from "./simulator/serverEconomy.ts";
+export * from "./simulator/npcBuildEntry.ts";
 export {
   type BookFill,
   type BookOrder,

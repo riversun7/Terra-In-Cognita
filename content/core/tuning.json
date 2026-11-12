@@ -8708,6 +8708,78 @@
       "source": "ADR 2026-11-01-npc-brain-r5 · D-530"
     },
     {
+      "id": "npc_build_max_buildings",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한(증축)",
+        "en": "NPC city building cap (expansion)"
+      },
+      "value": 16,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "NPC 도시는 이 수(행정 건물·성벽 빼고)까지 유저와 같은 규칙(재료·짓는 시간·일꾼)으로 숙소·농장·채집 시설을 더 짓는다. 0이면 짓지 않는다.",
+        "en": "NPC cities add lodgings, farms and gather facilities by the player rules (materials, build time, workers) up to this many buildings (government hall and walls excluded). 0 turns it off."
+      },
+      "source": "기획 D-534 · 질문 1101 나 · 질문 1141~1144 [임시]"
+    },
+    {
+      "id": "npc_build_gather_max",
+      "code": "",
+      "name": {
+        "ko": "NPC 채집 시설 한 종류 목표 상한",
+        "en": "NPC gather facility target cap per kind"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16,
+      "desc": {
+        "ko": "채집 시설 한 종류의 목표 수 = 1 + 배후지 몫 × (이 값 − 1) ÷ 1000(몫 0이면 0), 이 값이 위 끝.",
+        "en": "Target count of one gather facility kind = 1 + catchment share × (this − 1) ÷ 1000 (0 when the share is 0), capped by this."
+      },
+      "source": "기획 D-534 · 질문 1101 나 · 질문 1141~1144 [임시]"
+    },
+    {
+      "id": "npc_build_farm_humans",
+      "code": "",
+      "name": {
+        "ko": "NPC 농장 하나가 먹이는 휴먼 수",
+        "en": "NPC humans fed per farm"
+      },
+      "value": 12,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 200,
+      "desc": {
+        "ko": "농장 목표 = 휴먼 ÷ 이 값(올림), 생필품이 모자라면 하나 더.",
+        "en": "Farm target = humans ÷ this (rounded up), one more while necessities run short."
+      },
+      "source": "기획 D-534 · 질문 1101 나 · 질문 1141~1144 [임시]"
+    },
+    {
+      "id": "npc_build_builders_max",
+      "code": "",
+      "name": {
+        "ko": "NPC 짓기 일꾼 상한",
+        "en": "NPC builders per construction (cap)"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 32,
+      "desc": {
+        "ko": "일 없는 휴먼 가운데 이만큼까지 짓기를 돕는다(짓는 시간 단축은 플레이어 짓기와 같은 식).",
+        "en": "Up to this many idle humans help a construction (the time cut uses the player build formula)."
+      },
+      "source": "기획 D-534 · 질문 1101 나 · 질문 1141~1144 [임시]"
+    },
+    {
       "id": "gather_obj_carry_g",
       "code": "",
       "name": {

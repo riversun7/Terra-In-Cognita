@@ -39,6 +39,7 @@ import {
   scheduleDecide,
   scheduleTrip,
 } from "./npcRun.ts";
+import { simNpcBuilder } from "./npcBuild.ts";
 import {
   TEST_ASSET_CREDIT,
   TEST_ASSET_ORE,
@@ -74,8 +75,9 @@ import {
  * 16: 요약 npc.guardRefills(구인 규칙식이 경비대로 다시 채운 수, 기획 답 920 나)
  * 17: 배후지 채집 다툼이 켜진 시나리오(catchment 칸)의 econ 줄·요약 economy 칸에 catchment(도시마다 [ID, 반경 1000분율 칸, 받은 몫 ‰, 겹친
  *    칸], overlapped·stalled·supplyAvgPm)
+ * 18: 요약 npc.builds·buildsDone(NPC 증축 — 짓기 시작한 수·다 지어 생산에 넣은 수, 질문 1101 나)
  */
-export const SIM_OUTPUT_FORMAT = 17;
+export const SIM_OUTPUT_FORMAT = 18;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */
@@ -292,6 +294,8 @@ export function runSimulation(options: RunOptions): RunSummary {
         )
       : undefined,
     encounterPerMille: scenario.combat?.encounterPerMille,
+    // NPC 증축(질문 1101 나): 경제가 있을 때만(재료·국고가 경제에 있다)
+    build: econ ? { economy: econ.economy, builder: simNpcBuilder(econ.economy, world, loop) } : undefined,
   };
   ctxRef.ctx = ctx;
   const society = attachSociety(

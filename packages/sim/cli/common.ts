@@ -96,6 +96,18 @@ function catalogOf(source: PackSource): EconomyCatalog {
         stage: facility.stage,
         slotsPerLevel: facility.slotsPerLevel,
         pollution: facility.pollution ?? 0,
+        // NPC 증축(질문 1101 나): 짓기 재료(레벨 구간별)
+        ...(facility.build
+          ? {
+              build: {
+                mulPm: facility.build.mulPm,
+                levels: facility.build.levels.map((band) => ({
+                  from: band.from,
+                  materials: band.materials.map((stack) => ({ item: id(stack.item), qty: stack.qty })),
+                })),
+              },
+            }
+          : {}),
         ...(facility.gather
           ? {
               gather: {

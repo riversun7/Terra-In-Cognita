@@ -42,7 +42,8 @@ import { catchmentLine, stepCatchment } from "./catchmentRun.ts";
 const SYSTEM_KINDS: Readonly<Record<string, readonly string[]>> = {
   issue: ["issue"],
   // 폐허 복원 비용(restore_spend: 에스크로 → 소각, docs/adr/2026-11-07-ruins-restoration.md)
-  sink: ["burn", "produce", "upkeep", "recruit", "restore_spend"],
+  // 짓기 재료(facility_build: 도시 창고 → 소멸, NPC 증축 질문 1101 나 — 서버 플레이어 짓기와 같은 종류)
+  sink: ["burn", "produce", "upkeep", "recruit", "restore_spend", "facility_build"],
   source: ["produce", "endow"],
   reserve: ["job_output"],
   // 노동 계약 보증금(escrow:labor:<계약>, docs/adr/2026-11-03-labor-contracts.md): 넣기·임금·돌려주기

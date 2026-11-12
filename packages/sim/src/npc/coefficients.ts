@@ -83,6 +83,14 @@ export interface NpcCoefficients {
   readonly restoreClaimScore: number;
   readonly restoreFormerBonus: number;
   readonly restoreCityPenalty: number;
+  /**
+   * [임시] NPC 도시 증축(기획 D-534 — 질문 1101 나, npc/build.ts·simulator/npcBuild.ts, 질문 1141~1144): 도시 하나의 건물 수 상한(행정 건물·
+   * 성벽 빼고, 0 = 증축 끔), 채집 시설 한 종류의 목표 수 상한, 농장 하나가 먹이는 휴먼 수, 짓기를 돕는 일 없는 휴먼 수 상한
+   */
+  readonly buildMaxBuildings: number;
+  readonly buildGatherMax: number;
+  readonly buildFarmHumans: number;
+  readonly buildBuildersMax: number;
   /** 굶어 멈춤(D-220, 기술 정의): 국고 0 + 생필품 충족 이 ‰ 미만이 이 날 수 이어짐 */
   readonly stallFoodPm: number;
   readonly stallDays: number;
@@ -138,6 +146,10 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   spendDivisorShort: 2,
   spendDivisor: 4,
   cityBidPct: 90,
+  buildMaxBuildings: 16,
+  buildGatherMax: 3,
+  buildFarmHumans: 12,
+  buildBuildersMax: 4,
   recruitTargetPm: 1000,
   recruitReservePm: 2000,
   restoreClaimScore: 400,

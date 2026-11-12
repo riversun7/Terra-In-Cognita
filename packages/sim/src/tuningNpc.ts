@@ -239,4 +239,33 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 도시 매입 호가(지난 값의 %)",
     "NPC city standing bid (% of last price)",
   ),
+  // NPC 도시 증축(기획 D-534 — 질문 1101 나, 질문 1141~1144 [임시])
+  k(
+    "npc_build_max_buildings",
+    "",
+    "buildMaxBuildings",
+    "NPC 도시 건물 수 상한(증축)",
+    "NPC city building cap (expansion)",
+  ),
+  k(
+    "npc_build_gather_max",
+    "",
+    "buildGatherMax",
+    "NPC 채집 시설 한 종류 목표 상한",
+    "NPC gather facility target cap per kind",
+  ),
+  k(
+    "npc_build_farm_humans",
+    "",
+    "buildFarmHumans",
+    "NPC 농장 하나가 먹이는 휴먼 수",
+    "NPC humans fed per farm",
+  ),
+  k(
+    "npc_build_builders_max",
+    "",
+    "buildBuildersMax",
+    "NPC 짓기 일꾼 상한",
+    "NPC builders per construction (cap)",
+  ),
 ];

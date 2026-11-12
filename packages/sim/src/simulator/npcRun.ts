@@ -15,6 +15,7 @@ import { shareAsset } from "../society/shares.ts";
 import { rebuildCost } from "../society/warOutcomes.ts";
 import { inTruce, recordFight } from "../society/wars.ts";
 import type { CombatRun } from "./combatRun.ts";
+import { type NpcBuildRun, buildPolicy } from "./npcBuild.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioSociety, ScenarioTrips } from "./scenario.ts";
 import type { SimLoop } from "./loop.ts";
@@ -74,6 +75,9 @@ export interface NpcCounts {
   recruits: number;
   /** 그 가운데 경비대로 다시 채운 수(기획 답 920 나) */
   guardRefills: number;
+  /** NPC 증축(질문 1101 나, npcBuild.ts): 짓기 시작한 수·다 지어 생산에 넣은 수 */
+  builds: number;
+  buildsDone: number;
 }
 
 export function emptyNpcCounts(): NpcCounts {
@@ -92,6 +96,8 @@ export function emptyNpcCounts(): NpcCounts {
     taxChanges: 0,
     recruits: 0,
     guardRefills: 0,
+    builds: 0,
+    buildsDone: 0,
   };
 }
 
@@ -118,6 +124,8 @@ export interface NpcContext {
    * (D-500, docs/adr/2026-11-01-gardener-r5b.md "바뀜 (2026-11-07, 정원사 2)"). run.ts·서버 런타임이 붙인다
    */
   onAttack?: ((attacker: SimFaction, target: SimFaction, cityId: number, nowMs: number) => void) | undefined;
+  /** NPC 증축(질문 1101 나, npcBuild.ts — 경제가 있을 때 run.ts·서버 런타임이 붙인다). 없으면 짓지 않는다 */
+  build?: NpcBuildRun | undefined;
 }
 
 /** 다음 판단 시각: 간격 ±25% */
@@ -452,6 +460,7 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
   // 세율은 판단을 시작할 때 본 국고끼리 견준다(행동이 쓴 돈과 섞이지 않게)
   if (faction.alive) taxPolicy(ctx, faction, view, nowMs);
   if (faction.alive) recruitPolicy(ctx, faction, nowMs);
+  if (faction.alive && ctx.build) buildPolicy(ctx, ctx.build, faction, nowMs);
   if (ctx.combat && rng.nextInt(1000) < (ctx.encounterPerMille ?? 0) && faction.alive)
     ctx.combat.encounter(faction, rng.nextInt(0x1_0000), nowMs);
   // 판단 난수는 차례 2k, 다음 시각 난수는 2k+1(k = 판단 횟수)이라 겹치지 않는다

@@ -165,6 +165,11 @@ export interface Economy {
    * 하루 받은 몫. 없으면 땅을 보지 않는다(옛 경제)
    */
   catchment?: CatchmentState | undefined;
+  /**
+   * NPC 증축 재료(질문 1101 나, npcBuild.ts): 도시 → 지으려는 시설 재료(자산 → 기본 단위). 도시 목표 재고(npcTrade.ts cityTargets)에 더해
+   * 거래 판단이 도시 매입 호가·수입·내 도시끼리 나누기로 채운다. 판단마다 다시 정한다(저장하지 않는다)
+   */
+  buildWants?: Map<number, Map<string, bigint>> | undefined;
   nextOrderId(): number;
   nextCargoId(): number;
   /** 오늘 센 값(하루 줄에 쓰고 비운다) */

@@ -56,6 +56,8 @@ export function cityTargets(economy: Economy, cityId: number): Map<string, bigin
     );
     for (const input of facility.recipe.inputs) add(input.asset, input.qty * batches);
   }
+  // NPC 증축 재료(질문 1101 나, npcBuild.ts) — 거래 판단이 이 도시로 모은다
+  for (const [asset, qty] of economy.buildWants?.get(cityId) ?? []) add(asset, qty);
   return need;
 }
 

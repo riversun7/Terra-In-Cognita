@@ -58,12 +58,16 @@
 - `apps/server/src/world/world.ts`는 998줄(상한 1,000).
 
 ## 미검증·TODO·알려진 문제
-- (아래 "검사"에 결과)
+- e2e `cyborg.spec.ts` "핵심 사양…" 1개 실패: 상세 전투 스펙에 "기타(other)" 묶음(HP 회복 `hp_regen`)이 생긴다. `hp_regen`은 main 8aa8df9 때부터 팩 `stat_rows`에 있고 `apps/game/src/cyborg/cyborgText.ts` COMBAT_ROWS에 없다 — 이 줄기가 바꾼 것이 아니다(Verified: `git show origin/main:content/core/stat_rows.json`). 고치지 않았다.
 - 시뮬 도시 시설은 일꾼 스탯·컨디션이 기본값이라 시뮬 결과는 그대로다(Assumed: sim 시험 통과로 확인, 시나리오 요약은 비교하지 않음).
 - 선호 음식·성향별 선호는 없다(질문 1151). 컨디션은 전투·진행 속도·수확량에 들지 않는다(질문 1154).
 
-## 검사
-- 미실행
+## 검사 (Verified, 실행)
+- `pnpm check`(TEST_DATABASE_URL): 포맷·린트·타입·경계·크기·다국어·대비·콘텐츠 통과. 시험 4,954 통과 / 5 실패 → 실패 셋(구간 수 12 → 14, 유전자 총합 상한 80, N9 합 150 → 상한 100에 맞춘 값)을 고쳐 그 파일만 다시 돌려 통과(`tuning.db`·`fusion.db`·`buildingEdit` 23개, `views.test` 3개). 전체를 다시 돌리지는 않았다.
+- 시험 추가: `condition.test.ts`(sim 6), `statGrowth.test.ts`·`gatherExpect.test.ts`(shared 9), `labor/condition.test.ts`(3), `gatherWork.test.ts` 컨디션 1, `gather.test.ts` T9 1, `tuningChecks.test.ts` stat_sum_cap 6, `fusion.test.ts` 상한 1.
+- `pnpm build` 통과, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 108,923 B / 상한 131,416 B(새 조각 없음).
+- e2e(헤드리스, Playwright): `gather-expect.spec.ts`(새) 6/6, `production.spec.ts`·`gather-tiers.spec.ts`·`units.spec.ts` 통과, `cyborg.spec.ts` 1 실패(위, 이 줄기 밖). 합계 55 통과 / 1 실패.
+- 사진: `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/condition-gather-shots/gather-expect-{neon-ko-1440,light-en-1440,neon-en-390,light-ko-390}.png`.
 
 ## 사용자 결정 대기
 - 질문 1151~1158(`docs/questions/2026-11-12-condition-gather.md`).

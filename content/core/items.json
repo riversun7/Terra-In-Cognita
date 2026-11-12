@@ -10,6 +10,7 @@
       "subcategory": "blueprint",
       "tier": 0,
       "startPrice": 1,
+      "weight": 10,
       "enabled": false
     },
     {
@@ -21,6 +22,7 @@
       "category": "raw",
       "tier": 0,
       "startPrice": 4,
+      "weight": 200,
       "enabled": true
     },
     {
@@ -32,6 +34,7 @@
       "category": "raw",
       "tier": 0,
       "startPrice": 5,
+      "weight": 2000,
       "enabled": true
     },
     {
@@ -97,6 +100,7 @@
       "subcategory": "dish",
       "tier": 0,
       "startPrice": 4,
+      "weight": 500,
       "enabled": true
     },
     {
@@ -109,6 +113,7 @@
       "subcategory": "buff_item",
       "tier": 1,
       "startPrice": 40,
+      "weight": 1000,
       "enabled": true
     },
     {
@@ -121,6 +126,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 100,
+      "weight": 1500,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -160,6 +166,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 100,
+      "weight": 1500,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -201,6 +208,7 @@
       "subcategory": "armor",
       "tier": 1,
       "startPrice": 100,
+      "weight": 3000,
       "equip": {
         "slot": "body",
         "stats": [
@@ -228,6 +236,7 @@
       "subcategory": "armor",
       "tier": 1,
       "startPrice": 100,
+      "weight": 1500,
       "equip": {
         "slot": "head",
         "stats": [
@@ -250,6 +259,7 @@
       "subcategory": "accessory",
       "tier": 1,
       "startPrice": 100,
+      "weight": 10,
       "equip": {
         "slot": "accessory",
         "stats": [
@@ -272,6 +282,7 @@
       "subcategory": "implant",
       "tier": 1,
       "startPrice": 100,
+      "weight": 500,
       "equip": {
         "slot": "organ",
         "stats": [
@@ -304,6 +315,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
+      "weight": 1500,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -345,6 +357,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
+      "weight": 1500,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -391,6 +404,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
+      "weight": 1500,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -432,6 +446,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
+      "weight": 1500,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -478,6 +493,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
+      "weight": 1500,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -524,6 +540,7 @@
       "subcategory": "weapon",
       "tier": 1,
       "startPrice": 120,
+      "weight": 1500,
       "equip": {
         "slot": "weapon",
         "stats": [

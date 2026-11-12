@@ -20,6 +20,7 @@ import {
   critFormulaIdOf,
   evaluateFormula,
   explainFormula,
+  hitFormulaIdOf,
   isCombatFormulaId,
   parseFormula,
   primaryInfluence,
@@ -99,6 +100,7 @@ function programsOf(
       real_stamina_regen: pick("real_stamina_regen"),
       evade_chance: pick("evade_chance"),
       bare_crit: pick("bare_crit"),
+      bare_hit: pick("bare_hit"),
     },
   };
 }
@@ -249,7 +251,7 @@ export function sampleStaminaOf(
 
 /**
  * 이 무기로 판정이 이 식을 쓰나(맨손 적정 식은 맨손일 때만. 실제 공격력은 맨손도 쓴다: 스탯 공격력 + 무기 몫 0, D-502).
- * 크리는 맨손이면 맨손 식(bare_crit), 무기면 무기 틀 식(real_crit) — 사용자 결정 2026-11-12
+ * 크리·명중은 맨손이면 맨손 식(bare_crit·bare_hit), 무기면 무기 틀 식(real_crit·real_hit) — 사용자 결정 2026-11-12
  */
 export function slotUsedBy(slot: FormulaSlotView, weapon: FormulaWeaponView): boolean {
   switch (slot.key) {
@@ -258,6 +260,9 @@ export function slotUsedBy(slot: FormulaSlotView, weapon: FormulaWeaponView): bo
     case "real_crit":
     case "bare_crit":
       return critFormulaIdOf(weapon.unarmed) === slot.key;
+    case "real_hit":
+    case "bare_hit":
+      return hitFormulaIdOf(weapon.unarmed) === slot.key;
     default:
       return true;
   }

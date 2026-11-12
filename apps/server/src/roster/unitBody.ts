@@ -382,7 +382,13 @@ export function combatSummaryOfSpec(catalog: RosterCatalog, spec: BodySpec, part
       part: part(a.attackPrimary, a.attackAppropriateMilli),
       real: realAttackOf(a, cap, c),
     },
-    hit: { weaponPm: a.weaponHitPm, part: part(a.dex, a.dexAppropriateMilli), real: realHitPm(a, c) },
+    // 맨손 명중은 맨손 식(bare_hit = 늘 100%, 2026-11-12)
+    hit: {
+      weaponPm: a.weaponHitPm,
+      part: part(a.dex, a.dexAppropriateMilli),
+      real: realHitPm(a, c),
+      ...(a.unarmed === true ? { bare: true } : {}),
+    },
     // 맨손 자료면 크리는 맨손 식(bare_crit = AGI + DEX ‰, 2026-11-12) — 화면은 그 풀이를 보인다
     crit: {
       weaponPm: a.weaponCritPm,

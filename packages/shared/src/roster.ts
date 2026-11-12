@@ -553,7 +553,13 @@ export interface RosterCombat {
     readonly part: RosterWeaponPart;
     readonly real: number;
   };
-  readonly hit: { readonly weaponPm: number; readonly part: RosterWeaponPart; readonly real: number };
+  readonly hit: {
+    readonly weaponPm: number;
+    readonly part: RosterWeaponPart;
+    readonly real: number;
+    /** 맨손 자료로 셈했나(맨손 식 bare_hit, 기본 늘 1000‰ — 사용자 결정 2026-11-12 "맨손 항상 100%"). 없으면 무기 틀 */
+    readonly bare?: boolean | undefined;
+  };
   readonly crit: {
     readonly weaponPm: number;
     readonly part: RosterWeaponPart;

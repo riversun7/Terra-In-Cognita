@@ -7,7 +7,8 @@
 //   공격력 = 스탯 공격력 + 무기 몫(D-502): 무기 몫·명중·크리·공격 간격은 무기의 1차 적정 스탯(몫마다 하나: 공격 STR·INT, 명중·크리 DEX,
 //   공격 간격 AGI) 대비 비율을 N10(1000‰)까지 곱한다(사용자 답 296~298). 맨손의 적정 DEX·AGI는 bare_appropriate(옛 규칙 레벨 × 1.5 + 10).
 //   맨손 크리 확률은 따로 칸(bare_crit, 사용자 결정 2026-11-12 "맨손 크리확률은 agi+dex 을 퍼밀로쓰자 10,10이면 2%" — 무기 틀
-//   min(1, DEX ÷ 적정)에서는 스탯이 적정을 넘어도 맨손 자료 크리 5% 그대로였다).
+//   min(1, DEX ÷ 적정)에서는 스탯이 적정을 넘어도 맨손 자료 크리 5% 그대로였다). 맨손 명중도 따로 칸(bare_hit, 사용자 결정 2026-11-12
+//   "맨손 항상 100%" — 빗나감은 방어자 회피 굴림만).
 //   스태미나 소모·회복도 적정 스탯 개념이다(D-511): 적정 STA 점수 = 레벨 식 stamina_appropriate(맨손 적정과 같은 틀), 소모는 적정 ÷ 점수를
 //   곱하고(stamina_cost), 회복은 2차 스탯 스태미나 회복 × 점수 ÷ 적정(real_stamina_regen). 보통 유닛은 어느 레벨이든 배율 1이다.
 // - 단위: points(점수·정수), pm(천분율 ‰), x(배, 비율), ms, roll(굴림 0~9999), level(레벨).
@@ -59,6 +60,7 @@ export const COMBAT_FORMULA_IDS = [
   "real_stamina_regen",
   "evade_chance",
   "bare_crit",
+  "bare_hit",
 ] as const;
 export type CombatFormulaId = (typeof COMBAT_FORMULA_IDS)[number];
 
@@ -169,6 +171,8 @@ export const COMBAT_FORMULA_SLOTS: Readonly<Record<CombatFormulaId, FormulaSlot>
     "pm",
     { min: 0, max: 1000 },
   ),
+  // 맨손 명중(‰, 사용자 결정 2026-11-12 "맨손 항상 100%"): W 맨손 자료 명중(‰), DEX, A 맨손 적정 DEX(bare_appropriate), CAP(N10). 기본 = 1000
+  bare_hit: combatSlot("bare_hit", ratioFrame("pm", "DEX"), "pm", { min: 0, max: 1000 }),
 };
 
 /**
@@ -205,6 +209,8 @@ export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> 
     '# 사용자 결정 2026-11-12: 맨손 크리(‰) = AGI + DEX ("10,10이면 2%")',
     "max(0, AGI) + max(0, DEX)",
   ].join("\n"),
+  bare_hit:
+    '# 사용자 결정 2026-11-12: 맨손은 늘 맞는다("맨손 항상 100%") — 빗나감은 방어자 회피 굴림만\n1000',
 };
 
 /**
@@ -213,6 +219,10 @@ export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> 
  */
 export function critFormulaIdOf(unarmed: boolean): "real_crit" | "bare_crit" {
   return unarmed ? "bare_crit" : "real_crit";
+}
+/** 판정이 명중에 쓰는 식(사용자 결정 2026-11-12 "맨손 항상 100%"): 맨손 자료는 bare_hit, 무기는 real_hit */
+export function hitFormulaIdOf(unarmed: boolean): "real_hit" | "bare_hit" {
+  return unarmed ? "bare_hit" : "real_hit";
 }
 
 /** 굴림 칸이 있는 식(화면은 굴림 0·중간·9999를 함께 보인다) */

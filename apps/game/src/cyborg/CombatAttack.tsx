@@ -4,7 +4,7 @@
 // 공식 글은 D-502: 공격력 = 스탯 공격력 + 무기 공격력 × 비율(STR·INT ÷ 적정), 명중·크리 = 무기 값 × 비율(DEX), 간격 = 무기 간격 ÷ 비율(AGI).
 // 버프 몫(질문 354 → D-515): 줄 값은 걸린 효과를 뺀 기본, 옆 알약·막대 빗금 칸이 몫(CyborgBody.buffs, 공격은 공격 ‰ 배율까지).
 // 2차 행이 없는 관통은 값이 있을 때만 줄을 더한다. 이동 속도 줄은 서버가 걷기 빠르기(move)를 보내면 늘 있다(2026-11-12).
-// 맨손 크리(crit.bare)는 맨손 식 풀이 "맨손 크리 = AGI(10) + DEX(10) = 20‰ = 2%"(사용자 결정 2026-11-12).
+// 맨손 크리(crit.bare)는 맨손 식 풀이 "맨손 크리 = AGI(10) + DEX(10) = 20‰ = 2%", 맨손 명중(hit.bare)은 늘 100%(사용자 결정 2026-11-12).
 import type {
   RosterBuffs,
   RosterCombat,
@@ -236,14 +236,28 @@ export function AttackRows({
         fill={hitBar.fill}
         buff={hitBar.buff}
       >
-        <PartLine code={dex} part={hit.part} />
-        <p className="combat-line combat-result" translate="no">
-          {m.cyborg_attack_scaled({
-            weapon: chanceText(hit.weaponPm),
-            ratio: ratioText(hit.part.ratioPm),
-            real: chanceText(hit.real),
-          })}
-        </p>
+        {hit.bare ? (
+          <>
+            <p className="combat-formula">
+              <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+              {m.cyborg_attack_bare_hit_formula()}
+            </p>
+            <p className="combat-line combat-result" translate="no">
+              = {chanceText(hit.real)}
+            </p>
+          </>
+        ) : (
+          <>
+            <PartLine code={dex} part={hit.part} />
+            <p className="combat-line combat-result" translate="no">
+              {m.cyborg_attack_scaled({
+                weapon: chanceText(hit.weaponPm),
+                ratio: ratioText(hit.part.ratioPm),
+                real: chanceText(hit.real),
+              })}
+            </p>
+          </>
+        )}
         {hitBar.buff ? <BuffLines share={hitBar.buff.text} total={chanceText(hit.real + hitShare)} /> : null}
       </SpecRow>
       <SpecRow

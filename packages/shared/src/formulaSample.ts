@@ -149,6 +149,8 @@ export function sampleScopes(
     evade_chance: evadeScope(s("evade"), agi, input.opponentAgi ?? agi, c.evadeRelative),
     // 맨손 크리(AGI + DEX, 2026-11-12): 맨손 적정은 무기가 맨손이 아니어도 레벨 식 값으로 넣는다(미리 보기에서 식을 읽을 수 있게)
     bare_crit: bareCritScope(weapon.critPm, dex, agi, bareMilli),
+    // 맨손 명중(늘 100%, 2026-11-12): 무기 틀과 같은 변수, 적정은 맨손 적정
+    bare_hit: dexFrameScope(weapon.hitPm, dex, bareMilli, c.capPm),
   };
 }
 
@@ -190,6 +192,7 @@ export function runFormulaSample(
     real_stamina_regen: evaluateFormula(combat.real_stamina_regen, scopes.real_stamina_regen),
     evade_chance: evaluateFormula(combat.evade_chance, scopes.evade_chance),
     bare_crit: evaluateFormula(combat.bare_crit, scopes.bare_crit),
+    bare_hit: evaluateFormula(combat.bare_hit, scopes.bare_hit),
   };
   return { stats, staminaScore, scopes, values };
 }

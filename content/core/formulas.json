@@ -95,6 +95,14 @@
         "en": "Bare-hand crit chance (‰)"
       },
       "expression": "# 사용자 결정 2026-11-12: 맨손 크리(‰) = AGI + DEX (\"10,10이면 2%\")\nmax(0, AGI) + max(0, DEX)"
+    },
+    {
+      "id": "bare_hit",
+      "name": {
+        "ko": "맨손 명중(‰)",
+        "en": "Bare-hand hit (‰)"
+      },
+      "expression": "# 사용자 결정 2026-11-12: 맨손은 늘 맞는다(\"맨손 항상 100%\") — 빗나감은 방어자 회피 굴림만\n1000"
     }
   ]
 }

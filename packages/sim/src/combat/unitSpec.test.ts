@@ -247,10 +247,12 @@ describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 
     expect(spec.attackIntervalMs).toBe(1200);
   });
 
-  it("새 사이보그 맨손: 공격력 10(무기 몫 0), 명중 850 × 10/11.5 = 738‰(약 74%)", () => {
+  it('새 사이보그 맨손: 공격력 10(무기 몫 0), 명중 늘 1000‰(사용자 결정 2026-11-12 "맨손 항상 100%", 전에는 850 × 10/11.5 = 738‰)', () => {
     const spec = specOf(all(10), UNARMED_PHYSICAL);
     expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(10);
-    expect(realHitPm(spec.attack, c)).toBe(738);
+    expect(realHitPm(spec.attack, c)).toBe(1000);
+    // DEX가 아주 낮거나 레벨이 높아도(맨손 적정 55) 늘 맞는다 — 빗나감은 방어자 회피 굴림만
+    expect(realHitPm(specOf({ ...all(10), dex: 1 }, UNARMED_PHYSICAL, 30).attack, c)).toBe(1000);
   });
 
   it('맨손 크리 = AGI + DEX ‰(사용자 결정 2026-11-12 "10,10이면 2%"), 맨손 명중·간격은 그대로', () => {
@@ -263,14 +265,15 @@ describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 
     expect(realCritPm(specOf(p, UNARMED_PHYSICAL).attack, c)).toBe(27);
     expect(realCritPm(specOf(p, UNARMED_PHYSICAL, 30).attack, c)).toBe(27);
     expect(realCritPm(specOf(all(100), UNARMED_PHYSICAL).attack, c)).toBe(200);
-    // 명중·간격은 무기 틀 그대로: 명중 850 × min(1, 10 ÷ 11.5) = 739 → 738(밀리 내림), 간격 1000 ÷ min(1, 15 ÷ 11.5) = 1000ms
-    expect(realHitPm(ten.attack, c)).toBe(738);
+    // 명중은 늘 1000‰(맨손 식 bare_hit), 간격은 무기 틀 그대로: 1000 ÷ min(1, 15 ÷ 11.5) = 1000ms
+    expect(realHitPm(ten.attack, c)).toBe(1000);
     expect(specOf(p, UNARMED_PHYSICAL).attackIntervalMs).toBe(1000);
     // 크리쳐 발톱처럼 맨손이 아닌 타고난 무기는 무기 틀 그대로(50 × min(1, 12 ÷ 12) = 50)
     const claws: WeaponSpec = { ...UNARMED_PHYSICAL, unarmed: false, appropriate: { dex: 12, agi: 12 } };
     const clawSpec = specOf(p, claws);
     expect(clawSpec.attack.unarmed).toBeUndefined();
     expect(realCritPm(clawSpec.attack, c)).toBe(50);
+    expect(realHitPm(clawSpec.attack, c)).toBe(850);
   });
 
   it("맨손 스킬 사양(타고난 무기·맨손 속성 자료)도 맨손 크리 식을 쓴다", () => {

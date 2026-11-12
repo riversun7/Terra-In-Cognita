@@ -49,6 +49,7 @@ function setOf(make: (id: CombatFormulaId) => FormulaProgram): CombatFormulaSet 
     real_stamina_regen: make("real_stamina_regen"),
     evade_chance: make("evade_chance"),
     bare_crit: make("bare_crit"),
+    bare_hit: make("bare_hit"),
   };
 }
 
@@ -100,9 +101,9 @@ export function attackValue(
   );
 }
 
-/** 명중·크리 식(real_hit·real_crit): 무기 값 × min(N10, DEX ÷ 적정 DEX(밀리점)). 결과는 0 이상 정수(‰) */
+/** 맨손 명중 식(bare_hit — 기본 1000‰, 사용자 결정 2026-11-12 "맨손 항상 100%")도 같은 변수(W DEX A CAP). 명중·크리 식(real_hit·real_crit): 무기 값 × min(N10, DEX ÷ 적정 DEX(밀리점)). 결과는 0 이상 정수(‰) */
 export function dexFrameValue(
-  id: "real_hit" | "real_crit",
+  id: "real_hit" | "real_crit" | "bare_hit",
   weapon: number,
   dex: number,
   appropriateMilli: number,

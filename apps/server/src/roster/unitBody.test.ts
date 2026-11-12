@@ -102,6 +102,13 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
     // 명중 = 900 × min(1, DEX 10 ÷ 12), 간격 = 1,000 ÷ 0.833(D-502 ADR 표: 749‰·1,200ms)
     expect(armed.combat?.hit.real).toBe(749);
     expect(armed.combat?.interval.real).toBe(1200);
+    // 맨손(사용자 결정 2026-11-12): 크리 = AGI + DEX = 20‰(2%), 명중 늘 1000‰. 검을 쥐면 무기 틀(맨손 표지 없음)
+    expect(bare.combat?.crit).toMatchObject({ real: 20, bare: { agi: 10 }, part: { stat: 10 } });
+    expect(bare.combat?.hit).toMatchObject({ real: 1000, bare: true });
+    expect(armed.combat?.crit.bare).toBeUndefined();
+    expect(armed.combat?.hit.bare).toBeUndefined();
+    // 이동 속도 줄(2026-11-12): 서버 걷기 빠르기 437 단위/초·전투 걸음 1초
+    expect(bare.move).toEqual({ walk: 437, cellUnits: 1024, mapCells: 256, battleMs: 1000 });
     // 굴린 옵션 줄(크리 배율 +50)이 2차 행에 든다
     expect(row(armed.stats, "crit_multiplier")).toBe((row(bare.stats, "crit_multiplier") ?? 0) + 50);
     expect(armed.slots[0]?.item?.id).toBe("test_sword");

@@ -8,6 +8,7 @@ import {
   compileFormulaOrThrow,
   critFormulaIdOf,
   fxToInt,
+  hitFormulaIdOf,
   runFormulaSample,
   statRowExpression,
 } from "@terra/shared/formula";
@@ -64,7 +65,7 @@ const sampleWeapon = (weapon: WeaponSpec): FormulaSampleWeapon => ({
 describe("미리 보기 = 판정", () => {
   it("무작위 1차·레벨·무기(칼·맨손)에서 2차 스탯·전투 식 값이 같다", () => {
     const rng = createRng(7);
-    expect(COMBAT_FORMULA_IDS).toHaveLength(12);
+    expect(COMBAT_FORMULA_IDS).toHaveLength(13);
     for (let round = 0; round < 300; round++) {
       const p = Array.from({ length: 6 }, () => 1 + rng.nextInt(200));
       const level = 1 + rng.nextInt(60);
@@ -107,7 +108,7 @@ describe("미리 보기 = 판정", () => {
       expect(spec.staminaAppropriateMilli).toBe(v.stamina_appropriate);
       expect(v.stamina_cost).toBe(specStaminaCostMilli(spec, weapon.staminaCost, c));
       expect(fxToInt(v.real_stamina_regen)).toBe(spec.staminaRegen);
-      expect(fxToInt(v.real_hit)).toBe(realHitPm(spec.attack, c));
+      expect(fxToInt(v[hitFormulaIdOf(unarmed)])).toBe(realHitPm(spec.attack, c));
       expect(fxToInt(v[critFormulaIdOf(unarmed)])).toBe(realCritPm(spec.attack, c));
       // 공격력 = 스탯 공격력 + 무기 몫(맨손은 무기 몫 0, D-502). 맨손 적정은 레벨 식(밀리점)
       expect(fxToInt(v.real_attack)).toBe(realAttackOf(spec.attack, c.appropriateCapPm, c));

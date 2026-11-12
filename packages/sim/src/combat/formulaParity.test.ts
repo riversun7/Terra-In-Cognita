@@ -20,6 +20,7 @@ import {
   evadeFinalPm,
   evadeRelativePm,
   realAttackOf,
+  realCritPm,
   realHitPm,
   statPlusWeapon,
   weaponRatioPm,
@@ -264,21 +265,25 @@ function bareSpec(v: number, level: number) {
 }
 
 describe("맨손(D-502: 무기 몫 0, 적정 DEX·AGI = 레벨 × 1.5 + 10, 사용자 답 297)", () => {
-  it("새 사이보그(1차 모두 10, Lv 1): 공격력 10(스탯만), 명중 850 × 10 ÷ 11.5 = 738‰, 크리 50 × 0.869 = 43‰, 간격 1150ms", () => {
+  it("새 사이보그(1차 모두 10, Lv 1): 공격력 10(스탯만), 명중 늘 1000‰, 크리 AGI + DEX = 20‰(2026-11-12), 간격 1150ms", () => {
     const spec = bareSpec(10, 1);
     expect(spec.attack.statAttack).toBe(10);
     expect(spec.attack.weaponAttack).toBe(0);
     expect(spec.attack.dexAppropriateMilli).toBe(11_500);
     expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(10);
-    expect(realHitPm(spec.attack, c)).toBe(738);
+    // 사용자 결정 2026-11-12: 맨손 명중 "항상 100%"(bare_hit), 크리 = AGI + DEX ‰(bare_crit). 무기 틀이면 738‰·43‰였다
+    expect(realHitPm(spec.attack, c)).toBe(1000);
+    expect(realCritPm(spec.attack, c)).toBe(20);
+    expect(dexFrameValue("real_hit", 850, 10, 11_500, 1000, c)).toBe(738);
     expect(dexFrameValue("real_crit", 50, 10, 11_500, 1000, c)).toBe(43);
     expect(spec.attackIntervalMs).toBe(1150);
   });
 
-  it("Lv 30 균형형(39): 공격력 39, 적정 55라 명중 850 × 39 ÷ 55 = 602‰, 스킬 사양도 무기 몫 0", () => {
+  it("Lv 30 균형형(39): 공격력 39, 명중 늘 1000‰(무기 틀이면 적정 55라 602‰), 스킬 사양도 무기 몫 0", () => {
     const spec = bareSpec(39, 30);
     expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(39);
-    expect(realHitPm(spec.attack, c)).toBe(602);
+    expect(realHitPm(spec.attack, c)).toBe(1000);
+    expect(dexFrameValue("real_hit", 850, 39, 55_000, 1000, c)).toBe(602);
     expect(spec.skillAttack?.physical.weaponAttack).toBe(0);
     // 크리쳐 발톱은 맨손이 아니다(무기와 같은 공식)
     const creature = TEST_COMBAT_CATALOG.unitKinds.find((kind) => kind.id === "creature");

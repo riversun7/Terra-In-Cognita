@@ -1899,6 +1899,7 @@
   "cyborg_move_speed_formula": "Move interval = interval × 100% ÷ move speed (floor 10%)",
   "cyborg_attack_bare_crit_formula": "Bare-hand crit (‰) = {agi} + {dex}",
   "cyborg_attack_bare_crit_line": "Bare-hand crit = {agi}({agiValue}) + {dex}({dexValue}) = {pm}‰ = {real}",
+  "cyborg_attack_bare_hit_formula": "Bare-hand hit = always 100% (misses come only from the target's evade)",
   "cyborg_move_cells": "{value} cells/s",
   "cyborg_move_formula": "Vehicle speed (walking) + Σ(primary stat × weight) + gear",
   "cyborg_move_base": "Base (walking) {walk} ÷ {unit} = {value} cells/s",

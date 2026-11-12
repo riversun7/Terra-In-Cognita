@@ -91,7 +91,10 @@
 - war16 공성 수·공격 승이 준 까닭은 나눠 재지 않았다.
 
 ## 검사
-- (아래 검사 결과는 끝낸 뒤 채운다)
+- Verified: `pnpm check`(TEST_DATABASE_URL 있음) 통과 — 포맷·린트·타입·경계·파일 크기·다국어(6,965키)·디자인 값·콘텐츠(core@77), 시험 660파일 5,025개.
+- Verified: `pnpm check:content origin/main`(호환 포함) 통과, `pnpm check:docs origin/main` 통과, `pnpm docs:index`.
+- Verified: sim 시험 101파일 811개(작업 중), 서버 DB 시험 `cityBuildUpgrade`·`cityBuild`·`attack` 통과.
+- `apps/game`은 바꾸지 않아 빌드·`check-pwa`·`check:bundle`·화면 시험은 돌리지 않았다.
 
 ## 사용자 결정 대기
 - 질문 1186~1192(`docs/questions/2026-11-12-npc-build-2.md`).

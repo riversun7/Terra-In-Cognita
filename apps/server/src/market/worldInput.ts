@@ -3,7 +3,10 @@
 // 주인 = 2차맵 건물 주인. 국가 프리셋(나라 성격: 도시 직무·처음 창고, 기획 답 531 다·533 다)도 함께 넘긴다.
 import type { CatchmentLand } from "@terra/shared/catchment";
 import type { WorldFacilities } from "../facilities/world.ts";
+import { type RestLodging, planCityRest } from "../npc/cityRest.ts";
 import type { CityFacility, NpcEconomyInput } from "../npc/economy.ts";
+import { workAreaOf } from "../npc/humanPlaces.ts";
+import type { TripArea } from "../world/bots.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { ServerEconomyCatalog } from "./catalog.ts";
@@ -41,6 +44,47 @@ export function npcEconomyInputOf(
         });
       }
       return out;
+    },
+    // 일꾼 쉼터·채집소 옮김(질문 1047 다·1050 가): 그 도시 2차맵의 건물 자리로 npc/cityRest.ts planCityRest
+    cityRest(cityId, city, list, rules) {
+      const places = facilities.service.places;
+      const cell = places.cities().find((entry) => entry.id === cityId);
+      const map = cell ? maps.get(cell.mapKey) : undefined;
+      if (!cell || !map) return undefined;
+      const areas = new Map<number, TripArea>();
+      const owners = new Map<number, number | null>();
+      map.forEachBuilding((building) => {
+        areas.set(building.id, workAreaOf(building.placement));
+        owners.set(building.id, building.ownerId);
+      });
+      const facilityCatalog = facilities.catalog();
+      const lodgings: RestLodging[] = [];
+      const stores: { x: number; y: number }[] = [];
+      for (const record of facilities.service.facilities.values()) {
+        if (record.cityId !== cityId || record.level < 1 || !facilities.service.works(record.buildingId))
+          continue;
+        const area = areas.get(record.buildingId);
+        if (!area) continue;
+        const stage = facilityCatalog.facility(record.facilityId)?.stage;
+        if (stage === "living")
+          lodgings.push({
+            id: record.buildingId,
+            area,
+            level: record.level,
+            ownerId: owners.get(record.buildingId) ?? null,
+          });
+        else if (stage === "storage" && owners.get(record.buildingId) === city.ownerId)
+          stores.push({ x: area.x, y: area.y });
+      }
+      return planCityRest({
+        facilities: list,
+        areas,
+        lodgings,
+        home: { x: cell.x, y: cell.y },
+        housing: city.housing,
+        stores,
+        rules,
+      });
     },
     lodgingsIn(cityId) {
       const facilityCatalog = facilities.catalog();

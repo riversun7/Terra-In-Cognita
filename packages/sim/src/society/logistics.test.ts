@@ -8,6 +8,7 @@ import {
   lodgingBeds,
   restDutyPm,
   restRecoveryPm,
+  restsPerDay,
   walkMsPerCell,
   workSharePm,
 } from "./logistics.ts";
@@ -43,6 +44,12 @@ describe("숙소 회복", () => {
   it("숙소 회복을 끄면 1000", () => {
     const off = { ...c, logistics: { ...c.logistics, lodgingMode: 0 } };
     expect(restDutyPm({ kind: "lodging", level: 3 }, 0, off)).toBe(1000);
+  });
+
+  it("하루 쉬는 번 수 = 하루 ÷ 일·쉼 한 바퀴", () => {
+    // 집: 2시간 일 + 6시간 쉼 = 8시간 → 3번, 숙소 Lv1: 2 + 4 = 6시간 → 4번
+    expect(restsPerDay({ kind: "home" }, 0, c)).toBe(3);
+    expect(restsPerDay({ kind: "lodging", level: 1 }, 0, c)).toBe(4);
   });
 
   it("침대 = 레벨 × 칸", () => {

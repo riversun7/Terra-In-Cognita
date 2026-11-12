@@ -113,6 +113,17 @@ describe("createHumanPlaces", () => {
     });
     expect(none.get(1)).toMatchObject({ x: 128, y: 128, work: east });
     expect(none.get(1)?.homeRadius).toBeUndefined();
+    // 쉼터 계획(질문 1047 다)이 있으면 그 차례대로: 첫 일꾼은 서쪽 숙소, 둘째는 침대가 없어 시청 칸
+    const planned = assignHumanPlaces({
+      humans: [1, 2],
+      home,
+      facilities: [{ id: 10, buildingId: 10, workers: 2 }],
+      areas: new Map([[10, east]]),
+      lodgings: [lodgeWest, lodgeEast],
+      rests: [lodgeWest, undefined],
+    });
+    expect(planned.get(1)).toMatchObject({ x: 112, y: 130, homeRadius: 4, work: east });
+    expect(planned.get(2)).toMatchObject({ x: 128, y: 128, work: east });
   });
 
   it("도시 2차맵에 선 휴먼만, 바뀐 휴먼만 2차맵에 넣는다", () => {

@@ -9,6 +9,9 @@
 // 수치는 모두 [임시](49에 칸이 없다 → lodging_*·haul_* 앞머리). 정수만 쓴다.
 import { TEST_JOB_RULES } from "../settle/settle.ts";
 import { CELL_UNITS, MS_PER_SECOND, WALK_SPEED } from "../units.ts";
+
+/** 하루 ms(실제 시간, D-5030) */
+const DAY_MS_LOGISTICS = 24 * 60 * 60 * 1000;
 import type { SocietyCoefficients } from "./coefficients.ts";
 import { SATISFACTION_MAX_MILLI, recoveryPm } from "./labor.ts";
 
@@ -53,6 +56,23 @@ export function workSharePm(
   const rest = max * step;
   const commute = 2 * Math.max(0, Math.trunc(commuteCells)) * walkMsPerCell();
   return Math.floor((work * 1000) / (work + rest + commute));
+}
+
+/** 하루(실제 시간)에 쉬는 번 수(일·쉼 한 바퀴의 수, 내림) — 숙소 요금은 쉴 때마다 낸다 */
+export function restsPerDay(
+  place: RestPlace,
+  commuteCells: number,
+  c: SocietyCoefficients,
+  cycleMs: number = TEST_JOB_RULES.cycleMs,
+): number {
+  const max = Math.max(1, c.fatigueMax);
+  const step = Math.max(
+    1,
+    Math.floor((c.fatigueRecoverStepMs * 1000) / Math.max(1, restRecoveryPm(place, c))),
+  );
+  const period =
+    max * Math.max(1, cycleMs) + max * step + 2 * Math.max(0, Math.trunc(commuteCells)) * walkMsPerCell();
+  return Math.floor(DAY_MS_LOGISTICS / period);
 }
 
 /**

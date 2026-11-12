@@ -8279,19 +8279,19 @@
       "id": "npc_seed_lodgings",
       "code": "",
       "name": {
-        "ko": "NPC 시작 도시 기본 숙소 수",
-        "en": "NPC start city lodgings"
+        "ko": "NPC 시작 도시 숙소 수 위 끝",
+        "en": "NPC start city lodgings (cap)"
       },
-      "value": 3,
+      "value": 8,
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 8,
+      "max": 16,
       "desc": {
-        "ko": "시작 도시마다 세우는 숙소 수. 일꾼은 일터에서 가장 가까운 숙소에서 밤을 보낸다.",
-        "en": "Lodgings each start city gets. Workers spend the night at the lodging nearest their workplace."
+        "ko": "시작 도시 숙소 수 = 주거 ÷ 숙소 레벨당 침대(올림), 이 값이 위 끝. 일꾼은 일터 ↔ 가운데 길 위 숙소에서 쉬며 회복한다.",
+        "en": "Start city lodgings = housing ÷ lodging beds per level (rounded up), capped by this. Workers recover at lodgings on the way between work and the centre."
       },
-      "source": "ADR 2026-11-11-city-building-layout [임시]"
+      "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12)\" · 질문 1049 나 [임시]"
     },
     {
       "id": "city_layout_mode",

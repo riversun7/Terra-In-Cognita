@@ -7,11 +7,14 @@
 // 2차맵 경도는 2차맵 빛(엔진 secondMapPlace)과 같은 셈(칸 가운데 방향의 경도)이다.
 // 숙소(docs/adr/2026-11-11-city-building-layout.md, 사용자 요청 2026-11-11 "숙소는 노동자 회복 루트"·기획 D-245 "가장 가까운 숙소"): 그 도시에
 // 숙소가 있으면 일터를 받은 휴먼의 집은 일터에서 가장 가까운 숙소 둘레다(밤에 거기서 쉰다 — 전략 배치는 숙소를 일터와 가운데 사이에 둔다).
-// 일이 없는 휴먼·경비대는 그대로 도시 시청 칸 둘레. 피로 회복·요금은 아직 없다(보이는 움직임만).
+// 일이 없는 휴먼·경비대는 그대로 도시 시청 칸 둘레.
+// 쉼터 계획(질문 1047 다, npc/cityRest.ts — 도시 경제가 맞출 때마다 셈): 있으면 일꾼마다 그 계획의 숙소(침대 수 안, 길 위가 먼저)에서 쉬고, 침대가
+// 모자란 일꾼은 시청 칸 둘레(집)에서 쉰다. 같은 계획이 생산 속도 배율을 정하므로 보이는 쉼터와 셈이 같다.
 import { isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import { type BuildingPlacement, footprintRect } from "@terra/sim";
 import { type BotHome, DEFAULT_WORK_SHIFT, type TripArea, type WorkShift } from "../world/bots.ts";
+import type { CityRestPlan } from "./cityRest.ts";
 
 /** [임시] 일터 네모 = 건물 가운데 칸 둘레, 건물 반 폭 + 이 칸(건물 칸은 설 수 없어 그 둘레에서 고른다) */
 export const WORK_MARGIN_CELLS = 3;
@@ -70,6 +73,11 @@ export function assignHumanPlaces(input: {
   readonly guards?: readonly number[] | undefined;
   /** 그 도시 숙소의 쉼터 네모(없거나 비면 일꾼도 시청 칸 둘레에서 쉰다) */
   readonly lodgings?: readonly TripArea[] | undefined;
+  /**
+   * 쉼터 계획(일꾼 차례 = 시설 ID 차례 × 일꾼 수, npc/cityRest.ts): 있으면 i번째 일꾼은 이 값(undefined = 시청 칸 둘레)에서 쉰다. 없으면
+   * 일터에서 가장 가까운 숙소(lodgings)
+   */
+  readonly rests?: readonly (TripArea | undefined)[] | undefined;
 }): Map<number, BotHome> {
   const shift = input.shift ?? DEFAULT_WORK_SHIFT;
   const out = new Map<number, BotHome>();
@@ -80,7 +88,12 @@ export function assignHumanPlaces(input: {
     for (let taken = 0; taken < facility.workers && next < humans.length; taken++) {
       const unitId = humans[next] ?? 0;
       next += 1;
-      const rest = work ? nearestArea(input.lodgings ?? [], work) : undefined;
+      const order = next - 1;
+      const rest = !work
+        ? undefined
+        : input.rests
+          ? input.rests[order]
+          : nearestArea(input.lodgings ?? [], work);
       out.set(
         unitId,
         work
@@ -121,6 +134,8 @@ export interface HumanPlacesInput {
   readonly facilitiesOf?: ((cityId: number) => readonly WorkFacility[]) | undefined;
   /** 그 도시 숙소 건물 ID(없으면 일꾼도 시청 칸 둘레에서 쉰다) */
   readonly lodgingsOf?: ((cityId: number) => readonly number[]) | undefined;
+  /** 그 도시 쉼터 계획(질문 1047 다, 도시 경제 restPlan). 있으면 lodgingsOf 대신 이것으로 쉼터를 고른다 */
+  readonly restOf?: ((cityId: number) => CityRestPlan | undefined) | undefined;
   /** 일하는 지역 시각(지역 하루 천분율, 설정 칸 npc_work_start_pm·npc_work_end_pm). 없으면 DEFAULT_WORK_SHIFT의 값 */
   readonly workHours?: { readonly startPm: number; readonly endPm: number } | undefined;
 }
@@ -179,6 +194,11 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
             const area = areasOf(place.mapKey, map).get(id);
             return area ? [area] : [];
           }),
+          rests: input
+            .restOf?.(cityId)
+            ?.workers.map((worker) =>
+              worker.lodgingId === null ? undefined : areasOf(place.mapKey, map).get(worker.lodgingId),
+            ),
         });
         for (const [unitId, home] of homes) {
           seen.add(unitId);

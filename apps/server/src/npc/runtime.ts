@@ -806,6 +806,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
             }))
         : undefined,
       lodgingsOf: o.economy?.lodgingsIn,
+      // 쉼터 계획(질문 1047 다): 도시 경제가 생산 속도 배율을 셈한 같은 계획
+      restOf: econ ? (cityId) => econ.restPlan(cityId) : undefined,
     });
     people.sync();
     people.flush();

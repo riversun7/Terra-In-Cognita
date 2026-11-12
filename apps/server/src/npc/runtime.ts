@@ -78,6 +78,7 @@ import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./
 import { humanNameOf } from "./humanNames.ts";
 import { type HouseRecruit, createHouseRecruit } from "./houseRecruit.ts";
 import { type NpcHouses, attachNpcHouses } from "./houseRuntime.ts";
+import { restCycleOf } from "./cityRest.ts";
 import { createHumanPlaces } from "./humanPlaces.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
@@ -843,6 +844,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       lodgingsOf: o.economy?.lodgingsIn,
       // 쉼터 계획(질문 1047 다): 도시 경제가 생산 속도 배율을 셈한 같은 계획
       restOf: econ ? (cityId) => econ.restPlan(cityId) : undefined,
+      restCycle: restCycleOf(o.rules()), // 피로 바퀴로 일터 ↔ 쉼터(질문 1095 가)
     });
     people.sync();
     people.flush();

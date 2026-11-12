@@ -9,7 +9,14 @@
 // - 생산 속도 배율 = 그 시설 일꾼의 쉼터 회복·일터 ↔ 쉼터 거리 셈 배율 평균(@terra/sim restDutyPm).
 // - 옮김 칸: 채집소 건물 가운데 → 그 도시 주인의 가장 가까운 창고(창고 단계 시설) 가운데, 창고가 없으면 시청 칸.
 // 거리는 체비셰프 칸(가운데끼리, humanPlaces.nearestArea와 같다) [임시]. 정수만 쓴다.
-import { type RestPlace, type SocietyCoefficients, lodgingBeds, restDutyPm } from "@terra/sim";
+import {
+  type RestPlace,
+  type SocietyCoefficients,
+  TEST_JOB_RULES,
+  lodgingBeds,
+  restDutyPm,
+  restPeriodMs,
+} from "@terra/sim";
 import type { TripArea } from "../world/bots.ts";
 
 /** 도시 경제 시설 하나(일꾼 수) */
@@ -226,4 +233,16 @@ export function planPlayerRest(input: {
       });
   }
   return out;
+}
+
+/**
+ * 쉼터 계획 일꾼의 피로 바퀴(질문 1095 가, 48 §7.1 "한도에 닿으면 스스로 숙소로"): 일 = 피로 상한 × 일 주기, 바퀴 = 일 + 쉼(쉼터 회복) + 오감
+ * (@terra/sim restPeriodMs — 생산 셈 restDutyPm과 같은 바퀴). 설정 칸 worker_rest_cycle_mode가 0이면 undefined(지역 낮·밤)
+ */
+export function restCycleOf(
+  rules: SocietyCoefficients,
+): ((worker: WorkerRest) => { readonly workMs: number; readonly periodMs: number }) | undefined {
+  if (Math.trunc(rules.logistics.restCycleMode) !== 1) return undefined;
+  const workMs = Math.max(1, rules.fatigueMax) * TEST_JOB_RULES.cycleMs;
+  return (worker) => ({ workMs, periodMs: restPeriodMs(worker.place, worker.commuteCells, rules) });
 }

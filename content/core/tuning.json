@@ -9050,6 +9050,24 @@
       "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12)\" · 질문 1047·1050 [임시]"
     },
     {
+      "id": "worker_rest_cycle_mode",
+      "code": "",
+      "name": {
+        "ko": "NPC 일꾼이 피로 바퀴로 일터 ↔ 쉼터를 오감(1 = 피로 바퀴, 0 = 지역 낮·밤)",
+        "en": "NPC workers walk between work and rest on the fatigue cycle (1 = fatigue, 0 = local day/night)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "1이면 NPC 일꾼이 피로 바퀴대로 움직인다: 일 주기마다 피로가 차 상한에 닿으면 스스로 쉼터(숙소·집)로 가서 다 풀 때까지 쉬고 다시 일터로 간다(생산 셈과 같은 바퀴). 0이면 지역 낮에 일터, 밤에 쉼터(npc_work_start_pm·npc_work_end_pm).",
+        "en": "1 = NPC workers follow the fatigue cycle: when fatigue reaches the cap they walk to their rest spot (lodging or home), rest until recovered, then return to work (the same cycle the output uses). 0 = work during local daytime and rest at night (npc_work_start_pm, npc_work_end_pm)."
+      },
+      "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12 2차)\" · 질문 1095 가(D-534) [임시]"
+    },
+    {
       "id": "house_found_cost",
       "code": "",
       "name": {

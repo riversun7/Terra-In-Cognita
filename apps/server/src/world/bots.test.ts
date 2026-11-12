@@ -85,6 +85,23 @@ describe("낮밤 일(WP-NPC4, 770 나)", () => {
     }
   });
 
+  it("피로 바퀴(질문 1095 가): 바퀴 가운데 일 몫만 일터, 휴먼마다 시작을 흩고, 낮·밤과 상관없다", () => {
+    const cycle = { workMs: 2 * 3_600_000, periodMs: 6 * 3_600_000 };
+    for (const unitId of [1, 2, 77]) {
+      // 한 바퀴를 1분씩 훑으면 일터인 몫 = 2시간 / 6시간
+      let working = 0;
+      for (let t = 0; t < cycle.periodMs; t += 60_000)
+        if (atWork({ ...shift(0), cycle }, unitId, t)) working += 1;
+      expect(working).toBe(120);
+      // 바퀴 뒤 같은 자리
+      expect(atWork({ ...shift(0), cycle }, unitId, 1_000)).toBe(
+        atWork({ ...shift(0), cycle }, unitId, 1_000 + cycle.periodMs),
+      );
+    }
+    const starts = Array.from({ length: 30 }, (_, i) => atWork({ ...shift(0), cycle }, i + 1, 0));
+    expect(new Set(starts).size).toBe(2);
+  });
+
   it("낮(06:00~18:00 + 휴먼마다 흩은 출근·퇴근)에 일터, 밤에 집 — 같은 시각이라도 경도가 다르면 다르다", () => {
     for (const unitId of [1, 2, 77, 9001]) {
       for (const lonDeg of [0, 90, -45]) {

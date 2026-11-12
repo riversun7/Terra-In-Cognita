@@ -56,12 +56,14 @@ import {
   mapSizeM,
   placementCellM,
   sampleHeightM,
+  sampleSurfaceM,
   terrainProblem,
 } from "./terrain/terrainData.ts";
 import { type NeighbourTerrain, NeighbourTerrains, UNEXPLORED } from "./terrain/neighbourTerrains.ts";
 import { TerrainView } from "./terrain/terrainView.ts";
 import { cameraThroughPlacement, invertPlacement } from "./terrain/rebase.ts";
 import { propArea } from "./props/propArea.ts";
+import { SchoolView } from "./props/schoolView.ts";
 import { propSalt } from "./props/propLook.ts";
 import { type PropSource, PropView } from "./props/propView.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
@@ -226,7 +228,9 @@ export function createSecondMapEngine(
       footprintMask(buildings, PLACEMENT_CELLS),
       footprintOutsideCells(buildings, PLACEMENT_CELLS),
     );
-  scene.add(neighbours.group, propView.group);
+  // 움직이는 어군(기획 D-536, setSchools)
+  const schoolView = new SchoolView();
+  scene.add(neighbours.group, propView.group, schoolView.mesh);
   let pendingNeighbours: readonly NeighbourTerrain[] | null = null;
   /** 격자 선(개발자 2차맵 시험, setViewOptions) */
   let grid = false;
@@ -249,6 +253,11 @@ export function createSecondMapEngine(
     if (x >= 0 && z >= 0 && x <= mapSize && z <= mapSize) return sampleHeightM(terrain, x, z);
     return neighbours.heightAt(x, z) ?? sampleHeightM(terrain, x, z);
   };
+  // 수면 높이(물 위 소품·어군 — 기획 D-536): 지금 2차맵만 물 높이를 안다(이웃은 땅 높이)
+  const surfaceAt = (x: number, z: number): number =>
+    terrain && x >= 0 && z >= 0 && x <= mapSize && z <= mapSize
+      ? sampleSurfaceM(terrain, x, z)
+      : groundAt(x, z);
 
   /**
    * 소품 모델 층: 지금 2차맵 + 소품 층이 있는 이웃. 소금은 2차맵 이름에서 정한다(propSalt) — 옆 2차맵으로 넘어 지금 2차맵·이웃이 바뀌어도
@@ -281,7 +290,7 @@ export function createSecondMapEngine(
         salt: propSalt(layer.id),
       });
     }
-    propView.setSources(sources, cellM, groundAt);
+    propView.setSources(sources, cellM, groundAt, surfaceAt);
   };
 
   /** 보기 범위(m, setViewArea). null이면 없음 */
@@ -438,6 +447,7 @@ export function createSecondMapEngine(
       icons: unitView.mode === "icon",
     });
     const targeting = updateRoute(ppm);
+    const swimming = schoolView.update(serverNow(), cellM, surfaceAt, frustum, ppm);
     layers.after(layerView);
     renderer.render(scene, camera);
     const info = renderer.info.render;
@@ -449,7 +459,7 @@ export function createSecondMapEngine(
       propView.setReach(viewDistance.level.reachM, viewDistance.level.maxProps);
       animating = true;
     }
-    return moving > 0 || animating || blending || targeting;
+    return moving > 0 || animating || blending || targeting || swimming;
   };
   const scheduler = new FrameScheduler(frame);
 
@@ -725,6 +735,11 @@ export function createSecondMapEngine(
       scheduler.request();
     },
 
+    setSchools(schools) {
+      schoolView.set(schools);
+      scheduler.request();
+    },
+
     setObjectProps(props) {
       if (props.length === 0 && objectProps.length === 0) return;
       objectProps = props;
@@ -918,6 +933,7 @@ export function createSecondMapEngine(
       canvas.removeEventListener("webglcontextrestored", onContextRestored);
       neighbours.dispose();
       propView.dispose();
+      schoolView.dispose();
       builder.dispose();
       terrainView.dispose();
       buildingView.dispose();

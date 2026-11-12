@@ -33,6 +33,20 @@ export interface GatherKindView {
    * 없으면 지형 그림 그대로(앞 판 응답)
    */
   readonly art?: number;
+  /** 배로만 닿는다(물 위 자리·물가에서 낚을 수 없는 어군 — 배는 아직 없다, 기획 D-536 질문 1221). 없으면 false(앞 판 응답) */
+  readonly boat?: boolean;
+}
+
+/**
+ * 움직이는 어군 하나(기획 D-536): 번호(objects의 번호와 같다)와 길. 자리 = @terra/shared/fishSchool schoolPosition({points, periodMs,
+ * phaseMs}, 서버 시각). objects 줄의 번호로는 자리를 풀지 않는다(배치 칸 번호 256² 밖)
+ */
+export interface GatherSchoolView {
+  readonly id: number;
+  /** 길 점(배치 칸 정수 x, y 번갈아) */
+  readonly points: readonly number[];
+  readonly periodMs: number;
+  readonly phaseMs: number;
 }
 
 /** 오브젝트 한 칸의 값 수(objects 배열 걸음): [번호, 종류 차례, 남은 번수, 다시 자라는 시각(서버 ms, 0 = 자라는 중 아님)] */
@@ -44,6 +58,8 @@ export interface GatherObjectsResponse {
   readonly kinds: readonly GatherKindView[];
   /** 오브젝트들(GATHER_OBJECT_STRIDE 걸음). 번호 = 기준 배치 칸 y × 256 + x */
   readonly objects: readonly number[];
+  /** 움직이는 어군의 길(없으면 어군 없음 — 앞 판 응답) */
+  readonly schools?: readonly GatherSchoolView[];
   readonly generatedAt: number;
 }
 

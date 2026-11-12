@@ -89,6 +89,7 @@ export function inertEngine(): SecondMapEngine {
     setUnitModels: () => undefined,
     setUnitRings: () => undefined,
     setObjectProps: () => undefined,
+    setSchools: () => undefined,
     zoomStep: () => false,
     setView: () => undefined,
     follow: () => undefined,

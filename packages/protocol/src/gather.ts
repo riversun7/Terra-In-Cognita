@@ -15,8 +15,11 @@ const unitId = z.number().int().positive().max(0xffff_ffff);
 const buildingId = z.number().int().positive().max(0xffff_ffff);
 /** 2차맵 키 = 그 1차맵 칸의 셀 키. 셀 키 검사는 서버가 한다 */
 const mapKey = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
-/** 오브젝트 번호 = 그 2차맵 안 기준 배치 칸 차례(y × 256 + x) */
-const objectId = z.number().int().nonnegative().max(65_535);
+/**
+ * 오브젝트 번호 = 그 2차맵 안 기준 배치 칸 차례(y × 256 + x), 움직이는 어군은 65,536부터(서버 SCHOOL_ID_BASE, 프로토콜 26 — 기획 D-536).
+ * 상한 2^20 − 1
+ */
+const objectId = z.number().int().nonnegative().max(0xf_ffff);
 
 // ---------- 기기 → 서버 ----------
 

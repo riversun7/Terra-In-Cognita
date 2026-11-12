@@ -5,6 +5,7 @@
 //   건물의 판만 연다 — 둘레 칸 반경으로 오브젝트를 잡으면 이동하려고 누른 땅이 오브젝트 판을 열었다(사용자 지적 2026-11-08 "계속 오브젝트가 잘못눌린다").
 import type { BuildingFootprint } from "@terra/engine";
 import type { FeedSink } from "../feedTypes.ts";
+import { SCHOOL_POSITION_SCALE, type SchoolRoute, schoolPosition } from "@terra/shared/fishSchool";
 import {
   GATHER_OBJECT_STRIDE,
   type GatherKindView,
@@ -21,6 +22,15 @@ export interface GatherObjectEntry {
   readonly usesLeft: number;
   /** 다시 자라는 시각(서버 ms, 0 = 자라는 중 아님) */
   readonly regrowAtMs: number;
+  /** 움직이는 어군의 길(기획 D-536). 있으면 x, y는 집 자리이고 지금 자리는 livePoint(entry, 서버 시각) */
+  readonly route?: SchoolRoute | undefined;
+}
+
+/** 오브젝트의 시각 nowMs 자리(배치 칸, 어군은 길 위 지금 자리 — 소수) */
+export function livePoint(entry: GatherObjectEntry, nowMs: number): { x: number; y: number } {
+  if (!entry.route) return { x: entry.x, y: entry.y };
+  const at = schoolPosition(entry.route, nowMs);
+  return { x: at.x / SCHOOL_POSITION_SCALE, y: at.y / SCHOOL_POSITION_SCALE };
 }
 
 export type GatherSheet =
@@ -61,24 +71,31 @@ export interface GatherState {
   objectById(id: number): GatherObjectEntry | undefined;
 }
 
-/** 서버 응답 → 오브젝트 목록(걸음이 틀리면 빈 목록) */
-export function decodeObjects(response: Pick<GatherObjectsResponse, "objects">): GatherObjectEntry[] {
+/** 서버 응답 → 오브젝트 목록(걸음이 틀리면 빈 목록). 어군은 길(schools)의 첫 점이 집 자리, 길이 없는 어군 번호는 버린다 */
+export function decodeObjects(
+  response: Pick<GatherObjectsResponse, "objects"> & Partial<Pick<GatherObjectsResponse, "schools">>,
+): GatherObjectEntry[] {
   const flat = response.objects;
   if (flat.length % GATHER_OBJECT_STRIDE !== 0) return [];
+  const routes = new Map((response.schools ?? []).map((school) => [school.id, school]));
   const out: GatherObjectEntry[] = [];
   for (let i = 0; i < flat.length; i += GATHER_OBJECT_STRIDE) {
     const id = flat[i] ?? 0;
-    out.push({
-      id,
-      kind: flat[i + 1] ?? 0,
-      x: id % 256,
-      y: Math.floor(id / 256),
-      usesLeft: flat[i + 2] ?? 0,
-      regrowAtMs: flat[i + 3] ?? 0,
-    });
+    const common = { id, kind: flat[i + 1] ?? 0, usesLeft: flat[i + 2] ?? 0, regrowAtMs: flat[i + 3] ?? 0 };
+    if (id < PLACEMENT_IDS) {
+      out.push({ ...common, x: id % 256, y: Math.floor(id / 256) });
+      continue;
+    }
+    const school = routes.get(id);
+    if (!school || school.points.length < 2) continue;
+    const route = { points: school.points, periodMs: school.periodMs, phaseMs: school.phaseMs };
+    out.push({ ...common, x: school.points[0] ?? 0, y: school.points[1] ?? 0, route });
   }
   return out;
 }
+
+/** 배치 칸 번호 수(이 위는 움직이는 어군 번호 — 서버 SCHOOL_ID_BASE) */
+const PLACEMENT_IDS = 256 * 256;
 
 /** 칸에서 반경 안 가장 가까운 오브젝트(같으면 작은 번호) */
 export function nearestObject(

@@ -73,6 +73,8 @@ const NationEditorScreen = lazy(() => import("../editor/nations/NationEditorScre
 const TerritoryLabScreen = lazy(() => import("../editor/territory/TerritoryLabScreen.tsx"));
 // 세계 배치(틀 안, D-528): 조각 이름 WorldLayoutScreen-*(미리 캐시 규칙 [Ww]orldLayout)
 const WorldLayoutScreen = lazy(() => import("../editor/worldLayout/WorldLayoutScreen.tsx"));
+// 지형 오브젝트 편집기(틀 안, 기획 D-536): 조각 이름 TerrainObjectsScreen-*(미리 캐시 규칙 [Tt]errainObjects)
+const TerrainObjectsScreen = lazy(() => import("../editor/terrainObjects/TerrainObjectsScreen.tsx"));
 // 구인 카드 시험(틀 안, D-469): 조각 이름 RecruitLabScreen-*(미리 캐시 규칙 [Rr]ecruitLab)
 const RecruitLabScreen = lazy(() => import("../editor/recruit/RecruitLabScreen.tsx"));
 // 전투 다시보기(틀 숨김): 조각 이름 BattleReplayLabScreen-*(미리 캐시 규칙 [Bb]attleReplayLab). 보기 화면(src/battle/)·엔진은 같이 쓴다
@@ -127,6 +129,7 @@ export const ROUTE_TITLES = {
   dev_territory: m.shell_route_dev_territory,
   dev_world_layout: m.shell_route_dev_world_layout,
   dev_recruit: m.shell_route_dev_recruit,
+  dev_terrain_objects: m.shell_route_dev_terrain_objects,
   dev_battle_replay: m.shell_route_dev_battle_replay,
   dev_gpu_bench: m.shell_route_dev_gpu_bench,
 } satisfies Record<RouteId, () => string>;
@@ -265,6 +268,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <TerritoryLabScreen />;
     case "dev_world_layout":
       return <WorldLayoutScreen />;
+    case "dev_terrain_objects":
+      return <TerrainObjectsScreen />;
     case "dev_recruit":
       return <RecruitLabScreen initialCity={match.search.city} />;
     case "dev_battle_replay":

@@ -14,13 +14,17 @@
 //   맞는 것) 그 지표 지형 칸 가운데 묶음 가운데에 가장 가까운 빈 칸의 배치 칸에 둔다. 광석 몫 = 그 2차맵(1차맵 칸) 행성 값의 고도 몫(NPC 배후지와
 //   같은 @terra/shared/catchment oreSharePm) — 없으면(행성 값 없는 임시 지형) 노두가 없다. 소품 그림이 선 칸은 건너뛴다. 앞 종류들의 번호·자리는
 //   그대로다(생성기 판 그대로).
+// - 지형별 오브젝트(site)·움직이는 어군(school)(기획 D-536): 노두 뒤 — terrainObjects.ts 머리 주석.
 // - 오브젝트 번호 = 그 자리 배치 칸 차례(y × 256 + x) — 같은 2차맵 지형이면 늘 같다(고정본 2차맵도 같은 지형이라 같다).
 // [임시] 숨김 자원(ADR 46 5절 "서버 비밀 소금")은 쓰지 않는다: 광맥 자리는 지형 파일을 아는 기기가 계산할 수 있다(확인 대기, 질문 666).
 // 정수 연산만 쓴다(판정 코드 규칙).
 import { TERRAIN_SURFACE } from "@terra/protocol";
 import { MATERIAL_BIT } from "@terra/shared/catchment";
-import { PLACEMENT_SIZE, TERRAIN_SIZE, mix32 } from "@terra/sim";
+import { PLACEMENT_SIZE, TERRAIN_SIZE } from "@terra/sim";
+import type { SchoolRoute } from "@terra/shared/fishSchool";
 import type { GatherKind } from "./kinds.ts";
+import { blockHash } from "./objectHash.ts";
+import { schoolObjects, siteObjects } from "./terrainObjects.ts";
 
 /** 묶음 한 변(배치 칸) */
 export const OBJECT_BLOCK_CELLS = 8;
@@ -38,6 +42,8 @@ export interface GatherObject {
   readonly kind: number;
   readonly x: number;
   readonly y: number;
+  /** 움직이는 어군(source school)의 길 — x, y는 집 자리(길의 첫 점). 지금 자리는 @terra/shared/fishSchool schoolCell(route, 시각) */
+  readonly route?: SchoolRoute | undefined;
 }
 
 /** 자리를 정하는 지형 층 */
@@ -51,6 +57,10 @@ export interface ObjectLayers {
   readonly materials?: number | undefined;
   /** 그 2차맵(1차맵 칸) 행성 값의 광석 고도 몫(‰, @terra/shared/catchment oreSharePm). 없으면 노두(outcrop)를 두지 않는다 */
   readonly oreSharePm?: number | undefined;
+  /** 그 2차맵(1차맵 칸)의 바이옴 ID(행성 값). 없으면 지형별 오브젝트(site)·어군(school)을 두지 않는다(기획 D-536) */
+  readonly biomeId?: string | null | undefined;
+  /** 그 2차맵(1차맵 칸) 행성 값의 물 비트(바다 1·호수 2·강 4·해안 8). 없으면 0 — 바닷가(coast) 오브젝트가 서지 않는다 */
+  readonly waterBits?: number | undefined;
 }
 
 /** 밭·목초지·물터 묶음 한 변(배치 칸) */
@@ -67,11 +77,7 @@ function centerDistance(x: number, y: number, bx: number, by: number): number {
 
 /** (2차맵 키, 묶음, 종류)의 천분율 굴림(0 ~ 999) */
 export function blockRoll(mapKey: number, block: number, kind: number): number {
-  const low = mapKey % 0x1_0000_0000;
-  const high = Math.floor(mapKey / 0x1_0000_0000);
-  const seed = mix32(mix32(low >>> 0) ^ Math.imul(high >>> 0, 0x85eb_ca6b) ^ 0x4f1b_bcdd);
-  const value = mix32(seed ^ Math.imul(block + 1, 0x9e37_79b1) ^ Math.imul(kind + 1, 0xc2b2_ae35));
-  return (value >>> 0) % 1000;
+  return blockHash(mapKey, block, kind) % 1000;
 }
 
 /** 소품 그림 번호 → 종류 차례(팩 차례로 앞의 종류가 맡는다) */
@@ -298,6 +304,11 @@ export function placeGatherObjects(layers: ObjectLayers, kinds: readonly GatherK
   const plots = plotObjects(layers, kinds, layers.materials, taken);
   out.push(...plots);
   for (const object of plots) taken.add(object.id);
-  out.push(...outcropObjects(layers, kinds, taken));
+  const outcrops = outcropObjects(layers, kinds, taken);
+  out.push(...outcrops);
+  for (const object of outcrops) taken.add(object.id);
+  // 지형별 오브젝트·움직이는 어군(기획 D-536): 앞 종류들 뒤라 그 번호·자리는 그대로다(앞 판 상태 줄이 맞는다)
+  out.push(...siteObjects(layers, kinds, taken));
+  out.push(...schoolObjects(layers, kinds));
   return out;
 }

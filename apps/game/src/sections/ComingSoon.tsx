@@ -44,6 +44,7 @@ type ComingSoonRoute = Exclude<
   | "dev_territory"
   | "dev_world_layout"
   | "dev_recruit"
+  | "dev_terrain_objects"
   | "dev_battle_replay"
   | "economy"
   | "economy_warehouse"

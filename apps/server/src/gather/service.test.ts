@@ -99,7 +99,13 @@ interface Rig {
   store: ReturnType<typeof createObjectStore>;
 }
 
-function rig(): Rig {
+/** 시험 2차맵 하나 더: 물 띠(지형 칸 열 60~62 = 배치 칸 120~125)와 그 2차맵 바이옴(어군 시험, 기획 D-536) */
+interface RigOptions {
+  readonly kinds?: readonly GatherKind[];
+  readonly waterStrip?: boolean;
+}
+
+function rig(options: RigOptions = {}): Rig {
   const maps = new Map<number, SecondMap>();
   const paths = createInlinePathService(
     () => [...maps.values()].map((map) => map.replicaInit()),
@@ -109,6 +115,9 @@ function rig(): Rig {
     const terrain = flatTerrain();
     // 바위 지형 칸 넷씩: 묶음 (2, 2)와 (4, 2)
     for (const t of [8, 9, 10, 11, 16, 17, 18, 19]) terrain.surface[8 * 128 + t] = TERRAIN_SURFACE.rock;
+    if (options.waterStrip)
+      for (let row = 0; row < 128; row++)
+        for (const col of [60, 61, 62]) terrain.surface[row * 128 + col] = TERRAIN_SURFACE.water;
     maps.set(
       mapKey,
       createSecondMap({
@@ -142,7 +151,7 @@ function rig(): Rig {
     maps,
     now: () => Date.now(),
     log: silentLog,
-    kinds: () => KINDS,
+    kinds: () => options.kinds ?? KINDS,
     rules: () => rules,
     ledger,
     store,
@@ -152,6 +161,7 @@ function rig(): Rig {
     unitBusy: () => false,
     primaries: () => ({ str: 20, dex: 20, agi: 20, vit: 20, int: 20, wis: 20 }),
     pollution: () => 0,
+    terrainKind: () => (options.waterStrip ? { biomeId: "ocean_coastal", waterBits: 1 } : undefined),
     ready: () => true,
   });
   return { maps, gather, ledger, facilities, store };
@@ -291,5 +301,68 @@ describe("건물 들어가기", () => {
       code: "unknown_building",
     });
     r.gather.stop();
+  });
+});
+
+/** 시험 광맥 종류(KINDS 첫 항목) */
+const VEIN: GatherKind = KINDS[0] ?? {
+  id: "",
+  name: { ko: "", en: "" },
+  source: "rock",
+  arts: [],
+  chancePm: 0,
+  art: 0,
+  surfaces: [],
+  minCells: 0,
+  material: null,
+  direct: true,
+  item: "",
+  lots: 1,
+  workMs: 1,
+  uses: 1,
+  regrowMs: 1,
+  facility: null,
+  primary: "str",
+  secondary: "vit",
+};
+
+/** 시험 어군 종류(연안 바이옴 1떼) */
+const school = (id: string, reach: number): GatherKind => ({
+  ...VEIN,
+  id,
+  source: "school",
+  art: 61,
+  item: "saury",
+  biomes: new Map([["ocean_coastal", 1]]),
+  speed: 10,
+  range: 4,
+  reach,
+  boat: reach === 0,
+  uses: 4,
+});
+
+describe("움직이는 어군(기획 D-536)", () => {
+  it("배로만 닿는 어군은 unavailable, 물가 어군은 물가로 걸어가 낚는다(화물)", async () => {
+    const kinds = [VEIN, school("school_coastal", 6), school("school_shelf", 0)];
+    const r = rig({ kinds, waterStrip: true });
+    const objects = r.gather.objects(K[0] ?? 0) ?? [];
+    const shore = objects.find((object) => object.kind === 1);
+    const boat = objects.find((object) => object.kind === 2);
+    expect(shore?.route).toBeDefined();
+    expect(boat?.id).toBe(65_536 + 2 * 64);
+    // 물 띠 왼쪽(띠가 2차맵을 가른다): 낚는 거리 안이면 유닛 쪽 물가에 선다
+    placeMine(r, 100, 40);
+    expect(await r.gather.start(USER, { unitId: 1, mapKey: K[0] ?? 0, objectId: boat?.id ?? 0 })).toEqual({
+      ok: false,
+      code: "unavailable",
+    });
+    expect(await r.gather.start(USER, { unitId: 1, mapKey: K[0] ?? 0, objectId: shore?.id ?? 0 })).toEqual({
+      ok: true,
+    });
+    await until(() => loopOf(r)?.phase === "gathering");
+    await until(() => r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(1)) > 0n);
+    // 채집소 반경 셈은 시각의 자리(objectsAt)를 쓴다: 어군은 길 위에 있다
+    const live = r.gather.objectsAt(K[0] ?? 0, Date.now())?.find((object) => object.id === shore?.id);
+    expect(live && live.x >= 118 && live.x <= 127).toBe(true);
   });
 });

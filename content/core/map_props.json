@@ -725,7 +725,11 @@
       "placement": "scatter",
       "art": "iceberg",
       "cover": 0,
-      "biomes": [{ "biome": "ocean_deep", "weight": 15 }, { "biome": "ocean_shelf", "weight": 8 }],
+      "biomes": [
+        { "biome": "ocean_deep", "weight": 15 },
+        { "biome": "ocean_shelf", "weight": 8 },
+        { "biome": "lake", "weight": 10 }
+      ],
       "curves": { "temperatureC": { "min": -100, "idealMin": -100, "idealMax": -5, "max": 2 } },
       "clump": { "cells": 32, "threshold": 550 },
       "maxShare": 15,

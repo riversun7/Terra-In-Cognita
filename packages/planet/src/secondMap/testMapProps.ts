@@ -1347,6 +1347,10 @@ export const TEST_MAP_PROPS: readonly MapPropInput[] = [
         biome: "ocean_shelf",
         weight: 8,
       },
+      {
+        biome: "lake",
+        weight: 10,
+      },
     ],
     curves: {
       temperatureC: {

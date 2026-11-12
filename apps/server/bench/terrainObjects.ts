@@ -63,6 +63,8 @@ interface Row {
   objects: number;
   schools: number;
   ms: number;
+  /** 고른 첫 2차맵 키(화면 시험·사진 자리) */
+  key: number;
   top: string;
 }
 const rows: Row[] = [];
@@ -134,6 +136,7 @@ for (const biome of biomeIds) {
     objects: Math.round(objectSum / picked.length),
     schools: schoolSum / picked.length,
     ms: msSum / picked.length,
+    key: keyOf(picked[0] ?? 0),
     top,
   });
 }
@@ -142,12 +145,12 @@ console.log(
   `S2 시험 행성 F${level}, 행성 생성 ${(planetMs / 1000).toFixed(1)}초, 지형마다 2차맵 ${perBiome}장까지\n`,
 );
 console.log(
-  "| 지형 | 2차맵 | 종류 수 최소 | 평균 | 소품 칸 평균 | 채집 오브젝트 평균 | 어군 평균 | 2차맵 ms | 나온 종류(많이 나온 차례) |",
+  "| 지형 | 2차맵 | 종류 수 최소 | 평균 | 소품 칸 평균 | 채집 오브젝트 평균 | 어군 평균 | 2차맵 ms | 첫 2차맵 키 | 나온 종류(많이 나온 차례) |",
 );
-console.log("|---|---|---|---|---|---|---|---|---|");
+console.log("|---|---|---|---|---|---|---|---|---|---|");
 for (const row of rows)
   console.log(
-    `| ${row.biome} | ${row.maps} | ${row.kindsMin} | ${row.kindsAvg.toFixed(1)} | ${row.propCells} | ${row.objects} | ${row.schools.toFixed(1)} | ${row.ms.toFixed(0)} | ${row.top} |`,
+    `| ${row.biome} | ${row.maps} | ${row.kindsMin} | ${row.kindsAvg.toFixed(1)} | ${row.propCells} | ${row.objects} | ${row.schools.toFixed(1)} | ${row.ms.toFixed(0)} | ${row.key} | ${row.top} |`,
   );
 const short = rows.filter((row) => row.kindsMin < 5);
 console.log(

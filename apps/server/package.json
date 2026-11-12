@@ -19,7 +19,8 @@
     "bench:second-map": "node bench/secondMapPaths.ts",
     "bench:vision": "node bench/visionShare.ts",
     "bench:city-layout": "node bench/cityLayout.ts",
-    "bench:siege-layout": "node bench/siegeLayout.ts"
+    "bench:siege-layout": "node bench/siegeLayout.ts",
+    "bench:city-rest": "node bench/cityRest.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.14",

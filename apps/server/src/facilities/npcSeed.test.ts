@@ -13,6 +13,7 @@ import {
   type SeedLand,
   landGather,
   seedNpcFacilities,
+  seedLodgings,
   seedPlan,
   villagePlan,
 } from "./npcSeed.ts";
@@ -86,6 +87,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "lodging",
       "lodging",
       "lodging",
+      "lodging",
       "lumber_camp",
       "mine",
       "storehouse",
@@ -94,6 +96,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "farm",
       "farm",
       "government_hall",
+      "lodging",
       "lodging",
       "lodging",
       "lodging",
@@ -122,8 +125,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     };
     const result = seedNpcFacilities(input);
     const perCity = seedPlan(NO_WALLS).reduce((sum, item) => sum + item.count, 0);
-    // 행정 건물 1 + 창고 1 + 숙소 3 + 농장·벌목장·광산 1씩
-    expect(perCity).toBe(8);
+    // 행정 건물 1 + 창고 1 + 숙소 4(주거 40 ÷ 침대 10, 질문 1049 나) + 농장·벌목장·광산 1씩
+    expect(perCity).toBe(9);
     // 시작 도시가 아닌 도시(3 — 마을)는 행정 건물 + 숙소(설정 칸 npc_village_lodgings)만(질문 1052 다)
     const perVillage = villagePlan(START_WORLD_SEED).reduce((sum, item) => sum + item.count, 0);
     expect(perVillage).toBe(2);
@@ -152,6 +155,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     ).toEqual([
       "farm",
       "government_hall",
+      "lodging",
       "lodging",
       "lodging",
       "lodging",
@@ -241,7 +245,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       seed: oldSeed,
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 16, missing: 0 });
+    expect(result).toEqual({ placed: 18, missing: 0 });
     // 가운데 마당(둘레 길 포함)에는 짓지 않고, 건물은 그 도시 자리(가장 가까운 도시)에 선다
     map.forEachBuilding((building) => {
       const record = facilities.get(building.id);
@@ -275,8 +279,21 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       seed: NO_WALLS,
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 7, missing: 1 });
-    expect(facilities.size).toBe(7);
+    expect(result).toEqual({ placed: 8, missing: 1 });
+    expect(facilities.size).toBe(8);
+  });
+
+  it("시작 도시 숙소 수 = ⌈주거 ÷ Lv1 침대⌉, 위 끝 npc_seed_lodgings(질문 1049 나)", () => {
+    expect(seedLodgings(START_WORLD_SEED, 40, 10)).toBe(4);
+    expect(seedLodgings(START_WORLD_SEED, 41, 10)).toBe(5);
+    expect(seedLodgings(START_WORLD_SEED, 1000, 10)).toBe(START_WORLD_SEED.lodgings);
+    expect(seedLodgings({ ...START_WORLD_SEED, lodgings: 0 }, 40, 10)).toBe(0);
+    // 주거를 모르면 새 시작 도시 주거(npc_seed_housing)로 센다
+    expect(seedLodgings(START_WORLD_SEED)).toBe(Math.ceil(START_WORLD_SEED.startHousing / 10));
+    expect(seedPlan(START_WORLD_SEED, undefined, { housing: 20, bedsPerLevel: 10 })).toContainEqual({
+      facility: "lodging",
+      count: 2,
+    });
   });
 
   it("1차 생산 여섯 가지: 약초원·목장·낚시터도 같은 표에서 서고 수 출발값은 0이다", () => {
@@ -303,7 +320,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     ).toEqual([
       "government_hall:1",
       "storehouse:1",
-      "lodging:3",
+      "lodging:4",
       "lumber_camp:1",
       "mine:1",
       "herb_field:1",
@@ -318,7 +335,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     ).toEqual([
       "government_hall:1",
       "storehouse:1",
-      "lodging:3",
+      "lodging:4",
       "farm:1",
       "mine:1",
       "herb_field:1",
@@ -373,6 +390,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     expect([...facilities.values()].map((record) => record.facilityId).toSorted()).toEqual([
       "farm",
       "government_hall",
+      "lodging",
       "lodging",
       "lodging",
       "lodging",

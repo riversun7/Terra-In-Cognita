@@ -54,10 +54,13 @@ import {
   workerEffects,
   catchmentSettingsOf,
   createCatchmentState,
+  haulOn,
+  restsPerDay,
 } from "@terra/sim";
 import type { CatchmentLand } from "@terra/shared/catchment";
 import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
 import { type CatchmentSaved, restoreCatchment } from "./catchmentStore.ts";
+import type { CityRestPlan, RestFacility } from "./cityRest.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { type MarketRegistry, createMarketRegistry } from "../market/books.ts";
 import { type FxRegistry, createFxRegistry } from "../market/fx.ts";
@@ -121,6 +124,18 @@ export interface NpcEconomyInput {
    */
   readonly lodgingsIn?: ((cityId: number) => readonly number[]) | undefined;
   /**
+   * 일꾼 쉼터·채집소 옮김 계획(질문 1047 다·1050 가, npc/cityRest.ts planCityRest): 그 도시 시설 일꾼(시설 ID 차례)·주거·주인으로 2차맵
+   * 숙소·창고 자리를 보고 셈한다. 없거나 undefined면 생산 속도 배율 1000·옮김 0(예전과 같다)
+   */
+  readonly cityRest?:
+    | ((
+        cityId: number,
+        city: { readonly ownerId: number; readonly housing: number },
+        facilities: readonly RestFacility[],
+        rules: SocietyCoefficients,
+      ) => CityRestPlan | undefined)
+    | undefined;
+  /**
    * 배후지 채집 다툼(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)", 질문 1024 나·다): 1차맵 칸의 행성 값. 있고 설정 칸
    * city_catchment_radius_cells > 0이면 NPC 도시 채집 시설이 배후지 칸에서 캔 몫만큼 내고, 몫이 문턱 아래면 구인하지 않는다. 없으면 옛 경제
    */
@@ -152,6 +167,8 @@ export interface ServerEconomy {
   afterDay(nowMs: number, day: number): void;
   /** 그 도시의 생산 시설(화면용, 시설 ID 차례) */
   production(cityId: number): FacilityRun[];
+  /** 그 도시 일꾼 쉼터·옮김 계획(마지막 맞추기, 없으면 undefined — 휴먼 집·일터와 화면이 본다) */
+  restPlan(cityId: number): CityRestPlan | undefined;
   /** 만료 주문 거두기(런타임 틱이 부른다) */
   expire(nowMs: number): number;
   /** 다음 환전 회차 시각(회차 길이의 정시, 564 다: 마지막 회차 다음 정시, 아직 없으면 켠 시각 다음 정시) */
@@ -363,6 +380,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     if (entries.length > 0) book.post({ kind: "endow", atMs, key, entries });
   };
 
+  /** 도시 → 마지막 쉼터·옮김 계획(질문 1047 다·1050 가) */
+  const restPlans = new Map<number, CityRestPlan>();
   /** 시설 → 시작·끝 시각(화면용) */
   const runs = new Map<number, { startedAtMs: number; endsAtMs: number | null; buildingId: number | null }>();
   const noteRun = (facility: EcoFacility, nowMs: number, buildingId: number | null): void => {
@@ -418,15 +437,48 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       Math.max(0, (economy.cityUnits.get(cityId) ?? 0) - (cityGuards.get(cityId) ?? 0)),
       catalog.necessities,
     );
+    // 쉼터·옮김(질문 1047 다·1050 가): 일꾼이 쉬는 숙소·집과 채집소 → 창고 칸 → 생산 속도 배율·옮김 칸
+    const rules = o.rules();
+    const plan =
+      city && o.input.cityRest
+        ? o.input.cityRest(
+            cityId,
+            { ownerId: city.owner, housing: city.housing },
+            [...wanted].map(([id, want]) => ({
+              id,
+              buildingId: want.buildingId,
+              workers: workers.get(id) ?? 0,
+              station:
+                want.buildingId !== null && catalog.facilities.get(want.facility)?.gather !== undefined,
+            })),
+            rules,
+          )
+        : undefined;
+    if (plan) restPlans.set(cityId, plan);
+    else restPlans.delete(cityId);
+    const logisticsOf = (id: number): Pick<EcoFacility, "dutyPm" | "haul"> => {
+      const rest = plan?.facilities.get(id);
+      if (!rest) return {};
+      return {
+        ...(rest.dutyPm === 1000 ? {} : { dutyPm: rest.dutyPm }),
+        ...(rest.haulCells > 0 && haulOn(rules)
+          ? { haul: { cells: rest.haulCells, carryG: rules.gatherObjects.carryGrams } }
+          : {}),
+      };
+    };
     // 지금 시설과 견준다: 없어진 것은 멈추고, 새것·바뀐 것은 새로 놓는다
     for (const [id, facility] of economy.facilities) {
       if (facility.city !== cityId) continue;
       const want = wanted.get(id);
+      const logistics = logisticsOf(id);
       const same =
         want &&
         want.recipe === facility.recipe.id &&
         want.level === facility.level &&
-        (workers.get(id) ?? 0) === facility.workers;
+        (workers.get(id) ?? 0) === facility.workers &&
+        logistics.dutyPm === facility.dutyPm &&
+        logistics.haul?.cells === facility.haul?.cells &&
+        logistics.haul?.carryG === facility.haul?.carryG;
       if (same) continue;
       if (facility.eventId !== undefined) loop.cancel(facility.eventId);
       economy.facilities.delete(id);
@@ -444,6 +496,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         level: want.level,
         workers: workers.get(id) ?? 0,
         ...workerEffects(spec.gather, { level: want.level }, economy.gather),
+        ...logisticsOf(id),
         batches: 0,
         eventId: undefined,
       };
@@ -452,6 +505,51 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       noteRun(facility, nowMs, want.buildingId);
     }
   };
+  /**
+   * 숙소 요금(D-245 "요금은 시설 주인이", 설정 칸 lodging_fee_per_night [임시]): 하루 끝에 그 도시 일꾼이 쓴 남의 숙소(도시 주인 세력이 아닌
+   * 주인 — 플레이어가 NPC 도시에 지은 숙소 등)마다 일꾼 × 하루 쉬는 번 수 × 요금을 도시 주인 국고(나라 화폐)에서 숙소 주인에게 낸다.
+   * 국고가 모자라면 남은 만큼만. 도시 주인 세력의 숙소는 같은 주머니라 오가지 않는다
+   */
+  const chargeLodgingFees = (nowMs: number): { paid: bigint; lodgings: number } => {
+    const c = o.rules();
+    const fee = BigInt(Math.max(0, Math.trunc(c.logistics.lodgingFeePerNight)));
+    let paid = 0n;
+    let lodgings = 0;
+    if (fee <= 0n) return { paid, lodgings };
+    for (const [cityId, plan] of [...restPlans].toSorted((a, b) => a[0] - b[0])) {
+      const city = world.cities.get(cityId);
+      if (!city) continue;
+      const currency = currencyOf.get(city.owner) ?? ASSET_CREDIT;
+      const due = new Map<number, bigint>();
+      for (const worker of plan.workers) {
+        if (worker.lodgingId === null) continue;
+        const owner = plan.owners.get(worker.lodgingId) ?? null;
+        if (owner === null || owner === city.owner) continue;
+        const nights = BigInt(restsPerDay(worker.place, worker.commuteCells, c));
+        due.set(worker.lodgingId, (due.get(worker.lodgingId) ?? 0n) + nights * fee);
+      }
+      for (const [lodgingId, amount] of due) {
+        const owner = plan.owners.get(lodgingId);
+        if (owner === null || owner === undefined) continue;
+        const from = book.ownerAccount(city.owner, currency);
+        const pay = book.balance(from) < amount ? book.balance(from) : amount;
+        if (pay <= 0n) continue;
+        book.post({
+          kind: "lodging_fee",
+          atMs: nowMs,
+          key: `lodging_fee:${cityId}:${lodgingId}:${nowMs}`,
+          entries: [
+            { account: from, amount: -pay },
+            { account: book.ownerAccount(owner, currency), amount: pay },
+          ],
+        });
+        paid += pay;
+        lodgings += 1;
+      }
+    }
+    return { paid, lodgings };
+  };
+
   const syncAll = (nowMs: number): void => {
     recount();
     for (const cityId of [...world.cities.keys()].toSorted((a, b) => a - b)) {
@@ -459,6 +557,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       endow(cityId, nowMs);
       syncCity(cityId, nowMs);
     }
+    for (const cityId of restPlans.keys()) if (!world.cities.has(cityId)) restPlans.delete(cityId);
     // 사라진 도시의 시설
     for (const [id, facility] of economy.facilities) {
       if (world.cities.has(facility.city)) continue;
@@ -534,8 +633,12 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     },
     afterDay(nowMs, day) {
       o.log.info({ npcEcon: { day, ...run.dayLine() } }, "npc economy day");
+      const fees = chargeLodgingFees(nowMs);
+      if (fees.paid > 0n)
+        o.log.info({ npcLodgingFees: { day, ...fees, paid: String(fees.paid) } }, "npc lodging fees");
       syncAll(nowMs);
     },
+    restPlan: (cityId) => restPlans.get(cityId),
     production(cityId) {
       const out: FacilityRun[] = [];
       for (const facility of economy.facilities.values()) {

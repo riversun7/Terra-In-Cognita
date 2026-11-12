@@ -16,14 +16,20 @@
 //   하나도 못 끝낸 구간은 기다림이라 피로를 모두 덜어 준다. 나머지 ‰은 메모리에 들고 다음 정산에 더한다.
 // - 자동 옮김: 설정 칸 간격(gather_obj_station_haul_ms)의 정시마다 채집소 창고의 주인 몫 물자를 그 도시의 주인 도시 창고로 옮긴다(거래 하나,
 //   kind station_haul). 임대형 임차인 몫은 그대로(유예 규칙). 손으로는 이미 있는 창고 꺼내기(storage_move out)로 옮긴다.
+// - 옮김 거리(질문 1050 가, D-533 "창고와 원자재채집소와의 관계", 기획 43 §7.1 직접 운반·§7.3): 정시에 실어 떠나고(그때 든 주인 몫), 걸어
+//   나르는 시간(@terra/sim haulMs — 무게 ÷ 화물 상한 gather_obj_carry_g 횟수 × 왕복 2 × 칸 × 걷기 ms ÷ 나르는 사람) 뒤에 도시 창고에 닿는다.
+//   칸 = 채집소 가운데 → 그 도시에 선 주인의 가장 가까운 창고(창고 단계, 일하는 것) 가운데, 창고가 없으면 도시 칸(체비셰프). 나르는 사람 =
+//   그 채집소에서 마지막 정산에 일한 유닛 수(적어도 1) [임시]. 나르는 동안 물건은 채집소 창고에 그대로 있고(자리를 차지한다), 그동안 다음 정시는
+//   그 채집소를 건너뛴다 — 멀고 무거우면 채집소 창고가 차서 일이 막힌다. 닿을 때 그때 남은 만큼만 옮긴다. 옮김 셈을 끄면(haul_distance_mode 0)
+//   예전처럼 바로. [임시] 나르는 중 상태는 메모리(다시 켜면 물건은 채집소 창고에 남아 다음 정시에 다시 떠난다).
 // [임시] 일꾼 상태·끝낸 묶음 수·피로 나머지는 메모리에만 있다(다시 켜면 0부터). 정산이 길게 밀리면(오프라인) 그 사이 다시 자란 번수는 세지 못하고
 // 정산하는 때의 남은 번수만 쓴다(기획 정리: 750~755·757 지금 코드). facility 채집소 버프는 objects 채집소와 같은 설정 칸을 쓴다(확인 대기 810~813).
 // 정수 연산만 쓴다(판정 코드 규칙).
 import type { SocietyCoefficients } from "@terra/sim";
-import { PHASE_REST, mix32 } from "@terra/sim";
+import { PHASE_REST, footprintRect, haulMs, mix32 } from "@terra/sim";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
-import { type PlaceWorld, buildingCell, buildingPlace } from "../facilities/places.ts";
+import { type PlaceWorld, assetWeightG, buildingCell, buildingPlace } from "../facilities/places.ts";
 import type { StationHook, StationPlan } from "../labor/workBook.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { campFor } from "./deposit.ts";
@@ -90,6 +96,23 @@ export interface StationDeps {
   readonly timers?: boolean | undefined;
 }
 
+/** 채집소 하나의 옮김 길(질문 1050 가) */
+export interface StationHaulRoute {
+  /** 채집소 → 창고(없으면 도시 칸) 체비셰프 칸 */
+  readonly cells: number;
+  /** 창고 건물 ID(창고가 없어 도시 칸까지면 null) */
+  readonly storeId: number | null;
+  /** 나르는 사람 수(적어도 1) */
+  readonly carriers: number;
+}
+
+/** 나르는 중인 짐 하나 */
+export interface StationTrip {
+  readonly departAtMs: number;
+  readonly arriveAtMs: number;
+  readonly grams: bigint;
+}
+
 export interface StationRuntime {
   /** 노동 계약 서비스에 잇는 고리(labor.attachStation) */
   readonly hook: StationHook;
@@ -99,8 +122,15 @@ export interface StationRuntime {
   status(unitId: number): StationWorkerStatus | undefined;
   /** 다음 자동 옮김 시각(간격 0이면 null) */
   nextHaulAt(nowMs: number): number | null;
-  /** 채집소 창고의 주인 몫 물자를 그 도시 창고로 옮긴다. 옮긴 계정 수 */
+  /**
+   * 닿은 짐을 도시 창고에 넣고(질문 1050 가), 나르는 중이 아닌 채집소의 주인 몫 물자를 싣고 떠난다(거리 0·옮김 셈 끔이면 바로 넣는다).
+   * 바로 넣거나 닿아 넣은 계정 수
+   */
   haulNow(nowMs: number): number;
+  /** 채집소의 옮김 길(도시 밖이면 undefined) */
+  haulRoute(buildingId: number): StationHaulRoute | undefined;
+  /** 나르는 중인 짐(없으면 undefined) */
+  trip(buildingId: number): StationTrip | undefined;
   stop(): void;
 }
 
@@ -279,45 +309,159 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     return (Math.floor(nowMs / every) + 1) * every;
   };
 
+  /** 건물 가운데 칸(배치 네모 가운데). 없으면 undefined */
+  const centerOf = (mapKey: number, buildingId: number): { x: number; y: number } | undefined => {
+    let found: { x: number; y: number } | undefined;
+    maps.get(mapKey)?.forEachBuilding((building) => {
+      if (building.id !== buildingId) return;
+      const rect = footprintRect(building.placement);
+      found = { x: rect.x + Math.floor(rect.width / 2), y: rect.y + Math.floor(rect.height / 2) };
+    });
+    return found;
+  };
+
+  const haulRoute = (buildingId: number): StationHaulRoute | undefined => {
+    const world = deps.places();
+    const target = site(buildingId);
+    if (!world || !target || target.cityId === null) return undefined;
+    const from = centerOf(target.mapKey, buildingId) ?? { x: target.x, y: target.y };
+    const catalog = world.catalog();
+    let best: { cells: number; storeId: number | null } | undefined;
+    for (const record of world.facilities.values()) {
+      if (record.cityId !== target.cityId || record.level < 1 || !deps.works(record.buildingId)) continue;
+      if (catalog.facility(record.facilityId)?.stage !== "storage") continue;
+      const cell = buildingCell(maps, record.buildingId);
+      if (!cell || cell.mapKey !== target.mapKey || cell.ownerId !== target.ownerId) continue;
+      const to = centerOf(cell.mapKey, record.buildingId) ?? cell;
+      const cells = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y));
+      if (!best || cells < best.cells || (cells === best.cells && record.buildingId < (best.storeId ?? 0)))
+        best = { cells, storeId: record.buildingId };
+    }
+    if (!best) {
+      const city = world.cities().find((entry) => entry.id === target.cityId);
+      const cells = city ? Math.max(Math.abs(city.x - from.x), Math.abs(city.y - from.y)) : 0;
+      best = { cells, storeId: null };
+    }
+    let carriers = 0;
+    for (const status of statuses.values()) if (status.buildingId === buildingId) carriers += 1;
+    return { cells: best.cells, storeId: best.storeId, carriers: Math.max(1, carriers) };
+  };
+
+  /** 나르는 중인 짐(채집소 건물 ID → 짐: 떠날 때 든 주인 몫 계정·양, 받는 도시 창고 계정) */
+  const trips = new Map<
+    number,
+    StationTrip & { readonly moves: readonly { from: number; to: number; amount: bigint }[] }
+  >();
+
+  /** 옮김 거래 하나(그때 남은 양까지만). 넣은 계정 수 */
+  const postMoves = (
+    moves: readonly { from: number; to: number; amount: bigint }[],
+    atMs: number,
+  ): number => {
+    const entries: { account: number; amount: bigint }[] = [];
+    let count = 0;
+    for (const move of moves) {
+      const have = ledger.balance(move.from);
+      const qty = have < move.amount ? have : move.amount;
+      if (qty <= 0n) continue;
+      entries.push({ account: move.from, amount: -qty }, { account: move.to, amount: qty });
+      count += 1;
+    }
+    if (entries.length > 0) ledger.post({ kind: "station_haul", atMs, entries });
+    return count;
+  };
+
   const haulNow = (nowMs: number): number => {
     const world = deps.places();
     if (!world) return 0;
-    // 도시에 선 채집소(objects·facility 모두, 756 ②)의 창고 위치 → 주인·도시
-    const targets = new Map<number, { ownerId: number; cityId: number }>();
+    // 닿은 짐부터 넣는다
+    let accounts = 0;
+    for (const [buildingId, trip] of [...trips].toSorted((a, b) => a[0] - b[0])) {
+      if (trip.arriveAtMs > nowMs) continue;
+      trips.delete(buildingId);
+      accounts += postMoves(trip.moves, trip.arriveAtMs);
+    }
+    // 도시에 선 채집소(objects·facility 모두, 756 ②)의 창고 위치 → 주인·도시. 나르는 중인 채집소는 건너뛴다
+    const targets = new Map<number, { buildingId: number; ownerId: number; cityId: number }>();
     for (const record of world.facilities.values()) {
+      if (trips.has(record.buildingId)) continue;
       const target = site(record.buildingId);
       if (!target || target.ownerId === null || target.cityId === null) continue;
-      targets.set(buildingLocation(target.buildingId), { ownerId: target.ownerId, cityId: target.cityId });
+      targets.set(buildingLocation(target.buildingId), {
+        buildingId: target.buildingId,
+        ownerId: target.ownerId,
+        cityId: target.cityId,
+      });
     }
-    if (targets.size === 0) return 0;
-    const moves = new Map<number, { account: number; amount: bigint }[]>();
-    let accounts = 0;
+    if (targets.size === 0) return accounts;
+    const loads = new Map<number, { from: number; to: number; amount: bigint }[]>();
+    const grams = new Map<number, bigint>();
+    const catalog = world.catalog();
     for (const account of ledger.accounts()) {
       if (account.location === null || account.balance <= 0n || !account.asset.startsWith("item:")) continue;
       const target = targets.get(account.location);
       if (!target || account.ownerId !== target.ownerId) continue;
-      const entries = moves.get(account.location) ?? [];
-      entries.push({ account: account.id, amount: -account.balance });
-      entries.push({
-        account: ledger.ownerAccount(target.ownerId, account.asset, cityLocation(target.cityId)),
+      const list = loads.get(target.buildingId) ?? [];
+      list.push({
+        from: account.id,
+        to: ledger.ownerAccount(target.ownerId, account.asset, cityLocation(target.cityId)),
         amount: account.balance,
       });
-      moves.set(account.location, entries);
-      accounts += 1;
+      loads.set(target.buildingId, list);
+      grams.set(
+        target.buildingId,
+        (grams.get(target.buildingId) ?? 0n) + account.balance * assetWeightG(catalog, account.asset),
+      );
     }
-    for (const entries of moves.values()) ledger.post({ kind: "station_haul", atMs: nowMs, entries });
+    const rules = deps.rules();
+    for (const [buildingId, moves] of [...loads].toSorted((a, b) => a[0] - b[0])) {
+      const route = haulRoute(buildingId);
+      const weight = grams.get(buildingId) ?? 0n;
+      const ms = route ? haulMs(weight, route.cells, route.carriers, rules) : 0;
+      if (ms <= 0) {
+        accounts += postMoves(moves, nowMs);
+        continue;
+      }
+      trips.set(buildingId, { departAtMs: nowMs, arriveAtMs: nowMs + ms, grams: weight, moves });
+    }
     return accounts;
+  };
+
+  /** 닿은 짐만 넣는다(정시 사이 깨어남) */
+  const arriveDue = (nowMs: number): number => {
+    let accounts = 0;
+    for (const [buildingId, trip] of [...trips].toSorted((a, b) => a[0] - b[0])) {
+      if (trip.arriveAtMs > nowMs) continue;
+      trips.delete(buildingId);
+      accounts += postMoves(trip.moves, trip.arriveAtMs);
+    }
+    return accounts;
+  };
+  const haulEvery = (): number => Math.max(0, Math.floor(deps.rules().gatherObjects.stationHaulMs));
+  /** 마지막으로 싣고 떠난 정시 차례(타이머가 정시 사이에 깨어나도 다시 떠나지 않게) */
+  let lastBoundary = -1;
+
+  /** 다음에 깨어날 시각: 다음 정시와 가장 이른 닿는 시각 가운데 이른 것 */
+  const nextWakeAt = (nowMs: number): number => {
+    let next = nextHaulAt(nowMs) ?? nowMs + 60_000;
+    for (const trip of trips.values()) if (trip.arriveAtMs < next) next = trip.arriveAtMs;
+    return next;
   };
 
   const arm = (): void => {
     if (stopped || deps.timers === false) return;
     const at = now();
-    const next = nextHaulAt(at) ?? at + 60_000;
+    const next = nextWakeAt(at);
     timer = setTimeout(
       () => {
         timer = undefined;
         try {
-          if (nextHaulAt(now() - 1) !== null) haulNow(now());
+          const t = now();
+          // 정시가 지났으면 싣고 떠나기까지, 아니면 닿은 짐만(haulNow는 둘 다 한다 — 정시가 아니면 떠나지 않게 닿은 짐만 넣는다)
+          if (nextHaulAt(t - 1) !== null && Math.floor(t / Math.max(1, haulEvery())) !== lastBoundary) {
+            lastBoundary = Math.floor(t / Math.max(1, haulEvery()));
+            haulNow(t);
+          } else arriveDue(t);
         } catch (error) {
           deps.log.error({ err: error }, "gather station haul failed");
         }
@@ -336,6 +480,13 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     status: (unitId) => statuses.get(unitId),
     nextHaulAt,
     haulNow,
+    haulRoute,
+    trip: (buildingId) => {
+      const found = trips.get(buildingId);
+      return found
+        ? { departAtMs: found.departAtMs, arriveAtMs: found.arriveAtMs, grams: found.grams }
+        : undefined;
+    },
     stop() {
       stopped = true;
       if (timer) clearTimeout(timer);

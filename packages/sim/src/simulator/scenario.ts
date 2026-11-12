@@ -60,6 +60,12 @@ export interface ScenarioFacilityPlan {
    */
   readonly primaryStat?: number | undefined;
   readonly secondaryStat?: number | undefined;
+  /**
+   * 숙소 셈 배율(‰, 질문 1047 다 — 서버는 2차맵 숙소·일터 자리로 정한다). 시뮬 도시에는 건물 자리가 없어 측정 시나리오가 적는다. 없으면 1000
+   */
+  readonly dutyPm?: number | undefined;
+  /** 채집소 → 창고 칸 수(질문 1050 가). 화물 상한은 출발값 gather_obj_carry_g. 없으면 옮김 시간 0 */
+  readonly haulCells?: number | undefined;
 }
 
 /** 경제 손잡이(있으면 경제를 돌린다). [임시] 값은 시나리오 시험값이다 */
@@ -243,6 +249,12 @@ export function parseScenario(value: unknown): Scenario {
         ...(field(plan, "secondaryStat") === undefined
           ? {}
           : { secondaryStat: int(field(plan, "secondaryStat"), `${path}.secondaryStat`, 0, 100_000) }),
+        ...(field(plan, "dutyPm") === undefined
+          ? {}
+          : { dutyPm: int(field(plan, "dutyPm"), `${path}.dutyPm`, 1, 10_000) }),
+        ...(field(plan, "haulCells") === undefined
+          ? {}
+          : { haulCells: int(field(plan, "haulCells"), `${path}.haulCells`, 0, 1024) }),
       })),
       stock: optionalList(field(item, "stock"), `${at}.stock`, (entry, path) => ({
         item: text(field(entry, "item"), `${path}.item`),

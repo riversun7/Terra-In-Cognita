@@ -247,23 +247,17 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     );
     const facilitiesOf = (city: CityLine) =>
       facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id);
-    // 숙소 셋(설정 칸 npc_seed_lodgings — docs/adr/2026-11-11-city-building-layout.md). 광산은 낮은 땅에도 선다(기획 D-533 광석 고도 몫 —
-    // 등급 시작 시설에 광산이 있는 나라)
-    const big = [
-      "farm",
-      "farm",
-      "government_hall",
-      "lodging",
-      "lodging",
-      "lodging",
-      "storehouse",
-      "storehouse",
-    ];
-    const plain = ["farm", "government_hall", "lodging", "lodging", "lodging", "storehouse"];
+    // 숙소 수 = ⌈주거 ÷ Lv1 침대 10⌉, 위 끝 8(질문 1049 나, facilities/npcSeed.ts seedLodgings). 광산은 낮은 땅에도 선다(기획 D-533 광석 고도
+    // 몫 — 등급 시작 시설에 광산이 있는 나라)
+    const lodgings = (city: CityLine) =>
+      Array.from({ length: Math.min(8, Math.ceil(Number(city.housing) / 10)) }, () => "lodging");
+    const big = ["farm", "farm", "government_hall", "storehouse", "storehouse"];
+    const plain = ["farm", "government_hall", "storehouse"];
     // 등급 시작 시설 광산 수: 초강대국 2 · 강대국 1 · 중견국 1 · 소국 0
     const expected = [plain, withMines(big, 2), withMines(big, 1), withMines(plain, 1)];
     lists.forEach((list, index) => {
-      for (const city of list) expect(facilitiesOf(city)).toEqual(expected[index] ?? plain);
+      for (const city of list)
+        expect(facilitiesOf(city)).toEqual([...(expected[index] ?? plain), ...lodgings(city)].toSorted());
     });
     // 도시 간격(docs/adr/2026-11-11-city-catchment.md): 모든 등급이 배후지 간격(2R = 4칸 — 등급 걸음 1·2칸보다 넓다) 이상, 찾는 반경(12칸) 안
     const spread = lists.map(([capital, ...rest]) =>

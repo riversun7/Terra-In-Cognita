@@ -238,6 +238,17 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
               ? m.station_haul_off()
               : m.station_haul_next({ time: minutesText(ok.haul.nextAtMs - now) })}
         </p>
+        {ok.haul.cells !== undefined && ok.haul.cells !== null ? (
+          <p className="gather-muted" data-part="station-haul-route">
+            {(ok.haul.toStore ? m.station_haul_route_store : m.station_haul_route_city)({
+              cells: ok.haul.cells,
+              time: minutesText(ok.haul.tripMs ?? 0),
+            })}
+            {ok.haul.arriveAtMs !== undefined && ok.haul.arriveAtMs !== null && ok.haul.arriveAtMs > now
+              ? ` · ${m.station_haul_carrying({ time: minutesText(ok.haul.arriveAtMs - now) })}`
+              : ""}
+          </p>
+        ) : null}
         {ok.mine && ok.cityId !== null && ok.storage.goods.length > 0 ? (
           <div className="gather-actions">
             <button type="button" className="button-small" disabled={sending} onClick={haul}>

@@ -28,6 +28,7 @@ import {
   type SocietyCoefficients,
   TEST_STAT_TABLE,
   craftScore,
+  lodgingBeds,
   repairMaterials,
   repairRuleFor,
 } from "@terra/sim";
@@ -54,6 +55,8 @@ export interface FacilityViewSource {
   readonly unitBusy: (unitId: number) => boolean;
   /** 그 시설에서 일하는 유닛(노동 계약 서비스 workersAt — 직무 배치·열린 계약). 없으면 빈 목록 */
   readonly workersOf?: ((buildingId: number) => readonly LaborWorkerEntry[]) | undefined;
+  /** 그 숙소를 쓰는 NPC 일꾼 수(도시 경제 쉼터 계획, 질문 1047 다). 없으면 null */
+  readonly lodgingOccupants?: ((buildingId: number, cityId: number | null) => number | undefined) | undefined;
 }
 
 /** 내 세력 비콘 하나(영토 서비스)와 재료를 꺼내는 도시(그 세력에서 가장 가까운 도시, 질문 410 ①) */
@@ -248,6 +251,19 @@ export function facilitiesOverview(
             ? Number((storedGrams(source.ledger, catalog, building.id) + 999n) / 1000n)
             : null,
         cityId: record.cityId ?? buildingPlace(service.places, building.id)?.cityId ?? null,
+        // 숙소(질문 1047 다): 침대·쉬는 NPC 일꾼
+        ...(def.stage === "living"
+          ? {
+              lodging: {
+                beds: lodgingBeds(Math.max(0, record.level), rules),
+                occupants:
+                  source.lodgingOccupants?.(
+                    building.id,
+                    record.cityId ?? buildingPlace(service.places, building.id)?.cityId ?? null,
+                  ) ?? null,
+              },
+            }
+          : {}),
         job: jobFor((job) => job.buildingId === building.id && job.kind !== "equipment"),
         upgrade:
           next !== null && def.build

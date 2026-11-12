@@ -20,11 +20,13 @@ export interface CityRow {
   readonly name?: string | null | undefined;
   /** 그 세력이 고른 수도인가(D-528, 세력 행 capital_city_id — npc/capitals.ts). 없으면 아님 */
   readonly capital?: boolean | undefined;
+  /** 도시 주거 수(world_cities.housing). 시작 도시 숙소 수(질문 1049 나)가 본다. 없으면 모름 */
+  readonly housing?: number | undefined;
 }
 
 export async function loadCities(pool: QueryPool): Promise<CityRow[]> {
   const result = await pool.query(
-    `select c.id, c.faction_id, c.planet_id, c.map_key, c.cell_x, c.cell_y, c.start, c.name,
+    `select c.id, c.faction_id, c.planet_id, c.map_key, c.cell_x, c.cell_y, c.start, c.name, c.housing,
             (f.capital_city_id is not null and f.capital_city_id = c.id) as capital
      from world_cities c left join factions f on f.id = c.faction_id order by c.id`,
   );
@@ -38,6 +40,7 @@ export async function loadCities(pool: QueryPool): Promise<CityRow[]> {
     start: row.start === true,
     name: typeof row.name === "string" ? row.name : null,
     capital: row.capital === true,
+    ...(row.housing === null || row.housing === undefined ? {} : { housing: Number(row.housing) }),
   }));
 }
 

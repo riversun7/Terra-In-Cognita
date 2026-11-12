@@ -5,7 +5,14 @@
 import { performance } from "node:perf_hooks";
 import { TERRAIN_SURFACE } from "@terra/protocol";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
-import { JOB_GATHER, PHASE_WORK, TEST_SOCIETY_COEFFICIENTS, WALK_SPEED, createLedgerBook } from "@terra/sim";
+import {
+  JOB_GATHER,
+  PHASE_WORK,
+  TEST_SOCIETY_COEFFICIENTS,
+  WALK_SPEED,
+  createLedgerBook,
+  walkMsPerCell,
+} from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { FacilityCatalog, FacilityDef } from "../facilities/catalog.ts";
 import type { PlaceWorld } from "../facilities/places.ts";
@@ -94,9 +101,12 @@ const FARM: FacilityDef = {
   },
 };
 
+/** 창고(창고 단계 — 옮김 거리의 목적지, 질문 1050 가) */
+const STORE: FacilityDef = { ...FARM, id: "storehouse", stage: "storage", gather: undefined };
+
 const catalog: FacilityCatalog = {
-  facility: (id) => (id === "mine" ? MINE : id === "farm" ? FARM : undefined),
-  facilities: [MINE, FARM],
+  facility: (id) => (id === "mine" ? MINE : id === "farm" ? FARM : id === "storehouse" ? STORE : undefined),
+  facilities: [MINE, FARM, STORE],
   weightOf: () => 1000,
   unitWeightOf: () => 1,
   itemName: () => ({ ko: "구리 광석", en: "Copper ore" }),
@@ -106,7 +116,11 @@ const catalog: FacilityCatalog = {
   lotSize: new Map(),
 };
 
-function rig(level = 1) {
+function rig(
+  level: number | { store?: { x: number; y: number } | undefined; haulMode?: number | undefined } = 1,
+) {
+  const opts = typeof level === "number" ? {} : level;
+  if (typeof level !== "number") level = 1;
   const maps = new Map<number, SecondMap>();
   const paths = createInlinePathService(
     () => [...maps.values()].map((map) => map.replicaInit()),
@@ -146,6 +160,14 @@ function rig(level = 1) {
     [mineId, record(mineId, "mine")],
     [farmId, record(farmId, "farm")],
   ]);
+  if (opts.store) {
+    const stored = map.placeBuilding(
+      { x: opts.store.x, y: opts.store.y, width: 3, height: 3, rotation: 0 },
+      OWNER,
+    );
+    if (!stored.ok || stored.buildingId === undefined) throw new Error("no store");
+    facilities.set(stored.buildingId, record(stored.buildingId, "storehouse"));
+  }
   const places: PlaceWorld = {
     maps,
     facilities,
@@ -162,7 +184,13 @@ function rig(level = 1) {
     now: () => NOW,
     log: silentLog,
     kinds: () => KINDS,
-    rules: () => TEST_SOCIETY_COEFFICIENTS,
+    rules: () =>
+      opts.haulMode === undefined
+        ? TEST_SOCIETY_COEFFICIENTS
+        : {
+            ...TEST_SOCIETY_COEFFICIENTS,
+            logistics: { ...TEST_SOCIETY_COEFFICIENTS.logistics, haulMode: opts.haulMode },
+          },
     ledger,
     store,
     places: () => places,
@@ -282,11 +310,40 @@ describe("채집소 일꾼 산출·창고", () => {
       ],
     });
     expect(r.runtime.nextHaulAt(NOW)).toBe((Math.floor(NOW / 600_000) + 1) * 600_000);
-    expect(r.runtime.haulNow(NOW)).toBe(1);
+    // 옮김 거리(질문 1050 가): 창고가 없어 도시 칸(100, 16)까지 — 광산 가운데 (23, 25)에서 체비셰프 77칸, 나르는 사람 1
+    expect(r.runtime.haulRoute(r.mineId)).toEqual({ cells: 77, storeId: null, carriers: 1 });
+    // 정시에 싣고 떠난다(5g = 한 번, 왕복 2 × 77칸 × 걷기 ms) — 닿기 전에는 채집소 창고에 그대로
+    expect(r.runtime.haulNow(NOW)).toBe(0);
+    const trip = r.runtime.trip(r.mineId);
+    expect(trip).toEqual({ departAtMs: NOW, arriveAtMs: NOW + 2 * 77 * walkMsPerCell(), grams: 5n });
+    if (!trip) throw new Error("no trip");
+    // 나르는 동안 다음 정시는 이 채집소를 건너뛴다
+    expect(r.runtime.haulNow(trip.arriveAtMs - 1)).toBe(0);
+    expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(5n);
+    expect(r.runtime.haulNow(trip.arriveAtMs)).toBe(1);
     expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(0n);
     expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(5n);
     expect(r.ledger.balanceOf(TENANT, ORE, here)).toBe(3n);
-    expect(r.runtime.haulNow(NOW)).toBe(0);
+    expect(r.runtime.trip(r.mineId)).toBeUndefined();
+    expect(r.runtime.haulNow(trip.arriveAtMs)).toBe(0);
+  });
+
+  it("옮김 거리: 주인의 가장 가까운 창고까지, 옮김 셈을 끄면 바로", () => {
+    const store = rig({ store: { x: 30, y: 24 } });
+    // 창고(30, 24) 3×3 가운데 (31, 25) ← 광산 가운데 (23, 25): 8칸
+    expect(store.runtime.haulRoute(store.mineId)).toMatchObject({ cells: 8, carriers: 1 });
+    const off = rig({ haulMode: 0 });
+    const here = buildingLocation(off.mineId);
+    off.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: off.ledger.systemAccount("source:item:copper_ore", ORE), amount: -5n },
+        { account: off.ledger.ownerAccount(OWNER, ORE, here), amount: 5n },
+      ],
+    });
+    expect(off.runtime.haulNow(NOW)).toBe(1);
+    expect(off.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(5n);
   });
 });
 
@@ -348,7 +405,10 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
         { account: r.ledger.ownerAccount(OWNER, CROP, here), amount: 4n },
       ],
     });
-    expect(r.runtime.haulNow(NOW)).toBe(1);
+    expect(r.runtime.haulNow(NOW)).toBe(0);
+    const arrive = r.runtime.trip(r.farmId)?.arriveAtMs ?? 0;
+    expect(arrive).toBe(NOW + 2 * 65 * walkMsPerCell());
+    expect(r.runtime.haulNow(arrive)).toBe(1);
     expect(r.ledger.balanceOf(OWNER, CROP, here)).toBe(0n);
     expect(r.ledger.balanceOf(OWNER, CROP, cityLocation(CITY))).toBe(4n);
   });

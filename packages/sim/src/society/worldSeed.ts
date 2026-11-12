@@ -153,7 +153,10 @@ export interface WorldSeedCoefficients {
    * 수도를 그 도시로 옮긴다(작은 차이로 매일 오가지 않게). 서버만 읽는다(src/npc/capitals.ts)
    */
   readonly capitalSwitchDev: number;
-  /** [임시] 시작 도시 하나의 숙소 수(팩 시설 lodging, 생활 단계 — docs/adr/2026-11-11-city-building-layout.md). 일꾼의 밤 쉼터 */
+  /**
+   * [임시] 시작 도시 하나의 숙소 수 위 끝(팩 시설 lodging, 생활 단계 — docs/adr/2026-11-11-city-building-layout.md). 실제 수 = ⌈주거 ÷ 숙소
+   * Lv1 침대(logistics.lodgingBedsPerLevel)⌉, 이 값까지(질문 1049 나, 서버 facilities/npcSeed.ts seedLodgings). 일꾼의 회복 쉼터이자 주거
+   */
   readonly lodgings: number;
   /**
    * [임시] 시작 도시가 아닌 마을(NPC 새 마을·가문 마을·되살린 폐허)의 숙소 수 — 마을이 서면 행정 건물(가운데) + 숙소를 전략 배치로 세운다
@@ -263,8 +266,8 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   capitalSwitchDev: 10,
   // 도시 건물 배치(docs/adr/2026-11-11-city-building-layout.md): 전략 배치 켬.
   // 띠: 옛 씨앗이 건물을 세우던 반경(가운데에서 48칸 안)과 채집소 반경(40칸) 안 — 채집소 20~42칸, 고리 9칸, 창고는 길의 75%, 숙소는 35%.
-  // 숙소 셋: 채집 구역(창고 수)마다 길 위 하나, 남는 것은 행정 건물의 빈 쪽(측정 docs/worklog/2026/11/12-0130-city-layout.md)
-  lodgings: 3,
+  // 숙소: 채집 구역(창고 수)마다 길 위 하나, 남는 것은 행정 건물의 빈 쪽. 수는 주거 ÷ 침대 올림, 이 값은 위 끝(질문 1049 나)(측정 docs/worklog/2026/11/12-0130-city-layout.md)
+  lodgings: 8,
   // 마을: 행정 건물 + 숙소 하나(질문 1052 추천 가)
   villageLodgings: 1,
   cityLayoutMode: 1,

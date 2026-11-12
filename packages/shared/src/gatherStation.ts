@@ -120,8 +120,19 @@ export interface GatherStationResponse {
     readonly usedGrams: string;
     readonly goods: readonly GatherStationGoods[];
   };
-  /** 자동 옮김(두 종류 모두): 간격(ms, 0 = 끔)·다음 시각(서버 ms, 끔·도시 없음이면 null) */
-  readonly haul: { readonly everyMs: number; readonly nextAtMs: number | null };
+  /**
+   * 자동 옮김(두 종류 모두): 간격(ms, 0 = 끔)·다음 시각(서버 ms, 끔·도시 없음이면 null).
+   * 옮김 거리(질문 1050 가): cells = 채집소 → 창고(창고가 없으면 도시 칸, toStore false) 칸, tripMs = 지금 든 내 몫을 나르는 시간(ms, 거리 셈을
+   * 끄면 0), arriveAtMs = 나르는 중이면 닿는 시각. 도시 밖이면 cells·tripMs null
+   */
+  readonly haul: {
+    readonly everyMs: number;
+    readonly nextAtMs: number | null;
+    readonly cells?: number | null | undefined;
+    readonly toStore?: boolean | undefined;
+    readonly tripMs?: number | null | undefined;
+    readonly arriveAtMs?: number | null | undefined;
+  };
   readonly slots: number;
   readonly workers: readonly GatherStationWorker[];
   /** 피로 상한(N21) */

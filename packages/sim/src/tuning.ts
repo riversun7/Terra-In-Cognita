@@ -23,6 +23,7 @@ import { TERRITORY_TUNING_KEYS } from "./tuningTerritory.ts";
 import { VITALS_TUNING_KEYS } from "./tuningVitals.ts";
 import { INJURY_TUNING_KEYS } from "./tuningInjury.ts";
 import { WORLD_SEED_TUNING_KEYS } from "./tuningWorldSeed.ts";
+import { LOGISTICS_TUNING_KEYS } from "./tuningLogistics.ts";
 
 export interface TuningKey {
   /** 팩 항목 ID */
@@ -640,6 +641,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...SWITCH_TUNING_KEYS,
   // 2차맵 원자재 오브젝트 채집(49에 칸 없음 [임시], docs/adr/2026-11-07-gather-objects.md): tuningGather.ts
   ...GATHER_OBJECT_TUNING_KEYS,
+  // 숙소 회복·채집소 옮김(49에 칸 없음 [임시], 질문 1047·1050 — D-533): tuningLogistics.ts
+  ...LOGISTICS_TUNING_KEYS,
   // 플레이어 가문(49 S20, 질문 926~935 답): tuningHouse.ts
   ...HOUSE_TUNING_KEYS,
 ];

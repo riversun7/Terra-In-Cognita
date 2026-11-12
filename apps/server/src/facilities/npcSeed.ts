@@ -10,7 +10,8 @@
 // 물가 조건(팩 needsWaterWithin, 질문 947 나 — 낚시터)이 있는 시설은 둘레에 물이 있는 자리만 고른다(플레이어 짓기와 같은 waterOk).
 // 자리(docs/adr/2026-11-11-city-building-layout.md): 설정 칸 city_layout_mode = 1(출발값)이면 전략 배치(cityLayout.ts — 행정 건물 가운데,
 // 숙소·창고는 채집소 묶음으로 가는 길 위, 채집소는 맡는 원자재가 많은 바깥 띠), 0이면 옛 배치(가운데 마당 밖 고리마다 처음 맞는 자리).
-// 숙소(lodging, 생활 단계) 수 = 설정 칸 npc_seed_lodgings — 일꾼의 밤 쉼터(npc/humanPlaces.ts).
+// 숙소(lodging, 생활 단계) 수(질문 1049 나, D-533): 주거 ÷ 숙소 Lv1 침대(설정 칸 lodging_beds_per_level) 올림, 설정 칸 npc_seed_lodgings가
+// 위 끝 — 숙소는 일꾼의 회복 쉼터(npc/cityRest.ts)이자 주거다. 주거를 모르면 npc_seed_housing으로 센다.
 // 마을(질문 1052 다, 기획 D-533 "추천대로" — docs/adr/2026-11-11-city-building-layout.md "바뀜 (2026-11-12)"): 시작 도시가 아닌 도시(NPC 새 마을·
 // 가문 마을·되살린 폐허)는 행정 건물 하나(그 도시 자리에 누구 것이든 행정 건물이 이미 있으면 없음) + 숙소(설정 칸 npc_village_lodgings)를 같은
 // 배치 함수로 세운다. 부팅 때 모자란 것을 채우고, 실행 중에 새 도시가 처음 저장될 때(npc/persist.ts onCityFounded) 그 도시 하나만 바로 세운다.
@@ -19,7 +20,7 @@
 import { MATERIAL_BIT, cellMaterials, oreSharePm } from "@terra/shared/catchment";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { type CityCell, cityOfCell } from "@terra/shared/goodsPlaces";
-import { PLACEMENT_SIZE, type WorldSeedCoefficients } from "@terra/sim";
+import { PLACEMENT_SIZE, START_LOGISTICS, type WorldSeedCoefficients } from "@terra/sim";
 import type { GatherKind } from "../gather/kinds.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -107,12 +108,27 @@ export function landGather(land: SeedLand, seed: WorldSeedCoefficients): LandFit
  * 시작 도시 하나의 기본 시설 차례(앞 것이 가운데에 가깝다). 행정 건물(government_hall)은 도시 하나에 하나(D-510 행정 건물, 수 칸 없음),
  * 나머지 수는 설정 칸. 채집 시설은 둘레 땅에 맞는 것만(land가 없으면 셋 다). 시설 ID는 팩 content/core/facilities.json
  */
-export function seedPlan(seed: WorldSeedCoefficients, land?: SeedLand): SeedItem[] {
+/**
+ * 시작 도시 숙소 수(질문 1049 나): ⌈주거 ÷ Lv1 침대⌉, 위 끝 = 설정 칸 npc_seed_lodgings. 주거를 모르면 새 시작 도시 주거(설정 칸
+ * npc_seed_housing), 침대 수를 모르면 출발값(lodging_beds_per_level)으로 센다
+ */
+export function seedLodgings(seed: WorldSeedCoefficients, housing?: number, bedsPerLevel?: number): number {
+  const cap = Math.max(0, Math.trunc(seed.lodgings));
+  const beds = Math.max(1, Math.trunc(bedsPerLevel ?? START_LOGISTICS.lodgingBedsPerLevel));
+  const homes = Math.max(0, Math.trunc(housing ?? seed.startHousing));
+  return Math.min(cap, Math.ceil(homes / beds));
+}
+
+export function seedPlan(
+  seed: WorldSeedCoefficients,
+  land?: SeedLand,
+  rest?: { readonly housing?: number | undefined; readonly bedsPerLevel?: number | undefined },
+): SeedItem[] {
   const fit = land ? landGather(land, seed) : { farm: true, lumber: true, mine: true };
   return [
     { facility: "government_hall", count: 1 },
     { facility: "storehouse", count: seed.storehouses },
-    { facility: "lodging", count: Math.max(0, Math.trunc(seed.lodgings)) },
+    { facility: "lodging", count: seedLodgings(seed, rest?.housing, rest?.bedsPerLevel) },
     ...SEED_GATHER.map((kind) => ({ facility: kind.facility, count: kind.fits(fit) ? kind.count(seed) : 0 })),
   ];
 }
@@ -172,6 +188,8 @@ export interface NpcSeedInput {
   readonly landOf?: ((mapKey: number) => SeedLand | undefined) | undefined;
   /** 원자재 오브젝트 종류(팩 gather_objects). 전략 배치의 채집소 자리가 본다. 없으면 방향만 흩는다 */
   readonly gatherKinds?: readonly GatherKind[] | undefined;
+  /** 숙소 Lv1 침대 수(설정 칸 lodging_beds_per_level, 질문 1049 나). 없으면 숙소 수 = npc_seed_lodgings 그대로 */
+  readonly bedsPerLevel?: number | undefined;
   readonly nowMs: number;
   /** 이 도시만 세운다(실행 중에 선 새 마을). 없으면 띄운 2차맵의 모든 도시 */
   readonly only?: ReadonlySet<number> | undefined;
@@ -206,7 +224,9 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
     const ownerId = input.ownerOfFaction(city.factionId);
     if (!map || ownerId === undefined) continue;
     const factionSeed = input.seedOfFaction?.(city.factionId) ?? input.seed;
-    const plan = city.start ? seedPlan(factionSeed, input.landOf?.(city.mapKey)) : villagePlan(factionSeed);
+    const plan = city.start
+      ? seedPlan(factionSeed, input.landOf?.(city.mapKey), { housing: city.housing, bedsPerLevel: input.bedsPerLevel })
+      : villagePlan(factionSeed);
     const anchors = anchorsOf(city.mapKey);
     const have = new Map<string, number>();
     for (const record of service.facilities.values())
@@ -390,7 +410,10 @@ export function seedNpcFacilitiesAtBoot(options: {
     /** 원자재 오브젝트 종류(전략 배치의 채집소 자리). 없으면 방향만 흩는다 */
     readonly gatherKinds?: (() => readonly GatherKind[]) | undefined;
   };
-  readonly rules: () => { readonly worldSeed: WorldSeedCoefficients };
+  readonly rules: () => {
+    readonly worldSeed: WorldSeedCoefficients;
+    readonly logistics?: { readonly lodgingBedsPerLevel: number } | undefined;
+  };
   /** 세력 행 ID → 그 국가의 씨앗 값(없으면 설정 칸 값) */
   readonly seedOfFaction?: NpcSeedInput["seedOfFaction"];
   /** 2차맵 지형 서비스(cellValues = 2차맵 칸의 행성 값). 없으면 채집 시설 셋 다 */
@@ -414,6 +437,7 @@ export function seedNpcFacilitiesAtBoot(options: {
     seedOfFaction: options.seedOfFaction,
     landOf: (mapKey) => options.terrain?.cellValues?.(mapKey),
     gatherKinds: options.facilities.gatherKinds?.(),
+    bedsPerLevel: options.rules().logistics?.lodgingBedsPerLevel,
     nowMs: options.nowMs,
     only: options.only,
   });

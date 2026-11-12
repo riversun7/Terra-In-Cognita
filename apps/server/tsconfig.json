@@ -9,6 +9,7 @@
     "drizzle.config.ts",
     "bench/citySpacing.ts",
     "bench/cityLayout.ts",
-    "bench/siegeLayout.ts"
+    "bench/siegeLayout.ts",
+    "bench/cityRest.ts"
   ]
 }

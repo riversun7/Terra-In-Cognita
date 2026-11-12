@@ -205,9 +205,12 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     expect(view.storage.goods.length).toBeGreaterThan(0);
     expect(view.upgrade?.level).toBe(2);
 
-    // 자동 옮김: 주인 몫이 도시 창고로
+    // 자동 옮김: 주인 몫이 걸어 나르는 시간 뒤 도시 창고로(질문 1050 가 — 정시에 떠나고 닿을 때 넣는다)
     const stored = stationOre();
-    expect(current.station.haulNow(clock)).toBeGreaterThan(0);
+    current.station.haulNow(clock);
+    const arrive = current.station.trip(mineId)?.arriveAtMs ?? clock;
+    expect(arrive).toBeGreaterThan(clock);
+    expect(current.station.haulNow(arrive)).toBeGreaterThan(0);
     expect(stationOre()).toBe(0n);
     expect(cityOre()).toBe(cityBefore + stored);
     expect(await world.checkInvariants()).toEqual([]);
@@ -299,7 +302,9 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     expect(view.upgrade?.buffs).toMatchObject({ radiusCells: null, yieldPm: 1200, regrowPm: null });
 
     const stored = sum(buildingLocation(farmId));
-    expect(current.station.haulNow(clock)).toBeGreaterThan(0);
+    current.station.haulNow(clock);
+    const arrive = current.station.trip(farmId)?.arriveAtMs ?? clock;
+    expect(current.station.haulNow(arrive)).toBeGreaterThan(0);
     expect(sum(buildingLocation(farmId))).toBe(0n);
     expect(sum(cityLocation(cityId ?? 0))).toBe(cityBefore + stored);
     expect(await world.checkInvariants()).toEqual([]);

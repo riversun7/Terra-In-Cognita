@@ -29,6 +29,8 @@ export interface CatalogItem {
   readonly subcategory?: string | undefined;
   /** 거래 묶음 크기(기본 단위 개수, 팩 lotSize, 없으면 1) */
   readonly lotSize?: bigint | undefined;
+  /** 기본 단위 하나의 무게(g, 팩 weight). 없으면 0 — 채집소 → 창고 옮김(질문 1050 가)이 본다 */
+  readonly weight?: number | undefined;
   readonly enabled: boolean;
 }
 
@@ -114,6 +116,8 @@ export interface PreparedCatalog {
   readonly presets: readonly CatalogPreset[];
   /** 켜진 물건 자산 코드 → 묶음 크기(1이 아닌 것만) */
   readonly lotSize: ReadonlyMap<string, bigint>;
+  /** 켜진 물건 자산 코드 → 기본 단위 하나의 무게(g, 0보다 큰 것만). 채집소 → 창고 옮김 시간(질문 1050 가) */
+  readonly weightG: ReadonlyMap<string, bigint>;
   /**
    * 사다리 키(gatherLadderKey — 중분류 하나면 그 ID, 여럿이면 "+"로 이음) → 티어별 켜진 물건 자산(팩 차례, 길이 GATHER_TIERS).
    * 추첨 시설이 가리키는 사다리만
@@ -194,6 +198,11 @@ export function prepareCatalog(catalog: EconomyCatalog): PreparedCatalog {
         periodHours: necessity.periodHours,
       })),
     presets: catalog.presets.filter((preset) => preset.enabled),
+    weightG: new Map(
+      items
+        .filter((item) => (item.weight ?? 0) > 0)
+        .map((item) => [itemAsset(item.id), BigInt(Math.trunc(item.weight ?? 0))]),
+    ),
     lotSize: new Map(
       items
         .filter((item) => (item.lotSize ?? 1n) !== 1n)

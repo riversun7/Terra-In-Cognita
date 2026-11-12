@@ -18,6 +18,7 @@ import { OLD_TEMPLE_COEFFICIENTS, type TempleCoefficients } from "./temple.ts";
 import { START_WAR_COEFFICIENTS, type WarCoefficients } from "./warOutcomes.ts";
 import { START_WORLD_SEED, type WorldSeedCoefficients } from "./worldSeed.ts";
 import { type GatherObjectCoefficients, START_GATHER_OBJECTS } from "./gatherObjects.ts";
+import { type LogisticsCoefficients, START_LOGISTICS } from "./logisticsCoefficients.ts";
 
 /** 도시 발전도 식 계수([임시], SocietyCoefficients.development) */
 export interface DevelopmentCoefficients {
@@ -100,6 +101,11 @@ export interface SocietyCoefficients {
   readonly worldSeed: WorldSeedCoefficients;
   /** 2차맵 원자재 오브젝트 채집(팩 tuning 경로 "gatherObjects.*", 모두 [임시]). docs/adr/2026-11-07-gather-objects.md. 시뮬은 읽지 않는다 */
   readonly gatherObjects: GatherObjectCoefficients;
+  /**
+   * 숙소 회복·채집소 옮김(팩 tuning 경로 "logistics.*", 모두 [임시], 질문 1047 다·1050 가 — D-533). 셈은 logistics.ts.
+   * docs/adr/2026-11-11-city-building-layout.md "바뀜 (2026-11-12)"
+   */
+  readonly logistics: LogisticsCoefficients;
   /** 지상 기술 단계 상한(질문 121 기본안: 시설 Lv1~5 사다리) */
   readonly techGroundMax: number;
   /** [임시] 단계 n으로 오르는 연구 작업량(효율 1000인 연구 일꾼 한 시간 = 1000) = researchWorkBase × n */
@@ -424,6 +430,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   war: { ...START_WAR_COEFFICIENTS },
   worldSeed: { ...START_WORLD_SEED },
   gatherObjects: { ...START_GATHER_OBJECTS },
+  logistics: { ...START_LOGISTICS },
   techGroundMax: 5,
   researchWorkBase: 48_000,
   developmentPerTech: 20,

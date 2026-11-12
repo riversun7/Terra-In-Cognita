@@ -42,6 +42,7 @@ import { CombatSpecs } from "./CombatSpecs.tsx";
 import { CoreStats } from "./CoreStats.tsx";
 import { Elements, Inventory, Rankings, Rebirth, SkillSlots, StatusFooter } from "./CyborgExtras.tsx";
 import "./cyborg.css";
+import { ConditionFact } from "../roster/ConditionFact.tsx";
 
 // 3D 외형 한 번 고르기 창(질문 961 나): 누를 때 받는다(미리 보기 엔진·외형 단계 코드를 이 조각에 넣지 않는다)
 const LookPick = lazy(() => import("./LookPick.tsx"));
@@ -344,6 +345,7 @@ function Hero({
               <dt>{m.cyborg_faith()}</dt>
               <dd className="roster-num">{formatNumber(body.faith)}</dd>
             </div>
+            {body.condition ? <ConditionFact condition={body.condition} /> : null}
           </dl>
         </div>
       ) : null}

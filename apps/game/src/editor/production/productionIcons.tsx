@@ -111,8 +111,18 @@ export function facilityIcon(id: string, kind: "type" | "process"): ReactNode {
   }
 }
 
+/** 예상 확률표(D-534): 격자 위 오르는 선 */
+const GridIcon = () => (
+  <Icon>
+    <path d="M4 4h16v16H4z" />
+    <path d="M4 12h16M12 4v16" />
+    <path d="m6 17 4-4 3 2 5-6" />
+  </Icon>
+);
+
 export const COMMON_ICON = {
   tiers: <ChartIcon />,
+  expect: <GridIcon />,
   mapping: <LinkIcon />,
   classes: <SwordIcon />,
   overview: <TableIcon />,

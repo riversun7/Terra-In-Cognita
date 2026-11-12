@@ -4,7 +4,13 @@
 // 판정과 같은 함수만 쓴다: 성장 primaryAtLevel(statGrowth.ts, D-417), 유효 스탯 gatherStat·구간 gatherBandIndex(gatherMath.ts, D-506·D-534).
 // 확률 = 두 스탯의 K를 범위 안 고른 칸(양 끝 포함 K_STEPS × K_STEPS)으로 나눠 그 칸들의 구간 가중치를 평균한 것(K는 생성 때 범위 안 균등, N6).
 // 정수 연산만 쓴다(화면 계산이지만 판정 함수와 같은 결과를 보이게).
-import { GATHER_TIERS, GATHER_WEIGHT_TOTAL, type GatherBand, gatherBandIndex, gatherStat } from "./gatherMath.ts";
+import {
+  GATHER_TIERS,
+  GATHER_WEIGHT_TOTAL,
+  type GatherBand,
+  gatherBandIndex,
+  gatherStat,
+} from "./gatherMath.ts";
 import { primaryAtLevel } from "./statGrowth.ts";
 
 /** 기본 줄: 두 스탯 초기 합(15·15 = 30, 18·18 = 36은 D-534 원문 예) */
@@ -67,7 +73,8 @@ export function expectedGatherStat(
   input: Pick<GatherExpectInput, "growthPm" | "levelBonus" | "facilityLevel" | "condition">,
 ): number {
   const grown =
-    primaryAtLevel(stats[0], input.growthPm, kPm[0], level) + primaryAtLevel(stats[1], input.growthPm, kPm[1], level);
+    primaryAtLevel(stats[0], input.growthPm, kPm[0], level) +
+    primaryAtLevel(stats[1], input.growthPm, kPm[1], level);
   return gatherStat(grown, Math.max(1, input.facilityLevel), input.levelBonus, input.condition);
 }
 

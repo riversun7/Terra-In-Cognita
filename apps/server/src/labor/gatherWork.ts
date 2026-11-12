@@ -6,6 +6,7 @@
 // - 묶음 차례 seq의 추첨 난수는 (유닛, seq)로만 정한다 → 정산을 어떻게 나눠도 같은 묶음이 같은 물건을 낸다(나눠 정산해도 같다, S3 4절).
 //   스탯·시설 레벨이 그 사이 바뀌면 바뀐 값으로 뽑는다. 쌓인 진행·seq는 unit_work 줄에 남긴다(work.ts).
 // - 시뮬과 다른 점: 시뮬 시설은 묶음을 시작할 때 일꾼 수로 시간을 정하고, 여기는 유닛마다 진행을 쌓는다(유닛 하나 = 일꾼 하나). 결과의 기댓값은 같다.
+// - 컨디션(D-534, labor/condition.ts): 정산 때 그 시설 도시의 주거·음식으로 센 관리 보너스를 유효 스탯에 더한다(시뮬 workerEffects와 같은 함수).
 // 정수 연산만 쓴다(판정 코드 규칙).
 import { createRng } from "@terra/shared";
 import {
@@ -14,6 +15,7 @@ import {
   type GatherSettings,
   type Primaries,
   type SocietyCoefficients,
+  clampCondition,
   defaultGatherStat,
   mix32,
   rollGatherOutputs,
@@ -91,6 +93,11 @@ export interface GatherLotsInput {
    * (기다리는 동안 진행이 끝없이 쌓이지 않게). 없으면 상한 없음
    */
   readonly maxLots?: number | undefined;
+  /**
+   * 일꾼 컨디션(관리 보너스, D-534 — labor/condition.ts workerCondition 합계). 추첨 유효 스탯에 더한다(설정 칸 condition_cap으로 다시 자른다).
+   * 없으면 0
+   */
+  readonly condition?: number | undefined;
 }
 
 export interface GatherLotsResult extends GatherProgress {
@@ -123,7 +130,12 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
   const secondary = statOf(input.primaries, site.rule.secondary) ?? settings.defaultStat;
   const effects = workerEffects(
     site.rule,
-    { level: Math.max(1, site.level), primaryStat: primary, secondaryStat: secondary },
+    {
+      level: Math.max(1, site.level),
+      primaryStat: primary,
+      secondaryStat: secondary,
+      condition: clampCondition(input.condition ?? 0, { cap: settings.conditionCap ?? 0 }),
+    },
     settings,
   );
   const tickMs = Math.max(1, settings.tickMs ?? 60_000);

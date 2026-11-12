@@ -154,6 +154,13 @@ export function createBuildingEditorServices(deps: {
         tickMs: society.gatherTickMs,
         oreGrams: society.gatherOreGrams,
         defaultStat: Math.floor(Math.max(0, society.cyborg.initialSum) / 6),
+        // 예상 채집 확률표(D-534, 생산 편집기 "예상 확률" 탭)
+        growthPm: society.cyborg.growthPm,
+        kMinPm: society.cyborg.kMinPm,
+        kMaxPm: society.cyborg.kMaxPm,
+        maxLevel: society.cyborg.maxLevel,
+        levelBonus: society.gatherLevelBonus,
+        conditionCap: society.condition.cap,
       },
       combatClasses: combatClassViews(state, snapshot),
       classRule: {

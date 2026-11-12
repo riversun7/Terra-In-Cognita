@@ -69,7 +69,10 @@ describe("칸 하나(판정과 같은 성장·유효 스탯·구간)", () => {
 
   it("레벨 1은 성장이 없고 시설 레벨 보너스가 더해진다", () => {
     expect(expectedGatherCell(30, 1, BASE)).toMatchObject({ statMin: 30, statMax: 30 });
-    expect(expectedGatherCell(30, 1, { ...BASE, facilityLevel: 5 })).toMatchObject({ statMin: 70, statMax: 70 });
+    expect(expectedGatherCell(30, 1, { ...BASE, facilityLevel: 5 })).toMatchObject({
+      statMin: 70,
+      statMax: 70,
+    });
   });
 
   it("표는 줄 × 칸", () => {

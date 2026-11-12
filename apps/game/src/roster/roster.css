@@ -494,3 +494,25 @@
 .injury-track-step[data-past="true"] {
   opacity: 0.4;
 }
+
+/* ── 컨디션(D-534) ─────────────────────────────── */
+.roster-condition dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.roster-condition-total {
+  font-weight: var(--font-weight-strong);
+}
+.roster-condition-total[data-tone="good"] {
+  color: var(--color-success);
+}
+.roster-condition-total[data-tone="bad"] {
+  color: var(--color-warning);
+}
+.roster-condition-parts {
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}

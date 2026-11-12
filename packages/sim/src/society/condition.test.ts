@@ -42,7 +42,14 @@ describe("음식 몫(생필품 충족 ‰)", () => {
 describe("합계와 상한", () => {
   it("가득 관리 = +40(상한), 굶고 노숙하면 −40, 상한을 줄이면 잘린다", () => {
     const full = unitCondition({ housing: { kind: "lodging", level: 3 }, foodPm: 1000, initialSum: 60 }, C);
-    expect(full).toEqual({ housing: 20, food: 20, total: 40, capped: false, preferredGrade: 2, housingGrade: 3 });
+    expect(full).toEqual({
+      housing: 20,
+      food: 20,
+      total: 40,
+      capped: false,
+      preferredGrade: 2,
+      housingGrade: 3,
+    });
     const worst = unitCondition({ housing: { kind: "homeless" }, foodPm: 0, initialSum: 30 }, C);
     expect(worst.total).toBe(-40);
     const tight = unitCondition(

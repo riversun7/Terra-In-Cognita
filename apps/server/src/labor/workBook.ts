@@ -43,6 +43,8 @@ export interface ProductionSource {
   roomGrams?(buildingId: number): bigint | undefined;
   /** 자산 한 기본 단위의 무게(g, 물자가 아니면 0). 없으면 0 */
   weightGrams?(asset: string): bigint;
+  /** 그 도시에서 일하는 유닛의 컨디션 합계(관리 보너스, D-534 — labor/condition.ts). 없으면 0 */
+  condition?(unitId: number, cityId: number | null): number;
 }
 
 /** 정산 하나 안의 건물 창고 남은 자리(임대형 몫 523 ②·채집소 창고): 그 자산 qty 가운데 들어가는 양을 돌려주고 자리를 줄인다 */
@@ -231,6 +233,7 @@ export function createWorkBook(options: {
           settings: gatherSettingsOf(options.rules()),
           cycleMs: TEST_JOB_RULES.cycleMs,
           maxLots: plan?.maxLots,
+          condition: source.condition?.(unitId, site.cityId),
         });
         record.gatherPoints = result.points;
         record.gatherSeq = result.seq;

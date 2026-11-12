@@ -606,6 +606,16 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         gear: () => (world?.status().state === "ready" ? world.persistence?.holdings.gearOf : undefined),
         // 사이보그 화면 랭킹 칸(경로마다 내 자리, docs/adr/2026-11-07-ranking.md)
         rankings: rankingPool ? (userId: string) => ranking.cyborgRankings(userId) : undefined,
+        // 유닛·사이보그 화면 컨디션 한 줄(D-534, 건물 서비스가 주거·음식으로 센다)
+        condition: () => {
+          const facilities = world?.status().state === "ready" ? world.persistence?.facilities : undefined;
+          return facilities
+            ? {
+                read: (unitId: number) => facilities.condition(unitId),
+                cap: facilities.rules().condition.cap,
+              }
+            : undefined;
+        },
         // 유닛 추천 표(1차 생산 스탯 짝·전투 클래스, docs/adr/2026-11-11-production-six.md): 실효 팩과 설정 칸 실효 문턱
         guide: contentEditState
           ? () => {

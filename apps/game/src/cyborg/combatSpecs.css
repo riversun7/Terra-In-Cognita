@@ -355,6 +355,11 @@
   color: var(--sec);
   font-weight: var(--font-weight-strong);
 }
+/* 공식 줄 바로 뒤의 결과(맨손 명중·크리처럼 입력 줄이 없는 풀이)는 선을 한 번만 */
+.combat-formula + .combat-result {
+  padding-block-start: 0;
+  border-top: none;
+}
 /* 버프 줄: 판정 값(기본 + 몫) — 버프 색 글자(자기 판 바탕 위, 대비 검사 쌍) */
 .combat-buff-line {
   color: var(--color-success);

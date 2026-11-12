@@ -301,23 +301,46 @@ describe("건물 들어가기", () => {
   });
 });
 
-describe("움직이는 어군(기획 D-536)", () => {
-  const school = (id: string, reach: number): GatherKind => ({
-    ...(KINDS[0] as GatherKind),
-    id,
-    source: "school",
-    art: 61,
-    item: "saury",
-    biomes: new Map([["ocean_coastal", 1]]),
-    speed: 10,
-    range: 4,
-    reach,
-    boat: reach === 0,
-    uses: 4,
-  });
+/** 시험 광맥 종류(KINDS 첫 항목) */
+const VEIN: GatherKind = KINDS[0] ?? {
+  id: "",
+  name: { ko: "", en: "" },
+  source: "rock",
+  arts: [],
+  chancePm: 0,
+  art: 0,
+  surfaces: [],
+  minCells: 0,
+  material: null,
+  direct: true,
+  item: "",
+  lots: 1,
+  workMs: 1,
+  uses: 1,
+  regrowMs: 1,
+  facility: null,
+  primary: "str",
+  secondary: "vit",
+};
 
+/** 시험 어군 종류(연안 바이옴 1떼) */
+const school = (id: string, reach: number): GatherKind => ({
+  ...VEIN,
+  id,
+  source: "school",
+  art: 61,
+  item: "saury",
+  biomes: new Map([["ocean_coastal", 1]]),
+  speed: 10,
+  range: 4,
+  reach,
+  boat: reach === 0,
+  uses: 4,
+});
+
+describe("움직이는 어군(기획 D-536)", () => {
   it("배로만 닿는 어군은 unavailable, 물가 어군은 물가로 걸어가 낚는다(화물)", async () => {
-    const kinds = [KINDS[0] as GatherKind, school("school_coastal", 6), school("school_shelf", 0)];
+    const kinds = [VEIN, school("school_coastal", 6), school("school_shelf", 0)];
     const r = rig({ kinds, waterStrip: true });
     const objects = r.gather.objects(K[0] ?? 0) ?? [];
     const shore = objects.find((object) => object.kind === 1);

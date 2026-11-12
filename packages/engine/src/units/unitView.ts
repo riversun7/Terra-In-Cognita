@@ -39,6 +39,12 @@ export interface UnitLook {
   radiusM: number;
   /** 색 0xRRGGBB */
   color: number;
+  /**
+   * 몸꼴(걷는 유닛·탈것)과 크기 등급(통과 폭 1·2·3). 캡슐 그림은 쓰지 않고, 앱이 가까운 유닛의 모델(characters/unitBodies.ts)을 고를 때 읽는다.
+   * 없으면 걷는 유닛·키로 짐작한다
+   */
+  form?: "walker" | "vehicle";
+  sizeClass?: 1 | 2 | 3;
 }
 
 /** 기본 캡슐: 반지름 0.5m, 전체 키 2m(가운데 1m + 위아래 반구). 유닛마다 크기를 늘리고 줄인다 */

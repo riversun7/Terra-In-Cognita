@@ -174,4 +174,37 @@ describe("2차맵 캐릭터 층", () => {
     expect(layer.cached).toBe(2);
     layer.dispose();
   });
+
+  it("큰 유닛(배율)·짐승·탈것도 같은 메시로 모델이 되고, 누르기 폭은 배율만큼 넓다", () => {
+    const layer = new CharacterLayer(16);
+    layer.setLooks([
+      { id: 1, look: characterLookForUnit(1, "commoner") },
+      { id: 2, look: characterLookForUnit(2, "android"), scale: 6 / 1.8 },
+      { id: 3, body: { kind: "beast", seed: 3 }, scale: 6 },
+      { id: 4, body: { kind: "car", seed: 4 } },
+      { id: 5, body: { kind: "truck", seed: 5 } },
+      { id: 6, body: { kind: "crawler", seed: 6 } },
+    ]);
+    layer.bind(6, (slot) => slot + 1);
+    layer.update(viewOf(6, 12));
+    expect(layer.models).toBe(6);
+    expect([...layer.drawn.subarray(0, 6)].every((value) => value > 0)).toBe(true);
+    // 도형 8 + 빛 2를 넘지 않는다(유닛 종류가 늘어도 그리기 호출은 그대로)
+    expect(layer.drawCalls).toBeLessThanOrEqual(10);
+    expect(layer.pickHalfWidth(0)).toBeCloseTo(0.45);
+    expect(layer.pickHalfWidth(1)).toBeCloseTo((0.45 * 6) / 1.8);
+    expect(layer.pickHalfWidth(3)).toBeGreaterThan(0.7);
+    // 맞지 않는 몸 종류·배율은 버리거나 묶는다
+    // @ts-expect-error 목록 밖 몸 종류
+    layer.setLooks([
+      { id: 1, body: { kind: "dragon", seed: 1 } },
+      { id: 2, look: characterLookForUnit(2, "commoner"), scale: Number.NaN },
+    ]);
+    layer.bind(2, (slot) => slot + 1);
+    layer.update(viewOf(2, 1));
+    expect(layer.drawnAs(0)).toBe(0);
+    expect(layer.drawnAs(1)).toBeGreaterThan(0);
+    expect(layer.pickHalfWidth(1)).toBeCloseTo(0.45);
+    layer.dispose();
+  });
 });

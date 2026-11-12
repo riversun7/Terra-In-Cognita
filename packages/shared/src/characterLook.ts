@@ -361,11 +361,33 @@ function unitSeed(unitId: number, salt: number): number {
  * 외형이 없는 유닛의 기본 외형(유닛 ID로 정한다 — 서버·기기 어디서나 같다).
  * - commoner(휴먼·보통 유닛): 장갑·등 장식이 없는 수수한 차림, 살색 얼굴
  * - leader(NPC 국가 지도자): 망토·볏·온몸 장갑
+ * - android(사람이 아닌 큰 걷는 유닛의 임시 모습 — 2차맵 크기 등급 2, docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 유닛 겉모습)"):
+ *   바이저·피스톤 팔다리·온몸 장갑의 기계 몸
  */
-export function characterLookForUnit(unitId: number, style: "commoner" | "leader"): CharacterLook {
-  const rng = createRng(unitSeed(unitId, style === "leader" ? 0x51ed_270b : 0x2545_f491));
+export function characterLookForUnit(
+  unitId: number,
+  style: "commoner" | "leader" | "android",
+): CharacterLook {
+  const salt = style === "leader" ? 0x51ed_270b : style === "android" ? 0x6a09_e667 : 0x2545_f491;
+  const rng = createRng(unitSeed(unitId, salt));
   const pick = (count: number): number => rng.nextInt(count);
   const base = rollCharacterLook(pick);
+  if (style === "android") {
+    return {
+      ...base,
+      build: chooseFrom(["sturdy", "standard"] as const, pick),
+      head: chooseFrom(["block", "hex", "dome", "jaw"] as const, pick),
+      face: chooseFrom(["visor", "mono", "grill", "screen", "slit"] as const, pick),
+      top: chooseFrom(["none", "antenna", "helm", "crest"] as const, pick),
+      torso: chooseFrom(["plate", "core", "suit"] as const, pick),
+      arms: chooseFrom(["piston", "gauntlet", "claw"] as const, pick),
+      legs: chooseFrom(["piston", "greaves"] as const, pick),
+      back: chooseFrom(["pack", "tank", "array", "jet"] as const, pick),
+      extra: chooseFrom(["none", "pads", "lamp"] as const, pick),
+      plating: CHARACTER_PLATING_MAX,
+      skin: chooseFrom(SHELL_TONES, pick),
+    };
+  }
   if (style === "leader") {
     return {
       ...base,

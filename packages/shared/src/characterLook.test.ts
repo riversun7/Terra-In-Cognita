@@ -166,6 +166,13 @@ describe("character look (3D 외형 2판)", () => {
       expect(isCharacterLook(leader)).toBe(true);
       expect(leader.back).toBe("cape");
       expect(leader.plating).toBe(CHARACTER_PLATING_MAX);
+      // 큰 걷는 유닛의 임시 기계 몸: 온몸 장갑·피스톤 다리, 살색 얼굴이 아니다
+      const android = characterLookForUnit(id, "android");
+      expect(isCharacterLook(android)).toBe(true);
+      expect(android).toEqual(characterLookForUnit(id, "android"));
+      expect(android.plating).toBe(CHARACTER_PLATING_MAX);
+      expect(["piston", "greaves"]).toContain(android.legs);
+      expect(android.face).not.toBe("eyes");
     }
     expect(commoners.size).toBeGreaterThan(150);
   });

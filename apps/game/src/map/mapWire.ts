@@ -112,11 +112,16 @@ export function toUnitPath(wire: UnitMotionWire): UnitPath {
   };
 }
 
-/** 걷기(약 0.43칸/초)와 차(약 4.7칸/초) 사이 — 이보다 빠르면 탈것 모양 */
-export const VEHICLE_SPEED_UNITS = 2 * POSITION_UNITS_PER_CELL;
+/**
+ * 탈것 표시 종류(프로토콜 UNIT_WIRE_KINDS — 기기 묶음에 zod 스키마를 끌어오지 않게 글자로 둔다). 서버가 유닛의 기본 빠르기로 정한다.
+ * 예전에는 움직임 빠르기(2칸/초 이상)로 갈랐는데 운영자 모드 이동(빠르기 100배)이면 내 사이보그가 탈것(낮고 넓은 노란 캡슐, 모델 대상 아님)으로
+ * 보였고, 도착한 뒤에도 그 움직임이 남아 다음 보통 이동까지 그대로였다(사용자 지적 2026-11-12 "내 사이보그도 갑자기 기존 노란원통 모델로 돌아가는
+ * 문제", docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 유닛 겉모습)")
+ */
+export const VEHICLE_WIRE_KIND = "vehicle";
 /**
  * [임시] 크기 등급(통과 폭 1·2·3칸)별 겉모습 — S1 임시 도형(캡슐). 키·굵기는 기획 D-095(일반 0.5~3m, 대형 최대 약 12m) 안에서 고른 값.
- * 진짜 모델·크기는 유닛 자료가 생기면 바꾼다.
+ * 진짜 모델·크기는 유닛 자료가 생기면 바꾼다. 가까우면 모델(unitModels.ts)이 캡슐 대신 그린다
  */
 const SIZE_LOOKS: Record<UnitMotionWire["size"], { heightM: number; radiusM: number }> = {
   1: { heightM: 1.8, radiusM: 0.3 },
@@ -127,13 +132,24 @@ const SIZE_LOOKS: Record<UnitMotionWire["size"], { heightM: number; radiusM: num
 const WALKER_COLORS = [0xff9aa2, 0x8fc8ff, 0xb7a6ff, 0x8fe0bd] as const;
 const VEHICLE_COLOR = 0xffcf75;
 
-export function unitLook(wire: Pick<UnitMotionWire, "id" | "size" | "speed">): UnitLook {
+export function unitLook(wire: Pick<UnitMotionWire, "id" | "size" | "kind">): UnitLook {
   const base = SIZE_LOOKS[wire.size];
-  if (wire.speed >= VEHICLE_SPEED_UNITS) {
+  if (wire.kind === VEHICLE_WIRE_KIND) {
     // 탈것: 낮고 넓게
-    return { heightM: base.heightM * 0.8, radiusM: base.radiusM * 2.5, color: VEHICLE_COLOR };
+    return {
+      heightM: base.heightM * 0.8,
+      radiusM: base.radiusM * 2.5,
+      color: VEHICLE_COLOR,
+      form: "vehicle",
+      sizeClass: wire.size,
+    };
   }
-  return { ...base, color: WALKER_COLORS[wire.id % WALKER_COLORS.length] ?? WALKER_COLORS[0] };
+  return {
+    ...base,
+    color: WALKER_COLORS[wire.id % WALKER_COLORS.length] ?? WALKER_COLORS[0],
+    form: "walker",
+    sizeClass: wire.size,
+  };
 }
 
 /** 엔진에 처음 놓을 때: 겉모습 + 경로의 첫 점(배치 칸). 경로는 toUnitPath로 바로 이어 넣는다 */

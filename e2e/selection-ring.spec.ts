@@ -6,56 +6,9 @@
 //   좌우 띠에 노란 화소가 있어야 한다(고치기 전 0 — 화소로 확인). 나무가 가리면 다음 칸으로.
 import type { Page } from "@playwright/test";
 import { isCellKey, stepCell } from "../packages/planet/src/index.ts";
+import { fastTravel, myPosition, waitAt } from "./helpers/cyborgTravel.ts";
 import { expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
-import { sendCommands } from "./helpers/wsCommands.ts";
-
-interface Place {
-  readonly mapKey: number;
-  readonly cellX: number;
-  readonly cellY: number;
-}
-
-const field = (value: unknown, key: string): unknown =>
-  typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
-
-/** 내 사이보그 자리(tRPC world.myPosition, seamless.spec.ts와 같다). 건너뛰는 중이거나 없으면 null */
-async function myPosition(side: Page): Promise<(Place & { unitId: number }) | null> {
-  const reply: unknown = await side.evaluate(() =>
-    fetch("/api/trpc/world.myPosition").then((response) => response.json()),
-  );
-  const position = field(field(field(reply, "result"), "data"), "position");
-  if (position === undefined || position === null || field(position, "hidden") === true) return null;
-  return {
-    mapKey: Number(field(position, "mapKey")),
-    cellX: Number(field(position, "cellX")),
-    cellY: Number(field(position, "cellY")),
-    unitId: Number(field(position, "unitId")),
-  };
-}
-
-/** 운영자 빠르기(전체 보기로 구독한 연결의 명령)로 내 사이보그를 보낸다. 결과가 ok면 true */
-async function fastTravel(side: Page, from: number, unitId: number, to: Place): Promise<boolean> {
-  const replies = await sendCommands(side, [
-    { t: "subscribe", mapKey: from, observe: true },
-    { t: "travel_start", unitId, mapKey: to.mapKey, x: to.cellX, y: to.cellY, kind: "move" },
-  ]);
-  return field(replies[1], "ok") === true;
-}
-
-/** 내 사이보그가 그 칸 둘레(반지름 칸)에 설 때까지 */
-async function waitAt(side: Page, target: Place, radius = 3): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        const at = await myPosition(side);
-        if (!at || at.mapKey !== target.mapKey) return 999;
-        return Math.max(Math.abs(at.cellX - target.cellX), Math.abs(at.cellY - target.cellY));
-      },
-      { timeout: 90_000, intervals: [500] },
-    )
-    .toBeLessThanOrEqual(radius);
-}
 
 /**
  * 화면 가운데(따라가는 사이보그) 둘레 좌우 띠(가운데에서 30~58 CSS px, 위아래 20px)의 고리 노란 화소 수. 캡슐 외곽선은 띠 안쪽이다

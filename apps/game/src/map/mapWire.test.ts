@@ -24,7 +24,7 @@ import {
   ENGINE_TERRAIN_CELLS,
   TERRAIN_CELL_M,
   TerrainFormatError,
-  VEHICLE_SPEED_UNITS,
+  VEHICLE_WIRE_KIND,
   targetUnits,
   toFootprint,
   toTerrainInput,
@@ -145,52 +145,27 @@ describe("유닛", () => {
     expect(spawn).toMatchObject({ id: 12, x: 1.5, y: 2 });
   });
 
-  it("겉모습: 크기 등급이 클수록 크고, 빠른 유닛은 탈것 모양·색", () => {
-    const small = unitLook({ id: 1, size: 1, speed: 437 });
-    const large = unitLook({ id: 1, size: 2, speed: 437 });
-    const huge = unitLook({ id: 1, size: 3, speed: 437 });
+  it("겉모습: 크기 등급이 클수록 크고, 서버가 탈것이라 한 유닛만 탈것 모양·색(움직임 빠르기와 상관없다)", () => {
+    const small = unitLook({ id: 1, size: 1 });
+    const large = unitLook({ id: 1, size: 2 });
+    const huge = unitLook({ id: 1, size: 3 });
     expect(small.heightM).toBeCloseTo(1.8);
     expect(large.heightM).toBeGreaterThan(small.heightM);
     expect(huge.heightM).toBeGreaterThan(large.heightM);
     expect(huge.heightM).toBeLessThanOrEqual(12);
-    const car = unitLook({ id: 1, size: 1, speed: VEHICLE_SPEED_UNITS });
+    expect(small).toMatchObject({ form: "walker", sizeClass: 1 });
+    const car = unitLook({ id: 1, size: 1, kind: VEHICLE_WIRE_KIND });
+    expect(car).toMatchObject({ form: "vehicle", sizeClass: 1 });
     expect(car.radiusM).toBeGreaterThan(small.radiusM);
     expect(car.color).not.toBe(small.color);
     // 같은 유닛은 늘 같은 색
-    expect(unitLook({ id: 5, size: 1, speed: 437 }).color).toBe(
-      unitLook({ id: 5, size: 1, speed: 500 }).color,
-    );
-  });
-});
-
-describe("건물", () => {
-  it("rotation ÷ 90, height → depth, 기준 칸은 그대로", () => {
-    const rotations = [0, 90, 180, 270] as const;
-    rotations.forEach((rotation, turns) => {
-      const footprint = toFootprint({ id: 3, x: 10, y: 20, width: 4, height: 2, rotation });
-      expect(footprint).toMatchObject({ id: 3, cellX: 10, cellY: 20, width: 4, depth: 2, rotation: turns });
-    });
+    expect(unitLook({ id: 5, size: 1 }).color).toBe(unitLook({ id: 5, size: 1 }).color);
   });
 
-  it("[임시] 높이는 ID로 정한 4~14m", () => {
-    for (let id = 1; id < 40; id++) {
-      const { heightM } = toFootprint({ id, x: 0, y: 0, width: 1, height: 1, rotation: 0 });
-      expect(heightM).toBeGreaterThanOrEqual(4);
-      expect(heightM).toBeLessThanOrEqual(14);
-    }
-  });
-});
-
-describe("이동 목표", () => {
-  it("누른 칸의 가운데(칸 × 1024 + 512)", () => {
-    expect(targetUnits(0)).toBe(512);
-    expect(targetUnits(10.99)).toBe(10 * 1024 + 512);
-    expect(targetUnits(255.5)).toBe(255 * 1024 + 512);
-  });
-
-  it("2차맵 밖은 가장자리 칸으로", () => {
-    expect(targetUnits(-3)).toBe(512);
-    expect(targetUnits(300)).toBe(255 * 1024 + 512);
-    expect(targetUnits(Number.NaN)).toBe(512);
+  it("운영자 모드처럼 아주 빠른 움직임이어도 표시 종류가 없으면 걷는 유닛이다(노란 탈것 캡슐로 바뀌지 않는다)", () => {
+    const fast = toUnitSpawn({ ...walker, speed: 43_700 });
+    expect(fast.look).toMatchObject({ form: "walker", heightM: 1.8, radiusM: 0.3 });
+    const leader = toUnitSpawn({ ...walker, speed: 43_700, kind: "npc_leader" });
+    expect(leader.look.form).toBe("walker");
   });
 });

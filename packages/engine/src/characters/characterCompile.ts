@@ -4,6 +4,7 @@
 // - 캐시: 외형 표지 + 단계로 찾는다. 외형 가짓수가 상한을 넘으면 통째로 비운다(다음 프레임에 다시 만든다).
 import { type CharacterLook, characterLookKey } from "@terra/shared/characterLook";
 import { type CharacterLod, characterModel } from "./characterModel.ts";
+import { type UnitBody, unitBodyKey, unitBodyModel } from "./unitBodies.ts";
 import {
   CHARACTER_SHAPES,
   type CharacterModel,
@@ -123,6 +124,17 @@ export class CharacterCache {
     if (found) return found;
     if (this.entries.size >= CHARACTER_CACHE_LIMIT) this.entries.clear();
     const compiled = compileCharacter(characterModel(look, lod));
+    this.entries.set(key, compiled);
+    return compiled;
+  }
+
+  /** 사람꼴이 아닌 몸(짐승·탈것 — unitBodies.ts). 열쇠는 종류 + 칠이라 유닛마다 따로 만들지 않는다 */
+  getBody(body: UnitBody, lod: CharacterLod): CompiledCharacter {
+    const key = `${lod}:body:${unitBodyKey(body)}`;
+    const found = this.entries.get(key);
+    if (found) return found;
+    if (this.entries.size >= CHARACTER_CACHE_LIMIT) this.entries.clear();
+    const compiled = compileCharacter(unitBodyModel(body, lod));
     this.entries.set(key, compiled);
     return compiled;
   }

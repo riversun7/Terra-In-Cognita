@@ -47,7 +47,11 @@ export const UNIT_CONTROL_PROTOCOL_VERSION = 17;
  * 값은 @terra/shared/mapUnits MapUnitKind와 같은 이름을 쓴다. 기기는 모르는 값을 보통 유닛으로 그린다(나중에 값을 더해도 옛 기기가 메시지를
  * 버리지 않게 스키마는 영어 소문자 이름이면 받는다)
  */
-export const UNIT_WIRE_KINDS = ["npc_leader"] as const;
+/**
+ * 표시 종류: npc_leader(NPC 국가 지도자, 18), vehicle(탈것 — 기본 빠르기가 차 빠르기인 유닛, 2026-11-12. 기기는 움직임 빠르기가 아니라 이것으로 탈것 모양을
+ * 고른다. 칸은 글자라 판을 올리지 않았다 — 모르는 값이면 기기는 보통 유닛으로 그린다)
+ */
+export const UNIT_WIRE_KINDS = ["npc_leader", "vehicle"] as const;
 export type UnitWireKind = (typeof UNIT_WIRE_KINDS)[number];
 /** 유닛 표시 종류가 처음 생긴 프로토콜 버전(17판 기기는 모르는 칸을 버린다 — zod object) */
 export const UNIT_KIND_PROTOCOL_VERSION = 18;

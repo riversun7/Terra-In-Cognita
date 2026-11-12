@@ -418,7 +418,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
 
   const setMotion = (unit: UnitState, motion: Motion): void => {
     unit.motion = motion;
-    unit.entry = sized(motionToWire(unit.id, unit.size, motion, wireKindOf(unit.kind)));
+    unit.entry = sized(motionToWire(unit.id, unit.size, motion, wireKindOf(unit.kind, unit.speed)));
     rev += 1;
     stream.unitChanged(rev, unit.entry);
     vision.unitChanged(unit);
@@ -608,7 +608,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       size: spec.size,
       speed: spec.speed,
       motion: spec.motion,
-      entry: sized(motionToWire(spec.id, spec.size, spec.motion, wireKindOf(spec.kind))),
+      entry: sized(motionToWire(spec.id, spec.size, spec.motion, wireKindOf(spec.kind, spec.speed))),
       destination: lastPoint(spec.motion),
       routeSeq: 0,
       planning: false,
@@ -807,7 +807,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       if (unit.kind === kind) return true;
       unit.kind = kind;
       // 표시 종류(프로토콜 18)가 바뀌면 같은 움직임을 새 종류로 다시 보낸다(저장도 한다)
-      if (wireKindOf(kind) !== unit.entry.value.kind) setMotion(unit, unit.motion);
+      if (wireKindOf(kind, unit.speed) !== unit.entry.value.kind) setMotion(unit, unit.motion);
       else save(unit);
       return true;
     },

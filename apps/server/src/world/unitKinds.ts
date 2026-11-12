@@ -40,9 +40,18 @@ export const UNIT_KIND_GUARDIAN = 6;
 export const UNIT_KIND_NPC_LEADER = 7;
 
 /**
- * 세계 유닛 종류 → 2차맵 전송의 표시 종류(프로토콜 18 unitMotionSchema kind, docs/adr/2026-11-07-play-flow.md "WP-NPC3", 기획 정리 748 나).
- * 지도에 따로 그리는 유닛만(지금은 NPC 국가 지도자 — 이름표·지도자 표시), 나머지는 undefined(칸을 보내지 않는다)
+ * 탈것으로 보이는 기본 빠르기(고정소수점 단위/초): 걷기(437 = 약 0.43칸/초)와 차(4,813 = 약 4.8칸/초) 사이, 2칸/초. 유닛의 기본 빠르기(UnitState.speed)로
+ * 본다 — 움직임 빠르기(운영자 모드 이동은 100배, gateway.ts OPERATOR_SPEED_FACTOR)로 보지 않는다(사용자 지적 2026-11-12 "내 사이보그도 갑자기 기존
+ * 노란원통 모델로 돌아가는 문제", docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 유닛 겉모습)")
  */
-export function wireKindOf(kind: number): UnitWireKind | undefined {
-  return kind === UNIT_KIND_NPC_LEADER ? "npc_leader" : undefined;
+export const VEHICLE_MIN_SPEED = 2_000;
+
+/**
+ * 세계 유닛 종류(+ 기본 빠르기) → 2차맵 전송의 표시 종류(프로토콜 18 unitMotionSchema kind, docs/adr/2026-11-07-play-flow.md "WP-NPC3", 기획 정리 748 나).
+ * 지도에 따로 그리는 유닛만: NPC 국가 지도자(이름표·지도자 표시), 탈것(기본 빠르기가 차 빠르기인 봇 — 기기가 탈것 모양으로 그린다). 나머지는
+ * undefined(칸을 보내지 않는다). 사이보그·휴먼 등 사람은 빠르기와 상관없이 탈것이 아니다
+ */
+export function wireKindOf(kind: number, speed = 0): UnitWireKind | undefined {
+  if (kind === UNIT_KIND_NPC_LEADER) return "npc_leader";
+  return kind === UNIT_KIND_BOT && speed >= VEHICLE_MIN_SPEED ? "vehicle" : undefined;
 }

@@ -249,7 +249,7 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   cityLayoutStoreRoutePm: 750,
   cityLayoutLodgeRoutePm: 350,
   cityLayoutJitterCells: 2,
-  // 성벽 고리(질문 1048 가): 광장(3칸) 바로 밖 4칸 고리, 변마다 가운데 2칸 틈 넷(측정 docs/worklog/2026/11/12-0400-siege-layout.md)
+  // 성벽 고리(질문 1048 가): 광장(3칸) 바로 밖 4칸 고리, 변마다 가운데 2칸 틈 넷(측정 docs/worklog/2026/11/12-0930-siege-layout.md)
   cityWallMode: 1,
   cityWallRingCells: 4,
   cityWallGates: 4,

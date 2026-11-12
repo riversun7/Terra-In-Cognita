@@ -7,6 +7,7 @@
 // - 옛 배치: 옛 씨앗 배치(city_layout_mode 0, 행정 건물이 도시 칸 9칸 위)의 2차맵 구역(지형 + 건물)
 // - 전략: 전략 배치(모드 1)의 2차맵 구역(지형 + 건물) — 지금 서버
 // - 전략(평지): 전략 배치 건물만(지형 없음) — 건물 효과만 따로
+// - 전략+성벽 N: 전략 배치 + 성벽 고리(설정 칸 city_wall_* 출발값, 질문 1048 가), 성벽·성문 내구도 N(5천·2만·6만)
 // 잰다: 넥서스(행정 건물)에 처음 닿은 틱(공격 편 첫 건물 피해), 끝 틱, 이긴 편. 두 경우:
 // - 걷기: 수비 없음, 물리형 크리쳐 strength마리 — 길이 얼마나 길어졌나
 // - 웨이브: 수비 휴먼 defenders명 + 크리쳐 strength(물리형 physical) — 실제 웨이브 모양
@@ -222,9 +223,24 @@ function fight(layout: SiegeLayout | undefined, edge: Edge, seed: number, walk: 
   };
 }
 
-const KINDS = ["open", "old", "next", "flat"] as const;
+const KINDS = ["open", "old", "next", "flat", "wall5k", "wall20k", "wall60k"] as const;
 type Kind = (typeof KINDS)[number];
-const LABEL: Record<Kind, string> = { open: "열린", old: "옛 배치", next: "전략", flat: "전략(평지)" };
+const LABEL: Record<Kind, string> = {
+  open: "열린",
+  old: "옛 배치",
+  next: "전략",
+  flat: "전략(평지)",
+  wall5k: "전략+성벽 5천",
+  wall20k: "전략+성벽 2만",
+  wall60k: "전략+성벽 6만",
+};
+/** 성벽·성문 내구도만 바꾼 배치(성벽 고리 효과를 내구도마다) */
+const withWalls = (layout: SiegeLayout | undefined, durability: number): SiegeLayout | undefined =>
+  layout && {
+    ...layout,
+    buildings: layout.buildings.map((b) => (b.wall === true ? { ...b, durability } : b)),
+    gates: (layout.gates ?? []).map((gate) => ({ ...gate, durability })),
+  };
 const results = new Map<string, Fight[]>();
 const push = (key: string, value: Fight) => results.set(key, [...(results.get(key) ?? []), value]);
 const lines: string[] = [];
@@ -233,17 +249,21 @@ lines.push(
   `# 공성 전투맵 배치가 버는 시간 (s2_test_planet F${LEVEL}, 도시 ${picked.length}, 변 ${edges.join("·")}, 크리쳐 ${STRENGTH}(물리 ${PHYSICAL}) · 수비 ${DEFENDERS}, 기술 ${TECH})`,
 );
 lines.push("");
-lines.push("| 도시 | 변 | 경우 | 열린 닿음·끝(초) | 옛 배치 | 전략 | 전략(평지) |");
-lines.push("|---|---|---|---|---|---|---|");
+lines.push(`| 도시 | 변 | 경우 | ${KINDS.map((kind) => LABEL[kind]).join(" | ")} |`);
+lines.push(`|---|---|---|${KINDS.map(() => "---").join("|")}|`);
 for (const [cityIndex, city] of picked.entries()) {
   const base = nationSeedOf(START_WORLD_SEED, ...seedPartsOf(presetOfCode(city.nation, presets)));
-  const old = layoutsOf(city.mapKey, { ...base, cityLayoutMode: 0 });
-  const next = layoutsOf(city.mapKey, { ...base, cityLayoutMode: 1 });
+  const old = layoutsOf(city.mapKey, { ...base, cityLayoutMode: 0, cityWallMode: 0 });
+  const next = layoutsOf(city.mapKey, { ...base, cityLayoutMode: 1, cityWallMode: 0 });
+  const walled = layoutsOf(city.mapKey, { ...base, cityLayoutMode: 1, cityWallMode: 1 });
   const layouts: Record<Kind, SiegeLayout | undefined> = {
     open: undefined,
     old: old.withTerrain,
     next: next.withTerrain,
     flat: next.flat,
+    wall5k: withWalls(walled.withTerrain, 5000),
+    wall20k: withWalls(walled.withTerrain, 20_000),
+    wall60k: withWalls(walled.withTerrain, 60_000),
   };
   const cc = decodeCellKey(city.mapKey);
   for (const edge of edges)

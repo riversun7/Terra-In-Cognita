@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-12 09:30 | 공성 전투맵 = 도시 실제 2차맵 배치, 성벽 고리(질문 1046 가·1048 가) | Claude Code | [12-0930-siege-layout](worklog/2026/11/12-0930-siege-layout.md) |
 | 2026-11-12 05:20 | 옆 2차맵 미리 열기 합치기 | Claude Code | [12-0520-edge-preopen-merge](worklog/2026/11/12-0520-edge-preopen-merge.md) |
 | 2026-11-12 04:00 | 2026-11-12 셋째 묶음 합치기 (도시 간격·배후지·도시 건물 배치·가문 마을·3D 초상) | Claude Code | [12-0400-batch-1112-merge](worklog/2026/11/12-0400-batch-1112-merge.md) |
 | 2026-11-12 03:30 | 옆 2차맵 미리 띄우기·경계 너머 시야(edge-preopen) | Claude Code | [12-0330-edge-preopen](worklog/2026/11/12-0330-edge-preopen.md) |

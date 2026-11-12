@@ -386,7 +386,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       landOf: (mapKey) => (mapKey === 9 ? grass : undefined),
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 8, missing: 0 });
+    expect(result).toEqual({ placed: 9, missing: 0 });
     expect([...facilities.values()].map((record) => record.facilityId).toSorted()).toEqual([
       "farm",
       "government_hall",

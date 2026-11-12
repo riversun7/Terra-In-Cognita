@@ -133,11 +133,11 @@ export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promis
        select 1 from world_units u join world_owners o on o.id = u.owner_id
        where u.id = c.unit_id and u.kind = 3 and o.user_id = c.user_id)`,
   );
-  // 배후지 다툼 결과(질문 1061 나, npc/catchmentStore.ts): 도시마다 12칸, 0 이상(칸 재고는 표 검사 제약이 0~1,000,000을 본다)
+  // 배후지 다툼 결과(질문 1061 나, npc/catchmentStore.ts): 도시마다 19칸(광석 고도 몫과 합친 뒤), 0 이상(칸 재고는 표 검사 제약이 0~1,000,000을 본다)
   await count(
     "C1 malformed city catchment results",
     `select id from world_cities where catchment is not null
-     and (cardinality(catchment) <> 12 or exists (select 1 from unnest(catchment) as v where v is null or v < 0))`,
+     and (cardinality(catchment) <> 19 or exists (select 1 from unnest(catchment) as v where v is null or v < 0))`,
   );
   return problems;
 }

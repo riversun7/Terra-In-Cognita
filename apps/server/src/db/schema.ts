@@ -509,7 +509,7 @@ export const worldCities = pgTable(
     populationSeededAtMs: bigint("population_seeded_at_ms", { mode: "number" }),
     /** 지난 하루 끝(UTC 0시)의 생필품 충족 ‰(781 나 — 정부 판, npc/cityDayStore.ts). null = 아직 하루 끝 전 */
     necessitiesPm: smallint("necessities_pm"),
-    /** 지난 하루 끝 배후지 채집 다툼 결과(질문 1061 나, npc/catchmentStore.ts — 12칸: 반경·넓이·칸·겹친 칸·캐려는 양·합 몫·원자재 여섯 몫). null = 아직 */
+    /** 지난 하루 끝 배후지 채집 다툼 결과(질문 1061 나, npc/catchmentStore.ts — 19칸: 반경·넓이·칸·겹친 칸·캐려는 양·합 몫·원자재 여섯 몫·여섯 땅 몫·산지 몫). null = 아직 */
     catchment: integer("catchment").array(),
   },
   (table) => [

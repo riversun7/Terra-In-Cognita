@@ -1,5 +1,5 @@
 // 배후지 칸 재고 저장 DB 시험(질문 1061 나, catchmentStore.ts) — TEST_DATABASE_URL이 있을 때만. 값은 모두 시험용 가짜다.
-// 1. 하루 끝이 지나야 쓴다. 상한과 다른 칸만 쓰고 상한으로 돌아온 칸은 지운다. 도시 결과는 world_cities.catchment 12칸.
+// 1. 하루 끝이 지나야 쓴다. 상한과 다른 칸만 쓰고 상한으로 돌아온 칸은 지운다. 도시 결과는 world_cities.catchment 19칸.
 // 2. 읽어서 새 배후지 상태에 넣으면 같은 재고·결과(다시 켜도 고갈이 풀리지 않는다), 받은 몫이 도시 supplyPm에도 든다.
 import { TEST_SOCIETY_COEFFICIENTS, catchmentSettingsOf, createCatchmentState } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -58,6 +58,8 @@ describe.skipIf(!TEST_DATABASE_URL)("배후지 칸 재고 저장", () => {
       demand: 900,
       totalPm: 640,
       supplyPm: supply(640),
+      landPm: supply(500),
+      highOrePm: 100,
     };
     state.cities.set(1, result);
     state.cities.set(2, { ...result, totalPm: 1000 });
@@ -80,7 +82,7 @@ describe.skipIf(!TEST_DATABASE_URL)("배후지 칸 재고 저장", () => {
       test.db,
       "select id, catchment from world_cities order by id",
     );
-    expect(cityRows[0]?.catchment).toEqual([2070, 13_000, 3, 1, 900, 640, 640, 640, 640, 640, 640, 640]);
+    expect(cityRows[0]?.catchment).toEqual([2070, 13_000, 3, 1, 900, 640, 640, 640, 640, 640, 640, 640, 500, 500, 500, 500, 500, 500, 100]);
     expect(cityRows[1]?.catchment).toBeNull();
 
     // 다시 켬: 읽어 넣으면 같은 재고, 받은 몫이 도시에 든다

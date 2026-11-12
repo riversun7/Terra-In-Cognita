@@ -331,7 +331,7 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
     }
   }
   // 성벽 고리(질문 1048 가, cityWalls.ts): 행정 건물이 선 뒤, 그 도시에 성벽이 하나도 없을 때만
-  for (const city of starts) {
+  for (const city of targets.filter((target) => target.start)) {
     const map = maps.get(city.mapKey);
     const ownerId = input.ownerOfFaction(city.factionId);
     const hall =

@@ -2,7 +2,7 @@
 // 저장"). 칸 재고가 서버 메모리에만 있으면 다시 켤 때·배포 때마다 고갈이 풀려 운영자가 본 숫자와 달라진다.
 // - 칸 재고(catchment_cell_stock): 칸 × 원자재 여섯. 상한(= 처음 보는 칸에 채우는 값)과 다른 칸만 둔다. 하루 끝(stepCatchment) 뒤 처음 저장에서
 //   지난 저장과 달라진 칸만 쓰기 대기열에 넣고, 상한으로 돌아온 칸은 지운다. 재고는 하루에 한 번만 바뀌므로 쓰기는 하루 끝 한 번 몰린다.
-// - 도시 결과(world_cities.catchment, 12칸): 지난 하루 끝 반경·넓이·칸·겹친 칸·캐려는 양·합 몫·원자재 여섯 몫. 다시 켠 뒤 첫 하루 끝 전에도
+// - 도시 결과(world_cities.catchment, 19칸): 지난 하루 끝 반경·넓이·칸·겹친 칸·캐려는 양·합 몫·원자재 여섯 몫·여섯 땅 몫·산지 몫. 다시 켠 뒤 첫 하루 끝 전에도
 //   채집 빠르기(facilitySupplyPm)와 성장 멈춤(SimCity.supplyPm)이 끄기 전 값 그대로다. 도시 행에 두어 도시가 폐허가 되면 함께 지워진다.
 // - 켤 때(startServerEconomy, 시설을 놓기 전): 저장한 재고·결과를 배후지 상태에 넣는다(restoreCatchment).
 import { CATCHMENT_MATERIALS, type CatchmentMaterial, cellStockCap } from "@terra/shared/catchment";
@@ -29,9 +29,10 @@ export interface CatchmentSaved {
 }
 
 /** 도시 결과 칸 수(world_cities.catchment) */
-export const CITY_CATCHMENT_FIELDS = 6 + CATCHMENT_MATERIALS.length;
+// 바뀜(2026-11-12, 광석 고도 몫과 합침): 원자재 여섯 땅 몫(landPm)과 산지 몫(highOrePm)을 뒤에 더해 19칸. 옛 12칸 줄은 모양이 달라 다음 하루 끝에 다시 센다
+export const CITY_CATCHMENT_FIELDS = 7 + 2 * CATCHMENT_MATERIALS.length;
 
-/** 도시 결과 → 저장 칸(12) */
+/** 도시 결과 → 저장 칸(19) */
 export function cityCatchmentRow(city: CityCatchment): number[] {
   return [
     city.radiusMilli,
@@ -41,6 +42,8 @@ export function cityCatchmentRow(city: CityCatchment): number[] {
     city.demand,
     city.totalPm,
     ...CATCHMENT_MATERIALS.map((material) => city.supplyPm[material]),
+    ...CATCHMENT_MATERIALS.map((material) => city.landPm[material]),
+    city.highOrePm,
   ].map((value) => Math.max(0, Math.trunc(value)));
 }
 
@@ -58,6 +61,10 @@ export function cityCatchmentOf(values: readonly number[]): CityCatchment | unde
     livestock: at(10),
     fish: at(11),
   };
+  const n = CATCHMENT_MATERIALS.length;
+  const landPm = Object.fromEntries(
+    CATCHMENT_MATERIALS.map((material, index) => [material, at(6 + n + index)]),
+  ) as Record<CatchmentMaterial, number>;
   return {
     radiusMilli: at(0),
     areaMilli: at(1),
@@ -66,6 +73,8 @@ export function cityCatchmentOf(values: readonly number[]): CityCatchment | unde
     demand: at(4),
     totalPm: at(5),
     supplyPm,
+    landPm,
+    highOrePm: at(6 + 2 * n),
   };
 }
 
@@ -121,7 +130,7 @@ export function createCatchmentStore(o: {
   readonly hasCity: (cityId: number) => boolean;
 }): CatchmentStore {
   const { state } = o;
-  // 저장한 모습(칸 → 여섯 재고를 이은 글, 도시 → 12칸을 이은 글)
+  // 저장한 모습(칸 → 여섯 재고를 이은 글, 도시 → 19칸을 이은 글)
   const savedStock = new Map<number, string>();
   for (const row of o.saved.stock) savedStock.set(row.cellKey, row.stock.join(","));
   const savedCities = new Map<number, string>();

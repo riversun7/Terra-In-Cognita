@@ -79,10 +79,12 @@
 - 지금 NAS 세계는 이 줄기를 들인 첫 부팅에서 NPC 씨앗이 모자란 광산을 더한다(질문 1082, Assumed: `seedNpcFacilities`의 멱등 규칙을 읽음 — 실행하지 않음).
 - 시작 도시 배후지에 산지 칸이 없어 NPC 철은 0(질문 1079).
 - 낮은 땅 2차맵에는 플레이어가 캘 바위·광맥이 없다(질문 1083).
-- 검사 결과는 아래 "검사"에 적는다.
 
-## 검사
-- (작업 끝에 채운다)
+## 검사 (Verified: 실행)
+- `pnpm check`(TEST_DATABASE_URL 있음): 시험 파일 632 · 시험 4,880 통과. 처음 돌렸을 때 `nationTiers.db.test.ts` 하나가 실패(등급 시작 시설 광산이 이제 낮은 땅에도 선다) → 기대값을 고쳐 다시 통과.
+- `pnpm build` 통과, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 108,909B / 상한 131,416B.
+- `pnpm e2e e2e/world-layout.spec.ts`: 9 통과(57.8초). 덮개 화면 사진 `world-layout-catchment-neon-ko-1440.png`·`world-layout-catchment-light-ko-390.png`(저장소 밖 사진 폴더) — 광석 몫 규칙 줄과 표의 광석 몫‰·산지 몫‰ 칸을 눈으로 확인.
+- `pnpm check:docs origin/main` 통과.
 
 ## 사용자 결정 대기
 - 질문 1076~1083(`docs/questions/2026-11-12-ore-share.md`).

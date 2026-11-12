@@ -12,7 +12,12 @@ import {
   effectShare,
   elementFamilies,
   elementLabel,
+  expectedTierMilli,
+  mapCrossMinutes,
   termMilliSum,
+  tierSpan,
+  tierSpanText,
+  walkCellsMilli,
 } from "./cyborgText.ts";
 
 const hp: RosterStatBreakdown = {
@@ -176,5 +181,25 @@ describe("버프 몫(질문 354 → D-515: 기본값과 버프를 나눠 보인�
     expect(buffTone(-5)).toBe("down");
     expect(buffTone(-100, true)).toBe("up");
     expect(buffTone(100, true)).toBe("down");
+  });
+});
+
+describe("이동 속도·원자재별 채집 줄(2026-11-12)", () => {
+  it("걷기 437 단위/초 = 0.426칸/초, 2차맵 한 장(256칸) 10분", () => {
+    const move = { walk: 437, cellUnits: 1024, mapCells: 256 };
+    expect(walkCellsMilli(move)).toBe(426);
+    expect(mapCrossMinutes(move)).toBe(10);
+    expect(mapCrossMinutes({ ...move, walk: 0 })).toBe(0);
+  });
+
+  it("티어 폭·기대 티어: 확률이 있는 칸만, 한 칸이면 그 티어", () => {
+    const roll = [700, 150, 100, 50, 0, 0, 0, 0, 0, 0];
+    expect(tierSpan(roll)).toEqual({ low: 0, high: 3 });
+    expect(tierSpanText(roll)).toBe("T0–T3");
+    expect(expectedTierMilli(roll)).toBe(150 + 200 + 150);
+    const select = [0, 0, 1000, 0, 0, 0, 0, 0, 0, 0];
+    expect(tierSpanText(select)).toBe("T2");
+    expect(tierSpanText(Array.from({ length: 10 }, () => 0))).toBe("—");
+    expect(tierSpan([0, 0, 0, 0, 0, 0, 0, 0, 0, 2])).toEqual({ low: 9, high: 9 });
   });
 });

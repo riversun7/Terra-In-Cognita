@@ -305,7 +305,7 @@
   background: none;
 }
 .planet-legend-mark[data-mark="start"] {
-  border-radius: var(--radius-sm);
+  border-radius: calc(var(--hairline) * 3);
 }
 .planet-legend-note {
   color: var(--color-text-muted);

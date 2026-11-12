@@ -342,6 +342,8 @@ describe("world.unitLooks (docs/adr/2026-11-11-character-3d.md 5절)", () => {
       status: "ready",
       mapKey: MAP_KEY,
       units: [{ unitId: 9, kind: "cyborg_body", look: DEFAULT_CHARACTER_LOOK }],
+      // 이름표: 이름 없는 크기 1 유닛은 싣지 않는다(이 조립은 사이보그 이름 출처가 없다)
+      labels: [],
       generatedAt: NOW,
     });
     hidden.map.stop();
@@ -362,6 +364,7 @@ describe("world.unitLooks (docs/adr/2026-11-11-character-3d.md 5절)", () => {
       mapKey: 12_345,
       units: [],
       nations: [],
+      labels: [],
       generatedAt: NOW,
     });
     map.stop();
@@ -388,5 +391,41 @@ describe("world.unitLooks (docs/adr/2026-11-11-character-3d.md 5절)", () => {
     const plain = looksSetup(() => true);
     expect((await plain.reads.unitLooks(PLAYER, MAP_KEY, NOW)).nations).toBeUndefined();
     plain.map.stop();
+  });
+
+  it("이름표·몸꼴(2026-11-12): 보는 유닛 가운데 이름이 있거나 크기 2 이상인 것 — 본체 = 사이보그 이름, NPC 도시 휴먼 = 휴먼 이름", async () => {
+    const test = createTestMap({ mapKey: MAP_KEY });
+    const { map } = test;
+    map.addUnit({ id: 9, size: 1, speed: 437, cellX: 10, cellY: 11, ownerId: 5, kind: UNIT_KIND_CYBORG });
+    map.addUnit({ id: 61, size: 1, speed: 437, cellX: 54, cellY: 50, ownerId: 6, kind: UNIT_KIND_BOT });
+    map.addUnit({ id: 62, size: 1, speed: 437, cellX: 58, cellY: 50, ownerId: 6, kind: UNIT_KIND_BOT });
+    map.addUnit({ id: 63, size: 2, speed: 437, cellX: 80, cellY: 80, ownerId: 6, kind: UNIT_KIND_BOT });
+    map.addUnit({ id: 64, size: 2, speed: 437, cellX: 90, cellY: 90, ownerId: 6, kind: UNIT_KIND_BOT });
+    const reads = createMapUnitReads({
+      map: (key) => (key === MAP_KEY ? map : undefined),
+      ownerOfUser: (userId) => (userId === PLAYER.id ? 5 : undefined),
+      cyborgName: () => undefined,
+      cyborgNameOfUnit: (unitId) => (unitId === 9 ? "Nova" : undefined),
+      sees: (_mapKey, _viewer, unitId) => unitId !== 64,
+      observer: (viewer) => viewer.roles.includes("dev"),
+      npcHuman: (unitId) =>
+        unitId === 61 ? { name: "Hilde Thatch" } : unitId === 63 ? { name: undefined } : undefined,
+    });
+    expect((await reads.unitLooks(PLAYER, MAP_KEY, NOW)).labels).toEqual([
+      { unitId: 9, kind: "cyborg_body", name: { ko: "Nova", en: "Nova" } },
+      { unitId: 61, kind: "human", name: { ko: "Hilde Thatch", en: "Hilde Thatch" } },
+      // 크기 2 휴먼(이름 없음)은 사람이라 큰 사람 모델 — 종류를 싣는다. 이름 없는 크기 1 시험 봇(62)은 빠진다. 시야 밖(64)도 빠진다
+      { unitId: 63, kind: "human", name: null },
+    ]);
+    // 전체 보기면 시야 밖 크기 2 시험 봇도(종류 test_unit — 기기가 큰 임시 모델을 고른다)
+    expect(
+      (await reads.unitLooks(DEV, MAP_KEY, NOW)).labels?.map((label) => [label.unitId, label.kind]),
+    ).toEqual([
+      [9, "cyborg_body"],
+      [61, "human"],
+      [63, "human"],
+      [64, "test_unit"],
+    ]);
+    map.stop();
   });
 });

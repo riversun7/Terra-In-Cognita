@@ -145,6 +145,21 @@ export interface MapUnitNation {
   readonly unitIds: readonly number[];
 }
 
+/**
+ * 2차맵 유닛 이름표·몸꼴 자료(docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 유닛 겉모습)", 사용자 요청 2026-11-12 "유닛 이름이 표시되게 하자").
+ * 내가 보는 유닛(외형과 같은 보는 규칙) 가운데 이름이 있거나 크기 등급이 2 이상인 것(사람인지에 따라 큰 모델을 고른다). 꾸밈 자료다(판정에 쓰지 않는다)
+ */
+export interface MapUnitLabel {
+  readonly unitId: number;
+  /** 한눈 정보와 같은 종류(NPC 도시 휴먼은 human) */
+  readonly kind: MapUnitKind;
+  /**
+   * 이름: 사이보그 본체 = 사이보그 이름, NPC 도시 휴먼 = 휴먼 이름(번역 안 함 — 두 언어 같은 글자). NPC 지도자는 null(지도자 이름표가 따로
+   * 이름을 받는다). 없으면 null
+   */
+  readonly name: LocalizedName | null;
+}
+
 export interface MapUnitLooksResponse {
   readonly status: "ready" | "not_ready";
   readonly mapKey: number;
@@ -155,5 +170,7 @@ export interface MapUnitLooksResponse {
    * (고리 없음). 옛 서버면 없음
    */
   readonly nations?: readonly MapUnitNation[];
+  /** 이름표·몸꼴 자료(유닛 ID 차례). 옛 서버면 없음 */
+  readonly labels?: readonly MapUnitLabel[];
   readonly generatedAt: number;
 }

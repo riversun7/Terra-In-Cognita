@@ -92,6 +92,7 @@ import { createGatherState } from "./gather/gatherState.ts";
 import { GovernmentSheet } from "../government/GovernmentSheet.tsx";
 import { LeaderSheet } from "../government/LeaderSheet.tsx";
 import "./map.css";
+import "./unitNames.css";
 
 /** 명령 안내를 지우기까지(ms) */
 const COMMAND_NOTICE_MS = 6_000;
@@ -234,6 +235,13 @@ function SecondMapView({
   const [gather] = useState(createGatherState);
   // NPC 국가 지도자 이름표(덧그림)와 지도자 판이 같이 보는 상태("WP-NPC3")
   const [leaderTags] = useState(createLeaderTagState);
+  // 내 사이보그 유닛(유닛 이름표가 늘 보인다 — unitNames.ts). 모음은 부를 때 읽는다
+  const ownUnitRef = useRef<number | null>(null);
+  const ownUnitId = cyborg?.unitId ?? null;
+  useEffect(() => {
+    ownUnitRef.current = ownUnitId;
+    engineRef.current?.requestFrame();
+  }, [ownUnitId, engineRef]);
   // 아래 판 자리 하나: 건물·오브젝트 판 > 내 유닛 목록([내 유닛 N], 문제2) > 근처 판(문제4)
   // 남의 유닛 정보 판(peek)도 이 자리 — 땅을 누르면 닫는다(엔진 콜백은 늘 같은 closePeek를 쓴다)
   const { sheet, peek, openUnits, closeUnits, openNearby, openPeek, closePeek } = useBottomSheet(
@@ -429,6 +437,7 @@ function SecondMapView({
         serverNow,
         handover,
         anchor: () => anchorRef.current,
+        ownUnit: () => ownUnitRef.current,
         onArrived: (next) => crossRef.current(next),
         onNeighbourReady: () => {
           const pending = pendingCrossRef.current;

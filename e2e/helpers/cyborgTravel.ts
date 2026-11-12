@@ -37,8 +37,8 @@ export async function fastTravel(side: Page, from: number, unitId: number, to: P
   return field(replies[1], "ok") === true;
 }
 
-/** 배치 칸 1칸 = 고정소수점 1,000(@terra/sim CELL_UNITS) — 칸 가운데로 보낸다 */
-const CELL_UNITS = 1000;
+/** 배치 칸 1칸 = 고정소수점 1,024(@terra/sim CELL_UNITS) — 칸 가운데로 보낸다 */
+const CELL_UNITS = 1024;
 
 /** 운영자 빠르기로 같은 2차맵 안 칸으로 보낸다(move_unit). 요청 ID를 바꿔 줘야 같은 명령을 다시 보낼 수 있다. 결과가 ok면 true */
 export async function fastMove(side: Page, unitId: number, to: Place, firstId: number): Promise<boolean> {

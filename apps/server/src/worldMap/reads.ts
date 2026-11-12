@@ -544,6 +544,12 @@ export function worldMapReadsOf(options: {
       const record = userId === undefined ? undefined : cyborgs?.record(userId);
       return record ? cyborgLookOf(record) : undefined;
     },
+    // 이름표(2026-11-12): 사이보그 본체 유닛 → 사이보그 이름
+    cyborgNameOfUnit: (unitId) => {
+      const cyborgs = world.persistence?.cyborgs;
+      const userId = cyborgs?.userOfUnit(unitId);
+      return userId === undefined ? undefined : cyborgs?.record(userId)?.name;
+    },
     // 나라 색 고리(질문 963 나): 건물 깃발과 같은 주인 → 나라(NPC 주체는 메모리, 플레이어는 가입한 국가를 DB에서 한 번에)
     ownerNations: async (ownerIds) => {
       const owners = world.persistence?.owners;

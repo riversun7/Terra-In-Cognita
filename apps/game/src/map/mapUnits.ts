@@ -71,7 +71,7 @@ export function sortMapUnits(units: readonly MapUnit[], locale: Locale = getLoca
 }
 
 /** 종류 이름(남의 사이보그 본체는 "사이보그 본체") */
-function kindLabel(kind: MapUnitKind): string {
+export function kindLabel(kind: MapUnitKind): string {
   if (kind === "cyborg_body") return m.map_unit_kind_cyborg_body();
   // NPC 국가 지도자 사이보그(docs/adr/2026-11-07-play-flow.md "WP-NPC")
   if (kind === "npc_leader") return m.map_unit_kind_npc_leader();

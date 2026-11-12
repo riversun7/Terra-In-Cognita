@@ -1,0 +1,42 @@
+/*
+ * 2차맵 유닛 이름표(unitNames.ts) — docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 유닛 겉모습)". 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 손가락·마우스를 받지 않는다(pointer-events: none, docs/adr/2026-11-08-map-input.md). 지도자 이름표(leaderTags.css)보다 작고 옅게 —
+ * 지도자 표시(왕관·금빛 테두리)와 헷갈리지 않게. 내 사이보그는 주색 테두리, 고른 유닛은 포커스 색 테두리(색만이 아니라 굵기도 다르다).
+ */
+.unit-name-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+}
+.unit-name {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: calc(var(--tap-size) * 4);
+  overflow: hidden;
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.unit-name[hidden] {
+  display: none;
+}
+.unit-name[data-role="own"] {
+  border-color: var(--color-primary);
+  font-weight: var(--font-weight-strong);
+}
+.unit-name[data-role="selected"] {
+  border-width: var(--focus-w);
+  border-color: var(--color-focus);
+  font-weight: var(--font-weight-strong);
+}

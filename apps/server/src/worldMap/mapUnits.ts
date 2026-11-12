@@ -13,6 +13,8 @@
 // - 기획 답 920 라: 경비대 휴먼(거울 세계 SimUnit.guard)은 한눈 정보에 guard 표시(기기가 "경비대"로 적는다).
 // - 질문 963 나: 외형 조회(unitLooks)에 내가 보는 유닛(종류와 상관없이)의 나라를 싣는다 — 2차맵 발밑 나라 색 고리. 새 조회를 두지 않고 외형과
 //   같은 묻는 때(유닛 목록이 바뀌면·60초마다)·같은 보는 규칙을 쓴다.
+// - 2026-11-12(사용자 요청 "유닛 이름이 표시되게 하자", "큰 유닛들은 캐릭터가 없는 문제"): 같은 답에 이름표·몸꼴 자료(labels — 종류·이름)를 싣는다.
+//   이름이 있거나 크기 등급 2 이상인 유닛만(전체 보기에서 이름 없는 시험 봇 수천 줄을 싣지 않게). DB를 읽지 않는다.
 // 세계 규칙·표는 바꾸지 않는다.
 import { type CharacterLook, characterLookForUnit } from "@terra/shared/characterLook";
 import type {
@@ -20,6 +22,7 @@ import type {
   MapUnitGlance,
   MapUnitGlanceResponse,
   MapUnitKind,
+  MapUnitLabel,
   MapUnitLook,
   MapUnitLooksResponse,
   MapUnitNation,
@@ -80,6 +83,8 @@ export interface MapUnitSource {
    * 없으면 undefined(그 유닛은 답에 싣지 않는다 — 기기가 기본 외형으로 그린다)
    */
   cyborgLook?: ((unitId: number) => CharacterLook | undefined) | undefined;
+  /** 사이보그 본체 유닛 → 사이보그 이름(이름표, 2026-11-12). 본체가 아니거나 모르면 undefined */
+  cyborgNameOfUnit?: ((unitId: number) => string | undefined) | undefined;
   /**
    * 소유 주체들 → 나라(세력 행 ID, 없으면 null) 한 번에(질문 963 나 — 건물 깃발과 같은 값, facilities/targets.ts ownerFactionsOf). 없으면 나라 색
    * 고리를 싣지 않는다
@@ -120,6 +125,22 @@ function statsOf(primaries: Primaries | undefined): Pick<MapUnit, "stats"> {
 const clampCell = (value: number): number => Math.max(0, Math.min(PLACEMENT_SIZE - 1, value));
 
 export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
+  /** 이름표·몸꼴 한 줄(이름이 없고 크기 등급 1이면 null — 기기가 기본으로 그린다) */
+  const labelOf = (unitId: number, kind: number, size: number): MapUnitLabel | null => {
+    let name: string | undefined;
+    let labelKind = kindOf(kind);
+    if (kind === UNIT_KIND_CYBORG) name = source.cyborgNameOfUnit?.(unitId);
+    else if (kind === UNIT_KIND_BOT) {
+      const human = source.npcHuman?.(unitId);
+      if (human) {
+        labelKind = "human";
+        name = human.name;
+      }
+    }
+    if (name === undefined && size < 2) return null;
+    return { unitId, kind: labelKind, name: name === undefined ? null : { ko: name, en: name } };
+  };
+
   const elsewhereCache = new Map<number, { readonly atMs: number; readonly mapKey: number; count: number }>();
 
   /** 이 2차맵 밖의 내 유닛 수(띄운 다른 2차맵 + 건너뛰는 중) */
@@ -195,11 +216,12 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
     async unitLooks(viewer, mapKey, nowMs) {
       const units: MapUnitLook[] = [];
       const map = source.map(mapKey);
-      if (!map) return { status: "ready", mapKey, units, nations: [], generatedAt: nowMs };
+      if (!map) return { status: "ready", mapKey, units, nations: [], labels: [], generatedAt: nowMs };
       const ownerId = source.ownerOfUser(viewer.id);
       const all = source.observer?.(viewer) ?? false;
       /** 보는 유닛의 주인(나라 색 고리 — 종류와 상관없이) */
       const owners = new Map<number, number[]>();
+      const labels: MapUnitLabel[] = [];
       map.forEachUnit((unit) => {
         // 한눈 정보와 같은 규칙: 내 유닛·전체 보기·지금 시야 안일 때만(시야 밖 유닛이 있는지 새지 않게)
         const visible = all || unit.ownerId === ownerId || (source.sees?.(mapKey, viewer, unit.id) ?? false);
@@ -207,6 +229,8 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
         const list = owners.get(unit.ownerId);
         if (list) list.push(unit.id);
         else owners.set(unit.ownerId, [unit.id]);
+        const label = labelOf(unit.id, unit.kind, unit.size);
+        if (label) labels.push(label);
         if (unit.kind === UNIT_KIND_NPC_LEADER) {
           units.push({ unitId: unit.id, kind: "npc_leader", look: characterLookForUnit(unit.id, "leader") });
           return;
@@ -216,7 +240,8 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
         if (look) units.push({ unitId: unit.id, kind: "cyborg_body", look });
       });
       units.sort((a, b) => a.unitId - b.unitId);
-      const response: MapUnitLooksResponse = { status: "ready", mapKey, units, generatedAt: nowMs };
+      labels.sort((a, b) => a.unitId - b.unitId);
+      const response: MapUnitLooksResponse = { status: "ready", mapKey, units, labels, generatedAt: nowMs };
       if (!source.ownerNations) return response;
       // 주인 → 나라(건물 깃발과 같은 값). 나라마다 유닛 ID를 모은다(유닛마다 나라를 싣는 것보다 짧다)
       const nationOf = await source.ownerNations([...owners.keys()]);

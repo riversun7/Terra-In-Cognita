@@ -163,9 +163,41 @@ describe("유닛", () => {
   });
 
   it("운영자 모드처럼 아주 빠른 움직임이어도 표시 종류가 없으면 걷는 유닛이다(노란 탈것 캡슐로 바뀌지 않는다)", () => {
-    const fast = toUnitSpawn({ ...walker, speed: 43_700 });
+    const fast = toUnitSpawn({ ...walker, path: [...walker.path], speed: 43_700 });
     expect(fast.look).toMatchObject({ form: "walker", heightM: 1.8, radiusM: 0.3 });
-    const leader = toUnitSpawn({ ...walker, speed: 43_700, kind: "npc_leader" });
+    const leader = toUnitSpawn({ ...walker, path: [...walker.path], speed: 43_700, kind: "npc_leader" });
     expect(leader.look.form).toBe("walker");
+  });
+});
+
+describe("건물", () => {
+  it("rotation ÷ 90, height → depth, 기준 칸은 그대로", () => {
+    const rotations = [0, 90, 180, 270] as const;
+    rotations.forEach((rotation, turns) => {
+      const footprint = toFootprint({ id: 3, x: 10, y: 20, width: 4, height: 2, rotation });
+      expect(footprint).toMatchObject({ id: 3, cellX: 10, cellY: 20, width: 4, depth: 2, rotation: turns });
+    });
+  });
+
+  it("[임시] 높이는 ID로 정한 4~14m", () => {
+    for (let id = 1; id < 40; id++) {
+      const { heightM } = toFootprint({ id, x: 0, y: 0, width: 1, height: 1, rotation: 0 });
+      expect(heightM).toBeGreaterThanOrEqual(4);
+      expect(heightM).toBeLessThanOrEqual(14);
+    }
+  });
+});
+
+describe("이동 목표", () => {
+  it("누른 칸의 가운데(칸 × 1024 + 512)", () => {
+    expect(targetUnits(0)).toBe(512);
+    expect(targetUnits(10.99)).toBe(10 * 1024 + 512);
+    expect(targetUnits(255.5)).toBe(255 * 1024 + 512);
+  });
+
+  it("2차맵 밖은 가장자리 칸으로", () => {
+    expect(targetUnits(-3)).toBe(512);
+    expect(targetUnits(300)).toBe(255 * 1024 + 512);
+    expect(targetUnits(Number.NaN)).toBe(512);
   });
 });

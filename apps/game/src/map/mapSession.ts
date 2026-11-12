@@ -41,6 +41,7 @@ import {
 import { crossedNeighbour } from "./neighbourTap.ts";
 import { type CarriedUnit, createUnitMerger } from "./unitMerge.ts";
 import { startUnitModels, wantsUnitModels } from "./unitModels.ts";
+import { attachUnitNames } from "./unitNames.ts";
 import { directionThroughPlacement, pathEnd, pointThroughPlacement } from "./unitBlend.ts";
 import { type NeighbourLoader, createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
 import {
@@ -91,6 +92,8 @@ export interface MapSessionOptions {
   readonly handover: MapHandover | null;
   /** 카메라가 따라가는 기준 유닛 */
   readonly anchor: () => number | null;
+  /** 내 사이보그 유닛(이름표가 늘 보인다 — unitNames.ts). 없으면 null */
+  readonly ownUnit?: () => number | null;
   /** 기준 유닛이 이웃 2차맵으로 넘어갔다 */
   readonly onArrived: (mapKey: number) => void;
   /** 받아 둔 이웃 지형이 엔진에 섰다(지형을 기다리던 넘기를 다시 해 본다) */
@@ -355,8 +358,18 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     serverNow: options.serverNow,
     nearby,
   });
-  // 유닛 3D 외형(unitModels.ts): 걷는 유닛에 외형을 붙여 엔진이 가까운 유닛을 모델로 그리게 한다(엔진 바로 앞)
-  const unitModels = startUnitModels(engine, mapKey, { enabled: wantsUnitModels(window.location.search) });
+  // 유닛 3D 외형(unitModels.ts): 유닛에 외형·몸을 붙여 엔진이 가까운 유닛을 모델로 그리게 한다(엔진 바로 앞). 붙은 옆 2차맵 유닛도 같이 묻는다
+  const unitModels = startUnitModels(engine, mapKey, {
+    enabled: wantsUnitModels(window.location.search),
+    neighbours: () => [...attached.keys()],
+    onLabels: () => engine.requestFrame(),
+  });
+  // 유닛 이름표(unitNames.ts): 내 사이보그·고른 유닛은 늘, 다른 유닛은 가까이 볼 때만. 지도자는 지도자 이름표가 그린다
+  const detachNames = attachUnitNames(engine, host, {
+    labels: unitModels.labels,
+    own: () => options.ownUnit?.() ?? null,
+    isLeader: (unitId) => options.leaderTags.isLeader(unitId),
+  });
   const modelSink = unitModels.sink;
   // 건물: 지금 2차맵 건물(겉모습을 붙인 것) + 옆 2차맵 건물을 함께 엔진에. 유닛은 외형을 붙이는 쪽을 거쳐 엔진에
   const engineSink: FeedSink = {
@@ -492,6 +505,7 @@ export function startMapSession(options: MapSessionOptions): MapSession {
       attached.clear();
       detachGather();
       detachLeaders();
+      detachNames();
       looks.stop();
       unitModels.stop();
     },

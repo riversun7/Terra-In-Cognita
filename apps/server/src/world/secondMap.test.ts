@@ -43,7 +43,14 @@ import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { createInlinePathService } from "./pathService.ts";
 import { createSecondMap, remainingPathBlocked } from "./secondMap.ts";
 import { createTestMap, flatTerrain, heldPathService, silentLog } from "./testSupport.ts";
-import { UNIT_KIND_HUMAN, UNIT_KIND_NPC_LEADER } from "./unitKinds.ts";
+import {
+  UNIT_KIND_BOT,
+  UNIT_KIND_CYBORG,
+  UNIT_KIND_HUMAN,
+  UNIT_KIND_NPC_LEADER,
+  VEHICLE_MIN_SPEED,
+  wireKindOf,
+} from "./unitKinds.ts";
 import { emptyWorldStats } from "./worldStats.ts";
 import { TEST_MAP_KEY } from "./world.ts";
 
@@ -285,6 +292,41 @@ describe("관리자 이동 명령", () => {
     expect(info?.speed).toBe(WALK_SPEED);
     expect(info && arrivalAt(info.motion)).toBe(START + Math.ceil((20 * 1024 * 1000) / (WALK_SPEED * 10)));
     map.stop();
+  });
+
+  it("탈것 표시 종류(2026-11-12): 기본 빠르기가 차 빠르기인 봇만 vehicle. 운영자 빠르기(100배)로 옮긴 사이보그는 붙지 않는다", async () => {
+    const { map } = createTestMap();
+    const sent: string[] = [];
+    expect(
+      map.addUnit({ id: 1, size: 1, speed: WALK_SPEED, cellX: 10, cellY: 10, kind: UNIT_KIND_CYBORG }),
+    ).toBe(true);
+    expect(map.spawnBotNear(7, 3, { x: 60, y: 60 }, 6)).toBe(true);
+    map.stream.subscribe({ send: (text) => sent.push(text), bufferedAmount: () => 0 });
+    const snapshot = sent.map(decodeServerMessage).find((message) => message.t === "map_snapshot");
+    if (snapshot?.t !== "map_snapshot") throw new Error("no snapshot");
+    const bot = snapshot.units.find((unit) => unit.id === 7);
+    const botSpeed = map.unitInfo(7)?.speed ?? 0;
+    expect(bot?.kind).toBe(botSpeed >= VEHICLE_MIN_SPEED ? "vehicle" : undefined);
+    expect(snapshot.units.find((unit) => unit.id === 1)).not.toHaveProperty("kind");
+    sent.length = 0;
+    const result = map.moveUnit(1, center(30, 10), { speedFactor: 100 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await result).toEqual({ ok: true });
+    map.stream.flush();
+    const paths = sent.map(decodeServerMessage).find((message) => message.t === "unit_paths");
+    if (paths?.t !== "unit_paths") throw new Error("no unit_paths");
+    const moved = paths.units.find((unit) => unit.id === 1);
+    expect(moved?.speed).toBe(WALK_SPEED * 100);
+    expect(moved).not.toHaveProperty("kind");
+    map.stop();
+  });
+
+  it("탈것 표시 종류: 봇 종류와 기본 빠르기로만 정한다", () => {
+    expect(wireKindOf(UNIT_KIND_BOT, CAR_SPEED)).toBe("vehicle");
+    expect(wireKindOf(UNIT_KIND_BOT, WALK_SPEED)).toBeUndefined();
+    expect(wireKindOf(UNIT_KIND_CYBORG, WALK_SPEED * 100)).toBeUndefined();
+    expect(wireKindOf(UNIT_KIND_HUMAN, CAR_SPEED)).toBeUndefined();
+    expect(wireKindOf(UNIT_KIND_NPC_LEADER, CAR_SPEED)).toBe("npc_leader");
   });
 
   it("없는 유닛 unknown_unit, 막힌 목표 goal_blocked", async () => {

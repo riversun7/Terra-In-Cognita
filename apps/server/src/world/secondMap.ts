@@ -25,6 +25,8 @@ import {
   type Motion,
   type Point,
   type SizeClass,
+  WALK_SPEED,
+  anchorAt,
   anchorCenter,
   applyPlacement,
   footprintRect,
@@ -42,8 +44,10 @@ import type { WaterMask } from "@terra/shared/waterNearby";
 import {
   type BotHome,
   arrivalIdleMs,
+  HUMAN_SIZE,
   botPlan,
   botRng,
+  humanPlan,
   pickDestination,
   pickSpawn,
   retryMs,
@@ -64,6 +68,7 @@ import { type ExploredStore, type MapVision, createMapVision } from "./vision.ts
 import { waterMaskOfTerrain } from "./waterMask.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
 import { type WorldStats, recordPathOutcome } from "./worldStats.ts";
+import { type BuildingRow, type MapPersist, NO_JOB, type UnitJob, type UnitRow } from "./secondMapRows.ts";
 
 /** 봇 경로의 탐색 예산(칸). 넘으면 budget_exceeded → 다른 목적지 */
 export const BOT_NODE_BUDGET = 32_768;
@@ -74,56 +79,8 @@ export const MAX_BUILDINGS = 1_024;
 
 export type CommandResult = { ok: true; buildingId?: number } | { ok: false; code: ResultCode };
 
-/** 정산 직무 상태(packages/sim settle가 읽고 바꾼다). 직무가 없으면 job 0 */
-export interface UnitJob {
-  job: number;
-  phase: number;
-  progressMs: number;
-  fatigue: number;
-}
-
-export const NO_JOB: UnitJob = { job: 0, phase: 0, progressMs: 0, fatigue: 0 };
-
-/** 저장하는 유닛 한 줄(world_units) */
-export interface UnitRow {
-  id: number;
-  ownerId: number;
-  kind: number;
-  size: SizeClass;
-  speed: number;
-  mapKey: number;
-  /** 행성 ID(콘텐츠 팩). 셀 키는 행성 안에서만 하나다(ADR 2026-10-29-cell-key-layout) */
-  planetId: string;
-  /** 영역(D-372): 우주·하늘·육지·해상. 지금은 모두 육지 */
-  domain: WorldDomain;
-  /** 꺾이는 점 [x0, y0, …] */
-  path: number[];
-  departAtMs: number;
-  wakeAtMs: number | null;
-  aiStep: number;
-  job: UnitJob;
-  /** 부상·포로(전투 결과, unitCondition.ts) */
-  condition: UnitCondition;
-}
-
-/** 저장하는 건물 한 줄(world_buildings) */
-export interface BuildingRow {
-  id: number;
-  mapKey: number;
-  planetId: string;
-  domain: WorldDomain;
-  ownerId: number | null;
-  placement: BuildingPlacement;
-}
-
-/** 저장 고리(월드 쓰기 대기열). 없으면 메모리에만 둔다(DB 없는 서버·시험) */
-export interface MapPersist {
-  saveUnit(row: UnitRow): void;
-  saveBuilding(row: BuildingRow): void;
-  removeBuilding(buildingId: number): void;
-  /** 유닛 행을 지운다(NPC 휴먼 사망, docs/adr/2026-11-01-npc-brain-r5.md 7절). 없으면 저장하지 않는 2차맵 */
-  removeUnit?(unitId: number): void;
-}
+// 저장 행·직무 모양은 secondMapRows.ts(이 파일 1,000줄 상한)
+export { type BuildingRow, type MapPersist, NO_JOB, type UnitJob, type UnitRow } from "./secondMapRows.ts";
 
 /** 유닛 읽기 모양(정산·불변 조건 검사) */
 export interface UnitView {
@@ -144,8 +101,9 @@ interface UnitState {
   /** 사이보그 융합이 휴먼(4) → 사이보그 유닛(5)으로 바꾼다(setKind) */
   kind: number;
   readonly domain: WorldDomain;
-  readonly size: SizeClass;
-  readonly speed: number;
+  /** NPC 휴먼이 되면 크기 1·걷기로 바뀐다(setHumanBody, D-534 — 1106 가) */
+  size: SizeClass;
+  speed: number;
   motion: Motion;
   entry: SizedEntry<UnitMotionWire>;
   /** 지금 가려는 곳(건물 때문에 다시 찾을 때 쓴다) */
@@ -256,6 +214,8 @@ export interface SecondMap {
   ): boolean;
   /** 봇의 집(도시 시청 칸)·일터(null = 없음 — 지금 자리 둘레를 걷는다)를 정한다. 봇이 아니거나 없으면 false */
   setHome(unitId: number, home: BotHome | null): boolean;
+  /** 봇을 NPC 휴먼 몸(크기 1·걷기, D-534 — 1106 가)으로 바꾼다: 하던 이동을 지금 자리에서 멈추고 다시 깬다. 바꿨으면 true */
+  setHumanBody(unitId: number): boolean;
   /** 유닛 주인을 바꾸고 저장한다(도시 주인이 바뀜). 없으면 false */
   setOwner(unitId: number, ownerId: number): boolean;
   /** 유닛 종류 코드를 바꾸고 저장한다(사이보그 융합 D-470: 휴먼 → 사이보그 유닛, 봇 ↔ 봇 아닌 것은 바꾸지 않는다). 없으면 false */
@@ -761,7 +721,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     spawnBotNear(id, ownerId, near, radiusCells) {
       if (units.has(id) || !Number.isInteger(id) || id < 1) return false;
-      const plan = botPlan(terrain.seed, id);
+      const plan = humanPlan(terrain.seed, id);
       const span = radiusCells * 2 + 1;
       let at: Point | undefined;
       for (let attempt = 0; attempt < 64 && !at; attempt++) {
@@ -790,6 +750,21 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       const unit = units.get(unitId);
       if (!unit?.bot) return false;
       unit.home = home ?? undefined;
+      return true;
+    },
+    setHumanBody(unitId) {
+      const unit = units.get(unitId);
+      if (!unit?.bot || (unit.size === HUMAN_SIZE && unit.speed === WALK_SPEED)) return false;
+      const at = now();
+      const cell = anchorAt(positionAt(unit.motion, at), HUMAN_SIZE);
+      cancelEvent(unit);
+      unit.routeSeq += 1;
+      unit.planning = false;
+      unit.size = HUMAN_SIZE;
+      unit.speed = WALK_SPEED;
+      setMotion(unit, standing(anchorCenter(cell.x, cell.y, HUMAN_SIZE), WALK_SPEED));
+      unit.destination = lastPoint(unit.motion);
+      scheduleEvent(unit, "wake", at + startDelayMs(nextRng(unit)));
       return true;
     },
     setOwner(unitId, ownerId) {

@@ -3,6 +3,7 @@
 //   판단 횟수(ai_step)를 유닛과 함께 저장하므로 서버를 다시 켜도 같은 유닛은 이어서 같은 차례의 값을 쓴다(S3 ADR 1절).
 //   (워커 결과가 오는 시각은 매번 달라서 전체 움직임이 똑같이 되풀이되지는 않는다.)
 // - 크기 등급 1·2·3 = 90·8·2%, 속도는 걷기 85%·차 15%(packages/sim 출발값).
+//   NPC 도시 휴먼(구인·처음 인구·들인 옛 봇)은 이 규칙을 쓰지 않고 크기 1·걷기만이다(humanPlan, 기획 D-534 — 질문 1106 가).
 // - 목적지는 지금 자리 둘레 TRIP_RADIUS_CELLS칸 안에서 그 등급이 설 수 있는 칸. 도착하면 2~6초 쉬고 다시 간다.
 // - 집이 있는 봇(NPC 휴먼)은 집(도시 시청 칸) 둘레 HOME_RADIUS_CELLS 안에서 고른다(homeArea, docs/adr/2026-11-07-play-flow.md "WP-NPC").
 // - 일터가 있는 NPC 휴먼(도시 경제가 일꾼으로 둔 시설, 기획 답 740 나 — docs/adr/2026-11-07-play-flow.md "WP-NPC2")은 일하는 때에
@@ -57,6 +58,18 @@ export function botPlan(mapSeed: number, unitId: number): BotPlan {
   const size: SizeClass = sizeRoll < 90 ? 1 : sizeRoll < 98 ? 2 : 3;
   const speed = rng.nextInt(100) < 15 ? CAR_SPEED : WALK_SPEED;
   return { rng, size, speed };
+}
+
+/** NPC 도시 휴먼의 크기 등급(D-534 — 1106 가) */
+export const HUMAN_SIZE: SizeClass = 1;
+
+/**
+ * NPC 도시 휴먼의 몸(기획 D-534 — 질문 1106 가): 크기 등급 1·걷기만. 시험 봇 규칙(botPlan의 크기 2·3, 차 빠르기)은 시험 2차맵의 시험 봇만
+ * 쓴다. 처음 자리 난수는 botPlan과 같은 줄이다(크기·속도 굴림을 건너뛰지 않고 같은 차례로 뽑아 버린다 — 세울 자리가 예전과 같은 차례)
+ */
+export function humanPlan(mapSeed: number, unitId: number): BotPlan {
+  const plan = botPlan(mapSeed, unitId);
+  return { rng: plan.rng, size: HUMAN_SIZE, speed: WALK_SPEED };
 }
 
 /** 그 등급이 설 수 있는 아무 기준 칸의 중심. 없으면 undefined */

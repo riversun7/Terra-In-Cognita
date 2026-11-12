@@ -492,9 +492,12 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     adopted += 1;
   }
   // 휴먼 주인은 그 도시 주인이다(봇 유닛 주인을 맞춘다). 집·일터는 처음 저장 뒤에 맞춘다(humanPlaces — 처음 인구로 세운 휴먼도 함께)
+  // NPC 휴먼 몸(D-534 — 1106 가): 크기 1·걷기만. 옛 세계 휴먼(시험 봇 규칙으로 선 크기 2·3·차)은 여기서 고쳐 저장한다(새 휴먼은 처음부터 humanPlan)
+  let reshaped = 0;
   for (const unit of units.values()) {
     const at = onMap.get(unit.id);
     if (at && at.ownerId !== unit.owner) at.map.setOwner(unit.id, unit.owner);
+    if (at?.map.setHumanBody(unit.id)) reshaped += 1;
   }
   // 처음 인구(749 다, cityPeople.ts): 시작 도시마다 한 번, 주거 × 비율에 모자란 만큼 휴먼을 세운다(처음 저장이 구인과 같은 길로 도시 둘레에
   // 봇을 세운다). 나이·수명은 들이기와 같이 흩는다. 이미 있는 휴먼(옛 세계의 봇 휴먼)은 그대로 센다
@@ -855,6 +858,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       cities: cities.size,
       humans: units.size,
       adopted,
+      reshaped,
       seededHumans,
       seededGuards,
       housingRaised,

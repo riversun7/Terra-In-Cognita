@@ -161,6 +161,41 @@ describe("시험용 봇", () => {
     map.stop();
   });
 
+  it("NPC 휴먼 몸(D-534 — 1106 가): 구인 휴먼은 늘 크기 1·걷기, 옛 시험 봇 규칙 휴먼은 setHumanBody가 지금 자리에서 고친다", async () => {
+    const { map } = createTestMap();
+    // 시험 봇 규칙으로는 크기 2·3이나 차가 나오는 ID도 휴먼으로 세우면 크기 1·걷기다
+    for (let id = 2_001; id <= 2_200; id++) {
+      expect(map.spawnBotNear(id, 7, { x: 128, y: 128 }, 24)).toBe(true);
+      expect(map.unitInfo(id)).toMatchObject({ size: 1, speed: WALK_SPEED });
+    }
+    expect(map.setHumanBody(2_001)).toBe(false);
+    // 시험 봇(크기·빠르기가 섞임)을 움직이게 한 뒤 휴먼 몸으로 바꾼다
+    // spawnBots는 이미 있는 봇(휴먼 200)까지 센다 → 시험 봇 300
+    map.spawnBots(500);
+    await vi.advanceTimersByTimeAsync(20_000);
+    let changed = 0;
+    for (let id = 1; id <= 300; id++) {
+      const before = map.unitInfo(id);
+      if (!before) continue;
+      const odd = before.size !== 1 || before.speed !== WALK_SPEED;
+      const at = positionAt(before.motion, Date.now());
+      expect(map.setHumanBody(id)).toBe(odd);
+      if (!odd) continue;
+      changed += 1;
+      const after = map.unitInfo(id);
+      expect(after).toMatchObject({ size: 1, speed: WALK_SPEED });
+      const stand = after?.motion.waypoints[0] ?? { x: 0, y: 0 };
+      // 지금 자리(그 칸)에 선다
+      expect(anchorAt(stand, 1)).toEqual(anchorAt(at, 1));
+    }
+    expect(changed).toBeGreaterThan(40);
+    expect(map.missingEvents()).toBe(0);
+    // 봇이 아닌 유닛은 바꾸지 않는다
+    map.addUnit({ id: 950, size: 2, speed: CAR_SPEED, cellX: 5, cellY: 5 });
+    expect(map.setHumanBody(950)).toBe(false);
+    map.stop();
+  });
+
   it("NPC 국가 지도자(종류 7)의 움직임에는 표시 종류 npc_leader가 붙고(프로토콜 18), 종류가 바뀌면 같은 움직임을 다시 보낸다", () => {
     const { map } = createTestMap();
     const sent: string[] = [];

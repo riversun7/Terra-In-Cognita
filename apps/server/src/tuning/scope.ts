@@ -214,6 +214,8 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
     `recruit.levels.${level}.cardsMax`,
     `recruit.levels.${level}.statsMin`,
     `recruit.levels.${level}.statsMax`,
+    `recruit.levels.${level}.elementBonus`,
+    `recruit.levels.${level}.statRolls`,
   ]),
   // 보유 물건 전투 닳기(holdings/service.ts applyBattle, 49 N49·C20): 전투가 끝날 때마다 읽는다. 수리(F11·F12)는 아직 고리라 sim
   "durability.wearChancePm",

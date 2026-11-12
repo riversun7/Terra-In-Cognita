@@ -6,7 +6,7 @@
 import { BASIC_ELEMENTS, ELEMENT_MAX } from "@terra/shared/cyborg";
 import type { TuningProblem } from "@terra/shared/tuning";
 import type { SocietyCoefficients } from "./society/coefficients.ts";
-import { RECRUIT_CARDS_CAP } from "./society/recruitment.ts";
+import { RECRUIT_CARDS_CAP, RECRUIT_STAT_ROLLS_MAX } from "./society/recruitment.ts";
 import { STAT_SUM_ABSOLUTE_MAX } from "@terra/shared/statGrowth";
 
 /** 1차 스탯 수(N9 합을 칸마다 나눈다) */
@@ -76,7 +76,12 @@ export function tuningProblems(c: SocietyCoefficients): TuningProblem[] {
         level.cardsMin > level.cardsMax ||
         level.cardsMax > RECRUIT_CARDS_CAP ||
         level.statsMin < PRIMARY_COUNT ||
-        level.statsMin > level.statsMax,
+        level.statsMin > level.statsMax ||
+        // 속성 점수 덤(D-535 1158 나): 0 이상, 기본 + 덤 ≤ 원소 수 최소 × 칸 상한. 토탈 굴림 1~8번
+        level.elementBonus < 0 ||
+        r.elementPoints + level.elementBonus > r.elementsMin * ELEMENT_MAX ||
+        level.statRolls < 1 ||
+        level.statRolls > RECRUIT_STAT_ROLLS_MAX,
     )
   )
     problems.push("n45_fit");

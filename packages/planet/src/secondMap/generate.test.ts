@@ -30,7 +30,7 @@ const MAPS = {
 const GOLDEN: Record<keyof typeof MAPS, string> = {
   desert: "d818ec09",
   river: "0f227059",
-  lake: "0ac58d89",
+  lake: "cff29995",
   ocean: "e69e35a6",
   coast: "22ddfbb0",
 };

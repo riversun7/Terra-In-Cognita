@@ -1420,8 +1420,8 @@ export const TEST_MAP_PROPS: readonly MapPropInput[] = [
     ],
     curves: {
       temperatureC: {
-        min: 2,
-        idealMin: 10,
+        min: -4,
+        idealMin: 6,
         idealMax: 32,
         max: 38,
       },
@@ -1441,14 +1441,14 @@ export const TEST_MAP_PROPS: readonly MapPropInput[] = [
     biomes: [
       {
         biome: "lake",
-        weight: 2,
+        weight: 5,
       },
       {
         biome: "ocean_coastal",
         weight: 1,
       },
     ],
-    maxShare: 3,
+    maxShare: 5,
     water: true,
   },
 ];

@@ -771,7 +771,7 @@
       "art": "lily_pads",
       "cover": 0,
       "biomes": [{ "biome": "lake", "weight": 40 }, { "biome": "wetland", "weight": 10 }],
-      "curves": { "temperatureC": { "min": 2, "idealMin": 10, "idealMax": 32, "max": 38 } },
+      "curves": { "temperatureC": { "min": -4, "idealMin": 6, "idealMax": 32, "max": 38 } },
       "clump": { "cells": 8, "threshold": 450 },
       "maxShare": 40,
       "water": true
@@ -786,8 +786,8 @@
       "placement": "scatter",
       "art": "islet",
       "cover": 0,
-      "biomes": [{ "biome": "lake", "weight": 2 }, { "biome": "ocean_coastal", "weight": 1 }],
-      "maxShare": 3,
+      "biomes": [{ "biome": "lake", "weight": 5 }, { "biome": "ocean_coastal", "weight": 1 }],
+      "maxShare": 5,
       "water": true
     }
   ]

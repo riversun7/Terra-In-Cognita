@@ -55,6 +55,11 @@ export interface PlanetEditorDefinitions {
    * 2차맵을 만든다(ADR 2026-10-31-second-map-from-planet 9절)
    */
   mapProps: JsonObject[];
+  /**
+   * gather_objects.json 항목 전부(팩 순서, JSON 그대로): 개발자 지형 오브젝트 편집기(/dev/terrain-objects, 기획 D-536)가 지형마다 채집
+   * 오브젝트 종류·양을 보이고 고친다
+   */
+  gatherObjects: JsonObject[];
 }
 
 /** planetEditor.drafts.get·restore의 초안 */

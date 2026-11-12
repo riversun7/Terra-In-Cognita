@@ -22,6 +22,11 @@ export interface RawPackEntries {
   planetTemplates: readonly unknown[];
   /** map_props.json entries (파일 순서 = 흩기 우선순위, 없으면 빈 배열). 편집기 2차맵 미리보기의 소품 규칙 */
   mapProps: readonly unknown[];
+  /**
+   * gather_objects.json entries(파일 순서, 없으면 빈 배열). 개발자 지형 오브젝트 편집기(/dev/terrain-objects, 기획 D-536·D-398)가 종류·양을
+   * 고치고 차이를 내보낸다. 없으면(시험 모양) 빈 배열로 본다
+   */
+  gatherObjects?: readonly unknown[];
 }
 
 export type ContentLoadResult =
@@ -69,6 +74,7 @@ export function loadServerContent(dir: string): ContentLoadResult {
       biomes: rawEntriesOf(loaded.source, "biomes.json"),
       planetTemplates: rawEntriesOf(loaded.source, "planet_templates.json"),
       mapProps: rawEntriesOf(loaded.source, "map_props.json"),
+      gatherObjects: rawEntriesOf(loaded.source, "gather_objects.json"),
     },
     warnings: lines,
   };

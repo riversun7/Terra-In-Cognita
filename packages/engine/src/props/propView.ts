@@ -109,6 +109,8 @@ export class PropView {
   private sources: readonly PropSource[] = [];
   private cellM = 1;
   private groundAt: (x: number, z: number) => number = () => 0;
+  /** 수면 높이(물 위 소품 — 기획 D-536). 물이 없으면 땅 높이 */
+  private surfaceAt: (x: number, z: number) => number = () => 0;
   /** 마지막으로 세운 땅(둘레 여유를 넣지 않은 다각형)·여유·넓이. null이면 다음 update에서 꼭 다시 세운다 */
   private built: { polygon: readonly { x: number; z: number }[]; margin: number; area: number } | null = null;
   private drawnCount = 0;
@@ -236,15 +238,20 @@ export class PropView {
     return this.group.visible ? this.clutterCount : 0;
   }
 
-  /** 소품 층들과 배치 칸 크기(m, 지금 2차맵), 땅 높이(세계 자리, 이웃 포함). 층이 없으면 모델을 세우지 않는다 */
+  /**
+   * 소품 층들과 배치 칸 크기(m, 지금 2차맵), 땅 높이(세계 자리, 이웃 포함), 수면 높이(물 위 소품, 없으면 땅 높이). 층이 없으면 모델을 세우지
+   * 않는다
+   */
   setSources(
     sources: readonly PropSource[],
     cellM: number,
     groundAt: (x: number, z: number) => number,
+    surfaceAt: (x: number, z: number) => number = groundAt,
   ): void {
     this.sources = sources;
     this.cellM = cellM;
     this.groundAt = groundAt;
+    this.surfaceAt = surfaceAt;
     this.built = null;
     this.drawnCount = 0;
     this.clutterCount = 0;
@@ -416,16 +423,18 @@ export class PropView {
     const { x, z } = cellToWorld(source.placement, lx, lz, cellM);
     // 돌림은 그 2차맵 틀 기준: 이웃이면 놓는 자리의 돌림(90°의 배수)을 더한다 — 넘어서 지금 2차맵이 돼도 같은 쪽을 본다
     const placed = source.placement;
+    // 물 위 소품은 수면에 세운다(바닥이 아니라)
+    const ground = look?.float ? this.surfaceAt : this.groundAt;
     const ctx: ShapeContext = {
       x,
-      y: this.groundAt(x, z),
+      y: ground(x, z),
       z,
       size: 0.8 + cellRandom(cell, 3 + salt) * 0.45,
       turn: cellRandom(cell, 4 + salt) * Math.PI * 2 + (placed ? Math.atan2(placed.b, placed.a) : 0),
       shade: 0.85 + cellRandom(cell, 5 + salt) * 0.3,
       snowy: snowyCell(source.surface, cell),
       r: (k) => cellRandom(cell, k + salt),
-      ground: this.groundAt,
+      ground,
     };
     if (look) {
       buildShape(this.sink, look, ctx);

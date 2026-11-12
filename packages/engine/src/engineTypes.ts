@@ -16,6 +16,7 @@ export interface ObjectProp {
   readonly cell: number;
   readonly art: number;
 }
+import type { SchoolInput } from "./props/schoolView.ts";
 import type { UnitDisplayMode, UnitLook } from "./units/unitView.ts";
 
 export type EngineStatus =
@@ -268,6 +269,11 @@ export interface SecondMapEngine {
    * 가까이 소품 모델로 세운다(기기 장식, 판정 아님). 목록을 통째로 바꾼다. 빈 목록이면 지형 그림 그대로
    */
   setObjectProps(props: readonly ObjectProp[]): void;
+  /**
+   * 움직이는 어군(서버 채집 오브젝트 source "school" — 기획 D-536)의 길 목록을 통째로 바꾼다. 엔진이 프레임마다 서버 시각으로 자리를 내
+   * 물고기 몸 인스턴스로 그린다(가까이에서만). 빈 목록이면 없음
+   */
+  setSchools(schools: readonly SchoolInput[]): void;
   /**
    * 확대 한 단계(1 = 키우기 [+], −1 = 줄이기 [−]): 이웃 확대 단계의 대표 거리로 약 0.3초에 걸쳐 간다(화면 가운데 기준, 움직이는 중이면 그 목표에서
    * 센다). 이미 그쪽 끝이면 false(화면이 1차맵으로 넘어간다)

@@ -243,11 +243,12 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
             </p>
           ) : null}
           {kind?.direct === false ? <p className="gather-muted">{m.gather_object_station_only()}</p> : null}
+          {kind?.boat === true ? <p className="gather-muted">{m.gather_object_boat_only()}</p> : null}
           <p className="gather-actor">{actorText}</p>
           <div className="gather-actions">
             <button
               type="button"
-              hidden={kind?.direct === false}
+              hidden={kind?.direct === false || kind?.boat === true}
               className="button-small button-primary gather-sheet-gather"
               disabled={actor === null || depleted || sending}
               onClick={() => {

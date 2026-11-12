@@ -26,6 +26,7 @@ import type { PickClearUniforms } from "./clouds.ts";
 import { type GlobePose, directionOfLatLon } from "./globeCamera.ts";
 import {
   DEBUG_CRACK_COLOR,
+  LAYER_INDEX,
   type SharedTileUniforms,
   createAtmosphereMaterial,
   createBaseGlobeMaterial,
@@ -33,7 +34,8 @@ import {
   createSharedTileUniforms,
   createTileMaterial,
 } from "./planetMaterials.ts";
-import type { PickedCell } from "./planetTypes.ts";
+import type { PickedCell, PlanetLayer, PlanetResourceMap } from "./planetTypes.ts";
+import { ResourceLayer } from "./resourceLayer.ts";
 import { Starfield } from "./starfield.ts";
 import { type TileMeshArrays, tileGpuBytes, tileIndices } from "./tileMesh.ts";
 import type { GpuTile } from "./tilePipeline.ts";
@@ -85,6 +87,7 @@ export class PlanetView {
   readonly scene = new Scene();
   readonly camera: PerspectiveCamera;
   readonly shared: SharedTileUniforms;
+  private readonly resources: ResourceLayer;
   /** 고른 칸 둘레 구름 비우기(구름 껍질이 나눠 쓴다). 고른 칸이 없으면 cos 3·2(닿지 않음) */
   readonly pickClear: PickClearUniforms = {
     uPickClear: { value: new Vector4(0, 0, 1, 3) },
@@ -119,6 +122,7 @@ export class PlanetView {
     this.camera = new PerspectiveCamera((fovRad * 180) / Math.PI, 1, 1, 10);
     this.camera.matrixAutoUpdate = true;
     this.shared = createSharedTileUniforms(biomeColors, skirtDepthM);
+    this.resources = new ResourceLayer(this.shared);
     this.index = new BufferAttribute(tileIndices(32), 1);
     const keeperGeometry = new BufferGeometry();
     keeperGeometry.setAttribute("position", new BufferAttribute(new Float32Array(3), 3));
@@ -204,8 +208,22 @@ export class PlanetView {
     this.shared.uExaggeration.value = value;
   }
 
-  setLayer(layer: "terrain" | "climate"): void {
-    this.shared.uLayer.value = layer === "climate" ? 1 : 0;
+  setLayer(layer: PlanetLayer): void {
+    this.shared.uLayer.value = LAYER_INDEX[layer];
+  }
+
+  /** 고도 레이어 띠 꼭대기(게임 m) — 엔진이 프레임마다 가장 높은 땅을 넣는다 */
+  setElevationMax(meters: number): void {
+    this.shared.uElevationMax.value = meters;
+  }
+
+  /** 자원 분포 지도를 올린다(null = 버림). 텍스처 바이트를 돌려준다 */
+  setResourceMap(map: PlanetResourceMap | null): number {
+    return this.resources.apply(map);
+  }
+
+  get resourceMapBytes(): number {
+    return this.resources.textureBytes;
   }
 
   /** 고른 칸 표시(없으면 지운다) */
@@ -282,5 +300,8 @@ export class PlanetView {
     this.atmosphere.material.dispose();
     this.stars.dispose();
     this.shared.uPalette.value.dispose();
+    this.resources.release();
+    this.shared.uResource.value.dispose();
+    this.shared.uResourceHigh.value.dispose();
   }
 }

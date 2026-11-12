@@ -12,11 +12,14 @@
 import {
   BackSide,
   Color,
+  DataArrayTexture,
   DataTexture,
   FrontSide,
+  LinearMipmapLinearFilter,
   NearestFilter,
   RGBAFormat,
   RGFormat,
+  RedFormat,
   ShaderMaterial,
   type Texture,
   UnsignedByteType,
@@ -33,6 +36,20 @@ import {
   WATER_OCEAN,
   WATER_RIVER,
 } from "@terra/planet";
+import {
+  ELEVATION_LAKE_COLOR,
+  ELEVATION_LAND_RAMP,
+  ELEVATION_SEA_RAMP,
+  ELEVATION_SEA_SCALE,
+  MUTED_LAND_COLOR,
+  MUTED_WATER_COLOR,
+  RESOURCE_HIGH_COLOR,
+  RESOURCE_MIX_MAX,
+  RESOURCE_MIX_MIN,
+  glslRamp,
+  glslVec3,
+} from "./layerColors.ts";
+import type { PlanetLayer } from "./planetTypes.ts";
 import { DAY_NIGHT_BAND } from "./sky.ts";
 import { DAY_NIGHT_SHADE } from "./skyShade.ts";
 
@@ -86,8 +103,17 @@ export interface SharedTileUniforms extends SkyLightUniforms {
   uExaggeration: { value: number };
   /** 치마 바닥 깊이(해수면 아래 m, tileShape.ts skirtDepthM) — 행성마다 하나, 과장과 상관없다 */
   uSkirtDepth: { value: number };
-  /** 0 지형, 1 기후 */
+  /** 0 지형, 1 기후, 2 고도, 3 자원 분포, 4 영토(LAYER_INDEX) */
   uLayer: { value: number };
+  /** 고도 레이어 색 띠의 꼭대기(게임 m) = 엔진의 가장 높은 땅 */
+  uElevationMax: { value: number };
+  /** 자원 분포 지도(면 6장 배열 텍스처, R = 몫)와 높은 티어 광석 몫(R). 지도가 없으면 1×1 빈 텍스처 */
+  uResource: { value: Texture };
+  uResourceHigh: { value: Texture };
+  /** 고른 원자재 색 */
+  uResourceColor: { value: Vector3 };
+  /** 1 = 자원 분포 지도가 있다(없으면 흐린 바탕만) */
+  uResourceReady: { value: number };
   uLightDir: { value: Vector3 };
   uPalette: { value: Texture };
   /** 고른 칸: (s0, t0, 한 변 길이, 면) — 면이 −1이면 없음 */
@@ -109,6 +135,37 @@ function createSkyLightUniforms(): SkyLightUniforms {
   };
 }
 
+/** 레이어 → 셰이더 번호(uLayer) */
+export const LAYER_INDEX: Readonly<Record<PlanetLayer, number>> = {
+  terrain: 0,
+  climate: 1,
+  elevation: 2,
+  resource: 3,
+  territory: 4,
+};
+
+/** 빈 배열 텍스처(1×1×1, 값 0) — 자원 분포 지도가 없을 때 sampler2DArray 자리를 채운다 */
+export function createEmptyLayerTexture(): DataArrayTexture {
+  return createLayerTexture(new Uint8Array(1), 1, 1);
+}
+
+/**
+ * 면 6장(또는 depth장) 배열 텍스처(R8, 한 변 size): 자원 분포 지도. 가까이선 칸이 또렷하게(가장 가까운 칸), 멀리선 밉맵으로 고르게(몫 평균).
+ * 자료 배열 번호 = 면 × size² + j × size + i(줄 = j) — 셰이더는 (s, t, 면)으로 읽는다
+ */
+export function createLayerTexture(data: Uint8Array, size: number, depth: number): DataArrayTexture {
+  const texture = new DataArrayTexture(data, size, size, depth);
+  texture.format = RedFormat;
+  texture.type = UnsignedByteType;
+  texture.magFilter = NearestFilter;
+  texture.minFilter = size > 1 ? LinearMipmapLinearFilter : NearestFilter;
+  texture.generateMipmaps = size > 1;
+  texture.flipY = false;
+  texture.unpackAlignment = 1;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 export function createSharedTileUniforms(
   biomeColors: readonly number[],
   skirtDepthM: number,
@@ -117,6 +174,11 @@ export function createSharedTileUniforms(
     uExaggeration: { value: 1 },
     uSkirtDepth: { value: skirtDepthM },
     uLayer: { value: 0 },
+    uElevationMax: { value: 1000 },
+    uResource: { value: createEmptyLayerTexture() },
+    uResourceHigh: { value: createEmptyLayerTexture() },
+    uResourceColor: { value: new Vector3(1, 1, 1) },
+    uResourceReady: { value: 0 },
     uLightDir: { value: LIGHT_DIRECTION.clone() },
     uPalette: { value: createPaletteTexture(biomeColors) },
     uPick: { value: new Vector4(0, 0, 0, -1) },
@@ -216,8 +278,10 @@ varying vec3 vNormal;
 varying vec3 vViewPosition;
 varying vec3 vUpView;
 varying float vSunCos;
+varying float vHeight;
 
 void main() {
+  vHeight = hs.x;
   // 위쪽 = 행성 중심에서 이 점으로(원점 + 위치, 32비트로도 방향은 충분히 정확하다)
   vec3 up = normalize(uOrigin + position);
   // 치마(hs.y = 1)는 바닥까지, 나머지는 보이는 높이까지(vertexLiftM과 같은 식)
@@ -241,6 +305,11 @@ const TILE_FRAGMENT = /* glsl */ `
 uniform sampler2D uCellData;
 uniform sampler2D uCellExtra;
 uniform sampler2D uPalette;
+uniform sampler2DArray uResource;
+uniform sampler2DArray uResourceHigh;
+uniform vec3 uResourceColor;
+uniform float uResourceReady;
+uniform float uElevationMax;
 uniform float uCells;
 uniform float uLayer;
 uniform vec3 uLightDir;
@@ -252,7 +321,17 @@ varying vec3 vNormal;
 varying vec3 vViewPosition;
 varying vec3 vUpView;
 varying float vSunCos;
+varying float vHeight;
 ${DAY_NIGHT_GLSL}
+${glslRamp("elevationLand", ELEVATION_LAND_RAMP)}
+${glslRamp("elevationSea", ELEVATION_SEA_RAMP)}
+// 자원·영토 레이어 바탕: 흐린 땅(바이옴 밝기를 조금 남긴다)·흐린 물 — 덧칠한 색과 국가 색이 잘 보이게
+vec3 mutedBase(bool wet, int biome) {
+  if (wet) return ${glslVec3(MUTED_WATER_COLOR)};
+  vec3 b = texelFetch(uPalette, ivec2(biome, 0), 0).rgb;
+  float lum = dot(b, vec3(0.299, 0.587, 0.114));
+  return mix(${glslVec3(MUTED_LAND_COLOR)}, vec3(lum), 0.3);
+}
 // 고른 칸: 노란 빛을 섞고 칸 가장자리에 테두리
 vec3 applyPick(vec3 color) {
   if (uPick.w >= 0.0 && abs(uPick.w - uTile.w) < 0.5) {
@@ -330,13 +409,33 @@ void main() {
       base *= 1.0 - 0.16 * forest;
       if (river > 0.5 || riverBit) base = mix(base, ${glslColor(COLORS.river)}, 0.4 + 0.12 * min(river, 3.0));
     }
-  } else {
+  } else if (uLayer < 1.5) {
     vec3 t = temperatureColor(temperature);
     if (ocean) {
       base = mix(t, ${glslColor(COLORS.seaTint)}, 0.45);
     } else {
       // 마를수록 옅게(모래빛), 습할수록 진하게
       base = mix(mix(t, ${glslColor(COLORS.dry)}, 0.55), t * 0.86, humidity);
+    }
+  } else if (uLayer < 2.5) {
+    // 고도: 바다 = 수심 띠(꼭짓점 높이가 해수면 아래인 만큼), 호수 = 한 색, 땅 = 가장 높은 땅에 대한 몫의 띠(layerColors.ts)
+    float top = max(uElevationMax, 1.0);
+    if (ocean) {
+      base = elevationSea(clamp(-vHeight / (top * ${ELEVATION_SEA_SCALE.toFixed(4)}), 0.0, 1.0));
+    } else if (lake) {
+      base = ${glslVec3(ELEVATION_LAKE_COLOR)};
+    } else {
+      base = elevationLand(clamp(vHeight / top, 0.0, 1.0));
+    }
+  } else {
+    base = mutedBase(ocean || lake, biome);
+    if (uLayer < 3.5 && uResourceReady > 0.5) {
+      // 자원 분포: 면 레벨 격자의 몫을 (s, t, 면)으로 읽는다(가까이선 칸 그대로, 멀리선 밉맵 평균)
+      vec3 coord = vec3(uTile.xy + vUv * uTile.z, uTile.w);
+      float share = texture(uResource, coord).r;
+      float high = texture(uResourceHigh, coord).r;
+      if (share > 0.002) base = mix(base, uResourceColor, ${RESOURCE_MIX_MIN.toFixed(3)} + ${(RESOURCE_MIX_MAX - RESOURCE_MIX_MIN).toFixed(3)} * share);
+      base = mix(base, ${glslVec3(RESOURCE_HIGH_COLOR)}, 0.85 * high);
     }
   }
 

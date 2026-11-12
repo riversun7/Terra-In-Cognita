@@ -133,6 +133,15 @@ describe.skipIf(!TEST_DATABASE_URL)("지도 흐름 조회(world.cities·myPositi
       expect(numbers[0]).toBe(1);
       expect(faction.name?.ko.length ?? 0).toBeGreaterThan(0);
     }
+    // 수도 표시(D-528, 1차맵 영토 레이어): 세력 행 capital_city_id인 도시만 capital
+    await test.db.$client.query("update factions set capital_city_id = $1 where id = $2", [
+      first.id,
+      first.factionId,
+    ]);
+    const capitals = (await reads.cities(stranger, clock)).cities.filter(
+      (city) => city.capital && city.factionId === first.factionId,
+    );
+    expect(capitals.map((city) => city.id)).toEqual([first.id]);
 
     // 사이보그를 만들면: 그 국가에 들고, 본체가 선 2차맵을 볼 수 있다
     const creation = persistence.cyborgs.creation(maker.id, clock);

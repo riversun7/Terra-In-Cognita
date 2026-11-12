@@ -14,6 +14,7 @@ import {
   WATER_RIVER,
 } from "@terra/planet";
 import type { PlanetTileData } from "@terra/protocol";
+import type { CatchmentMaterial } from "@terra/shared/catchment";
 import type { PlanetProjector } from "./planetOverlay.ts";
 import type { PlanetSkyDescription, PlanetSkyMode } from "./sky.ts";
 import type { PlanetSkyStats } from "./skyController.ts";
@@ -122,8 +123,32 @@ export function planetDescriptionProblem(planet: PlanetDescription): string | nu
   return null;
 }
 
-/** 그리는 레이어: 지형(고도·해수면·바이옴 색), 기후(기온·습도 색) */
-export type PlanetLayer = "terrain" | "climate";
+/**
+ * 그리는 레이어: 지형(고도·해수면·바이옴 색), 기후(기온·습도 색), 고도(높이 색 띠·바다 수심·호수), 자원 분포(흐린 바탕 + 고른 원자재 몫,
+ * setResourceMap), 영토(흐린 바탕 — 국가 영토는 화면 덧그림이 그린다). 사용자 요청 2026-11-12(ADR 2026-11-07-planet-view "바뀜 (2026-11-12)")
+ */
+export type PlanetLayer = "terrain" | "climate" | "elevation" | "resource" | "territory";
+
+/** 레이어 차례(화면 고르기 버튼 차례) */
+export const PLANET_LAYERS: readonly PlanetLayer[] = [
+  "terrain",
+  "climate",
+  "elevation",
+  "resource",
+  "territory",
+];
+
+/**
+ * 자원 분포 지도(원자재 하나): 서버가 행성 값과 세계 설정 칸으로 셈한 칸 몫(@terra/shared/catchment cellSharesPm "supply"·highOrePm)을
+ * 면 레벨 level 격자에 담은 것. 배열 번호 = 면 × n² + j × n + i(n = 2^level). 값 0 ~ 255 = 몫 0 ~ 1000‰
+ */
+export interface PlanetResourceMap {
+  readonly material: CatchmentMaterial;
+  readonly level: number;
+  readonly share: Uint8Array;
+  /** 높은 티어 광석 몫(광석만, 0 ~ 255). 없으면 null */
+  readonly high: Uint8Array | null;
+}
 
 /** 상한(ADR 36 출발값) */
 export interface PlanetBudgets {
@@ -304,6 +329,8 @@ export interface PlanetStats {
   firstDisplayMs: number | null;
   exaggeration: number;
   layer: PlanetLayer;
+  /** 자원 분포 지도 텍스처 메모리(바이트, 밉맵 포함 추정). 지도가 없으면 0 */
+  resourceMapBytes: number;
   /** 쓰는 픽셀 비율 = min(기기 픽셀 비율, 상한) */
   pixelRatio: number;
   /** 그리기 버퍼 크기(실제 픽셀, WebGL drawingBuffer) — 화면 CSS 크기 × pixelRatio. 브라우저가 줄였으면 그 값 */
@@ -319,6 +346,8 @@ export interface PlanetStats {
 
 export interface PlanetEngine {
   setLayer(layer: PlanetLayer): void;
+  /** 자원 분포 지도를 바꾼다(null = 버림). 자원 레이어가 아니어도 받아 둔다. 크기가 틀리면 버린다(그리지 않는다) */
+  setResourceMap(map: PlanetResourceMap | null): void;
   /** 하늘 모드·요소를 바꾼다(동작 줄이기·설정). 엔진을 다시 만들지 않고 타일 셰이더도 다시 컴파일하지 않는다 */
   setSky(mode: PlanetSkyMode): void;
   /** 고도 과장 배율(1 ~ 50으로 묶는다) */

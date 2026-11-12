@@ -6,6 +6,7 @@ export {
   DEFAULT_MAX_ELEVATION_M,
   DEFAULT_PLANET_BUDGETS,
   MAX_RENDER_FACE_LEVEL,
+  PLANET_LAYERS,
   WATER_BITS,
   WATER_DEPTH_SHIFT,
   isEncodedTile,
@@ -21,6 +22,7 @@ export {
   type PlanetEngineOptions,
   type PlanetLayer,
   type PlanetMoonDescription,
+  type PlanetResourceMap,
   type PlanetSkyDescription,
   type PlanetSkyFeatures,
   type PlanetSkyMode,
@@ -33,6 +35,21 @@ export {
   type TileRequest,
   type TileSource,
 } from "./planetTypes.ts";
+export {
+  ELEVATION_LAKE_COLOR,
+  ELEVATION_LAND_RAMP,
+  ELEVATION_SEA_RAMP,
+  ELEVATION_SEA_SCALE,
+  MUTED_WATER_COLOR,
+  RESOURCE_COLORS,
+  RESOURCE_HIGH_COLOR,
+  RESOURCE_MATERIALS,
+  type RampStop,
+  cssColor,
+  rampGradient,
+  resourceRamp,
+} from "./layerColors.ts";
+export { RESOURCE_MAP_MAX_LEVEL } from "./resourceLayer.ts";
 export { MAX_BENCH_REPEAT, MIN_BENCH_REPEAT } from "./gpuBench.ts";
 export {
   type PlanetProjector,

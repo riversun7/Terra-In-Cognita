@@ -20,6 +20,7 @@ import { createWorldFactionSource } from "./factionScreen/source.ts";
 import { factionRulesFrom } from "./factionScreen/tuning.ts";
 import { startServerMetrics } from "./metrics.ts";
 import { NO_OPS_SWITCHES, loadOpsSwitches } from "./ops/switches.ts";
+import { createResourceMaps } from "./planet/resourceMap.ts";
 import { registerPlanetRoutes } from "./planet/routes.ts";
 import { createPlanetService } from "./planet/service.ts";
 import { createPlanetEditorShared } from "./planetEditor/services.ts";
@@ -813,7 +814,24 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     : undefined;
 
   if (planets && options.planets) {
-    registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
+    // 자원 분포 지도(공개 행성, ADR 2026-11-07-planet-view "바뀜 (2026-11-12)"): 행성 값을 메모리에 들 때만(2차맵을 띄우는 세계)
+    const resources =
+      worldPlanet && tuningState && options.secondMaps
+        ? createResourceMaps({
+            planetId: worldPlanet.id,
+            ready: () => planets.manifest(worldPlanet.id)?.status === "ready",
+            values: () => planets.planetValues(worldPlanet.id),
+            rules: () => tuningState.society().worldSeed,
+            definitionHash: worldPlanet.definitionHash,
+          })
+        : undefined;
+    registerPlanetRoutes(app, {
+      planets,
+      viewer: httpViewer,
+      now,
+      limits: options.planets.limits,
+      resources,
+    });
     app.addHook("onClose", async () => planets.close());
   }
 

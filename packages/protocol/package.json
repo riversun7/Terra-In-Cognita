@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./planetTile": "./src/planetTile.ts",
+    "./planetResource": "./src/planetResource.ts",
     "./battleReplay": "./src/battleReplayEntry.ts"
   },
   "scripts": {

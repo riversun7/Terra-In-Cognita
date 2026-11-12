@@ -113,6 +113,7 @@ interface CityRecord {
   readonly cellX: number;
   readonly cellY: number;
   readonly start: boolean;
+  readonly capital: boolean;
   readonly name: string | null;
   readonly code: string | null;
   readonly kind: "npc" | "player";
@@ -120,7 +121,8 @@ interface CityRecord {
 
 async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityRecord[]> {
   const result = await pool.query(
-    `select c.id, c.faction_id, c.map_key, c.cell_x, c.cell_y, c.start, c.name, f.code, f.kind
+    `select c.id, c.faction_id, c.map_key, c.cell_x, c.cell_y, c.start, c.name, f.code, f.kind,
+            (f.capital_city_id is not null and f.capital_city_id = c.id) as capital
      from world_cities c join factions f on f.id = c.faction_id
      where c.planet_id = $1 and f.dissolved_at_ms is null
      order by c.id`,
@@ -133,6 +135,7 @@ async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityR
     cellX: Number(row.cell_x),
     cellY: Number(row.cell_y),
     start: row.start === true,
+    capital: row.capital === true,
     name: typeof row.name === "string" ? row.name : null,
     code: typeof row.code === "string" ? row.code : null,
     kind: row.kind === "player" ? "player" : "npc",
@@ -306,6 +309,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
           cellY: record.cellY,
           ...placeLatLon(record.mapKey, record.cellX, record.cellY),
           start: record.start,
+          capital: record.capital,
           grade: area?.grade ?? null,
           radiusMilli: area?.radiusMilli ?? null,
           loaded: map !== undefined,

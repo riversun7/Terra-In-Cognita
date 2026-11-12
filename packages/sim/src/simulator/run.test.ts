@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runSimulation } from "./run.ts";
+import { runSimulation, simSiegeEdge } from "./run.ts";
 import { type Scenario, parseScenario } from "./scenario.ts";
 
 /** 시험용 작은 시나리오(팩·파일 없이) */
@@ -80,5 +80,18 @@ describe("시나리오 읽기", () => {
         factions: [{ code: "aa", count: 1, fixed: true, cities: 1, workers: 1, credit: "-1", tech: 1 }],
       }),
     ).toThrow(/credit/);
+  });
+});
+
+describe("시뮬 세력 공성 변(질문 1112 가)", () => {
+  it("공격 세력의 가장 가까운 도시 쪽 변에서 온다(같은 거리면 작은 도시 ID, 도시가 없으면 모름 = 서쪽)", () => {
+    // 합성 격자: 도시 1 (4, 4) · 2 (7, 4) · 3 (10, 4) · 34 (7, 7)
+    expect(simSiegeEdge([1], 2)).toBe(3);
+    expect(simSiegeEdge([3], 2)).toBe(1);
+    expect(simSiegeEdge([34], 2)).toBe(2);
+    expect(simSiegeEdge([2], 34)).toBe(0);
+    expect(simSiegeEdge([34, 1], 2)).toBe(3);
+    expect(simSiegeEdge([], 2)).toBeUndefined();
+    expect(simSiegeEdge([1], 2, () => false)).toBeUndefined();
   });
 });

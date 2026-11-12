@@ -1,6 +1,13 @@
 // NPC 도시 증축 판단 시험 — 질문 1101 나(D-534), npc/build.ts
 import { describe, expect, it } from "vitest";
-import { type BuildOption, chooseCityBuild } from "./build.ts";
+import {
+  type BuildOption,
+  type SiteFacility,
+  buildingCapOf,
+  chooseCityBuild,
+  chooseCityRepair,
+  rankCityUpgrades,
+} from "./build.ts";
 import { TEST_NPC_COEFFICIENTS } from "./coefficients.ts";
 
 const TRAITS = { aggression: 500, commerce: 500, faith: 500, station: 500 };
@@ -13,6 +20,7 @@ const OPTIONS: BuildOption[] = [
   { facility: "government_hall", stage: "government", gather: false },
   { facility: "city_wall", stage: "defense", gather: false },
   { facility: "lodging", stage: "living", gather: false },
+  { facility: "kitchen", stage: "finish", gather: false },
 ];
 const counts = (entries: Record<string, number>) => new Map(Object.entries(entries));
 const choose = (needs: Parameters<typeof chooseCityBuild>[0], c = TEST_NPC_COEFFICIENTS) =>
@@ -70,5 +78,83 @@ describe("NPC 증축 판단(질문 1101 나)", () => {
     expect(
       choose({ ...needs, counts: counts({}) }, { ...TEST_NPC_COEFFICIENTS, buildMaxBuildings: 0 }),
     ).toBeUndefined();
+  });
+
+  it("도시 등급 표가 상한이다(전체 끝 npc_build_max_buildings 안, 0이면 끔 — 1143 나)", () => {
+    const c = { ...TEST_NPC_COEFFICIENTS, buildMaxBuildings: 32, buildCapByGrade: [8, 10, 12, 16, 20, 24] };
+    expect([1, 2, 3, 4, 5, 6].map((grade) => buildingCapOf(grade, c))).toEqual([8, 10, 12, 16, 20, 24]);
+    expect(buildingCapOf(9, c)).toBe(24);
+    expect(buildingCapOf(6, { ...c, buildMaxBuildings: 18 })).toBe(18);
+    expect(buildingCapOf(3, { ...c, buildMaxBuildings: 0 })).toBe(0);
+    const needs = { humans: 40, workers: 40, foodPm: 1000, counts: counts({ lodging: 3, farm: 4 }) };
+    expect(chooseCityBuild(needs, OPTIONS, TRAITS, c, { ...RULES, cap: 7 })).toBeUndefined();
+    expect(chooseCityBuild(needs, OPTIONS, TRAITS, c, { ...RULES, cap: 8 })).toBe("lodging");
+  });
+
+  it("나라 성격 목표(특산 줄·등급 처음 시설)가 모자라면 그 시설을 짓는다. 땅이 없다고 아는 채집 시설은 빼고, 막힌 시설은 건너뛴다(1142 다)", () => {
+    const base = { humans: 20, workers: 20, foodPm: 1000, beds: 40 };
+    const targets = new Map([
+      ["kitchen", 2],
+      ["mine", 1],
+    ]);
+    // 모자란 수가 많은 목표가 먼저(주방 2 > 광산 1)
+    expect(choose({ ...base, counts: counts({ lodging: 4, farm: 2 }), targets })).toBe("kitchen");
+    // 광산 땅 몫 0 → 목표가 있어도 짓지 않는다(특산은 도시 직무로 남는다)
+    const gatherPm = new Map([["mine", 0]]);
+    expect(choose({ ...base, counts: counts({ lodging: 4, farm: 2, kitchen: 2 }), targets, gatherPm })).toBe(
+      undefined,
+    );
+    // 재료를 구할 길이 없는 주방은 고르지 않는다 → 다음 목표(광산, 땅을 모름)
+    expect(
+      chooseCityBuild(
+        { ...base, counts: counts({ lodging: 4, farm: 2 }), targets },
+        OPTIONS,
+        TRAITS,
+        TEST_NPC_COEFFICIENTS,
+        { ...RULES, blocked: new Set(["kitchen"]) },
+      ),
+    ).toBe("mine");
+  });
+
+  it("휴먼이 인구 상한에 닿고 생필품이 넉넉하면 숙소를 짓는다(씨앗 침대는 상한에 들지 않는다 — 1131 나)", () => {
+    const needs = { humans: 40, workers: 40, beds: 40, counts: counts({ lodging: 4, farm: 4 }) };
+    expect(choose({ ...needs, foodPm: 1000, housingCap: 40 })).toBe("lodging");
+    expect(choose({ ...needs, foodPm: 1000, housingCap: 50 })).not.toBe("lodging");
+    expect(choose({ ...needs, foodPm: 800, housingCap: 40 })).not.toBe("lodging");
+  });
+
+  it("레벨 올리기 후보: 붐비면 낮은 숙소 먼저, 아니면 일꾼 많은 생산 시설(같으면 낮은 레벨·열쇠 차례), 상한·행정 건물 빼고(1146 나)", () => {
+    const spec = (facility: string) =>
+      ({
+        farm: { stage: "gather", maxLevel: 5 },
+        mine: { stage: "gather", maxLevel: 5 },
+        lodging: { stage: "living", maxLevel: 3 },
+        government_hall: { stage: "government", maxLevel: 3 },
+      })[facility];
+    const list: SiteFacility[] = [
+      { key: 1, facility: "farm", level: 1, workers: 2 },
+      { key: 2, facility: "mine", level: 2, workers: 4 },
+      { key: 3, facility: "mine", level: 1, workers: 4 },
+      { key: 4, facility: "lodging", level: 2, workers: 0 },
+      { key: 5, facility: "lodging", level: 1, workers: 0 },
+      { key: 6, facility: "government_hall", level: 1, workers: 0 },
+      { key: 7, facility: "farm", level: 5, workers: 9 },
+    ];
+    expect(rankCityUpgrades(list, { humans: 10, housingCap: 40 }, spec).map((f) => f.key)).toEqual([3, 2, 1]);
+    expect(rankCityUpgrades(list, { humans: 40, housingCap: 40 }, spec).map((f) => f.key)).toEqual([
+      5, 4, 3, 2, 1,
+    ]);
+  });
+
+  it("수리: 문턱 아래 가운데 가장 낮은 상태부터(문턱 0 = 끔, 상태를 모르면 고치지 않는다 — 1114 가)", () => {
+    const list: SiteFacility[] = [
+      { key: 1, facility: "city_wall", level: 1, workers: 0, conditionPpm: 300_000 },
+      { key: 2, facility: "farm", level: 1, workers: 1, conditionPpm: 100_000 },
+      { key: 3, facility: "mine", level: 1, workers: 1, conditionPpm: 900_000 },
+      { key: 4, facility: "mine", level: 1, workers: 1 },
+    ];
+    expect(chooseCityRepair(list, 700)?.key).toBe(2);
+    expect(chooseCityRepair(list.slice(2), 700)).toBeUndefined();
+    expect(chooseCityRepair(list, 0)).toBeUndefined();
   });
 });

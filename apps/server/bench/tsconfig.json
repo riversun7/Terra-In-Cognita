@@ -8,5 +8,5 @@
   },
   "include": [".", "../src/world/mapProps.ts"],
   // 도시 간격·건물 배치 측정은 서버 모듈(국가 프리셋·세계 배치)을 많이 가져와 상위 tsconfig.json으로 검사한다
-  "exclude": ["citySpacing.ts", "cityLayout.ts"]
+  "exclude": ["citySpacing.ts", "cityLayout.ts", "cityRest.ts"]
 }

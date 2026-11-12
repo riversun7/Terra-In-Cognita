@@ -52,10 +52,20 @@ export interface WorldSeedCoefficients {
    */
   readonly lumberMinForestPct: number;
   /**
-   * [임시] 칸 고도(게임 m)가 이 값 이상이면 산지: 광석 몫 1000, 높은 티어 광석이 나온다(기획 D-533, @terra/shared/catchment oreSharePm).
-   * 옛 뜻은 "광산을 짓는 문턱"이었다 — 이제 광산은 마른 땅 어디에나 선다
+   * [임시] 칸 고도(게임 m)가 이 값 이상이면 광석 몫 1000(기획 D-533, @terra/shared/catchment oreSharePm). 옛 뜻은 "광산을 짓는 문턱"이었다 —
+   * 이제 광산은 마른 땅 어디에나 선다. 높은 티어 광석의 산지 고도는 oreHighMinM(기획 D-535)
    */
   readonly mineMinHeightM: number;
+  /**
+   * [임시] 높은 티어 광석 산지 고도(m, 기획 D-535 질문 1121 "기준을 낮춰라"): 이 이상인 마른 땅은 산지(광석 비트) — 높은 티어 몫 1000, 광산
+   * 국가 지방 도시 자리 점수(catchmentMountainSitePm)도 이 칸을 센다
+   */
+  readonly oreHighMinM: number;
+  /**
+   * [임시] 산지 밖 마른 땅의 높은 티어 몫(‰, 기획 D-535 "평지도 드물게 소량 분포"): 광산이 산지 밖 가장 높은 티어(oreLowTierMax) 위를 뽑으면
+   * 이 몫만큼만 그대로 나온다(@terra/shared/catchment highOrePm·oreTierCapOf). 0이면 옛 규칙(산지에서만)
+   */
+  readonly oreFlatHighPm: number;
   /**
    * [임시] 광석 고도 몫(기획 D-533 — 질문 1020·1064 "석재·구리는 어디서나 조금(고도에 따른 몫)"): 0m 이하 땅의 몫(‰), 언덕 고도(m)와 그 몫(‰).
    * 산지 고도(mineMinHeightM) 이상은 1000, 사이는 곧게 잇는다
@@ -224,6 +234,10 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   oreShareHillM: 200,
   oreShareHillPm: 400,
   oreLowTierMax: 2,
+  // 높은 티어 광석(기획 D-535): 시험 행성 알맞은 땅(기온 8~32°C)의 위 0.6%·도시가 설 땅의 위 1.1%가 200m 이상(250m는 0.07%·0.12%,
+  // 300m는 거의 0 — 2026-11-12 측정, docs/worklog/2026/11/12-*-ore-3.md). 산지 밖은 높은 티어 추첨의 5%만 그대로 둔다
+  oreHighMinM: 200,
+  oreFlatHighPm: 50,
   farmMinTempC: 5,
   farmMinRainMm: 250,
   // 국가 자리: 지금 시험 행성(반지름 약 531km)에서 국가 넷이 수십~백 km 떨어지게, 사막·추운 땅을 빼고(기온 8~32°C·강수 300mm 이상)

@@ -79,12 +79,14 @@ const ENDOW_KEY = "npc_endow:";
 const CITY_JOB_BASE = 1_000_000_000_000;
 /**
  * [임시] 기본 도시 직무(국가 프리셋에 성격 칸 cityJobs가 없을 때, 기획 답 531 다의 "칸이 없으면"): 그 도시에 이 시설 건물이 없으면 휴먼이
- * 이 레시피를 Lv1로 돌린다(시뮬 econ16 농업 나라 계획과 같은 세 가지 — 생필품 식량 사슬과 목재). 건물이 있으면 건물이 대신한다
+ * 이 레시피를 Lv1로 돌린다(시뮬 econ16 농업 나라 계획과 같은 것 — 생필품 식량 사슬과 목재). 건물이 있으면 건물이 대신한다.
+ * 바뀜 (2026-11-12, 기획 D-535 정리 1144 나): 통나무 벌목(cut_logs)도 — 짓기 레벨 1 재료(통나무)를 모든 나라가 스스로 캔다
  */
 export const CITY_JOBS: readonly { readonly facility: string; readonly recipe: string }[] = [
   { facility: "farm", recipe: "farm_grain" },
   { facility: "kitchen", recipe: "cook_ration" },
   { facility: "lumber_camp", recipe: "cut_timber" },
+  { facility: "lumber_camp", recipe: "cut_logs" },
 ];
 
 /**

@@ -5,6 +5,8 @@
 //   (npc_seed_lumber_forest_pct·npc_seed_mine_height_m·npc_seed_farm_temp_c·npc_seed_farm_rain_mm — 새 수치를 만들지 않는다).
 //   바뀜 (2026-11-12, 기획 D-533): 광석은 있음/없음 대신 고도 몫(oreSharePm), 자리 점수는 몫으로 센다(cellSharesPm·shareCoveragePm, 질문 1027 다).
 //   바뀜 (2026-11-12, 기획 D-534 — 질문 1080 가): 채집 다툼의 목재도 숲 밀도 몫(forestSharePm)이다 — 광석이 고도 몫을 쓰는 것과 같은 꼴.
+//   바뀜 (2026-11-12, 기획 D-535 — 질문 1121 "기준을 낮춰라 또는 평지도 드물게 소량 분포하게 하라"): 높은 티어 광석의 산지 고도는 따로 된 설정 칸
+//   (oreHighMinM — 광석 비트·highOrePm)이고, 산지 밖 땅도 높은 티어를 드물게 낸다(oreFlatHighPm — highOrePm·oreTierCapOf).
 // - 도시 배후지 = 도시 2차맵에서 반경 R(1차맵 칸, 설정 칸 city_catchment_radius_cells) 안의 칸들. 배후지 덮임(‰) = 원자재마다 "배후지 칸 가운데
 //   그 원자재가 있는 칸 몫"을 그 도시가 쓰는 시설 수로 가중 평균한 값이다. 세계 배치(서버 world/citySites.ts)와 화면(/dev/world-layout 덮개)이
 //   같은 함수를 쓴다.
@@ -54,7 +56,8 @@ export interface CatchmentLand {
 /** 문턱(설정 칸 worldSeed — NPC 시작 도시 채집 시설 고르기와 같은 칸) */
 export interface CatchmentThresholds {
   readonly lumberMinForestPct: number;
-  readonly mineMinHeightM: number;
+  /** 높은 티어 광석 산지 고도(m, 설정 칸 ore_high_min_m — 기획 D-535). 이 이상이면 광석 비트(산지) */
+  readonly oreHighMinM: number;
   readonly farmMinTempC: number;
   readonly farmMinRainMm: number;
 }
@@ -64,7 +67,8 @@ const DEEP_WATER = 1 | 2;
 
 /**
  * 칸 하나에 있는 원자재 비트:
- * - 목재: 숲 % ≥ 벌목장 문턱(물 잠긴 칸 아님). 광석: 칸 고도 ≥ 산지 고도(산지 광석 — 높은 티어가 나오는 칸. 하위 광석의 몫은 oreSharePm).
+ * - 목재: 숲 % ≥ 벌목장 문턱(물 잠긴 칸 아님). 광석: 칸 고도 ≥ 높은 티어 산지 고도(oreHighMinM — 산지 광석, 높은 티어가 그대로 나오는 칸.
+ *   하위 광석의 몫은 oreSharePm, 산지 밖 높은 티어 몫은 highOrePm).
  *   작물: 기온·강수가 농장 문턱 이상(물 잠긴 칸 아님).
  * - 약초: 숲이나 농사지을 땅(NPC 씨앗의 약초원 규칙과 같다). 축산물: 농사지을 땅(목장 규칙과 같다). 어류: 물 비트가 하나라도 있는 칸.
  */
@@ -74,7 +78,7 @@ export function cellMaterials(land: CatchmentLand | undefined, t: CatchmentThres
   let bits = 0;
   const wood = !drowned && land.forest * 100 >= t.lumberMinForestPct * 255;
   const crop = !drowned && land.temperatureC >= t.farmMinTempC && land.precipitationMm >= t.farmMinRainMm;
-  if (!drowned && land.elevationM >= t.mineMinHeightM) bits |= MATERIAL_BIT.ore;
+  if (!drowned && land.elevationM >= t.oreHighMinM) bits |= MATERIAL_BIT.ore;
   if (wood) bits |= MATERIAL_BIT.wood;
   if (wood || crop) bits |= MATERIAL_BIT.herb;
   if (crop) bits |= MATERIAL_BIT.crop | MATERIAL_BIT.livestock;
@@ -85,7 +89,10 @@ export function cellMaterials(land: CatchmentLand | undefined, t: CatchmentThres
 // ── 광석 고도 몫(기획 D-533 — 질문 1020·1064 "석재·구리는 어디서나 조금(고도에 따른 몫), 높은 티어 광석은 산지", D-507 "하위 광석은 건축 재료") ──
 // - 낮은 땅도 광석(잡석·석재·구리 = 하위 티어)을 조금 캔다. 몫(‰) = 고도의 꺾은선: 0m 이하 = oreShareLowPm, 언덕 고도(oreShareHillM) =
 //   oreShareHillPm, 산지 고도(mineMinHeightM, 옛 광산 문턱) 이상 = 1000. 사이는 곧게 잇는다(내림). 바다·호수에 잠긴 칸은 0.
-// - 높은 티어 광석(oreLowTierMax 위 — 철부터)은 산지 칸에서만 나온다(highOrePm). 광석 비트(MATERIAL_BIT.ore)는 이제 "산지 광석"이다.
+// - 높은 티어 광석(oreLowTierMax 위 — 철부터)은 산지 칸에서 그대로 나온다(highOrePm). 광석 비트(MATERIAL_BIT.ore)는 이제 "산지 광석"이다.
+//   바뀜 (2026-11-12, 기획 D-535): 산지 = 고도 ≥ oreHighMinM(몫 곡선의 1000 고도 mineMinHeightM과 따로 — 시험 행성의 알맞은 땅은 500m에 닿지
+//   않는다). 산지 밖 마른 땅도 높은 티어를 oreFlatHighPm(‰)만큼 낸다(드물게 — 티어 추첨이 그 몫만 남긴다, oreTierCapOf). 몫 곡선은 그대로라
+//   낮은 땅은 광석 자체도 적다(소량).
 // - 2차맵 생성기 판은 올리지 않는다(질문 1064 나): 1차맵 칸 몫만 바꾸고 2차맵 오브젝트는 그대로다.
 
 /** 광석 고도 몫 규칙(세계 씨앗 설정 칸 ore_share_* [임시] + 산지 고도 npc_seed_mine_height_m) */
@@ -96,12 +103,20 @@ export interface OreShareRules {
   readonly oreShareHillM: number;
   /** 언덕 고도의 광석 몫(‰) */
   readonly oreShareHillPm: number;
-  /** 산지 고도(m) — 이 이상이면 몫 1000이고 높은 티어 광석이 나온다(옛 NPC 광산 문턱 칸) */
+  /** 몫 1000 고도(m) — 이 이상이면 광석 몫 1000(옛 NPC 광산 문턱 칸 npc_seed_mine_height_m). 높은 티어 산지 고도는 oreHighMinM */
   readonly mineMinHeightM: number;
 }
 
-/** 칸 원자재 판정 규칙(문턱 + 광석 고도 몫) — 세계 씨앗 계수표가 그대로 맞는다 */
-export type CatchmentLandRules = CatchmentThresholds & OreShareRules;
+/** 높은 티어 광석 규칙(설정 칸 ore_high_min_m·ore_flat_high_pm [임시] — 기획 D-535) */
+export interface HighOreRules {
+  /** 높은 티어 광석 산지 고도(m) — 이 이상인 마른 땅은 높은 티어 몫 1000 */
+  readonly oreHighMinM: number;
+  /** 산지 밖 마른 땅의 높은 티어 몫(‰) — 0이면 옛 규칙(산지에서만) */
+  readonly oreFlatHighPm: number;
+}
+
+/** 칸 원자재 판정 규칙(문턱 + 광석 고도 몫 + 높은 티어) — 세계 씨앗 계수표가 그대로 맞는다 */
+export type CatchmentLandRules = CatchmentThresholds & OreShareRules & HighOreRules;
 
 /** 두 점 (x0, y0)·(x1, y1)을 곧게 이은 선의 x 값(내림). x1 ≤ x0이면 y1 */
 function lerpDown(x: number, x0: number, y0: number, x1: number, y1: number): number {
@@ -126,9 +141,29 @@ export function oreSharePm(land: CatchmentLand | undefined, rules: OreShareRules
   return clampPm(lerpDown(elevation, hillM, hill, mountainM, 1000));
 }
 
-/** 칸 광석 가운데 높은 티어가 나오는 몫(‰): 산지 칸(광석 비트)이면 1000, 아니면 0 */
-export function highOrePm(land: CatchmentLand | undefined, rules: CatchmentThresholds): number {
-  return (cellMaterials(land, rules) & MATERIAL_BIT.ore) === 0 ? 0 : 1000;
+/**
+ * 칸 광석 가운데 높은 티어가 나오는 몫(‰): 산지 칸(고도 ≥ oreHighMinM)이면 1000, 산지 밖 마른 땅은 oreFlatHighPm(0 ~ 1000), 칸이 없거나
+ * 바다·호수에 잠긴 칸은 0
+ */
+export function highOrePm(land: CatchmentLand | undefined, rules: HighOreRules): number {
+  if (!land || (land.water & DEEP_WATER) !== 0) return 0;
+  return land.elevationM >= rules.oreHighMinM ? 1000 : clampPm(rules.oreFlatHighPm);
+}
+
+/** 광산 티어 막기: 산지 밖 가장 높은 티어(maxTier)와, 그 위 티어를 뽑았을 때 그대로 두는 몫(‰) */
+export interface OreTierCap {
+  readonly maxTier: number;
+  readonly keepAbovePm: number;
+}
+
+/**
+ * 광석 채집의 티어 막기(시뮬 광산·서버 NPC 광산·플레이어 광산이 같은 셈 — @terra/sim rollGatherOutputs tierCap): 높은 티어 몫(‰, 배후지 평균이나
+ * 그 2차맵 칸 highOrePm)이 1000 이상이면 막지 않는다(undefined). 아니면 lowTierMax 위를 뽑은 번은 그 몫만큼만 그대로 두고 나머지는
+ * lowTierMax로 내린다 — 평지(oreFlatHighPm)는 높은 티어가 드물고 산지는 그대로다
+ */
+export function oreTierCapOf(highPm: number, lowTierMax: number): OreTierCap | undefined {
+  if (highPm >= 1000) return undefined;
+  return { maxTier: Math.max(0, Math.trunc(lowTierMax)), keepAbovePm: clampPm(highPm) };
 }
 
 /** 원자재마다 칸 몫(‰) */

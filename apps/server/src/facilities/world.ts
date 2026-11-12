@@ -6,6 +6,10 @@
 // - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 계약 서비스를 이을 때 채집 산출 자료(채집 시설의 정의·레벨·도시·
 //   자리 수, 유닛 1차 스탯)를 함께 넘긴다(gatherSiteOf). 임대형 임차인 몫의 건물 창고 남은 자리(storage.ts roomGrams, WP8 523 ②)도 함께.
 // - 컨디션(D-534, labor/condition.ts): 채집 정산과 유닛 화면에 그 유닛의 관리 보너스를 넘긴다(주거 = 주인의 그 도시 숙소, 음식 = 도시 생필품 충족).
+// - 높은 티어 광석(기획 D-535 질문 1121, docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12): 높은 티어 광석"): 플레이어 광산도 NPC 광산과
+//   같은 티어 막기(@terra/shared/catchment oreTierCapOf)를 받는다 — 높은 티어 몫 = 건물이 선 2차맵 칸의 highOrePm(산지 1000, 산지 밖
+//   ore_flat_high_pm). 행성 값이 없는 2차맵(임시 지형)은 막지 않는다.
+import { type CatchmentLand, highOrePm, materialOfFacility, oreTierCapOf } from "@terra/shared/catchment";
 import type { ConditionParts, SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
@@ -111,19 +115,31 @@ export function beaconConstructionOf(options: {
   };
 }
 
+/** 광산 티어 막기 자료: 2차맵 → 그 칸 높은 티어 몫(‰, 행성 값이 없으면 undefined)·산지 밖 가장 높은 티어(설정 칸 ore_low_tier_max) */
+export interface OreCapSource {
+  highOrePm(mapKey: number): number | undefined;
+  lowTierMax(): number;
+}
+
 /**
  * 그 건물이 채집 시설(팩 gather가 있는 시설)이면 채집 산출 자료: 정의·다 지은 레벨·사다리·확률표·묶음 크기·건물이 선 도시·자리 수(레벨 ×
- * 레벨당 자리, 레벨 0이면 0). 시설 줄이 없거나 채집 시설이 아니면 undefined
+ * 레벨당 자리, 레벨 0이면 0)·광석 시설이면 티어 막기(oreCap이 있을 때, 머리 주석). 시설 줄이 없거나 채집 시설이 아니면 undefined
  */
 export function gatherSiteOf(
   service: Pick<FacilityService, "facilities" | "places">,
   catalog: FacilityCatalog,
   buildingId: number,
+  oreCap?: OreCapSource,
 ): (GatherSite & { readonly slots: number }) | undefined {
   const record = service.facilities.get(buildingId);
   const def = record ? catalog.facility(record.facilityId) : undefined;
   if (!record || !def?.gather) return undefined;
+  const place =
+    oreCap && materialOfFacility(def.id) === "ore" ? buildingPlace(service.places, buildingId) : undefined;
+  const highPm = place && oreCap ? oreCap.highOrePm(place.mapKey) : undefined;
+  const tierCap = highPm === undefined || !oreCap ? undefined : oreTierCapOf(highPm, oreCap.lowTierMax());
   return {
+    ...(tierCap ? { tierCap } : {}),
     buildingId,
     facilityId: def.id,
     level: record.level,
@@ -169,8 +185,20 @@ export function createWorldFacilities(input: {
   readonly ready: () => boolean;
   /** 도시의 지난 하루 끝 생필품 충족 ‰(NPC 런타임 cityDayStore, 컨디션 음식 몫). 없으면 모름 */
   readonly necessitiesOf?: ((cityId: number) => number | undefined) | undefined;
+  /** 2차맵 칸 행성 값(플레이어 광산 티어 막기의 높은 티어 몫 — 머리 주석). 없거나 undefined면 광산 티어를 막지 않는다 */
+  readonly cellValues?: ((mapKey: number) => CatchmentLand | undefined) | undefined;
 }): WorldFacilities {
   const catalog = facilityCatalogOf(input.config?.content ?? (() => EMPTY_SOURCE));
+  const cellValues = input.cellValues;
+  const oreCap: OreCapSource | undefined = cellValues
+    ? {
+        highOrePm: (mapKey) => {
+          const land = cellValues(mapKey);
+          return land ? highOrePm(land, input.rules().worldSeed) : undefined;
+        },
+        lowTierMax: () => input.rules().worldSeed.oreLowTierMax,
+      }
+    : undefined;
   let labor: LaborService | undefined;
   const service = createFacilityService({
     loaded: input.loaded,
@@ -249,7 +277,7 @@ export function createWorldFacilities(input: {
     attachLabor(next) {
       labor = next;
       next.attachProduction({
-        site: (buildingId) => gatherSiteOf(service, catalog(), buildingId),
+        site: (buildingId) => gatherSiteOf(service, catalog(), buildingId, oreCap),
         // 병원(의료 단계 시설): 의사 직무 배치 자리(D-521, 산출 없음)
         workplace: (buildingId) => medicalSiteOf(service, catalog(), buildingId),
         primaries: (unitId) => input.holdings.primariesOf(unitId),

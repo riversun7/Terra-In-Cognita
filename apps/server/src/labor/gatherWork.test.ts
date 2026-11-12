@@ -228,4 +228,27 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
       gatherLots({ points: 0, seq: 0 }, 5000, { ...input, condition: 40 }),
     );
   });
+
+  it("광산 티어 막기(기획 D-535 — 그 2차맵 칸 높은 티어 몫): 몫 0이면 T3 위가 없고, 평지 몫(50‰)이면 드물게, 없으면 그대로", () => {
+    const ores = ladderOf(
+      Object.fromEntries(Array.from({ length: GATHER_TIERS }, (_, tier) => [tier, [`item:t${tier}`]])),
+    );
+    const strong: Primaries = { ...tens, str: 90, dex: 90 };
+    const input = { unitId: 22, primaries: strong, settings, cycleMs: CYCLE_MS };
+    const aboveT2 = (tierCap: GatherSite["tierCap"]) => {
+      const result = gatherLots({ points: 0, seq: 0 }, 150_000, {
+        ...input,
+        site: { ...site(wood, ores), tierCap },
+      });
+      return result.outputs
+        .filter((stack) => Number(stack.asset.slice("item:t".length)) > 2)
+        .reduce((sum, stack) => sum + stack.qty, 0n);
+    };
+    const free = aboveT2(undefined);
+    const flat = aboveT2({ maxTier: 2, keepAbovePm: 50 });
+    expect(free).toBeGreaterThan(0n);
+    expect(aboveT2({ maxTier: 2, keepAbovePm: 0 })).toBe(0n);
+    expect(flat).toBeGreaterThan(0n);
+    expect(flat * 5n).toBeLessThan(free);
+  });
 });

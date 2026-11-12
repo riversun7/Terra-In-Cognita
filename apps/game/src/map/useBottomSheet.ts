@@ -9,8 +9,11 @@ import { type BottomSheet, bottomSheetOf } from "./anchorUnit.ts";
 import type { GatherState } from "./gather/gatherState.ts";
 import type { NearbyState } from "./nearby/nearbyState.ts";
 
-/** 눌러도 작은 창을 닫지 않는 곳: 작은 창 안(그 안에서 연 대화상자 포함)과 지도(엔진이 누르기를 가려 알린다) */
-const PEEK_KEEP_SELECTOR = ".map-peek, .map-view";
+/**
+ * 눌러도 작은 창을 닫지 않는 곳: 작은 창 안(그 안에서 연 대화상자 포함), 지도(엔진이 누르기를 가려 알린다), 아래 탭(탭이 판을 바꾸며 창을 닫는다 —
+ * 여기서 먼저 닫으면 탭의 누르기 전에 화면이 다시 그려져 근처 판이 "열린 탭"으로 보이고, [주변]이 열지 않고 닫았다)
+ */
+const PEEK_KEEP_SELECTOR = ".map-peek, .map-view, .map-nav";
 
 /** 정보 판으로 보는 남의 유닛(누른 때의 움직임) */
 export interface PeekUnit {

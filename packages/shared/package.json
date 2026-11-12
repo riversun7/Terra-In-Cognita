@@ -37,6 +37,7 @@
     "./house": "./src/house.ts",
     "./inbox": "./src/inbox.ts",
     "./itemEditor": "./src/itemEditor.ts",
+    "./itemWeights": "./src/itemWeights.ts",
     "./labor": "./src/labor.ts",
     "./mail": "./src/mail.ts",
     "./mapLooks": "./src/mapLooks.ts",

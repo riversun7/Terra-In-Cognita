@@ -22,6 +22,7 @@ import {
   type SubcategoryJson,
   type WeaponTypeJson,
 } from "@terra/shared/itemEditor";
+import { defaultItemWeight } from "@terra/shared/itemWeights";
 import type { EquipSlot } from "@terra/shared/roster";
 
 export const ITEM_ORIGIN_FILTERS = ["all", "pack", "edited", "created"] as const;
@@ -166,8 +167,20 @@ export function newItemTemplate(
   category: ItemCategoryId,
   name: { ko: string; en: string },
 ): ItemJson {
-  const base: ItemJson = { id, name, category, tier: 0, startPrice: 1, enabled: false };
-  if (category === "equipment") return { ...base, stackMax: 1, equip: { slot: "head", stats: [] } };
+  // 무게는 분류 출발값(@terra/shared/itemWeights, 기획 D-535 1137 나 — 화물 상한·인벤토리 무게에 쓰인다)
+  const base: ItemJson = {
+    id,
+    name,
+    category,
+    tier: 0,
+    startPrice: 1,
+    weight: defaultItemWeight({ category }),
+    enabled: false,
+  };
+  if (category === "equipment") {
+    const equip: ItemEquipJson = { slot: "head", stats: [] };
+    return { ...base, weight: defaultItemWeight({ category, equip }), stackMax: 1, equip };
+  }
   return base;
 }
 

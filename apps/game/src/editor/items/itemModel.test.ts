@@ -164,6 +164,8 @@ describe("아이템 편집기 모델: 칸 맞추기", () => {
       category: "gem",
       tier: 0,
       startPrice: 1,
+      // 분류 무게 출발값(D-535 1137 나): 보석 5g
+      weight: 5,
       bound: true,
       enabled: false,
     });

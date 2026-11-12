@@ -91,7 +91,9 @@ export async function centreOnBuilding(page: Page, facility = "government_hall")
   const sheet = page.locator(`.gather-sheet[data-building="${String(id)}"]`);
   await expect(sheet).toBeVisible();
   // 누른 건물 이름표(그 건물 하나만)
-  await expect(page.locator(`.gather-building-tag[data-building="${String(id)}"]:not([hidden])`)).toBeVisible();
+  await expect(
+    page.locator(`.gather-building-tag[data-building="${String(id)}"]:not([hidden])`),
+  ).toBeVisible();
   await sheet.locator(".gather-sheet-close").click();
   await expect(page.locator(".gather-panel")).toHaveAttribute("data-sheet", "none");
   await page.waitForTimeout(600);

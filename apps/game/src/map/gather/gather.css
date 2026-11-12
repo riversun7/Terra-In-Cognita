@@ -88,20 +88,21 @@
   stroke-dasharray: var(--space-2) var(--space-1);
 }
 
-/* 건물 표시: 건물 위 작은 단추(누르면 건물 판) */
-.gather-building-marker {
+/* 누른 건물 이름표(건물 판이 열린 건물 하나 위, 사용자 지적 2026-11-12 "누른 건물만 표시해라") — 시설 무리 색 점 + 이름 · Lv.
+   무리 색(--group-color)은 map/mapHud.css. 누르지 않는다(pointer-events 없음 — 지도 끌기가 그대로) */
+.gather-building-tag {
   position: absolute;
   top: 0;
   left: 0;
-  min-width: var(--tap-size);
-  min-height: var(--tap-size);
-  margin: 0;
-  padding: 0 var(--space-2);
-  border: var(--border-w) solid var(--color-border);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: calc(var(--tap-size) * 5);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-w) solid var(--group-color, var(--color-border));
   border-radius: var(--radius-pill);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-control);
-  transition: none;
   color: var(--color-text);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
@@ -109,12 +110,19 @@
   white-space: nowrap;
   pointer-events: none;
 }
-.gather-building-marker[hidden] {
+.gather-building-tag > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gather-building-tag[hidden] {
   display: none;
 }
-.gather-building-marker:focus-visible {
-  outline: var(--focus-w) solid var(--color-focus);
-  outline-offset: var(--focus-offset);
+.gather-building-tag-mark {
+  flex: none;
+  inline-size: var(--status-dot);
+  block-size: var(--status-dot);
+  border-radius: var(--radius-pill);
+  background-color: var(--group-color, var(--color-text-muted));
 }
 
 /* 내 유닛 채집 이름표 */

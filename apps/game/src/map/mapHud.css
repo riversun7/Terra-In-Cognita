@@ -1,0 +1,136 @@
+/*
+ * 2차맵 아래 탭(MapBottomNav)·운영 메뉴(OperatorMenu)·시설 무리 색 — 사용자 지적 2026-11-12. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 아래 탭은 앱 하단 탭 모양(shell/tabbar.css .tab)을 그대로 쓰고, 지도 화면 안 맨 아래에 붙는다(안전 영역만큼 띄움). 아래 판 줄(.map-hud-bottom)과
+ * 도시 화면은 그 위에서 멈춘다(--map-nav-h). 넓은 화면에서도 보인다(지도 화면은 틀의 하단 탭을 숨긴다).
+ */
+.map-screen {
+  --map-nav-h: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+}
+/* 아래 탭이 있는 2차맵: 오른쪽 위 구석은 비워 둘 전환 단추가 없고(탭 [1차맵]), 아래 판 줄은 탭 위에서 멈춘다 */
+.map-screen[data-nav="bottom"] .map-hud-top {
+  padding-right: 0;
+}
+.map-screen[data-nav="bottom"] .map-hud-bottom {
+  bottom: calc(var(--map-nav-h) + var(--space-2));
+}
+.map-nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: stretch;
+  min-block-size: var(--map-nav-h);
+  padding: 0 max(var(--space-1), env(safe-area-inset-right)) env(safe-area-inset-bottom)
+    max(var(--space-1), env(safe-area-inset-left));
+  border-top: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+}
+/* 열린 탭: 하단 탭의 "지금 화면"과 같은 모양(알약 바탕 + 진한 글자 — 색에만 기대지 않는다) */
+.map-nav-button[aria-pressed="true"] {
+  color: var(--color-text);
+}
+.map-nav-button[aria-pressed="true"] .tab-icon {
+  background-color: var(--color-surface-2);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-primary-lip);
+}
+.map-nav-button:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: calc(var(--focus-offset) * -1);
+}
+/* 유닛 수 — 아이콘 오른쪽 위 작은 알약 */
+.map-nav-badge {
+  position: absolute;
+  top: calc(var(--space-1) * -1);
+  right: 0;
+  min-inline-size: var(--badge-size);
+  block-size: var(--badge-size);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-border);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  line-height: var(--badge-size);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* 운영 메뉴 — [운영] 단추(머리 판)와 위 판 줄 아래 한 줄을 다 쓰는 판 */
+.map-operator-menu-button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+.map-operator-menu-button[aria-expanded="true"] {
+  background-color: var(--color-danger-surface);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-danger);
+}
+.map-operator-menu {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-color: var(--color-danger);
+}
+.map-operator-menu-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-danger);
+}
+.map-operator-menu-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.map-operator-menu-row {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+.map-operator-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  inline-size: 100%;
+  text-align: start;
+}
+.map-operator-menu-state {
+  flex: none;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.map-operator-menu-note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* 시설 무리 색(도시 화면 표시·지도 위 누른 건물 표시) — 색만이 아니라 아이콘 모양도 다르다 */
+[data-group="gather"] {
+  --group-color: var(--color-stat-agi);
+}
+[data-group="storage"] {
+  --group-color: var(--color-stat-dex);
+}
+[data-group="craft"] {
+  --group-color: var(--color-stat-vit);
+}
+[data-group="civic"] {
+  --group-color: var(--color-stat-int);
+}
+[data-group="housing"] {
+  --group-color: var(--color-stat-wis);
+}
+[data-group="other"] {
+  --group-color: var(--color-text-muted);
+}

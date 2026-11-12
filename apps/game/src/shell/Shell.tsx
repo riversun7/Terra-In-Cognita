@@ -272,7 +272,8 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
         <ConnectionNotice floating showLost />
         {!holding && (current === "map" || current === "map_planet") ? (
           <>
-            <MapSwitch route={current} />
+            {/* 2차맵은 화면 안 아래 탭 [1차맵]이 전환을 맡는다(map/MapBottomNav.tsx, 사용자 지적 2026-11-12) */}
+            {current === "map_planet" ? <MapSwitch route={current} /> : null}
             <OrientationHint />
           </>
         ) : null}

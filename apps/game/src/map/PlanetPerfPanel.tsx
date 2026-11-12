@@ -1,5 +1,6 @@
 // 1차맵 위 판의 성능 숫자(프레임·타일·GPU·엔진·상한 도달·첫 표시·픽셀, 재기 모드면 하늘) — PlanetMapScreen.tsx에서 나눴다(파일 크기).
 // 운영진(gm·admin·dev)에게만 보인다(사용자 요청 2026-11-09 "일반 유저는 fps나 ms 표시 없애고 운영진만 보이게", useStaffView).
+// 처음은 닫힘 — 운영 메뉴 [성능 표시]로 켠다(2차맵과 같은 값, perfPanelToggle.ts — 사용자 지적 2026-11-12 "Fast ms 같은 장보창도 토글로해라").
 // 성능 보고(telemetry/reporter.ts)는 앱의 프레임 측정기에서 따로 보내므로 보이기와 상관없이 누구나 보낸다.
 // 시험(Playwright)이 읽는 엔진 값은 화면 section의 data-*에 그대로 있다.
 import type { PlanetStats } from "@terra/engine/planet";
@@ -7,6 +8,7 @@ import { useStaffView } from "../auth/session.ts";
 import { m } from "../paraglide/messages.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
 import { usePerfStats } from "../perf/usePerfStats.ts";
+import { usePerfPanel } from "./perfPanelToggle.ts";
 import { formatPixelRatio } from "./pixelRatioParam.ts";
 
 const fixed = (value: number, digits: number): string => value.toFixed(digits);
@@ -23,8 +25,9 @@ export function PlanetPerfPanel({
   readonly hidden: boolean;
 }) {
   const staff = useStaffView();
-  // 운영진이 아니면 1초마다 바뀌는 프레임 값도 받지 않는다(이 부품만 다시 그린다)
-  if (!staff) return null;
+  const open = usePerfPanel();
+  // 운영진이 아니거나 닫혀 있으면 1초마다 바뀌는 프레임 값도 받지 않는다(이 부품만 다시 그린다)
+  if (!staff || !open) return null;
   return <StaffPerf monitor={monitor} stats={stats} hidden={hidden} />;
 }
 

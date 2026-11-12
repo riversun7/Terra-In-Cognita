@@ -749,7 +749,10 @@ test.describe("내 유닛 목록·건물 판 하나·아래 탭 겹침(사용자
 
   test.describe("운영자 390 영어", () => {
     test.use({ account: "dev", theme: "dark", language: "en" });
-    test("운영자 표시·운영 메뉴가 있는 위 판도 넘치지 않고 아래 탭과 겹치지 않는다", async ({ page, deviceErrors }) => {
+    test("운영자 표시·운영 메뉴가 있는 위 판도 넘치지 않고 아래 탭과 겹치지 않는다", async ({
+      page,
+      deviceErrors,
+    }) => {
       test.setTimeout(120_000);
       await rewriteTrpc(page, { "summary.get": hideSummary });
       await openMap(page);

@@ -5,6 +5,7 @@
 //   좁은 화면이면 누른 뒤 목록을 접는다(아래 판·지도가 보이게, 탭 줄과 지도 표시는 남는다).
 // - 줄은 1초마다와 자료가 바뀔 때 다시 만든다(유닛이 움직이면 거리도 바뀐다). 엔진·자료는 함수로 받는다(그리는 중에는 읽지 않는다).
 // - 유닛 탭 끝에 "다른 곳에 내 유닛 N"(기획 답 632 다). 이 판이 옛 [내 유닛 N] 목록을 맡는다(사용자 답 "합치기: 내 유닛 + 보이는 유닛").
+// - 여는 곳: 아래 탭 [주변](MapBottomNav.tsx, 사용자 지적 2026-11-12 — 옛 [근처] 단추). 탭 단추의 aria-controls는 목록 id다.
 import type { MapUnit } from "@terra/shared/mapUnits";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { m } from "../../paraglide/messages.js";
@@ -65,21 +66,6 @@ function distanceText(cells: number, cellM: number): string {
   return parts.unit === "m"
     ? m.nearby_distance_m({ m: parts.value })
     : m.nearby_distance_km({ km: parts.value });
-}
-
-/** 판이 닫혀 있거나 다른 판(건물 판·내 유닛 목록)이 그 자리를 쓸 때 [근처] 단추. 여는 일은 화면이 한다(다른 판을 닫고 펼친다) */
-export function NearbyToggle({ onOpen }: { readonly onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      className="button-small map-nearby-toggle"
-      aria-expanded={false}
-      aria-controls={LIST_ID}
-      onClick={onOpen}
-    >
-      {m.nearby_open()}
-    </button>
-  );
 }
 
 export function NearbyPanel(props: NearbyPanelProps) {

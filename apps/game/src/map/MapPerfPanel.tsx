@@ -1,10 +1,12 @@
 // 2차맵 위 판의 성능·자료 숫자(프레임·엔진·픽셀·낮밤·서버 자료) — SecondaryMapScreen.tsx에서 나눴다(파일 크기). 값은 화면이 1초마다 읽은 요약이다(PLAN 5.7).
 // 운영진(gm·admin·dev)에게만 보인다(사용자 요청 2026-11-09, useStaffView). 성능 보고(telemetry)는 보이기와 상관없이 누구나 보낸다.
+// 처음은 닫힘 — 운영 메뉴 [성능 표시]로 켜고 이 기기에서 기억한다(사용자 지적 2026-11-12 "Fast ms 같은 장보창도 토글로해라", perfPanelToggle.ts).
 import type { EngineStats } from "@terra/engine";
 import { useStaffView } from "../auth/session.ts";
 import { m } from "../paraglide/messages.js";
 import type { PerfStats } from "../perf/usePerfStats.ts";
 import type { FeedStats } from "./feedTypes.ts";
+import { usePerfPanel } from "./perfPanelToggle.ts";
 import { formatPixelRatio } from "./pixelRatioParam.ts";
 import { formatLocalTime } from "./secondMapSky.ts";
 
@@ -21,8 +23,9 @@ export function MapPerfPanel({
   readonly feed: FeedStats | null;
 }) {
   const staff = useStaffView();
+  const open = usePerfPanel();
   const light = stats?.light ?? null;
-  if (!staff) return null;
+  if (!staff || !open) return null;
   return (
     <p className="map-panel map-perf">
       <span>

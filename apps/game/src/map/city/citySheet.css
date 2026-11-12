@@ -1,0 +1,185 @@
+/*
+ * 2차맵 도시 화면(CitySheet) — 위 판 줄까지 덮는 큰 판, 아래 탭은 남는다(사용자 지적 2026-11-12 "큰화면"). 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 모바일 우선(390px): 판 너비 = 화면 너비 − 양옆 여백, 머리·도시·거르기는 그대로, 건물 목록만 스크롤. 넓은 화면은 왼쪽에 넓게(32rem).
+ */
+.map-city {
+  position: absolute;
+  z-index: 1;
+  top: max(var(--space-3), env(safe-area-inset-top));
+  bottom: calc(var(--map-nav-h) + var(--space-2));
+  left: max(var(--space-3), env(safe-area-inset-left));
+  right: max(var(--space-3), env(safe-area-inset-right));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+@media (min-width: 64em) {
+  .map-city {
+    right: auto;
+    inline-size: 32rem;
+  }
+}
+.map-city-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.map-city-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+.map-city-count,
+.map-city-filter-count {
+  min-inline-size: 1.75em;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.map-city-close {
+  flex: none;
+}
+.map-city-places {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.map-city-note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.map-city-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+/* 거르기 칩 — 가로로 넘치면 줄을 바꾼다(가로 스크롤 없음) */
+.map-city-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.map-city-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--tap-size);
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.map-city-filter[aria-pressed="true"] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-surface-2);
+  font-weight: var(--font-weight-strong);
+}
+.map-city-filter:focus-visible,
+.map-city-row:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+/* 건물 목록 — 남은 높이를 다 쓰고 목록만 스크롤 */
+.map-city-list {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+.map-city-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "mark name distance"
+    "mark detail distance";
+  align-items: center;
+  column-gap: var(--space-2);
+  inline-size: 100%;
+  min-block-size: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  text-align: start;
+  cursor: pointer;
+}
+.map-city-row[aria-pressed="true"] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-surface-2);
+}
+/* 무리 표시 — 무리 색 테두리 + 무리 아이콘(색에만 기대지 않는다) */
+.map-city-mark {
+  grid-area: mark;
+  display: grid;
+  place-items: center;
+  inline-size: calc(var(--icon-md) + var(--space-3));
+  block-size: calc(var(--icon-md) + var(--space-3));
+  border: var(--border-w) solid var(--group-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--group-color);
+}
+.map-city-name {
+  grid-area: name;
+  min-width: 0;
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.map-city-detail {
+  grid-area: detail;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.map-city-detail:empty {
+  display: none;
+}
+.map-city-distance {
+  grid-area: distance;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* 마우스가 있는 기기: 올리면 둘째 판 바탕(누를 수 있는 줄·칩) */
+@media (hover: hover) {
+  .map-city-row:hover,
+  .map-city-filter:hover {
+    background-color: var(--color-surface-2);
+  }
+}

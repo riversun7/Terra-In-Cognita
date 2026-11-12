@@ -1,4 +1,6 @@
-// 2차맵 화면의 유닛 조종 몫 — [내 유닛 N]·내 유닛 목록·"다른 곳에 내 유닛 N" 줄·고른 유닛 단추([멈추기])·남의 유닛 정보 판·운영자 표시와 개발 단추.
+// 2차맵 화면의 유닛 조종 몫 — 내 유닛 목록·"다른 곳에 내 유닛 N" 줄·고른 유닛 단추([멈추기])·남의 유닛 정보 판·운영자 표시와 운영 메뉴 줄.
+// 바뀜(사용자 지적 2026-11-12 "2차맵에 버튼을 제대로 정리해라"): [내 유닛 N] 단추는 아래 탭 [유닛](MapBottomNav.tsx)이 맡고, [운영자 모드]·[자유 시점]은
+// 운영 메뉴 판(OperatorMenu.tsx) 안의 줄이다.
 // 바뀜(사용자 지적 2026-11-09 "다른 유닛 눌려지면 상호작용 메뉴가 나오거나 다른곳을 눌러 저절로 닫히게 해야함"): 남의 유닛은 고르지 않고 작은 창(PeekCard)을
 // 연다. 고른 유닛이 늘 내 유닛이라 [내 유닛으로]는 없앴다. 2026-11-10: 운영자 모드도 같다 — 작은 창의 [이 유닛 조종]만 명령 유닛을 바꾼다.
 // 바뀜(사용자 지적 2026-11-09 문제2 "내 사이보그가 아니라 보유한 유닛목록을 띄워서 선택해야한다. 내 유닛선택이 아예 사라졌다"): [내 사이보그]
@@ -15,32 +17,11 @@ import { navigate } from "../shell/routerStore.ts";
 import { elsewhereText, peekText, unitName, unitStatusText } from "./mapUnits.ts";
 import { UnitAdvice } from "../roster/UnitAdvice.tsx";
 import { HouseReport } from "../faction/identity/HouseReport.tsx";
+import { OperatorMenuToggle } from "./OperatorMenu.tsx";
 import "./unitControl.css";
 
 /** 목록 id(여닫기 단추의 aria-controls) */
 const LIST_ID = "map-units-list";
-
-/** 접힌 목록의 [내 유닛 N] 단추 */
-export function UnitsToggle({
-  count,
-  onOpen,
-}: {
-  /** 받기 전이면 null(수 없이 "내 유닛") */
-  readonly count: number | null;
-  readonly onOpen: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="button-small map-units-toggle"
-      aria-expanded={false}
-      aria-controls={LIST_ID}
-      onClick={onOpen}
-    >
-      {count === null ? m.map_units_title() : m.map_units_toggle({ count })}
-    </button>
-  );
-}
 
 /** 펼친 내 유닛 목록. 줄을 누르면 그 유닛을 고르고 카메라가 따라간다(화면이 한다) */
 export function MyUnitsPanel({
@@ -272,11 +253,11 @@ export function OperatorBadge() {
 }
 
 /**
- * 개발·운영 단추(dev·admin): [운영자 모드](모든 유닛 명령 + 안개 없는 전체 보기)·[자유 시점](운영자 모드에서만 — 기준 유닛 따라가기를
+ * 운영 메뉴의 운영자 줄(dev·admin): [운영자 모드](모든 유닛 명령 + 안개 없는 전체 보기)·[자유 시점](운영자 모드에서만 — 기준 유닛 따라가기를
  * 끄고 끌어서 옮긴다, docs/adr/2026-11-08-seamless-second-map.md WP-1 Q2). 운영자 단추는 빨간 운영자 모양(map-operator-button, 사용자 답 Q2).
  * [시험 일꾼 받기]는 지웠다(사용자 지적 2026-11-09 "시험일꾼받기 기능 없애라"). 서버 명령 dev_spawn_units도 프로토콜 20에서 뺐다
  */
-export function OperatorActions({
+export function OperatorItems({
   operator,
   freeView,
   onToggle,
@@ -288,25 +269,22 @@ export function OperatorActions({
   readonly onFreeView: () => void;
 }) {
   return (
-    <div className="map-actions" data-observe={operator ? "on" : "off"}>
-      <button
-        type="button"
-        className="button-small map-operator-button map-dev-observe map-operator-toggle"
-        aria-pressed={operator}
-        onClick={onToggle}
-      >
-        {m.map_operator_mode()}
-      </button>
+    <>
+      <OperatorMenuToggle
+        pressed={operator}
+        onToggle={onToggle}
+        className="map-dev-observe map-operator-toggle"
+        label={m.map_operator_mode()}
+        note={m.map_ops_operator_note()}
+      />
       {operator ? (
-        <button
-          type="button"
-          className="button-small map-operator-button map-free-view"
-          aria-pressed={freeView}
-          onClick={onFreeView}
-        >
-          {m.map_free_view()}
-        </button>
+        <OperatorMenuToggle
+          pressed={freeView}
+          onToggle={onFreeView}
+          className="map-free-view"
+          label={m.map_free_view()}
+        />
       ) : null}
-    </div>
+    </>
   );
 }

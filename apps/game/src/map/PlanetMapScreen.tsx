@@ -71,6 +71,7 @@ import { PlanetReadout } from "./PlanetReadout.tsx";
 import { type CommandTarget, areaCheck, areaTarget, cityTarget, commandKey } from "./commandTarget.ts";
 import { PlanetLayerPicker } from "./PlanetLayerPicker.tsx";
 import { PlanetPerfPanel } from "./PlanetPerfPanel.tsx";
+import { OperatorMenuButton, OperatorMenuPanel, PerfToggle, useOperatorMenu } from "./OperatorMenu.tsx";
 import { territoryLineOf, usePlanetLayers } from "./usePlanetLayers.ts";
 import { PlanetSystemView } from "./PlanetSystemView.tsx";
 import { ZoomLadder } from "./ZoomLadder.tsx";
@@ -142,6 +143,8 @@ function PlanetMapView({
   } | null>(null);
   // 운영진(gm·admin·dev)만 고도 과장 막대를 본다. 성능 판은 PlanetPerfPanel이 스스로 가린다
   const staff = useStaffView();
+  // 운영 메뉴(운영진만, 사용자 지적 2026-11-12): 성능 표시 켜고 끄기 — 2차맵과 같은 값
+  const opsMenu = useOperatorMenu();
   // 지도 흐름: 도시·국가(world.cities), 내 자리, 고른 도시, 행성 면 레벨(가운데 2차맵 키)
   const overlayDraw = useRef<((projector: PlanetProjector) => void) | null>(null);
   const registerOverlay = useCallback((draw: ((projector: PlanetProjector) => void) | null) => {
@@ -502,6 +505,7 @@ function PlanetMapView({
           <h1 id="planet-title" className="map-title" ref={headingRef} tabIndex={-1}>
             {m.planet_title()}
           </h1>
+          {staff ? <OperatorMenuButton control={opsMenu} /> : null}
         </div>
         {load.kind === "ready" ? (
           <ZoomLadder
@@ -510,6 +514,11 @@ function PlanetMapView({
             onZoomOut={zoomOut}
             canZoomOut={!systemView}
           />
+        ) : null}
+        {staff ? (
+          <OperatorMenuPanel control={opsMenu}>
+            <PerfToggle />
+          </OperatorMenuPanel>
         ) : null}
         <PlanetPerfPanel monitor={monitor} stats={stats} hidden={systemView} />
       </header>

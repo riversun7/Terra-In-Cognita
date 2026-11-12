@@ -86,7 +86,8 @@ export function ranch(ctx: KindContext): void {
     const hide = random() < 0.5 ? C.hideLight : C.hideDark;
     const turn = (random() - 0.5) * 1.2;
     for (const lx of [-0.45, 0.45])
-      for (const lz of [-0.22, 0.22]) list.add("box", ax + lx, FLOOR_M, az + lz, 0.16, 0.55, 0.16, C.hideDark);
+      for (const lz of [-0.22, 0.22])
+        list.add("box", ax + lx, FLOOR_M, az + lz, 0.16, 0.55, 0.16, C.hideDark);
     list.add("box", ax, FLOOR_M + 0.55, az, 1.3, 0.7, 0.7, hide, { turn });
     list.add("box", ax + 0.75, FLOOR_M + 0.9, az, 0.45, 0.45, 0.42, hide, { turn });
   }

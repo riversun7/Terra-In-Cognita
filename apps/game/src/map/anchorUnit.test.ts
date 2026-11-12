@@ -94,6 +94,13 @@ describe("아래 판 하나(사용자 지적 2026-11-09 문제4)", () => {
     expect(bottomSheetOf({ gatherOpen: false, peekOpen: true, unitsOpen: true })).toBe("peek");
     expect(bottomSheetOf({ gatherOpen: false, peekOpen: false, unitsOpen: true })).toBe("units");
     expect(bottomSheetOf({ gatherOpen: false, peekOpen: false, unitsOpen: false })).toBe("nearby");
+    // 도시 화면(아래 탭 [도시]): 건물 판·정보 판 다음, 내 유닛 목록 앞
+    expect(bottomSheetOf({ gatherOpen: false, peekOpen: false, cityOpen: true, unitsOpen: true })).toBe(
+      "city",
+    );
+    expect(bottomSheetOf({ gatherOpen: true, peekOpen: false, cityOpen: true, unitsOpen: false })).toBe(
+      "gather",
+    );
   });
 });
 

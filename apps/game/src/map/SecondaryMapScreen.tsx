@@ -34,11 +34,14 @@
 // 사용자 지적 2026-11-09(docs/adr/2026-11-08-seamless-second-map.md "바뀜 3"): [내 사이보그] 자리에 [내 유닛 N] → 내 유닛 목록(사이보그가 첫 줄),
 // 아래 판 자리에는 판 하나만(누른 건물·오브젝트 판 > 내 유닛 목록 > 근처 판, bottomSheetOf — 행정 건물의 정부 몫은 건물 판 안),
 // 명령 유닛 하나(commandUnit)와 그 이름(unitLabel)을 안내 줄·건물 판이 함께 쓴다.
+// 사용자 지적 2026-11-12(docs/adr/2026-10-29-app-shell.md "바뀜 (2026-11-12)"): 흩어진 단추를 정리했다 — 아래 탭(MapBottomNav: [1차맵]·[유닛]·[도시]·
+// [주변])이 옛 오른쪽 위 [1차맵]·[내 유닛 N]·[근처]를 맡고, [도시]는 이 2차맵 도시·건물 목록 큰 판(city/CitySheet.tsx). 운영 단추([운영자 모드]·
+// [자유 시점])와 성능 판 켜기는 머리의 [운영] 메뉴 하나(OperatorMenu.tsx, 운영진만). 지도 위 건물 표시는 누른 건물 하나만(gatherOverlay.ts).
 import { type EngineStatus, LOCAL_ZOOM_STAGES, type SecondMapEngine } from "@terra/engine";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { refreshSession, useSession } from "../auth/session.ts";
 import { pendingBuildPick } from "../economy/buildPick.ts";
-import { hasDevTools } from "../auth/sessionState.ts";
+import { hasDevTools, isStaff } from "../auth/sessionState.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { m } from "../paraglide/messages.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
@@ -52,6 +55,10 @@ import type { MapFocus } from "./mapTarget.ts";
 import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
 import { CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
+import { MapBottomNav, type MapNavTab } from "./MapBottomNav.tsx";
+import { OperatorMenuButton, OperatorMenuPanel, PerfToggle, useOperatorMenu } from "./OperatorMenu.tsx";
+import { CitySheet } from "./city/CitySheet.tsx";
+import { useBuildingLook } from "./useBuildingLook.ts";
 import { ZoomLadder } from "./ZoomLadder.tsx";
 import { useAnchorFollow } from "./UnitFollow.tsx";
 import { blockedWithoutUnits, chooseAnchor, commandUnit, showStop, unitTapOf } from "./anchorUnit.ts";
@@ -79,13 +86,12 @@ import { NO_MAP_UNITS, useMapUnits } from "./useMapUnits.ts";
 import { useUnitGlance } from "./useUnitGlance.ts";
 import {
   MyUnitsPanel,
-  OperatorActions,
   OperatorBadge,
+  OperatorItems,
   PeekCard,
   SelectedActions,
-  UnitsToggle,
 } from "./UnitControlPanels.tsx";
-import { NearbyPanel, type NearbySources, NearbyToggle } from "./nearby/NearbyPanel.tsx";
+import { NearbyPanel, type NearbySources } from "./nearby/NearbyPanel.tsx";
 import { createNearbyState } from "./nearby/nearbyState.ts";
 import { GatherPanel } from "./gather/GatherPanel.tsx";
 import { createGatherState } from "./gather/gatherState.ts";
@@ -189,6 +195,9 @@ function SecondMapView({
   const selectedRef = useRef<number | null>(null);
   const session = useSession();
   const devTools = hasDevTools(session);
+  // 운영 메뉴(운영진 gm·admin·dev — 성능 판, 운영자 줄은 dev·admin만)
+  const staff = isStaff(session);
+  const opsMenu = useOperatorMenu();
   // 운영자 모드(dev·admin): 모든 유닛 명령 + 전체 보기(시야로 거르지 않음 — 안개 없이 어디든). 바꾸면 다시 구독한다(S3 시야 전송), 기억한다(631 다)
   const {
     operator,
@@ -244,10 +253,8 @@ function SecondMapView({
   }, [ownUnitId, engineRef]);
   // 아래 판 자리 하나: 건물·오브젝트 판 > 내 유닛 목록([내 유닛 N], 문제2) > 근처 판(문제4)
   // 남의 유닛 정보 판(peek)도 이 자리 — 땅을 누르면 닫는다(엔진 콜백은 늘 같은 closePeek를 쓴다)
-  const { sheet, peek, openUnits, closeUnits, openNearby, openPeek, closePeek } = useBottomSheet(
-    gather,
-    nearby,
-  );
+  const { sheet, peek, openUnits, closeUnits, openCity, closeCity, openNearby, openPeek, closePeek } =
+    useBottomSheet(gather, nearby);
   // 고른 유닛 따라가기(내 유닛·운영자 모드)와 2차맵 확대 단계(사다리, 엔진이 바뀔 때 알린다)
   const [zoomStage, setZoomStage] = useState(0);
   // 지도에서 누른 유닛 — 유닛을 누를 때와 지도자 이름표를 누를 때 같다. 내 유닛이면 고르고 기준 유닛이 된다(chooseAnchor).
@@ -360,6 +367,8 @@ function SecondMapView({
     cyborgUnitId: cyborg?.unitId ?? null,
   });
   const { refollow, anchorRef } = useAnchorFollow(engineRef, anchor);
+  // 도시 화면 줄 → 카메라를 그 건물로(판이 열린 동안), 건물 판 열기
+  const lookAtBuilding = useBuildingLook(engineRef, gather, refollow);
   useEffect(() => {
     nearby.setAnchor(anchor);
   }, [nearby, anchor]);
@@ -525,6 +534,24 @@ function SecondMapView({
     toggleOperator();
   };
 
+  // 아래 탭: 열린 탭(판 자리 하나 — 근처 판은 탭을 골라 둔 동안만 열린 것으로 친다), 다시 누르면 닫는다
+  const navActive: MapNavTab | null =
+    sheet === "units" || sheet === "city"
+      ? sheet
+      : sheet === "nearby" && nearbyTab !== null
+        ? "nearby"
+        : null;
+  const onNavTab = (tab: MapNavTab): void => {
+    if (tab === "units") {
+      if (navActive === "units") closeUnits();
+      else openUnits();
+    } else if (tab === "city") {
+      if (navActive === "city") closeCity();
+      else openCity();
+    } else if (navActive === "nearby") nearby.setTab(null);
+    else openNearby();
+  };
+
   // 옆 2차맵으로 넘은 뒤 새 자료가 다 올 때까지는 "받는 중" 안내를 띄우지 않는다(지형은 이웃에서 올린 것이 이미 보인다). 실패 안내는 그대로
   const settled = feedStatus.hasSnapshot && feedStatus.terrain.kind === "ready" && status.kind !== "loading";
   const rawNotice = screenNotice(status, feedStatus);
@@ -596,6 +623,8 @@ function SecondMapView({
       data-focus-at={focus ? `${focus.cellX},${focus.cellY}` : undefined}
       data-cyborg={cyborg?.unitId ?? undefined}
       data-travel={going ? `${going.leg + 1}/${going.route.length}` : undefined}
+      data-nav="bottom"
+      data-sheet={sheet}
     >
       <div ref={hostRef} className="map-view" role="img" aria-label={m.map_view_label()} />
       <header className="map-hud map-hud-top">
@@ -607,6 +636,7 @@ function SecondMapView({
             {m.map_title()}
           </h1>
           {operator ? <OperatorBadge /> : null}
+          {staff ? <OperatorMenuButton control={opsMenu} /> : null}
           {/* 나침반: 바늘(북 글자 쪽)이 이 2차맵의 북쪽을 가리킨다(카메라를 돌리면 함께 돈다) */}
           <span className="map-compass" role="img" aria-label={m.map_compass_label()}>
             <span className="map-compass-needle" ref={needleRef}>
@@ -623,6 +653,19 @@ function SecondMapView({
             if (engineRef.current && !engineRef.current.zoomStep(-1)) openPlanetStage(mapKey);
           }}
         />
+        {staff ? (
+          <OperatorMenuPanel control={opsMenu}>
+            <PerfToggle />
+            {devTools ? (
+              <OperatorItems
+                operator={operator}
+                freeView={freeView}
+                onToggle={toggleOperatorMode}
+                onFreeView={() => setFreeView((on) => !on)}
+              />
+            ) : null}
+          </OperatorMenuPanel>
+        ) : null}
         <MapPerfPanel perf={perf} stats={stats} feed={feed} />
       </header>
       <SecondMapNotices
@@ -687,19 +730,7 @@ function SecondMapView({
           {command ? <p className="map-command">{commandText(command)}</p> : null}
           <TravelLine going={going} />
         </div>
-        <CyborgActions
-          unitsToggle={
-            sheet === "units" ? null : (
-              <UnitsToggle count={myUnits.units?.length ?? null} onOpen={openUnits} />
-            )
-          }
-          followTo={following ? null : crossedTo}
-        />
-        {nearbyTab === null || sheet !== "nearby" ? (
-          <div className="map-actions">
-            <NearbyToggle onOpen={openNearby} />
-          </div>
-        ) : null}
+        <CyborgActions followTo={following ? null : crossedTo} />
         {shown === null ? null : (
           <SelectedActions
             onStop={
@@ -713,15 +744,23 @@ function SecondMapView({
             }
           />
         )}
-        {devTools ? (
-          <OperatorActions
-            operator={operator}
-            freeView={freeView}
-            onToggle={toggleOperatorMode}
-            onFreeView={() => setFreeView((on) => !on)}
-          />
-        ) : null}
       </footer>
+      {sheet === "city" ? (
+        <CitySheet
+          gather={gather}
+          nearby={nearby}
+          mapKey={mapKey}
+          anchorAt={nearbySources.anchorAt}
+          onOpen={lookAtBuilding}
+          onClose={closeCity}
+        />
+      ) : null}
+      <MapBottomNav
+        active={navActive}
+        mapKey={mapKey}
+        unitCount={myUnits.units?.length ?? null}
+        onTab={onNavTab}
+      />
     </section>
   );
 }

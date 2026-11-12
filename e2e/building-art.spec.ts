@@ -37,7 +37,10 @@ test.describe("건물 모델: 도시 2차맵", () => {
     const size = page.viewportSize() ?? { width: 390, height: 844 };
     const centre = { x: size.width / 2, y: size.height / 2 };
     expect(
-      await page.evaluate((point) => document.elementFromPoint(point.x, point.y)?.tagName === "CANVAS", centre),
+      await page.evaluate(
+        (point) => document.elementFromPoint(point.x, point.y)?.tagName === "CANVAS",
+        centre,
+      ),
     ).toBe(true);
     await page.mouse.click(centre.x, centre.y);
     const sheet = page.locator(".gather-sheet");

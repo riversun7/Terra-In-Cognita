@@ -6,7 +6,13 @@
 // - dev: [운영] 메뉴 하나(처음 닫힘) — [성능 표시](처음 끔, 켜면 이 기기에 기억)·[운영자 모드]·[자유 시점](운영자 모드에서만). Esc·밖 누르기로 닫힘.
 // - 사진: 390 × 파스텔·다크 — 아래 탭, 도시 화면, 누른 건물 판, 운영 메뉴(영어 하나 더: 긴 글자 넘침).
 import type { Page } from "@playwright/test";
-import { closeOperatorMenu, navButton, openCitySheet, openOperatorMenu, setPerfPanel } from "./helpers/mapHud.ts";
+import {
+  closeOperatorMenu,
+  navButton,
+  openCitySheet,
+  openOperatorMenu,
+  setPerfPanel,
+} from "./helpers/mapHud.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
@@ -104,7 +110,9 @@ test.describe("2차맵 아래 탭·도시 화면: 플레이어", () => {
 
     // [1차맵]: 같은 키로 1차맵(바꾸기)
     await navButton(page, "planet").click();
-    await expect(page).toHaveURL((url) => url.pathname === "/map/planet" && url.searchParams.get("key") === key);
+    await expect(page).toHaveURL(
+      (url) => url.pathname === "/map/planet" && url.searchParams.get("key") === key,
+    );
     expect(deviceErrors).toEqual([]);
   });
 
@@ -145,7 +153,9 @@ test.describe("2차맵 운영 메뉴: dev", () => {
     await expect(button).toHaveAttribute("aria-expanded", "false");
     await expect(page.locator(".map-operator-menu")).toHaveCount(0);
     // 아래 판 줄에 흩어져 있던 운영 단추가 없다
-    await expect(page.locator(".map-hud-bottom .map-operator-toggle, .map-hud-bottom .map-free-view")).toHaveCount(0);
+    await expect(
+      page.locator(".map-hud-bottom .map-operator-toggle, .map-hud-bottom .map-free-view"),
+    ).toHaveCount(0);
     await expect(page.locator(".map-perf")).toHaveCount(0);
 
     // 열면 [성능 표시]·[운영자 모드]. [자유 시점]은 운영자 모드에서만
@@ -221,7 +231,10 @@ test.describe("2차맵 정리 사진", () => {
   for (const language of ["en"] as const satisfies readonly Language[]) {
     test.describe(`영어 390 dark`, () => {
       test.use({ account: "dev", theme: "dark", language });
-      test(`긴 영어: 운영 메뉴·도시 화면이 넘치지 않는다 (390·${language})`, async ({ page, deviceErrors }) => {
+      test(`긴 영어: 운영 메뉴·도시 화면이 넘치지 않는다 (390·${language})`, async ({
+        page,
+        deviceErrors,
+      }) => {
         test.setTimeout(120_000);
         await openMap(page);
         await openOperatorMenu(page);

@@ -3,6 +3,7 @@
 // 내 유닛 목록·정보 판을 닫는다. 근처 판의 고른 탭(지도 표시)은 다른 판이 그 자리를 쓰는 동안에도 남는다 — [근처]로 다시 연다.
 // 남의 유닛 작은 창(peek, docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)"·"바뀜 (2026-11-10)"): 지도·근처 판에서 남의 유닛을 누르면 연다
 // (운영자 모드도). 명령 유닛은 그대로다. 다른 곳을 누르면 닫힌다 — 땅이면 같은 누르기가 명령 유닛을 그곳으로 보낸다.
+// 아래 탭(MapBottomNav.tsx, 사용자 지적 2026-11-12): [유닛] = 내 유닛 목록, [도시] = 도시 화면(큰 판), [주변] = 근처 판. 셋 다 이 자리 하나를 쓴다.
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { type BottomSheet, bottomSheetOf } from "./anchorUnit.ts";
 import type { GatherState } from "./gather/gatherState.ts";
@@ -24,6 +25,9 @@ export interface BottomSheetControl {
   /** [내 유닛 N]: 내 유닛 목록을 연다(건물 판·정보 판을 닫고 근처 목록을 접는다) */
   readonly openUnits: () => void;
   readonly closeUnits: () => void;
+  /** [도시]: 도시 화면을 연다(건물 판·정보 판·내 유닛 목록을 닫고 근처 목록을 접는다) */
+  readonly openCity: () => void;
+  readonly closeCity: () => void;
   /** [근처]: 근처 판을 다시 보인다(건물 판·정보 판·내 유닛 목록을 닫는다). 탭이 없으면 유닛 탭 */
   readonly openNearby: () => void;
   /** 남의 유닛 정보 판을 연다(건물 판·내 유닛 목록을 닫고 근처 목록을 접는다) */
@@ -33,6 +37,7 @@ export interface BottomSheetControl {
 
 export function useBottomSheet(gather: GatherState, nearby: NearbyState): BottomSheetControl {
   const [unitsOpen, setUnitsOpen] = useState(false);
+  const [cityOpen, setCityOpen] = useState(false);
   const [peek, setPeek] = useState<PeekUnit | null>(null);
   const gatherOpen = useSyncExternalStore(
     (listener) => gather.subscribe(listener),
@@ -43,11 +48,13 @@ export function useBottomSheet(gather: GatherState, nearby: NearbyState): Bottom
     const offGather = gather.subscribe(() => {
       if (gather.sheet === null) return;
       setUnitsOpen(false);
+      setCityOpen(false);
       setPeek(null);
     });
     const offNearby = nearby.subscribe(() => {
       if (!nearby.expanded) return;
       setUnitsOpen(false);
+      setCityOpen(false);
       setPeek(null);
     });
     return () => {
@@ -83,12 +90,22 @@ export function useBottomSheet(gather: GatherState, nearby: NearbyState): Bottom
         nearby.setExpanded(false);
         gather.open(null);
         setPeek(null);
+        setCityOpen(false);
         setUnitsOpen(true);
       },
       closeUnits: () => setUnitsOpen(false),
+      openCity: () => {
+        nearby.setExpanded(false);
+        gather.open(null);
+        setPeek(null);
+        setUnitsOpen(false);
+        setCityOpen(true);
+      },
+      closeCity: () => setCityOpen(false),
       openNearby: () => {
         gather.open(null);
         setUnitsOpen(false);
+        setCityOpen(false);
         setPeek(null);
         if (nearby.tab === null) nearby.setTab("units");
         else nearby.setExpanded(true);
@@ -97,6 +114,7 @@ export function useBottomSheet(gather: GatherState, nearby: NearbyState): Bottom
         nearby.setExpanded(false);
         gather.open(null);
         setUnitsOpen(false);
+        setCityOpen(false);
         setPeek(unit);
       },
       closePeek: () => setPeek(null),
@@ -104,7 +122,7 @@ export function useBottomSheet(gather: GatherState, nearby: NearbyState): Bottom
     [gather, nearby],
   );
   return {
-    sheet: bottomSheetOf({ gatherOpen, peekOpen: peek !== null, unitsOpen }),
+    sheet: bottomSheetOf({ gatherOpen, peekOpen: peek !== null, cityOpen, unitsOpen }),
     peek,
     ...actions,
   };

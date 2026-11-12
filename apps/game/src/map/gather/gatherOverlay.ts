@@ -1,12 +1,14 @@
 // 2차맵 원자재 오브젝트·채집 줄 덧그림 — docs/adr/2026-11-07-gather-objects.md 6절. 엔진 덧그림 층(after(보기))에서 프레임마다 화면 좌표로 놓는다
 // (다시보기 HUD battleHud.ts와 같은 방식: transform·data-*·글자만 바꾼다, 색·크기는 gather.css 토큰). 자리는 도시 표시(CityOverlay)처럼 정수 px로
 // 놓는다 — 소수 px 이동이면 단추 상자가 44px에서 부동소수 오차만큼 모자라게 재진다(화면 시험 smallTapTargets, 합치기 2026-11-08).
-// - 근처 판(nearby/, docs/adr/2026-11-08-seamless-second-map.md WP-2): 자원 표시는 근처 판이 자원 탭일 때만, 건물 표시는 건물 탭일 때만 놓는다
-//   (사용자 지적 2026-11-08 "자원 오브젝트를 항상 표시하지 않는다"). 판이 닫혀 있으면 둘 다 없다. 놓는 것 = 근처 목록과 같은 것(기준 유닛에서 가까운
+// - 근처 판(nearby/, docs/adr/2026-11-08-seamless-second-map.md WP-2): 자원 표시는 근처 판이 자원 탭일 때만 놓는다
+//   (사용자 지적 2026-11-08 "자원 오브젝트를 항상 표시하지 않는다"). 판이 닫혀 있으면 없다. 놓는 것 = 근처 목록과 같은 것(기준 유닛에서 가까운
 //   차례로 목록 줄 수까지) 가운데 화면 안에 든 것. 기준 유닛이 없으면(운영자 자유 시점) 화면 가운데에 가까운 차례.
 // - 오브젝트 표시: 단추(누르면 채집 판). 많아야 MARKERS개(묶음 하나에 하나라 2차맵 하나에 많아야 1,024개).
 //   떨어진 오브젝트는 다른 모양(data-state="depleted": 속 빈 회색 고리). 멀리서 보면(1m가 MIN_PX_PER_M보다 작게) 숨긴다.
-// - 건물 표시: 많아야 BUILDING_MARKERS개 건물 위 작은 단추(누르면 건물 판 — 들어가기·안에 있는 유닛). 땅을 눌러도 같은 판이 열린다.
+// - 누른 건물 표시(사용자 지적 2026-11-12 "누른 건물만 표시해라"): 건물 판이 열린 건물 하나 위에만 이름표(시설 무리 색 점 + 시설 이름 · Lv)를
+//   띄운다. 옛 건물 표시(근처 판 건물 탭에서 화면 안 건물마다 [건물] 단추 20개)는 지웠다 — 건물은 땅을 누르거나 근처·도시 목록으로 연다.
+//   이름표는 누르지 않는다(읽기 프로그램에는 건물 판이 같은 것을 알린다).
 // - 채집 줄 표시: 내 유닛 머리 위 작은 이름표(단계·화물 kg). 누르지 않는다.
 // - 채집소 반경: 채집소 판이 열려 있으면 그 반경 고리(stationRing.ts, 사용자 지적 2026-11-08).
 // 누르기(사용자 지적 2026-11-08 "맵조작시 오브젝트가 걸려 드래그가 안되고 계속 오브젝트가 잘못눌린다", docs/adr/2026-11-08-map-input.md 1절):
@@ -17,6 +19,8 @@ import type { EngineLayer, EngineLayerView, SecondMapEngine } from "@terra/engin
 import { m } from "../../paraglide/messages.js";
 import { type Point, buildingCentre, objectCentre, rankByDistance } from "../nearby/nearbyData.ts";
 import type { NearbyState } from "../nearby/nearbyState.ts";
+import { getLocale } from "../../paraglide/runtime.js";
+import { groupOf } from "../city/cityRows.ts";
 import { kgText, nameText, phaseText } from "./gatherData.ts";
 import type { GatherObjectEntry, GatherSheet, GatherState } from "./gatherState.ts";
 import { createStationRing } from "./stationRing.ts";
@@ -25,10 +29,8 @@ import { createStationRing } from "./stationRing.ts";
 const MARKERS = 40;
 /** 채집 줄 이름표 수 */
 const CHIPS = 8;
-/** 한 화면에 놓는 건물 표시 수(누르면 건물 판 — 들어가기·안에 있는 유닛) — 근처 목록 한 쪽(20줄)만큼 */
-const BUILDING_MARKERS = 20;
-/** 건물 표시 높이(m) */
-const BUILDING_LIFT_M = 4;
+/** 누른 건물 이름표 높이(m) — 건물 모델 지붕 위쯤 */
+const BUILDING_LIFT_M = 7;
 /** 누르기로 표시를 고르는 반경(CSS px) — 누름 영역(--tap-size 44px)의 반, 엔진 유닛 고르기와 같다 */
 const HIT_RADIUS_PX = 22;
 /** 표시를 띄우는 높이(m) */
@@ -124,7 +126,7 @@ export function attachGatherOverlay(
     readonly mapKey: number;
     readonly serverNow: () => number;
     /** 근처 판(고른 탭·줄 수·기준 유닛) */
-    readonly nearby: Pick<NearbyState, "tab" | "limit" | "anchor" | "subscribe">;
+    readonly nearby: Pick<NearbyState, "tab" | "limit" | "anchor" | "looks" | "subscribe">;
   },
 ): () => void {
   const { nearby } = options;
@@ -157,19 +159,18 @@ export function attachGatherOverlay(
     root.append(button);
     markers.push({ button, key: "", transform: "" });
   }
-  const buildingMarkers: Marker[] = [];
-  for (let i = 0; i < BUILDING_MARKERS; i++) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "gather-building-marker";
-    button.hidden = true;
-    button.addEventListener("click", () => {
-      const id = Number(button.dataset.building);
-      if (Number.isInteger(id)) state.open({ kind: "building", id });
-    });
-    root.append(button);
-    buildingMarkers.push({ button, key: "", transform: "" });
-  }
+  // 누른 건물 이름표 하나(건물 판이 열린 건물 위)
+  const tag = document.createElement("span");
+  tag.className = "gather-building-tag";
+  tag.hidden = true;
+  tag.setAttribute("aria-hidden", "true");
+  const tagMark = document.createElement("span");
+  tagMark.className = "gather-building-tag-mark";
+  const tagText = document.createElement("span");
+  tag.append(tagMark, tagText);
+  root.append(tag);
+  let tagKey = "";
+  let tagTransform = "";
   for (let i = 0; i < CHIPS; i++) {
     const chip = document.createElement("span");
     chip.className = "gather-chip";
@@ -236,43 +237,33 @@ export function attachGatherOverlay(
     return shown;
   };
 
-  const placeBuildings = (view: EngineLayerView): void => {
-    if (nearby.tab !== "buildings" || view.pixelsPerMetre < MIN_PX_PER_M) {
-      hideAll(buildingMarkers);
+  const placeTag = (view: EngineLayerView): void => {
+    const sheet = state.sheet;
+    const building =
+      sheet?.kind === "building" ? state.buildings.find((entry) => entry.id === sheet.id) : undefined;
+    const centre = building ? buildingCentre(building) : null;
+    const point = centre ? view.project(centre.x, centre.y, BUILDING_LIFT_M) : null;
+    if (!building || !point) {
+      if (!tag.hidden) tag.hidden = true;
       return;
     }
-    const seen = pickOnScreen(
-      state.buildings,
-      view,
-      anchorAt(),
-      buildingCentre,
-      (building) => building.id,
-      BUILDING_LIFT_M,
-      Math.min(nearby.limit, BUILDING_MARKERS),
-    ).map((entry) => ({ id: entry.item.id, x: entry.x, y: entry.y }));
-    for (const [index, marker] of buildingMarkers.entries()) {
-      const entry = seen[index];
-      if (!entry) {
-        if (!marker.button.hidden) marker.button.hidden = true;
-        continue;
-      }
-      const key = String(entry.id);
-      if (marker.key !== key) {
-        marker.key = key;
-        marker.button.dataset.building = key;
-        marker.button.textContent = m.gather_building_marker_text();
-        marker.button.setAttribute("aria-label", m.gather_building_marker({ id: entry.id }));
-      }
-      const x = Math.round(entry.x);
-      const y = Math.round(entry.y);
-      hits.push({ x, y, sheet: { kind: "building", id: entry.id } });
-      const transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
-      if (marker.transform !== transform) {
-        marker.transform = transform;
-        marker.button.style.transform = transform;
-      }
-      if (marker.button.hidden) marker.button.hidden = false;
+    const look = nearby.looks.get(building.id);
+    const name = look?.name ? (getLocale() === "en" ? look.name.en : look.name.ko) : null;
+    const label = name ?? m.nearby_building_unknown({ id: building.id });
+    const text = look && look.level > 0 ? m.map_building_tag({ name: label, level: look.level }) : label;
+    const key = `${building.id}:${text}`;
+    if (tagKey !== key) {
+      tagKey = key;
+      tagText.textContent = text;
+      tag.dataset.building = String(building.id);
+      tag.dataset.group = groupOf(look);
     }
+    const transform = `translate(${Math.round(point.x)}px, ${Math.round(point.y)}px) translate(-50%, -100%)`;
+    if (tagTransform !== transform) {
+      tagTransform = transform;
+      tag.style.transform = transform;
+    }
+    if (tag.hidden) tag.hidden = false;
   };
 
   const placeChips = (view: EngineLayerView): void => {
@@ -312,7 +303,7 @@ export function attachGatherOverlay(
       hits = [];
       ring.place(view, state.ring);
       placeMarkers(view);
-      placeBuildings(view);
+      placeTag(view);
       placeChips(view);
     },
     // 엔진이 누르기로 판정하고 유닛을 누르지 않았을 때: 화면 거리로 가장 가까운 표시의 판을 연다
@@ -327,7 +318,7 @@ export function attachGatherOverlay(
   // 자료·판이 바뀌면 한 번 더 그린다(카메라가 멈춰 있어도 표시가 바뀌게)
   const redraw = (): void => {
     for (const marker of markers) marker.key = "";
-    for (const marker of buildingMarkers) marker.key = "";
+    tagKey = "";
     engine.requestFrame();
   };
   const unsubscribe = state.subscribe(redraw);

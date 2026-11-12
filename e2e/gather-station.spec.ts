@@ -24,7 +24,9 @@ async function openMap(page: Page): Promise<void> {
   await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
   // 건물은 근처 판 건물 탭 목록으로 연다(지도 위 건물마다 단추는 지웠다 — 사용자 지적 2026-11-12 "누른 건물만 표시해라")
   await openNearby(page, "buildings");
-  await expect(page.locator('.map-nearby-row[data-kind="building"]').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('.map-nearby-row[data-kind="building"]').first()).toBeVisible({
+    timeout: 30_000,
+  });
   await collapseNearby(page);
 }
 

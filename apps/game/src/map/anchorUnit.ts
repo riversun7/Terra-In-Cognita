@@ -96,15 +96,18 @@ export function groundTapUnit(input: {
  * 아래 판 자리에 보일 판 하나 — 누른 건물·오브젝트 판 > 남의 유닛 정보 판 > 내 유닛 목록 > 근처 판(사용자 지적 2026-11-09 문제4 "하나의 건물
  * 클릭시 여러개가 다 뜬다"). 정보 판을 열면 건물 판을 닫으므로 둘이 함께 열려 있을 때는 나중에 연 건물 판이다
  */
-export type BottomSheet = "gather" | "peek" | "units" | "nearby";
+export type BottomSheet = "gather" | "peek" | "city" | "units" | "nearby";
 
+/** 도시 화면(아래 탭 [도시], 사용자 지적 2026-11-12)은 정보 판 다음 — 건물 판·정보 판을 열면 닫힌다 */
 export function bottomSheetOf(input: {
   readonly gatherOpen: boolean;
   readonly peekOpen: boolean;
+  readonly cityOpen?: boolean | undefined;
   readonly unitsOpen: boolean;
 }): BottomSheet {
   if (input.gatherOpen) return "gather";
   if (input.peekOpen) return "peek";
+  if (input.cityOpen === true) return "city";
   return input.unitsOpen ? "units" : "nearby";
 }
 

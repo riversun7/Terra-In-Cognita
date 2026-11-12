@@ -51,8 +51,8 @@ export function weaponParts(weapon: WeaponSpec, middle: Loadout, capPm: number):
 
 /** 레벨만 보는 식(무기와 상관없음) */
 const LEVEL_ONLY_FORMULAS: ReadonlySet<string> = new Set(["bare_appropriate", "stamina_appropriate"]);
-/** 맨손 자료만 쓰는 식(맨손 크리·간격, 2026-11-12) — 아이템 무기는 맨손이 아니라 보이지 않는다 */
-const BARE_ONLY_FORMULAS: ReadonlySet<string> = new Set(["bare_crit", "bare_interval"]);
+/** 맨손 자료만 쓰는 식(맨손 크리, 2026-11-12) — 아이템 무기는 맨손이 아니라 보이지 않는다 */
+const BARE_ONLY_FORMULAS: ReadonlySet<string> = new Set(["bare_crit"]);
 
 export interface WeaponPreviewInput {
   /** 전투가 쓰는 무기 사양(1차 적정 스탯 포함) */
@@ -98,7 +98,7 @@ export function previewWeapon(input: WeaponPreviewInput): NonNullable<ItemEditor
       {
         kind,
         // 레벨만 보는 식(맨손 적정 bare_appropriate·적정 STA stamina_appropriate)은 무기 값이 아니라 보이지 않는다
-        // 맨손 크리·간격(bare_crit·bare_interval)도 아이템 무기에는 쓰지 않아 뺀다
+        // 맨손 크리(bare_crit)도 아이템 무기에는 쓰지 않아 뺀다
         values: COMBAT_FORMULA_IDS.filter(
           (id) => !LEVEL_ONLY_FORMULAS.has(id) && !BARE_ONLY_FORMULAS.has(id),
         ).map((id) => {

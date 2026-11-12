@@ -383,19 +383,14 @@ export function combatSummaryOfSpec(catalog: RosterCatalog, spec: BodySpec, part
       real: realAttackOf(a, cap, c),
     },
     hit: { weaponPm: a.weaponHitPm, part: part(a.dex, a.dexAppropriateMilli), real: realHitPm(a, c) },
-    // 맨손 자료면 크리·간격은 옛 맨손 규칙 식(bare_crit·bare_interval, 2026-11-12) — 화면은 그 식 풀이를 보인다
+    // 맨손 자료면 크리는 맨손 식(bare_crit = AGI + DEX ‰, 2026-11-12) — 화면은 그 풀이를 보인다
     crit: {
       weaponPm: a.weaponCritPm,
       part: part(a.dex, a.dexAppropriateMilli),
       real: realCritPm(a, c),
       ...(a.unarmed === true ? { bare: { agi } } : {}),
     },
-    interval: {
-      weaponMs: weapon.intervalMs,
-      part: part(agi, agiAppropriate),
-      real: unit.attackIntervalMs,
-      ...(weapon.unarmed === true ? { bare: true } : {}),
-    },
+    interval: { weaponMs: weapon.intervalMs, part: part(agi, agiAppropriate), real: unit.attackIntervalMs },
     staminaRegen: {
       row: Math.max(0, parts.loadout.stats.stamina_regen ?? 0),
       score: unit.staminaScore,

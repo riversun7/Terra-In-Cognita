@@ -8,7 +8,6 @@ import {
   compileFormulaOrThrow,
   critFormulaIdOf,
   fxToInt,
-  intervalFormulaIdOf,
   runFormulaSample,
   statRowExpression,
 } from "@terra/shared/formula";
@@ -65,7 +64,7 @@ const sampleWeapon = (weapon: WeaponSpec): FormulaSampleWeapon => ({
 describe("미리 보기 = 판정", () => {
   it("무작위 1차·레벨·무기(칼·맨손)에서 2차 스탯·전투 식 값이 같다", () => {
     const rng = createRng(7);
-    expect(COMBAT_FORMULA_IDS).toHaveLength(13);
+    expect(COMBAT_FORMULA_IDS).toHaveLength(12);
     for (let round = 0; round < 300; round++) {
       const p = Array.from({ length: 6 }, () => 1 + rng.nextInt(200));
       const level = 1 + rng.nextInt(60);
@@ -98,9 +97,9 @@ describe("미리 보기 = 판정", () => {
         moveIntervalMs: 1000,
       });
       const v = sample.values;
-      // 맨손은 옛 맨손 규칙 칸(bare_interval·bare_crit, 2026-11-12), 무기는 무기 틀 칸
+      expect(fxToInt(v.attack_interval)).toBe(spec.attackIntervalMs);
+      // 크리: 맨손은 맨손 칸(bare_crit = AGI + DEX, 2026-11-12), 무기는 무기 틀 칸
       const unarmed = weapon.unarmed === true;
-      expect(fxToInt(v[intervalFormulaIdOf(unarmed)])).toBe(spec.attackIntervalMs);
       expect(fxToInt(v.stamina_score)).toBe(spec.staminaScore);
       expect(sample.staminaScore).toBe(staminaScore(p, c));
       // 적정 STA(레벨 식, D-511)·소모·실제 회복

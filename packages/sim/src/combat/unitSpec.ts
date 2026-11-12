@@ -3,7 +3,7 @@
 // 공격력 = 스탯 공격력(2차 물리·속성 공격력) + 무기 공격력 × min(N10, STR·INT ÷ 무기 적정 STR·INT)(D-502, 사용자 답 296).
 // 명중·크리 = 무기 값 × min(N10, DEX ÷ 적정 DEX), 공격 간격 = 무기 간격 ÷ min(N10, AGI ÷ 적정 AGI)(사용자 답 297·298). 적정은 무기의
 // 1차 적정 스탯(몫마다 하나, 없으면 비율 100%). 맨손(무기 unarmed)은 무기 몫 0, 적정 DEX·AGI = 계산식 bare_appropriate(레벨 × 1.5 + 10).
-// 맨손 크리·기본 공격 간격은 옛 맨손 규칙 식(bare_crit·bare_interval, 사용자 요청 2026-11-12): 스탯이 적정을 넘으면 더 오른다.
+// 맨손 크리는 따로 식(bare_crit, 기본 AGI + DEX ‰ — 사용자 결정 2026-11-12 "10,10이면 2%"). 맨손 명중·간격은 무기 틀 그대로.
 // 무기의 속성 계수(skillElementsPm)는 물리 칸이면 옵션(속성 몫, D-459)이다.
 // 무기는 공격력 칸을 물리·속성 하나 또는 둘 가진다(D-465). 스킬은 기반에 맞는 칸, 기본 공격은 basic 칸(질문 235 가).
 // 맨손으로는 스킬을 쓸 수 없다(D-490, 맨손 스킬 제외): 사양에 든 무기의 칸 목록(weaponFields)을 적고, 맨손 스킬은 타고난 무기로 센다.
@@ -20,7 +20,6 @@ import { type AttackProfile, ELEMENT_COUNT } from "./formula.ts";
 import {
   attackIntervalMs,
   bareAppropriateMilli,
-  bareIntervalMs,
   realStaminaRegen,
   staminaAppropriateMilli,
 } from "./formulas.ts";
@@ -176,7 +175,7 @@ export function specFromStats(
       attackAppropriateMilli: appropriate.attack,
       weaponHitPm: weapon.hitPm,
       weaponCritPm: weapon.critPm,
-      // 맨손 자료면 크리는 맨손 식(bare_crit, 사용자 요청 2026-11-12). 무기 사양에는 칸을 두지 않는다(옛 스냅숏·시뮬 바이트 그대로)
+      // 맨손 자료면 크리는 맨손 식(bare_crit = AGI + DEX ‰, 사용자 결정 2026-11-12). 무기 사양에는 칸을 두지 않는다(옛 스냅숏·시뮬 바이트 그대로)
       ...(weapon.unarmed === true ? { unarmed: true } : {}),
       dex: primaries[1] ?? 0,
       dexAppropriateMilli: appropriate.dex,
@@ -245,11 +244,12 @@ export function specFromStats(
     },
     range: w.range,
     arc: w.arc,
-    // 맨손 기본 공격은 맨손 식 bare_interval(옛 맨손 공속 min(2, AGI ÷ 적정)·최소 0.5, 사용자 요청 2026-11-12), 무기는 attack_interval
-    attackIntervalMs:
-      w.unarmed === true
-        ? bareIntervalMs(w.intervalMs, primaries[2] ?? 0, bareMilli, c)
-        : attackIntervalMs(w.intervalMs, primaries[2] ?? 0, appropriateMilliOf(w, basic, bareMilli).agi, c),
+    attackIntervalMs: attackIntervalMs(
+      w.intervalMs,
+      primaries[2] ?? 0,
+      appropriateMilliOf(w, basic, bareMilli).agi,
+      c,
+    ),
     moveIntervalMs: body.moveIntervalMs,
     staminaMax: Math.max(0, s("stamina")),
     staminaCost: w.staminaCost,

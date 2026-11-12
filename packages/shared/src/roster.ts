@@ -559,21 +559,12 @@ export interface RosterCombat {
     readonly part: RosterWeaponPart;
     readonly real: number;
     /**
-     * 맨손 자료로 셈했나(옛 맨손 규칙 식 bare_crit, 2026-11-12): 있으면 크리 = (DEX × 0.7 + AGI × 0.3) ÷ (합 + 200) × 50%(기본 식)이고
-     * part.stat = DEX, agi = AGI다. 없으면 무기 틀(무기 크리 × 비율). 옛 서버는 없음
+     * 맨손 자료로 셈했나(맨손 식 bare_crit, 사용자 결정 2026-11-12): 있으면 크리 = AGI + DEX ‰(기본 식)이고 part.stat = DEX,
+     * agi = AGI다. 없으면 무기 틀(무기 크리 × 비율). 옛 서버는 없음
      */
     readonly bare?: { readonly agi: number } | undefined;
   };
-  readonly interval: {
-    readonly weaponMs: number;
-    readonly part: RosterWeaponPart;
-    readonly real: number;
-    /**
-     * 맨손 기본 공격 간격(옛 맨손 공속 식 bare_interval, 2026-11-12): 참이면 간격 = 맨손 간격 ÷ clamp(AGI ÷ 맨손 적정, 0.5, 2)(기본 식),
-     * part = AGI·맨손 적정. 없으면 무기 틀
-     */
-    readonly bare?: boolean | undefined;
-  };
+  readonly interval: { readonly weaponMs: number; readonly part: RosterWeaponPart; readonly real: number };
   readonly staminaRegen: {
     /** 2차 스탯 행 stamina_regen 값(적정 STA에서의 분당 회복) */
     readonly row: number;

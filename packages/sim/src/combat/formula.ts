@@ -3,7 +3,7 @@
 // - 공격력(D-502, 사용자 답 296~298, D-420·D-438 1 대체) = 스탯 공격력(2차 물리·속성 공격력 = (STR + VIT) ÷ 2·(INT + WIS) ÷ 2)
 //   + 무기 공격력 × min(N10 1, STR(속성은 INT) ÷ 무기 적정 STR·INT). 명중·크리 = 무기 값 × min(N10, DEX ÷ 적정 DEX). 적정은 1차 스탯
 //   단위이고 몫마다 하나다(섞지 않음). 적정이 없으면 비율 100%. 맨손은 무기 몫 0, 적정 DEX = 계산식 bare_appropriate(레벨 × 1.5 + 10).
-//   맨손 크리는 따로 식 bare_crit(옛 맨손 규칙, 사용자 요청 2026-11-12 — DEX·AGI가 적정을 넘어도 오른다).
+//   맨손 크리는 따로 식 bare_crit(기본 AGI + DEX ‰, 사용자 결정 2026-11-12 "10,10이면 2%").
 // - 판정(D-419): 명중 굴림(0~9999 < 명중‰ × 10) → 회피 굴림(회피 = 확률 모양 + 상대 보정 N11, 최종 1%~85% 사용자 답 277) → 크리 굴림 →
 //   크리 배율 자리 굴림(N12 범위). 굴림은 늘 넷을 뽑는다(결정성).
 // - 피해는 두 몫이다(D-459, 48 §4.5a). 물리 무기·스킬: 물리 몫 P = 실제 물리 공격력, 속성 몫 E = P × Σ(옵션 계수 × 그 칸 값).
@@ -41,8 +41,8 @@ export interface AttackProfile {
   readonly dex: number;
   readonly dexAppropriateMilli: number;
   /**
-   * 맨손 자료(사람형 맨손·맨손 속성, 팩 unit_kinds unarmed)의 사양인가. 참이면 크리 확률은 맨손 식 bare_crit(옛 맨손 규칙 — DEX·AGI가
-   * 적정을 넘어도 오른다, 사용자 요청 2026-11-12). 없으면 무기
+   * 맨손 자료(사람형 맨손·맨손 속성, 팩 unit_kinds unarmed)의 사양인가. 참이면 크리 확률은 맨손 식 bare_crit(기본 AGI + DEX ‰,
+   * 사용자 결정 2026-11-12). 없으면 무기
    */
   readonly unarmed?: boolean | undefined;
   /** 크리 배율 최소(2차 스탯 ‰). 최대 = 최소 + N12 폭, 그 사이 자리는 시드 굴림 */
@@ -293,8 +293,8 @@ export function realHitPm(attack: AttackProfile, c: CombatCoefficients): number 
 }
 
 /**
- * 실제 크리 확률(‰). 무기: 식 real_crit(무기 크리 × min(N10, DEX ÷ 적정 DEX)). 맨손 자료: 식 bare_crit(옛 맨손 규칙
- * (DEX × 0.7 + AGI × 0.3) ÷ (합 + 200) × 50%, 사용자 요청 2026-11-12)
+ * 실제 크리 확률(‰). 무기: 식 real_crit(무기 크리 × min(N10, DEX ÷ 적정 DEX)). 맨손 자료: 식 bare_crit(기본 AGI + DEX ‰,
+ * 사용자 결정 2026-11-12 "맨손 크리확률은 agi+dex 을 퍼밀로쓰자 10,10이면 2%")
  */
 export function realCritPm(attack: AttackProfile, c: CombatCoefficients): number {
   if (attack.unarmed === true)

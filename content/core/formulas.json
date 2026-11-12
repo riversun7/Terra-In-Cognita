@@ -94,15 +94,7 @@
         "ko": "맨손 크리 확률(‰)",
         "en": "Bare-hand crit chance (‰)"
       },
-      "expression": "# [임시] 옛 프로젝트 맨손 크리(calcCritChanceUnarmed): (DEX × 0.7 + AGI × 0.3) ÷ (합 + 200) × 50%\ne = max(0, DEX) * 0.7 + max(0, AGI) * 0.3\nfloor(500 * e / (e + 200))"
-    },
-    {
-      "id": "bare_interval",
-      "name": {
-        "ko": "맨손 공격 간격(ms)",
-        "en": "Bare-hand attack interval (ms)"
-      },
-      "expression": "# [임시] 옛 프로젝트 맨손 공속(calcAttackSpeed): 공속 = min(2, AGI ÷ 맨손 적정), 최소 0.5 → 간격 = 맨손 간격 ÷ 공속\nr = if(A <= 0, 1, clamp(max(0, AGI) / A, 0.5, 2))\nmax(1, floor(I / r))"
+      "expression": "# 사용자 결정 2026-11-12: 맨손 크리(‰) = AGI + DEX (\"10,10이면 2%\")\nmax(0, AGI) + max(0, DEX)"
     }
   ]
 }

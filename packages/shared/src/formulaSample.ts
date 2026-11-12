@@ -11,7 +11,6 @@ import {
   attackScope,
   bareAppropriateScope,
   bareCritScope,
-  bareIntervalScope,
   critMultiplierScope,
   dexFrameScope,
   evadeScope,
@@ -148,9 +147,8 @@ export function sampleScopes(
       staminaAppropriateMilli,
     ),
     evade_chance: evadeScope(s("evade"), agi, input.opponentAgi ?? agi, c.evadeRelative),
-    // 맨손 크리·간격(옛 맨손 규칙, 2026-11-12): 맨손 적정은 무기가 맨손이 아니어도 레벨 식 값으로 넣는다(미리 보기에서 식을 읽을 수 있게)
+    // 맨손 크리(AGI + DEX, 2026-11-12): 맨손 적정은 무기가 맨손이 아니어도 레벨 식 값으로 넣는다(미리 보기에서 식을 읽을 수 있게)
     bare_crit: bareCritScope(weapon.critPm, dex, agi, bareMilli),
-    bare_interval: bareIntervalScope(weapon.intervalMs, agi, bareMilli),
   };
 }
 
@@ -192,7 +190,6 @@ export function runFormulaSample(
     real_stamina_regen: evaluateFormula(combat.real_stamina_regen, scopes.real_stamina_regen),
     evade_chance: evaluateFormula(combat.evade_chance, scopes.evade_chance),
     bare_crit: evaluateFormula(combat.bare_crit, scopes.bare_crit),
-    bare_interval: evaluateFormula(combat.bare_interval, scopes.bare_interval),
   };
   return { stats, staminaScore, scopes, values };
 }

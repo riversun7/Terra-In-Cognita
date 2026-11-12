@@ -253,32 +253,30 @@ describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 
     expect(realHitPm(spec.attack, c)).toBe(738);
   });
 
-  it("맨손 크리·공격 간격 = 옛 맨손 규칙(사용자 요청 2026-11-12): DEX 12·AGI 15 Lv 1 → 크리 30‰(3.0%), 간격 766ms", () => {
-    // e = 12 × 0.7 + 15 × 0.3 = 12.9 → 500 × 12.9 ÷ 212.9 = 30.29 → 30‰(옛 calcCritChanceUnarmed 3.03%)
-    // 공속 = min(2, 15 ÷ 11.5) = 1.304 → 1000 ÷ 1.304 = 766ms(무기 틀이면 적정을 넘어도 1000ms 그대로였다)
+  it('맨손 크리 = AGI + DEX ‰(사용자 결정 2026-11-12 "10,10이면 2%"), 맨손 명중·간격은 그대로', () => {
+    // AGI 10·DEX 10 → 20‰ = 2%(전에는 맨손 자료 크리 50‰ × min(1, 10 ÷ 11.5) = 43‰)
+    const ten = specOf(all(10), UNARMED_PHYSICAL);
+    expect(ten.attack.unarmed).toBe(true);
+    expect(realCritPm(ten.attack, c)).toBe(20);
+    // DEX 12·AGI 15 → 27‰. 적정을 넘어도 계속 오른다(레벨·맨손 적정과 상관없음)
     const p = { ...all(10), dex: 12, agi: 15 };
-    const spec = specOf(p, UNARMED_PHYSICAL);
-    expect(spec.attack.unarmed).toBe(true);
-    expect(realCritPm(spec.attack, c)).toBe(30);
-    expect(spec.attackIntervalMs).toBe(766);
-    // 스탯이 오르면 계속 오른다(점근선 50%): DEX·AGI 50 → 100‰, 100 → 166‰. 공속은 2배(500ms)에서 멈춘다
-    expect(realCritPm(specOf(all(50), UNARMED_PHYSICAL).attack, c)).toBe(100);
-    expect(realCritPm(specOf(all(100), UNARMED_PHYSICAL).attack, c)).toBe(166);
-    expect(specOf(all(100), UNARMED_PHYSICAL).attackIntervalMs).toBe(500);
-    // AGI가 맨손 적정의 절반 아래면 0.5배에서 멈춘다(Lv 30 적정 55, AGI 10 → 2000ms)
-    expect(specOf(all(10), UNARMED_PHYSICAL, 30).attackIntervalMs).toBe(2000);
-    // 크리쳐 발톱처럼 맨손이 아닌 타고난 무기는 무기 틀 그대로
+    expect(realCritPm(specOf(p, UNARMED_PHYSICAL).attack, c)).toBe(27);
+    expect(realCritPm(specOf(p, UNARMED_PHYSICAL, 30).attack, c)).toBe(27);
+    expect(realCritPm(specOf(all(100), UNARMED_PHYSICAL).attack, c)).toBe(200);
+    // 명중·간격은 무기 틀 그대로: 명중 850 × min(1, 10 ÷ 11.5) = 739 → 738(밀리 내림), 간격 1000 ÷ min(1, 15 ÷ 11.5) = 1000ms
+    expect(realHitPm(ten.attack, c)).toBe(738);
+    expect(specOf(p, UNARMED_PHYSICAL).attackIntervalMs).toBe(1000);
+    // 크리쳐 발톱처럼 맨손이 아닌 타고난 무기는 무기 틀 그대로(50 × min(1, 12 ÷ 12) = 50)
     const claws: WeaponSpec = { ...UNARMED_PHYSICAL, unarmed: false, appropriate: { dex: 12, agi: 12 } };
     const clawSpec = specOf(p, claws);
     expect(clawSpec.attack.unarmed).toBeUndefined();
     expect(realCritPm(clawSpec.attack, c)).toBe(50);
-    expect(clawSpec.attackIntervalMs).toBe(1000);
   });
 
   it("맨손 스킬 사양(타고난 무기·맨손 속성 자료)도 맨손 크리 식을 쓴다", () => {
     const spec = specOf({ ...all(10), dex: 12, agi: 15 }, weaponOf("test_sword"));
-    expect(realCritPm(spec.bareHandAttack?.physical ?? spec.attack, c)).toBe(30);
-    expect(realCritPm(spec.bareHandAttack?.elemental ?? spec.attack, c)).toBe(30);
+    expect(realCritPm(spec.bareHandAttack?.physical ?? spec.attack, c)).toBe(27);
+    expect(realCritPm(spec.bareHandAttack?.elemental ?? spec.attack, c)).toBe(27);
     // 든 검의 크리는 무기 틀(100 × min(1, 12 ÷ 12) = 100)
     expect(realCritPm(spec.attack, c)).toBe(100);
   });

@@ -4,7 +4,7 @@
 - 보내는 쪽: 기술 세션(가지 `work/worker-logistics`)
 - 바탕: 기획 정리 D-533 "1047~1055 추천대로" — 질문 1047 다(숙소 = 일꾼 회복 + 주거), 1049 나(시작 도시 숙소 수 = 주거 ÷ 수용), 1050 가(채집소 → 창고 옮김에 거리 시간). 사용자 원문(2026-11-11) "숙소는 노동자 회복 루트, 창고와 원자재채집소와의 관계도 고려". ADR `docs/adr/2026-11-11-city-building-layout.md` "바뀜 (2026-11-12)".
 - 상태: 답 기다림. 아래 추천안을 모두 [임시]로 코드에 넣었다(1088·1090·1091·1092·1093·1095의 "다음 줄기"는 넣지 않았다).
-- 지금 자료: 작업 기록 `docs/worklog/2026/11/12-0710-worker-logistics.md`의 측정(Verified: `pnpm --filter @terra/server bench:city-rest 16`, `pnpm --filter @terra/sim sim` econ16 변형).
+- 지금 자료: 작업 기록 `docs/worklog/2026/11/12-0930-worker-logistics.md`의 측정(Verified: `pnpm --filter @terra/server bench:city-rest 16`, `pnpm --filter @terra/sim sim` econ16 변형).
 
 ### 1086. 숙소 회복을 도시 생산에 어떻게 넣나요?
 - 정해진 것: 48 §7.1 — 회복 = 기본 × 주거 등급 배율 × 만족도 × 노숙 배율, 숙소 ×1.5~3. 정산 엔진은 일(피로 상한 × 일 주기) → 쉼(피로 상한 × 1점 푸는 시간) 바퀴다.

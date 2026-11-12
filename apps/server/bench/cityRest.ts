@@ -160,14 +160,14 @@ interface Measure {
   readonly lodged: number;
 }
 
-function measure(plan: CityRestPlan): Measure {
+function measure(cityRest: CityRestPlan): Measure {
   let duty = 0;
   let commute = 0;
   let share = 0;
   let rest = 0;
   let lodged = 0;
-  const n = Math.max(1, plan.workers.length);
-  for (const worker of plan.workers) {
+  const n = Math.max(1, cityRest.workers.length);
+  for (const worker of cityRest.workers) {
     duty += restDutyPm(worker.place, worker.commuteCells, rules);
     commute += worker.commuteCells;
     const s = workSharePm(restRecoveryPm(worker.place, rules), worker.commuteCells, rules);
@@ -254,11 +254,11 @@ for (const city of picked) {
     ["숙소 없음", planCityRest({ ...base, lodgings: [] })],
   ];
   const none = measure(cases[3]?.[1] ?? planCityRest({ ...base, lodgings: [] })).output;
-  for (const [name, plan] of cases) {
-    const result = measure(plan);
+  for (const [name, cityPlan] of cases) {
+    const result = measure(cityPlan);
     const index = Math.round((result.output * 100) / Math.max(1, none));
     lines.push(
-      `| ${c.face}:${c.i},${c.j}${city.capital ? " ★" : ""} ${city.nation} | ${lodgings.length} | ${plan.workers.length} | ${name} | ${result.lodged} | ${result.dutyPm} | ${result.commute} | ${result.workH} | ${result.restH} | ${index} |`,
+      `| ${c.face}:${c.i},${c.j}${city.capital ? " ★" : ""} ${city.nation} | ${lodgings.length} | ${cityPlan.workers.length} | ${name} | ${result.lodged} | ${result.dutyPm} | ${result.commute} | ${result.workH} | ${result.restH} | ${index} |`,
     );
     const total = totals.get(name) ?? { duty: 0, commute: 0, work: 0, rest: 0, output: 0, n: 0 };
     total.duty += result.dutyPm;

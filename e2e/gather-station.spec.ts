@@ -148,6 +148,8 @@ for (const look of LOOKS) {
         message(look.language, "station_buffs_line", { gain: 0, fatigue: 50, regrow: 50 }),
       );
       await expect(station.locator('[data-part="station-haul"]')).toBeVisible();
+      // 옮김 거리(질문 1050 가): 창고(또는 도시 가운데)까지 칸·지금 짐 나르는 시간
+      await expect(station.locator('[data-part="station-haul-route"]')).toBeVisible();
       await expect(station.locator('[data-part="station-objects"]')).toBeVisible();
       // 반경 고리를 그린다
       await expect

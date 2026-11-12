@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-12 09:30 | 숙소 = 일꾼 회복 + 주거, 시작 도시 숙소 수 = 주거 ÷ 침대, 채집소 → 창고 옮김에 거리 시간 | Claude Code | [12-0930-worker-logistics](worklog/2026/11/12-0930-worker-logistics.md) |
 | 2026-11-12 05:20 | 옆 2차맵 미리 열기 합치기 | Claude Code | [12-0520-edge-preopen-merge](worklog/2026/11/12-0520-edge-preopen-merge.md) |
 | 2026-11-12 04:00 | 2026-11-12 셋째 묶음 합치기 (도시 간격·배후지·도시 건물 배치·가문 마을·3D 초상) | Claude Code | [12-0400-batch-1112-merge](worklog/2026/11/12-0400-batch-1112-merge.md) |
 | 2026-11-12 03:30 | 옆 2차맵 미리 띄우기·경계 너머 시야(edge-preopen) | Claude Code | [12-0330-edge-preopen](worklog/2026/11/12-0330-edge-preopen.md) |

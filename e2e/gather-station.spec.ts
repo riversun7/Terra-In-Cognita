@@ -4,7 +4,9 @@
 // - admin: 경제 → 생산에서 벌목장을 짓고(개발 재료·바로 끝내기) 그 카드에 채집소 칸(반경·원자재·창고·자동 옮김)이 보인다.
 // - 농장(기획 정리 756 ② — 팩 core@66부터 밭 자리를 맡는 원자재 채집소, docs/adr/2026-11-11-city-catchment.md): 시작 도시 농장 판에 반경·수확·
 //   피로·다시 자람 버프·반경 안 원자재(밭)·채집소 창고가 보이고 반경 고리를 그린다. 경제 → 생산에서 지은 농장 카드에도 채집소 칸(반경)이 보인다.
-// - 사진(E2E_SHOTS_DIR): 채집소 판 390 파스텔 한국어·다크 영어, 채집소 칸 390 파스텔 한국어·다크 영어, 농장 판·농장 칸 같은 넷.
+// - 노두(기획 D-534 질문 1083 나): 내 2차맵(행성 값이 있는 낮은 땅) gather.objects에 돌·구리 노두 종류(기기 그림 번호)와 노두 오브젝트가 있고,
+//   근처 자원 목록의 노두 줄을 누르면 오브젝트 판(이름·[채집]·광산이 맡음)이 열린다.
+// - 사진(E2E_SHOTS_DIR): 채집소 판 390 파스텔 한국어·다크 영어, 채집소 칸 390 파스텔 한국어·다크 영어, 농장 판·농장 칸 같은 넷, 노두 판 둘.
 import type { Locator, Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -109,6 +111,87 @@ const LOOKS = [
   { theme: "pastel", language: "ko" },
   { theme: "dark", language: "en" },
 ] as const satisfies readonly { theme: Theme; language: Language }[];
+
+/** 내 2차맵의 노두 종류 차례·오브젝트 번호(gather.objects) */
+async function outcropsOf(page: Page): Promise<{ kinds: number[]; arts: number[]; objects: number[] }> {
+  const mapKey = Number(await page.locator(".map-screen[data-map-key]").getAttribute("data-map-key"));
+  return page.evaluate(async (key) => {
+    const input = encodeURIComponent(JSON.stringify({ mapKey: key }));
+    const reply: unknown = await fetch(`/api/trpc/gather.objects?input=${input}`).then((r) => r.json());
+    const data: unknown =
+      typeof reply === "object" && reply !== null
+        ? Reflect.get(Reflect.get(reply, "result") ?? {}, "data")
+        : undefined;
+    const kinds: unknown = typeof data === "object" && data !== null ? Reflect.get(data, "kinds") : [];
+    const flat: unknown = typeof data === "object" && data !== null ? Reflect.get(data, "objects") : [];
+    const outKinds: number[] = [];
+    const arts: number[] = [];
+    if (Array.isArray(kinds))
+      kinds.forEach((kind: unknown, index) => {
+        const id = typeof kind === "object" && kind !== null ? Reflect.get(kind, "id") : undefined;
+        if (id === "stone_outcrop" || id === "copper_outcrop") {
+          outKinds.push(index);
+          arts.push(Number(Reflect.get(kind ?? {}, "art") ?? 0));
+        }
+      });
+    const objects: number[] = [];
+    if (Array.isArray(flat))
+      for (let i = 0; i + 3 < flat.length; i += 4)
+        if (outKinds.includes(Number(flat[i + 1]))) objects.push(Number(flat[i]));
+    return { kinds: outKinds, arts, objects };
+  }, mapKey);
+}
+
+for (const look of LOOKS) {
+  test.describe(`노두 390·${look.theme}·${look.language}`, () => {
+    test.use({ account: "player", theme: look.theme, language: look.language, ...VIEWPORTS.phone });
+
+    test(`낮은 땅 2차맵에도 돌·구리 노두가 서고 근처 목록에서 판을 연다 (390·${look.theme}·${look.language})`, async ({
+      page,
+      deviceErrors,
+    }) => {
+      test.setTimeout(240_000);
+      await rewriteTrpc(page, { "summary.get": hideSummary });
+      await page.goto("/map");
+      const map = page.locator(".map-screen[data-map-key]");
+      await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+      await expect
+        .poll(async () => Number(await page.locator(".gather-panel").getAttribute("data-objects")), {
+          timeout: 30_000,
+        })
+        .toBeGreaterThan(0);
+      const found = await outcropsOf(page);
+      expect(found.kinds).toHaveLength(2);
+      for (const art of found.arts) expect(art).toBeGreaterThan(0);
+      expect(found.objects.length).toBeGreaterThan(0);
+      // 근처 자원 목록에서 노두 줄(가까운 차례로 더 보기를 눌러 찾는다)
+      await openNearby(page, "resources");
+      const ids = new Set(found.objects.map(String));
+      let row: Locator | null = null;
+      for (let page_ = 0; page_ < 60 && row === null; page_++) {
+        const rows = page.locator('.map-nearby-row[data-kind="object"]');
+        const count = await rows.count();
+        for (let index = 0; index < count && row === null; index++) {
+          const candidate = rows.nth(index);
+          if (ids.has((await candidate.getAttribute("data-id")) ?? "")) row = candidate;
+        }
+        const more = page.locator(".map-nearby-more");
+        if (row === null && (await more.count()) > 0) await more.click();
+        else if (row === null) break;
+      }
+      expect(row).not.toBeNull();
+      await row?.click();
+      const sheet = page.locator(".gather-sheet[data-object]");
+      await expect(sheet).toBeVisible();
+      await expect(sheet).toContainText(look.language === "ko" ? "노두" : "outcrop");
+      await expect(sheet.locator(".gather-sheet-gather")).toBeVisible();
+      expect(await horizontalOverflow(page)).toEqual([]);
+      expect(await smallTapTargets(page)).toEqual([]);
+      await shot(page, `gather-outcrop-390-${look.theme}-${look.language}`);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+}
 
 for (const look of LOOKS) {
   test.describe(`채집소 판 사진 390·${look.theme}·${look.language}`, () => {

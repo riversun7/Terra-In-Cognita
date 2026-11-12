@@ -8294,6 +8294,24 @@
       "source": "ADR 2026-11-11-city-building-layout [임시]"
     },
     {
+      "id": "npc_village_lodgings",
+      "code": "",
+      "name": {
+        "ko": "마을 숙소 수",
+        "en": "Village lodgings"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 4,
+      "desc": {
+        "ko": "시작 도시가 아닌 마을(NPC 새 마을·가문 마을)이 서면 행정 건물과 함께 세우는 숙소 수.",
+        "en": "Lodgings a non-start village (NPC new town or house village) gets together with its government hall."
+      },
+      "source": "질문 1052 다·ADR 2026-11-11-city-building-layout 바뀜 (2026-11-12) [임시]"
+    },
+    {
       "id": "city_layout_mode",
       "code": "",
       "name": {

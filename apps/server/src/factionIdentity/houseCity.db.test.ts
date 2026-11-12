@@ -255,14 +255,32 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 도시(질문 1005 가)", () => {
     expect(notices).toContainEqual({ kind: "city_gained", reason: "vassal" });
     expect(nationOfOwner(world, owner)).toBe(leader.nation);
     expect(nationOfOwner(world, member.ownerId)).toBe(leader.nation);
-    // 상태는 바꾸지 못하고, 같은 자리는 너무 가깝다
+    // 상태는 바꾸지 못하고, 같은 자리는 마을 행정 건물이 섰고(질문 1052 다 — 마을 건물), 곁의 빈 칸은 너무 가깝다
     expect(
       await cities.village(leader.userId, { ...input, mode: "independent", regime: "democracy" }),
     ).toEqual({
       ok: false,
       code: "mode_locked",
     });
-    expect(await cities.village(leader.userId, input)).toEqual({ ok: false, code: "too_close" });
+    expect(await cities.village(leader.userId, input)).toEqual({ ok: false, code: "blocked" });
+    const villageMap = world.maps.get(site.mapKey);
+    const near = (
+      [
+        [6, 0],
+        [-6, 0],
+        [0, 6],
+        [0, -6],
+        [8, 8],
+        [-8, -8],
+      ] as const
+    )
+      .map(([dx, dy]) => ({ x: site.x + dx, y: site.y + dy }))
+      .find((spot) => villageMap?.canPlace({ ...spot, width: 1, height: 1, rotation: 0 }));
+    if (!near) throw new Error("no free cell near the village");
+    expect(await cities.village(leader.userId, { ...input, ...near })).toEqual({
+      ok: false,
+      code: "too_close",
+    });
     // 다른 나라 도시 영향권(띄움 거리 밖, 영향권 안)
     const otherCity = [...npc.world.cities.values()].find(
       (city) => city.owner !== owner && city.owner !== npc.houses.ownerOfRow(leader.nation),

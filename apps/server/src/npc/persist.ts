@@ -13,6 +13,7 @@ import { type ServerGardener, storedGardenerOf } from "./gardener.ts";
 import { nextCityName } from "./nations.ts";
 import { createRuinsPersist } from "./ruinsPersist.ts";
 import { type TownSiteCity, type TownSiteProblem, checkTownSite, pickTownSite } from "./townSites.ts";
+import type { CityRow } from "../world/cities.ts";
 import type { QueryPool, OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -70,6 +71,11 @@ export interface NpcPersistOptions {
    * 동기 처리라 같은 커밋에 든다
    */
   readonly onCityOwner?: ((cityId: number, factionRowId: number) => void) | undefined;
+  /**
+   * 실행 중에 선 새 도시(NPC 새 마을·가문 마을)의 행을 처음 쓸 때(같은 동기 처리 — 같은 커밋): 마을 건물을 도시 배치 함수로 세운다
+   * (facilities/npcSeed.ts, 질문 1052 다). cities = 지금 거울 도시 모두(같은 2차맵 도시 자리 나누기)
+   */
+  readonly onCityFounded?: ((city: CityRow, cities: readonly CityRow[]) => void) | undefined;
   /**
    * 그 세력(거울 ID)이 따르는 나라의 도시 이름 목록(기획 답 601 나, nations.ts nationPresetOf). 실행 중에 세운 마을·이름 없이 복원된 도시가
    * 처음 저장할 때 여기서 다음 이름을 받는다. 없거나 undefined면 이름 없이(화면은 "<국가> 도시 N")
@@ -413,7 +419,8 @@ export function createNpcPersist(
     }
     // 실행 중에 세운 마을(처음 저장): 주인이 따르는 나라 목록에서 이름(601 나). 자리 검사(canFound, 세계 배치)가 자리를 미리 잡아 둔
     // 마을도 여기서 받는다(이름이 이미 있거나 따르는 나라가 없으면 그대로)
-    if (!savedCities.has(id)) nameCity(id);
+    const founded = !savedCities.has(id);
+    if (founded) nameCity(id);
     const sig = citySig(id);
     if (savedCities.get(id) === sig) return 0;
     const factionRow = rowOf.get(city.owner);
@@ -441,6 +448,34 @@ export function createNpcPersist(
     if (pendingNames.delete(id) && name !== undefined) {
       writer.upsert("cityNames", { id, name });
       rows += 1;
+    }
+    // 처음 쓴 새 도시: 마을 건물(질문 1052 다, 도시 줄 다음 — 같은 묶음)
+    if (founded && o.onCityFounded) {
+      const rowOfCity = (cityId: number): CityRow | undefined => {
+        const at = places.get(cityId);
+        const owner = world.cities.get(cityId)?.owner;
+        const faction = owner === undefined ? undefined : rowOf.get(owner);
+        return at && faction !== undefined
+          ? {
+              id: cityId,
+              factionId: faction,
+              planetId: at.planetId,
+              mapKey: at.mapKey,
+              cellX: at.cellX,
+              cellY: at.cellY,
+              start: world.cities.get(cityId)?.start === true,
+            }
+          : undefined;
+      };
+      const self = rowOfCity(id);
+      if (self)
+        o.onCityFounded(
+          self,
+          [...world.cities.keys()].flatMap((cityId) => {
+            const row = rowOfCity(cityId);
+            return row ? [row] : [];
+          }),
+        );
     }
     // 주인이 바뀌었으면 그 도시의 영토 비콘도 넘어간다(D-512 335, 같은 묶음)
     if (savedOwners.get(id) !== factionRow) {

@@ -11,6 +11,9 @@
 // 자리(docs/adr/2026-11-11-city-building-layout.md): 설정 칸 city_layout_mode = 1(출발값)이면 전략 배치(cityLayout.ts — 행정 건물 가운데,
 // 숙소·창고는 채집소 묶음으로 가는 길 위, 채집소는 맡는 원자재가 많은 바깥 띠), 0이면 옛 배치(가운데 마당 밖 고리마다 처음 맞는 자리).
 // 숙소(lodging, 생활 단계) 수 = 설정 칸 npc_seed_lodgings — 일꾼의 밤 쉼터(npc/humanPlaces.ts).
+// 마을(질문 1052 다, 기획 D-533 "추천대로" — docs/adr/2026-11-11-city-building-layout.md "바뀜 (2026-11-12)"): 시작 도시가 아닌 도시(NPC 새 마을·
+// 가문 마을·되살린 폐허)는 행정 건물 하나(그 도시 자리에 누구 것이든 행정 건물이 이미 있으면 없음) + 숙소(설정 칸 npc_village_lodgings)를 같은
+// 배치 함수로 세운다. 부팅 때 모자란 것을 채우고, 실행 중에 새 도시가 처음 저장될 때(npc/persist.ts onCityFounded) 그 도시 하나만 바로 세운다.
 // 멱등: 도시마다 그 세력이 가진 같은 시설 줄(도시 ID 같음) 수를 세어 모자란 것만 더한다(있는 것은 그대로 — 관리자가 지운 시설은 다음 켤 때
 // 다시 선다). 재료·작업·일꾼 없이 선다(세계를 차리는 일이라 원장을 거치지 않는다 — 확인 대기, docs/questions/2026-11-07-play-seed.md).
 import { MATERIAL_BIT, cellMaterials } from "@terra/shared/catchment";
@@ -110,6 +113,14 @@ export function seedPlan(seed: WorldSeedCoefficients, land?: SeedLand): SeedItem
   ];
 }
 
+/** 마을(시작 도시가 아닌 도시)의 건물 차례: 행정 건물 하나 + 숙소(설정 칸). 마을 건물 수·값은 기획 몫이라 이것만 둔다(질문 1052) */
+export function villagePlan(seed: WorldSeedCoefficients): SeedItem[] {
+  return [
+    { facility: "government_hall", count: 1 },
+    { facility: "lodging", count: Math.max(0, Math.trunc(seed.villageLodgings)) },
+  ];
+}
+
 /** 전략 배치를 쓰나(설정 칸 city_layout_mode — 칸이 없는 옛 계수표는 옛 배치) */
 export function strategicLayout(seed: WorldSeedCoefficients): boolean {
   return Math.trunc(seed.cityLayoutMode) === 1;
@@ -158,6 +169,8 @@ export interface NpcSeedInput {
   /** 원자재 오브젝트 종류(팩 gather_objects). 전략 배치의 채집소 자리가 본다. 없으면 방향만 흩는다 */
   readonly gatherKinds?: readonly GatherKind[] | undefined;
   readonly nowMs: number;
+  /** 이 도시만 세운다(실행 중에 선 새 마을). 없으면 띄운 2차맵의 모든 도시 */
+  readonly only?: ReadonlySet<number> | undefined;
 }
 
 export interface NpcSeedResult {
@@ -176,19 +189,28 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
       .map((city) => ({ id: city.id, mapKey, x: city.cellX, y: city.cellY }));
   let placed = 0;
   let missing = 0;
-  const starts = input.cities
-    .filter((city) => city.start && city.planetId === input.planetId && maps.has(city.mapKey))
+  const targets = input.cities
+    .filter(
+      (city) =>
+        city.planetId === input.planetId &&
+        maps.has(city.mapKey) &&
+        (input.only === undefined || input.only.has(city.id)),
+    )
     .toSorted((a, b) => a.id - b.id);
-  for (const city of starts) {
+  for (const city of targets) {
     const map = maps.get(city.mapKey);
     const ownerId = input.ownerOfFaction(city.factionId);
     if (!map || ownerId === undefined) continue;
-    const plan = seedPlan(input.seedOfFaction?.(city.factionId) ?? input.seed, input.landOf?.(city.mapKey));
+    const factionSeed = input.seedOfFaction?.(city.factionId) ?? input.seed;
+    const plan = city.start ? seedPlan(factionSeed, input.landOf?.(city.mapKey)) : villagePlan(factionSeed);
     const anchors = anchorsOf(city.mapKey);
     const have = new Map<string, number>();
     for (const record of service.facilities.values())
       if (record.cityId === city.id && map.buildingOwner(record.buildingId) === ownerId)
         have.set(record.facilityId, (have.get(record.facilityId) ?? 0) + 1);
+    // 마을: 그 도시 자리에 누구 것이든 행정 건물이 있으면 더 세우지 않는다(되살린 폐허는 복원한 쪽이 지은 정부가 있다 — 489 다)
+    if (!city.start && (have.get("government_hall") ?? 0) === 0 && hasGovernment(map, service, anchors, city))
+      have.set("government_hall", 1);
 
     const citySeed = input.seedOfFaction?.(city.factionId) ?? input.seed;
     const items = plan.flatMap((item) => {
@@ -307,6 +329,27 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
   return { placed, missing };
 }
 
+/** 그 도시 자리(가장 가까운 도시)에 행정 건물이 있나(주인 상관없음) */
+function hasGovernment(
+  map: SecondMap,
+  service: Pick<FacilityService, "facilities">,
+  anchors: readonly CityCell[],
+  city: CityRow,
+): boolean {
+  const placements = new Map<number, { x: number; y: number; width: number; height: number }>();
+  map.forEachBuilding((building) => placements.set(building.id, building.placement));
+  for (const record of service.facilities.values()) {
+    if (record.facilityId !== "government_hall") continue;
+    if (record.cityId === city.id && placements.has(record.buildingId)) return true;
+    const at = placements.get(record.buildingId);
+    if (!at) continue;
+    const cx = at.x + (at.width >> 1);
+    const cy = at.y + (at.height >> 1);
+    if (cityOfCell(anchors, city.mapKey, cx, cy)?.id === city.id) return true;
+  }
+  return false;
+}
+
 /**
  * 부팅 복구 때 한 번(world.ts): 소유 주체 표로 세력 → 주체를 찾고 씨앗을 세운다. 설정 칸은 부를 때의 실효 값(rules).
  * 동기로 끝난다: 2차맵을 다시 놓은 뒤 경로 서비스를 켜기(paths.start) 전에 기다리면 다시 놓은 봇의 예약이 먼저 돌아 아직 모르는 2차맵에
@@ -330,6 +373,8 @@ export function seedNpcFacilitiesAtBoot(options: {
   readonly terrain?: { cellValues?(mapKey: number): SeedLand | undefined } | undefined;
   readonly log: { info(obj: object, message: string): void };
   readonly nowMs: number;
+  /** 이 도시만(실행 중에 선 새 마을 — npc/persist.ts onCityFounded). 없으면 모든 도시 */
+  readonly only?: ReadonlySet<number> | undefined;
 }): NpcSeedResult {
   const result = seedNpcFacilities({
     maps: options.maps,
@@ -346,8 +391,23 @@ export function seedNpcFacilitiesAtBoot(options: {
     landOf: (mapKey) => options.terrain?.cellValues?.(mapKey),
     gatherKinds: options.facilities.gatherKinds?.(),
     nowMs: options.nowMs,
+    only: options.only,
   });
   if (result.placed > 0 || result.missing > 0)
-    options.log.info(result, "world boot: seeded npc start city facilities");
+    options.log.info(
+      { ...result, only: options.only ? [...options.only] : undefined },
+      options.only ? "npc village: seeded facilities" : "world boot: seeded npc city facilities",
+    );
   return result;
+}
+
+/** 실행 중에 선 새 마을 하나를 세우는 함수(npc/persist.ts onCityFounded — world.ts가 부팅 씨앗과 같은 입력으로 잇는다) */
+export function villageSeeder(
+  base: Omit<Parameters<typeof seedNpcFacilitiesAtBoot>[0], "cities" | "only" | "nowMs"> & {
+    readonly now: () => number;
+  },
+): (city: CityRow, cities: readonly CityRow[]) => void {
+  return (city, cities) => {
+    seedNpcFacilitiesAtBoot({ ...base, cities, only: new Set([city.id]), nowMs: base.now() });
+  };
 }

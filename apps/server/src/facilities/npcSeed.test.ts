@@ -14,6 +14,7 @@ import {
   landGather,
   seedNpcFacilities,
   seedPlan,
+  villagePlan,
 } from "./npcSeed.ts";
 import type { FacilityRecord } from "./state.ts";
 import { TEST_FACILITY_SOURCE } from "./testFacilities.ts";
@@ -123,8 +124,16 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     const perCity = seedPlan(START_WORLD_SEED).reduce((sum, item) => sum + item.count, 0);
     // 행정 건물 1 + 창고 1 + 숙소 3 + 농장·벌목장·광산 1씩
     expect(perCity).toBe(8);
-    // 시작 도시가 아닌 도시(3)는 씨앗을 받지 않는다
-    expect(result).toEqual({ placed: perCity * 2, missing: 0 });
+    // 시작 도시가 아닌 도시(3 — 마을)는 행정 건물 + 숙소(설정 칸 npc_village_lodgings)만(질문 1052 다)
+    const perVillage = villagePlan(START_WORLD_SEED).reduce((sum, item) => sum + item.count, 0);
+    expect(perVillage).toBe(2);
+    expect(result).toEqual({ placed: perCity * 2 + perVillage, missing: 0 });
+    expect(
+      [...facilities.values()]
+        .filter((record) => record.cityId === 3)
+        .map((record) => record.facilityId)
+        .toSorted(),
+    ).toEqual(["government_hall", "lodging"]);
     for (const record of facilities.values()) {
       expect(record).toMatchObject({
         level: 1,
@@ -132,7 +141,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
         builtAtMs: 1_000,
         builtBy: null,
       });
-      const owner = record.cityId === 1 ? 7 : 8;
+      const owner = record.cityId === 1 ? 7 : record.cityId === 2 ? 8 : 9;
       expect(map.buildingOwner(record.buildingId)).toBe(owner);
     }
     expect(
@@ -153,7 +162,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     // 전략 배치: 행정 건물은 도시 칸 가운데, 다른 건물은 광장(행정 건물 둘레 3칸 + 둘레 길)에 들지 않고 그 도시 자리(가장 가까운 도시)에 선다
     const rects = new Map<number, { x: number; y: number; width: number; height: number }>();
     map.forEachBuilding((building) => rects.set(building.id, building.placement));
-    for (const home of cities.filter((entry) => entry.start)) {
+    for (const home of cities) {
       const records = [...facilities.values()].filter((record) => record.cityId === home.id);
       const hall = records.find((record) => record.facilityId === "government_hall");
       const hallRect = hall ? rects.get(hall.buildingId) : undefined;
@@ -174,6 +183,48 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     const more = seedNpcFacilities({ ...input, seed: { ...START_WORLD_SEED, farms: 2 }, nowMs: 3_000 });
     expect(more).toEqual({ placed: 2, missing: 0 });
     expect([...facilities.values()].filter((record) => record.facilityId === "farm")).toHaveLength(4);
+    // 한 도시만(실행 중에 선 새 마을, only): 다른 도시는 보지 않는다
+    expect(
+      seedNpcFacilities({
+        ...input,
+        seed: { ...START_WORLD_SEED, farms: 3, villageLodgings: 2 },
+        only: new Set([3]),
+        nowMs: 4_000,
+      }),
+    ).toEqual({ placed: 1, missing: 0 });
+  });
+
+  it("마을: 그 자리에 누구 것이든 행정 건물이 있으면(되살린 폐허) 행정 건물을 더 세우지 않는다", () => {
+    const { map, facilities, service } = setup();
+    const cities = [city(5, 500, 128, 128, false)];
+    // 다른 주체(유저 9)가 지은 행정 건물, 도시 ID 없음(폐허 때 지음)
+    const built = map.placeBuilding({ x: 127, y: 127, width: 3, height: 3, rotation: 0 }, 9);
+    if (!built.ok || built.buildingId === undefined) throw new Error("place");
+    facilities.set(built.buildingId, {
+      buildingId: built.buildingId,
+      facilityId: "government_hall",
+      level: 1,
+      conditionPpm: CONDITION_FULL,
+      conditionAtMs: 0,
+      builtAtMs: 0,
+      builtBy: null,
+      cityId: null,
+    });
+    const result = seedNpcFacilities({
+      maps: new Map([[9, map]]),
+      cities,
+      planetId: "p",
+      ownerOfFaction: () => 7,
+      service,
+      catalog,
+      seed: START_WORLD_SEED,
+      nowMs: 1_000,
+    });
+    expect(result).toEqual({ placed: 1, missing: 0 });
+    expect([...facilities.values()].map((record) => record.facilityId).toSorted()).toEqual([
+      "government_hall",
+      "lodging",
+    ]);
   });
 
   it("옛 배치(city_layout_mode 0): 가운데 마당 밖 고리마다 처음 맞는 자리", () => {

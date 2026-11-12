@@ -5,7 +5,7 @@ import { territoryMetric, territoryPoint } from "@terra/planet/territory";
 import { territoryDistanceMilli } from "@terra/shared/territory";
 import { START_WORLD_SEED } from "@terra/sim";
 import { describe, expect, it } from "vitest";
-import { catchmentViewOf } from "./catchmentView.ts";
+import { SUSTAIN_CAP, catchmentViewOf, sustainOf } from "./catchmentView.ts";
 import { catchmentCells, createCatchmentCache, splitCatchments } from "./citySites.ts";
 import {
   type LayoutInput,
@@ -195,6 +195,49 @@ describe("세계 배치 화면 배후지 덮개(catchmentViewOf)", () => {
     expect(view.contestedPlan).toBe(0);
     expect(view.sameGapCells).toBe(4);
     expect(view.foreignGapCells).toBe(6);
+    expect(view.sustain?.tierCities).toBe(2);
+    expect(view.sustain?.worldCities).toBe(1);
+  });
+
+  it("버틸 수 있는 도시 수(질문 1025 나): 땅이 좁으면 적고, 다른 국가 계획 도시를 피하고, 배후지 규칙을 끄면 없다", () => {
+    const input = {
+      faceLevel: LEVEL,
+      land,
+      seed,
+      code: "a",
+      world: [],
+      needsOf: () => ({ crop: 1, wood: 1 }),
+      provinceMilli: 2000,
+      capitalMilli: 2500,
+    };
+    // 면 0 가운데(넓은 땅): 찾는 반경 12칸 안에 여러 도시
+    const wide = sustainOf({ ...input, center: cellKey(0, LEVEL, 30, 30), plan: [] });
+    if (!wide) throw new Error("no sustain");
+    expect(wide.cities).toBeGreaterThan(3);
+    expect(wide.cities).toBeLessThan(SUSTAIN_CAP);
+    expect(wide.landCells).toBeGreaterThan(300);
+    // 바다(면 2 이상)에 붙은 가장자리 땅은 더 적다
+    const coast = sustainOf({ ...input, center: cellKey(0, LEVEL, 63, 63), plan: [] });
+    expect(coast?.cities).toBeLessThan(wide.cities);
+    // 다른 국가 계획 도시가 가까이 있으면 그 자리·간격만큼 준다
+    const crowded = sustainOf({
+      ...input,
+      center: cellKey(0, LEVEL, 30, 30),
+      plan: [
+        { code: "b", mapKey: cellKey(0, LEVEL, 36, 30), targetMilli: 2500 },
+        { code: "b", mapKey: cellKey(0, LEVEL, 24, 30), targetMilli: 2500 },
+      ],
+    });
+    expect(crowded?.cities).toBeLessThan(wide.cities);
+    expect(crowded?.tierCities).toBe(0);
+    expect(
+      sustainOf({
+        ...input,
+        seed: { ...seed, catchmentRadiusCells: 0 },
+        center: cellKey(0, LEVEL, 30, 30),
+        plan: [],
+      }),
+    ).toBeNull();
   });
 });
 

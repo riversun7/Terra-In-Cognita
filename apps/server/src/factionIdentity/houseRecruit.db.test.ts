@@ -1,6 +1,6 @@
 // 가문 도시 구인 DB 통합 시험(질문 1041 다, 기획 D-533 "자동 구인", docs/adr/2026-11-11-house-village.md "바뀜 (2026-11-12)") — TEST_DATABASE_URL이
 // 있을 때만. 계정은 가짜 값이다.
-// 봉신 마을을 세운 가문: 자동 구인(기본 켬)은 국고가 비면 사지 않고, 국고가 차면 NPC와 같은 규칙식으로 주민을 들인다. 가문장만 끄고 켠다
+// 봉신 마을을 세운 가문: 마을 건물(행정 건물 + 숙소, 질문 1052 다)이 도시 배치로 선다. 자동 구인(기본 켬)은 국고가 비면 사지 않고, 국고가 차면 NPC와 같은 규칙식으로 주민을 들인다. 가문장만 끄고 켠다
 // (factions.recruit_auto·감사 기록). 끈 뒤 가문장이 카드를 손으로 산다(국고가 모자라면 가문장 지갑) — 기기가 본 값이 다르면 cards_changed, 산
 // 칸은 taken. 다시 켜도 끔 상태와 주민이 그대로다.
 import { loadContentPack } from "@terra/content/node";
@@ -210,6 +210,19 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 도시 구인(질문 1041 다)", () 
     if (!made.ok) throw new Error(made.code);
     const cityId = made.cityId;
     const { npc } = parts(world);
+    // 마을 건물(질문 1052 다): 행정 건물(마을 칸 가운데 둘레) + 숙소 하나가 도시 배치 함수로 선다
+    await parts(world).persistence.writer.durable();
+    const built = await rows<{ facility_id: string; x: number; y: number; width: number; height: number }>(
+      test.db,
+      `select f.facility_id, b.x, b.y, b.width, b.height from world_facilities f join world_buildings b on b.id = f.building_id
+        where f.city_id = $1 order by f.facility_id`,
+      [cityId],
+    );
+    expect(built.map((row) => row.facility_id)).toEqual(["government_hall", "lodging"]);
+    const hall = built[0];
+    if (!hall) throw new Error("no hall");
+    expect(Math.abs(hall.x + (hall.width >> 1) - site.x)).toBeLessThanOrEqual(4);
+    expect(Math.abs(hall.y + (hall.height >> 1) - site.y)).toBeLessThanOrEqual(4);
     const owner = npc.houses.ownerOfRow(factionId);
     if (owner === undefined) throw new Error("no house owner");
     const view = (await cities.view(leader.userId, { factionId, leader: true })).recruit;

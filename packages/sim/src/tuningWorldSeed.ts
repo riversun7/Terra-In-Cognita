@@ -141,6 +141,8 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
   ),
   // 도시 건물 배치(docs/adr/2026-11-11-city-building-layout.md): 49에 칸이 없어 city_layout_*·npc_seed_lodgings
   k("npc_seed_lodgings", "lodgings", "NPC 시작 도시 기본 숙소 수", "NPC start city lodgings"),
+  // 마을 건물(질문 1052 다): 49에 칸이 없어 npc_village_lodgings
+  k("npc_village_lodgings", "villageLodgings", "마을 숙소 수", "Village lodgings"),
   k(
     "city_layout_mode",
     "cityLayoutMode",

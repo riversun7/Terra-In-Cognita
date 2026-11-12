@@ -4,14 +4,29 @@
 // - 지금 세계 도시 반경 = 지금 크기(인구·발전도 → 도시 등급·주인 기술, @terra/shared/catchment catchmentRadiusMilli), 목표 반경 = 처음 기간에
 //   이를 크기(국가 등급 주거·기술, 수도는 더 크게 — 시작 도시 배치가 쓰는 값). 계획 도시는 목표 반경.
 // - 다툼: 도시마다 다른 도시 배후지와 겹친 칸 수(shared), 둘 이상 배후지에 든 칸 수(contested), 겹친 쌍(거리 < 두 반경 합).
+// - 버틸 수 있는 도시 수(질문 1025 나, 기획 D-533 "추천대로" — 읽기만, 어림): 고른 국가 수도 둘레 찾는 반경 안 알맞은 땅에 시작 도시 배치와 같은
+//   함수(citySites.ts pickCitySites)로 수도(목표 반경) + 지방 도시(목표 반경)를 간격(같은 국가 = 반경 합 × 천분율)을 지키며 더 놓을 수 없을
+//   때까지 놓은 수. 다른 국가 계획 도시는 피할 도시(다른 국가 간격)다. 등급 표 도시 수와 견준다(땅이 좁은 섬 나라는 적다). 숫자 규칙(상한으로
+//   쓸지)은 기획이 정한다 — 화면에 보이기만 한다.
 import { type CellKey, isCellKey } from "@terra/planet";
 import { territoryMetric, territoryPoint } from "@terra/planet/territory";
 import { type MaterialWeights, cellMaterials, cityPairGapMilli } from "@terra/shared/catchment";
 import { territoryDistanceMilli } from "@terra/shared/territory";
-import type { WorldCatchmentCity, WorldCatchmentView } from "@terra/shared/worldPlacementApi";
+import type {
+  WorldCatchmentCity,
+  WorldCatchmentSustain,
+  WorldCatchmentView,
+} from "@terra/shared/worldPlacementApi";
 import type { WorldSeedCoefficients } from "@terra/sim";
-import { catchmentCellsMilli, createCatchmentCache, walkCell } from "./citySites.ts";
-import { type LayoutLand, catchmentRulesOf } from "./worldLayout.ts";
+import { territoryDistanceMilli as distanceMilli } from "@terra/shared/territory";
+import {
+  type SpacedCity,
+  catchmentCellsMilli,
+  createCatchmentCache,
+  pickCitySites,
+  walkCell,
+} from "./citySites.ts";
+import { type LayoutLand, catchmentRulesOf, isSettleLand } from "./worldLayout.ts";
 
 /** 덮개에 넣을 도시 하나(국가 코드·2차맵·반경) */
 export interface CatchmentViewCity {
@@ -39,7 +54,12 @@ export interface CatchmentViewInput {
   readonly needsOf: (code: string) => MaterialWeights;
   /** 고른 국가 지방 도시 목표 반경(간격 값 보이기) */
   readonly provinceMilli: number;
+  /** 고른 국가 수도 목표 반경(버틸 수 있는 도시 수). 없으면 지방 도시 반경 */
+  readonly capitalMilli?: number | undefined;
 }
+
+/** 버틸 수 있는 도시 수 어림의 위 끝(세계 배치가 한 국가에 세우는 도시 상한보다 넉넉히) */
+export const SUSTAIN_CAP = 64;
 
 /** 격자 반 폭에 더하는 반경 몫(칸) — 큰 수도 원이 격자 밖으로 덜 나가게 */
 const SPAN_MARGIN = 4;
@@ -74,6 +94,60 @@ function contest(
   let contested = 0;
   for (const n of count.values()) if (n > 1) contested += 1;
   return { pairs, contested, sharedOf };
+}
+
+/** 버틸 수 있는 도시 수(모듈 머리 주석). 배후지 규칙이 꺼졌으면(반경 스위치 0) null */
+export function sustainOf(input: CatchmentViewInput): WorldCatchmentSustain | null {
+  const rules = catchmentRulesOf(input.seed);
+  if (rules.radiusCells <= 0) return null;
+  const search = Math.max(1, Math.trunc(rules.searchCells));
+  const metric = territoryMetric(input.faceLevel);
+  const home = territoryPoint(input.center);
+  const landOf = (key: CellKey) => {
+    const cell = input.land(key);
+    return cell ? { ...cell, forest: cell.forest ?? 0 } : undefined;
+  };
+  // 다른 국가 도시(계획 — 세계 새로 시작 뒤 자리)는 피할 도시, 그 2차맵은 쓸 수 없다
+  const usedMaps = new Set<number>();
+  const spaced: SpacedCity[] = input.plan.flatMap((city) => {
+    if (city.code === input.code || !isCellKey(city.mapKey)) return [];
+    usedMaps.add(city.mapKey);
+    return [{ factionId: 1, point: territoryPoint(city.mapKey), radiusMilli: city.targetMilli }];
+  });
+  const fits = (key: CellKey): boolean => !usedMaps.has(key) && isSettleLand(input.land(key), input.seed);
+  // 찾는 반경 안 알맞은 빈 땅 칸 수
+  let landCells = 0;
+  const seen = new Set<number>();
+  for (let dj = -search; dj <= search; dj++)
+    for (let di = -search; di <= search; di++) {
+      const key = walkCell(input.center, di, dj);
+      if (key === null || seen.has(key)) continue;
+      seen.add(key);
+      if (distanceMilli(territoryPoint(key), home, metric) <= search * 1000 && fits(key)) landCells += 1;
+    }
+  const picked = pickCitySites({
+    faceLevel: input.faceLevel,
+    factionId: 0,
+    home: input.center,
+    needCapital: true,
+    count: SUSTAIN_CAP,
+    rules,
+    radiusMilli: input.provinceMilli,
+    capitalRadiusMilli: input.capitalMilli ?? input.provinceMilli,
+    minSameMilli: 0,
+    weights: input.needsOf(input.code),
+    cache: createCatchmentCache(landOf, input.seed, Math.max(1, rules.radiusCells), input.faceLevel),
+    fits,
+    cities: spaced,
+    salt: 0,
+  });
+  return {
+    cities: picked.length,
+    capped: picked.length >= SUSTAIN_CAP,
+    landCells,
+    tierCities: input.plan.filter((city) => city.code === input.code).length,
+    worldCities: input.world.filter((city) => city.code === input.code).length,
+  };
 }
 
 export function catchmentViewOf(input: CatchmentViewInput): WorldCatchmentView {
@@ -132,5 +206,6 @@ export function catchmentViewOf(input: CatchmentViewInput): WorldCatchmentView {
     overlapPlan: planContest.pairs,
     contestedWorld: worldContest.contested,
     contestedPlan: planContest.contested,
+    sustain: sustainOf(input),
   };
 }

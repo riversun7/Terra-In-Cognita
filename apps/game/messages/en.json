@@ -6899,5 +6899,9 @@
   "fid_recruit_error_not_house_city": "That is not a house city.",
   "fid_recruit_error_cards_changed": "The cards changed. Check again.",
   "fid_recruit_error_taken": "That card is already hired.",
-  "fid_recruit_error_insufficient_funds": "Both the house treasury and your wallet are short."
+  "fid_recruit_error_insufficient_funds": "Both the house treasury and your wallet are short.",
+  "dev_world_layout_catchment_sustain": "Land sustains ≈ {cities} cities ({land} free settle cells in the search radius) · tier table {tier} · current world {world}",
+  "dev_world_layout_catchment_sustain_capped": "Land sustains over {cities} cities ({land} free settle cells in the search radius) · tier table {tier} · current world {world}",
+  "dev_world_layout_catchment_sustain_hint": "Estimate (read-only): how many cities — capital plus province cities — fit in the search radius around the capital with the same spacing as start-city placement (sum of catchment radii). Other nations' planned cities are avoided.",
+  "dev_world_layout_catchment_sustain_short": "The tier table wants more cities than this land sustains. Some will not be placed, or their catchments overlap and both run dry."
 }

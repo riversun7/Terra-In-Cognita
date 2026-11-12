@@ -217,6 +217,18 @@ export interface WorldCatchmentCity {
 }
 
 /** 세계 배치 화면 배후지 덮개(tRPC worldLayout.catchment — 고른 국가 수도 둘레) */
+/** 고른 국가 땅이 버틸 수 있는 도시 수(질문 1025 나 — WorldCatchmentView.sustain) */
+export interface WorldCatchmentSustain {
+  readonly cities: number;
+  /** 위 끝(64)에 닿았다 — 실제로는 더 버틴다 */
+  readonly capped: boolean;
+  /** 찾는 반경 안 알맞은 빈 땅 칸 */
+  readonly landCells: number;
+  /** 국력 등급 표가 세울 도시 수(빈 세계 계획)·지금 세계 도시 수 */
+  readonly tierCities: number;
+  readonly worldCities: number;
+}
+
 export interface WorldCatchmentView {
   readonly code: string;
   /** 배후지 반경·지방 도시 찾는 반경(1차맵 칸, 설정 칸 city_catchment_*). 반경 0 = 배후지 규칙 끔(옛 배치) */
@@ -239,6 +251,11 @@ export interface WorldCatchmentView {
   /** 둘 이상 배후지에 든 칸 수(행성 전체 — 지금 세계·계획). 다툼이 있는 땅 */
   readonly contestedWorld: number;
   readonly contestedPlan: number;
+  /**
+   * 고른 국가 땅이 버틸 수 있는 도시 수(질문 1025 나, 읽기만·어림): 수도 둘레 찾는 반경 안 알맞은 땅에 시작 도시 배치와 같은 간격 규칙으로
+   * 수도 + 지방 도시를 더 놓을 수 없을 때까지 놓은 수. 배후지 규칙이 꺼졌으면 null. 옛 서버는 보내지 않는다
+   */
+  readonly sustain?: WorldCatchmentSustain | null;
 }
 
 /** 도시 건물 배치 몫(docs/adr/2026-11-11-city-building-layout.md): 행정·채집소·창고·숙소·기타 */

@@ -141,6 +141,11 @@ export interface WorldSeedCoefficients {
   /** [임시] 시작 도시 하나의 숙소 수(팩 시설 lodging, 생활 단계 — docs/adr/2026-11-11-city-building-layout.md). 일꾼의 밤 쉼터 */
   readonly lodgings: number;
   /**
+   * [임시] 시작 도시가 아닌 마을(NPC 새 마을·가문 마을·되살린 폐허)의 숙소 수 — 마을이 서면 행정 건물(가운데) + 숙소를 전략 배치로 세운다
+   * (질문 1052 다, 기획 D-533 "추천대로"). 마을 건물 수·값은 기획이 정할 일이라 이 칸 하나만 둔다. 서버만 읽는다(facilities/npcSeed.ts)
+   */
+  readonly villageLodgings: number;
+  /**
    * [임시] 도시 건물 배치(사용자 요청 2026-11-11 "건물들도 바둑판 배열이 아닌 전략적으로", docs/adr/2026-11-11-city-building-layout.md):
    * 1 = 전략 배치(행정 건물 가운데 → 숙소 → 창고 → 채집소 겹, apps/server/src/facilities/cityLayout.ts), 0 = 옛 배치(가운데 마당 밖 고리마다
    * 처음 맞는 자리). 서버만 읽는다
@@ -229,6 +234,8 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   // 띠: 옛 씨앗이 건물을 세우던 반경(가운데에서 48칸 안)과 채집소 반경(40칸) 안 — 채집소 20~42칸, 고리 9칸, 창고는 길의 75%, 숙소는 35%.
   // 숙소 셋: 채집 구역(창고 수)마다 길 위 하나, 남는 것은 행정 건물의 빈 쪽(측정 docs/worklog/2026/11/12-0130-city-layout.md)
   lodgings: 3,
+  // 마을: 행정 건물 + 숙소 하나(질문 1052 추천 가)
+  villageLodgings: 1,
   cityLayoutMode: 1,
   cityLayoutPlazaCells: 3,
   cityLayoutInnerCells: 9,

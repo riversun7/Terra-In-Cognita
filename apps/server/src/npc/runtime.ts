@@ -81,7 +81,7 @@ import { createHumanPlaces } from "./humanPlaces.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
-import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
+import { type CityPlace, type NpcPersist, type NpcPersistOptions, createNpcPersist } from "./persist.ts";
 import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
 import { ruinsOf } from "./ruinsState.ts";
@@ -133,6 +133,8 @@ export interface NpcRuntimeOptions {
   readonly combatRules?: (() => CombatCoefficients) | undefined;
   /** 도시 주인이 바뀐 것을 저장할 때(영토 비콘이 도시를 따라간다, D-512 335) */
   readonly onCityOwner?: ((cityId: number, factionRowId: number) => void) | undefined;
+  /** 실행 중에 선 새 도시의 행을 처음 쓸 때(마을 건물, 질문 1052 다 — persist.ts) */
+  readonly onCityFounded?: NpcPersistOptions["onCityFounded"];
   /** 막아 낸 도시 웨이브 보상 아이템(D-499: 팩 유전자·크리쳐 재료, waveRewards.ts). 없으면 명성만 */
   readonly waveRewardItems?: (() => WaveRewardItems) | undefined;
   /** 도시마다 수호신 만족도 버프(하루 끝에 그 도시 휴먼 만족도 + 밀리점, 기획 답 470 가 — 신전 서비스). 없으면 버프 없음 */
@@ -438,6 +440,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       planetId: o.planetId,
       gardener: () => gardenerRef.current,
       onCityOwner: o.onCityOwner,
+      onCityFounded: o.onCityFounded,
       cityNamesOf,
       takenNames,
       territory: () => territoryOf(o.rules().territory),

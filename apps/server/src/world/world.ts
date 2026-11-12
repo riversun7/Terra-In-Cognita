@@ -21,6 +21,7 @@ import { type BattleItems, createBattleItems } from "./battleItems.ts";
 import { type CityRow, cityCellsOf, loadCities } from "./cities.ts";
 import { attachHouseTies, houseTiesOf } from "./houseTies.ts";
 import { moveLeaderToCapital, seedNpcAtBoot } from "../npc/leaders.ts";
+import { villageSeeder } from "../facilities/npcSeed.ts";
 import { applyCityRelayoutAtBoot } from "../facilities/cityRelayout.ts";
 import {
   type CyborgRules,
@@ -839,6 +840,8 @@ export function startWorld(
           onBattleEnded: (listener) => battleApply.onEnded(listener),
           combatCatalog: config.combatCatalog,
           combatRules: config.combatRules,
+          // 새 마을의 행정 건물·숙소를 도시 배치 함수로(질문 1052 다, 도시 줄과 같은 쓰기 묶음)
+          onCityFounded: villageSeeder({ ...seedWith, seedOfFaction, planetId: TEST_PLANET_ID, now }),
           // 기준 도시를 빼앗기면 영토 비콘도 함께 넘어간다(D-512 335, 도시 줄과 같은 쓰기 묶음)
           onCityOwner: (cityId, factionId) => {
             const moved = territory.cityOwnerChanged(cityId, factionId);

@@ -551,6 +551,7 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
         ),
         needsOf: (owner) => weightsOfFacilities(startOf(owner).facilities),
         provinceMilli: targetOf(code, false),
+        capitalMilli: targetOf(code, true),
       });
     },
 

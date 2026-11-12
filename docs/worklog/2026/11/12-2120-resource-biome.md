@@ -69,3 +69,14 @@
 
 ## 사용자 결정 대기
 - 질문 1211~1219(모두 추천안을 [임시]로 넣음, 1213·1217 나는 넣지 않음).
+
+## 통합 가지 합치기 (2026-11-13 01:00 KST 무렵, Claude Code)
+- `origin/merge/integration` `0fe66a0`(ore-3·condition-2·terrain-objects·npc-build-2·operator-speed)을 이 가지에 합쳤다. 충돌 17파일.
+- `packages/shared/src/catchment.ts`: ore-3 높은 티어(`oreHighMinM`·`highOrePm`·`oreTierCapOf`, 광석 비트 = 고도 ≥ `oreHighMinM`)와 이 가지의 바이옴 몫·목재 바닥·전략 자리를 함께 둠. 시험은 두 쪽 모두(ore-3 비트 시험은 빙상 칸으로 — 초지는 목재 바닥·축산물 비트가 붙는다).
+- `resourceRulesKey`: `ore_high_min_m`·`ore_flat_high_pm` + `resource_*` 15칸. `worldSeed`·`tuningWorldSeed`·`tuning.json`은 칸 합집합(`ore_share_hill_pm`은 값 550·설명은 통합 쪽).
+- `gather_objects`: 통합 차례(노두 → site·school) 뒤 맨 끝에 `brushwood` — 앞 종류 번호 그대로. 노두 `share` 칸·`kinds.ts` `share`와 site·school 칸 함께. `gather/service.ts`·`world.ts`는 `woodSharePm`·`terrainKind` 둘 다 넘김. 관목은 노두 단계에서 놓여 그 뒤 site 자리가 가끔 옆 칸으로 밀릴 수 있다(Assumed — 세계 새로 시작 예정이라 그대로 둠).
+- `catchmentRun.test.ts` 높은 티어 몫 = (1000 × 1000 + 350 × 50) ÷ 1350 = 753(두 바뀜이 함께 든 값).
+- 판: 팩 core@78, `SIM_VERSION` 32(30 npc-build-2, 31 ore-3, 32 이 가지). ADR은 두 "바뀜" 절을 모두 둠, `docs/WORKLOG.md`는 `pnpm docs:index`로 다시 만듦.
+- 통합 가지에 이미 있던 검사 실패 셋을 함께 고침: `packages/engine/src/props/schoolView.test.ts` 이름 목록 `as const`(타입), `apps/server/src/gather/gateway.test.ts` 가짜 서비스에 `objectsAt`(operator-speed × terrain-objects), `apps/server/src/world/world.ts` 1,001줄 → 1,000줄(주석 두 줄을 한 줄로).
+- Verified: `pnpm check`(TEST_DATABASE_URL) 시험 파일 667/667·시험 5,085/5,085 통과, `pnpm check:content` 통과(core@78), `pnpm check:docs` 통과, `pnpm build`·`check-pwa`·`check:bundle` 통과. 화면 시험은 아래 줄.
+- Verified: `pnpm e2e` world-layout·planet-view·gather-station·terrain-objects·operator-speed 45 통과·1 건너뜀(측정 시험, `E2E_MEASURE` 없음), 13.3분.

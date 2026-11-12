@@ -28,6 +28,18 @@ export function lodgingBeds(level: number, c: Pick<SocietyCoefficients, "logisti
   return Math.max(0, Math.trunc(level)) * Math.max(0, Math.trunc(c.logistics.lodgingBedsPerLevel));
 }
 
+/**
+ * 도시 인구 상한(질문 1089 나, 기획 정리 D-534 "숙소 침대가 인구 상한을 늘림") = 주거 수(집) + 숙소 침대 합. 구인 목표(D-469 구인 규칙식)·붐빔(마을
+ * 세우기)·만족도 주거 칸이 이 값을 본다. 시작 도시 숙소 수(질문 1049 나 = 주거 ÷ 침대)와 처음 인구(주거 × 천분율)는 주거 수(집)만 본다 — 침대로
+ * 숙소 수를 셈하면 서로 물고 돈다
+ */
+export function cityHousingCap(city: {
+  readonly housing: number;
+  readonly beds?: number | undefined;
+}): number {
+  return Math.max(0, Math.trunc(city.housing)) + Math.max(0, Math.trunc(city.beds ?? 0));
+}
+
 /** 걷기 한 칸 ms(D-120 WALK_SPEED, 올림) */
 export function walkMsPerCell(): number {
   return Math.ceil((CELL_UNITS * MS_PER_SECOND) / WALK_SPEED);

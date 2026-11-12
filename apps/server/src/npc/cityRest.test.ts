@@ -53,7 +53,7 @@ describe("planCityRest", () => {
     expect(onRoute).toBeGreaterThan(offRoute);
   });
 
-  it("자리 수 = max(주거, 침대 합): 넘친 일꾼은 노숙", () => {
+  it("자리 수 = 주거 + 침대 합(질문 1089 나): 넘친 일꾼은 노숙", () => {
     const plan = planCityRest({
       ...base,
       housing: 2,
@@ -68,6 +68,22 @@ describe("planCityRest", () => {
     });
     // 숙소 침대 10이 주거가 되어 넷 모두 숙소
     expect(lodged.workers.every((w) => w.place.kind === "lodging")).toBe(true);
+    expect(lodged.bedTotal).toBe(10);
+    // 침대 2 + 집 2 = 넷까지, 다섯째는 노숙(예전 max(주거, 침대)면 둘째 숙소 뒤 둘이 노숙)
+    const mixed = planCityRest({
+      ...base,
+      housing: 2,
+      rules: { ...rules, logistics: { ...rules.logistics, lodgingBedsPerLevel: 2 } },
+      lodgings: [{ id: 60, area: area(115, 100), level: 1, ownerId: 1 }],
+      facilities: [{ id: 7, buildingId: 7, workers: 5, station: true }],
+    });
+    expect(mixed.workers.map((w) => w.place.kind)).toEqual([
+      "lodging",
+      "lodging",
+      "home",
+      "home",
+      "homeless",
+    ]);
   });
 
   it("도시 직무(건물 없음)는 옮김 칸 0", () => {

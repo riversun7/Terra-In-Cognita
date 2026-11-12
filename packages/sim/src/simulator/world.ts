@@ -93,8 +93,13 @@ export interface SimCity {
   owner: number;
   /** 기본 NPC 국가의 시작 도시(D-341: 주인이 바뀌지 않는다) */
   readonly start: boolean;
-  /** 휴먼 주거 수(구인 목표, 넘으면 노숙) */
+  /** 휴먼 주거 수(집, world_cities.housing). 인구 상한은 이것 + 숙소 침대(beds) — cityHousingCap(질문 1089 나) */
   housing: number;
+  /**
+   * 그 도시 숙소 침대 합(다 지은 숙소, 레벨 × lodging_beds_per_level — 질문 1089 나, 기획 정리 D-534). 인구 상한(구인 목표·붐빔·만족도 주거)에
+   * 더한다. 서버 도시 경제가 맞출 때마다 적는다. 없으면 0(시뮬은 숙소를 따로 두지 않는다)
+   */
+  beds?: number | undefined;
   /** 행정 건물(정부기관) 레벨(1~5, D-469). 구인 카드 수·토탈 스탯 범위를 정한다(49 N45) */
   adminLevel: number;
   /** 도시 주인(고용 주체)이 지금 창에 산 구인 카드 칸. 주인이 바뀌었거나 창이 지났으면 새 묶음이다 */

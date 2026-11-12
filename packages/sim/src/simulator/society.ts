@@ -12,6 +12,7 @@ import { inheritTraits } from "../npc/traits.ts";
 import { declareWar, endWar, endedWars, makePeace, recordFight, warCost } from "../society/wars.ts";
 import { satisfactionTarget, satisfactionToward, shiftSatisfaction } from "../society/labor.ts";
 import { NO_INJURY, injuryNow } from "../society/injury.ts";
+import { cityHousingCap } from "../society/logistics.ts";
 import {
   type IncorporationOffer,
   makeOffers,
@@ -416,7 +417,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       const byCity = unitsByCity();
       const crowded = [...parent.cities]
         .map((id) => world.cities.get(id))
-        .find((city) => city && (byCity.get(city.id)?.length ?? 0) >= city.housing);
+        .find((city) => city && (byCity.get(city.id)?.length ?? 0) >= cityHousingCap(city));
       const movers = crowded
         ? (byCity.get(crowded.id) ?? []).filter((u) => u.owner === parent.id).slice(-s.founders)
         : [];
@@ -619,7 +620,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           const target = satisfactionTarget(
             {
               foodPm,
-              housing: index < city.housing ? 1 : 0,
+              housing: index < cityHousingCap(city) ? 1 : 0,
               wage: 0,
               topAverageWage: 0,
               faith: false,

@@ -6,6 +6,7 @@
 //   없다). 산 휴먼은 가문 소유 주체의 도시 주민이고, 저장(2차맵 봇 세우기·휴먼 행)은 NPC 사회 런타임 처리가 한다.
 import type { HouseRecruitPayer, HouseRecruitResultCode } from "@terra/protocol";
 import type { HouseRecruitView } from "@terra/shared/house";
+import { cityHousingCap } from "@terra/sim";
 import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
@@ -73,7 +74,8 @@ export function houseRecruitView(
         {
           id: cityId,
           population: population.get(cityId) ?? 0,
-          housing: city.housing,
+          // 인구 상한 = 주거 + 숙소 침대(질문 1089 나)
+          housing: cityHousingCap(city),
           cards: input.leader && view ? view.cards.map((card) => cardView(card, view.taken)) : [],
         },
       ];

@@ -4,7 +4,8 @@
 // - 일꾼 차례: 시설 ID 차례로 일꾼 수만큼(humanPlaces.assignHumanPlaces가 휴먼을 나누는 차례와 같다).
 // - 쉼터: 침대가 남은 숙소 가운데 돌아감(일터 → 숙소 → 시청 칸 − 일터 → 시청 칸)이 가장 작은 곳(같으면 일터에서 가까운 곳, 그다음 건물 ID) —
 //   "회복 루트"(길 위 숙소)와 D-245 "가장 가까운 숙소"를 함께 본다. 침대 = 숙소 레벨 × 설정 칸 lodging_beds_per_level.
-//   침대가 모자라면 집(시청 칸), 집도 모자라면 노숙. 도시 자리 수 = max(주거 수, 숙소 침대 합) — 숙소 침대도 주거다(749 다).
+//   침대가 모자라면 집(시청 칸), 집도 모자라면 노숙. 도시 자리 수 = 주거 수(집) + 숙소 침대 합(@terra/sim cityHousingCap — 질문 1089 나, 기획 정리
+//   D-534 "숙소 침대가 인구 상한을 늘림". 예전 749 다는 max(주거, 침대)). 침대를 받은 일꾼은 숙소, 나머지는 주거 수(집)까지 집이다.
 // - 생산 속도 배율 = 그 시설 일꾼의 쉼터 회복·일터 ↔ 쉼터 거리 셈 배율 평균(@terra/sim restDutyPm).
 // - 옮김 칸: 채집소 건물 가운데 → 그 도시 주인의 가장 가까운 창고(창고 단계 시설) 가운데, 창고가 없으면 시청 칸.
 // 거리는 체비셰프 칸(가운데끼리, humanPlaces.nearestArea와 같다) [임시]. 정수만 쓴다.
@@ -71,6 +72,8 @@ export interface CityRestPlan {
   readonly beds: ReadonlyMap<number, number>;
   /** 숙소 건물 ID → 주인(요금을 받는 쪽) */
   readonly owners: ReadonlyMap<number, number | null>;
+  /** 그 도시 숙소 침대 합(인구 상한에 더한다 — 질문 1089 나) */
+  readonly bedTotal: number;
 }
 
 const cheb = (a: { x: number; y: number }, b: { x: number; y: number }): number =>
@@ -100,11 +103,12 @@ export function planCityRest(input: CityRestInput): CityRestPlan {
     beds.set(lodging.id, n);
     bedTotal += n;
   }
-  const places = Math.max(Math.max(0, Math.trunc(input.housing)), bedTotal);
+  // 집 자리(주거 수). 침대를 받은 일꾼은 집 자리를 쓰지 않는다 — 인구 상한 = 집 + 침대(cityHousingCap)
+  const homes = Math.max(0, Math.trunc(input.housing));
+  let homed = 0;
   const occupancy = new Map<number, number>();
   const workers: WorkerRest[] = [];
   const duty = new Map<number, { sum: number; n: number }>();
-  let placed = 0;
   for (const facility of input.facilities.toSorted((a, b) => a.id - b.id)) {
     const area = facility.buildingId === null ? undefined : input.areas.get(facility.buildingId);
     const work = area ?? home;
@@ -131,11 +135,11 @@ export function planCityRest(input: CityRestInput): CityRestPlan {
         rest = {
           facilityId: facility.id,
           lodgingId: null,
-          place: placed < places ? { kind: "home" } : { kind: "homeless" },
+          place: homed < homes ? { kind: "home" } : { kind: "homeless" },
           commuteCells: direct,
         };
+        homed += 1;
       }
-      placed += 1;
       workers.push(rest);
       const entry = duty.get(facility.id) ?? { sum: 0, n: 0 };
       entry.sum += restDutyPm(rest.place, rest.commuteCells, rules);
@@ -154,5 +158,12 @@ export function planCityRest(input: CityRestInput): CityRestPlan {
       haulCells,
     });
   }
-  return { workers, facilities, occupancy, beds, owners: new Map(lodgings.map((l) => [l.id, l.ownerId])) };
+  return {
+    workers,
+    facilities,
+    occupancy,
+    beds,
+    owners: new Map(lodgings.map((l) => [l.id, l.ownerId])),
+    bedTotal,
+  };
 }

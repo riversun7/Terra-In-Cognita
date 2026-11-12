@@ -244,6 +244,7 @@ export function stationView(
       toStore: route ? route.storeId !== null : false,
       tripMs: route ? haulMs(myGrams, route.cells, route.carriers, rules) : null,
       arriveAtMs: station.trip(buildingId)?.arriveAtMs ?? null,
+      porterUnitId: station.trip(buildingId)?.porter ?? null,
     },
     slots: Math.max(0, record?.level ?? 0) * Math.max(0, site.slotsPerLevel),
     workers: workers.toSorted((a, b) => a.unitId - b.unitId),

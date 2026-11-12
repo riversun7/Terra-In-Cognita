@@ -146,6 +146,8 @@ export interface GatherStationResponse {
     readonly toStore?: boolean | undefined;
     readonly tripMs?: number | null | undefined;
     readonly arriveAtMs?: number | null | undefined;
+    /** 나르는 중이면 운반꾼 유닛 ID(질문 1090 가 — 그 채집소 일꾼 하나가 화물을 지고 걷는다) */
+    readonly porterUnitId?: number | null | undefined;
   };
   readonly slots: number;
   readonly workers: readonly GatherStationWorker[];

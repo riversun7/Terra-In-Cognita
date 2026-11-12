@@ -127,6 +127,9 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
           qty,
           direction: "out",
         });
+        // 운반꾼(이 채집소 일꾼)이 없거나 모두 바쁨(질문 1090 가·1091 가)
+        if (!outcome.ok && (outcome.code === "unknown_unit" || outcome.code === "unit_busy"))
+          return m.station_haul_no_porter();
         if (!outcome.ok) return FACILITY_ERROR_TEXT[outcome.code]();
       }
       return m.station_haul_done();
@@ -246,7 +249,14 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
               time: minutesText(ok.haul.tripMs ?? 0),
             })}
             {ok.haul.arriveAtMs !== undefined && ok.haul.arriveAtMs !== null && ok.haul.arriveAtMs > now
-              ? ` · ${m.station_haul_carrying({ time: minutesText(ok.haul.arriveAtMs - now) })}`
+              ? ` · ${
+                  ok.haul.porterUnitId !== undefined && ok.haul.porterUnitId !== null
+                    ? m.station_haul_porter({
+                        id: ok.haul.porterUnitId,
+                        time: minutesText(ok.haul.arriveAtMs - now),
+                      })
+                    : m.station_haul_carrying({ time: minutesText(ok.haul.arriveAtMs - now) })
+                }`
               : ""}
           </p>
         ) : null}

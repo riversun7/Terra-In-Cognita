@@ -4,7 +4,7 @@
 // 농장(오브젝트 없는 facility 채집소, 기획 정리 756 ②): 묶음 상한 없음(창고가 가득일 때만 0)·오브젝트를 쓰지 않음·수확 배율·피로 덜기·자동 옮김.
 import { performance } from "node:perf_hooks";
 import { TERRAIN_SURFACE } from "@terra/protocol";
-import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
+import { buildingLocation, cargoLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import {
   JOB_GATHER,
   PHASE_WORK,
@@ -179,6 +179,7 @@ function rig(
   const ledger = createLedgerBook({ nextAccountId: () => ++accountId, nextTxId: () => ++txId });
   const store = createObjectStore({ planetId: "s2_test_planet" });
   const objects = placeGatherObjects(mapLayers(map), KINDS);
+  const workers = new Map<number, number[]>();
   const runtime = createStationRuntime({
     maps,
     now: () => NOW,
@@ -198,8 +199,23 @@ function rig(
     objects: () => objects,
     pollution: () => 0,
     timers: false,
+    workersAt: (buildingId) =>
+      (workers.get(buildingId) ?? []).map((unitId) => ({ unitId, workerOwnerId: OWNER })),
   });
-  return { maps, map, mineId, farmId, ledger, store, runtime, objects };
+  /** 그 채집소 일꾼(운반꾼 후보)으로 유닛을 놓는다 */
+  const hire = (buildingId: number, unitId: number, cellX: number, cellY: number): void => {
+    map.addUnit({
+      id: unitId,
+      size: 1,
+      speed: WALK_SPEED,
+      cellX,
+      cellY,
+      ownerId: OWNER,
+      kind: UNIT_KIND_HUMAN,
+    });
+    workers.set(buildingId, [...(workers.get(buildingId) ?? []), unitId]);
+  };
+  return { maps, map, mineId, farmId, ledger, store, runtime, objects, hire };
 }
 
 const commitOf = (made: number, lots: number, capped = false, clipped = false) => ({
@@ -310,22 +326,77 @@ describe("채집소 일꾼 산출·창고", () => {
       ],
     });
     expect(r.runtime.nextHaulAt(NOW)).toBe((Math.floor(NOW / 600_000) + 1) * 600_000);
-    // 옮김 거리(질문 1050 가): 창고가 없어 도시 칸(100, 16)까지 — 광산 가운데 (23, 25)에서 체비셰프 77칸, 나르는 사람 1
+    // 옮김 거리(질문 1050 가): 창고가 없어 도시 칸(100, 16)까지 — 광산 가운데 (23, 25)에서 체비셰프 77칸, 나르는 사람 = 운반꾼 하나
     expect(r.runtime.haulRoute(r.mineId)).toEqual({ cells: 77, storeId: null, carriers: 1 });
-    // 정시에 싣고 떠난다(5g = 한 번, 왕복 2 × 77칸 × 걷기 ms) — 닿기 전에는 채집소 창고에 그대로
+    // 운반꾼(그 채집소 일꾼)이 없으면 떠나지 않고 채집소 창고에서 기다린다(질문 1090 가 [임시])
+    expect(r.runtime.haulNow(NOW)).toBe(0);
+    expect(r.runtime.trip(r.mineId)).toBeUndefined();
+    expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(5n);
+    r.hire(r.mineId, 7, 30, 30);
+    // 정시에 운반꾼 화물로 싣고 떠난다(5g = 한 번, 왕복 2 × 77칸 × 걷기 ms) — 채집소 창고 자리는 바로 빈다(질문 1092 가)
     expect(r.runtime.haulNow(NOW)).toBe(0);
     const trip = r.runtime.trip(r.mineId);
-    expect(trip).toEqual({ departAtMs: NOW, arriveAtMs: NOW + 2 * 77 * walkMsPerCell(), grams: 5n });
+    expect(trip).toEqual({
+      departAtMs: NOW,
+      arriveAtMs: NOW + 2 * 77 * walkMsPerCell(),
+      grams: 5n,
+      porter: 7,
+    });
     if (!trip) throw new Error("no trip");
+    expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(0n);
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(7))).toBe(5n);
+    // 운반꾼이 걷기 시작했다(보이는 운반꾼)
+    expect(r.map.unitInfo(7)?.motion).toBeDefined();
     // 나르는 동안 다음 정시는 이 채집소를 건너뛴다
     expect(r.runtime.haulNow(trip.arriveAtMs - 1)).toBe(0);
-    expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(5n);
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(7))).toBe(5n);
     expect(r.runtime.haulNow(trip.arriveAtMs)).toBe(1);
-    expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(0n);
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(7))).toBe(0n);
     expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(5n);
     expect(r.ledger.balanceOf(TENANT, ORE, here)).toBe(3n);
     expect(r.runtime.trip(r.mineId)).toBeUndefined();
     expect(r.runtime.haulNow(trip.arriveAtMs)).toBe(0);
+  });
+
+  it("손으로 옮기기(질문 1091 가): 운반꾼 하나가 한 짐으로(10초 안 명령은 합침) 거리 시간 뒤에, 운반꾼이 없으면 unknown_unit", () => {
+    const r = rig();
+    const here = buildingLocation(r.mineId);
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -9n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, here), amount: 9n },
+      ],
+    });
+    expect(r.runtime.haulOut(OWNER, r.mineId, ORE, 4n, NOW)).toBe("unknown_unit");
+    expect(r.runtime.haulOut(OWNER, r.mineId, ORE, 99n, NOW)).toBe("insufficient_materials");
+    r.hire(r.mineId, 7, 30, 30);
+    expect(r.runtime.haulOut(OWNER, r.mineId, ORE, 4n, NOW)).toBeNull();
+    expect(r.runtime.haulOut(OWNER, r.mineId, ORE, 5n, NOW)).toBeNull();
+    const trip = r.runtime.trip(r.mineId);
+    expect(trip).toMatchObject({ porter: 7, grams: 9n, arriveAtMs: NOW + 2 * 77 * walkMsPerCell() });
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(7))).toBe(9n);
+    // 채집소가 아닌 건물은 맡지 않는다(예전처럼 바로)
+    expect(r.runtime.haulOut(OWNER, 999, ORE, 1n, NOW)).toBeUndefined();
+    expect(r.runtime.haulNow(trip?.arriveAtMs ?? 0)).toBe(1);
+    expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(9n);
+  });
+
+  it("다시 켠 뒤: 일꾼 화물에 남은 채집소 주인 몫은 다음 정시에 다시 떠난다", () => {
+    const r = rig();
+    r.hire(r.mineId, 7, 30, 30);
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -6n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, cargoLocation(7)), amount: 6n },
+      ],
+    });
+    expect(r.runtime.haulNow(NOW)).toBe(0);
+    expect(r.runtime.trip(r.mineId)).toMatchObject({ porter: 7, grams: 6n });
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(7))).toBe(6n);
   });
 
   it("옮김 거리: 주인의 가장 가까운 창고까지, 옮김 셈을 끄면 바로", () => {
@@ -405,6 +476,7 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
         { account: r.ledger.ownerAccount(OWNER, CROP, here), amount: 4n },
       ],
     });
+    r.hire(r.farmId, 8, 70, 70);
     expect(r.runtime.haulNow(NOW)).toBe(0);
     const arrive = r.runtime.trip(r.farmId)?.arriveAtMs ?? 0;
     expect(arrive).toBe(NOW + 2 * 65 * walkMsPerCell());

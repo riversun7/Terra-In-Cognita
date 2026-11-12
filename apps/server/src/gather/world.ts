@@ -119,8 +119,15 @@ export function startWorldGather(
         works,
         objects: (mapKey) => service.objects(mapKey),
         pollution: (mapKey) => world.npc?.gardener.run.layer().get(mapKey) ?? 0,
+        // 운반꾼(질문 1090 가): 그 채집소 일꾼 가운데 채집 줄이 없는 유닛
+        workersAt,
+        busy: (unitId) => service.acting(unitId),
       });
       parts.labor.attachStation(station.hook);
+      // 손으로 옮기기도 운반꾼·거리 시간(질문 1091 가)
+      facilities.service.attachStorageOut((ownerId, input, atMs) =>
+        station.haulOut(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs),
+      );
       // 플레이어 일꾼도 숙소에서 회복한다(질문 1088 가, labor/workerRest.ts) — 세계가 준비된 뒤 정산에 잇는다(DB가 있는 세계만 일꾼이 있다)
       const workerRest = attachWorkerRest({
         settlement: parts.settlement,

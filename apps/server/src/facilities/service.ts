@@ -85,6 +85,13 @@ export type FacilityCommandResult =
 export type FacilityTarget = { readonly buildingId: number } | { readonly beaconId: number };
 
 /** 행정 건물(폐허 정부) 짓기 고리 — 폐허 서비스(src/ruins/service.ts)가 붙인다 */
+/** 창고 꺼내기 고리: null = 맡아 처리함(성공), 코드 = 맡아 실패, undefined = 맡지 않음 */
+export type StorageOutHook = (
+  ownerId: number,
+  input: StorageMoveInput,
+  atMs: number,
+) => FacilityResultCode | null | undefined;
+
 export interface GovernmentHook {
   /** 그 칸이 주인 없는 폐허 자리인가(주체가 짓기 시작하면 주인이 될 수 있나) */
   check(
@@ -158,6 +165,11 @@ export interface FacilityService {
   /** 행정 건물(폐허 정부) 짓기 고리를 붙인다(없으면 행정 건물은 not_ruin) */
   attachGovernment(hook: GovernmentHook): void;
   /**
+   * 창고 꺼내기(out) 고리(질문 1091 가, gather/station.ts haulOut): 채집소 창고에서 꺼내면 운반꾼이 거리 시간 뒤에 도시 창고로 나른다. 고리가
+   * undefined를 돌려주면(채집소 아님·거리 0) 예전처럼 바로 옮긴다
+   */
+  attachStorageOut(hook: StorageOutHook | undefined): void;
+  /**
    * 다 지은 시설 줄을 그대로 넣는다(세계 씨앗 = NPC 시작 도시 기본 시설, facilities/npcSeed.ts). 건물 칸은 부르는 쪽이 먼저 놓는다.
    * 재료·작업 없이 쓰기 대기열에만 쓴다(건물 칸과 같은 묶음)
    */
@@ -227,6 +239,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
   const jobs = new Map<number, JobRecord>(options.loaded.jobs.map((job) => [job.id, job]));
   let lastJobId = options.loaded.maxJobId;
   let government: GovernmentHook | undefined;
+  let storageOut: StorageOutHook | undefined;
   const runtime = (): FacilityRuntimeRules => options.rules().facilityRuntime;
   const saveFacility = (record: FacilityRecord): void => writer.upsert("facilities", facilityRow(record));
   /**
@@ -456,6 +469,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     places,
     attachGovernment(hook) {
       government = hook;
+    },
+    attachStorageOut(hook) {
+      storageOut = hook;
     },
     seedBuilt(record) {
       facilities.set(record.buildingId, record);
@@ -728,6 +744,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         fillCity(record);
         advance(record, at);
       }
+      // 채집소 창고 꺼내기는 운반꾼이 나른다(질문 1091 가) — 고리가 맡지 않으면 예전처럼 바로
+      const hauled = input.direction === "out" ? storageOut?.(me, input, at) : undefined;
+      if (hauled !== undefined) return hauled === null ? done({ ok: true }) : fail(hauled);
       const code = moveStorage(
         { world: places, ledger, catalog: options.catalog(), rules: runtime() },
         me,

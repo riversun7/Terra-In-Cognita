@@ -4,6 +4,8 @@
 // - 가까운 표시는 묶는다: 화면에서 CLUSTER_PX 안에 겹치면 앞 것 하나만 보이고 "+N"을 단다. 묶음을 누르면 그곳으로 다가간다(onZoomTo).
 // - 이름표는 이웃 표시와 LABEL_GAP_PX보다 떨어져 있거나 고른 도시일 때만 보인다(겹친 글자를 막는다). 단추의 읽는 이름은 늘 있다.
 // - 지평선 너머 표시는 숨긴다(hidden). 키보드·화면 읽기 대안은 화면의 도시 목록이다.
+// - 영토 레이어(사용자 요청 2026-11-12, ADR 2026-11-07-planet-view "바뀜 (2026-11-12)"): emphasis면 영토 칠·껍질을 진하게, 껍질도 칠한다.
+//   수도(세력 행 capital_city_id)는 어느 레이어에서나 별 표시를 단다.
 // - 영토(docs/adr/2026-11-07-world-layout.md): 국가마다 도시 영향권 원들을 한 경로로 그린다 — 겹친 원은 한 번만 칠하고(같은 경로의 칠은
 //   한 번), 테두리는 원들의 바깥 둘레만(원 안쪽을 가리는 가리개로 안쪽 호를 지운다). 국가 사이 경계는 서버가 정한 자리(세계 배치·마을
 //   자리 규칙)라 겹치지 않는다.
@@ -40,6 +42,8 @@ interface CityOverlayProps {
   readonly onZoomTo: (city: WorldMapCity) => void;
   /** 엔진 onOverlay가 부를 함수를 맡긴다(화면이 자기 ref에 둔다) */
   readonly register: RegisterOverlay;
+  /** 영토 레이어: 영토 칠·경계를 진하게(CSS만 바뀐다) */
+  readonly emphasis?: boolean | undefined;
   /** 덧그림 자료가 바뀌면 한 번 더 그리게(엔진 requestFrame) */
   readonly requestFrame: () => void;
 }
@@ -215,7 +219,7 @@ export function CityOverlay(props: CityOverlayProps) {
   };
 
   return (
-    <div className="city-overlay">
+    <div className="city-overlay" data-emphasis={props.emphasis ? "territory" : undefined}>
       <svg className="city-territory" aria-hidden="true">
         {(props.hulls ?? []).map((hull, index) => (
           <path
@@ -283,13 +287,20 @@ export function CityOverlay(props: CityOverlayProps) {
             data-city={city.id}
             data-nation={factionColor(factions, city.factionId)}
             data-start={city.start ? "true" : "false"}
+            data-capital={city.capital ? "true" : undefined}
             data-label="off"
             data-cluster="1"
             aria-pressed={selected === city.id}
-            aria-label={city.start ? `${label} · ${m.world_city_start()}` : label}
+            aria-label={[
+              label,
+              ...(city.capital ? [m.planet_territory_capital()] : []),
+              ...(city.start ? [m.world_city_start()] : []),
+            ].join(" · ")}
             onClick={() => click(city)}
           >
-            <span className="city-marker-dot" aria-hidden="true" />
+            <span className="city-marker-dot" aria-hidden="true">
+              {city.capital ? <span className="city-marker-capital">★</span> : null}
+            </span>
             <span className="city-marker-name" aria-hidden="true">
               {label}
             </span>

@@ -216,3 +216,100 @@
 .planet-screen .map-perf[hidden] {
   display: none;
 }
+
+/* 레이어 범례(PlanetLayerPicker.tsx — 고도·자원·영토, 사용자 요청 2026-11-12). 띠·칸 색은 세계 색(자료)이라 style로 넣는다 */
+.planet-segment {
+  flex-wrap: wrap;
+}
+.planet-material label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.planet-material select {
+  flex: 1 1 8em;
+  min-width: 0;
+}
+.planet-legend-block {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+  font-variant-numeric: tabular-nums;
+}
+.planet-legend-block p,
+.planet-legend-block ul {
+  margin: 0;
+}
+.planet-legend-caption {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.planet-legend-bar {
+  display: block;
+  height: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+}
+.planet-legend-ticks {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+}
+.planet-legend-keys,
+.planet-legend-nations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+.planet-legend-key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.planet-legend-swatch {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.planet-legend-swatch-wide {
+  width: var(--space-8);
+}
+/* 국가 색 칩 = 영토 칠과 같은 --nation(cityOverlay.css data-nation) */
+.planet-legend-nation {
+  border-color: var(--nation);
+  background-color: color-mix(in srgb, var(--nation) 55%, transparent);
+}
+/* 도시 표시 뜻: 수도 별·시작 도시 네모·도시 동그라미(cityOverlay.css와 같은 모양) */
+.planet-legend-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: calc(var(--status-dot) * 1.6);
+  height: calc(var(--status-dot) * 1.6);
+  border: var(--border-w) solid var(--color-text);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}
+.planet-legend-mark[data-mark="capital"] {
+  border-color: transparent;
+  background: none;
+}
+.planet-legend-mark[data-mark="start"] {
+  border-radius: var(--radius-sm);
+}
+.planet-legend-note {
+  color: var(--color-text-muted);
+}
+.planet-legend-failed {
+  color: var(--color-danger);
+}

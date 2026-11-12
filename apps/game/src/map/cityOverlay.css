@@ -163,3 +163,31 @@
 .city-me[hidden] {
   display: none;
 }
+
+/* 수도(D-528): 점 안 별(색에만 기대지 않는다). 어느 레이어에서나 보인다 */
+.city-marker-dot {
+  display: grid;
+  place-items: center;
+}
+.city-marker[data-capital="true"] .city-marker-dot {
+  width: calc(var(--status-dot) * 2.6);
+  height: calc(var(--status-dot) * 2.6);
+}
+.city-marker-capital {
+  color: var(--color-surface);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}
+
+/* 영토 레이어(사용자 요청 2026-11-12): 흐린 바탕 위에 영토 칠을 진하게, 껍질도 칠하고 실선으로 */
+.city-overlay[data-emphasis="territory"] .city-area-fill {
+  fill: color-mix(in srgb, var(--nation) 38%, transparent);
+}
+.city-overlay[data-emphasis="territory"] .city-area-edge {
+  stroke-width: calc(var(--border-w) * 3);
+}
+.city-overlay[data-emphasis="territory"] .city-hull {
+  fill: color-mix(in srgb, var(--nation) 24%, transparent);
+  stroke-width: calc(var(--border-w) * 1.5);
+  stroke-dasharray: none;
+}

@@ -54,7 +54,8 @@ describe("영토 레이어 누른 곳의 국가", () => {
 
   it("영향권 밖이면 껍질(꼭짓점 차례와 상관없이), 그 국가의 가장 가까운 도시", () => {
     expect(territoryAt(11, 11, cities, hulls, MILLI_PER_RADIAN)).toEqual({ factionId: 20, cityId: 3 });
-    const reversed = [{ ...hulls[0], points: [...(hulls[0]?.points ?? [])].reverse() }] as WorldMapHull[];
+    const points = hulls[0]?.points ?? [];
+    const reversed: WorldMapHull[] = [{ factionId: 20, points: points.toReversed() }];
     expect(territoryAt(11, 11, cities, reversed, MILLI_PER_RADIAN)?.factionId).toBe(20);
   });
 

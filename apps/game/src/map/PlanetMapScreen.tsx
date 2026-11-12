@@ -21,6 +21,9 @@
 // 들어가고(D-6018), 1단계 끝에서 더 줄이면 항성계 보기(PlanetSystemView)로 바뀐다. 처음 단계는 늘 5(가장 가까이, 사용자 요청 2026-11-09),
 // ?stage=<1~5>가 있으면 그 단계.
 // 성능 판(PlanetPerfPanel)·고도 과장 막대는 운영진(gm·admin·dev)에게만 보인다(사용자 요청 2026-11-09). 성능 보고는 누구나 보낸다.
+// 레이어(사용자 요청 2026-11-12, ADR 2026-11-07-planet-view "바뀜 (2026-11-12)"): 지형·기후·고도·자원 분포·영토(PlanetLayerPicker).
+// 자원 분포는 고른 원자재의 서버 지도를 받아 엔진에 넣고(planetResource.ts), 다른 레이어로 가면 버린다. 영토는 도시 덧그림을 진하게 하고
+// 누른 곳의 국가를 안내 줄에 더한다(territoryPick.ts).
 import {
   type PickedCell,
   type PlanetEngine,
@@ -66,7 +69,9 @@ import { PlanetCityPanel } from "./PlanetCityPanel.tsx";
 import { PlanetCommandPanel } from "./PlanetCommandPanel.tsx";
 import { PlanetReadout } from "./PlanetReadout.tsx";
 import { type CommandTarget, areaCheck, areaTarget, cityTarget, commandKey } from "./commandTarget.ts";
+import { PlanetLayerPicker } from "./PlanetLayerPicker.tsx";
 import { PlanetPerfPanel } from "./PlanetPerfPanel.tsx";
+import { territoryLineOf, usePlanetLayers } from "./usePlanetLayers.ts";
 import { PlanetSystemView } from "./PlanetSystemView.tsx";
 import { ZoomLadder } from "./ZoomLadder.tsx";
 import { formatAtParam } from "./mapTarget.ts";
@@ -123,13 +128,11 @@ function PlanetMapView({
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const engineRef = useRef<PlanetEngine | null>(null);
   // 엔진은 목록 정보를 받은 뒤에 만든다. 그 전에 고른 레이어·과장을 엔진에 넘기려고 지금 값을 따로 들고 있는다
-  const layerRef = useRef<PlanetLayer>("terrain");
   const exaggerationRef = useRef(DEFAULT_EXAGGERATION);
   const [load, setLoad] = useState<LoadPhase>({ kind: "manifest" });
   const [tileProblem, setTileProblem] = useState<TileProblem | null>(null);
   const [status, setStatus] = useState<PlanetStatus>({ kind: "loading" });
   const [stats, setStats] = useState<PlanetStats | null>(null);
-  const [layer, setLayer] = useState<PlanetLayer>("terrain");
   const [exaggeration, setExaggeration] = useState(DEFAULT_EXAGGERATION);
   // 누른 칸: 안내 줄과 땅 이름(바이옴 — 고른 지역 명령 판의 대상 이름)
   const [picked, setPicked] = useState<{
@@ -147,6 +150,20 @@ function PlanetMapView({
   const [world, setWorld] = useState<WorldCitiesResponse | null>(null);
   const [me, setMe] = useState<WorldPosition | null>(null);
   const [cityId, setCityId] = useState<number | null>(null);
+  // 레이어(지형·기후·고도·자원 분포·영토) — 자원 지도 받기·영토 범례(usePlanetLayers.ts). 엔진을 만들 때·누를 때 읽는 지금 값은 ref로
+  const layerRef = useRef<PlanetLayer>("terrain");
+  const worldRef = useRef<WorldCitiesResponse | null>(null);
+  useEffect(() => {
+    worldRef.current = world;
+  }, [world]);
+  const layers = usePlanetLayers({
+    planetId: PLANET_ID,
+    engineRef,
+    engineReady: load.kind === "ready",
+    layerRef,
+    world,
+  });
+  const { layer } = layers;
   // 1차맵 명령 판의 대상(도시 판 [정찰 보내기] 또는 누른 지역의 [이곳으로 이동]). 있으면 도시 판·누른 칸 안내 대신 명령 판
   const [command, setCommand] = useState<CommandTarget | null>(null);
   const [planet, setPlanet] = useState<{ faceLevel: number; radiusM: number } | null>(null);
@@ -244,9 +261,12 @@ function PlanetMapView({
               // 땅을 누르면 도시 판·명령 판을 닫고 그 칸을 본다
               setCityId(null);
               setCommand(null);
+              const lines = cell ? cellLines(cell, (id) => names.get(id) ?? null) : [m.planet_cell_none()];
+              const nation =
+                cell && layerRef.current === "territory" ? territoryLineOf(worldRef.current, cell) : null;
               setPicked({
                 cell,
-                lines: cell ? cellLines(cell, (id) => names.get(id) ?? null) : [m.planet_cell_none()],
+                lines: nation ? [...lines, nation] : lines,
                 ground: cell ? (names.get(cell.biome) ?? null) : null,
               });
             },
@@ -300,11 +320,6 @@ function PlanetMapView({
     };
   }, [signInLost]);
 
-  const chooseLayer = (next: PlanetLayer): void => {
-    layerRef.current = next;
-    setLayer(next);
-    engineRef.current?.setLayer(next);
-  };
   const changeExaggeration = (value: number): void => {
     exaggerationRef.current = value;
     setExaggeration(value);
@@ -379,6 +394,9 @@ function PlanetMapView({
       data-status={status.kind}
       data-layer={layer}
       data-engine-layer={stats?.layer}
+      data-material={layer === "resource" ? layers.material : undefined}
+      data-resource={layer === "resource" ? layers.resourceLoad : undefined}
+      data-resource-bytes={stats?.resourceMapBytes}
       data-engine-exaggeration={stats?.exaggeration}
       data-exaggeration={exaggeration}
       data-frames={stats?.renderedFrames}
@@ -473,6 +491,7 @@ function PlanetMapView({
           onZoomTo={zoomTo}
           register={registerOverlay}
           requestFrame={requestFrame}
+          emphasis={layer === "territory"}
         />
       ) : null}
       <header className="map-hud map-hud-top" ref={headerRef}>
@@ -557,26 +576,16 @@ function PlanetMapView({
               ) : null}
             </div>
           ) : null}
-          <div className="planet-row">
-            <div className="planet-segment" role="group" aria-label={m.planet_layer()}>
-              <button
-                type="button"
-                className="button-small"
-                aria-pressed={layer === "terrain"}
-                onClick={() => chooseLayer("terrain")}
-              >
-                {m.planet_layer_terrain()}
-              </button>
-              <button
-                type="button"
-                className="button-small"
-                aria-pressed={layer === "climate"}
-                onClick={() => chooseLayer("climate")}
-              >
-                {m.planet_layer_climate()}
-              </button>
-            </div>
-          </div>
+          <PlanetLayerPicker
+            layer={layer}
+            onLayer={layers.chooseLayer}
+            material={layers.material}
+            onMaterial={layers.chooseMaterial}
+            resourceLoad={layers.resourceLoad}
+            onRetryResource={layers.retryResource}
+            maxElevationM={stats ? stats.maxElevationM : null}
+            nations={layers.nations}
+          />
           {/* 고도 과장 막대는 운영진(gm·admin·dev)에게만(사용자 요청 2026-11-09 "고도과장도 일반유저는 안된다"). 플레이어는 처음 값 그대로 */}
           {staff ? (
             <div className="planet-row planet-slider">

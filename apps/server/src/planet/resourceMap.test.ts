@@ -17,7 +17,8 @@ import { loadPack } from "../planetEditor/testSupport.ts";
 import { TEST_PLANET_ID } from "../world/world.ts";
 import { computeResourcePlanes, createResourceMaps, resourceRulesKey } from "./resourceMap.ts";
 import { registerPlanetRoutes } from "./routes.ts";
-import type { PlanetService } from "./service.ts";
+import { createInlineBaker } from "./baker.ts";
+import { createPlanetService } from "./service.ts";
 import { planetSpecsFromPack } from "./sources.ts";
 
 const LEVEL = 5;
@@ -34,6 +35,7 @@ const bytes = encodePlanetValues(
 );
 const rules = START_WORLD_SEED;
 const noYield = () => Promise.resolve();
+const SILENT_LOG = { info: () => undefined, warn: () => undefined, error: () => undefined };
 
 const PLAYER: Viewer = {
   id: "00000000-0000-4000-8000-000000000002",
@@ -109,29 +111,30 @@ describe("자원 분포 지도 셈", () => {
   });
 });
 
-describe("자원 분포 지도 경로", () => {
-  async function serve(viewer: Viewer | null) {
-    const app = Fastify();
-    const maps = createResourceMaps({
-      planetId: TEST_PLANET_ID,
-      ready: () => true,
-      values: () => Promise.resolve(bytes),
-      rules: () => rules,
-      definitionHash: "b".repeat(64),
-      yieldNow: noYield,
-    });
-    // 이 시험은 자원 경로만 부른다(목록 정보·타일 경로는 행성 서비스를 쓰지 않는다)
-    const planets = {} as PlanetService;
-    registerPlanetRoutes(app, {
-      planets,
-      viewer: () => Promise.resolve(viewer),
-      now: Date.now,
-      resources: maps,
-    });
-    await app.ready();
-    return app;
-  }
+/** 자원 분포 지도 경로만 붙인 Fastify(로그인 = viewer) */
+async function serve(viewer: Viewer | null) {
+  const app = Fastify();
+  const maps = createResourceMaps({
+    planetId: TEST_PLANET_ID,
+    ready: () => true,
+    values: () => Promise.resolve(bytes),
+    rules: () => rules,
+    definitionHash: "b".repeat(64),
+    yieldNow: noYield,
+  });
+  // 이 시험은 자원 경로만 부른다(행성 없는 행성 서비스)
+  const planets = createPlanetService({ sources: [], baker: createInlineBaker(), log: SILENT_LOG });
+  registerPlanetRoutes(app, {
+    planets,
+    viewer: () => Promise.resolve(viewer),
+    now: Date.now,
+    resources: maps,
+  });
+  await app.ready();
+  return app;
+}
 
+describe("자원 분포 지도 경로", () => {
   it("로그인 → gzip 이진(no-cache + ETag), 같은 ETag면 304, 없는 원자재 404, 로그인 안 하면 401", async () => {
     const app = await serve(PLAYER);
     const url = planetResourcePath(TEST_PLANET_ID, "crop");

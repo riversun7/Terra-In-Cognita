@@ -45,6 +45,12 @@
 ## 건드리지 말 것
 - 1차맵 타일 형식(`PLANET_TILE_FORMAT_VERSION`)·생성기 판: 이 줄기는 올리지 않았다.
 
+## 확인 (Verified: 실행)
+- `pnpm check`(TEST_DATABASE_URL, DB 시험 포함): 시험 파일 647개·시험 4,951개 통과.
+- `pnpm build` + `node scripts/check-pwa.mjs` 통과. `pnpm check:bundle`: 첫 화면 JS 108,902 B / 상한 131,416 B(첫 화면 조각에 새 코드 없음 — 1차맵 지연 조각 `PlanetMapScreen` 48.67 kB·`planet` 74.64 kB).
+- 화면 시험 `pnpm e2e e2e/planet-view.spec.ts --grep 레이어`(grep이 이름에 "레이어"가 든 묶음 = 그 파일 8개 모두 골랐다): 8개 통과(3.0분). 잰 값: 지형 → 고도 화소 평균 차이 93.87, 광석 → 목재 47.13(헤드리스, 3단계·하늘 끔).
+- 사진(390px, ko): `planet-layer-{elevation,resource,territory}-390-{pastel,dark}.png`(E2E_SHOTS_DIR). 3단계에서는 도시 영향권(등급 1~3 = 150~750m)이 작아 영토 칠이 거의 껍질 하나로만 보인다(자료 그대로).
+
 ## 미검증·TODO·알려진 문제
 - 자원 텍스처 밉맵은 면 6장 배열이라 면 사이 번짐은 없지만, 멀리서는 칸 몫의 평균색이 된다(가까이선 칸 그대로). Verified 아님: 휴대폰 GPU의 R8 배열 텍스처 밉맵(WebGL2 필수 기능 — Assumed).
 - 영토 레이어는 새 조회 없이 `world.cities`(안개 514)를 쓴다. 칸 색(D-104)·영토 안개(D-103)는 다음 줄기(질문 1170).

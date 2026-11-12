@@ -27,6 +27,7 @@ import {
   nearestReady,
   nextLevelText,
   qtyOf,
+  restText,
   usedPct,
   workerStateText,
   workerViaText,
@@ -285,6 +286,7 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
                       fatigue: worker.fatigue,
                       max: ok.fatigueMax,
                     })}
+                    {worker.rest ? ` · ${restText(worker.rest)}` : ""}
                   </span>
                 </span>
                 {worker.mine && worker.via === "assign" ? (
@@ -304,6 +306,11 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
         <p className="gather-muted">
           {ok.kind === "objects" ? m.station_workers_note() : m.station_workers_note_facility()}
         </p>
+        {ok.workers.some((worker) => worker.rest) ? (
+          <p className="gather-muted" data-part="station-rest-hint">
+            {m.station_rest_hint()}
+          </p>
+        ) : null}
         <div className="gather-actions">
           {ok.mine && ok.level >= 1 ? (
             <button

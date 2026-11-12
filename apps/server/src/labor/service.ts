@@ -117,6 +117,8 @@ export interface LaborService {
   unassign(userId: string, unitId: number): Promise<LaborCommandResult>;
   /** 그 시설에서 일하는 유닛(직무 배치 + 열린 노동 계약, 유닛 ID 차례) — 건물 화면 */
   workersAt(buildingId: number): readonly LaborWorkerEntry[];
+  /** 유닛이 일하는 시설(열린 노동 계약 또는 직무 배치, 없으면 undefined) — 일꾼 쉼터(질문 1088 가)·채집소 운반꾼(1090 가) */
+  workplaceOf(unitId: number): number | undefined;
   /** 채집 산출 자료를 잇는다(건물 서비스 — facilities/world.ts attachLabor) */
   attachProduction(source: ProductionSource | undefined): void;
   /** 채집소 고리를 잇는다(gather/station.ts — 반경 안 오브젝트·채집소 창고·레벨 버프, 사용자 지적 2026-11-08) */
@@ -410,6 +412,10 @@ export function createLaborService(options: {
     unitBusy: (unitId) => working(unitId) || (options.unitAway?.(unitId) ?? false),
     unitAway: (unitId) => options.unitAway?.(unitId) ?? false,
     workersAt,
+    workplaceOf(unitId) {
+      for (const c of contracts.values()) if (c.unitId === unitId && isOpen(c)) return c.buildingId;
+      return work.assignedTo(unitId);
+    },
     attachProduction: (source) => work.attach(source),
     attachStation: (hook) => work.attachStation(hook),
     afterSettle(ownerId) {

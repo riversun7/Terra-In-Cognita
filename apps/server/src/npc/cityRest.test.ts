@@ -1,7 +1,7 @@
 // 일꾼 쉼터·채집소 옮김 계획(cityRest.ts) 시험 — 질문 1047 다·1050 가(D-533)
 import { TEST_SOCIETY_COEFFICIENTS, restDutyPm } from "@terra/sim";
 import { describe, expect, it } from "vitest";
-import { type CityRestInput, planCityRest } from "./cityRest.ts";
+import { type CityRestInput, planCityRest, planPlayerRest } from "./cityRest.ts";
 
 const rules = TEST_SOCIETY_COEFFICIENTS;
 const area = (x: number, y: number) => ({ x, y, radius: 4 });
@@ -89,5 +89,32 @@ describe("planCityRest", () => {
   it("도시 직무(건물 없음)는 옮김 칸 0", () => {
     const plan = planCityRest({ ...base, facilities: [{ id: 9, buildingId: null, workers: 1 }] });
     expect(plan.facilities.get(9)?.haulCells).toBe(0);
+  });
+});
+
+describe("planPlayerRest(질문 1088 가)", () => {
+  it("NPC 일꾼이 쓰고 남은 침대를 유닛 ID 차례로 가까운 숙소부터, 없으면 집", () => {
+    const rests = planPlayerRest({
+      workers: [
+        { unitId: 30, buildingId: 7 },
+        { unitId: 10, buildingId: 7 },
+        { unitId: 20, buildingId: 7 },
+      ],
+      areas: new Map([[7, area(130, 100)]]),
+      lodgings: [
+        { id: 60, area: area(110, 100), level: 1, ownerId: 1 },
+        { id: 61, area: area(126, 100), level: 1, ownerId: 2 },
+      ],
+      // 가까운 61은 NPC가 9자리, 먼 60은 10자리 다 씀
+      taken: new Map([
+        [60, 10],
+        [61, 9],
+      ]),
+      home: { x: 100, y: 100 },
+      rules,
+    });
+    expect(rests.get(10)).toEqual({ lodgingId: 61, place: { kind: "lodging", level: 1 }, commuteCells: 4 });
+    expect(rests.get(20)).toEqual({ lodgingId: null, place: { kind: "home" }, commuteCells: 30 });
+    expect(rests.get(30)?.place.kind).toBe("home");
   });
 });

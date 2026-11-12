@@ -27,6 +27,7 @@ export function npcEconomyInputOf(
     }
     return null;
   };
+  const places = cityRestPlacesOf(facilities, maps);
   return {
     catalog,
     presets,
@@ -47,44 +48,9 @@ export function npcEconomyInputOf(
     },
     // 일꾼 쉼터·채집소 옮김(질문 1047 다·1050 가): 그 도시 2차맵의 건물 자리로 npc/cityRest.ts planCityRest
     cityRest(cityId, city, list, rules) {
-      const places = facilities.service.places;
-      const cell = places.cities().find((entry) => entry.id === cityId);
-      const map = cell ? maps.get(cell.mapKey) : undefined;
-      if (!cell || !map) return undefined;
-      const areas = new Map<number, TripArea>();
-      const owners = new Map<number, number | null>();
-      map.forEachBuilding((building) => {
-        areas.set(building.id, workAreaOf(building.placement));
-        owners.set(building.id, building.ownerId);
-      });
-      const facilityCatalog = facilities.catalog();
-      const lodgings: RestLodging[] = [];
-      const stores: { x: number; y: number }[] = [];
-      for (const record of facilities.service.facilities.values()) {
-        if (record.cityId !== cityId || record.level < 1 || !facilities.service.works(record.buildingId))
-          continue;
-        const area = areas.get(record.buildingId);
-        if (!area) continue;
-        const stage = facilityCatalog.facility(record.facilityId)?.stage;
-        if (stage === "living")
-          lodgings.push({
-            id: record.buildingId,
-            area,
-            level: record.level,
-            ownerId: owners.get(record.buildingId) ?? null,
-          });
-        else if (stage === "storage" && owners.get(record.buildingId) === city.ownerId)
-          stores.push({ x: area.x, y: area.y });
-      }
-      return planCityRest({
-        facilities: list,
-        areas,
-        lodgings,
-        home: { x: cell.x, y: cell.y },
-        housing: city.housing,
-        stores,
-        rules,
-      });
+      const found = places(cityId, city.ownerId);
+      if (!found) return undefined;
+      return planCityRest({ facilities: list, housing: city.housing, rules, ...found });
     },
     lodgingsIn(cityId) {
       const facilityCatalog = facilities.catalog();
@@ -98,5 +64,55 @@ export function npcEconomyInputOf(
           out.push(record.buildingId);
       return out.toSorted((a, b) => a - b);
     },
+  };
+}
+
+/** 도시 하나의 쉼터·옮김 자리(npc/cityRest.ts 입력 몫): 건물 일터 네모, 숙소(다 지은·일하는 생활 단계), 도시 주인의 창고, 시청 칸 */
+export interface CityRestPlaces {
+  readonly areas: ReadonlyMap<number, TripArea>;
+  readonly lodgings: readonly RestLodging[];
+  readonly stores: readonly { readonly x: number; readonly y: number }[];
+  readonly home: { readonly x: number; readonly y: number };
+}
+
+/**
+ * 그 도시 2차맵의 건물 자리로 쉼터·옮김 자리를 모은다(NPC 도시 경제 planCityRest와 플레이어 일꾼 쉼터 labor/workerRest.ts planPlayerRest가 같이
+ * 쓴다 — 질문 1047 다·1088 가). storeOwner = 창고로 칠 건물 주인(도시 주인)
+ */
+export function cityRestPlacesOf(
+  facilities: WorldFacilities,
+  maps: ReadonlyMap<number, SecondMap>,
+): (cityId: number, storeOwner: number | null) => CityRestPlaces | undefined {
+  return (cityId, storeOwner) => {
+    const places = facilities.service.places;
+    const cell = places.cities().find((entry) => entry.id === cityId);
+    const map = cell ? maps.get(cell.mapKey) : undefined;
+    if (!cell || !map) return undefined;
+    const areas = new Map<number, TripArea>();
+    const owners = new Map<number, number | null>();
+    map.forEachBuilding((building) => {
+      areas.set(building.id, workAreaOf(building.placement));
+      owners.set(building.id, building.ownerId);
+    });
+    const facilityCatalog = facilities.catalog();
+    const lodgings: RestLodging[] = [];
+    const stores: { x: number; y: number }[] = [];
+    for (const record of facilities.service.facilities.values()) {
+      if (record.cityId !== cityId || record.level < 1 || !facilities.service.works(record.buildingId))
+        continue;
+      const area = areas.get(record.buildingId);
+      if (!area) continue;
+      const stage = facilityCatalog.facility(record.facilityId)?.stage;
+      if (stage === "living")
+        lodgings.push({
+          id: record.buildingId,
+          area,
+          level: record.level,
+          ownerId: owners.get(record.buildingId) ?? null,
+        });
+      else if (stage === "storage" && owners.get(record.buildingId) === storeOwner)
+        stores.push({ x: area.x, y: area.y });
+    }
+    return { areas, lodgings, stores, home: { x: cell.x, y: cell.y } };
   };
 }

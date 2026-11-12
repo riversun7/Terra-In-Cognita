@@ -60,6 +60,7 @@ function fakeService(calls: string[]): LaborService {
       return Promise.resolve({ ok: false, code: "not_assigned" });
     },
     workersAt: () => [],
+    workplaceOf: () => undefined,
     attachProduction: () => {},
     attachStation: () => {},
     overview: notUsed,

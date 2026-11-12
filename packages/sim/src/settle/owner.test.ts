@@ -55,6 +55,20 @@ describe("소유 주체 정산(시험 직무·유지비, 서버·시뮬 공용)"
     expect(book.balanceOf(5, TEST_ASSET_ORE)).toBe(240n);
   });
 
+  it("유닛마다 직무 규칙(unitRules, 질문 1088 가): 집(3분에 1점)에서 쉬는 일꾼은 숙소(2분)보다 늦게 다시 일한다", () => {
+    const book = bookWithCredit(7, 0n);
+    const tired: JobState = { job: JOB_GATHER, phase: PHASE_REST, progressMs: 0, fatigue: 30 };
+    const home = { cycleMs: 60_000, fatigueMax: 120, restStepMs: 180_000 };
+    const result = settleOwnerPeriod(
+      { ownerId: 7, jobs: [tired, tired], fromMs: 0, toMs: HOUR, offlineSinceMs: null, unitRules: [home] },
+      book,
+      testSettleAccounts(book, 7),
+    );
+    // 집: 1시간에 20점(3분에 1점)만 풀려 10점 남음. 숙소(시험 규칙 2분): 60분에 30점 다 풀고 일 단계로
+    expect(result.jobs[0]).toEqual({ ...tired, fatigue: 10 });
+    expect(result.jobs[1]?.phase).toBe(PHASE_WORK);
+  });
+
   it("직무 없는 유닛은 산출 없이 쉬어 피로가 풀린다(WP8 525 ①: 2분에 1점, 시험 규칙)", () => {
     const book = bookWithCredit(6, 0n);
     const tired: JobState = { ...idle, fatigue: 100 };

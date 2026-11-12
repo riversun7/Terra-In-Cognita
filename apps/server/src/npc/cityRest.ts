@@ -167,3 +167,63 @@ export function planCityRest(input: CityRestInput): CityRestPlan {
     bedTotal,
   };
 }
+
+/** 플레이어 일꾼 하나(직무 배치·노동 계약)와 그 일터 건물 */
+export interface PlayerWorker {
+  readonly unitId: number;
+  readonly buildingId: number;
+}
+
+/** 플레이어 일꾼 하나의 쉼터(질문 1088 가) */
+export interface PlayerRest {
+  /** 숙소 건물 ID(집이면 null) */
+  readonly lodgingId: number | null;
+  readonly place: RestPlace;
+  /** 일터 ↔ 쉼터 한쪽 칸 수 */
+  readonly commuteCells: number;
+}
+
+/**
+ * 플레이어 일꾼의 쉼터(질문 1088 가, 기획 정리 D-534 "추천대로" — NPC 일꾼과 같은 숙소 규칙 D-013): 같은 도시 숙소 가운데 NPC 도시 경제 계획(taken)이
+ * 쓰고 남은 침대를 유닛 ID 차례로, 일터에서 가장 가까운 곳(같으면 건물 ID)부터 나눈다. 침대가 없으면 집(숙소 없는 집 회복, lodging_home_recovery_pm)
+ * [임시] — 플레이어 유닛은 도시 주거 수에 들지 않아 노숙으로 떨어지지 않는다. 일터 자리를 모르면 시청 칸
+ */
+export function planPlayerRest(input: {
+  readonly workers: readonly PlayerWorker[];
+  readonly areas: ReadonlyMap<number, TripArea>;
+  readonly lodgings: readonly RestLodging[];
+  /** 숙소 건물 ID → NPC 일꾼이 쓰는 침대 */
+  readonly taken?: ReadonlyMap<number, number> | undefined;
+  readonly home: { readonly x: number; readonly y: number };
+  readonly rules: SocietyCoefficients;
+}): Map<number, PlayerRest> {
+  const lodgings = input.lodgings.toSorted((a, b) => a.id - b.id);
+  const free = new Map<number, number>();
+  for (const lodging of lodgings)
+    free.set(lodging.id, lodgingBeds(lodging.level, input.rules) - (input.taken?.get(lodging.id) ?? 0));
+  const out = new Map<number, PlayerRest>();
+  for (const worker of input.workers.toSorted((a, b) => a.unitId - b.unitId)) {
+    if (out.has(worker.unitId)) continue;
+    const work = input.areas.get(worker.buildingId) ?? input.home;
+    let best: { lodging: RestLodging; near: number } | undefined;
+    for (const lodging of lodgings) {
+      if ((free.get(lodging.id) ?? 0) <= 0) continue;
+      const near = cheb(work, lodging.area);
+      if (!best || near < best.near) best = { lodging, near };
+    }
+    if (best) {
+      free.set(best.lodging.id, (free.get(best.lodging.id) ?? 0) - 1);
+      out.set(worker.unitId, {
+        lodgingId: best.lodging.id,
+        place: { kind: "lodging", level: best.lodging.level },
+        commuteCells: best.near,
+      });
+    } else
+      out.set(worker.unitId, {
+        lodgingId: null,
+        place: { kind: "home" },
+        commuteCells: cheb(work, input.home),
+      });
+  }
+  return out;
+}

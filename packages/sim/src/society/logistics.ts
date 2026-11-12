@@ -70,8 +70,8 @@ export function workSharePm(
   return Math.floor((work * 1000) / (work + rest + commute));
 }
 
-/** 하루(실제 시간)에 쉬는 번 수(일·쉼 한 바퀴의 수, 내림) — 숙소 요금은 쉴 때마다 낸다 */
-export function restsPerDay(
+/** 일·쉼 한 바퀴 ms(일 + 쉼 + 오감) — 숙소 요금은 한 바퀴에 한 번(쉴 때) 낸다 */
+export function restPeriodMs(
   place: RestPlace,
   commuteCells: number,
   c: SocietyCoefficients,
@@ -82,9 +82,19 @@ export function restsPerDay(
     1,
     Math.floor((c.fatigueRecoverStepMs * 1000) / Math.max(1, restRecoveryPm(place, c))),
   );
-  const period =
-    max * Math.max(1, cycleMs) + max * step + 2 * Math.max(0, Math.trunc(commuteCells)) * walkMsPerCell();
-  return Math.floor(DAY_MS_LOGISTICS / period);
+  return (
+    max * Math.max(1, cycleMs) + max * step + 2 * Math.max(0, Math.trunc(commuteCells)) * walkMsPerCell()
+  );
+}
+
+/** 하루(실제 시간)에 쉬는 번 수(일·쉼 한 바퀴의 수, 내림) — 숙소 요금은 쉴 때마다 낸다 */
+export function restsPerDay(
+  place: RestPlace,
+  commuteCells: number,
+  c: SocietyCoefficients,
+  cycleMs: number = TEST_JOB_RULES.cycleMs,
+): number {
+  return Math.floor(DAY_MS_LOGISTICS / restPeriodMs(place, commuteCells, c, cycleMs));
 }
 
 /**

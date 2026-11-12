@@ -76,6 +76,16 @@ export function gatherStat(workerStat: number, level: number, bonusPerLevel: num
   return Math.max(0, workerStat + condition) + Math.max(0, bonusPerLevel) * Math.max(0, level - 1);
 }
 
+/**
+ * 컨디션을 두 스탯에 반씩 나눠 더한 짝(기획 D-535 1154 나 — 채집 셈 전부에 컨디션: 진행 속도 = 주, 수확량 = 보조, 해금 티어·성공 확률 = 둘의 합).
+ * 주 스탯이 ⌊컨디션 ÷ 2⌋(0 쪽 버림), 보조 스탯이 나머지를 받아 합이 컨디션과 같다. 0 아래로 가지 않는다. 추첨 유효 스탯(gatherStat)은 합에 그대로 더한다
+ */
+export function conditionedStats(primary: number, secondary: number, condition: number): [number, number] {
+  const total = Math.trunc(condition);
+  const half = Math.trunc(total / 2);
+  return [Math.max(0, primary + half), Math.max(0, secondary + total - half)];
+}
+
 /** 유효 스탯이 드는 구간 번호(from이 스탯 이하인 마지막 구간, 첫 구간보다 작으면 0). 구간이 없으면 -1 */
 export function gatherBandIndex(bands: readonly GatherBand[], stat: number): number {
   let found = bands.length === 0 ? -1 : 0;

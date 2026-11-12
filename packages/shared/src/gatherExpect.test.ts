@@ -33,7 +33,7 @@ const BASE: GatherExpectInput = {
   growthPm: 100,
   kMinPm: 800,
   kMaxPm: 1200,
-  levelBonus: 10,
+  levelBonus: 5,
   facilityLevel: 1,
   condition: 0,
 };
@@ -47,6 +47,27 @@ describe("줄·칸·K 점", () => {
     expect(splitStatSum(31)).toEqual([16, 15]);
     expect(expectKSteps(800, 1200)).toEqual([800, 850, 900, 950, 1000, 1050, 1100, 1150, 1200]);
     expect(expectKSteps(1000, 1000)).toEqual([1000]);
+  });
+});
+
+describe("선택 방식 해금 티어·시설 레벨 보너스(D-535 1154·1155 나)", () => {
+  it("농장·목장 해금 티어도 컨디션을 받는다(두 스탯에 반씩 → 합 +컨디션 ÷ 20 티어)", () => {
+    const plain = expectedGatherCell(30, 50, BASE);
+    const managed = expectedGatherCell(30, 50, { ...BASE, condition: 40 });
+    expect([plain.selectMin, plain.selectMax]).toEqual([7, 9]);
+    expect([managed.selectMin, managed.selectMax]).toEqual([9, 9]);
+    expect(expectedGatherCell(30, 1, { ...BASE, condition: -40 })).toMatchObject({
+      selectMin: 0,
+      selectMax: 0,
+    });
+  });
+
+  it("시설 Lv5(레벨당 5 → +20)는 컨디션 +40보다 작다 — 관리가 시설 레벨보다 크다", () => {
+    const facility = expectedGatherCell(36, 60, { ...BASE, facilityLevel: 5 });
+    const managed = expectedGatherCell(36, 60, { ...BASE, condition: 40 });
+    expect(managed.statMin - facility.statMin).toBe(20);
+    expect(managed.averageTierMilli).toBeGreaterThan(facility.averageTierMilli);
+    expect(facility.selectMin).toBe(expectedGatherCell(36, 60, BASE).selectMin);
   });
 });
 
@@ -70,8 +91,8 @@ describe("칸 하나(판정과 같은 성장·유효 스탯·구간)", () => {
   it("레벨 1은 성장이 없고 시설 레벨 보너스가 더해진다", () => {
     expect(expectedGatherCell(30, 1, BASE)).toMatchObject({ statMin: 30, statMax: 30 });
     expect(expectedGatherCell(30, 1, { ...BASE, facilityLevel: 5 })).toMatchObject({
-      statMin: 70,
-      statMax: 70,
+      statMin: 50,
+      statMax: 50,
     });
   });
 

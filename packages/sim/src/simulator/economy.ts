@@ -21,6 +21,7 @@ import { type FxMarket, createFxMarket } from "../economy/fxMarket.ts";
 import { type GoodsMarket, createGoodsMarket } from "../economy/goodsMarket.ts";
 import {
   accessibleTier,
+  conditionedStats,
   gatherCatchPm,
   gatherProgress,
   gatherStat,
@@ -444,7 +445,8 @@ export function scheduleEconomy(
 /**
  * 시설 계획의 일꾼 스탯이 시설에 주는 효과(D-506·D-507): 추첨 유효 스탯, 선택 해금 티어, 진행 속도, 수확량.
  * 스탯 짝(gather)이 없는 시설은 속도·수확량 1(효과 없음). condition = 컨디션(관리 보너스, D-534 — society/condition.ts unitCondition의
- * 합계, 상한으로 자른 값)은 추첨 유효 스탯에만 더한다(진행 속도·수확량·해금 티어는 그대로 [임시], 질문 1154). 없으면 0
+ * 합계, 상한으로 자른 값)은 추첨 유효 스탯에 더하고, 반씩 나눠 주·보조 스탯에도 더한다(진행 속도·수확량·해금 티어·성공 확률,
+ * 기획 D-535 1154 나 — @terra/shared/gatherMath conditionedStats). 없으면 0
  */
 export function workerEffects(
   rule: CatalogGather | undefined,
@@ -459,16 +461,19 @@ export function workerEffects(
   const primary = plan.primaryStat ?? gather.defaultStat;
   const secondary = plan.secondaryStat ?? gather.defaultStat;
   if (!rule) return { gatherStat: 0, selectTier: 0, progress: 1, yieldPerLot: 1 };
+  const condition = plan.condition ?? 0;
+  // 컨디션을 두 스탯에 반씩(D-535 1154 나): 선택 방식(농장·목장) 해금 티어·진행 속도·수확량·성공 확률도 관리의 덕을 본다
+  const [mainStat, subStat] = conditionedStats(primary, secondary, condition);
   return {
-    gatherStat: gatherStat(primary + secondary, plan.level, gather.levelBonus, plan.condition ?? 0),
-    selectTier: accessibleTier(primary, secondary),
-    progress: gatherProgress(primary, gather.progressDivisor ?? 20),
-    yieldPerLot: gatherYield(secondary, {
+    gatherStat: gatherStat(primary + secondary, plan.level, gather.levelBonus, condition),
+    selectTier: accessibleTier(mainStat, subStat),
+    progress: gatherProgress(mainStat, gather.progressDivisor ?? 20),
+    yieldPerLot: gatherYield(subStat, {
       base: rule.yieldBase ?? 1,
       perStatPm: rule.yieldPerStatPm ?? gather.yieldPerStatPm ?? 80,
       cap: rule.yieldCap,
     }),
-    ...(rule.catch ? { catchPm: gatherCatchPm(primary + secondary, rule.catch) } : {}),
+    ...(rule.catch ? { catchPm: gatherCatchPm(mainStat + subStat, rule.catch) } : {}),
   };
 }
 

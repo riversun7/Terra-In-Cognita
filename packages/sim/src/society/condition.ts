@@ -9,6 +9,13 @@
 //   집 값, 노숙(D-296)은 노숙 값. 모르면(플레이어 유닛 숙소 배정 전) 0.
 // - 음식 몫: 생필품 충족 ‰가 기준(출발 500) 이상이면 기준 → 1000을 0 → +가득으로, 아래면 0 → 기준을 배고픔 → 0으로 선형. 모르면 0.
 // 수치는 모두 [임시](49 N43에 상한 ±40만 있다 → condition_* 칸). 정수만 쓴다.
+// 바뀜(기획 D-535 1151 나, 2026-11-12): 유닛마다 **선호**(좋아하는 음식 중분류 하나·선호 주거 종류 하나)가 있다(D-150 "유닛마다 선호가 다르다").
+// - 선호는 (세계 시드, 유닛 ID)로 정해진다(unitPreferences — NPC 휴먼·사이보그·구인 휴먼 모두 같은 함수, 저장하지 않음 → 다시 켜도 같다).
+//   후보: 음식 = 팩 식품 중분류(item_subcategories food: true — 생필품 식량 ration의 요리 dish도 여기 든다), 주거 = 생활 단계 시설(숙소) + 집.
+// - 선호 주거 몫: 지금 쉬는 곳이 선호 종류면 +맞음, 아니면 어긋남(음수). 노숙은 늘 어긋남, 모르면 0.
+// - 선호 음식 몫: 그 도시 창고에 좋아하는 중분류 물건이 있으면 +맞음, 없으면 어긋남(음수), 모르면 0.
+// - 위 둘은 등급 주거 몫·생필품 음식 몫에 더한 뒤 합계를 상한으로 자른다(가득 관리 + 선호 맞음이면 상한에 여유 있게 닿는다).
+import { mix32 } from "../math/hash.ts";
 import type { RestPlace } from "./logistics.ts";
 
 export interface ConditionCoefficients {
@@ -32,6 +39,14 @@ export interface ConditionCoefficients {
   readonly preferGrade2From: number;
   /** 선호 주거 3등급이 되는 초기 스탯 합(이상) */
   readonly preferGrade3From: number;
+  /** 지금 쉬는 곳이 선호 주거 종류일 때(D-535 1151 나) */
+  readonly preferHousingMatch: number;
+  /** 선호 주거 종류가 아닐 때(음수) */
+  readonly preferHousingMiss: number;
+  /** 도시 창고에 좋아하는 음식 중분류가 있을 때 */
+  readonly preferFoodMatch: number;
+  /** 없을 때(음수) */
+  readonly preferFoodMiss: number;
 }
 
 /** 출발값([임시], docs/adr/2026-11-12-unit-condition.md): 가득 관리(선호 숙소 + 생필품 가득) = +40 = 상한 */
@@ -46,7 +61,51 @@ export const START_CONDITION: ConditionCoefficients = {
   foodNeutralPm: 500,
   preferGrade2From: 50,
   preferGrade3From: 70,
+  preferHousingMatch: 5,
+  preferHousingMiss: -5,
+  preferFoodMatch: 10,
+  preferFoodMiss: -10,
 };
+
+/** 선호 주거 종류 "집"(숙소 없는 집, D-296). 숙소 종류는 생활 단계 시설 ID */
+export const HOME_HOUSING = "home";
+
+/** 유닛의 선호(D-535 1151 나). 후보가 없으면 null */
+export interface UnitPreferences {
+  /** 좋아하는 음식(식품 중분류 ID) */
+  readonly food: string | null;
+  /** 선호 주거 종류(생활 단계 시설 ID 또는 HOME_HOUSING) */
+  readonly housing: string | null;
+}
+
+/** 선호 후보(팩에서 읽은 목록 — 차례는 상관없다, 안에서 ID 차례로 줄 세운다) */
+export interface PreferenceChoices {
+  readonly foods: readonly string[];
+  readonly housings: readonly string[];
+}
+
+/** 선호 난수 소금(다른 흐름과 겹치지 않게) */
+const PREFERENCE_SALT = 0x0c0d_1151;
+
+/** 후보 목록(겹침 없이 ID 차례) */
+function sortedChoices(list: readonly string[]): string[] {
+  return [...new Set(list)].toSorted();
+}
+
+/**
+ * 유닛 하나의 선호: (세계 시드, 유닛 ID)로 정한다. 같은 입력이면 같은 값이라 저장하지 않는다(서버·시뮬이 같다).
+ * 후보 목록이 바뀌면(팩에 식품 중분류를 더함) 일부 유닛의 선호가 바뀔 수 있다 [임시]
+ */
+export function unitPreferences(seed: number, unitId: number, choices: PreferenceChoices): UnitPreferences {
+  const foods = sortedChoices(choices.foods);
+  const housings = sortedChoices(choices.housings);
+  const h = mix32((seed ^ Math.imul(unitId >>> 0, 0x9e37_79b1) ^ PREFERENCE_SALT) >>> 0) >>> 0;
+  const g = mix32((h ^ 0x85eb_ca6b) >>> 0) >>> 0;
+  return {
+    food: foods.length === 0 ? null : (foods[h % foods.length] ?? null),
+    housing: housings.length === 0 ? null : (housings[g % housings.length] ?? null),
+  };
+}
 
 /** 주거 등급 수(N24 주거 등급 1~3) */
 export const CONDITION_HOUSING_GRADES = 3;
@@ -60,11 +119,21 @@ export interface ConditionInputs {
   readonly foodPm: number | null;
   /** 그 유닛의 초기 스탯 합(선호 주거 등급) */
   readonly initialSum: number;
+  /** 선호(없으면 선호 몫 0) */
+  readonly preferences?: UnitPreferences | undefined;
+  /** 숙소에서 쉴 때 그 숙소의 시설 ID(모르면 숙소 종류는 모두 같은 것으로 본다) */
+  readonly lodgingFacility?: string | undefined;
+  /** 그 도시 창고에 좋아하는 음식 중분류 물건이 있나(모르면 null) */
+  readonly foodLiked?: boolean | null | undefined;
 }
 
 export interface ConditionParts {
   readonly housing: number;
   readonly food: number;
+  /** 선호 주거 몫(D-535 1151 나) */
+  readonly housingPrefer: number;
+  /** 선호 음식 몫 */
+  readonly foodPrefer: number;
   /** 합계(±상한으로 자른 값) — 유효 스탯에 더하는 관리 보너스 */
   readonly total: number;
   /** 자르기 전 합이 상한을 넘었나 */
@@ -119,6 +188,33 @@ export function foodConditionPart(foodPm: number | null, c: ConditionCoefficient
   return neutral <= 0 ? 0 : Math.trunc(((neutral - pm) * c.foodHungry) / neutral);
 }
 
+/** 선호 주거 몫: 선호 종류에서 쉬면 +맞음, 아니면 어긋남. 노숙은 늘 어긋남, 쉬는 곳·선호를 모르면 0 */
+export function housingPreferencePart(
+  housing: ConditionHousing,
+  preferred: string | null | undefined,
+  lodgingFacility: string | undefined,
+  c: ConditionCoefficients,
+): number {
+  if (preferred === null || preferred === undefined || housing.kind === "unknown") return 0;
+  const match =
+    housing.kind === "home"
+      ? preferred === HOME_HOUSING
+      : housing.kind === "lodging"
+        ? preferred !== HOME_HOUSING && (lodgingFacility === undefined || preferred === lodgingFacility)
+        : false;
+  return Math.trunc(match ? c.preferHousingMatch : c.preferHousingMiss);
+}
+
+/** 선호 음식 몫: 좋아하는 중분류가 도시 창고에 있으면 +맞음, 없으면 어긋남, 모르면 0 */
+export function foodPreferencePart(
+  preferred: string | null | undefined,
+  liked: boolean | null | undefined,
+  c: ConditionCoefficients,
+): number {
+  if (preferred === null || preferred === undefined || liked === null || liked === undefined) return 0;
+  return Math.trunc(liked ? c.preferFoodMatch : c.preferFoodMiss);
+}
+
 /** 합계를 ±상한으로 자른다 */
 export function clampCondition(value: number, c: Pick<ConditionCoefficients, "cap">): number {
   const cap = Math.max(0, Math.trunc(c.cap));
@@ -130,11 +226,20 @@ export function unitCondition(inputs: ConditionInputs, c: ConditionCoefficients)
   const preferredGrade = preferredHousingGrade(inputs.initialSum, c);
   const housing = housingConditionPart(inputs.housing, preferredGrade, c);
   const food = foodConditionPart(inputs.foodPm, c);
-  const raw = housing + food;
+  const housingPrefer = housingPreferencePart(
+    inputs.housing,
+    inputs.preferences?.housing,
+    inputs.lodgingFacility,
+    c,
+  );
+  const foodPrefer = foodPreferencePart(inputs.preferences?.food, inputs.foodLiked, c);
+  const raw = housing + food + housingPrefer + foodPrefer;
   const total = clampCondition(raw, c);
   return {
     housing,
     food,
+    housingPrefer,
+    foodPrefer,
     total,
     capped: total !== raw,
     preferredGrade,

@@ -1012,16 +1012,16 @@
         "ko": "채집 시설 레벨당 티어 보너스(유효 스탯)",
         "en": "Gathering facility tier bonus per level (effective stat)"
       },
-      "value": 10,
+      "value": 5,
       "structural": false,
       "unit": "points",
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "채집 시설 레벨 하나가 높은 티어를 뽑는 데 더하는 유효 스탯.",
-        "en": "Effective stat added per gathering-facility level when rolling the tier."
+        "ko": "채집 시설 레벨 하나가 높은 티어를 뽑는 데 더하는 유효 스탯. 10 → 5(Lv5 +20, 컨디션 상한 ±40의 절반 — 시설 레벨보다 관리가 더 크게, D-535 1155 나) [임시].",
+        "en": "Effective stat added per gathering-facility level when rolling the tier. 10 → 5 (level 5 = +20, half the ±40 condition cap, so care matters more than facility level; D-535 1155) [temporary]."
       },
-      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\""
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\" · ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
     },
     {
       "id": "n44_tier_progress_base",
@@ -1672,6 +1672,42 @@
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
+      "id": "n45_element_bonus_l1",
+      "code": "N45",
+      "name": {
+        "ko": "구인 속성 점수 덤, 행정 건물 Lv1",
+        "en": "Recruit element point bonus, administrative building level 1"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 30,
+      "desc": {
+        "ko": "Lv1 구인 휴먼이 기본 속성 점수에 더 받는 점수(Lv4·5가 토탈 말고 다른 이점으로 나뉜다) [임시].",
+        "en": "Extra element points a recruited human gets at admin level 1, on top of the base points (levels 4–5 differ by this rather than totals) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
+      "id": "n45_stat_rolls_l1",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 굴림 횟수(큰 값), 행정 건물 Lv1",
+        "en": "Recruit total rolls (best kept), administrative building level 1"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "Lv1 카드 토탈을 이 횟수만큼 범위 안에서 굴려 가장 큰 값을 쓴다(1 = 균등, 옛 규칙) [임시].",
+        "en": "Admin level 1 card totals are rolled this many times within the range and the highest is kept (1 = uniform, the old rule) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
       "id": "n45_cards_min_l2",
       "code": "N45",
       "name": {
@@ -1742,6 +1778,42 @@
         "en": "Highest total stats at admin level 2."
       },
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
+    },
+    {
+      "id": "n45_element_bonus_l2",
+      "code": "N45",
+      "name": {
+        "ko": "구인 속성 점수 덤, 행정 건물 Lv2",
+        "en": "Recruit element point bonus, administrative building level 2"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 30,
+      "desc": {
+        "ko": "Lv2 구인 휴먼이 기본 속성 점수에 더 받는 점수(Lv4·5가 토탈 말고 다른 이점으로 나뉜다) [임시].",
+        "en": "Extra element points a recruited human gets at admin level 2, on top of the base points (levels 4–5 differ by this rather than totals) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
+      "id": "n45_stat_rolls_l2",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 굴림 횟수(큰 값), 행정 건물 Lv2",
+        "en": "Recruit total rolls (best kept), administrative building level 2"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "Lv2 카드 토탈을 이 횟수만큼 범위 안에서 굴려 가장 큰 값을 쓴다(1 = 균등, 옛 규칙) [임시].",
+        "en": "Admin level 2 card totals are rolled this many times within the range and the highest is kept (1 = uniform, the old rule) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
     },
     {
       "id": "n45_cards_min_l3",
@@ -1816,6 +1888,42 @@
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
     },
     {
+      "id": "n45_element_bonus_l3",
+      "code": "N45",
+      "name": {
+        "ko": "구인 속성 점수 덤, 행정 건물 Lv3",
+        "en": "Recruit element point bonus, administrative building level 3"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 30,
+      "desc": {
+        "ko": "Lv3 구인 휴먼이 기본 속성 점수에 더 받는 점수(Lv4·5가 토탈 말고 다른 이점으로 나뉜다) [임시].",
+        "en": "Extra element points a recruited human gets at admin level 3, on top of the base points (levels 4–5 differ by this rather than totals) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
+      "id": "n45_stat_rolls_l3",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 굴림 횟수(큰 값), 행정 건물 Lv3",
+        "en": "Recruit total rolls (best kept), administrative building level 3"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "Lv3 카드 토탈을 이 횟수만큼 범위 안에서 굴려 가장 큰 값을 쓴다(1 = 균등, 옛 규칙) [임시].",
+        "en": "Admin level 3 card totals are rolled this many times within the range and the highest is kept (1 = uniform, the old rule) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
       "id": "n45_cards_min_l4",
       "code": "N45",
       "name": {
@@ -1858,16 +1966,16 @@
         "ko": "구인 토탈 스탯 최소, 행정 건물 Lv4",
         "en": "Recruit total stats min, administrative building level 4"
       },
-      "value": 65,
+      "value": 60,
       "structural": false,
       "unit": "points",
       "min": 6,
       "max": 100,
       "desc": {
-        "ko": "Lv4 토탈 스탯 최소.",
-        "en": "Lowest total stats at admin level 4."
+        "ko": "Lv4 토탈 스탯 최소. Lv3과 같은 60(휴먼 최대 80 아래에서 겹쳐 다른 이점으로 나눈다, D-535 1158 나) [임시].",
+        "en": "Lowest total stats at admin level 4. Same 60 as level 3 (totals overlap under the human max of 80, so other advantages set the levels apart; D-535 1158) [temporary]."
       },
-      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
     },
     {
       "id": "n45_stats_max_l4",
@@ -1886,6 +1994,42 @@
         "en": "Highest total stats at admin level 4."
       },
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
+    },
+    {
+      "id": "n45_element_bonus_l4",
+      "code": "N45",
+      "name": {
+        "ko": "구인 속성 점수 덤, 행정 건물 Lv4",
+        "en": "Recruit element point bonus, administrative building level 4"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 30,
+      "desc": {
+        "ko": "Lv4 구인 휴먼이 기본 속성 점수에 더 받는 점수(Lv4·5가 토탈 말고 다른 이점으로 나뉜다) [임시].",
+        "en": "Extra element points a recruited human gets at admin level 4, on top of the base points (levels 4–5 differ by this rather than totals) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
+      "id": "n45_stat_rolls_l4",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 굴림 횟수(큰 값), 행정 건물 Lv4",
+        "en": "Recruit total rolls (best kept), administrative building level 4"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "Lv4 카드 토탈을 이 횟수만큼 범위 안에서 굴려 가장 큰 값을 쓴다(1 = 균등, 옛 규칙) [임시].",
+        "en": "Admin level 4 card totals are rolled this many times within the range and the highest is kept (1 = uniform, the old rule) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
     },
     {
       "id": "n45_cards_min_l5",
@@ -1930,16 +2074,16 @@
         "ko": "구인 토탈 스탯 최소, 행정 건물 Lv5",
         "en": "Recruit total stats min, administrative building level 5"
       },
-      "value": 70,
+      "value": 60,
       "structural": false,
       "unit": "points",
       "min": 6,
       "max": 100,
       "desc": {
-        "ko": "Lv5 토탈 스탯 최소.",
-        "en": "Lowest total stats at admin level 5."
+        "ko": "Lv5 토탈 스탯 최소. Lv3과 같은 60(D-535 1158 나) [임시].",
+        "en": "Lowest total stats at admin level 5. Same 60 as level 3 (D-535 1158) [temporary]."
       },
-      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
     },
     {
       "id": "n45_stats_max_l5",
@@ -1958,6 +2102,42 @@
         "en": "Highest total stats at admin level 5."
       },
       "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-469"
+    },
+    {
+      "id": "n45_element_bonus_l5",
+      "code": "N45",
+      "name": {
+        "ko": "구인 속성 점수 덤, 행정 건물 Lv5",
+        "en": "Recruit element point bonus, administrative building level 5"
+      },
+      "value": 6,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 30,
+      "desc": {
+        "ko": "Lv5 구인 휴먼이 기본 속성 점수에 더 받는 점수(Lv4·5가 토탈 말고 다른 이점으로 나뉜다) [임시].",
+        "en": "Extra element points a recruited human gets at admin level 5, on top of the base points (levels 4–5 differ by this rather than totals) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
+    },
+    {
+      "id": "n45_stat_rolls_l5",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 굴림 횟수(큰 값), 행정 건물 Lv5",
+        "en": "Recruit total rolls (best kept), administrative building level 5"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "Lv5 카드 토탈을 이 횟수만큼 범위 안에서 굴려 가장 큰 값을 쓴다(1 = 균등, 옛 규칙) [임시].",
+        "en": "Admin level 5 card totals are rolled this many times within the range and the highest is kept (1 = uniform, the old rule) [temporary]."
+      },
+      "source": "ADR 2026-10-31-faction-society-core \"바뀜 (D-469)\" · D-535 1158 나"
     },
     {
       "id": "d130_shares_per_city",
@@ -10089,6 +10269,78 @@
         "en": "Units with at least this initial stat sum prefer grade 3 housing [temporary]."
       },
       "source": "ADR 2026-11-12-unit-condition"
+    },
+    {
+      "id": "condition_prefer_housing_match",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 선호 주거 종류에서 쉼",
+        "en": "Condition: resting in preferred housing type"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "지금 쉬는 곳(숙소·집)이 그 유닛의 선호 주거 종류면 더하는 값 [임시].",
+        "en": "Added when the unit rests in its preferred housing type (lodging or home) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
+    },
+    {
+      "id": "condition_prefer_housing_miss",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 선호 주거 종류가 아님",
+        "en": "Condition: not the preferred housing type"
+      },
+      "value": -5,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "선호 주거 종류가 아닌 곳에서 쉬거나 노숙할 때 더하는 값(음수) [임시].",
+        "en": "Added when the unit rests elsewhere or is homeless (negative) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
+    },
+    {
+      "id": "condition_prefer_food_match",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 좋아하는 음식이 도시 창고에 있음",
+        "en": "Condition: favourite food in the city warehouse"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "그 도시 창고에 유닛이 좋아하는 식품 중분류 물건이 있으면 더하는 값 [임시].",
+        "en": "Added when the city warehouse holds the unit's favourite food subcategory [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
+    },
+    {
+      "id": "condition_prefer_food_miss",
+      "code": "",
+      "name": {
+        "ko": "컨디션: 좋아하는 음식이 도시 창고에 없음",
+        "en": "Condition: favourite food missing from the city warehouse"
+      },
+      "value": -10,
+      "structural": false,
+      "unit": "points",
+      "min": -100,
+      "max": 100,
+      "desc": {
+        "ko": "그 도시 창고에 좋아하는 식품 중분류 물건이 없으면 더하는 값(음수) [임시].",
+        "en": "Added when the city warehouse has none of the favourite food subcategory (negative) [temporary]."
+      },
+      "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
     }
   ]
 }

@@ -67,16 +67,22 @@ interface PreviewUnitDef {
   readonly party: string | null;
 }
 
-/** 시안 컨디션(D-534): 상한 ±40(설정 칸 condition_cap 출발값)으로 자른 합 */
+/** 시안 컨디션(D-534): 상한 ±40(설정 칸 condition_cap 출발값)으로 자른 합. 선호(D-535 1151 나)는 어류·집 시안 */
 function previewCondition(housing: number, food: number, preferredGrade: number, housingGrade: number) {
   const cap = 40;
+  const foodPrefer = food > 0 ? 10 : -10;
+  const housingPrefer = housingGrade > 0 ? -5 : 5;
   return {
-    total: Math.max(-cap, Math.min(cap, housing + food)),
+    total: Math.max(-cap, Math.min(cap, housing + food + foodPrefer + housingPrefer)),
     housing,
     food,
     cap,
     preferredGrade,
     housingGrade,
+    housingPrefer,
+    foodPrefer,
+    favoriteFood: { ko: "어류", en: "Fish" },
+    preferredHousing: "home" as const,
   };
 }
 

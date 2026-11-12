@@ -1,5 +1,4 @@
 // 지형 오브젝트 편집기 자료 시험(D-536·D-398) — 지형마다 줄, 양 고치기·더하기·빼기, 바뀐 항목만 차이로, from = 팩 항목 정규 JSON 해시
-import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import gatherObjectsJson from "../../../../../content/core/gather_objects.json";
 import mapPropsJson from "../../../../../content/core/map_props.json";
@@ -14,6 +13,12 @@ import {
   sortKeys,
   terrainRows,
 } from "./terrainObjectsModel.ts";
+
+/** 글의 SHA-256(16진수) — 적용 스크립트(@terra/content/node hashEntry)와 같은 셈 */
+async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 
 const pack = { mapProps: mapPropsJson.entries, gatherObjects: gatherObjectsJson.entries };
 const biomes = biomesJson.entries.map((entry) => entry.id);
@@ -65,9 +70,7 @@ describe("지형 오브젝트 편집기 자료", () => {
       changes: [],
     });
     const coral = mapPropsJson.entries.find((entry) => entry.id === "coral");
-    const expected = createHash("sha256")
-      .update(JSON.stringify(sortKeys(coral)))
-      .digest("hex");
+    const expected = await sha256(JSON.stringify(sortKeys(coral)));
     expect(diff.entries).toEqual([
       {
         category: "map_props",
@@ -77,7 +80,7 @@ describe("지형 오브젝트 편집기 자료", () => {
       },
     ]);
     expect(await hashEntry({ b: 1, a: [2, { d: 3, c: 4 }] })).toBe(
-      createHash("sha256").update('{"a":[2,{"c":4,"d":3}],"b":1}').digest("hex"),
+      await sha256('{"a":[2,{"c":4,"d":3}],"b":1}'),
     );
   });
 });

@@ -52,15 +52,15 @@ describe("노두 소품 그림", () => {
   });
 });
 
-describe("움직이는 어군(D-536)", () => {
-  const withSchool = (mapKey: number) => ({
-    ...response(mapKey),
-    kinds: [...response(mapKey).kinds, kind("school_coastal", 61)],
-    objects: [...response(mapKey).objects, 65_600, 2, 4, 0, 65_601, 2, 4, 0],
-    // 65,601은 길이 없어 버린다
-    schools: [{ id: 65_600, points: [10, 12, 30, 12], periodMs: 40_000, phaseMs: 0 }],
-  });
+const withSchool = (mapKey: number) => ({
+  ...response(mapKey),
+  kinds: [...response(mapKey).kinds, kind("school_coastal", 61)],
+  objects: [...response(mapKey).objects, 65_600, 2, 4, 0, 65_601, 2, 4, 0],
+  // 65,601은 길이 없어 버린다
+  schools: [{ id: 65_600, points: [10, 12, 30, 12], periodMs: 40_000, phaseMs: 0 }],
+});
 
+describe("움직이는 어군(D-536)", () => {
   it("어군은 길의 첫 점이 집 자리이고 소품 덮기에 들지 않으며 엔진 어군으로 간다", () => {
     const state = createGatherState();
     state.setObjects(withSchool(5));

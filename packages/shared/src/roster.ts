@@ -570,7 +570,13 @@ export interface RosterCombat {
      */
     readonly bare?: { readonly agi: number } | undefined;
   };
-  readonly interval: { readonly weaponMs: number; readonly part: RosterWeaponPart; readonly real: number };
+  readonly interval: {
+    readonly weaponMs: number;
+    readonly part: RosterWeaponPart;
+    readonly real: number;
+    /** 맨손 기본 공격 간격(맨손 식 bare_interval, 사용자 답 1252 — 기본 2,000 ÷ (AGI ÷ 레벨 기준 AGI)², 0.25~5초). part.stat = AGI. 없으면 무기 틀 */
+    readonly bare?: boolean | undefined;
+  };
   readonly staminaRegen: {
     /** 2차 스탯 행 stamina_regen 값(적정 STA에서의 분당 회복) */
     readonly row: number;

@@ -8,7 +8,8 @@
 //   공격 간격 AGI) 대비 비율을 N10(1000‰)까지 곱한다(사용자 답 296~298). 맨손의 적정 DEX·AGI는 bare_appropriate(옛 규칙 레벨 × 1.5 + 10).
 //   맨손 크리 확률은 따로 칸(bare_crit, 사용자 결정 2026-11-12 "맨손 크리확률은 agi+dex 을 퍼밀로쓰자 10,10이면 2%" — 무기 틀
 //   min(1, DEX ÷ 적정)에서는 스탯이 적정을 넘어도 맨손 자료 크리 5% 그대로였다). 맨손 명중도 따로 칸(bare_hit, 사용자 결정 2026-11-12
-//   "맨손 항상 100%" — 빗나감은 방어자 회피 굴림만).
+//   "맨손 항상 100%" — 빗나감은 방어자 회피 굴림만). 맨손 기본 공격 간격도 따로 칸(bare_interval, 사용자 답 1252 — AGI 10 → 2초,
+//   20 → 0.5초, 0.25~5초 — AGI는 그 레벨 보통 유닛 AGI(초기 10)와 견준다).
 //   스태미나 소모·회복도 적정 스탯 개념이다(D-511): 적정 STA 점수 = 레벨 식 stamina_appropriate(맨손 적정과 같은 틀), 소모는 적정 ÷ 점수를
 //   곱하고(stamina_cost), 회복은 2차 스탯 스태미나 회복 × 점수 ÷ 적정(real_stamina_regen). 보통 유닛은 어느 레벨이든 배율 1이다.
 // - 단위: points(점수·정수), pm(천분율 ‰), x(배, 비율), ms, roll(굴림 0~9999), level(레벨).
@@ -61,6 +62,7 @@ export const COMBAT_FORMULA_IDS = [
   "evade_chance",
   "bare_crit",
   "bare_hit",
+  "bare_interval",
 ] as const;
 export type CombatFormulaId = (typeof COMBAT_FORMULA_IDS)[number];
 
@@ -173,6 +175,11 @@ export const COMBAT_FORMULA_SLOTS: Readonly<Record<CombatFormulaId, FormulaSlot>
   ),
   // 맨손 명중(‰, 사용자 결정 2026-11-12 "맨손 항상 100%"): W 맨손 자료 명중(‰), DEX, A 맨손 적정 DEX(bare_appropriate), CAP(N10). 기본 = 1000
   bare_hit: combatSlot("bare_hit", ratioFrame("pm", "DEX"), "pm", { min: 0, max: 1000 }),
+  // 맨손 공격 간격(ms, 사용자 답 1252): I 맨손 자료 간격(ms), AGI, LV 레벨. 기본 = 2,000 ÷ (AGI ÷ 레벨 기준 AGI)²를 250~5,000으로
+  bare_interval: combatSlot("bare_interval", [v("I", "ms"), v("AGI", "points"), v("LV", "level")], "ms", {
+    min: 100,
+    max: 60_000,
+  }),
 };
 
 /**
@@ -211,6 +218,13 @@ export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> 
   ].join("\n"),
   bare_hit:
     '# 사용자 결정 2026-11-12: 맨손은 늘 맞는다("맨손 항상 100%") — 빗나감은 방어자 회피 굴림만\n1000',
+  bare_interval: [
+    "# 사용자 답 1252(2026-11-12): 초기 스탯 10 기준이면 레벨이 올라도 약 2초, AGI가 높으면 빠르게·낮으면 느리게(20 → 0.5초), 아무리 낮아도 5초 안",
+    "# base = 초기 10인 보통 유닛의 그 레벨 AGI(성장률 N5 100‰ × K 1, 적정 STA 식과 같은 틀). 최소 0.25초는 기술 하한(전투 틱 100ms에 닿지 않게)",
+    "base = 10 * (1 + 0.1 * (LV - 1))",
+    "r = max(1, AGI) / base",
+    "min(5000, max(250, floor(2000 / (r * r))))",
+  ].join("\n"),
 };
 
 /**
@@ -219,6 +233,10 @@ export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> 
  */
 export function critFormulaIdOf(unarmed: boolean): "real_crit" | "bare_crit" {
   return unarmed ? "bare_crit" : "real_crit";
+}
+/** 판정이 기본 공격 간격에 쓰는 식(사용자 답 1252): 맨손 자료는 bare_interval, 무기는 attack_interval */
+export function intervalFormulaIdOf(unarmed: boolean): "attack_interval" | "bare_interval" {
+  return unarmed ? "bare_interval" : "attack_interval";
 }
 /** 판정이 명중에 쓰는 식(사용자 결정 2026-11-12 "맨손 항상 100%"): 맨손 자료는 bare_hit, 무기는 real_hit */
 export function hitFormulaIdOf(unarmed: boolean): "real_hit" | "bare_hit" {
@@ -372,6 +390,11 @@ export function bareCritScope(
   appropriateMilli: number,
 ): FormulaScope {
   return { W: int(weapon), DEX: int(dex), AGI: int(agi), A: pm(appropriateMilli) };
+}
+
+/** 맨손 공격 간격 식(bare_interval): 맨손 자료 간격(ms)·AGI·레벨 */
+export function bareIntervalScope(intervalMs: number, agi: number, level: number): FormulaScope {
+  return { I: int(intervalMs), AGI: int(agi), LV: int(level) };
 }
 
 /** 크리 배율 식: 크리 배율 점수(‰)·범위 폭(‰)·굴림 */

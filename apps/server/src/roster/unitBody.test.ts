@@ -105,6 +105,9 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
     // 맨손(사용자 결정 2026-11-12): 크리 = AGI + DEX = 20‰(2%), 명중 늘 1000‰. 검을 쥐면 무기 틀(맨손 표지 없음)
     expect(bare.combat?.crit).toMatchObject({ real: 20, bare: { agi: 10 }, part: { stat: 10 } });
     expect(bare.combat?.hit).toMatchObject({ real: 1000, bare: true });
+    // 맨손 간격(사용자 답 1252): 2,000 ÷ (AGI 10 ÷ Lv 1 기준 10)² = 2,000ms. 검은 무기 틀(1,200ms, 맨손 표지 없음)
+    expect(bare.combat?.interval).toMatchObject({ real: 2000, bare: true, part: { stat: 10 } });
+    expect(armed.combat?.interval.bare).toBeUndefined();
     expect(armed.combat?.crit.bare).toBeUndefined();
     expect(armed.combat?.hit.bare).toBeUndefined();
     // 이동 속도 줄(2026-11-12): 서버 걷기 빠르기 437 단위/초·전투 걸음 1초

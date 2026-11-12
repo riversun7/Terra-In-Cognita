@@ -3,7 +3,7 @@
 // 공격력 = 스탯 공격력(2차 물리·속성 공격력) + 무기 공격력 × min(N10, STR·INT ÷ 무기 적정 STR·INT)(D-502, 사용자 답 296).
 // 명중·크리 = 무기 값 × min(N10, DEX ÷ 적정 DEX), 공격 간격 = 무기 간격 ÷ min(N10, AGI ÷ 적정 AGI)(사용자 답 297·298). 적정은 무기의
 // 1차 적정 스탯(몫마다 하나, 없으면 비율 100%). 맨손(무기 unarmed)은 무기 몫 0, 적정 DEX·AGI = 계산식 bare_appropriate(레벨 × 1.5 + 10).
-// 맨손 크리는 따로 식(bare_crit, 기본 AGI + DEX ‰ — 사용자 결정 2026-11-12 "10,10이면 2%"). 맨손 명중·간격은 무기 틀 그대로.
+// 맨손 크리는 따로 식(bare_crit, 기본 AGI + DEX ‰ — 사용자 결정 2026-11-12 "10,10이면 2%"). 맨손 명중(bare_hit)·기본 공격 간격(bare_interval)도 맨손 식이다.
 // 무기의 속성 계수(skillElementsPm)는 물리 칸이면 옵션(속성 몫, D-459)이다.
 // 무기는 공격력 칸을 물리·속성 하나 또는 둘 가진다(D-465). 스킬은 기반에 맞는 칸, 기본 공격은 basic 칸(질문 235 가).
 // 맨손으로는 스킬을 쓸 수 없다(D-490, 맨손 스킬 제외): 사양에 든 무기의 칸 목록(weaponFields)을 적고, 맨손 스킬은 타고난 무기로 센다.
@@ -20,6 +20,7 @@ import { type AttackProfile, ELEMENT_COUNT } from "./formula.ts";
 import {
   attackIntervalMs,
   bareAppropriateMilli,
+  bareIntervalMs,
   realStaminaRegen,
   staminaAppropriateMilli,
 } from "./formulas.ts";
@@ -244,12 +245,11 @@ export function specFromStats(
     },
     range: w.range,
     arc: w.arc,
-    attackIntervalMs: attackIntervalMs(
-      w.intervalMs,
-      primaries[2] ?? 0,
-      appropriateMilliOf(w, basic, bareMilli).agi,
-      c,
-    ),
+    // 맨손 기본 공격은 맨손 식 bare_interval(사용자 답 1252 — AGI 10 → 2초, 20 → 0.5초, 0.25~5초), 무기·발톱은 attack_interval
+    attackIntervalMs:
+      w.unarmed === true
+        ? bareIntervalMs(w.intervalMs, primaries[2] ?? 0, body.level ?? 1, c)
+        : attackIntervalMs(w.intervalMs, primaries[2] ?? 0, appropriateMilliOf(w, basic, bareMilli).agi, c),
     moveIntervalMs: body.moveIntervalMs,
     staminaMax: Math.max(0, s("stamina")),
     staminaCost: w.staminaCost,

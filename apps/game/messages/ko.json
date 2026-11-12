@@ -1900,6 +1900,8 @@
   "cyborg_attack_bare_crit_formula": "맨손 크리(‰) = {agi} + {dex}",
   "cyborg_attack_bare_crit_line": "맨손 크리 = {agi}({agiValue}) + {dex}({dexValue}) = {pm}‰ = {real}",
   "cyborg_attack_bare_hit_formula": "맨손 명중 = 늘 100%(빗나감은 상대 회피만)",
+  "cyborg_attack_bare_interval_formula": "맨손 간격 = 2,000 ÷ ({agi} ÷ 레벨 기준 {agi})² (0.25~5초)",
+  "cyborg_attack_bare_interval_line": "= 2,000 ÷ ({agi}({agiValue}) ÷ {base})² = {real}ms",
   "cyborg_move_cells": "{value}칸/초",
   "cyborg_move_formula": "수단 속도(걷기) + Σ(1차 스탯 × 가중치) + 장비",
   "cyborg_move_base": "기본(걷기) {walk} ÷ {unit} = {value}칸/초",

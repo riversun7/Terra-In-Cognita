@@ -216,3 +216,10 @@ export function mapCrossMinutes(move: { walk: number; cellUnits: number; mapCell
   if (move.walk <= 0) return 0;
   return Math.ceil((move.mapCells * move.cellUnits) / move.walk / 60);
 }
+
+/**
+ * 맨손 간격 풀이의 레벨 기준 AGI(밀리) = 초기 10인 보통 유닛의 그 레벨 AGI, 10 × (1 + 0.1 × (레벨 − 1)). 계산식 bare_interval 기본 식의
+ * base와 같은 값을 보이려는 표시용이다(판정 값은 서버가 보낸 interval.real)
+ */
+export const bareIntervalBaseMilli = (level: number): number =>
+  10_000 + 1000 * Math.max(0, Math.trunc(level) - 1);

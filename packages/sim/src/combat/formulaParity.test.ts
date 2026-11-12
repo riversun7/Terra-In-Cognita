@@ -265,7 +265,7 @@ function bareSpec(v: number, level: number) {
 }
 
 describe("맨손(D-502: 무기 몫 0, 적정 DEX·AGI = 레벨 × 1.5 + 10, 사용자 답 297)", () => {
-  it("새 사이보그(1차 모두 10, Lv 1): 공격력 10(스탯만), 명중 늘 1000‰, 크리 AGI + DEX = 20‰(2026-11-12), 간격 1150ms", () => {
+  it("새 사이보그(1차 모두 10, Lv 1): 공격력 10(스탯만), 명중 늘 1000‰, 크리 AGI + DEX = 20‰(2026-11-12), 간격 2,000ms(답 1252)", () => {
     const spec = bareSpec(10, 1);
     expect(spec.attack.statAttack).toBe(10);
     expect(spec.attack.weaponAttack).toBe(0);
@@ -276,7 +276,8 @@ describe("맨손(D-502: 무기 몫 0, 적정 DEX·AGI = 레벨 × 1.5 + 10, 사�
     expect(realCritPm(spec.attack, c)).toBe(20);
     expect(dexFrameValue("real_hit", 850, 10, 11_500, 1000, c)).toBe(738);
     expect(dexFrameValue("real_crit", 50, 10, 11_500, 1000, c)).toBe(43);
-    expect(spec.attackIntervalMs).toBe(1150);
+    // 맨손 간격(사용자 답 1252): 2,000 ÷ (10 ÷ 10)² = 2,000ms(무기 틀이면 1,000 ÷ (10 ÷ 11.5) = 1,150ms)
+    expect(spec.attackIntervalMs).toBe(2000);
   });
 
   it("Lv 30 균형형(39): 공격력 39, 명중 늘 1000‰(무기 틀이면 적정 55라 602‰), 스킬 사양도 무기 몫 0", () => {

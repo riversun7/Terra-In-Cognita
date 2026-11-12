@@ -396,7 +396,13 @@ export function combatSummaryOfSpec(catalog: RosterCatalog, spec: BodySpec, part
       real: realCritPm(a, c),
       ...(a.unarmed === true ? { bare: { agi } } : {}),
     },
-    interval: { weaponMs: weapon.intervalMs, part: part(agi, agiAppropriate), real: unit.attackIntervalMs },
+    // 맨손 기본 공격 간격은 맨손 식(bare_interval, 사용자 답 1252)
+    interval: {
+      weaponMs: weapon.intervalMs,
+      part: part(agi, agiAppropriate),
+      real: unit.attackIntervalMs,
+      ...(weapon.unarmed === true ? { bare: true } : {}),
+    },
     staminaRegen: {
       row: Math.max(0, parts.loadout.stats.stamina_regen ?? 0),
       score: unit.staminaScore,

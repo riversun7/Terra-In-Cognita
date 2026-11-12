@@ -255,7 +255,7 @@ describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 
     expect(realHitPm(specOf({ ...all(10), dex: 1 }, UNARMED_PHYSICAL, 30).attack, c)).toBe(1000);
   });
 
-  it('맨손 크리 = AGI + DEX ‰(사용자 결정 2026-11-12 "10,10이면 2%"), 맨손 명중·간격은 그대로', () => {
+  it('맨손 크리 = AGI + DEX ‰(사용자 결정 2026-11-12 "10,10이면 2%"), 명중 100%', () => {
     // AGI 10·DEX 10 → 20‰ = 2%(전에는 맨손 자료 크리 50‰ × min(1, 10 ÷ 11.5) = 43‰)
     const ten = specOf(all(10), UNARMED_PHYSICAL);
     expect(ten.attack.unarmed).toBe(true);
@@ -265,15 +265,32 @@ describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 
     expect(realCritPm(specOf(p, UNARMED_PHYSICAL).attack, c)).toBe(27);
     expect(realCritPm(specOf(p, UNARMED_PHYSICAL, 30).attack, c)).toBe(27);
     expect(realCritPm(specOf(all(100), UNARMED_PHYSICAL).attack, c)).toBe(200);
-    // 명중은 늘 1000‰(맨손 식 bare_hit), 간격은 무기 틀 그대로: 1000 ÷ min(1, 15 ÷ 11.5) = 1000ms
+    // 명중은 늘 1000‰(맨손 식 bare_hit)
     expect(realHitPm(ten.attack, c)).toBe(1000);
-    expect(specOf(p, UNARMED_PHYSICAL).attackIntervalMs).toBe(1000);
     // 크리쳐 발톱처럼 맨손이 아닌 타고난 무기는 무기 틀 그대로(50 × min(1, 12 ÷ 12) = 50)
     const claws: WeaponSpec = { ...UNARMED_PHYSICAL, unarmed: false, appropriate: { dex: 12, agi: 12 } };
     const clawSpec = specOf(p, claws);
     expect(clawSpec.attack.unarmed).toBeUndefined();
     expect(realCritPm(clawSpec.attack, c)).toBe(50);
     expect(realHitPm(clawSpec.attack, c)).toBe(850);
+    expect(clawSpec.attackIntervalMs).toBe(1000);
+  });
+
+  it("맨손 간격 = 2,000 ÷ (AGI ÷ 그 레벨 보통 유닛 AGI)², 0.25~5초(사용자 답 1252)", () => {
+    // Lv 1 기준 AGI 10: 10 → 2,000ms, 20 → 500ms, 15 → 888ms, 7 → 4,081ms, 6 이하 → 5,000ms(상한), 100 → 250ms(하한)
+    const at = (agi: number, level = 1) =>
+      specOf({ ...all(10), agi }, UNARMED_PHYSICAL, level).attackIntervalMs;
+    expect(at(10)).toBe(2000);
+    expect(at(20)).toBe(500);
+    expect(at(15)).toBe(888);
+    expect(at(7)).toBe(4081);
+    expect(at(6)).toBe(5000);
+    expect(at(0)).toBe(5000);
+    expect(at(100)).toBe(250);
+    // 초기 10인 유닛은 레벨이 올라도 약 2초(Lv 10 AGI 19 → 2,000, Lv 30 AGI 39 → 2,000·38 → 2,109)
+    expect(at(19, 10)).toBe(2000);
+    expect(at(39, 30)).toBe(2000);
+    expect(at(38, 30)).toBe(2109);
   });
 
   it("맨손 스킬 사양(타고난 무기·맨손 속성 자료)도 맨손 크리 식을 쓴다", () => {

@@ -13,6 +13,7 @@ import {
   attackScope,
   bareAppropriateScope,
   bareCritScope,
+  bareIntervalScope,
   compileFormulaOrThrow,
   critMultiplierScope,
   dexFrameScope,
@@ -50,6 +51,7 @@ function setOf(make: (id: CombatFormulaId) => FormulaProgram): CombatFormulaSet 
     evade_chance: make("evade_chance"),
     bare_crit: make("bare_crit"),
     bare_hit: make("bare_hit"),
+    bare_interval: make("bare_interval"),
   };
 }
 
@@ -133,6 +135,22 @@ export function bareCritPm(
 ): number {
   return nonNegative(
     evaluateFormulaInt(formulaOf("bare_crit", c), bareCritScope(weaponCritPm, dex, agi, appropriateMilli)),
+  );
+}
+
+/**
+ * 맨손 공격 간격(ms, 식 bare_interval — 기본 = 2,000 ÷ (AGI ÷ 그 레벨 보통 유닛 AGI)²를 250~5,000으로, 사용자 답 1252). 1ms 이상.
+ * 맨손 자료(unarmed)로 기본 공격할 때만(unitSpec.ts). 맨손 적정(레벨 × 1.5 + 10)은 쓰지 않는다
+ */
+export function bareIntervalMs(
+  intervalMs: number,
+  agi: number,
+  level: number,
+  c: CombatCoefficients,
+): number {
+  return Math.max(
+    1,
+    evaluateFormulaInt(formulaOf("bare_interval", c), bareIntervalScope(intervalMs, agi, level)),
   );
 }
 

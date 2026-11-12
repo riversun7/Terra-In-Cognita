@@ -110,7 +110,7 @@ export function CombatSpecs({ body, names }: { body: CyborgBody; names: RosterNa
                 />
               ))}
               {group === "offense" && body.combat ? (
-                <AttackRows combat={body.combat} names={names} buffs={body.buffs} />
+                <AttackRows combat={body.combat} names={names} buffs={body.buffs} level={body.level} />
               ) : null}
               {group === "mobility" && (body.move || (body.buffs && body.buffs.moveSpeedPm !== 0)) ? (
                 <MoveSpeedRow move={body.move} buffs={body.buffs} />

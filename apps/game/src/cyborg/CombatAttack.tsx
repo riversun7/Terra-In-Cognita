@@ -4,7 +4,8 @@
 // 공식 글은 D-502: 공격력 = 스탯 공격력 + 무기 공격력 × 비율(STR·INT ÷ 적정), 명중·크리 = 무기 값 × 비율(DEX), 간격 = 무기 간격 ÷ 비율(AGI).
 // 버프 몫(질문 354 → D-515): 줄 값은 걸린 효과를 뺀 기본, 옆 알약·막대 빗금 칸이 몫(CyborgBody.buffs, 공격은 공격 ‰ 배율까지).
 // 2차 행이 없는 관통은 값이 있을 때만 줄을 더한다. 이동 속도 줄은 서버가 걷기 빠르기(move)를 보내면 늘 있다(2026-11-12).
-// 맨손 크리(crit.bare)는 맨손 식 풀이 "맨손 크리 = AGI(10) + DEX(10) = 20‰ = 2%", 맨손 명중(hit.bare)은 늘 100%(사용자 결정 2026-11-12).
+// 맨손 크리(crit.bare)는 맨손 식 풀이 "맨손 크리 = AGI(10) + DEX(10) = 20‰ = 2%", 맨손 명중(hit.bare)은 늘 100%(사용자 결정 2026-11-12),
+// 맨손 간격(interval.bare)은 "2,000 ÷ (AGI(10) ÷ 10)² = 2,000ms"(사용자 답 1252).
 import type {
   RosterBuffs,
   RosterCombat,
@@ -17,7 +18,14 @@ import { type ReactNode, useId, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { formatMilli, formatNumber, formatSigned, localName, primaryCode } from "../roster/rosterText.ts";
 import { BuffChip } from "./BuffChip.tsx";
-import { barFill, barSplit, buffTone, mapCrossMinutes, walkCellsMilli } from "./cyborgText.ts";
+import {
+  barFill,
+  barSplit,
+  bareIntervalBaseMilli,
+  buffTone,
+  mapCrossMinutes,
+  walkCellsMilli,
+} from "./cyborgText.ts";
 import { StatIcon } from "./statIcons.tsx";
 
 const pct = (share: number): string => `${String(Math.round(share * 1000) / 10)}%`;
@@ -174,10 +182,13 @@ export function AttackRows({
   combat,
   names,
   buffs,
+  level = 1,
 }: {
   combat: RosterCombat;
   names: RosterNames;
   buffs?: RosterBuffs | undefined;
+  /** 유닛 레벨(맨손 간격 풀이의 레벨 기준 AGI) */
+  level?: number;
 }) {
   const { attack, hit, crit, interval } = combat;
   const attackShare = buffs?.attack ?? 0;
@@ -309,14 +320,33 @@ export function AttackRows({
         fill={intervalBar.fill}
         buff={intervalBar.buff}
       >
-        <PartLine code={agi} part={interval.part} />
-        <p className="combat-line combat-result" translate="no">
-          {m.cyborg_attack_interval_line({
-            weapon: formatNumber(interval.weaponMs),
-            ratio: ratioText(interval.part.ratioPm),
-            real: formatNumber(interval.real),
-          })}
-        </p>
+        {interval.bare ? (
+          <>
+            <p className="combat-formula">
+              <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+              {m.cyborg_attack_bare_interval_formula({ agi })}
+            </p>
+            <p className="combat-line combat-result" translate="no">
+              {m.cyborg_attack_bare_interval_line({
+                agi,
+                agiValue: formatNumber(interval.part.stat),
+                base: formatMilli(bareIntervalBaseMilli(level)),
+                real: formatNumber(interval.real),
+              })}
+            </p>
+          </>
+        ) : (
+          <>
+            <PartLine code={agi} part={interval.part} />
+            <p className="combat-line combat-result" translate="no">
+              {m.cyborg_attack_interval_line({
+                weapon: formatNumber(interval.weaponMs),
+                ratio: ratioText(interval.part.ratioPm),
+                real: formatNumber(interval.real),
+              })}
+            </p>
+          </>
+        )}
         {intervalBar.buff ? (
           <BuffLines
             share={intervalBar.buff.text}

@@ -11,6 +11,7 @@ import {
   attackScope,
   bareAppropriateScope,
   bareCritScope,
+  bareIntervalScope,
   critMultiplierScope,
   dexFrameScope,
   evadeScope,
@@ -151,6 +152,7 @@ export function sampleScopes(
     bare_crit: bareCritScope(weapon.critPm, dex, agi, bareMilli),
     // 맨손 명중(늘 100%, 2026-11-12): 무기 틀과 같은 변수, 적정은 맨손 적정
     bare_hit: dexFrameScope(weapon.hitPm, dex, bareMilli, c.capPm),
+    bare_interval: bareIntervalScope(weapon.intervalMs, agi, input.level),
   };
 }
 
@@ -193,6 +195,7 @@ export function runFormulaSample(
     evade_chance: evaluateFormula(combat.evade_chance, scopes.evade_chance),
     bare_crit: evaluateFormula(combat.bare_crit, scopes.bare_crit),
     bare_hit: evaluateFormula(combat.bare_hit, scopes.bare_hit),
+    bare_interval: evaluateFormula(combat.bare_interval, scopes.bare_interval),
   };
   return { stats, staminaScore, scopes, values };
 }

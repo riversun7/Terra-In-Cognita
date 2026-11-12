@@ -15,8 +15,6 @@ import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
-const BUILDING_MARKER = ".gather-building-marker:not([hidden])";
-
 /** 내 사이보그 2차맵을 열고 건물 표시가 설 때까지 */
 async function openMap(page: Page): Promise<void> {
   await rewriteTrpc(page, { "summary.get": hideSummary });
@@ -24,10 +22,10 @@ async function openMap(page: Page): Promise<void> {
   const map = page.locator(".map-screen[data-map-key]");
   await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
   await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
-  // 건물 표시는 근처 판 건물 탭일 때만(docs/adr/2026-11-08-seamless-second-map.md WP-2)
+  // 건물은 근처 판 건물 탭 목록으로 연다(지도 위 건물마다 단추는 지웠다 — 사용자 지적 2026-11-12 "누른 건물만 표시해라")
   await openNearby(page, "buildings");
+  await expect(page.locator('.map-nearby-row[data-kind="building"]').first()).toBeVisible({ timeout: 30_000 });
   await collapseNearby(page);
-  await expect(page.locator(BUILDING_MARKER).first()).toBeVisible({ timeout: 30_000 });
 }
 
 /** 찾는 채집소: objects = 원자재 채집소만, any = 원자재 채집소 먼저 그다음 오브젝트 없는 채집소, farm = 농장만 */

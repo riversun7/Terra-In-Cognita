@@ -260,12 +260,12 @@ test.describe("지도 흐름: 플레이어", () => {
     await expect(map).toHaveAttribute("data-focus-source", "picked");
     if (key === mine) {
       await expect(map).toHaveAttribute("data-cyborg", /\d+/);
-      await expect(page.locator(".map-units-toggle")).toBeVisible();
+      await expect(page.locator(".map-nav .map-nav-units")).toBeVisible();
     }
     await shot(page, "play-map-second-390");
 
-    // [1차맵] = 같은 키로 1차맵(그 2차맵 자리를 가운데로)
-    await page.locator(".map-switch-button").click();
+    // 아래 탭 [1차맵] = 같은 키로 1차맵(그 2차맵 자리를 가운데로, 사용자 지적 2026-11-12 — 옛 오른쪽 위 전환 단추)
+    await page.locator(".map-nav .map-nav-planet").click();
     await expect(page).toHaveURL(
       (url) => url.pathname === "/map/planet" && url.searchParams.get("key") === key,
     );
@@ -402,7 +402,7 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
     await expect(map).toHaveAttribute("data-map-key", mine);
     await expect(map).toHaveAttribute("data-travel", /^1\/\d+$/, { timeout: 15_000 });
     await expect(page.locator(".map-travel")).toBeVisible();
-    await expect(page.locator(".map-units-toggle")).toBeVisible();
+    await expect(page.locator(".map-nav .map-nav-units")).toBeVisible();
     // 가는 동안 [멈추기]가 나타났다 사라지지 않는다(사용자 지적 2026-11-09): 내 사이보그를 고른 채 4초 동안 0.25초마다 본다
     await expect(page.locator(".map-unit-stop")).toBeVisible({ timeout: 10_000 });
     for (let sample = 0; sample < 16; sample++) {
@@ -449,7 +449,7 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
       })
       .toBe(true);
     // [내 유닛 N] → 목록 첫 줄(사이보그 본체)을 누르면 그대로 내 사이보그 자리(사용자 지적 2026-11-09 문제2 — 옛 [내 사이보그])
-    await page.locator(".map-units-toggle").click();
+    await page.locator(".map-nav .map-nav-units").click();
     const cyborgRow = page.locator(".map-unit-row").first();
     await expect(cyborgRow).toHaveAttribute("data-kind", "cyborg_body", { timeout: 15_000 });
     await cyborgRow.click();

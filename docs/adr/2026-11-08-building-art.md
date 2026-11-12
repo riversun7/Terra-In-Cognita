@@ -86,3 +86,9 @@
 - **편집기 미리 보기**: 새 진입점 `@terra/engine/buildingPreview`(`BuildingPreview`: 같은 `BuildingView`·고정 낮 빛 `FIXED_SECOND_MAP_LIGHT`, 평평한 땅·배치 칸 금·앞면 화살표, 끌기·휠·키 돌려 보기, 바뀔 때만 그림)와 `@terra/engine/buildingArt`(three 없는 이름표·색 표). 건물 편집기 조각만 지연 로딩한다(`buildingEditorPreview-*`, 미리 캐시 밖 — `DEV_ONLY_SOURCE`에 `buildingPreview.ts`·`previewEntry.ts`를 넣어 새면 `check-pwa`가 막는다).
 - 지도 아이콘·그림 파일은 없다(2차맵은 이 3D 모델만, 1차맵은 도시 판). 그래서 편집기는 그림 칸을 두지 않고 "없음"이라고 적는다.
 - 상태: 사용자가 화면을 본 뒤 통합 담당이 확정한다(이 절은 위 상태 줄을 바꾸지 않는다).
+
+## 바뀜 (2026-11-12)
+- 사용자 지적(2026-11-12) "창고나 광산등 채집소도 제대로 구분되게 꾸미고": 1차 생산 채집소 셋이 전용 모델을 갖는다 — 약초원 `herb`(이끼 지붕 오두막·돋운 화단의 잎·꽃 덤불·말리는 시렁), 목장 `ranch`(붉은 헛간·흰 울타리 풀밭·가축·물통·건초), 낚시터 `fishing`(청록 지붕 오두막·널판 부두·뒤집힌 배·그물 틀). 그 전에는 농장·벌목장 모델을 색만 바꿔 썼다(`docs/adr/2026-11-11-production-six.md` "건물 그림 후속").
+- 모델 이름표 `FACILITY_LOOK_MODELS`(`@terra/shared/facilityLook`) 끝에 셋을 더했다(한 번 쓴 이름은 다시 쓰지 않는다 규칙 그대로). 팩 `facilities.look.model`도 바꿨다(core@77). 옛 기기는 모르는 모델 이름을 받으면 시설 ID로 고르므로(`resolveLook` → `artKindOf`) 옛 모델로 그린다.
+- 코드: `packages/engine/src/buildings/buildingKindsGather.ts`(새), 종류 표 `buildingKinds.ts`, 색 표 `buildingPalette.ts`(잎·꽃·울타리·털·물·배 몸통·그물), 건물 편집기 모델 이름(ko·en).
+- 지도 위에서 무리를 가르는 색 점(누른 건물 이름표)·도시 화면 무리 표시는 이 모델에서 정한다(`docs/adr/2026-10-29-app-shell.md` "바뀜 (2026-11-12, 2차맵 아래 탭·운영 메뉴)").

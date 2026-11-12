@@ -7,7 +7,8 @@ export type NearbyTab = "resources" | "buildings" | "units";
 /** 근처 판을 열고 그 탭을 고른다(펼친 채). 이미 그 탭이면 펼치기만 */
 export async function openNearby(page: Page, tab: NearbyTab): Promise<void> {
   const panel = page.locator(".map-nearby");
-  if ((await panel.count()) === 0) await page.locator(".map-nearby-toggle").click();
+  // 아래 탭 [주변](사용자 지적 2026-11-12 — 옛 [근처] 단추)
+  if ((await panel.count()) === 0) await page.locator(".map-nav .map-nav-nearby").click();
   await expect(panel).toBeVisible();
   const button = panel.locator(`.map-nearby-tab[data-tab="${tab}"]`);
   if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();

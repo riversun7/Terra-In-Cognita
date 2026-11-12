@@ -8,6 +8,7 @@
 // - 사진: 목록(다른 곳 줄)·정찰 알림 390 × 파스텔·다크.
 // 바뀜(docs/adr/2026-11-08-seamless-second-map.md WP-1·2): 카메라는 늘 기준 유닛(내 사이보그)을 따라가고 끌기는 돌리기다 — 630은 "끌어도 목표점이
 // 내 사이보그에 머문다"로 본다. 목록은 근처 판 유닛 탭. 내 유닛이 없는 2차맵은 들어갈 수 없어 남의 유닛 시험은 이 맵에 없는 가짜 내 유닛을 둔다.
+import { operatorToggle } from "./helpers/mapHud.ts";
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { openNearby } from "./helpers/nearby.ts";
@@ -228,14 +229,14 @@ test.describe("기획 답 631: 운영자 모드 기억", () => {
     await openMap(page);
     const screen = page.locator(".map-screen");
     await expect(screen).toHaveAttribute("data-operator", "off");
-    await page.locator(".map-operator-toggle").click();
+    await (await operatorToggle(page)).click();
     await expect(screen).toHaveAttribute("data-operator", "on");
     await page.reload();
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
     await expect(screen).toHaveAttribute("data-operator", "on");
     await expect(page.locator(".map-operator-badge")).toBeVisible();
     await expect(screen).not.toHaveAttribute("data-explored", /./, { timeout: 15_000 });
-    await page.locator(".map-operator-toggle").click();
+    await (await operatorToggle(page)).click();
     await expect(screen).toHaveAttribute("data-operator", "off");
     await page.reload();
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 20_000 });

@@ -4,14 +4,13 @@
 // 근처 판(docs/adr/2026-11-08-seamless-second-map.md WP-2): 표시는 근처 판 자원·건물 탭일 때만 보인다. 오브젝트·건물 판은 근처 목록 줄로 연다
 // (표시를 눌러 여는 것은 map-input.spec.ts가 본다).
 import type { Page } from "@playwright/test";
-import { collapseNearby, openNearby } from "./helpers/nearby.ts";
+import { openNearby } from "./helpers/nearby.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const READY_MARKER = '.gather-marker[data-state="ready"]:not([hidden])';
-const BUILDING_MARKER = ".gather-building-marker:not([hidden])";
 
 /** tRPC 조회 하나(로그인한 이 화면의 쿠키로)의 data */
 async function trpcData(page: Page, procedure: string): Promise<unknown> {
@@ -107,11 +106,11 @@ test.describe("원자재 오브젝트 채집·건물 들어가기: 플레이어"
     await expect(loop).toHaveAttribute("data-stop", "stopped", { timeout: 15_000 });
     expect(await myLoop(page)).toEqual({ phase: "done", stop: "stopped" });
 
-    // 건물 탭: 지도에는 건물 표시만(자원 표시는 숨는다). 가장 가까운 건물(시작 도시의 시설) → 건물 판: 들어가면 하는 일·안에 있는 유닛·[들어가기]
+    // 건물 탭: 자원 표시는 숨는다. 가장 가까운 건물(시작 도시의 시설) → 건물 판: 들어가면 하는 일·안에 있는 유닛·[들어가기].
+    // 지도 위에는 누른 건물 하나에만 이름표가 선다(사용자 지적 2026-11-12 "누른 건물만 표시해라")
     await openNearby(page, "buildings");
-    await collapseNearby(page);
-    await expect(page.locator(BUILDING_MARKER).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.locator(READY_MARKER)).toHaveCount(0);
+    await expect(page.locator(".gather-building-tag:not([hidden])")).toHaveCount(0);
     expect(await openBuildingSheet(page)).toBe(true);
     const buildingSheet = page.locator(".gather-sheet[data-building]");
     await expect(buildingSheet).toBeVisible();

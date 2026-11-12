@@ -21,6 +21,10 @@ export const FACILITY_LOOK_MODELS = [
   "government",
   "hospital",
   "house",
+  // 1차 생산 채집소 전용 모델(2026-11-12, 그 전에는 농장·벌목장 모델을 색만 바꿔 썼다)
+  "herb",
+  "ranch",
+  "fishing",
 ] as const;
 export type FacilityLookModel = (typeof FACILITY_LOOK_MODELS)[number];
 

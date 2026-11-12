@@ -9,6 +9,7 @@
 //   지도를 받아 엔진에 넣는다, 원자재를 바꾸면 그림이 바뀐다) → 영토(자원 지도를 버리고, 영토 덧그림을 진하게, 누른 곳의 국가 줄).
 // 사진: 390px × 파스텔·다크 × 한국어·영어(확대 단계·항성계 보기), 1440px 파스텔 항성계 보기, 2차맵 확대 단계,
 // 390px × 파스텔·다크 레이어 셋(고도·자원·영토)(E2E_SHOTS_DIR).
+import { closeOperatorMenu, setPerfPanel } from "./helpers/mapHud.ts";
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -268,6 +269,8 @@ test.describe("처음 단계·성능 판: 플레이어", () => {
     // 1초 요약(엔진·프레임 값)이 몇 번 돈 뒤에도 성능 판이 없다
     await page.waitForTimeout(1500);
     await expect(page.locator(".map-perf")).toHaveCount(0);
+    // 운영 메뉴도 운영진만(사용자 지적 2026-11-12)
+    await expect(page.locator(".map-operator-menu-button")).toHaveCount(0);
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -276,13 +279,18 @@ for (const account of ["dev", "admin"] as const) {
   test.describe(`성능 판: 운영진 ${account}`, () => {
     test.use({ account });
 
-    test(`1차맵 성능 판·고도 과장 막대, 2차맵 성능 판이 보인다 (${account})`, async ({
+    test(`성능 판은 처음 닫혀 있고 운영 메뉴로 켜면 1·2차맵 모두 보인다(기억), 고도 과장 막대 (${account})`, async ({
       page,
       deviceErrors,
     }) => {
       test.setTimeout(150_000);
       await openPlanet(page, "?planet-sky=off");
       const screen = page.locator(".planet-screen");
+      // 처음은 닫힘(사용자 지적 2026-11-12 "Fast ms 같은 장보창도 토글로해라") → 운영 메뉴 [성능 표시]
+      await expect(page.locator(".planet-screen")).toHaveAttribute("data-frames", /^\d+$/);
+      await expect(screen.locator(".map-perf")).toHaveCount(0);
+      await setPerfPanel(page, true);
+      await closeOperatorMenu(page);
       await expect(screen.locator(".map-perf")).toBeVisible();
       await expect(screen.locator(".map-perf")).toContainText("fps");
       await expect(page.locator("#planet-exaggeration")).toBeVisible();
@@ -300,7 +308,10 @@ for (const account of ["dev", "admin"] as const) {
       );
       await page.goto("/map");
       await expect(page.locator(".map-screen")).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+      // 이 기기에 기억한 값 — 2차맵도 켜진 채, 끄면 닫힌다
       await expect(page.locator(".map-screen .map-perf")).toBeVisible();
+      await setPerfPanel(page, false);
+      await expect(page.locator(".map-screen .map-perf")).toHaveCount(0);
       expect(deviceErrors).toEqual([]);
     });
   });

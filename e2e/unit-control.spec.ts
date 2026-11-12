@@ -9,7 +9,7 @@
 // 바뀜(docs/adr/2026-11-08-seamless-second-map.md WP-1·2): 내 유닛 목록은 근처 판 유닛 탭이고(가까운 차례 — 기준 유닛인 내 사이보그가 첫 줄),
 // 늘 유닛 하나가 골라져 있다(들어오면 내 사이보그). 이 맵에 내 유닛이 없으면 들어갈 수 없다 — 남의 유닛 시험은 목록에 없는 가짜 내 유닛을 둔다.
 // 바뀜(사용자 지적 2026-11-09, docs/adr/2026-11-08-seamless-second-map.md "바뀜 3"): [내 유닛 N] → 내 유닛 목록(사이보그 첫 줄)으로 고른다, 건물 판의
-// "보낼 유닛"은 안내 줄과 같은 유닛·이름, 건물 하나를 누르면 판 하나(근처 판·정부 판이 따로 뜨지 않는다), 1·2차맵 전환 단추는 판과 겹치지 않는다
+// "보낼 유닛"은 안내 줄과 같은 유닛·이름, 건물 하나를 누르면 판 하나(근처 판·정부 판이 따로 뜨지 않는다), 아래 탭(2026-11-12 — 옛 1·2차맵 전환 단추)은 판과 겹치지 않는다
 // (오른쪽 위 구석). 사진: 목록·건물 판 390 × 파스텔·다크 × 한국어·영어, 넓은 화면 한 장.
 // 바뀜(사용자 지적 2026-11-09 "이동하려는데 다른 유닛이 선택되는문제 … 다른 유닛 눌려지면 상호작용 메뉴가 나오거나 다른곳을 눌러 저절로 닫히게",
 // docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-09)"): 플레이어가 남의 유닛을 누르면(지도·근처 판) 고르지 않고 정보 판(.map-peek)을 연다 —
@@ -19,6 +19,7 @@
 // 다른곳 클릭시 닫기", docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-10)"): 운영자 모드도 남의 유닛을 누르면 작은 창만 — [이 유닛 조종]을
 // 눌러야 명령 유닛이 바뀐다. 손가락(터치 흉내, 412×915)으로 본다: 창 열림 → 고른 유닛 그대로 → 땅 누르기 = 닫고 내 유닛 move_unit.
 // 남의 유닛은 몸 위를 눌러야 걸린다(빗나간 누르기 = 땅). 창은 밖(아래 안내 판)을 눌러도 닫힌다. 사진: 작은 창 390·412 × 파스텔·다크 × 한국어·영어 4장.
+import { freeViewToggle, operatorToggle } from "./helpers/mapHud.ts";
 import type { Page } from "@playwright/test";
 import { groundOffsets } from "./helpers/mapGround.ts";
 import { message } from "./helpers/messages.ts";
@@ -36,15 +37,15 @@ async function openMap(page: Page): Promise<void> {
   await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
 }
 
-/** 1·2차맵 전환 단추와 겹치는 지도 위·아래 판(또는 그 안 단추)의 class — 비어야 한다(사용자 지적 2026-11-09 문제1) */
-async function switchOverlaps(page: Page): Promise<string[]> {
+/** 아래 탭(2차맵 맨 아래 [1차맵]·[유닛]·[도시]·[주변], 사용자 지적 2026-11-12)과 겹치는 위·아래 판 — 없어야 한다(판은 탭 위에서 멈춘다) */
+async function navOverlaps(page: Page): Promise<string[]> {
   return page.evaluate(() => {
-    const button = document.querySelector(".map-switch-button");
-    if (!button) return ["no map switch"];
-    const box = button.getBoundingClientRect();
+    const nav = document.querySelector(".map-nav");
+    if (!nav) return ["no bottom nav"];
+    const box = nav.getBoundingClientRect();
     const hits: string[] = [];
     for (const element of document.querySelectorAll(
-      ".map-hud-top > *, .map-hud-bottom > *, .map-hud-bottom button, .map-hud-bottom .map-panel",
+      ".map-hud-top > *, .map-hud-bottom > *, .map-hud-bottom button, .map-hud-bottom .map-panel, .map-city",
     )) {
       const rect = element.getBoundingClientRect();
       if (rect.width < 1 || rect.height < 1) continue;
@@ -66,7 +67,7 @@ async function bottomSheets(page: Page): Promise<string[]> {
 
 /**
  * 내 유닛 목록·건물 판 흐름(문제2·3·4·1): 남의 유닛을 살펴보다가 [내 유닛 N] → 목록 첫 줄(사이보그)로 고르고, 근처 판 건물 줄로 건물 판을 연다.
- * 보낼 유닛 이름 = 안내 줄의 이름, 판 하나, 전환 단추와 겹침 없음. 사진 이름 끝(suffix)이 있으면 목록·건물 판을 찍는다
+ * 보낼 유닛 이름 = 안내 줄의 이름, 판 하나, 아래 탭과 겹침 없음. 사진 이름 끝(suffix)이 있으면 목록·건물 판을 찍는다
  */
 async function unitListAndBuilding(page: Page, language: Language, suffix: string | null): Promise<void> {
   await rewriteTrpc(page, { "summary.get": hideSummary });
@@ -78,10 +79,10 @@ async function unitListAndBuilding(page: Page, language: Language, suffix: strin
   // 들어오면 최대 확대(사다리 6/6, 사용자 지적 2026-11-09·962 나) — 카메라 범위(내 유닛 둘레)가 걸린 뒤에도
   await page.waitForTimeout(1_500);
   await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "6");
-  // 근처 판 펼침: 탭·[닫기]가 전환 단추에 가리지 않는다
+  // 근처 판 펼침: 탭·[닫기]가 아래 탭에 가리지 않는다
   await openNearby(page, "units");
   await expect(page.locator(".map-nearby-row").first()).toBeVisible({ timeout: 15_000 });
-  expect(await switchOverlaps(page)).toEqual([]);
+  expect(await navOverlaps(page)).toEqual([]);
   // 남의 유닛(도시 둘레 휴먼)을 살펴본다 — 있으면. 정보 판만 열리고 고른 유닛은 내 사이보그 그대로(2026-11-09)
   const other = page.locator('.map-nearby-row[data-kind="unit"][data-mine="false"]').first();
   if (await other.count()) {
@@ -91,17 +92,18 @@ async function unitListAndBuilding(page: Page, language: Language, suffix: strin
     await expect(screen).toHaveAttribute("data-control", "own");
   }
 
-  // [내 유닛 N] → 목록(사이보그 본체가 첫 줄), 근처 판은 그동안 숨는다
-  const toggle = page.locator(".map-units-toggle");
-  await expect(toggle).toHaveText(/\d/, { timeout: 15_000 });
+  // 아래 탭 [유닛](수 표시) → 목록(사이보그 본체가 첫 줄), 근처 판은 그동안 숨는다
+  const toggle = page.locator(".map-nav .map-nav-units");
+  await expect(toggle.locator(".map-nav-badge")).toHaveText(/\d/, { timeout: 15_000 });
   await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
   const list = page.locator(".map-units");
   await expect(list).toBeVisible();
   const row = page.locator(".map-unit-row").first();
   await expect(row).toHaveAttribute("data-kind", "cyborg_body", { timeout: 15_000 });
   await expect(row).toHaveAttribute("data-unit-id", cyborg);
   expect(await bottomSheets(page)).toHaveLength(1);
-  expect(await switchOverlaps(page)).toEqual([]);
+  expect(await navOverlaps(page)).toEqual([]);
   expect(await horizontalOverflow(page)).toEqual([]);
   expect(await smallTapTargets(page)).toEqual([]);
   if (suffix) await shot(page, `unit-list-${suffix}`);
@@ -128,7 +130,7 @@ async function unitListAndBuilding(page: Page, language: Language, suffix: strin
   await page.waitForTimeout(1_500);
   expect(await bottomSheets(page)).toEqual([expect.stringContaining("gather-sheet")]);
   await expect(page.locator(".gather-loop")).toHaveCount(0);
-  expect(await switchOverlaps(page)).toEqual([]);
+  expect(await navOverlaps(page)).toEqual([]);
   expect(await horizontalOverflow(page)).toEqual([]);
   if (suffix) await shot(page, `unit-building-${suffix}`);
   // 닫으면 근처 판이 다시 보인다
@@ -509,7 +511,7 @@ test.describe("유닛 조종: 운영자", () => {
     const screen = page.locator(".map-screen");
     await expect(screen).toHaveAttribute("data-operator", "off");
     await expect(page.locator(".map-operator-badge")).toHaveCount(0);
-    const toggle = page.locator(".map-operator-toggle");
+    const toggle = await operatorToggle(page);
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await expect(screen).toHaveAttribute("data-operator", "on");
@@ -523,7 +525,7 @@ test.describe("유닛 조종: 운영자", () => {
     await row.click();
     await expect(screen).toHaveAttribute("data-control", "operator");
     // 운영자만 [자유 시점](빨간 운영자 단추): 켜면 따라가지 않는다
-    const free = page.locator(".map-free-view");
+    const free = await freeViewToggle(page);
     await expect(free).toBeVisible();
     await free.click();
     await expect(free).toHaveAttribute("aria-pressed", "true");
@@ -551,7 +553,7 @@ test.describe("유닛 조종: 운영자 손가락(412×915)", () => {
     const screen = page.locator(".map-screen");
     const cyborg = (await screen.getAttribute("data-cyborg")) ?? "";
     expect(cyborg).toMatch(/^\d+$/);
-    const toggle = page.locator(".map-operator-toggle");
+    const toggle = await operatorToggle(page);
     await toggle.tap();
     await expect(screen).toHaveAttribute("data-operator", "on");
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
@@ -625,7 +627,7 @@ test.describe("남의 유닛 작은 창 사진", () => {
         await openMap(page);
         const screen = page.locator(".map-screen");
         if (account === "dev") {
-          await page.locator(".map-operator-toggle").tap();
+          await (await operatorToggle(page)).tap();
           await expect(screen).toHaveAttribute("data-operator", "on");
           await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
         }
@@ -641,7 +643,7 @@ test.describe("남의 유닛 작은 창 사진", () => {
         await page.waitForTimeout(400);
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
-        expect(await switchOverlaps(page)).toEqual([]);
+        expect(await navOverlaps(page)).toEqual([]);
         await shot(page, `unit-peek-${account}-${size}-${theme}-${language}`);
         // [닫기]로 닫으면 근처 판 자리로 돌아간다
         await peek.locator(".map-peek-close").tap();
@@ -672,7 +674,7 @@ test.describe("유닛 조종 사진", () => {
       test(`운영자 모드 (390·${theme})`, async ({ page, deviceErrors }) => {
         await rewriteTrpc(page, { "summary.get": hideSummary });
         await openMap(page);
-        await page.locator(".map-operator-toggle").click();
+        await (await operatorToggle(page)).click();
         await expect(page.locator(".map-operator-badge")).toBeVisible();
         await expect(page.locator(".map-screen")).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
         await openNearby(page, "units");
@@ -686,7 +688,7 @@ test.describe("유닛 조종 사진", () => {
   }
 });
 
-test.describe("내 유닛 목록·건물 판 하나·전환 단추 겹침(사용자 지적 2026-11-09)", () => {
+test.describe("내 유닛 목록·건물 판 하나·아래 탭 겹침(사용자 지적 2026-11-09·2026-11-12)", () => {
   for (const theme of ["pastel", "dark"] as const) {
     for (const language of ["ko", "en"] as const) {
       test.describe(`390 ${theme} ${language}`, () => {
@@ -717,7 +719,7 @@ test.describe("내 유닛 목록·건물 판 하나·전환 단추 겹침(사용
         await page.waitForTimeout(150);
       }
       await expect(ladder).toHaveAttribute("data-stage", "3");
-      await page.locator(".map-switch-button").click();
+      await page.locator(".map-nav .map-nav-planet").click();
       await expect(page).toHaveURL((url) => url.pathname === "/map/planet");
       await expect(page.locator(".planet-screen")).toHaveAttribute("data-status", "ready", {
         timeout: 60_000,
@@ -735,11 +737,11 @@ test.describe("내 유닛 목록·건물 판 하나·전환 단추 겹침(사용
 
   test.describe("넓은 화면", () => {
     test.use({ account: "player", ...VIEWPORTS.desktop });
-    test("넓은 화면에서도 전환 단추가 판과 겹치지 않는다", async ({ page, deviceErrors }) => {
+    test("넓은 화면에서도 아래 탭이 판과 겹치지 않는다", async ({ page, deviceErrors }) => {
       test.setTimeout(150_000);
       await unitListAndBuilding(page, "ko", null);
       await openNearby(page, "buildings");
-      expect(await switchOverlaps(page)).toEqual([]);
+      expect(await navOverlaps(page)).toEqual([]);
       await shot(page, "unit-panels-desktop-pastel");
       expect(deviceErrors).toEqual([]);
     });
@@ -747,15 +749,15 @@ test.describe("내 유닛 목록·건물 판 하나·전환 단추 겹침(사용
 
   test.describe("운영자 390 영어", () => {
     test.use({ account: "dev", theme: "dark", language: "en" });
-    test("운영자 표시가 있는 위 판도 전환 단추 자리를 비워 둔다", async ({ page, deviceErrors }) => {
+    test("운영자 표시·운영 메뉴가 있는 위 판도 넘치지 않고 아래 탭과 겹치지 않는다", async ({ page, deviceErrors }) => {
       test.setTimeout(120_000);
       await rewriteTrpc(page, { "summary.get": hideSummary });
       await openMap(page);
-      await page.locator(".map-operator-toggle").click();
+      await (await operatorToggle(page)).click();
       await expect(page.locator(".map-operator-badge")).toBeVisible();
       await openNearby(page, "units");
       await page.waitForTimeout(1_200);
-      expect(await switchOverlaps(page)).toEqual([]);
+      expect(await navOverlaps(page)).toEqual([]);
       expect(await horizontalOverflow(page)).toEqual([]);
       await shot(page, "unit-operator-390-dark-en");
       expect(deviceErrors).toEqual([]);

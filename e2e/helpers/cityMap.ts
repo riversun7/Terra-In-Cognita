@@ -1,7 +1,7 @@
 // 도시 2차맵 화면 시험 도우미 — 시작 도시 2차맵을 운영자 모드(전체 보기)로 열고 건물 무리를 화면 가운데로 끈다.
 // building-art.spec.ts(건물 모델)와 city-layout.spec.ts(도시 건물 배치, docs/adr/2026-11-11-city-building-layout.md)가 같이 쓴다.
 import type { Page, Response } from "@playwright/test";
-import { collapseNearby, openNearby } from "./nearby.ts";
+import { closeOperatorMenu, freeViewToggle, openCitySheet, setOperatorMode } from "./mapHud.ts";
 import { expect } from "./test.ts";
 import { hideSummary, rewriteTrpc } from "./trpc.ts";
 
@@ -54,8 +54,8 @@ export async function openCityMap(
   await page.goto(`/map?key=${String(city.key)}`);
   const map = page.locator(".map-screen[data-map-key]");
   await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
-  await page.locator(".map-operator-toggle").click();
-  await expect(map).toHaveAttribute("data-operator", "on");
+  await setOperatorMode(page, true);
+  await closeOperatorMenu(page);
   // 다시 연 뒤의 겉모습 응답만(앞 화면이 보낸 것은 넘긴다)
   let reopened = false;
   const looksResponse = page.waitForResponse(
@@ -67,73 +67,38 @@ export async function openCityMap(
   await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
   await expect(map).toHaveAttribute("data-operator", "on");
   const looks = await looksOf(await looksResponse);
-  // 건물 표시는 근처 판 건물 탭일 때만(docs/adr/2026-11-08-seamless-second-map.md WP-2) — 목록은 접는다(지도를 가리지 않게)
-  await openNearby(page, "buildings");
-  await collapseNearby(page);
   // 겉모습을 받은 뒤 엔진이 다시 그릴 틈
   await page.waitForTimeout(1_500);
   return { looks };
 }
 
-/** 보이는 건물 표시(채집 덧그림)의 가운데(CSS px) */
-export async function buildingMarkerPoints(page: Page): Promise<{ id: number; x: number; y: number }[]> {
-  return page.locator(".gather-building-marker[data-building]:not([hidden])").evaluateAll((elements) =>
-    elements.map((element) => {
-      const box = element.getBoundingClientRect();
-      return {
-        id: Number(element.getAttribute("data-building")),
-        x: box.x + box.width / 2,
-        y: box.y + box.height / 2,
-      };
-    }),
-  );
-}
-
-/** 건물 표시가 몇 초 안에 하나라도 보이나 */
-export async function markersSoon(page: Page): Promise<boolean> {
-  try {
-    await expect
-      .poll(async () => (await buildingMarkerPoints(page)).length, { timeout: 6_000 })
-      .toBeGreaterThan(0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
- * 건물 무리를 화면 가운데로 끌어 온다(마우스로 땅을 끈다, 두 번). NPC 도시 시설은 도시 칸 둘레의 지을 수 있는 땅에 서서
- * 도시 칸(카메라)에서 떨어져 위 판(HUD) 밑에 걸릴 수 있다
+ * 도시 건물 무리를 화면 가운데로: 운영자 자유 시점을 켜고(기준 유닛 따라가기 없음) 도시 화면에서 건물 줄(기본 행정 건물 — 도시 건물은 그 둘레에 선다)을
+ * 누른다 → 카메라가 그 건물로 가고 건물 판이 열린다 → 판을 닫아도 카메라는 그 자리(자유 시점). 옛 건물 표시(건물마다 단추)는 지웠다
+ * (사용자 지적 2026-11-12 "누른 건물만 표시해라"). 고른 건물 ID를 돌려준다
  */
+export async function centreOnBuilding(page: Page, facility = "government_hall"): Promise<number> {
+  const free = await freeViewToggle(page);
+  if ((await free.getAttribute("aria-pressed")) !== "true") await free.click();
+  await expect(page.locator(".map-screen")).toHaveAttribute("data-free-view", "on");
+  await closeOperatorMenu(page);
+  const city = await openCitySheet(page);
+  const preferred = city.locator(`.map-city-row[data-facility="${facility}"]`).first();
+  const row = (await preferred.count()) > 0 ? preferred : city.locator(".map-city-row").first();
+  await expect(row).toBeVisible({ timeout: 20_000 });
+  const id = Number(await row.getAttribute("data-building"));
+  await row.click();
+  const sheet = page.locator(`.gather-sheet[data-building="${String(id)}"]`);
+  await expect(sheet).toBeVisible();
+  // 누른 건물 이름표(그 건물 하나만)
+  await expect(page.locator(`.gather-building-tag[data-building="${String(id)}"]:not([hidden])`)).toBeVisible();
+  await sheet.locator(".gather-sheet-close").click();
+  await expect(page.locator(".gather-panel")).toHaveAttribute("data-sheet", "none");
+  await page.waitForTimeout(600);
+  return id;
+}
+
+/** 옛 이름(사진 시험들): 건물 무리를 화면 가운데로 */
 export async function centreOnBuildings(page: Page): Promise<void> {
-  const size = page.viewportSize() ?? { width: 390, height: 844 };
-  const cx = size.width / 2;
-  const cy = size.height / 2;
-  // 2차맵은 최대 확대(6/6)로 열린다(사용자 지적 2026-11-09, 962 나). 넓은 화면은 카메라가 따라가는 내 사이보그 둘레만 보여 도시 건물이
-  // 화면 밖일 수 있다: 표시가 안 보이면 한 단계씩(세 번까지) 줄인다
-  for (let step = 0; step < 3 && !(await markersSoon(page)); step++) {
-    await page.locator(".zoom-ladder-out").click();
-    await page.waitForTimeout(800);
-  }
-  for (let pass = 0; pass < 2; pass++) {
-    await expect
-      .poll(async () => (await buildingMarkerPoints(page)).length, { timeout: 20_000 })
-      .toBeGreaterThan(0);
-    const points = await buildingMarkerPoints(page);
-    const ax = points.reduce((sum, point) => sum + point.x, 0) / points.length;
-    const ay = points.reduce((sum, point) => sum + point.y, 0) / points.length;
-    const tx = Math.min(size.width - 20, Math.max(20, cx + (cx - ax)));
-    const ty = Math.min(size.height - 20, Math.max(20, cy + (cy - ay)));
-    if (Math.hypot(tx - cx, ty - cy) < 30) return;
-    // 끄는 동안 덧그림 표시가 누르기를 받지 않게 잠깐 숨긴다
-    const hide = await page.addStyleTag({
-      content: ".gather-overlay > * { visibility: hidden !important; }",
-    });
-    await page.mouse.move(cx, cy);
-    await page.mouse.down();
-    await page.mouse.move(tx, ty, { steps: 12 });
-    await page.mouse.up();
-    await hide.evaluate((node) => node.parentNode?.removeChild(node));
-    await page.waitForTimeout(800);
-  }
+  await centreOnBuilding(page);
 }

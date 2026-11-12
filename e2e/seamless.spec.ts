@@ -17,6 +17,7 @@
 //   넘는 앞뒤를 본다: 확대 단계 그대로, 안내 판 없음, 기준 유닛이 프레임마다 있고 화면 자리가 튀지 않음, 유닛 수가 0이 되지 않음.
 //   E2E_MEASURE=1이면 가장 긴 프레임도 적는다(헤드리스 SwiftShader 값 — 휴대폰 값이 아니다). 끝나면 운영자 빠르기로 제자리에 돌려놓는다.
 // - 운영자 모드 100배로 옆 2차맵 ↔ 처음 2차맵을 세 번 잇달아 넘는다: 확대 그대로·안내 없음·유닛이 비지 않음, 구독·지형 받기가 쌓이지 않는다.
+import { operatorToggle } from "./helpers/mapHud.ts";
 import type { Page } from "@playwright/test";
 import type { MapProbeSample } from "../apps/game/src/map/mapProbe.ts";
 import { isCellKey, stepCell } from "../packages/planet/src/index.ts";
@@ -610,7 +611,7 @@ test.describe("걸어서 넘기", () => {
       await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
 
       // 4. 운영자 모드 100배로 잇달아 넘는다: 옆 2차맵 ↔ 처음 2차맵을 세 번(둘 다 서버가 띄운 2차맵 — 띄우지 않은 2차맵은 건너뛴다)
-      await page.locator(".map-operator-toggle").click();
+      await (await operatorToggle(page)).click();
       await expect(map).toHaveAttribute("data-operator", "on");
       await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
       await page.waitForTimeout(2_500);

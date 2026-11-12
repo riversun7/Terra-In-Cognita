@@ -214,8 +214,7 @@
       "durability": 100,
       "storageKg": 100,
       "look": {
-        "model": "farm",
-        "roof": "moss"
+        "model": "herb"
       }
     },
     {
@@ -267,8 +266,7 @@
       "durability": 150,
       "storageKg": 300,
       "look": {
-        "model": "farm",
-        "wall": "barn"
+        "model": "ranch"
       }
     },
     {
@@ -333,8 +331,7 @@
       "durability": 150,
       "storageKg": 200,
       "look": {
-        "model": "lumber",
-        "roof": "teal"
+        "model": "fishing"
       }
     },
     {

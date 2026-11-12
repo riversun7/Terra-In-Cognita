@@ -46,8 +46,8 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
   k(
     "npc_seed_mine_height_m",
     "mineMinHeightM",
-    "NPC 시작 도시 광산: 칸 고도 문턱(m)",
-    "NPC start city mine: cell height from (m)",
+    "산지 고도(m): 광석 몫 1000·높은 티어 광석",
+    "Mountain height (m): full ore share and high-tier ore",
   ),
   k(
     "npc_seed_farm_temp_c",
@@ -281,6 +281,16 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "catchmentYieldFloorPm",
     "배후지: 채집 시설 빠르기 바닥(‰)",
     "Catchment: gather facility speed floor (‰)",
+  ),
+  // 광석 고도 몫(기획 D-533, 질문 1020·1064): 49에 칸이 없어 ore_*를 앞머리로 쓴다. 산지 고도는 npc_seed_mine_height_m
+  k("ore_share_low_pm", "oreShareLowPm", "광석 몫: 해수면(0m 이하) 땅(‰)", "Ore share: sea-level land (‰)"),
+  k("ore_share_hill_m", "oreShareHillM", "광석 몫: 언덕 고도(m)", "Ore share: hill height (m)"),
+  k("ore_share_hill_pm", "oreShareHillPm", "광석 몫: 언덕 고도에서(‰)", "Ore share: at hill height (‰)"),
+  k(
+    "ore_low_tier_max",
+    "oreLowTierMax",
+    "산지 밖 광석의 가장 높은 티어",
+    "Highest ore tier outside mountains",
   ),
   // 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 49에 칸이 없어 map_spawn_*를 앞머리로 쓴다
   k(

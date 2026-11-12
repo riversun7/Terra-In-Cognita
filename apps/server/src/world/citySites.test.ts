@@ -80,7 +80,7 @@ describe("배후지 칸", () => {
     expect(far.own.get(1)).toHaveLength(alone);
   });
 
-  it("덮임: 광석 칸이 있는 배후지가 높다(가중치 = 농장·벌목장·광산)", () => {
+  it("덮임: 몫으로 센다(질문 1027 다) — 산지 칸이 있는 배후지가 높다(가중치 = 농장·벌목장·광산)", () => {
     const cache = createCatchmentCache(
       (key) => ({ ...land(key), forest: land(key).forest ?? 0 }),
       seed,
@@ -88,9 +88,11 @@ describe("배후지 칸", () => {
       LEVEL,
     );
     const needs = { crop: 1, wood: 1, ore: 1 };
-    expect(cache.cover(cellKey(0, LEVEL, 20, 20), needs)).toBe(666);
-    expect(cache.cover(cellKey(0, LEVEL, 50, 20), needs)).toBe(1000);
-    expect(cache.cover(cellKey(0, LEVEL, 40, 20), needs)).toBeGreaterThan(666);
+    // 풀밭(100m, 숲 60): 작물 1000 + 목재 ⌊60 × 1000 ÷ 255⌋ = 235 + 광석 150 + (400 − 150) × 100 ÷ 200 = 275 → ⌊1510 ÷ 3⌋
+    expect(cache.cover(cellKey(0, LEVEL, 20, 20), needs)).toBe(503);
+    // 언덕(700m ≥ 산지 500m): 광석 1000 → ⌊2235 ÷ 3⌋
+    expect(cache.cover(cellKey(0, LEVEL, 50, 20), needs)).toBe(745);
+    expect(cache.cover(cellKey(0, LEVEL, 40, 20), needs)).toBeGreaterThan(503);
   });
 });
 

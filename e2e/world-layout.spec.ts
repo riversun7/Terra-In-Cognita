@@ -252,6 +252,12 @@ test.describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
           expect(field(city, "shared")).toBe(0);
         }
         expect(field(api.data, "contestedPlan")).toBe(0);
+        // 광석 고도 몫(기획 D-533): 몫 규칙과 계획 도시마다 광석 몫(낮은 땅도 0보다 크다)·산지 몫
+        expect(Number(field(field(api.data, "ore"), "lowPm"))).toBeGreaterThan(0);
+        for (const city of planCities) {
+          expect(Number(field(city, "orePm"))).toBeGreaterThan(0);
+          expect(Number(field(city, "highOrePm"))).toBeGreaterThanOrEqual(0);
+        }
         expect(list(field(api.data, "cells"))).toHaveLength((2 * span + 1) ** 2);
         // 계획(새 배치)은 배후지가 겹친 도시 쌍이 없다. 지금 세계 값은 앞서 도는 시험(폐허 복원·자리 놓기 등)이 도시를 더해 바뀔 수
         // 있어 수로만 본다(시험 순서에 따라 달라진다)
@@ -274,6 +280,7 @@ test.describe("배후지 덮개(docs/adr/2026-11-11-city-catchment.md)", () => {
         await expect(panel.locator("[data-catch-summary]")).toContainText(same.toFixed(1));
         await expect(panel.locator(`[data-catch-sustain="${sustainCities}"]`)).toBeVisible();
         await expect(panel.locator("[data-catch-table] tbody tr").first()).toBeVisible();
+        await expect(panel.locator("[data-catch-ore]")).toBeVisible();
         await panel.evaluate((node) => node.scrollIntoView({ block: "start" }));
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);

@@ -5,6 +5,7 @@
 // 바뀜(2026-11-12, ADR "바뀜 (2026-11-12)"): 반경이 도시마다 다르다(인구·도시 등급·기술). 지금 도시는 지금 반경(실선)과 목표 반경(처음 기간에
 // 이를 크기, 가는 점선)을 함께 그리고, 다른 배후지와 겹친 도시(다툼 — 둘 다 자원이 고갈된다)는 위험 색. 고른 국가 도시 표(인구·반경·겹친 칸·덮임).
 // 바뀜(2026-11-12, 질문 1025 나): 고른 국가 땅이 버틸 수 있는 도시 수 어림(서버 catchmentView.ts sustainOf)과 등급 표 도시 수를 견준다.
+// 광석 고도 몫(2026-11-12, 기획 D-533): 몫 규칙 한 줄과 도시마다 배후지 광석 몫·산지 몫(높은 티어) 칸.
 import type { WorldCatchmentCity, WorldCatchmentView } from "@terra/shared/worldPlacementApi";
 import { useState } from "react";
 import { api } from "../../net/api.ts";
@@ -133,6 +134,15 @@ export function WorldCatchmentPanel({ planetId, code, busy }: Props) {
               <p className="field-hint">{m.dev_world_layout_catchment_sustain_hint()}</p>
             </>
           ) : null}
+          <p className="field-hint" data-catch-ore="">
+            {m.dev_world_layout_catchment_ore_rule({
+              low: view.ore.lowPm,
+              hillM: view.ore.hillM,
+              hill: view.ore.hillPm,
+              mountainM: view.ore.mountainM,
+              tier: view.ore.lowTierMax,
+            })}
+          </p>
           <ul className="wl-legend wl-catch-legend">
             <li data-tone="ore">{m.dev_world_layout_catchment_legend_ore()}</li>
             <li data-tone="water">{m.dev_world_layout_catchment_legend_water()}</li>
@@ -181,6 +191,8 @@ export function WorldCatchmentPanel({ planetId, code, busy }: Props) {
                   <th scope="col">{m.dev_world_layout_catchment_col_target()}</th>
                   <th scope="col">{m.dev_world_layout_catchment_col_shared()}</th>
                   <th scope="col">{m.dev_world_layout_catchment_col_cover()}</th>
+                  <th scope="col">{m.dev_world_layout_catchment_col_ore()}</th>
+                  <th scope="col">{m.dev_world_layout_catchment_col_high_ore()}</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,6 +208,8 @@ export function WorldCatchmentPanel({ planetId, code, busy }: Props) {
                     <td>{row.target}</td>
                     <td>{row.shared}</td>
                     <td>{row.cover}</td>
+                    <td>{row.ore}</td>
+                    <td>{row.highOre}</td>
                   </tr>
                 ))}
               </tbody>

@@ -3,7 +3,17 @@ import { describe, expect, it } from "vitest";
 import { recruitPicks } from "../npc/policy.ts";
 import { TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
 import { START_WORLD_SEED } from "../society/worldSeed.ts";
-import { facilitySupplyPm, planeCell, planeGeometry, scenarioPlaneLayout } from "./catchmentRun.ts";
+import {
+  type CatchmentState,
+  catchmentSettingsOf,
+  createCatchmentState,
+  facilitySupplyPm,
+  landShares,
+  oreTierCap,
+  planeCell,
+  planeGeometry,
+  scenarioPlaneLayout,
+} from "./catchmentRun.ts";
 import { runSimulation } from "./run.ts";
 import { parseScenario } from "./scenario.ts";
 import { TEST_CATALOG, TEST_ECONOMY_SCENARIO_RAW } from "./testEconomy.ts";
@@ -144,5 +154,113 @@ describe("빠르기·구인 문턱", () => {
     expect(
       recruitPicks({ ...base, growthBlocked: true, guards: 0, guardTarget: 1 }, TEST_NPC_COEFFICIENTS),
     ).toEqual([{ slot: 0, guard: true }]);
+  });
+});
+
+/** 배후지 설정(세계 씨앗 출발값) */
+const settings = () => catchmentSettingsOf(START_WORLD_SEED, { gradeAtDevelopment: [17, 34, 51, 68, 85] });
+/** 모든 칸이 한 고도인 평면 */
+const elevated = (elevationM: number) =>
+  planeGeometry({
+    at: new Map([[1, { x: 0, y: 0 }]]),
+    elevationAt: () => elevationM,
+    oreRules: START_WORLD_SEED,
+  });
+
+describe("광석 고도 몫(기획 D-533)", () => {
+  it("평면 칸 고도 → 광석 몫(해수면 150 · 언덕 200m 400 · 산지 500m 1000)과 산지 몫", () => {
+    expect(elevated(0).capacityPm(planeCell(0, 0), "ore")).toBe(150);
+    expect(elevated(200).capacityPm(planeCell(0, 0), "ore")).toBe(400);
+    expect(elevated(350).capacityPm(planeCell(0, 0), "ore")).toBe(700);
+    expect(elevated(600).capacityPm(planeCell(0, 0), "ore")).toBe(1000);
+    expect(elevated(0).capacityPm(planeCell(0, 0), "crop")).toBe(1000);
+    expect(elevated(0).highOrePm?.(planeCell(0, 0))).toBe(0);
+    expect(elevated(600).highOrePm?.(planeCell(0, 0))).toBe(1000);
+    // 고도가 없는 평면(옛 시나리오)은 그대로
+    const plain = planeGeometry({ at: new Map() });
+    expect(plain.capacityPm(planeCell(0, 0), "ore")).toBe(1000);
+    expect(plain.highOrePm?.(planeCell(0, 0))).toBe(1000);
+  });
+
+  it("땅 몫 = 칸 몫 평균, 산지 몫 = 광석 몫으로 가중한 산지 칸 몫", () => {
+    // x = 0은 산지, x = 1은 해수면: 광석 (1000 + 150) ÷ 2, 산지 몫 1000 × 1000 ÷ 1150
+    const geometry = planeGeometry({
+      at: new Map(),
+      elevationAt: (x) => (x === 0 ? 800 : 0),
+      oreRules: START_WORLD_SEED,
+    });
+    const land = landShares(geometry, [planeCell(0, 0), planeCell(1, 0), planeCell(1, 0)]);
+    expect(land.landPm.ore).toBe(575);
+    expect(land.landPm.wood).toBe(1000);
+    expect(land.highOrePm).toBe(869);
+    expect(landShares(geometry, [])).toEqual({
+      landPm: { ore: 0, wood: 0, herb: 0, crop: 0, livestock: 0, fish: 0 },
+      highOrePm: 0,
+    });
+  });
+
+  it("광산 빠르기 = 받은 몫 × 땅 몫(바닥 위), 티어 막기 = 산지 밖 T2·산지 몫", () => {
+    const state: CatchmentState = createCatchmentState(elevated(0), settings);
+    const full = { ore: 1000, wood: 1000, herb: 1000, crop: 1000, livestock: 1000, fish: 1000 };
+    state.cities.set(1, {
+      radiusMilli: 1000,
+      areaMilli: 5000,
+      cells: 5,
+      sharedCells: 0,
+      supplyPm: full,
+      totalPm: 1000,
+      demand: 1,
+      landPm: { ...full, ore: 300, wood: 50 },
+      highOrePm: 250,
+    });
+    expect(facilitySupplyPm(state, 1, "mine")).toBe(300);
+    // 바닥 100
+    expect(facilitySupplyPm(state, 1, "lumber_camp")).toBe(100);
+    expect(facilitySupplyPm(state, 1, "farm")).toBe(1000);
+    expect(oreTierCap(state, 1, "mine")).toEqual({ maxTier: 2, keepAbovePm: 250 });
+    expect(oreTierCap(state, 1, "lumber_camp")).toBeUndefined();
+    expect(oreTierCap(state, 2, "mine")).toBeUndefined();
+    expect(oreTierCap(undefined, 1, "mine")).toBeUndefined();
+  });
+
+  it("낮은 땅 광산 도시도 혼자면 다 받는다(가난한 땅만으로는 성장이 멈추지 않는다) — 시뮬 시나리오 고도", () => {
+    const agri = TEST_ECONOMY_SCENARIO_RAW.factions[0];
+    const group = (code: string, elevationM: number) => ({
+      ...agri,
+      code,
+      count: 1,
+      cities: 1,
+      workers: 24,
+      housing: 40,
+      catchmentElevationM: elevationM,
+      cityPlan: [
+        { facility: "farm", recipe: "farm_grain", level: 1, workers: 4 },
+        { facility: "kitchen", recipe: "cook_ration", level: 1, workers: 2 },
+        { facility: "mine", recipe: "mine_iron_ore", level: 1, workers: 2 },
+      ],
+    });
+    const sc = parseScenario({
+      ...TEST_ECONOMY_SCENARIO_RAW,
+      id: "ore_share_test",
+      factions: [group("low", 0), group("high", 900)],
+      catchment: { groupGap: 40 },
+    });
+    const lines: string[] = [];
+    const summary = runSimulation({
+      scenario: sc,
+      catalog: TEST_CATALOG,
+      seed: 1,
+      days: 6,
+      sink: (line) => lines.push(line),
+    });
+    expect(summary.invariants.violations).toBe(0);
+    const econ = lines
+      .map((line): unknown => JSON.parse(line))
+      .filter(
+        (record) => typeof record === "object" && record !== null && Reflect.get(record, "t") === "econ",
+      );
+    const last = catchmentOf(Reflect.get(econ.at(-1) ?? {}, "catchment"));
+    for (const row of last.cities) expect(row[2]).toBe(1000);
+    expect(last.stalled).toBe(0);
   });
 });

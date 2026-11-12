@@ -31,6 +31,8 @@ export {
   catchmentSettingsOf,
   createCatchmentState,
   facilitySupplyPm,
+  landShares,
+  oreTierCap,
   stepCatchment,
   type CatchmentGeometry,
   type CatchmentSettings,

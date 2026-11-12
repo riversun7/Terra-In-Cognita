@@ -45,6 +45,10 @@ const PLANET = "s2_test_planet";
 /** 국가 넷(1번 = 16번째 프리셋 소국, 2~4번 = 프리셋 1~3 초강대국·강대국·중견국) */
 const CODES = ["s3_test_npc", "placeholder_nation_01", "placeholder_nation_02", "placeholder_nation_03"];
 
+/** 시설 목록에 광산 수만큼 더해 차례로(기획 D-533 — 낮은 땅에도 광산) */
+const withMines = (list: readonly string[], mines: number): string[] =>
+  [...list, ...Array.from({ length: mines }, () => "mine")].toSorted();
+
 function cellValues(mapKey: number): PlanetCellValues {
   const { face, i, j } = decodeCellKey(parseCellKey(mapKey));
   const sea = face === 5;
@@ -242,7 +246,8 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     );
     const facilitiesOf = (city: CityLine) =>
       facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id);
-    // 숙소 셋(설정 칸 npc_seed_lodgings — docs/adr/2026-11-11-city-building-layout.md)
+    // 숙소 셋(설정 칸 npc_seed_lodgings — docs/adr/2026-11-11-city-building-layout.md). 광산은 낮은 땅에도 선다(기획 D-533 광석 고도 몫 —
+    // 등급 시작 시설에 광산이 있는 나라)
     const big = [
       "farm",
       "farm",
@@ -254,8 +259,10 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
       "storehouse",
     ];
     const plain = ["farm", "government_hall", "lodging", "lodging", "lodging", "storehouse"];
+    // 등급 시작 시설 광산 수: 초강대국 2 · 강대국 1 · 중견국 1 · 소국 0
+    const expected = [plain, withMines(big, 2), withMines(big, 1), withMines(plain, 1)];
     lists.forEach((list, index) => {
-      for (const city of list) expect(facilitiesOf(city)).toEqual(index === 1 || index === 2 ? big : plain);
+      for (const city of list) expect(facilitiesOf(city)).toEqual(expected[index] ?? plain);
     });
     // 도시 간격(docs/adr/2026-11-11-city-catchment.md): 모든 등급이 배후지 간격(2R = 4칸 — 등급 걸음 1·2칸보다 넓다) 이상, 찾는 반경(12칸) 안
     const spread = lists.map(([capital, ...rest]) =>

@@ -274,6 +274,9 @@ export interface CatchmentRow {
   readonly target: string;
   readonly shared: number;
   readonly cover: number;
+  /** 배후지 광석 몫·산지 몫(‰) */
+  readonly ore: number;
+  readonly highOre: number;
 }
 
 export function catchmentRows(
@@ -291,6 +294,8 @@ export function catchmentRows(
       target: (city.targetMilli / 1000).toFixed(2),
       shared: city.shared,
       cover: city.cover,
+      ore: city.orePm,
+      highOre: city.highOrePm,
     });
   return [...world.map(row("world")), ...plan.map(row("plan"))];
 }

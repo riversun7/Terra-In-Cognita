@@ -4,8 +4,8 @@
 // 창고 + 채집 시설 — 수는 설정 칸 worldSeed [임시])을 도시 가운데 둘레 빈 칸에 다 지은 상태(레벨 1·상태 가득)로 세운다. 주인 = 그 도시
 // 세력의 소유 주체. 맵 건물 칸 + world_facilities 줄(같은 쓰기 묶음).
 // 채집 시설 종류는 둘레 땅을 따른다(기획 답 503 다, 60 §7.1 "주변 자원" — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"): 시작 도시 고르기
-// 판이 보이는 그 2차맵 칸의 행성 값으로 숲이 보이면 벌목장, 높은 땅이면 광산, 따뜻하고 비가 오면 농장(문턱은 설정 칸 [임시]). 아무것도 맞지
-// 않으면 농장(식량 사슬 — 굶음 먼저, 532). 행성 값을 모르면(지형 서비스 없는 시험·개발) 셋 다(WP1 그대로). 레벨은 1.
+// 판이 보이는 그 2차맵 칸의 행성 값으로 숲이 보이면 벌목장, 광석 고도 몫이 있으면(마른 땅 어디나 — 기획 D-533) 광산, 따뜻하고 비가 오면
+// 농장(문턱은 설정 칸 [임시]). 농장·벌목장이 맞지 않으면 농장(식량 사슬 — 굶음 먼저, 532). 행성 값을 모르면(지형 서비스 없는 시험·개발) 셋 다(WP1 그대로). 레벨은 1.
 // 1차 생산 여섯 가지(docs/adr/2026-11-11-production-six.md): 약초원·목장·낚시터도 같은 표(SEED_GATHER)에 있고 수 출발값은 0이다.
 // 물가 조건(팩 needsWaterWithin, 질문 947 나 — 낚시터)이 있는 시설은 둘레에 물이 있는 자리만 고른다(플레이어 짓기와 같은 waterOk).
 // 자리(docs/adr/2026-11-11-city-building-layout.md): 설정 칸 city_layout_mode = 1(출발값)이면 전략 배치(cityLayout.ts — 행정 건물 가운데,
@@ -16,7 +16,7 @@
 // 배치 함수로 세운다. 부팅 때 모자란 것을 채우고, 실행 중에 새 도시가 처음 저장될 때(npc/persist.ts onCityFounded) 그 도시 하나만 바로 세운다.
 // 멱등: 도시마다 그 세력이 가진 같은 시설 줄(도시 ID 같음) 수를 세어 모자란 것만 더한다(있는 것은 그대로 — 관리자가 지운 시설은 다음 켤 때
 // 다시 선다). 재료·작업·일꾼 없이 선다(세계를 차리는 일이라 원장을 거치지 않는다 — 확인 대기, docs/questions/2026-11-07-play-seed.md).
-import { MATERIAL_BIT, cellMaterials } from "@terra/shared/catchment";
+import { MATERIAL_BIT, cellMaterials, oreSharePm } from "@terra/shared/catchment";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { type CityCell, cityOfCell } from "@terra/shared/goodsPlaces";
 import { PLACEMENT_SIZE, type WorldSeedCoefficients } from "@terra/sim";
@@ -87,15 +87,17 @@ interface LandFit {
 }
 
 /**
- * 둘레 땅에 맞는 채집 시설(기획 답 503 다). 아무것도 맞지 않으면 농장 하나. 원자재 판정은 배후지·밭 자리와 같은 함수
- * (@terra/shared/catchment cellMaterials — docs/adr/2026-11-11-city-catchment.md)
+ * 둘레 땅에 맞는 채집 시설(기획 답 503 다). 원자재 판정은 배후지·밭 자리와 같은 함수(@terra/shared/catchment cellMaterials —
+ * docs/adr/2026-11-11-city-catchment.md). 광산은 광석 고도 몫이 있으면(마른 땅 어디나 — 기획 D-533 "석재·구리는 어디서나 조금", 낮은 땅
+ * 광산은 배후지 몫만큼 느리다). 농장도 벌목장도 맞지 않으면 농장 하나(식량 사슬 — 광산만 있는 도시는 굶는다)
  */
 export function landGather(land: SeedLand, seed: WorldSeedCoefficients): LandFit {
-  const bits = cellMaterials({ ...land, water: land.water ?? 0 }, seed);
+  const value = { ...land, water: land.water ?? 0 };
+  const bits = cellMaterials(value, seed);
   const lumber = (bits & MATERIAL_BIT.wood) !== 0;
-  const mine = (bits & MATERIAL_BIT.ore) !== 0;
+  const mine = oreSharePm(value, seed) > 0;
   const farm = (bits & MATERIAL_BIT.crop) !== 0;
-  if (!farm && !lumber && !mine) return { farm: true, lumber: false, mine: false };
+  if (!farm && !lumber) return { farm: true, lumber: false, mine };
   return { farm, lumber, mine };
 }
 

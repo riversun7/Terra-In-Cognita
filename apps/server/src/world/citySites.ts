@@ -2,7 +2,8 @@
 // 어느정도 벌려야 한다. 너무 가까우면 도시를 유지하기 위한 주변 지형자원의 점유 영역이 겹쳐 도시간의 자원경쟁으로 서로 발전하지 못한다. 현재 너무
 // 가깝게 바둑판배열로 다닥다닥 붙어있다."
 // - 배후지 칸: 도시 2차맵(1차맵 칸)에서 영토 거리(@terra/shared territoryDistanceMilli) R칸 안의 칸들(가운데 포함). 면 경계는 걸어서 넘는다.
-// - 덮임: @terra/shared/catchment(칸마다 여섯 원자재 비트 → 원자재마다 몫을 쓰는 시설 수로 가중 평균).
+// - 덮임: @terra/shared/catchment(칸마다 여섯 원자재 몫 → 원자재마다 몫 평균을 쓰는 시설 수로 가중 평균). 바뀜 (2026-11-12, 기획 D-533·질문
+//   1027 다): 있음/없음 비트 대신 몫(광석 = 고도 몫, 목재 = 숲 밀도 — cellSharesPm "site")으로 센다. 칸 수(counts)는 비트 그대로 보인다.
 // - 다툼(겹친 배후지): 한 칸은 가장 가까운 도시 하나의 것(같으면 작은 ID) — splitCatchments.
 // - 바뀜 (2026-11-12, 사용자 지적 "인구와 도시등급이 높을 수록 … 요구 영토범위가 넓어지고"): 반경이 도시마다 다르다(1000분율 칸,
 //   @terra/shared/catchment catchmentRadiusMilli·sim plannedCityRadiusMilli). 두 도시 간격 = (두 반경 합) × 천분율(cityPairGapMilli).
@@ -11,15 +12,18 @@ import { type CellKey, parseCellKey, stepCell } from "@terra/planet";
 import { territoryMetric, territoryPoint } from "@terra/planet/territory";
 import {
   type CatchmentLand,
+  type CatchmentLandRules,
   type CatchmentRules,
-  type CatchmentThresholds,
   type MaterialCounts,
+  type MaterialShares,
   type MaterialWeights,
   cellMaterials,
+  cellSharesPm,
   cityPairGapMilli,
   countMaterials,
-  coveragePm,
+  shareCoveragePm,
   siteScore,
+  sumShares,
 } from "@terra/shared/catchment";
 import { type TerritoryVec, territoryDistanceMilli } from "@terra/shared/territory";
 
@@ -60,10 +64,12 @@ export function catchmentCellsMilli(center: CellKey, radiusMilli: number, faceLe
   return out;
 }
 
-/** 배후지 하나의 원자재 칸 수·덮임 */
+/** 배후지 하나의 원자재 칸 수(비트)·몫 합·덮임(몫) */
 export interface CatchmentSummary {
   readonly cells: number;
   readonly counts: MaterialCounts;
+  /** 원자재마다 칸 몫 합(‰ × 칸, cellSharesPm "site") */
+  readonly shares: MaterialShares;
   readonly coverPm: number;
 }
 
@@ -71,11 +77,12 @@ export interface CatchmentSummary {
 export function summarize(
   cells: readonly CellKey[],
   land: (key: CellKey) => CatchmentLand | undefined,
-  thresholds: CatchmentThresholds,
+  rules: CatchmentLandRules,
   weights: MaterialWeights,
 ): CatchmentSummary {
-  const counts = countMaterials(cells.map((key) => cellMaterials(land(key), thresholds)));
-  return { cells: cells.length, counts, coverPm: coveragePm(counts, cells.length, weights) };
+  const counts = countMaterials(cells.map((key) => cellMaterials(land(key), rules)));
+  const shares = sumShares(cells.map((key) => cellSharesPm(land(key), rules, "site")));
+  return { cells: cells.length, counts, shares, coverPm: shareCoveragePm(shares, cells.length, weights) };
 }
 
 /** 도시 하나(배후지를 나눌 때) */
@@ -130,19 +137,19 @@ export interface CatchmentCache {
 
 export function createCatchmentCache(
   land: (key: CellKey) => CatchmentLand | undefined,
-  thresholds: CatchmentThresholds,
+  rules: CatchmentLandRules,
   radiusCells: number,
   faceLevel: number,
 ): CatchmentCache {
-  const bitsOf = new Map<number, number>();
-  // 반경(1000분율) → 가운데 → 칸 수
-  const countsOf = new Map<number, Map<number, { cells: number; counts: MaterialCounts }>>();
+  const sharesOf = new Map<number, MaterialShares>();
+  // 반경(1000분율) → 가운데 → 칸 수·몫 합
+  const countsOf = new Map<number, Map<number, { cells: number; sums: MaterialShares }>>();
   const fallback = Math.max(0, Math.trunc(radiusCells)) * 1000;
-  const bits = (key: CellKey): number => {
-    let value = bitsOf.get(key);
+  const shares = (key: CellKey): MaterialShares => {
+    let value = sharesOf.get(key);
     if (value === undefined) {
-      value = cellMaterials(land(key), thresholds);
-      bitsOf.set(key, value);
+      value = cellSharesPm(land(key), rules, "site");
+      sharesOf.set(key, value);
     }
     return value;
   };
@@ -156,10 +163,10 @@ export function createCatchmentCache(
       let entry = byCenter.get(center);
       if (!entry) {
         const cells = catchmentCellsMilli(center, radiusMilli, faceLevel);
-        entry = { cells: cells.length, counts: countMaterials(cells.map(bits)) };
+        entry = { cells: cells.length, sums: sumShares(cells.map(shares)) };
         byCenter.set(center, entry);
       }
-      return coveragePm(entry.counts, entry.cells, weights);
+      return shareCoveragePm(entry.sums, entry.cells, weights);
     },
   };
 }

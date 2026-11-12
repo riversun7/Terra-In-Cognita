@@ -41,6 +41,11 @@ export interface ScenarioFaction {
    * (가장자리가 닿는다 — 서버 배치와 같은 sameGapPm 1000)
    */
   readonly catchmentStep?: number | undefined;
+  /**
+   * 배후지 평면 배치의 땅 고도(m, 이 묶음 세력 둘레 칸 — 광석 고도 몫·산지 광석, 기획 D-533). 없으면 시나리오 catchment.elevationM, 그것도 없으면
+   * 고도를 보지 않는다(광석 몫 = richnessPm, 산지 몫 1000 — 옛 결과 그대로)
+   */
+  readonly catchmentElevationM?: number | undefined;
 }
 
 export interface ScenarioFacilityPlan {
@@ -141,6 +146,8 @@ export interface ScenarioCatchment {
   readonly groupGap: number;
   /** 원자재마다 칸 몫(‰, 모든 칸 같음). 없는 원자재는 1000 */
   readonly richnessPm: Readonly<Partial<Record<CatchmentMaterial, number>>>;
+  /** 모든 칸의 땅 고도(m, 세력 묶음 catchmentElevationM이 앞선다). 없으면 고도를 보지 않는다 */
+  readonly elevationM?: number | undefined;
 }
 
 export interface Scenario {
@@ -261,6 +268,16 @@ export function parseScenario(value: unknown): Scenario {
       ...(field(item, "catchmentStep") === undefined
         ? {}
         : { catchmentStep: int(field(item, "catchmentStep"), `${at}.catchmentStep`, 0, 10_000) }),
+      ...(field(item, "catchmentElevationM") === undefined
+        ? {}
+        : {
+            catchmentElevationM: int(
+              field(item, "catchmentElevationM"),
+              `${at}.catchmentElevationM`,
+              -12_000,
+              12_000,
+            ),
+          }),
     };
   });
   const npcValue = field(value, "npc");
@@ -354,9 +371,13 @@ export function parseScenario(value: unknown): Scenario {
       const raw = field(richValue, material);
       if (raw !== undefined) richness[material] = int(raw, `catchment.richnessPm.${material}`, 0, 1000);
     }
+    const elevation = field(catchmentValue, "elevationM");
     catchment = {
       groupGap: int(field(catchmentValue, "groupGap"), "catchment.groupGap", 1, 100_000),
       richnessPm: richness,
+      ...(elevation === undefined
+        ? {}
+        : { elevationM: int(elevation, "catchment.elevationM", -12_000, 12_000) }),
     };
   }
   return { id, planet, factions, npc, trips, economy, combat, catchment, society, gardener };

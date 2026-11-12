@@ -38,7 +38,7 @@ import {
   tierCappedByLevel,
 } from "../economy/production.ts";
 import { dueNecessities, payNecessities } from "../economy/upkeep.ts";
-import { type CatchmentState, facilitySupplyPm } from "./catchmentRun.ts";
+import { type CatchmentState, facilitySupplyPm, oreTierCap } from "./catchmentRun.ts";
 import {
   type CatalogGather,
   type EconomyCatalog,
@@ -488,6 +488,7 @@ function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): P
       yieldPerLot: facility.yieldPerLot,
       successPm: facility.catchPm,
       harvestGrams: BigInt(rules.oreGrams ?? 1000),
+      tierCap: oreTierCap(economy.catchment, facility.city, facility.recipe.facility),
     },
     rng,
   );

@@ -313,6 +313,52 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "산지 밖 광석의 가장 높은 티어",
     "Highest ore tier outside mountains",
   ),
+  // 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536): 49에 칸이 없어 resource_*를 앞머리로 쓴다
+  k("resource_wood_forest_pm", "woodForestPm", "목재 배율: 숲 바이옴(‰)", "Wood scale: forest biomes (‰)"),
+  k("resource_wood_other_pm", "woodOtherPm", "목재 배율: 그 밖의 땅(‰)", "Wood scale: other land (‰)"),
+  k("resource_herb_wetland_pm", "herbWetlandPm", "약초 배율: 습지(‰)", "Herb scale: wetland (‰)"),
+  k("resource_herb_alpine_pm", "herbAlpinePm", "약초 배율: 고산 초지(‰)", "Herb scale: alpine meadow (‰)"),
+  k(
+    "resource_herb_forest_pm",
+    "herbForestPm",
+    "약초 배율: 숲 가장자리·빈터(‰)",
+    "Herb scale: forest edge and clearings (‰)",
+  ),
+  k("resource_herb_other_pm", "herbOtherPm", "약초 배율: 그 밖의 땅(‰)", "Herb scale: other land (‰)"),
+  k(
+    "resource_herb_clearing_pm",
+    "herbClearingPm",
+    "숲 약초가 빈터(목재 노이즈 반대)를 따르는 몫(‰)",
+    "Forest herbs following clearings (inverse wood noise, ‰)",
+  ),
+  k(
+    "resource_livestock_pasture_pm",
+    "livestockPasturePm",
+    "목장 배율: 초지·사바나·툰드라(‰)",
+    "Livestock scale: grassland, savanna, tundra (‰)",
+  ),
+  k(
+    "resource_livestock_other_pm",
+    "livestockOtherPm",
+    "목장 배율: 그 밖의 땅(‰)",
+    "Livestock scale: other land (‰)",
+  ),
+  k(
+    "resource_noise_cells",
+    "resourceNoiseCells",
+    "자원 노이즈 격자 간격(1차맵 칸)",
+    "Resource noise grid spacing (planet cells)",
+  ),
+  k("resource_noise_floor_pm", "resourceNoiseFloorPm", "자원 노이즈 바닥(‰)", "Resource noise floor (‰)"),
+  k("resource_wood_seed", "woodNoiseSeed", "목재 노이즈 시드", "Wood noise seed"),
+  k("resource_herb_seed", "herbNoiseSeed", "약초 노이즈 시드", "Herb noise seed"),
+  k("resource_livestock_seed", "livestockNoiseSeed", "목장 노이즈 시드", "Livestock noise seed"),
+  k(
+    "resource_bit_min_pm",
+    "resourceBitMinPm",
+    "약초·축산물 있음 문턱(칸 몫 ‰)",
+    "Herb and livestock present from (cell share ‰)",
+  ),
   // 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 49에 칸이 없어 map_spawn_*를 앞머리로 쓴다
   k(
     "map_spawn_max_loaded",

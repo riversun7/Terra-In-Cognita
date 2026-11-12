@@ -105,6 +105,8 @@ export interface PlanetCellValues {
   readonly face: number;
   readonly i: number;
   readonly j: number;
+  /** 면 레벨 F(2차맵 키의 레벨 — 칸 자리 노이즈, @terra/shared/catchment resourceNoisePm) */
+  readonly faceLevel?: number;
   /** 바이옴 ID(행성 바이옴 표). 표 밖이면 null */
   readonly biomeId: string | null;
   /** 칸 고도(게임 m, 해수면 0) */
@@ -141,6 +143,7 @@ export function planetCellValues(values: PlanetValues, mapKey: number): PlanetCe
     face,
     i,
     j,
+    faceLevel: values.faceLevel,
     biomeId: values.biomeIds[biome] ?? null,
     elevationM: values.elevationM[c] ?? 0,
     temperatureC: values.temperatureC[c] ?? 0,
@@ -168,6 +171,7 @@ export function planetCellValuesFromFile(bytes: Uint8Array, mapKey: number): Pla
     face,
     i,
     j,
+    faceLevel: level,
     biomeId: cell.biomeId,
     elevationM: cell.elevationM,
     temperatureC: cell.temperatureC,

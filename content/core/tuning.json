@@ -9714,6 +9714,272 @@
       "source": "기획 D-533 (질문 1020·1064) · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 광석 몫) [임시]"
     },
     {
+      "id": "resource_wood_forest_pm",
+      "code": "",
+      "name": {
+        "ko": "목재 배율: 숲 바이옴(‰)",
+        "en": "Wood scale: forest biomes (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "타이가·온대림·열대우림의 목재 몫 = 숲 밀도 몫 × 이 배율 × 목재 노이즈.",
+        "en": "Wood share in taiga, temperate forest and rainforest = forest density share × this × wood noise."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_wood_other_pm",
+      "code": "",
+      "name": {
+        "ko": "목재 배율: 그 밖의 땅(‰)",
+        "en": "Wood scale: other land (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "숲 바이옴이 아닌 땅(습지 맹그로브·사바나 아카시아·외딴 나무)의 목재 배율. 물·빙상은 0.",
+        "en": "Wood scale on non-forest land (wetland mangroves, savanna acacias, lone trees). Water and ice sheets are 0."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_wetland_pm",
+      "code": "",
+      "name": {
+        "ko": "약초 배율: 습지(‰)",
+        "en": "Herb scale: wetland (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "습지의 약초 몫(약초 노이즈를 곱한다).",
+        "en": "Herb share in wetlands (times the herb noise)."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_alpine_pm",
+      "code": "",
+      "name": {
+        "ko": "약초 배율: 고산 초지(‰)",
+        "en": "Herb scale: alpine meadow (‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "고산 바이옴의 약초 몫(고산 초지).",
+        "en": "Herb share in the alpine biome (alpine meadows)."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_forest_pm",
+      "code": "",
+      "name": {
+        "ko": "약초 배율: 숲 가장자리·빈터(‰)",
+        "en": "Herb scale: forest edge and clearings (‰)"
+      },
+      "value": 450,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "숲 바이옴의 약초 몫. 나무가 성긴 곳(목재 노이즈가 낮은 곳)에서 커진다.",
+        "en": "Herb share in forest biomes. Grows where trees are sparse (low wood noise)."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_other_pm",
+      "code": "",
+      "name": {
+        "ko": "약초 배율: 그 밖의 땅(‰)",
+        "en": "Herb scale: other land (‰)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "그 밖의 땅(초지 들꽃·사막 선인장 등)의 약초 배율. 물·빙상은 0.",
+        "en": "Herb scale on other land (meadow flowers, desert cacti). Water and ice sheets are 0."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_clearing_pm",
+      "code": "",
+      "name": {
+        "ko": "숲 약초가 빈터를 따르는 몫(‰)",
+        "en": "Forest herbs following clearings (‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "숲 바이옴 약초 노이즈에서 '목재 노이즈의 반대(빈터)'가 차지하는 몫. 높을수록 약초가 나무 많은 곳을 비켜 간다.",
+        "en": "Share of the forest herb noise taken from the inverse wood noise (clearings). Higher keeps herbs away from dense wood."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_livestock_pasture_pm",
+      "code": "",
+      "name": {
+        "ko": "목장 배율: 초지·사바나·툰드라(‰)",
+        "en": "Livestock scale: grassland, savanna, tundra (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "목초지 바이옴의 축산물 몫(목장 노이즈를 곱한다).",
+        "en": "Livestock share in pasture biomes (times the livestock noise)."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_livestock_other_pm",
+      "code": "",
+      "name": {
+        "ko": "목장 배율: 그 밖의 땅(‰)",
+        "en": "Livestock scale: other land (‰)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "목초지가 아닌 땅의 축산물 배율. 물·빙상은 0.",
+        "en": "Livestock scale on non-pasture land. Water and ice sheets are 0."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_noise_cells",
+      "code": "",
+      "name": {
+        "ko": "자원 노이즈 격자 간격(1차맵 칸)",
+        "en": "Resource noise grid spacing (planet cells)"
+      },
+      "value": 8,
+      "structural": false,
+      "min": 1,
+      "max": 64,
+      "desc": {
+        "ko": "목재·약초·목장 노이즈 덩어리 크기. 배후지보다 크면 도시마다 많은 자원이 달라진다.",
+        "en": "Size of the wood, herb and livestock noise patches. Larger than a catchment so cities differ in their rich resource."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_noise_floor_pm",
+      "code": "",
+      "name": {
+        "ko": "자원 노이즈 바닥(‰)",
+        "en": "Resource noise floor (‰)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "노이즈 배율은 바닥 ~ (2000 − 바닥)‰이고 가운데가 1000이다. 노이즈가 가장 낮은 곳도 바이옴 배율의 이 몫은 남고, 바이옴 평균 몫은 거의 그대로다.",
+        "en": "The noise scale runs from the floor to 2000 − floor ‰, centred on 1000. The lowest spots keep this share of the biome scale, and biome averages stay about the same."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_wood_seed",
+      "code": "",
+      "name": {
+        "ko": "목재 노이즈 시드",
+        "en": "Wood noise seed"
+      },
+      "value": 5361,
+      "structural": false,
+      "min": 0,
+      "max": 2147483647,
+      "desc": {
+        "ko": "목재 많은 곳의 자리. 세 시드가 다르면 많은 곳이 서로 비켜 간다.",
+        "en": "Where wood is rich. Different seeds keep the rich spots apart."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_herb_seed",
+      "code": "",
+      "name": {
+        "ko": "약초 노이즈 시드",
+        "en": "Herb noise seed"
+      },
+      "value": 70913,
+      "structural": false,
+      "min": 0,
+      "max": 2147483647,
+      "desc": {
+        "ko": "약초 많은 곳의 자리.",
+        "en": "Where herbs are rich."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_livestock_seed",
+      "code": "",
+      "name": {
+        "ko": "목장 노이즈 시드",
+        "en": "Livestock noise seed"
+      },
+      "value": 288149,
+      "structural": false,
+      "min": 0,
+      "max": 2147483647,
+      "desc": {
+        "ko": "목장 많은 곳의 자리.",
+        "en": "Where livestock is rich."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
+      "id": "resource_bit_min_pm",
+      "code": "",
+      "name": {
+        "ko": "약초·축산물 있음 문턱(칸 몫 ‰)",
+        "en": "Herb and livestock present from (cell share ‰)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "칸 몫이 이 이상이면 그 칸에 약초·축산물이 있다고 본다(2차맵 목초지 밭, 배후지 칸 수).",
+        "en": "A cell counts as having herbs or livestock from this share (second-map pastures, catchment cell counts)."
+      },
+      "source": "기획 D-536 · ADR 2026-11-11-city-catchment 바뀜 (2026-11-12 D-536 자원 분포) [임시]"
+    },
+    {
       "id": "n9_human_sum_max",
       "code": "N9",
       "name": {

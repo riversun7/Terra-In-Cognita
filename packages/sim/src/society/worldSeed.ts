@@ -68,6 +68,26 @@ export interface WorldSeedCoefficients {
    * 뽑으면 배후지 광석 가운데 산지 몫만큼만 그 티어로 나오고 나머지는 이 티어로 내려간다
    */
   readonly oreLowTierMax: number;
+  /**
+   * [임시] 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536 — 사용자 2026-11-12 "목재와 약초 목장 분포가 너무 겹친다"): 무리 배율(‰)·노이즈
+   * 격자 간격(1차맵 칸)·노이즈 바닥(‰)·자원마다 노이즈 시드·약초·축산물 있음 비트 문턱(‰). 셈은 @terra/shared/catchment woodSharePm·herbSharePm·
+   * livestockSharePm(서버 경제·시작 도시 자리·1차맵 자원 레이어가 같은 함수)
+   */
+  readonly woodForestPm: number;
+  readonly woodOtherPm: number;
+  readonly herbWetlandPm: number;
+  readonly herbAlpinePm: number;
+  readonly herbForestPm: number;
+  readonly herbOtherPm: number;
+  readonly herbClearingPm: number;
+  readonly livestockPasturePm: number;
+  readonly livestockOtherPm: number;
+  readonly resourceNoiseCells: number;
+  readonly resourceNoiseFloorPm: number;
+  readonly woodNoiseSeed: number;
+  readonly herbNoiseSeed: number;
+  readonly livestockNoiseSeed: number;
+  readonly resourceBitMinPm: number;
   /** [임시] 기온(°C)이 이 값 이상이고 강수(mm)가 아래 값 이상이면 농장(농사지을 땅) */
   readonly farmMinTempC: number;
   readonly farmMinRainMm: number;
@@ -224,6 +244,25 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   oreShareHillM: 200,
   oreShareHillPm: 400,
   oreLowTierMax: 2,
+  // 목재·약초·목장(D-536): 목재 = 숲 무리 100%·그 밖 30%(숲 밀도 몫에 곱함), 약초 = 습지 100%·고산 초지 80%·숲 가장자리·빈터 45%(목재 노이즈
+  // 반대를 80% 따름)·그 밖 10%, 목장 = 초지·사바나·툰드라 100%·그 밖 0. 노이즈 격자 8칸(배후지 지름 약 4칸의 두 배 — 도시마다 섞임이 다르다),
+  // 배율 25% ~ 175%(가운데 100% — 무리 평균은 거의 그대로). 시드는 서로 다른 아무 수. 약초·축산물 있음 비트는 몫 150‰부터. 숲 약초 45%·빈터 80%는
+  // S2 시험 행성에서 잰 값(apps/server/bench/resourceOverlap.ts — 숲에서 목재·약초 칸 상관 −0.85, 둘 다 500‰ 이상인 땅 칸 3%)
+  woodForestPm: 1000,
+  woodOtherPm: 300,
+  herbWetlandPm: 1000,
+  herbAlpinePm: 800,
+  herbForestPm: 450,
+  herbOtherPm: 100,
+  herbClearingPm: 800,
+  livestockPasturePm: 1000,
+  livestockOtherPm: 0,
+  resourceNoiseCells: 8,
+  resourceNoiseFloorPm: 250,
+  woodNoiseSeed: 5361,
+  herbNoiseSeed: 70913,
+  livestockNoiseSeed: 288149,
+  resourceBitMinPm: 150,
   farmMinTempC: 5,
   farmMinRainMm: 250,
   // 국가 자리: 지금 시험 행성(반지름 약 531km)에서 국가 넷이 수십~백 km 떨어지게, 사막·추운 땅을 빼고(기온 8~32°C·강수 300mm 이상)

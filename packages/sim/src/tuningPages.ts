@@ -5,6 +5,7 @@
 import type { TuningPage } from "@terra/shared/tuning";
 import { TUNING_KEYS, type TuningKey } from "./tuning.ts";
 import { BUILD_TUNING_KEYS } from "./tuningBuild.ts";
+import { CONDITION_TUNING_KEYS } from "./tuningCondition.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
 import { GATHER_OBJECT_TUNING_KEYS } from "./tuningGather.ts";
 import { HOUSE_TUNING_KEYS } from "./tuningHouse.ts";
@@ -28,6 +29,8 @@ const GROUP_PAGES: readonly (readonly [readonly TuningKey[], TuningPage])[] = [
   [BUILD_TUNING_KEYS, "economy"],
   [GATHER_OBJECT_TUNING_KEYS, "economy"],
   [LOGISTICS_TUNING_KEYS, "economy"],
+  // 컨디션(관리 보너스)은 채집 유효 스탯에 더한다(D-534) — 경제 코어. 초기 스탯 합 상한도 같은 묶음(N9)
+  [CONDITION_TUNING_KEYS, "economy"],
   [WAR_TUNING_KEYS, "society"],
   [TEMPLE_TUNING_KEYS, "society"],
   [RESTORATION_TUNING_KEYS, "society"],

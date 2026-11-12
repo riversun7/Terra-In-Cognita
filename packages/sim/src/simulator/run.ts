@@ -262,6 +262,7 @@ export function runSimulation(options: RunOptions): RunSummary {
             tierProgressStep: societyCoefficients.gatherTierProgressStep,
             tickMs: societyCoefficients.gatherTickMs,
             oreGrams: societyCoefficients.gatherOreGrams,
+            conditionCap: societyCoefficients.condition.cap,
           },
           ruinedGoodsHome(world, simCityDistance),
         )

@@ -49,11 +49,8 @@ export type StatRow =
 export const MAX_STAT_INPUT = 10_000_000;
 export const MAX_WEIGHT_PM = 100_000;
 
-/** 1차 스탯 성장(D-417): 초기 × (1000 + 성장률‰ × K‰ × (Lv − 1) ÷ 1000) ÷ 1000 */
-export function primaryAtLevel(initial: number, growthPm: number, kPm: number, level: number): number {
-  const factor = 1000 + Math.floor((growthPm * kPm * (level - 1)) / 1000);
-  return Math.floor((initial * factor) / 1000);
-}
+/** 1차 스탯 성장(D-417): 초기 × (1000 + 성장률‰ × K‰ × (Lv − 1) ÷ 1000) ÷ 1000. 식은 @terra/shared/statGrowth 하나(화면 미리 보기와 같다) */
+export { primaryAtLevel } from "@terra/shared/statGrowth";
 
 function check(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < -MAX_STAT_INPUT || value > MAX_STAT_INPUT)

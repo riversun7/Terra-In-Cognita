@@ -24,6 +24,7 @@ import { VITALS_TUNING_KEYS } from "./tuningVitals.ts";
 import { INJURY_TUNING_KEYS } from "./tuningInjury.ts";
 import { WORLD_SEED_TUNING_KEYS } from "./tuningWorldSeed.ts";
 import { LOGISTICS_TUNING_KEYS } from "./tuningLogistics.ts";
+import { CONDITION_TUNING_KEYS } from "./tuningCondition.ts";
 
 export interface TuningKey {
   /** 팩 항목 ID */
@@ -645,6 +646,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...LOGISTICS_TUNING_KEYS,
   // 플레이어 가문(49 S20, 질문 926~935 답): tuningHouse.ts
   ...HOUSE_TUNING_KEYS,
+  // 컨디션·초기 스탯 합 상한(49 N43·N9, D-534): tuningCondition.ts
+  ...CONDITION_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

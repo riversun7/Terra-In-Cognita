@@ -11,8 +11,11 @@
 //   굴림 상태(StatRolls)는 서버가 들고 있는다(서버 권위).
 // - 바뀜(2026-11-12, 사용자 지시 "선택된 둘다 12이상으로 나오던지하게해라"): 성향을 고르면 그 성향 칸은 바닥값(설정 칸
 //   n9_initial_favor_floor, 출발값 12) 아래로 나오지 않는다. 바닥까지 올린 만큼은 나머지 칸에서 무게 비례로 덜어 합 60을 지킨다.
+// - 바뀜(D-534, 2026-11-12): 초기 합 N9(출발 60)는 BM을 포함해 어떤 경우에도 100(@terra/shared STAT_SUM_ABSOLUTE_MAX)을 넘지 않는다 — 넘으면
+//   굴리지 않는다(설정 칸 검사 stat_sum_cap이 같은 조건으로 덮어쓰기를 막는다).
 // - 시드 난수(Rng)는 부르는 쪽이 준다(같은 시드·성향이면 같은 값).
 import type { Rng } from "@terra/shared";
+import { STAT_SUM_ABSOLUTE_MAX } from "@terra/shared/statGrowth";
 import type { Primaries } from "../combat/stats.ts";
 import type { SocietyCoefficients } from "./coefficients.ts";
 
@@ -91,6 +94,7 @@ export function rollStatSpread(temperamentId: string, rng: Rng, c: SocietyCoeffi
   const count = PRIMARY_STATS.length;
   if (initialMin < 1 || initialMin * count > initialSum || initialMax * count < initialSum)
     throw new RangeError("N9 sum and per-stat range do not fit");
+  if (initialSum > STAT_SUM_ABSOLUTE_MAX) throw new RangeError("N9 sum is above the absolute cap");
   const favored = PRIMARY_STATS.filter((stat) => temperament.favored.includes(stat));
   // 성향 칸 바닥(칸 범위 안으로 묶고, 성향 칸 바닥 + 나머지 칸 최소가 합을 넘으면 바닥을 낮춘다)
   const floorCap =

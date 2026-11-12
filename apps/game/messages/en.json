@@ -2774,6 +2774,7 @@
   "dev_tuning_problem_employer_order": "N28: adjustment floor ≤ ceiling",
   "dev_tuning_problem_food_order": "N33: food zero threshold ≤ low threshold",
   "dev_tuning_problem_n45_fit": "N45: recruit cards per level — card count and total stats min ≤ max (at most 16 cards, total at least 6), 1–4 elements, element points fit the element count (1–10 per element)",
+  "dev_tuning_problem_stat_sum_cap": "Initial stat sums: cyborg sum (N9) and human/creature max ≤ 100, recruit totals and gene total cap ≤ human max, condition cap ≥ 0 (D-534)",
   "dev_tuning_confirm_structural_title": "Change structural values",
   "dev_tuning_confirm_structural_body": "{count} staged cells are structural values set by decisions (D-5054). Apply them anyway?",
   "dev_tuning_confirm": "Apply",

@@ -7,6 +7,7 @@ import { BASIC_ELEMENTS, ELEMENT_MAX } from "@terra/shared/cyborg";
 import type { TuningProblem } from "@terra/shared/tuning";
 import type { SocietyCoefficients } from "./society/coefficients.ts";
 import { RECRUIT_CARDS_CAP } from "./society/recruitment.ts";
+import { STAT_SUM_ABSOLUTE_MAX } from "@terra/shared/statGrowth";
 
 /** 1차 스탯 수(N9 합을 칸마다 나눈다) */
 const PRIMARY_COUNT = 6;
@@ -79,6 +80,18 @@ export function tuningProblems(c: SocietyCoefficients): TuningProblem[] {
     )
   )
     problems.push("n45_fit");
+  // 초기 스탯 합 상한(D-534 "bm요소나 어떠한 경우에도 상한 100"): 사이보그 합·휴먼·크리쳐 최대 ≤ 100, 구인 카드 토탈·유전자 총합 ≤ 휴먼 최대,
+  // 컨디션 합계 상한 ≥ 0(음수면 ± 범위가 뒤집힌다)
+  const sums = c.statSums;
+  if (
+    cy.initialSum > STAT_SUM_ABSOLUTE_MAX ||
+    sums.humanMax > STAT_SUM_ABSOLUTE_MAX ||
+    sums.creatureMax > STAT_SUM_ABSOLUTE_MAX ||
+    r.levels.some((level) => level.statsMax > sums.humanMax) ||
+    c.fusion.geneTotalMax > sums.humanMax ||
+    c.condition.cap < 0
+  )
+    problems.push("stat_sum_cap");
   return problems;
 }
 

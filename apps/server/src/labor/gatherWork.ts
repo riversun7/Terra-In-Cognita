@@ -48,6 +48,7 @@ export function gatherSettingsOf(c: SocietyCoefficients): GatherSettings {
     tierProgressStep: c.gatherTierProgressStep,
     tickMs: c.gatherTickMs,
     oreGrams: c.gatherOreGrams,
+    conditionCap: c.condition.cap,
   };
 }
 

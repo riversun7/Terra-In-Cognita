@@ -6,9 +6,11 @@
 //   [0, 상한]으로 자른다. 분포 = 두 분포의 평균을 다시 1000으로, 속성 = 칸마다 평균(내림) ± 오차(D-481), [0, 10].
 // - 인큐베이터 적용: 총합(total) = 유전자 총합을 여섯 칸에 고르게(바탕 총합보다 작으면 바탕), 주력(main) = 바탕 스탯에 분포가 가장 큰 칸만
 //   유전자의 그 칸 값(바탕보다 작으면 바탕). 속성은 유전자 값을 그대로 받는다 [임시].
+// - 바뀜(D-534, 2026-11-12): 합성 총합은 절대 상한 100을 넘지 않고, 인큐베이터 스탯 합은 휴먼 최대(설정 칸 n9_human_sum_max)로 자른다.
 // 판정은 정수와 시드 굴림만 쓴다(AGENTS 4장). 배열 차례는 STR·DEX·AGI·VIT·INT·WIS, 속성은 @terra/shared ELEMENT_IDS 차례.
 import type { Rng } from "@terra/shared";
 import { ELEMENT_IDS, ELEMENT_MAX } from "@terra/shared/cyborg";
+import { STAT_SUM_ABSOLUTE_MAX, capStatSum } from "@terra/shared/statGrowth";
 import { FUSION_STAT_COUNT, type FusionCoefficients, sixStats } from "./fusion.ts";
 
 /** 속성 칸 수(@terra/shared ELEMENT_IDS) */
@@ -109,7 +111,8 @@ export function synthesizeStatGenes(
   rng: Rng,
   c: FusionCoefficients,
 ): { readonly gene: StatGene; readonly outcome: GeneSynthesisOutcome; readonly step: number } {
-  const cap = Math.max(0, c.geneTotalMax);
+  // 총합 상한(D-516 [임시])은 절대 상한(D-534 100)을 넘지 않는다
+  const cap = Math.max(0, Math.min(STAT_SUM_ABSOLUTE_MAX, c.geneTotalMax));
   const baseTotal = Math.floor((Math.max(0, a.total) + Math.max(0, b.total)) / 2);
   const outcome = rollOutcome(rng, c);
   const step = c.geneStepPm > 0 ? Math.max(1, Math.floor((baseTotal * c.geneStepPm) / 1000)) : 0;
@@ -136,17 +139,29 @@ export function synthesizeStatGenes(
  * 인큐베이터로 태어나는 휴먼의 1차 스탯(D-478 "그 스탯 어드밴티지를 갖고 태어남", D-516 "총합이나 주력 스탯을 골라 적용").
  * 바탕 = 칸마다 incubateBaseStat. total = 유전자 총합(바탕 총합보다 작으면 바탕 총합)을 고르게, main = 바탕 + 주력 칸만 유전자 값
  */
-export function incubateStats(gene: StatGene, apply: GeneApply, c: FusionCoefficients): number[] {
+export function incubateStats(
+  gene: StatGene,
+  apply: GeneApply,
+  c: FusionCoefficients,
+  sumMax: number = STAT_SUM_ABSOLUTE_MAX,
+): number[] {
   const base = Math.max(0, c.incubateBaseStat);
   const flat = Array.from({ length: FUSION_STAT_COUNT }, () => base);
   if (apply === "total") {
     const total = Math.max(gene.total, base * FUSION_STAT_COUNT);
-    return apportion(
-      flat.map(() => 1),
-      total,
+    return capStatSum(
+      apportion(
+        flat.map(() => 1),
+        total,
+      ),
+      sumMax,
     );
   }
   const main = mainStatIndex(gene);
   const value = geneStatValues(gene)[main] ?? 0;
-  return flat.map((stat, index) => (index === main ? Math.max(stat, value) : stat));
+  // 휴먼 초기 합 상한(D-534 설정 칸 n9_human_sum_max, 부르는 쪽이 준다 — 없으면 절대 상한 100)
+  return capStatSum(
+    flat.map((stat, index) => (index === main ? Math.max(stat, value) : stat)),
+    sumMax,
+  );
 }

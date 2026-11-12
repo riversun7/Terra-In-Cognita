@@ -19,6 +19,16 @@ import { START_WAR_COEFFICIENTS, type WarCoefficients } from "./warOutcomes.ts";
 import { START_WORLD_SEED, type WorldSeedCoefficients } from "./worldSeed.ts";
 import { type GatherObjectCoefficients, START_GATHER_OBJECTS } from "./gatherObjects.ts";
 import { type LogisticsCoefficients, START_LOGISTICS } from "./logisticsCoefficients.ts";
+import { type ConditionCoefficients, START_CONDITION } from "./condition.ts";
+
+/**
+ * 초기 스탯 합 상한(D-534: 사이보그 60 = cyborg.initialSum, 크리쳐·휴먼은 상위 콘텐츠로 최대 80, 모두 @terra/shared STAT_SUM_ABSOLUTE_MAX 100 이하).
+ * 팩 tuning 경로 "statSums.*". 휴먼 상한은 구인 카드·인큐베이터·유전자 총합이, 크리쳐 상한은 크리쳐 편집기가 지킨다
+ */
+export interface StatSumCoefficients {
+  readonly humanMax: number;
+  readonly creatureMax: number;
+}
 
 /** 도시 발전도 식 계수([임시], SocietyCoefficients.development) */
 export interface DevelopmentCoefficients {
@@ -159,6 +169,10 @@ export interface SocietyCoefficients {
    * 출발값 없음(사용자 확인 대기) → 10점(economy/gather.ts gatherStat)
    */
   readonly gatherLevelBonus: number;
+  /** 컨디션(관리 보너스, D-534, 팩 tuning 경로 "condition.*" [임시]): 주거·음식 → 유효 스탯 ±, 합계 상한. society/condition.ts */
+  readonly condition: ConditionCoefficients;
+  /** 초기 스탯 합 상한(D-534, 팩 tuning 경로 "statSums.*") */
+  readonly statSums: StatSumCoefficients;
   /**
    * 1차 생산 필요 진행(49 N44, D-507, 옛 BuildingGatherEngine tierRequiredProgress): 티어 T 한 번 = max(기본, 기본 + T × 걸음) 진행.
    * 옛 값 기본 30·걸음 30(T0 30 … T9 300). 사다리(추첨·선택)에서 나오는 산출에 쓴다(레시피 작업량은 사다리 밖 산출)
@@ -462,6 +476,8 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   productionMainDivisor: 20,
   productionSubYieldPm: 80,
   gatherLevelBonus: 10,
+  condition: { ...START_CONDITION },
+  statSums: { humanMax: 80, creatureMax: 80 },
   gatherTierProgressBase: 30,
   gatherTierProgressStep: 30,
   gatherTickMs: 60_000,

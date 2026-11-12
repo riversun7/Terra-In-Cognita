@@ -38,6 +38,7 @@ import {
   tierCappedByLevel,
 } from "../economy/production.ts";
 import { dueNecessities, payNecessities } from "../economy/upkeep.ts";
+import { clampCondition } from "../society/condition.ts";
 import { START_GATHER_OBJECTS } from "../society/gatherObjects.ts";
 import { haulTimeMs } from "../society/logistics.ts";
 import { type CatchmentState, facilitySupplyPm, oreTierCap } from "./catchmentRun.ts";
@@ -81,6 +82,8 @@ export interface GatherSettings {
   readonly tickMs?: number | undefined;
   /** 광석 한 번 캘 때 g(N44 n44_ore_grams, 1,000). 없으면 1,000 */
   readonly oreGrams?: number | undefined;
+  /** 컨디션 합계 상한(±, 49 N43 condition_cap, D-534 출발 40). 없으면 0(컨디션을 쓰지 않는다) */
+  readonly conditionCap?: number | undefined;
 }
 
 /** 시설 계획에 일꾼 스탯이 없을 때: 새 유닛 평균 1차 스탯 하나 = ⌊N9 초기 합 ÷ 6⌋([임시] 시뮬 유닛에 스탯이 없다, 출발값 60 → 10) */
@@ -309,7 +312,11 @@ export function createEconomy(
             recipe,
             level: plan.level,
             workers,
-            ...workerEffects(facility.gather, plan, gather),
+            ...workerEffects(
+              facility.gather,
+              { ...plan, condition: clampCondition(plan.condition ?? 0, { cap: gather.conditionCap ?? 0 }) },
+              gather,
+            ),
             ...(plan.dutyPm === undefined ? {} : { dutyPm: plan.dutyPm }),
             ...(plan.haulCells === undefined || plan.haulCells <= 0
               ? {}
@@ -431,18 +438,24 @@ export function scheduleEconomy(
 
 /**
  * 시설 계획의 일꾼 스탯이 시설에 주는 효과(D-506·D-507): 추첨 유효 스탯, 선택 해금 티어, 진행 속도, 수확량.
- * 스탯 짝(gather)이 없는 시설은 속도·수확량 1(효과 없음)
+ * 스탯 짝(gather)이 없는 시설은 속도·수확량 1(효과 없음). condition = 컨디션(관리 보너스, D-534 — society/condition.ts unitCondition의
+ * 합계, 상한으로 자른 값)은 추첨 유효 스탯에만 더한다(진행 속도·수확량·해금 티어는 그대로 [임시], 질문 1154). 없으면 0
  */
 export function workerEffects(
   rule: CatalogGather | undefined,
-  plan: { level: number; primaryStat?: number | undefined; secondaryStat?: number | undefined },
+  plan: {
+    level: number;
+    primaryStat?: number | undefined;
+    secondaryStat?: number | undefined;
+    condition?: number | undefined;
+  },
   gather: GatherSettings,
 ): Pick<EcoFacility, "gatherStat" | "selectTier" | "progress" | "yieldPerLot" | "catchPm"> {
   const primary = plan.primaryStat ?? gather.defaultStat;
   const secondary = plan.secondaryStat ?? gather.defaultStat;
   if (!rule) return { gatherStat: 0, selectTier: 0, progress: 1, yieldPerLot: 1 };
   return {
-    gatherStat: gatherStat(primary + secondary, plan.level, gather.levelBonus),
+    gatherStat: gatherStat(primary + secondary, plan.level, gather.levelBonus, plan.condition ?? 0),
     selectTier: accessibleTier(primary, secondary),
     progress: gatherProgress(primary, gather.progressDivisor ?? 20),
     yieldPerLot: gatherYield(secondary, {

@@ -6225,7 +6225,7 @@
   "dev_world_layout_catchment_kind_world": "지금 {n}",
   "dev_world_layout_catchment_kind_plan": "계획 {n}",
   "dev_world_layout_catchment_col_ore": "광석 몫‰",
-  "dev_world_layout_catchment_col_high_ore": "산지 몫‰",
+  "dev_world_layout_catchment_col_high_ore": "높은 티어 몫‰",
   "dev_world_layout_catchment_ore_rule": "광석 몫(고도): 0m {low}‰ · {hillM}m {hill}‰ · {mountainM}m 이상 1000‰. 높은 티어(T{tier} 위): {highM}m 이상 산지는 그대로, 산지 밖은 {flat}‰만",
   "dev_lab_tab_matrix": "분포 상성",
   "dev_lab_tab_sensitivity": "스탯 영향도",

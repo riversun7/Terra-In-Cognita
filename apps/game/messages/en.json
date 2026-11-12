@@ -6225,7 +6225,7 @@
   "dev_world_layout_catchment_kind_world": "Now {n}",
   "dev_world_layout_catchment_kind_plan": "Plan {n}",
   "dev_world_layout_catchment_col_ore": "Ore share ‰",
-  "dev_world_layout_catchment_col_high_ore": "Mountain share ‰",
+  "dev_world_layout_catchment_col_high_ore": "High-tier share ‰",
   "dev_world_layout_catchment_ore_rule": "Ore share by height: 0 m {low}‰ · {hillM} m {hill}‰ · {mountainM} m and up 1000‰. Tiers above T{tier}: in full on mountains from {highM} m, only {flat}‰ elsewhere",
   "dev_lab_tab_matrix": "Matchups",
   "dev_lab_tab_sensitivity": "Stat influence",

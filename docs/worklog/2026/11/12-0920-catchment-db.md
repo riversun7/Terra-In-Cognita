@@ -52,8 +52,14 @@
 - 버티는 도시 수는 국가마다 혼자 센 어림이다(질문 1100).
 - 이 판으로 NAS를 켜면 이미 선 NPC 마을(시작 도시가 아닌 도시)에 행정 건물·숙소가 선다(더하기만).
 
-## 검사
-(끝 검사 결과는 아래 "끝 검사"에 적는다)
+## 검사 (Verified: 실행)
+- 작업 중: `catchmentStore.db.test.ts` 1, `houseRecruit.db.test.ts` 1(다시 켜기 포함), `houseCity.db.test.ts` 2(기대값 둘 고침: 다시 켠 가문에 판단 사건이 걸림, 같은 자리는 행정 건물이 막아 `blocked`), `npcSeed.test.ts` 7, `citySites.test.ts` 12, 프로토콜 133, 서버 `src/npc·facilities·ruins·world·cli·factionIdentity·recruit` DB 포함 80파일 393(고치기 전 실패 1 = 위 `blocked`).
+- 끝 검사 `TEST_DATABASE_URL=… pnpm check`: 통과 — 635파일 4,877시험, 다국어 6,904키, 디자인 값, 콘텐츠 core@74. `packages/sim/src/index.ts`가 1,000줄(상한 바로 아래 — `recruitPolicy` 내보내기 한 줄).
+- `pnpm build` + `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 108,912 B / 상한 131,416 B.
+- `pnpm e2e world-layout.spec.ts faction-identity.spec.ts`: 26 통과(1.6분) — 배후지 덮개 시험에 버티는 도시 수(API·화면 줄) 더함.
+- `pnpm check:docs origin/main` 통과, `pnpm docs:index`.
+- 사진(저장소 밖 `…/scratchpad/catchment-db-shots/`): `world-layout-catchment-light-ko-390.png`(버티는 도시 23곳·등급 표 2곳), `world-layout-catchment-neon-ko-1440.png`, `house-city-pastel-ko-390.png`(가문 도시 칸 — 구인 칸은 가문을 들인 뒤에만 보여 이 사진에 없다).
+- 돌리지 않은 것: 실제 서버 + 행성 값(NAS), 가문 구인 칸 화면 시험, 실제 휴대폰.
 
 ## 사용자 결정 대기
 - 질문 1096~1101(`docs/questions/2026-11-12-catchment-db.md`).

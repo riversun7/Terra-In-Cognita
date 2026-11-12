@@ -18,6 +18,7 @@ import type { FacilityCatalog, FacilityDef } from "../facilities/catalog.ts";
 import type { PlaceWorld } from "../facilities/places.ts";
 import type { FacilityRecord } from "../facilities/state.ts";
 import { mapTerrainFromTemp } from "../world/mapTerrain.ts";
+import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
 import { createInlinePathService } from "../world/pathService.ts";
 import { type SecondMap, createSecondMap } from "../world/secondMap.ts";
 import { flatTerrain, silentLog } from "../world/testSupport.ts";
@@ -382,6 +383,26 @@ describe("채집소 일꾼 산출·창고", () => {
     expect(r.runtime.haulOut(OWNER, 999, ORE, 1n, NOW)).toBeUndefined();
     expect(r.runtime.haulNow(trip?.arriveAtMs ?? 0)).toBe(1);
     expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(9n);
+  });
+
+  it("운영자 빠르기 표시(world/operatorPace.ts)가 달린 운반꾼은 나르는 시간도 그 배수로 준다", () => {
+    const r = rig();
+    const here = buildingLocation(r.mineId);
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -4n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, here), amount: 4n },
+      ],
+    });
+    r.hire(r.mineId, 7, 30, 30);
+    r.map.setPace(7, OPERATOR_SPEED_FACTOR);
+    expect(r.runtime.haulOut(OWNER, r.mineId, ORE, 4n, NOW)).toBeNull();
+    expect(r.runtime.trip(r.mineId)).toMatchObject({
+      porter: 7,
+      arriveAtMs: NOW + Math.ceil((2 * 77 * walkMsPerCell()) / OPERATOR_SPEED_FACTOR),
+    });
   });
 
   it("다시 켠 뒤: 일꾼 화물에 남은 채집소 주인 몫은 다음 정시에 다시 떠난다", () => {

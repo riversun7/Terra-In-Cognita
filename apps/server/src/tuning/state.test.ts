@@ -63,25 +63,25 @@ describe("설정 칸 실효 값", () => {
 
   it("plan: 묶음을 바꾼 뒤의 전체 값으로 본다. 함께 바꾸면 되는 칸(N9 합·칸 최대)은 한 묶음으로 받는다", () => {
     const state = createTuningState(packEntries());
-    // 합 150만 바꾸면 칸 최대 20 × 6 = 120 < 150 → 문제
-    expect(state.plan([{ id: "n9_initial_sum", value: 150 }])).toEqual({
+    // 칸 최대 9만 바꾸면 9 × 6 = 54 < 합 60 → 문제(합은 D-534 절대 상한 100을 넘을 수 없어 합을 올리는 대신 최대를 내린다)
+    expect(state.plan([{ id: "n9_initial_max", value: 9 }])).toEqual({
       ok: false,
       reason: "rules_conflict",
       id: null,
       problems: ["n9_fit"],
     });
-    // 칸 최대 30과 함께면 맞다
+    // 합 54와 함께면 맞다
     expect(
       state.plan([
-        { id: "n9_initial_sum", value: 150 },
-        { id: "n9_initial_max", value: 30 },
+        { id: "n9_initial_sum", value: 54 },
+        { id: "n9_initial_max", value: 9 },
       ]),
     ).toEqual({
       ok: true,
       formulas: [],
       changes: [
-        { id: "n9_initial_sum", before: null, after: 150 },
-        { id: "n9_initial_max", before: null, after: 30 },
+        { id: "n9_initial_sum", before: null, after: 54 },
+        { id: "n9_initial_max", before: null, after: 9 },
       ],
     });
     // plan은 메모리를 바꾸지 않는다

@@ -156,3 +156,9 @@
 
 ## 바뀜 (2026-11-11, 1차 생산 여섯 가지 — 팩 core@62, `SIM_VERSION` 그대로)
 - 채집 시설이 여섯이 됐다(약초원 INT/WIS 추첨·목장 WIS/AGI 선택·낚시터 AGI/DEX 성공 확률 뒤 추첨, 옛 `gather_type_config`·`fishing_config`). 채집 칸 `catch`(성공 ‰ = min(상한, 기본 + ⌊스탯 몫 × min(가득, 주 + 보조) ÷ 가득⌋))와 `rollGatherOutputs`의 `successPm`을 더했다(칸이 없는 시설은 난수를 더 쓰지 않아 결과가 그대로 — econ16 본문 줄 같음). 난수 없는 셈은 `@terra/shared/gatherMath`로 옮기고 `@terra/sim`이 다시 내보낸다. ADR `2026-11-11-production-six.md`.
+
+## 바뀜 (2026-11-12, D-534 채집 T9 구간·컨디션 — 팩 core@76, `SIM_VERSION` 그대로)
+
+- 확률표(49 N43): T9는 200~219 구간 2‰(드물게), 220부터 오른다(220 15‰, 새 240 구간 25‰, 새 260 구간 35‰). 0~199 구간은 그대로. 시험 표 `TEST_GATHER_BANDS`도 같다.
+- 채집 유효 스탯 = max(0, 주 + 보조 + 컨디션) + 시설 레벨 보너스(`@terra/shared/gatherMath` gatherStat 넷째 인자). 컨디션 = 관리 보너스(주거·음식, 합계 ±40)이고 규칙은
+  `docs/adr/2026-11-12-unit-condition.md`. 시뮬 시설 계획은 `condition`(시나리오 칸, 없으면 0)으로만 받아 지금 시나리오 결과는 그대로다.

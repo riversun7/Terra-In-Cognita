@@ -369,8 +369,9 @@ function SecondMapView({
     cyborgUnitId: cyborg?.unitId ?? null,
   });
   const { refollow, anchorRef } = useAnchorFollow(engineRef, anchor);
-  // 도시 화면 줄 → 카메라를 그 건물로(판이 열린 동안), 건물 판 열기
-  const lookAtBuilding = useBuildingLook(engineRef, gather, refollow, nearbyCellM);
+  // 도시 화면 줄 → 건물 판 열기(운영자 모드면 카메라도 그 건물로 — 판이 열린 동안)
+  const cameraFree = useCallback(() => operatorRef.current, [operatorRef]);
+  const lookAtBuilding = useBuildingLook(engineRef, gather, refollow, nearbyCellM, cameraFree);
   useEffect(() => {
     nearby.setAnchor(anchor);
   }, [nearby, anchor]);

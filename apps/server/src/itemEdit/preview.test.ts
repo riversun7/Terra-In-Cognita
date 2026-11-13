@@ -183,10 +183,10 @@ describe("무기 미리 보기", () => {
     ]);
     expect(weapon?.capPm).toBe(1000);
     const values = weapon?.fields[0]?.values;
-    // 공격력 = 스탯 공격력 10 + 20 × 0.4 = 18(사용자 예), 명중 900 × 0.833 = 749, 간격 1000 ÷ 0.833 = 1200
-    expect(values?.find((value) => value.id === "real_attack")?.value).toBe(18);
+    // 공격력 = 스탯 공격력 15(STR + ⌊VIT ÷ 2⌋, 2026-11-13) + 20 × 0.4 = 23, 명중 900 × 0.833 = 749, 간격 1000 ÷ 0.833² = 1,443
+    expect(values?.find((value) => value.id === "real_attack")?.value).toBe(23);
     expect(values?.find((value) => value.id === "real_hit")?.value).toBe(749);
-    expect(values?.find((value) => value.id === "attack_interval")?.value).toBe(1200);
+    expect(values?.find((value) => value.id === "attack_interval")?.value).toBe(1443);
     // 맨손 적정 식은 아이템 무기 미리 보기에 없다
     expect(values?.some((value) => value.id === "bare_appropriate")).toBe(false);
   });
@@ -203,7 +203,7 @@ describe("무기 미리 보기", () => {
     ).weapon;
     expect(weapon?.parts?.every((part) => part.appropriate === null && part.ratioPm === 1000)).toBe(true);
     expect(weapon?.parts?.some((part) => part.part === "elemental")).toBe(false);
-    expect(weapon?.fields[0]?.values.find((value) => value.id === "real_attack")?.value).toBe(30);
+    expect(weapon?.fields[0]?.values.find((value) => value.id === "real_attack")?.value).toBe(35);
   });
 });
 

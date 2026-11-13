@@ -1884,7 +1884,7 @@
   "cyborg_attack_no_appropriate": "No requirement → {ratio}",
   "cyborg_attack_sum": "= stat {stat} + weapon {weapon} × {ratio} = {real}",
   "cyborg_attack_scaled": "= weapon {weapon} × {ratio} = {real}",
-  "cyborg_attack_interval_line": "= weapon {weapon} ms ÷ {ratio} = {real} ms",
+  "cyborg_attack_interval_line": "= weapon {weapon}ms ÷ ({ratio})² = {real}ms (capped at 2× appropriate)",
   "cyborg_ms": "{value} ms",
   "cyborg_stamina_real_formula": "Actual regen = row value × min(2, STA score ÷ appropriate STA)",
   "cyborg_stamina_real_line": "= {row}/min × min(2, {score} ÷ {appropriate}) = {real}/min",

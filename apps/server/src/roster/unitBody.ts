@@ -284,6 +284,9 @@ export function rosterMoveOf(): RosterMove {
   };
 }
 
+/** 무기 간격의 적정스탯 상한(2배, 사용자 결정 2026-11-13 — 계산식 attack_interval 기본 식의 min(2, …)과 같다). 화면 풀이의 비율에만 쓴다 */
+const WEAPON_SPEED_CAP_PM = 2000;
+
 /** 스킬 ID → 전투 스킬(장비 스킬은 등급 1, 전투 실험실·시뮬과 같다). 모르는 ID는 뺀다 */
 function skillsFor(catalog: RosterCatalog, ids: readonly string[]): CombatSkill[] {
   const combat = catalog.combat;
@@ -399,7 +402,12 @@ export function combatSummaryOfSpec(catalog: RosterCatalog, spec: BodySpec, part
     // 맨손 기본 공격 간격은 맨손 식(bare_interval, 사용자 답 1252)
     interval: {
       weaponMs: weapon.intervalMs,
-      part: part(agi, agiAppropriate),
+      // 무기 간격 비율은 적정 2배까지(속도 상한, 계산식 attack_interval 기본 식과 같은 값 — 화면 풀이용)
+      part: {
+        stat: agi,
+        appropriateMilli: agiAppropriate,
+        ratioPm: weaponRatioPm(agi, agiAppropriate, WEAPON_SPEED_CAP_PM),
+      },
       real: unit.attackIntervalMs,
       ...(weapon.unarmed === true ? { bare: true } : {}),
     },

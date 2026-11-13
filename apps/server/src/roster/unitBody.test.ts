@@ -86,22 +86,25 @@ const row = (stats: { secondary: readonly { id: string; value: number }[] }, id:
   stats.secondary.find((entry) => entry.id === id)?.value;
 
 describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
-  it("시험 검을 쥐면 공격력 10 → 18, 명중·간격·크리 배율이 무기를 따른다(D-502)", () => {
+  it("시험 검을 쥐면 공격력 15 → 23, 명중·간격·크리 배율이 무기를 따른다(D-502, 물리 공격력 STR + ⌊VIT ÷ 2⌋ 2026-11-13)", () => {
     const bare = realCyborgBody(catalog, record, false);
     const armed = realCyborgBody(catalog, record, false, gear([sword()]));
     expect(bare.combat?.weapon).toBeNull();
-    expect(bare.combat?.attack).toMatchObject({ statAttack: 10, weaponAttack: 0, real: 10 });
+    expect(bare.combat?.attack).toMatchObject({ statAttack: 15, weaponAttack: 0, real: 15 });
     expect(armed.combat?.weapon).toBe("test_sword");
     expect(armed.combat?.attack).toMatchObject({
       kind: "physical",
-      statAttack: 10,
+      statAttack: 15,
       weaponAttack: 20,
       part: { stat: 10, appropriateMilli: 25_000, ratioPm: 400 },
-      real: 18,
+      real: 23,
     });
-    // 명중 = 900 × min(1, DEX 10 ÷ 12), 간격 = 1,000 ÷ 0.833(D-502 ADR 표: 749‰·1,200ms)
+    // 명중 = 900 × min(1, DEX 10 ÷ 12) = 749‰, 간격 = 1,000 ÷ 0.833²(무기도 같은 꼴, 2026-11-13) = 1,443ms, 비율 줄은 적정 2배 상한
     expect(armed.combat?.hit.real).toBe(749);
-    expect(armed.combat?.interval.real).toBe(1200);
+    expect(armed.combat?.interval).toMatchObject({
+      real: 1443,
+      part: { stat: 10, appropriateMilli: 12_000, ratioPm: 833 },
+    });
     // 맨손(사용자 결정 2026-11-12): 크리 = AGI + DEX = 20‰(2%), 명중 늘 1000‰. 검을 쥐면 무기 틀(맨손 표지 없음)
     expect(bare.combat?.crit).toMatchObject({ real: 20, bare: { agi: 10 }, part: { stat: 10 } });
     expect(bare.combat?.hit).toMatchObject({ real: 1000, bare: true });
@@ -126,7 +129,7 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
     expect(broken.slots[0]?.item).toBeNull();
     expect(hasGear(gear([sword(0)]))).toBe(false);
     // 내구도가 남은 것은 준다
-    expect(realCyborgBody(catalog, record, false, gear([sword(1)])).combat?.attack.real).toBe(18);
+    expect(realCyborgBody(catalog, record, false, gear([sword(1)])).combat?.attack.real).toBe(23);
   });
 
   it("인공장기·장신구 두 칸은 1차 스탯에 더한다(D-423, 칸마다 더함)", () => {
@@ -146,8 +149,8 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
       { kind: "body", value: 10 },
       { kind: "item", slot: "organ", item: "test_heart", value: 3 },
     ]);
-    // 스탯 공격력 = ⌊(STR + VIT) ÷ 2⌋ = ⌊(15 + 13) ÷ 2⌋
-    expect(body.combat?.attack.statAttack).toBe(14);
+    // 스탯 공격력 = STR + ⌊VIT ÷ 2⌋ = 15 + 6(2026-11-13)
+    expect(body.combat?.attack.statAttack).toBe(21);
   });
 
   it("칸 묶음에 맞지 않는 굴린 값은 빼고 읽는다(정의가 바뀐 옛 물건)", () => {
@@ -238,7 +241,7 @@ describe("유닛 상세(기본 몸) · 전투 사양", () => {
     expect(bare).toMatchObject({ id: 7, side: 1, party: 1, x: 3, y: 4, buildingMulPm: 2000, cyborg: true });
     expect(bare.attack.weaponAttack).toBe(0);
     expect(armed.attack.weaponAttack).toBe(20);
-    expect(armed.attackIntervalMs).toBe(1200);
+    expect(armed.attackIntervalMs).toBe(1443);
     expect(bare.weaponFields).toEqual([]);
     expect(armed.weaponFields).toEqual(["physical"]);
     const staff = combatSpecOf(
@@ -333,10 +336,10 @@ describe("사이보그 판 버프 몫(질문 354 → D-515: 기본값과 버프�
     );
     const body = realCyborgBody(catalog, record, false, buffs, NOW);
     const shares = body.buffs;
-    // 줄 값(풀이·공격 값)은 기본: STR 10 그대로의 물리 공격력 ⌊(10 + 10) ÷ 2⌋ = 10, 2차 스탯은 버프 든 값 ⌊(15 + 10) ÷ 2⌋ = 12
-    expect(value(body.breakdown, "physical_attack")).toBe(10);
-    expect(value(body.stats.secondary, "physical_attack")).toBe(12);
-    expect(shares?.rows.physical_attack).toBe(2);
+    // 줄 값(풀이·공격 값)은 기본: STR 10 그대로의 물리 공격력 10 + ⌊10 ÷ 2⌋ = 15, 2차 스탯은 버프 든 값 15 + 5 = 20(2026-11-13 B2)
+    expect(value(body.breakdown, "physical_attack")).toBe(15);
+    expect(value(body.stats.secondary, "physical_attack")).toBe(20);
+    expect(shares?.rows.physical_attack).toBe(5);
     // 방어율은 STR이 가중치로 바꾼 몫 + 버프 50‰(withDefenseModifiers), 회피·크리 배율은 버프 그대로
     expect(shares?.rows.defense_rate).toBe(
       value(body.stats.secondary, "defense_rate") + 50 - value(body.breakdown, "defense_rate"),
@@ -346,9 +349,9 @@ describe("사이보그 판 버프 몫(질문 354 → D-515: 기본값과 버프�
     // 쉴드 재생 = WIS 10 × (1000 + 500) ÷ 1000 − 10
     expect(value(body.breakdown, "shield_regen")).toBe(10);
     expect(shares?.rows.shield_regen).toBe(5);
-    // 실제 공격력: 기본 10(맨손), 든 값 12 × 1.3(공격 ‰ 버프 항) = 15 → 몫 5
-    expect(body.combat?.attack.real).toBe(10);
-    expect(shares?.attack).toBe(5);
+    // 실제 공격력: 기본 15(맨손), 든 값 20 × 1.3(공격 ‰ 버프 항) = 26 → 몫 11
+    expect(body.combat?.attack.real).toBe(15);
+    expect(shares?.attack).toBe(11);
     expect(shares?.hit).toBe(0);
     expect(shares?.interval).toBe(0);
     expect(shares?.penetration).toEqual({ basePm: 0, buffPm: 100 });
@@ -412,7 +415,7 @@ describe("꺼진 아이템을 입고 있으면(질문 355 → D-515·D-512)", ()
     const body = realCyborgBody(off, record, false, gear([sword()]), NOW);
     expect(body.slots[0]?.item?.id).toBe("test_sword");
     expect(body.combat?.weapon).toBe("test_sword");
-    expect(body.combat?.attack.real).toBe(18);
+    expect(body.combat?.attack.real).toBe(23);
     expect(off.names.items.test_sword).toEqual({ ko: "시험용 검", en: "Test sword" });
     expect(combatSpecOf(off, cyborg, gear([sword()]), place, NOW).attack.weaponAttack).toBe(20);
   });

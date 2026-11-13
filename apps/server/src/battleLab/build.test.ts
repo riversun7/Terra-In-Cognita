@@ -198,12 +198,12 @@ describe("실험 유닛 → 전투 사양(서버만 계산)", () => {
 
   it("맨손·적정: 무기가 없으면 기본·물리·속성 모두 타고난 무기(무기 몫 0, D-502), 지팡이면 물리 스킬만 맨손(D-465)", () => {
     const bare = previewLabUnit(newLabUnit("human"), rules).combat;
-    // 새 휴먼(1차 모두 10, Lv 1): 공격력 = 스탯 공격력 10, 명중 늘 1000‰·크리 AGI + DEX = 20‰(사용자 결정 2026-11-12, 전에는 738‰)
+    // 새 휴먼(1차 모두 10, Lv 1): 공격력 = 스탯 공격력 15(STR + ⌊VIT ÷ 2⌋, 2026-11-13), 명중 늘 1000‰·크리 AGI + DEX = 20‰(사용자 결정 2026-11-12, 전에는 738‰)
     expect(bare.attacks.basic).toMatchObject({
       source: "natural",
       weaponAttack: 0,
-      statAttack: 10,
-      realAttack: 10,
+      statAttack: 15,
+      realAttack: 15,
     });
     expect(bare.attacks.elemental).toMatchObject({ source: "natural", weaponAttack: 0, appropriateMilli: 0 });
     expect(bare.appropriate.hit).toEqual({ stat: 10, appropriateMilli: 11_500, ratioPm: 869 });

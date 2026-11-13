@@ -112,7 +112,8 @@ export const COMBAT_FORMULA_SLOTS: Readonly<Record<CombatFormulaId, FormulaSlot>
     min: 1000,
     max: null,
   }),
-  // 공격 간격(사용자 답 297): I 무기 간격, AGI, A 무기 적정 AGI(맨손은 bare_appropriate), CAP 비율 상한(N10). 적정 미만이면 느려진다
+  // 공격 간격(사용자 결정 2026-11-13 "무기도 같은 꼴로"): I 무기 간격, AGI, A 무기 적정 AGI, CAP(N10, 기본 식은 쓰지 않음).
+  // 기본 = I ÷ (AGI ÷ A)², 속도 상한 = 적정의 2배(최소 I × 0.25), 최대 I × 2.5. 맨손은 bare_interval
   attack_interval: combatSlot(
     "attack_interval",
     [v("I", "ms"), v("AGI", "points"), v("A", "points"), v("CAP", "x")],
@@ -192,7 +193,12 @@ export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> 
   real_crit: "if(A <= 0, W, floor(W * min(CAP, max(0, DEX) / A)))",
   bare_appropriate: "# [임시] 옛 프로젝트 맨손 규칙: 맨손 적정 DEX·AGI = 레벨 × 1.5 + 10\nLV * 1.5 + 10",
   crit_multiplier: "max(0, M) + floor(SPREAD * ROLL / 10000)",
-  attack_interval: "if(A <= 0, I, max(1, floor(I / max(0.001, min(CAP, max(0, AGI) / A)))))",
+  attack_interval: [
+    '# 사용자 결정 2026-11-13 "무기도 같은 꼴로"·"장비는 그래서 적정스탯 상한이 필요하다": 간격 = 무기 간격 ÷ (AGI ÷ 적정 AGI)²',
+    "# 적정의 2배(속도 상한)를 넘는 AGI는 더 빨라지지 않는다(최소 무기 간격 × 0.25), 아무리 느려도 무기 간격 × 2.5",
+    "r = min(2, max(0, AGI) / max(0.001, A))",
+    "if(A <= 0, I, min(floor(I * 2.5), max(1, floor(I / max(0.001, r * r)))))",
+  ].join("\n"),
   stamina_score: "floor(AGI * W_AGI + VIT * W_VIT)",
   stamina_appropriate: [
     "# [임시] 보통 유닛의 STA 점수(D-511): 1차 처음 모두 10, 성장률 N5 100‰ × K 1 → 1차 = 10 × (1 + 0.1 × (레벨 − 1))",

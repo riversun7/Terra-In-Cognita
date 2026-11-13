@@ -46,7 +46,7 @@
         "ko": "공격 간격(ms)",
         "en": "Attack interval (ms)"
       },
-      "expression": "if(A <= 0, I, max(1, floor(I / max(0.001, min(CAP, max(0, AGI) / A)))))"
+      "expression": "# 사용자 결정 2026-11-13 \"무기도 같은 꼴로\"·\"장비는 그래서 적정스탯 상한이 필요하다\": 간격 = 무기 간격 ÷ (AGI ÷ 적정 AGI)²\n# 적정의 2배(속도 상한)를 넘는 AGI는 더 빨라지지 않는다(최소 무기 간격 × 0.25), 아무리 느려도 무기 간격 × 2.5\nr = min(2, max(0, AGI) / max(0.001, A))\nif(A <= 0, I, min(floor(I * 2.5), max(1, floor(I / max(0.001, r * r)))))"
     },
     {
       "id": "stamina_score",

@@ -1884,7 +1884,7 @@
   "cyborg_attack_no_appropriate": "적정 없음 → {ratio}",
   "cyborg_attack_sum": "= 스탯 {stat} + 무기 {weapon} × {ratio} = {real}",
   "cyborg_attack_scaled": "= 무기 {weapon} × {ratio} = {real}",
-  "cyborg_attack_interval_line": "= 무기 {weapon}ms ÷ {ratio} = {real}ms",
+  "cyborg_attack_interval_line": "= 무기 {weapon}ms ÷ ({ratio})² = {real}ms (적정 2배 상한)",
   "cyborg_ms": "{value}ms",
   "cyborg_stamina_real_formula": "실제 회복 = 행 값 × min(2, STA 점수 ÷ 적정 STA)",
   "cyborg_stamina_real_line": "= {row}/분 × min(2, {score} ÷ {appropriate}) = {real}/분",

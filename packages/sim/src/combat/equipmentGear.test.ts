@@ -198,7 +198,8 @@ describe("무기 1차 적정 스탯(D-502, 사용자 답 296: 몫마다 하나, 
       unarmed: UNARMED,
     });
     expect(out.weapon.appropriate).toEqual({ str: 25, dex: 15 });
-    expect(out.stats.physical_attack).toBe(10);
+    // 물리 공격력 = STR + ⌊VIT ÷ 2⌋(2026-11-13) = 15
+    expect(out.stats.physical_attack).toBe(15);
     const spec = specFromStats({
       id: 1,
       side: 1,
@@ -210,8 +211,8 @@ describe("무기 1차 적정 스탯(D-502, 사용자 답 296: 몫마다 하나, 
       primaries: out.primaries,
       moveIntervalMs: 1000,
     });
-    // 10 + 20 × 10 ÷ 25 = 18, 적정 AGI 없음 → 간격 그대로
-    expect(realAttackOf(spec.attack, 1000, TEST_COMBAT_COEFFICIENTS)).toBe(18);
+    // 15 + 20 × 10 ÷ 25 = 23, 적정 AGI 없음 → 간격 그대로
+    expect(realAttackOf(spec.attack, 1000, TEST_COMBAT_COEFFICIENTS)).toBe(23);
     expect(spec.attack.dexAppropriateMilli).toBe(15_000);
     expect(spec.attackIntervalMs).toBe(1000);
   });

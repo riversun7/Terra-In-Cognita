@@ -89,6 +89,6 @@
 
 ## 바뀜 (2026-11-12)
 - 사용자 지적(2026-11-12) "창고나 광산등 채집소도 제대로 구분되게 꾸미고": 1차 생산 채집소 셋이 전용 모델을 갖는다 — 약초원 `herb`(이끼 지붕 오두막·돋운 화단의 잎·꽃 덤불·말리는 시렁), 목장 `ranch`(붉은 헛간·흰 울타리 풀밭·가축·물통·건초), 낚시터 `fishing`(청록 지붕 오두막·널판 부두·뒤집힌 배·그물 틀). 그 전에는 농장·벌목장 모델을 색만 바꿔 썼다(`docs/adr/2026-11-11-production-six.md` "건물 그림 후속").
-- 모델 이름표 `FACILITY_LOOK_MODELS`(`@terra/shared/facilityLook`) 끝에 셋을 더했다(한 번 쓴 이름은 다시 쓰지 않는다 규칙 그대로). 팩 `facilities.look.model`도 바꿨다(core@79). 옛 기기는 모르는 모델 이름을 받으면 시설 ID로 고르므로(`resolveLook` → `artKindOf`) 옛 모델로 그린다.
+- 모델 이름표 `FACILITY_LOOK_MODELS`(`@terra/shared/facilityLook`) 끝에 셋을 더했다(한 번 쓴 이름은 다시 쓰지 않는다 규칙 그대로). 팩 `facilities.look.model`도 바꿨다(core@80). 옛 기기는 모르는 모델 이름을 받으면 시설 ID로 고르므로(`resolveLook` → `artKindOf`) 옛 모델로 그린다.
 - 코드: `packages/engine/src/buildings/buildingKindsGather.ts`(새), 종류 표 `buildingKinds.ts`, 색 표 `buildingPalette.ts`(잎·꽃·울타리·털·물·배 몸통·그물), 건물 편집기 모델 이름(ko·en).
 - 지도 위에서 무리를 가르는 색 점(누른 건물 이름표)·도시 화면 무리 표시는 이 모델에서 정한다(`docs/adr/2026-10-29-app-shell.md` "바뀜 (2026-11-12, 2차맵 아래 탭·운영 메뉴)").

@@ -189,6 +189,7 @@
 - Verified(통합 가지 c858d2d를 합친 뒤): `TEST_DATABASE_URL=… pnpm check` 통과(시험 파일 668·시험 5,092), `pnpm build`, `node scripts/check-pwa.mjs`, `pnpm check:bundle`(첫 화면 JS 109,061 B / 상한 131,416 B), 화면 시험 `pnpm e2e cyborg.spec.ts formulas.spec.ts` 35개 통과(2.3분). `pnpm check:docs origin/main` 통과(합치기 전).
 - Verified 사진(390, 한국어, 전역 준비의 Lv 1 맨손 사이보그): 기동·효율·공격 묶음 × 파스텔·다크·정거장 — `cyborg-move-390-*`·`cyborg-gather-390-*`·`cyborg-bare-offense-390-*`(E2E_SHOTS_DIR, 저장소 밖).
 - Verified(맨손 간격 답 1252를 넣은 뒤): `pnpm check` 통과(시험 파일 668·시험 5,093), `pnpm build`, check-pwa, check:bundle(109,047 B / 131,416 B), 화면 시험 `cyborg.spec.ts`·`formulas.spec.ts` 35개 통과(2.6분). 비교표는 위 스크립트로 셈했다.
+- Verified(2026-11-13 물리 공격력·무기 간격 바뀜 뒤): `pnpm check` 통과(시험 파일 668·시험 5,093), `pnpm build`·check-pwa·check:bundle(109,049 B / 131,416 B), 화면 시험 `cyborg.spec.ts`·`formulas.spec.ts` 35개 통과(1.9분, 스태미나 표 시험은 Lv 30 검이 스태미나에 막히는 것으로 바꿈).
 - 합치기 전 `pnpm check`의 실패 둘(엔진 `schoolView.test.ts` 타입, `world.ts` 1,000줄)은 바탕 가지 문제였고 c858d2d가 고쳤다.
 - Assumed: 시뮬 시나리오(war16·econ16 등) 줄은 맨손 규칙과 상관없다(시험 칼·발톱) — 시나리오를 돌려 바이트를 견주지는 않았다(미실행).
 - 화면 사진의 사이보그(AGI 5)는 새 맨손 간격으로 5,000ms(상한)다.

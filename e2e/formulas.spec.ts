@@ -177,7 +177,7 @@ test.describe("개발자", () => {
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 
-  test("적정 STA 식(D-511: 보통 유닛 STA 점수, Lv 1 → 10·Lv 30 → 39)과 스태미나 표(일반 공격 이어짐)", async ({
+  test("적정 STA 식(D-511: 보통 유닛 STA 점수, Lv 1 → 10·Lv 30 → 39)과 스태미나 표(Lv 1 이어짐, Lv 30 낮은 무기는 스태미나가 막음)", async ({
     page,
     deviceErrors,
   }) => {
@@ -186,13 +186,16 @@ test.describe("개발자", () => {
     await expect(page.locator(".fx-result-value")).toHaveText(/^10(?!\d)/);
     const stamina = page.getByTestId("formula-stamina");
     await expect(stamina.getByTestId("formula-stamina-unit")).toContainText("10");
-    await page.locator(".fx-controls select").nth(1).selectOption("even_lv30");
-    await expect(page.locator(".fx-result-value")).toHaveText(/^39(?!\d)/);
-    // Lv 30 균형형: 소모 10·회복 초당 12 → 모든 무기 줄이 이어짐
+    // Lv 1 새 사이보그: 모든 무기 줄이 이어짐
     const rows = stamina.locator("tbody tr");
     await expect(rows.first()).toBeVisible();
     expect(await rows.count()).toBeGreaterThan(3);
     await expect(stamina.locator('tbody tr[data-sustain="drains"]')).toHaveCount(0);
+    await page.locator(".fx-controls select").nth(1).selectOption("even_lv30");
+    await expect(page.locator(".fx-result-value")).toHaveText(/^39(?!\d)/);
+    // Lv 30 균형형(AGI 39): 검(적정 AGI 12)은 적정 2배 상한 250ms까지 빨라져 스태미나가 막고(질문 1258), 맨손은 레벨 기준 AGI와 견줘 이어짐
+    await expect(stamina.locator('tr[data-weapon="test_sword"]')).toHaveAttribute("data-sustain", "drains");
+    await expect(stamina.locator('tr[data-weapon="natural_human"]')).toHaveAttribute("data-sustain", "ok");
     await expect(stamina.locator('tr[data-weapon="test_sword"] td').first()).toHaveText("10");
     expect(unexpected(deviceErrors)).toEqual([]);
   });

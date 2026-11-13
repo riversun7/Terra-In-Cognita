@@ -23,7 +23,6 @@ import {
   realCritPm,
   realHitPm,
   statPlusWeapon,
-  weaponRatioPm,
   weaponScaled,
 } from "./formula.ts";
 import {

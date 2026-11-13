@@ -9,9 +9,10 @@
 //   (docs/adr/2026-11-08-seamless-second-map.md WP-3). 그 전에는 지형이 숨김 정보가 아니라 안개를 뺐다(ADR 26).
 import { Group } from "three";
 import type { TerrainBuilder } from "./terrainBuilder.ts";
+import { isPlacementExplored } from "./fogBits.ts";
+import { composePlacement } from "./rebase.ts";
 import { TERRAIN_CELLS, type TerrainInput, sampleHeightM } from "./terrainData.ts";
 import { TerrainView } from "./terrainView.ts";
-import { composePlacement } from "./rebase.ts";
 
 /** 아직 탐사 칸을 모르는 이웃(온통 어두움) — 시야 칸 32×32 비트 */
 export const UNEXPLORED = new Uint8Array(128);
@@ -54,13 +55,14 @@ export interface MapBounds {
   maxZ: number;
 }
 
-/** 소품 층이 있는 이웃 하나(소품 그림·엄폐 256², 지표 128² = 땅 잔소품) */
+/** 소품 층이 있는 이웃 하나(소품 그림·엄폐 256², 지표 128² = 땅 잔소품, 탐사 칸 32² 비트) */
 export interface NeighbourPropLayer {
   readonly id: string;
   readonly art: Uint8Array;
   readonly cover: Uint8Array;
   readonly surface: Uint8Array;
   readonly placement: NeighbourPlacement;
+  readonly explored: Uint8Array | null;
 }
 
 export class NeighbourTerrains {
@@ -192,9 +194,30 @@ export class NeighbourTerrains {
     const out: NeighbourPropLayer[] = [];
     for (const [id, { terrain, placement }] of this.entries) {
       if (terrain.art && terrain.cover)
-        out.push({ id, art: terrain.art, cover: terrain.cover, surface: terrain.surface, placement });
+        out.push({
+          id,
+          art: terrain.art,
+          cover: terrain.cover,
+          surface: terrain.surface,
+          placement,
+          explored: this.fogOf(id),
+        });
     }
     return out;
+  }
+
+  /** 지금 2차맵 밖 배치 칸 (px, py)가 이웃 위면 그 칸이 탐사됐는지(안개 끄면 true) */
+  isPlacementExplored(px: number, py: number): boolean {
+    if (!this.fog) return true;
+    const c = (px + 0.5) / 2;
+    const r = (py + 0.5) / 2;
+    for (const [id, { placement }] of this.entries) {
+      const local = toLocal(placement, c, r);
+      if (local.c < 0 || local.r < 0 || local.c >= TERRAIN_CELLS || local.r >= TERRAIN_CELLS) continue;
+      const bits = this.explored.get(id) ?? UNEXPLORED;
+      return isPlacementExplored(bits, Math.floor(local.c * 2), Math.floor(local.r * 2));
+    }
+    return false;
   }
 
   /** 세계 (x, z)가 이웃 위면 그 땅 높이(m), 아니면 null */

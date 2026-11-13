@@ -29,6 +29,22 @@
   border-top: var(--border-w) solid var(--color-border);
   background-color: var(--color-surface);
 }
+@media (min-width: 48em) {
+  .map-screen[data-nav="bottom"] .map-hud-bottom {
+    bottom: calc(var(--map-nav-h) + var(--space-5));
+  }
+  .map-nav {
+    left: 50%;
+    right: auto;
+    bottom: max(var(--space-3), env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    inline-size: min(26rem, calc(100% - var(--space-6)));
+    padding: 0 var(--space-2);
+    border: var(--border-w) solid var(--color-border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-panel);
+  }
+}
 /* 열린 탭: 하단 탭의 "지금 화면"과 같은 모양(알약 바탕 + 진한 글자 — 색에만 기대지 않는다) */
 .map-nav-button[aria-pressed="true"] {
   color: var(--color-text);

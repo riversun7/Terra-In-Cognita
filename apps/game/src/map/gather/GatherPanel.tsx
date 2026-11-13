@@ -221,13 +221,15 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
           data-object={object.id}
           data-state={depleted ? "depleted" : "ready"}
         >
-          <h2 className="gather-title">{nameText(kind?.name ?? null, m.gather_object_unknown())}</h2>
+          <div className="gather-sheet-head">
+            <h2 className="gather-title">{nameText(kind?.name ?? null, m.gather_object_unknown())}</h2>
+            <span className="gather-badge" data-state={depleted ? "depleted" : "ready"}>
+              {depleted
+                ? m.gather_object_regrow({ time: minutesText(object.regrowAtMs - now) })
+                : m.gather_object_uses({ left: object.usesLeft, uses: kind?.uses ?? object.usesLeft })}
+            </span>
+          </div>
           <p>{m.gather_object_item({ item: nameText(kind?.itemName ?? null, kind?.item ?? "") })}</p>
-          <p>
-            {depleted
-              ? m.gather_object_regrow({ time: minutesText(object.regrowAtMs - now) })
-              : m.gather_object_uses({ left: object.usesLeft, uses: kind?.uses ?? object.usesLeft })}
-          </p>
           <p className="gather-muted">
             {kind?.facility
               ? m.gather_object_facility({ facility: nameText(kind.facilityName, kind.facility) })
@@ -244,37 +246,39 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
           ) : null}
           {kind?.direct === false ? <p className="gather-muted">{m.gather_object_station_only()}</p> : null}
           {kind?.boat === true ? <p className="gather-muted">{m.gather_object_boat_only()}</p> : null}
-          <p className="gather-actor">{actorText}</p>
-          <div className="gather-actions">
-            <button
-              type="button"
-              hidden={kind?.direct === false || kind?.boat === true}
-              className="button-small button-primary gather-sheet-gather"
-              disabled={actor === null || depleted || sending}
-              onClick={() => {
-                if (actor === null) return;
-                void send(() =>
-                  sendGatherCommand({ t: "gather_start", unitId: actor, mapKey, objectId: object.id }),
-                );
-              }}
-            >
-              {m.gather_action_gather()}
-            </button>
-            <button
-              type="button"
-              className="button-small gather-sheet-info"
-              aria-pressed={details}
-              onClick={() => setDetails(!details)}
-            >
-              {m.gather_action_info()}
-            </button>
-            <button
-              type="button"
-              className="button-small gather-sheet-close"
-              onClick={() => state.open(null)}
-            >
-              {m.gather_action_close()}
-            </button>
+          <div className="gather-footer">
+            <p className="gather-actor">{actorText}</p>
+            <div className="gather-actions">
+              <button
+                type="button"
+                hidden={kind?.direct === false || kind?.boat === true}
+                className="button-small button-primary gather-sheet-gather"
+                disabled={actor === null || depleted || sending}
+                onClick={() => {
+                  if (actor === null) return;
+                  void send(() =>
+                    sendGatherCommand({ t: "gather_start", unitId: actor, mapKey, objectId: object.id }),
+                  );
+                }}
+              >
+                {m.gather_action_gather()}
+              </button>
+              <button
+                type="button"
+                className="button-small gather-sheet-info"
+                aria-pressed={details}
+                onClick={() => setDetails(!details)}
+              >
+                {m.gather_action_info()}
+              </button>
+              <button
+                type="button"
+                className="button-small gather-sheet-close"
+                onClick={() => state.open(null)}
+              >
+                {m.gather_action_close()}
+              </button>
+            </div>
           </div>
         </section>
       ) : null}
@@ -284,37 +288,45 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
           aria-label={m.gather_building_label()}
           data-building={sheet.id}
         >
-          <h2 className="gather-title">
-            {nameText(building?.name ?? null, m.gather_building_unknown())}
-            {building && building.level > 0 ? ` · ${m.gather_building_level({ level: building.level })}` : ""}
-          </h2>
+          <div className="gather-sheet-head">
+            <h2 className="gather-title">
+              {nameText(building?.name ?? null, m.gather_building_unknown())}
+              {building && building.level > 0
+                ? ` · ${m.gather_building_level({ level: building.level })}`
+                : ""}
+            </h2>
+            {building?.status === "ok" ? (
+              <span className="gather-badge">
+                {building.mine ? m.gather_building_mine() : m.gather_building_other()}
+              </span>
+            ) : null}
+          </div>
           {building?.status === "ok" ? (
             <>
               <p className="gather-muted">
-                {building.mine ? m.gather_building_mine() : m.gather_building_other()}
-              </p>
-              <p>
                 {building.accepts
                   ? m.gather_building_accepts()
                   : building.hires
                     ? m.gather_building_hires()
                     : m.gather_building_stays()}
               </p>
-              <p className="gather-inside-title">{m.gather_building_inside()}</p>
-              {building.inside.length === 0 ? (
-                <p className="gather-muted">{m.gather_building_inside_none()}</p>
-              ) : (
-                <ul className="gather-inside">
-                  {building.inside.map((unit) => (
-                    <li key={unit.unitId} data-unit={unit.unitId} data-via={unit.via}>
-                      {unit.via === "work"
-                        ? m.gather_building_inside_work({ id: unit.unitId })
-                        : m.gather_building_inside_unit({ id: unit.unitId })}
-                      {unit.own ? ` · ${m.gather_building_inside_own()}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="gather-section">
+                <p className="gather-inside-title">{m.gather_building_inside()}</p>
+                {building.inside.length === 0 ? (
+                  <p className="gather-muted">{m.gather_building_inside_none()}</p>
+                ) : (
+                  <ul className="gather-inside">
+                    {building.inside.map((unit) => (
+                      <li key={unit.unitId} data-unit={unit.unitId} data-via={unit.via}>
+                        {unit.via === "work"
+                          ? m.gather_building_inside_work({ id: unit.unitId })
+                          : m.gather_building_inside_unit({ id: unit.unitId })}
+                        {unit.own ? ` · ${m.gather_building_inside_own()}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </>
           ) : null}
           {buildingExtra}
@@ -325,26 +337,30 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
             actor={actor}
             notify={setNotice}
           />
-          <p className="gather-actor">{actorText}</p>
-          <div className="gather-actions">
-            <button
-              type="button"
-              className="button-small button-primary gather-sheet-enter"
-              disabled={actor === null || sending}
-              onClick={() => {
-                if (actor === null) return;
-                void send(() => sendGatherCommand({ t: "unit_enter", unitId: actor, buildingId: sheet.id }));
-              }}
-            >
-              {m.gather_action_enter()}
-            </button>
-            <button
-              type="button"
-              className="button-small gather-sheet-close"
-              onClick={() => state.open(null)}
-            >
-              {m.gather_action_close()}
-            </button>
+          <div className="gather-footer">
+            <p className="gather-actor">{actorText}</p>
+            <div className="gather-actions">
+              <button
+                type="button"
+                className="button-small button-primary gather-sheet-enter"
+                disabled={actor === null || sending}
+                onClick={() => {
+                  if (actor === null) return;
+                  void send(() =>
+                    sendGatherCommand({ t: "unit_enter", unitId: actor, buildingId: sheet.id }),
+                  );
+                }}
+              >
+                {m.gather_action_enter()}
+              </button>
+              <button
+                type="button"
+                className="button-small gather-sheet-close"
+                onClick={() => state.open(null)}
+              >
+                {m.gather_action_close()}
+              </button>
+            </div>
           </div>
         </section>
       ) : null}

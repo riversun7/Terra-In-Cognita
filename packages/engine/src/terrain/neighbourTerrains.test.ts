@@ -95,4 +95,30 @@ describe("이웃 2차맵 지형", () => {
     taken?.view.dispose();
     neighbours.dispose();
   });
+
+  it("안개 모드일 때 이웃 소품 층과 배치 칸 시야 판정이 탐사 비트를 따른다", async () => {
+    const builder = countingBuilder();
+    const neighbours = new NeighbourTerrains(builder);
+    const input = {
+      ...flat(50),
+      art: new Uint8Array(256 * 256),
+      cover: new Uint8Array(256 * 256),
+    };
+    await neighbours.set([{ id: "right", terrain: input, placement: RIGHT }], 12);
+    neighbours.setFog(true);
+    // 탐사 칸 없음 -> 모두 미탐사
+    expect(neighbours.isPlacementExplored(256, 0)).toBe(false);
+    expect(neighbours.propLayers()[0]?.explored).toBeDefined();
+
+    const bits = new Uint8Array(128);
+    bits[0] = 1; // 이웃 왼쪽 위 시야 칸 (0, 0) -> 배치 칸 (0..7, 0..7)
+    neighbours.setExplored("right", bits);
+    expect(neighbours.isPlacementExplored(256, 0)).toBe(true);
+    expect(neighbours.isPlacementExplored(280, 0)).toBe(false);
+
+    neighbours.setFog(false);
+    expect(neighbours.isPlacementExplored(280, 0)).toBe(true);
+    expect(neighbours.propLayers()[0]?.explored).toBeNull();
+    neighbours.dispose();
+  });
 });

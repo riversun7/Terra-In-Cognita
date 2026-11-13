@@ -106,4 +106,25 @@ describe("BuildingView", () => {
     }).not.toThrow();
     view.dispose();
   });
+
+  it("시야 밖 건물은 숨기고 누르기도 걸리지 않으며, 시야가 열리면 다시 그린다", () => {
+    const view = new BuildingView();
+    const a = footprint({ id: 10, cellX: 8, cellY: 8, width: 2, depth: 2, look: { facility: "storehouse" } });
+    const b = footprint({ id: 20, cellX: 40, cellY: 40, width: 2, depth: 2, look: { facility: "temple" } });
+    view.set([a, b], CELL_M, flat);
+    expect(view.count).toBe(2);
+
+    // 건물 a만 시야 안
+    view.setVisibleCell((x, y) => x < 16 && y < 16);
+    expect(view.count).toBe(1);
+    const down = { x: 0, y: -1, z: 0 };
+    expect(view.pick({ x: 45, y: 100, z: 45 }, down)?.id).toBe(10);
+    expect(view.pick({ x: 205, y: 100, z: 205 }, down)).toBeNull();
+
+    // 안개를 끄면 둘 다 다시 보인다
+    view.setVisibleCell(null);
+    expect(view.count).toBe(2);
+    expect(view.pick({ x: 205, y: 100, z: 205 }, down)?.id).toBe(20);
+    view.dispose();
+  });
 });

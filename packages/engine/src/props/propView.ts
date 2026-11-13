@@ -13,6 +13,7 @@
 //   무늬로 덜 그린다(propFade.ts, 스크린 도어). 투명 그리기·정렬이 없어 그리기 호출이 늘지 않고, 프레임마다 값(uniform)만 바꾼다.
 import { Color, Group, InstancedMesh, Matrix4, MeshLambertMaterial, Quaternion, Vector3 } from "three";
 import { outsideCellKey } from "../buildings/footprint.ts";
+import { isPlacementExplored } from "../terrain/fogBits.ts";
 import { type NeighbourPlacement, toLocal } from "../terrain/neighbourTerrains.ts";
 import { PLACEMENT_CELLS } from "../terrain/terrainData.ts";
 import { type PropArea, insideDistance, polygonArea } from "./propArea.ts";
@@ -39,6 +40,8 @@ export interface PropSource {
   readonly salt: number;
   /** 지형 칸 지표 128²(땅 잔소품·눈 얹기). 없으면 잔소품 없음 */
   readonly surface?: Uint8Array | undefined;
+  /** 탐사 칸 32² 비트(128바이트). null/undefined면 안개 없이 모두 세운다 */
+  readonly explored?: Uint8Array | null | undefined;
 }
 
 /** 모델을 세우는 화면 짧은 변 상한(m) — 이보다 멀면 땅 색만. 기본값(개발자 2차맵 시험이 setLimits로 바꿔 본다) */
@@ -342,7 +345,7 @@ export class PropView {
     props: Candidate[],
     clutter: Candidate[],
   ): void {
-    const { art, cover, placement, surface } = source;
+    const { art, cover, placement, surface, explored } = source;
     const cellM = this.cellM;
     // 다각형을 덮는 원(세계 m) → 층 안 자리(배치 칸). 이웃이면 돌림의 역으로 옮긴다(원은 돌려도 같다)
     let sumX = 0;
@@ -376,6 +379,7 @@ export class PropView {
         const dx = x + 0.5 - cx;
         const dz = z + 0.5 - cz;
         if (dx * dx + dz * dz > r2) continue;
+        if (explored && !isPlacementExplored(explored, x, z)) continue;
         const cell = z * PLACEMENT_CELLS + x;
         if (!placement && this.blocked?.[cell] === 1) continue;
         const look = propLook(art[cell] ?? 0);

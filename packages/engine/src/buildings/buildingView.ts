@@ -76,6 +76,11 @@ export class BuildingView {
   private rects = new Float32Array(0);
   private partCount = 0;
   private night = -1;
+  private sourceBuildings: readonly BuildingFootprint[] = [];
+  private sourceCellM = 0;
+  private sourceGroundAt: (wx: number, wz: number) => number = () => 0;
+  private visibleCell: ((px: number, py: number) => boolean) | null = null;
+  private visibleKey = "";
 
   constructor() {
     for (const shape of PART_SHAPES) this.geometries.set(shape, createPartGeometry(shape));
@@ -88,8 +93,39 @@ export class BuildingView {
     cellM: number,
     groundAt: (wx: number, wz: number) => number,
   ): void {
+    this.sourceBuildings = buildings;
+    this.sourceCellM = cellM;
+    this.sourceGroundAt = groundAt;
+    this.rebuild(true);
+  }
+
+  /** 시야 밖 건물 숨기기(칸 (px, py)가 보이면 true, null이면 모두 그린다) */
+  setVisibleCell(visibleCell: ((px: number, py: number) => boolean) | null): void {
+    this.visibleCell = visibleCell;
+    if (this.sourceBuildings.length > 0) this.rebuild(false);
+  }
+
+  private filterVisible(list: readonly BuildingFootprint[]): readonly BuildingFootprint[] {
+    const check = this.visibleCell;
+    if (!check) return list;
+    return list.filter((building) => {
+      const rect = footprintRect(building);
+      for (let y = rect.y0; y < rect.y1; y++) {
+        for (let x = rect.x0; x < rect.x1; x++) if (check(x, y)) return true;
+      }
+      return false;
+    });
+  }
+
+  private rebuild(force: boolean): void {
+    const buildings = this.filterVisible(this.sourceBuildings);
+    const key = buildings.map((building) => building.id).join(",");
+    if (!force && key === this.visibleKey) return;
     this.clear();
+    this.visibleKey = key;
     if (buildings.length === 0) return;
+    const cellM = this.sourceCellM;
+    const groundAt = this.sourceGroundAt;
     // 모델을 먼저 모두 만들어 도형별 수를 센다(InstancedMesh 크기)
     const models = buildings.map((building) => {
       const look = resolveLook(building.look);
@@ -237,6 +273,7 @@ export class BuildingView {
     this.meshes.length = 0;
     this.ids = [];
     this.partCount = 0;
+    this.visibleKey = "";
   }
 }
 

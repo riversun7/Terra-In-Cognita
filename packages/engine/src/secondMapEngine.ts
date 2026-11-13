@@ -59,6 +59,7 @@ import {
   sampleSurfaceM,
   terrainProblem,
 } from "./terrain/terrainData.ts";
+import { isPlacementExplored } from "./terrain/fogBits.ts";
 import { type NeighbourTerrain, NeighbourTerrains, UNEXPLORED } from "./terrain/neighbourTerrains.ts";
 import { TerrainView } from "./terrain/terrainView.ts";
 import { cameraThroughPlacement, invertPlacement } from "./terrain/rebase.ts";
@@ -280,6 +281,7 @@ export function createSecondMapEngine(
         surface: terrain.surface,
         placement: null,
         salt: propSalt(mainId),
+        explored: mainExplored,
       });
     for (const layer of neighbours.propLayers()) {
       sources.push({
@@ -288,9 +290,20 @@ export function createSecondMapEngine(
         surface: layer.surface,
         placement: layer.placement,
         salt: propSalt(layer.id),
+        explored: layer.explored,
       });
     }
     propView.setSources(sources, cellM, groundAt, surfaceAt);
+  };
+  const isPlacementVisible = (px: number, py: number): boolean => {
+    if (mainExplored === null) return true;
+    if (px >= 0 && px < PLACEMENT_CELLS && py >= 0 && py < PLACEMENT_CELLS) {
+      return isPlacementExplored(mainExplored, px, py);
+    }
+    return neighbours.isPlacementExplored(px, py);
+  };
+  const syncBuildingVision = (): void => {
+    buildingView.setVisibleCell(mainExplored === null ? null : isPlacementVisible);
   };
 
   /** 보기 범위(m, setViewArea). null이면 없음 */
@@ -666,6 +679,7 @@ export function createSecondMapEngine(
       maxHeight = range.maxHeightM;
       mainExplored = mainExplored === null ? null : (taken.explored ?? UNEXPLORED);
       terrainView.setExplored(mainExplored);
+      schoolView.setExplored(mainExplored);
       // 옛 2차맵 유닛·건물은 버린다(화면이 같은 작업 안에서 — 다음 프레임 전에 — 새 틀의 목록을 넣는다, mapSession.ts)
       roster.set([]);
       bindCharacters();
@@ -680,6 +694,7 @@ export function createSecondMapEngine(
       blockProps([]);
       pendingBuildings = null;
       syncPropSources();
+      syncBuildingVision();
       // 보기 범위(플레이어 카메라 묶기)도 새 틀로 옮긴다: 비우면 가장 멀리 한계가 바뀌어 확대 단계 표시가 잠깐 달라졌다.
       // 화면이 새 2차맵 값을 받으면 다시 건다
       if (viewArea) {
@@ -699,6 +714,8 @@ export function createSecondMapEngine(
 
     setNeighbourExplored(id, bits) {
       neighbours.setExplored(id, bits);
+      syncPropSources();
+      syncBuildingVision();
       scheduler.request();
     },
 
@@ -712,6 +729,7 @@ export function createSecondMapEngine(
       // 이웃이 있으면 지금 2차맵 가장자리 벽을 숨긴다(이웃 땅과 이어 보이게). 소품 모델도 이웃까지 세운다
       terrainView.setWalls(neighbours.count === 0);
       syncPropSources();
+      syncBuildingVision();
       limits = computeLimits();
       state = clampCamera(state, limits);
       scheduler.request();
@@ -764,6 +782,9 @@ export function createSecondMapEngine(
       terrainView.setExplored(bits);
       // 이웃도 같은 안개 모드(전체 보기면 끈다)
       neighbours.setFog(bits !== null);
+      syncPropSources();
+      schoolView.setExplored(bits);
+      syncBuildingVision();
       scheduler.request();
     },
     setBuildings(buildings) {

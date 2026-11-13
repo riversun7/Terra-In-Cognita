@@ -17,6 +17,7 @@ import {
   Sphere,
   Vector3,
 } from "three";
+import { isPlacementExplored } from "../terrain/fogBits.ts";
 
 /** 어군 하나(엔진 입력): 그림 번호(@terra/shared MAP_PROP_ARTS)와 길 */
 export interface SchoolInput extends SchoolRoute {
@@ -55,6 +56,7 @@ export class SchoolView {
   private readonly up = new Vector3(0, 1, 0);
   private readonly bounds = new Sphere();
   private drawnSchools = 0;
+  private explored: Uint8Array | null = null;
 
   constructor() {
     // 몸: 앞뒤로 늘인 팔면체(x축이 앞)
@@ -76,6 +78,11 @@ export class SchoolView {
       this.mesh.count = 0;
       this.mesh.visible = false;
     }
+  }
+
+  /** 탐사 칸(시야 칸 32² 비트, null이면 모두 그린다) */
+  setExplored(bits: Uint8Array | null): void {
+    this.explored = bits;
   }
 
   /**
@@ -100,6 +107,11 @@ export class SchoolView {
       const look = LOOKS[MAP_PROP_ARTS[school.art] ?? ""];
       if (!look) continue;
       const here = schoolPosition(school, nowMs);
+      if (this.explored) {
+        const px = Math.floor(here.x / SCHOOL_POSITION_SCALE);
+        const pz = Math.floor(here.y / SCHOOL_POSITION_SCALE);
+        if (!isPlacementExplored(this.explored, px, pz)) continue;
+      }
       const ahead = schoolPosition(school, nowMs + 1500);
       const x = (here.x / SCHOOL_POSITION_SCALE + 0.5) * cellM;
       const z = (here.y / SCHOOL_POSITION_SCALE + 0.5) * cellM;

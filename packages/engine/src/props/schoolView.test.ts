@@ -61,4 +61,22 @@ describe("어군 그리기", () => {
       expect(propLook(MAP_PROP_ARTS.indexOf(name))?.float, name).toBe(true);
     expect(propLook(MAP_PROP_ARTS.indexOf("sand_dune"))?.float).toBeUndefined();
   });
+
+  it("탐사 안 된 시야 칸의 어군은 그리지 않고, 탐사되거나 안개를 끄면 그린다", () => {
+    const view = new SchoolView();
+    view.set([route]);
+    const frustum = wideFrustum();
+    // 빈 탐사 비트(모두 미탐사)
+    const bits = new Uint8Array(128);
+    view.setExplored(bits);
+    expect(view.update(0, 5.86, () => 0, frustum, 3)).toBe(false);
+    expect(view.drawn).toBe(0);
+    // route 시작점 (10, 10) -> 시야 칸 (1, 1) -> 비트 33 켜기
+    bits[33 >> 3] = (bits[33 >> 3] ?? 0) | (1 << (33 & 7));
+    expect(view.update(0, 5.86, () => 0, frustum, 3)).toBe(true);
+    expect(view.drawn).toBe(1);
+    view.setExplored(null);
+    expect(view.update(15_000, 5.86, () => 0, frustum, 3)).toBe(true);
+    view.dispose();
+  });
 });

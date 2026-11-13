@@ -11,10 +11,11 @@
   gap: var(--space-2);
   min-width: 0;
 }
-@media (min-width: 64em) {
+@media (min-width: 48em) {
   .map-units {
-    flex: 0 1 24rem;
-    margin-right: auto;
+    flex: 0 0 auto;
+    inline-size: min(26rem, 100%);
+    margin-right: 0;
   }
 }
 .map-units-head {
@@ -171,10 +172,11 @@
     animation: none;
   }
 }
-@media (min-width: 64em) {
+@media (min-width: 48em) {
   .map-peek {
-    flex: 0 1 24rem;
-    margin-right: auto;
+    flex: 0 0 auto;
+    inline-size: min(26rem, 100%);
+    margin-right: 0;
   }
 }
 .map-peek-head {

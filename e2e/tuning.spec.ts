@@ -470,6 +470,29 @@ test.describe("개발자·데스크톱", () => {
     await expect(page.locator(".tp-pending")).toHaveCount(0);
     expect(deviceErrors).toEqual([]);
   });
+
+  test("시간(ms) 단위 전환: 수명은 시간으로, 틱은 분/초/ms로 보고 단위 전환 후 담아도 ms 정수로 저장 대기", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await panelReady(page);
+    await resetTuning(page);
+    await page.reload();
+    await choosePage(page, "all");
+    await page.locator(".tp-search input").fill("t4_lifespan_min");
+    const lifespan = row(page, "t4_lifespan_min");
+    await expect(lifespan).toBeVisible();
+    // 기본 단위는 시간(hours)
+    await expect(lifespan.locator('.tp-unit-btn[data-unit="hours"]')).toHaveAttribute("aria-pressed", "true");
+    // 분(minutes) 단위로 전환 가능
+    await lifespan.locator('.tp-unit-btn[data-unit="minutes"]').click();
+    await expect(lifespan.locator('.tp-unit-btn[data-unit="minutes"]')).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(lifespan.locator(".tp-preview")).toContainText("ms");
+    expect(deviceErrors).toEqual([]);
+  });
 });
 
 test.describe("플레이어", () => {

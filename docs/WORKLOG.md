@@ -5,6 +5,8 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-14 08:28 | `/dev/tuning` 시간 단위 편집 UX 및 2차 스탯 전용 에디터(`/dev/secondary-stats`) 구현 | Antigravity | [14-0828-secondary-stats-and-tuning-units](worklog/2026/11/14-0828-secondary-stats-and-tuning-units.md) |
+| 2026-11-13 21:20 | 2차맵 시야 밖 오브젝트 가림 및 하단 HUD·정보창 UI 개선 | Antigravity | [13-2120-second-map-vision-hud](worklog/2026/11/13-2120-second-map-vision-hud.md) |
 | 2026-11-13 18:40 | 2026-11-13 다섯째 묶음 합치기 (광석 고도·시설 짓기·컨디션·지형 물체·운영자 속도·자원 분포·2차맵 화면·사이보그 판) | Claude Code | [13-1840-batch-1112d-merge](worklog/2026/11/13-1840-batch-1112d-merge.md) |
 | 2026-11-12 23:23 | 사이보그 판 3: 기동 이동 속도 줄·효율 원자재별 채집 줄·맨손 크리(AGI + DEX)·맨손 명중 100% | Claude Code | [12-2323-cyborg-sheet-3](worklog/2026/11/12-2323-cyborg-sheet-3.md) |
 | 2026-11-12 21:30 | NPC 증축 2(나라 성격·도시 등급 상한·레벨 올리기·수리), 시작 도시 인구 상한, 공성 피해의 세계 반영, 시뮬 공성 변 | Claude Code | [12-2130-npc-build-2](worklog/2026/11/12-2130-npc-build-2.md) |

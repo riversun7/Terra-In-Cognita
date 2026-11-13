@@ -11,6 +11,7 @@ import type {
 import { m } from "../../paraglide/messages.js";
 import {
   type CellStatus,
+  type DurationEditUnit,
   NO_UNIT,
   type ScopeFilter,
   type TuningErrorKey,
@@ -88,6 +89,18 @@ const isUnit = (key: string): key is TuningUnit => Object.hasOwn(UNIT_TEXT, key)
 export function unitKeyText(key: string): string {
   if (key === NO_UNIT) return m.dev_tuning_unit_none();
   return isUnit(key) ? UNIT_TEXT[key]() : key;
+}
+
+const DURATION_UNIT_TEXT: Readonly<Record<DurationEditUnit, () => string>> = {
+  hours: m.dev_tuning_duration_hours,
+  minutes: m.dev_tuning_duration_minutes,
+  seconds: m.dev_tuning_duration_seconds,
+  ms: m.dev_tuning_duration_ms,
+};
+
+/** ms 칸의 화면 편집 단위 이름 */
+export function durationUnitText(unit: DurationEditUnit): string {
+  return DURATION_UNIT_TEXT[unit]();
 }
 
 const ERROR_TEXT: Readonly<Record<TuningErrorKey, () => string>> = {

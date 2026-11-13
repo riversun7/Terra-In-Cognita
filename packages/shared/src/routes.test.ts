@@ -251,6 +251,8 @@ describe("주소 표", () => {
       dev_tuning: ["/dev/tuning", "dev", "shown", "dev_admin", []],
       // 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 7절)
       dev_balance: ["/dev/balance", "dev", "shown", "dev_admin", []],
+      // 2차 스탯 전용 편집·시뮬레이터 화면
+      dev_secondary_stats: ["/dev/secondary-stats", "dev", "shown", "dev_admin", ["target"]],
       // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md 5절)
       dev_skills: ["/dev/skills", "dev", "shown", "dev_admin", ["skill"]],
       // 아이템 편집기(docs/adr/2026-11-01-item-editor.md)

@@ -95,6 +95,15 @@ const DEV_TOOLS = {
     tagEn: "SIMULATOR · Formulas",
     ready: true,
   },
+  // 2차 스탯 에디터(가중치·공식 + 1차 영향력·계열별 성장·K 편차·확률 체감 그래프)
+  dev_secondary_stats: {
+    name: m.shell_route_dev_secondary_stats,
+    desc: m.dev_tool_secondary_stats_desc,
+    mark: <ScaleIcon />,
+    tagKo: "CHARTS · 2차 스탯",
+    tagEn: "CHARTS · Secondary",
+    ready: true,
+  },
   // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md): 스킬마다 모든 칸·특수 효과, 행동별 스태미나·MP
   dev_skills: {
     name: m.shell_route_dev_skills,
@@ -259,7 +268,7 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "스탯 가중치·전투 계산식(맨손·건물 피해 C32·건설 시간 M14), 49 설정 칸(N53 스위치 포함), 6v6 3D 전투 다시보기를 시험합니다.",
     subEn:
       "Test stat weights, combat/building formulas (C32, M14), 49 settings cells (including N53 switches), and 6v6 3D battle replays.",
-    routes: ["dev_balance", "dev_tuning", "dev_battle_replay"],
+    routes: ["dev_secondary_stats", "dev_balance", "dev_tuning", "dev_battle_replay"],
   },
   {
     id: "world",

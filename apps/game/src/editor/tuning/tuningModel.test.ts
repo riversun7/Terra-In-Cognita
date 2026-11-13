@@ -6,16 +6,22 @@ import {
   NO_UNIT,
   type Pending,
   type TuningQuery,
-  checkValueInput,
   TUNING_PAGE_TABS,
+  canEditDurationInUnit,
   cellCounts,
   cellRows,
+  checkDurationInput,
+  checkValueInput,
+  defaultDurationUnitOf,
   deltaOf,
+  durationEditBounds,
+  durationEditToMs,
   familiesOf,
   filterEntries,
   formatDuration,
   formatGloss,
   groupEntries,
+  msToDurationEdit,
   openQuery,
   pageChangedCounts,
   pageCounts,
@@ -23,6 +29,7 @@ import {
   parseSettingsCells,
   parseValueInput,
   pendingChanges,
+  preferredDurationUnit,
   prunePending,
   rangePositions,
   stagedValue,
@@ -246,5 +253,44 @@ describe("49 칸 목록(D-462)", () => {
     expect(counts.connected).toBe(2);
     expect(counts.connected + counts.no_value + counts.not_connected).toBe(counts.total);
     expect(parseSettingsCells({ cells: [{ code: "T1" }, null] })).toEqual([]);
+  });
+});
+
+describe("시간(ms) 단위 편집 변환", () => {
+  it("팩 기본값·상한으로 우선 단위를 고르고, 나누어떨어지지 않으면 가장 큰 나누어떨어지는 단위로 내린다", () => {
+    // 60일 수명 → 시간
+    const lifespan = { packValue: 5_184_000_000, min: 86_400_000, max: 315_360_000_000 };
+    expect(preferredDurationUnit(lifespan)).toBe("hours");
+    expect(defaultDurationUnitOf(lifespan, 5_184_000_000)).toBe("hours");
+    // 1시간 30분(5,400,000 ms)은 hours로 나누어떨어지지 않아 minutes로 내려간다
+    expect(defaultDurationUnitOf(lifespan, 5_400_000)).toBe("minutes");
+    expect(canEditDurationInUnit(lifespan, 5_400_000, "hours")).toBe(false);
+    expect(canEditDurationInUnit(lifespan, 5_400_000, "minutes")).toBe(true);
+    // 0ms 기본값 + 720시간 상한 → hours, 0ms 기본값 + 60초 상한 → seconds
+    expect(preferredDurationUnit({ packValue: 0, max: 2_592_000_000 })).toBe("hours");
+    expect(preferredDurationUnit({ packValue: 0, max: 60_000 })).toBe("seconds");
+    expect(preferredDurationUnit({ packValue: 600_000, max: 3_600_000 })).toBe("minutes");
+    expect(preferredDurationUnit({ packValue: 2_000, max: 60_000 })).toBe("seconds");
+  });
+
+  it("단위 변환 시 범위는 ms 경계 안쪽으로 올림·내림하고, 입력 검사는 ms 정수로 돌려준다", () => {
+    const dividend = { min: 60_000, max: 31_536_000_000 };
+    expect(durationEditBounds(dividend, "hours")).toEqual({ min: 1, max: 8760 });
+    expect(durationEditBounds(dividend, "minutes")).toEqual({ min: 1, max: 525_600 });
+    expect(msToDurationEdit(5_184_000_000, "hours")).toBe(1440);
+    expect(msToDurationEdit(5_400_000, "hours")).toBeNull();
+    expect(durationEditToMs(1440, "hours")).toBe(5_184_000_000);
+    expect(durationEditToMs(1_000_000_000, "hours")).toBeNull();
+
+    expect(checkDurationInput(dividend, "24", 3_600_000, "hours")).toEqual({
+      status: "ok",
+      value: 86_400_000,
+    });
+    expect(checkDurationInput(dividend, "1", 3_600_000, "hours")).toEqual({ status: "same" });
+    expect(checkDurationInput(dividend, "0", 3_600_000, "hours")).toEqual({
+      status: "out_of_range",
+      value: 0,
+    });
+    expect(checkDurationInput(dividend, "1.5", 3_600_000, "hours")).toEqual({ status: "invalid" });
   });
 });

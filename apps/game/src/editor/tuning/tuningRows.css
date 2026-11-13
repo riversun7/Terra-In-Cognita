@@ -256,6 +256,34 @@
   overflow-wrap: anywhere;
 }
 
+/* 시간(ms) 칸 단위 전환(시간 · 분 · 초 · ms) */
+.tp-unit-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.tp-unit-btn {
+  min-width: var(--dev-touch-tap);
+  min-height: var(--dev-touch-tap);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+.tp-unit-btn[aria-pressed="true"] {
+  border-color: var(--color-focus);
+  background-color: var(--color-surface-2);
+  color: var(--color-focus);
+}
+.tp-unit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* 값 칸 + [담기] + 줄 동작 */
 .tp-editor {
   display: grid;
@@ -333,6 +361,10 @@
   }
   .tp-r-edit {
     flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .tp-r-edit .tp-unit-switch {
+    flex: 1 0 100%;
     justify-content: flex-end;
   }
 }

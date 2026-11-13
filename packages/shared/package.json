@@ -61,6 +61,7 @@
     "./ops": "./src/ops.ts",
     "./ruins": "./src/ruins.ts",
     "./roster": "./src/roster.ts",
+    "./secondaryStatsSim": "./src/secondaryStatsSim.ts",
     "./skillEditor": "./src/skillEditor.ts",
     "./territory": "./src/territory.ts",
     "./territoryApi": "./src/territoryApi.ts",

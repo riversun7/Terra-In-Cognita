@@ -99,6 +99,7 @@ export function createFormulaServices(deps: {
         ),
       ].filter((weapon): weapon is FormulaWeaponView => weapon !== null);
       const c = combatCoefficientsFrom(snapshot.values);
+      const { cyborg } = roster.society;
       return Promise.resolve({
         contentVersion: tuning.pack.contentVersion,
         revision: snapshot.revision,
@@ -112,6 +113,12 @@ export function createFormulaServices(deps: {
           evadeRelative: { ...c.evadeRelative },
         },
         samples: FORMULA_SAMPLES,
+        growth: {
+          growthPm: cyborg.growthPm,
+          kMinPm: cyborg.kMinPm,
+          kMaxPm: cyborg.kMaxPm,
+          maxLevel: cyborg.maxLevel,
+        },
       });
     },
   };

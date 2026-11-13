@@ -231,6 +231,14 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 2차 스탯 에디터(?target=<행 또는 전투식 ID>): 가중치·수식 편집 + 1차 영향력·계열별 성장·K 밴드·확률 체감 그래프
+  dev_secondary_stats: {
+    path: "/dev/secondary-stats",
+    search: ["target"],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md 5절): 틀 안 빽빽한 편집 화면. ?skill=<ID>는 그 스킬을 바로 연다
   // (효과 사전 쓰는 곳에서 온다). 저장하면 그 세계에 바로 든다
   dev_skills: {

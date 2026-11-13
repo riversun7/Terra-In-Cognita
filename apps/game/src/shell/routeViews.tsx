@@ -54,6 +54,10 @@ const SecondMapLabScreen = lazy(() => import("../editor/secondMapLab/SecondMapLa
 const TuningPanelScreen = lazy(() => import("../editor/tuning/TuningPanelScreen.tsx"));
 // 밸런스 화면(틀 안): 조각 이름 BalancePanelScreen-*(미리 캐시 규칙 [Bb]alancePanel)
 const BalancePanelScreen = lazy(() => import("../editor/balance/BalancePanelScreen.tsx"));
+// 2차 스탯 에디터(틀 안): 조각 이름 SecondaryStatsEditorScreen-*(미리 캐시 규칙 [Ss]econdaryStats)
+const SecondaryStatsEditorScreen = lazy(
+  () => import("../editor/secondaryStats/SecondaryStatsEditorScreen.tsx"),
+);
 // 스킬 편집기·행동별 소모(틀 안): 조각 이름 SkillEditorScreen-*(미리 캐시 규칙 [Ss]killEditor)
 const SkillEditorScreen = lazy(() => import("../editor/skills/SkillEditorScreen.tsx"));
 // 아이템 편집기(틀 안): 조각 이름 ItemEditorScreen-*(미리 캐시 규칙 [Ii]temEditor). 스킬 편집기와 같이 쓰는 부품은 contentEditor…
@@ -118,6 +122,7 @@ export const ROUTE_TITLES = {
   dev_second_map: m.shell_route_dev_second_map,
   dev_tuning: m.shell_route_dev_tuning,
   dev_balance: m.shell_route_dev_balance,
+  dev_secondary_stats: m.shell_route_dev_secondary_stats,
   dev_skills: m.shell_route_dev_skills,
   dev_items: m.shell_route_dev_items,
   dev_effects: m.shell_route_dev_effects,
@@ -248,6 +253,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <TuningPanelScreen />;
     case "dev_balance":
       return <BalancePanelScreen />;
+    case "dev_secondary_stats":
+      return <SecondaryStatsEditorScreen initialTarget={match.search.target} />;
     case "dev_skills":
       return <SkillEditorScreen initialId={match.search.skill} />;
     case "dev_items":

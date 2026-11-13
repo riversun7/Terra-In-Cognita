@@ -37,6 +37,7 @@ const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope } = {
   // (가) 모든 행성 공통: 콘텐츠 팩 덮어쓰기(content_overrides)·설정 칸(tuning_overrides)·계산식 — 표에 행성 칸이 없다
   dev_tuning: common(m.scope_note_tuning),
   dev_balance: common(m.scope_note_balance),
+  dev_secondary_stats: common(m.scope_note_balance),
   dev_skills: common(),
   dev_items: common(),
   dev_effects: common(),

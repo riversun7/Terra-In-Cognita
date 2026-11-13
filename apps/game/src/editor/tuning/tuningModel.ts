@@ -307,6 +307,105 @@ export function formatGloss(value: number, unit: TuningUnit | null, locale: stri
   }
 }
 
+/** ms 칸의 화면 편집 단위(큰 단위부터 내림차순) */
+export const DURATION_EDIT_UNITS = ["hours", "minutes", "seconds", "ms"] as const;
+export type DurationEditUnit = (typeof DURATION_EDIT_UNITS)[number];
+
+/** 편집 단위 1에 해당하는 밀리초 */
+export const DURATION_UNIT_MS: Record<DurationEditUnit, number> = {
+  hours: 3_600_000,
+  minutes: 60_000,
+  seconds: 1_000,
+  ms: 1,
+};
+
+const normZero = (value: number): number => (value === 0 ? 0 : value);
+
+/** 팩 기본값·상한을 보고 고르는 ms 칸의 기본 편집 단위(정밀도 확인 전) */
+export function preferredDurationUnit(entry: Pick<TuningEntryView, "packValue" | "max">): DurationEditUnit {
+  const packAbs = Math.abs(entry.packValue);
+  if (packAbs > 0) {
+    if (packAbs >= DURATION_UNIT_MS.hours) return "hours";
+    if (packAbs >= DURATION_UNIT_MS.minutes) return "minutes";
+    if (packAbs >= DURATION_UNIT_MS.seconds) return "seconds";
+    return "ms";
+  }
+  const maxAbs = entry.max === null ? 0 : Math.abs(entry.max);
+  if (maxAbs >= DURATION_UNIT_MS.hours) return "hours";
+  if (maxAbs >= DURATION_UNIT_MS.minutes * 2) return "minutes";
+  if (maxAbs >= DURATION_UNIT_MS.seconds) return "seconds";
+  return "ms";
+}
+
+/** 선택 단위에서 허용되는 정수 min~max 범위(ms 경계를 절대 넘지 않게 안쪽으로 올림·내림) */
+export function durationEditBounds(
+  entry: Pick<TuningEntryView, "min" | "max">,
+  unit: DurationEditUnit,
+): { min: number | null; max: number | null } {
+  const unitMs = DURATION_UNIT_MS[unit];
+  if (unitMs === 1) return { min: entry.min, max: entry.max };
+  return {
+    min: entry.min === null ? null : normZero(Math.ceil(entry.min / unitMs)),
+    max: entry.max === null ? null : normZero(Math.floor(entry.max / unitMs)),
+  };
+}
+
+/** 현재 값(ms)을 손실 없이 해당 단위 정수로 편집할 수 있는지 */
+export function canEditDurationInUnit(
+  entry: Pick<TuningEntryView, "min" | "max">,
+  targetMs: number,
+  unit: DurationEditUnit,
+): boolean {
+  const unitMs = DURATION_UNIT_MS[unit];
+  if (targetMs % unitMs !== 0) return false;
+  const bounds = durationEditBounds(entry, unit);
+  return bounds.min === null || bounds.max === null || bounds.min <= bounds.max;
+}
+
+/** 정밀도 손실 없이 편집 가능한 기본 단위(우선 단위 → 나누어떨어지는 가장 큰 단위) */
+export function defaultDurationUnitOf(
+  entry: Pick<TuningEntryView, "packValue" | "min" | "max">,
+  targetMs: number,
+): DurationEditUnit {
+  const preferred = preferredDurationUnit(entry);
+  const startIndex = DURATION_EDIT_UNITS.indexOf(preferred);
+  for (let i = startIndex; i < DURATION_EDIT_UNITS.length; i += 1) {
+    const unit = DURATION_EDIT_UNITS[i];
+    if (unit && canEditDurationInUnit(entry, targetMs, unit)) return unit;
+  }
+  return "ms";
+}
+
+/** ms → 선택 단위 정수(나누어떨어지지 않으면 null) */
+export function msToDurationEdit(ms: number, unit: DurationEditUnit): number | null {
+  const unitMs = DURATION_UNIT_MS[unit];
+  if (ms % unitMs !== 0) return null;
+  return normZero(ms / unitMs);
+}
+
+/** 선택 단위 정수 → ms 정수(안전 범위 밖이면 null) */
+export function durationEditToMs(value: number, unit: DurationEditUnit): number | null {
+  const ms = value * DURATION_UNIT_MS[unit];
+  if (!Number.isSafeInteger(ms) || Math.abs(ms) > TUNING_VALUE_LIMIT) return null;
+  return normZero(ms);
+}
+
+/** 선택 단위로 입력한 시간 글 검사(ok.value · out_of_range.value는 항상 ms) */
+export function checkDurationInput(
+  entry: Pick<TuningEntryView, "min" | "max">,
+  text: string,
+  startMs: number,
+  unit: DurationEditUnit,
+): ValueCheck {
+  const unitValue = parseValueInput(text);
+  if (unitValue === null) return { status: "invalid" };
+  const ms = durationEditToMs(unitValue, unit);
+  if (ms === null) return { status: "invalid" };
+  if (ms === startMs) return { status: "same" };
+  if (!inRange(entry, ms)) return { status: "out_of_range", value: ms };
+  return { status: "ok", value: ms };
+}
+
 /** 서버 오류 → 화면이 쓸 까닭(TUNING_REASONS 또는 공통 코드) */
 export type TuningErrorKey =
   | TuningReason

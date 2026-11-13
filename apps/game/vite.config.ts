@@ -124,6 +124,7 @@ export default defineConfig({
           "assets/[Ss]econdMapLab*.{js,css}",
           "assets/[Tt]uningPanel*.{js,css}",
           "assets/[Bb]alancePanel*.{js,css}",
+          "assets/[Ss]econdaryStats*.{js,css}",
           "assets/[Ss]killEditor*.{js,css}",
           "assets/[Ii]temEditor*.{js,css}",
           "assets/[Bb]uildingEditor*.{js,css}",

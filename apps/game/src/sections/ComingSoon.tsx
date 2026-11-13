@@ -33,6 +33,7 @@ type ComingSoonRoute = Exclude<
   | "dev_second_map"
   | "dev_tuning"
   | "dev_balance"
+  | "dev_secondary_stats"
   | "dev_skills"
   | "dev_items"
   | "dev_effects"

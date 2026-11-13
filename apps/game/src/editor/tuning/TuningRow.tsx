@@ -12,13 +12,24 @@ import { type KeyboardEvent, type RefObject, memo, useId, useRef, useState } fro
 import { m } from "../../paraglide/messages.js";
 import { NumberControl } from "../content/contentEditorNumber.tsx";
 import { clampInt } from "../content/contentEditorNumeric.ts";
-import { SCOPE_TEXT, unitText } from "./tuningMessages.ts";
+import { SCOPE_TEXT, durationUnitText, unitText } from "./tuningMessages.ts";
 import {
+  DURATION_EDIT_UNITS,
+  DURATION_UNIT_MS,
+  type DurationEditUnit,
   type Pending,
+  canEditDurationInUnit,
+  checkDurationInput,
   checkValueInput,
+  defaultDurationUnitOf,
   deltaOf,
+  durationEditBounds,
+  durationEditToMs,
+  formatDuration,
   formatGloss,
   formatNumber,
+  msToDurationEdit,
+  parseValueInput,
   stagedValue,
 } from "./tuningModel.ts";
 
@@ -46,8 +57,59 @@ export function rangeText(entry: Pick<TuningEntryView, "min" | "max">, locale: s
   return m.dev_tuning_no_range();
 }
 
-/** 값 + 풀이(예: 600,000 10분) */
-function ValueText({ value, entry, locale }: { value: number; entry: TuningEntryView; locale: string }) {
+function unitNumberText(value: number, unit: DurationEditUnit | null, locale: string): string {
+  const formatted = formatNumber(value, locale);
+  return unit && unit !== "ms" ? `${formatted}${durationUnitText(unit)}` : formatted;
+}
+
+function durationRangeText(
+  entry: Pick<TuningEntryView, "min" | "max">,
+  unit: DurationEditUnit | null,
+  locale: string,
+): string {
+  if (!unit || unit === "ms") return rangeText(entry, locale);
+  const bounds = durationEditBounds(entry, unit);
+  const n = (value: number) => unitNumberText(value, unit, locale);
+  if (bounds.min !== null && bounds.max !== null)
+    return m.dev_tuning_range_short({ min: n(bounds.min), max: n(bounds.max) });
+  if (bounds.min !== null) return m.dev_tuning_range_min({ min: n(bounds.min) });
+  if (bounds.max !== null) return m.dev_tuning_range_max({ max: n(bounds.max) });
+  return m.dev_tuning_no_range();
+}
+
+function formatDeltaDiff(diff: number, unit: DurationEditUnit | null, locale: string): string {
+  const prefix = diff > 0 ? "+" : "";
+  const converted = unit && unit !== "ms" ? msToDurationEdit(diff, unit) : null;
+  if (converted !== null) return `${prefix}${unitNumberText(converted, unit, locale)}`;
+  return `${prefix}${formatNumber(diff, locale)}`;
+}
+
+/** 값 + 풀이(예: 10분 / 600,000 ms 또는 1,440시간 / 60일 · 5,184,000,000 ms) */
+function ValueText({
+  value,
+  entry,
+  durationUnit,
+  locale,
+}: {
+  value: number;
+  entry: TuningEntryView;
+  durationUnit: DurationEditUnit | null;
+  locale: string;
+}) {
+  const converted = durationUnit && durationUnit !== "ms" ? msToDurationEdit(value, durationUnit) : null;
+  if (converted !== null && durationUnit) {
+    return (
+      <>
+        <strong className="tp-number">{unitNumberText(converted, durationUnit, locale)}</strong>
+        <span className="tp-gloss">
+          {m.dev_tuning_duration_ms_gloss({
+            duration: formatDuration(value, locale),
+            ms: formatNumber(value, locale),
+          })}
+        </span>
+      </>
+    );
+  }
   const gloss = formatGloss(value, entry.unit, locale);
   return (
     <>
@@ -60,6 +122,7 @@ function ValueText({ value, entry, locale }: { value: number; entry: TuningEntry
 interface EditorProps {
   entry: TuningEntryView;
   start: number;
+  durationUnit: DurationEditUnit | null;
   locale: string;
   onStage: (value: number) => void;
   onMove: MoveRow;
@@ -69,42 +132,71 @@ interface EditorProps {
 
 /**
  * 값 칸 + [담기](친 글자가 처음 값과 다를 때만 보인다). 바로 검사하고, 맞으면 Enter·칸 떠나기로 담는다.
- * 단추·막대·이름 끌기·↑↓·휠로 바꾼 값은 바로 담긴다. 처음 값(start)이 바뀌면(담김·적용·되돌리기) 글자를 그 값으로 맞춘다
+ * 단추·막대·이름 끌기·↑↓·휠로 바꾼 값은 바로 담긴다. 처음 값(start) 또는 편집 단위가 바뀌면 글자를 그 값으로 맞춘다
  */
-function RowEditor({ entry, start, locale, onStage, onMove, scrubRef }: EditorProps) {
+function RowEditor({ entry, start, durationUnit, locale, onStage, onMove, scrubRef }: EditorProps) {
   const inputId = useId();
   const hintId = useId();
   const errorId = useId();
   const noteId = useId();
-  const shown = String(start);
+  const startConverted = durationUnit ? msToDurationEdit(start, durationUnit) : start;
+  const activeUnit: DurationEditUnit | null = durationUnit && startConverted !== null ? durationUnit : null;
+  const displayStart = activeUnit && startConverted !== null ? startConverted : start;
+  const shown = String(displayStart);
   const [text, setText] = useState(shown);
   const [seen, setSeen] = useState(shown);
+  const [seenUnit, setSeenUnit] = useState<DurationEditUnit | null>(activeUnit);
   const [clamped, setClamped] = useState<string | null>(null);
-  if (seen !== shown) {
+  if (seen !== shown || seenUnit !== activeUnit) {
     setSeen(shown);
+    setSeenUnit(activeUnit);
     setText(shown);
+    setClamped(null);
   }
-  const min = entry.min ?? -TUNING_VALUE_LIMIT;
-  const max = entry.max ?? TUNING_VALUE_LIMIT;
+  const bounds = activeUnit ? durationEditBounds(entry, activeUnit) : { min: entry.min, max: entry.max };
+  const min = bounds.min ?? -TUNING_VALUE_LIMIT;
+  const max = bounds.max ?? TUNING_VALUE_LIMIT;
+  const packInUnit = activeUnit
+    ? Math.round(entry.packValue / DURATION_UNIT_MS[activeUnit])
+    : entry.packValue;
   const dirty = text !== shown;
-  const check = checkValueInput(entry, text, start);
+  const check = activeUnit
+    ? checkDurationInput(entry, text, start, activeUnit)
+    : checkValueInput(entry, text, start);
+  const activeRange = durationRangeText(entry, activeUnit, locale);
   const problem = !dirty
     ? null
     : check.status === "invalid"
       ? m.dev_tuning_value_invalid()
       : check.status === "out_of_range"
-        ? m.dev_tuning_value_out_of_range_detail({ range: rangeText(entry, locale) })
+        ? m.dev_tuning_value_out_of_range_detail({ range: activeRange })
         : null;
-  const preview = check.status === "ok" ? formatGloss(check.value, entry.unit, locale) : null;
+  const preview =
+    check.status === "ok"
+      ? activeUnit && activeUnit !== "ms"
+        ? m.dev_tuning_duration_ms_gloss({
+            duration: formatDuration(check.value, locale),
+            ms: formatNumber(check.value, locale),
+          })
+        : formatGloss(check.value, entry.unit, locale)
+      : null;
+  const parsedDisplay = activeUnit ? parseValueInput(text) : null;
+  const controlValue =
+    check.status === "ok" ? (activeUnit ? (parsedDisplay ?? displayStart) : check.value) : displayStart;
   const commit = (): boolean => {
     if (check.status === "out_of_range") {
       // 범위 밖 정수: 가까운 끝 값으로 맞춰 담고 까닭을 적는다
-      const fixed = clampInt(check.value, min, max);
-      setText(String(fixed));
+      const rawDisplay = activeUnit ? (parsedDisplay ?? displayStart) : check.value;
+      const fixedDisplay = clampInt(rawDisplay, min, max);
+      const fixedMs = activeUnit ? (durationEditToMs(fixedDisplay, activeUnit) ?? start) : fixedDisplay;
+      setText(String(fixedDisplay));
       setClamped(
-        m.dev_input_clamped({ range: rangeText(entry, locale), value: formatNumber(fixed, locale) }),
+        m.dev_input_clamped({
+          range: activeRange,
+          value: unitNumberText(fixedDisplay, activeUnit, locale),
+        }),
       );
-      if (fixed !== start) onStage(fixed);
+      if (fixedMs !== start) onStage(fixedMs);
       return true;
     }
     if (check.status !== "ok") return false;
@@ -134,16 +226,17 @@ function RowEditor({ entry, start, locale, onStage, onMove, scrubRef }: EditorPr
     }
   };
   const name = locale === "en" ? entry.name.en : entry.name.ko;
+  const activeUnitText = activeUnit ? durationUnitText(activeUnit) : unitText(entry.unit);
   return (
     <div className="tp-editor" data-dirty={dirty ? "" : undefined}>
       <NumberControl
         id={inputId}
         label={name}
         text={text}
-        value={check.status === "ok" ? check.value : start}
+        value={controlValue}
         min={min}
         max={max}
-        pack={entry.packValue}
+        pack={packInUnit}
         scrubRef={scrubRef}
         inputClassName="tp-input"
         onText={(next) => {
@@ -151,9 +244,11 @@ function RowEditor({ entry, start, locale, onStage, onMove, scrubRef }: EditorPr
           setText(next);
         }}
         onAdjust={(next) => {
+          const nextMs = activeUnit ? durationEditToMs(next, activeUnit) : next;
+          if (nextMs === null) return;
           setClamped(null);
           setText(String(next));
-          if (next !== start) onStage(next);
+          if (nextMs !== start) onStage(nextMs);
         }}
         inputProps={{
           // 음수를 받을 수 있는 칸은 글 자판(iOS 숫자 자판에는 − 가 없다)
@@ -181,7 +276,7 @@ function RowEditor({ entry, start, locale, onStage, onMove, scrubRef }: EditorPr
         </button>
       ) : null}
       <span id={hintId} className="visually-hidden">
-        {m.dev_tuning_value_hint({ unit: unitText(entry.unit) })} · {rangeText(entry, locale)}
+        {m.dev_tuning_value_hint({ unit: activeUnitText })} · {activeRange}
       </span>
       {problem ? (
         <p id={errorId} className="field-error tp-error" role="alert">
@@ -200,8 +295,15 @@ function RowEditor({ entry, start, locale, onStage, onMove, scrubRef }: EditorPr
 
 function TuningRowView({ entry, pending, locale, showDesc, onStage, onUnstage, onMove }: TuningRowProps) {
   const nameRef = useRef<HTMLSpanElement>(null);
+  const [chosenUnit, setChosenUnit] = useState<DurationEditUnit | null>(null);
   const staged = pending.has(entry.id);
   const target = stagedValue(entry, pending);
+  const durationUnit: DurationEditUnit | null =
+    entry.unit === "ms"
+      ? chosenUnit && canEditDurationInUnit(entry, target, chosenUnit)
+        ? chosenUnit
+        : defaultDurationUnitOf(entry, target)
+      : null;
   const delta = deltaOf(entry.value, entry.packValue);
   const stagedDelta = deltaOf(target, entry.packValue);
   const scope = SCOPE_TEXT[entry.scope];
@@ -269,28 +371,26 @@ function TuningRowView({ entry, pending, locale, showDesc, onStage, onUnstage, o
       <div className="tp-r-values">
         <span className="tp-value tp-value-now">
           <span className="tp-label">{m.dev_tuning_now()}</span>
-          <ValueText value={entry.value} entry={entry} locale={locale} />
+          <ValueText value={entry.value} entry={entry} durationUnit={durationUnit} locale={locale} />
           {changed ? (
             <span className="tp-delta" data-sign={sign}>
-              {delta.diff > 0 ? "+" : ""}
-              {formatNumber(delta.diff, locale)}
+              {formatDeltaDiff(delta.diff, durationUnit, locale)}
               {delta.percent === null ? "" : ` (${delta.percent > 0 ? "+" : ""}${delta.percent}%)`}
             </span>
           ) : null}
         </span>
         <span className="tp-value tp-value-pack">
           <span className="tp-label">{m.dev_tuning_pack_value()}</span>
-          <ValueText value={entry.packValue} entry={entry} locale={locale} />
+          <ValueText value={entry.packValue} entry={entry} durationUnit={durationUnit} locale={locale} />
         </span>
         {staged ? (
           <span className="tp-value tp-value-staged">
             <span className="tp-label">{m.dev_tuning_staged_value()}</span>
-            <ValueText value={target} entry={entry} locale={locale} />
+            <ValueText value={target} entry={entry} durationUnit={durationUnit} locale={locale} />
             {/* 결과 읽기: 팩 값과의 차이(끄는 동안 따라 바뀐다) */}
             {stagedDelta.diff === 0 ? null : (
               <span className="tp-delta" data-sign={stagedDelta.diff > 0 ? "up" : "down"}>
-                {stagedDelta.diff > 0 ? "+" : ""}
-                {formatNumber(stagedDelta.diff, locale)}
+                {formatDeltaDiff(stagedDelta.diff, durationUnit, locale)}
                 {stagedDelta.percent === null
                   ? ""
                   : ` (${stagedDelta.percent > 0 ? "+" : ""}${stagedDelta.percent}%)`}
@@ -300,13 +400,31 @@ function TuningRowView({ entry, pending, locale, showDesc, onStage, onUnstage, o
         ) : null}
       </div>
       <div className="tp-r-range">
-        <span className="tp-range-text">{rangeText(entry, locale)}</span>
+        <span className="tp-range-text">{durationRangeText(entry, durationUnit, locale)}</span>
       </div>
       <div className="tp-r-edit">
+        {durationUnit ? (
+          <div className="tp-unit-switch" role="group" aria-label={m.dev_tuning_duration_switch()}>
+            {DURATION_EDIT_UNITS.map((unit) => (
+              <button
+                key={unit}
+                type="button"
+                className="tp-unit-btn"
+                data-unit={unit}
+                aria-pressed={durationUnit === unit}
+                disabled={!canEditDurationInUnit(entry, target, unit)}
+                onClick={() => setChosenUnit(unit)}
+              >
+                {durationUnitText(unit)}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {/* 담거나 적용해 처음 값이 바뀌면 칸의 글자가 그 값을 따른다(끄는 동안에도 칸은 그대로 남는다) */}
         <RowEditor
           entry={entry}
           start={target}
+          durationUnit={durationUnit}
           locale={locale}
           onStage={(value) => onStage(entry.id, value)}
           onMove={onMove}

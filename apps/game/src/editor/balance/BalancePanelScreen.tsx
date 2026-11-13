@@ -10,6 +10,7 @@
 import { type KeyboardEvent, type ReactNode, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
+import { AppLink } from "../../shell/AppLink.tsx";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { MatrixTab } from "./analysis/MatrixTab.tsx";
@@ -96,6 +97,9 @@ export default function BalancePanelScreen() {
         <h1 id="balance-title" className="screen-title" tabIndex={-1} ref={headingRef}>
           {m.shell_route_dev_balance()}
         </h1>
+        <AppLink className="button-small" to={{ route: "dev_secondary_stats" }}>
+          {m.shell_route_dev_secondary_stats()}
+        </AppLink>
         <BackButton />
       </div>
       <div className="bp-tabs" role="tablist" aria-label={m.dev_lab_tabs_label()} onKeyDown={onKey}>

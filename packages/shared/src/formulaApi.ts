@@ -47,6 +47,14 @@ export interface FormulaSampleView {
   readonly level: number;
 }
 
+/** 세계 성장 설정 스냅숏(N5·N6·N7 — 2차 스탯 에디터 곡선 기준) */
+export interface FormulaGrowthSettings {
+  readonly growthPm: number;
+  readonly kMinPm: number;
+  readonly kMaxPm: number;
+  readonly maxLevel: number;
+}
+
 export interface FormulaListResponse {
   readonly contentVersion: string;
   /** 세계 설정 판(tuning.save의 expectedRevision) */
@@ -55,4 +63,5 @@ export interface FormulaListResponse {
   readonly weapons: readonly FormulaWeaponView[];
   readonly coefficients: FormulaCoefficients;
   readonly samples: readonly FormulaSampleView[];
+  readonly growth?: FormulaGrowthSettings;
 }

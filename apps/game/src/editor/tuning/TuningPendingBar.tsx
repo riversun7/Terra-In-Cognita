@@ -4,7 +4,13 @@ import type { TuningEntryView } from "@terra/shared/tuning";
 import { useId } from "react";
 import { m } from "../../paraglide/messages.js";
 import { ScopeTarget } from "../../scope/ScopeBar.tsx";
-import { type Pending, formatNumber } from "./tuningModel.ts";
+import { type Pending, formatDuration, formatNumber } from "./tuningModel.ts";
+
+function pendingNumber(value: number, entry: TuningEntryView | undefined, locale: string): string {
+  const formatted = formatNumber(value, locale);
+  if (entry?.unit !== "ms") return formatted;
+  return `${formatDuration(value, locale)} (${formatted} ms)`;
+}
 
 export interface TuningPendingBarProps {
   pending: Pending;
@@ -44,15 +50,17 @@ export function TuningPendingBar({
             const name = entry ? (locale === "en" ? entry.name.en : entry.name.ko) : id;
             const target =
               value === null
-                ? m.dev_tuning_pending_pack({ value: entry ? formatNumber(entry.packValue, locale) : "?" })
-                : formatNumber(value, locale);
+                ? m.dev_tuning_pending_pack({
+                    value: entry ? pendingNumber(entry.packValue, entry, locale) : "?",
+                  })
+                : pendingNumber(value, entry, locale);
             return (
               <li key={id} className="tp-pending-item" data-id={id}>
                 <span className="tp-pending-what">
                   <code className="tp-code">{entry?.code || "—"}</code> <span>{name}</span>
                 </span>
                 <span className="tp-pending-change">
-                  {entry ? formatNumber(entry.value, locale) : "?"} → <strong>{target}</strong>
+                  {entry ? pendingNumber(entry.value, entry, locale) : "?"} → <strong>{target}</strong>
                 </span>
                 <button
                   type="button"

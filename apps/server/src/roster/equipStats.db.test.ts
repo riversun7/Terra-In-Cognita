@@ -5,7 +5,7 @@
 // 최대 아머를, 1차 스탯 버프 빵은 STR을 올리고, 공격 버프 약은 전투 시작 때 걸린 효과로 들어간다.
 import { loadContentPack } from "@terra/content/node";
 import { DEFAULT_CYBORG_APPEARANCE } from "@terra/shared/cyborg";
-import { type BattleInit, type CombatUnitSpec, runBattle } from "@terra/sim";
+import { type BattleInit, type CombatUnitSpec, realAttackOf, runBattle } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { carriedBy } from "../holdings/state.ts";
@@ -188,7 +188,16 @@ describe.skipIf(!TEST_DATABASE_URL)("입은 장비·버프 → 스탯·전투", 
     );
     expect(stored[0]?.units.find((spec) => spec.id === unit)?.attack.weaponAttack).toBe(20);
     expect(specOf(armedBattle, 9_000_002)).toEqual(specOf(duelInit(unit, owner), 9_000_002));
-    expect(damageDealt(armedBattle)).toBeGreaterThan(damageDealt(bareBattle));
+    // 한 대의 실제 공격력은 검이 크다. 다만 맨손은 늘 맞고(명중 100%) 크리 = AGI + DEX ‰라(사용자 결정 2026-11-12) Lv 1 검(명중 749‰)보다
+    // 같은 시간에 준 피해 합이 클 수 있다 → 합은 "다르다"만 본다
+    const startAttack = (init: BattleInit) => specOf(init, unit)?.attack;
+    const armedStart = startAttack(armedBattle);
+    const bareStart = startAttack(bareBattle);
+    if (!armedStart || !bareStart) throw new Error("spec");
+    expect(realAttackOf(armedStart, 1000, roster.coefficients)).toBeGreaterThan(
+      realAttackOf(bareStart, 1000, roster.coefficients),
+    );
+    expect(damageDealt(armedBattle)).not.toBe(damageDealt(bareBattle));
 
     // 부서진 검(내구도 0): 화면·전투 모두 맨손과 같다
     const sword = p.holdings.service.equippedOn(unit).find((record) => record.id === swordId);

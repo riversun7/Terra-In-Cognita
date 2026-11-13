@@ -20,6 +20,7 @@ import { elementsToArray, zeroElements } from "@terra/shared/cyborg";
 import { type Primaries, skillGradeCap } from "@terra/sim";
 import { TEST_MAP_KEY, TEST_PLANET_ID } from "../world/world.ts";
 import { type BodySpec, bodySheet, bodyView } from "./body.ts";
+import { rosterMoveOf } from "./unitBody.ts";
 import type { RosterCatalog } from "./catalog.ts";
 
 const MINUTE = 60_000;
@@ -465,6 +466,8 @@ export function previewCyborg(catalog: RosterCatalog): CyborgBody {
     // 시안은 Lv 23(만렙 아님)이라 K·처음 값을 보내지 않는다(D-449). 속성값은 body.elements(장비 밖 값 + 장비 속성값)
     growth: null,
     fatigue: { value: 30, max: FATIGUE_MAX },
+    // 이동 속도 줄(2026-11-12): 서버 걷기 빠르기 그대로
+    move: rosterMoveOf(),
     inventory: [
       { id: "grain", amount: "40" },
       { id: "timber", amount: "12" },

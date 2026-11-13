@@ -1,5 +1,5 @@
 // 전투 계산식 — docs/adr/2026-11-01-formula-editor.md "판정 코드"
-// 실제 공격력(스탯 공격력 + 무기 몫, D-502)·명중·크리, 맨손 적정 DEX·AGI, 크리 배율, 공격 간격, STA 점수·적정 STA 점수(레벨 식, D-511)·
+// 실제 공격력(스탯 공격력 + 무기 몫, D-502)·명중·크리, 맨손 적정 DEX·AGI, 맨손 크리(AGI + DEX, 2026-11-12), 크리 배율, 공격 간격, STA 점수·적정 STA 점수(레벨 식, D-511)·
 // 스태미나 소모·실제 스태미나 회복, 최종 회피를
 // 개발자 모드에서 고치는 식(@terra/shared/formula)으로 셈한다. 식은 계수표(CombatCoefficients.formulas)에 실린다: 읽은 구문 나무는
 // 직렬화할 수 있는 값이라 전투 시작 자료·스냅숏과 같이 다닌다. 식이 없으면 기본 식(= 지금 코드와 같은 결과)이다.
@@ -12,6 +12,8 @@ import {
   attackIntervalScope,
   attackScope,
   bareAppropriateScope,
+  bareCritScope,
+  bareIntervalScope,
   compileFormulaOrThrow,
   critMultiplierScope,
   dexFrameScope,
@@ -47,6 +49,9 @@ function setOf(make: (id: CombatFormulaId) => FormulaProgram): CombatFormulaSet 
     stamina_cost: make("stamina_cost"),
     real_stamina_regen: make("real_stamina_regen"),
     evade_chance: make("evade_chance"),
+    bare_crit: make("bare_crit"),
+    bare_hit: make("bare_hit"),
+    bare_interval: make("bare_interval"),
   };
 }
 
@@ -98,9 +103,9 @@ export function attackValue(
   );
 }
 
-/** 명중·크리 식(real_hit·real_crit): 무기 값 × min(N10, DEX ÷ 적정 DEX(밀리점)). 결과는 0 이상 정수(‰) */
+/** 맨손 명중 식(bare_hit — 기본 1000‰, 사용자 결정 2026-11-12 "맨손 항상 100%")도 같은 변수(W DEX A CAP). 명중·크리 식(real_hit·real_crit): 무기 값 × min(N10, DEX ÷ 적정 DEX(밀리점)). 결과는 0 이상 정수(‰) */
 export function dexFrameValue(
-  id: "real_hit" | "real_crit",
+  id: "real_hit" | "real_crit" | "bare_hit",
   weapon: number,
   dex: number,
   appropriateMilli: number,
@@ -115,6 +120,38 @@ export function dexFrameValue(
 /** 맨손 적정 DEX·AGI(밀리점, 식 bare_appropriate — 기본 = 레벨 × 1.5 + 10). 0 이하면 0(적정 없음 → 비율 100%) */
 export function bareAppropriateMilli(level: number, c: CombatCoefficients): number {
   return nonNegative(evaluateFormula(formulaOf("bare_appropriate", c), bareAppropriateScope(level)));
+}
+
+/**
+ * 맨손 크리 확률(‰, 식 bare_crit — 기본 = AGI + DEX, 사용자 결정 2026-11-12 "10,10이면 2%"). 0 이상 정수.
+ * 맨손 자료(unarmed)의 공격 사양만 쓴다(formula.ts realCritPm). W = 맨손 자료 크리, A = 맨손 적정(밀리점)
+ */
+export function bareCritPm(
+  weaponCritPm: number,
+  dex: number,
+  agi: number,
+  appropriateMilli: number,
+  c: CombatCoefficients,
+): number {
+  return nonNegative(
+    evaluateFormulaInt(formulaOf("bare_crit", c), bareCritScope(weaponCritPm, dex, agi, appropriateMilli)),
+  );
+}
+
+/**
+ * 맨손 공격 간격(ms, 식 bare_interval — 기본 = 2,000 ÷ (AGI ÷ 그 레벨 보통 유닛 AGI)²를 250~5,000으로, 사용자 답 1252). 1ms 이상.
+ * 맨손 자료(unarmed)로 기본 공격할 때만(unitSpec.ts). 맨손 적정(레벨 × 1.5 + 10)은 쓰지 않는다
+ */
+export function bareIntervalMs(
+  intervalMs: number,
+  agi: number,
+  level: number,
+  c: CombatCoefficients,
+): number {
+  return Math.max(
+    1,
+    evaluateFormulaInt(formulaOf("bare_interval", c), bareIntervalScope(intervalMs, agi, level)),
+  );
 }
 
 /** 크리 배율(‰, N12) 식 */

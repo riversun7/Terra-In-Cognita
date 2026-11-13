@@ -20,9 +20,9 @@ import {
   evadeFinalPm,
   evadeRelativePm,
   realAttackOf,
+  realCritPm,
   realHitPm,
   statPlusWeapon,
-  weaponRatioPm,
   weaponScaled,
 } from "./formula.ts";
 import {
@@ -62,11 +62,16 @@ function ruleRegen(regen: number, score: number, appropriateMilli: number): numb
   const ratioMilli = Math.min(2000, Math.floor((Math.max(0, score) * 1_000_000) / appropriateMilli));
   return Math.floor((regen * ratioMilli) / 1000);
 }
-/** 공격 간격(D-502 사용자 답 297): 무기 간격 ÷ min(N10, AGI ÷ 적정 AGI). 적정(밀리점)이 없으면 무기 간격 그대로 */
+/**
+ * 공격 간격(사용자 결정 2026-11-13 "무기도 같은 꼴로"·적정스탯 상한): 무기 간격 ÷ r², r = min(2, AGI ÷ 적정 AGI)(밀리, 내림),
+ * 무기 간격 × 2.5를 넘지 않는다. 적정(밀리점)이 없으면 무기 간격 그대로. 고정 소수점 셈(곱·나눗셈 내림)을 정수로 따라 한다
+ */
 function ruleInterval(intervalMs: number, agi: number, appropriateMilli: number): number {
   if (appropriateMilli <= 0) return intervalMs;
-  const ratio = weaponRatioPm(agi, appropriateMilli, c.appropriateCapPm);
-  return Math.max(1, Math.floor((intervalMs * 1000) / Math.max(1, ratio)));
+  const rMilli = Math.min(2000, Math.floor((Math.max(0, agi) * 1_000_000) / Math.max(1, appropriateMilli)));
+  const r2 = Math.max(1, Math.floor((rMilli * rMilli) / 1000));
+  const slow = Math.floor((intervalMs * 2500) / 1000);
+  return Math.min(slow, Math.max(1, Math.floor((intervalMs * 1000) / r2)));
 }
 const oldCritMul = (critMulPm: number, pos: number): number =>
   Math.max(0, critMulPm) + Math.floor((c.critSpreadPm * pos) / 10_000);
@@ -158,16 +163,20 @@ describe("기본 식 = 바꾸기 전 공식(무작위 입력)", () => {
     }
   });
 
-  it("공격 간격(D-502: 무기 간격 ÷ min(N10, AGI ÷ 적정 AGI), 적정 미만이면 느려짐)", () => {
+  it("공격 간격(2026-11-13: 무기 간격 ÷ (AGI ÷ 적정 AGI)², 적정 2배에서 멈춤, 최대 2.5배)", () => {
     for (let round = 0; round < 3000; round++) {
       const interval = 100 + int(60_000);
       const agi = int(round % 3 === 0 ? 300 : 10_000_000) - (round % 17 === 0 ? 5 : 0);
       const appropriate = round % 7 === 0 ? 0 : round % 5 === 0 ? 1 + int(3000) : 1000 * (1 + int(10_000));
       expect(attackIntervalMs(interval, agi, appropriate, c)).toBe(ruleInterval(interval, agi, appropriate));
     }
-    // 예: 간격 1000ms, 적정 AGI 12 → AGI 10이면 1000 ÷ 0.833 = 1200ms, AGI 39면 1000ms(넘는 보너스 없음)
-    expect(attackIntervalMs(1000, 10, 12_000, c)).toBe(1200);
-    expect(attackIntervalMs(1000, 39, 12_000, c)).toBe(1000);
+    // 예: 간격 1000ms, 적정 AGI 12 → AGI 10이면 1000 ÷ 0.833²(밀리 내림 0.693) = 1,443ms, 12면 1,000ms, 18이면 444ms,
+    // 24 이상(적정 2배, 속도 상한)이면 250ms, 아주 낮으면(AGI 1) 2,500ms에서 멈춤
+    expect(attackIntervalMs(1000, 10, 12_000, c)).toBe(1443);
+    expect(attackIntervalMs(1000, 12, 12_000, c)).toBe(1000);
+    expect(attackIntervalMs(1000, 18, 12_000, c)).toBe(444);
+    expect(attackIntervalMs(1000, 39, 12_000, c)).toBe(250);
+    expect(attackIntervalMs(1000, 1, 12_000, c)).toBe(2500);
   });
 
   it("STA 점수·스태미나 소모(N13, 적정 = 레벨 식 밀리점 D-511)·실제 회복", () => {
@@ -264,21 +273,26 @@ function bareSpec(v: number, level: number) {
 }
 
 describe("맨손(D-502: 무기 몫 0, 적정 DEX·AGI = 레벨 × 1.5 + 10, 사용자 답 297)", () => {
-  it("새 사이보그(1차 모두 10, Lv 1): 공격력 10(스탯만), 명중 850 × 10 ÷ 11.5 = 738‰, 크리 50 × 0.869 = 43‰, 간격 1150ms", () => {
+  it("새 사이보그(1차 모두 10, Lv 1): 공격력 15(STR + ⌊VIT ÷ 2⌋, 2026-11-13), 명중 늘 1000‰, 크리 AGI + DEX = 20‰(2026-11-12), 간격 2,000ms(답 1252)", () => {
     const spec = bareSpec(10, 1);
-    expect(spec.attack.statAttack).toBe(10);
+    expect(spec.attack.statAttack).toBe(15);
     expect(spec.attack.weaponAttack).toBe(0);
     expect(spec.attack.dexAppropriateMilli).toBe(11_500);
-    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(10);
-    expect(realHitPm(spec.attack, c)).toBe(738);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(15);
+    // 사용자 결정 2026-11-12: 맨손 명중 "항상 100%"(bare_hit), 크리 = AGI + DEX ‰(bare_crit). 무기 틀이면 738‰·43‰였다
+    expect(realHitPm(spec.attack, c)).toBe(1000);
+    expect(realCritPm(spec.attack, c)).toBe(20);
+    expect(dexFrameValue("real_hit", 850, 10, 11_500, 1000, c)).toBe(738);
     expect(dexFrameValue("real_crit", 50, 10, 11_500, 1000, c)).toBe(43);
-    expect(spec.attackIntervalMs).toBe(1150);
+    // 맨손 간격(사용자 답 1252): 2,000 ÷ (10 ÷ 10)² = 2,000ms(무기 틀이면 1,000 ÷ (10 ÷ 11.5) = 1,150ms)
+    expect(spec.attackIntervalMs).toBe(2000);
   });
 
-  it("Lv 30 균형형(39): 공격력 39, 적정 55라 명중 850 × 39 ÷ 55 = 602‰, 스킬 사양도 무기 몫 0", () => {
+  it("Lv 30 균형형(39): 공격력 39 + 19 = 58, 명중 늘 1000‰(무기 틀이면 적정 55라 602‰), 스킬 사양도 무기 몫 0", () => {
     const spec = bareSpec(39, 30);
-    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(39);
-    expect(realHitPm(spec.attack, c)).toBe(602);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(58);
+    expect(realHitPm(spec.attack, c)).toBe(1000);
+    expect(dexFrameValue("real_hit", 850, 39, 55_000, 1000, c)).toBe(602);
     expect(spec.skillAttack?.physical.weaponAttack).toBe(0);
     // 크리쳐 발톱은 맨손이 아니다(무기와 같은 공식)
     const creature = TEST_COMBAT_CATALOG.unitKinds.find((kind) => kind.id === "creature");

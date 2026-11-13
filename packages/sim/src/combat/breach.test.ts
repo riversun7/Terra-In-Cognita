@@ -151,7 +151,8 @@ describe("성벽 뚫기", () => {
       return { reach, state: battle.state };
     };
     const open = reachTick([]);
-    const walled = reachTick(ring(20_000));
+    // 발톱 간격도 무기 간격 식(AGI ÷ 적정 AGI의 제곱, 2026-11-13)이라 크리쳐가 더 빨리 쳐서 성벽 내구도를 3만으로 올렸다
+    const walled = reachTick(ring(30_000));
     expect(open.state.result?.reason).toBe("nexus");
     expect(walled.state.result?.reason).toBe("nexus");
     expect(walled.state.buildings.some((building) => building.id !== 1 && building.durability <= 0)).toBe(

@@ -57,7 +57,7 @@ describe("스태미나 기준(D-511)", () => {
     ]);
   });
 
-  it("무기 줄마다 기본 공격 소모·간격(Lv 1 검은 적정 AGI 12 미만이라 1,200ms), 고정·스킬 줄은 없다", () => {
+  it("무기 줄마다 기본 공격 소모·간격(검: Lv 1 AGI 10 ÷ 적정 12의 제곱 1,443ms, Lv 30 AGI 39는 적정 2배 상한 250ms), 고정·스킬 줄은 없다", () => {
     const rows: ActionCostRow[] = [
       { kind: "fixed", key: "walk", status: "free" },
       row("weapon", "test_sword"),
@@ -71,13 +71,14 @@ describe("스태미나 기준(D-511)", () => {
       "unit_kinds/creature",
     ]);
     expect(basis.attacks["items/test_sword"]).toEqual([
-      { costMilli: 10_000, intervalMs: 1200 },
-      { costMilli: 10_000, intervalMs: 1000 },
+      { costMilli: 10_000, intervalMs: 1443 },
+      { costMilli: 10_000, intervalMs: 250 },
     ]);
-    expect(basis.attacks["unit_kinds/creature"]?.[1]).toEqual({ costMilli: 10_000, intervalMs: 900 });
+    // 발톱(간격 900·적정 AGI 12)도 같은 꼴: Lv 30은 900 × 0.25 = 225ms
+    expect(basis.attacks["unit_kinds/creature"]?.[1]).toEqual({ costMilli: 10_000, intervalMs: 225 });
   });
 
-  it("출발값에서 팩의 모든 무기·타고난 무기로 일반 공격이 이어진다(초당 회복 ≥ 초당 소모)", () => {
+  it("출발값 Lv 1에서 팩의 모든 무기·타고난 무기로 일반 공격이 이어진다(Lv 30은 낮은 무기가 적정 2배 상한까지 빨라져 스태미나가 막는다, 질문 1258)", () => {
     const { roster } = basisOf([]);
     const rows = [
       ...roster.combat.equipment.flatMap((item) => (item.weapon ? [row("weapon", item.id)] : [])),
@@ -85,12 +86,11 @@ describe("스태미나 기준(D-511)", () => {
     ];
     const { basis } = basisOf(rows);
     expect(Object.keys(basis.attacks)).toHaveLength(rows.length);
-    for (const [key, attacks] of Object.entries(basis.attacks))
-      attacks.forEach((attack, index) => {
-        const regen = basis.levels[index]?.regenPerMinute ?? 0;
-        expect(regen * attack.intervalMs, `${key} Lv ${basis.levels[index]?.level}`).toBeGreaterThanOrEqual(
-          60 * attack.costMilli,
-        );
-      });
+    for (const [key, attacks] of Object.entries(basis.attacks)) {
+      const attack = attacks[0];
+      if (!attack) throw new Error(key);
+      const regen = basis.levels[0]?.regenPerMinute ?? 0;
+      expect(regen * attack.intervalMs, `${key} Lv 1`).toBeGreaterThanOrEqual(60 * attack.costMilli);
+    }
   });
 });

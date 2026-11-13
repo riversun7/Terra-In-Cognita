@@ -8,6 +8,8 @@
 // - 상세 전투 스펙의 공격 값·실제 스태미나 회복(combat): 판정과 같은 전투 사양(specFromStats)에서 셈한다(D-502·D-511).
 // - 버프 몫(질문 354 → D-515 "기본값과 버프를 나눠 보인다"): 2차 스탯 풀이(breakdown)·공격 값(combat)은 걸린 효과를 뺀 몸으로 셈하고,
 //   몫(buffs)은 unitBody.ts buffSharesOf(1차 스탯 버프 몫 + 전투 수치 버프, 판정과 같은 함수). stats·primarySources는 든 몸 그대로다.
+// - 이동 속도(move, 2026-11-12): 서버가 쓰는 걷기 빠르기 그대로(unitBody.ts rosterMoveOf). 원자재별 채집 예상(gather)은 서비스가 붙인다
+//   (services.ts — 실효 팩 채집 시설·컨디션이 필요하다, gatherSheet.ts).
 // - 생활비(D-453): 마지막 유지비를 못 냈으면 효율 불이익(N38 ‰, @terra/sim livingEfficiencyPm).
 import type { CyborgBody } from "@terra/shared/roster";
 import { livingEfficiencyPm, skillGradeCap } from "@terra/sim";
@@ -21,6 +23,7 @@ import {
   bodySpecOf,
   buffSharesOf,
   combatSummaryOfSpec,
+  rosterMoveOf,
   startEffectsOf,
   withoutBuffs,
 } from "./unitBody.ts";
@@ -64,6 +67,8 @@ export function realCyborgBody(
     fatigue: { value: 0, max: FATIGUE_MAX },
     combat: combatSummaryOfSpec(catalog, plain.spec, plain.parts),
     buffs: buffSharesOf(catalog, plain, buffed, startEffectsOf(gear, nowMs)),
+    // 이동 속도 줄(2026-11-12): 서버 걷기 빠르기·전투 걸음 간격(1차 스탯 몫 없음, 기획 48 §3.2)
+    move: rosterMoveOf(),
     inventory: [],
     rankings: [],
     preview: false,

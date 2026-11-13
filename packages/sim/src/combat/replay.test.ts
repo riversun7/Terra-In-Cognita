@@ -108,7 +108,8 @@ describe("전투 리플레이 기록기", () => {
   });
 
   it("앞 키프레임 + 사건 = 다음 키프레임", () => {
-    const { replay } = recordBattleReplay(demo(3), { keyframeTicks: 50 });
+    // 키프레임 간격 25틱(속성 공격력 INT + ⌊WIS ÷ 2⌋ 뒤로 시연 전투가 짧아져 50틱이면 키프레임이 둘뿐이다, 2026-11-13)
+    const { replay } = recordBattleReplay(demo(3), { keyframeTicks: 25 });
     expect(replay.keyframes.length).toBeGreaterThan(2);
     for (const keyframe of replay.keyframes.slice(1)) {
       const rebuilt = fromStart(replay, keyframe.tick);

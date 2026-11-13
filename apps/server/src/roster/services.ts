@@ -1,13 +1,16 @@
 // 유닛·사이보그 화면 자료 서비스 — tRPC 맥락의 roster(units.list·cyborg.get). 앱을 만들 때 한 번 만든다(trpc/createContext.ts).
 // 실제 자료(세계 유닛·화물·포로, 계정 이름)에 시안 자료(preview, dev·admin만: 프로시저가 권한을 본 뒤 true)를 더한다.
 // 응답의 이름 표는 응답에 나온 ID만 담는다(catalog.ts namesFor).
-import type {
-  CyborgGetResponse,
-  CyborgRanking,
-  RosterCondition,
-  RosterPrisoner,
-  RosterUnit,
-  UnitsListResponse,
+import {
+  type CyborgBody,
+  type CyborgGetResponse,
+  type CyborgRanking,
+  PRIMARY_STATS,
+  type PrimaryStat,
+  type RosterCondition,
+  type RosterPrisoner,
+  type RosterUnit,
+  type UnitsListResponse,
 } from "@terra/shared/roster";
 import { type ConditionParts, HOME_HOUSING } from "@terra/sim";
 import type { WorkerConditionView } from "../labor/condition.ts";
@@ -15,6 +18,7 @@ import type { HomeQuery, RosterServices, Viewer } from "../trpc/context.ts";
 import type { CyborgService } from "../cyborg/service.ts";
 import { cyborgLookOf } from "../cyborg/state.ts";
 import { realCyborgBody } from "./cyborgBody.ts";
+import { type GatherSheetSource, gatherSheetOf } from "./gatherSheet.ts";
 import { type UnitGuideSource, unitGuideOf } from "./guide.ts";
 import { type RosterCatalog, namesFor, testRosterCatalog } from "./catalog.ts";
 import {
@@ -139,6 +143,8 @@ export function createRosterServices(
     guide?: (() => UnitGuideSource | undefined) | undefined;
     /** 유닛 컨디션(D-534, 세계가 준비되면 건물 서비스)과 지금 상한(설정 칸 condition_cap). 없으면 화면에 컨디션 없음 */
     condition?: (() => { readonly read: ConditionReader; readonly cap: number } | undefined) | undefined;
+    /** 사이보그 판 원자재별 채집 예상의 출처(실효 팩 채집 시설·티어 구간·중분류 이름, 2026-11-12). 없으면 줄 없음 */
+    gatherSheet?: (() => GatherSheetSource | undefined) | undefined;
   } = {},
 ): RosterServices {
   const catalog = options.catalog ?? testRosterCatalog();
@@ -191,7 +197,7 @@ export function createRosterServices(
       const cyborgs = options.cyborgs?.();
       const record = cyborgs?.record(viewer.id);
       // 시안을 켜면 시안 본체(화면 검토용), 아니면 만든 사이보그의 본체(생활비를 못 냈으면 효율 불이익, D-453)
-      const body = query.preview
+      let body: CyborgBody | null = query.preview
         ? previewCyborg(catalog)
         : record
           ? {
@@ -206,6 +212,23 @@ export function createRosterServices(
               ...cyborgConditionOf(record.unitId),
             }
           : null;
+      // 원자재별 채집 예상(효율 묶음, 2026-11-12): 1차 값(몸 + 장비·버프)과 컨디션으로 판정과 같은 함수(gatherSheet.ts)
+      const sheetSource = body ? options.gatherSheet?.() : undefined;
+      if (body && sheetSource) {
+        const primaries = body.stats.primaries;
+        const stats = PRIMARY_STATS.reduce<Record<PrimaryStat, number>>(
+          (out, stat) => {
+            const { base, bonus } = primaries[stat];
+            out[stat] = base + bonus;
+            return out;
+          },
+          { str: 0, vit: 0, int: 0, wis: 0, dex: 0, agi: 0 },
+        );
+        body = {
+          ...body,
+          gather: gatherSheetOf(sheetSource, stats, body.condition?.total ?? 0, catalog.society),
+        };
+      }
       const names = body
         ? namesFor(catalog, {
             stats: body.stats.secondary.map((row) => row.id),

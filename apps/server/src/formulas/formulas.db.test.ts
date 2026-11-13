@@ -121,12 +121,12 @@ describe.skipIf(!TEST_DATABASE_URL)("계산식 탭 (DB)", () => {
     await test?.drop();
   });
 
-  it("player는 FORBIDDEN, dev는 칸 28개(켜진 행 식 17 + 전투 식 11)·무기(맨손 포함)·표본 둘", async () => {
+  it("player는 FORBIDDEN, dev는 칸 31개(켜진 행 식 17 + 전투 식 14 — 맨손 크리·명중·간격 2026-11-12)·무기(맨손 포함)·표본 둘", async () => {
     expect((await list("player")).statusCode).toBe(403);
     const res = await list("dev");
     expect(res.statusCode, res.body).toBe(200);
     const body = obj(resultOf(res));
-    expect(arr(body.slots)).toHaveLength(28);
+    expect(arr(body.slots)).toHaveLength(31);
     expect(slotOf(body, "hp.formula")).toMatchObject({ group: "stat", generated: true, override: null });
     expect(slotOf(body, "bare_appropriate")).toMatchObject({ group: "combat", generated: false });
     // 적정 STA 레벨 식·실제 회복(D-511), 화면 계수에 적정 STA 설정 칸은 없다

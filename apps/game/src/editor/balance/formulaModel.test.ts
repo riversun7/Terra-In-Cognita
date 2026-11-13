@@ -250,7 +250,7 @@ describe("스태미나(D-511 적정 스탯 개념)", () => {
     }
   });
 
-  it("보통 유닛(Lv 1 1차 10·Lv 30 1차 39)은 소모 10·회복 초당 12로 일반 공격이 이어지고, 같은 1차로 Lv 60이면 줄어든다", () => {
+  it("보통 유닛(Lv 1 1차 10·Lv 30 1차 39)은 소모 10·회복 초당 12로 일반 공격이 이어지고, 같은 1차로 Lv 60이면 소모가 늘고 맨손 간격이 느려진다", () => {
     const [lv1] = sampleStaminaOf(withRegen, new Map(), [10, 10, 10, 10, 10, 10], 1);
     expect(lv1).toMatchObject({ appropriateMilli: 10_000, score: 10, max: 110, regenPerMinute: 720 });
     expect(lv1?.costMilli).toBe(10_000);
@@ -263,12 +263,14 @@ describe("스태미나(D-511 적정 스탯 개념)", () => {
       sustained: true,
     });
     const [lv60] = sampleStaminaOf(withRegen, new Map(), [39, 39, 39, 39, 39, 39], 60);
-    // 10 × 69 ÷ 39 = 17.69, 720 × 39 ÷ 69 = 406 → 초당 6.8 < 17.7
+    // 10 × 69 ÷ 39 = 17.69, 720 × 39 ÷ 69 = 406. 맨손 간격(사용자 답 1252)은 2,000 ÷ (39 ÷ 69)² = 6,260 → 상한 5,000ms라
+    // 초당 소모 17.69 ÷ 5 = 3.5 < 회복 6.8 → 이어진다(전에는 간격 1,000ms라 끊겼다)
     expect(lv60).toMatchObject({
       appropriateMilli: 69_000,
       costMilli: 17_690,
       regenPerMinute: 406,
-      sustained: false,
+      intervalMs: 5000,
+      sustained: true,
     });
   });
 

@@ -6,6 +6,7 @@
 // 버프 몫(질문 354 → D-515 "기본값과 버프를 나눠 보인다"): 줄 값·풀이는 걸린 효과를 뺀 기본(서버 breakdown·combat), 값 옆 알약과
 // 막대 빗금 칸이 몫(CyborgBody.buffs — 1차 스탯 버프 몫 + 방어율·회피·크리 배율·쉴드 재생 등 전투 수치 버프, 판정과 같은 셈).
 // 펼치면 공식 끝에 "버프 +n → 전투 m". 몫이 하나라도 있으면 카드 머리 아래에 알약의 뜻을 적는다.
+// 2026-11-12: 기동 묶음에 이동 속도 줄(서버 걷기 빠르기, CombatAttack MoveSpeedRow), 효율 묶음에 원자재별 채집 줄(CombatGather.tsx).
 import {
   type CyborgBody,
   PRIMARY_STATS,
@@ -27,6 +28,7 @@ import {
   primaryCode,
 } from "../roster/rosterText.ts";
 import { AttackRows, BuffLines, MoveSpeedRow, SpecRow, StaminaRealLines, shareOf } from "./CombatAttack.tsx";
+import { GatherRows } from "./CombatGather.tsx";
 import { type CombatGroup, combatGroups, termMilliSum } from "./cyborgText.ts";
 import "./combatSpecs.css";
 
@@ -108,11 +110,12 @@ export function CombatSpecs({ body, names }: { body: CyborgBody; names: RosterNa
                 />
               ))}
               {group === "offense" && body.combat ? (
-                <AttackRows combat={body.combat} names={names} buffs={body.buffs} />
+                <AttackRows combat={body.combat} names={names} buffs={body.buffs} level={body.level} />
               ) : null}
-              {group === "mobility" && body.buffs && body.buffs.moveSpeedPm !== 0 ? (
-                <MoveSpeedRow buffs={body.buffs} />
+              {group === "mobility" && (body.move || (body.buffs && body.buffs.moveSpeedPm !== 0)) ? (
+                <MoveSpeedRow move={body.move} buffs={body.buffs} />
               ) : null}
+              {group === "efficiency" && body.gather ? <GatherRows rows={body.gather} /> : null}
             </ul>
           </section>
         ))}

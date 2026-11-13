@@ -79,6 +79,10 @@
 .combat-row[data-sec="sight"] {
   --sec: var(--color-sec-sight);
 }
+/* 이동 속도(2026-11-12): 기동 묶음 색 */
+.combat-row[data-sec="move_speed"] {
+  --sec: var(--color-sec-action-speed);
+}
 
 /* ── 카드 ───────────────────────────────────── */
 .combat-card {
@@ -278,6 +282,23 @@
   white-space: nowrap;
 }
 
+/* 채집 줄의 최적 작업 표(값 옆, 상태색 성공 — 글자는 자기 알림 바탕 위, 대비 검사 쌍) */
+.combat-best {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid currentColor;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  white-space: nowrap;
+}
+
 /* 알약의 뜻(몫이 있을 때 카드 머리 아래) */
 .combat-buff-legend {
   display: flex;
@@ -333,6 +354,11 @@
   border-top: var(--hairline) solid var(--color-border);
   color: var(--sec);
   font-weight: var(--font-weight-strong);
+}
+/* 공식 줄 바로 뒤의 결과(맨손 명중·크리처럼 입력 줄이 없는 풀이)는 선을 한 번만 */
+.combat-formula + .combat-result {
+  padding-block-start: 0;
+  border-top: none;
 }
 /* 버프 줄: 판정 값(기본 + 몫) — 버프 색 글자(자기 판 바탕 위, 대비 검사 쌍) */
 .combat-buff-line {

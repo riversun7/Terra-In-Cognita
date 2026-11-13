@@ -184,3 +184,42 @@ export function barSplit(
 /** 풀이 글의 가중합(받은 곱을 더해 보이기만 한다. 결과·내림 값은 서버의 weighted) */
 export const termMilliSum = (row: RosterStatBreakdown): number =>
   row.terms.reduce((sum, term) => sum + term.milli, 0);
+
+/** 채집 예상의 티어 폭: 확률이 있는 가장 낮은·높은 티어(모두 0이면 null). 받은 ‰를 읽기만 한다 */
+export function tierSpan(tierPm: readonly number[]): { low: number; high: number } | null {
+  const low = tierPm.findIndex((pm) => pm > 0);
+  if (low < 0) return null;
+  let high = low;
+  tierPm.forEach((pm, tier) => {
+    if (pm > 0) high = tier;
+  });
+  return { low, high };
+}
+
+/** 기대 티어(밀리, 1000 = T1) = Σ 티어 × ‰ */
+export const expectedTierMilli = (tierPm: readonly number[]): number =>
+  tierPm.reduce((sum, pm, tier) => sum + Math.max(0, pm) * tier, 0);
+
+/** 티어 폭 글: "T0–T3", 한 칸이면 "T2", 없으면 "—" */
+export function tierSpanText(tierPm: readonly number[]): string {
+  const span = tierSpan(tierPm);
+  if (!span) return "—";
+  return span.low === span.high ? `T${String(span.low)}` : `T${String(span.low)}–T${String(span.high)}`;
+}
+
+/** 걷기 빠르기(단위/초) → 칸/초(밀리) */
+export const walkCellsMilli = (move: { walk: number; cellUnits: number }): number =>
+  move.cellUnits > 0 ? Math.floor((Math.max(0, move.walk) * 1000) / move.cellUnits) : 0;
+
+/** 2차맵 한 장(한 변)을 걸어 건너는 분(올림). 걷지 못하면 0 */
+export function mapCrossMinutes(move: { walk: number; cellUnits: number; mapCells: number }): number {
+  if (move.walk <= 0) return 0;
+  return Math.ceil((move.mapCells * move.cellUnits) / move.walk / 60);
+}
+
+/**
+ * 맨손 간격 풀이의 레벨 기준 AGI(밀리) = 초기 10인 보통 유닛의 그 레벨 AGI, 10 × (1 + 0.1 × (레벨 − 1)). 계산식 bare_interval 기본 식의
+ * base와 같은 값을 보이려는 표시용이다(판정 값은 서버가 보낸 interval.real)
+ */
+export const bareIntervalBaseMilli = (level: number): number =>
+  10_000 + 1000 * Math.max(0, Math.trunc(level) - 1);

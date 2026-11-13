@@ -97,6 +97,56 @@ const PATHS: Readonly<Record<string, ReactNode>> = {
       <path d="M12 13V9.5M10 3h4" />
     </>
   ),
+  // 발자국 + 앞 화살(이동 속도, 2026-11-12)
+  move_speed: (
+    <>
+      <path d="M5 15l4-4 4 4" />
+      <path d="M5 9l4-4 4 4" />
+      <path d="M15 12h6M18 9l3 3-3 3" />
+    </>
+  ),
+  // 곡괭이(광석)
+  gather_ore: (
+    <>
+      <path d="M4 8c4-4 12-4 16 0" />
+      <path d="M12 6v15" />
+    </>
+  ),
+  // 나무(목재)
+  gather_wood: (
+    <>
+      <path d="M12 3l6 9H6z" />
+      <path d="M12 12v9" />
+    </>
+  ),
+  // 잎(약초)
+  gather_herb: (
+    <>
+      <path d="M5 19C5 10 11 5 19 5c0 8-5 14-14 14z" />
+      <path d="M5 19l8-8" />
+    </>
+  ),
+  // 이삭(작물)
+  gather_crop: (
+    <>
+      <path d="M12 21V8" />
+      <path d="M12 8c-3 0-4-2-4-5 3 0 4 2 4 5zM12 13c-3 0-4-2-4-5M12 13c3 0 4-2 4-5M12 18c-3 0-4-2-4-5M12 18c3 0 4-2 4-5" />
+    </>
+  ),
+  // 우유병(축산물)
+  gather_livestock_product: (
+    <>
+      <path d="M10 3h4v3l2 3v12H8V9l2-3z" />
+      <path d="M8 13h8" />
+    </>
+  ),
+  // 물고기
+  gather_fish: (
+    <>
+      <path d="M3 12c3-4 8-5 12-3l4-3v12l-4-3c-4 2-9 1-12-3z" />
+      <circle cx="8" cy="11" r="0.5" />
+    </>
+  ),
   // 눈
   sight: (
     <>

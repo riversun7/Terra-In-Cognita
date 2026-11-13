@@ -535,6 +535,8 @@ export {
   attackIntervalMs,
   attackValue,
   bareAppropriateMilli,
+  bareCritPm,
+  bareIntervalMs,
   combatFormulaSetFrom,
   critMultiplierPm,
   dexFrameValue,

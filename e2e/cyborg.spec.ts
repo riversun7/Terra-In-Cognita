@@ -6,6 +6,8 @@
 // - 데스크톱: 막대에 마우스를 올리면 출처 상세가 보인다.
 // - 사진: 390 × 파스텔·다크·정거장, 1440 × 파스텔·다크, 한국어·영어(dev 시안 자료) — 접은·펼친 전투 스펙, 출처 상세, 머리 판.
 //   정거장(네온 SF 테마, D-454)은 홈·설정 테마 미리 보기도 찍는다. 폴더는 E2E_SHOTS_DIR.
+// - 2026-11-12: 기동 이동 속도 줄, 효율 원자재별 채집 여섯(최적 작업 표 하나), 맨손 크리(AGI + DEX ‰)·맨손 명중(늘 100%) 풀이 —
+//   390 × 파스텔·다크·정거장 묶음 사진(cyborg-move-*·cyborg-gather-*·cyborg-bare-offense-*).
 // - D-458 새 2차 스탯 넷: 쉴드 재생·MP 회복·스태미나 회복은 VITALS, 속성 방어율은 DEFENSE. 줄마다 자기 --color-sec-* 색
 //   (1차 스탯 색과 다름), 펼친 묶음 사진(cyborg-d459-*).
 import type { Page } from "@playwright/test";
@@ -22,6 +24,16 @@ const NEW_ROWS = [
   { row: "mp_regen", group: "vitals", token: "--color-sec-mp-regen" },
   { row: "stamina_regen", group: "vitals", token: "--color-sec-stamina-regen" },
   { row: "elemental_defense_rate", group: "defense", token: "--color-sec-elemental-defense-rate" },
+] as const;
+
+/** 효율 묶음의 원자재별 채집 줄(팩 채집 시설 차례: 농장·벌목장·광산·약초원·목장·낚시터) */
+const GATHER_ROWS = [
+  "gather_crop",
+  "gather_wood",
+  "gather_ore",
+  "gather_herb",
+  "gather_livestock_product",
+  "gather_fish",
 ] as const;
 
 async function cyborgReady(page: Page): Promise<void> {
@@ -107,11 +119,18 @@ test.describe("플레이어: 사이보그 화면", () => {
         .locator(".combat-group")
         .evaluateAll((list) => list.map((group) => group.getAttribute("data-group"))),
     ).toEqual(["vitals", "offense", "defense", "mobility", "efficiency"]);
+    // 효율 = 제작 직무 + 원자재별 채집 여섯(팩 차례, 2026-11-12), 기동 = 시야 + 이동 속도(2026-11-12)
     expect(
       await page
         .locator('.combat-group[data-group="efficiency"] .combat-row')
         .evaluateAll((list) => list.map((row) => row.getAttribute("data-sec"))),
-    ).toEqual(["job_crafting"]);
+    ).toEqual(["job_crafting", ...GATHER_ROWS]);
+    await expect(page.locator('.combat-group[data-group="efficiency"] .combat-best')).toHaveCount(1);
+    expect(
+      await page
+        .locator('.combat-group[data-group="mobility"] .combat-row')
+        .evaluateAll((list) => list.map((row) => row.getAttribute("data-sec"))),
+    ).toEqual(["sight", "move_speed"]);
     // D-458 새 행: 옛 묶음 자리(재생·회복은 VITALS, 속성 방어율은 DEFENSE), 막대는 자기 색(1차 스탯 색·다른 2차 스탯 색과 다름)
     const rowsOf = (group: string) =>
       page
@@ -308,6 +327,55 @@ function worstCase(data: unknown): void {
       Reflect.set(record(row), "rank", 1_284_000);
       Reflect.set(record(row), "score", 98_765_432);
     }
+}
+
+// 2026-11-12 사용자 요청·결정: 기동 이동 속도 줄, 효율 원자재별 채집(티어 폭·최적 작업), 맨손 크리 = AGI + DEX ‰·맨손 명중 늘 100%.
+// 전역 준비의 Lv 1 사이보그(맨손, 1차 모두 10 근처)로 펼친 풀이를 보고 390 × 파스텔·다크·정거장 사진을 찍는다
+for (const theme of ["pastel", "dark", "station"] as const) {
+  test.describe(`플레이어: 이동 속도·채집·맨손 (390 ${theme})`, () => {
+    test.use({ ...VIEWPORTS.phone, account: "player", theme, language: "ko" });
+
+    test(`펼친 풀이 (${theme})`, async ({ page, deviceErrors }) => {
+      await rewriteTrpc(page, { "summary.get": hideSummary });
+      await page.goto("/cyborg");
+      await cyborgReady(page);
+      // 이동 속도: 서버 걷기 빠르기(칸/초)와 1차 스탯 몫 없음
+      const move = page.locator('.combat-row[data-sec="move_speed"]');
+      await expect(move.locator(".combat-value")).toContainText("칸/초");
+      await move.locator(".combat-toggle").click();
+      await expect(move.locator(".combat-detail")).toContainText(message("ko", "cyborg_move_no_stats"));
+      // 맨손 크리 = AGI(a) + DEX(d) = n‰, 맨손 명중 늘 100%
+      const crit = page.locator('.combat-row[data-real="crit"]');
+      await crit.locator(".combat-toggle").click();
+      await expect(crit.locator(".combat-result")).toContainText(/AGI\(\d+\) \+ DEX\(\d+\) = \d+‰/);
+      const hit = page.locator('.combat-row[data-real="hit"]');
+      await expect(hit.locator(".combat-value")).toHaveText("100%");
+      await hit.locator(".combat-toggle").click();
+      await expect(hit.locator(".combat-detail")).toContainText(
+        message("ko", "cyborg_attack_bare_hit_formula"),
+      );
+      // 채집: 광산 줄 티어 폭·구간, 최적 작업 줄
+      const ore = page.locator('.combat-row[data-sec="gather_ore"]');
+      await expect(ore.locator(".combat-value")).toContainText(/T\d/);
+      await ore.locator(".combat-toggle").click();
+      await expect(ore.locator(".combat-detail")).toContainText("T9");
+      const best = page.locator(".combat-row:has(.combat-best)");
+      await best.locator(".combat-toggle").click();
+      await expect(best.locator(".combat-detail")).toContainText(message("ko", "cyborg_gather_best_line"));
+      const fish = page.locator('.combat-row[data-sec="gather_fish"]');
+      if ((await fish.getAttribute("data-open")) !== "true") await fish.locator(".combat-toggle").click();
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
+      expect(await horizontalOverflow(page)).toEqual([]);
+      expect(await smallTapTargets(page)).toEqual([]);
+      await elementShot(
+        page.locator('.combat-group[data-group="offense"]'),
+        `cyborg-bare-offense-390-${theme}`,
+      );
+      await elementShot(page.locator('.combat-group[data-group="mobility"]'), `cyborg-move-390-${theme}`);
+      await elementShot(page.locator('.combat-group[data-group="efficiency"]'), `cyborg-gather-390-${theme}`);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
 }
 
 test.describe("나쁜 자료(긴 이름·큰 수) 390", () => {

@@ -228,37 +228,89 @@ const specOf = (p: ReturnType<typeof all>, weapon: WeaponSpec, level = 1) =>
     moveIntervalMs: 1000,
   });
 
+/** 1차 모두 10에 AGI만 바꾼 맨손 유닛의 기본 공격 간격(ms) */
+const bareIntervalAt = (agi: number, level = 1): number =>
+  specOf({ ...all(10), agi }, UNARMED_PHYSICAL, level).attackIntervalMs;
+
 describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 간격 AGI(D-502, 사용자 답 296~298)", () => {
   const c = TEST_COMBAT_COEFFICIENTS;
   /** 사용자 예의 검: 공격력 20·적정 STR 25(명중·크리·간격 적정은 [임시] DEX·AGI 12) */
   const sword = weaponOf("test_sword");
 
-  it("스탯 공격력 = (STR + VIT) ÷ 2·(INT + WIS) ÷ 2(내림)", () => {
+  it("스탯 공격력 = STR + ⌊VIT ÷ 2⌋(2026-11-13 맨손 기본 공격력 B2)·INT + ⌊WIS ÷ 2⌋(답 1257)", () => {
     const stat = computeSecondary({ str: 11, dex: 0, agi: 0, vit: 20, int: 7, wis: 8 }, TEST_STAT_TABLE);
-    expect(stat.physical_attack).toBe(15);
-    expect(stat.elemental_attack).toBe(7);
+    expect(stat.physical_attack).toBe(21);
+    expect(stat.elemental_attack).toBe(11);
   });
 
-  it("새 사이보그(1차 모두 10) + 검: 10 + 20 × 10/25 = 18, 명중 900 × 833‰ = 749‰, 크리 100 × 10/12 = 83‰, 간격 1200ms", () => {
+  it("새 사이보그(1차 모두 10) + 검: 15 + 20 × 10/25 = 23, 명중 900 × 833‰ = 749‰, 크리 100 × 10/12 = 83‰, 간격 1000 ÷ 0.833² = 1,443ms", () => {
     const spec = specOf(all(10), sword);
-    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(18);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(23);
     expect(realHitPm(spec.attack, c)).toBe(749);
     expect(realCritPm(spec.attack, c)).toBe(83);
-    expect(spec.attackIntervalMs).toBe(1200);
+    expect(spec.attackIntervalMs).toBe(1443);
   });
 
-  it("새 사이보그 맨손: 공격력 10(무기 몫 0), 명중 850 × 10/11.5 = 738‰(약 74%)", () => {
+  it('새 사이보그 맨손: 공격력 15(STR + ⌊VIT ÷ 2⌋, 무기 몫 0), 명중 늘 1000‰(사용자 결정 2026-11-12 "맨손 항상 100%", 전에는 850 × 10/11.5 = 738‰)', () => {
     const spec = specOf(all(10), UNARMED_PHYSICAL);
-    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(10);
-    expect(realHitPm(spec.attack, c)).toBe(738);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(15);
+    expect(realHitPm(spec.attack, c)).toBe(1000);
+    // DEX가 아주 낮거나 레벨이 높아도(맨손 적정 55) 늘 맞는다 — 빗나감은 방어자 회피 굴림만
+    expect(realHitPm(specOf({ ...all(10), dex: 1 }, UNARMED_PHYSICAL, 30).attack, c)).toBe(1000);
   });
 
-  it("Lv 30 균형형(1차 모두 39) + 검: 39 + 20 = 59(적정을 넘는 보너스 없음), 명중·크리·간격은 무기 값 그대로", () => {
+  it('맨손 크리 = AGI + DEX ‰(사용자 결정 2026-11-12 "10,10이면 2%"), 명중 100%', () => {
+    // AGI 10·DEX 10 → 20‰ = 2%(전에는 맨손 자료 크리 50‰ × min(1, 10 ÷ 11.5) = 43‰)
+    const ten = specOf(all(10), UNARMED_PHYSICAL);
+    expect(ten.attack.unarmed).toBe(true);
+    expect(realCritPm(ten.attack, c)).toBe(20);
+    // DEX 12·AGI 15 → 27‰. 적정을 넘어도 계속 오른다(레벨·맨손 적정과 상관없음)
+    const p = { ...all(10), dex: 12, agi: 15 };
+    expect(realCritPm(specOf(p, UNARMED_PHYSICAL).attack, c)).toBe(27);
+    expect(realCritPm(specOf(p, UNARMED_PHYSICAL, 30).attack, c)).toBe(27);
+    expect(realCritPm(specOf(all(100), UNARMED_PHYSICAL).attack, c)).toBe(200);
+    // 명중은 늘 1000‰(맨손 식 bare_hit)
+    expect(realHitPm(ten.attack, c)).toBe(1000);
+    // 크리쳐 발톱처럼 맨손이 아닌 타고난 무기는 무기 틀 그대로(50 × min(1, 12 ÷ 12) = 50)
+    const claws: WeaponSpec = { ...UNARMED_PHYSICAL, unarmed: false, appropriate: { dex: 12, agi: 12 } };
+    const clawSpec = specOf(p, claws);
+    expect(clawSpec.attack.unarmed).toBeUndefined();
+    expect(realCritPm(clawSpec.attack, c)).toBe(50);
+    expect(realHitPm(clawSpec.attack, c)).toBe(850);
+    // 발톱도 무기 간격 식(같은 꼴, 2026-11-13): 1000 ÷ (15 ÷ 12)² = 640ms
+    expect(clawSpec.attackIntervalMs).toBe(640);
+  });
+
+  it("맨손 간격 = 2,000 ÷ (AGI ÷ 그 레벨 보통 유닛 AGI)², 0.25~5초(사용자 답 1252)", () => {
+    // Lv 1 기준 AGI 10: 10 → 2,000ms, 20 → 500ms, 15 → 888ms, 7 → 4,081ms, 6 이하 → 5,000ms(상한), 100 → 250ms(하한)
+    expect(bareIntervalAt(10)).toBe(2000);
+    expect(bareIntervalAt(20)).toBe(500);
+    expect(bareIntervalAt(15)).toBe(888);
+    expect(bareIntervalAt(7)).toBe(4081);
+    expect(bareIntervalAt(6)).toBe(5000);
+    expect(bareIntervalAt(0)).toBe(5000);
+    expect(bareIntervalAt(100)).toBe(250);
+    // 초기 10인 유닛은 레벨이 올라도 약 2초(Lv 10 AGI 19 → 2,000, Lv 30 AGI 39 → 2,000·38 → 2,109)
+    expect(bareIntervalAt(19, 10)).toBe(2000);
+    expect(bareIntervalAt(39, 30)).toBe(2000);
+    expect(bareIntervalAt(38, 30)).toBe(2109);
+  });
+
+  it("맨손 스킬 사양(타고난 무기·맨손 속성 자료)도 맨손 크리 식을 쓴다", () => {
+    const spec = specOf({ ...all(10), dex: 12, agi: 15 }, weaponOf("test_sword"));
+    expect(realCritPm(spec.bareHandAttack?.physical ?? spec.attack, c)).toBe(27);
+    expect(realCritPm(spec.bareHandAttack?.elemental ?? spec.attack, c)).toBe(27);
+    // 든 검의 크리는 무기 틀(100 × min(1, 12 ÷ 12) = 100)
+    expect(realCritPm(spec.attack, c)).toBe(100);
+  });
+
+  it("Lv 30 균형형(1차 모두 39) + 검: 58 + 20 = 78(적정을 넘는 보너스 없음), 명중·크리는 무기 값, 간격은 적정 2배 상한 250ms", () => {
     const spec = specOf(all(39), sword, 30);
-    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(59);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(78);
     expect(realHitPm(spec.attack, c)).toBe(900);
     expect(realCritPm(spec.attack, c)).toBe(100);
-    expect(spec.attackIntervalMs).toBe(1000);
+    // AGI 39 ÷ 적정 12 = 3.25 → 속도 상한 2(사용자 "장비는 그래서 적정스탯 상한이 필요하다") → 1000 ÷ 4 = 250ms
+    expect(spec.attackIntervalMs).toBe(250);
   });
 
   it("적정이 없는 무기는 비율 100%, 공격 몫은 STR만 본다(DEX·VIT를 섞지 않음)", () => {
@@ -270,16 +322,16 @@ describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 
     // STR만 올리면 무기 몫이 오르고, DEX만 올리면 공격력은 그대로(명중만)
     const strOnly = specOf({ ...all(10), str: 25 }, sword);
     const dexOnly = specOf({ ...all(10), dex: 25 }, sword);
-    expect(realAttackOf(strOnly.attack, c.appropriateCapPm, c)).toBe(17 + 20);
-    expect(realAttackOf(dexOnly.attack, c.appropriateCapPm, c)).toBe(18);
+    expect(realAttackOf(strOnly.attack, c.appropriateCapPm, c)).toBe(30 + 20);
+    expect(realAttackOf(dexOnly.attack, c.appropriateCapPm, c)).toBe(23);
     expect(realHitPm(dexOnly.attack, c)).toBe(900);
   });
 
-  it("속성 무기는 INT ÷ 적정 INT(불꽃 지팡이 공격력 20·적정 INT 25): 새 사이보그 10 + 8 = 18", () => {
+  it("속성 무기는 INT ÷ 적정 INT(불꽃 지팡이 공격력 20·적정 INT 25): 새 사이보그 15(INT + ⌊WIS ÷ 2⌋) + 8 = 23", () => {
     const staff = TEST_COMBAT_CATALOG.equipment.find((item) => item.id === "fire_staff")?.weapon;
     if (!staff) throw new Error("fixture");
     const spec = specOf(all(10), staff);
     expect(spec.attack.kind).toBe("elemental");
-    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(18);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(23);
   });
 });

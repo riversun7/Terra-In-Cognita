@@ -1,12 +1,16 @@
 // 상세 전투 스펙의 판정 값 — 공격 묶음 아래 실제 공격력·명중·크리 확률·공격 간격, 전투자원 묶음의 실제 스태미나 회복(D-511).
 // 서버가 전투 사양(specFromStats)과 같은 함수로 셈해 보낸 값(CyborgBody.combat)을 보이기만 한다(입은 장비·1차 스탯 버프가 든 몸,
 // docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 입은 장비·버프 → 스탯·전투)"). 줄 모양은 2차 스탯 줄과 같다(SpecRow).
-// 공식 글은 D-502: 공격력 = 스탯 공격력 + 무기 공격력 × 비율(STR·INT ÷ 적정), 명중·크리 = 무기 값 × 비율(DEX), 간격 = 무기 간격 ÷ 비율(AGI).
+// 공식 글은 D-502: 공격력 = 스탯 공격력 + 무기 공격력 × 비율(STR·INT ÷ 적정), 명중·크리 = 무기 값 × 비율(DEX),
+// 간격 = 무기 간격 ÷ 비율²(AGI, 적정 2배 상한 — 사용자 결정 2026-11-13 "무기도 같은 꼴로"·"적정스탯 상한").
 // 버프 몫(질문 354 → D-515): 줄 값은 걸린 효과를 뺀 기본, 옆 알약·막대 빗금 칸이 몫(CyborgBody.buffs, 공격은 공격 ‰ 배율까지).
-// 2차 행이 없는 전투 수치(관통·이동 속도)는 값이 있을 때만 줄을 더한다.
+// 2차 행이 없는 관통은 값이 있을 때만 줄을 더한다. 이동 속도 줄은 서버가 걷기 빠르기(move)를 보내면 늘 있다(2026-11-12).
+// 맨손 크리(crit.bare)는 맨손 식 풀이 "맨손 크리 = AGI(10) + DEX(10) = 20‰ = 2%", 맨손 명중(hit.bare)은 늘 100%(사용자 결정 2026-11-12),
+// 맨손 간격(interval.bare)은 "2,000 ÷ (AGI(10) ÷ 10)² = 2,000ms"(사용자 답 1252).
 import type {
   RosterBuffs,
   RosterCombat,
+  RosterMove,
   RosterNames,
   RosterStatBreakdown,
   RosterWeaponPart,
@@ -15,7 +19,14 @@ import { type ReactNode, useId, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { formatMilli, formatNumber, formatSigned, localName, primaryCode } from "../roster/rosterText.ts";
 import { BuffChip } from "./BuffChip.tsx";
-import { barFill, barSplit, buffTone } from "./cyborgText.ts";
+import {
+  barFill,
+  barSplit,
+  bareIntervalBaseMilli,
+  buffTone,
+  mapCrossMinutes,
+  walkCellsMilli,
+} from "./cyborgText.ts";
 import { StatIcon } from "./statIcons.tsx";
 
 const pct = (share: number): string => `${String(Math.round(share * 1000) / 10)}%`;
@@ -85,6 +96,7 @@ export function SpecRow({
   fill,
   real,
   buff,
+  badge,
   children,
 }: {
   sec: string;
@@ -94,6 +106,8 @@ export function SpecRow({
   /** 판정 값 줄 표지(시험·스타일) */
   real?: string | undefined;
   buff?: SpecBuff | undefined;
+  /** 값 옆 표(채집 줄의 "최적" 등) */
+  badge?: ReactNode;
   children: ReactNode;
 }) {
   const id = useId();
@@ -135,6 +149,7 @@ export function SpecRow({
         <span className="combat-value">
           <span className="combat-value-base">{shown}</span>
           {buff ? <BuffChip text={buff.text} tone={buff.tone} /> : null}
+          {badge}
         </span>
       </button>
       <div id={`${id}-detail`} className="combat-detail" hidden={!open}>
@@ -168,10 +183,13 @@ export function AttackRows({
   combat,
   names,
   buffs,
+  level = 1,
 }: {
   combat: RosterCombat;
   names: RosterNames;
   buffs?: RosterBuffs | undefined;
+  /** 유닛 레벨(맨손 간격 풀이의 레벨 기준 AGI) */
+  level?: number;
 }) {
   const { attack, hit, crit, interval } = combat;
   const attackShare = buffs?.attack ?? 0;
@@ -230,14 +248,28 @@ export function AttackRows({
         fill={hitBar.fill}
         buff={hitBar.buff}
       >
-        <PartLine code={dex} part={hit.part} />
-        <p className="combat-line combat-result" translate="no">
-          {m.cyborg_attack_scaled({
-            weapon: chanceText(hit.weaponPm),
-            ratio: ratioText(hit.part.ratioPm),
-            real: chanceText(hit.real),
-          })}
-        </p>
+        {hit.bare ? (
+          <>
+            <p className="combat-formula">
+              <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+              {m.cyborg_attack_bare_hit_formula()}
+            </p>
+            <p className="combat-line combat-result" translate="no">
+              = {chanceText(hit.real)}
+            </p>
+          </>
+        ) : (
+          <>
+            <PartLine code={dex} part={hit.part} />
+            <p className="combat-line combat-result" translate="no">
+              {m.cyborg_attack_scaled({
+                weapon: chanceText(hit.weaponPm),
+                ratio: ratioText(hit.part.ratioPm),
+                real: chanceText(hit.real),
+              })}
+            </p>
+          </>
+        )}
         {hitBar.buff ? <BuffLines share={hitBar.buff.text} total={chanceText(hit.real + hitShare)} /> : null}
       </SpecRow>
       <SpecRow
@@ -248,14 +280,35 @@ export function AttackRows({
         fill={critBar.fill}
         buff={critBar.buff}
       >
-        <PartLine code={dex} part={crit.part} />
-        <p className="combat-line combat-result" translate="no">
-          {m.cyborg_attack_scaled({
-            weapon: chanceText(crit.weaponPm),
-            ratio: ratioText(crit.part.ratioPm),
-            real: chanceText(crit.real),
-          })}
-        </p>
+        {crit.bare ? (
+          <>
+            <p className="combat-formula">
+              <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+              {m.cyborg_attack_bare_crit_formula({ agi, dex })}
+            </p>
+            <p className="combat-line combat-result" translate="no">
+              {m.cyborg_attack_bare_crit_line({
+                agi,
+                dex,
+                agiValue: formatNumber(crit.bare.agi),
+                dexValue: formatNumber(crit.part.stat),
+                pm: formatNumber(crit.real),
+                real: chanceText(crit.real),
+              })}
+            </p>
+          </>
+        ) : (
+          <>
+            <PartLine code={dex} part={crit.part} />
+            <p className="combat-line combat-result" translate="no">
+              {m.cyborg_attack_scaled({
+                weapon: chanceText(crit.weaponPm),
+                ratio: ratioText(crit.part.ratioPm),
+                real: chanceText(crit.real),
+              })}
+            </p>
+          </>
+        )}
         {critBar.buff ? (
           <BuffLines share={critBar.buff.text} total={chanceText(crit.real + critShare)} />
         ) : null}
@@ -268,14 +321,33 @@ export function AttackRows({
         fill={intervalBar.fill}
         buff={intervalBar.buff}
       >
-        <PartLine code={agi} part={interval.part} />
-        <p className="combat-line combat-result" translate="no">
-          {m.cyborg_attack_interval_line({
-            weapon: formatNumber(interval.weaponMs),
-            ratio: ratioText(interval.part.ratioPm),
-            real: formatNumber(interval.real),
-          })}
-        </p>
+        {interval.bare ? (
+          <>
+            <p className="combat-formula">
+              <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+              {m.cyborg_attack_bare_interval_formula({ agi })}
+            </p>
+            <p className="combat-line combat-result" translate="no">
+              {m.cyborg_attack_bare_interval_line({
+                agi,
+                agiValue: formatNumber(interval.part.stat),
+                base: formatMilli(bareIntervalBaseMilli(level)),
+                real: formatNumber(interval.real),
+              })}
+            </p>
+          </>
+        ) : (
+          <>
+            <PartLine code={agi} part={interval.part} />
+            <p className="combat-line combat-result" translate="no">
+              {m.cyborg_attack_interval_line({
+                weapon: formatNumber(interval.weaponMs),
+                ratio: ratioText(interval.part.ratioPm),
+                real: formatNumber(interval.real),
+              })}
+            </p>
+          </>
+        )}
         {intervalBar.buff ? (
           <BuffLines
             share={intervalBar.buff.text}
@@ -313,30 +385,80 @@ function PenetrationRow({ penetration }: { penetration: RosterBuffs["penetration
   );
 }
 
-/** 이동 속도(기동 묶음, 2차 행이 없다): 기본 100% + 버프 몫(판정 하한을 넣은 값). 몫이 있을 때만 */
-export function MoveSpeedRow({ buffs }: { buffs: RosterBuffs }) {
-  const share = buffs.moveSpeedPm;
-  const bar = shareOf(CHANCE, 1000, share, signedChance(share));
+/**
+ * 이동 속도(기동 묶음, 2차 행이 없다 — 사용자 요청 2026-11-12 "기동에 이동속도가 왜 없는가?"). 값 = 서버가 쓰는 2차맵 걷기 빠르기(칸/초).
+ * 기획 48 §3.2: 이동 속도는 2차 스탯이 아니고 수단·도로가 정한다 → 1차 스탯·장비 몫 줄은 "없음". 전투 수치 버프 move_speed는 전투맵
+ * 걸음에만 든다(알약·버프 줄). move가 없는 옛 서버는 버프 몫이 있을 때만 옛 모양(기본 100%)
+ */
+export function MoveSpeedRow({
+  move,
+  buffs,
+}: {
+  move?: RosterMove | undefined;
+  buffs?: RosterBuffs | undefined;
+}) {
+  const share = buffs?.moveSpeedPm ?? 0;
+  const buff: SpecBuff | undefined =
+    share === 0 ? undefined : { text: signedChance(share), tone: buffTone(share), extra: 0 };
+  if (!move) {
+    const bar = shareOf(CHANCE, 1000, share, signedChance(share));
+    return (
+      <SpecRow
+        sec="move_speed"
+        real="move_speed"
+        name={m.cyborg_move_speed()}
+        shown={chanceText(1000)}
+        fill={bar.fill}
+        buff={bar.buff}
+      >
+        <p className="combat-formula">
+          <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+          {m.cyborg_move_speed_formula()}
+        </p>
+      </SpecRow>
+    );
+  }
+  const cells = walkCellsMilli(move);
+  const shown = m.cyborg_move_cells({ value: formatMilli(cells) });
   return (
     <SpecRow
       sec="move_speed"
       real="move_speed"
       name={m.cyborg_move_speed()}
-      shown={chanceText(1000)}
-      fill={bar.fill}
-      buff={bar.buff}
+      shown={shown}
+      fill={barFill({ shape: "quantity", cap: null, value: cells })}
+      buff={buff}
     >
       <p className="combat-formula">
         <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
-        {m.cyborg_move_speed_formula()}
+        {m.cyborg_move_formula()}
       </p>
-      {bar.buff ? (
-        <BuffLines
-          share={bar.buff.text}
-          total={chanceText(1000 + share)}
-          modifierPm={buffs.modifiers.move_speed}
-        />
-      ) : null}
+      <p className="combat-line" translate="no">
+        {m.cyborg_move_base({
+          walk: formatNumber(move.walk),
+          unit: formatNumber(move.cellUnits),
+          value: formatMilli(cells),
+        })}
+      </p>
+      <p className="combat-line">{m.cyborg_move_no_stats()}</p>
+      <p className="combat-line combat-result" translate="no">
+        {m.cyborg_move_result({
+          value: shown,
+          cells: formatNumber(move.mapCells),
+          minutes: formatNumber(mapCrossMinutes(move)),
+        })}
+      </p>
+      <p className="combat-line" translate="no">
+        {m.cyborg_move_battle({ ms: formatNumber(move.battleMs) })}
+      </p>
+      {share === 0 ? null : (
+        <>
+          <p className="combat-line">{m.cyborg_move_speed_formula()}</p>
+          <p className="combat-line combat-buff-line" translate="no">
+            {m.cyborg_move_battle_buff({ share: signedChance(share) })}
+          </p>
+        </>
+      )}
     </SpecRow>
   );
 }

@@ -63,16 +63,26 @@ describe("스태미나 적정 스탯 개념(D-511)", () => {
     }
   });
 
-  it("보통 유닛은 모든 무기로 기본 공격을 이어 친다: 초당 회복 ≥ 초당 소모(Lv 1·30 포함)", () => {
+  it("보통 유닛은 Lv 1에서 모든 무기로 기본 공격을 이어 친다. 적정 AGI를 넘는 높은 레벨은 스태미나가 공격 수를 막는다", () => {
     expect(WEAPONS.length).toBeGreaterThan(5);
+    for (const { id, weapon } of WEAPONS) {
+      const spec = unit(typical(1), 1, weapon);
+      // 분당 회복 × 간격(ms) ≥ 60 × 한 번 소모(밀리점) ⇔ 회복/초 ≥ 소모 ÷ 간격
+      expect(spec.staminaRegen * spec.attackIntervalMs, `${id} Lv 1`).toBeGreaterThanOrEqual(
+        60 * basicCost(spec),
+      );
+      expect(sustainedPerMinute(spec)).toBe(60_000 / spec.attackIntervalMs);
+    }
+    // 무기 간격은 AGI ÷ 적정 AGI의 제곱(2026-11-13, 적정 2배 상한)이라 레벨이 올라 AGI가 자라면 낮은 무기는 0.25배까지 빨라지고,
+    // 그때는 스태미나(분당 회복 ÷ 한 번 소모)가 이어 치는 수를 정한다(질문 1258). 맨손(레벨 기준 AGI와 견줌)은 어느 레벨이든 이어진다
     for (const level of LEVELS)
       for (const { id, weapon } of WEAPONS) {
         const spec = unit(typical(level), level, weapon);
-        // 분당 회복 × 간격(ms) ≥ 60 × 한 번 소모(밀리점) ⇔ 회복/초 ≥ 소모 ÷ 간격
-        expect(spec.staminaRegen * spec.attackIntervalMs, `${id} Lv ${level}`).toBeGreaterThanOrEqual(
-          60 * basicCost(spec),
+        expect(sustainedPerMinute(spec), `${id} Lv ${level}`).toBeLessThanOrEqual(
+          60_000 / spec.attackIntervalMs,
         );
-        expect(sustainedPerMinute(spec)).toBe(60_000 / spec.attackIntervalMs);
+        if (weapon.unarmed === true)
+          expect(sustainedPerMinute(spec), `${id} Lv ${level}`).toBe(60_000 / spec.attackIntervalMs);
       }
   });
 
@@ -116,7 +126,8 @@ describe("스태미나 적정 스탯 개념(D-511)", () => {
     expect(half.staminaScore).toBe(19);
     expect(basicCost(half)).toBe(20_520);
     expect(half.staminaRegen).toBe(350);
-    expect(sustainedPerMinute(full)).toBe(60);
+    // 적정의 2배를 넘는 AGI라 간격 250ms(분당 240번) → 스태미나가 분당 72번(720 ÷ 10)으로 막는다
+    expect(sustainedPerMinute(full)).toBe(72);
     expect(sustainedPerMinute(half)).toBeLessThan(18);
   });
 

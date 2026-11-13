@@ -20,7 +20,7 @@
 | `packages/sim/src/combat/formulas.ts`·`formula.ts`·`unitSpec.ts`·`index.ts` | 판정: `bareCritPm`·`bareIntervalMs`, `AttackProfile.unarmed`, 맨손이면 맨손 칸 |
 | `packages/sim/src/version.ts` | SIM_VERSION 32 → 33(통합 가지의 32 뒤), 2026-11-13 물리 공격력·무기 간격 바뀜도 33에 적음 |
 | `packages/sim/src/combat/unitSpec.test.ts`·`formulaParity.test.ts`·`formulaSample.test.ts` | 맨손 크리 20‰(10·10)·27‰(DEX 12·AGI 15)·200‰(100·100), 명중 1000‰(DEX 1·Lv 30도), 발톱은 무기 틀, 미리 보기 = 판정 |
-| `content/core/formulas.json`·`manifest.json`·`stat_rows.json` | 새 식 칸 셋·무기 간격 식, 물리 공격력 가중치 STR 1000‰·VIT 500‰(2026-11-13), 판 79 |
+| `content/core/formulas.json`·`manifest.json`·`stat_rows.json` | 새 식 칸 셋·무기 간격 식, 물리 공격력 가중치 STR 1000‰·VIT 500‰·속성 공격력 INT 1000‰·WIS 500‰(2026-11-13), 판 79 |
 | `packages/shared/src/roster.ts` | `RosterCombat.crit.bare`·`hit.bare`, `RosterMove`, `RosterGather`, `CyborgBody.move`·`gather` |
 | `apps/server/src/roster/gatherSheet.ts`(새)·`gatherSheet.test.ts`(새) | 원자재별 채집 예상(판정 함수만), 시험 |
 | `apps/server/src/roster/unitBody.ts`·`cyborgBody.ts`·`preview.ts`·`services.ts`, `apps/server/src/app.ts` | 맨손 표지, `rosterMoveOf`, 채집 예상 출처(실효 팩) 연결 |
@@ -177,6 +177,22 @@
   - 맨손 < 검은 모든 유닛·레벨·고정 방어 0·5에서 성립한다.
   - 고정 방어 5에서 재능특화의 작은 한 대가 가장 많이 깎인다: 맨손 Lv 1에서 피해의 50%만 남는다(공격특화 72%, 골고루 62%). 레벨이 올라 한 대가 커지면 차이가 준다.
 
+## 질문 1257·1258 답(2026-11-13)
+- 사용자 답(원문): "1257:맞다 1258:스태미나로 조정 맞다. D511은 일반적인 경우 얘기이고 극공속특화같은 이런경우 예외."
+- 1257: 속성 공격력 = INT + ⌊WIS ÷ 2⌋(팩 `stat_rows` INT 1000‰·WIS 500‰, sim `TEST_STAT_TABLE` 같게). 1258: 코드 그대로(극공속은 스태미나가 막는 것이 맞다).
+- 속성 공격력 전후(Verified: sim `computeSecondary`로 셈, 교역 성향 = 실제 굴림 2,000번 평균 INT·WIS 14·나머지 8, 1차 성장 100‰·K 1):
+
+| 유닛 | Lv | INT/WIS | 전 (INT + WIS) ÷ 2 | 후 INT + ⌊WIS ÷ 2⌋ |
+|---|---|---|---|---|
+| 골고루10 | 1 | 10/10 | 10 | 15 |
+| 골고루10 | 10 | 19/19 | 19 | 28 |
+| 골고루10 | 30 | 39/39 | 39 | 58 |
+| 교역(trade) INT·WIS 14 | 1 | 14/14 | 14 | 21 |
+| 교역(trade) INT·WIS 14 | 10 | 26/26 | 26 | 39 |
+| 교역(trade) INT·WIS 14 | 30 | 54/54 | 54 | 81 |
+
+- 시험 바꿈: 속성 공격력·지팡이 기대값(sim·서버 전투 실험실), 리플레이 키프레임 간격(시연 전투가 짧아져 50 → 25틱), `guards.test.ts` 10일 시나리오 시간 한도 60초(웨이브 공성이 길어져 한 번 약 10초, 결과는 같은 단언 통과 — 까닭은 재지 않음, Unknown).
+
 ## 함께 바꿔야 하는 파일
 - 맨손 규칙 식을 더 고치면: `DEFAULT_COMBAT_FORMULAS`(formulaSlots.ts) = 팩 `formulas.json` expression(서버 시험이 같은지 본다), 화면 문구 `cyborg_attack_bare_crit_formula`·`cyborg_attack_bare_hit_formula`.
 - 채집 시설 스탯 짝·티어 구간을 바꾸면 `gatherSheet.test.ts`의 기대값(사진 유닛 STR 10·VIT 7 → 광산 17, 낚시터 27·성공 367‰).
@@ -196,4 +212,4 @@
 - 시설 레벨·광산 산지 티어 막기는 채집 예상에 넣지 않았다(질문 1255).
 
 ## 사용자 결정 대기
-- 질문 1251·1253~1258(이동 속도와 AGI, 맨손 크리 상한, 맨손 스킬, 채집 예상 기준, 최적 기준, 속성 공격력 짝, 무기 빨라짐과 스태미나). 1252는 답함(맨손 간격).
+- 질문 1251·1253~1256(이동 속도와 AGI, 맨손 크리 상한, 맨손 스킬, 채집 예상 기준, 최적 기준). 1252·1257·1258은 답함.

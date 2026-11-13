@@ -214,13 +214,13 @@ describe("실험 유닛 → 전투 사양(서버만 계산)", () => {
       rules,
     ).combat;
     expect(staff.attacks.basic.source).toBe("weapon");
-    // 지팡이 속성 18 · 적정 INT 23: 10 + 18 × 10 ÷ 23 = 10 + 7 = 17
+    // 지팡이 속성 18 · 적정 INT 23: 속성 공격력 INT + ⌊WIS ÷ 2⌋ = 15(답 1257) + 18 × 10 ÷ 23 = 15 + 7 = 22
     expect(staff.attacks.elemental).toMatchObject({
       source: "weapon",
       weaponAttack: 18,
       appropriateMilli: 23_000,
       ratioPm: 434,
-      realAttack: 17,
+      realAttack: 22,
     });
     expect(staff.attacks.physical.source).toBe("natural");
     expect(staff.appropriate.speed).toEqual({ stat: 10, appropriateMilli: 12_000, ratioPm: 833 });

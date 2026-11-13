@@ -45,7 +45,9 @@ describe("경비대(시나리오 guards)", () => {
     expect([{ id: 2 }, { id: 1 }].toSorted(defenseOrder).map((unit) => unit.id)).toEqual([1, 2]);
   });
 
-  it("요약에 묶음마다 처음·끝 수가 실리고(묶음 합계), 불변 조건 위반이 없다", () => {
+  // 시간 한도: 속성 공격력 INT + ⌊WIS ÷ 2⌋(사용자 답 1257, 2026-11-13) 뒤로 이 시나리오의 웨이브 공성 전투가 길어져 한 번에 약 10초 걸린다
+  // (공유 기계 기준, 두 번 돈다). 결과가 아니라 시간만 늘었다
+  it("요약에 묶음마다 처음·끝 수가 실리고(묶음 합계), 불변 조건 위반이 없다", { timeout: 60_000 }, () => {
     const summary = runSimulation({ scenario: tiers, seed: 3, days: 10 });
     expect(summary.invariants.violations).toBe(0);
     expect(summary.groups.map((group) => [group.code, group.factions, group.start])).toEqual([

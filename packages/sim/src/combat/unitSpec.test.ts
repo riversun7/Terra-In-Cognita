@@ -237,10 +237,10 @@ describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 
   /** 사용자 예의 검: 공격력 20·적정 STR 25(명중·크리·간격 적정은 [임시] DEX·AGI 12) */
   const sword = weaponOf("test_sword");
 
-  it("스탯 공격력 = STR + ⌊VIT ÷ 2⌋(2026-11-13 맨손 기본 공격력 B2)·(INT + WIS) ÷ 2(내림)", () => {
+  it("스탯 공격력 = STR + ⌊VIT ÷ 2⌋(2026-11-13 맨손 기본 공격력 B2)·INT + ⌊WIS ÷ 2⌋(답 1257)", () => {
     const stat = computeSecondary({ str: 11, dex: 0, agi: 0, vit: 20, int: 7, wis: 8 }, TEST_STAT_TABLE);
     expect(stat.physical_attack).toBe(21);
-    expect(stat.elemental_attack).toBe(7);
+    expect(stat.elemental_attack).toBe(11);
   });
 
   it("새 사이보그(1차 모두 10) + 검: 15 + 20 × 10/25 = 23, 명중 900 × 833‰ = 749‰, 크리 100 × 10/12 = 83‰, 간격 1000 ÷ 0.833² = 1,443ms", () => {
@@ -327,11 +327,11 @@ describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 
     expect(realHitPm(dexOnly.attack, c)).toBe(900);
   });
 
-  it("속성 무기는 INT ÷ 적정 INT(불꽃 지팡이 공격력 20·적정 INT 25): 새 사이보그 10 + 8 = 18", () => {
+  it("속성 무기는 INT ÷ 적정 INT(불꽃 지팡이 공격력 20·적정 INT 25): 새 사이보그 15(INT + ⌊WIS ÷ 2⌋) + 8 = 23", () => {
     const staff = TEST_COMBAT_CATALOG.equipment.find((item) => item.id === "fire_staff")?.weapon;
     if (!staff) throw new Error("fixture");
     const spec = specOf(all(10), staff);
     expect(spec.attack.kind).toBe("elemental");
-    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(18);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(23);
   });
 });

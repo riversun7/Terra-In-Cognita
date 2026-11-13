@@ -233,7 +233,8 @@ export const TEST_STAT_TABLE: readonly StatRow[] = [
   pr("elemental_defense_rate", 700, 100, [0, 0, 0, 600, 0, 1200]),
   // 물리 공격력 = STR + ⌊VIT ÷ 2⌋(사용자 요청 2026-11-13 맨손 기본 공격력 — 통합 담당이 B2를 골랐다, 팩 stat_rows와 같다)
   q("physical_attack", 0, [1000, 0, 0, 500, 0, 0]),
-  q("elemental_attack", 0, [0, 0, 0, 0, 500, 500]),
+  // 속성 공격력 = INT + ⌊WIS ÷ 2⌋(사용자 답 1257 "맞다" 2026-11-13, 물리와 짝, 팩 stat_rows와 같다)
+  q("elemental_attack", 0, [0, 0, 0, 0, 1000, 500]),
   pr("evade", 850, 250, [0, 0, 1000, 0, 0, 0]),
   q("crit_multiplier", 1500, [0, 10_000, 0, 0, 0, 0]),
   q("stamina", 100, [0, 0, 700, 300, 0, 0]),

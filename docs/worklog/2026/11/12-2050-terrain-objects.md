@@ -82,7 +82,7 @@
 - 아이템이 없는 자원은 장식(질문 1224), 느려짐 판정 없음(질문 1223).
 
 ## 검사
-- (아래에 채운다)
+- 통합 가지 묶음 검사(2026-11-13, Verified): `pnpm check` 5,098 시험 통과(map-hud 줄기가 같은 트리에서 실행), 빌드·`check-pwa`·`check:bundle`(109,068 B) 통과, 화면 시험 `terrain-objects.spec.ts` 7 통과·1 건너뜀(E2E_MEASURE 측정 전용). 묶음 기록 `docs/worklog/2026/11/13-1840-batch-1112d-merge.md`.
 
 ## 사용자 결정 대기
 - 질문 1221~1231(`docs/questions/2026-11-12-terrain-objects.md`). 1221(배 범위)이 다음 줄기를 정한다.

@@ -211,3 +211,8 @@
     background-color: var(--color-surface);
   }
 }
+/* 아래 버전 줄(settings/VersionRow.tsx) — 앱·서버 빌드 시각·팩 판 */
+.dev-version {
+  padding: var(--space-2) var(--space-1);
+  border-top: var(--hairline) solid var(--color-border);
+}

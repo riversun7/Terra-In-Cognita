@@ -25,6 +25,8 @@ const expectedInfo = {
   simVersion: SIM_VERSION,
   contentVersion: "test",
   serverTime: 1_000,
+  // 단위 시험에는 빌드 도장(define)이 없다(src/buildStamp.ts)
+  build: { time: null, commit: null },
 };
 
 describe("tRPC system.info", () => {
@@ -80,6 +82,7 @@ describe("tRPC system.info", () => {
       simVersion: number;
       contentVersion: string;
       serverTime: number;
+      build: { readonly time: string | null; readonly commit: string | null };
     }>();
   });
 });

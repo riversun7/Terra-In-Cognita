@@ -7,7 +7,7 @@
 import type { Page } from "@playwright/test";
 import { login } from "./helpers/auth.ts";
 import { message } from "./helpers/messages.ts";
-import { horizontalOverflow } from "./helpers/screen.ts";
+import { horizontalOverflow, shot } from "./helpers/screen.ts";
 import { deviceOptions, expect, test, watchDeviceErrors } from "./helpers/test.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
@@ -102,6 +102,67 @@ test.describe("플레이어", () => {
     );
     expect(await horizontalOverflow(page)).toEqual([]);
   });
+
+  // 버전 줄: 앱·서버 빌드 시각(한국 시각 분까지)·커밋과 팩 판(사용자 요청 2026-11-15, settings/VersionRow.tsx).
+  // 시험 빌드는 손으로 한 빌드라 지금 시각과 git 커밋이 들어간다. 앱과 서버는 같은 작업 트리에서 빌드해 커밋이 같다 → 안내 없음
+  test("설정 화면에 버전 줄이 보인다: 앱·서버 빌드 시각(분까지)·커밋, 팩 판", async ({ page, deviceErrors }) => {
+    await page.goto("/settings");
+    const row = page.locator(".settings [data-part='version']");
+    await expect(row).toHaveAttribute("data-state", "ok");
+    const appTime = (await row.getAttribute("data-app-time")) ?? "";
+    const appCommit = (await row.getAttribute("data-app-commit")) ?? "";
+    const serverTime = (await row.getAttribute("data-server-time")) ?? "";
+    const serverCommit = (await row.getAttribute("data-server-commit")) ?? "";
+    const minute = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
+    expect(appTime).toMatch(minute);
+    expect(serverTime).toMatch(minute);
+    expect(appCommit).toMatch(/^[0-9a-f]{7}$/);
+    expect(serverCommit).toBe(appCommit);
+    const health = await (await page.request.get("/health")).json();
+    expect(health.build).toEqual({ time: serverTime, commit: serverCommit });
+    await expect(row.locator(".version-label")).toHaveText(message("ko", "settings_version_label"));
+    await expect(row.locator(".version-text")).toHaveText(
+      [
+        message("ko", "settings_version_app", { stamp: `${appTime} (${appCommit})` }),
+        message("ko", "settings_version_server", { stamp: `${serverTime} (${serverCommit})` }),
+        message("ko", "settings_version_pack", { pack: String(health.contentVersion) }),
+      ].join(" · "),
+    );
+    await expect(row.locator(".version-mismatch")).toHaveCount(0);
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("앱과 서버 커밋이 다르면 버전 줄에 새 버전 안내가 붙는다", async ({ page }) => {
+    // 서버 답의 커밋만 바꾼다(묶음 응답 배열의 system.info)
+    await page.route(/\/api\/trpc\/[^?]*system\.info/, async (route) => {
+      const response = await route.fetch();
+      const body: unknown = await response.json();
+      const replaced = JSON.stringify(body).replace(/"commit":"[0-9a-f]{7}"/, '"commit":"0000000"');
+      await route.fulfill({ response, body: replaced });
+    });
+    await page.goto("/settings");
+    const row = page.locator(".settings [data-part='version']");
+    await expect(row).toHaveAttribute("data-server-commit", "0000000");
+    await expect(row.locator(".version-mismatch")).toHaveText(message("ko", "settings_version_mismatch"));
+    expect(await horizontalOverflow(page)).toEqual([]);
+  });
+
+  // 사진(390px, 기본 테마 둘): E2E_SHOTS_DIR, 없으면 e2e/test-results/shots
+  for (const theme of ["pastel", "dark"] as const) {
+    test.describe(`버전 줄 사진 ${theme}`, () => {
+      test.use({ theme });
+
+      test(`설정 → 앱 정보 버전 줄 390px (${theme})`, async ({ page }) => {
+        await page.goto("/settings");
+        const row = page.locator(".settings [data-part='version']");
+        await expect(row).toHaveAttribute("data-state", "ok");
+        await row.scrollIntoViewIfNeeded();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `settings-version-390-${theme}`);
+      });
+    });
+  }
 
   test("주소로 바로 연 /settings·/units는 초점을 옮기지 않는다(새로고침도)", async ({ page }) => {
     for (const path of ["/settings", "/units"]) {

@@ -20,6 +20,7 @@ import {
 } from "./marketColors.ts";
 import { buildInfo } from "./buildInfo.ts";
 import { chooseMarketColors, chooseTheme, setFollowSystem, useSettings } from "./settings.ts";
+import { VersionRow } from "./VersionRow.tsx";
 import "./settings.css";
 
 /** 테마 이름과 한 줄 설명(메시지 키). 테마가 늘면 여기서 타입 오류가 난다 */
@@ -197,6 +198,8 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
             ? m.settings_about_build({ build: build.build })
             : m.settings_about_build_numbered({ number: build.number, build: build.build })}
         </p>
+        {/* 앱·서버 빌드 시각(한국 시각, 분까지)·커밋과 팩 판(사용자 요청 2026-11-15, VersionRow.tsx) */}
+        <VersionRow />
         <p className="setting-hint">{m.settings_about_hint()}</p>
       </fieldset>
     </section>

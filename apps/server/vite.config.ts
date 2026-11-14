@@ -6,9 +6,46 @@
 // dist/balanceWorker.js(밸런스 화면 대결 워커 스레드, src/balance/duelWorker.ts — 같은 규칙),
 // dist/battleReplayWorker.js(전투 다시보기 워커 스레드, src/battleReplay/replayWorker.ts — 같은 규칙)
 // 내부 패키지(@terra/*)와 zod는 번들에 포함하고, fastify·drizzle-orm·pg·better-auth는 node_modules에서 읽는다.
-import { defineConfig } from "vite";
+import { execFileSync } from "node:child_process";
+import { buildStampSource } from "@terra/shared/buildStamp";
+import { type Plugin, defineConfig } from "vite";
+
+/** git 커밋 해시(실패하면 빈 글 — git이 없는 Docker 빌드는 CI가 APP_BUILD로 넘긴다) */
+function gitCommit(): string {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 });
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * 빌드 도장(ADR 2026-10-29-app-shell "바뀜 (2026-11-14, 빌드 도장)") — 게임 앱(apps/game/vite.config.ts)과 같은 규칙으로
+ * __SERVER_BUILD_TIME__·__SERVER_BUILD_COMMIT__을 넣는다. tsx로 띄운 개발 서버·단위 시험에는 없다(src/buildStamp.ts가 "dev"로 본다)
+ */
+function buildStamp(): Plugin {
+  return {
+    name: "terra-build-stamp",
+    config() {
+      const stamp = buildStampSource({
+        dev: false,
+        envTime: process.env.APP_BUILD_TIME,
+        envCommit: process.env.APP_BUILD,
+        nowMs: Date.now(),
+        gitCommit,
+      });
+      return {
+        define: {
+          __SERVER_BUILD_TIME__: JSON.stringify(stamp.time),
+          __SERVER_BUILD_COMMIT__: JSON.stringify(stamp.commit),
+        },
+      };
+    },
+  };
+}
 
 export default defineConfig({
+  plugins: [buildStamp()],
   build: {
     ssr: true,
     outDir: "dist",

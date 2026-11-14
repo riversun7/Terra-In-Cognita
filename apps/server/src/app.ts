@@ -12,6 +12,7 @@ import { authHeaders, createProxyChainLogger } from "./auth/http.ts";
 import { createAccountLimiters } from "./auth/limits.ts";
 import { isAllowedSocketOrigin } from "./auth/requestGuard.ts";
 import { writeAudit } from "./auth/store.ts";
+import { SERVER_BUILD } from "./buildStamp.ts";
 import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
 import { createEconomyServices } from "./economyView/services.ts";
@@ -159,6 +160,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       simVersion: SIM_VERSION,
       contentVersion: options.contentVersion,
       contentHash: options.contentHash,
+      build: SERVER_BUILD, // 서버 빌드 도장: 한국 시각 "YYYY-MM-DD HH:mm"·커밋 앞 7자(개발 실행은 null, src/buildStamp.ts)
       // 덮어쓴 설정 칸 수(0이면 팩 값 그대로)와 세계 설정 판(docs/adr/2026-11-01-dev-settings-panel.md 10절)
       tuningOverrides: options.tuning?.state.appliedCount(),
       tuningRevision: options.tuning?.state.revision(),

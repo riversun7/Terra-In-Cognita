@@ -149,6 +149,17 @@ test.describe("관리자", () => {
     expect(deviceErrors).toEqual([]);
   });
 
+  // 버전 줄(사용자 요청 2026-11-15): 설정 → 앱 정보와 같은 줄이 개발자 홈 아래에도 보인다(settings/VersionRow.tsx)
+  test("개발자 홈 아래에 앱·서버 빌드 시각·팩 판 버전 줄이 보인다", async ({ page }) => {
+    await page.goto("/dev");
+    const row = page.locator("#main .dev-version [data-part='version']");
+    await expect(row).toHaveAttribute("data-state", "ok");
+    await expect(row).toHaveAttribute("data-app-time", /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    await expect(row).toHaveAttribute("data-server-time", /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    await expect(row.locator(".version-text")).toContainText("core@");
+    expect(await horizontalOverflow(page)).toEqual([]);
+  });
+
   test("관리자 화면에는 셰이더 측정판이 없다(계정·운영 기능만)", async ({ page }) => {
     await page.goto("/admin");
     await expect(page.locator("#admin-title")).toBeVisible();

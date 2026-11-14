@@ -11,6 +11,7 @@ import { useSession } from "../auth/session.ts";
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
+import { VersionRow } from "../settings/VersionRow.tsx";
 import { AppLink } from "../shell/AppLink.tsx";
 import { BackButton } from "../shell/BackButton.tsx";
 import { Icon } from "../ui/icons.tsx";
@@ -388,6 +389,10 @@ export default function DevHome() {
             </section>
           ),
         )}
+      </div>
+      {/* 지금 도는 앱·서버 빌드(한국 시각, 분까지)·팩 판 — 설정 → 앱 정보와 같은 줄(사용자 요청 2026-11-15) */}
+      <div className="dev-version">
+        <VersionRow />
       </div>
     </section>
   );

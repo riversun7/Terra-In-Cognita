@@ -26,6 +26,10 @@ async function sha256(text: string): Promise<string> {
 const pack = { mapProps: mapPropsJson.entries, gatherObjects: gatherObjectsJson.entries };
 const biomes = biomesJson.entries.map((entry) => entry.id);
 
+/** 큰 어군 줄의 티어 범위(심해) */
+const deepTiers = (edited: TerrainEntries) =>
+  terrainRows(edited, "ocean_deep").find((row) => row.id === "school_deep")?.tierRange;
+
 describe("지형 오브젝트 편집기 자료", () => {
   it("팩의 모든 지형에 이 화면에서 고치는 오브젝트가 5종 이상(기획 D-536)", () => {
     const counts = kindCounts(pack, biomes);
@@ -119,14 +123,12 @@ describe("지형 오브젝트 편집기 자료", () => {
     expect(deep.find((row) => row.id === "school_deep")?.tierRange).toEqual({ min: 4, max: 8 });
     expect(deep.find((row) => row.id === "whale_pod")?.tierRange).toBeNull();
     expect(deep.find((row) => row.id === "hydro_vent")?.tierRange).toBeNull();
-    const range = (edited: TerrainEntries) =>
-      terrainRows(edited, "ocean_deep").find((row) => row.id === "school_deep")?.tierRange;
     let edited = setTierRange(pack, "school_deep", "min", 12);
-    expect(range(edited)).toEqual({ min: 9, max: 9 });
+    expect(deepTiers(edited)).toEqual({ min: 9, max: 9 });
     edited = setTierRange(edited, "school_deep", "max", 3);
-    expect(range(edited)).toEqual({ min: 3, max: 3 });
+    expect(deepTiers(edited)).toEqual({ min: 3, max: 3 });
     edited = setTierRange(edited, "school_deep", "min", -2);
-    expect(range(edited)).toEqual({ min: 0, max: 3 });
+    expect(deepTiers(edited)).toEqual({ min: 0, max: 3 });
     expect(setTierRange(pack, "whale_pod", "min", 2)).toEqual(pack);
     expect(changedEntries(pack, edited).map((change) => change.id)).toEqual(["school_deep"]);
   });

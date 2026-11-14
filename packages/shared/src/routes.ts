@@ -91,7 +91,16 @@ export const ROUTES = {
   },
   units: { path: "/units", search: [], parent: "home", frame: "shown", access: "everyone" },
   economy: { path: "/economy", search: [], parent: "home", frame: "shown", access: "everyone" },
+  // 인벤토리(docs/adr/2026-11-14-inventory-screen.md): 전체·유닛별·창고별·건물별 칸(tab), 유닛별 칸에서 펼친 유닛(unit)
+  inventory: {
+    path: "/inventory",
+    search: ["tab", "unit"],
+    parent: "home",
+    frame: "shown",
+    access: "everyone",
+  },
   // 경제 칸(ADR 37 1절 "경제", 끝의 "구현하며 정한 것 (경제·거래창 화면)"): 예약한 /economy/:section을 칸마다 정적 줄로 둔다.
+  // /economy/warehouse는 옛 주소다: 인벤토리 [창고별]로 바꿔 연다(docs/adr/2026-11-14-inventory-screen.md, 옛 링크·책갈피)
   // 칸끼리는 바꾸기(replace, 화면이 replace를 준다), 거래창은 물건 → 도시 차례로 쌓고 부모도 그 차례다
   economy_warehouse: {
     path: "/economy/warehouse",

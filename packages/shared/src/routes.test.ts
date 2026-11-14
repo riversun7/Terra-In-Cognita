@@ -218,6 +218,8 @@ describe("주소 표", () => {
       ],
       units: ["/units", "home", "shown", "everyone", []],
       economy: ["/economy", "home", "shown", "everyone", []],
+      // 인벤토리(docs/adr/2026-11-14-inventory-screen.md) — /economy/warehouse는 옛 주소(인벤토리 [창고별]로 바꿔 연다)
+      inventory: ["/inventory", "home", "shown", "everyone", ["tab", "unit"]],
       economy_warehouse: ["/economy/warehouse", "economy", "shown", "everyone", []],
       economy_production: ["/economy/production", "economy", "shown", "everyone", []],
       economy_market: ["/economy/market", "economy", "shown", "everyone", []],

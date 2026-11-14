@@ -114,3 +114,4 @@
 ## 사용자 결정 대기
 - 없음.
 - 2026-11-13 19:55 KST: 원본 `b865b3f`(D-537~D-540) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/42·43·48. PLAN §14 머리 문장에 D-537~D-540. 49는 바뀌지 않아 `settings:cells` 안 돌림.
+- 2026-11-14 13:00 KST: 원본 `21c850f`(D-541) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/42. PLAN §14 머리 문장에 D-541. 49는 바뀌지 않음.

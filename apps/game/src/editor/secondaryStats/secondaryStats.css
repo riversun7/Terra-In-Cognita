@@ -213,6 +213,9 @@
 }
 .sec-range-inline input[type="range"] {
   flex: 1 1 auto;
+  /* 막대만 그리면 높이가 16px라 누르기 어렵다: 누르는 곳을 단추와 같은 높이로(가로줄은 가운데 그대로) */
+  min-height: var(--dev-touch-tap);
+  margin: 0;
 }
 .sec-num-sm {
   width: 5.5rem;

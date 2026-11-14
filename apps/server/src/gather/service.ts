@@ -40,6 +40,7 @@ import {
 } from "./deposit.ts";
 import { enterBuilding } from "./enter.ts";
 import type { GatherKind } from "./kinds.ts";
+import { objectYieldItem } from "./objectYield.ts";
 import { schoolCell } from "@terra/shared/fishSchool";
 import { type GatherObject, placeGatherObjects } from "./objects.ts";
 import {
@@ -149,6 +150,8 @@ interface Action {
   readonly skip: Set<string>;
   /** 이 오브젝트를 맡는 내 시설 레벨(반경 안이면), 아니면 null */
   campLevel: number | null;
+  /** 캐기 차례(굴림표·사다리 굴림 시드, objectYield.ts) */
+  yieldSeq: number;
   yieldCarryPm: number;
   fatigueCarryPm: number;
   /** 채집 중 부상을 마지막으로 굴린 시각(이 뒤의 작업 주기 경계를 굴린다) */
@@ -589,11 +592,19 @@ export function createGatherService(deps: GatherDeps): GatherService {
       await moveOn(action);
       return;
     }
-    // 수확: 묶음 × 수확량(보조 스탯·시설 규칙) × 효율 → 기본 단위
-    const asset = `item:${kind.item}`;
+    // 수확: 묶음 × 수확량(보조 스탯·시설 규칙) × 효율 → 기본 단위. 아이템 = 대표·굴림표·사다리 굴림(D-540 1222, objectYield.ts)
     const catalog = world.catalog();
     const rule = kind.facility === null ? undefined : catalog.facility(kind.facility)?.gather;
     const secondary = statOf(deps.primaries(action.unitId), kind.secondary) ?? 0;
+    const asset = `item:${objectYieldItem(kind, catalog, {
+      unitId: action.unitId,
+      objectId: object.id,
+      seq: action.yieldSeq++,
+      primary: statOf(deps.primaries(action.unitId), kind.primary) ?? 0,
+      secondary,
+      level: action.campLevel ?? 1,
+      levelBonus: rules.gatherLevelBonus,
+    })}`;
     const efficiency = gatherEfficiencyPm(rules.gatherObjects, action.campLevel);
     const lots = splitPm(
       gatherYieldPm(kind, secondary, rule, rules.productionSubYieldPm, efficiency),
@@ -629,7 +640,8 @@ export function createGatherService(deps: GatherDeps): GatherService {
     }
     action.updatedAt = at;
     // 다음: 화물이 차면 넣으러, 피로 상한이면 넣고 끝, 오브젝트가 남았으면 또 캐기, 떨어졌으면 다음 오브젝트
-    const weight = BigInt(catalog.unitWeightOf(kind.item) ?? 0) * (catalog.lotSize.get(asset) ?? 1n);
+    const weight =
+      BigInt(catalog.unitWeightOf(asset.slice("item:".length)) ?? 0) * (catalog.lotSize.get(asset) ?? 1n);
     const full = carried(action) + weight > BigInt(capacity());
     if (tired) {
       action.endAfterDeposit = "tired";
@@ -780,6 +792,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     fatigueCarryPm: 0,
     injuryCheckedMs: now(),
     assets: new Set(),
+    yieldSeq: 0,
     gatheredLots: 0,
     depositedUnits: 0,
     endAfterDeposit: null,

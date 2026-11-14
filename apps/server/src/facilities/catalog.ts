@@ -1,6 +1,12 @@
 // 건물 서비스가 읽는 시설·아이템 정의(실효 콘텐츠 = 팩 + 건물 편집기·아이템 편집기 덮어쓰기, 바로 든다 D-461)
 // docs/adr/2026-11-07-buildings-runtime.md. 팩 참조(ContentRef)를 ID 글자로 바꾼 모양이고, 실효 목록이 바뀔 때만 다시 만든다.
-import type { FacilityEntry, GatherTierEntry, ItemEntry, ItemSubcategoryEntry } from "@terra/content";
+import {
+  type FacilityEntry,
+  type GatherTierEntry,
+  type ItemEntry,
+  type ItemSubcategoryEntry,
+  gatherBandOfEntry,
+} from "@terra/content";
 import {
   type CatalogGather,
   GATHER_TIERS,
@@ -187,7 +193,7 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
       },
       gatherBands:
         current.gatherTiers && current.gatherTiers.length > 0
-          ? current.gatherTiers.map((band) => ({ from: band.from, weightsPm: [...band.weightsPm] }))
+          ? current.gatherTiers.map(gatherBandOfEntry)
           : TEST_GATHER_BANDS,
       lotSize: new Map(
         enabled

@@ -84,7 +84,9 @@ export function createMapFactory(parts: MapFactoryParts): MapFactory {
     if (pin) {
       try {
         return {
-          terrain: mapTerrainFromBuilt(terrainFromFile(mapKey, pin.terrainVersion, pin.tctrGzip, gunzipSync)),
+          terrain: mapTerrainFromBuilt(
+            terrainFromFile(mapKey, pin.terrainVersion, pin.tctrGzip, gunzipSync, terrainService.slowByArt),
+          ),
           source: "pin",
         };
       } catch (error) {

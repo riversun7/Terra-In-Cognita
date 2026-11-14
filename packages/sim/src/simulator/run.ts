@@ -83,8 +83,9 @@ import {
  * 18: 요약 npc.builds·buildsDone(NPC 증축 — 짓기 시작한 수·다 지어 생산에 넣은 수, 질문 1101 나)
  * 19: 요약 npc.upgrades·repairs(NPC 레벨 올리기·수리 시작한 수, 질문 1146 나·1114 가), 경제가 있는 시나리오의 npc.cities(도시 등급마다 끝
  *    도시 수·건물 수·레벨 합·휴먼·인구 상한, 질문 1143 나)
+ * 20: 요약 npc.cities에 leveled(레벨 2 이상 시설이 있는 도시 수, 질문 1186 나)
  */
-export const SIM_OUTPUT_FORMAT = 19;
+export const SIM_OUTPUT_FORMAT = 20;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */

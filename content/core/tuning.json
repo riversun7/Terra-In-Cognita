@@ -9104,6 +9104,24 @@
       "source": "기획 D-535 · 질문 1114 가 [임시]"
     },
     {
+      "id": "npc_build_level_supply",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 레벨 재료 가공 시설 목표(재료마다)",
+        "en": "NPC city level-material processors (per material)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 4,
+      "desc": {
+        "ko": "NPC 도시는 건물 수 상한에 닿기 전에 레벨 2 짓기 재료(판자·벽돌)를 내는 가공 시설(제재소·가마)을 재료마다 이 수만큼 나라 목표에 더해 짓는다. 그 시설의 입력(통나무·잡석)을 세계 어디선가 구할 수 있을 때만. 나라와 상관없이 상한 뒤에도 레벨 올리기로 자란다. 0이면 더하지 않는다(나라 특산만).",
+        "en": "Before reaching the building cap, an NPC city adds this many processing facilities per level-2 build material (sawmill for planks, kiln for bricks) to its nation goals, if their inputs (logs, rubble) can be had somewhere in the world. Cities keep growing by upgrades after the cap whatever the nation. 0 adds none (nation specialties only)."
+      },
+      "source": "기획 D-540 · 질문 1186 나 [임시]"
+    },
+    {
       "id": "gather_obj_carry_g",
       "code": "",
       "name": {

@@ -31,8 +31,10 @@ export {
   accessibleTier,
   conditionedStats,
   gatherBandIndex,
+  gatherBandLadders,
   gatherCatchPm,
   gatherChancesPm,
+  gatherLadderBands,
   gatherLadderKey,
   gatherProgress,
   gatherStat,
@@ -50,13 +52,11 @@ export {
  * 0~39는 [임시] T0 700·T1 150·T2 100·T3 50(사용자 답 300 "낮은 구간도 T3까지 열기").
  * 바뀜(D-534, 팩 core@76): T9는 200~219에서 드물게(2‰), 220부터 늘어난다(15‰ → 240 25‰ → 260 35‰, 240·260 구간을 더함 [임시]).
  * 성장률 0.1이라 두 스탯 18·18이 만렙(50)에 약 212, 15·15는 약 176 + 컨디션 +40 = 216(200 구간)이다.
- * 바뀜(사용자 결정 2026-11-12 "건축시 목재와 석재는 필수이다" — 기본 재료 바닥 보장, 팩 core@77): 0~59 구간 T1(석재 등)을 350‰로 올렸다
- * (0~39 T0 700 → 500·T1 150 → 350, 40~59 T0 650 → 500·T1 220 → 350·T2 100 → 120) — 처음 유닛도 Lv1 건물 석재를 쓸 만큼 캔다. 잡석(T0)은 벽돌용으로 남는다
+ * 바뀜(사용자 결정 2026-11-12 "건축시 목재와 석재는 필수이다" — 기본 재료 바닥 보장, 팩 core@77): 0~59 구간 T1(석재 등)을 350‰로 올렸다.
+ * 바뀜(기획 D-540 1217 나, 팩 core@83): 사다리마다 띠 표 — 올린 표(0~39 T0 500·T1 350, 40~59 T0 500·T1 350·T2 120)는 광석 사다리(ore) 전용이고,
+ * 기본 표(목재·약초·어류 등)는 옛 값(0~39 T0 700·T1 150, 40~59 T0 650·T1 220·T2 100)으로 돌아갔다 — 소나무 원목(목재 T0)이 줄지 않는다(D-537 뜻).
  */
-export const TEST_GATHER_BANDS: readonly GatherBand[] = [
-  { from: 0, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0] },
-  { from: 20, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0] },
-  { from: 40, weightsPm: [500, 350, 120, 30, 0, 0, 0, 0, 0, 0] },
+const UPPER_BANDS: readonly GatherBand[] = [
   { from: 60, weightsPm: [530, 260, 140, 60, 10, 0, 0, 0, 0, 0] },
   { from: 80, weightsPm: [430, 290, 170, 80, 25, 5, 0, 0, 0, 0] },
   { from: 100, weightsPm: [350, 280, 200, 110, 40, 15, 5, 0, 0, 0] },
@@ -68,6 +68,16 @@ export const TEST_GATHER_BANDS: readonly GatherBand[] = [
   { from: 220, weightsPm: [180, 175, 165, 155, 130, 85, 45, 30, 20, 15] },
   { from: 240, weightsPm: [160, 165, 160, 150, 130, 90, 55, 35, 30, 25] },
   { from: 260, weightsPm: [140, 155, 155, 150, 130, 95, 60, 45, 35, 35] },
+];
+export const TEST_GATHER_BANDS: readonly GatherBand[] = [
+  { from: 0, weightsPm: [700, 150, 100, 50, 0, 0, 0, 0, 0, 0] },
+  { from: 20, weightsPm: [700, 150, 100, 50, 0, 0, 0, 0, 0, 0] },
+  { from: 40, weightsPm: [650, 220, 100, 30, 0, 0, 0, 0, 0, 0] },
+  ...UPPER_BANDS,
+  { ladder: "ore", from: 0, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0] },
+  { ladder: "ore", from: 20, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0] },
+  { ladder: "ore", from: 40, weightsPm: [500, 350, 120, 30, 0, 0, 0, 0, 0, 0] },
+  ...UPPER_BANDS.map((band) => ({ ...band, ladder: "ore" })),
 ];
 
 /** 가중치(‰)로 티어 하나를 뽑는다. 합이 0이면 T0 */

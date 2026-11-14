@@ -16,12 +16,15 @@ import {
   PLACEMENT_SIZE,
   createPlacementGrid,
   isPassable,
+  SLOW_TABLE_SIZE,
+  SURFACE_COST,
   placementCostsFromLayers,
 } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { packTestPlanetSpec } from "../planet/testSupport.ts";
-import { mapPropInputsFromPack } from "./mapProps.ts";
+import { mapPropArtCode } from "@terra/shared";
+import { mapPropInputsFromPack, mapPropSlowByArtFromPack } from "./mapProps.ts";
 
 const LEVEL = 6;
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
@@ -126,5 +129,51 @@ describe("2차맵 소품 규칙(팩)과 sim 통과 판정", () => {
         expect(enclosed, `map ${key} group ${group}`).toEqual([]);
       }
     }
+  });
+
+  it("느림 배율 표(질문 1223 나): 눈더미·모래언덕·늪 웅덩이만 1.5배, 생성기 입력에는 없다", () => {
+    const table = mapPropSlowByArtFromPack(pack);
+    expect(table.length).toBe(SLOW_TABLE_SIZE);
+    const slow = ["snowdrift", "sand_dune", "mud_pool"].map(mapPropArtCode);
+    for (const code of slow) expect(table[code]).toBe(1500);
+    expect([...table.entries()].filter(([, pm]) => pm > 0).map(([code]) => code)).toEqual(
+      slow.toSorted((a, b) => a - b),
+    );
+    for (const input of mapPropInputsFromPack(pack)) expect("slowPm" in input).toBe(false);
+  });
+
+  it("사막 2차맵: 모래언덕 칸의 지형 비용은 지표 비용 × 1.5, 다른 칸은 그대로", () => {
+    const details = runPlanetGenerator({ ...spec.input, faceLevel: LEVEL });
+    const values = planetValuesFromGeneration(details.fields, details, biomeIds);
+    const rules = compileMapProps(mapPropInputsFromPack(pack), biomeIds);
+    const desert = biomeIds.indexOf("desert");
+    const n = 2 ** LEVEL;
+    const table = mapPropSlowByArtFromPack(pack);
+    const dune = mapPropArtCode("sand_dune");
+    let checked = 0;
+    for (let cell = 0; cell < 6 * n * n && checked < 2; cell += 3) {
+      if (values.biome[cell] !== desert || ((values.water[cell] ?? 0) & 3) !== 0) continue;
+      const face = Math.floor(cell / (n * n));
+      const rest = cell - face * n * n;
+      const key = cellKey(FACES[face] ?? 0, LEVEL, rest % n, Math.floor(rest / n));
+      const map = generateSecondMap(values, key, rules);
+      const layers = { heights: map.heightsCm, surface: map.surface, cover: map.cover, art: map.art };
+      const plain = placementCostsFromLayers(layers);
+      const slowed = placementCostsFromLayers({ ...layers, slowByArt: table });
+      let dunes = 0;
+      for (let i = 0; i < plain.length; i++) {
+        const before = plain[i] ?? 0;
+        const after = slowed[i] ?? 0;
+        if (map.art[i] === dune && before > 0) {
+          dunes += 1;
+          expect(after).toBe(Math.floor((before * 1500) / 1000));
+        } else expect(after).toBe(before);
+      }
+      if (dunes === 0) continue;
+      checked += 1;
+      // 지표 비용 표 범위 안(u16 상한에 닿지 않는다)
+      expect(Math.max(...slowed)).toBeLessThanOrEqual(Math.floor((Math.max(...SURFACE_COST) * 1800) / 1000));
+    }
+    expect(checked, "desert maps with dunes").toBeGreaterThan(0);
   });
 });

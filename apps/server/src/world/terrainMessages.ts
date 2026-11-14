@@ -10,6 +10,8 @@ export interface TerrainWorkerInit {
   values: Uint8Array<ArrayBuffer>;
   /** 콘텐츠 map_props 항목(바이옴은 ID 문자열) */
   props: MapPropInput[];
+  /** 그림 번호 → 느림 배율 표(천분율, 팩 map_props slowPm — mapProps.ts). 없으면 느려짐 없음 */
+  slowByArt?: Uint16Array | undefined;
   planetId: string;
   planetGeneratorVersion: number;
   definitionHash: string;

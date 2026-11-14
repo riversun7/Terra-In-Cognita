@@ -65,6 +65,7 @@ export {
   GATHER_WEIGHT_TOTAL,
   ITEM_CATEGORIES,
   facilityEntrySchema,
+  gatherBandOfEntry,
   gatherTierEntrySchema,
   nationPresetEntrySchema,
   nationTierEntrySchema,

@@ -124,12 +124,16 @@ function ownBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-/** 행성 값에서 2차맵 하나를 만든다: 생성 → TCTR 2판 → gzip → 지형 비용 */
+/**
+ * 행성 값에서 2차맵 하나를 만든다: 생성 → TCTR 2판 → gzip → 지형 비용.
+ * slowByArt = 그림 번호 → 느림 배율 표(팩 map_props slowPm, mapProps.ts mapPropSlowByArtFromPack). 없으면 느려짐 없음
+ */
 export function buildTerrain(
   values: PlanetValues,
   rules: PropRuleSet,
   mapKey: number,
   versions: TerrainVersions,
+  slowByArt?: Readonly<Uint16Array>,
 ): BuiltTerrain {
   const map = generateSecondMap(values, mapKey, rules);
   const raw = ownBytes(
@@ -150,12 +154,14 @@ export function buildTerrain(
       definitionHash: Number.parseInt(versions.definitionHash.slice(0, 8), 16) >>> 0,
     }),
   );
-  // 소품 그림 층도 준다: 나무가 선 숲 칸은 숲 비용으로 지나간다(SIM_VERSION 19, docs/adr/2026-11-07-gather-objects.md)
+  // 소품 그림 층도 준다: 나무가 선 숲 칸은 숲 비용으로 지나간다(SIM_VERSION 19, docs/adr/2026-11-07-gather-objects.md),
+  // 느려짐 소품(눈더미·모래언덕·늪 웅덩이)이 선 칸은 느림 배율만큼 비싸다(SIM_VERSION 37, 기획 D-540 질문 1223 나)
   const costs = placementCostsFromLayers({
     heights: map.heightsCm,
     surface: map.surface,
     cover: map.cover,
     art: map.art,
+    slowByArt,
   });
   return {
     mapKey,
@@ -170,13 +176,14 @@ export function buildTerrain(
 
 /**
  * 저장된 지형 파일(고정본·디스크 캐시의 gzip) → 지형 한 장. 2차맵 키·판이 다르거나 형식이 틀리면 RangeError
- * (부르는 쪽이 다시 만든다). 지형 비용은 파일의 높이·지표·엄폐에서 다시 계산한다.
+ * (부르는 쪽이 다시 만든다). 지형 비용은 파일의 높이·지표·엄폐·그림에서 다시 계산한다(느림 배율 표는 지금 팩 것 — buildTerrain과 같다).
  */
 export function terrainFromFile(
   mapKey: number,
   version: string,
   gzip: Uint8Array,
   gunzip: (bytes: Uint8Array) => Uint8Array,
+  slowByArt?: Readonly<Uint16Array>,
 ): BuiltTerrain {
   const raw = ownBytes(gunzip(gzip));
   const data = decodeTerrain(raw);
@@ -189,6 +196,7 @@ export function terrainFromFile(
     surface: data.surface,
     cover: data.cover,
     art: data.art,
+    slowByArt,
   });
   return {
     mapKey,

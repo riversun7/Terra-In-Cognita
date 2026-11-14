@@ -11,7 +11,13 @@
 //   같은 티어 막기(@terra/shared/catchment oreTierCapOf)를 받는다 — 높은 티어 몫 = 건물이 선 2차맵 칸의 highOrePm(산지 1000, 산지 밖
 //   ore_flat_high_pm). 행성 값이 없는 2차맵(임시 지형)은 막지 않는다.
 import { type CatchmentLand, highOrePm, materialOfFacility, oreTierCapOf } from "@terra/shared/catchment";
-import { HOME_HOUSING, type RestPlace, type SocietyCoefficients, unitPreferences } from "@terra/sim";
+import {
+  HOME_HOUSING,
+  type RestPlace,
+  type SocietyCoefficients,
+  gatherLadderBands,
+  unitPreferences,
+} from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
 import type { GatherKind } from "../gather/kinds.ts";
@@ -155,7 +161,8 @@ export function gatherSiteOf(
     level: record.level,
     rule: def.gather,
     ladder: catalog.gatherLadder(def.gather),
-    bands: catalog.gatherBands,
+    // 사다리 띠 표(기획 D-540 1217 나): 이 시설 주 중분류의 전용 표, 없으면 기본 표
+    bands: gatherLadderBands(catalog.gatherBands, def.gather.subcategory),
     lotSize: catalog.lotSize,
     cityId: record.cityId ?? buildingPlace(service.places, buildingId)?.cityId ?? null,
     slots: Math.max(0, record.level) * Math.max(0, def.slotsPerLevel),

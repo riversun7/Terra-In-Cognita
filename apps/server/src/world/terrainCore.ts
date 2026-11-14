@@ -58,7 +58,7 @@ export async function createTerrainCore(init: Omit<TerrainWorkerInit, "type">): 
         const cached = await readTerrainCache(file).catch(() => undefined);
         if (cached) {
           try {
-            const terrain = terrainFromFile(mapKey, version, cached, gunzipSync);
+            const terrain = terrainFromFile(mapKey, version, cached, gunzipSync, init.slowByArt);
             return { terrain, source: "disk", ms: performance.now() - started };
           } catch {
             // 틀린 캐시 파일: 지우고 다시 만든다
@@ -66,7 +66,7 @@ export async function createTerrainCore(init: Omit<TerrainWorkerInit, "type">): 
           }
         }
       }
-      const terrain = buildTerrain(values, rules, mapKey, versions);
+      const terrain = buildTerrain(values, rules, mapKey, versions, init.slowByArt);
       const ms = performance.now() - started;
       if (file) await writeTerrainCache(file, terrain.gzip).catch(() => undefined);
       return { terrain, source: "generated", ms };

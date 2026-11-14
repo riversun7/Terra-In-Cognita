@@ -8,6 +8,7 @@ import {
   type NecessityEntry,
   type RecipeEntry,
   type StatRowEntry,
+  gatherBandOfEntry,
   gatherTierEntrySchema,
   itemEntrySchema,
   necessityEntrySchema,
@@ -100,7 +101,7 @@ export function createItemEditShared(options: {
     statRows: parseCategory(content, "stat_rows", (raw) => statRowEntrySchema.parse(raw)),
     codeRefs: itemCodeRefs(),
     gatherBands: parseCategory(content, "gather_tiers", (raw) => gatherTierEntrySchema.parse(raw)).map(
-      (band) => ({ from: band.from, weightsPm: [...band.weightsPm] }),
+      gatherBandOfEntry,
     ),
   };
 }
@@ -440,9 +441,7 @@ export function createItemEditorServices(deps: {
       const gather = {
         // 시설·채집 티어 확률표는 실효 항목(건물 편집기 덮어쓰기, D-513)
         facilities: state.effective().facilities,
-        bands: state
-          .effective()
-          .gatherTiers.map((band) => ({ from: band.from, weightsPm: [...band.weightsPm] })),
+        bands: state.effective().gatherTiers.map(gatherBandOfEntry),
         levelBonus: society.gatherLevelBonus,
         rules: society,
         items: state.effective().items.map((item) => ({

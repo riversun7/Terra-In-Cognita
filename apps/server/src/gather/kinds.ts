@@ -43,8 +43,12 @@ export interface GatherKind {
   readonly material: CatchmentMaterial | null;
   /** 유닛이 직접 캘 수 있나(false = 맡는 시설의 일꾼만 — 밭·목초지·물터) */
   readonly direct: boolean;
-  /** 아이템 ID(item: 앞머리 없음) */
+  /** 아이템 ID(item: 앞머리 없음). 굴림표·사다리 굴림이면 대표 아이템(판에 보이는 이름) */
   readonly item: string;
+  /** 굴림표(기획 D-540 1222 나 — 난파선): 한 번 캘 때 이 가운데 하나를 가중치(‰)로. 없으면 빈 목록 */
+  readonly table?: readonly { readonly item: string; readonly weightPm: number }[] | undefined;
+  /** 사다리 굴림(기획 D-540 1222 다 — 어군): 맡는 시설의 채집 사다리에서 캐는 유닛의 유효 스탯 띠로 티어를 뽑는다 */
+  readonly ladder?: boolean | undefined;
   readonly lots: number;
   readonly workMs: number;
   readonly uses: number;
@@ -93,6 +97,10 @@ export function gatherKindsFromPack(pack: ContentPack): GatherKind[] {
       material: kind.source === "plot" ? (kind.material ?? null) : null,
       direct: kind.direct ?? true,
       item: kind.item.id,
+      ...(kind.table
+        ? { table: kind.table.map((row) => ({ item: row.item.id, weightPm: row.weightPm })) }
+        : {}),
+      ...(kind.ladder === true ? { ladder: true } : {}),
       lots: kind.lots,
       workMs: kind.workMs,
       uses: kind.uses,

@@ -92,6 +92,24 @@ export function gatherReadsOf(source: () => GatherWorld | undefined): GatherRead
             ...(kind.direct ? {} : { direct: false }),
             ...(kind.art > 0 ? { art: kind.art } : {}),
             ...(kind.boat === true ? { boat: true } : {}),
+            // 굴림표·사다리 굴림(기획 D-540 1222): 판이 "여러 가지 가운데 하나"·"스탯 띠 티어"를 보인다
+            ...(kind.table && kind.table.length > 0
+              ? {
+                  table: kind.table.map((row) => ({
+                    item: row.item,
+                    itemName: catalog?.itemName(row.item) ?? null,
+                    weightPm: row.weightPm,
+                  })),
+                }
+              : {}),
+            ...(kind.ladder === true && facility?.gather
+              ? {
+                  ladderName: catalog?.subcategoryName(facility.gather.subcategory) ?? {
+                    ko: facility.gather.subcategory,
+                    en: facility.gather.subcategory,
+                  },
+                }
+              : {}),
           };
         }),
         objects: objects.length % GATHER_OBJECT_STRIDE === 0 ? objects : [],

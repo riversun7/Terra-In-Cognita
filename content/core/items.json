@@ -2509,6 +2509,136 @@
         "drops": ["death"]
       },
       "enabled": true
+    },
+    {
+      "id": "fresh_water",
+      "name": {
+        "ko": "물",
+        "en": "Water"
+      },
+      "category": "raw",
+      "subcategory": "wild_goods",
+      "tier": 0,
+      "startPrice": 1,
+      "weight": 1000,
+      "enabled": true
+    },
+    {
+      "id": "salt",
+      "name": {
+        "ko": "소금",
+        "en": "Salt"
+      },
+      "category": "raw",
+      "subcategory": "wild_goods",
+      "tier": 0,
+      "startPrice": 1,
+      "weight": 100,
+      "enabled": true
+    },
+    {
+      "id": "plant_fiber",
+      "name": {
+        "ko": "식물 섬유",
+        "en": "Plant fiber"
+      },
+      "category": "raw",
+      "subcategory": "wild_goods",
+      "tier": 0,
+      "startPrice": 1,
+      "weight": 50,
+      "enabled": true
+    },
+    {
+      "id": "peat",
+      "name": {
+        "ko": "이탄",
+        "en": "Peat"
+      },
+      "category": "raw",
+      "subcategory": "wild_goods",
+      "tier": 0,
+      "startPrice": 1,
+      "weight": 1000,
+      "enabled": true
+    },
+    {
+      "id": "wild_berries",
+      "name": {
+        "ko": "베리",
+        "en": "Berries"
+      },
+      "category": "raw",
+      "subcategory": "wild_goods",
+      "tier": 0,
+      "startPrice": 1,
+      "weight": 50,
+      "enabled": true
+    },
+    {
+      "id": "wild_fruit",
+      "name": {
+        "ko": "야생 과일",
+        "en": "Wild fruit"
+      },
+      "category": "raw",
+      "subcategory": "wild_goods",
+      "tier": 0,
+      "startPrice": 1,
+      "weight": 200,
+      "enabled": true
+    },
+    {
+      "id": "shellfish",
+      "name": {
+        "ko": "조개",
+        "en": "Shellfish"
+      },
+      "category": "raw",
+      "subcategory": "wild_goods",
+      "tier": 0,
+      "startPrice": 1,
+      "weight": 50,
+      "enabled": true
+    },
+    {
+      "id": "fossil",
+      "name": {
+        "ko": "화석",
+        "en": "Fossil"
+      },
+      "category": "raw",
+      "subcategory": "wild_goods",
+      "tier": 0,
+      "startPrice": 1,
+      "weight": 2000,
+      "enabled": true
+    },
+    {
+      "id": "whale_meat",
+      "name": {
+        "ko": "고래 고기",
+        "en": "Whale meat"
+      },
+      "category": "raw",
+      "subcategory": "wild_goods",
+      "tier": 6,
+      "startPrice": 1,
+      "weight": 5000,
+      "enabled": true
+    },
+    {
+      "id": "whale_oil",
+      "name": {
+        "ko": "고래 기름",
+        "en": "Whale oil"
+      },
+      "category": "raw",
+      "subcategory": "wild_goods",
+      "tier": 7,
+      "startPrice": 1,
+      "weight": 1000,
+      "enabled": true
     }
   ]
 }

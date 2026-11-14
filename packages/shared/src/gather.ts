@@ -35,6 +35,19 @@ export interface GatherKindView {
   readonly art?: number;
   /** 배로만 닿는다(물 위 자리·물가에서 낚을 수 없는 어군 — 배는 아직 없다, 기획 D-536 질문 1221). 없으면 false(앞 판 응답) */
   readonly boat?: boolean;
+  /**
+   * 굴림표(기획 D-540 1222 나 — 난파선·고래 무리): 한 번 캘 때 이 가운데 하나(가중치 ‰). 있으면 item은 대표 아이템. 없으면 item 하나(앞 판 응답)
+   */
+  readonly table?: readonly {
+    readonly item: string;
+    readonly itemName: GatherName | null;
+    readonly weightPm: number;
+  }[];
+  /**
+   * 사다리 굴림(기획 D-540 1222 다 — 어군): 맡는 시설의 채집 사다리에서 캐는 유닛 스탯 띠로 티어를 뽑는다. 값 = 사다리(주 중분류) 이름.
+   * 없으면 item 하나(앞 판 응답)
+   */
+  readonly ladderName?: GatherName;
 }
 
 /**

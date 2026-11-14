@@ -42,7 +42,7 @@ import {
   siegeArena,
   waveAttackEdge,
 } from "@terra/sim/siegeArena";
-import { type WorldBattleInit, siegeFacilityTargets } from "../world/battleTargets.ts";
+import { type WorldBattleInit, waveSiegeTargets } from "../world/battleTargets.ts";
 import type { NpcState } from "./state.ts";
 import { type GrantedItem, rewardRecordOf } from "./waveRewards.ts";
 
@@ -337,11 +337,12 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
         o.catalog(),
         combat,
       );
-      // 성벽·둘레 시설 목표(질문 1114 가): 전투에서 깎인 만큼 세계 시설도 깎인다. 넥서스(행정 건물)는 정원사 결과 규칙이 정한다
+      // 성벽·둘레 시설 목표(질문 1114 가): 전투에서 깎인 만큼 세계 시설도 깎인다. 넥서스(행정 건물)는 막아 냈을 때만 깎이고(질문 1190 나 —
+      // 수리 대상), 웨이브가 이기면 정원사 결과 규칙(D-230)이 정한다
       const isFacility = o.isFacility;
       const targets =
         layout && isFacility
-          ? siegeFacilityTargets(siegeArena(layout, WAVE_MAP_SIZE, 1).sources, isFacility, SIEGE_NEXUS_ID)
+          ? waveSiegeTargets(siegeArena(layout, WAVE_MAP_SIZE, 1).sources, isFacility, SIEGE_NEXUS_ID)
           : [];
       const init: WorldBattleInit = targets.length > 0 ? { ...waveInit, targets } : waveInit;
       if (!o.startBattle) {

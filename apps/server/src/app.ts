@@ -212,6 +212,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           planetId: worldPlanet.id,
           values: () => planets.planetValues(worldPlanet.id),
           props: options.secondMaps.props,
+          slowByArt: options.secondMaps.slowByArt,
           planetGeneratorVersion: worldPlanet.generatorVersion,
           definitionHash: worldPlanet.definitionHash,
           cacheDir: options.planets?.cacheDir,

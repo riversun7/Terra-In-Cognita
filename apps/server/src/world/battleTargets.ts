@@ -8,6 +8,8 @@
 //   수리로 되돌린다 — 366). 비콘은 30% 미만이면 꼭짓점이 아니고 0이어도 지우지 않는다(380). 한 전투는 한 번만 적용된다(결과 기록).
 // - 바뀜 (2026-11-12, 기획 D-535 — 질문 1114 가): 공성 전투맵(도시 실제 배치)의 성벽·둘레 건물도 목표다(siegeFacilityTargets — 건물 공격·정원사
 //   웨이브). 전투에서 깎이거나 부서진 만큼 세계 시설 상태가 줄고, 수리(플레이어·NPC 증축 수리)로 되돌린다 — 수리 재료가 성벽을 지키는 값이다.
+// - 바뀜 (2026-11-13, 기획 D-540 — 질문 1190 나): 막아 낸 정원사 웨이브도 행정 건물(넥서스)을 깎는다(수리 대상 — 1189). 웨이브가 이기면 정원사
+//   결과 규칙(D-230 — 함락·폐허)만 따르므로 넥서스 목표에는 defendedOnly를 달아 수비 편이 막아 냈을 때만 적용한다(두 번 깎이지 않게).
 import type { BattleInit } from "@terra/sim";
 import type { BattleOutcome } from "./battles.ts";
 
@@ -20,6 +22,8 @@ export interface BattleTarget {
   readonly kind: BattleTargetKind;
   /** 세계 건물 ID(시설 = 2차맵 건물 ID, 비콘 = 영토 비콘 ID) */
   readonly id: number;
+  /** 공격 편이 이기지 못했을 때만 적용(질문 1190 나 — 웨이브 넥서스). 없으면 늘 */
+  readonly defendedOnly?: true | undefined;
 }
 
 /** 세계 건물 목표를 단 시작 자료 */
@@ -30,8 +34,12 @@ const isTarget = (value: unknown): value is BattleTarget => {
   const building: unknown = Reflect.get(value, "building");
   const kind: unknown = Reflect.get(value, "kind");
   const id: unknown = Reflect.get(value, "id");
+  const defendedOnly: unknown = Reflect.get(value, "defendedOnly");
   return (
-    Number.isSafeInteger(building) && Number.isSafeInteger(id) && (kind === "facility" || kind === "beacon")
+    Number.isSafeInteger(building) &&
+    Number.isSafeInteger(id) &&
+    (kind === "facility" || kind === "beacon") &&
+    (defendedOnly === undefined || defendedOnly === true)
   );
 };
 
@@ -51,11 +59,16 @@ export interface BuildingDamage {
   readonly destroyed: boolean;
 }
 
-/** 전투 결과의 세계 건물 피해(잃은 것이 없으면 뺀다). 끝 내구도가 없는 옛 결과는 피해 없음 */
+/**
+ * 전투 결과의 세계 건물 피해(잃은 것이 없으면 뺀다). 끝 내구도가 없는 옛 결과는 피해 없음. defendedOnly 목표는 공격 편이 이겼으면 뺀다
+ */
 export function buildingDamageOf(init: BattleInit, outcome: BattleOutcome): BuildingDamage[] {
   const end = new Map((outcome.buildings ?? []).map((building) => [building.id, building.durability]));
+  const attacker = init.sides.find((side) => !side.defender)?.id;
+  const attackerWon = attacker !== undefined && outcome.result.winner === attacker;
   const out: BuildingDamage[] = [];
   for (const target of targetsOf(init)) {
+    if (target.defendedOnly === true && attackerWon) continue;
     const start = init.map.buildings.find((building) => building.id === target.building)?.durability;
     const after = end.get(target.building);
     if (start === undefined || after === undefined) continue;
@@ -105,6 +118,20 @@ export function applyBuildingDamage(
 }
 
 /**
+ * 웨이브 넥서스 목표(질문 1190 나): 넥서스가 세계 시설(행정 건물)이면 막아 냈을 때만 적용하는 목표. 아니면(열린 맵·비콘) undefined
+ */
+export function waveNexusTarget(
+  sources: ReadonlyMap<number, number>,
+  isFacility: (buildingId: number) => boolean,
+  nexus: number,
+): BattleTarget | undefined {
+  const id = sources.get(nexus);
+  return id !== undefined && isFacility(id)
+    ? { building: nexus, kind: "facility", id, defendedOnly: true }
+    : undefined;
+}
+
+/**
  * 공성 전투맵의 시설 목표(질문 1114 가): 전투 건물 ID → 2차맵 건물 ID(siegeArena sources) 가운데 세계 시설인 것. skip = 따로 다루는 전투 건물
  * (넥서스 — 건물 공격은 대상 목표를 이미 달고, 웨이브는 정원사 결과 규칙이 정한다). 전투 건물 ID 차례
  */
@@ -117,4 +144,17 @@ export function siegeFacilityTargets(
   for (const [building, id] of [...sources].toSorted((a, b) => a[0] - b[0]))
     if (building !== skip && isFacility(id)) out.push({ building, kind: "facility", id });
   return out;
+}
+
+/**
+ * 정원사 웨이브 공성의 세계 건물 목표(질문 1114 가·1190 나): 넥서스(행정 건물, 막아 냈을 때만) 다음에 성벽·둘레 시설(늘). nexus = 전투맵 넥서스
+ * 건물 ID(siegeArena SIEGE_NEXUS_ID)
+ */
+export function waveSiegeTargets(
+  sources: ReadonlyMap<number, number>,
+  isFacility: (buildingId: number) => boolean,
+  nexus: number,
+): BattleTarget[] {
+  const hall = waveNexusTarget(sources, isFacility, nexus);
+  return [...(hall ? [hall] : []), ...siegeFacilityTargets(sources, isFacility, nexus)];
 }

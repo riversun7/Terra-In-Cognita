@@ -311,8 +311,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     ]);
     expect(seedPlan(NO_WALLS).filter((item) => item.count > 0)).toHaveLength(6);
     const six = { ...NO_WALLS, herbFields: 1, ranches: 2, fishingSpots: 1 };
-    // 숲만 있는 추운 고원: 벌목장·광산 + 약초원(숲), 목장은 농사지을 땅이 아니라 서지 않는다. 낚시터는 땅 조건이 없다
-    const cold = { elevationM: 900, temperatureC: -5, precipitationMm: 100, forest: 200 };
+    // 숲만 있는 추운 고원(타이가): 벌목장·광산 + 약초원(숲 가장자리 약초 몫 — 질문 1213 가), 목장은 축산물 몫이 없어 서지 않는다. 낚시터는 땅 조건이 없다
+    const cold = { elevationM: 900, temperatureC: -5, precipitationMm: 100, forest: 200, biomeId: "taiga" };
     expect(
       seedPlan(six, cold)
         .filter((item) => item.count > 0)
@@ -326,8 +326,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "herb_field:1",
       "fishing_spot:1",
     ]);
-    // 따뜻한 풀밭: 농장 + 벌목장(목재 바닥 — 사용자 결정 2026-11-12 기본 재료 바닥 보장) + 약초원 + 목장
-    const warm = { elevationM: 50, temperatureC: 18, precipitationMm: 900, forest: 0 };
+    // 따뜻한 초지: 농장 + 벌목장(목재 바닥 — 사용자 결정 2026-11-12 기본 재료 바닥 보장) + 목장(축산물 몫). 약초 몫은 초지 100‰라 약초원은 없다(1213 가)
+    const warm = { elevationM: 50, temperatureC: 18, precipitationMm: 900, forest: 0, biomeId: "grassland" };
     expect(
       seedPlan(six, warm)
         .filter((item) => item.count > 0)
@@ -339,7 +339,6 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "farm:1",
       "lumber_camp:1",
       "mine:1",
-      "herb_field:1",
       "ranch:2",
       "fishing_spot:1",
     ]);
@@ -348,7 +347,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
   it("채집 시설은 둘레 땅을 따른다(503 다): 숲 → 벌목장, 마른 땅 → 광산(D-533 고도 몫), 따뜻하고 비 오는 땅 → 농장, 농장·벌목장이 아니면 농장", () => {
     // 시험 2차맵 줄(초지·숲 밀도 15·고도 75m·15°C·강수 261mm)과 같은 값. 낮은 땅도 광석 몫이 있어 광산이 선다(기획 D-533)
     const grass: SeedLand = { elevationM: 75, temperatureC: 15, precipitationMm: 261, forest: 15 };
-    expect(landGather(grass, START_WORLD_SEED)).toEqual({ farm: true, lumber: true, mine: true });
+    expect(landGather(grass, START_WORLD_SEED)).toMatchObject({ farm: true, lumber: true, mine: true });
     // 바다·호수에 잠긴 칸은 광석 몫이 없다
     expect(landGather({ ...grass, water: 1 }, START_WORLD_SEED).mine).toBe(false);
     // 목재 바닥(사용자 결정 2026-11-12 기본 재료 바닥 보장): 숲이 없는 마른 땅도 목재 몫 300‰ ≥ 문턱 5% → 벌목장. 바닥 0이면 숲 밀도 몫 ×
@@ -360,17 +359,34 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     // 추운 산지: 광산·벌목장(목재 바닥), 식량 사슬을 위해 농장도(광산만 있는 도시는 굶는다)
     expect(
       landGather({ elevationM: 900, temperatureC: -5, precipitationMm: 100, forest: 0 }, noFloor),
-    ).toEqual({ farm: true, lumber: false, mine: true });
+    ).toMatchObject({ farm: true, lumber: false, mine: true });
     expect(
       landGather(
         { elevationM: 10, temperatureC: 30, precipitationMm: 50, forest: 0 },
         { ...NO_WALLS, woodBaselinePm: 0 },
       ),
-    ).toEqual({
+    ).toMatchObject({
       farm: true,
       lumber: false,
       mine: true,
     });
+    // 약초원·목장 땅(질문 1213 가): 배후지 몫과 같은 비트 — 초지는 축산물, 습지는 약초, 바이옴을 모르는 칸("other")은 둘 다 아니다
+    expect(landGather(grass, START_WORLD_SEED)).toMatchObject({ herb: false, livestock: false });
+    expect(landGather({ ...grass, biomeId: "grassland" }, START_WORLD_SEED)).toMatchObject({
+      livestock: true,
+      herb: false,
+    });
+    expect(landGather({ ...grass, biomeId: "wetland" }, START_WORLD_SEED)).toMatchObject({
+      herb: true,
+      livestock: false,
+    });
+    const herbs = { ...NO_WALLS, herbFields: 1, ranches: 1 };
+    const counted = (land: SeedLand) =>
+      seedPlan(herbs, land)
+        .filter((item) => item.facility === "herb_field" || item.facility === "ranch")
+        .map((item) => `${item.facility}:${item.count}`);
+    expect(counted({ ...grass, biomeId: "grassland" })).toEqual(["herb_field:0", "ranch:1"]);
+    expect(counted({ ...grass, biomeId: "wetland" })).toEqual(["herb_field:1", "ranch:0"]);
     const plan = seedPlan(NO_WALLS, grass);
     expect(plan.filter((item) => item.count > 0).map((item) => item.facility)).toEqual([
       "government_hall",

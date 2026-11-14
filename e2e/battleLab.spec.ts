@@ -1,6 +1,6 @@
 // 전투 실험실 시험 — /dev/balance [전투 실험실] 탭 (docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)").
 // - dev: 처음 열면 샘플 파티 둘(팀 A Lv 30 혼성 4명, 팀 B 크리쳐 무리 4명). 유닛을 고르고 레벨을 바꾸면 서버 미리 보기의 성장이 바뀐다.
-//   [한 판]은 이긴 팀·유닛 8줄·사건 기록, [몬테카를로]는 팀 승률 막대 둘·유닛 8줄. [3D 관람]은 같은 시드의 한 판을 리플레이로 받아
+//   [한 판]은 이긴 팀·유닛 8줄·사건 기록, [보고서 돌리기](옛 몬테카를로, docs/adr/2026-11-14-battle-report.md)는 보고서 유닛 8줄. [3D 관람]은 같은 시드의 한 판을 리플레이로 받아
 //   전투 다시보기 화면(.br-view)을 화면 전체 창에 띄우고, [닫기]로 닫는다.
 //   유닛 프리셋: 새로 저장(이름 ko·en 창) → 이름 바꾸기 → 복제 → 지우기(확인 창). 샘플을 고르면 덮어쓰기·이름 바꾸기·지우기는 꺼진다.
 //   새로 고치면 팀이 이 기기에 남아 있다(localStorage).
@@ -78,7 +78,7 @@ const labUnit = (weapon: unknown, level = 1, value = 10) => {
 };
 
 async function labReady(page: Page): Promise<void> {
-  // 첫 탭은 [분포 상성](2026-11-08 완전 개편) → 주소로 실험실 탭을 연다
+  // 옛 실험실 주소(?tab=lab)는 [전투 보고서] 탭으로 연다(같은 팀·유닛 편집)
   await page.goto("/dev/balance?tab=lab");
   await expect(page.locator(".bl-lab")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(page.locator(".bl-preview .bl-secondary li").first()).toBeVisible({ timeout: 20_000 });
@@ -109,7 +109,7 @@ async function runUntil(page: Page, button: string, result: string): Promise<voi
 test.describe("개발자", () => {
   test.use({ account: "dev" });
 
-  test("샘플 파티 둘, 레벨을 바꾸면 미리 보기 성장이 바뀌고, 한 판·몬테카를로 결과가 뜬다", async ({
+  test("샘플 파티 둘, 레벨을 바꾸면 미리 보기 성장이 바뀌고, 한 판·보고서 결과가 뜬다", async ({
     page,
     deviceErrors,
   }) => {
@@ -147,10 +147,10 @@ test.describe("개발자", () => {
     await expect(page.locator(".bl-watch-dialog[open]")).toHaveCount(0);
     await expect(page.locator(".bl-watch")).toBeFocused();
 
-    await page.locator(".bl-runs").selectOption("10");
-    await runUntil(page, ".bl-monte-run", ".bl-monte");
-    await expect(page.locator(".bl-monte .bl-score")).toHaveCount(2);
-    await expect(page.locator(".bl-monte .bl-summary-table tbody tr")).toHaveCount(8);
+    // N회 반복은 보고서 일(옛 몬테카를로 단추, docs/adr/2026-11-14-battle-report.md): 20판 → 보고서 유닛 8줄
+    await page.locator(".rp-runs").selectOption("20");
+    await runUntil(page, ".rp-run", ".rp-latest .rp-report");
+    await expect(page.locator(".rp-latest .rp-units tbody tr")).toHaveCount(8);
 
     // 팀을 고치면 결과는 "지난 입력"
     await level.fill("11");
@@ -351,7 +351,7 @@ test.describe("배치·사진", () => {
         await page.locator(".bl-lab details:not([open]) > summary").evaluateAll((elements) => {
           for (const element of elements) element.parentElement?.setAttribute("open", "");
         });
-        await page.locator(".bl-limit").selectOption("60");
+        await page.locator(".rp-limit").selectOption("60");
         await runUntil(page, ".bl-battle", ".bl-result");
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);

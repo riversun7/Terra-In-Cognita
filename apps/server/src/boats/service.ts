@@ -5,7 +5,8 @@
 //   운영자 모드(전체 보기 + 모든 유닛 명령 권한)는 재료 없이 만든다(배 주인 = 부두 주인, 없으면 운영자 자신).
 // - 만드는 시간(기획 D-541 1271 나, "바뀜 (2026-11-14, B2)") = 부두 레벨 1 건설 시간 × 설정 칸 boat_build_time_pm ÷ 1000. 재료를 빼고 작업 줄
 //   (boat_jobs, store.ts)을 넣고, 끝 시각에 부두 옆 물에 배가 뜬다(그때 물 칸을 다시 찾는다 — 없으면 잠시 뒤 다시). 부두마다 한 번에 하나(dock_busy).
-//   운영자 모드는 운영자 빠르기(world/operatorPace.ts)로 줄인 시간. 부두가 없어졌으면 작업을 버린다(재료는 돌려주지 않는다 [임시]).
+//   운영자 모드는 운영자 빠르기(world/operatorPace.ts)로 줄인 시간. 부두가 없어졌으면 작업을 버리고 뺀 재료를 뺀 자리로 돌려준다(기획 D-542
+//   1321 나 — 작업 줄이 자리마다 뺀 양을 든다. 그 자리가 없어졌으면(건물 창고·유닛 화물) 위치 없음으로).
 // - 타기: 유닛 몸과 배 몸 사이가 boat_board_cells 안이면 바로 탄다. 멀면 배 둘레 땅 칸으로 걸어가고 도착 때 다시 보고 탄다
 //   (채집 들어가기와 같은 틀, 메모리에만 — 다시 켜면 걸어간 자리에 선다).
 // - 내리기: 배가 움직이면 그 자리에 세우고 승객마다 배 둘레 boat_board_cells 안 가장 가까운 땅 칸에 내린다(가까운 칸부터 나눠 준다).
@@ -25,7 +26,8 @@ import {
 import { buildCostAt } from "@terra/shared/facilityBuild";
 import type { Ledger } from "../economy/ledger.ts";
 import type { FacilityDef } from "../facilities/catalog.ts";
-import { hasGoods, spendGoods } from "../facilities/materials.ts";
+import { hasGoods, refundGoods, spendGoods, spendGoodsTaken } from "../facilities/materials.ts";
+import { placeOfLocation } from "@terra/shared/goodsPlaces";
 import { type PlaceWorld, cityAt, materialScope } from "../facilities/places.ts";
 import type { JobMaterial } from "../facilities/state.ts";
 import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
@@ -219,6 +221,14 @@ export function createBoatService(deps: BoatDeps): BoatService {
     store.remove(id);
   };
 
+  /** 돌려줄 자리: 도시 창고·위치 없음은 그대로, 건물 창고·유닛 화물은 그 건물·유닛이 아직 있을 때만(없으면 위치 없음) */
+  const refundPlace = (location: number | null): number | null => {
+    const place = placeOfLocation(location);
+    if (place.kind === "building" && place.id !== null && !findDock(place.id)) return null;
+    if (place.kind === "cargo" && place.id !== null && !mapOfUnit(place.id)) return null;
+    return location;
+  };
+
   /** 작업 끝: 부두 옆 물에 배를 띄운다. 부두가 없으면 버리고, 물 칸이 없으면 잠시 뒤 다시 */
   const finishJob = (id: number): void => {
     jobTimers.delete(id);
@@ -234,7 +244,11 @@ export function createBoatService(deps: BoatDeps): BoatService {
       const record = places?.facilities.get(job.buildingId);
       const def = record ? places?.catalog().facility(record.facilityId) : undefined;
       if (!dock || (places && !record)) {
-        deps.log.error({ jobId: id, buildingId: job.buildingId }, "boat job dropped: the dock is gone");
+        const rows = refundGoods(ledger, job.ownerId, job.materials, now(), "boat_refund", refundPlace);
+        deps.log.error(
+          { jobId: id, buildingId: job.buildingId, refunded: rows },
+          "boat job dropped: the dock is gone",
+        );
         dropJob(id);
         return;
       }
@@ -355,14 +369,14 @@ export function createBoatService(deps: BoatDeps): BoatService {
       const ms = boatBuildMs(deps.dockBuildMs?.(def) ?? 0, rules.buildTimePm, operator);
       if (ms > 0) {
         // 작업으로 건다(재료는 지금 뺀다 — 건물 짓기와 같다). 배는 끝 시각에 뜬다
-        if (!spendGoods(ledger, owner, materials, at, "boat_build", scope))
-          return fail("insufficient_materials");
+        const taken = spendGoodsTaken(ledger, owner, materials, at, "boat_build", scope);
+        if (taken === undefined) return fail("insufficient_materials");
         lastJobId += 1;
         const job: BoatJob = {
           id: lastJobId,
           ownerId: owner,
           buildingId,
-          materials,
+          materials: taken,
           startedAtMs: at,
           doneAtMs: at + ms,
         };

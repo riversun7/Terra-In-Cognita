@@ -71,6 +71,11 @@ export function hasGoods(
   return true;
 }
 
+/** 뺀 재료 한 줄: 어느 자리(원장 위치)에서 얼마를 뺐나(돌려주기 — 배 B3 기획 D-542 1321 나) */
+export interface TakenMaterial extends JobMaterial {
+  readonly location: number | null;
+}
+
 /**
  * 재료를 뺀다(거래 하나). 모자라면 false이고 아무것도 바꾸지 않는다. 같은 동기 처리 안에서 hasGoods와 함께 부르면 사이에 바뀌지 않는다
  */
@@ -82,16 +87,30 @@ export function spendGoods(
   kind: string,
   scope: GoodsScope,
 ): boolean {
+  return spendGoodsTaken(ledger, ownerId, materials, atMs, kind, scope) !== undefined;
+}
+
+/** spendGoods와 같고, 자리마다 뺀 양을 돌려준다(모자라면 undefined, 뺄 것이 없으면 빈 목록) */
+export function spendGoodsTaken(
+  ledger: Ledger,
+  ownerId: number,
+  materials: readonly JobMaterial[],
+  atMs: number,
+  kind: string,
+  scope: GoodsScope,
+): TakenMaterial[] | undefined {
   const need = needOf(materials);
-  if (need.size === 0) return true;
-  if (!hasGoods(ledger, ownerId, materials, scope)) return false;
+  if (need.size === 0) return [];
+  if (!hasGoods(ledger, ownerId, materials, scope)) return undefined;
   const entries: { account: number; amount: bigint }[] = [];
+  const taken: TakenMaterial[] = [];
   for (const [item, qty] of need) {
     let left = qty;
     for (const account of accountsOf(ledger, ownerId, item, scope)) {
       if (left === 0n) break;
       const take = account.balance < left ? account.balance : left;
       entries.push({ account: account.id, amount: -take });
+      taken.push({ item, qty: Number(take), location: account.location });
       left -= take;
     }
     entries.push({
@@ -100,7 +119,33 @@ export function spendGoods(
     });
   }
   ledger.post({ kind, atMs, entries });
-  return true;
+  return taken;
+}
+
+/**
+ * 뺀 재료를 돌려준다(거래 하나): sink:item:<ID> → 주인의 그 자리. placeOf가 자리를 바꿀 수 있다(없어진 건물 창고·유닛 화물 → 다른 자리).
+ * 돌려준 줄 수(0이면 아무것도 쓰지 않는다)
+ */
+export function refundGoods(
+  ledger: Ledger,
+  ownerId: number,
+  taken: readonly TakenMaterial[],
+  atMs: number,
+  kind: string,
+  placeOf: (location: number | null) => number | null = (location) => location,
+): number {
+  const entries: { account: number; amount: bigint }[] = [];
+  let rows = 0;
+  for (const stack of taken) {
+    if (!Number.isSafeInteger(stack.qty) || stack.qty <= 0) continue;
+    const asset = goodsAsset(stack.item);
+    const qty = BigInt(stack.qty);
+    entries.push({ account: ledger.systemAccount(`sink:${asset}`, asset), amount: -qty });
+    entries.push({ account: ledger.ownerAccount(ownerId, asset, placeOf(stack.location)), amount: qty });
+    rows += 1;
+  }
+  if (rows > 0) ledger.post({ kind, atMs, entries });
+  return rows;
 }
 
 /** 개발 시험: 물자를 그 자리(도시 창고·화물 위치, null = 위치 없음)에 준다 */

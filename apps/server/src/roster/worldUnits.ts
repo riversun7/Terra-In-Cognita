@@ -10,6 +10,7 @@ import {
   UNIT_KIND_CYBORG_UNIT,
   UNIT_KIND_GUARDIAN,
   UNIT_KIND_HUMAN,
+  countsAsOwnedUnit,
 } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
 
@@ -178,7 +179,7 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
       let count = 0;
       for (const map of world.maps.values())
         map.forEachUnit((unit) => {
-          if (unit.ownerId === ownerId && unit.kind !== UNIT_KIND_CYBORG) count += 1;
+          if (unit.ownerId === ownerId && countsAsOwnedUnit(unit.kind)) count += 1;
         });
       return count;
     },

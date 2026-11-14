@@ -55,6 +55,14 @@ export function isAfloat(
 }
 
 /**
+ * 보유 유닛 수(주거 상한 D-153 — 사이보그 판의 유닛 수, roster/worldUnits.ts)에 드는 종류인가: 사이보그 본체(D-445 178)와 배(기획 D-542 1326 나 —
+ * 배는 사람이 아니다)는 빠진다. 배 유지비는 그대로 설정 칸 boat_upkeep_pm(D-541 1277 다)으로 낸다(world/upkeepWeights.ts)
+ */
+export function countsAsOwnedUnit(kind: number): boolean {
+  return kind !== UNIT_KIND_CYBORG && kind !== UNIT_KIND_BOAT;
+}
+
+/**
  * 탈것으로 보이는 기본 빠르기(고정소수점 단위/초): 걷기(437 = 약 0.43칸/초)와 차(4,813 = 약 4.8칸/초) 사이, 2칸/초. 유닛의 기본 빠르기(UnitState.speed)로
  * 본다 — 움직임 빠르기(운영자 모드 이동은 100배, operatorPace.ts OPERATOR_SPEED_FACTOR)로 보지 않는다(사용자 지적 2026-11-12 "내 사이보그도 갑자기 기존
  * 노란원통 모델로 돌아가는 문제", docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 유닛 겉모습)")

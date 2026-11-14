@@ -1,0 +1,66 @@
+/* 인벤토리 화면(/inventory) — 경제 화면 칸·자리 카드(economy.css)를 그대로 쓰고, 한눈에 판과 유닛 줄만 더한다 */
+.inventory-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--tap-size) * 2.5), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+.inventory-facts > div {
+  display: grid;
+  gap: var(--space-1);
+}
+.inventory-facts dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.inventory-facts dd {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.inventory-units {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.inventory-unit {
+  display: grid;
+  gap: var(--space-3);
+}
+.inventory-unit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.inventory-unit-head:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.inventory-unit-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--font-weight-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inventory-unit-meta {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.inventory-unit-body {
+  display: grid;
+  gap: var(--space-3);
+}

@@ -11,7 +11,9 @@ import { isSavedId } from "./savedId.ts";
  * 메뉴 항목 ID. 이 순서가 기본 메뉴 순서다.
  * 앞 4칸이 기본 탭이 된다(D-6010): C = 홈·유닛·[지도]·경제·세력(지도는 가운데 버튼이라 칸에서 빠진다), A = 홈·지도·유닛·경제·☰
  */
-export const NAV_ITEM_IDS = ["home", "map", "units", "economy", "faction", "cyborg"] as const;
+// 인벤토리(사용자 결정 2026-11-14 "당연", docs/adr/2026-11-14-inventory-screen.md): 끝에 더해 기본 탭(앞 4칸)은 그대로다.
+// 저장된 메뉴 순서에 없으면 parseMenu가 끝에 붙인다
+export const NAV_ITEM_IDS = ["home", "map", "units", "economy", "faction", "cyborg", "inventory"] as const;
 
 export type NavItemId = (typeof NAV_ITEM_IDS)[number];
 

@@ -47,6 +47,13 @@ const PATHS = {
       <path d="M10 15.4h4" />
     </>
   ),
+  // 인벤토리: 상자(docs/adr/2026-11-14-inventory-screen.md)
+  inventory: (
+    <>
+      <path d="M4 8.5 12 5l8 3.5v8L12 20l-8-3.5z" />
+      <path d="M4 8.5 12 12l8-3.5M12 12v8" />
+    </>
+  ),
   menu: <path d="M4.5 7h15M4.5 12h15M4.5 17h15" />,
   bell: (
     <>

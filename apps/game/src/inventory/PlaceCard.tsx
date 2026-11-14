@@ -1,11 +1,10 @@
-// 창고(/economy/warehouse) — 지갑(화폐)과 곳마다 보유: 도시 창고(종류·용량, D-121), 장부 보관, 유닛이 실은 화물.
-// 원장 계정 = (주체, 자산, 위치)라 곳마다 줄이 나뉜다(R2 ADR 3절). 식품은 상하기 시작하는 시각을 보인다(실제 시간, D-5030).
-// 시안 창고 줄은 "시험"이 붙고, 거래할 수 있는 물건은 그 도시 거래창으로 가는 링크가 있다.
-// 보유 양은 원장 기본 단위다(광석 g). 거래 묶음이 1보다 크면 묶음 크기와 묶음 수(버림)를 덧붙인다(302·D-506).
+// 인벤토리 자리 카드 — 옛 창고 화면(/economy/warehouse, 지운 economy/WarehouseView.tsx)에서 옮겼다(docs/adr/2026-11-14-inventory-screen.md).
+// 곳마다 보유: 도시 창고(종류·용량, D-121), 장부 보관, 유닛이 실은 화물, 건물 창고. 원장 계정 = (주체, 자산, 위치)라 곳마다 줄이 나뉜다
+// (R2 ADR 3절). 식품은 상하기 시작하는 시각을 보인다(실제 시간, D-5030). 시안 창고 줄은 "시험"이 붙고, 거래할 수 있는 물건은 그 도시
+// 거래창으로 가는 링크가 있다. 보유 양은 원장 기본 단위다(광석 g). 거래 묶음이 1보다 크면 묶음 크기와 묶음 수(버림)를 덧붙인다(302·D-506).
 import { type HoldingLine, type HoldingPlace, marketKindOf } from "@terra/shared/economy";
-import { m } from "../paraglide/messages.js";
-import { AppLink } from "../shell/AppLink.tsx";
-import { toBig } from "./amount.ts";
+import type { ReactNode } from "react";
+import { toBig } from "../economy/amount.ts";
 import {
   type CatalogIndex,
   STORE_NAMES,
@@ -13,15 +12,15 @@ import {
   categoryName,
   fmt,
   formatDuration,
-  indexCatalog,
   lotOf,
   lotText,
-} from "./economyText.ts";
-import { Amount, Loaded, PreviewTag } from "./parts.tsx";
-import { NO_ARGS, useCatalog, useHoldings } from "./queries.ts";
-import { SPOIL_SOON_MS } from "./shape.ts";
+} from "../economy/economyText.ts";
+import { Amount, PreviewTag } from "../economy/parts.tsx";
+import { SPOIL_SOON_MS } from "../economy/shape.ts";
+import { m } from "../paraglide/messages.js";
+import { AppLink } from "../shell/AppLink.tsx";
 
-function placeTitle(place: HoldingPlace): string {
+export function placeTitle(place: HoldingPlace): string {
   if (place.name !== null) return place.name;
   if (place.kind === "ledger") return m.economy_place_ledger();
   if (place.kind === "cargo") return m.economy_place_cargo({ id: place.id.replace(/^cargo_/, "") });
@@ -87,7 +86,21 @@ function HoldingRow({
   );
 }
 
-function PlaceCard({ place, index, now }: { place: HoldingPlace; index: CatalogIndex; now: number }) {
+export function PlaceCard({
+  place,
+  index,
+  now,
+  title,
+  children,
+}: {
+  place: HoldingPlace;
+  index: CatalogIndex;
+  now: number;
+  /** 자리 이름(없으면 서버 이름·자리 종류로) */
+  title?: string | undefined;
+  /** 카드 아래에 붙일 것(창고 시설 넣기·꺼내기 폼 등) */
+  children?: ReactNode;
+}) {
   const used = place.capacity ? toBig(place.capacity.used) : 0n;
   const max = place.capacity ? toBig(place.capacity.max) : 0n;
   const ratio = max === 0n ? 0 : Math.min(1, Number((used * 1000n) / max) / 1000);
@@ -96,7 +109,7 @@ function PlaceCard({ place, index, now }: { place: HoldingPlace; index: CatalogI
     <section className="panel eco-place" aria-labelledby={titleId}>
       <div className="eco-place-head">
         <h3 id={titleId} className="eco-place-title">
-          {placeTitle(place)}
+          {title ?? placeTitle(place)}
         </h3>
         {place.store ? <span className="eco-tag">{STORE_NAMES[place.store]()}</span> : null}
         {place.preview ? <PreviewTag /> : null}
@@ -117,60 +130,42 @@ function PlaceCard({ place, index, now }: { place: HoldingPlace; index: CatalogI
           <span className="eco-capacity-text">{m.economy_capacity({ used: fmt(used), max: fmt(max) })}</span>
         </div>
       ) : null}
-      <ul className="eco-hold-list">
-        {place.lines.map((line) => (
-          <HoldingRow key={line.asset} line={line} place={place} index={index} now={now} />
-        ))}
-      </ul>
+      {place.lines.length === 0 ? (
+        <p className="eco-empty">{m.inventory_place_empty()}</p>
+      ) : (
+        <ul className="eco-hold-list">
+          {place.lines.map((line) => (
+            <HoldingRow key={line.asset} line={line} place={place} index={index} now={now} />
+          ))}
+        </ul>
+      )}
+      {children}
     </section>
   );
 }
 
-export default function WarehouseView() {
-  const catalog = useCatalog(NO_ARGS);
-  const holdings = useHoldings(NO_ARGS);
-  const index = indexCatalog(catalog.data);
+/** 지갑(화폐) 판 */
+export function WalletPanel({ wallet, index }: { wallet: readonly HoldingLine[]; index: CatalogIndex }) {
   return (
-    <Loaded view={holdings}>
-      {(data) => (
-        <div className="eco-stack">
-          <section className="panel eco-wallet" aria-labelledby="eco-wallet-title">
-            <h2 id="eco-wallet-title" className="eco-section-title">
-              {m.economy_wallet_title()}
-            </h2>
-            {data.wallet.length === 0 ? (
-              <p className="eco-empty">{m.economy_wallet_empty()}</p>
-            ) : (
-              <ul className="eco-hold-list">
-                {data.wallet.map((line) => (
-                  <li key={line.asset} className="eco-hold-row">
-                    <span className="eco-hold-name">
-                      <span className="eco-hold-title">{assetName(index, line)}</span>
-                      {line.preview ? <PreviewTag /> : null}
-                    </span>
-                    <Amount value={line.qty} className="eco-hold-qty" />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-          <h2 className="eco-section-title eco-section-gap">{m.economy_places_title()}</h2>
-          {!data.hasOwner ? (
-            <p className="panel eco-empty">{m.economy_no_owner()}</p>
-          ) : data.places.length === 0 ? (
-            <p className="panel eco-empty">{m.economy_warehouse_empty()}</p>
-          ) : (
-            <div className="eco-places">
-              {data.places.map((place) => (
-                <PlaceCard key={place.id} place={place} index={index} now={data.generatedAt} />
-              ))}
-            </div>
-          )}
-          {data.places.some((place) => place.capacity) ? (
-            <p className="eco-footnote">{m.economy_capacity_unit_note()}</p>
-          ) : null}
-        </div>
+    <section className="panel eco-wallet" aria-labelledby="inventory-wallet-title">
+      <h2 id="inventory-wallet-title" className="eco-section-title">
+        {m.economy_wallet_title()}
+      </h2>
+      {wallet.length === 0 ? (
+        <p className="eco-empty">{m.economy_wallet_empty()}</p>
+      ) : (
+        <ul className="eco-hold-list">
+          {wallet.map((line) => (
+            <li key={line.asset} className="eco-hold-row">
+              <span className="eco-hold-name">
+                <span className="eco-hold-title">{assetName(index, line)}</span>
+                {line.preview ? <PreviewTag /> : null}
+              </span>
+              <Amount value={line.qty} className="eco-hold-qty" />
+            </li>
+          ))}
+        </ul>
       )}
-    </Loaded>
+    </section>
   );
 }

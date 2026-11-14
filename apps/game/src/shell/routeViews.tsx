@@ -30,6 +30,7 @@ const CyborgScreen = lazy(() => import("../cyborg/CyborgScreen.tsx"));
 const StartScreen = lazy(() => import("../start/StartScreen.tsx"));
 // 경제(창고·생산·거래창·환전, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)"): 칸마다 다시 따로 조각이다
 const EconomyScreen = lazy(() => import("../economy/EconomyScreen.tsx"));
+const InventoryScreen = lazy(() => import("../inventory/InventoryScreen.tsx"));
 // 세력 화면(D-439, 기획 46): 내 세력·도시·외교·전쟁·투표·지분. 규칙 전 칸은 곧 열림, dev·admin은 시안 자료
 const FactionScreen = lazy(() => import("../faction/FactionScreen.tsx"));
 const FactionIdentityScreen = lazy(() => import("../faction/identity/FactionIdentityScreen.tsx"));
@@ -98,6 +99,7 @@ export const ROUTE_TITLES = {
   map_planet: m.planet_title,
   units: m.nav_units,
   economy: m.nav_economy,
+  inventory: m.nav_inventory,
   economy_warehouse: m.economy_tab_warehouse,
   economy_production: m.economy_tab_production,
   economy_market: m.economy_market_title,
@@ -294,6 +296,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
     case "cyborg_ranking":
     case "faction_ranking":
       return <RankingScreen match={match} />;
+    case "inventory":
+      return <InventoryScreen tab={match.search.tab} unit={match.search.unit} />;
     case "economy":
     case "economy_warehouse":
     case "economy_production":

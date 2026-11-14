@@ -1,0 +1,40 @@
+/* 2차맵 [가방] 판(BagSheet.tsx) — 내 유닛 목록 판(.map-units)의 모양을 쓰고, 안쪽만 스크롤한다(지도를 가리지 않게) */
+.map-bag-body {
+  display: grid;
+  gap: var(--space-2);
+  max-block-size: 40dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.map-bag-subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.map-bag-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.map-bag-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.map-bag-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-bag-qty {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.map-bag-more {
+  justify-self: start;
+}

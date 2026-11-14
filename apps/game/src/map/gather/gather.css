@@ -147,6 +147,70 @@
 .gather-chip[hidden] {
   display: none;
 }
+.gather-chip-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 캐는 중 진행바(이번 한 번 캐기 — 머리 위 이름표·아래 판). 채움은 지금 몫에서 끝까지 선형으로 움직인다(gatherProgress.ts — 길이 = 전체 시간, 음수 지연 = 지난 시간) */
+.gather-dig-bar {
+  display: block;
+  height: var(--space-1);
+  margin-bottom: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-border);
+}
+.gather-dig-bar[hidden] {
+  display: none;
+}
+.gather-dig-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--color-primary);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: gather-dig linear both;
+}
+@keyframes gather-dig {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+/* 아래 판의 막대(이번 캐기·화물) — 이름 줄과 막대 */
+.gather-meters {
+  display: grid;
+  gap: var(--space-2);
+}
+.gather-meter {
+  display: grid;
+  gap: var(--space-1);
+}
+.gather-meter-label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.gather-meter .gather-dig-bar {
+  height: var(--space-2);
+  margin-bottom: 0;
+}
+.gather-cargo-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--color-primary);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--duration-base) ease-out;
+}
 
 /* 아래 판: 채집 줄·안내·오브젝트·건물 판 */
 .gather-panel {

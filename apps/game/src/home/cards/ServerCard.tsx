@@ -1,4 +1,5 @@
-// 서버 카드 4장(내 사이보그·보유 유닛·자산·세력) — dashboard.cards의 상태를 그린다(ADR 2026-10-29-app-shell 6절).
+// 서버 카드(내 사이보그·보유 유닛·세력) — dashboard.cards의 상태를 그린다(ADR 2026-10-29-app-shell 6절). 자산 카드는 경제 원장 잔고로 그린다
+// (AssetsCard.tsx, docs/adr/2026-11-14-inventory-screen.md).
 // 지금은 그 시스템이 없어 늘 not_ready("준비 중")다. 숫자는 그리지 않는다(가짜 숫자 없음, 시안 자료에서도 준비 중 — 사용자 결정 2).
 // 빈 문구는 "무엇이 언제 보일지"만 말한다. 세력 카드는 잠그지 않는다(머리 링크로 세력 화면에 간다).
 // ready 자료 모양은 그 시스템이 정한다(지금 ServerCardData는 모두 never). 그때 이 파일에 그 카드의 몸을 더한다.
@@ -42,10 +43,6 @@ export function CyborgCardBody({ data }: CardBodyProps) {
 
 export function UnitsCardBody({ data }: CardBodyProps) {
   return <ServerCardBody id="units" data={data} />;
-}
-
-export function AssetsCardBody({ data }: CardBodyProps) {
-  return <ServerCardBody id="assets" data={data} />;
 }
 
 export function FactionCardBody({ data }: CardBodyProps) {

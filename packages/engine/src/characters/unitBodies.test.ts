@@ -37,7 +37,7 @@ describe("사람꼴이 아닌 유닛 몸", () => {
       expect(groups.has(group)).toBe(true);
     const compiled = compileCharacter(beast);
     const out = new Float32Array(6 * 16);
-    writeGroupMatrices(out, compiled.pivots, { swing: 0.5, bob: 0 });
+    writeGroupMatrices(out, compiled.pivots, { swing: 0.5, bob: 0, chop: 0 });
     // 왼앞다리(armL)와 왼뒷다리(legL)는 반대쪽으로 돈다(x축 돌림의 sin 칸 부호가 다르다)
     expect(Math.sign(out[GROUP.armL * 16 + 6] ?? 0)).toBe(-Math.sign(out[GROUP.legL * 16 + 6] ?? 0));
   });

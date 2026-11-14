@@ -17,12 +17,12 @@ import { getLocale } from "../paraglide/runtime.js";
 import { resolveMarketColors } from "../settings/marketColors.ts";
 import { useSettings } from "../settings/settings.ts";
 import { BackButton } from "../shell/BackButton.tsx";
+import { navigate } from "../shell/routerStore.ts";
 import { itemName, indexCatalog } from "./economyText.ts";
 import { NO_ARGS, useCatalog } from "./queries.ts";
 import "./economy.css";
 
 const OverviewView = lazy(() => import("./OverviewView.tsx"));
-const WarehouseView = lazy(() => import("./WarehouseView.tsx"));
 const ProductionView = lazy(() => import("./ProductionView.tsx"));
 const ExchangeView = lazy(() => import("./ExchangeView.tsx"));
 const OrdersView = lazy(() => import("./OrdersView.tsx"));
@@ -59,7 +59,6 @@ interface Tab {
 
 const TABS: readonly Tab[] = [
   { target: { route: "economy" }, label: m.economy_tab_overview, owns: ["economy"] },
-  { target: { route: "economy_warehouse" }, label: m.economy_tab_warehouse, owns: ["economy_warehouse"] },
   { target: { route: "economy_production" }, label: m.economy_tab_production, owns: ["economy_production"] },
   {
     target: { route: "economy_market" },
@@ -107,12 +106,21 @@ function EconomyTabs({ current }: { current: string }) {
   );
 }
 
+/** 옛 창고 칸 → 인벤토리 [창고별](주소 바꾸기 — 뒤로 가기에 옛 주소가 남지 않게) */
+function MovedToInventory() {
+  useEffect(() => {
+    navigate({ route: "inventory", search: { tab: "warehouses" } }, { replace: true });
+  }, []);
+  return null;
+}
+
 function SectionBody({ match }: { match: EconomyRoute }) {
   switch (match.id) {
     case "economy":
       return <OverviewView />;
     case "economy_warehouse":
-      return <WarehouseView />;
+      // 옛 창고 칸 주소: 인벤토리 [창고별]로 바꿔 연다(docs/adr/2026-11-14-inventory-screen.md)
+      return <MovedToInventory />;
     case "economy_production":
       return <ProductionView />;
     case "economy_market":

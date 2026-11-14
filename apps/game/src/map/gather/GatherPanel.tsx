@@ -33,6 +33,7 @@ import type { GatherState } from "./gatherState.ts";
 import { StationPanel } from "./StationPanel.tsx";
 import { DockBoatButton } from "../boats/BoatActions.tsx";
 import { boatGatherOf } from "../boats/boatText.ts";
+import { GatherMeters } from "./GatherMeters.tsx";
 import "./gather.css";
 
 /** 명령 안내를 지우기까지(ms) */
@@ -206,6 +207,7 @@ export function GatherPanel({
           <p>
             {unitLabel(loop.unitId)} · {loopText(loop)}
           </p>
+          {loop.phase !== "done" ? <GatherMeters loop={loop} now={now} /> : null}
           {loop.phase !== "done" && loop.deposit ? (
             <p className="gather-muted">{depositText(loop.deposit)}</p>
           ) : null}

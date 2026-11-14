@@ -3,7 +3,7 @@
 // 맡는다. 시험은 이 도우미로 연다.
 import { type Locator, type Page, expect } from "@playwright/test";
 
-export type MapNavTab = "planet" | "units" | "city" | "nearby";
+export type MapNavTab = "planet" | "units" | "city" | "bag" | "nearby";
 
 /** 아래 탭 단추 */
 export function navButton(page: Page, tab: MapNavTab): Locator {

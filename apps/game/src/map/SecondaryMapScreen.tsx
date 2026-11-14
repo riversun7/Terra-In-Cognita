@@ -56,6 +56,7 @@ import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
 import { CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
 import { MapBottomNav, type MapNavTab } from "./MapBottomNav.tsx";
+import { BagSheet } from "./BagSheet.tsx";
 import { OperatorMenuButton, OperatorMenuPanel, PerfToggle, useOperatorMenu } from "./OperatorMenu.tsx";
 import { CitySheet } from "./city/CitySheet.tsx";
 import { useBuildingLook } from "./useBuildingLook.ts";
@@ -256,8 +257,19 @@ function SecondMapView({
   }, [ownUnitId, engineRef]);
   // 아래 판 자리 하나: 건물·오브젝트 판 > 내 유닛 목록([내 유닛 N], 문제2) > 근처 판(문제4)
   // 남의 유닛 정보 판(peek)도 이 자리 — 땅을 누르면 닫는다(엔진 콜백은 늘 같은 closePeek를 쓴다)
-  const { sheet, peek, openUnits, closeUnits, openCity, closeCity, openNearby, openPeek, closePeek } =
-    useBottomSheet(gather, nearby);
+  const {
+    sheet,
+    peek,
+    openUnits,
+    closeUnits,
+    openCity,
+    closeCity,
+    openBag,
+    closeBag,
+    openNearby,
+    openPeek,
+    closePeek,
+  } = useBottomSheet(gather, nearby);
   // 고른 유닛 따라가기(내 유닛·운영자 모드)와 2차맵 확대 단계(사다리, 엔진이 바뀔 때 알린다)
   const [zoomStage, setZoomStage] = useState(0);
   // 지도에서 누른 유닛 — 유닛을 누를 때와 지도자 이름표를 누를 때 같다. 내 유닛이면 고르고 기준 유닛이 된다(chooseAnchor).
@@ -539,7 +551,7 @@ function SecondMapView({
 
   // 아래 탭: 열린 탭(판 자리 하나 — 근처 판은 탭을 골라 둔 동안만 열린 것으로 친다), 다시 누르면 닫는다
   const navActive: MapNavTab | null =
-    sheet === "units" || sheet === "city"
+    sheet === "units" || sheet === "city" || sheet === "bag"
       ? sheet
       : sheet === "nearby" && nearbyTab !== null
         ? "nearby"
@@ -551,6 +563,9 @@ function SecondMapView({
     } else if (tab === "city") {
       if (navActive === "city") closeCity();
       else openCity();
+    } else if (tab === "bag") {
+      if (navActive === "bag") closeBag();
+      else openBag();
     } else if (navActive === "nearby") nearby.setTab(null);
     else openNearby();
   };
@@ -690,6 +705,7 @@ function SecondMapView({
             onClose={closeUnits}
           />
         ) : null}
+        {sheet === "bag" ? <BagSheet unitId={shown} mine={mine !== undefined} onClose={closeBag} /> : null}
         {sheet === "nearby" ? (
           <NearbyPanel
             nearby={nearby}

@@ -91,6 +91,8 @@ interface Action {
   phase: GatherPhase;
   motion: Motion | null;
   checkAtMs: number | null;
+  /** 지금 단계를 시작한 시각(캐는 중 진행바 — 보기 값) */
+  phaseAtMs: number | null;
   seq: number;
   deposit: Deposit | null;
   /** 넣을 때 건너뛸 넣는 곳(가득 찬 창고) */
@@ -208,6 +210,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     depositedUnits: action.depositedUnits,
     efficiencyPm: gatherEfficiencyPm(deps.rules().gatherObjects, action.campLevel),
     nextAt: action.checkAtMs,
+    phaseAt: action.phaseAtMs,
     stop: action.stop,
     enterResult: action.enterResult,
     updatedAt: action.updatedAt,
@@ -249,6 +252,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     action.motion = null;
     action.checkAtMs = null;
     action.updatedAt = now();
+    action.phaseAtMs = now();
     const where = unitAt(action);
     if (!where) {
       finish(action, "interrupted");
@@ -463,6 +467,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     action.phase = "gathering";
     action.motion = where.info.motion;
     action.updatedAt = now();
+    action.phaseAtMs = now();
     schedule(action, now() + duration);
   };
 
@@ -700,6 +705,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     phase: kind === "gather" ? "to_object" : "entering",
     motion: null,
     checkAtMs: null,
+    phaseAtMs: null,
     seq: 0,
     deposit: null,
     skip: new Set(),

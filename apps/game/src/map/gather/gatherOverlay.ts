@@ -22,6 +22,7 @@ import type { NearbyState } from "../nearby/nearbyState.ts";
 import { getLocale } from "../../paraglide/runtime.js";
 import { groupOf } from "../city/cityRows.ts";
 import { kgText, nameText, phaseText } from "./gatherData.ts";
+import { type DigProgress, digProgress } from "./gatherProgress.ts";
 import { type GatherObjectEntry, type GatherSheet, type GatherState, livePoint } from "./gatherState.ts";
 import { createStationRing } from "./stationRing.ts";
 
@@ -68,8 +69,23 @@ export function pickHit(hits: readonly Hit[], point: { readonly x: number; reado
 
 interface Chip {
   readonly root: HTMLElement;
+  readonly label: HTMLElement;
+  /** 캐는 중 진행바(막대 틀·채움) — 이번 캐기 표지가 바뀔 때만 다시 움직인다 */
+  readonly bar: HTMLElement;
+  readonly fill: HTMLElement;
   text: string;
   transform: string;
+  digKey: string;
+}
+
+/** 진행바 채움을 0 → 1로 이번 캐기 전체 시간 동안 움직이되, 지난 시간만큼 앞에서 시작한다(CSS 움직임 — 엔진 프레임을 깨우지 않는다) */
+function startDigFill(fill: HTMLElement, progress: DigProgress): void {
+  fill.style.animationDuration = `${Math.round(progress.totalMs)}ms`;
+  fill.style.animationDelay = `${-Math.round(progress.elapsedMs)}ms`;
+  // 같은 이름의 움직임을 처음부터 다시: 이름을 뗐다 붙인다(그 사이 스타일을 한 번 읽어 반영)
+  fill.style.animationName = "none";
+  void fill.offsetWidth;
+  fill.style.animationName = "";
 }
 
 /** 아이템 ID(+ 맡는 시설) → 표시 무리(색): 원목·돌·광석·약초·밭·목초지·물터 */
@@ -119,7 +135,7 @@ function pickOnScreen<T>(
 }
 
 export function attachGatherOverlay(
-  engine: Pick<SecondMapEngine, "addLayer" | "requestFrame" | "unitState">,
+  engine: Pick<SecondMapEngine, "addLayer" | "requestFrame" | "unitState" | "setWorkingUnits">,
   host: HTMLElement,
   state: GatherState,
   options: {
@@ -176,8 +192,17 @@ export function attachGatherOverlay(
     chip.className = "gather-chip";
     chip.hidden = true;
     chip.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.className = "gather-chip-text";
+    const bar = document.createElement("span");
+    bar.className = "gather-dig-bar";
+    bar.hidden = true;
+    const fill = document.createElement("span");
+    fill.className = "gather-dig-fill";
+    bar.append(fill);
+    chip.append(label, bar);
     root.append(chip);
-    chips.push({ root: chip, text: "", transform: "" });
+    chips.push({ root: chip, label, bar, fill, text: "", transform: "", digKey: "" });
   }
 
   const placeMarkers = (view: EngineLayerView): number => {
@@ -287,8 +312,17 @@ export function attachGatherOverlay(
             });
       if (chip.text !== text) {
         chip.text = text;
-        chip.root.textContent = text;
+        chip.label.textContent = text;
         chip.root.dataset.phase = loop.phase;
+      }
+      // 캐는 중이면 이번 캐기 진행바(서버 시각 기준)
+      const dig = digProgress(loop, options.serverNow());
+      const digKey = dig?.key ?? "";
+      if (chip.digKey !== digKey) {
+        chip.digKey = digKey;
+        chip.bar.hidden = dig === null;
+        chip.root.dataset.dig = dig ? "on" : "off";
+        if (dig) startDigFill(chip.fill, dig);
       }
       const transform = `translate(${Math.round(point.x)}px, ${Math.round(point.y)}px) translate(-50%, -100%)`;
       if (chip.transform !== transform) {
@@ -316,12 +350,25 @@ export function attachGatherOverlay(
     },
   };
   const detach = engine.addLayer(layer);
+  // 캐는 중인 내 유닛은 엔진이 휘두르기 자세로 그린다(사용자 요청 2026-11-14 "채집 모션추가"). 같은 목록이면 다시 넘기지 않는다
+  let workingKey = "";
+  const syncWorking = (): void => {
+    const ids = state.loops
+      .filter((loop) => loop.mapKey === options.mapKey && loop.phase === "gathering")
+      .map((loop) => loop.unitId);
+    const key = ids.join(",");
+    if (key === workingKey) return;
+    workingKey = key;
+    engine.setWorkingUnits(ids);
+  };
   // 자료·판이 바뀌면 한 번 더 그린다(카메라가 멈춰 있어도 표시가 바뀌게)
   const redraw = (): void => {
     for (const marker of markers) marker.key = "";
     tagKey = "";
+    syncWorking();
     engine.requestFrame();
   };
+  syncWorking();
   const unsubscribe = state.subscribe(redraw);
   // 근처 판 탭·줄 수·기준 유닛이 바뀌면 표시를 다시 고른다
   const unsubscribeNearby = nearby.subscribe(redraw);
@@ -329,6 +376,7 @@ export function attachGatherOverlay(
     unsubscribe();
     unsubscribeNearby();
     detach();
+    engine.setWorkingUnits([]);
     root.remove();
   };
 }

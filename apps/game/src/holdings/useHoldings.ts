@@ -15,7 +15,7 @@ import { type ItemCommand, type ItemCommandOutcome, sendItemCommand } from "./it
 import { nextDeadline } from "./holdingsModel.ts";
 import { failureNeedsReload, failureText, holdingName } from "./holdingsText.ts";
 
-const loadHoldings = (_preview: boolean, signal: AbortSignal): Promise<HoldingsListResponse> =>
+export const loadHoldings = (_preview: boolean, signal: AbortSignal): Promise<HoldingsListResponse> =>
   api.holdings.list.query(undefined, { signal });
 
 /** 서버 시각(ms) */

@@ -66,13 +66,19 @@ export function compileCharacter(model: CharacterModel): CompiledCharacter {
   };
 }
 
-/** 자세: 다리 흔들림(라디안, 왼다리 앞이 +)·몸 위아래(m) */
+/**
+ * 자세: 다리 흔들림(라디안, 왼다리 앞이 +)·몸 위아래(m)·일하는 팔(라디안, 0이면 내림 — 채집 휘두르기, 사용자 요청 2026-11-14
+ * "채집 모션추가". 오른팔이 이만큼 앞으로 들리고 왼팔은 조금 덜 — 두 손으로 연장을 쥔 모양)
+ */
 export interface CharacterPose {
   readonly swing: number;
   readonly bob: number;
+  readonly chop: number;
 }
 
-export const REST_POSE: CharacterPose = { swing: 0, bob: 0 };
+export const REST_POSE: CharacterPose = { swing: 0, bob: 0, chop: 0 };
+/** 일하는 팔: 왼팔은 오른팔의 이 몫만큼 든다 */
+const CHOP_LEFT = 0.6;
 /** 팔은 다리와 반대로, 조금 덜 흔든다 */
 const ARM_SWING = 0.8;
 
@@ -106,8 +112,8 @@ export function writeGroupMatrices(out: Float32Array, pivots: ArrayLike<number>,
     // 걷기: 왼다리가 앞으로 나가면(x축 −쪽 돌림 = 발이 +z로) 오른팔이 앞으로
     if (group === GROUP.legL) angle = -pose.swing;
     else if (group === GROUP.legR) angle = pose.swing;
-    else if (group === GROUP.armL) angle = pose.swing * ARM_SWING;
-    else if (group === GROUP.armR) angle = -pose.swing * ARM_SWING;
+    else if (group === GROUP.armL) angle = pose.swing * ARM_SWING - pose.chop * CHOP_LEFT;
+    else if (group === GROUP.armR) angle = -pose.swing * ARM_SWING - pose.chop;
     writeSwing(out, group * 16, angle, pivots[group * 3 + 1] ?? 0, pivots[group * 3 + 2] ?? 0, pose.bob);
   }
 }

@@ -127,6 +127,11 @@ export interface GatherLoopView {
   readonly efficiencyPm: number;
   /** 다음 단계 시각(서버 ms, 모르면 null) */
   readonly nextAt: number | null;
+  /**
+   * 지금 단계를 시작한 시각(서버 ms, 모르면 null). 캐는 중이면 [phaseAt, nextAt]이 이번 한 번 캐기 — 화면 진행바
+   * (사용자 요청 2026-11-14 "채집시 진행바 ui표시"). 옛 서버는 보내지 않는다(없으면 진행바 없음)
+   */
+  readonly phaseAt?: number | null;
   readonly stop: GatherStop | null;
   readonly enterResult: GatherEnterResult | null;
   readonly updatedAt: number;

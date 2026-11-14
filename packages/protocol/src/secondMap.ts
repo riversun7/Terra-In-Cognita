@@ -26,7 +26,7 @@ export const MAX_UNIT_SPEED = 0x10_0000;
 export const MAX_PATH_PACE = 0xffff;
 /**
  * 구간 빠르기(unitMotionSchema pace, docs/adr/2026-11-14-segment-speed.md, 기획 D-541)가 실린 가장 낮은 프로토콜 버전.
- * 이보다 낮은 기기는 pace를 버리고 경로 전체를 같은 빠르기로 보간해 위치가 어긋난다 → 받는 가장 낮은 판을 이 값으로 올렸다(version.ts)
+ * 이보다 낮은 기기(28)는 pace를 버리고 경로 전체를 같은 빠르기로 보간해 위치가 어긋난다(판정은 서버 — version.ts 29)
  */
 export const SEGMENT_SPEED_PROTOCOL_VERSION = 29;
 /** 건물 한 변의 상한(칸, S1 임시값) */

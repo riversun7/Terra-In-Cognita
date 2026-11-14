@@ -39,10 +39,20 @@ export const UNIT_KIND_GUARDIAN = 6;
  */
 export const UNIT_KIND_NPC_LEADER = 7;
 /**
- * 배(docs/adr/2026-11-13-boats.md 1절, 기획 D-540): 부두에서 만든 물 위 유닛. 영역 sea, 크기 등급 2, 빠르기 = 설정 칸 boat_speed(만들 때 값). 물 격자로만
- * 다니고 유닛을 태운다(승객 = world_units.aboard_id). 사람이 아니라 보유 유닛 수·유지비·직무에 넣지 않는다
+ * 배(docs/adr/2026-11-13-boats.md 1절, 기획 D-540): 부두에서 만든 물 위 유닛. 영역 sea, 크기 등급 2, 빠르기 = 설정 칸 boat_speed(이동을 시작할 때 읽는다 —
+ * D-541 1272). 물 격자로만 다니고 유닛을 태운다(승객 = world_units.aboard_id). 직무는 없고 유지비는 설정 칸 boat_upkeep_pm(D-541 1277 다)
  */
 export const UNIT_KIND_BOAT = 8;
+
+/**
+ * 물 위에 있나: 배이거나 배에 탄 유닛(승객). B1·B2에서는 전투에서 뺀다(기획 D-541 1278 가 — 해상 전투는 따로 정한다, 승객도 땅 전투에 닿지 않는다).
+ * docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"
+ */
+export function isAfloat(
+  info: { readonly kind: number; readonly aboard?: number | undefined } | undefined,
+): boolean {
+  return info !== undefined && (info.kind === UNIT_KIND_BOAT || info.aboard !== undefined);
+}
 
 /**
  * 탈것으로 보이는 기본 빠르기(고정소수점 단위/초): 걷기(437 = 약 0.43칸/초)와 차(4,813 = 약 4.8칸/초) 사이, 2칸/초. 유닛의 기본 빠르기(UnitState.speed)로

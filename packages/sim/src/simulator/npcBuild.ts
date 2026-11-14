@@ -219,6 +219,28 @@ export function withLevelSupply(
 }
 
 /**
+ * 레벨 재료 가공 시설을 목표에 넣을 때인가(질문 1291 나, 기획 D-541): 도시 건물 수(상한에 세는 것)가 상한 − lead에 닿았을 때만 —
+ * 초반 짓기는 그대로 두고 상한 바로 전에 세운다(제재소가 레벨 1 짓기 재료인 통나무를 먹어 초반 새 건물이 줄던 것). 거리는 1 이상(상한에서는
+ * 새로 짓지 않으므로 0이면 영영 들지 않는다)이고, 아직 짓지 않은 가공 시설 수(missing)보다 짧지 않다(lead 1이면 제재소만 서고 가마 자리가
+ * 없어 레벨 2 재료가 반쪽이 된다 — 시험으로 확인)
+ */
+export function levelSupplyDue(buildings: number, cap: number, lead: number, missing = 0): boolean {
+  return buildings >= cap - Math.max(1, Math.trunc(lead), Math.trunc(missing));
+}
+
+/** 그 도시에 아직 모자란 레벨 재료 가공 시설 수(시설마다 supply − 지은 수, 0 아래는 0) */
+export function levelSupplyMissing(
+  counts: ReadonlyMap<string, number>,
+  supply: number,
+  facilities: ReadonlyMap<string, RecipeSpec>,
+): number {
+  const n = Math.max(0, Math.trunc(supply));
+  let missing = 0;
+  for (const facility of facilities.keys()) missing += Math.max(0, n - (counts.get(facility) ?? 0));
+  return missing;
+}
+
+/**
  * 증축 판단(세력 판단마다, 구인 규칙식 다음): 다 지은 것을 생산에 넣고, 도시마다(ID 차례) 짓는 중이 아니면 지을 것을 골라 재료가 있으면 짓고,
  * 없으면 재료를 도시 목표 재고에 넣는다
  */
@@ -300,10 +322,21 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
           foodPm: ctx.hooks?.foodPmOf?.(cityId) ?? 1000,
           counts: site.counts,
           gatherPm: gatherPmOf(economy, cityId, options),
-          // 나라 성격 목표(1142 다) + 레벨 재료 가공 시설(1186 나 — 상한 뒤에도 레벨 올리기로 자라게)
+          // 나라 성격 목표(1142 다) + 레벨 재료 가공 시설(1186 나 — 상한 뒤에도 레벨 올리기로 자라게, 1291 나 — 상한 − lead부터)
           targets: withLevelSupply(
             run.targetsOf?.(faction, cityId),
-            c.npc.buildLevelSupply ?? 0,
+            levelSupplyDue(
+              countedBuildings(site.counts, stageOf),
+              cap,
+              c.npc.buildLevelSupplyLead ?? 2,
+              levelSupplyMissing(
+                site.counts,
+                c.npc.buildLevelSupply ?? 0,
+                levelSupplyFacilities(economy.catalog),
+              ),
+            )
+              ? (c.npc.buildLevelSupply ?? 0)
+              : 0,
             levelSupplyFacilities(economy.catalog),
             (asset) => produced.has(asset) || world.book.balanceOf(faction.id, asset, cityId) > 0n,
           ),

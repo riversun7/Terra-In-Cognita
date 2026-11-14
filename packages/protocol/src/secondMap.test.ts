@@ -163,7 +163,7 @@ describe("2차맵 서버 → 기기 메시지", () => {
     expect(serverOk(pathsWith({ ...paced, pace: [1800, 0] }))).toBe(false);
     expect(serverOk(pathsWith({ ...paced, pace: [1800, 70_000] }))).toBe(false);
     expect(serverOk(pathsWith({ ...paced, pace: [1800, 1.5] }))).toBe(false);
-    // 28판 정의(배율 칸 없음)로 읽으면 칸을 버린다 — 그래서 받는 가장 낮은 판을 29로 올렸다
+    // 28판 정의(배율 칸 없음)로 읽으면 칸을 버린다(28판 기기는 같은 빠르기로 보간한다)
     const legacy = unitMotionSchema.omit({ pace: true });
     expect(legacy.parse(paced)).not.toHaveProperty("pace");
   });

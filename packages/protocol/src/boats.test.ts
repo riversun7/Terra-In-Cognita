@@ -1,6 +1,7 @@
 // 배 메시지 스키마 시험(프로토콜 27, docs/adr/2026-11-13-boats.md) — 왕복, 값 모양, 결과 코드, 판
 import { describe, expect, it } from "vitest";
 import {
+  BOAT_B2_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
   BOAT_RESULT_CODES,
   MIN_SUPPORTED_PROTOCOL_VERSION,
@@ -24,10 +25,10 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
 }
 
 describe("배 메시지(프로토콜 27)", () => {
-  it("판: 27부터, 받는 가장 낮은 판 26", () => {
+  it("판: 27부터, 받는 가장 낮은 판 = 현재 − 1", () => {
     expect(BOAT_PROTOCOL_VERSION).toBe(27);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(BOAT_PROTOCOL_VERSION);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBeGreaterThanOrEqual(PROTOCOL_VERSION - 1);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
   });
 
   it("만들기·타기·내리기가 왕복하고 값 모양을 본다", () => {
@@ -51,6 +52,22 @@ describe("배 메시지(프로토콜 27)", () => {
       expect(decodeServerMessage(encodeMessage(failed))).toEqual(failed);
     }
     expect(decodes(decodeServerMessage, { t: "boat_result", id: 3, ok: false, code: "nope" })).toBe(false);
+  });
+
+  it("B2(28): 만드는 중 readyAtMs·dock_busy", () => {
+    expect(BOAT_B2_PROTOCOL_VERSION).toBe(28);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(BOAT_B2_PROTOCOL_VERSION);
+    const started = { t: "boat_result", id: 4, ok: true, readyAtMs: 1_800_000_000_000 } as const;
+    expect(decodeServerMessage(encodeMessage(started))).toEqual(started);
+    const busy = {
+      t: "boat_result",
+      id: 5,
+      ok: false,
+      code: "dock_busy",
+      readyAtMs: 1_800_000_000_000,
+    } as const;
+    expect(decodeServerMessage(encodeMessage(busy))).toEqual(busy);
+    expect(decodes(decodeServerMessage, { ...started, readyAtMs: -1 })).toBe(false);
   });
 
   it("이동 결과 코드 aboard, 표시 종류 boat", () => {

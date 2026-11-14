@@ -28,7 +28,7 @@ describe("국적 바꾸기 메시지(프로토콜 18·19)", () => {
     expect(NATURALIZE_TERMS_PROTOCOL_VERSION).toBe(19);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(NATURALIZE_TERMS_PROTOCOL_VERSION);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(CITIZENSHIP_PROTOCOL_VERSION);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBeGreaterThanOrEqual(PROTOCOL_VERSION - 1);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
   });
 
   it("신청이 왕복하고 값 모양을 본다", () => {

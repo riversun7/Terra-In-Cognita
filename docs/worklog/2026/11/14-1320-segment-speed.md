@@ -2,12 +2,12 @@
 
 - 일시: 2026-11-14 13:20 (KST)
 - 작업 도구: Claude Code
-- 관련: 기획 D-541(질문 1317 나)·D-5052, ADR `docs/adr/2026-11-14-segment-speed.md`(새), 질문 `docs/questions/2026-11-14-segment-speed.md`(1341~1344), 줄기 `work/segment-speed`(바탕 a85a874), SIM_VERSION 39, 프로토콜 29(받는 가장 낮은 판 29), 팩 그대로
+- 관련: 기획 D-541(질문 1317 나)·D-5052, ADR `docs/adr/2026-11-14-segment-speed.md`(새), 질문 `docs/questions/2026-11-14-segment-speed.md`(1341~1344), 줄기 `work/segment-speed`(바탕 a85a874), SIM_VERSION 39, 프로토콜 29(받는 가장 낮은 판 28), 팩 그대로
 
 ## 한 일
 - 판정(`packages/sim`): 움직임에 구간마다 걸음 배율(‰) `paces`. 도착 = 출발 + ⌈Σ 길이 × 배율 ÷ 속도⌉, 지난 거리도 같은 시간 거리로(배율이 없으면 옛 식과 비트까지 같다). 칸 배율(`path/pace.ts`) = 지형 비용(숲·얕은 물·느려짐 소품·흙·바위 포함), 도로 칸 = max(1000, ⌈1000 × 기본 ÷ 도로 최고 속도⌉)([임시] 도로 최고 속도, 지금 도로 없음). `planRoute(paceSpeed)`가 방향·배율이 바뀌는 칸에 점을 남기고 배율을 돌려준다. 시야용 자른 움직임(`truncateMotion`)이 배율을 이어 받는다.
 - 서버: 경로 워커 요청에 `paceSpeed`(땅 유닛의 기본 빠르기 — 운영자·2차맵 사이 배수는 곱하기 전 값), 결과에 `paces`(transfer). 배(물 길)는 배율 없음. `world_units.pace integer[]`(마이그레이션 `20261114035833_segment_pace`, 더하기만), 복구는 길이가 틀리면 배율 없이. 전송 `unit_paths`/스냅샷 항목에 `pace`. 2차맵 사이 이동 가는 중 예상 = 지금 다리의 실제 도착 + 남은 곧은 거리.
-- 프로토콜 29: `unitMotionSchema.pace`(선택, 1 ~ 65,535, 메시지 배열에서 길이 확인). 받는 가장 낮은 판을 29로 올렸다(28 이하 기기는 배율을 버리고 위치를 틀리게 그린다 — version.ts·ADR 5절).
+- 프로토콜 29: `unitMotionSchema.pace`(선택, 1 ~ 65,535, 메시지 배열에서 길이 확인). 받는 가장 낮은 판은 원칙대로 28(28판 기기는 배율을 버리고 같은 빠르기로 보간해 표시 위치가 어긋난다 — version.ts·ADR 5절). 처음엔 29로 올렸다가 합치기 지시로 되돌렸다.
 - 기기: 엔진 `UnitMotionStore`가 점마다 누적 시간 거리를 두고 보간, `travelled`는 실제 길이. `@terra/shared/pathProgress`(표시용) — `unitMerge` 방향·`unitBlend` 새 경로 잇기가 배율을 따른다. `mapWire.toUnitPath`가 배율을 넘긴다.
 - 측정 스크립트 `pnpm --filter @terra/server bench:second-map 9 4 pace`(`bench/segmentSpeed.ts`).
 
@@ -40,7 +40,7 @@
 | `packages/sim/src/path/waypoints.ts`, `.test.ts` | `planRoute paceSpeed`, 배율이 바뀌는 칸에 점 |
 | `packages/sim/src/vision/vision.ts`, `.test.ts` | `truncateMotion`이 배율을 이어 받음 |
 | `packages/sim/src/index.ts`, `version.ts` | 내보내기(`export *` 둘로 줄임), SIM_VERSION 39 |
-| `packages/protocol/src/secondMap.ts`, `version.ts`, `index.ts`, 시험 여럿 | `pace` 칸·길이 확인, 프로토콜 29·받는 가장 낮은 판 29(직전 판 시험을 `≥ 현재 − 1`로) |
+| `packages/protocol/src/secondMap.ts`, `version.ts`, `index.ts`, `secondMap.test.ts` | `pace` 칸·길이 확인, 프로토콜 29·받는 가장 낮은 판 28 |
 | `apps/server/src/world/pathMessages.ts`, `pathReplica.ts`, `pathService.ts`, `pathPool.ts`, `pathWorker.ts` | 경로 워커 `paceSpeed`·`paces` |
 | `apps/server/src/world/secondMap.ts` | 길 요청에 기본 빠르기, 움직임에 배율, 복구는 `motionOfRow` |
 | `apps/server/src/world/secondMapRows.ts`, `.test.ts`(새) | 행 `pace`, `motionOfRow`, `unitColumnsOf`(world.ts에서 나눔 — 1,000줄 상한) |

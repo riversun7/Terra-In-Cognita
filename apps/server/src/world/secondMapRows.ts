@@ -42,6 +42,12 @@ export interface UnitRow {
   aboardId?: number | null | undefined;
 }
 
+/**
+ * 2차맵 사이로 넘기는 한 줄: 배는 승객 줄을 riders로 데리고 넘는다(기획 D-541 1283 나, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)").
+ * riders는 저장하지 않는다(승객마다 자기 줄 — aboardId = 배)
+ */
+export type TransferRow = UnitRow & { readonly riders?: readonly UnitRow[] | undefined };
+
 /** 저장하는 건물 한 줄(world_buildings) */
 export interface BuildingRow {
   id: number;

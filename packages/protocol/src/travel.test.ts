@@ -26,7 +26,7 @@ describe("2차맵 사이 이동 메시지(프로토콜 16)", () => {
   it("판: 이 메시지는 16부터, 받는 가장 낮은 판 = 현재 − 1(현재 + 직전 하나)", () => {
     expect(TRAVEL_PROTOCOL_VERSION).toBe(16);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(16);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBeGreaterThanOrEqual(PROTOCOL_VERSION - 1);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
     expect(TRAVEL_KINDS).toEqual(["move", "scout"]);
   });
 

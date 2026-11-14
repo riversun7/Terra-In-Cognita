@@ -269,4 +269,16 @@ describe("원자재 오브젝트 굴림표·사다리 굴림", () => {
       ["gather_ladder_facility", "ladder"],
     ]);
   });
+
+  it("티어 범위(질문 1307 나): 사다리 굴림과 함께 아래 ≤ 위면 통과, 아니면 오류", () => {
+    const ladder = { ladder: true, facility: "fishing_spot" };
+    expect(checkObject({ ...ladder, tierRange: { min: 2, max: 6 } })).toEqual([]);
+    expect(checkObject({ ...ladder, tierRange: { min: 4, max: 4 } })).toEqual([]);
+    expect(checkObject({ ...ladder, tierRange: { min: 6, max: 2 } })).toEqual([
+      ["gather_tier_range_order", "tierRange"],
+    ]);
+    expect(checkObject({ tierRange: { min: 0, max: 2 } })).toEqual([
+      ["gather_tier_range_ladder", "tierRange"],
+    ]);
+  });
 });

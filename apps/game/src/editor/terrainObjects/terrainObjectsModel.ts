@@ -5,6 +5,8 @@
 //   school = 2차맵 하나의 어군 수(count 1 ~ 32).
 // - 느림 배율(map_props slowPm, 기획 D-540 질문 1223 나): 지나갈 수 있는 마른 칸 흩기 소품(엄폐 0·1)에 둔다. 1001 ~ 5000‰, 비우면 없음.
 //   있으면 줄 종류가 "느려짐"이다. 모든 지형에 같이 든다(바이옴마다가 아니라 항목 칸).
+// - 티어 범위(gather_objects tierRange, 기획 D-541 질문 1307 나): 사다리 굴림(ladder) 오브젝트(어군)의 뽑을 티어 범위 T0 ~ T9. 서버가 범위 밖
+//   티어를 범위 안으로 접는다. 아래·위 하나를 고치면 다른 끝을 밀어 아래 ≤ 위를 지킨다. 모든 지형에 같이 든다(항목 칸).
 // - 공통 채집 오브젝트(prop·rock·plot·outcrop)는 바이옴 표가 없어(소품 그림·지표·광석 몫을 따른다) 이 화면에서 고치지 않는다.
 // - from = 팩 항목 정규 JSON(키 차례 정렬)의 SHA-256(@terra/content/node hashEntry와 같은 셈) — 적용 스크립트가 팩이 그 사이 바뀌었는지 본다.
 
@@ -14,6 +16,9 @@ export type TerrainRowKind = "decor" | "slow" | "cover" | "water" | "site" | "sc
 
 /** 느림 배율 범위(천분율, 팩 스키마 packages/content mapProps slowPm과 같다) */
 export const SLOW_RANGE = { min: 1001, max: 5000 } as const;
+
+/** 티어 범위 끝(팩 스키마 packages/content gatherObjects tierRange와 같다 — T0 ~ T9) */
+export const TIER_RANGE = { min: 0, max: 9 } as const;
 
 export type JsonEntry = Readonly<Record<string, unknown>>;
 
@@ -34,6 +39,8 @@ export interface TerrainRow {
   readonly slowPm: number | null;
   /** 느림 배율을 둘 수 있는 항목인가(마른 칸 흩기 소품, 엄폐 0·1) */
   readonly slowEditable: boolean;
+  /** 티어 범위(사다리 굴림 오브젝트만, 없으면 null — 범위 없음은 T0 ~ T9로 보인다) */
+  readonly tierRange: { readonly min: number; readonly max: number } | null;
 }
 
 /** 양 범위(분류·종류마다) */
@@ -83,6 +90,19 @@ function slowOf(entry: JsonEntry): number | null {
   return typeof entry.slowPm === "number" ? entry.slowPm : null;
 }
 
+/** 티어 범위를 둘 수 있는 항목(사다리 굴림 채집 오브젝트) */
+function tierEditableOf(category: TerrainCategory, entry: JsonEntry): boolean {
+  return category === "gather_objects" && entry.ladder === true;
+}
+
+/** 항목의 티어 범위(칸이 없으면 T0 ~ T9) */
+function tierRangeOf(entry: JsonEntry): { min: number; max: number } {
+  const range = entry.tierRange;
+  if (isRecord(range) && typeof range.min === "number" && typeof range.max === "number")
+    return { min: range.min, max: range.max };
+  return { min: TIER_RANGE.min, max: TIER_RANGE.max };
+}
+
 function rowKind(category: TerrainCategory, entry: JsonEntry): TerrainRowKind {
   if (category === "gather_objects") return entry.source === "school" ? "school" : "site";
   if (entry.water === true) return "water";
@@ -101,6 +121,7 @@ function rowOf(category: TerrainCategory, entry: JsonEntry, amount: number): Ter
     amount,
     slowPm: slowEditableOf(category, entry) ? slowOf(entry) : null,
     slowEditable: slowEditableOf(category, entry),
+    tierRange: tierEditableOf(category, entry) ? tierRangeOf(entry) : null,
   };
 }
 
@@ -195,6 +216,29 @@ export function setSlow(entries: TerrainEntries, id: string, slowPm: number | nu
     return { ...entry, slowPm: Math.min(SLOW_RANGE.max, Math.max(SLOW_RANGE.min, Math.round(slowPm))) };
   });
   return { ...entries, mapProps };
+}
+
+/**
+ * 티어 범위 한 끝을 바꾼다(사다리 굴림 채집 오브젝트만): T0 ~ T9로 자르고, 다른 끝을 밀어 아래 ≤ 위를 지킨다. 바뀐 새 목록을 돌려준다
+ * (입력은 그대로)
+ */
+export function setTierRange(
+  entries: TerrainEntries,
+  id: string,
+  edge: "min" | "max",
+  value: number,
+): TerrainEntries {
+  const gatherObjects = entries.gatherObjects.map((entry) => {
+    if (entry.id !== id || !tierEditableOf("gather_objects", entry)) return entry;
+    const tier = Math.min(TIER_RANGE.max, Math.max(TIER_RANGE.min, Math.round(value)));
+    const range = tierRangeOf(entry);
+    const next =
+      edge === "min"
+        ? { min: tier, max: Math.max(tier, range.max) }
+        : { min: Math.min(tier, range.min), max: tier };
+    return { ...entry, tierRange: next };
+  });
+  return { ...entries, gatherObjects };
 }
 
 /** 키 차례를 정렬한 값(정규 JSON — @terra/content/node hashEntry와 같은 셈) */

@@ -37,7 +37,7 @@ import { type VitalsRecord, loadVitals } from "../vitals/state.ts";
 import { type VitalsConfig, type WorldVitals, createWorldVitals } from "../vitals/world.ts";
 import { type LaborService, createLaborService } from "../labor/service.ts";
 import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
-import { UNIT_KIND_CYBORG_UNIT } from "./unitKinds.ts";
+import { upkeepWeightOf } from "./upkeepWeights.ts";
 import { createWorkInjury } from "./unitCondition.ts";
 import { unitColumnsOf } from "./secondMapRows.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
@@ -444,9 +444,8 @@ export function startWorld(
       nextOwnerId: nextId.owner,
       presence: loaded.presence,
       now,
-      // 사이보그 유닛은 유지비가 비싸다(D-470, 설정 칸 n46_upkeep 실효 값을 정산할 때마다 읽는다)
-      upkeepWeightPm: (kind) =>
-        kind === UNIT_KIND_CYBORG_UNIT ? (config.cyborgRules ?? defaultCyborgRules)().fusion.upkeepPm : 1000,
+      // 유지비 무게: 사이보그 유닛은 비싸고(D-470) 배는 싸다(D-541 1277 다) — 설정 칸 실효 값을 정산할 때마다 읽는다
+      upkeepWeightPm: upkeepWeightOf(config.cyborgRules ?? defaultCyborgRules),
     });
     const battleWorld = createBattleWorld({ maps, cities: () => cities, owners, npcOwnerId, ledger, now });
     // 끝 시각에 한 번: 부상·귀환·포로·탈취·장비 닳기·물약·탄·생명 수치·건물 피해를 세계에 적용한다(battleApply.ts, 결과 기록과 같은 커밋).
@@ -566,7 +565,7 @@ export function startWorld(
     gearOf = holdings.gearOf;
     // 세계 전투 시작 사양의 몸: 사이보그 화면·유닛 상세와 같은 셈(입은 장비·인공장기·버프)
     const bodies = createBattleBodies({ maps, cyborgs, gearOf: holdings.gearOf, catalog: config.roster });
-    factory.attachWalk?.(walkSpeedsOf(cyborgs, holdings.gearOf, config.roster, now)); // 걷기 = 실효 AGI(D-540)
+    factory.attachWalk?.(walkSpeedsOf(cyborgs, holdings.gearOf, config.roster, now, societyRules)); // 걷기 AGI·배 속도
     // 전투에 가지고 들어가는 물약·탄(287): 생명 수치 다음에 붙인다
     items = createBattleItems({
       holdings: holdings.service,

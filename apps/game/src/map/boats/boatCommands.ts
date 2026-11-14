@@ -1,4 +1,4 @@
-// 배 명령(WebSocket, 프로토콜 27) — 배 만들기·타기·내리기. docs/adr/2026-11-13-boats.md. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
+// 배 명령(WebSocket, 프로토콜 27, 만드는 시간은 28) — 배 만들기·타기·내리기. docs/adr/2026-11-13-boats.md. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // 채집 명령(gather/gatherCommands.ts)과 같은 틀: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
 // 배를 움직이는 것은 보통 이동 명령(move_unit)이다 — 서버가 배는 물 길로 푼다.
 import type { BoatResultCode, ClientMessageOf } from "@terra/protocol";
@@ -10,8 +10,18 @@ export type BoatCommand =
   | Omit<ClientMessageOf<"boat_leave">, "id">;
 
 export type BoatOutcome =
-  | { readonly ok: true; readonly boatId?: number | undefined; readonly walking?: boolean | undefined }
-  | { readonly ok: false; readonly code: BoatResultCode | "offline" | "timeout" };
+  | {
+      readonly ok: true;
+      readonly boatId?: number | undefined;
+      readonly walking?: boolean | undefined;
+      /** 만들기: 만드는 중이면 배가 뜨는 시각(서버 ms, 프로토콜 28) */
+      readonly readyAtMs?: number | undefined;
+    }
+  | {
+      readonly ok: false;
+      readonly code: BoatResultCode | "offline" | "timeout";
+      readonly readyAtMs?: number | undefined;
+    };
 
 const TIMEOUT_MS = 15_000;
 
@@ -52,8 +62,8 @@ export function sendBoatCommand(command: BoatCommand, link: ServerLink = serverL
         const message = event.message;
         finish(
           message.ok
-            ? { ok: true, boatId: message.boatId, walking: message.walking }
-            : { ok: false, code: message.code },
+            ? { ok: true, boatId: message.boatId, walking: message.walking, readyAtMs: message.readyAtMs }
+            : { ok: false, code: message.code, readyAtMs: message.readyAtMs },
         );
       }
     });

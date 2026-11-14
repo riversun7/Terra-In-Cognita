@@ -48,6 +48,8 @@ export interface GatherKindView {
    * 없으면 item 하나(앞 판 응답)
    */
   readonly ladderName?: GatherName;
+  /** 사다리 굴림의 티어 범위(기획 D-541 — 질문 1307 나, 어군 종류마다): 뽑은 티어를 이 안으로 접는다. 없으면 막지 않는다(앞 판 응답) */
+  readonly ladderTiers?: { readonly min: number; readonly max: number };
 }
 
 /**
@@ -158,5 +160,7 @@ export interface GatherBuildingResponse {
   /** 내가 들어가면 직무를 받을 수 있나(내 채집 시설, 자리가 남음) */
   readonly hires: boolean;
   readonly inside: readonly GatherInsideUnit[];
+  /** 부두가 만드는 중인 배(docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"). 없으면 만드는 배 없음 */
+  readonly boatJob?: { readonly startedAt: number; readonly readyAt: number } | undefined;
   readonly generatedAt: number;
 }

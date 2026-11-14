@@ -3,6 +3,7 @@
 // - 위: 지형(바이옴 14개) 칩 — 지형마다 이 화면에서 고치는 오브젝트 종류 수(5 아래면 경고 표지).
 // - 표: 고른 지형의 오브젝트(장식·판정 소품·물 위 소품·지형별 채집 자리·움직이는 어군)와 양(비중‰·묶음‰·어군 수). 양을 고치거나 뺀다.
 // - 느림 배율 칸(기획 D-540 질문 1223 나): 마른 칸 흩기 소품의 느림 배율(‰, 1001 ~ 5000, 비우면 없음 — 모든 지형에 같이 든다).
+// - 티어 범위 칸(기획 D-541 질문 1307 나): 어군(사다리 굴림)의 뽑을 티어 범위 T0 ~ T9(아래·위, 모든 지형에 같이 든다).
 // - [더하기]: 아직 그 지형에 없는 소품·채집 오브젝트를 그 지형에 더한다.
 // - [차이 내보내기]: 바뀐 항목만 `terra-tuning-diff` 파일로 받는다 → `pnpm tuning:apply <파일>`이 팩에 넣는다. 바로 적용(덮어쓰기 층)은
 //   없다: 소품 규칙은 2차맵 지형 캐시 열쇠라 서버를 다시 켤 때 든다(docs/adr/2026-11-07-gather-objects.md "바뀜 (2026-11-12)").
@@ -20,6 +21,7 @@ import {
   type TerrainRow,
   type TerrainRowKind,
   SLOW_RANGE,
+  TIER_RANGE,
   addableRows,
   amountRange,
   buildDiff,
@@ -27,6 +29,7 @@ import {
   kindCounts,
   setAmount,
   setSlow,
+  setTierRange,
   terrainRows,
 } from "./terrainObjectsModel.ts";
 import "./terrainObjects.css";
@@ -146,6 +149,12 @@ export default function TerrainObjectsScreen() {
     setExported(false);
   };
 
+  const updateTier = (row: TerrainRow, edge: "min" | "max", value: number) => {
+    if (!edited) return;
+    setEdited(setTierRange(edited, row.id, edge, value));
+    setExported(false);
+  };
+
   return (
     <section
       className="screen screen-wide to-screen"
@@ -205,6 +214,7 @@ export default function TerrainObjectsScreen() {
                   <th scope="col">{m.dev_terrain_objects_col_kind()}</th>
                   <th scope="col">{m.dev_terrain_objects_col_amount()}</th>
                   <th scope="col">{m.dev_terrain_objects_col_slow()}</th>
+                  <th scope="col">{m.dev_terrain_objects_col_tiers()}</th>
                   <th scope="col">
                     <span className="visually-hidden">{m.dev_terrain_objects_col_actions()}</span>
                   </th>
@@ -263,6 +273,39 @@ export default function TerrainObjectsScreen() {
                             />
                             <span className="dev-muted">{m.dev_terrain_objects_unit_slow()}</span>
                           </label>
+                        ) : (
+                          <span className="dev-muted">{m.dev_terrain_objects_slow_na()}</span>
+                        )}
+                      </td>
+                      <td>
+                        {row.tierRange ? (
+                          <span
+                            className="to-amount to-tiers"
+                            data-tiers={`${row.tierRange.min}-${row.tierRange.max}`}
+                          >
+                            {(["min", "max"] as const).map((edge) => (
+                              <label key={edge} className="to-tier">
+                                <span className="dev-muted">T</span>
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={TIER_RANGE.min}
+                                  max={TIER_RANGE.max}
+                                  value={row.tierRange?.[edge] ?? 0}
+                                  aria-label={
+                                    edge === "min"
+                                      ? m.dev_terrain_objects_tier_min_label({ name: label })
+                                      : m.dev_terrain_objects_tier_max_label({ name: label })
+                                  }
+                                  onChange={(event) => {
+                                    const value = Number(event.currentTarget.value);
+                                    if (event.currentTarget.value !== "" && Number.isFinite(value))
+                                      updateTier(row, edge, value);
+                                  }}
+                                />
+                              </label>
+                            ))}
+                          </span>
                         ) : (
                           <span className="dev-muted">{m.dev_terrain_objects_slow_na()}</span>
                         )}

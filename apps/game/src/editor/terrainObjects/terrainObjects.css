@@ -80,6 +80,16 @@
 .to-amount > span {
   white-space: nowrap;
 }
+/* 티어 범위(아래·위 두 칸, 질문 1307 나): 칸이 좁아 입력을 줄인다 */
+.to-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.to-tier input {
+  inline-size: 3.5em;
+  min-height: var(--tap-size);
+}
 
 /* ── 더하기·담은 변경 ── */
 .to-add,

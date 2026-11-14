@@ -1,8 +1,9 @@
 // 레벨 재료 가공 시설 시험 — 질문 1186 나(기획 D-540), simulator/npcBuild.ts levelSupplyFacilities·withLevelSupply: 상한에 닿기 전 나라 목표에
-// 레벨 2 짓기 재료(판자·벽돌)를 내는 시설(제재소·가마)을 더하고, 지은 가마가 일꾼을 받아 벽돌을 내며 상한 뒤 레벨 올리기에 쓰인다
+// 레벨 2 짓기 재료(판자·벽돌)를 내는 시설(제재소·가마)을 더하고, 지은 가마가 일꾼을 받아 벽돌을 내며 상한 뒤 레벨 올리기에 쓰인다.
+// 질문 1291 나(기획 D-541, levelSupplyDue): 목표에 드는 때는 도시 건물 수가 상한 − 설정 칸 npc_build_level_supply_lead에 닿았을 때부터
 import { describe, expect, it } from "vitest";
 import { type EconomyCatalog, prepareCatalog } from "./catalog.ts";
-import { levelSupplyFacilities, withLevelSupply } from "./npcBuild.ts";
+import { levelSupplyDue, levelSupplyFacilities, levelSupplyMissing, withLevelSupply } from "./npcBuild.ts";
 import { runSimulation } from "./run.ts";
 import { parseScenario } from "./scenario.ts";
 import { TEST_CATALOG, TEST_ECONOMY_SCENARIO_RAW } from "./testEconomy.ts";
@@ -137,5 +138,28 @@ describe("레벨 재료 가공 시설(질문 1186 나)", () => {
     expect(off.economy?.produced["item:brick"]).toBeUndefined();
     expect(off.npc.upgrades).toBe(0);
     expect(leveled(off)).toBe(0);
+  });
+
+  it("상한 − lead에 닿았을 때부터 목표에 든다(거리는 1 이상·모자란 가공 시설 수 이상, 상한보다 크면 처음부터)", () => {
+    expect(levelSupplyDue(9, 12, 2)).toBe(false);
+    expect(levelSupplyDue(10, 12, 2)).toBe(true);
+    expect(levelSupplyDue(11, 12, 2)).toBe(true);
+    expect(levelSupplyDue(11, 12, 0)).toBe(true);
+    expect(levelSupplyDue(10, 12, 0)).toBe(false);
+    expect(levelSupplyDue(0, 12, 32)).toBe(true);
+    expect(levelSupplyDue(10, 12, 1, 2)).toBe(true);
+    expect(levelSupplyDue(10, 12, 1, 1)).toBe(false);
+    const supply = levelSupplyFacilities(prepareCatalog(CATALOG));
+    expect(levelSupplyMissing(new Map(), 1, supply)).toBe(2);
+    expect(levelSupplyMissing(new Map([["sawmill", 1]]), 1, supply)).toBe(1);
+    expect(levelSupplyMissing(new Map([["sawmill", 3]]), 2, supply)).toBe(2);
+    expect(levelSupplyMissing(new Map(), 0, supply)).toBe(0);
+  });
+
+  it("lead 1이어도 모자란 가공 시설 수만큼 앞당겨 가마·제재소를 둘 다 지어 레벨 올리기에 쓴다", () => {
+    const last = run(new Map([...cap(9), ["npc_build_level_supply", 1], ["npc_build_level_supply_lead", 1]]));
+    expect(last.invariants).toMatchObject({ violations: 0, first: [] });
+    expect(BigInt(last.economy?.produced["item:brick"] ?? "0")).toBeGreaterThan(0n);
+    expect(last.npc.upgrades).toBeGreaterThan(0);
   });
 });

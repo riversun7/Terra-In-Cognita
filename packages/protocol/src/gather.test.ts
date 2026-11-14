@@ -25,7 +25,7 @@ describe("채집·들어가기 메시지(프로토콜 17)", () => {
   it("판: 17부터, 받는 가장 낮은 판 16", () => {
     expect(GATHER_PROTOCOL_VERSION).toBe(17);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(17);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBeGreaterThanOrEqual(PROTOCOL_VERSION - 1);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
   });
 
   it("채집 시작·멈추기·들어가기가 왕복하고 값 모양을 본다", () => {

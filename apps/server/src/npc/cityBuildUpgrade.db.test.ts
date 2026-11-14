@@ -47,12 +47,20 @@ afterEach(async () => {
   await test.drop();
 });
 
-/** 국가마다 도시 하나, 판단 1시간마다. capByGrade = 도시 등급별 건물 수 상한(시험값) */
-async function boot(capByGrade: readonly number[]): Promise<World> {
+/**
+ * 국가마다 도시 하나, 판단 1시간마다. capByGrade = 도시 등급별 건물 수 상한(시험값), supplyLead = 레벨 재료 가공 시설이 드는 거리(질문 1291 나,
+ * 없으면 계수 기본값)
+ */
+async function boot(capByGrade: readonly number[], supplyLead?: number): Promise<World> {
   const rules = {
     ...TEST_SOCIETY_COEFFICIENTS,
     worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, startCitiesMin: 1, startCitiesMax: 1 },
-    npc: { ...TEST_SOCIETY_COEFFICIENTS.npc, decideEveryMs: HOUR_MS, buildCapByGrade: [...capByGrade] },
+    npc: {
+      ...TEST_SOCIETY_COEFFICIENTS.npc,
+      decideEveryMs: HOUR_MS,
+      buildCapByGrade: [...capByGrade],
+      ...(supplyLead === undefined ? {} : { buildLevelSupplyLead: supplyLead }),
+    },
   };
   const world = startWorld({
     testBots: 12,
@@ -208,7 +216,8 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 인구 상한·레벨 올리기�
   });
 
   it("상한에 닿기 전 나라 목표에 제재소·가마가 들어 지어지고 판자·벽돌 레시피를 일꾼과 함께 돌린다(1186 나)", async () => {
-    const world = await boot([32, 32, 32, 32, 32, 32]);
+    // 거리를 상한보다 크게 = 처음부터 목표에(1291 나 전과 같은 때 — 언제 드는지는 시뮬 시험 npcLevelSupply.test.ts가 본다)
+    const world = await boot([32, 32, 32, 32, 32, 32], 32);
     const { persistence, npc } = parts(world);
     const service = persistence.facilities.service;
     const has = (cityId: number, facility: string) =>

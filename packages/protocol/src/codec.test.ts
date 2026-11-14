@@ -4,7 +4,6 @@ import {
   MIN_SUPPORTED_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   ProtocolError,
-  SEGMENT_SPEED_PROTOCOL_VERSION,
   decodeClientMessage,
   decodeServerMessage,
   encodeMessage,
@@ -59,9 +58,7 @@ describe("isProtocolSupported", () => {
     // 4는 더하기만 해서(사이보그 만들기) 직전 버전 3을 받았다. 5(속성 분배)는 직전 버전 4를 받는다(현재 + 직전 1개, ADR 7).
     // 6(보유 물건)·7(영토 비콘)도 현재 + 직전 1개다(ADR 7)
     expect(isProtocolSupported(MIN_SUPPORTED_PROTOCOL_VERSION)).toBe(true);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBeGreaterThanOrEqual(PROTOCOL_VERSION - 1);
-    // 29는 예외로 직전 버전(28)을 받지 않는다: 구간 걸음 배율(pace)을 모르는 기기는 유닛 위치를 틀리게 그린다(version.ts)
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(SEGMENT_SPEED_PROTOCOL_VERSION);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
     expect(isProtocolSupported(MIN_SUPPORTED_PROTOCOL_VERSION - 1)).toBe(false);
     expect(isProtocolSupported(PROTOCOL_VERSION + 1)).toBe(false);
     expect(isProtocolSupported(0)).toBe(false);

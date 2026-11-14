@@ -15,6 +15,7 @@ import { type CityRow, nearestSafeCity } from "./cities.ts";
 import type { OwnerRow, QueryPool } from "./persist/load.ts";
 import type { WorldWriter } from "./persist/writer.ts";
 import type { SecondMap } from "./secondMap.ts";
+import { isAfloat } from "./unitKinds.ts";
 
 /** 시작 자료를 고치는 단계 하나(생명 수치·물약·탄) */
 interface StartStep {
@@ -41,6 +42,15 @@ export interface WorldBattleStartParts {
   readonly now: () => number;
 }
 
+/** 그 유닛이 띄운 2차맵 어딘가에서 물 위(배·승객)에 있나 */
+export function afloatIn(maps: ReadonlyMap<number, SecondMap>, unitId: number): boolean {
+  for (const map of maps.values()) {
+    const info = map.unitInfo(unitId);
+    if (info) return isAfloat(info);
+  }
+  return false;
+}
+
 /** 세계 전투를 연다(전투 ID). war = 전쟁 전투(진 유닛은 포로) */
 export function createWorldBattleStart(
   parts: WorldBattleStartParts,
@@ -50,7 +60,8 @@ export function createWorldBattleStart(
     writer: parts.writer,
     maps: parts.maps,
     bodies: parts.bodies,
-    isInactive: parts.isInactive,
+    // 배·승객은 전투에서 뺀다(기획 D-541 1278 가 — 비활성 빼기와 같은 자리, 모든 세계 전투가 이 길로 연다)
+    isInactive: (unitId) => parts.isInactive(unitId) || afloatIn(parts.maps, unitId),
     waveCity: parts.waveCity,
     targetCity: (target) => {
       if (target.kind === "beacon")

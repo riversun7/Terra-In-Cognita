@@ -9122,6 +9122,24 @@
       "source": "기획 D-540 · 질문 1186 나 [임시]"
     },
     {
+      "id": "npc_build_level_supply_lead",
+      "code": "",
+      "name": {
+        "ko": "NPC 레벨 재료 가공 시설: 상한 몇 채 전부터",
+        "en": "NPC level-material processors: buildings before cap"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 32,
+      "desc": {
+        "ko": "NPC 도시는 건물 수가 상한 − 이 값에 닿았을 때부터 레벨 재료 가공 시설(제재소·가마·제련소)을 나라 목표에 더한다. 초반 짓기는 그대로 두고 상한 바로 전에 세운다(제재소가 짓기 재료인 통나무를 먹어 초반 새 건물이 줄지 않게). 아직 짓지 않은 가공 시설이 이 값보다 많으면 그 수만큼 앞당긴다(자리가 모자라 하나가 빠지지 않게). 상한보다 크면 처음부터 더한다.",
+        "en": "An NPC city adds level-material processors (sawmill, kiln, smelter) to its nation goals once its building count reaches the cap minus this value. Early building stays as it was and they go up just before the cap (so the sawmill does not eat the logs early building needs). If more processors are still missing than this value, it starts that many buildings earlier so none is squeezed out. A value above the cap adds them from the start."
+      },
+      "source": "기획 D-541 · 질문 1291 나 [임시]"
+    },
+    {
       "id": "gather_obj_carry_g",
       "code": "",
       "name": {
@@ -10715,6 +10733,42 @@
         "en": "A unit within this many cells of the boat boards at once. Landing cells are searched within this range of the boat."
       },
       "source": "ADR 2026-11-13-boats · 질문 1272 [임시]"
+    },
+    {
+      "id": "boat_build_time_pm",
+      "code": "",
+      "name": {
+        "ko": "배 만드는 시간(부두 레벨 1 건설 시간 × ‰)",
+        "en": "Boat build time (dock level 1 build time × ‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "배 하나를 만드는 시간 = 부두 레벨 1 건설 시간 × 이 값 ÷ 1000. 다 되면 부두 옆 물에 배가 뜬다. 0이면 바로 만든다.",
+        "en": "Time to build one boat = the dock's level 1 build time × this ÷ 1000. The boat appears on the water next to the dock when done. 0 = instant."
+      },
+      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B2)\" · D-541 질문 1271 나 [임시]"
+    },
+    {
+      "id": "boat_upkeep_pm",
+      "code": "",
+      "name": {
+        "ko": "배 유지비(보통 유닛 = 1000‰)",
+        "en": "Boat upkeep (a regular unit = 1000‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "배 하나의 유지비 무게. 보통 유닛이 1000이다. 사람보다 싸게 둔다.",
+        "en": "Upkeep weight of one boat. A regular unit is 1000. Kept cheaper than a person."
+      },
+      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B2)\" · D-541 질문 1277 다 [임시]"
     }
   ]
 }

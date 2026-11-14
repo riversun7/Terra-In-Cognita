@@ -17,4 +17,13 @@ export const BOAT_TUNING_KEYS: readonly TuningKey[] = [
   k("boat_capacity", "", "capacity", "배 하나에 타는 유닛 수", "Units per boat"),
   k("boat_cost_pm", "", "costPm", "배 값(부두 레벨 1 재료 × ‰)", "Boat cost (dock level 1 materials × ‰)"),
   k("boat_board_cells", "", "boardCells", "타고 내리는 거리(칸)", "Board and leave reach (cells)"),
+  // 기획 D-541(질문 1271 나·1277 다) — docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"
+  k(
+    "boat_build_time_pm",
+    "",
+    "buildTimePm",
+    "배 만드는 시간(부두 레벨 1 건설 시간 × ‰)",
+    "Boat build time (dock level 1 build time × ‰)",
+  ),
+  k("boat_upkeep_pm", "", "upkeepPm", "배 유지비(보통 유닛 = 1000‰)", "Boat upkeep (a regular unit = 1000‰)"),
 ];

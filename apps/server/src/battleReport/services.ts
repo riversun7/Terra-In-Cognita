@@ -195,6 +195,8 @@ export function createReportService(deps: {
     const arenaMap = await arenaMapOf(setup);
     const { rules, society, revision } = rulesOf(changes);
     const city = snapshotOf(setup, cache);
+    // 스냅숏(배치·지형 읽기)과 판 재료 만들기 사이에 이벤트 루프에 양보한다(주 스레드 루프 지연)
+    if (city) await new Promise((resolve) => setImmediate(resolve));
     try {
       return { ...(await playSetupOf(setup, { rules, society, arenaMap, kit: deps.kit, city })), revision };
     } catch (error) {

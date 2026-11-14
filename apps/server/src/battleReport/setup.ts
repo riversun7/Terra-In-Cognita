@@ -83,6 +83,12 @@ const idB = (p: number, index: number): number => arenaUnitId("b", p, index);
 /** 세계 수비와 싸우는 팀 A 유닛 ID */
 const worldIdA = (p: number, index: number): number => WORLD_LAB_ID_BASE + p * LAB_LIMITS.partyMax + index;
 
+/**
+ * 이벤트 루프에 한 번 양보한다. 공성 재료(전투맵·시작 자리·사양)는 주 스레드에서 만들고 한 덩이가 수~수십 ms라, 덩이 사이에 실제 플레이어
+ * 요청이 끼게 한다(ADR "부하" — 주 스레드 루프 지연)
+ */
+const yieldToLoop = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
 /** 줄 이름: 표시 이름, 없으면 종류 ID */
 const labelOf = (unit: LabParty["units"][number]): string => unit.label.trim() || unit.kind;
 
@@ -314,6 +320,11 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
   const { layout, arena } = siegeMaterial(setup, ctx, city);
   const size = REPORT_SIEGE_MAP_SIZE;
   const edge = SIEGE_EDGE;
+  await yieldToLoop();
+  // 시작 자리는 한 번만 만들어 웨이브 시작 자료와 이어 쓴다(자리 찾기가 공성 재료에서 가장 비싸다 — 주 스레드 루프 지연)
+  const placer = siegePlacer(arena, edge);
+  const prepared = layout ? { arena, placer } : undefined;
+  await yieldToLoop();
   const dropped: LabDropped[] = [];
   const inputs: BattleInput[] = [];
   let init: BattleInit;
@@ -343,6 +354,7 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
         limitMs,
         layout,
         attackEdge: edge,
+        prepared,
       },
       rules.catalog,
       coefficients,
@@ -371,11 +383,13 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
       limitMs,
       layout,
       attackEdge: edge,
+      prepared,
     };
     if (worldDefense && city) {
       init = worldWave(city, setup.strength, setup.physical, setup.creatureTech);
       worldIds = new Set(city.defenders.slice(0, REPORT_WORLD_DEFENDERS).map((unit) => unit.id));
     } else init = waveBattleInit(waveInput, rules.catalog, coefficients);
+    await yieldToLoop();
     for (const unit of init.units)
       if (unit.side === 1 && unit.id >= creatureBase)
         rowOf[unit.id] = unit.id - creatureBase >= setup.strength - setup.physical ? 0 : 1;
@@ -384,7 +398,6 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
       const lb = legionOf(setup.b ?? { parties: [], retreatAtSec: 0 });
       const b = legionSpecs(lb, rules);
       dropped.push(...b.dropped);
-      const placer = siegePlacer(arena, edge);
       const units: CombatUnitSpec[] = [];
       let at = 0;
       b.parties.forEach((entry, p) => {
@@ -422,7 +435,6 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
     const la = legionOf(setup.a);
     const a = legionSpecs(la, rules);
     dropped.push(...a.dropped);
-    const placer = siegePlacer(arena, edge);
     const attackerId = worldDefense ? worldIdA : idA;
     const attackers: CombatUnitSpec[] = [];
     let at = 0;
@@ -451,6 +463,7 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
     }));
     if (worldDefense && city) {
       // 실제 도시 수비: 서버 정원사와 같은 수비 휴먼·자리(크리쳐 없이 만든 웨이브 시작 자료의 수비 몫) + 실험실 공격 편
+      await yieldToLoop();
       const base = worldWave(city, 0, 0, 1);
       worldIds = new Set(base.units.map((unit) => unit.id));
       init = {

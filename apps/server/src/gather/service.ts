@@ -756,7 +756,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     if (!(await freeUnit(userId, unit.ownerId, input.unitId))) return fail("unavailable");
     // 한 배의 승객들은 같은 오브젝트만 함께 캔다: 다른 오브젝트를 캐던 같은 배의 줄은 끝낸다(배가 오가지 않게, 질문 1400)
     if (boatId !== null)
-      for (const other of [...actions.values()])
+      for (const other of actions.values())
         if (other.boatId === boatId && other.unitId !== input.unitId && other.objectId !== object.id)
           finish(other, "interrupted");
     const action = newAction(userId, unit.ownerId, input.unitId, input.mapKey, "gather", boatId);

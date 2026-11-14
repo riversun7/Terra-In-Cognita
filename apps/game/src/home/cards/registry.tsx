@@ -12,7 +12,8 @@ import { CardFrame } from "./CardFrame.tsx";
 import { DiagnosticsCardBody } from "./DiagnosticsCard.tsx";
 import { InboxCardBody, PendingCount } from "./InboxCard.tsx";
 import { MapsCardBody } from "./MapsCard.tsx";
-import { AssetsCardBody, CyborgCardBody, FactionCardBody, UnitsCardBody } from "./ServerCard.tsx";
+import { AssetsCardBody } from "./AssetsCard.tsx";
+import { CyborgCardBody, FactionCardBody, UnitsCardBody } from "./ServerCard.tsx";
 import { TimelineCardBody } from "./TimelineCard.tsx";
 
 export interface CardView {
@@ -26,7 +27,8 @@ export const CARD_VIEWS = {
   inbox: { title: m.card_inbox, to: { route: "inbox" }, Body: InboxCardBody },
   cyborg: { title: m.card_cyborg, to: { route: "cyborg" }, Body: CyborgCardBody },
   units: { title: m.card_units, to: { route: "units" }, Body: UnitsCardBody },
-  assets: { title: m.card_assets, to: { route: "economy" }, Body: AssetsCardBody },
+  // 자산: 경제 원장 잔고 요약 → 인벤토리 화면(docs/adr/2026-11-14-inventory-screen.md)
+  assets: { title: m.card_assets, to: { route: "inventory" }, Body: AssetsCardBody },
   faction: { title: m.card_faction, to: { route: "faction" }, Body: FactionCardBody },
   timeline: { title: m.card_timeline, to: null, Body: TimelineCardBody },
   briefing: { title: m.card_briefing, to: null, Body: BriefingCardBody },

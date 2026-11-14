@@ -7264,5 +7264,12 @@
   "nav_inventory": "인벤토리",
   "nav_inventory_desc": "유닛·창고·건물에 있는 물건",
   "economy_overview_assets": "자산",
-  "economy_overview_value": "추정 가치 {value}"
+  "economy_overview_value": "추정 가치 {value}",
+  "map_nav_bag": "가방",
+  "map_bag_title": "가방",
+  "map_bag_heading": "{unit}의 가방",
+  "map_bag_close": "닫기",
+  "map_bag_not_mine": "내 유닛을 고르면 그 유닛의 물건이 보입니다.",
+  "map_bag_more": "인벤토리에서 보기",
+  "card_assets_open": "인벤토리 열기"
 }

@@ -7264,5 +7264,12 @@
   "nav_inventory": "Inventory",
   "nav_inventory_desc": "Items in units, warehouses and buildings",
   "economy_overview_assets": "Assets",
-  "economy_overview_value": "Estimated value {value}"
+  "economy_overview_value": "Estimated value {value}",
+  "map_nav_bag": "Bag",
+  "map_bag_title": "Bag",
+  "map_bag_heading": "{unit}'s bag",
+  "map_bag_close": "Close",
+  "map_bag_not_mine": "Pick one of your units to see its items.",
+  "map_bag_more": "Open in inventory",
+  "card_assets_open": "Open inventory"
 }

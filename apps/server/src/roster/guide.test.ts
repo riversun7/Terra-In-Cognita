@@ -12,12 +12,13 @@ import {
   recommendProduction,
   statCoverage,
 } from "@terra/shared/unitGuide";
-import { TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
+import type { FishTierRanges } from "@terra/shared/fishWater";
+import { TEST_SOCIETY_COEFFICIENTS, fishTierRangesOf } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { unitGuideOf } from "./guide.ts";
 
-function packGuide() {
+function packGuide(fishTiers?: FishTierRanges) {
   const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
   if (!loaded.source) throw new Error("content pack");
   return unitGuideOf(
@@ -28,6 +29,7 @@ function packGuide() {
       combatClasses: readCategoryFile(loaded.source, "combat_classes").entries.map((raw) =>
         combatClassEntrySchema.parse(raw),
       ),
+      fishTiers,
     },
     0,
   );
@@ -123,6 +125,21 @@ describe("유닛 추천 표(팩 core)", () => {
     expect(
       recommendProduction(stats(5, 5, 5, 20, 30, 40), guide.production).map((p) => p.type.facility),
     ).toEqual(["fishing_spot", "ranch"]);
+  });
+
+  it("낚시터 줄에만 물 종류마다 티어 범위(D-542 1365 나 — 설정 칸이 없으면 싣지 않는다)", () => {
+    const withTiers = packGuide(fishTierRangesOf(TEST_SOCIETY_COEFFICIENTS.worldSeed));
+    const fishing = withTiers.production.find((row) => row.facility === "fishing_spot");
+    expect(fishing?.waterTiers).toEqual([
+      { water: "fresh", min: 0, max: 2 },
+      { water: "coast", min: 0, max: 4 },
+      { water: "shelf", min: 2, max: 6 },
+      { water: "deep", min: 4, max: 8 },
+    ]);
+    expect(withTiers.production.filter((row) => row.waterTiers).map((row) => row.facility)).toEqual([
+      "fishing_spot",
+    ]);
+    expect(guide.production.some((row) => row.waterTiers !== undefined)).toBe(false);
   });
 
   it("출처가 없으면 빈 표와 옛 문턱", () => {

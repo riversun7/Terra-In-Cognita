@@ -72,6 +72,31 @@ test.describe("개발자: 예상 확률 탭", () => {
     await expect(cell(page, 20, 1).locator(".pd-expect-stat")).toHaveText("20");
     expect(deviceErrors).toEqual([]);
   });
+
+  test("낚시터 물 종류(기획 D-542 질문 1365 나): 고르면 확률을 그 티어 범위로 접는다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await openExpect(page);
+    const tier = (sum: number, level: number, t: number) =>
+      cell(page, sum, level).locator(`.pd-expect-tiers li[data-tier="t${t}"] .dev-num`);
+    // 기본 표(목재·약초·어류)에 낚시터가 있어 물 종류 고르기가 보인다. 30 Lv1 = 구간 20: T0 70%·T1 15%·T2 10%·T3 5%
+    const water = page.getByTestId("expect-water");
+    await expect(water).toHaveValue("");
+    await expect(tier(30, 1, 0)).toHaveText("70%");
+    // 대륙붕 T2~T6: T0·T1이 T2로 모인다
+    await water.selectOption("shelf");
+    await expect(tier(30, 1, 0)).toHaveText("0");
+    await expect(tier(30, 1, 2)).toHaveText("95%");
+    await expect(tier(30, 1, 3)).toHaveText("5%");
+    // 민물 T0~T2: T3이 T2로
+    await water.selectOption("fresh");
+    await expect(tier(30, 1, 2)).toHaveText("15%");
+    await expect(tier(30, 1, 3)).toHaveText("0");
+    await water.selectOption("");
+    await expect(tier(30, 1, 3)).toHaveText("5%");
+    expect(deviceErrors).toEqual([]);
+  });
 });
 
 test.describe("개발자 + 시안 자료: 컨디션 한 줄", () => {

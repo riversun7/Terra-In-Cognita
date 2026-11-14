@@ -435,3 +435,11 @@
     justify-content: flex-start;
   }
 }
+
+/* 글 칸·날짜 칸도 누르는 곳 크기(모바일) */
+.rp-panel input:not([type="checkbox"]),
+.rp-filters input,
+.rp-filters select,
+.rp-panel select {
+  min-height: var(--tap-size);
+}

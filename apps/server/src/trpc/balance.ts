@@ -35,7 +35,6 @@ const edits = z
   )
   .max(BALANCE_EDITS_MAX);
 
-const contributionInput = z.strictObject({ primaries, edits });
 const duelsInput = z.strictObject({
   primaries,
   edits,
@@ -58,8 +57,6 @@ const read = permissionProcedure({ tuning: ["read"] }).use(async ({ ctx, next })
 export const balanceRouter = router({
   /** 가중치 표(팩 값·실효 값·덮어쓰기), 무기 목록, 기준 유닛 기본값 */
   table: read.query(({ ctx }) => ctx.balance.table()),
-  /** 지금 표·고친 표의 2차 스탯과 1차 +10 차이(담은 변경을 tuning.save가 받을지도) */
-  contribution: read.input(contributionInput).query(({ ctx, input }) => ctx.balance.contribution(input)),
   /** 1차마다 "기준 + 10 vs 기준" 시드 대결(두 편 차례 합침), 지금 표·고친 표 */
   duels: read.input(duelsInput).query(({ ctx, input }) => ctx.balance.duels(ctx.viewer, input)),
 });

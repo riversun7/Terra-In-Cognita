@@ -1,7 +1,8 @@
 // 밸런스 · 전투 보고서(/dev/balance) — docs/adr/2026-11-14-battle-report.md(개편), docs/adr/2026-11-01-balance-screen.md.
 // dev·admin, 틀 안, 촘촘. 탭: [전투 보고서](기본, lab/BattleLab.tsx — 팀·유닛 편집·보고서 설정·N판 판정·보고서), [보고서 기록]
 // (report/ReportLogTab.tsx — 날짜·이름으로 찾기·열기·다시 돌리기·둘 견주기), [분포 상성](analysis/MatrixTab.tsx), [스탯 영향도]
-// (analysis/SensitivityTab.tsx), [가중치 표](WeightTab.tsx), [계산식](FormulaTab.tsx — docs/adr/2026-11-01-formula-editor.md).
+// (analysis/SensitivityTab.tsx). 옛 [가중치 표]·[계산식] 탭은 2차 스탯 화면(/dev/secondary-stats)과 겹쳐 지웠다(스태미나·적정치·+10 대결은
+// 그 화면으로 옮김, docs/research/2026-11-14-dev-tools-overlap.md). 옛 ?tab=weights·formulas 주소는 보고서 탭(머리에 2차 스탯 화면 바로가기).
 // 주소 ?tab=<ID>로 바로 그 탭을 연다(시험·링크, 옛 ?tab=lab은 보고서 탭).
 // 실험실 자료(목록·프리셋·팀, useLabData)와 보고서 폼·일(useReportJob)은 이 틀이 든다: 기록에서 [다시 돌리기]하면 폼·팀을 싣고 곧바로 돌린다.
 // 탭은 처음 열 때 그리고, 연 뒤에는 숨겨도 남겨 둔다(고친 값·결과가 사라지지 않게).
@@ -27,15 +28,13 @@ import {
 import { modeText } from "./report/reportMessages.ts";
 import { type ReportJobState, useReportJob } from "./report/useReportJob.ts";
 import { type LabData, useLabData } from "./lab/useLabData.ts";
-import { WeightTab } from "./WeightTab.tsx";
-import FormulaTab from "./FormulaTab.tsx";
 import "./balancePanel.css";
 import "./lab/battleLab.css";
 import "./lab/battleLabResults.css";
 import "./analysis/analysis.css";
 import "./report/report.css";
 
-type Tab = "report" | "log" | "matrix" | "sensitivity" | "weights" | "formulas";
+type Tab = "report" | "log" | "matrix" | "sensitivity";
 
 /** 탭이 받는 것: 실험실 자료·언어·보고서 폼·일 */
 interface TabContext {
@@ -84,16 +83,6 @@ const TABS: readonly {
     id: "sensitivity",
     label: m.dev_lab_tab_sensitivity,
     render: (ctx) => <SensitivityTab data={ctx.data} locale={ctx.locale} />,
-  },
-  {
-    id: "weights",
-    label: m.dev_lab_tab_weights,
-    render: (ctx) => <WeightTab data={ctx.data} locale={ctx.locale} />,
-  },
-  {
-    id: "formulas",
-    label: m.dev_lab_tab_formulas,
-    render: () => <FormulaTab />,
   },
 ];
 

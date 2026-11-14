@@ -1,15 +1,12 @@
 // 밸런스 화면 요청 처리 — tRPC balance.*(src/trpc/balance.ts)가 D1 권한(tuning:read 두 겹)·조회 속도 제한을 거친 뒤 부른다.
 // docs/adr/2026-11-01-balance-screen.md 3·4절. 서버가 켤 때 한 번 만든다(요청마다 만들 것이 없다).
 // - table: 가중치 표(팩 값·실효 값·덮어쓰기, 행마다 계산식으로 셈하는지), 무기 목록, 기준 유닛 기본값. 스냅숏 하나로 만든다.
-// - contribution: 지금 표·고친 표(지금 + 담은 변경)의 2차 스탯과 1차 +10 차이. 가볍다(주 스레드).
 // - duels: 1차마다 "기준 + 10 vs 기준" 시드 대결. 무겁다 → 워커(runner). 요청 시작 때 표·계수 한 벌을 일에 담는다.
 //   사용자마다 따로 세는 속도 제한, 서버 전체 한 번에 하나(바쁘면 busy).
 // 담은 변경은 tuning.save가 받을 묶음과 같은 검사(TuningState.plan)를 미리 돌려 받지 않을 까닭을 함께 돌려준다(저장은 하지 않는다).
 import { statRowCell } from "@terra/content";
 import {
   BALANCE_UNARMED,
-  type BalanceContributionInput,
-  type BalanceContributionResponse,
   type BalanceDuelsInput,
   type BalanceDuelsResponse,
   type BalanceEdit,
@@ -27,7 +24,6 @@ import type { BalanceServices, Viewer } from "../trpc/context.ts";
 import { reasonedError } from "../trpc/init.ts";
 import { type TuningShared, overrideView } from "../tuning/services.ts";
 import type { TuningChange, TuningPlan } from "../tuning/state.ts";
-import { contributionOf } from "./compute.ts";
 import { type HeavyGate, createHeavyGate } from "./gate.ts";
 import { type DuelRunner, DuelRunError } from "./runner.ts";
 
@@ -148,18 +144,6 @@ export function createBalanceServices(deps: {
         rows,
         weapons: [...weaponSpecs()].map(([id, weapon]) => weaponView(id, weapon)),
         defaults: defaultsOf(weaponSpecs()),
-      });
-    },
-
-    contribution(input: BalanceContributionInput): Promise<BalanceContributionResponse> {
-      // 기다림 없이 한 번에 계산한다: 지금 표·고친 표·검사가 같은 스냅숏을 본다
-      const changes = toChanges(input.edits);
-      const hasEdits = changes.length > 0;
-      return Promise.resolve({
-        revision: state.revision(),
-        current: contributionOf(state.statTable(), input.primaries),
-        edited: hasEdits ? contributionOf(state.statTableWith(changes), input.primaries) : null,
-        problem: hasEdits ? problemOf(state.plan(changes)) : null,
       });
     },
 

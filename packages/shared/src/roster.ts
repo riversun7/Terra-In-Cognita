@@ -588,13 +588,20 @@ export interface RosterCombat {
 }
 
 /**
- * 이동 속도(사이보그 판 기동 묶음, 사용자 요청 2026-11-12 "기동에 이동속도가 왜 없는가?"). 기획 48 §3.2: 이동 속도는 2차 스탯이 아니고
- * 수단·도로가 정한다(D-414·D-5052), 전투맵 걸음은 유닛 데이터(D-223), AGI와의 관계는 미결 → 1차 스탯 몫이 없다. 서버가 실제로 쓰는 값을
- * 그대로 보낸다(@terra/sim WALK_SPEED·CELL_UNITS, 전투 사양의 걸음 간격). 전투 수치 버프 move_speed 몫은 RosterBuffs.moveSpeedPm(전투맵만)
+ * 이동 속도(사이보그 판 기동 묶음, 사용자 요청 2026-11-12 "기동에 이동속도가 왜 없는가?"). 걷기 속도 = 계산식 walk_speed(실효 AGI)
+ * (사용자 결정 D-540 "걷기만 AGI 반영" — 기본 + AGI × 가중치, 상한). 차·배는 수단 속도(D-5052). 전투맵 걸음은 유닛 데이터(D-223).
+ * 서버가 실제로 쓰는 값을 그대로 보낸다(@terra/sim walkSpeedOf·CELL_UNITS, 전투 사양의 걸음 간격). 전투 수치 버프 move_speed 몫은
+ * RosterBuffs.moveSpeedPm(전투맵만)
  */
 export interface RosterMove {
-  /** 2차맵 걷기 빠르기(단위/초) — 서버 유닛 speed */
+  /** 2차맵 걷기 빠르기(단위/초) — 서버 유닛 speed(계산식 walk_speed, 실효 AGI) */
   readonly walk: number;
+  /** 걷기 속도에 든 실효 AGI(성장값 + 장비·버프 − 부상, 전투와 같은 값). 옛 서버는 없음 */
+  readonly agi?: number | undefined;
+  /** 계산식 walk_speed의 AGI 0 값(기본, 단위/초). 옛 서버는 없음 */
+  readonly walkBase?: number | undefined;
+  /** 계산식 walk_speed의 상한(아주 큰 AGI의 값, 단위/초). 옛 서버는 없음 */
+  readonly walkCap?: number | undefined;
   /** 배치 칸 한 칸의 단위 수(1024) */
   readonly cellUnits: number;
   /** 2차맵 한 변의 배치 칸 수(256, 한 장을 건너는 시간 셈) */

@@ -40,9 +40,12 @@ export function cityHousingCap(city: {
   return Math.max(0, Math.trunc(city.housing)) + Math.max(0, Math.trunc(city.beds ?? 0));
 }
 
-/** 걷기 한 칸 ms(D-120 WALK_SPEED, 올림) */
-export function walkMsPerCell(): number {
-  return Math.ceil((CELL_UNITS * MS_PER_SECOND) / WALK_SPEED);
+/**
+ * 걷기 한 칸 ms(올림). speed = 걷기 빠르기(단위/초) — 기본은 처음 AGI 10 유닛의 걷기(D-120 WALK_SPEED = 계산식 walk_speed(10), D-540).
+ * 도시 경제의 이름 없는 휴먼은 몸(AGI)이 없어 기본값, 서버 플레이어 일꾼은 그 유닛 빠르기를 준다
+ */
+export function walkMsPerCell(speed: number = WALK_SPEED): number {
+  return Math.ceil((CELL_UNITS * MS_PER_SECOND) / Math.max(1, Math.trunc(speed)));
 }
 
 /** 쉬는 곳의 회복 배율(‰). 만족도는 가득으로 본다(도시 경제는 사람마다 만족도를 모른다 [임시]) */
@@ -70,12 +73,13 @@ export function workSharePm(
   return Math.floor((work * 1000) / (work + rest + commute));
 }
 
-/** 일·쉼 한 바퀴 ms(일 + 쉼 + 오감) — 숙소 요금은 한 바퀴에 한 번(쉴 때) 낸다 */
+/** 일·쉼 한 바퀴 ms(일 + 쉼 + 오감, 오감 = 걷기 빠르기 walkSpeed로) — 숙소 요금은 한 바퀴에 한 번(쉴 때) 낸다 */
 export function restPeriodMs(
   place: RestPlace,
   commuteCells: number,
   c: SocietyCoefficients,
   cycleMs: number = TEST_JOB_RULES.cycleMs,
+  walkSpeed: number = WALK_SPEED,
 ): number {
   const max = Math.max(1, c.fatigueMax);
   const step = Math.max(
@@ -83,7 +87,9 @@ export function restPeriodMs(
     Math.floor((c.fatigueRecoverStepMs * 1000) / Math.max(1, restRecoveryPm(place, c))),
   );
   return (
-    max * Math.max(1, cycleMs) + max * step + 2 * Math.max(0, Math.trunc(commuteCells)) * walkMsPerCell()
+    max * Math.max(1, cycleMs) +
+    max * step +
+    2 * Math.max(0, Math.trunc(commuteCells)) * walkMsPerCell(walkSpeed)
   );
 }
 

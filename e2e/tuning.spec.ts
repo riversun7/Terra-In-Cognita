@@ -270,7 +270,8 @@ test.describe("개발자", () => {
     // 단위: ms만
     await page.locator(".tp-seg[data-scope='all']").click();
     await page.locator(".tp-unit-filter").selectOption("ms");
-    expect(await page.locator(".tp-row").count()).toBeGreaterThan(0);
+    // 거른 줄은 다시 그린 뒤에 센다(바로 세면 그리는 중 0이 나올 수 있다)
+    await expect(page.locator(".tp-row")).not.toHaveCount(0);
     await expect(page.locator(".tp-row .tp-meta").first()).toContainText(message("ko", "dev_tuning_unit_ms"));
     // 바꾼 것만: 아무것도 바꾸지 않았으니 비고, 거르기 지우기로 전체
     await page.locator(".tp-changed-only").click();

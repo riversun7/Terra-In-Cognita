@@ -77,19 +77,7 @@ const EDITORS: readonly Editor[] = [
       await expect(page.locator(".be-stagebar")).toHaveAttribute("data-count", "1");
     },
   },
-  {
-    name: "balance",
-    path: "/dev/balance",
-    before: "#bp-tab-weights",
-    screen: ".bp-weights-tab",
-    bar: ".bp-pending",
-    stage: async (page) => {
-      const cell = page.locator(".bp-weights tbody tr").first().locator('td[data-field="str"]');
-      const input = cell.locator("input");
-      await input.fill(String(Number(await input.inputValue()) + 1));
-      await input.press("Enter");
-      await expect(cell).toHaveAttribute("data-state", "staged");
-    },
+  // /dev/balance 가중치 탭은 2026-11-14 전투 보고서 개편에서 지웠다(2차 스탯 편집기가 같은 일을 한다, ADR 2026-11-14-battle-report.md) — 담은 변경 막대가 없다
   },
 ];
 

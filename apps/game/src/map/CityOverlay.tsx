@@ -40,7 +40,7 @@ interface CityOverlayProps {
   readonly factions: readonly WorldMapFaction[];
   /** 반경 환산(1000분율 칸 → 라디안). 0·없음이면 영토를 그리지 않는다 */
   readonly milliPerRadian?: number | undefined;
-  /** 아는 영토 비콘(비콘마다 작은 원, 기획 D-544 1434 가). 없으면 비콘 없이 */
+  /** 아는 영토 비콘(도시 소유 비콘은 그 도시·국가 외곽선을 넓힌다, 기획 D-546 1434). 없으면 비콘 없이 */
   readonly beacons?: readonly WorldMapBeacon[] | undefined;
   /** 영토 표시 값(설정 칸 planet_territory_*). 없으면 출발값 */
   readonly territoryDisplay?: WorldTerritoryDisplay | undefined;
@@ -65,7 +65,9 @@ const place = (element: HTMLElement, point: { readonly x: number; readonly y: nu
 
 /** 영토를 그릴 국가(도시 차례에 처음 나온 차례, 그다음 비콘만 있는 국가) */
 function areaNations(cities: readonly WorldMapCity[], beacons: readonly WorldMapBeacon[] = []): number[] {
-  return [...new Set([...cities.map((city) => city.factionId), ...beacons.map((beacon) => beacon.factionId)])];
+  return [
+    ...new Set([...cities.map((city) => city.factionId), ...beacons.map((beacon) => beacon.factionId)]),
+  ];
 }
 
 /** 국가 영토 한 벌(원 바탕·이긴 조각·테두리 경로, 이름표) */
@@ -98,7 +100,12 @@ export function CityOverlay(props: CityOverlayProps) {
   const latest = useRef(props);
   // 영토 모양(도시·비콘 자료나 표시 값이 바뀔 때만 셈한다 — 국가 16·도시 50에서 수십 ms, territoryShapes.test.ts)
   const territory = useMemo((): TerritoryShapes => {
-    const input = territoryInputOf({ cities, milliPerRadian: milliPerRadian ?? 0, beacons, territoryDisplay });
+    const input = territoryInputOf({
+      cities,
+      milliPerRadian: milliPerRadian ?? 0,
+      beacons,
+      territoryDisplay,
+    });
     return buildTerritoryShapes(input.sites, input.corridor);
   }, [cities, milliPerRadian, beacons, territoryDisplay]);
   const model = useRef(territory);

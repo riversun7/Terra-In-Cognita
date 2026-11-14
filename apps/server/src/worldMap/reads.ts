@@ -403,7 +403,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
           }),
         });
       }
-      // 영토 비콘(기획 D-544 1434 가 — 1차맵 영토 표시에 비콘마다 작은 원): 꼭짓점인 비콘(껍질 덩이 구성원 = 다 지었고 상태 문턱 이상)만,
+      // 영토 비콘(기획 D-546 1434 — 1차맵 영토 표시에서 도시 소유 비콘은 그 도시·국가 외곽선을 넓힌다): 꼭짓점인 비콘(껍질 덩이 구성원 = 다 지었고 상태 문턱 이상)만,
       // 안개는 껍질과 같은 꼴(내 국가·기준 도시를 앎·전체 보기 — 모르는 국가 비콘 자리가 새지 않게)
       const vertexBeacons = new Set(
         (territory?.groups ?? []).flatMap((group) =>

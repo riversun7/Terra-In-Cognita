@@ -239,8 +239,8 @@ export interface SocietyCoefficients {
    */
   readonly territory: TerritoryCoefficients;
   /**
-   * 1차맵 영토 표시(팩 tuning 경로 "territoryDisplay.*", 기획 D-544 — 표시 상수를 설정 칸으로, [임시]·보기 전용): 도시·비콘 잇기 거리·원 배율·
-   * 원 아래 끝·비콘 원. 판정(territory·claimAt)과 상관없다. 시뮬은 읽지 않는다(서버 world.cities가 화면에 넘긴다)
+   * 1차맵 영토 표시(팩 tuning 경로 "territoryDisplay.*", 기획 D-544·D-546 — 표시 상수를 설정 칸으로, [임시]·보기 전용): 도시 잇기 거리·원
+   * 배율·원 아래 끝·비콘 둘레 여유. 판정(territory·claimAt)과 상관없다. 시뮬은 읽지 않는다(서버 world.cities가 화면에 넘긴다)
    */
   readonly territoryDisplay: WorldTerritoryDisplay;
   /** 노동 계약(49 N48, D-479, 팩 tuning 경로 "labor.*"): 옛 규칙 값. docs/adr/2026-11-03-labor-contracts.md */

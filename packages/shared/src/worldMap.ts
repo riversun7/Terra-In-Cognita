@@ -87,8 +87,8 @@ export interface WorldMapHull {
 }
 
 /**
- * 영토 비콘 한 줄(1차맵 영토 표시 — 비콘마다 작은 원을 도시와 같은 규칙으로 더한다, 기획 D-544 1434 가). 꼭짓점이 되는 비콘만(다 지었고 상태가
- * 문턱 이상, docs/adr/2026-11-03-territory-layer.md). 위도·경도는 그 1차맵 칸 가운데(표시용)
+ * 영토 비콘 한 줄(1차맵 영토 표시 — 도시 소유 비콘은 그 도시·국가의 외곽선을 비콘까지 넓힌다, 기획 D-546 1434). 꼭짓점이 되는 비콘만(다 지었고
+ * 상태가 문턱 이상, docs/adr/2026-11-03-territory-layer.md). 위도·경도는 그 1차맵 칸 가운데(표시용)
  */
 export interface WorldMapBeacon {
   readonly id: number;
@@ -100,11 +100,11 @@ export interface WorldMapBeacon {
 }
 
 /**
- * 1차맵 영토 표시 값(설정 칸, 보기 전용 [임시] — 기획 D-544 "표시 상수는 설정 칸", 판정 D-485·D-104와 상관없다). 칸 = 1차맵 칸
- * - corridorCells: 같은 국가 도시·비콘을 띠로 잇는 가장 먼 거리(칸, 0이면 잇지 않는다)
- * - radiusScale: 도시 원 반지름 = max(배후지 반경 × radiusScale, minCells칸)
+ * 1차맵 영토 표시 값(설정 칸, 보기 전용 [임시] — 기획 D-544 "표시 상수는 설정 칸"·D-546 1431, 판정 D-485·D-104와 상관없다). 칸 = 1차맵 칸
+ * - corridorCells: 같은 국가 도시를 띠로 잇는 가장 먼 거리(칸, 0이면 잇지 않는다. 비콘과 기준 도시는 늘 잇는다)
+ * - radiusScale: 도시 원 반지름 = max(지금 배후지 반경 × radiusScale, minCells칸)
  * - minCells: 도시 원 반지름 아래 끝(칸)
- * - beaconCells: 비콘 원 반지름(칸)
+ * - beaconCells: 도시 소유 비콘 둘레 여유(칸) — 외곽선이 비콘 밖으로 이만큼 지나간다
  */
 export interface WorldTerritoryDisplay {
   readonly corridorCells: number;

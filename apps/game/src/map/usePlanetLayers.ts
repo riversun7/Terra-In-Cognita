@@ -20,7 +20,6 @@ export function territoryLineOf(world: WorldCitiesResponse | null, cell: PickedC
   const hit = territoryAtWorld(cell.latDeg, cell.lonDeg, world);
   if (!hit) return m.planet_territory_outside();
   const nation = factionName(world.factions, hit.factionId);
-  if (hit.beaconId !== null) return m.planet_territory_at_beacon({ nation });
   const city = world.cities.find((entry) => entry.id === hit.cityId);
   return city
     ? m.planet_territory_at_city({ nation, city: cityLabel(world.factions, city) })

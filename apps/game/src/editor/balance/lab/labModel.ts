@@ -294,10 +294,6 @@ export function labErrorOf(error: unknown): LabErrorInfo {
   }
 }
 
-/** 몬테카를로 판 수·제한 시간 고르기(상한 안) */
-export const LAB_RUN_OPTIONS = [10, 20, 50, 100, 200] as const;
-export const LAB_LIMIT_OPTIONS = [60, 120, 180, 300, 600] as const;
-
 /** 기기에 남겨 두는 팀(새로 고쳐도 이어서, 이 기기만). 읽기·쓰기가 막히면 조용히 넘어간다 */
 const STORAGE_KEY = "terra.battleLab.teams.v1";
 

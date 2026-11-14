@@ -308,6 +308,40 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "산지 밖 광석의 가장 높은 티어",
     "Highest ore tier outside mountains",
   ),
+  // 낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나): 49에 칸이 없어 fish_tier_*를 앞머리로 쓴다
+  k(
+    "fish_tier_fresh_min",
+    "fishFreshMin",
+    "낚시터 민물: 가장 낮은 티어",
+    "Fishing spot freshwater: lowest tier",
+  ),
+  k(
+    "fish_tier_fresh_max",
+    "fishFreshMax",
+    "낚시터 민물: 가장 높은 티어",
+    "Fishing spot freshwater: highest tier",
+  ),
+  k("fish_tier_coast_min", "fishCoastMin", "낚시터 연안: 가장 낮은 티어", "Fishing spot coast: lowest tier"),
+  k("fish_tier_coast_max", "fishCoastMax", "낚시터 연안: 가장 높은 티어", "Fishing spot coast: highest tier"),
+  k(
+    "fish_tier_shelf_min",
+    "fishShelfMin",
+    "낚시터 대륙붕: 가장 낮은 티어",
+    "Fishing spot shelf: lowest tier",
+  ),
+  k(
+    "fish_tier_shelf_max",
+    "fishShelfMax",
+    "낚시터 대륙붕: 가장 높은 티어",
+    "Fishing spot shelf: highest tier",
+  ),
+  k("fish_tier_deep_min", "fishDeepMin", "낚시터 심해: 가장 낮은 티어", "Fishing spot deep sea: lowest tier"),
+  k(
+    "fish_tier_deep_max",
+    "fishDeepMax",
+    "낚시터 심해: 가장 높은 티어",
+    "Fishing spot deep sea: highest tier",
+  ),
   // 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536): 49에 칸이 없어 resource_*를 앞머리로 쓴다
   k("resource_wood_forest_pm", "woodForestPm", "목재 배율: 숲 바이옴(‰)", "Wood scale: forest biomes (‰)"),
   k("resource_wood_other_pm", "woodOtherPm", "목재 배율: 그 밖의 땅(‰)", "Wood scale: other land (‰)"),

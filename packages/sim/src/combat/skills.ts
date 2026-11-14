@@ -19,6 +19,7 @@ import {
 } from "./formula.ts";
 import type { UnitState } from "./battleTypes.ts";
 import type { BattleTrace } from "./battleTrace.ts";
+import { newAttackStages, recordApplied } from "./attackStages.ts";
 
 export type SkillFormulaPart =
   | { readonly part: "attack_mul"; readonly pm: number }
@@ -481,17 +482,32 @@ export function resolveSkill(
       crit: rng.nextInt(10_000),
       critPos: rng.nextInt(10_000),
     };
-    const hit = resolveAttack(strike, withDefenseModifiers(target.defense, modifiersOf(target)), rolls, c);
+    // 단계 기록은 관찰자가 원할 때만(전투 보고서 피해 흐름). 값·굴림은 그대로다
+    const stages = trace?.attackStages ? newAttackStages("skill") : undefined;
+    const hit = resolveAttack(
+      strike,
+      withDefenseModifiers(target.defense, modifiersOf(target)),
+      rolls,
+      c,
+      stages,
+    );
     if (hit.outcome !== "hit") {
       if (trace) trace.skillHit(unit, skill, target, hit, 0, 0);
+      if (stages) trace?.attackStages?.(unit, target, stages);
       continue;
     }
     // 고정 피해(공식 부품 flat)는 스킬 종류의 몫에 더한다(물리 → 물리 몫, 속성 → 속성 몫)
     const flat = Math.max(0, skill.flat);
     const physical = attack.kind === "physical" ? hit.physical + flat : hit.physical;
     const elemental = attack.kind === "physical" ? hit.elemental : hit.elemental + flat;
+    const before = stages ? { armor: target.armor, shield: target.shield, hp: target.hp } : undefined;
     takeDamage(target, physical, elemental);
     if (trace) trace.skillHit(unit, skill, target, hit, physical, elemental);
+    if (stages && before) {
+      stages.flat = flat;
+      recordApplied(stages, before, target, physical, elemental);
+      trace?.attackStages?.(unit, target, stages);
+    }
     applyParts(unit, skill, target, rng, nowMs, trace);
   }
 }

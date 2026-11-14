@@ -86,11 +86,6 @@ export interface BalanceEdit {
   readonly value: number | null;
 }
 
-export interface BalanceContributionInput {
-  readonly primaries: BalancePrimaries;
-  readonly edits: readonly BalanceEdit[];
-}
-
 export interface BalanceDuelsInput extends BalanceDuelSettings {
   readonly edits: readonly BalanceEdit[];
 }
@@ -112,30 +107,11 @@ export const BALANCE_REASONS = [
 ] as const;
 export type BalanceReason = (typeof BALANCE_REASONS)[number];
 
-/** 표 한 벌의 기여: 2차 스탯마다 기준 값과 1차 +10 차이(PrimaryStat 키) */
-export interface BalanceContributionTable {
-  readonly stats: readonly {
-    readonly id: string;
-    readonly value: number;
-    readonly plus: BalancePrimaries;
-  }[];
-  /** +10이 어느 2차 스탯도 바꾸지 않는 1차(가치 없는 1차) */
-  readonly worthless: readonly PrimaryStat[];
-}
-
 /** 담은 변경을 tuning.save가 받지 않을 까닭(받으면 null) */
 export interface BalanceEditProblem {
   readonly reason: string;
   readonly key: string | null;
   readonly problems: readonly string[];
-}
-
-export interface BalanceContributionResponse {
-  readonly revision: number;
-  readonly current: BalanceContributionTable;
-  /** 담은 변경이 없으면 null */
-  readonly edited: BalanceContributionTable | null;
-  readonly problem: BalanceEditProblem | null;
 }
 
 /** 1차 하나의 대결 결과("기준 + 10" 쪽에서 센 수, 두 편 차례를 합침) */

@@ -1,6 +1,7 @@
 // 2차 스탯 에디터(/dev/secondary-stats) — 가중치·공식 편집 + 4종 SVG 시각화.
 // 조각 이름 SecondaryStatsEditorScreen-*(미리 캐시 규칙 [Ss]econdaryStats).
-// 기존 /dev/balance([가중치 표]·[계산식])은 건드리지 않는다. 걷기 속도(walk_speed / D-540)는 제외한다.
+// 걷기 속도(walk_speed / D-540)는 제외한다. 아래 판(SecondaryStatsExtras)은 밸런스 화면에서 옮긴 스탯 기능(스태미나·적정치, 1차 +10 대결 승률 —
+// docs/research/2026-11-14-dev-tools-overlap.md 5절). 옛 /dev/balance [가중치 표]·[계산식] 탭은 이 화면과 겹쳐 지웠다.
 import type { BalancePrimaries, BalanceTableResponse } from "@terra/shared/balance";
 import type { FormulaListResponse } from "@terra/shared/formula";
 import { PRIMARY_STATS } from "@terra/shared/roster";
@@ -24,6 +25,7 @@ import { BackButton } from "../../shell/BackButton.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { SecondaryStatEditCard } from "./SecondaryStatEditCard.tsx";
 import { SecondaryStatsCharts } from "./SecondaryStatsCharts.tsx";
+import { SecondaryStatsExtras } from "./SecondaryStatsExtras.tsx";
 import { archetypeText, categoryText, primaryCode, saveErrorText } from "./secondaryStatsMessages.ts";
 import {
   EMPTY_DRAFTS,
@@ -579,6 +581,14 @@ export default function SecondaryStatsEditorScreen({ initialTarget }: SecondaryS
               config={config}
               locale={locale}
               onSelectStat={(rowId) => setSelectedKey(rowId)}
+            />
+
+            <SecondaryStatsExtras
+              table={load.table}
+              formulas={load.formulas}
+              drafts={drafts}
+              config={config}
+              locale={locale}
             />
           </div>
         </div>

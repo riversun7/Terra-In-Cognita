@@ -6,6 +6,7 @@
 //   S6 ÷ S1 ≥ 0.80이면 범용, 아니면 S3 ÷ S1 ≥ 0.60이면 위 세 스탯 조합(20종), 그 밖은 위 두 스탯 조합(15종). 문턱은 설정 칸(‰)이고
 //   비교는 정수 곱으로 한다(S3 × 1000 ≥ S1 × 문턱). 모두 0이면 클래스 없음.
 // 추천은 표시만 한다(직무·전투 판정에 쓰지 않는다).
+import type { FishWaterRangeView } from "./fishWater.ts";
 import { type LocalizedName, PRIMARY_STATS, type PrimaryStat } from "./roster.ts";
 
 /** 추천이 읽는 1차 스탯 값(몸 값 + 보너스) */
@@ -25,6 +26,8 @@ export interface ProductionTypeView {
   /** roll = 확률표 추첨, select = 선택 + 효율(해금 티어) */
   readonly mode: "roll" | "select";
   readonly group: ProductionGroup;
+  /** 낚시터 물 종류마다 티어 범위(기획 D-542 질문 1365 나, 설정 칸 fish_tier_*). 어류 시설만, 옛 서버면 없음 */
+  readonly waterTiers?: readonly FishWaterRangeView[] | undefined;
 }
 
 /**

@@ -106,22 +106,13 @@ describe.skipIf(!TEST_DATABASE_URL)("밸런스 화면 (DB)", () => {
     await test?.drop();
   });
 
-  it("player는 FORBIDDEN, 로그인 안 함은 UNAUTHORIZED, dev는 표·기여·대결을 본다", async () => {
+  it("player는 FORBIDDEN, 로그인 안 함은 UNAUTHORIZED, dev는 표·대결을 본다", async () => {
     expect((await trpcQuery(app, "balance.table", undefined, cookie.player)).statusCode).toBe(403);
     expect((await trpcQuery(app, "balance.table", undefined)).statusCode).toBe(401);
     const table = obj(resultOf(await trpcQuery(app, "balance.table", undefined, cookie.dev)));
     // 켜진 행 17개(D-502로 명중·크리·행동 속도 점수 행은 꺼짐, D-512 323 제작 직무 행, D-514 HP 회복 행)
     expect(arr(table.rows)).toHaveLength(17);
     const defaults = obj(table.defaults);
-    const primaries = obj(defaults.primaries);
-    const contribution = await trpcQuery(
-      app,
-      "balance.contribution",
-      { primaries, edits: [{ key: "hp.vit", value: 4000 }] },
-      cookie.dev,
-    );
-    expect(contribution.statusCode, contribution.body).toBe(200);
-    expect(obj(resultOf(contribution)).problem).toBeNull();
     const duels = await trpcQuery(
       app,
       "balance.duels",

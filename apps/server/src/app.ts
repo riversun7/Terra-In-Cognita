@@ -3,7 +3,7 @@ import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
-import { TEST_RANKING_COEFFICIENTS, combatCoefficientsFrom } from "@terra/sim";
+import { TEST_RANKING_COEFFICIENTS, combatCoefficientsFrom, fishTierRangesOf } from "@terra/sim";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { registerAccountRoutes } from "./auth/account.ts";
 import { type TerraAuth, createAuth, verifyAuth } from "./auth/auth.ts";
@@ -82,6 +82,7 @@ import { createHeavyGate } from "./balance/gate.ts";
 import { duelRunnerOf, inlineJobRunner, workerJobRunner } from "./balance/runner.ts";
 import { inlineBatchRunner, workerBatchRunner } from "./battleLab/analysisRunner.ts";
 import { createBattleLabShared } from "./battleLab/services.ts";
+import { inlineReportRunner, workerReportRunner } from "./battleReport/runner.ts";
 import { worldArenaTerrains } from "./battleLab/worldTerrains.ts";
 import { createArenaSource } from "./battleReplay/arena.ts";
 import { type ReplayJob, type ReplayJobResult, runReplayJob } from "./battleReplay/compute.ts";
@@ -553,6 +554,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             ? workerBatchRunner({ workerUrl: balanceRunner.workerUrl })
             : inlineBatchRunner(),
         analysisLimits: options.battleLab?.analysisLimits,
+        // 전투 보고서 일: 같은 워커 진입 파일(일 종류 report·reportTrace), 따로 센 바쁨
+        reports:
+          balanceRunner?.kind === "worker"
+            ? workerReportRunner({ workerUrl: balanceRunner.workerUrl })
+            : inlineReportRunner(),
+        reportLimits: options.battleLab?.reportLimits,
         now,
         log: app.log,
         limits: options.battleLab?.limits,
@@ -655,6 +662,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
                 facilities: effective.facilities,
                 combatClasses: effective.combatClasses,
                 rule: tuningState?.society().combatClass,
+                // 낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나, 설정 칸 fish_tier_*)
+                fishTiers: tuningState ? fishTierRangesOf(tuningState.society().worldSeed) : undefined,
               };
             }
           : undefined,

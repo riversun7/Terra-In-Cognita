@@ -73,6 +73,27 @@ describe("원자재별 채집 예상(사이보그 판 효율 묶음)", () => {
     expect(boosted?.stat).toBe(55 + cap);
   });
 
+  it("낚시터 줄만 물 종류마다 접은 확률(D-542 1365 나 — 설정 칸 fish_tier_* 출발값 = 어군 범위)", () => {
+    const rows = gatherSheetOf(source, PHOTO, 0, society);
+    const fish = rows.find((row) => row.facility === "fishing_spot");
+    // 구간 20: T0 70%·T1 15%·T2 10%·T3 5%
+    expect(fish?.tierPm).toEqual([700, 150, 100, 50, 0, 0, 0, 0, 0, 0]);
+    expect(fish?.waters?.map((water) => [water.water, water.min, water.max])).toEqual([
+      ["fresh", 0, 2],
+      ["coast", 0, 4],
+      ["shelf", 2, 6],
+      ["deep", 4, 8],
+    ]);
+    const tierPm = (water: string) => fish?.waters?.find((row) => row.water === water)?.tierPm;
+    expect(tierPm("fresh")).toEqual([700, 150, 150, 0, 0, 0, 0, 0, 0, 0]);
+    expect(tierPm("coast")).toEqual(fish?.tierPm);
+    expect(tierPm("shelf")).toEqual([0, 0, 950, 50, 0, 0, 0, 0, 0, 0]);
+    expect(tierPm("deep")).toEqual([0, 0, 0, 0, 1000, 0, 0, 0, 0, 0]);
+    expect(rows.filter((row) => row.waters !== undefined).map((row) => row.facility)).toEqual([
+      "fishing_spot",
+    ]);
+  });
+
   it("채집 시설이 없으면 빈 목록", () => {
     expect(gatherSheetOf({ ...source, facilities: [] }, PHOTO, 0, society)).toEqual([]);
   });

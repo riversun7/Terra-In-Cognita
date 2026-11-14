@@ -1,0 +1,41 @@
+/*
+ * 2차 스탯 화면 아래 판(스태미나·적정치, 전투 승률 영향) — 밸런스 화면에서 옮김. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 카드 틀은 .sec-chart-card(secondaryStats.css). 표는 안에서만 가로로 민다(390px).
+ */
+.sec-extras {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  min-width: 0;
+}
+.sec-extra-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+}
+.sec-extra-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.sec-extra-table {
+  font-variant-numeric: tabular-nums;
+}
+.sec-extra-table th,
+.sec-extra-table td {
+  white-space: nowrap;
+}
+.sec-extra-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: var(--space-3);
+}
+.sec-sustain-ok {
+  color: var(--color-success);
+}
+.sec-sustain-drains {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+.sec-duel-table tr[data-weak] th {
+  color: var(--color-warning);
+}

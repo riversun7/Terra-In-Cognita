@@ -17,6 +17,7 @@
 //   docs/adr/2026-11-01-formula-editor.md). 기본 식은 아래 statPlusWeapon·weaponScaled·evadeFinalPm과 같은 결과다.
 import { type CombatCoefficients, affinityRatePm } from "./coefficients.ts";
 import type { Modifiers } from "./effects.ts";
+import type { AttackStages } from "./attackStages.ts";
 import { attackValue, bareCritPm, critMultiplierPm, dexFrameValue, evadeChancePm } from "./formulas.ts";
 
 /** 속성 12칸 차례(D-167 코드): water frost fire blaze wind lightning earth crystal light holy dark necro. 계열 = ⌊칸 ÷ 2⌋ */
@@ -221,20 +222,41 @@ export interface AttackResult {
   readonly amount: number;
 }
 
-/** 공격 한 번. rolls = 시드 굴림 넷(각 0~9999) */
+/**
+ * 공격 한 번. rolls = 시드 굴림 넷(각 0~9999). stages가 있으면 단계 값을 적는다(전투 보고서 피해 흐름, attackStages.ts).
+ * 적기만 하고 값·굴림은 그대로다(실제 플레이는 넘기지 않는다)
+ */
 export function resolveAttack(
   attack: AttackProfile,
   defense: DefenseProfile,
   rolls: Rolls,
   c: CombatCoefficients,
+  stages?: AttackStages,
 ): AttackResult {
   const cap = c.appropriateCapPm;
-  if (rolls.hit >= realHitPm(attack, c) * 10)
+  const hitPm = realHitPm(attack, c);
+  if (stages) {
+    stages.kind = attack.kind;
+    stages.hitPm = hitPm;
+    stages.hitRoll = rolls.hit;
+  }
+  if (rolls.hit >= hitPm * 10) {
+    if (stages) stages.outcome = "miss";
     return { outcome: "miss", crit: false, physical: 0, elemental: 0, amount: 0 };
+  }
   const evadePm = evadeChancePm(defense.evadePm, defense.agi ?? 0, attack.agi ?? 0, c);
-  if (rolls.evade < evadePm * 10)
+  if (stages) {
+    stages.evadeBasePm = defense.evadePm;
+    stages.evadeRelativePm = evadeRelativePm(defense.agi ?? 0, attack.agi ?? 0, c);
+    stages.evadePm = evadePm;
+    stages.evadeRoll = rolls.evade;
+  }
+  if (rolls.evade < evadePm * 10) {
+    if (stages) stages.outcome = "evaded";
     return { outcome: "evaded", crit: false, physical: 0, elemental: 0, amount: 0 };
-  const crit = rolls.crit < realCritPm(attack, c) * 10;
+  }
+  const critPm = realCritPm(attack, c);
+  const crit = rolls.crit < critPm * 10;
   // ① 실제 공격력(스탯 공격력 + 무기 몫, D-502) → 두 몫(D-459)
   const real = BigInt(realAttackOf(attack, cap, c));
   const coefficients = attack.skillElementsPm;
@@ -242,30 +264,101 @@ export function resolveAttack(
   const physicalKind = attack.kind === "physical";
   let physical = physicalKind ? real : 0n;
   let elemental = physicalKind ? mulPm(real, add) : mulPm(real, 1000 + add);
+  if (stages) {
+    stages.outcome = "hit";
+    stages.critPm = critPm;
+    stages.critRoll = rolls.crit;
+    stages.crit = crit;
+    stages.statAttack = attack.statAttack;
+    stages.weaponAttack = attack.weaponAttack;
+    stages.realAttack = toSafe(real);
+    stages.elementAddPm = add;
+    stages.physicalRaw = toSafe(physical);
+    stages.elementalRaw = toSafe(elemental);
+    stages.defenseRatePm = defense.defenseRatePm;
+    stages.penetrationPm = attack.penetrationPm;
+    stages.defenseFlat = Math.max(0, defense.defenseFlat);
+    stages.elementalDefensePm = Math.min(1000, Math.max(0, defense.elementalDefenseRatePm));
+  }
   // ② 물리 몫: 비율 방어(방어율 − 관통) → 고정 방어
   if (physicalKind) {
     const rate = Math.min(1000, Math.max(0, defense.defenseRatePm - attack.penetrationPm));
-    physical = mulPm(physical, 1000 - rate) - BigInt(Math.max(0, defense.defenseFlat));
+    const afterRate = mulPm(physical, 1000 - rate);
+    physical = afterRate - BigInt(Math.max(0, defense.defenseFlat));
     if (physical < 0n) physical = 0n;
+    if (stages) {
+      stages.ratePm = rate;
+      stages.physicalAfterRate = toSafe(afterRate);
+    }
   }
+  if (stages) stages.physicalAfterFlat = toSafe(physical);
   // ③ 속성 몫: 방어 상성(하한 0, D-421) → 속성 방어율 → 속성 저항(1000‰이면 0, 음수면 약점)
   if (elemental > 0n) {
-    elemental = mulPm(elemental, 1000 + matchupPm(coefficients, defense.elements, c));
+    const matchup = matchupPm(coefficients, defense.elements, c);
+    elemental = mulPm(elemental, 1000 + matchup);
+    if (stages) {
+      stages.matchupPm = matchup;
+      stages.elementalAfterMatchup = toSafe(elemental);
+    }
     elemental = mulPm(elemental, 1000 - Math.min(1000, Math.max(0, defense.elementalDefenseRatePm)));
-    elemental = mulPm(elemental, 1000 - resistPm(coefficients, defense.resistPm));
+    if (stages) stages.elementalAfterDefense = toSafe(elemental);
+    const resist = resistPm(coefficients, defense.resistPm);
+    elemental = mulPm(elemental, 1000 - resist);
+    if (stages) stages.resistPm = resist;
   }
+  if (stages) stages.elementalAfterResist = toSafe(elemental);
   // ④ 크리 배율(범위형, N12) ⑤ 스킬 배율 ⑥ 버프: 두 몫에 함께
+  const critMul = crit ? critMultiplierPm(attack.critMulPm, rolls.critPos, c) : 1000;
   const factors = [Math.max(0, attack.skillMulPm), Math.max(0, attack.buffPm)];
-  if (crit) factors.unshift(critMultiplierPm(attack.critMulPm, rolls.critPos, c));
+  if (crit) factors.unshift(critMul);
   for (const pm of factors) {
     physical = mulPm(physical, pm);
     elemental = mulPm(elemental, pm);
   }
+  if (stages) recordFactors(stages, crit ? critMul : 0, attack, physical, elemental, crit);
   // 물리는 맞으면 최소 1(D-438 2, 기존 "최소 피해 1"). 속성 몫은 0까지 내려간다(D-421)
-  if (physicalKind && physical < 1n) physical = 1n;
+  if (physicalKind && physical < 1n) {
+    physical = 1n;
+    if (stages) stages.floored = true;
+  }
   const p = toSafe(physical);
   const e = toSafe(elemental);
+  if (stages) {
+    stages.physical = p;
+    stages.elemental = e;
+  }
   return { outcome: "hit", crit, physical: p, elemental: e, amount: toSafe(BigInt(p) + BigInt(e)) };
+}
+
+/**
+ * 단계 기록: 크리·스킬·버프 곱 뒤 값. 곱은 판정과 같은 차례로 다시 셈한다(기록만, 판정 값은 위 반복이 낸 값 그대로).
+ * 다시 셈은 처음 두 몫(방어 뒤)에서 시작해 끝 값이 판정 값과 같아야 한다(attackStages.test.ts)
+ */
+function recordFactors(
+  stages: AttackStages,
+  critMulPm: number,
+  attack: AttackProfile,
+  physical: bigint,
+  elemental: bigint,
+  crit: boolean,
+): void {
+  let p = BigInt(stages.physicalAfterFlat);
+  let e = BigInt(stages.elementalAfterResist);
+  stages.critMulPm = critMulPm;
+  if (crit) {
+    p = mulPm(p, critMulPm);
+    e = mulPm(e, critMulPm);
+  }
+  stages.physicalAfterCrit = toSafe(p);
+  stages.elementalAfterCrit = toSafe(e);
+  stages.skillMulPm = Math.max(0, attack.skillMulPm);
+  p = mulPm(p, stages.skillMulPm);
+  e = mulPm(e, stages.skillMulPm);
+  stages.physicalAfterSkill = toSafe(p);
+  stages.elementalAfterSkill = toSafe(e);
+  stages.buffPm = Math.max(0, attack.buffPm);
+  stages.physicalAfterBuff = toSafe(physical);
+  stages.elementalAfterBuff = toSafe(elemental);
 }
 
 /** 공격 사양의 실제 공격력(식 real_attack: 스탯 공격력 + 무기 몫, D-502. cap = 적정 비율 상한 ‰) */

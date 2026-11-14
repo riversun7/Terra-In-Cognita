@@ -1,10 +1,8 @@
 // 밸런스 화면 계산(순수 함수) — docs/adr/2026-11-01-balance-screen.md 3·4절
-// - 기여: 기준 1차 + 가중치 표 → 2차 스탯(@terra/sim computeSecondary), 1차 하나씩 +10 했을 때의 차이. 가볍다(주 스레드).
 // - 대결 일(DuelJob): 1차마다 "기준 + 10 vs 기준"을 두 편 차례로 반씩(runStatDuels). 무겁다 → 워커(duelWorker.ts)가 이 함수를 돈다.
 //   일에는 표·계수·유닛·시드를 다 담는다(요청 시작 때 값 한 벌). DB·접근자를 모른다.
 import {
   BALANCE_PLUS,
-  type BalanceContributionTable,
   type BalanceDuelRow,
   type BalancePrimaries,
   balanceScorePm,
@@ -16,42 +14,12 @@ import {
   type Primaries,
   type StatRow,
   type WeaponSpec,
-  computeSecondary,
   runStatDuels,
 } from "@terra/sim";
 
 /** 기준 1차에서 stat 하나만 +plus */
 export function plusOne(primaries: BalancePrimaries, stat: PrimaryStat, plus = BALANCE_PLUS): Primaries {
   return { ...primaries, [stat]: primaries[stat] + plus };
-}
-
-/** 표 한 벌의 기여: 2차 스탯마다 기준 값, 1차 +10 차이(화면 차례 PRIMARY_STATS), 가치 없는 1차 */
-export function contributionOf(
-  table: readonly StatRow[],
-  primaries: BalancePrimaries,
-): BalanceContributionTable {
-  const base = computeSecondary(primaries, table);
-  const plus = new Map(
-    PRIMARY_STATS.map((stat) => [stat, computeSecondary(plusOne(primaries, stat), table)]),
-  );
-  const deltaOf = (stat: PrimaryStat, id: string): number => (plus.get(stat)?.[id] ?? 0) - (base[id] ?? 0);
-  const stats = table.map((row) => {
-    const delta = (stat: PrimaryStat) => deltaOf(stat, row.id);
-    return {
-      id: row.id,
-      value: base[row.id] ?? 0,
-      plus: {
-        str: delta("str"),
-        vit: delta("vit"),
-        int: delta("int"),
-        wis: delta("wis"),
-        dex: delta("dex"),
-        agi: delta("agi"),
-      },
-    };
-  });
-  const worthless = PRIMARY_STATS.filter((stat) => table.every((row) => deltaOf(stat, row.id) === 0));
-  return { stats, worthless };
 }
 
 /** 대결 일 하나(워커로 보낸다: 구조화 복제가 되는 값만) */

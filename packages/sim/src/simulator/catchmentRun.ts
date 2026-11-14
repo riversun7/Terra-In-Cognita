@@ -38,14 +38,23 @@ import {
   oreTierCapOf,
   stepCatchmentSupply,
 } from "@terra/shared/catchment";
+import {
+  type FishTierRange,
+  type FishTierRanges,
+  type FishWater,
+  type FishWaterCell,
+  fishTierRangeOf,
+  spotFishWater,
+} from "@terra/shared/fishWater";
 import { type TerritoryCoefficients, cityGrade } from "@terra/shared/territory";
 import {
   type WorldSeedCoefficients,
   catchmentGrowthOf,
   catchmentSupplyOf,
+  fishTierRangesOf,
   plannedCityRadiusMilli,
 } from "../society/worldSeed.ts";
-import type { Scenario } from "./scenario.ts";
+import { DEFAULT_SCENARIO_FISH_WATER, type Scenario } from "./scenario.ts";
 import type { SimWorld } from "./world.ts";
 
 /** 배후지 칸 자리(시뮬 평면·서버 행성) */
@@ -56,6 +65,10 @@ export interface CatchmentGeometry {
   capacityPm(cell: number, material: CatchmentMaterial): number;
   /** 칸 광석 가운데 높은 티어가 나오는 몫(‰ — 산지 칸 1000, 산지 밖 oreFlatHighPm). 없으면 모든 칸 1000(티어를 막지 않는다) */
   highOrePm?(cell: number): number;
+  /**
+   * 칸의 낚시터 물 종류와 땅 여부(기획 D-542 질문 1365 나, @terra/shared/fishWater fishWaterCellOf). 없으면 낚시터 티어를 접지 않는다(옛 결과)
+   */
+  fishWaterOf?(cell: number): FishWaterCell;
 }
 
 /** 배후지 셈에 쓰는 설정 칸 값(부를 때마다 읽는다 — 서버는 설정 칸을 바꾸면 다음 하루부터) */
@@ -69,6 +82,8 @@ export interface CatchmentSettings {
   readonly yieldFloorPm: number;
   /** 산지 밖 광석의 가장 높은 티어(설정 칸 ore_low_tier_max) */
   readonly lowOreTierMax: number;
+  /** 낚시터 물 종류마다 티어 범위(설정 칸 fish_tier_*). 없으면 접지 않는다 */
+  readonly fishTiers?: FishTierRanges | undefined;
 }
 
 /** 도시 하나의 지금 배후지 */
@@ -136,6 +151,41 @@ export function oreTierCap(
   const city = state.cities.get(cityId);
   if (!city) return undefined;
   return oreTierCapOf(city.highOrePm, state.settings().lowOreTierMax);
+}
+
+/** 도시 → 낚시터 물 종류(반경이 바뀌면 다시 센다 — 칸 물 종류는 정해져 있다) */
+const fishWaterCache = new WeakMap<
+  CatchmentState,
+  Map<number, { radiusMilli: number; water: FishWater | undefined }>
+>();
+
+/**
+ * 낚시터(어류 채집 시설)의 티어 범위(기획 D-542 질문 1365 나): 그 도시 배후지 칸의 물 종류 가운데 낚시터가 설 땅 칸에서 가장 많은 것(같으면 더
+ * 깊은 쪽, 땅 칸이 없으면 모든 칸 — spotFishWater)의 범위. 배후지가 없거나 어류 시설이 아니거나 아직 하루 끝 전이거나 칸 물 종류를 모르면
+ * undefined(접지 않는다 — 광산 티어 막기 oreTierCap과 같은 때)
+ */
+export function fishTierRange(
+  state: CatchmentState | undefined,
+  cityId: number,
+  facility: string,
+): FishTierRange | undefined {
+  if (!state || materialOfFacility(facility) !== "fish") return undefined;
+  const ranges = state.settings().fishTiers;
+  const city = state.cities.get(cityId);
+  const fishWaterOf = state.geometry.fishWaterOf?.bind(state.geometry);
+  if (!ranges || !city || !fishWaterOf) return undefined;
+  let cache = fishWaterCache.get(state);
+  if (!cache) {
+    cache = new Map();
+    fishWaterCache.set(state, cache);
+  }
+  let known = cache.get(cityId);
+  if (!known || known.radiusMilli !== city.radiusMilli) {
+    const cells = [...new Set(state.geometry.cellsOf(cityId, city.radiusMilli))];
+    known = { radiusMilli: city.radiusMilli, water: spotFishWater(cells.map((cell) => fishWaterOf(cell))) };
+    cache.set(cityId, known);
+  }
+  return fishTierRangeOf(ranges, known.water);
 }
 
 /** 경제 자료 가운데 배후지 하루가 읽는 것(Economy의 일부 — 순환 import를 피한다) */
@@ -303,6 +353,10 @@ export interface PlaneLayout {
    * richnessPm.wood × max(숲 밀도 몫, 이 값) ÷ 1000. 없으면 0(바닥 없음)
    */
   readonly woodBaselinePm?: number | undefined;
+  /**
+   * 칸 x 자리 → 낚시터 물 종류(기획 D-542 질문 1365 나 — 시뮬 평면에는 물이 없어 시나리오가 적는다, 모든 칸 낚시터가 설 땅). 없으면 접지 않는다
+   */
+  readonly fishWaterAt?: ((x: number) => FishWater | undefined) | undefined;
 }
 
 const PLANE_HALF = 1 << 19;
@@ -341,6 +395,14 @@ export function planeGeometry(layout: PlaneLayout): CatchmentGeometry {
       if (elevationM === undefined || !layout.oreRules) return rich;
       return Math.floor((rich * oreSharePm(planeLand(elevationM), layout.oreRules)) / 1000);
     },
+    ...(layout.fishWaterAt
+      ? {
+          fishWaterOf: (cell: number): FishWaterCell => ({
+            water: layout.fishWaterAt?.(planeX(cell)),
+            shore: true,
+          }),
+        }
+      : {}),
     highOrePm(cell) {
       const elevationM = planeElevation(layout, cell);
       if (elevationM === undefined || !layout.oreRules) return 1000;
@@ -379,6 +441,7 @@ export function scenarioPlaneLayout(
   // 세력 차례 → 땅 고도(묶음 칸 catchmentElevationM, 없으면 시나리오 elevationM)·숲 밀도(catchmentForest, 없으면 시나리오 forest)
   const elevations: (number | undefined)[] = [];
   const forests: (number | undefined)[] = [];
+  const fishWaters: FishWater[] = [];
   let index = 0;
   for (const faction of world.factions.values()) {
     const group = scenario.factions.find(
@@ -399,6 +462,7 @@ export function scenarioPlaneLayout(
     [...faction.cities].toSorted((a, b) => a - b).forEach((cityId, j) => at.set(cityId, { x, y: j * step }));
     elevations.push(group?.catchmentElevationM ?? config.elevationM);
     forests.push(group?.catchmentForest ?? config.forest);
+    fishWaters.push(group?.catchmentFishWater ?? config.fishWater ?? DEFAULT_SCENARIO_FISH_WATER);
     index += 1;
   }
   const hasElevation = elevations.some((value) => value !== undefined);
@@ -408,9 +472,15 @@ export function scenarioPlaneLayout(
     const k = Math.floor((x + Math.floor(config.groupGap / 2)) / config.groupGap);
     return k >= 0 && k < elevations.length ? k : -1;
   };
+  const sceneFishWater = config.fishWater ?? DEFAULT_SCENARIO_FISH_WATER;
   return {
     at,
     richnessPm: config.richnessPm,
+    // 칸 x에서 가장 가까운 세력 처음 자리의 낚시터 물 종류(먼 칸은 시나리오 값, 질문 1411)
+    fishWaterAt: (x: number) => {
+      const k = groupOf(x);
+      return k >= 0 ? (fishWaters[k] ?? sceneFishWater) : sceneFishWater;
+    },
     ...(hasElevation
       ? {
           // 칸 x에서 가장 가까운 세력 처음 자리의 고도(먼 칸 — 실행 중 세운 마을 — 은 시나리오 고도)
@@ -446,5 +516,6 @@ export function catchmentSettingsOf(
     growthMinPm: seed.catchmentGrowthMinPm,
     yieldFloorPm: seed.catchmentYieldFloorPm,
     lowOreTierMax: seed.oreLowTierMax,
+    fishTiers: fishTierRangesOf(seed),
   };
 }

@@ -3,6 +3,7 @@
 // 국가 프리셋·아이템·레시피·시설의 팩 형식은 그 규칙을 만드는 단계(R2·R4)에서 정하고, 그때 이 설명이 팩 ID를 가리키게 된다.
 // NPC 판단(무엇을 해 볼지)은 npc/brain.ts(R5), 결과는 진짜 규칙(R4b 세력·사회)이 정한다. 시나리오는 판단 간격만 바꾼다.
 import { CATCHMENT_MATERIALS, type CatchmentMaterial } from "@terra/shared/catchment";
+import { FISH_WATERS, type FishWater } from "@terra/shared/fishWater";
 import type { Regime } from "../society/shares.ts";
 
 export interface ScenarioFaction {
@@ -51,6 +52,11 @@ export interface ScenarioFaction {
    * 그것도 없으면 숲을 보지 않는다(목재 몫 = richnessPm — 옛 결과 그대로)
    */
   readonly catchmentForest?: number | undefined;
+  /**
+   * 배후지 평면 배치의 낚시터 물 종류(이 묶음 세력 둘레 칸 — 기획 D-542 질문 1365 나). 없으면 시나리오 catchment.fishWater, 그것도 없으면
+   * DEFAULT_SCENARIO_FISH_WATER(연안 [임시], 질문 1411)
+   */
+  readonly catchmentFishWater?: FishWater | undefined;
 }
 
 export interface ScenarioFacilityPlan {
@@ -166,6 +172,22 @@ export interface ScenarioCatchment {
   readonly elevationM?: number | undefined;
   /** 모든 칸의 숲 밀도(0 ~ 255, 세력 묶음 catchmentForest가 앞선다). 없으면 숲을 보지 않는다 */
   readonly forest?: number | undefined;
+  /** 모든 칸의 낚시터 물 종류(세력 묶음 catchmentFishWater가 앞선다). 없으면 DEFAULT_SCENARIO_FISH_WATER */
+  readonly fishWater?: FishWater | undefined;
+}
+
+/**
+ * [임시] 시나리오가 물 종류를 적지 않을 때 시뮬 평면 낚시터의 물 종류(질문 1411): 연안(T0 ~ T4). 시뮬에는 물이 없고, 지금 시나리오 낚시터 일꾼
+ * 스탯(T3까지 나옴)에서는 접지 않은 결과와 같다
+ */
+export const DEFAULT_SCENARIO_FISH_WATER: FishWater = "coast";
+
+/** 물 종류 칸 읽기(없으면 undefined) */
+function fishWaterField(raw: unknown, path: string): FishWater | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== "string" || !(FISH_WATERS as readonly string[]).includes(raw))
+    throw new ScenarioError(`${path}: one of ${FISH_WATERS.join(", ")} expected`);
+  return FISH_WATERS.find((water) => water === raw);
 }
 
 export interface Scenario {
@@ -308,6 +330,11 @@ export function parseScenario(value: unknown): Scenario {
       ...(field(item, "catchmentForest") === undefined
         ? {}
         : { catchmentForest: int(field(item, "catchmentForest"), `${at}.catchmentForest`, 0, 255) }),
+      ...(field(item, "catchmentFishWater") === undefined
+        ? {}
+        : {
+            catchmentFishWater: fishWaterField(field(item, "catchmentFishWater"), `${at}.catchmentFishWater`),
+          }),
     };
   });
   const npcValue = field(value, "npc");
@@ -403,6 +430,7 @@ export function parseScenario(value: unknown): Scenario {
     }
     const elevation = field(catchmentValue, "elevationM");
     const forest = field(catchmentValue, "forest");
+    const fishWater = fishWaterField(field(catchmentValue, "fishWater"), "catchment.fishWater");
     catchment = {
       groupGap: int(field(catchmentValue, "groupGap"), "catchment.groupGap", 1, 100_000),
       richnessPm: richness,
@@ -410,6 +438,7 @@ export function parseScenario(value: unknown): Scenario {
         ? {}
         : { elevationM: int(elevation, "catchment.elevationM", -12_000, 12_000) }),
       ...(forest === undefined ? {} : { forest: int(forest, "catchment.forest", 0, 255) }),
+      ...(fishWater === undefined ? {} : { fishWater }),
     };
   }
   return { id, planet, factions, npc, trips, economy, combat, catchment, society, gardener };

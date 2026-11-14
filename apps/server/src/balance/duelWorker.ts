@@ -2,10 +2,12 @@
 // ("바뀜 (2026-11-01, 전투 실험실)" 4절). 요청마다 하나 띄우고(workerData = 일, jobs.ts), 끝까지 계산해 결과 하나를 보내고 끝난다.
 // 메인 스레드는 src/balance/runner.ts. 개발(tsx)·시험은 이 .ts를 그대로 띄우고, 빌드는 dist/balanceWorker.js로 따로 만든다(vite.config.ts 입력).
 // 밸런스 분석 묶음 일("batch", docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-08 완전 개편)")은 판마다 진행을 보내고(250ms에 한 번까지)
-// 끝에 결과 하나를 보낸다(메인 스레드는 src/battleLab/analysisRunner.ts).
+// 끝에 결과 하나를 보낸다(메인 스레드는 src/battleLab/analysisRunner.ts). 전투 보고서 일("report"·"reportTrace")도 같다(src/battleReport/runner.ts).
 import { parentPort, workerData } from "node:worker_threads";
 import { type BatchWorkerJob, runBatch } from "../battleLab/analysisBatch.ts";
 import type { FromBatchWorker } from "../battleLab/analysisRunner.ts";
+import { type ReportWorkerJob, runReport, runReportTrace } from "../battleReport/batch.ts";
+import type { FromReportWorker } from "../battleReport/runner.ts";
 import { type WorkerJob, runWorkerJob } from "./jobs.ts";
 import type { FromDuelWorker } from "./runner.ts";
 
@@ -15,7 +17,7 @@ if (!port) throw new Error("balance worker must run in a worker thread");
 /** 진행 알림 사이 최소 간격(ms) */
 const PROGRESS_EVERY_MS = 250;
 
-function reply(message: FromDuelWorker | FromBatchWorker): void {
+function reply(message: FromDuelWorker | FromBatchWorker | FromReportWorker): void {
   // 브라우저 window.postMessage 규칙(targetOrigin)은 worker_threads에 해당하지 않는다
   // oxlint-disable-next-line unicorn/require-post-message-target-origin
   port?.postMessage(message);
@@ -23,8 +25,23 @@ function reply(message: FromDuelWorker | FromBatchWorker): void {
 
 try {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 메인 스레드(runner.ts)가 만든 일 그대로다
-  const job = workerData as WorkerJob | BatchWorkerJob;
-  if (job.kind === "batch") {
+  const job = workerData as WorkerJob | BatchWorkerJob | ReportWorkerJob;
+  if (job.kind === "report") {
+    // 전투 보고서(docs/adr/2026-11-14-battle-report.md): 판마다 진행(250ms에 한 번까지), 끝에 결과
+    let last = 0;
+    const results = runReport(
+      job.job,
+      () => performance.now(),
+      (done) => {
+        const now = Date.now();
+        if (now - last < PROGRESS_EVERY_MS) return;
+        last = now;
+        reply({ type: "progress", done });
+      },
+    );
+    reply({ type: "report", results });
+  } else if (job.kind === "reportTrace") reply({ type: "reportTrace", trace: runReportTrace(job.trace) });
+  else if (job.kind === "batch") {
     let last = 0;
     const results = runBatch(job.batch, (done) => {
       const now = Date.now();

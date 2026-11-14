@@ -102,3 +102,16 @@ describe("칸 하나(판정과 같은 성장·유효 스탯·구간)", () => {
     expect(table[0]).toHaveLength(GATHER_EXPECT_LEVELS.length);
   });
 });
+
+describe("낚시터 물 종류로 접기(D-542 1365 나)", () => {
+  it("범위가 있으면 확률을 끝으로 모은다(합 1000 그대로), 기대 티어도 접은 값", () => {
+    const plain = expectedGatherCell(80, 50, BASE);
+    const shelf = expectedGatherCell(80, 50, { ...BASE, tierRange: { min: 2, max: 6 } });
+    expect(shelf.tierPm.reduce((acc, pm) => acc + pm, 0)).toBe(1000);
+    expect(shelf.tierPm.slice(0, 2)).toEqual([0, 0]);
+    expect(shelf.tierPm[2]).toBe((plain.tierPm[0] ?? 0) + (plain.tierPm[1] ?? 0) + (plain.tierPm[2] ?? 0));
+    expect(shelf.averageTierMilli).toBeGreaterThan(plain.averageTierMilli);
+    // 범위가 없으면 그대로
+    expect(expectedGatherCell(80, 50, { ...BASE, tierRange: undefined }).tierPm).toEqual(plain.tierPm);
+  });
+});

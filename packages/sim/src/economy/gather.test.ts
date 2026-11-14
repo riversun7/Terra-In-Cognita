@@ -375,3 +375,70 @@ describe("광석 티어 막기(기획 D-533 — 높은 티어 광석은 산지)"
     expect(out.landed[5]).toBe(3);
   });
 });
+
+/** 높은 스탯 4,000번(범위로 접기 시험, 같은 난수) */
+const fold = (tierRange?: { min: number; max: number }) =>
+  rollGatherOutputs(
+    {
+      ladder: ORE_LADDER,
+      bands: ORE_BANDS,
+      stat: 220,
+      lots: 4000,
+      lotSize: new Map(),
+      ...(tierRange ? { tierRange } : {}),
+    },
+    createRng(7),
+  );
+/** 티어 차례 from ~ to − 1의 수 합 */
+const sumTiers = (list: readonly number[], from: number, to: number) =>
+  list.slice(from, to).reduce((acc, count) => acc + count, 0);
+
+describe("낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나 — tierRange)", () => {
+  it("범위 밖 티어는 끝으로 접고(아래는 min, 위는 max) 난수는 그대로다 — 범위 안 티어 수는 같다", () => {
+    const free = fold();
+    const shelf = fold({ min: 2, max: 6 });
+    expect(shelf.tiers.slice(0, 2)).toEqual([0, 0]);
+    expect(shelf.tiers.slice(7)).toEqual([0, 0, 0]);
+    expect(shelf.tiers.slice(3, 6)).toEqual(free.tiers.slice(3, 6));
+    expect(shelf.tiers[2]).toBe(sumTiers(free.tiers, 0, 3));
+    expect(shelf.tiers[6]).toBe(sumTiers(free.tiers, 6, GATHER_TIERS));
+    // 민물(T0~T2): T2 위는 모두 T2
+    const fresh = fold({ min: 0, max: 2 });
+    expect(sumTiers(fresh.tiers, 3, GATHER_TIERS)).toBe(0);
+    expect(fresh.tiers.slice(0, 2)).toEqual(free.tiers.slice(0, 2));
+  });
+
+  it("광산 티어 막기 뒤에 접는다, 선택 방식은 접지 않는다", () => {
+    const both = fold({ min: 4, max: 8 });
+    expect(sum4(both.tiers)).toBe(4000);
+    const capped = rollGatherOutputs(
+      {
+        ladder: ORE_LADDER,
+        bands: ORE_BANDS,
+        stat: 220,
+        lots: 50,
+        lotSize: new Map(),
+        tierCap: { maxTier: 2, keepAbovePm: 0 },
+        tierRange: { min: 4, max: 8 },
+      },
+      createRng(3),
+    );
+    expect(capped.tiers[4]).toBe(50);
+    const select = rollGatherOutputs(
+      {
+        ladder: ORE_LADDER,
+        bands: ORE_BANDS,
+        stat: 220,
+        lots: 3,
+        lotSize: new Map(),
+        selectTier: 1,
+        tierRange: { min: 4, max: 8 },
+      },
+      createRng(1),
+    );
+    expect(select.tiers[1]).toBe(3);
+  });
+});
+
+/** T4 ~ T8 합 */
+const sum4 = (tiers: readonly number[]) => tiers.slice(4, 9).reduce((acc, count) => acc + count, 0);

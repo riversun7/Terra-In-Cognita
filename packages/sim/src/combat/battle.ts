@@ -19,6 +19,7 @@ import { lineClear } from "./los.ts";
 import { visibleEnemies } from "./sight.ts";
 import { pickSkill, resolveSkill, singleAlly, startSkill, takeDamage } from "./skills.ts";
 import type { BattleTrace } from "./battleTrace.ts";
+import { newAttackStages, recordApplied } from "./attackStages.ts";
 import { active, electCommander, initialState, ready, spend, unitFrom } from "./battleState.ts";
 import { drinkPotion } from "./consumables.ts";
 import type {
@@ -319,17 +320,25 @@ function makeBattle(
       crit: rng.nextInt(10_000),
       critPos: rng.nextInt(10_000),
     };
+    // 단계 기록은 관찰자가 원할 때만(전투 보고서 피해 흐름). 값·굴림은 그대로다
+    const stages = trace?.attackStages ? newAttackStages("attack") : undefined;
     const hit = resolveAttack(
       withAttackModifiers(attacker.attack, modifiersOf(attacker)),
       withDefenseModifiers(target.defense, modifiersOf(target)),
       rolls,
       c,
+      stages,
     );
     spend(attacker, nowMs, c);
     if (!attacker.air && map.cover[attacker.y * size + attacker.x] === 1)
       attacker.revealUntilMs = nowMs + c.bushRevealMs;
+    const before = stages ? { armor: target.armor, shield: target.shield, hp: target.hp } : undefined;
     takeDamage(target, hit.physical, hit.elemental);
     if (trace) trace.attack(attacker, target, hit);
+    if (stages && before) {
+      recordApplied(stages, before, target, hit.physical, hit.elemental);
+      trace?.attackStages?.(attacker, target, stages);
+    }
     return true;
   };
 

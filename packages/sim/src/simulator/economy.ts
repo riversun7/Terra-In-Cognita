@@ -43,7 +43,7 @@ import { dueNecessities, payNecessities } from "../economy/upkeep.ts";
 import { clampCondition } from "../society/condition.ts";
 import { START_GATHER_OBJECTS } from "../society/gatherObjects.ts";
 import { haulTimeMs } from "../society/logistics.ts";
-import { type CatchmentState, facilitySupplyPm, oreTierCap } from "./catchmentRun.ts";
+import { type CatchmentState, facilitySupplyPm, fishTierRange, oreTierCap } from "./catchmentRun.ts";
 import {
   type CatalogGather,
   type EconomyCatalog,
@@ -547,6 +547,8 @@ function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): P
       successPm: facility.catchPm,
       harvestGrams: BigInt(rules.oreGrams ?? 1000),
       tierCap: oreTierCap(economy.catchment, facility.city, facility.recipe.facility),
+      // 낚시터 물 종류 범위(기획 D-542 질문 1365 나 — 배후지 땅 칸 물 종류, catchmentRun.ts fishTierRange)
+      tierRange: fishTierRange(economy.catchment, facility.city, facility.recipe.facility),
     },
     rng,
   );

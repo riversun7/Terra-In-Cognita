@@ -1,6 +1,6 @@
 // 전투 실험실 시험 — /dev/balance [전투 실험실] 탭 (docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)").
 // - dev: 처음 열면 샘플 파티 둘(팀 A Lv 30 혼성 4명, 팀 B 크리쳐 무리 4명). 유닛을 고르고 레벨을 바꾸면 서버 미리 보기의 성장이 바뀐다.
-//   [한 판]은 이긴 팀·유닛 8줄·사건 기록, [몬테카를로]는 팀 승률 막대 둘·유닛 8줄. [3D 관람]은 같은 시드의 한 판을 리플레이로 받아
+//   [한 판]은 이긴 팀·유닛 8줄·사건 기록, [보고서 돌리기](옛 몬테카를로, docs/adr/2026-11-14-battle-report.md)는 보고서 유닛 8줄. [3D 관람]은 같은 시드의 한 판을 리플레이로 받아
 //   전투 다시보기 화면(.br-view)을 화면 전체 창에 띄우고, [닫기]로 닫는다.
 //   유닛 프리셋: 새로 저장(이름 ko·en 창) → 이름 바꾸기 → 복제 → 지우기(확인 창). 샘플을 고르면 덮어쓰기·이름 바꾸기·지우기는 꺼진다.
 //   새로 고치면 팀이 이 기기에 남아 있다(localStorage).
@@ -78,7 +78,7 @@ const labUnit = (weapon: unknown, level = 1, value = 10) => {
 };
 
 async function labReady(page: Page): Promise<void> {
-  // 첫 탭은 [분포 상성](2026-11-08 완전 개편) → 주소로 실험실 탭을 연다
+  // 옛 실험실 주소(?tab=lab)는 [전투 보고서] 탭으로 연다(같은 팀·유닛 편집)
   await page.goto("/dev/balance?tab=lab");
   await expect(page.locator(".bl-lab")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(page.locator(".bl-preview .bl-secondary li").first()).toBeVisible({ timeout: 20_000 });
@@ -109,7 +109,7 @@ async function runUntil(page: Page, button: string, result: string): Promise<voi
 test.describe("개발자", () => {
   test.use({ account: "dev" });
 
-  test("샘플 파티 둘, 레벨을 바꾸면 미리 보기 성장이 바뀌고, 한 판·몬테카를로 결과가 뜬다", async ({
+  test("샘플 파티 둘, 레벨을 바꾸면 미리 보기 성장이 바뀌고, 한 판·보고서 결과가 뜬다", async ({
     page,
     deviceErrors,
   }) => {
@@ -147,10 +147,10 @@ test.describe("개발자", () => {
     await expect(page.locator(".bl-watch-dialog[open]")).toHaveCount(0);
     await expect(page.locator(".bl-watch")).toBeFocused();
 
-    await page.locator(".bl-runs").selectOption("10");
-    await runUntil(page, ".bl-monte-run", ".bl-monte");
-    await expect(page.locator(".bl-monte .bl-score")).toHaveCount(2);
-    await expect(page.locator(".bl-monte .bl-summary-table tbody tr")).toHaveCount(8);
+    // N회 반복은 보고서 일(옛 몬테카를로 단추, docs/adr/2026-11-14-battle-report.md): 20판 → 보고서 유닛 8줄
+    await page.locator(".rp-runs").selectOption("20");
+    await runUntil(page, ".rp-run", ".rp-latest .rp-report");
+    await expect(page.locator(".rp-latest .rp-units tbody tr")).toHaveCount(8);
 
     // 팀을 고치면 결과는 "지난 입력"
     await level.fill("11");
@@ -164,21 +164,21 @@ test.describe("개발자", () => {
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 
-  test("공격력 = 스탯 공격력 + 무기 몫(D-502): 새 사이보그 맨손 10·명중 73.8%, 검 10 + 8 = 18, 미리 보기 공격 표", async ({
+  test("공격력 = 스탯 공격력 + 무기 몫(D-502, D-539): 새 사이보그 맨손 15·명중 100%, 검 15 + 8 = 23, 미리 보기 공격 표", async ({
     page,
     deviceErrors,
   }) => {
     await labReady(page);
-    // 맨손(Lv 1, 1차 모두 10): 무기 몫 0, 적정 DEX = 1 × 1.5 + 10 = 11.5 → 850‰ × 10 ÷ 11.5 = 738‰
+    // 맨손(Lv 1, 1차 모두 10): 물리 기본 공격력 = STR + ⌊VIT ÷ 2⌋ = 15(D-539), 맨손 명중은 늘 100%(D-538 — bare_hit 1000)
     const bare = at(await trpcData(page, "battleLab.preview", labUnit({ kind: "natural" })), "combat");
-    expect([at(bare, "realAttack"), at(bare, "hitPm")]).toEqual([10, 738]);
+    expect([at(bare, "realAttack"), at(bare, "hitPm")]).toEqual([15, 1000]);
     expect(at(bare, "appropriate", "hit")).toEqual({ stat: 10, appropriateMilli: 11_500, ratioPm: 869 });
-    // 검(공격력 20·적정 STR 25): 10 + 20 × 10 ÷ 25 = 18, Lv 30 균형형(39) → 39 + 20 = 59
+    // 검(공격력 20·적정 STR 25): 15 + 20 × 10 ÷ 25 = 23, Lv 30 균형형(39) → 39 + ⌊39 ÷ 2⌋ + 20 = 78
     const sword = { kind: "item", id: "test_sword", pm: 0 };
     const lv1 = at(await trpcData(page, "battleLab.preview", labUnit(sword)), "combat");
-    expect(at(lv1, "realAttack")).toBe(18);
+    expect(at(lv1, "realAttack")).toBe(23);
     const lv30 = at(await trpcData(page, "battleLab.preview", labUnit(sword, 30, 39)), "combat");
-    expect(at(lv30, "realAttack")).toBe(59);
+    expect(at(lv30, "realAttack")).toBe(78);
     // 화면: 편집 유닛의 공격 표에 스탯 공격력·무기 공격력·1차 ÷ 적정·비율 칸이 있다
     await page.locator(".bl-team[data-team='a'] .bl-unit-pick").nth(1).click();
     const basic = page.locator(".bl-attacks tr[data-attack='basic'] td");
@@ -351,7 +351,7 @@ test.describe("배치·사진", () => {
         await page.locator(".bl-lab details:not([open]) > summary").evaluateAll((elements) => {
           for (const element of elements) element.parentElement?.setAttribute("open", "");
         });
-        await page.locator(".bl-limit").selectOption("60");
+        await page.locator(".rp-limit").selectOption("60");
         await runUntil(page, ".bl-battle", ".bl-result");
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);

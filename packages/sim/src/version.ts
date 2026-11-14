@@ -164,8 +164,14 @@
  * 40: 레벨 재료 가공 시설은 상한 − 2부터(기획 D-541 — 질문 1291 나, simulator/npcBuild.ts levelSupplyDue): 제재소·가마가 나라 목표에 드는 때가
  *    도시 건물 수(상한에 세는 것) ≥ 상한 − max(설정 칸 npc_build_level_supply_lead(2 [임시]), 아직 짓지 않은 가공 시설 수)일 때뿐이다(35는
  *    처음부터). 초반 짓기는 그대로. 경제가 있는 시나리오(econ16·build16·build16u)의 결과가 달라진다(38·39는 같은 묶음의 다른 줄기가 쓴다)
+ * 41: 배 B3(기획 D-541 1280 가·D-542 1331 나, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B3)"): 계수표 boats에 설정 칸 셋(boat_gather_cells·
+ *    npc_boats_per_dock·npc_boat_fishers — 서버 배에서 캐기·NPC 배만 읽는다)을 더했다. 시뮬 판정·출력은 그대로다(번호만 같은 묶음 차례로 둔다)
+ * 42: 낚시터 물 종류 티어 범위(기획 D-542 — 질문 1365 나, @terra/shared/fishWater, simulator/catchmentRun.ts fishTierRange): 낚시터 일꾼이 뽑은
+ *    티어를 그 도시 배후지 물 종류(낚시터가 설 땅 칸에서 가장 많은 것, 같으면 더 깊은 쪽)의 범위(설정 칸 fish_tier_* — 민물 T0~T2·연안 T0~T4·
+ *    대륙붕 T2~T6·심해 T4~T8 [임시])로 접는다(@terra/sim rollGatherOutputs tierRange, 난수는 그대로). 시뮬 평면은 시나리오 catchment.fishWater·
+ *    세력 묶음 catchmentFishWater, 없으면 연안(질문 1411). 지금 시나리오(연안, 낚시터 일꾼 T3까지)는 결과가 그대로다(41은 같은 묶음의 다른 줄기가 쓴다)
  */
-export const SIM_VERSION = 40;
+export const SIM_VERSION = 42;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

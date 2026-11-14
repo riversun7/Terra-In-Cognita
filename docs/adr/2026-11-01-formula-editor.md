@@ -200,3 +200,13 @@
 - 시뮬은 그대로(SIM_VERSION 33): 도시 경제의 이름 없는 휴먼은 몸(AGI)이 없어 `WALK_SPEED`(= 기본 식의 AGI 10 값, `walkSpeed.test.ts`가 본다)를 쓴다. `walkMsPerCell`·`restPeriodMs`에 빠르기 인수(기본 `WALK_SPEED`)만 더했다 — 결과 바이트 그대로.
 - 전투맵 걸음(1칸 1,000ms, D-223 유닛 데이터)은 D-540이 걷기(2차맵)만 말해 그대로 둔다(질문 1265).
 - 2차 스탯 편집기(`secondaryStatsSim`)의 파생 전투식 목록에는 넣지 않는다(2차 스탯과 상관없는 2차맵 빠르기 — 그 파일이 미리 적어 둔 "D-540 walk_speed 제외"). 아이템 무기 미리 보기에서도 뺀다.
+
+## 바뀜 (2026-11-14, 계산식 탭 지움 — 사용자 지시 "/dev/balance의 계산식은 필요없다")
+
+- 밸런스 화면의 [계산식] 탭(`FormulaTab`·식 편집기·끌어 넣기 팔레트·풀이 미리 보기·`formulaInsert`·`formulaModel`)을 지웠다. 식 편집은 2차 스탯 화면
+  (`/dev/secondary-stats`, 행 식·`combat:<id>` 전투 식, 함수 이름 자동 완성, 같은 `tuning.save` formulas)이 맡는다.
+- 계산식 탭에만 있던 **무기별 스태미나 표**(D-511)와 **무기 적정치 표**(D-502)는 2차 스탯 화면 아래 판(`SecondaryStatsExtras`)으로 옮겼다. 같은 해석기
+  (`@terra/shared/formula` `runFormulaSample`)로 담은 식·가중치가 바로 든다.
+- 서버 `formulas.list`, D1 식 덮어쓰기(7절), 판정 코드(4절)는 그대로다. 식 칸·문법·결정성(1~3절)도 그대로.
+- 전투 보고서의 피해 흐름(`docs/adr/2026-11-14-battle-report.md` 3절)은 이 식들이 판정에서 쓰이는 차례(명중 → 회피 → 크리 굴림 → real_attack → 방어 →
+  crit_multiplier …)를 단계마다 보인다.

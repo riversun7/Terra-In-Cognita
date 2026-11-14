@@ -251,4 +251,23 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
     expect(flat).toBeGreaterThan(0n);
     expect(flat * 5n).toBeLessThan(free);
   });
+
+  it("낚시터 물 종류 범위(기획 D-542 질문 1365 나 — site.tierRange): 범위 밖 티어는 끝으로 접는다", () => {
+    const fishes = ladderOf(
+      Object.fromEntries(Array.from({ length: GATHER_TIERS }, (_, tier) => [tier, [`item:t${tier}`]])),
+    );
+    const strong: Primaries = { ...tens, str: 90, dex: 90 };
+    const input = { unitId: 23, primaries: strong, settings, cycleMs: CYCLE_MS };
+    const tiersOf = (tierRange: GatherSite["tierRange"]) => {
+      const result = gatherLots({ points: 0, seq: 0 }, 150_000, {
+        ...input,
+        site: { ...site(wood, fishes), tierRange },
+      });
+      return new Set(result.outputs.map((stack) => Number(stack.asset.slice("item:t".length))));
+    };
+    const free = tiersOf(undefined);
+    expect([...free].some((tier) => tier > 2)).toBe(true);
+    expect([...tiersOf({ min: 0, max: 2 })].every((tier) => tier <= 2)).toBe(true);
+    expect([...tiersOf({ min: 4, max: 8 })].every((tier) => tier >= 4 && tier <= 8)).toBe(true);
+  });
 });

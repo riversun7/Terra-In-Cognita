@@ -14,6 +14,7 @@ import {
   type BuildingEditorListResponse,
   type BuildingEditorReason,
 } from "@terra/shared/buildingEditor";
+import { materialOfFacility } from "@terra/shared/catchment";
 import type { TuningExportResponse } from "@terra/shared/tuning";
 import { OLD_COMBAT_CLASS_RULE, statCoverage } from "@terra/shared/unitGuide";
 import { useEffect, useRef, useState } from "react";
@@ -185,6 +186,12 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
   const shownLadder = ladders.includes(ladder) ? ladder : undefined;
   const ladderRows = bandRowsOfLadder(bands, shownLadder);
   const ladderShown = shownBands.filter((row) => row.ladder === shownLadder);
+  // 고른 사다리 표를 쓰는 시설에 낚시터(어류 시설)가 있나 — "예상 확률" 탭 물 종류 고르기(기획 D-542 질문 1365 나)
+  const fishShown = types.some(
+    (row) =>
+      materialOfFacility(row.type.facility) === "fish" &&
+      ladderOfType(bands, row.gather.subcategory) === shownLadder,
+  );
   const ladderPicker = (
     <ProductionLadderPicker
       ladders={ladders}
@@ -551,7 +558,12 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
               />
             ) : null}
             {active.kind === "expect" ? (
-              <ProductionExpectPanel picker={ladderPicker} bands={ladderShown} rules={rules} />
+              <ProductionExpectPanel
+                picker={ladderPicker}
+                bands={ladderShown}
+                rules={rules}
+                fishTiers={fishShown ? rules.fishTiers : undefined}
+              />
             ) : null}
             {active.kind === "mapping" ? (
               <ProductionMappingPanel

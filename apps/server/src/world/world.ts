@@ -302,7 +302,6 @@ export function startWorld(
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let stopped = false;
   const bootId = randomUUID();
-
   const terrainService = config.terrain;
   /** 시험 2차맵 줄(봇 자리·옛 시작 도시 자리). 띄우는 2차맵은 여기에 도시가 있는 2차맵을 더한다(worldBoot.ts) */
   const testKeys = Array.from({ length: mapCount }, (_, index) => testMapKey(index));

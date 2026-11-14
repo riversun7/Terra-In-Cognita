@@ -35,7 +35,12 @@
 - 이번에 main에 오르는 마이그레이션 `20261114063847_battle_reports`.
 
 ## 미검증·TODO·알려진 문제
-- 검사: 아래 "검사" 칸에 적는다.
+- 검사(Verified)
+  - 통합 가지 7906f49(초상·[멈추기] 시험 고침 전): `pnpm check`·`check:docs`·`check:content`(core@91)·빌드·`check-pwa`·`check:bundle` 통과.
+  - 통합 가지 14e1526(여섯 줄기 모두): 빌드·`check-pwa`·`check:bundle`(첫 화면 109,203 B / 131,416 B) 통과. `pnpm check`는 main 푸시 전 훅에서 돈다.
+  - 화면 시험(14e1526): boats·play-map·cyborg·first-login·character-3d·map-input 68 통과·1 실패·2 건너뜀(측정 전용), unit-control 21/21 통과.
+  - 실패 하나는 배 시험 다크(`boats.spec.ts:227`)다. 실패 기록은 다음 시험이 결과 폴더를 비워 남지 않았다. 배 시험만 다시 돌리자 2/2 통과했다. 기계 부하 탓의 흔들림으로 본다(Assumed: 원인을 보지 못함, stop-detach 줄기 통합 실행에서도 배 시험은 통과).
+  - 그 전 7906f49 화면 시험(battleLab·dev-stagebar·tuning 등)은 시험 셋을 고친 뒤 통과했다.
 - 전투 보고서 1,000판 23초는 개발 컨테이너 값이다. NAS 값은 Unknown.
 - 배 B3 NPC 배: 측정한 세계에 부두가 0개라 NPC 배가 실제로 돈 것은 보지 못했다(boats-b3 기록).
 - 휴대폰에서 보지 않았다(전투 보고서·초상).

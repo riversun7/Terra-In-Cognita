@@ -52,16 +52,25 @@ describe("내가 아는 도시", () => {
   });
 });
 
+/** 영토 비콘 줄(시험) */
+const beacon = (id: number, factionId: number, cityId: number | null) => ({
+  id,
+  factionId,
+  cityId,
+  cellKey: 0,
+  point: [1, 0, 0] as const,
+  durability: 1,
+  builtAtMs: 0,
+});
+/** 아는 것(국가 4는 모름, 도시 1만 앎) */
+const knowing = (myFactionId: number | null, observer = false) => ({
+  factionKnown: (id: number) => id !== 4,
+  cityKnown: (id: number) => id === 1,
+  myFactionId,
+  observer,
+});
+
 describe("1차맵 영토 비콘(기획 D-546 1434)", () => {
-  const beacon = (id: number, factionId: number, cityId: number | null) => ({
-    id,
-    factionId,
-    cityId,
-    cellKey: 0,
-    point: [1, 0, 0] as const,
-    durability: 1,
-    builtAtMs: 0,
-  });
   const view = {
     beacons: [beacon(1, 3, 1), beacon(2, 3, 5), beacon(3, 4, 1), beacon(4, 3, null), beacon(9, 3, 1)],
     // 비콘 9는 꼭짓점이 아니다(짓는 중·상태 문턱 아래)
@@ -71,12 +80,6 @@ describe("1차맵 영토 비콘(기획 D-546 1434)", () => {
       hull: null,
     })),
   };
-  const knowing = (myFactionId: number | null, observer = false) => ({
-    factionKnown: (id: number) => id !== 4,
-    cityKnown: (id: number) => id === 1,
-    myFactionId,
-    observer,
-  });
 
   it("기준 도시를 알거나 내 국가 비콘만, 꼭짓점인 것만, 아는 국가만 — 전체 보기는 기준 도시와 상관없이", () => {
     expect(beaconKnown({ factionId: 3, cityId: 1 }, (id) => id === 1, null)).toBe(true);

@@ -264,7 +264,7 @@ describe("실효 목록을 따르는 것들", () => {
     expect(nationEmblemOf("placeholder_nation_02", presets)).toEqual({
       preset: "placeholder_nation_02",
       spec: { shape: "circle", division: "border", charge: "leaf", scheme: 1 },
-      color: "#2980b9",
+      color: "#0e84b7",
     });
     expect(nationEmblemOf("s3_test_npc", presets)?.preset).toBe("placeholder_nation_16");
     expect(nationEmblemOf("unknown_code", presets)).toBeUndefined();

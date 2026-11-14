@@ -27,7 +27,7 @@
 | `e2e/map-input.spec.ts` | 같은 꼴의 마무리 세우기 |
 
 ## 함께 바꿔야 하는 파일
-- 없음. [멈추기]를 누르는 새 시험은 `click({ timeout })`으로 누르고, 사라지면 다시 보낸다.
+- 없음. [멈추기]를 누르는 새 시험은 `dispatchEvent("click", undefined, { timeout })`로 누르고(헤드리스에서 클릭 동작 검사가 느리다), 사라지면 다시 보낸다.
 
 ## 건드리지 말 것
 - [멈추기] 보이기 규칙(`showStop`·`heldMoving`, stop-flicker)은 그대로다.

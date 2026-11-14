@@ -1,4 +1,4 @@
-# CI — main 푸시마다 전체 검사 → 이미지 → (NAS 실행기가 있으면) 배포
+# CI — main 푸시마다 전체 검사 → 이미지 → (NAS 실행기가 있으면) 배포. 문서·스킬만 바뀐 푸시는 문서 검사만(2026-11-15)
 # docs/adr/2026-10-28-dev-workflow.md, docs/adr/2026-10-28-deploy-and-ops.md
 name: ci
 
@@ -79,8 +79,10 @@ jobs:
       - run: npm install -g pnpm@${{ env.PNPM_VERSION }}
       - run: pnpm install --frozen-lockfile
       - name: 검사 (포맷·린트·타입·경계·파일 크기·다국어·테스트, DB 통합 테스트 포함)
+        if: steps.changes.outputs.deploy == 'true'
         run: pnpm check
       - name: 표 정의와 마이그레이션 일치 (schema.ts를 바꾸고 db:generate를 빠뜨리면 실패)
+        if: steps.changes.outputs.deploy == 'true'
         run: |
           pnpm --filter @terra/server db:generate
           if [ -n "$(git status --porcelain -- apps/server/drizzle)" ]; then
@@ -90,16 +92,25 @@ jobs:
           fi
       - name: 콘텐츠 검증 (content-check — 스키마·참조·ID 변경표 + 이전 버전 호환, 버전·해시를 작업 출력으로)
         id: content
+        if: steps.changes.outputs.deploy == 'true'
         run: node scripts/check-content.mjs "${{ github.event.pull_request.base.sha || github.event.before }}" --print >> "$GITHUB_OUTPUT"
       - name: 작업 기록 목차 최신 여부
         run: pnpm docs:index --check
       - name: 문서 갱신 규칙 (코드 변경 → 작업 기록, 새 런타임 의존성 → ADR)
         run: node scripts/check-docs.mjs "${{ github.event.pull_request.base.sha || github.event.before }}"
+      # 문서·스킬만 바뀐 main 푸시는 무거운 검사(pnpm check·빌드, 11~17분)를 건너뛰고 문서 검사만 한다(사용자 지적 2026-11-15:
+      # "문서만 바꾼걸 왜 계속 쳐올려서 빌드를 돌리냐"). 코드가 바뀐 푸시·PR은 위 if가 그대로 다 돌린다.
+      - name: 위키 검사 (문서만 바뀐 푸시)
+        if: steps.changes.outputs.deploy != 'true'
+        run: pnpm check:wiki
       - name: 빌드
+        if: steps.changes.outputs.deploy == 'true'
         run: pnpm build
       - name: PWA 빌드 결과 (manifest·아이콘·theme-color, sw.js의 화면 이동 제외 경로·SKIP_WAITING)
+        if: steps.changes.outputs.deploy == 'true'
         run: node scripts/check-pwa.mjs
       - name: 첫 화면 JS 크기 (빌드한 index.html의 모듈 + modulepreload, 파일마다 gzip 9단계 합 ≤ apps/game/bundle-budget.json)
+        if: steps.changes.outputs.deploy == 'true'
         run: pnpm check:bundle
 
   secrets:

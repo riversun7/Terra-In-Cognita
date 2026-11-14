@@ -63,3 +63,11 @@
 - 사진(390, 파스텔·다크, `E2E_SHOTS_DIR`): `planet-globe-390-*`(지형 행성 전체), `planet-layer-collapsed-390-*`(접힌 단추), `planet-layer-territory-open-390-*`(열린 판 + 영토 범례), `planet-layer-territory-390-*`·`planet-layer-territory-stage4-390-*`(영토·국가 이름·국가 색).
 - 단위 시험(Verified): `territoryShapes.test.ts` 11, `territoryDraw.test.ts` 3, `territoryPick.test.ts` 3, `nationColor.test.ts` 3, `reads.db.test.ts` 4(배후지 반경·국가 색 포함).
 
+### 확인 (질문 1437 답 반영 뒤, main 0256f25abc 합친 뒤)
+- Verified `pnpm check`(TEST_DATABASE_URL): 통과 — 시험 파일 704·시험 5,275개. `pnpm build`·`check-pwa`·`check:bundle`·`check:docs origin/main` 통과.
+- Verified 화면 시험 `planet-view.spec.ts` + `play-map.spec.ts` 40개 통과(10.3분), 둥근 표시 12px로 바꾼 뒤 "레이어" 8개 다시 통과.
+  - 3단계에서 바로 영토 안을 눌러 "영토: <국가>"(같은 국가 도시가 띠로 이어진 칠, 그린 덩이 3, 가장 작은 덩이 화면 반지름 36px).
+  - 1단계(행성 전체): 덩이는 12px보다 작아 고리 대신 국가 4곳 둥근 표시(도시 표시 둘레로 보인다). 엔진 p95(덧그림 포함, 헤드리스) 4단계 1.7~3.3ms, 1단계 1.3~2.7ms.
+- Verified 영토 셈(단위 시험, Node): F9 크기 국가 16·도시 50 78ms, 고리 17개·점 273개.
+- 사진: `planet-globe-territory-390-*`(1단계), `planet-layer-territory-390-*`(3단계), `planet-layer-territory-stage4-390-*`(4단계), 파스텔·다크.
+

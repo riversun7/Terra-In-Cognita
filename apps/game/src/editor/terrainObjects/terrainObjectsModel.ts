@@ -3,12 +3,17 @@
 // 지형에 더하고 빼고, 바뀐 항목만 `terra-tuning-diff` 차이(entries)로 내보낸다(`pnpm tuning:apply`가 팩에 넣는다).
 // - 양: map_props = 바이옴 비중(배치 칸 천분율, weight 1 ~ 1000), gather_objects site = 묶음 천분율(chancePm 1 ~ 1000),
 //   school = 2차맵 하나의 어군 수(count 1 ~ 32).
+// - 느림 배율(map_props slowPm, 기획 D-540 질문 1223 나): 지나갈 수 있는 마른 칸 흩기 소품(엄폐 0·1)에 둔다. 1001 ~ 5000‰, 비우면 없음.
+//   있으면 줄 종류가 "느려짐"이다. 모든 지형에 같이 든다(바이옴마다가 아니라 항목 칸).
 // - 공통 채집 오브젝트(prop·rock·plot·outcrop)는 바이옴 표가 없어(소품 그림·지표·광석 몫을 따른다) 이 화면에서 고치지 않는다.
 // - from = 팩 항목 정규 JSON(키 차례 정렬)의 SHA-256(@terra/content/node hashEntry와 같은 셈) — 적용 스크립트가 팩이 그 사이 바뀌었는지 본다.
 
 export type TerrainCategory = "map_props" | "gather_objects";
-/** 줄 종류: 장식(엄폐 0)·판정 소품(엄폐 1·2·숲)·물 위 소품·지형별 채집 자리·움직이는 어군 */
-export type TerrainRowKind = "decor" | "cover" | "water" | "site" | "school";
+/** 줄 종류: 장식(엄폐 0)·느려짐 소품(느림 배율이 있는 것)·판정 소품(엄폐 1·2·숲)·물 위 소품·지형별 채집 자리·움직이는 어군 */
+export type TerrainRowKind = "decor" | "slow" | "cover" | "water" | "site" | "school";
+
+/** 느림 배율 범위(천분율, 팩 스키마 packages/content mapProps slowPm과 같다) */
+export const SLOW_RANGE = { min: 1001, max: 5000 } as const;
 
 export type JsonEntry = Readonly<Record<string, unknown>>;
 
@@ -25,6 +30,10 @@ export interface TerrainRow {
   readonly art: string;
   /** 이 지형의 양(비중·천분율·어군 수) */
   readonly amount: number;
+  /** 느림 배율(천분율). 없으면 null */
+  readonly slowPm: number | null;
+  /** 느림 배율을 둘 수 있는 항목인가(마른 칸 흩기 소품, 엄폐 0·1) */
+  readonly slowEditable: boolean;
 }
 
 /** 양 범위(분류·종류마다) */
@@ -60,9 +69,24 @@ export function editable(category: TerrainCategory, entry: JsonEntry): boolean {
   return entry.source === "site" || entry.source === "school";
 }
 
+/** 느림 배율을 둘 수 있는 항목(팩 스키마와 같은 조건: 흩기·물 아님·엄폐 0·1) */
+function slowEditableOf(category: TerrainCategory, entry: JsonEntry): boolean {
+  return (
+    category === "map_props" &&
+    entry.placement === "scatter" &&
+    entry.water !== true &&
+    (entry.cover === 0 || entry.cover === 1)
+  );
+}
+
+function slowOf(entry: JsonEntry): number | null {
+  return typeof entry.slowPm === "number" ? entry.slowPm : null;
+}
+
 function rowKind(category: TerrainCategory, entry: JsonEntry): TerrainRowKind {
   if (category === "gather_objects") return entry.source === "school" ? "school" : "site";
   if (entry.water === true) return "water";
+  if (slowEditableOf(category, entry) && slowOf(entry) !== null) return "slow";
   if (entry.placement === "forest" || (typeof entry.cover === "number" && entry.cover > 0)) return "cover";
   return "decor";
 }
@@ -75,6 +99,8 @@ function rowOf(category: TerrainCategory, entry: JsonEntry, amount: number): Ter
     name: nameOf(entry),
     art: typeof entry.art === "string" ? entry.art : "",
     amount,
+    slowPm: slowEditableOf(category, entry) ? slowOf(entry) : null,
+    slowEditable: slowEditableOf(category, entry),
   };
 }
 
@@ -153,6 +179,22 @@ export function setAmount(
     return { ...entry, biomes: next };
   });
   return { ...entries, [key]: list };
+}
+
+/**
+ * 느림 배율을 바꾼다(map_props 마른 칸 흩기 소품만): null이거나 1000 이하면 칸을 지운다(느려지지 않음), 그 밖은 범위 안으로 자른다.
+ * 바뀐 새 목록을 돌려준다(입력은 그대로)
+ */
+export function setSlow(entries: TerrainEntries, id: string, slowPm: number | null): TerrainEntries {
+  const mapProps = entries.mapProps.map((entry) => {
+    if (entry.id !== id || !slowEditableOf("map_props", entry)) return entry;
+    if (slowPm === null || slowPm <= 1000) {
+      const { slowPm: _removed, ...rest } = entry;
+      return rest;
+    }
+    return { ...entry, slowPm: Math.min(SLOW_RANGE.max, Math.max(SLOW_RANGE.min, Math.round(slowPm))) };
+  });
+  return { ...entries, mapProps };
 }
 
 /** 키 차례를 정렬한 값(정규 JSON — @terra/content/node hashEntry와 같은 셈) */

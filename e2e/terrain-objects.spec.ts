@@ -3,6 +3,7 @@
 //   가까이 본 뒤 소품 수·그리기 호출·엔진 p95를 찍고([measure], 헤드리스 SwiftShader라 휴대폰 값 아님) 사진을 남긴다. 개발 화면 층 테마
 //   둘(네온 다크·라이트). 세계 색은 화면 테마와 상관없다(D-070) — 파스텔·다크 게임 테마는 지도 틀만 바뀐다.
 // - 지형 오브젝트 편집기(dev, /dev/terrain-objects): 지형 칩 14개가 모두 5종 이상이고, 양을 고치면 바뀐 항목이 1개가 된다.
+//   사막의 모래언덕은 느려짐 줄(느림 배율 1500‰, 기획 D-540 질문 1223 나)이고 배율을 비우면 장식 줄이 된다(테마 둘 사진).
 // - 지도 6/6(E2E_MEASURE=1): 가장 가까이에서 끄는 6초 동안 프레임 수·엔진 p95.
 import type { Page } from "@playwright/test";
 import { shot } from "./helpers/screen.ts";
@@ -90,6 +91,30 @@ test.describe("지형 오브젝트 편집기", () => {
     await expect(screen).toHaveAttribute("data-changes", "0");
     expect(deviceErrors).toEqual([]);
   });
+
+  for (const devTheme of ["neon", "light"] as const) {
+    test.describe(devTheme, () => {
+      test.use({ devTheme, language: "ko" });
+      test(`사막 모래언덕 느림 배율을 고치고 비운다 (${devTheme})`, async ({ page, deviceErrors }) => {
+        await page.goto("/dev/terrain-objects");
+        const screen = page.locator(".to-screen");
+        await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 30_000 });
+        await page.locator('.to-biome[data-biome="desert"]').click();
+        const dune = page.locator('tr[data-row="sand_dune"]');
+        await expect(dune).toHaveAttribute("data-kind", "slow");
+        const slow = dune.locator("td").nth(2).locator("input");
+        await expect(slow).toHaveValue("1500");
+        await slow.fill("2000");
+        await expect(screen).toHaveAttribute("data-changes", "1");
+        await shot(page, `terrain-objects-slow-390-${devTheme}`);
+        await slow.fill("");
+        await expect(dune).toHaveAttribute("data-kind", "decor");
+        // 차폐 소품(사막에는 없을 수 있다)·채집 자리는 칸이 없다
+        await expect(page.locator('tr[data-kind="site"] td:nth-child(4) input')).toHaveCount(0);
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
 });
 
 test.describe("지도 6/6 측정", () => {

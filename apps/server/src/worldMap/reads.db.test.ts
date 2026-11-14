@@ -3,7 +3,9 @@
 // world.myPosition: 사이보그 본체가 선 2차맵·배치 칸(시작 도시 둘레), 사이보그 없는 계정은 자리 없음 + 띄운 첫 2차맵.
 // 도시 안개(WP7): 시작 도시가 아닌 다른 국가 도시는 그 자리를 본 사람(탐사 기록·지금 내 사이보그 시야)·전체 보기 권한만 받는다.
 import { decodeCellKey, isCellKey } from "@terra/planet";
-import { DAY_MS } from "@terra/sim";
+import { catchmentRadiusMilli } from "@terra/shared/catchment";
+import { START_TERRITORY_COEFFICIENTS, cityGrade } from "@terra/shared/territory";
+import { DAY_MS, START_WORLD_SEED, catchmentGrowthOf } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import type { Viewer } from "../trpc/context.ts";
@@ -184,6 +186,49 @@ describe.skipIf(!TEST_DATABASE_URL)("지도 흐름 조회(world.cities·myPositi
     expect((await reads.cities(stranger, clock)).cities.find((entry) => entry.id === city.id)?.viewable).toBe(
       false,
     );
+  });
+
+  it("1차맵 영토 원(바뀜 2026-11-14): 배후지 규칙이 있으면 도시마다 지금 배후지 반경, 없으면 null", async () => {
+    const world = await boot();
+    const viewer = await newUser("MapCatchment");
+    const plain = worldMapReadsOf({ world, pool: test.db.$client, planetId: TEST_PLANET_ID, faceLevel: 9 })();
+    if (!plain) throw new Error("reads not ready");
+    const before = await plain.cities(viewer, clock);
+    expect(before.cities.length).toBeGreaterThan(0);
+    expect(before.cities.every((city) => city.catchmentMilli === null)).toBe(true);
+    expect(before.milliPerRadian).toBeGreaterThan(0);
+    const growth = catchmentGrowthOf(START_WORLD_SEED);
+    const reads = worldMapReadsOf({
+      world,
+      pool: test.db.$client,
+      planetId: TEST_PLANET_ID,
+      faceLevel: 9,
+      catchment: () => ({ growth, territory: START_TERRITORY_COEFFICIENTS }),
+    })();
+    if (!reads) throw new Error("reads not ready");
+    // 첫 도시에 휴먼 셋·발전도 40을 주면 반경이 그 값으로 셈한 것과 같다(세계 배치 화면 배후지 덮개와 같은 함수)
+    const first = before.cities[0];
+    if (!first) throw new Error("no city");
+    await test.db.$client.query("update world_cities set development = 40 where id = $1", [first.id]);
+    const facts = await rows<{ population: string; tech: number }>(
+      test.db,
+      `select (select count(*) from world_humans h where h.city_id = $1) as population,
+              (select tech_level from factions where id = $2) as tech`,
+      [first.id, first.factionId],
+    );
+    const after = await reads.cities(viewer, clock);
+    const city = after.cities.find((entry) => entry.id === first.id);
+    const expected = catchmentRadiusMilli(
+      {
+        population: Number(facts[0]?.population ?? 0),
+        grade: cityGrade(40, START_TERRITORY_COEFFICIENTS),
+        tech: Number(facts[0]?.tech ?? 1),
+      },
+      growth,
+    );
+    expect(city?.catchmentMilli).toBe(expected);
+    expect(expected).toBeGreaterThanOrEqual(growth.minRadiusMilli);
+    expect(after.cities.every((entry) => (entry.catchmentMilli ?? 0) > 0)).toBe(true);
   });
 
   it("도시 안개: 시작 도시·내 국가·본 자리·전체 보기만, 차례는 모든 도시로", async () => {

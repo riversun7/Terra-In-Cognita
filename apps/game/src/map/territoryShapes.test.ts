@@ -184,7 +184,7 @@ describe("영토 모양: 합과 가운데 경계", () => {
     expect(territoryOwner(0, 0.61, sites)?.factionId).toBe(20);
     // 표본이 가운데 선 위에 딱 놓이지 않게(같은 거리는 작은 ID — 칠은 경계 선을 어느 쪽에 줘도 된다) 상자를 조금 비튼다
     expect(sample(shapes, sites, { lat: [-1.2, 1.2], lon: [-1.23, 2.41] }).mismatched).toBe(0);
-    expect(shapes.labels.map((label) => label.factionId).toSorted()).toEqual([10, 20]);
+    expect(shapes.labels.map((label) => label.factionId).toSorted((a, b) => a - b)).toEqual([10, 20]);
   });
 
   it("큰 다른 국가 원 안의 작은 도시도 제 원을 지킨다(가운데가 작은 원 밖이면 원 전체), 작은 원 밖은 큰 원 것", () => {

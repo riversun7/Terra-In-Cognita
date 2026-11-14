@@ -98,3 +98,7 @@
   - `apps/game/src/shell/layout.ts`(+ 시험): 하단 탭 칸 수 계단 A 7칸 36em, C 6칸 32em.
 - 함께 바꿀 파일: 메뉴 항목을 더하면 `TAB_SLOT_STEPS`(마지막 계단 = 놓을 수 있는 항목 수, `layout.test.ts`가 본다)와 `menuItems.ts`(타입이 잡는다).
 - 검사: shared·shell·ui·settings·서버 settings·home 단위 시험 599개 통과(Verified).
+- 합치기 전 검사(Verified):
+  - 화면 시험 `shell.spec.ts` 16개 통과(하단 탭·사이드 메뉴).
+  - `pnpm build`·`check-pwa`(화면 주소 62개) 통과.
+  - `check:bundle`: 첫 화면 JS 109,712B / 상한 131,416B. 앞 묶음 107,233B보다 약 2.5KB 늘었다. 첫 화면에 드는 메뉴 항목·아이콘과 그 사이 main의 변경 몫이다(소스 맵으로 나누어 보지 않음 — Assumed). 상한은 그대로다.

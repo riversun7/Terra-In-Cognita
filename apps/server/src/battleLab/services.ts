@@ -25,6 +25,8 @@ import type { ReplayArenaRef, ReplayName } from "@terra/protocol/battleReplay";
 import type { LocalizedName } from "@terra/shared/roster";
 import { combatCoefficientsFrom, societyCoefficientsFrom } from "@terra/sim";
 import type { HeavyGate } from "../balance/gate.ts";
+import { inlineReportRunner, type ReportRunner } from "../battleReport/runner.ts";
+import { createReportService, type ReportLimits, type ReportService } from "../battleReport/services.ts";
 import type { JobRunner } from "../balance/runner.ts";
 import { DuelRunError } from "../balance/runner.ts";
 import type { Database } from "../db/client.ts";
@@ -97,6 +99,8 @@ export interface BattleLabShared {
   ): Promise<LabPresetListResponse>;
   /** 밸런스 분석 일(분포 상성·영향도, tRPC balanceAnalysis.*) — 같은 실효 규칙(rulesNow)·같은 사양 만들기 */
   readonly analysis: AnalysisService;
+  /** 전투 보고서 일·기록(tRPC battleReport.*, docs/adr/2026-11-14-battle-report.md) — 같은 지형·사양 만들기 */
+  readonly report: ReportService;
 }
 
 const rejected = (reason: string, code: "BAD_REQUEST" | "CONFLICT" | "NOT_FOUND" = "BAD_REQUEST") =>
@@ -172,6 +176,9 @@ export function createBattleLabShared(deps: {
   /** 밸런스 분석 묶음 일을 돌리는 쪽(없으면 같은 스레드)·속도 제한 */
   batches?: BatchRunner | undefined;
   analysisLimits?: Partial<AnalysisLimits> | undefined;
+  /** 전투 보고서 일을 돌리는 쪽(없으면 같은 스레드)·속도 제한 */
+  reports?: ReportRunner | undefined;
+  reportLimits?: Partial<ReportLimits> | undefined;
 }): BattleLabShared {
   const { tuning, roster, terrains, runner, gate, now, log } = deps;
   const { state } = tuning;
@@ -254,8 +261,19 @@ export function createBattleLabShared(deps: {
     limits: deps.analysisLimits,
   });
 
+  const report = createReportService({
+    tuning,
+    roster,
+    terrains,
+    runner: deps.reports ?? inlineReportRunner(),
+    now,
+    log,
+    limits: deps.reportLimits,
+  });
+
   return {
     analysis,
+    report,
 
     catalog() {
       const snapshot = state.snapshot();

@@ -82,6 +82,7 @@ import { createHeavyGate } from "./balance/gate.ts";
 import { duelRunnerOf, inlineJobRunner, workerJobRunner } from "./balance/runner.ts";
 import { inlineBatchRunner, workerBatchRunner } from "./battleLab/analysisRunner.ts";
 import { createBattleLabShared } from "./battleLab/services.ts";
+import { inlineReportRunner, workerReportRunner } from "./battleReport/runner.ts";
 import { worldArenaTerrains } from "./battleLab/worldTerrains.ts";
 import { createArenaSource } from "./battleReplay/arena.ts";
 import { type ReplayJob, type ReplayJobResult, runReplayJob } from "./battleReplay/compute.ts";
@@ -545,6 +546,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             ? workerBatchRunner({ workerUrl: balanceRunner.workerUrl })
             : inlineBatchRunner(),
         analysisLimits: options.battleLab?.analysisLimits,
+        // 전투 보고서 일: 같은 워커 진입 파일(일 종류 report·reportTrace), 따로 센 바쁨
+        reports:
+          balanceRunner?.kind === "worker"
+            ? workerReportRunner({ workerUrl: balanceRunner.workerUrl })
+            : inlineReportRunner(),
+        reportLimits: options.battleLab?.reportLimits,
         now,
         log: app.log,
         limits: options.battleLab?.limits,

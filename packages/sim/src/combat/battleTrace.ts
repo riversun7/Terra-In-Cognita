@@ -1,6 +1,7 @@
 // 전투 관찰자 — 판정 안에서만 보이는 것(굴림 결과·물리·속성 몫·회복량)을 밖에 알린다. docs/adr/2026-11-01-battle-replay.md 1절.
 // 리플레이 기록기(replay.ts)가 쓴다. 규칙: 관찰자는 상태를 바꾸지 않고 굴림을 뽑지 않는다(판정 결과가 그대로다 — 시험이 본다).
 // 판정 코어는 관찰자가 없으면(undefined) 부르지 않는다. 시각은 부르는 때의 state.tick(그 틱 안)이다.
+import type { AttackStages } from "./attackStages.ts";
 import type { UnitState } from "./battleTypes.ts";
 import type { AttackResult } from "./formula.ts";
 import type { CombatSkill } from "./skills.ts";
@@ -33,4 +34,9 @@ export interface BattleTrace {
   ): void;
   /** 지속 피해 한 번(실제로 내려간 체력) */
   dot(target: UnitState, effect: string, amount: number): void;
+  /**
+   * 공격 한 번의 단계 값(전투 보고서 피해 흐름, attackStages.ts). 이 칸이 있을 때만 판정이 단계를 적는다(없으면 적지 않아 실제 플레이에
+   * 비용이 없다). 기본 공격은 attack 뒤, 스킬은 skillHit 뒤(빗나감·회피 포함)에 부른다
+   */
+  attackStages?(attacker: UnitState, target: UnitState, stages: AttackStages): void;
 }

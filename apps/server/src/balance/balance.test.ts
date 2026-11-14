@@ -24,7 +24,7 @@ import type { Viewer } from "../trpc/context.ts";
 import { createTuningShared } from "../tuning/services.ts";
 import { type TuningOverrideRecord, createTuningState } from "../tuning/state.ts";
 import { statRowsOf, tuningEntriesOf } from "../world/combatCatalog.ts";
-import { type DuelJob, combineOrders, contributionOf, runDuelJob } from "./compute.ts";
+import { type DuelJob, combineOrders, runDuelJob } from "./compute.ts";
 import { type DuelRunner, inlineDuelRunner, workerDuelRunner } from "./runner.ts";
 import { BALANCE_DEFAULTS, createBalanceServices } from "./services.ts";
 
@@ -109,24 +109,7 @@ const report = (over: Partial<DuelReport>): DuelReport => ({
   ...over,
 });
 
-describe("기여 계산(1차 +10 → 2차 스탯)", () => {
-  it("시험 표에서는 모든 1차가 무엇인가를 바꾼다. 한 1차의 가중치를 모두 지우면 그 1차가 '가치 없는 1차'", () => {
-    const base = contributionOf(TEST_STAT_TABLE, flat(10));
-    expect(base.worthless).toEqual([]);
-    const hp = base.stats.find((row) => row.id === "hp");
-    // HP 가중치(STR 1.5·DEX 1.0·AGI 1.5·VIT 3.0·INT 1.0·WIS 1.2) × 10
-    expect(hp).toEqual({
-      id: "hp",
-      value: 92,
-      plus: { str: 15, vit: 30, int: 10, wis: 12, dex: 10, agi: 15 },
-    });
-    const noWis = TEST_STAT_TABLE.map((row) => ({
-      ...row,
-      weights: row.weights.map((w, i) => (i === 5 ? 0 : w)),
-    }));
-    expect(contributionOf(noWis, flat(10)).worthless).toEqual(["wis"]);
-  });
-
+describe("대결 차례 합치기", () => {
   it("두 편 차례를 '기준 + 10' 쪽에서 합친다(시간 초과는 편 2 승으로 세어진 것을 뺀다)", () => {
     // r1: 기준 + 10 = 편 1. 3승, 2는 시간 초과(편 2 승으로 셈), 그 가운데 1번 앞섬
     const r1 = report({
@@ -204,32 +187,6 @@ describe("밸런스 서비스", () => {
     const table = await services.table();
     expect(table.rows.find((row) => row.id === "hp")?.formula).toBe("world");
     expect(table.rows.filter((row) => row.formula !== null).map((row) => row.id)).toEqual(["hp"]);
-  });
-
-  it("contribution: 지금 표와 고친 표(담은 변경), tuning.save가 받지 않을 묶음이면 그 까닭", async () => {
-    const { services } = setup();
-    const plain = await services.contribution({ primaries: flat(10), edits: [] });
-    expect(plain.edited).toBeNull();
-    expect(plain.problem).toBeNull();
-    const edited = await services.contribution({
-      primaries: flat(10),
-      edits: [{ key: "hp.vit", value: 6000 }],
-    });
-    const hpOf = (table: typeof plain.current) => table.stats.find((row) => row.id === "hp")?.plus.vit;
-    expect(hpOf(edited.current)).toBe(30);
-    expect(edited.edited && hpOf(edited.edited)).toBe(60);
-    expect(edited.problem).toBeNull();
-    const zeroWis = TEST_STAT_TABLE.filter((row) => (row.weights[5] ?? 0) !== 0).map((row) => ({
-      key: `${row.id}.wis`,
-      value: 0,
-    }));
-    const broken = await services.contribution({ primaries: flat(10), edits: zeroWis });
-    expect(broken.edited?.worthless).toEqual(["wis"]);
-    expect(broken.problem).toEqual({
-      reason: "rules_conflict",
-      key: null,
-      problems: ["stat_primary_unused"],
-    });
   });
 
   it("duels: 1차 6개 결과(두 편 차례 합침), 같은 입력이면 같은 결과, 담은 변경이 있으면 고친 표도", async () => {

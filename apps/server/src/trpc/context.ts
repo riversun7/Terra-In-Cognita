@@ -43,13 +43,7 @@ import type { BattleLabShared } from "../battleLab/services.ts";
 import type { Database } from "../db/client.ts";
 import type { LaborScreenServices } from "../labor/views.ts";
 import type { FacilityScreenServices } from "../facilities/screen.ts";
-import type {
-  BalanceContributionInput,
-  BalanceContributionResponse,
-  BalanceDuelsInput,
-  BalanceDuelsResponse,
-  BalanceTableResponse,
-} from "@terra/shared/balance";
+import type { BalanceDuelsInput, BalanceDuelsResponse, BalanceTableResponse } from "@terra/shared/balance";
 import type { BattleReplayDemoResponse } from "@terra/shared/battleReplay";
 import type { RecruitBoardResponse } from "@terra/shared/recruit";
 import type { FusionOverviewResponse } from "@terra/shared/fusion";
@@ -236,7 +230,6 @@ export interface FormulaServices {
 
 export interface BalanceServices {
   table(): Promise<BalanceTableResponse>;
-  contribution(input: BalanceContributionInput): Promise<BalanceContributionResponse>;
   /** 시드 대결(워커). 사용자 속도 제한·서버 전체 한 번에 하나 */
   duels(viewer: Viewer, input: BalanceDuelsInput): Promise<BalanceDuelsResponse>;
 }

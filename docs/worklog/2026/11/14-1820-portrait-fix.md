@@ -38,9 +38,14 @@
 | `docs/adr/2026-11-11-character-3d.md` | "바뀜 (2026-11-14, 2D 제거)" |
 | `docs/questions/2026-11-14-portrait-fix.md` | 1421~1423 |
 
-## 시험
-- 단위: `apps/game/src/cyborg/portrait.test.ts` 13개 통과(새 셋: 4장 목록·옛 한 장 값·가득 참). 게임 앱 vitest 전체 — 결과는 아래 "검사".
-- 화면 시험·검사: 아래 "검사"에 적는다.
+## 시험 (Verified: 실행)
+- 단위: `apps/game/src/cyborg/portrait.test.ts` 13개 통과(새 셋: 4장 목록·옛 한 장 값·가득 참). 게임 앱 vitest 1,236개 중 1,231 통과·5 실패는 `apps/game`에서 돌렸을 때 CSS `?raw` 설정이 안 잡힌 것(`layout.test.ts`·`themeSources.test.ts`, 저장소 뿌리에서 돌리면 16개 통과 — 이 줄기와 상관없음).
+- 화면 시험(`pnpm e2e cyborg.spec.ts first-login.spec.ts character-3d.spec.ts units.spec.ts play-map.spec.ts`): **73 통과, 2 건너뜀(측정 전용), 실패 0**(10.2분).
+  - 새 시험 `cyborg.spec.ts` "초상에 옛 2D 그림 없음 (390 pastel·dark)": 그림 틀(requestAnimationFrame)마다 초상 칸 상태를 적어, 처음 들어갈 때는 `pending`·`3d`만, 새로 고친 뒤와 다른 화면에서 위 띠 얼굴로 돌아온 뒤에는 첫 틀부터 `3d`만, 실루엣이 아닌 svg(옛 2D 그림) 0.
+  - `first-login.spec.ts`(강하 요약·캡슐·외형 단계 프리셋 썸네일 24개)·`character-3d.spec.ts`(한 번 고르기 뒤 초상·위 띠 얼굴)·`units.spec.ts`·`play-map.spec.ts` 그대로 통과.
+- 사진(새로 고친 바로 뒤, 390): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/portrait-fix-shots/cyborg-portrait-revisit-390-pastel.png`·`…-dark.png`(임시 폴더) — 3D 초상이 바로 보인다.
+- 빌드 + `node scripts/check-pwa.mjs` 통과. `pnpm check:bundle` 첫 화면 JS 109,203B / 상한 131,416B(초상 코드는 지연 조각이라 첫 화면과 상관없음).
+- `pnpm check`(TEST_DATABASE_URL 있음) 통과: 시험 파일 693개·시험 5,229개.
 
 ## 함께 바꿔야 하는 파일
 - 초상 상태 표지를 보는 시험(`e2e/first-login.spec.ts`·`character-3d.spec.ts`·`cyborg.spec.ts`)과 `apps/game/src/shell/shell.css`(`[data-portrait="3d"]`).

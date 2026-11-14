@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-14 21:30 | 1차맵 UI 개편 — 고도 과장 ×12 고정, 레이어 접는 단추, 영토 = 도시 배후지 원의 합 | Claude Code | [14-2130-planet-ui](worklog/2026/11/14-2130-planet-ui.md) |
 | 2026-11-14 19:30 | 2026-11-14 여덟째 묶음 합치기 (전투 보고서·배 B3·낚시터 물 종류·초상 2D 제거·시험 고침) | Claude Code | [14-1930-batch-1114b-merge](worklog/2026/11/14-1930-batch-1114b-merge.md) |
 | 2026-11-14 18:30 ~ 19:30 | 화면 시험 [멈추기] 누르기 시간 초과 고침(unit-control) | Claude Code | [14-1900-stop-detach](worklog/2026/11/14-1900-stop-detach.md) |
 | 2026-11-14 18:25 | 인벤토리 화면·2차맵 가방·채집 진행바·휘두르기 자세 | Claude Code | [14-1825-inventory-gather-progress](worklog/2026/11/14-1825-inventory-gather-progress.md) |

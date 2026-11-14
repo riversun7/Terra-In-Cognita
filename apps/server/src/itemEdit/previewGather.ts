@@ -17,7 +17,7 @@ import {
   gatherYield,
   tierRequiredProgress,
 } from "@terra/sim";
-import { gatherCatchPm, gatherSubcategories } from "@terra/shared/gatherMath";
+import { gatherCatchPm, gatherLadderBands, gatherSubcategories } from "@terra/shared/gatherMath";
 
 /** 시설 레벨(D-5001 Lv1~5) */
 const LEVELS = [1, 2, 3, 4, 5] as const;
@@ -117,6 +117,8 @@ export function previewGather(
   const gather = facility?.gather;
   if (!facility || !gather) return null;
   const subs = subsOf(gather);
+  // 띠 표: 이 시설 주 중분류의 전용 표, 없으면 기본 표(기획 D-540 1217 나)
+  const bands = gatherLadderBands(ctx.bands, gather.subcategory.id);
   // 사다리: 초안이 같은 ID의 실효 항목을 대신한다(새로 만드는 초안이면 더한다)
   const pool = [...items.filter((item) => item.id !== draft.id), draft];
   const ladder = Array.from({ length: GATHER_TIERS }, (): string[] => []);
@@ -142,11 +144,11 @@ export function previewGather(
   const levels = LEVELS.map((level) => {
     if (mode === "select") return { level, stat: unitStat, band: -1, chanceBp: selectBp() };
     const stat = gatherStat(unitStat, level, ctx.levelBonus);
-    const { tierPm } = gatherChancesPm(ctx.bands, stat, ladder);
+    const { tierPm } = gatherChancesPm(bands, stat, ladder);
     // 성공 확률(낚시터 gather.catch): 성공한 시도만 티어를 뽑는다 → 그 티어 확률 × 성공 ‰
     const landPm = Math.floor(((tierPm[tier] ?? 0) * catchPm) / 1000);
     const chanceBp = draft.enabled && sameTier > 0 ? Math.floor((landPm * 10) / sameTier) : 0;
-    return { level, stat, band: gatherBandIndex(ctx.bands, stat), chanceBp };
+    return { level, stat, band: gatherBandIndex(bands, stat), chanceBp };
   });
   return {
     facility: facility.id,
@@ -156,8 +158,8 @@ export function previewGather(
     unitStat,
     levelBonus: mode === "select" ? 0 : ctx.levelBonus,
     levels,
-    bands: ctx.bands.map((band, index) => {
-      const next = ctx.bands[index + 1];
+    bands: bands.map((band, index) => {
+      const next = bands[index + 1];
       return { from: band.from, to: next ? next.from - 1 : null, weightsPm: [...band.weightsPm] };
     }),
     tier,

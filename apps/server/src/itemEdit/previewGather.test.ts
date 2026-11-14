@@ -3,6 +3,7 @@
 // 농장 선택 방식(해금 티어). 팩 core@32부터 옛 자원이 모두 켜져 있다(사용자 답 2026-11-03): 초안을 끄면(아이템 편집기 끄기) 빠진다
 import {
   facilityEntrySchema,
+  gatherBandOfEntry,
   gatherTierEntrySchema,
   itemEntrySchema,
   readCategoryFile,
@@ -39,8 +40,13 @@ function corePack() {
 describe("채집 확률표: 팩 gather_tiers = TEST_GATHER_BANDS", () => {
   it("구간 시작·가중치가 같다(파일 차례)", () => {
     const { bands } = corePack();
-    expect(bands.map((band) => ({ from: band.from, weightsPm: band.weightsPm }))).toEqual(
-      TEST_GATHER_BANDS.map((band) => ({ from: band.from, weightsPm: [...band.weightsPm] })),
+    // 사다리 띠 표(기획 D-540 1217 나)까지 같다: 기본 표 14줄 + 광석 표 14줄
+    expect(bands.map(gatherBandOfEntry)).toEqual(
+      TEST_GATHER_BANDS.map((band) => ({
+        from: band.from,
+        weightsPm: [...band.weightsPm],
+        ...(band.ladder ? { ladder: band.ladder } : {}),
+      })),
     );
   });
 });
@@ -49,7 +55,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
   const pack = corePack();
   const ctx = {
     facilities: pack.facilities,
-    bands: pack.bands.map((band) => ({ from: band.from, weightsPm: [...band.weightsPm] })),
+    bands: pack.bands.map(gatherBandOfEntry),
     // 레벨 보너스는 10으로 고정해 구간 넘김을 본다(팩 출발값은 10 → 5, 기획 D-535 1155 나)
     levelBonus: 10,
     rules: TEST_SOCIETY_COEFFICIENTS,
@@ -98,7 +104,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
   });
 
   it("새 세 사다리(1차 생산 여섯 가지): 약초 = 약초원 추첨, 축산물 = 목장 선택, 어류 = 낚시터 추첨 × 성공 확률", () => {
-    // 자생초(T0, 같은 티어 셋): 새 유닛 20 → T0 500‰ ÷ 3 = 16.66%(기본 재료 바닥으로 T0 700 → 500)
+    // 자생초(T0, 같은 티어 셋): 새 유닛 20 → T0 700‰ ÷ 3 = 23.33%(사다리 띠 표 — 약초는 기본 표, 기획 D-540 1217 나)
     const herb = previewGather(ctx, find("wild_herb"), pack.items, DEFAULT_PREVIEW_UNIT);
     expect(herb).toMatchObject({
       facility: "herb_field",
@@ -107,7 +113,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       mode: "roll",
       sameTier: 3,
     });
-    expect(herb?.levels[0]?.chanceBp).toBe(1666);
+    expect(herb?.levels[0]?.chanceBp).toBe(2333);
     // 사슴 고기(T1): 목장 선택 — 새 유닛 해금 ⌊20 ÷ 20⌋ = T1. 목장 사다리 = 축산물 + 목축 부산물(질문 946 나, core@63)이라 T1은
     // 사슴 고기·사슴 가죽·사슴뿔 셋 → 33.33%, 생고기(T0)는 0
     const venison = previewGather(ctx, find("venison"), pack.items, DEFAULT_PREVIEW_UNIT);
@@ -127,7 +133,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(previewGather(ctx, find("raw_meat"), pack.items, DEFAULT_PREVIEW_UNIT)?.levels[0]?.chanceBp).toBe(
       0,
     );
-    // 미꾸라지(T0, 같은 티어 둘): 낚시터 — 성공 300 + ⌊500 × 20 ÷ 200⌋ = 350‰ → T0 500‰ × 0.35 = 175‰ ÷ 2 = 8.75%
+    // 미꾸라지(T0, 같은 티어 둘): 낚시터 — 성공 300 + ⌊500 × 20 ÷ 200⌋ = 350‰ → T0 700‰(기본 표) × 0.35 = 245‰ ÷ 2 = 12.25%
     const loach = previewGather(ctx, find("loach"), pack.items, DEFAULT_PREVIEW_UNIT);
     expect(loach).toMatchObject({
       facility: "fishing_spot",
@@ -136,7 +142,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       mode: "roll",
       sameTier: 2,
     });
-    expect(loach?.levels[0]?.chanceBp).toBe(875);
+    expect(loach?.levels[0]?.chanceBp).toBe(1225);
   });
 
   it("진행·수확량(D-507): 철광석 = 새 유닛 속도 ×1·한 번에 2개(1 + ⌊10 × 0.10⌋)·T3 필요 진행 120 = 2시간, 광석 한 번 1,000g", () => {

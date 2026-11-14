@@ -10,10 +10,14 @@ import type {
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_PRODUCTION_STAGE,
+  bandLadderKeys,
+  bandRowsOfLadder,
+  draftBands,
   draftOf,
   editClass,
   editFacility,
   ladderOf,
+  ladderOfType,
   processRows,
   productionChangesOf,
   productionStageKeys,
@@ -282,5 +286,43 @@ describe("탭 주소", () => {
     expect(of("smelter")).toEqual({ kind: "process", facility: "smelter" });
     expect(of("nope")).toBeNull();
     expect(of(undefined)).toBeNull();
+  });
+});
+
+describe("사다리 띠 표(기획 D-540 1217 나)", () => {
+  const ORE_BANDS = [
+    { from: 0, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0], ladder: "ore" },
+    { from: 40, weightsPm: [500, 350, 120, 30, 0, 0, 0, 0, 0, 0], ladder: "ore" },
+  ];
+  it("미리 보기는 그 시설 주 중분류의 전용 표를 쓰고, 전용 표가 없는 사다리(어류)는 기본 표", () => {
+    const mixed = [...BANDS, ...ORE_BANDS];
+    const ore = typePreview({ ...input(gatherOf(MINE), 10, 10), bands: mixed });
+    expect(ore).toMatchObject({ stat: 20, bandIndex: 0 });
+    expect(ore.tierPm.slice(0, 4)).toEqual([500, 350, 100, 50]);
+    const fish = typePreview({ ...input(gatherOf(FISHING), 10, 10), bands: mixed });
+    expect(fish.bandIndex).toBe(0);
+    // 어류는 기본 표 T0 700 × 성공 ‰
+    expect(fish.tierPm[0]).toBe(Math.floor((700 * (fish.catchPm ?? 1000)) / 1000));
+  });
+
+  it("편집기 줄: 사다리 목록(기본 먼저)·표 줄 고르기·종류의 표·담은 표의 사다리 칸", () => {
+    const row = (id: string, from: number, ladder?: string) => ({
+      entry: { id, from, weightsPm: [1000, 0, 0, 0, 0, 0, 0, 0, 0, 0], ...(ladder ? { ladder } : {}) },
+      origin: "pack" as const,
+      pack: null,
+      override: null,
+      hash: "h",
+    });
+    const rows = [row("band_000", 0), row("ore_band_000", 0, "ore"), row("band_020", 20)];
+    expect(bandLadderKeys(rows)).toEqual([undefined, "ore"]);
+    expect(bandRowsOfLadder(rows, undefined).map((r) => r.entry.id)).toEqual(["band_000", "band_020"]);
+    expect(bandRowsOfLadder(rows, "ore").map((r) => r.entry.id)).toEqual(["ore_band_000"]);
+    expect(ladderOfType(rows, "ore")).toBe("ore");
+    expect(ladderOfType(rows, "wood")).toBeUndefined();
+    expect(draftBands(rows, EMPTY_PRODUCTION_STAGE).map((band) => band.ladder)).toEqual([
+      undefined,
+      "ore",
+      undefined,
+    ]);
   });
 });

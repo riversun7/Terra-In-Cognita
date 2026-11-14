@@ -129,3 +129,57 @@ describe("물가 조건(needsWaterWithin)", () => {
     );
   });
 });
+
+// 사다리마다 띠 표(기획 D-540 1217 나): 표마다 첫 구간 0·늘어나기만, 기본 표 필수, 사다리는 원자재 중분류
+function checkLadders(bands: unknown[]) {
+  return validatePack(
+    fixture({
+      "item_subcategories.json": {
+        entries: [
+          { id: "ore", name, major: "raw", enabled: true },
+          { id: "dish", name, major: "consumable", enabled: true },
+        ],
+      },
+      "gather_tiers.json": { entries: bands },
+    }),
+  ).issues.map((issue) => [issue.code, issue.id, issue.path]);
+}
+const weights = [1000, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+describe("사다리 띠 표(gather_tiers.ladder)", () => {
+  it("기본 표 + 광석 표(각자 0부터, 섞여 적혀도 표마다 늘어나면)는 통과한다", () => {
+    expect(
+      checkLadders([
+        { id: "band_000", from: 0, weightsPm: weights },
+        { id: "ore_band_000", ladder: "ore", from: 0, weightsPm: weights },
+        { id: "band_020", from: 20, weightsPm: weights },
+        { id: "ore_band_020", ladder: "ore", from: 20, weightsPm: weights },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("사다리 표가 0에서 시작하지 않거나 줄어들면 오류(gather_band_order)", () => {
+    expect(
+      checkLadders([
+        { id: "band_000", from: 0, weightsPm: weights },
+        { id: "ore_band_020", ladder: "ore", from: 20, weightsPm: weights },
+        { id: "ore_band_010", ladder: "ore", from: 10, weightsPm: weights },
+      ]),
+    ).toEqual([
+      ["gather_band_order", "ore_band_020", "from"],
+      ["gather_band_order", "ore_band_010", "from"],
+    ]);
+  });
+
+  it("기본 표가 없거나 사다리가 원자재 중분류가 아니면 오류", () => {
+    expect(checkLadders([{ id: "ore_band_000", ladder: "ore", from: 0, weightsPm: weights }])).toEqual([
+      ["gather_bands_missing", "ore_band_000", "ladder"],
+    ]);
+    expect(
+      checkLadders([
+        { id: "band_000", from: 0, weightsPm: weights },
+        { id: "dish_band_000", ladder: "dish", from: 0, weightsPm: weights },
+      ]),
+    ).toEqual([["gather_subcategory_major", "dish_band_000", "ladder"]]);
+  });
+});

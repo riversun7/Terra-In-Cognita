@@ -10,6 +10,10 @@
 //   걸려 있으면 바쁘다(도시마다 한 번에 하나). 끝나면 다음 판단에 도시 경제를 다시 맞춘다(레벨 = 자리·생산).
 // - 후보(site.facilities) = 그 세력이 그 도시에 가진 다 지은 시설: 레벨·상태(ppm)·도시 경제 일꾼 수. 침대 = 그 도시 숙소 침대 합(쉼터 계획).
 // - 나라 성격 목표(targetsOf) = 국가 프리셋 특산 줄 수와 국력 등급 처음 시설 수 가운데 큰 값(runtime.ts가 넘긴다).
+// 바뀜 (2026-11-14, 기획 D-541 1281 나 — docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"): 바닷가 도시(전략 배치 함수가 그 도시에 부두를 놓을
+// 물가 자리를 찾는 도시)는 목표에 부두(배를 만드는 시설 — 단계 교통 + 물가 조건) 하나를 더한다. 바닷가인지는 도시마다 COAST_TTL_MS 동안 기억하고,
+// 부두 자리를 못 찾아 짓기가 실패하면 그 도시는 바닷가가 아닌 것으로 본다(같은 목표에 묶여 다른 짓기가 멈추지 않게). 시뮬 도시는 땅을 몰라 부두를
+// 짓지 않는다(시뮬 판정은 그대로 — SIM_VERSION 그대로).
 import type { CityCell } from "@terra/shared/goodsPlaces";
 import type {
   Economy,
@@ -28,6 +32,7 @@ import type { SeedLand } from "../facilities/npcSeed.ts";
 import { materialScope } from "../facilities/places.ts";
 import type { FacilityService, NpcJobInput } from "../facilities/service.ts";
 import type { GatherKind } from "../gather/kinds.ts";
+import { isBoatYard } from "../boats/service.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 
 /** 월드가 넘기는 짓기 입력(market/worldInput.ts — NPC 도시 경제 입력의 build 칸) */
@@ -57,6 +62,8 @@ export interface ServerNpcBuilderOptions {
   readonly workersOf?: ((buildingId: number) => number) | undefined;
   /** 그 도시 숙소 침대 합(쉼터 계획 bedTotal). 없으면 숙소 수 × 레벨당 침대 */
   readonly bedsOf?: ((cityId: number) => number | undefined) | undefined;
+  /** 짓기 자리를 못 찾았다(바닷가 부두 목표를 거둔다). 없으면 아무것도 하지 않는다 */
+  readonly onNoSpot?: ((cityId: number, facility: string) => void) | undefined;
   readonly log: { info(obj: object, message: string): void };
 }
 
@@ -173,7 +180,10 @@ export function createServerNpcBuilder(o: ServerNpcBuilderOptions): NpcBuilder {
         land: o.world.landOf?.(at.place.mapKey),
         seed: o.seed(),
       }).placed[0];
-      if (!spot) return false;
+      if (!spot) {
+        o.onNoSpot?.(cityId, facility);
+        return false;
+      }
       const result = service.npcBuild({
         ownerId: faction.id,
         mapKey: at.place.mapKey,
@@ -252,6 +262,7 @@ export function npcBuildRunOf(o: {
 }): NpcBuildRun | undefined {
   const { econ, world } = o;
   if (!econ || !world) return undefined;
+  const coast = coastalDocks({ world, places: o.places, rules: o.rules });
   const builder = createServerNpcBuilder({
     world,
     ledger: o.ledger,
@@ -260,7 +271,73 @@ export function npcBuildRunOf(o: {
     refresh: (cityId, nowMs) => econ.refreshCity(cityId, nowMs),
     workersOf: (buildingId) => econ.economy.facilities.get(buildingId)?.workers ?? 0,
     bedsOf: (cityId) => econ.restPlan(cityId)?.bedTotal,
+    onNoSpot: (cityId, facility) => coast.noSpot(cityId, facility),
     log: o.log,
   });
-  return { economy: econ.economy, builder, ...(o.targetsOf ? { targetsOf: o.targetsOf } : {}) };
+  const base = o.targetsOf;
+  return {
+    economy: econ.economy,
+    builder,
+    // 바닷가 도시는 부두 하나(D-541 1281 나)
+    targetsOf: (faction, cityId) =>
+      withCoastalDock(base?.(faction, cityId), coast.dockOf(cityId, faction.id)),
+  };
+}
+
+/** 바닷가인지 기억하는 시간(ms) — 건물이 물가를 채우면 다시 본다 */
+export const COAST_TTL_MS = 6 * 60 * 60_000;
+
+/** 목표에 부두 하나를 더한다(이미 목표가 있으면 그대로). dock이 없으면 목표 그대로 */
+export function withCoastalDock(
+  targets: ReadonlyMap<string, number> | undefined,
+  dock: string | undefined,
+): ReadonlyMap<string, number> | undefined {
+  if (dock === undefined || (targets?.get(dock) ?? 0) >= 1) return targets;
+  const out = new Map(targets ?? []);
+  out.set(dock, 1);
+  return out;
+}
+
+/** 도시마다 바닷가 부두 판단(전략 배치 함수로 부두 자리가 있는지 본다 — 도시마다 COAST_TTL_MS 동안 기억) */
+function coastalDocks(o: {
+  readonly world: NpcBuildWorld;
+  readonly places: ServerNpcBuilderOptions["places"];
+  readonly rules: () => { readonly worldSeed: WorldSeedCoefficients };
+}) {
+  const known = new Map<number, { dock: string | undefined; atMs: number }>();
+  const now = (): number => Date.now();
+  const dockId = (): string | undefined =>
+    o.world.catalog().facilities.find((def) => isBoatYard(def) && def.build)?.id;
+  return {
+    /** 그 도시가 바닷가면 부두 시설 ID(아니면 undefined) */
+    dockOf(cityId: number, ownerId: number): string | undefined {
+      const cached = known.get(cityId);
+      if (cached && now() - cached.atMs < COAST_TTL_MS) return cached.dock;
+      const place = o.places.get(cityId);
+      const map = place ? o.world.maps.get(place.mapKey) : undefined;
+      const dock = dockId();
+      let found: string | undefined;
+      if (place && map && dock) {
+        const spot = planNpcSpots({
+          map,
+          catalog: o.world.catalog(),
+          facilities: o.world.service.facilities,
+          city: { id: cityId, ...place },
+          ownerId,
+          anchors: o.world.service.places.cities().filter((cell) => cell.mapKey === place.mapKey),
+          items: [dock],
+          kinds: o.world.gatherKinds?.() ?? [],
+          land: o.world.landOf?.(place.mapKey),
+          seed: o.rules().worldSeed,
+        }).placed[0];
+        if (spot) found = dock;
+      }
+      known.set(cityId, { dock: found, atMs: now() });
+      return found;
+    },
+    /** 짓기 자리를 못 찾은 부두 → 그 도시는 바닷가가 아니다(기억 시간 동안) */
+    noSpot(cityId: number, facility: string): void {
+      if (facility === dockId()) known.set(cityId, { dock: undefined, atMs: now() });
+    },
+  };
 }

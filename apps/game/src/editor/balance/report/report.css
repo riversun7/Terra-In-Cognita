@@ -1,0 +1,437 @@
+/*
+ * 전투 보고서([전투 보고서]·[보고서 기록] 탭) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 개발 화면 층(네온 다크·라이트).
+ * 피해 흐름도: 넓은 화면(64em 이상)은 가로 사슬(안에서만 가로로 민다), 좁은 화면(390px)은 세로. 가장 크게 줄인 단계 = 위험 색 테두리,
+ * 늘린 단계 = 성공 색 테두리. 표는 안에서만 가로로 민다(.rp-scroll).
+ */
+.rp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.rp-modes,
+.rp-editing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.rp-mode {
+  min-height: var(--dev-touch-tap);
+  padding: var(--space-1) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+.rp-mode[aria-checked="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.rp-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+  min-width: 0;
+}
+.rp-fields .field,
+.rp-fields .bl-num {
+  min-width: 0;
+}
+.rp-fields select,
+.rp-fields input {
+  width: 100%;
+  min-width: 0;
+}
+.rp-wide {
+  grid-column: 1 / -1;
+}
+.rp-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.rp-group legend {
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.rp-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--dev-touch-tap);
+  font-size: var(--font-size-sm);
+}
+.rp-tuning {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.rp-tuning-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+.rp-tuning-id {
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+.rp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.rp-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.rp-progress progress {
+  width: 100%;
+}
+.rp-latest,
+.rp-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  margin-top: var(--space-6);
+}
+.rp-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+.rp-report-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.rp-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.rp-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.rp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rp-chips li {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-2);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.rp-score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.rp-score-value {
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+  font-variant-numeric: tabular-nums;
+}
+.rp-score-ci {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.rp-ci-bar {
+  position: relative;
+  height: var(--stat-bar-lg);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+.rp-ci-range {
+  position: absolute;
+  inset-block: 0;
+  background: var(--color-primary);
+  opacity: 0.45;
+}
+.rp-ci-point {
+  position: absolute;
+  inset-block: 0;
+  inline-size: var(--border-w);
+  background: var(--color-text);
+}
+.rp-hist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rp-hist-bin {
+  display: grid;
+  grid-template-columns: minmax(0, 7em) minmax(0, 1fr) minmax(0, 3em);
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.rp-hist-track {
+  height: var(--stat-bar);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+.rp-hist-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+}
+.rp-hist-count {
+  text-align: end;
+}
+.rp-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.rp-table {
+  font-variant-numeric: tabular-nums;
+}
+.rp-table th,
+.rp-table td {
+  white-space: nowrap;
+}
+.rp-row-name {
+  text-align: start;
+}
+.rp-compare td[data-sign="plus"] {
+  color: var(--color-success);
+}
+.rp-compare td[data-sign="minus"] {
+  color: var(--color-danger);
+}
+
+/* 피해 흐름도 */
+.rp-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rp-flow-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.rp-flow-step[data-idle] {
+  opacity: 0.6;
+}
+.rp-flow-step[data-extreme="loss"] {
+  border: var(--border-w) solid var(--color-danger);
+  background: var(--color-danger-surface);
+}
+.rp-flow-step[data-extreme="gain"] {
+  border: var(--border-w) solid var(--color-success);
+  background: var(--color-success-surface);
+}
+.rp-flow-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.rp-flow-main {
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+}
+.rp-flow-range,
+.rp-flow-detail {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.rp-flow-change {
+  align-self: flex-start;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-2);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.rp-flow-change[data-sign="minus"] {
+  color: var(--color-danger);
+}
+.rp-flow-change[data-sign="plus"] {
+  color: var(--color-success);
+}
+.rp-flow-flag {
+  align-self: flex-start;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+@media (min-width: 64em) {
+  .rp-flow {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: var(--space-2);
+  }
+  .rp-flow-step {
+    flex: 0 0 12rem;
+  }
+}
+
+/* 한 대 풀이 */
+.rp-samples,
+.rp-trace-load,
+.rp-log-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+}
+.rp-sample[aria-pressed="true"] {
+  border-color: var(--color-primary);
+}
+.rp-trace {
+  margin: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+}
+.rp-trace-head {
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-weight-strong);
+  font-size: var(--font-size-sm);
+}
+.rp-trace-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+.rp-trace-step {
+  display: grid;
+  grid-template-columns: minmax(0, 11em) minmax(0, 1fr);
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.rp-trace-stage {
+  color: var(--color-text-muted);
+}
+.rp-trace-text {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.rp-trace-step[data-tone="loss"] .rp-trace-text {
+  color: var(--color-danger);
+}
+.rp-trace-step[data-tone="gain"] .rp-trace-text {
+  color: var(--color-success);
+}
+.rp-trace-step[data-tone="stop"] .rp-trace-text {
+  font-weight: var(--font-weight-strong);
+}
+@media (max-width: 40em) {
+  .rp-trace-step {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rp-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rp-tuning-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* 기록 */
+.rp-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-3);
+}
+.rp-filters input,
+.rp-filters select {
+  width: 100%;
+  min-width: 0;
+}
+.rp-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rp-log-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.rp-log-item[aria-current="true"] {
+  border-color: var(--color-primary);
+}
+.rp-log-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.rp-log-title {
+  overflow-wrap: anywhere;
+}
+.rp-log-sub {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.rp-log-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+@media (max-width: 40em) {
+  .rp-log-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .rp-log-buttons {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}

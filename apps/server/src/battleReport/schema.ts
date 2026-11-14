@@ -60,7 +60,8 @@ export const reportVariantSchema = z.strictObject({
         value: z.int().min(-1_000_000_000).max(1_000_000_000),
       }),
     )
-    .max(L.variantChangesMax),
+    .max(L.variantChangesMax)
+    .readonly(),
 });
 
 export const reportStartSchema = z.strictObject({

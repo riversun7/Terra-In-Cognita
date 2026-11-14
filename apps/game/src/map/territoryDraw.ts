@@ -34,6 +34,8 @@ export interface TerritoryFrame {
   readonly wins: Map<number, string>;
   /** 국가 → 테두리 경로(열린 꺾은선들) */
   readonly edges: Map<number, string>;
+  /** 두 국가가 맞닿은 선만(국가 색 선 밑에 깔 받침) */
+  readonly dividers: string;
   /** 그린 도시 수(시험·측정용) */
   readonly cities: number;
 }
@@ -91,6 +93,7 @@ export function projectTerritory(
   const base = new Map<number, string>();
   const wins = new Map<number, string>();
   const edges = new Map<number, string>();
+  let dividers = "";
   for (const circle of shapes.circles) {
     const radius = radiusOf.get(circle.cityId);
     if (radius === undefined) continue;
@@ -105,8 +108,9 @@ export function projectTerritory(
     if (radius === undefined || radius < MIN_EDGE_PX) continue;
     const part = pathOf(projector, border.points, vertexStep(radius), false);
     for (const faction of border.factions) append(edges, faction, part);
+    if (border.factions.length > 1) dividers += part;
   }
-  return { base, wins, edges, cities: radiusOf.size };
+  return { base, wins, edges, dividers, cities: radiusOf.size };
 }
 
 /** 이름표 크기(px) */
@@ -129,7 +133,7 @@ const overlaps = (a: Box, b: Box): boolean =>
   b.top < a.bottom + LABEL_GAP_PX;
 
 /**
- * 국가 이름표 자리(이름표 가운데 화면 점). 넓은 국가부터(spots 차례) 가운데 → 위 → 아래 자리 가운데 다른 이름표·피할 점(보이는 도시
+ * 국가 이름표 자리(이름표 가운데 화면 점). 넓은 국가부터(spots 차례) 가운데 → 위 → 아래 → 두 칸 위·아래 자리 가운데 다른 이름표·피할 점(보이는 도시
  * 표시)과 겹치지 않고 화면 안인 첫 자리, 그런 자리가 없으면 표시와만 겹치는 가운데. 다른 이름표와 늘 겹치면 넣지 않는다(감춘다)
  */
 export function placeLabels(
@@ -161,8 +165,10 @@ export function placeLabels(
     const inside = (box: Box): boolean =>
       box.left >= 0 && box.top >= 0 && box.right <= width && box.bottom <= height;
     const free = (box: Box): boolean => inside(box) && !labels.some((other) => overlaps(box, other));
-    // 가운데·위·아래 가운데 도시 표시도 피하는 첫 자리, 없으면 가운데(표시 위에 겹쳐도 — 표시가 이름표 위에 그려진다)
-    const candidates = [0, -1, 1].map((shift) => boxAt(point.y + shift * (size.height + MARKER_AVOID_PX)));
+    // 가운데·위·아래(두 칸까지) 가운데 도시 표시도 피하는 첫 자리, 없으면 가운데(표시 위에 겹쳐도 — 표시가 이름표 위에 그려진다)
+    const candidates = [0, -1, 1, -2, 2].map((shift) =>
+      boxAt(point.y + shift * (size.height + MARKER_AVOID_PX)),
+    );
     const chosen =
       candidates.find((box) => free(box) && !markers.some((marker) => overlaps(box, marker))) ??
       candidates.find((box, index) => index === 0 && free(box));

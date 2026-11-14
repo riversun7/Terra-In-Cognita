@@ -10,7 +10,15 @@ export interface WorldMapFaction {
   readonly kind: "npc" | "player";
   /** 화면 이름(팩 국가 프리셋 등). 없으면 null(코드를 보인다) */
   readonly name: LocalizedName | null;
+  /**
+   * 국가 색(`#rrggbb` 소문자) — 세력 정체성(faction_identities.color)이 있으면 그것, 없으면 팩 국가 프리셋 시그니처 색. 1차맵 영토·도시 점·
+   * 범례가 쓴다(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 둘 다 없거나 옛 서버면 null·없음 → 화면은 여섯 색 돌려 쓰기
+   */
+  readonly color?: string | null | undefined;
 }
+
+/** 국가 색 모양(`#rrggbb`) — 서버가 보내기 전에, 화면이 style에 넣기 전에 본다 */
+export const NATION_COLOR_PATTERN = /^#[0-9a-f]{6}$/;
 
 /**
  * 도시 둘레 땅(행성 값, 그 2차맵 = 1차맵 칸 하나). 시작 도시 고르기의 "주변 자원·기후"(D-6041)와 1차맵 도시 판이 보인다.

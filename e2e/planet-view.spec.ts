@@ -416,6 +416,15 @@ test.describe("레이어: 플레이어", () => {
     await expect(page.locator('[data-legend="territory"]')).toContainText(
       message("ko", "planet_territory_capital"),
     );
+    // 국가 고유 색(바뀜 2026-11-14): 범례 국가 칩마다 서로 다른 #rrggbb(여섯 색 돌려 쓰기가 아니다)
+    const legendColors = await page
+      .locator('[data-legend="territory"] .planet-legend-nations > li')
+      .evaluateAll((items) =>
+        items.map((item) => getComputedStyle(item).getPropertyValue("--nation").trim()),
+      );
+    expect(legendColors.length).toBeGreaterThan(1);
+    expect(legendColors.every((color) => /^#[0-9a-f]{6}$/.test(color))).toBe(true);
+    expect(new Set(legendColors).size).toBe(legendColors.length);
     // 영토(바뀜 2026-11-14): 아는 국가마다 영토 하나 이상, 화면에 그린 도시 원과 칠 경로, 보이는 국가 이름표
     await expect(overlay).toHaveAttribute("data-territories", /^[1-9]\d*$/);
     await expect(overlay).toHaveAttribute("data-drawn", /^[1-9]\d*$/);
@@ -425,21 +434,32 @@ test.describe("레이어: 플레이어", () => {
     expect(filled).toBeGreaterThan(0);
     await expect(page.locator('.city-area-label[data-shown="true"]').first()).toBeVisible();
     const labelNames = await page.locator('.city-area-label[data-shown="true"]').allTextContents();
-    // 영토를 누르면 그 국가: 보이는 도시 표시 옆(원 안, 표시 단추 밖) → "영토: <국가>"
-    const marker = page.locator(".city-marker:not([hidden])").first();
-    const box = await marker.boundingBox();
-    expect(box).not.toBeNull();
-    const centerX = (box?.x ?? 0) + (box?.width ?? 0) / 2;
-    const centerY = (box?.y ?? 0) + (box?.height ?? 0) / 2;
+    // 3단계에서 배후지 원(시험 세계 도시는 사람이 적어 1칸)은 도시 표시만 하게 작다 → 한 단계 다가가 누른다
+    await page.locator(".zoom-ladder-in").click();
+    await page.waitForTimeout(STEP_WAIT_MS + 600);
+    // 영토를 누르면 그 국가: 칠한 영토 안이면서 도시 표시·판 밖인 점을 화면에서 찾아(SVG isPointInFill) 누른다 → "영토: <국가>"
+    const target = await page.evaluate(() => {
+      const fills = [...document.querySelectorAll<SVGPathElement>(".city-area-fill")].filter(
+        (path) => (path.getAttribute("d") ?? "") !== "",
+      );
+      for (let y = 160; y < window.innerHeight - 220; y += 6) {
+        for (let x = 12; x < window.innerWidth - 12; x += 6) {
+          if (document.elementFromPoint(x, y)?.closest(".city-marker, .map-hud, .map-panel") !== null)
+            continue;
+          const point = new DOMPoint(x, y);
+          if (fills.some((path) => path.isPointInFill(point))) return { x, y };
+        }
+      }
+      return null;
+    });
+    expect(target).not.toBeNull();
     const drawnRadius = await page.evaluate(() => {
-      // 화면에서 가장 작은 원 바탕 경로의 반지름 어림(바운딩 상자 반폭)
       const widths = [...document.querySelectorAll<SVGPathElement>(".city-area-fill")]
         .filter((path) => (path.getAttribute("d") ?? "") !== "")
         .map((path) => path.getBBox().width / 2);
-      return Math.min(...widths);
+      return widths.length > 0 ? Math.min(...widths) : 0;
     });
-    const offset = Math.max(26, Math.min(drawnRadius * 0.6, 60));
-    await page.mouse.click(centerX + offset, centerY);
+    await page.mouse.click(target?.x ?? 0, target?.y ?? 0);
     await expect(screen).toHaveAttribute("data-picked", /\d/);
     // 땅을 누르면 레이어 판이 닫힌다
     await expect(page.locator(".planet-layer-sheet")).toHaveCount(0);
@@ -509,6 +529,14 @@ test.describe("레이어 사진", () => {
         await page.locator(".planet-layer-toggle").click();
         await page.waitForTimeout(1500);
         await shot(page, `planet-globe-territory-390-${theme}`);
+        // 프레임 시간은 그리는 동안만 쌓인다: 끌어서 돌리며 잰다(덧그림 포함)
+        const size = page.viewportSize() ?? { width: 390, height: 844 };
+        await page.mouse.move(size.width / 2, size.height * 0.4);
+        await page.mouse.down();
+        for (let step = 0; step < 30; step++)
+          await page.mouse.move(size.width / 2 + step * 4, size.height * 0.4);
+        await page.mouse.up();
+        await page.waitForTimeout(1200);
         console.log(
           `[measure] ${theme} territory engine p95 stage4 ${near ?? "?"}ms, stage1 ${(await screen.getAttribute("data-engine-p95")) ?? "?"}ms, drawn cities stage1 ${(await page.locator(".city-overlay").getAttribute("data-drawn")) ?? "?"}, cities ${(await screen.getAttribute("data-cities")) ?? "?"}`,
         );

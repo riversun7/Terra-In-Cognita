@@ -10,6 +10,7 @@ import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import type { LegendNation, ResourceLoad } from "./PlanetLayerPicker.tsx";
 import { loadResourceMap } from "./planetResource.ts";
+import { nationStyle } from "./nationColor.ts";
 import { territoryAt } from "./territoryPick.ts";
 import { cityLabel, factionColor, factionName } from "./worldMapData.ts";
 
@@ -104,6 +105,7 @@ export function usePlanetLayers({ planetId, engineRef, engineReady, layerRef, wo
         id: faction.id,
         name: factionName(world.factions, faction.id),
         color: factionColor(world.factions, faction.id),
+        style: nationStyle(world.factions, faction.id),
       }));
   }, [world]);
 

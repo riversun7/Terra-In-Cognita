@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { type LabelSize, placeLabels, projectTerritory } from "./territoryDraw.ts";
 import { type TerritoryShapes, buildTerritoryShapes, territorySitesOf } from "./territoryShapes.ts";
+import { nationStyle } from "./nationColor.ts";
 import { cityLabel, factionColor, factionName } from "./worldMapData.ts";
 import "./cityOverlay.css";
 
@@ -90,6 +91,7 @@ export function CityOverlay(props: CityOverlayProps) {
   const labelSizes = useRef(new Map<number, LabelSize>());
   const meRef = useRef<HTMLSpanElement>(null);
   const territoryRef = useRef<HTMLDivElement>(null);
+  const dividerRef = useRef<SVGPathElement>(null);
   const latest = useRef(props);
   const territory = useMemo((): TerritoryModel => {
     const sites = territorySitesOf(cities, milliPerRadian);
@@ -163,6 +165,7 @@ export function CityOverlay(props: CityOverlayProps) {
         parts.win?.setAttribute("d", frame.wins.get(nation) ?? "");
         parts.edge?.setAttribute("d", frame.edges.get(nation) ?? "");
       }
+      dividerRef.current?.setAttribute("d", frame.dividers);
       if (territoryRef.current) territoryRef.current.dataset.drawn = String(frame.cities);
       // 국가 이름표(영토 레이어만): 크기는 처음 한 번 잰다(읽기를 쓰기보다 먼저 — 레이아웃을 한 번만 셈한다)
       const labels = [...areas.current].flatMap(([nation, parts]) =>
@@ -231,6 +234,7 @@ export function CityOverlay(props: CityOverlayProps) {
               }}
               className="city-area-fill"
               data-nation={factionColor(factions, nation)}
+              style={nationStyle(factions, nation)}
             />
           ))}
           {nations.map((nation) => (
@@ -241,9 +245,12 @@ export function CityOverlay(props: CityOverlayProps) {
               }}
               className="city-area-fill"
               data-nation={factionColor(factions, nation)}
+              style={nationStyle(factions, nation)}
             />
           ))}
         </g>
+        {/* 국가 경계 받침(바뀜 2026-11-14): 두 국가가 맞닿은 선만 판색으로 굵게 깔고 그 위에 국가 색 선 — 색이 비슷한 이웃도 갈린다 */}
+        <path ref={dividerRef} className="city-area-divider" />
         {nations.map((nation) => (
           <path
             key={`edge-${String(nation)}`}
@@ -252,6 +259,7 @@ export function CityOverlay(props: CityOverlayProps) {
             }}
             className="city-area-edge"
             data-nation={factionColor(factions, nation)}
+            style={nationStyle(factions, nation)}
           />
         ))}
       </svg>
@@ -263,6 +271,7 @@ export function CityOverlay(props: CityOverlayProps) {
           }}
           className="city-area-label"
           data-nation={factionColor(factions, nation)}
+          style={nationStyle(factions, nation)}
           data-faction={nation}
           data-shown="false"
           aria-hidden="true"
@@ -284,6 +293,7 @@ export function CityOverlay(props: CityOverlayProps) {
             className="city-marker"
             data-city={city.id}
             data-nation={factionColor(factions, city.factionId)}
+            style={nationStyle(factions, city.factionId)}
             data-start={city.start ? "true" : "false"}
             data-capital={city.capital ? "true" : undefined}
             data-label="off"

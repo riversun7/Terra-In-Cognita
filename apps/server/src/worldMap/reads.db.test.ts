@@ -12,6 +12,11 @@ import type { Viewer } from "../trpc/context.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type World, startWorld } from "../world/world.ts";
 import { cityVisionCell } from "./knownCities.ts";
+import { loadContentPack } from "@terra/content/node";
+import { EMBLEM_CHARGES, EMBLEM_DIVISIONS, EMBLEM_SHAPES } from "@terra/shared/nationEmblem";
+import { nationEmblemOf } from "../npc/nations.ts";
+import { nationPresetsOf } from "../npc/presets.ts";
+import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { worldMapReadsOf } from "./reads.ts";
 
 let test: TestDatabase;
@@ -222,13 +227,47 @@ describe.skipIf(!TEST_DATABASE_URL)("지도 흐름 조회(world.cities·myPositi
       {
         population: Number(facts[0]?.population ?? 0),
         grade: cityGrade(40, START_TERRITORY_COEFFICIENTS),
-        tech: Number(facts[0]?.tech ?? 1),
+        tech: facts[0]?.tech ?? 1,
       },
       growth,
     );
     expect(city?.catchmentMilli).toBe(expected);
     expect(expected).toBeGreaterThanOrEqual(growth.minRadiusMilli);
     expect(after.cities.every((entry) => (entry.catchmentMilli ?? 0) > 0)).toBe(true);
+  });
+
+  it("국가 색(바뀜 2026-11-14): 팩 국가 프리셋 시그니처 색, 세력 정체성 색이 있으면 그것", async () => {
+    const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+    if (!loaded.pack) throw new Error("content pack");
+    const presets = nationPresetsOf(loaded.pack);
+    const world = await boot();
+    const viewer = await newUser("MapColor");
+    const reads = worldMapReadsOf({
+      world,
+      pool: test.db.$client,
+      planetId: TEST_PLANET_ID,
+      faceLevel: 9,
+      presets,
+    })();
+    if (!reads) throw new Error("reads not ready");
+    const answer = await reads.cities(viewer, clock);
+    expect(answer.factions.length).toBeGreaterThan(0);
+    for (const faction of answer.factions) {
+      const preset = faction.code === null ? undefined : nationEmblemOf(faction.code, presets)?.color;
+      expect(faction.color).toBe(preset ?? null);
+    }
+    expect(answer.factions.some((faction) => faction.color)).toBe(true);
+    // 세력 정체성(하우스) 색이 이긴다
+    const target = answer.factions[0];
+    if (!target) throw new Error("no faction");
+    await test.db.$client.query(
+      `insert into faction_identities (user_id, name, name_key, short_name, color, emblem_shape, emblem_division,
+         emblem_charge, emblem_scheme, created_at_ms, updated_at_ms, name_changed_at_ms, faction_id)
+       values ($1, '색시험', '색시험', 'CLR', '#123abc', $2, $3, $4, 0, $5, $5, $5, $6)`,
+      [viewer.id, EMBLEM_SHAPES[0], EMBLEM_DIVISIONS[0], EMBLEM_CHARGES[0], clock, target.id],
+    );
+    const after = await reads.cities(viewer, clock);
+    expect(after.factions.find((faction) => faction.id === target.id)?.color).toBe("#123abc");
   });
 
   it("도시 안개: 시작 도시·내 국가·본 자리·전체 보기만, 차례는 모든 도시로", async () => {

@@ -23,6 +23,7 @@ import type { CatchmentMaterial } from "@terra/shared/catchment";
 import { useEffect } from "react";
 import { m } from "../paraglide/messages.js";
 import { MapIcon } from "./mapIcons.tsx";
+import type { nationStyle } from "./nationColor.ts";
 
 /** 자원 분포 지도 받기 상태 */
 export type ResourceLoad = "idle" | "loading" | "ready" | "failed";
@@ -31,8 +32,10 @@ export type ResourceLoad = "idle" | "loading" | "ready" | "failed";
 export interface LegendNation {
   readonly id: number;
   readonly name: string;
-  /** 국가 색 차례(cityOverlay.css data-nation 0 ~ 5) */
+  /** 국가 색 차례(cityOverlay.css data-nation 0 ~ 5 — 고유 색이 없을 때) */
   readonly color: number;
+  /** 국가 고유 색 변수(nationColor.ts nationStyle). 없으면 undefined */
+  readonly style?: ReturnType<typeof nationStyle>;
 }
 
 interface PlanetLayerPickerProps {
@@ -142,7 +145,7 @@ function TerritoryLegend({ nations }: { nations: readonly LegendNation[] | null 
       {nations && nations.length > 0 ? (
         <ul className="planet-legend-nations">
           {nations.map((nation) => (
-            <li key={nation.id} className="planet-legend-key" data-nation={nation.color}>
+            <li key={nation.id} className="planet-legend-key" data-nation={nation.color} style={nation.style}>
               <span className="planet-legend-swatch planet-legend-nation" />
               {nation.name}
             </li>

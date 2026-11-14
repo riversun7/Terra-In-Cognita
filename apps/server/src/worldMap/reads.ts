@@ -29,6 +29,7 @@ import type {
   WorldPosition,
   WorldPositionResponse,
 } from "@terra/shared/worldMap";
+import { NATION_COLOR_PATTERN } from "@terra/shared/worldMap";
 import { ownerIdentityOf } from "../factionIdentity/store.ts";
 import { type GovernmentReads, governmentReadsOfWorld } from "../government/reads.ts";
 import { loadEmblemHashes } from "../nationEdit/emblems.ts";
@@ -75,6 +76,8 @@ export interface WorldMapReadDeps {
   readonly biomeName?: ((id: string) => LocalizedName | undefined) | undefined;
   /** 세력 코드 → 화면 이름(팩 국가 프리셋 등) */
   readonly factionName?: ((code: string) => LocalizedName | undefined) | undefined;
+  /** 세력 코드 → 국가 프리셋 시그니처 색(`#rrggbb`). 세력 정체성 색이 있으면 그것이 이긴다 */
+  readonly factionColor?: ((code: string) => string | undefined) | undefined;
   /**
    * 배후지 지금 반경 규칙(1차맵 영토 원, ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 없거나 undefined면 도시 catchmentMilli = null
    * (화면은 영향권 반경으로 그린다)
@@ -162,6 +165,23 @@ async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityR
     development: Number(row.development ?? 0),
     tech: Number(row.tech ?? 1),
   }));
+}
+
+/** 세력 정체성 색(faction_identities.faction_id — 하우스를 세운 세력만). 모양이 틀린 값은 뺀다. 표가 없으면(옛 DB) 빈 표 */
+async function identityColors(pool: QueryPool, factionIds: readonly number[]): Promise<Map<number, string>> {
+  if (factionIds.length === 0) return new Map();
+  const result = await pool
+    .query(`select faction_id, color from faction_identities where faction_id = any($1::bigint[])`, [
+      factionIds,
+    ])
+    .catch(() => ({ rows: [] as Record<string, unknown>[] }));
+  const colors = new Map<number, string>();
+  for (const row of result.rows) {
+    const color = typeof row.color === "string" ? row.color.toLowerCase() : "";
+    if (row.faction_id !== null && NATION_COLOR_PATTERN.test(color))
+      colors.set(Number(row.faction_id), color);
+  }
+  return colors;
 }
 
 /** 내 탐사 기록(그 행성의 2차맵마다 시야 칸 비트, world_exploration) */
@@ -363,11 +383,19 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
           }),
         });
       }
+      // 국가 색(바뀜 2026-11-14): 세력 정체성 색 > 팩 국가 프리셋 시그니처 색. 아는 국가(안개를 지난 도시의 국가)만
+      const identity = await identityColors(pool, [...factions.keys()]);
+      const colored = [...factions.values()].map((faction): WorldMapFaction => {
+        const preset = faction.code === null ? undefined : deps.factionColor?.(faction.code)?.toLowerCase();
+        const color =
+          identity.get(faction.id) ?? (preset && NATION_COLOR_PATTERN.test(preset) ? preset : null);
+        return { ...faction, color };
+      });
       return {
         status: "ready",
         planetId,
         faceLevel,
-        factions: [...factions.values()],
+        factions: colored,
         cities,
         hulls,
         // 영토 서비스가 없어도 배후지 원을 그릴 수 있게 행성 평균 칸 환산(같은 값 — @terra/planet/territory)
@@ -529,6 +557,7 @@ export function worldMapReadsOf(options: {
     values: planets ? () => planets.planetValues(planetId) : undefined,
     biomeName: (id) => planets?.manifest(planetId)?.biomes.find((biome) => biome.id === id)?.name,
     factionName: nameOfCode,
+    factionColor: (code) => nationEmblemOf(code, options.presets)?.color,
     catchment: options.catchment,
   });
   // 2차맵 사이 이동 조회(WP9·WP11): 확인 단계(+ 위험 구간, 질문 594 나)·가는 중인 길(이동 서비스, 지금 자리의 위도·경도를 붙인다)

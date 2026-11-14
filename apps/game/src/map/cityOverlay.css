@@ -1,6 +1,7 @@
 /*
  * 1차맵 도시 덧그림(CityOverlay.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
- * 국가 색 = --color-stat-* 여섯을 국가 차례대로(data-nation 0 ~ 5 → --nation, 개발 영토 화면과 같은 돌려 쓰기). 위치는 엔진 프레임이 transform으로 놓는다.
+ * 국가 색 = 서버가 보낸 국가 고유 색(style의 --nation·--nation-ink·--nation-halo, nationColor.ts — 자료 색이라 CSS에 쓰지 않는다).
+ * 색이 없으면 --color-stat-* 여섯을 국가 차례대로(data-nation 0 ~ 5 → --nation, 개발 영토 화면과 같은 돌려 쓰기). 인라인 style이 이긴다. 위치는 엔진 프레임이 transform으로 놓는다.
  * 덧그림 판은 지도 위를 덮지만 누르기는 지나보낸다(표시 단추만 받는다).
  */
 .city-overlay {
@@ -46,6 +47,14 @@
   fill: var(--nation);
   stroke: none;
 }
+.city-area-divider {
+  fill: none;
+  stroke: var(--color-surface);
+  stroke-width: calc(var(--border-w) * 3);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
 .city-area-edge {
   fill: none;
   stroke: var(--nation);
@@ -67,10 +76,11 @@
   line-height: var(--line-height-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 번짐 = 국가 색과 대비가 큰 글자 색(--nation-halo: 밝은 국가 색이면 어둡게) — 어느 국가 색·어느 땅 위에서도 읽힌다 */
   text-shadow:
-    0 0 var(--hairline) var(--color-surface),
-    0 0 var(--space-1) var(--color-surface),
-    0 0 var(--space-1) var(--color-surface);
+    0 0 var(--hairline) var(--nation-halo, var(--color-surface)),
+    0 0 var(--space-1) var(--nation-halo, var(--color-surface)),
+    0 0 var(--space-1) var(--nation-halo, var(--color-surface));
   pointer-events: none;
 }
 .city-area-label[data-shown="false"] {
@@ -194,7 +204,8 @@
   height: calc(var(--status-dot) * 2.6);
 }
 .city-marker-capital {
-  color: var(--color-surface);
+  /* 국가 색 점 위 별: 국가 색과 대비가 큰 색(--nation-ink) */
+  color: var(--nation-ink, var(--color-surface));
   font-size: var(--font-size-xs);
   line-height: 1;
 }
@@ -205,4 +216,7 @@
 }
 .city-overlay[data-emphasis="territory"] .city-area-edge {
   stroke-width: calc(var(--border-w) * 1.5);
+}
+.city-overlay[data-emphasis="territory"] .city-area-divider {
+  stroke-width: calc(var(--border-w) * 4);
 }

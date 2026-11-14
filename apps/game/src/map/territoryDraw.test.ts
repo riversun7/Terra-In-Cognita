@@ -43,8 +43,8 @@ describe("영토 프레임 그리기", () => {
 
   it("작게 보이는 국가는 이름표 자리에 둥근 표시(1단계에서도 보이게)", () => {
     expect([4, 20, 60].map(vertexStep)).toEqual([4, 2, 1]);
-    // 1° = 5px: 국가 20(반지름 0.5° = 2.5px)은 둥근 표시, 국가 10(가운데에서 끝까지 약 2.5° = 12px)은 고리
-    const small = projectTerritory(flatProjector(5), shapes);
+    // 1° = 8px: 국가 20(반지름 0.5° = 4px)은 둥근 표시, 국가 10(가운데에서 끝까지 약 2.5° = 20px)은 고리
+    const small = projectTerritory(flatProjector(8), shapes);
     expect(small.blobs).toBe(1);
     expect(small.fills.get(20)).toContain(`a${MIN_BLOB_PX} ${MIN_BLOB_PX}`);
     expect(small.fills.get(10)).toMatch(/^M.*Z$/);

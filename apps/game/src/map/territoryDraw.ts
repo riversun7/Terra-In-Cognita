@@ -13,7 +13,7 @@ type LatLon = readonly [latDeg: number, lonDeg: number];
 /** 화면 밖 여유(반지름 몫) */
 const CULL_MARGIN = 1.2;
 /** 국가가 이보다 작게 보이면 이 반지름(px) 둥근 표시로 칠한다 */
-export const MIN_BLOB_PX = 7;
+export const MIN_BLOB_PX = 12;
 /** 이름표 사이 여유(px) */
 const LABEL_GAP_PX = 4;
 /** 도시 표시 둘레 피할 반지름(px, 표시 점 + 테두리) */

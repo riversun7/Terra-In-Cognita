@@ -12,6 +12,8 @@
 - 서버 `world.cities` 도시 줄에 `catchmentMilli`(배후지 지금 반경, 선택 칸)를 더했다. tRPC 조회라 프로토콜 판은 그대로.
 - 추가 요청(같은 날, 통합 세션 경유): 국가 고유 색. `world.cities` `factions[].color` = 세력 정체성 색 > 팩 국가 프리셋 색. 화면은 style CSS 변수(`--nation`·`--nation-ink`·`--nation-halo`)로 영토·도시 점·이름표·범례에. 글자는 밝기로 고른 검정/흰색 번짐, 국가 경계 선은 판색 받침 위에.
 
+- 질문 1437 사용자 답(같은 날, 원문 "도시배후지는 그대로 하거나 더 키워도 좋다. 그런데 도시 사이에 빈공간이 있어 단절되어있다. 국가영토는 더 넓게 도시사이도 모두 포함하는 넓은 범위로 해달라."): 국가 영토 = 도시 원 + 12칸([임시]) 안 같은 국가 도시 사이 띠·삼각형, 겹친 곳은 가장 가까운 도시(가운데) 경계. 접평면 격자 마칭 스퀘어로 국가 덩이 둘레 고리를 찾아 그린다. 화면에서 12px보다 작은 국가는 둥근 표시. main(0256f25abc)을 먼저 합쳤다(작업 기록 목차 충돌만, 다시 만듦).
+
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
 |---|---|
@@ -19,8 +21,8 @@
 | `apps/game/src/map/PlanetMapScreen.tsx` | ×12, 막대를 운영 메뉴로, 레이어 접는 단추·판 여닫기(땅 누르면 닫힘), 껍질 넘기기 뺌 |
 | `apps/game/src/start/StartCityMap.tsx` | 같은 ×12 |
 | `apps/game/src/map/PlanetLayerPicker.tsx`, `mapIcons.tsx`, `planetMap.css` | 접는 단추(`PlanetLayerToggle`)·열리는 판, 레이어 아이콘, 판·단추·운영 메뉴 막대 모양 |
-| `apps/game/src/map/territoryShapes.ts`(새) | 영토 모양 셈: 원 바탕·이긴 조각·테두리·이름표 자리, 주인 규칙 `territoryOwner` |
-| `apps/game/src/map/territoryDraw.ts`(새) | 프레임마다 투영: 화면 밖·지평선 너머 건너뛰기, 꼭짓점 솎기, 국가 이름표 자리 |
+| `apps/game/src/map/territoryShapes.ts`(새) | 영토 모양 셈: 국가 뼈대(도시·12칸 안 줄·삼각형) 덮임, 주인 규칙 `territoryOwner`(가장 가까운 도시), 마칭 스퀘어 고리·국가 경계 받침·이름표 자리 |
+| `apps/game/src/map/territoryDraw.ts`(새) | 프레임마다 투영: 화면 밖·지평선 너머 건너뛰기, 고리 점 솎기, 작게 보이는 국가 둥근 표시, 국가 이름표 자리 |
 | `apps/game/src/map/CityOverlay.tsx`, `cityOverlay.css` | 껍질·가리개 대신 새 영토 그리기와 국가 이름표 |
 | `apps/game/src/map/territoryPick.ts` | 누른 곳의 국가 = 그린 영토와 같은 규칙 |
 | `apps/game/src/map/usePlanetLayers.ts` | 새 `territoryAt` 호출 |
@@ -43,7 +45,8 @@
 - 필요 없음: DB 마이그레이션·팩·SIM·프로토콜 판 그대로. 화면과 tRPC 조회 칸 하나(선택 칸)만 더했다.
 
 ## 미검증·TODO·알려진 문제
-- 셋 이상 다른 국가 원이 한 점에서 얽히면 이긴 조각 밖 칠이 바탕 차례를 따른다(주인 규칙과 다를 수 있다 — 드물다, Assumed).
+- 잇기 상한 12칸은 [임시](설정 칸 `city_catchment_search_cells` 출발값과 같은 값, 보기 상수 `CORRIDOR_CELLS`). 설정 칸이 바뀌어도 따라가지 않는다.
+- 영토 셈은 도시 자료가 바뀔 때 기기에서 한 번(국가 16·도시 50 78ms, Node 단위 시험 — 휴대폰은 더 걸릴 수 있다, Unknown).
 - 실제 휴대폰에서 프레임 시간은 재지 않았다(Unknown). 헤드리스 값은 아래.
 
 ## 사용자 결정 대기

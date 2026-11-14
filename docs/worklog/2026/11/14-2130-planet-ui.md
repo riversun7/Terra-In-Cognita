@@ -2,7 +2,7 @@
 
 - 일시: 2026-11-14 21:30 (KST)
 - 작업 도구: Claude Code
-- 관련: ADR `docs/adr/2026-11-07-planet-view.md` "바뀜 (2026-11-14)", `docs/adr/2026-11-03-territory-layer.md` "바뀜 (2026-11-14)", `docs/adr/2026-11-11-city-catchment.md`, 질문 `docs/questions/2026-11-14-planet-ui.md`(1431~1436), 가지 `work/planet-ui`
+- 관련: ADR `docs/adr/2026-11-07-planet-view.md` "바뀜 (2026-11-14)", `docs/adr/2026-11-03-territory-layer.md` "바뀜 (2026-11-14)", `docs/adr/2026-11-11-city-catchment.md`, 질문 `docs/questions/2026-11-14-planet-ui.md`(1431~1437), 가지 `work/planet-ui`
 
 ## 한 일
 - 사용자 요청(2026-11-14, 휴대폰 사진 둘) "1차맵 UI 개편" 세 가지:
@@ -10,6 +10,7 @@
   2. 레이어 메뉴: 늘 보이는 것은 한 줄 — [레이어 아이콘 + 지금 레이어 이름 ▾] · [이 2차맵으로 들어가기] · [내 위치]. 단추를 누르면 레이어 다섯·원자재·범례 판이 열리고, 다시 누르기·Esc·땅 누르기로 닫힌다.
   3. 영토: 도시마다 배후지 지금 반경 원, 국가마다 원들의 합, 다른 국가 원이 겹친 곳은 가장 가까운 도시(두 도시의 가운데)가 경계, 국가 색 반투명 칠 + 국가가 바뀌는 선만 테두리, 영토 레이어에서 국가 이름(겹치지 않게). 각진 껍질은 1차맵에서 뺐다. 누른 곳의 국가도 같은 규칙.
 - 서버 `world.cities` 도시 줄에 `catchmentMilli`(배후지 지금 반경, 선택 칸)를 더했다. tRPC 조회라 프로토콜 판은 그대로.
+- 추가 요청(같은 날, 통합 세션 경유): 국가 고유 색. `world.cities` `factions[].color` = 세력 정체성 색 > 팩 국가 프리셋 색. 화면은 style CSS 변수(`--nation`·`--nation-ink`·`--nation-halo`)로 영토·도시 점·이름표·범례에. 글자는 밝기로 고른 검정/흰색 번짐, 국가 경계 선은 판색 받침 위에.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -24,9 +25,10 @@
 | `apps/game/src/map/territoryPick.ts` | 누른 곳의 국가 = 그린 영토와 같은 규칙 |
 | `apps/game/src/map/usePlanetLayers.ts` | 새 `territoryAt` 호출 |
 | `apps/game/messages/{ko,en}.json` | `planet_layer_toggle` 더함, `planet_territory_known` 문구 바꿈 |
-| `packages/shared/src/worldMap.ts` | `WorldMapCity.catchmentMilli` |
-| `apps/server/src/worldMap/reads.ts`, `apps/server/src/app.ts` | 도시마다 배후지 지금 반경(설정 칸 실효 값, 배후지 스위치 0이면 null), `milliPerRadian` 대체 값 |
-| 시험: `territoryShapes.test.ts`·`territoryDraw.test.ts`(새), `territoryPick.test.ts`, `worldMap.test.ts`(옛 원 점 시험 뺌), `reads.db.test.ts`, `e2e/planet-view.spec.ts` | |
+| `packages/shared/src/worldMap.ts` | `WorldMapCity.catchmentMilli`, `WorldMapFaction.color`, `NATION_COLOR_PATTERN` |
+| `apps/game/src/map/nationColor.ts`(새), `PlanetCityPanel.tsx` | 국가 색 CSS 변수·글자 대비, 도시 판 점 |
+| `apps/server/src/worldMap/reads.ts`, `apps/server/src/app.ts` | 도시마다 배후지 지금 반경(설정 칸 실효 값, 배후지 스위치 0이면 null), `milliPerRadian` 대체 값, 국가 색(정체성 > 프리셋) |
+| 시험: `territoryShapes.test.ts`·`territoryDraw.test.ts`·`nationColor.test.ts`(새), `territoryPick.test.ts`, `worldMap.test.ts`(옛 원 점 시험 뺌), `reads.db.test.ts`, `e2e/planet-view.spec.ts` | |
 | `docs/adr/…`, `docs/questions/2026-11-14-planet-ui.md` | 바뀜·질문 |
 
 ## 함께 바꿔야 하는 파일
@@ -46,6 +48,6 @@
 - 실제 휴대폰에서 프레임 시간은 재지 않았다(Unknown). 헤드리스 값은 아래.
 
 ## 사용자 결정 대기
-- 질문 1431~1436(`docs/questions/2026-11-14-planet-ui.md`).
+- 질문 1431~1437(`docs/questions/2026-11-14-planet-ui.md`).
 
 ## 확인

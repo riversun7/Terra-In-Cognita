@@ -22,15 +22,15 @@
 // - 나오는 아이템(기획 D-540 1222): 기본은 item 하나. table(굴림표)이면 그 가운데 하나를 가중치로, ladder면 맡는 시설의 사다리에서
 //   유효 스탯 띠로 티어를 뽑는다(어군 = 낚시 사다리). tierRange가 있으면 뽑은 티어를 그 범위 안으로 접는다(기획 D-541 질문 1307 나).
 // 지금 값은 모두 [임시]다(D-515).
-import { MAP_PROP_ARTS } from "@terra/shared";
+import { MAP_PROP_ARTS, isUsableMapPropArt } from "@terra/shared";
 import { CATCHMENT_MATERIALS } from "@terra/shared/catchment";
 import { GATHER_TIERS } from "@terra/shared/gatherMath";
 import { z } from "zod";
 import { PRIMARY_STAT_CODES } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
 
-const ART_HINT = `그림 종류는 ${MAP_PROP_ARTS.filter((name) => name !== "none").join(", ")} 가운데 하나입니다.`;
-const art = z.enum(MAP_PROP_ARTS, { error: ART_HINT }).refine((name) => name !== "none", { error: ART_HINT });
+const ART_HINT = `그림 종류는 ${MAP_PROP_ARTS.filter(isUsableMapPropArt).join(", ")} 가운데 하나입니다.`;
+const art = z.enum(MAP_PROP_ARTS, { error: ART_HINT }).refine(isUsableMapPropArt, { error: ART_HINT });
 
 const common = {
   id: contentId,

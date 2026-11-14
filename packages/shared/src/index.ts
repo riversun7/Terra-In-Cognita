@@ -178,6 +178,8 @@ export {
   MAP_PROP_CURVE_AXES,
   MAP_PROP_CURVE_AXIS_NAMES,
   MAP_PROP_PLACEMENTS,
+  RETIRED_MAP_PROP_ARTS,
+  isUsableMapPropArt,
   mapPropArtCode,
   type MapPropArt,
   type MapPropCurveAxis,

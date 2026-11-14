@@ -9,7 +9,7 @@
 //   forest는 숲 칸에서 나무 그림끼리의 상대 비중이다.
 // - 곡선 {min, idealMin, idealMax, max}: min 이하·max 이상 0, idealMin ~ idealMax 1000, 그 사이는 곧게 잇는다.
 // 이름표(그림 종류·곡선 축·덩이 크기)는 @terra/shared mapProps(생성기와 같은 것)에서 가져온다. 지금 데이터는 임시값이다.
-import { MAP_PROP_ARTS, MAP_PROP_CLUMP_CELLS, MAP_PROP_CURVE_AXES } from "@terra/shared";
+import { MAP_PROP_ARTS, MAP_PROP_CLUMP_CELLS, MAP_PROP_CURVE_AXES, isUsableMapPropArt } from "@terra/shared";
 import { z } from "zod";
 import { contentId, localizedText, ref } from "./common.ts";
 
@@ -34,8 +34,8 @@ const curves = z.strictObject({
 });
 
 /** 그림 종류("none"은 쓰지 않는다) */
-const ART_HINT = `그림 종류는 ${MAP_PROP_ARTS.filter((name) => name !== "none").join(", ")} 가운데 하나입니다.`;
-const art = z.enum(MAP_PROP_ARTS, { error: ART_HINT }).refine((name) => name !== "none", { error: ART_HINT });
+const ART_HINT = `그림 종류는 ${MAP_PROP_ARTS.filter(isUsableMapPropArt).join(", ")} 가운데 하나입니다.`;
+const art = z.enum(MAP_PROP_ARTS, { error: ART_HINT }).refine(isUsableMapPropArt, { error: ART_HINT });
 
 const biomeWeight = z.strictObject({ biome: ref("biomes"), weight: z.int().min(1).max(1000) });
 

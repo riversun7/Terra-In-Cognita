@@ -287,7 +287,6 @@
 .start-summary-avatar {
   flex: none;
   width: var(--mark-lg);
-  color: var(--color-text);
 }
 .start-summary-text {
   min-width: 0;
@@ -408,7 +407,6 @@
 .start-scene-face {
   width: var(--mark-lg);
   height: var(--mark-lg);
-  color: var(--color-text);
 }
 @keyframes start-drop {
   from {

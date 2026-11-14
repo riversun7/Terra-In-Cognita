@@ -6,6 +6,7 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-11-14 18:30 ~ 19:30 | 화면 시험 [멈추기] 누르기 시간 초과 고침(unit-control) | Claude Code | [14-1900-stop-detach](worklog/2026/11/14-1900-stop-detach.md) |
+| 2026-11-14 18:20 | 사이보그 초상에서 옛 2D 그림 지우기 | Claude Code | [14-1820-portrait-fix](worklog/2026/11/14-1820-portrait-fix.md) |
 | 2026-11-14 17:00 | 낚시터 일꾼도 그 자리 물 종류의 티어 범위로(D-542 1365 나) | Claude Code | [14-1700-fish-range](worklog/2026/11/14-1700-fish-range.md) |
 | 2026-11-14 15:50 ~ 17:30 | 배 B3 — 배에서 캐기·NPC 배·재료 돌려주기·보유 수에서 빼기·먼 바다 건너뛰기(기획 D-541 1280 가·D-542) | Claude Code | [14-1630-boats-b3](worklog/2026/11/14-1630-boats-b3.md) |
 | 2026-11-14 16:20 | 밸런스 화면을 전투 보고서로 개편, 피해 흐름도, 2차 스탯 화면으로 스탯 기능 옮김 | Claude Code | [14-1620-balance-report](worklog/2026/11/14-1620-balance-report.md) |

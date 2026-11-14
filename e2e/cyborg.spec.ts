@@ -386,6 +386,70 @@ for (const theme of ["pastel", "dark", "station"] as const) {
   });
 }
 
+// 2026-11-14 사용자 지적 "내 사이보그를 들어가면 기존의 2d 사이보그 이미지가 빠르게 떳다가 사라진다"(ADR character-3d "바뀜 (2026-11-14, 2D 제거)"):
+// 옛 2D 그림은 어느 그림 틀에도 없다(그리는 동안은 무늬 없는 실루엣 = data-portrait pending). 한 번 그린 초상은 기기 저장소에 남아
+// 다시 열면(새로 고침) 첫 그림 틀부터 3D다. 그림 틀마다(requestAnimationFrame) 초상 칸 상태를 적어 본다. 사진은 새로 고친 바로 뒤.
+/** 그림 틀마다 사이보그 화면 초상 칸의 상태(data-portrait)와 실루엣이 아닌 svg(옛 2D 그림)가 있었는지 적는다 */
+function recordPortraitFrames(): void {
+  const frames: string[] = [];
+  Reflect.set(window, "__portraitFrames", frames);
+  const step = (): void => {
+    const box = document.querySelector(".cyborg-avatar");
+    if (box) {
+      const old = box.querySelector("svg:not(.cyborg-silhouette)") !== null;
+      frames.push(old ? "old-svg" : (box.getAttribute("data-portrait") ?? "?"));
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+const portraitFrames = (page: Page): Promise<string[]> =>
+  page.evaluate(() => {
+    const frames: unknown = Reflect.get(window, "__portraitFrames");
+    return Array.isArray(frames) ? frames.map(String) : [];
+  });
+
+for (const theme of ["pastel", "dark"] as const) {
+  test.describe(`플레이어: 초상에 옛 2D 그림 없음 (390 ${theme})`, () => {
+    test.use({ ...VIEWPORTS.phone, account: "player", theme, language: "ko" });
+
+    test(`처음엔 실루엣 → 3D, 다시 열면 첫 틀부터 3D (${theme})`, async ({ page, deviceErrors }) => {
+      await rewriteTrpc(page, { "summary.get": hideSummary });
+      await page.addInitScript(recordPortraitFrames);
+      await page.goto("/cyborg");
+      const portrait = page.locator(".cyborg-avatar");
+      await expect(portrait).toHaveAttribute("data-portrait", "3d", { timeout: 20_000 });
+      await expect(portrait).toHaveAttribute("data-look", /.+/);
+      const first = await portraitFrames(page);
+      expect(first.length).toBeGreaterThan(0);
+      // 처음: 실루엣(pending)이나 3D만, 옛 2D 그림 없음
+      expect(first.filter((frame) => frame !== "pending" && frame !== "3d")).toEqual([]);
+
+      // 다시 열기(기기 저장소): 첫 틀부터 3D
+      await page.reload();
+      await expect(portrait).toBeAttached({ timeout: 15_000 });
+      await shot(page, `cyborg-portrait-revisit-390-${theme}`);
+      await expect(portrait).toHaveAttribute("data-portrait", "3d");
+      const again = await portraitFrames(page);
+      expect(again.length).toBeGreaterThan(0);
+      expect(again.filter((frame) => frame !== "3d")).toEqual([]);
+      // 기기 저장소 크기(작업 기록용): 위 띠 얼굴 + 사이보그 화면 초상
+      const stored = await page.evaluate(() => localStorage.getItem("terra.portrait")?.length ?? 0);
+      expect(stored).toBeGreaterThan(0);
+      test.info().annotations.push({ type: "portrait-storage-chars", description: String(stored) });
+
+      // 앱 안에서 떠났다 돌아오기(메모리 기억): 역시 첫 틀부터 3D
+      await page.goto("/units");
+      await page.locator(".topbar-face").click();
+      await expect(page).toHaveURL(/\/cyborg$/);
+      await expect(portrait).toHaveAttribute("data-portrait", "3d");
+      expect((await portraitFrames(page)).filter((frame) => frame !== "3d")).toEqual([]);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+}
+
 test.describe("나쁜 자료(긴 이름·큰 수) 390", () => {
   for (const language of ["ko", "en"] as const) {
     test.describe(language, () => {

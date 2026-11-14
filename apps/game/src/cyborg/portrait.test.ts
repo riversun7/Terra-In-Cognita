@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   PORTRAIT_CACHE_MAX,
   PORTRAIT_STORAGE_KEY,
+  PORTRAIT_STORED_MAX,
   type PortraitRenderer,
   type PortraitStorage,
   createPortraitCache,
@@ -189,7 +190,7 @@ describe("초상 기억", () => {
     expect(await second).toContain("data:image/png;base64,");
   });
 
-  it("persist 초상은 기기 저장소에 한 장 남고, 다음 시작 때 엔진 없이 바로 보인다", async () => {
+  it("persist 초상만 기기 저장소에 남고, 다음 시작 때 엔진 없이 바로 보인다", async () => {
     const { render, calls } = fakeRenderer();
     const storage = memoryStorage();
     const tick = manualTick();
@@ -210,7 +211,7 @@ describe("초상 기억", () => {
     const url = await face;
     await body;
     const key = portraitKey(lookAt(3), "face", 40, 2);
-    expect(JSON.parse(storage.data.get(PORTRAIT_STORAGE_KEY) ?? "null")).toEqual({ k: key, u: url });
+    expect(JSON.parse(storage.data.get(PORTRAIT_STORAGE_KEY) ?? "null")).toEqual([{ k: key, u: url }]);
 
     // 다시 켬: 같은 열쇠는 엔진을 받지 않고 준다
     let loads = 0;
@@ -230,6 +231,100 @@ describe("초상 기억", () => {
     expect(calls).toHaveLength(2);
     // 다른 외형은 저장한 것을 쓰지 않는다
     expect(next.peek(portraitKey(lookAt(4), "face", 40, 2))).toBeNull();
+  });
+
+  it("기기 저장소는 최근 PORTRAIT_STORED_MAX장을 남긴다(위 띠 얼굴과 사이보그 화면이 서로 밀어내지 않는다)", async () => {
+    const { render, calls } = fakeRenderer();
+    const storage = memoryStorage();
+    const tick = manualTick();
+    const cache = createPortraitCache({
+      load: () => Promise.resolve(render),
+      storage,
+      schedule: tick.schedule,
+    });
+    const face = cache.request({
+      look: lookAt(1),
+      framing: "face",
+      sizePx: 40,
+      pixelRatio: 2,
+      persist: true,
+    });
+    const hero = cache.request({
+      look: lookAt(1),
+      framing: "body",
+      sizePx: 220,
+      pixelRatio: 2,
+      persist: true,
+    });
+    await tick.run();
+    const faceUrl = await face;
+    const heroUrl = await hero;
+    const next = createPortraitCache({
+      load: () => Promise.reject(new Error("엔진을 받지 않아야 한다")),
+      storage,
+      schedule: tick.schedule,
+    });
+    expect(next.peek(portraitKey(lookAt(1), "face", 40, 2))).toBe(faceUrl);
+    expect(next.peek(portraitKey(lookAt(1), "body", 220, 2))).toBe(heroUrl);
+
+    // 상한을 넘으면 가장 오래된 것부터 버린다
+    const many = manyLooks(PORTRAIT_STORED_MAX + 2);
+    for (const look of many) {
+      const one = cache.request({ look, framing: "body", sizePx: 220, pixelRatio: 2, persist: true });
+      await tick.run();
+      await one;
+    }
+    const kept: unknown = JSON.parse(storage.data.get(PORTRAIT_STORAGE_KEY) ?? "[]");
+    expect(Array.isArray(kept) ? kept.length : 0).toBe(PORTRAIT_STORED_MAX);
+    const last = many.at(-1);
+    if (!last) throw new Error("외형 없음");
+    const after = createPortraitCache({ load: () => Promise.resolve(render), storage });
+    expect(after.peek(portraitKey(last, "body", 220, 2))).not.toBeNull();
+    expect(after.peek(portraitKey(lookAt(1), "face", 40, 2))).toBeNull();
+    expect(calls.length).toBeGreaterThan(0);
+  });
+
+  it("옛 판의 한 장 값({ k, u })도 읽는다", () => {
+    const { render } = fakeRenderer();
+    const key = portraitKey(lookAt(2), "face", 40, 1);
+    const url = "data:image/png;base64,old";
+    const storage = memoryStorage({ [PORTRAIT_STORAGE_KEY]: JSON.stringify({ k: key, u: url }) });
+    expect(createPortraitCache({ load: () => Promise.resolve(render), storage }).peek(key)).toBe(url);
+  });
+
+  it("저장소가 가득 차면 오래된 것을 버리고 다시 쓴다", async () => {
+    const { render } = fakeRenderer();
+    const data = new Map<string, string>();
+    // 두 장보다 많으면 넘친다고 하는 저장소
+    const tight: PortraitStorage = {
+      getItem: (key) => data.get(key) ?? null,
+      setItem: (key, value) => {
+        const list: unknown = JSON.parse(value);
+        if (Array.isArray(list) && list.length > 2) throw new Error("가득 참");
+        data.set(key, value);
+      },
+    };
+    const tick = manualTick();
+    const cache = createPortraitCache({
+      load: () => Promise.resolve(render),
+      storage: tight,
+      schedule: tick.schedule,
+    });
+    const looks = manyLooks(3);
+    for (const look of looks) {
+      const one = cache.request({ look, framing: "face", sizePx: 40, pixelRatio: 1, persist: true });
+      await tick.run();
+      await one;
+    }
+    const kept: unknown = JSON.parse(data.get(PORTRAIT_STORAGE_KEY) ?? "[]");
+    expect(Array.isArray(kept) ? kept.length : 0).toBe(2);
+    const newest = looks[2];
+    if (!newest) throw new Error("외형 없음");
+    expect(
+      createPortraitCache({ load: () => Promise.resolve(render), storage: tight }).peek(
+        portraitKey(newest, "face", 40, 1),
+      ),
+    ).not.toBeNull();
   });
 
   it("깨진 저장 값·막힌 저장소는 무시한다", async () => {

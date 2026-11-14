@@ -1,12 +1,12 @@
 // 외형 3D 미리 보기 칸 — 캔버스 하나에 캐릭터 미리 보기 엔진(@terra/engine/characterPreview)을 붙인다. docs/adr/2026-11-11-character-3d.md 3절.
-// - 엔진(three)은 지연 로딩한다: 이름 단계가 먼저 뜨고, 외형 단계에 들어올 때 받는다. 받는 동안·WebGL을 못 쓸 때는 2D 그림을 보인다.
+// - 엔진(three)은 지연 로딩한다: 이름 단계가 먼저 뜨고, 외형 단계에 들어올 때 받는다. 받는 동안·WebGL을 못 쓸 때는 무늬 없는 실루엣을 보인다(옛 2D 그림은 지웠다, ADR "바뀜 (2026-11-14, 2D 제거)").
 // - 조작: 끌기 = 돌리기, 휠·두 손가락 = 확대(엔진이 듣는다). 키: 화살표 = 돌리기·기울이기, + − = 확대, Home = 처음 각도.
 //   단추: 돌림판·걷기·밤·가까이·멀리·처음 각도. 동작 줄이기면 돌림판·숨쉬기를 끄고 시작한다.
 // - 시험·측정 표지: data-look(외형 표지)·data-preview(loading·ready·unsupported)·data-triangles·data-parts(엔진이 그린 모델).
 import type { CharacterPreview } from "@terra/engine/characterPreview";
-import { type CharacterLook, characterLookKey, legacyAppearanceOf } from "@terra/shared/characterLook";
+import { type CharacterLook, characterLookKey } from "@terra/shared/characterLook";
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
-import { CyborgAvatar } from "../cyborg/CyborgAvatar.tsx";
+import { CyborgSilhouette } from "../cyborg/CyborgSilhouette.tsx";
 import { loadPreviewEngine } from "../cyborg/previewEngine.ts";
 import { m } from "../paraglide/messages.js";
 
@@ -83,7 +83,7 @@ export function CharacterPreviewPane({ look }: { look: CharacterLook }) {
         setState("ready");
       })
       .catch(() => {
-        // 조각을 받지 못했거나 WebGL을 쓸 수 없다: 2D 그림으로 보인다
+        // 조각을 받지 못했거나 WebGL을 쓸 수 없다: 실루엣과 안내 문구를 보인다
         if (!closed) setState("unsupported");
       });
     return () => {
@@ -133,7 +133,7 @@ export function CharacterPreviewPane({ look }: { look: CharacterLook }) {
         />
         {ready ? null : (
           <div className="start-preview-fallback">
-            <CyborgAvatar look={legacyAppearanceOf(look)} className="start-preview-drawing" />
+            <CyborgSilhouette pending={state === "loading"} className="start-preview-drawing" />
             <p className="start-hint" role="status">
               {state === "loading" ? m.start_looks_loading() : m.start_looks_unsupported()}
             </p>

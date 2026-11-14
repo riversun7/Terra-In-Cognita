@@ -41,7 +41,7 @@
   "start_looks_note": "You look like this on the local map too. Looks are cosmetic and do not change stats.",
   "start_looks_preview3d": "3D preview of your look. Drag or use the arrow keys to turn it, and + or − to zoom.",
   "start_looks_loading": "Preparing the preview…",
-  "start_looks_unsupported": "This device cannot show the 3D preview, so a drawing is shown. You can still choose everything.",
+  "start_looks_unsupported": "This device cannot show the 3D preview, so a silhouette is shown. You can still choose everything.",
   "start_looks_turntable": "Turntable",
   "start_looks_walk": "Walk",
   "start_looks_night": "Night",

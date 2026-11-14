@@ -289,6 +289,15 @@ describe("탭 주소", () => {
   });
 });
 
+/** 편집기 확률표 줄(사다리 띠 표 시험) */
+const row = (id: string, from: number, ladder?: string) => ({
+  entry: { id, from, weightsPm: [1000, 0, 0, 0, 0, 0, 0, 0, 0, 0], ...(ladder ? { ladder } : {}) },
+  origin: "pack" as const,
+  pack: null,
+  override: null,
+  hash: "h",
+});
+
 describe("사다리 띠 표(기획 D-540 1217 나)", () => {
   const ORE_BANDS = [
     { from: 0, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0], ladder: "ore" },
@@ -306,13 +315,6 @@ describe("사다리 띠 표(기획 D-540 1217 나)", () => {
   });
 
   it("편집기 줄: 사다리 목록(기본 먼저)·표 줄 고르기·종류의 표·담은 표의 사다리 칸", () => {
-    const row = (id: string, from: number, ladder?: string) => ({
-      entry: { id, from, weightsPm: [1000, 0, 0, 0, 0, 0, 0, 0, 0, 0], ...(ladder ? { ladder } : {}) },
-      origin: "pack" as const,
-      pack: null,
-      override: null,
-      hash: "h",
-    });
     const rows = [row("band_000", 0), row("ore_band_000", 0, "ore"), row("band_020", 20)];
     expect(bandLadderKeys(rows)).toEqual([undefined, "ore"]);
     expect(bandRowsOfLadder(rows, undefined).map((r) => r.entry.id)).toEqual(["band_000", "band_020"]);

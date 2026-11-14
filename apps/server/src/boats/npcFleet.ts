@@ -79,6 +79,8 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
   const { maps, now, log } = deps;
   /** 배 ID → 부두 건물 ID */
   const homes = new Map<number, number>();
+  /** 배 ID → 걸어와 타는 중인 어부를 기다리는 끝 시각(그 전에는 새로 부르지 않는다) */
+  const waiting = new Map<number, number>();
   let timer: ReturnType<typeof setInterval> | undefined;
   let running = false;
 
@@ -202,11 +204,14 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
             continue;
           }
           const want = Math.min(Math.max(0, rules.boats.npcFishers), Math.max(0, rules.boats.capacity));
-          if (riders.length < want)
+          if (riders.length < want && (waiting.get(boatId) ?? 0) <= at) {
             for (const id of fishersNear(dock, at, gather, rules.fatigueMax).slice(0, want - riders.length)) {
               const boarded = await boats.boardAs(dock.ownerId, id, boatId);
-              if (boarded.ok) counts.boarded += 1;
+              if (!boarded.ok) continue;
+              counts.boarded += 1;
+              if (boarded.walking === true) waiting.set(boatId, at + 2 * FLEET_TICK_MS);
             }
+          }
           const aboard = dock.map.passengers(boatId);
           const school = aboard.length > 0 ? schoolNear(dock.map, boatId, at, gather) : undefined;
           if (school === undefined) continue;
@@ -223,7 +228,10 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
       for (const boatId of homes.keys()) {
         let alive = false;
         for (const map of maps.values()) if (map.unitInfo(boatId)) alive = true;
-        if (!alive) homes.delete(boatId);
+        if (!alive) {
+          homes.delete(boatId);
+          waiting.delete(boatId);
+        }
       }
     } catch (error) {
       log.error({ err: error }, "npc fleet tick failed");

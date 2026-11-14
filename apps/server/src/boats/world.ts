@@ -6,6 +6,9 @@
 import { WATER_OCEAN } from "@terra/planet";
 import { buildTimeAt } from "@terra/shared/facilityBuild";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
+import type { GatherKind } from "../gather/kinds.ts";
+import type { GatherService } from "../gather/service.ts";
+import { type NpcFleet, createNpcFleet } from "./npcFleet.ts";
 import { type BoatService, createBoatService } from "./service.ts";
 import { loadBoatJobs } from "./store.ts";
 
@@ -17,9 +20,16 @@ export interface WorldBoats {
 
 export function startWorldBoats(
   world: World,
-  options: { readonly now: () => number; readonly log: { error(obj: object, message: string): void } },
+  options: {
+    readonly now: () => number;
+    readonly log: { info(obj: object, message: string): void; error(obj: object, message: string): void };
+    /** 채집 서비스(NPC 배 어부 — 없으면 NPC 배를 띄우지 않는다) */
+    readonly gather?: (() => GatherService | undefined) | undefined;
+    readonly kinds?: (() => readonly GatherKind[]) | undefined;
+  },
 ): WorldBoats {
   let built: BoatService | undefined;
+  let fleet: NpcFleet | undefined;
   let stopped = false;
   void world.ready
     .then(async () => {
@@ -53,6 +63,26 @@ export function startWorldBoats(
         planetId: TEST_PLANET_ID,
         jobs,
       });
+      // NPC 배(기획 D-542 1331 나): NPC 사회가 켜진 세계에서 세력 부두마다(npcFleet.ts — NPC 사회가 없으면 세력 부두가 NPC로 안 잡힌다)
+      const gather = options.gather;
+      if (gather)
+        fleet = createNpcFleet({
+          maps: world.maps,
+          now: options.now,
+          log: options.log,
+          rules: () => facilities.rules(),
+          places: () => facilities.service.places,
+          works: (id) => facilities.service.works(id),
+          isNpc: (ownerId) => {
+            const row = parts.owners.get(ownerId);
+            return (
+              world.npc !== undefined && row !== undefined && row.userId === null && row.factionId !== null
+            );
+          },
+          boats: () => built,
+          gather,
+          kinds: options.kinds ?? (() => []),
+        });
     })
     .catch((error: unknown) => options.log.error({ err: error }, "boats start failed"));
   return {
@@ -60,6 +90,7 @@ export function startWorldBoats(
     stop() {
       stopped = true;
       built?.stop();
+      fleet?.stop();
     },
   };
 }

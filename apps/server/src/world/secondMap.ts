@@ -383,7 +383,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     if (!unit) return;
     unit.eventId = undefined;
     if (event.kind === "wake") unit.wakeAtMs = undefined;
-    if (!unit.bot) return;
+    // 배에 탄 봇(NPC 배 어부 — boats/npcFleet.ts)은 스스로 걷지 않는다(내리면 다시 깨운다)
+    if (!unit.bot || unit.aboard !== undefined) return;
     if (event.kind === "arrive") {
       const rest = arrivalIdleMs(nextRng(unit), unit, lastPoint(unit.motion), now());
       scheduleEvent(unit, "wake", now() + rest);
@@ -515,11 +516,12 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
   };
 
   /** 승객을 배에서 떼어 안전한 땅에 세운다(배가 없어짐·복구 때 배가 없음) */
-  const releaseRider = (unit: UnitState): void => {
+  const releaseRider = (unit: UnitState, wake = true): void => {
     unit.aboard = undefined;
     const point = safePoint(grid, unit.size) ?? lastPoint(unit.motion);
     unit.destination = point;
     setMotion(unit, standing(point, unit.speed));
+    if (unit.bot && wake) scheduleEvent(unit, "wake", now() + startDelayMs(nextRng(unit)));
   };
 
   /** 배 만들기·타기·내리기(docs/adr/2026-11-13-boats.md 3·4절). 판정(소유·거리·재료)은 배 서비스(boats/service.ts)가 먼저 한다 */
@@ -576,6 +578,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       const point = anchorCenter(cellX, cellY, unit.size);
       unit.destination = point;
       setMotion(unit, standing(point, unit.speed));
+      if (unit.bot) scheduleEvent(unit, "wake", now() + startDelayMs(nextRng(unit)));
       return true;
     },
     passengers(boatId) {
@@ -673,7 +676,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         if (unit.aboard === undefined) continue;
         const boat = units.get(unit.aboard);
         if (boat?.kind === UNIT_KIND_BOAT) unit.motion = boat.motion;
-        else releaseRider(unit);
+        else releaseRider(unit, false);
       }
       // 같은 시각끼리의 차례는 큐가 (시각, 종류, 유닛 ID) 키로 정한다 → 넣는 차례는 상관없다
       for (const event of events) {
@@ -720,7 +723,12 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     setHumanBody(unitId) {
       const unit = units.get(unitId);
-      if (!unit?.bot || (unit.size === HUMAN_SIZE && unit.speed < VEHICLE_MIN_SPEED)) return false;
+      if (
+        !unit?.bot ||
+        unit.aboard !== undefined ||
+        (unit.size === HUMAN_SIZE && unit.speed < VEHICLE_MIN_SPEED)
+      )
+        return false;
       const at = now();
       const cell = anchorAt(positionAt(unit.motion, at), HUMAN_SIZE);
       cancelEvent(unit);

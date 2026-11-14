@@ -77,8 +77,18 @@ const STOREHOUSE: FacilityDef = {
   gather: undefined,
 };
 
+/** 부두(배에서 캐기 — 창고 둘레에 물이 없으면 부두에 대고 그 도시 창고로) */
+const DOCK: FacilityDef = {
+  ...STOREHOUSE,
+  id: "dock",
+  stage: "transport",
+  storageKg: undefined,
+  footprint: { width: 3, height: 3 },
+  needsWaterWithin: 1,
+};
+
 const catalog: FacilityCatalog = {
-  facility: (id) => (id === "storehouse" ? STOREHOUSE : undefined),
+  facility: (id) => (id === "storehouse" ? STOREHOUSE : id === "dock" ? DOCK : undefined),
   facilities: [STOREHOUSE],
   weightOf: () => 1000,
   unitWeightOf: () => 1000,
@@ -440,6 +450,35 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
     expect(await r.gather.startAs(8, input)).toEqual({ ok: false, code: "forbidden" });
     expect(await r.gather.startAs(OWNER, input)).toEqual({ ok: true });
     expect(r.gather.acting(1)).toBe(true);
+    r.gather.stop();
+  });
+
+  it("창고·도시 둘레에 물이 없으면 배가 내 부두에 대고 그 도시 창고로 넣는다", async () => {
+    const kinds = [VEIN, school("school_coastal", 6), school("school_shelf", 0)];
+    const r = rig({ kinds, waterStrip: true });
+    const map = r.maps.get(K[0] ?? 0);
+    if (!map) throw new Error("no map");
+    const placed = map.placeBuilding({ x: 116, y: 60, width: 3, height: 3, rotation: 0 }, OWNER);
+    if (!placed.ok || placed.buildingId === undefined) throw new Error("dock not placed");
+    r.facilities.set(placed.buildingId, {
+      buildingId: placed.buildingId,
+      facilityId: "dock",
+      level: 1,
+      conditionPpm: 1_000_000,
+      conditionAtMs: START,
+      builtAtMs: START,
+      builtBy: USER,
+      cityId: CITY,
+    });
+    const shelf = (r.gather.objects(K[0] ?? 0) ?? []).find((object) => object.kind === 2);
+    placeMine(r, 118, 40);
+    map.addBoat({ id: 50, ownerId: OWNER, speed: 1536, cellX: 121, cellY: 40 });
+    map.board(1, 50);
+    expect(await r.gather.start(USER, { unitId: 1, mapKey: K[0] ?? 0, objectId: shelf?.id ?? 0 })).toEqual({
+      ok: true,
+    });
+    await until(() => r.ledger.balanceOf(OWNER, "item:saury", cityLocation(CITY)) > 0n);
+    expect(map.unitInfo(1)?.aboard).toBe(50);
     r.gather.stop();
   });
 });

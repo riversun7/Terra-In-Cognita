@@ -34,6 +34,7 @@ import {
   campFor,
   carriedGrams,
   depositCargo,
+  dockDeposits,
   gatherIntoCargo,
   nearestStore,
 } from "./deposit.ts";
@@ -381,15 +382,17 @@ export function createGatherService(deps: GatherDeps): GatherService {
       return;
     }
     const afloat = action.boatId !== null;
-    const goal = standNear(
-      where.map,
-      deposit,
-      bodySize(action, where.info.size),
-      BUILDING_STAND_CELLS,
-      here,
-      false,
-      afloat ? onWater : onLand,
-    );
+    const size = bodySize(action, where.info.size);
+    const fits = afloat ? onWater : onLand;
+    let goal = standNear(where.map, deposit, size, BUILDING_STAND_CELLS, here, false, fits);
+    // 배: 창고·도시 둘레에 물이 없으면 내 부두에 대고 그 도시 창고로(deposit.ts dockDeposits)
+    if (!goal && afloat && deposit.kind !== "camp")
+      for (const dock of dockDeposits(ctx.world, action.mapKey, action.ownerId, here, works)) {
+        goal = standNear(where.map, dock, size, BUILDING_STAND_CELLS, here, false, fits);
+        if (!goal) continue;
+        action.deposit = dock;
+        break;
+      }
     if (!goal) {
       // 배가 닿을 물이 넣는 곳 둘레에 없으면 승객이 든 채 끝(내린 뒤 들어가기로 넣는다)
       finish(action, afloat ? "no_deposit" : "no_path");

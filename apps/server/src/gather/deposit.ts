@@ -6,10 +6,12 @@
 // - 창고(storage): 그 2차맵의 내 창고 시설(창고 단계, 다 지었고 일하는, 자리가 남은 것). 건물 창고로(용량 N50).
 // - 도시(city): 그 2차맵의 도시(시청 자리). 내 도시 창고로(용량 없음, 질문 411).
 // 시설이 있으면 시설, 없으면 창고·도시 가운데 지금 자리에서 가장 가까운 곳.
+// - 부두(배에서 캐기 — 기획 D-541 1280 가, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B3)"): 배가 닿을 물이 창고·도시 둘레에 없으면 내 부두
+//   (다 지었고 일하는, 도시가 있는)에 대고 그 도시 창고로 넣는다(dockDeposits — 넣는 곳 종류는 도시).
 import { conditionWorks } from "@terra/shared/facilityRuntime";
 import { buildingLocation, cargoLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
-import { assetWeightG, buildingCell, type PlaceWorld } from "../facilities/places.ts";
+import { assetWeightG, buildingCell, cityAt, type PlaceWorld } from "../facilities/places.ts";
 import { type StorageContext, roomGrams } from "../facilities/storage.ts";
 import { type GatherRules, cellDistance2, stationBuffs } from "./rules.ts";
 
@@ -129,6 +131,32 @@ export function nearestStore(
     }
   }
   return best;
+}
+
+/**
+ * 그 2차맵의 내 부두(배를 만드는 시설 = 단계 교통 + 물가 조건, 다 지었고 일하는)에 대고 넣는 곳: 그 부두 도시의 창고(도시를 모르면 뺀다).
+ * from에서 가까운 차례
+ */
+export function dockDeposits(
+  world: PlaceWorld,
+  mapKey: number,
+  ownerId: number,
+  from: { readonly x: number; readonly y: number },
+  works: (id: number) => boolean,
+): Deposit[] {
+  const out: (Deposit & { d: number })[] = [];
+  world.maps.get(mapKey)?.forEachBuilding((building) => {
+    if (building.ownerId !== ownerId) return;
+    const record = world.facilities.get(building.id);
+    const def = record ? world.catalog().facility(record.facilityId) : undefined;
+    if (!record || def?.stage !== "transport" || def.needsWaterWithin === undefined) return;
+    if (record.level < 1 || !works(building.id)) return;
+    const cityId = record.cityId ?? cityAt(world, mapKey, building.x, building.y);
+    if (cityId === null) return;
+    const d = cellDistance2(building.x, building.y, from.x, from.y);
+    out.push({ kind: "city", id: cityId, location: cityLocation(cityId), x: building.x, y: building.y, d });
+  });
+  return out.toSorted((a, b) => a.d - b.d).map(({ d: _d, ...deposit }) => deposit);
 }
 
 /** 유닛 화물의 그 자산들 무게 합(g) */

@@ -472,7 +472,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       : undefined;
   if (worldGather) app.addHook("onClose", async () => worldGather.stop());
   // 배(docs/adr/2026-11-13-boats.md): 세계가 준비된 뒤(DB가 있는 월드만). 부두 판에 만드는 중인 배를 싣는다(B2)
-  const worldBoats = world && options.db ? startWorldBoats(world, { now, log: app.log }) : undefined;
+  const worldBoats =
+    world && options.db
+      ? startWorldBoats(world, {
+          now,
+          log: app.log,
+          gather: () => worldGather?.current()?.service,
+          kinds: () => options.gatherObjects ?? [],
+        })
+      : undefined;
   if (worldBoats) app.addHook("onClose", async () => worldBoats.stop());
   const gatherReads = worldGather
     ? gatherReadsOf(

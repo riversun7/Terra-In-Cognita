@@ -92,6 +92,12 @@ export interface BoatService {
   readonly building: number;
   board(userId: string, unitId: number, boatId: number, operator: boolean): Promise<BoatCommandResult>;
   leave(userId: string, boatId: number, operator: boolean): BoatCommandResult;
+  /** 서버가 시키는 배 만들기·타기·내리기(NPC 배 — npcFleet.ts, 기획 D-542 1331 나). 소유 주체로 직접, 타기는 NPC 휴먼(봇)도 */
+  buildAs(ownerId: number, buildingId: number): BoatCommandResult;
+  boardAs(ownerId: number, unitId: number, boatId: number): Promise<BoatCommandResult>;
+  leaveAs(ownerId: number, boatId: number): BoatCommandResult;
+  /** 그 부두 둘레에서 배가 설 물 칸(배가 돌아와 승객을 내리는 자리). 없으면 undefined */
+  launchSpotOf(buildingId: number): CellPoint | undefined;
   stop(): void;
 }
 
@@ -307,6 +313,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
     boatId: number,
     me: number | undefined,
     operator: boolean,
+    bots = false,
   ): BoatResultCode | null => {
     const unit = map.unitInfo(unitId);
     const boat = map.unitInfo(boatId);
@@ -317,7 +324,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
     if (unit.aboard !== undefined) return "already_aboard";
     if (
       unit.kind === UNIT_KIND_BOAT ||
-      unit.kind === UNIT_KIND_BOT ||
+      (unit.kind === UNIT_KIND_BOT && !bots) ||
       unit.kind === UNIT_KIND_GUARDIAN ||
       unit.kind === UNIT_KIND_NPC_LEADER ||
       unavailable(unit.condition, now()) ||
@@ -339,132 +346,29 @@ export function createBoatService(deps: BoatDeps): BoatService {
 
   return {
     build(userId, buildingId, operator) {
-      const places = deps.places();
-      if (!places) return fail("busy");
-      const me = deps.ownerOf(userId);
+      return buildFor(deps.ownerOf(userId), buildingId, operator);
+    },
+    buildAs(ownerId, buildingId) {
+      return buildFor(ownerId, buildingId, false);
+    },
+    boardAs(ownerId, unitId, boatId) {
+      return boardFor(ownerId, unitId, boatId, false, true);
+    },
+    leaveAs(ownerId, boatId) {
+      return leaveFor(ownerId, boatId, false);
+    },
+    launchSpotOf(buildingId) {
       const found = findDock(buildingId);
-      if (!found) return fail("unknown_building");
-      if (!operator && (me === undefined || found.ownerId !== me)) return fail("forbidden");
-      const record = places.facilities.get(buildingId);
-      const def = record ? places.catalog().facility(record.facilityId) : undefined;
-      if (!record || !def || !isBoatYard(def)) return fail("not_dock");
-      if (record.level < 1 || !deps.works(buildingId)) return fail("not_ready");
-      const busy = jobAt(buildingId);
-      if (busy) return { ok: false, code: "dock_busy", readyAtMs: busy.doneAtMs };
-      const owner = operator ? (found.ownerId ?? me) : me;
-      if (owner === undefined) return fail("forbidden");
-      const { map, rect } = found;
-      const spot = launchSpot(map, rect, def);
-      if (!spot) return fail("no_water");
-      const at = now();
-      const rules = deps.rules();
-      const materials = operator ? [] : boatCost(def, rules.costPm);
-      const scope = materialScope(
-        places,
-        owner,
-        map.mapKey,
-        record.cityId ?? cityAt(places, map.mapKey, rect.x, rect.y),
-      );
-      if (!hasGoods(ledger, owner, materials, scope)) return fail("insufficient_materials");
-      const ms = boatBuildMs(deps.dockBuildMs?.(def) ?? 0, rules.buildTimePm, operator);
-      if (ms > 0) {
-        // 작업으로 건다(재료는 지금 뺀다 — 건물 짓기와 같다). 배는 끝 시각에 뜬다
-        const taken = spendGoodsTaken(ledger, owner, materials, at, "boat_build", scope);
-        if (taken === undefined) return fail("insufficient_materials");
-        lastJobId += 1;
-        const job: BoatJob = {
-          id: lastJobId,
-          ownerId: owner,
-          buildingId,
-          materials: taken,
-          startedAtMs: at,
-          doneAtMs: at + ms,
-        };
-        jobs.set(job.id, job);
-        store.save(job);
-        armJob(job);
-        return { ok: true, readyAtMs: job.doneAtMs };
-      }
-      const boatId = deps.nextUnitId();
-      if (!map.addBoat({ id: boatId, ownerId: owner, speed: rules.speed, cellX: spot.x, cellY: spot.y }))
-        return fail("internal_error");
-      spendGoods(ledger, owner, materials, at, "boat_build", scope);
-      return { ok: true, boatId };
+      const record = deps.places()?.facilities.get(buildingId);
+      const def = record ? deps.places()?.catalog().facility(record.facilityId) : undefined;
+      return found ? launchSpot(found.map, found.rect, def) : undefined;
     },
-
     async board(userId, unitId, boatId, operator) {
-      const map = mapOfUnit(unitId);
-      if (!map) return fail("unknown_unit");
-      const me = deps.ownerOf(userId);
-      const problem = boardProblem(map, unitId, boatId, me, operator);
-      if (problem) return fail(problem);
-      cancelWalk(unitId);
-      if (boardIfNear(map, unitId, boatId)) return { ok: true };
-      // 멀다: 배 둘레 땅 칸(유닛에서 가까운 것)으로 걸어간 뒤 도착 때 다시 본다
-      const at = now();
-      const boatRect = bodyRect(map, boatId, at);
-      const unit = map.unitInfo(unitId);
-      if (!boatRect || !unit) return fail("unknown_unit");
-      const from = anchorAt(positionAt(unit.motion, at), unit.size);
-      const shore = ringCells(
-        boatRect,
-        deps.rules().boardCells,
-        unit.size,
-        (x, y) => map.isStandable(x, y, unit.size),
-        64,
-      ).toSorted((a, b) => Math.hypot(a.x - from.x, a.y - from.y) - Math.hypot(b.x - from.x, b.y - from.y));
-      const target = shore[0];
-      if (!target) return fail("no_path");
-      const moved = await map.moveUnit(unitId, anchorCenter(target.x, target.y, unit.size));
-      if (!moved.ok) return fail(moved.code === "busy" ? "busy" : "no_path");
-      const motion = map.unitInfo(unitId)?.motion;
-      if (!motion) return fail("unknown_unit");
-      const delay = Math.min(MAX_TIMER_MS, Math.max(0, arrivalAt(motion) - now()) + ARRIVAL_SLACK_MS);
-      const timer = setTimeout(() => {
-        walks.delete(unitId);
-        // 그사이 다른 명령으로 움직임이 바뀌었으면 타지 않는다
-        if (map.unitInfo(unitId)?.motion !== motion) return;
-        if (boardProblem(map, unitId, boatId, me, operator) !== null) return;
-        boardIfNear(map, unitId, boatId);
-      }, delay);
-      timer.unref?.();
-      walks.set(unitId, timer);
-      return { ok: true, walking: true };
+      return boardFor(deps.ownerOf(userId), unitId, boatId, operator, false);
     },
-
     leave(userId, boatId, operator) {
-      const map = mapOfUnit(boatId);
-      if (!map) return fail("unknown_unit");
-      const boat = map.unitInfo(boatId);
-      if (!boat) return fail("unknown_unit");
-      if (!operator && boat.ownerId !== deps.ownerOf(userId)) return fail("forbidden");
-      if (boat.kind !== UNIT_KIND_BOAT) return fail("not_boat");
-      const riders = map.passengers(boatId);
-      if (riders.length === 0) return fail("empty");
-      // 움직이면 그 자리에 세운다(승객도 같이 선다)
-      if (now() < arrivalAt(boat.motion)) map.halt(boatId);
-      const boatRect = bodyRect(map, boatId, now());
-      if (!boatRect) return fail("unknown_unit");
-      // 몸 크기마다 내릴 땅 칸(가까운 칸부터 승객에게 나눠 준다 — 유닛끼리는 막지 않으니 모자라면 겹친다)
-      const shores = new Map<SizeClass, CellPoint[]>();
-      const shoreFor = (size: SizeClass): CellPoint[] => {
-        let cells = shores.get(size);
-        if (!cells) {
-          const fits = (x: number, y: number): boolean => map.isStandable(x, y, size);
-          cells = ringCells(boatRect, deps.rules().boardCells, size, fits, riders.length);
-          shores.set(size, cells);
-        }
-        return cells;
-      };
-      const plan = riders.map((riderId, index) => {
-        const cells = shoreFor(map.unitInfo(riderId)?.size ?? 1);
-        return { riderId, cell: cells[index % Math.max(1, cells.length)] };
-      });
-      if (plan.some((step) => step.cell === undefined)) return fail("no_shore");
-      for (const { riderId, cell } of plan) if (cell) map.disembark(riderId, cell.x, cell.y);
-      return { ok: true };
+      return leaveFor(deps.ownerOf(userId), boatId, operator);
     },
-
     dockJob(buildingId) {
       const job = jobAt(buildingId);
       return job ? { startedAtMs: job.startedAtMs, readyAtMs: job.doneAtMs } : undefined;
@@ -482,4 +386,138 @@ export function createBoatService(deps: BoatDeps): BoatService {
       jobTimers.clear();
     },
   };
+
+  /** 배 만들기(me = 부르는 소유 주체, operator = 운영자 모드) */
+  function buildFor(me: number | undefined, buildingId: number, operator: boolean): BoatCommandResult {
+    const places = deps.places();
+    if (!places) return fail("busy");
+    const found = findDock(buildingId);
+    if (!found) return fail("unknown_building");
+    if (!operator && (me === undefined || found.ownerId !== me)) return fail("forbidden");
+    const record = places.facilities.get(buildingId);
+    const def = record ? places.catalog().facility(record.facilityId) : undefined;
+    if (!record || !def || !isBoatYard(def)) return fail("not_dock");
+    if (record.level < 1 || !deps.works(buildingId)) return fail("not_ready");
+    const busy = jobAt(buildingId);
+    if (busy) return { ok: false, code: "dock_busy", readyAtMs: busy.doneAtMs };
+    const owner = operator ? (found.ownerId ?? me) : me;
+    if (owner === undefined) return fail("forbidden");
+    const { map, rect } = found;
+    const spot = launchSpot(map, rect, def);
+    if (!spot) return fail("no_water");
+    const at = now();
+    const rules = deps.rules();
+    const materials = operator ? [] : boatCost(def, rules.costPm);
+    const scope = materialScope(
+      places,
+      owner,
+      map.mapKey,
+      record.cityId ?? cityAt(places, map.mapKey, rect.x, rect.y),
+    );
+    if (!hasGoods(ledger, owner, materials, scope)) return fail("insufficient_materials");
+    const ms = boatBuildMs(deps.dockBuildMs?.(def) ?? 0, rules.buildTimePm, operator);
+    if (ms > 0) {
+      // 작업으로 건다(재료는 지금 뺀다 — 건물 짓기와 같다). 배는 끝 시각에 뜬다
+      const taken = spendGoodsTaken(ledger, owner, materials, at, "boat_build", scope);
+      if (taken === undefined) return fail("insufficient_materials");
+      lastJobId += 1;
+      const job: BoatJob = {
+        id: lastJobId,
+        ownerId: owner,
+        buildingId,
+        materials: taken,
+        startedAtMs: at,
+        doneAtMs: at + ms,
+      };
+      jobs.set(job.id, job);
+      store.save(job);
+      armJob(job);
+      return { ok: true, readyAtMs: job.doneAtMs };
+    }
+    const boatId = deps.nextUnitId();
+    if (!map.addBoat({ id: boatId, ownerId: owner, speed: rules.speed, cellX: spot.x, cellY: spot.y }))
+      return fail("internal_error");
+    spendGoods(ledger, owner, materials, at, "boat_build", scope);
+    return { ok: true, boatId };
+  }
+
+  /** 타기(bots = NPC 휴먼(봇)도 태운다 — NPC 배 어부, npcFleet.ts) */
+  async function boardFor(
+    me: number | undefined,
+    unitId: number,
+    boatId: number,
+    operator: boolean,
+    bots: boolean,
+  ): Promise<BoatCommandResult> {
+    const map = mapOfUnit(unitId);
+    if (!map) return fail("unknown_unit");
+    const problem = boardProblem(map, unitId, boatId, me, operator, bots);
+    if (problem) return fail(problem);
+    cancelWalk(unitId);
+    if (boardIfNear(map, unitId, boatId)) return { ok: true };
+    // 멀다: 배 둘레 땅 칸(유닛에서 가까운 것)으로 걸어간 뒤 도착 때 다시 본다
+    const at = now();
+    const boatRect = bodyRect(map, boatId, at);
+    const unit = map.unitInfo(unitId);
+    if (!boatRect || !unit) return fail("unknown_unit");
+    const from = anchorAt(positionAt(unit.motion, at), unit.size);
+    const shore = ringCells(
+      boatRect,
+      deps.rules().boardCells,
+      unit.size,
+      (x, y) => map.isStandable(x, y, unit.size),
+      64,
+    ).toSorted((a, b) => Math.hypot(a.x - from.x, a.y - from.y) - Math.hypot(b.x - from.x, b.y - from.y));
+    const target = shore[0];
+    if (!target) return fail("no_path");
+    const moved = await map.moveUnit(unitId, anchorCenter(target.x, target.y, unit.size));
+    if (!moved.ok) return fail(moved.code === "busy" ? "busy" : "no_path");
+    const motion = map.unitInfo(unitId)?.motion;
+    if (!motion) return fail("unknown_unit");
+    const delay = Math.min(MAX_TIMER_MS, Math.max(0, arrivalAt(motion) - now()) + ARRIVAL_SLACK_MS);
+    const timer = setTimeout(() => {
+      walks.delete(unitId);
+      // 그사이 다른 명령으로 움직임이 바뀌었으면 타지 않는다
+      if (map.unitInfo(unitId)?.motion !== motion) return;
+      if (boardProblem(map, unitId, boatId, me, operator, bots) !== null) return;
+      boardIfNear(map, unitId, boatId);
+    }, delay);
+    timer.unref?.();
+    walks.set(unitId, timer);
+    return { ok: true, walking: true };
+  }
+
+  /** 내리기 */
+  function leaveFor(me: number | undefined, boatId: number, operator: boolean): BoatCommandResult {
+    const map = mapOfUnit(boatId);
+    if (!map) return fail("unknown_unit");
+    const boat = map.unitInfo(boatId);
+    if (!boat) return fail("unknown_unit");
+    if (!operator && boat.ownerId !== me) return fail("forbidden");
+    if (boat.kind !== UNIT_KIND_BOAT) return fail("not_boat");
+    const riders = map.passengers(boatId);
+    if (riders.length === 0) return fail("empty");
+    // 움직이면 그 자리에 세운다(승객도 같이 선다)
+    if (now() < arrivalAt(boat.motion)) map.halt(boatId);
+    const boatRect = bodyRect(map, boatId, now());
+    if (!boatRect) return fail("unknown_unit");
+    // 몸 크기마다 내릴 땅 칸(가까운 칸부터 승객에게 나눠 준다 — 유닛끼리는 막지 않으니 모자라면 겹친다)
+    const shores = new Map<SizeClass, CellPoint[]>();
+    const shoreFor = (size: SizeClass): CellPoint[] => {
+      let cells = shores.get(size);
+      if (!cells) {
+        const fits = (x: number, y: number): boolean => map.isStandable(x, y, size);
+        cells = ringCells(boatRect, deps.rules().boardCells, size, fits, riders.length);
+        shores.set(size, cells);
+      }
+      return cells;
+    };
+    const plan = riders.map((riderId, index) => {
+      const cells = shoreFor(map.unitInfo(riderId)?.size ?? 1);
+      return { riderId, cell: cells[index % Math.max(1, cells.length)] };
+    });
+    if (plan.some((step) => step.cell === undefined)) return fail("no_shore");
+    for (const { riderId, cell } of plan) if (cell) map.disembark(riderId, cell.x, cell.y);
+    return { ok: true };
+  }
 }

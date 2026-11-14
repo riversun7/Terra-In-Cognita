@@ -297,25 +297,26 @@ for (const theme of ["pastel", "dark"] as const) {
       await expect(actions).toHaveAttribute("data-boat-choice", "boat", { timeout: 15_000 });
       await page.waitForTimeout(2_000);
       await shot(page, `boats-sail-390-${theme}`);
-      // 부두 판: 배를 하나 더 만들기 시작하면(운영자) 남은 시간을 보이고 [배 만들기]를 막는다
+      // 부두 판: 배를 하나 더 만들기 시작하면(운영자, 다른 탭에서 보내 지도 화면은 그대로) 남은 시간을 보이고 [배 만들기]를 막는다.
+      // 운영자 만드는 시간은 몇 초라 판을 바로 다시 연다
+      const side = await page.context().newPage();
       const again = await sendCommands(
-        page,
+        side,
         [
           { t: "subscribe", mapKey: me.mapKey, observe: true },
           { t: "boat_build", buildingId },
         ],
         requestId + 50,
       );
+      await side.close();
       expect(again[1]).toMatchObject({ t: "boat_result", ok: true });
-      await page.goto(
-        `/map?key=${String(me.mapKey)}&at=${String(sailed.x)},${String(sailed.y)}&second-map-sky=off`,
-      );
-      await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 60_000 });
+      const againReady = Number(field(again[1], "readyAtMs"));
+      console.log(`[boats] second boat build ${String(againReady - Date.now())} ms left`);
       await openBuildingFromList(page, buildingId);
       const dock = page.locator(`.boat-dock[data-dock="${String(buildingId)}"]`);
       await expect(dock).toBeVisible({ timeout: 15_000 });
-      if (Number(field(again[1], "readyAtMs")) > Date.now() + 3_000) {
-        await expect(dock.locator(".boat-progress")).toBeVisible({ timeout: 10_000 });
+      if (againReady > Date.now() + 1_500) {
+        await expect(dock.locator(".boat-progress")).toBeVisible({ timeout: 3_000 });
         await expect(dock.locator(".boat-build")).toBeDisabled();
       }
       await shot(page, `boats-dock-390-${theme}`);

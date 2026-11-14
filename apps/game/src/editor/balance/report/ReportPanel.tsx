@@ -1,12 +1,14 @@
 // 보고서 설정 판 — 종류(파티 대 파티·파티 공성·웨이브 공성), 전투장·도시·웨이브 값, 제한 시간·판 수·시드, A/B(B 팀 따로·설정 칸 바꿈),
 // 이름·메모, [보고서 돌리기]·진행 막대·[멈춤]. 판정은 서버 워커가 한다(서버 전체 한 번에 하나).
 import type { LabCatalogResponse } from "@terra/shared/battleLab";
-import { REPORT_LIMITS, type ReportMode } from "@terra/shared/battleReport";
+import { REPORT_LIMITS, type ReportMode, type ReportWaveDefense } from "@terra/shared/battleReport";
+import { REPORT_WORLD_DEFENDERS } from "@terra/shared/battleReportCity";
 import { useId } from "react";
 import { m } from "../../../paraglide/messages.js";
 import { NumberField } from "../lab/fields.tsx";
 import type { Teams } from "../lab/labModel.ts";
-import { modeText, reasonText, terrainLabel } from "./reportMessages.ts";
+import { CityPicker } from "./CityPicker.tsx";
+import { cityName, defenseText, modeText, reasonText, terrainLabel } from "./reportMessages.ts";
 import {
   REPORT_LIMIT_OPTIONS,
   REPORT_RUN_OPTIONS,
@@ -15,14 +17,24 @@ import {
   type ReportForm,
   type WaveForm,
   formProblem,
+  siegeDefenseOf,
+  teamsShown,
+  waveDefenseOf,
   withMode,
 } from "./reportModel.ts";
 import type { ReportJobState } from "./useReportJob.ts";
 
 const L = REPORT_LIMITS;
 const MODES: readonly ReportMode[] = ["arena", "siege", "wave"];
+const SIEGE_DEFENSES: readonly ReportWaveDefense[] = ["party", "world"];
+const WAVE_DEFENSES: readonly ReportWaveDefense[] = ["sim", "party", "world"];
 
-function WaveFields(props: { readonly wave: WaveForm; readonly onChange: (wave: WaveForm) => void }) {
+function WaveFields(props: {
+  readonly wave: WaveForm;
+  readonly onChange: (wave: WaveForm) => void;
+  /** 시뮬 휴먼 수비 칸(수·기술)을 보이나 */
+  readonly simDefenders: boolean;
+}) {
   const { wave, onChange } = props;
   return (
     <div className="rp-fields">
@@ -49,21 +61,25 @@ function WaveFields(props: { readonly wave: WaveForm; readonly onChange: (wave: 
         max={L.techMax}
         onChange={(creatureTech) => onChange({ ...wave, creatureTech })}
       />
-      <NumberField
-        label={m.dev_report_wave_defenders()}
-        value={wave.defenders}
-        min={1}
-        max={L.waveDefendersMax}
-        field="defenders"
-        onChange={(defenders) => onChange({ ...wave, defenders })}
-      />
-      <NumberField
-        label={m.dev_report_wave_defender_tech()}
-        value={wave.defenderTech}
-        min={L.techMin}
-        max={L.techMax}
-        onChange={(defenderTech) => onChange({ ...wave, defenderTech })}
-      />
+      {props.simDefenders ? (
+        <>
+          <NumberField
+            label={m.dev_report_wave_defenders()}
+            value={wave.defenders}
+            min={1}
+            max={L.waveDefendersMax}
+            field="defenders"
+            onChange={(defenders) => onChange({ ...wave, defenders })}
+          />
+          <NumberField
+            label={m.dev_report_wave_defender_tech()}
+            value={wave.defenderTech}
+            min={L.techMin}
+            max={L.techMax}
+            onChange={(defenderTech) => onChange({ ...wave, defenderTech })}
+          />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -88,6 +104,7 @@ export function ReportPanel(props: {
   const current = job.job;
   const percent = current && current.total > 0 ? Math.floor((current.done * 100) / current.total) : 0;
   const separateB = form.mode === "wave" ? form.variantWave !== null : form.variantTeams !== null;
+  const shown = teamsShown(form);
   return (
     <section className="bp-panel rp-panel" aria-labelledby={`${id}-title`} data-mode={form.mode}>
       <div className="bp-panel-head">
@@ -143,19 +160,42 @@ export function ReportPanel(props: {
               </label>
               <select
                 id={`${id}-layout`}
+                className="rp-layout"
                 value={form.city.layout}
-                onChange={(event) =>
-                  onForm({
-                    ...form,
-                    city: { ...form.city, layout: event.target.value === "open" ? "open" : "city" },
-                  })
-                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  const layout = value === "open" || value === "world" ? value : "city";
+                  onForm({ ...form, city: { ...form.city, layout } });
+                }}
               >
                 <option value="city">{m.dev_report_city_layout_city()}</option>
                 <option value="open">{m.dev_report_city_layout_open()}</option>
+                <option value="world">{m.dev_report_city_layout_world()}</option>
               </select>
             </div>
-            {form.city.layout === "city" ? (
+            {form.city.layout === "world" ? (
+              <>
+                <CityPicker
+                  cityId={form.city.cityId}
+                  label={form.cityLabel}
+                  onPick={(city) =>
+                    onForm({
+                      ...form,
+                      city: { ...form.city, cityId: city.id },
+                      cityLabel: cityName(city.name, city.id),
+                    })
+                  }
+                />
+                <p className="field-hint rp-wide">{m.dev_report_city_hint()}</p>
+                <NumberField
+                  label={m.dev_report_nexus()}
+                  value={form.nexusDurability}
+                  min={1}
+                  max={L.nexusMax}
+                  onChange={(nexusDurability) => onForm({ ...form, nexusDurability })}
+                />
+              </>
+            ) : form.city.layout === "city" ? (
               <>
                 <NumberField
                   label={m.dev_report_city_housing()}
@@ -229,10 +269,72 @@ export function ReportPanel(props: {
           onChange={(seed) => onForm({ ...form, seed })}
         />
       </div>
+      {siege ? (
+        <fieldset className="rp-group rp-defense">
+          <legend>{m.dev_report_defense()}</legend>
+          <div className="rp-modes" role="radiogroup" aria-label={m.dev_report_defense()}>
+            {(form.mode === "wave" ? WAVE_DEFENSES : SIEGE_DEFENSES).map((defense) => {
+              const chosen = form.mode === "wave" ? waveDefenseOf(form) : siegeDefenseOf(form);
+              const blocked = defense === "world" && form.city.layout !== "world";
+              return (
+                <button
+                  key={defense}
+                  type="button"
+                  role="radio"
+                  aria-checked={chosen === defense}
+                  aria-disabled={blocked}
+                  className="rp-mode rp-defense-btn"
+                  data-defense={defense}
+                  onClick={() => {
+                    if (blocked) return;
+                    if (form.mode === "wave") onForm({ ...form, waveDefense: defense });
+                    else onForm({ ...form, siegeDefense: defense === "world" ? "world" : "party" });
+                  }}
+                >
+                  {defenseText(defense)}
+                </button>
+              );
+            })}
+          </div>
+          {(form.mode === "wave" ? waveDefenseOf(form) : siegeDefenseOf(form)) === "world" ? (
+            <p className="field-hint">{m.dev_report_defense_world_hint({ max: REPORT_WORLD_DEFENDERS })}</p>
+          ) : null}
+        </fieldset>
+      ) : null}
       {form.mode === "wave" ? (
         <fieldset className="rp-group">
           <legend>{m.dev_report_wave_title()}</legend>
-          <WaveFields wave={form.wave} onChange={(wave) => onForm({ ...form, wave })} />
+          <WaveFields
+            wave={form.wave}
+            simDefenders={waveDefenseOf(form) === "sim"}
+            onChange={(wave) => onForm({ ...form, wave })}
+          />
+        </fieldset>
+      ) : null}
+      {shown.a || shown.b ? (
+        <fieldset className="rp-group rp-legion">
+          <legend>{m.dev_report_legion_title()}</legend>
+          <p className="field-hint">{m.dev_report_legion_hint()}</p>
+          <div className="rp-fields">
+            {(["a", "b"] as const)
+              .filter((team) => shown[team])
+              .map((team) => (
+                <NumberField
+                  key={team}
+                  label={m.dev_report_legion_retreat({ team: team.toUpperCase() })}
+                  value={form.legion[team].retreatAtSec}
+                  min={0}
+                  max={form.limitSec}
+                  className={`rp-legion-retreat-${team}`}
+                  onChange={(retreatAtSec) =>
+                    onForm({
+                      ...form,
+                      legion: { ...form.legion, [team]: { ...form.legion[team], retreatAtSec } },
+                    })
+                  }
+                />
+              ))}
+          </div>
         </fieldset>
       ) : null}
 
@@ -305,6 +407,7 @@ export function ReportPanel(props: {
             {form.mode === "wave" && form.variantWave ? (
               <WaveFields
                 wave={form.variantWave}
+                simDefenders={waveDefenseOf(form) === "sim"}
                 onChange={(variantWave) => onForm({ ...form, variantWave })}
               />
             ) : null}

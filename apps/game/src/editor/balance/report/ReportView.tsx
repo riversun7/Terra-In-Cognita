@@ -4,6 +4,7 @@
 import type { BattleReportRecord, ReportCounters, ReportResult } from "@terra/shared/battleReport";
 import { useId, useState } from "react";
 import { m } from "../../../paraglide/messages.js";
+import { CityNote } from "./CityNote.tsx";
 import { FlowView } from "./FlowView.tsx";
 import { compareText, endText, modeText, rowLabel } from "./reportMessages.ts";
 import { compareRows, counterView, perRun } from "./reportModel.ts";
@@ -270,6 +271,7 @@ function ResultView(props: {
         </section>
       ) : null}
 
+      <CityNote result={result} locale={locale} />
       <FlowView result={result} reportId={props.reportId} which={props.which} runs={runs} locale={locale} />
       <p className="field-hint rp-cpu">{m.dev_report_cpu({ ms: n(result.cpuMs) })}</p>
     </div>

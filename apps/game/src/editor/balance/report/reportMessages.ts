@@ -1,6 +1,7 @@
 // 전투 보고서 화면 문구(메시지 키 표) — 키로 고르는 문구는 표에 적는다(oxlint import(namespace) 규칙, AGENTS.md 6절).
 import type { LabTerrainView } from "@terra/shared/battleLab";
-import type { ReportMode } from "@terra/shared/battleReport";
+import type { ReportMode, ReportWaveDefense } from "@terra/shared/battleReport";
+import type { ReportCityChange } from "@terra/shared/battleReportCity";
 import { m } from "../../../paraglide/messages.js";
 import type { CompareRow, FlowStepId, ReportErrorKey } from "./reportModel.ts";
 
@@ -19,6 +20,7 @@ const REASON_TEXT: Readonly<Record<ReportErrorKey, () => string>> = {
   unknown_terrain: m.dev_report_reason_unknown_terrain,
   unknown_tuning: m.dev_report_reason_unknown_tuning,
   tuning_out_of_range: m.dev_report_reason_tuning_out_of_range,
+  unknown_city: m.dev_report_reason_unknown_city,
   unknown_job: m.dev_report_reason_unknown_job,
   unknown_report: m.dev_report_reason_unknown_report,
   busy: m.dev_report_reason_busy,
@@ -85,13 +87,37 @@ const GROUP_TEXT: Readonly<Record<string, () => string>> = {
   defenders: m.dev_report_group_defenders,
 };
 
-/** 줄 이름: 웨이브 무리는 메시지, 파티 유닛은 A1 + 표시 이름 */
+/** 줄 이름: 웨이브 무리는 메시지, 군단 유닛은 A2·3(파티·자리, 키 a1.2) + 표시 이름. 옛 기록 키(a2)는 A3 */
 export function rowLabel(key: string, label: string): string {
   const group = GROUP_TEXT[key];
   if (group) return group();
-  const short = `${key.slice(0, 1).toUpperCase()}${Number(key.slice(1)) + 1}`;
+  const team = key.slice(0, 1).toUpperCase();
+  const [party, slot] = key.slice(1).split(".");
+  const short =
+    slot === undefined ? `${team}${Number(party) + 1}` : `${team}${Number(party) + 1}·${Number(slot) + 1}`;
   return label ? `${short} ${label}` : short;
 }
+
+const DEFENSE_TEXT: Readonly<Record<ReportWaveDefense, () => string>> = {
+  party: m.dev_report_defense_party,
+  sim: m.dev_report_defense_sim,
+  world: m.dev_report_defense_world,
+};
+export const defenseText = (defense: ReportWaveDefense): string => DEFENSE_TEXT[defense]();
+
+const CITY_CHANGE_TEXT: Readonly<Record<ReportCityChange, () => string>> = {
+  gone: m.dev_report_city_change_gone,
+  owner: m.dev_report_city_change_owner,
+  layout: m.dev_report_city_change_layout,
+  nexus: m.dev_report_city_change_nexus,
+  walls: m.dev_report_city_change_walls,
+  defense: m.dev_report_city_change_defense,
+};
+export const cityChangeText = (change: ReportCityChange): string => CITY_CHANGE_TEXT[change]();
+
+/** 도시 이름(없으면 "도시 N") */
+export const cityName = (name: string | null, id: number): string =>
+  name ?? m.dev_report_city_unnamed({ id });
 
 const COMPARE_TEXT: Readonly<Record<string, () => string>> = {
   scorePm: m.dev_report_cmp_score,

@@ -83,6 +83,7 @@ import { duelRunnerOf, inlineJobRunner, workerJobRunner } from "./balance/runner
 import { inlineBatchRunner, workerBatchRunner } from "./battleLab/analysisRunner.ts";
 import { createBattleLabShared } from "./battleLab/services.ts";
 import { inlineReportRunner, workerReportRunner } from "./battleReport/runner.ts";
+import { worldReportCities } from "./battleReport/worldCity.ts";
 import { worldArenaTerrains } from "./battleLab/worldTerrains.ts";
 import { createArenaSource } from "./battleReplay/arena.ts";
 import { type ReplayJob, type ReplayJobResult, runReplayJob } from "./battleReplay/compute.ts";
@@ -564,6 +565,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             ? workerReportRunner({ workerUrl: balanceRunner.workerUrl })
             : inlineReportRunner(),
         reportLimits: options.battleLab?.reportLimits,
+        reportCities: world ? worldReportCities(world, now) : undefined,
         now,
         log: app.log,
         limits: options.battleLab?.limits,

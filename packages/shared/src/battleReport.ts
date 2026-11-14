@@ -3,6 +3,7 @@
 // (기기는 판정 코드를 받지 않는다). 수치 칸의 범위는 실험 도구의 입력 범위(넘침·NAS 부담 방지)이지 게임 규칙이 아니다.
 // 집계 값은 모두 판 전체의 합(정수)이다. 판마다 평균·비율은 화면이 runs로 나눠 보인다(reportRate·perRun).
 import type { LabParty } from "./battleLab.ts";
+import type { ReportCityInfo } from "./battleReportCity.ts";
 
 /** 설정 종류: 파티 대 파티(전투장), 파티 공성(팀 A가 팀 B가 지키는 도시를 친다), 정원사 웨이브 공성(서버 웨이브와 같은 함수) */
 export const REPORT_MODES = ["arena", "siege", "wave"] as const;
@@ -29,6 +30,8 @@ export const REPORT_LIMITS = {
   waveDefendersMax: 32,
   techMin: 1,
   techMax: 10,
+  /** 군단(팀) 하나의 파티 수 상한([임시], 기획 D-179·D-545 — 파티 6명이 기본 단위, 파티를 묶어 군단) */
+  legionPartiesMax: 4,
   /** 도시 배치: 주거 인원·행정 레벨 */
   housingMax: 200,
   adminLevelMax: 5,
@@ -45,19 +48,54 @@ export const REPORT_LIMITS = {
   histogramBins: 12,
 } as const;
 
-/** 공성 전투맵: 시뮬 도시 평지 배치 + 성벽(서버 웨이브·시뮬레이터와 같은 함수) 또는 옛 열린 맵(가운데 넥서스) */
+/**
+ * 공성 전투맵: 시뮬 도시 평지 배치 + 성벽(서버 웨이브·시뮬레이터와 같은 함수), 옛 열린 맵(가운데 넥서스), 또는 실제 세계 도시(기획 D-543
+ * 1383 나 — 그 도시 2차맵의 지금 건물 배치·성벽·넥서스를 읽기만 한다, battleReportCity.ts)
+ */
 export interface ReportCity {
-  readonly layout: "city" | "open";
-  /** 주거 인원(숙소 수가 정해진다) */
+  readonly layout: "city" | "open" | "world";
+  /** 주거 인원(숙소 수가 정해진다). 실제 도시면 보지 않는다 */
   readonly housing: number;
-  /** 행정 건물 레벨(넥서스 내구도 = 행정 건물 내구도 × 레벨) */
+  /** 행정 건물 레벨(넥서스 내구도 = 행정 건물 내구도 × 레벨). 실제 도시면 보지 않는다 */
   readonly adminLevel: number;
+  /** 실제 세계 도시 ID(layout = world일 때만) */
+  readonly cityId?: number | undefined;
 }
+
+/** 파티 공성 수비: 팀 B 파티(기본) 또는 실제 도시의 세계 수비(휴먼·수호신, layout = world일 때만) */
+export type ReportSiegeDefense = "party" | "world";
+/** 웨이브 수비: 시뮬 휴먼 N명(기본), 팀 B 파티(기획 D-543 1384 나), 실제 도시의 세계 수비(layout = world일 때만) */
+export type ReportWaveDefense = "sim" | "party" | "world";
+
+/**
+ * 군단 = 파티(유닛 6 기본) 여럿과 군단 명령(기획 D-179·D-545 "파티가 모여 군단 단위로 명령"). 파티 명령 = 파티 퇴각 기준선(⑦, 파티의
+ * retreatHpPct), 군단 명령 = 정한 시각에 군단의 모든 파티에 퇴각 명령(판정의 파티 퇴각, D-205·D-6025). 그 밖의 파티·군단 명령(전진·자리
+ * 지키기·목표)은 판정에 아직 없다(질문 1461)
+ */
+export interface ReportLegion {
+  readonly parties: readonly LabParty[];
+  /** 군단 퇴각 명령 시각(초, 0 = 없음) */
+  readonly retreatAtSec: number;
+}
+
+/** 팀: 군단, 또는 옛 기록의 파티 하나(= 파티 하나뿐인 군단) */
+export type ReportTeam = LabParty | ReportLegion;
+
+export const isReportLegion = (team: ReportTeam): team is ReportLegion => "parties" in team;
+
+/** 팀 → 군단(옛 기록의 파티 하나는 명령 없는 한 파티 군단) */
+export function legionOf(team: ReportTeam): ReportLegion {
+  return isReportLegion(team) ? team : { parties: [team], retreatAtSec: 0 };
+}
+
+/** 군단의 유닛 수 */
+export const legionUnits = (team: ReportTeam): number =>
+  legionOf(team).parties.reduce((sum, party) => sum + party.units.length, 0);
 
 export interface ReportArenaSetup {
   readonly mode: "arena";
-  readonly a: LabParty;
-  readonly b: LabParty;
+  readonly a: ReportTeam;
+  readonly b: ReportTeam;
   /** 전투 실험실 지형 ID(battleLab.catalog terrains) */
   readonly terrain: string;
   readonly limitSec: number;
@@ -66,12 +104,14 @@ export interface ReportArenaSetup {
 export interface ReportSiegeSetup {
   readonly mode: "siege";
   /** 공격 편 */
-  readonly a: LabParty;
+  readonly a: ReportTeam;
   /** 수비 편(넥서스 앞) */
-  readonly b: LabParty;
+  readonly b: ReportTeam;
   readonly city: ReportCity;
   readonly nexusDurability: number;
   readonly limitSec: number;
+  /** 수비(없으면 party — 옛 기록) */
+  readonly defense?: ReportSiegeDefense | undefined;
 }
 
 export interface ReportWaveSetup {
@@ -86,9 +126,26 @@ export interface ReportWaveSetup {
   readonly city: ReportCity;
   readonly nexusDurability: number;
   readonly limitSec: number;
+  /** 수비(없으면 sim — 옛 기록). sim이면 defenders·defenderTech를 쓴다 */
+  readonly defense?: ReportWaveDefense | undefined;
+  /** 수비 군단(defense = party일 때 — 실험실 팀 B) */
+  readonly b?: ReportTeam | undefined;
 }
 
 export type ReportSetup = ReportArenaSetup | ReportSiegeSetup | ReportWaveSetup;
+
+/** 설정의 수비 종류(없으면 옛 기록 기본값). 파티 대 파티는 늘 party */
+export function reportDefense(setup: ReportSetup): ReportWaveDefense {
+  if (setup.mode === "arena") return "party";
+  if (setup.mode === "siege") return setup.defense ?? "party";
+  return setup.defense ?? "sim";
+}
+
+/** 설정이 쓰는 실제 세계 도시 ID(없으면 null) */
+export function reportCityId(setup: ReportSetup): number | null {
+  if (setup.mode === "arena" || setup.city.layout !== "world") return null;
+  return setup.city.cityId ?? null;
+}
 
 /** A/B의 설정 칸 바꿈 하나(설정 칸 ID 또는 가중치 칸 키 `<행>.<칸>`). 세계 값은 바꾸지 않는다(이 보고서 안에서만) */
 export interface ReportTuningChange {
@@ -121,6 +178,7 @@ export const REPORT_REASONS = [
   "unknown_terrain",
   "unknown_tuning",
   "tuning_out_of_range",
+  "unknown_city",
   "unknown_job",
   "unknown_report",
   "busy",
@@ -328,6 +386,21 @@ export interface ReportResult {
   readonly samples: readonly ReportHitTrace[];
   /** 이 설정의 판정 CPU(ms) */
   readonly cpuMs: number;
+  /** 실제 세계 도시를 썼으면 그 스냅숏(없으면 null, 옛 기록은 칸이 없다) */
+  readonly city?: ReportCityInfo | null | undefined;
+  /** 편마다 군단 모양(시작 때 — 옛 기록은 칸이 없다) */
+  readonly legion?: { readonly a: ReportLegionView; readonly b: ReportLegionView } | undefined;
+}
+
+/**
+ * 편 하나의 군단 모양(시작 때): 파티 수·유닛 수, 지휘 정원(그 편 유닛 가운데 가장 큰 값 — 판정의 지휘관 고르기, D-179·D-331)과 정원 밖
+ * "지휘 없음" 파티 수. 지휘 없음은 판정에서 아직 행동을 바꾸지 않는다(질문 1463)
+ */
+export interface ReportLegionView {
+  readonly parties: number;
+  readonly units: number;
+  readonly commandCap: number;
+  readonly uncommanded: number;
 }
 
 export interface BattleReportBody {
@@ -439,6 +512,29 @@ export function reportProblem(
       if (!intIn(one.city.housing, 0, L.housingMax) || !intIn(one.city.adminLevel, 1, L.adminLevelMax))
         return "invalid_settings";
       if (!intIn(one.nexusDurability, 1, L.nexusMax)) return "invalid_settings";
+      const world = one.city.layout === "world";
+      if (world !== (one.city.cityId !== undefined)) return "invalid_settings";
+      if (world && !intIn(one.city.cityId ?? 0, 1, 0x7fff_ffff)) return "invalid_settings";
+      const defense = reportDefense(one);
+      // 세계 수비는 실제 도시에서만, 웨이브 파티 수비는 팀 B가 있어야 한다
+      if (defense === "world" && !world) return "invalid_settings";
+      if (one.mode === "wave" && defense === "party" && !one.b) return "invalid_settings";
+    }
+    // 군단: 파티 1~상한, 파티마다 1명 이상, 군단 퇴각 시각은 제한 시간 안
+    // 세계 수비 파티 공성의 팀 B는 쓰지 않는다(검사도 하지 않는다)
+    const teams =
+      one.mode === "wave"
+        ? one.b
+          ? [one.b]
+          : []
+        : one.mode === "siege" && reportDefense(one) === "world"
+          ? [one.a]
+          : [one.a, one.b];
+    for (const team of teams) {
+      const legion = legionOf(team);
+      if (!intIn(legion.parties.length, 1, L.legionPartiesMax)) return "invalid_settings";
+      if (legion.parties.some((party) => party.units.length === 0)) return "invalid_settings";
+      if (!intIn(legion.retreatAtSec, 0, one.limitSec)) return "invalid_settings";
     }
   }
   if (input.variant) {
@@ -786,7 +882,7 @@ export interface ReportTraceResponse {
   /** 그 판의 공격 단계 기록(차례대로, 상한 traceMax) */
   readonly hits: readonly ReportHitTrace[];
   readonly dropped: number;
-  /** 다시 돌린 때의 세계 설정 판·팩·SIM이 저장 때와 같은가(다르면 숫자가 다를 수 있다) */
+  /** 다시 돌린 때의 세계 설정 판·팩·SIM(실제 도시면 그 스냅숏)이 저장 때와 같은가(다르면 숫자가 다를 수 있다) */
   readonly same: boolean;
   readonly winner: "a" | "b" | null;
   readonly endMs: number;

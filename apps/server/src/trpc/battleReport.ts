@@ -2,10 +2,12 @@
 // 권한은 설정 칸 패널(D1)과 같다: 우리 권한 표(tuning:read) → Better Auth 확인. 시작·취소·목록·열기·한 대 풀이는 D1 조회 속도 제한도
 // 거친다. 진행 조회는 자주 오므로 보고서 서비스의 따로 센 제한(admitPoll)만 거친다. 게임 상태는 바꾸지 않는다(기록 표·감사 기록만 쓴다).
 // 오류(error.data.code): UNAUTHORIZED, FORBIDDEN, TOO_MANY_REQUESTS("rate_limited"·"busy"), BAD_REQUEST(입력 형식, 또는 data.reason =
-// invalid_settings·budget·variant_mode·invalid_unit·unknown_terrain·unknown_tuning·tuning_out_of_range), NOT_FOUND(data.reason =
+// invalid_settings·budget·variant_mode·invalid_unit·unknown_terrain·unknown_tuning·tuning_out_of_range·unknown_city), NOT_FOUND(data.reason =
 // unknown_job·unknown_report, 또는 message "BATTLE_REPORT_UNAVAILABLE"), INTERNAL_SERVER_ERROR(data.reason = timeout·failed: 한 대 풀이 워커).
 import { TRPCError } from "@trpc/server";
 import {
+  reportCityListSchema,
+  reportCitySchema,
   reportIdSchema,
   reportJobIdSchema,
   reportListSchema,
@@ -57,6 +59,10 @@ export const battleReportRouter = router({
   get: counted
     .input(reportIdSchema)
     .query(({ ctx, input }) => ctx.lab.shared.report.get(ctx.lab.db, input.id)),
+  /** 실제 세계 도시 목록(도시 고르기, 읽기만 — 기획 D-543·D-545 1383) */
+  cities: counted.input(reportCityListSchema).query(({ ctx, input }) => ctx.lab.shared.report.cities(input)),
+  /** 지금 도시 스냅숏 정보(저장된 스냅숏과 견주기, 읽기만) */
+  city: counted.input(reportCitySchema).query(({ ctx, input }) => ctx.lab.shared.report.city(input.id)),
   /** 한 대 풀이: 기록의 판 하나를 지금 규칙으로 다시 돌려 공격 단계를 낸다(워커) */
   trace: counted
     .input(reportTraceSchema)

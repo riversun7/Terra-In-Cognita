@@ -106,13 +106,41 @@ function nearestFree(map: BattleMapInput, taken: Set<number>, x: number, y: numb
 
 /** 일 하나 → 전투 시작 자료. swapped면 팀 A가 동쪽(수비 편) */
 export function arenaInit(job: ArenaJob, seed: number, swapped: boolean): BattleInit {
+  return arenaLegionInit({ ...job, a: [job.a], b: [job.b] }, seed, swapped);
+}
+
+/** 군단 전투장 일(편마다 파티 여럿 — 전투 보고서, 기획 D-179·D-545) */
+export interface ArenaLegionJob {
+  readonly a: readonly ArenaParty[];
+  readonly b: readonly ArenaParty[];
+  readonly map: BattleMapInput;
+  readonly limitMs: number;
+}
+
+/** [임시] 군단 안 파티 p의 자리 비킴(칸): 0번 파티는 가운데(옛 전투장과 같다), 1·2번은 위아래로 13칸, 3번 이후는 뒤로 7칸씩 */
+const PARTY_LATERAL = [0, -13, 13];
+const PARTY_DEPTH_STEP = 7;
+const partyOffset = (p: number): { depth: number; lateral: number } =>
+  p < PARTY_LATERAL.length
+    ? { depth: 0, lateral: PARTY_LATERAL[p] ?? 0 }
+    : { depth: PARTY_DEPTH_STEP * (p - PARTY_LATERAL.length + 1), lateral: 0 };
+
+/** 팀·군단 안 파티 → 파티 ID(팀 A 1·3·5…, 팀 B 2·4·6… — 파티 하나면 옛 전투장과 같은 1·2) */
+export const arenaPartyId = (team: LabTeam, p: number): number => (team === "a" ? 1 : 2) + 2 * p;
+/** 팀·파티·자리 → 유닛 ID(팀 A 1~, 팀 B 101~, 파티마다 6칸 — 파티 하나면 옛 전투장과 같다) */
+export const arenaUnitId = (team: LabTeam, p: number, index: number): number =>
+  idOf(team, p * LAB_LIMITS.partyMax + index);
+
+/** 군단 일 → 전투 시작 자료. 파티 하나씩이면 arenaInit와 같은 값이다(시험) */
+export function arenaLegionInit(job: ArenaLegionJob, seed: number, swapped: boolean): BattleInit {
   const { map } = job;
   const size = map.size;
   const center = size / 2;
   const taken = new Set<number>();
-  const place = (party: ArenaParty, team: LabTeam): CombatUnitSpec[] => {
+  const place = (party: ArenaParty, team: LabTeam, p: number): CombatUnitSpec[] => {
     const side = (team === "a") !== swapped ? 1 : 2;
     const lanes: Record<LabRow, number> = { front: 0, middle: 0, back: 0 };
+    const offset = partyOffset(p);
     return party.units.map((unit, index) => {
       let depth: number;
       let lateral: number;
@@ -125,6 +153,8 @@ export function arenaInit(job: ArenaJob, seed: number, swapped: boolean): Battle
         depth = ROW_DEPTH[unit.row];
         lateral = LANE_OFFSETS[lane] ?? lane;
       }
+      depth += offset.depth;
+      lateral += offset.lateral;
       // 가운데(center − 0.5)를 두고 좌우 대칭
       const x = side === 1 ? center - depth : center + depth - 1;
       const y = center + lateral;
@@ -132,15 +162,18 @@ export function arenaInit(job: ArenaJob, seed: number, swapped: boolean): Battle
       taken.add(cell);
       return {
         ...unit.spec,
-        id: idOf(team, index),
+        id: arenaUnitId(team, p, index),
         side,
-        party: team === "a" ? 1 : 2,
+        party: arenaPartyId(team, p),
         x: cell % size,
         y: Math.floor(cell / size),
       };
     });
   };
-  const units = [...place(job.a, "a"), ...place(job.b, "b")];
+  const units = [
+    ...job.a.flatMap((party, p) => place(party, "a", p)),
+    ...job.b.flatMap((party, p) => place(party, "b", p)),
+  ];
   const sideOfA = swapped ? 2 : 1;
   return {
     id: 1,
@@ -152,9 +185,17 @@ export function arenaInit(job: ArenaJob, seed: number, swapped: boolean): Battle
       { id: 2, faction: 2, defender: true, edge: 1 },
     ],
     parties: [
-      { id: 1, side: sideOfA, retreatHpPct: job.a.retreatHpPct },
-      { id: 2, side: 3 - sideOfA, retreatHpPct: job.b.retreatHpPct },
-    ],
+      ...job.a.map((party, p) => ({
+        id: arenaPartyId("a", p),
+        side: sideOfA,
+        retreatHpPct: party.retreatHpPct,
+      })),
+      ...job.b.map((party, p) => ({
+        id: arenaPartyId("b", p),
+        side: 3 - sideOfA,
+        retreatHpPct: party.retreatHpPct,
+      })),
+    ].toSorted((x, y) => x.id - y.id),
     units,
     limitMs: job.limitMs,
   };

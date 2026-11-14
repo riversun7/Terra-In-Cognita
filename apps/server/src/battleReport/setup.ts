@@ -524,10 +524,10 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
   // 세계 수비: 세계 전투 시작 길(몸·비활성·수호신·생명 수치·물약 — 읽기만)
   let guardians = 0;
   if (worldDefense && city) {
-    const prepared = await city.prepare(init, worldIds);
-    init = prepared.init;
-    worldIds = prepared.worldIds;
-    guardians = prepared.guardians;
+    const defended = await city.prepare(init, worldIds);
+    init = defended.init;
+    worldIds = defended.worldIds;
+    guardians = defended.guardians;
   }
   // 수비 무리 줄: 실험실 군단이 아닌 수비 편 유닛(시뮬 휴먼·세계 수비·수호신)
   if (defense !== "party") {

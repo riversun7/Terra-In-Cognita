@@ -1,5 +1,5 @@
 // NPC 도시 경제 배후지 칸 자리 — 낚시터 물 종류(기획 D-542 질문 1365 나): 칸 행성 값 → 물 종류·땅 여부, 도시 배후지 다수결 범위
-import { cellKey, decodeCellKey } from "@terra/planet";
+import { cellKey, decodeCellKey, isCellKey } from "@terra/planet";
 import type { CatchmentLand } from "@terra/shared/catchment";
 import {
   TEST_SOCIETY_COEFFICIENTS,
@@ -23,6 +23,7 @@ const dry = (water: number, biomeId: string): CatchmentLand => ({
 
 /** 도시 칸·위·아래는 해안 땅, 오른쪽(i > 20)은 심해 바다 */
 const coastLand = (key: number): CatchmentLand => {
+  if (!isCellKey(key)) return dry(0, "grassland");
   const { i } = decodeCellKey(key);
   return i > 20 ? dry(1 | (3 << 4), "ocean_deep") : dry(8, "grassland");
 };

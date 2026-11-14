@@ -1,5 +1,5 @@
 // 플레이어 낚시터 물 종류(기획 D-542 질문 1365 나) — 건물이 선 2차맵 칸, 물 표시가 없으면 둘레 한 칸, 그래도 없으면 민물, 행성 값이 없으면 모름
-import { cellKey, decodeCellKey } from "@terra/planet";
+import { cellKey, decodeCellKey, isCellKey } from "@terra/planet";
 import type { FishWaterLand } from "@terra/shared/fishWater";
 import { describe, expect, it } from "vitest";
 import { spotWaterOfMap } from "./fishWater.ts";
@@ -8,6 +8,7 @@ const LEVEL = 9;
 const center = cellKey(0, LEVEL, 20, 20);
 /** (i, j)로 칸 값 표 */
 const lands = (rows: ReadonlyMap<string, FishWaterLand>, fallback?: FishWaterLand) => (key: number) => {
+  if (!isCellKey(key)) return fallback;
   const { i, j } = decodeCellKey(key);
   return rows.get(`${String(i)},${String(j)}`) ?? fallback;
 };

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 07:30 | 전투 보고서: 실제 세계 도시 공성·웨이브 팀 수비·군단(파티 여럿) | Claude Code | [15-0730-battle-report-2](worklog/2026/11/15-0730-battle-report-2.md) |
 | 2026-11-14 23:50 | 2026-11-14 아홉째 묶음 합치기 (1차맵 개편) | Claude Code | [14-2350-batch-1114c-merge](worklog/2026/11/14-2350-batch-1114c-merge.md) |
 | 2026-11-14 21:40 | 2차맵 건축 모드(1단계)와 지을 수 있는 땅 규칙 | Claude Code | [14-2140-second-map-build-mode](worklog/2026/11/14-2140-second-map-build-mode.md) |
 | 2026-11-14 21:30 | 1차맵 UI 개편 — 고도 과장 ×12 고정, 레이어 접는 단추, 영토 = 도시 배후지 원의 합 | Claude Code | [14-2130-planet-ui](worklog/2026/11/14-2130-planet-ui.md) |

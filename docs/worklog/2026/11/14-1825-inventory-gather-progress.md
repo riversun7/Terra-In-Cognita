@@ -67,12 +67,10 @@
 - 추정 가치는 [임시] 규칙이다. 기준 도시 마지막 체결가, 없으면 시작 시세를 쓰고, 화폐마다 따로 더한다. 기획 가치 규칙이 정해지면 바꾼다.
 - 휘두르기 자세는 헤드리스 시험에서 사진으로 보지 않았다(움직임이라 사진 한 장으로 확인하기 어렵다). 단위 시험(자세 행렬·모양·칸 표시)만 통과했다. 휴대폰에서 보지 않았다(미검증).
 - 다른 플레이어 유닛의 채집 자세는 보이지 않는다(채집 줄은 자기 것만 받는다).
-- 앱 메뉴(사이드·하단 탭)에 인벤토리 항목은 없다. 메뉴 항목은 서버 설정 검사와 묶여 있어 사용자 결정이 필요하다.
 - `packages/engine/src/secondMapEngine.ts` 998줄(1,000줄 CI 상한 직전), `apps/game/src/map/SecondaryMapScreen.tsx` 787줄(600줄 경고). 다음 기능 전에 나눈다.
 
 ## 사용자 결정 대기
 
-- 앱 메뉴에 인벤토리를 넣을지.
 - 추정 가치 규칙(기획).
 
 ## 검사
@@ -89,3 +87,14 @@
 - 사진(390, 눈으로 봄):
   - 인벤토리 전체(파스텔)·2차맵 가방(다크)·채집 진행(파스텔).
   - 채집 진행 사진은 두 막대가 끝까지 찬 모습이다. Playwright 사진 옵션 `animations: "disabled"`가 끝나는 CSS 움직임을 끝 상태로 건너뛰기 때문이다(Playwright `page.screenshot` 문서). 실제 화면에서 막대가 중간에서 차오르는지는 휴대폰에서 보지 않았다(미검증).
+
+## 바뀜 (메뉴 항목, main 합치기)
+
+- 사용자 결정(2026-11-14): "1.네 2.당연" — main 합치기, 앱 메뉴에 인벤토리.
+- 바꾼 파일:
+  - `packages/shared/src/navigation.ts`(+ 시험): `NAV_ITEM_IDS` 끝에 `inventory`.
+  - `apps/game/src/shell/menuItems.ts`: 메뉴 항목.
+  - `apps/game/src/ui/icons.tsx`: 상자 아이콘.
+  - `apps/game/src/shell/layout.ts`(+ 시험): 하단 탭 칸 수 계단 A 7칸 36em, C 6칸 32em.
+- 함께 바꿀 파일: 메뉴 항목을 더하면 `TAB_SLOT_STEPS`(마지막 계단 = 놓을 수 있는 항목 수, `layout.test.ts`가 본다)와 `menuItems.ts`(타입이 잡는다).
+- 검사: shared·shell·ui·settings·서버 settings·home 단위 시험 599개 통과(Verified).

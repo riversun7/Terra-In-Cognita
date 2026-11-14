@@ -22,4 +22,10 @@ export const MENU_ITEMS = {
   economy: { target: { route: "economy" }, name: m.nav_economy, desc: m.nav_economy_desc, icon: "economy" },
   faction: { target: { route: "faction" }, name: m.nav_faction, desc: m.nav_faction_desc, icon: "faction" },
   cyborg: { target: { route: "cyborg" }, name: m.nav_cyborg, desc: m.nav_cyborg_desc, icon: "cyborg" },
+  inventory: {
+    target: { route: "inventory" },
+    name: m.nav_inventory,
+    desc: m.nav_inventory_desc,
+    icon: "inventory",
+  },
 } satisfies Record<NavItemId, MenuItem>;

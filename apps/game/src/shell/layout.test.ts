@@ -101,12 +101,18 @@ describe("하단 탭 칸 수(D-265: 좁은 휴대폰은 4칸, 넓으면 더)", (
     expect(tabSlotsForWidth(px(432), "a")).toBe(5);
     expect(tabSlotsForWidth(px(440), "a")).toBe(5);
     expect(tabSlotsForWidth(px(504), "a")).toBe(6);
-    expect(tabSlotsForWidth(px(599), "a")).toBe(6);
+    expect(tabSlotsForWidth(px(575), "a")).toBe(6);
+    // 인벤토리를 더해(2026-11-14) 576px(36em)부터 7칸
+    expect(tabSlotsForWidth(px(576), "a")).toBe(7);
+    expect(tabSlotsForWidth(px(599), "a")).toBe(7);
     // C: 지도를 가운데 둔 채 5칸(오른쪽 3칸)이 들어가는 508px부터
     expect(tabSlotsForWidth(px(440), "c")).toBe(4);
     expect(tabSlotsForWidth(px(507), "c")).toBe(4);
     expect(tabSlotsForWidth(px(508), "c")).toBe(5);
-    expect(tabSlotsForWidth(px(599), "c")).toBe(5);
+    expect(tabSlotsForWidth(px(511), "c")).toBe(5);
+    // 인벤토리를 더해(2026-11-14) 512px(32em)부터 6칸(양쪽 3칸)
+    expect(tabSlotsForWidth(px(512), "c")).toBe(6);
+    expect(tabSlotsForWidth(px(599), "c")).toBe(6);
     for (const layout of NAV_LAYOUTS) {
       for (const width of [600, 844, 1440]) {
         expect(tabSlotsForWidth(px(width), layout), `${layout} ${width}px`).toBe(0);
@@ -183,8 +189,12 @@ describe("하단 탭 칸 수(D-265: 좁은 휴대폰은 4칸, 넓으면 더)", (
       a: [
         { query: "(min-width: 27em)", slots: 5 },
         { query: "(min-width: 31.5em)", slots: 6 },
+        { query: "(min-width: 36em)", slots: 7 },
       ],
-      c: [{ query: "(min-width: 31.75em)", slots: 5 }],
+      c: [
+        { query: "(min-width: 31.75em)", slots: 5 },
+        { query: "(min-width: 32em)", slots: 6 },
+      ],
     });
   });
 });

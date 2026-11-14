@@ -589,6 +589,7 @@ export {
   type UnitTally,
 } from "./combat/observe.ts";
 export type { BattleTrace } from "./combat/battleTrace.ts";
+export { type AttackStages, newAttackStages } from "./combat/attackStages.ts";
 export {
   recordBattleReplay,
   skillShape,

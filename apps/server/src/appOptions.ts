@@ -9,6 +9,7 @@ import type { AuthSettings } from "./auth/auth.ts";
 import type { AccountLimitName, LimitSetting } from "./auth/limits.ts";
 import type { BalanceLimits } from "./balance/services.ts";
 import type { AnalysisLimits } from "./battleLab/analysisJobs.ts";
+import type { ReportLimits } from "./battleReport/services.ts";
 import type { BattleLabLimits } from "./battleLab/services.ts";
 import type { BattleReplayLimits } from "./battleReplay/services.ts";
 import type { ContentEditState } from "./contentEdit/state.ts";
@@ -121,6 +122,8 @@ export interface AppOptions {
         unitKindNames?: ReadonlyMap<string, LocalizedName> | undefined;
         limits?: Partial<BattleLabLimits> | undefined;
         analysisLimits?: Partial<AnalysisLimits> | undefined;
+        /** 전투 보고서 시험용 속도 제한(docs/adr/2026-11-14-battle-report.md) */
+        reportLimits?: Partial<ReportLimits> | undefined;
       }
     | undefined;
   /**

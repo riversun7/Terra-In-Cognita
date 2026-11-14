@@ -1,8 +1,8 @@
-// 개발자 도구 DB 표(전투 실험실 프리셋·계산식 덮어쓰기) — schema.ts가 다시 내보낸다(drizzle-kit은 schema.ts 하나를 읽는다).
+// 개발자 도구 DB 표(전투 실험실 프리셋·계산식 덮어쓰기·전투 보고서 기록) — schema.ts가 다시 내보낸다(drizzle-kit은 schema.ts 하나를 읽는다).
 // schema.ts가 1,000줄 상한에 닿아 나눴다.
 // 바꾼 뒤 `pnpm --filter @terra/server db:generate`로 마이그레이션을 만든다(schema.ts와 같은 규칙).
 import { sql } from "drizzle-orm";
-import { check, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { users } from "./schema.ts";
 
 /**
@@ -54,5 +54,44 @@ export const formulaOverrides = pgTable(
     check("formula_overrides_source_length", sql`char_length(${table.source}) between 1 and 2000`),
     check("formula_overrides_pack_source_length", sql`char_length(${table.packSource}) <= 4000`),
     check("formula_overrides_note_length", sql`${table.note} is null or char_length(${table.note}) <= 200`),
+  ],
+);
+
+/**
+ * 전투 보고서 기록 — 밸런스 화면 [전투 보고서]·[보고서 기록](docs/adr/2026-11-14-battle-report.md). 한 번 돌린 보고서의 설정 전부(input: @terra/shared
+ * ReportStartInput — 파티·공성·A/B·판 수·시드)와 결과(report: BattleReportBody), 돌린 때의 팩 판·해시·SIM_VERSION·세계 설정 판.
+ * 추가만 하고 고치지 않는다(같은 설정을 다시 돌리면 새 줄). 목록에 쓰는 칸(이름·종류·점수)은 따로 둔다. 세계 새로 시작에도 남긴다
+ * (cli/resetWorld.ts WORLD_RESET_KEEP). 줄 수 상한(battleReport/store.ts REPORT_STORED_MAX)을 넘으면 오래된 줄부터 지운다
+ */
+export const battleReports = pgTable(
+  "battle_reports",
+  {
+    /** `rep_` + 16진 12자 */
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    note: text("note").notNull().default(""),
+    mode: text("mode").$type<"arena" | "siege" | "wave">().notNull(),
+    runs: integer("runs").notNull(),
+    seed: integer("seed").notNull(),
+    variant: boolean("variant").notNull(),
+    scorePm: integer("score_pm").notNull(),
+    scoreBPm: integer("score_b_pm"),
+    contentVersion: text("content_version").notNull(),
+    contentHash: text("content_hash").notNull(),
+    simVersion: integer("sim_version").notNull(),
+    tuningRevision: integer("tuning_revision").notNull(),
+    durationMs: integer("duration_ms").notNull(),
+    input: jsonb("input").notNull(),
+    report: jsonb("report").notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("battle_reports_id_format", sql`${table.id} ~ '^rep_[0-9a-f]{12}$'`),
+    check("battle_reports_mode", sql`${table.mode} in ('arena', 'siege', 'wave')`),
+    check("battle_reports_name_length", sql`char_length(${table.name}) between 1 and 60`),
+    check("battle_reports_note_length", sql`char_length(${table.note}) <= 400`),
+    check("battle_reports_runs_positive", sql`${table.runs} >= 1`),
+    index("battle_reports_created_idx").on(table.createdAt),
   ],
 );

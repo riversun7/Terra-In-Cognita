@@ -44,6 +44,7 @@ export const WORLD_RESET_KEEP: Readonly<Record<string, string>> = {
   nation_emblems:
     "시작 국가 설정 편집기에서 올린 국가 마크(프리셋 ID마다, docs/adr/2026-11-10-nation-editor.md)",
   battle_lab_presets: "전투 실험실 프리셋",
+  battle_reports: "전투 보고서 기록(밸런스 화면, docs/adr/2026-11-14-battle-report.md — 설정·결과·팩 판)",
   world_nation_placements:
     "고정 NPC 국가 자리(세계 배치 화면, D-528 — 세력 코드로 적어 새 세계가 처음부터 그 자리에 선다)",
   client_errors: "기기 오류 기록(운영)",

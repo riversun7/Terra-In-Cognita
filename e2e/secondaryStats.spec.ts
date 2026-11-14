@@ -36,7 +36,10 @@ test.describe("개발자", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("옮긴 판: 스태미나·적정치 표와 1차 +10 대결(담은 가중치 칸이 든 표와 견줌)", async ({ page, deviceErrors }) => {
+  test("옮긴 판: 스태미나·적정치 표와 1차 +10 대결(담은 가중치 칸이 든 표와 견줌)", async ({
+    page,
+    deviceErrors,
+  }) => {
     test.setTimeout(120_000);
     await page.goto("/dev/secondary-stats");
     await expect(page.locator(".sec-screen")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });

@@ -59,7 +59,8 @@ export interface BuildStampInput {
 /** define으로 넣을 두 글: 빌드 시각 ISO(UTC)와 커밋 앞 7자. 모르면 빈 글(빌드는 실패하지 않는다) */
 export function buildStampSource(input: BuildStampInput): { readonly time: string; readonly commit: string } {
   if (input.dev) return { time: "", commit: "" };
-  const envMs = input.envTime === undefined || input.envTime.trim() === "" ? Number.NaN : Date.parse(input.envTime);
+  const envMs =
+    input.envTime === undefined || input.envTime.trim() === "" ? Number.NaN : Date.parse(input.envTime);
   const time = new Date(Number.isFinite(envMs) ? envMs : input.nowMs).toISOString();
   const commit = shortCommit(input.envCommit ?? "") ?? shortCommit(input.gitCommit()) ?? "";
   return { time, commit };

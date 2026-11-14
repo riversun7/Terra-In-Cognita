@@ -49,7 +49,12 @@ describe("buildStampOf", () => {
 });
 
 describe("buildStampSource", () => {
-  const base = { dev: false, envTime: undefined, envCommit: undefined, nowMs: Date.UTC(2026, 10, 14, 23, 12) };
+  const base = {
+    dev: false,
+    envTime: undefined,
+    envCommit: undefined,
+    nowMs: Date.UTC(2026, 10, 14, 23, 12),
+  };
 
   it("개발 서버는 빈 글(git을 읽지 않는다)", () => {
     expect(
@@ -75,7 +80,9 @@ describe("buildStampSource", () => {
   });
 
   it("환경 변수가 없거나 틀리면 지금 시각과 git 커밋", () => {
-    expect(buildStampSource({ ...base, envTime: " ", envCommit: "dev", gitCommit: () => "abc1234\n" })).toEqual({
+    expect(
+      buildStampSource({ ...base, envTime: " ", envCommit: "dev", gitCommit: () => "abc1234\n" }),
+    ).toEqual({
       time: "2026-11-14T23:12:00.000Z",
       commit: "abc1234",
     });
@@ -91,7 +98,9 @@ describe("buildStampSource", () => {
 
 describe("buildStampText·buildsDiffer", () => {
   it("시각과 커밋을 함께, 하나만 있으면 그것만, 없으면 dev", () => {
-    expect(buildStampText({ time: "2026-11-15 08:12", commit: "abc1234" })).toBe("2026-11-15 08:12 (abc1234)");
+    expect(buildStampText({ time: "2026-11-15 08:12", commit: "abc1234" })).toBe(
+      "2026-11-15 08:12 (abc1234)",
+    );
     expect(buildStampText({ time: "2026-11-15 08:12", commit: null })).toBe("2026-11-15 08:12");
     expect(buildStampText({ time: null, commit: "abc1234" })).toBe("abc1234");
     expect(buildStampText({ time: null, commit: null })).toBe("dev");

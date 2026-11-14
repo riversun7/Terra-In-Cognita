@@ -105,7 +105,10 @@ test.describe("플레이어", () => {
 
   // 버전 줄: 앱·서버 빌드 시각(한국 시각 분까지)·커밋과 팩 판(사용자 요청 2026-11-15, settings/VersionRow.tsx).
   // 시험 빌드는 손으로 한 빌드라 지금 시각과 git 커밋이 들어간다. 앱과 서버는 같은 작업 트리에서 빌드해 커밋이 같다 → 안내 없음
-  test("설정 화면에 버전 줄이 보인다: 앱·서버 빌드 시각(분까지)·커밋, 팩 판", async ({ page, deviceErrors }) => {
+  test("설정 화면에 버전 줄이 보인다: 앱·서버 빌드 시각(분까지)·커밋, 팩 판", async ({
+    page,
+    deviceErrors,
+  }) => {
     await page.goto("/settings");
     const row = page.locator(".settings [data-part='version']");
     await expect(row).toHaveAttribute("data-state", "ok");

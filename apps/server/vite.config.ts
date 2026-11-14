@@ -13,7 +13,11 @@ import { type Plugin, defineConfig } from "vite";
 /** git 커밋 해시(실패하면 빈 글 — git이 없는 Docker 빌드는 CI가 APP_BUILD로 넘긴다) */
 function gitCommit(): string {
   try {
-    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 });
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 5000,
+    });
   } catch {
     return "";
   }

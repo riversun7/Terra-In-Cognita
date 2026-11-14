@@ -27,8 +27,10 @@ export interface VersionLine {
 /** 앱 도장과 서버 상태 → 버전 줄 조각. 예: ["앱 2026-11-15 08:12 (abc1234)", "서버 2026-11-15 08:20 (def5678)", "팩 core@92"] */
 export function versionLine(app: BuildStamp, server: ServerVersion): VersionLine {
   const appPart = m.settings_version_app({ stamp: buildStampText(app) });
-  if (server.kind === "loading") return { parts: [appPart, m.settings_version_server_loading()], mismatch: false };
-  if (server.kind === "error") return { parts: [appPart, m.settings_version_server_unknown()], mismatch: false };
+  if (server.kind === "loading")
+    return { parts: [appPart, m.settings_version_server_loading()], mismatch: false };
+  if (server.kind === "error")
+    return { parts: [appPart, m.settings_version_server_unknown()], mismatch: false };
   return {
     parts: [
       appPart,

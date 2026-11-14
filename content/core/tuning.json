@@ -8456,6 +8456,77 @@
       "source": "ADR 2026-11-11-city-catchment [임시]"
     },
     {
+      "id": "planet_territory_corridor_cells",
+      "code": "",
+      "name": {
+        "ko": "1차맵 영토 표시: 같은 국가 도시·비콘을 잇는 가장 먼 거리(칸)",
+        "en": "Planet territory display: farthest same-nation link (cells)"
+      },
+      "value": 12,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "보기 전용. 1차맵 영토 레이어에서 이 거리 안의 같은 국가 도시·영토 비콘을 띠로 이어 그 사이 땅도 그 국가 영토로 칠한다. 0이면 잇지 않는다(원만). 영토 판정(칸 소속·비콘 놓기)과 상관없다.",
+        "en": "Display only. On the planet territory layer, same-nation cities and territory beacons within this distance are joined by a band, so the land between them is painted as that nation's. 0 = no bands (circles only). Does not change territory rules (cell ownership, beacon placement)."
+      },
+      "source": "기획 D-544(1434 가) · ADR 2026-11-07-planet-view \"바뀜 (2026-11-14 D-544)\" [임시] 보기 전용"
+    },
+    {
+      "id": "planet_territory_radius_scale",
+      "code": "",
+      "name": {
+        "ko": "1차맵 영토 표시: 도시 원 = 배후지 반경 × 이 배율",
+        "en": "Planet territory display: city circle = catchment radius × this"
+      },
+      "value": 2,
+      "structural": false,
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "보기 전용. 1차맵 영토 레이어의 도시 원 반지름은 도시 배후지 지금 반경에 이 배율을 곱한 값이다(아래 끝은 최소 칸). 늘리면 멀리서도 영토가 넓게 보인다.",
+        "en": "Display only. A city's circle on the planet territory layer is its current catchment radius times this (never below the smallest radius). Higher = territory looks wider from afar."
+      },
+      "source": "기획 D-544(1434 가) · ADR 2026-11-07-planet-view \"바뀜 (2026-11-14 D-544)\" [임시] 보기 전용"
+    },
+    {
+      "id": "planet_territory_min_cells",
+      "code": "",
+      "name": {
+        "ko": "1차맵 영토 표시: 도시 원 반지름 아래 끝(칸)",
+        "en": "Planet territory display: smallest city circle radius (cells)"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 32,
+      "desc": {
+        "ko": "보기 전용. 작은 도시도 1차맵 영토 레이어에서 이 반지름보다 작게 그리지 않는다.",
+        "en": "Display only. Even a small city is drawn at least this wide on the planet territory layer."
+      },
+      "source": "기획 D-544(1434 가) · ADR 2026-11-07-planet-view \"바뀜 (2026-11-14 D-544)\" [임시] 보기 전용"
+    },
+    {
+      "id": "planet_territory_beacon_cells",
+      "code": "",
+      "name": {
+        "ko": "1차맵 영토 표시: 영토 비콘 원 반지름(칸)",
+        "en": "Planet territory display: territory beacon circle radius (cells)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 16,
+      "desc": {
+        "ko": "보기 전용. 1차맵 영토 레이어에서 영토 비콘마다 이 반지름 원을 그 국가 영토에 더한다(도시와 같은 규칙: 겹치면 가장 가까운 도시·비콘이 경계).",
+        "en": "Display only. On the planet territory layer each territory beacon adds a circle of this radius to its nation (same rule as cities: where nations overlap, the nearest city or beacon decides)."
+      },
+      "source": "기획 D-544(1434 가) · ADR 2026-11-07-planet-view \"바뀜 (2026-11-14 D-544)\" [임시] 보기 전용"
+    },
+    {
       "id": "city_catchment_compact_pm",
       "code": "",
       "name": {

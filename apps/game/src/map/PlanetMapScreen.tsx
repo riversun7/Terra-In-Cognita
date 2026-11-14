@@ -492,6 +492,8 @@ function PlanetMapView({
           cities={cities}
           factions={world.factions}
           milliPerRadian={world.milliPerRadian}
+          beacons={world.beacons}
+          territoryDisplay={world.territoryDisplay}
           me={shownMe}
           selected={cityId}
           onSelect={(next) => {

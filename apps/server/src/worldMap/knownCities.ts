@@ -62,3 +62,16 @@ export function hullKnown(
   const cities = group.members.filter((member) => member.kind === "city");
   return cities.length > 0 && cities.every((member) => knownCity(member.id));
 }
+
+/**
+ * 영토 비콘을 보내도 되는가(1차맵 영토 표시, 기획 D-544 1434 가): 내 국가 비콘이거나 기준 도시를 안다. 기준 도시가 없는 비콘은 내 국가 것만
+ * (껍질 hullKnown과 같은 꼴 — 모르는 도시 둘레 자리가 비콘으로 새지 않게)
+ */
+export function beaconKnown(
+  beacon: { readonly factionId: number; readonly cityId: number | null },
+  knownCity: (cityId: number) => boolean,
+  myFactionId: number | null,
+): boolean {
+  if (myFactionId !== null && beacon.factionId === myFactionId) return true;
+  return beacon.cityId !== null && knownCity(beacon.cityId);
+}

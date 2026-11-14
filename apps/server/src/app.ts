@@ -441,6 +441,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           pollutionDanger: tuningState ? () => tuningState.society().gardener.nomadThreshold : undefined,
           // 1차맵 영토 원 = 배후지 지금 반경(ADR planet-view "바뀜 (2026-11-14)")
           catchment: tuningState ? () => catchmentRadiusRulesOf(tuningState.society()) : undefined,
+          // 1차맵 영토 표시 값(설정 칸 planet_territory_*, 기획 D-544 — 보기 전용)
+          territoryDisplay: tuningState ? () => tuningState.society().territoryDisplay : undefined,
         })
       : undefined;
   if (world) {

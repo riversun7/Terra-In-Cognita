@@ -26,7 +26,7 @@ const site = (id: number, factionId: number, latDeg: number, lonDeg: number, rad
   latDeg,
   lonDeg,
   radius: radiusDeg * DEG,
-});
+}) satisfies TerritorySite;
 
 describe("영토 프레임 그리기", () => {
   // 국가 10: 도시 둘(띠로 이음), 국가 20: 도시 하나(가운데에서 먼 곳), 국가 30: 화면 밖

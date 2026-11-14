@@ -11,15 +11,16 @@ import { m } from "../paraglide/messages.js";
 import type { LegendNation, ResourceLoad } from "./PlanetLayerPicker.tsx";
 import { loadResourceMap } from "./planetResource.ts";
 import { nationStyle } from "./nationColor.ts";
-import { territoryAt } from "./territoryPick.ts";
+import { territoryAtWorld } from "./territoryPick.ts";
 import { cityLabel, factionColor, factionName } from "./worldMapData.ts";
 
 /** 영토 레이어에서 누른 곳의 국가 안내 한 줄(도시 자료가 없으면 null) */
 export function territoryLineOf(world: WorldCitiesResponse | null, cell: PickedCell): string | null {
   if (world?.status !== "ready") return null;
-  const hit = territoryAt(cell.latDeg, cell.lonDeg, world.cities, world.milliPerRadian);
+  const hit = territoryAtWorld(cell.latDeg, cell.lonDeg, world);
   if (!hit) return m.planet_territory_outside();
   const nation = factionName(world.factions, hit.factionId);
+  if (hit.beaconId !== null) return m.planet_territory_at_beacon({ nation });
   const city = world.cities.find((entry) => entry.id === hit.cityId);
   return city
     ? m.planet_territory_at_city({ nation, city: cityLabel(world.factions, city) })

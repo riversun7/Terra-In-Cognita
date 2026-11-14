@@ -29,14 +29,16 @@ import { type TerritoryCoefficients, cityGrade } from "@terra/shared/territory";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import type {
   WorldCitiesResponse,
+  WorldMapBeacon,
   WorldMapCity,
   WorldMapFaction,
   WorldMapHull,
   WorldMapLand,
   WorldPosition,
   WorldPositionResponse,
+  WorldTerritoryDisplay,
 } from "@terra/shared/worldMap";
-import { NATION_COLOR_PATTERN } from "@terra/shared/worldMap";
+import { NATION_COLOR_PATTERN, TERRITORY_DISPLAY_START } from "@terra/shared/worldMap";
 import { ownerIdentityOf } from "../factionIdentity/store.ts";
 import { type GovernmentReads, governmentReadsOfWorld } from "../government/reads.ts";
 import { loadEmblemHashes } from "../nationEdit/emblems.ts";
@@ -49,7 +51,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import type { World } from "../world/world.ts";
 import { visionViewerOf } from "../world/nationVision.ts";
 import { canObserve, canViewSecondMap } from "../world/visibility.ts";
-import { hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
+import { beaconKnown, hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
 import { createTravelDanger } from "./travelDanger.ts";
 import { cyborgLookOf } from "../cyborg/state.ts";
 import { ownerFactionsOf } from "../facilities/targets.ts";
@@ -90,6 +92,8 @@ export interface WorldMapReadDeps {
    * (화면은 영향권 반경으로 그린다)
    */
   readonly catchment?: (() => CatchmentRadiusRules | undefined) | undefined;
+  /** 1차맵 영토 표시 값(설정 칸 실효 값 planet_territory_*, 기획 D-544). 없으면 출발값(TERRITORY_DISPLAY_START) */
+  readonly territoryDisplay?: (() => WorldTerritoryDisplay) | undefined;
 }
 
 export interface WorldMapReadServices {
@@ -399,6 +403,24 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
           }),
         });
       }
+      // 영토 비콘(기획 D-544 1434 가 — 1차맵 영토 표시에 비콘마다 작은 원): 꼭짓점인 비콘(껍질 덩이 구성원 = 다 지었고 상태 문턱 이상)만,
+      // 안개는 껍질과 같은 꼴(내 국가·기준 도시를 앎·전체 보기 — 모르는 국가 비콘 자리가 새지 않게)
+      const vertexBeacons = new Set(
+        (territory?.groups ?? []).flatMap((group) =>
+          group.members.filter((member) => member.kind === "beacon").map((member) => member.id),
+        ),
+      );
+      const beacons: WorldMapBeacon[] = [];
+      for (const beacon of territory?.beacons ?? []) {
+        if (!vertexBeacons.has(beacon.id) || !factions.has(beacon.factionId)) continue;
+        if (!observer && !beaconKnown(beacon, (id) => knownIds.has(id), myFactionId)) continue;
+        beacons.push({
+          id: beacon.id,
+          factionId: beacon.factionId,
+          cityId: beacon.cityId,
+          ...latLonOfDirection(...beacon.point),
+        });
+      }
       // 국가 색(바뀜 2026-11-14): 세력 정체성 색 > 팩 국가 프리셋 시그니처 색. 아는 국가(안개를 지난 도시의 국가)만
       const identity = await identityColors(pool, [...factions.keys()]);
       const colored = [...factions.values()].map((faction): WorldMapFaction => {
@@ -416,6 +438,8 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         hulls,
         // 영토 서비스가 없어도 배후지 원을 그릴 수 있게 행성 평균 칸 환산(같은 값 — @terra/planet/territory)
         milliPerRadian: territory?.milliPerRadian ?? territoryMetric(faceLevel).milliPerRadian,
+        beacons,
+        territoryDisplay: { ...(deps.territoryDisplay?.() ?? TERRITORY_DISPLAY_START) },
         myFactionId,
         generatedAt: nowMs,
       };
@@ -536,6 +560,8 @@ export function worldMapReadsOf(options: {
   readonly pollutionDanger?: (() => number) | undefined;
   /** 배후지 지금 반경 규칙(설정 칸 실효 값 — 1차맵 영토 원). 없으면 catchmentMilli = null */
   readonly catchment?: (() => CatchmentRadiusRules | undefined) | undefined;
+  /** 1차맵 영토 표시 값(설정 칸 실효 값 planet_territory_*, D-544). 없으면 출발값 */
+  readonly territoryDisplay?: (() => WorldTerritoryDisplay) | undefined;
 }): () =>
   | (WorldMapReadServices &
       TravelReads &
@@ -575,6 +601,7 @@ export function worldMapReadsOf(options: {
     factionName: nameOfCode,
     factionColor: (code) => nationEmblemOf(code, options.presets)?.color,
     catchment: options.catchment,
+    territoryDisplay: options.territoryDisplay,
   });
   // 2차맵 사이 이동 조회(WP9·WP11): 확인 단계(+ 위험 구간, 질문 594 나)·가는 중인 길(이동 서비스, 지금 자리의 위도·경도를 붙인다)
   const danger = createTravelDanger({

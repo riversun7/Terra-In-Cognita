@@ -31,6 +31,7 @@ const site = (
   lonDeg: number,
   radiusDeg: number,
 ): TerritorySite => ({
+  kind: "city",
   id,
   factionId,
   latDeg,
@@ -212,6 +213,7 @@ describe("국가 영토: 규모", () => {
       const count = nation < 2 ? 1 + nation : 3;
       for (let index = 0; index < count; index++)
         sites.push({
+          kind: "city",
           id: id++,
           factionId: nation + 1,
           latDeg: lat + (index % 2) * 4.5 * cell,
@@ -220,9 +222,9 @@ describe("국가 영토: 규모", () => {
         });
     }
     // 이웃 국가 도시가 맞닿는 곳 하나
-    sites.push({ id: id++, factionId: 2, latDeg: -24 + 2 * cell, lonDeg: -40 + 3 * cell, radius });
+    sites.push({ kind: "city", id: id++, factionId: 2, latDeg: -24 + 2 * cell, lonDeg: -40 + 3 * cell, radius });
     while (sites.length < 50)
-      sites.push({ id: id++, factionId: 16, latDeg: 0, lonDeg: -10 + sites.length * 0.3, radius });
+      sites.push({ kind: "city", id: id++, factionId: 16, latDeg: 0, lonDeg: -10 + sites.length * 0.3, radius });
     const started = performance.now();
     const shapes = buildTerritoryShapes(sites, corridorOf(milliPerRadian));
     const elapsed = performance.now() - started;

@@ -20,6 +20,7 @@ import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
 import { RANKING_TUNING_KEYS } from "./tuningRanking.ts";
 import { SWITCH_TUNING_KEYS } from "./tuningSwitches.ts";
 import { TERRITORY_TUNING_KEYS } from "./tuningTerritory.ts";
+import { TERRITORY_DISPLAY_TUNING_KEYS } from "./tuningTerritoryDisplay.ts";
 import { VITALS_TUNING_KEYS } from "./tuningVitals.ts";
 import { INJURY_TUNING_KEYS } from "./tuningInjury.ts";
 import { WORLD_SEED_TUNING_KEYS } from "./tuningWorldSeed.ts";
@@ -622,6 +623,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...BUILD_TUNING_KEYS,
   // 영토 층(49 M2·M3·N42·N51, D-104·D-485·D-486): tuningTerritory.ts
   ...TERRITORY_TUNING_KEYS,
+  // 1차맵 영토 표시(D-544, 보기 전용 [임시] — 판정은 읽지 않는다): tuningTerritoryDisplay.ts
+  ...TERRITORY_DISPLAY_TUNING_KEYS,
   // 랭킹(20 §8, D-037·D-041·D-042, 49에 칸 없음 [임시]): tuningRanking.ts
   ...RANKING_TUNING_KEYS,
   ...VITALS_TUNING_KEYS,

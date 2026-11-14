@@ -12,16 +12,16 @@
 //   고리 점만 투영한다(territoryDraw.ts — 화면 밖 건너뛰기·솎기, 작게 보이는 국가는 둥근 표시).
 // - 국가 이름표: 넓은 국가부터, 다른 이름표·보이는 도시 표시와 겹치지 않는 자리(가운데·위·아래·옆)에 단다. 자리가 없으면 감춘다.
 import type { PlanetProjector, ProjectedPoint } from "@terra/engine/planet";
-import type { WorldMapCity, WorldMapFaction } from "@terra/shared/worldMap";
+import type {
+  WorldMapBeacon,
+  WorldMapCity,
+  WorldMapFaction,
+  WorldTerritoryDisplay,
+} from "@terra/shared/worldMap";
 import { useEffect, useMemo, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { type LabelSize, placeLabels, projectTerritory } from "./territoryDraw.ts";
-import {
-  type TerritoryShapes,
-  buildTerritoryShapes,
-  corridorOf,
-  territorySitesOf,
-} from "./territoryShapes.ts";
+import { type TerritoryShapes, buildTerritoryShapes, territoryInputOf } from "./territoryShapes.ts";
 import { nationStyle } from "./nationColor.ts";
 import { cityLabel, factionColor, factionName } from "./worldMapData.ts";
 import "./cityOverlay.css";
@@ -40,6 +40,10 @@ interface CityOverlayProps {
   readonly factions: readonly WorldMapFaction[];
   /** 반경 환산(1000분율 칸 → 라디안). 0·없음이면 영토를 그리지 않는다 */
   readonly milliPerRadian?: number | undefined;
+  /** 아는 영토 비콘(비콘마다 작은 원, 기획 D-544 1434 가). 없으면 비콘 없이 */
+  readonly beacons?: readonly WorldMapBeacon[] | undefined;
+  /** 영토 표시 값(설정 칸 planet_territory_*). 없으면 출발값 */
+  readonly territoryDisplay?: WorldTerritoryDisplay | undefined;
   /** 내 사이보그 자리(없으면 그리지 않는다) */
   readonly me?: { readonly latDeg: number; readonly lonDeg: number } | null | undefined;
   readonly selected: number | null;
@@ -59,9 +63,9 @@ const place = (element: HTMLElement, point: { readonly x: number; readonly y: nu
   element.style.transform = `translate(${Math.round(point.x)}px, ${Math.round(point.y)}px) translate(-50%, -50%)`;
 };
 
-/** 영토를 그릴 국가(도시 차례에 처음 나온 차례) */
-function areaNations(cities: readonly WorldMapCity[]): number[] {
-  return [...new Set(cities.map((city) => city.factionId))];
+/** 영토를 그릴 국가(도시 차례에 처음 나온 차례, 그다음 비콘만 있는 국가) */
+function areaNations(cities: readonly WorldMapCity[], beacons: readonly WorldMapBeacon[] = []): number[] {
+  return [...new Set([...cities.map((city) => city.factionId), ...beacons.map((beacon) => beacon.factionId)])];
 }
 
 /** 국가 영토 한 벌(원 바탕·이긴 조각·테두리 경로, 이름표) */
@@ -82,7 +86,8 @@ function drawOrder(cities: readonly WorldMapCity[], selected: number | null): Wo
 }
 
 export function CityOverlay(props: CityOverlayProps) {
-  const { cities, factions, selected, register, requestFrame, milliPerRadian } = props;
+  const { cities, factions, selected, register, requestFrame, milliPerRadian, beacons, territoryDisplay } =
+    props;
   const markers = useRef(new Map<number, HTMLButtonElement>());
   const areas = useRef(new Map<number, AreaParts>());
   // 이름표 크기(px) — 글자가 바뀌지 않으니 처음 잰 값을 둔다(국가 목록이 바뀌면 다시 잰다)
@@ -91,12 +96,11 @@ export function CityOverlay(props: CityOverlayProps) {
   const territoryRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<SVGPathElement>(null);
   const latest = useRef(props);
-  // 영토 모양(도시 자료가 바뀔 때만 셈한다 — 국가 16·도시 50에서 수십 ms, territoryShapes.test.ts)
-  const territory = useMemo(
-    (): TerritoryShapes =>
-      buildTerritoryShapes(territorySitesOf(cities, milliPerRadian), corridorOf(milliPerRadian)),
-    [cities, milliPerRadian],
-  );
+  // 영토 모양(도시·비콘 자료나 표시 값이 바뀔 때만 셈한다 — 국가 16·도시 50에서 수십 ms, territoryShapes.test.ts)
+  const territory = useMemo((): TerritoryShapes => {
+    const input = territoryInputOf({ cities, milliPerRadian: milliPerRadian ?? 0, beacons, territoryDisplay });
+    return buildTerritoryShapes(input.sites, input.corridor);
+  }, [cities, milliPerRadian, beacons, territoryDisplay]);
   const model = useRef(territory);
 
   // 그린 뒤 최신 자료를 둔다. 자료·고르기·내 자리·영토·강조가 바뀌었으면 한 번 더 그린다(새 단추 위치를 잡는다)
@@ -215,7 +219,7 @@ export function CityOverlay(props: CityOverlayProps) {
     else props.onSelect(city);
   };
 
-  const nations = areaNations(cities);
+  const nations = areaNations(cities, beacons);
   return (
     <div
       className="city-overlay"

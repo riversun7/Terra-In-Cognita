@@ -347,6 +347,11 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   // (바꾸면 다음 맞추기부터 — 휴먼은 지금 쉬는 시간이 끝난 뒤 새 곳으로)
   "worldSeed.workStartPm",
   "worldSeed.workEndPm",
+  // 1차맵 영토 표시(worldMap/reads.ts world.cities, 기획 D-544 — 보기 전용): 조회마다 읽어 화면에 넘긴다
+  "territoryDisplay.corridorCells",
+  "territoryDisplay.radiusScale",
+  "territoryDisplay.minCells",
+  "territoryDisplay.beaconCells",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

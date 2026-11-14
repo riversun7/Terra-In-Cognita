@@ -1,4 +1,4 @@
-/* 사이보그 초상 칸(CyborgPortrait.tsx) — 칸의 폭은 부르는 쪽 클래스가 정하고, 안의 그림(3D 초상 img·옛 2D svg)은 그 폭을 채운다 */
+/* 사이보그 초상 칸(CyborgPortrait.tsx) — 칸의 폭은 부르는 쪽 클래스가 정하고, 안의 그림(3D 초상 img·실루엣 svg)은 그 폭을 채운다 */
 .cyborg-portrait {
   display: inline-grid;
   place-items: center;
@@ -12,4 +12,24 @@
 }
 .cyborg-portrait-image {
   aspect-ratio: 1;
+}
+
+/* 실루엣(CyborgSilhouette.tsx): 캐릭터 그림이 아닌 한 색 덩어리. 정사각이라 3D 초상과 같은 자리를 차지한다 */
+.cyborg-silhouette {
+  display: block;
+  aspect-ratio: 1;
+  color: var(--color-border);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cyborg-silhouette[data-pending="true"] {
+    animation: cyborg-silhouette-pulse calc(var(--duration-slow) * 3) ease-in-out infinite alternate;
+  }
+}
+@keyframes cyborg-silhouette-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
 }

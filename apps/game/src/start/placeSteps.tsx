@@ -9,11 +9,10 @@ import type {
   CyborgCreationResponse,
   CyborgRollView,
 } from "@terra/shared/cyborg";
-import { type CharacterLook, legacyAppearanceOf } from "@terra/shared/characterLook";
+import type { CharacterLook } from "@terra/shared/characterLook";
 import { PRIMARY_STAT_PAIRS } from "@terra/shared/roster";
 import type { WorldCitiesResponse } from "@terra/shared/worldMap";
 import { type ReactNode, Suspense, lazy, useId } from "react";
-import { CyborgAvatar } from "../cyborg/CyborgAvatar.tsx";
 import { CyborgPortrait } from "../cyborg/CyborgPortrait.tsx";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
@@ -281,7 +280,7 @@ export function DescentStep({
   elements,
 }: {
   name: string;
-  /** 고른 3D 외형(요약 초상은 이 외형을 그린 3D 썸네일, 그리는 동안·WebGL 없음이면 넘긴 옛 2D 그림) */
+  /** 고른 3D 외형(요약 초상은 이 외형을 그린 3D 썸네일, 그리는 동안·WebGL 없음이면 무늬 없는 실루엣) */
   look: CharacterLook;
   roll: CyborgRollView;
   faction: CreationFaction;
@@ -290,16 +289,10 @@ export function DescentStep({
   /** 속성 분배 요약 줄(elementsStep.tsx ElementsSummaryRow, D-450) */
   elements?: ReactNode;
 }) {
-  const legacy = legacyAppearanceOf(look);
   return (
     <div className="start-descent" data-descending={descending ? "true" : "false"}>
       <div className="start-summary">
-        <CyborgPortrait
-          look={look}
-          sizePx={SUMMARY_PORTRAIT_PX}
-          className="start-summary-avatar"
-          fallback={<CyborgAvatar look={legacy} />}
-        />
+        <CyborgPortrait look={look} sizePx={SUMMARY_PORTRAIT_PX} className="start-summary-avatar" />
         <div className="start-summary-text">
           <p className="start-summary-name">{name.trim()}</p>
           <p className="start-choice-meta">{temperamentText(roll.temperament)}</p>
@@ -346,7 +339,6 @@ export function DescentStep({
               framing="face"
               sizePx={SUMMARY_PORTRAIT_PX}
               className="start-scene-face"
-              fallback={<CyborgAvatar look={legacy} variant="face" />}
             />
           </span>
           <span className="start-scene-text">{m.start_descent_scene()}</span>

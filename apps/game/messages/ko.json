@@ -41,7 +41,7 @@
   "start_looks_note": "2차맵에서도 이 모습으로 보입니다. 외형은 꾸밈이라 능력치와 상관없습니다.",
   "start_looks_preview3d": "고른 외형 3D 미리 보기. 끌거나 화살표 키로 돌리고, + − 키로 확대합니다.",
   "start_looks_loading": "미리 보기를 준비하는 중…",
-  "start_looks_unsupported": "이 기기에서는 3D 미리 보기를 쓸 수 없어 그림으로 보입니다. 고르기는 그대로 됩니다.",
+  "start_looks_unsupported": "이 기기에서는 3D 미리 보기를 쓸 수 없어 실루엣으로 보입니다. 고르기는 그대로 됩니다.",
   "start_looks_turntable": "돌림판",
   "start_looks_walk": "걷기",
   "start_looks_night": "밤",

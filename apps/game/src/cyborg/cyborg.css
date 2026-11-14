@@ -73,7 +73,6 @@
   width: var(--avatar-hero);
   max-width: 100%;
   height: auto;
-  color: var(--color-text);
 }
 .cyborg-slot-group {
   display: flex;

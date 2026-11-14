@@ -1,7 +1,7 @@
 // 첫 접속 2단계 — 외형(D-6040 "전부다": 프리셋·무작위·부위·색이 한 화면). 3D 로우폴리 캐릭터를 조립한다.
 // docs/adr/2026-11-11-character-3d.md 3절(사용자 요청 2026-11-11 "캐릭터 생성을 더 다양한 프리셋과 폴리곤 3d로").
 // - 위: 3D 미리 보기(CharacterPreviewPane.tsx — 끌어 돌리기·확대·돌림판·걷기·낮밤), [무작위]·[되돌리기].
-// - 아래: 탭(프리셋·몸·머리·옷·장식·색). 프리셋은 썸네일 갤러리(같은 그리기로 만든 그림, 만들기 전에는 2D 얼굴 그림),
+// - 아래: 탭(프리셋·몸·머리·옷·장식·색). 프리셋은 썸네일 갤러리(같은 그리기로 만든 그림, 만들기 전·못 만들면 무늬 없는 실루엣),
 //   부위 칸은 앞·뒤 넘기기 + 그 칸만 다시 뽑기 + 잠그기, 색은 칠할 곳을 고르고 견본 20개에서 고른다.
 // - 무작위는 꾸밈이라 기기 난수로 씨앗을 뽑는다(서버는 ID·범위만 본다). 잠근 칸은 [무작위]에서 바뀌지 않는다.
 // - [되돌리기]는 바로 앞 외형으로(20번까지).
@@ -15,13 +15,12 @@ import {
   type CharacterLookKey,
   characterLookChoices,
   characterLookKey,
-  legacyAppearanceOf,
   rerollCharacterLook,
   sameCharacterLook,
   stepCharacterLook,
 } from "@terra/shared/characterLook";
 import { useEffect, useId, useState } from "react";
-import { CyborgAvatar } from "../cyborg/CyborgAvatar.tsx";
+import { CyborgSilhouette } from "../cyborg/CyborgSilhouette.tsx";
 import { m } from "../paraglide/messages.js";
 import { TabList, panelId, tabId } from "../sections/screenParts.tsx";
 import { loadPreviewEngine } from "../cyborg/previewEngine.ts";
@@ -63,9 +62,10 @@ function randomSeed(): number {
 /** 프리셋 썸네일(외형 표지 → PNG data URL). 한 번 만들면 화면을 다시 열어도 쓴다 */
 let presetThumbs: ReadonlyMap<string, string> | null = null;
 
-/** 프리셋 썸네일을 만든다(미리 보기 엔진 조각을 받은 뒤 한 번). 만들지 못하면 null — 2D 얼굴 그림이 남는다 */
-function usePresetThumbnails(): ReadonlyMap<string, string> | null {
+/** 프리셋 썸네일을 만든다(미리 보기 엔진 조각을 받은 뒤 한 번). 만들지 못하면 failed — 무늬 없는 실루엣이 남는다 */
+function usePresetThumbnails(): { thumbs: ReadonlyMap<string, string> | null; failed: boolean } {
   const [thumbs, setThumbs] = useState(presetThumbs);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (presetThumbs) return undefined;
     let closed = false;
@@ -77,12 +77,14 @@ function usePresetThumbnails(): ReadonlyMap<string, string> | null {
         presetThumbs = new Map(looks.map((look, index) => [characterLookKey(look), urls[index] ?? ""]));
         setThumbs(presetThumbs);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!closed) setFailed(true);
+      });
     return () => {
       closed = true;
     };
   }, []);
-  return thumbs;
+  return { thumbs, failed };
 }
 
 function DiceIcon() {
@@ -200,7 +202,7 @@ export function LooksStep({ look, onLook }: { look: CharacterLook; onLook: (next
   const [locked, setLocked] = useState<ReadonlySet<CharacterLookKey>>(() => new Set());
   const [history, setHistory] = useState<readonly CharacterLook[]>([]);
   const [colorSlot, setColorSlot] = useState<CharacterColorSlot>("primary");
-  const thumbs = usePresetThumbnails();
+  const { thumbs, failed: thumbsFailed } = usePresetThumbnails();
 
   const change = (next: CharacterLook): void => {
     if (sameCharacterLook(next, look)) return;
@@ -280,11 +282,7 @@ export function LooksStep({ look, onLook }: { look: CharacterLook; onLook: (next
                       height={THUMB_PX}
                     />
                   ) : (
-                    <CyborgAvatar
-                      look={legacyAppearanceOf(preset.look)}
-                      variant="face"
-                      className="start-preset-face"
-                    />
+                    <CyborgSilhouette framing="face" pending={!thumbsFailed} className="start-preset-face" />
                   )}
                   <span>{lookPresetText(preset.id)}</span>
                 </button>

@@ -74,7 +74,7 @@ import { createMapVision } from "./vision.ts";
 import { waterMaskOfTerrain } from "./waterMask.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
 import { recordPathOutcome } from "./worldStats.ts";
-import { NO_JOB, type UnitJob, type UnitRow, unitRowOf } from "./secondMapRows.ts";
+import { NO_JOB, type UnitJob, type UnitRow, motionOfRow, unitRowOf } from "./secondMapRows.ts";
 
 /** 봇 경로의 탐색 예산(칸). 넘으면 budget_exceeded → 다른 목적지 */
 export const BOT_NODE_BUDGET = 32_768;
@@ -310,7 +310,12 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         nodeBudget,
         priority,
         isCurrent: isCurrent(unit, seq),
-        ...(unit.domain === "sea" && ensureBoatGrid() ? { medium: "water" as const } : {}),
+        // 땅 유닛은 구간 빠르기(걸음 배율, ADR 2026-11-14-segment-speed.md)를 기본 빠르기로 셈한다. 배는 같은 빠르기
+        ...(unit.domain === "sea"
+          ? ensureBoatGrid()
+            ? { medium: "water" as const }
+            : {}
+          : { paceSpeed: unit.speed }),
       })
       .then(
         (outcome) => onRoute(unit, seq, to, priority, nodeBudget, outcome, waiter, speedFactor),
@@ -354,7 +359,12 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     if (outcome.status === "found") {
       if (outcome.waypoints.length <= MAX_PATH_POINTS && outcome.waypoints.length > 0) {
         const speed = Math.min(MAX_UNIT_SPEED, Math.max(1, Math.round(unit.speed * speedFactor)));
-        const motion = createMotion({ waypoints: outcome.waypoints, departAtMs: now(), speed });
+        const motion = createMotion({
+          waypoints: outcome.waypoints,
+          paces: outcome.paces,
+          departAtMs: now(),
+          speed,
+        });
         setMotion(unit, motion);
         scheduleEvent(unit, "arrive", arrivalAt(motion));
         waiter?.({ ok: true });
@@ -637,13 +647,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       }
       const events: { at: number; kind: MapEvent["kind"]; unit: UnitState }[] = [];
       for (const row of unitRows) {
-        let motion: Motion;
-        try {
-          const waypoints: Point[] = [];
-          for (let i = 0; i + 1 < row.path.length; i += 2)
-            waypoints.push({ x: row.path[i] ?? 0, y: row.path[i + 1] ?? 0 });
-          motion = createMotion({ waypoints, departAtMs: row.departAtMs, speed: row.speed });
-        } catch {
+        const motion = motionOfRow(row);
+        if (!motion) {
           badUnits.push(row.id);
           continue;
         }

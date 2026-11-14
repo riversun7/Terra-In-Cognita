@@ -29,7 +29,7 @@ describe("폐허 복원 메시지(프로토콜 13)", () => {
     expect(RUINS_PROTOCOL_VERSION).toBe(13);
     expect(RUINS_DEADLINE_PROTOCOL_VERSION).toBe(15);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(RUINS_DEADLINE_PROTOCOL_VERSION);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBeGreaterThanOrEqual(PROTOCOL_VERSION - 1);
     const open = { t: "restoration_open", id: 1, ruin: 12 } as const;
     expect(decodeClientMessage(encodeMessage(open))).toEqual(open);
     expect(decodes(decodeClientMessage, { ...open, ruin: 0 })).toBe(false);

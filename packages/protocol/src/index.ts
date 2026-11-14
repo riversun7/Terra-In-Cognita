@@ -20,6 +20,7 @@ export {
 export {
   MAX_BUILDING_SIDE,
   MAX_PATH_POINTS,
+  MAX_PATH_PACE,
   MAX_UNIT_SPEED,
   POSITION_UNITS_PER_CELL,
   RESULT_CODES,
@@ -34,6 +35,8 @@ export {
   UNIT_SIZE_CLASSES,
   buildingSchema,
   unitMotionSchema,
+  paceMatchesPath,
+  SEGMENT_SPEED_PROTOCOL_VERSION,
   type BuildingWire,
   type ResultCode,
   type UnitMotionWire,

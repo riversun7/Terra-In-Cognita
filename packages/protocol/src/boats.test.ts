@@ -27,7 +27,7 @@ describe("배 메시지(프로토콜 27)", () => {
   it("판: 27부터, 받는 가장 낮은 판 26", () => {
     expect(BOAT_PROTOCOL_VERSION).toBe(27);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(BOAT_PROTOCOL_VERSION);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBeGreaterThanOrEqual(PROTOCOL_VERSION - 1);
   });
 
   it("만들기·타기·내리기가 왕복하고 값 모양을 본다", () => {

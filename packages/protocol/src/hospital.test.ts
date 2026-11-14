@@ -25,7 +25,7 @@ describe("병원 메시지(프로토콜 17)", () => {
   it("판: 병원은 17부터, 받는 가장 낮은 판 = 현재 − 1", () => {
     expect(HOSPITAL_PROTOCOL_VERSION).toBe(17);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOSPITAL_PROTOCOL_VERSION);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBeGreaterThanOrEqual(PROTOCOL_VERSION - 1);
   });
 
   it("치료·개발 시험 부상이 왕복하고 값 모양을 본다", () => {

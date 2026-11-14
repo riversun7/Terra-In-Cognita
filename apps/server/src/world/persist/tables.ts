@@ -33,6 +33,7 @@ export const WORLD_TABLES = {
       "planet_id",
       "domain",
       "path",
+      "pace",
       "depart_at_ms",
       "wake_at_ms",
       "ai_step",

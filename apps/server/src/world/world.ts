@@ -38,7 +38,8 @@ import { type VitalsConfig, type WorldVitals, createWorldVitals } from "../vital
 import { type LaborService, createLaborService } from "../labor/service.ts";
 import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
 import { UNIT_KIND_CYBORG_UNIT } from "./unitKinds.ts";
-import { conditionColumns, createWorkInjury } from "./unitCondition.ts";
+import { createWorkInjury } from "./unitCondition.ts";
+import { unitColumnsOf } from "./secondMapRows.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import { walkSpeedsOf } from "./walkSpeed.ts";
@@ -408,26 +409,7 @@ export function startWorld(
     };
     const owners = new Map(loaded.owners.map((owner) => [owner.id, owner]));
     const persist: MapPersist = {
-      saveUnit: (row) =>
-        writer.upsert("units", {
-          id: row.id,
-          owner_id: row.ownerId,
-          kind: row.kind,
-          size: row.size,
-          speed: row.speed,
-          map_key: row.mapKey,
-          planet_id: row.planetId,
-          domain: row.domain,
-          path: row.path,
-          depart_at_ms: row.departAtMs,
-          wake_at_ms: row.wakeAtMs,
-          ai_step: row.aiStep,
-          job: row.job.job,
-          job_phase: row.job.phase,
-          job_progress_ms: row.job.progressMs,
-          fatigue: row.job.fatigue,
-          ...conditionColumns(row.condition, row.aboardId),
-        }),
+      saveUnit: (row) => writer.upsert("units", unitColumnsOf(row)),
       saveBuilding: (row) =>
         writer.upsert("buildings", {
           id: row.id,

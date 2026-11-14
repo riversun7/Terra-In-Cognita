@@ -22,6 +22,13 @@ export const SECOND_MAP_UNITS = SECOND_MAP_CELLS * POSITION_UNITS_PER_CELL;
 export const MAX_PATH_POINTS = 1024;
 /** 속도 상한(단위/초, packages/sim MAX_SPEED와 같다) */
 export const MAX_UNIT_SPEED = 0x10_0000;
+/** 구간 걸음 배율 상한(천분율, packages/sim MAX_PACE와 같다 — 서버 시험이 확인) */
+export const MAX_PATH_PACE = 0xffff;
+/**
+ * 구간 빠르기(unitMotionSchema pace, docs/adr/2026-11-14-segment-speed.md, 기획 D-541)가 실린 가장 낮은 프로토콜 버전.
+ * 이보다 낮은 기기는 pace를 버리고 경로 전체를 같은 빠르기로 보간해 위치가 어긋난다 → 받는 가장 낮은 판을 이 값으로 올렸다(version.ts)
+ */
+export const SEGMENT_SPEED_PROTOCOL_VERSION = 29;
 /** 건물 한 변의 상한(칸, S1 임시값) */
 export const MAX_BUILDING_SIDE = 32;
 /** 유닛 크기 등급 = 통과 폭(칸). 1 일반, 2 대형, 3 초대형 (packages/sim SizeClass) */
@@ -152,8 +159,16 @@ export const removeBuildingMessage = z.object({
 export const unitMotionSchema = z.object({
   id: unitId,
   size: sizeClass,
-  /** 단위/초 */
+  /** 기본 속도(단위/초). 구간 i의 속도 = speed × 1000 ÷ pace[i] */
   speed: z.number().int().min(1).max(MAX_UNIT_SPEED),
+  /**
+   * 구간마다 걸음 배율(천분율, 프로토콜 29, 길이 = 꺾이는 점 수 − 1 — 메시지 배열에서 확인). 없으면 모든 구간이 1000(기본 속도).
+   * 꺾이는 점 i 도착 = departAtMs + ⌈Σ(구간 길이 × pace) ÷ speed⌉ (packages/sim motion.ts)
+   */
+  pace: z
+    .array(z.number().int().min(1).max(MAX_PATH_PACE))
+    .max(MAX_PATH_POINTS - 1)
+    .optional(),
   /** 첫 점을 떠난 시각(서버 ms) */
   departAtMs: timestampMs,
   /** 꺾이는 점 [x0, y0, x1, y1, …]. 첫 점이 출발 위치, 마지막 점이 목적지다. 점 하나면 서 있다 */
@@ -176,6 +191,14 @@ export const unitMotionSchema = z.object({
     .optional(),
 });
 export type UnitMotionWire = z.infer<typeof unitMotionSchema>;
+
+/** 걸음 배율 길이가 꺾이는 점 수 − 1인가(없으면 맞다) */
+export function paceMatchesPath(unit: Pick<UnitMotionWire, "path" | "pace">): boolean {
+  return unit.pace === undefined || unit.pace.length === unit.path.length / 2 - 1;
+}
+
+/** 메시지 안 유닛 움직임: 모양 + 걸음 배율 길이 */
+const unitMotionEntry = unitMotionSchema.refine(paceMatchesPath, "pace needs one value per segment");
 
 /** 놓인 건물. 칸 규칙은 place_building과 같다 */
 export const buildingSchema = z.object({
@@ -206,7 +229,7 @@ const mapSnapshotMessage = z.object({
   serverTime: timestampMs,
   /** 지형 이진 파일 주소(버전이 붙은 불변 주소, 로그인 필요)와 생성기 버전 */
   terrain: z.object({ url: z.string().min(1).max(256), generatorVersion: u32 }),
-  units: z.array(unitMotionSchema),
+  units: z.array(unitMotionEntry),
   buildings: z.array(buildingSchema),
 });
 
@@ -220,7 +243,7 @@ const unitPathsMessage = z
     mapKey,
     fromRev: revision,
     rev: revision,
-    units: z.array(unitMotionSchema),
+    units: z.array(unitMotionEntry),
     hidden: z.array(unitId).optional(),
   })
   .refine((message) => message.units.length > 0 || (message.hidden?.length ?? 0) > 0, "empty unit_paths");

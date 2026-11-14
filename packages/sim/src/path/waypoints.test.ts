@@ -115,3 +115,55 @@ describe("planRoute (위치 → 위치)", () => {
     ).toBe("invalid_request");
   });
 });
+
+describe("구간 걸음 배율 (ADR 2026-11-14-segment-speed)", () => {
+  it("직선 안에서 배율이 바뀌는 칸에 점을 남기고 구간마다 들어가는 칸의 배율을 준다", () => {
+    const grid = createPlacementGrid();
+    // (3, 0) ~ (5, 0)은 숲(1800)
+    for (let x = 3; x <= 5; x++) setTerrainCost(grid, x, 0, 1800);
+    // 숲이 길을 비틀지 않게 위아래를 막는다
+    for (let x = 0; x <= 9; x++) setTerrainCost(grid, x, 1, 0);
+    const route = planRoute(pathfinder, grid, {
+      from: anchorCenter(0, 0, 1),
+      to: anchorCenter(8, 0, 1),
+      size: 1,
+      paceSpeed: 437,
+    });
+    expect(route.status).toBe("found");
+    if (route.status !== "found") return;
+    expect(route.waypoints).toEqual([
+      anchorCenter(0, 0, 1),
+      anchorCenter(2, 0, 1),
+      anchorCenter(5, 0, 1),
+      anchorCenter(8, 0, 1),
+    ]);
+    expect(route.paces).toEqual([1000, 1800, 1000]);
+  });
+
+  it("paceSpeed가 없거나 배율이 모두 1000이면 점·결과가 예전과 같다", () => {
+    const grid = createPlacementGrid();
+    setTerrainCost(grid, 4, 4, 0);
+    const request = { from: { x: 700, y: 900 }, to: anchorCenter(9, 7, 1), size: 1 as const };
+    const plain = planRoute(pathfinder, grid, request);
+    const paced = planRoute(pathfinder, grid, { ...request, paceSpeed: 437 });
+    expect(plain.status).toBe("found");
+    if (plain.status !== "found" || paced.status !== "found") return;
+    expect(paced.waypoints).toEqual(plain.waypoints);
+    expect(paced.paces).toBeUndefined();
+    expect(plain.paces).toBeUndefined();
+  });
+
+  it("중심이 아닌 출발점 → 출발 칸 중심 구간은 출발 칸의 배율", () => {
+    const grid = createPlacementGrid();
+    setTerrainCost(grid, 0, 0, 2500);
+    const route = planRoute(pathfinder, grid, {
+      from: { x: 100, y: 512 },
+      to: anchorCenter(3, 0, 1),
+      size: 1,
+      paceSpeed: 437,
+    });
+    if (route.status !== "found") throw new Error(route.status);
+    expect(route.waypoints[0]).toEqual({ x: 100, y: 512 });
+    expect(route.paces?.[0]).toBe(2500);
+  });
+});

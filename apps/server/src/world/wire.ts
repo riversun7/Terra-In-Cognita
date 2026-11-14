@@ -31,6 +31,8 @@ export function motionToWire(
   const path: number[] = [];
   for (const point of motion.waypoints) path.push(point.x, point.y);
   const wire: UnitMotionWire = { id, size, speed: motion.speed, departAtMs: motion.departAtMs, path };
+  // 구간 걸음 배율(프로토콜 29, docs/adr/2026-11-14-segment-speed.md) — 모두 1000이면 칸을 넣지 않는다(바이트)
+  if (motion.paces !== undefined) wire.pace = [...motion.paces];
   return kind === undefined ? wire : { ...wire, kind };
 }
 

@@ -5,10 +5,14 @@
 // - 시야선 다듬기(line-of-sight smoothing, 임의 각도 직선)는 S1에서 하지 않는다.
 //   다듬으면 크기 등급별 통과 폭·도로 비용을 직선 전체에서 다시 확인해야 하고, 비용이 A* 결과와 달라진다.
 // - 크기 등급 s 유닛의 위치(중심) = 기준 칸 왼쪽 위 모서리 + s × 512 (s×s 정사각형의 가운데).
+// - 구간 빠르기(ADR 2026-11-14-segment-speed.md): paceSpeed를 주면 칸마다 걸음 배율(pace.ts)을 셈해 직선 안에서도 배율이 바뀌는 칸에
+//   점을 남기고 구간마다 배율을 돌려준다. 걸음 i(칸 c[i−1] → c[i])의 배율은 들어가는 칸 c[i]의 배율이다(A* 걸음 비용과 같은 꼴).
 import type { SizeClass } from "../grid/clearance.ts";
 import type { PlacementGrid } from "../grid/placementGrid.ts";
+import { PACE_BASE, normalizePaces } from "../motion/motion.ts";
 import { CELL_UNITS, type CellPoint, HALF_CELL_UNITS, PLACEMENT_SIZE, type Point } from "../units.ts";
 import type { PathResult, Pathfinder } from "./astar.ts";
+import { footprintPace } from "./pace.ts";
 
 /** 꺾이는 칸만 남긴다. 칸 번호 차이(±1, ±255, ±256, ±257)가 곧 방향이다. */
 export function simplifyCellPath(cells: readonly number[]): number[] {
@@ -38,10 +42,40 @@ export function anchorAt(point: Point, size: SizeClass): CellPoint {
 
 /** 칸 경로 → 꺾이는 점 위치 목록 */
 export function cellPathToWaypoints(cells: readonly number[], size: SizeClass): Point[] {
-  return simplifyCellPath(cells).map((cell) => {
-    const x = cell % PLACEMENT_SIZE;
-    return anchorCenter(x, (cell - x) / PLACEMENT_SIZE, size);
-  });
+  return simplifyCellPath(cells).map((cell) => centerOfCell(cell, size));
+}
+
+function centerOfCell(cell: number, size: SizeClass): Point {
+  const x = cell % PLACEMENT_SIZE;
+  return anchorCenter(x, (cell - x) / PLACEMENT_SIZE, size);
+}
+
+/**
+ * 칸 경로 → 꺾이는 점 + 구간 걸음 배율. 방향이나 배율이 바뀌는 칸에 점을 남긴다.
+ * paceAt이 늘 같은 값이면 cellPathToWaypoints와 같은 점이다
+ */
+export function cellPathToPacedWaypoints(
+  cells: readonly number[],
+  size: SizeClass,
+  paceAt: (cell: number) => number,
+): { points: Point[]; paces: number[] } {
+  const first = cells[0] ?? 0;
+  const points = [centerOfCell(first, size)];
+  const paces: number[] = [];
+  let direction = 0;
+  for (let i = 1; i < cells.length; i++) {
+    const cell = cells[i] ?? 0;
+    const step = cell - (cells[i - 1] ?? 0);
+    const pace = paceAt(cell);
+    if (i > 1 && step === direction && pace === paces[paces.length - 1]) {
+      points[points.length - 1] = centerOfCell(cell, size);
+    } else {
+      points.push(centerOfCell(cell, size));
+      paces.push(pace);
+    }
+    direction = step;
+  }
+  return { points, paces };
 }
 
 export interface RouteRequest {
@@ -51,6 +85,8 @@ export interface RouteRequest {
   readonly to: Point;
   readonly size: SizeClass;
   readonly nodeBudget?: number;
+  /** 유닛 기본 속도(단위/초). 주면 구간 걸음 배율(paces)을 셈한다(pace.ts — 도로 최고 속도와 견줄 값) */
+  readonly paceSpeed?: number | undefined;
 }
 
 export type RouteResult =
@@ -58,6 +94,8 @@ export type RouteResult =
       readonly status: "found";
       /** 이동 계산(motion.ts)에 그대로 넣는 꺾이는 점. 첫 점은 from이다 */
       readonly waypoints: Point[];
+      /** 구간마다 걸음 배율(천분율, 길이 = 점 수 − 1). paceSpeed를 주지 않았거나 모두 1000이면 없다 */
+      readonly paces?: number[] | undefined;
       readonly cost: number;
       readonly expanded: number;
     }
@@ -78,31 +116,47 @@ export function planRoute(pathfinder: Pathfinder, grid: PlacementGrid, request: 
     ...(request.nodeBudget === undefined ? {} : { nodeBudget: request.nodeBudget }),
   });
   if (result.status !== "found") return result;
-  const waypoints = cellPathToWaypoints(result.cells, size);
-  const first = waypoints[0];
-  if (first && (first.x !== from.x || first.y !== from.y)) waypoints.unshift(from);
+  const speed = request.paceSpeed;
+  const paceAt =
+    speed === undefined ? () => PACE_BASE : (cell: number) => footprintPace(grid, cell, size, speed);
+  const { points, paces } = cellPathToPacedWaypoints(result.cells, size, paceAt);
+  const first = points[0];
+  if (first && (first.x !== from.x || first.y !== from.y)) {
+    // 지금 자리 → 출발 칸 중심은 출발 칸의 배율
+    points.unshift(from);
+    paces.unshift(paceAt(result.cells[0] ?? 0));
+  }
+  const straight = dropStraightPoints(points, paces);
+  const normalized = normalizePaces(straight.paces, straight.points.length - 1);
   return {
     status: "found",
-    waypoints: dropStraightPoints(waypoints),
+    waypoints: straight.points,
+    ...(normalized === undefined ? {} : { paces: normalized }),
     cost: result.cost,
     expanded: result.expanded,
   };
 }
 
-/** 앞뒤와 같은 방향의 직선 위에 있는 점을 뺀다(정수 외적·내적이라 정확하다) */
-function dropStraightPoints(points: Point[]): Point[] {
+/** 앞뒤와 같은 방향의 직선 위에 있고 앞뒤 구간 배율이 같은 점을 뺀다(정수 외적·내적이라 정확하다) */
+function dropStraightPoints(points: Point[], paces: number[]): { points: Point[]; paces: number[] } {
   const out: Point[] = [];
-  for (const point of points) {
+  const outPaces: number[] = [];
+  points.forEach((point, index) => {
     const a = out[out.length - 2];
     const b = out[out.length - 1];
-    if (a && b) {
+    const pace = paces[index - 1] ?? PACE_BASE;
+    if (a && b && outPaces[outPaces.length - 1] === pace) {
       const abx = b.x - a.x;
       const aby = b.y - a.y;
       const bcx = point.x - b.x;
       const bcy = point.y - b.y;
-      if (abx * bcy - aby * bcx === 0 && abx * bcx + aby * bcy > 0) out.pop();
+      if (abx * bcy - aby * bcx === 0 && abx * bcx + aby * bcy > 0) {
+        out.pop();
+        outPaces.pop();
+      }
     }
+    if (out.length > 0) outPaces.push(pace);
     out.push(point);
-  }
-  return out;
+  });
+  return { points: out, paces: outPaces };
 }

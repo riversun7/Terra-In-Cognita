@@ -170,3 +170,77 @@ describe("경로 이동 계산", () => {
     for (const input of bad) expect(() => createMotion(input)).toThrow(RangeError);
   });
 });
+
+describe("구간 빠르기 (D-541, ADR 2026-11-14-segment-speed)", () => {
+  const flat = route([
+    [0, 0],
+    [2048, 0],
+    [5120, 0],
+    [8192, 0],
+  ]);
+
+  it("도착 시각 = 출발 + ⌈Σ 길이 × 배율 ÷ 속도⌉ — 숲 구간은 1.8배 걸린다", () => {
+    const open = createMotion({ waypoints: flat, departAtMs: 0, speed: 437 });
+    const forest = createMotion({ waypoints: flat, departAtMs: 0, speed: 437, paces: [1000, 1800, 1000] });
+    // 2,048 × 1000 = 2,048,000 → ⌈÷437⌉ = 4687, + 3,072 × 1800 = 7,577,600 → 17341, + 3,072,000 → 24370
+    expect(forest.arrivals).toEqual([0, 4687, 17_341, 24_370]);
+    expect(open.arrivals).toEqual([0, 4687, 11_717, 18_746]);
+    // 숲 구간만 길어진다: 3,072칸 × 0.8 ÷ 437 ≈ 5,624ms
+    expect(arrivalAt(forest) - arrivalAt(open)).toBe(5624);
+  });
+
+  it("모두 1000인 배율은 없음으로 줄고 결과가 예전 식과 같다", () => {
+    const a = createMotion({ waypoints: flat, departAtMs: 5, speed: 430, paces: [1000, 1000, 1000] });
+    const b = createMotion({ waypoints: flat, departAtMs: 5, speed: 430 });
+    expect(a.paces).toBeUndefined();
+    expect(a.arrivals).toEqual(b.arrivals);
+    for (let t = 0; t < 20_000; t += 37) expect(positionAt(a, t)).toEqual(positionAt(b, t));
+  });
+
+  it("도착 시각은 그 점에 닿는 첫 ms이고 위치는 시간에 따라 앞으로만 간다", () => {
+    const rng = createRng(17);
+    for (let trial = 0; trial < 40; trial++) {
+      const points: Point[] = [{ x: 0, y: 0 }];
+      const paces: number[] = [];
+      for (let i = 0; i < 6; i++) {
+        const last = points[points.length - 1] ?? { x: 0, y: 0 };
+        points.push({ x: last.x + rng.nextInt(4001), y: last.y + rng.nextInt(6001) - 3000 });
+        paces.push(300 + rng.nextInt(4701));
+      }
+      const speed = 100 + rng.nextInt(5901);
+      const motion = createMotion({ waypoints: points, departAtMs: 1000, speed, paces });
+      motion.arrivals.forEach((at, i) => {
+        expect(distanceAt(motion, at)).toBeGreaterThanOrEqual(motion.distances[i] ?? 0);
+        if (i > 0 && at > (motion.arrivals[i - 1] ?? 0)) {
+          expect(distanceAt(motion, at - 1)).toBeLessThan(motion.distances[i] ?? 0);
+        }
+      });
+      let previous = 0;
+      for (let t = 1000; t <= arrivalAt(motion); t += 53) {
+        const d = distanceAt(motion, t);
+        expect(d).toBeGreaterThanOrEqual(previous);
+        previous = d;
+      }
+      expect(positionAt(motion, arrivalAt(motion))).toEqual(points[points.length - 1]);
+    }
+  });
+
+  it("구간 안 빠르기: 숲 구간에서는 같은 시간에 1000 ÷ 1800만큼 간다", () => {
+    const motion = createMotion({ waypoints: flat, departAtMs: 0, speed: 1000, paces: [1000, 1800, 1000] });
+    // 숲 구간 시작(2,048) 뒤 1,800ms → 1,000단위
+    const enter = motion.arrivals[1] ?? 0;
+    expect(distanceAt(motion, enter + 1800) - distanceAt(motion, enter)).toBe(1000);
+  });
+
+  it("틀린 배율은 RangeError", () => {
+    expect(() => createMotion({ waypoints: flat, departAtMs: 0, speed: 437, paces: [1000] })).toThrow(
+      RangeError,
+    );
+    expect(() => createMotion({ waypoints: flat, departAtMs: 0, speed: 437, paces: [0, 1, 2] })).toThrow(
+      RangeError,
+    );
+    expect(() =>
+      createMotion({ waypoints: flat, departAtMs: 0, speed: 437, paces: [1000, 70_000, 1000] }),
+    ).toThrow(RangeError);
+  });
+});

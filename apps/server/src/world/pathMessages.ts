@@ -47,6 +47,8 @@ export interface PathJobMessage {
   nodeBudget: number;
   /** 물이면 배 격자로 푼다(없으면 땅) */
   medium?: PathMedium | undefined;
+  /** 유닛 기본 속도(단위/초). 있으면 구간 걸음 배율을 셈한다(@terra/sim planRoute paceSpeed, ADR 2026-11-14-segment-speed.md) */
+  paceSpeed?: number | undefined;
 }
 
 export type ToWorker =
@@ -74,6 +76,8 @@ export interface PathResultMessage {
   status: PathStatus;
   /** found일 때 꺾이는 점 [x0, y0, x1, y1, …]. 복사하지 않고 넘긴다(transfer) */
   waypoints?: Int32Array<ArrayBuffer>;
+  /** found일 때 구간마다 걸음 배율(천분율, 길이 = 점 수 − 1). 모두 1000이면 없다. 복사하지 않고 넘긴다 */
+  paces?: Uint16Array<ArrayBuffer> | undefined;
   /** 펼친 칸 수(found·no_path·budget_exceeded) */
   expanded?: number;
   /** 워커 안에서 잰 계산 시간(ms) */

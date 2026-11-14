@@ -358,6 +358,7 @@ export function relocateUnits(
         ...row,
         mapKey: move.to.mapKey,
         path: [at.x, at.y],
+        pace: null,
         departAtMs: nowMs,
         wakeAtMs: row.kind === UNIT_KIND_BOT ? nowMs : null,
       };

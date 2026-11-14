@@ -61,7 +61,7 @@ const toRotation = (value: unknown): Rotation => {
   return rotation === 90 || rotation === 180 || rotation === 270 ? rotation : 0;
 };
 
-const UNIT_COLUMNS = `id, owner_id, kind, size, speed, map_key, planet_id, domain, path, depart_at_ms, wake_at_ms, ai_step,
+const UNIT_COLUMNS = `id, owner_id, kind, size, speed, map_key, planet_id, domain, path, pace, depart_at_ms, wake_at_ms, ai_step,
   job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by, aboard_id`;
 const BUILDING_COLUMNS = "id, map_key, planet_id, domain, owner_id, x, y, width, height, rotation";
 
@@ -77,6 +77,8 @@ function unitRowOf(row: Record<string, unknown>): UnitRow {
     planetId: toPlanet(row.planet_id),
     domain: toDomain(row.domain),
     path: Array.isArray(row.path) ? row.path.map(num) : [],
+    // 구간 걸음 배율(ADR 2026-11-14-segment-speed.md). 길이 확인은 움직임을 만들 때(secondMapRows.ts motionOfRow)
+    pace: Array.isArray(row.pace) ? row.pace.map(num) : null,
     departAtMs: num(row.depart_at_ms),
     wakeAtMs: numOrNull(row.wake_at_ms),
     aiStep: num(row.ai_step),

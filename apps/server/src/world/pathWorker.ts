@@ -14,7 +14,10 @@ const store = createReplicaStore(() => performance.now());
 port.on("message", (message: ToWorker) => {
   const reply = store.handle(message);
   if (!reply) return;
-  // 꺾이는 점 배열은 복사하지 않고 넘긴다
-  if (reply.type === "path" && reply.waypoints) port.postMessage(reply, [reply.waypoints.buffer]);
-  else port.postMessage(reply);
+  // 꺾이는 점·걸음 배율 배열은 복사하지 않고 넘긴다
+  if (reply.type === "path" && reply.waypoints) {
+    const buffers: ArrayBuffer[] = [reply.waypoints.buffer];
+    if (reply.paces) buffers.push(reply.paces.buffer);
+    port.postMessage(reply, buffers);
+  } else port.postMessage(reply);
 });

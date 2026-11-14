@@ -1,11 +1,13 @@
 // 2차맵 메시지 스키마 시험 — 왕복, 범위, 경로 모양, 결과 코드
 import { describe, expect, it } from "vitest";
 import {
+  MAX_PATH_PACE,
   MAX_PATH_POINTS,
   ProtocolError,
   PROTOCOL_VERSION,
   RESULT_CODES,
   SECOND_MAP_UNITS,
+  SEGMENT_SPEED_PROTOCOL_VERSION,
   UNIT_CONTROL_PROTOCOL_VERSION,
   UNIT_KIND_PROTOCOL_VERSION,
   UNIT_WIRE_KINDS,
@@ -148,6 +150,22 @@ describe("2차맵 서버 → 기기 메시지", () => {
     // 17판 정의(종류 칸 없음)로 읽어도 나머지는 그대로 — 모르는 칸은 버린다(strict가 아니다)
     const legacy = unitMotionSchema.omit({ kind: true });
     expect(legacy.parse({ ...unit, kind: "npc_leader" })).toEqual(unit);
+  });
+
+  it("구간 걸음 배율(프로토콜 29): 구간마다 1 ~ 65,535 정수, 길이 = 꺾이는 점 수 − 1, 왕복 변환", () => {
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(SEGMENT_SPEED_PROTOCOL_VERSION);
+    expect(MAX_PATH_PACE).toBe(0xffff);
+    const paced = { ...unit, size: 1 as const, path: [0, 0, 1024, 0, 2048, 0], pace: [1800, 1000] };
+    expect(serverOk(pathsWith(paced))).toBe(true);
+    const message = { t: "unit_paths" as const, mapKey: 9, fromRev: 1, rev: 2, units: [paced] };
+    expect(decodeServerMessage(encodeMessage(message))).toEqual(message);
+    expect(serverOk(pathsWith({ ...paced, pace: [1800] }))).toBe(false);
+    expect(serverOk(pathsWith({ ...paced, pace: [1800, 0] }))).toBe(false);
+    expect(serverOk(pathsWith({ ...paced, pace: [1800, 70_000] }))).toBe(false);
+    expect(serverOk(pathsWith({ ...paced, pace: [1800, 1.5] }))).toBe(false);
+    // 28판 정의(배율 칸 없음)로 읽으면 칸을 버린다 — 그래서 받는 가장 낮은 판을 29로 올렸다
+    const legacy = unitMotionSchema.omit({ pace: true });
+    expect(legacy.parse(paced)).not.toHaveProperty("pace");
   });
 
   it("빈 unit_paths는 보내지 않는다(스키마가 거부). 사라진 유닛(hidden)만 있으면 된다", () => {

@@ -139,6 +139,7 @@ export function createWorkerPathService(options: WorkerPoolOptions): PathService
         size: request.size,
         nodeBudget: request.nodeBudget,
         medium: request.medium,
+        paceSpeed: request.paceSpeed,
       };
       target.inFlight.set(jobId, job);
       post(target.worker, message);
@@ -164,6 +165,7 @@ export function createWorkerPathService(options: WorkerPoolOptions): PathService
         status: "found",
         version: message.version,
         waypoints: message.waypoints ? waypointsFromFlat(message.waypoints) : [],
+        ...(message.paces ? { paces: Array.from(message.paces) } : {}),
         expanded: message.expanded ?? 0,
         computeMs: message.computeMs,
         waitMs,

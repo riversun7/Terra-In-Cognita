@@ -74,4 +74,22 @@ describe("경로 자르기", () => {
     expect(cut.waypoints).not.toContainEqual(at(60, 60));
     expect(Math.abs(arrivalAt(cut) - 15_000)).toBeLessThanOrEqual(2);
   });
+
+  it("구간 걸음 배율을 이어 받는다: 자른 움직임의 위치가 원래 움직임과 거의 같다", () => {
+    const paced = createMotion({
+      waypoints: [at(0, 10), at(20, 10), at(40, 10), at(40, 30)],
+      departAtMs: 0,
+      speed: 900,
+      paces: [1000, 2500, 1300],
+    });
+    const cut = truncateMotion(paced, 10_000, 60_000);
+    // 숲 구간(2,500) 도착은 79,644ms라 60,000ms 끝은 그 구간 안이다
+    expect(cut.paces).toEqual([1000, 2500]);
+    for (let t = 10_000; t <= 60_000; t += 997) {
+      const a = positionAt(paced, t);
+      const b = positionAt(cut, t);
+      expect(Math.abs(a.x - b.x) + Math.abs(a.y - b.y)).toBeLessThanOrEqual(4);
+    }
+    expect(Math.abs(arrivalAt(cut) - 60_000)).toBeLessThanOrEqual(3);
+  });
 });

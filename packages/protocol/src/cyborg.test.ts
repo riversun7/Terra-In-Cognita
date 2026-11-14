@@ -6,6 +6,7 @@ import {
   CYBORG_LOOK_PROTOCOL_VERSION,
   CYBORG_PROTOCOL_VERSION,
   CYBORG_RESULT_CODES,
+  MIN_SUPPORTED_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   characterLookSchema,
   cyborgElementsSchema,
@@ -42,7 +43,10 @@ describe("사이보그 만들기 메시지", () => {
     expect(CYBORG_ELEMENTS_PROTOCOL_VERSION).toBe(5);
     for (let version = 4; version < PROTOCOL_VERSION - 1; version++)
       expect(isProtocolSupported(version)).toBe(false);
-    expect(isProtocolSupported(PROTOCOL_VERSION - 1)).toBe(true);
+    // 직전 판은 받는 가장 낮은 판 안일 때만(29는 예외로 28을 받지 않는다 — version.ts)
+    expect(isProtocolSupported(PROTOCOL_VERSION - 1)).toBe(
+      PROTOCOL_VERSION - 1 >= MIN_SUPPORTED_PROTOCOL_VERSION,
+    );
     expect(isProtocolSupported(PROTOCOL_VERSION)).toBe(true);
     expect(isProtocolSupported(PROTOCOL_VERSION + 1)).toBe(false);
   });

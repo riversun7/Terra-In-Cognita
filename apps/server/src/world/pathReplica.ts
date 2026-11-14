@@ -105,6 +105,8 @@ export function createReplicaStore(clock: () => number): ReplicaStore {
       to: { x: job.toX, y: job.toY },
       size: job.size,
       nodeBudget: job.nodeBudget,
+      // 배(물 길)는 구간 빠르기가 같다(ADR 2026-11-14-segment-speed.md)
+      paceSpeed: job.medium === "water" ? undefined : job.paceSpeed,
     });
     const base = { type: "path" as const, jobId: job.jobId, version: replica.version };
     if (route.status === "found") {
@@ -113,7 +115,15 @@ export function createReplicaStore(clock: () => number): ReplicaStore {
         waypoints[index * 2] = point.x;
         waypoints[index * 2 + 1] = point.y;
       });
-      return { ...base, status: "found", waypoints, expanded: route.expanded, computeMs: clock() - started };
+      const paces = route.paces ? Uint16Array.from(route.paces) : undefined;
+      return {
+        ...base,
+        status: "found",
+        waypoints,
+        ...(paces ? { paces } : {}),
+        expanded: route.expanded,
+        computeMs: clock() - started,
+      };
     }
     if (route.status === "no_path" || route.status === "budget_exceeded") {
       return { ...base, status: route.status, expanded: route.expanded, computeMs: clock() - started };

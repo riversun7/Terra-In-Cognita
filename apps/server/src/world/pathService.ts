@@ -17,6 +17,8 @@ export interface PathRequest {
   priority: PathPriority;
   /** 물이면 배 격자로 푼다(docs/adr/2026-11-13-boats.md 2절). 없으면 땅 */
   medium?: PathMedium | undefined;
+  /** 유닛 기본 속도(단위/초). 있으면 구간 걸음 배율을 셈한다(ADR 2026-11-14-segment-speed.md) */
+  paceSpeed?: number | undefined;
   /** 풀기 직전에 확인한다. false면(더 새 요청이 있음) 풀지 않고 dropped */
   isCurrent(): boolean;
 }
@@ -27,6 +29,8 @@ export type PathOutcome =
       /** 푼 격자 버전 */
       version: number;
       waypoints: Point[];
+      /** 구간마다 걸음 배율(천분율). 모두 1000이거나 셈하지 않았으면 없다 */
+      paces?: number[] | undefined;
       expanded: number;
       /** 워커 안 계산 시간(ms) */
       computeMs: number;
@@ -105,6 +109,7 @@ export function createInlinePathService(sources: ReplicaSources, clock: () => nu
           size: job.size,
           nodeBudget: job.nodeBudget,
           medium: job.medium,
+          paceSpeed: job.paceSpeed,
         });
         if (reply?.type !== "path") return { status: "busy", waitMs: clock() - enqueuedAt };
         const waitMs = clock() - enqueuedAt;
@@ -113,6 +118,7 @@ export function createInlinePathService(sources: ReplicaSources, clock: () => nu
             status: "found",
             version: reply.version,
             waypoints: waypointsFromFlat(reply.waypoints),
+            ...(reply.paces ? { paces: Array.from(reply.paces) } : {}),
             expanded: reply.expanded ?? 0,
             computeMs: reply.computeMs,
             waitMs,

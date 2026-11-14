@@ -63,23 +63,15 @@ export {
 export {
   anchorAt,
   anchorCenter,
+  cellPathToPacedWaypoints,
   cellPathToWaypoints,
   planRoute,
   simplifyCellPath,
   type RouteRequest,
   type RouteResult,
 } from "./path/waypoints.ts";
-export {
-  MAX_COORDINATE,
-  MAX_SPEED,
-  arrivalAt,
-  createMotion,
-  distanceAt,
-  positionAt,
-  positionAtDistance,
-  type Motion,
-  type MotionInput,
-} from "./motion/motion.ts";
+export * from "./motion/motion.ts";
+export * from "./path/pace.ts";
 export { createEventQueue, type EventQueue, type ScheduledEvent } from "./events/eventQueue.ts";
 export { compareEventKeys, type EventKey } from "./events/eventKey.ts";
 export {

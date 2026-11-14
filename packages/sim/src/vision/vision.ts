@@ -3,7 +3,15 @@
 // - 반지름 R(시야 칸 수) 안: dx² + dy² ≤ R² + R. 정수만 쓴다.
 // - 남의 유닛 경로는 지금 덮인 칸을 벗어나는 곳 또는 horizon 뒤에서 자른다(경로 전체는 목적지를 드러낸다).
 // [임시] 반지름 수치는 기획 Step 5 전 시험값이다(D-107·D-5037, 기획 질문 알림).
-import { type Motion, arrivalAt, createMotion, positionAt } from "../motion/motion.ts";
+import {
+  type Motion,
+  arrivalAt,
+  createMotion,
+  distanceAt,
+  paceOf,
+  positionAt,
+  segmentBefore,
+} from "../motion/motion.ts";
 import { CELL_UNITS, PLACEMENT_SIZE, type Point } from "../units.ts";
 
 /** 시야 칸 한 변의 배치 칸 수 */
@@ -89,19 +97,32 @@ export function visibleUntil(
   return last;
 }
 
-/** 경로의 [fromMs, toMs] 구간만 남긴 움직임(fromMs 출발, 속도 그대로). 끝은 toMs의 위치다 */
+/**
+ * 경로의 [fromMs, toMs] 구간만 남긴 움직임(fromMs 출발, 속도 그대로). 끝은 toMs의 위치다.
+ * 구간 걸음 배율(ADR 2026-11-14-segment-speed.md)은 새 구간이 끝나는 점이 놓인 원래 구간의 값을 따른다.
+ */
 export function truncateMotion(motion: Motion, fromMs: number, toMs: number): Motion {
   const start = positionAt(motion, fromMs);
   const waypoints: Point[] = [start];
+  const paces: number[] = [];
   for (let i = 1; i < motion.waypoints.length; i++) {
     const at = motion.arrivals[i] ?? 0;
     const point = motion.waypoints[i];
     if (!point || at <= fromMs) continue;
     if (at >= toMs) break;
     waypoints.push(point);
+    paces.push(paceOf(motion, i - 1));
   }
   const end = positionAt(motion, toMs);
   const lastPoint = waypoints[waypoints.length - 1];
-  if (!lastPoint || lastPoint.x !== end.x || lastPoint.y !== end.y) waypoints.push(end);
-  return createMotion({ waypoints, departAtMs: fromMs, speed: motion.speed });
+  if (!lastPoint || lastPoint.x !== end.x || lastPoint.y !== end.y) {
+    waypoints.push(end);
+    paces.push(paceOf(motion, segmentBefore(motion, distanceAt(motion, toMs))));
+  }
+  return createMotion({
+    waypoints,
+    departAtMs: fromMs,
+    speed: motion.speed,
+    ...(motion.paces === undefined ? {} : { paces }),
+  });
 }

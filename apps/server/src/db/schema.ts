@@ -583,6 +583,11 @@ export const worldUnits = pgTable(
     domain: domainColumn(),
     /** 꺾이는 점 [x0, y0, x1, y1, …] (고정소수점) */
     path: integer("path").array().notNull(),
+    /**
+     * 구간마다 걸음 배율(천분율, 길이 = 점 수 − 1) — docs/adr/2026-11-14-segment-speed.md. null = 구간 빠르기가 같다.
+     * 길이가 맞지 않으면(이 칸을 모르는 옛 앱이 path만 고쳐 쓴 행) 서버가 배율 없이 읽는다
+     */
+    pace: integer("pace").array(),
     departAtMs: bigint("depart_at_ms", { mode: "number" }).notNull(),
     /** 쉬기 끝 예약(시험 봇). 없으면 null */
     wakeAtMs: bigint("wake_at_ms", { mode: "number" }),

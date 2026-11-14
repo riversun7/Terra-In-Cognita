@@ -1,13 +1,14 @@
 // 전송 모양과 조각 나누기 시험 — 모든 조각이 메시지 상한 안, 항목은 한 번씩 순서대로, 가장 큰 항목도 들어간다
 import {
   MAX_MESSAGE_BYTES,
+  MAX_PATH_PACE,
   MAX_PATH_POINTS,
   SECOND_MAP_UNITS,
   type UnitMotionWire,
   decodeServerMessage,
   utf8ByteLength,
 } from "@terra/protocol";
-import { WALK_SPEED, createMotion } from "@terra/sim";
+import { MAX_PACE, WALK_SPEED, createMotion } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { encodeSnapshot, motionToWire, planChunks, sized, snapshotHeaderBytes } from "./wire.ts";
 
@@ -21,6 +22,8 @@ function largestUnit(id: number): UnitMotionWire {
     speed: 1_048_576,
     departAtMs: 9_999_999_999_999,
     path: Array.from({ length: MAX_PATH_POINTS * 2 }, () => SECOND_MAP_UNITS - 1),
+    // 구간 걸음 배율(프로토콜 29)도 가장 긴 자릿수
+    pace: Array.from({ length: MAX_PATH_POINTS - 1 }, () => MAX_PATH_PACE),
   };
 }
 
@@ -52,6 +55,36 @@ describe("유닛 움직임 → 전송 모양", () => {
     // 표시 종류(프로토콜 18): 지도자만 칸이 붙고 보통 유닛은 칸이 없다(바이트)
     expect(motionToWire(9, 1, motion, "npc_leader")).toMatchObject({ id: 9, kind: "npc_leader" });
     expect("kind" in motionToWire(9, 1, motion, undefined)).toBe(false);
+  });
+
+  it("구간 걸음 배율(프로토콜 29): 배율이 있으면 pace 칸, 모두 1000이면 칸이 없다. 기기가 같은 배율로 읽는다", () => {
+    expect(MAX_PATH_PACE).toBe(MAX_PACE);
+    const waypoints = [
+      { x: 512, y: 512 },
+      { x: 4608, y: 512 },
+      { x: 4608, y: 8704 },
+    ];
+    const paced = createMotion({ waypoints, departAtMs: 1_000, speed: WALK_SPEED, paces: [1800, 1000] });
+    const wire = motionToWire(9, 1, paced);
+    expect(wire.pace).toEqual([1800, 1000]);
+    const decoded = decodeServerMessage(
+      JSON.stringify({ t: "unit_paths", mapKey: 9, fromRev: 1, rev: 2, units: [wire] }),
+    );
+    if (decoded.t !== "unit_paths") throw new Error("not unit_paths");
+    const back = decoded.units[0];
+    if (!back) throw new Error("no unit");
+    const points = [];
+    for (let i = 0; i + 1 < back.path.length; i += 2)
+      points.push({ x: back.path[i] ?? 0, y: back.path[i + 1] ?? 0 });
+    const again = createMotion({
+      waypoints: points,
+      departAtMs: back.departAtMs,
+      speed: back.speed,
+      paces: back.pace,
+    });
+    expect(again.arrivals).toEqual(paced.arrivals);
+    const flat = createMotion({ waypoints, departAtMs: 1_000, speed: WALK_SPEED, paces: [1000, 1000] });
+    expect("pace" in motionToWire(9, 1, flat)).toBe(false);
   });
 
   it("sized는 JSON 길이를 센다", () => {

@@ -10,7 +10,7 @@ export interface AuthConfig {
   secret: string | undefined;
   /**
    * 사용자가 접속하는 주소의 출처 (BETTER_AUTH_URL). 같은 출처 검사와 쿠키 Secure 여부의 기준.
-   * 운영: https://riversun7.synology.me:4443 (ops/compose.yml). 개발: 게임 앱 Vite 주소 http://localhost:5173
+   * 운영: https://<NAS 주소>:4443 (ops/compose.yml). 개발: 게임 앱 Vite 주소 http://localhost:5173
    */
   baseUrl: string;
   /** 새 아이디 가입 허용 (AUTH_OPEN_SIGNUP, 기본 true). false면 있는 계정만 들어갈 수 있다 */

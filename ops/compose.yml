@@ -15,8 +15,9 @@ services:
       DATABASE_URL: postgres://terra:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/terra
       # 로그인(Better Auth, docs/adr/2026-10-28-auth-and-accounts.md). 비밀값은 deploy.sh가 .env에 만든다(바꾸면 모든 로그인이 풀린다)
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
-      # 사용자가 접속하는 주소(DSM 역방향 프록시). 같은 출처 검사와 Secure 쿠키의 기준이다
-      BETTER_AUTH_URL: https://riversun7.synology.me:4443
+      # 사용자가 접속하는 주소(DSM 역방향 프록시). 같은 출처 검사와 Secure 쿠키의 기준이다.
+      # 저장소 공개(2026-11-15)로 주소를 파일에 적지 않고 NAS의 .env에서 읽는다(deploy.sh가 없으면 지금 돌던 앱 컨테이너 값을 옮겨 적는다)
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL is required (NAS .env)}
       # 새 아이디 가입 허용. 닫으려면 .env에 AUTH_OPEN_SIGNUP=false를 넣고 다시 배포한다
       AUTH_OPEN_SIGNUP: ${AUTH_OPEN_SIGNUP:-true}
       # S1 "유닛 1,000개" 시험(ADR 2026-10-28-s1-second-map): 서버가 시험 2차맵에서 봇 1,000개를 움직인다.

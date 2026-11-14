@@ -28,7 +28,7 @@
 - 관리 명령 `src/cli.ts` → `dist/cli.js`(Vite 서버 빌드에 진입 파일 추가): `create-user`, `set-roles`, `set-password`. 비밀번호는 `TIC_PASSWORD`로만, 실행자는 `TIC_ACTOR`로 감사 기록에 남긴다.
 - 운영
   - `ops/deploy.sh` 1단계 `ensure_secret`: 이미 있는 `.env`에 빠진 키만 무작위 16진수로 덧붙인다(POSTGRES_PASSWORD 24바이트, BETTER_AUTH_SECRET 32바이트).
-  - `ops/compose.yml`: `BETTER_AUTH_SECRET`(필수), `BETTER_AUTH_URL: https://riversun7.synology.me:4443`, `AUTH_OPEN_SIGNUP`(기본 true).
+  - `ops/compose.yml`: `BETTER_AUTH_SECRET`(필수), `BETTER_AUTH_URL: https://<NAS 주소>:4443`, `AUTH_OPEN_SIGNUP`(기본 true).
   - `.github/workflows/account-admin.yml`: 수동 실행, NAS 실행기, `deploy-nas` 줄, main에서만.
   - `ops/nas-setup.md` 10장(계정 만들기·역할), 11장(프록시 경로 확인).
 - 설정(`src/auth/config.ts`, `src/config.ts`): 운영 + DB면 `BETTER_AUTH_SECRET`(32자 이상)·`BETTER_AUTH_URL`(https, 출처만)이 필수. DB가 없으면 인증을 켜지 않는다(CI 이미지 확인).

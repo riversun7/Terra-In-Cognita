@@ -5,10 +5,10 @@
 - 관련: PLAN 9.3·9.6, `ops/nas-setup.md` 6단계, 이전 기록 `28-1625-first-deploy.md`
 
 ## 한 일
-- 사용자가 DSM 역방향 프록시 규칙을 만들었다: HTTPS `riversun7.synology.me:4443` → HTTP `localhost:4100`(이름 `terra-incognita`).
-- 브라우저에서 `https://riversun7.synology.me:4443` 접속 시 화면은 뜨지만(제목, fps 표시), `wss://riversun7.synology.me:4443/ws` 연결이 실패했다(사용자 제공 화면). 규칙에 WebSocket 머리글(사용자 지정 머리글 → WebSocket)이 없어서로 보인다(Assumed) → 사용자에게 추가를 안내했다.
+- 사용자가 DSM 역방향 프록시 규칙을 만들었다: HTTPS `<NAS 주소>:4443` → HTTP `localhost:4100`(이름 `terra-incognita`).
+- 브라우저에서 `https://<NAS 주소>:4443` 접속 시 화면은 뜨지만(제목, fps 표시), `wss://<NAS 주소>:4443/ws` 연결이 실패했다(사용자 제공 화면). 규칙에 WebSocket 머리글(사용자 지정 머리글 → WebSocket)이 없어서로 보인다(Assumed) → 사용자에게 추가를 안내했다.
 - 공유기 포트포워딩 없이 4443이 외부에서 열렸다. 사용자가 확인한 공유기(ipTIME)는 NAS가 연결된 공유기가 아니다. 설치 안내의 "공유기 포워딩" 단계를 고치고, NAS 포트가 외부에 직접 노출된 구조로 보인다는 점(Assumed)을 기록했다.
-- 처음에 사용자가 `https://riversun7.synology.me/:4443`(도메인 뒤에 `/`)로 접속해 기존 버전의 404 화면이 나왔다. 설치 안내에 주소 형식을 적었다.
+- 처음에 사용자가 `https://<NAS 주소>/:4443`(도메인 뒤에 `/`)로 접속해 기존 버전의 404 화면이 나왔다. 설치 안내에 주소 형식을 적었다.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |

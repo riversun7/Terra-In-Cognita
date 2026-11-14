@@ -61,6 +61,18 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 ensure_secret POSTGRES_PASSWORD 24
 ensure_secret BETTER_AUTH_SECRET 32
+# 접속 주소(BETTER_AUTH_URL): 저장소 공개(2026-11-15)로 compose.yml에서 빼고 .env에 둔다. 없으면 지금 돌던 앱 컨테이너(tic-app)의
+# 값을 그대로 옮겨 적는다(값은 출력하지 않음). 그것도 없으면 배포를 멈춘다(옛 판이 그대로 돈다) — .env에 BETTER_AUTH_URL=https://… 를 넣고 다시 배포
+if ! grep -q "^BETTER_AUTH_URL=" "$ENV_FILE"; then
+  CURRENT_URL="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' tic-app 2>/dev/null | sed -n 's/^BETTER_AUTH_URL=//p' | head -n 1 || true)"
+  if [ -z "$CURRENT_URL" ]; then
+    echo "BETTER_AUTH_URL이 $ENV_FILE에도, 돌던 앱 컨테이너에도 없습니다. .env에 BETTER_AUTH_URL=https://<접속 주소>를 넣고 다시 배포하세요"
+    exit 1
+  fi
+  if [ -s "$ENV_FILE" ] && [ -n "$(tail -c 1 "$ENV_FILE")" ]; then echo >> "$ENV_FILE"; fi
+  printf 'BETTER_AUTH_URL=%s\n' "$CURRENT_URL" >> "$ENV_FILE"
+  echo "접속 주소를 .env로 옮겼습니다: BETTER_AUTH_URL"
+fi
 
 PREV_TAG="$(cat "$DATA_DIR/deployed-tag" 2>/dev/null || true)"
 export TERRA_TAG="$TAG"

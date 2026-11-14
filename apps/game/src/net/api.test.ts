@@ -4,7 +4,13 @@ import { TRPC_MAX_BATCH_SIZE, TRPC_PATH } from "@terra/protocol";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createApiClient } from "./api.ts";
 
-const info = { protocolVersion: 1, simVersion: 1, contentVersion: "test", serverTime: 5 };
+const info = {
+  protocolVersion: 1,
+  simVersion: 1,
+  contentVersion: "test",
+  serverTime: 5,
+  build: { time: "2026-11-15 08:20", commit: "def5678" },
+};
 
 /** fetch가 받은 주소 (문자열·URL·Request 모두) */
 const urlOf = (input: RequestInfo | URL): string =>
@@ -34,6 +40,7 @@ describe("API 클라이언트", () => {
       simVersion: number;
       contentVersion: string;
       serverTime: number;
+      build: { readonly time: string | null; readonly commit: string | null };
     }>();
   });
 

@@ -37,6 +37,8 @@ describe("GET /health", () => {
       db: "off",
       protocolVersion: PROTOCOL_VERSION,
       contentVersion: "test",
+      // 단위 시험에는 빌드 도장(define)이 없다 → 둘 다 null(화면은 "dev", src/buildStamp.ts)
+      build: { time: null, commit: null },
     });
   });
 

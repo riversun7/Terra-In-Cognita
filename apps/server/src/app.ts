@@ -12,7 +12,7 @@ import { authHeaders, createProxyChainLogger } from "./auth/http.ts";
 import { createAccountLimiters } from "./auth/limits.ts";
 import { isAllowedSocketOrigin } from "./auth/requestGuard.ts";
 import { writeAudit } from "./auth/store.ts";
-import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
+import { DEFAULT_TRUST_PROXY, SERVER_BUILD, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
 import { createEconomyServices } from "./economyView/services.ts";
 import { worldEconomySource } from "./economyView/worldSource.ts";
@@ -160,11 +160,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       simVersion: SIM_VERSION,
       contentVersion: options.contentVersion,
       contentHash: options.contentHash,
+      build: SERVER_BUILD, // 서버 빌드 도장: 한국 시각 "YYYY-MM-DD HH:mm"·커밋 앞 7자(개발 실행은 null, src/buildStamp.ts)
       // 덮어쓴 설정 칸 수(0이면 팩 값 그대로)와 세계 설정 판(docs/adr/2026-11-01-dev-settings-panel.md 10절)
       tuningOverrides: options.tuning?.state.appliedCount(),
       tuningRevision: options.tuning?.state.revision(),
-      // 덮어쓴 팩 항목 수(스킬·무기·유닛 종류)와 그 판(docs/adr/2026-11-01-skill-editor.md)
-      contentOverrides: options.contentEdit?.state.appliedCount(),
+      contentOverrides: options.contentEdit?.state.appliedCount(), // 덮어쓴 팩 항목 수(스킬·무기·유닛 종류)와 그 판(docs/adr/2026-11-01-skill-editor.md)
       contentRevision: options.contentEdit?.state.revision(),
       uptimeSec: Math.floor(process.uptime()),
     };

@@ -24,7 +24,11 @@ ENV APP_BUILD=${APP_BUILD}
 # 차례로 늘어나는 빌드 번호(CI 실행 번호). 없으면(손으로 만든 이미지) 빈 값 — 화면은 커밋 앞자리만 보인다
 ARG APP_BUILD_NUMBER=
 ENV APP_BUILD_NUMBER=${APP_BUILD_NUMBER}
-RUN pnpm --filter @terra/game build && pnpm --filter @terra/server build
+# 빌드 시각(ISO, UTC — CI가 넘긴다). 앱·서버 빌드 도장(설정 → 앱 정보의 버전 줄, /health build)이 한국 시각 분까지로 보인다.
+# 이 빌드에는 .git이 없어서(.dockerignore) 커밋은 APP_BUILD에서 읽는다. 없으면(손으로 만든 이미지) 지금 시각을 앱·서버에 같이 쓴다
+ARG APP_BUILD_TIME=
+RUN APP_BUILD_TIME="${APP_BUILD_TIME:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" && export APP_BUILD_TIME \
+  && pnpm --filter @terra/game build && pnpm --filter @terra/server build
 # 서버 실행에 필요한 것만 모은다 (dist + 운영용 node_modules)
 RUN pnpm --filter @terra/server deploy --prod /out
 

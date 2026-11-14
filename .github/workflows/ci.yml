@@ -146,8 +146,10 @@ jobs:
         run: |
           # source 라벨: GHCR 패키지를 이 저장소에 연결한다(권한 상속)
           # APP_BUILD = 커밋 앞 12자(접속 인사·성능 보고가 쓴다), APP_BUILD_NUMBER = 이 워크플로 실행 번호(설정 → 앱 정보에 보이는 차례 번호)
+          # APP_BUILD_TIME = 빌드 시각(ISO, UTC). 설정 → 앱 정보의 버전 줄과 /health build가 한국 시각 분까지로 보인다
           docker build --build-arg APP_BUILD="${GITHUB_SHA::12}" \
             --build-arg APP_BUILD_NUMBER="${GITHUB_RUN_NUMBER}" \
+            --build-arg APP_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             -t "$IMAGE_REF" .

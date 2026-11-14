@@ -6,6 +6,7 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-11-15 08:30 | 2026-11-15 열째 묶음 합치기 (배 재료 반환 제거·전투 보고서 2단계) | Claude Code | [15-0830-batch-1115-merge](worklog/2026/11/15-0830-batch-1115-merge.md) |
+| 2026-11-15 08:00 | 앱·서버 빌드 도장(한국 시각 분까지)과 버전 줄 | Claude Code | [15-0800-version-stamp](worklog/2026/11/15-0800-version-stamp.md) |
 | 2026-11-15 07:30 | 전투 보고서: 실제 세계 도시 공성·웨이브 팀 수비·군단(파티 여럿) | Claude Code | [15-0730-battle-report-2](worklog/2026/11/15-0730-battle-report-2.md) |
 | 2026-11-15 06:55 ~ 07:40 | 배 재료 돌려주지 않음(D-545 1405) + 배 체계 개편 설계안(조선소·정박장, 질문 1481~1500) | Claude Code | [15-0700-boats-redesign](worklog/2026/11/15-0700-boats-redesign.md) |
 | 2026-11-14 23:50 | 2026-11-14 아홉째 묶음 합치기 (1차맵 개편) | Claude Code | [14-2350-batch-1114c-merge](worklog/2026/11/14-2350-batch-1114c-merge.md) |

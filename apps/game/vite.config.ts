@@ -1,7 +1,9 @@
 // 게임 앱 빌드 설정
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
+import { buildStampSource } from "@terra/shared/buildStamp";
 import react from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
@@ -14,6 +16,45 @@ const devServerTarget = process.env.TERRA_SERVER_URL ?? "http://127.0.0.1:4100";
 // 기본(파스텔) 테마의 바탕색 — manifest 색과 index.html의 theme-color가 같아야 한다(scripts/check-pwa.mjs가 확인).
 // src/settings/theme.ts의 THEME_COLORS.pastel과도 같다(src/settings/themeSources.test.ts가 확인). ADR 2026-10-28-design-system
 const THEME_COLOR = "#dff2fb";
+
+/** git 커밋 해시(실패하면 빈 글 — git이 없는 Docker 빌드는 CI가 APP_BUILD로 넘긴다) */
+function gitCommit(): string {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 5000,
+    });
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * 빌드 도장(ADR 2026-10-29-app-shell "바뀜 (2026-11-14, 빌드 도장)") — 빌드 시각(ISO, CI·Docker는 APP_BUILD_TIME)과 커밋 앞 7자
+ * (CI는 APP_BUILD, 손으로 빌드하면 git)를 __APP_BUILD_TIME__·__APP_BUILD_COMMIT__로 넣는다. 개발 서버는 빈 글(설정 화면에 "dev").
+ * 설정 → 앱 정보의 버전 줄이 한국 시각 "YYYY-MM-DD HH:mm"으로 보인다(src/settings/versionInfo.ts)
+ */
+function buildStamp(): Plugin {
+  return {
+    name: "terra-build-stamp",
+    config(_config, { command }) {
+      const stamp = buildStampSource({
+        dev: command === "serve",
+        envTime: process.env.APP_BUILD_TIME,
+        envCommit: process.env.APP_BUILD,
+        nowMs: Date.now(),
+        gitCommit,
+      });
+      return {
+        define: {
+          __APP_BUILD_TIME__: JSON.stringify(stamp.time),
+          __APP_BUILD_COMMIT__: JSON.stringify(stamp.commit),
+        },
+      };
+    },
+  };
+}
 
 /** 글꼴 파일 — CSS에 인라인하지 않는다(처음 쓸 때 받고, 서버가 /assets/를 1년 캐시한다) */
 const FONT_FILE = /\.(woff2?|ttf|otf)$/i;
@@ -66,6 +107,7 @@ function fontLicenses(): Plugin {
 
 export default defineConfig({
   plugins: [
+    buildStamp(),
     woff2Only(),
     fontLicenses(),
     react(),

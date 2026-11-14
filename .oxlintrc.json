@@ -19,7 +19,14 @@
     "no-underscore-dangle": [
       "warn",
       {
-        "allow": ["__APP_BUILD__", "__APP_BUILD_NUMBER__"]
+        "allow": [
+          "__APP_BUILD__",
+          "__APP_BUILD_NUMBER__",
+          "__APP_BUILD_TIME__",
+          "__APP_BUILD_COMMIT__",
+          "__SERVER_BUILD_TIME__",
+          "__SERVER_BUILD_COMMIT__"
+        ]
       }
     ]
   },

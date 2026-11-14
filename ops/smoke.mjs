@@ -94,6 +94,8 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`✗ 배포 점검 실패: ${failure}`);
   process.exit(1);
 }
+// 서버 빌드 도장(한국 시각 분까지·커밋, 옛 이미지에는 없다 — 되돌림 점검도 통과하게 보이기만 한다)
+const build = health.build?.time ? ` · 빌드 ${health.build.time} (${health.build.commit ?? "?"})` : "";
 console.log(
-  `✓ 배포 점검 통과 — ${health.contentVersion} (${health.contentHash.slice(0, 12)}), db ${health.db}, 프로토콜 ${health.protocolVersion}`,
+  `✓ 배포 점검 통과 — ${health.contentVersion} (${health.contentHash.slice(0, 12)}), db ${health.db}, 프로토콜 ${health.protocolVersion}${build}`,
 );

@@ -1,0 +1,27 @@
+/*
+ * 버전 줄(settings/VersionRow.tsx) — 설정 → 앱 정보와 개발자 홈(/dev)이 같이 쓴다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 작은 글씨, 숫자 너비 고정, 긴 값은 아무 데서나 줄바꿈(390px에서 가로 넘침 없음).
+ */
+.version-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.version-label {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+}
+.version-text {
+  min-width: 0;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.version-mismatch {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--color-warning);
+}

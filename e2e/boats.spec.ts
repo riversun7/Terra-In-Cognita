@@ -7,6 +7,8 @@
 // B2(기획 D-541, ADR "바뀜 (2026-11-14, B2)"): 배 만들기는 시간이 걸린다(운영자 = 부두 레벨 1 시간 ÷ 운영자 빠르기) — boat_build는 readyAtMs를
 // 돌려주고(같은 부두에 다시 보내면 dock_busy) 그 시각 뒤 배가 뜬다. 부두 판은 만드는 중인 배의 남은 시간을 보인다. 승객에게 내린 이동은 배가 가고,
 // 승객에게 보낸 2차맵 사이 이동은 배가 동쪽 바다 2차맵으로 건너간다(승객도 탄 채).
+// B3(기획 D-541 1280 가, ADR "바뀜 (2026-11-14, B3)"): 바다 2차맵에서 승객에게 가장 가까운 어군을 시키면(gather_start) 배가 어군 옆까지 가고
+// 승객은 내리지 않은 채 낚아 화물에 든다(gather.loops — 캔 묶음 > 0, 승객은 여전히 배에).
 import type { Page } from "@playwright/test";
 import { pickMyUnit, openBuildingFromList, closeNearby } from "./helpers/nearby.ts";
 import { shot } from "./helpers/screen.ts";
@@ -223,7 +225,7 @@ for (const theme of ["pastel", "dark"] as const) {
     test.use({ account: "admin", theme, language: "ko" });
 
     test(`운영자: 부두 → 배 만들기 → 타기 → 물 위로 → 내리기 (${theme})`, async ({ page, deviceErrors }) => {
-      test.setTimeout(300_000);
+      test.setTimeout(600_000);
       await page.goto("/health");
       const rider = await humanAtCoast(page);
       const isWater = await waterOf(page, COAST_KEY);
@@ -359,6 +361,49 @@ for (const theme of ["pastel", "dark"] as const) {
       await expect
         .poll(async () => field(await myUnit(page, EAST_SEA_KEY, me.unitId), "aboard"), { timeout: 30_000 })
         .toBe(boatId);
+
+      // 배에서 캐기(D-541 1280 가): 배가 멈춘 뒤 가장 가까운 어군을 승객에게 시킨다
+      await expect
+        .poll(async () => field(await myUnit(page, EAST_SEA_KEY, boatId), "moving"), { timeout: 120_000 })
+        .toBe(false);
+      const boatAt = await myUnit(page, EAST_SEA_KEY, boatId);
+      const objects = await trpcQuery(page, "gather.objects", { mapKey: EAST_SEA_KEY });
+      const schools = field(objects, "schools");
+      const school = (Array.isArray(schools) ? schools : [])
+        .map((entry: unknown) => {
+          const points = field(entry, "points");
+          const x = Array.isArray(points) ? Number(points[0]) : 0;
+          const y = Array.isArray(points) ? Number(points[1]) : 0;
+          const d = Math.hypot(x - Number(field(boatAt, "cellX")), y - Number(field(boatAt, "cellY")));
+          return { id: Number(field(entry, "id")), d };
+        })
+        .toSorted((a, b) => a.d - b.d)[0];
+      expect(school, "동쪽 바다 2차맵에 어군이 없다").toBeDefined();
+      console.log(
+        `[boats] gather school ${String(school?.id)} at ${String(Math.round(school?.d ?? 0))} cells`,
+      );
+      const gather = await sendCommands(
+        page,
+        [
+          { t: "subscribe", mapKey: EAST_SEA_KEY, observe: true },
+          { t: "gather_start", unitId: me.unitId, mapKey: EAST_SEA_KEY, objectId: school?.id ?? 0 },
+        ],
+        requestId + 80,
+      );
+      expect(gather[1], "승객의 배에서 캐기").toMatchObject({ t: "gather_result", ok: true });
+      const loopOf = async (): Promise<unknown> => {
+        const loops = field(await trpcQuery(page, "gather.loops", undefined), "loops");
+        return Array.isArray(loops)
+          ? loops.find((loop: unknown) => field(loop, "unitId") === me.unitId)
+          : undefined;
+      };
+      await expect
+        .poll(async () => Number(field(await loopOf(), "gatheredLots") ?? 0), {
+          timeout: 240_000,
+          intervals: [2_000],
+        })
+        .toBeGreaterThan(0);
+      expect(field(await myUnit(page, EAST_SEA_KEY, me.unitId), "aboard")).toBe(boatId);
     });
   });
 }

@@ -9,8 +9,9 @@
 // [임시] 채집 줄·안에 머묾은 메모리에만 둔다(다시 켜면 유닛은 그 자리에 선다. 든 화물은 원장에 남는다 — 확인 대기, 질문 670).
 // 배에서 캐기(기획 D-541 1280 가, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B3)"): 배에 탄 유닛(승객)은 바다 오브젝트(배로만 닿는 것·어군)만 캐고,
 // 채집 줄이 배를 몬다(승객에게 내린 이동 = 배 이동, D-541 1279 나). 설 칸은 배가 설 물 칸, 거리는 배에서 캐는 거리(stand.ts). 캔 것은 승객 화물에
-// 들고(걷는 채집과 같은 원장 위치), 차면 배가 넣는 곳 둘레 물로 가서 넣는다(닿을 물이 없으면 no_deposit — 화물은 승객이 든 채). 같은 배의 다른
-// 승객 채집 줄이 배를 옮긴 것은 벗어남으로 보지 않고 다시 찾아간다(steer).
+// 들고(걷는 채집과 같은 원장 위치), 차면 배가 넣는 곳 둘레 물(없으면 내 부두)로 가서 넣는다(닿을 물이 없으면 no_deposit — 화물은 승객이 든 채).
+// 한 배의 승객들은 같은 오브젝트만 함께 캔다(다른 오브젝트를 시키면 앞 줄이 끝난다). 같은 배의 다른 승객 채집 줄이 배를 옮긴 것은 벗어남으로
+// 보지 않고 다시 찾아간다(steer).
 import type { GatherResultCode } from "@terra/protocol";
 import type { GatherLoopView, GatherPhase, GatherStop } from "@terra/shared/gather";
 import {
@@ -753,6 +754,11 @@ export function createGatherService(deps: GatherDeps): GatherService {
     if (boatId === null && kind.boat === true) return fail("unavailable");
     if (deps.store.read(input.mapKey, object.id, kind.uses, now()).usesLeft <= 0) return fail("depleted");
     if (!(await freeUnit(userId, unit.ownerId, input.unitId))) return fail("unavailable");
+    // 한 배의 승객들은 같은 오브젝트만 함께 캔다: 다른 오브젝트를 캐던 같은 배의 줄은 끝낸다(배가 오가지 않게, 질문 1400)
+    if (boatId !== null)
+      for (const other of [...actions.values()])
+        if (other.boatId === boatId && other.unitId !== input.unitId && other.objectId !== object.id)
+          finish(other, "interrupted");
     const action = newAction(userId, unit.ownerId, input.unitId, input.mapKey, "gather", boatId);
     action.objectId = object.id;
     action.kindIndex = object.kind;

@@ -481,4 +481,30 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
     expect(map.unitInfo(1)?.aboard).toBe(50);
     r.gather.stop();
   });
+
+  it("한 배의 승객들은 같은 오브젝트만 함께 캔다 — 다른 오브젝트를 시키면 앞 줄이 끝난다(질문 1400)", async () => {
+    const kinds = [VEIN, school("school_coastal", 6), school("school_shelf", 0)];
+    const r = rig({ kinds, waterStrip: true });
+    const map = r.maps.get(K[0] ?? 0);
+    if (!map) throw new Error("no map");
+    const objects = r.gather.objects(K[0] ?? 0) ?? [];
+    const coastal = objects.find((object) => object.kind === 1);
+    const shelf = objects.find((object) => object.kind === 2);
+    placeMine(r, 118, 40, 1);
+    placeMine(r, 118, 41, 2);
+    map.addBoat({ id: 50, ownerId: OWNER, speed: 1536, cellX: 121, cellY: 40 });
+    map.board(1, 50);
+    map.board(2, 50);
+    const mapKey = K[0] ?? 0;
+    expect(await r.gather.start(USER, { unitId: 1, mapKey, objectId: shelf?.id ?? 0 })).toEqual({ ok: true });
+    expect(await r.gather.start(USER, { unitId: 2, mapKey, objectId: shelf?.id ?? 0 })).toEqual({ ok: true });
+    expect(r.gather.acting(1) && r.gather.acting(2)).toBe(true);
+    expect(await r.gather.start(USER, { unitId: 2, mapKey, objectId: coastal?.id ?? 0 })).toEqual({
+      ok: true,
+    });
+    expect(r.gather.acting(1)).toBe(false);
+    expect(loopOf(r, 1)).toMatchObject({ phase: "done", stop: "interrupted" });
+    expect(r.gather.acting(2)).toBe(true);
+    r.gather.stop();
+  });
 });

@@ -50,14 +50,11 @@ interface Site {
   /** 부두 기준 배치 칸 */
   readonly dockX: number;
   readonly dockY: number;
-  /** 배를 보낼 물 기준 배치 칸(물가에서 2칸) */
-  readonly sailX: number;
-  readonly sailY: number;
 }
 
 /**
- * 곧은 물가 후보(가까운 차례): 지형 칸 (tx, ty)에서 물 쪽 방향 d로 깊이 1~3은 물, 깊이 −1~0은 땅이 물가를 따라 6칸(−2~3) 이어진다.
- * 부두(3×3)는 땅 쪽 깊이 −1~0, 물가 따라 0~1 지형 칸 안에서 물에 붙게 놓는다
+ * 부두 자리 후보(가까운 차례): 지형 칸 (tx, ty)에서 물 쪽 방향 d로 깊이 1~2는 물, 깊이 −1~0은 땅(물가 따라 0~1 두 칸).
+ * 부두(3×3)는 그 땅 2×2 지형 칸 안에서 물에 붙게 놓는다
  */
 function coastSites(isWater: (tx: number, ty: number) => boolean, near: { x: number; y: number }): Site[] {
   const out: (Site & { d: number })[] = [];
@@ -77,8 +74,8 @@ function coastSites(isWater: (tx: number, ty: number) => boolean, near: { x: num
           ty + depth * dy + along * py,
         ];
         let ok = true;
-        for (let along = -2; along <= 3 && ok; along++)
-          for (let depth = -1; depth <= 3 && ok; depth++) {
+        for (let along = 0; along <= 1 && ok; along++)
+          for (let depth = -1; depth <= 2 && ok; depth++) {
             const [cx, cy] = at(depth, along);
             if (isWater(cx, cy) !== depth >= 1) ok = false;
           }
@@ -89,15 +86,24 @@ function coastSites(isWater: (tx: number, ty: number) => boolean, near: { x: num
         const minY = Math.min(...cells.map(([, y]) => y)) * 2;
         const dockX = dx > 0 ? minX + 1 : minX;
         const dockY = dy > 0 ? minY + 1 : minY;
-        const [sx, sy] = at(2, 2);
-        out.push({
-          dockX,
-          dockY,
-          sailX: sx * 2,
-          sailY: sy * 2,
-          d: Math.hypot(dockX - near.x, dockY - near.y),
-        });
+        out.push({ dockX, dockY, d: Math.hypot(dockX - near.x, dockY - near.y) });
       }
+  return out.toSorted((a, b) => a.d - b.d);
+}
+
+/** 배를 보낼 물가 물 칸(지형 칸 — 네 이웃에 땅이 있다, 내릴 땅이 가깝다) 기준 배치 칸, 부두에서 6~40 지형 칸, 가까운 차례 */
+function shoreTargets(isWater: (tx: number, ty: number) => boolean, dock: Site): { x: number; y: number }[] {
+  const out: { x: number; y: number; d: number }[] = [];
+  const cx = dock.dockX / 2;
+  const cy = dock.dockY / 2;
+  for (let ty = 2; ty < TERRAIN - 2; ty++)
+    for (let tx = 2; tx < TERRAIN - 2; tx++) {
+      if (!isWater(tx, ty)) continue;
+      const shore =
+        !isWater(tx + 1, ty) || !isWater(tx - 1, ty) || !isWater(tx, ty + 1) || !isWater(tx, ty - 1);
+      const d = Math.hypot(tx - cx, ty - cy);
+      if (shore && d >= 6 && d <= 40) out.push({ x: tx * 2, y: ty * 2, d });
+    }
   return out.toSorted((a, b) => a.d - b.d);
 }
 
@@ -109,7 +115,9 @@ async function myUnit(page: Page, mapKey: number, unitId: number): Promise<unkno
 }
 
 /** 띄운 도시 2차맵 가운데 곧은 물가가 있는 첫 곳(도시 시청에서 가까운 물가 차례) */
-async function coastalCity(page: Page): Promise<{ mapKey: number; sites: Site[] }> {
+async function coastalCity(
+  page: Page,
+): Promise<{ mapKey: number; sites: Site[]; isWater: (tx: number, ty: number) => boolean }> {
   const data = await trpcQuery(page, "world.cities", undefined);
   const cities = field(data, "cities");
   const seen = new Set<number>();
@@ -117,13 +125,12 @@ async function coastalCity(page: Page): Promise<{ mapKey: number; sites: Site[] 
     const mapKey = Number(field(city, "mapKey"));
     if (field(city, "loaded") !== true || seen.has(mapKey)) continue;
     seen.add(mapKey);
-    const sites = coastSites(await waterOf(page, mapKey), {
-      x: Number(field(city, "cellX")),
-      y: Number(field(city, "cellY")),
-    });
-    if (sites.length > 0) return { mapKey, sites };
+    const isWater = await waterOf(page, mapKey);
+    const sites = coastSites(isWater, { x: Number(field(city, "cellX")), y: Number(field(city, "cellY")) });
+    console.log(`[boats] city map ${String(mapKey)} dock sites ${String(sites.length)}`);
+    if (sites.length > 0) return { mapKey, sites, isWater };
   }
-  throw new Error("곧은 물가가 있는 도시 2차맵이 없다");
+  throw new Error("물가가 있는 도시 2차맵이 없다");
 }
 
 /** 부두를 짓고 배를 만든다(운영자 모드 연결). 부두·배 ID와 자리 */
@@ -189,24 +196,41 @@ for (const theme of ["pastel", "dark"] as const) {
       await expect
         .poll(async () => field(await myUnit(page, me.mapKey, me.unitId), "aboard"), { timeout: 90_000 })
         .toBe(boatId);
-      // 물 위로: 배는 물 길로 간다. 사이보그는 배를 따라간다(따로 움직이면 aboard)
-      const sail = await sendCommands(
+      // 승객은 따로 움직이지 않는다
+      const alone = await sendCommands(
         page,
         [
           { t: "subscribe", mapKey: me.mapKey, observe: true },
-          {
-            t: "move_unit",
-            mapKey: me.mapKey,
-            unitId: boatId,
-            x: site.sailX * CELL_UNITS + CELL_UNITS,
-            y: site.sailY * CELL_UNITS + CELL_UNITS,
-          },
           { t: "move_unit", mapKey: me.mapKey, unitId: me.unitId, x: 10 * CELL_UNITS, y: 10 * CELL_UNITS },
         ],
         nextId + 5,
       );
-      expect(sail[1]).toMatchObject({ ok: true });
-      expect(sail[2]).toMatchObject({ ok: false, code: "aboard" });
+      expect(alone[1]).toMatchObject({ ok: false, code: "aboard" });
+      // 물 위로: 배는 물 길로 간다(같은 물에 닿는 물가 칸을 가까운 차례로 해 본다). 승객은 배를 따라간다
+      let sailed: { x: number; y: number } | undefined;
+      let requestId = nextId + 20;
+      for (const target of shoreTargets(coast.isWater, site).slice(0, 12)) {
+        const reply = await sendCommands(
+          page,
+          [
+            { t: "subscribe", mapKey: me.mapKey, observe: true },
+            {
+              t: "move_unit",
+              mapKey: me.mapKey,
+              unitId: boatId,
+              x: target.x * CELL_UNITS + CELL_UNITS,
+              y: target.y * CELL_UNITS + CELL_UNITS,
+            },
+          ],
+          requestId,
+        );
+        requestId += 5;
+        if (field(reply[1], "ok") === true) {
+          sailed = target;
+          break;
+        }
+      }
+      if (!sailed) throw new Error("배가 갈 물가 물 칸이 없다");
       await expect
         .poll(async () => field(await myUnit(page, me.mapKey, boatId), "moving"), { timeout: 60_000 })
         .toBe(false);
@@ -216,7 +240,7 @@ for (const theme of ["pastel", "dark"] as const) {
 
       // 지도: 배를 고르면 승객 수·[모두 내리기]
       await page.goto(
-        `/map?key=${String(me.mapKey)}&at=${String(site.sailX)},${String(site.sailY)}&second-map-sky=off`,
+        `/map?key=${String(me.mapKey)}&at=${String(sailed.x)},${String(sailed.y)}&second-map-sky=off`,
       );
       const screen = page.locator(".map-screen");
       await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 60_000 });

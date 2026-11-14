@@ -73,3 +73,9 @@
 - Verified 영토 셈(단위 시험, Node): F9 크기 국가 16·도시 50 78ms, 고리 17개·점 273개.
 - 사진: `planet-globe-territory-390-*`(1단계), `planet-layer-territory-390-*`(3단계), `planet-layer-territory-stage4-390-*`(4단계), 파스텔·다크.
 
+### 확인 (화면 영토 반지름 × 2·4칸, 둘레 매끄럽게 뒤)
+- Verified `pnpm check`: 시험 파일 704·시험 5,275개 통과. `pnpm build`·`check-pwa`·`check:bundle`·`check:docs origin/main` 통과.
+- Verified 화면 시험 `planet-view.spec.ts` + `play-map.spec.ts` 40개 통과(9.6분). 3단계 그린 덩이 3, 가장 작은 덩이 화면 반지름 60px(앞 36px). 1단계 국가 4곳 둥근 표시. 엔진 p95(헤드리스) 4단계 2.6~3.4ms, 1단계 1.4~2.6ms.
+- Verified 영토 셈(Node 단위 시험, 화면 반지름 4칸): 국가 16·도시 50 42ms, 고리 점 약 580개.
+- 사진(390, 파스텔·다크): `planet-globe-territory-390-*`(1단계), `planet-layer-territory-390-*`(3단계), `planet-layer-territory-stage4-390-*`(4단계).
+

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 08:20 ~ 08:45 | 사업장 장부(D-548) 코드 감사 + 설계안(질문 1501~1514) | Claude Code | [15-0840-business-ledger](worklog/2026/11/15-0840-business-ledger.md) |
 | 2026-11-15 08:30 | 2026-11-15 열째 묶음 합치기 (배 재료 반환 제거·전투 보고서 2단계) | Claude Code | [15-0830-batch-1115-merge](worklog/2026/11/15-0830-batch-1115-merge.md) |
 | 2026-11-15 08:00 | 앱·서버 빌드 도장(한국 시각 분까지)과 버전 줄 | Claude Code | [15-0800-version-stamp](worklog/2026/11/15-0800-version-stamp.md) |
 | 2026-11-15 07:30 | 전투 보고서: 실제 세계 도시 공성·웨이브 팀 수비·군단(파티 여럿) | Claude Code | [15-0730-battle-report-2](worklog/2026/11/15-0730-battle-report-2.md) |

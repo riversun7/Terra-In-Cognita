@@ -13,7 +13,14 @@ import { type CellKey, decodeCellKey, isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import { placementCellKey, territoryMetric } from "@terra/planet/territory";
 import { planetCellValuesFromFile } from "@terra/planet/secondMap";
-import { CELL_UNITS, PLACEMENT_SIZE, TEST_GARDENER_COEFFICIENTS, positionAt } from "@terra/sim";
+import {
+  CELL_UNITS,
+  PLACEMENT_SIZE,
+  type SocietyCoefficients,
+  TEST_GARDENER_COEFFICIENTS,
+  catchmentGrowthOf,
+  positionAt,
+} from "@terra/sim";
 import type { MapUnitGlance } from "@terra/shared/mapUnits";
 import type { NationEmblemView } from "@terra/shared/nationEditor";
 import type { LocalizedName } from "@terra/shared/roster";
@@ -137,6 +144,15 @@ interface CityRecord {
 export interface CatchmentRadiusRules {
   readonly growth: CatchmentGrowthRules;
   readonly territory: Pick<TerritoryCoefficients, "gradeAtDevelopment">;
+}
+
+/** 설정 칸 실효 값 → 배후지 지금 반경 규칙. 배후지 스위치(city_catchment_radius_cells)가 0이면 옛 배치라 배후지가 없다 → undefined */
+export function catchmentRadiusRulesOf(
+  society: Pick<SocietyCoefficients, "worldSeed" | "territory">,
+): CatchmentRadiusRules | undefined {
+  return society.worldSeed.catchmentRadiusCells > 0
+    ? { growth: catchmentGrowthOf(society.worldSeed), territory: society.territory }
+    : undefined;
 }
 
 async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityRecord[]> {

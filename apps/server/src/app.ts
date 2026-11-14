@@ -3,12 +3,7 @@ import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
-import {
-  TEST_RANKING_COEFFICIENTS,
-  catchmentGrowthOf,
-  combatCoefficientsFrom,
-  fishTierRangesOf,
-} from "@terra/sim";
+import { TEST_RANKING_COEFFICIENTS, combatCoefficientsFrom, fishTierRangesOf } from "@terra/sim";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { registerAccountRoutes } from "./auth/account.ts";
 import { type TerraAuth, createAuth, verifyAuth } from "./auth/auth.ts";
@@ -76,7 +71,7 @@ import { createWorldRosterSource } from "./roster/worldUnits.ts";
 import { createSecondMapLab } from "./world/secondMapLab.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
 import { EARTH_FACE_LEVEL } from "@terra/planet";
-import { worldMapReadsOf } from "./worldMap/reads.ts";
+import { catchmentRadiusRulesOf, worldMapReadsOf } from "./worldMap/reads.ts";
 import { bootTuning, createTuningShared } from "./tuning/services.ts";
 import { createBalanceServices } from "./balance/services.ts";
 import { bootContentEdit, createContentEditShared } from "./contentEdit/services.ts";
@@ -444,16 +439,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           presets: options.world?.npc?.presets,
           planets: planets && worldPlanet ? planets : undefined,
           pollutionDanger: tuningState ? () => tuningState.society().gardener.nomadThreshold : undefined,
-          // 1차맵 영토 원 = 도시 배후지 지금 반경(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 배후지 스위치(city_catchment_radius_cells)가
-          // 0이면 옛 배치라 배후지가 없다 → 화면은 영향권 반경으로
-          catchment: tuningState
-            ? () => {
-                const society = tuningState.society();
-                return society.worldSeed.catchmentRadiusCells > 0
-                  ? { growth: catchmentGrowthOf(society.worldSeed), territory: society.territory }
-                  : undefined;
-              }
-            : undefined,
+          // 1차맵 영토 원 = 배후지 지금 반경(ADR planet-view "바뀜 (2026-11-14)")
+          catchment: tuningState ? () => catchmentRadiusRulesOf(tuningState.society()) : undefined,
         })
       : undefined;
   if (world) {

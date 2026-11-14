@@ -3,6 +3,7 @@
 // 줄 = 두 스탯(주 + 보조) 초기 합, 칸 = 레벨. 칸마다 K 범위(N6)의 유효 스탯 범위와 T0~T9 확률. 컨디션(관리 보너스)·시설 레벨 손잡이를 옮기면 바로
 // 다시 센다. 칸 아래에 선택 방식(농장·목장) 해금 티어 범위도 보인다(D-535 1154 나 — 컨디션을 반씩 두 스탯에). 셈은 판정과 같은 @terra/shared/gatherExpect(성장 primaryAtLevel·유효 스탯 gatherStat·구간 gatherBandIndex)이고, 확률표는 담은
 // 변경을 얹은 지금 표(draftBands)라 확률 분포 탭에서 고친 값이 바로 보인다. 계산만 한다(서버에 보내지 않는다).
+// 바뀜 (2026-11-14, 기획 D-542 질문 1365 나): 고른 사다리에 낚시터가 있으면 물 종류를 골라 확률을 그 티어 범위(설정 칸 fish_tier_*)로 접어 본다.
 import type { BuildingEditorGatherRules } from "@terra/shared/buildingEditor";
 import {
   GATHER_EXPECT_LEVELS,
@@ -11,6 +12,8 @@ import {
   expectedGatherTable,
 } from "@terra/shared/gatherExpect";
 import type { GatherBand } from "@terra/shared/gatherMath";
+import { FISH_WATERS, type FishTierRanges, type FishWater, fishTierRangeOf } from "@terra/shared/fishWater";
+import { fishWaterName } from "../../ui/fishWaterText.ts";
 import { type ReactNode, useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import "../gatherTiers/gatherTier.css";
@@ -86,17 +89,22 @@ export function ProductionExpectPanel({
   picker,
   bands,
   rules,
+  fishTiers,
 }: {
   /** 띠 표 고르기(기획 D-540 1217 나 — 사다리마다 띠 표) */
   picker?: ReactNode;
   /** 담은 변경을 얹은 지금 확률표(고른 사다리 표만) */
   bands: readonly GatherBand[];
   rules: BuildingEditorGatherRules;
+  /** 고른 사다리에 낚시터가 있을 때만: 물 종류마다 티어 범위(서버 rules.fishTiers). 없으면 물 종류 고르기를 보이지 않는다 */
+  fishTiers?: FishTierRanges | undefined;
 }) {
   const id = useId();
   const cap = Math.max(0, rules.conditionCap ?? FALLBACK.conditionCap);
   const [condition, setCondition] = useState(0);
   const [facilityLevel, setFacilityLevel] = useState(1);
+  const [water, setWater] = useState<FishWater | "">("");
+  const tierRange = fishTiers && water !== "" ? fishTierRangeOf(fishTiers, water) : undefined;
   const shown = Math.max(-cap, Math.min(cap, condition));
   const growthPm = rules.growthPm ?? FALLBACK.growthPm;
   const kMinPm = rules.kMinPm ?? FALLBACK.kMinPm;
@@ -110,6 +118,7 @@ export function ProductionExpectPanel({
     levelBonus,
     facilityLevel,
     condition: shown,
+    tierRange,
   });
   return (
     <div className="pd-expect">
@@ -161,7 +170,35 @@ export function ProductionExpectPanel({
             onChange={(event) => setFacilityLevel(Number(event.currentTarget.value))}
           />
         </label>
+        {fishTiers ? (
+          <label className="pd-expect-slider">
+            <span>{m.dev_prod_expect_water()}</span>
+            <select
+              value={water}
+              data-testid="expect-water"
+              onChange={(event) => {
+                const next = event.currentTarget.value;
+                setWater(FISH_WATERS.find((item) => item === next) ?? "");
+              }}
+            >
+              <option value="">{m.dev_prod_expect_water_none()}</option>
+              {FISH_WATERS.map((item) => {
+                const range = fishTierRangeOf(fishTiers, item);
+                return (
+                  <option key={item} value={item}>
+                    {m.dev_prod_expect_water_option({
+                      water: fishWaterName(item),
+                      min: range?.min ?? 0,
+                      max: range?.max ?? 0,
+                    })}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+        ) : null}
       </div>
+      {fishTiers ? <p className="field-hint">{m.dev_prod_expect_water_hint()}</p> : null}
       <div className="dev-table-wrap">
         <table className="dev-table pd-expect-table" aria-labelledby={`${id}-title`}>
           <thead>

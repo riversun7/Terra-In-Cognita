@@ -17,7 +17,7 @@ import {
 } from "@terra/shared/buildingEditor";
 import type { ContentIssueView } from "@terra/shared/contentEdit";
 import { normalizeTuningNote } from "@terra/shared/tuning";
-import { TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
+import { TEST_SOCIETY_COEFFICIENTS, fishTierRangesOf } from "@terra/sim";
 import type { Database } from "../db/client.ts";
 import { issueView } from "../contentEdit/core.ts";
 import { type ContentEditShared, applyContentBatch } from "../contentEdit/services.ts";
@@ -161,6 +161,8 @@ export function createBuildingEditorServices(deps: {
         maxLevel: society.cyborg.maxLevel,
         levelBonus: society.gatherLevelBonus,
         conditionCap: society.condition.cap,
+        // 낚시터 물 종류 티어 범위("예상 확률" 탭 물 종류 고르기, 기획 D-542 질문 1365 나)
+        fishTiers: fishTierRangesOf(society.worldSeed),
       },
       combatClasses: combatClassViews(state, snapshot),
       classRule: {

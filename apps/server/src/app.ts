@@ -3,7 +3,7 @@ import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
-import { TEST_RANKING_COEFFICIENTS, combatCoefficientsFrom } from "@terra/sim";
+import { TEST_RANKING_COEFFICIENTS, combatCoefficientsFrom, fishTierRangesOf } from "@terra/sim";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { registerAccountRoutes } from "./auth/account.ts";
 import { type TerraAuth, createAuth, verifyAuth } from "./auth/auth.ts";
@@ -647,6 +647,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
                 facilities: effective.facilities,
                 combatClasses: effective.combatClasses,
                 rule: tuningState?.society().combatClass,
+                // 낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나, 설정 칸 fish_tier_*)
+                fishTiers: tuningState ? fishTierRangesOf(tuningState.society().worldSeed) : undefined,
               };
             }
           : undefined,

@@ -12,6 +12,7 @@ import type {
 } from "./contentEdit.ts";
 import type { FacilityBuildJson, FacilityBuildRules, FacilityRepairJson } from "./facilityBuild.ts";
 import type { FacilityLookJson } from "./facilityLook.ts";
+import type { FishTierRanges } from "./fishWater.ts";
 import type { CombatClassRule, CombatClassView } from "./unitGuide.ts";
 
 export {
@@ -93,6 +94,8 @@ export interface BuildingEditorGatherRules {
   readonly maxLevel?: number | undefined;
   readonly levelBonus?: number | undefined;
   readonly conditionCap?: number | undefined;
+  /** 낚시터 물 종류마다 티어 범위(설정 칸 fish_tier_*, 기획 D-542 질문 1365 나 — "예상 확률" 탭 물 종류 고르기). 옛 서버면 없음 */
+  readonly fishTiers?: FishTierRanges | undefined;
 }
 
 export interface BuildingEditorGatherBand {

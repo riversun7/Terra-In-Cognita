@@ -8,6 +8,7 @@ import {
   type CatchmentSupplyRules,
   catchmentRadiusMilli,
 } from "@terra/shared/catchment";
+import type { FishTierRanges } from "@terra/shared/fishWater";
 
 export interface WorldSeedCoefficients {
   /**
@@ -78,6 +79,18 @@ export interface WorldSeedCoefficients {
    * 뽑으면 배후지 광석 가운데 산지 몫만큼만 그 티어로 나오고 나머지는 이 티어로 내려간다
    */
   readonly oreLowTierMax: number;
+  /**
+   * [임시] 낚시터 물 종류마다 티어 범위(기획 D-542 질문 1365 나 — @terra/shared/fishWater). 낚시터 일꾼(플레이어·NPC·시뮬)이 뽑은 티어를 그 자리
+   * 물 종류(민물·연안·대륙붕·심해)의 아래 ~ 위로 접는다. 출발값 = 어군 범위(팩 gather_objects tierRange, D-541 1307 나)
+   */
+  readonly fishFreshMin: number;
+  readonly fishFreshMax: number;
+  readonly fishCoastMin: number;
+  readonly fishCoastMax: number;
+  readonly fishShelfMin: number;
+  readonly fishShelfMax: number;
+  readonly fishDeepMin: number;
+  readonly fishDeepMax: number;
   /**
    * [임시] 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536 — 사용자 2026-11-12 "목재와 약초 목장 분포가 너무 겹친다"): 무리 배율(‰)·노이즈
    * 격자 간격(1차맵 칸)·노이즈 바닥(‰)·자원마다 노이즈 시드·약초·축산물 있음 비트 문턱(‰). 셈은 @terra/shared/catchment woodSharePm·herbSharePm·
@@ -257,6 +270,15 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   oreShareHillM: 200,
   oreShareHillPm: 550,
   oreLowTierMax: 2,
+  // 낚시터 물 종류 범위(기획 D-542 1365 나): 어군 범위와 같다 — 민물 T0~T2, 연안 T0~T4, 대륙붕 T2~T6, 심해 T4~T8
+  fishFreshMin: 0,
+  fishFreshMax: 2,
+  fishCoastMin: 0,
+  fishCoastMax: 4,
+  fishShelfMin: 2,
+  fishShelfMax: 6,
+  fishDeepMin: 4,
+  fishDeepMax: 8,
   // 목재·약초·목장(D-536): 목재 = 숲 무리 100%·그 밖 30%(숲 밀도 몫에 곱함), 약초 = 습지 100%·고산 초지 80%·숲 가장자리·빈터 45%(목재 노이즈
   // 반대를 80% 따름)·그 밖 10%, 목장 = 초지·사바나·툰드라 100%·그 밖 0. 노이즈 격자 8칸(배후지 지름 약 4칸의 두 배 — 도시마다 섞임이 다르다),
   // 배율 25% ~ 175%(가운데 100% — 무리 평균은 거의 그대로). 시드는 서로 다른 아무 수. 약초·축산물 있음 비트는 몫 150‰부터. 숲 약초 45%·빈터 80%는
@@ -412,4 +434,14 @@ export function plannedCityRadiusMilli(
     },
     catchmentGrowthOf(seed),
   );
+}
+
+/** 세계 씨앗 설정 칸 → 낚시터 물 종류마다 티어 범위(@terra/shared/fishWater) */
+export function fishTierRangesOf(seed: WorldSeedCoefficients): FishTierRanges {
+  return {
+    fresh: { min: seed.fishFreshMin, max: seed.fishFreshMax },
+    coast: { min: seed.fishCoastMin, max: seed.fishCoastMax },
+    shelf: { min: seed.fishShelfMin, max: seed.fishShelfMax },
+    deep: { min: seed.fishDeepMin, max: seed.fishDeepMax },
+  };
 }

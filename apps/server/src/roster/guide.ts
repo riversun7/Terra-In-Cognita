@@ -11,16 +11,23 @@ import {
   productionGroupOf,
 } from "@terra/shared/unitGuide";
 import { PRIMARY_STATS } from "@terra/shared/roster";
+import { materialOfFacility } from "@terra/shared/catchment";
+import { type FishTierRanges, fishWaterRangeViews } from "@terra/shared/fishWater";
 
 export interface UnitGuideSource {
   readonly facilities: readonly FacilityEntry[];
   readonly combatClasses: readonly CombatClassEntry[];
   /** 분류 문턱(설정 칸 실효 값). 없으면 옛 값 600·800 */
   readonly rule?: CombatClassRule | undefined;
+  /** 낚시터 물 종류마다 티어 범위(설정 칸 fish_tier_*, 기획 D-542 질문 1365 나). 없으면 어류 시설 줄에 싣지 않는다 */
+  readonly fishTiers?: FishTierRanges | undefined;
 }
 
-/** 채집 칸이 있는 시설 = 1차 생산 종류(팩 차례) */
-export function productionTypesOf(facilities: readonly FacilityEntry[]): ProductionTypeView[] {
+/** 채집 칸이 있는 시설 = 1차 생산 종류(팩 차례). fishTiers가 있으면 어류 시설(낚시터)에 물 종류마다 티어 범위를 싣는다 */
+export function productionTypesOf(
+  facilities: readonly FacilityEntry[],
+  fishTiers?: FishTierRanges,
+): ProductionTypeView[] {
   return facilities.flatMap((facility) => {
     const gather = facility.gather;
     if (!gather || facility.stage !== "gather") return [];
@@ -32,6 +39,9 @@ export function productionTypesOf(facilities: readonly FacilityEntry[]): Product
         secondary: gather.secondary,
         mode: gather.mode ?? "roll",
         group: productionGroupOf(gather),
+        ...(fishTiers && materialOfFacility(facility.id) === "fish"
+          ? { waterTiers: fishWaterRangeViews(fishTiers) }
+          : {}),
       },
     ];
   });
@@ -52,7 +62,7 @@ export function combatClassesOf(entries: readonly CombatClassEntry[]): CombatCla
 /** 추천 표 응답. 출처가 없으면(팩 없는 시험 서버) 빈 표 */
 export function unitGuideOf(source: UnitGuideSource | undefined, now: number): UnitGuideResponse {
   return {
-    production: source ? productionTypesOf(source.facilities) : [],
+    production: source ? productionTypesOf(source.facilities, source.fishTiers) : [],
     classes: source ? combatClassesOf(source.combatClasses) : [],
     classRule: source?.rule ?? OLD_COMBAT_CLASS_RULE,
     generatedAt: now,

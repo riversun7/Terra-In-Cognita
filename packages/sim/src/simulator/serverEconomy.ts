@@ -32,6 +32,7 @@ export {
   createCatchmentState,
   facilitySupplyPm,
   landShares,
+  fishTierRange,
   oreTierCap,
   stepCatchment,
   type CatchmentGeometry,

@@ -14,6 +14,7 @@ import {
 } from "@terra/shared/unitGuide";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
+import { fishWaterRangesText } from "../ui/fishWaterText.ts";
 import { primaryCode } from "./rosterText.ts";
 import { useUnitGuide } from "./useUnitGuide.ts";
 import "./unitAdvice.css";
@@ -98,6 +99,11 @@ export function UnitAdvice({
                     score: pick.score,
                   })}
                 </span>
+                {pick.type.waterTiers && pick.type.waterTiers.length > 0 ? (
+                  <span className="unit-advice-reason unit-advice-waters" data-testid="unit-advice-waters">
+                    {m.unit_advice_job_waters({ ranges: fishWaterRangesText(pick.type.waterTiers) })}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ol>

@@ -10,11 +10,15 @@
 // - 높은 티어 광석(기획 D-535 질문 1121, docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12): 높은 티어 광석"): 플레이어 광산도 NPC 광산과
 //   같은 티어 막기(@terra/shared/catchment oreTierCapOf)를 받는다 — 높은 티어 몫 = 건물이 선 2차맵 칸의 highOrePm(산지 1000, 산지 밖
 //   ore_flat_high_pm). 행성 값이 없는 2차맵(임시 지형)은 막지 않는다.
+// - 낚시터 물 종류(기획 D-542 질문 1365 나): 플레이어 낚시터도 NPC 낚시터처럼 그 자리 물 종류(fishWater.ts spotWaterOfMap)의 티어 범위(설정 칸
+//   fish_tier_*)로 뽑은 티어를 접는다(@terra/sim rollGatherOutputs tierRange). 행성 값이 없는 2차맵은 접지 않는다.
 import { type CatchmentLand, highOrePm, materialOfFacility, oreTierCapOf } from "@terra/shared/catchment";
+import { type FishTierRanges, type FishWater, fishTierRangeOf } from "@terra/shared/fishWater";
 import {
   HOME_HOUSING,
   type RestPlace,
   type SocietyCoefficients,
+  fishTierRangesOf,
   gatherLadderBands,
   unitPreferences,
 } from "@terra/sim";
@@ -37,6 +41,7 @@ import {
   createBuildingAttack,
 } from "./attack.ts";
 import { type CatalogSource, type FacilityCatalog, facilityCatalogOf } from "./catalog.ts";
+import { spotWaterOfMap } from "./fishWater.ts";
 import { spendGoods } from "./materials.ts";
 import { type PlaceWorld, assetWeightG, beaconMaterialScope, buildingPlace } from "./places.ts";
 import { type FacilityService, createFacilityService } from "./service.ts";
@@ -137,6 +142,12 @@ export interface OreCapSource {
   lowTierMax(): number;
 }
 
+/** 낚시터 티어 범위 자료: 2차맵 → 물 종류(행성 값이 없으면 undefined)·물 종류마다 범위(설정 칸 fish_tier_*) */
+export interface FishWaterSource {
+  waterOf(mapKey: number): FishWater | undefined;
+  ranges(): FishTierRanges;
+}
+
 /**
  * 그 건물이 채집 시설(팩 gather가 있는 시설)이면 채집 산출 자료: 정의·다 지은 레벨·사다리·확률표·묶음 크기·건물이 선 도시·자리 수(레벨 ×
  * 레벨당 자리, 레벨 0이면 0)·광석 시설이면 티어 막기(oreCap이 있을 때, 머리 주석). 시설 줄이 없거나 채집 시설이 아니면 undefined
@@ -146,16 +157,25 @@ export function gatherSiteOf(
   catalog: FacilityCatalog,
   buildingId: number,
   oreCap?: OreCapSource,
+  fishWater?: FishWaterSource,
 ): (GatherSite & { readonly slots: number }) | undefined {
   const record = service.facilities.get(buildingId);
   const def = record ? catalog.facility(record.facilityId) : undefined;
   if (!record || !def?.gather) return undefined;
+  const material = materialOfFacility(def.id);
   const place =
-    oreCap && materialOfFacility(def.id) === "ore" ? buildingPlace(service.places, buildingId) : undefined;
-  const highPm = place && oreCap ? oreCap.highOrePm(place.mapKey) : undefined;
+    (oreCap && material === "ore") || (fishWater && material === "fish")
+      ? buildingPlace(service.places, buildingId)
+      : undefined;
+  const highPm = place && oreCap && material === "ore" ? oreCap.highOrePm(place.mapKey) : undefined;
   const tierCap = highPm === undefined || !oreCap ? undefined : oreTierCapOf(highPm, oreCap.lowTierMax());
+  const tierRange =
+    place && fishWater && material === "fish"
+      ? fishTierRangeOf(fishWater.ranges(), fishWater.waterOf(place.mapKey))
+      : undefined;
   return {
     ...(tierCap ? { tierCap } : {}),
+    ...(tierRange ? { tierRange } : {}),
     buildingId,
     facilityId: def.id,
     level: record.level,
@@ -224,6 +244,12 @@ export function createWorldFacilities(input: {
           return land ? highOrePm(land, input.rules().worldSeed) : undefined;
         },
         lowTierMax: () => input.rules().worldSeed.oreLowTierMax,
+      }
+    : undefined;
+  const fishWater: FishWaterSource | undefined = cellValues
+    ? {
+        waterOf: (mapKey) => spotWaterOfMap(mapKey, cellValues),
+        ranges: () => fishTierRangesOf(input.rules().worldSeed),
       }
     : undefined;
   let labor: LaborService | undefined;
@@ -332,7 +358,7 @@ export function createWorldFacilities(input: {
     attachLabor(next) {
       labor = next;
       next.attachProduction({
-        site: (buildingId) => gatherSiteOf(service, catalog(), buildingId, oreCap),
+        site: (buildingId) => gatherSiteOf(service, catalog(), buildingId, oreCap, fishWater),
         // 병원(의료 단계 시설): 의사 직무 배치 자리(D-521, 산출 없음)
         workplace: (buildingId) => medicalSiteOf(service, catalog(), buildingId),
         primaries: (unitId) => input.holdings.primariesOf(unitId),

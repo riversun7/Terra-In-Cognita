@@ -5,6 +5,7 @@
 // 확률 = 두 스탯의 K를 범위 안 고른 칸(양 끝 포함 K_STEPS × K_STEPS)으로 나눠 그 칸들의 구간 가중치를 평균한 것(K는 생성 때 범위 안 균등, N6).
 // 바뀜(D-535 1154 나): 선택 방식(농장·목장)의 해금 티어 범위(K 최소·최대)도 칸마다 보인다 — 컨디션을 두 스탯에 반씩 더한 판정과 같은 셈
 // (gatherMath conditionedStats·accessibleTier). 시설 레벨은 해금 티어에 들지 않는다.
+// 바뀜(D-542 1365 나): 낚시터 물 종류를 고르면 확률을 그 물 종류 티어 범위로 접는다(tierRange).
 // 정수 연산만 쓴다(화면 계산이지만 판정 함수와 같은 결과를 보이게).
 import {
   GATHER_TIERS,
@@ -15,6 +16,7 @@ import {
   gatherBandIndex,
   gatherStat,
 } from "./gatherMath.ts";
+import { type FishTierRange, foldTierPm } from "./fishWater.ts";
 import { primaryAtLevel } from "./statGrowth.ts";
 
 /** 기본 줄: 두 스탯 초기 합(15·15 = 30, 18·18 = 36은 D-534 원문 예) */
@@ -37,6 +39,11 @@ export interface GatherExpectInput {
   readonly facilityLevel: number;
   /** 컨디션(관리 보너스, 이미 상한으로 자른 값, D-534) */
   readonly condition: number;
+  /**
+   * 티어 범위(낚시터 물 종류 — 기획 D-542 질문 1365 나, @terra/shared/fishWater foldTierPm). 있으면 확률을 범위로 접는다(판정 rollGatherOutputs
+   * tierRange와 같은 접기). 없으면 접지 않는다
+   */
+  readonly tierRange?: FishTierRange | undefined;
 }
 
 export interface GatherExpectCell {
@@ -135,7 +142,7 @@ export function expectedGatherCell(sum: number, level: number, input: GatherExpe
         totals[tier] =
           (totals[tier] ?? 0) + Math.floor((Math.max(0, band.weightsPm[tier] ?? 0) * 1_000_000) / bandTotal);
     }
-  const tierPm = toPermille(totals);
+  const tierPm = foldTierPm(toPermille(totals), input.tierRange);
   const averageTierMilli = tierPm.reduce((acc, pm, tier) => acc + pm * tier, 0);
   const lo = ks[0] ?? input.kMinPm;
   const hi = ks.at(-1) ?? input.kMaxPm;

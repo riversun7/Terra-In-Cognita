@@ -27,6 +27,7 @@ import { combatCoefficientsFrom, societyCoefficientsFrom } from "@terra/sim";
 import type { HeavyGate } from "../balance/gate.ts";
 import { inlineReportRunner, type ReportRunner } from "../battleReport/runner.ts";
 import { createReportService, type ReportLimits, type ReportService } from "../battleReport/services.ts";
+import type { ReportCitySource } from "../battleReport/worldCity.ts";
 import type { JobRunner } from "../balance/runner.ts";
 import { DuelRunError } from "../balance/runner.ts";
 import type { Database } from "../db/client.ts";
@@ -179,6 +180,8 @@ export function createBattleLabShared(deps: {
   /** 전투 보고서 일을 돌리는 쪽(없으면 같은 스레드)·속도 제한 */
   reports?: ReportRunner | undefined;
   reportLimits?: Partial<ReportLimits> | undefined;
+  /** 전투 보고서의 실제 세계 도시 읽기(세계가 없으면 없음) */
+  reportCities?: ReportCitySource | undefined;
 }): BattleLabShared {
   const { tuning, roster, terrains, runner, gate, now, log } = deps;
   const { state } = tuning;
@@ -269,6 +272,7 @@ export function createBattleLabShared(deps: {
     now,
     log,
     limits: deps.reportLimits,
+    cities: deps.reportCities,
   });
 
   return {

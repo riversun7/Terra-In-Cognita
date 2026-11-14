@@ -9,6 +9,7 @@
 import {
   type AttackStages,
   type BattleInit,
+  type BattleInput,
   type BattleState,
   type CombatCoefficients,
   type UnitState,
@@ -18,7 +19,7 @@ import {
   specStaminaCostMilli,
   waveSiegeSpent,
 } from "@terra/sim";
-import type { ReportHitTrace, ReportMode } from "@terra/shared/battleReport";
+import type { ReportHitTrace, ReportLegionView, ReportMode } from "@terra/shared/battleReport";
 import type { RunSink } from "./aggregate.ts";
 
 /** 보고서 줄(파티 유닛 또는 웨이브 무리) */
@@ -45,6 +46,10 @@ export interface PlaySetup {
   readonly wallIds: readonly number[];
   readonly nexusId: number | null;
   readonly nexusMax: number;
+  /** 판정 입력(군단 명령 — 틱 차례, 유닛 ID는 편 바꾼 판에도 같다). 없으면 명령 없음 */
+  readonly inputs?: readonly BattleInput[] | undefined;
+  /** 편마다 군단 모양(결과에 그대로 적는다) */
+  readonly legion?: { readonly a: ReportLegionView; readonly b: ReportLegionView } | undefined;
 }
 
 /** 판 하나의 끝 */
@@ -159,6 +164,13 @@ export function playRun(setup: PlaySetup, run: number, seed: number, sink: RunSi
   state = battle.state;
   const alive = new Map<number, boolean>(state.units.map((unit) => [unit.id, unit.status === "alive"]));
   const wave = setup.mode === "wave";
+  /** 틱 → 그 틱의 판정 입력(군단 명령) */
+  const byTick = new Map<number, BattleInput[]>();
+  for (const input of setup.inputs ?? []) {
+    const list = byTick.get(input.tick);
+    if (list) list.push(input);
+    else byTick.set(input.tick, [input]);
+  }
   while (!state.result) {
     const now = state.tick * tickMs;
     for (const unit of state.units) {
@@ -174,7 +186,7 @@ export function playRun(setup: PlaySetup, run: number, seed: number, sink: RunSi
         sink.staminaWait(row, tickMs);
       } else starved.delete(unit.id);
     }
-    battle.step([]);
+    battle.step(byTick.get(state.tick) ?? []);
     for (const unit of state.units) {
       if (alive.get(unit.id) !== true || unit.status === "alive") continue;
       alive.set(unit.id, false);

@@ -6,6 +6,8 @@
 // unknown_job·unknown_report, 또는 message "BATTLE_REPORT_UNAVAILABLE"), INTERNAL_SERVER_ERROR(data.reason = timeout·failed: 한 대 풀이 워커).
 import { TRPCError } from "@trpc/server";
 import {
+  reportCityListSchema,
+  reportCitySchema,
   reportIdSchema,
   reportJobIdSchema,
   reportListSchema,
@@ -57,6 +59,10 @@ export const battleReportRouter = router({
   get: counted
     .input(reportIdSchema)
     .query(({ ctx, input }) => ctx.lab.shared.report.get(ctx.lab.db, input.id)),
+  /** 실제 세계 도시 목록(도시 고르기, 읽기만 — 기획 D-543·D-545 1383) */
+  cities: counted.input(reportCityListSchema).query(({ ctx, input }) => ctx.lab.shared.report.cities(input)),
+  /** 지금 도시 스냅숏 정보(저장된 스냅숏과 견주기, 읽기만) */
+  city: counted.input(reportCitySchema).query(({ ctx, input }) => ctx.lab.shared.report.city(input.id)),
   /** 한 대 풀이: 기록의 판 하나를 지금 규칙으로 다시 돌려 공격 단계를 낸다(워커) */
   trace: counted
     .input(reportTraceSchema)

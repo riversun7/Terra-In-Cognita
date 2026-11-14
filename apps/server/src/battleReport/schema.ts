@@ -25,18 +25,26 @@ const city = z.strictObject({
   cityId: cityId.optional(),
 });
 
+/** 군단(파티 여럿 + 군단 퇴각 시각, 기획 D-179·D-545). 시각은 제한 시간 안인지 reportProblem이 본다 */
+const legion = z.strictObject({
+  parties: z.array(labPartySchema).min(1).max(L.legionPartiesMax).readonly(),
+  retreatAtSec: int(0, L.siegeLimitSecMax),
+});
+/** 팀: 군단 또는 옛 기록의 파티 하나 */
+const team = z.union([labPartySchema, legion]);
+
 export const reportSetupSchema = z.discriminatedUnion("mode", [
   z.strictObject({
     mode: z.literal("arena"),
-    a: labPartySchema,
-    b: labPartySchema,
+    a: team,
+    b: team,
     terrain: terrainId,
     limitSec: int(L.limitSecMin, L.limitSecMax),
   }),
   z.strictObject({
     mode: z.literal("siege"),
-    a: labPartySchema,
-    b: labPartySchema,
+    a: team,
+    b: team,
     city,
     nexusDurability: int(1, L.nexusMax),
     limitSec: int(L.limitSecMin, L.siegeLimitSecMax),
@@ -53,7 +61,7 @@ export const reportSetupSchema = z.discriminatedUnion("mode", [
     nexusDurability: int(1, L.nexusMax),
     limitSec: int(L.limitSecMin, L.siegeLimitSecMax),
     defense: z.enum(["sim", "party", "world"]).optional(),
-    b: labPartySchema.optional(),
+    b: team.optional(),
   }),
 ]);
 

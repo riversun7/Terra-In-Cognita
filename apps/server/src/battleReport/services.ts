@@ -21,8 +21,16 @@ import {
   type ReportTraceResponse,
   type ReportTuningChange,
   reportBattleSeconds,
+  reportCityId,
   reportProblem,
 } from "@terra/shared/battleReport";
+import {
+  type ReportCityInfo,
+  type ReportCityListInput,
+  type ReportCityListResponse,
+  type ReportCityResponse,
+  reportCityChanges,
+} from "@terra/shared/battleReportCity";
 import type { BattleMapInput } from "@terra/sim";
 import { SIM_VERSION, combatCoefficientsFrom, societyCoefficientsFrom } from "@terra/sim";
 import type { SiegeCityKit } from "@terra/sim/city";
@@ -39,7 +47,8 @@ import type { TuningShared } from "../tuning/services.ts";
 import type { ReportJob } from "./batch.ts";
 import type { PlaySetup } from "./play.ts";
 import { ReportRunError, type ReportHandle, type ReportRunner } from "./runner.ts";
-import { playSetupOf } from "./setup.ts";
+import { CityMissingError, cityInfoNow, playSetupOf } from "./setup.ts";
+import type { ReportCitySnapshot, ReportCitySource } from "./worldCity.ts";
 import { insertReport, listReports, readReport } from "./store.ts";
 
 export const REPORT_REJECTED = "BATTLE_REPORT_REJECTED";
@@ -77,6 +86,10 @@ export interface ReportService {
   list(db: Database, input: BattleReportListInput): Promise<BattleReportListResponse>;
   get(db: Database, id: string): Promise<BattleReportRecord>;
   trace(db: Database, viewer: Viewer, input: ReportTraceInput): Promise<ReportTraceResponse>;
+  /** 실제 세계 도시 목록(도시 고르기, 읽기만) */
+  cities(input: ReportCityListInput): ReportCityListResponse;
+  /** 지금 도시 스냅숏 정보(저장된 스냅숏과 견주기, 읽기만) */
+  city(id: number): Promise<ReportCityResponse>;
   admitPoll(viewer: Viewer): void;
 }
 
@@ -110,6 +123,8 @@ export function createReportService(deps: {
   audit?: ((db: Database, entry: AuditEntry) => Promise<void>) | undefined;
   /** 공성 도시 시설 발자국(팩). 없으면 sim TEST_SIEGE_KIT */
   kit?: SiegeCityKit | undefined;
+  /** 실제 세계 도시 읽기(세계가 없으면 undefined — 목록이 비고 실제 도시 설정은 unknown_city) */
+  cities?: ReportCitySource | undefined;
   /** 기록 쓰기(시험이 바꾼다). 기본 = battle_reports 표 */
   store?: { insert: typeof insertReport; list: typeof listReports; read: typeof readReport } | undefined;
 }): ReportService {
@@ -159,16 +174,31 @@ export function createReportService(deps: {
     return pick.map;
   };
 
+  /** 실제 도시 스냅숏(한 요청 안에서는 도시마다 하나 — A·B가 같은 스냅숏을 쓴다). 없으면 거절 */
+  const snapshotOf = (setup: ReportSetup, cache: Map<number, ReportCitySnapshot>) => {
+    const cityId = reportCityId(setup);
+    if (cityId === null) return undefined;
+    const cached = cache.get(cityId);
+    if (cached) return cached;
+    const snapshot = deps.cities?.snapshot(cityId);
+    if (!snapshot) throw rejected("unknown_city");
+    cache.set(cityId, snapshot);
+    return snapshot;
+  };
+
   /** 설정 하나 → 판 재료(입력 문제는 거절로 바꾼다) */
   const build = async (
     setup: ReportSetup,
     changes: readonly ReportTuningChange[],
-  ): Promise<{ play: PlaySetup; dropped: LabDropped[]; revision: number }> => {
+    cache: Map<number, ReportCitySnapshot> = new Map(),
+  ): Promise<{ play: PlaySetup; dropped: LabDropped[]; revision: number; city: ReportCityInfo | null }> => {
     const arenaMap = await arenaMapOf(setup);
     const { rules, society, revision } = rulesOf(changes);
+    const city = snapshotOf(setup, cache);
     try {
-      return { ...playSetupOf(setup, { rules, society, arenaMap, kit: deps.kit }), revision };
+      return { ...(await playSetupOf(setup, { rules, society, arenaMap, kit: deps.kit, city })), revision };
     } catch (error) {
+      if (error instanceof CityMissingError) throw rejected("unknown_city");
       if (error instanceof LabUnitError || error instanceof RangeError) throw rejected("invalid_unit");
       throw error;
     }
@@ -235,8 +265,11 @@ export function createReportService(deps: {
     async start(db, viewer, ip, input) {
       const problem = reportProblem(input);
       if (problem !== null) throw rejected(problem);
-      const a = await build(input.setup, []);
-      const b = input.variant ? await build(input.variant.setup ?? input.setup, input.variant.tuning) : null;
+      const cache = new Map<number, ReportCitySnapshot>();
+      const a = await build(input.setup, [], cache);
+      const b = input.variant
+        ? await build(input.variant.setup ?? input.setup, input.variant.tuning, cache)
+        : null;
       if (!starts.take(viewer.id)) throw reasonedError("TOO_MANY_REQUESTS", "RATE_LIMITED", "rate_limited");
       prune();
       if (running()) throw reasonedError("TOO_MANY_REQUESTS", "BATTLE_REPORT_BUSY", "busy");
@@ -255,6 +288,7 @@ export function createReportService(deps: {
           seed: input.seed,
           variant: input.variant !== null,
           battleSeconds: seconds,
+          cityId: reportCityId(input.setup),
         },
       });
       const job: JobRecord = {
@@ -296,7 +330,11 @@ export function createReportService(deps: {
             return;
           }
           job.done = total;
-          const report: BattleReportBody = { a: first, b: second ?? null };
+          // 실제 도시를 썼으면 어느 도시·어느 때의 스냅숏인지 결과에 적는다(1383 나)
+          const report: BattleReportBody = {
+            a: a.city ? { ...first, city: a.city } : first,
+            b: second ? (b?.city ? { ...second, city: b.city } : second) : null,
+          };
           const durationMs = now() - job.startedAtMs;
           const reportId = `rep_${randomBytes(6).toString("hex")}`;
           let saved = true;
@@ -385,6 +423,17 @@ export function createReportService(deps: {
       return record;
     },
 
+    cities(input) {
+      return deps.cities?.list(input) ?? { available: false, cities: [] };
+    },
+
+    async city(id) {
+      const snapshot = deps.cities?.snapshot(id);
+      if (!snapshot) return { info: null };
+      const { rules, society } = rulesOf([]);
+      return { info: await cityInfoNow(snapshot, { rules, society, arenaMap: null, kit: deps.kit }) };
+    },
+
     async trace(db, viewer, input) {
       const record = await store.read(db, input.reportId);
       if (!record) throw rejected("unknown_report", "NOT_FOUND");
@@ -395,6 +444,7 @@ export function createReportService(deps: {
         input.which === "b" && variant
           ? await build(variant.setup ?? record.input.setup, variant.tuning)
           : await build(record.input.setup, []);
+      const savedCity = (input.which === "b" ? record.report.b : record.report.a)?.city ?? null;
       if (!traces.take(viewer.id)) throw reasonedError("TOO_MANY_REQUESTS", "RATE_LIMITED", "rate_limited");
       let out;
       try {
@@ -413,7 +463,8 @@ export function createReportService(deps: {
         same:
           built.revision === record.tuningRevision &&
           tuning.pack.contentHash === record.contentHash &&
-          SIM_VERSION === record.simVersion,
+          SIM_VERSION === record.simVersion &&
+          (savedCity === null || built.city === null || reportCityChanges(savedCity, built.city).length === 0),
         winner: out.end.winner,
         endMs: out.end.endMs,
       };

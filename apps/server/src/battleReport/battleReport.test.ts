@@ -90,8 +90,8 @@ const ctx = { rules, society: TEST_SOCIETY_COEFFICIENTS, arenaMap: flatArena() }
 const clock = (): number => 0;
 
 describe("판정 사건과 집계가 맞는다", () => {
-  it("명중·빗나감·회피·크리·기본 공격 피해가 전투 실험실 사건 기록과 같다(관찰자 셋을 한 판에)", () => {
-    const { play } = playSetupOf(arena(party(fighter(10), fighter(12)), party(fighter(11), fighter(9))), ctx);
+  it("명중·빗나감·회피·크리·기본 공격 피해가 전투 실험실 사건 기록과 같다(관찰자 셋을 한 판에)", async () => {
+    const { play } = await playSetupOf(arena(party(fighter(10), fighter(12)), party(fighter(11), fighter(9))), ctx);
     for (const run of [0, 1, 2]) {
       const seed = reportRunSeed(5, run);
       // 같은 판을 실험실 집계로 다시(관찰자는 결과를 바꾸지 않는다)
@@ -139,8 +139,8 @@ describe("판정 사건과 집계가 맞는다", () => {
     }
   });
 
-  it("피해 흐름: 판정 끝 값 합 = 셈의 기본 공격·스킬 피해, 반영 = 아머 + 쉴드 + HP, 분위는 막대 칸 안", () => {
-    const { play } = playSetupOf(arena(party(fighter(20)), party(fighter(20))), ctx);
+  it("피해 흐름: 판정 끝 값 합 = 셈의 기본 공격·스킬 피해, 반영 = 아머 + 쉴드 + HP, 분위는 막대 칸 안", async () => {
+    const { play } = await playSetupOf(arena(party(fighter(20)), party(fighter(20))), ctx);
     const [result] = runReport({ setups: [play], runs: 6, seed: 9 }, clock);
     if (!result) throw new Error("no result");
     for (const team of ["a", "b"] as const) {
@@ -164,9 +164,9 @@ describe("판정 사건과 집계가 맞는다", () => {
 });
 
 describe("다시 돌리기·묶음", () => {
-  it("같은 시드면 같은 결과, 판 구간을 나눠 돌려 합쳐도 같다(CPU ms만 다름)", () => {
+  it("같은 시드면 같은 결과, 판 구간을 나눠 돌려 합쳐도 같다(CPU ms만 다름)", async () => {
     const setup = arena(party(fighter(15), fighter(15)), party(fighter(16), fighter(14)));
-    const { play } = playSetupOf(setup, ctx);
+    const { play } = await playSetupOf(setup, ctx);
     const job = { setups: [play], runs: 8, seed: 3 };
     const [one] = runReport(job, clock);
     const [two] = runReport(job, clock);
@@ -183,8 +183,8 @@ describe("다시 돌리기·묶음", () => {
     expect(one.outcome.ciHighPm).toBeGreaterThanOrEqual(one.outcome.scorePm);
   });
 
-  it("한 대 풀이는 같은 판을 다시 돌린 단계 기록이다(보고서 표본과 같은 앞 줄)", () => {
-    const { play } = playSetupOf(arena(party(fighter(10)), party(fighter(10))), ctx);
+  it("한 대 풀이는 같은 판을 다시 돌린 단계 기록이다(보고서 표본과 같은 앞 줄)", async () => {
+    const { play } = await playSetupOf(arena(party(fighter(10)), party(fighter(10))), ctx);
     const [result] = runReport({ setups: [play], runs: 2, seed: 11 }, clock);
     const trace = runReportTrace({ setup: play, run: 0, seed: 11 });
     const first = result?.samples[0];
@@ -194,7 +194,7 @@ describe("다시 돌리기·묶음", () => {
 });
 
 describe("공성", () => {
-  it("웨이브 판은 서버 정원사 빨리감기(runWaveToEnd)와 같은 끝·같은 시각", () => {
+  it("웨이브 판은 서버 정원사 빨리감기(runWaveToEnd)와 같은 끝·같은 시각", async () => {
     const setup: ReportSetup = {
       mode: "wave",
       strength: 6,
@@ -206,7 +206,7 @@ describe("공성", () => {
       nexusDurability: 800,
       limitSec: 300,
     };
-    const { play } = playSetupOf(setup, ctx);
+    const { play } = await playSetupOf(setup, ctx);
     for (const run of [0, 1]) {
       const seed = reportRunSeed(21, run);
       const { result, state } = runWaveToEnd(
@@ -220,7 +220,7 @@ describe("공성", () => {
     }
   });
 
-  it("파티 공성: 공격 편이 넥서스·성벽을 치면 공성 결과에 든다(도시 배치)", () => {
+  it("파티 공성: 공격 편이 넥서스·성벽을 치면 공성 결과에 든다(도시 배치)", async () => {
     const setup: ReportSetup = {
       mode: "siege",
       a: party(fighter(30), fighter(30), fighter(30)),
@@ -229,7 +229,7 @@ describe("공성", () => {
       nexusDurability: 500,
       limitSec: 300,
     };
-    const { play } = playSetupOf(setup, ctx);
+    const { play } = await playSetupOf(setup, ctx);
     expect(play.nexusId).toBe(1);
     const [result] = runReport({ setups: [play], runs: 2, seed: 4 }, clock);
     expect(result?.siege).not.toBeNull();

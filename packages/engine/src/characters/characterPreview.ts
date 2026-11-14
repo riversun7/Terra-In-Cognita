@@ -20,7 +20,12 @@ import {
   WebGLRenderer,
 } from "three";
 import { FIXED_SECOND_MAP_LIGHT } from "../lighting/secondMapLight.ts";
-import { type CharacterPose, type CompiledCharacter, compileCharacter } from "./characterCompile.ts";
+import {
+  type CharacterPose,
+  type CompiledCharacter,
+  REST_POSE,
+  compileCharacter,
+} from "./characterCompile.ts";
 import { CharacterMeshes } from "./characterMeshes.ts";
 import { type CharacterLod, characterModel } from "./characterModel.ts";
 
@@ -151,7 +156,7 @@ export class CharacterPreview {
   private pinch = 0;
   private readonly cleanup: (() => void)[] = [];
   private disposed = false;
-  private readonly pose = { swing: 0, bob: 0 };
+  private readonly pose = { swing: 0, bob: 0, chop: 0 };
 
   /** WebGL을 쓸 수 없으면 던진다(화면이 2D 그림으로 바꾼다) */
   constructor(canvas: HTMLCanvasElement) {
@@ -361,7 +366,7 @@ export function renderCharacterThumbnails(
     stage.camera.updateProjectionMatrix();
     return looks.map((look) => {
       stage.set(look, 0);
-      stage.pose({ swing: 0, bob: 0 }, DEFAULT_YAW, view.pitch, view.zoom, view.targetK);
+      stage.pose(REST_POSE, DEFAULT_YAW, view.pitch, view.zoom, view.targetK);
       renderer.render(stage.scene, stage.camera);
       // 그린 바로 뒤(같은 작업 안)에 읽는다 — 그리기 버퍼를 남겨 두지 않아도 된다
       return canvas.toDataURL("image/png");

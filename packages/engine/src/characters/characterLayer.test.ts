@@ -8,6 +8,7 @@ import {
   LOD0_MIN_PX,
   MODEL_MIN_PX,
   MODEL_RETURN_PX,
+  chopShape,
 } from "./characterLayer.ts";
 
 const CELL_M = 5;
@@ -207,5 +208,26 @@ describe("2차맵 캐릭터 층", () => {
     expect(layer.drawnAs(1)).toBeGreaterThan(0);
     expect(layer.pickHalfWidth(1)).toBeCloseTo(0.45);
     layer.dispose();
+  });
+  it("서서 일하는 유닛(working)은 휘두르기 자세로 그리고 그 수를 센다, 걷는 중이거나 working이 아니면 세지 않는다", () => {
+    const layer = layerWith(3);
+    const working = new Uint8Array([1, 0, 1]);
+    const moving = new Uint8Array([0, 0, 1]);
+    layer.update(viewOf(3, 1, { working, moving }));
+    expect(layer.models).toBe(3);
+    expect(layer.working).toBe(1);
+    layer.update(viewOf(3, 1));
+    expect(layer.working).toBe(0);
+    layer.dispose();
+  });
+
+  it("휘두르기 모양: 70%는 천천히 들고 30%는 빠르게 내려친다(내려칠 때 몸이 낮아진다)", () => {
+    expect(chopShape(0).lift).toBeCloseTo(0);
+    expect(chopShape(0.35).lift).toBeGreaterThan(0.5);
+    expect(chopShape(0.7).lift).toBeCloseTo(1);
+    expect(chopShape(0.85).lift).toBeCloseTo(0.5);
+    expect(chopShape(0.85).dip).toBeCloseTo(1);
+    expect(chopShape(0.3).dip).toBe(0);
+    expect(chopShape(1.35).lift).toBeCloseTo(chopShape(0.35).lift);
   });
 });

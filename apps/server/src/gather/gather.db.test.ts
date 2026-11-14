@@ -126,8 +126,11 @@ describe.skipIf(!TEST_DATABASE_URL)("원자재 오브젝트 채집(DB)", () => {
     expect(await current.service.start(userId, { unitId, mapKey: map.mapKey, objectId: object.id })).toEqual({
       ok: true,
     });
-    // 걷기·캐기 확인 시각마다 시계를 옮긴다
+    // 걷기·캐기 확인 시각마다 시계를 옮긴다. 캐는 중이면 [시작 시각, 끝 시각]이 진행바 구간이다
+    let digWindow: { phaseAt: number | null | undefined; nextAt: number | null } | null = null;
     for (let step = 0; step < 20 && current.service.loops(userId)[0]?.gatheredLots === 0; step++) {
+      const loop = current.service.loops(userId)[0];
+      if (loop?.phase === "gathering") digWindow = { phaseAt: loop.phaseAt, nextAt: loop.nextAt };
       const next = current.service.loops(userId)[0]?.nextAt;
       clock = Math.max(clock + 1, next ?? clock + 1000);
       current.service.runDue();
@@ -135,6 +138,8 @@ describe.skipIf(!TEST_DATABASE_URL)("원자재 오브젝트 채집(DB)", () => {
     }
     const lots = current.service.loops(userId)[0]?.gatheredLots ?? 0;
     expect(lots).toBeGreaterThan(0);
+    expect(digWindow?.phaseAt).toEqual(expect.any(Number));
+    expect((digWindow?.nextAt ?? 0) - (digWindow?.phaseAt ?? 0)).toBeGreaterThan(0);
     const cargo = p.ledger.balanceOf(ownerId, "item:copper_ore", cargoLocation(unitId));
     expect(cargo).toBeGreaterThan(0n);
     // 직접 채집 효율 500‰라 묶음 하나에 두 번 캘 수 있다: 남은 번수는 5 − 캔 번수

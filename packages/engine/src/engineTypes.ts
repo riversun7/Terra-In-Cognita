@@ -264,6 +264,8 @@ export interface SecondMapEngine {
    * 캡슐·모델 모두 같은 고리, 점 표현이면 그리지 않는다. 유닛 목록(setUnits)과 따로 남는다
    */
   setUnitRings(rings: readonly UnitRing[]): void;
+  /** 일하는 유닛(채집 중인 내 유닛 등, 사용자 요청 2026-11-14): 서 있고 모델로 그리면 휘두르기 자세. 목록을 통째로 바꾼다 */
+  setWorkingUnits(ids: readonly number[]): void;
   /**
    * 서버가 놓는 채집 오브젝트의 소품 그림(노두 등 — 지형 파일에 없는 그림, 기획 D-534 질문 1083 나). 지금 2차맵 배치 칸마다 그림 번호를 덮어
    * 가까이 소품 모델로 세운다(기기 장식, 판정 아님). 목록을 통째로 바꾼다. 빈 목록이면 지형 그림 그대로

@@ -5522,6 +5522,8 @@
   "gather_phase_done": "끝",
   "gather_loop_line": "{phase} · 화물 {kg}/{max}kg",
   "gather_chip": "{phase} {kg}/{max}kg",
+  "gather_meter_dig": "이번 캐기",
+  "gather_meter_cargo": "화물",
   "gather_deposit_camp": "넣는 곳: 시설(벌목장·광산)",
   "gather_deposit_storage": "넣는 곳: 창고",
   "gather_deposit_city": "넣는 곳: 도시 창고",

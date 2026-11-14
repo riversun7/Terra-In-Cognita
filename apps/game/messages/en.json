@@ -5522,6 +5522,8 @@
   "gather_phase_done": "Done",
   "gather_loop_line": "{phase} · cargo {kg}/{max} kg",
   "gather_chip": "{phase} {kg}/{max} kg",
+  "gather_meter_dig": "This dig",
+  "gather_meter_cargo": "Cargo",
   "gather_deposit_camp": "Deposit: facility (lumber camp or mine)",
   "gather_deposit_storage": "Deposit: storehouse",
   "gather_deposit_city": "Deposit: city storage",

@@ -28,6 +28,7 @@ import {
 import { CameraGlide, FOLLOW_SMOOTH_MS } from "./camera/cameraGlide.ts";
 import { attachControls } from "./camera/controls.ts";
 import { CharacterLayer } from "./characters/characterLayer.ts";
+import { WorkingUnits } from "./characters/workingUnits.ts";
 import { localZoomStage, localZoomStepTarget } from "./camera/secondMapZoom.ts";
 import { inertEngine } from "./engineParts.ts";
 import type {
@@ -143,6 +144,7 @@ export function createSecondMapEngine(
   const unitView = new UnitView(capacity);
   // 캐릭터 모델 층: 외형이 붙은 유닛을 가까우면 모델로(characters/characterLayer.ts). 유닛 그림과 같이 보이고 숨는다
   const characters = new CharacterLayer(capacity);
+  const working = new WorkingUnits(capacity);
   unitView.group.add(characters.group);
   // 발밑 나라 색 고리(units/nationRings.ts, 질문 963 나): 캡슐·모델 모두. 유닛 그림과 같이 보이고 숨는다
   const rings = new NationRings(capacity);
@@ -454,6 +456,7 @@ export function createSecondMapEngine(
       icons: unitView.mode === "icon",
       level: viewDistance.index,
       deltaMs,
+      working: working.slots(motion.size, (id) => roster.slotOf(id)),
     });
     unitView.update(
       motion.x,
@@ -489,7 +492,7 @@ export function createSecondMapEngine(
       propView.setReach(viewDistance.level.reachM, viewDistance.level.maxProps);
       animating = true;
     }
-    return moving > 0 || animating || blending || targeting || swimming;
+    return moving > 0 || animating || blending || targeting || swimming || characters.working > 0;
   };
   const scheduler = new FrameScheduler(frame);
 
@@ -765,6 +768,11 @@ export function createSecondMapEngine(
     setUnitModels(models) {
       characters.setLooks(models);
       bindCharacters();
+      scheduler.request();
+    },
+
+    setWorkingUnits(ids) {
+      working.set(ids);
       scheduler.request();
     },
 

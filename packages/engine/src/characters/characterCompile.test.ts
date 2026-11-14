@@ -46,7 +46,7 @@ describe("캐릭터 모델 → 그리기 배열", () => {
   it("걷는 자세: 축 자리는 제자리, 왼다리 발은 앞으로·오른다리 발은 뒤로, 팔은 반대로 간다", () => {
     const compiled = compileCharacter(characterModel(DEFAULT_CHARACTER_LOOK, 0));
     const out = new Float32Array(GROUP_COUNT * 16);
-    writeGroupMatrices(out, compiled.pivots, { swing: 0.5, bob: 0 });
+    writeGroupMatrices(out, compiled.pivots, { swing: 0.5, bob: 0, chop: 0 });
     /** 묶음 행렬로 점 (0, y, 0)을 옮긴 z */
     const zAt = (group: number, y: number): number =>
       (out[group * 16 + 6] ?? 0) * y + (out[group * 16 + 14] ?? 0);
@@ -63,9 +63,26 @@ describe("캐릭터 모델 → 그리기 배열", () => {
     expect(zAt(GROUP.armL, handY)).toBeLessThan(-0.05);
     expect(zAt(GROUP.armR, handY)).toBeGreaterThan(0.05);
     // 몸·머리는 위아래로만 움직인다
-    writeGroupMatrices(out, compiled.pivots, { swing: 0, bob: 0.03 });
+    writeGroupMatrices(out, compiled.pivots, { swing: 0, bob: 0.03, chop: 0 });
     expect(out[GROUP.body * 16 + 13]).toBeCloseTo(0.03, 6);
     expect(out[GROUP.head * 16 + 13]).toBeCloseTo(0.03, 6);
+  });
+
+  it("일하는 팔(채집 휘두르기): 두 팔이 앞으로 들리고 오른팔이 더 높다, 다리는 그대로", () => {
+    const compiled = compileCharacter(characterModel(DEFAULT_CHARACTER_LOOK, 0));
+    const out = new Float32Array(GROUP_COUNT * 16);
+    writeGroupMatrices(out, compiled.pivots, { swing: 0, bob: 0, chop: 1.5 });
+    const zAt = (group: number, y: number): number =>
+      (out[group * 16 + 6] ?? 0) * y + (out[group * 16 + 14] ?? 0);
+    const yAt = (group: number, y: number): number =>
+      (out[group * 16 + 5] ?? 0) * y + (out[group * 16 + 13] ?? 0);
+    const handY = (compiled.pivots[GROUP.armR * 3 + 1] ?? 0) - 0.4;
+    // 손이 앞(+z)으로 나가고 위로 올라온다
+    expect(zAt(GROUP.armR, handY)).toBeGreaterThan(0.2);
+    expect(zAt(GROUP.armL, handY)).toBeGreaterThan(0.1);
+    expect(yAt(GROUP.armR, handY)).toBeGreaterThan(yAt(GROUP.armL, handY));
+    expect(zAt(GROUP.legL, 0)).toBeCloseTo(0, 5);
+    expect(zAt(GROUP.legR, 0)).toBeCloseTo(0, 5);
   });
 
   it("캐시: 같은 외형·단계는 같은 것을 돌려주고, 상한을 넘으면 비우고 다시 채운다", () => {

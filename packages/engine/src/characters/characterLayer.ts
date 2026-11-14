@@ -44,6 +44,12 @@ const CULL_RADIUS_M = 1.4;
 const BODY_CULL_FACTOR = 4.5;
 /** 걸음 한 바퀴(두 걸음)의 길이(m)와 다리 흔들림 크기(라디안)·몸 위아래(m) */
 const STRIDE_M = 1.5;
+/** 채집 휘두르기 한 번(ms)·팔 각도(라디안, 내려친 자리 ~ 든 자리)·내려칠 때 몸 낮춤(m) — 들기 70%, 내려치기 30% */
+const CHOP_PERIOD_MS = 1_100;
+const CHOP_LOW_RAD = 0.5;
+const CHOP_HIGH_RAD = 2.3;
+const CHOP_RAISE = 0.7;
+const CHOP_DIP_M = 0.04;
 const SWING_RAD = 0.6;
 const BOB_M = 0.035;
 /** 방향을 돌리는 빠르기(ms, 지수 감쇠 시간) */
@@ -104,6 +110,21 @@ export interface CharacterLayerView {
   readonly level: number;
   /** 지난 프레임부터 흐른 시간(ms, 방향 돌리기) */
   readonly deltaMs: number;
+  /** 칸마다 일하는 중인가(1 = 채집 등 — 서 있으면 휘두르기 자세). 없으면 아무도 아님 */
+  readonly working?: Uint8Array | undefined;
+}
+
+/** 휘두르기 위상(0~1) → 팔 각도 몫(0 = 내려친 자리, 1 = 든 자리)·몸 낮춤 몫(내려칠 때) */
+export function chopShape(t: number): { readonly lift: number; readonly dip: number } {
+  const u = t - Math.floor(t);
+  if (u < CHOP_RAISE) {
+    // 천천히 든다(끝에서 느려지게)
+    const k = u / CHOP_RAISE;
+    return { lift: Math.sin((k * Math.PI) / 2), dip: 0 };
+  }
+  // 빠르게 내려친다
+  const k = (u - CHOP_RAISE) / (1 - CHOP_RAISE);
+  return { lift: 1 - k, dip: Math.sin(k * Math.PI) };
 }
 
 export class CharacterLayer {
@@ -114,6 +135,8 @@ export class CharacterLayer {
   /** 마지막 프레임에 그린 모델 수·가까운 단계 수 */
   models = 0;
   lod0 = 0;
+  /** 마지막 프레임에 휘두르기 자세로 그린 모델 수(0이 아니면 엔진이 계속 그린다) */
+  working = 0;
   private readonly capacity: number;
   private readonly cache = new CharacterCache();
   private looks = new Map<number, SlotModel>();
@@ -125,6 +148,8 @@ export class CharacterLayer {
   /** 칸마다 방향(라디안)·걸음 위상·지난 자리(배치 칸, NaN = 모름) */
   private readonly yaw: Float32Array;
   private readonly phase: Float32Array;
+  /** 칸마다 휘두르기 위상(0~1) */
+  private readonly workPhase: Float32Array;
   private readonly lastX: Float32Array;
   private readonly lastY: Float32Array;
   /** 고르기 버퍼: 후보 칸과 거리² */
@@ -135,13 +160,14 @@ export class CharacterLayer {
   private readonly sphere = new Sphere();
   private readonly root = new Float32Array(16);
   /** 걷는 자세(프레임마다 객체를 만들지 않게 다시 쓴다) */
-  private readonly pose = { swing: 0, bob: 0 };
+  private readonly pose = { swing: 0, bob: 0, chop: 0 };
 
   constructor(capacity: number) {
     this.capacity = capacity;
     this.drawn = new Uint8Array(capacity);
     this.yaw = new Float32Array(capacity);
     this.phase = new Float32Array(capacity);
+    this.workPhase = new Float32Array(capacity);
     this.lastX = new Float32Array(capacity).fill(Number.NaN);
     this.lastY = new Float32Array(capacity).fill(Number.NaN);
     this.candidates = new Int32Array(capacity);
@@ -237,6 +263,7 @@ export class CharacterLayer {
     this.meshes.begin();
     this.models = 0;
     this.lod0 = 0;
+    this.working = 0;
     const heightPx = REFERENCE_HEIGHT_M * view.pixelsPerMetre;
     if (this.active ? heightPx < MODEL_MIN_PX : heightPx < MODEL_RETURN_PX) this.active = false;
     else this.active = true;
@@ -260,6 +287,7 @@ export class CharacterLayer {
       const lod = rank < lod0Limit ? 0 : 1;
       const walk = this.advance(slot, view, turn, model.scale);
       const pose = model.rigid ? REST_POSE : walk;
+      if (!model.rigid && view.working?.[slot] === 1 && view.moving[slot] !== 1) this.working += 1;
       const wx = (view.x[slot] ?? 0) * view.cellM;
       const wz = (view.y[slot] ?? 0) * view.cellM;
       this.writeRoot(wx, view.groundAt(wx, wz), wz, this.yaw[slot] ?? 0, model.scale);
@@ -321,8 +349,20 @@ export class CharacterLayer {
     this.lastY[slot] = y;
     if (view.moving[slot] !== 1) {
       this.phase[slot] = 0;
-      return REST_POSE;
+      if (view.working?.[slot] !== 1) {
+        this.workPhase[slot] = 0;
+        return REST_POSE;
+      }
+      // 서서 일한다: 휘두르기(시간으로 위상을 나아가게 한다)
+      const t = ((this.workPhase[slot] ?? 0) + Math.max(0, view.deltaMs) / CHOP_PERIOD_MS) % 1;
+      this.workPhase[slot] = t;
+      const shape = chopShape(t);
+      this.pose.swing = 0;
+      this.pose.chop = CHOP_LOW_RAD + (CHOP_HIGH_RAD - CHOP_LOW_RAD) * shape.lift;
+      this.pose.bob = -shape.dip * CHOP_DIP_M * scale;
+      return this.pose;
     }
+    this.pose.chop = 0;
     if (!Number.isNaN(px) && !Number.isNaN(py)) {
       const dx = (x - px) * view.cellM;
       const dz = (y - py) * view.cellM;

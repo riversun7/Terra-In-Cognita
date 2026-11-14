@@ -19,6 +19,9 @@
 // - 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 길의 마지막 2차맵(목적지)을 서버가 띄우지 않았으면 보낼 수 있고
 //   (확인 단계·길 고르기는 그 2차맵을 띄운 것처럼 — 설 칸은 닿을 때 다시 본다), 유닛이 그 2차맵에 들어서려 할 때(변 끝에 닿음·건너뛰다 나타남)
 //   world/mapSpawn.ts가 띄운 뒤 넘긴다. 띄우는 동안 유닛은 변 앞에 서서 기다린다. 못 띄우면(상한) map_full로 멈춘다. 지나는 2차맵은 그대로 건너뛴다.
+// - 바다 건너기(기획 D-541 1283 나, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"): 배(영역 sea)도 같은 길로 간다. 설 칸 = 물 칸(물 격자 —
+//   넘는 자리는 두 2차맵 모두 물인 변 칸), 승객은 배와 함께 넘는다(transferOut의 riders). 승객에게 보낸 길은 그 배의 길이다. 배는 띄우지 않은
+//   2차맵을 건너뛰지 않는다(중간 2차맵이 모두 띄운 것일 때만, 목적지는 닿을 때 띄울 수 있다) — 건너뛰는 동안의 물길을 볼 수 없어서다.
 import { AVERAGE_CELL_EDGE_METERS } from "@terra/planet/territory";
 import {
   type CellPoint,
@@ -72,7 +75,7 @@ import {
   stopOf,
 } from "./serviceTypes.ts";
 import { raidSeed } from "./raid.ts";
-import { type TravelRecord, loadTravels, travelWriter } from "./store.ts";
+import { loadTravels, travelWriter } from "./store.ts";
 
 export type {
   HiddenPlace,
@@ -95,6 +98,11 @@ export const RETRY_MS = 2_000;
 export function walkSpeed(speed: number, factor: number): number {
   if (factor === 1) return speed;
   return Math.min(MAX_UNIT_SPEED, Math.max(1, Math.round(speed * factor)));
+}
+
+/** 설 수 있나: 걷는 유닛 = 땅, 배 = 물 칸(D-541 1283 나) */
+function standsOn(map: SecondMap, cell: CellPoint, size: SizeClass, sea: boolean): boolean {
+  return sea ? map.isNavigable(cell.x, cell.y, size) : map.isStandable(cell.x, cell.y, size);
 }
 
 /** setTimeout 지연 상한(약 24.8일). 더 먼 확인은 깨어나서 다시 건다 */
@@ -124,20 +132,26 @@ export function createTravelService(deps: TravelDeps): TravelService {
     (opens: number | undefined) =>
     (mapKey: number): boolean =>
       maps.has(mapKey) || mapKey === opens;
-  /** 아직 띄우지 않은 목적지는 설 수 있다고 본다(보기 값 — 닿아서 띄운 뒤 실제 지형으로 다시 고른다) */
+  /** 아직 띄우지 않은 목적지는 설 수 있다고 본다(보기 값 — 닿아서 띄운 뒤 실제 지형으로 다시 고른다). sea = 배(물 칸) */
   const standableOr =
-    (opens: number | undefined): Standable =>
+    (opens: number | undefined, sea = false): Standable =>
     (mapKey, cell, size) => {
       const map = maps.get(mapKey);
-      return map ? map.isStandable(cell.x, cell.y, size) : mapKey === opens;
+      return map ? standsOn(map, cell, size, sea) : mapKey === opens;
     };
   const contextOf = (
-    journey: Pick<TravelRecord, "route" | "target">,
+    journey: Pick<Journey, "route" | "target" | "sea">,
     size: SizeClass,
     from = 0,
   ): RouteContext => {
     const opens = opensAt(journey.route);
-    return routeContext(journey.route.slice(from), journey.target, size, standableOr(opens), loadedOr(opens));
+    return routeContext(
+      journey.route.slice(from),
+      journey.target,
+      size,
+      standableOr(opens, journey.sea === true),
+      loadedOr(opens),
+    );
   };
 
   /** 유닛이 선 2차맵과 유닛 정보 */
@@ -334,7 +348,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
     const here = anchorAt(lastPoint(info.motion), info.size);
     const side = sideToward(map.mapKey, nextKey);
     const entry = next && side ? entryOf(map.mapKey, nextKey, here, side, info.size) : null;
-    if (!next || !entry || !next.isStandable(entry.x, entry.y, info.size)) {
+    if (!next || !entry || !standsOn(next, entry, info.size, journey.sea === true)) {
       finish(journey, "stopped", "blocked");
       return;
     }
@@ -381,6 +395,11 @@ export function createTravelService(deps: TravelDeps): TravelService {
 
   /** 다음 2차맵을 띄우지 않았다: 변 끝에서 사라져 다음 띄운 2차맵 변에 나타날 때까지 건너뛴다(593 나) */
   const hide = (journey: Journey, map: SecondMap, info: Info): void => {
+    // 배는 띄우지 않은 2차맵을 건너뛰지 않는다(물길을 볼 수 없다) — 그 사이 2차맵이 내려갔으면 멈춘다
+    if (journey.sea === true) {
+      finish(journey, "stopped", "blocked");
+      return;
+    }
     const hop = hopFrom(contextOf(journey, info.size, journey.leg), 0, lastPoint(info.motion));
     if (!hop) {
       finish(journey, "stopped", "blocked");
@@ -574,9 +593,11 @@ export function createTravelService(deps: TravelDeps): TravelService {
 
   /** 내가 옮길 수 있는 유닛(내 소유, 수호신·봇 아님)과 그 자리. 건너뛰는 중이면 in_transit */
   const ownUnit = (userId: string, unitId: number | undefined) => {
-    const id = unitId ?? deps.cyborgUnitOf?.(userId) ?? null;
-    if (id === null) return { problem: "no_cyborg" as const };
+    const asked = unitId ?? deps.cyborgUnitOf?.(userId) ?? null;
+    if (asked === null) return { problem: "no_cyborg" as const };
     const ownerId = deps.ownerOf(userId);
+    // 승객에게 보낸 길은 그 배의 길(D-541 1279 나·1283 나)
+    const id = locate(asked)?.info.aboard ?? asked;
     const where = locate(id, true);
     if (!where) {
       const journey = journeys.get(id);
@@ -607,9 +628,12 @@ export function createTravelService(deps: TravelDeps): TravelService {
     if (opens !== undefined && !spawn?.hasRoom()) return { problem: "map_full" };
     const route = mapRoute(where.map.mapKey, target.mapKey, loadedOr(opens));
     if (!route) return { problem: "no_route" };
+    const sea = where.info.domain === "sea";
+    // 배는 띄우지 않은 2차맵을 건너뛰지 않는다(목적지는 닿을 때 띄울 수 있다)
+    if (sea && route.slice(1, -1).some((key) => !loaded(key))) return { problem: "no_route" };
     const cell = { x: target.x, y: target.y };
     const legs = planLegs(
-      routeContext(route, cell, where.info.size, standableOr(opens), loadedOr(opens)),
+      routeContext(route, cell, where.info.size, standableOr(opens, sea), loadedOr(opens)),
       positionAt(where.info.motion, now()),
     );
     if (!legs.ok) return { problem: legs.problem };
@@ -695,6 +719,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
         checkAtMs: null,
         hidden: null,
         speedFactor,
+        sea: found.info.domain === "sea",
       };
       journeys.set(found.id, journey);
       store.save(journey);
@@ -704,7 +729,9 @@ export function createTravelService(deps: TravelDeps): TravelService {
       return first.ok ? { ok: true, maps: planned.route.length, arriveAt: journey.arriveAtMs } : first;
     },
 
-    cancel(userId, unitId) {
+    cancel(userId, asked) {
+      // 승객의 멈추기는 그 배의 길(D-541 1279 나)
+      const unitId = journeys.has(asked) ? asked : (locate(asked)?.info.aboard ?? asked);
       const journey = journeys.get(unitId);
       const ownerId = deps.ownerOf(userId);
       if (!journey || ownerId === undefined || journey.ownerId !== ownerId) return fail("not_traveling");
@@ -782,6 +809,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
           checkAtMs: null,
           hidden: null,
           speedFactor: 1,
+          sea: maps.get(row.route[leg] ?? -1)?.unitInfo(row.unitId)?.domain === "sea",
         };
         journeys.set(row.unitId, journey);
         resumed += 1;

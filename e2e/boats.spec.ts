@@ -4,6 +4,9 @@
 // (개발 재료 받기 → facility_build → dev_facility_finish), 부두에서 배를 만들고(boat_build), 휴먼을 태워(boat_board — 멀면 걸어가서),
 // 배를 물 위로 보내고(move_unit — 서버가 물 길로 푼다), 지도 화면에서 배를 골라 [모두 내리기]로 물가에 내린다. 테마 둘(파스텔·다크) 390px 사진.
 // 걷는 유닛이 물로 못 가는 것·배가 땅으로 못 가는 것은 단위 시험(apps/server/src/boats/service.test.ts)이 본다.
+// B2(기획 D-541, ADR "바뀜 (2026-11-14, B2)"): 배 만들기는 시간이 걸린다(운영자 = 부두 레벨 1 시간 ÷ 운영자 빠르기) — boat_build는 readyAtMs를
+// 돌려주고(같은 부두에 다시 보내면 dock_busy) 그 시각 뒤 배가 뜬다. 부두 판은 만드는 중인 배의 남은 시간을 보인다. 승객에게 내린 이동은 배가 가고,
+// 승객에게 보낸 2차맵 사이 이동은 배가 동쪽 바다 2차맵으로 건너간다(승객도 탄 채).
 import type { Page } from "@playwright/test";
 import { pickMyUnit, openBuildingFromList, closeNearby } from "./helpers/nearby.ts";
 import { shot } from "./helpers/screen.ts";
@@ -121,6 +124,22 @@ async function myUnit(page: Page, mapKey: number, unitId: number): Promise<unkno
  */
 const CITY_KEY = 424_892_524_658_697;
 const COAST_KEY = 424_898_967_109_641;
+/**
+ * 바닷가 2차맵의 동쪽 이웃 (470, 252) — 거의 바다(물 지형 칸 15,864). 바닷가 2차맵 동쪽 변의 물(지형 칸 y 0~7·44~71)과 이어진다(2026-11-14 확인:
+ * 생성기로 두 2차맵 지형을 만들어 공유 변 물 칸을 셈)
+ */
+const EAST_SEA_KEY = 424_901_114_593_289;
+
+/** 그 2차맵 내 배 ID 목록 */
+async function boatIds(page: Page, mapKey: number): Promise<number[]> {
+  const data = await trpcQuery(page, "world.mapUnits", { mapKey });
+  const units = field(data, "units");
+  return Array.isArray(units)
+    ? units
+        .filter((unit: unknown) => field(unit, "kind") === "boat")
+        .map((unit: unknown) => Number(field(unit, "unitId")))
+    : [];
+}
 
 /** 도시 2차맵에서 휴먼을 고용해 바닷가 2차맵 서쪽 끝(도시 쪽)으로 보낸다(운영자 빠르기). 휴먼 ID와 선 자리 */
 async function humanAtCoast(page: Page): Promise<{ unitId: number; x: number; y: number }> {
@@ -161,19 +180,39 @@ async function dockAndBoat(page: Page, mapKey: number, sites: readonly Site[], f
     id += 10;
     const buildingId = field(replies[3], "buildingId");
     if (field(replies[3], "ok") !== true || typeof buildingId !== "number") continue;
+    const before = new Set(await boatIds(page, mapKey));
     const made = await sendCommands(
       page,
       [
         { t: "subscribe", mapKey, observe: true },
         { t: "dev_facility_finish", buildingId },
         { t: "boat_build", buildingId },
+        { t: "boat_build", buildingId },
       ],
       id,
     );
     id += 10;
     expect(made[1]).toMatchObject({ ok: true });
+    // 만드는 시간(D-541 1271 나): 바로 뜨지 않고 readyAtMs 뒤에 뜬다. 그사이 같은 부두는 dock_busy
     expect(made[2]).toMatchObject({ t: "boat_result", ok: true });
-    return { buildingId, boatId: Number(field(made[2], "boatId")), site, nextId: id };
+    const readyAtMs = Number(field(made[2], "readyAtMs"));
+    expect(readyAtMs, "만드는 중(readyAtMs)").toBeGreaterThan(0);
+    expect(field(made[2], "boatId")).toBeUndefined();
+    expect(made[3]).toMatchObject({ t: "boat_result", ok: false, code: "dock_busy", readyAtMs });
+    let boatId = 0;
+    await expect
+      .poll(
+        async () => {
+          boatId = (await boatIds(page, mapKey)).find((boat) => !before.has(boat)) ?? 0;
+          return boatId;
+        },
+        { timeout: 180_000, intervals: [1_000] },
+      )
+      .toBeGreaterThan(0);
+    console.log(
+      `[boats] boat ${String(boatId)} launched (build ${String(readyAtMs - Date.now())} ms left at check)`,
+    );
+    return { buildingId, boatId, site, nextId: id };
   }
   throw new Error("부두를 지을 물가 자리가 없다");
 }
@@ -212,17 +251,7 @@ for (const theme of ["pastel", "dark"] as const) {
       await expect
         .poll(async () => field(await myUnit(page, me.mapKey, me.unitId), "aboard"), { timeout: 90_000 })
         .toBe(boatId);
-      // 승객은 따로 움직이지 않는다
-      const alone = await sendCommands(
-        page,
-        [
-          { t: "subscribe", mapKey: me.mapKey, observe: true },
-          { t: "move_unit", mapKey: me.mapKey, unitId: me.unitId, x: 10 * CELL_UNITS, y: 10 * CELL_UNITS },
-        ],
-        nextId + 5,
-      );
-      expect(alone[1]).toMatchObject({ ok: false, code: "aboard" });
-      // 물 위로: 배는 물 길로 간다(같은 물에 닿는 물가 칸을 가까운 차례로 해 본다). 승객은 배를 따라간다
+      // 물 위로: 승객에게 내린 이동이 배 이동이 된다(D-541 1279 나 — 같은 물에 닿는 물가 칸을 가까운 차례로 해 본다). 승객은 배를 따라간다
       let sailed: { x: number; y: number } | undefined;
       let requestId = nextId + 20;
       for (const target of shoreTargets(coast.isWater, site).slice(0, 12)) {
@@ -233,7 +262,7 @@ for (const theme of ["pastel", "dark"] as const) {
             {
               t: "move_unit",
               mapKey: me.mapKey,
-              unitId: boatId,
+              unitId: me.unitId,
               x: target.x * CELL_UNITS + CELL_UNITS,
               y: target.y * CELL_UNITS + CELL_UNITS,
             },
@@ -250,6 +279,7 @@ for (const theme of ["pastel", "dark"] as const) {
       await expect
         .poll(async () => field(await myUnit(page, me.mapKey, boatId), "moving"), { timeout: 60_000 })
         .toBe(false);
+      expect(field(await myUnit(page, me.mapKey, me.unitId), "aboard")).toBe(boatId);
       const boatRow = await myUnit(page, me.mapKey, boatId);
       expect(field(boatRow, "kind")).toBe("boat");
       expect(field(field(boatRow, "boat"), "passengers")).toEqual([me.unitId]);
@@ -267,10 +297,28 @@ for (const theme of ["pastel", "dark"] as const) {
       await expect(actions).toHaveAttribute("data-boat-choice", "boat", { timeout: 15_000 });
       await page.waitForTimeout(2_000);
       await shot(page, `boats-sail-390-${theme}`);
-      // 부두 판: [배 만들기]
+      // 부두 판: 배를 하나 더 만들기 시작하면(운영자, 다른 탭에서 보내 지도 화면은 그대로) 남은 시간을 보이고 [배 만들기]를 막는다.
+      // 운영자 만드는 시간은 몇 초라 판을 바로 다시 연다
+      const side = await page.context().newPage();
+      const again = await sendCommands(
+        side,
+        [
+          { t: "subscribe", mapKey: me.mapKey, observe: true },
+          { t: "boat_build", buildingId },
+        ],
+        requestId + 50,
+      );
+      await side.close();
+      expect(again[1]).toMatchObject({ t: "boat_result", ok: true });
+      const againReady = Number(field(again[1], "readyAtMs"));
+      console.log(`[boats] second boat build ${String(againReady - Date.now())} ms left`);
       await openBuildingFromList(page, buildingId);
       const dock = page.locator(`.boat-dock[data-dock="${String(buildingId)}"]`);
       await expect(dock).toBeVisible({ timeout: 15_000 });
+      if (againReady > Date.now() + 1_500) {
+        await expect(dock.locator(".boat-progress")).toBeVisible({ timeout: 3_000 });
+        await expect(dock.locator(".boat-build")).toBeDisabled();
+      }
       await shot(page, `boats-dock-390-${theme}`);
       await page.locator(".gather-sheet-close").click();
       // 내리기(배를 다시 고르고 단추)
@@ -282,6 +330,35 @@ for (const theme of ["pastel", "dark"] as const) {
         .poll(async () => field(await myUnit(page, me.mapKey, me.unitId), "aboard"), { timeout: 30_000 })
         .toBeNull();
       expect(deviceErrors).toEqual([]);
+
+      // 바다 건너기(D-541 1283 나): 다시 태우고 승객에게 동쪽 바다 2차맵으로 2차맵 사이 이동 → 배가 물 변을 지나 넘어가고 승객도 탄 채 넘는다
+      const reboard = await sendCommands(
+        page,
+        [
+          { t: "subscribe", mapKey: me.mapKey, observe: true },
+          { t: "boat_board", unitId: me.unitId, boatId },
+        ],
+        requestId + 60,
+      );
+      expect(reboard[1]).toMatchObject({ t: "boat_result", ok: true });
+      await expect
+        .poll(async () => field(await myUnit(page, me.mapKey, me.unitId), "aboard"), { timeout: 60_000 })
+        .toBe(boatId);
+      const cross = await sendCommands(
+        page,
+        [
+          { t: "subscribe", mapKey: me.mapKey, observe: true },
+          { t: "travel_start", unitId: me.unitId, mapKey: EAST_SEA_KEY, x: 60, y: 128, kind: "move" },
+        ],
+        requestId + 70,
+      );
+      expect(cross[1], "승객 → 배의 바다 건너기").toMatchObject({ ok: true });
+      await expect
+        .poll(async () => field(await myUnit(page, EAST_SEA_KEY, boatId), "kind"), { timeout: 120_000 })
+        .toBe("boat");
+      await expect
+        .poll(async () => field(await myUnit(page, EAST_SEA_KEY, me.unitId), "aboard"), { timeout: 30_000 })
+        .toBe(boatId);
     });
   });
 }

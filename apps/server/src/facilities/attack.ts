@@ -38,6 +38,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
 import { unavailable } from "../world/unitCondition.ts";
+import { isAfloat } from "../world/unitKinds.ts";
 import type { FacilityCatalog } from "./catalog.ts";
 import { buildingCell } from "./places.ts";
 import type { FacilityCommandResult, FacilityService, FacilityTarget } from "./service.ts";
@@ -159,7 +160,7 @@ function pickDefenders(
     if (attackers.has(unit.id) || !target.defends(unit.ownerId) || away(unit.id)) return;
     const info = target.map.unitInfo(unit.id);
     const cell = unitCell(target.map, unit.id, at);
-    if (!info || !cell || unavailable(info.condition, at)) return;
+    if (!info || !cell || unavailable(info.condition, at) || isAfloat(info)) return;
     const d = Math.max(Math.abs(cell.x - target.center.x), Math.abs(cell.y - target.center.y));
     if (d <= ATTACK_DEFENDER_RADIUS) found.push({ id: unit.id, d });
   });
@@ -285,7 +286,13 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
       if (!home || !info) return "unknown_unit";
       if (info.ownerId !== me) return "forbidden";
       if (home !== map) return "out_of_reach";
-      if (options.service.unitInJob(unitId) || options.unitBusy(unitId) || unavailable(info.condition, at))
+      // 배·승객은 전투에 들지 않는다(기획 D-541 1278 가)
+      if (
+        options.service.unitInJob(unitId) ||
+        options.unitBusy(unitId) ||
+        unavailable(info.condition, at) ||
+        isAfloat(info)
+      )
         return "unit_busy";
     }
     return null;

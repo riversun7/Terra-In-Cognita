@@ -8,7 +8,7 @@ import type { MapTerrain, TerrainFile } from "./mapTerrain.ts";
 import type { MapStream } from "./mapStream.ts";
 import type { MapReplicaInit } from "./pathMessages.ts";
 import type { PathService } from "./pathService.ts";
-import type { BuildingRow, MapPersist, UnitJob, UnitRow } from "./secondMapRows.ts";
+import type { BuildingRow, MapPersist, TransferRow, UnitJob, UnitRow } from "./secondMapRows.ts";
 import type { UnitCondition } from "./unitCondition.ts";
 import type { ExploredStore, MapVision } from "./vision.ts";
 import type { WalkUnit } from "./walkSpeed.ts";
@@ -131,11 +131,15 @@ export interface SecondMap {
   relocateToSafety(unitId: number, near?: { readonly x: number; readonly y: number }): boolean;
   /**
    * 2차맵 사이 이동(docs/adr/2026-11-07-play-flow.md WP9): 유닛을 이 2차맵에서 빼고 저장할 한 줄을 돌려준다. 행은 지우지 않는다
-   * (곧 옆 2차맵의 transferIn이 같은 줄을 새 2차맵 키로 쓴다 — 같은 쓰기 묶음). 봇이거나 없으면 undefined
+   * (곧 옆 2차맵의 transferIn이 같은 줄을 새 2차맵 키로 쓴다 — 같은 쓰기 묶음). 봇·승객이거나 없으면 undefined. 배는 승객을 데리고 나간다
+   * (riders, 기획 D-541 1283 나)
    */
-  transferOut(unitId: number): UnitRow | undefined;
-  /** 다른 2차맵에서 넘어온 유닛을 기준 칸 (x, y)에 세운다(직무·상태·판단 횟수 그대로, 저장한다). ID가 있거나 설 수 없으면 false */
-  transferIn(row: UnitRow, cellX: number, cellY: number): boolean;
+  transferOut(unitId: number): TransferRow | undefined;
+  /**
+   * 다른 2차맵에서 넘어온 유닛을 기준 칸 (x, y)에 세운다(직무·상태·판단 횟수 그대로, 저장한다). 배(영역 sea)는 물 칸에 서고 승객을 다시 태운다.
+   * ID가 있거나 설 수 없으면 false
+   */
+  transferIn(row: TransferRow, cellX: number, cellY: number): boolean;
   /** 그 크기 등급이 기준 칸 (x, y)에 설 수 있나(지형·건물만 본다, 유닛은 보지 않는다) */
   isStandable(cellX: number, cellY: number, size: SizeClass): boolean;
   /** 하던 이동을 멈추고 지금 자리에 세운다(2차맵 사이 이동 취소). 봇이거나 없으면 false */

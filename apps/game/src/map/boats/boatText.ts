@@ -1,11 +1,18 @@
 // 배 화면 문구·고르기 도우미(순수, 시험 대상) — docs/adr/2026-11-13-boats.md. 결과 코드 → 문구, 고른 유닛에 보일 배 단추.
 import type { MapUnit } from "@terra/shared/mapUnits";
 import { m } from "../../paraglide/messages.js";
+import { durationText } from "../travelData.ts";
 import type { BoatOutcome } from "./boatCommands.ts";
 
-/** 결과 → 알림 문구 */
-export function boatOutcomeText(kind: "build" | "board" | "leave", outcome: BoatOutcome): string {
+/** 결과 → 알림 문구. nowMs = 지금 서버 시각(만드는 중 남은 시간) */
+export function boatOutcomeText(
+  kind: "build" | "board" | "leave",
+  outcome: BoatOutcome,
+  nowMs: number = Date.now(),
+): string {
   if (outcome.ok) {
+    if (kind === "build" && outcome.readyAtMs !== undefined && outcome.boatId === undefined)
+      return m.boat_build_started({ time: durationText(outcome.readyAtMs - nowMs) });
     if (kind === "build") return m.boat_build_done({ id: outcome.boatId ?? 0 });
     if (kind === "board") return outcome.walking ? m.boat_board_walking() : m.boat_board_done();
     return m.boat_leave_done();
@@ -33,6 +40,10 @@ export function boatOutcomeText(kind: "build" | "board" | "leave", outcome: Boat
       return m.boat_error_already_aboard();
     case "empty":
       return m.boat_error_empty();
+    case "dock_busy":
+      return outcome.readyAtMs === undefined
+        ? m.boat_error_dock_busy_plain()
+        : m.boat_error_dock_busy({ time: durationText(outcome.readyAtMs - nowMs) });
     case "busy":
     case "rate_limited":
     case "offline":
@@ -70,4 +81,9 @@ export function boatChoiceOf(unit: MapUnit | undefined, units: readonly MapUnit[
     if (!best || d < best.d || (d === best.d && other.unitId < best.id)) best = { id: other.unitId, d };
   }
   return best ? { kind: "board", boatId: best.id } : { kind: "none" };
+}
+
+/** 부두 판: 만드는 중인 배의 남은 시간 문구(없으면 null) */
+export function dockJobText(job: { readonly readyAt: number } | undefined, nowMs: number): string | null {
+  return job ? m.boat_dock_building({ time: durationText(job.readyAt - nowMs) }) : null;
 }

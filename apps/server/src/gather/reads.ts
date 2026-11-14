@@ -43,7 +43,15 @@ const emptyBuilding = (
   generatedAt: nowMs,
 });
 
-export function gatherReadsOf(source: () => GatherWorld | undefined): GatherReads {
+/** 부두 판의 만드는 중인 배 칸 */
+const boatJobOf = (job: { readonly startedAtMs: number; readonly readyAtMs: number } | undefined) =>
+  job ? { boatJob: { startedAt: job.startedAtMs, readyAt: job.readyAtMs } } : {};
+
+export function gatherReadsOf(
+  source: () => GatherWorld | undefined,
+  /** 부두가 만드는 중인 배(배 서비스 dockJob). 없으면 싣지 않는다 */
+  dockBoat?: (buildingId: number) => { readonly startedAtMs: number; readonly readyAtMs: number } | undefined,
+): GatherReads {
   return {
     objects(_viewer, mapKey, nowMs) {
       const gather = source();
@@ -161,6 +169,7 @@ export function gatherReadsOf(source: () => GatherWorld | undefined): GatherRead
         accepts: options?.deposit !== null && options !== undefined,
         hires: options?.workplace === true,
         inside: inside.toSorted((a, b) => a.unitId - b.unitId),
+        ...boatJobOf(dockBoat?.(buildingId)),
         generatedAt: nowMs,
       };
     },

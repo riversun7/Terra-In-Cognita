@@ -25,6 +25,8 @@ export const FACILITY_LOOK_MODELS = [
   "herb",
   "ranch",
   "fishing",
+  // 부두(배 만들고 타고 내리는 곳, docs/adr/2026-11-13-boats.md 3절)
+  "dock",
 ] as const;
 export type FacilityLookModel = (typeof FACILITY_LOOK_MODELS)[number];
 

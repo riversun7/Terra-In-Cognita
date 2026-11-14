@@ -54,6 +54,8 @@ export const FACILITY_STAGES = [
   "medical",
   "living",
   "defense",
+  // 교통(부두 — docs/adr/2026-11-13-boats.md 3절, 42 §5 대분류 "교통")
+  "transport",
 ] as const;
 
 /** 채집 방식: roll = 확률표 추첨, select = 선택 + 효율(옛 ITM-10) */

@@ -1123,6 +1123,56 @@
         "height": 1
       },
       "durability": 20000
+    },
+    {
+      "id": "dock",
+      "name": {
+        "ko": "부두",
+        "en": "Dock"
+      },
+      "stage": "transport",
+      "maxLevel": 3,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 14
+              },
+              {
+                "item": "stone",
+                "qty": 4
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 14
+              },
+              {
+                "item": "brick",
+                "qty": 4
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "needsWaterWithin": 1,
+      "durability": 180,
+      "look": {
+        "model": "dock"
+      }
     }
   ]
 }

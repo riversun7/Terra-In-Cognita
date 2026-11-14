@@ -10625,6 +10625,78 @@
         "en": "Added when the city warehouse has none of the favourite food subcategory (negative) [temporary]."
       },
       "source": "ADR 2026-11-12-unit-condition \"바뀜 (2026-11-12, D-535)\""
+    },
+    {
+      "id": "boat_speed",
+      "code": "P20",
+      "name": {
+        "ko": "배 속도(단위/초, 1024 = 1칸/초)",
+        "en": "Boat speed (units/s, 1024 = 1 cell/s)"
+      },
+      "value": 1536,
+      "structural": false,
+      "unit": "count",
+      "min": 64,
+      "max": 20000,
+      "desc": {
+        "ko": "배가 물 위를 가는 빠르기(D-5052 수단 최고 속도, 49 P20). 1536 = 1.5칸/초(약 8.9m/s). 새로 만드는 배부터 든다.",
+        "en": "How fast a boat sails (D-5052 vehicle top speed, 49 P20). 1536 = 1.5 cells/s (about 8.9 m/s). Applies to boats built after the change."
+      },
+      "source": "ADR 2026-11-13-boats · 질문 1272 [임시]"
+    },
+    {
+      "id": "boat_capacity",
+      "code": "",
+      "name": {
+        "ko": "배 하나에 타는 유닛 수",
+        "en": "Units per boat"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 64,
+      "desc": {
+        "ko": "배 하나에 함께 탈 수 있는 유닛 수.",
+        "en": "How many units can ride one boat."
+      },
+      "source": "ADR 2026-11-13-boats · 질문 1272 [임시]"
+    },
+    {
+      "id": "boat_cost_pm",
+      "code": "",
+      "name": {
+        "ko": "배 값(부두 레벨 1 재료 × ‰)",
+        "en": "Boat cost (dock level 1 materials × ‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "배 하나를 만드는 재료 = 부두 레벨 1 건설 재료 × 이 값 ÷ 1000. 0이면 재료 없이 만든다.",
+        "en": "Materials for one boat = the dock's level 1 build materials × this ÷ 1000. 0 = free."
+      },
+      "source": "ADR 2026-11-13-boats · 질문 1272 [임시]"
+    },
+    {
+      "id": "boat_board_cells",
+      "code": "",
+      "name": {
+        "ko": "타고 내리는 거리(칸)",
+        "en": "Board and leave reach (cells)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 32,
+      "desc": {
+        "ko": "유닛과 배 사이가 이 칸 수 안이면 바로 탄다. 내릴 땅 칸도 배 둘레 이 안에서 찾는다.",
+        "en": "A unit within this many cells of the boat boards at once. Landing cells are searched within this range of the boat."
+      },
+      "source": "ADR 2026-11-13-boats · 질문 1272 [임시]"
     }
   ]
 }

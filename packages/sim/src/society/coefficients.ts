@@ -19,6 +19,7 @@ import { START_WAR_COEFFICIENTS, type WarCoefficients } from "./warOutcomes.ts";
 import { START_WORLD_SEED, type WorldSeedCoefficients } from "./worldSeed.ts";
 import { type GatherObjectCoefficients, START_GATHER_OBJECTS } from "./gatherObjects.ts";
 import { type LogisticsCoefficients, START_LOGISTICS } from "./logisticsCoefficients.ts";
+import { type BoatCoefficients, START_BOATS } from "./boatCoefficients.ts";
 import { type ConditionCoefficients, START_CONDITION } from "./condition.ts";
 
 /**
@@ -116,6 +117,8 @@ export interface SocietyCoefficients {
    * docs/adr/2026-11-11-city-building-layout.md "바뀜 (2026-11-12)"
    */
   readonly logistics: LogisticsCoefficients;
+  /** 배(팩 tuning 경로 "boats.*", 모두 [임시] — docs/adr/2026-11-13-boats.md). 서버 배 서비스가 읽는다 */
+  readonly boats: BoatCoefficients;
   /** 지상 기술 단계 상한(질문 121 기본안: 시설 Lv1~5 사다리) */
   readonly techGroundMax: number;
   /** [임시] 단계 n으로 오르는 연구 작업량(효율 1000인 연구 일꾼 한 시간 = 1000) = researchWorkBase × n */
@@ -447,6 +450,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   worldSeed: { ...START_WORLD_SEED },
   gatherObjects: { ...START_GATHER_OBJECTS },
   logistics: { ...START_LOGISTICS },
+  boats: { ...START_BOATS },
   techGroundMax: 5,
   researchWorkBase: 48_000,
   developmentPerTech: 20,

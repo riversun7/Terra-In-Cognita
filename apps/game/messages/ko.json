@@ -5578,6 +5578,7 @@
   "economy_stage_medical": "의료",
   "economy_stage_living": "생활",
   "economy_stage_defense": "방어",
+  "economy_stage_transport": "교통",
   "injury_stage_0": "정상",
   "injury_stage_1": "경상",
   "injury_stage_2": "중상",

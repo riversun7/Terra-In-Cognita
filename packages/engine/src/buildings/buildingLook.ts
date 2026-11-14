@@ -65,6 +65,8 @@ const FACILITY_ART: Readonly<Record<string, BuildingArtKind>> = {
   biotech_lab: "lab",
   government_hall: "government",
   hospital: "hospital",
+  // 부두(docs/adr/2026-11-13-boats.md 3절)
+  dock: "dock",
 };
 
 /** 시설 ID → 모델 종류. 모르는 ID·없음이면 일반 집 */

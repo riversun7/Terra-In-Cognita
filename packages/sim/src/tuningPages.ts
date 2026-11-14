@@ -12,6 +12,7 @@ import { HOUSE_TUNING_KEYS } from "./tuningHouse.ts";
 import { INJURY_TUNING_KEYS } from "./tuningInjury.ts";
 import { LABOR_TUNING_KEYS } from "./tuningLabor.ts";
 import { LOGISTICS_TUNING_KEYS } from "./tuningLogistics.ts";
+import { BOAT_TUNING_KEYS } from "./tuningBoats.ts";
 import { RECRUIT_TUNING_KEYS } from "./tuningRecruit.ts";
 import { RESTORATION_TUNING_KEYS } from "./tuningRestoration.ts";
 import { TEMPLE_TUNING_KEYS } from "./tuningTemple.ts";
@@ -29,6 +30,8 @@ const GROUP_PAGES: readonly (readonly [readonly TuningKey[], TuningPage])[] = [
   [BUILD_TUNING_KEYS, "economy"],
   [GATHER_OBJECT_TUNING_KEYS, "economy"],
   [LOGISTICS_TUNING_KEYS, "economy"],
+  // 배(교통, docs/adr/2026-11-13-boats.md) — 부두·배 값이 건물 경제라 경제 코어 페이지
+  [BOAT_TUNING_KEYS, "economy"],
   // 컨디션(관리 보너스)은 채집 유효 스탯에 더한다(D-534) — 경제 코어. 초기 스탯 합 상한도 같은 묶음(N9)
   [CONDITION_TUNING_KEYS, "economy"],
   [WAR_TUNING_KEYS, "society"],

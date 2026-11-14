@@ -4,6 +4,7 @@ import type { BuildingArtKind } from "./buildingLook.ts";
 import { BUILDING_COLORS as C, FURNACE_GLOW, type Rgb } from "./buildingPalette.ts";
 import { FLOOR_M, MARGIN_M, type PartList } from "./buildingParts.ts";
 import { fishing, herb, ranch } from "./buildingKindsGather.ts";
+import { dock } from "./buildingKindsTransport.ts";
 
 /** 본채 자리(로컬 m): 뼈대·폐허·비계가 이 자리를 쓴다 */
 export interface Rect {
@@ -51,6 +52,8 @@ export function mainRectOf(kind: BuildingArtKind, W: number, D: number): Rect {
       return r(0.18, -0.26, 0.46, 0.38);
     case "fishing":
       return r(-0.04, -0.24, 0.42, 0.36);
+    case "dock":
+      return r(-0.22, -0.26, 0.36, 0.3);
     case "smelter":
       return r(-0.12, -0.12, 0.56, 0.5);
     case "sawmill":
@@ -603,4 +606,5 @@ export const KIND_MODELS: Readonly<Record<BuildingArtKind, (ctx: KindContext) =>
   herb,
   ranch,
   fishing,
+  dock,
 };

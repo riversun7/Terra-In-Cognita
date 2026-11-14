@@ -86,13 +86,13 @@ const DEV_TOOLS = {
     tagEn: "LIVE CONFIG · 49 N53",
     ready: true,
   },
-  // 밸런스·전투 실험실(docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)"): 팀 A·B 파티 전투 + 가중치 표
+  // 밸런스·전투 보고서(docs/adr/2026-11-14-battle-report.md): 팀·유닛 편집 + 실제 판정 N판 보고서·기록
   dev_balance: {
     name: m.shell_route_dev_balance,
     desc: m.dev_tool_balance_desc,
     mark: <ScaleIcon />,
-    tagKo: "SIMULATOR · 계산식",
-    tagEn: "SIMULATOR · Formulas",
+    tagKo: "SIMULATOR · 보고서",
+    tagEn: "SIMULATOR · Reports",
     ready: true,
   },
   // 2차 스탯 에디터(가중치·공식 + 1차 영향력·계열별 성장·K 편차·확률 체감 그래프)
@@ -262,12 +262,12 @@ const DEV_SECTIONS: readonly DevSection[] = [
   },
   {
     id: "balance",
-    titleKo: "밸런싱 · 계산식 & 전투 시뮬레이터",
-    titleEn: "Balancing, Formulas & Combat Simulators",
+    titleKo: "밸런싱 · 2차 스탯 & 전투 보고서",
+    titleEn: "Balancing, Secondary Stats & Battle Reports",
     subKo:
-      "스탯 가중치·전투 계산식(맨손·건물 피해 C32·건설 시간 M14), 49 설정 칸(N53 스위치 포함), 6v6 3D 전투 다시보기를 시험합니다.",
+      "2차 스탯 가중치·계산식, 실제 판정 N회 전투 보고서(공성·A/B·피해 흐름), 49 설정 칸(N53 스위치 포함), 6v6 3D 전투 다시보기를 다룹니다.",
     subEn:
-      "Test stat weights, combat/building formulas (C32, M14), 49 settings cells (including N53 switches), and 6v6 3D battle replays.",
+      "Secondary stat weights and formulas, N-run battle reports from the real engine (siege, A/B, damage flow), 49 settings cells (including N53 switches), and 6v6 3D battle replays.",
     routes: ["dev_secondary_stats", "dev_balance", "dev_tuning", "dev_battle_replay"],
   },
   {

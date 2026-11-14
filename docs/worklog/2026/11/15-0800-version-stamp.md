@@ -18,7 +18,7 @@
 | `packages/shared/src/buildStamp.ts`(새)·`.test.ts`(새)·`package.json` | 도장 순수 함수(KST 변환·커밋 자르기·빌드 설정 값 고르기·화면 글·다름 판정)와 시험, 하위 진입점 `./buildStamp` |
 | `apps/game/vite.config.ts`, `apps/game/src/env.d.ts` | 앱 도장 define(`__APP_BUILD_TIME__`·`__APP_BUILD_COMMIT__`), 개발 서버는 빈 값 |
 | `apps/server/vite.config.ts`, `apps/server/src/buildStamp.ts`(새) | 서버 도장 define(`__SERVER_BUILD_*`), 없으면 null(`typeof`로 읽음 — 빌드 결과에서 값으로 바뀐 것 Verified: `dist/main.js`) |
-| `apps/server/src/app.ts`, `apps/server/src/trpc/system.ts` | `/health`·`system.info`에 `build` |
+| `apps/server/src/app.ts`, `apps/server/src/config.ts`, `apps/server/src/trpc/system.ts` | `/health`·`system.info`에 `build`(`config.ts`가 `SERVER_BUILD`를 다시 내보냄 — app.ts 줄 수 그대로) |
 | `apps/server/src/app.test.ts`, `apps/server/src/trpc/system.test.ts`, `apps/game/src/net/api.test.ts` | 응답·출력 타입에 `build` |
 | `apps/game/src/settings/versionInfo.ts`(새)·`.test.ts`(새)·`VersionRow.tsx`(새)·`versionRow.css`(새) | 버전 줄 조립(순수)·서버 묻기·화면 |
 | `apps/game/src/settings/SettingsPage.tsx`, `apps/game/src/editor/DevHome.tsx`·`devHome.css` | 버전 줄을 앱 정보와 개발자 홈 아래에 |
@@ -46,7 +46,7 @@
 
 ## 미검증·TODO·알려진 문제
 - CI Docker 이미지 빌드 경로(`--build-arg APP_BUILD_TIME`)는 실행하지 않았다(미실행). 로컬 `docker build`도 하지 않았다. Dockerfile의 `${APP_BUILD_TIME:-$(date …)}` 쉘 대체는 Assumed(문법은 일반 sh).
-- `apps/server/src/app.ts`는 999줄이다(상한 1,000). 다른 줄기가 이 파일에 더하면 합칠 때 나눠야 한다.
+- `apps/server/src/app.ts`는 줄 수를 늘리지 않았다(997줄 그대로: `SERVER_BUILD`는 `config.ts`가 다시 내보내 기존 import 줄로 가져오고, 주석 한 줄을 끝 주석으로 접었다). main(`d171818`)과 합치면 999줄(검사 기준 상한 1,000 = wc 999)로 여유가 없다(Verified: `git merge-tree`). 다음에 이 파일에 더하는 줄기는 나눠야 한다.
 - 개발자 홈 사진은 화면 위쪽만 찍혀 아래 버전 줄은 사진에 없다(시험이 값을 본다).
 - 같은 커밋을 다시 빌드해도 시각이 달라 `VersionRow-*.js` 해시가 바뀐다(그 조각만 다시 받는다).
 

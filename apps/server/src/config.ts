@@ -136,3 +136,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     planetCacheDir: env.PLANET_CACHE_DIR || DEFAULT_PLANET_CACHE_DIR,
   };
 }
+
+// 서버 빌드 도장(src/buildStamp.ts) — app.ts가 설정 값들과 함께 가져간다(/health build)
+export { SERVER_BUILD } from "./buildStamp.ts";

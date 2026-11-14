@@ -37,7 +37,7 @@
 
 ## 검사 (Verified: 실행)
 - `apps/server` 배 시험(`src/boats`): 4 파일 18 시험 통과. 서버 `typecheck`·oxlint(바꾼 파일)·biome 통과.
-- `pnpm check`(TEST_DATABASE_URL 포함): 아래 "검사 결과"에 적는다.
+- `pnpm check`(TEST_DATABASE_URL 포함, 9d5f783 위): 704 파일 5,274 시험 모두 통과(건너뜀 0). 첫 실행은 시험 DB가 꺼져 있어 DB 시험이 실패했고, DB를 켜고 다시 돌렸다.
 - 화면 시험: 돌리지 않았다 — `e2e/boats.spec.ts`는 돌려주기를 보지 않고(Verified: 파일 읽기, 8행 "돌려주고"는 `readyAtMs` 이야기), 화면 흐름이 바뀌지 않았다. 앱(`apps/game`)을
   고치지 않아 빌드·`check-pwa`·`check:bundle`도 돌리지 않았다.
 

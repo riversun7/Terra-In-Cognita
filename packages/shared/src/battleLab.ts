@@ -41,11 +41,6 @@ export const LAB_LIMITS = {
   /** 한 판 제한 시간(초) */
   limitSecMin: 30,
   limitSecMax: 600,
-  /** 몬테카를로 판 수(짝수: 편을 반씩 바꾼다) */
-  runsMin: 2,
-  runsMax: 200,
-  /** 몬테카를로 판 수 × 제한 시간(초) 상한(NAS 부담) */
-  runSecondsMax: 12_000,
   /** 퇴각 기준선(파티 HP %, ⑦). 0 = 쓰지 않음 */
   retreatMax: 99,
   /** 한 판 사건 기록 줄 상한 */
@@ -302,17 +297,13 @@ export interface LabDropped {
 // 목록·미리 보기 응답 모양은 battleLabViews.ts(파일 크기)
 export type * from "./battleLabViews.ts";
 
-/** 전투 입력(한 판·몬테카를로·관람) */
+/** 전투 입력(한 판·관람). 여러 판은 전투 보고서(battleReport.ts)가 맡는다(D-543 1382 가) */
 export interface LabBattleInput {
   readonly a: LabParty;
   readonly b: LabParty;
   readonly terrain: string;
   readonly limitSec: number;
   readonly seed: number;
-}
-
-export interface LabMonteCarloInput extends LabBattleInput {
-  readonly runs: number;
 }
 
 /** 한 판 사건 한 줄 */
@@ -377,7 +368,7 @@ export interface LabBattleResponse {
   readonly ms: number;
 }
 
-/** 몬테카를로 유닛 한 줄(판 평균·생존율) */
+/** 여러 판 유닛 한 줄(판 평균·생존율, 서버 분석 묶음 runArenaMonteCarlo가 쓴다) */
 export interface LabUnitStats {
   readonly key: string;
   readonly team: LabTeam;
@@ -387,27 +378,6 @@ export interface LabUnitStats {
   readonly killsAvg: number;
   /** 끝났을 때 서 있던 몫(‰) */
   readonly survivalPm: number;
-}
-
-export interface LabMonteCarloResponse {
-  readonly revision: number;
-  readonly runs: number;
-  /** 팀마다 승(쓰러뜨림)·판정승 수, 승률(‰ = (승 + 판정승 + 같음 ÷ 2) ÷ 판 수) */
-  readonly teams: Readonly<
-    Record<LabTeam, { readonly wins: number; readonly timeoutWins: number; readonly scorePm: number }>
-  >;
-  /** 편 바꿈: normal = 팀 A가 서쪽(공격 편), swapped = 동쪽(수비 편). 판 수와 그때 팀 A 승률 */
-  readonly sides: Readonly<
-    Record<"normal" | "swapped", { readonly runs: number; readonly aScorePm: number }>
-  >;
-  /** 시간 초과 수와 그 가운데 남은 몫이 같은 판 */
-  readonly timeouts: number;
-  readonly timeoutEven: number;
-  readonly avgMs: number;
-  readonly medianMs: number;
-  readonly units: readonly LabUnitStats[];
-  readonly dropped: readonly LabDropped[];
-  readonly ms: number;
 }
 
 /** 3D 관람: 이진 리플레이(base64, @terra/protocol/battleReplay 형식)와 크기·사건 수·끝 시각 */
@@ -427,11 +397,8 @@ export function labScorePm(wins: number, timeoutWins: number, even: number, runs
   return Math.round(((wins + timeoutWins) * 1000 + even * 500) / runs);
 }
 
-/** 몬테카를로·한 판 설정이 상한 안인가(서버·화면 같이) */
-export function labSettingsProblem(settings: {
-  readonly limitSec: number;
-  readonly runs?: number | undefined;
-}): "limit" | "runs" | "budget" | null {
+/** 한 판 설정이 상한 안인가(서버·화면 같이) */
+export function labSettingsProblem(settings: { readonly limitSec: number }): "limit" | null {
   const l = LAB_LIMITS;
   if (
     !Number.isInteger(settings.limitSec) ||
@@ -439,10 +406,6 @@ export function labSettingsProblem(settings: {
     settings.limitSec > l.limitSecMax
   )
     return "limit";
-  const runs = settings.runs;
-  if (runs === undefined) return null;
-  if (!Number.isInteger(runs) || runs < l.runsMin || runs > l.runsMax || runs % 2 !== 0) return "runs";
-  if (runs * settings.limitSec > l.runSecondsMax) return "budget";
   return null;
 }
 

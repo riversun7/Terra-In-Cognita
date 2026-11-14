@@ -34,7 +34,7 @@ export function facilityPoints(
   return durabilityPoints(ppm, maxDurabilityAt(durability, Math.max(1, record.level), rt));
 }
 
-/** 2차맵 지형 층(전투맵 지형 — battleReplay/arena.ts와 같은 셈). 지형 파일에 엄폐 층이 없으면 엄폐 없음 */
+/** 2차맵 지형 층(전투맵 지형 — sim arenaFromSecondMap 입력과 같은 셈). 지형 파일에 엄폐 층이 없으면 엄폐 없음 */
 export function mapLayers(map: SecondMap): SecondMapLayers {
   const terrain = decodeTerrain(map.terrainFile().raw);
   const costs = map.replicaInit().terrainCost;

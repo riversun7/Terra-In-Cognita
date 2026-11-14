@@ -11,8 +11,6 @@ import {
   type LabBattleResponse,
   type LabCatalogResponse,
   type LabDropped,
-  type LabMonteCarloInput,
-  type LabMonteCarloResponse,
   type LabParty,
   type LabPresetListResponse,
   type LabPresetSaveInput,
@@ -81,7 +79,6 @@ export interface BattleLabShared {
   catalog(): LabCatalogResponse;
   preview(unit: LabUnit): LabPreviewResponse;
   battle(viewer: Viewer, input: LabBattleInput): Promise<LabBattleResponse>;
-  monteCarlo(viewer: Viewer, input: LabMonteCarloInput): Promise<LabMonteCarloResponse>;
   /** 3D 관람: 한 판(같은 시드면 [한 판]과 같은 전투)을 리플레이로 기록 */
   replay(viewer: Viewer, input: LabBattleInput): Promise<LabReplayResponse>;
   presets(db: Database, writable: boolean): Promise<LabPresetListResponse>;
@@ -203,7 +200,7 @@ export function createBattleLabShared(deps: {
   /** 전투 일 준비(검사·지형·사양) → 제한 → 워커. 일 종류만 다르다 */
   const runArena = async <T>(
     viewer: Viewer,
-    input: LabBattleInput & { runs?: number },
+    input: LabBattleInput,
     work: (job: ArenaJob, arena: ReplayArenaRef | null) => Promise<T>,
   ): Promise<{ result: T; revision: number; dropped: LabDropped[]; ms: number }> => {
     if (labSettingsProblem(input) !== null) throw rejected("invalid_settings");
@@ -240,7 +237,6 @@ export function createBattleLabShared(deps: {
       log.info(
         {
           ms,
-          runs: input.runs ?? 1,
           units: input.a.units.length + input.b.units.length,
           terrain: input.terrain,
           limitSec: input.limitSec,
@@ -387,15 +383,6 @@ export function createBattleLabShared(deps: {
         dropped: out.dropped,
         ms: out.ms,
       };
-    },
-
-    async monteCarlo(viewer, input) {
-      const out = await runArena(viewer, input, async (job) => {
-        const result = await runner({ kind: "monte", job, runs: input.runs });
-        if (result.kind !== "monte") throw new DuelRunError("failed", `unexpected ${result.kind} result`);
-        return result.result;
-      });
-      return { revision: out.revision, ...out.result, dropped: out.dropped, ms: out.ms };
     },
 
     presets: listOf,

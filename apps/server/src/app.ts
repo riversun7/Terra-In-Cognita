@@ -84,17 +84,6 @@ import { inlineBatchRunner, workerBatchRunner } from "./battleLab/analysisRunner
 import { createBattleLabShared } from "./battleLab/services.ts";
 import { inlineReportRunner, workerReportRunner } from "./battleReport/runner.ts";
 import { worldArenaTerrains } from "./battleLab/worldTerrains.ts";
-import { createArenaSource } from "./battleReplay/arena.ts";
-import { type ReplayJob, type ReplayJobResult, runReplayJob } from "./battleReplay/compute.ts";
-import {
-  inlineJobRunner as inlineReplayRunner,
-  workerJobRunner as workerReplayRunner,
-} from "./battleReplay/jobRunner.ts";
-import {
-  REPLAY_TIMEOUT_MS,
-  REPLAY_WORKER_HEAP_MB,
-  createBattleReplayServices,
-} from "./battleReplay/services.ts";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, startWorld, testMapKey } from "./world/world.ts";
 import { primaryPlanetId } from "./world/playablePlanets.ts";
@@ -536,7 +525,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         tuning: tuningShared,
         roster: options.roster ?? testRosterCatalog(),
         unitKindNames: options.battleLab?.unitKindNames ?? new Map(),
-        effectNames: options.battleReplay?.effectNames,
+        effectNames: options.battleLab?.effectNames,
         terrains: worldArenaTerrains({
           testMapKey: TEST_MAP_KEY,
           terrain,
@@ -565,37 +554,6 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         now,
         log: app.log,
         limits: options.battleLab?.limits,
-      })
-    : undefined;
-  // 전투 다시보기(시범 6 대 6 기록): 설정 칸 접근자 위에서 돈다. 경기장 = 월드 시험 2차맵 구역(없으면 빈 평지). 기록은 워커
-  const replayRunner = options.battleReplay?.runner;
-  const battleReplay = tuningShared
-    ? createBattleReplayServices({
-        tuning: tuningShared,
-        roster: options.roster ?? testRosterCatalog(),
-        arena: createArenaSource(() => {
-          const map = world?.map(TEST_MAP_KEY);
-          return map
-            ? {
-                mapKey: map.mapKey,
-                terrainVersion: map.terrainVersion,
-                costs: () => map.replicaInit().terrainCost,
-                terrainFile: () => map.terrainFile().raw,
-              }
-            : undefined;
-        }),
-        runner:
-          replayRunner?.kind === "worker"
-            ? workerReplayRunner<ReplayJob, ReplayJobResult>({
-                workerUrl: replayRunner.workerUrl,
-                timeoutMs: REPLAY_TIMEOUT_MS,
-                heapMb: REPLAY_WORKER_HEAP_MB,
-              })
-            : inlineReplayRunner(runReplayJob),
-        effectNames: options.battleReplay?.effectNames,
-        now,
-        log: app.log,
-        limits: options.battleReplay?.limits,
       })
     : undefined;
 
@@ -732,7 +690,6 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       nationEdit: { testNations: options.world?.npc?.testNations ?? null },
       itemEdit,
       battleLab,
-      battleReplay,
       formulas,
       // 운영자 콘솔(docs/adr/2026-11-08-operator-console.md): DB가 있을 때만
       ops: options.db

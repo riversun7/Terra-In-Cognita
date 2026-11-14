@@ -13,10 +13,8 @@ import { recordBattleReplay } from "@terra/sim";
 import {
   type ArenaBattleResult,
   type ArenaJob,
-  type ArenaMonteResult,
   arenaInit,
   runArenaBattle,
-  runArenaMonteCarlo,
 } from "../battleLab/arena.ts";
 import { type DuelJob, type DuelJobResult, runDuelJob } from "./compute.ts";
 
@@ -41,13 +39,11 @@ export interface ReplayLabResult {
 export type WorkerJob =
   | { readonly kind: "duels"; readonly job: DuelJob }
   | { readonly kind: "battle"; readonly job: ArenaJob; readonly logMax: number }
-  | { readonly kind: "monte"; readonly job: ArenaJob; readonly runs: number }
   | { readonly kind: "replay"; readonly replay: ReplayLabJob };
 
 export type WorkerResult =
   | { readonly kind: "duels"; readonly result: DuelJobResult }
   | { readonly kind: "battle"; readonly result: ArenaBattleResult }
-  | { readonly kind: "monte"; readonly result: ArenaMonteResult }
   | { readonly kind: "replay"; readonly result: ReplayLabResult };
 
 /** 전투장 한 판(팀 A 서쪽)을 리플레이로 기록한다 */
@@ -74,8 +70,6 @@ export function runWorkerJob(job: WorkerJob): WorkerResult {
       return { kind: "duels", result: runDuelJob(job.job) };
     case "battle":
       return { kind: "battle", result: runArenaBattle(job.job, job.logMax) };
-    case "monte":
-      return { kind: "monte", result: runArenaMonteCarlo(job.job, job.runs) };
     default:
       return { kind: "replay", result: runReplayLabJob(job.replay) };
   }

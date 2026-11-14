@@ -8,7 +8,6 @@ import { TRPCError } from "@trpc/server";
 import { rolesAllow } from "../auth/permissions.ts";
 import {
   labBattleInputSchema,
-  labMonteCarloInputSchema,
   labPresetDeleteSchema,
   labPresetSaveSchema,
   labUnitSchema,
@@ -53,8 +52,4 @@ export const battleLabRouter = router({
   replay: read
     .input(labBattleInputSchema)
     .mutation(({ ctx, input }) => ctx.lab.shared.replay(ctx.viewer, input)),
-  /** 몬테카를로 N판(워커, 편을 반씩 바꿈) */
-  monteCarlo: read
-    .input(labMonteCarloInputSchema)
-    .mutation(({ ctx, input }) => ctx.lab.shared.monteCarlo(ctx.viewer, input)),
 });

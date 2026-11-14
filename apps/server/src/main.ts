@@ -6,7 +6,7 @@ import { loadServerContent } from "./content.ts";
 import { nationNamesOf, rankingPathsOf, syncNationNames } from "./ranking/paths.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
 import { combatCoefficientsFrom } from "@terra/sim";
-import { effectNamesOf } from "./battleReplay/names.ts";
+import { effectNamesOf } from "./battleLab/effectNames.ts";
 import { createTuningState } from "./tuning/state.ts";
 import { formulaEntriesOf, statRowsOf, tuningEntriesOf, unitKindNamesOf } from "./world/combatCatalog.ts";
 import { createContentEditState } from "./contentEdit/state.ts";
@@ -42,10 +42,6 @@ const terrainWorkerUrl = import.meta.url.endsWith(".ts")
 const balanceWorkerUrl = import.meta.url.endsWith(".ts")
   ? new URL("./balance/duelWorker.ts", import.meta.url)
   : new URL("./balanceWorker.js", import.meta.url);
-/** 전투 다시보기 워커 진입 파일 (같은 규칙: 개발 src/battleReplay/replayWorker.ts, 빌드 dist/battleReplayWorker.js) */
-const battleReplayWorkerUrl = import.meta.url.endsWith(".ts")
-  ? new URL("./battleReplay/replayWorker.ts", import.meta.url)
-  : new URL("./battleReplayWorker.js", import.meta.url);
 /** 행성 굽기 워커 진입 파일 (경로 워커와 같은 규칙: 개발 src/planet/bakeWorker.ts, 빌드 dist/planetBakeWorker.js) */
 const planetBakeWorkerUrl = import.meta.url.endsWith(".ts")
   ? new URL("./planet/bakeWorker.ts", import.meta.url)
@@ -165,13 +161,8 @@ app = await buildApp({
   contentEdit: { state: contentEdit },
   // 밸런스 화면(/dev/balance): 시드 대결은 요청마다 워커 스레드에서
   balance: { runner: { kind: "worker", workerUrl: balanceWorkerUrl } },
-  // 전투 실험실(같은 화면의 [전투 실험실] 탭): 전투는 같은 워커, 유닛 종류 이름은 팩
-  battleLab: { unitKindNames: unitKindNamesOf(loaded.source) },
-  // 전투 다시보기(/dev/battle-replay): 시범 6 대 6 기록은 요청마다 워커 스레드에서. 효과 이름은 팩 effects
-  battleReplay: {
-    runner: { kind: "worker", workerUrl: battleReplayWorkerUrl },
-    effectNames: effectNamesOf(loaded.source),
-  },
+  // 전투 실험실(같은 화면의 [전투 실험실] 탭): 전투는 같은 워커, 유닛 종류 이름은 팩, 3D 관람 효과 이름은 팩 effects
+  battleLab: { unitKindNames: unitKindNamesOf(loaded.source), effectNames: effectNamesOf(loaded.source) },
   // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)"). 아이템·시설은 실효 항목(아이템·건물 편집기가 덮어쓴다)
   economyCatalog: economyCatalogAccessor(loaded.pack, content, () => contentEdit.effective()),
   // 랭킹(docs/adr/2026-11-07-ranking.md): 팩 경로 목록(공개 여부·지표)과 세력 이름(국가 프리셋)

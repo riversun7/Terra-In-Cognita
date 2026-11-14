@@ -11,7 +11,6 @@ import type { BalanceLimits } from "./balance/services.ts";
 import type { AnalysisLimits } from "./battleLab/analysisJobs.ts";
 import type { ReportLimits } from "./battleReport/services.ts";
 import type { BattleLabLimits } from "./battleLab/services.ts";
-import type { BattleReplayLimits } from "./battleReplay/services.ts";
 import type { ContentEditState } from "./contentEdit/state.ts";
 import type { Database } from "./db/client.ts";
 import type { GatherKind } from "./gather/kinds.ts";
@@ -120,21 +119,12 @@ export interface AppOptions {
   battleLab?:
     | {
         unitKindNames?: ReadonlyMap<string, LocalizedName> | undefined;
+        /** 3D 관람 효과 이름 = 팩 효과 이름(없으면 ID) */
+        effectNames?: Record<string, ReplayName> | undefined;
         limits?: Partial<BattleLabLimits> | undefined;
         analysisLimits?: Partial<AnalysisLimits> | undefined;
         /** 전투 보고서 시험용 속도 제한(docs/adr/2026-11-14-battle-report.md) */
         reportLimits?: Partial<ReportLimits> | undefined;
-      }
-    | undefined;
-  /**
-   * 전투 다시보기 기록을 어디서 돌리나(docs/adr/2026-11-01-battle-replay.md 5절): 워커(요청마다 띄움) 또는 같은 스레드(시험).
-   * 화면은 tuning이 있을 때만 연다. 없으면 같은 스레드. effectNames = 팩 효과 이름(없으면 ID)
-   */
-  battleReplay?:
-    | {
-        runner: { kind: "worker"; workerUrl: URL } | { kind: "inline" };
-        effectNames?: Record<string, ReplayName> | undefined;
-        limits?: Partial<BattleReplayLimits> | undefined;
       }
     | undefined;
   /**

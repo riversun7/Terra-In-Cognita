@@ -113,8 +113,8 @@ export function precacheUrls(sw) {
  * ADR 2026-11-01-skill-editor), 아이템 편집기(itemEditor…, ADR 2026-11-01-item-editor), 건물 편집기(buildingEditor…,
  * ADR 2026-11-02-building-editor — 2차맵 모습 3D 미리 보기 buildingEditorPreview… 포함), 1차 생산 티어 확률(gatherTier…, 같은 ADR
  * "바뀜 (2026-11-09)" — 지금은 생산 편집기 productionEditor…의 확률 분포 탭, ADR 2026-11-11-production-six)과 편집기들이 같이 쓰는 부품(contentEditor…), 효과 사전(effectDictionary…, 아이템·스킬 편집기가
- * 같이 쓰는 고리 EffectDictionaryLinks도 이 앞머리, ADR 2026-11-01-item-editor "바뀜 (2026-11-09)"),
- * 전투 다시보기(battleReplayLab…, ADR 2026-11-01-battle-replay)의 화면·코드·워커·CSS. 개발자 도구를
+ * 같이 쓰는 고리 EffectDictionaryLinks도 이 앞머리, ADR 2026-11-01-item-editor "바뀜 (2026-11-09)")의 화면·코드·워커·CSS
+ * (전투 다시보기 battleReplayLab…는 D-543 1377 가로 지웠다). 개발자 도구를
  * 열 때만 받는다(셰이더 측정의 three/webgpu는 약 690kB).
  * 미리 캐시하면 모든 플레이어가 서비스 워커 설치 때 받는다. vite.config.ts의 workbox.globIgnores가 같은 파일을 뺀다.
  * 조각 이름은 진입 파일 이름을 따른다: 개발자 도구의 지연 로딩·워커 진입 파일은 이 앞머리로 짓는다
@@ -122,7 +122,7 @@ export function precacheUrls(sw) {
  * 개발자 홈(DevHome)은 작은 목록이라 이 규칙 밖이다(미리 캐시된다).
  */
 export const DEV_ONLY_CHUNK =
-  /^assets\/(gpuBench|[Pp]lanetEditor|[Ss]tarSystem|[Ss]econdMapLab|[Tt]uningPanel|[Bb]alancePanel|[Ss]econdaryStats|[Ss]killEditor|[Ii]temEditor|[Bb]uildingEditor|[Gg]atherTier|[Pp]roductionEditor|[Cc]reatureEditor|[Nn]ationEditor|[Tt]erritoryLab|[Ww]orldLayout|[Ee]ffectDictionary|generator-|cellReport-|[Cc]ontentEditor|[Bb]attleReplayLab|[Rr]ecruitLab|[Tt]errainObjects)[^/]*\.(js|css)$/;
+  /^assets\/(gpuBench|[Pp]lanetEditor|[Ss]tarSystem|[Ss]econdMapLab|[Tt]uningPanel|[Bb]alancePanel|[Ss]econdaryStats|[Ss]killEditor|[Ii]temEditor|[Bb]uildingEditor|[Gg]atherTier|[Pp]roductionEditor|[Cc]reatureEditor|[Nn]ationEditor|[Tt]erritoryLab|[Ww]orldLayout|[Ee]ffectDictionary|generator-|cellReport-|[Cc]ontentEditor|[Rr]ecruitLab|[Tt]errainObjects)[^/]*\.(js|css)$/;
 
 /**
  * 개발자 도구만 쓰는 소스(소스 맵의 sources 경로). 개발자 도구 둘(행성 편집기·항성계 편집기)이 같이 쓰는 모듈은 따로 한 조각이
@@ -132,7 +132,7 @@ export const DEV_ONLY_CHUNK =
  * 미리 캐시되지 않은 조각을 받게 됐다(2026-10-31 빌드로 확인).
  */
 export const DEV_ONLY_SOURCE =
-  /(^|\/)src\/editor\/(planet|starSystem|gpuBench|secondMapLab|tuning|balance|secondaryStats|skills|items|buildings|gatherTiers|production|creatures|nations|territory|content|battleReplayLab|recruit|worldLayout|effects|terrainObjects)\/|(^|\/)packages\/planet\/src\/generator\/|(^|\/)packages\/engine\/src\/buildings\/(buildingPreview|previewEntry)\.ts$/;
+  /(^|\/)src\/editor\/(planet|starSystem|gpuBench|secondMapLab|tuning|balance|secondaryStats|skills|items|buildings|gatherTiers|production|creatures|nations|territory|content|recruit|worldLayout|effects|terrainObjects)\/|(^|\/)packages\/planet\/src\/generator\/|(^|\/)packages\/engine\/src\/buildings\/(buildingPreview|previewEntry)\.ts$/;
 
 /** 소스 맵(JSON 바이트)의 sources 중 개발자 도구 소스. 맵이 없거나 읽지 못하면 빈 목록 */
 function devSourcesOf(mapBytes) {

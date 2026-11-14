@@ -9,7 +9,7 @@
 // 팀 프리셋은 시험끼리 DB를 같이 쓴다: 만든 프리셋은 시험 안에서 지운다.
 // 사용자별 속도 제한도 같이 쓴다(설정 칸 계열 조회 순간 30·분당 120, 전투 순간 4·분당 8, 서버를 켤 때마다 처음부터. 앞 파일
 // balance.spec.ts의 admin 시험과도 같다). 배치·사진 시험은 서버 상태를 바꾸지 않으므로 같은 입력의 조회·전투를 처음 한 번만
-// 서버에 묻는다(replayTrpc). 실제 서버 경로(전투·몬테카를로·3D 관람·프리셋)는 "개발자" 시험이 본다.
+// 서버에 묻는다(replayTrpc). 실제 서버 경로(전투·보고서·3D 관람·프리셋)는 "개발자" 시험이 본다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -143,6 +143,24 @@ test.describe("개발자", () => {
     const watch = page.locator(".bl-watch-dialog[open]");
     await expect(watch.locator(".br-view")).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
     await expect(watch.locator(".bl-watch-title")).toHaveText(message("ko", "dev_lab_watch_title"));
+    // 재생 조작(지운 /dev/battle-replay 시험이 보던 것, D-543 1377 가): 멈춤 → 시각 그대로, 8배속, 끝으로 → 끝 요약(유닛 8줄)
+    const view = watch.locator(".br-view");
+    const timeOf = async (): Promise<number> => Number(await view.getAttribute("data-time"));
+    if ((await view.getAttribute("data-playing")) === "true") await watch.locator(".br-play").click();
+    await expect(view).toHaveAttribute("data-playing", "false");
+    const paused = await timeOf();
+    await page.waitForTimeout(300);
+    expect(await timeOf()).toBe(paused);
+    await watch.locator(".br-speed button").last().click();
+    await expect(view).toHaveAttribute("data-speed", "8");
+    await watch.locator(".br-play").click();
+    await expect.poll(timeOf, { timeout: 10_000 }).toBeGreaterThan(paused + 1000);
+    await watch.locator(".br-play").click();
+    await expect(view).toHaveAttribute("data-playing", "false");
+    const end = Number(await watch.locator(".br-seek").getAttribute("max"));
+    await watch.locator(".br-seek").fill(String(end));
+    await expect(view).toHaveAttribute("data-ended", "true");
+    await expect(watch.locator(".br-summary-table tbody tr")).toHaveCount(8);
     await watch.locator(".bl-watch-close").click();
     await expect(page.locator(".bl-watch-dialog[open]")).toHaveCount(0);
     await expect(page.locator(".bl-watch")).toBeFocused();

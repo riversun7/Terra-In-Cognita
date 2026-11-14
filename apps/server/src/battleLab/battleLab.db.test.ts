@@ -224,7 +224,7 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 실험실 (DB)", () => {
     ]);
   });
 
-  it("한 판·몬테카를로(같은 스레드): 사건 기록·유닛 요약, 편 바꿈 승률. 모르는 지형은 unknown_terrain", async () => {
+  it("한 판(같은 스레드): 사건 기록·유닛 요약. 몬테카를로 프로시저는 지웠다(D-543 1382 가). 모르는 지형은 unknown_terrain", async () => {
     const input = {
       a: { units: [warrior(), { ...warrior(), row: "back" }], retreatHpPct: 0 },
       b: { units: [{ ...newLabUnit("creature"), level: 10 }], retreatHpPct: 0 },
@@ -236,11 +236,8 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 실험실 (DB)", () => {
     expect(battle.winner).toBe("a");
     expect(arr(battle.units)).toHaveLength(3);
     expect(arr(battle.events).length).toBeGreaterThan(0);
-    const monte = obj(
-      resultOf(await trpcMutation(app, "battleLab.monteCarlo", { ...input, runs: 4 }, cookie.dev)),
-    );
-    expect(monte.runs).toBe(4);
-    expect(obj(obj(monte.sides).swapped).runs).toBe(2);
+    // 지운 몬테카를로(D-543 1382 가 — 전투 보고서가 대신한다)는 없는 프로시저다
+    expect((await trpcMutation(app, "battleLab.monteCarlo", { ...input, runs: 4 }, cookie.dev)).statusCode).toBe(404);
     const terrainTest = await trpcMutation(
       app,
       "battleLab.battle",

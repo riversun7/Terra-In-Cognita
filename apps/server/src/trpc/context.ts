@@ -44,7 +44,6 @@ import type { Database } from "../db/client.ts";
 import type { LaborScreenServices } from "../labor/views.ts";
 import type { FacilityScreenServices } from "../facilities/screen.ts";
 import type { BalanceDuelsInput, BalanceDuelsResponse, BalanceTableResponse } from "@terra/shared/balance";
-import type { BattleReplayDemoResponse } from "@terra/shared/battleReplay";
 import type { RecruitBoardResponse } from "@terra/shared/recruit";
 import type { FusionOverviewResponse } from "@terra/shared/fusion";
 import type { TempleOverviewResponse } from "@terra/shared/temple";
@@ -232,15 +231,6 @@ export interface BalanceServices {
   table(): Promise<BalanceTableResponse>;
   /** 시드 대결(워커). 사용자 속도 제한·서버 전체 한 번에 하나 */
   duels(viewer: Viewer, input: BalanceDuelsInput): Promise<BalanceDuelsResponse>;
-}
-
-/**
- * 개발자 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 5절, src/battleReplay/services.ts). 권한·조회 속도 제한은
- * D1(tuning:read)이 먼저 본다. 오류는 data.reason(@terra/shared BATTLE_REPLAY_REASONS)
- */
-export interface BattleReplayServices {
-  /** 시범 6 대 6 기록(워커). 사용자 속도 제한·서버 전체 한 번에 하나 */
-  demo(viewer: Viewer, input: { seed: number }): Promise<BattleReplayDemoResponse>;
 }
 
 /** 홈 자료 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */
@@ -500,8 +490,6 @@ export interface TrpcContext {
   nations?: NationEditorServices | undefined;
   /** 전투 실험실(앱에 하나인 서비스 + 이 요청의 DB·접속 주소). 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
   battleLab?: { readonly shared: BattleLabShared; readonly db: Database; readonly ip: string } | undefined;
-  /** 전투 다시보기. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
-  battleReplay?: BattleReplayServices | undefined;
   /** 계산식 탭. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
   formulas?: FormulaServices | undefined;
 }

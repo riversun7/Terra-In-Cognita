@@ -1,4 +1,4 @@
-// 다시보기 효과 이름 — 팩 effects의 {ko, en}(유닛 화면 이름 표에는 효과가 없다). 서버를 켤 때 한 번 읽는다(main.ts).
+// 3D 관람(전투 실험실·보고서 리플레이) 효과 이름 — 팩 effects의 {ko, en}(유닛 화면 이름 표에는 효과가 없다). 서버를 켤 때 한 번 읽는다(main.ts).
 import { type PackSource, effectEntrySchema, parseJson } from "@terra/content";
 import type { ReplayName } from "@terra/protocol/battleReplay";
 

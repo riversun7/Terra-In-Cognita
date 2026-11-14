@@ -101,8 +101,6 @@ export const labBattleInputSchema = z.strictObject({
   seed: int(0, 0x7fff_ffff),
 });
 
-export const labMonteCarloInputSchema = labBattleInputSchema.extend({ runs: int(L.runsMin, L.runsMax) });
-
 /** 팀이 만든 프리셋 ID: `lab_` + 16진 12자 */
 export const LAB_PRESET_ID = /^lab_[0-9a-f]{12}$/;
 /** 샘플 프리셋 ID: `sample_` + 이름 */

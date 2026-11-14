@@ -367,6 +367,11 @@ for (const theme of ["pastel", "dark", "station"] as const) {
       await expect(best.locator(".combat-detail")).toContainText(message("ko", "cyborg_gather_best_line"));
       const fish = page.locator('.combat-row[data-sec="gather_fish"]');
       if ((await fish.getAttribute("data-open")) !== "true") await fish.locator(".combat-toggle").click();
+      // 낚시터 물 종류마다 접은 확률(기획 D-542 질문 1365 나): 민물은 T2까지, 심해는 T4부터
+      await expect(fish.locator(".combat-detail")).toContainText(message("ko", "cyborg_gather_waters"));
+      await expect(fish.locator('[data-water="fresh"]')).toContainText(/^민물 T0~T2: /);
+      await expect(fish.locator('[data-water="fresh"]')).not.toContainText(/T[3-9] /);
+      await expect(fish.locator('[data-water="deep"]')).toContainText(/^심해 T4~T8: T4 /);
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
       expect(await horizontalOverflow(page)).toEqual([]);
       expect(await smallTapTargets(page)).toEqual([]);

@@ -5,6 +5,8 @@
 // - 티어 구간 = @terra/shared/gatherMath gatherLadderBands(사다리 띠 표, D-540 1217 나)·gatherBandIndex로 고른 팩 gather_tiers 구간의 가중치(‰). select(농장·목장)는 해금 티어 한 칸.
 // - 최적 작업 = @terra/shared/unitGuide recommendProduction 첫째(유닛 추천 표와 같은 고르기: 주 + 보조가 큰 차례, 같으면 주 스탯).
 // 표시만 하고 판정에 쓰지 않는다. 2차맵 산지 티어 막기(광산 oreTierCapOf)·시설 레벨 보너스는 자리마다라 넣지 않는다.
+// 바뀜 (2026-11-14, 기획 D-542 질문 1365 나): 낚시터 물 종류도 자리마다라 기본 줄은 접지 않고, 어류 시설 줄에 물 종류마다(설정 칸 fish_tier_*)
+// 접은 확률(@terra/shared/fishWater foldTierPm — 판정 rollGatherOutputs tierRange와 같은 접기)을 함께 싣는다(waters).
 import {
   type FacilityEntry,
   type GatherTierEntry,
@@ -13,8 +15,10 @@ import {
 } from "@terra/content";
 import { type GatherBand, gatherBandIndex, gatherLadderBands } from "@terra/shared/gatherMath";
 import type { PrimaryStat, RosterGather } from "@terra/shared/roster";
+import { materialOfFacility } from "@terra/shared/catchment";
+import { fishWaterRangeViews, foldTierPm } from "@terra/shared/fishWater";
 import { recommendProduction } from "@terra/shared/unitGuide";
-import { type SocietyCoefficients, clampCondition, workerEffects } from "@terra/sim";
+import { type SocietyCoefficients, clampCondition, fishTierRangesOf, workerEffects } from "@terra/sim";
 import { gatherSettingsOf } from "../labor/gatherWork.ts";
 import { productionTypesOf } from "./guide.ts";
 
@@ -76,6 +80,16 @@ export function gatherSheetOf(
     const band = bands[index];
     const select = type.mode === "select";
     const name = subName.get(subcategory);
+    const tierPm = select
+      ? Array.from({ length: 10 }, (_, tier) => (tier === effects.selectTier ? 1000 : 0))
+      : weightsOf(band);
+    const waters =
+      !select && materialOfFacility(type.facility) === "fish"
+        ? fishWaterRangeViews(fishTierRangesOf(society.worldSeed)).map((range) => ({
+            ...range,
+            tierPm: foldTierPm(tierPm, range),
+          }))
+        : undefined;
     return [
       {
         facility: type.facility,
@@ -91,9 +105,8 @@ export function gatherSheetOf(
         stat: effects.gatherStat,
         bandFrom: band?.from ?? 0,
         bandNext: bands[index + 1]?.from ?? null,
-        tierPm: select
-          ? Array.from({ length: 10 }, (_, tier) => (tier === effects.selectTier ? 1000 : 0))
-          : weightsOf(band),
+        tierPm,
+        ...(waters ? { waters } : {}),
         selectTier: effects.selectTier,
         progress: effects.progress,
         yieldPerLot: effects.yieldPerLot,

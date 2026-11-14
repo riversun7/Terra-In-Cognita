@@ -47,6 +47,10 @@
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
+/* 낚시터 물 종류마다 티어(D-542 1365 나): 이유 아래 한 줄 */
+.unit-advice-waters {
+  flex-basis: 100%;
+}
 .unit-advice-desc,
 .unit-advice-note {
   margin: 0;

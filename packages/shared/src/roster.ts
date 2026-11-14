@@ -9,6 +9,7 @@
 
 import type { CharacterLook } from "./characterLook.ts";
 import type { CyborgAppearance } from "./cyborgLooks.ts";
+import type { FishWater } from "./fishWater.ts";
 
 /**
  * 1차 스탯 6개(D-414) — 화면 차례. 두 개씩 묶는다: STR·VIT, INT·WIS, DEX·AGI(옛 프로젝트 CHR-1 차례·색, 질문 181 기술 추천 가.
@@ -645,6 +646,18 @@ export interface RosterGather {
   readonly yieldPerLot: number;
   /** 한 번 시도의 성공 ‰(낚시터). 없으면 늘 성공 */
   readonly catchPm?: number | undefined;
+  /**
+   * 낚시터 물 종류마다(얕은 것부터) 범위와 그 범위로 접은 T0~T9 확률(‰, 기획 D-542 질문 1365 나 — @terra/shared/fishWater foldTierPm).
+   * 어류 시설만, 옛 서버면 없음
+   */
+  readonly waters?:
+    | readonly {
+        readonly water: FishWater;
+        readonly min: number;
+        readonly max: number;
+        readonly tierPm: readonly number[];
+      }[]
+    | undefined;
   /** 이 유닛의 최적 작업(주 + 보조가 가장 큰 1차 생산, 유닛 추천과 같은 고르기) */
   readonly best: boolean;
 }

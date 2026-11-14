@@ -14,6 +14,7 @@
 //   티어를 고르고 같은 티어 여럿이면 고르게(옛 ORDER BY tier DESC, RANDOM()). 추첨하지 않는다.
 // - 성공 확률(낚시터, docs/adr/2026-11-11-production-six.md): 한 번 시도마다 성공 ‰를 먼저 굴리고 성공한 번만 티어를 뽑는다
 //   (옛 BuildingGatherEngine.js runFishingWorkers 715~735, fishing_config 0.30·0.80·0.50).
+// - 낚시터 티어 범위(기획 D-542 질문 1365 나): 뽑은 티어를 그 자리 물 종류의 범위로 접는다(GatherRoll.tierRange, @terra/shared/fishWater).
 // 정수 연산만 쓴다(판정 코드 규칙).
 import type { Rng } from "@terra/shared";
 import {
@@ -144,6 +145,11 @@ export interface GatherRoll {
    * 없으면 막지 않는다(다른 시설의 결과는 그대로)
    */
   readonly tierCap?: { readonly maxTier: number; readonly keepAbovePm: number } | undefined;
+  /**
+   * 티어 범위(낚시터 물 종류 — 기획 D-542 질문 1365 나, @terra/shared/fishWater). 추첨으로 뽑은 티어(tierCap 뒤)를 범위 안으로 접는다(아래는
+   * min으로 올리고 위는 max로 내린다. 난수를 더 쓰지 않는다). 선택 방식은 보지 않는다. 없으면 접지 않는다(다른 시설의 결과는 그대로)
+   */
+  readonly tierRange?: { readonly min: number; readonly max: number } | undefined;
 }
 
 /**
@@ -174,6 +180,8 @@ export function rollGatherOutputs(
       const keep = cap.keepAbovePm > 0 && rng.nextInt(GATHER_WEIGHT_TOTAL) < cap.keepAbovePm;
       if (!keep) tier = Math.max(0, cap.maxTier);
     }
+    const range = roll.selectTier === undefined ? roll.tierRange : undefined;
+    if (range) tier = Math.max(0, Math.min(GATHER_TIERS - 1, Math.min(Math.max(tier, range.min), range.max)));
     tiers[tier] = (tiers[tier] ?? 0) + 1;
     const asset = pickGatherItem(roll.ladder, tier, rng);
     if (asset === undefined || each === 0n) {

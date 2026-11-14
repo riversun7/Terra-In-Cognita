@@ -7246,5 +7246,17 @@
   "dev_world_layout_catchment_sustain": "Land sustains ≈ {cities} cities ({land} free settle cells in the search radius) · tier table {tier} · current world {world}",
   "dev_world_layout_catchment_sustain_capped": "Land sustains over {cities} cities ({land} free settle cells in the search radius) · tier table {tier} · current world {world}",
   "dev_world_layout_catchment_sustain_hint": "Estimate (read-only): how many cities — capital plus province cities — fit in the search radius around the capital with the same spacing as start-city placement (sum of catchment radii). Other nations' planned cities are avoided.",
-  "dev_world_layout_catchment_sustain_short": "The tier table wants more cities than this land sustains. Some will not be placed, or their catchments overlap and both run dry."
+  "dev_world_layout_catchment_sustain_short": "The tier table wants more cities than this land sustains. Some will not be placed, or their catchments overlap and both run dry.",
+  "fish_water_fresh": "Freshwater",
+  "fish_water_coast": "Coast",
+  "fish_water_shelf": "Shelf sea",
+  "fish_water_deep": "Deep sea",
+  "cyborg_gather_waters": "By fishing spot water (the water at the spot limits the tier):",
+  "cyborg_gather_water_line": "{water} T{min}–T{max}: {tiers}",
+  "unit_advice_job_waters": "Tiers by water: {ranges}",
+  "unit_advice_job_water_range": "{water} T{min}–T{max}",
+  "dev_prod_expect_water": "Fishing spot water",
+  "dev_prod_expect_water_none": "No fold (whole ladder)",
+  "dev_prod_expect_water_option": "{water} T{min}–T{max}",
+  "dev_prod_expect_water_hint": "Fishing spot workers only yield tiers in the range of the water at their spot (out-of-range rolls fold to the ends, D-542). Ranges are the fish_tier_* settings."
 }

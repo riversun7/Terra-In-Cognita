@@ -42,6 +42,11 @@ export interface GatherSite {
    * 없으면 막지 않는다
    */
   readonly tierCap?: { readonly maxTier: number; readonly keepAbovePm: number } | undefined;
+  /**
+   * 낚시터 티어 범위(기획 D-542 질문 1365 나 — 그 자리 물 종류, facilities/fishWater.ts·@terra/shared/fishWater. 시뮬·NPC 낚시터와 같은
+   * rollGatherOutputs tierRange). 없으면 접지 않는다
+   */
+  readonly tierRange?: { readonly min: number; readonly max: number } | undefined;
 }
 
 /** 채집 손잡이 = 세력·사회 계수표의 설정 칸 값(시뮬레이터 simulator/run.ts attachEconomy와 같은 대응) */
@@ -165,6 +170,7 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
         successPm: effects.catchPm,
         harvestGrams: BigInt(settings.oreGrams ?? 1000),
         tierCap: site.tierCap,
+        tierRange: site.tierRange,
       },
       createRng(lotSeed(input.unitId, seq)),
     );

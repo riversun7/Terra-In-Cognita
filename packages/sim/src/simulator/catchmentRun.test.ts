@@ -8,6 +8,7 @@ import {
   catchmentSettingsOf,
   createCatchmentState,
   facilitySupplyPm,
+  fishTierRange,
   landShares,
   oreTierCap,
   planeCell,
@@ -15,7 +16,7 @@ import {
   scenarioPlaneLayout,
 } from "./catchmentRun.ts";
 import { runSimulation } from "./run.ts";
-import { parseScenario } from "./scenario.ts";
+import { DEFAULT_SCENARIO_FISH_WATER, parseScenario } from "./scenario.ts";
 import { TEST_CATALOG, TEST_ECONOMY_SCENARIO_RAW } from "./testEconomy.ts";
 import { createWorld } from "./world.ts";
 
@@ -305,3 +306,71 @@ describe("광석 고도 몫(기획 D-533)", () => {
     expect(last.stalled).toBe(0);
   });
 });
+
+describe("낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나)", () => {
+  const full = { ore: 1000, wood: 1000, herb: 1000, crop: 1000, livestock: 1000, fish: 1000 };
+  const cityAt = (state: CatchmentState, radiusMilli: number) =>
+    state.cities.set(1, {
+      radiusMilli,
+      areaMilli: 5000,
+      cells: 5,
+      sharedCells: 0,
+      supplyPm: full,
+      totalPm: 1000,
+      demand: 1,
+      landPm: full,
+      highOrePm: 1000,
+    });
+
+  it("배후지 땅 칸에서 가장 많은 물 종류의 범위(설정 칸 출발값 = 어군 범위), 낚시터만, 하루 끝 전·물 정보 없음은 접지 않는다", () => {
+    const geometry = planeGeometry({ at: new Map([[1, { x: 0, y: 0 }]]), fishWaterAt: () => "shelf" });
+    const state = createCatchmentState(geometry, settings);
+    expect(fishTierRange(state, 1, "fishing_spot")).toBeUndefined();
+    cityAt(state, 1000);
+    expect(fishTierRange(state, 1, "fishing_spot")).toEqual({ min: 2, max: 6 });
+    expect(fishTierRange(state, 1, "mine")).toBeUndefined();
+    expect(fishTierRange(undefined, 1, "fishing_spot")).toBeUndefined();
+    const dry = createCatchmentState(planeGeometry({ at: new Map([[1, { x: 0, y: 0 }]]) }), settings);
+    dry.cities.set(1, state.cities.get(1) ?? fail());
+    expect(fishTierRange(dry, 1, "fishing_spot")).toBeUndefined();
+  });
+
+  it("섞인 배후지: 땅 칸 다수결(같으면 깊은 쪽) — 반경이 바뀌면 다시 센다", () => {
+    // x ≤ 0 민물, x > 0 연안: 반경 1칸(5칸) = 민물 4(가운데·위·아래·왼쪽) vs 연안 1(오른쪽)
+    const geometry = planeGeometry({
+      at: new Map([[1, { x: 0, y: 0 }]]),
+      fishWaterAt: (x) => (x <= 0 ? "fresh" : "coast"),
+    });
+    const state = createCatchmentState(geometry, settings);
+    cityAt(state, 1000);
+    expect(fishTierRange(state, 1, "fishing_spot")).toEqual({ min: 0, max: 2 });
+    // 칸 하나만(반경 < 1칸): 가운데 x = 0 → 민물
+    cityAt(state, 500);
+    expect(fishTierRange(state, 1, "fishing_spot")).toEqual({ min: 0, max: 2 });
+  });
+
+  it("시나리오: 세력 묶음 catchmentFishWater > catchment.fishWater > 기본 연안(질문 1411)", () => {
+    const sc = scenario();
+    const world = createWorld(sc, 1, 0);
+    const layout = scenarioPlaneLayout(world, sc, START_WORLD_SEED);
+    expect(layout?.fishWaterAt?.(0)).toBe(DEFAULT_SCENARIO_FISH_WATER);
+    expect(DEFAULT_SCENARIO_FISH_WATER).toBe("coast");
+    const raw = { ...TEST_ECONOMY_SCENARIO_RAW, catchment: { groupGap: 40, fishWater: "deep" } };
+    const deep = parseScenario({
+      ...raw,
+      factions: [{ ...TEST_ECONOMY_SCENARIO_RAW.factions[0], catchmentFishWater: "fresh" }],
+    });
+    const deepWorld = createWorld(deep, 1, 0);
+    const deepLayout = scenarioPlaneLayout(deepWorld, deep, START_WORLD_SEED);
+    expect(deepLayout?.fishWaterAt?.(0)).toBe("fresh");
+    // 먼 칸(묶음 밖)은 시나리오 값
+    expect(deepLayout?.fishWaterAt?.(100_000)).toBe("deep");
+    expect(() => parseScenario({ ...raw, catchment: { groupGap: 40, fishWater: "ocean" } })).toThrow(
+      /fishWater/,
+    );
+  });
+});
+
+function fail(): never {
+  throw new Error("도시 배후지가 없다");
+}

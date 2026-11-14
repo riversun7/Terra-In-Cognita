@@ -114,23 +114,34 @@ async function myUnit(page: Page, mapKey: number, unitId: number): Promise<unkno
   return Array.isArray(units) ? units.find((unit: unknown) => field(unit, "unitId") === unitId) : undefined;
 }
 
-/** 띄운 도시 2차맵 가운데 곧은 물가가 있는 첫 곳(도시 시청에서 가까운 물가 차례) */
-async function coastalCity(
-  page: Page,
-): Promise<{ mapKey: number; sites: Site[]; isWater: (tx: number, ty: number) => boolean }> {
-  const data = await trpcQuery(page, "world.cities", undefined);
-  const cities = field(data, "cities");
-  const seen = new Set<number>();
-  for (const city of Array.isArray(cities) ? (cities as unknown[]) : []) {
-    const mapKey = Number(field(city, "mapKey"));
-    if (field(city, "loaded") !== true || seen.has(mapKey)) continue;
-    seen.add(mapKey);
-    const isWater = await waterOf(page, mapKey);
-    const sites = coastSites(isWater, { x: Number(field(city, "cellX")), y: Number(field(city, "cellY")) });
-    console.log(`[boats] city map ${String(mapKey)} dock sites ${String(sites.length)}`);
-    if (sites.length > 0) return { mapKey, sites, isWater };
+/**
+ * 바닷가 2차맵: 시험 행성은 대부분 마른 땅이고 도시는 물을 피해 선다(2026-11-14 확인: 띄운 도시 2차맵 15곳 모두 부두 자리 0). 그래서 시작 도시
+ * 2차맵 F9 면 0 (468, 252)의 동쪽 이웃 (469, 252)(바다, 물 지형 칸 584 — 지형 캐시를 훑어 고름)으로 휴먼을 보낸다. 세계 배치가 바뀌어 그 도시가
+ * 없어지면 이 두 키를 다시 고른다
+ */
+const CITY_KEY = 424_892_524_658_697;
+const COAST_KEY = 424_898_967_109_641;
+
+/** 도시 2차맵에서 휴먼을 고용해 바닷가 2차맵 서쪽 끝(도시 쪽)으로 보낸다(운영자 빠르기). 휴먼 ID와 선 자리 */
+async function humanAtCoast(page: Page): Promise<{ unitId: number; x: number; y: number }> {
+  const unitId = await ensureHuman(page, "e2e_dev", CITY_KEY);
+  const here = await myUnit(page, COAST_KEY, unitId);
+  if (here === undefined) {
+    const travel = await sendCommands(
+      page,
+      [
+        { t: "subscribe", mapKey: CITY_KEY, observe: true },
+        { t: "travel_start", unitId, mapKey: COAST_KEY, x: 6, y: 128, kind: "move" },
+      ],
+      6900 + (Date.now() % 50) * 2,
+    );
+    expect(travel[1], "바닷가 2차맵으로 보내기").toMatchObject({ ok: true });
   }
-  throw new Error("물가가 있는 도시 2차맵이 없다");
+  await expect
+    .poll(async () => field(await myUnit(page, COAST_KEY, unitId), "moving"), { timeout: 120_000 })
+    .toBe(false);
+  const row = await myUnit(page, COAST_KEY, unitId);
+  return { unitId, x: Number(field(row, "cellX")), y: Number(field(row, "cellY")) };
 }
 
 /** 부두를 짓고 배를 만든다(운영자 모드 연결). 부두·배 ID와 자리 */
@@ -174,13 +185,17 @@ for (const theme of ["pastel", "dark"] as const) {
     test(`운영자: 부두 → 배 만들기 → 타기 → 물 위로 → 내리기 (${theme})`, async ({ page, deviceErrors }) => {
       test.setTimeout(300_000);
       await page.goto("/health");
-      const coast = await coastalCity(page);
-      const riderId = await ensureHuman(page, "e2e_dev", coast.mapKey);
-      const me = { mapKey: coast.mapKey, unitId: riderId };
+      const rider = await humanAtCoast(page);
+      const isWater = await waterOf(page, COAST_KEY);
+      const sites = coastSites(isWater, { x: rider.x, y: rider.y });
+      console.log(`[boats] coast map ${String(COAST_KEY)} dock sites ${String(sites.length)}`);
+      expect(sites.length, "바닷가 2차맵에 부두 자리가 없다").toBeGreaterThan(0);
+      const coast = { mapKey: COAST_KEY, isWater };
+      const me = { mapKey: COAST_KEY, unitId: rider.unitId };
       const { buildingId, boatId, site, nextId } = await dockAndBoat(
         page,
-        coast.mapKey,
-        coast.sites,
+        COAST_KEY,
+        sites,
         theme === "pastel" ? 7100 : 7600,
       );
       // 타기: 멀면 배 옆까지 걸어간 뒤 탄다(운영자 빠르기)

@@ -63,7 +63,8 @@ test.describe("2차맵 아래 탭·도시 화면: 플레이어", () => {
     const screen = page.locator(".map-screen");
     const key = (await screen.getAttribute("data-map-key")) ?? "";
     // 흩어진 단추가 없다: 오른쪽 위 전환 단추·[내 유닛 N]·[근처]·운영 메뉴·성능 판
-    await expect(page.locator(".map-nav .tab")).toHaveCount(4);
+    // [1차맵]·[유닛]·[도시]·[가방](사용자 요청 2026-11-14)·[주변]
+    await expect(page.locator(".map-nav .tab")).toHaveCount(5);
     await expect(page.locator(".map-switch-button")).toHaveCount(0);
     await expect(page.locator(".map-units-toggle, .map-nearby-toggle")).toHaveCount(0);
     await expect(page.locator(".map-operator-menu-button")).toHaveCount(0);

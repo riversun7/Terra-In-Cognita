@@ -100,6 +100,12 @@ test.describe("원자재 오브젝트 채집·건물 들어가기: 플레이어"
     expect(["to_object", "gathering", "to_deposit"]).toContain(server?.phase);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
+    // 캐는 중이면 진행바(사용자 요청 2026-11-14): 판의 [이번 캐기]·[화물] 막대와 머리 위 이름표의 막대
+    await expect(loop).toHaveAttribute("data-phase", "gathering", { timeout: 90_000 });
+    await expect(loop.locator('.gather-meters[data-dig="on"]')).toBeVisible({ timeout: 10_000 });
+    await expect(loop.locator('.gather-meters [role="progressbar"]')).toHaveCount(2);
+    await expect(page.locator('.gather-chip[data-dig="on"] .gather-dig-bar:not([hidden])')).toHaveCount(1);
+    await shot(page, "gather-dig-progress-390");
 
     // [멈추기]: 그 자리에 서고 줄이 "멈췄습니다"로 끝난다
     await loop.locator(".gather-stop").click();

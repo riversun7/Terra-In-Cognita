@@ -165,28 +165,34 @@ function PlacesTab({
 }) {
   if (places.length === 0) return <p className="panel eco-empty">{empty}</p>;
   return (
-    <div className="eco-places">
-      {places.map((place) => {
-        const buildingId = buildingIdOf(place);
-        const facility =
-          buildingId === null
-            ? undefined
-            : facilities?.facilities.find((entry) => entry.buildingId === buildingId);
-        return (
-          <PlaceCard
-            key={place.id}
-            place={place}
-            index={index}
-            now={now}
-            title={buildingTitle(buildingId, facilities)}
-          >
-            {facility && facilities && facility.storage && facility.level >= 1 ? (
-              <StorageMoveForm facility={facility} data={facilities} run={run} busy={busy} />
-            ) : null}
-          </PlaceCard>
-        );
-      })}
-    </div>
+    <>
+      <div className="eco-places">
+        {places.map((place) => {
+          const buildingId = buildingIdOf(place);
+          const facility =
+            buildingId === null
+              ? undefined
+              : facilities?.facilities.find((entry) => entry.buildingId === buildingId);
+          return (
+            <PlaceCard
+              key={place.id}
+              place={place}
+              index={index}
+              now={now}
+              title={buildingTitle(buildingId, facilities)}
+            >
+              {facility && facilities && facility.storage && facility.level >= 1 ? (
+                <StorageMoveForm facility={facility} data={facilities} run={run} busy={busy} />
+              ) : null}
+            </PlaceCard>
+          );
+        })}
+      </div>
+      {/* 용량은 지금 개수, 최종 단위는 무게(D-443) — 옛 창고 칸과 같은 안내 */}
+      {places.some((place) => place.capacity) ? (
+        <p className="eco-footnote">{m.economy_capacity_unit_note()}</p>
+      ) : null}
+    </>
   );
 }
 

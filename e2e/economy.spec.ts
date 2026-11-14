@@ -1,4 +1,4 @@
-// 경제·거래창 화면 시험 — /economy 아래 칸(한눈에·창고·생산·거래·환전), 거래창 흐름(물건 → 도시 → 호가 + 주문표), 내 주문.
+// 경제·거래창 화면 시험 — /economy 아래 칸(한눈에·생산·거래·환전, 창고 자리는 인벤토리 [창고별] /inventory?tab=warehouses), 거래창 흐름(물건 → 도시 → 호가 + 주문표), 내 주문.
 // ADR 2026-10-29-app-shell 끝 "구현하며 정한 것 (경제·거래창 화면)", 기획 60_UX §6(D-6032~D-6035).
 // - 플레이어: 실제 자료(팩 목록·원장 잔고, 서버 도시 경제의 거래소·내 주문·기준 도시 생산 — docs/adr/2026-11-07-play-flow.md WP4). 환전은
 //   나라 화폐 ↔ 기준 통화 실제 짝(WP6): 주문을 내고 거둔다. 시안 자료를 묻지 않는다. 실제 거래소의 [주문]은 명령을 보낸다(주문 넣기·체결·취소·
@@ -117,8 +117,8 @@ test.describe("플레이어(실제 자료)", () => {
 
   test("칸끼리는 바꾸기: 경제 안에서 칸을 옮겨도 뒤로는 경제 앞 화면", async ({ page }) => {
     await page.goto("/");
-    await page.goto("/economy/warehouse");
-    await expect(economy(page).locator(".eco-wallet")).toBeVisible();
+    await page.goto("/economy");
+    await expect(economy(page).locator(".eco-card-metric").first()).toBeVisible();
     await page.getByRole("link", { name: message("ko", "economy_tab_production"), exact: true }).click();
     await expect(page).toHaveURL(/\/economy\/production$/);
     await page.getByRole("link", { name: message("ko", "economy_tab_exchange"), exact: true }).click();
@@ -198,7 +198,8 @@ test.describe("admin 시안 자료(시험 거래소)", () => {
     await expect(economy(page).locator('[data-part="lot-note"]')).toHaveText(
       message("ko", "economy_lot_note", { size: "1 kg" }),
     );
-    await page.goto("/economy/warehouse");
+    // 창고 자리는 인벤토리 [창고별]로 옮겼다(docs/adr/2026-11-14-inventory-screen.md)
+    await page.goto("/inventory?tab=warehouses");
     await expect(economy(page).locator(".eco-place").first()).toContainText(
       message("ko", "economy_hold_lots", { size: "1 kg", lots: "310" }),
     );
@@ -276,7 +277,7 @@ test.describe("admin 시안 자료(시험 거래소)", () => {
     await expect(economy(page).locator(".eco-fx-countdown")).toContainText(/\d\d:\d\d/);
     await page.goto("/economy/production");
     await expect(economy(page).locator(".eco-facility").first()).toBeVisible();
-    await page.goto("/economy/warehouse");
+    await page.goto("/inventory?tab=warehouses");
     await expect(economy(page).getByText("Velmara Eastreach Free Port")).toBeVisible();
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
@@ -366,7 +367,7 @@ test.describe("창고 단위·보석 안내(D-443)", () => {
     page,
     deviceErrors,
   }) => {
-    await openPreview(page, "/economy/warehouse");
+    await openPreview(page, "/inventory?tab=warehouses");
     await expect(economy(page).locator(".eco-place").first()).toBeVisible();
     await expect(economy(page).getByText(message("ko", "economy_capacity_unit_note"))).toBeVisible();
     await page.goto("/economy/market");
@@ -408,7 +409,7 @@ test.describe("시세 색 사진(390)", () => {
 
 const SCREENS: readonly { path: string; name: string; ready: string }[] = [
   { path: "/economy", name: "overview", ready: ".eco-card-metric" },
-  { path: "/economy/warehouse", name: "warehouse", ready: ".eco-place" },
+  { path: "/inventory?tab=warehouses", name: "inventory-warehouses", ready: ".eco-place" },
   { path: "/economy/production", name: "production", ready: ".eco-facility" },
   { path: "/economy/market", name: "market", ready: ".eco-market-row" },
   { path: "/economy/market/iron_ore", name: "cities", ready: ".eco-city" },

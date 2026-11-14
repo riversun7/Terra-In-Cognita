@@ -106,6 +106,7 @@ test.describe("지형 오브젝트 편집기", () => {
         await expect(slow).toHaveValue("1500");
         await slow.fill("2000");
         await expect(screen).toHaveAttribute("data-changes", "1");
+        await dune.scrollIntoViewIfNeeded();
         await shot(page, `terrain-objects-slow-390-${devTheme}`);
         await slow.fill("");
         await expect(dune).toHaveAttribute("data-kind", "decor");

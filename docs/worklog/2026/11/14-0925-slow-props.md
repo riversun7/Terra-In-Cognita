@@ -39,7 +39,14 @@
 - 느림 배율을 생성기 입력(`mapPropInputsFromPack`)·소품 규칙 해시에 넣지 않는다(넣으면 지형 캐시·주소 판 표지가 바뀐다, 생성기 출력은 같다).
 - 걷기 빠르기 공식(walk-agi 줄기).
 
+## 검사 (Verified)
+- `pnpm check`(TEST_DATABASE_URL 켬): 시험 파일 673·시험 5,117 모두 통과.
+- `pnpm build` → `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 109,275 B / 상한 131,416 B, `pnpm check:docs origin/main` 통과.
+- 화면 시험 `terrain-objects`·`play-map`·`seamless` 38개 통과(10.1분). 편집기 390px 단위 글자가 세로로 쪼개져(느림 배율 칸 때문에 더 좁아짐) `.to-amount` 단위를 한 줄로·입력 아래로 내린 뒤 `terrain-objects --grep 편집기` 3개 다시 통과.
+- 사진: `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/slow-props-shots/terrain-objects-slow-390-{neon,light}.png`(임시).
+
 ## 미검증·TODO·알려진 문제
+- 편집기 390px: 긴 코드 ID(`termite_mound` 등)가 다음 줄 이름과 겹친다(이 줄기 전부터 있던 것, 고치지 않음).
 - 실제 서버에서 유닛이 소품을 돌아가는 것은 눈으로 보지 않았다(Unknown). 시험·측정으로만 확인.
 - 느려짐 칸에서 실제로 느리게 걷지는 않는다(질문 1317).
 

@@ -75,6 +75,8 @@ export function kindLabel(kind: MapUnitKind): string {
   if (kind === "cyborg_body") return m.map_unit_kind_cyborg_body();
   // NPC 국가 지도자 사이보그(docs/adr/2026-11-07-play-flow.md "WP-NPC")
   if (kind === "npc_leader") return m.map_unit_kind_npc_leader();
+  // 배(docs/adr/2026-11-13-boats.md)
+  if (kind === "boat") return m.map_unit_kind_boat();
   return typeLabel(kind);
 }
 
@@ -131,12 +133,14 @@ function injuryWithTime(
  * moving = 엔진의 지금 값(없으면 조회 때 값). now = 목록 조회 시각(부상 남은 시간, 없으면 이름만)
  */
 export function unitStatusText(
-  unit: Pick<MapUnit, "hold" | "injury" | "job" | "injuryUntilMs">,
+  unit: Pick<MapUnit, "hold" | "injury" | "job" | "injuryUntilMs" | "aboard">,
   moving: boolean,
   now?: number,
 ): string {
   if (unit.hold === "critical") return injuryWithTime({ ...unit, injury: 3 }, now) ?? HOLD_STATUS.critical();
   if (unit.hold) return HOLD_STATUS[unit.hold]();
+  // 배에 탄 유닛(docs/adr/2026-11-13-boats.md 4절)
+  if (unit.aboard !== null && unit.aboard !== undefined) return m.boat_aboard({ id: unit.aboard });
   if (moving) return m.map_unit_state_moving();
   const injury = injuryWithTime(unit, now);
   if (injury) return injury;

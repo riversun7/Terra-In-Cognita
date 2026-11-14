@@ -32,6 +32,7 @@ const RESULT_CODE_MESSAGES = {
   internal_error: m.map_code_internal_error,
   not_owner: m.map_code_not_owner,
   unit_stays: m.map_code_unit_stays,
+  aboard: m.map_code_aboard,
   // 기기가 붙인 코드: 정해진 시간 안에 결과가 없음
   no_reply: m.map_code_no_reply,
 } satisfies Record<ResultCode | "no_reply", () => string>;

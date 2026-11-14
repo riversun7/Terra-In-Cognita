@@ -28,6 +28,8 @@ const GROUP_OF_MODEL: Readonly<Record<FacilityLookModel, FacilityGroup>> = {
   herb: "gather",
   ranch: "gather",
   fishing: "gather",
+  // 부두(docs/adr/2026-11-13-boats.md)
+  dock: "other",
   stockpile: "storage",
   storehouse: "storage",
   warehouse: "storage",

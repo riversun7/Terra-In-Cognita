@@ -43,7 +43,7 @@ export interface UnitLook {
    * 몸꼴(걷는 유닛·탈것)과 크기 등급(통과 폭 1·2·3). 캡슐 그림은 쓰지 않고, 앱이 가까운 유닛의 모델(characters/unitBodies.ts)을 고를 때 읽는다.
    * 없으면 걷는 유닛·키로 짐작한다
    */
-  form?: "walker" | "vehicle";
+  form?: "walker" | "vehicle" | "boat";
   sizeClass?: 1 | 2 | 3;
 }
 

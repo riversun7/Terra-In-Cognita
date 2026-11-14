@@ -31,6 +31,7 @@ import {
 } from "./gatherData.ts";
 import type { GatherState } from "./gatherState.ts";
 import { StationPanel } from "./StationPanel.tsx";
+import { DockBoatButton } from "../boats/BoatActions.tsx";
 import "./gather.css";
 
 /** 명령 안내를 지우기까지(ms) */
@@ -330,6 +331,10 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
             </>
           ) : null}
           {buildingExtra}
+          {/* 부두(교통 단계 시설): [배 만들기] — docs/adr/2026-11-13-boats.md 3절 */}
+          {building?.status === "ok" && building.stage === "transport" ? (
+            <DockBoatButton buildingId={sheet.id} level={building.level} />
+          ) : null}
           <StationPanel
             state={state}
             mapKey={mapKey}

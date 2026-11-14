@@ -119,6 +119,10 @@ export function toUnitPath(wire: UnitMotionWire): UnitPath {
  * 문제", docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-12, 유닛 겉모습)")
  */
 export const VEHICLE_WIRE_KIND = "vehicle";
+/** 배 표시 종류(프로토콜 27 UNIT_WIRE_KINDS, docs/adr/2026-11-13-boats.md). 기기는 배 모델(characters/unitBodies.ts boat)로 그린다 */
+export const BOAT_WIRE_KIND = "boat";
+/** 배 칠(파란 몸) — 세계 색은 화면 테마와 상관없다(D-070) */
+const BOAT_COLOR = 0x6f9fd8;
 /**
  * [임시] 크기 등급(통과 폭 1·2·3칸)별 겉모습 — S1 임시 도형(캡슐). 키·굵기는 기획 D-095(일반 0.5~3m, 대형 최대 약 12m) 안에서 고른 값.
  * 진짜 모델·크기는 유닛 자료가 생기면 바꾼다. 가까우면 모델(unitModels.ts)이 캡슐 대신 그린다
@@ -134,6 +138,16 @@ const VEHICLE_COLOR = 0xffcf75;
 
 export function unitLook(wire: Pick<UnitMotionWire, "id" | "size" | "kind">): UnitLook {
   const base = SIZE_LOOKS[wire.size];
+  if (wire.kind === BOAT_WIRE_KIND) {
+    // 배: 낮고 길게(가까우면 배 모델이 캡슐 대신 그린다)
+    return {
+      heightM: base.heightM * 0.6,
+      radiusM: base.radiusM * 2,
+      color: BOAT_COLOR,
+      form: "boat",
+      sizeClass: wire.size,
+    };
+  }
   if (wire.kind === VEHICLE_WIRE_KIND) {
     // 탈것: 낮고 넓게
     return {

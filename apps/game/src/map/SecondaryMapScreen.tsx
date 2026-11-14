@@ -91,6 +91,7 @@ import {
   PeekCard,
   SelectedActions,
 } from "./UnitControlPanels.tsx";
+import { BoatActions } from "./boats/BoatActions.tsx";
 import { NearbyPanel, type NearbySources } from "./nearby/NearbyPanel.tsx";
 import { createNearbyState } from "./nearby/nearbyState.ts";
 import { GatherPanel } from "./gather/GatherPanel.tsx";
@@ -733,6 +734,8 @@ function SecondMapView({
           <TravelLine going={going} />
         </div>
         <CyborgActions followTo={following ? null : crossedTo} />
+        {/* 배 단추(docs/adr/2026-11-13-boats.md): 고른 내 유닛이 배·탄 유닛·가까운 내 배가 있는 유닛일 때 */}
+        <BoatActions unit={shown === null ? undefined : mine} units={myUnits.units} />
         {shown === null ? null : (
           <SelectedActions
             onStop={

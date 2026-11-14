@@ -176,10 +176,16 @@ export function createSecondMapEngine(
       walking ? `${routeUnit}:${revision}` : "",
       walking ? motion.pathPoints(slot) : null,
       cellM,
-      groundAt,
+      unitGroundAt,
     );
     const travelled = walking ? motion.travelled(slot, now) : 0;
-    routeView.update(travelled, target ?? (walking ? motion.destination(slot) : null), cellM, groundAt, ppm);
+    routeView.update(
+      travelled,
+      target ?? (walking ? motion.destination(slot) : null),
+      cellM,
+      unitGroundAt,
+      ppm,
+    );
     return target !== null;
   };
 
@@ -259,6 +265,8 @@ export function createSecondMapEngine(
     terrain && x >= 0 && z >= 0 && x <= mapSize && z <= mapSize
       ? sampleSurfaceM(terrain, x, z)
       : groundAt(x, z);
+  // 유닛이 서는 높이: 물 위면 수면(배·승객이 물에 뜬다 — docs/adr/2026-11-13-boats.md), 땅이면 땅
+  const unitGroundAt = (x: number, z: number): number => Math.max(groundAt(x, z), surfaceAt(x, z));
 
   /**
    * 소품 모델 층: 지금 2차맵 + 소품 층이 있는 이웃. 소금은 2차맵 이름에서 정한다(propSalt) — 옆 2차맵으로 넘어 지금 2차맵·이웃이 바뀌어도
@@ -438,7 +446,7 @@ export function createSecondMapEngine(
       y: motion.y,
       moving: motion.moving,
       cellM,
-      groundAt,
+      groundAt: unitGroundAt,
       frustum,
       targetX: state.targetX,
       targetZ: state.targetZ,
@@ -447,13 +455,22 @@ export function createSecondMapEngine(
       level: viewDistance.index,
       deltaMs,
     });
-    unitView.update(motion.x, motion.y, cellM, groundAt, frustum, roster.selectedSlot, ppm, characters.drawn);
+    unitView.update(
+      motion.x,
+      motion.y,
+      cellM,
+      unitGroundAt,
+      frustum,
+      roster.selectedSlot,
+      ppm,
+      characters.drawn,
+    );
     rings.update({
       count: motion.size,
       x: motion.x,
       y: motion.y,
       cellM,
-      groundAt,
+      groundAt: unitGroundAt,
       frustum,
       radiusOf: ringRadiusOf,
       pixelsPerMetre: ppm,
@@ -546,7 +563,11 @@ export function createSecondMapEngine(
       if (!active) scheduler.request();
     },
     onTap: (point) => {
-      const slot = roster.pick(point, { camera, state, viewport, cellM, groundAt }, options.wideUnitTap);
+      const slot = roster.pick(
+        point,
+        { camera, state, viewport, cellM, groundAt: unitGroundAt },
+        options.wideUnitTap,
+      );
       if (slot >= 0) {
         // 화면이 false를 돌려주면(남의 유닛을 살펴보기만 — 명령 유닛은 그대로) 고른 표시를 바꾸지 않는다
         if (options.onSelect?.(roster.idAt(slot)) !== false) {

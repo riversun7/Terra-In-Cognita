@@ -4,6 +4,7 @@
 // - 짐승(beast): 네 발 짐승. 앞다리 = 팔 묶음(armL·armR), 뒷다리 = 다리 묶음(legL·legR) — 캐릭터 걷기(팔·다리 반대로 흔들기)가 그대로 대각선
 //   걸음(속보)이 된다. 크기 등급 3(크리쳐 자리)의 임시 모습.
 // - 탈것(car·truck·crawler): 크기 등급 1·2·3. 바퀴·궤도는 움직이지 않는다(rigid — 층이 걷는 자세를 주지 않는다).
+// - 배(boat, docs/adr/2026-11-13-boats.md): 크기 등급 2(길이 약 10m). 뾰족한 뱃머리 몸 + 갑판 + 작은 조타실 + 돛대. 수면에 뜬다(엔진이 수면 높이를 준다).
 // - 색은 씨앗(유닛 ID)으로 고른다. 같은 씨앗이면 같은 모델이다. 꾸밈이라 Math를 써도 된다(판정 아님).
 // - 삼각형 상한은 캐릭터와 같다(가까운 단계 600, 먼 단계 150 — unitBodies.test.ts가 본다). 치수는 실제 크기(m)이고, 층이 유닛 키에 맞춰 늘린다.
 import type { CharacterLod } from "./characterModel.ts";
@@ -17,7 +18,7 @@ import {
   shadeColor,
 } from "./characterParts.ts";
 
-export const UNIT_BODY_KINDS = ["beast", "car", "truck", "crawler"] as const;
+export const UNIT_BODY_KINDS = ["beast", "car", "truck", "crawler", "boat"] as const;
 export type UnitBodyKind = (typeof UNIT_BODY_KINDS)[number];
 
 /** 사람꼴이 아닌 몸: 종류와 씨앗(색 고르기) */
@@ -40,6 +41,9 @@ const TIRE = 0x3b3f4a;
 const GLASS = 0x9fc8e0;
 const LAMP = 0xfff1b8;
 const TAIL_LAMP = 0xff6f6f;
+const DECK = 0xc79a63;
+const MAST = 0x7a5a3c;
+const SAIL = 0xf4efe2;
 
 /** 씨앗 → 목록 하나(이웃한 씨앗이 같은 색이 되지 않게 섞는다) */
 function choose<T>(list: readonly T[], seed: number, salt: number): T {
@@ -203,6 +207,30 @@ function crawlerModel([paint = PAINTS[0]]: readonly number[], lod: CharacterLod)
   );
 }
 
+/** 배(크기 등급 2): 길이 약 10m, 폭 3.6m, 돛대 꼭대기 약 6m. 뱃머리가 z+ */
+function boatModel([paint = PAINTS[0]]: readonly number[], lod: CharacterLod): CharacterModel {
+  const hull = shadeColor(paint, 0.85);
+  const list = new CharacterPartList();
+  // 몸: 아래가 좁은 몸통 + 뾰족한 뱃머리(쐐기) + 갑판
+  list.add("taper", 0, 0.45, -0.6, 3.6, 0.9, 7.6, hull, { rx: Math.PI });
+  list.add("wedge", 0, 0.45, 4.0, 3.6, 0.9, 2.4, hull, { ry: Math.PI / 2 });
+  list.add("box", 0, 0.94, -0.4, 3.3, 0.1, 8.2, DECK);
+  // 조타실(뒤쪽)과 돛대
+  list.add("box", 0, 1.75, -2.4, 2.0, 1.5, 2.2, shadeColor(paint, 1.15));
+  list.add("cyl", 0, 3.6, 0.8, 0.18, 5.2, 0.18, MAST);
+  if (lod === 0) {
+    list.add("box", 0, 2.1, -1.28, 1.7, 0.6, 0.05, GLASS);
+    list.add("box", 0, 2.56, -2.4, 2.3, 0.12, 2.5, shadeColor(paint, 0.7));
+    list.add("box", 0, 4.4, 1.6, 0.06, 2.6, 1.6, SAIL);
+    list.pair(GROUP.body, GROUP.body, "box", 1.7, 1.06, 0, 0.08, 0.16, 7.4, shadeColor(paint, 0.7));
+    list.add("box", 0, 1.1, 4.6, 0.3, 0.2, 0.3, LAMP, { glow: true });
+  }
+  return finish(
+    list,
+    Array.from({ length: GROUP_COUNT * 3 }, () => 0),
+  );
+}
+
 /** 사람꼴이 아닌 몸의 모델(같은 입력이면 같은 조각) */
 export function unitBodyModel(body: UnitBody, lod: CharacterLod = 0): CharacterModel {
   const palette = paletteOf(body);
@@ -215,6 +243,8 @@ export function unitBodyModel(body: UnitBody, lod: CharacterLod = 0): CharacterM
       return truckModel(palette, lod);
     case "crawler":
       return crawlerModel(palette, lod);
+    case "boat":
+      return boatModel(palette, lod);
     default: {
       const unknown: never = body.kind;
       return unknown;
@@ -238,6 +268,8 @@ function paletteOf(body: UnitBody): readonly number[] {
       return [choose(PAINTS, seed, 0x5be0_cd19), choose(PAINTS, seed, 0x1f83_d9ab)];
     case "crawler":
       return [choose(PAINTS, seed, 0x137e_2179)];
+    case "boat":
+      return [choose(PAINTS, seed, 0x2f0a_91c3)];
     default: {
       const unknown: never = body.kind;
       return unknown;

@@ -26,6 +26,7 @@ export const MODEL_TEXT: Readonly<Record<FacilityLookModel, Text>> = {
   herb: m.dev_buildings_look_model_herb,
   ranch: m.dev_buildings_look_model_ranch,
   fishing: m.dev_buildings_look_model_fishing,
+  dock: m.dev_buildings_look_model_dock,
 };
 
 export const COLOR_TEXT: Readonly<Record<FacilityLookColor, Text>> = {

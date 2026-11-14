@@ -479,7 +479,9 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       message.t === "house_result" ||
       message.t === "house_member_result" ||
       message.t === "house_city_result" ||
-      message.t === "house_recruit_result"
+      message.t === "house_recruit_result" ||
+      // 배 결과(프로토콜 27)는 배 단추(boats/boatCommands.ts)가 받는다
+      message.t === "boat_result"
     )
       return;
     if (message.mapKey !== mapKey) return;

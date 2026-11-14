@@ -68,7 +68,7 @@ export function loadUnitLooks(mapKey: number, signal?: AbortSignal): Promise<Map
 
 /** 걷는 사람 크기 유닛인가(크기 등급 1 걷는 유닛) */
 export function isWalker(unit: Pick<UnitSpawn, "look">): boolean {
-  return unit.look.form !== "vehicle" && sizeClassOf(unit) === 1;
+  return unit.look.form !== "vehicle" && unit.look.form !== "boat" && sizeClassOf(unit) === 1;
 }
 
 /** 크기 등급(전송 값, 없으면 키·굵기로 짐작) */
@@ -95,6 +95,8 @@ export function unitModelOf(
   fallback: FallbackLook,
 ): UnitModel {
   const size = sizeClassOf(unit);
+  // 배(docs/adr/2026-11-13-boats.md): 크기와 상관없이 배 모델(실제 크기, 배율 1)
+  if (unit.look.form === "boat") return { id: unit.id, body: { kind: "boat", seed: unit.id } };
   if (unit.look.form === "vehicle")
     return { id: unit.id, body: { kind: VEHICLE_BODIES[size], seed: unit.id } };
   const look = known.get(unit.id);

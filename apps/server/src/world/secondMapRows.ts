@@ -33,6 +33,8 @@ export interface UnitRow {
   job: UnitJob;
   /** 부상·포로(전투 결과, unitCondition.ts) */
   condition: UnitCondition;
+  /** 타고 있는 배의 유닛 ID(docs/adr/2026-11-13-boats.md 4절). 없으면 null·없음 */
+  aboardId?: number | null | undefined;
 }
 
 /** 저장하는 건물 한 줄(world_buildings) */

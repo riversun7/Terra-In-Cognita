@@ -39,6 +39,7 @@ import {
   HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_PROTOCOL_VERSION,
   HOUSE_RECRUIT_PROTOCOL_VERSION,
+  BOAT_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -59,6 +60,7 @@ import type { RuinGateway, RuinSocket } from "./ruins/gateway.ts";
 import type { MarketGateway, MarketSocket } from "./market/gateway.ts";
 import type { TravelGateway, TravelSocket } from "./travel/gateway.ts";
 import type { GatherGateway, GatherSocket } from "./gather/gateway.ts";
+import type { BoatGateway, BoatSocket } from "./boats/gateway.ts";
 import type { HospitalGateway, HospitalSocket } from "./hospital/gateway.ts";
 import type { CitizenshipGateway, CitizenshipSocket } from "./citizenship/gateway.ts";
 import type { HouseGateway, HouseSocket } from "./factionIdentity/gateway.ts";
@@ -94,6 +96,8 @@ export interface SessionContext {
   travel?: TravelGateway | undefined;
   /** 원자재 오브젝트 채집·건물 들어가기(프로토콜 17, docs/adr/2026-11-07-gather-objects.md) */
   gather?: GatherGateway | undefined;
+  /** 배 만들기·타기·내리기(프로토콜 27, docs/adr/2026-11-13-boats.md). 없으면 busy */
+  boats?: BoatGateway | undefined;
   /** 병원 치료(프로토콜 17, docs/adr/2026-11-08-injury.md). 없으면 busy */
   hospital?: HospitalGateway | undefined;
   /** 국적 바꾸기(프로토콜 18, docs/adr/2026-11-08-citizenship.md). 없으면 busy */
@@ -139,6 +143,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let marketSocket: MarketSocket | undefined;
   let travelSocket: TravelSocket | undefined;
   let gatherSocket: GatherSocket | undefined;
+  let boatSocket: BoatSocket | undefined;
   let hospitalSocket: HospitalSocket | undefined;
   let citizenshipSocket: CitizenshipSocket | undefined;
   let houseSocket: HouseSocket | undefined;
@@ -184,6 +189,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     marketSocket?.close();
     travelSocket?.close();
     gatherSocket?.close();
+    boatSocket?.close();
     hospitalSocket?.close();
     citizenshipSocket?.close();
     houseSocket?.close();
@@ -652,6 +658,27 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         houseSocket ??= context.house.open({ send: sendText, viewer: context.viewer ?? signedOut });
         houseSocket.handle(message);
+        return;
+      }
+      case "boat_build":
+      case "boat_board":
+      case "boat_leave": {
+        // 배는 프로토콜 27의 메시지다(docs/adr/2026-11-13-boats.md)
+        if (protocolVersion < BOAT_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.boats) {
+          send({ t: "boat_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        boatSocket ??= context.boats.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          // 운영자 모드(전체 보기) 연결은 남의 부두·배에 명령하고 재료 없이 만든다
+          observing: () => worldSocket?.observing() === true,
+        });
+        boatSocket.handle(message);
         return;
       }
     }

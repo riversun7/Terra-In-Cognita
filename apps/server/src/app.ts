@@ -52,6 +52,8 @@ import { createTravelGateway } from "./travel/gateway.ts";
 import { createGatherGateway } from "./gather/gateway.ts";
 import { gatherReadsOf } from "./gather/reads.ts";
 import { startWorldGather } from "./gather/world.ts";
+import { createBoatGateway } from "./boats/gateway.ts";
+import { startWorldBoats } from "./boats/world.ts";
 import { holdingsConfigOf } from "./holdings/config.ts";
 import { vitalsConfigOf } from "./vitals/config.ts";
 import { createVitalsReads } from "./vitals/reads.ts";
@@ -469,6 +471,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       : undefined;
   if (worldGather) app.addHook("onClose", async () => worldGather.stop());
   const gatherReads = worldGather ? gatherReadsOf(() => worldGather.current()) : undefined;
+  // 배(docs/adr/2026-11-13-boats.md): 세계가 준비된 뒤(DB가 있는 월드만)
+  const worldBoats = world && options.db ? startWorldBoats(world, { now, log: app.log }) : undefined;
+  if (worldBoats) app.addHook("onClose", async () => worldBoats.stop());
 
   // 랭킹(docs/adr/2026-11-07-ranking.md): 설정 칸 실효 값(부를 때마다), 집계 일정은 월드가 준비된 뒤 1분마다 경계를 본다(DB가 있는 월드만)
   const rankingCoefficients = tuningState ? () => tuningState.society().ranking : undefined;
@@ -840,6 +845,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       })
     : undefined;
 
+  const boatGateway = worldBoats
+    ? createBoatGateway({
+        service: () => (world?.status().state === "ready" ? worldBoats.current() : undefined),
+        maps: paceMaps,
+        now,
+        log: app.log,
+      })
+    : undefined;
+
   if (planets && options.planets) {
     // 자원 분포 지도(공개 행성, ADR 2026-11-07-planet-view "바뀜 (2026-11-12)"): 행성 값을 메모리에 들 때만(2차맵을 띄우는 세계)
     const resources =
@@ -886,6 +900,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         market: marketGateway,
         travel: travelGateway,
         gather: gatherGateway,
+        boats: boatGateway,
         hospital: hospitalGateway,
         citizenship: citizenshipGateway,
         house: houseGateway,

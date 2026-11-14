@@ -17,6 +17,8 @@ export const MAP_UNIT_KINDS = [
   "test_unit",
   // NPC 국가 지도자 사이보그(남의 유닛 한눈 정보에만 나온다 — docs/adr/2026-11-07-play-flow.md "WP-NPC")
   "npc_leader",
+  // 배(물 위 유닛, docs/adr/2026-11-13-boats.md)
+  "boat",
 ] as const;
 export type MapUnitKind = (typeof MAP_UNIT_KINDS)[number];
 
@@ -46,6 +48,10 @@ export interface MapUnit {
    * 옛 서버·스탯을 모르는 서버면 없음(추천 줄을 보이지 않는다)
    */
   readonly stats?: Readonly<Record<PrimaryStat, number>> | undefined;
+  /** 타고 있는 배의 유닛 ID(docs/adr/2026-11-13-boats.md 4절). 안 탔으면 null, 옛 서버면 없음 */
+  readonly aboard?: number | null | undefined;
+  /** 배 줄이면 승객 유닛 ID와 자리 수(타기·내리기 단추). 배가 아니면 없음 */
+  readonly boat?: { readonly passengers: readonly number[]; readonly capacity: number } | undefined;
 }
 
 export interface MapUnitsResponse {

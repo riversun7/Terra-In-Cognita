@@ -20,7 +20,15 @@ export interface MapReplicaInit {
   road: Uint8Array;
   /** 놓인 건물(놓은 순서) */
   buildings: { id: number; placement: BuildingPlacement }[];
+  /**
+   * 배치 칸 배 비용(천분율, 65,536칸 — @terra/sim waterCostsFromLayers, docs/adr/2026-11-13-boats.md 2절). 2차맵이 배를 처음 다룰 때 만든 뒤에만 싣는다.
+   * 없으면 그 사본에는 물 길이 없다(배 길 요청은 start_blocked)
+   */
+  waterCost?: Uint16Array | undefined;
 }
+
+/** 길을 푸는 격자: 땅(걷기, 기본)·물(배) */
+export type PathMedium = "land" | "water";
 
 export type GridEdit =
   | { op: "place"; id: number; placement: BuildingPlacement }
@@ -37,6 +45,8 @@ export interface PathJobMessage {
   toY: number;
   size: SizeClass;
   nodeBudget: number;
+  /** 물이면 배 격자로 푼다(없으면 땅) */
+  medium?: PathMedium | undefined;
 }
 
 export type ToWorker =

@@ -41,11 +41,18 @@ import {
 import { injuryOf, jobOf, unitTypeOf } from "../roster/worldUnits.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { canCommandAnyUnit, unitHold } from "../world/unitControl.ts";
-import { UNIT_KIND_BOT, UNIT_KIND_CYBORG, UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
+import { UNIT_KIND_BOAT, UNIT_KIND_BOT, UNIT_KIND_CYBORG, UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
 
 /** 이 조회가 세계에서 읽는 것(시험은 가짜를 넣는다) */
 export interface MapUnitSource {
-  map(mapKey: number): Pick<SecondMap, "forEachUnit" | "unitInfo" | "forEachBuilding"> | undefined;
+  map(
+    mapKey: number,
+  ):
+    | (Pick<SecondMap, "forEachUnit" | "unitInfo" | "forEachBuilding"> &
+        Partial<Pick<SecondMap, "passengers">>)
+    | undefined;
+  /** 배 하나의 자리 수(설정 칸 boat_capacity, docs/adr/2026-11-13-boats.md). 없으면 배 줄에 자리 수 0 */
+  boatCapacity?: (() => number) | undefined;
   /** 사용자의 소유 주체(없으면 내 유닛 없음) */
   ownerOfUser(userId: string): number | undefined;
   /** 사이보그 이름(없으면 undefined) */
@@ -111,6 +118,7 @@ export const ELSEWHERE_CACHE_MS = 15_000;
 function kindOf(kind: number): MapUnitKind {
   if (kind === UNIT_KIND_CYBORG) return "cyborg_body";
   if (kind === UNIT_KIND_NPC_LEADER) return "npc_leader";
+  if (kind === UNIT_KIND_BOAT) return "boat";
   const type = unitTypeOf(kind);
   return type === "creature" || type === "android" ? "test_unit" : type;
 }
@@ -204,6 +212,11 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
           injuryUntilMs: injury.untilMs,
           hold: unitHold(info, nowMs),
           ...statsOf(source.primaries?.(unitId)),
+          // 배(docs/adr/2026-11-13-boats.md): 탄 배, 배 줄의 승객·자리 수
+          aboard: info.aboard ?? null,
+          ...(info.kind === UNIT_KIND_BOAT
+            ? { boat: { passengers: map.passengers?.(unitId) ?? [], capacity: source.boatCapacity?.() ?? 0 } }
+            : {}),
         });
       }
       // 사이보그 본체 먼저, 그다음 ID 차례

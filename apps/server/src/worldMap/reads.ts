@@ -514,6 +514,8 @@ export function worldMapReadsOf(options: {
     map: (mapKey) => world.maps.get(mapKey),
     ownerOfUser: (userId) => world.ownerOfUser?.(userId),
     cyborgName: (userId) => world.persistence?.cyborgs.record(userId)?.name,
+    // 배 자리 수(설정 칸 boat_capacity — docs/adr/2026-11-13-boats.md)
+    boatCapacity: () => world.persistence?.facilities.rules().boats.capacity ?? 0,
     maps: () => world.maps.values(),
     hiddenUnits: (userId) =>
       world.persistence?.travel.list(userId).filter((entry) => entry.hidden && entry.state === "going")

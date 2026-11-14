@@ -1,0 +1,1 @@
+ALTER TABLE "world_units" ADD COLUMN "aboard_id" bigint;

@@ -427,7 +427,7 @@ export function startWorld(
           job_phase: row.job.phase,
           job_progress_ms: row.job.progressMs,
           fatigue: row.job.fatigue,
-          ...conditionColumns(row.condition),
+          ...conditionColumns(row.condition, row.aboardId),
         }),
       saveBuilding: (row) =>
         writer.upsert("buildings", {

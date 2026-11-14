@@ -38,6 +38,11 @@ export const UNIT_KIND_GUARDIAN = 6;
  * (봇이 아니다). 이름은 저장하지 않고 팩 국가 프리셋 leaderName에서 읽는다
  */
 export const UNIT_KIND_NPC_LEADER = 7;
+/**
+ * 배(docs/adr/2026-11-13-boats.md 1절, 기획 D-540): 부두에서 만든 물 위 유닛. 영역 sea, 크기 등급 2, 빠르기 = 설정 칸 boat_speed(만들 때 값). 물 격자로만
+ * 다니고 유닛을 태운다(승객 = world_units.aboard_id). 사람이 아니라 보유 유닛 수·유지비·직무에 넣지 않는다
+ */
+export const UNIT_KIND_BOAT = 8;
 
 /**
  * 탈것으로 보이는 기본 빠르기(고정소수점 단위/초): 걷기(437 = 약 0.43칸/초)와 차(4,813 = 약 4.8칸/초) 사이, 2칸/초. 유닛의 기본 빠르기(UnitState.speed)로
@@ -53,5 +58,6 @@ export const VEHICLE_MIN_SPEED = 2_000;
  */
 export function wireKindOf(kind: number, speed = 0): UnitWireKind | undefined {
   if (kind === UNIT_KIND_NPC_LEADER) return "npc_leader";
+  if (kind === UNIT_KIND_BOAT) return "boat";
   return kind === UNIT_KIND_BOT && speed >= VEHICLE_MIN_SPEED ? "vehicle" : undefined;
 }

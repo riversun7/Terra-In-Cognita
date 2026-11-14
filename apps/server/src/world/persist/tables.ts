@@ -44,6 +44,8 @@ export const WORLD_TABLES = {
       "injury_until_ms",
       "injury_heal_pm",
       "held_by",
+      // 타고 있는 배(docs/adr/2026-11-13-boats.md 4절)
+      "aboard_id",
     ],
     key: ["id"],
   },

@@ -62,7 +62,7 @@ const toRotation = (value: unknown): Rotation => {
 };
 
 const UNIT_COLUMNS = `id, owner_id, kind, size, speed, map_key, planet_id, domain, path, depart_at_ms, wake_at_ms, ai_step,
-  job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by`;
+  job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by, aboard_id`;
 const BUILDING_COLUMNS = "id, map_key, planet_id, domain, owner_id, x, y, width, height, rotation";
 
 /** world_units 한 줄 → 유닛 행 */
@@ -93,6 +93,8 @@ function unitRowOf(row: Record<string, unknown>): UnitRow {
       ...(num(row.injury_heal_pm ?? 1000) === 1000 ? {} : { injuryHealPm: num(row.injury_heal_pm) }),
       heldBy: numOrNull(row.held_by),
     },
+    // 타고 있는 배(docs/adr/2026-11-13-boats.md 4절)
+    aboardId: numOrNull(row.aboard_id),
   };
 }
 

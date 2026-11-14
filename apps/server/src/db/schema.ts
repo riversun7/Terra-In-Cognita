@@ -601,6 +601,8 @@ export const worldUnits = pgTable(
     injuryHealPm: integer("injury_heal_pm").notNull().default(1000),
     /** 포로로 잡은 주체(D-187). 주인(owner_id)은 그대로다(몸값은 원래 주인하고만, D-242) */
     heldBy: bigint("held_by", { mode: "number" }).references(() => worldOwners.id),
+    /** 타고 있는 배의 유닛 ID(docs/adr/2026-11-13-boats.md 4절). 없으면 null. 배가 지워지면 부팅 복구가 떼어 낸다(외래 키 없음) */
+    aboardId: bigint("aboard_id", { mode: "number" }),
   },
   (table) => [
     index("world_units_owner_idx").on(table.ownerId),

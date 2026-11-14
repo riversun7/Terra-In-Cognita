@@ -7,6 +7,8 @@ import {
   applyPlacement,
   createPathfinder,
   createPlacementGrid,
+  createWaterGrid,
+  markWaterBuilding,
   planRoute,
   removeBuilding,
   setRoad,
@@ -23,6 +25,33 @@ import type {
 interface Replica {
   grid: PlacementGrid;
   version: number;
+  /** 배 비용(사본 init에 실렸을 때만) */
+  waterCost: Uint16Array | undefined;
+  /** 배 격자 — 처음 물 길 요청 때 만든다(docs/adr/2026-11-13-boats.md 2절) */
+  water: PlacementGrid | undefined;
+}
+
+/** 사본 하나를 만든다(물 격자는 아직) */
+function replicaOf(init: MapReplicaInit): Replica {
+  return { grid: buildReplicaGrid(init), version: init.version, waterCost: init.waterCost, water: undefined };
+}
+
+/** 배 격자(없으면 땅 격자 건물로 만든다). 배 비용이 없는 사본은 undefined */
+function waterGridOf(replica: Replica): PlacementGrid | undefined {
+  if (!replica.waterCost) return undefined;
+  if (!replica.water) {
+    const water = createWaterGrid(replica.waterCost);
+    for (const [id, rect] of replica.grid.buildings)
+      markWaterBuilding(water, id, {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        rotation: 0,
+      });
+    replica.water = water;
+  }
+  return replica.water;
 }
 
 export interface ReplicaStore {
@@ -62,7 +91,16 @@ export function createReplicaStore(clock: () => number): ReplicaStore {
     const started = clock();
     const replica = replicas.get(job.mapKey);
     if (!replica) return { type: "path", jobId: job.jobId, version: -1, status: "unknown_map", computeMs: 0 };
-    const route = planRoute(pathfinder, replica.grid, {
+    const grid = job.medium === "water" ? waterGridOf(replica) : replica.grid;
+    if (!grid)
+      return {
+        type: "path",
+        jobId: job.jobId,
+        version: replica.version,
+        status: "start_blocked",
+        computeMs: 0,
+      };
+    const route = planRoute(pathfinder, grid, {
       from: { x: job.fromX, y: job.fromY },
       to: { x: job.toX, y: job.toY },
       size: job.size,
@@ -89,16 +127,13 @@ export function createReplicaStore(clock: () => number): ReplicaStore {
       if (message.type === "init") {
         replicas.clear();
         for (const init of message.maps) {
-          replicas.set(init.mapKey, { grid: buildReplicaGrid(init), version: init.version });
+          replicas.set(init.mapKey, replicaOf(init));
         }
         return undefined;
       }
       // 그때 띄운 2차맵(add)·내린 2차맵(drop) — world/mapSpawn.ts
       if (message.type === "add") {
-        replicas.set(message.map.mapKey, {
-          grid: buildReplicaGrid(message.map),
-          version: message.map.version,
-        });
+        replicas.set(message.map.mapKey, replicaOf(message.map));
         return undefined;
       }
       if (message.type === "drop") {
@@ -112,6 +147,12 @@ export function createReplicaStore(clock: () => number): ReplicaStore {
         message.version === replica.version + 1
           ? applyGridEdit(replica.grid, message.edit)
           : `version gap ${replica.version} → ${message.version}`;
+      // 배 격자도 같은 건물 칸을 따른다(칸 검사 없이 — 땅 격자에서 이미 놓였다)
+      if (reason === undefined && replica.water) {
+        if (message.edit.op === "place")
+          markWaterBuilding(replica.water, message.edit.id, message.edit.placement);
+        else removeBuilding(replica.water, message.edit.id);
+      }
       if (reason !== undefined) {
         return { type: "replica_error", mapKey: message.mapKey, version: message.version, reason };
       }

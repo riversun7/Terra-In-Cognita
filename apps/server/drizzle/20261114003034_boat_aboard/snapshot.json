@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "0199bf2f-ba67-414b-a909-d1679ec813bc",
+  "prevIds": [
+    "18432f4b-a1bb-46d6-8822-15828b24b3e5"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "aboard_id"
+      ],
+      "writes": [
+        "s|col|public.world_units.aboard_id",
+        "n|col|public.world_units.aboard_id",
+        "e|col|public.world_units.aboard_id"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "aboard_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

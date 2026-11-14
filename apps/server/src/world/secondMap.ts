@@ -9,12 +9,14 @@
 //   · 요청마다 유닛의 routeSeq를 올린다. 결과가 왔을 때 번호가 다르면(더 새 요청이 있음) 버린다.
 //   · 격자를 막는 편집(건물 놓기) 전에 푼 결과면 다시 찾는다(blockingVersion). 치우기는 길을 막지 않아 그대로 쓴다.
 // - 건물을 놓으면 남은 경로가 막힌 유닛만 다시 찾는다. 유닛이 서 있는 칸에는 놓지 않는다(overlaps_unit).
+// - 배(docs/adr/2026-11-13-boats.md): 영역 sea 유닛은 물 격자(지형 파일 층에서 처음 쓸 때 만든다)로 길을 푼다. 탄 유닛(aboard)은 배 움직임을
+//   그대로 따르고(갑판에 선다) 따로 움직이지 않는다.
 import {
   type BuildingWire,
   MAX_PATH_POINTS,
   MAX_UNIT_SPEED,
-  type ResultCode,
   type UnitMotionWire,
+  decodeTerrain,
   terrainPath,
 } from "@terra/protocol";
 import {
@@ -23,6 +25,7 @@ import {
   type BuildingPlacement,
   type CellRect,
   type Motion,
+  type PlacementGrid,
   type Point,
   type SizeClass,
   WALK_SPEED,
@@ -33,11 +36,15 @@ import {
   arrivalAt,
   createMotion,
   createPlacementGrid,
+  createWaterGrid,
+  hasNavigableWater,
   isPassable,
+  markWaterBuilding,
   positionAt,
   compareEventKeys,
   removeBuilding,
   validatePlacement,
+  waterCostsFromLayers,
 } from "@terra/sim";
 import type { Rng } from "@terra/shared";
 import type { WaterMask } from "@terra/shared/waterNearby";
@@ -55,20 +62,19 @@ import {
   tripArea,
 } from "./bots.ts";
 import { bodyCells, failureCode, lastPoint, rectsOverlap, remainingPathBlocked } from "./mapGeometry.ts";
-import type { MapTerrain, TerrainFile } from "./mapTerrain.ts";
-import { type MapStream, createMapStream } from "./mapStream.ts";
+import type { TerrainFile } from "./mapTerrain.ts";
+import { createMapStream } from "./mapStream.ts";
 import type { MapReplicaInit } from "./pathMessages.ts";
-import type { PathOutcome, PathPriority, PathService } from "./pathService.ts";
+import type { PathOutcome, PathPriority } from "./pathService.ts";
 import { type Scheduler, createScheduler } from "./scheduler.ts";
 import { DEFAULT_WORLD_PLANET_ID, type WorldDomain } from "../db/schema.ts";
 import { HEALTHY, type UnitCondition, safePoint, unavailable } from "./unitCondition.ts";
-import { UNIT_KIND_BOT, UNIT_KIND_TEST, wireKindOf } from "./unitKinds.ts";
-import type { EdgeHooks } from "./edgeWatch.ts";
-import { type ExploredStore, type MapVision, createMapVision } from "./vision.ts";
+import { UNIT_KIND_BOAT, UNIT_KIND_BOT, UNIT_KIND_TEST, wireKindOf } from "./unitKinds.ts";
+import { createMapVision } from "./vision.ts";
 import { waterMaskOfTerrain } from "./waterMask.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
-import { type WorldStats, recordPathOutcome } from "./worldStats.ts";
-import { type BuildingRow, type MapPersist, NO_JOB, type UnitJob, type UnitRow } from "./secondMapRows.ts";
+import { recordPathOutcome } from "./worldStats.ts";
+import { NO_JOB, type UnitJob, type UnitRow } from "./secondMapRows.ts";
 
 /** 봇 경로의 탐색 예산(칸). 넘으면 budget_exceeded → 다른 목적지 */
 export const BOT_NODE_BUDGET = 32_768;
@@ -77,22 +83,10 @@ export const COMMAND_NODE_BUDGET = DEFAULT_NODE_BUDGET;
 /** 2차맵 하나의 건물 수 상한(S1). 스냅샷 크기를 묶는다 */
 export const MAX_BUILDINGS = 1_024;
 
-export type CommandResult = { ok: true; buildingId?: number } | { ok: false; code: ResultCode };
-
-// 저장 행·직무 모양은 secondMapRows.ts(이 파일 1,000줄 상한)
+// 저장 행·직무 모양은 secondMapRows.ts, 2차맵 모양(SecondMap·옵션·읽기 모양)은 secondMapTypes.ts(이 파일 1,000줄 상한)
 export { type BuildingRow, type MapPersist, NO_JOB, type UnitJob, type UnitRow } from "./secondMapRows.ts";
-
-/** 유닛 읽기 모양(정산·불변 조건 검사) */
-export interface UnitView {
-  readonly id: number;
-  readonly ownerId: number;
-  readonly kind: number;
-  readonly size: SizeClass;
-  readonly motion: Motion;
-  readonly job: UnitJob;
-  readonly planning: boolean;
-  readonly hasEvent: boolean;
-}
+export type { CommandResult, MapLog, SecondMap, SecondMapOptions, UnitView } from "./secondMapTypes.ts";
+import type { CommandResult, SecondMap, SecondMapOptions, UnitView } from "./secondMapTypes.ts";
 
 interface UnitState {
   readonly id: number;
@@ -121,173 +115,14 @@ interface UnitState {
   readonly bot: boolean;
   /** 봇의 집(NPC 휴먼 = 그 도시 시청 칸)·일터. 있으면 그 둘레에서 걷는다(bots.ts tripArea). 저장하지 않는다(NPC 사회 런타임이 다시 넣는다) */
   home: BotHome | undefined;
+  /** 타고 있는 배의 유닛 ID(docs/adr/2026-11-13-boats.md 4절). 있으면 움직임 = 배 움직임, 따로 움직이지 않는다 */
+  aboard: number | undefined;
 }
 
 /** 2차맵 예약: 같은 시각이면 (종류, 유닛 ID) 차례다(@terra/sim compareEventKeys, S3 ADR 1절) */
 type MapEvent = { kind: "arrive" | "wake"; subject: number };
 
-export interface MapLog {
-  warn(obj: object, message: string): void;
-  error(obj: object, message: string): void;
-}
-
-export interface SecondMapOptions {
-  mapKey: number;
-  /** 지형(고정본·캐시·생성기 또는 S1 임시 지형, mapTerrain.ts) */
-  terrain: MapTerrain;
-  paths: PathService;
-  now: () => number;
-  stats: WorldStats;
-  log: MapLog;
-  /** 저장 고리. 없으면 메모리에만 */
-  persist?: MapPersist | undefined;
-  /** 시험 봇의 소유 주체(시험 NPC 세력). 기본 0(DB 없음) */
-  botOwnerId?: number | undefined;
-  /** 새 유닛 ID(월드 전체에서 하나씩). 기본은 이 2차맵 안에서 1부터 */
-  allocateUnitId?: (() => number) | undefined;
-  /** 새 건물 ID. 기본은 이 2차맵 안에서 1부터 */
-  allocateBuildingId?: (() => number) | undefined;
-  /** 탐사 기록 저장(시야 전송). 없으면 메모리에만 */
-  explored?: ExploredStore | undefined;
-  /** 이 2차맵이 놓인 행성(기본: 시험 행성) */
-  planetId?: string | undefined;
-  /**
-   * 플레이어가 처음 손댔을 때(건물을 처음 놓았을 때) 한 번 부른다 — 월드가 지금 지형을 고정본으로 저장한다
-   * (PLAN 5.5, ADR 2026-10-31-second-map-from-planet 6절)
-   */
-  onFirstEdit?: (() => void) | undefined;
-  /** 봇 아닌 유닛의 움직임 알림·경계 너머 시야(옆 2차맵 미리 띄우기, edgeWatch.ts — 2026-11-12). 없으면 없음 */
-  edge?: EdgeHooks | undefined;
-}
-
 export type { TerrainFile } from "./mapTerrain.ts";
-
-export interface SecondMap {
-  readonly mapKey: number;
-  /** 이 2차맵이 놓인 행성. 전체 ID = (행성, 2차맵 키) */
-  readonly planetId: string;
-  readonly generatorVersion: number;
-  /** 지형 주소 판 표지(?v=) */
-  readonly terrainVersion: string;
-  /** 거르지 않은 전송(관리자 전체 보기) */
-  readonly stream: MapStream;
-  /** 시야로 거른 전송(플레이어) — S3 ADR 3절 */
-  readonly vision: MapVision;
-  /** 경로 워커가 사본을 만들 때 쓰는 지금 상태 */
-  replicaInit(): MapReplicaInit;
-  /** 지형 이진 파일(처음 부를 때 만들고 계속 쓴다) */
-  terrainFile(): TerrainFile;
-  /** 지형 칸 물 표(물가 조건, 질문 947 나 — 처음 부를 때 지형 파일에서 만들고 계속 쓴다, waterMask.ts) */
-  waterMask(): WaterMask;
-  /** 시험용 봇이 count개가 되게 모자란 만큼 만든다(이미 있는 봇은 그대로 둔다) */
-  spawnBots(count: number): void;
-  /** 스스로 움직이지 않는 유닛 하나를 기준 칸 (x, y)에 세운다. ID가 있거나 설 수 없으면 false */
-  addUnit(spec: {
-    id: number;
-    size: SizeClass;
-    speed: number;
-    cellX: number;
-    cellY: number;
-    ownerId?: number;
-    kind?: number;
-  }): boolean;
-  /** 저장된 건물·유닛을 다시 놓고 예약을 다시 건다(부팅 복구). 놓지 못한 것의 ID를 돌려준다 */
-  restore(
-    units: readonly UnitRow[],
-    buildings: readonly BuildingRow[],
-  ): { badUnits: number[]; badBuildings: number[] };
-  /** 모든 유닛 읽기(정산·불변 조건) */
-  forEachUnit(visit: (unit: UnitView) => void): void;
-  /** 정산 결과의 직무 상태를 넣고 저장한다 */
-  setJob(unitId: number, job: UnitJob): boolean;
-  /** 부상·포로 상태를 넣고 저장한다(전투 결과) */
-  setCondition(unitId: number, condition: UnitCondition): boolean;
-  /**
-   * NPC 휴먼(시험 봇) 하나를 기준 칸 둘레(반경 칸 안)에 세운다(출생, docs/adr/2026-11-01-npc-brain-r5.md 7절).
-   * ID가 있거나 설 곳이 없으면 false
-   */
-  spawnBotNear(
-    id: number,
-    ownerId: number,
-    near: { readonly x: number; readonly y: number },
-    radiusCells: number,
-  ): boolean;
-  /** 봇의 집(도시 시청 칸)·일터(null = 없음 — 지금 자리 둘레를 걷는다)를 정한다. 봇이 아니거나 없으면 false */
-  setHome(unitId: number, home: BotHome | null): boolean;
-  /** 봇을 NPC 휴먼 몸(크기 1·걷기, D-534 — 1106 가)으로 바꾼다: 하던 이동을 지금 자리에서 멈추고 다시 깬다. 바꿨으면 true */
-  setHumanBody(unitId: number): boolean;
-  /** 유닛 주인을 바꾸고 저장한다(도시 주인이 바뀜). 없으면 false */
-  setOwner(unitId: number, ownerId: number): boolean;
-  /** 유닛 종류 코드를 바꾸고 저장한다(사이보그 융합 D-470: 휴먼 → 사이보그 유닛, 봇 ↔ 봇 아닌 것은 바꾸지 않는다). 없으면 false */
-  setKind(unitId: number, kind: number): boolean;
-  /** 유닛을 지운다(NPC 휴먼 사망). 하던 이동·예약은 버리고 보던 기기에 숨김을 보낸다. 없으면 false */
-  removeUnit(unitId: number): boolean;
-  /** 안전한 곳(기준 칸 = 가장 가까운 안전 도시, 없으면 가운데)으로 바로 옮긴다(질문 108 기본안·D-351). 하던 이동은 버린다 */
-  relocateToSafety(unitId: number, near?: { readonly x: number; readonly y: number }): boolean;
-  /**
-   * 2차맵 사이 이동(docs/adr/2026-11-07-play-flow.md WP9): 유닛을 이 2차맵에서 빼고 저장할 한 줄을 돌려준다. 행은 지우지 않는다
-   * (곧 옆 2차맵의 transferIn이 같은 줄을 새 2차맵 키로 쓴다 — 같은 쓰기 묶음). 봇이거나 없으면 undefined
-   */
-  transferOut(unitId: number): UnitRow | undefined;
-  /** 다른 2차맵에서 넘어온 유닛을 기준 칸 (x, y)에 세운다(직무·상태·판단 횟수 그대로, 저장한다). ID가 있거나 설 수 없으면 false */
-  transferIn(row: UnitRow, cellX: number, cellY: number): boolean;
-  /** 그 크기 등급이 기준 칸 (x, y)에 설 수 있나(지형·건물만 본다, 유닛은 보지 않는다) */
-  isStandable(cellX: number, cellY: number, size: SizeClass): boolean;
-  /** 하던 이동을 멈추고 지금 자리에 세운다(2차맵 사이 이동 취소). 봇이거나 없으면 false */
-  halt(unitId: number): boolean;
-  /** 불변 조건 I5: 예약이 없는 봇 수(경로를 기다리는 봇은 뺀다) */
-  missingEvents(): number;
-  /** 불변 조건 I7: 몸이 건물 칸에 걸친 서 있는 유닛 수 */
-  unitsInBuildings(): number;
-  /**
-   * speedFactor = 이 이동 하나의 빠르기 배수(유닛 속도는 그대로). 없으면 그 유닛의 운영자 빠르기 표시(setPace, operatorPace.ts — 표시가
-   * 없으면 1)
-   */
-  moveUnit(
-    unitId: number,
-    target: Point,
-    options?: { readonly speedFactor?: number },
-  ): Promise<CommandResult>;
-  /** 운영자 빠르기 표시(operatorPace.ts)를 바꾼다 — 1이면 지운다. 앞 값(유닛이 없으면 undefined). 메모리에만, 유닛이 2차맵을 떠나면 지운다 */
-  setPace(unitId: number, factor: number): number | undefined;
-  /** 그 유닛의 운영자 빠르기 표시(없으면 1) */
-  paceOf(unitId: number): number;
-  /** ownerId = 건물 주인 주체(시험 건물은 놓은 사람, 없으면 null). reuseId = 치운 건물을 같은 ID로 다시 놓기(facilities/cityRelayout.ts) */
-  placeBuilding(placement: BuildingPlacement, ownerId?: number | null, reuseId?: number): CommandResult;
-  /** 그 칸 네모에 지금 유닛 몸이 걸치나(도시 건물 배치 계획이 유닛 선 칸을 피한다 — facilities/cityLayoutGround.ts) */
-  unitInRect(rect: CellRect): boolean;
-  /** 놓을 수 있나만 본다(놓지 않음 — 폐허 정부 짓기 자리 제안, docs/adr/2026-11-07-ruins-restoration.md) */
-  canPlace(placement: BuildingPlacement): boolean;
-  removeBuilding(buildingId: number): CommandResult;
-  /** 건물 주인(노동 계약의 시설 주인). 건물이 없으면 undefined */
-  buildingOwner(buildingId: number): number | null | undefined;
-  /** 모든 건물 ID·주인·기준 칸(노동 계약 화면, 구인 게시판의 가까운 도시) */
-  forEachBuilding(
-    visit: (building: {
-      readonly id: number;
-      readonly ownerId: number | null;
-      readonly x: number;
-      readonly y: number;
-      /** 칸·크기·돌림(시야 칸 셈 — 건물 겉모습 조회) */
-      readonly placement: BuildingPlacement;
-    }) => void,
-  ): void;
-  gauges(): { units: number; moving: number; planning: number };
-  /** 유닛의 크기 등급·속도·지금 움직임·주인·상태·종류 코드(unitKinds.ts, 보유 물건 칸 배치가 읽는다) */
-  unitInfo(unitId: number):
-    | {
-        size: SizeClass;
-        speed: number;
-        motion: Motion;
-        ownerId: number;
-        condition: UnitCondition;
-        kind: number;
-        /** 정산 직무 상태(2차맵 사이 이동 확인 단계가 "직무가 끝난다"를 알린다) */
-        job: UnitJob;
-      }
-    | undefined;
-  stop(): void;
-}
 
 // 칸·경로 도우미는 mapGeometry.ts(이 파일 1,000줄 상한). 시험이 이 파일에서 가져온다
 export { remainingPathBlocked };
@@ -306,6 +141,10 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
   // 격자가 지형 비용 배열을 고친다(벌목 등) → 캐시가 든 원본과 나눠 쓰지 않게 복사한다
   const grid = createPlacementGrid(terrain.costs.slice());
   let water: WaterMask | undefined;
+  // 배 격자(docs/adr/2026-11-13-boats.md 2절): 처음 배를 다룰 때 지형 파일 층에서 만든다. 물 칸이 없으면 undefined
+  let boatGrid: PlacementGrid | undefined;
+  let boatCost: Uint16Array | undefined;
+  let boatChecked = false;
   let edited = false;
   const units = new Map<number, UnitState>();
   /** 운영자 빠르기 표시(유닛 ID → 배수, 1은 두지 않는다 — operatorPace.ts) */
@@ -381,9 +220,36 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       aiStep: unit.aiStep,
       job: unit.job,
       condition: unit.condition,
+      aboardId: unit.aboard ?? null,
     };
   };
   const save = (unit: UnitState): void => persist?.saveUnit(rowOf(unit));
+
+  const replicaInit = (): MapReplicaInit => ({
+    mapKey,
+    version: gridVersion,
+    terrainCost: grid.terrainCost,
+    road: grid.road,
+    buildings: [...buildings].map(([id, building]) => ({ id, placement: building.placement })),
+    ...(boatCost ? { waterCost: boatCost } : {}),
+  });
+
+  /** 배 격자(처음 부를 때 만들고 경로 워커 사본에도 싣는다). 물 칸이 없는 2차맵은 undefined */
+  const ensureBoatGrid = (): PlacementGrid | undefined => {
+    if (boatChecked) return boatGrid;
+    boatChecked = true;
+    const data = decodeTerrain(terrain.file().raw);
+    const costs = waterCostsFromLayers({ surface: data.surface, cover: data.cover ?? undefined });
+    if (!hasNavigableWater(costs)) return undefined;
+    boatCost = costs;
+    boatGrid = createWaterGrid(costs);
+    for (const building of buildings.values()) markWaterBuilding(boatGrid, building.id, building.placement);
+    paths.add(replicaInit());
+    return boatGrid;
+  };
+  /** 그 유닛이 길을 푸는 격자(배 = 물 격자) */
+  const gridOf = (unit: UnitState): PlacementGrid =>
+    unit.domain === "sea" ? (ensureBoatGrid() ?? grid) : grid;
 
   const setMotion = (unit: UnitState, motion: Motion): void => {
     unit.motion = motion;
@@ -393,6 +259,9 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     vision.unitChanged(unit);
     save(unit);
     if (!unit.bot) options.edge?.moved(mapKey, unit);
+    // 배가 움직이면 승객도 같은 움직임(갑판에 선다 — 크기 1 몸 가운데 = 배 몸 가운데)
+    if (unit.kind === UNIT_KIND_BOAT)
+      for (const rider of units.values()) if (rider.aboard === unit.id) setMotion(rider, motion);
   };
 
   const cancelEvent = (unit: UnitState): void => {
@@ -452,6 +321,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         nodeBudget,
         priority,
         isCurrent: isCurrent(unit, seq),
+        ...(unit.domain === "sea" && ensureBoatGrid() ? { medium: "water" as const } : {}),
       })
       .then(
         (outcome) => onRoute(unit, seq, to, priority, nodeBudget, outcome, waiter, speedFactor),
@@ -542,7 +412,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     const at = now();
     for (const unit of units.values()) {
       if (unit.planning || at >= arrivalAt(unit.motion)) continue;
-      if (!remainingPathBlocked(grid, unit.motion, unit.size, at)) continue;
+      if (unit.aboard !== undefined || !remainingPathBlocked(gridOf(unit), unit.motion, unit.size, at))
+        continue;
       stats.paths.blockedReplans += 1;
       // 다시 찾은 길도 하던 이동의 빠르기 그대로(운영자 빠르기·2차맵 사이 이동의 빠르기 — operatorPace.ts)
       requestRoute(
@@ -576,6 +447,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     aiStep: number;
     job: UnitJob;
     condition?: UnitCondition;
+    aboardId?: number | null | undefined;
   }): UnitState => {
     const unit: UnitState = {
       id: spec.id,
@@ -596,6 +468,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       condition: spec.condition ?? HEALTHY,
       bot: spec.kind === UNIT_KIND_BOT,
       home: undefined,
+      aboard: spec.aboardId ?? undefined,
     };
     units.set(unit.id, unit);
     rev += 1;
@@ -611,6 +484,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
   /** 건물 하나를 격자에 놓고 기억한다(검사는 부르는 쪽이 했다) */
   const putBuilding = (id: number, placement: BuildingPlacement, ownerId: number | null): void => {
     applyPlacement(grid, id, placement);
+    if (boatGrid) markWaterBuilding(boatGrid, id, placement);
     gridVersion += 1;
     blockingVersion = gridVersion;
     paths.edit(mapKey, gridVersion, { op: "place", id, placement });
@@ -631,6 +505,78 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     job: unit.job,
     planning: unit.planning,
     hasEvent: unit.eventId !== undefined,
+    aboard: unit.aboard,
+  });
+
+  /** 승객을 배에서 떼어 안전한 땅에 세운다(배가 없어짐·복구 때 배가 없음) */
+  const releaseRider = (unit: UnitState): void => {
+    unit.aboard = undefined;
+    const point = safePoint(grid, unit.size) ?? lastPoint(unit.motion);
+    unit.destination = point;
+    setMotion(unit, standing(point, unit.speed));
+  };
+
+  /** 배 만들기·타기·내리기(docs/adr/2026-11-13-boats.md 3·4절). 판정(소유·거리·재료)은 배 서비스(boats/service.ts)가 먼저 한다 */
+  const boatMethods = (): Pick<
+    SecondMap,
+    "addBoat" | "isNavigable" | "board" | "disembark" | "passengers"
+  > => ({
+    addBoat({ id, ownerId, speed, cellX, cellY }) {
+      const sea = ensureBoatGrid();
+      if (!sea || units.has(id) || !Number.isInteger(id) || id < 1 || !isPassable(sea, cellX, cellY, 2))
+        return false;
+      save(
+        createUnit({
+          id,
+          ownerId,
+          kind: UNIT_KIND_BOAT,
+          domain: "sea",
+          size: 2,
+          speed,
+          motion: standing(anchorCenter(cellX, cellY, 2), speed),
+          aiStep: 0,
+          job: NO_JOB,
+        }),
+      );
+      return true;
+    },
+    isNavigable(cellX, cellY, size) {
+      const sea = ensureBoatGrid();
+      return sea !== undefined && isPassable(sea, cellX, cellY, size);
+    },
+    board(unitId, boatId) {
+      const unit = units.get(unitId);
+      const boat = units.get(boatId);
+      if (
+        !unit ||
+        !boat ||
+        boat.kind !== UNIT_KIND_BOAT ||
+        unit.domain === "sea" ||
+        unit.aboard !== undefined
+      )
+        return false;
+      cancelEvent(unit);
+      unit.routeSeq += 1;
+      unit.planning = false;
+      unit.aboard = boatId;
+      unit.destination = lastPoint(boat.motion);
+      setMotion(unit, boat.motion);
+      return true;
+    },
+    disembark(unitId, cellX, cellY) {
+      const unit = units.get(unitId);
+      if (unit?.aboard === undefined || !isPassable(grid, cellX, cellY, unit.size)) return false;
+      unit.aboard = undefined;
+      const point = anchorCenter(cellX, cellY, unit.size);
+      unit.destination = point;
+      setMotion(unit, standing(point, unit.speed));
+      return true;
+    },
+    passengers(boatId) {
+      const out: number[] = [];
+      for (const unit of units.values()) if (unit.aboard === boatId) out.push(unit.id);
+      return out;
+    },
   });
 
   return {
@@ -640,13 +586,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     terrainVersion: terrain.version,
     stream,
     vision,
-    replicaInit: () => ({
-      mapKey,
-      version: gridVersion,
-      terrainCost: grid.terrainCost,
-      road: grid.road,
-      buildings: [...buildings].map(([id, building]) => ({ id, placement: building.placement })),
-    }),
+    replicaInit,
     terrainFile(): TerrainFile {
       return terrain.file();
     },
@@ -725,6 +665,14 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         const unit = createUnit({ ...row, motion });
         if (row.wakeAtMs !== null) events.push({ at: row.wakeAtMs, kind: "wake", unit });
         else if (unit.bot) events.push({ at: arrivalAt(motion), kind: "arrive", unit });
+      }
+      // 승객을 배에 다시 붙인다(배가 없으면 안전한 곳으로 — docs/adr/2026-11-13-boats.md 4절)
+      for (const unit of units.values()) {
+        if (unit.domain === "sea") ensureBoatGrid();
+        if (unit.aboard === undefined) continue;
+        const boat = units.get(unit.aboard);
+        if (boat?.kind === UNIT_KIND_BOAT) unit.motion = boat.motion;
+        else releaseRider(unit);
       }
       // 같은 시각끼리의 차례는 큐가 (시각, 종류, 유닛 ID) 키로 정한다 → 넣는 차례는 상관없다
       for (const event of events) {
@@ -806,6 +754,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     removeUnit(unitId) {
       const unit = units.get(unitId);
       if (!unit) return false;
+      if (unit.kind === UNIT_KIND_BOAT)
+        for (const rider of units.values()) if (rider.aboard === unitId) releaseRider(rider);
       cancelEvent(unit);
       // 진행 중인 경로 결과는 버려진다(isCurrent가 지운 유닛을 거른다)
       unit.routeSeq += 1;
@@ -833,8 +783,10 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     relocateToSafety(unitId, near) {
       const unit = units.get(unitId);
-      const point = unit ? safePoint(grid, unit.size, near) : undefined;
+      // 배는 땅의 안전한 곳으로 옮기지 않는다. 승객은 내려서 옮긴다
+      const point = unit && unit.domain !== "sea" ? safePoint(grid, unit.size, near) : undefined;
       if (!unit || !point) return false;
+      unit.aboard = undefined;
       cancelEvent(unit);
       unit.routeSeq += 1;
       unit.planning = false;
@@ -845,7 +797,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     transferOut(unitId) {
       const unit = units.get(unitId);
-      if (!unit || unit.bot) return undefined;
+      // 배·승객은 2차맵을 넘지 않는다(바다 건너기는 B2 — docs/adr/2026-11-13-boats.md)
+      if (!unit || unit.bot || unit.domain === "sea" || unit.aboard !== undefined) return undefined;
       const row = rowOf(unit);
       cancelEvent(unit);
       // 진행 중인 경로 결과는 버려진다(isCurrent가 뺀 유닛을 거른다)
@@ -866,7 +819,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     isStandable: (cellX, cellY, size) => isPassable(grid, cellX, cellY, size),
     halt(unitId) {
       const unit = units.get(unitId);
-      if (!unit || unit.bot) return false;
+      if (!unit || unit.bot || unit.aboard !== undefined) return false;
       cancelEvent(unit);
       unit.routeSeq += 1;
       unit.planning = false;
@@ -899,6 +852,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     moveUnit(unitId, target, moveOptions) {
       const unit = units.get(unitId);
       if (!unit) return Promise.resolve({ ok: false, code: "unknown_unit" });
+      if (unit.aboard !== undefined) return Promise.resolve({ ok: false, code: "aboard" });
       // [임시] 포로·중태는 명령을 받지 않는다. 전용 결과 코드는 전투 화면(L1) 때 프로토콜에 더한다
       if (unavailable(unit.condition, now())) return Promise.resolve({ ok: false, code: "invalid_request" });
       const speedFactor = moveOptions?.speedFactor ?? paces.get(unitId) ?? 1;
@@ -954,6 +908,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     removeBuilding(buildingId) {
       if (!buildings.has(buildingId)) return { ok: false, code: "unknown_building" };
       removeBuilding(grid, buildingId);
+      if (boatGrid) removeBuilding(boatGrid, buildingId);
       buildings.delete(buildingId);
       gridVersion += 1;
       paths.edit(mapKey, gridVersion, { op: "remove", id: buildingId });
@@ -984,9 +939,12 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
             condition: unit.condition,
             kind: unit.kind,
             job: unit.job,
+            domain: unit.domain,
+            aboard: unit.aboard,
           }
         : undefined;
     },
+    ...boatMethods(),
     stop() {
       scheduler.stop();
       stream.close();

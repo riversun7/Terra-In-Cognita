@@ -10,6 +10,7 @@
 import { isCellKey } from "@terra/planet";
 import {
   type ClientMessageOf,
+  BOAT_PROTOCOL_VERSION,
   type ResultCode,
   SECOND_MAP_PROTOCOL_VERSION,
   UNIT_CONTROL_PROTOCOL_VERSION,
@@ -298,6 +299,9 @@ export function createWorldGateway(options: {
         );
         if (operatorOverride && result.ok && (message.t === "move_unit" || message.t === "stop_unit"))
           options.onOperatorCommand?.(viewer, { t: message.t, mapKey, ...operatorOverride });
+        // 배에 탄 유닛 코드(aboard, docs/adr/2026-11-13-boats.md 4절)는 그 코드를 아는 연결(27)에만, 아니면 invalid_request
+        if (!result.ok && result.code === "aboard" && (link.protocolVersion ?? 0) < BOAT_PROTOCOL_VERSION)
+          return reply(message.id, fail("invalid_request"));
         reply(message.id, result);
       };
 

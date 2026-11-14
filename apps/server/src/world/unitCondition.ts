@@ -89,12 +89,16 @@ export function unavailable(condition: UnitCondition, nowMs: number): boolean {
   return condition.heldBy !== null || injuryAt(condition, nowMs) >= INJURY_CRITICAL;
 }
 
-/** world_units 줄의 상태 칸(부상·치유 배율·포로) */
-export const conditionColumns = (condition: UnitCondition) => ({
+/**
+ * world_units 줄의 상태 칸(부상·치유 배율·포로) + 타고 있는 배(aboard_id, docs/adr/2026-11-13-boats.md 4절 — world.ts 1,000줄 상한이라 저장 칸을
+ * 여기서 함께 만든다)
+ */
+export const conditionColumns = (condition: UnitCondition, aboardId?: number | null) => ({
   injury: condition.injury,
   injury_until_ms: condition.injuryUntilMs,
   injury_heal_pm: condition.injuryHealPm ?? NATURAL_HEAL_PM,
   held_by: condition.heldBy,
+  aboard_id: aboardId ?? null,
 });
 
 /** 새 부상(@terra/sim injure: 더 무거우면 새로, 같으면 시간 다시, 가벼우면 그대로) */

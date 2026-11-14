@@ -138,6 +138,7 @@ export function createWorkerPathService(options: WorkerPoolOptions): PathService
         toY: request.to.y,
         size: request.size,
         nodeBudget: request.nodeBudget,
+        medium: request.medium,
       };
       target.inFlight.set(jobId, job);
       post(target.worker, message);

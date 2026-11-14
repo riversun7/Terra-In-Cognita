@@ -2,7 +2,7 @@
 // - 운영: 워커 풀(src/world/pathPool.ts). 경로 하나가 최대 수십 ms라 메인 스레드에서 풀면 안 된다(ADR 33 벤치마크).
 // - 시험: 같은 스레드 서비스(createInlinePathService). 워커와 같은 코드(pathReplica.ts)로 푼다.
 import type { Point, SizeClass } from "@terra/sim";
-import type { GridEdit, MapReplicaInit, PathStatus, ToWorker } from "./pathMessages.ts";
+import type { GridEdit, MapReplicaInit, PathMedium, PathStatus, ToWorker } from "./pathMessages.ts";
 import { createReplicaStore } from "./pathReplica.ts";
 
 /** 관리자 명령이 봇 이동보다 먼저 풀린다 */
@@ -15,6 +15,8 @@ export interface PathRequest {
   size: SizeClass;
   nodeBudget: number;
   priority: PathPriority;
+  /** 물이면 배 격자로 푼다(docs/adr/2026-11-13-boats.md 2절). 없으면 땅 */
+  medium?: PathMedium | undefined;
   /** 풀기 직전에 확인한다. false면(더 새 요청이 있음) 풀지 않고 dropped */
   isCurrent(): boolean;
 }
@@ -102,6 +104,7 @@ export function createInlinePathService(sources: ReplicaSources, clock: () => nu
           toY: job.to.y,
           size: job.size,
           nodeBudget: job.nodeBudget,
+          medium: job.medium,
         });
         if (reply?.type !== "path") return { status: "busy", waitMs: clock() - enqueuedAt };
         const waitMs = clock() - enqueuedAt;

@@ -2,7 +2,7 @@
 // 권한은 설정 칸 패널(D1)과 같다: 우리 권한 표(tuning:read) → Better Auth 확인. 시작·취소·목록·열기·한 대 풀이는 D1 조회 속도 제한도
 // 거친다. 진행 조회는 자주 오므로 보고서 서비스의 따로 센 제한(admitPoll)만 거친다. 게임 상태는 바꾸지 않는다(기록 표·감사 기록만 쓴다).
 // 오류(error.data.code): UNAUTHORIZED, FORBIDDEN, TOO_MANY_REQUESTS("rate_limited"·"busy"), BAD_REQUEST(입력 형식, 또는 data.reason =
-// invalid_settings·budget·variant_mode·invalid_unit·unknown_terrain·unknown_tuning·tuning_out_of_range), NOT_FOUND(data.reason =
+// invalid_settings·budget·variant_mode·invalid_unit·unknown_terrain·unknown_tuning·tuning_out_of_range·unknown_city), NOT_FOUND(data.reason =
 // unknown_job·unknown_report, 또는 message "BATTLE_REPORT_UNAVAILABLE"), INTERNAL_SERVER_ERROR(data.reason = timeout·failed: 한 대 풀이 워커).
 import { TRPCError } from "@trpc/server";
 import {

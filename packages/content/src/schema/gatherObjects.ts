@@ -20,10 +20,11 @@
 //   닫힌 길(집 자리 둘레 range 안)을 결정적으로 정하고, 자리는 시각의 함수다(@terra/shared/fishSchool). reach 안 물가에 선 유닛이 낚고,
 //   0이면 배로만 닿는다.
 // - 나오는 아이템(기획 D-540 1222): 기본은 item 하나. table(굴림표)이면 그 가운데 하나를 가중치로, ladder면 맡는 시설의 사다리에서
-//   유효 스탯 띠로 티어를 뽑는다(어군 = 낚시 사다리).
+//   유효 스탯 띠로 티어를 뽑는다(어군 = 낚시 사다리). tierRange가 있으면 뽑은 티어를 그 범위 안으로 접는다(기획 D-541 질문 1307 나).
 // 지금 값은 모두 [임시]다(D-515).
 import { MAP_PROP_ARTS } from "@terra/shared";
 import { CATCHMENT_MATERIALS } from "@terra/shared/catchment";
+import { GATHER_TIERS } from "@terra/shared/gatherMath";
 import { z } from "zod";
 import { PRIMARY_STAT_CODES } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
@@ -69,6 +70,23 @@ const common = {
    * 뽑는다(다른 1차 생산과 같은 띠 표 — 사다리 띠 표). 있으면 item은 대표 아이템. 맡는 시설에 추첨 방식 채집 칸이 있어야 한다(2단계 검사)
    */
   ladder: z.literal(true).optional(),
+  /**
+   * 사다리 굴림의 티어 범위(기획 D-541 — 질문 1307 나, 어군 종류마다 "깊은 바다일수록 큰 고기"): 뽑은 티어가 범위 밖이면 범위 안으로 접는다
+   * (아래는 min, 위는 max — 광산 티어 막기 oreTierCapOf와 같은 꼴, 남기는 몫 없음). ladder와 함께만 쓰고 min ≤ max(2단계 검사
+   * gather_tier_range_*). 없으면 막지 않는다
+   */
+  tierRange: z
+    .strictObject({
+      min: z
+        .int()
+        .min(0)
+        .max(GATHER_TIERS - 1),
+      max: z
+        .int()
+        .min(0)
+        .max(GATHER_TIERS - 1),
+    })
+    .optional(),
 };
 
 /** 2차맵 지형 칸 지표 이름(@terra/protocol TERRAIN_SURFACE 차례 — 서버 시험이 같은지 본다) */

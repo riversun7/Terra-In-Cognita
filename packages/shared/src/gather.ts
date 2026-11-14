@@ -48,6 +48,8 @@ export interface GatherKindView {
    * 없으면 item 하나(앞 판 응답)
    */
   readonly ladderName?: GatherName;
+  /** 사다리 굴림의 티어 범위(기획 D-541 — 질문 1307 나, 어군 종류마다): 뽑은 티어를 이 안으로 접는다. 없으면 막지 않는다(앞 판 응답) */
+  readonly ladderTiers?: { readonly min: number; readonly max: number };
 }
 
 /**

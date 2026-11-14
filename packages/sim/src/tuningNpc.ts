@@ -302,4 +302,12 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 도시 레벨 재료 가공 시설 목표(재료마다)",
     "NPC city level-material processors (per material)",
   ),
+  // 레벨 재료 가공 시설이 드는 때(기획 D-541 — 질문 1291 나 [임시])
+  k(
+    "npc_build_level_supply_lead",
+    "",
+    "buildLevelSupplyLead",
+    "NPC 레벨 재료 가공 시설: 상한 몇 채 전부터",
+    "NPC level-material processors: buildings before cap",
+  ),
 ];

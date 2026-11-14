@@ -85,6 +85,15 @@ describe("원자재 오브젝트 종류", () => {
     // 바다 오브젝트(기획 D-540 1222): 어군 넷은 낚시 사다리 굴림, 고래 무리는 고래 고기·기름 굴림표, 난파선은 굴림표
     for (const id of ["school_lake", "school_coastal", "school_shelf", "school_deep"])
       expect(byId.get(id)).toMatchObject({ ladder: true, facility: "fishing_spot" });
+    // 어군 티어 범위(기획 D-541 질문 1307 나 [임시]): 깊은 바다일수록 큰 고기
+    expect(
+      ["school_lake", "school_coastal", "school_shelf", "school_deep"].map((id) => byId.get(id)?.tierRange),
+    ).toEqual([
+      { min: 0, max: 2 },
+      { min: 0, max: 4 },
+      { min: 2, max: 6 },
+      { min: 4, max: 8 },
+    ]);
     expect(byId.get("whale_pod")).toMatchObject({
       item: "whale_meat",
       table: [

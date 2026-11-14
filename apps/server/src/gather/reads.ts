@@ -108,6 +108,9 @@ export function gatherReadsOf(source: () => GatherWorld | undefined): GatherRead
                     ko: facility.gather.subcategory,
                     en: facility.gather.subcategory,
                   },
+                  ...(kind.tierRange
+                    ? { ladderTiers: { min: kind.tierRange.min, max: kind.tierRange.max } }
+                    : {}),
                 }
               : {}),
           };

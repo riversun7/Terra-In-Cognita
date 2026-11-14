@@ -11,6 +11,7 @@ import {
   kindCounts,
   setAmount,
   setSlow,
+  setTierRange,
   sortKeys,
   terrainRows,
 } from "./terrainObjectsModel.ts";
@@ -110,5 +111,22 @@ describe("지형 오브젝트 편집기 자료", () => {
     expect(await hashEntry({ b: 1, a: [2, { d: 3, c: 4 }] })).toBe(
       await sha256('{"a":[2,{"c":4,"d":3}],"b":1}'),
     );
+  });
+
+  it("티어 범위(질문 1307 나): 어군만 칸이 있고, 한 끝을 고치면 T0 ~ T9로 자르고 다른 끝을 밀어 아래 ≤ 위", () => {
+    const deep = terrainRows(pack, "ocean_deep");
+    expect(deep.find((row) => row.id === "school_deep")?.tierRange).toEqual({ min: 4, max: 8 });
+    expect(deep.find((row) => row.id === "whale_pod")?.tierRange).toBeNull();
+    expect(deep.find((row) => row.id === "hydro_vent")?.tierRange).toBeNull();
+    const range = (edited: typeof pack) =>
+      terrainRows(edited, "ocean_deep").find((row) => row.id === "school_deep")?.tierRange;
+    let edited = setTierRange(pack, "school_deep", "min", 12);
+    expect(range(edited)).toEqual({ min: 9, max: 9 });
+    edited = setTierRange(edited, "school_deep", "max", 3);
+    expect(range(edited)).toEqual({ min: 3, max: 3 });
+    edited = setTierRange(edited, "school_deep", "min", -2);
+    expect(range(edited)).toEqual({ min: 0, max: 3 });
+    expect(setTierRange(pack, "whale_pod", "min", 2)).toEqual(pack);
+    expect(changedEntries(pack, edited).map((change) => change.id)).toEqual(["school_deep"]);
   });
 });

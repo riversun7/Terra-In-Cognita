@@ -1,7 +1,7 @@
-// 원자재 오브젝트 아이템 고르기 시험 — 기획 D-540 1222(다 어군 = 낚시 사다리 굴림, 나 난파선 = 굴림표)
+// 원자재 오브젝트 아이템 고르기 시험 — 기획 D-540 1222(다 어군 = 낚시 사다리 굴림, 나 난파선 = 굴림표), D-541 1307 나(어군 티어 범위)
 import { TEST_GATHER_BANDS } from "@terra/sim";
 import { describe, expect, it } from "vitest";
-import { type ObjectYieldCatalog, objectYieldItem, pickTableItem } from "./objectYield.ts";
+import { type ObjectYieldCatalog, foldTierRange, objectYieldItem, pickTableItem } from "./objectYield.ts";
 
 const FISH_LADDER = [
   ["item:loach", "item:minnow"],
@@ -106,5 +106,29 @@ describe("사다리 굴림(어군 = 낚시 사다리)", () => {
     expect(objectYieldItem({ item: "barley", facility: "farm", ladder: true }, catalog, input(1))).toBe(
       "barley",
     );
+  });
+});
+
+describe("어군 티어 범위(질문 1307 나)", () => {
+  it("범위 밖 티어는 범위 안으로 접는다(위는 max, 아래는 min), 범위가 없으면 그대로", () => {
+    const shelf = { min: 2, max: 6 };
+    expect([0, 1, 2, 4, 6, 7, 9].map((tier) => foldTierRange(tier, shelf))).toEqual([2, 2, 2, 4, 6, 6, 6]);
+    expect(foldTierRange(9, undefined)).toBe(9);
+    expect(foldTierRange(5, { min: 6, max: 2 })).toBe(2);
+  });
+
+  it("민물 T0~T2: 높은 스탯에도 T3(꽁치)이 나오지 않고 연어(T2)로 접힌다", () => {
+    const lake = { item: "carp", facility: "fishing_spot", ladder: true, tierRange: { min: 0, max: 2 } };
+    const got = count(lake, 5000, 75, 75);
+    expect(got.get("saury")).toBeUndefined();
+    const open = count({ item: "carp", facility: "fishing_spot", ladder: true }, 5000, 75, 75);
+    expect(got.get("salmon") ?? 0).toBe((open.get("salmon") ?? 0) + (open.get("saury") ?? 0));
+  });
+
+  it("대륙붕 T2~T6: 새 유닛(스탯 20)의 T0·T1은 T2로 올라 연어 이상만 나온다", () => {
+    const shelf = { item: "mackerel", facility: "fishing_spot", ladder: true, tierRange: { min: 2, max: 6 } };
+    const got = count(shelf, 5000);
+    expect([...got.keys()].toSorted()).toEqual(["salmon", "saury"]);
+    expect(Math.abs((got.get("salmon") ?? 0) - 4750)).toBeLessThan(150);
   });
 });

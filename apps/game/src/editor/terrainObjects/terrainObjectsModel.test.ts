@@ -10,6 +10,7 @@ import {
   hashEntry,
   kindCounts,
   setAmount,
+  setSlow,
   sortKeys,
   terrainRows,
 } from "./terrainObjectsModel.ts";
@@ -37,7 +38,12 @@ describe("지형 오브젝트 편집기 자료", () => {
     expect(deep.find((row) => row.id === "whale_pod")).toMatchObject({ kind: "school", amount: 2 });
     const ice = terrainRows(pack, "ice_sheet");
     expect(ice.find((row) => row.id === "crevasse")?.kind).toBe("cover");
-    expect(ice.find((row) => row.id === "snowdrift")?.kind).toBe("decor");
+    expect(ice.find((row) => row.id === "snowdrift")).toMatchObject({
+      kind: "slow",
+      slowPm: 1500,
+      slowEditable: true,
+    });
+    expect(ice.find((row) => row.id === "crevasse")).toMatchObject({ slowPm: null, slowEditable: false });
     // 공통 채집 자리(바이옴 표 없음)는 줄이 아니다
     expect(terrainRows(pack, "taiga").some((row) => row.id === "conifer_tree")).toBe(false);
   });
@@ -58,6 +64,28 @@ describe("지형 오브젝트 편집기 자료", () => {
       "school_deep",
     ]);
     expect(changedEntries(pack, pack)).toEqual([]);
+  });
+
+  it("느림 배율(질문 1223 나): 마른 칸 흩기 소품만, 범위로 자르고 1000 이하·비우면 칸을 지운다", () => {
+    let edited = setSlow(pack, "snowdrift", 9999);
+    expect(terrainRows(edited, "ice_sheet").find((row) => row.id === "snowdrift")?.slowPm).toBe(5000);
+    edited = setSlow(edited, "frost_pool", 1200);
+    expect(terrainRows(edited, "tundra").find((row) => row.id === "frost_pool")).toMatchObject({
+      kind: "slow",
+      slowPm: 1200,
+    });
+    edited = setSlow(edited, "sand_dune", null);
+    const dune = edited.mapProps.find((entry) => entry.id === "sand_dune");
+    expect(dune && "slowPm" in dune).toBe(false);
+    expect(terrainRows(edited, "desert").find((row) => row.id === "sand_dune")?.kind).toBe("decor");
+    // 차폐·물 위·숲 항목은 그대로
+    expect(setSlow(pack, "crevasse", 1500)).toEqual(pack);
+    expect(setSlow(pack, "kelp", 1500)).toEqual(pack);
+    expect(changedEntries(pack, edited).map((change) => change.id)).toEqual([
+      "snowdrift",
+      "frost_pool",
+      "sand_dune",
+    ]);
   });
 
   it("차이 파일: entries만, from = 팩 항목 정규 JSON SHA-256(적용 스크립트와 같은 셈)", async () => {

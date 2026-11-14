@@ -82,6 +82,18 @@ describe("map_props 분류", () => {
     expect(twice[0]?.[3]).toContain("두 번");
   });
 
+  it("느림 배율(slowPm)은 1001 ~ 5000, 지나갈 수 있는 마른 칸 흩기 소품만(질문 1223 나)", () => {
+    expect(problems([scatter({ cover: 0, slowPm: 1500 })])).toEqual([]);
+    expect(problems([scatter({ cover: 1, slowPm: 5000 })])).toEqual([]);
+    expect(problems([scatter({ cover: 0, slowPm: 1000 })])).toHaveLength(1);
+    expect(problems([scatter({ cover: 0, slowPm: 5001 })])).toHaveLength(1);
+    expect(problems([scatter({ cover: 0, slowPm: 1500.5 })])).toHaveLength(1);
+    expect(problems([scatter({ cover: 2, slowPm: 1500 })])[0]?.[3]).toContain("느림 배율");
+    expect(problems([scatter({ cover: 0, water: true, slowPm: 1500 })])[0]?.[3]).toContain("느림 배율");
+    // 숲 항목에는 없다(숲 비용이 따로 있다)
+    expect(problems([forest({ slowPm: 1500 })])[0]?.[3]).toContain("slowPm");
+  });
+
   it("배치 방식이 모르는 값이면 실패한다", () => {
     expect(problems([forest({ placement: "grid" })])[0]?.[3]).toContain("배치 방식");
   });

@@ -30,6 +30,8 @@ export interface TerrainServiceOptions {
   /** 행성 값 파일(TCPV) — 행성 서비스가 준비되면 풀린다 */
   values: () => Promise<Uint8Array>;
   props: MapPropInput[];
+  /** 그림 번호 → 느림 배율 표(천분율, 팩 map_props slowPm — mapProps.ts mapPropSlowByArtFromPack). 없으면 느려짐 없음 */
+  slowByArt?: Uint16Array | undefined;
   planetGeneratorVersion: number;
   definitionHash: string;
   /** 행성 캐시 폴더(PLANET_CACHE_DIR). 그 아래 second-maps/에 쓴다. 없으면 디스크 캐시 없이 */
@@ -45,6 +47,8 @@ export interface TerrainService {
   readonly ready: Promise<void>;
   /** 지금 주소 판 표지(준비 전 undefined) */
   version(): string | undefined;
+  /** 그림 번호 → 느림 배율 표(고정본을 읽을 때 지형 비용에 같이 넣는다 — mapFactory.ts). 없으면 느려짐 없음 */
+  readonly slowByArt?: Readonly<Uint16Array> | undefined;
   get(mapKey: number): Promise<MapTerrain>;
   /** 메모리에 이미 있는 것만(없으면 undefined) */
   peek(mapKey: number): MapTerrain | undefined;
@@ -118,6 +122,7 @@ export function createTerrainService(options: TerrainServiceOptions): TerrainSer
     const init: Omit<TerrainWorkerInit, "type"> = {
       values: copyBytes(values),
       props: options.props,
+      slowByArt: options.slowByArt,
       planetId: options.planetId,
       planetGeneratorVersion: options.planetGeneratorVersion,
       definitionHash: options.definitionHash,
@@ -266,6 +271,7 @@ export function createTerrainService(options: TerrainServiceOptions): TerrainSer
   return {
     ready,
     version: () => currentVersion,
+    slowByArt: options.slowByArt,
     get,
     peek: (mapKey) => memory.get(mapKey),
     cellValues(mapKey) {

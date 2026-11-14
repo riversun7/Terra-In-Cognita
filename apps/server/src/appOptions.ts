@@ -74,7 +74,12 @@ export interface AppOptions {
    * 지형 서비스를 띄워 시험 2차맵 지형을 만든다. 없으면 S1 임시 지형. props = 콘텐츠 map_props(src/world/mapProps.ts)
    */
   secondMaps?:
-    | { props: MapPropInput[]; runner: { kind: "worker"; workerUrl: URL } | { kind: "inline" } }
+    | {
+        props: MapPropInput[];
+        /** 그림 번호 → 느림 배율 표(팩 map_props slowPm, src/world/mapProps.ts mapPropSlowByArtFromPack). 없으면 느려짐 없음 */
+        slowByArt?: Uint16Array | undefined;
+        runner: { kind: "worker"; workerUrl: URL } | { kind: "inline" };
+      }
     | undefined;
   /**
    * 행성 편집기(ADR 38): 서버가 켤 때 만든 정의 조회 자료(src/planetEditor/definitions.ts). 인증이 켜져 있어야 쓴다.

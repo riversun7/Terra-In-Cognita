@@ -7271,5 +7271,6 @@
   "map_bag_close": "닫기",
   "map_bag_not_mine": "내 유닛을 고르면 그 유닛의 물건이 보입니다.",
   "map_bag_more": "인벤토리에서 보기",
-  "card_assets_open": "인벤토리 열기"
+  "card_assets_open": "인벤토리 열기",
+  "inventory_value_basis": "추정 가치는 기준 도시의 마지막 체결가(없으면 시작 시세)로 셉니다."
 }

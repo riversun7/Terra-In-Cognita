@@ -107,7 +107,11 @@ function AllTab({
             <dd data-fact="value">{valueText(value, index) ?? m.inventory_value_none()}</dd>
           </div>
         </dl>
-        <p className="eco-footnote">{m.inventory_value_note({ unpriced: value.unpriced })}</p>
+        <p className="eco-footnote">
+          {value.unpriced > 0
+            ? m.inventory_value_note({ unpriced: value.unpriced })
+            : m.inventory_value_basis()}
+        </p>
       </section>
       <section className="panel" aria-labelledby="inventory-totals-title">
         <h2 id="inventory-totals-title" className="eco-section-title">

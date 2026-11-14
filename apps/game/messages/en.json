@@ -7271,5 +7271,6 @@
   "map_bag_close": "Close",
   "map_bag_not_mine": "Pick one of your units to see its items.",
   "map_bag_more": "Open in inventory",
-  "card_assets_open": "Open inventory"
+  "card_assets_open": "Open inventory",
+  "inventory_value_basis": "Estimated from the home city's last trade price (or the starting price)."
 }

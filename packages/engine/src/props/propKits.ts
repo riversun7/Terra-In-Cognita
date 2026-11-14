@@ -359,10 +359,6 @@ export function buildKit(put: PartSink, look: PropLook, ctx: ShapeContext): void
       disc(put, ctx, 2.4 * size, 1.8 * size, 0.01, body);
       chips(put, ctx, 3, 2, 0.2, tone(second, accent, ctx), 360);
       return;
-    case "islet":
-      put("blob", x, y - 0.3, z, 3 * size, h, 2.4 * size, turn, 0, body);
-      put("cone", x, y + h * 0.5, z, 1.2 * size, 2.6 * size, 1.2 * size, turn, 0, tone(second, accent, ctx));
-      return;
     default:
       put("chip", x, y + 0.1, z, 0.3, 0.2, 0.3, turn, 0, body);
   }

@@ -782,20 +782,6 @@
       "clump": { "cells": 8, "threshold": 450 },
       "maxShare": 40,
       "water": true
-    },
-    {
-      "id": "islet",
-      "name": { "ko": "작은 섬", "en": "Islet" },
-      "description": {
-        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
-        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
-      },
-      "placement": "scatter",
-      "art": "islet",
-      "cover": 0,
-      "biomes": [{ "biome": "lake", "weight": 5 }, { "biome": "ocean_coastal", "weight": 1 }],
-      "maxShare": 5,
-      "water": true
     }
   ]
 }

@@ -125,7 +125,7 @@ const TERRAIN_LOOKS: Readonly<Record<string, PropLook>> = {
   seabed_oil: kit("seaMarker", [0.1, 0.1, 0.12], 0.1, 45, [0.36, 0.3, 0.46], true),
   lily_pads: kit("lily", [0.3, 0.56, 0.3], 0.1, 40, [0.96, 0.7, 0.8], true),
   mud_flat: kit("mudFlat", [0.46, 0.38, 0.28], 0.1, 40, [0.36, 0.3, 0.22]),
-  islet: kit("islet", [0.86, 0.8, 0.6], 1, 60, [0.34, 0.54, 0.28], true),
+  // islet(작은 섬)은 지웠다(사용자 결정 2026-11-14): 겉모습이 없어 옛 고정본 지형 파일에 남은 번호도 그리지 않는다
   shore_rock: kit("tideRock", [0.5, 0.5, 0.47], 1.8, 40, [0.44, 0.52, 0.34]),
 };
 

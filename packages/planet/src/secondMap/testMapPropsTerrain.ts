@@ -716,22 +716,4 @@ export const TEST_TERRAIN_MAP_PROPS: readonly MapPropInput[] = [
     maxShare: 40,
     water: true,
   },
-  {
-    id: "islet",
-    placement: "scatter",
-    art: "islet",
-    cover: 0,
-    biomes: [
-      {
-        biome: "lake",
-        weight: 5,
-      },
-      {
-        biome: "ocean_coastal",
-        weight: 1,
-      },
-    ],
-    maxShare: 5,
-    water: true,
-  },
 ];

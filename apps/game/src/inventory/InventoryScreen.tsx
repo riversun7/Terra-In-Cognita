@@ -15,9 +15,7 @@ import { FACILITY_ERROR_TEXT, type FacilityRun } from "../economy/facilityText.t
 import { Amount, Loaded } from "../economy/parts.tsx";
 import { NO_ARGS, useCatalog, useFacilities, useHoldings, useMarketItems } from "../economy/queries.ts";
 import { StorageMoveForm } from "../economy/StorageParts.tsx";
-import { usePreviewOn } from "../inbox/preview.ts";
 import { m } from "../paraglide/messages.js";
-import { loadUnits, useRosterQuery } from "../roster/useRosterQuery.ts";
 import { AppLink } from "../shell/AppLink.tsx";
 import { BackButton } from "../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
@@ -36,6 +34,7 @@ import {
 import { priceLookup, valueText } from "./inventoryValue.ts";
 import { PlaceCard, WalletPanel } from "./PlaceCard.tsx";
 import { UnitsTab } from "./UnitsTab.tsx";
+import { useGearSources } from "./unitGear.ts";
 import "../economy/economy.css";
 import "./inventory.css";
 
@@ -204,12 +203,11 @@ export default function InventoryScreen({
   unit: string | undefined;
 }) {
   const current = parseInventoryTab(tab);
-  const preview = usePreviewOn();
   const catalog = useCatalog(NO_ARGS);
   const holdings = useHoldings(NO_ARGS);
   const facilities = useFacilities(NO_ARGS);
   const market = useMarketItems(current === "all" ? NO_ARGS : null);
-  const roster = useRosterQuery(loadUnits, preview);
+  const gear = useGearSources();
   const live = useLiveLines();
   const [busy, setBusy] = useState(false);
   const [tone, setTone] = useState<"success" | "error">("success");
@@ -261,9 +259,7 @@ export default function InventoryScreen({
                 />
               );
             case "units":
-              return (
-                <UnitsTab roster={roster} cargo={groups.cargo} index={index} now={now} open={openUnit} />
-              );
+              return <UnitsTab gear={gear} cargo={groups.cargo} index={index} now={now} open={openUnit} />;
             case "warehouses":
               return (
                 <PlacesTab

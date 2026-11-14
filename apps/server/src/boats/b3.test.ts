@@ -1,11 +1,11 @@
 // 배 B3 규칙 시험(docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B3)", 기획 D-542):
-// - 1321 나: 만드는 중에 부두가 없어지면 뺀 재료를 뺀 자리로 돌려준다
+// - 재료(기획 D-545 1405 "돌려주지 않음", D-542 1321 나 반환을 대체): 만드는 중에 부두가 없어지면 재료도 잃는다
 // - 1326 나: 배는 보유 유닛 수에서 빠진다(유지비는 그대로 boat_upkeep_pm)
 import { START_BOATS, SURFACE_WATER, TEST_SOCIETY_COEFFICIENTS, createLedgerBook } from "@terra/sim";
-import { buildingLocation, cargoLocation, cityLocation } from "@terra/shared/goodsPlaces";
+import { cityLocation } from "@terra/shared/goodsPlaces";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FacilityDef } from "../facilities/catalog.ts";
-import { goodsAsset, refundGoods, spendGoodsTaken } from "../facilities/materials.ts";
+import { goodsAsset } from "../facilities/materials.ts";
 import type { PlaceWorld } from "../facilities/places.ts";
 import type { FacilityRecord } from "../facilities/state.ts";
 import { createTestMap, flatTerrain } from "../world/testSupport.ts";
@@ -53,44 +53,8 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-describe("배 B3: 재료 돌려주기(1321 나)", () => {
-  it("뺀 자리마다 양을 적고, 돌려주면 그 자리로 간다(없어진 자리는 바꾼 자리로)", () => {
-    const ledger = ledgerBook();
-    const asset = goodsAsset("pine_log");
-    const fund = (location: number | null, qty: bigint) =>
-      ledger.post({
-        kind: "test",
-        atMs: START,
-        entries: [
-          { account: ledger.systemAccount(`source:${asset}`, asset), amount: -qty },
-          { account: ledger.ownerAccount(7, asset, location), amount: qty },
-        ],
-      });
-    fund(cityLocation(CITY), 10n);
-    fund(cargoLocation(42), 10n);
-    const taken = spendGoodsTaken(ledger, 7, [{ item: "pine_log", qty: 14 }], START, "boat_build", [
-      cityLocation(CITY),
-      cargoLocation(42),
-    ]);
-    expect(taken).toEqual([
-      { item: "pine_log", qty: 10, location: cityLocation(CITY) },
-      { item: "pine_log", qty: 4, location: cargoLocation(42) },
-    ]);
-    expect(ledger.balanceOf(7, asset, cityLocation(CITY))).toBe(0n);
-    expect(spendGoodsTaken(ledger, 7, [{ item: "pine_log", qty: 99 }], START, "x", "anywhere")).toBe(
-      undefined,
-    );
-    // 유닛 42가 없어졌으면 그 몫은 위치 없음으로
-    const rows = refundGoods(ledger, 7, taken ?? [], START, "boat_refund", (location) =>
-      location === cargoLocation(42) ? null : location,
-    );
-    expect(rows).toBe(2);
-    expect(ledger.balanceOf(7, asset, cityLocation(CITY))).toBe(10n);
-    expect(ledger.balanceOf(7, asset, null)).toBe(4n);
-    expect(ledger.balanceOf(7, asset, cargoLocation(42))).toBe(6n);
-  });
-
-  it("작업 줄 jsonb: 자리를 읽고, 옛 줄(자리 없음)은 null", () => {
+describe("배 재료는 돌려주지 않음(D-545 1405)", () => {
+  it("작업 줄 jsonb: 아이템·양만 읽는다(B3 줄의 뺀 자리는 버린다)", () => {
     expect(
       materialsOf(
         JSON.stringify([
@@ -100,12 +64,12 @@ describe("배 B3: 재료 돌려주기(1321 나)", () => {
         ]),
       ),
     ).toEqual([
-      { item: "pine_log", qty: 3, location: 5 },
-      { item: "stone", qty: 2, location: null },
+      { item: "pine_log", qty: 3 },
+      { item: "stone", qty: 2 },
     ]);
   });
 
-  it("만드는 중에 부두가 부서지면 재료가 뺀 도시 창고로 돌아온다", async () => {
+  it("만드는 중에 부두가 부서지면 작업은 버리고 재료는 돌아오지 않는다", async () => {
     const { map } = createTestMap({ terrain: coastTerrain() });
     const maps = new Map([[map.mapKey, map]]);
     const facilities = new Map<number, FacilityRecord>();
@@ -160,8 +124,15 @@ describe("배 B3: 재료 돌려주기(1321 나)", () => {
     facilities.delete(dockId);
     await vi.advanceTimersByTimeAsync(60_000);
     expect(service.building).toBe(0);
-    expect(ledger.balanceOf(7, asset, cityLocation(CITY))).toBe(20n);
-    expect(ledger.balanceOf(7, asset, buildingLocation(dockId))).toBe(0n);
+    // 창고는 뺀 그대로(6), 뺀 14는 시스템 소비 계정에 남는다(어느 자리로도 돌아오지 않음)
+    expect(ledger.balanceOf(7, asset, cityLocation(CITY))).toBe(6n);
+    let owned = 0n;
+    for (const account of ledger.accounts())
+      if (account.ownerId === 7 && account.asset === asset) owned += account.balance;
+    expect(owned).toBe(6n);
+    expect(ledger.balance(ledger.systemAccount(`sink:${asset}`, asset))).toBe(14n);
+    // 배도 뜨지 않는다
+    expect(map.unitInfo(500)).toBeUndefined();
     expect(errors).toHaveLength(1);
     service.stop();
   });

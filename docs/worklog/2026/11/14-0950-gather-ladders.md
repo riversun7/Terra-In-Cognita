@@ -27,6 +27,8 @@
 | 자생초(약초원) | 0.39 → 0.61 (+59%) | 0.39 → 0.61 | 0.58 → 0.86 (+49%) | 0.58 → 0.86 |
 | 미꾸라지(낚시터) | 0.29 → 0.39 (+38%) | 0.30 → 0.42 | 0.48 → 0.64 (+32%) | 0.51 → 0.68 |
 
+- 기본 건축 재료 어림(Verified: `node apps/server/bench/resourceOverlap.ts` "기본 건축 재료" 표, 일꾼 5명·유효 20 — 전 = `docs/worklog/2026/11/12-2120-resource-biome.md`의 "뒤" 값): 시작 도시 49곳 통나무/일 중앙 56.1 → 88.8(D-537 전 85.9), 석재 20.2 → 20.2, 창고 + 숙소 Lv1 날 중앙 0.8 → 0.8. 평원 칸 통나무 21.4 → 33.9, 석재 19.3 → 19.3. 사막 칸 통나무 21.6 → 34.3.
+
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
 |---|---|
@@ -40,7 +42,7 @@
 | `apps/server/src/gather/{objectYield.ts(새, +시험),kinds.ts(+시험),service.ts,reads.ts}` | 직접 채집 아이템 고르기·조회 칸 |
 | `apps/server/src/facilities/npcSeed.ts`(+시험), `cityLayoutGround.ts`(+새 시험) | 1213·1230 |
 | `apps/server/bench/gatherLadders.ts`(새), `resourceOverlap.ts`, `apps/server/package.json` | 측정 |
-| `apps/game/src/editor/production/*`(띠 표 고르기 새 파일 `ProductionLadderPicker.tsx`), `gatherTiers/gatherTierModel.ts`(+시험), `map/gather/GatherPanel.tsx`, `messages/{ko,en}.json` | 편집기 띠 표·판 문구 |
+| `apps/game/src/editor/production/*`(띠 표 고르기 새 파일 `ProductionLadderPicker.tsx`, `production.css` 눌림 모양 — `ProductionEditorScreen.tsx`는 616줄로 600줄 경고), `gatherTiers/gatherTierModel.ts`(+시험), `map/gather/GatherPanel.tsx`, `messages/{ko,en}.json` | 편집기 띠 표·판 문구 |
 | `e2e/gather-tiers.spec.ts` | 기본 표 줄 수·광석 표 고르기 |
 | ADR 둘 "바뀜", 질문 1301~1311 | 결정 기록·물음 |
 
@@ -60,7 +62,12 @@
 - 시뮬 전체 경제(econ16)에서 목재·약초 산출 변화는 재지 않았다(Unknown) — 띠만 바뀌어 위 표와 같은 방향(Assumed).
 
 ## 검사
-- (아래 줄에 적는다)
+- Verified: `pnpm check`(TEST_DATABASE_URL 있음) — 시험 파일 675/675, 시험 5,128/5,128 통과(건너뜀 없음).
+- Verified: `pnpm check:content origin/main`(core@83, 호환 포함)·`pnpm check:docs origin/main`·`check:contrast` 통과.
+- Verified: `pnpm build`(build-exit 0) + `node scripts/check-pwa.mjs` + `pnpm check:bundle` 통과.
+- Verified: `pnpm e2e e2e/gather-expect.spec.ts e2e/gather-station.spec.ts e2e/gather-tiers.spec.ts e2e/terrain-objects.spec.ts e2e/cyborg.spec.ts` 56 통과·1 건너뜀(E2E_MEASURE 측정 전용), 9.1분.
+- 그 뒤 고친 것: 띠 표 고르기 단추의 눌림 모양 CSS 한 규칙(`production.css .pd-ladders`) — `check:contrast`·포맷만 다시 돌림, 빌드·화면 시험은 다시 돌리지 않았다(Assumed: 개발 조각 CSS 한 규칙).
+- 사진: `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/gather-ladders-shots/gather-tiers-light-ko-1440.png`(띠 표 고르기), `gather-tiers-neon-ko-390.png`, `gather-station-sheet-390-pastel-ko.png`, `cyborg-gather-390-dark.png`.
 
 ## 사용자 결정 대기
 - 질문 1301~1311.

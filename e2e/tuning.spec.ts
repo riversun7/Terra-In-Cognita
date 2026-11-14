@@ -95,6 +95,8 @@ async function panelReady(page: Page): Promise<void> {
 
 /** 분야 고르기: 넓은 폭은 왼쪽 목록, 휴대폰은 고르기 상자 */
 async function choosePage(page: Page, tab: string): Promise<void> {
+  // 다시 불러온 바로 뒤에는 목록이 아직 없다: 준비된 뒤에 넓은 폭(목록)인지 본다
+  await expect(page.locator(".tp-screen")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   const button = page.locator(`.tp-nav-list .tp-page[data-page='${tab}']`);
   if (await button.isVisible()) await button.click();
   else await page.locator(".tp-page-select").selectOption(tab);
@@ -149,20 +151,22 @@ test.describe("개발자", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("서로 묶인 칸: 합만 보내면 규칙 문제(N9)로 거절, 칸 최대와 함께 보내면 받는다. 구조 값은 확인 창, 내보내기, 모두 되돌리기", async ({
+  // D-534(초기 스탯 합 상한 100) 뒤로 합만 올려서는 거절을 만들 수 없다(합 ≤ 100 ≤ 칸 최대 20 × 6).
+  // 그래서 칸 최대를 내려(9 × 6 = 54 < 팩 합 60) 거절을 보고, 합(50)을 함께 담아 받게 한다
+  test("서로 묶인 칸: 칸 최대만 보내면 규칙 문제(N9)로 거절, 합과 함께 보내면 받는다. 구조 값은 확인 창, 내보내기, 모두 되돌리기", async ({
     page,
     deviceErrors,
   }) => {
     await panelReady(page);
     await resetTuning(page);
     await page.reload();
-    await stageValue(page, "n9_initial_sum", "150");
+    await stageValue(page, "n9_initial_max", "9");
     await page.locator(".tp-apply").click();
     const alert = page.locator(".tp-screen [role='alert']").first();
     await expect(alert).toContainText(message("ko", "dev_tuning_problem_n9_fit"));
-    // 거절되면 담은 것은 남는다 → 칸 최대를 더 담아 함께 보낸다
-    await expect(row(page, "n9_initial_sum")).toHaveAttribute("data-staged", "");
-    await stageValue(page, "n9_initial_max", "30");
+    // 거절되면 담은 것은 남는다 → 합을 더 담아 함께 보낸다
+    await expect(row(page, "n9_initial_max")).toHaveAttribute("data-staged", "");
+    await stageValue(page, "n9_initial_sum", "50");
     await expect(page.locator(".tp-pending-count")).toContainText("2");
     await page.locator(".tp-apply").click();
     await expect(page.locator(".tp-pending")).toHaveCount(0);
@@ -490,7 +494,20 @@ test.describe("개발자·데스크톱", () => {
       "aria-pressed",
       "true",
     );
-    await expect(lifespan.locator(".tp-preview")).toContainText("ms");
+    // 값 칸은 분, 지금 값 풀이는 ms 정수를 함께 보인다(60일 = 86,400분 = 5,184,000,000 ms)
+    const input = lifespan.locator(".tp-input");
+    await expect(input).toHaveValue("86400");
+    await expect(lifespan.locator(".tp-value-now")).toContainText("5,184,000,000 ms");
+    // 미리 보기는 처음 값과 다른 맞는 값을 칠 때만 보인다(단위 전환 전과 같은 규칙) → 60분 늘려 치고 담는다
+    await input.fill("86460");
+    await expect(lifespan.locator(".tp-preview")).toContainText("5,187,600,000 ms");
+    await lifespan.locator(".tp-stage").click();
+    await expect(lifespan).toHaveAttribute("data-staged", "");
+    // 담은 값은 ms 정수(분 × 60,000)
+    await expect(lifespan.locator(".tp-value-staged")).toContainText("5,187,600,000 ms");
+    await expect(input).toHaveValue("86460");
+    await lifespan.locator(".tp-unstage").click();
+    await expect(page.locator(".tp-pending")).toHaveCount(0);
     expect(deviceErrors).toEqual([]);
   });
 });

@@ -148,10 +148,12 @@ function RowEditor({ entry, start, durationUnit, locale, onStage, onMove, scrubR
   const [seenUnit, setSeenUnit] = useState<DurationEditUnit | null>(activeUnit);
   const [clamped, setClamped] = useState<string | null>(null);
   if (seen !== shown || seenUnit !== activeUnit) {
+    // 맞춘 끝 값을 담아 처음 값이 그 값이 된 때(글자 = 새 값)는 맞춘 까닭 문구를 남긴다.
+    // 단위가 바뀌거나 다른 값(담기 취소·적용·되돌리기)으로 바뀌면 지운다
+    if (seenUnit !== activeUnit || text !== shown) setClamped(null);
     setSeen(shown);
     setSeenUnit(activeUnit);
     setText(shown);
-    setClamped(null);
   }
   const bounds = activeUnit ? durationEditBounds(entry, activeUnit) : { min: entry.min, max: entry.max };
   const min = bounds.min ?? -TUNING_VALUE_LIMIT;

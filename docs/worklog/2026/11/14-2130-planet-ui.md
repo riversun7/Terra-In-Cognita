@@ -43,7 +43,6 @@
 - 필요 없음: DB 마이그레이션·팩·SIM·프로토콜 판 그대로. 화면과 tRPC 조회 칸 하나(선택 칸)만 더했다.
 
 ## 미검증·TODO·알려진 문제
-- (화면 시험 결과는 아래 "확인"에 적는다)
 - 셋 이상 다른 국가 원이 한 점에서 얽히면 이긴 조각 밖 칠이 바탕 차례를 따른다(주인 규칙과 다를 수 있다 — 드물다, Assumed).
 - 실제 휴대폰에서 프레임 시간은 재지 않았다(Unknown). 헤드리스 값은 아래.
 
@@ -51,3 +50,13 @@
 - 질문 1431~1437(`docs/questions/2026-11-14-planet-ui.md`).
 
 ## 확인
+- Verified `pnpm check`(TEST_DATABASE_URL): 통과 — 시험 파일 700·시험 5,262개.
+- Verified `pnpm build`·`node scripts/check-pwa.mjs`·`pnpm check:bundle`·`pnpm check:docs origin/main`: 모두 통과.
+- Verified 화면 시험 `pnpm e2e e2e/planet-view.spec.ts e2e/play-map.spec.ts`: 40개 통과(10.1분). 마지막 이름표 수정 뒤 `planet-view.spec.ts --grep 레이어` 8개 다시 통과.
+  - 고도 과장: 플레이어 `data-engine-exaggeration` 12, 막대 없음. 운영진(dev·admin)은 운영 메뉴 안 막대가 ×12에서 시작, ×1 → ×20 그림 차이 dev 0.25·admin 0.83(잡음 0.00, 5단계 처음 보기). 카메라·누르기·구름·가까이 보기: 확대 단계·항성계·2차맵 들어가기 시험(같은 spec)이 ×12에서 그대로 통과.
+  - 영토: 3단계 → 4단계에서 칠한 영토 안 점(SVG isPointInFill)을 누르면 "영토: <국가>", 땅을 누르면 레이어 판이 닫힘. 4단계 그린 원 반지름 약 114px. 범례 국가 칩 색이 모두 서로 다른 `#rrggbb`.
+  - 프레임 시간(헤드리스 SwiftShader, 덧그림 포함 엔진 p95): 4단계 2.5~3.5ms, 1단계(끌며) 1.2~2.0ms. 시험 세계는 국가 4곳·도시 15곳만 알려진다 — 국가 16·도시 50은 단위 시험(셈 100ms 상한, 실제 수 ms)으로만 봤다(Assumed: 프레임 몫은 도시 수에 비례, 화면 밖 도시는 건너뛴다).
+  - 시험 세계 도시는 사람이 적어 배후지 반경이 최소 1칸이다: 1단계에서는 원이 1px 미만이라 그리지 않고(그린 도시 0), 3단계에서도 도시 표시에 가린다(질문 1437). 4·5단계에서 칠·테두리가 또렷하다.
+- 사진(390, 파스텔·다크, `E2E_SHOTS_DIR`): `planet-globe-390-*`(지형 행성 전체), `planet-layer-collapsed-390-*`(접힌 단추), `planet-layer-territory-open-390-*`(열린 판 + 영토 범례), `planet-layer-territory-390-*`·`planet-layer-territory-stage4-390-*`(영토·국가 이름·국가 색).
+- 단위 시험(Verified): `territoryShapes.test.ts` 11, `territoryDraw.test.ts` 3, `territoryPick.test.ts` 3, `nationColor.test.ts` 3, `reads.db.test.ts` 4(배후지 반경·국가 색 포함).
+

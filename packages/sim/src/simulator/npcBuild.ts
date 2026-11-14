@@ -546,9 +546,9 @@ export function simNpcBuilder(
         if (free <= 0) break;
         const slots =
           (economy.catalog.facilities.get(facility.recipe.facility)?.slotsPerLevel ?? 0) * facility.level;
-        const extra = add.get(facility.id) ?? 0;
-        if (facility.workers + extra >= slots) continue;
-        add.set(facility.id, extra + 1);
+        const given = add.get(facility.id) ?? 0;
+        if (facility.workers + given >= slots) continue;
+        add.set(facility.id, given + 1);
         free -= 1;
         moved = true;
       }
@@ -570,10 +570,10 @@ export function simNpcBuilder(
       add.set(donor.id, (add.get(donor.id) ?? 0) - 1);
       add.set(facility.id, (add.get(facility.id) ?? 0) + 1);
     }
-    for (const [id, extra] of add) {
+    for (const [id, delta] of add) {
       const facility = economy.facilities.get(id);
-      if (!facility || extra === 0) continue;
-      const next = { ...facility, workers: facility.workers + extra };
+      if (!facility || delta === 0) continue;
+      const next = { ...facility, workers: facility.workers + delta };
       economy.facilities.set(id, next);
       // 일꾼이 없어 생산이 걸려 있지 않던 시설은 지금부터 돌린다
       if (next.eventId === undefined) scheduleProduce(economy, world, loop, next, nowMs);

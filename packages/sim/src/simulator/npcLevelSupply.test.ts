@@ -89,6 +89,13 @@ const SCENARIO = parseScenario({
   })),
 });
 
+/** 건물 수 상한(등급 표를 모두 같은 값으로) */
+const cap = (n: number) =>
+  new Map([
+    ["npc_build_max_buildings", n],
+    ...[1, 2, 3, 4, 5, 6].map((grade): [string, number] => [`npc_build_cap_l${grade}`, n]),
+  ]);
+
 const run = (tuning: ReadonlyMap<string, number>) =>
   runSimulation({ scenario: SCENARIO, catalog: CATALOG, seed: 5, days: 20, tuning });
 
@@ -119,12 +126,6 @@ describe("레벨 재료 가공 시설(질문 1186 나)", () => {
   });
 
   it("가마·제재소를 지어 일꾼을 받고 판자·벽돌을 내며, 상한 뒤 레벨 올리기에 쓴다. 끄면 레벨 올리기가 없다", () => {
-    // 상한 = 처음 시설 + 몇 채(등급 표를 모두 같은 값으로)
-    const cap = (n: number) =>
-      new Map([
-        ["npc_build_max_buildings", n],
-        ...[1, 2, 3, 4, 5, 6].map((grade): [string, number] => [`npc_build_cap_l${grade}`, n]),
-      ]);
     const on = run(new Map([...cap(9), ["npc_build_level_supply", 1]]));
     const off = run(new Map([...cap(9), ["npc_build_level_supply", 0]]));
     expect(on.invariants).toMatchObject({ violations: 0, first: [] });

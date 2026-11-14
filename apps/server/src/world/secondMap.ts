@@ -497,6 +497,13 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     aboard: unit.aboard,
   });
 
+  /** 명령을 받을 유닛: 승객이면 같은 주인의 그 배(없으면 undefined), 아니면 그 유닛 */
+  const boatOf = (unit: UnitState): UnitState | undefined => {
+    if (unit.aboard === undefined) return unit;
+    const boat = units.get(unit.aboard);
+    return boat?.kind === UNIT_KIND_BOAT && boat.ownerId === unit.ownerId ? boat : undefined;
+  };
+
   /** 승객을 배에서 떼어 안전한 땅에 세운다(배가 없어짐·복구 때 배가 없음) */
   const releaseRider = (unit: UnitState): void => {
     unit.aboard = undefined;
@@ -807,8 +814,10 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     isStandable: (cellX, cellY, size) => isPassable(grid, cellX, cellY, size),
     halt(unitId) {
-      const unit = units.get(unitId);
-      if (!unit || unit.bot || unit.aboard !== undefined) return false;
+      // 승객을 멈추면 그 배가 선다(D-541 1279 나)
+      const rider = units.get(unitId);
+      const unit = rider && boatOf(rider);
+      if (!unit || unit.bot) return false;
       cancelEvent(unit);
       unit.routeSeq += 1;
       unit.planning = false;
@@ -839,12 +848,15 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       return count;
     },
     moveUnit(unitId, target, moveOptions) {
-      const unit = units.get(unitId);
-      if (!unit) return Promise.resolve({ ok: false, code: "unknown_unit" });
-      if (unit.aboard !== undefined) return Promise.resolve({ ok: false, code: "aboard" });
+      const commanded = units.get(unitId);
+      if (!commanded) return Promise.resolve({ ok: false, code: "unknown_unit" });
       // [임시] 포로·중태는 명령을 받지 않는다. 전용 결과 코드는 전투 화면(L1) 때 프로토콜에 더한다
-      if (unavailable(unit.condition, now())) return Promise.resolve({ ok: false, code: "invalid_request" });
-      const speedFactor = moveOptions?.speedFactor ?? paces.get(unitId) ?? 1;
+      if (unavailable(commanded.condition, now()))
+        return Promise.resolve({ ok: false, code: "invalid_request" });
+      // 승객에게 내린 이동은 그 배의 이동(기획 D-541 1279 나). 배가 없거나 주인이 다르면 그대로 aboard
+      const unit = boatOf(commanded);
+      if (!unit) return Promise.resolve({ ok: false, code: "aboard" });
+      const speedFactor = moveOptions?.speedFactor ?? paces.get(unitId) ?? paces.get(unit.id) ?? 1;
       return new Promise((resolve) =>
         requestRoute(unit, target, "command", COMMAND_NODE_BUDGET, resolve, speedFactor),
       );

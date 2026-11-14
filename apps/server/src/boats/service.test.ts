@@ -131,7 +131,8 @@ describe("배", () => {
     expect(map.unitInfo(2)?.aboard).toBe(1);
     expect(map.passengers(1)).toEqual([2]);
     expect(await service.board("player", 2, 1, false)).toEqual({ ok: false, code: "already_aboard" });
-    expect(await map.moveUnit(2, anchorCenter(100, 50, 1))).toEqual({ ok: false, code: "aboard" });
+    // 승객에게 내린 이동은 배 이동(D-541 1279 나) — 땅은 배가 못 간다
+    expect(await map.moveUnit(2, anchorCenter(100, 50, 1))).toEqual({ ok: false, code: "goal_blocked" });
     // 배가 나가면 승객도 같은 자리
     expect((await map.moveUnit(1, anchorCenter(180, 120, 2))).ok).toBe(true);
     vi.setSystemTime(START + 20_000);

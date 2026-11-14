@@ -42,7 +42,13 @@ export function BoatActions({
           <span className="boat-tip"> · {m.boat_sail_hint()}</span>
         </p>
       ) : null}
-      {choice.kind === "rider" ? <p className="boat-line">{m.boat_aboard({ id: choice.boatId })}</p> : null}
+      {choice.kind === "rider" ? (
+        <p className="boat-line">
+          {m.boat_aboard({ id: choice.boatId })}
+          {/* 승객에게 내린 이동은 배 이동(기획 D-541 1279 나) */}
+          <span className="boat-tip"> · {m.boat_sail_hint()}</span>
+        </p>
+      ) : null}
       {choice.kind === "board" ? (
         <button
           type="button"

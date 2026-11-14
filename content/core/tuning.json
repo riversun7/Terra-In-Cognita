@@ -10715,6 +10715,42 @@
         "en": "A unit within this many cells of the boat boards at once. Landing cells are searched within this range of the boat."
       },
       "source": "ADR 2026-11-13-boats · 질문 1272 [임시]"
+    },
+    {
+      "id": "boat_build_time_pm",
+      "code": "",
+      "name": {
+        "ko": "배 만드는 시간(부두 레벨 1 건설 시간 × ‰)",
+        "en": "Boat build time (dock level 1 build time × ‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "배 하나를 만드는 시간 = 부두 레벨 1 건설 시간 × 이 값 ÷ 1000. 다 되면 부두 옆 물에 배가 뜬다. 0이면 바로 만든다.",
+        "en": "Time to build one boat = the dock's level 1 build time × this ÷ 1000. The boat appears on the water next to the dock when done. 0 = instant."
+      },
+      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B2)\" · D-541 질문 1271 나 [임시]"
+    },
+    {
+      "id": "boat_upkeep_pm",
+      "code": "",
+      "name": {
+        "ko": "배 유지비(보통 유닛 = 1000‰)",
+        "en": "Boat upkeep (a regular unit = 1000‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "배 하나의 유지비 무게. 보통 유닛이 1000이다. 사람보다 싸게 둔다.",
+        "en": "Upkeep weight of one boat. A regular unit is 1000. Kept cheaper than a person."
+      },
+      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B2)\" · D-541 질문 1277 다 [임시]"
     }
   ]
 }

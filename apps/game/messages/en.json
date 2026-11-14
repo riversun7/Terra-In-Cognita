@@ -681,7 +681,7 @@
   "map_perf_updates": "Updates {ups}/s · {kbps} KB/s · lag {lag} ms",
   "map_code_not_owner": "That unit isn't yours.",
   "map_code_unit_stays": "Guardian spirits stay in their city and can't be moved.",
-  "map_code_aboard": "Units aboard a boat don't move on their own. Select the boat or leave it first.",
+  "map_code_aboard": "You can't steer the boat this unit is on (it isn't yours). Leave it first.",
   "map_unit_selected_own": "{unit} selected. Tap the ground to send it there.",
   "map_unit_selected_operator": "Operator: {unit} selected. Tap the ground to send it there.",
   "map_unit_selected_other": "Unit #{id} belongs to someone else ({state}). You can only view it.",

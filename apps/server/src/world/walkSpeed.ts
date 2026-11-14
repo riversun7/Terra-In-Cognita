@@ -6,13 +6,15 @@
 //   유닛마다 몸 입력의 지문(사이보그 레벨·환생·AGI 처음 값·K, 입은 물건·걸린 효과·부상 ‰, 실효 자료 판)이 같으면 받아 둔 AGI를 쓰고,
 //   계산식 결과는 (식, AGI)마다 받아 둔다. 성장 계수(설정 칸) 같은 것은 WALK_AGI_TTL_MS마다, 계산식은 WALK_FORMULA_TTL_MS마다 다시 읽는다.
 // - 장비·기본 몸 아무것도 없는 유닛(봇·NPC 휴먼 대부분)은 몸을 셈하지 않고 기본 AGI(10) 값만 쓴다.
+// - 배(기획 D-541 1272 가 + 다, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"): 저장된 빠르기 대신 설정 칸 boat_speed를 이동을 시작할 때
+//   읽는다(걷기와 같은 때 — 바꾸면 모든 배가 다음 이동부터 그 값). 구간마다 빠르기를 바꾸지 않는다(배는 늘 같은 빠르기).
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, walkSpeedOf } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
 import { BASELINE_PRIMARY } from "../roster/body.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import { type UnitGear, walkAgiOf } from "../roster/unitBody.ts";
 import { worldBodyBase } from "./battleBodies.ts";
-import { wireKindOf } from "./unitKinds.ts";
+import { UNIT_KIND_BOAT, wireKindOf } from "./unitKinds.ts";
 
 /** 받아 둔 AGI를 다시 셈하기까지(ms) — 설정 칸(성장 계수 등)이 바뀐 것을 늦어도 이만큼 뒤에 따른다 */
 export const WALK_AGI_TTL_MS = 60_000;
@@ -128,13 +130,23 @@ export function createWalkSpeeds(input: {
   };
 }
 
-/** 월드가 2차맵에 잇는 걷기 빠르기 고리(world.ts → mapFactory attachWalk). 자료가 없으면 팩 기본 계수표(기본 식) */
+/** 배 빠르기(설정 칸 boat_speed 실효 값). 1 미만·틀린 값이면 지금 빠르기 그대로 */
+export function boatSpeedOf(unit: WalkUnit, speed: number | undefined): number {
+  return speed !== undefined && Number.isFinite(speed) && speed >= 1 ? Math.round(speed) : unit.speed;
+}
+
+/**
+ * 월드가 2차맵에 잇는 빠르기 고리(world.ts → mapFactory attachWalk): 걷는 유닛 = 실효 AGI, 배 = 설정 칸 boat_speed(rules가 있을 때 —
+ * 기획 D-541 1272 가 + 다). 자료가 없으면 팩 기본 계수표(기본 식)
+ */
 export function walkSpeedsOf(
   cyborgs: Pick<CyborgService, "userOfUnit" | "record">,
   gearOf: (unitId: number, nowMs: number) => UnitGear,
   catalog: (() => RosterCatalog) | undefined,
   now: () => number,
+  rules?: () => { readonly boats: { readonly speed: number } },
 ): (unit: WalkUnit) => number {
   const walk = createWalkSpeeds({ cyborgs, gearOf, catalog, fallback: TEST_COMBAT_COEFFICIENTS, now });
-  return (unit) => walk.speedOf(unit);
+  return (unit) =>
+    unit.kind === UNIT_KIND_BOAT && rules ? boatSpeedOf(unit, rules().boats.speed) : walk.speedOf(unit);
 }

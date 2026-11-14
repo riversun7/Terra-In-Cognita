@@ -464,7 +464,9 @@ export function createReportService(deps: {
           built.revision === record.tuningRevision &&
           tuning.pack.contentHash === record.contentHash &&
           SIM_VERSION === record.simVersion &&
-          (savedCity === null || built.city === null || reportCityChanges(savedCity, built.city).length === 0),
+          (savedCity === null ||
+            built.city === null ||
+            reportCityChanges(savedCity, built.city).length === 0),
         winner: out.end.winner,
         endMs: out.end.endMs,
       };

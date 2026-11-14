@@ -7,13 +7,7 @@
 //   → 남은 HP·아머·쉴드 → 물약·탄. 세계 유닛 ID만 이 길을 지난다(실험실·크리쳐 유닛은 그대로).
 // 스냅숏 지문(reportCityInfo)은 배치 구조(내구도 빼고)와 수비 사양(자리 빼고)을 따로 적어 화면이 "저장 뒤 바뀜"을 가른다.
 import { createHash } from "node:crypto";
-import {
-  type BattleInit,
-  type SimUnit,
-  type SimWorld,
-  type SocietyCoefficients,
-  defenseOrder,
-} from "@terra/sim";
+import { type BattleInit, type SimUnit, type SocietyCoefficients, defenseOrder } from "@terra/sim";
 import type { SiegeLayout } from "@terra/sim/siegeArena";
 import {
   REPORT_CITY_LIST_MAX,
@@ -43,8 +37,18 @@ interface StartStep {
 }
 
 /** 살아 있는 세계에서 읽는 것(부를 때마다 지금 값). 세계가 꺼져 있으면 undefined */
+/** 세계 거울(SimWorld)에서 읽는 칸 */
+export interface ReportCitySim {
+  readonly cities: ReadonlyMap<
+    number,
+    { readonly id: number; readonly owner: number; readonly start: boolean }
+  >;
+  readonly factions: ReadonlyMap<number, { readonly code: string; readonly tech: number }>;
+  readonly units: ReadonlyMap<number, SimUnit>;
+}
+
 export interface ReportCityWorld {
-  readonly sim: SimWorld;
+  readonly sim: ReportCitySim;
   readonly places: ReadonlyMap<number, CityPlace>;
   readonly maps: ReadonlyMap<number, SecondMap>;
   readonly facilities: ReadonlyMap<number, FacilityRecord>;
@@ -113,15 +117,17 @@ function join(rest: BattleInit, own: BattleInit): BattleInit {
   };
 }
 
+/** 그 도시 휴먼(정원사와 같은 수비 차례 defenseOrder) */
+function humansIn(sim: ReportCitySim, cityId: number): SimUnit[] {
+  const out: SimUnit[] = [];
+  for (const unit of sim.units.values()) if (unit.city === cityId) out.push(unit);
+  return out.toSorted(defenseOrder);
+}
+
 export function createReportCities(deps: {
   readonly world: () => ReportCityWorld | undefined;
   readonly now: () => number;
 }): ReportCitySource {
-  const humansIn = (sim: SimWorld, cityId: number): SimUnit[] => {
-    const out: SimUnit[] = [];
-    for (const unit of sim.units.values()) if (unit.city === cityId) out.push(unit);
-    return out.toSorted(defenseOrder);
-  };
   return {
     list(input) {
       const w = deps.world();
@@ -135,7 +141,8 @@ export function createReportCities(deps: {
         const place = w.places.get(city.id);
         if (!place) continue;
         const name = place.name ?? null;
-        if (query !== "" && String(city.id) !== query && !(name ?? "").toLowerCase().includes(query)) continue;
+        if (query !== "" && String(city.id) !== query && !(name ?? "").toLowerCase().includes(query))
+          continue;
         const map = w.maps.get(place.mapKey);
         const hall = map
           ? cityHall(map, { records: w.facilities, catalog: w.catalog }, city.id, {
@@ -185,7 +192,7 @@ export function createReportCities(deps: {
         cellX: place.cellX,
         cellY: place.cellY,
         atMs,
-        terrainVersion: String(map.terrainVersion),
+        terrainVersion: map.terrainVersion,
         layout,
         defenderTech: Math.max(1, faction?.tech ?? 1),
         humans: humans.length,
@@ -245,7 +252,9 @@ export function reportCityInfo(
       : null,
   });
   const nexus = init.map.buildings.find((building) => building.nexus);
-  const walls = init.map.buildings.filter((building) => building.wall === true || building.gateSide !== undefined);
+  const walls = init.map.buildings.filter(
+    (building) => building.wall === true || building.gateSide !== undefined,
+  );
   // 수비 사양: 세계 유닛만, 자리·편·파티 빼고 ID 차례
   const defense = init.units
     .filter((unit) => worldIds.has(unit.id))
@@ -302,7 +311,9 @@ export function worldReportCities(world: World, now: () => number): ReportCitySo
         isInactive: (unitId) => p.fusion.temple.isInactive(unitId) || afloatIn(world.maps, unitId),
         guardianCanFight: (unitId, nowMs) => {
           const info = unitInfo(unitId);
-          return info !== undefined && info.kind === UNIT_KIND_GUARDIAN && !unavailable(info.condition, nowMs);
+          return (
+            info !== undefined && info.kind === UNIT_KIND_GUARDIAN && !unavailable(info.condition, nowMs)
+          );
         },
         guardians: (cityId) => readGuardians(p.pool, { cityId }),
       };

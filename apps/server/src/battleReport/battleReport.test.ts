@@ -91,7 +91,10 @@ const clock = (): number => 0;
 
 describe("판정 사건과 집계가 맞는다", () => {
   it("명중·빗나감·회피·크리·기본 공격 피해가 전투 실험실 사건 기록과 같다(관찰자 셋을 한 판에)", async () => {
-    const { play } = await playSetupOf(arena(party(fighter(10), fighter(12)), party(fighter(11), fighter(9))), ctx);
+    const { play } = await playSetupOf(
+      arena(party(fighter(10), fighter(12)), party(fighter(11), fighter(9))),
+      ctx,
+    );
     for (const run of [0, 1, 2]) {
       const seed = reportRunSeed(5, run);
       // 같은 판을 실험실 집계로 다시(관찰자는 결과를 바꾸지 않는다)

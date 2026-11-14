@@ -185,7 +185,11 @@ export function arenaLegionInit(job: ArenaLegionJob, seed: number, swapped: bool
       { id: 2, faction: 2, defender: true, edge: 1 },
     ],
     parties: [
-      ...job.a.map((party, p) => ({ id: arenaPartyId("a", p), side: sideOfA, retreatHpPct: party.retreatHpPct })),
+      ...job.a.map((party, p) => ({
+        id: arenaPartyId("a", p),
+        side: sideOfA,
+        retreatHpPct: party.retreatHpPct,
+      })),
       ...job.b.map((party, p) => ({
         id: arenaPartyId("b", p),
         side: 3 - sideOfA,

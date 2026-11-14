@@ -77,6 +77,12 @@ export interface BuiltSetup {
   readonly city: ReportCityInfo | null;
 }
 
+/** 팀 A·B 군단 유닛 ID(전투장·공성 팀 수비 — 파티 하나면 옛 ID와 같다) */
+const idA = (p: number, index: number): number => arenaUnitId("a", p, index);
+const idB = (p: number, index: number): number => arenaUnitId("b", p, index);
+/** 세계 수비와 싸우는 팀 A 유닛 ID */
+const worldIdA = (p: number, index: number): number => WORLD_LAB_ID_BASE + p * LAB_LIMITS.partyMax + index;
+
 /** 줄 이름: 표시 이름, 없으면 종류 ID */
 const labelOf = (unit: LabParty["units"][number]): string => unit.label.trim() || unit.kind;
 
@@ -224,7 +230,10 @@ function legionView(init: BattleInit, inTeam: (id: number) => boolean): ReportLe
 }
 
 /** 실제 도시 스냅숏이 필요한 설정에서 스냅숏(없으면 RangeError — 부르는 쪽이 unknown_city로 바꾼다) */
-function cityOf(setup: Exclude<ReportSetup, { mode: "arena" }>, ctx: SetupContext): ReportCitySnapshot | undefined {
+function cityOf(
+  setup: Exclude<ReportSetup, { mode: "arena" }>,
+  ctx: SetupContext,
+): ReportCitySnapshot | undefined {
   if (setup.city.layout !== "world") return undefined;
   if (!ctx.city || ctx.city.cityId !== setup.city.cityId) throw new CityMissingError();
   return ctx.city;
@@ -271,8 +280,6 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
       map: ctx.arenaMap,
       limitMs,
     };
-    const idA = (p: number, index: number) => arenaUnitId("a", p, index);
-    const idB = (p: number, index: number) => arenaUnitId("b", p, index);
     legionRows("a", la, idA, rows, rowOf);
     legionRows("b", lb, idB, rows, rowOf);
     const normal = arenaLegionInit(job, 0, false);
@@ -313,7 +320,12 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
   /** 세계 수비 유닛 ID(세계 전투 시작 길을 지난다) */
   let worldIds: ReadonlySet<number> = new Set<number>();
   /** 세계 수비 시작 자료(크리쳐 strength마리 + 세계 휴먼) — 실제 도시 스냅숏의 기술 단계·수비 상한 */
-  const worldWave = (snapshot: ReportCitySnapshot, strength: number, physical: number, creatureTech: number) =>
+  const worldWave = (
+    snapshot: ReportCitySnapshot,
+    strength: number,
+    physical: number,
+    creatureTech: number,
+  ) =>
     waveBattleInit(
       {
         battleId: 1,
@@ -374,14 +386,20 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
       dropped.push(...b.dropped);
       const placer = siegePlacer(arena, edge);
       const units: CombatUnitSpec[] = [];
-      const idB = (p: number, index: number) => arenaUnitId("b", p, index);
       let at = 0;
       b.parties.forEach((entry, p) => {
         entry.specs.forEach((spec, index) => {
           const cell = placer.defender(at);
           at += 1;
           if (!cell) return;
-          units.push({ ...spec, id: idB(p, index), side: 2, party: DEFENDER_PARTY_BASE + p, x: cell.x, y: cell.y });
+          units.push({
+            ...spec,
+            id: idB(p, index),
+            side: 2,
+            party: DEFENDER_PARTY_BASE + p,
+            x: cell.x,
+            y: cell.y,
+          });
         });
       });
       legionRows("b", lb, idB, rows, rowOf);
@@ -405,8 +423,7 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
     const a = legionSpecs(la, rules);
     dropped.push(...a.dropped);
     const placer = siegePlacer(arena, edge);
-    const idA = (p: number, index: number) =>
-      worldDefense ? WORLD_LAB_ID_BASE + p * LAB_LIMITS.partyMax + index : arenaUnitId("a", p, index);
+    const attackerId = worldDefense ? worldIdA : idA;
     const attackers: CombatUnitSpec[] = [];
     let at = 0;
     a.parties.forEach((entry, p) => {
@@ -416,7 +433,7 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
         if (!cell) return;
         attackers.push({
           ...spec,
-          id: idA(p, index),
+          id: attackerId(p, index),
           side: 1,
           party: arenaPartyId("a", p),
           x: cell.x,
@@ -425,8 +442,8 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
         });
       });
     });
-    legionRows("a", la, idA, rows, rowOf);
-    inputs.push(...legionInputs(la, idA, tickMs));
+    legionRows("a", la, attackerId, rows, rowOf);
+    inputs.push(...legionInputs(la, attackerId, tickMs));
     const attackerParties = la.parties.map((party, p) => ({
       id: arenaPartyId("a", p),
       side: 1,
@@ -449,7 +466,6 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
       const lb = legionOf(setup.b);
       const b = legionSpecs(lb, rules);
       dropped.push(...b.dropped);
-      const idB = (p: number, index: number) => arenaUnitId("b", p, index);
       const defenders: CombatUnitSpec[] = [];
       let bt = 0;
       b.parties.forEach((entry, p) => {
@@ -457,7 +473,14 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
           const cell = placer.defender(bt);
           bt += 1;
           if (!cell) return;
-          defenders.push({ ...spec, id: idB(p, index), side: 2, party: arenaPartyId("b", p), x: cell.x, y: cell.y });
+          defenders.push({
+            ...spec,
+            id: idB(p, index),
+            side: 2,
+            party: arenaPartyId("b", p),
+            x: cell.x,
+            y: cell.y,
+          });
         });
       });
       legionRows("b", lb, idB, rows, rowOf);
@@ -473,7 +496,11 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
         ],
         parties: [
           ...attackerParties,
-          ...lb.parties.map((party, p) => ({ id: arenaPartyId("b", p), side: 2, retreatHpPct: party.retreatHpPct })),
+          ...lb.parties.map((party, p) => ({
+            id: arenaPartyId("b", p),
+            side: 2,
+            retreatHpPct: party.retreatHpPct,
+          })),
         ].toSorted((x, y) => x.id - y.id),
         units: [...attackers, ...defenders],
         limitMs,
@@ -494,7 +521,8 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
     const at = rows.length;
     rows.push({ key: "defenders", team: "b", label: "", members: 0 });
     const defenderSide = init.sides.find((side) => side.defender)?.id ?? 2;
-    for (const unit of init.units) if (unit.side === defenderSide && rowOf[unit.id] === undefined) rowOf[unit.id] = at;
+    for (const unit of init.units)
+      if (unit.side === defenderSide && rowOf[unit.id] === undefined) rowOf[unit.id] = at;
   }
   const members = rows.map(() => 0);
   for (const unit of init.units) {

@@ -12,6 +12,7 @@ import {
   bareAppropriateScope,
   bareCritScope,
   bareIntervalScope,
+  walkSpeedScope,
   critMultiplierScope,
   dexFrameScope,
   evadeScope,
@@ -153,6 +154,8 @@ export function sampleScopes(
     // 맨손 명중(늘 100%, 2026-11-12): 무기 틀과 같은 변수, 적정은 맨손 적정
     bare_hit: dexFrameScope(weapon.hitPm, dex, bareMilli, c.capPm),
     bare_interval: bareIntervalScope(weapon.intervalMs, agi, input.level),
+    // 걷기 속도(D-540): 실효 AGI(표본 1차 스탯)
+    walk_speed: walkSpeedScope(agi),
   };
 }
 
@@ -196,6 +199,7 @@ export function runFormulaSample(
     bare_crit: evaluateFormula(combat.bare_crit, scopes.bare_crit),
     bare_hit: evaluateFormula(combat.bare_hit, scopes.bare_hit),
     bare_interval: evaluateFormula(combat.bare_interval, scopes.bare_interval),
+    walk_speed: evaluateFormula(combat.walk_speed, scopes.walk_speed),
   };
   return { stats, staminaScore, scopes, values };
 }

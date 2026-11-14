@@ -26,6 +26,7 @@ import {
   staminaCostScope,
   staminaRegenScope,
   staminaScoreScope,
+  walkSpeedScope,
 } from "@terra/shared/formula";
 import type { CombatCoefficients } from "./coefficients.ts";
 
@@ -52,6 +53,7 @@ function setOf(make: (id: CombatFormulaId) => FormulaProgram): CombatFormulaSet 
     bare_crit: make("bare_crit"),
     bare_hit: make("bare_hit"),
     bare_interval: make("bare_interval"),
+    walk_speed: make("walk_speed"),
   };
 }
 
@@ -152,6 +154,19 @@ export function bareIntervalMs(
     1,
     evaluateFormulaInt(formulaOf("bare_interval", c), bareIntervalScope(intervalMs, agi, level)),
   );
+}
+
+/** 걷기 속도 상한(단위/초) = 2차맵 전송 빠르기 상한(@terra/protocol MAX_UNIT_SPEED 0x10_0000) */
+const WALK_SPEED_LIMIT = 0x10_0000;
+
+/**
+ * 2차맵 걷기 빠르기(단위/초, 식 walk_speed — 사용자 결정 D-540 "걷기만 AGI 반영": 기본 397.3 + AGI × 3.973, 상한 1,589 = 기본 × 4).
+ * AGI = 전투와 같은 실효 AGI(성장값 + 장비·버프 − 부상). 처음 AGI 10이면 WALK_SPEED(437)와 같다(formulas.test.ts). 1 이상.
+ * 차·배 같은 수단은 이 식을 쓰지 않는다(D-5052 수단 속도)
+ */
+export function walkSpeedOf(agi: number, c: CombatCoefficients): number {
+  const speed = evaluateFormulaInt(formulaOf("walk_speed", c), walkSpeedScope(agi));
+  return speed < 1 ? 1 : speed > WALK_SPEED_LIMIT ? WALK_SPEED_LIMIT : speed;
 }
 
 /** 크리 배율(‰, N12) 식 */

@@ -49,8 +49,12 @@ export function weaponParts(weapon: WeaponSpec, middle: Loadout, capPm: number):
   ];
 }
 
-/** 레벨만 보는 식(무기와 상관없음) */
-const LEVEL_ONLY_FORMULAS: ReadonlySet<string> = new Set(["bare_appropriate", "stamina_appropriate"]);
+/** 무기와 상관없는 식: 레벨만 보는 식, 걷기 속도(walk_speed, D-540 — 2차맵 걷기) */
+const LEVEL_ONLY_FORMULAS: ReadonlySet<string> = new Set([
+  "bare_appropriate",
+  "stamina_appropriate",
+  "walk_speed",
+]);
 /** 맨손 자료만 쓰는 식(맨손 크리·명중·간격, 2026-11-12) — 아이템 무기는 맨손이 아니라 보이지 않는다 */
 const BARE_ONLY_FORMULAS: ReadonlySet<string> = new Set(["bare_crit", "bare_hit", "bare_interval"]);
 

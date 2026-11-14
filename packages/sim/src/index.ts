@@ -546,6 +546,7 @@ export {
   staminaAppropriateMilli,
   staminaCostMilliOf,
   staminaScoreOf,
+  walkSpeedOf,
   type CombatFormulaSet,
 } from "./combat/formulas.ts";
 export {

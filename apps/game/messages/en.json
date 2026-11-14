@@ -4490,6 +4490,7 @@
   "dev_formula_unit_ms": "ms",
   "dev_formula_unit_roll": "roll",
   "dev_formula_unit_level": "level",
+  "dev_formula_unit_speed": "units/s (1 cell = 1,024)",
   "dev_formula_var_lv": "Level",
   "dev_formula_var_gear": "Amount equipment adds to this row",
   "dev_formula_var_buff": "Amount buffs add to this row",

@@ -4490,6 +4490,7 @@
   "dev_formula_unit_ms": "ms",
   "dev_formula_unit_roll": "굴림",
   "dev_formula_unit_level": "레벨",
+  "dev_formula_unit_speed": "단위/초(1칸 = 1,024)",
   "dev_formula_var_lv": "레벨",
   "dev_formula_var_gear": "이 행에 장비가 더하는 값",
   "dev_formula_var_buff": "이 행에 버프가 더하는 값",

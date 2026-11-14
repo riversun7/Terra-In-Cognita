@@ -114,6 +114,29 @@ describe("설정 칸 값 → 계수표", () => {
     ]).toEqual([6, 250, 40_000, 80]);
   });
 
+  it("1차맵 영토 표시 칸(D-544·D-546, 보기 전용)도 같은 길로 바뀐다 — 출발값은 TERRITORY_DISPLAY_START", () => {
+    expect(TEST_SOCIETY_COEFFICIENTS.territoryDisplay).toEqual({
+      corridorCells: 12,
+      radiusScalePm: 2000,
+      minCells: 4,
+      beaconCells: 2,
+    });
+    const tuned = societyCoefficientsFrom(
+      new Map([
+        ["planet_territory_corridor_cells", 8],
+        ["planet_territory_radius_scale_pm", 1500],
+        ["planet_territory_min_cells", 3],
+        ["planet_territory_beacon_cells", 1],
+      ]),
+    );
+    expect(tuned.territoryDisplay).toEqual({
+      corridorCells: 8,
+      radiusScalePm: 1500,
+      minCells: 3,
+      beaconCells: 1,
+    });
+  });
+
   it("모든 키는 계수표의 숫자 칸을 가리키고, ID는 겹치지 않는다", () => {
     for (const key of TUNING_KEYS) expect(Number.isInteger(tuningValue(key))).toBe(true);
     expect(new Set(TUNING_KEYS.map((key) => key.id)).size).toBe(TUNING_KEYS.length);

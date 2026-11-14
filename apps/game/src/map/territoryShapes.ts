@@ -101,6 +101,8 @@ export interface TerritoryShapes {
   readonly areas: readonly TerritoryArea[];
   /** 두 국가가 맞닿은 선(꺾은선, 받침 선) */
   readonly dividers: readonly (readonly LatLon[])[];
+  /** 맞닿은 국가 쌍(작은 ID, 큰 ID — 받침 선이 있는 쌍, ID 차례). 비슷한 색 이웃 무늬(territoryView.ts)가 쓴다 */
+  readonly neighbours: readonly (readonly [number, number])[];
   readonly labels: readonly TerritoryLabelSpot[];
 }
 
@@ -113,7 +115,7 @@ export function territoryDisplayOf(display: WorldTerritoryDisplay | undefined): 
   const start = TERRITORY_DISPLAY_START;
   return {
     corridorCells: valueOr(display?.corridorCells, start.corridorCells),
-    radiusScale: valueOr(display?.radiusScale, start.radiusScale),
+    radiusScalePm: valueOr(display?.radiusScalePm, start.radiusScalePm),
     minCells: valueOr(display?.minCells, start.minCells),
     beaconCells: valueOr(display?.beaconCells, start.beaconCells),
   };
@@ -129,7 +131,7 @@ export function corridorOf(
 
 /**
  * 서버 도시·비콘 목록 → 영토 자리. 도시 바탕 반경 = 배후지(catchmentMilli), 없으면 영향권(radiusMilli). 도시 화면 반지름 = max(바탕 ×
- * radiusScale, minCells칸), 비콘 둘레 여유 = beaconCells칸(설정 칸, 보기 전용). 1000분율 칸 → 라디안 = 값 ÷ milliPerRadian. 바탕 반경·환산이
+ * radiusScalePm ÷ 1000, minCells칸), 비콘 둘레 여유 = beaconCells칸(설정 칸, 보기 전용). 1000분율 칸 → 라디안 = 값 ÷ milliPerRadian. 바탕 반경·환산이
  * 없으면 그 도시는 영토를 그리지 않는다. 비콘은 기준 도시가 이 목록에 있을 때만 뼈대에 든다(skeletonsOf)
  */
 export function territorySitesOf(
@@ -151,7 +153,7 @@ export function territorySitesOf(
       lonDeg: city.lonDeg,
       radius: Math.min(
         MAX_RADIUS,
-        Math.max(milli * display.radiusScale, display.minCells * 1000) / milliPerRadian,
+        Math.max((milli * display.radiusScalePm) / 1000, display.minCells * 1000) / milliPerRadian,
       ),
     });
   }
@@ -245,6 +247,9 @@ function covers(skeleton: Skeleton, p: Vec): boolean {
   return false;
 }
 
+/** 자리 번호 쌍 키(작은 번호 먼저) */
+const pairKey = (i: number, j: number): string => `${String(Math.min(i, j))}:${String(Math.max(i, j))}`;
+
 /**
  * 국가마다 뼈대를 만들고 이어진 덩이로 나눈다. 줄 = 서로 corridor 안인 같은 국가 자리 쌍 + 비콘과 그 기준 도시·같은 기준 도시의 비콘끼리
  * (거리와 상관없이 — 도시 소유 비콘은 그 도시 외곽선을 넓힌다, D-546 1434), 삼각형 = 세 쌍이 모두 줄인 자리 셋. 덩이 = 줄로 이어졌거나 원이 겹친 자리들.
@@ -284,7 +289,6 @@ function skeletonsOf(sites: readonly TerritorySite[], corridor: number): Skeleto
   for (const [factionId, nodes] of byFaction) {
     const index = new Map(nodes.map((node, i) => [node, i]));
     const linked = new Set<string>();
-    const pairKey = (i: number, j: number): string => `${String(Math.min(i, j))}:${String(Math.max(i, j))}`;
     const joined = (i: number, j: number): boolean => linked.has(pairKey(i, j));
     nodes.forEach((a, i) => {
       nodes.forEach((b, j) => {
@@ -553,6 +557,7 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
   const skeletons = skeletonsOf(sites, corridor);
   const areas: TerritoryArea[] = [];
   const dividers: LatLon[][] = [];
+  const pairs = new Set<string>();
   const best = new Map<number, { area: number; total: number; spot: Vec }>();
   for (const skeleton of skeletons) {
     const component = skeleton.nodes;
@@ -597,6 +602,7 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
         const other = ownerAmong(skeletons, probe)?.skeleton;
         // 한 쪽(작은 국가 ID)에서만 넣는다
         if (other && other.factionId > skeleton.factionId) {
+          pairs.add(`${String(skeleton.factionId)}:${String(other.factionId)}`);
           if (run.length === 0) run.push(latLonOf(fromPlane(frame, point[0], point[1])));
           run.push(latLonOf(fromPlane(frame, after[0], after[1])));
         } else flush();
@@ -643,5 +649,11 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
     return { factionId, latDeg, lonDeg, area: Math.max(entry.area, entry.total) };
   });
   labels.sort((a, b) => b.area - a.area || a.factionId - b.factionId);
-  return { areas, dividers, labels };
+  const neighbours = [...pairs]
+    .map((pair) => {
+      const [a, b] = pair.split(":").map(Number);
+      return [a ?? 0, b ?? 0] as const;
+    })
+    .toSorted((x, y) => x[0] - y[0] || x[1] - y[1]);
+  return { areas, dividers, neighbours, labels };
 }

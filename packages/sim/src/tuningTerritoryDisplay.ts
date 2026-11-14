@@ -22,10 +22,10 @@ export const TERRITORY_DISPLAY_TUNING_KEYS: readonly TuningKey[] = [
     "Planet territory display: farthest same-nation city link (cells)",
   ),
   k(
-    "planet_territory_radius_scale",
-    "radiusScale",
-    "1차맵 영토 표시: 도시 원 = 배후지 반경 × 이 배율",
-    "Planet territory display: city circle = catchment radius × this",
+    "planet_territory_radius_scale_pm",
+    "radiusScalePm",
+    "1차맵 영토 표시: 도시 원 = 지금 배후지 반경 × 이 배율(‰)",
+    "Planet territory display: city circle = current catchment radius × this (‰)",
   ),
   k(
     "planet_territory_min_cells",

@@ -8474,19 +8474,20 @@
       "source": "기획 D-544·D-546 · ADR 2026-11-07-planet-view \"바뀜 (2026-11-15 D-546)\" [임시] 보기 전용"
     },
     {
-      "id": "planet_territory_radius_scale",
+      "id": "planet_territory_radius_scale_pm",
       "code": "",
       "name": {
-        "ko": "1차맵 영토 표시: 도시 원 = 배후지 반경 × 이 배율",
-        "en": "Planet territory display: city circle = catchment radius × this"
+        "ko": "1차맵 영토 표시: 도시 원 = 지금 배후지 반경 × 이 배율(‰)",
+        "en": "Planet territory display: city circle = current catchment radius × this (‰)"
       },
-      "value": 2,
+      "value": 2000,
       "structural": false,
-      "min": 1,
-      "max": 8,
+      "unit": "pm",
+      "min": 1000,
+      "max": 8000,
       "desc": {
-        "ko": "보기 전용. 1차맵 영토 레이어의 도시 원 반지름은 도시 배후지 지금 반경에 이 배율을 곱한 값이다(아래 끝은 최소 칸). 늘리면 멀리서도 영토가 넓게 보인다. 겹친 곳은 거리 ÷ 원 반지름이 작은 도시가 차지한다.",
-        "en": "Display only. A city's circle on the planet territory layer is its current catchment radius times this (never below the smallest radius). Higher = territory looks wider from afar."
+        "ko": "보기 전용. 1차맵 영토 레이어의 도시 원 반지름은 도시 배후지 지금 반경에 이 배율을 곱한 값이다(2000‰ = 2배, 아래 끝은 최소 칸). 늘리면 멀리서도 영토가 넓게 보인다. 겹친 곳은 거리 ÷ 원 반지름이 작은 도시가 차지한다.",
+        "en": "Display only. A city's circle on the planet territory layer is its current catchment radius times this (2000‰ = ×2, never below the smallest radius). Higher = territory looks wider from afar."
       },
       "source": "기획 D-544·D-546 · ADR 2026-11-07-planet-view \"바뀜 (2026-11-15 D-546)\" [임시] 보기 전용"
     },

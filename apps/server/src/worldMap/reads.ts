@@ -403,24 +403,12 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
           }),
         });
       }
-      // 영토 비콘(기획 D-546 1434 — 1차맵 영토 표시에서 도시 소유 비콘은 그 도시·국가 외곽선을 넓힌다): 꼭짓점인 비콘(껍질 덩이 구성원 = 다 지었고 상태 문턱 이상)만,
-      // 안개는 껍질과 같은 꼴(내 국가·기준 도시를 앎·전체 보기 — 모르는 국가 비콘 자리가 새지 않게)
-      const vertexBeacons = new Set(
-        (territory?.groups ?? []).flatMap((group) =>
-          group.members.filter((member) => member.kind === "beacon").map((member) => member.id),
-        ),
-      );
-      const beacons: WorldMapBeacon[] = [];
-      for (const beacon of territory?.beacons ?? []) {
-        if (!vertexBeacons.has(beacon.id) || !factions.has(beacon.factionId)) continue;
-        if (!observer && !beaconKnown(beacon, (id) => knownIds.has(id), myFactionId)) continue;
-        beacons.push({
-          id: beacon.id,
-          factionId: beacon.factionId,
-          cityId: beacon.cityId,
-          ...latLonOfDirection(...beacon.point),
-        });
-      }
+      const beacons = worldMapBeaconsOf(territory, {
+        factionKnown: (id) => factions.has(id),
+        cityKnown: (id) => knownIds.has(id),
+        myFactionId,
+        observer,
+      });
       // 국가 색(바뀜 2026-11-14): 세력 정체성 색 > 팩 국가 프리셋 시그니처 색. 아는 국가(안개를 지난 도시의 국가)만
       const identity = await identityColors(pool, [...factions.keys()]);
       const colored = [...factions.values()].map((faction): WorldMapFaction => {
@@ -495,6 +483,38 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
       return { status: "ready", position, fallbackMapKey, generatedAt: nowMs };
     },
   };
+}
+
+/**
+ * 1차맵 영토 표시로 보낼 비콘(기획 D-546 1434 — 도시 소유 비콘은 그 도시·국가 외곽선을 넓힌다): 꼭짓점인 비콘(껍질 덩이 구성원 = 다 지었고
+ * 상태 문턱 이상)만, 아는 국가 것만, 안개는 껍질과 같은 꼴(내 국가·기준 도시를 앎·전체 보기 — 모르는 국가 비콘 자리가 새지 않게)
+ */
+export function worldMapBeaconsOf(
+  territory: Pick<TerritoryPlanetView, "beacons" | "groups"> | undefined,
+  knowing: {
+    readonly factionKnown: (factionId: number) => boolean;
+    readonly cityKnown: (cityId: number) => boolean;
+    readonly myFactionId: number | null;
+    readonly observer: boolean;
+  },
+): WorldMapBeacon[] {
+  const vertices = new Set(
+    (territory?.groups ?? []).flatMap((group) =>
+      group.members.filter((member) => member.kind === "beacon").map((member) => member.id),
+    ),
+  );
+  const beacons: WorldMapBeacon[] = [];
+  for (const beacon of territory?.beacons ?? []) {
+    if (!vertices.has(beacon.id) || !knowing.factionKnown(beacon.factionId)) continue;
+    if (!knowing.observer && !beaconKnown(beacon, knowing.cityKnown, knowing.myFactionId)) continue;
+    beacons.push({
+      id: beacon.id,
+      factionId: beacon.factionId,
+      cityId: beacon.cityId,
+      ...latLonOfDirection(...beacon.point),
+    });
+  }
+  return beacons;
 }
 
 const clampCell = (value: number): number => Math.max(0, Math.min(PLACEMENT_SIZE - 1, value));

@@ -1,7 +1,7 @@
 // 1차맵 레이어 고르기·범례 — 지형·기후·고도·자원 분포·영토(사용자 요청 2026-11-12, ADR 2026-11-07-planet-view "바뀜 (2026-11-12)").
 // 바뀜 2026-11-14(사용자 요청 "레이어 메뉴가 너무 크다", ADR 같은 곳 "바뀜 (2026-11-14)"): 접는 단추 하나(PlanetLayerToggle — 아이콘 +
 // 지금 레이어 이름)만 늘 보이고, 누르면 그 위에 고르기·원자재·범례 판(PlanetLayerPicker)이 열린다. 다시 누르기·Esc·지도 누르기로 닫힌다
-// (여닫기 상태는 화면 몫 — 땅을 누르면 화면이 닫는다). 레이어를 골라도 판은 열린 채다(범례를 보고 원자재를 고를 수 있게).
+// (여닫기 상태는 화면 몫 — 땅을 누르면 화면이 닫는다). 레이어를 고르면 좁은 화면(휴대폰)은 닫고 넓은 화면은 열린 채다(기획 D-546 1436).
 // - 고도: 땅 높이 색 띠(0 ~ 가장 높은 땅 m)·바다 수심 띠·호수 칸. 색은 엔진 값(layerColors.ts)을 그대로 쓴다(셰이더와 같은 색).
 // - 자원: 원자재 고르기(여섯) + 몫 띠(없음 ~ 1000‰). 광석이면 산지(높은 티어) 칸. 받는 중·실패 안내.
 // - 영토: 아는 국가 색 칩(국가 색 = --nation, cityOverlay.css)·수도·시작 도시·도시 표시 뜻.
@@ -36,6 +36,8 @@ export interface LegendNation {
   readonly color: number;
   /** 국가 고유 색 변수(nationColor.ts nationStyle). 없으면 undefined */
   readonly style?: ReturnType<typeof nationStyle>;
+  /** 비슷한 색 이웃 무늬를 받는 국가(영토 칠과 같은 빗금, territoryView.ts) */
+  readonly patterned?: boolean | undefined;
 }
 
 interface PlanetLayerPickerProps {
@@ -145,7 +147,13 @@ function TerritoryLegend({ nations }: { nations: readonly LegendNation[] | null 
       {nations && nations.length > 0 ? (
         <ul className="planet-legend-nations">
           {nations.map((nation) => (
-            <li key={nation.id} className="planet-legend-key" data-nation={nation.color} style={nation.style}>
+            <li
+              key={nation.id}
+              className="planet-legend-key"
+              data-nation={nation.color}
+              data-pattern={nation.patterned ? "hatch" : undefined}
+              style={nation.style}
+            >
               <span className="planet-legend-swatch planet-legend-nation" />
               {nation.name}
             </li>

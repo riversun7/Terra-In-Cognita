@@ -349,7 +349,7 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "worldSeed.workEndPm",
   // 1차맵 영토 표시(worldMap/reads.ts world.cities, 기획 D-544 — 보기 전용): 조회마다 읽어 화면에 넘긴다
   "territoryDisplay.corridorCells",
-  "territoryDisplay.radiusScale",
+  "territoryDisplay.radiusScalePm",
   "territoryDisplay.minCells",
   "territoryDisplay.beaconCells",
 ];

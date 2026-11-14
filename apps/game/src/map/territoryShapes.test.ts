@@ -135,6 +135,8 @@ describe("국가 영토: 다른 국가와의 경계", () => {
     const nation10 = shapes.areas.filter((area) => area.factionId === 10);
     expect(nation10).toHaveLength(1);
     expect(nation10[0]?.loops).toHaveLength(2);
+    // 맞닿은 국가 쌍(무늬 판정이 쓴다)
+    expect(shapes.neighbours).toEqual([[10, 20]]);
     // 국가 경계 받침 선: 띠 안쪽(위도 ±0.3° 안) 점은 영향력 경계(경도 1° 또는 5°) 위, 띠 밖은 국가 20 원 둘레
     const inBand = shapes.dividers.flat().filter(([lat]) => Math.abs(lat) < 0.3);
     expect(inBand.length).toBeGreaterThanOrEqual(2);
@@ -168,23 +170,24 @@ describe("국가 영토: 다른 국가와의 경계", () => {
   });
 });
 
-describe("국가 영토: 도시 소유 비콘(D-546 1434 — 도시·국가 외곽선을 넓힌다)", () => {
-  const beacon = (
-    id: number,
-    factionId: number,
-    latDeg: number,
-    lonDeg: number,
-    anchor: number,
-  ): TerritorySite => ({
-    kind: "beacon",
-    id,
-    factionId,
-    latDeg,
-    lonDeg,
-    radius: 0.2 * DEG,
-    anchorCityId: anchor,
-  });
+/** 도시 소유 비콘(둘레 여유 0.2°) */
+const beacon = (
+  id: number,
+  factionId: number,
+  latDeg: number,
+  lonDeg: number,
+  anchor: number,
+): TerritorySite => ({
+  kind: "beacon",
+  id,
+  factionId,
+  latDeg,
+  lonDeg,
+  radius: 0.2 * DEG,
+  anchorCityId: anchor,
+});
 
+describe("국가 영토: 도시 소유 비콘(D-546 1434 — 도시·국가 외곽선을 넓힌다)", () => {
   it("비콘은 기준 도시와 이어져(잇기 상한 밖이어도) 그 도시 덩이 하나의 외곽선을 비콘까지 밀어낸다", () => {
     const city = site(1, 10, 0, 0, 1);
     // 잇기 상한 10°보다 먼 12°의 비콘도 기준 도시와 잇는다

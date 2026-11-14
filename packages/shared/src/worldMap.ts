@@ -102,13 +102,13 @@ export interface WorldMapBeacon {
 /**
  * 1차맵 영토 표시 값(설정 칸, 보기 전용 [임시] — 기획 D-544 "표시 상수는 설정 칸"·D-546 1431, 판정 D-485·D-104와 상관없다). 칸 = 1차맵 칸
  * - corridorCells: 같은 국가 도시를 띠로 잇는 가장 먼 거리(칸, 0이면 잇지 않는다. 비콘과 기준 도시는 늘 잇는다)
- * - radiusScale: 도시 원 반지름 = max(지금 배후지 반경 × radiusScale, minCells칸)
+ * - radiusScalePm: 도시 원 반지름 = max(지금 배후지 반경 × radiusScalePm ÷ 1000, minCells칸) — 2000 = 2배
  * - minCells: 도시 원 반지름 아래 끝(칸)
  * - beaconCells: 도시 소유 비콘 둘레 여유(칸) — 외곽선이 비콘 밖으로 이만큼 지나간다
  */
 export interface WorldTerritoryDisplay {
   readonly corridorCells: number;
-  readonly radiusScale: number;
+  readonly radiusScalePm: number;
   readonly minCells: number;
   readonly beaconCells: number;
 }
@@ -116,7 +116,7 @@ export interface WorldTerritoryDisplay {
 /** 영토 표시 출발값(팩 tuning planet_territory_* 와 같다, 옛 서버면 화면이 이 값을 쓴다) */
 export const TERRITORY_DISPLAY_START: WorldTerritoryDisplay = {
   corridorCells: 12,
-  radiusScale: 2,
+  radiusScalePm: 2000,
   minCells: 4,
   beaconCells: 2,
 };

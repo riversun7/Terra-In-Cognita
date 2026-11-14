@@ -4,6 +4,7 @@
 import { type FacilityBuildRules, OLD_FACILITY_BUILD_RULES } from "@terra/shared/facilityBuild";
 import { type FacilityRuntimeRules, OLD_FACILITY_RUNTIME_RULES } from "@terra/shared/facilityRuntime";
 import { START_TERRITORY_COEFFICIENTS, type TerritoryCoefficients } from "@terra/shared/territory";
+import { TERRITORY_DISPLAY_START, type WorldTerritoryDisplay } from "@terra/shared/worldMap";
 import { type LaborRules, OLD_LABOR_RULES } from "../economy/laborContract.ts";
 import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "../gardener/coefficients.ts";
 import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
@@ -237,6 +238,11 @@ export interface SocietyCoefficients {
    * 영향권 반경·비콘 수·거리·내구도. 셈은 @terra/shared/territory. 시뮬은 아직 읽지 않는다(서버 영토 서비스가 읽는다)
    */
   readonly territory: TerritoryCoefficients;
+  /**
+   * 1차맵 영토 표시(팩 tuning 경로 "territoryDisplay.*", 기획 D-544·D-546 — 표시 상수를 설정 칸으로, [임시]·보기 전용): 도시 잇기 거리·원
+   * 배율·원 아래 끝·비콘 둘레 여유. 판정(territory·claimAt)과 상관없다. 시뮬은 읽지 않는다(서버 world.cities가 화면에 넘긴다)
+   */
+  readonly territoryDisplay: WorldTerritoryDisplay;
   /** 노동 계약(49 N48, D-479, 팩 tuning 경로 "labor.*"): 옛 규칙 값. docs/adr/2026-11-03-labor-contracts.md */
   readonly labor: LaborRules;
   /** 랭킹(20 §8, 팩 tuning 경로 "ranking.*" [임시]): 집계 주기·감쇠·등급 문턱·세력 판 점수. docs/adr/2026-11-07-ranking.md */
@@ -518,6 +524,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     gradeAtDevelopment: [...START_TERRITORY_COEFFICIENTS.gradeAtDevelopment],
     beaconDurability: START_TERRITORY_COEFFICIENTS.beaconDurability,
   },
+  territoryDisplay: { ...TERRITORY_DISPLAY_START },
   labor: { ...OLD_LABOR_RULES },
   ranking: {
     ...TEST_RANKING_COEFFICIENTS,

@@ -7,7 +7,7 @@
         "en": "Meridale"
       },
       "shortName": "MRD",
-      "color": "#c0392b",
+      "color": "#e5035d",
       "emblem": {
         "shape": "shield",
         "division": "chief",
@@ -84,7 +84,7 @@
         "en": "Yunhai"
       },
       "shortName": "YNH",
-      "color": "#2980b9",
+      "color": "#0e84b7",
       "emblem": {
         "shape": "circle",
         "division": "border",
@@ -171,7 +171,7 @@
         "en": "Harunoshima"
       },
       "shortName": "HRN",
-      "color": "#27ae60",
+      "color": "#089428",
       "emblem": {
         "shape": "hexagon",
         "division": "fess",
@@ -250,7 +250,7 @@
         "en": "Gaonnara"
       },
       "shortName": "GAN",
-      "color": "#8e44ad",
+      "color": "#c32bce",
       "emblem": {
         "shape": "circle",
         "division": "pale",
@@ -302,7 +302,7 @@
         "en": "Wynmere"
       },
       "shortName": "WYN",
-      "color": "#d35400",
+      "color": "#b75f0b",
       "emblem": {
         "shape": "shield",
         "division": "quarterly",
@@ -381,7 +381,7 @@
         "en": "Helgard"
       },
       "shortName": "HLG",
-      "color": "#16a085",
+      "color": "#19a2b8",
       "emblem": {
         "shape": "shield",
         "division": "pale",
@@ -468,7 +468,7 @@
         "en": "Valmonde"
       },
       "shortName": "VLM",
-      "color": "#f1c40f",
+      "color": "#809f12",
       "emblem": {
         "shape": "banner",
         "division": "chief",
@@ -547,7 +547,7 @@
         "en": "Suryavana"
       },
       "shortName": "SRV",
-      "color": "#2c3e50",
+      "color": "#018d87",
       "emblem": {
         "shape": "diamond",
         "division": "plain",
@@ -599,7 +599,7 @@
         "en": "Verazonia"
       },
       "shortName": "VRZ",
-      "color": "#e84393",
+      "color": "#f836b1",
       "emblem": {
         "shape": "hexagon",
         "division": "bend",
@@ -678,7 +678,7 @@
         "en": "Sahamira"
       },
       "shortName": "SHM",
-      "color": "#00b894",
+      "color": "#0fa87f",
       "emblem": {
         "shape": "square",
         "division": "chevron",
@@ -765,7 +765,7 @@
         "en": "Androthea"
       },
       "shortName": "ADT",
-      "color": "#6c5ce7",
+      "color": "#685aff",
       "emblem": {
         "shape": "circle",
         "division": "border",
@@ -844,7 +844,7 @@
         "en": "Nusalaya"
       },
       "shortName": "NSL",
-      "color": "#fd79a8",
+      "color": "#fd5030",
       "emblem": {
         "shape": "square",
         "division": "fess",
@@ -896,7 +896,7 @@
         "en": "Zamatlan"
       },
       "shortName": "ZMT",
-      "color": "#e17055",
+      "color": "#8b7b02",
       "emblem": {
         "shape": "hexagon",
         "division": "border",
@@ -975,7 +975,7 @@
         "en": "Volesia"
       },
       "shortName": "VLS",
-      "color": "#0984e3",
+      "color": "#4894fe",
       "emblem": {
         "shape": "shield",
         "division": "chevron",
@@ -1062,7 +1062,7 @@
         "en": "Mirzavan"
       },
       "shortName": "MZV",
-      "color": "#b2bec3",
+      "color": "#b06cfd",
       "emblem": {
         "shape": "banner",
         "division": "plain",
@@ -1141,7 +1141,7 @@
         "en": "Kalunui"
       },
       "shortName": "KLN",
-      "color": "#fdcb6e",
+      "color": "#c38915",
       "emblem": {
         "shape": "circle",
         "division": "fess",

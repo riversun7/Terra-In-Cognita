@@ -86,6 +86,41 @@ export interface WorldMapHull {
   readonly points: readonly (readonly [latDeg: number, lonDeg: number])[];
 }
 
+/**
+ * 영토 비콘 한 줄(1차맵 영토 표시 — 도시 소유 비콘은 그 도시·국가의 외곽선을 비콘까지 넓힌다, 기획 D-546 1434). 꼭짓점이 되는 비콘만(다 지었고
+ * 상태가 문턱 이상, docs/adr/2026-11-03-territory-layer.md). 위도·경도는 그 1차맵 칸 가운데(표시용)
+ */
+export interface WorldMapBeacon {
+  readonly id: number;
+  readonly factionId: number;
+  /** 기준 도시(없으면 null) */
+  readonly cityId: number | null;
+  readonly latDeg: number;
+  readonly lonDeg: number;
+}
+
+/**
+ * 1차맵 영토 표시 값(설정 칸, 보기 전용 [임시] — 기획 D-544 "표시 상수는 설정 칸"·D-546 1431, 판정 D-485·D-104와 상관없다). 칸 = 1차맵 칸
+ * - corridorCells: 같은 국가 도시를 띠로 잇는 가장 먼 거리(칸, 0이면 잇지 않는다. 비콘과 기준 도시는 늘 잇는다)
+ * - radiusScalePm: 도시 원 반지름 = max(지금 배후지 반경 × radiusScalePm ÷ 1000, minCells칸) — 2000 = 2배
+ * - minCells: 도시 원 반지름 아래 끝(칸)
+ * - beaconCells: 도시 소유 비콘 둘레 여유(칸) — 외곽선이 비콘 밖으로 이만큼 지나간다
+ */
+export interface WorldTerritoryDisplay {
+  readonly corridorCells: number;
+  readonly radiusScalePm: number;
+  readonly minCells: number;
+  readonly beaconCells: number;
+}
+
+/** 영토 표시 출발값(팩 tuning planet_territory_* 와 같다, 옛 서버면 화면이 이 값을 쓴다) */
+export const TERRITORY_DISPLAY_START: WorldTerritoryDisplay = {
+  corridorCells: 12,
+  radiusScalePm: 2000,
+  minCells: 4,
+  beaconCells: 2,
+};
+
 export interface WorldCitiesResponse {
   /** not_ready = 세계·DB가 없거나 부팅 복구 전(빈 목록) */
   readonly status: "ready" | "not_ready";
@@ -97,6 +132,10 @@ export interface WorldCitiesResponse {
   readonly hulls: readonly WorldMapHull[];
   /** 영향권 반경 환산(1000분율 칸 → 라디안 = 값 ÷ milliPerRadian). 영토를 셈하지 못했으면 0 */
   readonly milliPerRadian: number;
+  /** 아는 영토 비콘(꼭짓점인 것만, 안개 — 내 국가·기준 도시를 아는 비콘·전체 보기). 옛 서버는 없다 */
+  readonly beacons?: readonly WorldMapBeacon[] | undefined;
+  /** 영토 표시 값(설정 칸 실효 값). 옛 서버는 없다 → 화면은 TERRITORY_DISPLAY_START */
+  readonly territoryDisplay?: WorldTerritoryDisplay | undefined;
   /** 내가 가입한 국가(없으면 null) */
   readonly myFactionId: number | null;
   readonly generatedAt: number;

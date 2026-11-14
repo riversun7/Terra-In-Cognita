@@ -33,8 +33,30 @@ export function relativeLuminance(hex: string): number {
   return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
 }
 
+/** sRGB `#rrggbb` → OKLab(L, a, b). 색끼리 "얼마나 달라 보이나"를 잰다(비슷한 색 이웃 무늬, territoryView.ts) */
+export function oklab(hex: string): readonly [number, number, number] {
+  const r = linear(Number.parseInt(hex.slice(1, 3), 16));
+  const g = linear(Number.parseInt(hex.slice(3, 5), 16));
+  const b = linear(Number.parseInt(hex.slice(5, 7), 16));
+  const l = Math.cbrt(0.412_221_470_8 * r + 0.536_332_536_3 * g + 0.051_445_992_9 * b);
+  const m = Math.cbrt(0.211_903_498_2 * r + 0.680_699_545_1 * g + 0.107_396_956_6 * b);
+  const s = Math.cbrt(0.088_302_461_9 * r + 0.281_718_837_6 * g + 0.629_978_700_5 * b);
+  return [
+    0.210_454_255_3 * l + 0.793_617_785 * m - 0.004_072_046_8 * s,
+    1.977_998_495_1 * l - 2.428_592_205 * m + 0.450_593_709_9 * s,
+    0.025_904_037_1 * l + 0.782_771_766_2 * m - 0.808_675_766 * s,
+  ];
+}
+
+/** 두 색의 OKLab 거리(0 = 같은 색, 검정–흰색 = 1) */
+export function colorDistance(a: string, b: string): number {
+  const [l1, a1, b1] = oklab(a);
+  const [l2, a2, b2] = oklab(b);
+  return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
+}
+
 /** 두 휘도의 대비(1 ~ 21) */
-const contrast = (a: number, b: number): number => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+export const contrast = (a: number, b: number): number => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 
 /** 국가 색 위에 읽히는 글자 색: 검정·흰색 가운데 대비가 큰 것 */
 export function inkOn(hex: string): string {

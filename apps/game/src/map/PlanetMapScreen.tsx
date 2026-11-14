@@ -44,6 +44,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { refreshSession, useStaffView } from "../auth/session.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
+import { useLayout } from "../shell/useLayout.ts";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
@@ -169,11 +170,19 @@ function PlanetMapView({
     layerRef,
     world,
   });
+
   const { layer } = layers;
   // 레이어 판 여닫기(바뀜 2026-11-14): 접는 단추로 열고, 다시 누르기·Esc·땅 누르기로 닫는다
   const [layerMenu, setLayerMenu] = useState(false);
   const closeLayerMenu = useCallback(() => setLayerMenu(false), []);
   const layerSheetId = useId();
+  // 레이어 판(기획 D-546 1436 "모바일에선 닫고 넓은 화면에선 열어라"): 좁은 단계(37.5em 미만 — 하단 탭 휴대폰, shell/layout.ts)는 고르면 닫고,
+  // 중간·넓은 단계는 열어 둔다(범례·원자재를 보며 바꾸게)
+  const narrow = useLayout().stage === "narrow";
+  const chooseLayer = (next: PlanetLayer): void => {
+    layers.chooseLayer(next);
+    if (narrow) setLayerMenu(false);
+  };
   // 1차맵 명령 판의 대상(도시 판 [정찰 보내기] 또는 누른 지역의 [이곳으로 이동]). 있으면 도시 판·누른 칸 안내 대신 명령 판
   const [command, setCommand] = useState<CommandTarget | null>(null);
   const [planet, setPlanet] = useState<{ faceLevel: number; radiusM: number } | null>(null);
@@ -492,6 +501,7 @@ function PlanetMapView({
           cities={cities}
           factions={world.factions}
           milliPerRadian={world.milliPerRadian}
+          territory={layers.territory}
           me={shownMe}
           selected={cityId}
           onSelect={(next) => {
@@ -592,7 +602,7 @@ function PlanetMapView({
             open={layerMenu}
             onClose={closeLayerMenu}
             layer={layer}
-            onLayer={layers.chooseLayer}
+            onLayer={chooseLayer}
             material={layers.material}
             onMaterial={layers.chooseMaterial}
             resourceLoad={layers.resourceLoad}

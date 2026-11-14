@@ -329,6 +329,14 @@
   border-color: var(--nation);
   background-color: color-mix(in srgb, var(--nation) 55%, transparent);
 }
+/* 비슷한 색 이웃 무늬(기획 D-546 1435): 영토 칠과 같은 빗금(국가 색 위 글자 색 줄) */
+.planet-legend-key[data-pattern="hatch"] .planet-legend-nation {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--nation-ink, var(--color-text)) 60%, transparent) 0 var(--border-w),
+    transparent var(--border-w) calc(var(--border-w) * 2.5)
+  );
+}
 /* 도시 표시 뜻: 수도 별·시작 도시 네모·도시 동그라미(cityOverlay.css와 같은 모양) */
 .planet-legend-mark {
   display: inline-grid;

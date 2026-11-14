@@ -13,19 +13,17 @@
 // - 국가 이름표: 넓은 국가부터, 다른 이름표·보이는 도시 표시와 겹치지 않는 자리(가운데·위·아래·옆)에 단다. 자리가 없으면 감춘다.
 import type { PlanetProjector, ProjectedPoint } from "@terra/engine/planet";
 import type { WorldMapCity, WorldMapFaction } from "@terra/shared/worldMap";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { type LabelSize, placeLabels, projectTerritory } from "./territoryDraw.ts";
-import {
-  type TerritoryShapes,
-  buildTerritoryShapes,
-  corridorOf,
-  territorySitesOf,
-} from "./territoryShapes.ts";
+import { type TerritoryView, territoryViewOf } from "./territoryView.ts";
 import { nationStyle } from "./nationColor.ts";
 import { cityLabel, factionColor, factionName } from "./worldMapData.ts";
 import "./cityOverlay.css";
 
+/** 비슷한 색 이웃 빗금 한 칸(화면 px)·줄 몫(칸의 이만큼이 줄) */
+const HATCH_PX = 9;
+const HATCH_LINE = 0.4;
 /** 겹침으로 칠 화면 거리(CSS px) */
 const CLUSTER_PX = 22;
 /** 이름표를 보일 이웃과의 거리(CSS px, 가로·세로) */
@@ -40,6 +38,11 @@ interface CityOverlayProps {
   readonly factions: readonly WorldMapFaction[];
   /** 반경 환산(1000분율 칸 → 라디안). 0·없음이면 영토를 그리지 않는다 */
   readonly milliPerRadian?: number | undefined;
+  /**
+   * 영토 보기(모양·비슷한 색 이웃 무늬 — 1차맵 화면이 world.cities 응답으로 셈해 범례와 같이 쓴다, territoryView.ts). 없으면 이 도시 목록으로
+   * 셈한다(비콘·표시 값 없이)
+   */
+  readonly territory?: TerritoryView | undefined;
   /** 내 사이보그 자리(없으면 그리지 않는다) */
   readonly me?: { readonly latDeg: number; readonly lonDeg: number } | null | undefined;
   readonly selected: number | null;
@@ -59,7 +62,7 @@ const place = (element: HTMLElement, point: { readonly x: number; readonly y: nu
   element.style.transform = `translate(${Math.round(point.x)}px, ${Math.round(point.y)}px) translate(-50%, -50%)`;
 };
 
-/** 영토를 그릴 국가(도시 차례에 처음 나온 차례) */
+/** 영토를 그릴 국가(도시 차례에 처음 나온 차례 — 비콘은 늘 기준 도시의 국가) */
 function areaNations(cities: readonly WorldMapCity[]): number[] {
   return [...new Set(cities.map((city) => city.factionId))];
 }
@@ -82,7 +85,7 @@ function drawOrder(cities: readonly WorldMapCity[], selected: number | null): Wo
 }
 
 export function CityOverlay(props: CityOverlayProps) {
-  const { cities, factions, selected, register, requestFrame, milliPerRadian } = props;
+  const { cities, factions, selected, register, requestFrame, milliPerRadian, territory: given } = props;
   const markers = useRef(new Map<number, HTMLButtonElement>());
   const areas = useRef(new Map<number, AreaParts>());
   // 이름표 크기(px) — 글자가 바뀌지 않으니 처음 잰 값을 둔다(국가 목록이 바뀌면 다시 잰다)
@@ -91,12 +94,16 @@ export function CityOverlay(props: CityOverlayProps) {
   const territoryRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<SVGPathElement>(null);
   const latest = useRef(props);
-  // 영토 모양(도시 자료가 바뀔 때만 셈한다 — 국가 16·도시 50에서 수십 ms, territoryShapes.test.ts)
-  const territory = useMemo(
-    (): TerritoryShapes =>
-      buildTerritoryShapes(territorySitesOf(cities, milliPerRadian), corridorOf(milliPerRadian)),
-    [cities, milliPerRadian],
+  // 영토 모양(도시·비콘 자료나 표시 값이 바뀔 때만 셈한다 — 국가 16·도시 50에서 수십 ms, territoryShapes.test.ts)
+  // SVG 무늬 ID 앞머리(useId 글자에서 영문·숫자만 — url(#…)에 그대로 넣는다)
+  const patternBase = `nation${useId().replaceAll(/[^A-Za-z0-9]/g, "")}`;
+  // 영토 모양(도시 자료가 바뀔 때만 셈한다 — 국가 16·도시 50에서 수십 ms, territoryShapes.test.ts). 화면이 준 보기가 있으면 그것
+  const view = useMemo(
+    (): TerritoryView =>
+      given ?? territoryViewOf({ status: "ready", cities, factions, milliPerRadian: milliPerRadian ?? 0 }),
+    [given, cities, factions, milliPerRadian],
   );
+  const territory = view.shapes;
   const model = useRef(territory);
 
   // 그린 뒤 최신 자료를 둔다. 자료·고르기·내 자리·영토·강조가 바뀌었으면 한 번 더 그린다(새 단추 위치를 잡는다)
@@ -216,6 +223,8 @@ export function CityOverlay(props: CityOverlayProps) {
   };
 
   const nations = areaNations(cities);
+  /** 비슷한 색 이웃 무늬(D-546 1435) 정의 ID */
+  const patternId = (nation: number): string => `${patternBase}-hatch-${String(nation)}`;
   return (
     <div
       className="city-overlay"
@@ -224,18 +233,42 @@ export function CityOverlay(props: CityOverlayProps) {
       data-territories={territory.labels.length}
     >
       <svg className="city-territory" aria-hidden="true">
-        {/* 칠: 국가마다 영토 고리들(겹치지 않는다 — 주인이 하나) */}
-        {nations.map((nation) => (
-          <path
-            key={`fill-${String(nation)}`}
-            ref={(element) => {
-              areaRef(nation).fill = element;
-            }}
-            className="city-area-fill"
-            data-nation={factionColor(factions, nation)}
-            style={nationStyle(factions, nation)}
-          />
-        ))}
+        {/* 비슷한 색 이웃 무늬(기획 D-546 1435): 국가 색 바탕 + 그 색 위 글자 색(검정·흰색) 빗금. 크기는 화면 px(지도를 당겨도 같은 굵기) */}
+        <defs>
+          {nations
+            .filter((nation) => view.patterned.has(nation))
+            .map((nation) => (
+              <pattern
+                key={`hatch-${String(nation)}`}
+                id={patternId(nation)}
+                patternUnits="userSpaceOnUse"
+                width={HATCH_PX}
+                height={HATCH_PX}
+                patternTransform="rotate(45)"
+                style={nationStyle(factions, nation)}
+              >
+                <rect className="city-area-hatch-base" width={HATCH_PX} height={HATCH_PX} />
+                <rect className="city-area-hatch-line" width={HATCH_PX * HATCH_LINE} height={HATCH_PX} />
+              </pattern>
+            ))}
+        </defs>
+        {/* 칠: 국가마다 영토 고리들(겹치지 않는다 — 주인이 하나). 무늬 국가는 칠만 빗금(테두리·이름표는 국가 색 그대로) */}
+        {nations.map((nation) => {
+          const style = nationStyle(factions, nation);
+          const patterned = view.patterned.has(nation) && style !== undefined;
+          return (
+            <path
+              key={`fill-${String(nation)}`}
+              ref={(element) => {
+                areaRef(nation).fill = element;
+              }}
+              className="city-area-fill"
+              data-nation={factionColor(factions, nation)}
+              data-pattern={patterned ? "hatch" : undefined}
+              style={patterned ? { ...style, fill: `url(#${patternId(nation)})` } : style}
+            />
+          );
+        })}
         {/* 국가 경계 받침(바뀜 2026-11-14): 두 국가가 맞닿은 선만 판색으로 굵게 깔고 그 위에 국가 색 선 — 색이 비슷한 이웃도 갈린다 */}
         <path ref={dividerRef} className="city-area-divider" />
         {nations.map((nation) => (

@@ -866,7 +866,7 @@
   "planet_territory_capital": "Capital",
   "planet_territory_city": "City",
   "planet_territory_none": "No known territory yet.",
-  "planet_territory_known": "Each city has a catchment circle; a nation's territory is the union of its circles. Where nations overlap, the border is halfway between the two cities. Only cities you know are shown.",
+  "planet_territory_known": "A nation's territory is its city circles (current catchment) and the land between nearby same-nation cities; city-owned territory beacons push that outline outward. Where nations overlap, the city with the lower influence ratio (distance ÷ circle size) takes it. Only cities you know are shown (display only — may differ from territory rules).",
   "planet_territory_at": "Territory: {nation}",
   "planet_territory_at_city": "Territory: {nation} · {city} province",
   "planet_territory_outside": "Outside any known territory",

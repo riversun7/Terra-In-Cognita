@@ -13,7 +13,7 @@ const ASSET_CREDIT = "s3_test_credit";
 
 /**
  * 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들(result, 2차맵 사이 이동은 travel_result,
- * 구인 고용은 recruit_result, 건물은 facility_result, 배는 boat_result, 채집은 gather_result)
+ * 구인 고용은 recruit_result, 건물은 facility_result, 배는 boat_result, 채집은 gather_result, 영토 비콘은 beacon_result)
  */
 export async function sendCommands(
   page: Page,
@@ -64,6 +64,7 @@ export async function sendCommands(
                 "facility_result",
                 "boat_result",
                 "gather_result",
+                "beacon_result",
               ].includes(String(Reflect.get(reply, "t"))) &&
               Reflect.get(reply, "id") === id,
           ),
@@ -97,7 +98,7 @@ const pick = (value: unknown, name: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, name) : undefined;
 
 /** 화면 안에서 tRPC를 부른다(같은 출처 쿠키). input이 있으면 조회는 ?input=, 바꾸기는 POST 본문. 응답의 result.data(실패면 오류) */
-async function trpc(page: Page, path: string, input: unknown, mutation = false): Promise<unknown> {
+export async function trpc(page: Page, path: string, input: unknown, mutation = false): Promise<unknown> {
   const reply = await page.evaluate(
     async ({ route, body, post }) => {
       const query = body === undefined ? "" : `?input=${encodeURIComponent(JSON.stringify(body))}`;

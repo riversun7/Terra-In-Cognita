@@ -2,7 +2,8 @@
 // - 엔진은 목록 정보를 받은 뒤에 만든다: 그 전에 고른 레이어를 엔진에 넘기려고 화면이 지금 값을 ref에도 둔다(layerRef, 화면 것).
 // - 자원 분포: 자원 레이어를 고르거나 원자재를 바꾸면 그 서버 지도를 받아 엔진에 넣는다(planetResource.ts). 다른 레이어로 가면 버린다
 //   (텍스처 메모리). 받기는 누른 자리에서 시작한다(효과는 엔진이 늦게 준비된 경우와 화면을 닫을 때만).
-// - 영토: 범례의 아는 국가(도시 자료에 나온 국가, 색 = 도시 덧그림과 같은 차례)와 누른 곳의 국가 안내 한 줄(territoryPick.ts).
+// - 영토: 범례의 아는 국가(도시 자료에 나온 국가, 색 = 도시 덧그림과 같은 차례, 비슷한 색 이웃 무늬 — territoryView.ts)와 누른 곳의 국가
+//   안내 한 줄(territoryPick.ts). 영토 보기 한 벌은 여기서 셈해 도시 덧그림에도 넘긴다.
 import type { PickedCell, PlanetEngine, PlanetLayer } from "@terra/engine/planet";
 import type { CatchmentMaterial } from "@terra/shared/catchment";
 import type { WorldCitiesResponse } from "@terra/shared/worldMap";
@@ -11,13 +12,14 @@ import { m } from "../paraglide/messages.js";
 import type { LegendNation, ResourceLoad } from "./PlanetLayerPicker.tsx";
 import { loadResourceMap } from "./planetResource.ts";
 import { nationStyle } from "./nationColor.ts";
-import { territoryAt } from "./territoryPick.ts";
+import { territoryAtWorld } from "./territoryPick.ts";
+import { territoryViewOf } from "./territoryView.ts";
 import { cityLabel, factionColor, factionName } from "./worldMapData.ts";
 
 /** 영토 레이어에서 누른 곳의 국가 안내 한 줄(도시 자료가 없으면 null) */
 export function territoryLineOf(world: WorldCitiesResponse | null, cell: PickedCell): string | null {
   if (world?.status !== "ready") return null;
-  const hit = territoryAt(cell.latDeg, cell.lonDeg, world.cities, world.milliPerRadian);
+  const hit = territoryAtWorld(cell.latDeg, cell.lonDeg, world);
   if (!hit) return m.planet_territory_outside();
   const nation = factionName(world.factions, hit.factionId);
   const city = world.cities.find((entry) => entry.id === hit.cityId);
@@ -97,6 +99,8 @@ export function usePlanetLayers({ planetId, engineRef, engineReady, layerRef, wo
     fetchMap(material);
   };
 
+  // 영토 보기(모양·비슷한 색 이웃 무늬, 도시 자료가 바뀔 때만) — 도시 덧그림과 범례가 같이 쓴다
+  const territory = useMemo(() => territoryViewOf(world), [world]);
   const nations = useMemo((): LegendNation[] | null => {
     if (world?.status !== "ready") return null;
     return world.factions
@@ -106,8 +110,9 @@ export function usePlanetLayers({ planetId, engineRef, engineReady, layerRef, wo
         name: factionName(world.factions, faction.id),
         color: factionColor(world.factions, faction.id),
         style: nationStyle(world.factions, faction.id),
+        patterned: territory.patterned.has(faction.id),
       }));
-  }, [world]);
+  }, [world, territory]);
 
-  return { layer, chooseLayer, material, chooseMaterial, resourceLoad, retryResource, nations };
+  return { layer, chooseLayer, material, chooseMaterial, resourceLoad, retryResource, nations, territory };
 }

@@ -13,8 +13,10 @@ import { closeOperatorMenu, openOperatorMenu, setPerfPanel } from "./helpers/map
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
-import { type Language, type Theme, expect, test } from "./helpers/test.ts";
+import { type Language, type Theme, deviceOptions, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
+import { placeBeaconNear, removeBeacon } from "./helpers/beacons.ts";
+import { trpc } from "./helpers/wsCommands.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 /** 두 사진(같은 크기 PNG)의 화소 평균 차이(0~255, RGB 평균) — 브라우저에서 푼다(PNG 해석 의존성 없이, vision.spec.ts와 같은 방식) */
@@ -72,8 +74,12 @@ async function setExaggeration(page: Page, value: number): Promise<void> {
 /** 확대 움직임(300ms)이 끝나고 엔진이 단계를 알릴 때까지 */
 const STEP_WAIT_MS = 450;
 
-async function openPlanet(page: Page, search = ""): Promise<void> {
-  await rewriteTrpc(page, { "summary.get": hideSummary });
+async function openPlanet(
+  page: Page,
+  search = "",
+  edits: Readonly<Record<string, (data: unknown) => void>> = {},
+): Promise<void> {
+  await rewriteTrpc(page, { "summary.get": hideSummary, ...edits });
   await page.goto(`/map/planet${search}`);
   await expect(page.locator(".planet-screen")).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
   await expect(page.locator(".planet-screen")).toHaveAttribute("data-zoom-stage", /^[1-5]$/);
@@ -333,14 +339,48 @@ async function openLayerSheet(page: Page): Promise<void> {
   await expect(page.locator(".planet-layer-sheet")).toBeVisible();
 }
 
-/** 레이어 판을 열어 레이어 버튼을 누르고 엔진이 받을 때까지(1초 요약) + 그린 프레임 */
-async function chooseLayer(page: Page, layer: string): Promise<void> {
+/** 좁은 화면(하단 탭 단계, shell/layout.ts 37.5em = 600px 미만)인가 */
+const narrowView = (page: Page): boolean => (page.viewportSize()?.width ?? 390) < 600;
+
+/**
+ * 레이어 판을 열어 레이어 버튼을 누르고 엔진이 받을 때까지(1초 요약) + 그린 프레임. 좁은 화면은 고르면 판이 닫히고 넓은 화면은 열린 채다
+ * (기획 D-546 1436) — 닫힌 것을 본 뒤 keepOpen이면 다시 연다(범례를 보는 시험)
+ */
+async function chooseLayer(page: Page, layer: string, keepOpen = true): Promise<void> {
   await openLayerSheet(page);
-  const button = page.locator(`[data-layer-option="${layer}"]`);
-  await button.click();
-  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await page.locator(`[data-layer-option="${layer}"]`).click();
+  await expect(page.locator(".planet-layer-toggle")).toHaveAttribute("data-layer-current", layer);
+  if (narrowView(page)) await expect(page.locator(".planet-layer-sheet")).toHaveCount(0);
+  else await expect(page.locator(".planet-layer-sheet")).toBeVisible();
+  if (keepOpen) {
+    await openLayerSheet(page);
+    await expect(page.locator(`[data-layer-option="${layer}"]`)).toHaveAttribute("aria-pressed", "true");
+  }
   await expect(page.locator(".planet-screen")).toHaveAttribute("data-engine-layer", layer);
   await page.waitForTimeout(400);
+}
+
+/** 객체 칸 읽기·목록(모르는 모양이면 undefined·빈 목록) */
+const field = (value: unknown, key: string): unknown =>
+  typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
+const list = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
+
+/** 내(player) 시작 도시와 그 국가·행성(world.cities·world.myPosition) */
+async function myStartCity(page: Page): Promise<{ planetId: string; mapKey: number; factionId: number }> {
+  if (!page.url().startsWith("http")) await page.goto("/health");
+  const startCityId = field(
+    field(await trpc(page, "world.myPosition", undefined), "position"),
+    "startCityId",
+  );
+  const world = await trpc(page, "world.cities", undefined);
+  const cities = list(field(world, "cities"));
+  const city = cities.find((entry) => field(entry, "id") === startCityId) ?? cities[0];
+  if (!city) throw new Error("no city");
+  return {
+    planetId: String(field(world, "planetId")),
+    mapKey: Number(field(city, "mapKey")),
+    factionId: Number(field(city, "factionId")),
+  };
 }
 
 /** 레이어를 시험하는 보기: 3단계(나라가 보이는 거리), 하늘 끔(낮밤이 색을 바꾸지 않게) */
@@ -484,11 +524,23 @@ test.describe("레이어 사진", () => {
     test.describe(`390 ${theme}`, () => {
       test.use({ theme, language: "ko" });
 
-      test(`접힌·열린 레이어 단추, 고도·자원·영토 레이어, 행성 전체 (390·${theme})`, async ({
+      test(`접힌·열린 레이어 단추, 고도·자원·영토 레이어(비콘 하나), 행성 전체 (390·${theme})`, async ({
         page,
+        browser,
         deviceErrors,
       }) => {
-        test.setTimeout(180_000);
+        test.setTimeout(240_000);
+        // 도시 소유 비콘(기획 D-546 1434): 내 시작 도시 둘레에 그 국가 비콘 하나(admin 개발 대신 놓기) — 영토 외곽선이 비콘까지 넓어진다
+        const start = await myStartCity(page);
+        const adminContext = await browser.newContext({
+          ...VIEWPORTS.phone,
+          ...deviceOptions({ account: "admin" }),
+        });
+        const admin = await adminContext.newPage();
+        const placed = await placeBeaconNear(admin, start.planetId, start.mapKey, start.factionId);
+        expect(placed).not.toBeNull();
+        const seen = list(field(await trpc(page, "world.cities", undefined), "beacons"));
+        expect(seen.some((beacon) => field(beacon, "id") === placed?.beaconId)).toBe(true);
         await openPlanet(page, LAYER_VIEW);
         const screen = page.locator(".planet-screen");
         await expect(screen).toHaveAttribute("data-incomplete", "false", { timeout: 60_000 });
@@ -516,6 +568,8 @@ test.describe("레이어 사진", () => {
         await page.locator(".zoom-ladder-in").click();
         await page.waitForTimeout(STEP_WAIT_MS + 600);
         await shot(page, `planet-layer-territory-stage4-390-${theme}`);
+        if (placed) await removeBeacon(admin, placed.beaconId);
+        await adminContext.close();
         const near = await screen.getAttribute("data-engine-p95");
         // 행성 전체(1단계, 지형 + 영토 칠): 도시 원 모두가 화면 안 — 프레임 시간(덧그림 포함)을 잰다
         await page.goto("/map/planet?stage=1&planet-sky=off");
@@ -538,6 +592,80 @@ test.describe("레이어 사진", () => {
         console.log(
           `[measure] ${theme} territory engine p95 stage4 ${near ?? "?"}ms, stage1 ${(await screen.getAttribute("data-engine-p95")) ?? "?"}ms, drawn areas stage1 ${(await page.locator(".city-overlay").getAttribute("data-drawn")) ?? "?"}, blobs ${(await page.locator(".city-overlay").getAttribute("data-blobs")) ?? "?"}, cities ${(await screen.getAttribute("data-cities")) ?? "?"}`,
         );
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
+});
+
+/** world.cities data에서 그 국가 도시 하나를 내 시작 도시 바로 옆으로 옮기고 두 국가 색을 비슷한 빨강 둘로(비슷한 색 이웃 무늬 시험) */
+function closeRedNeighbours(startMapKey: number) {
+  return (data: unknown): void => {
+    const cities = list(field(data, "cities"));
+    const home = cities.find((city) => field(city, "mapKey") === startMapKey) ?? cities[0];
+    const other = cities.find((city) => field(city, "factionId") !== field(home, "factionId"));
+    if (typeof home !== "object" || home === null || typeof other !== "object" || other === null) return;
+    // 도시 원(아래 끝 4칸 ≈ 0.05°)이 겹치게 0.06° 옆
+    Reflect.set(other, "latDeg", field(home, "latDeg"));
+    Reflect.set(other, "lonDeg", Number(field(home, "lonDeg")) + 0.06);
+    for (const faction of list(field(data, "factions"))) {
+      if (typeof faction !== "object" || faction === null) continue;
+      if (field(faction, "id") === field(home, "factionId")) Reflect.set(faction, "color", "#e5035d");
+      if (field(faction, "id") === field(other, "factionId")) Reflect.set(faction, "color", "#e81603");
+    }
+  };
+}
+
+test.describe("레이어 판: 넓은 화면은 열린 채(D-546 1436)", () => {
+  test.use({ account: "player", theme: "pastel", language: "ko", ...VIEWPORTS.desktop });
+
+  test("1440: 레이어를 골라도 판이 열려 있고, 영토 범례가 보인다", async ({ page, deviceErrors }) => {
+    test.setTimeout(120_000);
+    await openPlanet(page, LAYER_VIEW);
+    await expect(page.locator(".planet-screen")).toHaveAttribute("data-incomplete", "false", {
+      timeout: 60_000,
+    });
+    await chooseLayer(page, "territory", false);
+    await expect(page.locator(".planet-layer-sheet")).toBeVisible();
+    await expect(page.locator('[data-legend="territory"]')).toBeVisible();
+    await page.waitForTimeout(300);
+    await shot(page, "planet-layer-territory-open-1440-pastel");
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("비슷한 색 이웃 무늬(D-546 1435)", () => {
+  test.use({ account: "player" });
+
+  for (const theme of ["pastel", "dark"] as const) {
+    test.describe(`390 ${theme}`, () => {
+      test.use({ theme, language: "ko" });
+      test(`맞닿은 두 국가 색이 비슷하면 큰 ID 국가 칠·범례에 빗금 (390·${theme})`, async ({
+        page,
+        deviceErrors,
+      }) => {
+        test.setTimeout(120_000);
+        const start = await myStartCity(page);
+        await openPlanet(page, "?stage=4&planet-sky=off", {
+          "world.cities": closeRedNeighbours(start.mapKey),
+        });
+        await expect(page.locator(".planet-screen")).toHaveAttribute("data-incomplete", "false", {
+          timeout: 60_000,
+        });
+        await chooseLayer(page, "territory");
+        await expect(page.locator('.city-area-fill[data-pattern="hatch"]').first()).toBeAttached();
+        expect(
+          await page.locator('[data-legend="territory"] [data-pattern="hatch"]').count(),
+        ).toBeGreaterThanOrEqual(1);
+        // 무늬 정의가 있고 칠이 그것을 가리킨다
+        const fill = await page.locator('.city-area-fill[data-pattern="hatch"]').evaluate((path) => {
+          const url = /url\("?#([^")]+)"?\)/.exec(getComputedStyle(path).fill)?.[1] ?? "";
+          return { url, defined: url !== "" && document.getElementById(url) !== null };
+        });
+        expect(fill.defined).toBe(true);
+        await page.locator(".planet-layer-toggle").click();
+        await page.waitForTimeout(400);
+        await shot(page, `planet-territory-hatch-390-${theme}`);
         expect(deviceErrors).toEqual([]);
       });
     });

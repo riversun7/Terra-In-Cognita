@@ -31,6 +31,7 @@ const site = (
   lonDeg: number,
   radiusDeg: number,
 ): TerritorySite => ({
+  kind: "city",
   id,
   factionId,
   latDeg,
@@ -123,22 +124,23 @@ describe("국가 영토: 도시 하나·도시 사이", () => {
 });
 
 describe("국가 영토: 다른 국가와의 경계", () => {
-  it("다른 국가 도시가 띠를 가르면: 겹친 곳은 두 도시의 가운데가 경계, 영토가 둘로 갈린다", () => {
-    // 국가 20 도시(반지름 2°)가 국가 10 띠(0° ~ 6°) 가운데를 덮는다 → 겹친 곳은 가운데(1.5°·4.5°)에서 갈린다
+  it("다른 국가 도시가 띠를 가르면: 겹친 곳은 영향력 비율(거리 ÷ 반지름)로 갈리고, 영토가 둘로 갈린다(D-546 1432)", () => {
+    // 국가 20 도시(반지름 2°)가 국가 10 띠(0° ~ 6°, 반지름 1°) 가운데를 덮는다 → x ÷ 1 = (3 − x) ÷ 2 → 1°·5°에서 갈린다(큰 도시가 더 가진다)
     const sites = [site(1, 10, 0, 0, 1), site(2, 10, 0, 6, 1), site(3, 20, 0, 3, 2)];
-    expect(owner(sites, 0, 1.45)?.id).toBe(1);
-    expect(owner(sites, 0, 1.55)?.id).toBe(3);
-    expect(owner(sites, 0, 4.45)?.id).toBe(3);
-    expect(owner(sites, 0, 4.55)?.id).toBe(2);
+    expect(owner(sites, 0, 0.95)?.id).toBe(1);
+    expect(owner(sites, 0, 1.05)?.id).toBe(3);
+    expect(owner(sites, 0, 4.95)?.id).toBe(3);
+    expect(owner(sites, 0, 5.05)?.id).toBe(2);
     const shapes = buildTerritoryShapes(sites, CORRIDOR);
     const nation10 = shapes.areas.filter((area) => area.factionId === 10);
     expect(nation10).toHaveLength(1);
     expect(nation10[0]?.loops).toHaveLength(2);
-    // 국가 경계 받침 선: 띠 안쪽(위도 ±0.9° 안) 점은 가운데(경도 1.5° 또는 4.5°) 위, 띠 밖은 국가 20 원 둘레
-    const inBand = shapes.dividers.flat().filter(([lat]) => Math.abs(lat) < 0.9);
+    // 맞닿은 국가 쌍(무늬 판정이 쓴다)
+    expect(shapes.neighbours).toEqual([[10, 20]]);
+    // 국가 경계 받침 선: 띠 안쪽(위도 ±0.3° 안) 점은 영향력 경계(경도 1° 또는 5°) 위, 띠 밖은 국가 20 원 둘레
+    const inBand = shapes.dividers.flat().filter(([lat]) => Math.abs(lat) < 0.3);
     expect(inBand.length).toBeGreaterThanOrEqual(2);
-    for (const [, lon] of inBand)
-      expect(Math.min(Math.abs(lon - 1.5), Math.abs(lon - 4.5))).toBeLessThan(0.05);
+    for (const [, lon] of inBand) expect(Math.min(Math.abs(lon - 1), Math.abs(lon - 5))).toBeLessThan(0.05);
   });
 
   it("작은 다른 국가 도시는 띠 안에서 제 원만큼 차지한다(그 밖은 띠 국가)", () => {
@@ -148,7 +150,7 @@ describe("국가 영토: 다른 국가와의 경계", () => {
     expect(owner(sites, 0, 4.2)?.factionId).toBe(10);
   });
 
-  it("다른 국가 원이 겹치면 가운데 경계, 한 원만 덮는 땅은 그 국가(큰 원 안 작은 도시도 제 땅)", () => {
+  it("다른 국가 원이 겹치면 영향력 비율 경계, 한 원만 덮는 땅은 그 국가(큰 원 안 작은 도시도 제 땅)", () => {
     const sites = [site(1, 10, 0, 0, 0.5), site(2, 20, 0, 1.6, 2)];
     expect(owner(sites, 0, 0.2)?.factionId).toBe(10);
     expect(owner(sites, 0, -0.45)?.factionId).toBe(10);
@@ -165,6 +167,64 @@ describe("국가 영토: 다른 국가와의 경계", () => {
     const sites = [site(5, 10, 10, 10, 1), site(4, 20, 10, 10, 1)];
     expect(owner(sites, 10, 10)?.id).toBe(4);
     expect(owner(sites, 30, 30)).toBeNull();
+  });
+});
+
+/** 도시 소유 비콘(둘레 여유 0.2°) */
+const beacon = (
+  id: number,
+  factionId: number,
+  latDeg: number,
+  lonDeg: number,
+  anchor: number,
+): TerritorySite => ({
+  kind: "beacon",
+  id,
+  factionId,
+  latDeg,
+  lonDeg,
+  radius: 0.2 * DEG,
+  anchorCityId: anchor,
+});
+
+describe("국가 영토: 도시 소유 비콘(D-546 1434 — 도시·국가 외곽선을 넓힌다)", () => {
+  it("비콘은 기준 도시와 이어져(잇기 상한 밖이어도) 그 도시 덩이 하나의 외곽선을 비콘까지 밀어낸다", () => {
+    const city = site(1, 10, 0, 0, 1);
+    // 잇기 상한 10°보다 먼 12°의 비콘도 기준 도시와 잇는다
+    const sites = [city, beacon(1, 10, 0, 12, 1)];
+    expect(owner([city], 0, 6)).toBeNull();
+    expect(owner(sites, 0, 6)?.factionId).toBe(10);
+    expect(owner(sites, 0, 12.1)?.factionId).toBe(10);
+    expect(owner(sites, 0, 12.5)).toBeNull();
+    const shapes = buildTerritoryShapes(sites, CORRIDOR);
+    expect(shapes.areas).toHaveLength(1);
+    expect(shapes.areas[0]?.cityIds).toEqual([1]);
+    expect(shapes.areas[0]?.loops).toHaveLength(1);
+    // 같은 ID의 도시·비콘은 따로 센다(도시 1과 비콘 1)
+    expect(owner(sites, 0, 0)?.kind).toBe("city");
+  });
+
+  it("비콘 둘과 도시가 삼각형을 채워 넓은 둥근 모양 — 도시 셋 사이처럼 속이 찬다", () => {
+    const sites = [site(1, 10, 0, 0, 1), beacon(2, 10, 6, 6, 1), beacon(3, 10, -6, 6, 1)];
+    expect(owner(sites, 0, 5)?.factionId).toBe(10);
+    expect(buildTerritoryShapes(sites, CORRIDOR).areas[0]?.loops).toHaveLength(1);
+  });
+
+  it("기준 도시가 목록에 없거나 다른 국가면 비콘을 넣지 않는다", () => {
+    expect(owner([beacon(1, 10, 0, 0, 9)], 0, 0)).toBeNull();
+    expect(owner([site(9, 20, 0, 3, 1), beacon(1, 10, 0, 0, 9)], 0, 0)).toBeNull();
+  });
+
+  it("다른 국가와 겹치면 비콘 자리는 기준 도시의 영향력(원 반지름)으로 견준다", () => {
+    // 국가 10 도시(반지름 2°)의 비콘(둘레 여유 1.5°)이 8°에, 국가 20 도시(반지름 1°)가 9.5°에.
+    // 비콘 거리 ÷ 2(기준 도시 반지름) = 국가 20 거리 ÷ 1 → 9°(비콘 제 반지름 1.5°로 견주면 8.9°)
+    const sites = [
+      site(1, 10, 0, 0, 2),
+      { ...beacon(5, 10, 0, 8, 1), radius: 1.5 * DEG },
+      site(2, 20, 0, 9.5, 1),
+    ];
+    expect(owner(sites, 0, 8.95)?.factionId).toBe(10);
+    expect(owner(sites, 0, 9.1)?.factionId).toBe(20);
   });
 });
 
@@ -212,6 +272,7 @@ describe("국가 영토: 규모", () => {
       const count = nation < 2 ? 1 + nation : 3;
       for (let index = 0; index < count; index++)
         sites.push({
+          kind: "city",
           id: id++,
           factionId: nation + 1,
           latDeg: lat + (index % 2) * 4.5 * cell,
@@ -220,9 +281,23 @@ describe("국가 영토: 규모", () => {
         });
     }
     // 이웃 국가 도시가 맞닿는 곳 하나
-    sites.push({ id: id++, factionId: 2, latDeg: -24 + 2 * cell, lonDeg: -40 + 3 * cell, radius });
+    sites.push({
+      kind: "city",
+      id: id++,
+      factionId: 2,
+      latDeg: -24 + 2 * cell,
+      lonDeg: -40 + 3 * cell,
+      radius,
+    });
     while (sites.length < 50)
-      sites.push({ id: id++, factionId: 16, latDeg: 0, lonDeg: -10 + sites.length * 0.3, radius });
+      sites.push({
+        kind: "city",
+        id: id++,
+        factionId: 16,
+        latDeg: 0,
+        lonDeg: -10 + sites.length * 0.3,
+        radius,
+      });
     const started = performance.now();
     const shapes = buildTerritoryShapes(sites, corridorOf(milliPerRadian));
     const elapsed = performance.now() - started;

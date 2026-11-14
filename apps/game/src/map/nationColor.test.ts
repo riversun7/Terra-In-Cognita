@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import presets from "../../../../content/core/nation_presets.json" with { type: "json" };
-import { inkOn, nationHex, nationStyle, relativeLuminance } from "./nationColor.ts";
+import { colorDistance, contrast, inkOn, nationHex, nationStyle, relativeLuminance } from "./nationColor.ts";
 
 const faction = (id: number, color?: string | null) => ({
   id,
@@ -52,5 +52,21 @@ describe("국가 색", () => {
     const colors = presets.entries.map((entry: { color?: string }) => entry.color?.toLowerCase());
     expect(colors.every((color) => typeof color === "string" && /^#[0-9a-f]{6}$/.test(color))).toBe(true);
     expect(new Set(colors).size).toBe(colors.length);
+  });
+
+  it("팩 국가 프리셋 색은 서로 멀고(OKLab 0.08 이상) 두 기본 테마 판 위에서 모두 보인다(비글자 대비 3 이상, D-546 1435)", () => {
+    // 판색 = tokens.css --color-surface: 파스텔 #ffffff, 다크 #1c2b47
+    const surfaces = ["#ffffff", "#1c2b47"].map(relativeLuminance);
+    const colors = presets.entries.map(
+      (entry: { color?: string }) => entry.color?.toLowerCase() ?? "#000000",
+    );
+    let nearest = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < colors.length; i++)
+      for (let j = i + 1; j < colors.length; j++)
+        nearest = Math.min(nearest, colorDistance(colors[i] ?? "", colors[j] ?? ""));
+    expect(nearest).toBeGreaterThanOrEqual(0.08);
+    for (const color of colors)
+      for (const surface of surfaces)
+        expect(contrast(relativeLuminance(color), surface)).toBeGreaterThanOrEqual(3);
   });
 });

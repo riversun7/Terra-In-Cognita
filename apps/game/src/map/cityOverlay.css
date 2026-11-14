@@ -46,6 +46,15 @@
   fill-rule: evenodd;
   stroke: none;
 }
+/* 비슷한 색 이웃 무늬(기획 D-546 1435, CityOverlay <pattern>): 국가 색 바탕 + 그 색 위 글자 색(--nation-ink, 검정·흰색 가운데 대비가 큰 것) 빗금.
+   칠(.city-area-fill)의 투명도를 그대로 받는다 */
+.city-area-hatch-base {
+  fill: var(--nation);
+}
+.city-area-hatch-line {
+  fill: var(--nation-ink, var(--color-text));
+  opacity: 0.6;
+}
 .city-area-divider {
   fill: none;
   stroke: var(--color-surface);

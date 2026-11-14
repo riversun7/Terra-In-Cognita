@@ -7,6 +7,7 @@ import {
   type PlanetEngine,
   type PlanetProjector,
   type PlanetStatus,
+  PLANET_EXAGGERATION,
   createPlanetEngine,
 } from "@terra/engine/planet";
 import type { WorldMapCity, WorldMapFaction } from "@terra/shared/worldMap";
@@ -22,8 +23,6 @@ const PLANET_ID = "s2_test_planet";
 const FIT = 3;
 /** 도시가 하나뿐일 때 거리 = 행성 반지름 × 이 값 */
 const SINGLE_RATIO = 0.05;
-/** 처음 고도 과장(1차맵 화면 기본과 같다) */
-const EXAGGERATION = 6;
 
 type Phase = "loading" | "ready" | "unavailable";
 
@@ -83,7 +82,8 @@ export default function StartCityMap({ cities, factions, selected, onSelect }: S
           engine = createPlanetEngine(host, {
             planet: planetDescriptionOf(manifest),
             tileSource: createServerTileSource(manifest),
-            exaggeration: EXAGGERATION,
+            // 고도 과장은 1차맵 화면과 같은 고정 값(×12, 사용자 결정 2026-11-14)
+            exaggeration: PLANET_EXAGGERATION,
             ...(view ? { initialView: view } : {}),
             onStatus,
             onOverlay: (projector) => overlayDraw.current?.(projector),

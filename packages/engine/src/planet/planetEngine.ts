@@ -67,7 +67,13 @@ import {
   zoomStepTarget,
 } from "./zoomStages.ts";
 
-const DEFAULT_EXAGGERATION = 6;
+/**
+ * 고도 과장 기본값 — 1차맵을 쓰는 화면(1차맵·첫 접속 도시 고르기·행성 편집기)이 모두 이 값이다(사용자 결정 2026-11-14 "×12 고정",
+ * ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 행성 반지름과 높이가 모두 실제의 1/12이라 ×1이 참 비율이고, ×12면 높이만 실제
+ * 크기(m)로 돌아간다(반지름에 견준 높이는 12배). 운영진만 운영 메뉴에서 잠깐 바꿔 본다
+ */
+export const PLANET_EXAGGERATION = 12;
+const DEFAULT_EXAGGERATION = PLANET_EXAGGERATION;
 const MIN_EXAGGERATION = 1;
 const MAX_EXAGGERATION = 50;
 const DEFAULT_MAX_SCREEN_ERROR_PX = 4;

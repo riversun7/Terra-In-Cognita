@@ -30,7 +30,8 @@
   --nation: var(--color-stat-vit);
 }
 
-/* 영토 경계: 껍질(선)·영향권(엷은 면 + 선) */
+/* 영토(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"): 도시 원들의 합. 칠은 한 묶음에 불투명 국가 색(겹친 곳은 뒤 조각이 덮는다) +
+   묶음 투명도 한 번, 테두리는 국가가 바뀌는 선만 */
 .city-territory {
   position: absolute;
   inset: 0;
@@ -38,23 +39,42 @@
   height: 100%;
   overflow: visible;
 }
-.city-hull {
-  fill: none;
-  stroke: var(--nation);
-  stroke-width: var(--border-w);
-  stroke-linejoin: round;
-  stroke-dasharray: var(--space-2) var(--space-1);
+.city-area-fills {
+  opacity: 0.16;
 }
-/* 국가 영토 = 영향권 원들의 합: 칠은 한 번(겹쳐도 진해지지 않는다), 테두리는 바깥 둘레만(가리개가 안쪽 반을 지우니 두 배 굵기) */
 .city-area-fill {
-  fill: color-mix(in srgb, var(--nation) 14%, transparent);
+  fill: var(--nation);
   stroke: none;
 }
 .city-area-edge {
   fill: none;
   stroke: var(--nation);
-  stroke-width: calc(var(--border-w) * 2);
+  stroke-width: var(--border-w);
   stroke-linejoin: round;
+  stroke-linecap: round;
+}
+/* 국가 이름표(영토 레이어만): 영토 가운데, 지도 위에서 읽히게 판색 테두리 글자. 누르기는 지나보낸다 */
+.city-area-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: calc(var(--tap-size) * 4);
+  overflow: hidden;
+  color: var(--nation);
+  font-family: var(--font-display);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-display);
+  line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow:
+    0 0 var(--hairline) var(--color-surface),
+    0 0 var(--space-1) var(--color-surface),
+    0 0 var(--space-1) var(--color-surface);
+  pointer-events: none;
+}
+.city-area-label[data-shown="false"] {
+  visibility: hidden;
 }
 
 /* 도시 표시: 누르는 곳은 --tap-size, 안에 국가 색 점과 이름표 */
@@ -179,15 +199,10 @@
   line-height: 1;
 }
 
-/* 영토 레이어(사용자 요청 2026-11-12): 흐린 바탕 위에 영토 칠을 진하게, 껍질도 칠하고 실선으로 */
-.city-overlay[data-emphasis="territory"] .city-area-fill {
-  fill: color-mix(in srgb, var(--nation) 38%, transparent);
+/* 영토 레이어(사용자 요청 2026-11-12): 흐린 바탕 위에 영토 칠을 진하게, 테두리를 굵게 */
+.city-overlay[data-emphasis="territory"] .city-area-fills {
+  opacity: 0.4;
 }
 .city-overlay[data-emphasis="territory"] .city-area-edge {
-  stroke-width: calc(var(--border-w) * 3);
-}
-.city-overlay[data-emphasis="territory"] .city-hull {
-  fill: color-mix(in srgb, var(--nation) 24%, transparent);
   stroke-width: calc(var(--border-w) * 1.5);
-  stroke-dasharray: none;
 }

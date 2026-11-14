@@ -60,6 +60,11 @@ export interface WorldMapCity {
   /** 도시 등급 1 ~ 6(M2)·영향권 반경(1000분율 칸, M3). 영토를 셈하지 못했으면 null */
   readonly grade: number | null;
   readonly radiusMilli: number | null;
+  /**
+   * 도시 배후지 반경(1000분율 칸, 지금 인구·발전도 등급·기술 — @terra/shared/catchment catchmentRadiusMilli, ADR 2026-11-11-city-catchment).
+   * 1차맵 영토 원의 반지름(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 배후지 규칙이 꺼졌거나 옛 서버면 null·없음 → 화면은 radiusMilli
+   */
+  readonly catchmentMilli?: number | null | undefined;
   /** 서버가 이 2차맵을 띄워 두었다(들어갈 수 있는 맵) */
   readonly loaded: boolean;
   /** 지금 내가 이 2차맵을 볼 수 있다(내 유닛·건물·탐사 칸, 또는 전체 보기 권한 — 서버 시야 규칙) */

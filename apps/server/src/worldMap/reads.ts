@@ -11,12 +11,14 @@
 // 세계 규칙은 바꾸지 않는다(조회만). 표·쓰기 대기열·NPC 런타임 파일은 건드리지 않는다.
 import { type CellKey, decodeCellKey, isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
-import { placementCellKey } from "@terra/planet/territory";
+import { placementCellKey, territoryMetric } from "@terra/planet/territory";
 import { planetCellValuesFromFile } from "@terra/planet/secondMap";
 import { CELL_UNITS, PLACEMENT_SIZE, TEST_GARDENER_COEFFICIENTS, positionAt } from "@terra/sim";
 import type { MapUnitGlance } from "@terra/shared/mapUnits";
 import type { NationEmblemView } from "@terra/shared/nationEditor";
 import type { LocalizedName } from "@terra/shared/roster";
+import { type CatchmentGrowthRules, catchmentRadiusMilli } from "@terra/shared/catchment";
+import { type TerritoryCoefficients, cityGrade } from "@terra/shared/territory";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import type {
   WorldCitiesResponse,
@@ -73,6 +75,11 @@ export interface WorldMapReadDeps {
   readonly biomeName?: ((id: string) => LocalizedName | undefined) | undefined;
   /** 세력 코드 → 화면 이름(팩 국가 프리셋 등) */
   readonly factionName?: ((code: string) => LocalizedName | undefined) | undefined;
+  /**
+   * 배후지 지금 반경 규칙(1차맵 영토 원, ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 없거나 undefined면 도시 catchmentMilli = null
+   * (화면은 영향권 반경으로 그린다)
+   */
+  readonly catchment?: (() => CatchmentRadiusRules | undefined) | undefined;
 }
 
 export interface WorldMapReadServices {
@@ -117,12 +124,24 @@ interface CityRecord {
   readonly name: string | null;
   readonly code: string | null;
   readonly kind: "npc" | "player";
+  /** 사는 휴먼 수·발전도·주인 세력 기술 단계(배후지 지금 반경 — 세계 배치 화면 배후지 덮개와 같은 값) */
+  readonly population: number;
+  readonly development: number;
+  readonly tech: number;
+}
+
+/** 배후지 지금 반경 규칙(세계 씨앗 설정 칸 city_catchment_* + 도시 등급 문턱). 배후지 규칙이 꺼졌으면 앱이 undefined를 준다 */
+export interface CatchmentRadiusRules {
+  readonly growth: CatchmentGrowthRules;
+  readonly territory: Pick<TerritoryCoefficients, "gradeAtDevelopment">;
 }
 
 async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityRecord[]> {
   const result = await pool.query(
-    `select c.id, c.faction_id, c.map_key, c.cell_x, c.cell_y, c.start, c.name, f.code, f.kind,
-            (f.capital_city_id is not null and f.capital_city_id = c.id) as capital
+    `select c.id, c.faction_id, c.map_key, c.cell_x, c.cell_y, c.start, c.name, f.code, f.kind, c.development,
+            f.tech_level as tech,
+            (f.capital_city_id is not null and f.capital_city_id = c.id) as capital,
+            (select count(*) from world_humans h where h.city_id = c.id) as population
      from world_cities c join factions f on f.id = c.faction_id
      where c.planet_id = $1 and f.dissolved_at_ms is null
      order by c.id`,
@@ -139,6 +158,9 @@ async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityR
     name: typeof row.name === "string" ? row.name : null,
     code: typeof row.code === "string" ? row.code : null,
     kind: row.kind === "player" ? "player" : "npc",
+    population: Number(row.population ?? 0),
+    development: Number(row.development ?? 0),
+    tech: Number(row.tech ?? 1),
   }));
 }
 
@@ -279,6 +301,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         ),
       );
       const cities: WorldMapCity[] = [];
+      const catchmentRules = deps.catchment?.();
       for (const record of records) {
         if (!isCellKey(record.mapKey)) continue;
         const cell = decodeCellKey(record.mapKey);
@@ -312,6 +335,17 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
           capital: record.capital,
           grade: area?.grade ?? null,
           radiusMilli: area?.radiusMilli ?? null,
+          // 배후지 지금 반경(인구·발전도 등급·기술 — /dev/world-layout 배후지 덮개의 실선과 같은 함수)
+          catchmentMilli: catchmentRules
+            ? catchmentRadiusMilli(
+                {
+                  population: record.population,
+                  grade: cityGrade(record.development, catchmentRules.territory),
+                  tech: record.tech,
+                },
+                catchmentRules.growth,
+              )
+            : null,
           loaded: map !== undefined,
           viewable: viewable.get(record.mapKey) ?? false,
           land: landOf(record.mapKey, bytes),
@@ -336,7 +370,8 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         factions: [...factions.values()],
         cities,
         hulls,
-        milliPerRadian: territory?.milliPerRadian ?? 0,
+        // 영토 서비스가 없어도 배후지 원을 그릴 수 있게 행성 평균 칸 환산(같은 값 — @terra/planet/territory)
+        milliPerRadian: territory?.milliPerRadian ?? territoryMetric(faceLevel).milliPerRadian,
         myFactionId,
         generatedAt: nowMs,
       };
@@ -455,6 +490,8 @@ export function worldMapReadsOf(options: {
   readonly planets?: WorldMapPlanets | undefined;
   /** 확인 단계 오염 위험 문턱(설정 칸 실효 값, 없으면 시험 계수 — 유목 목표 오염 문턱 S17) */
   readonly pollutionDanger?: (() => number) | undefined;
+  /** 배후지 지금 반경 규칙(설정 칸 실효 값 — 1차맵 영토 원). 없으면 catchmentMilli = null */
+  readonly catchment?: (() => CatchmentRadiusRules | undefined) | undefined;
 }): () =>
   | (WorldMapReadServices &
       TravelReads &
@@ -492,6 +529,7 @@ export function worldMapReadsOf(options: {
     values: planets ? () => planets.planetValues(planetId) : undefined,
     biomeName: (id) => planets?.manifest(planetId)?.biomes.find((biome) => biome.id === id)?.name,
     factionName: nameOfCode,
+    catchment: options.catchment,
   });
   // 2차맵 사이 이동 조회(WP9·WP11): 확인 단계(+ 위험 구간, 질문 594 나)·가는 중인 길(이동 서비스, 지금 자리의 위도·경도를 붙인다)
   const danger = createTravelDanger({

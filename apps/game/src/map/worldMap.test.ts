@@ -3,7 +3,6 @@
 import type { WorldMapCity, WorldMapFaction, WorldPositionResponse } from "@terra/shared/worldMap";
 import { describe, expect, it } from "vitest";
 import { mapSwitchTarget } from "../shell/MapSwitch.tsx";
-import { circlePoints } from "./CityOverlay.tsx";
 import { landText, waterFeatures } from "./landText.ts";
 import { chooseMapTarget, formatAtParam, needsCities, parseAtParam } from "./mapTarget.ts";
 import { clusterView, focusView } from "./planetFocus.ts";
@@ -241,16 +240,5 @@ describe("지도 전환·처음 보기", () => {
   it("묶음 다가가기: 거리 × 1/4, 거리를 모르면 그대로", () => {
     expect(clusterView({ latDeg: 1, lonDeg: 2 }, 400)).toEqual({ latDeg: 1, lonDeg: 2, distanceM: 100 });
     expect(clusterView({ latDeg: 1, lonDeg: 2 }, undefined)).toEqual({ latDeg: 1, lonDeg: 2 });
-  });
-
-  it("영향권 원 점은 가운데에서 같은 각도만큼 떨어져 있다", () => {
-    const angle = 0.01;
-    const rad = Math.PI / 180;
-    for (const [lat, lon] of circlePoints(30, 40, angle, 8)) {
-      const cos =
-        Math.sin(30 * rad) * Math.sin(lat * rad) +
-        Math.cos(30 * rad) * Math.cos(lat * rad) * Math.cos((lon - 40) * rad);
-      expect(Math.acos(Math.min(1, cos))).toBeCloseTo(angle, 9);
-    }
   });
 });

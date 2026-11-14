@@ -101,15 +101,21 @@ function waterUnits(levels: Int32Array, base: number): Int16Array {
   return out;
 }
 
-/** 유닛 움직임 → 엔진 경로(배치 칸, 칸/초). 점 하나면 서 있다 */
+/**
+ * 유닛 움직임 → 엔진 경로(배치 칸, 칸/초). 점 하나면 서 있다.
+ * 구간 걸음 배율(프로토콜 29, docs/adr/2026-11-14-segment-speed.md)은 그대로 넘긴다(길이가 맞지 않으면 버린다 — 스키마가 이미 막는다)
+ */
 export function toUnitPath(wire: UnitMotionWire): UnitPath {
   const points = new Float64Array(wire.path.length);
   for (let i = 0; i < points.length; i++) points[i] = (wire.path[i] ?? 0) / POSITION_UNITS_PER_CELL;
-  return {
+  const path: UnitPath = {
     points,
     departAtMs: wire.departAtMs,
     speedCellsPerSec: wire.speed / POSITION_UNITS_PER_CELL,
   };
+  if (wire.pace !== undefined && wire.pace.length === points.length / 2 - 1)
+    path.paces = Uint16Array.from(wire.pace);
+  return path;
 }
 
 /**

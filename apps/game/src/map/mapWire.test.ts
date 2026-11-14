@@ -135,6 +135,12 @@ describe("유닛", () => {
     expect(path.departAtMs).toBe(1_000_000);
   });
 
+  it("구간 걸음 배율(프로토콜 29)을 그대로 넘기고, 없으면 칸이 없다", () => {
+    const paced = toUnitPath({ ...walker, path: [1536, 2048, 4096, 2048, 4096, 4096], pace: [1800, 1000] });
+    expect(Array.from(paced.paces ?? [])).toEqual([1800, 1000]);
+    expect(toUnitPath({ ...walker, path: [...walker.path] }).paces).toBeUndefined();
+  });
+
   it("서 있는 유닛은 점 하나", () => {
     const path = toUnitPath({ ...walker, path: [512, 512] });
     expect(Array.from(path.points)).toEqual([0.5, 0.5]);

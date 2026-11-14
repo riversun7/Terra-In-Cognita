@@ -6,6 +6,7 @@
 //   서버 도착 시각에 맞게 조금 빨리 걷는다(상한 BLEND_MAX_SPEEDUP — 넘으면 그만큼 늦게 닿는다). 판정이 아니라 그림만이다.
 // 좌표: 배치 칸(2차맵 256×256). 놓는 자리는 지형 칸(배치 칸의 반) 단위다.
 import type { NeighbourPlacement, UnitPath } from "@terra/engine";
+import { paceFactor, pathProgress } from "@terra/shared/pathProgress";
 
 /** 이보다 가까우면 잇지 않는다(이미 그 자리), 이보다 멀면 잇지 않는다(다른 곳에 나타남 — 그대로 옮긴다). 배치 칸 */
 export const BLEND_MIN_CELLS = 0.02;
@@ -62,34 +63,31 @@ export function blendPath(shown: CellPoint, path: UnitPath, nowMs: number): Unit
   if (count < 1 || !(speed > 0)) return path;
   const px = (i: number): number => Number(path.points[i * 2]);
   const py = (i: number): number => Number(path.points[i * 2 + 1]);
-  // 서버 경로에서 지금 있을 자리(구간 segment 안, 그 구간의 남은 점들)
-  let travelled = (Math.max(0, nowMs - path.departAtMs) / 1000) * speed;
-  let segment = 0;
-  let atX = px(0);
-  let atY = py(0);
+  // 서버 경로에서 지금 있을 자리(구간 segment 안). 남은 양은 시간 거리(길이 × 걸음 배율 ÷ 1000 — 구간 빠르기, 프로토콜 29)
+  const progress = pathProgress(path, nowMs);
+  const segment = progress.done ? count - 1 : progress.segment;
+  const atX = progress.x;
+  const atY = progress.y;
   let remaining = 0;
-  for (let i = 0; i + 1 < count; i++) {
-    const length = Math.hypot(px(i + 1) - px(i), py(i + 1) - py(i));
-    if (travelled >= length) {
-      travelled -= length;
-      segment = i + 1;
-      atX = px(i + 1);
-      atY = py(i + 1);
-      continue;
-    }
-    const t = length > 0 ? travelled / length : 0;
-    atX = px(i) + (px(i + 1) - px(i)) * t;
-    atY = py(i) + (py(i + 1) - py(i)) * t;
-    remaining = length - travelled;
-    for (let k = i + 1; k + 1 < count; k++) remaining += Math.hypot(px(k + 1) - px(k), py(k + 1) - py(k));
-    segment = i;
-    break;
+  if (!progress.done) {
+    const length = Math.hypot(px(segment + 1) - px(segment), py(segment + 1) - py(segment));
+    remaining = length * (1 - progress.t) * paceFactor(path.paces, segment);
+    for (let k = segment + 1; k + 1 < count; k++)
+      remaining += Math.hypot(px(k + 1) - px(k), py(k + 1) - py(k)) * paceFactor(path.paces, k);
   }
   const gap = Math.hypot(atX - shown.x, atY - shown.y);
   if (gap < BLEND_MIN_CELLS || gap > BLEND_MAX_CELLS) return path;
   const points: number[] = [shown.x, shown.y, atX, atY];
-  for (let k = segment + 1; k < count; k++) points.push(px(k), py(k));
-  // 남은 길이를 서버 도착 시각에 맞춰 걷는다(남은 길이 0 = 서 있는 유닛이면 제 속도로 그 자리까지)
+  // 보이던 자리 → 지금 자리는 기본 빠르기(1000), 그다음은 원래 구간 배율
+  const paces: number[] = [1000];
+  if (!progress.done) paces.push(Math.round(paceFactor(path.paces, segment) * 1000));
+  for (let k = segment + 1; k < count; k++) {
+    points.push(px(k), py(k));
+    if (k + 1 < count) paces.push(Math.round(paceFactor(path.paces, k) * 1000));
+  }
+  // 남은 시간 거리를 서버 도착 시각에 맞춰 걷는다(남은 것이 0 = 서 있는 유닛이면 제 속도로 그 자리까지)
   const speedup = remaining > 0 ? Math.min(BLEND_MAX_SPEEDUP, (gap + remaining) / remaining) : 1;
-  return { points, departAtMs: nowMs, speedCellsPerSec: speed * speedup };
+  const blended: UnitPath = { points, departAtMs: nowMs, speedCellsPerSec: speed * speedup };
+  if (path.paces !== undefined) blended.paces = paces;
+  return blended;
 }

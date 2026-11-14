@@ -73,4 +73,18 @@ describe("blendPath", () => {
     expect(Array.from(blended.points)).toEqual([9, 6, 9, 5]);
     expect(blended.speedCellsPerSec).toBe(1);
   });
+
+  it("구간 걸음 배율(프로토콜 29): 지금 자리를 배율로 찾고 남은 구간 배율을 이어, 서버 도착 시각에 닿는다", () => {
+    // (0,0)→(10,0) 1000, (10,0)→(10,10) 2000. 1칸/초 → 첫 구간 10초, 둘째 20초, 도착 30초
+    const paced: UnitPath = { ...path([0, 0, 10, 0, 10, 10], 0, 1), paces: [1000, 2000] };
+    // 14초: 둘째 구간 4초 ÷ 20초 = 0.2 → (10, 2)
+    const blended = blendPath({ x: 9, y: 2 }, paced, 14_000);
+    expect(Array.from(blended.points)).toEqual([9, 2, 10, 2, 10, 10]);
+    expect(Array.from(blended.paces ?? [])).toEqual([1000, 2000]);
+    // 남은 시간 거리 = 8칸 × 2 = 16, 틈 1칸 → 빨라짐 17 ÷ 16
+    expect(blended.speedCellsPerSec).toBeCloseTo(17 / 16, 9);
+    // 서버 도착(30초)에 닿는다
+    const remainingMs = ((1 + 16) / blended.speedCellsPerSec) * 1000;
+    expect(14_000 + remainingMs).toBeCloseTo(30_000, 3);
+  });
 });

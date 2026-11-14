@@ -12,6 +12,7 @@
 // - 그 뒤 잠깐(BLEND_WINDOW_MS)은 새 경로를 화면에 보이던 자리에서 잇는다(unitBlend.ts blendPath) — 서버가 첫 칸에 세우는 한 칸 건너뜀이 안 보인다.
 // - 화면이 옆 2차맵으로 넘을 때 carryOut으로 그 유닛의 보이던 자리·걷던 쪽을 꺼내 새 틀로 옮겨 다음 합치기에 carryIn으로 넣는다(mapSession.ts).
 import type { NeighbourPlacement, UnitPath, UnitSpawn } from "@terra/engine";
+import { pathProgress } from "@terra/shared/pathProgress";
 import type { FeedSink } from "./feedTypes.ts";
 import {
   type CellPoint,
@@ -81,10 +82,10 @@ export interface UnitMerger {
   stop(): void;
 }
 
-/** 경로가 지금(nowMs) 가는 쪽(단위 벡터). 서 있거나 다 갔으면 마지막 구간, 구간이 없으면 null */
+/** 경로가 지금(nowMs) 가는 쪽(단위 벡터). 서 있거나 다 갔으면 마지막 구간, 구간이 없으면 null. 구간 걸음 배율을 따른다 */
 function headingOf(path: UnitPath, nowMs: number): CellPoint | null {
   const count = Math.floor(path.points.length / 2);
-  let travelled = (Math.max(0, nowMs - path.departAtMs) / 1000) * path.speedCellsPerSec;
+  const current = pathProgress(path, nowMs).segment;
   let heading: CellPoint | null = null;
   for (let i = 0; i + 1 < count; i++) {
     const dx = Number(path.points[i * 2 + 2]) - Number(path.points[i * 2]);
@@ -92,8 +93,7 @@ function headingOf(path: UnitPath, nowMs: number): CellPoint | null {
     const length = Math.hypot(dx, dy);
     if (length <= 0) continue;
     heading = { x: dx / length, y: dy / length };
-    if (travelled < length) break;
-    travelled -= length;
+    if (i >= current) break;
   }
   return heading;
 }

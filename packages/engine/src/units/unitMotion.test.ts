@@ -112,4 +112,32 @@ describe("UnitMotionStore", () => {
     expect(store.travelled(0, L_PATH.departAtMs + 1e9)).toBeCloseTo(20);
     expect(store.revision(5)).toBe(0);
   });
+
+  it("구간 걸음 배율(프로토콜 29): 1800인 구간은 1.8배 느리고, 간 길이는 실제 길이다", () => {
+    const store = new UnitMotionStore(1);
+    store.resize(1);
+    // 첫 구간 10칸 1000(5초), 둘째 구간 10칸 1800(9초)
+    store.setPath(0, { ...L_PATH, paces: [1000, 1800] });
+    store.update(6000); // 5초 → 첫 구간 끝
+    expect(at(store, 0)).toEqual([10, 0]);
+    store.update(10_500); // 9.5초: 둘째 구간 4.5초 ÷ 9초 = 절반
+    expect(at(store, 0)).toEqual([10, 5]);
+    expect(store.travelled(0, 10_500)).toBeCloseTo(15, 5);
+    expect(store.update(14_999)).toBe(1);
+    expect(store.update(15_000)).toBe(0);
+    expect(at(store, 0)).toEqual([10, 10]);
+    expect(store.travelled(0, 20_000)).toBeCloseTo(20, 5);
+  });
+
+  it("배율이 없으면 예전과 같다(모두 1000)", () => {
+    const a = new UnitMotionStore(2);
+    a.resize(2);
+    a.setPath(0, L_PATH);
+    a.setPath(1, { ...L_PATH, paces: [1000, 1000] });
+    for (const t of [500, 2000, 4321, 7000, 11_000]) {
+      a.update(t);
+      expect(at(a, 1)).toEqual(at(a, 0));
+      expect(a.travelled(1, t)).toBeCloseTo(a.travelled(0, t), 6);
+    }
+  });
 });

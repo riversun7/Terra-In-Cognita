@@ -2,6 +2,8 @@
 // ADR 2026-10-28-s1-second-map "전송": 서버는 경로가 바뀔 때만 보내고, 기기는 매 프레임 경로를 따라 위치를 계산해 그린다.
 // - 표시용이라 실수 계산을 쓴다(판정은 서버의 정수 고정소수점, packages/sim). 서버 좌표(배치 칸의 1/1024)는 /1024 해서 넣는다.
 // - 고빈도 상태는 타입 배열에 둔다(PLAN 5.7). 유닛 칸(slot)마다 한 줄, 경로 점은 한 저장소(pool)에 이어 붙인다.
+// - 구간 빠르기(docs/adr/2026-11-14-segment-speed.md, 프로토콜 29): 구간 i의 속도 = 기본 속도 × 1000 ÷ paces[i]. 점마다 누적 길이와
+//   누적 시간 거리(길이 × pace ÷ 1000)를 두고, (지금 − 출발) × 속도로 시간 거리 구간을 찾는다(@terra/shared pathProgress와 같은 식).
 // 좌표 단위: 배치 칸(2차맵 256×256). x = 열(동쪽), y = 행(남쪽).
 
 export interface UnitPath {
@@ -9,8 +11,19 @@ export interface UnitPath {
   points: ArrayLike<number>;
   /** 출발 시각(서버 시계 ms) */
   departAtMs: number;
-  /** 속도(배치 칸/초) */
+  /** 기본 속도(배치 칸/초) */
   speedCellsPerSec: number;
+  /** 구간마다 걸음 배율(천분율, 길이 = 점 수 − 1). 없으면 모두 1000 */
+  paces?: ArrayLike<number> | undefined;
+}
+
+/** 저장소 점 하나의 칸 수: x, y, 누적 길이, 누적 시간 거리 */
+const STRIDE = 4;
+
+/** 구간 i의 걸음 배율 ÷ 1000(없거나 틀리면 1) */
+function paceFactorOf(paces: ArrayLike<number> | undefined, segment: number): number {
+  const pace = paces ? Number(paces[segment]) : 1000;
+  return Number.isFinite(pace) && pace > 0 ? pace / 1000 : 1;
 }
 
 /** 서버 고정소수점(배치 칸의 1/1024)을 배치 칸으로 */
@@ -32,7 +45,7 @@ export class UnitMotionStore {
   /** 칸마다 경로 판(경로를 바꿀 때마다 새 값 — 경로 표시가 다시 만들지 정한다) */
   private readonly revisions: Uint32Array;
   private nextRevision = 1;
-  /** 경로 점 저장소: 점마다 x, y, 출발점부터 누적 길이 */
+  /** 경로 점 저장소: 점마다 x, y, 출발점부터 누적 길이, 누적 시간 거리 */
   private pool: Float32Array;
   private poolUsed = 0;
   /** 저장소에서 지금 쓰는 점 수(나머지는 버려진 옛 경로) */
@@ -50,7 +63,7 @@ export class UnitMotionStore {
     this.speed = new Float32Array(capacity);
     this.cursor = new Uint32Array(capacity);
     this.revisions = new Uint32Array(capacity);
-    this.pool = new Float32Array(Math.max(64, capacity * 8) * 3);
+    this.pool = new Float32Array(Math.max(64, capacity * 8) * STRIDE);
   }
 
   /** 쓰는 칸 수(0부터 연속) */
@@ -83,16 +96,22 @@ export class UnitMotionStore {
     this.reserve(pointCount);
     const start = this.poolUsed;
     let total = 0;
+    let weight = 0;
     let previousX = 0;
     let previousY = 0;
     for (let i = 0; i < pointCount; i++) {
       const px = Number(path.points[i * 2]);
       const py = Number(path.points[i * 2 + 1]);
-      if (i > 0) total += Math.hypot(px - previousX, py - previousY);
-      const at = (start + i) * 3;
+      if (i > 0) {
+        const length = Math.hypot(px - previousX, py - previousY);
+        total += length;
+        weight += length * paceFactorOf(path.paces, i - 1);
+      }
+      const at = (start + i) * STRIDE;
       this.pool[at] = px;
       this.pool[at + 1] = py;
       this.pool[at + 2] = total;
+      this.pool[at + 3] = weight;
       previousX = px;
       previousY = py;
     }
@@ -105,8 +124,8 @@ export class UnitMotionStore {
     this.cursor[slot] = 0;
     this.revisions[slot] = this.nextRevision++;
     // 첫 프레임 전에도 위치를 읽을 수 있게 출발점을 넣어 둔다
-    this.x[slot] = this.pool[start * 3] ?? 0;
-    this.y[slot] = this.pool[start * 3 + 1] ?? 0;
+    this.x[slot] = this.pool[start * STRIDE] ?? 0;
+    this.y[slot] = this.pool[start * STRIDE + 1] ?? 0;
     this.moving[slot] = pointCount > 1 && total > 0 && path.speedCellsPerSec > 0 ? 1 : 0;
   }
 
@@ -114,7 +133,7 @@ export class UnitMotionStore {
   destination(slot: number): { x: number; y: number } | null {
     const count = this.pathCount[slot] ?? 0;
     if (slot < 0 || slot >= this.count || count === 0) return null;
-    const at = ((this.pathStart[slot] ?? 0) + count - 1) * 3;
+    const at = ((this.pathStart[slot] ?? 0) + count - 1) * STRIDE;
     return { x: this.pool[at] ?? 0, y: this.pool[at + 1] ?? 0 };
   }
 
@@ -130,19 +149,32 @@ export class UnitMotionStore {
     const start = this.pathStart[slot] ?? 0;
     const out = new Float32Array(count * 2);
     for (let i = 0; i < count; i++) {
-      out[i * 2] = this.pool[(start + i) * 3] ?? 0;
-      out[i * 2 + 1] = this.pool[(start + i) * 3 + 1] ?? 0;
+      out[i * 2] = this.pool[(start + i) * STRIDE] ?? 0;
+      out[i * 2 + 1] = this.pool[(start + i) * STRIDE + 1] ?? 0;
     }
     return out;
   }
 
-  /** 시각 nowMs까지 경로를 따라 간 길이(배치 칸, 0 ~ 전체 길이) */
+  /** 시각 nowMs까지 경로를 따라 간 길이(배치 칸, 0 ~ 전체 길이) — 구간 걸음 배율 반영 */
   travelled(slot: number, nowMs: number): number {
     const count = this.pathCount[slot] ?? 0;
     if (slot < 0 || slot >= this.count || count === 0) return 0;
-    const total = this.pool[((this.pathStart[slot] ?? 0) + count - 1) * 3 + 2] ?? 0;
-    const gone = (Math.max(0, nowMs - (this.departAt[slot] ?? 0)) / 1000) * (this.speed[slot] ?? 0);
-    return Math.min(total, gone);
+    const pool = this.pool;
+    const start = this.pathStart[slot] ?? 0;
+    const last = (start + count - 1) * STRIDE;
+    const spent = (Math.max(0, nowMs - (this.departAt[slot] ?? 0)) / 1000) * (this.speed[slot] ?? 0);
+    if (spent >= (pool[last + 3] ?? 0)) return pool[last + 2] ?? 0;
+    for (let i = 0; i + 1 < count; i++) {
+      const a = (start + i) * STRIDE;
+      const b = a + STRIDE;
+      const weightB = pool[b + 3] ?? 0;
+      if (spent >= weightB) continue;
+      const weightA = pool[a + 3] ?? 0;
+      const t = weightB > weightA ? (spent - weightA) / (weightB - weightA) : 0;
+      const lengthA = pool[a + 2] ?? 0;
+      return lengthA + ((pool[b + 2] ?? 0) - lengthA) * t;
+    }
+    return pool[last + 2] ?? 0;
   }
 
   /**
@@ -163,32 +195,34 @@ export class UnitMotionStore {
     if (slot < 0 || slot >= this.count || count === 0) return false;
     const pool = this.pool;
     const start = this.pathStart[slot] ?? 0;
-    const total = pool[(start + count - 1) * 3 + 2] ?? 0;
+    const last = (start + count - 1) * STRIDE;
+    const total = pool[last + 2] ?? 0;
+    const totalWeight = pool[last + 3] ?? 0;
     const speed = this.speed[slot] ?? 0;
     // 속도가 0이면 출발점에 서 있다(영원히 "가는 중"이 되어 그리기를 멈추지 못하는 일이 없게)
     if (speed <= 0) {
-      this.x[slot] = pool[start * 3] ?? 0;
-      this.y[slot] = pool[start * 3 + 1] ?? 0;
+      this.x[slot] = pool[start * STRIDE] ?? 0;
+      this.y[slot] = pool[start * STRIDE + 1] ?? 0;
       this.moving[slot] = 0;
       return false;
     }
-    const travelled = (Math.max(0, nowMs - (this.departAt[slot] ?? 0)) / 1000) * speed;
-    if (count === 1 || travelled >= total || total <= 0) {
-      const at = (start + count - 1) * 3;
-      this.x[slot] = pool[at] ?? 0;
-      this.y[slot] = pool[at + 1] ?? 0;
+    // 지금까지 쓴 시간 거리(기본 속도로 간 길이). 구간 빠르기가 같으면 간 길이와 같다
+    const spent = (Math.max(0, nowMs - (this.departAt[slot] ?? 0)) / 1000) * speed;
+    if (count === 1 || spent >= totalWeight || total <= 0) {
+      this.x[slot] = pool[last] ?? 0;
+      this.y[slot] = pool[last + 1] ?? 0;
       this.moving[slot] = 0;
       return false;
     }
     // 구간 찾기: 시간은 보통 앞으로만 가므로 지난번 구간부터 본다. 시계가 뒤로 가면 처음부터
     let segment = this.cursor[slot] ?? 0;
-    if (segment >= count - 1 || (pool[(start + segment) * 3 + 2] ?? 0) > travelled) segment = 0;
-    while (segment < count - 2 && (pool[(start + segment + 1) * 3 + 2] ?? 0) <= travelled) segment++;
+    if (segment >= count - 1 || (pool[(start + segment) * STRIDE + 3] ?? 0) > spent) segment = 0;
+    while (segment < count - 2 && (pool[(start + segment + 1) * STRIDE + 3] ?? 0) <= spent) segment++;
     this.cursor[slot] = segment;
-    const a = (start + segment) * 3;
-    const b = a + 3;
-    const length = (pool[b + 2] ?? 0) - (pool[a + 2] ?? 0);
-    const t = length > 0 ? (travelled - (pool[a + 2] ?? 0)) / length : 1;
+    const a = (start + segment) * STRIDE;
+    const b = a + STRIDE;
+    const weight = (pool[b + 3] ?? 0) - (pool[a + 3] ?? 0);
+    const t = weight > 0 ? (spent - (pool[a + 3] ?? 0)) / weight : 1;
     const ax = pool[a] ?? 0;
     const ay = pool[a + 1] ?? 0;
     this.x[slot] = ax + ((pool[b] ?? 0) - ax) * t;
@@ -199,18 +233,18 @@ export class UnitMotionStore {
 
   /** 저장소에 점 n개 자리를 만든다. 버려진 경로가 많으면 모아 담고, 그래도 모자라면 키운다 */
   private reserve(n: number): void {
-    const capacityPoints = this.pool.length / 3;
+    const capacityPoints = this.pool.length / STRIDE;
     if (this.poolUsed + n <= capacityPoints) return;
     const needed = this.poolLive + n;
     const nextCapacity =
       needed * 2 > capacityPoints ? Math.max(needed * 2, capacityPoints * 2) : capacityPoints;
-    const next = new Float32Array(nextCapacity * 3);
+    const next = new Float32Array(nextCapacity * STRIDE);
     let used = 0;
     for (let slot = 0; slot < this.count; slot++) {
       const count = this.pathCount[slot] ?? 0;
       if (count === 0) continue;
-      const from = (this.pathStart[slot] ?? 0) * 3;
-      next.set(this.pool.subarray(from, from + count * 3), used * 3);
+      const from = (this.pathStart[slot] ?? 0) * STRIDE;
+      next.set(this.pool.subarray(from, from + count * STRIDE), used * STRIDE);
       this.pathStart[slot] = used;
       used += count;
     }

@@ -48,6 +48,7 @@
     "./nationEmblem": "./src/nationEmblem.ts",
     "./nationRandom": "./src/nationRandom.ts",
     "./nationTier": "./src/nationTier.ts",
+    "./pathProgress": "./src/pathProgress.ts",
     "./planetCalendar": "./src/planetCalendar.ts",
     "./planetScope": "./src/planetScope.ts",
     "./pngChunks": "./src/pngChunks.ts",

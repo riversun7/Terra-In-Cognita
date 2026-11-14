@@ -298,6 +298,8 @@ export function withCoastalDock(
   return out;
 }
 
+const now = (): number => Date.now();
+
 /** 도시마다 바닷가 부두 판단(전략 배치 함수로 부두 자리가 있는지 본다 — 도시마다 COAST_TTL_MS 동안 기억) */
 function coastalDocks(o: {
   readonly world: NpcBuildWorld;
@@ -305,7 +307,6 @@ function coastalDocks(o: {
   readonly rules: () => { readonly worldSeed: WorldSeedCoefficients };
 }) {
   const known = new Map<number, { dock: string | undefined; atMs: number }>();
-  const now = (): number => Date.now();
   const dockId = (): string | undefined =>
     o.world.catalog().facilities.find((def) => isBoatYard(def) && def.build)?.id;
   return {

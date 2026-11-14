@@ -75,7 +75,7 @@ import {
   stopOf,
 } from "./serviceTypes.ts";
 import { raidSeed } from "./raid.ts";
-import { type TravelRecord, loadTravels, travelWriter } from "./store.ts";
+import { loadTravels, travelWriter } from "./store.ts";
 
 export type {
   HiddenPlace,
@@ -100,6 +100,11 @@ export function walkSpeed(speed: number, factor: number): number {
   return Math.min(MAX_UNIT_SPEED, Math.max(1, Math.round(speed * factor)));
 }
 
+/** 설 수 있나: 걷는 유닛 = 땅, 배 = 물 칸(D-541 1283 나) */
+function standsOn(map: SecondMap, cell: CellPoint, size: SizeClass, sea: boolean): boolean {
+  return sea ? map.isNavigable(cell.x, cell.y, size) : map.isStandable(cell.x, cell.y, size);
+}
+
 /** setTimeout 지연 상한(약 24.8일). 더 먼 확인은 깨어나서 다시 건다 */
 const MAX_TIMER_MS = 0x7fff_ffff;
 
@@ -108,9 +113,6 @@ export function createTravelService(deps: TravelDeps): TravelService {
   const journeys = new Map<number, Journey>();
   const recent = new Map<number, Finished>();
   const store = travelWriter(deps.writer, deps.planetId);
-  /** 설 수 있나: 걷는 유닛 = 땅, 배 = 물 칸(D-541 1283 나) */
-  const standsOn = (map: SecondMap, cell: CellPoint, size: SizeClass, sea: boolean): boolean =>
-    sea ? map.isNavigable(cell.x, cell.y, size) : map.isStandable(cell.x, cell.y, size);
   const standable: Standable = (mapKey, cell, size) =>
     maps.get(mapKey)?.isStandable(cell.x, cell.y, size) ?? false;
   const loaded = (mapKey: number): boolean => maps.has(mapKey);

@@ -159,6 +159,13 @@ export function ringCells(
   return out;
 }
 
+/** 부두 둘레에서 배가 뜰 물 칸(가까운 고리부터) */
+function launchSpot(map: SecondMap, rect: CellRect, def: FacilityDef | undefined): CellPoint | undefined {
+  return ringCells(rect, (def?.needsWaterWithin ?? 1) + DOCK_WATER_SLACK, BOAT_SIZE, (x, y) =>
+    map.isNavigable(x, y, BOAT_SIZE),
+  )[0];
+}
+
 /** 유닛 몸 네모(지금 자리) */
 function bodyRect(map: SecondMap, unitId: number, nowMs: number): CellRect | undefined {
   const info = map.unitInfo(unitId);
@@ -190,12 +197,6 @@ export function createBoatService(deps: BoatDeps): BoatService {
     }
     return found;
   };
-
-  /** 부두 둘레에서 배가 뜰 물 칸(가까운 고리부터) */
-  const launchSpot = (map: SecondMap, rect: CellRect, def: FacilityDef | undefined): CellPoint | undefined =>
-    ringCells(rect, (def?.needsWaterWithin ?? 1) + DOCK_WATER_SLACK, BOAT_SIZE, (x, y) =>
-      map.isNavigable(x, y, BOAT_SIZE),
-    )[0];
 
   /** 끝 시각에 확인을 건다(먼 시각은 깨어나서 다시 건다) */
   const armJob = (job: BoatJob): void => {

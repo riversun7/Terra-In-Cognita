@@ -58,10 +58,13 @@
 - `secondMap.ts` 999줄·`world.ts` 999줄(파일 크기 검사 상한 바로 밑). 다음에 더할 줄기는 먼저 나눈다.
 - 계산식 결과가 탈것 문턱(2,000)을 넘게 고치면 봇 걷기가 탈것으로 보일 수 있다(지금 상한 1,589라 해당 없음, Assumed).
 - 저장된 행의 speed는 다음 이동 때 새 값이 된다(서 있는 유닛은 옛 값 — 움직이지 않으니 쓰이지 않는다, Verified: 코드 읽음).
-- 검사·e2e 결과는 아래 "검사"에 적는다.
 
 ## 검사
-- (작업 끝에 채운다)
+- Verified `pnpm check`(TEST_DATABASE_URL 켬): 테스트 파일 675·테스트 5,122 통과(DB 시험 포함 — 건너뜀 없음).
+- Verified `pnpm build` + `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 109,280 B / 상한 131,416 B.
+- Verified `pnpm check:docs origin/main` 통과, `pnpm check:content --no-compat` core@81 통과.
+- Verified e2e `cyborg.spec.ts`·`play-map.spec.ts`·`operator-speed.spec.ts`·`unit-control.spec.ts`: 65개 가운데 64 통과, 1 실패(`unit-control.spec.ts:285` 첫 땅 누르기 뒤 정보 판이 남음 — 걷는 휴먼을 누른 것으로 보임). 그 시험만 `--repeat-each 2`로 다시 돌려 2/2 통과 → 흔들리는 시험으로 본다(Assumed: 기본 몸 휴먼은 걷기 437 그대로라 이 줄기와 상관없음).
+- 사진: 사이보그 판 기동 묶음(390 파스텔·다크) — e2e 플레이어 AGI 13 → 448 단위/초 = 0.437칸/초.
 
 ## 사용자 결정 대기
 - 질문 1261~1267(`docs/questions/2026-11-13-walk-agi.md`), 모두 추천안으로 구현.

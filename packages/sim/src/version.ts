@@ -145,8 +145,13 @@
  *    같은 판 33에 더한 것(2026-11-13 사용자 결정, 아직 main 전): 물리 공격력(2차 행) = STR + ⌊VIT ÷ 2⌋(팩 stat_rows 가중치, 전에는 (STR + VIT) ÷ 2),
  *    무기·발톱 간격(계산식 attack_interval) = 무기 간격 ÷ (AGI ÷ 적정 AGI)², 적정 2배 상한(최소 0.25배)·최대 2.5배(전에는 ÷ min(1, AGI ÷ 적정)),
  *    속성 공격력(2차 행) = INT + ⌊WIS ÷ 2⌋(답 1257, 전에는 (INT + WIS) ÷ 2)
+ * 35: 레벨 재료 가공 시설(기획 D-540 — 질문 1186 나, simulator/npcBuild.ts levelSupplyFacilities·withLevelSupply): 건물 수 상한에 닿기 전
+ *    나라 목표에 레벨 2 짓기 재료(판자·벽돌)를 내는 시설(제재소·가마)을 재료마다 설정 칸 npc_build_level_supply(1 [임시])개 더한다(입력을 구할
+ *    길이 있을 때만). 시뮬 짓기 자리는 판단마다 증축 시설의 빈 자리를 일 없는 휴먼으로 채우고, 그래도 일꾼이 없는 증축 시설은 일꾼이 가장
+ *    많은 시설에서 한 명을 옮겨 받는다(서버 도시 경제의 돌려 나누기와 같은 뜻). 경제가 있는 시나리오(econ16·build16·build16u)의 결과가
+ *    달라진다. 요약 npc.cities에 leveled(레벨 2 이상 시설이 있는 도시 수) — 출력 형식 20
  */
-export const SIM_VERSION = 33;
+export const SIM_VERSION = 35;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

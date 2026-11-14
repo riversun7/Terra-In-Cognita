@@ -97,6 +97,11 @@ export interface NpcCoefficients {
   readonly buildCapByGrade?: readonly number[] | undefined;
   /** [임시] 이 상태(‰) 아래인 시설을 NPC가 고친다(질문 1114 가, 설정 칸 npc_build_repair_below_pm). 0 = 고치지 않는다 */
   readonly buildRepairBelowPm?: number | undefined;
+  /**
+   * [임시] 상한에 닿기 전 나라 목표에 더하는 레벨 재료 가공 시설 수(질문 1186 나, 기획 D-540, 설정 칸 npc_build_level_supply): 레벨 2 짓기 재료
+   * (판자·벽돌)를 내는 시설(제재소·가마)마다 도시 목표가 적어도 이 값이다. 0 = 더하지 않는다(나라 특산만). 없으면 0
+   */
+  readonly buildLevelSupply?: number | undefined;
   /** 굶어 멈춤(D-220, 기술 정의): 국고 0 + 생필품 충족 이 ‰ 미만이 이 날 수 이어짐 */
   readonly stallFoodPm: number;
   readonly stallDays: number;
@@ -158,6 +163,7 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   buildBuildersMax: 4,
   buildCapByGrade: [8, 10, 12, 16, 20, 24],
   buildRepairBelowPm: 700,
+  buildLevelSupply: 1,
   recruitTargetPm: 1000,
   recruitReservePm: 2000,
   restoreClaimScore: 400,

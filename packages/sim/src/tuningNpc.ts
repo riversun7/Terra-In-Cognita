@@ -294,4 +294,12 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC가 고치는 시설 상태 문턱(‰)",
     "NPC repair threshold (facility condition ‰)",
   ),
+  // 레벨 재료 가공 시설 목표(기획 D-540 — 질문 1186 나 [임시])
+  k(
+    "npc_build_level_supply",
+    "",
+    "buildLevelSupply",
+    "NPC 도시 레벨 재료 가공 시설 목표(재료마다)",
+    "NPC city level-material processors (per material)",
+  ),
 ];

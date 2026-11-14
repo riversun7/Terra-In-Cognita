@@ -46,7 +46,7 @@ const MATERIALS: readonly { item: string; facility: string }[] = [
 ];
 const STATS = [20, 30, 40, 50];
 
-/** 시설 하나·유효 스탯 하나·띠 표 하나 → 아이템마다 시간당 개수(광석은 g ÷ 1000 = kg) */
+/** 시설 하나·유효 스탯 하나·띠 표 하나 → 아이템마다 시간당 개수(묶음이 g인 광석은 g ÷ 1000 = kg, 석재·잡석은 개) */
 function perHour(facilityId: string, stat: number, bands: readonly GatherBand[]): Map<string, number> {
   const facility = facilities.find((entry) => entry.id === facilityId);
   const gather = facility?.gather;
@@ -110,5 +110,5 @@ for (const { item, facility } of MATERIALS) {
   });
   lines.push(`| ${item} | ${facility} | ${cells.join(" | ")} |`);
 }
-console.log(`일꾼 하나 시간당 개수(광석은 kg), 시설 Lv1·컨디션 0, ${HOURS}시간\n`);
+console.log(`일꾼 하나 시간당 개수(g 묶음 광석은 kg — 석재·잡석은 개), 시설 Lv1·컨디션 0, ${HOURS}시간\n`);
 console.log(lines.join("\n"));

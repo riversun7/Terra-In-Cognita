@@ -162,3 +162,10 @@
 - 확률표(49 N43): T9는 200~219 구간 2‰(드물게), 220부터 오른다(220 15‰, 새 240 구간 25‰, 새 260 구간 35‰). 0~199 구간은 그대로. 시험 표 `TEST_GATHER_BANDS`도 같다.
 - 채집 유효 스탯 = max(0, 주 + 보조 + 컨디션) + 시설 레벨 보너스(`@terra/shared/gatherMath` gatherStat 넷째 인자). 컨디션 = 관리 보너스(주거·음식, 합계 ±40)이고 규칙은
   `docs/adr/2026-11-12-unit-condition.md`. 시뮬 시설 계획은 `condition`(시나리오 칸, 없으면 0)으로만 받아 지금 시나리오 결과는 그대로다.
+
+## 바뀜 (2026-11-14, 사다리마다 채집 띠 표 — 기획 D-540 1217 나, 팩 core@83, `SIM_VERSION` 36)
+- 사용자 결정 2026-11-12 "기본 재료 바닥 보장"(D-537)으로 0~59 구간 T1을 350‰로 올리자 띠 하나를 쓰는 목재·약초·어류의 T0(소나무 원목 — Lv1 건물 재료)도 약 30% 줄었다(질문 1217). 기획 답: 띠 표를 사다리(채집 시설의 주 중분류)마다 따로 둔다 — 광석만 올린 표, 나머지는 옛 표.
+- 팩 `gather_tiers` 칸 `ladder`(원자재 중분류 참조, 선택): 있으면 그 사다리 전용 표의 구간. 사다리에 전용 표가 있으면 그것만, 없으면 `ladder` 없는 기본 표(`@terra/shared/gatherMath` `gatherLadderBands`). 2단계 검사: 표마다 첫 구간 0·늘어나기만(`gather_band_order`), 기본 표 필수(`gather_bands_missing`), 사다리는 원자재 중분류(`gather_subcategory_major`).
+- 팩 값: 기본 표 0~39 T0 700·T1 150·T2 100·T3 50, 40~59 T0 650·T1 220·T2 100·T3 30(core@76 값으로 되돌림). 광석 표(`ore_band_*` 14줄) = core@80 값(0~39 T0 500·T1 350, 40~59 T0 500·T1 350·T2 120). 60 위는 두 표가 같다.
+- 쓰는 곳 모두 사다리 표를 고른다: 시뮬 생산(`simulator/economy.ts`), 서버 채집 직무·채집소(`facilities/world.ts`), NPC 경제(`market/catalog.ts` → 시뮬), 아이템 편집기 미리 보기(`itemEdit/previewGather.ts`), 사이보그 판 효율 줄(`roster/gatherSheet.ts`), 생산 편집기 미리 보기(`productionModel.ts typePreview`)와 확률 분포·예상 확률 탭(띠 표 고르기 `ProductionLadderPicker`), 오브젝트 사다리 굴림(`gather/objectYield.ts`). 유닛 추천(`recommendProduction`)은 띠를 보지 않는다(주 + 보조 합 차례). 읽기 모양은 `@terra/content` `gatherBandOfEntry`(사다리 ID를 잃지 않게).
+- 편집기: 띠 표마다 구간을 고친다(담은 덮어쓰기는 `ladder`를 그대로 싣는다). 새 사다리 표 만들기는 없다(팩에서 더한다).

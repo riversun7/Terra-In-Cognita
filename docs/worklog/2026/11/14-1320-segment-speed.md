@@ -53,6 +53,7 @@
 | `packages/engine/src/units/unitMotion.ts`, `.test.ts` | 기기 보간 |
 | `packages/shared/src/pathProgress.ts`(새), `.test.ts`, `package.json` | 표시용 보간 진입점 |
 | `apps/game/src/map/mapWire.ts`, `unitMerge.ts`, `unitBlend.ts`, 시험 | 배율 넘기기·방향·잇기 |
+| `e2e/seamless.spec.ts` | 시험 연결이 경로를 점 하나로 바꿀 때 `pace`도 뺀다 |
 | `docs/adr/2026-11-14-segment-speed.md`, `docs/questions/2026-11-14-segment-speed.md` | 결정·질문 |
 
 ## 함께 바꿔야 하는 파일
@@ -70,7 +71,11 @@
 - 탈것 봇(시험 2차맵)도 지형 비용만큼 느려진다(길 밖 최고 속도는 없음, 질문 1341).
 
 ## 검사
-CHECKS
+- Verified `pnpm check`(TEST_DATABASE_URL 켬, merge/integration 합친 뒤): 시험 파일 687·시험 5,205 통과.
+- Verified `pnpm build` → `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 109,281 B / 상한 131,416 B.
+- Verified `db:generate` 합친 뒤 "No schema changes"(배 `boat_jobs`와 이 줄기 `segment_pace`가 같은 부모 `boat_aboard`에서 갈라진 마이그레이션 — 그대로 합침).
+- Verified 화면 시험 `play-map`·`seamless`·`unit-control`·`operator-speed`·`terrain-objects`·`boats`: 64개 가운데 60 통과·2 건너뜀(측정 전용)·2 실패(`seamless` 변 가까이·옆 2차맵 땅 누르기). 실패 원인: 시험 연결이 내 사이보그 경로를 점 하나로 바꾸며 `pace`를 남겨 기기가 스냅샷을 버림(서 있는 점은 배율 0개여야 한다) → 시험이 `pace`도 빼게 고친 뒤 `seamless.spec.ts` 전체 다시: 6 통과·1 건너뜀.
+- 사진: `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/segment-speed-shots/unit-control-moving-390.png`(숲 속을 걷는 내 사이보그·길 표시), `…/unit-control-operator-390-{pastel,dark}.png`(임시).
 
 ## 사용자 결정 대기
 - 질문 1341~1344(`docs/questions/2026-11-14-segment-speed.md`), 모두 추천안으로 구현.

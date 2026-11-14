@@ -125,8 +125,11 @@ async function rigSocket(page: Page): Promise<Rig> {
         const rev = Number(field(parsed, "rev"));
         if (Number.isFinite(rev)) rig.revs.set(Number(field(parsed, "mapKey")), rev);
         for (const unit of units) {
-          if (field(unit, "own") === true)
+          if (field(unit, "own") === true) {
             Reflect.set(unit, "path", [rig.edge.x * UNITS_PER_CELL + 512, rig.edge.y * UNITS_PER_CELL + 512]);
+            // 서 있는 점 하나라 구간 걸음 배율(프로토콜 29 pace — 길이 = 점 수 − 1)도 뺀다. 남기면 기기가 메시지를 버린다
+            Reflect.deleteProperty(unit, "pace");
+          }
         }
         socket.send(JSON.stringify(parsed));
         return;

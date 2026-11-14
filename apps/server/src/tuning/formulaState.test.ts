@@ -41,7 +41,7 @@ describe("계산식 칸", () => {
   it("행 식 17개(켜진 행, D-502로 명중·크리·행동 속도 점수를 끔, D-512 323 제작 직무 행, D-514 HP 회복) + 전투 식 11개(D-511 적정 STA·실제 회복), 팩 식은 가중치에서 만든 식·팩 formulas 글", () => {
     const state = packState();
     expect(state.formulaSlots.filter((slot) => slot.group === "stat")).toHaveLength(17);
-    expect(state.formulaSlots.filter((slot) => slot.group === "combat")).toHaveLength(14);
+    expect(state.formulaSlots.filter((slot) => slot.group === "combat")).toHaveLength(15);
     expect(state.formulaSlot("stamina_appropriate")?.packSource).toBe(
       DEFAULT_COMBAT_FORMULAS.stamina_appropriate,
     );

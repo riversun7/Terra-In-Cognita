@@ -11,6 +11,7 @@ import type { PathService } from "./pathService.ts";
 import type { BuildingRow, MapPersist, UnitJob, UnitRow } from "./secondMapRows.ts";
 import type { UnitCondition } from "./unitCondition.ts";
 import type { ExploredStore, MapVision } from "./vision.ts";
+import type { WalkUnit } from "./walkSpeed.ts";
 import type { WorldStats } from "./worldStats.ts";
 import type { WorldDomain } from "../db/schema.ts";
 
@@ -62,6 +63,8 @@ export interface SecondMapOptions {
   onFirstEdit?: (() => void) | undefined;
   /** 봇 아닌 유닛의 움직임 알림·경계 너머 시야(옆 2차맵 미리 띄우기, edgeWatch.ts — 2026-11-12). 없으면 없음 */
   edge?: EdgeHooks | undefined;
+  /** 이동을 시작하는 유닛의 빠르기(D-540 걷기 = 실효 AGI, walkSpeed.ts). 없으면 유닛 speed 그대로 */
+  walkSpeed?: ((unit: WalkUnit) => number) | undefined;
 }
 
 export interface SecondMap {
@@ -150,6 +153,8 @@ export interface SecondMap {
     target: Point,
     options?: { readonly speedFactor?: number },
   ): Promise<CommandResult>;
+  /** 유닛 빠르기를 몸에서 다시 읽어 넣는다(D-540, 길 예상 시간 전에 — travel/service.ts). 지금 빠르기(유닛이 없으면 undefined) */
+  refreshSpeed(unitId: number): number | undefined;
   /** 운영자 빠르기 표시(operatorPace.ts)를 바꾼다 — 1이면 지운다. 앞 값(유닛이 없으면 undefined). 메모리에만, 유닛이 2차맵을 떠나면 지운다 */
   setPace(unitId: number, factor: number): number | undefined;
   /** 그 유닛의 운영자 빠르기 표시(없으면 1) */

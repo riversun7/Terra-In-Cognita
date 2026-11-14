@@ -12,6 +12,7 @@ import { type MapPin, loadPins, savePin } from "./pins.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
 import type { TerrainService } from "./terrainService.ts";
 import type { EdgeHooks } from "./edgeWatch.ts";
+import type { WalkUnit } from "./walkSpeed.ts";
 import type { ExploredStore } from "./vision.ts";
 import type { WorldStats } from "./worldStats.ts";
 
@@ -52,6 +53,8 @@ export interface MapFactory {
   prefetch(mapKey: number): void;
   /** 변 가까운 유닛 고리를 잇는다(edgeWatch.ts — 이미 만든 2차맵도 이것을 부른다). 없으면 없음 */
   attachEdge?(hooks: EdgeHooks): void;
+  /** 걷기 빠르기 고리를 잇는다(D-540 실효 AGI, walkSpeed.ts — 이미 만든 2차맵도 이것을 부른다). 없으면 유닛 speed 그대로 */
+  attachWalk?(speedOf: (unit: WalkUnit) => number): void;
 }
 
 export function createMapFactory(parts: MapFactoryParts): MapFactory {
@@ -63,6 +66,8 @@ export function createMapFactory(parts: MapFactoryParts): MapFactory {
     moved: (mapKey, unit) => edgeHooks?.moved(mapKey, unit),
     sight: (mapKey, at) => edgeHooks?.sight(mapKey, at) ?? [],
   };
+  let walkOf: ((unit: WalkUnit) => number) | undefined;
+  const walkSpeed = (unit: WalkUnit): number => walkOf?.(unit) ?? unit.speed;
 
   /** 2차맵 지형: 고정본 → 지형 서비스(캐시 → 생성기). 지형 서비스가 없으면 S1 임시 지형 */
   const terrainFor = async (
@@ -121,6 +126,7 @@ export function createMapFactory(parts: MapFactoryParts): MapFactory {
       allocateBuildingId: store?.ids.building,
       onFirstEdit: pinned || !store ? undefined : pinner(store.db, mapKey),
       edge,
+      walkSpeed,
     });
 
   const prefetchAround = (mapKeys: readonly number[]): void => {
@@ -145,6 +151,9 @@ export function createMapFactory(parts: MapFactoryParts): MapFactory {
     },
     attachEdge(hooks) {
       edgeHooks = hooks;
+    },
+    attachWalk(speedOf) {
+      walkOf = speedOf;
     },
     async createMaps(mapKeys) {
       const pins = await pinsOf(mapKeys);

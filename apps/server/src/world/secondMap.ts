@@ -69,12 +69,12 @@ import type { PathOutcome, PathPriority } from "./pathService.ts";
 import { type Scheduler, createScheduler } from "./scheduler.ts";
 import { DEFAULT_WORLD_PLANET_ID, type WorldDomain } from "../db/schema.ts";
 import { HEALTHY, type UnitCondition, safePoint, unavailable } from "./unitCondition.ts";
-import { UNIT_KIND_BOAT, UNIT_KIND_BOT, UNIT_KIND_TEST, wireKindOf } from "./unitKinds.ts";
+import { UNIT_KIND_BOAT, UNIT_KIND_BOT, UNIT_KIND_TEST, VEHICLE_MIN_SPEED, wireKindOf } from "./unitKinds.ts";
 import { createMapVision } from "./vision.ts";
 import { waterMaskOfTerrain } from "./waterMask.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
 import { recordPathOutcome } from "./worldStats.ts";
-import { NO_JOB, type UnitJob, type UnitRow } from "./secondMapRows.ts";
+import { NO_JOB, type UnitJob, type UnitRow, unitRowOf } from "./secondMapRows.ts";
 
 /** 봇 경로의 탐색 예산(칸). 넘으면 budget_exceeded → 다른 목적지 */
 export const BOT_NODE_BUDGET = 32_768;
@@ -95,7 +95,7 @@ interface UnitState {
   /** 사이보그 융합이 휴먼(4) → 사이보그 유닛(5)으로 바꾼다(setKind) */
   kind: number;
   readonly domain: WorldDomain;
-  /** NPC 휴먼이 되면 크기 1·걷기로 바뀐다(setHumanBody, D-534 — 1106 가) */
+  /** NPC 휴먼이 되면 크기 1·걷기로 바뀐다(setHumanBody, D-534 — 1106 가. 걷기 = 탈것 빠르기 밑, 값은 실효 AGI D-540) */
   size: SizeClass;
   speed: number;
   motion: Motion;
@@ -202,28 +202,16 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     onError: (error) => log.error({ err: error, mapKey }, "map event failed"),
   });
 
-  const rowOf = (unit: UnitState): UnitRow => {
-    const path: number[] = [];
-    for (const point of unit.motion.waypoints) path.push(point.x, point.y);
-    return {
-      id: unit.id,
-      ownerId: unit.ownerId,
-      kind: unit.kind,
-      size: unit.size,
-      speed: unit.speed,
-      mapKey,
-      planetId,
-      domain: unit.domain,
-      path,
-      departAtMs: unit.motion.departAtMs,
-      wakeAtMs: unit.wakeAtMs ?? null,
-      aiStep: unit.aiStep,
-      job: unit.job,
-      condition: unit.condition,
-      aboardId: unit.aboard ?? null,
-    };
-  };
+  const rowOf = (unit: UnitState): UnitRow => ({
+    ...unitRowOf(unit, mapKey, planetId),
+    aboardId: unit.aboard ?? null,
+  });
   const save = (unit: UnitState): void => persist?.saveUnit(rowOf(unit));
+  /** 몸에서 빠르기를 다시 읽는다(D-540 걷기 = 실효 AGI). 하던 이동은 그대로 — 다음 이동부터. 저장은 이어지는 움직임과 함께 */
+  const refresh = (unit: UnitState): number => {
+    unit.speed = options.walkSpeed?.(unit) ?? unit.speed;
+    return unit.speed;
+  };
 
   const replicaInit = (): MapReplicaInit => ({
     mapKey,
@@ -299,6 +287,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     speedFactor = 1,
   ): void => {
     const at = now();
+    refresh(unit);
     if (at < arrivalAt(unit.motion)) {
       // 움직이는 중이면 지금 자리에 멈춰 세운다(결과가 오면 거기서 출발)
       setMotion(
@@ -719,7 +708,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     setHumanBody(unitId) {
       const unit = units.get(unitId);
-      if (!unit?.bot || (unit.size === HUMAN_SIZE && unit.speed === WALK_SPEED)) return false;
+      if (!unit?.bot || (unit.size === HUMAN_SIZE && unit.speed < VEHICLE_MIN_SPEED)) return false;
       const at = now();
       const cell = anchorAt(positionAt(unit.motion, at), HUMAN_SIZE);
       cancelEvent(unit);
@@ -868,6 +857,10 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       return previous;
     },
     paceOf: (unitId) => paces.get(unitId) ?? 1,
+    refreshSpeed(unitId) {
+      const unit = units.get(unitId);
+      return unit ? refresh(unit) : undefined;
+    },
     placeBuilding(placement, ownerId = null, reuseId) {
       if (buildings.size >= MAX_BUILDINGS) return { ok: false, code: "building_limit" };
       if (reuseId !== undefined && buildings.has(reuseId)) return { ok: false, code: "invalid_request" };

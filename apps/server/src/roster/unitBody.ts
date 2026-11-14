@@ -33,7 +33,6 @@ import {
   PLACEMENT_SIZE,
   type Primaries,
   type StartEffect,
-  WALK_SPEED,
   activeStartEffects,
   appropriateMilliOf,
   bareAppropriateMilli,
@@ -48,6 +47,7 @@ import {
   weaponRatioPm,
   wearable,
   withAttackModifiers,
+  walkSpeedOf,
   withDefenseModifiers,
 } from "@terra/sim";
 import type { CyborgRecord } from "../cyborg/state.ts";
@@ -271,17 +271,30 @@ const SUMMARY_PLACE: SpecPlace = {
   buildingMulPm: 1000,
 };
 
+/** 걷기 속도 상한을 재는 AGI(계산식 walk_speed의 상한 줄 — 사이보그 판 풀이) */
+const WALK_CAP_PROBE_AGI = 1_000_000;
+
 /**
- * 사이보그 판 이동 속도 줄(사용자 요청 2026-11-12): 서버가 실제로 쓰는 걷기 빠르기(@terra/sim WALK_SPEED — 사이보그·휴먼 유닛 speed)와
- * 칸 단위, 화면 요약 자리의 전투 걸음 간격. 1차 스탯 몫은 없다(기획 48 §3.2 — 이동 속도는 2차 스탯이 아니고 AGI 관계는 미결)
+ * 사이보그 판 이동 속도 줄(사용자 요청 2026-11-12, 걷기 = AGI D-540): 서버가 실제로 쓰는 걷기 빠르기(계산식 walk_speed — @terra/sim
+ * walkSpeedOf, 2차맵 유닛 speed와 같은 식·같은 실효 AGI)와 그 풀이(AGI 0 기본·상한), 칸 단위, 화면 요약 자리의 전투 걸음 간격.
+ * agi = 그 몸의 실효 AGI(성장값 + 장비·버프 − 부상, 전투와 같은 값 — world/walkSpeed.ts)
  */
-export function rosterMoveOf(): RosterMove {
+export function rosterMoveOf(catalog: RosterCatalog, agi: number): RosterMove {
+  const c = catalog.coefficients;
   return {
-    walk: WALK_SPEED,
+    walk: walkSpeedOf(agi, c),
+    agi,
+    walkBase: walkSpeedOf(0, c),
+    walkCap: walkSpeedOf(WALK_CAP_PROBE_AGI, c),
     cellUnits: CELL_UNITS,
     mapCells: PLACEMENT_SIZE,
     battleMs: SUMMARY_PLACE.moveIntervalMs,
   };
+}
+
+/** 몸의 실효 AGI(2차맵 걷기 속도의 AGI, D-540): 전투 사양과 같은 1차 스탯(bodyParts loadout — 성장값 + 장비·버프 − 부상) */
+export function walkAgiOf(catalog: RosterCatalog, base: BodyBase, gear: UnitGear): number {
+  return bodyParts(catalog, bodySpecOf(base, gear)).loadout.primaries.agi;
 }
 
 /** 무기 간격의 적정스탯 상한(2배, 사용자 결정 2026-11-13 — 계산식 attack_interval 기본 식의 min(2, …)과 같다). 화면 풀이의 비율에만 쓴다 */

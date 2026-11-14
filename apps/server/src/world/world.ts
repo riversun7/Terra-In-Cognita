@@ -41,6 +41,7 @@ import { UNIT_KIND_CYBORG_UNIT } from "./unitKinds.ts";
 import { conditionColumns, createWorkInjury } from "./unitCondition.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
+import { walkSpeedsOf } from "./walkSpeed.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
 import { retireTestMaps } from "./pins.ts";
@@ -274,7 +275,6 @@ function counter(start: number): () => number {
     return last;
   };
 }
-
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /** 보유 물건을 잇기 전의 빈 몸(생명 수치가 먼저 만들어진다) */
 const noGear = (): UnitGear => NO_GEAR;
@@ -302,7 +302,6 @@ export function startWorld(
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let stopped = false;
   const bootId = randomUUID();
-
   const terrainService = config.terrain;
   /** 시험 2차맵 줄(봇 자리·옛 시작 도시 자리). 띄우는 2차맵은 여기에 도시가 있는 2차맵을 더한다(worldBoot.ts) */
   const testKeys = Array.from({ length: mapCount }, (_, index) => testMapKey(index));
@@ -585,6 +584,7 @@ export function startWorld(
     gearOf = holdings.gearOf;
     // 세계 전투 시작 사양의 몸: 사이보그 화면·유닛 상세와 같은 셈(입은 장비·인공장기·버프)
     const bodies = createBattleBodies({ maps, cyborgs, gearOf: holdings.gearOf, catalog: config.roster });
+    factory.attachWalk?.(walkSpeedsOf(cyborgs, holdings.gearOf, config.roster, now)); // 걷기 = 실효 AGI(D-540)
     // 전투에 가지고 들어가는 물약·탄(287): 생명 수치 다음에 붙인다
     items = createBattleItems({
       holdings: holdings.service,

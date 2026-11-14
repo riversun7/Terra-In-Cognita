@@ -12,12 +12,13 @@
 //   20 → 0.5초, 0.25~5초 — AGI는 그 레벨 보통 유닛 AGI(초기 10)와 견준다).
 //   스태미나 소모·회복도 적정 스탯 개념이다(D-511): 적정 STA 점수 = 레벨 식 stamina_appropriate(맨손 적정과 같은 틀), 소모는 적정 ÷ 점수를
 //   곱하고(stamina_cost), 회복은 2차 스탯 스태미나 회복 × 점수 ÷ 적정(real_stamina_regen). 보통 유닛은 어느 레벨이든 배율 1이다.
-// - 단위: points(점수·정수), pm(천분율 ‰), x(배, 비율), ms, roll(굴림 0~9999), level(레벨).
+//   걷기 속도도 칸 하나(walk_speed, D-540 — 질문 1251 "걷기만 AGI 반영"): 2차맵 걷기 빠르기(단위/초) = 기본 + AGI × 가중치(상한). 차·배는 수단 속도.
+// - 단위: points(점수·정수), pm(천분율 ‰), x(배, 비율), ms, roll(굴림 0~9999), level(레벨), speed(2차맵 빠르기 단위/초, 1칸 = 1,024).
 // 결정성 검사 대상이다(scripts/check-boundaries.mjs).
 import { FX_SCALE, fxFormat, fxFromInt, fxFromPm } from "./formulaFixed.ts";
 import type { FormulaScope } from "./formulaEval.ts";
 
-export type FormulaUnit = "points" | "pm" | "x" | "ms" | "roll" | "level";
+export type FormulaUnit = "points" | "pm" | "x" | "ms" | "roll" | "level" | "speed";
 
 export interface FormulaVarDef {
   readonly name: string;
@@ -63,6 +64,7 @@ export const COMBAT_FORMULA_IDS = [
   "bare_crit",
   "bare_hit",
   "bare_interval",
+  "walk_speed",
 ] as const;
 export type CombatFormulaId = (typeof COMBAT_FORMULA_IDS)[number];
 
@@ -181,6 +183,8 @@ export const COMBAT_FORMULA_SLOTS: Readonly<Record<CombatFormulaId, FormulaSlot>
     min: 100,
     max: 60_000,
   }),
+  // 걷기 속도(단위/초, D-540): AGI(전투와 같은 실효 AGI — 성장값 + 장비·버프 − 부상). 경고 범위 = 1 ~ 프로토콜 상한 ÷ 운영자 빠르기 100배
+  walk_speed: combatSlot("walk_speed", [v("AGI", "points")], "speed", { min: 1, max: 10_485 }),
 };
 
 /**
@@ -230,6 +234,13 @@ export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> 
     "base = 10 * (1 + 0.1 * (LV - 1))",
     "r = max(1, AGI) / base",
     "min(5000, max(250, floor(2000 / (r * r))))",
+  ].join("\n"),
+  walk_speed: [
+    '# 사용자 결정 D-540(질문 1251 "걷기만 AGI 반영"): 걷기 속도 = 기본 + AGI × 가중치, 상한 — 옛 CHR §13 "5 + AGI × 0.05, 상한 20m/s"와 같은 모양·비율',
+    "# 단위/초(1칸 = 1,024). 기본 397.3 = 처음 AGI 10 유닛이 지금 걷기 437(D-120 2차맵 하나 약 10분)로 걷게(397.3 × 1.1 = 437.03)",
+    "# 가중치 = 기본 × 0.01(옛 0.05 ÷ 5), 상한 = 기본 × 4(옛 20 ÷ 5 — AGI 300에서 닿는다)",
+    "base = 397.3",
+    "min(floor(base * 4), floor(base + max(0, AGI) * base * 0.01))",
   ].join("\n"),
 };
 
@@ -401,6 +412,11 @@ export function bareCritScope(
 /** 맨손 공격 간격 식(bare_interval): 맨손 자료 간격(ms)·AGI·레벨 */
 export function bareIntervalScope(intervalMs: number, agi: number, level: number): FormulaScope {
   return { I: int(intervalMs), AGI: int(agi), LV: int(level) };
+}
+
+/** 걷기 속도 식(walk_speed, D-540): 실효 AGI */
+export function walkSpeedScope(agi: number): FormulaScope {
+  return { AGI: int(agi) };
 }
 
 /** 크리 배율 식: 크리 배율 점수(‰)·범위 폭(‰)·굴림 */

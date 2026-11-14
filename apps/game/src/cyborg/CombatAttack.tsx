@@ -387,8 +387,9 @@ function PenetrationRow({ penetration }: { penetration: RosterBuffs["penetration
 
 /**
  * 이동 속도(기동 묶음, 2차 행이 없다 — 사용자 요청 2026-11-12 "기동에 이동속도가 왜 없는가?"). 값 = 서버가 쓰는 2차맵 걷기 빠르기(칸/초).
- * 기획 48 §3.2: 이동 속도는 2차 스탯이 아니고 수단·도로가 정한다 → 1차 스탯·장비 몫 줄은 "없음". 전투 수치 버프 move_speed는 전투맵
- * 걸음에만 든다(알약·버프 줄). move가 없는 옛 서버는 버프 몫이 있을 때만 옛 모양(기본 100%)
+ * 걷기 = 계산식 walk_speed(실효 AGI, 사용자 결정 D-540 "걷기만 AGI 반영") → 풀이는 AGI → 빠르기, 기본(AGI 0)·상한, 차·배는 수단 속도.
+ * agi가 없는 옛 서버는 옛 풀이(1차 스탯 몫 없음). 전투 수치 버프 move_speed는 전투맵 걸음에만 든다(알약·버프 줄).
+ * move가 없는 옛 서버는 버프 몫이 있을 때만 옛 모양(기본 100%)
  */
 export function MoveSpeedRow({
   move,
@@ -431,16 +432,41 @@ export function MoveSpeedRow({
     >
       <p className="combat-formula">
         <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
-        {m.cyborg_move_formula()}
+        {move.agi === undefined ? m.cyborg_move_formula_old() : m.cyborg_move_formula()}
       </p>
-      <p className="combat-line" translate="no">
-        {m.cyborg_move_base({
-          walk: formatNumber(move.walk),
-          unit: formatNumber(move.cellUnits),
-          value: formatMilli(cells),
-        })}
-      </p>
-      <p className="combat-line">{m.cyborg_move_no_stats()}</p>
+      {move.agi === undefined ? (
+        <>
+          <p className="combat-line" translate="no">
+            {m.cyborg_move_base({
+              walk: formatNumber(move.walk),
+              unit: formatNumber(move.cellUnits),
+              value: formatMilli(cells),
+            })}
+          </p>
+          <p className="combat-line">{m.cyborg_move_no_stats()}</p>
+        </>
+      ) : (
+        <>
+          <p className="combat-line" translate="no">
+            {m.cyborg_move_agi_line({
+              agi: formatNumber(move.agi),
+              walk: formatNumber(move.walk),
+              unit: formatNumber(move.cellUnits),
+              value: formatMilli(cells),
+            })}
+          </p>
+          {move.walkBase === undefined || move.walkCap === undefined ? null : (
+            <p className="combat-line" translate="no">
+              {m.cyborg_move_range({
+                base: formatNumber(move.walkBase),
+                cap: formatNumber(move.walkCap),
+                capCells: formatMilli(walkCellsMilli({ walk: move.walkCap, cellUnits: move.cellUnits })),
+              })}
+            </p>
+          )}
+          <p className="combat-line">{m.cyborg_move_vehicle()}</p>
+        </>
+      )}
       <p className="combat-line combat-result" translate="no">
         {m.cyborg_move_result({
           value: shown,

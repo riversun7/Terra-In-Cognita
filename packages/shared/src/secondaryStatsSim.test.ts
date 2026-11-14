@@ -44,6 +44,7 @@ const combatPrograms: Record<CombatFormulaId, FormulaProgram> = {
   bare_crit: compileDefault("bare_crit"),
   bare_hit: compileDefault("bare_hit"),
   bare_interval: compileDefault("bare_interval"),
+  walk_speed: compileDefault("walk_speed"),
 };
 
 const samplePrograms: CompiledSecondaryPrograms = {

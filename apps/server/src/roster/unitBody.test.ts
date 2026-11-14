@@ -27,7 +27,9 @@ import {
   effectiveView,
   hasGear,
   primaryBuffsOf,
+  rosterMoveOf,
   startEffectsOf,
+  walkAgiOf,
 } from "./unitBody.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
@@ -85,6 +87,22 @@ const place = { id: 7, side: 1, party: 1, x: 3, y: 4, moveIntervalMs: 1000, buil
 const row = (stats: { secondary: readonly { id: string; value: number }[] }, id: string) =>
   stats.secondary.find((entry) => entry.id === id)?.value;
 
+describe("걷기 속도(D-540): 실효 AGI → 계산식 walk_speed", () => {
+  it("레벨 성장·AGI 버프가 걷기에 들고, 부상 불이익은 깎는다(전투와 같은 AGI)", () => {
+    expect(walkAgiOf(catalog, cyborg, NO_GEAR)).toBe(10);
+    expect(walkAgiOf(catalog, BASELINE_BASE, NO_GEAR)).toBe(10);
+    const grown = { kind: "cyborg", record: { ...record, level: 30 } } as const;
+    const agi30 = walkAgiOf(catalog, grown, NO_GEAR);
+    expect(agi30).toBe(combatSpecOf(catalog, grown, NO_GEAR, place, NOW).attack.agi);
+    expect(agi30).toBeGreaterThan(10);
+    const buffed = walkAgiOf(catalog, cyborg, gear([], [effect({ effect: "haste", stat: "agi", value: 6 })]));
+    expect(buffed).toBe(16);
+    expect(rosterMoveOf(catalog, buffed).walk).toBe(460);
+    const hurt = walkAgiOf(catalog, cyborg, { ...NO_GEAR, injuryPm: 500 });
+    expect(hurt).toBeLessThan(10);
+  });
+});
+
 describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
   it("시험 검을 쥐면 공격력 15 → 23, 명중·간격·크리 배율이 무기를 따른다(D-502, 물리 공격력 STR + ⌊VIT ÷ 2⌋ 2026-11-13)", () => {
     const bare = realCyborgBody(catalog, record, false);
@@ -113,8 +131,16 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
     expect(armed.combat?.interval.bare).toBeUndefined();
     expect(armed.combat?.crit.bare).toBeUndefined();
     expect(armed.combat?.hit.bare).toBeUndefined();
-    // 이동 속도 줄(2026-11-12): 서버 걷기 빠르기 437 단위/초·전투 걸음 1초
-    expect(bare.move).toEqual({ walk: 437, cellUnits: 1024, mapCells: 256, battleMs: 1000 });
+    // 이동 속도 줄(2026-11-12, D-540): 걷기 = 계산식 walk_speed(AGI 10) = 437 단위/초, 기본(AGI 0) 397·상한 1,589, 전투 걸음 1초
+    expect(bare.move).toEqual({
+      walk: 437,
+      agi: 10,
+      walkBase: 397,
+      walkCap: 1589,
+      cellUnits: 1024,
+      mapCells: 256,
+      battleMs: 1000,
+    });
     // 굴린 옵션 줄(크리 배율 +50)이 2차 행에 든다
     expect(row(armed.stats, "crit_multiplier")).toBe((row(bare.stats, "crit_multiplier") ?? 0) + 50);
     expect(armed.slots[0]?.item?.id).toBe("test_sword");

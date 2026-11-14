@@ -29,6 +29,16 @@ export interface BattleBodies {
   build(unitId: number, place: SpecPlace, nowMs: number, base?: BodyBase): CombatUnitSpec | undefined;
 }
 
+/** 세계가 아는 몸 바탕(사이보그 = 저장된 본체, 그 밖 = [임시] 기본 몸). 걷기 속도(walkSpeed.ts)도 같은 바탕을 쓴다 */
+export function worldBodyBase(
+  cyborgs: Pick<CyborgService, "userOfUnit" | "record">,
+  unitId: number,
+): BodyBase {
+  const userId = cyborgs.userOfUnit(unitId);
+  const record = userId === undefined ? undefined : cyborgs.record(userId);
+  return record ? { kind: "cyborg", record } : BASELINE_BASE;
+}
+
 export function createBattleBodies(input: {
   readonly maps: ReadonlyMap<number, SecondMap>;
   readonly cyborgs: Pick<CyborgService, "userOfUnit" | "record">;
@@ -40,12 +50,7 @@ export function createBattleBodies(input: {
     for (const map of input.maps.values()) if (map.unitInfo(unitId)) return true;
     return false;
   };
-  /** 세계가 아는 몸 바탕(사이보그 = 저장된 본체, 그 밖 = [임시] 기본 몸) */
-  const baseOf = (unitId: number): BodyBase => {
-    const userId = input.cyborgs.userOfUnit(unitId);
-    const record = userId === undefined ? undefined : input.cyborgs.record(userId);
-    return record ? { kind: "cyborg", record } : BASELINE_BASE;
-  };
+  const baseOf = (unitId: number): BodyBase => worldBodyBase(input.cyborgs, unitId);
   return {
     build(unitId, place, nowMs, base) {
       const catalog = input.catalog?.();

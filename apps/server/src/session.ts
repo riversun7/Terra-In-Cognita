@@ -677,6 +677,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           viewer: context.viewer ?? signedOut,
           // 운영자 모드(전체 보기) 연결은 남의 부두·배에 명령하고 재료 없이 만든다
           observing: () => worldSocket?.observing() === true,
+          protocolVersion,
         });
         boatSocket.handle(message);
         return;

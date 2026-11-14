@@ -350,7 +350,7 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
           {buildingExtra}
           {/* 부두(교통 단계 시설): [배 만들기] — docs/adr/2026-11-13-boats.md 3절 */}
           {building?.status === "ok" && building.stage === "transport" ? (
-            <DockBoatButton buildingId={sheet.id} level={building.level} />
+            <DockBoatButton buildingId={sheet.id} level={building.level} job={building.boatJob} />
           ) : null}
           <StationPanel
             state={state}

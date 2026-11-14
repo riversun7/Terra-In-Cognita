@@ -471,10 +471,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       ? startWorldGather(world, { kinds: () => options.gatherObjects ?? [], now, log: app.log })
       : undefined;
   if (worldGather) app.addHook("onClose", async () => worldGather.stop());
-  const gatherReads = worldGather ? gatherReadsOf(() => worldGather.current()) : undefined;
-  // 배(docs/adr/2026-11-13-boats.md): 세계가 준비된 뒤(DB가 있는 월드만)
+  // 배(docs/adr/2026-11-13-boats.md): 세계가 준비된 뒤(DB가 있는 월드만). 부두 판에 만드는 중인 배를 싣는다(B2)
   const worldBoats = world && options.db ? startWorldBoats(world, { now, log: app.log }) : undefined;
   if (worldBoats) app.addHook("onClose", async () => worldBoats.stop());
+  const gatherReads = worldGather
+    ? gatherReadsOf(
+        () => worldGather.current(),
+        (buildingId) => worldBoats?.current()?.dockJob(buildingId),
+      )
+    : undefined;
 
   // 랭킹(docs/adr/2026-11-07-ranking.md): 설정 칸 실효 값(부를 때마다), 집계 일정은 월드가 준비된 뒤 1분마다 경계를 본다(DB가 있는 월드만)
   const rankingCoefficients = tuningState ? () => tuningState.society().ranking : undefined;

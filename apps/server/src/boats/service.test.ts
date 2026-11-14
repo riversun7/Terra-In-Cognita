@@ -21,7 +21,9 @@ import { type SecondMap, type UnitRow, createSecondMap } from "../world/secondMa
 import { createTestMap, flatTerrain, silentLog } from "../world/testSupport.ts";
 import { emptyWorldStats } from "../world/worldStats.ts";
 import { UNIT_KIND_BOAT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
-import { boatCost, createBoatService, isBoatYard, rectGap, ringCells } from "./service.ts";
+import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
+import { boatBuildMs, boatCost, createBoatService, isBoatYard, rectGap, ringCells } from "./service.ts";
+import type { BoatJob } from "./store.ts";
 
 const START = 1_798_000_000_000;
 /** 지형 칸 x ≥ 64(배치 칸 x ≥ 128)가 바다인 2차맵 */
@@ -47,7 +49,7 @@ const DOCK_DEF: FacilityDef = {
   gather: undefined,
 };
 
-function setup() {
+function setup(extra: Partial<Parameters<typeof createBoatService>[0]> = {}) {
   const test = createTestMap({ terrain: coastTerrain() });
   const maps = new Map([[test.map.mapKey, test.map]]);
   const facilities = new Map<number, FacilityRecord>();
@@ -74,8 +76,9 @@ function setup() {
     places: () => places,
     works: () => true,
     unitBusy: () => false,
+    ...extra,
   });
-  return { ...test, service, facilities };
+  return { ...test, service, facilities, maps };
 }
 
 /** 유닛이 지금 선 기준 칸 */
@@ -244,5 +247,83 @@ describe("배", () => {
     const cell = cellOf(positionAt(boat!.motion, Date.now()), 2);
     expect(cell.x).toBeGreaterThanOrEqual(128);
     expect(Math.abs(cell.y * CELL_UNITS - 41 * CELL_UNITS)).toBeLessThanOrEqual(8 * CELL_UNITS);
+  });
+
+  it("배 만드는 시간: 부두 레벨 1 시간 × ‰ 뒤에 뜨고, 부두마다 하나, 작업 줄을 저장·복구한다(D-541 1271 나)", async () => {
+    expect(boatBuildMs(600_000, 500, false)).toBe(300_000);
+    expect(boatBuildMs(600_000, 500, true)).toBe(300_000 / OPERATOR_SPEED_FACTOR);
+    expect(boatBuildMs(600_000, 0, false)).toBe(0);
+    const saved = new Map<number, unknown>();
+    const writer = {
+      upsert: (_table: string, row: Record<string, unknown>) => saved.set(Number(row.id), row),
+      remove: (_table: string, key: Record<string, unknown>) => saved.delete(Number(key.id)),
+    };
+    const rules = { ...START_BOATS, buildTimePm: 500 };
+    const made = setup({ rules: () => rules, dockBuildMs: () => 600_000, writer });
+    const placed = made.map.placeBuilding({ x: 125, y: 40, width: 3, height: 3, rotation: 0 }, 7);
+    if (!placed.ok || placed.buildingId === undefined) throw new Error("dock not placed");
+    const dockId = placed.buildingId;
+    made.facilities.set(dockId, {
+      buildingId: dockId,
+      facilityId: "dock",
+      level: 1,
+      conditionPpm: 1_000_000,
+      conditionAtMs: START,
+      builtAtMs: START,
+      builtBy: "player",
+      cityId: null,
+    });
+    const boats = () => {
+      let n = 0;
+      made.map.forEachUnit((unit) => {
+        if (unit.kind === UNIT_KIND_BOAT) n += 1;
+      });
+      return n;
+    };
+    // 운영자: 운영자 빠르기로 줄인 시간(3초) 뒤
+    const first = made.service.build("admin", dockId, true);
+    expect(first).toEqual({ ok: true, readyAtMs: START + 3_000 });
+    expect(made.service.dockJob(dockId)).toEqual({ startedAtMs: START, readyAtMs: START + 3_000 });
+    expect(saved.size).toBe(1);
+    expect(made.service.build("admin", dockId, true)).toEqual({
+      ok: false,
+      code: "dock_busy",
+      readyAtMs: START + 3_000,
+    });
+    expect(boats()).toBe(0);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(boats()).toBe(1);
+    expect(made.service.dockJob(dockId)).toBeUndefined();
+    expect(saved.size).toBe(0);
+    expect(made.service.building).toBe(0);
+    // 다시 켜면 남은 작업이 이어진다(끝 시각에 뜬다), 부두가 없어졌으면 버린다
+    const job: BoatJob = {
+      id: 7,
+      ownerId: 7,
+      buildingId: dockId,
+      materials: [],
+      startedAtMs: START,
+      doneAtMs: START + 30_000,
+    };
+    const gone: BoatJob = { ...job, id: 8, buildingId: 999 };
+    const again = createBoatService({
+      maps: made.maps,
+      now: () => Date.now(),
+      log: { error: () => {} },
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 시험: 재료를 쓰지 않는다
+      ledger: {} as Ledger,
+      rules: () => rules,
+      nextUnitId: () => 900,
+      ownerOf: () => 7,
+      places: () => undefined,
+      works: () => true,
+      unitBusy: () => false,
+      jobs: [job, gone],
+    });
+    expect(again.building).toBe(2);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(again.building).toBe(0);
+    expect(made.map.unitInfo(900)?.kind).toBe(UNIT_KIND_BOAT);
+    again.stop();
   });
 });

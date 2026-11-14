@@ -3,7 +3,12 @@
 // - 사용자별 속도 제한(순간 10번, 분당 30번 — 채집·건물 명령과 같음). 밀린 요청이 MAX_PENDING을 넘으면 busy. 세계가 아직 없으면 busy.
 // - 운영자 모드(같은 연결이 2차맵 전체 보기 + 모든 유닛 명령 권한)는 남의 부두·유닛·배에 명령하고 배를 재료 없이 만든다. 타러 걷는 길은 운영자
 //   빠르기(world/operatorPace.ts).
-import { type BoatResultCode, type ClientMessageOf, encodeMessage } from "@terra/protocol";
+import {
+  BOAT_B2_PROTOCOL_VERSION,
+  type BoatResultCode,
+  type ClientMessageOf,
+  encodeMessage,
+} from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { type PaceMap, isOperatorMode, withPace } from "../world/operatorPace.ts";
@@ -19,6 +24,8 @@ export interface BoatLink {
   viewer(): Promise<Viewer | null>;
   /** 같은 연결이 2차맵을 전체 보기(운영자 모드)로 구독 중인가(world/gateway.ts). 없으면 아니다 */
   observing?(): boolean;
+  /** 인사한 프로토콜 판(28 미만이면 새 코드 dock_busy를 busy로 바꿔 보낸다). 없으면 최신 */
+  readonly protocolVersion?: number | undefined;
 }
 
 export interface BoatSocket {
@@ -30,14 +37,26 @@ export interface BoatGateway {
   open(link: BoatLink): BoatSocket;
 }
 
-function resultText(id: number, result: BoatCommandResult): string {
-  if (!result.ok) return encodeMessage({ t: "boat_result", id, ok: false, code: result.code });
+function resultText(id: number, result: BoatCommandResult, protocolVersion: number): string {
+  if (!result.ok) {
+    // dock_busy는 그 코드를 아는 연결(28)에만, 아니면 busy(다시 해 볼 수 있다)
+    const code =
+      result.code === "dock_busy" && protocolVersion < BOAT_B2_PROTOCOL_VERSION ? "busy" : result.code;
+    return encodeMessage({
+      t: "boat_result",
+      id,
+      ok: false,
+      code,
+      ...(result.readyAtMs === undefined ? {} : { readyAtMs: result.readyAtMs }),
+    });
+  }
   return encodeMessage({
     t: "boat_result",
     id,
     ok: true,
     ...(result.boatId === undefined ? {} : { boatId: result.boatId }),
     ...(result.walking ? { walking: true } : {}),
+    ...(result.readyAtMs === undefined ? {} : { readyAtMs: result.readyAtMs }),
   });
 }
 
@@ -58,7 +77,7 @@ export function createBoatGateway(options: {
       let pending = 0;
       let closed = false;
       const reply = (id: number, result: BoatCommandResult): void => {
-        if (!closed) link.send(resultText(id, result));
+        if (!closed) link.send(resultText(id, result, link.protocolVersion ?? BOAT_B2_PROTOCOL_VERSION));
       };
 
       const process = async (message: BoatClientMessage): Promise<void> => {

@@ -49,9 +49,10 @@ export const UNIT_CONTROL_PROTOCOL_VERSION = 17;
  */
 /**
  * 표시 종류: npc_leader(NPC 국가 지도자, 18), vehicle(탈것 — 기본 빠르기가 차 빠르기인 유닛, 2026-11-12. 기기는 움직임 빠르기가 아니라 이것으로 탈것 모양을
- * 고른다. 칸은 글자라 판을 올리지 않았다 — 모르는 값이면 기기는 보통 유닛으로 그린다)
+ * 고른다. 칸은 글자라 판을 올리지 않았다 — 모르는 값이면 기기는 보통 유닛으로 그린다), boat(배 — 물 위 유닛, docs/adr/2026-11-13-boats.md. 26판 기기는
+ * 보통 유닛으로 그린다)
  */
-export const UNIT_WIRE_KINDS = ["npc_leader", "vehicle"] as const;
+export const UNIT_WIRE_KINDS = ["npc_leader", "vehicle", "boat"] as const;
 export type UnitWireKind = (typeof UNIT_WIRE_KINDS)[number];
 /** 유닛 표시 종류가 처음 생긴 프로토콜 버전(17판 기기는 모르는 칸을 버린다 — zod object) */
 export const UNIT_KIND_PROTOCOL_VERSION = 18;
@@ -287,6 +288,8 @@ export const RESULT_CODES = [
   "not_owner",
   /** 수호신은 그 도시에 머문다(기획 답 456 가 — 주인도 옮기거나 세우지 못한다). 프로토콜 17부터 */
   "unit_stays",
+  /** 배에 탄 유닛은 따로 움직이지 않는다(내리고 나서, docs/adr/2026-11-13-boats.md 4절). 프로토콜 27부터, 더 낮은 연결은 invalid_request */
+  "aboard",
 ] as const;
 export type ResultCode = (typeof RESULT_CODES)[number];
 

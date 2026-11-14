@@ -102,6 +102,12 @@ export interface NpcCoefficients {
    * (판자·벽돌)를 내는 시설(제재소·가마)마다 도시 목표가 적어도 이 값이다. 0 = 더하지 않는다(나라 특산만). 없으면 0
    */
   readonly buildLevelSupply?: number | undefined;
+  /**
+   * [임시] 레벨 재료 가공 시설이 목표에 드는 때(질문 1291 나, 기획 D-541, 설정 칸 npc_build_level_supply_lead): 도시 건물 수가 상한 − 이 값에
+   * 닿았을 때부터. 1 이상(상한에서는 새로 짓지 않는다)이고 아직 짓지 않은 가공 시설 수(지금 팩 = 제재소·가마·제련소 셋)보다 짧지 않다.
+   * 상한보다 크면 처음부터(예전 판). 없으면 2
+   */
+  readonly buildLevelSupplyLead?: number | undefined;
   /** 굶어 멈춤(D-220, 기술 정의): 국고 0 + 생필품 충족 이 ‰ 미만이 이 날 수 이어짐 */
   readonly stallFoodPm: number;
   readonly stallDays: number;
@@ -164,6 +170,7 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   buildCapByGrade: [8, 10, 12, 16, 20, 24],
   buildRepairBelowPm: 700,
   buildLevelSupply: 1,
+  buildLevelSupplyLead: 2,
   recruitTargetPm: 1000,
   recruitReservePm: 2000,
   restoreClaimScore: 400,

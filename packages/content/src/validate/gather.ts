@@ -155,7 +155,8 @@ export function checkGather(pack: ContentPack): ContentIssue[] {
 
 /**
  * 원자재 오브젝트의 굴림표·사다리 굴림(기획 D-540 1222): 굴림표 가중치 합 1000·같은 아이템 두 번 없음·대표 아이템(item)이 표 안
- * (gather_table_*), 둘을 함께 쓰지 않음, 사다리 굴림은 맡는 시설에 추첨 방식 채집 칸이 있어야 함(gather_ladder_facility)
+ * (gather_table_*), 둘을 함께 쓰지 않음, 사다리 굴림은 맡는 시설에 추첨 방식 채집 칸이 있어야 함(gather_ladder_facility), 티어 범위는
+ * 사다리 굴림과 함께만·아래 ≤ 위(gather_tier_range_*, 기획 D-541 질문 1307 나)
  */
 function checkGatherObjects(
   pack: ContentPack,
@@ -214,6 +215,28 @@ function checkGatherObjects(
           "ladder",
           "gather_ladder_facility",
           "사다리 굴림(ladder)은 추첨 방식 채집 칸(gather)이 있는 맡는 시설(facility)이 있어야 합니다.",
+        );
+    }
+    // 티어 범위(기획 D-541 질문 1307 나): 사다리 굴림과 함께만, 아래 ≤ 위
+    const range = get(entry, "tierRange");
+    if (range !== undefined) {
+      if (ladder !== true)
+        error(
+          FILE,
+          entry.id,
+          "tierRange",
+          "gather_tier_range_ladder",
+          "티어 범위(tierRange)는 사다리 굴림(ladder: true)과 함께만 씁니다.",
+        );
+      const min = get(range, "min");
+      const max = get(range, "max");
+      if (typeof min === "number" && typeof max === "number" && min > max)
+        error(
+          FILE,
+          entry.id,
+          "tierRange",
+          "gather_tier_range_order",
+          `티어 범위 아래(min ${min})가 위(max ${max})보다 큽니다.`,
         );
     }
   }

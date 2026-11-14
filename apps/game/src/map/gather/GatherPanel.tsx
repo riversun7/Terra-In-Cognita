@@ -231,7 +231,15 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
             </span>
           </div>
           {kind?.ladderName ? (
-            <p data-yield="ladder">{m.gather_object_ladder({ ladder: nameText(kind.ladderName, "") })}</p>
+            <p data-yield="ladder">
+              {kind.ladderTiers
+                ? m.gather_object_ladder_tiers({
+                    ladder: nameText(kind.ladderName, ""),
+                    min: kind.ladderTiers.min,
+                    max: kind.ladderTiers.max,
+                  })
+                : m.gather_object_ladder({ ladder: nameText(kind.ladderName, "") })}
+            </p>
           ) : kind?.table && kind.table.length > 0 ? (
             <p data-yield="table">
               {m.gather_object_table({

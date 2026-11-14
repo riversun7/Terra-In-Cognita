@@ -4,6 +4,8 @@
 // - 사다리 굴림(ladder, 어군): 맡는 시설의 채집 사다리(주 중분류 + 함께 내는 중분류)에서, 그 사다리 띠 표(@terra/shared/gatherMath
 //   gatherLadderBands)와 캐는 유닛의 유효 스탯(주 + 보조 + 맡는 시설 레벨 보너스, @terra/sim gatherStat)으로 티어를 뽑고 그 티어 아이템 하나를
 //   고른다(@terra/sim rollGatherTier·pickGatherItem — 시설 일꾼 추첨과 같은 함수). 사다리가 비거나 시설을 모르면 대표 아이템.
+//   티어 범위(tierRange, 기획 D-541 — 질문 1307 나 "깊은 바다일수록 큰 고기")가 있으면 뽑은 티어를 범위 안으로 접는다(광산 티어 막기
+//   @terra/shared/catchment oreTierCapOf와 같은 꼴 — 위는 max로 내리고, 아래는 min으로 올린다. 남기는 몫·난수 없음).
 // 난수는 (유닛, 오브젝트, 차례)로 정한 시드 하나(서버 권위, 같은 입력이면 같은 결과). 정수 연산만 쓴다.
 import { createRng } from "@terra/shared";
 import { gatherLadderBands } from "@terra/shared/gatherMath";
@@ -61,12 +63,21 @@ export function pickTableItem(
   return table[0]?.item;
 }
 
+/** 뽑은 티어를 범위 안으로 접는다(범위가 없으면 그대로, min > max면 max — 팩 검사가 막는 경우) */
+export function foldTierRange(
+  tier: number,
+  range: { readonly min: number; readonly max: number } | undefined,
+): number {
+  if (!range) return tier;
+  return Math.min(Math.max(tier, range.min), range.max);
+}
+
 /**
  * 한 번 캘 때 나오는 아이템 ID(item: 앞머리 없음). 굴림표·사다리 굴림이 없으면 대표 아이템. 사다리 굴림은 맡는 시설의 추첨 방식 채집 칸이
  * 있어야 하고(팩 검사), 사다리가 비면 대표 아이템
  */
 export function objectYieldItem(
-  kind: Pick<GatherKind, "item" | "table" | "ladder" | "facility">,
+  kind: Pick<GatherKind, "item" | "table" | "ladder" | "facility" | "tierRange">,
   catalog: ObjectYieldCatalog,
   input: ObjectYieldInput,
 ): string {
@@ -84,7 +95,7 @@ export function objectYieldItem(
     Math.max(1, input.level),
     input.levelBonus,
   );
-  const tier = rollGatherTier(bands, stat, rng);
+  const tier = foldTierRange(rollGatherTier(bands, stat, rng), kind.tierRange);
   const asset = pickGatherItem(catalog.gatherLadder(gather), tier, rng);
   return asset === undefined ? kind.item : asset.replace(/^item:/, "");
 }

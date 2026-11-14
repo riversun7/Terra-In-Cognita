@@ -126,3 +126,11 @@
 - 측정(`pnpm --filter @terra/server bench:second-map 9 3 desert|tundra`, 공유 개발 기계): 경로 1,000개 평균 밟은 느려짐 칸 사막 3.8 ~ 5.7 → 0.2 ~ 0.4, 툰드라 1.7 ~ 2.3 → 0.1, 경로 칸 수 +0.1 ~ 0.2, 펼친 칸 +0 ~ 2%(한 장 +29%: 짧은 경로 위주라 408 → 527), 경로 시간 합 −1 ~ +25%(흔들림 큼). 크기 등급 1 경로를 느림 비용으로 셈하면 돌아가서 0.7 ~ 2.3% 싸다.
 - 개발자 페이지(D-398): 지형 오브젝트 편집기(`/dev/terrain-objects`)에 느림 배율 칸과 줄 종류 "느려짐". 차이 내보내기 → `pnpm tuning:apply`(소품 규칙과 같은 길, 서버를 다시 켜면 든다).
 - 확인 대기: 질문 1316 ~ 1318(`docs/questions/2026-11-13-slow-props.md`).
+
+## 바뀜 (2026-11-14, D-541 — 질문 1307 나: 어군 종류마다 티어 범위)
+- 기획 D-541 "1307 나(어군 종류마다 티어 범위 — 깊은 바다일수록 큰 고기)". 가지 `work/fixes-1114`, 작업 기록 `docs/worklog/2026/11/14-1300-fixes-1114.md`, 질문 `docs/questions/2026-11-14-fixes-1114.md`(1363~).
+- 팩 `gather_objects` 칸 `tierRange: {min, max}`(T0 ~ T9, 모든 자리 종류의 공통 칸이지만 `ladder: true`와 함께만 — 2단계 검사 `gather_tier_range_ladder`, 아래 ≤ 위 `gather_tier_range_order`). 없으면 막지 않는다(앞 판 그대로).
+- 서버 직접 채집(`apps/server/src/gather/objectYield.ts foldTierRange`): 사다리 굴림으로 뽑은 티어가 범위 밖이면 범위 안으로 접는다(위는 max로 내리고, 아래는 min으로 올린다). 광산 티어 막기(`@terra/shared/catchment oreTierCapOf` — 위 티어를 lowTierMax로 내림)와 같은 꼴이지만 남기는 몫·추가 난수가 없다. 접힌 티어 칸이 사다리에서 비면 `pickGatherItem`이 더 낮은 티어로 내려간다(지금 낚시 사다리는 T0 ~ T9 모두 아이템이 있어 생기지 않는다, Verified: 팩).
+- 팩 core@88 [임시]: 민물 T0 ~ T2, 연안 T0 ~ T4, 대륙붕 T2 ~ T6, 큰 어군 T4 ~ T8.
+- 조회 `gather.objects` 종류에 `ladderTiers`(선택 칸, 앞 판 기기는 무시) → 채집 판 "나오는 것: 어류 사다리 T0~T2 — …". 지형 오브젝트 편집기(`/dev/terrain-objects`) 어군 줄에 티어 범위 칸(아래·위, 한 끝을 고치면 다른 끝을 밀어 아래 ≤ 위, 차이 내보내기 → `pnpm tuning:apply`).
+- 시뮬은 오브젝트 직접 채집을 모델로 두지 않아 바뀌지 않는다(Verified: `packages/sim/src/society/gatherObjects.ts` "시뮬은 읽지 않는다"). 낚시터 일꾼(시설 사다리 추첨)은 어군이 아니라 그대로다(질문 1365).

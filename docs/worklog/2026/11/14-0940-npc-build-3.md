@@ -57,7 +57,11 @@
 - 새 건물 수가 준 것(질문 1291)은 원인을 나눠 재지 않았다.
 
 ## 검사
-- (끝에 채움)
+- Verified: `pnpm check`(TEST_DATABASE_URL 있음) 통과 — 포맷·린트·타입·경계·파일 크기·다국어(7,183키)·디자인 값·콘텐츠(core@82), 시험 674파일 5,119개.
+- Verified: `pnpm check:content origin/main`(호환 포함), `pnpm check:docs origin/main`, `pnpm docs:index`.
+- Verified: sim 시험 103파일 826개 + 새 `npcLevelSupply.test.ts` 3개, 서버 DB 시험 `cityBuildUpgrade`(4, 새 2)·`cityBuild`·`attack`·`gardener`, `battleTargets.test.ts`(3, 새 2).
+- Verified: 화면 시험 `facilities.spec.ts`·`government.spec.ts`·`city-layout.spec.ts` 17개 중 16 통과, 1개(`government.spec.ts` "경비대 표시(920 라)")는 찾은 경비대 줄이 근처 판에서 사라져 3분 제한에 걸렸다 — 그 시험만 다시 돌려 통과(22.6초). 부하 아래 움직이는 유닛 줄의 흔들림으로 본다(Assumed: 이 판은 화면·근처 판 코드를 바꾸지 않았다). 사진 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/npc-build-3-shots/`.
+- `apps/game`은 바꾸지 않아 빌드·`check-pwa`·`check:bundle`은 돌리지 않았다(화면 시험 전역 준비가 빌드 최신을 확인함).
 
 ## 사용자 결정 대기
 - 질문 1291~1294(`docs/questions/2026-11-13-npc-build-3.md`).

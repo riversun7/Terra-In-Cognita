@@ -118,7 +118,7 @@ export default function BalancePanelScreen() {
     onForm(loaded.form);
     if (loaded.teams) {
       const teams = loaded.teams;
-      data.setTeams(() => teams);
+      data.setTeams((current) => ({ ...current, ...teams }));
     }
     job.show(null);
     job.start(record.input);

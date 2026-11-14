@@ -372,6 +372,7 @@ export function finishTotals(setup: PlaySetup, totals: SetupTotals): ReportResul
     flows: { a: totals.flowA, b: totals.flowB, pairs },
     samples: totals.samples,
     cpuMs: Math.round(totals.cpuMs),
+    ...(setup.legion ? { legion: setup.legion } : {}),
   };
 }
 

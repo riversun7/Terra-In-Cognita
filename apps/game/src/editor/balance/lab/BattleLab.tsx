@@ -4,9 +4,10 @@
 // 넓은 화면: 왼쪽 = 팀 둘 + 설정 + 한 판, 오른쪽 = 유닛 편집 + 미리 보기, 아래 = 보고서. 좁은 화면(390px)은 한 줄로 쌓는다.
 // A/B에서 B 팀을 따로 고치면 팀 판·유닛 편집이 고르는 설정(A·B)의 팀을 고친다. 폼·보고서 일은 화면 틀이 든다(기록에서 다시 돌리기).
 // 시험용 data-*: .bl-lab data-status(loading·ready·failed).
-import type { LabBattleResponse, LabPreviewResponse, LabUnit } from "@terra/shared/battleLab";
+import type { LabBattleResponse, LabPreviewResponse, LabTeam, LabUnit } from "@terra/shared/battleLab";
+import { REPORT_LIMITS } from "@terra/shared/battleReport";
 import { decodeBattleReplay, replayFromBase64 } from "@terra/protocol/battleReplay";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loadReplayGround } from "../../../battle/replayTerrain.ts";
 import { refreshSession } from "../../../auth/session.ts";
 import { api } from "../../../net/api.ts";
@@ -14,7 +15,7 @@ import { m } from "../../../paraglide/messages.js";
 import { LiveMessage, useLiveLines } from "../../../ui/LiveMessage.tsx";
 import { ReportPanel } from "../report/ReportPanel.tsx";
 import { ReportView } from "../report/ReportView.tsx";
-import type { ReportForm } from "../report/reportModel.ts";
+import { type ReportForm, teamsShown } from "../report/reportModel.ts";
 import type { ReportJobState } from "../report/useReportJob.ts";
 import { ArenaPanel } from "./ArenaPanel.tsx";
 import {
@@ -32,6 +33,48 @@ import { UnitEditor } from "./UnitEditor.tsx";
 import { UnitPreview } from "./UnitPreview.tsx";
 import type { LabData } from "./useLabData.ts";
 
+/** 군단 파티 고르기 줄: 파티 탭, 더하기(상한까지), 고른 파티 빼기(2번부터) */
+function PartyBar(props: {
+  readonly team: LabTeam;
+  readonly count: number;
+  readonly at: number;
+  readonly onPick: (index: number) => void;
+  readonly onAdd: () => void;
+  readonly onRemove: () => void;
+}) {
+  const label = props.team.toUpperCase();
+  return (
+    <div className="rp-partybar">
+      <div className="rp-party-tabs" role="tablist" aria-label={m.dev_report_party_label({ team: label })}>
+        {Array.from({ length: props.count }, (_, index) => (
+          <button
+            key={index}
+            type="button"
+            role="tab"
+            aria-selected={props.at === index}
+            className="rp-party-tab"
+            data-party={index}
+            onClick={() => props.onPick(index)}
+          >
+            {m.dev_report_party_tab({ n: index + 1 })}
+          </button>
+        ))}
+        {props.count < REPORT_LIMITS.legionPartiesMax ? (
+          <button type="button" className="button-small rp-party-add" onClick={props.onAdd}>
+            {m.dev_report_party_add()}
+          </button>
+        ) : null}
+        {props.at > 0 ? (
+          <button type="button" className="button-small rp-party-remove" onClick={props.onRemove}>
+            {m.dev_report_party_remove()}
+          </button>
+        ) : null}
+      </div>
+      {props.count > 1 ? <p className="field-hint">{m.dev_report_party_hint()}</p> : null}
+    </div>
+  );
+}
+
 /** 유닛을 고친 뒤 미리 보기를 다시 묻기까지(ms) — 칸을 잇달아 고칠 때 요청을 줄인다 */
 const PREVIEW_DELAY_MS = 300;
 
@@ -48,12 +91,63 @@ export function BattleLab(props: {
   const [editing, setEditing] = useState<"a" | "b">("a");
   // 고치는 팀: B 설정을 고르면 B 팀(따로 고칠 때만), 아니면 실험실 팀(A 설정)
   const editingB = editing === "b" && form.variantTeams !== null && form.mode !== "wave";
-  const teams: Teams = editingB && form.variantTeams ? form.variantTeams : data.teams;
-  const setTeams = (change: (current: Teams) => Teams): void => {
-    if (editingB && form.variantTeams) onForm({ ...form, variantTeams: change(form.variantTeams) });
-    else data.setTeams(change);
+  const baseTeams: Teams = editingB && form.variantTeams ? form.variantTeams : data.teams;
+  // 군단(기획 D-179·D-545): 팀마다 고른 파티. 1번 파티 = 실험실 팀, 2번부터 = 보고서 폼 군단(A·B 설정이 같이 쓴다)
+  const [partyAt, setPartyAt] = useState<Readonly<Record<LabTeam, number>>>({ a: 0, b: 0 });
+  const at: Record<LabTeam, number> = {
+    a: Math.min(partyAt.a, form.legion.a.extra.length),
+    b: Math.min(partyAt.b, form.legion.b.extra.length),
   };
-  const [picked, setPicked] = useState<Selection>({ team: "a", index: 0 });
+  const partyOf = (team: LabTeam) =>
+    at[team] === 0 ? baseTeams[team] : (form.legion[team].extra[at[team] - 1] ?? baseTeams[team]);
+  const teams: Teams = { a: partyOf("a"), b: partyOf("b") };
+  const setTeams = (change: (current: Teams) => Teams): void => {
+    const next = change(teams);
+    let nextForm = form;
+    const first: { a?: Teams["a"]; b?: Teams["b"] } = {};
+    for (const team of ["a", "b"] as const) {
+      if (next[team] === teams[team]) continue;
+      const slot = at[team];
+      if (slot === 0) first[team] = next[team];
+      else {
+        const legion = nextForm.legion[team];
+        const extra = legion.extra.map((party, index) => (index === slot - 1 ? next[team] : party));
+        nextForm = { ...nextForm, legion: { ...nextForm.legion, [team]: { ...legion, extra } } };
+      }
+    }
+    if (Object.keys(first).length > 0) {
+      if (editingB && nextForm.variantTeams)
+        nextForm = { ...nextForm, variantTeams: { ...nextForm.variantTeams, ...first } };
+      else data.setTeams((current) => ({ ...current, ...first }));
+    }
+    if (nextForm !== form) onForm(nextForm);
+  };
+  /** 파티 더하기(고른 파티를 베낀다)·빼기(2번부터) */
+  const addParty = (team: LabTeam): void => {
+    const legion = form.legion[team];
+    if (legion.extra.length + 1 >= REPORT_LIMITS.legionPartiesMax) return;
+    onForm({
+      ...form,
+      legion: { ...form.legion, [team]: { ...legion, extra: [...legion.extra, partyOf(team)] } },
+    });
+    setPartyAt({ ...at, [team]: legion.extra.length + 1 });
+  };
+  const removeParty = (team: LabTeam): void => {
+    const slot = at[team];
+    if (slot === 0) return;
+    const legion = form.legion[team];
+    onForm({
+      ...form,
+      legion: {
+        ...form.legion,
+        [team]: { ...legion, extra: legion.extra.filter((_, index) => index !== slot - 1) },
+      },
+    });
+    setPartyAt({ ...at, [team]: slot - 1 });
+  };
+  const shown = teamsShown(form);
+  const [pickedRaw, setPicked] = useState<Selection>({ team: "a", index: 0 });
+  const picked: Selection = shown[pickedRaw.team] ? pickedRaw : { team: shown.a ? "a" : "b", index: 0 };
   const [preview, setPreview] = useState<{ key: string; result: LabPreviewResponse } | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"battle" | "watch" | null>(null);
@@ -66,9 +160,9 @@ export function BattleLab(props: {
 
   const selected = clampSelection(teams, picked);
   const unit: LabUnit | undefined = teams[selected.team].units[selected.index];
-  const unitKey = `${editingB ? "B:" : ""}${selected.team.toUpperCase()}${selected.index + 1}`;
+  const unitKey = `${editingB ? "B:" : ""}${selected.team.toUpperCase()}${at[selected.team] + 1}·${selected.index + 1}`;
   // 미리 보기 지문: 유닛 값이 바뀔 때만 다시 묻는다
-  const unitJson = useMemo(() => (unit ? JSON.stringify(unit) : ""), [unit]);
+  const unitJson = unit ? JSON.stringify(unit) : "";
   const ready = load.status === "ready";
 
   useEffect(() => {
@@ -96,7 +190,7 @@ export function BattleLab(props: {
     return () => clearTimeout(timer);
   }, [ready, unitJson]);
 
-  const battleKey = JSON.stringify([teams, form.terrain, form.limitSec, form.seed]);
+  const battleKey = JSON.stringify([baseTeams, form.terrain, form.limitSec, form.seed]);
 
   const onNotice = (line: string, tone: "success" | "error"): void => {
     if (tone === "success") {
@@ -114,9 +208,10 @@ export function BattleLab(props: {
     problem.show([labErrorText(info.key)]);
   };
 
+  // 한 판·3D 관람은 1번 파티끼리(옛 실험실 그대로)
   const arenaInput = () => ({
-    a: teams.a,
-    b: teams.b,
+    a: baseTeams.a,
+    b: baseTeams.b,
     terrain: form.terrain,
     limitSec: Math.min(600, form.limitSec),
     seed: form.seed,
@@ -188,10 +283,20 @@ export function BattleLab(props: {
       <LiveMessage tone="error" lines={noticeError.lines} version={noticeError.version} />
       <div className="bl-layout">
         <div className="bl-col">
-          {form.mode !== "wave"
-            ? (["a", "b"] as const).map((team) => (
+          {(["a", "b"] as const)
+            .filter((team) => shown[team])
+            .map((team) => (
+              <div key={team} className="rp-legion-team" data-team={team}>
+                <PartyBar
+                  team={team}
+                  count={form.legion[team].extra.length + 1}
+                  at={at[team]}
+                  onPick={(index) => setPartyAt({ ...at, [team]: index })}
+                  onAdd={() => addParty(team)}
+                  onRemove={() => removeParty(team)}
+                />
                 <TeamPanel
-                  key={`${editingB ? "B" : "A"}-${team}`}
+                  key={`${editingB ? "B" : "A"}-${team}-${at[team]}`}
                   team={team}
                   teams={teams}
                   setTeams={setTeams}
@@ -203,8 +308,8 @@ export function BattleLab(props: {
                   onNotice={onNotice}
                   locale={locale}
                 />
-              ))
-            : null}
+              </div>
+            ))}
           <ReportPanel
             catalog={catalog}
             form={form}
@@ -224,12 +329,12 @@ export function BattleLab(props: {
               onWatch={runWatch}
               battle={battle ? { result: battle.result, stale: battle.key !== battleKey } : null}
               problem={problem}
-              teams={teams}
+              teams={baseTeams}
               locale={locale}
             />
           ) : null}
         </div>
-        {form.mode !== "wave" ? (
+        {shown.a || shown.b ? (
           <div className="bl-col">
             {unit ? (
               <UnitEditor

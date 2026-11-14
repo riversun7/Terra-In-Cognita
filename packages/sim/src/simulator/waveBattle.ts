@@ -25,7 +25,9 @@ import type { CombatCatalog } from "../combat/catalog.ts";
 import { itemAt } from "../combat/equipment.ts";
 import type { Edge } from "../combat/battleTypes.ts";
 import {
+  type SiegeArena,
   type SiegeLayout,
+  type SiegePlacer,
   oppositeEdge,
   siegeArena,
   siegeNexusDurability,
@@ -78,6 +80,11 @@ export interface WaveBattleInput {
   readonly layout?: SiegeLayout | undefined;
   /** 웨이브가 들어오는 변(0 북, 1 동, 2 남, 3 서). 배치가 있을 때만 본다. 없으면 서 */
   readonly attackEdge?: Edge | undefined;
+  /**
+   * 같은 배치·변으로 미리 만든 공성 전투맵과 시작 자리(배치가 있을 때만 본다). 주면 다시 만들지 않고 쓴다 — 부르는 쪽(서버 전투 보고서)이
+   * 같은 자리 차례를 이어 써서 유닛을 더 세운다. 결과는 주지 않았을 때와 같다
+   */
+  readonly prepared?: { readonly arena: SiegeArena; readonly placer: SiegePlacer } | undefined;
 }
 
 /** 공성 크리쳐가 남았는지 보는 간격(틱). 결과는 간격과 상관없다(멈춘 틱만 이만큼 늦을 수 있다) */
@@ -166,9 +173,10 @@ export function waveBattleInit(
   const center = size / 2;
   const edge: Edge = input.layout ? (input.attackEdge ?? 3) : 3;
   const arena = input.layout
-    ? siegeArena(input.layout, size, siegeNexusDurability(input.layout, input.nexusDurability))
+    ? (input.prepared?.arena ??
+      siegeArena(input.layout, size, siegeNexusDurability(input.layout, input.nexusDurability)))
     : undefined;
-  const placer = arena ? siegePlacer(arena, edge) : undefined;
+  const placer = arena ? (input.prepared?.placer ?? siegePlacer(arena, edge)) : undefined;
   let map = arena?.map;
   if (!map) {
     const open = openMap(size);

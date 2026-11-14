@@ -13,7 +13,7 @@ const ASSET_CREDIT = "s3_test_credit";
 
 /**
  * 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들(result, 2차맵 사이 이동은 travel_result,
- * 구인 고용은 recruit_result)
+ * 구인 고용은 recruit_result, 건물은 facility_result, 배는 boat_result)
  */
 export async function sendCommands(
   page: Page,
@@ -57,7 +57,9 @@ export async function sendCommands(
             (reply) =>
               typeof reply === "object" &&
               reply !== null &&
-              ["result", "travel_result", "recruit_result"].includes(String(Reflect.get(reply, "t"))) &&
+              ["result", "travel_result", "recruit_result", "facility_result", "boat_result"].includes(
+                String(Reflect.get(reply, "t")),
+              ) &&
               Reflect.get(reply, "id") === id,
           ),
         );

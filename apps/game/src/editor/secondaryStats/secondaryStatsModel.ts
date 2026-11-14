@@ -270,6 +270,7 @@ export function compilePrograms(
       bare_crit: pick("bare_crit"),
       bare_hit: pick("bare_hit"),
       bare_interval: pick("bare_interval"),
+      walk_speed: pick("walk_speed"),
     },
   };
 }

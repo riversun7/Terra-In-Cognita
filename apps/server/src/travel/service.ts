@@ -141,8 +141,10 @@ export function createTravelService(deps: TravelDeps): TravelService {
   };
 
   /** 유닛이 선 2차맵과 유닛 정보 */
-  const locate = (unitId: number) => {
+  /** fresh = 걷기 빠르기를 몸에서 다시 읽고 본다(길 예상 시간 — D-540 실효 AGI, 장비를 바꾼 뒤 첫 길도 맞게) */
+  const locate = (unitId: number, fresh = false) => {
     for (const map of maps.values()) {
+      if (fresh && map.unitInfo(unitId)) map.refreshSpeed(unitId);
       const info = map.unitInfo(unitId);
       if (info) return { map, info };
     }
@@ -575,7 +577,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
     const id = unitId ?? deps.cyborgUnitOf?.(userId) ?? null;
     if (id === null) return { problem: "no_cyborg" as const };
     const ownerId = deps.ownerOf(userId);
-    const where = locate(id);
+    const where = locate(id, true);
     if (!where) {
       const journey = journeys.get(id);
       return journey?.hidden && journey.ownerId === ownerId

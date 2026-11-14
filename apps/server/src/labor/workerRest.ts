@@ -40,6 +40,8 @@ export interface WorkerRestDeps {
   places(cityId: number): CityRestPlaces | undefined;
   /** NPC 도시 경제 계획이 쓰는 침대(숙소 건물 ID → 수, 없으면 undefined) */
   npcTaken(cityId: number): ReadonlyMap<number, number> | undefined;
+  /** 일꾼 유닛의 걷기 빠르기(단위/초, D-540 실효 AGI — 2차맵 유닛 speed). 없으면 기본 걷기 */
+  speedOf?: ((unitId: number) => number | undefined) | undefined;
   /** 요금(없으면 요금 없음): 원장·화폐 */
   readonly ledger?: Ledger | undefined;
   readonly feeAsset?: string | undefined;
@@ -124,7 +126,8 @@ export function createWorkerRest(deps: WorkerRestDeps): WorkerRest {
       carry.delete(unitId);
       return;
     }
-    const period = Math.max(1, restPeriodMs(rest.place, rest.commuteCells, c, TEST_JOB_RULES.cycleMs));
+    const speed = deps.speedOf?.(unitId);
+    const period = Math.max(1, restPeriodMs(rest.place, rest.commuteCells, c, TEST_JOB_RULES.cycleMs, speed));
     const total = (carry.get(unitId) ?? 0) + Math.max(0, spanMs);
     const nights = Math.floor(total / period);
     carry.set(unitId, total % period);
@@ -189,6 +192,14 @@ export function attachWorkerRest(parts: {
         ),
     places: (cityId) => places(cityId, null),
     npcTaken: (cityId) => parts.npc()?.economy?.restPlan(cityId)?.occupancy,
+    // 오감(일터 ↔ 쉼터) 시간은 그 일꾼의 걷기 빠르기로(D-540)
+    speedOf: (unitId) => {
+      for (const map of parts.maps.values()) {
+        const info = map.unitInfo(unitId);
+        if (info) return info.speed;
+      }
+      return undefined;
+    },
     ledger: parts.ledger,
     feeAsset: ASSET_CREDIT,
   });

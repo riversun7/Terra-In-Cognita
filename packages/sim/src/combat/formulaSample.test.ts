@@ -23,6 +23,7 @@ import {
   critMultiplierPm,
   evadeChancePm,
   staminaAppropriateMilli,
+  walkSpeedOf,
 } from "./formulas.ts";
 import { TEST_STAT_TABLE, computeSecondary } from "./stats.ts";
 import { type WeaponSpec, specFromStats } from "./unitSpec.ts";
@@ -66,7 +67,7 @@ const sampleWeapon = (weapon: WeaponSpec): FormulaSampleWeapon => ({
 describe("미리 보기 = 판정", () => {
   it("무작위 1차·레벨·무기(칼·맨손)에서 2차 스탯·전투 식 값이 같다", () => {
     const rng = createRng(7);
-    expect(COMBAT_FORMULA_IDS).toHaveLength(14);
+    expect(COMBAT_FORMULA_IDS).toHaveLength(15);
     for (let round = 0; round < 300; round++) {
       const p = Array.from({ length: 6 }, () => 1 + rng.nextInt(200));
       const level = 1 + rng.nextInt(60);
@@ -116,6 +117,8 @@ describe("미리 보기 = 판정", () => {
       expect(v.bare_appropriate).toBe(bareAppropriateMilli(level, c));
       expect(fxToInt(v.crit_multiplier)).toBe(critMultiplierPm(stats.crit_multiplier ?? 0, roll, c));
       expect(fxToInt(v.evade_chance)).toBe(evadeChancePm(stats.evade ?? 0, p[2] ?? 0, p[2] ?? 0, c));
+      // 걷기 속도(D-540): 실효 AGI
+      expect(fxToInt(v.walk_speed)).toBe(walkSpeedOf(p[2] ?? 0, c));
     }
   });
 });

@@ -1,5 +1,5 @@
 // 2차맵 저장 행·저장 고리 모양(secondMap.ts에서 나눔 — 그 파일 1,000줄 상한). secondMap.ts가 다시 내보낸다
-import type { BuildingPlacement, SizeClass } from "@terra/sim";
+import type { BuildingPlacement, Motion, SizeClass } from "@terra/sim";
 import type { WorldDomain } from "../db/schema.ts";
 import type { UnitCondition } from "./unitCondition.ts";
 
@@ -52,4 +52,42 @@ export interface MapPersist {
   removeBuilding(buildingId: number): void;
   /** 유닛 행을 지운다(NPC 휴먼 사망, docs/adr/2026-11-01-npc-brain-r5.md 7절). 없으면 저장하지 않는 2차맵 */
   removeUnit?(unitId: number): void;
+}
+
+/** 유닛 상태 → 저장 한 줄(secondMap.ts rowOf에서 나눔 — 그 파일 1,000줄 상한) */
+export function unitRowOf(
+  unit: {
+    readonly id: number;
+    readonly ownerId: number;
+    readonly kind: number;
+    readonly size: SizeClass;
+    readonly speed: number;
+    readonly domain: WorldDomain;
+    readonly motion: Motion;
+    readonly wakeAtMs: number | undefined;
+    readonly aiStep: number;
+    readonly job: UnitJob;
+    readonly condition: UnitCondition;
+  },
+  mapKey: number,
+  planetId: string,
+): UnitRow {
+  const path: number[] = [];
+  for (const point of unit.motion.waypoints) path.push(point.x, point.y);
+  return {
+    id: unit.id,
+    ownerId: unit.ownerId,
+    kind: unit.kind,
+    size: unit.size,
+    speed: unit.speed,
+    mapKey,
+    planetId,
+    domain: unit.domain,
+    path,
+    departAtMs: unit.motion.departAtMs,
+    wakeAtMs: unit.wakeAtMs ?? null,
+    aiStep: unit.aiStep,
+    job: unit.job,
+    condition: unit.condition,
+  };
 }

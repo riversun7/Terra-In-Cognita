@@ -6,6 +6,7 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-11-14 09:50 | 사다리마다 채집 띠 표·어군 낚시 사다리 굴림·난파선 굴림표·고래와 자연 채집물 | Claude Code | [14-0950-gather-ladders](worklog/2026/11/14-0950-gather-ladders.md) |
+| 2026-11-14 09:45 | 걷기 속도 = 실효 AGI 계산식(D-540) | Claude Code | [14-0945-walk-agi](worklog/2026/11/14-0945-walk-agi.md) |
 | 2026-11-14 09:40 | NPC 증축 3: 나라 목표에 제재소·가마(1186 나), 막아 낸 웨이브의 행정 건물 피해·수리(1190 나) | Claude Code | [14-0940-npc-build-3](worklog/2026/11/14-0940-npc-build-3.md) |
 | 2026-11-14 08:28 | `/dev/tuning` 시간 단위 편집 UX 및 2차 스탯 전용 에디터(`/dev/secondary-stats`) 구현 | Antigravity | [14-0828-secondary-stats-and-tuning-units](worklog/2026/11/14-0828-secondary-stats-and-tuning-units.md) |
 | 2026-11-13 21:20 | 2차맵 시야 밖 오브젝트 가림 및 하단 HUD·정보창 UI 개선 | Antigravity | [13-2120-second-map-vision-hud](worklog/2026/11/13-2120-second-map-vision-hud.md) |

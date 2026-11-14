@@ -15,7 +15,7 @@ import {
 import type { NationPreset } from "../npc/nations.ts";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { type PathOutcome, type PathService, createInlinePathService } from "./pathService.ts";
-import { type SecondMap, createSecondMap } from "./secondMap.ts";
+import { type SecondMap, type SecondMapOptions, createSecondMap } from "./secondMap.ts";
 import type { Settlement } from "./settlement.ts";
 import { UNIT_KIND_HUMAN } from "./unitKinds.ts";
 import { type WorldStats, emptyWorldStats } from "./worldStats.ts";
@@ -115,7 +115,9 @@ export interface TestMap {
 }
 
 /** 같은 스레드 경로 서비스로 2차맵 하나를 만든다(시각은 Date.now — 가짜 타이머와 함께 쓴다) */
-export function createTestMap(options: { terrain?: TempTerrain; mapKey?: number } = {}): TestMap {
+export function createTestMap(
+  options: { terrain?: TempTerrain; mapKey?: number; walkSpeed?: SecondMapOptions["walkSpeed"] } = {},
+): TestMap {
   const stats = emptyWorldStats();
   const holder: { map?: SecondMap } = {};
   const paths = heldPathService(
@@ -132,6 +134,7 @@ export function createTestMap(options: { terrain?: TempTerrain; mapKey?: number 
     now: () => Date.now(),
     stats,
     log: silentLog,
+    walkSpeed: options.walkSpeed,
   });
   holder.map = map;
   paths.start();

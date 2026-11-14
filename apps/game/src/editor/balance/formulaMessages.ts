@@ -97,6 +97,7 @@ const UNIT_TEXT: Readonly<Record<FormulaUnit, () => string>> = {
   ms: m.dev_formula_unit_ms,
   roll: m.dev_formula_unit_roll,
   level: m.dev_formula_unit_level,
+  speed: m.dev_formula_unit_speed,
 };
 
 export const unitText = (unit: FormulaUnit): string => UNIT_TEXT[unit]();

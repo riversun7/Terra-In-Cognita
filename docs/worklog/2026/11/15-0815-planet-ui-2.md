@@ -21,7 +21,7 @@
 | `packages/shared/src/worldMap.ts` | `WorldMapBeacon`, `WorldTerritoryDisplay`, `TERRITORY_DISPLAY_START`, 응답 선택 칸 `beacons`·`territoryDisplay` |
 | `packages/sim/src/tuningTerritoryDisplay.ts`(새), `tuning.ts`, `society/coefficients.ts`, `tuning.test.ts` | 설정 칸 ↔ 계수표 `territoryDisplay` |
 | `content/core/tuning.json`, `nation_presets.json`, `manifest.json` | 칸 넷, 프리셋 색 16, core@95 |
-| `apps/server/src/worldMap/reads.ts`, `knownCities.ts`, `app.ts`, `tuning/scope.ts` | 표시 값·꼭짓점 비콘(안개) 응답, live 경로 |
+| `apps/server/src/worldMap/reads.ts`, `knownCities.ts`, `app.ts`, `tuning/scope.ts` | 표시 값·꼭짓점 비콘(안개) 응답, live 경로. main을 합친 뒤 `app.ts`가 1,002줄이 되어 조회에 설정 칸 계수표(`society`)를 넘기고 배후지·표시 값은 `reads.ts`가 읽게 했다(999줄) |
 | `apps/game/src/map/territoryShapes.ts` | 설정 칸 값, 영향력 비율 주인, 덩이 단위 뼈대, 도시 소유 비콘 잇기, 맞닿은 국가 쌍 |
 | `apps/game/src/map/territoryView.ts`(새) | 영토 보기 한 벌(모양 + 빗금 국가), 비슷한 색 문턱 |
 | `apps/game/src/map/nationColor.ts` | OKLab 거리, 대비 내보내기 |
@@ -55,6 +55,7 @@
 ## 확인
 - Verified 단위 시험: `apps/game/src/map` 312개 통과(territoryShapes 17 — 영향력 비율 경계·비콘 외곽선·같은 기준 도시 비콘 삼각형·비콘 영향력, territoryPick 6, territoryView 2, territoryDraw 3, nationColor 4 — 프리셋 거리·대비), 서버 `knownCities.test.ts` 5·`presets.test.ts` 14·`tuning` 통과, sim `tuning.test.ts` 7.
 - Verified `pnpm check`(TEST_DATABASE_URL): 시험 파일 705·시험 5,285개 가운데 `presets.test.ts` 1개 실패(프리셋 색 기대값) → 고친 뒤 그 파일 14개 통과. 마지막 전체 실행 결과는 아래 "마지막 검사".
+- Verified 마지막 검사(main d171818ecd 합친 뒤, `app.ts` 줄이기 뒤): `pnpm check`(TEST_DATABASE_URL) 통과 — 시험 파일 707·시험 5,298개. `pnpm check:docs origin/main` 통과. 빌드·check-pwa·check:bundle·화면 시험은 main을 합치기 전에 돌렸다(합친 뒤에는 다시 돌리지 않음 — 충돌은 작업 기록 목차뿐).
 - Verified `pnpm build`·`node scripts/check-pwa.mjs`·`pnpm check:bundle`: 통과(첫 화면 JS 109,644 B / 상한 131,416 B).
 - Verified 화면 시험 `pnpm e2e e2e/planet-view.spec.ts e2e/play-map.spec.ts`: 43개 통과(11.3분). 비콘을 놓은 뒤 `world.cities` `beacons`에 그 비콘이 오는 것, 좁은 화면 판 닫힘, 1440 판 열림, 빗금 칠 + 무늬 정의, 범례 빗금 칩. 엔진 p95(헤드리스, 덧그림 포함) 4단계 2.2~2.9ms, 1단계 1.3~2.1ms.
 - 사진(390 파스텔·다크 + 1440, `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/planet-ui-2-shots/`): `planet-layer-territory-stage4-390-*`(비콘으로 넓어진 칼루누이 영토), `planet-territory-hatch-390-*`(빗금), `planet-layer-territory-open-1440-pastel`(넓은 화면 열린 판).

@@ -26,4 +26,8 @@ export const BOAT_TUNING_KEYS: readonly TuningKey[] = [
     "Boat build time (dock level 1 build time × ‰)",
   ),
   k("boat_upkeep_pm", "", "upkeepPm", "배 유지비(보통 유닛 = 1000‰)", "Boat upkeep (a regular unit = 1000‰)"),
+  // 기획 D-541 1280 가·D-542 1331 나 — docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B3)"
+  k("boat_gather_cells", "", "gatherCells", "배에서 캐는 거리(칸)", "Gather reach from a boat (cells)"),
+  k("npc_boats_per_dock", "", "npcPerDock", "NPC 부두 하나의 배 상한", "NPC boats per dock"),
+  k("npc_boat_fishers", "", "npcFishers", "NPC 배 하나의 어부 수", "Fishers per NPC boat"),
 ];

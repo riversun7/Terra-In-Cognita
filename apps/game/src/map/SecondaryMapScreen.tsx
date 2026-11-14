@@ -723,6 +723,7 @@ function SecondMapView({
           state={gather}
           mapKey={mapKey}
           actor={actor}
+          actorAboard={myUnits.units?.some((unit) => unit.unitId === actor && unit.aboard != null) === true}
           unitLabel={labelOf}
           buildingExtra={<GovernmentSheet state={gather} embedded />}
         />

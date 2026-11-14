@@ -18,6 +18,15 @@ export interface BoatCoefficients {
   readonly buildTimePm: number;
   /** [임시] 배 유지비 무게(‰, 보통 유닛 1000 — 질문 1277 다, 기획 D-541 "사람보다 싸게") */
   readonly upkeepPm: number;
+  /**
+   * [임시] 배에서 캐는 거리(배치 칸, 기획 D-541 1280 가 — "바뀜 (2026-11-14, B3)"): 배 몸 가운데와 바다 오브젝트(어군은 지금 자리) 사이가 이 안이면
+   * 승객이 배에서 캔다. 물가에서 낚는 어군(reach > 0)은 둘 가운데 큰 값
+   */
+  readonly gatherCells: number;
+  /** [임시] NPC 부두 하나가 가진 배 상한(기획 D-542 1331 나 — 0이면 NPC는 배를 만들지 않는다) */
+  readonly npcPerDock: number;
+  /** [임시] NPC 배 하나에 태우는 어부 수(그 도시 휴먼, 자리 수 boat_capacity 안) */
+  readonly npcFishers: number;
 }
 
 export const START_BOATS: BoatCoefficients = {
@@ -27,4 +36,7 @@ export const START_BOATS: BoatCoefficients = {
   boardCells: 3,
   buildTimePm: 1000,
   upkeepPm: 300,
+  gatherCells: 4,
+  npcPerDock: 1,
+  npcFishers: 2,
 };

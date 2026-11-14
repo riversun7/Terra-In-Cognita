@@ -601,8 +601,8 @@
       "id": "shipwreck",
       "name": { "ko": "난파선", "en": "Shipwreck" },
       "description": {
-        "ko": "물 위에 있어 배로만 닿는다(배는 아직 없다 — 기획 D-536 질문 1221).",
-        "en": "On open water, reachable only by boat (boats are not in the game yet — design D-536, question 1221)."
+        "ko": "물 위에 있어 배로만 닿는다. 배에 탄 유닛이 배에서 캔다(기획 D-541 1280 가).",
+        "en": "On open water, reachable only by boat. A unit aboard a boat gathers it from the boat (design D-541, question 1280)."
       },
       "source": "site",
       "surfaces": ["water"],
@@ -631,8 +631,8 @@
       "id": "hydro_vent",
       "name": { "ko": "열수구", "en": "Hydrothermal vent" },
       "description": {
-        "ko": "물 위에 있어 배로만 닿는다(배는 아직 없다 — 기획 D-536 질문 1221).",
-        "en": "On open water, reachable only by boat (boats are not in the game yet — design D-536, question 1221)."
+        "ko": "물 위에 있어 배로만 닿는다. 배에 탄 유닛이 배에서 캔다(기획 D-541 1280 가).",
+        "en": "On open water, reachable only by boat. A unit aboard a boat gathers it from the boat (design D-541, question 1280)."
       },
       "source": "site",
       "surfaces": ["water"],
@@ -699,8 +699,8 @@
       "id": "school_shelf",
       "name": { "ko": "대륙붕 어군", "en": "Shelf school" },
       "description": {
-        "ko": "먼 바다를 헤엄쳐 돌아다니는 떼. 배로만 닿는다(배는 아직 없다 — 질문 1221).",
-        "en": "A school roaming the open sea. Reachable only by boat (boats are not in the game yet — question 1221)."
+        "ko": "먼 바다를 헤엄쳐 돌아다니는 떼. 배로만 닿는다 — 배에 탄 유닛이 배에서 낚는다(기획 D-541 1280 가).",
+        "en": "A school roaming the open sea. Reachable only by boat — a unit aboard a boat fishes it from the boat (design D-541, question 1280)."
       },
       "source": "school",
       "biomes": [{ "biome": "ocean_shelf", "count": 8 }, { "biome": "ocean_coastal", "count": 2 }],
@@ -723,8 +723,8 @@
       "id": "school_deep",
       "name": { "ko": "큰 어군", "en": "Large school" },
       "description": {
-        "ko": "먼 바다를 헤엄쳐 돌아다니는 떼. 배로만 닿는다(배는 아직 없다 — 질문 1221).",
-        "en": "A school roaming the open sea. Reachable only by boat (boats are not in the game yet — question 1221)."
+        "ko": "먼 바다를 헤엄쳐 돌아다니는 떼. 배로만 닿는다 — 배에 탄 유닛이 배에서 낚는다(기획 D-541 1280 가).",
+        "en": "A school roaming the open sea. Reachable only by boat — a unit aboard a boat fishes it from the boat (design D-541, question 1280)."
       },
       "source": "school",
       "biomes": [{ "biome": "ocean_deep", "count": 6 }],
@@ -747,8 +747,8 @@
       "id": "whale_pod",
       "name": { "ko": "고래 무리", "en": "Whale pod" },
       "description": {
-        "ko": "먼 바다를 헤엄쳐 돌아다니는 떼. 배로만 닿는다(배는 아직 없다 — 질문 1221).",
-        "en": "A school roaming the open sea. Reachable only by boat (boats are not in the game yet — question 1221)."
+        "ko": "먼 바다를 헤엄쳐 돌아다니는 떼. 배로만 닿는다 — 배에 탄 유닛이 배에서 낚는다(기획 D-541 1280 가).",
+        "en": "A school roaming the open sea. Reachable only by boat — a unit aboard a boat fishes it from the boat (design D-541, question 1280)."
       },
       "source": "school",
       "biomes": [{ "biome": "ocean_deep", "count": 2 }],

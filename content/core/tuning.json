@@ -10769,6 +10769,60 @@
         "en": "Upkeep weight of one boat. A regular unit is 1000. Kept cheaper than a person."
       },
       "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B2)\" · D-541 질문 1277 다 [임시]"
+    },
+    {
+      "id": "boat_gather_cells",
+      "code": "",
+      "name": {
+        "ko": "배에서 캐는 거리(칸)",
+        "en": "Gather reach from a boat (cells)"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 32,
+      "desc": {
+        "ko": "배에 탄 유닛은 배 가운데에서 이 칸 수 안의 바다 오브젝트(어군·난파선·고래 무리·열수구)를 배에서 내리지 않고 캔다. 물가에서 낚는 어군은 그 낚는 거리와 이 값 가운데 큰 값이다.",
+        "en": "A unit aboard a boat gathers sea objects (fish schools, wrecks, whale pods, vents) within this many cells of the boat's middle without leaving the boat. For schools fished from the shore, the larger of their casting range and this value."
+      },
+      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B3)\" · D-541 질문 1280 가 [임시]"
+    },
+    {
+      "id": "npc_boats_per_dock",
+      "code": "",
+      "name": {
+        "ko": "NPC 부두 하나의 배 상한",
+        "en": "NPC boats per dock"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 8,
+      "desc": {
+        "ko": "바닷가 NPC 도시의 부두 하나가 만들어 두는 배 수. 0이면 NPC는 배를 만들지 않는다.",
+        "en": "Boats one dock of a coastal NPC city keeps. 0 = NPCs build no boats."
+      },
+      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B3)\" · D-542 질문 1331 나 [임시]"
+    },
+    {
+      "id": "npc_boat_fishers",
+      "code": "",
+      "name": {
+        "ko": "NPC 배 하나의 어부 수",
+        "en": "Fishers per NPC boat"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 8,
+      "desc": {
+        "ko": "NPC 배 하나에 태워 바다 어군을 낚게 하는 그 도시 휴먼 수(배 자리 수 안). 잡은 고기는 도시 창고로 간다.",
+        "en": "City humans put on one NPC boat to fish sea schools (within the boat capacity). The catch goes to the city warehouse."
+      },
+      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B3)\" · D-542 질문 1331 나 [임시]"
     }
   ]
 }

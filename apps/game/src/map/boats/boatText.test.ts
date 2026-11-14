@@ -1,7 +1,7 @@
 // 배 화면 도우미 시험 — 고른 유닛에 보일 배 단추, 결과 문구(docs/adr/2026-11-13-boats.md)
 import type { MapUnit } from "@terra/shared/mapUnits";
 import { describe, expect, it } from "vitest";
-import { boatChoiceOf, boatOutcomeText, dockJobText } from "./boatText.ts";
+import { boatChoiceOf, boatGatherOf, boatOutcomeText, dockJobText } from "./boatText.ts";
 
 const unit = (over: Partial<MapUnit>): MapUnit => ({
   unitId: 1,
@@ -75,5 +75,17 @@ describe("배 단추 고르기", () => {
     );
     expect(dockJobText(undefined, now)).toBeNull();
     expect(dockJobText({ readyAt: now + 3 * 60_000 }, now)).toContain("3");
+  });
+});
+
+describe("배에서 캐기 판(D-541 1280 가)", () => {
+  it("탄 유닛은 바다 오브젝트만, 걷는 유닛은 배로만 닿는 것을 못 캔다", () => {
+    expect(boatGatherOf({ boat: true }, true, true)).toBe("from_boat");
+    expect(boatGatherOf({ boat: false }, true, true)).toBe("from_boat");
+    expect(boatGatherOf({ boat: true }, false, true)).toBe("from_boat");
+    expect(boatGatherOf({}, false, true)).toBe("not_from_boat");
+    expect(boatGatherOf({ boat: true }, true, false)).toBe("boat_only");
+    expect(boatGatherOf({}, true, false)).toBe("none");
+    expect(boatGatherOf(undefined, false, false)).toBe("none");
   });
 });

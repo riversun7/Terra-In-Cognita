@@ -390,3 +390,56 @@ describe("움직이는 어군(기획 D-536)", () => {
     expect(live && live.x >= 118 && live.x <= 127).toBe(true);
   });
 });
+
+describe("배에서 캐기(기획 D-541 1280 가)", () => {
+  it("승객은 배로만 닿는 어군을 배에서 낚고(승객 화물), 땅 오브젝트는 못 캔다. 넣는 곳 둘레에 물이 없으면 든 채 끝", async () => {
+    const kinds = [VEIN, school("school_coastal", 6), school("school_shelf", 0)];
+    const r = rig({ kinds, waterStrip: true });
+    const map = r.maps.get(K[0] ?? 0);
+    if (!map) throw new Error("no map");
+    const objects = r.gather.objects(K[0] ?? 0) ?? [];
+    const shelf = objects.find((object) => object.kind === 2);
+    const vein = objects.find((object) => object.kind === 0);
+    placeMine(r, 118, 40);
+    expect(map.addBoat({ id: 50, ownerId: OWNER, speed: 1536, cellX: 121, cellY: 40 })).toBe(true);
+    expect(map.board(1, 50)).toBe(true);
+    // 땅 오브젝트(광맥)는 배에서 못 캔다
+    expect(await r.gather.start(USER, { unitId: 1, mapKey: K[0] ?? 0, objectId: vein?.id ?? 0 })).toEqual({
+      ok: false,
+      code: "unavailable",
+    });
+    expect(await r.gather.start(USER, { unitId: 1, mapKey: K[0] ?? 0, objectId: shelf?.id ?? 0 })).toEqual({
+      ok: true,
+    });
+    await until(() => loopOf(r)?.phase === "gathering");
+    await until(() => r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(1)) > 0n);
+    // 승객은 내리지 않았고 배와 같은 움직임
+    expect(map.unitInfo(1)?.aboard).toBe(50);
+    expect(map.unitInfo(1)?.motion).toBe(map.unitInfo(50)?.motion);
+    // 화물이 차면(3kg) 넣는 곳(도시 (100, 16))으로 — 둘레 14칸 안에 배가 닿을 물이 없어 든 채 끝
+    await until(() => loopOf(r)?.phase === "done");
+    expect(loopOf(r)?.stop).toBe("no_deposit");
+    expect(r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(1))).toBeGreaterThanOrEqual(3n);
+    expect(r.ledger.balanceOf(OWNER, "item:saury", cityLocation(CITY))).toBe(0n);
+    r.gather.stop();
+  });
+
+  it("남의 배에 탄 승객은 못 캐고, 서버가 시키는 채집(startAs)은 소유 주체로 직접", async () => {
+    const kinds = [VEIN, school("school_coastal", 6), school("school_shelf", 0)];
+    const r = rig({ kinds, waterStrip: true });
+    const map = r.maps.get(K[0] ?? 0);
+    if (!map) throw new Error("no map");
+    const shelf = (r.gather.objects(K[0] ?? 0) ?? []).find((object) => object.kind === 2);
+    placeMine(r, 118, 40);
+    map.addBoat({ id: 50, ownerId: OWNER, speed: 1536, cellX: 121, cellY: 40 });
+    map.board(1, 50);
+    map.setOwner(50, 99);
+    const input = { unitId: 1, mapKey: K[0] ?? 0, objectId: shelf?.id ?? 0 };
+    expect(await r.gather.start(USER, input)).toEqual({ ok: false, code: "unavailable" });
+    map.setOwner(50, OWNER);
+    expect(await r.gather.startAs(8, input)).toEqual({ ok: false, code: "forbidden" });
+    expect(await r.gather.startAs(OWNER, input)).toEqual({ ok: true });
+    expect(r.gather.acting(1)).toBe(true);
+    r.gather.stop();
+  });
+});

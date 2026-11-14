@@ -87,3 +87,22 @@ export function boatChoiceOf(unit: MapUnit | undefined, units: readonly MapUnit[
 export function dockJobText(job: { readonly readyAt: number } | undefined, nowMs: number): string | null {
   return job ? m.boat_dock_building({ time: durationText(job.readyAt - nowMs) }) : null;
 }
+
+/**
+ * 오브젝트 판의 배 몫(기획 D-541 1280 가, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B3)" — 서버 gather/service.ts begin과 같은 규칙):
+ * - from_boat: 명령 유닛이 배에 탔고 바다 오브젝트(배로만 닿는 것·어군) — [채집]이 배를 몬다
+ * - not_from_boat: 배에 탔는데 땅 오브젝트 — 내려야 캔다
+ * - boat_only: 걷는 유닛인데 배로만 닿는 오브젝트
+ * - none: 배와 상관없음
+ */
+export type BoatGather = "from_boat" | "not_from_boat" | "boat_only" | "none";
+
+export function boatGatherOf(
+  kind: { readonly boat?: boolean | undefined } | undefined,
+  moving: boolean,
+  aboard: boolean,
+): BoatGather {
+  const sea = kind?.boat === true || moving;
+  if (aboard) return sea ? "from_boat" : "not_from_boat";
+  return kind?.boat === true ? "boat_only" : "none";
+}

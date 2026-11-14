@@ -32,6 +32,7 @@ function fakeService(map: SecondMap): GatherService {
   };
   return {
     start: (_userId, input) => walk(input.unitId),
+    startAs: (_ownerId, input) => walk(input.unitId),
     halt: () => ({ ok: true }),
     enter: (_userId, input) => walk(input.unitId),
     objects: () => undefined,

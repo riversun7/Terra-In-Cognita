@@ -32,6 +32,7 @@ import {
 import type { GatherState } from "./gatherState.ts";
 import { StationPanel } from "./StationPanel.tsx";
 import { DockBoatButton } from "../boats/BoatActions.tsx";
+import { boatGatherOf } from "../boats/boatText.ts";
 import "./gather.css";
 
 /** 명령 안내를 지우기까지(ms) */
@@ -46,6 +47,8 @@ interface GatherPanelProps {
   readonly unitLabel: (unitId: number) => string;
   /** 건물 판 안에 더 넣을 몫(행정 건물의 정부 몫 — 누른 건물 하나에 판 하나) */
   readonly buildingExtra?: ReactNode;
+  /** 명령 유닛이 배에 탔나(배에서 캐기 — 기획 D-541 1280 가). 없으면 false */
+  readonly actorAboard?: boolean;
 }
 
 const serverNow = (): number => Date.now() + serverLink.clockOffsetMs();
@@ -78,7 +81,14 @@ function loopText(loop: GatherLoopView): string {
   });
 }
 
-export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: GatherPanelProps) {
+export function GatherPanel({
+  state,
+  mapKey,
+  actor,
+  unitLabel,
+  buildingExtra,
+  actorAboard = false,
+}: GatherPanelProps) {
   const version = useSyncExternalStore(
     (listener) => state.subscribe(listener),
     () => state.version,
@@ -175,6 +185,7 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
   const kind = object ? state.kinds[object.kind] : undefined;
   const now = serverNow();
   const depleted = object !== undefined && object.usesLeft <= 0 && object.regrowAtMs > now;
+  const afloat = boatGatherOf(kind, object?.route !== undefined, actorAboard);
   const actorText = actor === null ? m.gather_actor_none() : m.gather_actor_unit({ unit: unitLabel(actor) });
 
   return (
@@ -271,13 +282,23 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
             </p>
           ) : null}
           {kind?.direct === false ? <p className="gather-muted">{m.gather_object_station_only()}</p> : null}
-          {kind?.boat === true ? <p className="gather-muted">{m.gather_object_boat_only()}</p> : null}
+          {afloat === "boat_only" ? <p className="gather-muted">{m.gather_object_boat_only()}</p> : null}
+          {afloat === "from_boat" ? (
+            <p className="gather-muted" data-afloat="from_boat">
+              {m.gather_object_from_boat()}
+            </p>
+          ) : null}
+          {afloat === "not_from_boat" ? (
+            <p className="gather-muted" data-afloat="not_from_boat">
+              {m.gather_object_not_from_boat()}
+            </p>
+          ) : null}
           <div className="gather-footer">
             <p className="gather-actor">{actorText}</p>
             <div className="gather-actions">
               <button
                 type="button"
-                hidden={kind?.direct === false || kind?.boat === true}
+                hidden={kind?.direct === false || afloat === "boat_only" || afloat === "not_from_boat"}
                 className="button-small button-primary gather-sheet-gather"
                 disabled={actor === null || depleted || sending}
                 onClick={() => {

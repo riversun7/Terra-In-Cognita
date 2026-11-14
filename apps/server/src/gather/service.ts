@@ -7,26 +7,25 @@
 // - 서버 권위: 소유·거리·오브젝트 상태·원장은 서버가 정한다. 기기는 유닛·오브젝트 번호·건물만 보낸다.
 // - 길에서 벗어남(확인할 때 움직임이 바뀜·유닛 없음) = interrupted. 같은 유닛에 새 명령이 오면 앞 줄을 버린다.
 // [임시] 채집 줄·안에 머묾은 메모리에만 둔다(다시 켜면 유닛은 그 자리에 선다. 든 화물은 원장에 남는다 — 확인 대기, 질문 670).
-import type { GatherResultCode, ResultCode } from "@terra/protocol";
+// 배에서 캐기(기획 D-541 1280 가, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B3)"): 배에 탄 유닛(승객)은 바다 오브젝트(배로만 닿는 것·어군)만 캐고,
+// 채집 줄이 배를 몬다(승객에게 내린 이동 = 배 이동, D-541 1279 나). 설 칸은 배가 설 물 칸, 거리는 배에서 캐는 거리(stand.ts). 캔 것은 승객 화물에
+// 들고(걷는 채집과 같은 원장 위치), 차면 배가 넣는 곳 둘레 물로 가서 넣는다(닿을 물이 없으면 no_deposit — 화물은 승객이 든 채). 같은 배의 다른
+// 승객 채집 줄이 배를 옮긴 것은 벗어남으로 보지 않고 다시 찾아간다(steer).
+import type { GatherResultCode } from "@terra/protocol";
 import type { GatherLoopView, GatherPhase, GatherStop } from "@terra/shared/gather";
 import {
   type CellPoint,
   JOB_NONE,
   type Motion,
-  PLACEMENT_SIZE,
-  type Primaries,
   type SizeClass,
-  type SocietyCoefficients,
   anchorAt,
   anchorCenter,
   arrivalAt,
   positionAt,
 } from "@terra/sim";
-import type { Ledger } from "../economy/ledger.ts";
-import type { PlaceWorld } from "../facilities/places.ts";
 import { type StorageContext, roomGrams } from "../facilities/storage.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { type GatherInjuryHook, unavailable } from "../world/unitCondition.ts";
+import { unavailable } from "../world/unitCondition.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_GUARDIAN } from "../world/unitKinds.ts";
 import { statOf } from "../labor/gatherWork.ts";
 import {
@@ -52,8 +51,11 @@ import {
   regrowMs,
   splitPm,
 } from "./rules.ts";
-import type { ObjectStore } from "./state.ts";
 import { mapLayers } from "./terrainLayers.ts";
+import type { GatherCommandResult, GatherDeps, GatherService } from "./serviceTypes.ts";
+
+export type { GatherCommandResult, GatherDeps, GatherService } from "./serviceTypes.ts";
+import { BOAT_BODY_SIZE, boatReach, commandCode, onLand, onWater, seaObject, standNear } from "./stand.ts";
 
 /** 끝난 줄을 화면에 보이는 시간(ms) */
 export const RECENT_MS = 10 * 60_000;
@@ -73,68 +75,11 @@ const BUILDING_STAND_CELLS = 14;
 /** setTimeout 지연 상한 */
 const MAX_TIMER_MS = 0x7fff_ffff;
 
-export type GatherCommandResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly code: GatherResultCode };
-
-export interface GatherDeps {
-  readonly maps: ReadonlyMap<number, SecondMap>;
-  readonly now: () => number;
-  readonly log: { info(obj: object, message: string): void; error(obj: object, message: string): void };
-  readonly kinds: () => readonly GatherKind[];
-  readonly rules: () => SocietyCoefficients;
-  readonly ledger: Ledger;
-  readonly store: ObjectStore;
-  /** 사용자의 소유 주체(없으면 내 유닛 없음) */
-  ownerOf(userId: string): number | undefined;
-  /** 물자 자리 세계(건물 서비스가 만든다) */
-  places(): PlaceWorld | undefined;
-  /** 그 건물이 일하나(상태 문턱) */
-  works(buildingId: number): boolean;
-  /** 직무 배치·노동 계약·건물 작업에 묶였나 */
-  unitBusy(unitId: number): boolean;
-  /** 내가 내 시설에 배치한 유닛이면 그 시설(직무를 풀고 채집을 시킬 수 있다), 아니면 undefined */
-  assignedBy?: ((ownerId: number, unitId: number) => number | undefined) | undefined;
-  /** 직무 배치 풀기(채집을 시키기 전) */
-  unassign?: ((userId: string, unitId: number) => Promise<{ readonly ok: boolean }>) | undefined;
-  /** 직무 배치(들어가기: 내 채집 시설) */
-  assign?:
-    | ((userId: string, buildingId: number, unitId: number) => Promise<{ readonly ok: boolean }>)
-    | undefined;
-  /** 그 시설에서 일하는 유닛(건물 판) */
-  workersAt?: ((buildingId: number) => readonly { readonly unitId: number }[]) | undefined;
-  /** 유닛 1차 스탯(입은 장비·버프 포함) */
-  primaries(unitId: number): Primaries;
-  /** 2차맵(= 1차맵 칸)의 오염 값(0 ~ 100,000) */
-  pollution(mapKey: number): number;
-  /**
-   * 2차맵(1차맵 칸) 행성 값의 원자재 비트(@terra/shared/catchment cellMaterials — 밭·목초지의 기후 조건). 없거나 undefined면 보지 않는다
-   * (행성 값 없는 임시 지형). 오브젝트 목록은 지형 판 표지마다 한 번 만들므로 문턱 설정 칸을 바꾸면 다음 시작 때 든다
-   */
-  materials?(mapKey: number): number | undefined;
-  /**
-   * 2차맵(1차맵 칸) 행성 값의 광석 고도 몫(‰, @terra/shared/catchment oreSharePm — 노두가 설 몫, 질문 1083 나). 없거나 undefined면 노두를 두지
-   * 않는다(행성 값 없는 임시 지형)
-   */
-  oreSharePm?(mapKey: number): number | undefined;
-  /** 2차맵(1차맵 칸) 행성 값의 목재 몫(‰, @terra/shared/catchment woodSharePm — 목재 몫 노두가 설 몫). 없으면 그 노두를 두지 않는다 */
-  woodSharePm?(mapKey: number): number | undefined;
-  /**
-   * 2차맵(1차맵 칸)의 바이옴 ID와 물 비트(행성 값 — 지형별 오브젝트·어군이 설 조건, 기획 D-536). 없거나 undefined면 지형별 오브젝트·어군을
-   * 두지 않는다(행성 값 없는 임시 지형)
-   */
-  terrainKind?(mapKey: number): { readonly biomeId: string | null; readonly waterBits: number } | undefined;
-  /**
-   * 채집 중 부상(docs/adr/2026-11-08-injury.md 5절, world/unitCondition.ts createGatherInjury): 캐기가 끝날 때마다 지난번 뒤로 지난 작업 주기
-   * 경계를 굴린다. 없으면 다치지 않는다(시험)
-   */
-  workInjury?: GatherInjuryHook | undefined;
-  ready(): boolean;
-}
-
 interface Action {
   readonly unitId: number;
   readonly ownerId: number;
+  /** 배에서 캐는 줄이면 그 배(시작할 때 탄 배), 아니면 null */
+  readonly boatId: number | null;
   readonly userId: string;
   readonly mapKey: number;
   readonly kind: "gather" | "enter";
@@ -166,87 +111,7 @@ interface Action {
   updatedAt: number;
 }
 
-export interface GatherService {
-  start(
-    userId: string,
-    input: { unitId: number; mapKey: number; objectId: number },
-  ): Promise<GatherCommandResult>;
-  /** 채집을 멈춘다(그 자리에 선다, 든 화물은 그대로) */
-  halt(userId: string, unitId: number): GatherCommandResult;
-  enter(userId: string, input: { unitId: number; buildingId: number }): Promise<GatherCommandResult>;
-  /** 그 2차맵의 오브젝트(자리는 지형에서, 상태는 저장소에서). 어군은 집 자리(x, y)와 길(route) */
-  objects(mapKey: number): readonly GatherObject[] | undefined;
-  /** 그 2차맵의 오브젝트, 어군은 시각 nowMs의 자리로(채집소 반경 셈 — 기획 D-536 움직이는 어군) */
-  objectsAt(mapKey: number, nowMs: number): readonly GatherObject[] | undefined;
-  /** 내 줄(진행 중 + 최근 끝난 것) */
-  loops(userId: string): GatherLoopView[];
-  /** 그 건물 안 유닛(들어가기로 머묾) */
-  insideOf(buildingId: number): readonly { readonly unitId: number; readonly ownerId: number }[];
-  runDue(): void;
-  readonly active: number;
-  /** 그 유닛에 채집 줄이 있나(채집소 운반꾼 고르기가 뺀다, 질문 1090 가) */
-  acting(unitId: number): boolean;
-  stop(): void;
-}
-
 const fail = (code: GatherResultCode): GatherCommandResult => ({ ok: false, code });
-
-/** 2차맵 이동 명령 결과 → 채집 결과 코드 */
-function commandCode(code: ResultCode): GatherResultCode {
-  if (code === "busy" || code === "superseded") return "busy";
-  if (code === "unknown_unit") return "unknown_unit";
-  if (code === "invalid_request") return "unavailable";
-  return "no_path";
-}
-
-/**
- * 목표 칸에서 가장 가까운 설 칸(체비쇼프 고리, 고리 안은 from에 가까운 칸). 없으면 null.
- * anyRing이면 반경 안 모든 설 칸 가운데 from에 가장 가까운 칸(어군 — 낚는 거리 안이면 건너편 물가보다 유닛 쪽 물가로)
- */
-function standNear(
-  map: SecondMap,
-  target: CellPoint,
-  size: SizeClass,
-  radius: number,
-  from: CellPoint,
-  anyRing = false,
-): CellPoint | null {
-  const top = PLACEMENT_SIZE - size;
-  if (anyRing) {
-    let best: CellPoint | null = null;
-    let bestDistance = 0;
-    for (let dy = -radius; dy <= radius; dy++)
-      for (let dx = -radius; dx <= radius; dx++) {
-        const cell = { x: target.x + dx, y: target.y + dy };
-        if (cell.x < 0 || cell.y < 0 || cell.x > top || cell.y > top) continue;
-        if (!map.isStandable(cell.x, cell.y, size)) continue;
-        const distance = cellDistance2(cell.x, cell.y, from.x, from.y);
-        if (!best || distance < bestDistance) {
-          best = cell;
-          bestDistance = distance;
-        }
-      }
-    return best;
-  }
-  for (let ring = 0; ring <= radius; ring++) {
-    let best: CellPoint | null = null;
-    let bestDistance = 0;
-    for (let dy = -ring; dy <= ring; dy++)
-      for (let dx = -ring; dx <= ring; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
-        const cell = { x: target.x + dx, y: target.y + dy };
-        if (cell.x < 0 || cell.y < 0 || cell.x > top || cell.y > top) continue;
-        if (!map.isStandable(cell.x, cell.y, size)) continue;
-        const distance = cellDistance2(cell.x, cell.y, from.x, from.y);
-        if (!best || distance < bestDistance) {
-          best = cell;
-          bestDistance = distance;
-        }
-      }
-    if (best) return best;
-  }
-  return null;
-}
 
 export function createGatherService(deps: GatherDeps): GatherService {
   const { maps, now, log } = deps;
@@ -368,6 +233,11 @@ export function createGatherService(deps: GatherDeps): GatherService {
     const info = map?.unitInfo(action.unitId);
     return map && info ? { map, info } : undefined;
   };
+  /** 움직이는 몸 크기: 배에서 캐는 줄이면 배(승객 움직임 = 배 움직임), 아니면 그 유닛 */
+  const bodySize = (action: Action, size: SizeClass): SizeClass =>
+    action.boatId === null ? size : BOAT_BODY_SIZE;
+  /** 같은 배의 채집 줄이 마지막으로 배에 준 움직임(배 ID → 움직임) — 그 움직임으로 바뀐 것은 벗어남이 아니다 */
+  const steer = new Map<number, Motion>();
 
   /** 걸어서 그 칸(설 칸)으로 간다. 이미 서 있으면 바로 확인 */
   const walk = async (action: Action, goal: CellPoint, phase: GatherPhase): Promise<GatherCommandResult> => {
@@ -383,13 +253,15 @@ export function createGatherService(deps: GatherDeps): GatherService {
       return fail("unknown_unit");
     }
     const at = now();
-    const here = anchorAt(positionAt(where.info.motion, at), where.info.size);
+    const size = bodySize(action, where.info.size);
+    const here = anchorAt(positionAt(where.info.motion, at), size);
     if (here.x === goal.x && here.y === goal.y && at >= arrivalAt(where.info.motion)) {
       action.motion = where.info.motion;
       schedule(action, at);
       return { ok: true };
     }
-    const result = await where.map.moveUnit(action.unitId, anchorCenter(goal.x, goal.y, where.info.size));
+    // 승객이면 2차맵이 배를 옮긴다(D-541 1279 나)
+    const result = await where.map.moveUnit(action.unitId, anchorCenter(goal.x, goal.y, size));
     if (actions.get(action.unitId) !== action || action.seq !== seq) return fail("busy");
     if (!result.ok) {
       const code = commandCode(result.code);
@@ -406,6 +278,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
       return fail("unknown_unit");
     }
     action.motion = motion;
+    if (action.boatId !== null) steer.set(action.boatId, motion);
     schedule(action, arrivalAt(motion));
     return { ok: true };
   };
@@ -413,7 +286,9 @@ export function createGatherService(deps: GatherDeps): GatherService {
   /** 지금 유닛 칸 */
   const hereOf = (action: Action): CellPoint | undefined => {
     const where = unitAt(action);
-    return where ? anchorAt(positionAt(where.info.motion, now()), where.info.size) : undefined;
+    return where
+      ? anchorAt(positionAt(where.info.motion, now()), bodySize(action, where.info.size))
+      : undefined;
   };
 
   /** 오브젝트를 맡는 내 시설(그 레벨의 반경 안)을 다시 본다. 시설 창고가 가득이면 버프만 받고 넣기는 창고·도시로 */
@@ -445,18 +320,26 @@ export function createGatherService(deps: GatherDeps): GatherService {
       finish(action, "interrupted");
       return Promise.resolve(fail("unknown_object"));
     }
-    const here = anchorAt(positionAt(where.info.motion, now()), where.info.size);
-    // 어군(기획 D-536)은 지금 자리에서 낚는 거리(reach) 안 물가 설 칸으로. reach 0(배로만)이면 설 칸이 없다
-    const reach = object.route ? (deps.kinds()[object.kind]?.reach ?? 0) : OBJECT_STAND_CELLS;
+    const size = bodySize(action, where.info.size);
+    const here = anchorAt(positionAt(where.info.motion, now()), size);
+    // 어군(기획 D-536)은 지금 자리에서 낚는 거리(reach) 안 물가 설 칸으로. reach 0(배로만)이면 설 칸이 없다.
+    // 배에서 캐는 줄은 배에서 캐는 거리 안 물 칸 가운데 배에서 가장 가까운 칸(이미 닿으면 그 자리)
+    const afloat = action.boatId !== null;
+    const reach = afloat
+      ? reachOf(action, object)
+      : object.route
+        ? (deps.kinds()[object.kind]?.reach ?? 0)
+        : OBJECT_STAND_CELLS;
     const goal =
       reach > 0
         ? standNear(
             where.map,
             livePlace(object, now()),
-            where.info.size,
+            size,
             reach,
             here,
-            object.route !== undefined,
+            afloat || object.route !== undefined,
+            afloat ? onWater : onLand,
           )
         : null;
     if (!goal) {
@@ -466,13 +349,19 @@ export function createGatherService(deps: GatherDeps): GatherService {
     return walk(action, goal, "to_object");
   };
 
-  /** 어군이 지금 유닛에서 낚는 거리(reach + 여유 2칸) 안인가. 어군이 아니면 늘 true */
+  /** 배에서 캐는 거리(배치 칸, stand.ts boatReach) */
+  const reachOf = (action: Action, object: GatherObject): number =>
+    boatReach(deps.kinds()[object.kind] ?? {}, deps.rules().boats.gatherCells);
+
+  /** 어군이 지금 유닛에서 낚는 거리(reach + 여유 2칸) 안인가. 어군이 아니면 늘 true(배에서 캐는 줄은 모든 오브젝트를 배에서 캐는 거리로 본다) */
   const withinReach = (action: Action, object: GatherObject): boolean => {
-    if (!object.route) return true;
+    if (!object.route && action.boatId === null) return true;
     const here = hereOf(action);
     if (!here) return false;
     const place = livePlace(object, now());
-    const reach = (deps.kinds()[object.kind]?.reach ?? 0) + SCHOOL_REACH_SLACK;
+    const reach =
+      (action.boatId === null ? (deps.kinds()[object.kind]?.reach ?? 0) : reachOf(action, object)) +
+      SCHOOL_REACH_SLACK;
     return Math.max(Math.abs(place.x - here.x), Math.abs(place.y - here.y)) <= reach;
   };
 
@@ -491,9 +380,19 @@ export function createGatherService(deps: GatherDeps): GatherService {
       finish(action, deposit ? "interrupted" : "no_deposit");
       return;
     }
-    const goal = standNear(where.map, deposit, where.info.size, BUILDING_STAND_CELLS, here);
+    const afloat = action.boatId !== null;
+    const goal = standNear(
+      where.map,
+      deposit,
+      bodySize(action, where.info.size),
+      BUILDING_STAND_CELLS,
+      here,
+      false,
+      afloat ? onWater : onLand,
+    );
     if (!goal) {
-      finish(action, "no_path");
+      // 배가 닿을 물이 넣는 곳 둘레에 없으면 승객이 든 채 끝(내린 뒤 들어가기로 넣는다)
+      finish(action, afloat ? "no_deposit" : "no_path");
       return;
     }
     await walk(action, goal, "to_deposit");
@@ -694,6 +593,10 @@ export function createGatherService(deps: GatherDeps): GatherService {
     await goToObject(action);
   };
 
+  /** 배에서 캐는 줄이 아직 그 배에 탔고, 배 움직임이 채집 줄이 준 것인가 */
+  const shared = (action: Action, info: { readonly aboard: number | undefined; readonly motion: Motion }) =>
+    action.boatId !== null && info.aboard === action.boatId && steer.get(action.boatId) === info.motion;
+
   const check = async (action: Action): Promise<void> => {
     if (action.motion === null) {
       // 길 찾기가 밀렸다: 그 단계를 다시 시작한다
@@ -703,6 +606,13 @@ export function createGatherService(deps: GatherDeps): GatherService {
       return;
     }
     const where = unitAt(action);
+    if (where && where.info.motion !== action.motion && shared(action, where.info)) {
+      // 같은 배의 다른 승객 채집 줄이 배를 옮겼다: 하던 단계를 다시 찾아간다
+      action.motion = null;
+      if (action.phase === "to_deposit") await goToDeposit(action);
+      else await goToObject(action);
+      return;
+    }
     if (!where || where.info.motion !== action.motion) {
       finish(action, "interrupted");
       return;
@@ -772,9 +682,11 @@ export function createGatherService(deps: GatherDeps): GatherService {
     unitId: number,
     mapKey: number,
     kind: Action["kind"],
+    boatId: number | null = null,
   ): Action => ({
     unitId,
     ownerId,
+    boatId,
     userId,
     mapKey,
     kind,
@@ -813,6 +725,38 @@ export function createGatherService(deps: GatherDeps): GatherService {
     recent.delete(action.unitId);
     actions.set(action.unitId, action);
   };
+
+  /** 채집 줄 시작(소유·상태는 부르는 쪽이 봤다) */
+  async function begin(
+    userId: string,
+    unit: {
+      readonly ownerId: number;
+      readonly map: SecondMap;
+      readonly info: { readonly aboard: number | undefined };
+    },
+    input: { unitId: number; mapKey: number; objectId: number },
+  ): Promise<GatherCommandResult> {
+    if (unit.map.mapKey !== input.mapKey) return fail("wrong_map");
+    const object = objectsOf(input.mapKey)?.byId.get(input.objectId);
+    const kind = object ? deps.kinds()[object.kind] : undefined;
+    if (!object || !kind) return fail("unknown_object");
+    // 밭·목초지·물터는 맡는 시설의 일꾼만 쓴다(사용자 답 D-519, docs/adr/2026-11-11-city-catchment.md)
+    if (!kind.direct) return fail("unavailable");
+    // 배에 탄 유닛은 바다 오브젝트만, 걷는 유닛은 배로만 닿는 오브젝트를 못 캔다(D-541 1280 가). 남의 배면 배를 몰 수 없다
+    const boatId = unit.info.aboard ?? null;
+    const boat = boatId === null ? undefined : unit.map.unitInfo(boatId);
+    if (boatId !== null && (boat?.ownerId !== unit.ownerId || !seaObject(kind, object.route !== undefined)))
+      return fail("unavailable");
+    if (boatId === null && kind.boat === true) return fail("unavailable");
+    if (deps.store.read(input.mapKey, object.id, kind.uses, now()).usesLeft <= 0) return fail("depleted");
+    if (!(await freeUnit(userId, unit.ownerId, input.unitId))) return fail("unavailable");
+    const action = newAction(userId, unit.ownerId, input.unitId, input.mapKey, "gather", boatId);
+    action.objectId = object.id;
+    action.kindIndex = object.kind;
+    replace(action);
+    planCamp(action, object);
+    return goToObject(action);
+  }
 
   /** 묶인 유닛: 내가 내 시설에 배치한 유닛이면 배치를 풀고 쓴다(채집을 시킨다), 아니면 unavailable */
   const freeUnit = async (userId: string, ownerId: number, unitId: number): Promise<boolean> => {
@@ -885,23 +829,16 @@ export function createGatherService(deps: GatherDeps): GatherService {
       if (!deps.ready()) return fail("busy");
       const unit = ownUnit(userId, input.unitId);
       if ("problem" in unit) return fail(unit.problem);
-      if (unit.map.mapKey !== input.mapKey) return fail("wrong_map");
-      const objects = objectsOf(input.mapKey);
-      const object = objects?.byId.get(input.objectId);
-      const kind = object ? deps.kinds()[object.kind] : undefined;
-      if (!object || !kind) return fail("unknown_object");
-      // 밭·목초지·물터는 맡는 시설의 일꾼만 쓴다(사용자 답 D-519, docs/adr/2026-11-11-city-catchment.md)
-      if (!kind.direct) return fail("unavailable");
-      // 배로만 닿는 오브젝트(물 위 자리·낚는 거리 0 어군 — 배는 아직 없다, 기획 D-536 질문 1221)
-      if (kind.boat === true) return fail("unavailable");
-      if (deps.store.read(input.mapKey, object.id, kind.uses, now()).usesLeft <= 0) return fail("depleted");
-      if (!(await freeUnit(userId, unit.ownerId, input.unitId))) return fail("unavailable");
-      const action = newAction(userId, unit.ownerId, input.unitId, input.mapKey, "gather");
-      action.objectId = object.id;
-      action.kindIndex = object.kind;
-      replace(action);
-      planCamp(action, object);
-      return goToObject(action);
+      return begin(userId, unit, input);
+    },
+    async startAs(ownerId, input) {
+      if (!deps.ready()) return fail("busy");
+      const map = maps.get(input.mapKey);
+      const info = map?.unitInfo(input.unitId);
+      if (!map || !info) return fail("unknown_unit");
+      if (info.ownerId !== ownerId) return fail("forbidden");
+      if (unavailable(info.condition, now())) return fail("unavailable");
+      return begin("", { ownerId, map, info }, input);
     },
     halt(userId, unitId) {
       const action = actions.get(unitId);

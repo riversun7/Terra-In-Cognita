@@ -21,15 +21,16 @@ const dry = (water: number, biomeId: string): CatchmentLand => ({
   biomeId,
 });
 
+/** 도시 칸·위·아래는 해안 땅, 오른쪽(i > 20)은 심해 바다 */
+const coastLand = (key: number): CatchmentLand => {
+  const { i } = decodeCellKey(key);
+  return i > 20 ? dry(1 | (3 << 4), "ocean_deep") : dry(8, "grassland");
+};
+const rules = () => TEST_SOCIETY_COEFFICIENTS;
+
 describe("NPC 배후지 낚시터 물 종류", () => {
   it("칸 값 → 물 종류·땅 여부, 배후지 땅 칸 다수결(바다 칸이 많아도 해안 땅이면 연안)", () => {
-    // 도시 칸·위·아래는 해안 땅, 오른쪽 두 칸 이상은 심해 바다
-    const land = (key: number): CatchmentLand => {
-      const { i } = decodeCellKey(key);
-      return i > 20 ? dry(1 | (3 << 4), "ocean_deep") : dry(8, "grassland");
-    };
-    const rules = () => TEST_SOCIETY_COEFFICIENTS;
-    const geometry = planetCatchmentGeometry(land, () => home, rules);
+    const geometry = planetCatchmentGeometry(coastLand, () => home, rules);
     expect(geometry.fishWaterOf?.(home)).toEqual({ water: "coast", shore: true });
     expect(geometry.fishWaterOf?.(cellKey(0, LEVEL, 22, 20))).toEqual({ water: "deep", shore: false });
     const state = createCatchmentState(geometry, () =>

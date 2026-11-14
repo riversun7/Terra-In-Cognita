@@ -376,34 +376,35 @@ describe("광석 티어 막기(기획 D-533 — 높은 티어 광석은 산지)"
   });
 });
 
-describe("낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나 — tierRange)", () => {
-  /** 높은 스탯 4,000번(범위로 접기 시험, 같은 난수) */
-  const fold = (tierRange?: { min: number; max: number }) =>
-    rollGatherOutputs(
-      {
-        ladder: ORE_LADDER,
-        bands: ORE_BANDS,
-        stat: 220,
-        lots: 4000,
-        lotSize: new Map(),
-        ...(tierRange ? { tierRange } : {}),
-      },
-      createRng(7),
-    );
+/** 높은 스탯 4,000번(범위로 접기 시험, 같은 난수) */
+const fold = (tierRange?: { min: number; max: number }) =>
+  rollGatherOutputs(
+    {
+      ladder: ORE_LADDER,
+      bands: ORE_BANDS,
+      stat: 220,
+      lots: 4000,
+      lotSize: new Map(),
+      ...(tierRange ? { tierRange } : {}),
+    },
+    createRng(7),
+  );
+/** 티어 차례 from ~ to − 1의 수 합 */
+const sumTiers = (list: readonly number[], from: number, to: number) =>
+  list.slice(from, to).reduce((acc, count) => acc + count, 0);
 
+describe("낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나 — tierRange)", () => {
   it("범위 밖 티어는 끝으로 접고(아래는 min, 위는 max) 난수는 그대로다 — 범위 안 티어 수는 같다", () => {
     const free = fold();
     const shelf = fold({ min: 2, max: 6 });
     expect(shelf.tiers.slice(0, 2)).toEqual([0, 0]);
     expect(shelf.tiers.slice(7)).toEqual([0, 0, 0]);
     expect(shelf.tiers.slice(3, 6)).toEqual(free.tiers.slice(3, 6));
-    const sum = (list: readonly number[], from: number, to: number) =>
-      list.slice(from, to).reduce((acc, count) => acc + count, 0);
-    expect(shelf.tiers[2]).toBe(sum(free.tiers, 0, 3));
-    expect(shelf.tiers[6]).toBe(sum(free.tiers, 6, GATHER_TIERS));
+    expect(shelf.tiers[2]).toBe(sumTiers(free.tiers, 0, 3));
+    expect(shelf.tiers[6]).toBe(sumTiers(free.tiers, 6, GATHER_TIERS));
     // 민물(T0~T2): T2 위는 모두 T2
     const fresh = fold({ min: 0, max: 2 });
-    expect(sum(fresh.tiers, 3, GATHER_TIERS)).toBe(0);
+    expect(sumTiers(fresh.tiers, 3, GATHER_TIERS)).toBe(0);
     expect(fresh.tiers.slice(0, 2)).toEqual(free.tiers.slice(0, 2));
   });
 

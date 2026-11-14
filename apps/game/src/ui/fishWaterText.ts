@@ -2,17 +2,15 @@
 import type { FishWater, FishWaterRangeView } from "@terra/shared/fishWater";
 import { m } from "../paraglide/messages.js";
 
+const NAMES: Readonly<Record<FishWater, () => string>> = {
+  fresh: m.fish_water_fresh,
+  coast: m.fish_water_coast,
+  shelf: m.fish_water_shelf,
+  deep: m.fish_water_deep,
+};
+
 export function fishWaterName(water: FishWater): string {
-  switch (water) {
-    case "fresh":
-      return m.fish_water_fresh();
-    case "coast":
-      return m.fish_water_coast();
-    case "shelf":
-      return m.fish_water_shelf();
-    case "deep":
-      return m.fish_water_deep();
-  }
+  return NAMES[water]();
 }
 
 /** "민물 T0~T2 · 연안 T0~T4 · …" */

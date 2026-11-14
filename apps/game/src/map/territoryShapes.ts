@@ -1,29 +1,34 @@
-// 1차맵 영토 모양 — 도시마다 영향권 원, 국가마다 원들의 합, 다른 국가 원이 겹친 곳은 두 도시의 가운데가 경계(사용자 결정 2026-11-14,
-// ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 화면 표시용(판정 아님) 순수 계산 — 시험 대상, three.js·DOM을 쓰지 않는다.
+// 1차맵 영토 모양 — 국가마다 도시 원 + 도시 사이까지 덮는 넓은 영토, 다른 국가와 겹친 곳은 두 도시의 가운데가 경계
+// (사용자 결정 2026-11-14 두 번: "도시마다 영향권 원, 겹친 곳은 가운데" → 질문 1437 답 "도시 사이에 빈 공간이 있어 단절되어 있다. 국가 영토는
+// 더 넓게 도시 사이도 모두 포함하는 넓은 범위로", ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 화면 표시용(판정 아님) 순수 계산.
 //
-// 주인 규칙: 점 p의 주인 = 원이 p를 덮는 도시 가운데 p에서 가장 가까운 도시(같으면 작은 ID). 그래서
-// - 한 원만 덮는 땅은 그 원의 것(겹치지 않은 곳은 원 그대로 — 큰 원 안 작은 도시도 제 원을 지킨다),
-// - 두 원이 덮는 땅(렌즈)은 두 도시의 수직 이등분선(가운데)이 가른다. 국가 영토 = 그 국가 도시가 주인인 땅(둘로 갈릴 수 있다).
-// 그리는 법(칠): 한 묶음(불투명 칠 + 묶음 투명도) 안에서 ① 원 바탕(반지름 큰 차례) ② 다른 국가 원과 겹친 도시만 "이긴 조각"
-// (원 ∩ 겹친 다른 국가 도시마다 이 도시 쪽 반구 = 볼록)을 위에 덧칠한다. 이긴 조각은 늘 맞는 색이고, 이긴 조각 밖은 대개 덮는 원이
-// 하나라 바탕이 맞다(셋 이상이 얽힌 드문 곳만 바탕 차례를 따른다). 테두리는 원의 변·이긴 조각의 자른 변을 잘게 나눠, 양쪽 주인의
-// 국가가 다른 곳(국가 경계·바깥 둘레)만 긋는다 — 같은 국가 원끼리 겹친 안쪽 호는 긋지 않는다.
-// 3차원 단위 벡터로만 셈하므로 행성 면(정육면체 면)·경도 ±180°·극에서 이음매가 없다. 화면에는 꼭짓점의 위도·경도를 하나씩 투영한다.
-// 반경 = 도시 배후지 반경(서버 world.cities catchmentMilli, ADR 2026-11-11-city-catchment), 없으면 영향권 반경(radiusMilli, D-104).
+// 덮임(국가 F가 점 p를 덮나): F의 "뼈대"에서 반지름 안이면 덮는다. 뼈대 = 도시 점 + 서로 CORRIDOR(도시 사이 잇기 상한) 안인 같은 국가
+// 도시 쌍의 줄 + 세 쌍이 모두 이어진 도시 셋의 삼각형(속을 채운다). 반지름 = 도시 원 반지름(배후지 반경), 줄 위에서는 두 끝 반지름을
+// 잇는 값. 그래서 도시 원들이 둥근 띠로 이어지고 도시들 사이 땅도 모두 든다(볼록 껍질처럼 넓지만 멀리 떨어진 도시는 잇지 않는다).
+// 주인: 덮는 국가가 여럿이면 p에서 가장 가까운 도시(그 국가 도시 가운데 가장 가까운 것끼리 견줌, 같으면 작은 ID)의 국가 — 두 국가 사이
+// 경계는 두 도시의 수직 이등분선(가운데)이고, 다른 국가 도시가 띠를 가르면 영토가 둘로 갈린다.
+// 그리기: 국가마다 이어진 덩이(같은 국가 도시가 CORRIDOR 안이거나 원이 겹치면 한 덩이)의 둘레를 접평면 격자에서 마칭 스퀘어로 찾는다
+// (격자 칸 변 위 경계 점은 주인 함수 이분 탐색이라 두 국가가 같은 점을 쓴다). 고리마다 닫힌 다각형(위도·경도) — 칠·테두리가 같은 고리다.
+// 국가 사이 경계 몫(받침 선)은 고리 변 바깥쪽 주인이 다른 국가인 곳이다. 3차원 단위 벡터로 셈해 면·경도 ±180°·극에 이음매가 없다.
 import type { WorldMapCity } from "@terra/shared/worldMap";
 
 type Vec = readonly [number, number, number];
 type LatLon = readonly [latDeg: number, lonDeg: number];
 
 const DEG = Math.PI / 180;
-/** 원 하나를 그리는 꼭짓점 수(48각형 — 화면 반지름 100px에서 호와 줄의 틈 0.2px) */
-export const TERRITORY_SEGMENTS = 48;
-/** 테두리를 가를 때 변 하나를 나누는 수(겹친 원만) */
-const BORDER_SPLITS = 4;
-/** 테두리 양쪽을 볼 거리(반지름에 견준 몫) — 48각형 변이 원보다 안쪽으로 들어간 몫(0.2%)보다 커야 한다 */
-const SIDE_OFFSET = 0.02;
 /** 각 반지름 위 끝 */
 const MAX_RADIUS = Math.PI / 2 - 1e-6;
+/**
+ * [임시] 같은 국가 도시를 영토로 잇는 가장 먼 거리(칸) — 설정 칸 city_catchment_search_cells(지방 도시를 수도 둘레 몇 칸 안에 세우나,
+ * 출발값 12)와 같은 값. 이보다 먼 같은 국가 도시는 따로 덩이가 된다(바다·남의 땅 건너 잇지 않게). 질문 1437 답에 따른 보기 값
+ */
+export const CORRIDOR_CELLS = 12;
+/** 격자 간격 = 그 덩이 가장 작은 원 반지름 ÷ 이 값 */
+const GRID_PER_RADIUS = 3;
+/** 덩이 하나 격자 마디 수 위 끝(넘으면 간격을 넓힌다) */
+const MAX_GRID_NODES = 40_000;
+/** 경계 점 이분 탐색 횟수(격자 간격 ÷ 2^n) */
+const BISECT_STEPS = 10;
 
 const toVec = (latDeg: number, lonDeg: number): Vec => {
   const lat = latDeg * DEG;
@@ -39,7 +44,6 @@ const cross = (a: Vec, b: Vec): Vec => [
 const add = (a: Vec, b: Vec): Vec => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a: Vec, b: Vec): Vec => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const scale = (a: Vec, k: number): Vec => [a[0] * k, a[1] * k, a[2] * k];
-const lerp = (a: Vec, b: Vec, t: number): Vec => add(a, scale(sub(b, a), t));
 const norm = (a: Vec): number => Math.hypot(a[0], a[1], a[2]);
 const unit = (a: Vec): Vec => {
   const length = norm(a);
@@ -62,37 +66,36 @@ export interface TerritorySite {
   readonly radius: number;
 }
 
-/** 칠할 다각형(꼭짓점 위도·경도, 볼록) */
-export interface TerritoryPolygon {
-  readonly cityId: number;
+/** 국가 덩이 하나(같은 국가의 이어진 도시들)의 둘레 고리들 */
+export interface TerritoryArea {
   readonly factionId: number;
-  readonly points: readonly LatLon[];
+  readonly cityIds: readonly number[];
+  /** 닫힌 고리(위도·경도). 바깥 고리·구멍 모두(칠은 evenodd) */
+  readonly loops: readonly (readonly LatLon[])[];
+  /** 화면 밖 건너뛰기용: 덩이 가운데와 가운데에서 가장 먼 고리 점 */
+  readonly center: LatLon;
+  readonly rim: LatLon;
 }
 
-/** 테두리 꺾은선 하나: 양쪽 주인 국가가 다른 곳. factions = 맞닿은 국가(바깥 둘레면 하나, 국가 경계면 둘) */
-export interface TerritoryBorder {
-  /** 이 선이 나온 도시(화면 밖 도시를 건너뛸 때 쓴다) */
-  readonly cityId: number;
-  readonly factions: readonly number[];
-  readonly points: readonly LatLon[];
-}
-
-/** 국가 이름표 자리: 그 국가 원들의 넓이 가중 가운데 */
+/** 국가 이름표 자리: 그 국가 땅 가운데 가장 넓은 조각의 가운데 */
 export interface TerritoryLabelSpot {
   readonly factionId: number;
   readonly latDeg: number;
   readonly lonDeg: number;
-  /** 단위 구 위 넓이(스테라디안) — 이름표가 겹치면 넓은 국가가 남는다 */
+  /** 단위 구 위 넓이(스테라디안, 어림) — 이름표가 겹치면 넓은 국가가 남는다 */
   readonly area: number;
 }
 
 export interface TerritoryShapes {
-  /** 원 바탕(반지름 큰 차례 — 작은 원이 위) */
-  readonly circles: readonly TerritoryPolygon[];
-  /** 다른 국가 원과 겹친 도시의 이긴 조각(바탕 위에 덧칠) */
-  readonly wins: readonly TerritoryPolygon[];
-  readonly borders: readonly TerritoryBorder[];
+  readonly areas: readonly TerritoryArea[];
+  /** 두 국가가 맞닿은 선(꺾은선, 받침 선) */
+  readonly dividers: readonly (readonly LatLon[])[];
   readonly labels: readonly TerritoryLabelSpot[];
+}
+
+/** 1000분율 칸 → 라디안: 같은 국가 도시를 잇는 가장 먼 거리(라디안). 환산이 없으면 0(잇지 않는다) */
+export function corridorOf(milliPerRadian: number | undefined): number {
+  return milliPerRadian && milliPerRadian > 0 ? (CORRIDOR_CELLS * 1000) / milliPerRadian : 0;
 }
 
 /**
@@ -119,250 +122,416 @@ export function territorySitesOf(
   return sites;
 }
 
-interface Prepared {
+interface Node {
   readonly site: TerritorySite;
-  readonly center: Vec;
+  readonly p: Vec;
   readonly radius: number;
 }
 
-const prepare = (sites: readonly TerritorySite[]): Prepared[] =>
-  sites
-    .filter((site) => Number.isFinite(site.radius) && site.radius > 0)
-    .toSorted((a, b) => a.id - b.id)
-    .map((site) => ({
-      site,
-      center: toVec(site.latDeg, site.lonDeg),
-      radius: Math.min(MAX_RADIUS, site.radius),
-    }));
+/** 뼈대 줄(같은 국가 두 도시) */
+interface Link {
+  readonly a: Node;
+  readonly b: Node;
+}
 
-/** 후보 가운데 p의 주인(원이 덮고 가장 가까운 도시, 같으면 작은 ID — 후보는 ID 차례). 없으면 undefined */
-function ownerAmong(candidates: readonly Prepared[], p: Vec): Prepared | undefined {
-  let best: Prepared | undefined;
+/** 국가 하나의 뼈대 */
+interface Skeleton {
+  readonly factionId: number;
+  readonly nodes: readonly Node[];
+  readonly links: readonly Link[];
+  readonly triangles: readonly (readonly [Node, Node, Node])[];
+  /** 빠른 거르기: 뼈대를 품는 원(가운데·각 반지름, 덮임 반지름 포함) */
+  readonly center: Vec;
+  readonly reach: number;
+}
+
+/** 점에서 줄(대원 조각 a–b)까지 가장 가까운 점의 몫 t(0~1). 짧은 줄이라 현(chord)에 내린 수선을 쓴다 */
+function nearestOnLink(p: Vec, a: Vec, b: Vec): number {
+  const ab = sub(b, a);
+  const length2 = dot(ab, ab);
+  if (length2 <= 0) return 0;
+  return Math.min(1, Math.max(0, dot(sub(p, a), ab) / length2));
+}
+
+/** 점이 세 도시 삼각형(구면, 짧다) 안인가 */
+function insideTriangle(p: Vec, [a, b, c]: readonly [Node, Node, Node]): boolean {
+  const s1 = dot(cross(a.p, b.p), p);
+  const s2 = dot(cross(b.p, c.p), p);
+  const s3 = dot(cross(c.p, a.p), p);
+  return (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
+}
+
+/** 국가 F가 점을 덮나: 뼈대(도시·줄·삼각형)에서 반지름 안 */
+function covers(skeleton: Skeleton, p: Vec): boolean {
+  if (angleBetween(p, skeleton.center) > skeleton.reach) return false;
+  for (const node of skeleton.nodes) if (angleBetween(p, node.p) <= node.radius) return true;
+  for (const link of skeleton.links) {
+    const t = nearestOnLink(p, link.a.p, link.b.p);
+    const q = unit(add(link.a.p, scale(sub(link.b.p, link.a.p), t)));
+    if (angleBetween(p, q) <= link.a.radius + (link.b.radius - link.a.radius) * t) return true;
+  }
+  for (const triangle of skeleton.triangles) if (insideTriangle(p, triangle)) return true;
+  return false;
+}
+
+/** 국가마다 뼈대(줄 = 서로 corridor 안인 도시 쌍, 삼각형 = 세 쌍이 모두 줄인 도시 셋) */
+function skeletonsOf(sites: readonly TerritorySite[], corridor: number): Skeleton[] {
+  const byFaction = new Map<number, Node[]>();
+  for (const site of sites.toSorted((a, b) => a.id - b.id)) {
+    if (!Number.isFinite(site.radius) || site.radius <= 0) continue;
+    const list = byFaction.get(site.factionId) ?? [];
+    list.push({ site, p: toVec(site.latDeg, site.lonDeg), radius: Math.min(MAX_RADIUS, site.radius) });
+    byFaction.set(site.factionId, list);
+  }
+  const skeletons: Skeleton[] = [];
+  for (const [factionId, nodes] of byFaction) {
+    const joined = (a: Node, b: Node): boolean => angleBetween(a.p, b.p) <= corridor;
+    const links: Link[] = [];
+    const triangles: [Node, Node, Node][] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i];
+      if (!a) continue;
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j];
+        if (!b || !joined(a, b)) continue;
+        links.push({ a, b });
+        for (let k = j + 1; k < nodes.length; k++) {
+          const c = nodes[k];
+          if (c && joined(a, c) && joined(b, c)) triangles.push([a, b, c]);
+        }
+      }
+    }
+    const center = unit(nodes.reduce<Vec>((sum, node) => add(sum, node.p), [0, 0, 0]));
+    const reach = Math.max(...nodes.map((node) => angleBetween(center, node.p) + node.radius));
+    skeletons.push({ factionId, nodes, links, triangles, center, reach });
+  }
+  return skeletons;
+}
+
+/** 점의 주인: 덮는 국가 가운데 가장 가까운 도시(국가끼리 견줌, 같으면 작은 ID). 없으면 undefined */
+function ownerAmong(skeletons: readonly Skeleton[], p: Vec): Node | undefined {
+  let best: Node | undefined;
   let bestAngle = Number.POSITIVE_INFINITY;
-  for (const entry of candidates) {
-    const angle = angleBetween(p, entry.center);
-    if (angle > entry.radius) continue;
-    if (angle < bestAngle) {
-      best = entry;
-      bestAngle = angle;
+  for (const skeleton of skeletons) {
+    if (!covers(skeleton, p)) continue;
+    for (const node of skeleton.nodes) {
+      const angle = angleBetween(p, node.p);
+      if (angle < bestAngle || (angle === bestAngle && best && node.site.id < best.site.id)) {
+        best = node;
+        bestAngle = angle;
+      }
     }
   }
   return best;
 }
 
-/** 점의 주인 도시(원이 덮지 않으면 null). 그리기와 같은 규칙 — 누른 곳의 국가(territoryPick.ts)가 쓴다 */
+/** 점의 주인 도시(어느 국가 영토도 아니면 null). 그리기와 같은 규칙 — 누른 곳의 국가(territoryPick.ts)가 쓴다 */
 export function territoryOwner(
   latDeg: number,
   lonDeg: number,
   sites: readonly TerritorySite[],
+  corridor: number,
 ): TerritorySite | null {
-  return ownerAmong(prepare(sites), toVec(latDeg, lonDeg))?.site ?? null;
+  return ownerAmong(skeletonsOf(sites, corridor), toVec(latDeg, lonDeg))?.site ?? null;
 }
 
-/** 꼭짓점과, 그 꼭짓점에서 다음 꼭짓점으로 가는 변의 출처(-1 = 원의 호, 아니면 자른 도시의 차례) */
-interface Corner {
-  readonly p: Vec;
-  readonly edge: number;
+/** 같은 국가 도시 덩이(corridor 안이거나 원이 겹치면 한 덩이) */
+function componentsOf(skeleton: Skeleton, corridor: number): Node[][] {
+  const parent = skeleton.nodes.map((_, index) => index);
+  const find = (index: number): number => {
+    let root = index;
+    while ((parent[root] ?? root) !== root) root = parent[root] ?? root;
+    return root;
+  };
+  skeleton.nodes.forEach((a, i) => {
+    skeleton.nodes.forEach((b, j) => {
+      if (j <= i) return;
+      const gap = angleBetween(a.p, b.p);
+      if (gap <= corridor || gap <= a.radius + b.radius) {
+        const [ra, rb] = [find(i), find(j)];
+        if (ra !== rb) parent[Math.max(ra, rb)] = Math.min(ra, rb);
+      }
+    });
+  });
+  const groups = new Map<number, Node[]>();
+  skeleton.nodes.forEach((node, index) => {
+    const root = find(index);
+    groups.set(root, [...(groups.get(root) ?? []), node]);
+  });
+  return [...groups.values()];
 }
 
-/** 원을 다각형으로(꼭짓점은 단위 벡터) */
-function capPolygon(entry: Prepared, segments: number): Corner[] {
-  const a = entry.center;
-  // a에 수직인 두 축(극 근처에서도 안정하게 덜 평행한 축으로)
-  const helper: Vec = Math.abs(a[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
-  const u = unit(cross(helper, a));
-  const v = cross(a, u);
-  const sin = Math.sin(entry.radius);
-  const cos = Math.cos(entry.radius);
-  const corners: Corner[] = [];
-  for (let index = 0; index < segments; index++) {
-    const angle = (2 * Math.PI * index) / segments;
-    const offset = add(scale(u, Math.cos(angle) * sin), scale(v, Math.sin(angle) * sin));
-    corners.push({ p: add(scale(a, cos), offset), edge: -1 });
-  }
-  return corners;
+/** 접평면(중심 투영) 틀: 가운데 c, 두 축 e1·e2. (u, v) ↔ 구 위 방향 */
+interface Frame {
+  readonly c: Vec;
+  readonly e1: Vec;
+  readonly e2: Vec;
 }
 
-/** 다각형을 평면 p·n ≥ 0 쪽으로 자른다(서덜랜드–호지먼). 새로 생긴 변(평면 위)의 출처 = by */
-function clipPolygon(corners: readonly Corner[], n: Vec, by: number): Corner[] {
-  const out: Corner[] = [];
-  const count = corners.length;
-  for (let index = 0; index < count; index++) {
-    const current = corners[index];
-    const next = corners[(index + 1) % count];
-    if (!current || !next) continue;
-    const dc = dot(current.p, n);
-    const dn = dot(next.p, n);
-    const inside = dc >= 0;
-    if (inside) out.push(current);
-    if (inside !== dn >= 0) {
-      // 안 → 밖: 교점에서 다음 들어오는 점까지가 평면 위 변. 밖 → 안: 교점에서 다음 점까지는 원래 변의 남은 몫
-      out.push({ p: lerp(current.p, next.p, dc / (dc - dn)), edge: inside ? by : current.edge });
+const frameAt = (c: Vec): Frame => {
+  const helper: Vec = Math.abs(c[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+  const e1 = unit(cross(helper, c));
+  return { c, e1, e2: cross(c, e1) };
+};
+const toPlane = (frame: Frame, p: Vec): readonly [number, number] => {
+  const w = dot(p, frame.c);
+  return [dot(p, frame.e1) / w, dot(p, frame.e2) / w];
+};
+const fromPlane = (frame: Frame, u: number, v: number): Vec =>
+  unit(add(frame.c, add(scale(frame.e1, u), scale(frame.e2, v))));
+
+type Point2 = readonly [number, number];
+
+/** 거의 곧은 점 빼기(닫힌 고리, 허용 거리 tol) — 고리 점 수를 줄여 프레임 투영을 가볍게 한다 */
+function simplifyLoop(points: readonly Point2[], tol: number): Point2[] {
+  let current = [...points];
+  for (let pass = 0; pass < 3 && current.length > 8; pass++) {
+    const kept: Point2[] = [];
+    for (let index = 0; index < current.length; index++) {
+      const prev = kept.at(-1) ?? current.at(-1);
+      const point = current[index];
+      const next = current[(index + 1) % current.length];
+      if (!prev || !point || !next) continue;
+      const dx = next[0] - prev[0];
+      const dy = next[1] - prev[1];
+      const length = Math.hypot(dx, dy);
+      const off = length > 0 ? Math.abs(dx * (prev[1] - point[1]) - dy * (prev[0] - point[0])) / length : 0;
+      if (off >= tol || kept.length === 0) kept.push(point);
     }
+    if (kept.length === current.length) break;
+    current = kept;
   }
-  return out;
+  return current;
 }
 
-/** 변 위 점 q(변 방향 along)의 양쪽 주인 국가(덮지 않으면 null) */
-function sidesAt(
-  candidates: readonly Prepared[],
-  q: Vec,
-  along: Vec,
-  offset: number,
-): [number | null, number | null] {
-  const side = scale(unit(cross(q, along)), offset);
-  const left = ownerAmong(candidates, add(q, side));
-  const right = ownerAmong(candidates, sub(q, side));
-  return [left?.site.factionId ?? null, right?.site.factionId ?? null];
-}
-
-/** 열린 꺾은선들을 모으는 도우미: 같은 국가 묶음이 이어지면 한 선으로 */
-function borderCollector(cityId: number, out: TerritoryBorder[]) {
-  let points: Vec[] = [];
-  let key = "";
-  let factions: number[] = [];
-  const flush = (): void => {
-    if (points.length >= 2) out.push({ cityId, factions, points: points.map(latLonOf) });
-    points = [];
-    key = "";
-  };
-  return {
-    /** a → b 조각이 테두리면 이어 붙이고, 아니면 지금 선을 끝낸다 */
-    segment(a: Vec, b: Vec, sides: readonly [number | null, number | null]): void {
-      const [left, right] = sides;
-      if (left === right) {
-        flush();
-        return;
-      }
-      const list = [left, right].filter((value): value is number => value !== null).toSorted((x, y) => x - y);
-      const next = list.join(",");
-      if (next !== key || points.length === 0) {
-        flush();
-        key = next;
-        factions = list;
-        points = [a];
-      }
-      points.push(b);
-    },
-    flush,
-  };
-}
-
-/** 볼록 다각형의 넓이(평면 부채꼴 어림)와 넓이 가중 가운데(길이는 정하지 않은 방향) */
-function areaAndCentroid(points: readonly Vec[]): { area: number; centroid: Vec } {
-  const first = points[0];
-  if (!first || points.length < 3) return { area: 0, centroid: [0, 0, 0] };
+/** 넓이(부호, 반시계 +) */
+const signedArea = (points: readonly Point2[]): number => {
+  let sum = 0;
+  points.forEach((point, index) => {
+    const next = points[(index + 1) % points.length] ?? point;
+    sum += point[0] * next[1] - next[0] * point[1];
+  });
+  return sum / 2;
+};
+const centroidOf = (points: readonly Point2[]): Point2 => {
+  let cx = 0;
+  let cy = 0;
   let area = 0;
-  let centroid: Vec = [0, 0, 0];
-  for (let index = 1; index + 1 < points.length; index++) {
-    const b = points[index];
-    const c = points[index + 1];
-    if (!b || !c) continue;
-    const triangle = norm(cross(sub(b, first), sub(c, first))) / 2;
-    area += triangle;
-    centroid = add(centroid, scale(add(add(first, b), c), triangle / 3));
+  points.forEach((point, index) => {
+    const next = points[(index + 1) % points.length] ?? point;
+    const k = point[0] * next[1] - next[0] * point[1];
+    area += k;
+    cx += (point[0] + next[0]) * k;
+    cy += (point[1] + next[1]) * k;
+  });
+  return area === 0 ? (points[0] ?? [0, 0]) : [cx / (3 * area), cy / (3 * area)];
+};
+
+/**
+ * 격자에서 inside(p) 둘레를 찾는다(안이 왼쪽인 닫힌 고리). 변 위 경계 점은 이분 탐색. 안장 칸은 가운데 표본으로 가른다.
+ * 격자 가장자리 마디는 늘 밖이어야 한다(덩이 상자에 여유를 둔다)
+ */
+function trace(
+  frame: Frame,
+  box: { u0: number; v0: number; step: number; nx: number; ny: number },
+  inside: (p: Vec) => boolean,
+): Point2[][] {
+  const { u0, v0, step, nx, ny } = box;
+  const at = (i: number, j: number): Point2 => [u0 + i * step, v0 + j * step];
+  const value: boolean[] = [];
+  for (let j = 0; j <= ny; j++)
+    for (let i = 0; i <= nx; i++) {
+      const [u, v] = at(i, j);
+      value.push(i > 0 && j > 0 && i < nx && j < ny && inside(fromPlane(frame, u, v)));
+    }
+  const get = (i: number, j: number): boolean => value[j * (nx + 1) + i] ?? false;
+  // 변 번호: 가로 변 (i, j)–(i+1, j) = j·nx + i, 세로 변 (i, j)–(i, j+1) = H + j·(nx+1) + i
+  const horizontal = (ny + 1) * nx;
+  const hEdge = (i: number, j: number): number => j * nx + i;
+  const vEdge = (i: number, j: number): number => horizontal + j * (nx + 1) + i;
+  const crossing = new Map<number, Point2>();
+  const pointOn = (edge: number): Point2 => {
+    const known = crossing.get(edge);
+    if (known) return known;
+    let a: Point2;
+    let b: Point2;
+    if (edge < horizontal) {
+      const i = edge % nx;
+      const j = Math.floor(edge / nx);
+      [a, b] = [at(i, j), at(i + 1, j)];
+    } else {
+      const rest = edge - horizontal;
+      const i = rest % (nx + 1);
+      const j = Math.floor(rest / (nx + 1));
+      [a, b] = [at(i, j), at(i, j + 1)];
+    }
+    // a 쪽이 안이 되게 놓고 안 → 밖 경계를 찾는다
+    let lo = 0;
+    let hi = 1;
+    const aInside = inside(fromPlane(frame, a[0], a[1]));
+    for (let step2 = 0; step2 < BISECT_STEPS; step2++) {
+      const mid = (lo + hi) / 2;
+      const q = fromPlane(frame, a[0] + (b[0] - a[0]) * mid, a[1] + (b[1] - a[1]) * mid);
+      if (inside(q) === aInside) lo = mid;
+      else hi = mid;
+    }
+    const t = (lo + hi) / 2;
+    const point: Point2 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    crossing.set(edge, point);
+    return point;
+  };
+  // 칸마다 조각(시작 변 → 끝 변). 모서리를 반시계(왼아래·오른아래·오른위·왼위)로 돌며 안 → 밖 변에서 다음(이어진 안장이면)·앞(끊긴 안장이면)
+  // 밖 → 안 변으로 잇는다 — 안이 늘 왼쪽
+  const next = new Map<number, number>();
+  for (let j = 0; j < ny; j++)
+    for (let i = 0; i < nx; i++) {
+      const corners = [get(i, j), get(i + 1, j), get(i + 1, j + 1), get(i, j + 1)];
+      const edges = [hEdge(i, j), vEdge(i + 1, j), hEdge(i, j + 1), vEdge(i, j)];
+      const count = corners.filter(Boolean).length;
+      if (count === 0 || count === 4) continue;
+      const exits: number[] = [];
+      const entries: number[] = [];
+      for (let k = 0; k < 4; k++) {
+        const from = corners[k] ?? false;
+        const to = corners[(k + 1) % 4] ?? false;
+        if (from && !to) exits.push(k);
+        if (!from && to) entries.push(k);
+      }
+      let joinNext = true;
+      if (exits.length === 2) {
+        const [u, v] = at(i, j);
+        joinNext = inside(fromPlane(frame, u + step / 2, v + step / 2));
+      }
+      for (const exit of exits) {
+        // 다음(반시계) 들어오는 변 또는 앞(시계) 들어오는 변
+        let pick = entries[0] ?? exit;
+        for (let offset = 1; offset < 4; offset++) {
+          const k = joinNext ? (exit + offset) % 4 : (exit - offset + 4) % 4;
+          if (entries.includes(k)) {
+            pick = k;
+            break;
+          }
+        }
+        next.set(edges[exit] ?? 0, edges[pick] ?? 0);
+      }
+    }
+  const loops: Point2[][] = [];
+  const seen = new Set<number>();
+  for (const start of next.keys()) {
+    if (seen.has(start)) continue;
+    const loop: Point2[] = [];
+    let edge = start;
+    while (!seen.has(edge)) {
+      seen.add(edge);
+      loop.push(pointOn(edge));
+      const following = next.get(edge);
+      if (following === undefined) break;
+      edge = following;
+    }
+    if (loop.length >= 3) loops.push(loop);
   }
-  return { area, centroid };
+  return loops;
 }
 
-/** 도시들의 원 바탕·이긴 조각·테두리·국가 이름표 자리. 겹치지 않는 두 원은 서로 보지 않는다(셈을 줄인다 — 결과는 같다) */
-export function buildTerritoryShapes(
-  sites: readonly TerritorySite[],
-  segments = TERRITORY_SEGMENTS,
-): TerritoryShapes {
-  const prepared = prepare(sites);
-  // 겹치는(닿는) 원 목록 — 자기 포함, ID 차례
-  const near = prepared.map((entry) =>
-    prepared.filter(
-      (other) => other === entry || angleBetween(entry.center, other.center) < entry.radius + other.radius,
-    ),
-  );
-  const circles: TerritoryPolygon[] = [];
-  const wins: TerritoryPolygon[] = [];
-  const borders: TerritoryBorder[] = [];
-  const byFaction = new Map<number, { area: number; centroid: Vec }>();
-  prepared.forEach((entry, index) => {
-    const candidates = near[index] ?? [entry];
-    const ring = capPolygon(entry, segments);
-    const ringPoints = ring.map((corner) => corner.p);
-    circles.push({
-      cityId: entry.site.id,
-      factionId: entry.site.factionId,
-      points: ringPoints.map(latLonOf),
-    });
-    const { area, centroid } = areaAndCentroid(ringPoints);
-    const sum = byFaction.get(entry.site.factionId) ?? { area: 0, centroid: [0, 0, 0] };
-    byFaction.set(entry.site.factionId, { area: sum.area + area, centroid: add(sum.centroid, centroid) });
-
-    // 테두리(원의 변): 겹친 원이 없으면 원 둘레 전체가 바깥 둘레
-    const offset = entry.radius * SIDE_OFFSET;
-    const collect = borderCollector(entry.site.id, borders);
-    const alone = candidates.length === 1;
-    for (let corner = 0; corner < segments; corner++) {
-      const a = ringPoints[corner];
-      const b = ringPoints[(corner + 1) % segments];
-      if (!a || !b) continue;
-      if (alone) {
-        collect.segment(a, b, [entry.site.factionId, null]);
-        continue;
+/** 도시들의 국가 영토 고리·국가 경계 받침 선·국가 이름표 자리. corridor = 같은 국가 도시를 잇는 가장 먼 거리(라디안) */
+export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: number): TerritoryShapes {
+  const skeletons = skeletonsOf(sites, corridor);
+  const areas: TerritoryArea[] = [];
+  const dividers: LatLon[][] = [];
+  const best = new Map<number, { area: number; total: number; spot: Vec }>();
+  for (const skeleton of skeletons) {
+    for (const component of componentsOf(skeleton, corridor)) {
+      const ids = new Set(component.map((node) => node.site.id));
+      const center = unit(component.reduce<Vec>((sum, node) => add(sum, node.p), [0, 0, 0]));
+      const frame = frameAt(center);
+      const minRadius = Math.min(...component.map((node) => node.radius));
+      const maxRadius = Math.max(...component.map((node) => node.radius));
+      const planar = component.map((node) => toPlane(frame, node.p));
+      const pad = maxRadius * 1.2;
+      const u0 = Math.min(...planar.map((point) => point[0])) - pad;
+      const u1 = Math.max(...planar.map((point) => point[0])) + pad;
+      const v0 = Math.min(...planar.map((point) => point[1])) - pad;
+      const v1 = Math.max(...planar.map((point) => point[1])) + pad;
+      let step = minRadius / GRID_PER_RADIUS;
+      const span = (u1 - u0) * (v1 - v0);
+      if (span / (step * step) > MAX_GRID_NODES) step = Math.sqrt(span / MAX_GRID_NODES);
+      const nx = Math.max(2, Math.ceil((u1 - u0) / step));
+      const ny = Math.max(2, Math.ceil((v1 - v0) / step));
+      // 이 덩이 땅 = 주인이 이 덩이 도시인 곳
+      const inside = (p: Vec): boolean => {
+        const owner = ownerAmong(skeletons, p);
+        return owner !== undefined && ids.has(owner.site.id);
+      };
+      const loops = trace(frame, { u0, v0, step, nx, ny }, inside).map((loop) =>
+        simplifyLoop(loop, step * 0.12),
+      );
+      if (loops.length === 0) continue;
+      // 국가 경계 받침: 고리 변 바깥(오른쪽) 주인이 다른 국가인 몫
+      for (const loop of loops) {
+        let run: LatLon[] = [];
+        const flush = (): void => {
+          if (run.length >= 2) dividers.push(run);
+          run = [];
+        };
+        loop.forEach((point, index) => {
+          const after = loop[(index + 1) % loop.length] ?? point;
+          const dx = after[0] - point[0];
+          const dy = after[1] - point[1];
+          const length = Math.hypot(dx, dy) || 1;
+          const probe = fromPlane(
+            frame,
+            (point[0] + after[0]) / 2 + (dy / length) * step * 0.5,
+            (point[1] + after[1]) / 2 - (dx / length) * step * 0.5,
+          );
+          const other = ownerAmong(skeletons, probe);
+          // 한 쪽(작은 국가 ID)에서만 넣는다
+          if (other && other.site.factionId > skeleton.factionId) {
+            if (run.length === 0) run.push(latLonOf(fromPlane(frame, point[0], point[1])));
+            run.push(latLonOf(fromPlane(frame, after[0], after[1])));
+          } else flush();
+        });
+        flush();
       }
-      for (let part = 0; part < BORDER_SPLITS; part++) {
-        const from = lerp(a, b, part / BORDER_SPLITS);
-        const to = lerp(a, b, (part + 1) / BORDER_SPLITS);
-        collect.segment(from, to, sidesAt(candidates, lerp(from, to, 0.5), sub(to, from), offset));
+      const outer = loops.map((loop) => ({ loop, area: signedArea(loop) }));
+      const total = outer.reduce((sum, entry) => sum + entry.area, 0);
+      const largest = outer.toSorted((a, b) => b.area - a.area)[0];
+      if (largest && largest.area > 0) {
+        const [cu, cv] = centroidOf(largest.loop);
+        const known = best.get(skeleton.factionId);
+        if (!known || largest.area > known.area)
+          best.set(skeleton.factionId, {
+            area: largest.area,
+            total: (known?.total ?? 0) + total,
+            spot: fromPlane(frame, cu, cv),
+          });
+        else known.total += total;
       }
+      let rim: Vec = center;
+      let far = -1;
+      const loopsLatLon = loops.map((loop) =>
+        loop.map((point) => {
+          const p = fromPlane(frame, point[0], point[1]);
+          const gap = angleBetween(p, center);
+          if (gap > far) {
+            far = gap;
+            rim = p;
+          }
+          return latLonOf(p);
+        }),
+      );
+      areas.push({
+        factionId: skeleton.factionId,
+        cityIds: [...ids],
+        loops: loopsLatLon,
+        center: latLonOf(center),
+        rim: latLonOf(rim),
+      });
     }
-    collect.flush();
-
-    // 이긴 조각: 다른 국가 원과 겹치면 그 도시들과의 가운데로 자른 원
-    const rivals = candidates.filter((other) => other.site.factionId !== entry.site.factionId);
-    if (rivals.length === 0) return;
-    let corners: Corner[] = ring;
-    for (const rival of rivals) {
-      const n = sub(entry.center, rival.center);
-      if (norm(n) < 1e-12) {
-        // 같은 자리: 작은 ID만 남는다
-        if (rival.site.id < entry.site.id) corners = [];
-        continue;
-      }
-      corners = clipPolygon(corners, n, prepared.indexOf(rival));
-      if (corners.length < 3) break;
-    }
-    if (corners.length < 3) return;
-    wins.push({
-      cityId: entry.site.id,
-      factionId: entry.site.factionId,
-      points: corners.map((c) => latLonOf(c.p)),
-    });
-    // 테두리(자른 변 = 가운데 선): 렌즈 밖으로 나간 몫은 양쪽이 같은 주인이라 빠진다
-    const cut = borderCollector(entry.site.id, borders);
-    const cutOffset = Math.min(entry.radius, ...rivals.map((rival) => rival.radius)) * SIDE_OFFSET;
-    corners.forEach((corner, at) => {
-      const next = corners[(at + 1) % corners.length];
-      if (corner.edge < 0 || !next) {
-        cut.flush();
-        return;
-      }
-      const splits = BORDER_SPLITS * 2;
-      for (let part = 0; part < splits; part++) {
-        const from = lerp(corner.p, next.p, part / splits);
-        const to = lerp(corner.p, next.p, (part + 1) / splits);
-        cut.segment(from, to, sidesAt(candidates, lerp(from, to, 0.5), sub(to, from), cutOffset));
-      }
-    });
-    cut.flush();
-  });
-  circles.sort((a, b) => {
-    const ra = prepared.find((entry) => entry.site.id === a.cityId)?.radius ?? 0;
-    const rb = prepared.find((entry) => entry.site.id === b.cityId)?.radius ?? 0;
-    return rb - ra || a.cityId - b.cityId;
-  });
-  const labels: TerritoryLabelSpot[] = [];
-  for (const [factionId, sum] of byFaction) {
-    if (sum.area <= 0) continue;
-    const [latDeg, lonDeg] = latLonOf(sum.centroid);
-    labels.push({ factionId, latDeg, lonDeg, area: sum.area });
   }
+  const labels: TerritoryLabelSpot[] = [...best].map(([factionId, entry]) => {
+    const [latDeg, lonDeg] = latLonOf(entry.spot);
+    return { factionId, latDeg, lonDeg, area: Math.max(entry.area, entry.total) };
+  });
   labels.sort((a, b) => b.area - a.area || a.factionId - b.factionId);
-  return { circles, wins, borders, labels };
+  return { areas, dividers, labels };
 }

@@ -1,48 +1,44 @@
-// 1차맵 영토 프레임 그리기 — 영토 모양(territoryShapes.ts, 위도·경도)을 엔진 투영기로 화면 SVG 경로·국가 이름표 자리로 바꾼다.
+// 1차맵 영토 프레임 그리기 — 영토 모양(territoryShapes.ts, 위도·경도 고리)을 엔진 투영기로 화면 SVG 경로·국가 이름표 자리로 바꾼다.
 // CityOverlay가 엔진 프레임마다 부른다(React 상태를 바꾸지 않는다, PLAN 5.7). ADR 2026-11-07-planet-view "바뀜 (2026-11-14)".
-// - 도시마다 가운데와 원 첫 꼭짓점을 먼저 투영해 화면 반지름을 잰다: 지평선 너머·카메라 뒤·화면 밖·1px 미만이면 그 도시 원·이긴 조각·
-//   테두리를 모두 건너뛴다. 화면 반지름이 작으면 꼭짓점을 솎는다(48 → 24·12·6) — 1단계(행성 전체)에서 도시 50곳이 몇 px씩이다.
-// - 꼭짓점 하나라도 카메라 뒤(null)면 그 다각형은 그리지 않는다(가까이 기울인 보기에서 화면 아래 밖에만 생긴다).
+// - 국가 덩이마다 가운데와 가장 먼 고리 점을 먼저 투영해 화면 반지름을 잰다: 지평선 너머·카메라 뒤·화면 밖이면 그 덩이를 건너뛰고,
+//   화면 반지름이 작으면 고리 점을 솎는다.
+// - 국가가 화면에서 MIN_BLOB_PX보다 작으면(1단계 행성 전체에서 도시 하나 국가 등) 그 국가 이름표 자리에 그 크기 둥근 표시를 칠한다
+//   (질문 1437 답 "1~3단계에서도 영토가 보이게"). 실제 넓이가 아니라 보기 표시다.
+// - 고리 점 하나라도 카메라 뒤(null)면 그 고리는 그리지 않는다(가까이 기울인 보기에서 화면 아래 밖에만 생긴다).
 import type { PlanetProjector, ProjectedPoint } from "@terra/engine/planet";
 import type { TerritoryLabelSpot, TerritoryShapes } from "./territoryShapes.ts";
 
 type LatLon = readonly [latDeg: number, lonDeg: number];
 
-/** 이 화면 반지름(px)보다 작은 원은 그리지 않는다 */
-const MIN_RADIUS_PX = 1;
 /** 화면 밖 여유(반지름 몫) */
 const CULL_MARGIN = 1.2;
-/** 테두리를 긋는 가장 작은 화면 반지름(px) — 더 작으면 칠만 */
-const MIN_EDGE_PX = 3;
+/** 국가가 이보다 작게 보이면 이 반지름(px) 둥근 표시로 칠한다 */
+export const MIN_BLOB_PX = 7;
 /** 이름표 사이 여유(px) */
 const LABEL_GAP_PX = 4;
 /** 도시 표시 둘레 피할 반지름(px, 표시 점 + 테두리) */
 const MARKER_AVOID_PX = 12;
 
-/** 화면 반지름(px) → 꼭짓점 솎기 간격(48각형 기준 48·24·12·6 꼭짓점) */
+/** 화면 반지름(px) → 고리 점 솎기 간격 */
 export function vertexStep(radiusPx: number): number {
-  if (radiusPx < 4) return 8;
-  if (radiusPx < 10) return 4;
-  if (radiusPx < 24) return 2;
+  if (radiusPx < 12) return 4;
+  if (radiusPx < 40) return 2;
   return 1;
 }
 
 export interface TerritoryFrame {
-  /** 국가 → 원 바탕 경로 */
-  readonly base: Map<number, string>;
-  /** 국가 → 이긴 조각 경로(바탕 위) */
-  readonly wins: Map<number, string>;
-  /** 국가 → 테두리 경로(열린 꺾은선들) */
-  readonly edges: Map<number, string>;
-  /** 두 국가가 맞닿은 선만(국가 색 선 밑에 깔 받침) */
+  /** 국가 → 영토 경로(칠·테두리 같은 경로, evenodd) */
+  readonly fills: Map<number, string>;
+  /** 두 국가가 맞닿은 선(받침) */
   readonly dividers: string;
-  /** 그린 도시 수(시험·측정용) */
-  readonly cities: number;
+  /** 그린 국가 덩이 수와 둥근 표시로 그린 국가 수(시험·측정용) */
+  readonly areas: number;
+  readonly blobs: number;
 }
 
 const fmt = (point: ProjectedPoint): string => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
 
-/** 점들을 투영해 닫힌(closed) 또는 열린 경로 조각. 하나라도 카메라 뒤면 빈 문자열 */
+/** 점들을 투영해 닫힌 또는 열린 경로 조각. 하나라도 카메라 뒤면 빈 문자열 */
 function pathOf(
   projector: PlanetProjector,
   points: readonly LatLon[],
@@ -52,7 +48,7 @@ function pathOf(
   let path = "";
   const last = points.length - 1;
   for (let index = 0; index <= last; index++) {
-    // 솎을 때도 열린 선의 끝점은 남긴다(이웃 선과 이어지게)
+    // 솎을 때도 열린 선의 끝점은 남긴다
     if (index % step !== 0 && (closed || index !== last)) continue;
     const [lat, lon] = points[index] ?? [0, 0];
     const point = projector.project(lat, lon);
@@ -63,54 +59,54 @@ function pathOf(
   return closed ? `${path}Z` : path;
 }
 
+/** 화면 점 둘레 둥근 표시 경로 */
+const blobPath = (x: number, y: number, r: number): string =>
+  `M${(x - r).toFixed(1)} ${y.toFixed(1)}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`;
+
 const append = (map: Map<number, string>, key: number, part: string): void => {
   if (part !== "") map.set(key, (map.get(key) ?? "") + part);
 };
 
-/** 영토 모양을 이 프레임의 화면 경로로. centers = 도시 ID → 가운데 위도·경도 */
-export function projectTerritory(
-  projector: PlanetProjector,
-  shapes: TerritoryShapes,
-  centers: ReadonlyMap<number, LatLon>,
-): TerritoryFrame {
+/** 영토 모양을 이 프레임의 화면 경로로 */
+export function projectTerritory(projector: PlanetProjector, shapes: TerritoryShapes): TerritoryFrame {
   const { width, height } = projector.viewport;
-  // 도시마다 화면 반지름(px). 없으면 이 프레임에 그리지 않는다
-  const radiusOf = new Map<number, number>();
-  for (const circle of shapes.circles) {
-    const center = centers.get(circle.cityId);
-    const rim = circle.points[0];
-    if (!center || !rim) continue;
-    const middle = projector.project(center[0], center[1]);
-    const edge = projector.project(rim[0], rim[1]);
+  const fills = new Map<number, string>();
+  // 국가마다 화면에서 가장 큰 덩이 반지름(px)
+  const biggest = new Map<number, number>();
+  let drawn = 0;
+  for (const area of shapes.areas) {
+    const middle = projector.project(area.center[0], area.center[1]);
+    const edge = projector.project(area.rim[0], area.rim[1]);
     if (!middle?.visible || !edge) continue;
     const radius = Math.hypot(edge.x - middle.x, edge.y - middle.y);
-    const reach = radius * CULL_MARGIN;
-    if (radius < MIN_RADIUS_PX) continue;
+    biggest.set(area.factionId, Math.max(biggest.get(area.factionId) ?? 0, radius));
+    const reach = radius * CULL_MARGIN + MIN_BLOB_PX;
     if (middle.x + reach < 0 || middle.x - reach > width || middle.y + reach < 0 || middle.y - reach > height)
       continue;
-    radiusOf.set(circle.cityId, radius);
+    if (radius < MIN_BLOB_PX) continue;
+    const step = vertexStep(radius);
+    for (const loop of area.loops) append(fills, area.factionId, pathOf(projector, loop, step, true));
+    drawn += 1;
   }
-  const base = new Map<number, string>();
-  const wins = new Map<number, string>();
-  const edges = new Map<number, string>();
+  // 작게 보이는 국가: 이름표 자리에 둥근 표시
+  let blobs = 0;
+  for (const spot of shapes.labels) {
+    if ((biggest.get(spot.factionId) ?? 0) >= MIN_BLOB_PX) continue;
+    const point = projector.project(spot.latDeg, spot.lonDeg);
+    if (!point?.visible) continue;
+    if (
+      point.x < -MIN_BLOB_PX ||
+      point.x > width + MIN_BLOB_PX ||
+      point.y < -MIN_BLOB_PX ||
+      point.y > height + MIN_BLOB_PX
+    )
+      continue;
+    append(fills, spot.factionId, blobPath(point.x, point.y, MIN_BLOB_PX));
+    blobs += 1;
+  }
   let dividers = "";
-  for (const circle of shapes.circles) {
-    const radius = radiusOf.get(circle.cityId);
-    if (radius === undefined) continue;
-    append(base, circle.factionId, pathOf(projector, circle.points, vertexStep(radius), true));
-  }
-  for (const piece of shapes.wins) {
-    // 이긴 조각은 자른 꼭짓점이 섞여 솎지 않는다(다른 국가 원과 겹친 도시만이라 적다)
-    if (radiusOf.has(piece.cityId)) append(wins, piece.factionId, pathOf(projector, piece.points, 1, true));
-  }
-  for (const border of shapes.borders) {
-    const radius = radiusOf.get(border.cityId);
-    if (radius === undefined || radius < MIN_EDGE_PX) continue;
-    const part = pathOf(projector, border.points, vertexStep(radius), false);
-    for (const faction of border.factions) append(edges, faction, part);
-    if (border.factions.length > 1) dividers += part;
-  }
-  return { base, wins, edges, dividers, cities: radiusOf.size };
+  for (const line of shapes.dividers) dividers += pathOf(projector, line, 1, false);
+  return { fills, dividers, areas: drawn, blobs };
 }
 
 /** 이름표 크기(px) */

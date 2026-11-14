@@ -2,9 +2,9 @@ import { mapKeyAtLatLon } from "@terra/engine/planet";
 import { decodeCellKey } from "@terra/planet";
 import { describe, expect, it } from "vitest";
 import {
-  type TerritoryShapes,
   type TerritorySite,
   buildTerritoryShapes,
+  corridorOf,
   territoryOwner,
   territorySitesOf,
 } from "./territoryShapes.ts";
@@ -37,83 +37,58 @@ const site = (
   lonDeg,
   radius: radiusDeg * DEG,
 });
+/** 시험에서 쓰는 잇기 상한(10°) */
+const CORRIDOR = 10 * DEG;
+const owner = (sites: readonly TerritorySite[], lat: number, lon: number, corridor = CORRIDOR) =>
+  territoryOwner(lat, lon, sites, corridor);
 
-/** 볼록 구면 다각형 안인지(모든 변의 같은 쪽) */
-function inside(points: readonly (readonly [number, number])[], latDeg: number, lonDeg: number): boolean {
-  const p = toVec(latDeg, lonDeg);
-  const corners = points.map(([lat, lon]) => toVec(lat, lon));
-  const sides = corners.map((corner, index) =>
-    dot(cross(corner, corners[(index + 1) % corners.length] ?? corner), p),
-  );
-  return sides.every((side) => side >= 0) || sides.every((side) => side <= 0);
-}
-
-/** 화면이 칠하는 색(국가): 이긴 조각(뒤 것이 위) → 원 바탕(뒤 것이 위) */
-function paintedAt(shapes: TerritoryShapes, latDeg: number, lonDeg: number): number | null {
-  const win = shapes.wins.findLast((piece) => inside(piece.points, latDeg, lonDeg));
-  if (win) return win.factionId;
-  return shapes.circles.findLast((piece) => inside(piece.points, latDeg, lonDeg))?.factionId ?? null;
-}
-
-/** 사각 격자 표본마다 칠한 색과 주인 규칙을 맞춰 본다(48각형이 원보다 조금 안쪽이라 원 가장자리 1% 띠는 뺀다) */
-function sample(
-  shapes: TerritoryShapes,
-  sites: readonly TerritorySite[],
-  box: { lat: [number, number]; lon: [number, number] },
-  steps = 60,
-) {
-  let covered = 0;
-  let mismatched = 0;
-  for (let i = 0; i <= steps; i++) {
-    for (let j = 0; j <= steps; j++) {
-      const lat = box.lat[0] + ((box.lat[1] - box.lat[0]) * i) / steps;
-      const lon = box.lon[0] + ((box.lon[1] - box.lon[0]) * j) / steps;
-      const p = toVec(lat, lon);
-      const nearRim = sites.some(
-        (entry) => Math.abs(angle(p, toVec(entry.latDeg, entry.lonDeg)) - entry.radius) < entry.radius * 0.01,
-      );
-      if (nearRim) continue;
-      const owner = territoryOwner(lat, lon, sites);
-      if (owner) covered += 1;
-      if (paintedAt(shapes, lat, lon) !== (owner?.factionId ?? null)) mismatched += 1;
-    }
-  }
-  return { covered, mismatched };
-}
-
-/** 테두리 점들(국가 묶음별) */
-const borderPoints = (shapes: TerritoryShapes, key: string) =>
-  shapes.borders.filter((border) => border.factions.join(",") === key).flatMap((border) => border.points);
-
-describe("영토 모양: 원 하나·도시 한두 곳", () => {
-  it("도시 하나면 원 하나 그대로 — 꼭짓점이 모두 반지름 위, 둘레 전체가 바깥 테두리, 이름표는 가운데", () => {
-    const shapes = buildTerritoryShapes([site(1, 10, 20, 30, 1)]);
-    expect(shapes.circles).toHaveLength(1);
-    expect(shapes.wins).toHaveLength(0);
-    const circle = shapes.circles[0];
-    expect(circle?.points).toHaveLength(48);
-    for (const [lat, lon] of circle?.points ?? [])
-      expect(angle(toVec(lat, lon), toVec(20, 30)) / DEG).toBeCloseTo(1, 6);
-    // 바깥 둘레 한 줄(처음 꼭짓점으로 돌아와 닫힌다)
-    expect(shapes.borders).toHaveLength(1);
-    expect(shapes.borders[0]?.factions).toEqual([10]);
-    expect(shapes.borders[0]?.points).toHaveLength(49);
+describe("국가 영토: 도시 하나·도시 사이", () => {
+  it("도시 하나면 원 하나 — 고리 점이 모두 반지름 위, 넓이 ≈ π r², 이름표는 가운데", () => {
+    const shapes = buildTerritoryShapes([site(1, 10, 20, 30, 1)], CORRIDOR);
+    expect(shapes.areas).toHaveLength(1);
+    const loops = shapes.areas[0]?.loops ?? [];
+    expect(loops).toHaveLength(1);
+    for (const [lat, lon] of loops[0] ?? [])
+      expect(angle(toVec(lat, lon), toVec(20, 30)) / DEG).toBeCloseTo(1, 1);
     expect(shapes.labels).toHaveLength(1);
-    expect(shapes.labels[0]?.latDeg).toBeCloseTo(20, 2);
-    expect(shapes.labels[0]?.lonDeg).toBeCloseTo(30, 2);
-    // 넓이 ≈ π r²(48각형은 원의 99.7%)
-    expect((shapes.labels[0]?.area ?? 0) / (Math.PI * DEG * DEG)).toBeCloseTo(0.997, 2);
+    expect(shapes.labels[0]?.latDeg).toBeCloseTo(20, 1);
+    expect(shapes.labels[0]?.lonDeg).toBeCloseTo(30, 1);
+    expect((shapes.labels[0]?.area ?? 0) / (Math.PI * DEG * DEG)).toBeGreaterThan(0.93);
+    expect((shapes.labels[0]?.area ?? 0) / (Math.PI * DEG * DEG)).toBeLessThan(1.03);
+    expect(shapes.dividers).toHaveLength(0);
   });
 
-  it("도시가 둘뿐인 국가(떨어진 두 원)도 영토 둘, 이름표는 하나(두 도시 사이)", () => {
-    const shapes = buildTerritoryShapes([site(1, 10, 0, 0, 1), site(2, 10, 0, 3, 1)]);
-    expect(shapes.circles).toHaveLength(2);
-    expect(shapes.borders).toHaveLength(2);
+  it("같은 국가 두 도시 사이 빈 땅도 영토(띠로 이어 한 덩이·고리 하나), 띠 밖은 영토 밖", () => {
+    const sites = [site(1, 10, 0, 0, 1), site(2, 10, 0, 4, 1)];
+    // 두 원 사이(원 밖) 가운데
+    expect(owner(sites, 0, 2)?.factionId).toBe(10);
+    expect(owner(sites, 0.8, 2)?.factionId).toBe(10);
+    expect(owner(sites, 1.5, 2)).toBeNull();
+    const shapes = buildTerritoryShapes(sites, CORRIDOR);
+    expect(shapes.areas).toHaveLength(1);
+    expect(shapes.areas[0]?.loops).toHaveLength(1);
     expect(shapes.labels).toHaveLength(1);
-    expect(shapes.labels[0]?.lonDeg).toBeCloseTo(1.5, 3);
+    expect(shapes.labels[0]?.lonDeg).toBeCloseTo(2, 1);
   });
 
-  it("반경·환산이 없으면 그리지 않는다. 배후지 반경이 있으면 그것, 없으면 영향권 반경", () => {
+  it("도시 셋이 서로 이어지면 삼각형 속(띠에서 먼 가운데)도 영토", () => {
+    const sites = [site(1, 10, 0, 0, 1), site(2, 10, 0, 5, 1), site(3, 10, 4.33, 2.5, 1)];
+    // 무게중심은 세 변에서 약 1.44° — 띠(반지름 1°) 밖이지만 삼각형 안
+    expect(owner(sites, 1.44, 2.5)?.factionId).toBe(10);
+    const shapes = buildTerritoryShapes(sites, CORRIDOR);
+    expect(shapes.areas[0]?.loops).toHaveLength(1);
+  });
+
+  it("잇기 상한보다 먼 같은 국가 도시는 잇지 않는다(덩이 둘, 사이는 영토 밖)", () => {
+    const sites = [site(1, 10, 0, 0, 1), site(2, 10, 0, 14, 1)];
+    expect(owner(sites, 0, 7)).toBeNull();
+    const shapes = buildTerritoryShapes(sites, CORRIDOR);
+    expect(shapes.areas).toHaveLength(2);
+    // 이름표는 국가마다 하나
+    expect(shapes.labels).toHaveLength(1);
+  });
+
+  it("반경·환산이 없으면 그리지 않는다. 배후지 반경이 있으면 그것, 없으면 영향권 반경. 잇기 상한 = 12칸", () => {
     const base = {
       number: 1,
       name: null,
@@ -141,127 +116,119 @@ describe("영토 모양: 원 하나·도시 한두 곳", () => {
       [1, 0.2],
       [2, 0.01],
     ]);
+    expect(corridorOf(10_000)).toBeCloseTo(1.2, 9);
+    expect(corridorOf(0)).toBe(0);
   });
 });
 
-describe("영토 모양: 합과 가운데 경계", () => {
-  it("같은 국가 두 원이 겹치면 합 하나 — 안쪽 호는 테두리가 아니고, 칠은 주인 규칙과 같다", () => {
-    const sites = [site(1, 10, 0, 0, 1), site(2, 10, 0, 1.4, 1)];
-    const shapes = buildTerritoryShapes(sites);
-    expect(shapes.wins).toHaveLength(0);
-    expect(shapes.labels).toHaveLength(1);
-    // 테두리 점은 다른 원 안쪽 깊이(반지름의 3% 넘게) 들어가지 않는다
-    for (const [lat, lon] of borderPoints(shapes, "10")) {
-      const p = toVec(lat, lon);
-      for (const entry of sites)
-        expect(angle(p, toVec(entry.latDeg, entry.lonDeg))).toBeGreaterThan(entry.radius * 0.97);
-    }
-    expect(sample(shapes, sites, { lat: [-1.2, 1.2], lon: [-1.2, 2.6] }).mismatched).toBe(0);
-    // 합 넓이 = 두 원 − 렌즈(구면이지만 1° 원은 평면 공식으로 0.1% 안). 이름표 넓이는 원 넓이 합(겹침을 두 번 센다)
-    const d = 1.4;
-    const lens = 2 * Math.acos(d / 2) - (d / 2) * Math.sqrt(4 - d * d);
-    expect((shapes.labels[0]?.area ?? 0) / (2 * Math.PI * DEG * DEG)).toBeCloseTo(0.997, 2);
-    expect(lens).toBeGreaterThan(0);
+describe("국가 영토: 다른 국가와의 경계", () => {
+  it("다른 국가 도시가 띠를 가르면: 겹친 곳은 두 도시의 가운데가 경계, 영토가 둘로 갈린다", () => {
+    // 국가 20 도시(반지름 2°)가 국가 10 띠(0° ~ 6°) 가운데를 덮는다 → 겹친 곳은 가운데(1.5°·4.5°)에서 갈린다
+    const sites = [site(1, 10, 0, 0, 1), site(2, 10, 0, 6, 1), site(3, 20, 0, 3, 2)];
+    expect(owner(sites, 0, 1.45)?.id).toBe(1);
+    expect(owner(sites, 0, 1.55)?.id).toBe(3);
+    expect(owner(sites, 0, 4.45)?.id).toBe(3);
+    expect(owner(sites, 0, 4.55)?.id).toBe(2);
+    const shapes = buildTerritoryShapes(sites, CORRIDOR);
+    const nation10 = shapes.areas.filter((area) => area.factionId === 10);
+    expect(nation10).toHaveLength(1);
+    expect(nation10[0]?.loops).toHaveLength(2);
+    // 국가 경계 받침 선: 띠 안쪽(위도 ±0.9° 안) 점은 가운데(경도 1.5° 또는 4.5°) 위, 띠 밖은 국가 20 원 둘레
+    const inBand = shapes.dividers.flat().filter(([lat]) => Math.abs(lat) < 0.9);
+    expect(inBand.length).toBeGreaterThanOrEqual(2);
+    for (const [, lon] of inBand)
+      expect(Math.min(Math.abs(lon - 1.5), Math.abs(lon - 4.5))).toBeLessThan(0.05);
   });
 
-  it("다른 국가 두 원(같은 반지름)이 겹치면 경계는 두 도시의 정확히 가운데이고 테두리다", () => {
-    const sites = [site(1, 10, 0, 0, 1), site(2, 20, 0, 1.2, 1)];
-    const shapes = buildTerritoryShapes(sites);
-    expect(shapes.wins.map((piece) => piece.cityId)).toEqual([1, 2]);
-    const between = borderPoints(shapes, "10,20");
-    expect(between.length).toBeGreaterThan(4);
-    // 국가 경계 점은 바깥 호(두 원이 만나는 점 근처)이거나 가운데 선 위다 — 가운데 선 점은 두 도시에서 같은 거리
-    const middle = between.filter(([lat, lon]) => {
-      const p = toVec(lat, lon);
-      return angle(p, toVec(0, 0)) < DEG * 0.98 && angle(p, toVec(0, 1.2)) < DEG * 0.98;
-    });
-    expect(middle.length).toBeGreaterThan(2);
-    for (const [lat, lon] of middle) {
-      const p = toVec(lat, lon);
-      expect(angle(p, toVec(0, 0)) - angle(p, toVec(0, 1.2))).toBeCloseTo(0, 6);
-    }
-    expect(territoryOwner(0, 0.59, sites)?.factionId).toBe(10);
-    expect(territoryOwner(0, 0.61, sites)?.factionId).toBe(20);
-    // 표본이 가운데 선 위에 딱 놓이지 않게(같은 거리는 작은 ID — 칠은 경계 선을 어느 쪽에 줘도 된다) 상자를 조금 비튼다
-    expect(sample(shapes, sites, { lat: [-1.2, 1.2], lon: [-1.23, 2.41] }).mismatched).toBe(0);
-    expect(shapes.labels.map((label) => label.factionId).toSorted((a, b) => a - b)).toEqual([10, 20]);
+  it("작은 다른 국가 도시는 띠 안에서 제 원만큼 차지한다(그 밖은 띠 국가)", () => {
+    const sites = [site(1, 10, 0, 0, 1), site(2, 10, 0, 6, 1), site(3, 20, 0, 3, 1)];
+    expect(owner(sites, 0, 2.2)?.id).toBe(3);
+    expect(owner(sites, 0, 1.8)?.factionId).toBe(10);
+    expect(owner(sites, 0, 4.2)?.factionId).toBe(10);
   });
 
-  it("큰 다른 국가 원 안의 작은 도시도 제 원을 지킨다(가운데가 작은 원 밖이면 원 전체), 작은 원 밖은 큰 원 것", () => {
+  it("다른 국가 원이 겹치면 가운데 경계, 한 원만 덮는 땅은 그 국가(큰 원 안 작은 도시도 제 땅)", () => {
     const sites = [site(1, 10, 0, 0, 0.5), site(2, 20, 0, 1.6, 2)];
-    const shapes = buildTerritoryShapes(sites);
-    expect(territoryOwner(0, 0.2, sites)?.factionId).toBe(10);
-    expect(territoryOwner(0, -0.45, sites)?.factionId).toBe(10);
-    // (0°, 0.7°)는 작은 원 밖, 큰 원 안이고 도시 1에 더 가깝다 → 큰 원(국가 20)
-    expect(territoryOwner(0, 0.7, sites)?.factionId).toBe(20);
-    expect(sample(shapes, sites, { lat: [-2.1, 2.1], lon: [-0.6, 3.7] }).mismatched).toBe(0);
-    // 작은 원 둘레(큰 원 안 몫)는 두 국가 경계
-    expect(borderPoints(shapes, "10,20").length).toBeGreaterThan(20);
+    expect(owner(sites, 0, 0.2)?.factionId).toBe(10);
+    expect(owner(sites, 0, -0.45)?.factionId).toBe(10);
+    expect(owner(sites, 0, 0.7)?.factionId).toBe(20);
+    expect(owner(sites, 0, 3)?.factionId).toBe(20);
+    const shapes = buildTerritoryShapes(sites, CORRIDOR);
+    expect(shapes.areas.map((area) => area.factionId).toSorted((a, b) => a - b)).toEqual([10, 20]);
+    expect(shapes.areas.find((area) => area.factionId === 10)?.loops).toHaveLength(1);
+    // 큰 원 안 작은 도시 둘레는 두 국가 경계
+    expect(shapes.dividers.length).toBeGreaterThan(0);
   });
 
-  it("영토가 둘로 갈린다: 다른 국가 도시가 가운데를 가르면 한 국가 땅이 양쪽에 남는다", () => {
-    const sites = [site(1, 10, 0, 0, 1), site(2, 20, 0, 1.5, 1), site(3, 10, 0, 3, 1)];
-    const shapes = buildTerritoryShapes(sites);
-    expect(territoryOwner(0, 0.7, sites)?.id).toBe(1);
-    expect(territoryOwner(0, 1.5, sites)?.id).toBe(2);
-    expect(territoryOwner(0, 2.3, sites)?.id).toBe(3);
-    expect(sample(shapes, sites, { lat: [-1.2, 1.2], lon: [-1.2, 4.2] }).mismatched).toBe(0);
-    // 이름표는 국가마다 하나
-    expect(shapes.labels).toHaveLength(2);
-  });
-
-  it("같은 자리 도시 둘은 작은 ID가 주인, 원 밖은 주인 없음", () => {
+  it("같은 자리 도시 둘은 작은 ID가 주인, 어느 영토도 아니면 null", () => {
     const sites = [site(5, 10, 10, 10, 1), site(4, 20, 10, 10, 1)];
-    const shapes = buildTerritoryShapes(sites);
-    expect(shapes.wins.map((piece) => piece.cityId)).toEqual([4]);
-    expect(territoryOwner(10, 10, sites)?.id).toBe(4);
-    expect(territoryOwner(30, 30, sites)).toBeNull();
+    expect(owner(sites, 10, 10)?.id).toBe(4);
+    expect(owner(sites, 30, 30)).toBeNull();
   });
 });
 
-describe("영토 모양: 이음매 없음", () => {
-  it("행성 면 경계(정육면체 면 둘에 걸친 원)도 한 원 — 꼭짓점이 두 면에 있고 모두 반지름 위", () => {
-    // 적도 경도 45°는 +x 면과 +y 면의 경계
-    const shapes = buildTerritoryShapes([site(1, 10, 0, 45, 0.5)]);
-    const points = shapes.circles[0]?.points ?? [];
-    const faces = new Set(points.map(([lat, lon]) => decodeCellKey(mapKeyAtLatLon(lat, lon, 9)).face));
+describe("국가 영토: 이음매 없음", () => {
+  it("행성 면 경계(정육면체 면 둘에 걸친 원)도 고리 하나 — 고리 점이 두 면에 있고 반지름 위", () => {
+    const shapes = buildTerritoryShapes([site(1, 10, 0, 45, 0.5)], CORRIDOR);
+    const loop = shapes.areas[0]?.loops[0] ?? [];
+    const faces = new Set(loop.map(([lat, lon]) => decodeCellKey(mapKeyAtLatLon(lat, lon, 9)).face));
     expect(faces.size).toBe(2);
-    for (const [lat, lon] of points) expect(angle(toVec(lat, lon), toVec(0, 45)) / DEG).toBeCloseTo(0.5, 6);
+    for (const [lat, lon] of loop) expect(angle(toVec(lat, lon), toVec(0, 45)) / DEG).toBeCloseTo(0.5, 1);
   });
 
-  it("경도 ±180°와 극을 넘어도 같은 규칙(가운데 경계·주인·칠)", () => {
-    const sites = [site(1, 10, 0, 179.5, 1), site(2, 20, 0, -179.5, 1)];
-    const shapes = buildTerritoryShapes(sites);
-    expect(shapes.wins).toHaveLength(2);
-    expect(territoryOwner(0, 179.9, sites)?.id).toBe(1);
-    expect(territoryOwner(0, -179.9, sites)?.id).toBe(2);
-    expect(sample(shapes, sites, { lat: [-1, 1], lon: [178.6, 179.99] }, 30).mismatched).toBe(0);
-    expect(sample(shapes, sites, { lat: [-1, 1], lon: [-179.99, -178.6] }, 30).mismatched).toBe(0);
-    const polar = [site(3, 10, 89.6, 0, 1), site(4, 20, 89.6, 180, 1)];
-    expect(territoryOwner(89.9, 0, polar)?.id).toBe(3);
-    expect(territoryOwner(89.9, 180, polar)?.id).toBe(4);
-    expect(buildTerritoryShapes(polar).wins).toHaveLength(2);
+  it("경도 ±180°를 넘는 같은 국가 띠·다른 국가 가운데 경계, 극 근처", () => {
+    const same = [site(1, 10, 0, 178, 1), site(2, 10, 0, -178, 1)];
+    expect(owner(same, 0, 180)?.factionId).toBe(10);
+    const area = buildTerritoryShapes(same, CORRIDOR).areas;
+    expect(area).toHaveLength(1);
+    expect(area[0]?.loops).toHaveLength(1);
+    // 고리 점이 모두 두 도시 가까이(경도가 감겨 튀지 않는다)
+    for (const [lat, lon] of area[0]?.loops[0] ?? []) {
+      const p = toVec(lat, lon);
+      expect(Math.min(angle(p, toVec(0, 178)), angle(p, toVec(0, -178))) / DEG).toBeLessThan(2.2);
+    }
+    const rivals = [site(3, 10, 0, 179.5, 1), site(4, 20, 0, -179.5, 1)];
+    expect(owner(rivals, 0, 179.9)?.id).toBe(3);
+    expect(owner(rivals, 0, -179.9)?.id).toBe(4);
+    const polar = [site(5, 10, 89.6, 0, 1), site(6, 20, 89.6, 180, 1)];
+    expect(owner(polar, 89.9, 0)?.id).toBe(5);
+    expect(owner(polar, 89.9, 180)?.id).toBe(6);
+    expect(buildTerritoryShapes(polar, CORRIDOR).areas).toHaveLength(2);
   });
 });
 
-describe("영토 모양: 규모", () => {
-  it("국가 16·도시 50이 몇 ms 안", () => {
+describe("국가 영토: 규모", () => {
+  it("국가 16·도시 50(F9 행성 실제 크기: 반경 2칸·간격 4~5칸·잇기 12칸)이 몇 백 ms 안", () => {
+    const milliPerRadian = (1000 * 512) / Math.sqrt((2 * Math.PI) / 3);
+    const radius = 2000 / milliPerRadian;
+    const cell = 1000 / milliPerRadian / DEG;
     const sites: TerritorySite[] = [];
     let id = 1;
     for (let nation = 0; nation < 16; nation++) {
-      const lat = -30 + (nation % 4) * 20;
-      const lon = -40 + Math.floor(nation / 4) * 25;
-      for (let index = 0; index < 3; index++)
-        sites.push(site(id++, nation + 1, lat + (index % 2) * 0.05, lon + index * 0.05, 0.03));
+      const lat = -30 + (nation % 4) * 6;
+      const lon = -40 + Math.floor(nation / 4) * 6;
+      const count = nation < 2 ? 1 + nation : 3;
+      for (let index = 0; index < count; index++)
+        sites.push({
+          id: id++,
+          factionId: nation + 1,
+          latDeg: lat + (index % 2) * 4.5 * cell,
+          lonDeg: lon + index * 4.5 * cell,
+          radius,
+        });
     }
-    // 다른 국가 원이 겹치는 곳도 둘
-    sites.push(site(id++, 2, -30, -39.9, 0.03), site(id++, 3, -10, -39.95, 0.03));
+    // 이웃 국가 도시가 맞닿는 곳 하나
+    sites.push({ id: id++, factionId: 2, latDeg: -24 + 2 * cell, lonDeg: -40 + 3 * cell, radius });
+    while (sites.length < 50)
+      sites.push({ id: id++, factionId: 16, latDeg: 0, lonDeg: -10 + sites.length * 0.3, radius });
     const started = performance.now();
-    const shapes = buildTerritoryShapes(sites);
+    const shapes = buildTerritoryShapes(sites, corridorOf(milliPerRadian));
     const elapsed = performance.now() - started;
     expect(sites).toHaveLength(50);
     expect(shapes.labels).toHaveLength(16);
-    expect(shapes.wins.length).toBeGreaterThan(0);
-    expect(elapsed).toBeLessThan(100);
+    console.log(
+      `[measure] territory build 16 nations / 50 cities ${elapsed.toFixed(1)}ms, loops ${shapes.areas.reduce((sum, area) => sum + area.loops.length, 0)}, points ${shapes.areas.reduce((sum, area) => sum + area.loops.reduce((n, loop) => n + loop.length, 0), 0)}`,
+    );
+    expect(elapsed).toBeLessThan(500);
   });
 });

@@ -31,8 +31,8 @@
   --nation: var(--color-stat-vit);
 }
 
-/* 영토(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"): 도시 원들의 합. 칠은 한 묶음에 불투명 국가 색(겹친 곳은 뒤 조각이 덮는다) +
-   묶음 투명도 한 번, 테두리는 국가가 바뀌는 선만 */
+/* 영토(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"): 국가마다 도시 원 + 도시 사이 땅. 국가끼리 겹치지 않는 고리라 칠은 각자 반투명,
+   테두리는 같은 고리, 두 국가가 맞닿은 선은 판색 받침 위에 */
 .city-territory {
   position: absolute;
   inset: 0;
@@ -40,11 +40,10 @@
   height: 100%;
   overflow: visible;
 }
-.city-area-fills {
-  opacity: 0.16;
-}
 .city-area-fill {
   fill: var(--nation);
+  fill-opacity: 0.18;
+  fill-rule: evenodd;
   stroke: none;
 }
 .city-area-divider {
@@ -211,8 +210,8 @@
 }
 
 /* 영토 레이어(사용자 요청 2026-11-12): 흐린 바탕 위에 영토 칠을 진하게, 테두리를 굵게 */
-.city-overlay[data-emphasis="territory"] .city-area-fills {
-  opacity: 0.4;
+.city-overlay[data-emphasis="territory"] .city-area-fill {
+  fill-opacity: 0.42;
 }
 .city-overlay[data-emphasis="territory"] .city-area-edge {
   stroke-width: calc(var(--border-w) * 1.5);

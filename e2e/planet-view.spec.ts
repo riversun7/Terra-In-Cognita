@@ -434,9 +434,7 @@ test.describe("레이어: 플레이어", () => {
     expect(filled).toBeGreaterThan(0);
     await expect(page.locator('.city-area-label[data-shown="true"]').first()).toBeVisible();
     const labelNames = await page.locator('.city-area-label[data-shown="true"]').allTextContents();
-    // 3단계에서 배후지 원(시험 세계 도시는 사람이 적어 1칸)은 도시 표시만 하게 작다 → 한 단계 다가가 누른다
-    await page.locator(".zoom-ladder-in").click();
-    await page.waitForTimeout(STEP_WAIT_MS + 600);
+    // 질문 1437 답(도시 사이까지 넓은 영토): 3단계에서 바로 영토 안을 누를 수 있다
     // 영토를 누르면 그 국가: 칠한 영토 안이면서 도시 표시·판 밖인 점을 화면에서 찾아(SVG isPointInFill) 누른다 → "영토: <국가>"
     const target = await page.evaluate(() => {
       const fills = [...document.querySelectorAll<SVGPathElement>(".city-area-fill")].filter(
@@ -466,7 +464,7 @@ test.describe("레이어: 플레이어", () => {
     const territoryPrefix = message("ko", "planet_territory_at", { nation: "" });
     await expect(page.locator(".planet-readout [role=status]")).toContainText(territoryPrefix);
     console.log(
-      `[measure] planet territory labels ${labelNames.length} (${labelNames.join(", ")}), drawn cities ${await overlay.getAttribute("data-drawn")}, smallest drawn radius ${drawnRadius.toFixed(1)}px`,
+      `[measure] planet territory labels ${labelNames.length} (${labelNames.join(", ")}), drawn areas ${await overlay.getAttribute("data-drawn")}, smallest drawn radius ${drawnRadius.toFixed(1)}px`,
     );
     console.log(
       `[measure] planet layers mean pixel diff terrain→elevation ${elevationChange.toFixed(2)}, ore→wood ${materialChange.toFixed(2)}, wood→herb ${woodHerb.toFixed(2)}, herb→livestock ${herbLivestock.toFixed(2)}`,
@@ -538,7 +536,7 @@ test.describe("레이어 사진", () => {
         await page.mouse.up();
         await page.waitForTimeout(1200);
         console.log(
-          `[measure] ${theme} territory engine p95 stage4 ${near ?? "?"}ms, stage1 ${(await screen.getAttribute("data-engine-p95")) ?? "?"}ms, drawn cities stage1 ${(await page.locator(".city-overlay").getAttribute("data-drawn")) ?? "?"}, cities ${(await screen.getAttribute("data-cities")) ?? "?"}`,
+          `[measure] ${theme} territory engine p95 stage4 ${near ?? "?"}ms, stage1 ${(await screen.getAttribute("data-engine-p95")) ?? "?"}ms, drawn areas stage1 ${(await page.locator(".city-overlay").getAttribute("data-drawn")) ?? "?"}, blobs ${(await page.locator(".city-overlay").getAttribute("data-blobs")) ?? "?"}, cities ${(await screen.getAttribute("data-cities")) ?? "?"}`,
         );
         expect(deviceErrors).toEqual([]);
       });

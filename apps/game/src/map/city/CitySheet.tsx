@@ -88,10 +88,12 @@ interface CitySheetProps {
   readonly anchorAt: () => Point | null;
   /** 줄을 눌렀다: 카메라를 그 건물로 옮기고 건물 판을 연다 */
   readonly onOpen: (buildingId: number) => void;
+  /** [건설]: 건축 모드를 연다(없으면 단추 없음) */
+  readonly onBuild?: (() => void) | undefined;
   readonly onClose: () => void;
 }
 
-export function CitySheet({ gather, nearby, mapKey, anchorAt, onOpen, onClose }: CitySheetProps) {
+export function CitySheet({ gather, nearby, mapKey, anchorAt, onOpen, onBuild, onClose }: CitySheetProps) {
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const gatherVersion = useSyncExternalStore(
     (listener) => gather.subscribe(listener),
@@ -171,8 +173,14 @@ export function CitySheet({ gather, nearby, mapKey, anchorAt, onOpen, onClose }:
           </ul>
         )
       ) : null}
-      {government ? (
-        <div className="map-city-actions">
+      {/* [건설]: 건축 모드로(docs/adr/2026-11-14-second-map-build.md — 사용자 요청 "도시 버튼을 통해 2차맵에 건축모드로 진입") */}
+      <div className="map-city-actions">
+        {onBuild ? (
+          <button type="button" className="button-small button-primary map-city-build" onClick={onBuild}>
+            {m.map_city_build()}
+          </button>
+        ) : null}
+        {government ? (
           <button
             type="button"
             className="button-small map-city-government"
@@ -180,8 +188,8 @@ export function CitySheet({ gather, nearby, mapKey, anchorAt, onOpen, onClose }:
           >
             {m.map_city_government()}
           </button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
       <div className="map-city-filters" role="group" aria-label={m.map_city_filter_label()}>
         {filters.map((key) => (
           <button

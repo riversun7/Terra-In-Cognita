@@ -132,3 +132,23 @@ export async function rows<T extends Record<string, unknown>>(
 ) {
   return (await db.$client.query<T>(text, values)).rows;
 }
+
+/**
+ * 시험 사용자를 그 2차맵 도시의 세력에 넣는다(2차맵 건설 땅 규칙 — 다른 세력 도시 2차맵에는 못 짓는다,
+ * docs/adr/2026-11-14-second-map-build.md). 플레이어가 첫 접속에서 시험 NPC 세력에 드는 것과 같다. 도시가 없거나 이미 세력이 있으면 그대로.
+ * 든 세력 ID(없으면 null)
+ */
+export async function joinCityFaction(db: Database, userId: string, mapKey: number): Promise<number | null> {
+  const found = await rows<{ faction_id: string }>(
+    db,
+    "select faction_id from world_cities where map_key = $1 order by id limit 1",
+    [mapKey],
+  );
+  const faction = found[0]?.faction_id;
+  if (faction === undefined) return null;
+  await rows(db, "insert into faction_members (user_id, faction_id) values ($1, $2) on conflict do nothing", [
+    userId,
+    faction,
+  ]);
+  return Number(faction);
+}

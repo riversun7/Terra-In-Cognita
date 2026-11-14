@@ -12,6 +12,7 @@
 //   ore_flat_high_pm). 행성 값이 없는 2차맵(임시 지형)은 막지 않는다.
 // - 낚시터 물 종류(기획 D-542 질문 1365 나): 플레이어 낚시터도 NPC 낚시터처럼 그 자리 물 종류(fishWater.ts spotWaterOfMap)의 티어 범위(설정 칸
 //   fish_tier_*)로 뽑은 티어를 접는다(@terra/sim rollGatherOutputs tierRange). 행성 값이 없는 2차맵은 접지 않는다.
+import { type LandCheck, createLandCheck } from "./landRule.ts";
 import { type CatchmentLand, highOrePm, materialOfFacility, oreTierCapOf } from "@terra/shared/catchment";
 import { type FishTierRanges, type FishWater, fishTierRangeOf } from "@terra/shared/fishWater";
 import {
@@ -61,6 +62,8 @@ export interface WorldFacilities {
   readonly service: FacilityService;
   /** 건물·영토 비콘 공격(질문 381, attack.ts) */
   readonly attack: BuildingAttack;
+  /** 2차맵 건설 땅 규칙(landRule.ts — 짓기 명령·화면 미리 묻기) */
+  readonly land: LandCheck;
   /** 전투 결과의 건물 피해를 받는 곳(전투 결과 적용이 같은 동기 처리로 부른다) */
   readonly damage: BuildingDamageSink;
   readonly catalog: () => FacilityCatalog;
@@ -253,6 +256,12 @@ export function createWorldFacilities(input: {
       }
     : undefined;
   let labor: LaborService | undefined;
+  // 2차맵 건설 땅 규칙(landRule.ts): 짓기 명령과 화면 미리 묻기가 같은 판정
+  const land = createLandCheck({
+    pool: input.battles.pool,
+    owners: input.battles.owners,
+    writer: input.writer,
+  });
   const service = createFacilityService({
     loaded: input.loaded,
     maps: input.maps,
@@ -264,6 +273,7 @@ export function createWorldFacilities(input: {
     holdings: input.holdings,
     territory: input.territory,
     cities: input.cities,
+    land,
     labor: {
       unitBusy: (unitId) => labor?.unitBusy(unitId) ?? false,
       buildingInUse: (buildingId) => labor?.buildingInUse(buildingId) ?? false,
@@ -351,6 +361,7 @@ export function createWorldFacilities(input: {
   return {
     service,
     attack,
+    land,
     damage: buildingDamageSinkOf(service, input.territory),
     catalog,
     gatherKinds: () => input.config?.gatherKinds?.() ?? [],

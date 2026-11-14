@@ -19,6 +19,7 @@
 //   그 폐허)에만 짓고, 짓기 시작한 쪽이 폐허 주인이 된다(고리 GovernmentHook = 폐허 서비스, docs/adr/2026-11-07-ruins-restoration.md). 같은
 //   동기 처리 = 같은 커밋. 시설 줄 도시는 그 폐허(되살아날 도시 ID)다 — 되살아난 도시의 행정 레벨 = 그 건물 레벨(489 다). 짓는 재료는
 //   지금처럼 그 칸에서 가장 가까운 도시 창고·창고 시설·화물에서.
+import type { LandCheck } from "./landRule.ts";
 import type { FacilityResultCode } from "@terra/protocol";
 import { type CityCell, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
@@ -233,6 +234,8 @@ export interface FacilityServiceOptions {
   readonly cities?: (() => readonly CityCell[]) | undefined;
   /** 영토 서비스(비콘 수리). 없으면 비콘 수리는 unknown_beacon */
   readonly territory?: (() => TerritoryService | undefined) | undefined;
+  /** 2차맵 건설 땅 규칙(landRule.ts, docs/adr/2026-11-14-second-map-build.md). 없으면 막지 않는다(시험·DB 없는 세계) */
+  readonly land?: LandCheck | undefined;
   /** 유닛이 노동 계약 중인가 / 건물에 일하는 계약이 있나(사용 닳음) */
   readonly labor?:
     | {
@@ -556,7 +559,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const cityId = cityAt(places, input.mapKey, input.x, input.y);
       const scope = materialScope(places, me, input.mapKey, cityId);
       if (!hasGoods(ledger, me, cost.materials, scope)) return fail("insufficient_materials");
-      // 땅: 서버에 필지가 아직 없다(D-149) → 2차맵 빈 칸이면 짓는다(확인 대기). 칸 검사·놓기는 2차맵이 한다
+      // 땅(docs/adr/2026-11-14-second-map-build.md): 다른 세력 도시 2차맵이면 못 짓는다(결과 코드는 forbidden — 화면은 미리 묻기
+      // facilities.landRule로 까닭을 안다). 필지(D-149)는 아직 없다 → 그 밖은 2차맵 빈 칸이면 짓는다. 칸 검사·놓기는 2차맵이 한다
+      if (options.land && !(await options.land(me, input.mapKey)).allowed) return fail("forbidden");
       const placed = map.placeBuilding(
         {
           x: input.x,

@@ -7,10 +7,17 @@ import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { UPKEEP_PERIOD_MS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
-import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import {
+  TEST_DATABASE_URL,
+  type TestDatabase,
+  createTestDatabase,
+  joinCityFaction,
+  rows,
+} from "../testDb.ts";
 import { ASSET_ORE } from "../world/settlement.ts";
 import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
+import type { Viewer } from "../trpc/context.ts";
 import { facilityScreenSourceOf } from "./appSource.ts";
 import { goodsAsset, goodsStock, grantGoods } from "./materials.ts";
 import { createFacilityScreenServices } from "./screen.ts";
@@ -82,6 +89,8 @@ async function setup(world: World, name: string, workers: number, goods: Record<
   const map = [...world.maps.values()][0];
   if (!map) throw new Error("no map");
   const units = addTestUnits(world, userId, map.mapKey, workers, clock);
+  // 땅 규칙(docs/adr/2026-11-14-second-map-build.md): 시험 세계 2차맵에는 NPC 도시가 있어 그 세력에 들어야 짓는다
+  await joinCityFaction(test.db, userId, map.mapKey);
   p.settlement.grantCredit(ownerId, 100_000n, clock);
   for (const [item, qty] of Object.entries(goods))
     expect(await p.facilities.service.devFacilityGrant(userId, item, qty)).toEqual({ ok: true });
@@ -103,6 +112,63 @@ async function workshop(world: World, user: Awaited<ReturnType<typeof setup>>, a
   expect(service.finishDue(clock)).toBe(1);
   return built.buildingId;
 }
+
+describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-14-second-map-build.md)", () => {
+  it("다른 세력 도시 2차맵이면 짓기·미리 묻기 모두 막고, 그 세력에 들면 짓는다", async () => {
+    const world = await boot();
+    const p = persistence(world);
+    const service = p.facilities.service;
+    const a = await setup(world, "lander", 0, { pine_log: 60, iron_ore: 40 });
+    const screen = createFacilityScreenServices(() => facilityScreenSourceOf(world));
+    const viewer: Viewer = { id: a.userId, loginId: "lander", roles: ["player"] };
+    // 시험 세계 2차맵에는 NPC 도시가 있다: 짓는 2차맵의 도시를 비우면 도시가 없는 2차맵 — 짓는다(미리 묻기도 허용)
+    await rows(test.db, "delete from world_cities where map_key = $1", [a.map.mapKey]);
+    await rows(test.db, "delete from faction_members where user_id = $1", [a.userId]);
+    expect(await screen.landRule(viewer, a.map.mapKey)).toMatchObject({ status: "ready", allowed: true });
+    // 그 2차맵에 다른 세력 도시(정부 건물)를 둔다
+    const nation = await rows<{ id: string }>(
+      test.db,
+      "insert into factions (kind, code) values ('npc', 'fake_land_nation') returning id",
+    );
+    const factionId = Number(nation[0]?.id);
+    await rows(
+      test.db,
+      "insert into world_cities (id, faction_id, map_key, cell_x, cell_y, start, founded_at_ms) values (950, $1, $2, 200, 200, false, 0)",
+      [factionId, a.map.mapKey],
+    );
+    expect(await screen.landRule(viewer, a.map.mapKey)).toEqual({
+      status: "ready",
+      mapKey: a.map.mapKey,
+      allowed: false,
+      reason: "foreign_city",
+      cityFaction: factionId,
+    });
+    const blocked = await service.build(a.userId, {
+      mapKey: a.map.mapKey,
+      facility: "workshop",
+      x: 60,
+      y: 60,
+      rotation: 0,
+    });
+    expect(blocked).toEqual({ ok: false, code: "forbidden" });
+    // 재료는 그대로
+    expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(60n);
+    // 그 세력에 들면(내 세력 도시) 짓는다
+    await rows(test.db, "insert into faction_members (user_id, faction_id) values ($1, $2)", [
+      a.userId,
+      factionId,
+    ]);
+    expect(await screen.landRule(viewer, a.map.mapKey)).toMatchObject({ allowed: true });
+    const built = await service.build(a.userId, {
+      mapKey: a.map.mapKey,
+      facility: "workshop",
+      x: 60,
+      y: 60,
+      rotation: 0,
+    });
+    expect(built.ok).toBe(true);
+  });
+});
 
 describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () => {
   it("짓기: 재료를 빼고 칸을 놓고, 건설 시간 뒤 레벨 1이 되며 짓는 동안은 일하지 않는다", async () => {

@@ -281,3 +281,18 @@ export function materialStockAt(
 export type FacilityWaterMaskResponse =
   | { readonly status: "ready"; readonly mapKey: number; readonly size: number; readonly hex: string }
   | { readonly status: "unknown_map" | "not_ready"; readonly mapKey: number };
+
+/**
+ * facilities.landRule — 그 2차맵에 지을 수 있나(서버 땅 규칙, docs/adr/2026-11-14-second-map-build.md). 다른 세력 도시 2차맵이면 못 짓는다
+ * (전쟁·중립·동맹 — 동맹 정책은 아직 없고 기본값 금지). 짓기 명령은 그때 같은 판정으로 forbidden을 준다
+ */
+export interface FacilityLandRuleResponse {
+  readonly status: "ready" | "not_ready" | "unknown_map";
+  readonly mapKey: number;
+  /** 지을 수 있나(not_ready·unknown_map이면 false) */
+  readonly allowed: boolean;
+  /** 못 지으면 까닭: foreign_city = 다른 세력의 도시 2차맵 */
+  readonly reason: "foreign_city" | null;
+  /** foreign_city면 그 도시 세력 ID */
+  readonly cityFaction: number | null;
+}

@@ -5,8 +5,9 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-14 21:40 | 2차맵 건축 모드(1단계)와 지을 수 있는 땅 규칙 | Claude Code | [14-2140-second-map-build-mode](worklog/2026/11/14-2140-second-map-build-mode.md) |
 | 2026-11-14 21:10 | 2차맵 장식 소품 작은 섬(islet) 지우기 | Claude Code | [14-2110-islet-remove](worklog/2026/11/14-2110-islet-remove.md) |
-| 2026-11-14 19:30 | 2026-11-14 여덟째 묶음 합치기 (전투 보고서·배 B3·낚시터 물 종류·초상 2D 제거·시험 고침) | Claude Code | [14-1930-batch-1114b-merge](worklog/2026/11/14-1930-batch-1114b-merge.md) |
+| 2026-11-14 19:30 | 2026-11-14 여덟째 묶음 합치기 (전투 보고서·배 B3·낚시터 물 종류·초상 2D 제거·작은 섬 지움·시험 고침) | Claude Code | [14-1930-batch-1114b-merge](worklog/2026/11/14-1930-batch-1114b-merge.md) |
 | 2026-11-14 18:30 ~ 19:30 | 화면 시험 [멈추기] 누르기 시간 초과 고침(unit-control) | Claude Code | [14-1900-stop-detach](worklog/2026/11/14-1900-stop-detach.md) |
 | 2026-11-14 18:25 | 인벤토리 화면·2차맵 가방·채집 진행바·휘두르기 자세 | Claude Code | [14-1825-inventory-gather-progress](worklog/2026/11/14-1825-inventory-gather-progress.md) |
 | 2026-11-14 18:20 | 사이보그 초상에서 옛 2D 그림 지우기 | Claude Code | [14-1820-portrait-fix](worklog/2026/11/14-1820-portrait-fix.md) |

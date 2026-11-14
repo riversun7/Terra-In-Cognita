@@ -8,7 +8,13 @@ import { buildingLocation, cargoLocation, cityLocation } from "@terra/shared/goo
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
 import { testRosterCatalog } from "../roster/catalog.ts";
-import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import {
+  TEST_DATABASE_URL,
+  type TestDatabase,
+  createTestDatabase,
+  joinCityFaction,
+  rows,
+} from "../testDb.ts";
 import { targetsOf } from "../world/battleTargets.ts";
 import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type World, startWorld } from "../world/world.ts";
@@ -100,6 +106,8 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
     let p = persistence(world);
     const owner = await fakeUser("yard_owner");
     const ownerId = p.settlement.ownerOfUser(owner, clock).id;
+    // 땅 규칙(docs/adr/2026-11-14-second-map-build.md): 주인만 시험 도시 세력에 든다(공격자는 세력 없음 — 남의 시설을 친다)
+    await joinCityFaction(test.db, owner, TEST_MAP_KEY);
     const raider = await fakeUser("raider");
     const raiderId = p.settlement.ownerOfUser(raider, clock).id;
     const raiders = addTestUnits(world, raider, TEST_MAP_KEY, 3, clock);

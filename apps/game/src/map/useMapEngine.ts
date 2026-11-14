@@ -18,6 +18,7 @@ import { setTelemetryView } from "../telemetry/reporter.ts";
 import { heldMoving, heldSelection } from "./anchorUnit.ts";
 import type { CommandNotice, SelectionState } from "./commandNotice.ts";
 import type { FeedStats, MapFeed } from "./feedTypes.ts";
+import type { BuildMode } from "./construction/buildMode.ts";
 import type { GatherState } from "./gather/gatherState.ts";
 import type { MapSession } from "./mapSession.ts";
 import type { MapFocus } from "./mapTarget.ts";
@@ -96,6 +97,8 @@ export function useMapEngine(
     readonly gather: GatherState;
     readonly refollow: () => void;
     readonly closePeek: () => void;
+    /** 건축 모드(build/buildMode.ts): 켜져 있으면 땅 누르기가 미리보기 자리를 옮긴다 */
+    readonly buildMode: BuildMode;
   },
 ): void {
   const {
@@ -113,7 +116,7 @@ export function useMapEngine(
   } = refs;
   const { setZoomStage, setStatus, setCommand, setSelected, setSelection, setLiveMoving, setSnapshot } =
     setters;
-  const { focus, gather, refollow, closePeek } = options;
+  const { focus, gather, refollow, closePeek, buildMode } = options;
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return () => undefined;
@@ -193,6 +196,8 @@ export function useMapEngine(
           prefetch: (key) => sessionRef.current?.prefetch(key),
         });
         return (cell: { x: number; y: number }): void => {
+          // 건축 모드에서는 옆 2차맵 땅을 눌러도 보내지 않는다
+          if (buildMode.snapshot().active) return;
           closePeek();
           travel(cell);
         };
@@ -201,6 +206,8 @@ export function useMapEngine(
       onGroundTap: (cell) => {
         // 남의 유닛 작은 창은 땅을 누르면 닫힌다 — 같은 누르기가 아래대로 명령 유닛을 보낸다(사용자 지적 2026-11-09 "다른곳을 눌러 저절로 닫히게")
         closePeek();
+        // 건축 모드(docs/adr/2026-11-14-second-map-build.md): 누른 칸으로 미리보기를 옮긴다(채집 판·이동 명령은 하지 않는다)
+        if (buildMode.tap(cell)) return;
         // 경제 화면 [지도에서 고르기](WP3 연결점, economy/buildPick.ts): 짓기 자리를 고르는 중이면 그 칸을 돌려주고 생산 칸으로 돌아간다
         if (offerBuildPick(mapKeyRef.current, cell)) {
           navigate({ route: "economy_production" });
@@ -332,10 +339,11 @@ export function useMapEngine(
       engineRef.current = null;
       setTelemetryView(null);
     };
-    // 엔진은 화면에 하나다(처음 카메라 대상 focus와 함께). 채집 상태·ref·콜백(closePeek 포함)은 늘 같은 객체다
+    // 엔진은 화면에 하나다(처음 카메라 대상 focus와 함께). 채집 상태·건축 모드·ref·콜백(closePeek 포함)은 늘 같은 객체다
   }, [
     focus,
     gather,
+    buildMode,
     refollow,
     closePeek,
     hostRef,

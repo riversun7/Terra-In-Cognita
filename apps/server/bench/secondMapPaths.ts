@@ -1,5 +1,5 @@
 // 숲 지형 경로 측정(ADR 35 "경로탐색", ADR 46 10절 WP-2 "sim 벤치에 숲 지형") — node bench/secondMapPaths.ts [면 레벨] [2차맵 수] [바이옴]
-// 바이옴(desert·tundra·ice_sheet·wetland 등)을 주면 느려짐 소품 모드(기획 D-540 질문 1223 나): 그 바이옴 땅 2차맵에서 느림 배율 표 없음·있음
+// 세 번째 인수가 pace면 구간 빠르기 측정(bench/segmentSpeed.ts). 바이옴(desert·tundra·ice_sheet·wetland 등)을 주면 느려짐 소품 모드(기획 D-540 질문 1223 나): 그 바이옴 땅 2차맵에서 느림 배율 표 없음·있음
 // 격자(둘 다 엄폐·그림 층 포함)로 같은 경로를 재서 시간·펼친 칸·경로 비용·밟은 느려짐 칸 수를 비교한다(bench/slowProps.ts).
 // @terra/sim은 @terra/planet을 가져올 수 없어서(경계 규칙) 서버 꾸러미에 둔다. 서버가 쓸 길(생성기 → 지형 비용 → 배치 격자)과 같다.
 // - 콘텐츠 팩 S2 시험 행성(기본 F9)을 생성하고, 숲 밀도가 높은 땅 2차맵을 고른다(기본 6장, 서로 떨어진 칸).
@@ -24,6 +24,7 @@ import {
   planRoute,
 } from "@terra/sim";
 import { mapPropInputsFromPack, mapPropSlowByArtFromPack } from "../src/world/mapProps.ts";
+import { runPaceBench } from "./segmentSpeed.ts";
 import { runSlowPropsBench } from "./slowProps.ts";
 
 const level = Number(process.argv[2] ?? 9);
@@ -43,6 +44,11 @@ const details = runPlanetGenerator(input);
 const planetMs = performance.now() - t0;
 const values = planetValuesFromGeneration(details.fields, details, biomeIds);
 const rules = compileMapProps(mapPropInputsFromPack(pack), biomeIds);
+// "pace"면 구간 빠르기 측정(docs/adr/2026-11-14-segment-speed.md, bench/segmentSpeed.ts)
+if (slowBiome === "pace") {
+  runPaceBench({ values, rules, level, mapCount, slowByArt: mapPropSlowByArtFromPack(pack) });
+  process.exit(0);
+}
 if (slowBiome !== undefined) {
   runSlowPropsBench({
     values,

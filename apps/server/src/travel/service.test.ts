@@ -3,7 +3,7 @@
 // (docs/adr/2026-11-07-play-flow.md "WP9", 질문 571 가·582). WP11: 정찰은 닿으면 돌아오고 탐사 기록을 남긴다(591 나), 띄우지 않은 2차맵은
 // 건너뛴다(593 나 — 사라졌다 나타남·멈추기·다시 켜면 다시 숨김). WP13: 건너뛰는 동안 확률 습격(610 나 — 지면 부상으로 그 자리에 멈춤)
 import { performance } from "node:perf_hooks";
-import { CELL_UNITS, WALK_SPEED, anchorCenter, arrivalAt, positionAt } from "@terra/sim";
+import { CELL_UNITS, SURFACE_ROCK, WALK_SPEED, anchorCenter, arrivalAt, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mapTerrainFromTemp } from "../world/mapTerrain.ts";
 import { createInlinePathService } from "../world/pathService.ts";
@@ -42,7 +42,7 @@ interface Rig {
 }
 
 /** 띄운 2차맵(기본 K[0] ~ K[2], loaded 차례만) + 같은 스레드 길 찾기 + 이동 서비스. 유닛 행·길 줄 쓰기를 모은다 */
-function rig(loaded: readonly number[] = [0, 1, 2], pool?: QueryPool): Rig {
+function rig(loaded: readonly number[] = [0, 1, 2], pool?: QueryPool, terrain = flatTerrain): Rig {
   const maps = new Map<number, SecondMap>();
   const units: UnitRow[] = [];
   const travels: Rig["travels"] = [];
@@ -54,7 +54,7 @@ function rig(loaded: readonly number[] = [0, 1, 2], pool?: QueryPool): Rig {
   const makeMap = (mapKey: number): SecondMap =>
     createSecondMap({
       mapKey,
-      terrain: mapTerrainFromTemp(mapKey, flatTerrain()),
+      terrain: mapTerrainFromTemp(mapKey, terrain()),
       paths,
       now: () => Date.now(),
       stats: emptyWorldStats(),
@@ -546,6 +546,36 @@ describe("730 다: 띄우지 않은 목적 2차맵은 닿을 때 띄운다(WP15)
     }
     expect(whereIs(r, 1)).toBe(0);
     expect(r.travel.list(USER)).toMatchObject([{ state: "stopped", stop: "map_full", mapKey: K[0] }]);
+    r.travel.stop();
+  });
+});
+
+/** 지형 칸 x 60 ~ 69(배치 칸 120 ~ 139)이 위아래 끝까지 바위(1300) */
+function rockStrip() {
+  const terrain = flatTerrain();
+  for (let y = 0; y < 128; y++) for (let x = 60; x < 70; x++) terrain.surface[y * 128 + x] = SURFACE_ROCK;
+  return terrain;
+}
+
+describe("구간 빠르기와 도착 예상(docs/adr/2026-11-14-segment-speed.md 8절)", () => {
+  it("같은 2차맵 안 이동: 바위 띠를 1.3배 느리게 건너고, 목록의 도착 예상 = 움직임의 실제 도착", async () => {
+    const r = rig([0], undefined, rockStrip);
+    placeMine(r, 100, 100);
+    expect(
+      (await r.travel.start(USER, { unitId: 1, mapKey: K[0] ?? 0, x: 160, y: 100, kind: "move" })).ok,
+    ).toBe(true);
+    await flush();
+    const info = mapAt(r, 0).unitInfo(1);
+    if (!info) throw new Error("no unit");
+    expect(info.motion.paces).toEqual([1000, 1300, 1000]);
+    // 곧은 60칸 중 20칸이 바위: 시간 거리 = (40 + 20 × 1.3)칸
+    const expected = START + Math.ceil(((40 * 1000 + 20 * 1300) * CELL_UNITS) / WALK_SPEED);
+    expect(arrivalAt(info.motion)).toBe(expected);
+    expect(r.travel.list(USER)).toMatchObject([{ state: "going", arriveAt: expected }]);
+    await vi.advanceTimersByTimeAsync(expected - START - 1);
+    expect(r.travel.list(USER)).toMatchObject([{ state: "going" }]);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(r.travel.list(USER)).toMatchObject([{ state: "arrived", cellX: 160, cellY: 100 }]);
     r.travel.stop();
   });
 });

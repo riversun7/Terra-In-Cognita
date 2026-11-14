@@ -193,6 +193,30 @@ describe.skipIf(!TEST_DATABASE_URL)("월드 부팅 복구(kill -9 흉내)", () =
     ]);
   });
 
+  it("걷는 유닛의 구간 걸음 배율(pace)이 DB에서 돌아오고, 길이가 틀린 배율은 버린다(docs/adr/2026-11-14-segment-speed.md 4절)", async () => {
+    const first = boot(1);
+    await first.ready;
+    const map = [...first.maps.values()][0];
+    if (!map) throw new Error("no map");
+    await first.persistence?.writer.durable();
+    const owner = first.persistence?.npcOwnerId ?? 0;
+    await first.crashForTest("commit");
+    const depart = Date.now() + 600_000;
+    // 사람이 아닌 종류(2)라 봇처럼 다시 걷지 않는다. 9998은 배율 길이가 맞고, 9997은 옛 앱이 path만 고친 행처럼 틀렸다
+    await test.db.$client.query(
+      `insert into world_units (id, owner_id, kind, size, speed, map_key, planet_id, domain, path, pace, depart_at_ms)
+       values (9998, $1, 2, 1, 437, $2, 's2_test_planet', 'land', '{512,512,4608,512,4608,8704}', '{1800,1000}', $3),
+              (9997, $1, 2, 1, 437, $2, 's2_test_planet', 'land', '{512,512,4608,512}', '{1800,1000}', $3)`,
+      [owner, map.mapKey, depart],
+    );
+    const second = boot(1);
+    await second.ready;
+    const restored = [...second.maps.values()].find((m) => m.mapKey === map.mapKey);
+    expect(restored?.unitInfo(9998)?.motion.paces).toEqual([1800, 1000]);
+    expect(restored?.unitInfo(9997)?.motion.paces).toBeUndefined();
+    expect(restored?.unitInfo(9997)?.motion.waypoints).toHaveLength(2);
+  });
+
   it("접속 중으로 남은 사용자는 지난 생존 시각에 끊긴 것으로 고친다(I8)", async () => {
     const user = await rows<{ id: string }>(
       test.db,

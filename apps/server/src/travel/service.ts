@@ -616,7 +616,10 @@ export function createTravelService(deps: TravelDeps): TravelService {
     return { route, distance: legs.distance, opens: opens !== undefined };
   };
 
-  /** 가는 중인 길의 도착 예상: 지금 자리에서 남은 줄의 곧은 거리 ÷ 속도(못 재면 보낼 때 잰 값) */
+  /**
+   * 가는 중인 길의 도착 예상: 지금 2차맵 다리는 움직임의 실제 도착(구간 빠르기 — 지형을 따른다, docs/adr/2026-11-14-segment-speed.md 8절),
+   * 그 끝에서 남은 줄은 곧은 거리 ÷ 속도(못 재면 보낼 때 잰 값). 띄우지 않은 2차맵 건너뛰기는 지형이 없어 곧은 거리 ÷ 속도
+   */
   const etaOf = (journey: Journey, at: number): number => {
     const hidden = journey.hidden;
     if (hidden) {
@@ -631,9 +634,10 @@ export function createTravelService(deps: TravelDeps): TravelService {
     const mapKey = journey.route[journey.leg];
     const info = mapKey === undefined ? undefined : maps.get(mapKey)?.unitInfo(journey.unitId);
     if (!info) return journey.arriveAtMs;
-    const rest = planLegs(contextOf(journey, info.size, journey.leg), positionAt(info.motion, at));
+    const rest = planLegs(contextOf(journey, info.size, journey.leg), lastPoint(info.motion));
     return rest.ok
-      ? at + travelMs(rest.distance, walkSpeed(info.speed, journey.speedFactor))
+      ? Math.max(at, arrivalAt(info.motion)) +
+          travelMs(rest.distance, walkSpeed(info.speed, journey.speedFactor))
       : journey.arriveAtMs;
   };
 

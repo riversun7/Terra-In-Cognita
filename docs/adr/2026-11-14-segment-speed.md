@@ -2,7 +2,7 @@
 
 - 상태: 확정
 - 날짜: 2026-11-14
-- 관련: 기획 D-541(질문 1317 나)·D-5052·D-102·D-108·D-120·D-540, `docs/design/40_Systems/49_Settings.md` M10·P23, ADR `2026-10-28-s1-second-map.md`("유닛 이동"·"S1은 경로 전체를 같은 속도로 간다"), `2026-10-28-simulation-model.md`(정수 판정), `2026-10-28-time-and-session-protocol.md`(프로토콜 판), `2026-11-07-gather-objects.md`(숲 지나가기·느려짐 소품), `2026-11-13-boats.md`(배), 질문 `docs/questions/2026-11-14-segment-speed.md`(1341~)
+- 관련: 기획 D-541(질문 1317 나)·D-5052·D-102·D-108·D-120·D-540, `docs/design/40_Systems/49_Settings.md` M10·P23, ADR `2026-10-28-s1-second-map.md`("유닛 이동"·"S1은 경로 전체를 같은 속도로 간다"), `2026-10-28-simulation-model.md`(정수 판정), `2026-10-28-time-and-session-protocol.md`(프로토콜 판), `2026-11-07-gather-objects.md`(숲 지나가기·느려짐 소품), `2026-11-13-boats.md`(배), 질문 `docs/questions/2026-11-14-segment-speed.md`(1341~1344)
 
 ## 배경
 - 지금(Verified: `packages/sim/src/motion/motion.ts`) 유닛은 경로 전체를 같은 빠르기로 간다("S1 단순화"). 지형 비용(숲 1.8배·얕은 물 2.5배·느려짐 소품 1.5배·바위 1.3배 …)은 길 고르기(A*)에만 쓴다.
@@ -38,7 +38,7 @@
 5. **프로토콜 29**: `unitMotionSchema.pace`(선택, 1 ~ 65,535 정수, 메시지 배열에서 길이 = 점 수 − 1 확인). **3-나** — 받는 가장 낮은 판을 29로 올린다: 28판 이하 기기는 zod가 모르는 칸을 버려 경로 전체를 같은 빠르기로 보간한다. 숲 구간이 있으면 유닛이 수 초 먼저 닿아 보이고 그 자리를 눌러 고르게 된다(서버 권위라 판정은 틀리지 않지만 보이는 자리가 틀리다). PWA는 인사에서 `protocol_unsupported`를 받고 새 앱을 받는다(5·3판의 선례).
 6. **기기 보간**(`packages/engine/src/units/unitMotion.ts`): `UnitPath.paces?`(구간 ‰). 점마다 누적 길이와 누적 시간 거리(길이 × pace ÷ 1000)를 함께 두고, (지금 − 출발) × 속도로 시간 거리 구간을 찾아 그 구간 안을 곧게 보간한다. 표시용 실수. 길 그림·방향(`unitMerge.ts headingOf`)·새 경로 잇기(`unitBlend.ts blendPath`)도 같은 시간 거리로 센다(`pathTravelled`).
 7. **시야·안개 예측**: 서버 시야(`vision.ts`)는 `positionAt`으로 자르므로 그대로 맞는다. 남의 유닛에게 보내는 자른 경로(`truncateMotion`)는 새 구간마다 그 끝점이 놓인 원래 구간의 배율을 이어 받는다(자른 움직임 위치가 원래와 몇 단위 안 — 시험).
-8. **도착·예상 시간**: 2차맵 안 도착(채집 `gather/service.ts`, 짐꾼 `porter.ts`, 일꾼, 2차맵 사이 이동의 한 다리)은 모두 `arrivalAt(motion)`이라 그대로 맞는다. 2차맵 사이 이동의 예상 시간(`travel/service.ts etaOf`)은 지금 2차맵 다리를 움직임의 실제 남은 시간으로, 띄우지 않은 2차맵 건너뛰기(지형이 없다)와 다음 다리는 곧은 거리 ÷ 빠르기로 센다(질문 1343).
+8. **도착·예상 시간**: 2차맵 안 걸어가 닿기(채집 `gather/service.ts`, 짐꾼이 걸어가 닿기 `porter.ts`, 일꾼 출퇴근, 2차맵 사이 이동의 한 다리)는 모두 `arrivalAt(motion)`이라 그대로 맞는다. 2차맵 사이 이동의 가는 중 예상(`travel/service.ts etaOf`)은 지금 2차맵 다리를 움직임의 실제 도착으로, 그 끝에서 남은 줄과 띄우지 않은 2차맵 건너뛰기(지형이 없다)는 곧은 거리 ÷ 빠르기로 센다(시험 `travel/service.test.ts` "구간 빠르기와 도착 예상"). 확인 단계·보낼 때의 예상은 곧은 거리 그대로(질문 1343). 경로 없는 셈(짐꾼 나르기 `timeMs`, 정산 오감 `walkMsPerCell`)은 바꾸지 않았다(질문 1344).
 9. **결정성**: 정수 사칙연산·`Math.ceil`·`Math.floor`·`isqrtRound`만 쓴다(`Math.random`·초월함수 없음). 같은 입력이면 서버·시험 어디서나 같은 값.
 10. **SIM_VERSION 39**(판정 결과가 바뀐다). 콘텐츠 팩은 바꾸지 않았다(도로 최고 속도는 [임시] 상수, 질문 1341).
 

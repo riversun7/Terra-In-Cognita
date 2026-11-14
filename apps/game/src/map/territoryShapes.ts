@@ -2,7 +2,7 @@
 // (사용자 결정 2026-11-14 두 번: "도시마다 영향권 원, 겹친 곳은 가운데" → 질문 1437 답 "도시 사이에 빈 공간이 있어 단절되어 있다. 국가 영토는
 // 더 넓게 도시 사이도 모두 포함하는 넓은 범위로", ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 화면 표시용(판정 아님) 순수 계산.
 //
-// 덮임(국가 F가 점 p를 덮나): F의 "뼈대"에서 반지름 안이면 덮는다. 뼈대 = 도시 점 + 서로 CORRIDOR(도시 사이 잇기 상한) 안인 같은 국가
+// 덮임(국가 F가 점 p를 덮나): F의 "뼈대"에서 반지름 안이면 덮는다(반지름 = 화면 영토 반지름, territorySitesOf). 뼈대 = 도시 점 + 서로 CORRIDOR(도시 사이 잇기 상한) 안인 같은 국가
 // 도시 쌍의 줄 + 세 쌍이 모두 이어진 도시 셋의 삼각형(속을 채운다). 반지름 = 도시 원 반지름(배후지 반경), 줄 위에서는 두 끝 반지름을
 // 잇는 값. 그래서 도시 원들이 둥근 띠로 이어지고 도시들 사이 땅도 모두 든다(볼록 껍질처럼 넓지만 멀리 떨어진 도시는 잇지 않는다).
 // 주인: 덮는 국가가 여럿이면 p에서 가장 가까운 도시(그 국가 도시 가운데 가장 가까운 것끼리 견줌, 같으면 작은 ID)의 국가 — 두 국가 사이
@@ -23,6 +23,12 @@ const MAX_RADIUS = Math.PI / 2 - 1e-6;
  * 출발값 12)와 같은 값. 이보다 먼 같은 국가 도시는 따로 덩이가 된다(바다·남의 땅 건너 잇지 않게). 질문 1437 답에 따른 보기 값
  */
 export const CORRIDOR_CELLS = 12;
+/**
+ * [임시] 화면 영토 반지름 = max(배후지 반경 × DISPLAY_RADIUS_SCALE, DISPLAY_MIN_CELLS칸) — 보기 전용(통합 세션 2026-11-14: 3단계에서 띠가
+ * 도시 표시 하나 폭으로 가늘었다, 사용자 "더 키워도 좋다"). 게임 영향권·소속 판정(D-485)과 상관없다(기획 D-543: 영토 표시는 보기 전용)
+ */
+export const DISPLAY_RADIUS_SCALE = 2;
+export const DISPLAY_MIN_CELLS = 4;
 /** 격자 간격 = 그 덩이 가장 작은 원 반지름 ÷ 이 값 */
 const GRID_PER_RADIUS = 3;
 /** 덩이 하나 격자 마디 수 위 끝(넘으면 간격을 넓힌다) */
@@ -99,8 +105,8 @@ export function corridorOf(milliPerRadian: number | undefined): number {
 }
 
 /**
- * 서버 도시 목록 → 영토 도시. 반경 = 배후지(catchmentMilli), 없으면 영향권(radiusMilli). 1000분율 칸 → 라디안 = 값 ÷ milliPerRadian.
- * 반경·환산이 없으면 그 도시는 영토를 그리지 않는다
+ * 서버 도시 목록 → 영토 도시. 바탕 반경 = 배후지(catchmentMilli), 없으면 영향권(radiusMilli). 화면 반지름 = max(바탕 × DISPLAY_RADIUS_SCALE,
+ * DISPLAY_MIN_CELLS칸). 1000분율 칸 → 라디안 = 값 ÷ milliPerRadian. 바탕 반경·환산이 없으면 그 도시는 영토를 그리지 않는다
  */
 export function territorySitesOf(
   cities: readonly WorldMapCity[],
@@ -116,7 +122,10 @@ export function territorySitesOf(
       factionId: city.factionId,
       latDeg: city.latDeg,
       lonDeg: city.lonDeg,
-      radius: Math.min(MAX_RADIUS, milli / milliPerRadian),
+      radius: Math.min(
+        MAX_RADIUS,
+        Math.max(milli * DISPLAY_RADIUS_SCALE, DISPLAY_MIN_CELLS * 1000) / milliPerRadian,
+      ),
     });
   }
   return sites;

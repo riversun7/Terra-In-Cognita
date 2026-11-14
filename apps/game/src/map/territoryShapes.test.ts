@@ -88,7 +88,7 @@ describe("국가 영토: 도시 하나·도시 사이", () => {
     expect(shapes.labels).toHaveLength(1);
   });
 
-  it("반경·환산이 없으면 그리지 않는다. 배후지 반경이 있으면 그것, 없으면 영향권 반경. 잇기 상한 = 12칸", () => {
+  it("반경·환산이 없으면 그리지 않는다. 화면 반지름 = max(배후지(없으면 영향권) × 2, 4칸). 잇기 상한 = 12칸", () => {
     const base = {
       number: 1,
       name: null,
@@ -107,14 +107,15 @@ describe("국가 영토: 도시 하나·도시 사이", () => {
       land: null,
     };
     const cities = [
-      { ...base, id: 1, factionId: 1, radiusMilli: 100, catchmentMilli: 2000 },
+      { ...base, id: 1, factionId: 1, radiusMilli: 100, catchmentMilli: 3000 },
       { ...base, id: 2, factionId: 1, radiusMilli: 100 },
       { ...base, id: 3, factionId: 1, radiusMilli: null, catchmentMilli: null },
     ];
     expect(territorySitesOf(cities, 0)).toEqual([]);
+    // 배후지 3칸 × 2 = 6칸 = 0.6, 영향권 0.1칸 × 2 < 4칸 → 4칸 = 0.4
     expect(territorySitesOf(cities, 10_000).map((entry) => [entry.id, entry.radius])).toEqual([
-      [1, 0.2],
-      [2, 0.01],
+      [1, 0.6],
+      [2, 0.4],
     ]);
     expect(corridorOf(10_000)).toBeCloseTo(1.2, 9);
     expect(corridorOf(0)).toBe(0);

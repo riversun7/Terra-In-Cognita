@@ -42,21 +42,23 @@ describe("영토 레이어 누른 곳의 국가(그린 영토와 같은 규칙)"
     expect(territoryAt(0, 1.6, cities, MILLI_PER_RADIAN)).toEqual({ factionId: 20, cityId: 2 });
   });
 
-  it("배후지 반경이 있으면 그 원(영향권 반경보다 넓다)", () => {
+  it("배후지 반경이 있으면 그 원 × 2(영향권 반경보다 넓다)", () => {
     const cities = [city(1, 10, 0, 0, 0.1, 2)];
-    expect(territoryAt(0, 1.5, cities, MILLI_PER_RADIAN)).toEqual({ factionId: 10, cityId: 1 });
+    expect(territoryAt(0, 3.5, cities, MILLI_PER_RADIAN)).toEqual({ factionId: 10, cityId: 1 });
+    expect(territoryAt(0, 4.5, cities, MILLI_PER_RADIAN)).toBeNull();
   });
 
   it("같은 국가 두 도시 사이(원 밖) 땅도 그 국가 — 질문 1437 답", () => {
-    // 1° = 17,453 1000분율 칸 → 잇기 상한 12칸 = 0.000688° … 시험 환산에서는 12칸이 아주 작아, 환산을 작게 해 12칸 = 몇 도로 맞춘다
-    const perRadian = 2_000; // 12칸 = 6 라디안 → 모두 잇는다
-    const milli = Math.round((Math.PI / 180) * perRadian);
+    // 환산 200,000: 12칸 = 0.06 라디안(3.44°) → 3° 떨어진 두 도시를 잇는다. 화면 반지름 = max(0.5° × 2, 4칸 = 1.15°) = 1.15°
+    const perRadian = 200_000;
+    const milli = Math.round(0.5 * (Math.PI / 180) * perRadian);
     const near = [
       { ...city(1, 10, 0, 0, 0), radiusMilli: milli },
-      { ...city(2, 10, 0, 4, 0), radiusMilli: milli },
+      { ...city(2, 10, 0, 3, 0), radiusMilli: milli },
     ];
-    expect(territoryAt(0, 2, near, perRadian)).toEqual({ factionId: 10, cityId: 1 });
-    expect(territoryAt(3, 2, near, perRadian)).toBeNull();
+    expect(territoryAt(0, 1.5, near, perRadian)).toEqual({ factionId: 10, cityId: 1 });
+    expect(territoryAt(1, 1.5, near, perRadian)?.factionId).toBe(10);
+    expect(territoryAt(3, 1.5, near, perRadian)).toBeNull();
   });
 
   it("어디에도 없으면 null, 환산이 0이면 영토가 없다", () => {

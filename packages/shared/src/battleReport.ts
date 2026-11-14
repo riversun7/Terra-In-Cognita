@@ -521,7 +521,15 @@ export function reportProblem(
       if (one.mode === "wave" && defense === "party" && !one.b) return "invalid_settings";
     }
     // 군단: 파티 1~상한, 파티마다 1명 이상, 군단 퇴각 시각은 제한 시간 안
-    const teams = one.mode === "wave" ? (one.b ? [one.b] : []) : [one.a, one.b];
+    // 세계 수비 파티 공성의 팀 B는 쓰지 않는다(검사도 하지 않는다)
+    const teams =
+      one.mode === "wave"
+        ? one.b
+          ? [one.b]
+          : []
+        : one.mode === "siege" && reportDefense(one) === "world"
+          ? [one.a]
+          : [one.a, one.b];
     for (const team of teams) {
       const legion = legionOf(team);
       if (!intIn(legion.parties.length, 1, L.legionPartiesMax)) return "invalid_settings";

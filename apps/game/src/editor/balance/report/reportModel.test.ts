@@ -1,6 +1,7 @@
 import { newLabUnit } from "@terra/shared/battleLab";
 import { type ReportFlow, emptyFlow } from "@terra/shared/battleReport";
 import { describe, expect, it } from "vitest";
+import { rowLabel } from "./reportMessages.ts";
 import {
   defaultReportForm,
   flowExtremes,
@@ -86,7 +87,7 @@ describe("보고서 폼", () => {
     expect(input.variant).toEqual({ label: "B", setup: null, tuning: [{ id: "c1_a", value: 3 }] });
     const back = formOfInput(input, defaultReportForm());
     expect(back.teams).toEqual(teams);
-    expect(reportInputOf(back.form, back.teams ?? teams, "fallback")).toEqual(input);
+    expect(reportInputOf(back.form, { ...teams, ...back.teams }, "fallback")).toEqual(input);
   });
 
   it("종류를 공성으로 바꾸면 판 수·제한 시간이 공성 범위로, 빈 팀은 문제", () => {
@@ -97,5 +98,55 @@ describe("보고서 폼", () => {
       "invalid_settings",
     );
     expect(reportInputOf(defaultReportForm(), teams, "이름").name).toBe("이름");
+  });
+
+  it("군단·실제 도시·웨이브 팀 수비: 입력 → 폼 → 입력이 같고, 실제 도시가 아니면 세계 수비는 기본값으로", () => {
+    const extra = {
+      units: [teams.a.units[0] ?? teams.b.units[0]].filter((u) => u !== undefined),
+      retreatHpPct: 10,
+    };
+    const siege = {
+      ...withMode(defaultReportForm(), "siege"),
+      city: { layout: "world" as const, housing: 40, adminLevel: 1, cityId: 7 },
+      cityLabel: "Fake",
+      siegeDefense: "world" as const,
+      legion: { a: { extra: [extra], retreatAtSec: 30 }, b: { extra: [], retreatAtSec: 0 } },
+    };
+    const input = reportInputOf(siege, teams, "x");
+    expect(input.setup).toMatchObject({
+      mode: "siege",
+      defense: "world",
+      city: { layout: "world", cityId: 7 },
+      a: { parties: [teams.a, extra], retreatAtSec: 30 },
+    });
+    // 팀 B는 세계 수비라 비어도 된다
+    expect(formProblem(siege, { ...teams, b: { units: [], retreatHpPct: 0 } })).toBeNull();
+    const back = formOfInput(input, defaultReportForm());
+    expect(reportInputOf(back.form, { ...teams, ...back.teams }, "x")).toEqual(input);
+    // 실제 도시가 아니면 세계 수비는 팀 B로, cityId는 보내지 않는다
+    const sim = reportInputOf(
+      { ...siege, city: { layout: "city", housing: 40, adminLevel: 1, cityId: 7 } },
+      teams,
+      "x",
+    );
+    expect(sim.setup).toMatchObject({ defense: "party", city: { layout: "city" } });
+    expect(sim.setup.mode !== "arena" && sim.setup.city.cityId).toBe(undefined);
+    // 웨이브 팀 수비: 팀 A는 안 보이고 팀 B 군단이 b로 간다
+    const wave = { ...withMode(defaultReportForm(), "wave"), waveDefense: "party" as const };
+    const waveInput = reportInputOf(wave, teams, "x");
+    expect(waveInput.setup).toMatchObject({ mode: "wave", defense: "party", b: { parties: [teams.b] } });
+    expect(formProblem(wave, { ...teams, a: { units: [], retreatHpPct: 0 } })).toBeNull();
+    const waveBack = formOfInput(waveInput, defaultReportForm());
+    expect(waveBack.form.waveDefense).toBe("party");
+    expect(waveBack.teams).toEqual({ b: teams.b });
+    // 실제 도시인데 고르지 않았으면 unknown_city
+    expect(formProblem({ ...siege, city: { layout: "world", housing: 0, adminLevel: 1 } }, teams)).toBe(
+      "unknown_city",
+    );
+  });
+
+  it("줄 이름: 군단 키는 A2·3, 옛 키는 A3", () => {
+    expect(rowLabel("a1.2", "")).toBe("A2·3");
+    expect(rowLabel("b2", "x")).toBe("B3 x");
   });
 });

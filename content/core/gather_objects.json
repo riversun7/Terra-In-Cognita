@@ -613,6 +613,13 @@
       ],
       "art": "shipwreck",
       "item": "copper_ingot",
+      "table": [
+        { "item": "copper_ingot", "weightPm": 450 },
+        { "item": "iron_ingot", "weightPm": 300 },
+        { "item": "plank", "weightPm": 150 },
+        { "item": "silver_ingot", "weightPm": 80 },
+        { "item": "gold_ingot", "weightPm": 20 }
+      ],
       "lots": 1,
       "workMs": 40000,
       "uses": 2,
@@ -654,6 +661,7 @@
       "reach": 6,
       "art": "fish_school",
       "item": "carp",
+      "ladder": true,
       "lots": 1,
       "workMs": 20000,
       "uses": 4,
@@ -676,6 +684,7 @@
       "reach": 6,
       "art": "fish_school",
       "item": "saury",
+      "ladder": true,
       "lots": 1,
       "workMs": 20000,
       "uses": 4,
@@ -698,6 +707,7 @@
       "reach": 0,
       "art": "fish_school",
       "item": "mackerel",
+      "ladder": true,
       "lots": 1,
       "workMs": 20000,
       "uses": 4,
@@ -720,6 +730,7 @@
       "reach": 0,
       "art": "fish_school_big",
       "item": "yellowtail",
+      "ladder": true,
       "lots": 1,
       "workMs": 20000,
       "uses": 4,
@@ -741,7 +752,8 @@
       "range": 80,
       "reach": 0,
       "art": "whale_pod",
-      "item": "whale_shark",
+      "item": "whale_meat",
+      "table": [{ "item": "whale_meat", "weightPm": 700 }, { "item": "whale_oil", "weightPm": 300 }],
       "lots": 1,
       "workMs": 20000,
       "uses": 2,
@@ -770,6 +782,142 @@
       "facility": "lumber_camp",
       "primary": "dex",
       "secondary": "str"
+    },
+    {
+      "id": "ice_chunk_water",
+      "name": { "ko": "얼음 덩어리", "en": "Ice chunk" },
+      "description": {
+        "ko": "장식 소품 자리에서 캐는 자연 채집물(기획 D-540 1224 가). 맡는 시설이 없어 창고·도시 창고로 나른다.",
+        "en": "Wild goods gathered from a decoration prop (design D-540 1224 a). No facility handles it, so units carry it to a storehouse or city storage."
+      },
+      "source": "prop",
+      "arts": ["ice_block"],
+      "item": "fresh_water",
+      "lots": 1,
+      "workMs": 15000,
+      "uses": 3,
+      "regrowMs": 1800000,
+      "primary": "str",
+      "secondary": "vit"
+    },
+    {
+      "id": "salt_deposit",
+      "name": { "ko": "소금 결정", "en": "Salt crust" },
+      "description": {
+        "ko": "장식 소품 자리에서 캐는 자연 채집물(기획 D-540 1224 가). 맡는 시설이 없어 창고·도시 창고로 나른다.",
+        "en": "Wild goods gathered from a decoration prop (design D-540 1224 a). No facility handles it, so units carry it to a storehouse or city storage."
+      },
+      "source": "prop",
+      "arts": ["salt_flat"],
+      "item": "salt",
+      "lots": 1,
+      "workMs": 15000,
+      "uses": 3,
+      "regrowMs": 1800000,
+      "primary": "str",
+      "secondary": "vit"
+    },
+    {
+      "id": "vine_fiber",
+      "name": { "ko": "덩굴 섬유", "en": "Vine fiber" },
+      "description": {
+        "ko": "장식 소품 자리에서 캐는 자연 채집물(기획 D-540 1224 가). 맡는 시설이 없어 창고·도시 창고로 나른다.",
+        "en": "Wild goods gathered from a decoration prop (design D-540 1224 a). No facility handles it, so units carry it to a storehouse or city storage."
+      },
+      "source": "prop",
+      "arts": ["vines"],
+      "item": "plant_fiber",
+      "lots": 1,
+      "workMs": 15000,
+      "uses": 3,
+      "regrowMs": 1800000,
+      "primary": "dex",
+      "secondary": "str"
+    },
+    {
+      "id": "peat_cut",
+      "name": { "ko": "이탄 더미", "en": "Peat mound" },
+      "description": {
+        "ko": "장식 소품 자리에서 캐는 자연 채집물(기획 D-540 1224 가). 맡는 시설이 없어 창고·도시 창고로 나른다.",
+        "en": "Wild goods gathered from a decoration prop (design D-540 1224 a). No facility handles it, so units carry it to a storehouse or city storage."
+      },
+      "source": "prop",
+      "arts": ["peat_mound"],
+      "item": "peat",
+      "lots": 1,
+      "workMs": 20000,
+      "uses": 3,
+      "regrowMs": 1800000,
+      "primary": "str",
+      "secondary": "vit"
+    },
+    {
+      "id": "berry_patch",
+      "name": { "ko": "베리 덤불", "en": "Berry bush" },
+      "description": {
+        "ko": "장식 소품 자리에서 캐는 자연 채집물(기획 D-540 1224 가). 맡는 시설이 없어 창고·도시 창고로 나른다.",
+        "en": "Wild goods gathered from a decoration prop (design D-540 1224 a). No facility handles it, so units carry it to a storehouse or city storage."
+      },
+      "source": "prop",
+      "arts": ["berry_bush"],
+      "item": "wild_berries",
+      "lots": 1,
+      "workMs": 15000,
+      "uses": 3,
+      "regrowMs": 1800000,
+      "primary": "int",
+      "secondary": "wis"
+    },
+    {
+      "id": "fruit_pick",
+      "name": { "ko": "과일나무", "en": "Fruit tree" },
+      "description": {
+        "ko": "장식 소품 자리에서 캐는 자연 채집물(기획 D-540 1224 가). 맡는 시설이 없어 창고·도시 창고로 나른다.",
+        "en": "Wild goods gathered from a decoration prop (design D-540 1224 a). No facility handles it, so units carry it to a storehouse or city storage."
+      },
+      "source": "prop",
+      "arts": ["fruit_tree"],
+      "item": "wild_fruit",
+      "lots": 1,
+      "workMs": 15000,
+      "uses": 3,
+      "regrowMs": 1800000,
+      "primary": "int",
+      "secondary": "wis"
+    },
+    {
+      "id": "shell_pick",
+      "name": { "ko": "조개 밭", "en": "Shell bed" },
+      "description": {
+        "ko": "장식 소품 자리에서 캐는 자연 채집물(기획 D-540 1224 가). 맡는 시설이 없어 창고·도시 창고로 나른다.",
+        "en": "Wild goods gathered from a decoration prop (design D-540 1224 a). No facility handles it, so units carry it to a storehouse or city storage."
+      },
+      "source": "prop",
+      "arts": ["shell_bed"],
+      "item": "shellfish",
+      "lots": 1,
+      "workMs": 15000,
+      "uses": 3,
+      "regrowMs": 1800000,
+      "primary": "agi",
+      "secondary": "dex"
+    },
+    {
+      "id": "fossil_dig",
+      "name": { "ko": "얼음 속 화석", "en": "Fossil in ice" },
+      "description": {
+        "ko": "장식 소품 자리에서 캐는 자연 채집물(기획 D-540 1224 가). 맡는 시설이 없어 창고·도시 창고로 나른다.",
+        "en": "Wild goods gathered from a decoration prop (design D-540 1224 a). No facility handles it, so units carry it to a storehouse or city storage."
+      },
+      "source": "prop",
+      "arts": ["ice_fossil"],
+      "item": "fossil",
+      "lots": 1,
+      "workMs": 40000,
+      "uses": 1,
+      "regrowMs": 86400000,
+      "primary": "str",
+      "secondary": "vit"
     }
   ]
 }

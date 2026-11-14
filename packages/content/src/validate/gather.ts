@@ -149,5 +149,72 @@ export function checkGather(pack: ContentPack): ContentIssue[] {
         `성공 확률 상한(${catchMax}‰)이 기본(${catchBase}‰)보다 작습니다. 상한을 기본 이상으로 적으세요.`,
       );
   }
+  checkGatherObjects(pack, error);
   return issues;
+}
+
+/**
+ * 원자재 오브젝트의 굴림표·사다리 굴림(기획 D-540 1222): 굴림표 가중치 합 1000·같은 아이템 두 번 없음·대표 아이템(item)이 표 안
+ * (gather_table_*), 둘을 함께 쓰지 않음, 사다리 굴림은 맡는 시설에 추첨 방식 채집 칸이 있어야 함(gather_ladder_facility)
+ */
+function checkGatherObjects(
+  pack: ContentPack,
+  error: (file: string, id: string, path: string, code: string, message: string) => void,
+): void {
+  const facilities = new Map((pack.entries.get("facilities") ?? []).map((entry) => [entry.id, entry]));
+  const FILE = "gather_objects.json";
+  for (const entry of pack.entries.get("gather_objects") ?? []) {
+    const table = get(entry, "table");
+    const item = get(entry, "item");
+    const ladder = get(entry, "ladder");
+    if (Array.isArray(table)) {
+      const ids: string[] = [];
+      let sum = 0;
+      for (const row of table as unknown[]) {
+        const ref = get(row, "item");
+        const weight = get(row, "weightPm");
+        if (ref instanceof ContentRef) ids.push(ref.id);
+        if (typeof weight === "number") sum += weight;
+      }
+      if (sum !== 1000)
+        error(
+          FILE,
+          entry.id,
+          "table",
+          "gather_table_sum",
+          `굴림표 가중치 합이 ${sum}입니다. 합은 1000(‰)이어야 합니다.`,
+        );
+      if (new Set(ids).size !== ids.length)
+        error(FILE, entry.id, "table", "gather_table_duplicate", "굴림표에 같은 아이템을 두 번 적지 마세요.");
+      if (item instanceof ContentRef && !ids.includes(item.id))
+        error(
+          FILE,
+          entry.id,
+          "item",
+          "gather_table_item",
+          `대표 아이템(item ${item.id})이 굴림표에 없습니다. 굴림표 가운데 하나를 대표로 적으세요.`,
+        );
+      if (ladder === true)
+        error(
+          FILE,
+          entry.id,
+          "ladder",
+          "gather_table_ladder",
+          "굴림표(table)와 사다리 굴림(ladder)은 함께 쓰지 않습니다.",
+        );
+    }
+    if (ladder === true) {
+      const facilityRef = get(entry, "facility");
+      const facility = facilityRef instanceof ContentRef ? facilities.get(facilityRef.id) : undefined;
+      const gather = facility === undefined ? undefined : get(facility, "gather");
+      if (gather === undefined || get(gather, "mode") === "select")
+        error(
+          FILE,
+          entry.id,
+          "ladder",
+          "gather_ladder_facility",
+          "사다리 굴림(ladder)은 추첨 방식 채집 칸(gather)이 있는 맡는 시설(facility)이 있어야 합니다.",
+        );
+    }
+  }
 }

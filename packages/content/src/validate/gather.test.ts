@@ -183,3 +183,90 @@ describe("사다리 띠 표(gather_tiers.ladder)", () => {
     ).toEqual([["gather_subcategory_major", "dish_band_000", "ladder"]]);
   });
 });
+
+// 원자재 오브젝트 굴림표·사다리 굴림(기획 D-540 1222)
+function checkObject(extra: Record<string, unknown>, mode?: "select") {
+  const item = (id: string) => ({
+    id,
+    name,
+    category: "raw",
+    subcategory: "fish",
+    tier: 0,
+    startPrice: 1,
+    weight: 1,
+    enabled: true,
+  });
+  return validatePack(
+    fixture({
+      "item_subcategories.json": { entries: [{ id: "fish", name, major: "raw", enabled: true }] },
+      "items.json": { entries: [item("carp"), item("gold")] },
+      "gather_tiers.json": { entries: [band] },
+      "facilities.json": {
+        entries: [
+          {
+            id: "fishing_spot",
+            name,
+            stage: "gather",
+            slotsPerLevel: 10,
+            gather: { primary: "agi", secondary: "dex", subcategory: "fish", ...(mode ? { mode } : {}) },
+          },
+        ],
+      },
+      "gather_objects.json": {
+        entries: [
+          {
+            id: "thing",
+            name,
+            source: "prop",
+            arts: ["bush"],
+            item: "carp",
+            lots: 1,
+            workMs: 10_000,
+            uses: 1,
+            regrowMs: 60_000,
+            primary: "agi",
+            secondary: "dex",
+            ...extra,
+          },
+        ],
+      },
+    }),
+  ).issues.map((issue) => [issue.code, issue.path]);
+}
+const table = (a: number, b: number) => [
+  { item: "carp", weightPm: a },
+  { item: "gold", weightPm: b },
+];
+
+describe("원자재 오브젝트 굴림표·사다리 굴림", () => {
+  it("합 1000 굴림표, 추첨 시설의 사다리 굴림은 통과한다", () => {
+    expect(checkObject({ table: table(700, 300) })).toEqual([]);
+    expect(checkObject({ ladder: true, facility: "fishing_spot" })).toEqual([]);
+  });
+
+  it("굴림표: 합이 1000이 아니거나 대표 아이템이 표 밖이거나 사다리 굴림과 함께면 오류", () => {
+    expect(checkObject({ table: table(700, 200) })).toEqual([["gather_table_sum", "table"]]);
+    expect(
+      checkObject({
+        item: "gold",
+        table: [
+          { item: "carp", weightPm: 500 },
+          { item: "carp", weightPm: 500 },
+        ],
+      }),
+    ).toEqual([
+      ["gather_table_duplicate", "table"],
+      ["gather_table_item", "item"],
+    ]);
+    expect(checkObject({ table: table(700, 300), ladder: true, facility: "fishing_spot" })).toEqual([
+      ["gather_table_ladder", "ladder"],
+    ]);
+  });
+
+  it("사다리 굴림: 맡는 시설이 없거나 선택 방식이면 오류", () => {
+    expect(checkObject({ ladder: true })).toEqual([["gather_ladder_facility", "ladder"]]);
+    expect(checkObject({ ladder: true, facility: "fishing_spot" }, "select")).toEqual([
+      ["gather_ladder_facility", "ladder"],
+    ]);
+  });
+});

@@ -112,9 +112,9 @@ describe("걷기 빠르기 = 계산식 walk_speed(실효 AGI)", () => {
   });
 });
 
-describe("2차맵 이동에 든다", () => {
-  const center = (x: number, y: number) => anchorCenter(x, y, 1);
+const center = (x: number, y: number) => anchorCenter(x, y, 1);
 
+describe("2차맵 이동에 든다", () => {
   it("이동을 시작할 때 몸 빠르기를 읽고, 도착 시각·운영자 빠르기(× 100)도 그 빠르기로", async () => {
     let speed = 600;
     const { map } = createTestMap({ walkSpeed: (unit) => (unit.domain === "land" ? speed : unit.speed) });

@@ -135,5 +135,6 @@ export function walkSpeedsOf(
   catalog: (() => RosterCatalog) | undefined,
   now: () => number,
 ): (unit: WalkUnit) => number {
-  return createWalkSpeeds({ cyborgs, gearOf, catalog, fallback: TEST_COMBAT_COEFFICIENTS, now }).speedOf;
+  const walk = createWalkSpeeds({ cyborgs, gearOf, catalog, fallback: TEST_COMBAT_COEFFICIENTS, now });
+  return (unit) => walk.speedOf(unit);
 }

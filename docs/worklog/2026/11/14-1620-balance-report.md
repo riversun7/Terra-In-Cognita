@@ -54,7 +54,8 @@
 
 ## 미검증·TODO·알려진 문제
 - 시험(**Verified**): sim 850개, 보고서 서버 단위 10개·DB 3개, 화면 모델 55개(balance·secondaryStats 폴더), e2e `battleReport.spec.ts` 7/7(사진 12장).
-  `pnpm check`·빌드·check-pwa·check:bundle·나머지 e2e 결과는 아래 "마무리 검사"에 적는다.
+  마무리 검사(**Verified**): `pnpm check`(TEST_DATABASE_URL) 통과 — 688 파일·5,191 시험. 빌드 + `check-pwa` 통과, `check:bundle` 첫 화면 109,192 B / 상한 131,416 B,
+  `check:docs origin/main` 통과. e2e `battleReport`·`battleLab`·`balance`·`secondaryStats`·`dev` 65개 중 64 통과, 1 실패(아래 옛 기대값).
 - `e2e/battleLab.spec.ts`의 "공격력 = 스탯 공격력 + 무기 몫(D-502) … 명중 73.8%"는 기대값이 2026-11-12~13 규칙(맨손 명중 100%, 물리 공격력 STR + ⌊VIT÷2⌋)보다 옛 값이라
   실패한다(받은 값 15·1000). 이 줄기의 변경과 무관하다고 본다(**Assumed**: 그 줄들은 실험실 미리 보기 `battleLab.preview`만 부르고 이 줄기는 미리 보기를 바꾸지 않았다).
 - NAS 1,000판 시간·메모리 **Unknown**(재지 않음). 웨이브 공성 한 판은 크리쳐가 많으면 수 초(ADR gardener 4절) → 공성 상한 200판.

@@ -51,6 +51,12 @@ export async function loadObjectStates(pool: QueryPool, planetId: string): Promi
   }));
 }
 
+/**
+ * 저장하는 오브젝트 번호 상한(표 검사 gather_object_states_object — 배치 칸 번호 0 ~ 65,535). 움직이는 어군 번호(terrainObjects.ts SCHOOL_ID_BASE부터)는
+ * 메모리에만 둔다(다시 켜면 가득 — 어군은 곧 다시 자란다 [임시], 배 B3 질문 1407). 표에 넣으면 검사에 걸려 그 쓰기 묶음이 실패했다(2026-11-14 화면 시험에서 봄)
+ */
+export const MAX_STORED_OBJECT_ID = 65_535;
+
 export function createObjectStore(options: {
   readonly planetId: string;
   readonly rows?: readonly ObjectRow[] | undefined;
@@ -71,6 +77,7 @@ export function createObjectStore(options: {
     put(row.mapKey, row.objectId, { usesLeft: row.usesLeft, regrowAtMs: row.regrowAtMs });
 
   const save = (mapKey: number, objectId: number, state: ObjectState): void => {
+    if (objectId < 0 || objectId > MAX_STORED_OBJECT_ID) return;
     options.writer?.upsert("gatherObjects", {
       planet_id: options.planetId,
       map_key: mapKey,

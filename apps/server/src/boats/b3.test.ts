@@ -11,6 +11,8 @@ import type { FacilityRecord } from "../facilities/state.ts";
 import { createTestMap, flatTerrain } from "../world/testSupport.ts";
 import { UNIT_KIND_BOAT, UNIT_KIND_CYBORG, UNIT_KIND_HUMAN, countsAsOwnedUnit } from "../world/unitKinds.ts";
 import { upkeepWeightOf } from "../world/upkeepWeights.ts";
+import { MAX_STORED_OBJECT_ID, createObjectStore } from "../gather/state.ts";
+import { SCHOOL_ID_BASE } from "../gather/terrainObjects.ts";
 import { createBoatService } from "./service.ts";
 import { materialsOf } from "./store.ts";
 
@@ -173,5 +175,20 @@ describe("배 B3: 보유 유닛 수(1326 나)", () => {
     expect(upkeepWeightOf(() => TEST_SOCIETY_COEFFICIENTS)(UNIT_KIND_BOAT)).toBe(
       TEST_SOCIETY_COEFFICIENTS.boats.upkeepPm,
     );
+  });
+});
+
+describe("배 B3: 어군 상태 저장", () => {
+  it("움직이는 어군(번호 65,536부터)은 표에 쓰지 않고 메모리에만 둔다 — 배치 칸 오브젝트는 그대로 쓴다", () => {
+    const rows: Record<string, unknown>[] = [];
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 시험: upsert만 쓰는 가짜 쓰기 대기열
+    const writer = { upsert: (_table: string, row: Record<string, unknown>) => rows.push(row) } as never;
+    const store = createObjectStore({ planetId: "s2_test_planet", writer });
+    expect(SCHOOL_ID_BASE).toBeGreaterThan(MAX_STORED_OBJECT_ID);
+    expect(store.take(9, SCHOOL_ID_BASE + 3, 4, START, () => 1000)).toBe(true);
+    expect(store.read(9, SCHOOL_ID_BASE + 3, 4, START).usesLeft).toBe(3);
+    expect(rows).toHaveLength(0);
+    expect(store.take(9, 1234, 4, START, () => 1000)).toBe(true);
+    expect(rows).toMatchObject([{ object_id: 1234, uses_left: 3 }]);
   });
 });

@@ -1,15 +1,22 @@
 // 소품 겉모습 표: 이름표 순서(번호)와 맞고, 엄폐가 셀수록 땅 색을 더 섞는다
-import { MAP_PROP_ARTS } from "@terra/shared";
+import { MAP_PROP_ARTS, RETIRED_MAP_PROP_ARTS } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import { PLACEMENT_CELLS } from "../terrain/terrainData.ts";
 import { SURFACE, TERRAIN_CELLS } from "../terrain/terrainData.ts";
 import { buildPropTextureData, groundClutter, propLook, propSalt, propTint, snowyCell } from "./propLook.ts";
 
 describe("소품 겉모습", () => {
-  it("이름표의 그림마다 겉모습이 있고(none 제외), 모르는 번호는 없다", () => {
+  it("이름표의 그림마다 겉모습이 있고(none·지운 그림 제외), 모르는 번호는 없다", () => {
     expect(propLook(0)).toBeUndefined();
-    for (let code = 1; code < MAP_PROP_ARTS.length; code++)
-      expect(propLook(code), MAP_PROP_ARTS[code]).toBeDefined();
+    for (let code = 1; code < MAP_PROP_ARTS.length; code++) {
+      const name = MAP_PROP_ARTS[code];
+      // 지운 그림(작은 섬 등)은 옛 고정본 지형 파일에 번호가 남아도 그리지 않는다
+      if (name !== undefined && RETIRED_MAP_PROP_ARTS.includes(name))
+        expect(propLook(code), name).toBeUndefined();
+      else expect(propLook(code), name).toBeDefined();
+    }
+    // 지운 그림은 땅 색도 섞지 않는다(엄폐 0 장식)
+    expect(propTint(0, MAP_PROP_ARTS.indexOf("islet"))).toBe(0);
     expect(propLook(MAP_PROP_ARTS.length)).toBeUndefined();
     expect(propLook(MAP_PROP_ARTS.indexOf("tree_conifer"))?.shape).toBe("conifer");
   });

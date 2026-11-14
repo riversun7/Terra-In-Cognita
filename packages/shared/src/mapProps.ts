@@ -2,6 +2,7 @@
 // 콘텐츠 팩 스키마(packages/content), 2차맵 생성기(packages/planet secondMap), 엔진 그림(packages/engine)이 같은 표를 쓴다.
 // - 그림 종류(art): 배치 칸마다 1바이트(지형 파일 TCTR 2판 소품 그림 층). 번호 = 이 배열의 위치다. 판정에는 쓰지 않는다(기기 장식).
 //   한 번 쓴 번호는 다른 뜻으로 다시 쓰지 않는다(저장된 고정본 2차맵이 가리킨다). 새 그림은 끝에 더한다.
+//   그림을 없앨 때도 자리는 지우지 않는다(뒤 번호가 밀린다): RETIRED_MAP_PROP_ARTS에 넣는다.
 // - 배치 방식: forest = 숲 칸(숲 밀도와 노이즈로 차폐·은폐를 정한 칸)의 나무 그림을 고른다. scatter = 자기 엄폐 값으로 흩어 놓는다.
 // - 환경 곡선 축과 단위: 콘텐츠에 적는 값의 단위다. 범위 밖 값은 스키마가 막는다.
 
@@ -82,11 +83,23 @@ export const MAP_PROP_ARTS = [
   "seabed_oil",
   "lily_pads",
   "mud_flat",
+  // 작은 섬: 지움(사용자 결정 2026-11-14, 팩 core@92). 번호 자리만 남김 — 뒤 번호(shore_rock)와 옛 지형 파일이 그대로 맞는다
   "islet",
   "shore_rock",
 ] as const;
 
 export type MapPropArt = (typeof MAP_PROP_ARTS)[number];
+
+/**
+ * 지운 그림(번호 자리만 남김). 콘텐츠 항목에는 쓰지 못하고(스키마가 막는다), 기기는 그리지 않는다
+ * (지우기 전에 만든 고정본 2차맵 지형 파일에 번호가 남아 있다 — ADR 2026-10-31-second-map-from-planet "바뀜 (2026-11-14)").
+ */
+export const RETIRED_MAP_PROP_ARTS: readonly MapPropArt[] = ["islet"];
+
+/** 콘텐츠 항목이 쓸 수 있는 그림인가("none"·지운 그림이 아님) */
+export function isUsableMapPropArt(name: MapPropArt): boolean {
+  return name !== "none" && !RETIRED_MAP_PROP_ARTS.includes(name);
+}
 
 /** 그림 종류 → 번호(없으면 −1) */
 export function mapPropArtCode(art: string): number {

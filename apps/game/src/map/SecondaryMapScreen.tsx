@@ -57,6 +57,8 @@ import { screenNotice } from "./secondMapNotice.ts";
 import { CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
 import { MapBottomNav, type MapNavTab } from "./MapBottomNav.tsx";
 import { BagSheet } from "./BagSheet.tsx";
+import { BuildSheet } from "./construction/BuildSheet.tsx";
+import { createBuildMode } from "./construction/buildMode.ts";
 import { OperatorMenuButton, OperatorMenuPanel, PerfToggle, useOperatorMenu } from "./OperatorMenu.tsx";
 import { CitySheet } from "./city/CitySheet.tsx";
 import { useBuildingLook } from "./useBuildingLook.ts";
@@ -246,6 +248,9 @@ function SecondMapView({
   const following = cyborg?.unitId != null && (lastPicked ?? cyborg.unitId) === cyborg.unitId;
   // 원자재 오브젝트 채집·건물 들어가기(docs/adr/2026-11-07-gather-objects.md): 덧그림과 아래 판이 같이 보는 상태(React 밖)
   const [gather] = useState(createGatherState);
+  // 건축 모드(docs/adr/2026-11-14-second-map-build.md): [도시] → [건설]로 켠다
+  const [buildMode] = useState(createBuildMode);
+  const building = useSyncExternalStore(buildMode.subscribe, () => buildMode.snapshot().active);
   // NPC 국가 지도자 이름표(덧그림)와 지도자 판이 같이 보는 상태("WP-NPC3")
   const [leaderTags] = useState(createLeaderTagState);
   // 내 사이보그 유닛(유닛 이름표가 늘 보인다 — unitNames.ts). 모음은 부를 때 읽는다
@@ -428,7 +433,7 @@ function SecondMapView({
       operatorRef,
     },
     { setZoomStage, setStatus, setCommand, setSelected, setSelection, setLiveMoving, setSnapshot },
-    { focus, gather, refollow, closePeek },
+    { focus, gather, refollow, closePeek, buildMode },
   );
 
   // 자료 흐름 모음(mapFeedPool.ts)과 지금 2차맵 모음(mapSession.ts): 화면을 열 때 들어온 2차맵으로 켠다. 옆 2차맵으로 넘으면 crossRef가
@@ -557,6 +562,8 @@ function SecondMapView({
         ? "nearby"
         : null;
   const onNavTab = (tab: MapNavTab): void => {
+    // 아래 탭을 누르면 건축 모드를 닫는다
+    if (building) buildMode.close();
     if (tab === "units") {
       if (navActive === "units") closeUnits();
       else openUnits();
@@ -693,7 +700,16 @@ function SecondMapView({
         onRetry={() => feedRef.current?.retry()}
       />
       <footer className="map-hud map-hud-bottom">
-        {sheet === "units" ? (
+        {building ? (
+          <BuildSheet
+            mode={buildMode}
+            engineRef={engineRef}
+            gather={gather}
+            mapKey={mapKey}
+            builder={shown}
+          />
+        ) : null}
+        {!building && sheet === "units" ? (
           <MyUnitsPanel
             units={myUnits.units}
             failed={myUnits.failed}
@@ -705,8 +721,10 @@ function SecondMapView({
             onClose={closeUnits}
           />
         ) : null}
-        {sheet === "bag" ? <BagSheet unitId={shown} mine={mine !== undefined} onClose={closeBag} /> : null}
-        {sheet === "nearby" ? (
+        {!building && sheet === "bag" ? (
+          <BagSheet unitId={shown} mine={mine !== undefined} onClose={closeBag} />
+        ) : null}
+        {!building && sheet === "nearby" ? (
           <NearbyPanel
             nearby={nearby}
             gather={gather}
@@ -744,12 +762,17 @@ function SecondMapView({
           buildingExtra={<GovernmentSheet state={gather} embedded />}
         />
         {/* 고른 유닛이 NPC 국가 지도자면 지도자 판 → 수도 정부 판("WP-NPC3"). 다른 판이 열린 동안은 숨긴다 */}
-        {sheet === "nearby" ? <LeaderSheet tags={leaderTags} selected={shown} mapKey={mapKey} /> : null}
-        <div className="map-panel map-hint" role="status">
-          <p>{hint}</p>
-          {command ? <p className="map-command">{commandText(command)}</p> : null}
-          <TravelLine going={going} />
-        </div>
+        {!building && sheet === "nearby" ? (
+          <LeaderSheet tags={leaderTags} selected={shown} mapKey={mapKey} />
+        ) : null}
+        {/* 건축 모드에서는 "땅을 누르면 보냅니다" 안내를 숨긴다(땅 누르기가 미리보기 자리라서). 명령·이동 줄은 남긴다 */}
+        {building && command === null && going === null ? null : (
+          <div className="map-panel map-hint" role="status">
+            {building ? null : <p>{hint}</p>}
+            {command ? <p className="map-command">{commandText(command)}</p> : null}
+            <TravelLine going={going} />
+          </div>
+        )}
         <CyborgActions followTo={following ? null : crossedTo} />
         {/* 배 단추(docs/adr/2026-11-13-boats.md): 고른 내 유닛이 배·탄 유닛·가까운 내 배가 있는 유닛일 때 */}
         <BoatActions unit={shown === null ? undefined : mine} units={myUnits.units} />
@@ -774,6 +797,10 @@ function SecondMapView({
           mapKey={mapKey}
           anchorAt={nearbySources.anchorAt}
           onOpen={lookAtBuilding}
+          onBuild={() => {
+            closeCity();
+            buildMode.open();
+          }}
           onClose={closeCity}
         />
       ) : null}

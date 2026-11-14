@@ -1,5 +1,5 @@
 // 소품 부품 시험: 그림마다 모델이 지어지고, 부품·삼각형 수가 가시거리 표의 예산(모델 약 40삼각형) 근처이며, 같은 칸이면 같은 모습이다
-import { MAP_PROP_ARTS } from "@terra/shared";
+import { MAP_PROP_ARTS, RETIRED_MAP_PROP_ARTS } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import { type ClutterKind, propLook } from "./propLook.ts";
 import {
@@ -64,8 +64,11 @@ describe("소품 부품", () => {
     let total = 0;
     let models = 0;
     for (let code = 1; code < MAP_PROP_ARTS.length; code++) {
+      const name = MAP_PROP_ARTS[code];
+      // 지운 그림은 겉모습이 없다(propLook.test.ts가 본다)
+      if (name !== undefined && RETIRED_MAP_PROP_ARTS.includes(name)) continue;
       const look = propLook(code);
-      expect(look, MAP_PROP_ARTS[code]).toBeDefined();
+      expect(look, name).toBeDefined();
       if (!look) continue;
       for (let seed = 0; seed < 12; seed++) {
         const { parts } = record((put) => buildShape(put, look, context(seed, seed % 3 === 0)));

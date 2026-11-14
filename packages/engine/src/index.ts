@@ -41,6 +41,7 @@ export type { UnitRing } from "./units/nationRings.ts";
 export type { ObjectProp } from "./engineTypes.ts";
 export type { SchoolInput } from "./props/schoolView.ts";
 export type { BuildingFootprint, QuarterTurns } from "./buildings/footprint.ts";
+export { type BuildPreview, type BuildPreviewInput, createBuildPreview } from "./buildings/buildPreview.ts";
 export type { BuildingCondition, BuildingLook } from "./buildings/buildingLook.ts";
 export { disposeSharedRenderer } from "./render/sharedRenderer.ts";
 export type { PlanetSkyFeatures, PlanetSkyMode, SkyClockSource } from "./planet/sky.ts";

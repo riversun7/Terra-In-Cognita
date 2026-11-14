@@ -144,6 +144,14 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "map_props",
+      "id": "islet",
+      "since": 92,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

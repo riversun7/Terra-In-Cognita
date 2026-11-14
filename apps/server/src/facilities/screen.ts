@@ -2,6 +2,7 @@
 // 세계(DB)가 있고 준비되면 건물 서비스의 자료, 아니면 빈 자료(status "not_ready", 규칙 값은 출발값)다.
 import type {
   FacilitiesOverviewResponse,
+  FacilityLandRuleResponse,
   FacilityTargetView,
   FacilityWaterMaskResponse,
 } from "@terra/shared/facilities";
@@ -11,6 +12,7 @@ import { waterMaskToHex } from "@terra/shared/waterNearby";
 import { rolesAllow } from "../auth/permissions.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { SecondMap } from "../world/secondMap.ts";
+import type { LandCheck } from "./landRule.ts";
 import { type BeaconEntry, type FacilityViewSource, facilitiesOverview } from "./views.ts";
 
 export interface FacilityScreenServices {
@@ -19,6 +21,8 @@ export interface FacilityScreenServices {
   mapLooks(viewer: Viewer, mapKey: number, nowMs: number): Promise<MapLooksResponse>;
   /** 띄운 2차맵의 물 표(물가 조건 미리 보기, 질문 947 나) */
   waterMask(mapKey: number): FacilityWaterMaskResponse;
+  /** 그 2차맵에 지을 수 있나(땅 규칙, landRule.ts — 건축 모드 미리 묻기) */
+  landRule(viewer: Viewer, mapKey: number): Promise<FacilityLandRuleResponse>;
 }
 
 /** 세계가 준비됐을 때의 자료 */
@@ -34,6 +38,8 @@ export interface FacilityScreenSource {
   mapLooks(viewer: Viewer, mapKey: number, nowMs: number): Promise<MapLooksResponse>;
   /** 띄운 2차맵(없으면 undefined) — 물 표 */
   map(mapKey: number): Pick<SecondMap, "waterMask"> | undefined;
+  /** 땅 규칙(짓기 명령과 같은 판정) */
+  land: LandCheck;
 }
 
 function notReady(nowMs: number, dev: boolean): FacilitiesOverviewResponse {
@@ -77,6 +83,24 @@ export function createFacilityScreenServices(
       const found = source?.();
       if (!found) return { status: "not_ready", mapKey, buildings: [], generatedAt: nowMs };
       return found.mapLooks(viewer, mapKey, nowMs);
+    },
+    async landRule(viewer, mapKey) {
+      const found = source?.();
+      const shut = { mapKey, allowed: false, reason: null, cityFaction: null } as const;
+      if (!found) return { status: "not_ready", ...shut };
+      if (!found.map(mapKey)) return { status: "unknown_map", ...shut };
+      const ownerId = found.ownerOf(viewer.id);
+      if (ownerId === undefined) return { status: "ready", ...shut };
+      const verdict = await found.land(ownerId, mapKey);
+      return verdict.allowed
+        ? { status: "ready", mapKey, allowed: true, reason: null, cityFaction: null }
+        : {
+            status: "ready",
+            mapKey,
+            allowed: false,
+            reason: verdict.reason,
+            cityFaction: verdict.cityFaction,
+          };
     },
     waterMask(mapKey) {
       const found = source?.();

@@ -119,3 +119,4 @@
 - 2026-11-14 23:05 KST: 원본 `e2eec9f`(D-543: 작은 섬 지움·1차맵 개편 사용자 결정·질문 1376~1423 정리) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/42. README·PLAN §14 머리 문장 갱신. 49 변경 없음(`settings:cells` 안 돌림).
 - 2026-11-15 06:25 KST: 원본 `df22fb8`(D-544: 1차맵 영토 표시와 판정, 질문 1431~1437 정리) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/42. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-15 06:55 KST: 원본 `91b7a78`(D-545: 다시 묻기 1 — 옛 도구 둠, 공성 시뮬·파티 군단 명령, 배 체계 개편, 재료 반환 없음) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/42·45. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
+- 2026-11-15 07:40 KST: 원본 `f3c9331`(D-546: 다시 묻기 2 — 1차맵 영토 표시 1431~1436) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/42. README·PLAN §14 머리 문장 갱신. 49 변경 없음.

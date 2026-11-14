@@ -265,12 +265,22 @@ test.describe("유닛 조종: 플레이어", () => {
     const stop = page.locator(".map-unit-stop");
     await expect(stop).toBeVisible({ timeout: 5_000 });
     await shot(page, "unit-control-moving-390");
-    // 헤드리스 소프트웨어 WebGL은 느려(프레임 몇 장/초) 사진을 찍는 사이 닿을 수 있다: 닿았으면 다시 보내고 바로 멈춘다
-    if ((await stop.count()) === 0) {
-      expect(await send()).toBe(true);
-      await expect(stop).toBeVisible({ timeout: 5_000 });
+    // 헤드리스 소프트웨어 WebGL은 느려(프레임 몇 장/초) 사진을 찍는 사이·단추를 누르기 직전에 닿을 수 있다(닿으면 단추가 사라진다 — 수를 센 뒤
+    // 누르기 전에 사라지면 click이 시험 시간 끝까지 기다렸다, 2026-11-14 stop-detach). 닿았으면 다시 보내고 다시 눌러 본다(세 번까지)
+    let stopped = false;
+    for (let attempt = 0; attempt < 3 && !stopped; attempt++) {
+      if ((await stop.count()) === 0) {
+        expect(await send()).toBe(true);
+        await expect(stop).toBeVisible({ timeout: 5_000 });
+      }
+      // 클릭 동작 검사(멈춰 있음·가리지 않음)는 헤드리스 소프트웨어 WebGL에서 프레임이 몇 장/초라 몇 초 걸리고, 그사이 바닥 줄이 바뀌면 "not stable"·
+      // "detached"로 다시 시작한다(2026-11-14 trace) → 단추에 클릭 이벤트를 바로 보낸다(붙어 있을 때만, 3초)
+      stopped = await stop
+        .dispatchEvent("click", undefined, { timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false);
     }
-    await stop.click();
+    expect(stopped, "[멈추기]를 누르지 못했다(누르기 전에 닿음 세 번)").toBe(true);
     await expect(page.locator(".map-hint .map-command").first()).toHaveText(
       message("ko", "map_command_stopped", { id: cyborg ?? "" }),
       { timeout: 20_000 },
@@ -346,9 +356,10 @@ test.describe("유닛 조종: 플레이어", () => {
     expect(moved).toBe(true);
     expect(sentMoves.length).toBeGreaterThan(0);
     expect(sentMoves.every((data) => data.includes(`"unitId":${cyborg}`))).toBe(true);
-    // 다른 시험이 쓰는 내 사이보그를 세운다
+    // 다른 시험이 쓰는 내 사이보그를 세운다(누르기 전에 닿아 단추가 사라질 수 있다 — 짧게 눌러 본다)
     const stop = page.locator(".map-unit-stop");
-    if (await stop.count()) await stop.click();
+    if (await stop.count())
+      await stop.dispatchEvent("click", undefined, { timeout: 5_000 }).catch(() => undefined);
     expect(deviceErrors).toEqual([]);
   });
 

@@ -221,7 +221,9 @@ test.describe("지도 조작: 플레이어", () => {
 
     // 세운다(다른 시험이 쓰는 내 사이보그를 그 자리에)
     const stop = page.locator(".map-unit-stop");
-    if (await stop.count()) await stop.click();
+    // 누르기 전에 닿아 단추가 사라질 수 있다(짧게 눌러 본다)
+    if (await stop.count())
+      await stop.dispatchEvent("click", undefined, { timeout: 5_000 }).catch(() => undefined);
     await expect(map).toHaveAttribute("data-selected", cyborg);
     expect(cyborg).not.toBe("");
     expect(deviceErrors).toEqual([]);

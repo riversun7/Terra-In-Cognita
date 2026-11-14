@@ -133,7 +133,7 @@ const overlaps = (a: Box, b: Box): boolean =>
   b.top < a.bottom + LABEL_GAP_PX;
 
 /**
- * 국가 이름표 자리(이름표 가운데 화면 점). 넓은 국가부터(spots 차례) 가운데 → 위 → 아래 → 두 칸 위·아래 자리 가운데 다른 이름표·피할 점(보이는 도시
+ * 국가 이름표 자리(이름표 가운데 화면 점). 넓은 국가부터(spots 차례) 가운데 → 위 → 아래 → 두 칸 위·아래 자리, 그다음 오른쪽·왼쪽 가운데 다른 이름표·피할 점(보이는 도시
  * 표시)과 겹치지 않고 화면 안인 첫 자리, 그런 자리가 없으면 표시와만 겹치는 가운데. 다른 이름표와 늘 겹치면 넣지 않는다(감춘다)
  */
 export function placeLabels(
@@ -156,24 +156,29 @@ export function placeLabels(
     if (!size || size.width <= 0) continue;
     const point = projector.project(spot.latDeg, spot.lonDeg);
     if (!point?.visible) continue;
-    const boxAt = (y: number): Box => ({
-      left: point.x - size.width / 2,
-      right: point.x + size.width / 2,
+    const boxAt = (x: number, y: number): Box => ({
+      left: x - size.width / 2,
+      right: x + size.width / 2,
       top: y - size.height / 2,
       bottom: y + size.height / 2,
     });
     const inside = (box: Box): boolean =>
       box.left >= 0 && box.top >= 0 && box.right <= width && box.bottom <= height;
     const free = (box: Box): boolean => inside(box) && !labels.some((other) => overlaps(box, other));
-    // 가운데·위·아래(두 칸까지) 가운데 도시 표시도 피하는 첫 자리, 없으면 가운데(표시 위에 겹쳐도 — 표시가 이름표 위에 그려진다)
-    const candidates = [0, -1, 1, -2, 2].map((shift) =>
-      boxAt(point.y + shift * (size.height + MARKER_AVOID_PX)),
-    );
+    // 가운데·위·아래(두 칸까지)·오른쪽·왼쪽 가운데 도시 표시도 피하는 첫 자리, 없으면 가운데(표시 위에 겹쳐도 — 표시가 이름표 위에 그려진다)
+    const stepY = size.height + MARKER_AVOID_PX;
+    const stepX = size.width / 2 + MARKER_AVOID_PX * 2;
+    const candidates = [
+      boxAt(point.x, point.y),
+      ...[-1, 1, -2, 2].map((shift) => boxAt(point.x, point.y + shift * stepY)),
+      boxAt(point.x + stepX, point.y),
+      boxAt(point.x - stepX, point.y),
+    ];
     const chosen =
       candidates.find((box) => free(box) && !markers.some((marker) => overlaps(box, marker))) ??
       candidates.find((box, index) => index === 0 && free(box));
     if (!chosen) continue;
-    placed.set(spot.factionId, { x: point.x, y: (chosen.top + chosen.bottom) / 2 });
+    placed.set(spot.factionId, { x: (chosen.left + chosen.right) / 2, y: (chosen.top + chosen.bottom) / 2 });
     labels.push(chosen);
   }
   return placed;

@@ -49,7 +49,7 @@
 | ADR 바뀜, 질문 새 파일, 앞 질문 1365 답 줄 | |
 
 ## 함께 바꿔야 하는 파일
-- 같은 묶음 `boats-b3`(SIM 41·core@89)와 겹치는 판: `version.ts` 설명 줄, `manifest.json`, `tuning.json`(이 줄기 칸은 `ore_low_tier_max` 다음에 넣었다). 합칠 때 둘 다 남기고 판은 큰 값(42·90).
+- 같은 묶음 `boats-b3`(SIM 41·core@91)와 겹치는 판: `version.ts` 설명 줄, `manifest.json`, `tuning.json`(이 줄기 칸은 `ore_low_tier_max` 다음에 넣었다). 합칠 때 둘 다 남기고 판은 큰 값(42·90).
 - 배 낚시가 시설 산출(채집 직무)을 쓰게 되면 `GatherSite.tierRange`를 배가 있는 바다 칸 물 종류로 준다(지금은 건물 자리만).
 - 낚시터가 아닌 어류 시설을 더하면 `@terra/shared/catchment` `MATERIAL_FACILITY`(원자재 → 시설 하나)를 먼저 넓혀야 `fishTierRange`·`gatherSiteOf`가 그 시설을 안다.
 

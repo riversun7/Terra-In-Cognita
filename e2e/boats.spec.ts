@@ -1,14 +1,14 @@
 // 배 B1 화면 시험 — 기획 D-540(1221 "지도 위 배부터"), docs/adr/2026-11-13-boats.md.
-// 운영자(dev, 전체 보기로 구독한 연결 = 운영자 모드) 흐름: 내 사이보그가 선 2차맵에서 곧은 물가를 물 표(facilities.waterMask)로 찾아 부두를 짓고
-// (개발 재료 받기 → facility_build → dev_facility_finish), 부두에서 배를 만들고(boat_build), 사이보그를 태워(boat_board — 멀면 걸어가서),
+// 운영자(dev, 전체 보기로 구독한 연결 = 운영자 모드) 흐름: 띄운 도시 2차맵 가운데 곧은 물가가 있는 곳을 물 표(facilities.waterMask)로 찾아
+// (시험 행성은 대부분 마른 땅이다 — 내 사이보그 2차맵에는 물이 없을 수 있다) 그 도시에서 휴먼을 고용하고(ensureHuman), 부두를 짓고
+// (개발 재료 받기 → facility_build → dev_facility_finish), 부두에서 배를 만들고(boat_build), 휴먼을 태워(boat_board — 멀면 걸어가서),
 // 배를 물 위로 보내고(move_unit — 서버가 물 길로 푼다), 지도 화면에서 배를 골라 [모두 내리기]로 물가에 내린다. 테마 둘(파스텔·다크) 390px 사진.
 // 걷는 유닛이 물로 못 가는 것·배가 땅으로 못 가는 것은 단위 시험(apps/server/src/boats/service.test.ts)이 본다.
 import type { Page } from "@playwright/test";
-import { myPosition } from "./helpers/cyborgTravel.ts";
 import { pickMyUnit, openBuildingFromList, closeNearby } from "./helpers/nearby.ts";
 import { shot } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
-import { sendCommands } from "./helpers/wsCommands.ts";
+import { ensureHuman, sendCommands } from "./helpers/wsCommands.ts";
 
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
@@ -21,7 +21,11 @@ const TERRAIN = 128;
 async function trpcQuery(page: Page, route: string, input: unknown): Promise<unknown> {
   const reply: unknown = await page.evaluate(
     async ({ path, body }) =>
-      fetch(`/api/trpc/${path}?input=${encodeURIComponent(JSON.stringify(body))}`).then((r) => r.json()),
+      fetch(
+        body === undefined
+          ? `/api/trpc/${path}`
+          : `/api/trpc/${path}?input=${encodeURIComponent(JSON.stringify(body))}`,
+      ).then((r) => r.json()),
     { path: route, body: input },
   );
   return field(field(reply, "result"), "data");
@@ -104,11 +108,26 @@ async function myUnit(page: Page, mapKey: number, unitId: number): Promise<unkno
   return Array.isArray(units) ? units.find((unit: unknown) => field(unit, "unitId") === unitId) : undefined;
 }
 
+/** 띄운 도시 2차맵 가운데 곧은 물가가 있는 첫 곳(도시 시청에서 가까운 물가 차례) */
+async function coastalCity(page: Page): Promise<{ mapKey: number; sites: Site[] }> {
+  const data = await trpcQuery(page, "world.cities", undefined);
+  const cities = field(data, "cities");
+  const seen = new Set<number>();
+  for (const city of Array.isArray(cities) ? (cities as unknown[]) : []) {
+    const mapKey = Number(field(city, "mapKey"));
+    if (field(city, "loaded") !== true || seen.has(mapKey)) continue;
+    seen.add(mapKey);
+    const sites = coastSites(await waterOf(page, mapKey), {
+      x: Number(field(city, "cellX")),
+      y: Number(field(city, "cellY")),
+    });
+    if (sites.length > 0) return { mapKey, sites };
+  }
+  throw new Error("곧은 물가가 있는 도시 2차맵이 없다");
+}
+
 /** 부두를 짓고 배를 만든다(운영자 모드 연결). 부두·배 ID와 자리 */
-async function dockAndBoat(page: Page, mapKey: number, near: { x: number; y: number }, firstId: number) {
-  const isWater = await waterOf(page, mapKey);
-  const sites = coastSites(isWater, near);
-  expect(sites.length, "내 사이보그 2차맵에 곧은 물가가 없다").toBeGreaterThan(0);
+async function dockAndBoat(page: Page, mapKey: number, sites: readonly Site[], firstId: number) {
   let id = firstId;
   for (const site of sites.slice(0, 12)) {
     const replies = await sendCommands(
@@ -148,12 +167,13 @@ for (const theme of ["pastel", "dark"] as const) {
     test(`운영자: 부두 → 배 만들기 → 타기 → 물 위로 → 내리기 (${theme})`, async ({ page, deviceErrors }) => {
       test.setTimeout(300_000);
       await page.goto("/health");
-      const me = await myPosition(page);
-      if (!me) throw new Error("내 사이보그 자리를 모른다");
+      const coast = await coastalCity(page);
+      const riderId = await ensureHuman(page, "e2e_dev", coast.mapKey);
+      const me = { mapKey: coast.mapKey, unitId: riderId };
       const { buildingId, boatId, site, nextId } = await dockAndBoat(
         page,
-        me.mapKey,
-        { x: me.cellX, y: me.cellY },
+        coast.mapKey,
+        coast.sites,
         theme === "pastel" ? 7100 : 7600,
       );
       // 타기: 멀면 배 옆까지 걸어간 뒤 탄다(운영자 빠르기)
@@ -195,7 +215,9 @@ for (const theme of ["pastel", "dark"] as const) {
       expect(field(field(boatRow, "boat"), "passengers")).toEqual([me.unitId]);
 
       // 지도: 배를 고르면 승객 수·[모두 내리기]
-      await page.goto("/map?second-map-sky=off");
+      await page.goto(
+        `/map?key=${String(me.mapKey)}&at=${String(site.sailX)},${String(site.sailY)}&second-map-sky=off`,
+      );
       const screen = page.locator(".map-screen");
       await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
       await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 30_000 });

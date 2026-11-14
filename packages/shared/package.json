@@ -10,6 +10,7 @@
     "./balanceAnalysis": "./src/balanceAnalysis.ts",
     "./battleLab": "./src/battleLab.ts",
     "./battleReport": "./src/battleReport.ts",
+    "./battleReportCity": "./src/battleReportCity.ts",
     "./battleReplay": "./src/battleReplay.ts",
     "./buildingEditor": "./src/buildingEditor.ts",
     "./catchment": "./src/catchment.ts",

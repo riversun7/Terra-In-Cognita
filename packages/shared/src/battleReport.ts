@@ -3,6 +3,7 @@
 // (기기는 판정 코드를 받지 않는다). 수치 칸의 범위는 실험 도구의 입력 범위(넘침·NAS 부담 방지)이지 게임 규칙이 아니다.
 // 집계 값은 모두 판 전체의 합(정수)이다. 판마다 평균·비율은 화면이 runs로 나눠 보인다(reportRate·perRun).
 import type { LabParty } from "./battleLab.ts";
+import type { ReportCityInfo } from "./battleReportCity.ts";
 
 /** 설정 종류: 파티 대 파티(전투장), 파티 공성(팀 A가 팀 B가 지키는 도시를 친다), 정원사 웨이브 공성(서버 웨이브와 같은 함수) */
 export const REPORT_MODES = ["arena", "siege", "wave"] as const;
@@ -45,14 +46,24 @@ export const REPORT_LIMITS = {
   histogramBins: 12,
 } as const;
 
-/** 공성 전투맵: 시뮬 도시 평지 배치 + 성벽(서버 웨이브·시뮬레이터와 같은 함수) 또는 옛 열린 맵(가운데 넥서스) */
+/**
+ * 공성 전투맵: 시뮬 도시 평지 배치 + 성벽(서버 웨이브·시뮬레이터와 같은 함수), 옛 열린 맵(가운데 넥서스), 또는 실제 세계 도시(기획 D-543
+ * 1383 나 — 그 도시 2차맵의 지금 건물 배치·성벽·넥서스를 읽기만 한다, battleReportCity.ts)
+ */
 export interface ReportCity {
-  readonly layout: "city" | "open";
-  /** 주거 인원(숙소 수가 정해진다) */
+  readonly layout: "city" | "open" | "world";
+  /** 주거 인원(숙소 수가 정해진다). 실제 도시면 보지 않는다 */
   readonly housing: number;
-  /** 행정 건물 레벨(넥서스 내구도 = 행정 건물 내구도 × 레벨) */
+  /** 행정 건물 레벨(넥서스 내구도 = 행정 건물 내구도 × 레벨). 실제 도시면 보지 않는다 */
   readonly adminLevel: number;
+  /** 실제 세계 도시 ID(layout = world일 때만) */
+  readonly cityId?: number | undefined;
 }
+
+/** 파티 공성 수비: 팀 B 파티(기본) 또는 실제 도시의 세계 수비(휴먼·수호신, layout = world일 때만) */
+export type ReportSiegeDefense = "party" | "world";
+/** 웨이브 수비: 시뮬 휴먼 N명(기본), 팀 B 파티(기획 D-543 1384 나), 실제 도시의 세계 수비(layout = world일 때만) */
+export type ReportWaveDefense = "sim" | "party" | "world";
 
 export interface ReportArenaSetup {
   readonly mode: "arena";
@@ -72,6 +83,8 @@ export interface ReportSiegeSetup {
   readonly city: ReportCity;
   readonly nexusDurability: number;
   readonly limitSec: number;
+  /** 수비(없으면 party — 옛 기록) */
+  readonly defense?: ReportSiegeDefense | undefined;
 }
 
 export interface ReportWaveSetup {
@@ -86,9 +99,26 @@ export interface ReportWaveSetup {
   readonly city: ReportCity;
   readonly nexusDurability: number;
   readonly limitSec: number;
+  /** 수비(없으면 sim — 옛 기록). sim이면 defenders·defenderTech를 쓴다 */
+  readonly defense?: ReportWaveDefense | undefined;
+  /** 수비 파티(defense = party일 때 — 실험실 팀 B) */
+  readonly b?: LabParty | undefined;
 }
 
 export type ReportSetup = ReportArenaSetup | ReportSiegeSetup | ReportWaveSetup;
+
+/** 설정의 수비 종류(없으면 옛 기록 기본값). 파티 대 파티는 늘 party */
+export function reportDefense(setup: ReportSetup): ReportWaveDefense {
+  if (setup.mode === "arena") return "party";
+  if (setup.mode === "siege") return setup.defense ?? "party";
+  return setup.defense ?? "sim";
+}
+
+/** 설정이 쓰는 실제 세계 도시 ID(없으면 null) */
+export function reportCityId(setup: ReportSetup): number | null {
+  if (setup.mode === "arena" || setup.city.layout !== "world") return null;
+  return setup.city.cityId ?? null;
+}
 
 /** A/B의 설정 칸 바꿈 하나(설정 칸 ID 또는 가중치 칸 키 `<행>.<칸>`). 세계 값은 바꾸지 않는다(이 보고서 안에서만) */
 export interface ReportTuningChange {
@@ -121,6 +151,7 @@ export const REPORT_REASONS = [
   "unknown_terrain",
   "unknown_tuning",
   "tuning_out_of_range",
+  "unknown_city",
   "unknown_job",
   "unknown_report",
   "busy",
@@ -328,6 +359,8 @@ export interface ReportResult {
   readonly samples: readonly ReportHitTrace[];
   /** 이 설정의 판정 CPU(ms) */
   readonly cpuMs: number;
+  /** 실제 세계 도시를 썼으면 그 스냅숏(없으면 null, 옛 기록은 칸이 없다) */
+  readonly city?: ReportCityInfo | null | undefined;
 }
 
 export interface BattleReportBody {
@@ -439,6 +472,14 @@ export function reportProblem(
       if (!intIn(one.city.housing, 0, L.housingMax) || !intIn(one.city.adminLevel, 1, L.adminLevelMax))
         return "invalid_settings";
       if (!intIn(one.nexusDurability, 1, L.nexusMax)) return "invalid_settings";
+      const world = one.city.layout === "world";
+      if (world !== (one.city.cityId !== undefined)) return "invalid_settings";
+      if (world && !intIn(one.city.cityId ?? 0, 1, 0x7fff_ffff)) return "invalid_settings";
+      const defense = reportDefense(one);
+      // 세계 수비는 실제 도시에서만, 웨이브 파티 수비는 팀 B가 있어야 한다
+      if (defense === "world" && !world) return "invalid_settings";
+      if (one.mode === "wave" && defense === "party" && (one.b?.units.length ?? 0) === 0)
+        return "invalid_settings";
     }
   }
   if (input.variant) {
@@ -786,7 +827,7 @@ export interface ReportTraceResponse {
   /** 그 판의 공격 단계 기록(차례대로, 상한 traceMax) */
   readonly hits: readonly ReportHitTrace[];
   readonly dropped: number;
-  /** 다시 돌린 때의 세계 설정 판·팩·SIM이 저장 때와 같은가(다르면 숫자가 다를 수 있다) */
+  /** 다시 돌린 때의 세계 설정 판·팩·SIM(실제 도시면 그 스냅숏)이 저장 때와 같은가(다르면 숫자가 다를 수 있다) */
   readonly same: boolean;
   readonly winner: "a" | "b" | null;
   readonly endMs: number;

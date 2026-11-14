@@ -2,6 +2,7 @@
 // 범위는 @terra/shared REPORT_LIMITS(실험 도구 입력 범위). 판 수·예산 같은 여러 칸 검사는 reportProblem(서버·화면 같이)이 본다.
 import { normalizeLabName } from "@terra/shared/battleLab";
 import { REPORT_LIMITS, REPORT_MODES } from "@terra/shared/battleReport";
+import { REPORT_CITY_LIST_MAX } from "@terra/shared/battleReportCity";
 import { z } from "zod";
 import { labPartySchema } from "../battleLab/schema.ts";
 
@@ -15,10 +16,13 @@ const text = (max: number) =>
     .max(max * 4)
     .refine((value) => value.trim() === "" || normalizeLabName(value, max) !== null);
 
+const cityId = int(1, 0x7fff_ffff);
+/** 공성 전투맵 도시(실제 세계 도시면 cityId — 기획 D-543 1383 나. 옛 기록은 cityId가 없다) */
 const city = z.strictObject({
-  layout: z.enum(["city", "open"]),
+  layout: z.enum(["city", "open", "world"]),
   housing: int(0, L.housingMax),
   adminLevel: int(1, L.adminLevelMax),
+  cityId: cityId.optional(),
 });
 
 export const reportSetupSchema = z.discriminatedUnion("mode", [
@@ -36,6 +40,7 @@ export const reportSetupSchema = z.discriminatedUnion("mode", [
     city,
     nexusDurability: int(1, L.nexusMax),
     limitSec: int(L.limitSecMin, L.siegeLimitSecMax),
+    defense: z.enum(["party", "world"]).optional(),
   }),
   z.strictObject({
     mode: z.literal("wave"),
@@ -47,6 +52,8 @@ export const reportSetupSchema = z.discriminatedUnion("mode", [
     city,
     nexusDurability: int(1, L.nexusMax),
     limitSec: int(L.limitSecMin, L.siegeLimitSecMax),
+    defense: z.enum(["sim", "party", "world"]).optional(),
+    b: labPartySchema.optional(),
   }),
 ]);
 
@@ -95,3 +102,15 @@ export const reportTraceSchema = z.strictObject({
   which: z.enum(["a", "b"]),
   run: int(0, L.runsMax - 1),
 });
+
+/** 도시 고르기 목록(이름 글 또는 도시 ID) */
+export const reportCityListSchema = z.strictObject({
+  query: z
+    .string()
+    .max(L.nameMax * 4)
+    .optional(),
+  limit: int(1, REPORT_CITY_LIST_MAX).optional(),
+});
+
+/** 지금 도시 스냅숏(견주기) */
+export const reportCitySchema = z.strictObject({ id: cityId });

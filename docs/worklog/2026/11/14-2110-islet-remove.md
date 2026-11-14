@@ -29,6 +29,14 @@
 - 서버 지형 길(Verified: 코드 읽기): 지형 판 표지 = 생성기 판·행성 생성기 판·정의 해시·소품 규칙 해시(`mapTerrain.ts` `terrainVersionToken`). 디스크 캐시 파일 이름에 판 표지가 들어가고 시작 때 다른 판 파일을 지운다(`terrainDisk.ts` `pruneTerrainCache`). 고정본은 `second_map_pins`의 그때 지형 파일·판 표지를 그대로 쓴다(`mapFactory.ts`, 건물을 처음 놓을 때 씀).
 - 고정본을 서버에서 고쳐 쓰지 않은 까닭: 같은 판 표지(불변 주소)에 다른 내용을 내면 기기 캐시와 어긋나고, 고정본 규칙("처음 손댄 때의 지형")이 깨진다. 엔진에서 지운 번호를 그리지 않는 쪽이 작고 안전하다.
 
+## 검사 (Verified: 실행)
+- `pnpm --filter @terra/planet test`: 33 파일 241 시험 통과. 엔진 `src/props` 22 통과, 콘텐츠 `mapProps.test.ts` 8 통과.
+- `pnpm check:content`: core@92 통과.
+- `pnpm check`(TEST_DATABASE_URL 포함): 693 파일 5,229 시험 통과.
+- `pnpm build` + `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 109,212 B / 상한 131,416 B(`apps/game`은 바꾸지 않았지만 엔진·공용 꾸러미가 묶음에 들어가서 돌렸다).
+- 화면 시험 `e2e/map-props.spec.ts`·`e2e/terrain-objects.spec.ts`: 13 통과, 1 건너뜀(측정 시험, `E2E_MEASURE` 없음).
+- `pnpm check:docs origin/main` 통과.
+
 ## 함께 바꿔야 하는 파일
 - 그림을 또 지우면: `MAP_PROP_ARTS` 자리는 두고 `RETIRED_MAP_PROP_ARTS`에 넣고, 엔진 `propLook.ts` 겉모습을 지운다. 팩·시험 사본·골든 해시·`id-changes.json`을 함께 고친다.
 

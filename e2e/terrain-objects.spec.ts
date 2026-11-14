@@ -89,6 +89,15 @@ test.describe("지형 오브젝트 편집기", () => {
     await expect(screen).toHaveAttribute("data-changes", "1");
     await page.locator(".to-pending .button-small").first().click();
     await expect(screen).toHaveAttribute("data-changes", "0");
+    // 어군 티어 범위(기획 D-541 질문 1307 나): 큰 어군 T4 ~ T8, 아래를 위보다 크게 넣으면 위가 따라온다. 고래 무리(굴림표)는 칸이 없다
+    const deep = page.locator('tr[data-row="school_deep"] .to-tiers');
+    await expect(deep).toHaveAttribute("data-tiers", "4-8");
+    await expect(page.locator('tr[data-row="whale_pod"] .to-tiers')).toHaveCount(0);
+    await deep.locator("input").first().fill("9");
+    await expect(deep).toHaveAttribute("data-tiers", "9-9");
+    await expect(screen).toHaveAttribute("data-changes", "1");
+    await deep.scrollIntoViewIfNeeded();
+    await shot(page, "terrain-objects-tiers-390");
     expect(deviceErrors).toEqual([]);
   });
 

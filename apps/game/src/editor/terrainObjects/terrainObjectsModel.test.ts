@@ -4,6 +4,7 @@ import gatherObjectsJson from "../../../../../content/core/gather_objects.json";
 import mapPropsJson from "../../../../../content/core/map_props.json";
 import biomesJson from "../../../../../content/core/biomes.json";
 import {
+  type TerrainEntries,
   addableRows,
   buildDiff,
   changedEntries,
@@ -118,7 +119,7 @@ describe("지형 오브젝트 편집기 자료", () => {
     expect(deep.find((row) => row.id === "school_deep")?.tierRange).toEqual({ min: 4, max: 8 });
     expect(deep.find((row) => row.id === "whale_pod")?.tierRange).toBeNull();
     expect(deep.find((row) => row.id === "hydro_vent")?.tierRange).toBeNull();
-    const range = (edited: typeof pack) =>
+    const range = (edited: TerrainEntries) =>
       terrainRows(edited, "ocean_deep").find((row) => row.id === "school_deep")?.tierRange;
     let edited = setTierRange(pack, "school_deep", "min", 12);
     expect(range(edited)).toEqual({ min: 9, max: 9 });

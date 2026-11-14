@@ -113,7 +113,9 @@ const LOOKS = [
 ] as const satisfies readonly { theme: Theme; language: Language }[];
 
 /** 내 2차맵의 노두 종류 차례·오브젝트 번호(gather.objects) */
-async function outcropsOf(page: Page): Promise<{ kinds: number[]; arts: number[]; objects: number[] }> {
+async function outcropsOf(
+  page: Page,
+): Promise<{ kinds: number[]; arts: number[]; objects: number[]; schoolTiers: string[] }> {
   const mapKey = Number(await page.locator(".map-screen[data-map-key]").getAttribute("data-map-key"));
   return page.evaluate(async (key) => {
     const input = encodeURIComponent(JSON.stringify({ mapKey: key }));
@@ -126,9 +128,15 @@ async function outcropsOf(page: Page): Promise<{ kinds: number[]; arts: number[]
     const flat: unknown = typeof data === "object" && data !== null ? Reflect.get(data, "objects") : [];
     const outKinds: number[] = [];
     const arts: number[] = [];
+    const schoolTiers: string[] = [];
     if (Array.isArray(kinds))
       kinds.forEach((kind: unknown, index) => {
         const id = typeof kind === "object" && kind !== null ? Reflect.get(kind, "id") : undefined;
+        // 어군 티어 범위(기획 D-541 질문 1307 나): 판이 "사다리 Tmin~Tmax"를 보인다
+        const tiers: unknown =
+          typeof kind === "object" && kind !== null ? Reflect.get(kind, "ladderTiers") : null;
+        if (typeof id === "string" && id.startsWith("school_") && typeof tiers === "object" && tiers !== null)
+          schoolTiers.push(`${id}:${String(Reflect.get(tiers, "min"))}-${String(Reflect.get(tiers, "max"))}`);
         if (id === "stone_outcrop" || id === "copper_outcrop") {
           outKinds.push(index);
           arts.push(Number(Reflect.get(kind ?? {}, "art") ?? 0));
@@ -138,7 +146,7 @@ async function outcropsOf(page: Page): Promise<{ kinds: number[]; arts: number[]
     if (Array.isArray(flat))
       for (let i = 0; i + 3 < flat.length; i += 4)
         if (outKinds.includes(Number(flat[i + 1]))) objects.push(Number(flat[i]));
-    return { kinds: outKinds, arts, objects };
+    return { kinds: outKinds, arts, objects, schoolTiers };
   }, mapKey);
 }
 
@@ -162,6 +170,12 @@ for (const look of LOOKS) {
         .toBeGreaterThan(0);
       const found = await outcropsOf(page);
       expect(found.kinds).toHaveLength(2);
+      expect(found.schoolTiers).toEqual([
+        "school_lake:0-2",
+        "school_coastal:0-4",
+        "school_shelf:2-6",
+        "school_deep:4-8",
+      ]);
       for (const art of found.arts) expect(art).toBeGreaterThan(0);
       expect(found.objects.length).toBeGreaterThan(0);
       // 근처 자원 목록에서 노두 줄(가까운 차례로 더 보기를 눌러 찾는다)

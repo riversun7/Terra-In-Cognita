@@ -199,9 +199,10 @@ describe("국가 영토: 이음매 없음", () => {
 });
 
 describe("국가 영토: 규모", () => {
-  it("국가 16·도시 50(F9 행성 실제 크기: 반경 2칸·간격 4~5칸·잇기 12칸)이 몇 백 ms 안", () => {
+  it("국가 16·도시 50(F9 행성 실제 크기: 화면 반지름 4칸·간격 4~5칸·잇기 12칸)이 몇 백 ms 안", () => {
     const milliPerRadian = (1000 * 512) / Math.sqrt((2 * Math.PI) / 3);
-    const radius = 2000 / milliPerRadian;
+    // 화면 반지름 = max(배후지 2칸 × 2, 4칸) = 4칸
+    const radius = 4000 / milliPerRadian;
     const cell = 1000 / milliPerRadian / DEG;
     const sites: TerritorySite[] = [];
     let id = 1;

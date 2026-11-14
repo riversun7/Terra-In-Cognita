@@ -30,7 +30,7 @@ export const CORRIDOR_CELLS = 12;
 export const DISPLAY_RADIUS_SCALE = 2;
 export const DISPLAY_MIN_CELLS = 4;
 /** 격자 간격 = 그 덩이 가장 작은 원 반지름 ÷ 이 값 */
-const GRID_PER_RADIUS = 3;
+const GRID_PER_RADIUS = 6;
 /** 덩이 하나 격자 마디 수 위 끝(넘으면 간격을 넓힌다) */
 const MAX_GRID_NODES = 40_000;
 /** 경계 점 이분 탐색 횟수(격자 간격 ÷ 2^n) */
@@ -472,7 +472,7 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
         return owner !== undefined && ids.has(owner.site.id);
       };
       const loops = trace(frame, { u0, v0, step, nx, ny }, inside).map((loop) =>
-        simplifyLoop(loop, step * 0.12),
+        simplifyLoop(loop, step * 0.05),
       );
       if (loops.length === 0) continue;
       // 국가 경계 받침: 고리 변 바깥(오른쪽) 주인이 다른 국가인 몫

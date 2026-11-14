@@ -5,7 +5,6 @@
 //   CSS(cityOverlay.css·planetMap.css)는 var(--nation)만 읽는다. 색이 없으면(옛 서버·프리셋 없는 세력) data-nation 여섯 색 돌려 쓰기.
 // - 모양을 다시 본다(`#rrggbb`) — style에 서버 글자를 그대로 넣지 않는다.
 import { NATION_COLOR_PATTERN, type WorldMapFaction } from "@terra/shared/worldMap";
-import type {} from "react";
 
 declare module "react" {
   interface CSSProperties {

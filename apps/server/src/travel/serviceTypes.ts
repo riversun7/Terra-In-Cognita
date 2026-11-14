@@ -146,6 +146,11 @@ export interface Journey extends TravelRecord {
   hidden: Hidden | null;
   /** 걷는 빠르기 배수(운영자 모드에서 보낸 길은 OPERATOR_SPEED_FACTOR, 아니면 1). 저장하지 않는다 — 다시 켜면 1 */
   speedFactor: number;
+  /**
+   * 배의 길(바다 건너기, 기획 D-541 1283 나): 설 칸 = 물 칸(isNavigable), 띄우지 않은 2차맵을 건너뛰지 않는다. 저장하지 않는다 — 다시 켜면 유닛 영역으로
+   * 다시 정한다
+   */
+  sea?: boolean | undefined;
 }
 
 export interface Finished {

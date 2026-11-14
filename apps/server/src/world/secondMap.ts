@@ -793,23 +793,38 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     transferOut(unitId) {
       const unit = units.get(unitId);
-      // 배·승객은 2차맵을 넘지 않는다(바다 건너기는 B2 — docs/adr/2026-11-13-boats.md)
-      if (!unit || unit.bot || unit.domain === "sea" || unit.aboard !== undefined) return undefined;
-      const row = rowOf(unit);
-      cancelEvent(unit);
-      // 진행 중인 경로 결과는 버려진다(isCurrent가 뺀 유닛을 거른다)
-      unit.routeSeq += 1;
-      units.delete(unitId);
-      paces.delete(unitId);
-      rev += 1;
-      stream.unitHidden(rev, unitId);
-      vision.unitRemoved(unitId, unit.ownerId);
-      return row;
+      // 승객은 혼자 넘지 않는다 — 배가 승객을 데리고 넘는다(바다 건너기, 기획 D-541 1283 나)
+      if (!unit || unit.bot || unit.aboard !== undefined) return undefined;
+      const riders = [...units.values()].filter((rider) => rider.aboard === unitId);
+      const take = (taken: UnitState): UnitRow => {
+        const row = rowOf(taken);
+        cancelEvent(taken);
+        // 진행 중인 경로 결과는 버려진다(isCurrent가 뺀 유닛을 거른다)
+        taken.routeSeq += 1;
+        units.delete(taken.id);
+        paces.delete(taken.id);
+        rev += 1;
+        stream.unitHidden(rev, taken.id);
+        vision.unitRemoved(taken.id, taken.ownerId);
+        return row;
+      };
+      const row = take(unit);
+      return riders.length === 0 ? row : { ...row, riders: riders.map(take) };
     },
     transferIn(row, cellX, cellY) {
-      if (units.has(row.id) || row.kind === UNIT_KIND_BOT || !isPassable(grid, cellX, cellY, row.size))
+      const ground = row.domain === "sea" ? ensureBoatGrid() : grid;
+      if (
+        units.has(row.id) ||
+        row.kind === UNIT_KIND_BOT ||
+        !ground ||
+        !isPassable(ground, cellX, cellY, row.size)
+      )
         return false;
-      save(createUnit({ ...row, motion: standing(anchorCenter(cellX, cellY, row.size), row.speed) }));
+      const unit = createUnit({ ...row, motion: standing(anchorCenter(cellX, cellY, row.size), row.speed) });
+      save(unit);
+      // 배와 함께 온 승객을 다시 태운다(움직임 = 배 움직임)
+      for (const rider of row.riders ?? [])
+        if (!units.has(rider.id)) save(createUnit({ ...rider, aboardId: unit.id, motion: unit.motion }));
       return true;
     },
     isStandable: (cellX, cellY, size) => isPassable(grid, cellX, cellY, size),

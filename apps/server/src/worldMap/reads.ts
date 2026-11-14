@@ -582,6 +582,8 @@ export function worldMapReadsOf(options: {
   readonly catchment?: (() => CatchmentRadiusRules | undefined) | undefined;
   /** 1차맵 영토 표시 값(설정 칸 실효 값 planet_territory_*, D-544). 없으면 출발값 */
   readonly territoryDisplay?: (() => WorldTerritoryDisplay) | undefined;
+  /** 설정 칸 실효 계수표(앱). catchment·territoryDisplay를 따로 주지 않으면 여기서 읽는다 */
+  readonly society?: (() => SocietyCoefficients) | undefined;
 }): () =>
   | (WorldMapReadServices &
       TravelReads &
@@ -590,7 +592,7 @@ export function worldMapReadsOf(options: {
       NationNameReads &
       NaturalizationReads)
   | undefined {
-  const { world, planets, planetId } = options;
+  const { world, planets, planetId, society } = options;
   // 국가 1(시험 NPC 세력)도 사이보그 만들기·랭킹과 같은 이름(16번째 프리셋, nationName — WP1 6절. 지도에만 옛 "시험 NPC 세력"이 남아 있었다)
   const nameOfCode = (code: string): LocalizedName | undefined => nationName(code, options.presets);
   const leaderOfCode = (code: string): LocalizedName | undefined => nationLeaderName(code, options.presets);
@@ -620,8 +622,8 @@ export function worldMapReadsOf(options: {
     biomeName: (id) => planets?.manifest(planetId)?.biomes.find((biome) => biome.id === id)?.name,
     factionName: nameOfCode,
     factionColor: (code) => nationEmblemOf(code, options.presets)?.color,
-    catchment: options.catchment,
-    territoryDisplay: options.territoryDisplay,
+    catchment: options.catchment ?? (society ? () => catchmentRadiusRulesOf(society()) : undefined),
+    territoryDisplay: options.territoryDisplay ?? (society ? () => society().territoryDisplay : undefined),
   });
   // 2차맵 사이 이동 조회(WP9·WP11): 확인 단계(+ 위험 구간, 질문 594 나)·가는 중인 길(이동 서비스, 지금 자리의 위도·경도를 붙인다)
   const danger = createTravelDanger({

@@ -86,6 +86,11 @@ export interface TravelService {
   attachRaids(raids: TravelRaids | undefined): void;
   /** 그때 띄우기를 붙인다(world/mapSpawnWorld.ts — 없으면 띄우지 않은 목적지는 unknown_map) */
   attachSpawn(spawn: TravelSpawn | undefined): void;
+  /**
+   * 행성 값이 바다인 2차맵인가를 붙인다(boats/world.ts — 기획 D-542 1329 나). 배는 그런 띄우지 않은 2차맵만 건너뛴다. 없으면 배는 띄우지 않은
+   * 2차맵을 건너뛰지 않는다(B2 그대로)
+   */
+  attachSea(isSea: ((mapKey: number) => boolean) | undefined): void;
   /** 가는 중인 길이 그 2차맵에 서 있거나(건너뛰어 나타날 곳 포함) 그 2차맵을 노리나 — 그때 띄운 2차맵을 내리지 않는다 */
   touches(mapKey: number): boolean;
   /** 부팅: 저장한 길을 다시 잇는다(유닛을 다시 놓은 뒤). 다시 시작한 수 */

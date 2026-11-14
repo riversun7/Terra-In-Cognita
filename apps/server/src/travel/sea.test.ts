@@ -136,4 +136,42 @@ describe("바다 건너기", () => {
     });
     gap.travel.stop();
   });
+
+  it("행성 값이 바다인 띄우지 않은 2차맵은 배 빠르기로 건너뛴다(D-542 1329 나) — 승객도 함께, 땅이면 no_route", async () => {
+    const gap = rig([64, 0, 0], [0, 2]);
+    gap.map(0).addBoat({ id: 1, ownerId: OWNER, speed: START_BOATS.speed, cellX: 240, cellY: 100 });
+    gap
+      .map(0)
+      .addUnit({ id: 2, size: 1, speed: 437, cellX: 126, cellY: 100, ownerId: OWNER, kind: UNIT_KIND_HUMAN });
+    gap.map(0).addBoat({ id: 3, ownerId: OWNER, speed: START_BOATS.speed, cellX: 129, cellY: 100 });
+    expect(gap.map(0).board(2, 3)).toBe(true);
+    // 땅으로 본다(바다 아님) → 건너뛰지 않는다
+    gap.travel.attachSea((key) => key !== K[1]);
+    expect(gap.travel.plan(USER, { unitId: 1, mapKey: K[2] ?? 0, x: 60, y: 100 })).toEqual({
+      ok: false,
+      problem: "no_route",
+    });
+    gap.travel.attachSea((key) => key === K[1]);
+    const plan = gap.travel.plan(USER, { unitId: 2, mapKey: K[2] ?? 0, x: 60, y: 100 });
+    expect(plan).toMatchObject({ ok: true, plan: { unitId: 3, route: [K[0], K[1], K[2]] } });
+    expect(
+      await gap.travel.start(USER, { unitId: 2, mapKey: K[2] ?? 0, x: 60, y: 100, kind: "move" }),
+    ).toMatchObject({ ok: true, maps: 3 });
+    const first = gap.map(0).unitInfo(3);
+    if (!first) throw new Error("no boat");
+    // 변 끝에 닿으면 사라진다(배와 승객 모두)
+    await vi.advanceTimersByTimeAsync(arrivalAt(first.motion) - Date.now() + 1);
+    expect(gap.whereIs(3)).toBe(-1);
+    expect(gap.whereIs(2)).toBe(-1);
+    expect(gap.travel.hiddenAt(3)).toBeDefined();
+    // 건너뛰는 시간 ≈ 2차맵 한 장(256칸) ÷ 배 빠르기(1.5칸/초) ≈ 171초 — 3분 뒤 다음 띄운 2차맵 물 변에 나타난다
+    await vi.advanceTimersByTimeAsync(150_000);
+    expect(gap.whereIs(3)).toBe(-1);
+    await vi.advanceTimersByTimeAsync(40_000);
+    expect(gap.whereIs(3)).toBe(2);
+    expect(gap.map(2).unitInfo(2)?.aboard).toBe(3);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(gap.travel.list(USER)).toMatchObject([{ unitId: 3, state: "arrived" }]);
+    gap.travel.stop();
+  });
 });

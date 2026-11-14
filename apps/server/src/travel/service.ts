@@ -20,8 +20,10 @@
 //   (확인 단계·길 고르기는 그 2차맵을 띄운 것처럼 — 설 칸은 닿을 때 다시 본다), 유닛이 그 2차맵에 들어서려 할 때(변 끝에 닿음·건너뛰다 나타남)
 //   world/mapSpawn.ts가 띄운 뒤 넘긴다. 띄우는 동안 유닛은 변 앞에 서서 기다린다. 못 띄우면(상한) map_full로 멈춘다. 지나는 2차맵은 그대로 건너뛴다.
 // - 바다 건너기(기획 D-541 1283 나, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"): 배(영역 sea)도 같은 길로 간다. 설 칸 = 물 칸(물 격자 —
-//   넘는 자리는 두 2차맵 모두 물인 변 칸), 승객은 배와 함께 넘는다(transferOut의 riders). 승객에게 보낸 길은 그 배의 길이다. 배는 띄우지 않은
-//   2차맵을 건너뛰지 않는다(중간 2차맵이 모두 띄운 것일 때만, 목적지는 닿을 때 띄울 수 있다) — 건너뛰는 동안의 물길을 볼 수 없어서다.
+//   넘는 자리는 두 2차맵 모두 물인 변 칸), 승객은 배와 함께 넘는다(transferOut의 riders). 승객에게 보낸 길은 그 배의 길이다.
+//   먼 바다(기획 D-542 1329 나, ADR "바뀜 (2026-11-14, B3)"): 띄우지 않은 지나는 2차맵이 행성 값으로 바다(물 비트 WATER_OCEAN — attachSea)면 배도
+//   걷는 유닛처럼 건너뛴다(곧은 거리 ÷ 배 빠르기 뒤 다음 띄운 2차맵 물 변에 나타난다, 승객도 함께). 바다가 아닌 2차맵이 끼면 no_route(가는 중에
+//   바뀌었으면 멈춘다). 바다 습격 표는 해상 전투 때(1330 가) — 배는 도중 습격을 굴리지 않는다.
 import { AVERAGE_CELL_EDGE_METERS } from "@terra/planet/territory";
 import {
   type CellPoint,
@@ -120,6 +122,16 @@ export function createTravelService(deps: TravelDeps): TravelService {
   let stopped = false;
   let raids = deps.raids;
   let spawn = deps.spawn;
+  let isSea: ((mapKey: number) => boolean) | undefined;
+  /** 배가 건너뛸 수 있나: 띄운 2차맵이거나(지나며 물 변을 다시 본다) 행성 값이 바다 */
+  const seaPassable = (mapKey: number): boolean => maps.has(mapKey) || isSea?.(mapKey) === true;
+  /** 설 칸 시험(걷는 유닛 = 땅, 배 = 물) */
+  const standableFor =
+    (sea: boolean): Standable =>
+    (mapKey, cell, size) => {
+      const map = maps.get(mapKey);
+      return map ? standsOn(map, cell, size, sea) : false;
+    };
   /** 닿을 때 띄울 2차맵: 아직 띄우지 않았고 그때 띄울 수 있으면 그 키(띄웠으면 undefined), 띄울 수 없으면 null */
   const opening = (mapKey: number): number | undefined | null =>
     maps.has(mapKey) ? undefined : spawn?.canOpen(mapKey) ? mapKey : null;
@@ -244,9 +256,10 @@ export function createTravelService(deps: TravelDeps): TravelService {
     const back = maps.get(journey.route[hidden.hop.from] ?? -1);
     if (!back) return false;
     const exit = anchorOf(hidden.exit, hidden.size);
-    const spot = back.isStandable(exit.x, exit.y, hidden.size)
+    const sea = journey.sea === true;
+    const spot = standsOn(back, exit, hidden.size, sea)
       ? exit
-      : standNear(back.mapKey, exit, hidden.size, standable);
+      : standNear(back.mapKey, exit, hidden.size, sea ? standableFor(true) : standable);
     if (!spot || !back.transferIn(hidden.row, spot.x, spot.y)) return false;
     journey.hidden = null;
     journey.hiddenUntilMs = null;
@@ -395,8 +408,8 @@ export function createTravelService(deps: TravelDeps): TravelService {
 
   /** 다음 2차맵을 띄우지 않았다: 변 끝에서 사라져 다음 띄운 2차맵 변에 나타날 때까지 건너뛴다(593 나) */
   const hide = (journey: Journey, map: SecondMap, info: Info): void => {
-    // 배는 띄우지 않은 2차맵을 건너뛰지 않는다(물길을 볼 수 없다) — 그 사이 2차맵이 내려갔으면 멈춘다
-    if (journey.sea === true) {
+    // 배는 행성 값이 바다인 2차맵만 건너뛴다(D-542 1329 나) — 그 사이 땅 2차맵이 내려갔으면 멈춘다
+    if (journey.sea === true && !journey.route.slice(journey.leg + 1, -1).every(seaPassable)) {
       finish(journey, "stopped", "blocked");
       return;
     }
@@ -430,7 +443,8 @@ export function createTravelService(deps: TravelDeps): TravelService {
    * 졌으면 부상으로 그 자리에 멈추고 true
    */
   const raided = (journey: Journey, map: SecondMap, hidden: Hidden): boolean => {
-    if (!raids) return false;
+    // 바다 습격 표는 해상 전투 때(D-542 1330 가)
+    if (!raids || journey.sea === true) return false;
     const seed = raidSeed(journey.unitId, journey.startedAtMs, hidden.hop.from);
     let outcome: ReturnType<typeof raids.fight> = null;
     let raidAt: number | null = null;
@@ -455,7 +469,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
     const mapKey = journey.route[hidden.hop.to] ?? -1;
     const target = maps.get(mapKey);
     let entry: CellPoint | null = hidden.hop.entry;
-    if (target && !target.isStandable(entry.x, entry.y, hidden.size)) {
+    if (target && !standsOn(target, entry, hidden.size, journey.sea === true)) {
       const again = hopFrom(contextOf(journey, hidden.size, hidden.hop.from), 0, hidden.exit);
       entry = again?.entry ?? null;
     }
@@ -629,8 +643,8 @@ export function createTravelService(deps: TravelDeps): TravelService {
     const route = mapRoute(where.map.mapKey, target.mapKey, loadedOr(opens));
     if (!route) return { problem: "no_route" };
     const sea = where.info.domain === "sea";
-    // 배는 띄우지 않은 2차맵을 건너뛰지 않는다(목적지는 닿을 때 띄울 수 있다)
-    if (sea && route.slice(1, -1).some((key) => !loaded(key))) return { problem: "no_route" };
+    // 배는 행성 값이 바다인 띄우지 않은 2차맵만 건너뛴다(D-542 1329 나, 목적지는 닿을 때 띄울 수 있다)
+    if (sea && !route.slice(1, -1).every(seaPassable)) return { problem: "no_route" };
     const cell = { x: target.x, y: target.y };
     const legs = planLegs(
       routeContext(route, cell, where.info.size, standableOr(opens, sea), loadedOr(opens)),
@@ -777,6 +791,10 @@ export function createTravelService(deps: TravelDeps): TravelService {
 
     attachSpawn(next) {
       spawn = next;
+    },
+
+    attachSea(next) {
+      isSea = next;
     },
 
     touches(mapKey) {

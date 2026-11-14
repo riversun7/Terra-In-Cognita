@@ -30,6 +30,7 @@ function fakeService(calls: string[]): TravelService {
     hiddenAt: () => undefined,
     attachRaids: () => {},
     attachSpawn: () => {},
+    attachSea: () => {},
     touches: () => false,
     restore: () => Promise.resolve(0),
     runDue: () => {},

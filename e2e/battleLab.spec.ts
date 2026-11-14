@@ -164,21 +164,21 @@ test.describe("개발자", () => {
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 
-  test("공격력 = 스탯 공격력 + 무기 몫(D-502): 새 사이보그 맨손 10·명중 73.8%, 검 10 + 8 = 18, 미리 보기 공격 표", async ({
+  test("공격력 = 스탯 공격력 + 무기 몫(D-502, D-539): 새 사이보그 맨손 15·명중 100%, 검 15 + 8 = 23, 미리 보기 공격 표", async ({
     page,
     deviceErrors,
   }) => {
     await labReady(page);
-    // 맨손(Lv 1, 1차 모두 10): 무기 몫 0, 적정 DEX = 1 × 1.5 + 10 = 11.5 → 850‰ × 10 ÷ 11.5 = 738‰
+    // 맨손(Lv 1, 1차 모두 10): 물리 기본 공격력 = STR + ⌊VIT ÷ 2⌋ = 15(D-539), 맨손 명중은 늘 100%(D-538 — bare_hit 1000)
     const bare = at(await trpcData(page, "battleLab.preview", labUnit({ kind: "natural" })), "combat");
-    expect([at(bare, "realAttack"), at(bare, "hitPm")]).toEqual([10, 738]);
+    expect([at(bare, "realAttack"), at(bare, "hitPm")]).toEqual([15, 1000]);
     expect(at(bare, "appropriate", "hit")).toEqual({ stat: 10, appropriateMilli: 11_500, ratioPm: 869 });
-    // 검(공격력 20·적정 STR 25): 10 + 20 × 10 ÷ 25 = 18, Lv 30 균형형(39) → 39 + 20 = 59
+    // 검(공격력 20·적정 STR 25): 15 + 20 × 10 ÷ 25 = 23, Lv 30 균형형(39) → 39 + ⌊39 ÷ 2⌋ + 20 = 78
     const sword = { kind: "item", id: "test_sword", pm: 0 };
     const lv1 = at(await trpcData(page, "battleLab.preview", labUnit(sword)), "combat");
-    expect(at(lv1, "realAttack")).toBe(18);
+    expect(at(lv1, "realAttack")).toBe(23);
     const lv30 = at(await trpcData(page, "battleLab.preview", labUnit(sword, 30, 39)), "combat");
-    expect(at(lv30, "realAttack")).toBe(59);
+    expect(at(lv30, "realAttack")).toBe(78);
     // 화면: 편집 유닛의 공격 표에 스탯 공격력·무기 공격력·1차 ÷ 적정·비율 칸이 있다
     await page.locator(".bl-team[data-team='a'] .bl-unit-pick").nth(1).click();
     const basic = page.locator(".bl-attacks tr[data-attack='basic'] td");

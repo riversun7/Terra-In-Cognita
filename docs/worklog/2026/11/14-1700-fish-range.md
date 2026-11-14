@@ -63,7 +63,12 @@
 - 유닛 추천의 물 종류 줄은 낚시터가 추천 위 둘에 들 때만 보인다. 화면 시험은 서버 시험(`guide.test.ts`)만 본다.
 
 ## 검사
-(아래 "검사 결과"에 적는다)
+- Verified: `pnpm check`(TEST_DATABASE_URL 있음) 통과 — 포맷·린트·타입·경계·파일 크기·다국어·디자인 값·콘텐츠(core@90), 시험 690파일 5,226개.
+- Verified: `pnpm check:content origin/main`(호환 포함, 기준 `3ed82a2`), `pnpm check:docs origin/main`, `pnpm docs:index`.
+- Verified: 새·바꾼 시험 — shared `fishWater.test.ts`(새 8)·`gatherExpect.test.ts`(새 1), sim `economy/gather.test.ts`(새 2)·`simulator/catchmentRun.test.ts`(새 3), 서버 `facilities/fishWater.test.ts`(새 3)·`npc/catchmentGeometry.test.ts`(새 1)·`labor/gatherWork.test.ts`(새 1)·`roster/gatherSheet.test.ts`(새 1)·`roster/guide.test.ts`(새 1).
+- Verified: `pnpm build`(exit 0) + `node scripts/check-pwa.mjs` + `pnpm check:bundle`(첫 화면 109,288 B / 상한 131,416 B) 통과. 빌드 뒤 바꾼 것은 서버 시험 파일 둘(칸 키 타입)뿐이다.
+- Verified: `pnpm e2e e2e/gather-station.spec.ts e2e/gather-expect.spec.ts e2e/cyborg.spec.ts` 38 통과, 10.8분(새 확인: 사이보그 판 낚시터 물 종류 줄, 예상 확률 탭 물 종류 고르기 대륙붕·민물·접지 않음).
+- 사진: `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/fish-range-shots/cyborg-gather-390-{pastel,dark}.png`(효율 낚시터 줄 — 물 종류 넷 줄이 390에서 넘치지 않음), `gather-expect-{neon-ko-1440,light-ko-390}.png`(예상 확률 탭, 390 사진은 화면 위쪽만 — 물 종류 고르기는 시험이 본다).
 
 ## 사용자 결정 대기
 - 질문 1411~1414(`docs/questions/2026-11-14-fish-range.md`).

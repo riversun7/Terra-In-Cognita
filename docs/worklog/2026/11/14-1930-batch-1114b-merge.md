@@ -46,6 +46,7 @@
   - 그 전 7906f49 화면 시험(battleLab·dev-stagebar·tuning 등)은 시험 셋을 고친 뒤 통과했다.
   - main 합친 뒤 8a73ecb: `pnpm check` 통과, 빌드·`check-pwa`·`check:bundle`(109,654 B) 통과. 화면 시험 gather·inventory·map-hud·economy·boats·cyborg·character-3d·gather-station 80 통과·1 실패(경제 물건 수, 위 고침)·2 건너뜀, unit-control·play-map 44/44 통과. economy만 다시: 24 통과·1 실패(같은 것) → 고침.
   - 마지막(경제 시험 고침 + 작은 섬 지움 합친 뒤): 빌드·`check-pwa`·`check:bundle`(109,643 B / 131,416 B)·`check:content`(core@92) 통과, 화면 시험 economy·map-props·terrain-objects 38 통과·1 건너뜀(측정 전용).
+  - main(다른 세션의 2차맵 건축 모드 1단계, cd207a1)을 한 번 더 합침: 충돌은 `apps/server/src/facilities/world.ts` 머리 주석·import 한 곳(둘 다 남김)과 `docs/WORKLOG.md`. 서버 타입 검사, 빌드·`check-pwa`·`check:bundle`(109,656 B), 화면 시험 build-mode·facilities·gather-station 20/20 통과.
   - 작은 섬 지움 줄기: `pnpm check` 693 파일·5,229 시험, 빌드·묶음, map-props·terrain-objects 13 통과(줄기 기록).
 - 전투 보고서 1,000판 23초는 개발 컨테이너 값이다. NAS 값은 Unknown.
 - 배 B3 NPC 배: 측정한 세계에 부두가 0개라 NPC 배가 실제로 돈 것은 보지 못했다(boats-b3 기록).

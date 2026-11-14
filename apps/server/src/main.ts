@@ -15,7 +15,7 @@ import { createLivePresets } from "./npc/presets.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
 import { createWorkerBaker } from "./planet/baker.ts";
 import { type PlanetSourceSpec, createPlanetSource, planetSpecsFromPack } from "./planet/sources.ts";
-import { mapPropInputsFromPack } from "./world/mapProps.ts";
+import { mapPropInputsFromPack, mapPropSlowByArtFromPack } from "./world/mapProps.ts";
 import { gatherKindsFromPack } from "./gather/kinds.ts";
 import {
   PLANET_EDITOR_READY_MESSAGE,
@@ -181,6 +181,8 @@ app = await buildApp({
   gatherObjects: gatherKindsFromPack(loaded.pack),
   secondMaps: {
     props: mapPropInputsFromPack(loaded.pack),
+    // 느려짐 소품(눈더미·모래언덕·늪 웅덩이)의 느림 배율 — 지형 비용에 넣는다(기획 D-540 질문 1223 나, SIM_VERSION 37)
+    slowByArt: mapPropSlowByArtFromPack(loaded.pack),
     runner: { kind: "worker", workerUrl: terrainWorkerUrl },
   },
 });

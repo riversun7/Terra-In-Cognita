@@ -5,6 +5,7 @@ import {
   CLIFF_RELIEF_CM,
   COVER_BLOCKING,
   FOREST_COST_PM,
+  SLOW_TABLE_SIZE,
   SURFACE_COST,
   isTreeArt,
   placementCostsFromLayers,
@@ -59,6 +60,49 @@ describe("지형 층 비용", () => {
     expect([1, 2, 3].every(isTreeArt)).toBe(true);
     expect([0, 4, 5, 6, 7].some(isTreeArt)).toBe(false);
     expect(() => placementCostsFromLayers({ ...layers, cover, art: new Uint8Array(3) })).toThrow(RangeError);
+  });
+
+  it("느림 배율 표: 그 그림이 선 지나갈 수 있는 칸은 지표 비용 × 배율, 막힘·차폐·숲은 그대로, 그림 층이 없으면 무시", () => {
+    const layers = flat();
+    layers.surface[3] = 6; // 눈(1300) — 배치 칸 (6 ~ 7, 0 ~ 1)
+    const cover = new Uint8Array(PLACEMENT_CELLS);
+    const art = new Uint8Array(PLACEMENT_CELLS);
+    const slowByArt = new Uint16Array(SLOW_TABLE_SIZE);
+    slowByArt[21] = 1500; // 눈더미(그림 21)
+    slowByArt[44] = 1000; // 1000 = 없음
+    art[6] = 21; // 눈 위 눈더미
+    art[256 * 2 + 2] = 21; // 풀 위 눈더미
+    art[256 * 2 + 3] = 44;
+    art[256 * 2 + 4] = 21;
+    cover[256 * 2 + 4] = 1; // 은폐 칸도 느려진다
+    art[256 * 2 + 5] = 21;
+    cover[256 * 2 + 5] = COVER_BLOCKING; // 차폐(나무 아님)는 막힘 그대로
+    art[256 * 2 + 6] = 1;
+    cover[256 * 2 + 6] = COVER_BLOCKING; // 숲은 숲 비용 그대로
+    slowByArt[1] = 3000;
+    layers.surface[0] = 0; // 물(막힘) 위 — 배치 칸 (0 ~ 1, 0 ~ 1)
+    art[1] = 21;
+    const costs = placementCostsFromLayers({ ...layers, cover, art, slowByArt });
+    expect(costs[6]).toBe(Math.floor((1300 * 1500) / 1000));
+    expect(costs[7]).toBe(1300);
+    expect(costs[256 * 2 + 2]).toBe(1500);
+    expect(costs[256 * 2 + 3]).toBe(1000);
+    expect(costs[256 * 2 + 4]).toBe(1500);
+    expect(costs[256 * 2 + 5]).toBe(0);
+    expect(costs[256 * 2 + 6]).toBe(Math.floor((1000 * FOREST_COST_PM) / 1000));
+    expect(costs[1]).toBe(0);
+    // 표가 없거나 그림 층이 없으면 예전 그대로
+    const plain = placementCostsFromLayers({ ...layers, cover, art });
+    expect([plain[6], plain[256 * 2 + 2]]).toEqual([1300, 1000]);
+    expect(placementCostsFromLayers({ ...layers, cover, slowByArt })[256 * 2 + 2]).toBe(1000);
+    // u16 상한
+    const huge = new Uint16Array(SLOW_TABLE_SIZE);
+    huge[21] = 0xffff;
+    layers.surface[3] = 10;
+    expect(placementCostsFromLayers({ ...layers, art, slowByArt: huge })[6]).toBe(0xffff);
+    expect(() => placementCostsFromLayers({ ...layers, art, slowByArt: new Uint16Array(3) })).toThrow(
+      RangeError,
+    );
   });
 
   it("네 꼭짓점 높이 차가 벼랑 기준 이상이면 막힘", () => {

@@ -348,12 +348,13 @@
       "id": "snowdrift",
       "name": { "ko": "눈더미", "en": "Snowdrift" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 느려짐 판정은 아직 없다(질문 1223).",
-        "en": "Decoration (cover 0). Slowing has no rules effect yet (question 1223)."
+        "ko": "느려짐 소품(엄폐 0): 이 칸을 지나는 비용이 1.5배라 길 고르기가 돌아간다(느림 배율 [임시], 기획 D-540 질문 1223 나).",
+        "en": "Slowing prop (cover 0): crossing it costs 1.5 times as much, so pathfinding goes around it (slow multiplier is provisional, D-540 question 1223)."
       },
       "placement": "scatter",
       "art": "snowdrift",
       "cover": 0,
+      "slowPm": 1500,
       "biomes": [{ "biome": "ice_sheet", "weight": 60 }, { "biome": "tundra", "weight": 20 }],
       "curves": { "temperatureC": { "min": -100, "idealMin": -100, "idealMax": -4, "max": 2 } },
       "clump": { "cells": 16, "threshold": 450 },
@@ -422,12 +423,13 @@
       "id": "sand_dune",
       "name": { "ko": "모래언덕", "en": "Sand dune" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 느려짐 판정은 아직 없다(질문 1223).",
-        "en": "Decoration (cover 0). Slowing has no rules effect yet (question 1223)."
+        "ko": "느려짐 소품(엄폐 0): 이 칸을 지나는 비용이 1.5배라 길 고르기가 돌아간다(느림 배율 [임시], 기획 D-540 질문 1223 나).",
+        "en": "Slowing prop (cover 0): crossing it costs 1.5 times as much, so pathfinding goes around it (slow multiplier is provisional, D-540 question 1223)."
       },
       "placement": "scatter",
       "art": "sand_dune",
       "cover": 0,
+      "slowPm": 1500,
       "biomes": [{ "biome": "desert", "weight": 50 }],
       "clump": { "cells": 32, "threshold": 500 },
       "maxShare": 40
@@ -504,12 +506,13 @@
       "id": "mud_pool",
       "name": { "ko": "늪 웅덩이", "en": "Mud pool" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 느려짐 판정은 아직 없다(질문 1223).",
-        "en": "Decoration (cover 0). Slowing has no rules effect yet (question 1223)."
+        "ko": "느려짐 소품(엄폐 0): 이 칸을 지나는 비용이 1.5배라 길 고르기가 돌아간다(느림 배율 [임시], 기획 D-540 질문 1223 나).",
+        "en": "Slowing prop (cover 0): crossing it costs 1.5 times as much, so pathfinding goes around it (slow multiplier is provisional, D-540 question 1223)."
       },
       "placement": "scatter",
       "art": "mud_pool",
       "cover": 0,
+      "slowPm": 1500,
       "biomes": [{ "biome": "wetland", "weight": 25 }, { "biome": "tropical_rainforest", "weight": 8 }],
       "curves": { "humidity": { "min": 120, "idealMin": 180, "idealMax": 255, "max": 255 } },
       "clump": { "cells": 8, "threshold": 500 },

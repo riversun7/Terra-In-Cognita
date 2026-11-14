@@ -3,7 +3,8 @@
 // 바이옴·환경 곡선으로 그 땅다운 모습을 만든다. ADR 46 "바뀜 (2026-11-11)")을 둔다. 칸마다 작은 풀포기·자갈은 기기 장식이라 팩에 없다.
 // - forest: 숲 칸(행성 숲 밀도와 노이즈로 차폐·은폐를 정한 칸, ADR 35 질문 27 기본안)의 나무 그림을 고른다. 엄폐 값은 숲 나누기가 정한다.
 // - scatter: 자기 엄폐 값(0 없음·1 은폐·2 차폐)으로 흩어 놓는다. 차폐는 지나갈 수 없다(D-227 ①). water = true면 물 칸에만 놓는
-//   장식(엄폐 0, 기획 D-536 대륙붕·심해·호수).
+//   장식(엄폐 0, 기획 D-536 대륙붕·심해·호수). slowPm = 느림 배율(천분율, 기획 D-540 — 질문 1223 나): 그 소품이 선 칸을 지나는 지형
+//   비용 × 배율 ÷ 1000(길 고르기가 돌아간다, @terra/sim placementCostsFromLayers). 지나갈 수 있는 마른 칸 소품(엄폐 0·1)만.
 // - 비중: 바이옴마다 기본 비중(천분율) × 환경 곡선 값(0 ~ 1000)의 곱. scatter는 배치 칸 가운데 그 소품이 놓일 천분율,
 //   forest는 숲 칸에서 나무 그림끼리의 상대 비중이다.
 // - 곡선 {min, idealMin, idealMax, max}: min 이하·max 이상 0, idealMin ~ idealMax 1000, 그 사이는 곧게 잇는다.
@@ -71,6 +72,11 @@ const scatterProp = z.strictObject({
    * 엄폐 값은 0이어야 한다. 없으면 false(마른 칸)
    */
   water: z.boolean().optional(),
+  /**
+   * 느림 배율(천분율, 1001 ~ 5000 — 1500 = 1.5배, 기획 D-540 질문 1223 나, 42 §5 "느려짐"): 그 소품이 선 칸의 지형 비용 × 배율 ÷ 1000.
+   * 지나갈 수 있는 마른 칸 소품(엄폐 0·1, water 아님)만. 없으면 느려지지 않는다. 값은 [임시]
+   */
+  slowPm: z.int().min(1001).max(5000).optional(),
 });
 
 export const mapPropEntrySchema = z
@@ -85,6 +91,18 @@ export const mapPropEntrySchema = z
         code: "custom",
         path: ["cover"],
         message: "물 위 소품(water: true)은 엄폐 값(cover)이 0이어야 합니다.",
+      });
+    }
+    // 느림 배율은 지나갈 수 있는 마른 칸 소품만(차폐는 막힘, 물 칸은 판정에 쓰지 않는다)
+    if (
+      entry.placement === "scatter" &&
+      entry.slowPm !== undefined &&
+      (entry.cover === 2 || entry.water === true)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["slowPm"],
+        message: "느림 배율(slowPm)은 지나갈 수 있는 마른 칸 소품(엄폐 0·1, water 아님)에만 적습니다.",
       });
     }
     // 필드 검사가 실패해도 불리므로(Zod 4.6.7) 모양을 다시 보고 틀리면 건너뛴다

@@ -1,6 +1,6 @@
 /*
  * 1차맵 시험 화면 — map.css(2차맵 HUD: 화면 전체 지도, 위아래 판)를 함께 쓰고 1차맵만의 판을 더한다:
- * 누른 칸 안내, 레이어(지형·기후), 고도 과장 막대. 확대 단계는 zoomLadder.css(1·2차맵 같이). 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 누른 칸 안내, 레이어(접는 단추 + 열리는 판), 운영 메뉴의 고도 과장 막대. 확대 단계는 zoomLadder.css(1·2차맵 같이). 값은 styles/tokens.css의 var(--…)만 쓴다.
  * 판은 불투명하다: 세계(행성) 색은 테마와 상관없으므로 다크 테마에서도 판 위 글자가 읽혀야 한다(D-070).
  */
 
@@ -30,10 +30,53 @@
   font-weight: var(--font-weight-regular);
 }
 
+/* 조작 판(바뀜 2026-11-14): 늘 보이는 한 줄(레이어 접는 단추·들어가기·내 위치)과 그 위에 열리는 레이어 판. 판 바탕은 열린 판에만 */
 .planet-controls {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-2);
+}
+.planet-layer-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-self: stretch;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+/* 접는 단추: 아이콘 + 지금 레이어 이름 + 펼침 표시(닫힘 ▾ · 열림 ▴) */
+.planet-layer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+.planet-layer-toggle .icon {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+.planet-layer-toggle-caret::before {
+  content: "▾";
+  font-size: var(--font-size-xs);
+}
+.planet-layer-toggle[aria-expanded="true"] .planet-layer-toggle-caret::before {
+  content: "▴";
+}
+.planet-layer-toggle[aria-expanded="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+/* 운영 메뉴 안 고도 과장 막대(운영진만) — 한 줄을 다 쓴다 */
+.map-operator-menu-row.planet-slider {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
 }
 .planet-row {
   display: flex;
@@ -204,7 +247,7 @@
 .planet-area {
   margin-top: var(--space-2);
 }
-/* 가까이 본 곳의 2차맵 들어가기·내 위치 — 조작 판 첫 줄 */
+/* 늘 보이는 줄: 레이어 접는 단추·가까이 본 곳의 2차맵 들어가기·내 위치 */
 .planet-jump {
   display: flex;
   flex-wrap: wrap;

@@ -1,4 +1,4 @@
-import type { WorldMapCity, WorldMapHull } from "@terra/shared/worldMap";
+import type { WorldMapCity } from "@terra/shared/worldMap";
 import { describe, expect, it } from "vitest";
 import { territoryAt } from "./territoryPick.ts";
 
@@ -12,6 +12,7 @@ const city = (
   latDeg: number,
   lonDeg: number,
   radiusDeg: number,
+  catchmentDeg?: number,
 ): WorldMapCity => ({
   id,
   factionId,
@@ -28,39 +29,41 @@ const city = (
   start: false,
   grade: 1,
   radiusMilli: radiusDeg * DEG,
+  ...(catchmentDeg === undefined ? {} : { catchmentMilli: catchmentDeg * DEG }),
   loaded: false,
   viewable: false,
   land: null,
 });
 
-describe("영토 레이어 누른 곳의 국가", () => {
-  const cities = [city(1, 10, 0, 0, 2), city(2, 20, 0, 3, 2), city(3, 20, 10, 10, 0)];
-  const hulls: WorldMapHull[] = [
-    {
-      factionId: 20,
-      points: [
-        [8, 8],
-        [8, 14],
-        [14, 14],
-        [14, 8],
-      ],
-    },
-  ];
-
-  it("영향권 안이면 (거리 ÷ 반경)이 가장 작은 도시", () => {
-    expect(territoryAt(0, 0.5, cities, hulls, MILLI_PER_RADIAN)).toEqual({ factionId: 10, cityId: 1 });
-    expect(territoryAt(0, 2.2, cities, hulls, MILLI_PER_RADIAN)).toEqual({ factionId: 20, cityId: 2 });
+describe("영토 레이어 누른 곳의 국가(그린 영토와 같은 규칙)", () => {
+  it("원이 덮는 도시 가운데 가장 가까운 도시 — 다른 국가 원이 겹친 곳은 두 도시의 가운데가 경계", () => {
+    const cities = [city(1, 10, 0, 0, 2), city(2, 20, 0, 3, 2)];
+    expect(territoryAt(0, 1.4, cities, MILLI_PER_RADIAN)).toEqual({ factionId: 10, cityId: 1 });
+    expect(territoryAt(0, 1.6, cities, MILLI_PER_RADIAN)).toEqual({ factionId: 20, cityId: 2 });
   });
 
-  it("영향권 밖이면 껍질(꼭짓점 차례와 상관없이), 그 국가의 가장 가까운 도시", () => {
-    expect(territoryAt(11, 11, cities, hulls, MILLI_PER_RADIAN)).toEqual({ factionId: 20, cityId: 3 });
-    const points = hulls[0]?.points ?? [];
-    const reversed: WorldMapHull[] = [{ factionId: 20, points: points.toReversed() }];
-    expect(territoryAt(11, 11, cities, reversed, MILLI_PER_RADIAN)?.factionId).toBe(20);
+  it("배후지 반경이 있으면 그 원 × 2(영향권 반경보다 넓다)", () => {
+    const cities = [city(1, 10, 0, 0, 0.1, 2)];
+    expect(territoryAt(0, 3.5, cities, MILLI_PER_RADIAN)).toEqual({ factionId: 10, cityId: 1 });
+    expect(territoryAt(0, 4.5, cities, MILLI_PER_RADIAN)).toBeNull();
   });
 
-  it("어디에도 없으면 null, 환산이 0이면 영향권을 보지 않는다", () => {
-    expect(territoryAt(-30, 60, cities, hulls, MILLI_PER_RADIAN)).toBeNull();
-    expect(territoryAt(0, 0.5, cities, [], 0)).toBeNull();
+  it("같은 국가 두 도시 사이(원 밖) 땅도 그 국가 — 질문 1437 답", () => {
+    // 환산 200,000: 12칸 = 0.06 라디안(3.44°) → 3° 떨어진 두 도시를 잇는다. 화면 반지름 = max(0.5° × 2, 4칸 = 1.15°) = 1.15°
+    const perRadian = 200_000;
+    const milli = Math.round(0.5 * (Math.PI / 180) * perRadian);
+    const near = [
+      { ...city(1, 10, 0, 0, 0), radiusMilli: milli },
+      { ...city(2, 10, 0, 3, 0), radiusMilli: milli },
+    ];
+    expect(territoryAt(0, 1.5, near, perRadian)).toEqual({ factionId: 10, cityId: 1 });
+    expect(territoryAt(1, 1.5, near, perRadian)?.factionId).toBe(10);
+    expect(territoryAt(3, 1.5, near, perRadian)).toBeNull();
+  });
+
+  it("어디에도 없으면 null, 환산이 0이면 영토가 없다", () => {
+    const cities = [city(1, 10, 0, 0, 2)];
+    expect(territoryAt(-30, 60, cities, MILLI_PER_RADIAN)).toBeNull();
+    expect(territoryAt(0, 0.5, cities, 0)).toBeNull();
   });
 });

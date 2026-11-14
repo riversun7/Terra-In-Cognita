@@ -10,13 +10,14 @@ import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import type { LegendNation, ResourceLoad } from "./PlanetLayerPicker.tsx";
 import { loadResourceMap } from "./planetResource.ts";
+import { nationStyle } from "./nationColor.ts";
 import { territoryAt } from "./territoryPick.ts";
 import { cityLabel, factionColor, factionName } from "./worldMapData.ts";
 
 /** 영토 레이어에서 누른 곳의 국가 안내 한 줄(도시 자료가 없으면 null) */
 export function territoryLineOf(world: WorldCitiesResponse | null, cell: PickedCell): string | null {
   if (world?.status !== "ready") return null;
-  const hit = territoryAt(cell.latDeg, cell.lonDeg, world.cities, world.hulls, world.milliPerRadian);
+  const hit = territoryAt(cell.latDeg, cell.lonDeg, world.cities, world.milliPerRadian);
   if (!hit) return m.planet_territory_outside();
   const nation = factionName(world.factions, hit.factionId);
   const city = world.cities.find((entry) => entry.id === hit.cityId);
@@ -104,6 +105,7 @@ export function usePlanetLayers({ planetId, engineRef, engineReady, layerRef, wo
         id: faction.id,
         name: factionName(world.factions, faction.id),
         color: factionColor(world.factions, faction.id),
+        style: nationStyle(world.factions, faction.id),
       }));
   }, [world]);
 

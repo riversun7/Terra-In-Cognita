@@ -10,7 +10,15 @@ export interface WorldMapFaction {
   readonly kind: "npc" | "player";
   /** 화면 이름(팩 국가 프리셋 등). 없으면 null(코드를 보인다) */
   readonly name: LocalizedName | null;
+  /**
+   * 국가 색(`#rrggbb` 소문자) — 세력 정체성(faction_identities.color)이 있으면 그것, 없으면 팩 국가 프리셋 시그니처 색. 1차맵 영토·도시 점·
+   * 범례가 쓴다(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 둘 다 없거나 옛 서버면 null·없음 → 화면은 여섯 색 돌려 쓰기
+   */
+  readonly color?: string | null | undefined;
 }
+
+/** 국가 색 모양(`#rrggbb`) — 서버가 보내기 전에, 화면이 style에 넣기 전에 본다 */
+export const NATION_COLOR_PATTERN = /^#[0-9a-f]{6}$/;
 
 /**
  * 도시 둘레 땅(행성 값, 그 2차맵 = 1차맵 칸 하나). 시작 도시 고르기의 "주변 자원·기후"(D-6041)와 1차맵 도시 판이 보인다.
@@ -60,6 +68,11 @@ export interface WorldMapCity {
   /** 도시 등급 1 ~ 6(M2)·영향권 반경(1000분율 칸, M3). 영토를 셈하지 못했으면 null */
   readonly grade: number | null;
   readonly radiusMilli: number | null;
+  /**
+   * 도시 배후지 반경(1000분율 칸, 지금 인구·발전도 등급·기술 — @terra/shared/catchment catchmentRadiusMilli, ADR 2026-11-11-city-catchment).
+   * 1차맵 영토 원의 반지름(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 배후지 규칙이 꺼졌거나 옛 서버면 null·없음 → 화면은 radiusMilli
+   */
+  readonly catchmentMilli?: number | null | undefined;
   /** 서버가 이 2차맵을 띄워 두었다(들어갈 수 있는 맵) */
   readonly loaded: boolean;
   /** 지금 내가 이 2차맵을 볼 수 있다(내 유닛·건물·탐사 칸, 또는 전체 보기 권한 — 서버 시야 규칙) */

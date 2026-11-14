@@ -1,6 +1,7 @@
 /*
  * 1차맵 도시 덧그림(CityOverlay.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
- * 국가 색 = --color-stat-* 여섯을 국가 차례대로(data-nation 0 ~ 5 → --nation, 개발 영토 화면과 같은 돌려 쓰기). 위치는 엔진 프레임이 transform으로 놓는다.
+ * 국가 색 = 서버가 보낸 국가 고유 색(style의 --nation·--nation-ink·--nation-halo, nationColor.ts — 자료 색이라 CSS에 쓰지 않는다).
+ * 색이 없으면 --color-stat-* 여섯을 국가 차례대로(data-nation 0 ~ 5 → --nation, 개발 영토 화면과 같은 돌려 쓰기). 인라인 style이 이긴다. 위치는 엔진 프레임이 transform으로 놓는다.
  * 덧그림 판은 지도 위를 덮지만 누르기는 지나보낸다(표시 단추만 받는다).
  */
 .city-overlay {
@@ -30,7 +31,8 @@
   --nation: var(--color-stat-vit);
 }
 
-/* 영토 경계: 껍질(선)·영향권(엷은 면 + 선) */
+/* 영토(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"): 국가마다 도시 원 + 도시 사이 땅. 국가끼리 겹치지 않는 고리라 칠은 각자 반투명,
+   테두리는 같은 고리, 두 국가가 맞닿은 선은 판색 받침 위에 */
 .city-territory {
   position: absolute;
   inset: 0;
@@ -38,23 +40,50 @@
   height: 100%;
   overflow: visible;
 }
-.city-hull {
-  fill: none;
-  stroke: var(--nation);
-  stroke-width: var(--border-w);
-  stroke-linejoin: round;
-  stroke-dasharray: var(--space-2) var(--space-1);
-}
-/* 국가 영토 = 영향권 원들의 합: 칠은 한 번(겹쳐도 진해지지 않는다), 테두리는 바깥 둘레만(가리개가 안쪽 반을 지우니 두 배 굵기) */
 .city-area-fill {
-  fill: color-mix(in srgb, var(--nation) 14%, transparent);
+  fill: var(--nation);
+  fill-opacity: 0.18;
+  fill-rule: evenodd;
   stroke: none;
+}
+.city-area-divider {
+  fill: none;
+  stroke: var(--color-surface);
+  stroke-width: calc(var(--border-w) * 3);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.85;
 }
 .city-area-edge {
   fill: none;
   stroke: var(--nation);
-  stroke-width: calc(var(--border-w) * 2);
+  stroke-width: var(--border-w);
   stroke-linejoin: round;
+  stroke-linecap: round;
+}
+/* 국가 이름표(영토 레이어만): 영토 가운데, 지도 위에서 읽히게 판색 테두리 글자. 누르기는 지나보낸다 */
+.city-area-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: calc(var(--tap-size) * 4);
+  overflow: hidden;
+  color: var(--nation);
+  font-family: var(--font-display);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-display);
+  line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* 번짐 = 국가 색과 대비가 큰 글자 색(--nation-halo: 밝은 국가 색이면 어둡게) — 어느 국가 색·어느 땅 위에서도 읽힌다 */
+  text-shadow:
+    0 0 var(--hairline) var(--nation-halo, var(--color-surface)),
+    0 0 var(--space-1) var(--nation-halo, var(--color-surface)),
+    0 0 var(--space-1) var(--nation-halo, var(--color-surface));
+  pointer-events: none;
+}
+.city-area-label[data-shown="false"] {
+  visibility: hidden;
 }
 
 /* 도시 표시: 누르는 곳은 --tap-size, 안에 국가 색 점과 이름표 */
@@ -174,20 +203,19 @@
   height: calc(var(--status-dot) * 2.6);
 }
 .city-marker-capital {
-  color: var(--color-surface);
+  /* 국가 색 점 위 별: 국가 색과 대비가 큰 색(--nation-ink) */
+  color: var(--nation-ink, var(--color-surface));
   font-size: var(--font-size-xs);
   line-height: 1;
 }
 
-/* 영토 레이어(사용자 요청 2026-11-12): 흐린 바탕 위에 영토 칠을 진하게, 껍질도 칠하고 실선으로 */
+/* 영토 레이어(사용자 요청 2026-11-12): 흐린 바탕 위에 영토 칠을 진하게, 테두리를 굵게 */
 .city-overlay[data-emphasis="territory"] .city-area-fill {
-  fill: color-mix(in srgb, var(--nation) 38%, transparent);
+  fill-opacity: 0.42;
 }
 .city-overlay[data-emphasis="territory"] .city-area-edge {
-  stroke-width: calc(var(--border-w) * 3);
-}
-.city-overlay[data-emphasis="territory"] .city-hull {
-  fill: color-mix(in srgb, var(--nation) 24%, transparent);
   stroke-width: calc(var(--border-w) * 1.5);
-  stroke-dasharray: none;
+}
+.city-overlay[data-emphasis="territory"] .city-area-divider {
+  stroke-width: calc(var(--border-w) * 4);
 }

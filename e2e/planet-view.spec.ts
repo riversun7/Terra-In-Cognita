@@ -9,7 +9,7 @@
 //   지도를 받아 엔진에 넣는다, 원자재를 바꾸면 그림이 바뀐다) → 영토(자원 지도를 버리고, 영토 덧그림을 진하게, 누른 곳의 국가 줄).
 // 사진: 390px × 파스텔·다크 × 한국어·영어(확대 단계·항성계 보기), 1440px 파스텔 항성계 보기, 2차맵 확대 단계,
 // 390px × 파스텔·다크 레이어 셋(고도·자원·영토)(E2E_SHOTS_DIR).
-import { closeOperatorMenu, setPerfPanel } from "./helpers/mapHud.ts";
+import { closeOperatorMenu, openOperatorMenu, setPerfPanel } from "./helpers/mapHud.ts";
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -61,9 +61,10 @@ async function mapOnlyShot(page: Page, name?: string): Promise<Buffer> {
   return png;
 }
 
-/** 고도 과장 막대를 옮기고 엔진이 받을 때까지(1초 요약) + 그린 프레임 */
+/** 고도 과장 막대(운영 메뉴 안 — 바뀜 2026-11-14)를 옮기고 엔진이 받을 때까지(1초 요약) + 그린 프레임 */
 async function setExaggeration(page: Page, value: number): Promise<void> {
-  await page.locator("#planet-exaggeration").fill(String(value));
+  const menu = await openOperatorMenu(page);
+  await menu.locator("#planet-exaggeration").fill(String(value));
   await expect(page.locator(".planet-screen")).toHaveAttribute("data-engine-exaggeration", String(value));
   await page.waitForTimeout(400);
 }
@@ -261,9 +262,9 @@ test.describe("처음 단계·성능 판: 플레이어", () => {
     // 엔진 요약(data-frames)이 선 뒤에도 성능 판을 그리지 않는다
     await expect(page.locator(".planet-screen")).toHaveAttribute("data-frames", /^\d+$/);
     await expect(page.locator(".map-perf")).toHaveCount(0);
-    // 고도 과장 막대도 운영진만(플레이어는 처음 값 ×6 그대로)
+    // 고도 과장 막대도 운영진만(플레이어는 늘 ×12 — 사용자 결정 2026-11-14)
     await expect(page.locator("#planet-exaggeration")).toHaveCount(0);
-    await expect(page.locator(".planet-screen")).toHaveAttribute("data-engine-exaggeration", "6");
+    await expect(page.locator(".planet-screen")).toHaveAttribute("data-engine-exaggeration", "12");
     await page.goto("/map");
     await expect(page.locator(".map-screen")).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
     // 1초 요약(엔진·프레임 값)이 몇 번 돈 뒤에도 성능 판이 없다
@@ -293,7 +294,15 @@ for (const account of ["dev", "admin"] as const) {
       await closeOperatorMenu(page);
       await expect(screen.locator(".map-perf")).toBeVisible();
       await expect(screen.locator(".map-perf")).toContainText("fps");
-      await expect(page.locator("#planet-exaggeration")).toBeVisible();
+      // 고도 과장 막대는 아래 판이 아니라 운영 메뉴 안(바뀜 2026-11-14), 처음 값 ×12
+      await expect(page.locator("#planet-exaggeration")).toHaveCount(0);
+      await expect(screen).toHaveAttribute("data-engine-exaggeration", "12");
+      const menu = await openOperatorMenu(page);
+      await expect(menu.locator("#planet-exaggeration")).toBeVisible();
+      await expect(menu.locator(".planet-slider label")).toHaveText(
+        message("ko", "planet_exaggeration", { value: 12 }),
+      );
+      await closeOperatorMenu(page);
       // 막대가 엔진까지 간다. 처음 보기(5단계)에서 그림이 얼마나 바뀌는지 잰다(표준 출력, 작업 기록에 옮겨 적는다)
       await expect(screen).toHaveAttribute("data-incomplete", "false", { timeout: 60_000 });
       await setExaggeration(page, 1);
@@ -317,8 +326,16 @@ for (const account of ["dev", "admin"] as const) {
   });
 }
 
-/** 레이어 버튼을 누르고 엔진이 받을 때까지(1초 요약) + 그린 프레임 */
+/** 레이어 판을 연다(접는 단추 — 바뀜 2026-11-14) */
+async function openLayerSheet(page: Page): Promise<void> {
+  const toggle = page.locator(".planet-layer-toggle");
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  await expect(page.locator(".planet-layer-sheet")).toBeVisible();
+}
+
+/** 레이어 판을 열어 레이어 버튼을 누르고 엔진이 받을 때까지(1초 요약) + 그린 프레임 */
 async function chooseLayer(page: Page, layer: string): Promise<void> {
+  await openLayerSheet(page);
   const button = page.locator(`[data-layer-option="${layer}"]`);
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
@@ -340,7 +357,17 @@ test.describe("레이어: 플레이어", () => {
     await openPlanet(page, LAYER_VIEW);
     const screen = page.locator(".planet-screen");
     await expect(screen).toHaveAttribute("data-incomplete", "false", { timeout: 60_000 });
+    // 처음은 접힌 단추 하나(지금 레이어 이름) — 판·범례 없음. 누르면 레이어 다섯, Esc면 닫힘
+    const toggle = page.locator(".planet-layer-toggle");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(toggle).toHaveAttribute("data-layer-current", "terrain");
+    await expect(toggle).toContainText(message("ko", "planet_layer_terrain"));
+    await expect(page.locator(".planet-layer-sheet, [data-layer-option]")).toHaveCount(0);
+    await openLayerSheet(page);
     await expect(page.locator("[data-layer-option]")).toHaveCount(5);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".planet-layer-sheet")).toHaveCount(0);
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
     const terrain = await mapOnlyShot(page);
 
     await chooseLayer(page, "elevation");
@@ -380,21 +407,64 @@ test.describe("레이어: 플레이어", () => {
     const woodHerb = await meanPixelDifference(page, wood, herb);
     const herbLivestock = await meanPixelDifference(page, herb, livestock);
 
-    // 다른 레이어로 가면 자원 지도를 버린다(텍스처 메모리 0). 영토 덧그림은 진하게
+    // 다른 레이어로 가면 자원 지도를 버린다(텍스처 메모리 0). 영토 덧그림은 진하게, 국가 이름표
     await chooseLayer(page, "territory");
     await expect(screen).toHaveAttribute("data-resource-bytes", "0");
-    await expect(page.locator(".city-overlay")).toHaveAttribute("data-emphasis", "territory");
+    const overlay = page.locator(".city-overlay");
+    await expect(overlay).toHaveAttribute("data-emphasis", "territory");
+    await expect(toggle).toHaveAttribute("data-layer-current", "territory");
     await expect(page.locator('[data-legend="territory"]')).toContainText(
       message("ko", "planet_territory_capital"),
     );
-    // 땅을 한 번 누르면 누른 칸 줄 끝에 국가(또는 영토 밖) 줄
-    const size = page.viewportSize() ?? { width: 390, height: 844 };
-    await page.mouse.click(size.width * 0.3, size.height * 0.33);
+    // 국가 고유 색(바뀜 2026-11-14): 범례 국가 칩마다 서로 다른 #rrggbb(여섯 색 돌려 쓰기가 아니다)
+    const legendColors = await page
+      .locator('[data-legend="territory"] .planet-legend-nations > li')
+      .evaluateAll((items) =>
+        items.map((item) => getComputedStyle(item).getPropertyValue("--nation").trim()),
+      );
+    expect(legendColors.length).toBeGreaterThan(1);
+    expect(legendColors.every((color) => /^#[0-9a-f]{6}$/.test(color))).toBe(true);
+    expect(new Set(legendColors).size).toBe(legendColors.length);
+    // 영토(바뀜 2026-11-14): 아는 국가마다 영토 하나 이상, 화면에 그린 도시 원과 칠 경로, 보이는 국가 이름표
+    await expect(overlay).toHaveAttribute("data-territories", /^[1-9]\d*$/);
+    await expect(overlay).toHaveAttribute("data-drawn", /^[1-9]\d*$/);
+    const filled = await page
+      .locator(".city-area-fill")
+      .evaluateAll((paths) => paths.filter((path) => (path.getAttribute("d") ?? "") !== "").length);
+    expect(filled).toBeGreaterThan(0);
+    await expect(page.locator('.city-area-label[data-shown="true"]').first()).toBeVisible();
+    const labelNames = await page.locator('.city-area-label[data-shown="true"]').allTextContents();
+    // 질문 1437 답(도시 사이까지 넓은 영토): 3단계에서 바로 영토 안을 누를 수 있다
+    // 영토를 누르면 그 국가: 칠한 영토 안이면서 도시 표시·판 밖인 점을 화면에서 찾아(SVG isPointInFill) 누른다 → "영토: <국가>"
+    const target = await page.evaluate(() => {
+      const fills = [...document.querySelectorAll<SVGPathElement>(".city-area-fill")].filter(
+        (path) => (path.getAttribute("d") ?? "") !== "",
+      );
+      for (let y = 160; y < window.innerHeight - 220; y += 6) {
+        for (let x = 12; x < window.innerWidth - 12; x += 6) {
+          if (document.elementFromPoint(x, y)?.closest(".city-marker, .map-hud, .map-panel") !== null)
+            continue;
+          const point = new DOMPoint(x, y);
+          if (fills.some((path) => path.isPointInFill(point))) return { x, y };
+        }
+      }
+      return null;
+    });
+    expect(target).not.toBeNull();
+    const drawnRadius = await page.evaluate(() => {
+      const widths = [...document.querySelectorAll<SVGPathElement>(".city-area-fill")]
+        .filter((path) => (path.getAttribute("d") ?? "") !== "")
+        .map((path) => path.getBBox().width / 2);
+      return widths.length > 0 ? Math.min(...widths) : 0;
+    });
+    await page.mouse.click(target?.x ?? 0, target?.y ?? 0);
     await expect(screen).toHaveAttribute("data-picked", /\d/);
-    const outside = message("ko", "planet_territory_outside");
+    // 땅을 누르면 레이어 판이 닫힌다
+    await expect(page.locator(".planet-layer-sheet")).toHaveCount(0);
     const territoryPrefix = message("ko", "planet_territory_at", { nation: "" });
-    await expect(page.locator(".planet-readout [role=status]")).toContainText(
-      new RegExp(`${outside.replace(/[()]/g, "\\$&")}|${territoryPrefix}`),
+    await expect(page.locator(".planet-readout [role=status]")).toContainText(territoryPrefix);
+    console.log(
+      `[measure] planet territory labels ${labelNames.length} (${labelNames.join(", ")}), drawn areas ${await overlay.getAttribute("data-drawn")}, smallest drawn radius ${drawnRadius.toFixed(1)}px`,
     );
     console.log(
       `[measure] planet layers mean pixel diff terrain→elevation ${elevationChange.toFixed(2)}, ore→wood ${materialChange.toFixed(2)}, wood→herb ${woodHerb.toFixed(2)}, herb→livestock ${herbLivestock.toFixed(2)}`,
@@ -414,25 +484,60 @@ test.describe("레이어 사진", () => {
     test.describe(`390 ${theme}`, () => {
       test.use({ theme, language: "ko" });
 
-      test(`고도·자원·영토 레이어 (390·${theme})`, async ({ page, deviceErrors }) => {
-        test.setTimeout(150_000);
+      test(`접힌·열린 레이어 단추, 고도·자원·영토 레이어, 행성 전체 (390·${theme})`, async ({
+        page,
+        deviceErrors,
+      }) => {
+        test.setTimeout(180_000);
         await openPlanet(page, LAYER_VIEW);
-        await expect(page.locator(".planet-screen")).toHaveAttribute("data-incomplete", "false", {
-          timeout: 60_000,
-        });
+        const screen = page.locator(".planet-screen");
+        await expect(screen).toHaveAttribute("data-incomplete", "false", { timeout: 60_000 });
+        // 접힌 단추(바뀜 2026-11-14): 아래 판은 누른 칸 안내 + 한 줄
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `planet-layer-collapsed-390-${theme}`);
         await chooseLayer(page, "elevation");
         await shot(page, `planet-layer-elevation-390-${theme}`);
         await chooseLayer(page, "resource");
-        await expect(page.locator(".planet-screen")).toHaveAttribute("data-resource", "ready", {
-          timeout: 60_000,
-        });
+        await expect(screen).toHaveAttribute("data-resource", "ready", { timeout: 60_000 });
         await page.waitForTimeout(400);
         expect(await smallTapTargets(page)).toEqual([]);
         expect(await horizontalOverflow(page)).toEqual([]);
         await shot(page, `planet-layer-resource-390-${theme}`);
         await chooseLayer(page, "territory");
         expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `planet-layer-territory-open-390-${theme}`);
+        // 판을 접고 영토만(국가 이름표)
+        await page.locator(".planet-layer-toggle").click();
+        await expect(page.locator(".planet-layer-sheet")).toHaveCount(0);
+        await page.waitForTimeout(300);
         await shot(page, `planet-layer-territory-390-${theme}`);
+        // 한 단계 더 가까이(4단계)
+        await page.locator(".zoom-ladder-in").click();
+        await page.waitForTimeout(STEP_WAIT_MS + 600);
+        await shot(page, `planet-layer-territory-stage4-390-${theme}`);
+        const near = await screen.getAttribute("data-engine-p95");
+        // 행성 전체(1단계, 지형 + 영토 칠): 도시 원 모두가 화면 안 — 프레임 시간(덧그림 포함)을 잰다
+        await page.goto("/map/planet?stage=1&planet-sky=off");
+        await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+        await expect(screen).toHaveAttribute("data-incomplete", "false", { timeout: 60_000 });
+        await page.waitForTimeout(1500);
+        await shot(page, `planet-globe-390-${theme}`);
+        await chooseLayer(page, "territory");
+        await page.locator(".planet-layer-toggle").click();
+        await page.waitForTimeout(1500);
+        await shot(page, `planet-globe-territory-390-${theme}`);
+        // 프레임 시간은 그리는 동안만 쌓인다: 끌어서 돌리며 잰다(덧그림 포함)
+        const size = page.viewportSize() ?? { width: 390, height: 844 };
+        await page.mouse.move(size.width / 2, size.height * 0.4);
+        await page.mouse.down();
+        for (let step = 0; step < 30; step++)
+          await page.mouse.move(size.width / 2 + step * 4, size.height * 0.4);
+        await page.mouse.up();
+        await page.waitForTimeout(1200);
+        console.log(
+          `[measure] ${theme} territory engine p95 stage4 ${near ?? "?"}ms, stage1 ${(await screen.getAttribute("data-engine-p95")) ?? "?"}ms, drawn areas stage1 ${(await page.locator(".city-overlay").getAttribute("data-drawn")) ?? "?"}, blobs ${(await page.locator(".city-overlay").getAttribute("data-blobs")) ?? "?"}, cities ${(await screen.getAttribute("data-cities")) ?? "?"}`,
+        );
         expect(deviceErrors).toEqual([]);
       });
     });

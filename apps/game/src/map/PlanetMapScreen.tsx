@@ -21,6 +21,8 @@
 // 들어가고(D-6018), 1단계 끝에서 더 줄이면 항성계 보기(PlanetSystemView)로 바뀐다. 처음 단계는 늘 5(가장 가까이, 사용자 요청 2026-11-09),
 // ?stage=<1~5>가 있으면 그 단계.
 // 성능 판(PlanetPerfPanel)·고도 과장 막대는 운영진(gm·admin·dev)에게만 보인다(사용자 요청 2026-11-09). 성능 보고는 누구나 보낸다.
+// 바뀜 2026-11-14(사용자 요청 "1차맵 UI 개편"): 고도 과장은 모두 ×12 고정, 막대는 운영 메뉴 안으로(운영진만, 이 화면을 닫으면 ×12로).
+// 레이어 고르기는 접는 단추 하나(지금 레이어 이름 — 누르면 고르기·범례가 열린다, PlanetLayerPicker). 영토는 도시 원들의 합·국가 이름(CityOverlay).
 // 레이어(사용자 요청 2026-11-12, ADR 2026-11-07-planet-view "바뀜 (2026-11-12)"): 지형·기후·고도·자원 분포·영토(PlanetLayerPicker).
 // 자원 분포는 고른 원자재의 서버 지도를 받아 엔진에 넣고(planetResource.ts), 다른 레이어로 가면 버린다. 영토는 도시 덧그림을 진하게 하고
 // 누른 곳의 국가를 안내 줄에 더한다(territoryPick.ts).
@@ -31,13 +33,14 @@ import {
   type PlanetProjector,
   type PlanetStats,
   type PlanetStatus,
+  PLANET_EXAGGERATION,
   WATER_BITS,
   createPlanetEngine,
   mapKeyAtLatLon,
   placementAtLatLon,
 } from "@terra/engine/planet";
 import type { WorldCitiesResponse, WorldMapCity, WorldPosition } from "@terra/shared/worldMap";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { refreshSession, useStaffView } from "../auth/session.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
@@ -69,7 +72,7 @@ import { PlanetCityPanel } from "./PlanetCityPanel.tsx";
 import { PlanetCommandPanel } from "./PlanetCommandPanel.tsx";
 import { PlanetReadout } from "./PlanetReadout.tsx";
 import { type CommandTarget, areaCheck, areaTarget, cityTarget, commandKey } from "./commandTarget.ts";
-import { PlanetLayerPicker } from "./PlanetLayerPicker.tsx";
+import { PlanetLayerPicker, PlanetLayerToggle } from "./PlanetLayerPicker.tsx";
 import { PlanetPerfPanel } from "./PlanetPerfPanel.tsx";
 import { OperatorMenuButton, OperatorMenuPanel, PerfToggle, useOperatorMenu } from "./OperatorMenu.tsx";
 import { territoryLineOf, usePlanetLayers } from "./usePlanetLayers.ts";
@@ -87,8 +90,8 @@ const PLANET_ID = "s2_test_planet";
 const FINEST_LEVEL = 5;
 /** 성능 보고에 붙이는 화면 이름 */
 const TELEMETRY_VIEW = "planet-map";
-/** 고도 과장(화면 설정): 처음 값과 범위 */
-const DEFAULT_EXAGGERATION = 6;
+/** 고도 과장: 모두 ×12 고정(엔진 PLANET_EXAGGERATION, 사용자 결정 2026-11-14). 운영 메뉴 막대(운영진만)의 범위 */
+const DEFAULT_EXAGGERATION = PLANET_EXAGGERATION;
 const MIN_EXAGGERATION = 1;
 const MAX_EXAGGERATION = 20;
 
@@ -141,7 +144,7 @@ function PlanetMapView({
     lines: string[];
     ground?: string | null;
   } | null>(null);
-  // 운영진(gm·admin·dev)만 고도 과장 막대를 본다. 성능 판은 PlanetPerfPanel이 스스로 가린다
+  // 운영진(gm·admin·dev)만 운영 메뉴(성능 표시·고도 과장 막대)를 본다. 성능 판은 PlanetPerfPanel이 스스로 가린다
   const staff = useStaffView();
   // 운영 메뉴(운영진만, 사용자 지적 2026-11-12): 성능 표시 켜고 끄기 — 2차맵과 같은 값
   const opsMenu = useOperatorMenu();
@@ -167,6 +170,10 @@ function PlanetMapView({
     world,
   });
   const { layer } = layers;
+  // 레이어 판 여닫기(바뀜 2026-11-14): 접는 단추로 열고, 다시 누르기·Esc·땅 누르기로 닫는다
+  const [layerMenu, setLayerMenu] = useState(false);
+  const closeLayerMenu = useCallback(() => setLayerMenu(false), []);
+  const layerSheetId = useId();
   // 1차맵 명령 판의 대상(도시 판 [정찰 보내기] 또는 누른 지역의 [이곳으로 이동]). 있으면 도시 판·누른 칸 안내 대신 명령 판
   const [command, setCommand] = useState<CommandTarget | null>(null);
   const [planet, setPlanet] = useState<{ faceLevel: number; radiusM: number } | null>(null);
@@ -261,9 +268,10 @@ function PlanetMapView({
             ...(skyParams.benchRepeat === null ? {} : { gpuBenchRepeat: skyParams.benchRepeat }),
             onStatus: setStatus,
             onPick: (cell) => {
-              // 땅을 누르면 도시 판·명령 판을 닫고 그 칸을 본다
+              // 땅을 누르면 도시 판·명령 판·레이어 판을 닫고 그 칸을 본다
               setCityId(null);
               setCommand(null);
+              setLayerMenu(false);
               const lines = cell ? cellLines(cell, (id) => names.get(id) ?? null) : [m.planet_cell_none()];
               const nation =
                 cell && layerRef.current === "territory" ? territoryLineOf(worldRef.current, cell) : null;
@@ -483,7 +491,6 @@ function PlanetMapView({
         <CityOverlay
           cities={cities}
           factions={world.factions}
-          hulls={world.hulls}
           milliPerRadian={world.milliPerRadian}
           me={shownMe}
           selected={cityId}
@@ -518,6 +525,19 @@ function PlanetMapView({
         {staff ? (
           <OperatorMenuPanel control={opsMenu}>
             <PerfToggle />
+            {/* 고도 과장 막대(운영진만, 사용자 요청 2026-11-09·2026-11-14 — 플레이어는 늘 ×12). 이 화면에서만, 다시 열면 ×12 */}
+            <li className="map-operator-menu-row planet-slider">
+              <label htmlFor="planet-exaggeration">{m.planet_exaggeration({ value: exaggeration })}</label>
+              <input
+                id="planet-exaggeration"
+                type="range"
+                min={MIN_EXAGGERATION}
+                max={MAX_EXAGGERATION}
+                step={1}
+                value={exaggeration}
+                onChange={(event) => changeExaggeration(Number(event.currentTarget.value))}
+              />
+            </li>
           </OperatorMenuPanel>
         ) : null}
         <PlanetPerfPanel monitor={monitor} stats={stats} hidden={systemView} />
@@ -566,26 +586,11 @@ function PlanetMapView({
           area={area}
           onMove={world ? moveToArea : null}
         />
-        <div className="map-panel planet-controls">
-          {shownMe || here ? (
-            <div className="planet-jump">
-              {here ? (
-                <button
-                  type="button"
-                  className="button-small button-primary planet-enter-here"
-                  onClick={() => enterHere(here)}
-                >
-                  {m.world_enter_here()}
-                </button>
-              ) : null}
-              {shownMe ? (
-                <button type="button" className="button-small planet-go-me" onClick={goToMe}>
-                  {m.world_my_position()}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+        <div className="planet-controls">
           <PlanetLayerPicker
+            id={layerSheetId}
+            open={layerMenu}
+            onClose={closeLayerMenu}
             layer={layer}
             onLayer={layers.chooseLayer}
             material={layers.material}
@@ -595,21 +600,29 @@ function PlanetMapView({
             maxElevationM={stats ? stats.maxElevationM : null}
             nations={layers.nations}
           />
-          {/* 고도 과장 막대는 운영진(gm·admin·dev)에게만(사용자 요청 2026-11-09 "고도과장도 일반유저는 안된다"). 플레이어는 처음 값 그대로 */}
-          {staff ? (
-            <div className="planet-row planet-slider">
-              <label htmlFor="planet-exaggeration">{m.planet_exaggeration({ value: exaggeration })}</label>
-              <input
-                id="planet-exaggeration"
-                type="range"
-                min={MIN_EXAGGERATION}
-                max={MAX_EXAGGERATION}
-                step={1}
-                value={exaggeration}
-                onChange={(event) => changeExaggeration(Number(event.currentTarget.value))}
-              />
-            </div>
-          ) : null}
+          {/* 늘 보이는 줄: 레이어 접는 단추 · [이 2차맵으로 들어가기] · [내 위치] */}
+          <div className="planet-jump">
+            <PlanetLayerToggle
+              layer={layer}
+              open={layerMenu}
+              controls={layerSheetId}
+              onToggle={() => setLayerMenu((open) => !open)}
+            />
+            {here ? (
+              <button
+                type="button"
+                className="button-small button-primary planet-enter-here"
+                onClick={() => enterHere(here)}
+              >
+                {m.world_enter_here()}
+              </button>
+            ) : null}
+            {shownMe ? (
+              <button type="button" className="button-small planet-go-me" onClick={goToMe}>
+                {m.world_my_position()}
+              </button>
+            ) : null}
+          </div>
         </div>
       </footer>
     </section>

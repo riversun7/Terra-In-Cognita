@@ -71,7 +71,7 @@ import { createWorldRosterSource } from "./roster/worldUnits.ts";
 import { createSecondMapLab } from "./world/secondMapLab.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
 import { EARTH_FACE_LEVEL } from "@terra/planet";
-import { worldMapReadsOf } from "./worldMap/reads.ts";
+import { catchmentRadiusRulesOf, worldMapReadsOf } from "./worldMap/reads.ts";
 import { bootTuning, createTuningShared } from "./tuning/services.ts";
 import { createBalanceServices } from "./balance/services.ts";
 import { bootContentEdit, createContentEditShared } from "./contentEdit/services.ts";
@@ -439,6 +439,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           presets: options.world?.npc?.presets,
           planets: planets && worldPlanet ? planets : undefined,
           pollutionDanger: tuningState ? () => tuningState.society().gardener.nomadThreshold : undefined,
+          // 1차맵 영토 원 = 배후지 지금 반경(ADR planet-view "바뀜 (2026-11-14)")
+          catchment: tuningState ? () => catchmentRadiusRulesOf(tuningState.society()) : undefined,
         })
       : undefined;
   if (world) {

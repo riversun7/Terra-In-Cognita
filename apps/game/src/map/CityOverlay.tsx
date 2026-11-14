@@ -1,19 +1,29 @@
-// 1차맵 도시 덧그림 — 도시 표시(국가 색 점 + 이름), 내 사이보그 표시, 영토 경계(볼록 껍질·도시 영향권). docs/adr/2026-11-07-play-flow.md
+// 1차맵 도시 덧그림 — 도시 표시(국가 색 점 + 이름), 내 사이보그 표시, 영토(도시 원들의 합·국가 이름). docs/adr/2026-11-07-play-flow.md
 // "WP2 지도 흐름". 1차맵 화면과 첫 접속 도시 고르기가 같이 쓴다.
 // - 엔진(onOverlay)이 그린 프레임마다 투영기를 주면 DOM 위치·보임만 바로 바꾼다(React 상태를 바꾸지 않는다, PLAN 5.7).
 // - 가까운 표시는 묶는다: 화면에서 CLUSTER_PX 안에 겹치면 앞 것 하나만 보이고 "+N"을 단다. 묶음을 누르면 그곳으로 다가간다(onZoomTo).
 // - 이름표는 이웃 표시와 LABEL_GAP_PX보다 떨어져 있거나 고른 도시일 때만 보인다(겹친 글자를 막는다). 단추의 읽는 이름은 늘 있다.
 // - 지평선 너머 표시는 숨긴다(hidden). 키보드·화면 읽기 대안은 화면의 도시 목록이다.
-// - 영토 레이어(사용자 요청 2026-11-12, ADR 2026-11-07-planet-view "바뀜 (2026-11-12)"): emphasis면 영토 칠·껍질을 진하게, 껍질도 칠한다.
-//   수도(세력 행 capital_city_id)는 어느 레이어에서나 별 표시를 단다.
-// - 영토(docs/adr/2026-11-07-world-layout.md): 국가마다 도시 영향권 원들을 한 경로로 그린다 — 겹친 원은 한 번만 칠하고(같은 경로의 칠은
-//   한 번), 테두리는 원들의 바깥 둘레만(원 안쪽을 가리는 가리개로 안쪽 호를 지운다). 국가 사이 경계는 서버가 정한 자리(세계 배치·마을
-//   자리 규칙)라 겹치지 않는다.
+// - 영토 레이어(사용자 요청 2026-11-12, ADR 2026-11-07-planet-view "바뀜 (2026-11-12)"): emphasis면 영토 칠·테두리를 진하게 하고 국가
+//   이름을 영토 위에 단다. 수도(세력 행 capital_city_id)는 어느 레이어에서나 별 표시를 단다.
+// - 영토(사용자 결정 2026-11-14 + 질문 1437 답, ADR 2026-11-07-planet-view "바뀜 (2026-11-14)", 모양 셈은 territoryShapes.ts): 국가마다
+//   도시 원 + 도시 사이 땅까지 덮는 넓은 영토(가까운 같은 국가 도시를 띠·삼각형으로 잇는다), 다른 국가와 겹친 곳은 두 도시의 가운데가
+//   경계. 국가마다 영토 고리 경로 하나(칠·테두리), 그 사이에 국가 경계 받침 선. 모양(위도·경도)은 도시 자료가 바뀔 때만 셈하고, 프레임마다
+//   고리 점만 투영한다(territoryDraw.ts — 화면 밖 건너뛰기·솎기, 작게 보이는 국가는 둥근 표시).
+// - 국가 이름표: 넓은 국가부터, 다른 이름표·보이는 도시 표시와 겹치지 않는 자리(가운데·위·아래·옆)에 단다. 자리가 없으면 감춘다.
 import type { PlanetProjector, ProjectedPoint } from "@terra/engine/planet";
-import type { WorldMapCity, WorldMapFaction, WorldMapHull } from "@terra/shared/worldMap";
-import { useEffect, useId, useRef } from "react";
+import type { WorldMapCity, WorldMapFaction } from "@terra/shared/worldMap";
+import { useEffect, useMemo, useRef } from "react";
 import { m } from "../paraglide/messages.js";
-import { cityLabel, factionColor } from "./worldMapData.ts";
+import { type LabelSize, placeLabels, projectTerritory } from "./territoryDraw.ts";
+import {
+  type TerritoryShapes,
+  buildTerritoryShapes,
+  corridorOf,
+  territorySitesOf,
+} from "./territoryShapes.ts";
+import { nationStyle } from "./nationColor.ts";
+import { cityLabel, factionColor, factionName } from "./worldMapData.ts";
 import "./cityOverlay.css";
 
 /** 겹침으로 칠 화면 거리(CSS px) */
@@ -21,9 +31,6 @@ const CLUSTER_PX = 22;
 /** 이름표를 보일 이웃과의 거리(CSS px, 가로·세로) */
 const LABEL_GAP_X_PX = 140;
 const LABEL_GAP_Y_PX = 52;
-/** 영향권 원을 그리는 점 수와 그릴 가장 작은 반지름(CSS px) */
-const CIRCLE_POINTS = 32;
-const CIRCLE_MIN_PX = 6;
 
 /** 엔진 프레임마다 부를 덧그림 함수를 화면(엔진 주인)에 맡긴다. null = 뗌 */
 export type RegisterOverlay = (draw: ((projector: PlanetProjector) => void) | null) => void;
@@ -31,8 +38,7 @@ export type RegisterOverlay = (draw: ((projector: PlanetProjector) => void) | nu
 interface CityOverlayProps {
   readonly cities: readonly WorldMapCity[];
   readonly factions: readonly WorldMapFaction[];
-  readonly hulls?: readonly WorldMapHull[] | undefined;
-  /** 영향권 반경 환산(1000분율 칸 → 라디안). 0이면 원을 그리지 않는다 */
+  /** 반경 환산(1000분율 칸 → 라디안). 0·없음이면 영토를 그리지 않는다 */
   readonly milliPerRadian?: number | undefined;
   /** 내 사이보그 자리(없으면 그리지 않는다) */
   readonly me?: { readonly latDeg: number; readonly lonDeg: number } | null | undefined;
@@ -42,45 +48,14 @@ interface CityOverlayProps {
   readonly onZoomTo: (city: WorldMapCity) => void;
   /** 엔진 onOverlay가 부를 함수를 맡긴다(화면이 자기 ref에 둔다) */
   readonly register: RegisterOverlay;
-  /** 영토 레이어: 영토 칠·경계를 진하게(CSS만 바뀐다) */
+  /** 영토 레이어: 영토 칠·테두리를 진하게, 국가 이름표를 단다 */
   readonly emphasis?: boolean | undefined;
   /** 덧그림 자료가 바뀌면 한 번 더 그리게(엔진 requestFrame) */
   readonly requestFrame: () => void;
 }
 
-/** 위도·경도(°) 둘레 각 반지름 angle(rad) 원 위의 점들(위도·경도) */
-export function circlePoints(latDeg: number, lonDeg: number, angle: number, count = CIRCLE_POINTS) {
-  const lat = (latDeg * Math.PI) / 180;
-  const lon = (lonDeg * Math.PI) / 180;
-  const points: [number, number][] = [];
-  for (let index = 0; index < count; index++) {
-    const bearing = (2 * Math.PI * index) / count;
-    const pointLat = Math.asin(
-      Math.sin(lat) * Math.cos(angle) + Math.cos(lat) * Math.sin(angle) * Math.cos(bearing),
-    );
-    const pointLon =
-      lon +
-      Math.atan2(
-        Math.sin(bearing) * Math.sin(angle) * Math.cos(lat),
-        Math.cos(angle) - Math.sin(lat) * Math.sin(pointLat),
-      );
-    points.push([(pointLat * 180) / Math.PI, (pointLon * 180) / Math.PI]);
-  }
-  return points;
-}
-
-/** 화면 점들 → 닫힌 SVG 경로. 하나라도 숨으면(지평선 너머) 빈 경로 */
-function closedPath(points: readonly (ProjectedPoint | null)[]): string {
-  let path = "";
-  for (const point of points) {
-    if (!point?.visible) return "";
-    path += `${path === "" ? "M" : "L"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-  }
-  return path === "" ? "" : `${path}Z`;
-}
-
 /** 정수 px에 놓는다(반 px 자리는 누르는 상자 크기가 44px보다 조금 작게 재진다) */
-const place = (element: HTMLElement, point: ProjectedPoint): void => {
+const place = (element: HTMLElement, point: { readonly x: number; readonly y: number }): void => {
   element.style.transform = `translate(${Math.round(point.x)}px, ${Math.round(point.y)}px) translate(-50%, -50%)`;
 };
 
@@ -89,11 +64,11 @@ function areaNations(cities: readonly WorldMapCity[]): number[] {
   return [...new Set(cities.map((city) => city.factionId))];
 }
 
-/** 국가 영토 한 벌(칠·바깥 테두리·테두리 가리개)의 경로 */
-interface AreaPaths {
+/** 국가 영토 한 벌(원 바탕·이긴 조각·테두리 경로, 이름표) */
+interface AreaParts {
   fill: SVGPathElement | null;
   edge: SVGPathElement | null;
-  cover: SVGPathElement | null;
+  label: HTMLSpanElement | null;
 }
 
 /** 표시 차례: 고른 도시 → 시작 도시 → 나머지(ID 차례). 묶을 때 앞 것이 남는다 */
@@ -107,24 +82,37 @@ function drawOrder(cities: readonly WorldMapCity[], selected: number | null): Wo
 }
 
 export function CityOverlay(props: CityOverlayProps) {
-  const { cities, factions, selected, register, requestFrame } = props;
+  const { cities, factions, selected, register, requestFrame, milliPerRadian } = props;
   const markers = useRef(new Map<number, HTMLButtonElement>());
-  const areas = useRef(new Map<number, AreaPaths>());
-  // 가리개 ID 앞머리(SVG url(#…)에 쓰니 영문·숫자만)
-  const maskPrefix = `city-area-${useId().replaceAll(/[^a-zA-Z0-9]/g, "")}`;
-  const hullPaths = useRef<(SVGPathElement | null)[]>([]);
+  const areas = useRef(new Map<number, AreaParts>());
+  // 이름표 크기(px) — 글자가 바뀌지 않으니 처음 잰 값을 둔다(국가 목록이 바뀌면 다시 잰다)
+  const labelSizes = useRef(new Map<number, LabelSize>());
   const meRef = useRef<HTMLSpanElement>(null);
+  const territoryRef = useRef<HTMLDivElement>(null);
+  const dividerRef = useRef<SVGPathElement>(null);
   const latest = useRef(props);
+  // 영토 모양(도시 자료가 바뀔 때만 셈한다 — 국가 16·도시 50에서 수십 ms, territoryShapes.test.ts)
+  const territory = useMemo(
+    (): TerritoryShapes =>
+      buildTerritoryShapes(territorySitesOf(cities, milliPerRadian), corridorOf(milliPerRadian)),
+    [cities, milliPerRadian],
+  );
+  const model = useRef(territory);
 
-  // 그린 뒤 최신 자료를 둔다. 자료·고르기·내 자리가 바뀌었으면 한 번 더 그린다(새 단추 위치를 잡는다)
+  // 그린 뒤 최신 자료를 둔다. 자료·고르기·내 자리·영토·강조가 바뀌었으면 한 번 더 그린다(새 단추 위치를 잡는다)
   useEffect(() => {
     const before = latest.current;
     latest.current = props;
+    const changedShapes = model.current !== territory;
+    model.current = territory;
+    if (before.factions !== props.factions) labelSizes.current.clear();
     if (
+      changedShapes ||
       before.cities !== props.cities ||
       before.selected !== props.selected ||
       before.me !== props.me ||
-      before.hulls !== props.hulls
+      before.emphasis !== props.emphasis ||
+      before.factions !== props.factions
     )
       props.requestFrame();
   });
@@ -132,7 +120,7 @@ export function CityOverlay(props: CityOverlayProps) {
   // 투영기를 받으면 위치·보임·묶음·이름표를 바꾼다(엔진 프레임 안). 붙이면 한 번 그린다
   useEffect(() => {
     register((projector) => {
-      const { cities: list, hulls, milliPerRadian, me, selected: chosen } = latest.current;
+      const { cities: list, me, selected: chosen, emphasis } = latest.current;
       const shown: { readonly city: WorldMapCity; readonly point: ProjectedPoint; count: number }[] = [];
       for (const city of drawOrder(list, chosen)) {
         const element = markers.current.get(city.id);
@@ -166,31 +154,40 @@ export function CityOverlay(props: CityOverlayProps) {
         );
         element.dataset.label = entry.count === 1 && (!crowded || entry.city.id === chosen) ? "on" : "off";
       }
-      // 영향권 원: 도시 가운데가 보이고 원이 몇 px 이상일 때. 국가마다 한 경로(칠·테두리·가리개가 같은 모양)
-      const byNation = new Map<number, string>();
-      for (const city of list) {
-        const angle = milliPerRadian && city.radiusMilli ? city.radiusMilli / milliPerRadian : 0;
-        const center = angle > 0 ? projector.project(city.latDeg, city.lonDeg) : null;
-        if (!center?.visible) continue;
-        const ring = circlePoints(city.latDeg, city.lonDeg, angle).map(([lat, lon]) =>
-          projector.project(lat, lon),
-        );
-        const edge = ring[0];
-        if (!edge || Math.hypot(edge.x - center.x, edge.y - center.y) < CIRCLE_MIN_PX) continue;
-        byNation.set(city.factionId, (byNation.get(city.factionId) ?? "") + closedPath(ring));
+      // 영토: 국가마다 원 바탕·이긴 조각·테두리 경로(territoryDraw.ts)
+      const shapes = model.current;
+      const frame = projectTerritory(projector, shapes);
+      for (const [nation, parts] of areas.current) {
+        const d = frame.fills.get(nation) ?? "";
+        parts.fill?.setAttribute("d", d);
+        parts.edge?.setAttribute("d", d);
       }
-      for (const [nation, paths] of areas.current) {
-        const d = byNation.get(nation) ?? "";
-        paths.fill?.setAttribute("d", d);
-        paths.edge?.setAttribute("d", d);
-        paths.cover?.setAttribute("d", d);
+      dividerRef.current?.setAttribute("d", frame.dividers);
+      if (territoryRef.current) {
+        territoryRef.current.dataset.drawn = String(frame.areas);
+        territoryRef.current.dataset.blobs = String(frame.blobs);
       }
-      (hulls ?? []).forEach((hull, index) => {
-        hullPaths.current[index]?.setAttribute(
-          "d",
-          closedPath(hull.points.map(([lat, lon]) => projector.project(lat, lon))),
-        );
-      });
+      // 국가 이름표(영토 레이어만): 크기는 처음 한 번 잰다(읽기를 쓰기보다 먼저 — 레이아웃을 한 번만 셈한다)
+      const labels = [...areas.current].flatMap(([nation, parts]) =>
+        parts.label ? [[nation, parts.label] as const] : [],
+      );
+      for (const [nation, label] of labels) {
+        if (!labelSizes.current.has(nation) && label.offsetWidth > 0)
+          labelSizes.current.set(nation, { width: label.offsetWidth, height: label.offsetHeight });
+      }
+      const spots = emphasis
+        ? placeLabels(
+            projector,
+            shapes.labels,
+            labelSizes.current,
+            shown.map((entry) => entry.point),
+          )
+        : new Map<number, { x: number; y: number }>();
+      for (const [nation, label] of labels) {
+        const spot = spots.get(nation);
+        label.dataset.shown = spot ? "true" : "false";
+        if (spot) place(label, spot);
+      }
       const mine = meRef.current;
       if (mine && me) {
         const point = projector.project(me.latDeg, me.lonDeg);
@@ -202,14 +199,14 @@ export function CityOverlay(props: CityOverlayProps) {
     return () => register(null);
   }, [register, requestFrame]);
 
-  /** 그 국가 영토 경로 한 벌(없으면 만든다). 국가가 목록에서 빠지면 세 경로가 모두 null이 되고 다음 그리기에서 지운다 */
-  const areaRef = (nation: number): AreaPaths => {
-    let paths = areas.current.get(nation);
-    if (!paths) {
-      paths = { fill: null, edge: null, cover: null };
-      areas.current.set(nation, paths);
+  /** 그 국가 영토 한 벌(없으면 만든다). 국가가 목록에서 빠지면 모두 null이 되고 다음 그리기에서 지운다 */
+  const areaRef = (nation: number): AreaParts => {
+    let parts = areas.current.get(nation);
+    if (!parts) {
+      parts = { fill: null, edge: null, label: null };
+      areas.current.set(nation, parts);
     }
-    return paths;
+    return parts;
   };
 
   const click = (city: WorldMapCity): void => {
@@ -218,60 +215,57 @@ export function CityOverlay(props: CityOverlayProps) {
     else props.onSelect(city);
   };
 
+  const nations = areaNations(cities);
   return (
-    <div className="city-overlay" data-emphasis={props.emphasis ? "territory" : undefined}>
+    <div
+      className="city-overlay"
+      ref={territoryRef}
+      data-emphasis={props.emphasis ? "territory" : undefined}
+      data-territories={territory.labels.length}
+    >
       <svg className="city-territory" aria-hidden="true">
-        {(props.hulls ?? []).map((hull, index) => (
+        {/* 칠: 국가마다 영토 고리들(겹치지 않는다 — 주인이 하나) */}
+        {nations.map((nation) => (
           <path
-            // 껍질은 ID가 없다: 세력과 첫 꼭짓점으로 가른다
-            key={`${hull.factionId}:${hull.points[0]?.join(",") ?? ""}`}
+            key={`fill-${String(nation)}`}
             ref={(element) => {
-              hullPaths.current[index] = element;
+              areaRef(nation).fill = element;
             }}
-            className="city-hull"
-            data-nation={factionColor(factions, hull.factionId)}
+            className="city-area-fill"
+            data-nation={factionColor(factions, nation)}
+            style={nationStyle(factions, nation)}
           />
         ))}
-        <defs>
-          {areaNations(cities).map((nation) => (
-            // 가리개: 흰 곳만 남는다(밝기 가리개라 테마 색이 아니라 흑백을 쓴다). 원 안쪽(검정)의 테두리를 지워 바깥 둘레만 남긴다
-            <mask
-              key={nation}
-              id={`${maskPrefix}-${String(nation)}`}
-              maskUnits="userSpaceOnUse"
-              x="0"
-              y="0"
-              width="100%"
-              height="100%"
-            >
-              <rect x="0" y="0" width="100%" height="100%" fill="white" />
-              <path
-                ref={(element) => {
-                  areaRef(nation).cover = element;
-                }}
-                fill="black"
-              />
-            </mask>
-          ))}
-        </defs>
-        {areaNations(cities).map((nation) => (
-          <g key={nation} className="city-area" data-nation={factionColor(factions, nation)}>
-            <path
-              ref={(element) => {
-                areaRef(nation).fill = element;
-              }}
-              className="city-area-fill"
-            />
-            <path
-              ref={(element) => {
-                areaRef(nation).edge = element;
-              }}
-              className="city-area-edge"
-              mask={`url(#${maskPrefix}-${String(nation)})`}
-            />
-          </g>
+        {/* 국가 경계 받침(바뀜 2026-11-14): 두 국가가 맞닿은 선만 판색으로 굵게 깔고 그 위에 국가 색 선 — 색이 비슷한 이웃도 갈린다 */}
+        <path ref={dividerRef} className="city-area-divider" />
+        {nations.map((nation) => (
+          <path
+            key={`edge-${String(nation)}`}
+            ref={(element) => {
+              areaRef(nation).edge = element;
+            }}
+            className="city-area-edge"
+            data-nation={factionColor(factions, nation)}
+            style={nationStyle(factions, nation)}
+          />
         ))}
       </svg>
+      {nations.map((nation) => (
+        <span
+          key={`label-${String(nation)}`}
+          ref={(element) => {
+            areaRef(nation).label = element;
+          }}
+          className="city-area-label"
+          data-nation={factionColor(factions, nation)}
+          style={nationStyle(factions, nation)}
+          data-faction={nation}
+          data-shown="false"
+          aria-hidden="true"
+        >
+          {factionName(factions, nation)}
+        </span>
+      ))}
       {cities.map((city) => {
         const label = cityLabel(factions, city);
         return (
@@ -286,6 +280,7 @@ export function CityOverlay(props: CityOverlayProps) {
             className="city-marker"
             data-city={city.id}
             data-nation={factionColor(factions, city.factionId)}
+            style={nationStyle(factions, city.factionId)}
             data-start={city.start ? "true" : "false"}
             data-capital={city.capital ? "true" : undefined}
             data-label="off"

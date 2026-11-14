@@ -8,6 +8,7 @@ import { useId } from "react";
 import { m } from "../paraglide/messages.js";
 import { LandFacts } from "./LandFacts.tsx";
 import { cityLabel, enterStateOf, factionColor, factionName } from "./worldMapData.ts";
+import { nationStyle } from "./nationColor.ts";
 
 interface PlanetCityPanelProps {
   readonly city: WorldMapCity;
@@ -40,6 +41,7 @@ export function PlanetCityPanel({
       data-city={city.id}
       data-enter={enter}
       data-nation={factionColor(factions, city.factionId)}
+      style={nationStyle(factions, city.factionId)}
     >
       <div className="planet-city-head">
         <span className="planet-city-dot" aria-hidden="true" />

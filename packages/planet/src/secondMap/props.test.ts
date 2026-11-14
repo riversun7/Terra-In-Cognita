@@ -18,8 +18,11 @@ const boulder = {
 };
 
 describe("2차맵 소품 규칙", () => {
-  it("시험 사본이 팩 map_props와 같다(이름·설명 뺌). 다르면 사본을 고치고 골든 해시를 고친다", () => {
-    const pack = mapPropsJson.entries.map(({ name: _name, description: _description, ...rest }) => rest);
+  it("시험 사본이 팩 map_props와 같다(이름·설명·느림 배율 뺌). 다르면 사본을 고치고 골든 해시를 고친다", () => {
+    // 느림 배율(slowPm)은 생성기 입력이 아니다(지형 비용 칸, 기획 D-540 질문 1223 나 — 서버가 따로 넘긴다)
+    const pack = mapPropsJson.entries.map(({ name: _name, description: _description, ...rest }) =>
+      Object.fromEntries(Object.entries(rest).filter(([key]) => key !== "slowPm")),
+    );
     expect(TEST_MAP_PROPS).toEqual(pack);
   });
 

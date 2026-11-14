@@ -1,5 +1,5 @@
 // 배 B1 화면 시험 — 기획 D-540(1221 "지도 위 배부터"), docs/adr/2026-11-13-boats.md.
-// 운영자(dev, 전체 보기로 구독한 연결 = 운영자 모드) 흐름: 띄운 도시 2차맵 가운데 곧은 물가가 있는 곳을 물 표(facilities.waterMask)로 찾아
+// 운영자(admin, 전체 보기로 구독한 연결 = 운영자 모드) 흐름: 띄운 도시 2차맵 가운데 곧은 물가가 있는 곳을 물 표(facilities.waterMask)로 찾아
 // (시험 행성은 대부분 마른 땅이다 — 내 사이보그 2차맵에는 물이 없을 수 있다) 그 도시에서 휴먼을 고용하고(ensureHuman), 부두를 짓고
 // (개발 재료 받기 → facility_build → dev_facility_finish), 부두에서 배를 만들고(boat_build), 휴먼을 태워(boat_board — 멀면 걸어가서),
 // 배를 물 위로 보내고(move_unit — 서버가 물 길로 푼다), 지도 화면에서 배를 골라 [모두 내리기]로 물가에 내린다. 테마 둘(파스텔·다크) 390px 사진.
@@ -124,7 +124,7 @@ const COAST_KEY = 424_898_967_109_641;
 
 /** 도시 2차맵에서 휴먼을 고용해 바닷가 2차맵 서쪽 끝(도시 쪽)으로 보낸다(운영자 빠르기). 휴먼 ID와 선 자리 */
 async function humanAtCoast(page: Page): Promise<{ unitId: number; x: number; y: number }> {
-  const unitId = await ensureHuman(page, "e2e_dev", CITY_KEY);
+  const unitId = await ensureHuman(page, "e2e_admin", CITY_KEY);
   const here = await myUnit(page, COAST_KEY, unitId);
   if (here === undefined) {
     const travel = await sendCommands(
@@ -180,7 +180,8 @@ async function dockAndBoat(page: Page, mapKey: number, sites: readonly Site[], f
 
 for (const theme of ["pastel", "dark"] as const) {
   test.describe(`배 (${theme})`, () => {
-    test.use({ account: "dev", theme, language: "ko" });
+    // admin 계정: dev 계정의 "내 유닛이 없는 2차맵" 시험(play-map.spec.ts)이 이 시험이 남긴 바닷가 유닛(시작 도시 옆)에 걸리지 않게
+    test.use({ account: "admin", theme, language: "ko" });
 
     test(`운영자: 부두 → 배 만들기 → 타기 → 물 위로 → 내리기 (${theme})`, async ({ page, deviceErrors }) => {
       test.setTimeout(300_000);

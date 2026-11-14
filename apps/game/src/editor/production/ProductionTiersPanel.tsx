@@ -3,6 +3,7 @@
 // 구간 조절 판(분포 막대·잠금·균등·정규화 — docs/adr/2026-11-10-editor-input-controls.md), 행렬 표(칸을 고치면 나머지가 따라 움직여 합 1000‰).
 import type { BuildingEditorGatherBand } from "@terra/shared/buildingEditor";
 import type { ContentSleepingRow } from "@terra/shared/contentEdit";
+import type { ReactNode } from "react";
 import { m } from "../../paraglide/messages.js";
 import { GatherBandPanel } from "../gatherTiers/GatherBandPanel.tsx";
 import { GatherTierTable } from "../gatherTiers/GatherTierTable.tsx";
@@ -22,6 +23,7 @@ import { MODE_TEXT, STAT_CODE } from "./productionText.ts";
 import "../gatherTiers/gatherTier.css";
 
 export function ProductionTiersPanel({
+  picker,
   bands,
   stage,
   sleeping,
@@ -35,6 +37,9 @@ export function ProductionTiersPanel({
   canUndo,
   onUndo,
 }: {
+  /** 띠 표 고르기(기획 D-540 1217 나 — 사다리마다 띠 표) */
+  picker?: ReactNode;
+  /** 고른 사다리 표의 줄만 */
   bands: readonly BuildingEditorGatherBand[];
   stage: GatherStage;
   /** 잠든 확률표 줄 */
@@ -61,8 +66,9 @@ export function ProductionTiersPanel({
         {m.dev_prod_tiers_title()}
       </h2>
       <p className="field-hint">
-        {m.dev_gather_lead()} {m.dev_gather_rule({ bonus: levelBonus })}
+        {m.dev_gather_lead()} {m.dev_gather_rule({ bonus: levelBonus })} {m.dev_gather_ladder_note()}
       </p>
+      {picker}
       {sleeping.length > 0 ? (
         <section className="ce-panel" aria-labelledby="gt-sleeping-title">
           <h3 id="gt-sleeping-title" className="ce-panel-title">

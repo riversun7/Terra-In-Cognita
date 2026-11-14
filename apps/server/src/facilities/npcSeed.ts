@@ -54,11 +54,17 @@ export interface SeedLand {
   readonly forest: number;
   /** 물 비트(없으면 0 — 시작 도시 칸은 알맞은 땅이라 물이 없다) */
   readonly water?: number | undefined;
+  /** 바이옴 ID·칸 자리(약초·축산물 몫 — 기획 D-536 바이옴 나눔과 노이즈, @terra/shared/catchment CatchmentLand). 없으면 "other" 무리·가운데 노이즈 */
+  readonly biomeId?: string | null | undefined;
+  readonly face?: number | undefined;
+  readonly faceLevel?: number | undefined;
+  readonly i?: number | undefined;
+  readonly j?: number | undefined;
 }
 
 /**
  * 씨앗 채집 시설 여섯 가지(1차 생산, docs/adr/2026-11-11-production-six.md): 시설 ID · 수(설정 칸) · 둘레 땅 조건. 차례 = 짓는 차례(앞 것이
- * 가운데에 가깝다). 약초원 = 숲이 보이거나 농사지을 땅, 목장 = 농사지을 땅, 낚시터 = 조건 없음(씨앗이 보는 행성 값에 물이 없다 — 물가 판정은
+ * 가운데에 가깝다). 약초원 = 약초 있음 비트, 목장 = 축산물 있음 비트(질문 1213 가 — 배후지 몫과 같은 판정, 기획 D-536), 낚시터 = 조건 없음(씨앗이 보는 행성 값에 물이 없다 — 물가 판정은
  * 다음 일). 새 셋의 수 출발값은 0이다
  */
 const SEED_GATHER: readonly {
@@ -69,16 +75,18 @@ const SEED_GATHER: readonly {
   { facility: "farm", count: (seed) => seed.farms, fits: (land) => land.farm },
   { facility: "lumber_camp", count: (seed) => seed.lumberCamps, fits: (land) => land.lumber },
   { facility: "mine", count: (seed) => seed.mines, fits: (land) => land.mine },
-  { facility: "herb_field", count: (seed) => seed.herbFields, fits: (land) => land.lumber || land.farm },
-  { facility: "ranch", count: (seed) => seed.ranches, fits: (land) => land.farm },
+  { facility: "herb_field", count: (seed) => seed.herbFields, fits: (land) => land.herb },
+  { facility: "ranch", count: (seed) => seed.ranches, fits: (land) => land.livestock },
   { facility: "fishing_spot", count: (seed) => seed.fishingSpots, fits: () => true },
 ];
 
-/** 둘레 땅이 맞는 것(농사지을 땅·숲·높은 땅) */
+/** 둘레 땅이 맞는 것(농사지을 땅·숲·높은 땅·약초·축산물) */
 interface LandFit {
   readonly farm: boolean;
   readonly lumber: boolean;
   readonly mine: boolean;
+  readonly herb: boolean;
+  readonly livestock: boolean;
 }
 
 /**
@@ -92,8 +100,10 @@ export function landGather(land: SeedLand, seed: WorldSeedCoefficients): LandFit
   const lumber = (bits & MATERIAL_BIT.wood) !== 0;
   const mine = oreSharePm(value, seed) > 0;
   const farm = (bits & MATERIAL_BIT.crop) !== 0;
-  if (!farm && !lumber) return { farm: true, lumber: false, mine };
-  return { farm, lumber, mine };
+  const herb = (bits & MATERIAL_BIT.herb) !== 0;
+  const livestock = (bits & MATERIAL_BIT.livestock) !== 0;
+  if (!farm && !lumber) return { farm: true, lumber: false, mine, herb, livestock };
+  return { farm, lumber, mine, herb, livestock };
 }
 
 /**
@@ -116,7 +126,9 @@ export function seedPlan(
   land?: SeedLand,
   rest?: { readonly housing?: number | undefined; readonly bedsPerLevel?: number | undefined },
 ): SeedItem[] {
-  const fit = land ? landGather(land, seed) : { farm: true, lumber: true, mine: true };
+  const fit = land
+    ? landGather(land, seed)
+    : { farm: true, lumber: true, mine: true, herb: true, livestock: true };
   return [
     { facility: "government_hall", count: 1 },
     { facility: "storehouse", count: seed.storehouses },

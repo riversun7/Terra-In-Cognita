@@ -229,7 +229,24 @@ export function GatherPanel({ state, mapKey, actor, unitLabel, buildingExtra }: 
                 : m.gather_object_uses({ left: object.usesLeft, uses: kind?.uses ?? object.usesLeft })}
             </span>
           </div>
-          <p>{m.gather_object_item({ item: nameText(kind?.itemName ?? null, kind?.item ?? "") })}</p>
+          {kind?.ladderName ? (
+            <p data-yield="ladder">{m.gather_object_ladder({ ladder: nameText(kind.ladderName, "") })}</p>
+          ) : kind?.table && kind.table.length > 0 ? (
+            <p data-yield="table">
+              {m.gather_object_table({
+                items: kind.table
+                  .map((row) =>
+                    m.gather_object_table_row({
+                      item: nameText(row.itemName, row.item),
+                      pct: row.weightPm / 10,
+                    }),
+                  )
+                  .join(", "),
+              })}
+            </p>
+          ) : (
+            <p>{m.gather_object_item({ item: nameText(kind?.itemName ?? null, kind?.item ?? "") })}</p>
+          )}
           <p className="gather-muted">
             {kind?.facility
               ? m.gather_object_facility({ facility: nameText(kind.facilityName, kind.facility) })

@@ -1,5 +1,6 @@
 // 2단계 뒤 채집 티어 검사 — 49 N43·D-506(docs/adr/2026-10-31-economy-core.md "바뀜 (300~302)").
-// - 확률표(gather_tiers): 첫 구간 from 0, 파일 차례로 from이 늘어나기만(gather_band_order). 구간이 하나도 없으면 시설 추첨이 못 돈다
+// - 확률표(gather_tiers): 표(사다리마다 전용 표 + ladder 없는 기본 표, 기획 D-540 1217 나)마다 첫 구간 from 0, 파일 차례로 from이 늘어나기만(gather_band_order).
+//   기본 표가 없거나 사다리가 원자재 중분류가 아니면 오류. 구간이 하나도 없으면 시설 추첨이 못 돈다
 //   (gather_bands_missing, 추첨 시설이 있을 때만).
 // - 시설 추첨(facilities.gather): 채집 단계(stage gather) 시설에만(gather_stage), 중분류는 원자재(raw) 중분류만(gather_subcategory_major).
 //   함께 내는 중분류(extraSubcategories, 질문 946 나)도 원자재만이고 주 중분류·서로 겹치지 않는다(gather_subcategory_duplicate).
@@ -19,26 +20,59 @@ export function checkGather(pack: ContentPack): ContentIssue[] {
     issues.push({ stage: "references", level: "error", file, id, path, message, code });
 
   const bands = pack.entries.get("gather_tiers") ?? [];
-  let previous = -1;
-  bands.forEach((band, index) => {
+  const majorOf = new Map(
+    (pack.entries.get("item_subcategories") ?? []).map((entry) => [entry.id, get(entry, "major")]),
+  );
+  // 사다리마다 띠 표(기획 D-540 1217 나): 표(ladder 없음 = 기본 표)마다 첫 구간 from 0, 파일 차례로 늘어나기만
+  const previousOf = new Map<string, number>();
+  let hasDefault = false;
+  for (const band of bands) {
     const from = get(band, "from");
-    if (typeof from !== "number") return;
-    if (index === 0 && from !== 0)
-      error("gather_tiers.json", band.id, "from", "gather_band_order", "첫 구간은 from 0에서 시작합니다.");
-    else if (index > 0 && from <= previous)
+    const ladder = get(band, "ladder");
+    const key = ladder instanceof ContentRef ? ladder.id : "";
+    if (key === "") hasDefault = true;
+    if (ladder instanceof ContentRef) {
+      const major = majorOf.get(ladder.id);
+      if (major !== undefined && major !== "raw")
+        error(
+          "gather_tiers.json",
+          band.id,
+          "ladder",
+          "gather_subcategory_major",
+          "띠 표의 사다리는 원자재(raw) 중분류여야 합니다.",
+        );
+    }
+    if (typeof from !== "number") continue;
+    const previous = previousOf.get(key);
+    if (previous === undefined && from !== 0)
       error(
         "gather_tiers.json",
         band.id,
         "from",
         "gather_band_order",
-        `구간은 from이 늘어나는 차례로 적습니다(앞 구간 ${previous}).`,
+        key === ""
+          ? "첫 구간은 from 0에서 시작합니다."
+          : `사다리 ${key} 표의 첫 구간은 from 0에서 시작합니다.`,
       );
-    previous = from;
-  });
+    else if (previous !== undefined && from <= previous)
+      error(
+        "gather_tiers.json",
+        band.id,
+        "from",
+        "gather_band_order",
+        `구간은 같은 표 안에서 from이 늘어나는 차례로 적습니다(앞 구간 ${previous}).`,
+      );
+    previousOf.set(key, from);
+  }
+  if (bands.length > 0 && !hasDefault)
+    error(
+      "gather_tiers.json",
+      bands[0]?.id ?? "",
+      "ladder",
+      "gather_bands_missing",
+      "사다리(ladder) 없는 기본 표가 없습니다. 전용 표가 없는 사다리는 기본 표를 씁니다.",
+    );
 
-  const majorOf = new Map(
-    (pack.entries.get("item_subcategories") ?? []).map((entry) => [entry.id, get(entry, "major")]),
-  );
   for (const facility of pack.entries.get("facilities") ?? []) {
     const gather = get(facility, "gather");
     if (gather === undefined) continue;
@@ -115,5 +149,72 @@ export function checkGather(pack: ContentPack): ContentIssue[] {
         `성공 확률 상한(${catchMax}‰)이 기본(${catchBase}‰)보다 작습니다. 상한을 기본 이상으로 적으세요.`,
       );
   }
+  checkGatherObjects(pack, error);
   return issues;
+}
+
+/**
+ * 원자재 오브젝트의 굴림표·사다리 굴림(기획 D-540 1222): 굴림표 가중치 합 1000·같은 아이템 두 번 없음·대표 아이템(item)이 표 안
+ * (gather_table_*), 둘을 함께 쓰지 않음, 사다리 굴림은 맡는 시설에 추첨 방식 채집 칸이 있어야 함(gather_ladder_facility)
+ */
+function checkGatherObjects(
+  pack: ContentPack,
+  error: (file: string, id: string, path: string, code: string, message: string) => void,
+): void {
+  const facilities = new Map((pack.entries.get("facilities") ?? []).map((entry) => [entry.id, entry]));
+  const FILE = "gather_objects.json";
+  for (const entry of pack.entries.get("gather_objects") ?? []) {
+    const table = get(entry, "table");
+    const item = get(entry, "item");
+    const ladder = get(entry, "ladder");
+    if (Array.isArray(table)) {
+      const ids: string[] = [];
+      let sum = 0;
+      for (const row of table as unknown[]) {
+        const ref = get(row, "item");
+        const weight = get(row, "weightPm");
+        if (ref instanceof ContentRef) ids.push(ref.id);
+        if (typeof weight === "number") sum += weight;
+      }
+      if (sum !== 1000)
+        error(
+          FILE,
+          entry.id,
+          "table",
+          "gather_table_sum",
+          `굴림표 가중치 합이 ${sum}입니다. 합은 1000(‰)이어야 합니다.`,
+        );
+      if (new Set(ids).size !== ids.length)
+        error(FILE, entry.id, "table", "gather_table_duplicate", "굴림표에 같은 아이템을 두 번 적지 마세요.");
+      if (item instanceof ContentRef && !ids.includes(item.id))
+        error(
+          FILE,
+          entry.id,
+          "item",
+          "gather_table_item",
+          `대표 아이템(item ${item.id})이 굴림표에 없습니다. 굴림표 가운데 하나를 대표로 적으세요.`,
+        );
+      if (ladder === true)
+        error(
+          FILE,
+          entry.id,
+          "ladder",
+          "gather_table_ladder",
+          "굴림표(table)와 사다리 굴림(ladder)은 함께 쓰지 않습니다.",
+        );
+    }
+    if (ladder === true) {
+      const facilityRef = get(entry, "facility");
+      const facility = facilityRef instanceof ContentRef ? facilities.get(facilityRef.id) : undefined;
+      const gather = facility === undefined ? undefined : get(facility, "gather");
+      if (gather === undefined || get(gather, "mode") === "select")
+        error(
+          FILE,
+          entry.id,
+          "ladder",
+          "gather_ladder_facility",
+          "사다리 굴림(ladder)은 추첨 방식 채집 칸(gather)이 있는 맡는 시설(facility)이 있어야 합니다.",
+        );
+    }
+  }
 }

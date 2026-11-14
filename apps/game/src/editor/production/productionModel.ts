@@ -23,6 +23,7 @@ import {
   gatherBandIndex,
   gatherCatchPm,
   gatherChancesPm,
+  gatherLadderBands,
   gatherProgress,
   gatherStat,
   gatherSubcategories,
@@ -244,8 +245,39 @@ export function ladderOf(
 export function draftBands(bands: readonly BuildingEditorGatherBand[], stage: ProductionStage): GatherBand[] {
   return bands.map((row) => {
     const draft = draftBandOf(row, stage.gather);
-    return { from: draft.from, weightsPm: draft.weightsPm };
+    return {
+      from: draft.from,
+      weightsPm: draft.weightsPm,
+      ...(row.entry.ladder === undefined ? {} : { ladder: row.entry.ladder }),
+    };
   });
+}
+
+/**
+ * 사다리 띠 표(기획 D-540 1217 나): 확률표 줄 가운데 그 사다리 표의 줄. ladder = 사다리 ID(없으면 기본 표). 확률 분포·예상 확률 탭이
+ * 고른 표만 보인다
+ */
+export function bandRowsOfLadder(
+  bands: readonly BuildingEditorGatherBand[],
+  ladder: string | undefined,
+): BuildingEditorGatherBand[] {
+  return bands.filter((row) => row.entry.ladder === ladder);
+}
+
+/** 확률표가 있는 사다리들(기본 표 = undefined 먼저, 그다음 적힌 차례) */
+export function bandLadderKeys(bands: readonly BuildingEditorGatherBand[]): (string | undefined)[] {
+  const out: (string | undefined)[] = [undefined];
+  for (const row of bands)
+    if (row.entry.ladder !== undefined && !out.includes(row.entry.ladder)) out.push(row.entry.ladder);
+  return out;
+}
+
+/** 생산 종류가 쓰는 표의 사다리(그 시설 주 중분류에 전용 표가 있으면 그 ID, 아니면 기본 표 undefined) */
+export function ladderOfType(
+  bands: readonly BuildingEditorGatherBand[],
+  subcategory: string,
+): string | undefined {
+  return bands.some((row) => row.entry.ladder === subcategory) ? subcategory : undefined;
 }
 
 export interface TypePreviewInput {
@@ -316,8 +348,10 @@ export function typePreview(input: TypePreviewInput): TypePreview {
     if (landed < 0) emptyPm = 1000;
     else tierPm[landed] = 1000;
   } else {
-    bandIndex = gatherBandIndex(input.bands, stat);
-    const chances = gatherChancesPm(input.bands, stat, ladder);
+    // 이 시설 주 중분류의 띠 표(전용 표가 없으면 기본 표, 기획 D-540 1217 나)
+    const bands = gatherLadderBands(input.bands, gather.subcategory);
+    bandIndex = gatherBandIndex(bands, stat);
+    const chances = gatherChancesPm(bands, stat, ladder);
     tierPm = chances.tierPm;
     emptyPm = chances.emptyPm;
   }

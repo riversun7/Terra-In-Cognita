@@ -45,9 +45,14 @@ describe("원자재별 채집 예상(사이보그 판 효율 묶음)", () => {
       "fish",
     ]);
     const ore = rows.find((row) => row.facility === "mine");
-    // 광산 STR 10 + VIT 7 = 17 → 구간 0~19(팩 gather_tiers 그대로 — 지금 T0 50%·T1 35%·T2 10%·T3 5%)
+    // 광산 STR 10 + VIT 7 = 17 → 광석 표 구간 0~19(사다리 띠 표, 기획 D-540 1217 나 — T0 50%·T1 35%·T2 10%·T3 5%)
     expect(ore).toMatchObject({ primary: "str", secondary: "vit", stat: 17, bandFrom: 0, bandNext: 20 });
-    expect(ore?.tierPm).toEqual(source.gatherTiers[0]?.weightsPm);
+    expect(ore?.tierPm).toEqual(source.gatherTiers.find((band) => band.id === "ore_band_000")?.weightsPm);
+    expect(ore?.tierPm).toEqual([500, 350, 100, 50, 0, 0, 0, 0, 0, 0]);
+    // 벌목장 DEX 12 + STR 10 = 22 → 기본 표 구간 20(옛 T0 70%·T1 15% — 소나무 원목이 줄지 않는다)
+    const wood = rows.find((row) => row.facility === "lumber_camp");
+    expect(wood).toMatchObject({ stat: 22, bandFrom: 20, bandNext: 40 });
+    expect(wood?.tierPm).toEqual([700, 150, 100, 50, 0, 0, 0, 0, 0, 0]);
     // 낚시터 AGI 15 + DEX 12 = 27 → 구간 20, 성공 ‰ = 300 + ⌊500 × 27 ÷ 200⌋ = 367
     const fish = rows.find((row) => row.facility === "fishing_spot");
     expect(fish).toMatchObject({ stat: 27, bandFrom: 20, catchPm: 367 });

@@ -2,11 +2,16 @@
 // 실효 팩의 채집 시설(1차 생산 여섯 가지, 팩 차례)마다 판정과 같은 함수로 셈한다. 새 식은 없다:
 // - 유효 스탯·해금 티어·진행 속도·수확량·성공 확률 = @terra/sim workerEffects(시뮬 시설·서버 채집 직무 labor/gatherWork.ts와 같은 함수, 시설 레벨 1).
 //   컨디션은 채집 직무처럼 설정 칸 condition_cap으로 자른다(clampCondition).
-// - 티어 구간 = @terra/shared/gatherMath gatherBandIndex로 고른 팩 gather_tiers 구간의 가중치(‰). select(농장·목장)는 해금 티어 한 칸.
+// - 티어 구간 = @terra/shared/gatherMath gatherLadderBands(사다리 띠 표, D-540 1217 나)·gatherBandIndex로 고른 팩 gather_tiers 구간의 가중치(‰). select(농장·목장)는 해금 티어 한 칸.
 // - 최적 작업 = @terra/shared/unitGuide recommendProduction 첫째(유닛 추천 표와 같은 고르기: 주 + 보조가 큰 차례, 같으면 주 스탯).
 // 표시만 하고 판정에 쓰지 않는다. 2차맵 산지 티어 막기(광산 oreTierCapOf)·시설 레벨 보너스는 자리마다라 넣지 않는다.
-import type { FacilityEntry, GatherTierEntry, ItemSubcategoryEntry } from "@terra/content";
-import { type GatherBand, gatherBandIndex } from "@terra/shared/gatherMath";
+import {
+  type FacilityEntry,
+  type GatherTierEntry,
+  type ItemSubcategoryEntry,
+  gatherBandOfEntry,
+} from "@terra/content";
+import { type GatherBand, gatherBandIndex, gatherLadderBands } from "@terra/shared/gatherMath";
 import type { PrimaryStat, RosterGather } from "@terra/shared/roster";
 import { recommendProduction } from "@terra/shared/unitGuide";
 import { type SocietyCoefficients, clampCondition, workerEffects } from "@terra/sim";
@@ -41,9 +46,7 @@ export function gatherSheetOf(
   if (types.length === 0) return [];
   const settings = gatherSettingsOf(society);
   const clamped = clampCondition(condition, { cap: settings.conditionCap ?? 0 });
-  const bands: GatherBand[] = source.gatherTiers
-    .map((band) => ({ from: band.from, weightsPm: [...band.weightsPm] }))
-    .toSorted((a, b) => a.from - b.from);
+  const allBands: GatherBand[] = source.gatherTiers.map(gatherBandOfEntry);
   const best = recommendProduction(stats, types, 1)[0]?.type.facility;
   const subName = new Map(source.itemSubcategories.map((entry) => [entry.id, entry.name]));
   const facilityById = new Map(source.facilities.map((entry) => [entry.id, entry]));
@@ -67,6 +70,8 @@ export function gatherSheetOf(
       { level: SHEET_LEVEL, primaryStat: primaryValue, secondaryStat: secondaryValue, condition: clamped },
       settings,
     );
+    // 띠 표: 이 시설 주 중분류의 전용 표, 없으면 기본 표(기획 D-540 1217 나 — 광석만 낮은 구간 T1을 올렸다)
+    const bands = gatherLadderBands(allBands, subcategory).toSorted((a, b) => a.from - b.from);
     const index = gatherBandIndex(bands, effects.gatherStat);
     const band = bands[index];
     const select = type.mode === "select";

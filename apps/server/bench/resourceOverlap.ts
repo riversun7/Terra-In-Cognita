@@ -11,13 +11,13 @@
 // - --planet <ID>: 다른 팩 행성(기본 s2_test_planet).
 // 표는 Markdown이다. pnpm test에는 없다(행성 생성에 십수 초).
 import { fileURLToPath } from "node:url";
-import { facilityEntrySchema, gatherTierEntrySchema } from "@terra/content";
+import { facilityEntrySchema, gatherBandOfEntry, gatherTierEntrySchema } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
 import { type CellKey, FACES, cellKey, parseCellKey } from "@terra/planet";
 import { planetInputFromDefinition, runPlanetGenerator } from "@terra/planet/generator";
 import { planetCellValues, planetValuesFromGeneration } from "@terra/planet/secondMap";
 import { type CatchmentMaterial, cellSharesPm, resourceBiomeGroup } from "@terra/shared/catchment";
-import { START_WORLD_SEED, plannedCityRadiusMilli } from "@terra/sim";
+import { START_WORLD_SEED, gatherLadderBands, plannedCityRadiusMilli } from "@terra/sim";
 import { landGather } from "../src/facilities/npcSeed.ts";
 import { MAX_TEST_NATIONS, nationCode, nationStartOf, presetOfCode } from "../src/npc/nations.ts";
 import { nationPresetsOf } from "../src/npc/presets.ts";
@@ -206,25 +206,33 @@ lines.push(
 // ── 기본 건축 재료: 통나무·석재 하루 양과 창고 + 숙소 Lv1 날 수 ──
 // 팩 항목은 참조 객체가 든 파싱 결과라 정규 JSON으로 되돌려 스키마로 다시 읽는다(gather/kinds.ts와 같은 방식)
 const reparse = (entry: unknown): unknown => JSON.parse(JSON.stringify(entry));
-const bands = (pack.entries.get("gather_tiers") ?? [])
-  .map((entry) => gatherTierEntrySchema.parse(reparse(entry)))
-  .toSorted((a, b) => a.from - b.from);
+const allBands = (pack.entries.get("gather_tiers") ?? []).map((entry) =>
+  gatherBandOfEntry(gatherTierEntrySchema.parse(reparse(entry))),
+);
 const STAT = 20; // 주 10 + 보조 10(레벨 1)
-const band = bands.findLast((entry) => entry.from <= STAT) ?? bands[0];
-const weights = band?.weightsPm ?? [1000];
-const weightSum = weights.reduce((sum, w) => sum + w, 0) || 1;
-const minutesPerLot = weights.reduce((sum, w, tier) => sum + (w * (30 + 30 * tier)) / weightSum, 0);
-const lotsPerDay = (12 * 60) / minutesPerLot;
+// 사다리 띠 표(기획 D-540 1217 나): 통나무 = 목재 사다리 T0, 석재 = 광석 사다리 T1. 사다리마다 그 표의 구간
+const ladderModel = (ladder: string) => {
+  const bands = gatherLadderBands(allBands, ladder).toSorted((a, b) => a.from - b.from);
+  const band = bands.findLast((entry) => entry.from <= STAT) ?? bands[0];
+  const weights = band?.weightsPm ?? [1000];
+  const weightSum = weights.reduce((sum, w) => sum + w, 0) || 1;
+  const minutesPerLot = weights.reduce((sum, w, tier) => sum + (w * (30 + 30 * tier)) / weightSum, 0);
+  return { band, weights, weightSum, minutesPerLot, lotsPerDay: (12 * 60) / minutesPerLot };
+};
+const woodModel = ladderModel("wood");
+const oreModel = ladderModel("ore");
 const YIELD = 2;
 const WORKERS = 5;
 const floorPm = seed.catchmentYieldFloorPm;
-const perDay = (landPm: number, tier: number): number =>
-  landPm <= 0
+const perDay = (landPm: number, tier: number): number => {
+  const model = tier === 0 ? woodModel : oreModel;
+  return landPm <= 0
     ? 0
-    : ((lotsPerDay * (weights[tier] ?? 0)) / weightSum) *
-      YIELD *
-      WORKERS *
-      (Math.max(floorPm, landPm) / 1000);
+    : ((model.lotsPerDay * (model.weights[tier] ?? 0)) / model.weightSum) *
+        YIELD *
+        WORKERS *
+        (Math.max(floorPm, landPm) / 1000);
+};
 const facilities = new Map(
   (pack.entries.get("facilities") ?? []).map((entry) => [
     entry.id,
@@ -250,7 +258,7 @@ const summarizeBuild = (label: string, rows: readonly { wood: number; ore: numbe
 };
 lines.push("");
 lines.push(
-  `## 기본 건축 재료 — 벌목장·광산 일꾼 ${WORKERS}명씩, 띠 ${band?.from ?? 0}(T0 ${weights[0] ?? 0}·T1 ${weights[1] ?? 0}‰), 한 번 평균 ${minutesPerLot.toFixed(1)}분, 창고 + 숙소 Lv1 = 통나무 ${needLogs}·석재 ${needStone}`,
+  `## 기본 건축 재료 — 벌목장·광산 일꾼 ${WORKERS}명씩, 목재 띠 ${woodModel.band?.from ?? 0}(T0 ${woodModel.weights[0] ?? 0}‰, 한 번 ${woodModel.minutesPerLot.toFixed(1)}분)·광석 띠 ${oreModel.band?.from ?? 0}(T1 ${oreModel.weights[1] ?? 0}‰, 한 번 ${oreModel.minutesPerLot.toFixed(1)}분), 창고 + 숙소 Lv1 = 통나무 ${needLogs}·석재 ${needStone}`,
 );
 lines.push("");
 lines.push(

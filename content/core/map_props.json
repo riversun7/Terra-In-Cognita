@@ -377,8 +377,8 @@
       "id": "ice_fossil",
       "name": { "ko": "얼음 속 화석", "en": "Fossil in ice" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 나오는 자원(화석) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
-        "en": "Decoration (cover 0). Its resource (fossil) has no item yet, so it is not a gather object (question 1224)."
+        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 화석을 캔다(기획 D-540 1224 가).",
+        "en": "Decoration (cover 0). A gather object on the same spot yields fossil (design D-540 1224 a)."
       },
       "placement": "scatter",
       "art": "ice_fossil",
@@ -404,8 +404,8 @@
       "id": "berry_bush",
       "name": { "ko": "베리 덤불", "en": "Berry bush" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 나오는 자원(베리) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
-        "en": "Decoration (cover 0). Its resource (berries) has no item yet, so it is not a gather object (question 1224)."
+        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 베리를 캔다(기획 D-540 1224 가).",
+        "en": "Decoration (cover 0). A gather object on the same spot yields berries (design D-540 1224 a)."
       },
       "placement": "scatter",
       "art": "berry_bush",
@@ -436,8 +436,8 @@
       "id": "salt_flat",
       "name": { "ko": "소금 평원", "en": "Salt flat" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 나오는 자원(소금) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
-        "en": "Decoration (cover 0). Its resource (salt) has no item yet, so it is not a gather object (question 1224)."
+        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 소금을 캔다(기획 D-540 1224 가).",
+        "en": "Decoration (cover 0). A gather object on the same spot yields salt (design D-540 1224 a)."
       },
       "placement": "scatter",
       "art": "salt_flat",
@@ -477,8 +477,8 @@
       "id": "vines",
       "name": { "ko": "덩굴", "en": "Vines" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 나오는 자원(섬유) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
-        "en": "Decoration (cover 0). Its resource (fiber) has no item yet, so it is not a gather object (question 1224)."
+        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 섬유를 캔다(기획 D-540 1224 가).",
+        "en": "Decoration (cover 0). A gather object on the same spot yields fiber (design D-540 1224 a)."
       },
       "placement": "scatter",
       "art": "vines",
@@ -491,8 +491,8 @@
       "id": "fruit_tree",
       "name": { "ko": "과일나무", "en": "Fruit tree" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 나오는 자원(과일) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
-        "en": "Decoration (cover 0). Its resource (fruit) has no item yet, so it is not a gather object (question 1224)."
+        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 과일을 캔다(기획 D-540 1224 가).",
+        "en": "Decoration (cover 0). A gather object on the same spot yields fruit (design D-540 1224 a)."
       },
       "placement": "scatter",
       "art": "fruit_tree",
@@ -519,8 +519,8 @@
       "id": "peat_mound",
       "name": { "ko": "이탄 더미", "en": "Peat mound" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 나오는 자원(연료) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
-        "en": "Decoration (cover 0). Its resource (fuel) has no item yet, so it is not a gather object (question 1224)."
+        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 연료를 캔다(기획 D-540 1224 가).",
+        "en": "Decoration (cover 0). A gather object on the same spot yields fuel (design D-540 1224 a)."
       },
       "placement": "scatter",
       "art": "peat_mound",
@@ -587,8 +587,8 @@
       "id": "shell_bed",
       "name": { "ko": "조개·해초 밭", "en": "Shell bed" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 나오는 자원(조개) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
-        "en": "Decoration (cover 0). Its resource (shellfish) has no item yet, so it is not a gather object (question 1224)."
+        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 조개를 캔다(기획 D-540 1224 가).",
+        "en": "Decoration (cover 0). A gather object on the same spot yields shellfish (design D-540 1224 a)."
       },
       "placement": "scatter",
       "art": "shell_bed",
@@ -612,8 +612,8 @@
       "id": "salt_pan",
       "name": { "ko": "소금밭", "en": "Salt pan" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 나오는 자원(소금) 아이템이 아직 없어 채집 오브젝트가 아니다(질문 1224).",
-        "en": "Decoration (cover 0). Its resource (salt) has no item yet, so it is not a gather object (question 1224)."
+        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 소금을 캔다(기획 D-540 1224 가).",
+        "en": "Decoration (cover 0). A gather object on the same spot yields salt (design D-540 1224 a)."
       },
       "placement": "scatter",
       "art": "salt_flat",

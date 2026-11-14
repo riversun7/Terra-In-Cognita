@@ -11,7 +11,7 @@ import {
   expectedGatherTable,
 } from "@terra/shared/gatherExpect";
 import type { GatherBand } from "@terra/shared/gatherMath";
-import { useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import "../gatherTiers/gatherTier.css";
 
@@ -83,10 +83,13 @@ function ExpectCell({ cell }: { cell: GatherExpectCell }) {
 }
 
 export function ProductionExpectPanel({
+  picker,
   bands,
   rules,
 }: {
-  /** 담은 변경을 얹은 지금 확률표 */
+  /** 띠 표 고르기(기획 D-540 1217 나 — 사다리마다 띠 표) */
+  picker?: ReactNode;
+  /** 담은 변경을 얹은 지금 확률표(고른 사다리 표만) */
   bands: readonly GatherBand[];
   rules: BuildingEditorGatherRules;
 }) {
@@ -121,6 +124,7 @@ export function ProductionExpectPanel({
           bonus: levelBonus,
         })}
       </p>
+      {picker}
       <div className="pd-expect-controls">
         <label className="pd-expect-slider">
           <span>

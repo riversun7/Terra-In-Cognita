@@ -1,7 +1,7 @@
 // 서버 도시 경제의 시뮬 경제 목록 — docs/adr/2026-11-07-play-flow.md WP4. 시뮬 CLI(packages/sim/cli/common.ts catalogOf)와 같은 모양을
 // 서버 경제 화면 목록(economy.catalog, 켜진 항목·팩 수량)과 그 세계의 실효 아이템·시설·채집 확률표에서 만든다(건물·아이템 편집기 덮어쓰기가 든다).
 // 중분류(채집 사다리)·시설 채집 칸(스탯 짝·수확량)·오염 값은 화면 목록에 없어 실효 항목에서 읽는다.
-import type { FacilityEntry, GatherTierEntry, ItemEntry } from "@terra/content";
+import { type FacilityEntry, type GatherTierEntry, type ItemEntry, gatherBandOfEntry } from "@terra/content";
 import { type EconomyCatalogResponse, marketKindOf } from "@terra/shared/economy";
 import type { EconomyCatalog } from "@terra/sim";
 
@@ -88,10 +88,7 @@ export function serverEconomyCatalog(
         : {}),
     };
   });
-  const bands = (content?.gatherTiers ?? []).map((band) => ({
-    from: band.from,
-    weightsPm: [...band.weightsPm],
-  }));
+  const bands = (content?.gatherTiers ?? []).map(gatherBandOfEntry);
   const catalog: EconomyCatalog = {
     items,
     recipes: response.recipes.map((recipe) => ({

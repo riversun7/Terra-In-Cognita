@@ -52,13 +52,16 @@ export function layoutObjectsOf(
   if (kinds.length === 0) return [];
   const value = land ? { ...land, water: land.water ?? 0 } : undefined;
   const materials = value ? cellMaterials(value, seed) : undefined;
-  // 노두(질문 1083 나): 채집과 같은 광석 고도 몫·목재 몫(관목 — 기본 재료 바닥 보장)
+  // 노두(질문 1083 나): 채집과 같은 광석 고도 몫·목재 몫(관목 — 기본 재료 바닥 보장). 지형별 오브젝트·어군(질문 1230 가): 채집과 같은
+  // 바이옴·물 비트(gather/world.ts terrainKind)를 넘겨 NPC 벌목장·광산·약초원 자리가 지형별 자리(site)도 본다
   return placeGatherObjects(
     {
       ...mapLayers(map),
       materials,
       oreSharePm: value ? oreSharePm(value, seed) : undefined,
       woodSharePm: value ? woodSharePm(value, seed) : undefined,
+      biomeId: value?.biomeId ?? undefined,
+      waterBits: value?.water,
     },
     kinds,
   );

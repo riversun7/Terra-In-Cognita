@@ -79,3 +79,22 @@ describe("가중치", () => {
     expect(gatherStageKeys(applyBulkPreset(EMPTY_GATHER_STAGE, [B0, B1], "pack"))).toEqual(["band_020"]);
   });
 });
+
+describe("사다리 띠 표(기획 D-540 1217 나)", () => {
+  it("광석 표 구간을 고친 담음은 사다리 칸을 그대로 싣는다(덮어쓰기가 기본 표로 옮겨 가지 않는다)", () => {
+    const ore: BuildingEditorGatherBand = {
+      ...band("ore_band_000", 0, [500, 350, 100, 50, 0, 0, 0, 0, 0, 0]),
+      entry: { id: "ore_band_000", ladder: "ore", from: 0, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0] },
+    };
+    const next = withWeight(ore.entry.weightsPm, 1, 400);
+    const staged = editBand(EMPTY_GATHER_STAGE, ore, next);
+    expect(gatherChangesOf(staged)).toEqual([
+      {
+        op: "put_gather_band",
+        entry: { id: "ore_band_000", ladder: "ore", from: 0, weightsPm: next },
+        baseHash: HASH,
+      },
+    ]);
+    expect(draftBandOf(ore, staged).ladder).toBe("ore");
+  });
+});

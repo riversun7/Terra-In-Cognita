@@ -265,10 +265,14 @@ export const GATHER_WEIGHT_TOTAL = 1000;
  * 채집·채굴 티어 확률표 한 구간(49 N43, D-506): 유효 스탯이 from 이상(다음 구간 from 미만)이면 이 가중치(‰, T0~T9 차례, 합 1000)로
  * 티어를 뽑는다. 파일 차례 = from 차례(첫 구간 from 0, 늘어나기만, 2단계 검사). 마지막 구간은 위 끝이 없다.
  * 옛 프로젝트 skill_tier_probability(20 단위 구간)를 ‰로 옮겼고, 0~39는 [임시] T0 700·T1 150·T2 100·T3 50(사용자 답 300)
+ * 바뀜(기획 D-540 1217 나 — 사다리마다 띠 표): ladder가 있으면 그 사다리(채집 시설의 주 중분류) 전용 표의 구간이다. 그 사다리에 전용 표가
+ * 있으면 그 표만 쓰고, 없으면 ladder 없는 기본 표를 쓴다(@terra/shared/gatherMath gatherLadderBands). 표마다 첫 구간 from 0·늘어나기만(2단계 검사)
  */
 export const gatherTierEntrySchema = z
   .strictObject({
     id: contentId,
+    /** 이 구간이 드는 사다리(원자재 중분류). 없으면 기본 표 */
+    ladder: ref("item_subcategories").optional(),
     from: z.int().min(0).max(100_000),
     weightsPm: z.array(z.int().min(0).max(GATHER_WEIGHT_TOTAL)).length(GATHER_TIER_COUNT),
   })
@@ -286,6 +290,22 @@ export const gatherTierEntrySchema = z
       });
   });
 export type GatherTierEntry = z.output<typeof gatherTierEntrySchema>;
+
+/**
+ * 파싱한 띠 구간 → 판정·미리 보기의 띠 모양(@terra/shared/gatherMath GatherBand: from·weightsPm·ladder ID). 사다리 칸을 잃지 않게 모든
+ * 읽는 곳(시뮬·서버 시설·NPC 경제·미리 보기·사이보그 판)이 이 함수를 쓴다(기획 D-540 1217 나)
+ */
+export function gatherBandOfEntry(entry: GatherTierEntry): {
+  from: number;
+  weightsPm: number[];
+  ladder?: string;
+} {
+  return {
+    from: entry.from,
+    weightsPm: [...entry.weightsPm],
+    ...(entry.ladder ? { ladder: entry.ladder.id } : {}),
+  };
+}
 
 export const recipeEntrySchema = z.strictObject({
   id: contentId,

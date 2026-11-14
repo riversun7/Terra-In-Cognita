@@ -10,6 +10,7 @@
 // - 높은 티어 광석(기획 D-535 질문 1121, docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12): 높은 티어 광석"): 플레이어 광산도 NPC 광산과
 //   같은 티어 막기(@terra/shared/catchment oreTierCapOf)를 받는다 — 높은 티어 몫 = 건물이 선 2차맵 칸의 highOrePm(산지 1000, 산지 밖
 //   ore_flat_high_pm). 행성 값이 없는 2차맵(임시 지형)은 막지 않는다.
+import { type LandCheck, createLandCheck } from "./landRule.ts";
 import { type CatchmentLand, highOrePm, materialOfFacility, oreTierCapOf } from "@terra/shared/catchment";
 import {
   HOME_HOUSING,
@@ -56,6 +57,8 @@ export interface WorldFacilities {
   readonly service: FacilityService;
   /** 건물·영토 비콘 공격(질문 381, attack.ts) */
   readonly attack: BuildingAttack;
+  /** 2차맵 건설 땅 규칙(landRule.ts — 짓기 명령·화면 미리 묻기) */
+  readonly land: LandCheck;
   /** 전투 결과의 건물 피해를 받는 곳(전투 결과 적용이 같은 동기 처리로 부른다) */
   readonly damage: BuildingDamageSink;
   readonly catalog: () => FacilityCatalog;
@@ -227,6 +230,12 @@ export function createWorldFacilities(input: {
       }
     : undefined;
   let labor: LaborService | undefined;
+  // 2차맵 건설 땅 규칙(landRule.ts): 짓기 명령과 화면 미리 묻기가 같은 판정
+  const land = createLandCheck({
+    pool: input.battles.pool,
+    owners: input.battles.owners,
+    writer: input.writer,
+  });
   const service = createFacilityService({
     loaded: input.loaded,
     maps: input.maps,
@@ -238,6 +247,7 @@ export function createWorldFacilities(input: {
     holdings: input.holdings,
     territory: input.territory,
     cities: input.cities,
+    land,
     labor: {
       unitBusy: (unitId) => labor?.unitBusy(unitId) ?? false,
       buildingInUse: (buildingId) => labor?.buildingInUse(buildingId) ?? false,
@@ -325,6 +335,7 @@ export function createWorldFacilities(input: {
   return {
     service,
     attack,
+    land,
     damage: buildingDamageSinkOf(service, input.territory),
     catalog,
     gatherKinds: () => input.config?.gatherKinds?.() ?? [],

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-14 21:40 | 2차맵 건축 모드(1단계)와 지을 수 있는 땅 규칙 | Claude Code | [14-2140-second-map-build-mode](worklog/2026/11/14-2140-second-map-build-mode.md) |
 | 2026-11-14 18:25 | 인벤토리 화면·2차맵 가방·채집 진행바·휘두르기 자세 | Claude Code | [14-1825-inventory-gather-progress](worklog/2026/11/14-1825-inventory-gather-progress.md) |
 | 2026-11-14 15:30 | 2026-11-14 일곱째 묶음 합치기 (배 B2·구간 빠르기·작은 고침) | Claude Code | [14-1530-batch-1114-merge](worklog/2026/11/14-1530-batch-1114-merge.md) |
 | 2026-11-14 13:20 | 구간 빠르기 — 경로 구간마다 지형·도로에 따라 실제로 느리게 걷는다 (D-541) | Claude Code | [14-1320-segment-speed](worklog/2026/11/14-1320-segment-speed.md) |

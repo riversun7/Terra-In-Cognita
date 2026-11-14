@@ -15,7 +15,11 @@ import type {
   MarketCitiesResponse,
   MarketItemsResponse,
 } from "@terra/shared/economy";
-import type { FacilitiesOverviewResponse, FacilityWaterMaskResponse } from "@terra/shared/facilities";
+import type {
+  FacilitiesOverviewResponse,
+  FacilityLandRuleResponse,
+  FacilityWaterMaskResponse,
+} from "@terra/shared/facilities";
 import type { LaborJobsResponse, LaborOverviewResponse } from "@terra/shared/labor";
 import type { RecruitBoardResponse } from "@terra/shared/recruit";
 import type { RuinsOverviewResponse } from "@terra/shared/ruins";
@@ -192,6 +196,11 @@ export const useFacilities = createQuery<FacilitiesOverviewResponse>((_args, _pr
 /** 2차맵 물 표(짓기 폼의 물가 조건 미리 보기, 질문 947 나). args = [2차맵 키 글자] */
 export const useWaterMask = createQuery<FacilityWaterMaskResponse>(([mapKey = "0"], _preview, signal) =>
   api.facilities.waterMask.query({ mapKey: Number(mapKey) }, { signal }),
+);
+
+/** 그 2차맵에 지을 수 있나(서버 땅 규칙 — 2차맵 건축 모드 미리 묻기, docs/adr/2026-11-14-second-map-build.md) */
+export const useLandRule = createQuery<FacilityLandRuleResponse>(([mapKey = "0"], _preview, signal) =>
+  api.facilities.landRule.query({ mapKey: Number(mapKey) }, { signal }),
 );
 
 /** 신전·생명과학 연구소(비활성 휴먼 환생·신격화·유전자 변환, D-517 — docs/adr/2026-11-07-temple-religion.md) */

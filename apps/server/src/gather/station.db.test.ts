@@ -9,7 +9,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_FACILITY_SOURCE } from "../facilities/testFacilities.ts";
 import { waterOk } from "../facilities/water.ts";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
-import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import {
+  TEST_DATABASE_URL,
+  type TestDatabase,
+  createTestDatabase,
+  joinCityFaction,
+  rows,
+} from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { type World, startWorld } from "../world/world.ts";
@@ -110,6 +116,8 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     );
     const userId = String(found[0]?.id);
     const ownerId = p.settlement.ownerOfUser(userId, clock).id;
+    // 땅 규칙(docs/adr/2026-11-14-second-map-build.md): 시험 세계 2차맵에는 NPC 도시가 있어 그 세력에 들어야 짓는다
+    await joinCityFaction(test.db, userId, map.mapKey);
     p.settlement.grantCredit(ownerId, 100_000n, clock);
     const service = p.facilities.service;
 
@@ -230,6 +238,8 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     );
     const userId = String(found[0]?.id);
     const ownerId = p.settlement.ownerOfUser(userId, clock).id;
+    // 땅 규칙(docs/adr/2026-11-14-second-map-build.md): 시험 세계 2차맵에는 NPC 도시가 있어 그 세력에 들어야 짓는다
+    await joinCityFaction(test.db, userId, map.mapKey);
     p.settlement.grantCredit(ownerId, 100_000n, clock);
     const service = p.facilities.service;
     for (const [item, qty] of Object.entries({ pine_log: 20 }))
@@ -324,6 +334,8 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     );
     const userId = String(found[0]?.id);
     const ownerId = p.settlement.ownerOfUser(userId, clock).id;
+    // 땅 규칙(docs/adr/2026-11-14-second-map-build.md): 시험 세계 2차맵에는 NPC 도시가 있어 그 세력에 들어야 짓는다
+    await joinCityFaction(test.db, userId, map.mapKey);
     p.settlement.grantCredit(ownerId, 100_000n, clock);
     const service = p.facilities.service;
     for (const [item, qty] of Object.entries({ pine_log: 40, stone: 10 }))

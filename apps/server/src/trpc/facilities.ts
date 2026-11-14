@@ -21,6 +21,10 @@ export const facilitiesRouter = router({
    * 띄운 2차맵의 물 표(지형 칸마다 1비트, 16진수 — 질문 947 나): 짓기 폼의 물가 조건 미리 보기. 지형 파일(/api/maps/:mapKey/terrain)과 같은
    * 공개 범위(로그인한 누구나)다
    */
+  /** 그 2차맵에 지을 수 있나(땅 규칙 — 건축 모드 미리 묻기, docs/adr/2026-11-14-second-map-build.md) */
+  landRule: signedInProcedure
+    .input(z.strictObject({ mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }))
+    .query(({ ctx, input }) => (ctx.facilities ?? notReady).landRule(ctx.viewer, input.mapKey)),
   waterMask: signedInProcedure
     .input(z.strictObject({ mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }))
     .query(({ ctx, input }) => (ctx.facilities ?? notReady).waterMask(input.mapKey)),

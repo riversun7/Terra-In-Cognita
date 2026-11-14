@@ -9,7 +9,13 @@ import { goodsAsset } from "../facilities/materials.ts";
 import { TEST_FACILITY_SOURCE } from "../facilities/testFacilities.ts";
 import { facilitiesOverview } from "../facilities/views.ts";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
-import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import {
+  TEST_DATABASE_URL,
+  type TestDatabase,
+  createTestDatabase,
+  joinCityFaction,
+  rows,
+} from "../testDb.ts";
 import { ASSET_ORE } from "../world/settlement.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
@@ -82,6 +88,8 @@ async function setup(world: World, name: string, cell: number) {
   const ownerId = p.settlement.ownerOfUser(userId, clock).id;
   p.settlement.grantCredit(ownerId, 100_000n, clock);
   const map = firstMap(world);
+  // 땅 규칙(docs/adr/2026-11-14-second-map-build.md): 시험 세계 2차맵에는 NPC 도시가 있어 그 세력에 들어야 짓는다
+  await joinCityFaction(test.db, userId, map.mapKey);
   const unitId = p.nextId.unit();
   expect(
     map.addUnit({

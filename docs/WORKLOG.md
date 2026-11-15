@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 11:30 | 사업장 장부 구현(D-548·D-555) | Claude Code | [15-1130-business-ledger-impl](worklog/2026/11/15-1130-business-ledger-impl.md) |
 | 2026-11-15 09:40 | 배 체계 개편 구현: 조선소·정박장·교역 부두·내구도·옛 배 지우기, 해상 전투·항로 설계안 | Claude Code | [15-0940-boats-impl](worklog/2026/11/15-0940-boats-impl.md) |
 | 2026-11-15 08:20 ~ 08:45 | 사업장 장부(D-548) 코드 감사 + 설계안(질문 1501~1514) | Claude Code | [15-0840-business-ledger](worklog/2026/11/15-0840-business-ledger.md) |
 | 2026-11-15 08:30 | 2026-11-15 열째 묶음 합치기 (배 재료 반환 제거·전투 보고서 2단계) | Claude Code | [15-0830-batch-1115-merge](worklog/2026/11/15-0830-batch-1115-merge.md) |

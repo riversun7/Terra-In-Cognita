@@ -87,15 +87,21 @@ async function hireSelf(world: World, userId: string, count: number, spare: bigi
   expect(units).toHaveLength(count);
   const placed = map.placeBuilding({ x: 40, y: 40, width: 2, height: 2, rotation: 0 }, ownerId);
   if (!placed.ok || placed.buildingId === undefined) throw new Error("no building");
-  // 첫 임금은 내 지갑으로 돌아온다 → 계약마다 지갑에서 보증금 − 첫 임금만큼 빠진다
+  // 보증금은 사업장 금고에서 나간다(D-555 1504) → 미리 금고에 넣는다. 첫 임금은 내 지갑으로 돌아오니 그만큼 다시 금고에 넣어 지갑 = spare
   if (spare < WAGE) throw new Error("spare < wage");
-  p.settlement.grantCredit(ownerId, BigInt(count) * (DEPOSIT - WAGE) + spare, clock);
+  p.settlement.grantCredit(ownerId, BigInt(count) * DEPOSIT + spare, clock);
+  expect(
+    p.facilities.business.invest(placed.buildingId, ownerId, ASSET_CREDIT, BigInt(count) * DEPOSIT, clock),
+  ).toBe(true);
   const contracts: number[] = [];
   for (const unitId of units) {
     const made = await p.labor.create(userId, { kind: "wage", buildingId: placed.buildingId, unitId });
     if (!made.ok || made.contractId === undefined) throw new Error(`no contract: ${JSON.stringify(made)}`);
     contracts.push(made.contractId);
   }
+  expect(
+    p.facilities.business.invest(placed.buildingId, ownerId, ASSET_CREDIT, BigInt(count) * WAGE, clock),
+  ).toBe(true);
   expect(p.ledger.balanceOf(ownerId, ASSET_CREDIT)).toBe(spare);
   return contracts;
 }

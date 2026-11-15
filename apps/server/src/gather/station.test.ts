@@ -121,6 +121,12 @@ const catalog: FacilityCatalog = {
   subcategoryName: () => undefined,
 };
 
+/** 자동 옮김을 켠 계수표(기본값은 끔 — 기획 D-555 1505. 이 시험은 켰을 때의 옮김을 본다) */
+const HAUL_ON = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  gatherObjects: { ...TEST_SOCIETY_COEFFICIENTS.gatherObjects, stationHaulMs: 600_000 },
+};
+
 function rig(
   level: number | { store?: { x: number; y: number } | undefined; haulMode?: number | undefined } = 1,
 ) {
@@ -192,10 +198,10 @@ function rig(
     kinds: () => KINDS,
     rules: () =>
       opts.haulMode === undefined
-        ? TEST_SOCIETY_COEFFICIENTS
+        ? HAUL_ON
         : {
-            ...TEST_SOCIETY_COEFFICIENTS,
-            logistics: { ...TEST_SOCIETY_COEFFICIENTS.logistics, haulMode: opts.haulMode },
+            ...HAUL_ON,
+            logistics: { ...HAUL_ON.logistics, haulMode: opts.haulMode },
           },
     ledger,
     store,

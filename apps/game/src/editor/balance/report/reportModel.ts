@@ -5,9 +5,12 @@ import {
   FLOW_VALUE_STAGES,
   type FlowValueStage,
   REPORT_LIMITS,
+  REPORT_ORDER_KINDS,
   REPORT_REASONS,
   type ReportCity,
   type ReportCounters,
+  type ReportEdge,
+  type ReportOrder,
   type ReportFlow,
   type ReportMode,
   type ReportReason,
@@ -20,6 +23,7 @@ import {
   type ReportWaveDefense,
   flowQuantile,
   legionOf,
+  legionOrders,
   reportDefense,
   reportProblem,
 } from "@terra/shared/battleReport";
@@ -36,14 +40,15 @@ export interface WaveForm {
 }
 
 /**
- * 군단 폼(기획 D-179·D-545): 1번 파티는 실험실 팀(useLabData — 한 판·3D 관람도 그 파티끼리), 2번부터는 여기(이 기기에 남기지 않는다),
- * 군단 명령 = 군단 퇴각 시각(초, 0 = 없음)
+ * 군단 폼(기획 D-179·D-545·D-549): 1번 파티는 실험실 팀(useLabData), 2번부터는 여기(이 기기에 남기지 않는다). 명령 = 시각 파티·군단
+ * 명령(orders, 이 기기에 남긴다). retreatAtSec는 옛 기록의 군단 퇴각(다시 돌리기로 열면 명령으로 바꾼다 — 새 폼은 늘 0)
  */
 export interface LegionForm {
   readonly extra: readonly LabParty[];
   readonly retreatAtSec: number;
+  readonly orders: readonly ReportOrder[];
 }
-export const EMPTY_LEGION: LegionForm = { extra: [], retreatAtSec: 0 };
+export const EMPTY_LEGION: LegionForm = { extra: [], retreatAtSec: 0, orders: [] };
 
 /** 보고서 폼(팀은 실험실 자료 useLabData가 따로 든다) */
 export interface ReportForm {
@@ -62,12 +67,16 @@ export interface ReportForm {
   /** 수비: 파티 공성(팀 B·실제 도시 수비), 웨이브(시뮬 휴먼·팀 B·실제 도시 수비) */
   readonly siegeDefense: ReportSiegeDefense;
   readonly waveDefense: ReportWaveDefense;
-  /** 팀마다 군단(2번 파티부터·군단 명령) */
+  /** 팀마다 군단(2번 파티부터·파티·군단 명령) */
   readonly legion: { readonly a: LegionForm; readonly b: LegionForm };
+  /** 공성·웨이브 공격 변(1465): 고른 변 또는 random(판마다 판 시드로) */
+  readonly edge: ReportEdge;
   /** A/B: 켰나, B 이름, B 팀(null = A 팀 그대로), B 웨이브, 설정 칸 바꿈 */
   readonly variantOn: boolean;
   readonly variantLabel: string;
   readonly variantTeams: Teams | null;
+  /** B 팀 따로일 때 B 군단(2번 파티부터·명령, 사용자 1468 "군단 전체") */
+  readonly variantLegion: { readonly a: LegionForm; readonly b: LegionForm } | null;
   readonly variantWave: WaveForm | null;
   readonly variantTuning: readonly ReportTuningChange[];
 }
@@ -96,9 +105,11 @@ export function defaultReportForm(): ReportForm {
     siegeDefense: "party",
     waveDefense: "sim",
     legion: { a: EMPTY_LEGION, b: EMPTY_LEGION },
+    edge: "random",
     variantOn: false,
     variantLabel: "B",
     variantTeams: null,
+    variantLegion: null,
     variantWave: null,
     variantTuning: [],
   };
@@ -135,11 +146,44 @@ export function teamsShown(form: ReportForm): { a: boolean; b: boolean } {
   return { a: false, b: waveDefenseOf(form) === "party" };
 }
 
-/** 팀 파티 1 + 군단 폼 → 군단 */
+/** 팀 파티 1 + 군단 폼 → 군단(명령이 없으면 칸을 두지 않는다 — 옛 기록 모양) */
 export const legionInput = (first: LabParty, legion: LegionForm): ReportLegion => ({
   parties: [first, ...legion.extra],
   retreatAtSec: legion.retreatAtSec,
+  ...(legion.orders.length > 0 ? { orders: legion.orders } : {}),
 });
+
+/** 고치는 설정(A·B)의 군단 폼 — B 팀 따로면 B 군단 */
+export function legionsOf(form: ReportForm, editingB: boolean): { a: LegionForm; b: LegionForm } {
+  return editingB && form.variantLegion ? form.variantLegion : form.legion;
+}
+
+/** 고치는 설정의 군단 폼을 바꾼다 */
+export function withLegions(
+  form: ReportForm,
+  editingB: boolean,
+  legion: { a: LegionForm; b: LegionForm },
+): ReportForm {
+  return editingB && form.variantLegion ? { ...form, variantLegion: legion } : { ...form, legion };
+}
+
+/** 파티를 하나 뺐을 때 명령을 맞춘다(그 파티 명령은 지우고 뒤 파티 번호를 당긴다) */
+export function ordersWithoutParty(orders: readonly ReportOrder[], removed: number): ReportOrder[] {
+  return orders
+    .filter((order) => order.party !== removed)
+    .map((order) => (order.party > removed ? { ...order, party: order.party - 1 } : order));
+}
+
+/** 상대 군단 파티를 뺐을 때 목표 공격을 맞춘다(그 파티를 노린 명령은 지운다) */
+export function ordersWithoutTarget(orders: readonly ReportOrder[], removed: number): ReportOrder[] {
+  return orders
+    .filter((order) => order.target?.party !== removed)
+    .map((order) =>
+      order.target && order.target.party > removed
+        ? { ...order, target: { ...order.target, party: order.target.party - 1 } }
+        : order,
+    );
+}
 
 /** 서버로 보낼 도시(실제 도시만 cityId) */
 function cityInput(city: ReportCity): ReportCity {
@@ -148,9 +192,14 @@ function cityInput(city: ReportCity): ReportCity {
     : { layout: city.layout, housing: city.housing, adminLevel: city.adminLevel };
 }
 
-function setupOf(form: ReportForm, teams: Teams, wave: WaveForm): ReportSetup {
-  const a = legionInput(teams.a, form.legion.a);
-  const b = legionInput(teams.b, form.legion.b);
+function setupOf(
+  form: ReportForm,
+  teams: Teams,
+  wave: WaveForm,
+  legion: { a: LegionForm; b: LegionForm } = form.legion,
+): ReportSetup {
+  const a = legionInput(teams.a, legion.a);
+  const b = legionInput(teams.b, legion.b);
   if (form.mode === "arena") return { mode: "arena", a, b, terrain: form.terrain, limitSec: form.limitSec };
   const city = cityInput(form.city);
   if (form.mode === "siege") {
@@ -164,6 +213,7 @@ function setupOf(form: ReportForm, teams: Teams, wave: WaveForm): ReportSetup {
       nexusDurability: form.nexusDurability,
       limitSec: form.limitSec,
       defense,
+      edge: form.edge,
     };
   }
   const defense = waveDefenseOf(form);
@@ -174,6 +224,7 @@ function setupOf(form: ReportForm, teams: Teams, wave: WaveForm): ReportSetup {
     nexusDurability: form.nexusDurability,
     limitSec: form.limitSec,
     defense,
+    edge: form.edge,
     ...(defense === "party" ? { b } : {}),
   };
 }
@@ -187,7 +238,7 @@ export function reportInputOf(form: ReportForm, teams: Teams, fallbackName: stri
         ? setupOf(form, teams, form.variantWave)
         : null
       : form.variantTeams
-        ? setupOf(form, form.variantTeams, form.wave)
+        ? setupOf(form, form.variantTeams, form.wave, form.variantLegion ?? form.legion)
         : null;
   return {
     name: form.name.trim() || fallbackName,
@@ -209,20 +260,22 @@ const waveOf = (s: Extract<ReportSetup, { mode: "wave" }>): WaveForm => ({
   defenderTech: s.defenderTech,
 });
 
-/** 군단 → 1번 파티와 군단 폼 */
+/** 군단 → 1번 파티와 군단 폼(옛 군단 퇴각 시각은 군단 퇴각 명령으로) */
 function legionForm(legion: ReportLegion): { first: LabParty | undefined; form: LegionForm } {
   return {
     first: legion.parties[0],
-    form: { extra: legion.parties.slice(1), retreatAtSec: legion.retreatAtSec },
+    form: { extra: legion.parties.slice(1), retreatAtSec: 0, orders: legionOrders(legion) },
   };
 }
 
-/** B 설정 팀(따로 고친 경우 — 1번 파티만, 군단 2번부터는 A와 같이 쓴다) */
-function variantTeamsOf(vs: ReportSetup | null | undefined): Teams | null {
-  if (!vs || vs.mode === "wave") return null;
-  const va = legionOf(vs.a).parties[0];
-  const vb = legionOf(vs.b).parties[0];
-  return va && vb ? { a: va, b: vb } : null;
+/** B 설정 팀(따로 고친 경우 — 1번 파티는 팀, 2번부터·명령은 B 군단 폼, 사용자 1468) */
+function variantOf(vs: ReportSetup | null | undefined): Pick<ReportForm, "variantTeams" | "variantLegion"> {
+  if (!vs || vs.mode === "wave") return { variantTeams: null, variantLegion: null };
+  const va = legionForm(legionOf(vs.a));
+  const vb = legionForm(legionOf(vs.b));
+  return va.first && vb.first
+    ? { variantTeams: { a: va.first, b: vb.first }, variantLegion: { a: va.form, b: vb.form } }
+    : { variantTeams: null, variantLegion: null };
 }
 
 /** 기록의 입력 → 폼·팀(다시 돌리기). teams는 실험실 팀에 실을 1번 파티(없는 팀은 그대로 둔다) */
@@ -243,8 +296,10 @@ export function formOfInput(
     variantLabel: variant?.label ?? "B",
     variantTuning: variant?.tuning ?? [],
     variantTeams: null,
+    variantLegion: null,
     variantWave: null,
     legion: { a: EMPTY_LEGION, b: EMPTY_LEGION },
+    edge: setup.mode === "arena" ? base.edge : (setup.edge ?? 3),
   };
   const cityLabel = setup.mode !== "arena" && setup.city.layout === "world" ? `#${setup.city.cityId}` : "";
   if (setup.mode === "arena" || setup.mode === "siege") {
@@ -257,7 +312,7 @@ export function formOfInput(
     const legion = { a: la.form, b: lb.form };
     if (setup.mode === "arena")
       return {
-        form: { ...common, terrain: setup.terrain, legion, variantTeams: variantTeamsOf(variant?.setup) },
+        form: { ...common, terrain: setup.terrain, legion, ...variantOf(variant?.setup) },
         teams,
       };
     return {
@@ -268,7 +323,7 @@ export function formOfInput(
         nexusDurability: setup.nexusDurability,
         siegeDefense: setup.defense ?? "party",
         legion,
-        variantTeams: variantTeamsOf(variant?.setup),
+        ...variantOf(variant?.setup),
       },
       teams,
     };
@@ -323,6 +378,27 @@ function waveField(value: unknown, fallback: WaveForm): WaveForm {
   };
 }
 
+/** 남긴 명령(모양이 맞는 것만, 2번 파티부터는 남기지 않으므로 1번 파티·군단 명령만 — 목표는 상대 1번 파티) */
+function ordersField(value: unknown): ReportOrder[] {
+  const raw = field(value, "orders");
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry: unknown): ReportOrder[] => {
+    const atSec = intField(entry, "atSec", -1);
+    const party = intField(entry, "party", -2);
+    const kind = oneOf(field(entry, "kind"), REPORT_ORDER_KINDS, "free");
+    if (atSec < 0 || party < -1 || party > 0) return [];
+    const target = field(entry, "target");
+    const index = intField(target, "index", -1);
+    if (kind === "attack") return index >= 0 ? [{ atSec, party, kind, target: { party: 0, index } }] : [];
+    return [{ atSec, party, kind }];
+  });
+}
+
+/** 남긴 공격 변(없거나 틀리면 random) */
+function edgeField(value: unknown): ReportEdge {
+  return value === 0 || value === 1 || value === 2 || value === 3 ? value : "random";
+}
+
 /** 이 기기에 남긴 폼(칸마다 모양을 보고, 틀리면 기본값. 서버가 다시 검사한다). B 팀은 남기지 않는다 */
 export function loadReportForm(): ReportForm {
   const base = defaultReportForm();
@@ -361,9 +437,10 @@ export function loadReportForm(): ReportForm {
       siegeDefense: field(parsed, "siegeDefense") === "world" ? "world" : "party",
       waveDefense: oneOf(field(parsed, "waveDefense"), ["sim", "party", "world"] as const, "sim"),
       legion: {
-        a: { extra: [], retreatAtSec: intField(field(field(parsed, "legion"), "a"), "retreatAtSec", 0) },
-        b: { extra: [], retreatAtSec: intField(field(field(parsed, "legion"), "b"), "retreatAtSec", 0) },
+        a: { extra: [], retreatAtSec: 0, orders: ordersField(field(field(parsed, "legion"), "a")) },
+        b: { extra: [], retreatAtSec: 0, orders: ordersField(field(field(parsed, "legion"), "b")) },
       },
+      edge: edgeField(field(parsed, "edge")),
       nexusDurability: intField(parsed, "nexusDurability", base.nexusDurability),
       wave: waveField(field(parsed, "wave"), base.wave),
       variantOn: field(parsed, "variantOn") === true,
@@ -385,11 +462,15 @@ export function loadReportForm(): ReportForm {
 export function saveReportForm(form: ReportForm): void {
   try {
     // B 팀·군단 2번 파티부터는 남기지 않는다(팀 모양 검사를 줄인다 — 서버가 다시 검사한다)
+    // 명령은 남긴다(2번 파티부터를 가리키는 명령은 그 파티가 없으면 열 때 버린다)
     const legion = {
-      a: { extra: [], retreatAtSec: form.legion.a.retreatAtSec },
-      b: { extra: [], retreatAtSec: form.legion.b.retreatAtSec },
+      a: { extra: [], retreatAtSec: 0, orders: form.legion.a.orders },
+      b: { extra: [], retreatAtSec: 0, orders: form.legion.b.orders },
     };
-    globalThis.localStorage?.setItem(FORM_KEY, JSON.stringify({ ...form, variantTeams: null, legion }));
+    globalThis.localStorage?.setItem(
+      FORM_KEY,
+      JSON.stringify({ ...form, variantTeams: null, variantLegion: null, legion }),
+    );
   } catch {
     // 저장소를 못 쓰면(사생활 창 등) 이 기기에만 남지 않을 뿐이다
   }

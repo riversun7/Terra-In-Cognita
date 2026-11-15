@@ -1,5 +1,5 @@
 import { newLabUnit } from "@terra/shared/battleLab";
-import { type ReportFlow, emptyFlow } from "@terra/shared/battleReport";
+import { type ReportFlow, type ReportStartInput, emptyFlow } from "@terra/shared/battleReport";
 import { describe, expect, it } from "vitest";
 import { rowLabel } from "./reportMessages.ts";
 import {
@@ -8,6 +8,8 @@ import {
   flowSteps,
   formOfInput,
   formProblem,
+  ordersWithoutParty,
+  ordersWithoutTarget,
   reportInputOf,
   withMode,
 } from "./reportModel.ts";
@@ -110,14 +112,33 @@ describe("보고서 폼", () => {
       city: { layout: "world" as const, housing: 40, adminLevel: 1, cityId: 7 },
       cityLabel: "Fake",
       siegeDefense: "world" as const,
-      legion: { a: { extra: [extra], retreatAtSec: 30 }, b: { extra: [], retreatAtSec: 0 } },
+      legion: {
+        a: {
+          extra: [extra],
+          retreatAtSec: 0,
+          orders: [
+            { atSec: 0, party: 1, kind: "hold" as const },
+            { atSec: 30, party: -1, kind: "retreat" as const },
+          ],
+        },
+        b: { extra: [], retreatAtSec: 0, orders: [] },
+      },
+      edge: 2 as const,
     };
     const input = reportInputOf(siege, teams, "x");
     expect(input.setup).toMatchObject({
       mode: "siege",
       defense: "world",
       city: { layout: "world", cityId: 7 },
-      a: { parties: [teams.a, extra], retreatAtSec: 30 },
+      a: {
+        parties: [teams.a, extra],
+        retreatAtSec: 0,
+        orders: [
+          { atSec: 0, party: 1, kind: "hold" },
+          { atSec: 30, party: -1, kind: "retreat" },
+        ],
+      },
+      edge: 2,
     });
     // 팀 B는 세계 수비라 비어도 된다
     expect(formProblem(siege, { ...teams, b: { units: [], retreatHpPct: 0 } })).toBeNull();
@@ -143,6 +164,64 @@ describe("보고서 폼", () => {
     expect(formProblem({ ...siege, city: { layout: "world", housing: 0, adminLevel: 1 } }, teams)).toBe(
       "unknown_city",
     );
+  });
+
+  it("옛 기록의 군단 퇴각 시각은 군단 퇴각 명령으로 열리고, B 팀 따로는 군단 전체(파티·명령)를 따로 든다(1468)", () => {
+    const extra = { units: teams.b.units, retreatHpPct: 0 };
+    const old: ReportStartInput = {
+      name: "old",
+      note: "",
+      setup: {
+        mode: "arena",
+        a: { parties: [teams.a, extra], retreatAtSec: 12 },
+        b: teams.b,
+        terrain: "flat",
+        limitSec: 120,
+      },
+      variant: {
+        label: "B",
+        setup: {
+          mode: "arena",
+          a: { parties: [teams.a], retreatAtSec: 0, orders: [{ atSec: 5, party: -1, kind: "hold" }] },
+          b: { parties: [teams.b, extra, extra], retreatAtSec: 0 },
+          terrain: "flat",
+          limitSec: 120,
+        },
+        tuning: [],
+      },
+      runs: 20,
+      seed: 1,
+    };
+    const { form } = formOfInput(old, defaultReportForm());
+    expect(form.legion.a.orders).toEqual([{ atSec: 12, party: -1, kind: "retreat" }]);
+    expect(form.variantLegion?.a.orders).toEqual([{ atSec: 5, party: -1, kind: "hold" }]);
+    expect(form.variantLegion?.b.extra).toHaveLength(2);
+    const again = reportInputOf(form, teams, "x");
+    const variant = again.variant?.setup;
+    expect(variant?.mode === "arena" && variant.b).toMatchObject({ parties: [teams.b, extra, extra] });
+    // 파티를 빼면 그 파티 명령은 지우고 뒤 번호를 당긴다, 상대 쪽 목표도 맞춘다
+    expect(
+      ordersWithoutParty(
+        [
+          { atSec: 0, party: 1, kind: "hold" },
+          { atSec: 0, party: 2, kind: "advance" },
+          { atSec: 0, party: -1, kind: "free" },
+        ],
+        1,
+      ),
+    ).toEqual([
+      { atSec: 0, party: 1, kind: "advance" },
+      { atSec: 0, party: -1, kind: "free" },
+    ]);
+    expect(
+      ordersWithoutTarget(
+        [
+          { atSec: 0, party: 0, kind: "attack", target: { party: 1, index: 0 } },
+          { atSec: 0, party: 0, kind: "attack", target: { party: 2, index: 3 } },
+        ],
+        1,
+      ),
+    ).toEqual([{ atSec: 0, party: 0, kind: "attack", target: { party: 1, index: 3 } }]);
   });
 
   it("줄 이름: 군단 키는 A2·3, 옛 키는 A3", () => {

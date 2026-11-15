@@ -307,9 +307,8 @@ describe("실제 세계 도시(1383)", () => {
     expect(defenders).toHaveLength(42);
     const kept = [101, 102, 103, 104, 105, 106, 107];
     expect(new Set(defenders.map((unit) => unit.party))).toEqual(new Set(kept));
-    expect(built.play.normal.parties.filter((party) => party.side === 2).map((party) => party.id)).toEqual(
-      kept,
-    );
+    const sides = built.play.normal.parties.filter((entry) => entry.side === 2);
+    expect(sides.map((entry) => entry.id)).toEqual(kept);
     expect(built.city).toMatchObject({ humans: 60, defenders: 42 });
     expect(built.play.legion?.b).toMatchObject({ parties: 7, units: 42, commandCap: 7, uncommanded: 0 });
   });

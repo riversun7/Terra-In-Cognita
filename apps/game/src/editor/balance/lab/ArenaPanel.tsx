@@ -6,7 +6,7 @@ import { useId } from "react";
 import { m } from "../../../paraglide/messages.js";
 import { LiveMessage, type LiveLines } from "../../../ui/LiveMessage.tsx";
 import type { Teams } from "./labModel.ts";
-import { BattleResult } from "./LabResults.tsx";
+import { BattleResult, type LegionParties } from "./LabResults.tsx";
 
 export function ArenaPanel(props: {
   readonly catalog: LabCatalogResponse;
@@ -17,6 +17,8 @@ export function ArenaPanel(props: {
   readonly battle: { readonly result: LabBattleResponse; readonly stale: boolean } | null;
   readonly problem: LiveLines;
   readonly teams: Teams;
+  /** 군단 전체 한 판의 팀마다 파티 목록(사용자 1469) */
+  readonly legion?: LegionParties | undefined;
   readonly locale: string;
 }) {
   const { catalog } = props;
@@ -65,6 +67,7 @@ export function ArenaPanel(props: {
           <BattleResult
             result={props.battle.result}
             teams={props.teams}
+            legion={props.legion}
             catalog={catalog}
             locale={props.locale}
           />

@@ -49,8 +49,14 @@ export const teamText = (team: LabTeam): string => TEAM_TEXT[team]();
 export function unitShort(key: string): string {
   const team = key.charAt(0).toUpperCase();
   const index = Number(key.slice(1));
-  return `${team}${Number.isInteger(index) ? index + 1 : "?"}`;
+  if (!Number.isInteger(index)) return `${team}?`;
+  // 군단 2번 파티부터(자리 6~)는 A2·3(파티·자리 — 보고서 줄 이름과 같다)
+  return index < PARTY_SLOTS
+    ? `${team}${index + 1}`
+    : `${team}${Math.floor(index / PARTY_SLOTS) + 1}·${(index % PARTY_SLOTS) + 1}`;
 }
+/** 파티 한 칸 수(LAB_LIMITS.partyMax와 같다) */
+const PARTY_SLOTS = 6;
 
 const ERROR_TEXT: Readonly<Record<LabErrorKey, () => string>> = {
   invalid_unit: m.dev_lab_err_invalid_unit,

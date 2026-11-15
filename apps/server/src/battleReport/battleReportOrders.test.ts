@@ -126,17 +126,22 @@ describe("파티·군단 명령(D-549)", () => {
   });
 });
 
-describe("공격 변(1465 — 판마다 설정, 여러 판이면 판 시드로 무작위)", () => {
-  const siege = (edge: 0 | 1 | 2 | 3 | "random"): ReportSetup => ({
-    mode: "siege",
-    a: { parties: [party(fighter(20), fighter(20))], retreatAtSec: 0 },
-    b: { parties: [party(fighter(5))], retreatAtSec: 0 },
-    city: { layout: "open", housing: 0, adminLevel: 1 },
-    nexusDurability: 300,
-    limitSec: 60,
-    edge,
-  });
+const siege = (edge: 0 | 1 | 2 | 3 | "random"): ReportSetup => ({
+  mode: "siege",
+  a: { parties: [party(fighter(20), fighter(20))], retreatAtSec: 0 },
+  b: { parties: [party(fighter(5))], retreatAtSec: 0 },
+  city: { layout: "open", housing: 0, adminLevel: 1 },
+  nexusDurability: 300,
+  limitSec: 60,
+  edge,
+});
 
+const spec = (level: number) => ({
+  spec: buildLabUnit(fighter(level), rules).spec,
+  row: "front" as const,
+});
+
+describe("공격 변(1465 — 판마다 설정, 여러 판이면 판 시드로 무작위)", () => {
   it("고른 변이면 그 변에서 들어오고, random이면 네 변 재료를 두고 판 시드로 고른다(같은 시드 = 같은 변)", async () => {
     const north = await playSetupOf(siege(0), ctx);
     expect(north.play.edges).toBeUndefined();
@@ -162,13 +167,10 @@ describe("공격 변(1465 — 판마다 설정, 여러 판이면 판 시드로 �
   });
 });
 
+const partyOf = (...levels: number[]) => ({ units: levels.map(spec), retreatHpPct: 0 });
+
 describe("군단 전체 한 판(1469)", () => {
   it("실험실 일에 군단이 있으면 모든 파티와 명령으로 돈다", () => {
-    const spec = (level: number) => ({
-      spec: buildLabUnit(fighter(level), rules).spec,
-      row: "front" as const,
-    });
-    const partyOf = (...levels: number[]) => ({ units: levels.map(spec), retreatHpPct: 0 });
     const job = {
       a: partyOf(10),
       b: partyOf(10),

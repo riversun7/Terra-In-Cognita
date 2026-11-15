@@ -16,6 +16,7 @@ import {
   staminaScore,
 } from "./coefficients.ts";
 import { UNARMED, UNARMED_ELEMENTAL } from "./catalog.ts";
+import { commandCapOf } from "./command.ts";
 import { type AttackProfile, ELEMENT_COUNT } from "./formula.ts";
 import {
   attackIntervalMs,
@@ -267,7 +268,8 @@ export function specFromStats(
     sight: Math.max(0, s("sight")),
     eye: body.eye ?? 16 * 180,
     air: body.air ?? false,
-    commandCap: body.commandCap ?? 0,
+    // 지휘관 정원(C7, 사용자 1464): 주어지지 않으면 1차 스탯 식(계수표에 식이 없으면 0)
+    commandCap: body.commandCap ?? commandCapOf(primaries, c),
     cyborg: body.cyborg ?? false,
     buildingMulPm: body.buildingMulPm ?? 1000,
     primaries,

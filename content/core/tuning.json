@@ -6735,6 +6735,114 @@
       "source": "ADR 2026-10-31-combat-core \"바뀜 (D-514)\" · D-514"
     },
     {
+      "id": "c7_command_base",
+      "code": "C7",
+      "name": {
+        "ko": "지휘관 정원: 기본(파티 수)",
+        "en": "Commander cap: base (parties)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 40,
+      "desc": {
+        "ko": "지휘 점수가 0이어도 받는 정원. 정원 밖 파티는 군단 명령을 받지 않는다.",
+        "en": "Cap before command points. Parties beyond the cap ignore legion orders."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (2026-11-14, 파티·군단 명령)\" · D-179 · 사용자 1464"
+    },
+    {
+      "id": "c7_command_int_pm",
+      "code": "C7",
+      "name": {
+        "ko": "지휘관 정원: 지휘 점수의 INT 가중치(‰)",
+        "en": "Commander cap: INT weight (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "지휘 점수 = INT × 이 값 + WIS × WIS 가중치(천분율).",
+        "en": "Command points = INT × this + WIS × WIS weight (per mille)."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (2026-11-14, 파티·군단 명령)\" · D-179 · 사용자 1464"
+    },
+    {
+      "id": "c7_command_wis_pm",
+      "code": "C7",
+      "name": {
+        "ko": "지휘관 정원: 지휘 점수의 WIS 가중치(‰)",
+        "en": "Commander cap: WIS weight (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "지휘 점수에 WIS가 드는 몫(천분율).",
+        "en": "WIS share of command points (per mille)."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (2026-11-14, 파티·군단 명령)\" · D-179 · 사용자 1464"
+    },
+    {
+      "id": "c7_command_points",
+      "code": "C7",
+      "name": {
+        "ko": "지휘관 정원: 지휘 점수 몇 점마다 파티 하나",
+        "en": "Commander cap: command points per extra party"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 10000,
+      "desc": {
+        "ko": "지휘 점수가 이만큼 오를 때마다 정원이 파티 하나 는다.",
+        "en": "Each time command points rise by this, the cap grows by one party."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (2026-11-14, 파티·군단 명령)\" · D-179 · 사용자 1464"
+    },
+    {
+      "id": "c7_command_min",
+      "code": "C7",
+      "name": {
+        "ko": "지휘관 정원: 아래 끝(파티 수)",
+        "en": "Commander cap: minimum (parties)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 40,
+      "desc": {
+        "ko": "정원의 아래 끝(사용자: 3개에서 20개 정도).",
+        "en": "Smallest cap (user: about 3 to 20)."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (2026-11-14, 파티·군단 명령)\" · D-179 · 사용자 1464"
+    },
+    {
+      "id": "c7_command_max",
+      "code": "C7",
+      "name": {
+        "ko": "지휘관 정원: 위 끝(파티 수)",
+        "en": "Commander cap: maximum (parties)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 40,
+      "desc": {
+        "ko": "정원의 위 끝(사용자: 3개에서 20개 정도).",
+        "en": "Largest cap (user: about 3 to 20)."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (2026-11-14, 파티·군단 명령)\" · D-179 · 사용자 1464"
+    },
+    {
       "id": "n54_injury_regen_1",
       "code": "N54",
       "name": {

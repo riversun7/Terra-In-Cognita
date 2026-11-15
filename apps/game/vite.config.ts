@@ -185,6 +185,8 @@ export default defineConfig({
           // 개발 도구 셋(행성 편집기·항성계·세계 배치)이 같이 쓰는 평면 지도·생성기 공용 조각(이름은 묶인 모듈에서 정해진다)
           "assets/generator-*.{js,css}",
           "assets/cellReport-*.{js,css}",
+          // 밸런스 화면·2차 스탯 화면([스탯 영향도], 기획 D-560 1376)이 같이 쓰는 분석·실험실 공용 조각(이름은 analysis.css에서 정해진다)
+          "assets/analysis-*.{js,css}",
         ],
       },
       // 개발 서버에서는 SW를 쓰지 않는다(virtual:pwa-register는 아무것도 하지 않는 대체 코드)

@@ -88,6 +88,7 @@ import {
   createTerritoryService,
   loadBeacons,
 } from "../territory/service.ts";
+import { catchmentRadiusRulesOf } from "../territory/catchmentRules.ts";
 import { loadRecruitDraws } from "../npc/state.ts";
 import {
   type FacilitiesConfig,
@@ -513,6 +514,8 @@ export function startWorld(
         writer,
         now,
         rules: () => societyRules().territory,
+        mapValues: () => societyRules().territoryDisplay, // 1차맵 영토 지도와 같은 값·배후지로 판정(D-568)
+        catchment: () => catchmentRadiusRulesOf(societyRules()),
         beaconFacility: config.territory?.beaconFacility ?? (() => ({ enabled: true, materials: [] })),
         faceLevelOf: (planetId) => faceLevels.get(planetId),
         factionName: (code) => nationName(code, config.npc?.presets),
@@ -868,6 +871,7 @@ export function startWorld(
         log.error({ err: error }, "npc society failed to start; bots keep walking");
       }
     }
+    await territory.warm(TEST_PLANET_ID); // 지방 판정(D-568 provinceAt)이 처음부터 답하게 배치를 셈해 둔다
     status.bootMs = Math.round(performance.now() - started);
     log.info(
       {

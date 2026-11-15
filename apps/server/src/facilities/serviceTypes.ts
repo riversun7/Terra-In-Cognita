@@ -14,6 +14,7 @@ import type { Settlement } from "../world/settlement.ts";
 import type { FacilityCatalog } from "./catalog.ts";
 import type { LandCheck } from "./landRule.ts";
 import type { LoadedFacilities } from "./state.ts";
+import type { PlaceWorld } from "./places.ts";
 
 export type FacilityCommandResult =
   | { readonly ok: true; readonly buildingId?: number; readonly doneAtMs?: number }
@@ -117,6 +118,8 @@ export interface FacilityServiceOptions {
   readonly cities?: (() => readonly CityCell[]) | undefined;
   /** 영토 서비스(비콘 수리). 없으면 비콘 수리는 unknown_beacon */
   readonly territory?: (() => TerritoryService | undefined) | undefined;
+  /** 지방(D-568 — 1차맵 영토 지도로 정한 도시, places.ts cityAt). 없으면 옛 규칙(같은 2차맵 가장 가까운 도시) */
+  readonly province?: PlaceWorld["province"];
   /** 2차맵 건설 땅 규칙(landRule.ts, docs/adr/2026-11-14-second-map-build.md). 없으면 막지 않는다(시험·DB 없는 세계) */
   readonly land?: LandCheck | undefined;
   /** 유닛이 노동 계약 중인가 / 건물에 일하는 계약이 있나(사용 닳음) */

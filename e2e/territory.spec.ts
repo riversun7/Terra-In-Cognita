@@ -1,8 +1,9 @@
-// 영토 층 화면 시험 — /dev/territory (docs/adr/2026-11-03-territory-layer.md, 기획 D-485·D-486·49 N42·N51).
-// - admin: 지도에서 칸을 눌러 시험 NPC 세력의 비콘 셋을 놓으면 껍질 하나·칸 표가 생기고(서버 territory.planet), 도시 둘(시작 도시 2곳)의
-//   비콘 칸이 모두 차면 개수 상한(N42 마을 3 × 2). 두 번째 세력도 비콘 셋이면 두 세력 모두 껍질. 비콘을 치우면 껍질이 사라진다.
+// 영토 층 화면 시험 — /dev/territory (docs/adr/2026-11-03-territory-layer.md, 기획 D-568·D-546·49 N42·N51).
+// - admin: 지도에서 칸을 눌러 시험 NPC 세력의 비콘 셋을 놓으면 셋 모두 그 세력 외곽선을 넓히고(지도 data-extended — 서버 덩이에 든 비콘 수,
+//   1차맵 지도 판정 D-568) 칸 표가 늘고, 도시 둘(시작 도시 2곳)의 비콘 칸이 모두 차면 개수 상한(N42 마을 3 × 2). 두 번째 세력도 비콘 셋이면
+//   두 세력 모두 외곽선을 넓힌다. 비콘을 치우면 넓힌 몫이 빠진다.
 // - 세계 배치(docs/adr/2026-11-07-world-layout.md): 국가마다 행성 위 자리가 달라, 지도 가운데 = 고른 세력의 첫 도시(그 세력을 먼저 고르고
-//   칸을 누른다). 한 국가의 시작 도시는 붙은 2차맵에 모여 있어(꼭짓점이 셋 이상이면) 비콘 없이도 껍질이 있다 → 껍질 수는 비콘 없을 때와 견준다.
+//   칸을 누른다).
 // - player: 권한 없음 화면, tRPC territory.planet은 403, territory.mine은 200.
 // - 사진: 1440(VIEWPORTS.desktop)·390 × 개발 화면 테마 네온·라이트(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
 // 시험끼리 서버·DB를 같이 쓴다: 비콘을 놓는 시험은 처음과 끝에 모든 비콘을 치운다(WebSocket beacon_remove).
@@ -16,6 +17,7 @@ import { VIEWPORTS } from "./helpers/viewports.ts";
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
 const list = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
+const escapeRegex = (text: string): string => text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** 지도 반폭(칸) — apps/game/src/editor/territory/TerritoryMap.tsx MAP_RADIUS와 같다 */
 const MAP_RADIUS = 14;
@@ -118,9 +120,9 @@ async function chooseFaction(page: Page, factionId: number): Promise<void> {
   await page.locator(".tl-field select").selectOption(String(factionId));
 }
 
-/** 껍질 수(모든 세력) */
-async function hullCount(page: Page): Promise<number> {
-  return Number((await canvas(page).getAttribute("data-hulls")) ?? "0");
+/** 외곽선을 넓힌 비콘 수(모든 세력 — 서버 덩이에 든 비콘) */
+async function extendedCount(page: Page): Promise<number> {
+  return Number((await canvas(page).getAttribute("data-extended")) ?? "0");
 }
 
 /** 세력을 고르고 그 첫 도시 둘레 칸을 눌러 그 세력의 비콘을 놓는다. 성공하면 비콘 수가 하나 는다 */
@@ -132,7 +134,7 @@ async function place(page: Page, factionId: number, di: number, dj: number, lang
   await expect(screen(page)).toHaveAttribute("data-beacons", String(before + 1));
 }
 
-/** 시험 NPC 세력·두 번째 세력의 비콘 셋씩(각자 첫 도시 둘레). 두 세력 모두 껍질이 있다(국가마다 자리가 달라 겹치지 않는다) */
+/** 시험 NPC 세력·두 번째 세력의 비콘 셋씩(각자 첫 도시 둘레). 두 세력 모두 외곽선을 넓힌다(국가마다 자리가 달라 겹치지 않는다) */
 async function placeTwoFactions(page: Page, language: "ko" | "en" = "ko"): Promise<void> {
   const ids = await factionIds(page);
   const first = ids.get("s3_test_npc");
@@ -151,18 +153,18 @@ async function placeTwoFactions(page: Page, language: "ko" | "en" = "ko"): Promi
   ] as const)
     await place(page, second, di, dj, language);
   const view = await query(page, "territory.planet", { planetId: PLANET });
-  const hulled = new Set(
+  const extended = new Set(
     list(field(view.data, "groups"))
-      .filter((group) => field(group, "hull") !== null)
+      .filter((group) => list(field(group, "members")).some((member) => field(member, "kind") === "beacon"))
       .map((group) => Number(field(group, "factionId"))),
   );
-  expect([hulled.has(first), hulled.has(second)]).toEqual([true, true]);
+  expect([extended.has(first), extended.has(second)]).toEqual([true, true]);
 }
 
 test.describe("관리자", () => {
   test.use({ account: "admin", ...VIEWPORTS.desktop });
 
-  test("비콘을 놓으면 껍질·칸 표, 도시마다 셋이 차면 개수 상한, 두 세력 모두 껍질, 치우면 사라진다", async ({
+  test("비콘을 놓으면 외곽선·칸 표가 넓어지고, 도시마다 셋이 차면 개수 상한, 두 세력 모두 넓히고, 치우면 줄어든다", async ({
     page,
     deviceErrors,
   }) => {
@@ -173,17 +175,24 @@ test.describe("관리자", () => {
     const ids = await factionIds(page);
     const first = ids.get("s3_test_npc");
     if (first === undefined) throw new Error("no test faction");
-    // 시험 NPC 세력 = 시작 도시 2곳(꼭짓점 둘) → 비콘 없이 껍질 없음, 비콘 하나면 꼭짓점 셋 → 껍질(D-485 "3~5개는 있어야 도형")
-    const base = await hullCount(page);
+    // 비콘이 없으면 넓힌 비콘도 없다. 다 지은 비콘은 하나씩 그 세력 외곽선을 넓힌다(D-546 1434, 판정도 같다 D-568)
+    expect(await extendedCount(page)).toBe(0);
+    const cellsBefore = Number((await canvas(page).getAttribute("data-cells")) ?? "0");
     await place(page, first, 5, 0);
-    await expect(page.locator(".tl-panel")).toContainText(message("ko", "dev_territory_placed", { id: 1 }));
-    await expect(canvas(page)).toHaveAttribute("data-hulls", String(base + 1));
+    // 비콘 ID는 같은 서버를 쓰는 다른 시험(1차맵 비콘)이 먼저 놓았으면 1이 아니다
+    const [placedHead = "", placedTail = ""] = message("ko", "dev_territory_placed", { id: 987_654 }).split(
+      "987654",
+    );
+    await expect(page.locator(".tl-panel")).toContainText(
+      new RegExp(`${escapeRegex(placedHead)}\\d+${escapeRegex(placedTail)}`),
+    );
+    await expect(canvas(page)).toHaveAttribute("data-extended", "1");
     await place(page, first, 0, 5);
     await place(page, first, 5, 5);
-    await expect(canvas(page)).toHaveAttribute("data-hulls", String(base + 1));
+    await expect(canvas(page)).toHaveAttribute("data-extended", "3");
     const cells = Number((await canvas(page).getAttribute("data-cells")) ?? "0");
-    expect(cells).toBeGreaterThan(20);
-    // 서버 칸 표: 껍질 안쪽 칸(가운데에서 (2, 2))은 시험 NPC 세력
+    expect(cells).toBeGreaterThan(cellsBefore);
+    // 서버 칸 표: 모든 줄에 세력이 있다
     const view = await query(page, "territory.planet", { planetId: PLANET });
     expect(list(field(view.data, "cells")).every((row) => list(row)[1] !== undefined)).toBe(true);
     await expect(page.locator(`.tl-table tr[data-faction="${first}"] td`).nth(1)).toHaveText("3");
@@ -200,15 +209,15 @@ test.describe("관리자", () => {
     await page.getByRole("button", { name: message("ko", "dev_territory_place"), exact: true }).click();
     await expect(page.locator(".tl-panel")).toContainText(message("ko", "dev_territory_code_beacon_limit"));
 
-    // 두 번째 세력의 비콘 셋 → 두 세력 모두 껍질
+    // 두 번째 세력의 비콘 셋 → 두 세력 모두 외곽선을 넓힌다
     await clearBeacons(page);
     await page.reload();
     await expect(screen(page)).toHaveAttribute("data-status", "ready");
     await placeTwoFactions(page);
     await shot(page, "territory-two-factions-neon-ko-1440");
 
-    // 시험 NPC 세력 비콘 셋을 치우면(시작 도시 둘 = 꼭짓점 둘) 그 세력 껍질이 사라진다
-    const before = await hullCount(page);
+    // 시험 NPC 세력 비콘 셋을 치우면 그 셋이 넓힌 몫이 빠진다
+    const before = await extendedCount(page);
     await chooseFaction(page, first);
     for (const [di, dj, left] of [
       [5, 5, "5"],
@@ -219,7 +228,7 @@ test.describe("관리자", () => {
       await page.getByRole("button", { name: message("ko", "dev_territory_remove"), exact: true }).click();
       await expect(screen(page)).toHaveAttribute("data-beacons", left);
     }
-    await expect(canvas(page)).toHaveAttribute("data-hulls", String(before - 1));
+    await expect(canvas(page)).toHaveAttribute("data-extended", String(before - 3));
     await clearBeacons(page);
     expect(deviceErrors).toEqual([]);
   });

@@ -608,6 +608,8 @@ function closeRedNeighbours(startMapKey: number) {
     // 도시 원(아래 끝 4칸 ≈ 0.05°)이 겹치게 0.06° 옆
     Reflect.set(other, "latDeg", field(home, "latDeg"));
     Reflect.set(other, "lonDeg", Number(field(home, "lonDeg")) + 0.06);
+    // 영토 점(판정과 같은 점, D-568)이 있으면 화면이 그 점을 쓴다 → 옮긴 위도·경도를 쓰게 뺀다
+    Reflect.deleteProperty(other, "point");
     for (const faction of list(field(data, "factions"))) {
       if (typeof faction !== "object" || faction === null) continue;
       if (field(faction, "id") === field(home, "factionId")) Reflect.set(faction, "color", "#e5035d");

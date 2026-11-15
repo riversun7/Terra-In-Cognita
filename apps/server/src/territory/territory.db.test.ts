@@ -1,6 +1,6 @@
 // 영토 비콘·영토 배치 DB 통합 시험(docs/adr/2026-11-03-territory-layer.md) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
-// 서버 규칙: 가입한 세력만 놓는다(개발 시험은 다른 세력 대신), 1차맵 칸 하나에 하나, N42 거리·개수(기준 도시), 다른 세력 도시 영향권(D-486),
-// 팩에 비콘 시설이 없으면 disabled, 커밋 뒤 답·다시 켜도 남음, 치우면 꼭짓점이 빠져 다시 셈, 조회(내 세력·전체),
+// 서버 규칙: 가입한 세력만 놓는다(개발 시험은 다른 세력 대신), 1차맵 칸 하나에 하나, N42 거리·개수(기준 도시), 다른 세력 영토(1차맵 지도,
+// D-568), 팩에 비콘 시설이 없으면 disabled, 커밋 뒤 답·다시 켜도 남음, 치우면 외곽선이 빠져 다시 셈, 조회(내 세력·전체), 지방(provinceAt),
 // 건물 규칙(기획 336, docs/adr/2026-11-07-buildings-runtime.md): 재료 빼기·건설 시간 뒤 꼭짓점·노화 30% 멈춤·수리
 import { EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
@@ -150,16 +150,23 @@ describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
     const view = await territory.planetView(TEST_PLANET_ID, member);
     expect(view?.myFactionId).toBe(faction);
     expect(view?.groups).toHaveLength(1);
-    expect(view?.groups[0]?.hull?.map((vertex) => vertex.kind).toSorted()).toEqual([
+    expect(view?.groups[0]?.members.map((vertex) => vertex.kind).toSorted()).toEqual([
       "beacon",
       "beacon",
       "beacon",
       "city",
     ]);
+    expect(view?.groups[0]?.hull).toBeNull();
     const city = view?.cities[0];
     expect([city?.grade, city?.beaconsUsed, city?.beaconsMax, city?.rangeMilli]).toEqual([1, 3, 3, 10_000]);
-    // 칸 중심 (0,0)~(5,5) 정사각형(도시는 칸 가운데 배치 칸) → 안쪽 16칸 + 가장자리 20칸 안팎
-    expect(view?.cells.length).toBeGreaterThan(25);
+    // 마을 영토 원(아래 끝 4칸 이상) + 비콘 셋까지 넓힌 외곽선(1차맵 지도, D-568)
+    expect(view?.cells.length).toBeGreaterThan(50);
+    expect(view?.cells.some(([key]) => key === near(5, 5))).toBe(true);
+    expect(city?.territoryMilli).toBeGreaterThanOrEqual(4000);
+    // 지방(D-568): 영토 안 2차맵 배치 칸은 그 도시, 영토 밖은 null
+    expect(territory.provinceAt(TEST_PLANET_ID, near(5, 5), 128, 128)).toEqual({ faction, city: city?.id });
+    expect(territory.provinceAt(TEST_PLANET_ID, near(40, 40), 128, 128)).toBeNull();
+    expect(territory.provinceAt("nowhere_planet", near(5, 5), 128, 128)).toBeUndefined();
     expect(view?.cells.every(([, owner, province]) => owner === faction && province === city?.id)).toBe(true);
     expect(view?.beacon).toEqual({ enabled: true, materials: [{ item: "pine_log", qty: 3 }] });
 
@@ -178,7 +185,7 @@ describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
     expect(reloaded?.groups).toEqual(view?.groups);
   });
 
-  it("치우기: 내 세력 비콘만(개발 권한은 아무 비콘), 꼭짓점이 빠지면 껍질이 사라진다", async () => {
+  it("치우기: 내 세력 비콘만(개발 권한은 아무 비콘), 비콘이 빠지면 그만큼 외곽선이 줄어든다", async () => {
     const world = await boot();
     const territory = territoryOf(world);
     const faction = await testFaction();
@@ -190,19 +197,23 @@ describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
       expect((await territory.place(player(member), { planetId: TEST_PLANET_ID, cellKey: key })).ok).toBe(
         true,
       );
-    expect((await territory.planetView(TEST_PLANET_ID, null))?.groups[0]?.hull).not.toBeNull();
+    const full = await territory.planetView(TEST_PLANET_ID, null);
+    expect(full?.groups[0]?.members).toHaveLength(4);
     expect(await territory.remove(player(stranger), 1)).toEqual({ ok: false, code: "forbidden" });
     expect(await territory.remove(player(member), 1)).toEqual({ ok: true });
     expect(await territory.remove(player(member), 1)).toEqual({ ok: false, code: "unknown_beacon" });
     expect(await territory.remove(developer(dev), 2)).toEqual({ ok: true });
     const view = await territory.planetView(TEST_PLANET_ID, null);
-    // 도시 + 비콘 하나 = 꼭짓점 둘 → 껍질 없음, 마을 영향권(0.1칸)은 칸 표에 남지 않는다
-    expect(view?.groups[0]?.hull).toBeNull();
-    expect(view?.cells).toEqual([]);
+    // 도시 + 비콘 하나만 남는다 → 칸 표가 줄지만 마을 영토 원은 남는다
+    expect(
+      view?.groups[0]?.members.map((vertex) => (vertex.kind === "beacon" ? `beacon${vertex.id}` : "city")),
+    ).toEqual(["city", "beacon3"]);
+    expect(view?.cells.length).toBeGreaterThan(0);
+    expect(view?.cells.length).toBeLessThan(full?.cells.length ?? 0);
     expect(await rows(test.db, `select id from territory_beacons`)).toEqual([{ id: "3" }]);
   });
 
-  it("다른 세력 도시 영향권 안에는 놓지 못하고(D-486), 개발 권한은 다른 세력 대신 놓는다. 끈 세계는 disabled", async () => {
+  it("다른 세력 영토(도시 원·비콘 외곽선) 안에는 놓지 못하고(D-568), 개발 권한은 다른 세력 대신 놓는다. 끈 세계는 disabled", async () => {
     const world = await boot();
     const territory = territoryOf(world);
     const testNpc = await testFaction();
@@ -238,6 +249,14 @@ describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
       `select city_id, faction_id from territory_beacons`,
     );
     expect(anchor).toEqual([{ city_id: "900", faction_id: String(otherId) }]);
+    // 그 비콘이 넓힌 외곽선(비콘 둘레 2칸) 안도 남의 영토다 — 시험 NPC 세력 비콘 거리(10칸) 안이어도 막는다
+    expect(
+      await territory.place(developer(dev), {
+        planetId: TEST_PLANET_ID,
+        cellKey: near(7, 0),
+        factionId: testNpc,
+      }),
+    ).toEqual({ ok: false, code: "foreign_city" });
     beaconOn = false;
     expect(
       await territory.place(developer(dev), {
@@ -275,7 +294,7 @@ describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
     expect(goodsStock(p.ledger, ownerId, "pine_log")).toBe(91n);
     // 짓는 동안은 꼭짓점이 아니다(목록에는 보인다), 개수는 센다
     const building = await territory.planetView(TEST_PLANET_ID, member);
-    expect(building?.groups[0]?.hull).toBeNull();
+    expect(building?.groups[0]?.members.map((vertex) => vertex.kind)).toEqual(["city"]);
     expect(building?.beacons.map((beacon) => beacon.readyAtMs)).toEqual([
       clock + 60_000,
       clock + 60_000,
@@ -289,7 +308,7 @@ describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
     );
     clock += 60_000 + 30 * 86_400_000;
     const built = await territory.planetView(TEST_PLANET_ID, member);
-    expect(built?.groups[0]?.hull).not.toBeNull();
+    expect(built?.groups[0]?.members).toHaveLength(4);
     // 쓰지 않는 건물: 30%(N50 문턱 = 기능 정지 직전)에서 멈춰 꼭짓점이 남는다. 내구도 = 10 × 30%
     expect(built?.beacons.map((beacon) => [beacon.conditionPpm, beacon.durability])).toEqual([
       [300_000, 3],

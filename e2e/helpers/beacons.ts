@@ -17,7 +17,7 @@ function walk(key: number, di: number, dj: number, steps: number): number | null
 
 /**
  * 그 도시(2차맵 키) 둘레 칸에 그 세력의 비콘 하나를 놓는다: 방향 넷 × 거리(멀리부터) 가운데 처음 받아들여진 자리. 놓은 비콘 ID와 칸 키,
- * 모두 거절되면 null(거리 밖·다른 세력 영향권 등)
+ * 모두 거절되면 null(거리 밖·다른 세력 영토 등 — D-568)
  */
 export async function placeBeaconNear(
   admin: Page,

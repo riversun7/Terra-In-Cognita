@@ -2,6 +2,7 @@
 // "WP2 지도 흐름". 1차맵의 도시·국가 표시, 시작 도시 고르기(주변 땅·기후), 2차맵 들어가기(내 사이보그 자리)가 같은 자료를 쓴다.
 // 읽기만 한다. 2차맵 키(mapKey)는 1차맵 칸의 셀 키(면 레벨 F, 안전 정수)다. 위도·경도는 표시용 실수(판정에 쓰지 않는다).
 import type { LocalizedName } from "./roster.ts";
+import { TERRITORY_MAP_START, type TerritoryMapValues } from "./territoryMap.ts";
 
 /** 국가(세력) 한 줄 — 1차맵 색·이름 */
 export interface WorldMapFaction {
@@ -73,6 +74,8 @@ export interface WorldMapCity {
    * 1차맵 영토 원의 반지름(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 배후지 규칙이 꺼졌거나 옛 서버면 null·없음 → 화면은 radiusMilli
    */
   readonly catchmentMilli?: number | null | undefined;
+  /** 시청 자리의 영토 점(서버 판정과 같은 정수 벡터 [x, y, z], D-568). 옛 서버는 없다 → 화면은 위도·경도에서 만든다 */
+  readonly point?: readonly number[] | undefined;
   /** 서버가 이 2차맵을 띄워 두었다(들어갈 수 있는 맵) */
   readonly loaded: boolean;
   /** 지금 내가 이 2차맵을 볼 수 있다(내 유닛·건물·탐사 칸, 또는 전체 보기 권한 — 서버 시야 규칙) */
@@ -80,7 +83,7 @@ export interface WorldMapCity {
   readonly land: WorldMapLand | null;
 }
 
-/** 영토 경계 한 덩이(같은 세력 도시·비콘의 볼록 껍질, docs/adr/2026-11-03-territory-layer.md). 꼭짓점은 반시계 위도·경도 */
+/** 영토 경계 한 덩이(옛 볼록 껍질, docs/adr/2026-11-03-territory-layer.md). D-568부터 껍질 판정이 없어 서버는 빈 목록을 보낸다(옛 화면 호환) */
 export interface WorldMapHull {
   readonly factionId: number;
   readonly points: readonly (readonly [latDeg: number, lonDeg: number])[];
@@ -97,29 +100,22 @@ export interface WorldMapBeacon {
   readonly cityId: number | null;
   readonly latDeg: number;
   readonly lonDeg: number;
+  /** 영토 점(서버 판정과 같은 정수 벡터 [x, y, z], D-568 — tRPC가 배열로 보낸다). 옛 서버는 없다 → 화면은 위도·경도에서 만든다 */
+  readonly point?: readonly number[] | undefined;
 }
 
 /**
- * 1차맵 영토 표시 값(설정 칸, 보기 전용 [임시] — 기획 D-544 "표시 상수는 설정 칸"·D-546 1431, 판정 D-485·D-104와 상관없다). 칸 = 1차맵 칸
+ * 1차맵 영토 값(설정 칸 [임시] — 기획 D-544 "표시 상수는 설정 칸"·D-546 1431). D-568부터 판정(비콘 놓기·세금·지방)도 같은 값을 쓴다
+ * (@terra/shared/territoryMap TerritoryMapValues와 같은 모양). 칸 = 1차맵 칸
  * - corridorCells: 같은 국가 도시를 띠로 잇는 가장 먼 거리(칸, 0이면 잇지 않는다. 비콘과 기준 도시는 늘 잇는다)
  * - radiusScalePm: 도시 원 반지름 = max(지금 배후지 반경 × radiusScalePm ÷ 1000, minCells칸) — 2000 = 2배
  * - minCells: 도시 원 반지름 아래 끝(칸)
  * - beaconCells: 도시 소유 비콘 둘레 여유(칸) — 외곽선이 비콘 밖으로 이만큼 지나간다
  */
-export interface WorldTerritoryDisplay {
-  readonly corridorCells: number;
-  readonly radiusScalePm: number;
-  readonly minCells: number;
-  readonly beaconCells: number;
-}
+export type WorldTerritoryDisplay = TerritoryMapValues;
 
-/** 영토 표시 출발값(팩 tuning planet_territory_* 와 같다, 옛 서버면 화면이 이 값을 쓴다) */
-export const TERRITORY_DISPLAY_START: WorldTerritoryDisplay = {
-  corridorCells: 12,
-  radiusScalePm: 2000,
-  minCells: 4,
-  beaconCells: 2,
-};
+/** 영토 값 출발값(팩 tuning planet_territory_* 와 같다, 옛 서버면 화면이 이 값을 쓴다) */
+export const TERRITORY_DISPLAY_START: WorldTerritoryDisplay = TERRITORY_MAP_START;
 
 export interface WorldCitiesResponse {
   /** not_ready = 세계·DB가 없거나 부팅 복구 전(빈 목록) */

@@ -1,18 +1,28 @@
-// 영토 층 — 도시·영토 비콘 꼭짓점의 볼록 껍질, 소속 판정, 겹침 규칙. docs/adr/2026-11-03-territory-layer.md
-// 기획: D-485(영토 비콘, 도시·비콘을 꼭짓점으로 이은 도형 안 = 세력 영향권, 그 땅은 가까운 도시의 지방), D-486(볼록 껍질,
-// 겹침: 도시 영향권끼리 영향력 가중·비콘 영역끼리 중간 지점·비콘 대 다른 세력 도시는 도시 우선), D-104(도시 영향권 반경),
+// 영토 층 — 도시·영토 비콘 배치, 소속 판정, 비콘 놓기 검사. docs/adr/2026-11-03-territory-layer.md
+// 기획: D-568(판정도 1차맵 지도대로 — 비콘 놓기·세금·지방이 1차맵 영토 모양을 쓴다. D-485 비콘 볼록 도형 판정·D-544 "표시만"을 대체),
+// D-546·D-555(영향력 비율 경계, 도시 소유 비콘은 도시·국가 외곽선을 넓힌다), D-104(도시 영향권 반경 — 시가지·새 도시 겹침 검사),
 // 49 N42(도시 등급별 비콘 수·최대 거리)·N51(비콘 건물)·M2·M3.
 //
 // 점 = 구 위 방향을 정수 벡터로 둔 것(성분 |x| ≤ TERRITORY_POINT_SCALE = 2^16). 행성 칸 → 점은 @terra/planet/territory가 만든다
 // (칸 중심 단위 벡터 × 2^16을 반올림, 결정적 투영). 이 모듈은 행성 격자를 모른다(평면 격자 시험·시뮬레이터도 (x, y, 1)로 쓸 수 있다).
-// - 껍질과 안팎 판정은 정수로만 셈한다: 방향 판정 = 삼중곱 부호. 성분 ≤ 2^16이라 외적 성분 ≤ 2^33, 삼중곱 ≤ 3·2^49 < 2^53 →
-//   배정밀도에서 정확하다(BigInt 없음). 그래서 엔진과 상관없이 같은 껍질이 나온다.
-// - 껍질 = 구면 볼록 껍질(가장자리 = 대원). 점들이 열린 반구 하나에 있어야 한다: 고정 기준 방향 26개(면 6·모서리 12·꼭짓점 8) 가운데
-//   모든 점과 내적이 양수인 첫 방향의 중심 투영 평면에서 단조 사슬(Andrew)을 돈다. 중심 투영은 대원을 직선으로 보내므로 평면 껍질 =
-//   구면 껍질이고, 기준 방향을 무엇으로 고르든 같은 껍질이다. 줄 위의 점(삼중곱 0)은 꼭짓점에서 뺀다.
+// - 영토 모양(도시 원·도시 사이 띠·비콘 외곽선·영향력 비율 주인)은 @terra/shared/territoryMap 하나다. 1차맵 화면(territoryShapes.ts)도 같은
+//   함수를 부른다(D-568). 여기는 서버 자료 → 지도 자리(도시 원 반지름 = 배후지 또는 영향권 × 설정 칸)와 비콘 수·거리 규칙을 맡는다.
 // - 거리 = 두 방향 사이 각 × 칸/라디안(평균 칸, 1000분율)이다. 각은 detAtan2(|a×b|, a·b)(결정적 근사)라 엔진과 상관없이 같다.
 //   거리는 정확한 값이 아니라 같은 값이 목적이다(겹침 판정·비콘 거리 검사).
 import { detAtan2 } from "./detMath.ts";
+import {
+  TERRITORY_MAP_START,
+  type TerritoryMap,
+  type TerritoryMapClaim,
+  type TerritoryMapSite,
+  type TerritoryMapValues,
+  buildTerritoryMap,
+  territoryBeaconRadius,
+  territoryCircleMilli,
+  territoryCorridorRadius,
+  territoryMapClaim,
+  territoryMilliToRadius,
+} from "./territoryMap.ts";
 
 /** 점 = 정수 벡터(구 위 방향, 길이 무관) */
 export type TerritoryVec = readonly [x: number, y: number, z: number];
@@ -60,115 +70,23 @@ function cosine(a: TerritoryVec, b: TerritoryVec): number {
   return dot(a, b) / Math.sqrt(dot(a, a) * dot(b, b));
 }
 
-interface Frame {
-  readonly c: TerritoryVec;
-  readonly e1: TerritoryVec;
-  readonly e2: TerritoryVec;
-}
-
-/** 기준 방향 26개(고정 차례: 면 6 → 모서리 12 → 꼭짓점 8)와 그 투영 평면의 축 e1·e2(e1 × e2는 c 쪽) */
-const FRAMES: readonly Frame[] = (() => {
-  const list: TerritoryVec[] = [];
-  const signs = [1, -1];
-  for (let axis = 0; axis < 3; axis++)
-    for (const s of signs) list.push([axis === 0 ? s : 0, axis === 1 ? s : 0, axis === 2 ? s : 0]);
-  for (let skip = 0; skip < 3; skip++)
-    for (const s of signs)
-      for (const t of signs) {
-        const parts = skip === 0 ? [0, s, t] : skip === 1 ? [s, 0, t] : [s, t, 0];
-        list.push([parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0]);
-      }
-  for (const s of signs) for (const t of signs) for (const u of signs) list.push([s, t, u]);
-  return list.map((c) => {
-    const options: TerritoryVec[] = [
-      [c[1], -c[0], 0],
-      [0, c[2], -c[1]],
-      [c[2], 0, -c[0]],
-    ];
-    const e1 = options.find((v) => v[0] !== 0 || v[1] !== 0 || v[2] !== 0) ?? [0, 1, 0];
-    return { c, e1, e2: cross(c, e1) };
-  });
-})();
-
-/** 모든 점과 내적이 양수인 첫 기준 방향(열린 반구). 없으면 undefined */
-function frameFor(points: readonly TerritoryVec[]): Frame | undefined {
-  return FRAMES.find((frame) => points.every((p) => dot(p, frame.c) > 0));
-}
-
-/** 중심 투영 평면 좌표 비교(x = p·e ÷ p·c). 분모가 양수라 교차 곱셈으로 정확히 비교한다 */
-function compareAlong(p: TerritoryVec, q: TerritoryVec, e: TerritoryVec, c: TerritoryVec): number {
-  const left = dot(p, e) * dot(q, c);
-  const right = dot(q, e) * dot(p, c);
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
-/**
- * 구면 볼록 껍질: 꼭짓점이 되는 입력 번호(밖에서 보아 반시계 차례, 첫 꼭짓점 = 투영 평면에서 가장 왼쪽 아래).
- * 같은 방향의 점은 번호가 작은 것 하나만 본다. 꼭짓점이 셋 미만(점이 셋 미만·모두 한 대원 위)이거나 열린 반구 하나에 들지 않으면 null
- */
-export function convexHull(points: readonly TerritoryVec[]): number[] | null {
-  if (points.length < 3 || !points.every((p) => isTerritoryVec(p))) return null;
-  const frame = frameFor(points);
-  if (!frame) return null;
-  const { c, e1, e2 } = frame;
-  const at = (index: number): TerritoryVec => points[index] ?? [0, 0, 1];
-  const order = points
-    .map((_, index) => index)
-    .toSorted((a, b) => compareAlong(at(a), at(b), e1, c) || compareAlong(at(a), at(b), e2, c) || a - b);
-  const unique: number[] = [];
-  for (const index of order) {
-    const last = unique.at(-1);
-    if (
-      last !== undefined &&
-      compareAlong(at(last), at(index), e1, c) === 0 &&
-      compareAlong(at(last), at(index), e2, c) === 0
-    )
-      continue;
-    unique.push(index);
-  }
-  if (unique.length < 3) return null;
-  const chain = (indices: readonly number[]): number[] => {
-    const out: number[] = [];
-    for (const index of indices) {
-      while (out.length >= 2) {
-        const a = out[out.length - 2] ?? index;
-        const b = out[out.length - 1] ?? index;
-        if (orient(at(a), at(b), at(index)) > 0) break;
-        out.pop();
-      }
-      out.push(index);
-    }
-    return out;
-  };
-  const lower = chain(unique);
-  const upper = chain(unique.toReversed());
-  const hull = [...lower.slice(0, -1), ...upper.slice(0, -1)];
-  return hull.length >= 3 ? hull : null;
-}
-
-/** 볼록 다각형(반시계 꼭짓점) 안이거나 가장자리 위인가. 정확하다 */
-export function polygonContains(vertices: readonly TerritoryVec[], p: TerritoryVec): boolean {
-  if (vertices.length < 3) return false;
-  for (let index = 0; index < vertices.length; index++) {
-    const a = vertices[index];
-    const b = vertices[(index + 1) % vertices.length];
-    if (!a || !b || orient(a, b, p) < 0) return false;
-  }
-  return true;
-}
-
 // ── 영토 배치 ──
 
-/** 도시 하나(영향권 원의 중심 = 꼭짓점) */
+/** 도시 하나(영토 원의 중심) */
 export interface TerritoryCityInput {
   readonly id: number;
   readonly faction: number;
   readonly point: TerritoryVec;
   /** 도시 등급 1~6(마을~거대도시) */
   readonly grade: number;
+  /**
+   * 배후지 지금 반경(1000분율 칸, @terra/shared/catchment catchmentRadiusMilli). 영토 원 바탕(D-546 1431 "지금 배후지 기준"). 배후지 규칙이
+   * 꺼진 세계(null·없음)는 영향권 반경(M3)이 바탕이다 — 1차맵 화면(world.cities catchmentMilli ?? radiusMilli)과 같다
+   */
+  readonly catchmentMilli?: number | null | undefined;
 }
 
-/** 영토 비콘 하나(꼭짓점). anchorCity = 개수·거리를 센 도시(같은 세력의 도시가 아니게 되면 연결만 끊긴다) */
+/** 영토 비콘 하나. anchorCity = 개수·거리를 센 기준 도시(같은 세력의 도시가 아니면 영토를 넓히지 않는다, D-546 1434) */
 export interface TerritoryBeaconInput {
   readonly id: number;
   readonly faction: number;
@@ -228,16 +146,17 @@ export interface TerritoryVertex {
   readonly point: TerritoryVec;
 }
 
-/** 한 세력의 이어진 꼭짓점 묶음(서로 비콘 거리 안으로 이어진 도시·비콘) 하나와 그 볼록 껍질 */
+/** 한 세력의 이어진 영토 덩이(도시 원·띠·비콘 외곽선이 이어진 도시·비콘) 하나 — territoryMap 덩이와 같다 */
 export interface TerritoryGroup {
   readonly faction: number;
   readonly members: readonly TerritoryVertex[];
-  /** 껍질 꼭짓점(반시계). 꼭짓점이 셋 미만이면 null(도시 영향권만 남는다) */
-  readonly hull: readonly TerritoryVertex[] | null;
 }
 
 export interface TerritoryCity extends TerritoryCityInput {
+  /** 영향권 반경(1000분율 칸, M3 — 시가지·새 도시 겹침 검사) */
   readonly radiusMilli: number;
+  /** 영토 원 반지름(1000분율 칸, 1차맵 지도와 같다 — D-546·D-568). 0이면 영토가 없다 */
+  readonly territoryMilli: number;
 }
 
 export interface TerritoryLayout {
@@ -245,14 +164,12 @@ export interface TerritoryLayout {
   readonly cities: readonly TerritoryCity[];
   readonly beacons: readonly TerritoryBeaconInput[];
   readonly groups: readonly TerritoryGroup[];
+  /** 1차맵 영토 지도(판정·표시 공용, @terra/shared/territoryMap) */
+  readonly map: TerritoryMap;
 }
 
-/** 소속: 세력, 지방(가까운 도시, D-485), 어느 규칙으로 정해졌나(도시 영향권 | 껍질) */
-export interface TerritoryClaim {
-  readonly faction: number;
-  readonly province: number | null;
-  readonly source: "city" | "hull";
-}
+/** 소속: 세력, 지방(주인 도시, 비콘이면 그 기준 도시), 주인 자리 종류(도시 | 비콘) */
+export type TerritoryClaim = TerritoryMapClaim;
 
 const gradeIndex = (grade: number): number =>
   Math.min(CITY_GRADE_COUNT - 1, Math.max(0, Math.trunc(grade) - 1));
@@ -268,8 +185,8 @@ export function territoryDistanceMilli(a: TerritoryVec, b: TerritoryVec, metric:
 }
 
 /**
- * 영토 배치를 만든다. 세력마다 꼭짓점(도시 + 비콘)을 잇는다: 비콘은 제 기준 도시와 늘 이어지고, 두 꼭짓점 사이 거리가 둘 중 큰
- * "비콘 거리"(도시 = 등급 N42 거리, 비콘 = 기준 도시의 거리, 기준 도시가 없으면 마을 거리) 안이면 잇는다. 이어진 묶음마다 볼록 껍질.
+ * 영토 배치를 만든다(D-568 — 1차맵 지도와 같은 모양): 도시마다 영토 원(바탕 = 배후지 지금 반경, 없으면 영향권 × 배율, 아래 끝 칸),
+ * 같은 국가 도시·비콘을 잇기 상한 안이면 띠로, 비콘은 제 기준 도시(같은 세력)와 늘 잇는다. values = 설정 칸 planet_territory_* 실효 값.
  * 입력 차례와 상관없다(도시·비콘을 ID 차례로 본다)
  */
 export function buildTerritory(
@@ -277,146 +194,52 @@ export function buildTerritory(
   beacons: readonly TerritoryBeaconInput[],
   rules: TerritoryRules,
   metric: TerritoryMetric,
+  values: TerritoryMapValues = TERRITORY_MAP_START,
 ): TerritoryLayout {
   const sortedCities = cities
     .filter((city) => isTerritoryVec(city.point))
     .toSorted((a, b) => a.id - b.id)
-    .map((city) => ({ ...city, radiusMilli: gradeValue(rules.influenceMilli, city.grade) }));
+    .map((city) => {
+      const radiusMilli = gradeValue(rules.influenceMilli, city.grade);
+      const base = typeof city.catchmentMilli === "number" ? city.catchmentMilli : radiusMilli;
+      return { ...city, radiusMilli, territoryMilli: territoryCircleMilli(base, values) };
+    });
   const sortedBeacons = beacons
     .filter((beacon) => isTerritoryVec(beacon.point))
     .toSorted((a, b) => a.id - b.id);
-  const cityById = new Map(sortedCities.map((city) => [city.id, city]));
-  const factions = [...new Set([...sortedCities, ...sortedBeacons].map((item) => item.faction))].toSorted(
-    (a, b) => a - b,
-  );
-  const groups: TerritoryGroup[] = [];
-  for (const faction of factions) {
-    const vertices: (TerritoryVertex & { readonly range: number; readonly anchor: number | null })[] = [];
-    for (const city of sortedCities)
-      if (city.faction === faction)
-        vertices.push({
-          kind: "city",
-          id: city.id,
-          point: city.point,
-          range: gradeValue(rules.beaconRangeMilli, city.grade),
-          anchor: null,
-        });
-    for (const beacon of sortedBeacons) {
-      if (beacon.faction !== faction) continue;
-      const anchor = beacon.anchorCity === null ? undefined : cityById.get(beacon.anchorCity);
-      const own = anchor && anchor.faction === faction ? anchor : undefined;
-      vertices.push({
+  const beaconRadius = territoryBeaconRadius(values, metric.milliPerRadian);
+  const sites: TerritoryMapSite[] = [
+    ...sortedCities.map(
+      (city): TerritoryMapSite => ({
+        kind: "city",
+        id: city.id,
+        faction: city.faction,
+        point: city.point,
+        radius: territoryMilliToRadius(city.territoryMilli, metric.milliPerRadian),
+      }),
+    ),
+    ...sortedBeacons.map(
+      (beacon): TerritoryMapSite => ({
         kind: "beacon",
         id: beacon.id,
+        faction: beacon.faction,
         point: beacon.point,
-        range: gradeValue(rules.beaconRangeMilli, own?.grade ?? 1),
-        anchor: own?.id ?? null,
-      });
-    }
-    // 서로소 집합(작은 번호가 뿌리)
-    const parent = vertices.map((_, index) => index);
-    const find = (index: number): number => {
-      let root = index;
-      while ((parent[root] ?? root) !== root) root = parent[root] ?? root;
-      return root;
-    };
-    const join = (a: number, b: number): void => {
-      const ra = find(a);
-      const rb = find(b);
-      if (ra !== rb) parent[Math.max(ra, rb)] = Math.min(ra, rb);
-    };
-    for (let a = 0; a < vertices.length; a++) {
-      const va = vertices[a];
-      if (!va) continue;
-      for (let b = a + 1; b < vertices.length; b++) {
-        const vb = vertices[b];
-        if (!vb) continue;
-        const anchored =
-          (va.kind === "city" && vb.kind === "beacon" && vb.anchor === va.id) ||
-          (vb.kind === "city" && va.kind === "beacon" && va.anchor === vb.id);
-        if (anchored || territoryDistanceMilli(va.point, vb.point, metric) <= Math.max(va.range, vb.range))
-          join(a, b);
-      }
-    }
-    const byRoot = new Map<number, TerritoryVertex[]>();
-    vertices.forEach((vertex, index) => {
-      const root = find(index);
-      const list = byRoot.get(root) ?? [];
-      list.push({ kind: vertex.kind, id: vertex.id, point: vertex.point });
-      byRoot.set(root, list);
-    });
-    for (const root of [...byRoot.keys()].toSorted((a, b) => a - b)) {
-      const members = byRoot.get(root) ?? [];
-      const hullIndices = convexHull(members.map((member) => member.point));
-      groups.push({
-        faction,
-        members,
-        hull: hullIndices ? hullIndices.flatMap((index) => members[index] ?? []) : null,
-      });
-    }
-  }
-  return { metric, cities: sortedCities, beacons: sortedBeacons, groups };
+        radius: beaconRadius,
+        anchorCity: beacon.anchorCity,
+      }),
+    ),
+  ];
+  const map = buildTerritoryMap(sites, territoryCorridorRadius(values, metric.milliPerRadian));
+  const groups: TerritoryGroup[] = map.groups.map((group) => ({
+    faction: group.faction,
+    members: group.nodes.map((node) => ({ kind: node.site.kind, id: node.site.id, point: node.site.point })),
+  }));
+  return { metric, cities: sortedCities, beacons: sortedBeacons, groups, map };
 }
 
-/** 세력의 가장 가까운 도시(코사인이 큰 것, 같으면 작은 ID). 없으면 null */
-function nearestCity(layout: TerritoryLayout, faction: number, p: TerritoryVec): number | null {
-  let best: number | null = null;
-  let bestCos = -2;
-  for (const city of layout.cities) {
-    if (city.faction !== faction) continue;
-    const value = cosine(p, city.point);
-    if (value > bestCos) {
-      best = city.id;
-      bestCos = value;
-    }
-  }
-  return best;
-}
-
-/**
- * 점의 소속(D-486 겹침 규칙). 없으면 null.
- * 1. 도시 영향권(반경 안): 영향력 가중 = (거리 ÷ 반경)이 가장 작은 도시(같으면 작은 ID). 세력·지방 = 그 도시. 다른 세력의 비콘
- *    껍질보다 앞선다(도시 우선).
- * 2. 껍질: 점을 품은 묶음의 세력이 하나면 그 세력. 여럿이면 그 묶음들의 꼭짓점 가운데 가장 가까운 것의 세력(비콘 영역끼리 중간
- *    지점, 같으면 작은 세력 ID). 지방 = 그 세력의 가장 가까운 도시.
- */
+/** 점의 소속(1차맵 영토 지도 그대로, D-568). 어느 국가 영토도 아니면 null */
 export function claimAt(layout: TerritoryLayout, p: TerritoryVec): TerritoryClaim | null {
-  let bestCity: TerritoryCity | undefined;
-  let bestRatio = Number.POSITIVE_INFINITY;
-  for (const city of layout.cities) {
-    if (city.radiusMilli <= 0 || dot(p, city.point) <= 0) continue;
-    const distance = territoryDistanceMilli(p, city.point, layout.metric);
-    if (distance > city.radiusMilli) continue;
-    const ratio = distance / city.radiusMilli;
-    if (ratio < bestRatio) {
-      bestCity = city;
-      bestRatio = ratio;
-    }
-  }
-  if (bestCity) return { faction: bestCity.faction, province: bestCity.id, source: "city" };
-
-  const containing = layout.groups.filter(
-    (group) =>
-      group.hull !== null &&
-      polygonContains(
-        group.hull.map((vertex) => vertex.point),
-        p,
-      ),
-  );
-  if (containing.length === 0) return null;
-  let faction = containing[0]?.faction ?? 0;
-  if (containing.some((group) => group.faction !== faction)) {
-    let bestCos = -2;
-    for (const group of containing)
-      for (const member of group.members) {
-        const value = cosine(p, member.point);
-        if (value > bestCos || (value === bestCos && group.faction < faction)) {
-          bestCos = value;
-          faction = group.faction;
-        }
-      }
-  }
-  return { faction, province: nearestCity(layout, faction, p), source: "hull" };
+  return territoryMapClaim(layout.map, p);
 }
 
 // ── 비콘 놓기 검사(서버 권위, 화면 미리 보기도 같은 함수) ──
@@ -426,14 +249,18 @@ export const BEACON_PLACE_PROBLEMS = [
   "out_of_range",
   /** 거리 안 도시들의 비콘 수가 모두 찼다(N42) */
   "beacon_limit",
-  /** 다른 세력 도시의 영향권 안(D-486: 비콘으로 남의 도시를 잠식하지 못한다) */
+  /**
+   * 다른 세력 영토 안(1차맵 지도 그대로, D-568 — 옛 D-486 "다른 세력 도시 영향권 안"을 넓힘: 비콘으로 남의 영토를 잠식하지 못한다).
+   * 결과 코드 이름은 프로토콜 그대로 둔다
+   */
   "foreign_city",
 ] as const;
 export type BeaconPlaceProblem = (typeof BEACON_PLACE_PROBLEMS)[number];
 
 /**
  * 비콘을 이 점에 놓을 수 있나: 거리 안의 그 세력 도시 가운데 자리가 남은 가장 가까운 도시(같으면 작은 ID)가 기준 도시다.
- * 다른 세력 도시 영향권 안이면 막는다. 같은 칸 비콘·켬끔·세력 확인은 부르는 쪽(서버)이 먼저 한다
+ * 그 점이 다른 세력 영토(1차맵 지도, D-568)면 막는다. 영토 밖(빈 땅)·내 영토 안은 된다. 같은 칸 비콘·켬끔·세력 확인은 부르는 쪽(서버)이
+ * 먼저 한다
  */
 export function checkBeaconPlacement(
   layout: TerritoryLayout,
@@ -444,8 +271,7 @@ export function checkBeaconPlacement(
   | { readonly ok: true; readonly anchorCity: number }
   | { readonly ok: false; readonly problem: BeaconPlaceProblem } {
   const claim = claimAt(layout, point);
-  if (claim && claim.source === "city" && claim.faction !== faction)
-    return { ok: false, problem: "foreign_city" };
+  if (claim && claim.faction !== faction) return { ok: false, problem: "foreign_city" };
   const used = new Map<number, number>();
   for (const beacon of layout.beacons)
     if (beacon.faction === faction && beacon.anchorCity !== null)

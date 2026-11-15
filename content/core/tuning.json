@@ -8576,8 +8576,8 @@
       "min": 0,
       "max": 64,
       "desc": {
-        "ko": "보기 전용. 1차맵 영토 레이어에서 이 거리 안의 같은 국가 도시를 띠로 이어 그 사이 땅도 그 국가 영토로 칠한다. 0이면 잇지 않는다(원만). 영토 판정(칸 소속·비콘 놓기)과 상관없다.",
-        "en": "Display only. On the planet territory layer, same-nation cities within this distance are joined by a band, so the land between them is painted as that nation's. 0 = no bands (circles only). Does not change territory rules (cell ownership, beacon placement)."
+        "ko": "1차맵 영토에서 이 거리 안의 같은 국가 도시·비콘을 띠로 이어 그 사이 땅도 그 국가 영토로 친다. 0이면 잇지 않는다(원만). 영토 판정(비콘 놓기·세금·지방, D-568)도 같은 값을 쓴다.",
+        "en": "On the planet territory map, same-nation cities and beacons within this distance are joined by a band, so the land between them counts as that nation's. 0 = no bands (circles only). Territory rulings (beacon placement, taxes, provinces, D-568) use the same value."
       },
       "source": "기획 D-544·D-546 · ADR 2026-11-07-planet-view \"바뀜 (2026-11-15 D-546)\" [임시] 보기 전용"
     },
@@ -8594,8 +8594,8 @@
       "min": 1000,
       "max": 8000,
       "desc": {
-        "ko": "보기 전용. 1차맵 영토 레이어의 도시 원 반지름은 도시 배후지 지금 반경에 이 배율을 곱한 값이다(2000‰ = 2배, 아래 끝은 최소 칸). 늘리면 멀리서도 영토가 넓게 보인다. 겹친 곳은 거리 ÷ 원 반지름이 작은 도시가 차지한다.",
-        "en": "Display only. A city's circle on the planet territory layer is its current catchment radius times this (2000‰ = ×2, never below the smallest radius). Higher = territory looks wider from afar."
+        "ko": "1차맵 영토 레이어의 도시 원 반지름은 도시 배후지 지금 반경에 이 배율을 곱한 값이다(2000‰ = 2배, 아래 끝은 최소 칸). 늘리면 멀리서도 영토가 넓게 보인다. 겹친 곳은 거리 ÷ 원 반지름이 작은 도시가 차지한다. 영토 판정(비콘 놓기·세금·지방, D-568)도 같은 값을 쓴다.",
+        "en": "A city's circle on the planet territory layer is its current catchment radius times this (2000‰ = ×2, never below the smallest radius). Higher = territory looks wider from afar. Territory rulings (beacon placement, taxes, provinces, D-568) use the same value."
       },
       "source": "기획 D-544·D-546 · ADR 2026-11-07-planet-view \"바뀜 (2026-11-15 D-546)\" [임시] 보기 전용"
     },
@@ -8612,8 +8612,8 @@
       "min": 1,
       "max": 32,
       "desc": {
-        "ko": "보기 전용. 작은 도시도 1차맵 영토 레이어에서 이 반지름보다 작게 그리지 않는다.",
-        "en": "Display only. Even a small city is drawn at least this wide on the planet territory layer."
+        "ko": "작은 도시도 1차맵 영토 레이어에서 이 반지름보다 작게 그리지 않는다. 영토 판정(비콘 놓기·세금·지방, D-568)도 같은 값을 쓴다.",
+        "en": "Even a small city is drawn at least this wide on the planet territory layer. Territory rulings (beacon placement, taxes, provinces, D-568) use the same value."
       },
       "source": "기획 D-544·D-546 · ADR 2026-11-07-planet-view \"바뀜 (2026-11-15 D-546)\" [임시] 보기 전용"
     },
@@ -8630,8 +8630,8 @@
       "min": 1,
       "max": 16,
       "desc": {
-        "ko": "보기 전용. 도시 소유 영토 비콘은 그 도시·국가의 외곽선을 비콘까지 넓힌다. 외곽선은 비콘 밖으로 이 거리만큼 지나간다.",
-        "en": "Display only. A city-owned territory beacon pushes its city's and nation's outline out to the beacon; the outline passes this far outside it."
+        "ko": "도시 소유 영토 비콘은 그 도시·국가의 외곽선을 비콘까지 넓힌다. 외곽선은 비콘 밖으로 이 거리만큼 지나간다. 영토 판정(비콘 놓기·세금·지방, D-568)도 같은 값을 쓴다.",
+        "en": "A city-owned territory beacon pushes its city's and nation's outline out to the beacon; the outline passes this far outside it. Territory rulings (beacon placement, taxes, provinces, D-568) use the same value."
       },
       "source": "기획 D-544·D-546 · ADR 2026-11-07-planet-view \"바뀜 (2026-11-15 D-546)\" [임시] 보기 전용"
     },

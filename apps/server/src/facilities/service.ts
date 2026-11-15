@@ -235,6 +235,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     facilities,
     catalog: options.catalog,
     cities: options.cities ?? (() => []),
+    province: options.province,
   };
   /**
    * 건물 재료를 꺼내는 자리(그 건물이 선 도시·2차맵). 내 건물이면 그 사업장 창고를 먼저 쓴다(D-555 1505 — 레벨업·수리·장비 수리가 장부의

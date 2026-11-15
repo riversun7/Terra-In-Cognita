@@ -257,6 +257,11 @@ export function createWorldFacilities(input: {
     holdings: input.holdings,
     territory: input.territory,
     cities: input.cities,
+    // 건물이 선 도시(세금 귀속·재료 자리) = 1차맵 영토 지도의 지방(D-568). 영토 밖·셈 전이면 옛 규칙
+    province: (mapKey, x, y) => {
+      const hit = input.territory()?.provinceAt(TEST_PLANET_ID, mapKey, x, y);
+      return hit === undefined ? undefined : (hit?.city ?? null);
+    },
     land,
     labor: {
       unitBusy: (unitId) => labor?.unitBusy(unitId) ?? false,

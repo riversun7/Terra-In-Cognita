@@ -1,8 +1,10 @@
-// 영토 서비스(서버 권위) — docs/adr/2026-11-03-territory-layer.md 3·4·5절, 기획 D-485·D-486·D-104·49 M2·M3·N42·N51
+// 영토 서비스(서버 권위) — docs/adr/2026-11-03-territory-layer.md 3·4·5절, 기획 D-568(판정도 1차맵 지도대로)·D-546·D-104·49 M2·M3·N42·N51
 // - 비콘: 메모리 표(원본은 territory_beacons)가 캐시이고 쓰는 프로세스가 하나라(ADR 3) 놓기·치우기는 메모리 → 쓰기 대기열 → 커밋 뒤 답한다.
 // - 도시: world_cities를 그때 읽는다(NPC 사회 런타임이 주인·발전도를 바꾸고 새 마을을 넣는다). 명령은 대기열을 비운 뒤 새로 읽고, 조회는
 //   행성마다 셈한 배치를 VIEW_TTL_MS 동안 쓴다(비콘이 바뀌면 바로 버린다). 사라진 세력(dissolved_at_ms)의 도시·비콘은 셈에서 뺀다.
-// - 셈: @terra/shared/territory(껍질·소속·겹침·놓기 검사) + @terra/planet/territory(칸 → 점, 칸 표). 둘 다 결정적이다.
+// - 셈: @terra/shared/territory·territoryMap(1차맵 영토 지도 — 도시 원·띠·비콘 외곽선·영향력 비율, 소속·놓기 검사) +
+//   @terra/planet/territory(칸 → 점, 칸 표). 둘 다 결정적이다. 도시 원 바탕 = 배후지 지금 반경(인구·발전도 등급·기술, 1차맵 world.cities와
+//   같은 함수), 값 = 설정 칸 planet_territory_*(1차맵 화면과 같은 값, D-568). 지방(건물 도시·세금)은 provinceAt이 마지막 셈으로 답한다.
 // - 비콘 시설: 팩 시설 territory_beacon(건설 재료 D-508, 시설은 늘 켜져 있고 팩에 없을 때만 disabled). 건물 규칙(기획 336,
 //   docs/adr/2026-11-07-buildings-runtime.md): 놓을 때 레벨 1 재료를 놓는 사용자의 주인 원장에서 빼고(construction.spend), 건설 시간(M14)
 //   뒤에 꼭짓점이 된다. 상태는 쓰지 않는 건물이라 노화만(30%에서 멈춤, D-509) — 그때 셈한다. 30% 미만(공격·옛 줄)이면 꼭짓점에서 빠진다.
@@ -20,11 +22,13 @@ import {
   territoryPoint,
 } from "@terra/planet/territory";
 import type { BeaconResultCode } from "@terra/protocol";
+import { catchmentRadiusMilli } from "@terra/shared/catchment";
 import {
   type TerritoryCoefficients,
   type TerritoryLayout,
   buildTerritory,
   checkBeaconPlacement,
+  claimAt,
   cityGrade,
   gradeValue,
   nearestFactionCity,
@@ -36,6 +40,7 @@ import type {
   TerritoryPlanetView,
 } from "@terra/shared/territoryApi";
 import type { LocalizedName } from "@terra/shared/roster";
+import { TERRITORY_MAP_START, type TerritoryMapValues } from "@terra/shared/territoryMap";
 import {
   CONDITION_FULL,
   type FacilityRuntimeRules,
@@ -45,6 +50,7 @@ import {
 } from "@terra/shared/facilityRuntime";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import type { CatchmentRadiusRules } from "./catchmentRules.ts";
 
 /** 조회용 배치를 다시 셈하는 간격(ms). 비콘이 바뀌면 바로 다시 셈한다 */
 export const VIEW_TTL_MS = 30_000;
@@ -72,6 +78,9 @@ interface CityRecord {
   readonly cellX: number;
   readonly cellY: number;
   readonly development: number;
+  /** 사는 휴먼 수·주인 세력 기술 단계(배후지 지금 반경) */
+  readonly population: number;
+  readonly tech: number;
 }
 
 interface FactionRecord {
@@ -83,6 +92,14 @@ interface FactionRecord {
 export type BeaconCommandResult =
   | { readonly ok: true; readonly beaconId?: number }
   | { readonly ok: false; readonly code: BeaconResultCode };
+
+/**
+ * 조회 선택: cells = 칸 표를 싣나(기본 true). 칸 표 셈(rasterizeTerritory)은 무거워(1차맵 지도 영토가 넓어 칸이 많다, D-568 — 작업 기록 측정)
+ * 처음 찾을 때 셈하고 그 배치 동안 쓴다. 칸 표가 필요 없는 조회(1차맵 world.cities·공격 대상)는 false로 셈을 건너뛴다
+ */
+export interface TerritoryViewOptions {
+  readonly cells?: boolean | undefined;
+}
 
 /** 명령을 보낸 사람. devPlace = 권한 territory: dev-place(다른 세력 대신) */
 export interface TerritoryActor {
@@ -99,9 +116,17 @@ export interface TerritoryService {
   ): Promise<BeaconCommandResult>;
   remove(actor: TerritoryActor, beaconId: number): Promise<BeaconCommandResult>;
   /** 행성의 영토 전체(개발 화면). myFactionId = 그 사용자가 가입한 세력 */
-  planetView(planetId: string, userId: string | null): Promise<TerritoryPlanetView | undefined>;
+  planetView(
+    planetId: string,
+    userId: string | null,
+    options?: TerritoryViewOptions,
+  ): Promise<TerritoryPlanetView | undefined>;
   /** 내 세력 것만 거른 영토(세력 영토·비콘 목록). 세력이 없으면 myFactionId null·빈 목록 */
-  mineView(planetId: string, userId: string): Promise<TerritoryPlanetView | undefined>;
+  mineView(
+    planetId: string,
+    userId: string,
+    options?: TerritoryViewOptions,
+  ): Promise<TerritoryPlanetView | undefined>;
   /**
    * 도시 주인이 바뀌었다(D-512 335): 그 도시가 기준 도시인 비콘을 새 주인 세력으로 옮긴다(쓰기 대기열, 부르는 쪽의 도시 줄과 같은 묶음).
    * 옮긴 수
@@ -129,6 +154,19 @@ export interface TerritoryService {
     planetId: string,
     at: { readonly mapKey: number; readonly x: number; readonly y: number } | { readonly cellKey: number },
   ): Promise<number | null>;
+  /**
+   * 지방(D-568 — 1차맵 영토 지도 그대로): 2차맵 배치 칸이 어느 나라·어느 도시 땅인가. 마지막으로 셈한 배치로 바로 답하고(동기), 셈이 오래됐으면
+   * 뒤에서 다시 셈한다. 영토 밖이면 null, 아직 셈한 배치가 없거나 영토를 셈하지 않는 행성·면 레벨이 다른 칸이면 undefined(부르는 쪽이 옛
+   * 규칙으로 정한다). 건물 도시(세금 귀속·재료 자리, facilities/places.ts cityAt)가 쓴다
+   */
+  provinceAt(
+    planetId: string,
+    mapKey: number,
+    x: number,
+    y: number,
+  ): { readonly faction: number; readonly city: number | null } | null | undefined;
+  /** 부팅 끝에 그 행성 배치를 한 번 셈해 둔다(provinceAt이 처음부터 답하게 — 칸 표는 셈하지 않는다). 실패하면 조용히 넘어간다 */
+  warm(planetId: string): Promise<void>;
   /**
    * 전투 피해(질문 381·기획 336 ③): 잃은 내구도 점 × 가득 ÷ N51만큼 상태를 줄인다(destroyed면 0). 30% 미만이면 꼭짓점이 아니고 0이어도
    * 지우지 않는다(380, 수리하면 돌아온다). 쓰기 대기열에만 쓴다(전투 결과 기록과 같은 커밋). 없으면 false
@@ -164,6 +202,10 @@ export interface TerritoryServiceOptions {
   readonly now: () => number;
   /** 영토 계수(설정 칸 실효 값), 부를 때마다 읽는다 */
   readonly rules: () => TerritoryCoefficients;
+  /** 1차맵 영토 값(설정 칸 planet_territory_* 실효 값, 화면과 같은 값 — D-568). 없으면 출발값 */
+  readonly mapValues?: (() => TerritoryMapValues) | undefined;
+  /** 배후지 지금 반경 규칙(영토 원 바탕). 없거나 undefined면 영향권 반경(M3)이 바탕(1차맵 화면과 같다) */
+  readonly catchment?: (() => CatchmentRadiusRules | undefined) | undefined;
   /** 팩 시설 territory_beacon 실효 값(팩에 있나·재료). 없으면 있음·재료 없음 */
   readonly beaconFacility: () => TerritoryBeaconFacilityView;
   /** 영토를 셈하는 행성의 면 레벨(세계 행성만) */
@@ -215,13 +257,20 @@ const fail = (code: BeaconResultCode): BeaconCommandResult => ({ ok: false, code
 
 interface Computed {
   readonly atMs: number;
+  /** 배치를 셈한 시간(ms, 측정용) */
+  readonly computeMs: number;
+  /** 칸 표를 셈한 시간(ms, 측정용 — 셈했을 때만) */
+  rasterMs?: number;
   readonly layout: TerritoryLayout;
   readonly faceLevel: number;
   readonly rules: TerritoryCoefficients;
+  readonly mapValues: TerritoryMapValues;
   readonly cities: readonly CityRecord[];
   readonly factions: ReadonlyMap<number, FactionRecord>;
   readonly beacons: readonly BeaconRow[];
-  readonly cells: Map<CellKey, { faction: number; province: number | null; samples: number }>;
+  /** 칸 표(처음 찾을 때 셈한다 — cellsOf) */
+  cells: Map<CellKey, { faction: number; province: number | null; samples: number }> | undefined;
+  readonly seeds: readonly CellKey[];
 }
 
 export function createTerritoryService(
@@ -232,6 +281,10 @@ export function createTerritoryService(
   const beacons = new Map<number, BeaconRow>(loaded.map((beacon) => [beacon.id, beacon]));
   let lastId = loaded.reduce((max, beacon) => Math.max(max, beacon.id), 0);
   const cache = new Map<string, Computed>();
+  /** 마지막으로 셈한 배치(비콘이 바뀌어 cache를 버려도 남는다 — provinceAt이 다시 셈할 때까지 쓴다) */
+  const last = new Map<string, Computed>();
+  /** 뒤에서 다시 셈하는 중인 행성(같은 행성을 겹쳐 셈하지 않는다) */
+  const refreshing = new Set<string>();
   /** 명령은 차례로 하나씩(같은 칸 두 번 놓기·개수 넘기를 막는다) */
   let chain: Promise<unknown> = Promise.resolve();
   const serial = <T>(run: () => Promise<T>): Promise<T> => {
@@ -278,7 +331,10 @@ export function createTerritoryService(
 
   const loadCityRecords = async (planetId: string): Promise<CityRecord[]> => {
     const result = await pool.query(
-      `select id, faction_id, map_key, cell_x, cell_y, development from world_cities where planet_id = $1 order by id`,
+      `select c.id, c.faction_id, c.map_key, c.cell_x, c.cell_y, c.development, f.tech_level as tech,
+              (select count(*) from world_humans h where h.city_id = c.id) as population
+       from world_cities c left join factions f on f.id = c.faction_id
+       where c.planet_id = $1 order by c.id`,
       [planetId],
     );
     return result.rows.map((row) => ({
@@ -288,6 +344,8 @@ export function createTerritoryService(
       cellX: Number(row.cell_x),
       cellY: Number(row.cell_y),
       development: Number(row.development),
+      population: Number(row.population ?? 0),
+      tech: Number(row.tech ?? 1),
     }));
   };
 
@@ -327,12 +385,26 @@ export function createTerritoryService(
       .toSorted((a, b) => a.id - b.id);
     // 짓는 중·30% 미만 비콘은 꼭짓점이 아니다(건물 규칙, 기획 336). 목록(view)에는 모두 보인다
     const vertexBeacons = planetBeacons.filter((beacon) => works(beacon, at));
+    // 영토 원 바탕 = 배후지 지금 반경(1차맵 world.cities catchmentMilli와 같은 함수·같은 입력), 배후지 규칙이 꺼졌으면 영향권
+    const catchment = options.catchment?.();
+    const mapValues = options.mapValues?.() ?? TERRITORY_MAP_START;
+    const started = performance.now();
     const layout = buildTerritory(
       cities.map((city) => ({
         id: city.id,
         faction: city.factionId,
         point: territoryPoint(placementCellKey(parseCellKey(city.mapKey), city.cellX, city.cellY)),
         grade: cityGrade(city.development, rules),
+        catchmentMilli: catchment
+          ? catchmentRadiusMilli(
+              {
+                population: city.population,
+                grade: cityGrade(city.development, catchment.territory),
+                tech: city.tech,
+              },
+              catchment.growth,
+            )
+          : null,
       })),
       vertexBeacons.map((beacon) => ({
         id: beacon.id,
@@ -342,23 +414,27 @@ export function createTerritoryService(
       })),
       rules,
       territoryMetric(faceLevel),
+      mapValues,
     );
     const seeds = [
       ...cities.map((city) => parseCellKey(city.mapKey)),
       ...vertexBeacons.map((beacon) => parseCellKey(beacon.cellKey)),
     ];
-    const cells = rasterizeTerritory(layout, seeds, faceLevel);
     const computed: Computed = {
       atMs: at,
+      computeMs: performance.now() - started,
       layout,
       faceLevel,
       rules,
+      mapValues,
       cities,
       factions,
       beacons: planetBeacons,
-      cells,
+      cells: undefined,
+      seeds,
     };
     cache.set(planetId, computed);
+    last.set(planetId, computed);
     return computed;
   };
 
@@ -387,7 +463,22 @@ export function createTerritoryService(
     return row ? Number(row.faction_id) : null;
   };
 
-  const view = (computed: Computed, planetId: string, myFactionId: number | null): TerritoryPlanetView => {
+  /** 칸 표(처음 찾을 때 셈하고 그 배치 동안 쓴다) */
+  const cellsOf = (computed: Computed) => {
+    if (!computed.cells) {
+      const started = performance.now();
+      computed.cells = rasterizeTerritory(computed.layout, computed.seeds, computed.faceLevel);
+      computed.rasterMs = performance.now() - started;
+    }
+    return computed.cells;
+  };
+
+  const view = (
+    computed: Computed,
+    planetId: string,
+    myFactionId: number | null,
+    withCells = true,
+  ): TerritoryPlanetView => {
     const used = new Map<number, number>();
     for (const beacon of computed.beacons)
       if (beacon.cityId !== null) used.set(beacon.cityId, (used.get(beacon.cityId) ?? 0) + 1);
@@ -416,6 +507,7 @@ export function createTerritoryService(
       faceLevel: computed.faceLevel,
       milliPerRadian: computed.layout.metric.milliPerRadian,
       rules: computed.rules,
+      mapValues: computed.mapValues,
       beacon: options.beaconFacility(),
       factions,
       cities: computed.cities.flatMap((city) => {
@@ -432,6 +524,8 @@ export function createTerritoryService(
             development: city.development,
             grade: placed.grade,
             radiusMilli: placed.radiusMilli,
+            catchmentMilli: placed.catchmentMilli ?? null,
+            territoryMilli: placed.territoryMilli,
             rangeMilli: gradeValue(computed.rules.beaconRangeMilli, placed.grade),
             beaconsUsed: used.get(city.id) ?? 0,
             beaconsMax: gradeValue(computed.rules.beaconsPerCity, placed.grade),
@@ -457,11 +551,10 @@ export function createTerritoryService(
       groups: computed.layout.groups.map((group) => ({
         factionId: group.faction,
         members: group.members.map((member) => ({ kind: member.kind, id: member.id })),
-        hull: group.hull
-          ? group.hull.map((vertex) => ({ kind: vertex.kind, id: vertex.id, point: vertex.point }))
-          : null,
+        // D-568부터 껍질 판정이 없다(옛 화면 호환으로 칸만 남긴다)
+        hull: null,
       })),
-      cells: [...computed.cells.entries()].map(([key, cell]) => [
+      cells: [...(withCells ? cellsOf(computed) : new Map<CellKey, never>()).entries()].map(([key, cell]) => [
         key,
         cell.faction,
         cell.province ?? 0,
@@ -469,6 +562,8 @@ export function createTerritoryService(
       ]),
       myFactionId,
       computedAtMs: computed.atMs,
+      computeMs: Math.round(computed.computeMs * 10) / 10,
+      ...(computed.rasterMs === undefined ? {} : { rasterMs: Math.round(computed.rasterMs * 10) / 10 }),
     };
   };
 
@@ -545,16 +640,17 @@ export function createTerritoryService(
         return { ok: true };
       });
     },
-    async planetView(planetId, userId) {
+    async planetView(planetId, userId, viewOptions) {
       const computed = await current(planetId);
       if (!computed) return undefined;
-      return view(computed, planetId, userId === null ? null : await factionOfUser(userId));
+      const mine = userId === null ? null : await factionOfUser(userId);
+      return view(computed, planetId, mine, viewOptions?.cells ?? true);
     },
-    async mineView(planetId, userId) {
+    async mineView(planetId, userId, viewOptions) {
       const computed = await current(planetId);
       if (!computed) return undefined;
       const mine = await factionOfUser(userId);
-      const full = view(computed, planetId, mine);
+      const full = view(computed, planetId, mine, viewOptions?.cells ?? true);
       return {
         ...full,
         factions: full.factions.filter((faction) => faction.id === mine),
@@ -586,6 +682,25 @@ export function createTerritoryService(
       if (!row || row.readyAtMs === null || row.readyAtMs <= atMs) return false;
       saveBeacon({ ...row, readyAtMs: null, conditionAtMs: atMs });
       return true;
+    },
+    async warm(planetId) {
+      const faceLevel = options.faceLevelOf(planetId);
+      if (faceLevel !== undefined) await compute(planetId, faceLevel).catch(() => undefined);
+    },
+    provinceAt(planetId, mapKey, x, y) {
+      const faceLevel = options.faceLevelOf(planetId);
+      if (faceLevel === undefined || !isCellKey(mapKey) || cellLevel(mapKey) !== faceLevel) return undefined;
+      const fresh = cache.get(planetId);
+      if ((!fresh || now() - fresh.atMs >= VIEW_TTL_MS) && !refreshing.has(planetId) && options.ready()) {
+        refreshing.add(planetId);
+        void compute(planetId, faceLevel)
+          .catch(() => undefined)
+          .finally(() => refreshing.delete(planetId));
+      }
+      const computed = last.get(planetId);
+      if (!computed) return undefined;
+      const claim = claimAt(computed.layout, territoryPoint(placementCellKey(parseCellKey(mapKey), x, y)));
+      return claim ? { faction: claim.faction, city: claim.province } : null;
     },
     async urbanCity(planetId, at) {
       const computed = await current(planetId);

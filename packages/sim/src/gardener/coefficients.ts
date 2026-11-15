@@ -58,6 +58,11 @@ export interface GardenerCoefficients {
   readonly nomadNoticeMs: number;
   readonly nomadThreshold: number;
   readonly nomadExcludeMs: number;
+  /**
+   * 도시 웨이브 수비 인원 상한(D-558 1547 "고정 10명 없앰" — 수비는 있는 편성 그대로, 상한은 판정 비용 막이 [임시] = 군단 위 끝 10파티 × 6).
+   * 없으면(옛 계수표) WAVE_DEFENDERS_DEFAULT
+   */
+  readonly waveDefendersMax?: number | undefined;
   /** 유목 부대 수(행성마다, 질문 221 가: 정찰대 2·정화 군단 1)와 규모 */
   readonly nomadScouts: number;
   readonly nomadLegions: number;
@@ -124,6 +129,13 @@ export interface GardenerCoefficients {
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 
+/** 계수표에 웨이브 수비 상한이 없을 때(옛 계수표 — D-558 전 고정 인원) */
+export const WAVE_DEFENDERS_DEFAULT = 10;
+
+/** 웨이브 수비 인원 상한(1 이상) */
+export const waveDefendersMaxOf = (c: Pick<GardenerCoefficients, "waveDefendersMax">): number =>
+  Math.max(1, Math.trunc(c.waveDefendersMax ?? WAVE_DEFENDERS_DEFAULT));
+
 export const TEST_GARDENER_COEFFICIENTS: GardenerCoefficients = {
   cellMax: 10_000,
   battle: 200,
@@ -152,6 +164,7 @@ export const TEST_GARDENER_COEFFICIENTS: GardenerCoefficients = {
   nomadNoticeMs: 3 * HOUR_MS,
   nomadThreshold: 2000,
   nomadExcludeMs: 7 * DAY_MS,
+  waveDefendersMax: 60,
   nomadScouts: 2,
   nomadLegions: 1,
   nomadScoutSize: 4,

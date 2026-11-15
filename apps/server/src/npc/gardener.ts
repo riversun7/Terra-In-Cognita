@@ -33,6 +33,7 @@ import {
   startingNomads,
   streamRng,
   waveBattleInit,
+  waveDefendersMaxOf,
 } from "@terra/sim";
 import { cellCenter, cellCorners } from "@terra/planet/projection";
 import {
@@ -48,10 +49,9 @@ import { type GrantedItem, rewardRecordOf } from "./waveRewards.ts";
 
 /** 정원사 크리쳐 전투 유닛 ID 시작(세계 유닛 ID와 겹치지 않게, 시뮬과 같은 값) */
 const WAVE_CREATURE_ID_BASE = 1_900_000_000;
-/** 웨이브 공성 전투맵·넥서스(열린 맵일 때만 — 배치가 있으면 행정 건물 내구도)·수비 인원(49 C3, 시뮬 시나리오 기본과 같다, 질문 218 가) */
+/** 웨이브 공성 전투맵·넥서스(열린 맵일 때만 — 배치가 있으면 행정 건물 내구도). 수비 인원 상한은 설정 칸(D-558 1547, waveDefendersMaxOf) */
 const WAVE_MAP_SIZE = 128;
 const WAVE_NEXUS = 2000;
-const WAVE_DEFENDERS = 10;
 
 /** npc_society.gardener(jsonb) 모양. relations·renown = [세력 소유 주체 ID, 값](정원사 2, 없던 옛 줄은 빈 표) */
 interface StoredGardener {
@@ -328,7 +328,8 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
           mapSize: WAVE_MAP_SIZE,
           // 배치가 있으면 행정 건물의 지금 내구도(질문 1069 가, waveBattleInit), 없으면(열린 맵) 이 값
           nexusDurability: WAVE_NEXUS,
-          maxDefenders: WAVE_DEFENDERS,
+          // 수비 = 있는 편성 그대로(D-558 1547): 세계 휴먼에는 파티가 없어 유닛 개별 참전, 상한은 설정 칸
+          maxDefenders: waveDefendersMaxOf(o.rules()),
           // 공성 제한 시간(C2): 설정 칸 실효 값(전투 서비스는 시험 계수표로 전투를 만든다)
           limitMs: combat.limitMs.siege,
           layout,

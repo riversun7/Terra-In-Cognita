@@ -368,6 +368,38 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "c7_command_base",
+      "since": 114,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "c7_command_int_pm",
+      "since": 114,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "c7_command_wis_pm",
+      "since": 114,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "c7_command_points",
+      "since": 114,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

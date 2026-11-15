@@ -43,6 +43,7 @@ import { unitColumnsOf } from "./secondMapRows.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import { walkSpeedsOf } from "./walkSpeed.ts";
+import { commandRankSource } from "./commandRanks.ts";
 import { type BoatHooks, createBoatHooks } from "../boats/hooks.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
@@ -182,6 +183,7 @@ export interface WorldConfig {
    * 싸우게 한다(battleBodies.ts). 없으면 시작 자료 그대로(시험)
    */
   roster?: (() => RosterCatalog) | undefined;
+  combatRankingPaths?: readonly string[] | undefined; // 전투 계열(force) 랭킹 경로 — 지휘 계급(D-558, commandRanks.ts)
   /** 건물 짓기·노화·수리(실효 시설·아이템, docs/adr/2026-11-07-buildings-runtime.md). 없으면 빈 목록(시험) */
   facilities?: FacilitiesConfig | undefined;
   /** NPC 도시 경제·거래소의 경제 목록(docs/adr/2026-11-07-play-flow.md WP4, market/catalog.ts). 없으면 경제 없음(시험) */
@@ -279,10 +281,7 @@ export type WorldPool = QueryPool & WriterPool;
 
 function counter(start: number): () => number {
   let last = start;
-  return () => {
-    last += 1;
-    return last;
-  };
+  return () => ++last;
 }
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /** 보유 물건을 잇기 전의 빈 몸(생명 수치가 먼저 만들어진다) */
@@ -574,8 +573,9 @@ export function startWorld(
       },
     });
     gearOf = holdings.gearOf;
-    // 세계 전투 시작 사양의 몸: 사이보그 화면·유닛 상세와 같은 셈(입은 장비·인공장기·버프)
-    const bodies = createBattleBodies({ maps, cyborgs, gearOf: holdings.gearOf, catalog: config.roster });
+    // 세계 전투 시작 사양의 몸: 사이보그 화면·유닛 상세와 같은 셈(입은 장비·인공장기·버프), 지휘 계급(D-558 랭킹·작위)
+    const commandRankOf = commandRankSource({ pool: db, cyborgs, config, rules: societyRules, now }).rankOf;
+    const bodies = createBattleBodies({ maps, cyborgs, gearOf, catalog: config.roster, commandRankOf });
     factory.attachWalk?.(
       walkSpeedsOf(cyborgs, holdings.gearOf, config.roster, now, societyRules, boatHooks.speedPm),
     ); // 걷기 AGI·배 속도

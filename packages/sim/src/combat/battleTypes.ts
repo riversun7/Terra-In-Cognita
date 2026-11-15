@@ -1,8 +1,11 @@
 // 전투 판정 타입 — battle.ts가 쓰는 사양·상태·결과 모양(직렬화할 수 있는 값만). docs/adr/2026-10-31-combat-core.md
 import type { BattleMapInput } from "./battleMap.ts";
+import type { CommandRank } from "./command.ts";
 import type { ActiveEffect, ModifierStat } from "./effects.ts";
 import type { AttackProfile, DefenseProfile } from "./formula.ts";
+import type { FormationShape } from "./formation.ts";
 import type { CastState, CombatSkill } from "./skills.ts";
+import type { Tactic } from "./tactics.ts";
 
 /** 편의 가장자리(들어오는 변): 0 북(y 작음), 1 동, 2 남, 3 서 */
 export type Edge = 0 | 1 | 2 | 3;
@@ -130,8 +133,13 @@ export interface CombatUnitSpec {
   /** 시선 높이(16배 cm) */
   readonly eye: number;
   readonly air: boolean;
-  /** 지휘 정원(파티 수, D-179·C7) */
+  /** 지휘 정원(파티 수, D-179·C7 — D-558 작위·전투 랭킹·환생) */
   readonly commandCap: number;
+  /**
+   * 지휘 계급(D-558 1545 승계 순서 — 국가 작위 → 전투 랭킹). 작위·랭킹이 없는 유닛(NPC 휴먼·크리쳐·옛 시작 자료)은 칸이 없다(옛 선출:
+   * 정원 → ID)
+   */
+  readonly commandRank?: CommandRank | undefined;
   readonly cyborg: boolean;
   /** 건물 피해 배율(천분율, C32) */
   readonly buildingMulPm: number;
@@ -192,7 +200,15 @@ export type PartyOrderInput =
   | { readonly kind: "hold" }
   | { readonly kind: "attack"; readonly target: number }
   | { readonly kind: "retreat" }
-  | { readonly kind: "free" };
+  | { readonly kind: "free" }
+  /** 집결(D-558): 그 칸(없으면 군단 = 지휘관 자리, 파티 = 파티 가운데)에 대형으로 모여 선다 */
+  | { readonly kind: "rally"; readonly cell?: number | undefined }
+  /** 따라가기(D-558): 같은 편 다른 파티 뒤를 대형으로 따라간다(그 파티가 없어지면 명령이 끝난다) */
+  | { readonly kind: "follow"; readonly party: number }
+  /** 대형 고르기(D-558·D-172): 대형을 바꾸고 그 자리에서 다시 선다(뒤 집결·따라가기도 이 대형) */
+  | { readonly kind: "formation"; readonly shape: FormationShape }
+  /** AI 전개 방식(D-558 2차, tactics.ts) */
+  | { readonly kind: "tactic"; readonly tactic: Tactic };
 
 /** 파티가 들고 있는 명령(상태 — 직렬화되는 값만). legion = 군단 명령으로 받았나(진형 묶음이 편 전체) */
 export type PartyOrder =
@@ -203,7 +219,22 @@ export type PartyOrder =
       readonly slots?: readonly { readonly unit: number; readonly cell: number }[] | undefined;
     }
   | { readonly kind: "hold"; readonly legion: boolean }
-  | { readonly kind: "attack"; readonly legion: boolean; readonly target: number };
+  | { readonly kind: "attack"; readonly legion: boolean; readonly target: number }
+  /** 집결·대형 고르기: 유닛마다 설 칸(서서 닿는 적만 친다) */
+  | {
+      readonly kind: "rally";
+      readonly legion: boolean;
+      readonly slots: readonly { readonly unit: number; readonly cell: number }[];
+    }
+  /** 따라가기: 앞 파티 ID(설 칸은 틱마다 그 파티 뒤로 다시 센다) */
+  | { readonly kind: "follow"; readonly legion: boolean; readonly party: number }
+  /** 전개 방식. 수비 집중은 내릴 때 유닛마다 닻 칸(slots) */
+  | {
+      readonly kind: "tactic";
+      readonly legion: boolean;
+      readonly tactic: Tactic;
+      readonly slots?: readonly { readonly unit: number; readonly cell: number }[] | undefined;
+    };
 
 /**
  * 입력(틱 차례, 같은 틱이면 배열 차례): 대기 명령 1칸(D-177·D-180), 참전(파티 단위, D-209), 파티 명령·군단 명령(D-549 — 군단 명령은
@@ -271,6 +302,8 @@ export interface PartyState extends BattlePartySpec {
   order?: PartyOrder | undefined;
   /** 마지막으로 파티 명령을 받은 시각(ms, 다시 넣기 막기 — C5와 같은 시간). 받은 적이 없으면 칸이 없다 */
   orderMs?: number | undefined;
+  /** 고른 대형(D-558 대형 고르기). 고른 적이 없으면 칸이 없다(집결·따라가기는 방진) */
+  shape?: FormationShape | undefined;
 }
 
 export interface SideState extends BattleSideSpec {

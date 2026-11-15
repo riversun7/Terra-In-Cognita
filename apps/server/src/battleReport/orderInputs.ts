@@ -17,7 +17,13 @@ export interface LegionIds {
   readonly side: number;
   /** 상대 군단 파티·자리 → 상대 유닛 ID(상대가 실험실 군단이 아니면 없다 — 목표 공격을 넣지 않는다) */
   readonly enemyId?: ((p: number, index: number) => number) | undefined;
+  /** 전투맵 한 변(칸 명령의 칸 번호 = y × size + x). 없으면 칸을 버린다(전진 = 적 쪽으로, 집결 = 지휘관 자리) */
+  readonly size?: number | undefined;
 }
+
+/** 명령 칸 → 판정 칸 번호(지도 밖이면 판정이 거절한다 — 여기서는 그대로 넘긴다) */
+const cellOf = (order: ReportOrder, ids: LegionIds): number | undefined =>
+  order.cell && ids.size ? order.cell.y * ids.size + order.cell.x : undefined;
 
 /** 보고서 명령 하나 → 판정 명령(목표를 풀 수 없으면 null) */
 function orderOf(order: ReportOrder, ids: LegionIds): PartyOrderInput | null {
@@ -27,12 +33,24 @@ function orderOf(order: ReportOrder, ids: LegionIds): PartyOrderInput | null {
       if (!target || !ids.enemyId) return null;
       return { kind: "attack", target: ids.enemyId(target.party, target.index) };
     }
-    case "advance":
-      return { kind: "advance" };
+    case "advance": {
+      const cell = cellOf(order, ids);
+      return cell === undefined ? { kind: "advance" } : { kind: "advance", cell };
+    }
     case "hold":
       return { kind: "hold" };
     case "retreat":
       return { kind: "retreat" };
+    case "rally": {
+      const cell = cellOf(order, ids);
+      return cell === undefined ? { kind: "rally" } : { kind: "rally", cell };
+    }
+    case "follow":
+      return order.leader === undefined ? null : { kind: "follow", party: ids.partyId(order.leader) };
+    case "formation":
+      return order.shape ? { kind: "formation", shape: order.shape } : null;
+    case "tactic":
+      return order.tactic ? { kind: "tactic", tactic: order.tactic } : null;
     default:
       return { kind: "free" };
   }

@@ -584,6 +584,11 @@ export const equipSchema = z
         resistPm: z.array(z.int().min(-1000).max(1000)).length(ELEMENT_IDS.length).optional(),
         defenseFlat: z.int().min(0).max(10_000_000).optional(),
         penetrationPm: z.int().min(0).max(1000).optional(),
+        /**
+         * 이동 속도 ‰(D-558 1548 "장비 옵션"): 입은 동안 걷기 빠르기에 곱한다(2차맵 걷기·전투맵 걸음, 걸린 효과 move_speed와 같은 합·하한).
+         * 여러 장비의 값은 더한다
+         */
+        moveSpeedPm: z.int().min(-900).max(1000).optional(),
       })
       .optional(),
     /** 입을 수 있는 유닛 종류(D-494 크리쳐 전용 장비 등). 없으면 그 칸을 가진 모든 종류. 거르기는 WP-5·WP-C */

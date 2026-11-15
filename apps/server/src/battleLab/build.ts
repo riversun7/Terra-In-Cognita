@@ -316,6 +316,10 @@ export function buildLabUnit(unit: LabUnit, rules: LabRules): BuiltLabUnit {
       penetrationPm: loadout.penetrationPm,
       cyborg: kit.kind.id === "cyborg",
       skills: skillsFor(loadout.skills, kit, rules.catalog),
+      // 지휘관 정원·승계(D-558): 실험 유닛의 계급과 환생
+      commandRank: unit.rank,
+      commandRebirths: unit.rebirths,
+      moveSpeedPm: loadout.moveSpeedPm,
     },
     rules.coefficients,
   );

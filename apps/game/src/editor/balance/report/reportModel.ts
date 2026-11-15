@@ -173,9 +173,16 @@ export function withLegions(
 
 /** 파티를 하나 뺐을 때 명령을 맞춘다(그 파티 명령은 지우고 뒤 파티 번호를 당긴다) */
 export function ordersWithoutParty(orders: readonly ReportOrder[], removed: number): ReportOrder[] {
+  // 그 파티를 따라가던 명령(D-558 따라가기)도 지운다
   return orders
-    .filter((order) => order.party !== removed)
-    .map((order) => (order.party > removed ? { ...order, party: order.party - 1 } : order));
+    .filter((order) => order.party !== removed && order.leader !== removed)
+    .map((order) => {
+      const party = order.party > removed ? order.party - 1 : order.party;
+      const leader = order.leader !== undefined && order.leader > removed ? order.leader - 1 : order.leader;
+      return party === order.party && leader === order.leader
+        ? order
+        : { ...order, party, ...(leader === undefined ? {} : { leader }) };
+    });
 }
 
 /** 상대 군단 파티를 뺐을 때 목표 공격을 맞춘다(그 파티를 노린 명령은 지운다) */

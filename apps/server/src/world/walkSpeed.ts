@@ -8,7 +8,10 @@
 // - 장비·기본 몸 아무것도 없는 유닛(봇·NPC 휴먼 대부분)은 몸을 셈하지 않고 기본 AGI(10) 값만 쓴다.
 // - 이동 속도 버프·디버프(사용자 결정 1264, D-553 "2차맵에도 버프 적용"): 걸린 효과(unit_effects) 가운데 move_speed를 전투와 같은 합(‰, 버프 +·
 //   디버프 −, 하한 MIN_MOVE_SPEED_PM)으로 걷기 빠르기에 곱한다(walk × max(하한, 1000 + 합) ÷ 1000, 버림). 1차 스탯(AGI) 버프는 이미 실효 AGI에
-//   든다. 장비 옵션·신전·스킬에는 2차맵 이동 속도 칸이 없다(질문 1548). 이동을 시작할 때 읽으므로 버프가 끝나도 그 이동은 그 빠르기로 간다.
+//   든다. 이동을 시작할 때 읽으므로 버프가 끝나도 그 이동은 그 빠르기로 간다.
+// - 출처(D-558 1548 "아이템 버프 + 장비 옵션 + 지속형 스킬 + 신전 축복 모두"): 걸린 효과(아이템 버프) + 장비 옵션 이동 속도‰(팩 equip.combat.
+//   moveSpeedPm) + 지속형 스킬의 move_speed 효과(roster/unitBody.ts walkBodyOf — 몸 지문이 같으면 받아 둔 값). 신전 축복은 아직 서버에 없다
+//   (질문 1968 — 생기면 걸린 효과로 걸어 이 합에 든다).
 // - 배(기획 D-541 1272 가 + 다, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"): 저장된 빠르기 대신 설정 칸 boat_speed를 이동을 시작할 때
 //   읽는다(걷기와 같은 때 — 바꾸면 모든 배가 다음 이동부터 그 값). 구간마다 빠르기를 바꾸지 않는다(배는 늘 같은 빠르기).
 import {
@@ -20,7 +23,7 @@ import {
 import type { CyborgService } from "../cyborg/service.ts";
 import { BASELINE_PRIMARY } from "../roster/body.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
-import { type UnitGear, walkAgiOf } from "../roster/unitBody.ts";
+import { type UnitGear, walkBodyOf } from "../roster/unitBody.ts";
 import { worldBodyBase } from "./battleBodies.ts";
 import { UNIT_KIND_BOAT, wireKindOf } from "./unitKinds.ts";
 
@@ -91,7 +94,10 @@ export function createWalkSpeeds(input: {
   readonly fallback: CombatCoefficients;
   readonly now: () => number;
 }): WalkSpeeds {
-  const agis = new Map<number, { key: string; agi: number; atMs: number; combat: unknown; held: unknown }>();
+  const agis = new Map<
+    number,
+    { key: string; agi: number; movePm: number; atMs: number; combat: unknown; held: unknown }
+  >();
   /** 계산식 결과(AGI → 빠르기), 식이 바뀌면 비운다 */
   let memoProgram: unknown;
   const memo = new Map<number, number>();
@@ -103,7 +109,8 @@ export function createWalkSpeeds(input: {
     return coefficients.c;
   };
 
-  const agiOf = (unitId: number): number => {
+  /** 걷기 몸(실효 AGI·장비 옵션과 지속형 스킬 이동 속도‰). 아무것도 없는 유닛은 기본 AGI·0 */
+  const bodyOf = (unitId: number): { agi: number; movePm: number } => {
     const nowMs = input.now();
     const base = worldBodyBase(input.cyborgs, unitId);
     const gear = input.gearOf(unitId, nowMs);
@@ -114,10 +121,10 @@ export function createWalkSpeeds(input: {
       !gear.injuryPm
     ) {
       agis.delete(unitId);
-      return BASELINE_PRIMARY;
+      return { agi: BASELINE_PRIMARY, movePm: 0 };
     }
     const catalog = input.catalog?.();
-    if (!catalog) return BASELINE_PRIMARY;
+    if (!catalog) return { agi: BASELINE_PRIMARY, movePm: 0 };
     const key = bodyKey(base, gear);
     const combat = catalog.combat;
     const held = catalog.heldEquipment;
@@ -129,25 +136,27 @@ export function createWalkSpeeds(input: {
       cached.held === held &&
       nowMs - cached.atMs < WALK_AGI_TTL_MS
     )
-      return cached.agi;
-    const agi = walkAgiOf(catalog, base, gear);
-    agis.set(unitId, { key, agi, atMs: nowMs, combat, held });
-    return agi;
+      return cached;
+    const body = walkBodyOf(catalog, base, gear);
+    const entry = { key, agi: body.agi, movePm: body.moveSpeedPm, atMs: nowMs, combat, held };
+    agis.set(unitId, entry);
+    return entry;
   };
+  const agiOf = (unitId: number): number => bodyOf(unitId).agi;
 
   return {
     agiOf,
     speedOf(unit) {
       if (!walksOnFoot(unit)) return unit.speed;
-      const agi = agiOf(unit.id);
+      const { agi, movePm } = bodyOf(unit.id);
       const c = coefficientsNow();
       const program = c.formulas?.walk_speed;
       if (program !== memoProgram) {
         memoProgram = program;
         memo.clear();
       }
-      // 이동 속도 버프(1264): 받아 둔 AGI 빠르기 뒤에 곱한다
-      const buff = walkBuffPm(input.gearOf(unit.id, input.now()), input.now());
+      // 이동 속도(1264·1548): 걸린 효과 + 장비 옵션·지속형 스킬 합을 받아 둔 AGI 빠르기 뒤에 곱한다
+      const buff = walkBuffPm(input.gearOf(unit.id, input.now()), input.now()) + movePm;
       const hit = memo.get(agi);
       if (hit !== undefined) return withWalkBuff(hit, buff);
       const speed = walkSpeedOf(agi, c);

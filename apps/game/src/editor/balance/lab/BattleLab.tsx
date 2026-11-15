@@ -8,6 +8,7 @@ import type { LabBattleResponse, LabPreviewResponse, LabTeam, LabUnit } from "@t
 import { REPORT_LIMITS } from "@terra/shared/battleReport";
 import { decodeBattleReplay, replayFromBase64 } from "@terra/protocol/battleReplay";
 import { useEffect, useRef, useState } from "react";
+import type { BattleCommandIssue } from "../../../battle/battleCommands.ts";
 import { loadReplayGround } from "../../../battle/replayTerrain.ts";
 import { refreshSession } from "../../../auth/session.ts";
 import { api } from "../../../net/api.ts";
@@ -36,6 +37,7 @@ import {
 } from "./labModel.ts";
 import { labErrorText } from "./labMessages.ts";
 import { ReplayOverlay, type WatchedBattle } from "./ReplayOverlay.tsx";
+import { reportOrderOf } from "./watchOrders.ts";
 import { TeamPanel } from "./TeamPanel.tsx";
 import { UnitEditor } from "./UnitEditor.tsx";
 import { UnitPreview } from "./UnitPreview.tsx";
@@ -67,7 +69,7 @@ function PartyBar(props: {
             {m.dev_report_party_tab({ n: index + 1 })}
           </button>
         ))}
-        {props.count < REPORT_LIMITS.legionPartiesMax ? (
+        {props.count < REPORT_LIMITS.legionPartiesEditMax ? (
           <button type="button" className="button-small rp-party-add" onClick={props.onAdd}>
             {m.dev_report_party_add()}
           </button>
@@ -82,6 +84,9 @@ function PartyBar(props: {
     </div>
   );
 }
+
+/** 3D 관람에서 명령을 내리는 편(팀 A = 편 1, 관람 판은 편을 바꾸지 않는다) */
+const WATCH_SIDE = 1;
 
 /** 유닛을 고친 뒤 미리 보기를 다시 묻기까지(ms) — 칸을 잇달아 고칠 때 요청을 줄인다 */
 const PREVIEW_DELAY_MS = 300;
@@ -135,7 +140,7 @@ export function BattleLab(props: {
   /** 파티 더하기(고른 파티를 베낀다)·빼기(2번부터) */
   const addParty = (team: LabTeam): void => {
     const legion = legions[team];
-    if (legion.extra.length + 1 >= REPORT_LIMITS.legionPartiesMax) return;
+    if (legion.extra.length + 1 >= REPORT_LIMITS.legionPartiesEditMax) return;
     onForm(
       withLegions(form, editingB, {
         ...legions,
@@ -170,6 +175,9 @@ export function BattleLab(props: {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"battle" | "watch" | null>(null);
   const [watched, setWatched] = useState<WatchedBattle | null>(null);
+  // 3D 관람 전투맵 명령(D-558 1546): 이번 관람에서 넣은 명령, 다시 기록하는 중
+  const [watchIssued, setWatchIssued] = useState<readonly BattleCommandIssue[]>([]);
+  const [watchBusy, setWatchBusy] = useState(false);
   const [battle, setBattle] = useState<{ result: LabBattleResponse; key: string } | null>(null);
   const notice = useLiveLines();
   const noticeError = useLiveLines();
@@ -227,10 +235,10 @@ export function BattleLab(props: {
   };
 
   // 한 판·3D 관람도 군단 전체(모든 파티와 명령, 사용자 1469). 파티 하나·명령 없음이면 옛 실험실 입력 그대로
-  const arenaInput = () => {
+  const arenaInput = (current = legions) => {
     const limitSec = Math.min(600, form.limitSec);
-    const whole = legions.a.extra.length > 0 || legions.b.extra.length > 0;
-    const orders = legions.a.orders.length > 0 || legions.b.orders.length > 0;
+    const whole = current.a.extra.length > 0 || current.b.extra.length > 0;
+    const orders = current.a.orders.length > 0 || current.b.orders.length > 0;
     return {
       a: baseTeams.a,
       b: baseTeams.b,
@@ -238,7 +246,7 @@ export function BattleLab(props: {
       limitSec,
       seed: form.seed,
       ...(whole || orders
-        ? { legion: { a: legionInput(baseTeams.a, legions.a), b: legionInput(baseTeams.b, legions.b) } }
+        ? { legion: { a: legionInput(baseTeams.a, current.a), b: legionInput(baseTeams.b, current.b) } }
         : {}),
     };
   };
@@ -264,10 +272,34 @@ export function BattleLab(props: {
       .then(async (result) => {
         const replay = decodeBattleReplay(replayFromBase64(result.replay));
         const ground = await loadReplayGround(replay.arena);
+        setWatchIssued([]);
         setWatched({ replay, ground });
       }, fail)
       .catch(fail)
       .finally(() => setBusy(null));
+  };
+
+  /**
+   * 전투맵 명령(D-558 1546): 관람 화면에서 내린 명령을 팀 A 군단 명령 줄에 더하고(폼에 남는다 — 보고서 판에도 든다), 같은 시드의 판을 다시
+   * 기록해 그 시각부터 보여 준다. 판정은 서버가 한다(정원 밖·다시 넣기 막기는 거절 — 결과 판의 거절 칩)
+   */
+  const issueWatch = (issue: BattleCommandIssue): void => {
+    if (!watched || watchBusy) return;
+    const order = reportOrderOf(issue, watched.replay, WATCH_SIDE);
+    if (!order || legions.a.orders.length >= REPORT_LIMITS.legionOrdersMax) return;
+    const next = { ...legions, a: { ...legions.a, orders: [...legions.a.orders, order] } };
+    onForm(withLegions(form, editingB, next));
+    setWatchIssued([...watchIssued, issue]);
+    setWatchBusy(true);
+    api.battleLab.replay
+      .mutate(arenaInput(next))
+      .then(async (result) => {
+        const replay = decodeBattleReplay(replayFromBase64(result.replay));
+        const ground = await loadReplayGround(replay.arena);
+        setWatched({ replay, ground, startAtMs: issue.atMs });
+      }, fail)
+      .catch(fail)
+      .finally(() => setWatchBusy(false));
   };
 
   if (load.status === "loading")
@@ -295,7 +327,11 @@ export function BattleLab(props: {
       data-revision={catalog.revision}
       data-editing={editingB ? "b" : "a"}
     >
-      <ReplayOverlay watched={watched} onClose={() => setWatched(null)} />
+      <ReplayOverlay
+        watched={watched}
+        onClose={() => setWatched(null)}
+        command={{ side: WATCH_SIDE, issued: watchIssued, busy: watchBusy, onIssue: issueWatch }}
+      />
       <p className="lead bp-lead">{m.dev_report_lead()}</p>
       <ul className="bp-summary" aria-label={m.dev_balance_summary_label()}>
         <li>{m.dev_balance_pack({ version: catalog.contentVersion })}</li>

@@ -296,21 +296,22 @@ describe("실제 세계 도시(1383)", () => {
     expect(result?.outcome.runs).toBe(2);
   });
 
-  it("세계 수비 군단: 휴먼이 많아도 지휘관 정원(파티 수)만큼 앞 파티만 든다(사용자 1464·1466)", async () => {
+  it("세계 수비: 실제 웨이브처럼 휴먼이 유닛 개별로 들고, 설정 칸 웨이브 수비 상한까지(D-558 1547)", async () => {
     const { world, units } = fakeWorld();
     for (let i = 0; i < 46; i++) units.set(600 + i, human(600 + i));
     const snapshot = createReportCities({ world: () => world, now: () => 2_000 }).snapshot(1);
     const built = await playSetupOf(worldSiege(), { ...ctx, city: snapshot });
     const defenders = built.play.normal.units.filter((unit) => unit.side === 2);
-    // 휴먼 60명 → 파티 6명씩 10개 → 정원 7(휴먼 INT·WIS 56: 2 + ⌊56 ÷ 10⌋, 설정 칸 C7 출발값) → 앞 7파티 42명
-    expect(defenders.every((unit) => unit.commandCap === 7)).toBe(true);
-    expect(defenders).toHaveLength(42);
-    const kept = [101, 102, 103, 104, 105, 106, 107];
-    expect(new Set(defenders.map((unit) => unit.party))).toEqual(new Set(kept));
-    const sides = built.play.normal.parties.filter((entry) => entry.side === 2);
-    expect(sides.map((entry) => entry.id)).toEqual(kept);
-    expect(built.city).toMatchObject({ humans: 60, defenders: 42 });
-    expect(built.play.legion?.b).toMatchObject({ parties: 7, units: 42, commandCap: 7, uncommanded: 0 });
+    // 휴먼 60명 → 상한(출발값 60) 안이라 모두, 파티 없이 한 명씩(파티 101~160), 지휘관 정원은 계급 없는 아래 끝 3
+    expect(defenders).toHaveLength(60);
+    expect(defenders.every((unit) => unit.commandCap === 3)).toBe(true);
+    expect(new Set(defenders.map((unit) => unit.party)).size).toBe(60);
+    expect(built.city).toMatchObject({ humans: 60, defenders: 60 });
+    expect(built.play.legion?.b).toMatchObject({ parties: 60, units: 60, commandCap: 3, uncommanded: 57 });
+    // 상한을 낮추면 앞에서부터 그만큼
+    const society = { ...ctx.society, gardener: { ...ctx.society.gardener, waveDefendersMax: 20 } };
+    const capped = await playSetupOf(worldSiege(), { ...ctx, society, city: snapshot });
+    expect(capped.play.normal.units.filter((unit) => unit.side === 2)).toHaveLength(20);
   });
 
   it("수호신: 싸울 수 있으면 수비 편 새 파티로 들고 세계 유닛으로 센다", async () => {

@@ -139,6 +139,10 @@ export class BattleScene {
     ground: ReplayGround;
     onUi: (ui: SceneUi) => void;
     onStatus: (status: EngineStatus) => void;
+    /** 땅을 눌렀을 때 — 전투맵 칸(전투맵 명령 화면 D-558 1546이 칸을 고른다). 없으면 땅 누르기를 버린다 */
+    onGroundTap?: ((cell: { x: number; y: number }) => void) | undefined;
+    /** 유닛을 눌렀을 때 — 리플레이 유닛 번호(전투맵 명령의 목표 고르기). 고르기 표시는 그대로 옮긴다 */
+    onUnitTap?: ((index: number) => void) | undefined;
   }) {
     const { replay, timeline, ground } = options;
     this.replay = replay;
@@ -151,7 +155,16 @@ export class BattleScene {
     this.engine = createSecondMapEngine(options.host, {
       iconThresholdPx: 4,
       onStatus: options.onStatus,
-      onSelect: (id) => this.select(id === null ? -1 : id - 1),
+      onSelect: (id) => {
+        this.select(id === null ? -1 : id - 1);
+        if (id !== null) options.onUnitTap?.(id - 1);
+      },
+      onGroundTap: (cell) => {
+        const x = Math.floor(cell.x - this.origin.x);
+        const y = Math.floor(cell.y - this.origin.y);
+        if (x >= 0 && y >= 0 && x < this.replay.arena.size && y < this.replay.arena.size)
+          options.onGroundTap?.({ x, y });
+      },
     });
     this.hud = new BattleHud(options.host, replay, (side) => timeline.team(side));
     this.engine.setUnits(

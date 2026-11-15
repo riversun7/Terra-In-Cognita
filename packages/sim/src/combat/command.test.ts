@@ -1,20 +1,55 @@
 import { describe, expect, it } from "vitest";
 import { TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
-import { commandCapOf } from "./command.ts";
+import { combatTierIndex, commandCapOf, commanderOrder } from "./command.ts";
 
-const primaries = (int: number, wis: number): number[] => [10, 10, 10, 10, int, wis];
+const c = TEST_COMBAT_COEFFICIENTS;
+const u = (id: number, commandCap: number, title?: number, tier?: number | null) => ({
+  id,
+  commandCap,
+  ...(title === undefined ? {} : { commandRank: { title, combatTier: tier ?? null } }),
+});
+const pick = (list: ReturnType<typeof u>[]) => list.toSorted(commanderOrder)[0]?.id;
 
-describe("지휘관 정원(C7, 사용자 1464 — 3~20, 지휘관 능력·스킬)", () => {
-  it("새 사이보그(1차 10)는 아래 끝 3, 지휘 점수가 오르면 파티가 늘고 위 끝 20에서 멈춘다", () => {
-    expect(commandCapOf(primaries(10, 10), TEST_COMBAT_COEFFICIENTS)).toBe(3);
-    expect(commandCapOf(primaries(0, 0), TEST_COMBAT_COEFFICIENTS)).toBe(3);
-    expect(commandCapOf(primaries(40, 40), TEST_COMBAT_COEFFICIENTS)).toBe(6);
-    expect(commandCapOf(primaries(180, 180), TEST_COMBAT_COEFFICIENTS)).toBe(20);
-    expect(commandCapOf(primaries(900, 900), TEST_COMBAT_COEFFICIENTS)).toBe(20);
+describe("지휘관 정원(C7, D-558 — 군단 3~10, 작위·전투 랭킹·환생 +1)", () => {
+  it("계급이 없으면 아래 끝 3, 작위·랭킹 등급 가운데 큰 쪽, 위 끝 10에서 멈춘다", () => {
+    expect(commandCapOf(undefined, 0, c)).toBe(3);
+    expect(commandCapOf({ title: 3, combatTier: null }, 0, c)).toBe(5);
+    expect(commandCapOf({ title: 0, combatTier: 1 }, 0, c)).toBe(7);
+    expect(commandCapOf({ title: 4, combatTier: 3 }, 0, c)).toBe(7);
+    expect(commandCapOf({ title: 5, combatTier: 0 }, 0, c)).toBe(9);
+    // 칸 밖 작위·등급은 끝으로 자른다
+    expect(commandCapOf({ title: 99, combatTier: -4 }, 0, c)).toBe(9);
   });
 
-  it("덤(스킬·작위 몫)을 더하고, 식이 없는 옛 계수표는 0", () => {
-    expect(commandCapOf(primaries(40, 40), TEST_COMBAT_COEFFICIENTS, 2)).toBe(8);
-    expect(commandCapOf(primaries(40, 40), {})).toBe(0);
+  it("환생은 횟수와 상관없이 +1 한 번, 위 끝 10을 넘지 않는다. 표가 없는 옛 계수표는 0", () => {
+    expect(commandCapOf(undefined, 1, c)).toBe(4);
+    expect(commandCapOf(undefined, 7, c)).toBe(4);
+    expect(commandCapOf({ title: 5, combatTier: 0 }, 3, c)).toBe(10);
+    expect(
+      commandCapOf({ title: 5, combatTier: 0 }, 3, {
+        command: {
+          titleParties: [3, 3, 4, 5, 7, 9],
+          tierParties: [9, 7, 5, 4],
+          rebirthBonus: 5,
+          min: 3,
+          max: 20,
+        },
+      }),
+    ).toBe(14);
+    expect(commandCapOf(undefined, 0, {})).toBe(0);
+  });
+
+  it("랭킹 등급 문턱 → 등급 번호(0 = 가장 위), 등급 밖은 null", () => {
+    expect(combatTierIndex(10, [500, 10, 200, 50])).toBe(0);
+    expect(combatTierIndex(200, [10, 50, 200, 500])).toBe(2);
+    expect(combatTierIndex(null, [10, 50])).toBeNull();
+    expect(combatTierIndex(77, [10, 50])).toBeNull();
+  });
+
+  it("승계 순서(1545): 작위 → 전투 랭킹 등급 → 정원 → 작은 ID, 계급이 없으면 옛 선출(정원 → ID)", () => {
+    expect(pick([u(1, 3), u(2, 5), u(3, 5)])).toBe(2);
+    expect(pick([u(1, 9, 0, 0), u(2, 3, 2, null)])).toBe(2);
+    expect(pick([u(1, 3, 1, null), u(2, 3, 1, 3), u(3, 3, 1, 1)])).toBe(3);
+    expect(pick([u(4, 3, 0, null), u(2, 3)])).toBe(2);
   });
 });

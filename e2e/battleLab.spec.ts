@@ -1,7 +1,8 @@
 // 전투 실험실 시험 — /dev/balance [전투 실험실] 탭 (docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)").
 // - dev: 처음 열면 샘플 파티 둘(팀 A Lv 30 혼성 4명, 팀 B 크리쳐 무리 4명). 유닛을 고르고 레벨을 바꾸면 서버 미리 보기의 성장이 바뀐다.
 //   [한 판]은 이긴 팀·유닛 8줄·사건 기록, [보고서 돌리기](옛 몬테카를로, docs/adr/2026-11-14-battle-report.md)는 보고서 유닛 8줄. [3D 관람]은 같은 시드의 한 판을 리플레이로 받아
-//   전투 다시보기 화면(.br-view)을 화면 전체 창에 띄우고, [닫기]로 닫는다.
+//   전투 다시보기 화면(.br-view)을 화면 전체 창에 띄우고, [닫기]로 닫는다. 창 아래 전투맵 명령 줄(D-558 1546)로 군단 전개 방식·분대 집결을
+//   내리면 같은 시드 판을 다시 기록하고 팀 A 명령 줄에 남는다.
 //   유닛 프리셋: 새로 저장(이름 ko·en 창) → 이름 바꾸기 → 복제 → 지우기(확인 창). 샘플을 고르면 덮어쓰기·이름 바꾸기·지우기는 꺼진다.
 //   새로 고치면 팀이 이 기기에 남아 있다(localStorage).
 // - player: 권한 없음, tRPC battleLab.*는 403.
@@ -144,9 +145,33 @@ test.describe("개발자", () => {
     const watch = page.locator(".bl-watch-dialog[open]");
     await expect(watch.locator(".br-view")).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
     await expect(watch.locator(".bl-watch-title")).toHaveText(message("ko", "dev_lab_watch_title"));
+    // 전투맵 명령 화면(D-558 1546): 군단 전체에 전개 방식(집중 사격) → 같은 시드 판을 다시 기록 → 팀 A 명령 줄에 남는다
+    const bar = watch.locator(".br-cmd");
+    await expect(bar.locator(".br-cmd-who[data-party='legion']")).toHaveAttribute("aria-pressed", "true");
+    await bar.locator(".br-cmd-order[data-kind='tactic']").click();
+    await bar.locator(".br-cmd-tactic").selectOption("focus");
+    await bar.locator(".br-cmd-issue").click();
+    await expect(bar).toHaveAttribute("data-busy", "false", { timeout: 60_000 });
+    await expect(watch.locator(".br-view")).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+    // 같은 받는 쪽에 바로 또 내리면 다시 넣기 링(약 1초)
+    await expect(bar.locator(".br-cmd-who[data-party='legion']")).toHaveAttribute("data-locked", "true");
+    // 1번 분대 집결: 전장(가운데)을 눌러 칸을 고른다
+    await bar.locator(".br-cmd-who").nth(1).click();
+    await bar.locator(".br-cmd-order[data-kind='rally']").click();
+    await expect(bar.locator(".br-cmd-hint")).toBeVisible();
+    await bar.locator(".br-cmd-nocell").click();
+    await expect(bar).toHaveAttribute("data-busy", "false", { timeout: 60_000 });
     await watch.locator(".bl-watch-close").click();
     await expect(page.locator(".bl-watch-dialog[open]")).toHaveCount(0);
     await expect(page.locator(".bl-watch")).toBeFocused();
+    const watchOrders = page.locator(".rp-orders[data-team='a'] .rp-order");
+    await expect(watchOrders).toHaveCount(2);
+    await expect(watchOrders.first().locator(".rp-order-kind")).toHaveValue("tactic");
+    await expect(watchOrders.first().locator(".rp-order-tactic")).toHaveValue("focus");
+    await expect(watchOrders.nth(1).locator(".rp-order-kind")).toHaveValue("rally");
+    // 다음 시험을 위해 명령을 거둔다(폼은 이 기기에 남는다)
+    while ((await page.locator(".rp-orders[data-team='a'] .rp-order-remove").count()) > 0)
+      await page.locator(".rp-orders[data-team='a'] .rp-order-remove").first().click();
 
     // N회 반복은 보고서 일(옛 몬테카를로 단추, docs/adr/2026-11-14-battle-report.md): 20판 → 보고서 유닛 8줄
     await page.locator(".rp-runs").selectOption("20");
@@ -326,6 +351,12 @@ test.describe("배치·사진", () => {
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);
         await shot(page, `battle-lab-watch-${theme}-${language}-${width}`);
+        // 전투맵 명령 줄(D-558 1546): 전개 방식 고르기를 연 모습
+        const bar = watch.locator(".br-cmd");
+        await bar.locator(".br-cmd-order[data-kind='tactic']").click();
+        await bar.scrollIntoViewIfNeeded();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await elementShot(bar, `battle-lab-commands-${theme}-${language}-${width}`);
         await page.keyboard.press("Escape");
         await expect(page.locator(".bl-watch-dialog[open]")).toHaveCount(0);
         expect(unexpected(deviceErrors)).toEqual([]);

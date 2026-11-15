@@ -615,6 +615,7 @@ export {
   edgeProgress,
   oppositeEdgeCells,
 } from "./combat/orders.ts";
+export * from "./combat/legionExports.ts";
 export type {
   Battle,
   BattleInit,

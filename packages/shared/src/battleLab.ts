@@ -137,7 +137,16 @@ export interface LabUnit {
   readonly row: LabRow;
   /** 자유 배치 시작 좌표(x: -4..+4 좌우, y: 0..5 전후 깊이). 없으면 row 기준 기본 자리를 쓴다 */
   readonly pos?: FormationPoint | undefined;
+  /**
+   * 지휘 계급(D-558 — 지휘관 정원·승계 순서): 국가 작위 단계(0 민간인 ~ LAB_TITLE_MAX 대공)·전투 계열 랭킹 등급(0 = 가장 위 ~ LAB_TIER_MAX,
+   * null = 등급 밖). 없으면 계급 없음(정원 아래 끝 + 환생 덤)
+   */
+  readonly rank?: { readonly title: number; readonly combatTier: number | null } | undefined;
 }
+
+/** 지휘 계급 칸 범위(판정 COMMAND_TITLE_STEPS − 1·COMMAND_TIER_STEPS − 1과 같다 — 서버 시험이 견준다) */
+export const LAB_TITLE_MAX = 5;
+export const LAB_TIER_MAX = 3;
 
 /** 파티 하나(편마다 하나) */
 export interface LabParty {

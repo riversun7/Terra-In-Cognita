@@ -118,7 +118,10 @@ export function boatSpeedPm(
   return hullPpm <= 0 ? Math.max(1, Math.floor((base * Math.max(1, rules.brokenSpeedPm)) / 1000)) : base;
 }
 
-/** 수리 재료·시간(1494). 가득이면 null */
+/** 이보다 덜 닳았으면(1‰ 미만) 고칠 것이 없다고 본다(ppm) */
+export const REPAIR_MIN_PPM = 1000;
+
+/** 수리 재료·시간(1494). 가득(잃은 것 1‰ 미만)이면 null */
 export function repairPlan(
   type: Pick<BoatTypeDef, "materials" | "buildMs">,
   hullPpm: number,
@@ -135,7 +138,7 @@ export function repairPlan(
   operator: boolean,
 ): { readonly materials: JobMaterial[]; readonly ms: number } | null {
   const lost = HULL_FULL - Math.max(0, Math.min(HULL_FULL, hullPpm));
-  if (lost <= 0) return null;
+  if (lost < REPAIR_MIN_PPM) return null;
   const spec = module === "repair" ? Math.max(0, rules.shipyardRepairSpecPm) : 1000;
   // 분모 = 가득(ppm) × 1000(repairCostPm) × 1000(costPm) × 1000(spec)
   const scale = BigInt(HULL_FULL) * 1_000_000_000n;

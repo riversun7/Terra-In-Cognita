@@ -18,7 +18,15 @@ import {
   waterSpot,
 } from "./core.ts";
 import type { Harbor } from "./harbor.ts";
-import { boatBuildMs, boatCost, harborOpen, isShipyard, repairPlan, shipyardDocks } from "./rules.ts";
+import {
+  REPAIR_MIN_PPM,
+  boatBuildMs,
+  boatCost,
+  harborOpen,
+  isShipyard,
+  repairPlan,
+  shipyardDocks,
+} from "./rules.ts";
 import type { BoatJob, BoatStore } from "./store.ts";
 
 /** 배가 뜰 물 칸이 없을 때 다시 해 보기까지(ms) [임시] */
@@ -220,6 +228,10 @@ export function createShipyard(
     buildingId: number,
     operator: boolean,
   ): BoatCommandResult | null => {
+    // 가득인 배는 도크가 비었는지 보기 전에 알린다(고칠 것이 없다)
+    const early = harborOf();
+    const known = early.stateOf(boatId);
+    if (known && early.hullOf(known, now()) > HULL_FULL - REPAIR_MIN_PPM) return fail("hull_full");
     const yard = yardProblem(me, buildingId, operator);
     if ("problem" in yard) return yard.problem;
     const harbor = harborOf();

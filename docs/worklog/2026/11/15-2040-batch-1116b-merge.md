@@ -8,7 +8,7 @@
 - 통합 가지(바탕 main 4b50b32 + 미러 D-562 + 배포 기록 + AGENTS 푸시 규칙 커밋 = ee21a08)에 줄기 둘을 차례로 `--no-ff`로 합쳤다.
   - c2a03d2 `work/boats-2`(a143a2e, 바탕 map-coords 471a288): 다 된 배는 조선소 도크에(출고·남의 배 장기 보관료), 조선소 모듈 묶음, 연료 보급·오버히트·보직·표류한 배 빼앗기, 처리할 일 `boat_in_dock`·`boat_homeless`, 요금 화폐 = 시설이 선 나라 화폐(1524). 마이그레이션 `20261115064023_boats_dock_fuel`(열 추가만).
   - d0adf50 `work/building-screen`(592b478, 바탕 94affd4): 건물 화면 개편(탭 6개), 생산시설 지분 주문(`business/shares.ts`), 관리 권한 = 건물 주인·최대 주주·운영자, 금고 돈은 늘 건물 주인의 사업장 금고로(최대 주주 계정으로 가던 버그 고침). 마이그레이션 `20261115082440_business_shares`(표 2개 추가). 옛 `e2e/business-books.spec.ts` → `e2e/building-screen.spec.ts`.
-- 버전(최종): 프로토콜 38(최소 37), 팩 core@104, `SIM_VERSION` 46(그대로).
+- 버전(최종): 프로토콜 38(최소 37), 팩 core@104, `SIM_VERSION` 47(main에 바로 오른 경로 다듬기 — 두 줄기는 SIM을 바꾸지 않음).
 
 ## 손으로 푼 곳
 - `apps/server/src/boats/harbor.ts` `charge`: 배 2는 `const asset = assetAt(buildingId)`(그 시설이 선 나라 화폐, D-559 1524), main(사업장 장부)은 `facilityOwner === boatOwner` 조건을 지움(D-555 1514). 두 뜻을 다 살려 `assetAt(buildingId)` + 주인 같음 조건 없음.
@@ -64,3 +64,9 @@
   building-screen 5/5, labor 4/4(둘은 같은 세계라 함께 돌림), facilities 5/5, build-mode 5/5, inbox 17/17, boats 2/2, unit-control 21/21,
   gather-station 11/11, gather 5/5, government 9/9.
 - 화면 시험 때문에 앱·시험 코드를 고친 곳은 없다.
+
+## 덧붙임: 푸시 전 main 따라잡기
+- 화면 시험 동안 다른 세션이 main에 두 커밋을 바로 올렸다(7e90d86 경로 다듬기·텔레포트·정부 판·돈 표시, SIM_VERSION 47 / 45808fc 건물 안 유닛 숨김·[나가기]). 통합 가지에 `origin/main`(45808fc)을 합쳤다(355537c).
+- 손으로 푼 곳: `apps/game/src/map/gather/GatherPanel.tsx` — main은 옛 건물 판 안에 있는 유닛 줄에 [나가기](`gather_stop`, 들어가기로 머문 내 유닛)를 넣었고, building-screen은 그 판을 `apps/game/src/map/building/BuildingPanel.tsx`로 옮겼다. 건물 판을 BuildingPanel로 두고 [나가기]를 그 "안에 있는 유닛" 줄로 옮김(`onLeave` 칸, 버튼 클래스 `gather-leave` 그대로 — `e2e/building-inside.spec.ts`가 찾는다). 메시지 파일 둘은 양쪽 키 모두, `docs/WORKLOG.md`는 다시 만듦.
+- 검사(Verified, 355537c): `pnpm check` 732 파일·5,517 시험 통과. `pnpm build`·`check-pwa` 통과, `check:bundle` 110,059 B / 131,416 B.
+- 화면 시험(Verified, 20.5분): building-inside 1/1, building-screen 5/5, labor 4/4, government 9/9, boats 2/2 — 21/21 통과.

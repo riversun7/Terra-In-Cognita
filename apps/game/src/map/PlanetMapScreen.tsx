@@ -206,7 +206,9 @@ function PlanetMapView({
     const reached = reachedMap(event);
     if (reached !== null && reached === commandMapRef.current) setCommand(null);
   }, []);
-  const { travel, refresh: refreshTravel } = useMyTravel(me?.unitId ?? null, onTravelEvent);
+  const { travel, parked, refresh: refreshTravel } = useMyTravel(me?.unitId ?? null, onTravelEvent);
+  // 내 좌표 유닛(띄우지 않은 2차맵 위에 섬 — ADR 2026-11-15) 가운데 사이보그 본체는 내 자리 표시가 그린다
+  const away = useMemo(() => parked.filter((unit) => !unit.cyborg), [parked]);
   // 같은 값이면 같은 객체(덧그림이 바뀐 때만 다시 그린다)
   const shownMe = useMemo(() => liveMe(me, travel), [me, travel]);
 
@@ -490,6 +492,7 @@ function PlanetMapView({
       data-me={shownMe ? shownMe.mapKey : undefined}
       data-me-at={shownMe ? `${fixed(shownMe.latDeg, 5)},${fixed(shownMe.lonDeg, 5)}` : undefined}
       data-me-travel={travel?.state === "going" ? (travel.hidden ? "hidden" : "going") : undefined}
+      data-away-units={away.length > 0 ? away.length : undefined}
       data-center-key={centerKey ?? undefined}
       data-zoom-stage={zoomStage > 0 ? zoomStage : undefined}
       data-system-view={systemView ? "true" : undefined}
@@ -503,6 +506,7 @@ function PlanetMapView({
           milliPerRadian={world.milliPerRadian}
           territory={layers.territory}
           me={shownMe}
+          away={away}
           selected={cityId}
           onSelect={(next) => {
             setCityId(next.id);

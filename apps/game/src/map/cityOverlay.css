@@ -202,6 +202,26 @@
   display: none;
 }
 
+/* 내 좌표 유닛(띄우지 않은 2차맵 위에 섬 — ADR 2026-11-15): 내 사이보그보다 작은 속 찬 점, 배는 네모 */
+.city-away {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(var(--status-dot) * 1.6);
+  height: calc(var(--status-dot) * 1.6);
+  border: var(--focus-w) solid var(--color-surface);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  box-shadow: var(--shadow-control);
+  pointer-events: none;
+}
+.city-away[data-boat="true"] {
+  border-radius: 0;
+}
+.city-away[hidden] {
+  display: none;
+}
+
 /* 수도(D-528): 점 안 별(색에만 기대지 않는다). 어느 레이어에서나 보인다 */
 .city-marker-dot {
   display: grid;

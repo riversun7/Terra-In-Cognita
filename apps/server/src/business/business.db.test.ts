@@ -3,7 +3,7 @@
 // 주인 지갑에 나누는지, 주인이 사업장 창고 물건을 꺼낼 때 값을 내는지, 다시 켜도 상태가 이어지는지 본다.
 import { loadContentPack } from "@terra/content/node";
 import { businessLocation } from "@terra/shared/businessBooks";
-import { CELL_UNITS, DAY_MS, positionAt } from "@terra/sim";
+import { CELL_UNITS, DAY_MS, START_BUSINESS, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
@@ -15,6 +15,8 @@ import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { type World, startWorld } from "../world/world.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+/** 지분 동시호가 회차(설정 칸 기본값 — 팩 tuning도 같다) */
+const START_ROUND_MS = START_BUSINESS.shareRoundMs;
 if (!loaded.source) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
 const roster = rosterCatalogOf(loaded.source);
@@ -259,5 +261,107 @@ describe.skipIf(!TEST_DATABASE_URL)("사업장 장부(D-548·D-555)", () => {
     const q = persistenceOf(second);
     expect(q.facilities.business.state(templeId)?.settledAtMs).toBe(clock - 1000);
     expect(q.facilities.business.tick(clock + 5)).toBe(0);
+  });
+
+  it("지분 동시호가(건물 화면 개편): 팔기·사기 → 다시 켜도 걸린 주문 → 회차 체결 → 대주주가 관리·정산 지분대로, 운영자 대신 관리", async () => {
+    const world = await boot();
+    const p = persistenceOf(world);
+    const { ledger } = p;
+    const shop = await withHumans(world, "ShareOwner");
+    const buyer = await withHumans(world, "ShareBuyer");
+    const outsider = await withHumans(world, "ShareOutsider");
+    const [unit] = shop.units;
+    if (unit === undefined) throw new Error("unit");
+    const templeId = await buildNear(world, shop.userId, unit, "temple");
+    const service = p.facilities.service;
+    const asset = `share:biz_${String(templeId)}`;
+    // 발행 전: 주인 하나가 발행 수 전부
+    expect(p.facilities.shares.holders(templeId)).toEqual([{ ownerId: shop.ownerId, shares: 1000n }]);
+    expect(
+      await service.businessCommand(shop.userId, {
+        kind: "share_order",
+        buildingId: templeId,
+        side: "sell",
+        price: 50n,
+        shares: 600n,
+      }),
+    ).toMatchObject({ ok: true });
+    expect(ledger.balanceOf(shop.ownerId, asset)).toBe(400n);
+    const bought = await service.businessCommand(buyer.userId, {
+      kind: "share_order",
+      buildingId: templeId,
+      side: "buy",
+      price: 60n,
+      shares: 600n,
+    });
+    expect(bought).toMatchObject({ ok: true });
+    // 운영자가 아닌 남은 관리 명령을 못 한다
+    expect(await p.labor.setRent(outsider.userId, templeId, 5n)).toEqual({ ok: false, code: "forbidden" });
+    await p.writer.durable();
+    expect(await rows(test.db, "select side, shares, state from business_share_orders order by id")).toEqual([
+      { side: "sell", shares: "600", state: "open" },
+      { side: "buy", shares: "600", state: "open" },
+    ]);
+
+    // 다시 켜면 걸린 주문(에스크로)이 되살아난다
+    await world.crashForTest("commit");
+    const second = await boot();
+    const q = persistenceOf(second);
+    const view = q.facilities.shares.view(templeId, buyer.ownerId, clock);
+    expect(view.myOrders).toHaveLength(1);
+    expect(view.askShares).toBe("600");
+    expect(view.issued).toBe(true);
+    // 회차 경계를 지나면 한 값으로 체결
+    clock += START_ROUND_MS;
+    q.facilities.service.age(clock);
+    expect(q.ledger.balanceOf(buyer.ownerId, asset)).toBe(600n);
+    expect(q.facilities.shares.holders(templeId)).toEqual([
+      { ownerId: buyer.ownerId, shares: 600n },
+      { ownerId: shop.ownerId, shares: 400n },
+    ]);
+    // 경영권: 가장 많은 주주가 관리한다(주인은 넘겼다)
+    expect(q.facilities.business.mayManage(templeId, buyer.ownerId)).toBe(true);
+    expect(q.facilities.business.mayManage(templeId, shop.ownerId)).toBe(false);
+    expect(await q.labor.setRent(buyer.userId, templeId, 5n)).toEqual({ ok: true });
+    expect(await q.labor.setRent(outsider.userId, templeId, 6n, true)).toEqual({ ok: true });
+    const labor = q.labor.building(outsider.userId, templeId);
+    expect(labor.status === "ready" && labor.rent).toBe("6");
+    // 장부·이름표: 주주 이름(사이보그 이름)·몫
+    const source = facilityScreenSourceOf(second);
+    if (!source) throw new Error("screen");
+    const books = await source.books(outsider.userId, templeId, 7, clock);
+    if (books.status !== "ok") throw new Error(books.status);
+    expect(books.holders.map((holder) => [holder.name?.ko, holder.pm])).toEqual([
+      ["ShareBuyer", 600],
+      ["ShareOwner", 400],
+    ]);
+    expect(books.market?.lastPrice).toBe("50");
+    const owner = await source.owner(buyer.userId, templeId);
+    expect(owner).toMatchObject({
+      status: "ok",
+      ownerName: { ko: "ShareOwner", en: "ShareOwner" },
+      top: { kind: "me", pm: 600 },
+      canManage: true,
+    });
+    // 정산은 지분대로(대주주가 한다)
+    q.ledger.post({
+      kind: "issue",
+      atMs: clock,
+      entries: [
+        { account: q.ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT), amount: -1000n },
+        {
+          account: q.ledger.ownerAccount(shop.ownerId, ASSET_CREDIT, businessLocation(templeId)),
+          amount: 1000n,
+        },
+      ],
+    });
+    const before = q.ledger.balanceOf(buyer.ownerId, ASSET_CREDIT);
+    expect(
+      await q.facilities.service.businessCommand(buyer.userId, { kind: "settle", buildingId: templeId }),
+    ).toMatchObject({
+      ok: true,
+    });
+    expect(q.ledger.balanceOf(buyer.ownerId, ASSET_CREDIT) - before).toBe(600n);
+    expect(await second.checkInvariants()).toEqual([]);
   });
 });

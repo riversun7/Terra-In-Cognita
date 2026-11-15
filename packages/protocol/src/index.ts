@@ -154,7 +154,10 @@ export {
   HARBOR_ACCESS_VALUES,
   HARBOR_PROTOCOL_VERSION,
   SHIPYARD_MODULE_VALUES,
+  CREW_POST_VALUES,
+  VOYAGE_PROTOCOL_VERSION,
   legacyBoatCode,
+  legacyVoyageCode,
 } from "./boats.ts";
 export { BUSINESS_PROTOCOL_VERSION, BUSINESS_RESULT_CODES, type BusinessResultCode } from "./business.ts";
 export {

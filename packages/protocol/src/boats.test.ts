@@ -4,7 +4,9 @@ import {
   BOAT_B2_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
   BOAT_RESULT_CODES,
+  type ClientMessage,
   HARBOR_PROTOCOL_VERSION,
+  VOYAGE_PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   ProtocolError,
@@ -14,6 +16,7 @@ import {
   decodeServerMessage,
   encodeMessage,
   legacyBoatCode,
+  legacyVoyageCode,
 } from "./index.ts";
 
 function decodes(decode: (text: string) => unknown, message: unknown): boolean {
@@ -107,8 +110,46 @@ describe("배 메시지(프로토콜 27)", () => {
 
   it("30판 새 결과 코드는 29판 연결에 옛 코드로", () => {
     const old = BOAT_RESULT_CODES.slice(0, BOAT_RESULT_CODES.indexOf("dock_busy") + 1);
-    for (const code of BOAT_RESULT_CODES) expect(old).toContain(legacyBoatCode(code));
+    // 37판 코드는 먼저 36판 코드로 낮춘 뒤(게이트웨이 차례와 같다)
+    for (const code of BOAT_RESULT_CODES) expect(old).toContain(legacyBoatCode(legacyVoyageCode(code)));
     expect(legacyBoatCode("not_shipyard")).toBe("not_dock");
     expect(legacyBoatCode("dock_busy")).toBe("dock_busy");
+  });
+
+  it("37: 도크 출고·모듈 묶음·연료 보급·오버히트·보직·빼앗기(D-559)", () => {
+    expect(VOYAGE_PROTOCOL_VERSION).toBe(37);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(VOYAGE_PROTOCOL_VERSION);
+    const messages: ClientMessage[] = [
+      { t: "boat_release", id: 1, boatId: 9 },
+      { t: "boat_refuel", id: 2, boatId: 9, buildingId: 15 },
+      { t: "boat_overheat", id: 3, boatId: 9, on: true },
+      { t: "boat_crew", id: 4, boatId: 9, unitId: 11, post: "deck" },
+      { t: "boat_crew", id: 5, boatId: 9, unitId: 11, post: null },
+      { t: "boat_seize", id: 6, boatId: 9, unitId: 11 },
+      { t: "harbor_policy", id: 7, buildingId: 14, modules: ["docks", "build"] },
+    ];
+    for (const message of messages) expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
+    expect(decodes(decodeClientMessage, { t: "boat_crew", id: 8, boatId: 9, unitId: 11, post: "cook" })).toBe(
+      false,
+    );
+    expect(
+      decodes(decodeClientMessage, { t: "harbor_policy", id: 9, buildingId: 14, modules: ["wings"] }),
+    ).toBe(false);
+    const cooling = {
+      t: "boat_result",
+      id: 10,
+      ok: false,
+      code: "cooling",
+      readyAtMs: 1_800_000_000_000,
+    } as const;
+    expect(decodeServerMessage(encodeMessage(cooling))).toEqual(cooling);
+  });
+
+  it("37판 새 결과 코드는 36판 연결에 옛 코드로", () => {
+    const old = BOAT_RESULT_CODES.slice(0, BOAT_RESULT_CODES.indexOf("invalid_policy") + 1);
+    for (const code of BOAT_RESULT_CODES) expect(old).toContain(legacyVoyageCode(code));
+    expect(legacyVoyageCode("not_docked")).toBe("forbidden");
+    expect(legacyVoyageCode("cooling")).toBe("busy");
+    expect(legacyVoyageCode("hull_full")).toBe("hull_full");
   });
 });

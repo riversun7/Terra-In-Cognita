@@ -50,6 +50,7 @@
     "./labor": "./src/labor.ts",
     "./mail": "./src/mail.ts",
     "./mapLooks": "./src/mapLooks.ts",
+    "./naval": "./src/naval.ts",
     "./mapUnits": "./src/mapUnits.ts",
     "./nameGen": "./src/nameGen.ts",
     "./nationEditor": "./src/nationEditor.ts",

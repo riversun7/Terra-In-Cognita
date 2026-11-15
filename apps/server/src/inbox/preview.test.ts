@@ -22,10 +22,13 @@ describe("처리할 일 시안 자료", () => {
       ["contract_match:preview_contract_1", "decision", 1, NOW + 20 * 3_600_000],
       ["craft_done:preview_event_1", "done", 1, null],
     ]);
-    // 시안 자료가 없는 종류: 정찰 끝(scout_returned, 기획 답 612 나)·가문 셋(house_*, 질문 985) — 실제 제공 함수만, 시안 자료 8개는 그대로
+    // 시안 자료가 없는 종류: 정찰 끝(scout_returned, 기획 답 612 나)·가문 셋(house_*, 질문 985)·배 둘(boat_*, D-559 1523·1528)
+    // — 실제 제공 함수만, 시안 자료 8개는 그대로
     expect(new Set(list.items.map((item) => item.kind))).toEqual(
       new Set(
-        Object.keys(INBOX_KINDS).filter((kind) => kind !== "scout_returned" && !kind.startsWith("house_")),
+        Object.keys(INBOX_KINDS).filter(
+          (kind) => kind !== "scout_returned" && !kind.startsWith("house_") && !kind.startsWith("boat_"),
+        ),
       ),
     );
   });

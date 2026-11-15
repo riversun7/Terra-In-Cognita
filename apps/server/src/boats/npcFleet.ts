@@ -4,7 +4,7 @@
 // - 배 만들기·집 정박장·고치기·타기·내리기·캐기는 플레이어와 같은 서비스(buildAs·berthAs·repairAs·boardAs·leaveAs, 채집 startAs)라 재료(그 도시 창고)·시간·
 //   도크·정박 자리·받기 범위·내구도·거리·채집 규칙이 같다.
 // - 살피기는 FLEET_TICK_MS마다 한 번(이벤트 루프 몫이 작다 — 정박장 수 × 배 수만 본다). 그 사이 어부의 채집 줄이 스스로 돈다.
-// - 정박장마다 차례: 같은 2차맵의 집 없는 그 세력 배를 이 정박장에 넣는다 → 배가 모자라면 같은 2차맵의 그 세력 조선소에서 만든다(도크가 비면) →
+// - 정박장마다 차례: 조선소 도크에서 다 된 그 세력 배를 꺼낸다(D-559 1523) → 같은 2차맵의 집 없는 그 세력 배를 이 정박장에 넣는다 → 배가 모자라면 같은 2차맵의 그 세력 조선소에서 만든다(도크가 비면) →
 //   배마다: 내구도가 NPC_REPAIR_PM 아래면 조선소로 보내 고친다 → 어부 중 누가 지쳤으면 정박장으로 돌아가 모두 내린다 → 자리가 남으면 정박장 둘레의 그 세력
 //   휴먼(봇, 일이 없는 것)을 태운다 → 아무도 캐지 않으면 가장 가까운 남은 어군을 모두에게 시킨다.
 // [임시] 어부는 아직 도시 경제의 "어부" 일자리에서 뽑지 않는다(둘레 휴먼 — 질문 1530). 잡은 고기는 원장 도시 창고로 간다.
@@ -195,6 +195,13 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
         const yard = yards
           .filter((entry) => entry.map === dock.map && entry.ownerId === dock.ownerId)
           .toSorted((a, b) => chebyshev(a.center, dock.center) - chebyshev(b.center, dock.center))[0];
+        const panel = yard ? boats.dockJob(yard.buildingId) : undefined;
+        // 도크에서 다 된 그 세력 배를 먼저 꺼낸다(D-559 1523 — 꺼낸 배는 집 없는 배로 아래에서 이 정박장에 든다)
+        const ready = (panel?.docked ?? []).filter(
+          (row) => row.ownerId === dock.ownerId && row.repairUntil === null,
+        );
+        let stuck = 0;
+        for (const row of ready) if (!boats.releaseAs(dock.ownerId, row.boatId).ok) stuck += 1;
         const { own, loose } = boatsAt(dock, boats);
         // 집 없는 배를 넣는다(자리가 남는 만큼 — 서비스가 다시 본다)
         for (const boatId of loose) {
@@ -205,11 +212,9 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
           counts.berthed += 1;
         }
         counts.boats += own.length;
-        // 배가 모자라면 조선소에서 만든다(만드는 중인 배가 없을 때)
-        if (yard && own.length + loose.length < perDock) {
-          const panel = boats.dockJob(yard.buildingId);
+        // 배가 모자라면 조선소에서 만든다(만드는 중인 배·도크에서 못 꺼낸 배가 없을 때)
+        if (yard && panel && own.length + loose.length + stuck < perDock) {
           if (
-            panel &&
             !panel.jobs.some((job) => job.kind === "build") &&
             boats.buildAs(dock.ownerId, yard.buildingId).ok
           )

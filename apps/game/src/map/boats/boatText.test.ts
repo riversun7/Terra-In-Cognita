@@ -120,4 +120,32 @@ describe("배 체계 개편(D-547) 문구", () => {
     expect(boatOutcomeText("repair", { ok: true, walking: true })).not.toBe("");
     expect(boatOutcomeText("policy", { ok: true })).not.toBe("");
   });
+
+  it("D-559: 새 결과 코드·출고·연료·표류·오버히트 문구", () => {
+    for (const code of [
+      "not_docked",
+      "not_moored",
+      "fuel_full",
+      "fuel_empty",
+      "cooling",
+      "not_aboard",
+      "post_full",
+      "own_boat",
+      "not_drifting",
+    ] as const)
+      expect(boatOutcomeText("release", { ok: false, code })).not.toContain(code);
+    expect(boatOutcomeText("release", { ok: true, boatId: 41 })).toContain("41");
+    expect(boatOutcomeText("seize", { ok: true, boatId: 42 })).toContain("42");
+    const status = boatStatusText({
+      passengers: [],
+      capacity: 4,
+      hullPm: 0,
+      homeId: null,
+      fuelPm: 455,
+      drifting: true,
+      overheat: false,
+    });
+    expect(status).toContain("45%");
+    expect(status).toContain("표류");
+  });
 });

@@ -524,7 +524,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     if (unit.bot && wake) scheduleEvent(unit, "wake", now() + startDelayMs(nextRng(unit)));
   };
 
-  /** 배 만들기·타기·내리기(docs/adr/2026-11-13-boats.md 3·4절). 판정(소유·거리·재료)은 배 서비스(boats/service.ts)가 먼저 한다 */
+  /** 배 만들기·타기·내리기(docs/adr/2026-11-13-boats.md 3·4절). 판정(소유·거리·재료)은 배 서비스(boats/service.ts)가 먼저 한다. 다른 배로 옮겨 타기도 된다(D-559 빼앗기) */
   const boatMethods = (): Pick<
     SecondMap,
     "addBoat" | "isNavigable" | "board" | "disembark" | "passengers"
@@ -555,13 +555,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     board(unitId, boatId) {
       const unit = units.get(unitId);
       const boat = units.get(boatId);
-      if (
-        !unit ||
-        !boat ||
-        boat.kind !== UNIT_KIND_BOAT ||
-        unit.domain === "sea" ||
-        unit.aboard !== undefined
-      )
+      if (!unit || !boat || boat.kind !== UNIT_KIND_BOAT || unit.domain === "sea" || unit.aboard === boatId)
         return false;
       cancelEvent(unit);
       unit.routeSeq += 1;

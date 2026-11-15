@@ -54,11 +54,7 @@ export interface MapUnitSource {
   /** 배 하나의 자리 수(설정 칸 boat_capacity, docs/adr/2026-11-13-boats.md). 없으면 배 줄에 자리 수 0 */
   boatCapacity?: (() => number) | undefined;
   /** 배 표시 정보(배 종류 자리 수·내구도·집 정박장 — docs/adr/2026-11-15-shipyard-harbor.md). 없으면 boatCapacity만 */
-  boatInfo?:
-    | ((
-        unitId: number,
-      ) => { typeId: string; capacity: number; hullPm: number; homeId: number | null } | undefined)
-    | undefined;
+  boatInfo?: ((unitId: number) => BoatRowInfo | undefined) | undefined;
   /** 사용자의 소유 주체(없으면 내 유닛 없음) */
   ownerOfUser(userId: string): number | undefined;
   /** 사이보그 이름(없으면 undefined) */
@@ -129,14 +125,36 @@ function kindOf(kind: number): MapUnitKind {
   return type === "creature" || type === "android" ? "test_unit" : type;
 }
 
-/** 배 줄 칸(정보가 있으면 종류 자리 수·내구도·집 정박장) */
+/** 배 표시 정보(배 서비스 info — 연료·오버히트·표류·함장은 D-559) */
+interface BoatRowInfo {
+  typeId: string;
+  capacity: number;
+  hullPm: number;
+  homeId: number | null;
+  fuelPm?: number | undefined;
+  overheat?: boolean | undefined;
+  drifting?: boolean | undefined;
+  captain?: number | null | undefined;
+}
+
+/** 배 줄 칸(정보가 있으면 종류 자리 수·내구도·집 정박장·연료·오버히트·표류·함장) */
 function boatRow(
   passengers: readonly number[],
-  info: { typeId: string; capacity: number; hullPm: number; homeId: number | null } | undefined,
+  info: BoatRowInfo | undefined,
   capacity: number,
 ): NonNullable<MapUnit["boat"]> {
   return info
-    ? { passengers, capacity: info.capacity, typeId: info.typeId, hullPm: info.hullPm, homeId: info.homeId }
+    ? {
+        passengers,
+        capacity: info.capacity,
+        typeId: info.typeId,
+        hullPm: info.hullPm,
+        homeId: info.homeId,
+        ...(info.fuelPm === undefined ? {} : { fuelPm: info.fuelPm }),
+        ...(info.overheat === undefined ? {} : { overheat: info.overheat }),
+        ...(info.drifting === undefined ? {} : { drifting: info.drifting }),
+        ...(info.captain === undefined ? {} : { captain: info.captain }),
+      }
     : { passengers, capacity };
 }
 

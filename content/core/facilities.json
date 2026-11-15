@@ -1265,7 +1265,21 @@
           ],
           "buildMs": 600000,
           "speedPm": 1000,
-          "capacity": 4
+          "capacity": 4,
+          "fuelCapacity": 600,
+          "fuelPerHour": 60,
+          "naval": {
+            "shipClass": "skiff",
+            "hullPoints": 300,
+            "armor": 0,
+            "modulePoints": 2,
+            "guns": [],
+            "crew": {
+              "captain": 1,
+              "deck": 1
+            },
+            "hangar": 0
+          }
         },
         {
           "id": "cargo_boat",
@@ -1285,7 +1299,28 @@
           ],
           "buildMs": 1800000,
           "speedPm": 750,
-          "capacity": 8
+          "capacity": 8,
+          "fuelCapacity": 2000,
+          "fuelPerHour": 120,
+          "naval": {
+            "shipClass": "cargo",
+            "hullPoints": 800,
+            "armor": 5,
+            "modulePoints": 4,
+            "guns": [
+              {
+                "caliber": "light",
+                "shells": ["ap", "he"]
+              }
+            ],
+            "crew": {
+              "captain": 1,
+              "gunner": 1,
+              "engine": 1,
+              "deck": 2
+            },
+            "hangar": 0
+          }
         }
       ],
       "look": {

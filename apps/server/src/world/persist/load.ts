@@ -173,7 +173,9 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
     `select id, owner_id, system_code, asset, location, balance from ledger_accounts`,
   );
   const max = await pool.query(
-    `select (select max(id) from world_owners) as owner, (select max(id) from world_units) as unit,
+    // 유닛 ID는 도크에 든 배(boat_states, 유닛 줄 없음 — D-559 1523)의 ID도 넘는다(꺼낼 때 그 ID로 띄운다)
+    `select (select max(id) from world_owners) as owner,
+            greatest((select max(id) from world_units), (select max(boat_id) from boat_states)) as unit,
             (select max(id) from world_buildings) as building, (select max(id) from ledger_accounts) as account,
             (select max(id) from ledger_transactions) as tx`,
   );

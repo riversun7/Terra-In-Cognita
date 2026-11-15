@@ -1,0 +1,494 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "7eb4628a-4470-4c9b-acb2-9c0a9891242e",
+  "prevIds": [
+    "9f4f9520-d2af-4a1a-8f15-c66753774d76"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_facilities",
+        "modules"
+      ],
+      "writes": [
+        "s|col|public.boat_facilities.modules",
+        "n|col|public.boat_facilities.modules",
+        "e|col|public.boat_facilities.modules"
+      ],
+      "reads": [
+        "n|tbl|public.boat_facilities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "owner_id"
+      ],
+      "writes": [
+        "s|col|public.boat_states.owner_id",
+        "n|col|public.boat_states.owner_id",
+        "e|col|public.boat_states.owner_id"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "yard_id"
+      ],
+      "writes": [
+        "s|col|public.boat_states.yard_id",
+        "n|col|public.boat_states.yard_id",
+        "e|col|public.boat_states.yard_id"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "yard_since_ms"
+      ],
+      "writes": [
+        "s|col|public.boat_states.yard_since_ms",
+        "n|col|public.boat_states.yard_since_ms",
+        "e|col|public.boat_states.yard_since_ms"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "yard_map_key"
+      ],
+      "writes": [
+        "s|col|public.boat_states.yard_map_key",
+        "n|col|public.boat_states.yard_map_key",
+        "e|col|public.boat_states.yard_map_key"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "yard_x"
+      ],
+      "writes": [
+        "s|col|public.boat_states.yard_x",
+        "n|col|public.boat_states.yard_x",
+        "e|col|public.boat_states.yard_x"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "yard_y"
+      ],
+      "writes": [
+        "s|col|public.boat_states.yard_y",
+        "n|col|public.boat_states.yard_y",
+        "e|col|public.boat_states.yard_y"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "fuel_milli"
+      ],
+      "writes": [
+        "s|col|public.boat_states.fuel_milli",
+        "n|col|public.boat_states.fuel_milli",
+        "e|col|public.boat_states.fuel_milli"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "fuel_at_ms"
+      ],
+      "writes": [
+        "s|col|public.boat_states.fuel_at_ms",
+        "n|col|public.boat_states.fuel_at_ms",
+        "e|col|public.boat_states.fuel_at_ms"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "overheat"
+      ],
+      "writes": [
+        "s|col|public.boat_states.overheat",
+        "n|col|public.boat_states.overheat",
+        "e|col|public.boat_states.overheat"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "cool_until_ms"
+      ],
+      "writes": [
+        "s|col|public.boat_states.cool_until_ms",
+        "n|col|public.boat_states.cool_until_ms",
+        "e|col|public.boat_states.cool_until_ms"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "crew"
+      ],
+      "writes": [
+        "s|col|public.boat_states.crew",
+        "n|col|public.boat_states.crew",
+        "e|col|public.boat_states.crew"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "boat_states",
+        "boat_states_yard_idx"
+      ],
+      "writes": [
+        "s|idx|public.boat_states_yard_idx",
+        "n|idx|public.boat_states_yard_idx",
+        "e|idx|public.boat_states_yard_idx",
+        "n|rel|public.boat_states_yard_idx"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public",
+        "n|col|public.boat_states.yard_id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "boat_states"
+      ],
+      "writes": [
+        "s|ck|public.boat_states.boat_states_fuel",
+        "n|ck|public.boat_states.boat_states_fuel",
+        "e|ck|public.boat_states.boat_states_fuel",
+        "n|con|public.boat_states.boat_states_fuel"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public",
+        "n|col|public.boat_states.fuel_milli"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_facilities",
+        "name": "modules",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "yard_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "yard_since_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "yard_map_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "yard_x",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "yard_y",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "fuel_milli",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "fuel_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "overheat",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "cool_until_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "crew",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "boat_states_yard_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "yard_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "boat_states_fuel",
+        "value": "\"fuel_milli\" is null or \"fuel_milli\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

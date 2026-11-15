@@ -61,17 +61,20 @@ describe("배 체계 셈", () => {
       { item: "stone", qty: 2 },
     ]);
     expect(boatCost(ROW, 0)).toEqual([]);
-    expect(boatBuildMs(ROW, START_BOATS, null, false)).toBe(600_000);
-    expect(boatBuildMs(ROW, START_BOATS, "build", false)).toBe(420_000);
-    expect(boatBuildMs(ROW, START_BOATS, null, true)).toBe(600_000 / OPERATOR_SPEED_FACTOR);
-    expect(boatBuildMs(ROW, { ...START_BOATS, buildTimePm: 0 }, null, false)).toBe(0);
+    expect(boatBuildMs(ROW, START_BOATS, [], false)).toBe(600_000);
+    expect(boatBuildMs(ROW, START_BOATS, ["build"], false)).toBe(420_000);
+    expect(boatBuildMs(ROW, START_BOATS, [], true)).toBe(600_000 / OPERATOR_SPEED_FACTOR);
+    expect(boatBuildMs(ROW, { ...START_BOATS, buildTimePm: 0 }, [], false)).toBe(0);
   });
 
-  it("도크(1483)·정박 자리(1487)·임시 자리(1488)", () => {
-    expect(shipyardDocks(0, null, START_BOATS)).toBe(0);
-    expect(shipyardDocks(3, null, START_BOATS)).toBe(1);
-    expect(shipyardDocks(3, "build", START_BOATS)).toBe(1);
-    expect(shipyardDocks(3, "docks", START_BOATS)).toBe(3);
+  it("도크(1483·D-559 1521 — 모듈 하나마다)·정박 자리(1487)·임시 자리(1488)", () => {
+    expect(shipyardDocks(0, [], START_BOATS)).toBe(0);
+    expect(shipyardDocks(3, [], START_BOATS)).toBe(1);
+    expect(shipyardDocks(3, ["build"], START_BOATS)).toBe(1);
+    expect(shipyardDocks(3, ["docks"], START_BOATS)).toBe(2);
+    expect(shipyardDocks(3, ["docks", "docks"], START_BOATS)).toBe(3);
+    // 자리 수(레벨 2 = 하나)를 넘는 모듈은 세지 않는다
+    expect(shipyardDocks(2, ["docks", "docks"], START_BOATS)).toBe(2);
     expect(moduleUnlocked(1)).toBe(false);
     expect(moduleUnlocked(2)).toBe(true);
     expect(berthCapacity(3, START_BOATS)).toBe(6);
@@ -97,22 +100,23 @@ describe("배 체계 셈", () => {
   });
 
   it("수리(1494): 잃은 몫만큼 재료(올림)·시간, 수리 특화, 가득이면 없음", () => {
-    expect(repairPlan(ROW, HULL_FULL, START_BOATS, null, false)).toBeNull();
-    const half = repairPlan(ROW, HULL_FULL / 2, START_BOATS, null, false);
+    expect(repairPlan(ROW, HULL_FULL, START_BOATS, [], false)).toBeNull();
+    const half = repairPlan(ROW, HULL_FULL / 2, START_BOATS, [], false);
     // 14 × ½ × 500‰ = 3.5 → 4, 4 × ½ × 500‰ = 1
     expect(half?.materials).toEqual([
       { item: "pine_log", qty: 4 },
       { item: "stone", qty: 1 },
     ]);
     expect(half?.ms).toBe(90_000);
-    const spec = repairPlan(ROW, HULL_FULL / 2, START_BOATS, "repair", false);
+    const spec = repairPlan(ROW, HULL_FULL / 2, START_BOATS, ["repair"], false);
     expect(spec?.ms).toBe(54_000);
-    expect(repairPlan(ROW, 0, START_BOATS, null, true)?.materials).toEqual([]);
+    expect(repairPlan(ROW, 0, START_BOATS, [], true)?.materials).toEqual([]);
   });
 
   it("운행 정지(1500)·정박료 날 수", () => {
-    expect(harborOpen(500_000, START_BOATS)).toBe(true);
-    expect(harborOpen(499_999, START_BOATS)).toBe(false);
+    // D-559 1527 "정지 기준 30%"
+    expect(harborOpen(300_000, START_BOATS)).toBe(true);
+    expect(harborOpen(299_999, START_BOATS)).toBe(false);
     expect(dueDays(0, DAY_MS - 1)).toBe(0);
     expect(dueDays(0, 3 * DAY_MS + 5)).toBe(3);
   });

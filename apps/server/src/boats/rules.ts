@@ -5,10 +5,15 @@
 // - 배 내구도(1485·1486·1493): 집 정박장에 들었으면 wearBerthedPd, 집이 있고 밖이면 wearAwayPd, 집이 없으면 wearAwayPd × wearHomelessMul(‰/일), 고치는 중이면 닳지 않는다.
 // - 빠르기(1495): 배 종류 speedPm, 내구도 0이면 brokenSpeedPm을 더 곱한다(잃지 않는다).
 // - 수리(1494): 재료 = ⌈종류 재료 × 잃은 몫 × repairCostPm ÷ 1000⌉, 시간 = 만드는 시간 × 잃은 몫 × repairTimePm ÷ 1000(수리 특화는 둘 다 × repairSpecPm ÷ 1000).
-// - 운행 정지(1500): 시설 상태(ppm)가 harborStopPm‰ 아래면 새 배·임시 정박·새 작업을 받지 않는다.
+// - 운행 정지(1500): 시설 상태(ppm)가 harborStopPm‰ 아래면 새 배·임시 정박·새 작업을 받지 않는다(D-559 1527 — 30%).
+// D-559(docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559"):
+// - 모듈(1521): 레벨 2부터 레벨마다 하나 더. 도크 늘림은 하나마다 shipyardDockModule, 건조·수리 특화는 하나만 듣는다.
+// - 도크(1523): 다 만들거나 고친 배는 꺼낼 때까지 도크에 있다(처지 docked — 닳지 않는다). 남의 배는 다 된 뒤 storageFreeHours가 지나면 하루(올림)마다 보관료.
+// - 연료(1529·1540): 움직인 시간 × 한 시간 연료(오버히트면 × overheatFuelPm). 연료 0이면 표류(noFuelSpeedPm). 오버히트는 빠르기 × overheatSpeedPm,
+//   움직인 한 시간마다 내구도 overheatHullPh‰ 더(엔진실 한 명마다 engineCrewHeatPm 줄임). 갑판병은 바다에서 한 시간에 deckRepairPh‰씩 deckRepairCapPm까지 고친다.
 // 정수로만 셈한다(BigInt는 쓰지 않는다 — 값이 작다).
 import type { BoatCoefficients } from "@terra/sim";
-import { HULL_FULL, SHIPYARD_MODULE_LEVEL, type ShipyardModule } from "@terra/shared/harbor";
+import { HULL_FULL, type ShipyardModule, shipyardModuleSlots } from "@terra/shared/harbor";
 import type { BoatTypeDef, FacilityCatalog, FacilityDef } from "../facilities/catalog.ts";
 import type { JobMaterial } from "../facilities/state.ts";
 import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
@@ -16,7 +21,7 @@ import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
 const DAY_MS = 86_400_000;
 
 /** 배의 지금 처지(닳는 빠르기를 정한다) */
-export type BoatMode = "berthed" | "away" | "homeless" | "repair";
+export type BoatMode = "berthed" | "away" | "homeless" | "repair" | "docked";
 
 /** 배 시설 역할 판정 */
 export const isShipyard = (def: Pick<FacilityDef, "harbor"> | undefined): boolean =>
@@ -44,27 +49,28 @@ export function boatCost(type: Pick<BoatTypeDef, "materials">, costPm: number): 
 export function boatBuildMs(
   type: Pick<BoatTypeDef, "buildMs">,
   rules: Pick<BoatCoefficients, "buildTimePm" | "shipyardBuildSpecPm">,
-  module: ShipyardModule | null,
+  modules: readonly ShipyardModule[],
   operator: boolean,
 ): number {
   let ms = Math.floor((Math.max(0, type.buildMs) * Math.max(0, rules.buildTimePm)) / 1000);
-  if (module === "build") ms = Math.floor((ms * Math.max(0, rules.shipyardBuildSpecPm)) / 1000);
+  if (modules.includes("build")) ms = Math.floor((ms * Math.max(0, rules.shipyardBuildSpecPm)) / 1000);
   return operator ? Math.floor(ms / OPERATOR_SPEED_FACTOR) : ms;
 }
 
-/** 조선소 도크 수(1483) */
+/** 조선소 도크 수(1483·D-559 1521): 기본 + 도크 늘림 모듈 하나마다 shipyardDockModule. 자리 수를 넘는 모듈은 세지 않는다 */
 export function shipyardDocks(
   level: number,
-  module: ShipyardModule | null,
+  modules: readonly ShipyardModule[],
   rules: Pick<BoatCoefficients, "shipyardDocks" | "shipyardDockModule">,
 ): number {
   if (level < 1) return 0;
   const base = Math.max(1, rules.shipyardDocks);
-  return module === "docks" ? base + Math.max(0, level - 1) * Math.max(0, rules.shipyardDockModule) : base;
+  const docks = modules.slice(0, shipyardModuleSlots(level)).filter((module) => module === "docks").length;
+  return base + docks * Math.max(0, rules.shipyardDockModule);
 }
 
 /** 모듈을 붙일 수 있나(레벨 2부터) */
-export const moduleUnlocked = (level: number): boolean => level >= SHIPYARD_MODULE_LEVEL;
+export const moduleUnlocked = (level: number): boolean => shipyardModuleSlots(level) > 0;
 
 /** 정박장 정박 자리(1487) */
 export const berthCapacity = (level: number, rules: Pick<BoatCoefficients, "berthsPerLevel">): number =>
@@ -87,6 +93,7 @@ export function wearPerDayPm(
     case "homeless":
       return Math.max(0, rules.wearAwayPd) * Math.max(1, rules.wearHomelessMul);
     case "repair":
+    case "docked":
       return 0;
     default: {
       const unknown: never = mode;
@@ -108,14 +115,18 @@ export function wornHull(
   return Math.max(0, Math.min(HULL_FULL, hullPpm - loss));
 }
 
-/** 배 빠르기 배율(‰): 종류 speedPm, 내구도 0이면 brokenSpeedPm을 더 곱한다 */
+/** 배 빠르기 배율(‰): 종류 speedPm, 내구도 0이면 brokenSpeedPm, 연료가 없으면 noFuelSpeedPm, 오버히트면 overheatSpeedPm을 더 곱한다 */
 export function boatSpeedPm(
   type: Pick<BoatTypeDef, "speedPm"> | undefined,
   hullPpm: number,
-  rules: Pick<BoatCoefficients, "brokenSpeedPm">,
+  rules: Pick<BoatCoefficients, "brokenSpeedPm" | "noFuelSpeedPm" | "overheatSpeedPm">,
+  fuel: { readonly empty: boolean; readonly overheat: boolean } = { empty: false, overheat: false },
 ): number {
-  const base = type?.speedPm ?? 1000;
-  return hullPpm <= 0 ? Math.max(1, Math.floor((base * Math.max(1, rules.brokenSpeedPm)) / 1000)) : base;
+  let speed = type?.speedPm ?? 1000;
+  if (hullPpm <= 0) speed = Math.floor((speed * Math.max(1, rules.brokenSpeedPm)) / 1000);
+  if (fuel.empty) speed = Math.floor((speed * Math.max(1, rules.noFuelSpeedPm)) / 1000);
+  else if (fuel.overheat) speed = Math.floor((speed * Math.max(1000, rules.overheatSpeedPm)) / 1000);
+  return Math.max(1, speed);
 }
 
 /** 이보다 덜 닳았으면(1‰ 미만) 고칠 것이 없다고 본다(ppm) */
@@ -134,12 +145,12 @@ export function repairPlan(
     | "shipyardRepairSpecPm"
     | "shipyardBuildSpecPm"
   >,
-  module: ShipyardModule | null,
+  modules: readonly ShipyardModule[],
   operator: boolean,
 ): { readonly materials: JobMaterial[]; readonly ms: number } | null {
   const lost = HULL_FULL - Math.max(0, Math.min(HULL_FULL, hullPpm));
   if (lost < REPAIR_MIN_PPM) return null;
-  const spec = module === "repair" ? Math.max(0, rules.shipyardRepairSpecPm) : 1000;
+  const spec = modules.includes("repair") ? Math.max(0, rules.shipyardRepairSpecPm) : 1000;
   // 분모 = 가득(ppm) × 1000(repairCostPm) × 1000(costPm) × 1000(spec)
   const scale = BigInt(HULL_FULL) * 1_000_000_000n;
   const materials = operator
@@ -155,7 +166,7 @@ export function repairPlan(
           return { item: stack.item, qty: Number((top + scale - 1n) / scale) };
         })
         .filter((stack) => stack.qty > 0);
-  const buildMs = boatBuildMs(type, rules, null, false);
+  const buildMs = boatBuildMs(type, rules, [], false);
   const share = Math.floor((buildMs * lost) / HULL_FULL);
   let ms = Math.floor((share * Math.max(0, rules.repairTimePm) * spec) / 1_000_000);
   if (operator) ms = Math.floor(ms / OPERATOR_SPEED_FACTOR);
@@ -172,3 +183,64 @@ export const dueDays = (feePaidToMs: number, nowMs: number): number =>
 
 export const HOUR_MS = 3_600_000;
 export { DAY_MS };
+
+/** 도크 장기 보관료(D-559 1523): 다 된 뒤 freeHours가 지나면 하루(올림)마다 feePerDay. 고치는 중(sinceMs null)이면 0 */
+export function storageDue(
+  sinceMs: number | null,
+  nowMs: number,
+  feePerDay: number,
+  rules: Pick<BoatCoefficients, "storageFreeHours">,
+): bigint {
+  if (sinceMs === null || feePerDay <= 0) return 0n;
+  const billed = nowMs - sinceMs - Math.max(0, rules.storageFreeHours) * HOUR_MS;
+  if (billed <= 0) return 0n;
+  return BigInt(Math.ceil(billed / DAY_MS)) * BigInt(Math.floor(feePerDay));
+}
+
+/** 연료 통(천분의 단위): 배 종류 칸, 없으면 설정 칸 */
+export const fuelTankMilli = (
+  type: Pick<BoatTypeDef, "fuelCapacity"> | undefined,
+  rules: Pick<BoatCoefficients, "fuelCapacity">,
+): number => Math.max(1, type?.fuelCapacity ?? rules.fuelCapacity) * 1000;
+
+/** movingMs 동안 움직인 배가 쓴 연료(천분의 단위, 오버히트면 × overheatFuelPm) */
+export function fuelBurnMilli(
+  type: Pick<BoatTypeDef, "fuelPerHour"> | undefined,
+  movingMs: number,
+  overheat: boolean,
+  rules: Pick<BoatCoefficients, "fuelPerHour" | "overheatFuelPm">,
+): number {
+  const perHour = Math.max(0, type?.fuelPerHour ?? rules.fuelPerHour);
+  const base = Math.floor((perHour * 1000 * Math.max(0, movingMs)) / HOUR_MS);
+  return overheat ? Math.floor((base * Math.max(1000, rules.overheatFuelPm)) / 1000) : base;
+}
+
+/** 오버히트로 movingMs 동안 더 닳는 내구도(ppm): 한 시간 overheatHullPh‰, 엔진실 한 명마다 engineCrewHeatPm 줄임 */
+export function overheatWearPpm(
+  movingMs: number,
+  engineCrew: number,
+  rules: Pick<BoatCoefficients, "overheatHullPh" | "engineCrewHeatPm">,
+): number {
+  const relief = Math.min(1000, Math.max(0, engineCrew) * Math.max(0, rules.engineCrewHeatPm));
+  const perHour = Math.floor((Math.max(0, rules.overheatHullPh) * (1000 - relief)) / 1000);
+  return Math.floor((perHour * 1000 * Math.max(0, movingMs)) / HOUR_MS);
+}
+
+/** 갑판병 기본 수리(ppm): spanMs 동안 한 명마다 deckRepairPh‰, deckRepairCapPm 넘게는 올리지 않는다 */
+export function deckRepairPpm(
+  hullPpm: number,
+  deckCrew: number,
+  spanMs: number,
+  rules: Pick<BoatCoefficients, "deckRepairPh" | "deckRepairCapPm">,
+): number {
+  const cap = Math.max(0, Math.min(1000, rules.deckRepairCapPm)) * 1000;
+  if (deckCrew <= 0 || hullPpm >= cap) return 0;
+  const gain = Math.floor(
+    (Math.max(0, rules.deckRepairPh) * 1000 * deckCrew * Math.max(0, spanMs)) / HOUR_MS,
+  );
+  return Math.max(0, Math.min(gain, cap - hullPpm));
+}
+
+/** 두 시각 구간이 겹치는 길이(ms) — 움직인 시간 셈(움직임 [출발, 도착] ∩ [셈한 시각, 지금]) */
+export const overlapMs = (aFrom: number, aTo: number, bFrom: number, bTo: number): number =>
+  Math.max(0, Math.min(aTo, bTo) - Math.max(aFrom, bFrom));

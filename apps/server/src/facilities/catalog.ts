@@ -22,6 +22,7 @@ import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
 import { type FacilityCategory, facilityCategoryOf } from "@terra/shared/facilityCategory";
 import { type FacilityLookJson, cleanFacilityLook } from "@terra/shared/facilityLook";
 import type { HarborRole } from "@terra/shared/harbor";
+import type { NavalSpec } from "@terra/shared/naval";
 import type { LocalizedName } from "@terra/shared/roster";
 
 /** 레벨 1 최대 내구도가 팩에 없을 때(옛 코드 기본 max_durability 100) */
@@ -62,6 +63,11 @@ export interface BoatTypeDef {
   readonly buildMs: number;
   readonly speedPm: number;
   readonly capacity: number;
+  /** 연료 통·한 시간 연료(D-559 1529, 없으면 설정 칸) */
+  readonly fuelCapacity?: number | undefined;
+  readonly fuelPerHour?: number | undefined;
+  /** 함선 칸(D-559 1533·1537, 없으면 함장 1·갑판병 1) */
+  readonly naval?: NavalSpec | undefined;
 }
 
 export interface FacilityCatalog {
@@ -134,6 +140,21 @@ function defOf(entry: FacilityEntry): FacilityDef {
             buildMs: type.buildMs,
             speedPm: type.speedPm,
             capacity: type.capacity,
+            ...(type.fuelCapacity === undefined ? {} : { fuelCapacity: type.fuelCapacity }),
+            ...(type.fuelPerHour === undefined ? {} : { fuelPerHour: type.fuelPerHour }),
+            ...(type.naval === undefined
+              ? {}
+              : {
+                  naval: {
+                    shipClass: type.naval.shipClass,
+                    hullPoints: type.naval.hullPoints,
+                    armor: type.naval.armor,
+                    modulePoints: type.naval.modulePoints,
+                    guns: type.naval.guns.map((gun) => ({ caliber: gun.caliber, shells: [...gun.shells] })),
+                    crew: { ...type.naval.crew },
+                    hangar: type.naval.hangar,
+                  },
+                }),
           })),
         }),
     build: build

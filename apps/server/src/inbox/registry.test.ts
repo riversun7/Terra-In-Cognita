@@ -43,7 +43,7 @@ describe("처리할 일 등록부", () => {
     const seen: unknown[][] = [];
     const pool = {
       query: async (text: string, values?: unknown[]) => {
-        // 가문 제공 함수(house_*)는 빈 목록 — 이 시험은 웨이브만 본다
+        // 가문·배 제공 함수(house_*·boat_*)는 빈 목록 — 이 시험은 웨이브만 본다
         if (!text.includes("gardener_waves")) return { rows: [] };
         seen.push(values ?? []);
         return {
@@ -57,6 +57,8 @@ describe("처리할 일 등록부", () => {
       "house_invite",
       "house_application",
       "house_notice",
+      "boat_in_dock",
+      "boat_homeless",
     ]);
     const list = await collectInbox(providers, ACCOUNT, NOW, false);
     expect(list.items.map((item) => [item.id, item.category, item.deadlineAt])).toEqual([

@@ -11345,16 +11345,16 @@
         "ko": "배 시설 운행 정지 내구도(‰)",
         "en": "Harbor stop durability (‰)"
       },
-      "value": 500,
+      "value": 300,
       "structural": false,
       "unit": "pm",
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "정박장·교역 부두·조선소의 내구도가 이보다 낮으면 새 배·임시 정박·새 작업을 받지 않는다. 이미 든 배는 그대로다.",
-        "en": "Below this durability a berth, trade dock or shipyard takes no new boats, visits or jobs. Boats already in stay."
+        "ko": "정박장·교역 부두·조선소의 내구도가 이보다 낮으면 새 배·임시 정박·새 작업을 받지 않는다. 이미 든 배는 그대로다. 사용자 D-559 1527 \"정지 기준 30%\"(건물 기능 정지·노화 바닥과 같음).",
+        "en": "Below this durability a berth, trade dock or shipyard takes no new boats, visits or jobs. Boats already in stay. User D-559 1527: \"stop at 30%\" (same as building stop and the ageing floor)."
       },
-      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1500 [임시]"
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1500 [임시] · D-559 1527"
     },
     {
       "id": "trade_dock_slots_per_level",
@@ -11895,6 +11895,366 @@
         "en": "Businesses in cities whose admin building level is at most this (low-grade cities) also sell single items (retail). 0 means no retail."
       },
       "source": "ADR 2026-11-15-business-ledger · D-555 질문 1507 [임시]"
+    },
+    {
+      "id": "shipyard_repair_fee",
+      "code": "",
+      "name": {
+        "ko": "남의 배 수리 요금 처음 값(한 번)",
+        "en": "Default repair fee for others' boats"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "남의 조선소에서 배를 고칠 때 한 번 내는 요금 처음 값(그 나라 화폐). 조선소 주인이 바꾸고 조선소 금고로 든다. 재료는 배 주인이 낸다.",
+        "en": "Default fee per repair when a boat is repaired at someone else's shipyard (in the port nation's currency). The owner can change it; it goes to the shipyard vault. The boat owner still pays the materials."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1522 [임시]"
+    },
+    {
+      "id": "shipyard_storage_fee_per_day",
+      "code": "",
+      "name": {
+        "ko": "도크 장기 보관료(하루)",
+        "en": "Dock storage fee (per day)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "다 만들거나 고친 남의 배를 도크에 두는 하루 보관료. 꺼낼(출고) 때 한 번에 정산한다(그 나라 화폐, 조선소 금고로).",
+        "en": "Daily storage fee for someone else's finished boat left in a dock. Settled at once on release (port nation's currency, to the shipyard vault)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1523 [임시]"
+    },
+    {
+      "id": "shipyard_storage_free_hours",
+      "code": "",
+      "name": {
+        "ko": "도크 보관료 없는 시간",
+        "en": "Free dock storage (hours)"
+      },
+      "value": 24,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 720,
+      "desc": {
+        "ko": "다 된 뒤 이 시간까지는 보관료가 없다. 그 뒤 하루(올림)마다 보관료.",
+        "en": "No storage fee for this many hours after the work is done. After that, the fee per started day."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1523 [임시]"
+    },
+    {
+      "id": "boat_fuel_capacity",
+      "code": "",
+      "name": {
+        "ko": "배 연료 통(단위)",
+        "en": "Boat fuel tank (units)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000000,
+      "desc": {
+        "ko": "배 종류에 연료 칸이 없을 때 연료 통 크기. 새 배는 가득 찬 채 나온다.",
+        "en": "Fuel tank size for boat types without their own value. New boats start full."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1529 [임시]"
+    },
+    {
+      "id": "boat_fuel_per_hour",
+      "code": "",
+      "name": {
+        "ko": "항해 한 시간 연료(단위)",
+        "en": "Fuel per sailing hour (units)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "배 종류에 연료 칸이 없을 때 움직이는 한 시간마다 드는 연료. 서 있으면 들지 않는다.",
+        "en": "Fuel burned per hour of sailing for boat types without their own value. A boat at rest burns none."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1529 [임시]"
+    },
+    {
+      "id": "boat_fuel_price",
+      "code": "",
+      "name": {
+        "ko": "연료 한 단위 값",
+        "en": "Fuel price per unit"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "교역 부두에서 연료를 넣을 때 한 단위 값(그 항구 나라 화폐, 부두 금고로).",
+        "en": "Price of one fuel unit at a trade dock (port nation's currency, to the dock vault)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1529 [임시]"
+    },
+    {
+      "id": "boat_nofuel_speed_pm",
+      "code": "",
+      "name": {
+        "ko": "연료 없는 배 빠르기(‰)",
+        "en": "Out-of-fuel boat speed (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 10,
+      "max": 1000,
+      "desc": {
+        "ko": "연료가 떨어진 배는 표류하며 이 빠르기로만 움직인다.",
+        "en": "A boat out of fuel drifts and moves only at this speed."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1529 [임시]"
+    },
+    {
+      "id": "boat_overheat_speed_pm",
+      "code": "",
+      "name": {
+        "ko": "오버히트 빠르기(‰)",
+        "en": "Overheat speed (‰)"
+      },
+      "value": 1300,
+      "structural": false,
+      "unit": "pm",
+      "min": 1000,
+      "max": 3000,
+      "desc": {
+        "ko": "오버히트를 켠 배의 빠르기. 전투 밖 항해에서도 쓴다.",
+        "en": "Speed of a boat with overheat on. Also usable outside combat."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1540 [임시]"
+    },
+    {
+      "id": "boat_overheat_fuel_pm",
+      "code": "",
+      "name": {
+        "ko": "오버히트 연료(‰)",
+        "en": "Overheat fuel use (‰)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "pm",
+      "min": 1000,
+      "max": 10000,
+      "desc": {
+        "ko": "오버히트 중 항해 연료 × 이 값.",
+        "en": "Sailing fuel use × this while overheating."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1540 [임시]"
+    },
+    {
+      "id": "boat_overheat_hull_ph",
+      "code": "",
+      "name": {
+        "ko": "오버히트 내구도 닳음(‰/시간)",
+        "en": "Overheat hull wear (‰/hour)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "오버히트로 항해 한 시간마다 더 닳는 내구도. 엔진실 보직이 줄인다.",
+        "en": "Extra hull wear per hour of overheated sailing. Engine room crew reduce it."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1540 [임시]"
+    },
+    {
+      "id": "boat_overheat_cool_min",
+      "code": "",
+      "name": {
+        "ko": "오버히트 식는 시간(분)",
+        "en": "Overheat cooldown (minutes)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1440,
+      "desc": {
+        "ko": "오버히트를 끈 뒤 다시 켤 수 있을 때까지.",
+        "en": "Time after switching overheat off before it can be switched on again."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1540 [임시]"
+    },
+    {
+      "id": "boat_engine_crew_heat_pm",
+      "code": "",
+      "name": {
+        "ko": "엔진실 오버히트 줄임(‰/명)",
+        "en": "Engine crew overheat relief (‰ per unit)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "엔진실 보직 한 명마다 오버히트 내구도 닳음을 이만큼 줄인다.",
+        "en": "Each engine room crew member cuts overheat hull wear by this much."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1533 [임시]"
+    },
+    {
+      "id": "boat_deck_repair_ph",
+      "code": "",
+      "name": {
+        "ko": "갑판병 기본 수리(‰/시간/명)",
+        "en": "Deck crew repair (‰ per hour per unit)"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "갑판병 보직 한 명이 바다에서 한 시간에 고치는 내구도(기본 수리).",
+        "en": "Hull a deck crew member repairs per hour at sea (basic repair)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1533 [임시]"
+    },
+    {
+      "id": "boat_deck_repair_cap_pm",
+      "code": "",
+      "name": {
+        "ko": "갑판병 수리 상한(‰)",
+        "en": "Deck crew repair cap (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "갑판병 기본 수리로 올릴 수 있는 내구도 상한. 그 위는 조선소에서 고친다.",
+        "en": "Deck crew basic repair stops at this hull. Above it, repair at a shipyard."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1533 [임시]"
+    },
+    {
+      "id": "naval_gun_light_damage",
+      "code": "",
+      "name": {
+        "ko": "소구경 함포 피해",
+        "en": "Light naval gun damage"
+      },
+      "value": 40,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "소구경 함포 한 발 기본 피해(해상 전투가 생기면 쓴다).",
+        "en": "Base damage per shot of a light naval gun (used once naval combat exists)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1533 [임시]"
+    },
+    {
+      "id": "naval_gun_medium_damage",
+      "code": "",
+      "name": {
+        "ko": "중구경 함포 피해",
+        "en": "Medium naval gun damage"
+      },
+      "value": 90,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "중구경 함포 한 발 기본 피해(해상 전투가 생기면 쓴다).",
+        "en": "Base damage per shot of a medium naval gun (used once naval combat exists)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1533 [임시]"
+    },
+    {
+      "id": "naval_gun_heavy_damage",
+      "code": "",
+      "name": {
+        "ko": "대구경 함포 피해",
+        "en": "Heavy naval gun damage"
+      },
+      "value": 180,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "대구경 함포 한 발 기본 피해(해상 전투가 생기면 쓴다).",
+        "en": "Base damage per shot of a heavy naval gun (used once naval combat exists)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1533 [임시]"
+    },
+    {
+      "id": "naval_shell_ap_hull_pm",
+      "code": "",
+      "name": {
+        "ko": "AP탄 선체 피해(‰)",
+        "en": "AP shell hull damage (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "철갑탄은 선체에만 피해를 준다(함포 피해 × 이 값).",
+        "en": "Armour-piercing shells hit the hull only (gun damage × this)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1536 [임시]"
+    },
+    {
+      "id": "naval_shell_he_hull_pm",
+      "code": "",
+      "name": {
+        "ko": "HE탄 선체 피해(‰)",
+        "en": "HE shell hull damage (‰)"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "고폭탄의 선체 피해(함포 피해 × 이 값).",
+        "en": "High-explosive shell hull damage (gun damage × this)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1536 [임시]"
+    },
+    {
+      "id": "naval_shell_he_deck_pm",
+      "code": "",
+      "name": {
+        "ko": "HE탄 갑판 피해(‰)",
+        "en": "HE shell deck damage (‰)"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "고폭탄은 갑판 승객에게도 피해를 준다(함포 피해 × 이 값).",
+        "en": "High-explosive shells also hit passengers on deck (gun damage × this)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1536 [임시]"
     }
   ]
 }

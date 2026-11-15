@@ -6,7 +6,7 @@
 // - <dialog>.showModal(): 초점을 가두고 Esc·[닫기]로 닫는다(보내는 중에는 닫지 않는다).
 // 지연 조각: 사이보그 화면이 [외형 고르기]를 누를 때 받는다(미리 보기 엔진·외형 단계 코드가 사이보그 화면 조각에 들지 않게).
 import type { CyborgResultCode } from "@terra/protocol";
-import { type CharacterLook, legacyAppearanceOf } from "@terra/shared/characterLook";
+import type { CharacterLook } from "@terra/shared/characterLook";
 import { useEffect, useId, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { sendCyborgCommand } from "../start/cyborgCommands.ts";
@@ -52,7 +52,7 @@ export default function LookPick({
     setState({ kind: "saving" });
     const result = await sendCyborgCommand({ t: "cyborg_look", look });
     if (result.ok) {
-      markCyborgAppearance(legacyAppearanceOf(look), look);
+      markCyborgAppearance(look);
       onSaved();
       return;
     }

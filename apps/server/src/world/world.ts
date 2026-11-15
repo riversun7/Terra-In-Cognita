@@ -349,7 +349,7 @@ export function startWorld(
     let loaded: Awaited<ReturnType<typeof loadWorld>> | undefined;
     let npcOwnerId = 0;
     let cities: CityRow[] = [];
-    let cyborgData: LoadedCyborgs = { cyborgs: [], rolls: [], factions: [], fixedAppearances: 0 };
+    let cyborgData: LoadedCyborgs = { cyborgs: [], rolls: [], factions: [], legacyLooks: [] };
     let beaconRows: BeaconRow[] = [];
     let holdingData: LoadedHoldings = { holdings: [], effects: [], cooldowns: [], maxId: 0 };
     let vitalsData: VitalsRecord[] = [];

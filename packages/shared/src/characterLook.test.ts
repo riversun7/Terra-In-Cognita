@@ -16,13 +16,17 @@ import {
   characterLookKey,
   characterSeedOf,
   isCharacterLook,
-  legacyAppearanceOf,
   randomCharacterLook,
   rerollCharacterLook,
   sameCharacterLook,
   stepCharacterLook,
 } from "./characterLook.ts";
-import { CYBORG_COLORS, CYBORG_PRESETS, isCyborgAppearance } from "./cyborgLooks.ts";
+import {
+  CYBORG_COLORS,
+  type CyborgAppearance,
+  DEFAULT_CYBORG_APPEARANCE,
+  isCyborgAppearance,
+} from "./cyborgLooks.ts";
 
 describe("character look (3D 외형 2판)", () => {
   it("목록 크기: 머리 8·얼굴 8·머리 장식 12 이상, 몸통 6 이상, 팔·다리 4 이상, 장식 6 이상, 색 16 이상, 프리셋 24 이상", () => {
@@ -59,9 +63,13 @@ describe("character look (3D 외형 2판)", () => {
     expect(new Set(CHARACTER_PRESETS.map((preset) => characterLookKey(preset.look))).size).toBe(
       CHARACTER_PRESETS.length,
     );
-    expect(CHARACTER_PRESETS.slice(0, 4).map((preset) => preset.id)).toEqual(
-      CYBORG_PRESETS.map((preset) => preset.id),
-    );
+    // 앞 넷은 옛 2D 프리셋 ID(옛 프리셋 목록은 D-560 1421로 뺐다 — ID는 그대로 남긴다)
+    expect(CHARACTER_PRESETS.slice(0, 4).map((preset) => preset.id)).toEqual([
+      "scout",
+      "guard",
+      "tinker",
+      "drifter",
+    ]);
     expect(DEFAULT_CHARACTER_LOOK).toBe(CHARACTER_PRESETS[0]?.look);
   });
 
@@ -177,24 +185,23 @@ describe("character look (3D 외형 2판)", () => {
     expect(commoners.size).toBeGreaterThan(150);
   });
 
-  it("옛 2D 외형 → 3D: 같은 입력이면 같고, 고른 색·얼굴이 남는다. 3D → 옛 외형도 늘 맞는 값이다", () => {
-    for (const preset of CYBORG_PRESETS) {
-      const seed = characterSeedOf(`user-${preset.id}`);
-      const look = characterLookFromLegacy(preset.look, seed);
+  it("옛 2D 외형 → 3D(켤 때 옮기기, D-560 1421): 같은 입력이면 같고, 고른 색·얼굴이 남는다", () => {
+    const legacy: readonly CyborgAppearance[] = [
+      DEFAULT_CYBORG_APPEARANCE,
+      { head: "helm", face: "grill", body: "plate", limbs: "stub", primary: "slate", accent: "coral" },
+      { head: "dome", face: "mono", body: "core", limbs: "claw", primary: "peach", accent: "sky" },
+      { head: "crest", face: "eyes", body: "round", limbs: "wheel", primary: "lilac", accent: "cream" },
+    ];
+    legacy.forEach((appearance, index) => {
+      expect(isCyborgAppearance(appearance)).toBe(true);
+      const seed = characterSeedOf(`user-${index}`);
+      const look = characterLookFromLegacy(appearance, seed);
       expect(isCharacterLook(look)).toBe(true);
-      expect(look).toEqual(characterLookFromLegacy(preset.look, seed));
-      expect(look.primary).toBe(preset.look.primary);
-      expect(look.glow).toBe(preset.look.accent);
-      expect(look.face).toBe(preset.look.face);
-      // 다시 옛 외형으로 넘기면 색·얼굴이 같다
-      const again = legacyAppearanceOf(look);
-      expect(again.primary).toBe(preset.look.primary);
-      expect(again.accent).toBe(preset.look.accent);
-      expect(again.face).toBe(preset.look.face);
-    }
-    for (let seed = 0; seed < 300; seed++) {
-      expect(isCyborgAppearance(legacyAppearanceOf(randomCharacterLook(seed)))).toBe(true);
-    }
+      expect(look).toEqual(characterLookFromLegacy(appearance, seed));
+      expect(look.primary).toBe(appearance.primary);
+      expect(look.glow).toBe(appearance.accent);
+      expect(look.face).toBe(appearance.face);
+    });
   });
 
   it("같은 외형인지·표지", () => {

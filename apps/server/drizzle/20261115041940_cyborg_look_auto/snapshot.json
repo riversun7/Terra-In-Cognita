@@ -1,0 +1,72 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "9a561286-42b0-4185-8e9b-3e6a6de92a8f",
+  "prevIds": [
+    "9f4f9520-d2af-4a1a-8f15-c66753774d76"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "cyborgs",
+        "look_auto"
+      ],
+      "writes": [
+        "s|col|public.cyborgs.look_auto",
+        "n|col|public.cyborgs.look_auto",
+        "e|col|public.cyborgs.look_auto"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "cyborgs",
+        "appearance"
+      ],
+      "writes": [
+        "s|colprop|public.cyborgs.appearance.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public",
+        "n|col|public.cyborgs.appearance"
+      ],
+      "sqlHash": "9202a8d853908db8"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "look_auto",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"cyborgs\",\"appearance\"]",
+      "set": {
+        "notNull": false
+      }
+    }
+  ]
+}

@@ -8,7 +8,6 @@ import {
   characterLookFromLegacy,
   characterSeedOf,
   isCharacterLook,
-  legacyAppearanceOf,
 } from "@terra/shared/characterLook";
 import { DEFAULT_CYBORG_APPEARANCE, zeroElements } from "@terra/shared/cyborg";
 import { cityLocation } from "@terra/shared/goodsPlaces";
@@ -167,16 +166,15 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       code: "already_created",
     });
     expect(await service.roll(a, "tech")).toEqual({ ok: false, code: "already_created" });
-    // 3D 외형 없이 만든 사이보그(옛 기기): 옛 외형 그대로, 보이는 3D 외형은 옛 외형에서 넘긴 값(사용자 ID 씨앗)
+    // 3D 외형 없이 만든 사이보그(35판 기기): 3D 외형은 옛 외형에서 넘긴 값(사용자 ID 씨앗)으로 저장하고 한 번 고를 수 있다(옛 칸은 저장하지 않는다)
     expect(service.status(a)).toEqual({
       cyborg: {
         name: "Nova",
-        appearance: DEFAULT_CYBORG_APPEARANCE,
         look: characterLookFromLegacy(DEFAULT_CYBORG_APPEARANCE, characterSeedOf(a)),
         elementsPending: false,
       },
     });
-    expect(service.record(a)?.look).toBeNull();
+    expect(service.record(a)?.lookAuto).toBe(true);
     expect(service.creation(a, clock)).toMatchObject({ created: true, elementsPending: false });
     expect(service.record(a)?.elements).toEqual({ ...zeroElements(), fire: 6, wind: 4 });
 
@@ -223,25 +221,29 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       });
     }
     expect(service.record(a)).toBeUndefined();
-    // 옛 칸 모양이 틀려도 만들지 않는다(둘 다 본다)
-    expect(await service.create(a, { ...input, appearance: { head: "dome" } })).toEqual({
+    // 3D 외형이 없으면 옛 칸 모양을 본다(35판 기기) — 틀리면 만들지 않는다
+    const { look: _look, ...withoutLook } = input;
+    expect(await service.create(a, { ...withoutLook, appearance: { head: "dome" } })).toEqual({
       ok: false,
       code: "appearance_invalid",
     });
-    expect(await service.create(a, input)).toEqual({ ok: true });
-    // 기기가 보낸 옛 칸(기본 외형)이 아니라 3D 외형에서 넘긴 값이 저장된다
+    // 36판 기기는 옛 칸을 보내지 않는다(D-560 1421)
+    const { appearance: _old, ...lookOnly } = input;
+    expect(await service.create(a, lookOnly)).toEqual({ ok: true });
     expect(service.record(a)?.look).toEqual(look);
-    expect(service.record(a)?.appearance).toEqual(legacyAppearanceOf(look));
-    expect(service.status(a)).toMatchObject({ cyborg: { look, appearance: legacyAppearanceOf(look) } });
-    const stored = await rows<{ look: unknown; appearance: unknown }>(
+    expect(service.record(a)?.lookAuto).toBe(false);
+    expect(service.status(a)).toEqual({ cyborg: { name: "Lumen", look, elementsPending: false } });
+    // 옛 2D 칸은 저장하지 않는다(null)
+    const stored = await rows<{ look: unknown; appearance: unknown; look_auto: boolean }>(
       test.db,
-      `select look, appearance from cyborgs where user_id = $1`,
+      `select look, appearance, look_auto from cyborgs where user_id = $1`,
       [a],
     );
     expect(stored[0]?.look).toEqual(look);
     expect(isCharacterLook(stored[0]?.look)).toBe(true);
-    expect(stored[0]?.appearance).toEqual(legacyAppearanceOf(look));
-    // 다시 켜도 같다. DB 값이 목록에서 빠진 ID면 없는 것으로 읽는다(옛 외형에서 넘긴 값으로 보인다)
+    expect(stored[0]?.appearance).toBeNull();
+    expect(stored[0]?.look_auto).toBe(false);
+    // 다시 켜도 같다. DB 값이 목록에서 빠진 ID면 옛 외형(없으면 기본 2D 외형)에서 넘긴 값으로 채우고 한 번 고를 수 있게 한다
     const again = await restart(world);
     expect(cyborgsOf(again).record(a)?.look).toEqual(look);
     await test.db.$client.query(
@@ -249,9 +251,66 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       [a],
     );
     const fixed = await restart(again);
-    expect(cyborgsOf(fixed).record(a)?.look).toBeNull();
-    expect(cyborgsOf(fixed).status(a)).toMatchObject({
-      cyborg: { look: characterLookFromLegacy(legacyAppearanceOf(look), characterSeedOf(a)) },
+    expect(cyborgsOf(fixed).record(a)?.look).toEqual(
+      characterLookFromLegacy(DEFAULT_CYBORG_APPEARANCE, characterSeedOf(a)),
+    );
+    expect(cyborgsOf(fixed).record(a)?.lookAuto).toBe(true);
+  });
+
+  it("옛 2D 외형 정리(D-560 1421): 켤 때 3D 외형 없는 옛 사이보그를 3D 외형으로 옮기고 옛 칸을 비운다(멱등, 세계 새로 시작 없음)", async () => {
+    const world = await boot();
+    const service = cyborgsOf(world);
+    const a = await fakeUser("Legacy_A");
+    const b = await fakeUser("Legacy_B");
+    await service.roll(a, "tech");
+    await service.roll(b, "tech");
+    const base = { ...startOf(world, a), elements: fireWind };
+    expect(await service.create(a, { ...base, name: "OldOne", look: DEFAULT_CHARACTER_LOOK })).toEqual({
+      ok: true,
+    });
+    expect(await service.create(b, { ...base, name: "Chosen", look: DEFAULT_CHARACTER_LOOK })).toEqual({
+      ok: true,
+    });
+    // 직전 앱이 만든 줄 흉내: a = 3D 외형 없이 옛 칸만, b = 3D 외형 + 옛 칸
+    const legacy = { ...DEFAULT_CYBORG_APPEARANCE, head: "crest", face: "mono", primary: "coral" } as const;
+    await test.db.$client.query(`update cyborgs set look = null, appearance = $2 where user_id = $1`, [
+      a,
+      JSON.stringify(legacy),
+    ]);
+    await test.db.$client.query(`update cyborgs set appearance = $2 where user_id = $1`, [
+      b,
+      JSON.stringify(DEFAULT_CYBORG_APPEARANCE),
+    ]);
+    const moved = await restart(world);
+    const expected = characterLookFromLegacy(legacy, characterSeedOf(a));
+    expect(cyborgsOf(moved).record(a)?.look).toEqual(expected);
+    expect(cyborgsOf(moved).record(a)?.lookAuto).toBe(true);
+    expect(cyborgsOf(moved).record(b)?.look).toEqual(DEFAULT_CHARACTER_LOOK);
+    expect(cyborgsOf(moved).record(b)?.lookAuto).toBe(false);
+    // 켤 때 다시 쓴 줄이 저장될 때까지(쓰기 대기열)
+    const saved = async () =>
+      rows<{ user_id: string; look: unknown; appearance: unknown; look_auto: boolean }>(
+        test.db,
+        `select user_id, look, appearance, look_auto from cyborgs where user_id in ($1, $2) order by user_id`,
+        [a, b],
+      );
+    const deadline = Date.now() + 10_000;
+    let stored = await saved();
+    while (stored.some((row) => row.appearance !== null) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      stored = await saved();
+    }
+    expect(stored.map((row) => row.appearance)).toEqual([null, null]);
+    expect(stored.find((row) => row.user_id === a)?.look).toEqual(expected);
+    expect(stored.find((row) => row.user_id === a)?.look_auto).toBe(true);
+    // 다시 켜도 같은 답(할 일 없음). 옮겨 채운 사이보그는 한 번 고를 수 있다
+    const again = await restart(moved);
+    expect(cyborgsOf(again).record(a)?.look).toEqual(expected);
+    const pick = CHARACTER_PRESETS[3]?.look ?? DEFAULT_CHARACTER_LOOK;
+    expect(await cyborgsOf(again).chooseLook(a, pick)).toEqual({ ok: true });
+    expect(await cyborgsOf(again).chooseLook(a, DEFAULT_CHARACTER_LOOK)).toEqual({
+      ok: false,
+      code: "look_locked",
     });
   });
 
@@ -279,19 +338,24 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     for (const bad of [{ ...look, head: "tophat" }, { ...look, height: 150 }, { v: 2 }, null]) {
       expect(await service.chooseLook(a, bad)).toEqual({ ok: false, code: "appearance_invalid" });
     }
-    expect(service.record(a)?.look).toBeNull();
-    // 한 번 고른다: 저장하고 옛 칸(2D 그림)은 그 외형에서 넘긴 값
+    // 옛 기기(옛 칸만)로 만든 사이보그는 서버가 옛 칸에서 넘긴 3D 외형을 갖고 한 번 고를 수 있다
+    expect(service.record(a)?.look).toEqual(
+      characterLookFromLegacy(DEFAULT_CYBORG_APPEARANCE, characterSeedOf(a)),
+    );
+    expect(service.record(a)?.lookAuto).toBe(true);
+    // 한 번 고른다: 저장한다(옛 칸은 쓰지 않는다 — D-560 1421)
     expect(await service.chooseLook(a, look)).toEqual({ ok: true });
     expect(service.record(a)?.look).toEqual(look);
-    expect(service.record(a)?.appearance).toEqual(legacyAppearanceOf(look));
-    expect(service.status(a)).toMatchObject({ cyborg: { look, appearance: legacyAppearanceOf(look) } });
-    const stored = await rows<{ look: unknown; appearance: unknown }>(
+    expect(service.record(a)?.lookAuto).toBe(false);
+    expect(service.status(a)).toMatchObject({ cyborg: { look } });
+    const stored = await rows<{ look: unknown; appearance: unknown; look_auto: boolean }>(
       test.db,
-      `select look, appearance from cyborgs where user_id = $1`,
+      `select look, appearance, look_auto from cyborgs where user_id = $1`,
       [a],
     );
     expect(stored[0]?.look).toEqual(look);
-    expect(stored[0]?.appearance).toEqual(legacyAppearanceOf(look));
+    expect(stored[0]?.appearance).toBeNull();
+    expect(stored[0]?.look_auto).toBe(false);
     // 두 번째는 막는다(다른 외형이어도) — 다시 켜도 같다
     expect(await service.chooseLook(a, DEFAULT_CHARACTER_LOOK)).toEqual({ ok: false, code: "look_locked" });
     const again = await restart(world);

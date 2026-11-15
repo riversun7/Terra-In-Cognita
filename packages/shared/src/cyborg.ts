@@ -15,16 +15,12 @@ export {
   CYBORG_COLOR_SLOTS,
   CYBORG_LOOK_PARTS,
   CYBORG_LOOK_SLOTS,
-  CYBORG_PRESETS,
   DEFAULT_CYBORG_APPEARANCE,
   isCyborgAppearance,
-  randomCyborgAppearance,
-  stepCyborgPart,
   type CyborgAppearance,
   type CyborgColorId,
   type CyborgColorSlot,
   type CyborgLookSlot,
-  type CyborgPresetId,
 } from "./cyborgLooks.ts";
 export {
   BASIC_ELEMENTS,

@@ -8,7 +8,6 @@
 // 첫 화면 묶음에 들어간다: 요청은 cyborgStatusQuery.ts를 동적 import()로 부른다(tRPC 클라이언트를 이 묶음에 넣지 않는다).
 import type { Role, RouteId } from "@terra/shared";
 import type { CharacterLook } from "@terra/shared/characterLook";
-import type { CyborgAppearance } from "@terra/shared/cyborg";
 import { useEffect, useSyncExternalStore } from "react";
 import { refreshSession } from "../auth/session.ts";
 import type { CyborgStatusResult } from "./cyborgStatusQuery.ts";
@@ -21,8 +20,7 @@ export type CyborgGateState =
       readonly status: "ready";
       readonly userId: string;
       readonly name: string;
-      readonly appearance: CyborgAppearance;
-      /** 3D 외형(위 띠 얼굴 초상, cyborg.status look). 옛 서버면 null — 얼굴은 기본 실루엣 */
+      /** 3D 외형(위 띠 얼굴 초상, cyborg.status look). 옛 2D 칸은 뺐다(D-560 1421) */
       readonly look: CharacterLook | null;
       /** 속성 분배가 없다(한 번 나누러 /start로) */
       readonly elementsPending: boolean;
@@ -126,22 +124,16 @@ async function check(userId: string): Promise<void> {
           status: "ready",
           userId,
           name: cyborg.name,
-          appearance: cyborg.appearance,
-          look: cyborg.look ?? null,
+          look: cyborg.look,
           elementsPending: cyborg.elementsPending,
         },
   );
 }
 
 /** 만들기가 끝났다(서버가 커밋한 뒤 답했다). 다시 묻지 않고 바로 홈으로 갈 수 있게 */
-export function markCyborgCreated(
-  userId: string,
-  name: string,
-  appearance: CyborgAppearance,
-  look: CharacterLook,
-): void {
+export function markCyborgCreated(userId: string, name: string, look: CharacterLook): void {
   request += 1;
-  set({ status: "ready", userId, name, appearance, look, elementsPending: false });
+  set({ status: "ready", userId, name, look, elementsPending: false });
 }
 
 /** 속성 분배가 끝났다(서버가 커밋한 뒤 답했다). 다시 묻지 않고 바로 홈으로 */
@@ -151,11 +143,11 @@ export function markCyborgElementsSet(userId: string): void {
   set({ ...state, elementsPending: false });
 }
 
-/** 3D 외형을 한 번 골랐다(서버가 커밋한 뒤 답했다, 질문 961 나): 위 띠 얼굴(3D 초상)과 옛 칸을 그 외형으로 바로 바꾼다 */
-export function markCyborgAppearance(appearance: CyborgAppearance, look: CharacterLook): void {
+/** 3D 외형을 한 번 골랐다(서버가 커밋한 뒤 답했다, 질문 961 나): 위 띠 얼굴(3D 초상)을 그 외형으로 바로 바꾼다 */
+export function markCyborgAppearance(look: CharacterLook): void {
   if (state.status !== "ready") return;
   request += 1;
-  set({ ...state, appearance, look });
+  set({ ...state, look });
 }
 
 export function getCyborgGate(): CyborgGateState {

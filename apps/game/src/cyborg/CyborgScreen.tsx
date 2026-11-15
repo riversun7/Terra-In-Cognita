@@ -278,11 +278,11 @@ function Hero({
       </div>
       <div className="cyborg-bay">
         <div className="cyborg-stage">
-          {data.appearance ? (
-            // 만든 사이보그의 외형: 3D 외형(저장한 것 또는 옛 외형에서 넘긴 값)의 초상. 기기 저장소에 남겨 다시 들어오면 바로 보이고,
-            // 그리는 동안·WebGL 없음·옛 서버(외형 없음)면 무늬 없는 실루엣(docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-14, 2D 제거)")
+          {data.look ? (
+            // 만든 사이보그의 외형: 3D 외형의 초상(옛 2D만 있던 사이보그는 서버가 넘겨 채웠다 — D-560 1421). 기기 저장소에 남겨 다시 들어오면 바로
+            // 보이고, 그리는 동안·WebGL 없음이면 무늬 없는 실루엣(docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-14, 2D 제거)")
             <CyborgPortrait
-              look={data.look ?? null}
+              look={data.look}
               sizePx={HERO_PORTRAIT_PX}
               className="cyborg-avatar"
               label={m.cyborg_appearance_label({ name: data.name })}

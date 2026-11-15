@@ -9,7 +9,8 @@ import {
   unitKindEntrySchema,
 } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
-import { DEFAULT_CYBORG_APPEARANCE, zeroElements } from "@terra/shared/cyborg";
+import { DEFAULT_CHARACTER_LOOK } from "@terra/shared/characterLook";
+import { zeroElements } from "@terra/shared/cyborg";
 import { ROSTER_MODIFIER_STATS } from "@terra/shared/roster";
 import { realStaminaRegen } from "@terra/sim";
 import { describe, expect, it } from "vitest";
@@ -45,8 +46,8 @@ const record: CyborgRecord = {
   temperament: "balanced",
   initial: ten,
   kPm: { str: 1000, dex: 1000, agi: 1000, vit: 1000, int: 1000, wis: 1000 },
-  appearance: DEFAULT_CYBORG_APPEARANCE,
-  look: null,
+  look: DEFAULT_CHARACTER_LOOK,
+  lookAuto: false,
   factionId: 1,
   startCityId: 1,
   unitId: 7,

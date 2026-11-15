@@ -203,6 +203,17 @@ test.describe("건물 판: 운영자 모드", () => {
     });
     await sheet.locator('.bp-tab[data-tab="work"]').click();
     await expect(sheet.locator('[data-part="labor-rent"]')).toContainText("7", { timeout: 20_000 });
+    // 되돌리기: 0 = 빌려주지 않음(같은 세계의 다른 시험 — labor.spec 임대 목록 — 이 NPC 건물을 보지 않게)
+    await sheet.locator('.bp-tab[data-tab="manage"]').click();
+    await sheet.locator('[data-part="labor-rent-input"]').fill("0");
+    await sheet.locator('[data-part="labor-set-rent"]').click();
+    await expect(sheet.locator(".bp-notice")).toHaveText(message("ko", "blabor_rent_stopped"), {
+      timeout: 20_000,
+    });
+    await sheet.locator('.bp-tab[data-tab="work"]').click();
+    await expect(sheet.locator('[data-part="labor-rent"]')).toHaveText(message("ko", "blabor_rent_none"), {
+      timeout: 20_000,
+    });
     expect(deviceErrors).toEqual([]);
   });
 });

@@ -118,6 +118,13 @@
 .sec-target-name {
   font-size: var(--font-size-sm);
 }
+/* 목록 줄: 이름 + 식 글 작은 줄(D-556) */
+.sec-target-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
 .sec-target-marks {
   display: inline-flex;
   align-items: center;
@@ -469,6 +476,63 @@
 .sec-inf-plus[data-sign="down"] {
   color: var(--color-danger);
 }
+/* 영향 카드의 두 판(식의 가중치 · 이 분포에서의 기여 몫, D-556) */
+.sec-inf-part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-start: var(--space-2);
+  border-top: var(--hairline) solid var(--color-border);
+}
+.sec-inf-part-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.sec-inf-part p {
+  margin: 0;
+}
+/* 기여 몫 막대는 빗금으로 가중치 막대와 구분한다(색약·흑백) */
+.sec-inf-fill-share {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 var(--space-1),
+    var(--color-surface-2) var(--space-1) calc(var(--space-1) * 2)
+  );
+}
+
+/* 식 글(D-556): 카드 머리·편집 카드는 한 줄 + 뜻 줄, 목록·표 줄은 작은 글 */
+.sec-formula-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+}
+.sec-formula-line {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+.sec-formula-label {
+  font-family: var(--font-body);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.sec-formula-note {
+  margin: 0;
+}
+.sec-formula-compact {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 
 .sec-legend {
   display: flex;
@@ -545,6 +609,11 @@
 .sec-matrix-table th:first-child,
 .sec-matrix-table td:first-child {
   text-align: start;
+}
+.sec-matrix-table td:first-child {
+  white-space: normal;
+  min-inline-size: 11rem;
+  max-inline-size: 18rem;
 }
 .sec-matrix-table tr[data-selected] {
   background-color: var(--color-surface-2);

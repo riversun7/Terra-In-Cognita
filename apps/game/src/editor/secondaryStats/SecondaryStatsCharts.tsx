@@ -1,20 +1,33 @@
 // 2차 스탯 에디터 SVG 시각화 4종 — 새 런타임 의존성 없이 순수 SVG + CSS 토큰 색·선 패턴으로 그린다.
-// 1) 1차 스탯 영향력 & +10 한계효율  2) 계열별 레벨 성장 곡선(물리·재능·지능·균형·커스텀)
+// 1) 1차 스탯: 식의 가중치(1차가 모두 같을 때 +10) · 이 분포에서의 기여 몫 · +10 한계 효과  2) 계열별 레벨 성장 곡선(물리·재능·지능·균형·커스텀)
 // 3) K 편차 밴드 & 확률 수확체감 곡선  4) 선택 레벨 전체 2차 스탯 비교표
+// 사용자 결정 D-556(질문 1253): 카드·표 줄마다 값을 낸 식을 글로 보인다. 옛 "기여 비중"은 분포에 따라 바뀌는 몫이라(AGI + DEX도 재능계에서
+// DEX 54% · AGI 46%) 가중치로 읽혔다 → "이 분포에서의 기여 몫"으로 이름을 바꾸고, 분포와 상관없는 식의 가중치를 따로 보인다.
 import type { BalanceRowView } from "@terra/shared/balance";
 import { FX_SCALE } from "@terra/shared/formula";
+import type { FormulaText } from "@terra/shared/formulaText";
 import type { PrimaryStat } from "@terra/shared/roster";
 import type { ArchetypeLevelCurve, KBandPoint } from "@terra/shared/secondaryStatsSim";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
+import { SecondaryFormulaLine } from "./SecondaryFormulaLine.tsx";
 import { archetypeText, primaryCode, primaryName } from "./secondaryStatsMessages.ts";
 import {
   EXCLUDED_STAT_ID,
   type SecondaryChartBundle,
   type SimulationConfig,
   type TargetEntry,
+  targetLineUnit,
   targetUnitKind,
 } from "./secondaryStatsModel.ts";
+
+/** 카드 머리의 식 글(선택한 대상) */
+interface FormulaHead {
+  readonly name: string;
+  readonly text: FormulaText | null;
+  readonly unit: "pm" | "ms" | "none";
+  readonly formulaId: string | null;
+}
 
 /** 계열별 선 색·패턴(색약·흑백에서도 구분 가능) */
 const ARCHETYPE_STYLES: Readonly<Record<string, { readonly color: string; readonly dash?: string }>> = {
@@ -47,19 +60,28 @@ function fmtVal(rawDisplayValue: number, unitKind: "pm" | "x" | "ms" | "points",
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(rawDisplayValue);
 }
 
-/** 1) 1차 스탯 영향력 & +10 한계효율 막대 */
+const signedVal = (fx: number, unitKind: "pm" | "x" | "ms" | "points", locale: string): string => {
+  const shown = fx / FX_SCALE;
+  return `${shown > 0 ? "+" : ""}${fmtVal(shown, unitKind, locale)}`;
+};
+
+/** 1) 1차 스탯: 식의 가중치(1차가 모두 같을 때 +10) · 이 분포에서의 기여 몫 · +10 한계 효과 */
 function InfluenceChartCard({
   bundle,
   unitKind,
   config,
   locale,
+  head,
 }: {
   bundle: SecondaryChartBundle;
   unitKind: "pm" | "x" | "ms" | "points";
   config: SimulationConfig;
   locale: string;
+  head: FormulaHead;
 }) {
-  const maxPlusAbs = Math.max(1, ...bundle.influence.items.map((item) => Math.abs(item.plus10)));
+  const items = bundle.influence.items;
+  const weightTotal = items.reduce((sum, item) => sum + Math.abs(item.equalPlus10), 0);
+  const fmtPct = new Intl.NumberFormat(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 
   return (
     <section className="sec-chart-card" aria-label={m.dev_sec_chart_influence_title()}>
@@ -73,44 +95,84 @@ function InfluenceChartCard({
           })}
         </p>
       </header>
-      <div className="sec-inf-bars">
-        {bundle.influence.items.map((item) => {
-          const sharePct = item.sharePm === null ? 0 : Math.max(0, Math.min(100, item.sharePm / 10));
-          const plusPct = Math.round((Math.abs(item.plus10) / maxPlusAbs) * 100);
-          const plusDisplay = item.plus10 / FX_SCALE;
-          const plusSign = plusDisplay > 0 ? "+" : "";
-          return (
-            <div key={item.stat} className="sec-inf-row">
-              <div className="sec-inf-label">
-                <span className="sec-stat-dot" data-stat={item.stat} aria-hidden="true" />
-                <strong>{primaryCode(item.stat)}</strong>
-                <span className="sec-inf-name">{primaryName(item.stat)}</span>
+      <SecondaryFormulaLine name={head.name} text={head.text} unit={head.unit} formulaId={head.formulaId} />
+
+      <section
+        className="sec-inf-part"
+        data-kind="weight"
+        aria-label={m.dev_sec_chart_weight_title({ level: bundle.influence.equalLevel })}
+      >
+        <h4 className="sec-inf-part-title">
+          {m.dev_sec_chart_weight_title({ level: bundle.influence.equalLevel })}
+        </h4>
+        <p className="field-hint">{m.dev_sec_chart_weight_hint()}</p>
+        <div className="sec-inf-bars">
+          {items.map((item) => {
+            const pct = weightTotal === 0 ? 0 : (Math.abs(item.equalPlus10) / weightTotal) * 100;
+            return (
+              <div key={item.stat} className="sec-inf-row" data-stat={item.stat}>
+                <div className="sec-inf-label">
+                  <span className="sec-stat-dot" data-stat={item.stat} aria-hidden="true" />
+                  <strong>{primaryCode(item.stat)}</strong>
+                  <span className="sec-inf-name">{primaryName(item.stat)}</span>
+                </div>
+                <div className="sec-inf-track" title={`${fmtPct.format(pct)}%`}>
+                  <div
+                    className="sec-inf-fill"
+                    style={{ width: `${pct}%`, backgroundColor: PRIMARY_COLOR[item.stat] }}
+                  />
+                </div>
+                <div className="sec-inf-nums">
+                  <span className="sec-inf-share">{weightTotal === 0 ? "—" : `${fmtPct.format(pct)}%`}</span>
+                  <span
+                    className="sec-inf-plus"
+                    data-sign={item.equalPlus10 > 0 ? "up" : item.equalPlus10 < 0 ? "down" : "flat"}
+                  >
+                    +10: {signedVal(item.equalPlus10, unitKind, locale)}
+                  </span>
+                </div>
               </div>
-              <div className="sec-inf-track" title={`${sharePct.toFixed(1)}%`}>
-                <div
-                  className="sec-inf-fill"
-                  style={{
-                    width: `${Math.max(item.plus10 !== 0 || sharePct > 0 ? 4 : 0, sharePct > 0 ? sharePct : plusPct)}%`,
-                    backgroundColor: PRIMARY_COLOR[item.stat],
-                  }}
-                />
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="sec-inf-part" data-kind="share" aria-label={m.dev_sec_chart_share_title()}>
+        <h4 className="sec-inf-part-title">{m.dev_sec_chart_share_title()}</h4>
+        <p className="field-hint">{m.dev_sec_chart_share_hint()}</p>
+        <div className="sec-inf-bars">
+          {items.map((item) => {
+            const sharePct = item.sharePm === null ? 0 : Math.max(0, Math.min(100, item.sharePm / 10));
+            return (
+              <div key={item.stat} className="sec-inf-row" data-stat={item.stat}>
+                <div className="sec-inf-label">
+                  <span className="sec-stat-dot" data-stat={item.stat} aria-hidden="true" />
+                  <strong>{primaryCode(item.stat)}</strong>
+                  <span className="sec-inf-name">{primaryName(item.stat)}</span>
+                </div>
+                <div className="sec-inf-track" title={`${fmtPct.format(sharePct)}%`}>
+                  <div
+                    className="sec-inf-fill sec-inf-fill-share"
+                    style={{ width: `${sharePct}%`, backgroundColor: PRIMARY_COLOR[item.stat] }}
+                  />
+                </div>
+                <div className="sec-inf-nums">
+                  <span className="sec-inf-share">
+                    {item.sharePm === null ? "—" : `${fmtPct.format(sharePct)}%`}
+                  </span>
+                  <span
+                    className="sec-inf-plus"
+                    data-sign={item.plus10 > 0 ? "up" : item.plus10 < 0 ? "down" : "flat"}
+                  >
+                    {m.dev_sec_chart_plus10_col()}: {signedVal(item.plus10, unitKind, locale)}
+                  </span>
+                </div>
               </div>
-              <div className="sec-inf-nums">
-                <span className="sec-inf-share">
-                  {item.sharePm === null ? "—" : `${sharePct.toFixed(1)}%`}
-                </span>
-                <span
-                  className="sec-inf-plus"
-                  data-sign={plusDisplay > 0 ? "up" : plusDisplay < 0 ? "down" : "flat"}
-                >
-                  {m.dev_sec_chart_plus10_col()}: {plusSign}
-                  {fmtVal(plusDisplay, unitKind, locale)}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+        <p className="field-hint">{m.dev_sec_chart_plus10_hint()}</p>
+      </section>
     </section>
   );
 }
@@ -135,11 +197,13 @@ function LevelCurvesChartCard({
   unitKind,
   config,
   locale,
+  head,
 }: {
   curves: readonly ArchetypeLevelCurve[];
   unitKind: "pm" | "x" | "ms" | "points";
   config: SimulationConfig;
   locale: string;
+  head: FormulaHead;
 }) {
   const [hoverLevel, setHoverLevel] = useState<number | null>(null);
   const activeLevel = hoverLevel ?? config.focusLevel;
@@ -173,6 +237,7 @@ function LevelCurvesChartCard({
         <h3>{m.dev_sec_chart_curves_title({ maxLevel: config.maxLevel })}</h3>
         <p className="field-hint">{m.dev_sec_chart_curves_desc()}</p>
       </header>
+      <SecondaryFormulaLine name={head.name} text={head.text} unit={head.unit} formulaId={head.formulaId} />
       <div className="sec-legend">
         {curves.map((c) => {
           const style = ARCHETYPE_STYLES[c.id] ?? { color: "var(--color-text)" };
@@ -450,6 +515,7 @@ function ComparisonMatrixCard({
   selectedRowId,
   config,
   locale,
+  formulaTexts,
   onSelectStat,
 }: {
   bundle: SecondaryChartBundle;
@@ -457,6 +523,7 @@ function ComparisonMatrixCard({
   selectedRowId: string;
   config: SimulationConfig;
   locale: string;
+  formulaTexts: ReadonlyMap<string, FormulaText | null>;
   onSelectStat: (rowId: string) => void;
 }) {
   const rowById = new Map(rows.filter((r) => r.id !== EXCLUDED_STAT_ID).map((r) => [r.id, r]));
@@ -499,6 +566,13 @@ function ComparisonMatrixCard({
                     <button type="button" className="sec-matrix-link" onClick={() => onSelectStat(row.id)}>
                       {name}
                     </button>
+                    <SecondaryFormulaLine
+                      compact
+                      name={name}
+                      text={formulaTexts.get(row.id) ?? null}
+                      unit={row.shape === "probability" || row.id === "crit_multiplier" ? "pm" : "none"}
+                      formulaId={null}
+                    />
                   </td>
                   {archIds.map((archId) => {
                     const cell = entry.values[archId];
@@ -535,6 +609,7 @@ export function SecondaryStatsCharts({
   kMaxPm,
   config,
   locale,
+  formulaTexts,
   onSelectStat,
 }: {
   target: TargetEntry;
@@ -544,12 +619,19 @@ export function SecondaryStatsCharts({
   kMaxPm: number;
   config: SimulationConfig;
   locale: string;
+  formulaTexts: ReadonlyMap<string, FormulaText | null>;
   onSelectStat: (rowId: string) => void;
 }) {
   const unitKind = targetUnitKind(target);
+  const head: FormulaHead = {
+    name: locale === "en" ? target.name.en : target.name.ko,
+    text: formulaTexts.get(target.key) ?? null,
+    unit: targetLineUnit(target),
+    formulaId: target.kind === "combat" ? target.formulaId : null,
+  };
   return (
     <div className="sec-charts-grid">
-      <InfluenceChartCard bundle={bundle} unitKind={unitKind} config={config} locale={locale} />
+      <InfluenceChartCard bundle={bundle} unitKind={unitKind} config={config} locale={locale} head={head} />
       <KBandCard
         kBand={bundle.kBand}
         kMinPm={kMinPm}
@@ -558,7 +640,13 @@ export function SecondaryStatsCharts({
         config={config}
         locale={locale}
       />
-      <LevelCurvesChartCard curves={bundle.curves} unitKind={unitKind} config={config} locale={locale} />
+      <LevelCurvesChartCard
+        curves={bundle.curves}
+        unitKind={unitKind}
+        config={config}
+        locale={locale}
+        head={head}
+      />
       <ProbabilityCurveCard bundle={bundle} config={config} locale={locale} />
       <ComparisonMatrixCard
         bundle={bundle}
@@ -566,6 +654,7 @@ export function SecondaryStatsCharts({
         selectedRowId={target.kind === "stat" ? target.row.id : ""}
         config={config}
         locale={locale}
+        formulaTexts={formulaTexts}
         onSelectStat={onSelectStat}
       />
     </div>

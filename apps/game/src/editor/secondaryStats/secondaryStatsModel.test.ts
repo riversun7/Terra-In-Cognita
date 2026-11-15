@@ -6,6 +6,7 @@ import {
   statFormulaKey,
 } from "@terra/shared/formula";
 import { describe, expect, it } from "vitest";
+import { formulaLine, programText } from "../../roster/formulaLabels.ts";
 import {
   EMPTY_DRAFTS,
   EXCLUDED_STAT_ID,
@@ -16,6 +17,8 @@ import {
   revertTargetDrafts,
   statRowModeOf,
   targetFormulaSourceOf,
+  targetLineUnit,
+  targetProgram,
 } from "./secondaryStatsModel.ts";
 
 const makeTable = (): BalanceTableResponse => ({
@@ -203,5 +206,50 @@ describe("secondaryStatsModel", () => {
     expect(bundle.probabilityCurve).not.toBeNull();
     expect(bundle.probabilityMarker?.cap).toBe(700);
     expect(bundle.matrix.length).toBe(2);
+  });
+
+  it("식 글은 그래프 값을 낸 담은 식에서 나오고, 1:1 식은 분포가 기울어도 가중치가 같다(D-556)", () => {
+    const table = makeTable();
+    const formulas = makeFormulas();
+    const catalog = buildTargetCatalog(table, formulas);
+    const crit = catalog.find((e) => e.key === "combat:bare_crit");
+    const hp = catalog.find((e) => e.key === "hp");
+    if (!crit || crit.kind !== "combat" || !hp) throw new Error("missing target");
+    const config = {
+      archetype: "talent" as const,
+      customWeights: { str: 10, vit: 10, int: 10, wis: 10, dex: 10, agi: 10 },
+      showCustomInCurves: false,
+      initialSum: 60,
+      maxLevel: 60,
+      focusLevel: 60,
+      growthPm: 100,
+      kPm: 1000,
+      showBaseline: false,
+      weaponId: "natural_human",
+    };
+    const bundle = computeChartBundle(crit, table, formulas, EMPTY_DRAFTS, config);
+    const program = targetProgram(crit.key, bundle.programs);
+    if (!program) throw new Error("missing program");
+    const text = programText(program, crit.formulaId);
+    expect(formulaLine("크리 확률", text, targetLineUnit(crit))).toBe("크리 확률 = AGI + DEX (‰)");
+    expect(text.floored).toEqual(["AGI", "DEX"]);
+    const of = (stat: string) => bundle.influence.items.find((item) => item.stat === stat);
+    // 재능계: DEX가 더 자라 기여 몫은 DEX가 크지만, 식의 가중치(1차가 모두 같을 때 +10)는 같다
+    expect(of("dex")?.sharePm ?? 0).toBeGreaterThan(of("agi")?.sharePm ?? 0);
+    expect(of("dex")?.equalPlus10).toBe(10_000);
+    expect(of("agi")?.equalPlus10).toBe(10_000);
+    expect(of("str")?.equalPlus10).toBe(0);
+
+    // 담은 행 식이 바로 글이 된다(값과 같은 식)
+    const drafts = {
+      cellDrafts: new Map<string, number>(),
+      formulaDrafts: new Map([[statFormulaKey("hp"), "100 + VIT * 10 + GEAR + BUFF # 설명"]]),
+    };
+    const hpBundle = computeChartBundle(hp, table, formulas, drafts, config);
+    const hpProgram = targetProgram("hp", hpBundle.programs);
+    if (!hpProgram) throw new Error("missing hp program");
+    const hpText = formulaLine("HP", programText(hpProgram, null));
+    expect(hpText).toMatch(/^HP = 100 \+ VIT × 10 \+ \S+ \+ \S+$/);
+    expect(hpText).not.toContain("#");
   });
 });

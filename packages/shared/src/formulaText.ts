@@ -14,7 +14,18 @@ import {
   type FormulaProgram,
   parseFormula,
 } from "./formulaParse.ts";
-import { type StatRowShape, statRowExpression } from "./formulaSlots.ts";
+import {
+  COMBAT_FORMULA_SLOTS,
+  type FormulaUnit,
+  STAT_FORMULA_VARS,
+  type StatRowShape,
+  isCombatFormulaId,
+  slotVarNames,
+  statRowExpression,
+} from "./formulaSlots.ts";
+
+/** 2차 스탯 행 식의 변수 이름(1차 여섯·LV·GEAR·BUFF) */
+export const STAT_ROW_VAR_NAMES: readonly string[] = STAT_FORMULA_VARS.map((item) => item.name);
 
 export interface FormulaTextOptions {
   /** 변수 이름 → 화면 이름(없으면 이름 그대로) */
@@ -72,6 +83,9 @@ interface Piece {
 }
 
 const atom = (text: string): Piece => ({ text, prec: PREC_ATOM });
+/** 차례가 min보다 낮은 조각은 괄호로 감싼다 */
+const wrap = (piece: Piece, min: number): string => (piece.prec < min ? `(${piece.text})` : piece.text);
+const isZero = (node: FormulaNode): boolean => node.t === "num" && node.raw === 0;
 
 function renderer(options: FormulaTextOptions) {
   const plain = options.plain === true;
@@ -79,7 +93,6 @@ function renderer(options: FormulaTextOptions) {
   const fnLabel = plain ? (fn: FormulaFunction) => fn : (options.fnLabel ?? ((fn: FormulaFunction) => fn));
   const nonNegative = new Set(plain ? [] : (options.nonNegative ?? []));
   const floored: string[] = [];
-  const wrap = (piece: Piece, min: number): string => (piece.prec < min ? `(${piece.text})` : piece.text);
 
   const visit = (node: FormulaNode): Piece => {
     switch (node.t) {
@@ -115,7 +128,7 @@ function renderer(options: FormulaTextOptions) {
       if (fn === "abs") return atom(`|${visit(first).text}|`);
     }
     if (fn === "max" && args.length === 2) {
-      // max(0, X) / max(X, 0): X가 0 이상이 보장된 변수면 X 그대로(값이 같다)
+      // max(0, X) / max(X, 0): X가 nonNegative에 적은 변수면 X로 줄이고 floored에 적는다(화면이 "0 아래면 0" 줄을 붙인다)
       const [a, b] = args;
       const kept = a && b ? (isZero(a) && keeps(b) ? b : isZero(b) && keeps(a) ? a : null) : null;
       if (kept && kept.t === "var") {
@@ -126,7 +139,6 @@ function renderer(options: FormulaTextOptions) {
     return atom(`${fnLabel(fn)}(${args.map((arg) => visit(arg).text).join(", ")})`);
   };
 
-  const isZero = (node: FormulaNode): boolean => node.t === "num" && node.raw === 0;
   const keeps = (node: FormulaNode): boolean => node.t === "var" && nonNegative.has(node.name);
 
   return { render: (node: FormulaNode): string => visit(node).text, floored };
@@ -166,4 +178,19 @@ export function statRowShapeText(
   options: FormulaTextOptions = {},
 ): FormulaText | null {
   return formulaSourceText(statRowExpression(row), allowed, options);
+}
+
+/** 전투 식 글(식 ID가 전투 식이 아니거나 그 칸 변수로 읽히지 않으면 null) */
+export function combatFormulaSourceText(
+  id: string,
+  source: string,
+  options: FormulaTextOptions = {},
+): FormulaText | null {
+  if (!isCombatFormulaId(id)) return null;
+  return formulaSourceText(source, slotVarNames(COMBAT_FORMULA_SLOTS[id]), options);
+}
+
+/** 전투 식 결과 단위(식 ID가 전투 식이 아니면 null) */
+export function combatFormulaUnit(id: string): FormulaUnit | null {
+  return isCombatFormulaId(id) ? COMBAT_FORMULA_SLOTS[id].unit : null;
 }

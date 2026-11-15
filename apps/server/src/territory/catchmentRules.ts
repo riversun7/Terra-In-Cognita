@@ -18,3 +18,15 @@ export function catchmentRadiusRulesOf(
     ? { growth: catchmentGrowthOf(society.worldSeed), territory: society.territory }
     : undefined;
 }
+
+/**
+ * 영토 판정 규칙 셋(영토 계수·1차맵 영토 값·배후지 지금 반경, D-568) — 영토 서비스 만들기 입력에 펼쳐 넣는다(world/world.ts).
+ * 부를 때마다 설정 칸 실효 값을 다시 읽는다
+ */
+export function territoryJudgeOf(society: () => SocietyCoefficients) {
+  return {
+    rules: () => society().territory,
+    mapValues: () => society().territoryDisplay,
+    catchment: () => catchmentRadiusRulesOf(society()),
+  };
+}

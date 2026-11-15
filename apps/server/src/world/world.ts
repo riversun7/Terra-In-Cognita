@@ -88,7 +88,7 @@ import {
   createTerritoryService,
   loadBeacons,
 } from "../territory/service.ts";
-import { catchmentRadiusRulesOf } from "../territory/catchmentRules.ts";
+import { territoryJudgeOf } from "../territory/catchmentRules.ts";
 import { loadRecruitDraws } from "../npc/state.ts";
 import {
   type FacilitiesConfig,
@@ -513,9 +513,7 @@ export function startWorld(
         pool: db,
         writer,
         now,
-        rules: () => societyRules().territory,
-        mapValues: () => societyRules().territoryDisplay, // 1차맵 영토 지도와 같은 값·배후지로 판정(D-568)
-        catchment: () => catchmentRadiusRulesOf(societyRules()),
+        ...territoryJudgeOf(societyRules), // 1차맵 영토 지도와 같은 값·배후지로 판정(D-568)
         beaconFacility: config.territory?.beaconFacility ?? (() => ({ enabled: true, materials: [] })),
         faceLevelOf: (planetId) => faceLevels.get(planetId),
         factionName: (code) => nationName(code, config.npc?.presets),

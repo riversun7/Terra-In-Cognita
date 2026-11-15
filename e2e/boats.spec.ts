@@ -269,19 +269,37 @@ async function dockAndBoat(page: Page, mapKey: number, sites: readonly Site[], f
     expect(readyAtMs, "만드는 중(readyAtMs)").toBeGreaterThan(0);
     expect(field(made[2], "boatId")).toBeUndefined();
     expect(made[3]).toMatchObject({ t: "boat_result", ok: false, code: "dock_busy", readyAtMs });
+    // 다 된 배는 조선소 도크에 든다(D-559 1523) — 2차맵에 뜨지 않고, 출고해야 뜬다
     let boatId = 0;
     await expect
       .poll(
         async () => {
-          boatId = (await boatIds(page, mapKey)).find((boat) => !before.has(boat)) ?? 0;
+          const panel = field(await trpcQuery(page, "gather.building", { buildingId }), "harbor");
+          const docked = field(panel, "docked");
+          const ready = Array.isArray(docked)
+            ? docked.find((row: unknown) => field(row, "repairUntil") === null)
+            : undefined;
+          boatId = Number(field(ready, "boatId") ?? 0);
           return boatId;
         },
         { timeout: 180_000, intervals: [1_000] },
       )
       .toBeGreaterThan(0);
-    console.log(
-      `[boats] boat ${String(boatId)} launched (build ${String(readyAtMs - Date.now())} ms left at check)`,
+    expect(new Set(await boatIds(page, mapKey))).toEqual(before);
+    const released = await sendCommands(
+      page,
+      [
+        { t: "subscribe", mapKey, observe: true },
+        { t: "boat_release", boatId },
+        { t: "boat_release", boatId },
+      ],
+      id,
     );
+    id += 10;
+    expect(released[1]).toMatchObject({ t: "boat_result", ok: true, boatId });
+    expect(released[2]).toMatchObject({ t: "boat_result", ok: false, code: "not_docked" });
+    await expect.poll(async () => await boatIds(page, mapKey), { timeout: 30_000 }).toContain(boatId);
+    console.log(`[boats] boat ${String(boatId)} released from the dock`);
     return { buildingId, boatId, site, nextId: id };
   }
   throw new Error("조선소를 지을 물가 자리가 없다");
@@ -292,7 +310,7 @@ for (const theme of ["pastel", "dark"] as const) {
     // admin 계정: dev 계정의 "내 유닛이 없는 2차맵" 시험(play-map.spec.ts)이 이 시험이 남긴 바닷가 유닛(시작 도시 옆)에 걸리지 않게
     test.use({ account: "admin", theme, language: "ko" });
 
-    test(`운영자: 조선소 → 배 만들기 → 타기 → 물 위로 → 내리기 → 정박장·교역 부두 (${theme})`, async ({
+    test(`운영자: 조선소 → 배 만들기 → 도크에서 출고 → 타기 → 물 위로 → 내리기 → 정박장·교역 부두 (${theme})`, async ({
       page,
       deviceErrors,
     }) => {
@@ -391,6 +409,17 @@ for (const theme of ["pastel", "dark"] as const) {
       await expect(yard.locator('[data-boat-type="rowboat"]')).toBeVisible();
       if (againReady > Date.now() + 1_500)
         await expect(yard.locator(".boat-progress")).toBeVisible({ timeout: 3_000 });
+      // 다 되면 도크에 든 배 줄과 [출고](D-559 1523) — 판을 다시 열어 본다
+      await page.locator(".gather-sheet-close").click();
+      await page.waitForTimeout(Math.max(0, againReady - Date.now()) + 1_500);
+      await openBuildingFromList(page, buildingId);
+      await expect(yard.locator(".harbor-release")).toBeVisible({ timeout: 15_000 });
+      await expect(yard.locator(".harbor-capacity")).toHaveAttribute("data-used", "1");
+      await page.waitForTimeout(500);
+      await shot(page, `boats-dock-390-${theme}`);
+      await yard.locator(".harbor-release").first().click();
+      await expect(yard.locator(".boat-notice")).toBeVisible({ timeout: 15_000 });
+      await expect(yard.locator(".harbor-release")).toHaveCount(0, { timeout: 15_000 });
       await page.locator(".gather-sheet-close").click();
       // 내리기(배를 다시 고르고 단추)
       await pickMyUnit(page, String(boatId));

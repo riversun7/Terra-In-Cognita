@@ -160,6 +160,11 @@ export function createBattleTally(
         down: isDown(target),
       });
     },
+    collision(source, target, amount) {
+      // 밀치기 부딪힘 피해(D-564 1587): 밀어낸 유닛의 피해로 센다. 줄은 지속 피해 줄과 같은 모양
+      harm(source.id, target, amount);
+      log({ kind: "dot", tick: options.tick(), unit: target.id, damage: amount, down: isDown(target) });
+    },
   };
   return { trace, report: () => ({ units: rows, events, eventsDropped: dropped }) };
 }

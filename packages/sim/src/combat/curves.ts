@@ -33,6 +33,23 @@ export interface MoveCoefficients {
   readonly multishot: { readonly stepPm: number; readonly minPm: number };
   /** 가까이 쏘기: 사거리 2 이상 스킬이 거리 ≤ cells인 대상에 + bonusPm */
   readonly closeShot: { readonly cells: number; readonly bonusPm: number };
+  /**
+   * 밀치기 부딪힘 피해(D-564 1587): 밀려 가다 벽(못 지나가는 칸·건물)에 막히면 밀어낸 한 방 피해 × wallPm, 다른 유닛에 막히면 밀린 대상과
+   * 막은 유닛(시전자의 적일 때만)이 한 방 피해 × unitPm을 받는다(방어를 거치지 않고 체력에서, 지속 피해와 같다)
+   */
+  readonly knockback: { readonly wallPm: number; readonly unitPm: number };
+  /**
+   * 밀림 저항(D-564 1588, 상태이상 저항 D-429와 같은 모양): 점수 = ⌊(STR × strPm + VIT × vitPm) ÷ 1000⌋, 저항 = capPm × 점수 ÷
+   * (점수 + halfConstant). 몸 저항(큰 몸·보스)을 더해 1000에서 자른다. 밀치기·끌어오기 칸 수와 묶기 지속을 (1000 − 저항)‰로 줄인다
+   */
+  readonly resist: {
+    readonly capPm: number;
+    readonly halfConstant: number;
+    readonly strPm: number;
+    readonly vitPm: number;
+  };
+  /** 몸 저항(D-564 1588 "큰 몸·보스는 덜 밀림", 크기 D-5023 S·M·L·XL): L·XL 몸과 보스 등급이 더하는 밀림 저항(‰) */
+  readonly body: { readonly largePm: number; readonly hugePm: number; readonly bossPm: number };
 }
 
 /** [임시] 출발값(ADR 3절 표). 팩 tuning `moves_*`가 같은 값이다 */
@@ -45,6 +62,9 @@ export const DEFAULT_MOVE_COEFFICIENTS: MoveCoefficients = {
   dotTotal: { freeMs: 3000, stepPm: 50, minPm: 500 },
   multishot: { stepPm: 150, minPm: 300 },
   closeShot: { cells: 2, bonusPm: 200 },
+  knockback: { wallPm: 200, unitPm: 150 },
+  resist: { capPm: 600, halfConstant: 100, strPm: 500, vitPm: 1000 },
+  body: { largePm: 250, hugePm: 500, bossPm: 300 },
 };
 
 /** 계수표에 moves가 없으면(옛 계수표) 출발값 */
@@ -88,6 +108,25 @@ export function multishotPm(shots: number, m: MoveCoefficients): number {
 /** 가까이 쏘기 배율(‰): 사거리 2 이상이고 거리 ≤ cells면 1000 + bonusPm, 아니면 1000 */
 export function closeShotPm(skillRange: number, distance: number, m: MoveCoefficients): number {
   return skillRange >= 2 && distance <= m.closeShot.cells ? 1000 + m.closeShot.bonusPm : 1000;
+}
+
+/** 몸 크기(크리쳐 D-5023). 사람형은 M */
+export type BodySize = "S" | "M" | "L" | "XL";
+
+/** 몸 저항(‰, D-564 1588): L·XL 크기와 보스 등급(boss 이상)이 더한다. 1000에서 자른다 */
+export function bodyDisplaceResistPm(size: BodySize | undefined, boss: boolean, m: MoveCoefficients): number {
+  const bySize = size === "XL" ? m.body.hugePm : size === "L" ? m.body.largePm : 0;
+  return Math.max(0, Math.min(1000, bySize + (boss ? m.body.bossPm : 0)));
+}
+
+/**
+ * 밀림 저항(‰, D-564 1588): 1차 스탯 점수(상태이상 저항 D-429 모양) + 몸 저항, 0~1000. primaries = [STR, DEX, AGI, VIT, INT, WIS]
+ */
+export function displaceResistPm(primaries: readonly number[], bodyPm: number, m: MoveCoefficients): number {
+  const r = m.resist;
+  const score = Math.floor(((primaries[0] ?? 0) * r.strPm + (primaries[3] ?? 0) * r.vitPm) / 1000);
+  const statPm = score <= 0 ? 0 : Math.floor((r.capPm * score) / (score + Math.max(1, r.halfConstant)));
+  return Math.max(0, Math.min(1000, statPm + Math.max(0, bodyPm)));
 }
 
 /** 배율 곱(버림): value × pm ÷ 1000 */

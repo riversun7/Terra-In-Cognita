@@ -92,10 +92,12 @@ const toPrimaries = (value: Readonly<Record<PrimaryStat, number>>): Primaries =>
   wis: value.wis,
 });
 
-/** 직접 값 공격력 칸 → 판정 칸 */
-const specField = (value: LabCustomWeapon["physical"]) => (value ? { attack: value.attack } : undefined);
+/** 직접 값 공격력 칸 → 판정 칸(피해 방식 D-568은 적었을 때만) */
+const specField = (value: LabCustomWeapon["physical"]) =>
+  value ? { attack: value.attack, ...(value.damage ? { damage: value.damage } : {}) } : undefined;
 /** 판정 칸 → 직접 값 공격력 칸 */
-const customField = (value: WeaponSpec["physical"]) => (value ? { attack: value.attack } : null);
+const customField = (value: WeaponSpec["physical"]) =>
+  value ? { attack: value.attack, ...(value.damage ? { damage: value.damage } : {}) } : null;
 
 /** 직접 값 1차 적정 스탯(0 = 없음) → 판정 칸(적은 칸만, 다 0이면 없음) */
 function specAppropriate(value: LabCustomWeapon["appropriate"]): WeaponSpec["appropriate"] {

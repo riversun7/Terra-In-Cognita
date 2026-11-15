@@ -165,7 +165,7 @@ describe("전투 분류", () => {
       ).toHaveLength(1);
   });
 
-  it("스킬 기반(D-463)은 물리·속성 둘 중 하나이고, 피해를 주는 스킬은 피해 종류와 기반이 같다", () => {
+  it("스킬 기반(D-463)은 물리·속성 둘 중 하나이고, 피해 종류와 따로 고른다(D-568 계열과 피해 방식은 별개)", () => {
     const strike = { ...skill("guard"), shape: "single", trigger: "active", target: "enemy", range: 1 };
     const ok = issuesOf({
       "effects.json": { entries: [effect({})] },
@@ -173,11 +173,17 @@ describe("전투 분류", () => {
       "items.json": { entries: [item({ slot: "body", stats: [], skills: ["iron_skin"] })] },
     });
     expect(ok.filter((issue) => issue.level === "error" && issue.file === "skills.json")).toEqual([]);
-    const mixed = issuesOf({
-      "effects.json": { entries: [effect({})] },
-      "skills.json": { entries: [{ ...strike, damage: "physical", base: "elemental" }] },
-    });
-    expect(mixed.some((issue) => issue.file === "skills.json" && issue.path === "base")).toBe(true);
+    // INT 기반 둔기 기술의 물리 피해·STR 기반 마검 기술의 속성 피해(D-568)
+    for (const [damage, base] of [
+      ["physical", "elemental"],
+      ["elemental", "physical"],
+    ]) {
+      const mixed = issuesOf({
+        "effects.json": { entries: [effect({})] },
+        "skills.json": { entries: [{ ...strike, damage, base }] },
+      });
+      expect(mixed.filter((issue) => issue.level === "error" && issue.file === "skills.json")).toEqual([]);
+    }
     const missing = issuesOf({
       "effects.json": { entries: [effect({})] },
       "skills.json": { entries: [{ ...strike, base: undefined }] },
@@ -349,6 +355,14 @@ describe("전투 분류", () => {
     // D-502 전의 2차 적정치 칸(attackAppropriate·hitAppropriate 등)도 받지 않는다(DB 옛 줄은 서버가 켤 때 고쳐 읽는다)
     expect(weaponIssues({ physical: { attack: 20, attackAppropriate: 40 } }).length).toBeGreaterThan(0);
     expect(weaponIssues({ physical: PHYSICAL, hitAppropriate: 50 }).length).toBeGreaterThan(0);
+  });
+
+  it("무기 칸 피해 방식(D-568)·기본 공격 곡선(D-564 1594): 물리·속성, range_interval만", () => {
+    expect(weaponIssues({ physical: { attack: 20, damage: "elemental" } })).toEqual([]);
+    expect(weaponIssues({ elemental: { attack: 20, damage: "physical" } })).toEqual([]);
+    expect(weaponIssues({ physical: { attack: 20, damage: "none" } }).length).toBeGreaterThan(0);
+    expect(weaponIssues({ physical: PHYSICAL, curves: ["range_interval"] })).toEqual([]);
+    expect(weaponIssues({ physical: PHYSICAL, curves: ["magic_distance"] }).length).toBeGreaterThan(0);
   });
 
   it("무기 1차 적정 스탯(D-502): str·int·dex·agi만, 1 이상, 적어도 하나", () => {

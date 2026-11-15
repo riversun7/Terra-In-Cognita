@@ -16,6 +16,13 @@ import {
   staminaScore,
 } from "./coefficients.ts";
 import { UNARMED, UNARMED_ELEMENTAL } from "./catalog.ts";
+import {
+  type BodySize,
+  bodyDisplaceResistPm,
+  moveCoefficientsOf,
+  rangeIntervalPm,
+  scalePm,
+} from "./curves.ts";
 import { commandCapOf } from "./command.ts";
 import { type AttackProfile, ELEMENT_COUNT } from "./formula.ts";
 import {
@@ -32,9 +39,17 @@ import type { Primaries } from "./stats.ts";
 /** 공격력 칸 종류(D-465): 물리 = 물리 공격력, 속성 = 속성 공격력(m.atk) */
 export type AttackField = AttackProfile["kind"];
 
-/** 무기 공격력 칸 하나(D-465): 무기 공격력(공격력 = 스탯 공격력 + 이 값 × 적정 비율, D-502) */
+/** 무기가 고르는 곡선(기본 공격): 사거리 ↔ 공격 간격 예산만 */
+export type WeaponCurve = "range_interval";
+
+/**
+ * 무기 공격력 칸 하나(D-465): 무기 공격력(공격력 = 스탯 공격력 + 이 값 × 적정 비율, D-502). 칸 종류(물리·속성)는 계열(어느 스탯 공격력·
+ * 적정 1차로 세나: 물리 칸 = STR·VIT·적정 STR, 속성 칸 = INT·WIS·적정 INT)이고, damage는 이 칸으로 하는 기본 공격의 피해 방식이다
+ * (D-568: 계열과 피해 방식은 별개 — STR 마검의 속성 피해, INT 메이스의 물리 피해). 없으면 칸 종류와 같다(옛 자료 그대로)
+ */
 export interface WeaponAttackField {
   readonly attack: number;
+  readonly damage?: AttackField | undefined;
 }
 
 /**
@@ -63,6 +78,11 @@ export interface WeaponSpec {
   readonly critPm: number;
   /** 기본 공격 간격(ms) */
   readonly intervalMs: number;
+  /**
+   * 기본 공격이 고른 계수 곡선(D-564 1594·D-557 "사정거리가 길면 공격속도가 낮게", D-568 무기가 정함): range_interval이면 공격 간격 ×
+   * 사거리 예산(curves.ts rangeIntervalPm). 없으면 옛 간격 그대로
+   */
+  readonly curves?: readonly WeaponCurve[] | undefined;
   readonly range: number;
   readonly arc: boolean;
   /** 공격 한 번에 드는 스태미나(걷기 말고 모든 행동, D-418)·MP(속성) */
@@ -112,6 +132,10 @@ export interface UnitBody {
   /** 레벨(맨손 적정 DEX·AGI bare_appropriate D-502, 적정 STA 점수 stamina_appropriate D-511). 없으면 1 */
   readonly level?: number | undefined;
   readonly skills?: readonly CombatSkill[] | undefined;
+  /** 몸 크기(크리쳐 D-5023 S·M·L·XL, 밀림 저항 D-564 1588). 없으면 M */
+  readonly size?: BodySize | undefined;
+  /** 보스 등급 이상(크리쳐 grade boss·legendary·mythic, 밀림 저항). 없으면 거짓 */
+  readonly boss?: boolean | undefined;
 }
 
 const ZERO = Array.from({ length: ELEMENT_COUNT }, () => 0);
@@ -170,8 +194,9 @@ export function specFromStats(
    */
   const profileOf = (weapon: WeaponSpec, kind: AttackField, field: WeaponAttackField): AttackProfile => {
     const appropriate = appropriateMilliOf(weapon, kind, bareMilli);
+    // 피해 방식은 칸의 damage(D-568), 스탯 공격력·적정 1차는 칸 종류(계열)
     return {
-      kind,
+      kind: field.damage ?? kind,
       statAttack: kind === "physical" ? s("physical_attack") : s("elemental_attack"),
       weaponAttack: weapon.unarmed === true ? 0 : field.attack,
       attackPrimary: kind === "physical" ? (primaries[0] ?? 0) : (primaries[4] ?? 0),
@@ -248,10 +273,13 @@ export function specFromStats(
     range: w.range,
     arc: w.arc,
     // 맨손 기본 공격은 맨손 식 bare_interval(사용자 답 1252 — AGI 10 → 2초, 20 → 0.5초, 0.25~5초), 무기·발톱은 attack_interval
-    attackIntervalMs:
+    attackIntervalMs: weaponRangeInterval(
+      w,
       w.unarmed === true
         ? bareIntervalMs(w.intervalMs, primaries[2] ?? 0, body.level ?? 1, c)
         : attackIntervalMs(w.intervalMs, primaries[2] ?? 0, appropriateMilliOf(w, basic, bareMilli).agi, c),
+      c,
+    ),
     // 전투맵 걸음도 AGI(사용자 1265, D-553): 몸의 기본 간격(1초)을 실효 AGI의 걷기 식으로 줄인다
     moveIntervalMs: battleMoveIntervalMs(body.moveIntervalMs, primaries[2] ?? 0, c),
     staminaMax: Math.max(0, s("stamina")),
@@ -275,6 +303,20 @@ export function specFromStats(
     cyborg: body.cyborg ?? false,
     buildingMulPm: body.buildingMulPm ?? 1000,
     primaries,
+    // 몸 밀림 저항(D-564 1588): 크기·보스가 있을 때만 칸을 둔다
+    ...bodyResist(body, c),
     skills: body.skills ?? [],
   };
+}
+
+/** 무기가 사거리 예산 곡선을 골랐으면 간격 × rangeIntervalPm(사거리), 아니면 그대로 */
+function weaponRangeInterval(weapon: WeaponSpec, intervalMs: number, c: CombatCoefficients): number {
+  if (weapon.curves?.includes("range_interval") !== true) return intervalMs;
+  return scalePm(intervalMs, rangeIntervalPm(weapon.range, moveCoefficientsOf(c)));
+}
+
+/** 몸 밀림 저항 칸(0이면 칸 없음) */
+function bodyResist(body: UnitBody, c: CombatCoefficients): { displaceResistPm?: number } {
+  const pm = bodyDisplaceResistPm(body.size, body.boss === true, moveCoefficientsOf(c));
+  return pm > 0 ? { displaceResistPm: pm } : {};
 }

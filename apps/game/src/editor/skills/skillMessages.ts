@@ -40,6 +40,12 @@ export const TARGET_TEXT: Readonly<Record<SkillJson["target"], Text>> = {
   ally: m.dev_skills_target_ally,
 };
 
+/** 기반 = 계열(D-568: 피해 방식과 따로) */
+export const BASE_TEXT: Readonly<Record<SkillJson["base"], Text>> = {
+  physical: m.dev_skills_base_physical,
+  elemental: m.dev_skills_base_elemental,
+};
+
 export const DAMAGE_TEXT: Readonly<Record<SkillJson["damage"], Text>> = {
   physical: m.dev_skills_damage_physical,
   elemental: m.dev_skills_damage_elemental,

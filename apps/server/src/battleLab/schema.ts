@@ -14,7 +14,11 @@ const twelve = (item: z.ZodInt) => z.array(item).length(12).readonly();
 const primaries = (item: z.ZodInt) =>
   z.strictObject({ str: item, vit: item, int: item, wis: item, dex: item, agi: item });
 
-const weaponField = z.strictObject({ attack: int(0, L.valueMax) });
+/** 무기 공격력 칸: 공격력과 기본 공격 피해 방식(D-568, 없으면 칸 종류와 같다) */
+const weaponField = z.strictObject({
+  attack: int(0, L.valueMax),
+  damage: z.enum(["physical", "elemental"]).optional(),
+});
 /** 무기 1차 적정 스탯(D-502: str 물리 공격·int 속성 공격·dex 명중·크리·agi 공격 간격). 0 = 그 몫 적정 없음(비율 100%) */
 const weaponAppropriate = z.strictObject({
   str: int(0, L.valueMax),

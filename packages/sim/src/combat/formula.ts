@@ -26,7 +26,10 @@ export const ELEMENT_COUNT = 12;
 export const FAMILY_COUNT = 6;
 
 export interface AttackProfile {
-  /** 물리 = 물리 몫(+ 옵션 속성 몫), 속성 = 속성 몫만(D-459) */
+  /**
+   * 피해 방식(D-459·D-568): 물리 = 물리 몫(+ 옵션 속성 몫), 속성 = 속성 몫만. 무기 칸(공격력·적정 1차를 정하는 계열)과 따로다 —
+   * 무기 칸의 damage(기본 = 칸 종류)·스킬 피해 종류가 정한다
+   */
   readonly kind: "physical" | "elemental";
   /** 스탯 공격력(2차 스탯 물리·속성 공격력, D-502 큰 몫) */
   readonly statAttack: number;
@@ -448,8 +451,8 @@ export function withDefenseModifiers(defense: DefenseProfile, mods: Modifiers): 
 export interface SkillFormula {
   readonly damage: "physical" | "elemental" | "none";
   /**
-   * 기반(D-463 211): physical = 물리 공격 사양(든 물리 무기, 없으면 맨손)과 물리 공격력, elemental = 속성 공격 사양(든 속성 무기,
-   * 없으면 맨손 속성 자료)과 속성 공격력(m.atk). 피해를 주는 스킬은 피해 종류와 같다(팩 검사)
+   * 기반(D-463 211): physical = 물리 공격 사양(든 무기의 물리 칸, 없으면 맨손)과 물리 공격력(STR·VIT), elemental = 속성 공격 사양(든
+   * 무기의 속성 칸, 없으면 맨손 속성 자료)과 속성 공격력(INT·WIS, m.atk). 피해 종류(damage)와 따로 고른다(D-568)
    */
   readonly base: "physical" | "elemental";
   /** 공격력 × 배율(‰, 스킬 배율 칸) */
@@ -463,13 +466,15 @@ export interface SkillFormula {
 }
 
 /**
- * 스킬 한 번의 공격 사양: 그 스킬 기반의 공격 사양(물리 기반 = 물리 무기, 속성 기반 = 속성 무기·맨손 속성, D-463)에 공식 부품을
- * 얹는다. 속성 계수는 그 무기의 옵션 + 스킬 계수(칸마다 더함, D-457). 물리 기반은 P와 옵션·스킬 계수의 E, 속성 기반은 E만(D-459)
+ * 스킬 한 번의 공격 사양: 그 스킬 기반의 공격 사양(물리 기반 = 물리 무기 칸·물리 공격력, 속성 기반 = 속성 무기 칸·속성 공격력, D-463)에
+ * 공식 부품을 얹는다. 속성 계수는 그 무기의 옵션 + 스킬 계수(칸마다 더함, D-457).
+ * 피해 방식은 스킬의 피해 종류(damage)가 정한다(D-568: 계열과 피해 방식은 별개 — STR 기반 마검 기술의 속성 피해, INT 기반 둔기 기술의
+ * 물리 피해). 물리 피해는 P와 옵션·스킬 계수의 E, 속성 피해는 E만(D-459). 피해 없는 스킬은 기반 그대로(쓰지 않는 값)
  */
 export function skillAttack(base: AttackProfile, skill: SkillFormula): AttackProfile {
   return {
     ...base,
-    kind: skill.base,
+    kind: skill.damage === "none" ? skill.base : skill.damage,
     weaponAttack: base.weaponAttack + skill.weaponAdd,
     skillMulPm: skill.attackMulPm,
     penetrationPm: base.penetrationPm + skill.penetrationPm,

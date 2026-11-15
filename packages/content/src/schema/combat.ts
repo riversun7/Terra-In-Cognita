@@ -289,8 +289,8 @@ export const skillEntrySchema = z
       .optional(),
     damage: z.enum(["physical", "elemental", "none"]),
     /**
-     * 기반(D-463): physical = 든 무기의 물리 칸과 물리 공격력, elemental = 든 무기의 속성 칸과 속성 공격력(m.atk).
-     * 피해를 주는 스킬은 damage와 같아야 한다
+     * 기반(D-463): physical = 든 무기의 물리 칸과 물리 공격력(STR·VIT), elemental = 든 무기의 속성 칸과 속성 공격력(INT·WIS, m.atk).
+     * 피해 종류(damage)와 따로 고른다(D-568: 계열과 피해 방식은 별개)
      */
     base: z.enum(["physical", "elemental"]),
     /**
@@ -347,21 +347,23 @@ export const skillEntrySchema = z
         message:
           "피해를 주는 스킬의 필요한 무기 칸(weaponField)은 기반(base)과 같아야 합니다(그 칸의 공격력으로 피해를 셉니다, D-490).",
       });
-    if (damage !== base)
-      ctx.addIssue({
-        code: "custom",
-        path: ["base"],
-        message:
-          "피해를 주는 스킬은 기반(base)이 피해 종류(damage)와 같아야 합니다(D-463: 물리 기반 → 물리 몫, 속성 기반 → 속성 몫).",
-      });
+    // 기반(계열: 어느 무기 칸·스탯 공격력으로 세나)과 피해 종류(물리·속성 피해 방식)는 따로 고른다(D-568 — STR 기반 마검 기술의 속성
+    // 피해, INT 기반 둔기 기술의 물리 피해). 옛 검사 "damage = base"는 없앴다
   });
 export type SkillEntry = z.output<typeof skillEntrySchema>;
 
-/** 무기 공격력 칸 하나(D-465): 무기 공격력. 공격력 = 스탯 공격력 + 이 값 × 적정 비율(D-502) */
+const attackFieldKind = z.enum(["physical", "elemental"]);
+/**
+ * 무기 공격력 칸 하나(D-465): 무기 공격력. 공격력 = 스탯 공격력 + 이 값 × 적정 비율(D-502). 칸 종류는 계열(물리 칸 = STR·VIT 물리
+ * 공격력·적정 STR, 속성 칸 = INT·WIS 속성 공격력·적정 INT)이고, damage는 이 칸으로 하는 기본 공격의 피해 방식이다(D-568: 계열과 피해
+ * 방식은 별개 — STR 마검의 속성 피해, INT 메이스의 물리 피해). 없으면 칸 종류와 같다
+ */
 const weaponAttackField = z.strictObject({
   attack: z.int().min(0).max(1_000_000),
+  damage: attackFieldKind.optional(),
 });
-const attackFieldKind = z.enum(["physical", "elemental"]);
+/** 무기 기본 공격이 고르는 곡선(D-564 1594): 사거리 ↔ 공격 간격 예산만 */
+export const WEAPON_CURVE_IDS = ["range_interval"] as const;
 
 /** 무기 적정 스탯 칸(몫 차례: 물리 공격·속성 공격·명중과 크리·공격 간격) */
 export const WEAPON_APPROPRIATE_CODES = ["str", "int", "dex", "agi"] as const;
@@ -402,6 +404,11 @@ const weaponBody = {
   skillElementsPm: z.array(permille).length(12).optional(),
   /** 1차 적정 스탯(D-502, 위) */
   appropriate: weaponAppropriateSchema.optional(),
+  /**
+   * 기본 공격 곡선(D-564 1594 → D-557 "사정거리가 길면 공격속도가 낮게", D-568 무기가 정함): range_interval이면 공격 간격 × 사거리 예산
+   * (설정 칸 moves_range_interval_*). 없으면 옛 간격 그대로
+   */
+  curves: z.array(z.enum(WEAPON_CURVE_IDS)).max(WEAPON_CURVE_IDS.length).optional(),
 };
 
 /**

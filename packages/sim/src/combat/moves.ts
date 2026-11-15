@@ -1,4 +1,6 @@
-// 이동 부품·달리기·은신 판정 — docs/adr/2026-11-15-combat-moves.md 1·2절. battle.ts가 부른다.
+// 이동 부품·달리기·은신 판정 — docs/adr/2026-11-15-combat-moves.md 1·2절과 "바뀜 (D-564·D-568)". battle.ts가 부른다.
+// D-564: 은신은 맞아도 풀리지 않는다, 점멸은 사정거리(cells) 안 아군 시야 칸, 도약은 성벽까지 넘는다, 돌진은 아군에도 막힌다,
+// 밀치기는 벽·뒤 유닛에 부딪히면 피해, 큰 몸·보스·상태이상 저항(STR·VIT)이 밀치기·끌어오기·묶기를 줄인다.
 // 모두 칸 단위 정수다. 굴림을 뽑지 않고, 후보 칸은 (점수, 시작에서 거리, 칸 번호) 차례로 고른다 → 같은 입력이면 같은 칸.
 // 새 상태 칸(running·stealthUntilMs·detectUntilMs·detectCells)은 켜졌을 때만 둔다(안 쓰는 전투의 상태 JSON이 그대로).
 // 곧은 줄은 주축 좌표가 한 칸씩, 부축은 반올림(정수)이다(시선 los.ts와 같은 모양). 걸음마다 모서리 규칙(fields.ts stepAllowed)과
@@ -7,7 +9,7 @@ import type { BattleMap } from "./battleMap.ts";
 import type { BattleTrace } from "./battleTrace.ts";
 import type { UnitState } from "./battleTypes.ts";
 import { type CombatCoefficients, specStaminaCostMilli } from "./coefficients.ts";
-import { moveCoefficientsOf, scalePm } from "./curves.ts";
+import { displaceResistPm, moveCoefficientsOf, scalePm } from "./curves.ts";
 import { type EffectDef, applyEffect, moveIntervalMs } from "./effects.ts";
 import { stepAllowed } from "./fields.ts";
 import { sightRadius } from "./formula.ts";
@@ -111,12 +113,21 @@ function walkLine(
   return moved;
 }
 
-/** 줄에 무너지지 않은 건물 칸이 있나(도약은 성벽·성문을 넘지 않는다) */
-function crossesBuilding(world: MoveWorld, x0: number, y0: number, x1: number, y1: number): boolean {
+/**
+ * 칸이 이 편 시야 안인가(점멸, D-564 1585 "아군 시야 내"): 산 같은 편 유닛 누구라도 시야 반지름(높이 보너스 포함, sight.ts와 같은
+ * dx² + dy² ≤ r² + r) 안이고 시선이 열려 있으면. 수풀은 칸을 가리지 않는다(유닛을 숨길 뿐)
+ */
+function seenBySide(world: MoveWorld, side: number, x: number, y: number): boolean {
   const size = world.map.size;
-  for (const [x, y] of lineCells(x0, y0, x1, y1)) {
-    const building = world.map.buildingAt[y * size + x] ?? 0;
-    if (building > 0 && !world.gone.has(building)) return true;
+  const ground = world.map.height[y * size + x] ?? 0;
+  for (const ally of world.units) {
+    if (ally.side !== side || ally.status !== "alive") continue;
+    const dx = ally.x - x;
+    const dy = ally.y - y;
+    const heightDiff = ally.air ? 0 : (world.map.height[ally.y * size + ally.x] ?? 0) - ground;
+    const r = sightRadius(ally.sight, heightDiff, world.c);
+    if (dx * dx + dy * dy > r * r + r) continue;
+    if (lineClear(world.map, ally, { x, y, eye: ally.eye, air: false }, world.gone)) return true;
   }
   return false;
 }
@@ -171,31 +182,24 @@ export function performMotion(
   } else if (move.kind === "backstep") {
     walkLine(world, unit, awayLine(unit.x, unit.y, goal.x, goal.y, cells), () => false);
   } else if (move.kind === "leap") {
+    // 도약: 길을 보지 않는다 — 유닛·바위·나무·수풀에 더해 성벽·성문도 넘는다(D-564 1586·D-568). 내릴 칸만 설 수 있으면 된다
     const spot = bestCell(
       world,
       unit,
       cells,
       (x, y) => chebyshev(x, y, goal.x, goal.y),
-      (x, y) => !crossesBuilding(world, fromX, fromY, x, y),
+      () => true,
     );
     if (spot) relocate(world, unit, spot[0], spot[1]);
   } else {
-    // 점멸: 자기 시야 반지름 안(시야 판정과 같은 dx² + dy² ≤ r² + r)·시선이 열린 칸
-    const r = sightRadius(unit.sight, 0, world.c);
+    // 점멸: 사정거리(cells) 안이고 아군(자기 포함) 누구라도 보는 칸(D-564 1585)
     const toward = move.dir === "toward";
     const spot = bestCell(
       world,
       unit,
       cells,
       (x, y) => (toward ? 1 : -1) * chebyshev(x, y, goal.x, goal.y),
-      (x, y) => {
-        const dx = x - fromX;
-        const dy = y - fromY;
-        return (
-          dx * dx + dy * dy <= r * r + r &&
-          lineClear(world.map, unit, { x, y, eye: unit.eye, air: unit.air }, world.gone)
-        );
-      },
+      (x, y) => seenBySide(world, unit.side, x, y),
     );
     if (spot) relocate(world, unit, spot[0], spot[1]);
   }
@@ -206,7 +210,7 @@ export function performMotion(
   return world.reach(unit, goal, skillRange);
 }
 
-/** 묶기(displace root)가 거는 상태이상(효과 사전 root와 같은 판정, 저항 없음 [임시] 질문 1588) */
+/** 묶기(displace root)가 거는 상태이상(효과 사전 root와 같은 판정). 저항은 지속을 줄인다(D-564 1588) */
 const MOVE_ROOT: EffectDef = {
   id: "move_root",
   kind: "status",
@@ -218,30 +222,92 @@ const MOVE_ROOT: EffectDef = {
   status: "root",
 };
 
-/** 맞은 대상 하나를 옮긴다(밀치기·끌어오기) 또는 묶는다. 쓰러진 대상은 그대로 */
+/** 부딪힘 피해의 리플레이·보고서 이름(지속 피해 사건으로 싣는다, 효과 사전에는 없다) */
+export const MOVE_COLLISION = "move_collision";
+
+/** 이 유닛의 밀림 저항(‰): STR·VIT 점수 + 몸 저항(큰 몸·보스), 0~1000 */
+export function unitDisplaceResistPm(unit: UnitState, c: CombatCoefficients): number {
+  return displaceResistPm(unit.primaries, unit.displaceResistPm ?? 0, moveCoefficientsOf(c));
+}
+
+/** 저항을 거친 값: ⌊값 × (1000 − 저항) ÷ 1000⌋ */
+const resisted = (value: number, resistPm: number): number =>
+  Math.floor((Math.max(0, value) * (1000 - Math.min(1000, Math.max(0, resistPm)))) / 1000);
+
+/**
+ * 부딪힘 피해(D-564 1587): 방어를 거치지 않고 체력에서 뺀다(지속 피해와 같다 — 아머·쉴드는 그대로). 0이면 아무것도 하지 않는다.
+ * 쓰러지면 대기 명령을 비운다(takeDamage와 같다). 관찰자에게 밀어낸 유닛과 함께 알린다
+ */
+function impact(world: MoveWorld, source: UnitState, unit: UnitState, amount: number): void {
+  if (amount <= 0 || unit.status !== "alive") return;
+  const before = unit.hp;
+  unit.hp -= amount;
+  if (unit.hp <= 0) {
+    unit.hp = 0;
+    unit.status = "down";
+    unit.command = null;
+  }
+  world.trace?.collision?.(source, unit, before - unit.hp);
+}
+
+/** 밀려 가다 멈춘 까닭: 다 감(null), 벽(못 지나가는 칸·건물·모서리 규칙), 다른 유닛, 전투맵 끝 */
+type PushStop = { readonly kind: "wall" } | { readonly kind: "unit"; readonly blocker: number } | null;
+
+/** 밀린 대상이 줄의 다음 칸으로 못 간 까닭(지형이 막으면 벽, 지형은 열렸는데 점유면 유닛, 맵 밖이면 끝 = 피해 없음) */
+function pushStop(world: MoveWorld, unit: UnitState, nx: number, ny: number): PushStop {
+  const size = world.map.size;
+  if (nx < 0 || ny < 0 || nx >= size || ny >= size) return null;
+  const pass = unit.air ? () => true : (cell: number) => world.map.passableFor(cell, unit.side, world.gone);
+  if (!stepAllowed(size, unit.x, unit.y, nx - unit.x, ny - unit.y, pass)) return { kind: "wall" };
+  const holder = world.occupied[ny * size + nx] ?? 0;
+  return holder !== 0 && holder !== unit.id && !unit.air ? { kind: "unit", blocker: holder } : null;
+}
+
+/**
+ * 맞은 대상 하나를 옮긴다(밀치기·끌어오기) 또는 묶는다. 쓰러진 대상은 그대로. 밀림 저항이 칸 수·묶기 지속을 줄인다(D-564 1588).
+ * 밀치기가 줄 끝까지 못 가고 벽에 막히면 밀린 대상이 한 방 피해 × wallPm, 유닛에 막히면 밀린 대상과 막은 유닛(시전자의 적일 때만)이
+ * 한 방 피해 × unitPm을 받는다(D-564 1587). hitDamage = 밀어낸 한 방의 피해(피해 없는 스킬은 0 → 부딪힘 피해 없음)
+ */
 export function displaceTarget(
   world: MoveWorld,
   source: UnitState,
   target: UnitState,
   part: SkillDisplace,
+  hitDamage = 0,
 ): void {
   if (target.status !== "alive") return;
+  const resist = unitDisplaceResistPm(target, world.c);
   if (part.kind === "root") {
-    if (part.durationMs > 0) applyEffect(target, MOVE_ROOT, 0, part.durationMs, world.nowMs);
+    const durationMs = resisted(part.durationMs, resist);
+    if (durationMs > 0) applyEffect(target, MOVE_ROOT, 0, durationMs, world.nowMs);
     return;
   }
   const fromX = target.x;
   const fromY = target.y;
-  const cells = Math.max(0, Math.trunc(part.cells));
-  const moved =
-    part.kind === "knockback"
-      ? walkLine(world, target, awayLine(target.x, target.y, source.x, source.y, cells), () => false)
-      : walkLine(
-          world,
-          target,
-          lineCells(target.x, target.y, source.x, source.y).slice(0, cells),
-          (x, y) => chebyshev(x, y, source.x, source.y) <= 1,
-        );
+  const cells = resisted(Math.trunc(part.cells), resist);
+  if (part.kind === "knockback") {
+    const line = awayLine(target.x, target.y, source.x, source.y, cells);
+    const moved = walkLine(world, target, line, () => false);
+    if (moved > 0) world.trace?.motion?.(target, part.kind, fromX, fromY);
+    const next = line[moved];
+    if (!next || hitDamage <= 0) return;
+    const stop = pushStop(world, target, next[0], next[1]);
+    const k = moveCoefficientsOf(world.c).knockback;
+    if (stop?.kind === "wall") impact(world, source, target, scalePm(hitDamage, k.wallPm));
+    else if (stop?.kind === "unit") {
+      const amount = scalePm(hitDamage, k.unitPm);
+      impact(world, source, target, amount);
+      const blocker = world.units.find((other) => other.id === stop.blocker);
+      if (blocker && blocker.side !== source.side) impact(world, source, blocker, amount);
+    }
+    return;
+  }
+  const moved = walkLine(
+    world,
+    target,
+    lineCells(target.x, target.y, source.x, source.y).slice(0, cells),
+    (x, y) => chebyshev(x, y, source.x, source.y) <= 1,
+  );
   if (moved > 0) world.trace?.motion?.(target, part.kind, fromX, fromY);
 }
 
@@ -338,7 +404,7 @@ export function fireMoveSkill(
       world.nowMs,
       world.c,
       world.trace,
-      displace ? (target) => displaceTarget(world, unit, target, displace) : undefined,
+      displace ? (target, damage) => displaceTarget(world, unit, target, displace, damage) : undefined,
     );
   else if (skill.target !== "enemy")
     resolveSkill(unit, skill, goal, world.units, rng, world.nowMs, world.c, world.trace);

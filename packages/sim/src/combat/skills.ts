@@ -328,6 +328,19 @@ function chooseAlly(
   return best;
 }
 
+/**
+ * 적 대상 스킬이 목표에 닿나: 도약(move leap)은 길·시선을 보지 않고 넘으므로(성벽까지, D-564 1586·D-568) 거리만 본다. 그 밖은
+ * reach(사거리 + 사거리 1을 넘으면 시선)
+ */
+export function skillReaches(
+  unit: { readonly x: number; readonly y: number },
+  skill: { readonly range: number; readonly move?: SkillMove | undefined },
+  goal: UnitState,
+  reach: (goal: UnitState, range: number) => boolean,
+): boolean {
+  return skill.move?.kind === "leap" ? chebyshev(unit, goal) <= skill.range : reach(goal, skill.range);
+}
+
 /** 고른 스킬과 그 대상(적·자기·아군) */
 export interface SkillPick {
   readonly index: number;
@@ -354,7 +367,7 @@ export function pickSkill(
     // 이동 부품 스킬은 AI 고리가 막을 수 있다(지금은 늘 허락, 4단계가 슬라이더로)
     if (skill.move && !moveSkillAllowed(unit, skill, enemy, nowMs)) continue;
     if (skill.target === "enemy") {
-      if (!conditionsMet(unit, enemy, skill) || !reach(enemy, skill.range)) continue;
+      if (!conditionsMet(unit, enemy, skill) || !skillReaches(unit, skill, enemy, reach)) continue;
       return { index: i, target: enemy };
     }
     const target = singleAlly(skill) ? chooseAlly(unit, skill, units, reach) : unit;
@@ -500,8 +513,8 @@ function targetCurvePm(
 /**
  * 스킬을 푼다. 적 대상: 목표와 그 둘레(반지름)·연쇄 적마다 피해(명중·회피·크리 굴림) → 맞으면 효과. 자기·아군: 회복·쉴드·효과.
  * trace는 리플레이 기록용 관찰자다(상태·굴림에 손대지 않는다). 연쇄는 튄 차례대로 skillHit을 부른다.
- * 연사(shots)는 대상마다 발 수만큼 따로 굴린다(한 발 배율 multishotPm). onHit = 맞은(피해 없는 스킬은 걸린) 대상마다
- * (이동 부품의 밀치기·끌어오기·묶기, moves.ts)
+ * 연사(shots)는 대상마다 발 수만큼 따로 굴린다(한 발 배율 multishotPm). onHit = 맞은(피해 없는 스킬은 걸린) 대상마다, 그 한 방의
+ * 피해(두 몫 합, 피해 없는 스킬은 0)와 함께(이동 부품의 밀치기·끌어오기·묶기와 부딪힘 피해, moves.ts)
  */
 export function resolveSkill(
   unit: UnitState,
@@ -512,7 +525,7 @@ export function resolveSkill(
   nowMs: number,
   c: CombatCoefficients,
   trace?: BattleTrace,
-  onHit?: (target: UnitState) => void,
+  onHit?: (target: UnitState, damage: number) => void,
 ): void {
   if (skill.target !== "enemy") {
     let group: readonly UnitState[];
@@ -552,7 +565,7 @@ export function resolveSkill(
     if (!target) continue;
     if (skill.damage === "none") {
       applyParts(unit, skill, target, rng, nowMs, trace, c);
-      if (onHit) onHit(target);
+      if (onHit) onHit(target, 0);
       continue;
     }
     // 연쇄는 튈 때마다 스킬 배율에 줄임 배율을 곱한다(첫 대상은 그대로)
@@ -582,7 +595,7 @@ function strikeOnce(
   nowMs: number,
   c: CombatCoefficients,
   trace: BattleTrace | undefined,
-  onHit: ((target: UnitState) => void) | undefined,
+  onHit: ((target: UnitState, damage: number) => void) | undefined,
 ): void {
   const rolls = {
     hit: rng.nextInt(10_000),
@@ -617,7 +630,7 @@ function strikeOnce(
     trace?.attackStages?.(unit, target, stages);
   }
   applyParts(unit, skill, target, rng, nowMs, trace, c);
-  if (onHit) onHit(target);
+  if (onHit) onHit(target, physical + elemental);
 }
 
 /** 지속형(passive) 스킬의 효과를 전투 처음에 자기에게 건다(전투 내내). 든 무기로 쓸 수 없는 스킬은 걸지 않는다(D-490) */

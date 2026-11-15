@@ -51,4 +51,9 @@ export interface BattleTrace {
   run?(unit: UnitState, on: boolean): void;
   /** 연사: 대상 하나에 shots발(발마다 skillHit이 따른다) */
   multishot?(unit: UnitState, skill: CombatSkill, target: UnitState, shots: number): void;
+  /**
+   * 밀치기 부딪힘 피해(D-564 1587, moves.ts): source = 밀어낸 유닛, target = 실제로 내려간 체력(amount)을 받은 유닛(밀린 대상 또는 막은
+   * 유닛). 방어 없이 체력에서만 빠진다(아머·쉴드 그대로). 리플레이는 지속 피해 사건(효과 move_collision)으로 싣는다
+   */
+  collision?(source: UnitState, target: UnitState, amount: number): void;
 }

@@ -37,6 +37,7 @@ import type {
 } from "./battleTypes.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
 import type { AttackResult } from "./formula.ts";
+import { MOVE_COLLISION } from "./moves.ts";
 import type { CombatSkill, SkillShape } from "./skills.ts";
 
 export interface RecordBattleOptions {
@@ -374,6 +375,18 @@ export function recordBattleReplay(init: BattleInit, options: RecordBattleOption
         skill: addSkill(skill),
         shots,
       });
+    },
+    collision(_source, target, amount) {
+      // 부딪힘 피해는 지속 피해 사건으로 싣는다(체력만 바뀐다 — 형식 그대로, 효과 이름 move_collision)
+      events.push({
+        k: "dot",
+        t: tickNow(),
+        target: unitIndex(target.id),
+        effect: addEffect(MOVE_COLLISION, "dot"),
+        amount,
+        hp: Math.max(0, target.hp),
+      });
+      setKnown(target, { hp: Math.max(0, target.hp) });
     },
     dot(target, effect, amount) {
       const hp = Math.max(0, target.hp);

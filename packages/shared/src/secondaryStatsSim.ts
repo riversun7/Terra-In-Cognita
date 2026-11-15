@@ -227,6 +227,8 @@ export interface OrderedPrimaryInfluence {
   readonly contribution: number;
   readonly sharePm: number | null;
   readonly plus10: number;
+  /** 식의 가중치: 1차 여섯이 모두 같은 값(equalLevel)일 때 그 1차 +10의 차이(D-556) */
+  readonly equalPlus10: number;
 }
 
 /**
@@ -239,7 +241,11 @@ export function secondaryPrimaryInfluence(
   programs: CompiledSecondaryPrograms,
   weapon: FormulaSampleWeapon,
   coefficients: FormulaCoefficients,
-): { readonly base: number; readonly items: readonly OrderedPrimaryInfluence[] } {
+): {
+  readonly base: number;
+  readonly equalLevel: number;
+  readonly items: readonly OrderedPrimaryInfluence[];
+} {
   const ruleOrder: readonly number[] = toRuleOrderPrimaries(primaries);
   const raw: PrimaryInfluence = primaryInfluence((rulePrimaries) => {
     const mapped: BalancePrimaries = {
@@ -261,9 +267,10 @@ export function secondaryPrimaryInfluence(
       contribution: raw.contribution[index] ?? 0,
       sharePm: raw.sharePm[index] ?? null,
       plus10: raw.plus10[index] ?? 0,
+      equalPlus10: raw.equalPlus10[index] ?? 0,
     };
   });
-  return { base: raw.base, items };
+  return { base: raw.base, equalLevel: raw.equalLevel, items };
 }
 
 /** 레벨별 곡선 점 하나(표시용 실수 — 고정소수점 ÷ FX_SCALE) */

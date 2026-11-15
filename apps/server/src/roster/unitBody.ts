@@ -14,17 +14,27 @@
 // - 셈은 모두 @terra/sim 판정 함수다(loadoutOf·computeSecondary·specFromStats·realAttackOf·realHitPm·realCritPm·weaponRatioPm). 새 식은 없다.
 import { EFFECT_COMBAT_STATS, PRIMARY_STAT_CODES } from "@terra/content";
 import { elementsToArray, sumElementSources, zeroElements } from "@terra/shared/cyborg";
+import {
+  type CombatFormulaId,
+  critFormulaIdOf,
+  hitFormulaIdOf,
+  intervalFormulaIdOf,
+} from "@terra/shared/formula";
+import { formulaText, formulaTextLine } from "@terra/shared/formulaText";
 import type {
   PrimaryStat,
   RosterBuffs,
   RosterCombat,
+  RosterFormulaSource,
   RosterModifierStat,
   RosterMove,
   RosterStats,
 } from "@terra/shared/roster";
 import {
   CELL_UNITS,
+  type CombatCoefficients,
   type CombatSkill,
+  DEFAULT_COMBAT_FORMULA_SET,
   type CombatUnitSpec,
   type EffectHolder,
   MIN_MOVE_SPEED_PM,
@@ -370,6 +380,12 @@ function heldWeapon(parts: BodyParts): string | null {
   return index < 0 ? null : (parts.equipped[index]?.item ?? null);
 }
 
+/** 판정이 쓰는 식 하나를 화면용 글로(설명 뺀 plain 글 — 화면이 다시 읽어 이름표를 붙인다, D-556) */
+function formulaSourceOf(c: CombatCoefficients, id: CombatFormulaId): RosterFormulaSource {
+  const program = (c.formulas ?? DEFAULT_COMBAT_FORMULA_SET)[id];
+  return { id, source: formulaTextLine(formulaText(program, { plain: true })) };
+}
+
 /**
  * 화면 요약(사이보그 화면 상세 전투 스펙): 판정에 들어가는 공격·명중·크리·간격과 실제 스태미나 회복(D-511). 전투 수치 버프는 판정의 걸린
  * 효과라 여기에 넣지 않는다(보유 물건 판의 걸린 효과가 보인다)
@@ -392,6 +408,13 @@ export function combatSummaryOfSpec(catalog: RosterCatalog, spec: BodySpec, part
     bareAppropriateMilli(spec.level, c),
   ).agi;
   return {
+    formulas: {
+      attack: formulaSourceOf(c, "real_attack"),
+      hit: formulaSourceOf(c, hitFormulaIdOf(a.unarmed === true)),
+      crit: formulaSourceOf(c, critFormulaIdOf(a.unarmed === true)),
+      interval: formulaSourceOf(c, intervalFormulaIdOf(weapon.unarmed === true)),
+      staminaRegen: formulaSourceOf(c, "real_stamina_regen"),
+    },
     weapon: heldWeapon(parts),
     attack: {
       kind: a.kind,

@@ -32,6 +32,7 @@
     "./fishSchool": "./src/fishSchool.ts",
     "./fishWater": "./src/fishWater.ts",
     "./formula": "./src/formula.ts",
+    "./formulaText": "./src/formulaText.ts",
     "./gatherMath": "./src/gatherMath.ts",
     "./gatherExpect": "./src/gatherExpect.ts",
     "./statGrowth": "./src/statGrowth.ts",

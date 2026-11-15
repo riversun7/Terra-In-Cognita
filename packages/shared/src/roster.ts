@@ -544,7 +544,26 @@ export interface RosterWeaponPart {
  * 공격력 = 스탯 공격력 + 무기 공격력 × 비율(STR·INT), 명중·크리 = 무기 값 × 비율(DEX), 간격 = 무기 간격 ÷ 비율(AGI)(D-502),
  * 스태미나 회복 = 행 값 × min(2, STA 점수 ÷ 적정 STA)(D-511 real_stamina_regen)
  */
+/** 판정이 쓴 계산식 하나(사용자 결정 D-556): 식 ID와 그 식을 다시 읽을 수 있는 글(설명 뺀 plain 글, @terra/shared/formulaText) */
+export interface RosterFormulaSource {
+  readonly id: string;
+  readonly source: string;
+}
+
 export interface RosterCombat {
+  /**
+   * 줄마다 판정이 쓴 계산식(사용자 결정 D-556 "공식이 안써있고 … 공식이 뭐냐?" — 화면이 같은 식을 글로 풀어 보인다). 맨손이면 맨손 칸
+   * (bare_hit·bare_crit·bare_interval). 옛 서버는 없음(화면은 옛 문구)
+   */
+  readonly formulas?:
+    | {
+        readonly attack: RosterFormulaSource;
+        readonly hit: RosterFormulaSource;
+        readonly crit: RosterFormulaSource;
+        readonly interval: RosterFormulaSource;
+        readonly staminaRegen: RosterFormulaSource;
+      }
+    | undefined;
   /** 든 무기 아이템 ID(names.items). 맨손이면 null(D-490: 맨손 스킬만) */
   readonly weapon: string | null;
   readonly attack: {

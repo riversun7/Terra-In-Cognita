@@ -326,6 +326,13 @@ export interface PrimaryInfluence {
   readonly sharePm: readonly (number | null)[];
   /** 그 1차 +10일 때 결과 차이 */
   readonly plus10: readonly number[];
+  /**
+   * 식의 가중치(사용자 결정 D-556): 1차 여섯을 모두 같은 값(equalLevel)으로 둔 점에서 그 1차만 +10일 때 결과 차이.
+   * 분포와 상관없이 식이 스탯을 얼마나 무겁게 보는지다(AGI + DEX면 둘이 같다). 기여 몫(sharePm)은 지금 분포에서의 몫이라 다르다
+   */
+  readonly equalPlus10: readonly number[];
+  /** equalPlus10을 잰 같은 값(지금 1차 평균, 내림, 최소 1) */
+  readonly equalLevel: number;
 }
 
 /**
@@ -344,10 +351,22 @@ export function primaryInfluence(
     fxSub(evaluate(primaries.map((value, i) => (i === index ? value + 10 : value))), base),
   );
   const total = contribution.reduce((sum, value) => fxAdd(sum, value), 0);
+  const equalLevel = Math.max(
+    1,
+    floorDiv(
+      primaries.reduce((sum, value) => sum + value, 0),
+      Math.max(1, primaries.length),
+    ),
+  );
+  const equal = primaries.map(() => equalLevel);
+  const equalBase = evaluate(equal);
+  const equalPlus10 = equal.map((_, index) =>
+    fxSub(evaluate(equal.map((value, i) => (i === index ? value + 10 : value))), equalBase),
+  );
   const sharePm = contribution.map((value) => {
     if (total === 0) return null;
     const scaled = value * 1000;
     return Number.isSafeInteger(scaled) ? floorDiv(scaled, total) : Math.trunc((value / total) * 1000);
   });
-  return { base, contribution, sharePm, plus10 };
+  return { base, contribution, sharePm, plus10, equalPlus10, equalLevel };
 }

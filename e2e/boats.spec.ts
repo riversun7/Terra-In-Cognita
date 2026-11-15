@@ -220,11 +220,20 @@ async function harborAt(
       id,
     );
     id += 10;
-    expect(done[1]).toMatchObject({ ok: true });
+    expectFinished(done[1]);
     used.push(site);
     return { buildingId, nextId: id };
   }
   throw new Error(`${facility}를 지을 물가 자리가 없다`);
+}
+
+/**
+ * 공사 끝내기 답 확인. 운영자 모드 건설은 시간 0이라(D-564 1663) 짓자마자 다 지어져 남은 공사가 없을 수 있다 —
+ * 그때 dev_facility_finish는 not_damaged로 답한다.
+ */
+function expectFinished(reply: unknown): void {
+  const result = field(reply, "ok") === true ? "ok" : field(reply, "code");
+  expect(["ok", "not_damaged"]).toContain(result);
 }
 
 /** 조선소를 짓고 배를 만든다(운영자 모드 연결). 조선소·배 ID와 자리 */
@@ -262,7 +271,7 @@ async function dockAndBoat(page: Page, mapKey: number, sites: readonly Site[], f
       id,
     );
     id += 10;
-    expect(made[1]).toMatchObject({ ok: true });
+    expectFinished(made[1]);
     // 만드는 시간(D-541 1271 나, 배 종류마다 — D-547 1484): 바로 뜨지 않고 readyAtMs 뒤에 뜬다. 도크가 하나라 그사이 dock_busy
     expect(made[2]).toMatchObject({ t: "boat_result", ok: true });
     const readyAtMs = Number(field(made[2], "readyAtMs"));

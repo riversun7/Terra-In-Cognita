@@ -139,7 +139,8 @@ test.describe("관리자 계정: 입은 장비 → 사이보그 스탯·공격 �
     const regen = page.locator('.combat-row[data-real="stamina_regen"]');
     await expect(regen.locator(".combat-value-base")).toContainText("/분");
     await regen.locator(".combat-toggle").click();
-    await expect(regen.locator(".combat-detail")).toContainText(message("ko", "cyborg_stamina_real_formula"));
+    // 서버가 판정 식(real_stamina_regen, D-556)을 주면 그 식 글을 "실제 회복 = …"으로 보인다(옛 고정 문구는 식이 없을 때만)
+    await expect(regen.locator(".combat-detail")).toContainText(`${message("ko", "cyborg_stamina_real")} = `);
     // 줄 값 = 셈의 끝 값(예: 적정보다 STA가 높으면 행 값 720보다 크다)
     const shownRegen = (await regen.locator(".combat-value-base").textContent()) ?? "";
     await expect(regen.locator(".combat-detail .combat-result").last()).toContainText(`= ${shownRegen}`);

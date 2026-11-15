@@ -3,8 +3,11 @@
 //   가중치 초안 담기·비우기, 모바일(390)·데스크톱(1440) 가로 넘침·작은 누르는 곳 없음.
 // - 밸런스 화면에서 옮긴 판(docs/research/2026-11-14-dev-tools-overlap.md 5절): 무기별 스태미나·적정치 표(담은 식·가중치가 바로 든다),
 //   1차 +10 대결 승률(지금 표 vs 담은 가중치 칸, 서버 balance.duels).
+// - 식 글(사용자 결정 D-556): 편집 카드·차트 머리·목록 줄·비교표 줄에 값을 낸 식("크리 확률 = AGI + DEX (‰)"),
+//   영향 카드는 식의 가중치(1차가 모두 같을 때 +10)와 이 분포에서의 기여 몫을 나눠 보인다. 390 × 네온·라이트 사진.
 // - player: 권한 없음 화면.
 import { elementShot, horizontalOverflow, smallTapTargets } from "./helpers/screen.ts";
+import { message } from "./helpers/messages.ts";
 import { expect, test } from "./helpers/test.ts";
 
 test.describe("개발자", () => {
@@ -58,6 +61,54 @@ test.describe("개발자", () => {
     await page.locator(".sec-pending-actions button").first().click();
     expect(deviceErrors).toEqual([]);
   });
+
+  for (const devTheme of ["neon", "light"] as const) {
+    test.describe(`식 글 (${devTheme})`, () => {
+      test.use({ devTheme });
+      test(`식 글·식의 가중치·기여 몫 (390 ${devTheme})`, async ({ page, deviceErrors }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.goto("/dev/secondary-stats");
+        await expect(page.locator(".sec-screen")).toHaveAttribute("data-status", "ready", {
+          timeout: 20_000,
+        });
+        // 목록 줄에도 식 글(가중치 행 → 판정과 같은 행 식)
+        await expect(page.locator('.sec-target-btn[data-target="hp"] .sec-formula-compact')).toContainText(
+          "VIT × 3",
+        );
+        // 맨손 크리 대상: 편집 카드 = AGI + DEX(이름에 ‰가 있어 다시 붙이지 않는다), 0 아래면 0 한 줄
+        await page.locator('.sec-target-btn[data-target="combat:bare_crit"]').click();
+        const card = page.locator(".sec-edit-card [data-testid='sec-formula']");
+        await expect(card.locator(".sec-formula-line")).toContainText(/= AGI \+ DEX$/);
+        await expect(card.locator(".sec-formula-note")).toHaveText(
+          message("ko", "formula_floor_note", { names: "AGI·DEX" }),
+        );
+        // 재능계: 기여 몫은 DEX가 크지만 식의 가중치는 AGI·DEX가 50%로 같다
+        await page.locator(".sec-arch-btn", { hasText: message("ko", "dev_sec_arch_talent") }).click();
+        const weight = page.locator('.sec-inf-part[data-kind="weight"]');
+        const share = page.locator('.sec-inf-part[data-kind="share"]');
+        await expect(weight.locator('.sec-inf-row[data-stat="agi"] .sec-inf-share')).toHaveText("50.0%");
+        await expect(weight.locator('.sec-inf-row[data-stat="dex"] .sec-inf-share')).toHaveText("50.0%");
+        await expect(weight.locator('.sec-inf-row[data-stat="str"] .sec-inf-share')).toHaveText("0.0%");
+        const pct = async (stat: string) =>
+          Number.parseFloat(
+            (await share.locator(`.sec-inf-row[data-stat="${stat}"] .sec-inf-share`).textContent()) ?? "0",
+          );
+        expect(await pct("dex")).toBeGreaterThan(await pct("agi"));
+        await expect(share.locator(".sec-inf-part-title")).toHaveText(
+          message("ko", "dev_sec_chart_share_title"),
+        );
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await elementShot(page.locator(".sec-edit-card"), `secondary-stats-formula-card-390-${devTheme}`);
+        await elementShot(
+          page.locator(".sec-chart-card").first(),
+          `secondary-stats-formula-influence-390-${devTheme}`,
+        );
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
 
   for (const width of [390, 1440] as const) {
     test(`배치: 폭 ${width}에서 가로 넘침·작은 누르는 곳 없음`, async ({ page, deviceErrors }) => {

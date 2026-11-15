@@ -115,7 +115,9 @@ export type FormulaLineUnit = "pm" | "ms" | "none";
 /** 한 줄: "크리 확률 = AGI + DEX (‰)" */
 export function formulaLine(name: string, text: FormulaText, unit: FormulaLineUnit = "none"): string {
   const line = formulaTextLine(text, name);
-  return unit === "pm" ? `${line} (‰)` : unit === "ms" ? `${line} (ms)` : line;
+  const suffix = unit === "pm" ? "(‰)" : unit === "ms" ? "(ms)" : "";
+  // 이름에 단위가 이미 있으면("실제 크리 확률(‰)") 다시 붙이지 않는다
+  return suffix === "" || name.includes(suffix) ? line : `${line} ${suffix}`;
 }
 
 /** 줄인 max(0, X)의 뜻 한 줄(없으면 null) — 글만 읽어도 값과 같게 */

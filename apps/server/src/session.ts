@@ -22,6 +22,7 @@ import {
   FACILITY_PROTOCOL_VERSION,
   STORAGE_PROTOCOL_VERSION,
   BUSINESS_PROTOCOL_VERSION,
+  BUSINESS_SHARES_PROTOCOL_VERSION,
   FUSION_PROTOCOL_VERSION,
   GENE_PROTOCOL_VERSION,
   GENE_CONVERT_PROTOCOL_VERSION,
@@ -483,9 +484,15 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "business_invest":
       case "business_buy":
       case "business_price":
-      case "unit_gift": {
-        // 사업장 장부 명령은 프로토콜 34의 메시지다(건물 게이트웨이가 받는다)
-        if (protocolVersion < BUSINESS_PROTOCOL_VERSION) {
+      case "unit_gift":
+      case "business_share_order":
+      case "business_share_cancel": {
+        // 사업장 장부 명령은 프로토콜 34, 지분 주문은 38의 메시지다(건물 게이트웨이가 받는다)
+        const needs =
+          message.t === "business_share_order" || message.t === "business_share_cancel"
+            ? BUSINESS_SHARES_PROTOCOL_VERSION
+            : BUSINESS_PROTOCOL_VERSION;
+        if (protocolVersion < needs) {
           reject("invalid_message");
           return;
         }
@@ -497,6 +504,9 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send: sendText,
           viewer: context.viewer ?? signedOut,
           protocolVersion,
+          // 운영자 모드(전체 보기) 연결의 사업장 관리 명령은 남의 사업장에도(facilities/gateway.ts가 권한을 본다)
+          observing: () => worldSocket?.observing() === true,
+          operatorPace,
         });
         facilitySocket.handle(message);
         return;

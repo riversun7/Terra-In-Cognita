@@ -5,8 +5,42 @@
 // - 장부 칸: 원장 거래 종류(ledger_transactions.kind) → 칸. 새 수입 종류를 만들면 여기에 더한다(모르는 종류는 "그 밖").
 // - 적자(D-555 1504): 사업장 금고가 모자라면 시스템 계정 debt:business:<건물>:<화폐>가 금고에 미리 넣고(잔고가 음수 = 갚을 돈) 다음 정산
 //   주기에 금고에서 먼저 갚는다. 한 주기 안에 갚지 못하면 사업장이 멈춘다(서버).
-// - 정산(D-555 1501): 금고 돈을 지분 수대로 나눠 주주 지갑으로. 지금은 사업장 지분이 주인 하나 = 1주다 [임시](질문 1621).
+// - 정산(D-555 1501): 금고 돈을 지분 수대로 나눠 주주 지갑으로.
+// - 바뀜 (2026-11-15, 건물 화면 개편 — docs/adr/2026-11-15-building-screen.md): 지분은 원장 자산 share:biz_<건물>이다(D-130 기술 전달
+//   "주식·지분은 원장의 자산 종류"). 처음 사고팔 때 주인에게 설정 칸 business_share_count만큼 발행하고(시스템 계정 issue:share:biz_<건물>),
+//   발행 전에는 주인이 모두 가진 것으로 본다. 주주 = 그 자산 잔고(+ 동시호가에 걸어 둔 팔 주문)를 가진 주체다.
 import { buildingLocation, cargoLocation } from "./goodsPlaces.ts";
+import type { LocalizedName } from "./roster.ts";
+
+/** 사업장 지분 자산 코드(원장 자산 코드 꼴 앞머리:ID — ledger_accounts_asset_format에 맞는다) */
+export function businessShareAsset(buildingId: number): string {
+  return `share:biz_${buildingId}`;
+}
+
+/** 자산 코드가 사업장 지분이면 건물 ID, 아니면 undefined */
+export function parseBusinessShareAsset(asset: string): number | undefined {
+  const match = /^share:biz_(\d+)$/.exec(asset);
+  return match ? Number(match[1]) : undefined;
+}
+
+/** 지분 자산인가(지갑·물건 목록에서 뺀다 — 화폐도 물건도 아니다) */
+export function isShareAsset(asset: string): boolean {
+  return asset.startsWith("share:");
+}
+
+/** 사업장 지분 발행 시스템 계정 코드(잔고 음수 = 발행 수) */
+export function businessShareIssueCode(buildingId: number): string {
+  return `issue:share:biz_${buildingId}`;
+}
+
+/** 지분 동시호가 에스크로·거래 종류 앞머리(@terra/sim createFxMarket prefix — 환전 fx와 겹치지 않게) */
+export const SHARE_MARKET_PREFIX = "share";
+
+/** 지분 몫(‰, 내림). 전체가 0 이하면 0 */
+export function sharePm(shares: bigint, total: bigint): number {
+  if (total <= 0n || shares <= 0n) return 0;
+  return Number((shares * 1000n) / total);
+}
 
 /** 사업장 금고·창고의 원장 위치(= 건물 위치, 읽는 사람을 위한 다른 이름) */
 export const businessLocation = buildingLocation;
@@ -75,6 +109,8 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   business_repay: "debt",
   // 정산(주주에게, D-555 1501)·주인 넣기
   business_settle: "settlement",
+  // 사업장 창고 물건이 산 사람에게 넘어감(돈은 business_sale)
+  business_sale_goods: "goods",
   business_invest: "invest",
   // 물건 들고 남(돈이 아닌 자산은 아래 isMoney가 "goods"로 고른다)
   storage_move: "goods",
@@ -213,6 +249,59 @@ export interface BookGoods {
 
 export type BookOwnerKind = "me" | "player" | "npc";
 
+/** 주주 한 줄(보는 사람 기준 종류·이름·지분) */
+export interface BookHolder {
+  readonly kind: BookOwnerKind;
+  readonly shares: string;
+  /** 이름(유저 = 사이보그 이름, NPC 세력 = 나라 이름). 모르면 null — 이름 칸이 없는 옛 응답에는 없다 */
+  readonly name?: LocalizedName | null | undefined;
+  /** 지분 몫(‰) */
+  readonly pm?: number | undefined;
+}
+
+/** 지분 동시호가 회차 하나 */
+export interface ShareRoundView {
+  readonly atMs: number;
+  /** 체결가(1주 값, 화폐 최소 단위). 체결이 없었으면 null */
+  readonly price: string | null;
+  readonly shares: string;
+}
+
+/** 내 걸린 지분 주문 */
+export interface ShareOrderView {
+  readonly id: number;
+  readonly side: "buy" | "sell";
+  /** 1주 값(살 쪽 상한·팔 쪽 하한) */
+  readonly price: string;
+  readonly shares: string;
+}
+
+/**
+ * 사업장 지분 시장(생산시설 지분 동시호가 — 기획 44 §6·D-125·D-130, docs/adr/2026-11-15-building-screen.md). 지금은 사업장마다 서버의 지분 시장
+ * 모음이 돌리고, 증권 거래소 건물(D-561)이 생기면 그 건물이 이 시장을 맡는다
+ */
+export interface ShareMarketView {
+  /** 값을 매기는 화폐(원장 자산 — 사업장 금고 화폐와 같다) */
+  readonly asset: string;
+  /** 발행했나(발행 전에는 주인이 모두 가진 것으로 본다) */
+  readonly issued: boolean;
+  readonly total: string;
+  readonly lastPrice: string | null;
+  readonly roundMs: number;
+  readonly nextRoundMs: number;
+  /** 이번 회차에 걸린 살·팔 지분 합(누구 것인지는 보이지 않는다) */
+  readonly bidShares: string;
+  readonly askShares: string;
+  /** 보는 사람의 지분·지갑(그 화폐)·걸린 주문 */
+  readonly myShares: string;
+  readonly myCash: string;
+  readonly myOrders: readonly ShareOrderView[];
+  /** 한 사람이 한 회차에 걸어 둘 수 있는 주문 수(모든 사업장 합) */
+  readonly orderMax: number;
+  /** 최근 회차(오래된 차례, 체결 없는 회차는 빼고 최근 24개) */
+  readonly rounds: readonly ShareRoundView[];
+}
+
 export type BusinessBooksResponse =
   | { readonly status: "not_ready" | "not_business" }
   | {
@@ -224,8 +313,14 @@ export type BusinessBooksResponse =
       readonly ownerKind: BookOwnerKind;
       /** 보는 사람이 주인(대주주)인가 — 정산·넣기·값 정하기 단추 */
       readonly mine: boolean;
-      /** 지분(주주 — 지금은 주인 하나 1주 [임시]) */
-      readonly holders: readonly { readonly kind: BookOwnerKind; readonly shares: string }[];
+      /** 지분(주주, 많은 차례 — 발행 전이면 주인 하나가 발행 수 전부) */
+      readonly holders: readonly BookHolder[];
+      /** 주인 이름(유저 = 사이보그 이름, NPC = 나라 이름). 모르면 null(옛 응답에는 없다) */
+      readonly ownerName?: LocalizedName | null | undefined;
+      /** 창고 물건 값 합(물건 × 판매 값, 팔지 않는 물건은 기준 값 — 금고 화폐). 옛 응답에는 없다 */
+      readonly stockValue?: string | undefined;
+      /** 지분 시장(옛 응답에는 없다) */
+      readonly market?: ShareMarketView | undefined;
       readonly vault: readonly BookBalance[];
       /** 갚을 돈(적자, 화폐별 양수) */
       readonly debt: readonly BookBalance[];
@@ -247,4 +342,32 @@ export type BusinessBooksResponse =
       readonly totals: readonly BookTotals[];
       readonly days: readonly BookDay[];
       readonly entries: readonly BookEntry[];
+    };
+
+// ---------- 건물 주인 이름표(tRPC facilities.owner — 건물 판 머리) ----------
+
+/**
+ * 건물 판 머리의 주인 이름표(사용자 요청 2026-11-15 "남의 건물이 아니라 소유 유닛이름이나 대주주 이름"). 지분을 나눴으면 가장 많은 주주의 이름·몫을
+ * 보인다. canManage = 보는 사람이 주인·대주주(운영자 모드는 기기가 따로 더한다 — 서버가 명령마다 다시 본다)
+ */
+export type BuildingOwnerResponse =
+  | { readonly status: "not_ready" | "unknown_building" }
+  | {
+      readonly status: "ok";
+      readonly buildingId: number;
+      /** 주인 없음(폐허 등)이면 null */
+      readonly ownerKind: BookOwnerKind | null;
+      readonly ownerName: LocalizedName | null;
+      readonly mine: boolean;
+      /** 가장 많은 주주(주인과 다르거나 지분을 나눴을 때 보인다). 사업장이 아니거나 주인 하나가 모두 가지면 null */
+      readonly top: {
+        readonly kind: BookOwnerKind;
+        readonly name: LocalizedName | null;
+        readonly pm: number;
+      } | null;
+      /** 보는 사람의 지분 몫(‰, 없으면 0) */
+      readonly myPm: number;
+      readonly canManage: boolean;
+      /** 사업장(시설 줄이 있는 건물)인가 — 장부·지분 칸 */
+      readonly business: boolean;
     };

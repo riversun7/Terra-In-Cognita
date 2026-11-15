@@ -2,6 +2,7 @@
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(같은 유닛·계약을 차례로 바꾼다).
 // - 사용자별 속도 제한(순간 10번, 분당 30번). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 판정·저장은 서비스(service.ts)가 한다. 세계가 아직 없으면(부팅 중·DB 없음) busy.
+// - 운영자 모드 연결(전체 보기 + 모든 유닛 명령 권한)의 관리 명령(해지·채우기·임대료·구인)은 남의 건물에도 된다(docs/adr/2026-11-15-building-screen.md).
 // - 결과 코드 wrong_map(판 15, docs/adr/2026-11-07-play-flow.md "WP8")은 15판 연결에만 가고 더 낮은 판은 invalid_terms를 받는다.
 import {
   type ClientMessageOf,
@@ -11,7 +12,13 @@ import {
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
-import { type OperatorPaceLink, type PaceMap, operatorFactor, withPace } from "../world/operatorPace.ts";
+import {
+  type OperatorPaceLink,
+  type PaceMap,
+  isOperatorMode,
+  operatorFactor,
+  withPace,
+} from "../world/operatorPace.ts";
 import type { LaborCommandResult, LaborService } from "./service.ts";
 
 export type LaborClientMessage = ClientMessageOf<
@@ -66,6 +73,7 @@ function run(
   service: LaborService,
   userId: string,
   message: LaborClientMessage,
+  operator: boolean,
 ): Promise<LaborCommandResult> {
   switch (message.t) {
     case "labor_create":
@@ -77,20 +85,24 @@ function run(
         termHours: message.termHours,
       });
     case "labor_terminate":
-      return service.terminate(userId, message.contractId);
+      return service.terminate(userId, message.contractId, operator);
     case "labor_top_up":
-      return service.topUp(userId, message.contractId, BigInt(message.amount));
+      return service.topUp(userId, message.contractId, BigInt(message.amount), operator);
     case "labor_set_rent":
-      return service.setRent(userId, message.buildingId, BigInt(message.rent));
+      return service.setRent(userId, message.buildingId, BigInt(message.rent), operator);
     case "labor_post_job":
-      return service.postJob(userId, {
-        buildingId: message.buildingId,
-        adjustPm: message.adjustPm,
-        slots: message.slots,
-        termHours: message.termHours,
-      });
+      return service.postJob(
+        userId,
+        {
+          buildingId: message.buildingId,
+          adjustPm: message.adjustPm,
+          slots: message.slots,
+          termHours: message.termHours,
+        },
+        operator,
+      );
     case "labor_withdraw_job":
-      return service.withdrawJob(userId, message.jobId);
+      return service.withdrawJob(userId, message.jobId, operator);
     case "labor_accept_job":
       return service.acceptJob(userId, message.jobId, message.unitId);
     case "labor_assign":
@@ -143,15 +155,17 @@ export function createLaborGateway(options: {
         // 읽는다(사용자 지적 2026-11-12, world/operatorPace.ts)
         const unitId = pacedUnit(message);
         const factor = operatorFactor(link, viewer.roles);
+        // 운영자 모드 연결의 관리 명령은 남의 건물에도(사용자 요청 2026-11-15 "운영자도 조작가능")
+        const operator = isOperatorMode(link.observing?.() === true, viewer.roles);
         reply(
           message.id,
           unitId === undefined
-            ? await run(service, viewer.id, message)
+            ? await run(service, viewer.id, message, operator)
             : await withPace(
                 options.maps?.() ?? [],
                 unitId,
                 factor,
-                () => run(service, viewer.id, message),
+                () => run(service, viewer.id, message, operator),
                 link.operatorPace,
               ),
         );

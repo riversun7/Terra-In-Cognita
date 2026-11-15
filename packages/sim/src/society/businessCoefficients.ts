@@ -11,10 +11,22 @@ export interface BusinessCoefficients {
   readonly minLot: number;
   /** [임시] 낱개 판매(소매)를 받는 도시의 행정 건물 레벨 상한(D-555 1507 "저급 도시는 소매도"). 0이면 소매 없음 */
   readonly retailMaxAdmin: number;
+  /**
+   * [임시] 생산시설 지분 발행 수(주, 기획 44 §6 "생산시설 지분 100% 매각 가능" — 수는 정하지 않았다, D-130 도시 주식 1000주를 따름, 질문 1704).
+   * 처음 사고팔 때 그 사업장 주인에게 한 번 발행한다(docs/adr/2026-11-15-building-screen.md)
+   */
+  readonly shareCount: number;
+  /** [임시] 지분 동시호가 주기(ms, D-125 기존 주식 30분). 회차마다 모인 주문을 한 값으로 체결하고 남은 주문은 돌려준다 */
+  readonly shareRoundMs: number;
+  /** [임시] 한 사람이 한 회차에 걸어 둘 수 있는 지분 주문 수(환전 ORDER_MAX와 같은 값) */
+  readonly shareOrderMax: number;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
   settlePeriodMs: 86_400_000,
   minLot: 10,
   retailMaxAdmin: 2,
+  shareCount: 1000,
+  shareRoundMs: 1_800_000,
+  shareOrderMax: 10,
 };

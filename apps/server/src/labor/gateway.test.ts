@@ -22,6 +22,7 @@ function fakeService(calls: string[]): LaborService {
     unitAway: () => false,
     buildingInUse: () => false,
     assignedTo: () => undefined,
+    building: notUsed,
     create: (userId, input) => {
       calls.push(
         `create:${userId}:${input.kind}:${input.buildingId}:${input.unitId}:${input.adjustPm ?? "-"}`,

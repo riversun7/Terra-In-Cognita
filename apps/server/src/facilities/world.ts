@@ -36,6 +36,7 @@ import { type FacilityService, createFacilityService } from "./service.ts";
 import { roomGrams } from "./storage.ts";
 import { type BusinessCore, EMPTY_BUSINESS, createBusinessCore } from "../business/core.ts";
 import { type BusinessCommands, createBusinessCommands } from "../business/commands.ts";
+import { EMPTY_SHARES, type ShareMarkets, createShareMarkets } from "../business/shares.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import { DEFAULT_TAX_BP } from "../npc/currency.ts";
 import { TEST_PLANET_ID } from "../world/testMaps.ts";
@@ -76,6 +77,8 @@ export interface WorldFacilities {
   readonly business: BusinessCore;
   /** 사업장 장부 명령(값·묶음 조회 포함) */
   readonly businessCommands: BusinessCommands;
+  /** 생산시설 지분 시장(docs/adr/2026-11-15-building-screen.md) */
+  readonly shares: ShareMarkets;
   /** 그 도시 행정 레벨(모르면 undefined — 소매 도시 판단) */
   cityAdminLevel(cityId: number): number | undefined;
 }
@@ -218,6 +221,7 @@ export function createWorldFacilities(input: {
   const catalog = facilityCatalogOf(input.config?.content ?? (() => EMPTY_SOURCE));
   let labor: LaborService | undefined;
   let business: BusinessCore | undefined;
+  let shares: ShareMarkets | undefined;
   // 2차맵 건설 땅 규칙(landRule.ts): 짓기 명령과 화면 미리 묻기가 같은 판정
   const land = createLandCheck({
     pool: input.battles.pool,
@@ -244,8 +248,15 @@ export function createWorldFacilities(input: {
     ready: input.ready,
     // 적자를 한 주기 넘게 못 갚은 사업장은 멈춘다(D-555 1504), 주기 끝 처리는 노화 정시에 함께
     suspended: (buildingId) => business?.suspended(buildingId) ?? false,
-    onAge: (nowMs) => business?.tick(nowMs),
-    onGone: (buildingId) => business?.forget(buildingId),
+    // 지분 동시호가 회차도 같은 정시에(경계를 지났을 때만 체결)
+    onAge: (nowMs) => {
+      shares?.tick(nowMs);
+      business?.tick(nowMs);
+    },
+    onGone: (buildingId) => {
+      shares?.forget(buildingId, input.now());
+      business?.forget(buildingId);
+    },
   });
   input.holdings.setLocked((holdingId) => service.holdingLocked(holdingId));
   const npcCity = (cityId: number) => input.npc?.()?.world.cities?.get(cityId);
@@ -264,8 +275,25 @@ export function createWorldFacilities(input: {
       return { treasuryOwner: city.owner, bp };
     },
     rules: () => input.rules().business,
+    holders: (buildingId) => shares?.holders(buildingId) ?? [],
   });
   business = core;
+  // 생산시설 지분 시장(값 = 사업장 금고 화폐 [임시] — shares.ts)
+  const shareMarkets = createShareMarkets({
+    ledger: input.ledger,
+    writer: input.writer,
+    planetId: TEST_PLANET_ID,
+    loaded: input.loaded.business?.shares ?? EMPTY_SHARES,
+    asset: ASSET_CREDIT,
+    owner: (buildingId) => {
+      const place = buildingPlace(service.places, buildingId);
+      return place === undefined ? undefined : place.ownerId;
+    },
+    isBusiness: (buildingId) => service.facilities.has(buildingId),
+    rules: () => input.rules().business,
+    now: input.now,
+  });
+  shares = shareMarkets;
   // 사업장 장부 명령(프로토콜 34) — 건물 게이트웨이가 건물 서비스 고리로 넘긴다
   const commands = createBusinessCommands({
     core,
@@ -287,6 +315,7 @@ export function createWorldFacilities(input: {
     fallbackAsset: ASSET_CREDIT,
     now: input.now,
     durable: () => input.writer.durable(),
+    shares: () => shareMarkets,
   });
   service.attachBusiness(commands);
   const attack = createBuildingAttack({
@@ -407,6 +436,7 @@ export function createWorldFacilities(input: {
     },
     business: core,
     businessCommands: commands,
+    shares: shareMarkets,
     cityAdminLevel: (cityId) => npcCity(cityId)?.adminLevel,
   };
 }

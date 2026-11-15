@@ -33,6 +33,10 @@ export const facilitiesRouter = router({
     .query(({ ctx, input }) =>
       (ctx.facilities ?? notReady).books(ctx.viewer, input.buildingId, input.days, ctx.now()),
     ),
+  /** 건물 판 머리 이름표(주인·대주주 이름·몫, 누구나 — docs/adr/2026-11-15-building-screen.md) */
+  owner: signedInProcedure
+    .input(z.strictObject({ buildingId: z.int().min(1).max(Number.MAX_SAFE_INTEGER) }))
+    .query(({ ctx, input }) => (ctx.facilities ?? notReady).owner(ctx.viewer, input.buildingId)),
   landRule: signedInProcedure
     .input(z.strictObject({ mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }))
     .query(({ ctx, input }) => (ctx.facilities ?? notReady).landRule(ctx.viewer, input.mapKey)),

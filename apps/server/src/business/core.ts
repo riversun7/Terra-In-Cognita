@@ -7,7 +7,9 @@
 //   계정 잔고가 음수 = 갚을 돈). 정산 주기 끝에 금고에서 먼저 갚는다(business_repay). 한 주기 넘게 못 갚으면 사업장이 멈춘다(시설이 일하지 않음),
 //   다 갚으면 다시 돈다. 주인이 넣으면(business_invest) 바로 갚는다.
 // - 정산(1501·1502): 손으로(주인·대주주) 또는 주기 끝 자동. 적자를 먼저 갚고 남은 금고 돈을 지분 수대로 주주 지갑(위치 없음)에 나눈다
-//   (business_settle). 지분 = 주인 하나 1주 [임시](질문 1621). NPC 세력 사업장의 주주 = 그 세력 → 몫은 나라 국고로(1509·1510 — 플레이어와 같다).
+//   (business_settle). NPC 세력 사업장의 주주 = 그 세력 → 몫은 나라 국고로(1509·1510 — 플레이어와 같다).
+//   바뀜 (2026-11-15, docs/adr/2026-11-15-building-screen.md): 지분 = 지분 시장(shares.ts)의 주주(원장 자산 share:biz_<건물>, 발행 전이면 주인 하나가
+//   전부). 정산·관리할 수 있는 사람 = 가장 많은 주주(같으면 모두) — 100% 팔면 경영권이 넘어간다(기획 44 §6). 지분 시장이 없으면(시험) 주인 하나 1주.
 // - 쓰기는 월드 쓰기 대기열(원장 고리와 같은 묶음). 거래에 중복 방지 키를 달지 않는다(자동 정산 주기는 business_states.settled_at_ms로 한 번만).
 import {
   type ShareHolder,
@@ -62,6 +64,8 @@ export interface BusinessDeps {
   /** 그 도시의 국고 주인·소득세 만분율(도시·나라를 모르면 undefined → 세금 없음) */
   tax(cityId: number): { readonly treasuryOwner: number; readonly bp: number } | undefined;
   readonly rules: () => BusinessCoefficients;
+  /** 주주(지분 시장 — shares.ts). 없으면 주인 하나 1주 */
+  readonly holders?: ((buildingId: number) => ShareHolder[]) | undefined;
 }
 
 export interface IncomeInput {
@@ -100,7 +104,7 @@ export interface BusinessCore {
    * 정산: 적자를 갚은 뒤 그 화폐 금고 돈(amount가 있으면 그만큼까지)을 지분 수대로 주주 지갑에 나눈다. 나눈 양(화폐마다)
    */
   settle(buildingId: number, atMs: number, only?: { asset: string; amount: bigint }): Map<string, bigint>;
-  /** 주주(지금은 주인 하나 1주 [임시]) */
+  /** 주주(지분 시장, 없으면 주인 하나 1주) */
   holders(buildingId: number): ShareHolder[];
   /** 정산할 수 있는 사람인가(주인·대주주, 1502) */
   mayManage(buildingId: number, ownerId: number): boolean;
@@ -285,6 +289,9 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
     atMs: number,
   ): boolean => {
     if (amount <= 0n) return false;
+    // 넣는 사람(주인·대주주·운영자) 지갑 → 그 건물 주인의 금고(대주주가 주인이 아니어도 금고는 주인 계정이다)
+    const vaultOwner = deps.place(buildingId)?.ownerId ?? null;
+    if (vaultOwner === null) return false;
     const wallet = ledger.ownerAccount(ownerId, asset);
     if (ledger.balance(wallet) < amount) return false;
     ledger.post({
@@ -292,7 +299,7 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
       atMs,
       entries: [
         { account: wallet, amount: -amount },
-        { account: vault(ownerId, asset, buildingId), amount },
+        { account: vault(vaultOwner, asset, buildingId), amount },
       ],
     });
     repay(buildingId, atMs);
@@ -301,7 +308,9 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
 
   const holders = (buildingId: number): ShareHolder[] => {
     const ownerId = deps.place(buildingId)?.ownerId ?? null;
-    return ownerId === null ? [] : [{ ownerId, shares: 1n }];
+    if (ownerId === null) return [];
+    if (deps.holders) return deps.holders(buildingId);
+    return [{ ownerId, shares: 1n }];
   };
 
   const settle = (

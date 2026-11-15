@@ -67,8 +67,9 @@ export interface BeaconEntry {
   readonly supplyCityId?: number | null | undefined;
 }
 
-/** 화폐(지갑)는 자리 목록에 넣지 않는다 */
-const isCash = (asset: string): boolean => asset.startsWith("cur:") || asset === "s3_test_credit";
+/** 화폐(지갑)·지분(사업장 지분 share:biz_<건물> — 물건이 아니다, docs/adr/2026-11-15-building-screen.md)은 자리 목록에 넣지 않는다 */
+const isCash = (asset: string): boolean =>
+  asset.startsWith("cur:") || asset === "s3_test_credit" || asset.startsWith("share:");
 
 /** 내 물건이 있는 자리(잔고 > 0, 화폐 빼고) — 도시 창고 → 건물 창고 → 화물 → 자리 없음 차례 */
 function placesOf(

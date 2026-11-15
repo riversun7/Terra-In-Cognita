@@ -49,6 +49,8 @@ export interface JobBoard {
   accept(me: number, jobId: number, unitId: number, at: number): JobCommandResult;
   /** 내가 낸 열린 게시 */
   mine(me: number | undefined): LaborJobView[];
+  /** 그 시설의 열린 게시(받을 수 있는 것 — 시설 주인이 그대로). 없으면 null */
+  openAt(buildingId: number, me: number | undefined): LaborJobView | null;
   /** 남이 낸 열린 일자리(거르기, 임금 높은 차례, 상한 LABOR_JOBS_LIMIT) */
   board(me: number | undefined, filter: JobBoardFilter): Omit<LaborJobsResponse, "status" | "generatedAt">;
   readonly jobs: ReadonlyMap<number, LaborJob>;
@@ -257,6 +259,16 @@ export function createJobBoard(options: {
       save(job);
       if (job.state !== "open") jobs.delete(job.id);
       return { ok: true, contractId: result.contract.id };
+    },
+    openAt(buildingId, me) {
+      const rules = options.rules();
+      const where = spots();
+      for (const job of jobs.values()) {
+        if (job.buildingId !== buildingId) continue;
+        const spot = liveSpot(job, where);
+        if (spot) return jobView(job, rules, spot, me);
+      }
+      return null;
     },
     mine(me) {
       if (me === undefined) return [];

@@ -18,6 +18,12 @@ export interface FxPair {
   readonly quote: string;
   /** 로트 하나 = base 최소 단위 몇 개 */
   readonly lotSize: bigint;
+  /**
+   * 에스크로 계정·거래 종류 앞머리(없으면 "fx" — 환전). 같은 동시호가를 다른 상품(사업장 지분 — 서버 business/shares.ts,
+   * docs/adr/2026-11-15-building-screen.md)에 쓸 때 시스템 계정 escrow:<앞머리>:<ID>:… 와 거래 종류 <앞머리>_escrow·<앞머리>_clear·
+   * <앞머리>_refund가 환전과 겹치지 않게 한다. 시뮬은 쓰지 않는다(출력 그대로)
+   */
+  readonly prefix?: string | undefined;
 }
 
 export interface FxOrder extends AuctionOrder {
@@ -56,8 +62,10 @@ export function createFxMarket(
   let lastPrice: bigint | undefined = restore.lastPrice;
   let volumeLots = 0n;
   let seq = pending.reduce((max, order) => Math.max(max, order.seq), 0);
-  const baseEscrow = (): number => book.systemAccount(`escrow:fx:${pair.id}:base`, pair.base);
-  const quoteEscrow = (): number => book.systemAccount(`escrow:fx:${pair.id}:quote`, pair.quote);
+  const prefix = pair.prefix ?? "fx";
+  const baseEscrow = (): number => book.systemAccount(`escrow:${prefix}:${pair.id}:base`, pair.base);
+  const quoteEscrow = (): number => book.systemAccount(`escrow:${prefix}:${pair.id}:quote`, pair.quote);
+  const refundKind = pair.prefix === undefined ? "order_refund" : `${prefix}_refund`;
   const lockOf = (order: { side: Side; price: bigint; lots: bigint }): bigint =>
     order.side === "buy" ? order.price * order.lots : order.lots * pair.lotSize;
 
@@ -75,7 +83,7 @@ export function createFxMarket(
       const lock = lockOf({ side, price, lots });
       if (book.balance(from) < lock) return { ok: false };
       book.post({
-        kind: "fx_escrow",
+        kind: `${prefix}_escrow`,
         atMs: nowMs,
         entries: [
           { account: from, amount: -lock },
@@ -112,7 +120,7 @@ export function createFxMarket(
       }
       const entries: LedgerEntry[] = [];
       for (const [account, amount] of sums) if (amount !== 0n) entries.push({ account, amount });
-      if (entries.length > 0) book.post({ kind: "fx_clear", atMs: nowMs, entries });
+      if (entries.length > 0) book.post({ kind: `${prefix}_clear`, atMs: nowMs, entries });
       pending = [];
       if (result.price !== undefined) {
         lastPrice = result.price;
@@ -126,7 +134,7 @@ export function createFxMarket(
       pending = pending.filter((entry) => entry.id !== orderId);
       const lock = lockOf(order);
       book.post({
-        kind: "order_refund",
+        kind: refundKind,
         atMs: nowMs,
         entries: [
           { account: order.side === "buy" ? quoteEscrow() : baseEscrow(), amount: -lock },

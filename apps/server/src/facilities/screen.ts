@@ -7,7 +7,7 @@ import type {
   FacilityWaterMaskResponse,
 } from "@terra/shared/facilities";
 import { OLD_FACILITY_RUNTIME_RULES as R } from "@terra/shared/facilityRuntime";
-import type { BusinessBooksResponse } from "@terra/shared/businessBooks";
+import type { BuildingOwnerResponse, BusinessBooksResponse } from "@terra/shared/businessBooks";
 import type { MapLooksResponse } from "@terra/shared/mapLooks";
 import { waterMaskToHex } from "@terra/shared/waterNearby";
 import { rolesAllow } from "../auth/permissions.ts";
@@ -26,6 +26,8 @@ export interface FacilityScreenServices {
   landRule(viewer: Viewer, mapKey: number): Promise<FacilityLandRuleResponse>;
   /** 사업장 장부(누구나 — D-555 1513, business/books.ts) */
   books(viewer: Viewer, buildingId: number, days: number, nowMs: number): Promise<BusinessBooksResponse>;
+  /** 건물 판 머리 이름표(주인·대주주 이름, 누구나 — docs/adr/2026-11-15-building-screen.md) */
+  owner(viewer: Viewer, buildingId: number): Promise<BuildingOwnerResponse>;
 }
 
 /** 세계가 준비됐을 때의 자료 */
@@ -45,6 +47,8 @@ export interface FacilityScreenSource {
   land: LandCheck;
   /** 사업장 장부(보는 사람의 소유 주체 기준) */
   books(userId: string, buildingId: number, days: number, nowMs: number): Promise<BusinessBooksResponse>;
+  /** 건물 판 머리 이름표 */
+  owner(userId: string, buildingId: number): Promise<BuildingOwnerResponse>;
 }
 
 function notReady(nowMs: number, dev: boolean): FacilitiesOverviewResponse {
@@ -93,6 +97,11 @@ export function createFacilityScreenServices(
       const found = source?.();
       if (!found) return { status: "not_ready" };
       return found.books(viewer.id, buildingId, days, nowMs);
+    },
+    async owner(viewer, buildingId) {
+      const found = source?.();
+      if (!found) return { status: "not_ready" };
+      return found.owner(viewer.id, buildingId);
     },
     async landRule(viewer, mapKey) {
       const found = source?.();

@@ -3,9 +3,13 @@
 //   화폐·날마다 합하고, 최근 거래 목록을 붙인다. 잔고·적자·멈춤은 메모리(원장·사업장 코어)에서 읽는다.
 // - 읽기 전에 쓰기 대기열을 기다린다(방금 들어온 수입이 빠지지 않게).
 // - 기간은 1·7·30일(화면이 고른다). 원장은 추가만이라 지우지 않는다 — 화면이 기간만 자른다.
+// - 바뀜 (2026-11-15, docs/adr/2026-11-15-building-screen.md): 주인·주주 이름(names.ts)·지분 몫, 창고 물건 값 합(재무상태), 지분 시장(shares.ts)을
+//   붙인다. 건물 판 머리 이름표(readBuildingOwner)도 여기서 읽는다.
 import {
   BOOK_COLUMNS,
   type BookColumn,
+  type BookHolder,
+  type BuildingOwnerResponse,
   type BookDay,
   type BookEntry,
   type BookGoods,
@@ -15,12 +19,16 @@ import {
   bookColumnOf,
   businessLocation,
   countsForProfit,
+  majorHolders,
+  sharePm,
 } from "@terra/shared/businessBooks";
 import type { Ledger } from "../economy/ledger.ts";
 import type { FacilityCatalog } from "../facilities/catalog.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { BusinessCommands } from "./commands.ts";
 import type { BusinessCore } from "./core.ts";
+import type { OwnerNames } from "./names.ts";
+import type { ShareMarkets } from "./shares.ts";
 
 const DAY_MS = 86_400_000;
 /** 최근 거래 목록 길이 */
@@ -39,6 +47,10 @@ export interface BooksSource {
   facilityOf(buildingId: number): string | undefined;
   /** NPC 세력 주체인가 */
   isNpc(ownerId: number): boolean;
+  /** 지분 시장(없으면 지분 칸 없이) */
+  readonly shares?: ShareMarkets | undefined;
+  /** 주인·주주 이름(없으면 이름 없이) */
+  readonly names?: OwnerNames | undefined;
 }
 
 const isMoney = (asset: string): boolean => !asset.startsWith("item:");
@@ -60,6 +72,7 @@ export async function readBusinessBooks(
   const vault: { asset: string; amount: string }[] = [];
   const goods: BookGoods[] = [];
   const catalog = source.catalog();
+  let stockValue = 0n;
   for (const account of source.ledger.accounts()) {
     if (account.ownerId !== ownerId || account.location !== here) continue;
     accounts.set(account.id, account.asset);
@@ -68,6 +81,9 @@ export async function readBusinessBooks(
     else {
       const price = source.commands.priceOf(buildingId, account.asset);
       const name = catalog.itemName(account.asset.slice(5));
+      // 재무상태의 재고 값: 판매 값(팔지 않으면 팩 기준 값 — catalog unitPriceOf, 모르면 1)
+      const unit = price ?? catalog.unitPriceOf?.(account.asset.slice(5)) ?? 1n;
+      stockValue += unit * account.balance;
       goods.push({
         asset: account.asset,
         qty: String(account.balance),
@@ -157,6 +173,15 @@ export async function readBusinessBooks(
     id === viewerOwnerId ? "me" : source.isNpc(id) ? "npc" : "player";
   const state = source.core.state(buildingId);
   const lot = source.commands.lotOf(buildingId);
+  const holderList = source.core.holders(buildingId);
+  const total = holderList.reduce((sum, holder) => sum + holder.shares, 0n);
+  const names = source.names ? await source.names.names([ownerId, ...holderList.map((h) => h.ownerId)]) : undefined;
+  const holders: BookHolder[] = holderList.map((holder) => ({
+    kind: kindOf(holder.ownerId),
+    shares: String(holder.shares),
+    name: names?.get(holder.ownerId) ?? null,
+    pm: sharePm(holder.shares, total),
+  }));
   return {
     status: "ok",
     buildingId,
@@ -164,10 +189,10 @@ export async function readBusinessBooks(
     facilityName: catalog.facility(facilityId)?.name ?? null,
     ownerKind: kindOf(ownerId),
     mine: viewerOwnerId !== undefined && source.core.mayManage(buildingId, viewerOwnerId),
-    holders: source.core.holders(buildingId).map((holder) => ({
-      kind: kindOf(holder.ownerId),
-      shares: String(holder.shares),
-    })),
+    holders,
+    ownerName: names?.get(ownerId) ?? null,
+    stockValue: String(stockValue),
+    ...(source.shares ? { market: source.shares.view(buildingId, viewerOwnerId, nowMs) } : {}),
     vault: vault.toSorted((a, b) => (a.asset < b.asset ? -1 : 1)),
     debt: [...source.core.debts(buildingId)]
       .toSorted((a, b) => (a[0] < b[0] ? -1 : 1))
@@ -185,5 +210,56 @@ export async function readBusinessBooks(
     totals,
     days: bars,
     entries,
+  };
+}
+
+/** 건물 판 머리 이름표 읽기에 드는 것 */
+export interface OwnerLabelSource {
+  readonly core: BusinessCore;
+  readonly names?: OwnerNames | undefined;
+  place(buildingId: number): { ownerId: number | null; cityId: number | null } | undefined;
+  isBusiness(buildingId: number): boolean;
+  isNpc(ownerId: number): boolean;
+}
+
+/**
+ * 건물 판 머리 이름표(사용자 요청 2026-11-15): 주인 이름, 지분을 나눴으면 가장 많은 주주 이름·몫(‰), 보는 사람의 몫·관리 가능
+ */
+export async function readBuildingOwner(
+  source: OwnerLabelSource,
+  viewerOwnerId: number | undefined,
+  buildingId: number,
+): Promise<BuildingOwnerResponse> {
+  const place = source.place(buildingId);
+  if (!place) return { status: "unknown_building" };
+  const ownerId = place.ownerId;
+  const kindOf = (id: number): BookOwnerKind =>
+    id === viewerOwnerId ? "me" : source.isNpc(id) ? "npc" : "player";
+  const business = ownerId !== null && source.isBusiness(buildingId);
+  const holders = business ? source.core.holders(buildingId) : [];
+  const total = holders.reduce((sum, holder) => sum + holder.shares, 0n);
+  const first = holders[0];
+  const split = first !== undefined && (first.ownerId !== ownerId || first.shares < total);
+  const names = source.names
+    ? await source.names.names([...(ownerId === null ? [] : [ownerId]), ...(first ? [first.ownerId] : [])])
+    : undefined;
+  const mine = viewerOwnerId !== undefined && ownerId === viewerOwnerId;
+  const myShares =
+    viewerOwnerId === undefined ? 0n : (holders.find((holder) => holder.ownerId === viewerOwnerId)?.shares ?? 0n);
+  return {
+    status: "ok",
+    buildingId,
+    ownerKind: ownerId === null ? null : kindOf(ownerId),
+    ownerName: ownerId === null ? null : (names?.get(ownerId) ?? null),
+    mine,
+    top:
+      split && first
+        ? { kind: kindOf(first.ownerId), name: names?.get(first.ownerId) ?? null, pm: sharePm(first.shares, total) }
+        : null,
+    myPm: sharePm(myShares, total),
+    canManage:
+      viewerOwnerId !== undefined &&
+      (business ? majorHolders(holders).includes(viewerOwnerId) : ownerId === viewerOwnerId),
+    business,
   };
 }

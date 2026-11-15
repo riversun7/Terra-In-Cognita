@@ -104,7 +104,8 @@ export function holdingsFromAccounts(
   const wallet: HoldingLine[] = [];
   const byPlace = new Map<string, { kind: HoldingPlace["kind"]; lines: HoldingLine[] }>();
   for (const row of rows) {
-    if (row.balance <= 0n) continue;
+    // 사업장 지분(share:biz_<건물>)은 물건도 화폐도 아니다 — 건물 장부·지분 칸이 보인다(docs/adr/2026-11-15-building-screen.md)
+    if (row.balance <= 0n || row.asset.startsWith("share:")) continue;
     const line = holdingLine(row);
     if (row.location === null && (line.currency !== null || TEST_CREDIT_ASSETS.has(row.asset))) {
       wallet.push(line);

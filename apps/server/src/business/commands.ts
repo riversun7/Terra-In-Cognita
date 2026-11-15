@@ -16,6 +16,7 @@ import type { BusinessCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { FacilityCatalog } from "../facilities/catalog.ts";
 import type { BusinessCore } from "./core.ts";
+import type { ShareMarkets } from "./shares.ts";
 
 export type BusinessCommand =
   | {
@@ -27,10 +28,18 @@ export type BusinessCommand =
   | { readonly kind: "invest"; readonly buildingId: number; readonly asset: string; readonly amount: bigint }
   | { readonly kind: "buy"; readonly buildingId: number; readonly item: string; readonly qty: number }
   | { readonly kind: "price"; readonly buildingId: number; readonly item: string; readonly price: bigint }
-  | { readonly kind: "gift"; readonly unitId: number; readonly amount: bigint };
+  | { readonly kind: "gift"; readonly unitId: number; readonly amount: bigint }
+  | {
+      readonly kind: "share_order";
+      readonly buildingId: number;
+      readonly side: "buy" | "sell";
+      readonly price: bigint;
+      readonly shares: bigint;
+    }
+  | { readonly kind: "share_cancel"; readonly orderId: number };
 
 export type BusinessCommandResult =
-  | { readonly ok: true; readonly paid?: bigint }
+  | { readonly ok: true; readonly paid?: bigint; readonly orderId?: number }
   | { readonly ok: false; readonly code: BusinessResultCode };
 
 export interface BusinessCommandDeps {
@@ -52,10 +61,16 @@ export interface BusinessCommandDeps {
   readonly now: () => number;
   /** 바뀐 것을 커밋까지 기다린다 */
   durable(): Promise<void>;
+  /** 생산시설 지분 시장(shares.ts). 없으면 지분 주문은 busy */
+  readonly shares?: (() => ShareMarkets | undefined) | undefined;
 }
 
 export interface BusinessCommands {
-  run(userId: string, command: BusinessCommand): Promise<BusinessCommandResult>;
+  /**
+   * 명령 하나. operator = 운영자 모드 연결(전체 보기 + 모든 유닛 명령 권한, 기획 D-560 — 사용자 요청 2026-11-15 "운영자도 조작가능"): 관리 명령
+   * (정산·넣기·값 정하기)을 주인·대주주가 아니어도 한다. 사고팔기(물건·지분)는 운영자도 자기 지갑으로 한다
+   */
+  run(userId: string, command: BusinessCommand, operator?: boolean): Promise<BusinessCommandResult>;
   /**
    * 주인이 제 사업장 창고 물건을 꺼낼 때 값을 낸다(storage_move out, D-555 1507 "주인도 돈을 내고 꺼낸다"). 창고 시설·남의 건물·화폐는 값이 없다.
    * 지갑이 모자라면 "insufficient_funds", 낼 것이 없거나 냈으면 null
@@ -127,11 +142,12 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
   const managed = (
     me: number,
     buildingId: number,
+    operator: boolean,
   ): { ok: true; ownerId: number } | { ok: false; code: BusinessResultCode } => {
     const place = deps.place(buildingId);
     if (!place) return { ok: false, code: "unknown_building" };
     if (place.ownerId === null || !deps.isBusiness(buildingId)) return { ok: false, code: "not_business" };
-    if (!core.mayManage(buildingId, me)) return { ok: false, code: "forbidden" };
+    if (!operator && !core.mayManage(buildingId, me)) return { ok: false, code: "forbidden" };
     return { ok: true, ownerId: place.ownerId };
   };
 
@@ -197,14 +213,31 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     return { ok: true, paid: amount };
   };
 
-  const decide = (me: number, command: BusinessCommand, atMs: number): BusinessCommandResult => {
+  const decide = (
+    me: number,
+    command: BusinessCommand,
+    atMs: number,
+    operator: boolean,
+  ): BusinessCommandResult => {
     switch (command.kind) {
+      case "share_order": {
+        const shares = deps.shares?.();
+        if (!shares) return fail("busy");
+        const placed = shares.place(me, command.buildingId, command.side, command.price, command.shares, atMs);
+        return placed.ok ? { ok: true, orderId: placed.orderId } : fail(placed.code);
+      }
+      case "share_cancel": {
+        const shares = deps.shares?.();
+        if (!shares) return fail("busy");
+        const cancelled = shares.cancel(me, command.orderId, atMs);
+        return cancelled.ok ? { ok: true } : fail(cancelled.code);
+      }
       case "gift":
         return gift(me, command.unitId, command.amount, atMs);
       case "buy":
         return buy(me, command.buildingId, command.item, command.qty, atMs);
       case "settle": {
-        const found = managed(me, command.buildingId);
+        const found = managed(me, command.buildingId, operator);
         if (!found.ok) return fail(found.code);
         if (command.asset !== undefined && !isMoney(command.asset)) return fail("not_money");
         const only =
@@ -215,7 +248,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
         return { ok: true, paid: [...paid.values()].reduce((sum, value) => sum + value, 0n) };
       }
       case "invest": {
-        const found = managed(me, command.buildingId);
+        const found = managed(me, command.buildingId, operator);
         if (!found.ok) return fail(found.code);
         if (!isMoney(command.asset)) return fail("not_money");
         if (command.amount <= 0n) return fail("invalid_amount");
@@ -224,7 +257,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
         return { ok: true, paid: command.amount };
       }
       case "price": {
-        const found = managed(me, command.buildingId);
+        const found = managed(me, command.buildingId, operator);
         if (!found.ok) return fail(found.code);
         if (!deps.catalog().isGoods(command.item.slice(5))) return fail("not_goods");
         if (command.price < 0n) return fail("invalid_amount");
@@ -239,11 +272,11 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
   };
 
   return {
-    async run(userId, command) {
+    async run(userId, command, operator = false) {
       const atMs = deps.now();
       const me = deps.ownerOf(userId, atMs);
       if (me === undefined) return fail("busy");
-      const result = decide(me, command, atMs);
+      const result = decide(me, command, atMs, operator);
       if (result.ok) await deps.durable();
       return result;
     },

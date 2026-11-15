@@ -156,7 +156,12 @@ export {
   SHIPYARD_MODULE_VALUES,
   legacyBoatCode,
 } from "./boats.ts";
-export { BUSINESS_PROTOCOL_VERSION, BUSINESS_RESULT_CODES, type BusinessResultCode } from "./business.ts";
+export {
+  BUSINESS_PROTOCOL_VERSION,
+  BUSINESS_RESULT_CODES,
+  BUSINESS_SHARES_PROTOCOL_VERSION,
+  type BusinessResultCode,
+} from "./business.ts";
 export {
   GUARDIAN_BUFF_IDS,
   GUARDIAN_BUFF_PROTOCOL_VERSION,

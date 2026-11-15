@@ -780,6 +780,33 @@ export const WORLD_TABLES = {
     columns: ["building_id", "item", "planet_id", "price"],
     key: ["building_id", "item"],
   },
+  /** 생산시설 지분 주문(docs/adr/2026-11-15-building-screen.md — open·done·cancelled) */
+  businessShareOrders: {
+    name: "business_share_orders",
+    columns: [
+      "id",
+      "building_id",
+      "planet_id",
+      "owner_id",
+      "side",
+      "price",
+      "shares",
+      "locked",
+      "seq",
+      "placed_at_ms",
+      "state",
+      "filled",
+      "clear_price",
+      "done_at_ms",
+    ],
+    key: ["id"],
+  },
+  /** 생산시설 지분 동시호가 회차(추가만) */
+  businessShareRounds: {
+    name: "business_share_rounds",
+    columns: ["id", "building_id", "planet_id", "at_ms", "price", "shares"],
+    key: [],
+  },
   /** 전투 결과 적용 기록(추가만, 전투마다 한 줄 — 유닛 바뀜·탈취 거래와 같은 묶음) */
   battleResults: {
     name: "world_battle_results",
@@ -850,6 +877,8 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "boatFacilities",
   "businessStates",
   "businessPrices",
+  "businessShareOrders",
+  "businessShareRounds",
   "marketBooks",
   "marketOrders",
   "marketTrades",

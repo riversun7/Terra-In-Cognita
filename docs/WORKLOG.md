@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 13:20 | 아무도 보지 않는 2차맵은 띄우지 않는다 — 좌표 유닛·좌표 이동 (map-coords) | Claude Code | [15-1320-map-coords](worklog/2026/11/15-1320-map-coords.md) |
 | 2026-11-15 11:30 | 2026-11-15 열한째 묶음 합치기 (배 체계 개편·파티·군단 명령·채집 오브젝트 티어 범위·2차 스탯 식 글·미러 D-559) | Claude Code | [15-1130-batch-1115c-merge](worklog/2026/11/15-1130-batch-1115c-merge.md) |
 | 2026-11-15 10:50 | 2차 스탯 식 글·영향 막대 나눔 (D-556) | Claude Code | [15-1050-stat-formula-text](worklog/2026/11/15-1050-stat-formula-text.md) |
 | 2026-11-15 10:10 | 채집 확률표 하나·오브젝트마다 티어 범위·채집 오브젝트 편집기(D-552) | Claude Code | [15-1010-gather-objects-2](worklog/2026/11/15-1010-gather-objects-2.md) |

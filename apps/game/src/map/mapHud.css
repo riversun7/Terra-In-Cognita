@@ -164,6 +164,7 @@
 }
 /* [운영자 속도] 칩 줄(기획 D-560 1246): 이름 + 칩 셋(눌린 칩 = 지금 배율) */
 .map-operator-pace {
+  flex: 1 1 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -179,6 +180,7 @@
 }
 .map-operator-pace-chip {
   min-inline-size: var(--tap-size);
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .map-operator-pace-chip[aria-pressed="true"] {

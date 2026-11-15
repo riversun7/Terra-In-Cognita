@@ -170,8 +170,12 @@
  *    티어를 그 도시 배후지 물 종류(낚시터가 설 땅 칸에서 가장 많은 것, 같으면 더 깊은 쪽)의 범위(설정 칸 fish_tier_* — 민물 T0~T2·연안 T0~T4·
  *    대륙붕 T2~T6·심해 T4~T8 [임시])로 접는다(@terra/sim rollGatherOutputs tierRange, 난수는 그대로). 시뮬 평면은 시나리오 catchment.fishWater·
  *    세력 묶음 catchmentFishWater, 없으면 연안(질문 1411). 지금 시나리오(연안, 낚시터 일꾼 T3까지)는 결과가 그대로다(41은 같은 묶음의 다른 줄기가 쓴다)
+ * 45: 채집 확률표 하나(기획 D-552 "표 하나", docs/adr/2026-11-15-gather-object-tiers.md): 사다리마다 띠 표(gatherLadderBands)를 지웠다 — 광산도
+ *    기본 표(0~39 T0 700·T1 150·T2 100·T3 50)로 굴린다(팩 core@98에서 광석 전용 표를 지움). rollGatherOutputs에 오브젝트 규칙(대표 아이템
+ *    prefer·굴림표 table, 범위는 선택 방식에도)을 더했다 — 시뮬 NPC 시설은 넘기지 않아 그 몫은 그대로다. 광산이 있는 시나리오(econ16·build16 등)의
+ *    결과가 달라진다(43·44는 같은 묶음의 다른 줄기가 쓴다)
  */
-export const SIM_VERSION = 42;
+export const SIM_VERSION = 45;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

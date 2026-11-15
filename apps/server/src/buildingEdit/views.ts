@@ -152,7 +152,6 @@ export function subcategoryOptions(entries: readonly ItemSubcategoryEntry[]): Bu
 export function gatherTierJsonOf(entry: GatherTierEntry): GatherTierJson {
   return {
     id: entry.id,
-    ...(entry.ladder ? { ladder: entry.ladder.id } : {}),
     from: entry.from,
     weightsPm: [...entry.weightsPm],
   };

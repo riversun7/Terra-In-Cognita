@@ -40,13 +40,9 @@ function corePack() {
 describe("채집 확률표: 팩 gather_tiers = TEST_GATHER_BANDS", () => {
   it("구간 시작·가중치가 같다(파일 차례)", () => {
     const { bands } = corePack();
-    // 사다리 띠 표(기획 D-540 1217 나)까지 같다: 기본 표 14줄 + 광석 표 14줄
+    // 표 하나(기획 D-552): 14줄
     expect(bands.map(gatherBandOfEntry)).toEqual(
-      TEST_GATHER_BANDS.map((band) => ({
-        from: band.from,
-        weightsPm: [...band.weightsPm],
-        ...(band.ladder ? { ladder: band.ladder } : {}),
-      })),
+      TEST_GATHER_BANDS.map((band) => ({ from: band.from, weightsPm: [...band.weightsPm] })),
     );
   });
 });
@@ -86,7 +82,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       [4, 50, 2, 300],
       [5, 60, 3, 600],
     ]);
-    expect(shown?.bands[0]).toEqual({ from: 0, to: 19, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0] });
+    expect(shown?.bands[0]).toEqual({ from: 0, to: 19, weightsPm: [700, 150, 100, 50, 0, 0, 0, 0, 0, 0] });
     expect(shown?.bands.at(-1)?.to).toBeNull();
   });
 

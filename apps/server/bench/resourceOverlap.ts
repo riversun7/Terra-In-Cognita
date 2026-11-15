@@ -17,7 +17,7 @@ import { type CellKey, FACES, cellKey, parseCellKey } from "@terra/planet";
 import { planetInputFromDefinition, runPlanetGenerator } from "@terra/planet/generator";
 import { planetCellValues, planetValuesFromGeneration } from "@terra/planet/secondMap";
 import { type CatchmentMaterial, cellSharesPm, resourceBiomeGroup } from "@terra/shared/catchment";
-import { START_WORLD_SEED, gatherLadderBands, plannedCityRadiusMilli } from "@terra/sim";
+import { START_WORLD_SEED, plannedCityRadiusMilli } from "@terra/sim";
 import { landGather } from "../src/facilities/npcSeed.ts";
 import { MAX_TEST_NATIONS, nationCode, nationStartOf, presetOfCode } from "../src/npc/nations.ts";
 import { nationPresetsOf } from "../src/npc/presets.ts";
@@ -210,17 +210,17 @@ const allBands = (pack.entries.get("gather_tiers") ?? []).map((entry) =>
   gatherBandOfEntry(gatherTierEntrySchema.parse(reparse(entry))),
 );
 const STAT = 20; // 주 10 + 보조 10(레벨 1)
-// 사다리 띠 표(기획 D-540 1217 나): 통나무 = 목재 사다리 T0, 석재 = 광석 사다리 T1. 사다리마다 그 표의 구간
-const ladderModel = (ladder: string) => {
-  const bands = gatherLadderBands(allBands, ladder).toSorted((a, b) => a.from - b.from);
+// 통나무 = 목재 사다리 T0, 석재 = 광석 사다리 T1. 확률표 하나(기획 D-552 — NPC 시설 사다리 굴림, 오브젝트 범위는 보지 않는다)
+const ladderModel = () => {
+  const bands = allBands.toSorted((a, b) => a.from - b.from);
   const band = bands.findLast((entry) => entry.from <= STAT) ?? bands[0];
   const weights = band?.weightsPm ?? [1000];
   const weightSum = weights.reduce((sum, w) => sum + w, 0) || 1;
   const minutesPerLot = weights.reduce((sum, w, tier) => sum + (w * (30 + 30 * tier)) / weightSum, 0);
   return { band, weights, weightSum, minutesPerLot, lotsPerDay: (12 * 60) / minutesPerLot };
 };
-const woodModel = ladderModel("wood");
-const oreModel = ladderModel("ore");
+const woodModel = ladderModel();
+const oreModel = woodModel;
 const YIELD = 2;
 const WORKERS = 5;
 const floorPm = seed.catchmentYieldFloorPm;

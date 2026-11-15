@@ -1,7 +1,7 @@
-// 원자재 오브젝트 아이템 고르기 시험 — 기획 D-540 1222(다 어군 = 낚시 사다리 굴림, 나 난파선 = 굴림표), D-541 1307 나(어군 티어 범위)
+// 원자재 오브젝트 아이템 고르기 시험 — 기획 D-540 1222(나 난파선 = 굴림표), D-552(표 하나·오브젝트마다 티어 범위·대표 아이템)
 import { TEST_GATHER_BANDS } from "@terra/sim";
 import { describe, expect, it } from "vitest";
-import { type ObjectYieldCatalog, foldTierRange, objectYieldItem, pickTableItem } from "./objectYield.ts";
+import { type ObjectYieldCatalog, objectRollOf, objectYieldItem } from "./objectYield.ts";
 
 const FISH_LADDER = [
   ["item:loach", "item:minnow"],
@@ -15,6 +15,21 @@ const FISH_LADDER = [
   [],
   [],
 ];
+const CROP_LADDER = [["item:barley"], ["item:potato"], ["item:wheat"], [], [], [], [], [], [], []];
+const TIERS: Readonly<Record<string, number>> = {
+  loach: 0,
+  minnow: 0,
+  carp: 1,
+  salmon: 2,
+  saury: 3,
+  mackerel: 3,
+  barley: 0,
+  potato: 1,
+  wheat: 2,
+  copper_ingot: 3,
+  gold_ingot: 6,
+  old_relic: 2,
+};
 const catalog: ObjectYieldCatalog = {
   facility: (id) =>
     id === "fishing_spot"
@@ -22,8 +37,11 @@ const catalog: ObjectYieldCatalog = {
       : id === "farm"
         ? { gather: { subcategory: "crop", mode: "select" } }
         : undefined,
-  gatherLadder: () => FISH_LADDER,
+  gatherLadder: (gather) => (gather.subcategory === "crop" ? CROP_LADDER : FISH_LADDER),
   gatherBands: TEST_GATHER_BANDS,
+  subcategoryOf: (id) =>
+    ["barley", "potato", "wheat"].includes(id) ? "crop" : id in TIERS && !id.endsWith("ingot") ? "fish" : undefined,
+  itemTier: (id) => TIERS[id],
 };
 const input = (seq: number, primary = 10, secondary = 10) => ({
   unitId: 7,
@@ -42,26 +60,13 @@ const count = (kind: Parameters<typeof objectYieldItem>[0], n: number, primary =
   }
   return out;
 };
+const fish = (item: string, tierRange?: { min: number; max: number }) => ({
+  item,
+  facility: "fishing_spot",
+  ...(tierRange ? { tierRange } : {}),
+});
 
 describe("굴림표(난파선)", () => {
-  it("가중치 칸에 맞는 줄: 0~449 → 첫째, 450~749 → 둘째 …, 합 밖은 나머지로 접는다", () => {
-    const table = [
-      { item: "copper_ingot", weightPm: 450 },
-      { item: "iron_ingot", weightPm: 300 },
-      { item: "gold_ingot", weightPm: 250 },
-    ];
-    expect([0, 449, 450, 749, 750, 999, 1000].map((roll) => pickTableItem(table, roll))).toEqual([
-      "copper_ingot",
-      "copper_ingot",
-      "iron_ingot",
-      "iron_ingot",
-      "gold_ingot",
-      "gold_ingot",
-      "copper_ingot",
-    ]);
-    expect(pickTableItem([], 3)).toBeUndefined();
-  });
-
   it("2만 번 캐면 가중치 몫에 가깝고(±1.5%p), 같은 입력이면 같은 아이템", () => {
     const kind = {
       item: "copper_ingot",
@@ -78,57 +83,58 @@ describe("굴림표(난파선)", () => {
   });
 });
 
-describe("사다리 굴림(어군 = 낚시 사다리)", () => {
-  it("새 유닛(AGI 10 + DEX 10 = 20): 어류는 기본 띠 표 T0 70%·T1 15%·T2 10%·T3 5%(±1.5%p)", () => {
-    const got = count({ item: "carp", facility: "fishing_spot", ladder: true }, 20_000);
+describe("오브젝트 규칙(기획 D-552)", () => {
+  it("범위가 없으면 대표 아이템 티어 하나 = 늘 대표 아이템(옛 고정 아이템과 같다)", () => {
+    expect(count(fish("carp"), 2000)).toEqual(new Map([["carp", 2000]]));
+    // 같은 티어에 둘이 있어도 대표 아이템
+    expect(count(fish("minnow"), 500)).toEqual(new Map([["minnow", 500]]));
+    // 사다리에 없는 대표 아이템(꺼진 아이템 등)도 그대로 나온다
+    expect(count({ item: "old_relic", facility: null }, 50)).toEqual(new Map([["old_relic", 50]]));
+  });
+
+  it("새 유닛(AGI 10 + DEX 10 = 20), 범위 T0~T9: 표 하나 T0 70%·T1 15%·T2 10%·T3 5%(±1.5%p), T0은 대표 아이템이 아니면 반씩", () => {
+    const got = count(fish("carp", { min: 0, max: 9 }), 20_000);
     const t0 = (got.get("loach") ?? 0) + (got.get("minnow") ?? 0);
     expect(Math.abs(t0 - 14_000)).toBeLessThan(300);
     expect(Math.abs((got.get("carp") ?? 0) - 3000)).toBeLessThan(300);
     expect(Math.abs((got.get("salmon") ?? 0) - 2000)).toBeLessThan(300);
     expect(Math.abs((got.get("saury") ?? 0) - 1000)).toBeLessThan(300);
-    // T0 둘은 반씩
     expect(Math.abs((got.get("loach") ?? 0) - (got.get("minnow") ?? 0))).toBeLessThan(500);
   });
 
-  it("스탯이 높으면 높은 티어가 는다(140~159 띠: T3 160‰ + 사다리에 없는 T4~T8 160‰이 T3으로 내려가 약 32%)", () => {
-    const low = count({ item: "carp", facility: "fishing_spot", ladder: true }, 5000);
-    const high = count({ item: "carp", facility: "fishing_spot", ladder: true }, 5000, 75, 75);
-    expect(Math.abs((high.get("saury") ?? 0) - 1600)).toBeLessThan(150);
-    expect(high.get("saury") ?? 0).toBeGreaterThan((low.get("saury") ?? 0) * 4);
+  it("스탯이 높아도 위 끝까지만(사용자 '최대가 6티어이면 6까지'): 민물 T0~T2는 꽁치(T3)가 나오지 않고 연어로 접힌다", () => {
+    const lake = count(fish("carp", { min: 0, max: 2 }), 5000, 75, 75);
+    expect(lake.get("saury")).toBeUndefined();
+    const open = count(fish("carp", { min: 0, max: 9 }), 5000, 75, 75);
+    expect(lake.get("salmon") ?? 0).toBe((open.get("salmon") ?? 0) + (open.get("saury") ?? 0));
   });
 
-  it("사다리 굴림이 없거나, 시설을 모르거나, 선택 방식 시설이면 대표 아이템", () => {
-    expect(objectYieldItem({ item: "carp", facility: "fishing_spot" }, catalog, input(1))).toBe("carp");
-    expect(objectYieldItem({ item: "carp", facility: null, ladder: true }, catalog, input(1))).toBe("carp");
-    expect(objectYieldItem({ item: "carp", facility: "nowhere", ladder: true }, catalog, input(1))).toBe(
-      "carp",
-    );
-    expect(objectYieldItem({ item: "barley", facility: "farm", ladder: true }, catalog, input(1))).toBe(
-      "barley",
-    );
-  });
-});
-
-describe("어군 티어 범위(질문 1307 나)", () => {
-  it("범위 밖 티어는 범위 안으로 접는다(위는 max, 아래는 min), 범위가 없으면 그대로", () => {
-    const shelf = { min: 2, max: 6 };
-    expect([0, 1, 2, 4, 6, 7, 9].map((tier) => foldTierRange(tier, shelf))).toEqual([2, 2, 2, 4, 6, 6, 6]);
-    expect(foldTierRange(9, undefined)).toBe(9);
-    expect(foldTierRange(5, { min: 6, max: 2 })).toBe(2);
-  });
-
-  it("민물 T0~T2: 높은 스탯에도 T3(꽁치)이 나오지 않고 연어(T2)로 접힌다", () => {
-    const lake = { item: "carp", facility: "fishing_spot", ladder: true, tierRange: { min: 0, max: 2 } };
-    const got = count(lake, 5000, 75, 75);
-    expect(got.get("saury")).toBeUndefined();
-    const open = count({ item: "carp", facility: "fishing_spot", ladder: true }, 5000, 75, 75);
-    expect(got.get("salmon") ?? 0).toBe((open.get("salmon") ?? 0) + (open.get("saury") ?? 0));
-  });
-
-  it("대륙붕 T2~T6: 새 유닛(스탯 20)의 T0·T1은 T2로 올라 연어 이상만 나온다", () => {
-    const shelf = { item: "mackerel", facility: "fishing_spot", ladder: true, tierRange: { min: 2, max: 6 } };
-    const got = count(shelf, 5000);
-    expect([...got.keys()].toSorted()).toEqual(["salmon", "saury"]);
+  it("아래 끝으로 올린다: 대륙붕 T2~T6, 새 유닛의 T0·T1은 T2(연어)로", () => {
+    const got = count(fish("mackerel", { min: 2, max: 6 }), 5000);
+    // T3은 대표 아이템(고등어 — 시험 사다리에 없어 그 티어에 넣는다)
+    expect([...got.keys()].toSorted()).toEqual(["mackerel", "salmon"]);
     expect(Math.abs((got.get("salmon") ?? 0) - 4750)).toBeLessThan(150);
+  });
+
+  it("그 티어에 대표 아이템이 있으면 대표 아이템: 범위 T0~T1, 대표 미꾸라지 = T0은 늘 미꾸라지", () => {
+    const got = count(fish("loach", { min: 0, max: 1 }), 4000);
+    expect([...got.keys()].toSorted()).toEqual(["carp", "loach"]);
+    expect(Math.abs((got.get("loach") ?? 0) - 2800)).toBeLessThan(150);
+  });
+
+  it("선택 방식 시설(농장)이 맡으면 해금 티어를 범위로 자른다(기획 D-552 질문 1565)", () => {
+    // 합 40 → 해금 T2, 범위 T0~T1 → 감자
+    expect(objectYieldItem({ item: "barley", facility: "farm", tierRange: { min: 0, max: 1 } }, catalog, input(1, 20, 20))).toBe("potato");
+    // 범위가 없으면 보리(대표 티어)
+    expect(objectYieldItem({ item: "barley", facility: "farm" }, catalog, input(1, 20, 20))).toBe("barley");
+  });
+
+  it("규칙: 맡는 시설 사다리·범위·대표 아이템(굴림표는 표)", () => {
+    const roll = objectRollOf(fish("carp", { min: 0, max: 2 }), catalog);
+    expect(roll.tierRange).toEqual({ min: 0, max: 2 });
+    expect(roll.prefer).toBe("item:carp");
+    expect(roll.select).toBe(false);
+    expect(roll.ladder).toBe(FISH_LADDER);
+    expect(objectRollOf({ item: "barley", facility: "farm" }, catalog).select).toBe(true);
   });
 });

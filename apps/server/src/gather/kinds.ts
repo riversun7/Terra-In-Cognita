@@ -43,13 +43,13 @@ export interface GatherKind {
   readonly material: CatchmentMaterial | null;
   /** 유닛이 직접 캘 수 있나(false = 맡는 시설의 일꾼만 — 밭·목초지·물터) */
   readonly direct: boolean;
-  /** 아이템 ID(item: 앞머리 없음). 굴림표·사다리 굴림이면 대표 아이템(판에 보이는 이름) */
+  /** 대표 아이템 ID(item: 앞머리 없음, 판에 보이는 이름). 사다리 = 이 아이템 중분류(기획 D-552) */
   readonly item: string;
   /** 굴림표(기획 D-540 1222 나 — 난파선): 한 번 캘 때 이 가운데 하나를 가중치(‰)로. 없으면 빈 목록 */
   readonly table?: readonly { readonly item: string; readonly weightPm: number }[] | undefined;
-  /** 사다리 굴림(기획 D-540 1222 다 — 어군): 맡는 시설의 채집 사다리에서 캐는 유닛의 유효 스탯 띠로 티어를 뽑는다 */
-  readonly ladder?: boolean | undefined;
-  /** 사다리 굴림의 티어 범위(기획 D-541 — 질문 1307 나, 어군 종류마다): 뽑은 티어를 이 안으로 접는다. 없으면 막지 않는다 */
+  /**
+   * 티어 범위(기획 D-552 — 굴림표가 아닌 모든 오브젝트): 확률표로 뽑은 티어를 이 안으로 자른다. 없으면 대표 아이템 티어 하나(objectYield.ts)
+   */
   readonly tierRange?: { readonly min: number; readonly max: number } | undefined;
   readonly lots: number;
   readonly workMs: number;
@@ -102,8 +102,7 @@ export function gatherKindsFromPack(pack: ContentPack): GatherKind[] {
       ...(kind.table
         ? { table: kind.table.map((row) => ({ item: row.item.id, weightPm: row.weightPm })) }
         : {}),
-      ...(kind.ladder === true ? { ladder: true } : {}),
-      ...(kind.ladder === true && kind.tierRange
+      ...(kind.tierRange && !kind.table
         ? { tierRange: { min: kind.tierRange.min, max: kind.tierRange.max } }
         : {}),
       lots: kind.lots,

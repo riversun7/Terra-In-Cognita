@@ -22,7 +22,7 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { UNIT_KIND_CYBORG, UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
-import { type GatherSite, gatherLots, gatherSettingsOf } from "./gatherWork.ts";
+import { type GatherSite, type LotRoll, gatherLots, gatherSettingsOf } from "./gatherWork.ts";
 import { type WorkRecord, workRow } from "./work.ts";
 
 /** 채집 산출 자료(건물 서비스가 잇는다 — facilities/world.ts attachLabor) */
@@ -69,6 +69,10 @@ export interface StationHook {
 export interface StationPlan {
   /** 끝낼 수 있는 묶음 수 상한(반경 안 남은 오브젝트 번수, 창고가 가득이면 0). undefined = 상한 없음(오브젝트 없는 농장, 756 ②) */
   readonly maxLots: number | undefined;
+  /**
+   * 이번 정산의 k번째 묶음(0부터)이 쓸 오브젝트 규칙(기획 D-552 — 직접 채집과 같은 규칙). 오브젝트를 맡지 않는 채집소(facility)는 없다
+   */
+  readonly lotRoll?: ((k: number) => LotRoll | undefined) | undefined;
   /** 레벨 수확 버프를 곱한 수량(‰ 나머지는 (유닛, 묶음 차례, 자산)으로 정한 굴림 — 같은 입력이면 같다) */
   scale(asset: string, qty: bigint, seq: number): bigint;
   /** 끝낸 묶음만큼 오브젝트 번수를 쓰고 일꾼 상태·피로 덜기를 적는다 */
@@ -233,6 +237,7 @@ export function createWorkBook(options: {
           settings: gatherSettingsOf(options.rules()),
           cycleMs: TEST_JOB_RULES.cycleMs,
           maxLots: plan?.maxLots,
+          lotRoll: plan?.lotRoll,
           condition: source.condition?.(unitId, site.cityId),
         });
         record.gatherPoints = result.points;

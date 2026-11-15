@@ -9,9 +9,7 @@ import {
   accessibleTier,
   gatherBandIndex,
   gatherCatchPm,
-  gatherBandLadders,
   gatherChancesPm,
-  gatherLadderBands,
   gatherProgress,
   gatherStat,
   gatherYield,
@@ -34,49 +32,31 @@ const ORE_LADDER: string[][] = [
   ["item:orichalcum"],
 ];
 
-/** 표 둘(기본 표·광석 표) */
-const BASE_BANDS = gatherLadderBands(TEST_GATHER_BANDS, undefined);
-const ORE_BANDS = gatherLadderBands(TEST_GATHER_BANDS, "ore");
+/** 표 하나(기획 D-552 "표 하나") */
+const BANDS = TEST_GATHER_BANDS;
 
-describe("채집 티어 확률표(TEST_GATHER_BANDS = 팩 core gather_tiers, 사다리마다 띠 표 — 기획 D-540 1217 나)", () => {
-  it("기본 표와 광석 표: 표마다 구간은 20 단위 14개, 첫 구간 0, 구간마다 T0~T9 가중치 합 1000", () => {
-    expect(gatherBandLadders(TEST_GATHER_BANDS)).toEqual(["ore"]);
-    for (const bands of [BASE_BANDS, ORE_BANDS]) {
-      expect(bands.map((band) => band.from)).toEqual([
-        0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260,
-      ]);
-      for (const band of bands) {
-        expect(band.weightsPm).toHaveLength(GATHER_TIERS);
-        expect(band.weightsPm.reduce((sum, value) => sum + value, 0)).toBe(GATHER_WEIGHT_TOTAL);
-      }
+describe("채집 티어 확률표(TEST_GATHER_BANDS = 팩 core gather_tiers, 표 하나 — 기획 D-552)", () => {
+  it("구간은 20 단위 14개, 첫 구간 0, 구간마다 T0~T9 가중치 합 1000", () => {
+    expect(BANDS.map((band) => band.from)).toEqual([
+      0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260,
+    ]);
+    for (const band of BANDS) {
+      expect(band.weightsPm).toHaveLength(GATHER_TIERS);
+      expect(band.weightsPm.reduce((sum, value) => sum + value, 0)).toBe(GATHER_WEIGHT_TOTAL);
     }
   });
 
-  it("가장 낮은 구간도 T3까지: 광석은 T0 500·T1 350(기본 재료 바닥 — 석재 T1), 기본 표는 옛 T0 700·T1 150(소나무 원목 T0이 줄지 않는다)", () => {
-    for (const band of ORE_BANDS.slice(0, 2))
-      expect(band.weightsPm).toEqual([500, 350, 100, 50, 0, 0, 0, 0, 0, 0]);
-    expect(ORE_BANDS[2]?.weightsPm).toEqual([500, 350, 120, 30, 0, 0, 0, 0, 0, 0]);
-    for (const band of BASE_BANDS.slice(0, 2))
-      expect(band.weightsPm).toEqual([700, 150, 100, 50, 0, 0, 0, 0, 0, 0]);
-    expect(BASE_BANDS[2]?.weightsPm).toEqual([650, 220, 100, 30, 0, 0, 0, 0, 0, 0]);
-    // 60 위는 두 표가 같다(옛 표 %를 ‰로, 160~179의 22.3% → 223, 반올림 없음)
-    expect(ORE_BANDS.slice(3).map((band) => band.weightsPm)).toEqual(
-      BASE_BANDS.slice(3).map((band) => band.weightsPm),
-    );
-    expect(BASE_BANDS[8]?.weightsPm).toEqual([223, 210, 200, 170, 110, 50, 23, 10, 4, 0]);
-  });
-
-  it("사다리 표 고르기: 전용 표가 있으면 그것만, 없으면 기본 표(빈 목록이면 빈 표)", () => {
-    expect(gatherLadderBands(TEST_GATHER_BANDS, "ore").every((band) => band.ladder === "ore")).toBe(true);
-    for (const ladder of ["wood", "herb", "fish", undefined])
-      expect(gatherLadderBands(TEST_GATHER_BANDS, ladder)).toEqual(BASE_BANDS);
-    expect(gatherLadderBands([], "ore")).toEqual([]);
-    // 기본 표만 있는 옛 팩이면 광석도 기본 표
-    expect(gatherLadderBands(BASE_BANDS, "ore")).toEqual(BASE_BANDS);
+  it("가장 낮은 구간도 T3까지: 옛 기본 표 T0 700·T1 150(광석 전용 표는 지웠다), T0+T1 몫은 옛 광석 표(850·850)보다 작지 않다", () => {
+    for (const band of BANDS.slice(0, 2)) expect(band.weightsPm).toEqual([700, 150, 100, 50, 0, 0, 0, 0, 0, 0]);
+    expect(BANDS[2]?.weightsPm).toEqual([650, 220, 100, 30, 0, 0, 0, 0, 0, 0]);
+    const low = BANDS.slice(0, 3).map((band) => (band.weightsPm[0] ?? 0) + (band.weightsPm[1] ?? 0));
+    expect(low.every((pm) => pm >= 850)).toBe(true);
+    // 옛 표 %를 ‰로(160~179의 22.3% → 223, 반올림 없음)
+    expect(BANDS[8]?.weightsPm).toEqual([223, 210, 200, 170, 110, 50, 23, 10, 4, 0]);
   });
 
   it("T9는 200~219에서 드물게, 220부터 늘어난다(D-534, 49 N43)", () => {
-    const t9 = ORE_BANDS.map((band) => band.weightsPm[9] ?? 0);
+    const t9 = BANDS.map((band) => band.weightsPm[9] ?? 0);
     // 199까지 T9 없음
     expect(t9.slice(0, 10).every((pm) => pm === 0)).toBe(true);
     // 200~219 드물게(2‰), 220부터 오른다
@@ -85,14 +65,14 @@ describe("채집 티어 확률표(TEST_GATHER_BANDS = 팩 core gather_tiers, 사
 });
 
 /** 시험 표에서 스탯이 든 구간 번호 */
-const at = (stat: number) => gatherBandIndex(ORE_BANDS, stat);
+const at = (stat: number) => gatherBandIndex(BANDS, stat);
 
 /** 시드 난수로 10만 번 뽑은 티어별 수 */
 function histogram(stat: number, seed: number): number[] {
   const rng = createRng(seed);
   const counts = Array.from({ length: GATHER_TIERS }, () => 0);
   for (let i = 0; i < 100_000; i++) {
-    const tier = rollGatherTier(ORE_BANDS, stat, rng);
+    const tier = rollGatherTier(BANDS, stat, rng);
     counts[tier] = (counts[tier] ?? 0) + 1;
   }
   return counts;
@@ -117,22 +97,22 @@ describe("레벨 보너스(N43)", () => {
     expect(gatherStat(176, 1, 10, 40)).toBe(216);
     expect(gatherStat(20, 3, 10, -40)).toBe(20);
     // Lv5 + 보너스 10이면 새 유닛(20)이 60~79 구간: T4가 열린다
-    const band = ORE_BANDS[gatherBandIndex(ORE_BANDS, gatherStat(20, 5, 10))];
+    const band = BANDS[gatherBandIndex(BANDS, gatherStat(20, 5, 10))];
     expect(band?.weightsPm[4]).toBe(10);
   });
 });
 
 describe("티어 뽑기 분포(시드 난수 10만 번)", () => {
-  it("새 유닛(STR 10 + VIT 10 = 20): T0 50%·T1 35%·T2 10%·T3 5% (±0.4%p), T4 위는 0", () => {
+  it("새 유닛(STR 10 + VIT 10 = 20): T0 70%·T1 15%·T2 10%·T3 5% (±0.4%p), T4 위는 0", () => {
     const counts = histogram(20, 1);
-    const expected = [50_000, 35_000, 10_000, 5_000];
+    const expected = [70_000, 15_000, 10_000, 5_000];
     expected.forEach((value, tier) => expect(Math.abs((counts[tier] ?? 0) - value)).toBeLessThan(400));
     expect(counts.slice(4).every((value) => value === 0)).toBe(true);
   });
 
   it("220 이상 구간: 표와 ±0.4%p 안, T9 0.5%가 나온다", () => {
     const counts = histogram(230, 7);
-    const band = ORE_BANDS[11];
+    const band = BANDS[11];
     band?.weightsPm.forEach((pm, tier) => expect(Math.abs((counts[tier] ?? 0) - pm * 100)).toBeLessThan(400));
     expect(counts[9]).toBeGreaterThan(300);
   });
@@ -168,7 +148,7 @@ describe("아이템 고르기", () => {
     lotSize.set("item:rubble", 1n);
     lotSize.set("item:stone", 1n);
     const { outputs, tiers, empty } = rollGatherOutputs(
-      { ladder: ORE_LADDER, bands: ORE_BANDS, stat: 20, lots: 1000, lotSize },
+      { ladder: ORE_LADDER, bands: BANDS, stat: 20, lots: 1000, lotSize },
       createRng(9),
     );
     expect(empty).toBe(0);
@@ -186,12 +166,12 @@ describe("아이템 고르기", () => {
 describe("나올 확률(표시용)", () => {
   it("철만 켜진 사다리: 0~39 구간에서 철 5%, 나머지 95%는 빈 묶음", () => {
     const onlyIron = Array.from({ length: GATHER_TIERS }, (_, tier) => (tier === 3 ? ["item:iron_ore"] : []));
-    expect(gatherChancesPm(ORE_BANDS, 20, onlyIron)).toEqual({
+    expect(gatherChancesPm(BANDS, 20, onlyIron)).toEqual({
       tierPm: [0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
       emptyPm: 950,
     });
     // 60~79: T3 6% + T4 1%(은이 없어 철로 내려감)
-    expect(gatherChancesPm(ORE_BANDS, 60, onlyIron).tierPm[3]).toBe(70);
+    expect(gatherChancesPm(BANDS, 60, onlyIron).tierPm[3]).toBe(70);
   });
 });
 
@@ -235,7 +215,7 @@ describe("옛 1차 생산 규칙(D-507, AntiGravt01 gather 엔진·ITM-10 값)",
   it("선택 방식: 해금 티어 이하에서 켜진 아이템이 있는 가장 높은 티어를 고르고, 같은 티어 여럿이면 고르게", () => {
     const crops: string[][] = [["item:hay", "item:bean"], ["item:potato"], [], [], [], [], [], [], [], []];
     const { outputs, tiers, landed } = rollGatherOutputs(
-      { ladder: crops, bands: ORE_BANDS, stat: 0, lots: 20, lotSize: new Map(), selectTier: 4 },
+      { ladder: crops, bands: BANDS, stat: 0, lots: 20, lotSize: new Map(), selectTier: 4 },
       createRng(2),
     );
     // T4 해금이지만 T2~T4가 비어 T1 감자만 나온다(뽑지 않음)
@@ -243,7 +223,7 @@ describe("옛 1차 생산 규칙(D-507, AntiGravt01 gather 엔진·ITM-10 값)",
     expect(tiers[4]).toBe(20);
     expect(landed[1]).toBe(20);
     const low = rollGatherOutputs(
-      { ladder: crops, bands: ORE_BANDS, stat: 0, lots: 2000, lotSize: new Map(), selectTier: 0 },
+      { ladder: crops, bands: BANDS, stat: 0, lots: 2000, lotSize: new Map(), selectTier: 0 },
       createRng(4),
     );
     const byAsset = new Map(low.outputs.map((stack) => [stack.asset, Number(stack.qty)]));
@@ -259,7 +239,7 @@ describe("옛 1차 생산 규칙(D-507, AntiGravt01 gather 엔진·ITM-10 값)",
     const { outputs, landed, empty } = rollGatherOutputs(
       {
         ladder: ORE_LADDER,
-        bands: ORE_BANDS,
+        bands: BANDS,
         stat: 20,
         lots: 500,
         lotSize,
@@ -276,7 +256,7 @@ describe("옛 1차 생산 규칙(D-507, AntiGravt01 gather 엔진·ITM-10 값)",
     const half = rollGatherOutputs(
       {
         ladder: ORE_LADDER,
-        bands: ORE_BANDS,
+        bands: BANDS,
         stat: 20,
         lots: 500,
         lotSize,
@@ -309,7 +289,7 @@ describe("성공 확률(낚시터, 옛 fishing_config 0.30·0.80·0.50·합 200)
   it("성공한 번만 티어를 뽑는다: 성공 350‰면 2만 번 가운데 약 35%가 물건, 나머지는 빈 번", () => {
     const fish: string[][] = [["item:loach"], ["item:carp"], ["item:salmon"], ["item:mackerel"]];
     const { outputs, empty, tiers } = rollGatherOutputs(
-      { ladder: fish, bands: BASE_BANDS, stat: 20, lots: 20_000, lotSize: new Map(), successPm: 350 },
+      { ladder: fish, bands: BANDS, stat: 20, lots: 20_000, lotSize: new Map(), successPm: 350 },
       createRng(21),
     );
     const caught = outputs.reduce((sum, stack) => sum + Number(stack.qty), 0);
@@ -321,7 +301,7 @@ describe("성공 확률(낚시터, 옛 fishing_config 0.30·0.80·0.50·합 200)
 
   it("성공 0‰면 모두 빈 번, 성공 칸이 없으면 늘 성공(난수를 더 쓰지 않아 앞 결과와 같다)", () => {
     const fish: string[][] = [["item:loach"]];
-    const base = { ladder: fish, bands: BASE_BANDS, stat: 20, lots: 50, lotSize: new Map() };
+    const base = { ladder: fish, bands: BANDS, stat: 20, lots: 50, lotSize: new Map() };
     expect(rollGatherOutputs({ ...base, successPm: 0 }, createRng(3)).empty).toBe(50);
     expect(rollGatherOutputs(base, createRng(3)).outputs).toEqual([{ asset: "item:loach", qty: 50n }]);
   });
@@ -332,7 +312,7 @@ const roll = (tierCap?: { maxTier: number; keepAbovePm: number }) =>
   rollGatherOutputs(
     {
       ladder: ORE_LADDER,
-      bands: ORE_BANDS,
+      bands: BANDS,
       stat: 220,
       lots: 4000,
       lotSize: new Map(),
@@ -363,7 +343,7 @@ describe("광석 티어 막기(기획 D-533 — 높은 티어 광석은 산지)"
     const out = rollGatherOutputs(
       {
         ladder: ORE_LADDER,
-        bands: ORE_BANDS,
+        bands: BANDS,
         stat: 0,
         lots: 3,
         lotSize: new Map(),
@@ -381,7 +361,7 @@ const fold = (tierRange?: { min: number; max: number }) =>
   rollGatherOutputs(
     {
       ladder: ORE_LADDER,
-      bands: ORE_BANDS,
+      bands: BANDS,
       stat: 220,
       lots: 4000,
       lotSize: new Map(),
@@ -408,13 +388,13 @@ describe("낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나 — ti
     expect(fresh.tiers.slice(0, 2)).toEqual(free.tiers.slice(0, 2));
   });
 
-  it("광산 티어 막기 뒤에 접는다, 선택 방식은 접지 않는다", () => {
+  it("광산 티어 막기 뒤에 접는다, 선택 방식도 접는다(기획 D-552 — 오브젝트 범위)", () => {
     const both = fold({ min: 4, max: 8 });
     expect(sum4(both.tiers)).toBe(4000);
     const capped = rollGatherOutputs(
       {
         ladder: ORE_LADDER,
-        bands: ORE_BANDS,
+        bands: BANDS,
         stat: 220,
         lots: 50,
         lotSize: new Map(),
@@ -427,7 +407,7 @@ describe("낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나 — ti
     const select = rollGatherOutputs(
       {
         ladder: ORE_LADDER,
-        bands: ORE_BANDS,
+        bands: BANDS,
         stat: 220,
         lots: 3,
         lotSize: new Map(),
@@ -436,7 +416,58 @@ describe("낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나 — ti
       },
       createRng(1),
     );
-    expect(select.tiers[1]).toBe(3);
+    expect(select.tiers[4]).toBe(3);
+  });
+});
+
+describe("오브젝트 규칙(기획 D-552 — 대표 아이템·굴림표)", () => {
+  const herbs: string[][] = [
+    ["item:wild_herb"],
+    ["item:aloe", "item:peppermint", "item:chamomile"],
+    ["item:lavender"],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+  ];
+
+  it("그 티어에 대표 아이템이 있으면 대표 아이템(난수 없이), 다른 티어는 그 티어 아이템", () => {
+    const rng = createRng(5);
+    expect(pickGatherItem(herbs, 1, rng, "item:chamomile")).toBe("item:chamomile");
+    expect(pickGatherItem(herbs, 2, rng, "item:chamomile")).toBe("item:lavender");
+    // 범위 T1~T1 + 대표: 늘 대표 아이템(옛 고정 아이템과 같다)
+    const fixed = rollGatherOutputs(
+      {
+        ladder: herbs,
+        bands: BANDS,
+        stat: 20,
+        lots: 500,
+        lotSize: new Map(),
+        tierRange: { min: 1, max: 1 },
+        prefer: "item:chamomile",
+      },
+      createRng(8),
+    );
+    expect(fixed.outputs).toEqual([{ asset: "item:chamomile", qty: 500n }]);
+  });
+
+  it("굴림표: 티어를 뽑지 않고 가중치로 하나, 사다리 밖 자산은 사다리 차례 뒤", () => {
+    const table = [
+      { asset: "item:whale_meat", weightPm: 700 },
+      { asset: "item:whale_oil", weightPm: 300 },
+    ];
+    const out = rollGatherOutputs(
+      { ladder: herbs, bands: BANDS, stat: 20, lots: 10_000, lotSize: new Map(), table },
+      createRng(4),
+    );
+    const meat = Number(out.outputs.find((stack) => stack.asset === "item:whale_meat")?.qty ?? 0n);
+    expect(Math.abs(meat - 7000)).toBeLessThan(250);
+    expect(out.outputs.map((stack) => stack.asset)).toEqual(["item:whale_meat", "item:whale_oil"]);
+    // 사다리 밖이라 T0으로 센다
+    expect(out.landed[0]).toBe(10_000);
   });
 });
 

@@ -19,8 +19,8 @@
 // - source "school"(움직이는 어군, 기획 D-536 "심해는 배로 이동하여 어군같이 물고기떼"): 바이옴마다 2차맵 하나에 count개. 서버가 물 칸 위
 //   닫힌 길(집 자리 둘레 range 안)을 결정적으로 정하고, 자리는 시각의 함수다(@terra/shared/fishSchool). reach 안 물가에 선 유닛이 낚고,
 //   0이면 배로만 닿는다.
-// - 나오는 아이템(기획 D-540 1222): 기본은 item 하나. table(굴림표)이면 그 가운데 하나를 가중치로, ladder면 맡는 시설의 사다리에서
-//   유효 스탯 띠로 티어를 뽑는다(어군 = 낚시 사다리). tierRange가 있으면 뽑은 티어를 그 범위 안으로 접는다(기획 D-541 질문 1307 나).
+// - 나오는 아이템(기획 D-540 1222, D-552): table(굴림표)이면 그 가운데 하나를 가중치로. 아니면 대표 아이템 중분류 사다리에서 채집 확률표
+//   하나로 티어를 뽑아 tierRange로 자른다(없으면 대표 아이템 티어 하나 — 옛 결과 그대로).
 // 지금 값은 모두 [임시]다(D-515).
 import { MAP_PROP_ARTS, isUsableMapPropArt } from "@terra/shared";
 import { CATCHMENT_MATERIALS } from "@terra/shared/catchment";
@@ -58,7 +58,7 @@ const common = {
   direct: z.boolean().optional(),
   /**
    * 굴림표(기획 D-540 1222 나 — 난파선): 한 번 캘 때 이 아이템들 가운데 하나를 가중치(‰, 합 1000)로 뽑는다. 있으면 item은 대표 아이템(판에
-   * 보이는 이름)이고 표 안에 있어야 한다(2단계 검사 gather_table_*). ladder와 함께 쓰지 않는다
+   * 보이는 이름)이고 표 안에 있어야 한다(2단계 검사 gather_table_*). tierRange와 함께 쓰지 않는다
    */
   table: z
     .array(z.strictObject({ item: ref("items"), weightPm: z.int().min(1).max(1000) }))
@@ -66,14 +66,11 @@ const common = {
     .max(16)
     .optional(),
   /**
-   * 사다리 굴림(기획 D-540 1222 다 — 어군): 한 번 캘 때 맡는 시설(facility)의 채집 사다리에서 캐는 유닛의 유효 스탯(주 + 보조) 띠로 티어를
-   * 뽑는다(다른 1차 생산과 같은 띠 표 — 사다리 띠 표). 있으면 item은 대표 아이템. 맡는 시설에 추첨 방식 채집 칸이 있어야 한다(2단계 검사)
-   */
-  ladder: z.literal(true).optional(),
-  /**
-   * 사다리 굴림의 티어 범위(기획 D-541 — 질문 1307 나, 어군 종류마다 "깊은 바다일수록 큰 고기"): 뽑은 티어가 범위 밖이면 범위 안으로 접는다
-   * (아래는 min, 위는 max — 광산 티어 막기 oreTierCapOf와 같은 꼴, 남기는 몫 없음). ladder와 함께만 쓰고 min ≤ max(2단계 검사
-   * gather_tier_range_*). 없으면 막지 않는다
+   * 티어 범위(기획 D-552 — docs/adr/2026-11-15-gather-object-tiers.md, 사용자 "오브젝트마다 티어 범위가 제한되게는 하자. 민물이나 심해처럼"):
+   * 굴림표가 아닌 오브젝트는 모두 대표 아이템(item)의 중분류 사다리(맡는 시설 사다리에 들면 그 사다리)에서 채집 확률표(표 하나)로 티어를 뽑고
+   * (맡는 시설이 선택 방식이면 해금 티어), 그 티어를 이 범위 안으로 자른다(아래는 min, 위는 max). 그 티어에 대표 아이템이 있으면 대표 아이템이
+   * 나온다. min ≤ max(2단계 검사 gather_tier_range_order), 굴림표와 함께 쓰지 않는다(gather_tier_range_table). 없으면 대표 아이템 티어 하나
+   * (옛 결과 그대로). 바뀜: D-541의 ladder 칸(사다리 굴림 켜기)은 지웠다 — 모든 오브젝트가 굴린다
    */
   tierRange: z
     .strictObject({

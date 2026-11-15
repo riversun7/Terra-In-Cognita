@@ -22,7 +22,7 @@
     "bench:siege-layout": "node bench/siegeLayout.ts",
     "bench:city-rest": "node bench/cityRest.ts",
     "bench:terrain-objects": "node bench/terrainObjects.ts",
-    "bench:gather-ladders": "node bench/gatherLadders.ts"
+    "bench:gather-objects": "node bench/gatherObjects.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.14",

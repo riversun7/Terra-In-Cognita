@@ -7,6 +7,9 @@
 //   스탯·시설 레벨이 그 사이 바뀌면 바뀐 값으로 뽑는다. 쌓인 진행·seq는 unit_work 줄에 남긴다(work.ts).
 // - 시뮬과 다른 점: 시뮬 시설은 묶음을 시작할 때 일꾼 수로 시간을 정하고, 여기는 유닛마다 진행을 쌓는다(유닛 하나 = 일꾼 하나). 결과의 기댓값은 같다.
 // - 컨디션(D-534, labor/condition.ts): 정산 때 그 시설 도시의 주거·음식으로 센 관리 보너스를 유효 스탯에 더한다(시뮬 workerEffects와 같은 함수).
+// - 오브젝트 규칙(기획 D-552 "직접 채집과 일꾼 채집이 같은 규칙", docs/adr/2026-11-15-gather-object-tiers.md): 채집소가 묶음마다 쓸 오브젝트의
+//   규칙(lotRoll — 사다리·티어 범위·대표 아이템·굴림표)을 주면 그 묶음을 그것으로 굴린다(직접 채집 gather/objectYield.ts와 같은 rollGatherOutputs).
+//   주지 않으면(오브젝트를 맡지 않는 채집 시설) 시설 사다리 그대로.
 // 정수 연산만 쓴다(판정 코드 규칙).
 import { createRng } from "@terra/shared";
 import {
@@ -37,16 +40,18 @@ export interface GatherSite {
   readonly lotSize: ReadonlyMap<string, bigint>;
   /** 건물이 선 도시(산출이 가는 도시 창고). 그 2차맵에 도시가 없으면 null */
   readonly cityId: number | null;
-  /**
-   * 광산 티어 막기(기획 D-535 — 그 2차맵 칸 높은 티어 몫, @terra/shared/catchment oreTierCapOf. 시뮬·NPC 광산과 같은 rollGatherOutputs tierCap).
-   * 없으면 막지 않는다
-   */
-  readonly tierCap?: { readonly maxTier: number; readonly keepAbovePm: number } | undefined;
-  /**
-   * 낚시터 티어 범위(기획 D-542 질문 1365 나 — 그 자리 물 종류, facilities/fishWater.ts·@terra/shared/fishWater. 시뮬·NPC 낚시터와 같은
-   * rollGatherOutputs tierRange). 없으면 접지 않는다
-   */
-  readonly tierRange?: { readonly min: number; readonly max: number } | undefined;
+}
+
+/** 묶음 하나가 쓰는 오브젝트의 굴림 규칙(기획 D-552 — gather/objectYield.ts objectRollOf) */
+export interface LotRoll {
+  /** 그 오브젝트의 사다리(티어별 켜진 아이템 자산) */
+  readonly ladder: readonly (readonly string[])[];
+  /** 티어 범위(아래 ≤ 위) */
+  readonly tierRange: { readonly min: number; readonly max: number };
+  /** 대표 아이템 자산(item:<ID>) */
+  readonly prefer: string;
+  /** 굴림표(난파선·고래 무리). 있으면 티어를 뽑지 않는다 */
+  readonly table?: readonly { readonly asset: string; readonly weightPm: number }[] | undefined;
 }
 
 /** 채집 손잡이 = 세력·사회 계수표의 설정 칸 값(시뮬레이터 simulator/run.ts attachEconomy와 같은 대응) */
@@ -108,6 +113,11 @@ export interface GatherLotsInput {
    * 없으면 0
    */
   readonly condition?: number | undefined;
+  /**
+   * 이번 호출의 k번째 묶음(0부터)이 쓸 오브젝트 규칙(채집소 — gather/station.ts lotRoll, 반경 안 오브젝트를 가까운 것부터). undefined를
+   * 돌려주거나 없으면 시설 사다리 그대로
+   */
+  readonly lotRoll?: ((k: number) => LotRoll | undefined) | undefined;
 }
 
 export interface GatherLotsResult extends GatherProgress {
@@ -158,9 +168,10 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
   const limit = Math.min(MAX_LOTS_PER_CALL, Math.max(0, Math.floor(input.maxLots ?? MAX_LOTS_PER_CALL)));
   const out = new Map<string, bigint>();
   for (;;) {
+    const object = input.lotRoll?.(lots);
     const rolled = rollGatherOutputs(
       {
-        ladder: site.ladder,
+        ladder: object?.ladder ?? site.ladder,
         bands: site.bands,
         stat: effects.gatherStat,
         lots: 1,
@@ -169,8 +180,9 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
         yieldPerLot: effects.yieldPerLot,
         successPm: effects.catchPm,
         harvestGrams: BigInt(settings.oreGrams ?? 1000),
-        tierCap: site.tierCap,
-        tierRange: site.tierRange,
+        tierRange: object?.tierRange,
+        prefer: object?.prefer,
+        table: object?.table,
       },
       createRng(lotSeed(input.unitId, seq)),
     );
@@ -194,12 +206,14 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
     lots += 1;
     for (const stack of rolled.outputs) out.set(stack.asset, (out.get(stack.asset) ?? 0n) + stack.qty);
   }
-  // 사다리 차례로(같은 입력이면 같은 줄 차례)
+  // 사다리 차례로, 사다리 밖(굴림표 줄·다른 사다리 오브젝트)은 뒤에 처음 나온 차례로(같은 입력이면 같은 줄 차례)
+  const ordered = new Set<string>();
+  for (const choices of site.ladder) for (const asset of choices) if (out.has(asset)) ordered.add(asset);
+  for (const asset of out.keys()) ordered.add(asset);
   const outputs: { asset: string; qty: bigint }[] = [];
-  for (const choices of site.ladder)
-    for (const asset of choices) {
-      const qty = out.get(asset);
-      if (qty !== undefined && qty > 0n) outputs.push({ asset, qty });
-    }
+  for (const asset of ordered) {
+    const qty = out.get(asset);
+    if (qty !== undefined && qty > 0n) outputs.push({ asset, qty });
+  }
   return { points, seq, outputs, lots, capped };
 }

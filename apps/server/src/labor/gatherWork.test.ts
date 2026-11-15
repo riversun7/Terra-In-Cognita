@@ -229,45 +229,41 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
     );
   });
 
-  it("광산 티어 막기(기획 D-535 — 그 2차맵 칸 높은 티어 몫): 몫 0이면 T3 위가 없고, 평지 몫(50‰)이면 드물게, 없으면 그대로", () => {
-    const ores = ladderOf(
+  it("묶음마다 오브젝트 규칙(기획 D-552 — lotRoll): 범위 밖 티어는 끝으로 접고, 대표 아이템·굴림표를 따른다", () => {
+    const tiers = ladderOf(
       Object.fromEntries(Array.from({ length: GATHER_TIERS }, (_, tier) => [tier, [`item:t${tier}`]])),
     );
     const strong: Primaries = { ...tens, str: 90, dex: 90 };
-    const input = { unitId: 22, primaries: strong, settings, cycleMs: CYCLE_MS };
-    const aboveT2 = (tierCap: GatherSite["tierCap"]) => {
+    const input = { unitId: 23, primaries: strong, settings, cycleMs: CYCLE_MS, site: site(wood, tiers) };
+    const tiersOf = (tierRange?: { min: number; max: number }) => {
       const result = gatherLots({ points: 0, seq: 0 }, 150_000, {
         ...input,
-        site: { ...site(wood, ores), tierCap },
-      });
-      return result.outputs
-        .filter((stack) => Number(stack.asset.slice("item:t".length)) > 2)
-        .reduce((sum, stack) => sum + stack.qty, 0n);
-    };
-    const free = aboveT2(undefined);
-    const flat = aboveT2({ maxTier: 2, keepAbovePm: 50 });
-    expect(free).toBeGreaterThan(0n);
-    expect(aboveT2({ maxTier: 2, keepAbovePm: 0 })).toBe(0n);
-    expect(flat).toBeGreaterThan(0n);
-    expect(flat * 5n).toBeLessThan(free);
-  });
-
-  it("낚시터 물 종류 범위(기획 D-542 질문 1365 나 — site.tierRange): 범위 밖 티어는 끝으로 접는다", () => {
-    const fishes = ladderOf(
-      Object.fromEntries(Array.from({ length: GATHER_TIERS }, (_, tier) => [tier, [`item:t${tier}`]])),
-    );
-    const strong: Primaries = { ...tens, str: 90, dex: 90 };
-    const input = { unitId: 23, primaries: strong, settings, cycleMs: CYCLE_MS };
-    const tiersOf = (tierRange: GatherSite["tierRange"]) => {
-      const result = gatherLots({ points: 0, seq: 0 }, 150_000, {
-        ...input,
-        site: { ...site(wood, fishes), tierRange },
+        ...(tierRange ? { lotRoll: () => ({ ladder: tiers, tierRange, prefer: "item:t0" }) } : {}),
       });
       return new Set(result.outputs.map((stack) => Number(stack.asset.slice("item:t".length))));
     };
-    const free = tiersOf(undefined);
+    const free = tiersOf();
     expect([...free].some((tier) => tier > 2)).toBe(true);
     expect([...tiersOf({ min: 0, max: 2 })].every((tier) => tier <= 2)).toBe(true);
     expect([...tiersOf({ min: 4, max: 8 })].every((tier) => tier >= 4 && tier <= 8)).toBe(true);
+    // k번째 묶음마다 다른 오브젝트: 짝수 묶음 = T1~T1, 홀수 묶음 = 굴림표(사다리 밖 고래 고기)
+    const mixed = gatherLots({ points: 0, seq: 0 }, 150_000, {
+      ...input,
+      lotRoll: (k) =>
+        k % 2 === 0
+          ? { ladder: tiers, tierRange: { min: 1, max: 1 }, prefer: "item:t1" }
+          : {
+              ladder: tiers,
+              tierRange: { min: 0, max: 0 },
+              prefer: "item:whale_meat",
+              table: [{ asset: "item:whale_meat", weightPm: 1000 }],
+            },
+    });
+    expect(mixed.outputs.map((stack) => stack.asset)).toEqual(["item:t1", "item:whale_meat"]);
+    // 짝수 묶음이 먼저라 T1 몫이 고래 고기보다 적지 않고, 많아야 한 묶음 몫만 더 많다
+    const t1 = mixed.outputs[0]?.qty ?? 0n;
+    const meat = mixed.outputs[1]?.qty ?? 0n;
+    expect(meat).toBeGreaterThan(0n);
+    expect(t1 >= meat && t1 - meat <= t1 / BigInt(Math.max(1, Math.floor(mixed.lots / 2)))).toBe(true);
   });
 });

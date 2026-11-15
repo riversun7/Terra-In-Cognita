@@ -23,6 +23,8 @@
 //   창고(창고 단계, 일하는 것) 가운데, 창고가 없으면 도시 칸(체비셰프). 나르는 동안 그 채집소는 다음 정시를 건너뛴다. 운반꾼으로 쓸 일꾼이 없으면
 //   물건은 채집소 창고에서 기다린다 [임시]. 손으로 옮기기(창고 꺼내기 storage_move out, haulOut)도 같은 운반꾼·시간이다. 옮김 셈을 끄면
 //   (haul_distance_mode 0) 또는 거리 0이면 예전처럼 바로.
+// - 오브젝트 규칙(기획 D-552 "직접 채집과 일꾼 채집이 같은 규칙", docs/adr/2026-11-15-gather-object-tiers.md): objects 채집소 일꾼의 k번째 묶음은
+//   번수를 쓸 차례(가까운 것부터)의 k번째 오브젝트 규칙(사다리·티어 범위·대표 아이템·굴림표 — objectYield.ts objectRollOf)으로 굴린다(lotRoll).
 // [임시] 일꾼 상태·끝낸 묶음 수·피로 나머지는 메모리에만 있다(다시 켜면 0부터). 정산이 길게 밀리면(오프라인) 그 사이 다시 자란 번수는 세지 못하고
 // 정산하는 때의 남은 번수만 쓴다(기획 정리: 750~755·757 지금 코드). facility 채집소 버프는 objects 채집소와 같은 설정 칸을 쓴다(확인 대기 810~813).
 // 정수 연산만 쓴다(판정 코드 규칙).
@@ -37,6 +39,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import { campFor } from "./deposit.ts";
 import type { GatherKind } from "./kinds.ts";
 import type { GatherObject } from "./objects.ts";
+import { type ObjectRoll, objectRollOf } from "./objectYield.ts";
 import { createPorters } from "./porter.ts";
 import { type StationBuffs, cellDistance2, regrowMs, stationBuffs } from "./rules.ts";
 import type { ObjectStore } from "./state.ts";
@@ -280,8 +283,34 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     let available = 0;
     for (const entry of list) available += Math.max(0, entry.usesLeft);
     const buffs = target.buffs;
+    // k번째 묶음이 쓸 오브젝트(draw와 같은 차례 — 가까운 것부터 남은 번수만큼)의 규칙. 종류마다 한 번만 만든다
+    const catalog = objects ? deps.places()?.catalog() : undefined;
+    const kinds = deps.kinds();
+    const rolls = new Map<number, ObjectRoll>();
+    const lotRoll = (k: number): ObjectRoll | undefined => {
+      if (!catalog) return undefined;
+      let left = k;
+      for (const entry of list) {
+        const uses = Math.max(0, entry.usesLeft);
+        if (left >= uses) {
+          left -= uses;
+          continue;
+        }
+        const kindIndex = entry.object.kind;
+        const kind = kinds[kindIndex];
+        if (!kind) return undefined;
+        let roll = rolls.get(kindIndex);
+        if (!roll) {
+          roll = objectRollOf(kind, catalog);
+          rolls.set(kindIndex, roll);
+        }
+        return roll;
+      }
+      return undefined;
+    };
     return {
       maxLots: full ? 0 : objects ? available : undefined,
+      ...(objects ? { lotRoll } : {}),
       scale: (asset, qty, seq) => scaleByPm(qty, buffs.yieldPm, unitId, seq, asset),
       commit(result) {
         const used = objects && result.lots > 0 ? draw(target, list, result.lots, at) : 0;

@@ -23,7 +23,6 @@ import {
   accessibleTier,
   conditionedStats,
   gatherCatchPm,
-  gatherLadderBands,
   gatherProgress,
   gatherStat,
   gatherYield,
@@ -538,7 +537,7 @@ function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): P
   const result = rollGatherOutputs(
     {
       ladder,
-      bands: gatherLadderBands(economy.catalog.gatherBands, roll.subcategory),
+      bands: economy.catalog.gatherBands,
       stat: facility.gatherStat,
       lots: roll.lots,
       lotSize: economy.catalog.lotSize,

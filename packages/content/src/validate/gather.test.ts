@@ -130,57 +130,39 @@ describe("물가 조건(needsWaterWithin)", () => {
   });
 });
 
-// 사다리마다 띠 표(기획 D-540 1217 나): 표마다 첫 구간 0·늘어나기만, 기본 표 필수, 사다리는 원자재 중분류
-function checkLadders(bands: unknown[]) {
-  return validatePack(
-    fixture({
-      "item_subcategories.json": {
-        entries: [
-          { id: "ore", name, major: "raw", enabled: true },
-          { id: "dish", name, major: "consumable", enabled: true },
-        ],
-      },
-      "gather_tiers.json": { entries: bands },
-    }),
-  ).issues.map((issue) => [issue.code, issue.id, issue.path]);
+// 표 하나(기획 D-552 "표 하나"): 첫 구간 0·늘어나기만, 사다리 칸(ladder)은 스키마가 받지 않는다
+function checkBands(bands: unknown[]) {
+  return validatePack(fixture({ "gather_tiers.json": { entries: bands } })).issues.map((issue) => [
+    issue.code,
+    issue.id,
+    issue.path,
+  ]);
 }
 const weights = [1000, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-describe("사다리 띠 표(gather_tiers.ladder)", () => {
-  it("기본 표 + 광석 표(각자 0부터, 섞여 적혀도 표마다 늘어나면)는 통과한다", () => {
+describe("채집 확률표 하나(gather_tiers)", () => {
+  it("0부터 늘어나면 통과, 줄어들면 오류(gather_band_order)", () => {
     expect(
-      checkLadders([
+      checkBands([
         { id: "band_000", from: 0, weightsPm: weights },
-        { id: "ore_band_000", ladder: "ore", from: 0, weightsPm: weights },
         { id: "band_020", from: 20, weightsPm: weights },
-        { id: "ore_band_020", ladder: "ore", from: 20, weightsPm: weights },
       ]),
     ).toEqual([]);
-  });
-
-  it("사다리 표가 0에서 시작하지 않거나 줄어들면 오류(gather_band_order)", () => {
     expect(
-      checkLadders([
-        { id: "band_000", from: 0, weightsPm: weights },
-        { id: "ore_band_020", ladder: "ore", from: 20, weightsPm: weights },
-        { id: "ore_band_010", ladder: "ore", from: 10, weightsPm: weights },
+      checkBands([
+        { id: "band_020", from: 20, weightsPm: weights },
+        { id: "band_010", from: 10, weightsPm: weights },
       ]),
     ).toEqual([
-      ["gather_band_order", "ore_band_020", "from"],
-      ["gather_band_order", "ore_band_010", "from"],
+      ["gather_band_order", "band_020", "from"],
+      ["gather_band_order", "band_010", "from"],
     ]);
   });
 
-  it("기본 표가 없거나 사다리가 원자재 중분류가 아니면 오류", () => {
-    expect(checkLadders([{ id: "ore_band_000", ladder: "ore", from: 0, weightsPm: weights }])).toEqual([
-      ["gather_bands_missing", "ore_band_000", "ladder"],
-    ]);
-    expect(
-      checkLadders([
-        { id: "band_000", from: 0, weightsPm: weights },
-        { id: "dish_band_000", ladder: "dish", from: 0, weightsPm: weights },
-      ]),
-    ).toEqual([["gather_subcategory_major", "dish_band_000", "ladder"]]);
+  it("사다리 칸(ladder)은 없앤 칸이라 스키마 오류", () => {
+    const issues = checkBands([{ id: "ore_band_000", ladder: "ore", from: 0, weightsPm: weights }]);
+    expect(issues.length).toBeGreaterThan(0);
+    expect(issues.every(([, id]) => id === "ore_band_000")).toBe(true);
   });
 });
 
@@ -238,13 +220,16 @@ const table = (a: number, b: number) => [
   { item: "gold", weightPm: b },
 ];
 
-describe("원자재 오브젝트 굴림표·사다리 굴림", () => {
-  it("합 1000 굴림표, 추첨 시설의 사다리 굴림은 통과한다", () => {
+describe("원자재 오브젝트 굴림표·티어 범위(기획 D-552)", () => {
+  it("합 1000 굴림표, 범위 없는 오브젝트·범위 있는 오브젝트는 통과한다", () => {
     expect(checkObject({ table: table(700, 300) })).toEqual([]);
-    expect(checkObject({ ladder: true, facility: "fishing_spot" })).toEqual([]);
+    expect(checkObject({ facility: "fishing_spot" })).toEqual([]);
+    expect(checkObject({ tierRange: { min: 0, max: 2 } })).toEqual([]);
+    // 선택 방식 시설이 맡아도 범위를 쓴다(해금 티어를 자른다)
+    expect(checkObject({ facility: "fishing_spot", tierRange: { min: 1, max: 4 } }, "select")).toEqual([]);
   });
 
-  it("굴림표: 합이 1000이 아니거나 대표 아이템이 표 밖이거나 사다리 굴림과 함께면 오류", () => {
+  it("굴림표: 합이 1000이 아니거나 대표 아이템이 표 밖이거나 티어 범위와 함께면 오류", () => {
     expect(checkObject({ table: table(700, 200) })).toEqual([["gather_table_sum", "table"]]);
     expect(
       checkObject({
@@ -258,27 +243,17 @@ describe("원자재 오브젝트 굴림표·사다리 굴림", () => {
       ["gather_table_duplicate", "table"],
       ["gather_table_item", "item"],
     ]);
-    expect(checkObject({ table: table(700, 300), ladder: true, facility: "fishing_spot" })).toEqual([
-      ["gather_table_ladder", "ladder"],
+    expect(checkObject({ table: table(700, 300), tierRange: { min: 0, max: 2 } })).toEqual([
+      ["gather_tier_range_table", "tierRange"],
     ]);
   });
 
-  it("사다리 굴림: 맡는 시설이 없거나 선택 방식이면 오류", () => {
-    expect(checkObject({ ladder: true })).toEqual([["gather_ladder_facility", "ladder"]]);
-    expect(checkObject({ ladder: true, facility: "fishing_spot" }, "select")).toEqual([
-      ["gather_ladder_facility", "ladder"],
-    ]);
+  it("사다리 굴림 칸(ladder)은 없앤 칸이라 스키마 오류", () => {
+    expect(checkObject({ ladder: true }).length).toBeGreaterThan(0);
   });
 
-  it("티어 범위(질문 1307 나): 사다리 굴림과 함께 아래 ≤ 위면 통과, 아니면 오류", () => {
-    const ladder = { ladder: true, facility: "fishing_spot" };
-    expect(checkObject({ ...ladder, tierRange: { min: 2, max: 6 } })).toEqual([]);
-    expect(checkObject({ ...ladder, tierRange: { min: 4, max: 4 } })).toEqual([]);
-    expect(checkObject({ ...ladder, tierRange: { min: 6, max: 2 } })).toEqual([
-      ["gather_tier_range_order", "tierRange"],
-    ]);
-    expect(checkObject({ tierRange: { min: 0, max: 2 } })).toEqual([
-      ["gather_tier_range_ladder", "tierRange"],
-    ]);
+  it("티어 범위: 아래 ≤ 위면 통과, 아니면 오류", () => {
+    expect(checkObject({ tierRange: { min: 4, max: 4 } })).toEqual([]);
+    expect(checkObject({ tierRange: { min: 6, max: 2 } })).toEqual([["gather_tier_range_order", "tierRange"]]);
   });
 });

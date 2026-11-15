@@ -7,12 +7,14 @@ import type { GatherStationResponse } from "@terra/shared/gatherStation";
 import {
   GATHER_OBJECT_STRIDE,
   type GatherBuildingResponse,
+  type GatherName,
   type GatherInsideUnit,
   type GatherLoopsResponse,
   type GatherObjectsResponse,
   type GatherSchoolView,
 } from "@terra/shared/gather";
 import type { Viewer } from "../trpc/context.ts";
+import type { GatherKind } from "./kinds.ts";
 import { buildingPlace } from "../facilities/places.ts";
 import { entryOptions } from "./enter.ts";
 import { emptyStation, stationView } from "./stationReads.ts";
@@ -81,10 +83,18 @@ export function gatherReadsOf(
             phaseMs: object.route.phaseMs,
           });
       }
+      const ladderOf = (target: GatherKind): GatherName | undefined => {
+        const range = target.tierRange;
+        if (!range || range.max <= range.min || (target.table && target.table.length > 0)) return undefined;
+        const sub = catalog?.subcategoryOf(target.item);
+        if (sub === undefined) return undefined;
+        return catalog?.subcategoryName(sub) ?? { ko: sub, en: sub };
+      };
       return {
         status: "ok",
         mapKey,
         kinds: kinds.map((kind) => {
+          const ladderName = ladderOf(kind);
           const facility = kind.facility === null ? undefined : catalog?.facility(kind.facility);
           return {
             id: kind.id,
@@ -110,15 +120,11 @@ export function gatherReadsOf(
                   })),
                 }
               : {}),
-            ...(kind.ladder === true && facility?.gather
+            // 티어 범위가 두 티어 이상이면(기획 D-552) 사다리 이름과 범위 — 판이 "… 사다리 T0~T2"를 보인다. 한 티어면 대표 아이템만
+            ...(ladderName
               ? {
-                  ladderName: catalog?.subcategoryName(facility.gather.subcategory) ?? {
-                    ko: facility.gather.subcategory,
-                    en: facility.gather.subcategory,
-                  },
-                  ...(kind.tierRange
-                    ? { ladderTiers: { min: kind.tierRange.min, max: kind.tierRange.max } }
-                    : {}),
+                  ladderName,
+                  ladderTiers: { min: kind.tierRange?.min ?? 0, max: kind.tierRange?.max ?? 0 },
                 }
               : {}),
           };

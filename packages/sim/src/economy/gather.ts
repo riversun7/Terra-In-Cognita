@@ -15,6 +15,9 @@
 // - 성공 확률(낚시터, docs/adr/2026-11-11-production-six.md): 한 번 시도마다 성공 ‰를 먼저 굴리고 성공한 번만 티어를 뽑는다
 //   (옛 BuildingGatherEngine.js runFishingWorkers 715~735, fishing_config 0.30·0.80·0.50).
 // - 낚시터 티어 범위(기획 D-542 질문 1365 나): 뽑은 티어를 그 자리 물 종류의 범위로 접는다(GatherRoll.tierRange, @terra/shared/fishWater).
+// - 오브젝트 규칙(기획 D-552 — docs/adr/2026-11-15-gather-object-tiers.md): 확률표는 하나(사다리마다 띠 표 없음). 오브젝트 범위(tierRange)는
+//   선택 방식에도 걸고, 그 티어에 대표 아이템(prefer)이 있으면 그것을 낸다. 굴림표 오브젝트(table)도 같은 함수가 가중치로 고른다 — 직접 채집과
+//   채집소 일꾼이 같은 함수를 쓴다.
 // 정수 연산만 쓴다(판정 코드 규칙).
 import type { Rng } from "@terra/shared";
 import {
@@ -32,10 +35,8 @@ export {
   accessibleTier,
   conditionedStats,
   gatherBandIndex,
-  gatherBandLadders,
   gatherCatchPm,
   gatherChancesPm,
-  gatherLadderBands,
   gatherLadderKey,
   gatherProgress,
   gatherStat,
@@ -56,6 +57,7 @@ export {
  * 바뀜(사용자 결정 2026-11-12 "건축시 목재와 석재는 필수이다" — 기본 재료 바닥 보장, 팩 core@77): 0~59 구간 T1(석재 등)을 350‰로 올렸다.
  * 바뀜(기획 D-540 1217 나, 팩 core@83): 사다리마다 띠 표 — 올린 표(0~39 T0 500·T1 350, 40~59 T0 500·T1 350·T2 120)는 광석 사다리(ore) 전용이고,
  * 기본 표(목재·약초·어류 등)는 옛 값(0~39 T0 700·T1 150, 40~59 T0 650·T1 220·T2 100)으로 돌아갔다 — 소나무 원목(목재 T0)이 줄지 않는다(D-537 뜻).
+ * 바뀜(기획 D-552 "표 하나", 팩 core@98): 광석 전용 표를 지웠다. 기본 표 하나만 남는다(석재 바닥은 오브젝트 범위가 맡는다).
  */
 const UPPER_BANDS: readonly GatherBand[] = [
   { from: 60, weightsPm: [530, 260, 140, 60, 10, 0, 0, 0, 0, 0] },
@@ -75,10 +77,6 @@ export const TEST_GATHER_BANDS: readonly GatherBand[] = [
   { from: 20, weightsPm: [700, 150, 100, 50, 0, 0, 0, 0, 0, 0] },
   { from: 40, weightsPm: [650, 220, 100, 30, 0, 0, 0, 0, 0, 0] },
   ...UPPER_BANDS,
-  { ladder: "ore", from: 0, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0] },
-  { ladder: "ore", from: 20, weightsPm: [500, 350, 100, 50, 0, 0, 0, 0, 0, 0] },
-  { ladder: "ore", from: 40, weightsPm: [500, 350, 120, 30, 0, 0, 0, 0, 0, 0] },
-  ...UPPER_BANDS.map((band) => ({ ...band, ladder: "ore" })),
 ];
 
 /** 가중치(‰)로 티어 하나를 뽑는다. 합이 0이면 T0 */
@@ -99,15 +97,18 @@ export function rollGatherTier(bands: readonly GatherBand[], stat: number, rng: 
 
 /**
  * 뽑은 티어의 아이템(ladder[티어] = 그 티어의 켜진 아이템 자산, 팩 차례). 없으면 더 낮은 티어, T0까지 없으면 undefined.
- * 같은 티어에 여럿이면 rng로 고르게 하나(하나면 rng를 쓰지 않는다)
+ * 그 티어에 prefer(오브젝트 대표 아이템, 기획 D-552)가 있으면 그것(rng를 쓰지 않는다). 아니면 같은 티어에 여럿이면 rng로 고르게 하나
+ * (하나면 rng를 쓰지 않는다)
  */
 export function pickGatherItem(
   ladder: readonly (readonly string[])[],
   tier: number,
   rng: Rng,
+  prefer?: string,
 ): string | undefined {
   for (let t = Math.min(tier, ladder.length - 1); t >= 0; t--) {
     const choices = ladder[t] ?? [];
+    if (prefer !== undefined && choices.includes(prefer)) return prefer;
     if (choices.length === 1) return choices[0];
     if (choices.length > 1) return choices[rng.nextInt(choices.length)];
   }
@@ -146,10 +147,34 @@ export interface GatherRoll {
    */
   readonly tierCap?: { readonly maxTier: number; readonly keepAbovePm: number } | undefined;
   /**
-   * 티어 범위(낚시터 물 종류 — 기획 D-542 질문 1365 나, @terra/shared/fishWater). 추첨으로 뽑은 티어(tierCap 뒤)를 범위 안으로 접는다(아래는
-   * min으로 올리고 위는 max로 내린다. 난수를 더 쓰지 않는다). 선택 방식은 보지 않는다. 없으면 접지 않는다(다른 시설의 결과는 그대로)
+   * 티어 범위(오브젝트 범위 — 기획 D-552, 낚시터 물 종류 — D-542 질문 1365 나). 뽑은 티어(tierCap 뒤, 선택 방식이면 해금 티어)를 범위 안으로
+   * 접는다(아래는 min으로 올리고 위는 max로 내린다. 난수를 더 쓰지 않는다). 없으면 접지 않는다(다른 시설의 결과는 그대로)
    */
   readonly tierRange?: { readonly min: number; readonly max: number } | undefined;
+  /** 대표 아이템 자산(오브젝트, 기획 D-552): 그 티어에 있으면 그것이 나온다(pickGatherItem). 없으면 고르게 */
+  readonly prefer?: string | undefined;
+  /**
+   * 굴림표(오브젝트 table — 난파선·고래 무리, 기획 D-540 1222 나): 있으면 티어를 뽑지 않고 가중치(합 0이면 첫 줄)로 하나를 고른다. 나온 티어 =
+   * 사다리 안 자리(없으면 T0 — 필요 진행이 본다)
+   */
+  readonly table?: readonly { readonly asset: string; readonly weightPm: number }[] | undefined;
+}
+
+/** 굴림표에서 하나(가중치 합이 0이면 첫 줄, 표가 비면 undefined) */
+function pickTableAsset(
+  table: readonly { readonly asset: string; readonly weightPm: number }[],
+  rng: Rng,
+): string | undefined {
+  let total = 0;
+  for (const row of table) total += Math.max(0, row.weightPm);
+  if (total <= 0) return table[0]?.asset;
+  let left = rng.nextInt(total);
+  for (const row of table) {
+    const weight = Math.max(0, row.weightPm);
+    if (left < weight) return row.asset;
+    left -= weight;
+  }
+  return table[0]?.asset;
 }
 
 /**
@@ -171,6 +196,21 @@ export function rollGatherOutputs(
       empty += 1;
       continue;
     }
+    if (roll.table && roll.table.length > 0) {
+      const asset = pickTableAsset(roll.table, rng);
+      if (asset === undefined || each === 0n) {
+        empty += 1;
+        continue;
+      }
+      const at = Math.max(
+        0,
+        roll.ladder.findIndex((choices) => choices.includes(asset)),
+      );
+      tiers[at] = (tiers[at] ?? 0) + 1;
+      landed[at] = (landed[at] ?? 0) + 1;
+      lots.set(asset, (lots.get(asset) ?? 0n) + each);
+      continue;
+    }
     let tier =
       roll.selectTier === undefined
         ? rollGatherTier(roll.bands, roll.stat, rng)
@@ -180,10 +220,10 @@ export function rollGatherOutputs(
       const keep = cap.keepAbovePm > 0 && rng.nextInt(GATHER_WEIGHT_TOTAL) < cap.keepAbovePm;
       if (!keep) tier = Math.max(0, cap.maxTier);
     }
-    const range = roll.selectTier === undefined ? roll.tierRange : undefined;
+    const range = roll.tierRange;
     if (range) tier = Math.max(0, Math.min(GATHER_TIERS - 1, Math.min(Math.max(tier, range.min), range.max)));
     tiers[tier] = (tiers[tier] ?? 0) + 1;
-    const asset = pickGatherItem(roll.ladder, tier, rng);
+    const asset = pickGatherItem(roll.ladder, tier, rng, roll.prefer);
     if (asset === undefined || each === 0n) {
       empty += 1;
       continue;
@@ -192,15 +232,18 @@ export function rollGatherOutputs(
     landed[at] = (landed[at] ?? 0) + 1;
     lots.set(asset, (lots.get(asset) ?? 0n) + each);
   }
+  // 사다리 밖 자산(굴림표 줄)은 사다리 차례 뒤에 처음 나온 차례로
+  const ordered = new Set<string>();
+  for (const choices of roll.ladder) for (const asset of choices) if (lots.has(asset)) ordered.add(asset);
+  for (const asset of lots.keys()) ordered.add(asset);
   const unitOf = (asset: string): bigint => {
     const size = roll.lotSize.get(asset) ?? 1n;
     return size > 1n && roll.harvestGrams !== undefined ? roll.harvestGrams : size;
   };
   const outputs: { asset: string; qty: bigint }[] = [];
-  for (const choices of roll.ladder)
-    for (const asset of choices) {
-      const count = lots.get(asset);
-      if (count !== undefined) outputs.push({ asset, qty: count * unitOf(asset) });
-    }
+  for (const asset of ordered) {
+    const count = lots.get(asset);
+    if (count !== undefined) outputs.push({ asset, qty: count * unitOf(asset) });
+  }
   return { outputs, tiers, landed, empty };
 }

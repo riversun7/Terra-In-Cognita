@@ -152,6 +152,118 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_000",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_020",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_040",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_060",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_080",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_100",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_120",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_140",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_160",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_180",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_200",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_220",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_240",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_tiers",
+      "id": "ore_band_260",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

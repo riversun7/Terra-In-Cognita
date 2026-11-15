@@ -7,6 +7,19 @@
 // [임시] 부품 종류·등급 표 적용 방식·AI(목록 앞 스킬부터)·연쇄·아군 고르기는 기술 기본안이다(질문 260~264).
 // 스킬석 인챈트·유전자 추출·스킬 생성기 화면은 뒤 단계(D2)다.
 import { type CombatCoefficients, specStaminaCostMilli } from "./coefficients.ts";
+import {
+  type SkillCurve,
+  closeShotPm,
+  dotTotalPm,
+  magicDistancePm,
+  magicTargetsPm,
+  moveCoefficientsOf,
+  multishotPm,
+  rangeIntervalPm,
+  scalePm,
+} from "./curves.ts";
+import type { SkillDisplace, SkillMove } from "./moveParts.ts";
+import { moveSkillAllowed } from "./moveAi.ts";
 import { type EffectDef, applyEffect, hasEffect, hasStatus, modifiersOf, statusResistPm } from "./effects.ts";
 import {
   type AttackProfile,
@@ -88,6 +101,14 @@ export interface SkillData {
   readonly effects: readonly SkillEffectData[];
   /** 등급별 값 배율(‰). 등급 g는 g − 1번째, 없으면 마지막 */
   readonly gradePm: readonly number[];
+  /** 자기 몸 이동 부품(돌진·도약·점멸·뒷걸음·은신·감지, docs/adr/2026-11-15-combat-moves.md 2절). 없으면 옛 스킬 */
+  readonly move?: SkillMove | undefined;
+  /** 맞은 대상 옮김(밀치기·끌어오기·묶기) */
+  readonly displace?: SkillDisplace | undefined;
+  /** 고른 계수 곡선(curves.ts, ADR 3절) */
+  readonly curves?: readonly SkillCurve[] | undefined;
+  /** 연사 수(2~8, 대상 하나 모양만). 없으면 한 발 */
+  readonly shots?: number | undefined;
 }
 
 /** 스킬이 필요로 하는 무기 칸(D-490): 물리·속성 칸, 또는 아무 칸 */
@@ -120,6 +141,13 @@ export interface CombatSkill extends SkillFormula {
     readonly chancePm: number;
     readonly durationMs: number;
   }[];
+  /**
+   * 움직임 부품·곡선(docs/adr/2026-11-15-combat-moves.md). 자료에 있을 때만 칸을 둔다(옛 스킬의 상태 JSON이 그대로 — 스냅숏·지문)
+   */
+  readonly move?: SkillMove | undefined;
+  readonly displace?: SkillDisplace | undefined;
+  readonly curves?: readonly SkillCurve[] | undefined;
+  readonly shots?: number | undefined;
 }
 
 export interface CastState {
@@ -188,7 +216,17 @@ export function skillFromData(
         durationMs: part.durationMs ?? def.durationMs,
       };
     }),
+    // 움직임 부품·곡선은 있을 때만(칸 단위·지속은 등급으로 바꾸지 않는다)
+    ...(data.move ? { move: data.move } : {}),
+    ...(data.displace ? { displace: data.displace } : {}),
+    ...(data.curves && data.curves.length > 0 ? { curves: data.curves } : {}),
+    ...(data.shots !== undefined && data.shots > 1 ? { shots: data.shots } : {}),
   };
+}
+
+/** 스킬이 이 곡선을 골랐나 */
+export function hasCurve(skill: { readonly curves?: readonly SkillCurve[] | undefined }, curve: SkillCurve): boolean {
+  return skill.curves?.includes(curve) === true;
 }
 
 const chebyshev = (a: { x: number; y: number }, b: { x: number; y: number }): number =>
@@ -310,6 +348,8 @@ export function pickSkill(
     const skill = unit.skills[i];
     if (!skill || skill.trigger !== "active" || nowMs < (unit.skillReadyMs[i] ?? 0)) continue;
     if (!skillUsable(unit, skill) || !affordable(unit, skill, c)) continue;
+    // 이동 부품 스킬은 AI 고리가 막을 수 있다(지금은 늘 허락, 4단계가 슬라이더로)
+    if (skill.move && !moveSkillAllowed(unit, skill, enemy, nowMs)) continue;
     if (skill.target === "enemy") {
       if (!conditionsMet(unit, enemy, skill) || !reach(enemy, skill.range)) continue;
       return { index: i, target: enemy };
@@ -335,7 +375,11 @@ export function startSkill(
   if (skill.resource === "mp") unit.mpMilli -= costMilli(unit, skill, c);
   else unit.staminaMilli -= costMilli(unit, skill, c);
   unit.skillReadyMs[index] = nowMs + skill.cooldownMs;
-  unit.nextActionMs = nowMs + Math.max(skill.castMs, unit.attackIntervalMs);
+  // 사거리 ↔ 공격 간격 예산(곡선 range_interval을 고른 스킬만, ADR 3절)
+  const interval = hasCurve(skill, "range_interval")
+    ? scalePm(unit.attackIntervalMs, rangeIntervalPm(skill.range, moveCoefficientsOf(c)))
+    : unit.attackIntervalMs;
+  unit.nextActionMs = nowMs + Math.max(skill.castMs, interval);
   if (skill.castMs <= 0) return true;
   unit.cast = { skill: index, target: targetId, atMs: nowMs + skill.castMs };
   return false;
@@ -369,7 +413,10 @@ function applyParts(
   rng: { nextInt(n: number): number },
   nowMs: number,
   trace: BattleTrace | undefined,
+  c?: CombatCoefficients,
 ): void {
+  // 지속 피해 합 줄임(곡선 dot_total을 고른 스킬만, ADR 3절)
+  const dotCurve = c !== undefined && hasCurve(skill, "dot_total");
   for (const part of skill.effects) {
     const roll = rng.nextInt(10_000);
     if (target.status !== "alive") continue;
@@ -378,7 +425,11 @@ function applyParts(
     if (roll >= chance * 10) continue;
     if (part.def.status === "stun") target.cast = null;
     const before = target.hp;
-    applyEffect(target, part.def, part.value, part.durationMs, nowMs);
+    const value =
+      dotCurve && part.def.kind === "dot"
+        ? scalePm(part.value, dotTotalPm(part.durationMs, moveCoefficientsOf(c)))
+        : part.value;
+    applyEffect(target, part.def, value, part.durationMs, nowMs);
     if (trace && target.hp > before)
       trace.heal(source, target, { hp: target.hp - before, shield: 0 }, part.def.id);
   }
@@ -423,8 +474,31 @@ function chainStrike(attack: AttackProfile, falloffPm: number, k: number): Attac
 }
 
 /**
+ * 고른 곡선(마법 거리·마법 대상 수·가까이 쏘기)의 대상 하나 배율(‰, 곱할 때마다 버림). 곡선을 고르지 않았으면 1000
+ * (docs/adr/2026-11-15-combat-moves.md 3절)
+ */
+function targetCurvePm(
+  unit: UnitState,
+  skill: CombatSkill,
+  target: UnitState,
+  count: number,
+  c: CombatCoefficients,
+): number {
+  if (!skill.curves) return 1000;
+  const m = moveCoefficientsOf(c);
+  const distance = chebyshev(unit, target);
+  let pm = 1000;
+  if (hasCurve(skill, "magic_distance")) pm = scalePm(pm, magicDistancePm(distance, m));
+  if (hasCurve(skill, "magic_targets")) pm = scalePm(pm, magicTargetsPm(count, m));
+  if (hasCurve(skill, "close_shot")) pm = scalePm(pm, closeShotPm(skill.range, distance, m));
+  return pm;
+}
+
+/**
  * 스킬을 푼다. 적 대상: 목표와 그 둘레(반지름)·연쇄 적마다 피해(명중·회피·크리 굴림) → 맞으면 효과. 자기·아군: 회복·쉴드·효과.
- * trace는 리플레이 기록용 관찰자다(상태·굴림에 손대지 않는다). 연쇄는 튄 차례대로 skillHit을 부른다
+ * trace는 리플레이 기록용 관찰자다(상태·굴림에 손대지 않는다). 연쇄는 튄 차례대로 skillHit을 부른다.
+ * 연사(shots)는 대상마다 발 수만큼 따로 굴린다(한 발 배율 multishotPm). onHit = 맞은(피해 없는 스킬은 걸린) 대상마다
+ * (이동 부품의 밀치기·끌어오기·묶기, moves.ts)
  */
 export function resolveSkill(
   unit: UnitState,
@@ -435,6 +509,7 @@ export function resolveSkill(
   nowMs: number,
   c: CombatCoefficients,
   trace?: BattleTrace,
+  onHit?: (target: UnitState) => void,
 ): void {
   if (skill.target !== "enemy") {
     let group: readonly UnitState[];
@@ -454,7 +529,7 @@ export function resolveSkill(
         ally.shield = Math.min(ally.shieldHp, ally.shield + healAmount(ally.shieldHp, skill.shieldPm));
       if (trace && (ally.hp > hpBefore || ally.shield > shieldBefore))
         trace.heal(unit, ally, { hp: ally.hp - hpBefore, shield: ally.shield - shieldBefore }, null);
-      applyParts(unit, skill, ally, rng, nowMs, trace);
+      applyParts(unit, skill, ally, rng, nowMs, trace, c);
     }
     return;
   }
@@ -467,49 +542,79 @@ export function resolveSkill(
           other.status === "alive" &&
           (other.id === primary.id || chebyshev(primary, other) <= skill.radius),
       );
+  const shots = skill.shots ?? 1;
+  const shotPm = multishotPm(shots, moveCoefficientsOf(c));
   for (let k = 0; k < targets.length; k++) {
     const target = targets[k];
     if (!target) continue;
     if (skill.damage === "none") {
-      applyParts(unit, skill, target, rng, nowMs, trace);
+      applyParts(unit, skill, target, rng, nowMs, trace, c);
+      if (onHit) onHit(target);
       continue;
     }
     // 연쇄는 튈 때마다 스킬 배율에 줄임 배율을 곱한다(첫 대상은 그대로)
-    const strike = skill.chain && k > 0 ? chainStrike(attack, skill.chain.falloffPm, k) : attack;
-    const rolls = {
-      hit: rng.nextInt(10_000),
-      evade: rng.nextInt(10_000),
-      crit: rng.nextInt(10_000),
-      critPos: rng.nextInt(10_000),
-    };
-    // 단계 기록은 관찰자가 원할 때만(전투 보고서 피해 흐름). 값·굴림은 그대로다
-    const stages = trace?.attackStages ? newAttackStages("skill") : undefined;
-    const hit = resolveAttack(
-      strike,
-      withDefenseModifiers(target.defense, modifiersOf(target)),
-      rolls,
-      c,
-      stages,
-    );
-    if (hit.outcome !== "hit") {
-      if (trace) trace.skillHit(unit, skill, target, hit, 0, 0);
-      if (stages) trace?.attackStages?.(unit, target, stages);
-      continue;
+    let strike = skill.chain && k > 0 ? chainStrike(attack, skill.chain.falloffPm, k) : attack;
+    // 고른 곡선(마법 거리·대상 수·가까이 쏘기)과 연사 한 발 배율. 고르지 않았으면 옛 사양 그대로
+    const curvePm = targetCurvePm(unit, skill, target, targets.length, c);
+    if (curvePm !== 1000) strike = { ...strike, skillMulPm: scalePm(strike.skillMulPm, curvePm) };
+    if (shots > 1) {
+      strike = { ...strike, skillMulPm: scalePm(strike.skillMulPm, shotPm) };
+      trace?.multishot?.(unit, skill, target, shots);
     }
-    // 고정 피해(공식 부품 flat)는 스킬 종류의 몫에 더한다(물리 → 물리 몫, 속성 → 속성 몫)
-    const flat = Math.max(0, skill.flat);
-    const physical = attack.kind === "physical" ? hit.physical + flat : hit.physical;
-    const elemental = attack.kind === "physical" ? hit.elemental : hit.elemental + flat;
-    const before = stages ? { armor: target.armor, shield: target.shield, hp: target.hp } : undefined;
-    takeDamage(target, physical, elemental);
-    if (trace) trace.skillHit(unit, skill, target, hit, physical, elemental);
-    if (stages && before) {
-      stages.flat = flat;
-      recordApplied(stages, before, target, physical, elemental);
-      trace?.attackStages?.(unit, target, stages);
+    for (let shot = 0; shot < shots; shot++) {
+      if (shot > 0 && target.status !== "alive") break;
+      strikeOnce(unit, skill, target, strike, shots > 1 ? shotPm : 1000, rng, nowMs, c, trace, onHit);
     }
-    applyParts(unit, skill, target, rng, nowMs, trace);
   }
+}
+
+/** 피해 스킬 한 발(굴림 넷 → 맞으면 두 몫·고정 피해·효과·onHit). flatPm = 연사 한 발 배율(고정 피해에도 든다) */
+function strikeOnce(
+  unit: UnitState,
+  skill: CombatSkill,
+  target: UnitState,
+  strike: AttackProfile,
+  flatPm: number,
+  rng: { nextInt(n: number): number },
+  nowMs: number,
+  c: CombatCoefficients,
+  trace: BattleTrace | undefined,
+  onHit: ((target: UnitState) => void) | undefined,
+): void {
+  const rolls = {
+    hit: rng.nextInt(10_000),
+    evade: rng.nextInt(10_000),
+    crit: rng.nextInt(10_000),
+    critPos: rng.nextInt(10_000),
+  };
+  // 단계 기록은 관찰자가 원할 때만(전투 보고서 피해 흐름). 값·굴림은 그대로다
+  const stages = trace?.attackStages ? newAttackStages("skill") : undefined;
+  const hit = resolveAttack(
+    strike,
+    withDefenseModifiers(target.defense, modifiersOf(target)),
+    rolls,
+    c,
+    stages,
+  );
+  if (hit.outcome !== "hit") {
+    if (trace) trace.skillHit(unit, skill, target, hit, 0, 0);
+    if (stages) trace?.attackStages?.(unit, target, stages);
+    return;
+  }
+  // 고정 피해(공식 부품 flat)는 스킬 종류의 몫에 더한다(물리 → 물리 몫, 속성 → 속성 몫)
+  const flat = flatPm === 1000 ? Math.max(0, skill.flat) : scalePm(Math.max(0, skill.flat), flatPm);
+  const physical = strike.kind === "physical" ? hit.physical + flat : hit.physical;
+  const elemental = strike.kind === "physical" ? hit.elemental : hit.elemental + flat;
+  const before = stages ? { armor: target.armor, shield: target.shield, hp: target.hp } : undefined;
+  takeDamage(target, physical, elemental);
+  if (trace) trace.skillHit(unit, skill, target, hit, physical, elemental);
+  if (stages && before) {
+    stages.flat = flat;
+    recordApplied(stages, before, target, physical, elemental);
+    trace?.attackStages?.(unit, target, stages);
+  }
+  applyParts(unit, skill, target, rng, nowMs, trace, c);
+  if (onHit) onHit(target);
 }
 
 /** 지속형(passive) 스킬의 효과를 전투 처음에 자기에게 건다(전투 내내). 든 무기로 쓸 수 없는 스킬은 걸지 않는다(D-490) */

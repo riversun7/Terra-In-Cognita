@@ -4,6 +4,7 @@
 import type { AttackStages } from "./attackStages.ts";
 import type { UnitState } from "./battleTypes.ts";
 import type { AttackResult } from "./formula.ts";
+import type { MotionKind, StealthCause } from "./moveParts.ts";
 import type { CombatSkill } from "./skills.ts";
 
 export interface BattleTrace {
@@ -39,4 +40,15 @@ export interface BattleTrace {
    * 비용이 없다). 기본 공격은 attack 뒤, 스킬은 skillHit 뒤(빗나감·회피 포함)에 부른다
    */
   attackStages?(attacker: UnitState, target: UnitState, stages: AttackStages): void;
+  /**
+   * 움직임 부품이 유닛을 옮겼다(docs/adr/2026-11-15-combat-moves.md 5절): 자기 이동(돌진·도약·점멸·뒷걸음) 또는 맞은 대상(밀치기·끌어오기).
+   * unit은 옮긴 뒤 값, fromX·fromY는 앞 칸. 선택 칸이라 옛 관찰자는 그대로다
+   */
+  motion?(unit: UnitState, kind: MotionKind, fromX: number, fromY: number): void;
+  /** 은신 켜짐·꺼짐(까닭: 스킬·공격·들킴·끝남) */
+  stealth?(unit: UnitState, on: boolean, cause: StealthCause): void;
+  /** 달리기 켜짐·꺼짐 */
+  run?(unit: UnitState, on: boolean): void;
+  /** 연사: 대상 하나에 shots발(발마다 skillHit이 따른다) */
+  multishot?(unit: UnitState, skill: CombatSkill, target: UnitState, shots: number): void;
 }

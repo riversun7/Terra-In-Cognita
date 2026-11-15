@@ -20,6 +20,8 @@ export interface Sighted {
   readonly eye: number;
   readonly air: boolean;
   readonly revealUntilMs: number;
+  /** 은신이 끝나는 시각(은신 중일 때만 칸이 있다, moves.ts). 은신 중인 적은 보이지 않는다(들키면 틱 처음에 깨진다) */
+  readonly stealthUntilMs?: number | undefined;
 }
 
 /** 편 side에 보이는 적 ID(오름차순). observers·targets는 살아 있고 빠지지 않은 유닛만 넘긴다 */
@@ -35,7 +37,7 @@ export function visibleEnemies(
   const seen: number[] = [];
   const size = map.size;
   for (const target of targets) {
-    if (target.side === side) continue;
+    if (target.side === side || target.stealthUntilMs !== undefined) continue;
     const hidden =
       !target.air && map.cover[target.y * size + target.x] === COVER_BUSH && target.revealUntilMs < nowMs;
     const gTarget = map.height[target.y * size + target.x] ?? 0;

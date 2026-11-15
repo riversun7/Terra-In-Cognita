@@ -167,9 +167,13 @@ export interface BattleInit {
   limitMs?: number | undefined;
 }
 
+/**
+ * 유닛 대기 명령(D-177·D-180). run = 달리며 가기(docs/adr/2026-11-15-combat-moves.md 1절, AI 고리 wantsRun — 프로토콜은 아직 싣지 않는다,
+ * 뒤 작업 WP-5). 없으면 걷는다(옛 명령 그대로)
+ */
 export type Command =
-  | { kind: "move"; cell: number }
-  | { kind: "attack"; target: number }
+  | { kind: "move"; cell: number; run?: boolean | undefined }
+  | { kind: "attack"; target: number; run?: boolean | undefined }
   | { kind: "retreat" };
 
 /**
@@ -242,6 +246,14 @@ export interface UnitState extends CombatUnitSpec {
   /** 물약마다 남은 수(사양 potions.items 차례)·다시 마실 수 있는 시각(사양에 potions가 있을 때만, 287) */
   potionsLeft?: number[];
   potionReadyMs?: number;
+  /**
+   * 움직임 상태(docs/adr/2026-11-15-combat-moves.md, moves.ts). 켜졌을 때만 칸이 있다(안 쓰는 전투의 상태 JSON이 그대로):
+   * running = 달리는 중, stealthUntilMs = 은신이 끝나는 시각(공격·들킴으로 먼저 깨진다), detectUntilMs·detectCells = 감지 부품
+   */
+  running?: true | undefined;
+  stealthUntilMs?: number | undefined;
+  detectUntilMs?: number | undefined;
+  detectCells?: number | undefined;
 }
 
 export interface PartyState extends BattlePartySpec {

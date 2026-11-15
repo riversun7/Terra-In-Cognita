@@ -22,6 +22,7 @@ import {
   attackIntervalMs,
   bareAppropriateMilli,
   bareIntervalMs,
+  battleMoveIntervalMs,
   realStaminaRegen,
   staminaAppropriateMilli,
 } from "./formulas.ts";
@@ -251,7 +252,8 @@ export function specFromStats(
       w.unarmed === true
         ? bareIntervalMs(w.intervalMs, primaries[2] ?? 0, body.level ?? 1, c)
         : attackIntervalMs(w.intervalMs, primaries[2] ?? 0, appropriateMilliOf(w, basic, bareMilli).agi, c),
-    moveIntervalMs: body.moveIntervalMs,
+    // 전투맵 걸음도 AGI(사용자 1265, D-553): 몸의 기본 간격(1초)을 실효 AGI의 걷기 식으로 줄인다
+    moveIntervalMs: battleMoveIntervalMs(body.moveIntervalMs, primaries[2] ?? 0, c),
     staminaMax: Math.max(0, s("stamina")),
     staminaCost: w.staminaCost,
     staminaScore: sta,

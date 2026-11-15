@@ -6,9 +6,17 @@
 //   유닛마다 몸 입력의 지문(사이보그 레벨·환생·AGI 처음 값·K, 입은 물건·걸린 효과·부상 ‰, 실효 자료 판)이 같으면 받아 둔 AGI를 쓰고,
 //   계산식 결과는 (식, AGI)마다 받아 둔다. 성장 계수(설정 칸) 같은 것은 WALK_AGI_TTL_MS마다, 계산식은 WALK_FORMULA_TTL_MS마다 다시 읽는다.
 // - 장비·기본 몸 아무것도 없는 유닛(봇·NPC 휴먼 대부분)은 몸을 셈하지 않고 기본 AGI(10) 값만 쓴다.
+// - 이동 속도 버프·디버프(사용자 결정 1264, D-553 "2차맵에도 버프 적용"): 걸린 효과(unit_effects) 가운데 move_speed를 전투와 같은 합(‰, 버프 +·
+//   디버프 −, 하한 MIN_MOVE_SPEED_PM)으로 걷기 빠르기에 곱한다(walk × max(하한, 1000 + 합) ÷ 1000, 버림). 1차 스탯(AGI) 버프는 이미 실효 AGI에
+//   든다. 장비 옵션·신전·스킬에는 2차맵 이동 속도 칸이 없다(질문 1548). 이동을 시작할 때 읽으므로 버프가 끝나도 그 이동은 그 빠르기로 간다.
 // - 배(기획 D-541 1272 가 + 다, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"): 저장된 빠르기 대신 설정 칸 boat_speed를 이동을 시작할 때
 //   읽는다(걷기와 같은 때 — 바꾸면 모든 배가 다음 이동부터 그 값). 구간마다 빠르기를 바꾸지 않는다(배는 늘 같은 빠르기).
-import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, walkSpeedOf } from "@terra/sim";
+import {
+  type CombatCoefficients,
+  MIN_MOVE_SPEED_PM,
+  TEST_COMBAT_COEFFICIENTS,
+  walkSpeedOf,
+} from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
 import { BASELINE_PRIMARY } from "../roster/body.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
@@ -41,6 +49,23 @@ export interface WalkSpeeds {
 /** 걷는 유닛인가: 땅 위 + 탈것 봇이 아님(D-540 걷기만 AGI, 차·배는 수단 속도 D-5052) */
 export function walksOnFoot(unit: WalkUnit): boolean {
   return unit.domain === "land" && wireKindOf(unit.kind, unit.speed) !== "vehicle";
+}
+
+/** 걸린 이동 속도 효과 합(‰ — 전투 effects.ts moveIntervalMs와 같은 합, 끝난 효과는 뺀다) */
+export function walkBuffPm(gear: UnitGear, nowMs: number): number {
+  let pm = 0;
+  for (const effect of gear.effects) {
+    if (effect.untilMs <= nowMs || effect.stat !== "move_speed") continue;
+    if (effect.kind === "buff") pm += effect.value;
+    else if (effect.kind === "debuff") pm -= effect.value;
+  }
+  return pm;
+}
+
+/** 걷기 빠르기에 이동 속도 효과를 곱한다(효과가 없으면 그대로, 1 이상) */
+export function withWalkBuff(speed: number, pm: number): number {
+  if (pm === 0) return speed;
+  return Math.max(1, Math.floor((speed * Math.max(MIN_MOVE_SPEED_PM, 1000 + pm)) / 1000));
 }
 
 /** 몸 입력 지문: 이것이 같으면 실효 AGI가 같다(실효 자료 판은 따로 본다) */
@@ -121,11 +146,13 @@ export function createWalkSpeeds(input: {
         memoProgram = program;
         memo.clear();
       }
+      // 이동 속도 버프(1264): 받아 둔 AGI 빠르기 뒤에 곱한다
+      const buff = walkBuffPm(input.gearOf(unit.id, input.now()), input.now());
       const hit = memo.get(agi);
-      if (hit !== undefined) return hit;
+      if (hit !== undefined) return withWalkBuff(hit, buff);
       const speed = walkSpeedOf(agi, c);
       memo.set(agi, speed);
-      return speed;
+      return withWalkBuff(speed, buff);
     },
   };
 }

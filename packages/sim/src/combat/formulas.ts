@@ -169,6 +169,22 @@ export function walkSpeedOf(agi: number, c: CombatCoefficients): number {
   return speed < 1 ? 1 : speed > WALK_SPEED_LIMIT ? WALK_SPEED_LIMIT : speed;
 }
 
+/** 전투맵 한 칸 기본 간격(ms, 옛 D-223 "1칸 1초" — AGI 10의 걸음, 사용자 결정 1265 D-553) */
+export const BATTLE_BASE_MOVE_MS = 1000;
+/** 걸음 빠르기 기준 AGI(새 사이보그 1차 스탯 10 — 2차맵 WALK_SPEED와 같은 기준) */
+const WALK_BASE_AGI = 10;
+
+/**
+ * 전투맵 한 칸 간격(ms) — 사용자 결정 1265(D-553 "전투맵 걸음도 AGI"): 2차맵과 같은 식 walk_speed로, 기본 간격 × walk_speed(10) ÷
+ * walk_speed(AGI)(버림, 1 이상). AGI 10이면 기본 간격 그대로, 식의 상한(기본 × 4)이면 약 0.27배. 정수 곱·나눗셈만 쓴다.
+ * 이동 속도 효과(move_speed ‰)는 판정이 걸음마다 따로 곱한다(effects.ts moveIntervalMs)
+ */
+export function battleMoveIntervalMs(baseMs: number, agi: number, c: CombatCoefficients): number {
+  const at10 = walkSpeedOf(WALK_BASE_AGI, c);
+  const own = walkSpeedOf(agi, c);
+  return Math.max(1, Math.floor((baseMs * at10) / own));
+}
+
 /** 크리 배율(‰, N12) 식 */
 export function critMultiplierPm(multiplierPm: number, roll: number, c: CombatCoefficients): number {
   return nonNegative(

@@ -90,6 +90,32 @@ describe("걷기 빠르기 = 계산식 walk_speed(실효 AGI)", () => {
     expect(walk.speedOf(foot(1))).toBe(437);
   });
 
+  it("이동 속도 버프·디버프(‰)도 걷기에 든다(사용자 1264, D-553 — 전투와 같은 합·하한), 끝나면 돌아온다", () => {
+    const state: { record?: CyborgRecord; gear?: UnitGear } = { record: recordAt(1) };
+    const { walk } = speeds(state);
+    const effect = (kind: string, value: number, untilMs = START + 60_000) => ({
+      effect: `${kind}_${value}`,
+      value,
+      untilMs,
+      kind,
+      stat: "move_speed",
+      valueMode: "permille" as const,
+    });
+    state.gear = { equipped: [], effects: [effect("buff", 500)] };
+    // 437 × 1500 ÷ 1000 = 655.5
+    expect(walk.speedOf(foot(1))).toBe(655);
+    state.gear = { equipped: [], effects: [effect("buff", 500), effect("debuff", 300)] };
+    expect(walk.speedOf(foot(1))).toBe(524);
+    // 하한 100‰(10배 느림까지)
+    state.gear = { equipped: [], effects: [effect("debuff", 5000)] };
+    expect(walk.speedOf(foot(1))).toBe(43);
+    // 끝난 효과는 빼고, 탈것·배는 그대로
+    state.gear = { equipped: [], effects: [effect("buff", 500, START)] };
+    expect(walk.speedOf(foot(1))).toBe(437);
+    state.gear = { equipped: [], effects: [effect("buff", 500)] };
+    expect(walk.speedOf({ id: 3, kind: UNIT_KIND_BOT, speed: CAR_SPEED, domain: "land" })).toBe(CAR_SPEED);
+  });
+
   it("탈것 봇·땅이 아닌 유닛은 수단 속도 그대로(D-5052)", () => {
     const { walk } = speeds({});
     const car = { id: 3, kind: UNIT_KIND_BOT, speed: CAR_SPEED, domain: "land" };

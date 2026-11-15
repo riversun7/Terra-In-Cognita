@@ -544,6 +544,8 @@ export {
   staminaCostMilliOf,
   staminaScoreOf,
   walkSpeedOf,
+  battleMoveIntervalMs,
+  BATTLE_BASE_MOVE_MS,
   type CombatFormulaSet,
 } from "./combat/formulas.ts";
 export {

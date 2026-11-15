@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 22:00 | 2026-11-15 열넷째 묶음 합치기 (채집 3) | Claude Code | [15-2200-batch-1116c-merge](worklog/2026/11/15-2200-batch-1116c-merge.md) |
 | 2026-11-15 20:40 | 건물 안 유닛 숨김·"안에 N명" 표시·[나가기] | Claude Code | [15-2040-building-inside-hide](worklog/2026/11/15-2040-building-inside-hide.md) |
 | 2026-11-15 20:40 | 2026-11-15 열셋째 묶음 합치기 (배 2·건물 화면) | Claude Code | [15-2040-batch-1116b-merge](worklog/2026/11/15-2040-batch-1116b-merge.md) |
 | 2026-11-15 19:20 | 경로 시야선 다듬기·텔레포트·정부 판·돈 표시·확대 4단계 유닛 | Claude Code | [15-1920-path-teleport-money-ui](worklog/2026/11/15-1920-path-teleport-money-ui.md) |

@@ -378,8 +378,9 @@ for (const theme of ["pastel", "dark", "station"] as const) {
       await expect(ore.locator(".combat-value")).toContainText(/T\d/);
       await ore.locator(".combat-toggle").click();
       await expect(ore.locator(".combat-detail")).toContainText("T9");
+      // 최적 줄이 위에서 펼친 광산 줄일 수도 있다(시간당 기대 금액은 시세에 따라 바뀐다) — 접혀 있을 때만 펼친다
       const best = page.locator(".combat-row:has(.combat-best)");
-      await best.locator(".combat-toggle").click();
+      if ((await best.getAttribute("data-open")) !== "true") await best.locator(".combat-toggle").click();
       await expect(best.locator(".combat-detail")).toContainText(message("ko", "cyborg_gather_best_line"));
       // 최적 = 시간당 기대 금액(D-562 1569): 금액 줄과 시세 출처(자리를 모르면 시작 시세)
       await expect(best.locator('[data-part="gather-value"]')).toBeVisible();

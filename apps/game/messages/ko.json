@@ -3269,6 +3269,7 @@
   "dev_skills_shape_heal": "회복",
   "dev_skills_shape_buff": "버프",
   "dev_skills_shape_debuff": "디버프",
+  "dev_skills_shape_move": "움직임만",
   "dev_skills_trigger_active": "쓰는 스킬",
   "dev_skills_trigger_passive": "지속형",
   "dev_skills_resource_stamina": "스태미나",

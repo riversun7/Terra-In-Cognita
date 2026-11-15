@@ -296,4 +296,28 @@ describe("리플레이 해석", () => {
       expect.objectContaining({ side: 2, alive: 1, down: 1 }),
     ]);
   });
+
+  it("움직임 사건(형식 2): 점멸은 바로 옮기고 돌진은 한 틱에 미끄러지며, 은신 표지·자리표시 그림이 깨지지 않는다", () => {
+    const base = replay();
+    const extra: ReplayEvent[] = [
+      { k: "motion", t: 20, u: 0, kind: "dash", fromX: 4, fromY: 4, x: 8, y: 4, facing: 2 },
+      { k: "stealth", t: 20, u: 1, on: true, cause: "skill" },
+      { k: "run", t: 20, u: 1, on: true },
+      { k: "motion", t: 25, u: 3, kind: "blink", fromX: 10, fromY: 6, x: 14, y: 6, facing: 2 },
+      { k: "multishot", t: 25, u: 1, target: 3, skill: 0, shots: 3 },
+    ];
+    const events = [...base.events.filter((event) => event.t < 20), ...extra, ...base.events.filter((event) => event.t >= 20)];
+    const timeline = createReplayTimeline({ ...base, events });
+    // 돌진: 틱 20 사건은 2100ms에 닿고, 한 틱(100ms) 앞에서 출발한다
+    expect(timeline.unitsAt(2000)[0]?.x).toBe(4.5);
+    expect(timeline.unitsAt(2050)[0]?.x).toBe(6.5);
+    expect(timeline.unitsAt(2100)[0]?.x).toBe(8.5);
+    // 점멸: 닿는 시각 바로 앞까지 앞 칸, 그 시각에 새 칸
+    expect(timeline.unitsAt(2599)[3]?.x).toBe(10.5);
+    expect(timeline.unitsAt(2600)[3]?.x).toBe(14.5);
+    expect(timeline.unitsAt(2200)[1]?.stealth).toBe(true);
+    expect(timeline.unitsAt(1000)[1]?.stealth).toBe(false);
+    expect(timeline.fxAt(2650).some((fx) => fx.kind === "glow")).toBe(true);
+    expect(timeline.fxAt(2150).some((fx) => fx.kind === "beam")).toBe(true);
+  });
 });

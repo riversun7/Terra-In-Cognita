@@ -21,6 +21,7 @@ export const SHAPE_TEXT: Readonly<Record<SkillShapeId, Text>> = {
   heal: m.dev_skills_shape_heal,
   buff: m.dev_skills_shape_buff,
   debuff: m.dev_skills_shape_debuff,
+  move: m.dev_skills_shape_move,
 };
 
 export const TRIGGER_TEXT: Readonly<Record<SkillJson["trigger"], Text>> = {

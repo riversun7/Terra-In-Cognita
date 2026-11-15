@@ -3,8 +3,13 @@
 // 형식이 바뀌면 BATTLE_REPLAY_FORMAT_VERSION을 올린다(지형 형식과 같은 규칙).
 // 좌표는 전투맵 칸(0 ≤ x, y < 한 변). 유닛은 units 표의 번호(0부터)로 가리킨다. 시각은 틱(tickMs 한 칸).
 
-/** 이진 형식 판 */
-export const BATTLE_REPLAY_FORMAT_VERSION = 1;
+/**
+ * 이진 형식 판. 2 = 움직임 사건(motion·stealth·run·multishot)·스킬 모양 move·키프레임 은신·달리기 표지(docs/adr/2026-11-15-combat-moves.md
+ * 5절). 읽기는 1·2를 모두 받는다(1에는 새 사건·표지가 없을 뿐 배치가 같다)
+ */
+export const BATTLE_REPLAY_FORMAT_VERSION = 2;
+/** 읽을 수 있는 가장 옛 판 */
+export const BATTLE_REPLAY_MIN_FORMAT_VERSION = 1;
 /** 마법 값 "TCBR"(Terra Cognita Battle Replay) */
 export const BATTLE_REPLAY_MAGIC = [0x54, 0x43, 0x42, 0x52] as const;
 /** 키프레임 기본 간격(틱): 서버 전투 스냅숏과 같은 30초 */
@@ -27,6 +32,8 @@ export const REPLAY_SKILL_SHAPES = [
   "heal",
   "buff",
   "debuff",
+  // 형식 2: 피해 없이 움직이기만 하는 스킬(돌진·도약·점멸·뒷걸음)
+  "move",
 ] as const;
 export type ReplaySkillShape = (typeof REPLAY_SKILL_SHAPES)[number];
 
@@ -42,6 +49,12 @@ export type ReplayEndReason = (typeof REPLAY_END_REASONS)[number];
 export const REPLAY_OUTCOMES = ["hit", "miss", "evade"] as const;
 export type ReplayOutcome = (typeof REPLAY_OUTCOMES)[number];
 
+/** 움직임 사건 종류(형식 2): 자기 이동 넷(돌진·도약·점멸·뒷걸음) + 맞은 대상 옮김 둘(밀치기·끌어오기). 번호는 이진 코드 */
+export const REPLAY_MOTION_KINDS = ["dash", "leap", "blink", "backstep", "knockback", "pull"] as const;
+export type ReplayMotionKind = (typeof REPLAY_MOTION_KINDS)[number];
+/** 은신 바뀜 까닭(형식 2): 스킬로 켬·공격으로 깨짐·들킴·끝남 */
+export const REPLAY_STEALTH_CAUSES = ["skill", "attack", "detected", "expired"] as const;
+export type ReplayStealthCause = (typeof REPLAY_STEALTH_CAUSES)[number];
 /** 키프레임 유닛 상태: absent = 아직 들어오지 않음(참전 전) */
 export const REPLAY_UNIT_STATUSES = ["alive", "down", "retreated", "absent"] as const;
 export type ReplayUnitStatus = (typeof REPLAY_UNIT_STATUSES)[number];
@@ -159,6 +172,9 @@ export interface ReplayUnitFrame {
   readonly effects: readonly ReplayUnitEffect[];
   /** 시전 중이면 {스킬 표 번호, 목표 유닛 번호, 끝나는 틱} */
   readonly cast: { readonly skill: number; readonly target: number; readonly endTick: number } | null;
+  /** 은신 중·달리는 중(형식 2, 켜졌을 때만 칸이 있다) */
+  readonly stealth?: true | undefined;
+  readonly running?: true | undefined;
 }
 
 export interface ReplayKeyframe {
@@ -291,7 +307,41 @@ export type ReplayEvent =
       readonly u: number;
       readonly on: boolean;
     }
-  | { readonly k: "end"; readonly t: number; readonly winner: number; readonly reason: ReplayEndReason };
+  | { readonly k: "end"; readonly t: number; readonly winner: number; readonly reason: ReplayEndReason }
+  /**
+   * 형식 2. 움직임 부품이 유닛을 옮겼다: from → (x, y). 점멸은 앞 칸에서 사라져 새 칸에 나타난다. 이 틱의 걸음 사건은 따로 싣지 않는다.
+   * facing = 옮긴 뒤 바라보는 쪽(뒷걸음·밀치기·끌어오기는 그대로)
+   */
+  | {
+      readonly k: "motion";
+      readonly t: number;
+      readonly u: number;
+      readonly kind: ReplayMotionKind;
+      readonly fromX: number;
+      readonly fromY: number;
+      readonly x: number;
+      readonly y: number;
+      readonly facing: Facing;
+    }
+  /** 형식 2. 은신 켜짐·꺼짐 */
+  | {
+      readonly k: "stealth";
+      readonly t: number;
+      readonly u: number;
+      readonly on: boolean;
+      readonly cause: ReplayStealthCause;
+    }
+  /** 형식 2. 달리기 켜짐·꺼짐 */
+  | { readonly k: "run"; readonly t: number; readonly u: number; readonly on: boolean }
+  /** 형식 2. 연사: 대상 하나에 shots발(뒤따르는 skillHit이 발마다 하나) */
+  | {
+      readonly k: "multishot";
+      readonly t: number;
+      readonly u: number;
+      readonly target: number;
+      readonly skill: number;
+      readonly shots: number;
+    };
 
 export type ReplayEventKind = ReplayEvent["k"];
 /** 사건 종류 번호(이진 형식). 한 번 쓴 번호는 다른 뜻으로 다시 쓰지 않는다 */
@@ -314,6 +364,11 @@ export const REPLAY_EVENT_KINDS = [
   "vitals",
   "vision",
   "end",
+  // 형식 2
+  "motion",
+  "stealth",
+  "run",
+  "multishot",
 ] as const satisfies readonly ReplayEventKind[];
 
 export interface ReplayResult {

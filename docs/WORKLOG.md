@@ -7,6 +7,7 @@
 |---|---|---|---|
 | 2026-11-15 11:30 | 2026-11-15 열한째 묶음 합치기 (배 체계 개편·파티·군단 명령·채집 오브젝트 티어 범위·2차 스탯 식 글·미러 D-559) | Claude Code | [15-1130-batch-1115c-merge](worklog/2026/11/15-1130-batch-1115c-merge.md) |
 | 2026-11-15 10:50 | 2차 스탯 식 글·영향 막대 나눔 (D-556) | Claude Code | [15-1050-stat-formula-text](worklog/2026/11/15-1050-stat-formula-text.md) |
+| 2026-11-15 10:35 | 전투 움직임 판정 토대(1단계): 달리기·이동 부품·은신·계수 곡선·리플레이 사건 | Claude Code | [15-1035-combat-moves](worklog/2026/11/15-1035-combat-moves.md) |
 | 2026-11-15 10:10 | 채집 확률표 하나·오브젝트마다 티어 범위·채집 오브젝트 편집기(D-552) | Claude Code | [15-1010-gather-objects-2](worklog/2026/11/15-1010-gather-objects-2.md) |
 | 2026-11-15 09:40 | 배 체계 개편 구현: 조선소·정박장·교역 부두·내구도·옛 배 지우기, 해상 전투·항로 설계안 | Claude Code | [15-0940-boats-impl](worklog/2026/11/15-0940-boats-impl.md) |
 | 2026-11-15 08:20 ~ 08:45 | 사업장 장부(D-548) 코드 감사 + 설계안(질문 1501~1514) | Claude Code | [15-0840-business-ledger](worklog/2026/11/15-0840-business-ledger.md) |

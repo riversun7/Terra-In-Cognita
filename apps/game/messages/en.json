@@ -3292,6 +3292,7 @@
   "dev_skills_shape_heal": "Heal",
   "dev_skills_shape_buff": "Buff",
   "dev_skills_shape_debuff": "Debuff",
+  "dev_skills_shape_move": "Move only",
   "dev_skills_trigger_active": "Active",
   "dev_skills_trigger_passive": "Passive",
   "dev_skills_resource_stamina": "Stamina",

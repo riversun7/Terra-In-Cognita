@@ -11499,6 +11499,348 @@
         "en": "Speed of a boat at 0 hull (‰ of normal). It is not lost and can limp to a shipyard."
       },
       "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1495 [임시]"
+    },
+    {
+      "id": "moves_run_interval_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 달리기: 한 칸 가는 시간 배율(‰)",
+        "en": "[temp] Running: step interval multiplier (‰)"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "pm",
+      "min": 100,
+      "max": 1000,
+      "desc": {
+        "ko": "걷기 간격에 곱한다. 작을수록 빠르다(600 = 약 1.7배 빠름). 걷기는 그대로 무료다.",
+        "en": "Multiplies the walking interval. Lower is faster (600 ≈ 1.7× speed). Walking stays free."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_run_stamina_per_sec",
+      "code": "",
+      "name": {
+        "ko": "[임시] 달리기: 초당 스태미나 소모(기본)",
+        "en": "[temp] Running: stamina per second (base)"
+      },
+      "value": 15,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "행동 소모처럼 STA 배율을 거친다. 모자라면 달리기가 꺼진다.",
+        "en": "Scaled by the STA multiplier like other actions. Running stops when stamina runs out."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_run_resume_sec",
+      "code": "",
+      "name": {
+        "ko": "[임시] 달리기: 다시 켜려면 있어야 할 스태미나(초 몫)",
+        "en": "[temp] Running: stamina needed to restart (seconds' worth)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 60,
+      "desc": {
+        "ko": "지쳐 꺼진 뒤 초당 소모 × 이 초만큼 차야 다시 달린다(켜졌다 꺼졌다를 막는다).",
+        "en": "After exhaustion, running restarts only with this many seconds of drain in stock."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_detect_cells",
+      "code": "",
+      "name": {
+        "ko": "[임시] 은신: 기본 감지 반지름(칸)",
+        "en": "[temp] Stealth: base detection radius (cells)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 32,
+      "desc": {
+        "ko": "적 유닛이 이 칸 안(시선 포함)에 오면 은신이 깨진다. 감지 스킬이 넓힌다.",
+        "en": "A stealthed unit is revealed when an enemy is this close (with line of sight). Detect skills widen it."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_range_interval_per_cell_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 사거리 예산: 칸당 공격 간격 더함(‰)",
+        "en": "[temp] Range budget: interval added per cell (‰)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "곡선 range_interval을 고른 스킬은 사거리 1을 넘는 칸마다 행동 간격이 이만큼 길어진다.",
+        "en": "Skills with range_interval get this much longer action interval per cell beyond range 1."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_range_interval_max_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 사거리 예산: 공격 간격 위 끝(‰)",
+        "en": "[temp] Range budget: interval cap (‰)"
+      },
+      "value": 2500,
+      "structural": false,
+      "unit": "pm",
+      "min": 1000,
+      "max": 10000,
+      "desc": {
+        "ko": "사거리 예산 배율의 위 끝.",
+        "en": "Upper limit of the range-budget multiplier."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_magic_distance_near_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 마법 거리: 붙어서 배율(‰)",
+        "en": "[temp] Magic distance: point-blank multiplier (‰)"
+      },
+      "value": 1200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "곡선 magic_distance를 고른 스킬이 거리 1에서 주는 배율. 멀수록 준다.",
+        "en": "Multiplier at distance 1 for magic_distance skills. Falls with distance."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_magic_distance_slope_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 마법 거리: 칸당 줄임(‰)",
+        "en": "[temp] Magic distance: falloff per cell (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "거리 1을 넘는 칸마다 이만큼 준다.",
+        "en": "Reduction per cell beyond distance 1."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_magic_distance_min_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 마법 거리: 아래 끝(‰)",
+        "en": "[temp] Magic distance: floor (‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "아무리 멀어도 이 배율 아래로는 내려가지 않는다.",
+        "en": "The multiplier never drops below this."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_magic_targets_area_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 마법 대상 수: 둘째 대상부터 배율(‰)",
+        "en": "[temp] Magic targets: multiplier from 2 targets (‰)"
+      },
+      "value": 550,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "곡선 magic_targets를 고른 스킬이 대상 둘 이상을 맞히면 대상마다 이 배율(하나면 1000).",
+        "en": "Per-target multiplier when a magic_targets skill hits 2+ targets (single target stays 1000)."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_magic_targets_step_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 마법 대상 수: 대상 하나 더할 때마다 줄임(‰)",
+        "en": "[temp] Magic targets: reduction per extra target (‰)"
+      },
+      "value": 25,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "셋째 대상부터 하나 늘 때마다 이만큼 더 준다.",
+        "en": "Further reduction for each target beyond the second."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_magic_targets_min_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 마법 대상 수: 아래 끝(‰)",
+        "en": "[temp] Magic targets: floor (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "대상이 아무리 많아도 이 배율 아래로는 내려가지 않는다.",
+        "en": "The per-target multiplier never drops below this."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_dot_total_free_ms",
+      "code": "",
+      "name": {
+        "ko": "[임시] 지속 피해 합: 줄이지 않는 지속(ms)",
+        "en": "[temp] DoT total: unpenalised duration (ms)"
+      },
+      "value": 3000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 600000,
+      "desc": {
+        "ko": "곡선 dot_total을 고른 스킬의 지속 피해는 이 시간을 넘는 초마다 세기가 준다.",
+        "en": "DoTs from dot_total skills lose strength for each second beyond this."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_dot_total_step_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 지속 피해 합: 초당 줄임(‰)",
+        "en": "[temp] DoT total: reduction per second (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "무료 시간을 넘는 초마다 이만큼 준다.",
+        "en": "Reduction per second beyond the free duration."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_dot_total_min_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 지속 피해 합: 아래 끝(‰)",
+        "en": "[temp] DoT total: floor (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "긴(또는 전투 내내) 지속 피해도 이 배율 아래로는 내려가지 않는다.",
+        "en": "Long (or battle-long) DoTs never drop below this."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_multishot_step_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 연사: 한 발 더할 때마다 줄임(‰)",
+        "en": "[temp] Multishot: reduction per extra shot (‰)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "연사 스킬의 한 발 배율 = 1000 − (발 수 − 1) × 이 값.",
+        "en": "Per-shot multiplier = 1000 − (shots − 1) × this."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_multishot_min_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 연사: 한 발 아래 끝(‰)",
+        "en": "[temp] Multishot: per-shot floor (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "발이 많아도 한 발이 이 배율 아래로는 내려가지 않는다.",
+        "en": "A single shot never drops below this."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_close_shot_cells",
+      "code": "",
+      "name": {
+        "ko": "[임시] 가까이 쏘기: 거리(칸)",
+        "en": "[temp] Close shot: distance (cells)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 32,
+      "desc": {
+        "ko": "곡선 close_shot을 고른 원거리 스킬이 이 거리 안의 대상에 보너스를 준다.",
+        "en": "close_shot ranged skills get the bonus against targets this close."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
+    },
+    {
+      "id": "moves_close_shot_bonus_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 가까이 쏘기: 보너스(‰)",
+        "en": "[temp] Close shot: bonus (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "가까운 대상에 더하는 배율.",
+        "en": "Extra multiplier against close targets."
+      },
+      "source": "ADR 2026-11-15-combat-moves · 사용자 2026-11-15 \"시작 (판정 토대부터)\""
     }
   ]
 }

@@ -8,6 +8,8 @@
 // 실시간·빨리감기·재생이 같은 함수다. 상태는 직렬화할 수 있는 값만 들고(스냅숏), 흐름장은 상태에서 다시 나오는 캐시다.
 // [임시] 파티 AI는 "보이는 가장 가까운 적"과 퇴각 기준선(⑦)만 한다. 작전 슬라이더 ①~⑥은 R5(D-5040).
 // 파티·군단 명령(D-549, orders.ts): 유닛 대기 명령이 없는 유닛은 파티 명령(진형 전진·자리 지키기·목표 공격)을 따르고, 없으면 AI다.
+// 움직임(docs/adr/2026-11-15-combat-moves.md, moves.ts): 달리기(AI 고리 wantsRun, 초당 스태미나)·이동 부품 스킬(돌진·도약·점멸·뒷걸음·
+// 은신·감지·밀치기·끌어오기·묶기)·은신 들킴(틱 처음, 시야 전). 새 부품이 없는 전투는 옛 판정과 바이트까지 같다.
 import { createRng } from "@terra/shared";
 import { mix32 } from "../math/hash.ts";
 import { type BattleMap, createBattleMap } from "./battleMap.ts";
@@ -23,6 +25,16 @@ import type { BattleTrace } from "./battleTrace.ts";
 import { newAttackStages, recordApplied } from "./attackStages.ts";
 import { active, electCommander, initialState, ready, spend, unitFrom } from "./battleState.ts";
 import { drinkPotion } from "./consumables.ts";
+import { wantsRun } from "./moveAi.ts";
+import {
+  type MoveWorld,
+  breakStealth,
+  drainRun,
+  fireMoveSkill,
+  setRunning,
+  updateStealth,
+  walkIntervalMs,
+} from "./moves.ts";
 import {
   NO_ORDERS,
   type OrderTick,
@@ -144,6 +156,18 @@ function makeBattle(
   };
 
   const unitById = (id: number): UnitState | undefined => state.units.find((unit) => unit.id === id);
+  /** 이번 틱의 점유 격자(틱 처음에 만든다 — 이동 부품이 고친다) */
+  let tickOccupied = new Int32Array(size * size);
+  const moveWorld = (gone: ReadonlySet<number>, nowMs: number): MoveWorld => ({
+    map,
+    gone,
+    occupied: tickOccupied,
+    units: state.units,
+    c,
+    nowMs,
+    trace,
+    reach: (from, goal, range) => reach(from, gone)(goal, range),
+  });
   /** 이번 틱의 파티·군단 명령 묶음(틱 시작에 준비) */
   let orderTick: OrderTick = NO_ORDERS;
   const orderWorld: OrderWorld = {
@@ -288,8 +312,8 @@ function makeBattle(
     }
     unit.x = bestCell % size;
     unit.y = (bestCell - unit.x) / size;
-    // 느리게·빠르게(효과 move_speed)는 다음 걸음까지의 간격에 든다
-    unit.nextMoveMs = state.tick * c.tickMs + moveIntervalMs(unit, unit.moveIntervalMs);
+    // 느리게·빠르게(효과 move_speed)는 다음 걸음까지의 간격에 든다. 달리는 중이면 달리기 간격(moves.ts)
+    unit.nextMoveMs = state.tick * c.tickMs + moveIntervalMs(unit, walkIntervalMs(unit, c));
   };
 
   /**
@@ -353,6 +377,7 @@ function makeBattle(
       stages,
     );
     spend(attacker, nowMs, c);
+    breakStealth(attacker, "attack", trace);
     if (!attacker.air && map.cover[attacker.y * size + attacker.x] === 1)
       attacker.revealUntilMs = nowMs + c.bushRevealMs;
     const before = stages ? { armor: target.armor, shield: target.shield, hp: target.hp } : undefined;
@@ -405,10 +430,13 @@ function makeBattle(
   ): void => {
     const skill = unit.skills[index];
     if (!skill) return;
-    if (skill.target === "enemy" && !unit.air && map.cover[unit.y * size + unit.x] === 1)
-      unit.revealUntilMs = nowMs + c.bushRevealMs;
+    if (skill.target === "enemy") {
+      if (!unit.air && map.cover[unit.y * size + unit.x] === 1) unit.revealUntilMs = nowMs + c.bushRevealMs;
+      breakStealth(unit, "attack", trace);
+    }
     if (trace) trace.skill(unit, index, goal);
-    resolveSkill(unit, skill, goal, state.units, rng, nowMs, c, trace);
+    if (skill.move || skill.displace) fireMoveSkill(moveWorld(destroyed(), nowMs), unit, skill, goal, rng);
+    else resolveSkill(unit, skill, goal, state.units, rng, nowMs, c, trace);
   };
 
   /** 스킬을 고르고 쓴다(시전이 없으면 바로 푼다). 썼으면 true */
@@ -453,6 +481,8 @@ function makeBattle(
     gone: ReadonlySet<number>,
   ): void => {
     const nowMs = state.tick * c.tickMs;
+    // 달리기는 AI 고리가 정한다(지금 = 명령의 run 칸, moveAi.ts). 바뀔 때만 상태가 바뀐다
+    if (wantsRun(unit) !== (unit.running === true)) setRunning(unit, !unit.running, c, trace);
     if (hasStatus(unit, "stun")) return;
     // 자동 물약(D-510): 스태미나·행동 시각을 쓰지 않는다(D-509). 시전·이동·공격과 같은 틱에 함께 한다
     if (unit.potions) {
@@ -606,6 +636,8 @@ function makeBattle(
         unit.shieldHp,
         unit.shield + regenOnTick(shieldRegenPerMinute(unit, unit.shieldRegen), tick, 1, c),
       );
+    // 달리는 중이면 초당 스태미나(모자라면 달리기가 꺼진다)
+    drainRun(unit, tick, c, trace);
   };
 
   const partyHpLow = (party: PartyState): boolean => {
@@ -686,6 +718,8 @@ function makeBattle(
             : undefined,
         );
     const gone = destroyed();
+    // 은신: 끝났거나 들킨 유닛의 은신을 깬다(시야 전, moves.ts)
+    updateStealth(map, state.units, gone, state.tick * c.tickMs, c, trace);
     const key = [...gone].join(",");
     if (key !== destroyedKey) {
       destroyedKey = key;
@@ -702,6 +736,7 @@ function makeBattle(
     for (const party of state.parties) if (!party.retreating && partyHpLow(party)) orderRetreat(party.id);
     const occupied = new Int32Array(size * size);
     for (const unit of state.units) if (active(unit) && !unit.air) occupied[unit.y * size + unit.x] = unit.id;
+    tickOccupied = occupied;
     const rng = createRng(mix32(state.seed ^ Math.imul(state.tick + 1, 0x9e37_79b1)));
     // 행동 차례는 틱마다 (시드, 틱)으로 섞는다(SIM_VERSION 4). ID 차례로 돌면 같은 틱에 앞 차례의 걸음을 본 뒤 차례 유닛이
     // 바로 쳐서, 같은 유닛끼리도 거리 홀짝과 ID로 선공이 정해졌다(밸런스 화면 진단, docs/adr/2026-11-01-balance-screen.md)

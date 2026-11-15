@@ -193,6 +193,8 @@ export class BattleScene {
     const team = unit ? this.timeline.team(unit.side) : 0;
     if (status === "down") return { ...LOOK_DOWN, color: BATTLE_FX_COLORS.down };
     const size = unit?.kind === "creature" ? LOOK_CREATURE : LOOK_ALIVE;
+    // 은신 중(자리표시): 선 채로 흐린 색. 반투명·일렁임은 절차적 움직임(WP-2)
+    if (status === "stealth") return { ...size, color: BATTLE_FX_COLORS.down };
     return { ...size, color: teamColor(team) };
   }
 
@@ -214,7 +216,7 @@ export class BattleScene {
         this.placed[index * 2 + 1] = y;
         this.engine.setUnitPath(index + 1, { points: [x, y], departAtMs: 0, speedCellsPerSec: 0 });
       }
-      const look = frame.status === "down" ? "down" : "alive";
+      const look = frame.status === "down" ? "down" : frame.stealth ? "stealth" : "alive";
       if (this.looks[index] !== look) {
         this.looks[index] = look;
         this.engine.setUnitLook(index + 1, this.lookOf(index, look));

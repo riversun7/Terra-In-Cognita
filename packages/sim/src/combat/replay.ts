@@ -4,6 +4,8 @@
 // - 틱마다 차이: 걸음, 효과 켜짐·꺼짐, 시전 시작·끊김·헛시전, 쓰러짐·퇴각, 편마다 보이는 적 → 그 틱 사건(관찰자 사건 뒤).
 // - 1초마다(그리고 끝에) 바뀐 자원(vitals). 키프레임은 처음 + keyframeTicks마다(그 틱의 사건 전 상태).
 // 바라보는 쪽은 기록기가 정한다(걸음 방향, 공격·스킬은 목표 쪽). 판정에는 방향이 없다.
+// 움직임(형식 2, docs/adr/2026-11-15-combat-moves.md 5절): 관찰자 motion·stealth·run·multishot → 그 틱 사건. 움직임 부품으로 옮긴 유닛은
+// 그 틱의 걸음 사건을 따로 싣지 않는다(자리는 motion이 바꾼다). 키프레임에 은신·달리기 표지.
 // 전투 실험실(work/battle-lab)도 이 함수를 부른다: 입력은 sim이 받는 BattleInit 그대로 + 선택 사항.
 import {
   BATTLE_REPLAY_FORMAT_VERSION,
@@ -73,6 +75,7 @@ const SHAPE_OF: Readonly<Record<SkillShape, ReplaySkillShape>> = {
   heal: "heal",
   buff: "buff",
   debuff: "debuff",
+  move: "move",
 };
 
 /**
@@ -241,6 +244,8 @@ export function recordBattleReplay(init: BattleInit, options: RecordBattleOption
   const known = new Map<number, Vitals>();
   /** 이 틱에 풀린 스킬(유닛 ID → 유닛 스킬 목록 번호): 시전이 풀렸는지·끊겼는지 가른다 */
   const fired = new Map<number, Set<number>>();
+  /** 이 틱에 움직임 부품으로 옮긴 유닛(걸음 사건을 따로 싣지 않는다) */
+  const motioned = new Set<number>();
   let battle: ReturnType<typeof createBattle> | undefined;
   const tickNow = (): number => battle?.state.tick ?? 0;
 
@@ -334,6 +339,42 @@ export function recordBattleReplay(init: BattleInit, options: RecordBattleOption
       });
       setKnown(target, { hp: target.hp, shield: target.shield });
     },
+    motion(unit, kind, fromX, fromY) {
+      // 자기 이동(뒷걸음 빼고)은 간 쪽을 본다. 뒷걸음·밀치기·끌어오기는 바라보는 쪽 그대로
+      const keep = kind === "backstep" || kind === "knockback" || kind === "pull";
+      const next = keep
+        ? (facing.get(unit.id) ?? 2)
+        : facingBetween(fromX, fromY, unit.x, unit.y, facing.get(unit.id) ?? 2);
+      facing.set(unit.id, next);
+      motioned.add(unit.id);
+      events.push({
+        k: "motion",
+        t: tickNow(),
+        u: unitIndex(unit.id),
+        kind,
+        fromX,
+        fromY,
+        x: unit.x,
+        y: unit.y,
+        facing: next,
+      });
+    },
+    stealth(unit, on, cause) {
+      events.push({ k: "stealth", t: tickNow(), u: unitIndex(unit.id), on, cause });
+    },
+    run(unit, on) {
+      events.push({ k: "run", t: tickNow(), u: unitIndex(unit.id), on });
+    },
+    multishot(unit, skill, target, shots) {
+      events.push({
+        k: "multishot",
+        t: tickNow(),
+        u: unitIndex(unit.id),
+        target: unitIndex(target.id),
+        skill: addSkill(skill),
+        shots,
+      });
+    },
     dot(target, effect, amount) {
       const hp = Math.max(0, target.hp);
       events.push({
@@ -413,6 +454,8 @@ export function recordBattleReplay(init: BattleInit, options: RecordBattleOption
                   endTick: toTick(unit.cast.atMs),
                 }
               : null,
+          ...(unit.stealthUntilMs !== undefined ? { stealth: true as const } : {}),
+          ...(unit.running ? { running: true as const } : {}),
         };
       }),
     };
@@ -432,7 +475,7 @@ export function recordBattleReplay(init: BattleInit, options: RecordBattleOption
         castAtMs: 0,
         effects: new Map(),
       };
-      if (unit.x !== before.x || unit.y !== before.y) {
+      if ((unit.x !== before.x || unit.y !== before.y) && !motioned.has(unit.id)) {
         const next = facingBetween(before.x, before.y, unit.x, unit.y, facing.get(unit.id) ?? 2);
         facing.set(unit.id, next);
         events.push({ k: "move", t, u, x: unit.x, y: unit.y, facing: next });
@@ -493,6 +536,7 @@ export function recordBattleReplay(init: BattleInit, options: RecordBattleOption
       vision.set(side.id, now);
     }
     fired.clear();
+    motioned.clear();
   };
 
   /**

@@ -200,6 +200,39 @@ describe("전투 분류", () => {
     expect(skillIssuePaths({ ...skill("guard"), weaponField: "elemental" })).toEqual([]);
   });
 
+  it("움직임 부품·곡선(docs/adr/2026-11-15-combat-moves.md 6절): 모양·대상과 맞아야 한다", () => {
+    const strike = {
+      ...skill("guard"),
+      shape: "single",
+      trigger: "active",
+      target: "enemy",
+      range: 6,
+      damage: "physical",
+      base: "physical",
+    };
+    expect(skillIssuePaths({ ...strike, move: { kind: "dash", cells: 5 } })).toEqual([]);
+    expect(skillIssuePaths({ ...strike, move: { kind: "dash", cells: 5, hitRange: 2 } })).toEqual([]);
+    expect(skillIssuePaths({ ...strike, displace: { kind: "knockback", cells: 2 } })).toEqual([]);
+    expect(skillIssuePaths({ ...strike, curves: ["magic_distance", "close_shot"], shots: 3 })).toEqual([]);
+    // 모양 move: 피해 없이 자기 이동 부품 필수
+    const move = { ...strike, shape: "move", damage: "none" };
+    expect(skillIssuePaths({ ...move, move: { kind: "blink", cells: 4, dir: "away" } })).toEqual([]);
+    expect(skillIssuePaths(move)).toEqual(["move"]);
+    expect(skillIssuePaths({ ...move, damage: "physical", move: { kind: "backstep", cells: 2 } })).toEqual([
+      "damage",
+    ]);
+    // 은신·감지는 자기 buff, 돌진은 적 대상
+    const self = { ...skill("guard"), trigger: "active" };
+    expect(skillIssuePaths({ ...self, move: { kind: "stealth", durationMs: 5000 } })).toEqual([]);
+    expect(skillIssuePaths({ ...self, move: { kind: "dash", cells: 3 } })).toEqual(["move"]);
+    expect(skillIssuePaths({ ...strike, move: { kind: "stealth", durationMs: 5000 } })).toEqual(["move"]);
+    // 연사는 대상 하나 모양만, 곡선은 겹치지 않게, 칸 범위
+    expect(skillIssuePaths({ ...strike, shape: "area", radius: 2, shots: 3 })).toEqual(["shots"]);
+    expect(skillIssuePaths({ ...strike, curves: ["dot_total", "dot_total"] })).toEqual(["curves"]);
+    expect(skillIssuePaths({ ...strike, move: { kind: "dash", cells: 99 } })).toEqual(["move.cells"]);
+    expect(skillIssuePaths({ ...self, displace: { kind: "pull", cells: 2 } })).toEqual(["displace"]);
+  });
+
   it("쉴드 재생 효과(D-490): 버프·디버프의 stat에 shield_regen을 쓴다", () => {
     const curse = effect({ id: "shield_curse", kind: "debuff", stat: "shield_regen", valueMode: "permille" });
     expect(issuesOf({ "effects.json": { entries: [curse] } })).toEqual([]);

@@ -310,23 +310,23 @@ describe.skipIf(!TEST_DATABASE_URL)("아이템 편집기 (DB)", () => {
 
   it("이 판이 모르는 분류·더 새 팩의 줄은 지우지 않고 잠든 줄로 보이고, 버리기로 지운다", async () => {
     // 이 판이 아는 분류 7개는 이제 모두 고칠 수 있다(효과 사전 WP-6). 다음 판 앱이 분류 검사 제약을 넓힌 뒤 쓴 줄을
-    // 흉내 내려고 이 시험 DB에서만 제약을 뗀다. 효과 줄은 더 새 팩(core@99)에서 저장한 줄이라 newer_pack으로 잠든다
+    // 흉내 내려고 이 시험 DB에서만 제약을 뗀다. 효과 줄은 더 새 팩(core@999)에서 저장한 줄이라 newer_pack으로 잠든다
     await test.db.$client.query("alter table content_overrides drop constraint content_overrides_category");
     await test.db.$client.query(
-      `insert into content_overrides (category, id, entry, pack_hash, content_version) values ('recipes', 'future_recipe', '{"id":"future_recipe"}', null, 'core@99'), ('effects', 'future_buff', '{"id":"future_buff"}', null, 'core@99')`,
+      `insert into content_overrides (category, id, entry, pack_hash, content_version) values ('recipes', 'future_recipe', '{"id":"future_recipe"}', null, 'core@999'), ('effects', 'future_buff', '{"id":"future_buff"}', null, 'core@999')`,
     );
     await app.close();
     app = await start();
     const left = await rows<{ key: string }>(
       test.db,
-      "select category || '/' || id as key from content_overrides where content_version = 'core@99' order by 1",
+      "select category || '/' || id as key from content_overrides where content_version = 'core@999' order by 1",
       [],
     );
     expect(left.map((row) => row.key)).toEqual(["effects/future_buff", "recipes/future_recipe"]);
     expect(content.sleepingRows()).toEqual(
       expect.arrayContaining([
-        { category: "recipes", id: "future_recipe", reason: "unknown_category", contentVersion: "core@99" },
-        { category: "effects", id: "future_buff", reason: "newer_pack", contentVersion: "core@99" },
+        { category: "recipes", id: "future_recipe", reason: "unknown_category", contentVersion: "core@999" },
+        { category: "effects", id: "future_buff", reason: "newer_pack", contentVersion: "core@999" },
       ]),
     );
     // 아이템 쪽 잠든 줄: 만든 항목과 같은 ID가 팩에 생긴 줄(다른 내용)

@@ -9,6 +9,9 @@
 import {
   BATTLE_REPLAY_FORMAT_VERSION,
   BATTLE_REPLAY_MAGIC,
+  BATTLE_REPLAY_MIN_FORMAT_VERSION,
+  REPLAY_MOTION_KINDS,
+  REPLAY_STEALTH_CAUSES,
   type BattleReplay,
   REPLAY_DAMAGE_KINDS,
   REPLAY_EFFECT_KINDS,
@@ -190,8 +193,16 @@ function vitalsBase(units: number, keyframe: ReplayKeyframe | undefined): number
   });
 }
 
+/** 키프레임 상태 바이트: 아래 2비트 = 상태 코드, 4 = 은신, 8 = 달리기(형식 2. 형식 1 바이트는 표지 비트가 0이다) */
+const FRAME_STEALTH = 4;
+const FRAME_RUNNING = 8;
+
 function writeFrame(w: Writer, unit: ReplayUnitFrame, sizes: Sizes): void {
-  w.u8(codeOf(REPLAY_UNIT_STATUSES, unit.status, "unit status"));
+  w.u8(
+    codeOf(REPLAY_UNIT_STATUSES, unit.status, "unit status") +
+      (unit.stealth ? FRAME_STEALTH : 0) +
+      (unit.running ? FRAME_RUNNING : 0),
+  );
   w.uvar(unit.x);
   w.uvar(unit.y);
   w.u8(unit.facing);
@@ -211,7 +222,9 @@ function writeFrame(w: Writer, unit: ReplayUnitFrame, sizes: Sizes): void {
 }
 
 function readFrame(r: Reader, sizes: Sizes): ReplayUnitFrame {
-  const status = r.pick(REPLAY_UNIT_STATUSES);
+  const byte = r.u8();
+  const status = REPLAY_UNIT_STATUSES[byte & 3];
+  if (status === undefined || byte > 15) throw new ProtocolError("battle replay frame status out of range");
   const x = r.uvar();
   const y = r.uvar();
   const facing = r.facing();
@@ -224,7 +237,21 @@ function readFrame(r: Reader, sizes: Sizes): ReplayUnitFrame {
   const cast = r.bool()
     ? { skill: r.index(sizes.skills), target: r.index(sizes.units), endTick: r.uvar() }
     : null;
-  return { status, x, y, facing, hp, armor, shield, mp, stamina, effects, cast };
+  return {
+    status,
+    x,
+    y,
+    facing,
+    hp,
+    armor,
+    shield,
+    mp,
+    stamina,
+    effects,
+    cast,
+    ...((byte & FRAME_STEALTH) !== 0 ? { stealth: true as const } : {}),
+    ...((byte & FRAME_RUNNING) !== 0 ? { running: true as const } : {}),
+  };
 }
 
 function writeHit(w: Writer, hit: ReplayHit): void {
@@ -350,6 +377,31 @@ function writeEvent(w: Writer, e: ReplayEvent, s: Sizes): void {
       w.svar(e.winner);
       w.u8(codeOf(REPLAY_END_REASONS, e.reason, "end reason"));
       return;
+    case "motion":
+      unit(e.u);
+      w.u8(codeOf(REPLAY_MOTION_KINDS, e.kind, "motion kind"));
+      w.uvar(e.fromX);
+      w.uvar(e.fromY);
+      w.uvar(e.x);
+      w.uvar(e.y);
+      w.u8(e.facing);
+      return;
+    case "stealth":
+      unit(e.u);
+      w.u8((e.on ? 1 : 0) + 2 * codeOf(REPLAY_STEALTH_CAUSES, e.cause, "stealth cause"));
+      return;
+    case "run":
+      unit(e.u);
+      w.u8(e.on ? 1 : 0);
+      return;
+    case "multishot":
+      unit(e.u);
+      unit(e.target);
+      skill(e.skill);
+      if (!Number.isInteger(e.shots) || e.shots < 1 || e.shots > 255)
+        throw new RangeError(`multishot shots out of range: ${e.shots}`);
+      w.u8(e.shots);
+      return;
     default: {
       const unknown: never = e;
       throw new RangeError(`unknown replay event ${String(unknown)}`);
@@ -429,6 +481,35 @@ function readEvent(r: Reader, k: ReplayEvent["k"], t: number, s: Sizes): ReplayE
       return { k, t, side: r.svar(), u: unit(), on: r.bool() };
     case "end":
       return { k, t, winner: r.svar(), reason: r.pick(REPLAY_END_REASONS) };
+    case "motion":
+      return {
+        k,
+        t,
+        u: unit(),
+        kind: r.pick(REPLAY_MOTION_KINDS),
+        fromX: r.uvar(),
+        fromY: r.uvar(),
+        x: r.uvar(),
+        y: r.uvar(),
+        facing: r.facing(),
+      };
+    case "stealth": {
+      const u = unit();
+      const byte = r.u8();
+      const cause = REPLAY_STEALTH_CAUSES[byte >> 1];
+      if (cause === undefined) throw new ProtocolError("battle replay stealth cause out of range");
+      return { k, t, u, on: (byte & 1) !== 0, cause };
+    }
+    case "run":
+      return { k, t, u: unit(), on: r.bool() };
+    case "multishot": {
+      const u = unit();
+      const target = unit();
+      const shotSkill = skill();
+      const shots = r.u8();
+      if (shots < 1) throw new ProtocolError("battle replay multishot shots out of range");
+      return { k, t, u, target, skill: shotSkill, shots };
+    }
     default: {
       const unknown: never = k;
       throw new ProtocolError(`unknown replay event ${String(unknown)}`);
@@ -508,7 +589,7 @@ export function decodeBattleReplay(input: Uint8Array | ArrayBuffer): BattleRepla
   const r = new Reader(data);
   for (const byte of BATTLE_REPLAY_MAGIC) if (r.u8() !== byte) throw new ProtocolError("not a battle replay");
   const formatVersion = r.u8() + r.u8() * 256;
-  if (formatVersion !== BATTLE_REPLAY_FORMAT_VERSION)
+  if (formatVersion < BATTLE_REPLAY_MIN_FORMAT_VERSION || formatVersion > BATTLE_REPLAY_FORMAT_VERSION)
     throw new ProtocolError(`unsupported battle replay format ${formatVersion}`);
   const simVersion = r.uvar();
   const seed = r.uvar();

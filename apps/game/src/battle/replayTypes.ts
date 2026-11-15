@@ -74,6 +74,8 @@ export interface UnitFrame {
   readonly y: number;
   readonly facing: Facing;
   readonly status: ReplayUnitState["status"];
+  /** 은신 중(형식 2 표지, docs/adr/2026-11-15-combat-moves.md) — 자리표시로 흐린 색 */
+  readonly stealth: boolean;
   readonly hp: number;
   readonly armor: number;
   readonly shield: number;

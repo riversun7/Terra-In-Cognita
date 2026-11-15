@@ -8,6 +8,7 @@
 // 개발자 모드에서 고치는 계산식이다
 // (formulas.ts, docs/adr/2026-11-01-formula-editor.md). 이 표의 수(N10·N11·N12·N13)는 식의 변수로 들어간다.
 import type { CommandCapCoefficients } from "./command.ts";
+import type { MoveCoefficients } from "./curves.ts";
 import { type CombatFormulaSet, staminaCostMilliOf, staminaScoreOf } from "./formulas.ts";
 
 export interface CombatCoefficients {
@@ -63,6 +64,11 @@ export interface CombatCoefficients {
    * 없으면 0(옛 계수표)
    */
   readonly armorRegenPm?: number | undefined;
+  /**
+   * 달리기·은신 감지·계수 곡선(docs/adr/2026-11-15-combat-moves.md, curves.ts, 설정 칸 moves_* [임시]). 스킬이 고른 부품·곡선에만
+   * 쓴다(새 부품이 없는 전투는 이 표와 상관없다). 없으면 출발값(DEFAULT_MOVE_COEFFICIENTS)
+   */
+  readonly moves?: MoveCoefficients | undefined;
   /** 지휘관 정원 식(49 C7, command.ts — 사용자 결정 1464). 없으면 정원 0(옛 계수표) */
   readonly command?: CommandCapCoefficients | undefined;
   /**
@@ -118,6 +124,17 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
   armorRegenPm: 100,
   // [임시] C7 지휘관 정원: 2 + ⌊(INT×500 + WIS×500)‰ ÷ 10⌋, 3~20(사용자 1464 "3개에서 20개정도"). 새 사이보그(1차 10) = 3, 지휘 점수 180 = 20
   command: { base: 2, intPm: 500, wisPm: 500, pointsPerParty: 10, min: 3, max: 20 },
+  // [임시] 달리기·감지·계수 곡선(docs/adr/2026-11-15-combat-moves.md 1·3절, curves.ts DEFAULT_MOVE_COEFFICIENTS와 같은 값)
+  moves: {
+    run: { intervalPm: 600, staminaPerSec: 15, resumeSec: 3 },
+    detectCells: 1,
+    rangeInterval: { perCellPm: 100, maxPm: 2500 },
+    magicDistance: { nearPm: 1200, slopePm: 50, minPm: 800 },
+    magicTargets: { areaPm: 550, stepPm: 25, minPm: 300 },
+    dotTotal: { freeMs: 3000, stepPm: 50, minPm: 500 },
+    multishot: { stepPm: 150, minPm: 300 },
+    closeShot: { cells: 2, bonusPm: 200 },
+  },
 };
 
 /** 아머 회복(분당) = ⌊최대 아머 HP × armorRegenPm ÷ 1000⌋(D-514, 음수는 0) */

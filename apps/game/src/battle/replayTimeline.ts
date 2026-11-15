@@ -3,6 +3,8 @@
 // 시각 규칙: 틱 T의 사건은 시각 (T + 1) × 틱에 보인다(판정이 그 틱을 끝낸 뒤 = 다음 틱 처음 상태, @terra/protocol replayStateAt).
 // 걸음은 새 칸에 그 시각에 닿게, 그 전 걸음 간격 동안 앞 칸에서 옮겨 간다. 투사체는 맞는 시각에 닿게 앞서 날아온다.
 // 그림 모양은 스킬 ID가 아니라 리플레이 스킬 표의 모양(shape)이다(새 스킬은 자료만으로 그림이 정해진다).
+// 움직임 사건(형식 2, docs/adr/2026-11-15-combat-moves.md 5절)은 자리표시 그림이다: 돌진·도약·뒷걸음·밀치기·끌어오기는 한 틱에 미끄러지고
+// 점멸은 앞 칸에서 사라져 새 칸에 바로 나타난다(번쩍임 둘). 은신 중 유닛은 UnitFrame.stealth. 절차적 움직임은 뒤 작업(WP-2).
 import {
   type BattleReplay,
   type Facing,
@@ -67,6 +69,8 @@ interface Track {
   readonly x: number[];
   readonly y: number[];
   readonly facing: Facing[];
+  /** 그 칸으로 옮기는 데 걸리는 시간(ms). null = 걸음(걷기 간격으로 보간), 0 = 점멸(바로) */
+  readonly span: (number | null)[];
 }
 
 /** 이벤트 배열에서 t × 틱 + 틱(보이는 시각)이 at 이상인 첫 번호 */
@@ -115,16 +119,18 @@ export function createReplayTimeline(replay: BattleReplay): ReplayTimeline {
       x: [start?.x ?? unit.x],
       y: [start?.y ?? unit.y],
       facing: [start?.facing ?? unit.facing],
+      span: [null],
     };
   });
   for (const event of events) {
-    if (event.k !== "move") continue;
+    if (event.k !== "move" && event.k !== "motion") continue;
     const track = tracks[event.u];
     if (!track) continue;
     track.arrive.push((event.t + 1) * tickMs);
     track.x.push(event.x);
     track.y.push(event.y);
     track.facing.push(event.facing);
+    track.span.push(event.k === "move" ? null : event.kind === "blink" ? 0 : tickMs);
   }
 
   // 상태 기준점: CHECKPOINT_TICKS마다 {틱, 상태, 그 틱의 첫 사건 번호}
@@ -186,7 +192,7 @@ export function createReplayTimeline(replay: BattleReplay): ReplayTimeline {
     if (low >= track.arrive.length) return { x: px + 0.5, y: py + 0.5, facing: null };
     const arrive = track.arrive[low] ?? 0;
     const previous = track.arrive[before] ?? Number.NEGATIVE_INFINITY;
-    const duration = Math.max(tickMs, Math.min(unit.moveIntervalMs, arrive - previous));
+    const duration = track.span[low] ?? Math.max(tickMs, Math.min(unit.moveIntervalMs, arrive - previous));
     const left = arrive - timeMs;
     if (left >= duration) return { x: px + 0.5, y: py + 0.5, facing: null };
     const alpha = 1 - left / duration;
@@ -259,6 +265,7 @@ export function createReplayTimeline(replay: BattleReplay): ReplayTimeline {
         y: place.y,
         facing: place.facing ?? now?.facing ?? unit.facing,
         status: now?.status ?? "absent",
+        stealth: now?.stealth === true,
         hp: now?.hp ?? unit.maxHp,
         armor: now?.armor ?? unit.armorHp,
         shield: now?.shield ?? unit.shieldHp,
@@ -412,6 +419,48 @@ export function createReplayTimeline(replay: BattleReplay): ReplayTimeline {
                 progress: age(FX_MS.glow),
                 tone: { kind: "debuff" },
               });
+            break;
+          }
+          case "motion": {
+            // 자리표시: 점멸은 앞·새 칸에 번쩍임, 돌진·도약·뒷걸음은 지나간 줄, 밀치기·끌어오기는 새 칸에 약화 번쩍임
+            if (!live(FX_MS.beam)) break;
+            const progress = age(FX_MS.beam);
+            if (event.kind === "blink") {
+              for (const [x, y] of [
+                [event.fromX, event.fromY],
+                [event.x, event.y],
+              ] as const)
+                out.push({ kind: "glow", x: x + 0.5, y: y + 0.5, progress, tone: { kind: "buff" } });
+            } else if (event.kind === "knockback" || event.kind === "pull")
+              out.push({
+                kind: "flash",
+                x: event.x + 0.5,
+                y: event.y + 0.5,
+                progress,
+                tone: { kind: "debuff" },
+              });
+            else
+              out.push({
+                kind: "beam",
+                fromX: event.fromX + 0.5,
+                fromY: event.fromY + 0.5,
+                toX: event.x + 0.5,
+                toY: event.y + 0.5,
+                progress,
+                tone: basicTone(event.u),
+              });
+            break;
+          }
+          case "stealth": {
+            if (!live(FX_MS.glow)) break;
+            const at = placeAt(event.u, shown);
+            out.push({
+              kind: event.on ? "glow" : "flash",
+              x: at.x,
+              y: at.y,
+              progress: age(FX_MS.glow),
+              tone: { kind: event.on ? "buff" : "debuff" },
+            });
             break;
           }
           case "dot": {

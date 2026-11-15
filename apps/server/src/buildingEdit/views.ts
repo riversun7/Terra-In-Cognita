@@ -94,6 +94,21 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
             buildMs: type.buildMs,
             speedPm: type.speedPm,
             capacity: type.capacity,
+            ...(type.fuelCapacity === undefined ? {} : { fuelCapacity: type.fuelCapacity }),
+            ...(type.fuelPerHour === undefined ? {} : { fuelPerHour: type.fuelPerHour }),
+            ...(type.naval === undefined
+              ? {}
+              : {
+                  naval: {
+                    shipClass: type.naval.shipClass,
+                    hullPoints: type.naval.hullPoints,
+                    armor: type.naval.armor,
+                    modulePoints: type.naval.modulePoints,
+                    guns: type.naval.guns.map((gun) => ({ caliber: gun.caliber, shells: [...gun.shells] })),
+                    crew: { ...type.naval.crew },
+                    hangar: type.naval.hangar,
+                  },
+                }),
           })),
         }),
     // 2차맵 겉모습(docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)")

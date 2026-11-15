@@ -13,6 +13,7 @@ import {
   formatIssue,
   hasErrors,
   itemEntrySchema,
+  itemSubcategoryEntrySchema,
   nationPresetEntrySchema,
   necessityEntrySchema,
   parseJson,
@@ -74,6 +75,12 @@ function id(ref: { id: string }): string {
 
 /** 팩의 경제 분류 → 시뮬 경제 목록(참조는 ID 문자열로) */
 function catalogOf(source: PackSource): EconomyCatalog {
+  // 레벨 0 건축 재료 중분류(팩 bareHand, 기획 D-569 1764)
+  const bareSubs = new Set(
+    parseFile(source, "item_subcategories.json", (raw) => itemSubcategoryEntrySchema.parse(raw))
+      .filter((sub) => sub.bareHand === true)
+      .map((sub) => sub.id),
+  );
   return {
     items: parseFile(source, "items.json", (raw) => itemEntrySchema.parse(raw)).map((item) => ({
       id: item.id,
@@ -81,6 +88,9 @@ function catalogOf(source: PackSource): EconomyCatalog {
       category: item.category,
       startPrice: BigInt(item.startPrice),
       ...(item.subcategory ? { subcategory: id(item.subcategory) } : {}),
+      ...(item.bareHand === true || (item.subcategory && bareSubs.has(id(item.subcategory)))
+        ? { bareHand: true }
+        : {}),
       ...(item.lotSize === undefined ? {} : { lotSize: BigInt(item.lotSize) }),
       ...(item.weight === undefined ? {} : { weight: item.weight }),
       enabled: item.enabled,

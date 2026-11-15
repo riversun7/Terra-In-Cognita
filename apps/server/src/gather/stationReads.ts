@@ -15,7 +15,7 @@ import type {
   GatherStationWorkerState,
 } from "@terra/shared/gatherStation";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
-import { buildingGatherTier, plotAreaPm, plotSlots } from "@terra/shared/gatherMath";
+import { buildingGatherTier, chosenGatherTier, plotAreaPm, plotSlots } from "@terra/shared/gatherMath";
 import { haulMs } from "@terra/sim";
 import { buildingLocation } from "@terra/shared/goodsPlaces";
 import { storageCapacityAt } from "@terra/shared/facilityRuntime";
@@ -185,8 +185,12 @@ export function stationView(
 
   // 레벨 올리는 중·다음 레벨 비용(내 것, 다 지었고 더 올릴 수 있을 때)
   let upgradingUntilMs: number | null = null;
+  // 면적 모듈 붙이기(D-569 1765)는 따로 적는다(plots.buildingUntilMs)
+  let plottingUntilMs: number | null = null;
   for (const job of gather.jobs().values())
-    if (job.buildingId === buildingId && job.kind !== "equipment")
+    if (job.buildingId === buildingId && job.kind === "plot")
+      plottingUntilMs = Math.max(plottingUntilMs ?? 0, job.doneAtMs);
+    else if (job.buildingId === buildingId && job.kind !== "equipment")
       upgradingUntilMs = Math.max(upgradingUntilMs ?? 0, job.doneAtMs);
   let upgrade: GatherStationUpgrade | null = null;
   if (
@@ -218,7 +222,8 @@ export function stationView(
     const building = rules.buildingGather;
     const count = Math.max(0, record?.plots ?? 0);
     const slots = plotSlots(site.level, building);
-    const tier = buildingGatherTier(Math.max(1, site.level));
+    const maxTier = buildingGatherTier(Math.max(1, site.level));
+    const tier = chosenGatherTier(Math.max(1, site.level), record?.gatherTier);
     const scope =
       mine && ownerId !== undefined ? materialScope(world, ownerId, site.mapKey, site.cityId) : undefined;
     plots = {
@@ -237,6 +242,13 @@ export function stationView(
               have: Number(goodsStock(ledger, ownerId, stack.item, scope)),
             }))
           : null,
+      maxTier,
+      chosenTier: record?.gatherTier ?? null,
+      statPerTier: building.statPerTier,
+      timeMs: def.build
+        ? buildTimeAt(def.build, 1, (item) => catalog.weightOf(item), rules.facilityBuild).ms
+        : 0,
+      buildingUntilMs: plottingUntilMs,
     };
   }
 

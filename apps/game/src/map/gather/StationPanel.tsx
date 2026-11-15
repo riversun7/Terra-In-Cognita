@@ -8,6 +8,7 @@
 //   레벨 올리기는 같다.
 // - 바뀜 (기획 D-566 1721·D-567·D-568): 건물 채집소(농장·목장·약초원)는 "facility" 채집소다 — 개요에 기르는 티어(2 × 레벨 − 1)·권장 스탯 합,
 //   관리 칸에 면적 모듈(붙은 수·자리·면적 배율·다음 재료, [모듈 붙이기] = facility_plot, 프로토콜 41).
+// - 바뀜 (기획 D-569 1761·1765): 관리 칸의 모듈·기를 티어는 StationPlots.tsx(티어 고르기·모듈 짓는 시간·떼기, 프로토콜 45).
 // - 바뀜 (2026-11-15 건물 화면 개편, docs/adr/2026-11-15-building-screen.md): 자료는 건물 판이 한 번 읽어(useStation) 칸마다 나눠 준다(part —
 //   개요·일꾼·창고·관리 칸). 반경 고리는 건물 판이 고른 건물에 맞춰 그린다(칸과 상관없이).
 import type { GatherStationResponse } from "@terra/shared/gatherStation";
@@ -21,6 +22,7 @@ import { serverLink } from "../../net/serverLink.ts";
 import { m } from "../../paraglide/messages.js";
 import { navigate } from "../../shell/routerStore.ts";
 import { sendGatherCommand } from "./gatherCommands.ts";
+import { type PlotCommand, StationPlots } from "./StationPlots.tsx";
 import { gatherErrorText, minutesText, nameText } from "./gatherData.ts";
 import type { GatherState } from "./gatherState.ts";
 import {
@@ -158,13 +160,13 @@ export function StationPanel({
       const outcome = await sendFacilityCommand({ t: "facility_upgrade", buildingId });
       return outcome.ok ? m.station_done() : FACILITY_ERROR_TEXT[outcome.code]();
     });
-  const addPlot = () =>
+  // 면적 모듈 붙이기·떼기·기를 티어(D-569 1761·1765 — StationPlots.tsx)
+  const sendPlot = (command: PlotCommand) =>
     void run(async () => {
-      const outcome = await sendFacilityCommand({ t: "facility_plot", buildingId });
+      const outcome = await sendFacilityCommand({ ...command, buildingId });
       return outcome.ok ? m.station_done() : FACILITY_ERROR_TEXT[outcome.code]();
     });
   const plots = ok.plots ?? null;
-  const plotAffordable = plots?.materials?.every((stack) => stack.have >= stack.qty) ?? false;
   const target = ok.kind === "objects" ? nearestReady(ok, state.objects, state.kinds, now) : undefined;
   const gatherHere = () =>
     void run(async () => {
@@ -438,46 +440,13 @@ export function StationPanel({
             <p className="gather-muted">{m.station_upgrade_max()}</p>
           ) : null}
           {plots ? (
-            <div data-part="station-plots">
-              <p className="gather-station-subtitle">{m.station_plots_title()}</p>
-              <p className="gather-muted">
-                {m.station_plots_line({
-                  count: plots.count,
-                  slots: plots.slots,
-                  per: (plots.perPlotPm / 10).toFixed(0),
-                  area: (plots.areaPm / 10).toFixed(0),
-                })}
-              </p>
-              {plots.materials ? (
-                <>
-                  <p className="gather-muted">
-                    {m.station_upgrade_cost({
-                      materials: plots.materials
-                        .map((stack) =>
-                          m.station_upgrade_material({
-                            name: nameText(stack.name, stack.item),
-                            have: qtyOf(String(stack.have)),
-                            qty: qtyOf(String(stack.qty)),
-                          }),
-                        )
-                        .join(" · "),
-                    })}
-                  </p>
-                  <div className="gather-actions">
-                    <button
-                      type="button"
-                      className="button-small"
-                      disabled={sending || (!plotAffordable && !operator)}
-                      onClick={addPlot}
-                    >
-                      {m.station_plots_button()}
-                    </button>
-                  </div>
-                </>
-              ) : plots.count >= plots.slots ? (
-                <p className="gather-muted">{m.station_plots_full()}</p>
-              ) : null}
-            </div>
+            <StationPlots
+              plots={plots}
+              now={now}
+              sending={sending}
+              operator={operator}
+              send={(command) => sendPlot(command)}
+            />
           ) : null}
         </section>
       ) : null}

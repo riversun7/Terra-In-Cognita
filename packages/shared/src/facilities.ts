@@ -42,7 +42,8 @@ export interface FacilityCatalogView {
   readonly repairsEquipment: boolean;
 }
 
-export type FacilityJobKind = "build" | "upgrade" | "repair" | "beacon_repair" | "equipment";
+/** plot = 면적 모듈 붙이기(기획 D-569 1765) */
+export type FacilityJobKind = "build" | "upgrade" | "repair" | "beacon_repair" | "equipment" | "plot";
 
 export interface FacilityJobView {
   readonly id: number;

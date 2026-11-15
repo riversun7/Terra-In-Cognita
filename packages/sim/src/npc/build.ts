@@ -167,6 +167,26 @@ export interface SiteFacility {
   readonly workers: number;
   /** 상태(ppm, 가득 1,000,000 — @terra/shared/facilityRuntime). 모르면 undefined(시뮬 — 수리하지 않는다) */
   readonly conditionPpm?: number | undefined;
+  /** 붙은 면적 모듈 수(건물 채집소, 기획 D-567·D-569 1768). 없으면 0 */
+  readonly plots?: number | undefined;
+}
+
+/**
+ * 면적 모듈을 붙일 건물 채집소(기획 D-569 1768 "NPC도 모듈", D-212): 다 지었고 일꾼이 있는 선택 방식 채집 시설 가운데 붙은 모듈이 자리 수보다
+ * 적은 것을 모듈이 적은 차례(같으면 열쇠 차례)로 첫째. slotsOf = 그 시설·레벨의 자리 수(선택 방식이 아니면 0). 없으면 undefined
+ */
+export function chooseCityPlot(
+  facilities: readonly SiteFacility[],
+  slotsOf: (facility: string, level: number) => number,
+): SiteFacility | undefined {
+  let best: SiteFacility | undefined;
+  for (const entry of facilities) {
+    const plots = entry.plots ?? 0;
+    if (entry.level < 1 || entry.workers <= 0 || plots >= slotsOf(entry.facility, entry.level)) continue;
+    if (!best || plots < (best.plots ?? 0) || (plots === (best.plots ?? 0) && entry.key < best.key))
+      best = entry;
+  }
+  return best;
 }
 
 /** 레벨 올리기에 쓰는 시설 몫 */

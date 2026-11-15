@@ -38,10 +38,13 @@ export const worldFacilities = pgTable(
     seeded: boolean("seeded").notNull().default(false),
     // 붙은 면적 모듈 수(건물 채집소, 기획 D-567). 열 더하기만(직전 판 앱은 이 열을 모른 채 넣고 처음 값 0을 받는다)
     plots: smallint("plots").notNull().default(0),
+    // 기르는 티어(건물 채집소, 기획 D-569 1761). null = 기본(최고 티어). 열 더하기만(직전 판 앱은 이 열을 모른 채 넣고 null을 받는다)
+    gatherTier: smallint("gather_tier"),
   },
   (table) => [
     check("world_facilities_level", sql`${table.level} between 0 and 5`),
     check("world_facilities_plots", sql`${table.plots} between 0 and 100`),
+    check("world_facilities_gather_tier", sql`${table.gatherTier} between 0 and 9`),
     check("world_facilities_condition", sql`${table.conditionPpm} between 0 and 1000000`),
     check("world_facilities_id_format", sql`${table.facilityId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],
@@ -49,7 +52,7 @@ export const worldFacilities = pgTable(
 
 /**
  * 시간이 걸리는 작업 한 줄(끝나면 지운다): kind = build(처음 짓기) | upgrade(레벨업) | repair(건물 수리) | beacon_repair(비콘 수리) |
- * equipment(장비 수리). 비콘 짓기는 비콘 줄의 ready_at_ms가 맡는다(territorySchema.ts). 대상 = building_id(시설) | beacon_id(영토 비콘) | holding_id + building_id(공방).
+ * equipment(장비 수리) | plot(면적 모듈 붙이기, 기획 D-569 1765 — 직전 판 앱은 이 줄을 읽지 않고 건너뛴다). 비콘 짓기는 비콘 줄의 ready_at_ms가 맡는다(territorySchema.ts). 대상 = building_id(시설) | beacon_id(영토 비콘) | holding_id + building_id(공방).
  * target_level = 짓기·레벨업의 올라갈 레벨, restore_ppm = 수리로 더할 상태, unit_ids = 일하는 유닛(건축가·장인), materials = 시작할 때 뺀 재료
  * [{item, qty}](기록·화면용). owner_id = 명령한 소유 주체
  */
@@ -73,7 +76,7 @@ export const facilityJobs = pgTable(
     index("facility_jobs_building_idx").on(table.buildingId),
     check(
       "facility_jobs_kind",
-      sql`${table.kind} in ('build', 'upgrade', 'repair', 'beacon_repair', 'equipment')`,
+      sql`${table.kind} in ('build', 'upgrade', 'repair', 'beacon_repair', 'equipment', 'plot')`,
     ),
     check("facility_jobs_done", sql`${table.doneAtMs} >= ${table.startedAtMs}`),
   ],

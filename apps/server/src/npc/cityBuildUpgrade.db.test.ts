@@ -227,13 +227,16 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 인구 상한·레벨 올리기�
     const cities = () => [...npc.world.cities.keys()];
     for (let step = 0; step < 96 && !cities().every((id) => has(id, "kiln") && has(id, "sawmill")); step++)
       await advance(world, HOUR_MS);
-    for (const cityId of cities()) {
+    // 가마·제재소를 지은 도시(지금 목록). 아래 2시간 동안 독립·새 도시로 생긴 도시는 건물이 없어 빼고 본다 — CI 2026-11-15 run 43717483290의
+    // 239줄 실패는 그 2시간 사이 생긴 셋째 세력의 빈 도시를 다시 읽은 것이었다(재현: 시험 12번 가운데 1번, 새 도시 = 도시 직무만)
+    const builtCities = cities();
+    for (const cityId of builtCities) {
       expect(has(cityId, "sawmill")).toBe(true);
       expect(has(cityId, "kiln")).toBe(true);
     }
     // 다 지은 가마·제재소는 다음 판단에 도시 경제에 들어 첫 레시피(벽돌·판자)를 일꾼과 함께 돈다(시설마다 적어도 한 명)
     await advance(world, 2 * HOUR_MS);
-    for (const cityId of cities()) {
+    for (const cityId of builtCities) {
       const runs = npc.economy?.production(cityId) ?? [];
       const of = (facility: string) => runs.find((entry) => entry.facility.recipe.facility === facility);
       expect(of("kiln")?.facility.recipe.id).toBe("fire_bricks");

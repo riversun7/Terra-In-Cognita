@@ -4,7 +4,8 @@
 // - 버프·반경 안 원자재·채집소 창고(무게·내 몫)·자동 옮김·일꾼 상태 수를 한눈에 보이고, [도시 창고로 옮기기]는 이미 있는 창고 꺼내기
 //   (storage_move out)를 내 몫 물자마다 보낸다. 레벨 올리기·일꾼 배치는 같은 카드의 기존 단추를 쓴다.
 // - 농장(facility 채집소, 오브젝트 없음 — 기획 정리 756 ②)도 보인다: 반경·원자재 대신 수확·피로 버프·창고·자동 옮김·일꾼 상태 수.
-// - 건물 채집소(농장·목장·약초원, 기획 D-566 1721·D-567): 기르는 티어·면적 모듈 줄과 [모듈 하나 붙이기](facility_plot, 프로토콜 41).
+// - 건물 채집소(농장·목장·약초원, 기획 D-566 1721·D-567): 기르는 티어·면적 모듈 줄과 [모듈 하나 붙이기](facility_plot, 프로토콜 41). 바뀜
+//   (D-569 1765): 모듈은 짓기처럼 작업이 걸려 붙이는 중이면 남은 시간을 보인다(티어 고르기·떼기는 2차맵 채집소 판 — map/gather/StationPlots.tsx).
 import type { FacilityView } from "@terra/shared/facilities";
 import type { GatherStationResponse } from "@terra/shared/gatherStation";
 import { useEffect, useState } from "react";
@@ -100,7 +101,14 @@ export function StationSummary({
           })}
         </p>
       ) : null}
-      {ok.mine && ok.plots?.materials ? (
+      {ok.plots?.buildingUntilMs !== null &&
+      ok.plots?.buildingUntilMs !== undefined &&
+      ok.plots.buildingUntilMs > now ? (
+        // 모듈 붙이는 중(D-569 1765 — 짓기처럼 작업)
+        <p className="eco-row-meta" data-part="station-plot-building">
+          {m.station_plots_building({ time: minutesText(ok.plots.buildingUntilMs - now) })}
+        </p>
+      ) : ok.mine && ok.plots?.materials ? (
         <div className="labor-actions">
           <button
             type="button"

@@ -51,9 +51,17 @@ function fakeService(calls: string[]): FacilityService {
       );
       return Promise.resolve({ ok: false, code: "insufficient_materials" });
     },
-    plot: (userId, buildingId) => {
-      calls.push(`plot:${userId}:${buildingId}`);
+    plot: (userId, buildingId, unitIds) => {
+      calls.push(`plot:${userId}:${buildingId}:${unitIds.join(",")}`);
       return Promise.resolve({ ok: false, code: "plot_full" });
+    },
+    plotRemove: (userId, buildingId) => {
+      calls.push(`unplot:${userId}:${buildingId}`);
+      return Promise.resolve({ ok: false, code: "no_plot" });
+    },
+    gatherTier: (userId, buildingId, tier) => {
+      calls.push(`tier:${userId}:${buildingId}:${String(tier)}`);
+      return Promise.resolve({ ok: false, code: "tier_locked" });
     },
     repair: (userId, target, steps, unitIds) => {
       calls.push(`repair:${userId}:${JSON.stringify(target)}:${steps}:${unitIds.join(",")}`);
@@ -124,7 +132,10 @@ describe("건물 연결 처리", () => {
     socket.handle({ t: "equipment_repair", id: 4, buildingId: 7, holdingId: 11, unitIds: [5] });
     socket.handle({ t: "storage_move", id: 5, buildingId: 8, asset: "item:plank", qty: 3, direction: "in" });
     // 면적 모듈 붙이기(41, D-567)
-    socket.handle({ t: "facility_plot", id: 6, buildingId: 7 });
+    socket.handle({ t: "facility_plot", id: 6, buildingId: 7, unitIds: [5] });
+    // 모듈 떼기·기를 티어(45, D-569 1761·1765)
+    socket.handle({ t: "facility_plot_remove", id: 7, buildingId: 7 });
+    socket.handle({ t: "facility_gather_tier", id: 8, buildingId: 7, tier: 3 });
     for (let i = 0; i < 12; i++) await settle();
     expect(calls).toEqual([
       "build:user-1:farm:3:4:90:1",
@@ -132,7 +143,9 @@ describe("건물 연결 처리", () => {
       'repair:user-1:{"beaconId":2}:10:5,6',
       "equipment:user-1:7:11:5",
       "move:user-1:8:item:plank:3:in",
-      "plot:user-1:7",
+      "plot:user-1:7:5",
+      "unplot:user-1:7",
+      "tier:user-1:7:3",
     ]);
     expect(sent).toEqual([
       { t: "facility_result", id: 1, ok: true, buildingId: 7, doneAtMs: 1_000 },
@@ -141,6 +154,8 @@ describe("건물 연결 처리", () => {
       { t: "facility_result", id: 4, ok: false, code: "equipped" },
       { t: "facility_result", id: 5, ok: false, code: "storage_full" },
       { t: "facility_result", id: 6, ok: false, code: "plot_full" },
+      { t: "facility_result", id: 7, ok: false, code: "no_plot" },
+      { t: "facility_result", id: 8, ok: false, code: "tier_locked" },
     ]);
   });
 

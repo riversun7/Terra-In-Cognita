@@ -30,6 +30,8 @@ export interface CatalogItem {
   readonly startPrice: bigint;
   /** 중분류(팩 subcategory). 채집 티어 추첨의 사다리가 본다 */
   readonly subcategory?: string | undefined;
+  /** 레벨 0 건축 재료 칸(팩 아이템·중분류 bareHand를 합친 값, 기획 D-569 1764). 없으면 거짓 */
+  readonly bareHand?: boolean | undefined;
   /** 거래 묶음 크기(기본 단위 개수, 팩 lotSize, 없으면 1) */
   readonly lotSize?: bigint | undefined;
   /** 기본 단위 하나의 무게(g, 팩 weight). 없으면 0 — 채집소 → 창고 옮김(질문 1050 가)이 본다 */

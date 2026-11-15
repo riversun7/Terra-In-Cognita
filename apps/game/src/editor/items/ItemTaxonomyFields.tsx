@@ -164,6 +164,18 @@ export function SubcategoryFields({
           onChange(food ? { ...rest, food: true } : rest);
         }}
       />
+      {draft.major === "raw" ? (
+        <CheckField
+          label={m.dev_items_field_bare_hand()}
+          path="bareHand"
+          checked={draft.bareHand === true}
+          hint={m.dev_items_bare_hand_sub_hint()}
+          onChange={(bareHand) => {
+            const { bareHand: _drop, ...rest } = draft;
+            onChange(bareHand ? { ...rest, bareHand: true } : rest);
+          }}
+        />
+      ) : null}
       {draft.food === true ? (
         <SelectField
           label={m.dev_items_field_food_family()}

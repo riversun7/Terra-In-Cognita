@@ -1,0 +1,3 @@
+ALTER TABLE "world_facilities" ADD COLUMN "gather_tier" smallint;--> statement-breakpoint
+ALTER TABLE "world_facilities" ADD CONSTRAINT "world_facilities_gather_tier" CHECK ("gather_tier" between 0 and 9);--> statement-breakpoint
+ALTER TABLE "facility_jobs" DROP CONSTRAINT "facility_jobs_kind", ADD CONSTRAINT "facility_jobs_kind" CHECK ("kind" in ('build', 'upgrade', 'repair', 'beacon_repair', 'equipment', 'plot'));

@@ -25,6 +25,7 @@ import {
   BUSINESS_RESERVE_PROTOCOL_VERSION,
   BUSINESS_SHARES_PROTOCOL_VERSION,
   PLOT_PROTOCOL_VERSION,
+  GATHER_TIER_PROTOCOL_VERSION,
   FUSION_PROTOCOL_VERSION,
   GENE_PROTOCOL_VERSION,
   GENE_CONVERT_PROTOCOL_VERSION,
@@ -463,16 +464,21 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "dev_facility_finish":
       case "storage_move":
       case "facility_attack":
-      case "facility_plot": {
-        // 건물 명령은 프로토콜 10, 창고 옮기기는 11, 건물·비콘 공격은 12, 면적 모듈은 41의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+      case "facility_plot":
+      case "facility_plot_remove":
+      case "facility_gather_tier": {
+        // 건물 명령은 프로토콜 10, 창고 옮기기는 11, 건물·비콘 공격은 12, 면적 모듈은 41, 모듈 떼기·기르는 티어는 45의 메시지다. 더 낮게 인사한
+        // 연결은 모르는 메시지로 본다
         const needs =
-          message.t === "facility_plot"
-            ? PLOT_PROTOCOL_VERSION
-            : message.t === "facility_attack"
-              ? ATTACK_PROTOCOL_VERSION
-              : message.t === "storage_move"
-                ? STORAGE_PROTOCOL_VERSION
-                : FACILITY_PROTOCOL_VERSION;
+          message.t === "facility_plot_remove" || message.t === "facility_gather_tier"
+            ? GATHER_TIER_PROTOCOL_VERSION
+            : message.t === "facility_plot"
+              ? PLOT_PROTOCOL_VERSION
+              : message.t === "facility_attack"
+                ? ATTACK_PROTOCOL_VERSION
+                : message.t === "storage_move"
+                  ? STORAGE_PROTOCOL_VERSION
+                  : FACILITY_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;

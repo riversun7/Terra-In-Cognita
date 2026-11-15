@@ -1,32 +1,34 @@
 // 레벨 0(맨손 채집) 건축 재료는 목재·석재의 T0~T1을 모두 받는다 — 기획 D-562 1563·1564(사용자 "레벨 0은 T0~T1 인정"), D-566 1723
 // (사용자 "나무와 석재만 재료로 받아라"), D-551("필수 건물은 레벨 0 수준으로, 맨손 채집한 원자재만으로 짓는다"), D-552(표 하나 — 기본 건축 재료가
 // 줄지 않게).
-// - 건축 재료 묶음(BARE_HAND_GROUPS) = 목재(중분류 wood 전부)와 석재(광석 중분류의 석재·잡석만). 재료 줄의 아이템이 원자재(대분류 raw)이고 티어가
-//   BARE_HAND_TIER_MAX(1) 이하이며 이 묶음에 들면, 같은 묶음의 켜진 T0~T1 아이템을 모두 그 줄의 재료로 센다(소나무 원목 줄 = 소나무·자작나무,
-//   석재·잡석 줄 = 잡석·석재). 소금·이탄·화석 같은 광석 중분류의 다른 원자재는 건축 재료가 아니다(D-566 1723 — 그 아이템 줄이면 그 아이템만).
-//   그 밖의 줄(가공 재료·높은 티어)도 그 아이템만. 지금 팩은 모든 시설의 레벨 1 짓기가 목재·석재 줄이다.
+// - 건축 재료 묶음 = 콘텐츠 칸(기획 D-569 1764 "레벨 0 재료 목록은 편집기 칸으로"): 중분류 bareHand(그 중분류의 원자재 T0~T1 전부 — 지금 팩 목재)와
+//   아이템 bareHand(그 아이템만 — 지금 팩 석재·잡석). 아이템 편집기 /dev/items에서 고친다. 부르는 쪽이 둘을 합친 값(BareHandItem.bareHand)을 넘긴다.
+//   묶음 키 = 중분류: 재료 줄의 아이템이 원자재(대분류 raw)이고 티어가 BARE_HAND_TIER_MAX(1) 이하이며 bareHand면, 같은 중분류의 켜진 bareHand T0~T1
+//   아이템을 모두 그 줄의 재료로 센다(소나무 원목 줄 = 소나무·자작나무, 석재·잡석 줄 = 잡석·석재). bareHand가 아닌 원자재(소금·이탄·화석)는 건축
+//   재료가 아니다(D-566 1723 — 그 아이템 줄이면 그 아이템만). 그 밖의 줄(가공 재료·높은 티어)도 그 아이템만.
 // - 나누기(allocateMaterials): 받는 아이템 묶음이 같은 줄끼리 합쳐(묶음은 같거나 겹치지 않는다) 묶음 재고 합 ≥ 줄 합이면 된다. 꺼내는 차례 =
 //   줄마다 그 줄 아이템 먼저, 모자라면 묶음의 다른 아이템을 티어·팩 차례로.
-// 서버 건물 짓기·레벨 올리기·수리(플레이어·NPC)와 시뮬 NPC 짓기가 같은 함수를 쓴다. 정수(BigInt)만 쓴다. 다른 내부 패키지를 가져오지 않는다.
+// 서버 건물 짓기·레벨 올리기·수리·면적 모듈(플레이어·NPC)과 시뮬 NPC 짓기가 같은 함수를 쓴다. 정수(BigInt)만 쓴다. 다른 내부 패키지를 가져오지 않는다.
 
 /** 레벨 0 재료로 받는 가장 높은 티어 */
 export const BARE_HAND_TIER_MAX = 1;
 
-/**
- * 건축 재료 묶음(기획 D-566 1723 "나무와 석재만"): 중분류와 그 안에서 받는 아이템(없으면 중분류 전부). 묶음 키 = 중분류 [임시 — 아이템 편집기에
- * "건축 재료" 표시 칸이 생기면 그것으로 바꾼다, 질문 1764]
- */
-export const BARE_HAND_GROUPS: readonly {
-  readonly subcategory: string;
-  readonly items?: readonly string[];
-}[] = [{ subcategory: "wood" }, { subcategory: "ore", items: ["rubble", "stone"] }];
+/** 아이템 칸·중분류 칸의 bareHand를 합친다(어느 쪽이든 참이면 건축 재료 후보 — 원자재·T0~T1은 isBareHandMaterial이 본다) */
+export function bareHandFlag(
+  item: { readonly bareHand?: boolean | undefined },
+  subcategory?: { readonly bareHand?: boolean | undefined },
+): boolean {
+  return item.bareHand === true || subcategory?.bareHand === true;
+}
 
-/** 레벨 0 건축 재료 묶음에 드는 원자재인가(원자재·T0~T1·묶음 안). 켜짐은 보지 않는다 */
+/** 레벨 0 건축 재료 묶음에 드는 원자재인가(원자재·T0~T1·bareHand). 켜짐은 보지 않는다 */
 export function isBareHandMaterial(item: BareHandItem): boolean {
-  if (item.category !== "raw" || item.subcategory === undefined || item.tier > BARE_HAND_TIER_MAX)
-    return false;
-  const group = BARE_HAND_GROUPS.find((row) => row.subcategory === item.subcategory);
-  return group !== undefined && (group.items === undefined || group.items.includes(item.id));
+  return (
+    item.category === "raw" &&
+    item.subcategory !== undefined &&
+    item.tier <= BARE_HAND_TIER_MAX &&
+    item.bareHand === true
+  );
 }
 
 /** 받는 아이템을 고를 때 보는 아이템 요약 */
@@ -37,6 +39,8 @@ export interface BareHandItem {
   readonly subcategory?: string | undefined;
   readonly tier: number;
   readonly enabled?: boolean | undefined;
+  /** 레벨 0 건축 재료 칸(아이템 또는 그 중분류 — bareHandFlag로 합친 값). 없으면 거짓 */
+  readonly bareHand?: boolean | undefined;
 }
 
 /**

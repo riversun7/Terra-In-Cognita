@@ -54,7 +54,16 @@ import type { FacilityCatalog, FacilityDef } from "./catalog.ts";
 import { type GoodsScope, grantGoods, hasGoods, spendGoods } from "./materials.ts";
 import { waterOk } from "./water.ts";
 import { PLACE_CODES, averagePrimaries } from "./serviceHelpers.ts";
-import { type PlotDeps, addPlot } from "./plots.ts";
+import {
+  PLOT_JOB,
+  type PlotCommands,
+  type PlotDeps,
+  type PlotResult,
+  addPlot,
+  chooseTier,
+  plotOpen,
+  removePlot,
+} from "./plots.ts";
 import {
   type PlaceWorld,
   beaconMaterialScope,
@@ -102,7 +111,8 @@ export type {
   StorageOutHook,
 } from "./serviceTypes.ts";
 
-export interface FacilityService {
+/** 면적 모듈 붙이기·떼기·기르는 티어 고르기(건물 채집소, 기획 D-567·D-569 1761·1765)는 plots.ts PlotCommands */
+export interface FacilityService extends PlotCommands {
   build(userId: string, input: FacilityBuildInput): Promise<FacilityCommandResult>;
   /**
    * NPC 증축 짓기(질문 1101 나): 플레이어 짓기와 같이 그 도시 창고·창고 시설에서 재료를 빼고, 건물 칸을 놓고(레벨 0), 짓기 작업을 건다(일꾼 유닛을
@@ -114,8 +124,6 @@ export interface FacilityService {
    * 유닛을 묶지 않는다). 동기(쓰기 대기열 같은 묶음)
    */
   npcJob(input: NpcJobInput): FacilityCommandResult;
-  /** 면적 모듈 붙이기(건물 채집소, 기획 D-567 — plots.ts). operator = 운영자 모드(재료 없이) */
-  plot(userId: string, buildingId: number, operator?: OperatorBuild): Promise<FacilityCommandResult>;
   /** 레벨 올리기. operator = 운영자 모드(재료 없이, 시간 0 — FacilityBuildInput.operator와 같다) */
   upgrade(
     userId: string,
@@ -356,6 +364,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     } else if (job.kind === "upgrade") {
       advance(record, at);
       record.level = job.targetLevel ?? record.level + 1;
+    } else if (job.kind === "plot") {
+      // 면적 모듈 하나 붙음(기획 D-569 1765)
+      record.plots = Math.max(0, Math.trunc(record.plots ?? 0)) + 1;
     } else if (job.kind === "repair") {
       advance(record, at);
       record.conditionPpm = Math.min(CONDITION_FULL, record.conditionPpm + (job.restorePpm ?? 0));
@@ -419,7 +430,17 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     rules: () => options.rules().buildingGather,
     spend: (me, list, at, id) => spendGoods(ledger, me, list, at, "facility_plot", scopeOf(me, id)),
     levelMaterials: (def, level) => levelCost(def, level).materials,
+    levelMs: (def, level) => levelCost(def, level).ms,
+    withBuilders: (ms, builders) => withBuilders(ms, builders, runtime()),
+    checkUnits,
+    jobRunning: (id) => jobOn((job) => job.buildingId === id && job.kind !== "equipment") !== undefined,
+    startJob: (input) => {
+      const job = newJob({ ...PLOT_JOB, ...input });
+      if (job.doneAtMs <= job.startedAtMs) finish(job);
+    },
   };
+  const plotDone = async (result: PlotResult): Promise<FacilityCommandResult> =>
+    result.ok ? done(result) : result;
 
   const craftScoreOf = (unitId: number): number => {
     const table: readonly StatRow[] = options.holdings.statTable() ?? TEST_STAT_TABLE;
@@ -670,6 +691,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         return fail("job_running");
       if (record.level < 1) return fail("under_construction");
       if (input.kind === "upgrade" && (record.level >= def.maxLevel || !def.build)) return fail("max_level");
+      // 면적 모듈(기획 D-569 1768 — 플레이어와 같은 자리 규칙)
+      const closed = input.kind === "plot" ? plotOpen(record, def, options.rules().buildingGather) : null;
+      if (closed) return fail(closed);
       let restore = 0;
       if (input.kind === "repair") {
         advance(record, at);
@@ -682,7 +706,12 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       // 재료 자리: 그 건물이 선 도시의 도시 창고·그 도시의 NPC 창고 시설(유닛 화물은 보지 않는다 — npcBuild와 같다)
       const place = buildingPlace(places, input.buildingId);
       const scope = place ? materialScope(places, input.ownerId, place.mapKey, place.cityId, false) : [];
-      const reason = input.kind === "upgrade" ? "facility_upgrade" : "facility_repair";
+      const reason =
+        input.kind === "upgrade"
+          ? "facility_upgrade"
+          : input.kind === "plot"
+            ? "facility_plot"
+            : "facility_repair";
       if (!spendGoods(ledger, input.ownerId, withAccepts(input.materials), at, reason, scope))
         return fail("insufficient_materials");
       const ms = Math.max(0, Math.trunc(input.ms));
@@ -739,10 +768,10 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       return done({ ok: true, doneAtMs: at + ms });
     },
 
-    async plot(userId, buildingId, operator) {
-      const result = addPlot(plotDeps, userId, buildingId, operator !== undefined);
-      return result.ok ? done(result) : result;
-    },
+    plot: (userId, buildingId, unitIds, operator) =>
+      plotDone(addPlot(plotDeps, userId, buildingId, unitIds, operator !== undefined)),
+    plotRemove: (userId, buildingId) => plotDone(removePlot(plotDeps, userId, buildingId)),
+    gatherTier: (userId, buildingId, tier) => plotDone(chooseTier(plotDeps, userId, buildingId, tier)),
 
     async repair(userId, target, steps, unitIds) {
       const at = now();

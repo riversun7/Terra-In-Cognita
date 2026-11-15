@@ -2,7 +2,14 @@
 // 서버 경제 화면 목록(economy.catalog, 켜진 항목·팩 수량)과 그 세계의 실효 아이템·시설·채집 확률표에서 만든다(건물·아이템 편집기 덮어쓰기가 든다).
 // 중분류(채집 사다리)·시설 채집 칸(스탯 짝·수확량)·오염 값은 화면 목록에 없어 실효 항목에서 읽는다.
 // 바뀜 (기획 D-562 1562): 채집 오브젝트 종류(gatherKinds)를 받아 NPC 채집 티어 규칙의 입력(gatherObjects)으로 싣는다.
-import { type FacilityEntry, type GatherTierEntry, type ItemEntry, gatherBandOfEntry } from "@terra/content";
+import { bareHandFlag } from "@terra/shared/bareHandMaterials";
+import {
+  type FacilityEntry,
+  type GatherTierEntry,
+  type ItemEntry,
+  type ItemSubcategoryEntry,
+  gatherBandOfEntry,
+} from "@terra/content";
 import { type EconomyCatalogResponse, marketKindOf } from "@terra/shared/economy";
 import type { EconomyCatalog } from "@terra/sim";
 import type { GatherKind } from "../gather/kinds.ts";
@@ -13,6 +20,8 @@ export interface MarketContent {
   readonly items: readonly ItemEntry[];
   readonly facilities?: readonly FacilityEntry[] | undefined;
   readonly gatherTiers?: readonly GatherTierEntry[] | undefined;
+  /** 아이템 중분류(레벨 0 건축 재료 중분류 칸 bareHand, 기획 D-569 1764). 없으면 아이템 칸만 */
+  readonly itemSubcategories?: readonly ItemSubcategoryEntry[] | undefined;
   /** 채집 오브젝트 종류(NPC 채집 티어 규칙을 끌어낸다 — 기획 D-562 1562). 없으면 막지 않는다 */
   readonly gatherKinds?: readonly GatherKind[] | undefined;
 }
@@ -31,6 +40,7 @@ export function serverEconomyCatalog(
 ): ServerEconomyCatalog {
   const itemEntries = new Map((content?.items ?? []).map((item) => [item.id, item]));
   const facilityEntries = new Map((content?.facilities ?? []).map((facility) => [facility.id, facility]));
+  const subEntries = new Map((content?.itemSubcategories ?? []).map((sub) => [sub.id, sub]));
   const bookItems = new Set<string>();
   const items = response.items.map((item) => {
     const entry = itemEntries.get(item.id);
@@ -43,6 +53,10 @@ export function serverEconomyCatalog(
       category: item.category,
       startPrice: BigInt(item.startPrice),
       ...(subcategory === undefined ? {} : { subcategory }),
+      // 레벨 0 건축 재료 칸(아이템·중분류, 기획 D-569 1764)
+      ...(entry && bareHandFlag(entry, subcategory === undefined ? undefined : subEntries.get(subcategory))
+        ? { bareHand: true }
+        : {}),
       ...(item.lotSize === undefined ? {} : { lotSize: BigInt(item.lotSize) }),
       // 채집소 → 창고 옮김 시간(질문 1050 가)이 보는 무게(g, 기본 단위 하나)
       ...(entry?.weight === undefined ? {} : { weight: entry.weight }),

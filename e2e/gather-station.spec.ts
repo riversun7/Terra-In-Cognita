@@ -362,6 +362,9 @@ for (const look of LOOKS) {
         await form.getByRole("button", { name: message(look.language, "facility_dev_grant") }).click();
         await page.waitForTimeout(1_000);
         await add.click();
+        // 모듈은 짓기처럼 작업이 걸린다(D-569 1765) — 붙이는 중 줄을 본 뒤 개발 작업 끝내기
+        await expect(part.locator('[data-part="station-plot-building"]')).toBeVisible({ timeout: 15_000 });
+        await card.getByRole("button", { name: message(look.language, "facility_dev_finish") }).click();
         await expect(line).toHaveText(
           message(look.language, "station_plots_card", { tier: 1, count: 1, slots: 1, area: "120" }),
           { timeout: 15_000 },

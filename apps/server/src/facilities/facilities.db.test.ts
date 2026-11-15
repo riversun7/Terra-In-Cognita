@@ -673,3 +673,74 @@ describe.skipIf(!TEST_DATABASE_URL)("물가 조건(질문 947 나, 팩 낚시터
     expect(overview.catalog.find((entry) => entry.id === "farm")?.needsWaterWithin).toBeNull();
   });
 });
+
+describe.skipIf(!TEST_DATABASE_URL)("건물 채집소 면적 모듈·기를 티어(기획 D-569 1761·1765)", () => {
+  it("모듈은 짓기처럼 작업(재료 빼기·끝 시각)으로 붙고, 떼면 바로 빠지며(재료 돌려주지 않음), 기를 티어·모듈·작업이 다시 켜도 돌아온다", async () => {
+    const first = await boot();
+    const a = await setup(first, "plots", 1, { pine_log: 60 });
+    const service = persistence(first).facilities.service;
+    const built = await service.build(a.userId, {
+      mapKey: a.map.mapKey,
+      facility: "farm",
+      x: 44,
+      y: 44,
+      rotation: 0,
+    });
+    if (!built.ok || built.buildingId === undefined)
+      throw new Error(`build failed: ${JSON.stringify(built)}`);
+    const buildingId = built.buildingId;
+    clock = built.doneAtMs ?? clock;
+    expect(service.finishDue(clock)).toBe(1);
+    const cityId = service.facilities.get(buildingId)?.cityId ?? null;
+    const pine = () =>
+      goodsStock(persistence(first).ledger, a.ownerId, "pine_log", [cityLocation(cityId ?? 0)]);
+    const before = pine();
+
+    // 기를 티어: Lv1 = 최고 T1 → 0은 되고 2는 tier_locked
+    expect(await service.gatherTier(a.userId, buildingId, 2)).toEqual({ ok: false, code: "tier_locked" });
+    expect(await service.gatherTier(a.userId, buildingId, 0)).toEqual({ ok: true });
+
+    // 모듈: 일꾼 하나로 붙이기 → 작업(끝나기 전에는 모듈 0, 다른 작업은 job_running)
+    const unitId = a.units[0] ?? 0;
+    const plot = await service.plot(a.userId, buildingId, [unitId]);
+    expect(plot.ok).toBe(true);
+    const doneAtMs = plot.ok ? (plot.doneAtMs ?? 0) : 0;
+    expect(doneAtMs).toBeGreaterThan(clock);
+    expect(pine()).toBeLessThan(before);
+    expect(service.facilities.get(buildingId)?.plots ?? 0).toBe(0);
+    expect(await service.upgrade(a.userId, buildingId, [])).toEqual({ ok: false, code: "job_running" });
+    await persistence(first).writer.durable();
+    expect(
+      await rows(test.db, `select kind from facility_jobs where building_id = $1`, [buildingId]),
+    ).toEqual([{ kind: "plot" }]);
+    await first.stop();
+    worlds.splice(worlds.indexOf(first), 1);
+
+    // 다시 켜면 작업·기를 티어가 돌아오고, 끝 시각에 모듈이 붙는다
+    clock = doneAtMs + 1;
+    const second = await boot();
+    const again = persistence(second).facilities.service;
+    expect(again.facilities.get(buildingId)?.gatherTier).toBe(0);
+    expect(again.finishDue(clock)).toBe(1);
+    expect(again.facilities.get(buildingId)?.plots).toBe(1);
+    // Lv1 자리 하나 — 가득
+    expect(await again.plot(a.userId, buildingId, [])).toEqual({ ok: false, code: "plot_full" });
+    // 떼기: 바로 빠지고 재료는 그대로(돌려주지 않음)
+    const kept = goodsStock(persistence(second).ledger, a.ownerId, "pine_log", [cityLocation(cityId ?? 0)]);
+    expect(await again.plotRemove(a.userId, buildingId)).toEqual({ ok: true });
+    expect(again.facilities.get(buildingId)?.plots ?? 0).toBe(0);
+    expect(goodsStock(persistence(second).ledger, a.ownerId, "pine_log", [cityLocation(cityId ?? 0)])).toBe(
+      kept,
+    );
+    expect(await again.plotRemove(a.userId, buildingId)).toEqual({ ok: false, code: "no_plot" });
+    // 기본으로 되돌림
+    expect(await again.gatherTier(a.userId, buildingId, null)).toEqual({ ok: true });
+    await persistence(second).writer.durable();
+    expect(
+      await rows(test.db, `select plots, gather_tier from world_facilities where building_id = $1`, [
+        buildingId,
+      ]),
+    ).toEqual([{ plots: 0, gather_tier: null }]);
+    expect(await second.checkInvariants()).toEqual([]);
+  });
+});

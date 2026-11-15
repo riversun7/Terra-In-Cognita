@@ -135,6 +135,8 @@ describe("옛 1차 생산 규칙(D-507): 주 스탯 → 진행 속도, 보조 �
       gatherStat: 80,
       selectTier: 1,
       yieldPm: 1000,
+      // 티어를 다시 고를 때 쓰는 스탯 합(D-569 1761)
+      statSum: 80,
       progress: 3,
       yieldPerLot: 2,
     });

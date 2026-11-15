@@ -120,12 +120,22 @@ export interface GatherStationPlots {
   readonly areaPm: number;
   /** 모듈 하나가 더하는 몫(‰) */
   readonly perPlotPm: number;
-  /** 기르는 티어 = 건물 레벨의 최고 티어(2 × 레벨 − 1) */
+  /** 기르는 티어(고른 티어를 최고 티어로 자른 값 — 기획 D-569 1761. 고르지 않았으면 최고 티어) */
   readonly tier: number;
   /** 그 티어의 권장 스탯 합(주 + 보조, 미달이면 수확 효율이 준다) */
   readonly recommendedStat: number;
   /** 다음 모듈 재료(내 채집소이고 자리가 남았을 때만, 그 시설 레벨 1 짓기 재료) */
   readonly materials: GatherStationUpgrade["materials"] | null;
+  /** 고를 수 있는 가장 높은 티어 = 건물 레벨의 최고 티어(2 × 레벨 − 1, D-569 1761). 옛 서버는 없다 */
+  readonly maxTier?: number | undefined;
+  /** 주인이 고른 티어(null = 기본 — 최고 티어를 따른다). 옛 서버는 없다 */
+  readonly chosenTier?: number | null | undefined;
+  /** 모듈 하나 붙이는 시간(ms, 일꾼 없이 — 그 시설 레벨 1 짓는 시간, D-569 1765). 옛 서버는 없다 */
+  readonly timeMs?: number | undefined;
+  /** 티어 하나의 권장 스탯 합(설정 칸 building_gather_stat_per_tier — 고르기 칸의 티어별 권장 합). 옛 서버는 없다 */
+  readonly statPerTier?: number | undefined;
+  /** 모듈을 붙이는 중이면 끝 시각(서버 ms). 없으면 null */
+  readonly buildingUntilMs?: number | null | undefined;
 }
 
 export interface GatherStationResponse {
@@ -173,7 +183,7 @@ export interface GatherStationResponse {
   readonly workers: readonly GatherStationWorker[];
   /** 피로 상한(N21) */
   readonly fatigueMax: number;
-  /** 레벨 올리는 중이면 끝 시각(서버 ms) */
+  /** 레벨 올리는 중(짓기·수리 포함, 면적 모듈 붙이기는 빼고 — plots.buildingUntilMs)이면 끝 시각(서버 ms) */
   readonly upgradingUntilMs: number | null;
   /** 다음 레벨(내 채집소이고 더 올릴 수 있을 때만) */
   readonly upgrade: GatherStationUpgrade | null;

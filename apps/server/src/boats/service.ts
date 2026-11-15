@@ -555,7 +555,10 @@ export function createBoatService(deps: BoatDeps): BoatService {
       types: (fac.def.boats ?? []).map((type) => ({
         id: type.id,
         name: type.name,
-        materials: boatCost(type, rules.costPm),
+        materials: boatCost(type, rules.costPm).map((stack) => {
+          const name = deps.places()?.catalog().itemName(stack.item);
+          return name ? { ...stack, name } : stack;
+        }),
         buildMs: boatBuildMs(type, rules, row.module, false),
         speedPm: type.speedPm,
         capacity: type.capacity,

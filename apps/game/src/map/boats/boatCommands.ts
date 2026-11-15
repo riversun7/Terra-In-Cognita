@@ -1,4 +1,5 @@
-// 배 명령(WebSocket, 프로토콜 27, 만드는 시간은 28) — 배 만들기·타기·내리기. docs/adr/2026-11-13-boats.md. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
+// 배 명령(WebSocket, 프로토콜 27, 만드는 시간은 28, 조선소·정박장·교역 부두는 30) — 배 만들기·타기·내리기·수리·집 정박장·교역 부두 시간·주인 설정.
+// docs/adr/2026-11-13-boats.md, docs/adr/2026-11-15-shipyard-harbor.md. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // 채집 명령(gather/gatherCommands.ts)과 같은 틀: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
 // 배를 움직이는 것은 보통 이동 명령(move_unit)이다 — 서버가 배는 물 길로 푼다.
 import type { BoatResultCode, ClientMessageOf } from "@terra/protocol";
@@ -7,7 +8,11 @@ import { type ServerLink, serverLink } from "../../net/serverLink.ts";
 export type BoatCommand =
   | Omit<ClientMessageOf<"boat_build">, "id">
   | Omit<ClientMessageOf<"boat_board">, "id">
-  | Omit<ClientMessageOf<"boat_leave">, "id">;
+  | Omit<ClientMessageOf<"boat_leave">, "id">
+  | Omit<ClientMessageOf<"boat_repair">, "id">
+  | Omit<ClientMessageOf<"boat_berth">, "id">
+  | Omit<ClientMessageOf<"boat_dock_time">, "id">
+  | Omit<ClientMessageOf<"harbor_policy">, "id">;
 
 export type BoatOutcome =
   | {

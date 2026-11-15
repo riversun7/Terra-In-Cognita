@@ -31,7 +31,7 @@ import {
 } from "./gatherData.ts";
 import type { GatherState } from "./gatherState.ts";
 import { StationPanel } from "./StationPanel.tsx";
-import { DockBoatButton } from "../boats/BoatActions.tsx";
+import { HarborPanel } from "../boats/HarborPanel.tsx";
 import { boatGatherOf } from "../boats/boatText.ts";
 import { GatherMeters } from "./GatherMeters.tsx";
 import "./gather.css";
@@ -379,9 +379,20 @@ export function GatherPanel({
             </>
           ) : null}
           {buildingExtra}
-          {/* 부두(교통 단계 시설): [배 만들기] — docs/adr/2026-11-13-boats.md 3절 */}
-          {building?.status === "ok" && building.stage === "transport" ? (
-            <DockBoatButton buildingId={sheet.id} level={building.level} job={building.boatJob} />
+          {/* 배 시설(조선소·정박장·교역 부두) — docs/adr/2026-11-15-shipyard-harbor.md */}
+          {building?.status === "ok" && building.harbor ? (
+            <HarborPanel
+              key={sheet.id}
+              buildingId={sheet.id}
+              level={building.level}
+              mine={building.mine}
+              harbor={building.harbor}
+              reload={() => {
+                void loadGatherBuilding(sheet.id)
+                  .then((response) => setBuilding(response))
+                  .catch(() => undefined);
+              }}
+            />
           ) : null}
           <StationPanel
             state={state}

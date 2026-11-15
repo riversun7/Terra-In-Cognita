@@ -91,7 +91,11 @@ function setup(extra: Partial<Parameters<typeof createBoatService>[0]> = {}) {
     facilities,
     /* oxlint-disable typescript/no-unsafe-type-assertion -- 시험: 배 시설 정의만 쓰는 가짜 목록 */
     catalog: () =>
-      ({ facility: (id: string) => DEFS.find((def) => def.id === id), facilities: DEFS }) as never,
+      ({
+        facility: (id: string) => DEFS.find((def) => def.id === id),
+        facilities: DEFS,
+        itemName: () => undefined,
+      }) as never,
     /* oxlint-enable typescript/no-unsafe-type-assertion */
     cities: () => [],
   };

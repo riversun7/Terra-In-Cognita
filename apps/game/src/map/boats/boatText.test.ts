@@ -1,7 +1,7 @@
 // 배 화면 도우미 시험 — 고른 유닛에 보일 배 단추, 결과 문구(docs/adr/2026-11-13-boats.md)
 import type { MapUnit } from "@terra/shared/mapUnits";
 import { describe, expect, it } from "vitest";
-import { boatChoiceOf, boatGatherOf, boatOutcomeText, dockJobText } from "./boatText.ts";
+import { boatChoiceOf, boatGatherOf, boatOutcomeText, boatStatusText, dockJobText } from "./boatText.ts";
 
 const unit = (over: Partial<MapUnit>): MapUnit => ({
   unitId: 1,
@@ -87,5 +87,37 @@ describe("배에서 캐기 판(D-541 1280 가)", () => {
     expect(boatGatherOf({ boat: true }, true, false)).toBe("boat_only");
     expect(boatGatherOf({}, true, false)).toBe("none");
     expect(boatGatherOf(undefined, false, false)).toBe("none");
+  });
+});
+
+describe("배 체계 개편(D-547) 문구", () => {
+  it("배 줄 상태: 내구도·집 정박장, 정보가 없으면 null", () => {
+    expect(boatStatusText(undefined)).toBeNull();
+    expect(boatStatusText({ passengers: [], capacity: 4 })).toBeNull();
+    const homed = boatStatusText({ passengers: [], capacity: 4, hullPm: 875, homeId: 12, typeId: "rowboat" });
+    expect(homed).toContain("87");
+    expect(homed).toContain("12");
+    const homeless = boatStatusText({ passengers: [], capacity: 4, hullPm: 1000, homeId: null });
+    expect(homeless).toContain("100");
+  });
+
+  it("새 결과 코드마다 문구가 있다(코드 그대로 보이지 않는다)", () => {
+    for (const code of [
+      "not_shipyard",
+      "not_berth",
+      "not_trade_dock",
+      "unknown_boat_type",
+      "no_berth",
+      "trade_full",
+      "berth_denied",
+      "harbor_closed",
+      "insufficient_funds",
+      "hull_full",
+      "module_locked",
+      "invalid_policy",
+    ] as const)
+      expect(boatOutcomeText("berth", { ok: false, code })).not.toContain(code);
+    expect(boatOutcomeText("repair", { ok: true, walking: true })).not.toBe("");
+    expect(boatOutcomeText("policy", { ok: true })).not.toBe("");
   });
 });

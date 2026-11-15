@@ -34,3 +34,80 @@
   align-items: flex-start;
   gap: var(--space-2);
 }
+
+/* 배 시설 판(조선소·정박장·교역 부두 — docs/adr/2026-11-15-shipyard-harbor.md) */
+.harbor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.harbor-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+
+.harbor-type,
+.harbor-boat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+}
+
+.harbor-type-name {
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+
+.harbor-type .boat-build,
+.harbor-boat button {
+  margin-left: auto;
+}
+
+.harbor-row,
+.harbor-policy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.harbor-module[aria-pressed="true"] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.harbor-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.harbor-field input,
+.harbor-field select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.harbor-warning {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.harbor-mine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

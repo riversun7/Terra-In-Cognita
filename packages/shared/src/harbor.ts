@@ -74,8 +74,12 @@ export interface HarborJobView {
 export interface HarborBoatTypeView {
   readonly id: string;
   readonly name: { readonly ko: string; readonly en: string };
-  /** 실제 재료(설정 칸 boat_cost_pm을 곱한 묶음 수) */
-  readonly materials: readonly { readonly item: string; readonly qty: number }[];
+  /** 실제 재료(설정 칸 boat_cost_pm을 곱한 묶음 수, 이름은 아이템 이름 — 모르면 없음) */
+  readonly materials: readonly {
+    readonly item: string;
+    readonly qty: number;
+    readonly name?: { readonly ko: string; readonly en: string } | undefined;
+  }[];
   /** 실제 만드는 시간(ms, 건조 특화 반영) */
   readonly buildMs: number;
   readonly speedPm: number;

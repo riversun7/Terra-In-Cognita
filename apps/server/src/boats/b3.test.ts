@@ -92,6 +92,7 @@ describe("배 재료는 돌려주지 않음(D-545 1405)", () => {
         ({
           facility: (id: string) => (id === "shipyard" ? DOCK_DEF : undefined),
           facilities: [DOCK_DEF],
+          itemName: () => undefined,
         }) as never,
       /* oxlint-enable typescript/no-unsafe-type-assertion */
       cities: () => [{ id: CITY, mapKey: map.mapKey, x: 100, y: 40 }],

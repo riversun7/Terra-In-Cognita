@@ -41,7 +41,8 @@ import {
 } from "@terra/engine/planet";
 import type { WorldCitiesResponse, WorldMapCity, WorldPosition } from "@terra/shared/worldMap";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { refreshSession, useStaffView } from "../auth/session.ts";
+import { refreshSession, useSession, useStaffView } from "../auth/session.ts";
+import { hasDevTools } from "../auth/sessionState.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
 import { useLayout } from "../shell/useLayout.ts";
@@ -75,7 +76,14 @@ import { PlanetReadout } from "./PlanetReadout.tsx";
 import { type CommandTarget, areaCheck, areaTarget, cityTarget, commandKey } from "./commandTarget.ts";
 import { PlanetLayerPicker, PlanetLayerToggle } from "./PlanetLayerPicker.tsx";
 import { PlanetPerfPanel } from "./PlanetPerfPanel.tsx";
-import { OperatorMenuButton, OperatorMenuPanel, PerfToggle, useOperatorMenu } from "./OperatorMenu.tsx";
+import {
+  OperatorMenuButton,
+  OperatorMenuPanel,
+  OperatorMenuToggle,
+  PerfToggle,
+  useOperatorMenu,
+} from "./OperatorMenu.tsx";
+import { useOperatorMode } from "./operatorMode.ts";
 import { territoryLineOf, usePlanetLayers } from "./usePlanetLayers.ts";
 import { PlanetSystemView } from "./PlanetSystemView.tsx";
 import { ZoomLadder } from "./ZoomLadder.tsx";
@@ -149,6 +157,9 @@ function PlanetMapView({
   const staff = useStaffView();
   // 운영 메뉴(운영진만, 사용자 지적 2026-11-12): 성능 표시 켜고 끄기 — 2차맵과 같은 값
   const opsMenu = useOperatorMenu();
+  // 운영자 모드(dev·admin, 2차맵과 같은 기기 기억 — operatorMode.ts): 1차맵에서는 명령 판 [텔레포트](기획 D-560 1239)만 바꾼다. 서버가 권한을 다시 본다
+  const devTools = hasDevTools(useSession());
+  const { operator, toggle: toggleOperator } = useOperatorMode(devTools, () => undefined);
   // 지도 흐름: 도시·국가(world.cities), 내 자리, 고른 도시, 행성 면 레벨(가운데 2차맵 키)
   const overlayDraw = useRef<((projector: PlanetProjector) => void) | null>(null);
   const registerOverlay = useCallback((draw: ((projector: PlanetProjector) => void) | null) => {
@@ -535,6 +546,15 @@ function PlanetMapView({
         {staff ? (
           <OperatorMenuPanel control={opsMenu}>
             <PerfToggle />
+            {devTools ? (
+              <OperatorMenuToggle
+                pressed={operator}
+                onToggle={toggleOperator}
+                className="map-dev-observe map-operator-toggle"
+                label={m.map_operator_mode()}
+                note={m.planet_operator_note()}
+              />
+            ) : null}
             {/* 고도 과장 막대(운영진만, 사용자 요청 2026-11-09·2026-11-14 — 플레이어는 늘 ×12). 이 화면에서만, 다시 열면 ×12 */}
             <li className="map-operator-menu-row planet-slider">
               <label htmlFor="planet-exaggeration">{m.planet_exaggeration({ value: exaggeration })}</label>
@@ -574,6 +594,7 @@ function PlanetMapView({
             travel={travel}
             onTravelChanged={refreshTravel}
             onClose={() => setCommand(null)}
+            operator={operator}
           />
         ) : null}
         {city && world && !command ? (

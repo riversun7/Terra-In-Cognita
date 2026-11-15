@@ -4,7 +4,7 @@
 // 판 안: [성능 표시](운영진 — 1·2차맵이 같은 값, perfPanelToggle.ts), 2차맵이면 [운영자 모드]·[자유 시점](dev·admin, 옛 아래 판의 흩어진 단추).
 // 운영자 단추는 빨간 운영자 모양(map-operator-button, 사용자 답 Q2). 운영자 권한이 없으면 단추도 판도 없다 — 서버도 명령마다 권한을 본다.
 // 상태는 화면이 갖는다(useOperatorMenu) — 단추는 머리 판 안에, 판은 위 판 줄의 한 줄로 따로 놓기 때문이다.
-import { type MouseEvent, type ReactNode, useEffect, useId, useState } from "react";
+import { type MouseEvent as ReactMouseEvent, type ReactNode, useEffect, useId, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { MapIcon } from "./mapIcons.tsx";
 import { setPerfPanel, usePerfPanel } from "./perfPanelToggle.ts";
@@ -118,9 +118,13 @@ export function OperatorMenuPanel({
 }) {
   if (!control.open) return null;
   // 항목 단추를 누르면(그 단추의 일이 먼저 돈다 — 거품 차례) 판을 닫는다(D-560 1239)
-  const onPick = (event: MouseEvent<HTMLElement>): void => {
+  const onPick = (event: ReactMouseEvent<HTMLElement>): void => {
     const target = event.target;
-    if (target instanceof Element && target.closest("button.map-operator-menu-item")) control.close();
+    if (
+      target instanceof Element &&
+      target.closest("button.map-operator-menu-item, button.map-operator-pace-chip")
+    )
+      control.close();
   };
   return (
     <section

@@ -37,7 +37,14 @@ export interface MapChannel {
 export interface MapFeedPoolOptions
   extends Pick<
     MapFeedOptions,
-    "link" | "canCommand" | "observe" | "now" | "serverNow" | "unitCapacity" | "nextRequestId"
+    | "link"
+    | "canCommand"
+    | "observe"
+    | "operatorPace"
+    | "now"
+    | "serverNow"
+    | "unitCapacity"
+    | "nextRequestId"
   > {
   readonly fetchTerrain: (url: string) => Promise<TerrainInput>;
   /** 함께 여는 흐름 수(기본 MAX_CHANNELS) */
@@ -124,6 +131,7 @@ export function createMapFeedPool(options: MapFeedPoolOptions): MapFeedPool {
       },
       canCommand: options.canCommand,
       ...(options.observe ? { observe: options.observe } : {}),
+      ...(options.operatorPace ? { operatorPace: options.operatorPace } : {}),
       now: options.now,
       serverNow: options.serverNow,
       ...(options.unitCapacity === undefined ? {} : { unitCapacity: options.unitCapacity }),

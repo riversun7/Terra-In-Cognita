@@ -185,6 +185,9 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
     const observe = options.observe?.() === true;
     if (!link.send(observe ? { t: "subscribe", id, mapKey, observe: true } : { t: "subscribe", id, mapKey }))
       return;
+    // 운영자 배율(D-560 1246): 서버는 연결마다 들고 전체 보기가 모두 풀리면 1로 돌린다 — 다시 구독할 때 고른 값을 바로 뒤에 보낸다(결과는 버린다)
+    const pace = observe ? (options.operatorPace?.() ?? 1) : 1;
+    if (pace > 1) link.send({ t: "operator_pace", id: nextId(), mapKey, factor: pace });
     observing = observe;
     subscribedOnLink = true;
     subscribeId = id;

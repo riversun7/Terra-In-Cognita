@@ -162,6 +162,32 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+/* [운영자 속도] 칩 줄(기획 D-560 1246): 이름 + 칩 셋(눌린 칩 = 지금 배율) */
+.map-operator-pace {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.map-operator-pace-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.map-operator-pace-chips {
+  display: flex;
+  gap: var(--space-1);
+}
+.map-operator-pace-chip {
+  min-inline-size: var(--tap-size);
+  font-variant-numeric: tabular-nums;
+}
+.map-operator-pace-chip[aria-pressed="true"] {
+  background-color: var(--color-danger-surface);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-danger);
+}
+.map-operator-pace .map-operator-menu-note {
+  flex: 1 1 100%;
+}
 
 /* 시설 무리 색 = 시설 분류(기획 D-560 — 도시 화면 표시·지도 위 누른 건물 이름표) — 색만이 아니라 아이콘 모양도 다르다 */
 [data-group="administration"] {

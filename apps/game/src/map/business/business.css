@@ -1,0 +1,202 @@
+/* 사업장 장부 칸(건물 판 안 — docs/adr/2026-11-15-business-ledger.md). 토큰만 쓴다(pnpm check:contrast) */
+.books {
+  border-top: var(--hairline) solid var(--color-border);
+  padding-top: var(--space-2);
+}
+
+.books-summary {
+  cursor: pointer;
+  min-block-size: var(--tap-size);
+  display: flex;
+  align-items: center;
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+
+.books-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.books-line,
+.books-muted,
+.books-heading,
+.books-profit,
+.books-notice {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.books-muted {
+  color: var(--color-text-muted);
+}
+
+.books-heading {
+  font-weight: var(--font-weight-strong);
+}
+
+.books-alert,
+.books-warn {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.books-alert {
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+.books-warn {
+  background: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+
+.books-vault {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.books-vault dt {
+  color: var(--color-text-muted);
+}
+
+.books-vault dd {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+.books-periods {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.books-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--slot-min), 1fr));
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.books-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  font-size: var(--font-size-xs);
+}
+
+.books-card-label {
+  color: var(--color-text-muted);
+}
+
+.books-card-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+.books-profit {
+  font-weight: var(--font-weight-strong);
+}
+
+.books-bars,
+.books-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+}
+
+.books-bar {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+}
+
+.books-bar-track {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hairline);
+}
+
+.books-bar-in,
+.books-bar-out {
+  display: block;
+  block-size: var(--space-1);
+  border-radius: var(--radius-pill);
+  min-inline-size: var(--hairline);
+}
+
+.books-bar-in {
+  background: var(--color-success);
+}
+
+.books-bar-out {
+  background: var(--color-danger);
+}
+
+.books-bar-value {
+  grid-column: 2;
+  color: var(--color-text-muted);
+}
+
+.books-good,
+.books-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.books-entry-kind {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.books-plus {
+  color: var(--color-success);
+}
+
+.books-minus {
+  color: var(--color-danger);
+}
+
+.books-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.books-input {
+  inline-size: var(--button-basis);
+  min-block-size: var(--control-h-sm);
+  font-size: var(--font-size-input);
+}
+
+.books-owner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}

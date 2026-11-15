@@ -120,6 +120,9 @@ export interface BusinessCore {
   check(): string[];
 }
 
+/** 화폐 자산인가(물건 item:<ID>이 아니면) */
+const isMoney = (asset: string): boolean => !asset.startsWith("item:");
+
 export function createBusinessCore(deps: BusinessDeps): BusinessCore {
   const { ledger, writer } = deps;
   const states = new Map<number, BusinessState>(
@@ -148,7 +151,6 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
 
   const vault = (ownerId: number, asset: string, buildingId: number): number =>
     ledger.ownerAccount(ownerId, asset, businessLocation(buildingId));
-  const isMoney = (asset: string): boolean => !asset.startsWith("item:");
 
   const vaultBalances = (buildingId: number): Map<string, bigint> => {
     const out = new Map<string, bigint>();

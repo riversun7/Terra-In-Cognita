@@ -328,7 +328,13 @@ export function createWorldFacilities(input: {
   const commands = createBusinessCommands({
     core,
     ledger: input.ledger,
-    maps: input.maps,
+    unitOwner: (unitId) => {
+      for (const map of input.maps.values()) {
+        const info = map.unitInfo(unitId);
+        if (info) return info.ownerId;
+      }
+      return undefined;
+    },
     catalog,
     rules: () => input.rules().business,
     place: (buildingId) => buildingPlace(service.places, buildingId),

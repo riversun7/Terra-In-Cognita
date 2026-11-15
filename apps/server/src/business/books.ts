@@ -76,7 +76,7 @@ export async function readBusinessBooks(
       });
     }
   }
-  const span = BOOK_DAYS.includes(days as (typeof BOOK_DAYS)[number]) ? days : 7;
+  const span = BOOK_DAYS.some((value) => value === days) ? days : 7;
   const fromMs = Math.floor(nowMs / DAY_MS) * DAY_MS - (span - 1) * DAY_MS;
   const ids = [...accounts.keys()];
   const sums = new Map<string, Map<BookColumn, bigint>>();

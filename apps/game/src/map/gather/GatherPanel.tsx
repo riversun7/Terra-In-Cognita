@@ -32,6 +32,7 @@ import {
 import type { GatherState } from "./gatherState.ts";
 import { StationPanel } from "./StationPanel.tsx";
 import { HarborPanel } from "../boats/HarborPanel.tsx";
+import { BusinessBooks } from "../business/BusinessBooks.tsx";
 import { boatGatherOf } from "../boats/boatText.ts";
 import { GatherMeters } from "./GatherMeters.tsx";
 import "./gather.css";
@@ -393,6 +394,10 @@ export function GatherPanel({
                   .catch(() => undefined);
               }}
             />
+          ) : null}
+          {/* 사업장 장부(누구나 — D-548·D-555, docs/adr/2026-11-15-business-ledger.md) */}
+          {building?.status === "ok" ? (
+            <BusinessBooks key={`books-${sheet.id}`} buildingId={sheet.id} />
           ) : null}
           <StationPanel
             state={state}

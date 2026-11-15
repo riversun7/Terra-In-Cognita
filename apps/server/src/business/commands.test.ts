@@ -3,8 +3,6 @@ import { businessLocation, unitPurseLocation } from "@terra/shared/businessBooks
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import { START_BUSINESS, createLedgerBook } from "@terra/sim";
 import { describe, expect, it } from "vitest";
-import type { FacilityCatalog } from "../facilities/catalog.ts";
-import type { SecondMap } from "../world/secondMap.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { createBusinessCommands } from "./commands.ts";
 import { EMPTY_BUSINESS, createBusinessCore } from "./core.ts";
@@ -28,11 +26,12 @@ const writer: WorldWriter = {
   crash: () => Promise.resolve(),
 };
 
+const place = (buildingId: number) =>
+  buildingId === FARM || buildingId === STORE ? { ownerId: OWNER, cityId: CITY } : undefined;
+
 function setup(admin = 4) {
   let ids = 1;
   const ledger = createLedgerBook({ nextAccountId: () => ids++, nextTxId: () => ids++ });
-  const place = (buildingId: number) =>
-    buildingId === FARM || buildingId === STORE ? { ownerId: OWNER, cityId: CITY } : undefined;
   const core = createBusinessCore({
     ledger,
     writer,
@@ -43,13 +42,11 @@ function setup(admin = 4) {
     tax: () => undefined,
     rules: () => START_BUSINESS,
   });
-  const maps = new Map([[1, { unitInfo: (id: number) => (id === 900 ? { ownerId: OWNER } : undefined) }]]);
   const commands = createBusinessCommands({
     core,
     ledger,
-    maps: maps as unknown as ReadonlyMap<number, SecondMap>,
-    catalog: () =>
-      ({ isGoods: (id: string) => id === "wood", unitPriceOf: () => 3n }) as unknown as FacilityCatalog,
+    unitOwner: (unitId) => (unitId === 900 ? OWNER : undefined),
+    catalog: () => ({ isGoods: (id: string) => id === "wood", unitPriceOf: () => 3n }),
     rules: () => START_BUSINESS,
     place,
     isBusiness: (id) => id === FARM || id === STORE,

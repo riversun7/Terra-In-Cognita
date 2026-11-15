@@ -23,6 +23,7 @@ import {
   unitLabel,
 } from "../roster/rosterText.ts";
 import { HospitalCare } from "./HospitalCare.tsx";
+import { UnitGift } from "../map/business/UnitGift.tsx";
 
 /** [임시] 피로 경고 몫(한도 120의 80%), 배터리 경고 몫(20%). 기획 피로 구간(D-430)이 정해지면 그 값 */
 const FATIGUE_WARN = 0.8;
@@ -207,6 +208,8 @@ export function UnitDetail({
           onChanged={onVitalsStale}
         />
       ) : null}
+      {/* 용돈 주기(유닛 사유재산 — D-555 1508, docs/adr/2026-11-15-business-ledger.md) */}
+      {worldUnit !== null ? <UnitGift key={`gift-${unit.id}`} unitId={worldUnit} /> : null}
 
       <Section id={`${id}-stats`} title={m.roster_stats_title()}>
         <StatBlock stats={unit.stats} names={names} />

@@ -15,7 +15,6 @@ import { cityLocation } from "@terra/shared/goodsPlaces";
 import type { BusinessCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { FacilityCatalog } from "../facilities/catalog.ts";
-import type { SecondMap } from "../world/secondMap.ts";
 import type { BusinessCore } from "./core.ts";
 
 export type BusinessCommand =
@@ -37,8 +36,9 @@ export type BusinessCommandResult =
 export interface BusinessCommandDeps {
   readonly core: BusinessCore;
   readonly ledger: Ledger;
-  readonly maps: ReadonlyMap<number, SecondMap>;
-  readonly catalog: () => FacilityCatalog;
+  /** 유닛 주인(없는 유닛이면 undefined) */
+  unitOwner(unitId: number): number | undefined;
+  readonly catalog: () => Pick<FacilityCatalog, "isGoods" | "unitPriceOf">;
   readonly rules: () => BusinessCoefficients;
   /** 건물 주인·도시(없으면 undefined), 사업장(시설 줄)인가 */
   place(buildingId: number): { ownerId: number | null; cityId: number | null } | undefined;
@@ -75,9 +75,11 @@ export interface BusinessCommands {
 
 const fail = (code: BusinessResultCode): BusinessCommandResult => ({ ok: false, code });
 
+/** 화폐 자산인가(물건 item:<ID>이 아니면) */
+const isMoney = (asset: string): boolean => !asset.startsWith("item:");
+
 export function createBusinessCommands(deps: BusinessCommandDeps): BusinessCommands {
   const { core, ledger } = deps;
-  const isMoney = (asset: string): boolean => !asset.startsWith("item:");
   const basePrice = (asset: string): bigint => deps.catalog().unitPriceOf?.(asset.slice(5)) ?? 1n;
 
   const priceOf = (buildingId: number, asset: string): bigint | null => {
@@ -178,14 +180,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
   };
 
   const gift = (me: number, unitId: number, amount: bigint, atMs: number): BusinessCommandResult => {
-    let ownerId: number | undefined;
-    for (const map of deps.maps.values()) {
-      const info = map.unitInfo(unitId);
-      if (info) {
-        ownerId = info.ownerId;
-        break;
-      }
-    }
+    const ownerId = deps.unitOwner(unitId);
     if (ownerId === undefined) return fail("unknown_unit");
     if (ownerId !== me) return fail("forbidden");
     if (amount <= 0n) return fail("invalid_amount");

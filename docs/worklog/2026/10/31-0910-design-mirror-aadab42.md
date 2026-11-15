@@ -124,3 +124,4 @@
 - 2026-11-15 08:55 KST: 원본 `02a45ad`(D-547 배 개편 4·5차 답, D-549 파티·군단 명령) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/45. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-15 11:28 KST: 원본 `77ff7ff`(D-550~D-559: 아카데미·다시 묻기 3~6·채집 정리·사업장 장부·전투 개편·군단 명령·배 구현 답) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/42·43·44·45·46·48. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-15 11:42 KST: 원본 `0ec1e81`(D-560 다시 묻기 7 — 화면·운영자·개발 도구) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
+- 2026-11-15 12:01 KST: 원본 `dc0a6fa`(D-560 시설 분류표 fa76eea, D-561 거래소는 건물) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/44. README·PLAN §14 머리 문장 갱신. 49 변경 없음.

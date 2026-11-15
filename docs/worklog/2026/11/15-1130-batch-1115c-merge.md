@@ -10,7 +10,7 @@
   - boats-impl(D-547): 조선소·정박장·교역 부두 나눔(`apps/server/src/boats/`), 정박 화면(`HarborPanel.tsx`), 새 마이그레이션 `20261115000251_boats_harbor`(표 추가만), 켤 때 한 번 옛 배·부두를 지움(1499).
   - gather-objects-2(D-552·D-556): 티어 = 채집자 스탯 표 하나 + 오브젝트마다 티어 범위, 오브젝트 편집기 `/dev/gather-objects`, `wild_goods` 분류 없앰.
   - stat-formula-text(D-556·질문 1253): 식을 글로 바꾸는 `@terra/shared/formulaText`, 2차 스탯 페이지·사이보그 판에 식 줄, "식의 가중치"와 "이 분포에서의 기여 몫"을 나눔, tRPC `RosterCombat.formulas`(선택 칸) 추가.
-- 기획 미러 77ff7ff(D-550~D-559)·0ec1e81(D-560) 동기화. README·PLAN §14 머리 문장 갱신.
+- 기획 미러 77ff7ff(D-550~D-559)·0ec1e81(D-560)·dc0a6fa(D-560 시설 분류표·D-561 거래소는 건물) 동기화. README·PLAN §14 머리 문장 갱신.
 - 버전: 팩 core@98, 프로토콜 30(최소 29), `SIM_VERSION` 45.
 - 배 질문 번호 1541~1545가 군단 질문과 겹쳐 1616~1620으로 바꿨다(질문 문서·ADR 둘·줄기 기록).
 - 손으로 푼 곳: `docs/WORKLOG.md`(다시 만듦), 메시지 파일(양쪽 키 다), 버전 주석·상수.

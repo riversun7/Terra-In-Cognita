@@ -186,6 +186,8 @@ export function travelStopText(stop: WorldTravelStop): string {
       return m.world_travel_stopped_unavailable();
     case "raided":
       return m.world_travel_stopped_raided();
+    case "encounter":
+      return m.world_travel_stopped_encounter();
     case "map_full":
       return m.world_travel_stopped_map_full();
     default: {

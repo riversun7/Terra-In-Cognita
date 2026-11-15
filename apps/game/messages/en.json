@@ -964,6 +964,7 @@
   "world_travel_stopped_blocked": "It stopped because the way was blocked.",
   "world_travel_stopped_unavailable": "It stopped because it can no longer move.",
   "world_travel_stopped_raided": "It was raided while crossing unloaded maps and got hurt. It stopped where it came out.",
+  "world_travel_stopped_encounter": "It met enemy units on the way and a battle broke out. It stopped where they met.",
   "map_travel_going": "My cyborg is on the way: local map {at} of {total} · arrives around {time}",
   "map_travel_follow": "Follow",
   "world_command_scout_note": "Scout: looks at the target, then comes back.",

@@ -73,7 +73,7 @@ const ROCK_RELIEF_CM = 450;
  * 이 기온(°C, 칸 가운데) 이하면 풀·흙·자갈·진흙에 눈이 덮인다. 문턱을 노이즈로 ±2°C 흔든다: 1차맵 칸 기온이 정수라
  * 등온선이 곧은 줄이 되는 곳이 있었다(헤드리스 그림, 고산 블록)
  */
-const SNOW_TEMPERATURE_C = -2;
+export const SNOW_TEMPERATURE_C = -2;
 const SNOW_JITTER_CENTI = 200;
 /**
  * 물가 모양: 바다·호수 몫(0 ~ 1000, 1차맵 칸의 바다·호수 비트를 같은 2차 조각으로 매끈하게 한 값) + 노이즈(±150)가 500인 곳이

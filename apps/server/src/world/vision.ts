@@ -468,6 +468,9 @@ export function createMapVision(options: {
 
   return {
     async canView(viewer) {
+      // 구독(subscribe)이 쓸 탐사 기록을 먼저 읽어 둔다. 보기 판정에는 쓰지 않는다: 탐사만 한 2차맵은 내 유닛(건물·같은 나라·경계 너머 시야)이
+      // 있어야 열린다(기획 D-564 2차 답 1642 — docs/adr/2026-11-15-unloaded-second-maps.md "바뀜 (D-564)", 옛 U3 "한 칸이라도 탐사하면 열림"을 좁힘)
+      await loadExplored(viewer.userId);
       if (viewer.ownerId !== undefined) {
         for (const unit of source.units()) if (unit.ownerId === viewer.ownerId) return true;
         for (const building of source.buildings()) if (building.ownerId === viewer.ownerId) return true;
@@ -475,9 +478,7 @@ export function createMapVision(options: {
         for (const sight of source.border?.(now()) ?? []) if (sight.ownerId === viewer.ownerId) return true;
       }
       // 같은 나라 유닛·건물이 있는 2차맵도 볼 수 있다(같은 나라 시야 공유 — 내 나라 다른 도시를 들어가 본다, 질문 746 나)
-      if (shareFor(viewer)?.cover.some((count) => count > 0)) return true;
-      const bits = await loadExplored(viewer.userId);
-      return bits.some((byte) => byte !== 0);
+      return shareFor(viewer)?.cover.some((count) => count > 0) === true;
     },
     async sighted(viewer) {
       // 탐사 기록은 구독하는 동안만 쌓이므로 지금 내 유닛·건물이 덮는 칸을 더해 본다(기록은 바꾸지 않는다, 사본)

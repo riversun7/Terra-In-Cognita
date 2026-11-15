@@ -217,8 +217,10 @@ describe("2차맵 사이 이동", () => {
   it("591 나: 정찰은 목표에 닿으면 출발한 자리로 돌아오고, 본 2차맵에 탐사 기록이 남는다(구독하지 않아도)", async () => {
     const r = rig();
     placeMine(r, 250, 100);
-    // 유닛이 없는 사람(소유 주체 없음)으로 보면 K[1]은 탐사 기록이 있어야 볼 수 있다
-    expect(await mapAt(r, 1).vision.canView({ userId: USER, ownerId: undefined })).toBe(false);
+    // 유닛이 없는 사람(소유 주체 없음)으로 보면 K[1]의 탐사 기록이 비어 있다
+    const known = async () =>
+      (await mapAt(r, 1).vision.sighted({ userId: USER, ownerId: undefined })).some((byte) => byte !== 0);
+    expect(await known()).toBe(false);
     expect(
       (await r.travel.start(USER, { unitId: 1, mapKey: K[1] ?? 0, x: 10, y: 100, kind: "scout" })).ok,
     ).toBe(true);
@@ -241,7 +243,9 @@ describe("2차맵 사이 이동", () => {
       op: "upsert",
       row: { scouted_map_key: K[1], leg: 0, target_x: 250, target_y: 100 },
     });
-    expect(await mapAt(r, 1).vision.canView({ userId: USER, ownerId: undefined })).toBe(true);
+    // 탐사 기록은 남지만 탐사만으로는 열리지 않는다(D-564 1642 — 내 유닛이 있어야)
+    expect(await known()).toBe(true);
+    expect(await mapAt(r, 1).vision.canView({ userId: USER, ownerId: undefined })).toBe(false);
     // 돌아와서 출발 자리에 선다
     await vi.advanceTimersByTimeAsync(120_000);
     expect(whereIs(r, 1)).toBe(0);
@@ -674,6 +678,62 @@ describe("구간 빠르기와 도착 예상(docs/adr/2026-11-14-segment-speed.md
     expect(r.travel.list(USER)).toMatchObject([{ state: "going" }]);
     await vi.advanceTimersByTimeAsync(2_000);
     expect(r.travel.list(USER)).toMatchObject([{ state: "arrived", cellX: 160, cellY: 100 }]);
+    r.travel.stop();
+  });
+});
+
+describe('좌표 이동 2(기획 D-564 1641·1643, docs/adr/2026-11-15-unloaded-second-maps.md "바뀜 (D-564)")', () => {
+  it("1643: 좌표 구간은 지나는 띄우지 않은 2차맵의 걸음 배율만큼 느리다(띄운 출발·도착 2차맵은 빼고)", async () => {
+    const r = rig([0, 2]);
+    r.travel.attachPace((key) => (key === K[1] ? 1800 : 1250));
+    placeMine(r, 250, 100);
+    expect(
+      (await r.travel.start(USER, { unitId: 1, mapKey: K[2] ?? 0, x: 10, y: 100, kind: "move" })).ok,
+    ).toBe(true);
+    const first = mapAt(r, 0).unitInfo(1);
+    const goneAt = first ? arrivalAt(first.motion) : 0;
+    await vi.advanceTimersByTimeAsync(goneAt - Date.now() + 1);
+    expect(whereIs(r, 1)).toBe(-1);
+    const hopMs = Math.ceil((Math.ceil((257 * CELL_UNITS * 1800) / 1000) * 1000) / WALK_SPEED);
+    expect(r.travels.at(-1)).toMatchObject({
+      op: "upsert",
+      row: { leg: 1, hidden_until_ms: goneAt + hopMs },
+    });
+    // 배율 없이 걸리는 시간에는 아직 나타나지 않는다
+    await vi.advanceTimersByTimeAsync(Math.ceil((257 * CELL_UNITS * 1000) / WALK_SPEED) + 1_000);
+    expect(whereIs(r, 1)).toBe(-1);
+    await vi.advanceTimersByTimeAsync(hopMs);
+    expect(whereIs(r, 1)).toBe(2);
+    r.travel.stop();
+  });
+
+  it("1641: 좌표로 지나는 유닛을 그 2차맵에서 멈추면(조우) 그 자리의 좌표 유닛이 되고 길은 encounter로 끝난다", async () => {
+    const r = rig([0, 2]);
+    placeMine(r, 250, 100);
+    await r.travel.start(USER, { unitId: 1, mapKey: K[2] ?? 0, x: 10, y: 100, kind: "move" });
+    await vi.advanceTimersByTimeAsync(230_000);
+    const place = r.travel.hiddenAt(1);
+    expect(place?.mapKey).toBe(K[1]);
+    // 다른 2차맵·다른 유닛이면 멈추지 않는다
+    expect(r.travel.haltOn(K[0] ?? 0, new Set([1]))).toEqual([]);
+    expect(r.travel.haltOn(K[1] ?? 0, new Set([2]))).toEqual([]);
+    expect(r.travel.haltOn(K[1] ?? 0, new Set([1]))).toEqual([1]);
+    expect(r.travel.parkedAt(1)).toEqual(place);
+    expect(r.travel.list(USER)).toMatchObject([{ state: "stopped", stop: "encounter", mapKey: K[1] }]);
+    expect(r.travels.at(-1)).toEqual({ op: "remove", row: { unit_id: 1 } });
+    expect(r.travel.coordinateUnits(null)).toMatchObject([
+      { unitId: 1, mapKey: K[1], moving: false, sea: false },
+    ]);
+    r.travel.stop();
+  });
+
+  it("holdMap: 그 시각까지 그 2차맵을 내리지 않는다(touches)", async () => {
+    const r = rig([0]);
+    r.travel.holdMap(K[1] ?? 0, START + 60_000);
+    expect(r.travel.touches(K[1] ?? 0)).toBe(true);
+    expect(r.travel.touches(K[2] ?? 0)).toBe(false);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(r.travel.touches(K[1] ?? 0)).toBe(false);
     r.travel.stop();
   });
 });

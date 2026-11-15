@@ -148,6 +148,14 @@ async function boatIds(page: Page, mapKey: number): Promise<number[]> {
 /** 도시 2차맵에서 휴먼을 고용해 바닷가 2차맵 서쪽 끝(도시 쪽)으로 보낸다(운영자 빠르기). 휴먼 ID와 선 자리 */
 async function humanAtCoast(page: Page): Promise<{ unitId: number; x: number; y: number }> {
   const unitId = await ensureHuman(page, "e2e_admin", CITY_KEY);
+  // 운영자 전체 보기가 바닷가 2차맵을 띄운다(아무도 보지 않는 2차맵은 띄우지 않는다 — 앞 시험이 보낸 휴먼은 그 자리의 좌표 유닛,
+  // docs/adr/2026-11-15-unloaded-second-maps.md)
+  const viewed = await sendCommands(
+    page,
+    [{ t: "subscribe", mapKey: COAST_KEY, observe: true }],
+    6800 + (Date.now() % 50) * 2,
+  );
+  expect(viewed[0], "바닷가 2차맵 띄우기").toMatchObject({ ok: true });
   const here = await myUnit(page, COAST_KEY, unitId);
   if (here === undefined) {
     const travel = await sendCommands(
@@ -463,15 +471,18 @@ for (const theme of ["pastel", "dark"] as const) {
       await expect
         .poll(async () => field(await myUnit(page, me.mapKey, me.unitId), "aboard"), { timeout: 60_000 })
         .toBe(boatId);
+      // 넘어갈 바다 2차맵은 운영자 전체 보기가 띄운다(보는 사람 — ADR 2026-11-15). 보지 않으면 배는 좌표로 가 그 자리의 좌표 유닛이 된다
       const cross = await sendCommands(
         page,
         [
+          { t: "subscribe", mapKey: EAST_SEA_KEY, observe: true },
           { t: "subscribe", mapKey: me.mapKey, observe: true },
           { t: "travel_start", unitId: me.unitId, mapKey: EAST_SEA_KEY, x: 60, y: 128, kind: "move" },
         ],
         trade.nextId + 50,
       );
-      expect(cross[1], "승객 → 배의 바다 건너기").toMatchObject({ ok: true });
+      expect(cross[0], "바다 2차맵 띄우기").toMatchObject({ ok: true });
+      expect(cross[2], "승객 → 배의 바다 건너기").toMatchObject({ ok: true });
       await expect
         .poll(async () => field(await myUnit(page, EAST_SEA_KEY, boatId), "kind"), { timeout: 120_000 })
         .toBe("boat");

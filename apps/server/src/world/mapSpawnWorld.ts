@@ -3,6 +3,8 @@
 // 옆 2차맵 미리 띄우기·경계 너머 시야(edgeWatch.ts, docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)")도 여기서 잇는다: 2차맵 고리
 // (mapFactory attachEdge), 붙잡음(변 가까운 플레이어 유닛), 1분마다 다시 보기. 설정 칸 map_preopen_cells·map_preopen_idle_ms([임시]) —
 // map_preopen_cells는 켤 때와 1분마다 읽어 둔다(바꾸면 1분 안에 걸린다).
+// 좌표 유닛(docs/adr/2026-11-15-unloaded-second-maps.md): 띄울 때 DB 행 + 이동 서비스의 좌표 유닛 장부(이동 서비스가 든 유닛은 DB 행을 버린다),
+// 내릴 때 쉬는 유닛을 좌표 유닛으로, 변 미리 띄우기는 주인이 그 2차맵을 볼 때만(시야 묶음 또는 전체 보기 구독).
 import type { SocietyCoefficients } from "@terra/sim";
 import type { TravelService } from "../travel/service.ts";
 import type { CityRow } from "./cities.ts";
@@ -50,13 +52,28 @@ export function attachMapSpawn(parts: {
     preopenCells: () => preopenCells,
     canOpen: (mapKey) => !parts.maps.has(mapKey) && isMapKey(mapKey),
     openEarly: (mapKey) => relay.openEarly?.(mapKey),
+    watching: (mapKey, ownerId) => {
+      const map = parts.maps.get(mapKey);
+      return map !== undefined && (map.vision.watchedBy(ownerId) || map.stream.subscriberCount > 0);
+    },
   });
+  /** 다른 띄운 2차맵에 이미 선 유닛인가(쓰기 대기열이 늦어 DB 행이 옛 2차맵을 가리킬 때 두 곳에 서지 않게) */
+  const elsewhere = (unitId: number, mapKey: number): boolean => {
+    for (const [key, map] of parts.maps) if (key !== mapKey && map.unitInfo(unitId)) return true;
+    return false;
+  };
   const spawner = createMapSpawner({
     maps: parts.maps,
     factory: parts.factory,
     paths: parts.paths,
     isMapKey,
-    rows: (mapKey) => loadMapRows(parts.pool, planetId, mapKey),
+    rows: async (mapKey, map) => {
+      const stored = await loadMapRows(parts.pool, planetId, mapKey);
+      const units = stored.units.filter((row) => !travel.carries(row.id) && !elsewhere(row.id, mapKey));
+      return { units: [...units, ...travel.claim(mapKey, map)], buildings: stored.buildings };
+    },
+    parkable: (map) => travel.parkable(map),
+    park: (map) => travel.parkAll(map),
     holds: (mapKey) =>
       travel.touches(mapKey) ||
       cityOnMap(parts.cities(), parts.npc()?.places, planetId, mapKey) ||
@@ -80,5 +97,29 @@ export function attachMapSpawn(parts: {
   parts.factory.attachEdge?.(edge);
   spawner.start();
   // 1분 지표에 변 가까운 유닛 수·미리 띄우기를 부른 수를 더한다(world.ts는 그대로 spawn.takeMetrics를 부른다)
-  return { ...spawner, takeMetrics: () => ({ ...spawner.takeMetrics(), ...edge.takeMetrics() }) };
+  return {
+    ...spawner,
+    takeMetrics: () => ({ ...spawner.takeMetrics(), ...edge.takeMetrics(), ...travel.takeMetrics() }),
+    // 누가 그 2차맵을 보기 시작하면 그 2차맵 변 가까운 유닛의 이웃을 바로 미리 띄운다(주인이 볼 때만 — 1분 다시 보기를 기다리지 않는다)
+    viewed: (mapKey) => {
+      edge.reconcile(parts.now(), mapKey);
+    },
+  };
+}
+
+/** 보는 사람이 띄우기(viewOpen.ts)에 넘길 것 — 월드 저장 층에서(없으면 띄우지 않는다) */
+export function viewPartsOf(
+  persistence:
+    | {
+        readonly spawn: MapSpawner;
+        readonly travel: TravelService;
+        readonly settlement: { findOwnerOfUser(userId: string): number | undefined };
+      }
+    | undefined,
+) {
+  return {
+    spawn: persistence?.spawn,
+    travel: persistence?.travel,
+    ownerOfUser: (userId: string) => persistence?.settlement.findOwnerOfUser(userId),
+  };
 }

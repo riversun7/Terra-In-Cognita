@@ -50,7 +50,8 @@ import { retireTestMaps } from "./pins.ts";
 import { auditRetiredWorkers, retireOldWorkers, splitOldWorkers } from "./retireOldWorkers.ts";
 import type { TerrainService } from "./terrainService.ts";
 import { createMapFactory, exploredStoreOf } from "./mapFactory.ts";
-import { type MapSpawner, attachMapSpawn, bootExtraMaps, sameLevelAs } from "./mapSpawnWorld.ts";
+import { type MapSpawner, attachMapSpawn, bootExtraMaps, sameLevelAs, viewPartsOf } from "./mapSpawnWorld.ts";
+import { openForView } from "./viewOpen.ts";
 import {
   ASSET_CREDIT,
   NPC_START_CREDIT,
@@ -103,7 +104,8 @@ import { citySiegeLayoutOf } from "../facilities/siegeLayout.ts";
 import { type RuinService, createRuins } from "../ruins/service.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { npcEconomyInputOf } from "../market/worldInput.ts";
-import { type TravelService, createWorldTravel } from "../travel/service.ts";
+import type { TravelService } from "../travel/service.ts";
+import { createWorldTravel } from "../travel/worldTravel.ts";
 
 // 시험 2차맵 자리·시험 행성은 testMaps.ts(다른 모듈·시험이 world.ts에서 가져오던 이름을 그대로 다시 내보낸다)
 export { RETIRED_TEST_MAPS, TEST_MAP_KEY, TEST_MAP_ORIGIN, TEST_PLANET_ID, retiredTestMapKey, testMapKey };
@@ -785,7 +787,7 @@ export function startWorld(
     spawnBots();
     // 유닛을 다시 놓은 뒤에 전투 끝을 다시 건다(지난 끝 시각은 곧바로 적용된다)
     await battles.restore();
-    await travel.restore();
+    await travel.restore(units);
     // 유닛 행이 없는 사이보그를 시작 도시에 다시 놓는다(불변 조건 I13). 검사가 DB를 읽기 전에 커밋한다
     const repaired = cyborgs.repairUnits(new Set(loaded.units.map((unit) => unit.id)));
     if (repaired > 0) {
@@ -919,6 +921,9 @@ export function startWorld(
     isReady: () => status.state === "ready",
     ownerOfUser: (userId) => persistence?.settlement.findOwnerOfUser(userId),
     map: (mapKey) => (status.state === "ready" ? maps.get(mapKey) : undefined),
+    openForView: (userId, mapKey, observe) =>
+      openForView({ maps, ...viewPartsOf(persistence) }, userId, mapKey, observe),
+    viewed: (mapKey) => persistence?.spawn.viewed?.(mapKey),
     async checkInvariants() {
       const memory = checkMemoryInvariants(memoryChecks({}));
       if (!persistence) return memory;

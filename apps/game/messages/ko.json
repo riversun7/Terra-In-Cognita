@@ -904,6 +904,8 @@
   "world_city_not_visible": "아직 이곳에 내 유닛이 없어 볼 수 없습니다.",
   "world_city_close": "닫기",
   "world_my_cyborg": "내 사이보그",
+  "world_parked_unit": "내 유닛 #{id} — 좌표에 서 있음",
+  "world_parked_boat": "내 배 #{id} — 좌표에 떠 있음",
   "world_my_position": "내 위치",
   "world_enter_here": "이 2차맵으로 들어가기",
   "world_area_move": "이곳으로 이동",

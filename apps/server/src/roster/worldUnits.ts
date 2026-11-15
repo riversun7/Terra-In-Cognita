@@ -181,6 +181,9 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
         map.forEachUnit((unit) => {
           if (unit.ownerId === ownerId && countsAsOwnedUnit(unit.kind)) count += 1;
         });
+      // 띄우지 않은 2차맵 위 좌표 유닛도 센다(docs/adr/2026-11-15-unloaded-second-maps.md 5절)
+      for (const unit of persistence.travel.coordinateUnits(new Set([ownerId])))
+        if (countsAsOwnedUnit(unit.kind)) count += 1;
       return count;
     },
   };

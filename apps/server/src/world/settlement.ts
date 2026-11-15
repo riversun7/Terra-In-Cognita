@@ -34,7 +34,7 @@ import {
 import type { Ledger } from "../economy/ledger.ts";
 import type { OwnerRow } from "./persist/load.ts";
 import type { WorldWriter } from "./persist/writer.ts";
-import type { SecondMap, UnitJob } from "./secondMap.ts";
+import { NO_JOB, type SecondMap, type UnitJob } from "./secondMap.ts";
 
 /** [임시] 시험 자산 코드·시스템 계정(@terra/sim settle/owner.ts, 시뮬레이터와 같은 값) */
 export const ASSET_CREDIT = TEST_ASSET_CREDIT;
@@ -91,6 +91,15 @@ export interface Settlement {
    * undefined면 모두 기본 규칙(예전과 같다)
    */
   restRules(hook: RestRulesHook | undefined): void;
+  /**
+   * 좌표 유닛 목록(이동 서비스 — docs/adr/2026-11-15-unloaded-second-maps.md 6절): 띄우지 않은 2차맵 위 유닛도 유지비를 낸다(직무는 없다).
+   * 없으면 띄운 2차맵 유닛만(예전과 같다)
+   */
+  offMapUnits(
+    source:
+      | ((ownerIds: ReadonlySet<number>) => readonly { ownerId: number; unitId: number; kind: number }[])
+      | undefined,
+  ): void;
   stop(): void;
 }
 
@@ -197,21 +206,25 @@ export function createSettlement(options: {
   const savePresence = (userId: string, offlineSinceMs: number | null, at: number): void =>
     writer.upsert("presence", { user_id: userId, offline_since_ms: offlineSinceMs, updated_at_ms: at });
 
-  type UnitRef = { map: SecondMap; id: number; kind: number; job: UnitJob };
+  /** map 없음 = 좌표 유닛(직무 없음 — 유지비만) */
+  type UnitRef = { map: SecondMap | undefined; id: number; kind: number; job: UnitJob };
+  let offMap: Parameters<Settlement["offMapUnits"]>[0];
   const unitsOf = (ownerIds: ReadonlySet<number>): Map<number, UnitRef[]> => {
     const out = new Map<number, UnitRef[]>();
+    const add = (ownerId: number, ref: UnitRef): void => {
+      const list = out.get(ownerId);
+      if (list) list.push(ref);
+      else out.set(ownerId, [ref]);
+    };
     for (const map of maps.values()) {
       map.forEachUnit((unit) => {
         // 사이보그 본체도 넣는다: 직무는 없고(JOB_NONE) 유지비(생활비)만 낸다(D-453)
-        if (!ownerIds.has(unit.ownerId)) return;
-        let list = out.get(unit.ownerId);
-        if (!list) {
-          list = [];
-          out.set(unit.ownerId, list);
-        }
-        list.push({ map, id: unit.id, kind: unit.kind, job: unit.job });
+        if (ownerIds.has(unit.ownerId))
+          add(unit.ownerId, { map, id: unit.id, kind: unit.kind, job: unit.job });
       });
     }
+    for (const unit of offMap?.(ownerIds) ?? [])
+      add(unit.ownerId, { map: undefined, id: unit.unitId, kind: unit.kind, job: NO_JOB });
     return out;
   };
 
@@ -251,7 +264,9 @@ export function createSettlement(options: {
     const special = routes !== undefined || pauses !== undefined || units.some((unit) => defaultOf(unit));
     const offline = offlineOf(owner);
     // 작업 중 부상(D-521): 정산 전 직무 상태로 굴린다(직무가 있는 유닛만)
-    if (injury) for (const unit of units) if (unit.job.job !== JOB_NONE) injury(unit, from, toMs, offline);
+    if (injury)
+      for (const unit of units)
+        if (unit.job.job !== JOB_NONE && unit.map) injury({ ...unit, map: unit.map }, from, toMs, offline);
     // 판정은 @terra/sim 공용 함수(시뮬레이터와 같다). 여기서는 결과를 2차맵·소유 주체 행에 적기만 한다
     const result = settleOwnerPeriod(
       {
@@ -270,7 +285,7 @@ export function createSettlement(options: {
     );
     units.forEach((unit, index) => {
       const next = result.jobs[index];
-      if (next && !sameJob(unit.job, next)) unit.map.setJob(unit.id, { ...next });
+      if (next && !sameJob(unit.job, next)) unit.map?.setJob(unit.id, { ...next });
     });
     owner.upkeepArrears += result.upkeepUnpaid;
     // 마지막 경계(= toMs 이하의 정시, settle.ts upkeepBoundaries)를 못 냈으면 그 시각, 냈으면 null. 경계가 없으면 그대로
@@ -381,6 +396,9 @@ export function createSettlement(options: {
     },
     injureWork(hook) {
       injury = hook;
+    },
+    offMapUnits(source) {
+      offMap = source;
     },
     restRules(hook) {
       restHook = hook;

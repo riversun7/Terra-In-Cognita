@@ -1,24 +1,25 @@
-// 옆 2차맵을 그때 띄우기 — 기획 답 730 다(D-523 포인터), docs/adr/2026-11-07-play-flow.md "WP15 (2026-11-08) 옆 2차맵을 그때 띄우기".
-// - 띄우기(open): 이동 서비스가 길의 마지막 2차맵(목적지)에 들어서려 할 때 부른다(travel/service.ts). 지형(mapFactory.ts: 고정본 → 지형 캐시
-//   → 생성기 워커, 메인 스레드는 기다리기만 한다) → DB에 남아 있던 그 2차맵 유닛·건물 행을 놓고 → 띄운 2차맵 목록(maps)에 넣고 → 경로 워커에
-//   사본을 더한다. 같은 2차맵을 함께 부르면 한 번만 만든다. 그 뒤로는 부팅 때 띄운 2차맵과 같다(구독·시야·탐사·다른 사람의 이동).
-// - 상한: 그때 띄운 2차맵 수 ≤ 설정 칸 map_spawn_max_loaded([임시]). 꽉 찼으면 지금 비어 있는 그때 띄운 2차맵 가운데 가장 오래 빈 것을
-//   내리고 띄운다. 비운 것이 없으면 full(이동은 map_full로 멈춘다, 확인 단계는 map_full).
-// - 내리기(sweep, 1분마다): 그때 띄운 2차맵이 비어 있은 지 설정 칸 map_spawn_idle_ms가 넘으면 내린다. "비어 있음" = 유닛 0(플레이어
-//   유닛만이 아니라 모든 유닛 — 그때 띄운 2차맵에는 봇·NPC 휴먼이 서지 않는다), 건물 0, 도시·폐허 없음, 구독(시야·전체 보기) 없음, 이 2차맵에
-//   서거나 노리는 이동 없음(holds). 전투는 참가 유닛·건물이 2차맵에 남은 채 도는 인스턴스라 유닛·건물이 0이면 그 2차맵의 전투도 없다.
+// 2차맵을 그때 띄우기 — 기획 답 730 다(D-523 포인터), docs/adr/2026-11-07-play-flow.md "WP15 (2026-11-08) 옆 2차맵을 그때 띄우기",
+// 바뀜: 기획 D-559 1619 "아무도 보지 않는 2차맵은 띄우지 않는다"(docs/adr/2026-11-15-unloaded-second-maps.md) — 이동은 더 이상 띄우지 않는다.
+// - 띄우기(open): 보는 사람(구독 — world/viewOpen.ts, 그 사람의 좌표 유닛이 선 2차맵이나 운영자 전체 보기), 변 미리 띄우기(주인이 볼 때),
+//   띄우지 않은 목적지의 도중 습격(전투)이 부른다. 지형(mapFactory.ts: 고정본 → 지형 캐시 → 생성기 워커, 메인 스레드는 기다리기만 한다) →
+//   DB에 남아 있던 그 2차맵 유닛·건물 행 + 좌표 유닛 장부(rows — 이동 서비스가 든 유닛은 DB 행 대신 장부 줄)를 놓고 → 띄운 2차맵 목록(maps)에
+//   넣고 → 경로 워커에 사본을 더한다. 같은 2차맵을 함께 부르면 한 번만 만든다. 그 뒤로는 부팅 때 띄운 2차맵과 같다.
+// - 상한: 그때 띄운 2차맵 수 ≤ 설정 칸 map_spawn_max_loaded([임시]). 꽉 찼으면 지금 한가한 그때 띄운 2차맵 가운데 가장 오래 한가한 것을
+//   내리고 띄운다. 한가한 것이 없으면 full(보는 사람은 busy, 미리 띄우기는 건너뜀 — 이동은 멈추지 않는다).
+// - 내리기(sweep, 1분마다): 그때 띄운 2차맵이 한가한 지 설정 칸 map_spawn_idle_ms가 넘으면 내린다. "한가함" = 구독(시야·전체 보기) 없음,
+//   건물 0, 도시·폐허 없음, 이 2차맵을 걷거나 곧 나타나는 이동 없음·변 붙잡음 없음(holds), 그리고 유닛이 0이거나 모두 쉬는 중(parkable —
+//   걷는 중 아님·직무 없음·봇 아님). 내릴 때 남은 유닛은 그 자리의 좌표 유닛이 된다(park). 전투는 건물·도시가 선 2차맵에서만 나서 붙잡힌다.
 //   부팅 씨앗 2차맵(시험 줄·도시)은 내리지 않는다.
 // - 미리 띄우기(openEarly, docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)"): 플레이어 유닛이 변 가까이 오면(edgeWatch.ts) 넘기
 //   전에 띄운다. 같은 상한을 쓰고, 꽉 찼으면 open처럼 가장 오래 빈 것을 내리고 띄운다(비운 것이 없으면 띄우지 않는다 — 기록만). 미리 띄운 2차맵은
 //   살피기에서 유닛이 서 있는 것을 보기 전까지 "미리 띄움"이라, 비면 설정 칸 map_preopen_idle_ms(짧게) 뒤 내린다. 변 가까운 플레이어 유닛은
 //   붙잡음(holds)이라 그동안은 비어 있지 않다.
-// - 다시 켜면: 플레이어 유닛·건물이 선 2차맵을 부팅이 함께 띄운다(bootExtraMaps — 유닛·건물 행의 map_key가 저장이다, 새 표 없음). 그 2차맵도
-//   그때 띄운 2차맵으로 세어 비면 내린다.
+// - 다시 켜면: 건물이 선 2차맵만 부팅이 함께 띄운다(bootExtraMaps — 건물 행의 map_key). 띄우지 않은 2차맵의 유닛은 좌표 유닛이 된다
+//   (travel restore). 함께 띄운 2차맵도 그때 띄운 2차맵으로 세어 한가하면 내린다.
 import { performance } from "node:perf_hooks";
 import { decodeCellKey, isCellKey } from "@terra/planet";
 import type { MapFactory } from "./mapFactory.ts";
 import type { PathService } from "./pathService.ts";
-import type { OwnerRow } from "./persist/load.ts";
 import type { BuildingRow, SecondMap, UnitRow } from "./secondMap.ts";
 
 /** 비운 2차맵을 살피는 간격(ms) */
@@ -44,7 +45,8 @@ export interface MapSpawner {
   canOpen(mapKey: number): boolean;
   /** 하나 더 띄울 자리가 있나(상한 아래이거나 지금 내릴 수 있는 빈 2차맵이 있다) */
   hasRoom(): boolean;
-  open(mapKey: number): Promise<OpenOutcome>;
+  /** 띄운다. reason "view" = 보는 사람이 띄움(지표 mapViewOpens) */
+  open(mapKey: number, reason?: "view"): Promise<OpenOutcome>;
   /** 미리 띄운다(변 가까운 플레이어 유닛 — 비면 더 빨리 내린다). 이미 띄웠으면 그대로 */
   openEarly(mapKey: number): Promise<OpenOutcome>;
   /** 곧 띄울 2차맵의 지형을 미리 받아 둔다(보내기 때 — 닿을 때는 캐시에서) */
@@ -53,6 +55,8 @@ export interface MapSpawner {
   adopt(mapKeys: readonly number[]): void;
   /** 오래 빈 그때 띄운 2차맵을 내린다. 내린 수 */
   sweep(): number;
+  /** 누가 그 2차맵을 보기 시작했다(구독 — 변 미리 띄우기를 바로 다시 본다, mapSpawnWorld.ts). 없으면 아무것도 하지 않는다 */
+  viewed?(mapKey: number): void;
   /** 그때 띄운 2차맵 키 */
   readonly onDemand: ReadonlySet<number>;
   /** 그 가운데 미리 띄운 것(유닛이 서 있는 것을 아직 보지 못함) */
@@ -68,10 +72,16 @@ export interface MapSpawnDeps {
   readonly paths: PathService;
   /** 이 행성의 2차맵 키인가(셀 키·면 레벨) */
   isMapKey(mapKey: number): boolean;
-  /** DB에 남아 있던 그 2차맵의 유닛·건물 행(없으면 빈 2차맵) */
-  readonly rows?: ((mapKey: number) => Promise<{ units: UnitRow[]; buildings: BuildingRow[] }>) | undefined;
-  /** 내리면 안 되는 까닭이 있나(도시·폐허, 이 2차맵에 서거나 노리는 이동) */
+  /** 그 2차맵에 놓을 유닛·건물 행(DB + 좌표 유닛 장부 — 지형을 만든 뒤 놓기 전에 부른다). 없으면 빈 2차맵 */
+  readonly rows?:
+    | ((mapKey: number, map: SecondMap) => Promise<{ units: UnitRow[]; buildings: BuildingRow[] }>)
+    | undefined;
+  /** 내리면 안 되는 까닭이 있나(도시·폐허, 이 2차맵을 걷거나 곧 나타나는 이동, 변 붙잡음) */
   holds(mapKey: number): boolean;
+  /** 유닛이 모두 쉬는 중인가(내리며 좌표 유닛으로 옮길 수 있나). 없으면 유닛이 있으면 내리지 않는다(옛 규칙) */
+  readonly parkable?: ((map: SecondMap) => boolean) | undefined;
+  /** 내리기 전: 남은 유닛을 좌표 유닛으로 옮긴다. 옮긴 수(못 옮겼으면 −1 — 내리지 않는다) */
+  readonly park?: ((map: SecondMap) => number) | undefined;
   rules(): MapSpawnRules;
   /** 살피기 뒤(1분마다)와 켠 뒤 한 번 부른다(미리 띄우기 다시 보기 — edgeWatch.ts reconcile). 없으면 없음 */
   readonly afterSweep?: (() => void) | undefined;
@@ -89,27 +99,20 @@ export function sameLevelAs(sample: number): (mapKey: number) => boolean {
 }
 
 /**
- * 부팅이 씨앗 2차맵에 더해 띄울 2차맵: 플레이어(사용자) 유닛이나 건물이 선 이 행성의 2차맵(그때 띄웠다가 서버가 다시 켜졌다). 키 차례
+ * 부팅이 씨앗 2차맵에 더해 띄울 2차맵: 건물이 선 이 행성의 2차맵(직무·생산 정산이 띄운 2차맵을 읽는다). 키 차례.
+ * 유닛만 선 2차맵은 띄우지 않는다 — 그 유닛은 좌표 유닛이 된다(docs/adr/2026-11-15-unloaded-second-maps.md 6절, travel restore)
  */
 export function bootExtraMaps(
-  loaded: {
-    readonly owners: readonly OwnerRow[];
-    readonly units: readonly Pick<UnitRow, "ownerId" | "mapKey" | "planetId">[];
-    readonly buildings: readonly Pick<BuildingRow, "mapKey" | "planetId">[];
-  },
+  loaded: { readonly buildings: readonly Pick<BuildingRow, "mapKey" | "planetId">[] },
   seeded: readonly number[],
   planetId: string,
   isMapKey: (mapKey: number) => boolean,
 ): number[] {
-  const players = new Set(loaded.owners.filter((owner) => owner.userId !== null).map((owner) => owner.id));
   const known = new Set(seeded);
   const extra = new Set<number>();
-  const consider = (mapKey: number) => {
-    if (!known.has(mapKey) && isMapKey(mapKey)) extra.add(mapKey);
-  };
-  for (const unit of loaded.units)
-    if (unit.planetId === planetId && players.has(unit.ownerId)) consider(unit.mapKey);
-  for (const building of loaded.buildings) if (building.planetId === planetId) consider(building.mapKey);
+  for (const building of loaded.buildings)
+    if (building.planetId === planetId && !known.has(building.mapKey) && isMapKey(building.mapKey))
+      extra.add(building.mapKey);
   return [...extra].toSorted((a, b) => a - b);
 }
 
@@ -135,6 +138,7 @@ const freshCounts = () => ({
   openMsMax: 0,
   early: 0,
   earlyRefused: 0,
+  views: 0,
 });
 
 export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
@@ -159,10 +163,12 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
     };
   };
 
+  /** 한가한가: 보는 사람·건물·붙잡음이 없고 유닛이 0이거나 모두 쉬는 중(내리며 좌표 유닛으로) */
   const isEmpty = (mapKey: number): boolean => {
     const map = maps.get(mapKey);
     if (!map || opening.has(mapKey)) return false;
-    if (map.gauges().units > 0 || map.stream.subscriberCount > 0 || map.vision.groupCount > 0) return false;
+    if (map.stream.subscriberCount > 0 || map.vision.groupCount > 0) return false;
+    if (map.gauges().units > 0 && !(deps.parkable?.(map) ?? false)) return false;
     let buildings = 0;
     map.forEachBuilding(() => {
       buildings += 1;
@@ -178,9 +184,12 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
       .toSorted((a, b) => (emptySince.get(a) ?? at) - (emptySince.get(b) ?? at) || a - b);
   };
 
-  const unload = (mapKey: number, reason: "idle" | "room"): void => {
+  const unload = (mapKey: number, reason: "idle" | "room"): boolean => {
     const map = maps.get(mapKey);
-    if (!map) return;
+    if (!map) return false;
+    // 남은 유닛은 그 자리의 좌표 유닛으로(못 옮기면 내리지 않는다)
+    const parked = map.gauges().units > 0 ? (deps.park?.(map) ?? -1) : 0;
+    if (parked < 0) return false;
     maps.delete(mapKey);
     onDemand.delete(mapKey);
     early.delete(mapKey);
@@ -189,15 +198,16 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
     map.stop();
     counts.closed += 1;
     log.info(
-      { mapKey, reason, loaded: maps.size, onDemand: onDemand.size, early: early.size },
+      { mapKey, reason, parked, loaded: maps.size, onDemand: onDemand.size, early: early.size },
       "second map closed",
     );
+    return true;
   };
 
   const build = async (mapKey: number, preopen: boolean): Promise<OpenOutcome> => {
     const started = performance.now();
     const { map, source } = await factory.build(mapKey);
-    const rows = (await deps.rows?.(mapKey)) ?? { units: [], buildings: [] };
+    const rows = (await deps.rows?.(mapKey, map)) ?? { units: [], buildings: [] };
     if (stopped || maps.has(mapKey)) {
       map.stop();
       return stopped ? "failed" : "ok";
@@ -244,22 +254,20 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
       }
       const since = emptySince.get(mapKey);
       if (since === undefined) emptySince.set(mapKey, at);
-      else if (at - since >= (early.has(mapKey) ? preopenIdleMs : idleMs)) {
-        unload(mapKey, "idle");
+      else if (at - since >= (early.has(mapKey) ? preopenIdleMs : idleMs) && unload(mapKey, "idle"))
         closed += 1;
-      }
     }
     deps.afterSweep?.();
     return closed;
   };
 
-  const openWith = (mapKey: number, preopen: boolean): Promise<OpenOutcome> => {
+  const openWith = (mapKey: number, preopen: boolean, view = false): Promise<OpenOutcome> => {
     if (maps.has(mapKey)) return Promise.resolve("ok");
     if (stopped || !deps.isMapKey(mapKey)) return Promise.resolve("invalid");
     const pending = opening.get(mapKey);
     if (pending) return pending;
     if (onDemand.size + opening.size >= rules().maxLoaded) {
-      const spare = evictable()[0];
+      const spare = evictable().find((key) => unload(key, "room"));
       if (spare === undefined) {
         // 미리 띄우기는 변 가까이 있는 동안 1분마다 다시 해 본다 — 기록만 남기면 줄이 쌓인다(수만 센다)
         if (preopen) counts.earlyRefused += 1;
@@ -269,9 +277,9 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
         }
         return Promise.resolve("full");
       }
-      unload(spare, "room");
     }
     if (preopen) counts.early += 1;
+    if (view) counts.views += 1;
     const run = build(mapKey, preopen)
       .catch((error: unknown) => {
         counts.failed += 1;
@@ -286,7 +294,7 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
   return {
     canOpen: (mapKey) => !maps.has(mapKey) && deps.isMapKey(mapKey),
     hasRoom: () => onDemand.size + opening.size < rules().maxLoaded || evictable().length > 0,
-    open: (mapKey) => openWith(mapKey, false),
+    open: (mapKey, reason) => openWith(mapKey, false, reason === "view"),
     openEarly: (mapKey) => openWith(mapKey, true),
     prefetch(mapKey) {
       if (!maps.has(mapKey) && deps.isMapKey(mapKey)) factory.prefetch(mapKey);
@@ -315,6 +323,7 @@ export function createMapSpawner(deps: MapSpawnDeps): MapSpawner {
         ...(counts.refused > 0 ? { mapOpenRefused: counts.refused } : {}),
         ...(counts.failed > 0 ? { mapOpenFailed: counts.failed } : {}),
         ...(counts.opened > 0 ? { mapOpenMsMax: counts.openMsMax } : {}),
+        ...(counts.views > 0 ? { mapViewOpens: counts.views } : {}),
       };
       counts = freshCounts();
       return { ...out, ...extra };

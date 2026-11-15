@@ -1,7 +1,7 @@
 // 옆 2차맵 미리 띄우기·경계 너머 시야 시험(DB 없음, docs/adr/2026-11-08-seamless-second-map.md "바뀜 (2026-11-12)") — 변 가까이 가는 플레이어
 // 유닛이면 넘기 전에 그 변 너머를 띄운다(봇·NPC·가운데 이동은 띄우지 않음), 그때 띄우기 상한 안, 미리 띄운 2차맵은 변 가까운 유닛이 있는 동안
 // 붙잡고 떠나면 짧게 뒤 내린다(유닛이 들어선 2차맵은 보통 idle), 부팅 색인 뒤 다시 보기가 띄운다, 경계 너머 시야는 그 몫만 보인다(구독·탐사·
-// 남의 유닛).
+// 남의 유닛). 바뀜(docs/adr/2026-11-15-unloaded-second-maps.md 2절): 주인이 그 2차맵을 볼 때만 미리 띄우고 붙잡는다(watching).
 import { performance } from "node:perf_hooks";
 import { terrainPath } from "@terra/protocol";
 import { VISION_SIDE, WALK_SPEED, anchorCenter, hasBit } from "@terra/sim";
@@ -35,7 +35,7 @@ interface Rules {
   preopenCells: number;
 }
 
-function rig(rules: Partial<Rules> = {}) {
+function rig(rules: Partial<Rules> = {}, watching?: (mapKey: number, ownerId: number) => boolean) {
   const live: Rules = {
     maxLoaded: 4,
     idleMs: 10 * 60_000,
@@ -90,6 +90,7 @@ function rig(rules: Partial<Rules> = {}) {
     openEarly: (mapKey) => {
       if (box.spawner) opens.push(box.spawner.openEarly(mapKey));
     },
+    watching,
   });
   const spawner = createMapSpawner({
     maps,
@@ -165,6 +166,25 @@ describe("옆 2차맵 미리 띄우기(2026-11-12)", () => {
     expect(await home?.moveUnit(1, anchorCenter(60, 128, 1))).toEqual({ ok: true });
     await r.settle();
     expect(r.maps.has(WEST)).toBe(false);
+  });
+
+  it("주인이 그 2차맵을 보지 않으면 미리 띄우지도 붙잡지도 않는다 — 보기 시작하면 다시 보기가 띄운다", async () => {
+    const watched = { value: false };
+    const r = rig({}, (mapKey, ownerId) => watched.value && mapKey === HOME && ownerId === PLAYER);
+    const home = r.maps.get(HOME);
+    place(home, 1, 250, 128);
+    expect(await home?.moveUnit(1, anchorCenter(254, 128, 1))).toEqual({ ok: true });
+    await r.settle();
+    expect(r.builds).toEqual([]);
+    r.edge.reconcile(r.clock.now);
+    await r.settle();
+    expect(r.builds).toEqual([]);
+    expect(r.edge.holds(EAST, r.clock.now)).toBe(false);
+    watched.value = true;
+    r.edge.reconcile(r.clock.now);
+    await r.settle();
+    expect(r.builds).toEqual([EAST]);
+    expect(r.edge.holds(EAST, r.clock.now)).toBe(true);
   });
 
   it("설정 칸 map_preopen_cells = 0이면 미리 띄우지 않는다", async () => {

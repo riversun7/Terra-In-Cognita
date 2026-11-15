@@ -11,8 +11,9 @@
 //   경계. 국가마다 영토 고리 경로 하나(칠·테두리), 그 사이에 국가 경계 받침 선. 모양(위도·경도)은 도시 자료가 바뀔 때만 셈하고, 프레임마다
 //   고리 점만 투영한다(territoryDraw.ts — 화면 밖 건너뛰기·솎기, 작게 보이는 국가는 둥근 표시).
 // - 국가 이름표: 넓은 국가부터, 다른 이름표·보이는 도시 표시와 겹치지 않는 자리(가운데·위·아래·옆)에 단다. 자리가 없으면 감춘다.
+// - 내 좌표 유닛(docs/adr/2026-11-15-unloaded-second-maps.md 5절): 띄우지 않은 2차맵 위에 선 내 유닛(사이보그 본체 빼고)은 작은 점으로 그린다.
 import type { PlanetProjector, ProjectedPoint } from "@terra/engine/planet";
-import type { WorldMapCity, WorldMapFaction } from "@terra/shared/worldMap";
+import type { WorldMapCity, WorldMapFaction, WorldParkedUnit } from "@terra/shared/worldMap";
 import { useEffect, useId, useMemo, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { type LabelSize, placeLabels, projectTerritory } from "./territoryDraw.ts";
@@ -45,6 +46,8 @@ interface CityOverlayProps {
   readonly territory?: TerritoryView | undefined;
   /** 내 사이보그 자리(없으면 그리지 않는다) */
   readonly me?: { readonly latDeg: number; readonly lonDeg: number } | null | undefined;
+  /** 내 좌표 유닛(띄우지 않은 2차맵 위에 섬, 사이보그 본체 빼고). 없으면 그리지 않는다 */
+  readonly away?: readonly WorldParkedUnit[] | undefined;
   readonly selected: number | null;
   readonly onSelect: (city: WorldMapCity) => void;
   /** 묶음 표시를 누르면 그곳으로 다가간다 */
@@ -91,6 +94,8 @@ export function CityOverlay(props: CityOverlayProps) {
   // 이름표 크기(px) — 글자가 바뀌지 않으니 처음 잰 값을 둔다(국가 목록이 바뀌면 다시 잰다)
   const labelSizes = useRef(new Map<number, LabelSize>());
   const meRef = useRef<HTMLSpanElement>(null);
+  /** 내 좌표 유닛 점(유닛 ID → 요소) */
+  const awayRefs = useRef(new Map<number, HTMLSpanElement>());
   const territoryRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<SVGPathElement>(null);
   const latest = useRef(props);
@@ -118,6 +123,7 @@ export function CityOverlay(props: CityOverlayProps) {
       before.cities !== props.cities ||
       before.selected !== props.selected ||
       before.me !== props.me ||
+      before.away !== props.away ||
       before.emphasis !== props.emphasis ||
       before.factions !== props.factions
     )
@@ -200,6 +206,13 @@ export function CityOverlay(props: CityOverlayProps) {
         const point = projector.project(me.latDeg, me.lonDeg);
         mine.hidden = !point?.visible;
         if (point?.visible) place(mine, point);
+      }
+      for (const unit of latest.current.away ?? []) {
+        const element = awayRefs.current.get(unit.unitId);
+        if (!element) continue;
+        const point = projector.project(unit.latDeg, unit.lonDeg);
+        element.hidden = !point?.visible;
+        if (point?.visible) place(element, point);
       }
     });
     requestFrame();
@@ -338,6 +351,23 @@ export function CityOverlay(props: CityOverlayProps) {
       {props.me ? (
         <span ref={meRef} className="city-me" role="img" aria-label={m.world_my_cyborg()} hidden />
       ) : null}
+      {(props.away ?? []).map((unit) => (
+        <span
+          key={unit.unitId}
+          ref={(element) => {
+            if (element) awayRefs.current.set(unit.unitId, element);
+            else awayRefs.current.delete(unit.unitId);
+          }}
+          className="city-away"
+          data-away-unit={unit.unitId}
+          data-boat={unit.boat ? "true" : undefined}
+          role="img"
+          aria-label={
+            unit.boat ? m.world_parked_boat({ id: unit.unitId }) : m.world_parked_unit({ id: unit.unitId })
+          }
+          hidden
+        />
+      ))}
     </div>
   );
 }

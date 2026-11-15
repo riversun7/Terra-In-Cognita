@@ -134,6 +134,47 @@ describe("구독", () => {
     expect(results(socket.received).at(-1)).toEqual({ t: "result", id: 11, ok: false, code: "rate_limited" });
     map.stop();
   });
+
+  it("띄우지 않은 2차맵을 구독하면 보는 사람이 띄운다(openForView — 좌표 유닛, ADR 2026-11-15), 상한이면 busy, 까닭이 없으면 unknown_map", async () => {
+    const test = createTestMap({ mapKey: MAP_KEY });
+    const live = { loaded: false };
+    const asked: string[] = [];
+    const answer: { next: "ok" | "refused" | "busy" } = { next: "busy" };
+    const world: WorldDirectory = {
+      map: (key) => (key === MAP_KEY && live.loaded ? test.map : undefined),
+      stats: test.stats,
+      ownerOfUser: (userId) => OWNERS.get(userId),
+      openForView: (userId, mapKey, observe) => {
+        asked.push(`${userId === PLAYER.id ? "player" : "admin"}:${mapKey === MAP_KEY}:${observe}`);
+        if (answer.next === "ok") live.loaded = true;
+        return Promise.resolve(answer.next);
+      },
+    };
+    test.map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
+    const gateway = createWorldGateway({ world, now: () => Date.now(), log: { error: () => {} } });
+    const socket = link(PLAYER);
+    const session = gateway.open(socket);
+    session.handle({ t: "subscribe", id: 1, mapKey: MAP_KEY });
+    await vi.advanceTimersByTimeAsync(0);
+    answer.next = "refused";
+    session.handle({ t: "subscribe", id: 2, mapKey: MAP_KEY });
+    await vi.advanceTimersByTimeAsync(0);
+    answer.next = "ok";
+    session.handle({ t: "subscribe", id: 3, mapKey: MAP_KEY });
+    // 명령은 띄우지 않는다
+    session.handle({ t: "stop_unit", id: 4, mapKey: MAP_KEY + 32, unitId: 1 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(socket.received)).toEqual([
+      { t: "result", id: 1, ok: false, code: "busy" },
+      { t: "result", id: 2, ok: false, code: "unknown_map" },
+      { t: "result", id: 3, ok: true },
+      { t: "result", id: 4, ok: false, code: "unknown_map" },
+    ]);
+    expect(asked).toEqual(["player:true:false", "player:true:false", "player:true:false"]);
+    expect(socket.received.some((message) => message.t === "map_snapshot")).toBe(true);
+    session.close();
+    test.map.stop();
+  });
 });
 
 describe("명령", () => {

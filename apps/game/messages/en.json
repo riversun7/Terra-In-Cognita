@@ -904,6 +904,8 @@
   "world_city_not_visible": "You can't see this map yet — none of your units are here.",
   "world_city_close": "Close",
   "world_my_cyborg": "My cyborg",
+  "world_parked_unit": "My unit #{id} — standing at coordinates",
+  "world_parked_boat": "My boat #{id} — afloat at coordinates",
   "world_my_position": "My location",
   "world_enter_here": "Enter this local map",
   "world_area_move": "Move here",

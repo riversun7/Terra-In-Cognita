@@ -410,15 +410,19 @@ export interface Hop {
 
 /**
  * route[from]의 나가는 점 exit(단위, route[from] 틀)에서 건너뛰어 나타날 곳: 다음 띄운 2차맵의 들어오는 변에서 곧은 선(exit → 목표)이
- * 지나는 자리(가지 않으면 exit을 그 틀로 옮긴 자리의 좌표), 막혔으면 가까운 쪽부터. 없으면 null
+ * 지나는 자리(가지 않으면 exit을 그 틀로 옮긴 자리의 좌표), 막혔으면 가까운 쪽부터. 없으면 null.
+ * 좌표 이동(docs/adr/2026-11-15-unloaded-second-maps.md 4절): 목적지까지 띄운 2차맵이 없으면 마지막 2차맵의 목표 칸에 선다(to = 마지막,
+ * entry = 목표 칸 — 띄우지 않은 2차맵이라 설 칸은 띄울 때 다시 본다). from이 띄우지 않은 2차맵(좌표 유닛이 서 있던 곳)이면 adjacent로
+ * 바로 옆 띄운 2차맵에도 나타날 수 있다(걸어서 넘을 2차맵이 없다)
  */
-export function hopFrom(context: RouteContext, from: number, exit: Point): Hop | null {
+export function hopFrom(context: RouteContext, from: number, exit: Point, adjacent = false): Hop | null {
   const { route, frames, size, standable, loaded } = context;
   let to = from + 1;
   while (to < route.length && !loaded(route[to] ?? 0)) to++;
+  if (to >= route.length) return landHop(context, from, exit);
   const mapKey = route[to];
   const before = route[to - 1];
-  if (mapKey === undefined || before === undefined || !frames || to === from + 1) return null;
+  if (mapKey === undefined || before === undefined || !frames || (to === from + 1 && !adjacent)) return null;
   const side = sideToward(mapKey, before);
   if (!side) return null;
   const toFrame = frameBetween(frames, from, to);
@@ -429,6 +433,24 @@ export function hopFrom(context: RouteContext, from: number, exit: Point): Hop |
   if (!entry) return null;
   const back = applyFrame(frameBetween(frames, to, from), anchorCenter(entry.x, entry.y, size));
   return { from, to, entry, distance: Math.round(Math.hypot(back.x - exit.x, back.y - exit.y)) };
+}
+
+/**
+ * 띄우지 않은 목적지로 가는 마지막 좌표 구간: exit(route[from] 틀) → 목표 칸 가운데 곧은 선. from이 마지막이면 같은 2차맵 안 곧은 선.
+ * 틀이 없으면 null
+ */
+function landHop(context: RouteContext, from: number, exit: Point): Hop | null {
+  const last = context.route.length - 1;
+  if (last < from || last < 0) return null;
+  const entry = { x: fit(context.target.x, context.size), y: fit(context.target.y, context.size) };
+  const aim =
+    last === from
+      ? anchorCenter(entry.x, entry.y, context.size)
+      : context.frames
+        ? aimAt(context, from)
+        : undefined;
+  if (!aim) return null;
+  return { from, to: last, entry, distance: Math.round(Math.hypot(aim.x - exit.x, aim.y - exit.y)) };
 }
 
 /**

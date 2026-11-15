@@ -981,6 +981,7 @@ export { gatherObjectStates } from "./gatherSchema.ts";
 export { boatFacilities, boatJobs, boatResets, boatStates } from "./boatSchema.ts";
 /** 사업장 장부 표(docs/adr/2026-11-15-business-ledger.md) */
 export { businessPrices, businessStates } from "./businessSchema.ts";
+export { businessShareOrders, businessShareRounds } from "./businessSchema.ts";
 /** 공성 결과 표(docs/adr/2026-11-07-war-outcomes.md) */
 export { warOutcomes } from "./warSchema.ts";
 /** 국적 바꾸기(귀화) 기록 표(docs/adr/2026-11-08-citizenship.md) */

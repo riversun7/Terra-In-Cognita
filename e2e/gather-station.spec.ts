@@ -87,7 +87,8 @@ test.describe("채집소 판: 플레이어", () => {
   }) => {
     test.setTimeout(240_000);
     const station = await openStationSheet(page);
-    await expect(station).toContainText(message("ko", "station_storage_title"));
+    // 건물 판 개편(docs/adr/2026-11-15-building-screen.md): 개요 칸 = 채집소 요약, 창고는 [창고] 칸
+    await expect(station).toHaveAttribute("data-station-part", "summary");
     const kind = await station.getAttribute("data-kind");
     if (kind === "objects") {
       await expect(station.locator('[data-part="station-buffs"]')).toBeVisible();
@@ -96,6 +97,9 @@ test.describe("채집소 판: 플레이어", () => {
         .poll(() => page.locator(".gather-ring").evaluate((element) => getComputedStyle(element).display))
         .not.toBe("none");
     }
+    await page.locator('.gather-sheet[data-building] .bp-tab[data-tab="storage"]').click();
+    await expect(station).toHaveAttribute("data-station-part", "storage");
+    await expect(station).toContainText(message("ko", "station_storage_title"));
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
     await page.locator(".gather-sheet[data-building] .gather-sheet-close").click();
@@ -214,7 +218,7 @@ for (const look of LOOKS) {
     test(`채집소 판 (390·${look.theme}·${look.language})`, async ({ page, deviceErrors }) => {
       test.setTimeout(240_000);
       const station = await openStationSheet(page);
-      await expect(station).toContainText(message(look.language, "station_storage_title"));
+      await expect(station).toHaveAttribute("data-station-part", "summary");
       expect(await horizontalOverflow(page)).toEqual([]);
       expect(await smallTapTargets(page)).toEqual([]);
       await shot(page, `gather-station-390-${look.theme}-${look.language}`);
@@ -239,11 +243,15 @@ for (const look of LOOKS) {
       const station = await openStationSheet(page, true);
       // 팩 core@66: 농장은 밭(plot)을 맡는 원자재 채집소(docs/adr/2026-11-11-city-catchment.md)
       await expect(station).toHaveAttribute("data-kind", "objects");
-      await expect(station).toContainText(message(look.language, "station_storage_title"));
       // 시작 도시 농장은 Lv 1: 채집량 +0% · 피로 −50% · 다시 자람 −50%
       await expect(station.locator('[data-part="station-buffs"]')).toHaveText(
         message(look.language, "station_buffs_line", { gain: 0, fatigue: 50, regrow: 50 }),
       );
+      await expect(station.locator('[data-part="station-objects"]')).toBeVisible();
+      // 창고·자동 옮김은 [창고] 칸(건물 판 개편 — docs/adr/2026-11-15-building-screen.md)
+      await page.locator('.gather-sheet[data-building] .bp-tab[data-tab="storage"]').click();
+      await expect(station).toHaveAttribute("data-station-part", "storage");
+      await expect(station).toContainText(message(look.language, "station_storage_title"));
       await expect(station.locator('[data-part="station-haul"]')).toBeVisible();
       // 옮김 거리(질문 1050 가): 창고(또는 도시 가운데)까지 칸·지금 짐 나르는 시간
       await expect(station.locator('[data-part="station-haul-route"]')).toBeVisible();
@@ -252,7 +260,6 @@ for (const look of LOOKS) {
         station.locator('[data-part="station-haul-route"]'),
         `gather-station-haul-route-390-${look.theme}-${look.language}`,
       );
-      await expect(station.locator('[data-part="station-objects"]')).toBeVisible();
       // 반경 고리를 그린다
       await expect
         .poll(() => page.locator(".gather-ring").evaluate((element) => getComputedStyle(element).display))

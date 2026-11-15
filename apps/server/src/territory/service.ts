@@ -91,6 +91,8 @@ export interface TerritoryActor {
 }
 
 export interface TerritoryService {
+  /** 세력 코드 → 나라 이름(팩 국가 프리셋, 모르면 undefined) — 건물 판 주인 이름표(business/names.ts) */
+  factionNameOf?(code: string): LocalizedName | undefined;
   place(
     actor: TerritoryActor,
     input: { readonly planetId: string; readonly cellKey: number; readonly factionId?: number | undefined },
@@ -471,6 +473,7 @@ export function createTerritoryService(
   };
 
   return {
+    factionNameOf: (code) => options.factionName?.(code),
     place(actor, input) {
       return serial(async () => {
         if (!options.ready()) return fail("busy");

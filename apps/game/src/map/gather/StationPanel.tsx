@@ -6,6 +6,8 @@
 // - 보내는 유닛 = 건물 판과 같다(고른 유닛, 없으면 이 2차맵의 내 사이보그). 모바일 우선: 판은 세로로 넘친 만큼만 안에서 넘긴다.
 // - 농장(facility 채집소, 오브젝트 없음 — 기획 정리 756 ②): 반경 고리·원자재·[직접 캐기]는 없고, 수확·피로 버프·채집소 창고·자동 옮김·일꾼·
 //   레벨 올리기는 같다.
+// - 바뀜 (2026-11-15 건물 화면 개편, docs/adr/2026-11-15-building-screen.md): 자료는 건물 판이 한 번 읽어(useStation) 칸마다 나눠 준다(part —
+//   개요·일꾼·창고·관리 칸). 반경 고리는 건물 판이 고른 건물에 맞춰 그린다(칸과 상관없이).
 import type { GatherStationResponse } from "@terra/shared/gatherStation";
 import { useEffect, useState } from "react";
 import { formatDuration } from "../../economy/economyText.ts";
@@ -38,21 +40,15 @@ const MOVE_MAX = 1_000_000;
 
 const serverNow = (): number => Date.now() + serverLink.clockOffsetMs();
 
-interface StationPanelProps {
-  readonly state: GatherState;
-  readonly mapKey: number;
-  readonly buildingId: number;
-  /** 보내는 유닛(고른 유닛, 없으면 이 2차맵의 내 사이보그) */
-  readonly actor: number | null;
-  /** 결과 안내(건물 판 아래 한 줄) */
-  readonly notify: (text: string) => void;
-}
+/** 채집소 판의 칸: summary = 레벨·반경·버프·원자재, workers = 일꾼, storage = 채집소 창고, upgrade = 레벨 올리기 */
+export type StationPart = "summary" | "workers" | "storage" | "upgrade";
 
-export function StationPanel({ state, mapKey, buildingId, actor, notify }: StationPanelProps) {
+/** 채집소 자료(열 때와 STATION_POLL_MS마다, 명령 뒤에는 refresh로 바로). 다른 건물 자료가 섞이지 않게 건물 ID를 본다 */
+export function useStation(buildingId: number): {
+  readonly station: GatherStationResponse | null;
+  readonly refresh: () => Promise<void>;
+} {
   const [station, setStation] = useState<GatherStationResponse | null>(null);
-  const [sending, setSending] = useState(false);
-
-  // 열 때와 STATION_POLL_MS마다 묻는다(명령 뒤에는 refresh로 바로)
   useEffect(() => {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -81,18 +77,39 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
       // 다음 차례에 다시 묻는다
     }
   };
+  return { station: station?.buildingId === buildingId ? station : null, refresh };
+}
 
-  // 반경 고리: 반경이 있는 채집소(벌목장·광산) 자료가 있으면 그린다, 판이 닫히면 지운다
+interface StationPanelProps {
+  readonly state: GatherState;
+  readonly mapKey: number;
+  readonly buildingId: number;
+  /** 보내는 유닛(고른 유닛, 없으면 이 2차맵의 내 사이보그) */
+  readonly actor: number | null;
+  /** 결과 안내(건물 판 아래 한 줄) */
+  readonly notify: (text: string) => void;
+  /** 채집소 자료(useStation) */
+  readonly station: GatherStationResponse | null;
+  readonly refresh: () => Promise<void>;
+  /** 보일 칸 */
+  readonly part: StationPart;
+  /** 운영자 모드(남의 채집소도 레벨 올리기 — 서버가 다시 본다) */
+  readonly operator?: boolean | undefined;
+}
+
+export function StationPanel({
+  state,
+  mapKey,
+  buildingId,
+  actor,
+  notify,
+  station,
+  refresh,
+  part,
+  operator = false,
+}: StationPanelProps) {
+  const [sending, setSending] = useState(false);
   const ok = station?.status === "ok" && station.buildingId === buildingId ? station : null;
-  const ringRadius = ok?.buffs?.radiusCells ?? null;
-  const ringX = ok && ringRadius !== null ? ok.x : null;
-  const ringY = ok && ringRadius !== null ? ok.y : null;
-  useEffect(() => {
-    if (ringX === null || ringY === null || ringRadius === null) state.setRing(null);
-    else state.setRing({ x: ringX, y: ringY, radius: ringRadius });
-    return () => state.setRing(null);
-  }, [state, ringX, ringY, ringRadius]);
-
   if (!ok || ok.kind === null) return null;
   const kind = ok.kind;
 
@@ -157,197 +174,212 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
   const full = ok.workers.length >= ok.slots;
   const upgrading = ok.upgradingUntilMs !== null && ok.upgradingUntilMs > now;
   const affordable = ok.upgrade?.materials.every((stack) => stack.have >= stack.qty) ?? false;
+  const show = (which: StationPart): boolean => part === which;
   return (
-    <div className="gather-station" data-part="gather-station" data-kind={ok.kind} data-building={buildingId}>
-      <p className="gather-station-head">
-        <span className="gather-station-title">{m.station_title({ level: ok.level })}</span>
-        {ok.buffs && ok.buffs.radiusCells !== null ? (
-          <span className="gather-muted"> · {m.station_radius({ cells: ok.buffs.radiusCells })}</span>
-        ) : null}
-      </p>
-      {ok.level < 1 ? <p className="gather-muted">{m.station_not_built()}</p> : null}
-      {ok.level >= 1 && !ok.works ? <p className="gather-station-warn">{m.station_disabled()}</p> : null}
-      {ok.kind === "facility" ? <p className="gather-muted">{m.station_facility_note()}</p> : null}
+    <div
+      className="gather-station"
+      data-part="gather-station"
+      data-station-part={part}
+      data-kind={ok.kind}
+      data-building={buildingId}
+    >
+      {show("summary") ? (
+        <>
+          <p className="gather-station-head">
+            <span className="gather-station-title">{m.station_title({ level: ok.level })}</span>
+            {ok.buffs && ok.buffs.radiusCells !== null ? (
+              <span className="gather-muted"> · {m.station_radius({ cells: ok.buffs.radiusCells })}</span>
+            ) : null}
+          </p>
+          {ok.level < 1 ? <p className="gather-muted">{m.station_not_built()}</p> : null}
+          {ok.level >= 1 && !ok.works ? <p className="gather-station-warn">{m.station_disabled()}</p> : null}
+          {ok.kind === "facility" ? <p className="gather-muted">{m.station_facility_note()}</p> : null}
 
-      {ok.buffs ? <p data-part="station-buffs">{buffsText(ok.buffs)}</p> : null}
-      {objects ? (
-        <section className="gather-station-part" aria-label={m.station_objects_title()}>
-          <p className="gather-station-subtitle">{m.station_objects_title()}</p>
-          {objects.total === 0 ? (
-            <p className="gather-station-warn" data-part="station-no-objects">
-              {m.station_objects_none()}
-            </p>
-          ) : (
-            <>
-              <p data-part="station-objects">
-                {m.station_objects_line({
-                  total: objects.total,
-                  ready: objects.ready,
-                  depleted: objects.depleted,
+          {ok.buffs ? <p data-part="station-buffs">{buffsText(ok.buffs)}</p> : null}
+          {objects ? (
+            <section className="gather-station-part" aria-label={m.station_objects_title()}>
+              <p className="gather-station-subtitle">{m.station_objects_title()}</p>
+              {objects.total === 0 ? (
+                <p className="gather-station-warn" data-part="station-no-objects">
+                  {m.station_objects_none()}
+                </p>
+              ) : (
+                <>
+                  <p data-part="station-objects">
+                    {m.station_objects_line({
+                      total: objects.total,
+                      ready: objects.ready,
+                      depleted: objects.depleted,
+                    })}
+                  </p>
+                  <p className="gather-muted">
+                    {m.station_objects_uses({ left: objects.usesLeft, max: objects.usesMax })}
+                    {objects.nextRegrowAtMs !== null
+                      ? ` · ${m.station_objects_next({ time: minutesText(objects.nextRegrowAtMs - now) })}`
+                      : ""}
+                  </p>
+                </>
+              )}
+            </section>
+          ) : null}
+        </>
+      ) : null}
+
+      {show("storage") ? (
+        <section className="gather-station-part" aria-label={m.station_storage_title()}>
+          <p className="gather-station-subtitle">{m.station_storage_title()}</p>
+          {pct !== null && ok.storage.capacityGrams !== null ? (
+            <div className="gather-station-meter-row">
+              <div
+                className="gather-station-meter"
+                role="meter"
+                aria-label={m.station_storage_title()}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={pct}
+                aria-valuetext={`${pct}%`}
+                data-full={pct >= 100 ? "true" : undefined}
+              >
+                <span className="gather-station-meter-fill" style={{ inlineSize: `${pct}%` }} />
+              </div>
+              <span className="gather-station-meter-text">
+                {m.station_storage_used({
+                  used: kgOf(ok.storage.usedGrams),
+                  cap: kgOf(ok.storage.capacityGrams),
                 })}
-              </p>
-              <p className="gather-muted">
-                {m.station_objects_uses({ left: objects.usesLeft, max: objects.usesMax })}
-                {objects.nextRegrowAtMs !== null
-                  ? ` · ${m.station_objects_next({ time: minutesText(objects.nextRegrowAtMs - now) })}`
-                  : ""}
-              </p>
-            </>
+              </span>
+            </div>
+          ) : null}
+          {ok.storage.goods.length === 0 ? (
+            <p className="gather-muted">{m.station_storage_empty()}</p>
+          ) : (
+            <ul className="gather-station-list">
+              {ok.storage.goods.map((line) => (
+                <li key={line.asset}>
+                  {m.station_storage_line({
+                    name: nameText(line.name, line.item ?? line.asset),
+                    qty: qtyOf(line.qty),
+                  })}
+                </li>
+              ))}
+            </ul>
           )}
+          <p className="gather-muted" data-part="station-haul">
+            {ok.cityId === null
+              ? m.station_haul_no_city()
+              : ok.haul.nextAtMs === null
+                ? m.station_haul_off()
+                : m.station_haul_next({ time: minutesText(ok.haul.nextAtMs - now) })}
+          </p>
+          {ok.haul.cells !== undefined && ok.haul.cells !== null ? (
+            <p className="gather-muted" data-part="station-haul-route">
+              {(ok.haul.toStore ? m.station_haul_route_store : m.station_haul_route_city)({
+                cells: ok.haul.cells,
+                time: minutesText(ok.haul.tripMs ?? 0),
+              })}
+              {ok.haul.arriveAtMs !== undefined && ok.haul.arriveAtMs !== null && ok.haul.arriveAtMs > now
+                ? ` · ${
+                    ok.haul.porterUnitId !== undefined && ok.haul.porterUnitId !== null
+                      ? m.station_haul_porter({
+                          id: ok.haul.porterUnitId,
+                          time: minutesText(ok.haul.arriveAtMs - now),
+                        })
+                      : m.station_haul_carrying({ time: minutesText(ok.haul.arriveAtMs - now) })
+                  }`
+                : ""}
+            </p>
+          ) : null}
+          {ok.mine && ok.cityId !== null && ok.storage.goods.length > 0 ? (
+            <div className="gather-actions">
+              <button type="button" className="button-small" disabled={sending} onClick={haul}>
+                {m.station_haul()}
+              </button>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
-      <section className="gather-station-part" aria-label={m.station_storage_title()}>
-        <p className="gather-station-subtitle">{m.station_storage_title()}</p>
-        {pct !== null && ok.storage.capacityGrams !== null ? (
-          <div className="gather-station-meter-row">
-            <div
-              className="gather-station-meter"
-              role="meter"
-              aria-label={m.station_storage_title()}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={pct}
-              aria-valuetext={`${pct}%`}
-              data-full={pct >= 100 ? "true" : undefined}
-            >
-              <span className="gather-station-meter-fill" style={{ inlineSize: `${pct}%` }} />
-            </div>
-            <span className="gather-station-meter-text">
-              {m.station_storage_used({
-                used: kgOf(ok.storage.usedGrams),
-                cap: kgOf(ok.storage.capacityGrams),
-              })}
-            </span>
-          </div>
-        ) : null}
-        {ok.storage.goods.length === 0 ? (
-          <p className="gather-muted">{m.station_storage_empty()}</p>
-        ) : (
-          <ul className="gather-station-list">
-            {ok.storage.goods.map((line) => (
-              <li key={line.asset}>
-                {m.station_storage_line({
-                  name: nameText(line.name, line.item ?? line.asset),
-                  qty: qtyOf(line.qty),
-                })}
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="gather-muted" data-part="station-haul">
-          {ok.cityId === null
-            ? m.station_haul_no_city()
-            : ok.haul.nextAtMs === null
-              ? m.station_haul_off()
-              : m.station_haul_next({ time: minutesText(ok.haul.nextAtMs - now) })}
-        </p>
-        {ok.haul.cells !== undefined && ok.haul.cells !== null ? (
-          <p className="gather-muted" data-part="station-haul-route">
-            {(ok.haul.toStore ? m.station_haul_route_store : m.station_haul_route_city)({
-              cells: ok.haul.cells,
-              time: minutesText(ok.haul.tripMs ?? 0),
-            })}
-            {ok.haul.arriveAtMs !== undefined && ok.haul.arriveAtMs !== null && ok.haul.arriveAtMs > now
-              ? ` · ${
-                  ok.haul.porterUnitId !== undefined && ok.haul.porterUnitId !== null
-                    ? m.station_haul_porter({
-                        id: ok.haul.porterUnitId,
-                        time: minutesText(ok.haul.arriveAtMs - now),
-                      })
-                    : m.station_haul_carrying({ time: minutesText(ok.haul.arriveAtMs - now) })
-                }`
-              : ""}
+      {show("workers") ? (
+        <section className="gather-station-part" aria-label={m.station_workers_label()}>
+          <p className="gather-station-subtitle">
+            {m.station_workers_title({ count: ok.workers.length, slots: ok.slots })}
           </p>
-        ) : null}
-        {ok.mine && ok.cityId !== null && ok.storage.goods.length > 0 ? (
-          <div className="gather-actions">
-            <button type="button" className="button-small" disabled={sending} onClick={haul}>
-              {m.station_haul()}
-            </button>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="gather-station-part" aria-label={m.station_workers_label()}>
-        <p className="gather-station-subtitle">
-          {m.station_workers_title({ count: ok.workers.length, slots: ok.slots })}
-        </p>
-        {ok.workers.length === 0 ? (
-          <p className="gather-muted">{m.station_workers_none()}</p>
-        ) : (
-          <ul className="gather-station-list">
-            {ok.workers.map((worker) => (
-              <li
-                key={worker.unitId}
-                className="gather-station-worker"
-                data-state={worker.state}
-                data-unit={worker.unitId}
-              >
-                <span>
-                  {m.station_worker_line({ id: worker.unitId, via: workerViaText(worker) })}
-                  {worker.mine ? ` · ${m.station_worker_mine()}` : ""}
-                  {" · "}
-                  <strong>{workerStateText(worker.state, kind)}</strong>
-                  <span className="gather-muted">
+          {ok.workers.length === 0 ? (
+            <p className="gather-muted">{m.station_workers_none()}</p>
+          ) : (
+            <ul className="gather-station-list">
+              {ok.workers.map((worker) => (
+                <li
+                  key={worker.unitId}
+                  className="gather-station-worker"
+                  data-state={worker.state}
+                  data-unit={worker.unitId}
+                >
+                  <span>
+                    {m.station_worker_line({ id: worker.unitId, via: workerViaText(worker) })}
+                    {worker.mine ? ` · ${m.station_worker_mine()}` : ""}
                     {" · "}
-                    {m.station_worker_lots({
-                      lots: worker.lots,
-                      fatigue: worker.fatigue,
-                      max: ok.fatigueMax,
-                    })}
-                    {worker.rest ? ` · ${restText(worker.rest)}` : ""}
+                    <strong>{workerStateText(worker.state, kind)}</strong>
+                    <span className="gather-muted">
+                      {" · "}
+                      {m.station_worker_lots({
+                        lots: worker.lots,
+                        fatigue: worker.fatigue,
+                        max: ok.fatigueMax,
+                      })}
+                      {worker.rest ? ` · ${restText(worker.rest)}` : ""}
+                    </span>
                   </span>
-                </span>
-                {worker.mine && worker.via === "assign" ? (
-                  <button
-                    type="button"
-                    className="button-small"
-                    disabled={sending}
-                    onClick={() => unassign(worker.unitId)}
-                  >
-                    {m.station_unassign()}
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="gather-muted">
-          {ok.kind === "objects" ? m.station_workers_note() : m.station_workers_note_facility()}
-        </p>
-        {ok.workers.some((worker) => worker.rest) ? (
-          <p className="gather-muted" data-part="station-rest-hint">
-            {m.station_rest_hint()}
+                  {worker.mine && worker.via === "assign" ? (
+                    <button
+                      type="button"
+                      className="button-small"
+                      disabled={sending}
+                      onClick={() => unassign(worker.unitId)}
+                    >
+                      {m.station_unassign()}
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="gather-muted">
+            {ok.kind === "objects" ? m.station_workers_note() : m.station_workers_note_facility()}
           </p>
-        ) : null}
-        <div className="gather-actions">
-          {ok.mine && ok.level >= 1 ? (
-            <button
-              type="button"
-              className="button-small button-primary"
-              disabled={sending || actor === null || full}
-              onClick={() => {
-                if (actor !== null) assign(actor);
-              }}
-            >
-              {m.station_assign()}
-            </button>
+          {ok.workers.some((worker) => worker.rest) ? (
+            <p className="gather-muted" data-part="station-rest-hint">
+              {m.station_rest_hint()}
+            </p>
           ) : null}
-          {ok.kind === "objects" ? (
-            <button
-              type="button"
-              className="button-small"
-              disabled={sending || actor === null || !target}
-              onClick={gatherHere}
-            >
-              {m.station_gather_here()}
-            </button>
-          ) : null}
-        </div>
-      </section>
+          <div className="gather-actions">
+            {ok.mine && ok.level >= 1 ? (
+              <button
+                type="button"
+                className="button-small button-primary"
+                disabled={sending || actor === null || full}
+                onClick={() => {
+                  if (actor !== null) assign(actor);
+                }}
+              >
+                {m.station_assign()}
+              </button>
+            ) : null}
+            {ok.kind === "objects" ? (
+              <button
+                type="button"
+                className="button-small"
+                disabled={sending || actor === null || !target}
+                onClick={gatherHere}
+              >
+                {m.station_gather_here()}
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
-      {ok.mine ? (
+      {show("upgrade") && (ok.mine || operator) ? (
         <section className="gather-station-part" aria-label={m.station_upgrade_title()}>
           <p className="gather-station-subtitle">{m.station_upgrade_title()}</p>
           {upgrading ? (
@@ -389,15 +421,17 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
           ) : null}
         </section>
       ) : null}
-      <div className="gather-actions">
-        <button
-          type="button"
-          className="button-small"
-          onClick={() => navigate({ route: "economy_production" })}
-        >
-          {m.station_open_economy()}
-        </button>
-      </div>
+      {show("summary") ? (
+        <div className="gather-actions">
+          <button
+            type="button"
+            className="button-small"
+            onClick={() => navigate({ route: "economy_production" })}
+          >
+            {m.station_open_economy()}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

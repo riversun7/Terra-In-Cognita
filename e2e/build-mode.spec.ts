@@ -40,10 +40,13 @@ async function openBuild(page: Page) {
   return sheet;
 }
 
-/** 목록에서 첫 건물을 고르고 빈 땅을 눌러 미리보기 자리를 정한다 */
-async function pickAndPlace(page: Page): Promise<void> {
+/** 목록에서 건물(없으면 첫 건물)을 고르고 빈 땅을 눌러 미리보기 자리를 정한다 */
+async function pickAndPlace(page: Page, facility?: string): Promise<void> {
   const sheet = page.locator(".map-build");
-  const option = sheet.locator(".map-build-option").first();
+  const option =
+    facility === undefined
+      ? sheet.locator(".map-build-option").first()
+      : sheet.locator(`.map-build-option[data-facility="${facility}"]`);
   await expect(option).toBeVisible({ timeout: 20_000 });
   await option.click();
   await expect(sheet).toHaveAttribute("data-phase", "place");
@@ -86,6 +89,30 @@ test.describe("건축 모드: 플레이어", () => {
     await openBuild(page);
     await navButton(page, "units").click();
     await expect(page.locator(".map-build")).toHaveCount(0);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("채집소 반경: 벌목장을 놓으면 반경 고리와 반경 안내(docs/adr/2026-11-15-building-screen.md)", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(150_000);
+    await openMap(page);
+    const sheet = await openBuild(page);
+    // 고르기 전에는 고리가 없다
+    await expect
+      .poll(() => page.locator(".gather-ring").evaluate((element) => getComputedStyle(element).display))
+      .toBe("none");
+    await pickAndPlace(page, "lumber_camp");
+    await expect(sheet.locator('[data-part="build-radius"]')).toBeVisible();
+    await expect
+      .poll(() => page.locator(".gather-ring").evaluate((element) => getComputedStyle(element).display))
+      .not.toBe("none");
+    // 반경 없는 시설로 바꾸거나 닫으면 지운다
+    await sheet.locator(".map-build-close").click();
+    await expect
+      .poll(() => page.locator(".gather-ring").evaluate((element) => getComputedStyle(element).display))
+      .toBe("none");
     expect(deviceErrors).toEqual([]);
   });
 

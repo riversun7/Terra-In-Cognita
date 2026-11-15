@@ -137,6 +137,16 @@ export const ROUTES = {
     frame: "shown",
     access: "everyone",
   },
+  // 건물 재무 화면(docs/adr/2026-11-15-building-screen.md, 사용자 요청 2026-11-15 "모두가 볼수있는 재무제표 손익계산 등의 정보 페이지"):
+  // 누구나 그 사업장의 손익계산서(1·7·30일)·재무상태·현금 흐름·거래·주주·지분 시장을 본다. 2차맵 건물 판 [재무 보기]가 연다
+  building_books: {
+    path: "/buildings/:buildingId/books",
+    search: [],
+    parent: "map",
+    frame: "shown",
+    access: "everyone",
+    params: { buildingId: "digits" },
+  },
   // 내 주문(휴대폰 자리, D-329 = 질문 94 가). 처리할 일 order_filled·order_expired도 이리로 온다
   economy_orders: {
     path: "/economy/orders",

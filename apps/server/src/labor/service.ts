@@ -26,10 +26,13 @@
 //   임차인 몫(그 건물 창고)은 그 건물 창고 상한(팩 시설 storageKg × 레벨, N50)까지만 쌓인다(workBook.ts leaseRooms).
 import type { LaborResultCode } from "@terra/protocol";
 import type {
+  LaborBuildingContractView,
+  LaborBuildingResponse,
   LaborContractView,
   LaborOverviewResponse,
   LaborBuildingView,
   LaborJobsResponse,
+  LaborRulesView,
   LaborUnitView,
 } from "@terra/shared/labor";
 import {
@@ -85,13 +88,19 @@ export interface LaborService {
   /** 소유 주체 정산의 고리: 그 주체가 유닛 소유 주체인 계약을 toMs까지 정산하고, 유닛 ID → 산출 구간. 없으면 undefined */
   outputsFor(ownerId: number, fromMs: number, toMs: number): ReadonlyMap<number, OutputSegment[]> | undefined;
   create(userId: string, input: LaborCreateInput): Promise<LaborCommandResult>;
-  terminate(userId: string, contractId: number): Promise<LaborCommandResult>;
-  topUp(userId: string, contractId: number, amount: bigint): Promise<LaborCommandResult>;
-  setRent(userId: string, buildingId: number, rent: bigint): Promise<LaborCommandResult>;
+  /**
+   * 관리 명령(해지·채우기·임대료·구인 내기·거두기)의 operator = 운영자 모드 연결(기획 D-560, 사용자 요청 2026-11-15 "주인의 건물관리 기능(운영자도
+   * 조작가능)"): 주인·대주주가 아니어도 그 건물 주인 대신 한다. 대주주(사업장 지분 — business/shares.ts)도 주인 대신 한다(D-555 1502)
+   */
+  terminate(userId: string, contractId: number, operator?: boolean): Promise<LaborCommandResult>;
+  topUp(userId: string, contractId: number, amount: bigint, operator?: boolean): Promise<LaborCommandResult>;
+  setRent(userId: string, buildingId: number, rent: bigint, operator?: boolean): Promise<LaborCommandResult>;
   /** 구인 내기(내 시설, 시설마다 열린 게시 하나 — 다시 내면 바꾼다) */
-  postJob(userId: string, input: LaborPostInput): Promise<LaborCommandResult>;
-  /** 구인 거두기(낸 사람만, 맺은 계약은 그대로) */
-  withdrawJob(userId: string, jobId: number): Promise<LaborCommandResult>;
+  postJob(userId: string, input: LaborPostInput, operator?: boolean): Promise<LaborCommandResult>;
+  /** 구인 거두기(낸 사람·관리하는 사람, 맺은 계약은 그대로) */
+  withdrawJob(userId: string, jobId: number, operator?: boolean): Promise<LaborCommandResult>;
+  /** 건물 하나의 노동 판(누구나 — 건물 판 [일꾼·계약] 칸) */
+  building(userId: string, buildingId: number): LaborBuildingResponse;
   /** 구인 받기(남의 시설 일자리를 내 유닛으로 → 임금형 계약) */
   acceptJob(userId: string, jobId: number, unitId: number): Promise<LaborCommandResult>;
   overview(userId: string): LaborOverviewResponse;
@@ -133,6 +142,8 @@ export interface LaborService {
 export interface LaborBusinessHook {
   advance(buildingId: number, ownerId: number, asset: string, needed: bigint, atMs: number): bigint;
   taxIncome(buildingId: number, ownerId: number, asset: string, gross: bigint, atMs: number): bigint;
+  /** 주인 대신 관리할 수 있나(가장 많은 주주 — D-555 1502). 없으면 주인만 */
+  mayManage?(buildingId: number, ownerId: number): boolean;
 }
 
 /** 시설에서 일하는 유닛 하나 */
@@ -388,6 +399,39 @@ export function createLaborService(options: {
   const ownerFor = (userId: string, at: number): number | undefined =>
     options.ready() ? settlement.ownerOfUser(userId, at).id : undefined;
 
+  /**
+   * 그 건물을 관리하는 사람이면 건물 주인(계약·게시의 고용주 = 주인 — 돈은 그 사업장 금고, D-555): 주인, 가장 많은 주주, 운영자 모드.
+   * 없는 건물이면 unknown_building, 주인 없음·관리 못 함이면 forbidden
+   */
+  const managedOwner = (
+    me: number,
+    buildingId: number,
+    operator: boolean,
+  ): { ok: true; ownerId: number } | { ok: false; code: LaborResultCode } => {
+    const owner = buildingOwnerOf(buildingId);
+    if (owner === undefined) return { ok: false, code: "unknown_building" };
+    if (owner === null) return { ok: false, code: "forbidden" };
+    if (owner === me || operator || business?.mayManage?.(buildingId, me) === true)
+      return { ok: true, ownerId: owner };
+    return { ok: false, code: "forbidden" };
+  };
+  /** 화면 규칙 값 */
+  const rulesView = (): LaborRulesView => {
+    const rules = wageRulesOf(options.rules());
+    return {
+      wageCycleMs: rules.labor.wageCycleMs,
+      depositDays: rules.labor.depositDays,
+      warnDays: rules.labor.warnDays,
+      rentCycleMs: rules.labor.rentCycleMs,
+      graceMs: rules.labor.graceMs,
+      adjustMinPm: rules.adjustMinPm,
+      adjustMaxPm: rules.adjustMaxPm,
+      efficiency: rules.efficiency,
+      rateMilli: rules.rateMilli,
+      depositCycles: Number(requiredDeposit(1n, rules.labor)),
+    };
+  };
+
   const done = async (result: LaborCommandResult): Promise<LaborCommandResult> => {
     // 돈·소유가 바뀌는 명령은 커밋 뒤에 답한다(S3 U2)
     await writer.durable();
@@ -550,29 +594,32 @@ export function createLaborService(options: {
       work.startJob(input.unitId);
       return done({ ok: true, contractId: result.contract.id });
     },
-    async terminate(userId, contractId) {
+    async terminate(userId, contractId, operator = false) {
       const at = now();
       const me = ownerFor(userId, at);
       if (me === undefined) return fail("busy");
       const c = contracts.get(contractId);
       if (!c) return fail("unknown_contract");
-      if (me !== c.ownerId && me !== c.workerOwnerId) return fail("forbidden");
+      // 유닛 주인이 아니면 시설 쪽(주인·대주주·운영자)이 주인 대신 해고한다
+      const asOwner =
+        me === c.ownerId || (me !== c.workerOwnerId && managedOwner(me, c.buildingId, operator).ok);
+      if (!asOwner && me !== c.workerOwnerId) return fail("forbidden");
       settlement.settleOwner(c.workerOwnerId, at);
       const rules = wageRulesOf(options.rules()).labor;
-      if (!terminateLabor(c, at, me === c.ownerId ? "owner" : "worker", ledger, accounts, rules))
+      if (!terminateLabor(c, at, asOwner ? "owner" : "worker", ledger, accounts, rules))
         return fail("not_open");
       save(c);
       // 일이 끝난 유닛의 직무를 끈다(유예 중에도 유닛은 묶이지 않는다)
       work.stopIdle(c.workerOwnerId, working);
       return done({ ok: true });
     },
-    async topUp(userId, contractId, amount) {
+    async topUp(userId, contractId, amount, operator = false) {
       const at = now();
       const me = ownerFor(userId, at);
       if (me === undefined) return fail("busy");
       const c = contracts.get(contractId);
       if (!c) return fail("unknown_contract");
-      if (me !== c.ownerId) return fail("forbidden");
+      if (me !== c.ownerId && !managedOwner(me, c.buildingId, operator).ok) return fail("forbidden");
       if (c.kind !== "wage") return fail("invalid_terms");
       // 보증금이 나가는 고용주(남의 유닛을 고용했으면 일꾼 쪽과 다르다)와 계약을 정산하는 일꾼 쪽을 지금까지
       settlement.settleOwner(c.ownerId, at);
@@ -584,13 +631,13 @@ export function createLaborService(options: {
       save(c);
       return done({ ok: true });
     },
-    async setRent(userId, buildingId, rent) {
+    async setRent(userId, buildingId, rent, operator = false) {
       const at = now();
       const me = ownerFor(userId, at);
       if (me === undefined) return fail("busy");
-      const buildingOwner = buildingOwnerOf(buildingId);
-      if (buildingOwner === undefined) return fail("unknown_building");
-      if (buildingOwner !== me) return fail("forbidden");
+      const managed = managedOwner(me, buildingId, operator);
+      if (!managed.ok) return fail(managed.code);
+      const buildingOwner = managed.ownerId;
       // 그 시설의 열린 임대 계약: 임차인을 지금까지 정산한 뒤(지난 시간은 옛 값) 다음 시간부터 새 값
       if (rent > 0n) {
         for (const c of [...contracts.values()].toSorted((a, b) => a.id - b.id)) {
@@ -601,7 +648,8 @@ export function createLaborService(options: {
       }
       const row: RentRow = {
         buildingId,
-        ownerId: me,
+        // 임대료 줄의 주인 = 건물 주인(대주주·운영자가 정해도 받는 금고는 주인 사업장 금고)
+        ownerId: buildingOwner,
         asset: ASSET_CREDIT,
         rentPerHour: rent,
         updatedAtMs: at,
@@ -610,8 +658,87 @@ export function createLaborService(options: {
       writer.upsert("laborRents", rentRow(row));
       return done({ ok: true });
     },
-    postJob: (userId, input) => jobCommand(userId, (me, at) => board.post(me, input, at)),
-    withdrawJob: (userId, jobId) => jobCommand(userId, (me, at) => board.withdraw(me, jobId, at)),
+    postJob: (userId, input, operator = false) =>
+      jobCommand(userId, (me, at) => {
+        const managed = managedOwner(me, input.buildingId, operator);
+        return managed.ok ? board.post(managed.ownerId, input, at) : fail(managed.code);
+      }),
+    withdrawJob: (userId, jobId, operator = false) =>
+      jobCommand(userId, (me, at) => {
+        const job = board.jobs.get(jobId);
+        if (!job) return board.withdraw(me, jobId, at);
+        // 낸 사람(그때 주인)이 아니어도 지금 그 건물을 관리하면 거둔다
+        if (job.ownerId !== me) {
+          const managed = managedOwner(me, job.buildingId, operator);
+          if (!managed.ok) return fail(managed.code);
+        }
+        return board.withdraw(job.ownerId, jobId, at);
+      }),
+    building(userId, buildingId) {
+      const at = now();
+      if (!options.ready()) return { status: "not_ready", buildingId };
+      const owner = buildingOwnerOf(buildingId);
+      if (owner === undefined) return { status: "unknown_building", buildingId };
+      const me = settlement.findOwnerOfUser(userId);
+      const rules = wageRulesOf(options.rules());
+      const rent = rents.get(buildingId);
+      const posted =
+        owner !== null && rent && rent.rentPerHour > 0n && rent.ownerId === owner
+          ? String(rent.rentPerHour)
+          : null;
+      const manager =
+        me !== undefined &&
+        owner !== null &&
+        (owner === me || business?.mayManage?.(buildingId, me) === true);
+      const contractsHere: LaborBuildingContractView[] = [...contracts.values()]
+        .filter((c) => c.buildingId === buildingId && (isOpen(c) || c.state === "grace"))
+        .toSorted((a, b) => a.id - b.id)
+        .map((c) => {
+          const worker = me !== undefined && c.workerOwnerId === me;
+          const boss = manager || (me !== undefined && c.ownerId === me);
+          return {
+            id: c.id,
+            kind: c.kind,
+            unitId: c.unitId,
+            state: c.state,
+            rate: String(c.rate),
+            deposit: String(c.deposit),
+            cyclesLeft: Number(depositCyclesLeft(c)),
+            warning: laborWarning(c, rules.labor),
+            nextDueAt: isOpen(c) ? c.nextDueMs : null,
+            graceUntil: c.graceUntilMs,
+            endsAt: c.endsAtMs,
+            paidTotal: String(c.paidTotal),
+            role: worker && boss ? "both" : worker ? "worker" : boss ? "owner" : "none",
+          };
+        });
+      const site = workplaceOf(buildingId);
+      const myUnits: LaborUnitView[] = [];
+      for (const map of maps.values()) {
+        if (map.buildingOwner(buildingId) === undefined) continue;
+        if (me !== undefined)
+          map.forEachUnit((unit) => {
+            if (unit.ownerId === me)
+              myUnits.push({ id: unit.id, kind: unit.kind, busy: unitBusy(unit.id), mapKey: map.mapKey });
+          });
+      }
+      return {
+        status: "ready",
+        buildingId,
+        generatedAt: at,
+        currency: ASSET_CREDIT,
+        rules: rulesView(),
+        canManage: manager,
+        ownerless: owner === null,
+        rent: posted,
+        job: board.openAt(buildingId, me),
+        slots: site?.slots ?? 0,
+        filled: workersAt(buildingId).length,
+        baseDailyWage: String(wage(rules.efficiency, rules.rateMilli, 1000, rules.society)),
+        contracts: contractsHere,
+        myUnits: myUnits.toSorted((a, b) => a.id - b.id),
+      };
+    },
     acceptJob: (userId, jobId, unitId) => jobCommand(userId, (me, at) => board.accept(me, jobId, unitId, at)),
     jobs(userId, filter) {
       return {

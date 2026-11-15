@@ -1,6 +1,7 @@
 // 2차맵 원자재 오브젝트 채집·건물 들어가기 조회 응답 모양(tRPC gather.*) — docs/adr/2026-11-07-gather-objects.md.
 // 서버(apps/server/src/gather/)가 만들고 2차맵 화면(apps/game/src/map/gather/)이 읽는다. 바꾸는 명령은 WebSocket(프로토콜 17 gather_*·unit_enter)이다.
 
+import type { FacilityCategory } from "./facilityCategory.ts";
 import type { HarborPanel } from "./harbor.ts";
 export type GatherStatus = "ok" | "not_ready" | "unknown_map";
 
@@ -159,6 +160,8 @@ export interface GatherBuildingResponse {
   readonly facilityId: string | null;
   readonly name: GatherName | null;
   readonly stage: string | null;
+  /** 시설 분류(기획 D-560, 건물 판 머리 칩 — docs/adr/2026-11-15-building-screen.md). 시설 줄이 없거나 옛 서버면 없음 */
+  readonly category?: FacilityCategory | undefined;
   readonly level: number;
   readonly mine: boolean;
   /** 내가 들어가면 화물을 넣을 수 있나(내 창고·시설·도시 시청) */

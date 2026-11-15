@@ -26,4 +26,17 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "소매 도시 행정 레벨 상한",
     "Retail city admin level limit",
   ),
+  k("business_share_count", "shareCount", "사업장 지분 발행 수(주)", "Business shares issued (count)"),
+  k(
+    "business_share_round_ms",
+    "shareRoundMs",
+    "사업장 지분 동시호가 주기(ms)",
+    "Business share call-auction period (ms)",
+  ),
+  k(
+    "business_share_order_max",
+    "shareOrderMax",
+    "사업장 지분 회차당 주문 수(건)",
+    "Business share orders per round (count)",
+  ),
 ];

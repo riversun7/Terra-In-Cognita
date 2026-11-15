@@ -147,3 +147,53 @@ export interface LaborOverviewResponse {
   /** 내가 낸 열린 구인 게시 */
   readonly jobs: readonly LaborJobView[];
 }
+
+// ---------- 건물 하나의 노동 판(tRPC labor.building — 건물 판 [일꾼·계약] 칸, docs/adr/2026-11-15-building-screen.md) ----------
+
+/** 그 건물의 계약 한 줄(누구나 본다 — 장부 공개 D-555 1513과 같이, 남의 금액도 보인다) */
+export interface LaborBuildingContractView {
+  readonly id: number;
+  readonly kind: LaborKindView;
+  readonly unitId: number;
+  readonly state: LaborStateView;
+  /** 임금형 = 주기당 임금, 임대형 = 시간당 임대료 */
+  readonly rate: LaborAmount;
+  /** 임금형 보증금 잔액(임대형 "0") */
+  readonly deposit: LaborAmount;
+  readonly cyclesLeft: number;
+  readonly warning: boolean;
+  readonly nextDueAt: number | null;
+  readonly graceUntil: number | null;
+  readonly endsAt: number | null;
+  readonly paidTotal: LaborAmount;
+  /** 보는 사람이 유닛 주인(worker)·시설 관리(owner)·둘 다·아무것도 아님 */
+  readonly role: "owner" | "worker" | "both" | "none";
+}
+
+/** labor.building */
+export type LaborBuildingResponse =
+  | { readonly status: "not_ready" | "unknown_building"; readonly buildingId: number }
+  | {
+      readonly status: "ready";
+      readonly buildingId: number;
+      readonly generatedAt: number;
+      /** [임시] 계약 화폐 */
+      readonly currency: string;
+      readonly rules: LaborRulesView;
+      /** 보는 사람이 주인·대주주(설정을 바꾼다). 운영자 모드는 기기가 따로 더한다 */
+      readonly canManage: boolean;
+      /** 주인이 없는 건물(빌려주지도 고용하지도 않는다) */
+      readonly ownerless: boolean;
+      /** 걸린 시간당 임대료(빌려주지 않으면 null) */
+      readonly rent: LaborAmount | null;
+      /** 열린 구인 게시(없으면 null) */
+      readonly job: LaborJobView | null;
+      /** 일자리 자리(직무 배치 + 열린 계약)·쓴 자리 */
+      readonly slots: number;
+      readonly filled: number;
+      /** 기준 유닛 하루 임금(조정 1000‰ — 미리 셈) */
+      readonly baseDailyWage: LaborAmount;
+      readonly contracts: readonly LaborBuildingContractView[];
+      /** 보는 사람의 이 2차맵 유닛(빌리기·일자리 받기·내 시설 고용 후보) */
+      readonly myUnits: readonly LaborUnitView[];
+    };

@@ -234,7 +234,11 @@ export interface FacilityService {
   /** 사업장 장부 명령을 잇는다(건물 세계 — business/commands.ts, 프로토콜 34) */
   attachBusiness(commands: BusinessCommands | undefined): void;
   /** 사업장 장부 명령(정산·넣기·사기·값·선물 — 건물 게이트웨이가 넘긴다). 고리가 없으면 busy */
-  businessCommand(userId: string, command: BusinessCommand): Promise<BusinessCommandResult>;
+  businessCommand(
+    userId: string,
+    command: BusinessCommand,
+    operator?: boolean,
+  ): Promise<BusinessCommandResult>;
   /**
    * 다 지은 시설 줄을 그대로 넣는다(세계 씨앗 = NPC 시작 도시 기본 시설, facilities/npcSeed.ts). 건물 칸은 부르는 쪽이 먼저 놓는다.
    * 재료·작업 없이 쓰기 대기열에만 쓴다(건물 칸과 같은 묶음)
@@ -559,9 +563,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     attachBusiness(commands) {
       business = commands;
     },
-    async businessCommand(userId, command) {
+    async businessCommand(userId, command, operator) {
       if (!business) return { ok: false, code: "busy" };
-      return business.run(userId, command);
+      return business.run(userId, command, operator === true);
     },
     seedBuilt(record) {
       facilities.set(record.buildingId, record);

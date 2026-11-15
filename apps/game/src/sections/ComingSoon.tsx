@@ -57,6 +57,7 @@ type ComingSoonRoute = Exclude<
   | "economy_market_city"
   | "economy_orders"
   | "economy_exchange"
+  | "building_books"
   | "cyborg_ranking"
   | "faction_ranking"
   | "faction_identity"

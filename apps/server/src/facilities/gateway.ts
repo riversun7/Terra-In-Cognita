@@ -9,6 +9,8 @@
 // - 물가 조건(프로토콜 21, 질문 947 나)의 새 코드 needs_water도 같다: 21판 연결에만 가고 20판은 blocked_terrain을 받는다.
 // - 사업장 장부 명령(프로토콜 34, docs/adr/2026-11-15-business-ledger.md)도 이 게이트웨이가 받아 business_result로 답한다(app.ts 상한 — 새 게이트웨이를
 //   잇지 않는다). 34의 새 코드 insufficient_funds(주인 꺼내기 값)는 더 낮은 판에 insufficient_materials로 간다.
+// - 지분 주문(프로토콜 38, docs/adr/2026-11-15-building-screen.md)도 여기서 받는다. 운영자 모드 연결(전체 보기 + 모든 유닛 명령 권한)의 관리 명령은
+//   남의 사업장에도 된다(사용자 요청 2026-11-15 "운영자도 조작가능").
 import {
   BUSINESS_PROTOCOL_VERSION,
   type ClientMessageOf,
@@ -28,7 +30,13 @@ import type { FacilityCommandResult, FacilityService, OperatorBuild } from "./se
 
 /** 사업장 장부 명령(프로토콜 34, business/commands.ts) — 건물 게이트웨이가 함께 받고 business_result로 답한다 */
 export type BusinessClientMessage = ClientMessageOf<
-  "business_settle" | "business_invest" | "business_buy" | "business_price" | "unit_gift"
+  | "business_settle"
+  | "business_invest"
+  | "business_buy"
+  | "business_price"
+  | "unit_gift"
+  | "business_share_order"
+  | "business_share_cancel"
 >;
 
 export type FacilityClientMessage = ClientMessageOf<
@@ -92,6 +100,8 @@ const BUSINESS_TYPES: ReadonlySet<string> = new Set([
   "business_buy",
   "business_price",
   "unit_gift",
+  "business_share_order",
+  "business_share_cancel",
 ]);
 const isBusiness = (
   message: FacilityClientMessage | BusinessClientMessage,
@@ -124,6 +134,16 @@ function businessCommandOf(message: BusinessClientMessage): BusinessCommand {
       };
     case "unit_gift":
       return { kind: "gift", unitId: message.unitId, amount: BigInt(message.amount) };
+    case "business_share_order":
+      return {
+        kind: "share_order",
+        buildingId: message.buildingId,
+        side: message.side,
+        price: BigInt(message.price),
+        shares: BigInt(message.shares),
+      };
+    case "business_share_cancel":
+      return { kind: "share_cancel", orderId: message.orderId };
     default: {
       const unhandled: never = message;
       return unhandled;
@@ -138,6 +158,7 @@ function businessText(id: number, result: BusinessCommandResult): string {
     id,
     ok: true,
     ...(result.paid === undefined ? {} : { paid: String(result.paid) }),
+    ...(result.orderId === undefined ? {} : { orderId: result.orderId }),
   });
 }
 
@@ -254,7 +275,8 @@ export function createFacilityGateway(options: {
         const service = options.service();
         if (!service) return send({ ok: false, code: "busy" });
         if (!limiter.take(viewer.id)) return send({ ok: false, code: "rate_limited" });
-        send(await service.businessCommand(viewer.id, businessCommandOf(message)));
+        const operator = isOperatorMode(link.observing?.() === true, viewer.roles);
+        send(await service.businessCommand(viewer.id, businessCommandOf(message), operator));
       };
       const process = async (message: FacilityClientMessage | BusinessClientMessage): Promise<void> => {
         if (isBusiness(message)) return processBusiness(message);

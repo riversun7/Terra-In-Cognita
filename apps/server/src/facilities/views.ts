@@ -55,6 +55,8 @@ export interface FacilityViewSource {
   readonly unitBusy: (unitId: number) => boolean;
   /** 그 시설에서 일하는 유닛(노동 계약 서비스 workersAt — 직무 배치·열린 계약). 없으면 빈 목록 */
   readonly workersOf?: ((buildingId: number) => readonly LaborWorkerEntry[]) | undefined;
+  /** 원자재 오브젝트를 맡는 시설 ID(팩 gather_objects의 facility — 채집소 반경 고리). 없으면 반경 없음 */
+  readonly objectFacilities?: (() => ReadonlySet<string>) | undefined;
   /** 그 숙소를 쓰는 NPC 일꾼 수(도시 경제 쉼터 계획, 질문 1047 다). 없으면 null */
   readonly lodgingOccupants?: ((buildingId: number, cityId: number | null) => number | undefined) | undefined;
 }
@@ -67,8 +69,9 @@ export interface BeaconEntry {
   readonly supplyCityId?: number | null | undefined;
 }
 
-/** 화폐(지갑)는 자리 목록에 넣지 않는다 */
-const isCash = (asset: string): boolean => asset.startsWith("cur:") || asset === "s3_test_credit";
+/** 화폐(지갑)·지분(사업장 지분 share:biz_<건물> — 물건이 아니다, docs/adr/2026-11-15-building-screen.md)은 자리 목록에 넣지 않는다 */
+const isCash = (asset: string): boolean =>
+  asset.startsWith("cur:") || asset === "s3_test_credit" || asset.startsWith("share:");
 
 /** 내 물건이 있는 자리(잔고 > 0, 화폐 빼고) — 도시 창고 → 건물 창고 → 화물 → 자리 없음 차례 */
 function placesOf(
@@ -140,6 +143,7 @@ function catalogView(
   def: FacilityDef,
   catalog: FacilityCatalog,
   rules: SocietyCoefficients,
+  objectFacilities: ReadonlySet<string>,
 ): FacilityCatalogView {
   const weightOf = (item: string) => catalog.weightOf(item);
   return {
@@ -149,6 +153,9 @@ function catalogView(
     maxLevel: def.maxLevel,
     footprint: def.footprint ?? null,
     needsWaterWithin: def.needsWaterWithin ?? null,
+    // 레벨 1 채집소 반경(gather/rules.ts stationBuffs Lv1 = campRadiusCells)
+    gatherRadiusCells:
+      def.gather && objectFacilities.has(def.id) ? Math.max(0, rules.gatherObjects.campRadiusCells) : null,
     durability: def.durability,
     levels: def.build
       ? Array.from({ length: def.maxLevel }, (_, index) => {
@@ -182,7 +189,8 @@ export function facilitiesOverview(
   const rt = rules.facilityRuntime;
   const catalog = source.catalog();
   const { service, ownerId, nowMs } = { ...input, service: source.service };
-  const catalogViews = catalog.facilities.map((def) => catalogView(def, catalog, rules));
+  const objectFacilities = source.objectFacilities?.() ?? new Set<string>();
+  const catalogViews = catalog.facilities.map((def) => catalogView(def, catalog, rules, objectFacilities));
   const jobFor = (pick: (job: JobRecord) => boolean): FacilityJobView | null => {
     for (const job of service.jobs.values()) if (pick(job)) return jobView(job);
     return null;

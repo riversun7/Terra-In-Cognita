@@ -7,14 +7,32 @@ import { canObserve } from "../world/visibility.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import { mapBuildingLooks, mapOwnerIds } from "./mapLooks.ts";
 import type { FacilityScreenSource } from "./screen.ts";
-import { readBusinessBooks } from "../business/books.ts";
+import { readBuildingOwner, readBusinessBooks } from "../business/books.ts";
+import { type OwnerNames, createOwnerNames } from "../business/names.ts";
+import type { QueryPool } from "../world/persist/load.ts";
 import { buildingPlace } from "./places.ts";
 import { attackTargetsOf, ownerFactionsOf } from "./targets.ts";
+
+/** 주인 이름 기억(DB 연결마다 하나 — 조회마다 새로 만들지 않는다) */
+const namesByPool = new WeakMap<QueryPool, OwnerNames>();
 
 export function facilityScreenSourceOf(world: World): FacilityScreenSource | undefined {
   const persistence = world.persistence;
   if (world.status().state !== "ready" || !persistence) return undefined;
   const { facilities, settlement, ledger, holdings, territory, labor, owners, pool } = persistence;
+  let names = namesByPool.get(pool);
+  if (!names) {
+    names = createOwnerNames({
+      pool,
+      factionName: (code) => territory.factionNameOf?.(code),
+      now: () => Date.now(),
+    });
+    namesByPool.set(pool, names);
+  }
+  const isNpc = (ownerId: number): boolean => {
+    const row = owners.get(ownerId);
+    return row !== undefined && row.userId === null && row.factionId !== null;
+  };
   return {
     view: {
       service: facilities.service,
@@ -26,6 +44,9 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       catalog: facilities.catalog,
       unitBusy: (unitId) => labor.unitBusy(unitId),
       workersOf: (buildingId) => labor.workersAt(buildingId),
+      // 채집소 반경 고리(건축 모드 — docs/adr/2026-11-15-building-screen.md): 원자재 오브젝트를 맡는 시설
+      objectFacilities: () =>
+        new Set(facilities.gatherKinds().flatMap((kind) => (kind.facility === null ? [] : [kind.facility]))),
       // 숙소를 쓰는 NPC 일꾼(도시 경제 쉼터 계획, 질문 1047 다)
       lodgingOccupants: (buildingId, cityId) => {
         if (cityId === null) return undefined;
@@ -47,15 +68,27 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
           durable: () => persistence.writer.durable(),
           place: (id) => buildingPlace(facilities.service.places, id),
           facilityOf: (id) => facilities.service.facilities.get(id)?.facilityId,
-          isNpc: (ownerId) => {
-            const row = owners.get(ownerId);
-            return row !== undefined && row.userId === null && row.factionId !== null;
-          },
+          isNpc,
+          shares: facilities.shares,
+          names,
         },
         settlement.findOwnerOfUser(userId),
         buildingId,
         days,
         nowMs,
+      ),
+    // 건물 판 머리 이름표(주인·대주주 이름 — docs/adr/2026-11-15-building-screen.md)
+    owner: (userId, buildingId) =>
+      readBuildingOwner(
+        {
+          core: facilities.business,
+          names,
+          place: (id) => buildingPlace(facilities.service.places, id),
+          isBusiness: (id) => facilities.service.facilities.has(id),
+          isNpc,
+        },
+        settlement.findOwnerOfUser(userId),
+        buildingId,
       ),
     land: facilities.land,
     async mapLooks(viewer, mapKey, nowMs) {

@@ -22,4 +22,8 @@ export const laborRouter = router({
         ctx.now(),
       ),
     ),
+  /** 건물 하나의 노동 판(임대료·구인·계약·내 유닛 — 누구나, 건물 판 [일꾼·계약] 칸) */
+  building: signedInProcedure
+    .input(z.object({ buildingId: rowId }))
+    .query(({ ctx, input }) => (ctx.labor ?? notReady).building(ctx.viewer, input.buildingId)),
 });

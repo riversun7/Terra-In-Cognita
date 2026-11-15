@@ -232,6 +232,8 @@ describe("주소 표", () => {
         [],
       ],
       economy_orders: ["/economy/orders", "economy", "shown", "everyone", []],
+      // 건물 재무 화면(docs/adr/2026-11-15-building-screen.md)
+      building_books: ["/buildings/:buildingId/books", "map", "shown", "everyone", []],
       economy_exchange: ["/economy/exchange", "economy", "shown", "everyone", []],
       faction: ["/faction", "home", "shown", "everyone", []],
       cyborg: ["/cyborg", "home", "shown", "everyone", []],

@@ -3,6 +3,8 @@
 // - 목록 단계: 지을 수 있는 시설(크기·Lv1 재료·시간). 다른 세력 도시 2차맵이면(서버 땅 규칙 facilities.landRule) 까닭을 먼저 보인다.
 // - 놓기 단계: 땅을 누르면 그 칸이 가운데가 되게 반투명 미리보기(엔진 층 createBuildPreview)와 격자. [회전]·[다른 건물]·[닫기]·[짓기].
 //   기기 대략 판정(buildModel.ts — 밖·겹침·물가·재료·땅)으로 색과 단추를 정하고, 막힌 지형·유닛은 [짓기] 때 서버 결과로 알린다.
+// - 채집소 반경(사용자 요청 2026-11-15 "건설시 … 오브젝트 포함할 반경 표시", docs/adr/2026-11-15-building-screen.md): 고른 시설이 원자재
+//   오브젝트를 맡으면(gatherRadiusCells) 미리보기 자리(서버 판정과 같은 왼쪽 위 칸 기준)에 레벨 1 반경 고리를 그린다(채집 덧그림 고리).
 // - 일꾼: 고른 내 유닛(지금 2차맵, 다른 작업 중이 아니면)을 넣는다(지금 규칙 — 건설 시간 단축). 건설 현장·납품·작업량은 2단계(ADR).
 // - 명령은 WebSocket facility_build(facilityCommands.ts). 성공하면 건축 모드를 닫는다(건물은 지도 자료로 짓는 중 모습이 온다).
 import type { SecondMapEngine } from "@terra/engine";
@@ -130,6 +132,16 @@ export function BuildSheet({
   const fw = footprint?.width ?? null;
   const fd = footprint?.height ?? null;
   const rotation = state.rotation;
+  // 채집소 반경 고리(레벨 1): 자리를 정했고 반경이 있는 시설일 때만
+  const radius = chosen?.gatherRadiusCells ?? null;
+  useEffect(() => {
+    if (ax === null || ay === null || radius === null || radius <= 0) {
+      gather.setRing(null);
+      return () => undefined;
+    }
+    gather.setRing({ x: ax, y: ay, radius });
+    return () => gather.setRing(null);
+  }, [gather, ax, ay, radius]);
   useEffect(() => {
     const preview = previewRef.current;
     if (!preview) return;
@@ -212,6 +224,9 @@ export function BuildSheet({
                       <span className="map-build-option-meta">
                         {size ? m.build_size({ w: size.width, d: size.height }) : null}
                         {first ? ` · ${formatDuration(first.timeMs)}` : null}
+                        {entry.gatherRadiusCells
+                          ? ` · ${m.build_radius_short({ cells: entry.gatherRadiusCells })}`
+                          : null}
                       </span>
                       {first ? (
                         <span className="map-build-option-meta">
@@ -248,6 +263,11 @@ export function BuildSheet({
                 d: rotatedSize(footprint.width, footprint.height, state.rotation).sy,
               })}{" "}
               · {worker ? m.build_builder({ id: worker.id }) : m.build_builder_none()}
+            </p>
+          ) : null}
+          {radius !== null && radius > 0 ? (
+            <p className="map-units-note" data-part="build-radius">
+              {m.build_radius({ cells: radius })}
             </p>
           ) : null}
           {notice ? (

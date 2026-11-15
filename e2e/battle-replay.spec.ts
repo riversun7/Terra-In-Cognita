@@ -38,6 +38,11 @@ async function seek(page: Page, ms: number): Promise<void> {
   await expect.poll(() => timeOf(page)).toBe(ms);
 }
 
+/** 찾기 막대 눈금(0.1초, step 100)에 맞춘 시각 ms(내림) */
+function onStep(ms: number): number {
+  return Math.floor(ms / 100) * 100;
+}
+
 /** 투사체가 날고 다른 효과·숫자도 보이는 시각을 찾아 둔다(싸움 중 사진, 0.1초 간격) */
 async function seekToAction(page: Page, from: number): Promise<number> {
   const end = Number(await page.locator(".br-seek").getAttribute("max"));
@@ -82,6 +87,9 @@ test.describe("dev", () => {
     await expect
       .poll(() => timeOf(page), { timeout: 10_000 })
       .toBeGreaterThanOrEqual(Math.min(paused + 4000, length));
+    // 1배속으로 돌려 둔다: 8배속이면 약 9초 전투를 "처음부터" 다시 틀자마자 1초 남짓에 끝에 닿아 재생 중 시각을 못 본다
+    await page.locator(".br-speed button").nth(1).click();
+    await expect(view(page)).toHaveAttribute("data-speed", "1");
     // 유닛 줄: 12칩, 고르면 자세히, 따라가기
     await expect(page.locator(".br-unit-chip")).toHaveCount(12);
     await page.locator(".br-unit-chip").nth(3).click();
@@ -153,12 +161,13 @@ test.describe("dev", () => {
             await page.locator(".br-play").click();
             await expect(view(page)).toHaveAttribute("data-playing", "false");
             const end = Number(await page.locator(".br-seek").getAttribute("max"));
-            const at = await seekToAction(page, Math.min(7000, Math.floor(end / 4)));
+            // 찾기 막대는 0.1초 눈금(step 100)이라 그 눈금에 맞춘 값만 넣을 수 있다
+            const at = await seekToAction(page, Math.min(7000, onStep(end / 4)));
             await page.waitForTimeout(300);
             expect(await horizontalOverflow(page)).toEqual([]);
             await shot(page, `battle-replay-${size}-${theme}-${language}-action`);
             // 다른 싸움 순간(뒤쪽, 쓰러진 유닛이 있을 때)도 한 장 — 남은 시간의 가운데부터
-            await seekToAction(page, Math.min(at + 30_000, at + Math.floor((end - at) / 2)));
+            await seekToAction(page, Math.min(at + 30_000, at + onStep((end - at) / 2)));
             await page.waitForTimeout(300);
             await shot(page, `battle-replay-${size}-${theme}-${language}-action2`);
             await page.locator(".br-seek").fill(String(end));

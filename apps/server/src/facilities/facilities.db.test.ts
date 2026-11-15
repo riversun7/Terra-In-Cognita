@@ -153,6 +153,17 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
     expect(blocked).toEqual({ ok: false, code: "forbidden" });
     // 재료는 그대로
     expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(60n);
+    // 운영자 모드(기획 D-560 1239)는 땅 규칙·재료 없이 짓고, 짓는 시간은 배율로 나눈다
+    const operatorBuilt = await service.build(a.userId, {
+      mapKey: a.map.mapKey,
+      facility: "workshop",
+      x: 80,
+      y: 80,
+      rotation: 0,
+      operator: { pace: 10 },
+    });
+    expect(operatorBuilt).toMatchObject({ ok: true, doneAtMs: clock + Math.floor(WORKSHOP_L1_MS / 10) });
+    expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(60n);
     // 그 세력에 들면(내 세력 도시) 짓는다
     await rows(test.db, "insert into faction_members (user_id, faction_id) values ($1, $2)", [
       a.userId,

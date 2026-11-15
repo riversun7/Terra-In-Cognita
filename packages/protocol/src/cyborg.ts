@@ -131,15 +131,18 @@ export const cyborgCreateMessage = z.object({
   id: requestId,
   /** 친 이름(서버가 NFC·앞뒤 공백 제거 뒤 검사한다) */
   name: z.string().min(1).max(64),
-  appearance: cyborgAppearanceSchema,
+  /**
+   * 옛 2D 외형(36판부터 선택 칸 — 기획 D-560 1421 "옛 2D 자료 바로 정리"). 서버는 저장하지 않는다: look이 없고 이 칸만 오면(35판 기기) 이 값에서
+   * 3D 외형을 넘겨 만든다. 36판 기기는 보내지 않는다
+   */
+  appearance: cyborgAppearanceSchema.optional(),
   factionId: rowId,
   cityId: rowId,
   /** 속성 분배(5판부터, D-450). 4판 기기는 보내지 않는다 → 서버가 "분배 기다림"으로 만든다 */
   elements: cyborgElementsSchema.optional(),
   /**
-   * 3D 외형(선택 칸, docs/adr/2026-11-11-character-3d.md 5절). 보내면 서버가 저장하고 옛 칸 appearance는 이 외형에서 넘긴 값으로 맞춘다.
-   * 더하기만 한 선택 칸이라 프로토콜 판을 올리지 않았다: 옛 서버는 모르는 칸을 버리고(z.object) 옛 기기는 보내지 않는다 — 그러면 옛 외형에서
-   * 넘긴 3D 외형으로 보인다
+   * 3D 외형(docs/adr/2026-11-11-character-3d.md 5절). 36판 기기는 늘 보낸다. 칸 모양은 선택 칸 그대로 둔다(옛 기기가 옛 칸 appearance만 보내도
+   * 받는다). look도 appearance도 없으면 서버가 appearance_invalid로 거절한다
    */
   look: characterLookSchema.optional(),
 });

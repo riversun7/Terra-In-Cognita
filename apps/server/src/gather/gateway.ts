@@ -7,7 +7,7 @@
 import { type ClientMessageOf, type GatherResultCode, encodeMessage } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
-import { type PaceMap, isOperatorMode, withPace } from "../world/operatorPace.ts";
+import { type OperatorPaceLink, type PaceMap, operatorFactor, withPace } from "../world/operatorPace.ts";
 import type { GatherCommandResult, GatherService } from "./service.ts";
 
 export type GatherClientMessage = ClientMessageOf<"gather_start" | "gather_stop" | "unit_enter">;
@@ -20,6 +20,8 @@ export interface GatherLink {
   viewer(): Promise<Viewer | null>;
   /** 같은 연결이 2차맵을 전체 보기(운영자 모드)로 구독 중인가(world/gateway.ts). 없으면 아니다 */
   observing?(): boolean;
+  /** 이 연결의 운영자 배율(기본 1 — 기획 D-560 1246, world/operatorPace.ts). 없으면 1 */
+  operatorPace?: OperatorPaceLink | undefined;
 }
 
 export interface GatherSocket {
@@ -83,11 +85,15 @@ export function createGatherGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
-        const operator = isOperatorMode(link.observing?.() === true, viewer.roles);
+        const factor = operatorFactor(link, viewer.roles);
         reply(
           message.id,
-          await withPace(options.maps?.() ?? [], message.unitId, operator, () =>
-            run(service, viewer, message),
+          await withPace(
+            options.maps?.() ?? [],
+            message.unitId,
+            factor,
+            () => run(service, viewer, message),
+            link.operatorPace,
           ),
         );
       };

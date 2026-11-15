@@ -1,59 +1,57 @@
 // 도시 화면의 건물 줄과 시설 무리 — 엔진·React를 모른다(시험 대상). 사용자 지적 2026-11-12 "도시(현재맵도시와 건물 리스트를 보여주고 빠르게
-// 조회 및 조작할 수있는 큰화면)". 지도 자료의 건물(보이는 것만 온다)에 겉모습 답(facilities.mapLooks — 시설·이름·레벨·상태·내 것)을 붙인다.
-// - 시설 무리(채집소·창고·생산·공공·집·그 밖)는 건물 그림 모델(팩 facilities.look.model, 없으면 엔진이 시설 ID로 고르는 모델)에서 정한다 —
-//   새 시설도 모델만 정하면 무리가 따라온다(ADR 2026-11-08-building-art). 지도 위 누른 건물 표시(gatherOverlay.ts)도 같은 무리 색을 쓴다.
-// - 차례: 무리 차례 → 기준점에서 가까운 차례(기준점이 없으면 이름) → 건물 ID.
+// 조회 및 조작할 수있는 큰화면)". 지도 자료의 건물(보이는 것만 온다)에 겉모습 답(facilities.mapLooks — 시설·이름·레벨·상태·내 것·분류)을 붙인다.
+// - 시설 무리 = 시설 분류(기획 D-560 시설 분류표 — 팩 facilities.category, 서버가 겉모습 답에 싣는다, @terra/shared/facilityCategory).
+//   분류가 없는 옛 답은 건물 그림 모델(팩 facilities.look.model, 없으면 엔진이 시설 ID로 고르는 모델)에서 고른다. 시설이 없는 건물은 그 밖.
+//   지도 위 누른 건물 이름표(gatherOverlay.ts)도 같은 무리 색을 쓴다.
+// - 차례: 무리 차례(분류표 차례) → 기준점에서 가까운 차례(기준점이 없으면 이름) → 건물 ID.
 import type { BuildingFootprint } from "@terra/engine";
 import { artKindOf } from "@terra/engine/buildingArt";
+import { FACILITY_CATEGORIES, type FacilityCategory } from "@terra/shared/facilityCategory";
 import type { FacilityLookModel } from "@terra/shared/facilityLook";
 import type { MapBuildingLook, MapLookState } from "@terra/shared/mapLooks";
 import { type Point, buildingCentre } from "../nearby/nearbyData.ts";
 
-/** 시설 무리 — 지도 표시 색·도시 화면 거르기 */
-export type FacilityGroup = "gather" | "storage" | "craft" | "civic" | "housing" | "other";
+/** 시설 무리 — 시설 분류 + 그 밖(시설이 없는 건물). 지도 표시 색·도시 화면 거르기 */
+export type FacilityGroup = FacilityCategory | "other";
 
-export const FACILITY_GROUPS: readonly FacilityGroup[] = [
-  "gather",
-  "storage",
-  "craft",
-  "civic",
-  "housing",
-  "other",
-];
+export const FACILITY_GROUPS: readonly FacilityGroup[] = [...FACILITY_CATEGORIES, "other"];
 
+/** 분류가 없는 옛 답: 그림 모델 → 분류 */
 const GROUP_OF_MODEL: Readonly<Record<FacilityLookModel, FacilityGroup>> = {
-  farm: "gather",
-  lumber: "gather",
-  mine: "gather",
-  herb: "gather",
-  ranch: "gather",
-  fishing: "gather",
-  // 부두(docs/adr/2026-11-13-boats.md)
-  dock: "other",
+  farm: "gathering",
+  lumber: "gathering",
+  mine: "gathering",
+  herb: "gathering",
+  ranch: "gathering",
+  fishing: "gathering",
+  dock: "transport",
   stockpile: "storage",
   storehouse: "storage",
   warehouse: "storage",
-  smelter: "craft",
-  kitchen: "craft",
-  workshop: "craft",
-  sawmill: "craft",
-  kiln: "craft",
-  temple: "civic",
-  lab: "civic",
-  government: "civic",
-  hospital: "civic",
+  smelter: "processing",
+  kitchen: "processing",
+  workshop: "processing",
+  sawmill: "processing",
+  kiln: "processing",
+  temple: "public",
+  lab: "public",
+  government: "administration",
+  hospital: "public",
   house: "housing",
 };
 
-/** 겉모습 답 → 시설 무리(시설이 없는 건물 = 그 밖. 모델이 일반 집이어도 시설이 집이 아니면(숙소 말고) 그 밖) */
-export function groupOf(look: Pick<MapBuildingLook, "facilityId" | "art"> | undefined): FacilityGroup {
+/** 겉모습 답 → 시설 무리(분류 칸 → 옛 답이면 그림 모델. 시설이 없는 건물 = 그 밖) */
+export function groupOf(
+  look: Pick<MapBuildingLook, "facilityId" | "art" | "category"> | undefined,
+): FacilityGroup {
   const facility = look?.facilityId ?? null;
   if (facility === null) return "other";
+  if (look?.category !== undefined) return look.category;
   const model = look?.art?.model;
   const kind: FacilityLookModel =
     model !== undefined && Object.hasOwn(GROUP_OF_MODEL, model) ? model : artKindOf(facility);
   const group = GROUP_OF_MODEL[kind];
-  // 모르는 시설은 엔진이 일반 집으로 그린다 — 그것까지 "집"으로 묶지 않는다(숙소만 집 모델을 정해 둔다)
+  // 모르는 시설은 엔진이 일반 집으로 그린다 — 그것까지 "주거"로 묶지 않는다(숙소만 집 모델을 정해 둔다)
   if (group === "housing" && model !== "house") return "other";
   return group;
 }
@@ -83,14 +81,9 @@ export interface CityRowsInput {
   readonly locale: "ko" | "en";
 }
 
-const GROUP_RANK: Readonly<Record<FacilityGroup, number>> = {
-  gather: 0,
-  storage: 1,
-  craft: 2,
-  civic: 3,
-  housing: 4,
-  other: 5,
-};
+const GROUP_RANK: ReadonlyMap<FacilityGroup, number> = new Map(
+  FACILITY_GROUPS.map((group, index) => [group, index]),
+);
 
 export function buildCityRows(input: CityRowsInput): CityRow[] {
   const rows = input.buildings.map((building): CityRow => {
@@ -109,7 +102,7 @@ export function buildCityRows(input: CityRowsInput): CityRow[] {
     };
   });
   return rows.toSorted((a, b) => {
-    const group = GROUP_RANK[a.group] - GROUP_RANK[b.group];
+    const group = (GROUP_RANK.get(a.group) ?? 0) - (GROUP_RANK.get(b.group) ?? 0);
     if (group !== 0) return group;
     if (a.cells !== null && b.cells !== null && a.cells !== b.cells) return a.cells - b.cells;
     const name = (a.name ?? "").localeCompare(b.name ?? "", input.locale);
@@ -129,11 +122,15 @@ export function cityCounts(rows: readonly CityRow[]): Readonly<Record<CityFilter
   const counts: Record<CityFilter, number> = {
     all: rows.length,
     mine: 0,
-    gather: 0,
+    administration: 0,
+    gathering: 0,
+    processing: 0,
     storage: 0,
-    craft: 0,
-    civic: 0,
     housing: 0,
+    public: 0,
+    commerce: 0,
+    transport: 0,
+    military: 0,
     other: 0,
   };
   for (const row of rows) {

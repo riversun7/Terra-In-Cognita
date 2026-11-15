@@ -4,7 +4,7 @@
 // - 분석: 작은 설정(짝마다 2판·30초)으로 돌리면 승률표·상성 요약·사양 표, 칸을 누르면 풀이. [스탯 영향도]는 순위 막대 여섯 줄·곡선·2차 변화 표.
 //   결과는 서버 메모리에 남아(30분) 같은 계정이 화면을 다시 열면 이어 보인다 → 배치·사진 시험은 돌리지 않고 그 결과를 연다.
 // - player: 권한 없음 화면, tRPC balance.table·balance.duels는 403.
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
 import { createTrpcReplay, replayTrpc } from "./helpers/trpc.ts";
@@ -94,8 +94,23 @@ const LAYOUTS: readonly { theme: DevTheme; language: Language; width: number; he
 /** 배치·사진 시험이 함께 쓰는 서버 답(서버 상태를 바꾸지 않는 조회) */
 const layoutReplay = createTrpcReplay();
 
+/** 2차 스탯 화면 맨 아래 [스탯 영향도](기획 D-560 1376 — 밸런스 화면에서 옮김)를 연다 */
+async function openInfluence(page: Page): Promise<Locator> {
+  await page.goto("/dev/secondary-stats");
+  const section = page.locator(".sec-influence");
+  await section.locator(".sec-influence-toggle").click();
+  await expect(section).toHaveAttribute("data-open", "true");
+  const tab = section.locator(".an-sensitivity");
+  await expect(tab).toBeVisible({ timeout: 30_000 });
+  return tab;
+}
+
 /** 분석 탭을 열고 결과가 뜰 때까지(서버가 이 계정의 최근 일을 이어 보인다) */
 async function analysisReady(page: Page, tab: "matrix" | "sensitivity"): Promise<void> {
+  if (tab === "sensitivity") {
+    await expect(await openInfluence(page)).toHaveAttribute("data-status", "done", { timeout: 60_000 });
+    return;
+  }
   await page.goto(`/dev/balance?tab=${tab}`);
   await expect(page.locator(`.an-${tab}`)).toHaveAttribute("data-status", "done", { timeout: 60_000 });
 }
@@ -127,13 +142,17 @@ test.describe("분석", () => {
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 
-  test("스탯 영향도: 변형마다 2판으로 돌리면 순위 막대 6줄·곡선·2차 변화 표·대조, 지표를 바꿔도 막대 6줄", async ({
+  test("스탯 영향도(2차 스탯 화면, D-560 1376): 변형마다 2판으로 돌리면 순위 막대 6줄·곡선·2차 변화 표·대조, 지표를 바꿔도 막대 6줄", async ({
     page,
     deviceErrors,
   }) => {
     test.setTimeout(120_000);
+    // 옛 밸런스 탭 주소는 2차 스탯 화면으로 간다. 밸런스 화면에는 그 탭이 없다
     await page.goto("/dev/balance?tab=sensitivity");
-    const tab = page.locator(".an-sensitivity");
+    await expect(page).toHaveURL((url) => url.pathname === "/dev/secondary-stats");
+    await page.goto("/dev/balance");
+    await expect(page.locator("#bp-tab-sensitivity")).toHaveCount(0);
+    const tab = await openInfluence(page);
     await tab.locator('.an-run-panel [data-field="runs"] select').selectOption("2");
     await tab.locator('[data-field="limit"] select').selectOption("30");
     await tab.locator(".an-run").click();

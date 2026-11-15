@@ -19,6 +19,7 @@ import {
   type ReportStatusResponse,
   type ReportTraceInput,
   type ReportTraceResponse,
+  type ReportFormulaChange,
   type ReportTuningChange,
   reportBattleSeconds,
   reportCityId,
@@ -138,8 +139,11 @@ export function createReportService(deps: {
   const store = deps.store ?? { insert: insertReport, list: listReports, read: readReport };
   const jobs = new Map<string, JobRecord>();
 
-  /** 실효 규칙 한 벌(B는 설정 칸 바꿈을 얹는다). 칸이 없거나 범위 밖이면 거절 */
-  const rulesOf = (changes: readonly ReportTuningChange[]) => {
+  /**
+   * 실효 규칙 한 벌(B는 설정 칸 바꿈·계산식 바꿈을 얹는다 — 계산식은 기획 D-560 1381). 칸이 없거나 범위 밖이면 거절, 식이 그 칸 변수로 읽히지
+   * 않으면 invalid_formula
+   */
+  const rulesOf = (changes: readonly ReportTuningChange[], formulas: readonly ReportFormulaChange[] = []) => {
     const snapshot = state.snapshot();
     const values = new Map(snapshot.values);
     const statChanges: { id: string; value: number }[] = [];
@@ -151,13 +155,18 @@ export function createReportService(deps: {
       else values.set(change.id, change.value);
     }
     const society = societyCoefficientsFrom(values);
-    const catalog =
-      statChanges.length > 0
-        ? { ...roster.combat, statTable: state.statTableWith(statChanges) }
-        : roster.combat;
+    let statTable = statChanges.length > 0 ? state.statTableWith(statChanges) : undefined;
+    let combatFormulas = state.combatFormulas();
+    if (formulas.length > 0) {
+      const variant = state.rulesWithFormulas(statChanges, formulas);
+      if (!variant.ok) throw rejected(variant.reason);
+      statTable = variant.statTable;
+      combatFormulas = variant.combat;
+    }
+    const catalog = statTable ? { ...roster.combat, statTable } : roster.combat;
     const rules: LabRules = {
       catalog,
-      coefficients: combatCoefficientsFrom(values, undefined, state.combatFormulas()),
+      coefficients: combatCoefficientsFrom(values, undefined, combatFormulas),
       growthPm: society.cyborg.growthPm,
       maxLevel: society.cyborg.maxLevel,
     };
@@ -191,9 +200,10 @@ export function createReportService(deps: {
     setup: ReportSetup,
     changes: readonly ReportTuningChange[],
     cache: Map<number, ReportCitySnapshot> = new Map(),
+    formulas: readonly ReportFormulaChange[] = [],
   ): Promise<{ play: PlaySetup; dropped: LabDropped[]; revision: number; city: ReportCityInfo | null }> => {
     const arenaMap = await arenaMapOf(setup);
-    const { rules, society, revision } = rulesOf(changes);
+    const { rules, society, revision } = rulesOf(changes, formulas);
     const city = snapshotOf(setup, cache);
     // 스냅숏(배치·지형 읽기)과 판 재료 만들기 사이에 이벤트 루프에 양보한다(주 스레드 루프 지연)
     if (city) await new Promise((resolve) => setImmediate(resolve));
@@ -270,7 +280,12 @@ export function createReportService(deps: {
       const cache = new Map<number, ReportCitySnapshot>();
       const a = await build(input.setup, [], cache);
       const b = input.variant
-        ? await build(input.variant.setup ?? input.setup, input.variant.tuning, cache)
+        ? await build(
+            input.variant.setup ?? input.setup,
+            input.variant.tuning,
+            cache,
+            input.variant.formulas ?? [],
+          )
         : null;
       if (!starts.take(viewer.id)) throw reasonedError("TOO_MANY_REQUESTS", "RATE_LIMITED", "rate_limited");
       prune();
@@ -444,7 +459,12 @@ export function createReportService(deps: {
       const variant = record.input.variant;
       const built =
         input.which === "b" && variant
-          ? await build(variant.setup ?? record.input.setup, variant.tuning)
+          ? await build(
+              variant.setup ?? record.input.setup,
+              variant.tuning,
+              new Map(),
+              variant.formulas ?? [],
+            )
           : await build(record.input.setup, []);
       const savedCity = (input.which === "b" ? record.report.b : record.report.a)?.city ?? null;
       if (!traces.take(viewer.id)) throw reasonedError("TOO_MANY_REQUESTS", "RATE_LIMITED", "rate_limited");

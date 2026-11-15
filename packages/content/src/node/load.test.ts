@@ -65,3 +65,13 @@ describe("hashPack", () => {
     expect(hashPack(withBom)).toBe(hashPack(original));
   });
 });
+
+describe("core 팩 시설 분류(기획 D-560)", () => {
+  it("core 팩 시설은 모두 분류 칸을 적는다(빠지면 생산 단계에서 고른 값이 된다 — 기획 분류표를 팩에 그대로 둔다)", () => {
+    const loaded = loadContentPack(fileURLToPath(new URL("../../../../content/core", import.meta.url)));
+    const facilities = loaded.pack?.entries.get("facilities") ?? [];
+    const missing = facilities.filter((entry) => !("category" in entry));
+    expect(facilities.length).toBeGreaterThan(0);
+    expect(missing.map((entry) => entry.id)).toEqual([]);
+  });
+});

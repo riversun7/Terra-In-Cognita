@@ -1,6 +1,7 @@
 // 유닛·사이보그 화면 자료 — 팩 이름 표, 몸 계산(성장·장비·스킬 칸), 시안 자료, 실제 유닛 줄 바꾸기, 서비스·프로시저 권한
 import { loadContentPack } from "@terra/content/node";
-import { DEFAULT_CYBORG_APPEARANCE, zeroElements } from "@terra/shared/cyborg";
+import { DEFAULT_CHARACTER_LOOK } from "@terra/shared/characterLook";
+import { zeroElements } from "@terra/shared/cyborg";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import type { HomeQuery, TrpcContext, Viewer } from "../trpc/context.ts";
@@ -228,8 +229,8 @@ describe("몸 계산", () => {
       temperament: "balanced",
       initial: { str: 12, dex: 9, agi: 10, vit: 11, int: 8, wis: 10 },
       kPm: { str: 1100, dex: 950, agi: 1000, vit: 1050, int: 900, wis: 1000 },
-      appearance: DEFAULT_CYBORG_APPEARANCE,
-      look: null,
+      look: DEFAULT_CHARACTER_LOOK,
+      lookAuto: false,
       factionId: 1,
       startCityId: 1,
       unitId: 7,

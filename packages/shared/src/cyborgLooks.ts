@@ -1,9 +1,7 @@
-// 사이보그 외형 — 부위 ID 묶음 + 색(기획 D-6040 기술 전달). ADR 2026-11-01-first-login-cyborg 1·2절, 질문 172 기술 추천(가).
-// [임시] 3D 모델이 아직 없어 기기가 2D 그림(SVG)으로 그린다. 그래서 목록이 그림 코드와 묶여 여기(공용)에 있다.
-// 3D 부위가 생기면 같은 칸(머리·얼굴·몸통·팔다리)에 모델을 붙이고 목록을 콘텐츠 팩으로 옮긴다. 옛 ID는 가까운 부위로 넘긴다.
-// - 서버는 만들 때 ID가 목록에 있는지만 본다(isCyborgAppearance). 무작위는 꾸밈이라 기기 난수로 뽑는다(판정이 아니다).
-// - 색 값은 세계의 칠(다른 사람에게도 같은 색)이라 테마 값(tokens.css)이 아니다. 그리는 쪽이 테두리만 테마 색으로 둔다.
-// 저장된 ID는 바꾸거나 다시 쓰지 않는다(cyborgs.appearance).
+// 옛 2D 사이보그 외형(1판) — 부위 ID 묶음 + 색(기획 D-6040). ADR 2026-11-01-first-login-cyborg 1·2절.
+// 기획 D-560 1421 "옛 2D 자료 바로 정리"(docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-15, D-560 1421)"): 2D 그림·프리셋·넘기기·무작위는 뺐다.
+// 남은 것은 옛 값을 3D 외형으로 넘기는 데 필요한 것뿐이다(서버가 켤 때 남은 옛 칸을 옮기고, 35판 기기의 만들기가 옛 칸만 보낼 때 — isCyborgAppearance·
+// characterLook.ts characterLookFromLegacy). 3D 칠 색 앞 8개(CYBORG_COLORS)는 3D 색 목록이 그대로 쓴다. 옛 칸이 DB에서 사라지면(다음 배포) 색만 남긴다.
 
 /** 부위 칸 — 차례가 화면의 부위 고르기 차례다 */
 export const CYBORG_LOOK_SLOTS = ["head", "face", "body", "limbs"] as const;
@@ -54,28 +52,15 @@ export interface CyborgAppearance {
   readonly accent: CyborgColorId;
 }
 
-/** [임시] 프리셋 4개(부위 묶음 데이터, D-6040). 처음 고른 것은 첫 프리셋 */
-export const CYBORG_PRESETS = [
-  {
-    id: "scout",
-    look: { head: "antenna", face: "visor", body: "slim", limbs: "piston", primary: "mint", accent: "lemon" },
-  },
-  {
-    id: "guard",
-    look: { head: "helm", face: "grill", body: "plate", limbs: "stub", primary: "slate", accent: "coral" },
-  },
-  {
-    id: "tinker",
-    look: { head: "dome", face: "mono", body: "core", limbs: "claw", primary: "peach", accent: "sky" },
-  },
-  {
-    id: "drifter",
-    look: { head: "crest", face: "eyes", body: "round", limbs: "wheel", primary: "lilac", accent: "cream" },
-  },
-] as const satisfies readonly { readonly id: string; readonly look: CyborgAppearance }[];
-export type CyborgPresetId = (typeof CYBORG_PRESETS)[number]["id"];
-
-export const DEFAULT_CYBORG_APPEARANCE: CyborgAppearance = CYBORG_PRESETS[0].look;
+/** 옛 값이 맞지 않을 때 쓰는 2D 외형(옛 첫 프리셋 "scout") */
+export const DEFAULT_CYBORG_APPEARANCE: CyborgAppearance = {
+  head: "antenna",
+  face: "visor",
+  body: "slim",
+  limbs: "piston",
+  primary: "mint",
+  accent: "lemon",
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -94,29 +79,4 @@ export function isCyborgAppearance(value: unknown): value is CyborgAppearance {
     CYBORG_LOOK_SLOTS.every((slot) => inList(CYBORG_LOOK_PARTS[slot], value[slot])) &&
     CYBORG_COLOR_SLOTS.every((slot) => inList(CYBORG_COLOR_IDS, value[slot]))
   );
-}
-
-/** 칸 하나를 앞(−1)·뒤(+1)로 넘긴다(끝에서 처음으로 돈다) */
-export function stepCyborgPart(look: CyborgAppearance, slot: CyborgLookSlot, step: 1 | -1): CyborgAppearance {
-  const list: readonly string[] = CYBORG_LOOK_PARTS[slot];
-  const index = list.indexOf(look[slot]);
-  const next = list[(index + step + list.length) % list.length];
-  return { ...look, [slot]: next };
-}
-
-/** 무작위 외형. pick(n)은 0 이상 n 미만의 정수를 준다(기기는 Math.random, 시험은 고정 수열) */
-export function randomCyborgAppearance(pick: (count: number) => number): CyborgAppearance {
-  const choose = <T>(list: readonly T[]): T => {
-    const value = list[Math.min(list.length - 1, Math.max(0, pick(list.length)))];
-    if (value === undefined) throw new Error("empty look list");
-    return value;
-  };
-  return {
-    head: choose(CYBORG_LOOK_PARTS.head),
-    face: choose(CYBORG_LOOK_PARTS.face),
-    body: choose(CYBORG_LOOK_PARTS.body),
-    limbs: choose(CYBORG_LOOK_PARTS.limbs),
-    primary: choose(CYBORG_COLOR_IDS),
-    accent: choose(CYBORG_COLOR_IDS),
-  };
 }

@@ -19,6 +19,7 @@ import {
   type ReportSetup,
   type ReportSiegeDefense,
   type ReportStartInput,
+  type ReportFormulaChange,
   type ReportTuningChange,
   type ReportWaveDefense,
   flowQuantile,
@@ -79,6 +80,8 @@ export interface ReportForm {
   readonly variantLegion: { readonly a: LegionForm; readonly b: LegionForm } | null;
   readonly variantWave: WaveForm | null;
   readonly variantTuning: readonly ReportTuningChange[];
+  /** B 계산식 바꿈(기획 D-560 1381 "A/B에 계산식도" — 식 칸 키 → 식 글) */
+  readonly variantFormulas: readonly ReportFormulaChange[];
 }
 
 export const DEFAULT_WAVE: WaveForm = {
@@ -112,6 +115,7 @@ export function defaultReportForm(): ReportForm {
     variantLegion: null,
     variantWave: null,
     variantTuning: [],
+    variantFormulas: [],
   };
 }
 
@@ -245,7 +249,13 @@ export function reportInputOf(form: ReportForm, teams: Teams, fallbackName: stri
     note: form.note,
     setup,
     variant: form.variantOn
-      ? { label: form.variantLabel.trim() || "B", setup: variantSetup, tuning: form.variantTuning }
+      ? {
+          label: form.variantLabel.trim() || "B",
+          setup: variantSetup,
+          tuning: form.variantTuning,
+          // 빈 식 줄(칸을 고르지 않았거나 글이 빈 것)은 보내지 않는다
+          ...(variantFormulasOf(form).length > 0 ? { formulas: variantFormulasOf(form) } : {}),
+        }
       : null,
     runs: form.runs,
     seed: form.seed,
@@ -295,6 +305,7 @@ export function formOfInput(
     variantOn: variant !== null,
     variantLabel: variant?.label ?? "B",
     variantTuning: variant?.tuning ?? [],
+    variantFormulas: variant?.formulas ?? [],
     variantTeams: null,
     variantLegion: null,
     variantWave: null,
@@ -400,6 +411,23 @@ function edgeField(value: unknown): ReportEdge {
 }
 
 /** 이 기기에 남긴 폼(칸마다 모양을 보고, 틀리면 기본값. 서버가 다시 검사한다). B 팀은 남기지 않는다 */
+/** 보낼 B 계산식 줄(칸·글이 빈 줄은 뺀다) */
+export function variantFormulasOf(form: Pick<ReportForm, "variantFormulas">): ReportFormulaChange[] {
+  return form.variantFormulas
+    .map((change) => ({ key: change.key.trim(), source: change.source }))
+    .filter((change) => change.key !== "" && change.source.trim() !== "");
+}
+
+/** 기기에 남긴 B 계산식 줄(모양이 맞는 것만) */
+function formulasField(value: unknown): ReportFormulaChange[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry: unknown) => {
+    const key = field(entry, "key");
+    const source = field(entry, "source");
+    return typeof key === "string" && typeof source === "string" ? [{ key, source }] : [];
+  });
+}
+
 export function loadReportForm(): ReportForm {
   const base = defaultReportForm();
   try {
@@ -453,6 +481,7 @@ export function loadReportForm(): ReportForm {
             return typeof id === "string" && typeof value === "number" ? [{ id, value }] : [];
           })
         : [],
+      variantFormulas: formulasField(field(parsed, "variantFormulas")),
     };
   } catch {
     return base;

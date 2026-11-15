@@ -4,7 +4,7 @@
 //   가시거리 단계 표지(data-view-level·data-view-reach)가 붙는다.
 // - 측정(E2E_MEASURE=1, 작업 기록용): 5/6·3/6에서 화면 가운데 → 위 끝 땅 거리, 소품 모델 수, 가시거리 단계, 끄는 동안 fps·엔진 p95, 사진.
 //   헤드리스 Chromium(SwiftShader) 값이라 휴대폰 값이 아니다.
-import { closeOperatorMenu, operatorToggle } from "./helpers/mapHud.ts";
+import { closeOperatorMenu, setOperatorMode } from "./helpers/mapHud.ts";
 import type { Locator, Page } from "@playwright/test";
 import { type CameraState, groundUnder } from "../packages/engine/src/camera/cameraMath.ts";
 import { shot } from "./helpers/screen.ts";
@@ -18,9 +18,7 @@ async function openAt(page: Page, stage: number): Promise<Locator> {
   const screen = page.locator(".map-screen");
   await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
   await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
-  const toggle = await operatorToggle(page);
-  if ((await toggle.getAttribute("aria-pressed")) !== "true") await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await setOperatorMode(page, true);
   await closeOperatorMenu(page);
   await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
   await goStage(page, stage);

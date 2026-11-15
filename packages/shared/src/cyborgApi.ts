@@ -2,7 +2,6 @@
 // ADR 2026-11-01-first-login-cyborg 4절·"바뀜 (D-450~D-453)". 바꾸는 명령(굴리기·만들기·속성 분배)은 WebSocket(packages/protocol
 // cyborg.ts)으로만 보낸다.
 import type { CharacterLook } from "./characterLook.ts";
-import type { CyborgAppearance } from "./cyborgLooks.ts";
 import type { CyborgNameProblem } from "./cyborgName.ts";
 import type { Regime } from "./faction.ts";
 import type { NationEmblemView } from "./nationEditor.ts";
@@ -21,9 +20,11 @@ export type CyborgStatusResponse =
   | {
       readonly cyborg: {
         readonly name: string;
-        readonly appearance: CyborgAppearance;
-        /** 3D 외형(저장한 것, 없으면 옛 외형에서 넘긴 값 — docs/adr/2026-11-11-character-3d.md 5절). 옛 서버면 없음 */
-        readonly look?: CharacterLook;
+        /**
+         * 3D 외형(docs/adr/2026-11-11-character-3d.md 5절 — 옛 2D만 있던 사이보그는 서버가 넘겨 채웠다). 옛 2D 칸 appearance는 뺐다
+         * (기획 D-560 1421)
+         */
+        readonly look: CharacterLook;
         readonly elementsPending: boolean;
       };
     };

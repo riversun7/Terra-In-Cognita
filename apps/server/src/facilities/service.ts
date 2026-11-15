@@ -115,7 +115,22 @@ export interface FacilityBuildInput {
   readonly y: number;
   readonly rotation: Rotation;
   readonly unitIds?: readonly number[] | undefined;
+  /**
+   * 운영자 모드 건설(기획 D-560 1239 "건설도 제한 없이 다 가능" — 권한은 게이트웨이가 본다: 전체 보기 구독 + 모든 유닛 명령 권한): 재료를 쓰지 않고
+   * 땅 규칙(다른 세력 도시 2차맵)을 보지 않는다. 짓는 시간은 운영자 배율로 나눈다(기본 1 = 보통 — D-560 1246). 칸 검사·물가 조건·행정 건물 폐허
+   * 조건은 그대로(놓을 수 없는 자리·도시가 없는 정부는 만들지 않는다)
+   */
+  readonly operator?: OperatorBuild | undefined;
 }
+
+/** 운영자 모드 건설 표지(배율 = 짓는 시간 나눗수, 1 이상) */
+export interface OperatorBuild {
+  readonly pace: number;
+}
+
+/** 운영자 배율로 나눈 시간(1이면 그대로) */
+const operatorMs = (ms: number, operator: OperatorBuild | undefined): number =>
+  operator && operator.pace > 1 ? Math.floor(ms / operator.pace) : ms;
 
 /**
  * NPC 증축 짓기 입력(질문 1101 나, npc/cityBuild.ts — 플레이어 짓기와 같은 규칙): 재료·시간은 @terra/sim buildPolicy가 플레이어와 같은 식
@@ -158,7 +173,13 @@ export interface FacilityService {
    * 유닛을 묶지 않는다). 동기(쓰기 대기열 같은 묶음)
    */
   npcJob(input: NpcJobInput): FacilityCommandResult;
-  upgrade(userId: string, buildingId: number, unitIds: readonly number[]): Promise<FacilityCommandResult>;
+  /** 레벨 올리기. operator = 운영자 모드(재료 없이, 시간 ÷ 배율 — FacilityBuildInput.operator와 같다) */
+  upgrade(
+    userId: string,
+    buildingId: number,
+    unitIds: readonly number[],
+    operator?: OperatorBuild,
+  ): Promise<FacilityCommandResult>;
   repair(
     userId: string,
     target: FacilityTarget,
@@ -581,14 +602,19 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const unitIds = input.unitIds ?? [];
       const unitProblem = checkUnits(me, unitIds);
       if (unitProblem) return fail(unitProblem);
-      const cost = levelCost(def, 1);
+      const operator = input.operator;
+      const packCost = levelCost(def, 1);
+      // 운영자 모드는 재료 없이(D-560 1239)
+      const cost = operator ? { ...packCost, materials: [] } : packCost;
       // 재료 자리(D-516 361): 짓는 칸이 속한 도시의 창고·창고 시설 + 그 2차맵 내 유닛 화물
       const cityId = cityAt(places, input.mapKey, input.x, input.y);
       const scope = materialScope(places, me, input.mapKey, cityId);
       if (!hasGoods(ledger, me, cost.materials, scope)) return fail("insufficient_materials");
       // 땅(docs/adr/2026-11-14-second-map-build.md): 다른 세력 도시 2차맵이면 못 짓는다(결과 코드는 forbidden — 화면은 미리 묻기
-      // facilities.landRule로 까닭을 안다). 필지(D-149)는 아직 없다 → 그 밖은 2차맵 빈 칸이면 짓는다. 칸 검사·놓기는 2차맵이 한다
-      if (options.land && !(await options.land(me, input.mapKey)).allowed) return fail("forbidden");
+      // facilities.landRule로 까닭을 안다). 필지(D-149)는 아직 없다 → 그 밖은 2차맵 빈 칸이면 짓는다. 칸 검사·놓기는 2차맵이 한다.
+      // 운영자 모드는 땅 규칙을 보지 않는다(D-560 1239)
+      if (!operator && options.land && !(await options.land(me, input.mapKey)).allowed)
+        return fail("forbidden");
       const placed = map.placeBuilding(
         {
           x: input.x,
@@ -602,7 +628,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (!placed.ok) return fail(PLACE_CODES[placed.code] ?? "out_of_bounds");
       if (placed.buildingId === undefined) return fail("internal_error");
       spendGoods(ledger, me, cost.materials, at, "facility_build", scope);
-      const ms = withBuilders(cost.ms, unitIds.length, runtime());
+      const ms = operatorMs(withBuilders(cost.ms, unitIds.length, runtime()), operator);
       const record: FacilityRecord = {
         buildingId: placed.buildingId,
         facilityId: def.id,
@@ -723,7 +749,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       return { ok: true, doneAtMs: at + ms };
     },
 
-    async upgrade(userId, buildingId, unitIds) {
+    async upgrade(userId, buildingId, unitIds, operator) {
       const at = now();
       const me = ownerFor(userId, at);
       if (me === undefined) return fail("busy");
@@ -736,10 +762,12 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (record.level >= def.maxLevel || !def.build) return fail("max_level");
       const unitProblem = checkUnits(me, unitIds);
       if (unitProblem) return fail(unitProblem);
-      const cost = levelCost(def, record.level + 1);
+      const packCost = levelCost(def, record.level + 1);
+      // 운영자 모드는 재료 없이, 시간 ÷ 배율(D-560 1239)
+      const cost = operator ? { ...packCost, materials: [] } : packCost;
       if (!spendGoods(ledger, me, cost.materials, at, "facility_upgrade", scopeOf(me, buildingId)))
         return fail("insufficient_materials");
-      const ms = withBuilders(cost.ms, unitIds.length, runtime());
+      const ms = operatorMs(withBuilders(cost.ms, unitIds.length, runtime()), operator);
       const job = newJob({
         kind: "upgrade",
         ownerId: me,

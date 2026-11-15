@@ -10,10 +10,12 @@ import {
 import { REPORT_WORLD_DEFENDERS_MAX } from "@terra/shared/battleReportCity";
 import { useId } from "react";
 import { m } from "../../../paraglide/messages.js";
+import { getLocale } from "../../../paraglide/runtime.js";
 import { NumberField } from "../lab/fields.tsx";
 import type { Teams } from "../lab/labModel.ts";
 import { CityPicker } from "./CityPicker.tsx";
 import { OrdersEditor } from "./OrdersEditor.tsx";
+import { VariantFormulas } from "./VariantFormulas.tsx";
 import { cityName, defenseText, edgeText, modeText, reasonText, terrainLabel } from "./reportMessages.ts";
 import {
   REPORT_LIMIT_OPTIONS,
@@ -509,6 +511,11 @@ export function ReportPanel(props: {
                 </button>
               ) : null}
             </div>
+            <VariantFormulas
+              formulas={form.variantFormulas}
+              locale={getLocale()}
+              onChange={(variantFormulas) => onForm({ ...form, variantFormulas })}
+            />
           </>
         ) : null}
       </fieldset>

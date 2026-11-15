@@ -18,6 +18,7 @@ import { elsewhereText, peekText, unitName, unitStatusText } from "./mapUnits.ts
 import { UnitAdvice } from "../roster/UnitAdvice.tsx";
 import { HouseReport } from "../faction/identity/HouseReport.tsx";
 import { OperatorMenuToggle } from "./OperatorMenu.tsx";
+import { OPERATOR_PACE_CHOICES } from "./operatorPace.ts";
 import "./unitControl.css";
 
 /** 목록 id(여닫기 단추의 aria-controls) */
@@ -260,13 +261,18 @@ export function OperatorBadge() {
 export function OperatorItems({
   operator,
   freeView,
+  pace,
   onToggle,
   onFreeView,
+  onPace,
 }: {
   readonly operator: boolean;
   readonly freeView: boolean;
+  /** 운영자 배율(기본 1 — 기획 D-560 1246) */
+  readonly pace: number;
   readonly onToggle: () => void;
   readonly onFreeView: () => void;
+  readonly onPace: (factor: number) => void;
 }) {
   return (
     <>
@@ -285,6 +291,39 @@ export function OperatorItems({
           label={m.map_free_view()}
         />
       ) : null}
+      {operator ? <OperatorPaceRow pace={pace} onPace={onPace} /> : null}
     </>
+  );
+}
+
+/** [운영자 속도] 칩 줄(1×·10×·100×, 눌린 것 = 지금 배율). 칩을 누르면 운영 메뉴가 닫힌다(D-560 1239) */
+function OperatorPaceRow({
+  pace,
+  onPace,
+}: {
+  readonly pace: number;
+  readonly onPace: (factor: number) => void;
+}) {
+  return (
+    <li className="map-operator-menu-row map-operator-pace" data-pace={pace}>
+      <span className="map-operator-pace-label" id="map-operator-pace-label">
+        {m.map_operator_pace()}
+      </span>
+      <span className="map-operator-pace-chips" role="group" aria-labelledby="map-operator-pace-label">
+        {OPERATOR_PACE_CHOICES.map((factor) => (
+          <button
+            key={factor}
+            type="button"
+            className="button-small map-operator-button map-operator-pace-chip"
+            data-factor={factor}
+            aria-pressed={pace === factor}
+            onClick={() => onPace(factor)}
+          >
+            {m.map_operator_pace_value({ factor })}
+          </button>
+        ))}
+      </span>
+      <p className="map-operator-menu-note">{m.map_operator_pace_note()}</p>
+    </li>
   );
 }

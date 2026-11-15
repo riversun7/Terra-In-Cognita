@@ -2,6 +2,7 @@
  * 2차맵 아래 탭(MapBottomNav)·운영 메뉴(OperatorMenu)·시설 무리 색 — 사용자 지적 2026-11-12. 값은 styles/tokens.css의 var(--…)만 쓴다.
  * 아래 탭은 앱 하단 탭 모양(shell/tabbar.css .tab)을 그대로 쓰고, 지도 화면 안 맨 아래에 붙는다(안전 영역만큼 띄움). 아래 판 줄(.map-hud-bottom)과
  * 도시 화면은 그 위에서 멈춘다(--map-nav-h). 넓은 화면에서도 보인다(지도 화면은 틀의 하단 탭을 숨긴다).
+ * 데스크톱(64em 이상)은 아래 탭 대신 왼쪽 세로 띠(기획 D-560 1242) — 띠 폭(--map-rail-w)만큼 위아래 판·도시 화면이 오른쪽으로 비킨다.
  */
 .map-screen {
   --map-nav-h: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
@@ -43,6 +44,37 @@
     border: var(--border-w) solid var(--color-border);
     border-radius: var(--radius-panel);
     box-shadow: var(--shadow-panel);
+  }
+}
+/* 데스크톱: 왼쪽 세로 띠(기획 D-560 1242 "데스크톱은 왼쪽 세로 띠"). 앱 틀의 접은 레일 폭(--rail-w)과 같다 */
+@media (min-width: 64em) {
+  .map-screen[data-nav="bottom"] {
+    --map-nav-h: 0px;
+    --map-rail-w: calc(var(--rail-w) + env(safe-area-inset-left));
+  }
+  .map-screen[data-nav="bottom"] .map-hud,
+  .map-screen[data-nav="bottom"] .map-city {
+    left: calc(var(--map-rail-w) + var(--space-3));
+  }
+  .map-nav {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    transform: none;
+    inline-size: var(--map-rail-w);
+    grid-auto-flow: row;
+    grid-auto-rows: auto;
+    grid-auto-columns: auto;
+    align-content: start;
+    gap: var(--space-2);
+    min-block-size: 0;
+    padding: max(var(--space-3), env(safe-area-inset-top)) 0 max(var(--space-3), env(safe-area-inset-bottom))
+      env(safe-area-inset-left);
+    border: 0;
+    border-right: var(--border-w) solid var(--color-border);
+    border-radius: 0;
+    box-shadow: none;
   }
 }
 /* 열린 탭: 하단 탭의 "지금 화면"과 같은 모양(알약 바탕 + 진한 글자 — 색에만 기대지 않는다) */
@@ -130,22 +162,62 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+/* [운영자 속도] 칩 줄(기획 D-560 1246): 이름 + 칩 셋(눌린 칩 = 지금 배율) */
+.map-operator-pace {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.map-operator-pace-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.map-operator-pace-chips {
+  display: flex;
+  gap: var(--space-1);
+}
+.map-operator-pace-chip {
+  min-inline-size: var(--tap-size);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.map-operator-pace-chip[aria-pressed="true"] {
+  background-color: var(--color-danger-surface);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-danger);
+}
+.map-operator-pace .map-operator-menu-note {
+  flex: 1 1 100%;
+}
 
-/* 시설 무리 색(도시 화면 표시·지도 위 누른 건물 표시) — 색만이 아니라 아이콘 모양도 다르다 */
-[data-group="gather"] {
+/* 시설 무리 색 = 시설 분류(기획 D-560 — 도시 화면 표시·지도 위 누른 건물 이름표) — 색만이 아니라 아이콘 모양도 다르다 */
+[data-group="administration"] {
+  --group-color: var(--color-stat-str);
+}
+[data-group="gathering"] {
   --group-color: var(--color-stat-agi);
+}
+[data-group="processing"] {
+  --group-color: var(--color-stat-vit);
 }
 [data-group="storage"] {
   --group-color: var(--color-stat-dex);
 }
-[data-group="craft"] {
-  --group-color: var(--color-stat-vit);
-}
-[data-group="civic"] {
-  --group-color: var(--color-stat-int);
-}
 [data-group="housing"] {
   --group-color: var(--color-stat-wis);
+}
+[data-group="public"] {
+  --group-color: var(--color-stat-int);
+}
+[data-group="commerce"] {
+  --group-color: var(--color-warning);
+}
+[data-group="transport"] {
+  --group-color: var(--color-market-blue);
+}
+[data-group="military"] {
+  --group-color: var(--color-danger);
 }
 [data-group="other"] {
   --group-color: var(--color-text-muted);

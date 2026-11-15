@@ -92,6 +92,28 @@ describe("보고서 폼", () => {
     expect(reportInputOf(back.form, { ...teams, ...back.teams }, "fallback")).toEqual(input);
   });
 
+  it("B 계산식 바꿈(D-560 1381): 빈 줄은 보내지 않고, 입력 → 폼 → 입력이 같다", () => {
+    const form = {
+      ...defaultReportForm(),
+      variantOn: true,
+      variantFormulas: [
+        { key: "hit_chance", source: "dex * 2" },
+        { key: "", source: "1" },
+        { key: "crit_chance", source: "  " },
+      ],
+    };
+    const input = reportInputOf(form, teams, "f");
+    expect(input.variant).toEqual({
+      label: "B",
+      setup: null,
+      tuning: [],
+      formulas: [{ key: "hit_chance", source: "dex * 2" }],
+    });
+    const back = formOfInput(input, defaultReportForm());
+    expect(back.form.variantFormulas).toEqual([{ key: "hit_chance", source: "dex * 2" }]);
+    expect(reportInputOf(back.form, { ...teams, ...back.teams }, "f")).toEqual(input);
+  });
+
   it("종류를 공성으로 바꾸면 판 수·제한 시간이 공성 범위로, 빈 팀은 문제", () => {
     const siege = withMode(defaultReportForm(), "wave");
     expect(siege.runs).toBeLessThanOrEqual(200);

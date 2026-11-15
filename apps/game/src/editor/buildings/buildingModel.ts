@@ -111,6 +111,8 @@ export function cleanFacility(entry: FacilityJson): FacilityJson {
     id: entry.id,
     name: { ko: entry.name.ko, en: entry.name.en },
     stage: entry.stage,
+    // 시설 분류(기획 D-560 — 팩 칸 차례: stage 다음)
+    ...(entry.category === undefined ? {} : { category: entry.category }),
     ...(entry.maxLevel === undefined ? {} : { maxLevel: entry.maxLevel }),
     slotsPerLevel: entry.slotsPerLevel,
     ...(entry.pollution === undefined ? {} : { pollution: entry.pollution }),
@@ -165,6 +167,7 @@ export function mergeFacility(
     id: theirs.id,
     name: pick("name"),
     stage: pick("stage"),
+    category: pick("category"),
     maxLevel: pick("maxLevel"),
     slotsPerLevel: pick("slotsPerLevel"),
     pollution: pick("pollution"),

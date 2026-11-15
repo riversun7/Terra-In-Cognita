@@ -9,7 +9,11 @@ import type { MapBuildingLook } from "@terra/shared/mapLooks";
 
 export type NearbyTab = "resources" | "buildings" | "units";
 
-export const NEARBY_TABS: readonly NearbyTab[] = ["resources", "buildings", "units"];
+/** 탭 차례(기획 D-560 1241: 건물 → 주변 유닛 → 자원, 처음 열면 건물 — NEARBY_FIRST_TAB) */
+export const NEARBY_TABS: readonly NearbyTab[] = ["buildings", "units", "resources"];
+
+/** 판을 처음 열 때 고르는 탭(기획 D-560 1241) */
+export const NEARBY_FIRST_TAB: NearbyTab = "buildings";
 
 /** 한 번에 더 보이는 줄 수 */
 export const NEARBY_PAGE = 20;

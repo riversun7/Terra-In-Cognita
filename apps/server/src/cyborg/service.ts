@@ -24,7 +24,7 @@ import type {
   CyborgRollView,
   CyborgStatusResponse,
 } from "@terra/shared/cyborg";
-import { isCharacterLook, legacyAppearanceOf } from "@terra/shared/characterLook";
+import { characterLookFromLegacy, characterSeedOf, isCharacterLook } from "@terra/shared/characterLook";
 import { checkElementAllocation, isCyborgAppearance, parseCyborgName } from "@terra/shared/cyborg";
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import { RELATION_SCORE_MAX, RELATION_SCORE_MIN } from "@terra/shared/faction";
@@ -136,12 +136,13 @@ export type CyborgCommandResult =
 
 export interface CreateInput {
   readonly name: string;
-  readonly appearance: unknown;
+  /** 옛 2D 외형(35판 기기만 — 36판부터 선택 칸, D-560 1421). look이 없을 때만 그 값에서 3D 외형을 넘긴다. 저장하지 않는다 */
+  readonly appearance?: unknown;
   readonly factionId: number;
   readonly cityId: number;
   /** 속성 분배(D-450). 없으면 "분배 기다림"으로 만든다(4판 기기 — 5판 연결이 빠뜨리면 gateway가 먼저 막는다) */
   readonly elements?: unknown;
-  /** 3D 외형(선택 칸, docs/adr/2026-11-11-character-3d.md 5절). 없으면 옛 외형에서 넘긴 값으로 보인다 */
+  /** 3D 외형(docs/adr/2026-11-11-character-3d.md 5절). 36판 기기는 늘 보낸다. 없으면 옛 외형에서 넘기고 한 번 무료로 고를 수 있다 */
   readonly look?: unknown;
 }
 
@@ -154,8 +155,8 @@ export interface CyborgService {
   /** 분배가 없는 사이보그에 속성을 한 번 나눈다(D-450) */
   allocateElements(userId: string, elements: unknown): Promise<CyborgCommandResult>;
   /**
-   * 3D 외형을 고르기 전에 만든 사이보그(look 빈 값)가 3D 외형을 한 번 고른다(질문 961 나, docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-11,
-   * 961·963)"). 이미 있으면 look_locked. 옛 칸 appearance는 그 외형에서 넘긴 값으로 맞춘다
+   * 3D 외형을 고르기 전에 만든 사이보그(서버가 옛 2D에서 넘겨 채운 외형 — lookAuto)가 3D 외형을 한 번 고른다(질문 961 나,
+   * docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-11, 961·963)"). 이미 골랐으면 look_locked
    */
   chooseLook(userId: string, look: unknown): Promise<CyborgCommandResult>;
   /** 본체 생활비(유닛 유지비)를 마지막 경계에 못 냈는가(D-453) */
@@ -313,6 +314,13 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
   }
   for (const roll of options.loaded.rolls) rolls.set(roll.userId, roll);
   const factions: readonly JoinableFaction[] = options.loaded.factions;
+  // 옛 2D 외형 정리(D-560 1421): 3D 외형을 채웠거나 옛 칸이 남은 줄을 켤 때 한 번 다시 쓴다(appearance = null). 다음에 켜면 할 일이 없다
+  for (const userId of options.loaded.legacyLooks) {
+    const record = byUser.get(userId);
+    if (record) writer.upsert("cyborgs", cyborgRow(record));
+  }
+  if (options.loaded.legacyLooks.length > 0)
+    log.warn({ count: options.loaded.legacyLooks.length }, "cyborg legacy 2D looks migrated to 3D");
 
   /** 세력의 시작 도시 가운데 이 서버가 띄운 2차맵에 있는 것(id 차례) */
   const startCitiesOf = (factionId: number): CityRow[] =>
@@ -417,7 +425,6 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         ? {
             cyborg: {
               name: record.name,
-              appearance: record.appearance,
               look: cyborgLookOf(record),
               elementsPending: record.elements === null,
             },
@@ -550,14 +557,18 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const parsed = parseCyborgName(input.name);
       if (!parsed.ok) return fail(parsed.problem === "reserved" ? "name_reserved" : "name_invalid");
       if (byName.has(parsed.key)) return fail("name_taken");
-      // 3D 외형(선택 칸): 맞지 않으면 만들지 않는다. 맞으면 옛 칸(2D 그림)은 그 외형에서 넘긴 값으로 맞춘다(기기가 보낸 옛 칸은 모양만 본다)
-      let look: CyborgRecord["look"] = null;
+      // 3D 외형: 맞지 않으면 만들지 않는다. 없으면(35판 기기) 옛 2D 칸에서 넘기고 한 번 무료로 고를 수 있게 둔다. 옛 2D 칸은 저장하지 않는다
+      // (D-560 1421)
+      let look: CyborgRecord["look"];
+      let lookAuto = false;
       if (input.look !== undefined) {
         if (!isCharacterLook(input.look)) return fail("appearance_invalid");
         look = input.look;
+      } else {
+        if (!isCyborgAppearance(input.appearance)) return fail("appearance_invalid");
+        look = characterLookFromLegacy(input.appearance, characterSeedOf(userId));
+        lookAuto = true;
       }
-      if (!isCyborgAppearance(input.appearance)) return fail("appearance_invalid");
-      const appearance = look === null ? input.appearance : legacyAppearanceOf(look);
       const faction = factions.find((entry) => entry.id === input.factionId);
       const cities = faction ? startCitiesOf(faction.id) : [];
       if (!faction || cities.length === 0) return fail("unknown_faction");
@@ -587,8 +598,8 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         temperament: roll.temperament,
         initial: roll.stats,
         kPm: growthK(options.seed(), rules),
-        appearance,
         look,
+        lookAuto,
         factionId: faction.id,
         startCityId: city.id,
         unitId,
@@ -642,10 +653,10 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const record = byUser.get(userId);
       if (!record) return fail("no_cyborg");
       // 한 번만: 고른 3D 외형이 있으면(만들 때 골랐거나 이미 한 번 썼다) 바꾸지 않는다(다시 고르기는 환생 D-352·계정 서비스 D-7032)
-      if (record.look !== null) return fail("look_locked");
+      if (!record.lookAuto) return fail("look_locked");
       if (!isCharacterLook(look)) return fail("appearance_invalid");
       record.look = look;
-      record.appearance = legacyAppearanceOf(look);
+      record.lookAuto = false;
       writer.upsert("cyborgs", cyborgRow(record));
       await writer.durable();
       return { ok: true };

@@ -1,6 +1,11 @@
 // 사이보그 자료 — 부팅 때 DB에서 읽고(쓰기 대기열이 돌기 전), 바뀌면 월드 쓰기 대기열로 쓴다.
 // docs/adr/2026-11-01-first-login-cyborg.md 2절·"바뀜 (D-450~D-453)". int8은 pg가 문자열로 주므로 숫자로 바꾼다. smallint[]는
 // 숫자 배열로 온다. 속성값(elements)이 null이면 아직 나누지 않은 사이보그다(프로토콜 5 전에 만든 것, 한 번 나눈다).
+// 옛 2D 외형 정리(기획 D-560 1421 "옛 2D 자료 바로 정리", docs/adr/2026-11-11-character-3d.md "바뀜 (2026-11-15, D-560 1421)"):
+// - 메모리 자료에는 3D 외형(look)만 둔다. 옛 칸 appearance는 읽기만 하고 쓰지 않는다(쓰기 줄은 늘 null — DB 열은 다음 배포에서 지운다).
+// - 3D 외형이 없는 옛 줄은 읽을 때 옛 외형에서 넘긴 3D 외형(사용자 ID 씨앗 — 늘 같은 답)으로 채우고 look_auto(한 번 무료로 고를 수 있음, 질문
+//   961 나)를 켠다. 옛 칸이 남은 줄은 legacyLooks에 담아 서비스가 켤 때 한 번 다시 쓴다(appearance = null, look 채움) — 다음에 켜면 할 일이 없다
+//   (켤 때 도는 멱등 옮기기, 세계를 새로 시작하지 않는다).
 import {
   type CharacterLook,
   characterLookFromLegacy,
@@ -8,7 +13,6 @@ import {
   isCharacterLook,
 } from "@terra/shared/characterLook";
 import {
-  type CyborgAppearance,
   DEFAULT_CYBORG_APPEARANCE,
   type ElementValues,
   elementsFromArray,
@@ -26,13 +30,13 @@ export interface CyborgRecord {
   readonly temperament: string;
   readonly initial: Primaries;
   readonly kPm: Primaries;
-  /** 옛 2D 외형. 3D 외형을 고르면 그 외형에서 넘긴 값으로 맞춘다(chooseLook) */
-  appearance: CyborgAppearance;
+  /** 3D 외형(docs/adr/2026-11-11-character-3d.md 5절) — 모든 사이보그가 가진다(옛 2D 외형만 있던 줄은 읽을 때 넘겨 채운다) */
+  look: CharacterLook;
   /**
-   * 3D 외형(docs/adr/2026-11-11-character-3d.md 5절). null = 3D 외형을 고르기 전에 만든 사이보그(또는 옛 기기가 만든 것) —
-   * 보일 때 옛 외형에서 넘긴다(cyborgLookOf). 그런 사이보그는 한 번 고를 수 있다(chooseLook, 질문 961 나 — 고르면 다시 null이 되지 않는다)
+   * 3D 외형을 서버가 옛 2D 외형에서 넘겨 채웠나(DB look_auto). 그런 사이보그는 한 번 무료로 고를 수 있다(chooseLook, 질문 961 나 — 고르면 false가
+   * 되고 다시 켜지지 않는다)
    */
-  look: CharacterLook | null;
+  lookAuto: boolean;
   /** 지금 나라(세력 행 ID). 국적 바꾸기(귀화)가 바꾼다(docs/adr/2026-11-08-citizenship.md) */
   factionId: number;
   /** 내 도시(첫 접속 시작 도시, 귀화하면 귀화한 도시 — 구인 기본 도시·거래소 기본 도시·본체를 다시 놓는 곳) */
@@ -81,8 +85,8 @@ export interface LoadedCyborgs {
   readonly cyborgs: CyborgRecord[];
   readonly rolls: RollRecord[];
   readonly factions: JoinableFaction[];
-  /** 읽으며 고친 줄(외형이 목록 밖 → 기본 외형) */
-  readonly fixedAppearances: number;
+  /** 옛 2D 외형이 남아 켤 때 다시 쓸 사이보그(사용자 ID — 3D 외형을 채우고 옛 칸을 비운다, D-560 1421) */
+  readonly legacyLooks: readonly string[];
 }
 
 const STAT_ORDER = ["str", "dex", "agi", "vit", "int", "wis"] as const;
@@ -111,7 +115,7 @@ const numOrNull = (value: unknown): number | null =>
 export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
   const [cyborgRows, rollRows, factionRows, nationRows, standingRows] = await Promise.all([
     pool.query(
-      `select user_id, name, name_key, temperament, initial, k_pm, appearance, look, faction_id, start_city_id,
+      `select user_id, name, name_key, temperament, initial, k_pm, appearance, look, look_auto, faction_id, start_city_id,
               unit_id, level, exp, rebirths, faith, created_at_ms, elements, religion, faith_points, start_grant
          from cyborgs order by created_at_ms, user_id`,
     ),
@@ -133,11 +137,17 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
     map.set(num(row.faction_id), num(row.score));
     standings.set(user, map);
   }
-  let fixedAppearances = 0;
+  const legacyLooks: string[] = [];
   const cyborgs = cyborgRows.rows.map((row): CyborgRecord => {
-    const appearance = row.appearance;
-    const valid = isCyborgAppearance(appearance);
-    if (!valid) fixedAppearances += 1;
+    const userId = String(row.user_id);
+    // 3D 외형: 저장한 것, 없거나 맞지 않으면(목록에서 빠진 ID 등) 옛 2D 외형에서 넘긴 값(옛 칸도 맞지 않으면 기본 2D 외형에서)
+    const stored = isCharacterLook(row.look) ? row.look : null;
+    const legacy = isCyborgAppearance(row.appearance) ? row.appearance : DEFAULT_CYBORG_APPEARANCE;
+    const look = stored ?? characterLookFromLegacy(legacy, characterSeedOf(userId));
+    const lookAuto = stored === null || row.look_auto === true;
+    // 옛 칸이 남았거나 3D 외형을 채웠으면 켤 때 한 번 다시 쓴다
+    if (stored === null || (row.appearance !== null && row.appearance !== undefined))
+      legacyLooks.push(userId);
     return {
       userId: String(row.user_id),
       name: String(row.name),
@@ -145,9 +155,8 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
       temperament: String(row.temperament),
       initial: statsFromArray(row.initial),
       kPm: statsFromArray(row.k_pm),
-      appearance: valid ? appearance : DEFAULT_CYBORG_APPEARANCE,
-      // 맞지 않는 값(목록에서 빠진 ID 등)은 없는 것으로 본다 — 옛 외형에서 넘긴 값으로 보인다
-      look: isCharacterLook(row.look) ? row.look : null,
+      look,
+      lookAuto,
       factionId: num(row.faction_id),
       startCityId: num(row.start_city_id),
       unitId: numOrNull(row.unit_id),
@@ -181,12 +190,12 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
       naturalizeFee: bigOrNull(row.naturalize_fee),
     }),
   );
-  return { cyborgs, rolls, factions, fixedAppearances };
+  return { cyborgs, rolls, factions, legacyLooks };
 }
 
-/** 보이는 3D 외형: 저장한 것, 없으면 옛 외형에서 넘긴 값(사용자 ID 씨앗 — 늘 같은 답) */
-export function cyborgLookOf(record: Pick<CyborgRecord, "userId" | "appearance" | "look">): CharacterLook {
-  return record.look ?? characterLookFromLegacy(record.appearance, characterSeedOf(record.userId));
+/** 보이는 3D 외형(늘 있다 — 옛 2D만 있던 줄은 읽을 때 넘겨 채웠다) */
+export function cyborgLookOf(record: Pick<CyborgRecord, "look">): CharacterLook {
+  return record.look;
 }
 
 /** 쓰기 대기열 한 줄(cyborgs) */
@@ -198,8 +207,10 @@ export function cyborgRow(record: CyborgRecord): Row {
     temperament: record.temperament,
     initial: statsToArray(record.initial),
     k_pm: statsToArray(record.kPm),
-    appearance: record.appearance,
+    // 옛 2D 외형 칸은 쓰지 않는다(D-560 1421 — 열은 다음 배포에서 지운다)
+    appearance: null,
     look: record.look,
+    look_auto: record.lookAuto,
     faction_id: record.factionId,
     start_city_id: record.startCityId,
     unit_id: record.unitId,

@@ -5,6 +5,7 @@
 // 시설 겉모습 자료(실효 팩 look, 건물 편집기가 바로 바꾼다 — ADR "바뀜 (2026-11-09)")도 싣는다.
 // 시설 이름·내 건물인가도 준다(2차맵 근처 목록 건물 탭, docs/adr/2026-11-08-seamless-second-map.md WP-2).
 import { advanceCondition, conditionStateOf } from "@terra/shared/facilityRuntime";
+import type { FacilityCategory } from "@terra/shared/facilityCategory";
 import type { FacilityLookJson } from "@terra/shared/facilityLook";
 import type { MapBuildingLook, MapLooksResponse } from "@terra/shared/mapLooks";
 import type { LocalizedName } from "@terra/shared/roster";
@@ -31,6 +32,8 @@ export interface MapLooksSource {
   readonly facilityName?: (facilityId: string) => LocalizedName | undefined;
   /** 시설 겉모습 자료(실효 팩 look). 없으면 싣지 않는다(화면이 시설 ID로 모델을 고른다) */
   readonly facilityArt?: (facilityId: string) => FacilityLookJson | undefined;
+  /** 시설 분류(기획 D-560, 팩 칸 → 생산 단계). 없으면 싣지 않는다(화면이 그 밖으로 묶는다) */
+  readonly facilityCategory?: (facilityId: string) => FacilityCategory | undefined;
 }
 
 /** 그 2차맵 건물들의 주인 주체 ID(중복 없음) — 국가를 한 번에 찾는다 */
@@ -80,6 +83,7 @@ export function mapBuildingLooks(
     }
     const name = source.facilityName?.(record.facilityId);
     const art = source.facilityArt?.(record.facilityId);
+    const category = source.facilityCategory?.(record.facilityId);
     const condition =
       record.level >= 1 && nowMs > record.conditionAtMs
         ? advanceCondition(record.conditionPpm, nowMs - record.conditionAtMs, false, rt)
@@ -94,6 +98,7 @@ export function mapBuildingLooks(
       ...(name ? { name } : {}),
       mine,
       ...(art ? { art } : {}),
+      ...(category ? { category } : {}),
     });
   });
   buildings.sort((a, b) => a.buildingId - b.buildingId);

@@ -2,7 +2,7 @@
 import { decodeServerMessage } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
-import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
+import { OPERATOR_SPEED_FACTOR, fixedOperatorPace } from "../world/operatorPace.ts";
 import { createTestMap } from "../world/testSupport.ts";
 import { createLaborGateway } from "./gateway.ts";
 import type { LaborService } from "./service.ts";
@@ -170,7 +170,12 @@ describe("노동 계약 연결 처리", () => {
         now: () => 0,
         log: { error: () => {} },
       });
-      return gateway.open({ send: () => {}, viewer: () => Promise.resolve(who), observing: () => observing });
+      return gateway.open({
+        send: () => {},
+        viewer: () => Promise.resolve(who),
+        observing: () => observing,
+        operatorPace: fixedOperatorPace(OPERATOR_SPEED_FACTOR),
+      });
     };
     connect(dev, true).handle({ t: "labor_assign", id: 1, buildingId: 3, unitId: 9 });
     for (let i = 0; i < 4; i++) await settle();

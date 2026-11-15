@@ -107,6 +107,46 @@ test.describe
       expect(deviceErrors).toEqual([]);
     });
 
+    test("A/B의 B 계산식(D-560 1381): 식 칸을 고르면 지금 식이 채워지고, 같은 식이면 B 결과가 A와 같다", async ({
+      page,
+      deviceErrors,
+    }) => {
+      test.setTimeout(300_000);
+      await reportReady(page);
+      await page.locator(".rp-mode[data-mode='arena']").click();
+      await page.locator(".rp-runs").selectOption("20");
+      await page.locator(".rp-variant-toggle").check();
+      await page.locator(".rp-formula-add").click();
+      const row = page.locator(".rp-formula-row").first();
+      const key = row.locator(".rp-formula-key");
+      // 식 칸 목록(formulas.list)이 오면 첫 칸을 고른다 → 지금 세계 식이 글에 채워진다
+      await expect(key.locator("option")).not.toHaveCount(1, { timeout: 20_000 });
+      const first = await key.locator("option").nth(1).getAttribute("value");
+      await key.selectOption(first ?? "");
+      await expect(row.locator(".rp-formula-source")).not.toHaveValue("");
+      await runReport(page, `${RUN_TAG} formula ab`);
+      const report = page.locator(".rp-latest .rp-report");
+      await expect(report.locator(".rp-show[data-which='b']")).toBeVisible();
+      // 같은 식(공통 난수) → A와 B의 점수가 같다
+      const scoreA = await report.locator("[data-testid='report-score']").textContent();
+      await report.locator(".rp-show[data-which='b']").click();
+      await expect(report.locator("[data-testid='report-score']")).toHaveText(scoreA ?? "");
+      // 읽히지 않는 식은 시작이 거절되고 까닭을 보인다
+      await row.locator(".rp-formula-source").fill("((");
+      await page.locator(".rp-run").click();
+      await expect(page.locator(".bl-lab")).toContainText(/변수로 읽히지 않습니다|does not parse/, {
+        timeout: 20_000,
+      });
+      // 다음 시험을 위해 A/B를 끈다(폼은 기기에 남는다)
+      await page.locator(".rp-formula-row button").first().click();
+      await page.locator(".rp-variant-toggle").uncheck();
+      expect(
+        deviceErrors.filter(
+          (error) => !(error.text.includes("400") && error.text.includes("battleReport.start")),
+        ),
+      ).toEqual([]);
+    });
+
     test("웨이브 공성 4판: 공성 칸(넥서스·성벽)과 무리 줄", async ({ page, deviceErrors }) => {
       test.setTimeout(300_000);
       await reportReady(page);
@@ -118,7 +158,8 @@ test.describe
       await expect(report.locator(".rp-siege")).toBeVisible();
       await expect(report.locator(".rp-units tbody tr")).toHaveCount(3);
       await page.locator(".rp-mode[data-mode='arena']").click();
-      expect(deviceErrors).toEqual([]);
+      // 앞 시험(A/B 계산식)이 시작을 여러 번 눌러 속도 제한(429)에 한 번 밀릴 수 있다 — runReport가 기다렸다 다시 누른다
+      expect(withoutBusy(deviceErrors)).toEqual([]);
     });
   });
 

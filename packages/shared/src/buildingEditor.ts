@@ -12,10 +12,17 @@ import type {
   LocalizedName,
 } from "./contentEdit.ts";
 import type { FacilityBuildJson, FacilityBuildRules, FacilityRepairJson } from "./facilityBuild.ts";
+import type { FacilityCategory } from "./facilityCategory.ts";
 import type { FacilityLookJson } from "./facilityLook.ts";
 import type { FishTierRanges } from "./fishWater.ts";
 import type { CombatClassRule, CombatClassView } from "./unitGuide.ts";
 
+export {
+  FACILITY_CATEGORIES,
+  type FacilityCategory,
+  facilityCategoryOf,
+  isFacilityCategory,
+} from "./facilityCategory.ts";
 export {
   FACILITY_LOOK_COLORS,
   FACILITY_LOOK_HEIGHT_DEFAULT,
@@ -165,6 +172,8 @@ export interface FacilityJson {
   readonly id: string;
   readonly name: LocalizedName;
   readonly stage: FacilityStageId;
+  /** 시설 분류(기획 D-560, @terra/shared/facilityCategory). 없으면 생산 단계에서 고른다 */
+  readonly category?: FacilityCategory | undefined;
   /** 최고 레벨(없으면 FACILITY_LEVEL_MAX) */
   readonly maxLevel?: number | undefined;
   /** 레벨당 일하는 자리(Lv × 이 값) */

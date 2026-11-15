@@ -11,6 +11,7 @@ import {
   createCommandDedup,
   createWorldGateway,
 } from "./gateway.ts";
+import { createOperatorPace } from "./operatorPace.ts";
 import { createTestMap } from "./testSupport.ts";
 import { UNIT_KIND_GUARDIAN, UNIT_KIND_NPC_LEADER } from "./unitKinds.ts";
 
@@ -525,15 +526,59 @@ const followUpSpeed = async (map: ReturnType<typeof setup>["map"], x: number) =>
 };
 
 describe("운영자 빠르기 표시(operatorPace.ts, 사용자 지적 2026-11-12)", () => {
-  it("운영자 모드 이동 명령 뒤로 그 유닛을 걷게 하는 다른 길도 100배, 주인의 보통 명령이 오면 다시 보통", async () => {
+  it("운영자 배율 기본은 1(D-560 1246) — 고르지 않으면 운영자 모드 이동도 보통. 전체 보기가 아닌 연결의 배율 바꾸기는 forbidden", async () => {
     const { gateway, map } = setup();
     map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
-    const admin = link(ADMIN);
+    const admin = { ...link(ADMIN), operatorPace: createOperatorPace() };
+    const operator = gateway.open(admin);
+    operator.handle({ t: "operator_pace", id: 1, mapKey: MAP_KEY, factor: 100 });
+    operator.handle({ t: "subscribe", id: 2, mapKey: MAP_KEY, observe: true });
+    operator.handle(moveTo(3, 1, 30));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(admin.received).map((m) => (m.ok ? "ok" : m.code))).toEqual(["forbidden", "ok", "ok"]);
+    expect(map.unitInfo(1)?.motion.speed).toBe(437);
+    expect(map.paceOf(1)).toBe(1);
+    // 플레이어는 전체 보기 구독을 못 하므로 배율도 못 바꾼다
+    const player = { ...link(PLAYER), operatorPace: createOperatorPace() };
+    const own = gateway.open(player);
+    own.handle({ t: "subscribe", id: 1, mapKey: MAP_KEY });
+    own.handle({ t: "operator_pace", id: 2, mapKey: MAP_KEY, factor: 10 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(player.received).map((m) => (m.ok ? "ok" : m.code))).toEqual(["ok", "forbidden"]);
+    map.stop();
+  });
+
+  it("운영자 모드를 끄면(전체 보기 구독을 풀면) 빠른 상태가 바로 풀린다(D-560 1248)", async () => {
+    const { gateway, map } = setup();
+    map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
+    const pace = createOperatorPace();
+    const admin = { ...link(ADMIN), operatorPace: pace };
     const operator = gateway.open(admin);
     operator.handle({ t: "subscribe", id: 1, mapKey: MAP_KEY, observe: true });
+    operator.handle({ t: "operator_pace", id: 2, mapKey: MAP_KEY, factor: 10 });
+    operator.handle(moveTo(3, 1, 30));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(map.unitInfo(1)?.motion.speed).toBe(4370);
+    expect(map.paceOf(1)).toBe(10);
+    // 운영자 모드 끄기 = 플레이어 보기로 다시 구독
+    operator.handle({ t: "subscribe", id: 4, mapKey: MAP_KEY });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(map.paceOf(1)).toBe(1);
+    expect(pace.factor()).toBe(1);
+    expect(await followUpSpeed(map, 40)).toBe(437);
+    map.stop();
+  });
+
+  it("운영자 모드 이동 명령 뒤로 그 유닛을 걷게 하는 다른 길도 고른 배율(100배), 주인의 보통 명령이 오면 다시 보통", async () => {
+    const { gateway, map } = setup();
+    map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
+    const admin = { ...link(ADMIN), operatorPace: createOperatorPace() };
+    const operator = gateway.open(admin);
+    operator.handle({ t: "subscribe", id: 1, mapKey: MAP_KEY, observe: true });
+    operator.handle({ t: "operator_pace", id: 3, mapKey: MAP_KEY, factor: 100 });
     operator.handle(moveTo(2, 1, 30));
     await vi.advanceTimersByTimeAsync(0);
-    expect(results(admin.received).map((m) => m.ok)).toEqual([true, true]);
+    expect(results(admin.received).map((m) => m.ok)).toEqual([true, true, true]);
     expect(map.unitInfo(1)?.motion.speed).toBe(437 * 100);
     expect(await followUpSpeed(map, 40)).toBe(437 * 100);
     // 주인(플레이어 보기)이 보낸 명령은 표시를 지운다 — 그 이동도, 뒤의 다른 길도 보통
@@ -551,12 +596,13 @@ describe("운영자 빠르기 표시(operatorPace.ts, 사용자 지적 2026-11-1
   it("운영자 모드 멈추기도 표시를 단다. 전체 보기가 아닌 운영자의 명령은 보통", async () => {
     const { gateway, map } = setup();
     map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
-    const admin = link(ADMIN);
+    const admin = { ...link(ADMIN), operatorPace: createOperatorPace() };
     const operator = gateway.open(admin);
     operator.handle({ t: "subscribe", id: 1, mapKey: MAP_KEY, observe: true });
+    operator.handle({ t: "operator_pace", id: 3, mapKey: MAP_KEY, factor: 100 });
     operator.handle({ t: "stop_unit", id: 2, mapKey: MAP_KEY, unitId: 1 });
     await vi.advanceTimersByTimeAsync(0);
-    expect(results(admin.received).map((m) => m.ok)).toEqual([true, true]);
+    expect(results(admin.received).map((m) => m.ok)).toEqual([true, true, true]);
     expect(map.paceOf(1)).toBe(100);
     expect(await followUpSpeed(map, 30)).toBe(437 * 100);
     // 같은 운영자라도 그 2차맵을 전체 보기로 보지 않는 연결이면 운영자 모드가 아니다

@@ -182,6 +182,16 @@ export interface TuningState {
   statTable(): readonly StatRow[];
   /** 지금 표 위에 묶음을 얹은 표(검사와 상관없이 팩에 있고 범위 안인 가중치 칸만 얹는다, 밸런스 화면 미리 보기) */
   statTableWith(changes: readonly TuningChange[]): readonly StatRow[];
+  /**
+   * 가중치 칸 바꿈 + 계산식 바꿈(칸 키 → 글)을 얹은 가중치 표와 전투 식 묶음(세계 값은 바꾸지 않는다 — 전투 보고서 A/B의 B, 기획 D-560 1381).
+   * 모르는 칸이면 unknown_formula, 그 칸 변수로 읽히지 않으면 invalid_formula(key = 그 칸)
+   */
+  rulesWithFormulas(
+    changes: readonly TuningChange[],
+    formulas: readonly { readonly key: string; readonly source: string }[],
+  ):
+    | { readonly ok: true; readonly statTable: readonly StatRow[]; readonly combat: CombatFormulaSet }
+    | { readonly ok: false; readonly reason: "unknown_formula" | "invalid_formula"; readonly key: string };
   /** 계산식 칸(행 식은 켜진 행 팩 차례, 그다음 전투 식) */
   readonly formulaSlots: readonly FormulaSlotInfo[];
   formulaSlot(key: string): FormulaSlotInfo | undefined;
@@ -427,6 +437,28 @@ export function createTuningState(
         if (statCellInRange(cell.field, value)) next.set(change.id, value);
       }
       return statTableFrom(statRows, next, rowProgramsFrom(sourcesOf(current.formulas)));
+    },
+    rulesWithFormulas(changes, formulas) {
+      const sources = sourcesOf(current.formulas);
+      for (const change of formulas) {
+        const target = formulaSlotByKey.get(change.key);
+        if (!target) return { ok: false, reason: "unknown_formula", key: change.key };
+        if (!compileSlot(target, change.source).ok)
+          return { ok: false, reason: "invalid_formula", key: change.key };
+        sources.set(change.key, change.source);
+      }
+      const next = new Map(current.values);
+      for (const change of changes) {
+        const cell = statCell(change.id);
+        if (!cell) continue;
+        const value = change.value ?? cell.packValue;
+        if (statCellInRange(cell.field, value)) next.set(change.id, value);
+      }
+      return {
+        ok: true,
+        statTable: statTableFrom(statRows, next, rowProgramsFrom(sources)),
+        combat: combatSetFrom(sources),
+      };
     },
     revision: () => current.revision,
     appliedCount: () => current.overrides.size + current.formulas.size,

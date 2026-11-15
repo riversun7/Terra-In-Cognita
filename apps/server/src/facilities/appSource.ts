@@ -76,6 +76,7 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
           rules: facilities.rules,
           facilityName: (id) => facilities.catalog().facility(id)?.name,
           facilityArt: (id) => facilities.catalog().facility(id)?.look,
+          facilityCategory: (id) => facilities.catalog().facility(id)?.category,
         },
         mapKey,
         nowMs,

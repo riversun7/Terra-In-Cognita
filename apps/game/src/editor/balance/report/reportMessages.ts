@@ -20,6 +20,8 @@ const REASON_TEXT: Readonly<Record<ReportErrorKey, () => string>> = {
   unknown_terrain: m.dev_report_reason_unknown_terrain,
   unknown_tuning: m.dev_report_reason_unknown_tuning,
   tuning_out_of_range: m.dev_report_reason_tuning_out_of_range,
+  unknown_formula: m.dev_report_reason_unknown_formula,
+  invalid_formula: m.dev_report_reason_invalid_formula,
   unknown_city: m.dev_report_reason_unknown_city,
   unknown_job: m.dev_report_reason_unknown_job,
   unknown_report: m.dev_report_reason_unknown_report,

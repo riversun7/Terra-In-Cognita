@@ -24,12 +24,18 @@ import type { CommandResult, SecondMap } from "./secondMap.ts";
 import { unavailable } from "./unitCondition.ts";
 import { type UnitControlDenial, canCommandAnyUnit, unitControlDenial } from "./unitControl.ts";
 import { type NationSource, nationLookupOf } from "./nationVision.ts";
-import { isOperatorMode, withPace } from "./operatorPace.ts";
+import { type OperatorPace, withPace } from "./operatorPace.ts";
 import { canObserve, canViewSecondMap } from "./visibility.ts";
 import type { WorldStats } from "./worldStats.ts";
 
 export type SecondMapClientMessage = ClientMessageOf<
-  "subscribe" | "unsubscribe" | "move_unit" | "stop_unit" | "place_building" | "remove_building"
+  | "subscribe"
+  | "unsubscribe"
+  | "move_unit"
+  | "stop_unit"
+  | "place_building"
+  | "remove_building"
+  | "operator_pace"
 >;
 type CommandMessage = ClientMessageOf<"move_unit" | "stop_unit" | "place_building" | "remove_building">;
 
@@ -69,6 +75,8 @@ export interface WorldDirectory {
   openForView?(userId: string, mapKey: number, observe: boolean): Promise<"ok" | "refused" | "busy">;
   /** 구독을 받았다(변 미리 띄우기를 바로 다시 본다 — 주인이 볼 때만 미리 띄운다). 없으면 아무것도 하지 않는다 */
   viewed?(mapKey: number): void;
+  /** 띄운 2차맵 전부(운영자 모드를 끌 때 그 연결이 단 빠른 표시를 지운다 — operatorPace.ts). 없으면 구독한 2차맵만 본다 */
+  readonly maps?: ReadonlyMap<number, SecondMap>;
 }
 
 /** 연결 하나가 게이트웨이에 주는 것 */
@@ -79,6 +87,11 @@ export interface SocketLink {
   viewer(): Promise<Viewer | null>;
   /** 이 연결이 인사한 프로토콜 판(새 결과 코드를 받는지). 없으면 2차맵 첫 판 — not_owner·unit_stays 대신 forbidden */
   protocolVersion?: number | undefined;
+  /**
+   * 이 연결의 운영자 배율(기획 D-560 1246~1248, operatorPace.ts — session.ts가 연결마다 하나 만들어 다른 게이트웨이와 같이 쓴다). 이 게이트웨이가
+   * 전체 보기 구독이 켜지고 꺼짐을 알리고(꺼지면 빠른 표시를 바로 푼다) operator_pace로 배율을 바꾼다. 없으면 배율은 늘 1
+   */
+  operatorPace?: OperatorPace | undefined;
 }
 
 export interface WorldSocket {
@@ -231,6 +244,12 @@ export function createWorldGateway(options: {
       const knowsUnitCodes =
         (link.protocolVersion ?? SECOND_MAP_PROTOCOL_VERSION) >= UNIT_CONTROL_PROTOCOL_VERSION;
       const denialCode = (denial: UnitControlDenial): ResultCode => (knowsUnitCodes ? denial : "forbidden");
+      /** 전체 보기 구독이 바뀐 뒤: 운영자 배율에 알린다(모두 풀리면 배율 1·빠른 표시 해제 — D-560 1248) */
+      const syncPace = (): void => {
+        const pace = link.operatorPace;
+        if (!pace) return;
+        pace.setObserving(observing.size > 0, world.maps?.values() ?? subscribed.values());
+      };
 
       const process = async (message: SecondMapClientMessage): Promise<void> => {
         const mapKey = message.mapKey;
@@ -241,6 +260,7 @@ export function createWorldGateway(options: {
           map?.vision.unsubscribe(subscriber);
           subscribed.delete(mapKey);
           observing.delete(mapKey);
+          syncPace();
           reply(message.id, { ok: true });
           return;
         }
@@ -274,6 +294,7 @@ export function createWorldGateway(options: {
           subscribed.set(mapKey, map);
           if (observe) observing.add(mapKey);
           else observing.delete(mapKey);
+          syncPace();
           if (observe) {
             map.vision.unsubscribe(subscriber);
             map.stream.subscribe(subscriber);
@@ -288,6 +309,14 @@ export function createWorldGateway(options: {
           }
           world.viewed?.(mapKey);
           return;
+        }
+
+        // 운영자 배율(D-560 1246): 그 2차맵을 전체 보기로 구독 중인 운영자 연결만. 배율은 이 연결의 다음 유닛 명령부터
+        if (message.t === "operator_pace") {
+          if (!observing.has(mapKey) || !canCommandAnyUnit(viewer.roles) || !link.operatorPace)
+            return reply(message.id, fail("forbidden"));
+          link.operatorPace.set(message.factor);
+          return reply(message.id, { ok: true });
         }
 
         // 유닛 명령: 내 유닛(수호신은 그 도시에 머문다 — 기획 답 456 가)이거나 운영자(dev·admin). 건물 명령은 권한 표(admin)
@@ -305,12 +334,19 @@ export function createWorldGateway(options: {
         if (!commandLimiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
         world.stats.commands += 1;
         const placer = world.ownerOfUser?.(viewer.id) ?? null;
-        // 운영자 모드(그 2차맵 전체 보기 구독, 권한은 구독 때 확인)에서 보낸 유닛 명령은 그 유닛에 운영자 빠르기 표시를 단다 — 이 이동도,
-        // 뒤에 그 유닛을 걷게 하는 다른 길도 빠르다(operatorPace.ts). 운영자 모드가 아니면 표시를 지운다
-        const operator = isOperatorMode(observing.has(mapKey), viewer.roles);
+        // 운영자 모드(그 2차맵 전체 보기 구독, 권한은 구독 때 확인)에서 보낸 유닛 명령은 그 유닛에 운영자 배율 표시를 단다 — 이 이동도,
+        // 뒤에 그 유닛을 걷게 하는 다른 길도 그 배율이다(operatorPace.ts, 기본 1 — D-560 1246). 운영자 모드가 아니면 표시를 지운다
+        const factor =
+          observing.has(mapKey) && canCommandAnyUnit(viewer.roles) ? (link.operatorPace?.factor() ?? 1) : 1;
         const result = await dedup.run(`${viewer.id}:${mapKey}:${message.id}`, () =>
           message.t === "move_unit" || message.t === "stop_unit"
-            ? withPace([map], message.unitId, operator, () => execute(map, message, placer, now()))
+            ? withPace(
+                [map],
+                message.unitId,
+                factor,
+                () => execute(map, message, placer, now()),
+                link.operatorPace,
+              )
             : execute(map, message, placer, now()),
         );
         if (operatorOverride && result.ok && (message.t === "move_unit" || message.t === "stop_unit"))
@@ -347,6 +383,7 @@ export function createWorldGateway(options: {
           }
           subscribed.clear();
           observing.clear();
+          syncPace();
         },
         observing: () => observing.size > 0,
       };

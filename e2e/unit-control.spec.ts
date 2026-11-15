@@ -555,7 +555,6 @@ test.describe("유닛 조종: 운영자", () => {
     await expect(page.locator(".map-operator-badge")).toHaveCount(0);
     const toggle = await operatorToggle(page);
     await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await expect(screen).toHaveAttribute("data-operator", "on");
     await expect(page.locator(".map-operator-badge")).toBeVisible();
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
@@ -570,10 +569,11 @@ test.describe("유닛 조종: 운영자", () => {
     const free = await freeViewToggle(page);
     await expect(free).toBeVisible();
     await free.click();
-    await expect(free).toHaveAttribute("aria-pressed", "true");
     await expect(screen).toHaveAttribute("data-free-view", "on");
     await expect(screen).not.toHaveAttribute("data-follow", /./);
-    await free.click();
+    // 항목을 누르면 운영 메뉴가 닫힌다(D-560 1239) — 다시 열어 끈다
+    await expect(await freeViewToggle(page)).toHaveAttribute("aria-pressed", "true");
+    await (await freeViewToggle(page)).click();
     await expect(screen).toHaveAttribute("data-follow", "on");
     await expect(page.locator(".map-hint p").first()).toContainText(message("ko", "map_operator_badge"));
     expect(await horizontalOverflow(page)).toEqual([]);

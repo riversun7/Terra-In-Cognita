@@ -44,6 +44,7 @@ export const REPORT_LIMITS = {
   nexusMax: 1_000_000,
   /** A/B 설정 칸 바꿈 수 */
   variantChangesMax: 16,
+  variantFormulasMax: 8, // A/B의 B 계산식 바꿈 수(D-560 1381)
   nameMax: 60,
   noteMax: 400,
   labelMax: 60,
@@ -211,11 +212,15 @@ export interface ReportTuningChange {
   readonly value: number;
 }
 
-/** B 설정: A와 같은 설정에서 바꾼 것. setup이 null이면 A 설정 그대로(설정 칸만 바꿈) */
+/** A/B 계산식 바꿈 하나(D-560 1381): 식 칸 키(formulas.list와 같다)·식 글. 이 보고서 안에서만(서버가 읽히는지 본다 — invalid_formula) */
+export type ReportFormulaChange = Readonly<{ key: string; source: string }>;
+
+/** B 설정: A와 같은 설정에서 바꾼 것. setup이 null이면 A 설정 그대로(설정 칸·계산식만 바꿈, formulas 없음 = 세계 식) */
 export interface ReportVariant {
   readonly label: string;
   readonly setup: ReportSetup | null;
   readonly tuning: readonly ReportTuningChange[];
+  readonly formulas?: readonly ReportFormulaChange[] | undefined;
 }
 
 export interface ReportStartInput {
@@ -236,6 +241,8 @@ export const REPORT_REASONS = [
   "unknown_terrain",
   "unknown_tuning",
   "tuning_out_of_range",
+  "unknown_formula",
+  "invalid_formula",
   "unknown_city",
   "unknown_job",
   "unknown_report",
@@ -611,7 +618,11 @@ export function reportProblem(
   if (input.variant) {
     if (input.variant.setup && input.variant.setup.mode !== setup.mode) return "variant_mode";
     if (input.variant.tuning.length > L.variantChangesMax) return "invalid_settings";
-    if (!input.variant.setup && input.variant.tuning.length === 0) return "invalid_settings";
+    const formulas = input.variant.formulas ?? [];
+    if (formulas.length > L.variantFormulasMax) return "invalid_settings";
+    if (new Set(formulas.map((change) => change.key)).size !== formulas.length) return "invalid_settings";
+    if (!input.variant.setup && input.variant.tuning.length + formulas.length === 0)
+      return "invalid_settings";
   }
   const longest = Math.max(setup.limitSec, input.variant?.setup?.limitSec ?? 0);
   const seconds = input.runs * longest * (input.variant ? 2 : 1);

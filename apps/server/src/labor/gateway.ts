@@ -11,7 +11,7 @@ import {
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
-import { type PaceMap, isOperatorMode, withPace } from "../world/operatorPace.ts";
+import { type OperatorPaceLink, type PaceMap, operatorFactor, withPace } from "../world/operatorPace.ts";
 import type { LaborCommandResult, LaborService } from "./service.ts";
 
 export type LaborClientMessage = ClientMessageOf<
@@ -34,6 +34,8 @@ export interface LaborLink {
   viewer(): Promise<Viewer | null>;
   /** 같은 연결이 2차맵을 전체 보기(운영자 모드)로 구독 중인가(world/gateway.ts). 없으면 아니다 */
   observing?(): boolean;
+  /** 이 연결의 운영자 배율(기본 1 — 기획 D-560 1246, world/operatorPace.ts). 없으면 1 */
+  operatorPace?: OperatorPaceLink | undefined;
   /** 연결이 인사한 프로토콜 판(없으면 지금 판으로 본다) */
   protocolVersion?: number | undefined;
 }
@@ -140,13 +142,17 @@ export function createLaborGateway(options: {
         // 일을 맡기는 유닛 명령(직무 배치·풀기·일자리 받기)은 운영자 빠르기 표시를 단다·지운다 — 운반꾼 걸음·나르는 시간(gather/station.ts)이
         // 읽는다(사용자 지적 2026-11-12, world/operatorPace.ts)
         const unitId = pacedUnit(message);
-        const operator = isOperatorMode(link.observing?.() === true, viewer.roles);
+        const factor = operatorFactor(link, viewer.roles);
         reply(
           message.id,
           unitId === undefined
             ? await run(service, viewer.id, message)
-            : await withPace(options.maps?.() ?? [], unitId, operator, () =>
-                run(service, viewer.id, message),
+            : await withPace(
+                options.maps?.() ?? [],
+                unitId,
+                factor,
+                () => run(service, viewer.id, message),
+                link.operatorPace,
               ),
         );
       };

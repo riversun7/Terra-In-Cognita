@@ -84,6 +84,7 @@ import {
 import { canCommand, selectionText, unitControlOf, unitLabel } from "./mapUnits.ts";
 import { createLeaderTagState } from "./leaderTags.ts";
 import { useOperatorMode } from "./operatorMode.ts";
+import { useOperatorPace } from "./operatorPace.ts";
 import { useCameraArea } from "./useCameraArea.ts";
 import { NO_MAP_UNITS, useMapUnits } from "./useMapUnits.ts";
 import { useUnitGlance } from "./useUnitGlance.ts";
@@ -96,7 +97,7 @@ import {
 } from "./UnitControlPanels.tsx";
 import { BoatActions } from "./boats/BoatActions.tsx";
 import { NearbyPanel, type NearbySources } from "./nearby/NearbyPanel.tsx";
-import { createNearbyState } from "./nearby/nearbyState.ts";
+import { NEARBY_FIRST_TAB, createNearbyState } from "./nearby/nearbyState.ts";
 import { GatherPanel } from "./gather/GatherPanel.tsx";
 import { createGatherState } from "./gather/gatherState.ts";
 import { GovernmentSheet } from "../government/GovernmentSheet.tsx";
@@ -208,6 +209,13 @@ function SecondMapView({
     operatorRef,
     toggle: toggleOperator,
   } = useOperatorMode(devTools, () => poolRef.current?.refresh());
+  // 운영자 배율(D-560 1246 — 기본 1, 운영자 모드를 끄면 1). 지도 자료가 다시 구독할 때 paceRef를 읽는다
+  const {
+    pace: operatorPace,
+    paceRef,
+    choose: chooseOperatorPace,
+    reset: resetOperatorPace,
+  } = useOperatorPace(operator, mapKeyRef);
   // 내 유닛 목록(서버, 5초마다) — 엔진 콜백은 ref로 읽는다. 플레이어 카메라는 내 유닛·건물 둘레(630)
   // 카메라 범위는 지금 2차맵 답만 쓴다(넘은 직후 옛 2차맵 좌표가 새 틀에 걸리지 않게 — 새 답이 올 때까지 엔진이 옮겨 둔 범위를 그대로 둔다).
   // 이름·개수는 새 답이 올 때까지 떠나온 2차맵 답을 그대로 보인다(안내 줄·[내 유닛 N]이 넘는 순간 깜빡이지 않게)
@@ -223,9 +231,11 @@ function SecondMapView({
     staleUnits,
   );
   const unitsRef = useRef<readonly MapUnit[] | null>(null);
-  // 근처 판(덧그림과 같이 보는 상태, React 밖). 넓은 화면은 유닛 탭을 펼친 채 연다(옛 내 유닛 목록처럼)
+  // 근처 판(덧그림과 같이 보는 상태, React 밖). 넓은 화면은 처음 탭(건물, 기획 D-560 1241)을 펼친 채 연다
   const [nearby] = useState(() =>
-    createNearbyState(wideScreen() ? { tab: "units", expanded: true } : { tab: null, expanded: false }),
+    createNearbyState(
+      wideScreen() ? { tab: NEARBY_FIRST_TAB, expanded: true } : { tab: null, expanded: false },
+    ),
   );
   const nearbyTab = useSyncExternalStore(
     (listener) => nearby.subscribe(listener),
@@ -447,6 +457,7 @@ function SecondMapView({
       fetchTerrain: (url) => fetchTerrain(url),
       canCommand: () => operatorRef.current,
       observe: () => operatorRef.current,
+      operatorPace: () => paceRef.current,
       now: () => performance.now(),
       serverNow,
       unitCapacity: UNIT_CAPACITY,
@@ -493,7 +504,7 @@ function SecondMapView({
       pool.stop();
       poolRef.current = null;
     };
-  }, [entryKey, gather, nearby, leaderTags, operatorRef, cameraTap, anchorRef]);
+  }, [entryKey, gather, nearby, leaderTags, operatorRef, paceRef, cameraTap, anchorRef]);
 
   // 명령 안내는 잠시 보이고 지운다(보낸 뒤 결과를 기다리는 동안은 그대로)
   useEffect(() => {
@@ -537,9 +548,10 @@ function SecondMapView({
     setCommand(attempt.kind === "sent" ? { kind: "sent", unitId, action: "stop" } : { kind: attempt.kind });
   };
 
-  /** 운영자 모드를 끄면 자유 시점도 끄고, 조종하던 남의 유닛은 놓는다(고르기를 풀면 기준 유닛 = 내 유닛을 다시 고른다) */
+  /** 운영자 모드를 끄면 자유 시점도 끄고, 조종하던 남의 유닛은 놓는다(고르기를 풀면 기준 유닛 = 내 유닛을 다시 고른다). 배율은 1로(D-560 1248) */
   const toggleOperatorMode = (): void => {
     if (operator) {
+      resetOperatorPace();
       setFreeView(false);
       closePeek();
       if (selected !== null && !isOwnUnit(selected)) {
@@ -685,8 +697,10 @@ function SecondMapView({
               <OperatorItems
                 operator={operator}
                 freeView={freeView}
+                pace={operatorPace}
                 onToggle={toggleOperatorMode}
                 onFreeView={() => setFreeView((on) => !on)}
+                onPace={chooseOperatorPace}
               />
             ) : null}
           </OperatorMenuPanel>
@@ -707,6 +721,7 @@ function SecondMapView({
             gather={gather}
             mapKey={mapKey}
             builder={shown}
+            operator={operator}
           />
         ) : null}
         {!building && sheet === "units" ? (

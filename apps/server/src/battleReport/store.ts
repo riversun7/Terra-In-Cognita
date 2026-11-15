@@ -1,6 +1,6 @@
 // 전투 보고서 기록 DB 작업 — battle_reports 표(docs/adr/2026-11-14-battle-report.md "기록").
-// 추가만 한다(고치지 않는다). 줄 수가 REPORT_STORED_MAX를 넘으면 같은 트랜잭션에서 오래된 줄부터 지운다(감사 기록은 시작·멈춤만,
-// 서비스가 남긴다). 읽을 때 입력(input)은 같은 스키마로 다시 검사한다(맞지 않으면 그 줄은 열 수 없다 — 다시 돌리기도 막힌다).
+// 추가만 한다(고치지 않는다). 줄 수 상한은 없다(기획 D-560 1380 "기록 상한 없음" — 옛 2,000줄 넘으면 오래된 것부터 지우기를 뺐다. 지우기는
+// 없다 — DB 크기는 작업 기록에 적었다). 감사 기록은 시작·멈춤만 서비스가 남긴다. 읽을 때 입력(input)은 같은 스키마로 다시 검사한다(맞지 않으면 그 줄은 열 수 없다 — 다시 돌리기도 막힌다).
 import type {
   BattleReportBody,
   BattleReportListInput,
@@ -11,13 +11,10 @@ import type {
   ReportStartInput,
 } from "@terra/shared/battleReport";
 import { REPORT_LIMITS } from "@terra/shared/battleReport";
-import { and, desc, eq, gte, ilike, inArray, lt, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, lt, or, type SQL } from "drizzle-orm";
 import type { Database } from "../db/client.ts";
 import { battleReports, users } from "../db/schema.ts";
 import { reportStartSchema } from "./schema.ts";
-
-/** 남겨 두는 기록 수(넘으면 오래된 것부터 지운다) */
-export const REPORT_STORED_MAX = 2000;
 
 export interface ReportInsert {
   readonly id: string;
@@ -87,40 +84,26 @@ function metaOf(row: MetaRow): BattleReportMeta {
   };
 }
 
-/** 기록 하나를 넣고(줄 수 상한을 넘으면 오래된 줄을 지운다) 목록 줄을 돌려준다 */
+/** 기록 하나를 넣는다(줄 수 상한 없음 — D-560 1380) */
 export async function insertReport(db: Database, row: ReportInsert): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.insert(battleReports).values({
-      id: row.id,
-      name: row.input.name.trim(),
-      note: row.input.note.trim(),
-      mode: row.input.setup.mode,
-      runs: row.input.runs,
-      seed: row.input.seed,
-      variant: row.input.variant !== null,
-      scorePm: row.report.a.outcome.scorePm,
-      scoreBPm: row.report.b?.outcome.scorePm ?? null,
-      contentVersion: row.contentVersion,
-      contentHash: row.contentHash,
-      simVersion: row.simVersion,
-      tuningRevision: row.tuningRevision,
-      durationMs: row.durationMs,
-      input: row.input,
-      report: row.report,
-      createdBy: row.createdBy,
-    });
-    const old = await tx
-      .select({ id: battleReports.id })
-      .from(battleReports)
-      .orderBy(desc(battleReports.createdAt), desc(battleReports.id))
-      .offset(REPORT_STORED_MAX);
-    if (old.length > 0)
-      await tx.delete(battleReports).where(
-        inArray(
-          battleReports.id,
-          old.map((entry) => entry.id),
-        ),
-      );
+  await db.insert(battleReports).values({
+    id: row.id,
+    name: row.input.name.trim(),
+    note: row.input.note.trim(),
+    mode: row.input.setup.mode,
+    runs: row.input.runs,
+    seed: row.input.seed,
+    variant: row.input.variant !== null,
+    scorePm: row.report.a.outcome.scorePm,
+    scoreBPm: row.report.b?.outcome.scorePm ?? null,
+    contentVersion: row.contentVersion,
+    contentHash: row.contentHash,
+    simVersion: row.simVersion,
+    tuningRevision: row.tuningRevision,
+    durationMs: row.durationMs,
+    input: row.input,
+    report: row.report,
+    createdBy: row.createdBy,
   });
 }
 

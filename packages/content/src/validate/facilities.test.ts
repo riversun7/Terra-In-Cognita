@@ -120,3 +120,12 @@ describe("시설 2차맵 겉모습(look, docs/adr/2026-11-08-building-art.md 바
     expect(schemaCodes(build, { look: { icon: "farm.png" } })).toBe(1);
   });
 });
+
+describe("시설 분류(기획 D-560)", () => {
+  it("분류 칸은 아홉 이름표 가운데 하나만 받고, 없어도 된다", () => {
+    const build = { mulPm: 800, levels: [{ from: 1, materials: [stack("stone", 1)] }] };
+    expect(schemaCodes(build, { category: "gathering" })).toBe(0);
+    expect(schemaCodes(build)).toBe(0);
+    expect(schemaCodes(build, { category: "gather" })).toBeGreaterThan(0);
+  });
+});

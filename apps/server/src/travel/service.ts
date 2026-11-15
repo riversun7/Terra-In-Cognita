@@ -77,6 +77,7 @@ import {
 import { createParkedBook } from "./parked.ts";
 import { createPlanner } from "./planner.ts";
 import { raidSeed } from "./raid.ts";
+import { createTeleport } from "./teleport.ts";
 import { coordinateOf, fitCell, standsOn, travelEta, travelView, walkSpeed } from "./serviceParts.ts";
 import { loadTravels, travelWriter } from "./store.ts";
 import { parkMapUnits, parkableMap, placeFinder } from "./unloadPark.ts";
@@ -688,6 +689,24 @@ export function createTravelService(deps: TravelDeps): TravelService {
     return travelEta(journey, at, (from) => contextOf(journey, size ?? info?.size ?? 1, from), info);
   };
 
+  /** 운영자 텔레포트(teleport.ts, D-560 1239) */
+  const teleport = createTeleport({
+    deps,
+    maps,
+    parked,
+    stopped: () => stopped,
+    spawn: () => spawn,
+    ownUnit,
+    locate,
+    standable,
+    standableFor,
+    journeys,
+    recent,
+    store,
+    arm,
+    park,
+  });
+
   return {
     plan(userId, request) {
       const found = ownUnit(userId, request.unitId);
@@ -761,6 +780,15 @@ export function createTravelService(deps: TravelDeps): TravelService {
       }
       const first = await beginLeg(journey, false);
       return first.ok ? { ok: true, maps: planned.route.length, arriveAt: journey.arriveAtMs } : first;
+    },
+
+    teleport,
+
+    releasePace(unitIds) {
+      for (const unitId of unitIds) {
+        const journey = journeys.get(unitId);
+        if (journey && journey.speedFactor !== 1) journey.speedFactor = 1;
+      }
     },
 
     cancel(userId, asked) {

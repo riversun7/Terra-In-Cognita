@@ -8,7 +8,6 @@
 // - 금액·양은 최소 단위 정수 문자열이다(PLAN 4.7).
 
 import type { CharacterLook } from "./characterLook.ts";
-import type { CyborgAppearance } from "./cyborgLooks.ts";
 import type { FishWater } from "./fishWater.ts";
 
 /**
@@ -814,14 +813,13 @@ export interface CyborgGetResponse {
   readonly rebirth: CyborgRebirthRule;
   /** 사이보그 이름(만들었으면, 서버 고유 D-134). 아직 없으면 계정 이름 */
   readonly name: string;
-  /** 외형(만든 사이보그만, D-6040) */
-  readonly appearance: CyborgAppearance | null;
   /**
-   * 3D 외형(만든 사이보그만 — 저장한 것, 없으면 옛 외형에서 넘긴 값, docs/adr/2026-11-11-character-3d.md 5절). 옛 서버면 없음
+   * 3D 외형(만든 사이보그만, 없으면 null — docs/adr/2026-11-11-character-3d.md 5절. 옛 2D만 있던 사이보그는 서버가 넘겨 채웠다). 옛 2D 칸
+   * appearance는 뺐다(기획 D-560 1421)
    */
-  readonly look?: CharacterLook | null;
+  readonly look: CharacterLook | null;
   /**
-   * 3D 외형을 한 번 고를 수 있다(질문 961 나): 3D 외형을 고르기 전에 만든 사이보그(저장한 3D 외형 없음). 고르면(WebSocket cyborg_look)
+   * 3D 외형을 한 번 고를 수 있다(질문 961 나): 서버가 옛 2D 외형에서 넘겨 채운 사이보그. 고르면(WebSocket cyborg_look)
    * false가 되고 다시 true가 되지 않는다. 시안·옛 서버면 없음(= 못 고름)
    */
   readonly lookPick?: boolean;

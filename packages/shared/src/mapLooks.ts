@@ -2,6 +2,7 @@
 // 지도 자료(WebSocket map_snapshot)의 건물에는 칸·크기·돌림만 있다. 화면은 이 조회로 건물마다 시설 종류·레벨·상태·국가를 받아
 // 2차맵 엔진의 건물 모델(packages/engine buildings/)을 고른다. 판정에 쓰지 않는 그림 자료다(읽기만).
 // 시설 이름·내 건물인가는 2차맵 근처 목록의 건물 탭이 쓴다(docs/adr/2026-11-08-seamless-second-map.md WP-2).
+import type { FacilityCategory } from "./facilityCategory.ts";
 import type { FacilityLookJson } from "./facilityLook.ts";
 import type { LocalizedName } from "./roster.ts";
 
@@ -31,6 +32,11 @@ export interface MapBuildingLook {
    * 없으면 화면이 시설 ID로 모델을 고른다(옛 서버·팩에 칸이 없을 때)
    */
   readonly art?: FacilityLookJson;
+  /**
+   * 시설 분류(기획 D-560 — 도시 화면 무리·이름표 색, 팩 facilities.category, 없으면 생산 단계에서 고른 값). 시설 줄이 없는 건물·옛 서버는 없음
+   * (화면이 그 밖으로 묶는다)
+   */
+  readonly category?: FacilityCategory;
 }
 
 export interface MapLooksResponse {

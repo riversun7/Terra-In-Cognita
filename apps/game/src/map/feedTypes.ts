@@ -104,6 +104,11 @@ export interface MapFeedOptions {
   canCommand: () => boolean;
   /** 관리자 전체 보기로 구독할까(dev·admin, S3 시야 전송). 없으면 시야로 거른 구독 */
   observe?: () => boolean;
+  /**
+   * 운영자 배율(기획 D-560 1246 — 기본 1). 전체 보기로 구독을 보낼 때 이 값이 1보다 크면 바로 뒤에 operator_pace를 보낸다(다시 맺은 연결·다시 구독에도
+   * 서버 배율이 맞게 — 서버는 같은 연결의 메시지를 받은 차례대로 처리한다). 없으면 보내지 않는다
+   */
+  operatorPace?: () => number;
   /** 측정용 시각(ms, performance.now) */
   now: () => number;
   /** 서버 시계(ms) — 움직임의 늦음을 잰다 */

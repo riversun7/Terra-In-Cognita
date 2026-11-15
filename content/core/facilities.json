@@ -7,6 +7,7 @@
         "en": "Farm"
       },
       "stage": "gather",
+      "category": "gathering",
       "slotsPerLevel": 10,
       "pollution": 1,
       "gather": {
@@ -58,6 +59,7 @@
         "en": "Lumber camp"
       },
       "stage": "gather",
+      "category": "gathering",
       "slotsPerLevel": 10,
       "pollution": 2,
       "gather": {
@@ -116,6 +118,7 @@
         "en": "Mine"
       },
       "stage": "gather",
+      "category": "gathering",
       "slotsPerLevel": 10,
       "pollution": 6,
       "gather": {
@@ -174,6 +177,7 @@
         "en": "Herb field"
       },
       "stage": "gather",
+      "category": "gathering",
       "slotsPerLevel": 10,
       "pollution": 1,
       "gather": {
@@ -224,6 +228,7 @@
         "en": "Ranch"
       },
       "stage": "gather",
+      "category": "gathering",
       "slotsPerLevel": 10,
       "pollution": 1,
       "gather": {
@@ -276,6 +281,7 @@
         "en": "Fishing spot"
       },
       "stage": "gather",
+      "category": "gathering",
       "slotsPerLevel": 10,
       "pollution": 1,
       "gather": {
@@ -341,6 +347,7 @@
         "en": "Smelter"
       },
       "stage": "process",
+      "category": "processing",
       "slotsPerLevel": 10,
       "pollution": 8,
       "build": {
@@ -390,6 +397,7 @@
         "en": "Kitchen"
       },
       "stage": "finish",
+      "category": "processing",
       "slotsPerLevel": 10,
       "pollution": 1,
       "build": {
@@ -443,6 +451,7 @@
         "en": "Workshop"
       },
       "stage": "finish",
+      "category": "processing",
       "slotsPerLevel": 10,
       "pollution": 4,
       "build": {
@@ -542,6 +551,7 @@
         "en": "Sawmill"
       },
       "stage": "process",
+      "category": "processing",
       "slotsPerLevel": 10,
       "pollution": 2,
       "build": {
@@ -591,6 +601,7 @@
         "en": "Kiln"
       },
       "stage": "process",
+      "category": "processing",
       "slotsPerLevel": 10,
       "pollution": 4,
       "build": {
@@ -640,6 +651,7 @@
         "en": "Territory beacon"
       },
       "stage": "territory",
+      "category": "military",
       "maxLevel": 1,
       "slotsPerLevel": 0,
       "build": {
@@ -668,6 +680,7 @@
         "en": "Stockpile"
       },
       "stage": "storage",
+      "category": "storage",
       "slotsPerLevel": 0,
       "build": {
         "mulPm": 1000,
@@ -709,6 +722,7 @@
         "en": "Storehouse"
       },
       "stage": "storage",
+      "category": "storage",
       "slotsPerLevel": 0,
       "build": {
         "mulPm": 1000,
@@ -758,6 +772,7 @@
         "en": "Warehouse"
       },
       "stage": "storage",
+      "category": "storage",
       "slotsPerLevel": 0,
       "build": {
         "mulPm": 1000,
@@ -794,6 +809,7 @@
         "en": "Grand warehouse"
       },
       "stage": "storage",
+      "category": "storage",
       "slotsPerLevel": 0,
       "build": {
         "mulPm": 1000,
@@ -834,6 +850,7 @@
         "en": "Temple"
       },
       "stage": "religion",
+      "category": "public",
       "slotsPerLevel": 0,
       "build": {
         "mulPm": 1000,
@@ -886,6 +903,7 @@
         "en": "Biotech lab"
       },
       "stage": "biotech",
+      "category": "public",
       "slotsPerLevel": 0,
       "build": {
         "mulPm": 800,
@@ -934,6 +952,7 @@
         "en": "Government hall"
       },
       "stage": "government",
+      "category": "administration",
       "maxLevel": 3,
       "slotsPerLevel": 0,
       "build": {
@@ -1004,6 +1023,7 @@
         "en": "Hospital"
       },
       "stage": "medical",
+      "category": "public",
       "slotsPerLevel": 2,
       "build": {
         "mulPm": 1000,
@@ -1052,6 +1072,7 @@
         "en": "Lodging"
       },
       "stage": "living",
+      "category": "housing",
       "maxLevel": 3,
       "slotsPerLevel": 0,
       "build": {
@@ -1102,6 +1123,7 @@
         "en": "City wall"
       },
       "stage": "defense",
+      "category": "military",
       "maxLevel": 1,
       "slotsPerLevel": 0,
       "build": {
@@ -1131,6 +1153,7 @@
         "en": "Berth"
       },
       "stage": "transport",
+      "category": "transport",
       "maxLevel": 3,
       "slotsPerLevel": 0,
       "build": {
@@ -1182,6 +1205,7 @@
         "en": "Shipyard"
       },
       "stage": "transport",
+      "category": "transport",
       "maxLevel": 3,
       "slotsPerLevel": 0,
       "build": {
@@ -1276,6 +1300,7 @@
         "en": "Trade dock"
       },
       "stage": "transport",
+      "category": "transport",
       "maxLevel": 3,
       "slotsPerLevel": 0,
       "build": {

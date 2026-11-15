@@ -4,7 +4,7 @@ import { decodeServerMessage } from "@terra/protocol";
 import { WALK_SPEED, anchorCenter } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
-import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
+import { OPERATOR_SPEED_FACTOR, fixedOperatorPace } from "../world/operatorPace.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { createTestMap } from "../world/testSupport.ts";
 import { createGatherGateway } from "./gateway.ts";
@@ -58,6 +58,8 @@ function connect(map: SecondMap, who: Viewer, observing: boolean) {
     send: (text) => sent.push(decodeServerMessage(text)),
     viewer: () => Promise.resolve(who),
     observing: () => observing,
+    // 배율을 가장 크게 고른 운영자 연결(기본은 1 — D-560 1246, 기본 값은 world/operatorPace.test.ts·travel/gateway.test.ts가 본다)
+    operatorPace: fixedOperatorPace(OPERATOR_SPEED_FACTOR),
   });
   return { sent, socket };
 }

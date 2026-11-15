@@ -645,13 +645,12 @@ export const cyborgs = pgTable(
     temperament: text("temperament").notNull(),
     initial: smallint("initial").array().notNull(),
     kPm: smallint("k_pm").array().notNull(),
-    /** 외형 = 부위 ID 넷 + 색 ID 둘(D-6040, @terra/shared/cyborg CyborgAppearance) */
-    appearance: jsonb("appearance").notNull(),
-    /**
-     * 3D 외형(@terra/shared/characterLook CharacterLook, docs/adr/2026-11-11-character-3d.md 5절). null = 3D 외형을 고르기 전에 만든
-     * 사이보그 — 옛 외형(appearance)에서 넘긴 값으로 보인다
-     */
+    /** 옛 2D 외형(D-6040). D-560 1421: 앱은 쓰지 않는다(켤 때 3D로 옮기고 비움, cyborg/state.ts). not null만 풀었다 — 다음 배포에서 지운다 */
+    appearance: jsonb("appearance"),
+    /** 3D 외형(CharacterLook, ADR character-3d 5절). 지금 앱은 늘 채운다(null = 옛 앱 줄 — 켤 때 옛 외형에서 넘겨 채운다) */
     look: jsonb("look"),
+    /** 3D 외형을 서버가 옛 2D 외형에서 넘겨 채웠나(한 번 무료로 고를 수 있다 — 질문 961 나, D-560 1421) */
+    lookAuto: boolean("look_auto").notNull().default(false),
     factionId: bigint("faction_id", { mode: "number" })
       .notNull()
       .references(() => factions.id),

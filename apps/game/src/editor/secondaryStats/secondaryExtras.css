@@ -39,3 +39,19 @@
 .sec-duel-table tr[data-weak] th {
   color: var(--color-warning);
 }
+/* [스탯 영향도](기획 D-560 1376 — 밸런스 화면에서 옮김): 머리(제목 + 열기), 연 뒤에 실험실 자료를 받는다 */
+.sec-influence-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.sec-extra-note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.sec-influence .an-tab {
+  min-width: 0;
+}

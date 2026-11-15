@@ -2,17 +2,11 @@
 // 프리셋과 폴리곤 3d로 구성할 수 있게, 2차맵에서도 사용가능하게").
 // - 값은 목록 ID(글자)와 정수뿐이다. 그림(로우폴리 모델)은 엔진이 이 값으로 만든다(packages/engine characters/). 꾸밈이라 게임 규칙에 쓰지 않는다.
 // - 서버는 목록에 있는 ID·범위 안 정수인지만 본다(isCharacterLook). 저장된 ID는 바꾸거나 다시 쓰지 않는다(cyborgs.look).
-// - 옛 2D 외형(1판, cyborgLooks.ts CyborgAppearance)과 오간다: 옛 사이보그는 고른 부위·색을 가까운 3D 부위로 넘기고(characterLookFromLegacy),
-//   2D 얼굴 그림(위 띠 등)은 3D 외형에서 가까운 옛 부위로 그린다(legacyAppearanceOf).
+// - 옛 2D 외형(1판, cyborgLooks.ts CyborgAppearance)은 한쪽으로만 넘긴다: 옛 사이보그는 고른 부위·색을 가까운 3D 부위로(characterLookFromLegacy —
+//   서버가 켤 때 옮기기·35판 기기의 만들기에만 쓴다). 3D → 옛 2D(옛 legacyAppearanceOf)는 뺐다(기획 D-560 1421 "옛 2D 자료 바로 정리").
 // - 색 값은 세계의 칠(다른 사람에게도 같은 색)이라 테마 값(tokens.css)이 아니다. 옛 색 8개는 ID·값이 그대로다.
 // - 무작위·기본 외형은 씨앗 난수(rng.ts)라 같은 씨앗이면 어느 기기·서버에서나 같다.
-import {
-  CYBORG_COLORS,
-  CYBORG_COLOR_IDS,
-  CYBORG_LOOK_PARTS,
-  type CyborgAppearance,
-  type CyborgColorId,
-} from "./cyborgLooks.ts";
+import { CYBORG_COLORS, CYBORG_COLOR_IDS, type CyborgAppearance } from "./cyborgLooks.ts";
 import { createRng } from "./rng.ts";
 
 /** 외형 판 번호(저장 값의 v) */
@@ -464,73 +458,6 @@ export function characterLookFromLegacy(appearance: CyborgAppearance, seed: numb
     secondary: "slate",
     accent: appearance.accent,
     glow: appearance.accent,
-  };
-}
-
-const TOP_LEGACY_HEAD: Partial<Record<CharacterPartId<"top">, CyborgAppearance["head"]>> = {
-  antenna: "antenna",
-  crest: "crest",
-  mohawk: "crest",
-  spiky: "crest",
-  horns: "crest",
-  helm: "helm",
-  cap: "helm",
-  hood: "helm",
-};
-const FACE_LEGACY: Record<CharacterPartId<"face">, CyborgAppearance["face"]> = {
-  visor: "visor",
-  goggles: "visor",
-  screen: "visor",
-  eyes: "eyes",
-  mask: "eyes",
-  mono: "mono",
-  grill: "grill",
-  slit: "grill",
-};
-const TORSO_LEGACY: Partial<Record<CharacterPartId<"torso">, CyborgAppearance["body"]>> = {
-  plate: "plate",
-  core: "core",
-  suit: "slim",
-  vest: "slim",
-  jacket: "slim",
-};
-
-const isLegacyColor = (id: CharacterColorId): id is CyborgColorId =>
-  (CYBORG_COLOR_IDS as readonly string[]).includes(id);
-
-/** 새 색 → 가장 가까운 옛 색(2D 그림용) */
-const COLOR_LEGACY: Record<Exclude<CharacterColorId, CyborgColorId>, CyborgColorId> = {
-  leaf: "mint",
-  teal: "mint",
-  azure: "sky",
-  indigo: "lilac",
-  plum: "lilac",
-  rose: "coral",
-  crimson: "coral",
-  orange: "peach",
-  clay: "peach",
-  cocoa: "slate",
-  silver: "cream",
-  charcoal: "slate",
-};
-
-const legacyColor = (id: CharacterColorId): CyborgColorId => (isLegacyColor(id) ? id : COLOR_LEGACY[id]);
-
-/** 3D 외형 → 옛 2D 외형(2D 얼굴 그림과 옛 조회 칸 appearance). 가까운 부위·색으로 넘긴다 */
-export function legacyAppearanceOf(look: CharacterLook): CyborgAppearance {
-  const limbs: CyborgAppearance["limbs"] =
-    look.arms === "piston" || look.legs === "piston"
-      ? "piston"
-      : look.arms === "claw"
-        ? "claw"
-        : CYBORG_LOOK_PARTS.limbs[0];
-  return {
-    head: TOP_LEGACY_HEAD[look.top] ?? "dome",
-    face: FACE_LEGACY[look.face],
-    body: TORSO_LEGACY[look.torso] ?? "round",
-    limbs,
-    primary: legacyColor(look.primary),
-    accent: legacyColor(look.glow),
   };
 }
 

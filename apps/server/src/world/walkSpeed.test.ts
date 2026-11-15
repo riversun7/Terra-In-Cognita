@@ -1,7 +1,8 @@
 // 걷기 빠르기 시험(walkSpeed.ts, 사용자 결정 D-540 "걷기만 AGI 반영") — 실효 AGI(전투와 같은 몸) → 계산식 walk_speed가 2차맵 이동·운영자 빠르기·
 // 도착 시각에 들고, 탈것 봇·땅이 아닌 유닛은 그대로, 몸 셈은 바뀐 때만 하는지
 import { CAR_SPEED, CELL_UNITS, WALK_SPEED, anchorCenter, arrivalAt } from "@terra/sim";
-import { DEFAULT_CYBORG_APPEARANCE, zeroElements } from "@terra/shared/cyborg";
+import { DEFAULT_CHARACTER_LOOK } from "@terra/shared/characterLook";
+import { zeroElements } from "@terra/shared/cyborg";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CyborgRecord } from "../cyborg/state.ts";
 import { testRosterCatalog } from "../roster/catalog.ts";
@@ -28,8 +29,8 @@ const recordAt = (level: number, agi = 10): CyborgRecord => ({
   temperament: "balanced",
   initial: { str: 10, dex: 10, agi, vit: 10, int: 10, wis: 10 },
   kPm: { str: 1000, dex: 1000, agi: 1000, vit: 1000, int: 1000, wis: 1000 },
-  appearance: DEFAULT_CYBORG_APPEARANCE,
-  look: null,
+  look: DEFAULT_CHARACTER_LOOK,
+  lookAuto: false,
   factionId: 1,
   startCityId: 1,
   unitId: 1,

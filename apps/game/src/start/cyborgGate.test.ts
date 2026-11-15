@@ -1,4 +1,3 @@
-import { DEFAULT_CYBORG_APPEARANCE } from "@terra/shared/cyborg";
 import { describe, expect, it } from "vitest";
 import { type CyborgGateState, gateHolds, gateRedirect, opensWithoutCyborg } from "./cyborgGate.ts";
 
@@ -7,7 +6,6 @@ const ready: CyborgGateState = {
   status: "ready",
   userId: "u",
   name: "Nova",
-  appearance: DEFAULT_CYBORG_APPEARANCE,
   look: null,
   elementsPending: false,
 };

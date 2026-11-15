@@ -47,3 +47,16 @@
 
 ## 사용자 결정 대기
 - 질문 1561~1569(채집 오브젝트), 1611~1613(식 글) — 기획 세션에 보낸다. 배 1525·1526·1528~1540·1616~1620 중 D-559에 답이 없는 것은 기획 세션이 묻는 중.
+
+## 덧붙임: 묶음 화면 시험
+- 첫 묶음 실행(boats·gather 여섯·economy·items·battleReport·battleLab·secondaryStats·cyborg·dev·unit-control)은 시간 제한으로 끝나기 전에 끊겼다. 남은 실패 기록 22개를 하나씩 원인을 찾았다(Verified: git log·blame, 콘텐츠·코드 확인). 모두 시험 기대값이 낡은 것이고 앱 회귀는 없었다. 앱 코드·수치·콘텐츠는 고치지 않았다.
+  - items(19): 광석 10 → 13개는 이번 묶음 3073c6d(D-556, 소금·이탄·화석을 광석으로). 확률표 12 → 14줄은 main에 이미 있던 679f7e4(D-534, 240·260 구간 추가). 검 실제 공격력 18 → 23도 main에 이미 있던 0731ac1(D-539, 물리 기본 공격력 = STR + ⌊VIT ÷ 2⌋, 무기 공격력은 그 위에 더함): 기준 유닛(1차 모두 10) 15 + ⌊20 × min(2, 10 ÷ 25)⌋ = 15 + 8 = 23, 적정 STR을 비우면 15 + 20 = 35(서버 단위 시험 `preview.test.ts`와 같음). 적정보다 낮은 스탯은 무기 공격력에 그 비율을 곱하는 규칙 그대로다.
+  - gather-tiers(1): 띠 표 고르기 단추(`.pd-ladders`)는 이번 묶음 28df99e(D-552 "표 하나")에서 지웠다 → 단추가 없고 광석 전용 줄이 없는지 보게 바꿈.
+  - battleLab(1): 유닛 열쇠 "A2" → "A1·2"는 main에 이미 있던 655445e(군단 파티 탭: 팀·파티 번호·파티 안 차례).
+  - unit-control 운영자 손가락(1): 땅을 누른 자리(281, 327.5)를 걷는 휴먼(유닛 33)이 지나가 그 유닛의 작은 창이 열렸다(추적 기록 확인 — 누르기 전 창은 유닛 623, 뒤는 33). 유닛을 누르면 그 창이 열리는 것이 맞는 동작이라, 다른 유닛 창이 열리면 다음 땅 자리에서 다시 보게 하고, 작은 창이 덮은 자리는 건너뛰게 했다.
+  - battle-replay(시험 abe2034 뒤 처음 실행, 9개 실패): 9초 전투에서 찾기 막대에 눈금(step 100)에 안 맞는 값(end ÷ 4 = 2,175)을 넣어 "Malformed value", 8배속 그대로 [처음부터]를 누르면 1초 남짓에 끝에 닿아 재생 중 시각을 못 봄 → 값을 0.1초 눈금으로 내리고, 8배속 확인 뒤 1배속으로 돌림.
+- 커밋: f3c10a4(items·gather-tiers·battleLab·unit-control 기대값), 0ce406c(battle-replay).
+- 다시 돌린 결과(Verified, 무거운 일 잠금 안에서, 통과/전체 — 건너뜀은 `E2E_MEASURE` 측정 시험):
+  - items 44/44, gather-tiers 12/12, battleLab 18/18, unit-control 21/21, secondaryStats 7/7, cyborg 22/22, dev 15/15 (30.6분)
+  - battle-replay 9/9(측정 2개 건너뜀, 1.9분)
+- 다시 돌리지 않은 것: boats·gather·gather-station·terrain-objects·gather-objects·gather-expect·economy·battleReport. 끊긴 첫 실행에서 실패 기록은 없었지만 다 돌았는지는 Unknown. 공용 코드는 바꾸지 않아 다시 돌리지 않았다.

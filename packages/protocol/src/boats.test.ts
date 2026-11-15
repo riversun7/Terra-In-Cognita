@@ -15,7 +15,9 @@ import {
   decodeClientMessage,
   decodeServerMessage,
   encodeMessage,
+  HOLD_PROTOCOL_VERSION,
   legacyBoatCode,
+  legacyHoldCode,
   legacyVoyageCode,
 } from "./index.ts";
 
@@ -151,5 +153,19 @@ describe("배 메시지(프로토콜 27)", () => {
     expect(legacyVoyageCode("not_docked")).toBe("forbidden");
     expect(legacyVoyageCode("cooling")).toBe("busy");
     expect(legacyVoyageCode("hull_full")).toBe("hull_full");
+  });
+
+  it("43: 배 창고 내리기·연료 아이템 코드(D-564·D-568), 42판 연결에는 옛 코드로", () => {
+    expect(HOLD_PROTOCOL_VERSION).toBe(43);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOLD_PROTOCOL_VERSION);
+    const unload: ClientMessage = { t: "boat_unload", id: 1, boatId: 9, buildingId: 15 };
+    expect(decodeClientMessage(encodeMessage(unload))).toEqual(unload);
+    expect(decodes(decodeClientMessage, { t: "boat_unload", id: 2, boatId: 9 })).toBe(false);
+    const old = BOAT_RESULT_CODES.slice(0, BOAT_RESULT_CODES.indexOf("not_drifting") + 1);
+    for (const code of BOAT_RESULT_CODES) expect(old).toContain(legacyHoldCode(code));
+    expect(legacyHoldCode("no_fuel_items")).toBe("insufficient_materials");
+    expect(legacyHoldCode("hold_empty")).toBe("empty");
+    const result = { t: "boat_result", id: 3, ok: false, code: "no_fuel_items" } as const;
+    expect(decodeServerMessage(encodeMessage(result))).toEqual(result);
   });
 });

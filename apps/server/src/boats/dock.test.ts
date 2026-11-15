@@ -56,7 +56,7 @@ describe("D-559 배", () => {
     });
     expect(service.release("other", 1, false)).toEqual({ ok: false, code: "insufficient_funds" });
     // 그동안 도크는 막힌다
-    expect(service.build("player", yard, true)).toMatchObject({ ok: false, code: "dock_busy" });
+    expect(await service.build("player", yard, true)).toMatchObject({ ok: false, code: "dock_busy" });
     grant(8, CREDIT, due);
     expect(service.release("other", 1, false)).toEqual({ ok: true, boatId: 1 });
     expect(ledger.balanceOf(7, CREDIT, buildingLocation(yard))).toBe(
@@ -81,10 +81,10 @@ describe("D-559 배", () => {
     expect(service.dockJob(dock)).toMatchObject({ currency: "AAA" });
   });
 
-  it("조선소가 없어지면 도크의 배를 섰던 자리 옆 물에 띄운다", () => {
+  it("조선소가 없어지면 도크의 배를 섰던 자리 옆 물에 띄운다", async () => {
     const { map, service, place, facilities } = setup();
     const yard = place(SHIPYARD, 40);
-    const made = service.build("admin", yard, true);
+    const made = await service.build("admin", yard, true);
     expect(made.ok).toBe(true);
     vi.advanceTimersByTime(HOUR_MS);
     const boatId = service.dockJob(yard)?.docked[0]?.boatId ?? 0;
@@ -97,7 +97,7 @@ describe("D-559 배", () => {
     });
   });
 
-  it("연료: 움직이면 쓰고, 바닥나면 표류(느림), 교역 부두에 대어 시간을 사면 채운다(1529)", async () => {
+  it("연료: 움직이면 쓰고, 바닥나면 표류(느림), 교역 부두에 대어 시간을 사면 연료 아이템으로 채운다(1529·D-564 1687)", async () => {
     const { map, service, place, grant, ledger } = setup();
     const dock = place(TRADE, 40, 8);
     map.addBoat({ id: 1, ownerId: 7, speed: START_BOATS.speed, cellX: 129, cellY: 41 });
@@ -120,9 +120,14 @@ describe("D-559 배", () => {
     grant(7, CREDIT, 10_000n);
     expect(await service.dockTime("player", 1, dock, 2, false)).toMatchObject({ ok: true });
     await service.tick();
+    // 연료는 아이템만(D-564 1687): 태울 것이 없으면 no_fuel_items, 배 창고의 고래 기름을 태워 채운다(돈은 내지 않는다)
+    expect(service.voyage.refuel(7, 1, dock, false)).toEqual({ ok: false, code: "no_fuel_items" });
+    grant(7, "item:whale_oil", 10n, cargoLocation(1));
+    const cash = ledger.balanceOf(8, CREDIT, buildingLocation(dock));
     expect(service.voyage.refuel(7, 1, dock, false)).toEqual({ ok: true });
     expect(service.info(1)?.fuelPm).toBe(1000);
-    expect(ledger.balanceOf(8, CREDIT, buildingLocation(dock))).toBeGreaterThan(0n);
+    expect(ledger.balanceOf(7, "item:whale_oil", cargoLocation(1))).toBeLessThan(10n);
+    expect(ledger.balanceOf(8, CREDIT, buildingLocation(dock))).toBe(cash);
     expect(service.voyage.refuel(7, 1, dock, false)).toEqual({ ok: false, code: "fuel_full" });
   });
 
@@ -169,7 +174,7 @@ describe("D-559 배", () => {
   });
 
   it("빼앗기: 표류하고 빈 남의 배에 내 배를 대고 내 유닛을 함장으로 앉히면 내 것(1534), 같은 나라는 막는다", async () => {
-    const { map, service } = setup();
+    const { map, service, grant, ledger } = setup();
     map.addBoat({ id: 1, ownerId: 9, speed: START_BOATS.speed, cellX: 140, cellY: 60 });
     map.addBoat({ id: 2, ownerId: 7, speed: START_BOATS.speed, cellX: 129, cellY: 41 });
     map.addBoat({ id: 3, ownerId: 8, speed: START_BOATS.speed, cellX: 141, cellY: 63 });
@@ -183,8 +188,11 @@ describe("D-559 배", () => {
     // 같은 나라(8 → 나라 1)는 빼앗지 않는다
     expect(service.voyage.seize(7, 3, 4, false)).toEqual({ ok: false, code: "forbidden" });
     expect(service.voyage.seize(7, 2, 4, false)).toEqual({ ok: false, code: "own_boat" });
+    // 다른 나라(9)는 전쟁이 아니어도 빼앗고(D-564 1690), 배 창고도 함께 넘어간다(D-568)
+    grant(9, "item:fish", 2n, cargoLocation(1));
     expect(service.voyage.seize(7, 1, 4, false)).toEqual({ ok: true, boatId: 1 });
     expect(map.unitInfo(1)?.ownerId).toBe(7);
+    expect(ledger.balanceOf(7, "item:fish", cargoLocation(1))).toBe(2n);
     expect(map.unitInfo(4)?.aboard).toBe(1);
     expect(service.info(1)).toMatchObject({ captain: 4, drifting: true, homeId: null });
   });
@@ -193,7 +201,7 @@ describe("D-559 배", () => {
     const { service, place } = setup();
     const yard = place(SHIPYARD, 40);
     const berth = place(BERTH, 80);
-    expect(service.build("admin", yard, true)).toMatchObject({ ok: true });
+    expect(await service.build("admin", yard, true)).toMatchObject({ ok: true });
     await vi.advanceTimersByTimeAsync(HOUR_MS);
     const boatId = service.dockJob(yard)?.docked[0]?.boatId ?? 0;
     expect(service.release("player", boatId, false)).toEqual({ ok: true, boatId });

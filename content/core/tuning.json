@@ -11816,24 +11816,6 @@
       "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1529 [임시]"
     },
     {
-      "id": "boat_fuel_price",
-      "code": "",
-      "name": {
-        "ko": "연료 한 단위 값",
-        "en": "Fuel price per unit"
-      },
-      "value": 1,
-      "structural": false,
-      "unit": "minor",
-      "min": 0,
-      "max": 1000000,
-      "desc": {
-        "ko": "교역 부두에서 연료를 넣을 때 한 단위 값(그 항구 나라 화폐, 부두 금고로).",
-        "en": "Price of one fuel unit at a trade dock (port nation's currency, to the dock vault)."
-      },
-      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1529 [임시]"
-    },
-    {
       "id": "boat_nofuel_speed_pm",
       "code": "",
       "name": {
@@ -12084,6 +12066,78 @@
         "en": "High-explosive shells also hit passengers on deck (gun damage × this)."
       },
       "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (2026-11-15) D-559\" · D-559 1536 [임시]"
+    },
+    {
+      "id": "shipyard_build_fee_pm",
+      "code": "",
+      "name": {
+        "ko": "남의 배 짓기 주문 요금(외주 요금 × ‰)",
+        "en": "Build order fee for others (service fee × ‰)"
+      },
+      "value": 3000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "남이 이 조선소에 배 짓기를 주문할 때 내는 요금 = 조선소 외주 요금 × 이 값 ÷ 1000(그 조선소 금고로). 주인 자신의 배는 내지 않는다.",
+        "en": "Fee others pay to order a boat at this shipyard = the shipyard service fee × this ÷ 1000 (to the shipyard vault). The owner's own builds pay nothing."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (D-564·D-568)\" · D-564 1682 [임시]"
+    },
+    {
+      "id": "shipyard_impound_days",
+      "code": "",
+      "name": {
+        "ko": "보관료 밀림 압류(일)",
+        "en": "Storage arrears before impound (days)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 365,
+      "desc": {
+        "ko": "남의 배 장기 보관료가 이 날만큼 밀리면 조선소가 배를 압류한다. 밀린 보관료가 배값을 넘으면 배가 조선소 주인 것이 된다.",
+        "en": "After this many days of unpaid storage the shipyard impounds the boat. When the arrears exceed the boat's value, the boat passes to the shipyard owner."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (D-564·D-568)\" · D-564 1686 [임시]"
+    },
+    {
+      "id": "boat_value_pm",
+      "code": "",
+      "name": {
+        "ko": "배값(재료 시작 시세 × ‰)",
+        "en": "Boat value (material start price × ‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 100000,
+      "desc": {
+        "ko": "압류한 배의 값 = 배 종류 재료 수 × 아이템 시작 시세 × 이 값 ÷ 1000. 밀린 보관료가 이 값을 넘으면 소유권이 넘어간다.",
+        "en": "Value of an impounded boat = boat type materials × item start price × this ÷ 1000. Ownership passes when the arrears exceed it."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (D-564·D-568)\" · D-564 1686 [임시]"
+    },
+    {
+      "id": "boat_hold_kg",
+      "code": "",
+      "name": {
+        "ko": "배 창고(kg)",
+        "en": "Boat hold (kg)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000000,
+      "desc": {
+        "ko": "배 종류에 창고 칸이 없을 때 배 창고 무게. 배에서 캔 것이 여기에 들고, 차면 부두의 내 창고에 넣거나 교역 부두에 내린다.",
+        "en": "Boat hold weight for boat types without their own value. Catches from the boat go here; when full they go to my warehouse at a dock or are unloaded at a trade dock."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (D-564·D-568)\" · D-568 [임시]"
     },
     {
       "id": "business_share_count",

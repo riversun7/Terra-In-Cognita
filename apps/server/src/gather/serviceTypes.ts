@@ -66,6 +66,8 @@ export interface GatherDeps {
    * 경계를 굴린다. 없으면 다치지 않는다(시험)
    */
   workInjury?: GatherInjuryHook | undefined;
+  /** 배 창고 상한(g, 배 종류 — boats 고리, D-568). 없거나 undefined면 설정 칸 boat_hold_kg */
+  boatHoldGrams?: ((boatId: number) => number | undefined) | undefined;
   ready(): boolean;
 }
 

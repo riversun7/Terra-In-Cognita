@@ -5,14 +5,17 @@
 //   빠르기(world/operatorPace.ts).
 // - 프로토콜 30(배 체계 개편, docs/adr/2026-11-15-shipyard-harbor.md): 수리·집 정박장·교역 부두 시간·주인 설정. 새 결과 코드는 30판 연결에만, 29판은 옛 코드로.
 // - 프로토콜 37(D-559): 도크 출고·모듈 묶음·연료 보급·오버히트·보직·빼앗기. 새 결과 코드는 37판 연결에만, 36판은 legacyVoyageCode로.
+// - 프로토콜 43(D-564·D-568): 배 창고 내리기(boat_unload), 남의 조선소 주문(만들기가 받기 범위를 기다린다). 새 결과 코드는 43판 연결에만, 그 아래는 legacyHoldCode로.
 import {
   BOAT_B2_PROTOCOL_VERSION,
   type BoatResultCode,
   type ClientMessageOf,
   HARBOR_PROTOCOL_VERSION,
+  HOLD_PROTOCOL_VERSION,
   VOYAGE_PROTOCOL_VERSION,
   encodeMessage,
   legacyBoatCode,
+  legacyHoldCode,
   legacyVoyageCode,
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
@@ -39,6 +42,7 @@ export type BoatClientMessage = ClientMessageOf<
   | "boat_overheat"
   | "boat_crew"
   | "boat_seize"
+  | "boat_unload"
 >;
 
 const MAX_PENDING = 8;
@@ -67,7 +71,8 @@ export interface BoatGateway {
 function resultText(id: number, result: BoatCommandResult, protocolVersion: number): string {
   if (!result.ok) {
     // 30판 새 코드는 29판 연결에 옛 코드로. dock_busy는 그 코드를 아는 연결(28)에만, 아니면 busy(다시 해 볼 수 있다)
-    const voyage = protocolVersion < VOYAGE_PROTOCOL_VERSION ? legacyVoyageCode(result.code) : result.code;
+    const hold = protocolVersion < HOLD_PROTOCOL_VERSION ? legacyHoldCode(result.code) : result.code;
+    const voyage = protocolVersion < VOYAGE_PROTOCOL_VERSION ? legacyVoyageCode(hold) : hold;
     const known = protocolVersion < HARBOR_PROTOCOL_VERSION ? legacyBoatCode(voyage) : voyage;
     const code = known === "dock_busy" && protocolVersion < BOAT_B2_PROTOCOL_VERSION ? "busy" : known;
     return encodeMessage({
@@ -121,7 +126,7 @@ export function createBoatGateway(options: {
           case "boat_build":
             return reply(
               message.id,
-              service.build(viewer.id, message.buildingId, operator, message.boatType),
+              await service.build(viewer.id, message.buildingId, operator, message.boatType),
             );
           case "boat_repair":
             return reply(
@@ -182,6 +187,8 @@ export function createBoatGateway(options: {
             );
           case "boat_seize":
             return reply(message.id, service.voyage.seize(owner(), message.boatId, message.unitId, operator));
+          case "boat_unload":
+            return reply(message.id, service.unload(owner(), message.boatId, message.buildingId, operator));
           default: {
             const unknown: never = message;
             return unknown;

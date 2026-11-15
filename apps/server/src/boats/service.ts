@@ -41,7 +41,9 @@ import {
   ringCells,
   waterSpot,
 } from "./core.ts";
+import { createCargo } from "./cargo.ts";
 import { createDock } from "./dock.ts";
+import { holdCapGrams, holdGramsOf } from "./hold.ts";
 import { HARBOR_TICK_MS, type HarborTick, createHarbor, harborAccepts } from "./harbor.ts";
 import {
   HOUR_MS,
@@ -93,6 +95,8 @@ export interface BoatInfo {
   readonly overheat: boolean;
   readonly drifting: boolean;
   readonly captain: number | null;
+  /** 배 창고 상한(g, D-568 — 배 종류 holdKg, 없으면 설정 칸) */
+  readonly holdCapGrams: number;
 }
 
 /** 배 시설 주인 설정 바꾸기 */
@@ -105,7 +109,8 @@ export interface HarborPolicyChange {
 }
 
 export interface BoatService {
-  build(userId: string, buildingId: number, operator: boolean, typeId?: string): BoatCommandResult;
+  /** 만들기(남의 조선소면 받기 범위를 본 뒤 외주 주문 — D-564 1682) */
+  build(userId: string, buildingId: number, operator: boolean, typeId?: string): Promise<BoatCommandResult>;
   repair(userId: string, boatId: number, buildingId: number, operator: boolean): Promise<BoatCommandResult>;
   berth(
     userId: string,
@@ -131,6 +136,8 @@ export interface BoatService {
   releaseAs(ownerId: number, boatId: number): BoatCommandResult;
   /** 연료·오버히트·보직·빼앗기(voyage.ts — 소유 주체로 부른다) */
   readonly voyage: Voyage;
+  /** 배 창고 내리기(cargo.ts — D-568, 소유 주체로 부른다) */
+  unload(me: number | undefined, boatId: number, buildingId: number, operator: boolean): BoatCommandResult;
   /** 사용자 → 소유 주체 */
   ownerOf(userId: string): number | undefined;
   /** 배 시설 판 원본(배 시설이 아니면 undefined). 이름은 옛 부두 판 고리(app.ts → gather/reads.ts)를 그대로 쓰려고 둔다 */
@@ -178,6 +185,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
     (boatId) => leaveFor(undefined, boatId, true),
   );
   const voyage = createVoyage(deps, harbor);
+  const cargo = createCargo(deps, harbor);
   let stopped = false;
   let ticking = false;
   const timer = deps.manual
@@ -583,6 +591,11 @@ export function createBoatService(deps: BoatDeps): BoatService {
     found.map.forEachUnit((unit) => {
       if (unit.kind === UNIT_KIND_BOAT) nearby.push(unit.id);
     });
+    const holds = holdGramsOf(
+      deps.ledger,
+      deps.places()?.catalog(),
+      new Map(nearby.map((boatId) => [boatId, found.map.unitInfo(boatId)?.ownerId ?? -1])),
+    );
     const level = fac.record.level;
     const docked = isShipyard(fac.def) ? harbor.dockedAt(buildingId) : [];
     const capacity = isShipyard(fac.def)
@@ -601,6 +614,9 @@ export function createBoatService(deps: BoatDeps): BoatService {
       closed: !harborOpen(fac.record.conditionPpm, rules),
       access: row.access,
       fee: row.fee,
+      ...(isShipyard(fac.def)
+        ? { orderFee: ((BigInt(row.fee) * BigInt(Math.max(0, rules.shipyardBuildFeePm))) / 1000n).toString() }
+        : {}),
       module: row.modules[0] ?? null,
       modules: row.modules,
       moduleSlots: isShipyard(fac.def) ? shipyardModuleSlots(level) : 0,
@@ -617,6 +633,8 @@ export function createBoatService(deps: BoatDeps): BoatService {
         hullPm: Math.floor(harbor.hullOf(state, at) / 1000),
         repairUntil: shipyard.repairUntil(state.boatId) ?? null,
         storageDue: dock.storageOf(state, at).toString(),
+        impounded: dock.impounded(state, at),
+        value: dock.valueOf(state).toString(),
       })),
       jobs: jobs.map((job) => ({
         kind: job.kind,
@@ -643,7 +661,17 @@ export function createBoatService(deps: BoatDeps): BoatService {
         ownerId: found.map.unitInfo(state.boatId)?.ownerId ?? -1,
         until: state.tradeUntilMs ?? 0,
       })),
-      nearby: nearby.toSorted((a, b) => a - b).map(boatView),
+      nearby: nearby
+        .toSorted((a, b) => a - b)
+        .map((boatId) => {
+          // 내 배 줄(같은 2차맵 — 보는 사람의 것만 남는다)에 배 창고 무게·상한(D-568)
+          const view = boatView(boatId);
+          return {
+            ...view,
+            holdGrams: Number(holds.get(boatId) ?? 0n),
+            holdCapGrams: holdCapGrams(harbor.typeOf(harbor.stateOf(boatId)), rules),
+          };
+        }),
       cash: harbor.cashOf(found.ownerId, buildingId).toString(),
       overstayMul: rules.tradeOverstayMul,
       maxHours: rules.tradeMaxHours,
@@ -652,8 +680,21 @@ export function createBoatService(deps: BoatDeps): BoatService {
   }
 
   return {
-    build(userId, buildingId, operator, typeId) {
-      return shipyard.build(deps.ownerOf(userId), buildingId, operator, typeId);
+    async build(userId, buildingId, operator, typeId) {
+      const me = deps.ownerOf(userId);
+      const yard = findBuilding(maps, buildingId);
+      // 남의 조선소: 받기 범위 안이면 외주 주문(D-564 1682), 아니면 berth_denied
+      const order =
+        !operator &&
+        yard !== undefined &&
+        yard.ownerId !== null &&
+        yard.ownerId !== me &&
+        isShipyard(facilityOf(deps.places(), buildingId)?.def);
+      if (order) {
+        if (me === undefined) return fail("forbidden");
+        if (!(await harbor.admits(buildingId, yard.ownerId, me))) return fail("berth_denied");
+      }
+      return shipyard.build(me, buildingId, operator, typeId, order);
     },
     repair(userId, boatId, buildingId, operator) {
       return repairFor(deps.ownerOf(userId), boatId, buildingId, operator);
@@ -686,6 +727,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
       return dock.release(ownerId, boatId, false);
     },
     voyage,
+    unload: (me, boatId, buildingId, operator) => cargo.unload(me, boatId, buildingId, operator),
     ownerOf: (userId) => deps.ownerOf(userId),
     repairAs(ownerId, boatId, buildingId) {
       return repairFor(ownerId, boatId, buildingId, false);
@@ -723,6 +765,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
         overheat: state.overheat,
         drifting: hull <= 0 || harbor.fuelEmpty(state),
         captain: captain ? Number(captain[0]) : null,
+        holdCapGrams: holdCapGrams(harbor.typeOf(state), deps.rules()),
       };
     },
     speedPm(boatId) {

@@ -65,6 +65,7 @@ function harborOf(source: HarborPanelSource | undefined, ownerId: number | undef
     closed: source.closed,
     access: source.access,
     fee: source.fee,
+    ...(source.orderFee === undefined ? {} : { orderFee: source.orderFee }),
     module: source.module,
     modules: source.modules,
     moduleSlots: source.moduleSlots,

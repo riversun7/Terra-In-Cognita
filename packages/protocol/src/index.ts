@@ -156,7 +156,9 @@ export {
   SHIPYARD_MODULE_VALUES,
   CREW_POST_VALUES,
   VOYAGE_PROTOCOL_VERSION,
+  HOLD_PROTOCOL_VERSION,
   legacyBoatCode,
+  legacyHoldCode,
   legacyVoyageCode,
 } from "./boats.ts";
 export {

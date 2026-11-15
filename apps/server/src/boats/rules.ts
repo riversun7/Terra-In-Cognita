@@ -4,16 +4,17 @@
 // - 정박장 자리(1487) = 레벨 × berthsPerLevel, 교역 부두 임시 자리(1488) = 레벨 × tradeSlotsPerLevel.
 // - 배 내구도(1485·1486·1493): 집 정박장에 들었으면 wearBerthedPd, 집이 있고 밖이면 wearAwayPd, 집이 없으면 wearAwayPd × wearHomelessMul(‰/일), 고치는 중이면 닳지 않는다.
 // - 빠르기(1495): 배 종류 speedPm, 내구도 0이면 brokenSpeedPm을 더 곱한다(잃지 않는다).
-// - 수리(1494): 재료 = ⌈종류 재료 × 잃은 몫 × repairCostPm ÷ 1000⌉, 시간 = 만드는 시간 × 잃은 몫 × repairTimePm ÷ 1000(수리 특화는 둘 다 × repairSpecPm ÷ 1000).
+// - 수리(1494): 재료 = ⌈종류 재료 × 잃은 몫 × repairCostPm ÷ 1000⌉, 시간 = 만드는 시간 × 잃은 몫 × repairTimePm ÷ 1000(수리 특화는 하나마다 둘 다 × repairSpecPm ÷ 1000).
 // - 운행 정지(1500): 시설 상태(ppm)가 harborStopPm‰ 아래면 새 배·임시 정박·새 작업을 받지 않는다(D-559 1527 — 30%).
 // D-559(docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559"):
-// - 모듈(1521): 레벨 2부터 레벨마다 하나 더. 도크 늘림은 하나마다 shipyardDockModule, 건조·수리 특화는 하나만 듣는다.
+// - 모듈(1521): 레벨 2부터 레벨마다 하나 더. 같은 모듈 여러 개는 효과가 모두 겹친다(D-564 1681): 도크 늘림은 하나마다 shipyardDockModule,
+//   건조·수리 특화는 하나마다 특화 ‰를 한 번 더 곱한다(둘 = × 특화 × 특화).
 // - 도크(1523): 다 만들거나 고친 배는 꺼낼 때까지 도크에 있다(처지 docked — 닳지 않는다). 남의 배는 다 된 뒤 storageFreeHours가 지나면 하루(올림)마다 보관료.
 // - 연료(1529·1540): 움직인 시간 × 한 시간 연료(오버히트면 × overheatFuelPm). 연료 0이면 표류(noFuelSpeedPm). 오버히트는 빠르기 × overheatSpeedPm,
 //   움직인 한 시간마다 내구도 overheatHullPh‰ 더(엔진실 한 명마다 engineCrewHeatPm 줄임). 갑판병은 바다에서 한 시간에 deckRepairPh‰씩 deckRepairCapPm까지 고친다.
 // 정수로만 셈한다(BigInt는 쓰지 않는다 — 값이 작다).
 import type { BoatCoefficients } from "@terra/sim";
-import { HULL_FULL, type ShipyardModule, shipyardModuleSlots } from "@terra/shared/harbor";
+import { HULL_FULL, type ShipyardModule, moduleCount, shipyardModuleSlots } from "@terra/shared/harbor";
 import type { BoatTypeDef, FacilityCatalog, FacilityDef } from "../facilities/catalog.ts";
 import type { JobMaterial } from "../facilities/state.ts";
 import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
@@ -45,7 +46,19 @@ export function boatCost(type: Pick<BoatTypeDef, "materials">, costPm: number): 
     .filter((stack) => stack.qty > 0);
 }
 
-/** 배 만드는 시간(ms) = 종류 시간 × buildTimePm ÷ 1000(건조 특화 × buildSpecPm ÷ 1000), 운영자 모드는 운영자 빠르기로 나눈다 */
+/** 특화 모듈 수만큼 ‰를 거듭 곱한다(D-564 1681 "모두 겹침", 곱할 때마다 내림) */
+export function stackSpec(
+  value: number,
+  modules: readonly ShipyardModule[],
+  module: ShipyardModule,
+  specPm: number,
+): number {
+  let out = value;
+  for (const entry of modules) if (entry === module) out = Math.floor((out * Math.max(0, specPm)) / 1000);
+  return out;
+}
+
+/** 배 만드는 시간(ms) = 종류 시간 × buildTimePm ÷ 1000(건조 특화 하나마다 × buildSpecPm ÷ 1000), 운영자 모드는 운영자 빠르기로 나눈다 */
 export function boatBuildMs(
   type: Pick<BoatTypeDef, "buildMs">,
   rules: Pick<BoatCoefficients, "buildTimePm" | "shipyardBuildSpecPm">,
@@ -53,7 +66,7 @@ export function boatBuildMs(
   operator: boolean,
 ): number {
   let ms = Math.floor((Math.max(0, type.buildMs) * Math.max(0, rules.buildTimePm)) / 1000);
-  if (modules.includes("build")) ms = Math.floor((ms * Math.max(0, rules.shipyardBuildSpecPm)) / 1000);
+  ms = stackSpec(ms, modules, "build", rules.shipyardBuildSpecPm);
   return operator ? Math.floor(ms / OPERATOR_SPEED_FACTOR) : ms;
 }
 
@@ -65,7 +78,7 @@ export function shipyardDocks(
 ): number {
   if (level < 1) return 0;
   const base = Math.max(1, rules.shipyardDocks);
-  const docks = modules.slice(0, shipyardModuleSlots(level)).filter((module) => module === "docks").length;
+  const docks = moduleCount(modules, level, "docks");
   return base + docks * Math.max(0, rules.shipyardDockModule);
 }
 
@@ -150,7 +163,8 @@ export function repairPlan(
 ): { readonly materials: JobMaterial[]; readonly ms: number } | null {
   const lost = HULL_FULL - Math.max(0, Math.min(HULL_FULL, hullPpm));
   if (lost < REPAIR_MIN_PPM) return null;
-  const spec = modules.includes("repair") ? Math.max(0, rules.shipyardRepairSpecPm) : 1000;
+  // 수리 특화 하나마다 ‰를 한 번 더 곱한다(D-564 1681)
+  const spec = stackSpec(1000, modules, "repair", rules.shipyardRepairSpecPm);
   // 분모 = 가득(ppm) × 1000(repairCostPm) × 1000(costPm) × 1000(spec)
   const scale = BigInt(HULL_FULL) * 1_000_000_000n;
   const materials = operator

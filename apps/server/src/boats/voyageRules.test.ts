@@ -23,7 +23,8 @@ describe("D-559 배 셈", () => {
     expect(shipyardModuleSlots(3)).toBe(2);
     expect(modulesValid(["docks", "docks"], 3)).toBe(true);
     expect(modulesValid(["build", "repair"], 3)).toBe(true);
-    expect(modulesValid(["build", "build"], 3)).toBe(false);
+    // 같은 모듈도 겹쳐 붙인다(D-564 1681 "모두 겹침")
+    expect(modulesValid(["build", "build"], 3)).toBe(true);
     expect(modulesValid(["docks", "build"], 2)).toBe(false);
     expect(modulesValid([], 1)).toBe(true);
   });

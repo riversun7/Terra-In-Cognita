@@ -5,6 +5,7 @@
 // 묻지 않는다, D-515). 시뮬은 땅·물을 몰라 배가 없으므로 이 칸들은 서버만 읽는다(시뮬 판정·출력 그대로).
 // D-559(docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559"): 남의 조선소 수리비·장기 보관료, 연료·오버히트, 보직(갑판병 기본 수리·엔진실),
 // 포탄 종류·함포 규격 피해 칸을 더했다. 해상 전투 판정(같은 전투 코어)은 아직 없어 포탄·함포 칸은 전투 고리가 읽을 값이다(지금은 화면·시험만).
+// D-564·D-568: 연료는 아이템만(돈 값 칸 boat_fuel_price를 뺐다), 외주 짓기 요금·압류·배값·배 창고 칸을 더했다.
 
 export interface BoatCoefficients {
   /** [임시] 배 빠르기(고정소수점 단위/초, 49 P20 "수단 최고 속도" D-5052). 1,536 = 1.5칸/초 ≈ 8.9m/s(걷기 437과 차 4,813 사이) */
@@ -87,8 +88,6 @@ export interface BoatCoefficients {
   readonly fuelCapacity: number;
   /** [임시] 배 종류에 연료 칸이 없을 때 항해 한 시간에 드는 연료(단위) */
   readonly fuelPerHour: number;
-  /** [임시] 교역 부두 연료 한 단위 값(그 항구 나라 화폐 최소 단위) — 부두 금고로 */
-  readonly fuelPrice: number;
   /** [임시] 연료가 없는 배의 빠르기(‰ — 노·돛으로 겨우 움직인다, 표류) */
   readonly noFuelSpeedPm: number;
   /** [임시] 오버히트 빠르기(‰) */
@@ -116,6 +115,15 @@ export interface BoatCoefficients {
   /** [임시] HE(고폭탄): 선체 피해(‰)와 갑판 승객 피해(‰) */
   readonly shellHeHullPm: number;
   readonly shellHeDeckPm: number;
+  // ---------- 외주·압류·배 창고(D-564 1682·1686, D-568 배 채집) ----------
+  /** [임시] 남의 조선소에 배 짓기를 주문할 때 요금 = 그 조선소 외주 요금(fee) × 이 값 ÷ 1000(그 조선소 금고로) */
+  readonly shipyardBuildFeePm: number;
+  /** [임시] 남의 배 장기 보관료가 이만큼(일) 밀리면 조선소가 압류한다(꺼낼 때까지 밀린 보관료가 쌓인다) */
+  readonly impoundDays: number;
+  /** [임시] 배값 = 배 종류 재료(boat_cost_pm 반영) × 아이템 시작 시세 × 이 값 ÷ 1000 — 밀린 보관료가 넘으면 조선소 주인 것이 된다 */
+  readonly valuePm: number;
+  /** [임시] 배 종류에 창고 칸이 없을 때 배 창고 무게(kg) — 배에서 캔 것이 든다(D-568) */
+  readonly holdKg: number;
 }
 
 export const START_BOATS: BoatCoefficients = {
@@ -153,7 +161,6 @@ export const START_BOATS: BoatCoefficients = {
   storageFreeHours: 24,
   fuelCapacity: 1000,
   fuelPerHour: 100,
-  fuelPrice: 1,
   noFuelSpeedPm: 200,
   overheatSpeedPm: 1300,
   overheatFuelPm: 2000,
@@ -168,4 +175,8 @@ export const START_BOATS: BoatCoefficients = {
   shellApHullPm: 1000,
   shellHeHullPm: 600,
   shellHeDeckPm: 400,
+  shipyardBuildFeePm: 3000,
+  impoundDays: 3,
+  valuePm: 1000,
+  holdKg: 200,
 };

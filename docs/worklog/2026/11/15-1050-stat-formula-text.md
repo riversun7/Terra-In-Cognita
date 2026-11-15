@@ -39,12 +39,17 @@
 - `RosterCombat.formulas`는 선택 칸이다: 옛 서버·시안 몸은 없을 수 있다(화면이 옛 문구로 돌아간다).
 
 ## 미검증·TODO·알려진 문제
-- 검사 결과는 아래 "검사"에 적는다.
 - 사이보그 판 무기 크리·명중 식 글은 길다(줄 바꿈으로 보인다). 질문 1613.
 - 크리 결과 줄(`cyborg_attack_bare_crit_line` "AGI(10) + DEX(10) = 20‰")은 기존 그대로 AGI + DEX 꼴을 가정한다(식을 바꾸면 식 글은 따라가지만 이 줄은 아니다 — 기존 문제).
 
 ## 검사
-(아래에 채움)
+- Verified: `TEST_DATABASE_URL=… pnpm check` 통과(714 파일 · 5,377 시험, 포맷·린트·타입·경계·크기·다국어·대비·콘텐츠).
+- Verified: 새 단위 시험 — `formulaText.test.ts` 27개(쓰는 식 꼴·괄호·함수·지역 이름·전투 기본 식 전부, plain 글 다시 읽기 19가지 × 무작위 200번 값 같음),
+  `formula.test.ts` AGI + DEX 가중치·기여 몫 1개 추가, `formulaLabels.test.ts` 6개, `secondaryStatsModel.test.ts` 1개 추가.
+- Verified: `pnpm build` · `node scripts/check-pwa.mjs` 통과 · `pnpm check:bundle` 첫 화면 109,722 B / 상한 131,416 B(식 글은 사이보그·에디터 지연 조각에만).
+- Verified: e2e `secondaryStats.spec.ts` 7개 통과(새 시험: 식 글·식의 가중치 50%/50%·기여 몫 DEX > AGI, 390 네온·라이트), `cyborg.spec.ts` 22개 통과.
+  처음 두 번은 공용 디스크가 가득 차(ENOSPC) 사진 시험이 "Unable to capture screenshot"으로 실패했고, 디스크를 비운 뒤 다시 돌려 모두 통과.
+- 사진(390): 에디터 편집 카드·영향 카드 네온·라이트, 사이보그 판 공격 묶음(크리·간격·명중 펼침) 파스텔·다크 — 작업 공간 임시 폴더(저장소 밖).
 
 ## 사용자 결정 대기
 - 질문 1611~1613(추천대로 구현).

@@ -49,7 +49,8 @@
 
 ## 시험 (Verified, 실행)
 - 단위: content 136, sim 857(전체), server 관련 묶음 254 통과(+DB 84 건너뜀 — 아래 전체 검사 참고), game 편집기 묶음 82(그 가운데 layout.test 3개는 `apps/game`에서 vitest를 따로 돌린 탓 — 루트 설정으로 9/9), 편집기 모델 12, 적용 스크립트·pwa-build 28.
-- e2e: `gather-objects`(6)·`dev`(15) 21 통과. `gather`·`gather-station`·`terrain-objects`: 아래 기록 참고.
+- e2e: `gather-objects`(6)·`dev`(15) 21 통과. `gather`·`gather-station`·`terrain-objects`·`gather-objects` 31 통과·1 건너뜀(측정, `E2E_MEASURE` 없음). D-556 뒤 `economy` 13 통과(물건 수 161 시험 포함), 배치·사진 12개는 공유 기계 디스크가 가득 차(0 MB, 다른 줄기와 함께 씀) 사진을 찍지 못해 실패 — 판정 실패가 아니다(Verified: `Page.captureScreenshot`·`Target crashed`·`ENOSPC`). 다시 돌려야 한다.
+- 전체 `pnpm check`(TEST_DATABASE_URL): 시험 파일 709·시험 5,322 통과(D-556 뒤).
 - 빌드·`check-pwa`·`check:bundle` 통과(첫 화면 JS 109,752 B / 상한 131,416 B).
 - 사진: `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/gather-objects-2-shots/gather-objects-{neon,light}-{390,1440}.png`.
 

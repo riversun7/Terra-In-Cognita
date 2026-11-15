@@ -282,3 +282,21 @@ WP1~WP4는 답 없이도 [임시] 추천안으로 갈 수 있다(돈이 사라�
 ### F. 아직 코드에 없는 사업장 수입(Verified: `grep` 결과 없음)
 
 정박료·교역 임시 정박료(ADR `2026-11-15-shipyard-harbor.md` 4·5절, 제안), 교역 부두 시간 요금, 수업료(학교·훈련 시설 코드 없음). 만들 때 처음부터 사업장 금고로 보낸다(WP8).
+
+## 바뀜 (D-564, 2026-11-15)
+
+기획 D-564(질문 1621~1633의 2차·3차 답, 1682)를 줄기 `work/business-2`에서 옮겼다. 위 "확정 (D-555)" 표와 다른 것은 이 절이 앞선다. 남은 세부는 질문
+`docs/questions/2026-11-15-business-2.md`(1781~1790).
+
+| 답 | 바뀐 것 | 코드 |
+|---|---|---|
+| 1623·1624 지급준비금 | 정산(손·자동) 때 남길 돈 = 필요액(열린 임금형마다 다음 정산까지 임금 + 30일분 보증금 모자람) × (1 + 설정 칸 `business_reserve_margin_pm`) × 지급준비율(사업장마다 주인·대주주가 고름, `business_states.reserve_pm`, 비면 설정 칸 `business_reserve_default_pm`). 남긴 돈으로 모자란 보증금부터 채우고(`fundLaborDeposit`) 나머지를 지분대로 나눈다 | `business/reserve.ts`, `core.ts` settle, 프로토콜 40 `business_reserve` |
+| 1624 보증금은 있는 만큼 | 새 임금형(고용·구인 받기)은 금고에 있는 만큼(한 주기 임금 ~ 30일분) 묶고, 한 주기 임금도 없으면 그만큼만 적자. 손 채우기는 적자 없이 금고에 있는 만큼. 정산 구간 임금을 보증금이 못 덮으면 금고 → 적자로 채운다(멈춘 사업장은 채우지 않음 → 예전 해고 규칙) | `core.ts` fundDeposit, `labor/service.ts` depositFor·fundDueWages, sim `LaborOpenInput.deposit` |
+| 1627 판매가 | 주인 꺼내기도 주인이 정한 판매가(0·없음이면 팩 기준 값) | `commands.ts` ownerPriceOf |
+| 1628 거래소 물건 | 거래소 물건 자리를 한 함수로 모음(지금 = 도시 창고, 거래소 건물이 생기면 그 건물 창고) | `market/exchangeStock.ts` |
+| 1631 임금 = 사유재산 | 임금형 임금 → 휴먼(·사이보그 유닛·NPC 휴먼)의 유닛 지갑, 그 밖은 소유자(D-127) | `labor/wagePurse.ts` |
+| 1682 외주 | 남의 공방에서도 장비 수리(내 장인·내 재료), 요금 = 재료 기준 값 × 설정 칸 `business_service_fee_pm` → 그 공방 금고(장부 칸 수입 `equipment_repair_fee`) | `facilities/service.ts` repairEquipment, `views.ts` shops |
+| 1625·1626 운반 | 이번에는 바꾸지 않았다(질문 1786) | — |
+
+- DB: `business_states.reserve_pm` 열 더하기만(마이그레이션 `20261115132252_business_reserve`, `prevIds` = `business_shares`·`boats_dock_fuel` 두 끝). 리셋 없음.
+- SIM_VERSION 그대로: 시뮬은 노동 계약·사업장 금고를 돌리지 않고, 바꾼 공용 함수(`openLabor` deposit 선택 칸, `fundLaborDeposit` 새 함수)는 기본값이 예전과 같다.

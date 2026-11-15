@@ -21,6 +21,7 @@ import {
   createGoodsMarket,
 } from "@terra/sim";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import { exchangeGoodsLocation } from "./exchangeStock.ts";
 
 /** 화폐 칸이 빈 거래소·체결 줄(WP4 판 앱이 쓴 것)의 화폐 */
 export const LEGACY_MARKET_CURRENCY = TEST_ASSET_CREDIT;
@@ -439,7 +440,8 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       ...wanted,
       currency: stored ?? wanted.currency,
       id,
-      location: cityId,
+      // 거래소 물건 자리(D-564 1628 — exchangeStock.ts)
+      location: exchangeGoodsLocation(cityId),
       item: asset,
     };
     const ref: { current?: MarketBook } = {};

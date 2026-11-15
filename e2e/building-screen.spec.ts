@@ -4,7 +4,8 @@
 //   [장부] 칸: 금고·기간(30일 누름) → [재무 보기] → 재무 화면(손익계산서·재무상태·지분 시장). [지분] 칸: 주주(NPC 100%), 사기 주문 1주를 걸고
 //   거둔다(프로토콜 38). [일꾼] 칸: 일자리·임대·계약 카드. 가로 넘침·작은 단추 없음.
 // - dev(운영자 모드): 남의 사업장에도 [관리] 칸 + 운영자 표시, 임대료를 정하면 [일꾼] 칸에 시간당 임대료가 보인다(서버가 주인 대신 처리).
-// - 사진(E2E_SHOTS_DIR): 건물 판 개요·지분·장부 칸과 재무 화면, 390 파스텔 한국어·다크 영어. 장부 사진은 응답에 견본 장부를 얹는다(rewriteTrpc —
+// - dev(운영자 모드): [관리] 칸 지급준비금(D-564 1623) 비율을 골라 저장되고 기본값으로 되돌린다.
+// - 사진(E2E_SHOTS_DIR): 건물 판 개요·지분·장부 칸과 재무 화면, [관리] 칸 지급준비금, 390 파스텔 한국어·다크 영어. 장부 사진은 응답에 견본 장부를 얹는다(rewriteTrpc —
 //   화면 모양 확인용, 판정은 위 시험이 실제 서버 값으로 본다).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -83,6 +84,13 @@ function sampleBooks(data: unknown): void {
     },
   ]);
   Reflect.set(data, "firstMs", today - 2 * DAY);
+  // 지급준비금(D-564 1623): 필요액 6,200 × 1.2 × 150%
+  Reflect.set(data, "reserve", {
+    ratioPm: 1500,
+    chosen: true,
+    marginPm: 200,
+    lines: [{ asset: "s3_test_credit", needed: "6200", keep: "11160" }],
+  });
 }
 
 /** 내 2차맵을 열고 시작 도시 시설(사업장) 하나의 건물 판을 연다. 건물 ID */
@@ -214,6 +222,21 @@ test.describe("건물 판: 운영자 모드", () => {
     await expect(sheet.locator('[data-part="labor-rent"]')).toHaveText(message("ko", "blabor_rent_none"), {
       timeout: 20_000,
     });
+    // 지급준비금(D-564 1623, 프로토콜 40): 비율을 고르면 서버가 저장하고, 기본값으로 되돌린다
+    await sheet.locator('.bp-tab[data-tab="manage"]').click();
+    const reserve = sheet.locator('[data-part="books-reserve"]');
+    await expect(reserve).toBeVisible({ timeout: 20_000 });
+    await reserve.locator('[data-reserve="500"]').click();
+    await expect(reserve.locator(".bp-notice")).toHaveText(message("ko", "reserve_saved"), {
+      timeout: 20_000,
+    });
+    await expect(reserve.locator('[data-reserve="500"]')).toHaveAttribute("aria-pressed", "true", {
+      timeout: 20_000,
+    });
+    await reserve.locator('[data-reserve="default"]').click();
+    await expect(reserve.locator('[data-reserve="default"]')).toHaveAttribute("aria-pressed", "true", {
+      timeout: 20_000,
+    });
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -247,6 +270,24 @@ for (const look of LOOKS) {
       await expect(screen.locator('[data-part="income-statement"]').first()).toBeVisible({ timeout: 20_000 });
       expect(await horizontalOverflow(page)).toEqual([]);
       await shot(page, `building-finance-390-${look.theme}-${look.language}`);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe(`건물 판 관리 사진 390·${look.theme}·${look.language}`, () => {
+    test.use({ account: "dev", theme: look.theme, language: look.language, ...VIEWPORTS.phone });
+
+    test(`[관리] 칸 지급준비금 (390·${look.theme}·${look.language})`, async ({ page, deviceErrors }) => {
+      test.setTimeout(240_000);
+      const id = await openFacilitySheet(page, true, true);
+      const sheet = sheetOf(page, id);
+      await sheet.locator('.bp-tab[data-tab="manage"]').click();
+      const reserve = sheet.locator('[data-part="books-reserve"]');
+      await expect(reserve.locator('[data-part="reserve-line"]')).toHaveCount(1, { timeout: 20_000 });
+      await expect(reserve.locator('[data-reserve="1500"]')).toHaveAttribute("aria-pressed", "true");
+      expect(await horizontalOverflow(page)).toEqual([]);
+      await reserve.scrollIntoViewIfNeeded();
+      await elementShot(reserve, `building-reserve-390-${look.theme}-${look.language}`);
       expect(deviceErrors).toEqual([]);
     });
   });

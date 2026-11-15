@@ -17,6 +17,7 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { ASSET_CREDIT, ASSET_ORE } from "./settlement.ts";
 import { createWorldSummaryBackend } from "./summarySources.ts";
 import { addTestUnits, silentLog } from "./testSupport.ts";
+import { UNIT_KIND_TEST } from "./unitKinds.ts";
 import { type World, startWorld } from "./world.ts";
 
 const HOUR = 3_600_000;
@@ -83,7 +84,8 @@ async function hireSelf(world: World, userId: string, count: number, spare: bigi
   const map = [...world.maps.values()][0];
   if (!map) throw new Error("no map");
   const ownerId = p.settlement.ownerOfUser(userId, clock).id;
-  const units = addTestUnits(world, userId, map.mapKey, count, clock);
+  // 재산이 없는 유닛(D-127 — 노동 보상은 소유자가 받는다): 임금이 내 지갑으로 돌아오는 셈을 본다(휴먼이면 유닛 지갑, D-564 1631)
+  const units = addTestUnits(world, userId, map.mapKey, count, clock, { kind: UNIT_KIND_TEST });
   expect(units).toHaveLength(count);
   const placed = map.placeBuilding({ x: 40, y: 40, width: 2, height: 2, rotation: 0 }, ownerId);
   if (!placed.ok || placed.buildingId === undefined) throw new Error("no building");

@@ -7,8 +7,8 @@
 // - 유닛·시설이 사라지거나 유닛 주인이 바뀌면 마지막 정산 시각에 끝낸다(남은 보증금은 돌려준다). 임대형은 유닛이 사라져도 유예에
 //   들고(임차인 물건, D-161 해석), 시설이 사라지면 유예 없이(유예 중이면 유예만) 끝낸다.
 // - 구인 게시판(jobBoard.ts): 시설 주인이 일자리를 내고 남의 유닛 주인이 받으면 임금형 계약(고용주 ≠ 유닛 주인)이 된다.
-// - [임시] 화폐 = 서버 시험 화폐(s3_test_credit), 산출 = 시험 광석. 임금을 받는 곳 = 유닛 소유 주체 지갑(서버에 휴먼 지갑이 아직 없다,
-//   기획 342). 임금 = 효율점수 × 단가 × 고용주 조정(N28) — 유닛 스탯이 아직 없어 효율점수는 새 유닛 평균 1차 스탯 하나,
+// - [임시] 화폐 = 서버 시험 화폐(s3_test_credit), 산출 = 시험 광석. 임금을 받는 곳 = 휴먼의 유닛 지갑(사유재산, D-097·D-127·D-564 1631 —
+//   wagePurse.ts. 재산이 없는 유닛은 소유 주체 지갑). 임금 = 효율점수 × 단가 × 고용주 조정(N28) — 유닛 스탯이 아직 없어 효율점수는 새 유닛 평균 1차 스탯 하나,
 //   단가는 도시 노동 시장이 아직 없어 N27 기준 단가 그대로다(rules.ts).
 // - 시설 창고(docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)", D-516 382): 임대형 임차인 몫 산출은 그 건물 창고(원장 위치 = 그
 //   건물, @terra/shared/goodsPlaces buildingLocation)에 쌓인다. 유예 동안 임차인이 꺼내 가고(storage_move out), 유예가 끝나면 남은 것이
@@ -38,10 +38,12 @@ import type {
 import {
   type LaborContract,
   type LaborEndReason,
+  type LaborRules,
   type OutputSegment,
   type SocietyCoefficients,
   checkLaborEscrow,
   depositCyclesLeft,
+  fundLaborDeposit,
   laborAccounts,
   laborWarning,
   openLabor,
@@ -54,6 +56,7 @@ import {
   wagePerCycle,
 } from "@terra/sim";
 import { buildingLocation } from "@terra/shared/goodsPlaces";
+import type { WageNeed } from "../business/reserve.ts";
 import type { Ledger } from "../economy/ledger.ts";
 import {
   type ProductionSource,
@@ -68,6 +71,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, ASSET_ORE, type Settlement } from "../world/settlement.ts";
 import { type JobBoardFilter, type LaborPostInput, createJobBoard } from "./jobBoard.ts";
 import { wageRulesOf } from "./rules.ts";
+import { wageWalletOf } from "./wagePurse.ts";
 import { KEEP_ENDED_MS, type LoadedLabor, type RentRow, contractRow, rentRow } from "./store.ts";
 
 const HOUR_MS = 3_600_000;
@@ -108,6 +112,10 @@ export interface LaborService {
   jobs(userId: string, filter: JobBoardFilter): LaborJobsResponse;
   /** 메모리 불변 조건(I14: 에스크로 = 보증금) */
   check(): string[];
+  /** 그 시설의 열린 임금형 계약 필요액(지급준비금, D-564 1623 — business/reserve.ts) */
+  wageNeeds(buildingId: number, periodMs: number): WageNeed[];
+  /** 그 계약 보증금을 사업장 금고에서 더 묶는다(정산의 지급준비금 자동 채우기, D-564 1624). 묶은 양 */
+  fundDeposit(contractId: number, amount: bigint, atMs: number): bigint;
   readonly contracts: ReadonlyMap<number, LaborContract>;
   /** 유닛에 열린 계약(일함·일시 중지)이 있거나 비활성(D-517)·수호신(기획 답 456 가)인가 — 건물 작업 일꾼·공격 유닛 확인 */
   unitBusy(unitId: number): boolean;
@@ -144,6 +152,20 @@ export interface LaborBusinessHook {
   taxIncome(buildingId: number, ownerId: number, asset: string, gross: bigint, atMs: number): bigint;
   /** 주인 대신 관리할 수 있나(가장 많은 주주 — D-555 1502). 없으면 주인만 */
   mayManage?(buildingId: number, ownerId: number): boolean;
+  /**
+   * 새 임금형 계약의 보증금(D-564 1624 "보증금은 있는 만큼만"): 한 주기 임금만 적자로 미리 넣고, 묶을 보증금 = 금고에 있는 만큼(perCycle 이상
+   * full 이하). 없으면 예전처럼 full 전부를 advance로
+   */
+  fundDeposit?(
+    buildingId: number,
+    ownerId: number,
+    asset: string,
+    perCycle: bigint,
+    full: bigint,
+    atMs: number,
+  ): bigint;
+  /** 멈춘 사업장인가(적자를 한 주기 넘게 못 갚음, D-555 1504) — 멈추면 임금을 더 채우지 않는다 */
+  suspended?(buildingId: number): boolean;
 }
 
 /** 시설에서 일하는 유닛 하나 */
@@ -197,7 +219,8 @@ export function createLaborService(options: {
   let lastId = options.loaded.maxId;
   // 시설 주인 쪽 = 그 시설의 사업장 금고(D-548·D-555 1504): 보증금·채우기를 내고, 돌려받고(옛 계약도 금고로 — 주인이 정산으로 꺼낸다),
   // 임대료를 받는다(소득세는 정산 뒤 taxRent)
-  const accounts = laborAccounts(ledger, undefined, (c) =>
+  // 임금을 받는 곳 = 휴먼의 유닛 지갑(D-097·D-564 1631, wagePurse.ts)
+  const accounts = laborAccounts(ledger, wageWalletOf(ledger, maps), (c) =>
     ledger.ownerAccount(c.ownerId, c.asset, buildingLocation(c.buildingId)),
   );
   let business: LaborBusinessHook | undefined;
@@ -207,6 +230,21 @@ export function createLaborService(options: {
     business?.taxIncome(c.buildingId, c.ownerId, c.asset, c.paidTotal - paidBefore, atMs);
   };
   const save = (c: LaborContract): void => writer.upsert("laborContracts", contractRow(c));
+  /**
+   * 새 임금형 계약 보증금(D-564 1624): 사업장 고리가 있으면 금고에 있는 만큼(한 주기 임금 이상), 없으면 undefined(= N48 날수 전부, 예전 길)
+   */
+  const depositFor = (
+    buildingId: number,
+    ownerId: number,
+    asset: string,
+    perCycle: bigint,
+    atMs: number,
+  ): bigint | undefined => {
+    const full = requiredDeposit(perCycle, wageRulesOf(options.rules()).labor);
+    if (business?.fundDeposit) return business.fundDeposit(buildingId, ownerId, asset, perCycle, full, atMs);
+    business?.advance(buildingId, ownerId, asset, full, atMs);
+    return undefined;
+  };
   const work = createWorkBook({
     loaded: options.loaded.work ?? [],
     maps,
@@ -305,6 +343,24 @@ export function createLaborService(options: {
     return true;
   };
 
+  /**
+   * 정산 구간에 낼 임금을 보증금이 덮지 못하면 모자란 만큼 사업장 금고에서 채운다 — 금고에도 없으면 적자로(D-564 1624 "모자란 임금이 생길 때만
+   * 적자", 핵심은 끊기지 않게). 멈춘 사업장(1504)은 채우지 않는다: 보증금이 바닥나면 예전 규칙대로 일시 중지·자동 해고. 사업장 고리가 없으면
+   * 아무것도 하지 않는다(시험·옛 길)
+   */
+  const fundDueWages = (c: LaborContract, toMs: number, rules: LaborRules): void => {
+    if (c.kind !== "wage" || !isOpen(c) || c.rate <= 0n || !business?.fundDeposit) return;
+    if (business.suspended?.(c.buildingId) === true) return;
+    // 같은 시각이면 만료가 먼저다(laborContract.ts) → 기간 끝 시각의 지급은 없다
+    const limit = c.endsAtMs === null ? toMs : Math.min(toMs, c.endsAtMs - 1);
+    if (c.nextDueMs > limit) return;
+    const pays = BigInt(Math.floor((limit - c.nextDueMs) / Math.max(1, rules.wageCycleMs)) + 1);
+    const short = pays * c.rate - c.deposit;
+    if (short <= 0n) return;
+    business.advance(c.buildingId, c.ownerId, c.asset, short, toMs);
+    fundLaborDeposit(c, short, toMs, ledger, accounts);
+  };
+
   const outputsFor = (
     ownerId: number,
     fromMs: number,
@@ -330,6 +386,7 @@ export function createLaborService(options: {
       const start = c.settledAtMs;
       const movedBefore = c.leftoversMovedAtMs;
       const paidBefore = c.paidTotal;
+      fundDueWages(c, toMs, rules);
       const segments = settleLabor(c, toMs, ledger, accounts, rules);
       taxRent(c, paidBefore, toMs);
       save(c);
@@ -459,8 +516,8 @@ export function createLaborService(options: {
       // 받은 유닛이 일을 시작한다(직무 = 채집)
       work.startJob(c.unitId);
     },
-    advance: (buildingId, ownerId, asset, needed, atMs) =>
-      business?.advance(buildingId, ownerId, asset, needed, atMs),
+    fundDeposit: (buildingId, ownerId, asset, perCycle, atMs) =>
+      depositFor(buildingId, ownerId, asset, perCycle, atMs),
   });
   /** 구인 명령 공통: 세계 준비·내 주체 → 판단 → 바뀌었으면 커밋 뒤 답 */
   const jobCommand = async (
@@ -565,9 +622,11 @@ export function createLaborService(options: {
       }
       // 일하는 쪽(유닛 소유 주체 = 나)을 지금까지 정산한 뒤 맺는다: 계약 구간이 주체 정산 시각에서 시작한다
       settlement.settleOwner(me, at);
-      // 임금형 보증금은 그 사업장 금고에서(D-555 1504) — 모자라면 적자로 미리 넣는다
-      if (input.kind === "wage" && rate > 0n && (input.termHours === undefined || input.termHours > 0))
-        business?.advance(input.buildingId, ownerId, ASSET_CREDIT, requiredDeposit(rate, rules.labor), at);
+      // 임금형 보증금은 그 사업장 금고에서(D-555 1504) — 있는 만큼만 묶고, 한 주기 임금도 없으면 그만큼만 적자로(D-564 1624)
+      const deposit =
+        input.kind === "wage" && rate > 0n && (input.termHours === undefined || input.termHours > 0)
+          ? depositFor(input.buildingId, ownerId, ASSET_CREDIT, rate, at)
+          : undefined;
       const result = openLabor(
         {
           id: lastId + 1,
@@ -580,6 +639,7 @@ export function createLaborService(options: {
           rate,
           atMs: at,
           endsAtMs: input.termHours === undefined ? null : at + input.termHours * HOUR_MS,
+          deposit,
         },
         ledger,
         accounts,
@@ -624,8 +684,7 @@ export function createLaborService(options: {
       // 보증금이 나가는 고용주(남의 유닛을 고용했으면 일꾼 쪽과 다르다)와 계약을 정산하는 일꾼 쪽을 지금까지
       settlement.settleOwner(c.ownerId, at);
       settlement.settleOwner(c.workerOwnerId, at);
-      // 채우기도 사업장 금고에서(모자라면 적자, D-555 1504)
-      if (amount > 0n && isOpen(c)) business?.advance(c.buildingId, c.ownerId, c.asset, amount, at);
+      // 채우기도 사업장 금고에서 — 있는 만큼만(D-564 1624, 모자라면 insufficient_funds. 적자로 미리 넣지 않는다)
       const result = topUpLabor(c, amount, at, ledger, accounts, wageRulesOf(options.rules()).labor);
       if (!result.ok) return fail(result.code);
       save(c);
@@ -824,6 +883,30 @@ export function createLaborService(options: {
         units: units.toSorted((a, b) => a.id - b.id),
         jobs: board.mine(me),
       };
+    },
+    wageNeeds(buildingId, periodMs) {
+      const rules = wageRulesOf(options.rules()).labor;
+      const cycle = Math.max(1, rules.wageCycleMs);
+      const pays = BigInt(Math.max(1, Math.ceil(Math.max(0, periodMs) / cycle)));
+      const out: WageNeed[] = [];
+      for (const c of [...contracts.values()].toSorted((a, b) => a.id - b.id)) {
+        if (c.buildingId !== buildingId || c.kind !== "wage" || !isOpen(c)) continue;
+        const short = requiredDeposit(c.rate, rules) - c.deposit;
+        out.push({
+          contractId: c.id,
+          asset: c.asset,
+          nextWage: c.rate * pays,
+          shortfall: short > 0n ? short : 0n,
+        });
+      }
+      return out;
+    },
+    fundDeposit(contractId, amount, atMs) {
+      const c = contracts.get(contractId);
+      if (!c) return 0n;
+      const funded = fundLaborDeposit(c, amount, atMs, ledger, accounts);
+      if (funded > 0n) save(c);
+      return funded;
     },
     check: () => [
       ...checkLaborEscrow(contracts.values(), ledger),

@@ -18,6 +18,8 @@ import {
 } from "@terra/shared/facilityRuntime";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { getLocale } from "../paraglide/runtime.js";
+import { formatAmount } from "./amount.ts";
 import { formatDuration, pickName } from "./economyText.ts";
 import {
   type FacilityRun,
@@ -351,9 +353,12 @@ export function HoldingRepairRow({
   const shopView = chosen
     ? data.facilities.find((entry) => entry.buildingId === chosen.buildingId)
     : undefined;
+  // 남의 공방(외주, D-564 1682)은 그 자리의 내 재료로 미리 센다
   const stock: ReadonlyMap<string, bigint> = shopView
     ? stockAt(data, shopView.mapKey, shopView.cityId)
-    : new Map();
+    : chosen?.mapKey !== undefined
+      ? stockAt(data, chosen.mapKey, chosen.cityId ?? null)
+      : new Map();
   return (
     <li className="eco-row facility-holding" data-part="facility-holding">
       <div className="eco-row-main">
@@ -375,6 +380,9 @@ export function HoldingRepairRow({
         {chosen ? (
           <span className="eco-row-meta">
             {m.facility_repair_cost({ materials: stacksText(data, stock, chosen.materials) })}
+            {chosen.fee === undefined
+              ? ""
+              : ` · ${m.facility_outsource_fee({ fee: formatAmount(chosen.fee, getLocale()) })}`}
           </span>
         ) : (
           <span className="eco-row-meta">{m.facility_holding_no_shop()}</span>
@@ -389,7 +397,12 @@ export function HoldingRepairRow({
         >
           {holding.shops.map((entry) => (
             <option key={entry.buildingId} value={String(entry.buildingId)}>
-              {m.facility_option_building({ id: entry.buildingId })}
+              {entry.fee === undefined
+                ? m.facility_option_building({ id: entry.buildingId })
+                : m.facility_option_outsource({
+                    id: entry.buildingId,
+                    fee: formatAmount(entry.fee, getLocale()),
+                  })}
             </option>
           ))}
         </select>

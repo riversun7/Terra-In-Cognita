@@ -319,6 +319,11 @@ export interface LaborOpenInput {
   readonly rate: bigint;
   readonly atMs: number;
   readonly endsAtMs: number | null;
+  /**
+   * 임금형 보증금(선택). 빠지면 requiredDeposit(N48 날수 전부 — 시뮬·옛 길). 서버는 사업장 금고에 있는 만큼만 묶는다(기획 D-564 1624 "보증금은
+   * 있는 만큼만") — 한 주기 임금(rate) 아래로는 받지 않고(invalid_terms), 전부 날수보다 많아도 전부 날수까지만 묶는다
+   */
+  readonly deposit?: bigint | undefined;
 }
 
 /**
@@ -355,7 +360,10 @@ export function openLabor(
     leftoversMovedAtMs: null,
   };
   if (input.kind === "wage") {
-    const deposit = requiredDeposit(input.rate, rules);
+    const full = requiredDeposit(input.rate, rules);
+    if (input.deposit !== undefined && input.deposit < input.rate)
+      return { ok: false, code: "invalid_terms" };
+    const deposit = input.deposit === undefined || input.deposit > full ? full : input.deposit;
     const wallet = accounts.owner(contract);
     if (book.balance(wallet) < deposit) return { ok: false, code: "insufficient_funds" };
     book.post({
@@ -406,6 +414,33 @@ export function topUpLabor(
     settleLabor(c, atMs, book, accounts, rules);
   }
   return { ok: true };
+}
+
+/**
+ * 임금형 보증금을 시설 주인 쪽 계정에서 더 묶는다(서버 정산의 지급준비금 자동 채우기 — 기획 D-564 1623·1624 "끊기지 않게"). topUpLabor와 달리
+ * 정산하지 않고 상태도 바꾸지 않는다: 일시 중지였으면 다음 지급 시각에 그대로 다시 낸다(그 사이 구간은 정산이 돌려준다 — 산출 구간을 잃지
+ * 않는다). 열린 임금형이 아니거나 금액이 0 이하이거나 계정이 모자라면 아무것도 하지 않고 0. 묶은 양
+ */
+export function fundLaborDeposit(
+  c: LaborContract,
+  amount: bigint,
+  atMs: number,
+  book: LedgerBook,
+  accounts: LaborAccounts,
+): bigint {
+  if (c.kind !== "wage" || (c.state !== "active" && c.state !== "paused") || amount <= 0n) return 0n;
+  const wallet = accounts.owner(c);
+  if (book.balance(wallet) < amount) return 0n;
+  book.post({
+    kind: "labor_deposit",
+    atMs,
+    entries: [
+      { account: wallet, amount: -amount },
+      { account: accounts.escrow(c), amount },
+    ],
+  });
+  c.deposit += amount;
+  return amount;
 }
 
 /**

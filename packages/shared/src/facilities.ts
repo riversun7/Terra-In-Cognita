@@ -199,10 +199,17 @@ export interface FacilityHoldingView {
   readonly equipped: boolean;
   /** 지금 고치는 중 */
   readonly busy: boolean;
-  /** 이 장비를 받는 내 공방(건물 ID)과 그 공방에서의 재료(고치기 전 잃은 양으로 셈) */
+  /**
+   * 이 장비를 받는 공방(건물 ID)과 그 공방에서의 재료(고치기 전 잃은 양으로 셈). 내 공방이 먼저, 그다음 내 유닛이 있는 2차맵의 남의 공방(외주 —
+   * 기획 D-564 1682, fee = 그 공방 금고에 낼 요금(최소 단위 글자). 내 공방·옛 응답에는 없다)
+   */
   readonly shops: readonly {
     readonly buildingId: number;
     readonly materials: readonly FacilityStackView[];
+    readonly fee?: string | undefined;
+    /** 남의 공방 자리(내 재료를 꺼내는 도시 — 미리 셈). 내 공방은 facilities 줄에서 찾는다 */
+    readonly mapKey?: number | undefined;
+    readonly cityId?: number | null | undefined;
   }[];
 }
 

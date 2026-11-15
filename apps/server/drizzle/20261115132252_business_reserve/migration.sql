@@ -1,0 +1,1 @@
+ALTER TABLE "business_states" ADD COLUMN "reserve_pm" integer;

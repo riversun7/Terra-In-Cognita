@@ -38,7 +38,6 @@ import {
 import {
   PLACEMENT_SIZE,
   type Primaries,
-  type Rotation,
   type SocietyCoefficients,
   type StatRow,
   TEST_STAT_TABLE,
@@ -64,6 +63,17 @@ import {
   materialScope,
 } from "./places.ts";
 import { type StorageMoveInput, moveStorage, rehomeBuildingGoods } from "./storage.ts";
+import {
+  type FacilityBuildInput,
+  type FacilityCommandResult,
+  type FacilityTarget,
+  type GovernmentHook,
+  type NpcBuildInput,
+  type NpcJobInput,
+  type OperatorBuild,
+  type StorageOutHook,
+  operatorMs,
+} from "./serviceTypes.ts";
 import type { BusinessCommand, BusinessCommandResult, BusinessCommands } from "../business/commands.ts";
 import {
   type FacilityRecord,
@@ -80,86 +90,16 @@ export const JOB_TICK_MS = 1_000;
 /** 노화 간격(ms, D-512 "분 단위") */
 export const CONDITION_TICK_MS = 60_000;
 
-export type FacilityCommandResult =
-  | { readonly ok: true; readonly buildingId?: number; readonly doneAtMs?: number }
-  | { readonly ok: false; readonly code: FacilityResultCode };
-
-export type FacilityTarget = { readonly buildingId: number } | { readonly beaconId: number };
-
-/** 행정 건물(폐허 정부) 짓기 고리 — 폐허 서비스(src/ruins/service.ts)가 붙인다 */
-/** 창고 꺼내기 고리: null = 맡아 처리함(성공), 코드 = 맡아 실패, undefined = 맡지 않음 */
-export type StorageOutHook = (
-  ownerId: number,
-  input: StorageMoveInput,
-  atMs: number,
-) => FacilityResultCode | null | undefined;
-
-export interface GovernmentHook {
-  /** 그 칸이 주인 없는 폐허 자리인가(주체가 짓기 시작하면 주인이 될 수 있나) */
-  check(
-    ownerId: number,
-    mapKey: number,
-    x: number,
-    y: number,
-  ):
-    | { readonly ok: true; readonly ruinId: number }
-    | { readonly ok: false; readonly code: FacilityResultCode };
-  /** 짓기를 시작했다(같은 동기 처리): 주인이 된다 */
-  claimed(ruinId: number, ownerId: number, buildingId: number, atMs: number): void;
-}
-
-export interface FacilityBuildInput {
-  readonly mapKey: number;
-  readonly facility: string;
-  readonly x: number;
-  readonly y: number;
-  readonly rotation: Rotation;
-  readonly unitIds?: readonly number[] | undefined;
-  /**
-   * 운영자 모드 건설(기획 D-560 1239 "건설도 제한 없이 다 가능" — 권한은 게이트웨이가 본다: 전체 보기 구독 + 모든 유닛 명령 권한): 재료를 쓰지 않고
-   * 땅 규칙(다른 세력 도시 2차맵)을 보지 않는다. 짓는 시간은 운영자 배율로 나눈다(기본 1 = 보통 — D-560 1246). 칸 검사·물가 조건·행정 건물 폐허
-   * 조건은 그대로(놓을 수 없는 자리·도시가 없는 정부는 만들지 않는다)
-   */
-  readonly operator?: OperatorBuild | undefined;
-}
-
-/** 운영자 모드 건설 표지(배율 = 짓는 시간 나눗수, 1 이상) */
-export interface OperatorBuild {
-  readonly pace: number;
-}
-
-/** 운영자 배율로 나눈 시간(1이면 그대로) */
-const operatorMs = (ms: number, operator: OperatorBuild | undefined): number =>
-  operator && operator.pace > 1 ? Math.floor(ms / operator.pace) : ms;
-
-/**
- * NPC 증축 짓기 입력(질문 1101 나, npc/cityBuild.ts — 플레이어 짓기와 같은 규칙): 재료·시간은 @terra/sim buildPolicy가 플레이어와 같은 식
- * (buildCostAt·buildTimeAt·withBuilders)으로 셈해 넘긴다. 자리는 전략 배치 함수(npcPlacement.ts)가 고른 칸이다
- */
-export interface NpcBuildInput {
-  readonly ownerId: number;
-  readonly mapKey: number;
-  readonly cityId: number;
-  readonly facility: string;
-  readonly x: number;
-  readonly y: number;
-  readonly materials: readonly JobMaterial[];
-  readonly ms: number;
-}
-
-/**
- * NPC 레벨 올리기·수리 입력(질문 1146 나·1114 가, npc/cityBuild.ts — 플레이어 레벨업·수리와 같은 규칙): 재료·시간·고칠 양은 @terra/sim
- * buildPolicy가 플레이어와 같은 식으로 셈해 넘긴다. 건물 주인 = ownerId여야 한다
- */
-export interface NpcJobInput {
-  readonly kind: "upgrade" | "repair";
-  readonly ownerId: number;
-  readonly buildingId: number;
-  readonly materials: readonly JobMaterial[];
-  readonly ms: number;
-  /** 수리로 더할 상태(ppm). 레벨 올리기면 쓰지 않는다 */
-  readonly restorePpm?: number | undefined;
-}
+export type {
+  FacilityBuildInput,
+  FacilityCommandResult,
+  FacilityTarget,
+  GovernmentHook,
+  NpcBuildInput,
+  NpcJobInput,
+  OperatorBuild,
+  StorageOutHook,
+} from "./serviceTypes.ts";
 
 export interface FacilityService {
   build(userId: string, input: FacilityBuildInput): Promise<FacilityCommandResult>;
@@ -173,7 +113,7 @@ export interface FacilityService {
    * 유닛을 묶지 않는다). 동기(쓰기 대기열 같은 묶음)
    */
   npcJob(input: NpcJobInput): FacilityCommandResult;
-  /** 레벨 올리기. operator = 운영자 모드(재료 없이, 시간 ÷ 배율 — FacilityBuildInput.operator와 같다) */
+  /** 레벨 올리기. operator = 운영자 모드(재료 없이, 시간 0 — FacilityBuildInput.operator와 같다) */
   upgrade(
     userId: string,
     buildingId: number,
@@ -476,6 +416,21 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     return { record, def };
   };
 
+  /** 남이 쓰는 사업장 시설(외주 — 주인이 있는 시설 줄) */
+  const shopFacility = (
+    buildingId: number,
+  ): { record: FacilityRecord; def: FacilityDef } | FacilityResultCode => {
+    const building = buildingAt(buildingId);
+    if (!building) return "unknown_building";
+    if (building.owner === null) return "forbidden";
+    const record = facilities.get(buildingId);
+    if (!record) return "not_facility";
+    const def = options.catalog().facility(record.facilityId);
+    if (!def) return "unknown_facility";
+    fillCity(record);
+    return { record, def };
+  };
+
   const craftScoreOf = (unitId: number): number => {
     const table: readonly StatRow[] = options.holdings.statTable() ?? TEST_STAT_TABLE;
     return craftScore(options.holdings.primariesOf(unitId), table);
@@ -613,7 +568,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (unitProblem) return fail(unitProblem);
       const operator = input.operator;
       const packCost = levelCost(def, 1);
-      // 운영자 모드는 재료 없이(D-560 1239)
+      // 운영자 모드는 재료 없이(D-560 1239·D-564 1663)
       const cost = operator ? { ...packCost, materials: [] } : packCost;
       // 재료 자리(D-516 361): 짓는 칸이 속한 도시의 창고·창고 시설 + 그 2차맵 내 유닛 화물
       const cityId = cityAt(places, input.mapKey, input.x, input.y);
@@ -621,9 +576,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (!hasGoods(ledger, me, cost.materials, scope)) return fail("insufficient_materials");
       // 땅(docs/adr/2026-11-14-second-map-build.md): 다른 세력 도시 2차맵이면 못 짓는다(결과 코드는 forbidden — 화면은 미리 묻기
       // facilities.landRule로 까닭을 안다). 필지(D-149)는 아직 없다 → 그 밖은 2차맵 빈 칸이면 짓는다. 칸 검사·놓기는 2차맵이 한다.
-      // 운영자 모드는 땅 규칙을 보지 않는다(D-560 1239)
-      if (!operator && options.land && !(await options.land(me, input.mapKey)).allowed)
-        return fail("forbidden");
+      // 운영자 모드도 땅 규칙을 본다(D-564 1663 — 운영자 모드가 없애는 것은 재료·건설 시간뿐)
+      if (options.land && !(await options.land(me, input.mapKey)).allowed) return fail("forbidden");
       const placed = map.placeBuilding(
         {
           x: input.x,
@@ -773,7 +727,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const unitProblem = checkUnits(me, unitIds);
       if (unitProblem) return fail(unitProblem);
       const packCost = levelCost(def, record.level + 1);
-      // 운영자 모드는 재료 없이, 시간 ÷ 배율(D-560 1239)
+      // 운영자 모드는 재료 없이, 시간 0(D-564 1663)
       const cost = operator ? { ...packCost, materials: [] } : packCost;
       if (!spendGoods(ledger, me, cost.materials, at, "facility_upgrade", scopeOf(me, buildingId)))
         return fail("insufficient_materials");
@@ -864,10 +818,14 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const at = now();
       const me = ownerFor(userId, at);
       if (me === undefined) return fail("busy");
-      const found = myFacility(me, buildingId);
+      // 외주(기획 D-564 1682 "상업시설은 모두 외주를 받아 장사한다"): 남의 공방에서도 고친다 — 내 장인·내 재료, 요금은 그 사업장 금고(D-548).
+      // 멈춘 사업장(1504)은 받지 않는다. 내 공방은 예전처럼 요금이 없다
+      const outsource = buildingAt(buildingId)?.owner !== me;
+      const found = outsource ? shopFacility(buildingId) : myFacility(me, buildingId);
       if (typeof found === "string") return fail(found);
       const { record, def } = found;
       if (!def.repair || def.repair.length === 0) return fail("cannot_repair");
+      if (outsource && options.suspended?.(buildingId)) return fail("facility_disabled");
       if (record.level < 1) return fail("under_construction");
       if (!conditionWorks(record.conditionPpm, runtime())) return fail("facility_disabled");
       const holdings = options.holdings.service;
@@ -890,8 +848,14 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const unitProblem = checkUnits(me, unitIds);
       if (unitProblem) return fail(unitProblem);
       const materials = repairMaterials(rule, itemDef.tier, lost, held.maxDurability);
-      if (!spendGoods(ledger, me, materials, at, "equipment_repair", scopeOf(me, buildingId)))
+      const scope = scopeOf(me, buildingId);
+      if (!hasGoods(ledger, me, materials, scope)) return fail("insufficient_materials");
+      // 외주 요금: 낼 수 있는지 먼저 보고(재료를 빼기 전), 재료를 뺀 뒤 그 사업장 금고로(소득세)
+      const fee = outsource ? (business?.serviceFee(materials) ?? 0n) : 0n;
+      if (fee > 0n && !business?.canPay(me, fee)) return fail("insufficient_funds");
+      if (!spendGoods(ledger, me, materials, at, "equipment_repair", scope))
         return fail("insufficient_materials");
+      if (fee > 0n) business?.chargeService(me, buildingId, fee, "equipment_repair_fee", at);
       const scores = unitIds.map(craftScoreOf);
       const avg = scores.reduce((total, score) => total + score, 0) / Math.max(1, scores.length);
       const ms = equipmentRepairMs(

@@ -57,6 +57,10 @@ export interface FacilityViewSource {
   readonly workersOf?: ((buildingId: number) => readonly LaborWorkerEntry[]) | undefined;
   /** 원자재 오브젝트를 맡는 시설 ID(팩 gather_objects의 facility — 채집소 반경 고리). 없으면 반경 없음 */
   readonly objectFacilities?: (() => ReadonlySet<string>) | undefined;
+  /** 외주 요금(남의 공방 장비 수리, D-564 1682 — business/commands.ts serviceFee). 없으면 남의 공방을 보이지 않는다 */
+  readonly serviceFee?: ((materials: readonly { item: string; qty: number }[]) => bigint) | undefined;
+  /** 멈춘 사업장인가(적자, D-555 1504) — 외주를 받지 않는다 */
+  readonly suspended?: ((buildingId: number) => boolean) | undefined;
   /** 그 숙소를 쓰는 NPC 일꾼 수(도시 경제 쉼터 계획, 질문 1047 다). 없으면 null */
   readonly lodgingOccupants?: ((buildingId: number, cityId: number | null) => number | undefined) | undefined;
 }
@@ -213,9 +217,48 @@ export function facilitiesOverview(
   };
   /** 내 유닛 → 직무 배치된 내 시설(유닛 목록이 보인다) */
   const myWork = new Map<number, number>();
-  const shops: { buildingId: number; def: FacilityDef; works: boolean }[] = [];
+  const shops: {
+    buildingId: number;
+    def: FacilityDef;
+    works: boolean;
+    outside: boolean;
+    mapKey?: number;
+    cityId?: number | null;
+  }[] = [];
+  // 외주(D-564 1682): 내 유닛이 있는 2차맵의 남의 공방도 장비 수리를 받는다(요금은 그 공방 금고)
+  const myMaps = new Set<number>();
+  if (ownerId !== undefined && source.serviceFee)
+    for (const map of source.maps.values())
+      map.forEachUnit((unit) => {
+        if (unit.ownerId === ownerId) myMaps.add(map.mapKey);
+      });
   for (const map of source.maps.values())
     map.forEachBuilding((building) => {
+      if (
+        ownerId !== undefined &&
+        building.ownerId !== ownerId &&
+        building.ownerId !== null &&
+        myMaps.has(map.mapKey)
+      ) {
+        const other = service.facilities.get(building.id);
+        const otherDef = other ? catalog.facility(other.facilityId) : undefined;
+        if (other && otherDef?.repair && otherDef.repair.length > 0 && !source.suspended?.(building.id)) {
+          const otherCondition =
+            other.level >= 1 && nowMs > other.conditionAtMs
+              ? advanceCondition(other.conditionPpm, nowMs - other.conditionAtMs, false, rt)
+              : other.conditionPpm;
+          const works = other.level >= 1 && conditionWorks(otherCondition, rt);
+          shops.push({
+            buildingId: building.id,
+            def: otherDef,
+            works,
+            outside: true,
+            mapKey: map.mapKey,
+            cityId: other.cityId,
+          });
+        }
+        return;
+      }
       if (ownerId === undefined || building.ownerId !== ownerId) return;
       const record = service.facilities.get(building.id);
       const def = record ? catalog.facility(record.facilityId) : undefined;
@@ -236,7 +279,8 @@ export function facilitiesOverview(
         : { materials: [], ms: 0 };
       const restore = record.level >= 1 ? repairRestorePpm(condition, 1, rt) : 0;
       const works = record.level >= 1 && conditionWorks(condition, rt);
-      if (def.repair && def.repair.length > 0) shops.push({ buildingId: building.id, def, works });
+      if (def.repair && def.repair.length > 0)
+        shops.push({ buildingId: building.id, def, works, outside: false });
       facilities.push({
         buildingId: building.id,
         facilityId: def.id,
@@ -402,20 +446,27 @@ export function facilitiesOverview(
         maxDurability: record.maxDurability,
         equipped: record.slot !== null,
         busy,
-        shops: shops.flatMap((shop) => {
-          const rule = repairRuleFor(shop.def.repair ?? [], {
-            slot: equip.slot,
-            weaponType: equip.weaponType,
-          });
-          return rule && shop.works
-            ? [
-                {
-                  buildingId: shop.buildingId,
-                  materials: repairMaterials(rule, def.tier, lost, record.maxDurability ?? 0),
-                },
-              ]
-            : [];
-        }),
+        shops: shops
+          .toSorted((a, b) => Number(a.outside) - Number(b.outside) || a.buildingId - b.buildingId)
+          .flatMap((shop) => {
+            const rule = repairRuleFor(shop.def.repair ?? [], {
+              slot: equip.slot,
+              weaponType: equip.weaponType,
+            });
+            if (!rule || !shop.works) return [];
+            const materials = repairMaterials(rule, def.tier, lost, record.maxDurability ?? 0);
+            if (!shop.outside) return [{ buildingId: shop.buildingId, materials }];
+            const fee = source.serviceFee?.(materials) ?? 0n;
+            return [
+              {
+                buildingId: shop.buildingId,
+                materials,
+                fee: String(fee),
+                mapKey: shop.mapKey,
+                cityId: shop.cityId ?? null,
+              },
+            ];
+          }),
       });
     }
   }

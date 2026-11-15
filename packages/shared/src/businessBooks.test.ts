@@ -6,8 +6,10 @@ import {
   businessLocation,
   countsForProfit,
   incomeTaxOf,
+  isReservePm,
   majorHolders,
   parseBusinessDebtCode,
+  reserveKeep,
   settleBoundary,
   splitByShares,
 } from "./businessBooks.ts";
@@ -81,5 +83,17 @@ describe("사업장 장부", () => {
   it("정산 주기 시작은 UTC 기준 같은 간격", () => {
     expect(settleBoundary(86_400_000 * 3 + 5, 86_400_000)).toBe(86_400_000 * 3);
     expect(settleBoundary(5, 0)).toBeUndefined();
+  });
+
+  it("지급준비금 = 필요액 × (1 + 여유) × 비율, 올림 (D-564 1623)", () => {
+    expect(reserveKeep(1000n, 200, 1000)).toBe(1200n);
+    expect(reserveKeep(1000n, 200, 500)).toBe(600n);
+    expect(reserveKeep(7n, 200, 1000)).toBe(9n);
+    expect(reserveKeep(1000n, 200, 0)).toBe(0n);
+    expect(reserveKeep(0n, 200, 1000)).toBe(0n);
+    expect(isReservePm(0)).toBe(true);
+    expect(isReservePm(5000)).toBe(true);
+    expect(isReservePm(5001)).toBe(false);
+    expect(isReservePm(1.5)).toBe(false);
   });
 });

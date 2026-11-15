@@ -39,4 +39,17 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "사업장 지분 회차당 주문 수(건)",
     "Business share orders per round (count)",
   ),
+  k(
+    "business_reserve_margin_pm",
+    "reserveMarginPm",
+    "지급준비금 임금 상승 여유(‰)",
+    "Payroll reserve wage-rise margin (‰)",
+  ),
+  k(
+    "business_reserve_default_pm",
+    "reserveDefaultPm",
+    "지급준비율 기본값(‰)",
+    "Default payroll reserve ratio (‰)",
+  ),
+  k("business_service_fee_pm", "serviceFeePm", "외주 요금(‰)", "Outsourcing fee (‰)"),
 ];

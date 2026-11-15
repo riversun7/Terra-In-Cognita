@@ -10,6 +10,10 @@
 //   (business_settle). NPC 세력 사업장의 주주 = 그 세력 → 몫은 나라 국고로(1509·1510 — 플레이어와 같다).
 //   바뀜 (2026-11-15, docs/adr/2026-11-15-building-screen.md): 지분 = 지분 시장(shares.ts)의 주주(원장 자산 share:biz_<건물>, 발행 전이면 주인 하나가
 //   전부). 정산·관리할 수 있는 사람 = 가장 많은 주주(같으면 모두) — 100% 팔면 경영권이 넘어간다(기획 44 §6). 지분 시장이 없으면(시험) 주인 하나 1주.
+// - 지급준비금(기획 D-564 1623·1624 "끊기지 않게 돌아가는 것"): 정산 때 나누기 전에 금고에 남길 돈을 자동 계산한다 — 필요액(다음 정산 주기까지의
+//   임금 + 한 달치 보증금 모자람, 열린 임금형 계약마다) × 임금 상승 여유(설정 칸 business_reserve_margin_pm) × 주인이 고른 지급준비율(사업장마다,
+//   고르지 않았으면 설정 칸 business_reserve_default_pm). 남긴 돈으로 모자란 보증금부터 채운다(fundLaborDeposit, 계약 ID 차례) — 보증금은
+//   있는 만큼만 묶는다(1624). 새 고용은 한 주기 임금만 적자로 미리 넣고, 보증금은 금고에 있는 만큼만(fundDeposit). reserve.ts가 셈을 맡는다.
 // - 쓰기는 월드 쓰기 대기열(원장 고리와 같은 묶음). 거래에 중복 방지 키를 달지 않는다(자동 정산 주기는 business_states.settled_at_ms로 한 번만).
 import {
   type ShareHolder,
@@ -24,6 +28,7 @@ import {
 import type { BusinessCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import { type BusinessLaborHook, type ReservePlan, planReserve } from "./reserve.ts";
 import type { LoadedBusiness } from "./store.ts";
 
 /** 사업장 하나의 상태 줄(business_states) */
@@ -35,6 +40,8 @@ export interface BusinessState {
   suspendedAtMs: number | null;
   /** 마지막 자동 정산 주기 시작(없으면 null) */
   settledAtMs: number | null;
+  /** 주인이 고른 지급준비율(‰, D-564 1623). null = 설정 칸 기본값 */
+  reservePm: number | null;
 }
 
 /** 사업장 창고 판매 값 한 줄(business_prices, 1개 값 — 화폐 최소 단위) */
@@ -122,6 +129,24 @@ export interface BusinessCore {
   forget(buildingId: number): void;
   /** 메모리 불변 조건: 적자 계정은 0 이하 */
   check(): string[];
+  /** 노동 계약 고리를 잇는다(지급준비금 필요액·보증금 채우기 — labor/service.ts) */
+  attachLabor(hook: BusinessLaborHook | undefined): void;
+  /** 지급준비금 계획(화폐마다 필요액·남길 돈, 비율). 화면·정산이 같은 셈 */
+  reserve(buildingId: number): ReservePlan;
+  /** 지급준비율을 고른다(‰, null = 기본값으로) */
+  setReserve(buildingId: number, pm: number | null): void;
+  /**
+   * 새 임금형 계약의 보증금(D-564 1624): 금고에 한 주기 임금(perCycle)도 없으면 그만큼만 적자로 미리 넣고, 묶을 보증금 = 금고에 있는 만큼
+   * (perCycle 이상 full 이하)
+   */
+  fundDeposit(
+    buildingId: number,
+    ownerId: number,
+    asset: string,
+    perCycle: bigint,
+    full: bigint,
+    atMs: number,
+  ): bigint;
 }
 
 /** 화폐 자산인가(물건 item:<ID>이 아니면) */
@@ -139,7 +164,7 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
   const stateOf = (buildingId: number): BusinessState => {
     let found = states.get(buildingId);
     if (!found) {
-      found = { buildingId, debtSinceMs: null, suspendedAtMs: null, settledAtMs: null };
+      found = { buildingId, debtSinceMs: null, suspendedAtMs: null, settledAtMs: null, reservePm: null };
       states.set(buildingId, found);
     }
     return found;
@@ -151,6 +176,7 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
       debt_since_ms: state.debtSinceMs,
       suspended_at_ms: state.suspendedAtMs,
       settled_at_ms: state.settledAtMs,
+      reserve_pm: state.reservePm,
     });
 
   const vault = (ownerId: number, asset: string, buildingId: number): number =>
@@ -313,6 +339,19 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
     return [{ ownerId, shares: 1n }];
   };
 
+  let labor: BusinessLaborHook | undefined;
+  /** 지급준비금 계획(reserve.ts) — 설정 칸·주인 비율·노동 계약 필요액 */
+  const reserve = (buildingId: number): ReservePlan => {
+    const rules = deps.rules();
+    const chosen = states.get(buildingId)?.reservePm ?? null;
+    return planReserve({
+      needs: labor?.wageNeeds(buildingId, Math.max(0, Math.floor(rules.settlePeriodMs))) ?? [],
+      marginPm: rules.reserveMarginPm,
+      ratioPm: chosen ?? rules.reserveDefaultPm,
+      chosen: chosen !== null,
+    });
+  };
+
   const settle = (
     buildingId: number,
     atMs: number,
@@ -323,13 +362,27 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
     if (ownerId === null) return paid;
     repay(buildingId, atMs);
     const owners = holders(buildingId);
+    const plan = reserve(buildingId);
     for (const [asset, balance] of [...vaultBalances(buildingId)].toSorted((a, b) =>
       a[0] < b[0] ? -1 : 1,
     )) {
       if (only && only.asset !== asset) continue;
       // 갚지 못한 적자가 남은 화폐는 나누지 않는다(갚을 돈이 먼저)
       if ((debts(buildingId).get(asset) ?? 0n) > 0n) continue;
-      const amount = only && only.amount > 0n && only.amount < balance ? only.amount : balance;
+      // 지급준비금(D-564 1623): 남길 돈을 빼고 나눈다. 남긴 돈으로 모자란 보증금부터 채운다(1624 — 있는 만큼만)
+      const line = plan.assets.get(asset);
+      const keep = line === undefined ? 0n : line.keep < balance ? line.keep : balance;
+      if (keep > 0n && line && labor) {
+        let left = keep;
+        for (const need of line.needs) {
+          if (left <= 0n) break;
+          const want = need.shortfall < left ? need.shortfall : left;
+          left -= labor.fund(need.contractId, want, atMs);
+        }
+      }
+      const free = balance - keep;
+      if (free <= 0n) continue;
+      const amount = only && only.amount > 0n && only.amount < free ? only.amount : free;
       const split = splitByShares(amount, owners);
       if (split.size === 0) continue;
       const entries = [{ account: vault(ownerId, asset, buildingId), amount: -amount }];
@@ -411,6 +464,22 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
           prices.delete(key);
           writer.remove("businessPrices", { building_id: buildingId, item: row.item });
         }
+    },
+    attachLabor(hook) {
+      labor = hook;
+    },
+    reserve,
+    setReserve(buildingId, pm) {
+      const state = stateOf(buildingId);
+      state.reservePm = pm;
+      saveState(state);
+    },
+    fundDeposit(buildingId, ownerId, asset, perCycle, full, atMs) {
+      if (perCycle <= 0n) return full;
+      advance(buildingId, ownerId, asset, perCycle, atMs);
+      const have = ledger.balance(vault(ownerId, asset, buildingId));
+      if (have >= full) return full;
+      return have > perCycle ? have : perCycle;
     },
     check() {
       const out: string[] = [];

@@ -14,6 +14,7 @@ import { FACILITY_CATEGORY_TEXT } from "../facilityCategoryText.ts";
 import { HarborPanel } from "../boats/HarborPanel.tsx";
 import { BOOK_PERIODS, type BookPeriod, loadOwner, useBooks } from "../business/booksData.ts";
 import { BooksAlert, BooksSummary, DayBars, GoodsSale, OwnerMoneyTools } from "../business/BooksParts.tsx";
+import { ReserveTools } from "../business/ReserveTools.tsx";
 import { ownerText, pmText } from "../business/businessText.ts";
 import { ShareMarket } from "../business/ShareMarket.tsx";
 import { nameText } from "../gather/gatherData.ts";
@@ -388,6 +389,7 @@ export function BuildingPanel({
               />
             ) : null}
             {booksOk ? <OwnerMoneyTools books={booksOk} reload={reloadAll} /> : null}
+            {booksOk ? <ReserveTools books={booksOk} reload={reloadAll} /> : null}
             {stationPart("upgrade")}
           </>
         ) : null}

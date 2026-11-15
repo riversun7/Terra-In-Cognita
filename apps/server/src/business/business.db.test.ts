@@ -2,7 +2,7 @@
 // 남이 내 신전에 낸 헌금이 사업장 금고로 들고(소득세는 그 도시 나라 국고로), 장부 조회가 수입·세금·정산 칸을 보이고, 손 정산·자동 정산이 지분대로
 // 주인 지갑에 나누는지, 주인이 사업장 창고 물건을 꺼낼 때 값을 내는지, 다시 켜도 상태가 이어지는지 본다.
 import { loadContentPack } from "@terra/content/node";
-import { businessLocation } from "@terra/shared/businessBooks";
+import { businessLocation, reserveKeep, unitPurseLocation } from "@terra/shared/businessBooks";
 import { CELL_UNITS, DAY_MS, START_BUSINESS, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
@@ -362,6 +362,90 @@ describe.skipIf(!TEST_DATABASE_URL)("사업장 장부(D-548·D-555)", () => {
       ok: true,
     });
     expect(q.ledger.balanceOf(buyer.ownerId, ASSET_CREDIT) - before).toBe(600n);
+    expect(await second.checkInvariants()).toEqual([]);
+  });
+
+  it("지급준비금(D-564 1623·1624): 빈 금고 고용은 한 주기 임금만 적자, 정산은 필요액 × 여유 × 비율을 남겨 보증금부터 채우고 나머지를 나눈다", async () => {
+    const world = await boot();
+    const p = persistenceOf(world);
+    const { ledger } = p;
+    const shop = await withHumans(world, "ReserveOwner");
+    const guest = await withHumans(world, "ReserveGuest");
+    const [builder, worker] = shop.units;
+    if (builder === undefined || worker === undefined) throw new Error("unit");
+    const templeId = await buildNear(world, shop.userId, builder, "temple");
+    const vault = () => ledger.balanceOf(shop.ownerId, ASSET_CREDIT, businessLocation(templeId));
+    const service = p.facilities.service;
+    // 빈 금고에 고용: 보증금 = 한 주기 임금만 적자로 미리 넣어 첫 임금으로 낸다(30일분 전부를 적자로 잡지 않는다)
+    const hired = await p.labor.create(shop.userId, { kind: "wage", buildingId: templeId, unitId: worker });
+    if (!hired.ok || hired.contractId === undefined) throw new Error(`hire ${JSON.stringify(hired)}`);
+    const contract = p.labor.contracts.get(hired.contractId);
+    if (!contract) throw new Error("contract");
+    const rate = contract.rate;
+    expect(contract.deposit).toBe(0n);
+    expect(p.facilities.business.debts(templeId).get(ASSET_CREDIT)).toBe(rate);
+    // 임금은 그 휴먼의 유닛 지갑(사유재산, D-097·D-564 1631)
+    expect(ledger.balanceOf(shop.ownerId, ASSET_CREDIT, unitPurseLocation(worker))).toBe(rate);
+
+    // 수입이 들어온 뒤 정산: 적자를 갚고, 남길 돈 = (다음 임금 + 30일분 보증금 모자람) × 1.2 × 100%
+    expect(
+      await p.fusion.temple.offer(guest.userId, { buildingId: templeId, amount: "1000000" }),
+    ).toMatchObject({ ok: true });
+    const full = rate * 30n;
+    const keep = reserveKeep(rate + full, START_BUSINESS.reserveMarginPm, START_BUSINESS.reserveDefaultPm);
+    const source = facilityScreenSourceOf(world);
+    if (!source) throw new Error("screen");
+    const before = await source.books(shop.userId, templeId, 7, clock);
+    if (before.status !== "ok") throw new Error(before.status);
+    expect(before.reserve).toEqual({
+      ratioPm: 1000,
+      chosen: false,
+      marginPm: START_BUSINESS.reserveMarginPm,
+      lines: [{ asset: ASSET_CREDIT, needed: String(rate + full), keep: String(keep) }],
+    });
+    const vaultBefore = vault();
+    const walletBefore = ledger.balanceOf(shop.ownerId, ASSET_CREDIT);
+    const settled = await service.businessCommand(shop.userId, { kind: "settle", buildingId: templeId });
+    const paidOut = vaultBefore - rate - keep;
+    expect(settled).toEqual({ ok: true, paid: paidOut });
+    expect(ledger.balanceOf(shop.ownerId, ASSET_CREDIT)).toBe(walletBefore + paidOut);
+    // 남긴 돈으로 모자란 보증금(30일분)부터 채웠다, 나머지는 금고에
+    expect(contract.deposit).toBe(full);
+    expect(vault()).toBe(keep - full);
+    expect(p.facilities.business.debts(templeId).size).toBe(0);
+
+    // 지급준비율: 주인·대주주만, 0~5000‰. 0이면 모두 나눈다
+    expect(
+      await service.businessCommand(guest.userId, { kind: "reserve", buildingId: templeId, reservePm: 0 }),
+    ).toEqual({ ok: false, code: "forbidden" });
+    expect(
+      await service.businessCommand(shop.userId, { kind: "reserve", buildingId: templeId, reservePm: 5001 }),
+    ).toEqual({ ok: false, code: "invalid_amount" });
+    expect(
+      await service.businessCommand(shop.userId, { kind: "reserve", buildingId: templeId, reservePm: 0 }),
+    ).toEqual({ ok: true });
+    expect(await service.businessCommand(shop.userId, { kind: "settle", buildingId: templeId })).toEqual({
+      ok: true,
+      paid: keep - full,
+    });
+    expect(vault()).toBe(0n);
+    await p.writer.durable();
+    expect(
+      await rows(test.db, "select reserve_pm from business_states where building_id = $1", [templeId]),
+    ).toEqual([{ reserve_pm: 0 }]);
+    // 다시 켜도 고른 비율이 이어진다(null로 돌리면 기본값)
+    await world.crashForTest("commit");
+    const second = await boot();
+    const q = persistenceOf(second);
+    expect(q.facilities.business.reserve(templeId)).toMatchObject({ ratioPm: 0, chosen: true });
+    expect(
+      await q.facilities.service.businessCommand(shop.userId, {
+        kind: "reserve",
+        buildingId: templeId,
+        reservePm: null,
+      }),
+    ).toEqual({ ok: true });
+    expect(q.facilities.business.reserve(templeId)).toMatchObject({ ratioPm: 1000, chosen: false });
     expect(await second.checkInvariants()).toEqual([]);
   });
 });

@@ -416,6 +416,11 @@ export function createWorldFacilities(input: {
       labor = next;
       // 보증금 적자·임대료 소득세(D-555 1503·1504)
       next.attachBusiness(core);
+      // 지급준비금 필요액·보증금 자동 채우기(D-564 1623·1624)
+      core.attachLabor({
+        wageNeeds: (buildingId, periodMs) => next.wageNeeds(buildingId, periodMs),
+        fund: (contractId, amount, atMs) => next.fundDeposit(contractId, amount, atMs),
+      });
       next.attachProduction({
         site: (buildingId) => gatherSiteOf(service, catalog(), buildingId),
         // 병원(의료 단계 시설): 의사 직무 배치 자리(D-521, 산출 없음)

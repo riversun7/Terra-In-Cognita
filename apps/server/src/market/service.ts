@@ -16,6 +16,7 @@ import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { Settlement } from "../world/settlement.ts";
 import type { FillNotice } from "./books.ts";
+import { exchangeGoodsLocation } from "./exchangeStock.ts";
 
 /** [임시] 걸어 둘 수 있는 주문 수(질문 149 기본안 → D-443 출발값, 경제 화면 시안과 같다). 거래소 유닛 INT·WIS 식은 기획 Step 5 */
 export const ORDER_MAX = 10;
@@ -114,7 +115,11 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
       d.settlement.settleOwner(me, at);
       if (input.kind === "limit" && registry.openOf(me).length >= ORDER_MAX) return fail("order_limit");
       const currency = book.market.config.currency;
-      if (input.side === "sell" && d.ledger.balanceOf(me, asset, input.city) < qty * lot)
+      // 팔 물건은 거래소로 실어 나른 것만(D-564 1628 — exchangeStock.ts, 지금은 그 도시 창고)
+      if (
+        input.side === "sell" &&
+        d.ledger.balanceOf(me, asset, exchangeGoodsLocation(input.city)) < qty * lot
+      )
         return fail("insufficient_goods");
       if (input.side === "buy" && d.ledger.balanceOf(me, currency) < price * qty)
         return fail("insufficient_funds");

@@ -1,4 +1,4 @@
-// 사업장 장부 명령(WebSocket, 프로토콜 34 — 지분 주문은 38) — 정산·넣기·사기·값·유닛 선물·지분 사고팔기. docs/adr/2026-11-15-business-ledger.md, 기획 D-548·D-555.
+// 사업장 장부 명령(WebSocket, 프로토콜 34 — 지분 주문은 38, 지급준비율은 40) — 정산·넣기·사기·값·유닛 선물·지분 사고팔기. docs/adr/2026-11-15-business-ledger.md, 기획 D-548·D-555.
 // 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장). 배 명령(boats/boatCommands.ts)과 같은 틀: 인사 전이면 기다렸다 보내고, 끊기면 "offline",
 // TIMEOUT_MS 안에 답이 없으면 "timeout".
 import type { BusinessResultCode, ClientMessageOf } from "@terra/protocol";
@@ -11,7 +11,8 @@ export type BusinessCommand =
   | Omit<ClientMessageOf<"business_price">, "id">
   | Omit<ClientMessageOf<"unit_gift">, "id">
   | Omit<ClientMessageOf<"business_share_order">, "id">
-  | Omit<ClientMessageOf<"business_share_cancel">, "id">;
+  | Omit<ClientMessageOf<"business_share_cancel">, "id">
+  | Omit<ClientMessageOf<"business_reserve">, "id">;
 
 export type BusinessOutcome =
   | { readonly ok: true; readonly paid?: string | undefined; readonly orderId?: number | undefined }

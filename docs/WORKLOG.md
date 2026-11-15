@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 23:50 | 사업장 2차: 지급준비금·판매가·거래소 물건 자리·임금 사유재산·운영자 건설·외주 (D-564) | Claude Code | [15-2350-business-2](worklog/2026/11/15-2350-business-2.md) |
 | 2026-11-15 22:00 | 2026-11-15 열넷째 묶음 합치기 (채집 3) | Claude Code | [15-2200-batch-1116c-merge](worklog/2026/11/15-2200-batch-1116c-merge.md) |
 | 2026-11-15 20:40 | 건물 안 유닛 숨김·"안에 N명" 표시·[나가기] | Claude Code | [15-2040-building-inside-hide](worklog/2026/11/15-2040-building-inside-hide.md) |
 | 2026-11-15 20:40 | 2026-11-15 열셋째 묶음 합치기 (배 2·건물 화면) | Claude Code | [15-2040-batch-1116b-merge](worklog/2026/11/15-2040-batch-1116b-merge.md) |

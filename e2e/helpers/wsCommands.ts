@@ -14,6 +14,9 @@ const ASSET_CREDIT = "s3_test_credit";
 /**
  * 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들(result, 2차맵 사이 이동은 travel_result,
  * 구인 고용은 recruit_result, 건물은 facility_result, 배는 boat_result, 채집은 gather_result, 영토 비콘은 beacon_result)
+ * 운영자 빠르기(기획 D-560 1246~1248, apps/server/src/world/operatorPace.ts): 전체 보기 구독(observe) 다음에는 운영자 배율 100(operator_pace)을
+ * 함께 보낸다(그 답은 결과 목록에 넣지 않는다) — 배율 기본이 1이 된 뒤에도 시험은 운영자 빠르기로 유닛을 옮긴다. 운영자 모드는 연결이 끊기면 풀리고
+ * 가는 길의 빠르기도 1로 돌아가므로, 전체 보기로 구독한 연결은 닫지 않고 다음 sendCommands·페이지 이동 때까지 열어 둔다(그동안 받는 메시지는 버린다)
  */
 export async function sendCommands(
   page: Page,
@@ -26,8 +29,9 @@ export async function sendCommands(
     async ({ list, protocolVersion, baseId }) => {
       const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws`);
       const replies: unknown[] = [];
+      let done = false;
       socket.addEventListener("message", (event) => {
-        if (typeof event.data === "string") replies.push(JSON.parse(event.data));
+        if (!done && typeof event.data === "string") replies.push(JSON.parse(event.data));
       });
       // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
       const wait = (predicate: (message: unknown) => boolean): Promise<unknown> =>
@@ -48,29 +52,47 @@ export async function sendCommands(
       await wait(
         (reply) => typeof reply === "object" && reply !== null && Reflect.get(reply, "t") === "welcome",
       );
+      // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
+      const replyTo = (id: number): Promise<unknown> =>
+        wait(
+          (reply) =>
+            typeof reply === "object" &&
+            reply !== null &&
+            [
+              "result",
+              "travel_result",
+              "recruit_result",
+              "facility_result",
+              "boat_result",
+              "gather_result",
+              "beacon_result",
+            ].includes(String(Reflect.get(reply, "t"))) &&
+            Reflect.get(reply, "id") === id,
+        );
       const out: unknown[] = [];
+      let observing = false;
       for (const [index, command] of list.entries()) {
         const id = baseId + index;
         socket.send(JSON.stringify({ ...command, id }));
-        out.push(
-          await wait(
-            (reply) =>
-              typeof reply === "object" &&
-              reply !== null &&
-              [
-                "result",
-                "travel_result",
-                "recruit_result",
-                "facility_result",
-                "boat_result",
-                "gather_result",
-                "beacon_result",
-              ].includes(String(Reflect.get(reply, "t"))) &&
-              Reflect.get(reply, "id") === id,
-          ),
-        );
+        const reply = await replyTo(id);
+        out.push(reply);
+        if (
+          command.t === "subscribe" &&
+          command.observe === true &&
+          Reflect.get(Object(reply), "ok") === true
+        ) {
+          observing = true;
+          // 요청 ID는 연결마다 새로(같은 ID는 10분 동안 다시 하지 않는다)
+          const paceId = 2_000_000_000 + ((Date.now() * 8 + index) % 100_000_000);
+          socket.send(
+            JSON.stringify({ t: "operator_pace", mapKey: command.mapKey, factor: 100, id: paceId }),
+          );
+          await replyTo(paceId);
+        }
       }
-      socket.close();
+      done = true;
+      replies.length = 0;
+      if (!observing) socket.close();
       return out;
     },
     { list: commands, protocolVersion: PROTOCOL_VERSION, baseId: firstId },

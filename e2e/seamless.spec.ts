@@ -426,7 +426,7 @@ async function myPosition(side: Page): Promise<Position | null> {
   };
 }
 
-/** 운영자 빠르기(전체 보기로 구독한 연결의 명령 — 100배)로 내 사이보그를 그 2차맵 칸으로 보낸다. 결과가 ok면 true */
+/** 운영자 빠르기(전체 보기로 구독하고 operator_pace 100을 고른 연결의 명령 — sendCommands가 함께 보낸다)로 내 사이보그를 그 2차맵 칸으로 보낸다. 결과가 ok면 true */
 async function fastTravel(side: Page, from: number, unitId: number, to: Position): Promise<boolean> {
   const replies = await sendCommands(side, [
     { t: "subscribe", mapKey: from, observe: true },

@@ -175,7 +175,9 @@ export async function readBusinessBooks(
   const lot = source.commands.lotOf(buildingId);
   const holderList = source.core.holders(buildingId);
   const total = holderList.reduce((sum, holder) => sum + holder.shares, 0n);
-  const names = source.names ? await source.names.names([ownerId, ...holderList.map((h) => h.ownerId)]) : undefined;
+  const names = source.names
+    ? await source.names.names([ownerId, ...holderList.map((h) => h.ownerId)])
+    : undefined;
   const holders: BookHolder[] = holderList.map((holder) => ({
     kind: kindOf(holder.ownerId),
     shares: String(holder.shares),
@@ -245,7 +247,9 @@ export async function readBuildingOwner(
     : undefined;
   const mine = viewerOwnerId !== undefined && ownerId === viewerOwnerId;
   const myShares =
-    viewerOwnerId === undefined ? 0n : (holders.find((holder) => holder.ownerId === viewerOwnerId)?.shares ?? 0n);
+    viewerOwnerId === undefined
+      ? 0n
+      : (holders.find((holder) => holder.ownerId === viewerOwnerId)?.shares ?? 0n);
   return {
     status: "ok",
     buildingId,
@@ -254,7 +258,11 @@ export async function readBuildingOwner(
     mine,
     top:
       split && first
-        ? { kind: kindOf(first.ownerId), name: names?.get(first.ownerId) ?? null, pm: sharePm(first.shares, total) }
+        ? {
+            kind: kindOf(first.ownerId),
+            name: names?.get(first.ownerId) ?? null,
+            pm: sharePm(first.shares, total),
+          }
         : null,
     myPm: sharePm(myShares, total),
     canManage:

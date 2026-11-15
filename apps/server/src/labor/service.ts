@@ -601,7 +601,8 @@ export function createLaborService(options: {
       const c = contracts.get(contractId);
       if (!c) return fail("unknown_contract");
       // 유닛 주인이 아니면 시설 쪽(주인·대주주·운영자)이 주인 대신 해고한다
-      const asOwner = me === c.ownerId || (me !== c.workerOwnerId && managedOwner(me, c.buildingId, operator).ok);
+      const asOwner =
+        me === c.ownerId || (me !== c.workerOwnerId && managedOwner(me, c.buildingId, operator).ok);
       if (!asOwner && me !== c.workerOwnerId) return fail("forbidden");
       settlement.settleOwner(c.workerOwnerId, at);
       const rules = wageRulesOf(options.rules()).labor;
@@ -682,9 +683,13 @@ export function createLaborService(options: {
       const rules = wageRulesOf(options.rules());
       const rent = rents.get(buildingId);
       const posted =
-        owner !== null && rent && rent.rentPerHour > 0n && rent.ownerId === owner ? String(rent.rentPerHour) : null;
+        owner !== null && rent && rent.rentPerHour > 0n && rent.ownerId === owner
+          ? String(rent.rentPerHour)
+          : null;
       const manager =
-        me !== undefined && owner !== null && (owner === me || business?.mayManage?.(buildingId, me) === true);
+        me !== undefined &&
+        owner !== null &&
+        (owner === me || business?.mayManage?.(buildingId, me) === true);
       const contractsHere: LaborBuildingContractView[] = [...contracts.values()]
         .filter((c) => c.buildingId === buildingId && (isOpen(c) || c.state === "grace"))
         .toSorted((a, b) => a.id - b.id)

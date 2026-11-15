@@ -17,7 +17,13 @@ import {
   businessShareIssueCode,
   parseBusinessShareAsset,
 } from "@terra/shared/businessBooks";
-import { type BusinessCoefficients, type FxMarket, type FxOrder, type Side, createFxMarket } from "@terra/sim";
+import {
+  type BusinessCoefficients,
+  type FxMarket,
+  type FxOrder,
+  type Side,
+  createFxMarket,
+} from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 
@@ -36,7 +42,11 @@ export interface ShareRoundRecord {
 
 /** 부팅 때 읽은 지분 자료(store.ts loadShares) */
 export interface LoadedShares {
-  readonly open: readonly { readonly buildingId: number; readonly placedAtMs: number; readonly order: FxOrder }[];
+  readonly open: readonly {
+    readonly buildingId: number;
+    readonly placedAtMs: number;
+    readonly order: FxOrder;
+  }[];
   readonly rounds: readonly ShareRoundRecord[];
   /** 사업장마다 마지막 체결가(창 밖이어도) */
   readonly lastPrice: ReadonlyMap<number, bigint>;
@@ -89,7 +99,14 @@ export interface ShareMarkets {
   sharesOf(buildingId: number, ownerId: number): bigint;
   /** 발행하지 않았으면 지금 주인에게 발행한다. 발행했으면(또는 이미 했으면) true */
   ensureIssued(buildingId: number, atMs: number): boolean;
-  place(ownerId: number, buildingId: number, side: Side, price: bigint, shares: bigint, atMs: number): SharePlaceResult;
+  place(
+    ownerId: number,
+    buildingId: number,
+    side: Side,
+    price: bigint,
+    shares: bigint,
+    atMs: number,
+  ): SharePlaceResult;
   cancel(ownerId: number, orderId: number, atMs: number): { ok: true } | { ok: false; code: ShareFailure };
   /** 회차 경계를 지났으면 모든 시장을 체결한다. 체결한 시장 수 */
   tick(nowMs: number): number;
@@ -334,13 +351,20 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
       const asset = businessShareAsset(buildingId);
       // 잔고 확인은 발행 전 주인도 가진 것으로 본다(팔 주문이 발행을 부른다)
       if (side === "sell") {
-        const have = issued(buildingId) > 0n ? ledger.balanceOf(ownerId, asset) : ownerId === owner ? total(buildingId) : 0n;
+        const have =
+          issued(buildingId) > 0n
+            ? ledger.balanceOf(ownerId, asset)
+            : ownerId === owner
+              ? total(buildingId)
+              : 0n;
         if (have < shares) return { ok: false, code: "insufficient_shares" };
-      } else if (ledger.balanceOf(ownerId, deps.asset) < price * shares) return { ok: false, code: "insufficient_funds" };
+      } else if (ledger.balanceOf(ownerId, deps.asset) < price * shares)
+        return { ok: false, code: "insufficient_funds" };
       ensureIssued(buildingId, atMs);
       const market = marketOf(buildingId);
       const result = market.place(ownerId, side, price, shares, atMs);
-      if (!result.ok) return { ok: false, code: side === "sell" ? "insufficient_shares" : "insufficient_funds" };
+      if (!result.ok)
+        return { ok: false, code: side === "sell" ? "insufficient_shares" : "insufficient_funds" };
       placedAt.set(result.orderId, atMs);
       const order = market.orders().find((entry) => entry.id === result.orderId);
       if (order) writeOpen(buildingId, order, atMs);
@@ -417,7 +441,9 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
     forget(buildingId, atMs) {
       const market = markets.get(buildingId);
       if (!market) return;
-      for (const order of [...market.orders()]) cancelOrder(buildingId, market, order, atMs);
+      // 거두기는 시장 안 목록을 새 배열로 바꾼다(지금 목록을 고치지 않는다) — 그대로 돌아도 된다
+      const open = market.orders();
+      for (const order of open) cancelOrder(buildingId, market, order, atMs);
       dirty.add(buildingId);
     },
     check() {

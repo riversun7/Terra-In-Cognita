@@ -204,6 +204,7 @@ export function gatherReadsOf(
         facilityId: record?.facilityId ?? null,
         name: def ? def.name : null,
         stage: def?.stage ?? null,
+        ...(def ? { category: def.category } : {}),
         level: record?.level ?? 0,
         mine: ownerId !== undefined && place.ownerId === ownerId,
         accepts: options?.deposit !== null && options !== undefined,

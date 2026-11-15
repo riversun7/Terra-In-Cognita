@@ -775,6 +775,7 @@ function SecondMapView({
           actorAboard={myUnits.units?.some((unit) => unit.unitId === actor && unit.aboard != null) === true}
           unitLabel={labelOf}
           buildingExtra={<GovernmentSheet state={gather} embedded />}
+          operator={operator}
         />
         {/* 고른 유닛이 NPC 국가 지도자면 지도자 판 → 수도 정부 판("WP-NPC3"). 다른 판이 열린 동안은 숨긴다 */}
         {!building && sheet === "nearby" ? (

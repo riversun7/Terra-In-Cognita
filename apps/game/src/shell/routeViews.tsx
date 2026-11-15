@@ -31,6 +31,8 @@ const StartScreen = lazy(() => import("../start/StartScreen.tsx"));
 // 경제(창고·생산·거래창·환전, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)"): 칸마다 다시 따로 조각이다
 const EconomyScreen = lazy(() => import("../economy/EconomyScreen.tsx"));
 const InventoryScreen = lazy(() => import("../inventory/InventoryScreen.tsx"));
+// 건물 재무 화면(docs/adr/2026-11-15-building-screen.md): 손익계산서·재무상태·현금 흐름·거래·주주·지분 시장(누구나)
+const BuildingBooksScreen = lazy(() => import("../map/business/BuildingBooksScreen.tsx"));
 // 세력 화면(D-439, 기획 46): 내 세력·도시·외교·전쟁·투표·지분. 규칙 전 칸은 곧 열림, dev·admin은 시안 자료
 const FactionScreen = lazy(() => import("../faction/FactionScreen.tsx"));
 const FactionIdentityScreen = lazy(() => import("../faction/identity/FactionIdentityScreen.tsx"));
@@ -108,6 +110,7 @@ export const ROUTE_TITLES = {
   economy_market_item: m.economy_market_title,
   economy_market_city: m.economy_market_title,
   economy_orders: m.economy_my_orders,
+  building_books: m.building_finance_title,
   economy_exchange: m.economy_tab_exchange,
   faction: m.nav_faction,
   cyborg: m.nav_cyborg,
@@ -303,6 +306,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <RankingScreen match={match} />;
     case "inventory":
       return <InventoryScreen tab={match.search.tab} unit={match.search.unit} />;
+    case "building_books":
+      return <BuildingBooksScreen buildingId={Number(match.params.buildingId)} />;
     case "economy":
     case "economy_warehouse":
     case "economy_production":

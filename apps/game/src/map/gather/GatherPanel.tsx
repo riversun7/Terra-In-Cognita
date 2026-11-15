@@ -1,6 +1,6 @@
 // 2차맵 채집·들어가기 판 — docs/adr/2026-11-07-gather-objects.md 6절, 사용자 지적(2026-11-07) 문제 2·3. 모바일 우선:
 // - 오브젝트를 누르면(표시 단추·둘레 땅) 아래 작은 판: 이름·나오는 것·남은 번수(떨어졌으면 다시 자라는 시간)·맡는 시설 → [채집]·[정보]·[닫기].
-// - 건물을 누르면: 이름·레벨·내 것인가·들어가면 하는 일·안에 있는 유닛 → [들어가기]·[닫기].
+// - 건물을 누르면: 건물 판(building/BuildingPanel.tsx — 머리 이름표·칸·관리·장부·지분, 2026-11-15 개편) → [들어가기]·[닫기].
 // - 보내는 유닛 = 화면이 정한 명령 유닛 하나(anchorUnit.ts commandUnit — 아래 안내 줄의 고른 유닛, 남의 유닛이면 기준 유닛, 없으면 내 사이보그).
 //   이름은 안내 줄과 같은 이름(mapUnits.ts unitLabel, 사용자 지적 2026-11-09 문제3). 남의 유닛이면 서버가 forbidden — 그 까닭을 보인다.
 // - 내 유닛의 채집 줄 한 줄(단계·화물·넣는 곳·끝난 까닭) + [멈추기].
@@ -30,9 +30,7 @@ import {
   stopText,
 } from "./gatherData.ts";
 import type { GatherState } from "./gatherState.ts";
-import { StationPanel } from "./StationPanel.tsx";
-import { HarborPanel } from "../boats/HarborPanel.tsx";
-import { BusinessBooks } from "../business/BusinessBooks.tsx";
+import { BuildingPanel } from "../building/BuildingPanel.tsx";
 import { boatGatherOf } from "../boats/boatText.ts";
 import { GatherMeters } from "./GatherMeters.tsx";
 import "./gather.css";
@@ -51,6 +49,8 @@ interface GatherPanelProps {
   readonly buildingExtra?: ReactNode;
   /** 명령 유닛이 배에 탔나(배에서 캐기 — 기획 D-541 1280 가). 없으면 false */
   readonly actorAboard?: boolean;
+  /** 운영자 모드(건물 판 관리 칸 — 남의 건물도, 서버가 다시 본다) */
+  readonly operator?: boolean;
 }
 
 const serverNow = (): number => Date.now() + serverLink.clockOffsetMs();
@@ -90,6 +90,7 @@ export function GatherPanel({
   unitLabel,
   buildingExtra,
   actorAboard = false,
+  operator = false,
 }: GatherPanelProps) {
   const version = useSyncExternalStore(
     (listener) => state.subscribe(listener),
@@ -333,105 +334,30 @@ export function GatherPanel({
         </section>
       ) : null}
       {sheet?.kind === "building" ? (
-        <section
-          className="map-panel gather-sheet gather-sheet-scroll"
-          aria-label={m.gather_building_label()}
-          data-building={sheet.id}
-        >
-          <div className="gather-sheet-head">
-            <h2 className="gather-title">
-              {nameText(building?.name ?? null, m.gather_building_unknown())}
-              {building && building.level > 0
-                ? ` · ${m.gather_building_level({ level: building.level })}`
-                : ""}
-            </h2>
-            {building?.status === "ok" ? (
-              <span className="gather-badge">
-                {building.mine ? m.gather_building_mine() : m.gather_building_other()}
-              </span>
-            ) : null}
-          </div>
-          {building?.status === "ok" ? (
-            <>
-              <p className="gather-muted">
-                {building.accepts
-                  ? m.gather_building_accepts()
-                  : building.hires
-                    ? m.gather_building_hires()
-                    : m.gather_building_stays()}
-              </p>
-              <div className="gather-section">
-                <p className="gather-inside-title">{m.gather_building_inside()}</p>
-                {building.inside.length === 0 ? (
-                  <p className="gather-muted">{m.gather_building_inside_none()}</p>
-                ) : (
-                  <ul className="gather-inside">
-                    {building.inside.map((unit) => (
-                      <li key={unit.unitId} data-unit={unit.unitId} data-via={unit.via}>
-                        {unit.via === "work"
-                          ? m.gather_building_inside_work({ id: unit.unitId })
-                          : m.gather_building_inside_unit({ id: unit.unitId })}
-                        {unit.own ? ` · ${m.gather_building_inside_own()}` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </>
-          ) : null}
-          {buildingExtra}
-          {/* 배 시설(조선소·정박장·교역 부두) — docs/adr/2026-11-15-shipyard-harbor.md */}
-          {building?.status === "ok" && building.harbor ? (
-            <HarborPanel
-              key={sheet.id}
-              buildingId={sheet.id}
-              level={building.level}
-              mine={building.mine}
-              harbor={building.harbor}
-              reload={() => {
-                void loadGatherBuilding(sheet.id)
-                  .then((response) => setBuilding(response))
-                  .catch(() => undefined);
-              }}
-            />
-          ) : null}
-          {/* 사업장 장부(누구나 — D-548·D-555, docs/adr/2026-11-15-business-ledger.md) */}
-          {building?.status === "ok" ? (
-            <BusinessBooks key={`books-${sheet.id}`} buildingId={sheet.id} />
-          ) : null}
-          <StationPanel
-            state={state}
-            mapKey={mapKey}
-            buildingId={sheet.id}
-            actor={actor}
-            notify={setNotice}
-          />
-          <div className="gather-footer">
-            <p className="gather-actor">{actorText}</p>
-            <div className="gather-actions">
-              <button
-                type="button"
-                className="button-small button-primary gather-sheet-enter"
-                disabled={actor === null || sending}
-                onClick={() => {
-                  if (actor === null) return;
-                  void send(() =>
-                    sendGatherCommand({ t: "unit_enter", unitId: actor, buildingId: sheet.id }),
-                  );
-                }}
-              >
-                {m.gather_action_enter()}
-              </button>
-              <button
-                type="button"
-                className="button-small gather-sheet-close"
-                onClick={() => state.open(null)}
-              >
-                {m.gather_action_close()}
-              </button>
-            </div>
-          </div>
-        </section>
+        <BuildingPanel
+          key={sheet.id}
+          state={state}
+          mapKey={mapKey}
+          buildingId={sheet.id}
+          building={building}
+          reloadBuilding={() => {
+            void loadGatherBuilding(sheet.id)
+              .then((response) => setBuilding(response))
+              .catch(() => undefined);
+          }}
+          actor={actor}
+          actorText={actorText}
+          unitLabel={unitLabel}
+          extra={buildingExtra}
+          operator={operator}
+          sending={sending}
+          onEnter={() => {
+            if (actor === null) return;
+            void send(() => sendGatherCommand({ t: "unit_enter", unitId: actor, buildingId: sheet.id }));
+          }}
+          onClose={() => state.open(null)}
+          notify={setNotice}
+        />
       ) : null}
     </div>
   );

@@ -223,7 +223,14 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       case "share_order": {
         const shares = deps.shares?.();
         if (!shares) return fail("busy");
-        const placed = shares.place(me, command.buildingId, command.side, command.price, command.shares, atMs);
+        const placed = shares.place(
+          me,
+          command.buildingId,
+          command.side,
+          command.price,
+          command.shares,
+          atMs,
+        );
         return placed.ok ? { ok: true, orderId: placed.orderId } : fail(placed.code);
       }
       case "share_cancel": {

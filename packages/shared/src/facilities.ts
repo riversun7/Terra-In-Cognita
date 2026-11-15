@@ -25,6 +25,11 @@ export interface FacilityCatalogView {
    * 물 표 = facilities.waterMask). 없으면 null(땅 조건 없음). 선택 칸이라 옛 서버 응답에는 없다
    */
   readonly needsWaterWithin?: number | null | undefined;
+  /**
+   * 채집소 반경(배치 칸, 레벨 1 — 이 반경 안 원자재 오브젝트가 그 채집소 몫이다). 오브젝트를 맡는 채집소(벌목장·광산 등)만, 아니면 null.
+   * 건축 모드 미리보기가 고리로 그린다(사용자 요청 2026-11-15, docs/adr/2026-11-15-building-screen.md). 옛 서버 응답에는 없다
+   */
+  readonly gatherRadiusCells?: number | null | undefined;
   /** 레벨 1 최대 내구도 */
   readonly durability: number;
   /** 레벨마다 재료·건설 시간(일꾼 없이, ms) */

@@ -10,6 +10,14 @@ export interface LoadedBusiness {
   readonly shares?: LoadedShares | undefined;
 }
 
+/** DB 큰 정수 칸 → BigInt(글자·숫자·BigInt, 그 밖은 0) */
+const bigOf = (value: unknown): bigint =>
+  typeof value === "bigint"
+    ? value
+    : typeof value === "string" || typeof value === "number"
+      ? BigInt(value)
+      : 0n;
+
 const numOrNull = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
 
@@ -72,10 +80,10 @@ export async function loadShares(pool: QueryPool, nowMs: number): Promise<Loaded
       id: Number(row.id),
       buildingId: Number(row.building_id),
       atMs: Number(row.at_ms),
-      price: row.price === null || row.price === undefined ? undefined : BigInt(String(row.price)),
+      price: row.price === null || row.price === undefined ? undefined : bigOf(row.price),
       shares: BigInt(String(row.shares)),
     })),
-    lastPrice: new Map(last.rows.map((row) => [Number(row.building_id), BigInt(String(row.price))])),
+    lastPrice: new Map(last.rows.map((row) => [Number(row.building_id), bigOf(row.price)])),
     maxOrderId: Number(max.rows[0]?.orders ?? 0),
     maxRoundId: Number(max.rows[0]?.rounds ?? 0),
   };

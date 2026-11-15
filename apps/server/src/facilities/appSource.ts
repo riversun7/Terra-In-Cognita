@@ -44,6 +44,9 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       catalog: facilities.catalog,
       unitBusy: (unitId) => labor.unitBusy(unitId),
       workersOf: (buildingId) => labor.workersAt(buildingId),
+      // 채집소 반경 고리(건축 모드 — docs/adr/2026-11-15-building-screen.md): 원자재 오브젝트를 맡는 시설
+      objectFacilities: () =>
+        new Set(facilities.gatherKinds().flatMap((kind) => (kind.facility === null ? [] : [kind.facility]))),
       // 숙소를 쓰는 NPC 일꾼(도시 경제 쉼터 계획, 질문 1047 다)
       lodgingOccupants: (buildingId, cityId) => {
         if (cityId === null) return undefined;

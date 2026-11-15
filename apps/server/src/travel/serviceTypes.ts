@@ -73,6 +73,13 @@ export interface TravelService {
     request: TravelTarget & { readonly unitId: number; readonly kind: TravelKind },
     options?: { readonly speedFactor?: number },
   ): Promise<TravelCommandResult>;
+  /**
+   * 운영자 텔레포트(기획 D-560 1239, 프로토콜 36): 내 유닛을 걷지 않고 목적 칸 둘레의 설 칸으로 바로 옮긴다(가던 길은 버린다). 목적 2차맵을
+   * 띄우지 않았으면 띄운 뒤 옮긴다. 권한(모든 유닛 명령)은 게이트웨이가 본다
+   */
+  teleport(userId: string, request: TravelTarget & { readonly unitId: number }): Promise<TravelCommandResult>;
+  /** 운영자 모드를 껐다: 그 유닛들의 가는 길 빠르기를 1로(기획 D-560 1248 — 다음 구간부터 보통) */
+  releasePace(unitIds: readonly number[]): void;
   /** 멈추기: 그 자리에 선다(건너뛰는 중이면 나타난 자리에서) */
   cancel(userId: string, unitId: number): TravelCommandResult;
   /** 내 유닛의 길(가는 중 + 최근 끝난 것), 유닛 ID 차례 */

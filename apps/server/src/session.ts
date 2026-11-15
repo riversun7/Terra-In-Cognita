@@ -30,6 +30,8 @@ import {
   FX_PROTOCOL_VERSION,
   MARKET_PROTOCOL_VERSION,
   RUINS_PROTOCOL_VERSION,
+  OPERATOR_PACE_PROTOCOL_VERSION,
+  TELEPORT_PROTOCOL_VERSION,
   TRAVEL_PROTOCOL_VERSION,
   UNIT_CONTROL_PROTOCOL_VERSION,
   GATHER_PROTOCOL_VERSION,
@@ -66,6 +68,7 @@ import type { HospitalGateway, HospitalSocket } from "./hospital/gateway.ts";
 import type { CitizenshipGateway, CitizenshipSocket } from "./citizenship/gateway.ts";
 import type { HouseGateway, HouseSocket } from "./factionIdentity/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
+import { createOperatorPace } from "./world/operatorPace.ts";
 
 export interface SessionContext {
   simVersion: number;
@@ -149,6 +152,8 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let citizenshipSocket: CitizenshipSocket | undefined;
   let houseSocket: HouseSocket | undefined;
   let releasePresence: (() => void) | undefined;
+  // 이 연결의 운영자 배율(기획 D-560 1246~1248, world/operatorPace.ts): 2차맵 게이트웨이가 바꾸고 유닛 명령 게이트웨이들이 같이 본다
+  const operatorPace = createOperatorPace();
 
   const sendText = (text: string): void => {
     if (socket.readyState === socket.OPEN) socket.send(text);
@@ -260,9 +265,16 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "move_unit":
       case "stop_unit":
       case "place_building":
-      case "remove_building": {
-        // 멈추기(stop_unit)는 프로토콜 17의 메시지다(docs/adr/2026-11-07-unit-control.md). 더 낮게 인사한 연결은 모르는 메시지로 본다
-        const needs = message.t === "stop_unit" ? UNIT_CONTROL_PROTOCOL_VERSION : SECOND_MAP_PROTOCOL_VERSION;
+      case "remove_building":
+      case "operator_pace": {
+        // 멈추기(stop_unit)는 프로토콜 17, 운영자 배율(operator_pace)은 36의 메시지다(docs/adr/2026-11-07-unit-control.md). 더 낮게 인사한 연결은
+        // 모르는 메시지로 본다
+        const needs =
+          message.t === "stop_unit"
+            ? UNIT_CONTROL_PROTOCOL_VERSION
+            : message.t === "operator_pace"
+              ? OPERATOR_PACE_PROTOCOL_VERSION
+              : SECOND_MAP_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;
@@ -276,6 +288,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           bufferedAmount: () => socket.bufferedAmount,
           viewer: context.viewer ?? signedOut,
           protocolVersion,
+          operatorPace,
         });
         worldSocket.handle(message);
         return;
@@ -396,6 +409,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           protocolVersion,
           // 운영자 모드(전체 보기) 연결의 직무 배치는 그 유닛에 운영자 빠르기 표시(world/operatorPace.ts)
           observing: () => worldSocket?.observing() === true,
+          operatorPace,
         });
         laborSocket.handle(message);
         return;
@@ -457,6 +471,9 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send: sendText,
           viewer: context.viewer ?? signedOut,
           protocolVersion,
+          // 운영자 모드(전체 보기) 연결의 건설은 제한 없이(기획 D-560 1239 — facilities/gateway.ts가 권한을 본다)
+          observing: () => worldSocket?.observing() === true,
+          operatorPace,
         });
         facilitySocket.handle(message);
         return;
@@ -523,8 +540,9 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       }
       case "travel_start":
       case "travel_cancel": {
-        // 2차맵 사이 이동은 프로토콜 16의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
-        if (protocolVersion < TRAVEL_PROTOCOL_VERSION) {
+        // 2차맵 사이 이동은 프로토콜 16, 운영자 텔레포트 칸(teleport)은 36이다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        const teleport = message.t === "travel_start" && message.teleport === true;
+        if (protocolVersion < (teleport ? TELEPORT_PROTOCOL_VERSION : TRAVEL_PROTOCOL_VERSION)) {
           reject("invalid_message");
           return;
         }
@@ -537,6 +555,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           viewer: context.viewer ?? signedOut,
           // 같은 연결이 운영자 모드(전체 보기)로 2차맵을 보고 있으면 보내는 길도 운영자 빠르기
           observing: () => worldSocket?.observing() === true,
+          operatorPace,
         });
         travelSocket.handle(message);
         return;
@@ -558,6 +577,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           viewer: context.viewer ?? signedOut,
           // 운영자 모드(전체 보기) 연결의 채집·들어가기도 운영자 빠르기(world/operatorPace.ts)
           observing: () => worldSocket?.observing() === true,
+          operatorPace,
         });
         gatherSocket.handle(message);
         return;
@@ -683,6 +703,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           viewer: context.viewer ?? signedOut,
           // 운영자 모드(전체 보기) 연결은 남의 부두·배에 명령하고 재료 없이 만든다
           observing: () => worldSocket?.observing() === true,
+          operatorPace,
           protocolVersion,
         });
         boatSocket.handle(message);

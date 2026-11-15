@@ -748,6 +748,67 @@ export function createTravelService(deps: TravelDeps): TravelService {
       return first.ok ? { ok: true, maps: planned.route.length, arriveAt: journey.arriveAtMs } : first;
     },
 
+    async teleport(userId, request) {
+      if (stopped || !deps.ready()) return fail("busy");
+      const found = ownUnit(userId, request.unitId);
+      if ("problem" in found) return fail(startCode(found.problem));
+      if (unavailable(found.info.condition, now())) return fail("unavailable");
+      // 띄우지 않은 목적지는 띄운 뒤 옮긴다(상한·띄울 수 없는 칸이면 unknown_map)
+      if (!maps.has(request.mapKey)) {
+        if (!spawn?.canOpen(request.mapKey)) return fail("unknown_map");
+        const opened = await spawn.open(request.mapKey);
+        if (opened !== "ok") return fail(opened === "full" ? "busy" : "unknown_map");
+      }
+      const target = maps.get(request.mapKey);
+      // 띄우는 동안 유닛이 바뀌었을 수 있다(다시 찾는다)
+      const where = locate(found.id);
+      if (!target || !where) return fail(target ? "unknown_unit" : "unknown_map");
+      const sea = where.info.domain === "sea";
+      const goal = { x: request.x, y: request.y };
+      const spot = standsOn(target, goal, where.info.size, sea)
+        ? goal
+        : standNear(target.mapKey, goal, where.info.size, sea ? standableFor(true) : standable);
+      if (!spot) return fail("goal_blocked");
+      // 가던 길은 버린다(줄도 지운다)
+      const old = journeys.get(found.id);
+      if (old) {
+        journeys.delete(found.id);
+        old.seq += 1;
+        old.checkAtMs = null;
+        store.remove(found.id);
+        arm();
+      }
+      recent.delete(found.id);
+      if (where.map !== target) {
+        try {
+          deps.settle?.(found.ownerId, now());
+        } catch (error) {
+          log.error({ err: error, ownerId: found.ownerId }, "travel: settle before teleport failed");
+        }
+      }
+      const row = where.map.transferOut(found.id);
+      if (!row) return fail("unknown_unit");
+      if (!target.transferIn(row, spot.x, spot.y)) {
+        // 못 놓으면 떠난 자리로 되돌린다
+        const back = anchorOf(positionAt(where.info.motion, now()), where.info.size);
+        where.map.transferIn(row, back.x, back.y);
+        return fail("goal_blocked");
+      }
+      // 닿은 자리의 시야를 탐사 기록에 남긴다(걸어서 닿은 것과 같게 — 구독하지 않아도 그 2차맵을 볼 수 있다)
+      target.vision.explore(userId, [anchorCenter(spot.x, spot.y, where.info.size)]).catch((error: unknown) => {
+        log.error({ err: error, unitId: found.id }, "travel: teleport exploration record failed");
+      });
+      log.info({ unitId: found.id, from: where.map.mapKey, to: target.mapKey }, "operator teleport");
+      return { ok: true, maps: 1, arriveAt: now() };
+    },
+
+    releasePace(unitIds) {
+      for (const unitId of unitIds) {
+        const journey = journeys.get(unitId);
+        if (journey && journey.speedFactor !== 1) journey.speedFactor = 1;
+      }
+    },
+
     cancel(userId, asked) {
       // 승객의 멈추기는 그 배의 길(D-541 1279 나)
       const unitId = journeys.has(asked) ? asked : (locate(asked)?.info.aboard ?? asked);

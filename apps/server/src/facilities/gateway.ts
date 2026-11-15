@@ -16,10 +16,11 @@ import {
 } from "@terra/protocol";
 import { PLACEMENT_SIZE } from "@terra/sim";
 import { rolesAllow } from "../auth/permissions.ts";
+import { type OperatorPaceLink, isOperatorMode } from "../world/operatorPace.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { BuildingAttack } from "./attack.ts";
-import type { FacilityCommandResult, FacilityService } from "./service.ts";
+import type { FacilityCommandResult, FacilityService, OperatorBuild } from "./service.ts";
 
 export type FacilityClientMessage = ClientMessageOf<
   | "facility_build"
@@ -42,6 +43,13 @@ export interface FacilityLink {
   viewer(): Promise<Viewer | null>;
   /** 인사한 프로토콜 판(없으면 지금 판). 13 아래면 폐허 코드를 not_buildable로, 21 아래면 needs_water를 blocked_terrain으로 */
   protocolVersion?: number | undefined;
+  /**
+   * 같은 연결이 2차맵을 전체 보기(운영자 모드)로 구독 중인가. 그러면서 모든 유닛 명령 권한(dev·admin)이면 짓기·레벨 올리기는 제한 없이(기획 D-560
+   * 1239 — 재료·땅 규칙 없이, 시간 ÷ 운영자 배율). 서버 권위: 권한은 여기서 본다(기기의 운영자 모드 단추는 화면 편의)
+   */
+  observing?(): boolean;
+  /** 이 연결의 운영자 배율(기본 1, world/operatorPace.ts) — 운영자 모드 짓는 시간 나눗수 */
+  operatorPace?: OperatorPaceLink | undefined;
 }
 
 /** 13판에 생긴 건물 결과 코드(행정 건물 짓기) */
@@ -74,6 +82,7 @@ function run(
   attack: BuildingAttack | undefined,
   userId: string,
   message: FacilityClientMessage,
+  operator: OperatorBuild | undefined,
 ): Promise<FacilityCommandResult> {
   switch (message.t) {
     case "facility_attack":
@@ -93,9 +102,10 @@ function run(
         y: message.y,
         rotation: message.rotation,
         unitIds: message.unitIds,
+        ...(operator ? { operator } : {}),
       });
     case "facility_upgrade":
-      return service.upgrade(userId, message.buildingId, message.unitIds ?? []);
+      return service.upgrade(userId, message.buildingId, message.unitIds ?? [], operator);
     case "facility_repair":
       return service.repair(
         userId,
@@ -174,7 +184,11 @@ export function createFacilityGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
-        reply(message.id, await run(service, options.attack?.(), viewer.id, message));
+        // 운영자 모드 건설(D-560 1239): 전체 보기 구독 + 모든 유닛 명령 권한일 때만
+        const operator: OperatorBuild | undefined = isOperatorMode(link.observing?.() === true, viewer.roles)
+          ? { pace: link.operatorPace?.factor() ?? 1 }
+          : undefined;
+        reply(message.id, await run(service, options.attack?.(), viewer.id, message, operator));
       };
       return {
         handle(message) {

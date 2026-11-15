@@ -9,6 +9,11 @@ import { z } from "zod";
 
 /** 2차맵 사이 이동 메시지에 필요한 가장 낮은 프로토콜 버전. 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
 export const TRAVEL_PROTOCOL_VERSION = 16;
+/**
+ * 운영자 텔레포트(travel_start teleport 칸, 기획 D-560 1239 "운영자 모드에 1차맵에서 텔레포트 즉시 이동")가 생긴 판. 더 낮은 연결이 칸을 보내면
+ * 서버가 invalid_message로 거절한다
+ */
+export const TELEPORT_PROTOCOL_VERSION = 36;
 /** 명령 종류(D-6021의 이동·공격·운송·정찰 가운데 지금 받는 둘 — 둘 다 걸어서 간다, 정찰의 다른 점은 확인 대기) */
 export const TRAVEL_KINDS = ["move", "scout"] as const;
 export type TravelKind = (typeof TRAVEL_KINDS)[number];
@@ -31,6 +36,11 @@ export const travelStartMessage = z.object({
   x: cell,
   y: cell,
   kind: z.enum(TRAVEL_KINDS),
+  /**
+   * 운영자 텔레포트(프로토콜 36, 기획 D-560): 걷지 않고 목적 칸 둘레의 설 칸으로 바로 옮긴다(가던 길은 버린다). 모든 유닛 명령 권한(dev·admin)이
+   * 아니면 forbidden. 목적 2차맵을 띄우지 않았으면 띄운 뒤 옮긴다(상한이면 unknown_map)
+   */
+  teleport: z.literal(true).optional(),
 });
 
 /** 가는 중인 유닛을 그 자리에 세운다 */

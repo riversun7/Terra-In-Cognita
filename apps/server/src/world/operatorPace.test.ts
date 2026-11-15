@@ -3,7 +3,15 @@
 // 아니면 지우고, 거절되면 되돌림)을 본다.
 import { WALK_SPEED, anchorCenter } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OPERATOR_SPEED_FACTOR, isOperatorMode, markPace, withPace } from "./operatorPace.ts";
+import {
+  OPERATOR_SPEED_FACTOR,
+  createOperatorPace,
+  fixedOperatorPace,
+  isOperatorMode,
+  markPace,
+  operatorFactor,
+  withPace,
+} from "./operatorPace.ts";
 import { createTestMap } from "./testSupport.ts";
 
 const START = 1_798_000_000_000;
@@ -99,12 +107,12 @@ describe("명령 규칙(markPace·withPace)", () => {
     const a = createTestMap();
     const b = createTestMap({ mapKey: 10 });
     b.map.addUnit({ id: 1, size: 1, speed: WALK_SPEED, cellX: 10, cellY: 10 });
-    markPace([a.map, b.map], 1, true);
+    markPace([a.map, b.map], 1, OPERATOR_SPEED_FACTOR);
     expect(b.map.paceOf(1)).toBe(OPERATOR_SPEED_FACTOR);
-    markPace([a.map, b.map], 1, false);
+    markPace([a.map, b.map], 1, 1);
     expect(b.map.paceOf(1)).toBe(1);
     // 없는 유닛은 아무것도 하지 않는다
-    markPace([a.map, b.map], 99, true).undo();
+    markPace([a.map, b.map], 99, OPERATOR_SPEED_FACTOR).undo();
     a.map.stop();
     b.map.stop();
   });
@@ -113,14 +121,14 @@ describe("명령 규칙(markPace·withPace)", () => {
     const { map } = createTestMap();
     map.addUnit({ id: 1, size: 1, speed: WALK_SPEED, cellX: 10, cellY: 10 });
     // 운영자의 거절된 명령 → 표시 없음 그대로
-    expect(await withPace([map], 1, true, () => Promise.resolve({ ok: false }))).toEqual({ ok: false });
+    expect(await withPace([map], 1, OPERATOR_SPEED_FACTOR, () => Promise.resolve({ ok: false }))).toEqual({ ok: false });
     expect(map.paceOf(1)).toBe(1);
     // 된 명령 → 표시. 플레이어의 거절된 명령은 지우지 않는다
-    await withPace([map], 1, true, () => Promise.resolve({ ok: true }));
-    await withPace([map], 1, false, () => Promise.resolve({ ok: false }));
+    await withPace([map], 1, OPERATOR_SPEED_FACTOR, () => Promise.resolve({ ok: true }));
+    await withPace([map], 1, 1, () => Promise.resolve({ ok: false }));
     expect(map.paceOf(1)).toBe(OPERATOR_SPEED_FACTOR);
     // 던지면 되돌리고 다시 던진다
-    await expect(withPace([map], 1, false, () => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
+    await expect(withPace([map], 1, 1, () => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
     expect(map.paceOf(1)).toBe(OPERATOR_SPEED_FACTOR);
     map.stop();
   });
@@ -129,16 +137,66 @@ describe("명령 규칙(markPace·withPace)", () => {
     const { map } = createTestMap();
     map.addUnit({ id: 1, size: 1, speed: WALK_SPEED, cellX: 10, cellY: 10 });
     // 운영자 명령 A가 달고, 끝나기 전에 운영자 명령 B가 단다. A가 superseded로 거절되어도 B의 표시는 그대로
-    const first = markPace([map], 1, true);
-    const second = markPace([map], 1, true);
+    const first = markPace([map], 1, OPERATOR_SPEED_FACTOR);
+    const second = markPace([map], 1, OPERATOR_SPEED_FACTOR);
     first.undo();
     expect(map.paceOf(1)).toBe(OPERATOR_SPEED_FACTOR);
     second.release();
     // 보통 명령 C가 지운 뒤 늦게 거절된 운영자 명령 D도 C의 지움을 되돌리지 않는다
-    const late = markPace([map], 1, true);
-    markPace([map], 1, false).release();
+    const late = markPace([map], 1, OPERATOR_SPEED_FACTOR);
+    markPace([map], 1, 1).release();
     late.undo();
     expect(map.paceOf(1)).toBe(1);
     map.stop();
+  });
+});
+
+describe("연결의 운영자 배율(createOperatorPace — 기획 D-560 1246~1248)", () => {
+  it("기본 1, 운영자 모드에서만 고른 배율. 상한·하한으로 자른다", () => {
+    const pace = createOperatorPace();
+    expect(pace.factor()).toBe(1);
+    pace.set(50);
+    // 운영자 모드(전체 보기 구독)가 아니면 1
+    expect(pace.factor()).toBe(1);
+    pace.setObserving(true, []);
+    expect(pace.factor()).toBe(50);
+    pace.set(1_000);
+    expect(pace.factor()).toBe(OPERATOR_SPEED_FACTOR);
+    pace.set(0);
+    expect(pace.factor()).toBe(1);
+  });
+
+  it("운영자 모드를 끄면 배율 1, 그 연결이 빠른 표시를 단 유닛만 바로 푼다(남이 단 표시는 그대로)", async () => {
+    const { map } = createTestMap();
+    map.addUnit({ id: 1, size: 1, speed: WALK_SPEED, cellX: 10, cellY: 10 });
+    map.addUnit({ id: 2, size: 1, speed: WALK_SPEED, cellX: 20, cellY: 20 });
+    const pace = createOperatorPace();
+    const released: number[][] = [];
+    const stop = pace.onRelease((ids) => released.push([...ids]));
+    pace.setObserving(true, [map]);
+    pace.set(10);
+    await withPace([map], 1, pace.factor(), () => Promise.resolve({ ok: true }), pace);
+    // 다른 연결이 단 표시
+    markPace([map], 2, OPERATOR_SPEED_FACTOR).release();
+    expect(map.paceOf(1)).toBe(10);
+    expect(pace.setObserving(false, [map])).toEqual([1]);
+    expect(map.paceOf(1)).toBe(1);
+    expect(map.paceOf(2)).toBe(OPERATOR_SPEED_FACTOR);
+    expect(pace.factor()).toBe(1);
+    expect(released).toEqual([[1]]);
+    // 이미 꺼진 채 다시 끄면 아무것도 하지 않는다. 다시 켜도 배율은 기본 1
+    expect(pace.setObserving(false, [map])).toEqual([]);
+    pace.setObserving(true, [map]);
+    expect(pace.factor()).toBe(1);
+    stop();
+    map.stop();
+  });
+
+  it("isOperatorMode가 아닌 연결은 배율이 있어도 1(operatorFactor)", () => {
+    const link = { observing: () => true, operatorPace: fixedOperatorPace(20) };
+    expect(operatorFactor(link, ["dev"])).toBe(20);
+    expect(operatorFactor(link, ["player"])).toBe(1);
+    expect(operatorFactor({ observing: () => false, operatorPace: fixedOperatorPace(20) }, ["dev"])).toBe(1);
+    expect(operatorFactor({ observing: () => true }, ["dev"])).toBe(1);
   });
 });

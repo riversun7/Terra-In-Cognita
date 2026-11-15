@@ -49,6 +49,13 @@ export const SECOND_MAP_PROTOCOL_VERSION = 3;
  */
 export const UNIT_CONTROL_PROTOCOL_VERSION = 17;
 /**
+ * 운영자 빠르기 배율(operator_pace)이 생긴 판(기획 D-560 1246~1248, docs/adr/2026-11-07-unit-control.md "바뀜 (2026-11-15, D-560)"). 더 낮게
+ * 인사한 연결이 보내면 invalid_message
+ */
+export const OPERATOR_PACE_PROTOCOL_VERSION = 36;
+/** 운영자 빠르기 배율 상한(유닛 걷기 437 × 100 = 43,700 — 움직임 빠르기 상한 MAX_UNIT_SPEED 안) */
+export const OPERATOR_PACE_MAX = 100;
+/**
  * 유닛 표시 종류(unitMotionSchema kind, 프로토콜 18 — docs/adr/2026-11-07-play-flow.md "WP-NPC3", 기획 정리 748 나): 지도에 따로 그리는 유닛에만
  * 붙는다(없으면 보통 유닛 — 유닛마다 보내면 바이트가 늘어 지금은 이것들만). npc_leader = NPC 국가 지도자 사이보그(이름표·지도자 표시).
  * 값은 @terra/shared/mapUnits MapUnitKind와 같은 이름을 쓴다. 기기는 모르는 값을 보통 유닛으로 그린다(나중에 값을 더해도 옛 기기가 메시지를
@@ -126,6 +133,18 @@ export const stopUnitMessage = z.object({
   id: requestId,
   mapKey,
   unitId,
+});
+
+/**
+ * 운영자 빠르기 배율(프로토콜 36, 기획 D-560 1246~1248): 이 연결이 운영자 모드(mapKey를 전체 보기로 구독 중 + 모든 유닛 명령 권한)일 때 보내는
+ * 유닛 명령의 걷기 배율. 기본 1(보통 유닛과 같다). 서버가 연결마다 들고, 운영자 모드를 끄면(전체 보기 구독을 풀면) 1로 돌리고 빠른 표시를 바로 푼다.
+ * 운영자 모드가 아니면 forbidden
+ */
+export const operatorPaceMessage = z.object({
+  t: z.literal("operator_pace"),
+  id: requestId,
+  mapKey,
+  factor: z.number().int().min(1).max(OPERATOR_PACE_MAX),
 });
 
 /**
@@ -335,6 +354,7 @@ export const secondMapClientMessages = [
   stopUnitMessage,
   placeBuildingMessage,
   removeBuildingMessage,
+  operatorPaceMessage,
 ] as const;
 
 export const secondMapServerMessages = [

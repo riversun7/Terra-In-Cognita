@@ -5,6 +5,7 @@ import type { Viewer } from "../trpc/context.ts";
 import { createFacilityGateway } from "./gateway.ts";
 import type { BuildingAttack } from "./attack.ts";
 import type { FacilityService } from "./service.ts";
+import { fixedOperatorPace } from "../world/operatorPace.ts";
 
 const player: Viewer = { id: "user-1", loginId: "tester", roles: ["player"] };
 const dev: Viewer = { id: "dev-1", loginId: "dev", roles: ["dev"] };
@@ -38,12 +39,12 @@ function fakeService(calls: string[]): FacilityService {
     stop: () => {},
     build: (userId, input) => {
       calls.push(
-        `build:${userId}:${input.facility}:${input.x}:${input.y}:${input.rotation}:${input.unitIds?.length ?? 0}`,
+        `build:${userId}:${input.facility}:${input.x}:${input.y}:${input.rotation}:${input.unitIds?.length ?? 0}${input.operator ? `:operator×${input.operator.pace}` : ""}`,
       );
       return Promise.resolve({ ok: true, buildingId: 7, doneAtMs: 1_000 });
     },
-    upgrade: (userId, buildingId, unitIds) => {
-      calls.push(`upgrade:${userId}:${buildingId}:${unitIds.length}`);
+    upgrade: (userId, buildingId, unitIds, operator) => {
+      calls.push(`upgrade:${userId}:${buildingId}:${unitIds.length}${operator ? `:operator×${operator.pace}` : ""}`);
       return Promise.resolve({ ok: false, code: "insufficient_materials" });
     },
     repair: (userId, target, steps, unitIds) => {
@@ -76,6 +77,7 @@ function open(
   who: Viewer | null,
   attack?: BuildingAttack,
   protocolVersion?: number,
+  operator?: { observing: boolean; pace: number },
 ) {
   const sent: unknown[] = [];
   const gateway = createFacilityGateway({
@@ -88,6 +90,9 @@ function open(
     send: (text) => sent.push(decodeServerMessage(text)),
     viewer: () => Promise.resolve(who),
     protocolVersion,
+    ...(operator
+      ? { observing: () => operator.observing, operatorPace: fixedOperatorPace(operator.pace) }
+      : {}),
   });
   return { sent, socket };
 }
@@ -213,5 +218,25 @@ describe("건물 연결 처리", () => {
     for (let i = 0; i < 10; i++) await settle();
     expect(now.sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: "needs_water" }]);
     expect(old.sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: "blocked_terrain" }]);
+  });
+
+  it("운영자 모드(전체 보기 + dev·admin) 짓기·레벨 올리기는 제한 없이 — 표지와 배율을 서비스로 넘긴다. 플레이어·전체 보기 아님은 보통(D-560 1239)", async () => {
+    const calls: string[] = [];
+    const build = { t: "facility_build", id: 1, mapKey: 9, facility: "farm", x: 3, y: 4, rotation: 0 } as const;
+    const upgrade = { t: "facility_upgrade", id: 2, buildingId: 7 } as const;
+    const devOperator = open(fakeService(calls), dev, undefined, undefined, { observing: true, pace: 10 });
+    devOperator.socket.handle(build);
+    devOperator.socket.handle(upgrade);
+    for (let i = 0; i < 6; i++) await settle();
+    // 플레이어는 전체 보기 구독을 못 한다 — 그래도 권한을 서버가 다시 본다
+    open(fakeService(calls), player, undefined, undefined, { observing: true, pace: 10 }).socket.handle(build);
+    open(fakeService(calls), dev, undefined, undefined, { observing: false, pace: 10 }).socket.handle(build);
+    for (let i = 0; i < 6; i++) await settle();
+    expect(calls).toEqual([
+      "build:dev-1:farm:3:4:0:0:operator×10",
+      "upgrade:dev-1:7:0:operator×10",
+      "build:user-1:farm:3:4:0:0",
+      "build:dev-1:farm:3:4:0:0",
+    ]);
   });
 });

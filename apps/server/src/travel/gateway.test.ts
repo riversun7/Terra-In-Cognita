@@ -2,7 +2,13 @@
 import { decodeServerMessage } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
-import { OPERATOR_SPEED_FACTOR, type PaceMap } from "../world/operatorPace.ts";
+import {
+  OPERATOR_SPEED_FACTOR,
+  type OperatorPaceLink,
+  type PaceMap,
+  createOperatorPace,
+  fixedOperatorPace,
+} from "../world/operatorPace.ts";
 import { createTestMap } from "../world/testSupport.ts";
 import { createTravelGateway } from "./gateway.ts";
 import type { TravelService } from "./service.ts";
@@ -21,6 +27,13 @@ function fakeService(calls: string[]): TravelService {
         `start:${userId}:${request.unitId}:${request.mapKey}:${request.x},${request.y}:${request.kind}:x${options?.speedFactor ?? 1}`,
       );
       return Promise.resolve({ ok: true, maps: 3, arriveAt: 1234 });
+    },
+    teleport: (userId, request) => {
+      calls.push(`teleport:${userId}:${request.unitId}:${request.mapKey}:${request.x},${request.y}`);
+      return Promise.resolve({ ok: true, maps: 1, arriveAt: 0 });
+    },
+    releasePace: (unitIds) => {
+      calls.push(`release:${unitIds.join(",")}`);
     },
     cancel: (userId, unitId) => {
       calls.push(`cancel:${userId}:${unitId}`);
@@ -44,6 +57,7 @@ function connect(
   who: Viewer | null,
   observing = false,
   maps?: () => Iterable<PaceMap>,
+  pace: OperatorPaceLink | undefined = fixedOperatorPace(OPERATOR_SPEED_FACTOR),
 ) {
   const sent: unknown[] = [];
   const gateway = createTravelGateway({
@@ -56,6 +70,7 @@ function connect(
     send: (text) => sent.push(decodeServerMessage(text)),
     viewer: () => Promise.resolve(who),
     observing: () => observing,
+    operatorPace: pace,
   });
   return { sent, socket };
 }
@@ -117,5 +132,50 @@ describe("2차맵 사이 이동 연결 처리", () => {
     for (let i = 0; i < 8; i++) await settle();
     expect(map.paceOf(5)).toBe(1);
     map.stop();
+  });
+
+  it("운영자 배율 기본은 1(기획 D-560 1246) — 배율을 고르지 않은 운영자 연결의 길은 보통 빠르기", async () => {
+    const calls: string[] = [];
+    const dev: Viewer = { id: "dev-1", loginId: "dev", roles: ["dev"] };
+    const pace = createOperatorPace();
+    pace.setObserving(true, []);
+    connect(fakeService(calls), dev, true, undefined, pace).socket.handle(start);
+    for (let i = 0; i < 8; i++) await settle();
+    pace.set(10);
+    connect(fakeService(calls), dev, true, undefined, pace).socket.handle({ ...start, id: 3 });
+    for (let i = 0; i < 8; i++) await settle();
+    expect(calls).toEqual(["start:dev-1:5:9:10,20:scout:x1", "start:dev-1:5:9:10,20:scout:x10"]);
+  });
+
+  it("운영자 모드를 끄면 그 연결이 빠르게 보낸 길의 빠르기를 1로(releasePace, D-560 1248)", async () => {
+    const calls: string[] = [];
+    const { map } = createTestMap();
+    map.addUnit({ id: 5, size: 1, speed: 437, cellX: 10, cellY: 10 });
+    const dev: Viewer = { id: "dev-1", loginId: "dev", roles: ["dev"] };
+    const pace = createOperatorPace();
+    pace.setObserving(true, [map]);
+    pace.set(100);
+    connect(fakeService(calls), dev, true, () => [map], pace).socket.handle(start);
+    for (let i = 0; i < 8; i++) await settle();
+    expect(map.paceOf(5)).toBe(100);
+    expect(pace.setObserving(false, [map])).toEqual([5]);
+    expect(map.paceOf(5)).toBe(1);
+    expect(pace.factor()).toBe(1);
+    expect(calls).toEqual(["start:dev-1:5:9:10,20:scout:x100", "release:5"]);
+    map.stop();
+  });
+
+  it("운영자 텔레포트는 모든 유닛 명령 권한(dev·admin)만 — 플레이어는 forbidden(서버 권위, D-560 1239)", async () => {
+    const calls: string[] = [];
+    const dev: Viewer = { id: "dev-1", loginId: "dev", roles: ["dev"] };
+    const teleport = { ...start, teleport: true } as const;
+    const devLink = connect(fakeService(calls), dev, false);
+    devLink.socket.handle(teleport);
+    const playerLink = connect(fakeService(calls), player, true);
+    playerLink.socket.handle({ ...teleport, id: 7 });
+    for (let i = 0; i < 8; i++) await settle();
+    expect(calls).toEqual(["teleport:dev-1:5:9:10,20"]);
+    expect(devLink.sent).toEqual([{ t: "travel_result", id: 1, ok: true, maps: 1, arriveAt: 0 }]);
+    expect(playerLink.sent).toEqual([{ t: "travel_result", id: 7, ok: false, code: "forbidden" }]);
   });
 });

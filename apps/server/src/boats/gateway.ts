@@ -14,7 +14,13 @@ import {
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
-import { type PaceMap, isOperatorMode, withPace } from "../world/operatorPace.ts";
+import {
+  type OperatorPaceLink,
+  type PaceMap,
+  isOperatorMode,
+  operatorFactor,
+  withPace,
+} from "../world/operatorPace.ts";
 import type { BoatCommandResult, BoatService } from "./service.ts";
 
 export type BoatClientMessage = ClientMessageOf<
@@ -35,6 +41,8 @@ export interface BoatLink {
   viewer(): Promise<Viewer | null>;
   /** 같은 연결이 2차맵을 전체 보기(운영자 모드)로 구독 중인가(world/gateway.ts). 없으면 아니다 */
   observing?(): boolean;
+  /** 이 연결의 운영자 배율(기본 1 — 기획 D-560 1246, world/operatorPace.ts). 없으면 1 */
+  operatorPace?: OperatorPaceLink | undefined;
   /** 인사한 프로토콜 판(28 미만이면 새 코드 dock_busy를 busy로 바꿔 보낸다). 없으면 최신 */
   readonly protocolVersion?: number | undefined;
 }
@@ -133,8 +141,12 @@ export function createBoatGateway(options: {
           case "boat_board":
             return reply(
               message.id,
-              await withPace(options.maps?.() ?? [], message.unitId, operator, () =>
-                service.board(viewer.id, message.unitId, message.boatId, operator),
+              await withPace(
+                options.maps?.() ?? [],
+                message.unitId,
+                operatorFactor(link, viewer.roles),
+                () => service.board(viewer.id, message.unitId, message.boatId, operator),
+                link.operatorPace,
               ),
             );
           case "boat_leave":

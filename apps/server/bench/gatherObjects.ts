@@ -34,7 +34,10 @@ const OLD_ORE_LOW: readonly (readonly number[])[] = [
   [500, 350, 100, 50, 0, 0, 0, 0, 0, 0],
   [500, 350, 120, 30, 0, 0, 0, 0, 0, 0],
 ];
-const oldOre: GatherBand[] = after.map((band, index) => ({ from: band.from, weightsPm: OLD_ORE_LOW[index] ?? band.weightsPm }));
+const oldOre: GatherBand[] = after.map((band, index) => ({
+  from: band.from,
+  weightsPm: OLD_ORE_LOW[index] ?? band.weightsPm,
+}));
 
 const settings = gatherSettingsOf(TEST_SOCIETY_COEFFICIENTS);
 const HOURS = 1000;
@@ -123,10 +126,15 @@ lines.push(`|---|---|${STATS.map(() => "---").join("|")}|`);
 for (const id of OBJECTS) {
   const object = objects.find((entry) => entry.id === id);
   const range = object?.tierRange ? `T${object.tierRange.min}~T${object.tierRange.max}` : "대표";
-  const runs = STATS.map((stat) => ({ before: perHour(id, stat, "before"), after: perHour(id, stat, "after") }));
+  const runs = STATS.map((stat) => ({
+    before: perHour(id, stat, "before"),
+    after: perHour(id, stat, "after"),
+  }));
   const assets = new Set<string>();
   for (const run of runs) for (const asset of [...run.before.keys(), ...run.after.keys()]) assets.add(asset);
-  const ordered = [...assets].toSorted((a, b) => (tierOf.get(a) ?? 0) - (tierOf.get(b) ?? 0) || a.localeCompare(b));
+  const ordered = [...assets].toSorted(
+    (a, b) => (tierOf.get(a) ?? 0) - (tierOf.get(b) ?? 0) || a.localeCompare(b),
+  );
   for (const asset of ordered.filter((entry) => (tierOf.get(entry) ?? 0) <= 3)) {
     const cells = runs.map((run) => `${fmt(run.before.get(asset) ?? 0)} → ${fmt(run.after.get(asset) ?? 0)}`);
     lines.push(`| ${id} (${range}) | ${asset.slice(5)} T${tierOf.get(asset) ?? 0} | ${cells.join(" | ")} |`);
@@ -136,5 +144,7 @@ for (const id of OBJECTS) {
   const cells = runs.map((run) => `${fmt(band(run.before))} → ${fmt(band(run.after))}`);
   lines.push(`| ${id} (${range}) | **T0~T1 합** | ${cells.join(" | ")} |`);
 }
-console.log(`채집소 일꾼 하나 시간당 개수(광석 g 묶음은 kg), 시설 Lv1·컨디션 0, ${HOURS}시간, T4 위 아이템 줄은 생략\n`);
+console.log(
+  `채집소 일꾼 하나 시간당 개수(광석 g 묶음은 kg), 시설 Lv1·컨디션 0, ${HOURS}시간, T4 위 아이템 줄은 생략\n`,
+);
 console.log(lines.join("\n"));

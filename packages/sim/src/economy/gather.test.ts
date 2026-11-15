@@ -47,7 +47,8 @@ describe("채집 티어 확률표(TEST_GATHER_BANDS = 팩 core gather_tiers, 표
   });
 
   it("가장 낮은 구간도 T3까지: 옛 기본 표 T0 700·T1 150(광석 전용 표는 지웠다), T0+T1 몫은 옛 광석 표(850·850)보다 작지 않다", () => {
-    for (const band of BANDS.slice(0, 2)) expect(band.weightsPm).toEqual([700, 150, 100, 50, 0, 0, 0, 0, 0, 0]);
+    for (const band of BANDS.slice(0, 2))
+      expect(band.weightsPm).toEqual([700, 150, 100, 50, 0, 0, 0, 0, 0, 0]);
     expect(BANDS[2]?.weightsPm).toEqual([650, 220, 100, 30, 0, 0, 0, 0, 0, 0]);
     const low = BANDS.slice(0, 3).map((band) => (band.weightsPm[0] ?? 0) + (band.weightsPm[1] ?? 0));
     expect(low.every((pm) => pm >= 850)).toBe(true);

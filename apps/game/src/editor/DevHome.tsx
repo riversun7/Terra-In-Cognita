@@ -189,6 +189,15 @@ const DEV_TOOLS = {
   },
   // 구인 카드 시험(D-469): 도시마다 내 카드·도시 주인(NPC) 카드, WebSocket으로 고용해 본다(행정 건물 화면 전)
   // 지형 오브젝트 편집기(기획 D-536·D-398): 지형마다 2차맵 오브젝트 종류·양, 차이 내보내기
+  // 채집 오브젝트 편집기(기획 D-552): 오브젝트마다 3D 모델·대표 아이템·양·티어 범위·나오는 2차맵 지형, 차이 내보내기
+  dev_gather_objects: {
+    name: m.shell_route_dev_gather_objects,
+    desc: m.dev_tool_gather_objects_desc,
+    mark: <CrateIcon />,
+    tagKo: "EXPORT · 채집 D-552",
+    tagEn: "EXPORT · Gather D-552",
+    ready: true,
+  },
   dev_terrain_objects: {
     name: m.shell_route_dev_terrain_objects,
     desc: m.dev_tool_terrain_objects_desc,
@@ -287,6 +296,7 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "dev_territory",
       "dev_second_map",
       "dev_terrain_objects",
+      "dev_gather_objects",
     ],
   },
   {

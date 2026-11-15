@@ -40,7 +40,11 @@ const catalog: ObjectYieldCatalog = {
   gatherLadder: (gather) => (gather.subcategory === "crop" ? CROP_LADDER : FISH_LADDER),
   gatherBands: TEST_GATHER_BANDS,
   subcategoryOf: (id) =>
-    ["barley", "potato", "wheat"].includes(id) ? "crop" : id in TIERS && !id.endsWith("ingot") ? "fish" : undefined,
+    ["barley", "potato", "wheat"].includes(id)
+      ? "crop"
+      : id in TIERS && !id.endsWith("ingot")
+        ? "fish"
+        : undefined,
   itemTier: (id) => TIERS[id],
 };
 const input = (seq: number, primary = 10, secondary = 10) => ({
@@ -124,7 +128,13 @@ describe("오브젝트 규칙(기획 D-552)", () => {
 
   it("선택 방식 시설(농장)이 맡으면 해금 티어를 범위로 자른다(기획 D-552 질문 1565)", () => {
     // 합 40 → 해금 T2, 범위 T0~T1 → 감자
-    expect(objectYieldItem({ item: "barley", facility: "farm", tierRange: { min: 0, max: 1 } }, catalog, input(1, 20, 20))).toBe("potato");
+    expect(
+      objectYieldItem(
+        { item: "barley", facility: "farm", tierRange: { min: 0, max: 1 } },
+        catalog,
+        input(1, 20, 20),
+      ),
+    ).toBe("potato");
     // 범위가 없으면 보리(대표 티어)
     expect(objectYieldItem({ item: "barley", facility: "farm" }, catalog, input(1, 20, 20))).toBe("barley");
   });

@@ -173,6 +173,7 @@ export default defineConfig({
           "assets/[Gg]atherTier*.{js,css}",
           "assets/[Pp]roductionEditor*.{js,css}",
           "assets/[Tt]errainObjects*.{js,css}",
+          "assets/[Gg]atherObjects*.{js,css}",
           "assets/[Cc]reatureEditor*.{js,css}",
           "assets/[Nn]ationEditor*.{js,css}",
           "assets/[Tt]erritoryLab*.{js,css}",

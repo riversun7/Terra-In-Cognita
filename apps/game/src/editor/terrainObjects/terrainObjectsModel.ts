@@ -5,7 +5,7 @@
 //   school = 2차맵 하나의 어군 수(count 1 ~ 32).
 // - 느림 배율(map_props slowPm, 기획 D-540 질문 1223 나): 지나갈 수 있는 마른 칸 흩기 소품(엄폐 0·1)에 둔다. 1001 ~ 5000‰, 비우면 없음.
 //   있으면 줄 종류가 "느려짐"이다. 모든 지형에 같이 든다(바이옴마다가 아니라 항목 칸).
-// - 티어 범위(gather_objects tierRange, 기획 D-541 질문 1307 나): 사다리 굴림(ladder) 오브젝트(어군)의 뽑을 티어 범위 T0 ~ T9. 서버가 범위 밖
+// - 티어 범위(gather_objects tierRange, 기획 D-541 질문 1307 나·D-552): 범위 칸이 있는 채집 오브젝트의 티어 범위 T0 ~ T9. 서버가 범위 밖
 //   티어를 범위 안으로 접는다. 아래·위 하나를 고치면 다른 끝을 밀어 아래 ≤ 위를 지킨다. 모든 지형에 같이 든다(항목 칸).
 // - 공통 채집 오브젝트(prop·rock·plot·outcrop)는 바이옴 표가 없어(소품 그림·지표·광석 몫을 따른다) 이 화면에서 고치지 않는다.
 // - from = 팩 항목 정규 JSON(키 차례 정렬)의 SHA-256(@terra/content/node hashEntry와 같은 셈) — 적용 스크립트가 팩이 그 사이 바뀌었는지 본다.
@@ -90,9 +90,12 @@ function slowOf(entry: JsonEntry): number | null {
   return typeof entry.slowPm === "number" ? entry.slowPm : null;
 }
 
-/** 티어 범위를 둘 수 있는 항목(사다리 굴림 채집 오브젝트) */
+/**
+ * 티어 범위를 고칠 수 있는 항목(기획 D-552): 범위 칸이 있는 채집 오브젝트(굴림표 오브젝트는 범위를 쓰지 않는다). 범위가 없는 항목(대표 아이템 티어
+ * 하나)은 채집 오브젝트 편집기(/dev/gather-objects)에서 범위를 처음 단다 — 이 화면은 아이템 티어를 모른다
+ */
 function tierEditableOf(category: TerrainCategory, entry: JsonEntry): boolean {
-  return category === "gather_objects" && entry.ladder === true;
+  return category === "gather_objects" && !Array.isArray(entry.table) && isRecord(entry.tierRange);
 }
 
 /** 항목의 티어 범위(칸이 없으면 T0 ~ T9) */

@@ -350,6 +350,15 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 채집 오브젝트 편집기(기획 D-552, docs/adr/2026-11-15-gather-object-tiers.md 7절): 틀 안 촘촘한 화면. 오브젝트마다 3D 모델·대표 아이템(원자재
+  // 종류)·양·티어 범위·나오는 2차맵 지형을 고치고 차이를 내보낸다(pnpm tuning:apply)
+  dev_gather_objects: {
+    path: "/dev/gather-objects",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 7절): 틀을 숨긴 전체 화면. 서버가 시범 6 대 6을 기록해 3D 지도에서 재생한다
   dev_battle_replay: {
     path: "/dev/battle-replay",

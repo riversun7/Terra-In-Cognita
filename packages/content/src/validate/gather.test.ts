@@ -254,6 +254,8 @@ describe("원자재 오브젝트 굴림표·티어 범위(기획 D-552)", () => 
 
   it("티어 범위: 아래 ≤ 위면 통과, 아니면 오류", () => {
     expect(checkObject({ tierRange: { min: 4, max: 4 } })).toEqual([]);
-    expect(checkObject({ tierRange: { min: 6, max: 2 } })).toEqual([["gather_tier_range_order", "tierRange"]]);
+    expect(checkObject({ tierRange: { min: 6, max: 2 } })).toEqual([
+      ["gather_tier_range_order", "tierRange"],
+    ]);
   });
 });

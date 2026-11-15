@@ -60,6 +60,24 @@ export interface PlanetEditorDefinitions {
    * 오브젝트 종류·양을 보이고 고친다
    */
   gatherObjects: JsonObject[];
+  /**
+   * 채집 오브젝트 편집기(/dev/gather-objects, 기획 D-552) 참고 자료(선택 칸 — 옛 서버면 없음): 원자재(raw) 중분류의 아이템 요약(사다리·대표 아이템
+   * 고르기), 원자재 중분류 이름, 채집 확률표(표 하나 — 미리 보기)
+   */
+  gatherRefs?: GatherEditorRefs;
+}
+
+/** 채집 오브젝트 편집기 참고 자료 */
+export interface GatherEditorRefs {
+  items: {
+    id: string;
+    name: { ko: string; en: string };
+    subcategory: string;
+    tier: number;
+    enabled: boolean;
+  }[];
+  subcategories: { id: string; name: { ko: string; en: string } }[];
+  bands: { from: number; weightsPm: number[] }[];
 }
 
 /** planetEditor.drafts.get·restore의 초안 */

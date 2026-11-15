@@ -10,12 +10,7 @@
 // - 바뀜 (기획 D-552, docs/adr/2026-11-15-gather-object-tiers.md): 플레이어 광산의 칸 산지 막기와 플레이어 낚시터의 물 종류 범위를 지웠다 —
 //   채집소 일꾼은 묶음마다 그 묶음이 쓰는 오브젝트의 티어 범위로 굴린다(gather/station.ts lotRoll). NPC 경제의 배후지 막기는 그대로다.
 import { type LandCheck, createLandCheck } from "./landRule.ts";
-import {
-  HOME_HOUSING,
-  type RestPlace,
-  type SocietyCoefficients,
-  unitPreferences,
-} from "@terra/sim";
+import { HOME_HOUSING, type RestPlace, type SocietyCoefficients, unitPreferences } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
 import type { GatherKind } from "../gather/kinds.ts";

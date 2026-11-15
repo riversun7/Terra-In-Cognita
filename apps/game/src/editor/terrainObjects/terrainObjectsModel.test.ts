@@ -122,7 +122,8 @@ describe("지형 오브젝트 편집기 자료", () => {
     const deep = terrainRows(pack, "ocean_deep");
     expect(deep.find((row) => row.id === "school_deep")?.tierRange).toEqual({ min: 4, max: 8 });
     expect(deep.find((row) => row.id === "whale_pod")?.tierRange).toBeNull();
-    expect(deep.find((row) => row.id === "hydro_vent")?.tierRange).toBeNull();
+    // 기획 D-552: 굴림표가 아닌 채집 오브젝트는 모두 범위 칸이 있다(열수구 T4~T8)
+    expect(deep.find((row) => row.id === "hydro_vent")?.tierRange).toEqual({ min: 4, max: 8 });
     let edited = setTierRange(pack, "school_deep", "min", 12);
     expect(deepTiers(edited)).toEqual({ min: 9, max: 9 });
     edited = setTierRange(edited, "school_deep", "max", 3);

@@ -59,4 +59,4 @@
 - 다시 돌린 결과(Verified, 무거운 일 잠금 안에서, 통과/전체 — 건너뜀은 `E2E_MEASURE` 측정 시험):
   - items 44/44, gather-tiers 12/12, battleLab 18/18, unit-control 21/21, secondaryStats 7/7, cyborg 22/22, dev 15/15 (30.6분)
   - battle-replay 9/9(측정 2개 건너뜀, 1.9분)
-- 다시 돌리지 않은 것: boats·gather·gather-station·terrain-objects·gather-objects·gather-expect·economy·battleReport. 끊긴 첫 실행에서 실패 기록은 없었지만 다 돌았는지는 Unknown. 공용 코드는 바꾸지 않아 다시 돌리지 않았다.
+- 나머지 여덟(boats·gather·gather-station·terrain-objects·gather-objects·gather-expect·economy·battleReport)도 e65b78f에서 다시 돌렸다(Verified): 79 통과·1 건너뜀(측정 전용), 25.2분.

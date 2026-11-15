@@ -44,8 +44,7 @@ export const REPORT_LIMITS = {
   nexusMax: 1_000_000,
   /** A/B 설정 칸 바꿈 수 */
   variantChangesMax: 16,
-  /** A/B의 B 계산식 바꿈 수(기획 D-560 1381 "A/B에 계산식도") */
-  variantFormulasMax: 8,
+  variantFormulasMax: 8, // A/B의 B 계산식 바꿈 수(D-560 1381)
   nameMax: 60,
   noteMax: 400,
   labelMax: 60,
@@ -213,21 +212,14 @@ export interface ReportTuningChange {
   readonly value: number;
 }
 
-/**
- * A/B의 계산식 바꿈 하나(기획 D-560 1381 "A/B에 계산식도"): 식 칸 키(전투 식 ID 또는 `<행 ID>.formula` — 2차 스탯 화면·tRPC formulas.list와 같다)와
- * 식 글. 이 보고서 안에서만 쓴다(세계 식은 바꾸지 않는다). 서버가 그 칸 변수로 읽히는지 본다(안 읽히면 invalid_formula)
- */
-export interface ReportFormulaChange {
-  readonly key: string;
-  readonly source: string;
-}
+/** A/B 계산식 바꿈 하나(D-560 1381): 식 칸 키(formulas.list와 같다)·식 글. 이 보고서 안에서만(서버가 읽히는지 본다 — invalid_formula) */
+export type ReportFormulaChange = Readonly<{ key: string; source: string }>;
 
-/** B 설정: A와 같은 설정에서 바꾼 것. setup이 null이면 A 설정 그대로(설정 칸·계산식만 바꿈) */
+/** B 설정: A와 같은 설정에서 바꾼 것. setup이 null이면 A 설정 그대로(설정 칸·계산식만 바꿈, formulas 없음 = 세계 식) */
 export interface ReportVariant {
   readonly label: string;
   readonly setup: ReportSetup | null;
   readonly tuning: readonly ReportTuningChange[];
-  /** 계산식 바꿈(D-560 1381). 없으면 세계 식 그대로(옛 기록) */
   readonly formulas?: readonly ReportFormulaChange[] | undefined;
 }
 
@@ -249,9 +241,7 @@ export const REPORT_REASONS = [
   "unknown_terrain",
   "unknown_tuning",
   "tuning_out_of_range",
-  /** B 계산식: 모르는 식 칸 */
   "unknown_formula",
-  /** B 계산식: 그 칸 변수로 읽히지 않는 식 */
   "invalid_formula",
   "unknown_city",
   "unknown_job",
@@ -631,7 +621,7 @@ export function reportProblem(
     const formulas = input.variant.formulas ?? [];
     if (formulas.length > L.variantFormulasMax) return "invalid_settings";
     if (new Set(formulas.map((change) => change.key)).size !== formulas.length) return "invalid_settings";
-    if (!input.variant.setup && input.variant.tuning.length === 0 && formulas.length === 0)
+    if (!input.variant.setup && input.variant.tuning.length + formulas.length === 0)
       return "invalid_settings";
   }
   const longest = Math.max(setup.limitSec, input.variant?.setup?.limitSec ?? 0);

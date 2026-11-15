@@ -153,6 +153,23 @@ async function touchMap(page: Page, dx: number, dy: number): Promise<void> {
   await page.touchscreen.tap(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy);
 }
 
+/** 지도 캔버스 가운데에서 (dx, dy) CSS px 떨어진 곳이 지금 지도 캔버스인지(작은 창·판이 덮지 않았는지) */
+async function onCanvas(page: Page, dx: number, dy: number): Promise<boolean> {
+  return page.evaluate(
+    (offset) => {
+      const canvas = document.querySelector(".map-view canvas");
+      if (!canvas) return false;
+      const box = canvas.getBoundingClientRect();
+      const hit = document.elementFromPoint(
+        box.x + box.width / 2 + offset.dx,
+        box.y + box.height / 2 + offset.dy,
+      );
+      return hit instanceof HTMLCanvasElement && hit.closest(".map-view") !== null;
+    },
+    { dx, dy },
+  );
+}
+
 /** 기기가 보낸 이동 명령(move_unit)을 모은다 */
 async function watchMoves(page: Page): Promise<string[]> {
   const sentMoves: string[] = [];
@@ -177,9 +194,22 @@ async function touchGroundUntilSent(
   closes: boolean,
 ): Promise<boolean> {
   const screen = page.locator(".map-screen");
-  for (const [index, { dx, dy }] of grounds.entries()) {
+  let first = true;
+  for (const { dx, dy } of grounds) {
+    // 땅 자리는 작은 창이 열리기 전에 골랐다: 지금 그 자리를 작은 창·판이 덮고 있으면 땅 누르기가 아니라 건너뛴다
+    if (!(await onCanvas(page, dx, dy))) continue;
+    const peek = page.locator(".map-peek");
+    const before = closes && first ? await peek.getAttribute("data-unit") : null;
     await touchMap(page, dx, dy);
-    if (closes && index === 0) await expect(page.locator(".map-peek")).toHaveCount(0);
+    if (closes && first) {
+      // 걷는 휴먼이 마침 그 자리를 지나가면 그 유닛을 누른 것이라 그 유닛의 작은 창이 열린다(맞는 동작, 운영자는 안개 없이 모두 보인다).
+      // 그때는 땅 누르기가 아니므로 창이 열린 채 다음 자리에서 다시 본다
+      await expect
+        .poll(async () => ((await peek.count()) === 0 ? "closed" : await peek.getAttribute("data-unit")))
+        .not.toBe(before);
+      if ((await peek.count()) > 0) continue;
+    }
+    first = false;
     await page.waitForTimeout(300);
     await expect(screen).not.toHaveAttribute("data-command", "sent", { timeout: 20_000 });
     if ((await screen.getAttribute("data-command")) === "ok") return true;

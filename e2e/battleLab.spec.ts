@@ -123,7 +123,8 @@ test.describe("개발자", () => {
 
     // 팀 A 둘째 유닛(전사)을 고르고 레벨 30 → 10
     await page.locator(".bl-team[data-team='a'] .bl-unit-pick").nth(1).click();
-    await expect(page.locator(".bl-editor")).toHaveAttribute("data-unit", "A2");
+    // 유닛 열쇠 = 팀 + 파티 번호 · 파티 안 차례(군단 파티 탭, 655445e): A팀 1번 파티 둘째 유닛
+    await expect(page.locator(".bl-editor")).toHaveAttribute("data-unit", "A1·2");
     const str = page.locator(".bl-primary-view tr[data-field='str'] td").nth(1);
     await expect(str).toHaveText("58");
     const level = page.locator(".bl-level input");

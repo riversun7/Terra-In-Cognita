@@ -91,10 +91,8 @@ test.describe("개발자", () => {
     await resetBands(page);
     await page.reload();
     await expect(screen(page)).toHaveAttribute("data-status", "ready");
-    // 사다리 띠 표(기획 D-540 1217 나): 처음에는 기본 표(ladder 없는 줄)만 보인다
-    const bands = list(field((await trpc(page, "buildings.list")).data, "gatherBands")).filter(
-      (row) => field(field(row, "entry"), "ladder") === undefined,
-    );
+    // 채집 확률표는 하나(D-552, 원자재 종류별 띠 표 없앰): 서버의 구간이 모두 한 표에 보인다
+    const bands = list(field((await trpc(page, "buildings.list")).data, "gatherBands"));
     await expect(page.locator(".gt-table tbody tr")).toHaveCount(bands.length);
     const first = bands[0];
     const id = String(field(field(first, "entry"), "id"));
@@ -139,23 +137,10 @@ test.describe("개발자", () => {
     await expect(row).not.toHaveAttribute("data-changed", "");
     await resetBands(page);
 
-    // 띠 표 고르기: 광석 표로 바꾸면 광석 전용 줄(0~19 T1 350‰), 기본 표는 옛 T1 150‰
-    await expect(page.locator('.pd-ladders button[data-ladder="default"]')).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    // 표 하나(D-552): 띠 표 고르기 단추가 없고, 광석 전용 줄 없이 기본 표(0~19 T1 150‰)만 있다
+    await expect(page.locator(".pd-ladders")).toHaveCount(0);
     await expect(bandRow(page, "band_000").locator('input[data-tier="1"]')).toHaveValue("150");
-    await page.locator('.pd-ladders button[data-ladder="ore"]').click();
-    await expect(page.locator('.pd-ladders button[data-ladder="ore"]')).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await expect(page.locator(".gt-table tbody tr")).toHaveCount(bands.length);
-    await expect(bandRow(page, "ore_band_000").locator('input[data-tier="1"]')).toHaveValue("350");
-    await expect(bandRow(page, "band_000")).toHaveCount(0);
-    // 이 표를 쓰는 생산 종류는 광산 하나
-    await expect(page.locator(".gt-facility-list li")).toHaveCount(1);
-    await page.locator('.pd-ladders button[data-ladder="default"]').click();
+    await expect(page.locator('.gt-table tbody tr[data-band-id^="ore_"]')).toHaveCount(0);
 
     // 건물 편집기에는 확률 탭이 없다(시설 목록과 편집 판만)
     await page.goto("/dev/buildings");

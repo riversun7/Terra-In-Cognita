@@ -339,7 +339,7 @@ test.describe("개발자", () => {
     expect(unexpected(deviceErrors, 400)).toEqual([]);
   });
 
-  test("무기 1차 적정 스탯(D-502): 검(공격력 20·적정 STR 25·DEX 12·AGI 12)의 미리 보기 = 10 + 8 = 18, 몫마다 비율, 적정을 비우면 100%", async ({
+  test("무기 1차 적정 스탯(D-502·D-539): 검(공격력 20·적정 STR 25·DEX 12·AGI 12)의 미리 보기 = 15 + 8 = 23, 몫마다 비율, 적정을 비우면 100%", async ({
     page,
     deviceErrors,
   }) => {
@@ -358,16 +358,17 @@ test.describe("개발자", () => {
     const attackRow = weapon
       .locator('table[data-field="physical"] tr')
       .filter({ hasText: message("ko", "dev_items_formula_real_attack") });
-    await expect(attackRow).toContainText("18");
+    // 실제 공격력 = 스탯 공격력(STR + ⌊VIT ÷ 2⌋ = 10 + 5 = 15, D-539) + ⌊20 × 0.4⌋ = 8 → 23 (계산식 real_attack)
+    await expect(attackRow).toContainText("23");
     // 적정 STR 칸 아래에 기준 유닛 비율이 보인다
     const physical = detail(page).locator('[data-part="weapon-physical"]');
     await expect(physical).toContainText(
       message("ko", "dev_items_part_ratio_hint", { stat: "STR", value: 10, ratio: "40%" }),
     );
-    // 적정 STR을 비우면 그 몫은 100% → 10 + 20 = 30
+    // 적정 STR을 비우면 그 몫은 100% → 15 + 20 = 35
     await physical.getByLabel(message("ko", "dev_items_field_appropriate_str"), { exact: true }).fill("");
     await expect(efficiency.locator('tr[data-row="physical"]')).toContainText("100%", { timeout: 15_000 });
-    await expect(attackRow).toContainText("30");
+    await expect(attackRow).toContainText("35");
     await bar(page).locator(".ie-clear").click();
     await bar(page)
       .getByRole("button", { name: message("ko", "dev_content_confirm_yes"), exact: true })
@@ -648,14 +649,14 @@ test.describe("화면 개편(넓은 폭)", () => {
     // 고른 아이템이 없으면 목록이 넓다(표 머리)
     await expect(page.locator(".ie-lines-head")).toBeVisible();
     await expect(page.locator(".ie-close-detail")).toHaveCount(0);
-    // 타일 원자재 → 중분류 광석 10개(타일을 바꾸면 중분류·무기 종류가 풀린다)
+    // 타일 원자재 → 중분류 광석 13개(금속 원석 8·잡석·석재 + 소금·이탄·화석, D-556. 타일을 바꾸면 중분류·무기 종류가 풀린다)
     await page.locator('.ie-browse .ie-tile[data-category="raw"]').click();
     await expect(page.locator('.ie-browse .ie-tile[data-category="raw"]')).toHaveAttribute(
       "aria-pressed",
       "true",
     );
     await page.locator(".ie-sub-filter").selectOption("ore");
-    await expect(page.locator(".ie-item")).toHaveCount(10);
+    await expect(page.locator(".ie-item")).toHaveCount(13);
     await expect(row(page, "iron_ore").locator(".ie-chain")).toContainText(message("ko", "economy_cat_raw"));
     // 장비 타일 → 무기 종류 칸은 장비의 무기 종류(검·도 등)를 고를 수 있다
     await page.locator('.ie-browse .ie-tile[data-category="equipment"]').click();
@@ -721,14 +722,14 @@ test.describe("화면 개편(넓은 폭)", () => {
     // 태그 판은 나무 밖에 따로
     await expect(page.locator('.ie-tax[data-category="item_tags"]')).toBeVisible();
     await expect(tree.locator('[data-category="item_tags"]')).toHaveCount(0);
-    // 중분류 원자재 › 광석: 든 아이템 10개, [아이템 탭에서 거르기] → 아이템 탭 10줄
+    // 중분류 원자재 › 광석: 든 아이템 13개(D-556 소금·이탄·화석 포함), [아이템 탭에서 거르기] → 아이템 탭 13줄
     await page.locator('.ie-taxonomy .ie-tile[data-category="raw"]').click();
     await tree.locator('[data-node="sub:ore"]').click();
     const ore = page.locator('.ie-tax-node[data-node="sub:ore"]');
-    await expect(ore.locator(".ie-node-item")).toHaveCount(10);
+    await expect(ore.locator(".ie-node-item")).toHaveCount(13);
     await ore.locator(".ie-show-items").click();
     await expect(page.locator(".ie-sub-filter")).toHaveValue("ore");
-    await expect(page.locator(".ie-item")).toHaveCount(10);
+    await expect(page.locator(".ie-item")).toHaveCount(13);
     // 무기 마디에서 새 장비 종류 → 칸 = 무기·상위 중분류 = 무기, 나무에서 무기 아래 보이고 고른 마디가 된다. 적용하면 서버 목록에 든다
     await page.getByRole("tab", { name: message("ko", "dev_items_tab_taxonomy"), exact: true }).click();
     await page.locator('.ie-taxonomy .ie-tile[data-category="equipment"]').click();
@@ -914,9 +915,9 @@ test.describe("배치·사진", () => {
         await toList(page);
         // 잇따른 거르기의 중분류 칸(대분류가 전체면 대분류마다 묶음)
         const pick = page.locator(".ie-sub-filter");
-        // 광석 10개(잡석·석재 + 금속 원석 8), 목축 부산물 17개(먹지 않는 16 + 밍크 오일)
+        // 광석 13개(잡석·석재 + 금속 원석 8 + 소금·이탄·화석, D-556), 목축 부산물 17개(먹지 않는 16 + 밍크 오일)
         for (const [subcategory, count] of [
-          ["ore", 10],
+          ["ore", 13],
           ["livestock_byproduct", 17],
         ] as const) {
           await pick.selectOption(subcategory);
@@ -957,7 +958,8 @@ test.describe("배치·사진", () => {
         await expect(work.locator('tbody tr[data-stat="40"] td').nth(0)).toHaveText("×2");
         await expect(work.locator('tbody tr[data-stat="40"] td').nth(1)).toHaveText("5");
         await gather.locator(".ie-gather-bands > summary").click();
-        await expect(gather.locator(".ie-gather-bands tbody tr")).toHaveCount(12);
+        // 확률표 하나(D-552) 구간 14줄: 0·20·…·260 (D-534에서 240·260 구간 추가)
+        await expect(gather.locator(".ie-gather-bands tbody tr")).toHaveCount(14);
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);

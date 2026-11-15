@@ -3,6 +3,7 @@
 import { normalizeLabName } from "@terra/shared/battleLab";
 import { REPORT_LIMITS, REPORT_MODES, REPORT_ORDER_KINDS } from "@terra/shared/battleReport";
 import { REPORT_CITY_LIST_MAX } from "@terra/shared/battleReportCity";
+import { FORMULA_MAX_LENGTH } from "@terra/shared/formula";
 import { z } from "zod";
 import { labPartySchema } from "../battleLab/schema.ts";
 
@@ -93,6 +94,17 @@ export const reportVariantSchema = z.strictObject({
     )
     .max(L.variantChangesMax)
     .readonly(),
+  // 계산식 바꿈(기획 D-560 1381). 칸 키 모양은 tRPC tuning.save의 formulas와 같다
+  formulas: z
+    .array(
+      z.strictObject({
+        key: z.string().regex(/^[a-z][a-z0-9_]{1,47}(\.formula)?$/),
+        source: z.string().min(1).max(FORMULA_MAX_LENGTH),
+      }),
+    )
+    .max(L.variantFormulasMax)
+    .readonly()
+    .optional(),
 });
 
 export const reportStartSchema = z.strictObject({

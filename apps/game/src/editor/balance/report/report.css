@@ -84,6 +84,21 @@
   min-width: 0;
   font-family: var(--font-mono);
 }
+/* B 계산식 줄(D-560 1381): 식 칸 고르기 | 식 글 | 빼기. 좁으면 세로로 */
+.rp-formula-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: var(--space-2);
+  align-items: start;
+}
+.rp-formula-key {
+  min-width: 0;
+}
+.rp-formula-source {
+  min-width: 0;
+  font-family: var(--font-mono);
+  resize: vertical;
+}
 .rp-actions {
   display: flex;
   flex-wrap: wrap;
@@ -371,6 +386,9 @@
   }
   .rp-tuning-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .rp-formula-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

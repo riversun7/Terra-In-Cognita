@@ -423,6 +423,48 @@ describe("보고서 일 서비스", () => {
     expect({ ...report?.b, cpuMs: 0 }).toEqual({ ...report?.a, cpuMs: 0 });
   });
 
+  it("A/B: B에서 계산식도 고친다(D-560 1381) — 같은 식이면 같은 결과, 모르는 칸·읽히지 않는 식은 거절", async () => {
+    const { service } = make();
+    const combat = state.formulaSlots.find((slot) => slot.group === "combat");
+    if (!combat) throw new Error("no combat formula slot");
+    const source = state.formulaSource(combat.key) ?? combat.packSource;
+    const start = (formulas: { key: string; source: string }[], who: string) =>
+      service.start(
+        db,
+        viewer(who),
+        "ip",
+        serviceInput({ variant: { label: "b", setup: null, tuning: [], formulas } }),
+      );
+    await expect(start([{ key: "nope_formula", source: "1" }], "u4")).rejects.toMatchObject({
+      cause: { reason: "unknown_formula" },
+    });
+    await expect(start([{ key: combat.key, source: "((" }], "u4")).rejects.toMatchObject({
+      cause: { reason: "invalid_formula" },
+    });
+    const job = await start([{ key: combat.key, source }], "u5");
+    expect(job.total).toBe(8);
+    await until(() => service.status(viewer("u5"), job.id).job.state !== "running");
+    const report = service.status(viewer("u5"), job.id).report?.report;
+    expect(report?.b).not.toBeNull();
+    expect({ ...report?.b, cpuMs: 0 }).toEqual({ ...report?.a, cpuMs: 0 });
+    // 같은 칸 두 번은 받지 않는다(설정 검사)
+    expect(
+      reportProblem(
+        serviceInput({
+          variant: {
+            label: "b",
+            setup: null,
+            tuning: [],
+            formulas: [
+              { key: combat.key, source },
+              { key: combat.key, source },
+            ],
+          },
+        }),
+      ),
+    ).toBe("invalid_settings");
+  });
+
   it("바쁨·취소: 하나가 도는 동안 다음 시작은 busy, 멈추면 cancelled + 감사 기록", async () => {
     const { service, audits } = make();
     const job = await service.start(db, viewer("u4"), "ip", serviceInput({ runs: 400 }));

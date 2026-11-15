@@ -1,21 +1,22 @@
 // 밸런스 · 전투 보고서(/dev/balance) — docs/adr/2026-11-14-battle-report.md(개편), docs/adr/2026-11-01-balance-screen.md.
 // dev·admin, 틀 안, 촘촘. 탭: [전투 보고서](기본, lab/BattleLab.tsx — 팀·유닛 편집·보고서 설정·N판 판정·보고서), [보고서 기록]
-// (report/ReportLogTab.tsx — 날짜·이름으로 찾기·열기·다시 돌리기·둘 견주기), [분포 상성](analysis/MatrixTab.tsx), [스탯 영향도]
-// (analysis/SensitivityTab.tsx). 옛 [가중치 표]·[계산식] 탭은 2차 스탯 화면(/dev/secondary-stats)과 겹쳐 지웠다(스태미나·적정치·+10 대결은
+// (report/ReportLogTab.tsx — 날짜·이름으로 찾기·열기·다시 돌리기·둘 견주기), [분포 상성](analysis/MatrixTab.tsx). [스탯 영향도]는 2차 스탯 화면
+// 맨 아래로 옮겼다(기획 D-560 1376, secondaryStats/StatInfluenceSection.tsx — 옛 ?tab=sensitivity 주소는 그 화면으로 보낸다).
+// 옛 [가중치 표]·[계산식] 탭은 2차 스탯 화면(/dev/secondary-stats)과 겹쳐 지웠다(스태미나·적정치·+10 대결은
 // 그 화면으로 옮김, docs/research/2026-11-14-dev-tools-overlap.md). 옛 ?tab=weights·formulas 주소는 보고서 탭(머리에 2차 스탯 화면 바로가기).
 // 주소 ?tab=<ID>로 바로 그 탭을 연다(시험·링크, 옛 ?tab=lab은 보고서 탭).
 // 실험실 자료(목록·프리셋·팀, useLabData)와 보고서 폼·일(useReportJob)은 이 틀이 든다: 기록에서 [다시 돌리기]하면 폼·팀을 싣고 곧바로 돌린다.
 // 탭은 처음 열 때 그리고, 연 뒤에는 숨겨도 남겨 둔다(고친 값·결과가 사라지지 않게).
 // 조각 이름 BalancePanelScreen-*(미리 캐시 규칙 [Bb]alancePanel). 계산은 모두 서버가 한다(기기는 판정 코드를 받지 않는다).
 import type { BattleReportRecord } from "@terra/shared/battleReport";
-import { type KeyboardEvent, type ReactNode, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { AppLink } from "../../shell/AppLink.tsx";
 import { BackButton } from "../../shell/BackButton.tsx";
+import { navigate } from "../../shell/routerStore.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { MatrixTab } from "./analysis/MatrixTab.tsx";
-import { SensitivityTab } from "./analysis/SensitivityTab.tsx";
 import { BattleLab } from "./lab/BattleLab.tsx";
 import { ReportLogTab } from "./report/ReportLogTab.tsx";
 import {
@@ -34,7 +35,7 @@ import "./lab/battleLabResults.css";
 import "./analysis/analysis.css";
 import "./report/report.css";
 
-type Tab = "report" | "log" | "matrix" | "sensitivity";
+type Tab = "report" | "log" | "matrix";
 
 /** 탭이 받는 것: 실험실 자료·언어·보고서 폼·일 */
 interface TabContext {
@@ -79,11 +80,6 @@ const TABS: readonly {
     label: m.dev_lab_tab_matrix,
     render: (ctx) => <MatrixTab data={ctx.data} locale={ctx.locale} />,
   },
-  {
-    id: "sensitivity",
-    label: m.dev_lab_tab_sensitivity,
-    render: (ctx) => <SensitivityTab data={ctx.data} locale={ctx.locale} />,
-  },
 ];
 
 /** 보고서 이름이 비면: 종류 × 판 수 */
@@ -107,6 +103,11 @@ export default function BalancePanelScreen() {
   const [form, setFormState] = useState<ReportForm>(loadReportForm);
   const [logKey, setLogKey] = useState(0);
   const job = useReportJob(() => setLogKey((key) => key + 1));
+  // 옛 [스탯 영향도] 탭 주소는 2차 스탯 화면으로(D-560 1376 — 그 화면 맨 아래로 옮겼다)
+  useEffect(() => {
+    if (new URLSearchParams(globalThis.location?.search ?? "").get("tab") === "sensitivity")
+      navigate({ route: "dev_secondary_stats" }, { replace: true });
+  }, []);
   const onForm = (next: ReportForm): void => {
     setFormState(next);
     saveReportForm(next);

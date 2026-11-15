@@ -65,7 +65,10 @@
 - 시험 결과·빌드·사진은 아래 "검사" 절.
 
 ## 검사
-- (작업 끝에 채운다)
+- Verified `pnpm check`(TEST_DATABASE_URL 있음): 포맷·린트·타입·경계·파일 크기·다국어(7,559키)·디자인 값·콘텐츠 core@102 통과, 단위 시험 5,418 통과·1 실패 → 실패는 `itemEdit.db.test.ts`가 "더 새 팩" 줄을 `core@99`로 흉내 내던 것(팩이 102가 되어 더 옛 판이 됨) — `core@9999`로 고치고 그 파일만 다시 돌려 9/9 통과.
+- Verified 빌드 + `node scripts/check-pwa.mjs` 통과(밸런스·2차 스탯 화면 공용 조각 `analysis-*`를 미리 캐시에서 뺌 — `vite.config.ts` globIgnores·`pwa-build.mjs` DEV_ONLY_CHUNK), `pnpm check:bundle` 109,799 B / 상한 131,416 B.
+- Verified e2e(바꾼 화면: map-hud·balance·battleReport·character-3d·first-login·unit-control·vision·secondaryStats·map-viewdist) 106개 중 99 통과·4 건너뜀·3 실패 → 운영자 속도 시험(메뉴 다시 열기 빠짐)·보고서 웨이브 시험(앞 시험이 시작을 많이 눌러 429 한 번 — `withoutBusy`로 거름)을 고쳐 다시 돌려 통과. `vision.spec.ts` "이웃 8장(3×3) 끌기"는 두 번 다 240초 시간 넘김(끌기 중 `mouse.move`) — 같은 시험이 2026-11-09·11-12 다른 줄기 기록에서도 같은 모양으로 실패했다(기계 부하·소프트웨어 WebGL, 이 줄기 바뀜과 무관 — Assumed).
+- 사진(390): `map-hud-city-390-pastel.png`(분류 칩), `map-hud-ops-390-pastel.png`·`-dark.png`(운영자 속도 칩), `map-hud-rail-1280-pastel.png`(데스크톱 왼쪽 띠·[주변] 건물 탭), `balance-sensitivity-neon-ko-390.png`(2차 스탯 화면 영향도 판).
 
 ## 사용자 결정 대기
 - 질문 1661~1669(`docs/questions/2026-11-15-operator-mode.md`).

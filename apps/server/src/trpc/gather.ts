@@ -6,6 +6,7 @@
 // 오류(error.data.code): UNAUTHORIZED(로그인 안 함·정지), BAD_REQUEST(틀린 입력). 세계(DB)가 없거나 준비 전이면 status "not_ready"
 import type {
   GatherBuildingResponse,
+  GatherInsideResponse,
   GatherLoopsResponse,
   GatherObjectsResponse,
 } from "@terra/shared/gather";
@@ -31,6 +32,13 @@ export const gatherRouter = router({
     return reads
       ? reads.loops(ctx.viewer, ctx.now())
       : { status: "not_ready", loops: [], generatedAt: ctx.now() };
+  }),
+  /** 그 2차맵에서 건물 안에 머무는 유닛(지도에서 숨기고 건물 위에 "안에 N명") */
+  inside: signedInProcedure.input(z.object({ mapKey })).query(({ ctx, input }): GatherInsideResponse => {
+    const reads = ctx.gather?.();
+    return reads
+      ? reads.inside(ctx.viewer, input.mapKey, ctx.now())
+      : { status: "not_ready", mapKey: input.mapKey, units: [], generatedAt: ctx.now() };
   }),
   /** 2차맵 건물 판(안에 있는 유닛) */
   building: signedInProcedure

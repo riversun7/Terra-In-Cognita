@@ -27,6 +27,19 @@ export function priceLookup(
   };
 }
 
+/** 화폐마다 금액 덩어리(돈 표시 MoneyList용 — 사용자 지적 2026-11-15 동전 아이콘), 없으면 null */
+export function valueParts(
+  value: ValueEstimate,
+  index: CatalogIndex,
+): { key: string; amount: string; unit: string }[] | null {
+  if (value.byCurrency.size === 0) return null;
+  return [...value.byCurrency].map(([code, sum]) => ({
+    key: code,
+    amount: fmt(sum),
+    unit: currencyName(index, code),
+  }));
+}
+
 /** "1,200 원 · 30 크레딧"(화폐마다), 없으면 null */
 export function valueText(value: ValueEstimate, index: CatalogIndex): string | null {
   if (value.byCurrency.size === 0) return null;

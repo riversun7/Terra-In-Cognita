@@ -2,6 +2,8 @@
 // - 내 유닛을 걷지 않고 목적 칸 둘레의 설 칸으로 바로 옮긴다(가던 길은 버린다). 목적 2차맵을 띄우지 않았으면 띄운 뒤 옮긴다
 //   (운영자가 보려고 옮기는 것이라 좌표 이동과 달리 띄운다 — docs/adr/2026-11-15-unloaded-second-maps.md의 예외).
 // - 좌표 유닛(서 있음, parked.ts)도 옮긴다: 장부에서 꺼내 목적 2차맵에 놓고, 못 놓으면 그 좌표에 다시 세운다.
+// - 띄우지 않은 2차맵을 건너뛰는 중(in_transit)인 유닛도 옮긴다(사용자 지적 2026-11-15 "지금은 이동불가라는 메세지가 왜 뜨냐"):
+//   길의 숨은 줄(hidden.row)을 꺼내 놓고, 못 놓으면 사라진 변 자리(건너뛰기를 멈출 때와 같은 putBack 자리)에 좌표 유닛으로 세운다.
 // - 권한(모든 유닛 명령)은 게이트웨이가 본다.
 import { type CellPoint, anchorCenter, positionAt } from "@terra/sim";
 import type { TransferRow } from "../world/secondMapRows.ts";
@@ -9,7 +11,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import { unavailable } from "../world/unitCondition.ts";
 import type { ParkedBook } from "./parked.ts";
 import { type Standable, anchorOf, standNear } from "./route.ts";
-import { type UnitInfo, standsOn } from "./serviceParts.ts";
+import { type UnitInfo, infoOfRow, standsOn } from "./serviceParts.ts";
 import {
   type Journey,
   type TravelCommandResult,
@@ -54,7 +56,14 @@ export interface TeleportParts {
 /** 출발 자리: 띄운 2차맵 위 유닛이면 그 2차맵에서 꺼내고, 좌표 유닛이면 장부에서 꺼낸다 */
 type Origin =
   | { readonly kind: "map"; readonly map: SecondMap; readonly info: UnitInfo }
-  | { readonly kind: "parked"; readonly mapKey: number; readonly cell: CellPoint; readonly info: UnitInfo };
+  | { readonly kind: "parked"; readonly mapKey: number; readonly cell: CellPoint; readonly info: UnitInfo }
+  | {
+      readonly kind: "hidden";
+      readonly mapKey: number;
+      readonly cell: CellPoint;
+      readonly info: UnitInfo;
+      readonly row: TransferRow;
+    };
 
 export function createTeleport(parts: TeleportParts) {
   const { deps, maps, parked } = parts;
@@ -77,7 +86,25 @@ export function createTeleport(parts: TeleportParts) {
     const where = parts.locate(unitId);
     if (where) return { kind: "map", map: where.map, info: where.info };
     const spot = parked.get(unitId);
-    return spot ? { kind: "parked", mapKey: spot.row.mapKey, cell: spot.cell, info } : undefined;
+    if (spot) return { kind: "parked", mapKey: spot.row.mapKey, cell: spot.cell, info };
+    // 건너뛰는 중: 사라진 변 자리(떠난 2차맵의 나간 칸)를 되돌릴 자리로 둔다
+    const hidden = parts.journeys.get(unitId)?.hidden;
+    if (!hidden) return undefined;
+    const journey = parts.journeys.get(unitId);
+    return {
+      kind: "hidden",
+      mapKey: journey?.route[hidden.hop.from] ?? hidden.row.mapKey,
+      cell: anchorOf(hidden.exit, hidden.size),
+      info: infoOfRow(hidden.row),
+      row: hidden.row,
+    };
+  };
+
+  /** 건너뛰는 중인 내 유닛(ownUnit이 in_transit이라 답한 것 — 주인은 이미 확인됐다) */
+  const inTransit = (unitId: number) => {
+    const journey = parts.journeys.get(unitId);
+    if (!journey?.hidden) return undefined;
+    return { id: unitId, ownerId: journey.ownerId, info: infoOfRow(journey.hidden.row) };
   };
 
   return async (
@@ -85,8 +112,10 @@ export function createTeleport(parts: TeleportParts) {
     request: TravelTarget & { readonly unitId: number },
   ): Promise<TravelCommandResult> => {
     if (parts.stopped() || !deps.ready()) return fail("busy");
-    const found = parts.ownUnit(userId, request.unitId);
-    if ("problem" in found) return fail(startCode(found.problem));
+    const own = parts.ownUnit(userId, request.unitId);
+    const found =
+      "problem" in own ? (own.problem === "in_transit" ? inTransit(request.unitId) : undefined) : own;
+    if (!found) return fail("problem" in own ? startCode(own.problem) : "unknown_unit");
     if (unavailable(found.info.condition, now())) return fail("unavailable");
     // 띄우지 않은 목적지는 띄운 뒤 옮긴다(상한·띄울 수 없는 칸이면 unknown_map)
     if (!maps.has(request.mapKey)) {
@@ -108,6 +137,7 @@ export function createTeleport(parts: TeleportParts) {
     if (!spot) return fail("goal_blocked");
     dropJourney(found.id);
     const fromKey = origin.kind === "map" ? origin.map.mapKey : origin.mapKey;
+    // 숨은 줄은 길을 버리기 전에 잡아 둔 것(origin.row)을 쓴다
     if (fromKey !== target.mapKey) {
       try {
         deps.settle?.(found.ownerId, now());
@@ -115,7 +145,12 @@ export function createTeleport(parts: TeleportParts) {
         log.error({ err: error, ownerId: found.ownerId }, "travel: settle before teleport failed");
       }
     }
-    const row = origin.kind === "map" ? origin.map.transferOut(found.id) : parked.take(found.id);
+    const row =
+      origin.kind === "map"
+        ? origin.map.transferOut(found.id)
+        : origin.kind === "hidden"
+          ? origin.row
+          : parked.take(found.id);
     if (!row) return fail("unknown_unit");
     if (!target.transferIn(row, spot.x, spot.y)) {
       // 못 놓으면 떠난 자리로 되돌린다

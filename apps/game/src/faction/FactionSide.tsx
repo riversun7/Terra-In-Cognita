@@ -3,6 +3,7 @@
 // 고정 NPC 국가(D-324)는 표를 붙인다. 공물은 주마다 국고의 비율이다(D-443 설정값). 세력 순위 칸은 FactionRanking.tsx(ranking.mine).
 // 나라 이름·지도자는 서버가 준 두 언어 이름(label·leaderName — 팩 국가 프리셋, NPC 국가 지도자 사이보그)이 있으면 그것을 보인다("WP-NPC").
 import type {
+  AssetBalance,
   FactionOverviewResponse,
   FactionRules,
   FactionSummary,
@@ -17,6 +18,9 @@ import { AppLink } from "../shell/AppLink.tsx";
 import { amountText, dateText, durationText } from "../sections/screenText.ts";
 import { localName } from "../roster/rosterText.ts";
 import { NationEmblem } from "../ui/NationEmblem.tsx";
+import { Money } from "../ui/Money.tsx";
+import { currencyName, indexCatalog } from "../economy/economyText.ts";
+import { NO_ARGS, useCatalog } from "../economy/queries.ts";
 import { Icon } from "../ui/icons.tsx";
 import { FactionRanking } from "./FactionRanking.tsx";
 import { IdentityCard } from "./identity/IdentityCard.tsx";
@@ -24,6 +28,33 @@ import { KIND_NAMES, LOCK_NAMES, REGIME_NAMES, STAGE_NAMES, assetName } from "./
 import { formatPermille } from "./factionView.ts";
 
 /** 세력 이름 + 태그(판 제목) */
+/**
+ * 잔고 목록(국고·내 잔고) — 사용자 지적 2026-11-15 "국고의 채권이나 주식도 제대로 보여라 누가 알아보냐": 원장 화폐 자산(cur:코드)은 팩 화폐 이름으로,
+ * 금액은 돈 표시(동전 + 금색 숫자, ui/Money.tsx)로 보인다. 큰 금액부터
+ */
+function BalanceList({ balances }: { balances: readonly AssetBalance[] }) {
+  const catalog = useCatalog(NO_ARGS);
+  const index = indexCatalog(catalog.data);
+  const sorted = balances.toSorted((a, b) => {
+    const left = BigInt(a.amount);
+    const right = BigInt(b.amount);
+    return left === right ? a.asset.localeCompare(b.asset) : left > right ? -1 : 1;
+  });
+  return (
+    <ul className="faction-plain-list faction-money-list">
+      {sorted.map((balance) => {
+        const code = balance.asset.startsWith("cur:") ? balance.asset.slice(4) : null;
+        const name = balance.name ?? (code === null ? assetName(balance) : currencyName(index, code));
+        return (
+          <li key={balance.asset}>
+            <Money amount={amountText(balance.amount)} unit={name} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function NameLine({ faction }: { faction: FactionSummary }) {
   return (
     <h2 id="faction-card-title" className="faction-name">
@@ -130,13 +161,7 @@ function FactionCard({ faction, rules }: { faction: FactionSummary; rules: Facti
           {faction.treasury.length === 0 ? (
             m.faction_none_value()
           ) : (
-            <ul className="faction-plain-list">
-              {faction.treasury.map((balance) => (
-                <li key={balance.asset}>
-                  <span className="faction-amount">{amountText(balance.amount)}</span> {assetName(balance)}
-                </li>
-              ))}
-            </ul>
+            <BalanceList balances={faction.treasury} />
           )}
         </Fact>
       </dl>
@@ -191,17 +216,7 @@ function MyHoldings({ me }: { me: MySummary }) {
           <Fact label={m.faction_me_units()}>{formatCount(me.units)}</Fact>
           <Fact label={m.faction_me_buildings()}>{formatCount(me.buildings)}</Fact>
           <Fact label={m.faction_me_balances()}>
-            {me.balances.length === 0 ? (
-              m.faction_none_value()
-            ) : (
-              <ul className="faction-plain-list">
-                {me.balances.map((balance) => (
-                  <li key={balance.asset}>
-                    <span className="faction-amount">{amountText(balance.amount)}</span> {assetName(balance)}
-                  </li>
-                ))}
-              </ul>
-            )}
+            {me.balances.length === 0 ? m.faction_none_value() : <BalanceList balances={me.balances} />}
           </Fact>
         </dl>
       ) : (

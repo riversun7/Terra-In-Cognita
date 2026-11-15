@@ -182,7 +182,8 @@ test.describe("정부 판·지도자: 플레이어", () => {
     );
     // 스탯이 있어 기본값 안내는 없다
     await expect(dialog.locator('[data-part="government-mayor"] .gov-mayor-note')).toHaveCount(0);
-    await expect(dialog.locator('[data-part="government-mayor"] .recruit-stat')).toHaveCount(6);
+    // 시장 스탯은 보이지 않는다(사용자 지적 2026-11-15 "시장 스탯은 보여줄 필요가 없다")
+    await expect(dialog.locator('[data-part="government-mayor"] .recruit-stat')).toHaveCount(0);
     await expect(dialog.locator('[data-part="government-admin"] dd')).toHaveText(
       message("ko", "government_admin_level", { level: Number(field(city, "adminLevel")) }),
     );

@@ -6,9 +6,10 @@ import type { RouteTarget } from "@terra/shared";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
 import { Icon, type IconName } from "../ui/icons.tsx";
+import { MoneyList } from "../ui/Money.tsx";
 import type { ReactNode } from "react";
 import { estimateValue, totalLines } from "../inventory/inventoryModel.ts";
-import { priceLookup, valueText } from "../inventory/inventoryValue.ts";
+import { priceLookup, valueParts } from "../inventory/inventoryValue.ts";
 import { assetName, indexCatalog } from "./economyText.ts";
 import { Amount, PreviewTag } from "./parts.tsx";
 import {
@@ -67,7 +68,7 @@ export default function OverviewView() {
   const summary = holdings.data ? holdingsSummary(holdings.data) : null;
   const firstCash = holdings.data?.wallet[0];
   const value = holdings.data
-    ? valueText(
+    ? valueParts(
         estimateValue(
           totalLines(holdings.data.places),
           priceLookup(index, market.data, catalog.data?.baseCurrency ?? null),
@@ -95,7 +96,13 @@ export default function OverviewView() {
           {summary ? (
             <>
               <span className="eco-card-metric" data-metric="value">
-                {value === null ? m.inventory_value_none() : m.economy_overview_value({ value })}
+                {value === null ? (
+                  m.inventory_value_none()
+                ) : (
+                  <>
+                    {m.inventory_fact_value()} <MoneyList items={value} />
+                  </>
+                )}
               </span>
               <span className="eco-card-sub">
                 {m.economy_overview_warehouse({ places: summary.places, kinds: summary.kinds })}

@@ -404,3 +404,41 @@
   flex: 0 0 auto;
   font-variant-numeric: tabular-nums;
 }
+
+/* 건물 안 유닛 수(insideOverlay.ts, 사용자 답 2026-11-15 "숨기고 건물에 표시") — 누르지 않는 작은 이름표. 내 유닛이 있으면 주 색 테두리 */
+.inside-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.inside-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+}
+.inside-badge[data-own="true"] {
+  border-color: var(--color-primary);
+}
+.inside-badge[hidden] {
+  display: none;
+}
+.gather-inside li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+.gather-leave {
+  margin-inline-start: auto;
+}

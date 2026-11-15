@@ -355,6 +355,7 @@ export function GatherPanel({
             if (actor === null) return;
             void send(() => sendGatherCommand({ t: "unit_enter", unitId: actor, buildingId: sheet.id }));
           }}
+          onLeave={(unitId) => void send(() => sendGatherCommand({ t: "gather_stop", unitId }))}
           onClose={() => state.open(null)}
           notify={setNotice}
         />

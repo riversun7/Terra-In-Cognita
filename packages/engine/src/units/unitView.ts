@@ -54,6 +54,8 @@ const BASE_HEIGHT = 2;
 const CAPSULE_CAP_SEGMENTS = 6;
 const CAPSULE_RADIAL_SEGMENTS = 20;
 /** 외곽선 두께(CSS px) */
+/** 숨긴 유닛 점의 높이(m) — 카메라 먼 면 밖 */
+const HIDDEN_DOT_Y = -1e6;
 const OUTLINE_PX = 1.25;
 const HIGHLIGHT_PX = 3;
 /** 아이콘 점 지름(CSS px) */
@@ -292,7 +294,9 @@ export class UnitView {
         const wx = (x[i] ?? 0) * cellM;
         const wz = (y[i] ?? 0) * cellM;
         p[i * 3] = wx;
-        p[i * 3 + 1] = groundAt(wx, wz) + (this.heights[i] ?? 0) / 2;
+        // 건물 안에 숨긴 유닛(skip 3 — characterLayer HIDDEN_DRAWN)은 점을 땅 한참 아래로 보내 그리지 않는다
+        p[i * 3 + 1] =
+          skip !== undefined && skip[i] === 3 ? HIDDEN_DOT_Y : groundAt(wx, wz) + (this.heights[i] ?? 0) / 2;
         p[i * 3 + 2] = wz;
       }
       this.dotGeometry.getAttribute("position").needsUpdate = true;

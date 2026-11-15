@@ -92,6 +92,10 @@ export interface GatherService {
   loops(userId: string): GatherLoopView[];
   /** 그 건물 안 유닛(들어가기로 머묾) */
   insideOf(buildingId: number): readonly { readonly unitId: number; readonly ownerId: number }[];
+  /** 그 2차맵에서 건물 안에 머무는 유닛(지도에서 숨김) */
+  insideOn(
+    mapKey: number,
+  ): readonly { readonly unitId: number; readonly buildingId: number; readonly ownerId: number }[];
   runDue(): void;
   readonly active: number;
   /** 그 유닛에 채집 줄이 있나(채집소 운반꾼 고르기가 뺀다, 질문 1090 가) */

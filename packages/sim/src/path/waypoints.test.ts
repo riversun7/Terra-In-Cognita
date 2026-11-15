@@ -56,19 +56,18 @@ describe("꺾이는 점", () => {
 });
 
 describe("planRoute (위치 → 위치)", () => {
-  it("중심에서 출발하면 꺾이는 점의 중심만 낸다", () => {
+  it("중심에서 출발하면 칸 중심만 낸다 — 빈 땅의 비스듬한 목표는 시야선 다듬기로 곧은 한 구간(바뀜 2026-11-15)", () => {
     const grid = createPlacementGrid();
     const route = planRoute(pathfinder, grid, {
       from: { x: 512, y: 512 },
       to: { x: 5632, y: 2560 },
       size: 1,
     });
-    // 같은 비용 경로가 여럿이면 목표에 더 가까운(h가 작은) 칸을 먼저 펼쳐서 대각선을 먼저 간다
+    // A*는 대각선 + 직선(꺾임 하나)이지만, 다듬기(smooth.ts)가 곧은 선으로 줄인다
     expect(route).toMatchObject({
       status: "found",
       waypoints: [
         { x: 512, y: 512 },
-        { x: 2560, y: 2560 },
         { x: 5632, y: 2560 },
       ],
     });

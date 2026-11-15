@@ -723,6 +723,23 @@ export function createGatherService(deps: GatherDeps): GatherService {
     updatedAt: now(),
   });
 
+  /** 아직 안에 머무는 유닛(움직였거나 사라진 유닛은 지운다 — 움직이면 나간다), 유닛 번호 차례 */
+  const stillInside = (
+    keep: (entry: { buildingId: number; mapKey: number }) => boolean,
+  ): { unitId: number; buildingId: number; ownerId: number }[] => {
+    const out: { unitId: number; buildingId: number; ownerId: number }[] = [];
+    for (const [unitId, entry] of inside) {
+      if (!keep(entry)) continue;
+      const info = maps.get(entry.mapKey)?.unitInfo(unitId);
+      if (!info || info.motion !== entry.motion) {
+        inside.delete(unitId);
+        continue;
+      }
+      out.push({ unitId, buildingId: entry.buildingId, ownerId: entry.ownerId });
+    }
+    return out.toSorted((a, b) => a.unitId - b.unitId);
+  };
+
   /** 앞 줄을 버리고 새 줄을 둔다(안에 머묾도 끝) */
   const replace = (action: Action): void => {
     const old = actions.get(action.unitId);
@@ -858,6 +875,12 @@ export function createGatherService(deps: GatherDeps): GatherService {
     halt(userId, unitId) {
       const action = actions.get(unitId);
       const ownerId = deps.ownerOf(userId);
+      // 건물 안에 머무는 내 유닛이면 나온다(건물 판 [나가기], 사용자 답 2026-11-15 "숨기고 건물에 표시") — 자리는 그대로(건물 둘레 설 칸)
+      const stay = action ? undefined : inside.get(unitId);
+      if (stay && ownerId !== undefined && stay.ownerId === ownerId) {
+        inside.delete(unitId);
+        return { ok: true };
+      }
       if (!action || ownerId === undefined || action.ownerId !== ownerId) return fail("not_gathering");
       maps.get(action.mapKey)?.halt(unitId);
       finish(action, "stopped");
@@ -905,17 +928,13 @@ export function createGatherService(deps: GatherDeps): GatherService {
       return out.toSorted((a, b) => a.unitId - b.unitId);
     },
     insideOf(buildingId) {
-      const out: { unitId: number; ownerId: number }[] = [];
-      for (const [unitId, entry] of inside) {
-        if (entry.buildingId !== buildingId) continue;
-        const info = maps.get(entry.mapKey)?.unitInfo(unitId);
-        if (!info || info.motion !== entry.motion) {
-          inside.delete(unitId);
-          continue;
-        }
-        out.push({ unitId, ownerId: entry.ownerId });
-      }
-      return out.toSorted((a, b) => a.unitId - b.unitId);
+      return stillInside((entry) => entry.buildingId === buildingId).map(({ unitId, ownerId }) => ({
+        unitId,
+        ownerId,
+      }));
+    },
+    insideOn(mapKey) {
+      return stillInside((entry) => entry.mapKey === mapKey);
     },
     runDue,
     acting: (unitId) => actions.has(unitId),

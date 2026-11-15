@@ -2,8 +2,9 @@
 //
 // - 꺾이는 점: 방향이 바뀌는 칸과 양 끝만 남긴다. 점 사이는 8방향 중 한 방향의 직선이라
 //   꺾이는 점을 이은 선은 A*가 고른 칸을 그대로 지난다(모서리 뚫기 규칙이 그대로 지켜진다).
-// - 시야선 다듬기(line-of-sight smoothing, 임의 각도 직선)는 S1에서 하지 않는다.
-//   다듬으면 크기 등급별 통과 폭·도로 비용을 직선 전체에서 다시 확인해야 하고, 비용이 A* 결과와 달라진다.
+// - 시야선 다듬기(line-of-sight smoothing, 임의 각도 직선): S1에서는 하지 않았다. 바뀜(2026-11-15, docs/adr/2026-11-15-path-smoothing.md):
+//   planRoute는 A* 칸 경로를 smooth.ts로 다듬는다(직선이 쓸고 가는 칸의 통과 폭·비용을 다시 본다). cellPathToWaypoints·
+//   cellPathToPacedWaypoints는 다듬지 않은 꺾이는 점 그대로다.
 // - 크기 등급 s 유닛의 위치(중심) = 기준 칸 왼쪽 위 모서리 + s × 512 (s×s 정사각형의 가운데).
 // - 구간 빠르기(ADR 2026-11-14-segment-speed.md): paceSpeed를 주면 칸마다 걸음 배율(pace.ts)을 셈해 직선 안에서도 배율이 바뀌는 칸에
 //   점을 남기고 구간마다 배율을 돌려준다. 걸음 i(칸 c[i−1] → c[i])의 배율은 들어가는 칸 c[i]의 배율이다(A* 걸음 비용과 같은 꼴).
@@ -13,6 +14,7 @@ import { PACE_BASE, normalizePaces } from "../motion/motion.ts";
 import { CELL_UNITS, type CellPoint, HALF_CELL_UNITS, PLACEMENT_SIZE, type Point } from "../units.ts";
 import type { PathResult, Pathfinder } from "./astar.ts";
 import { footprintPace } from "./pace.ts";
+import { smoothCellPath } from "./smooth.ts";
 
 /** 꺾이는 칸만 남긴다. 칸 번호 차이(±1, ±255, ±256, ±257)가 곧 방향이다. */
 export function simplifyCellPath(cells: readonly number[]): number[] {
@@ -119,7 +121,10 @@ export function planRoute(pathfinder: Pathfinder, grid: PlacementGrid, request: 
   const speed = request.paceSpeed;
   const paceAt =
     speed === undefined ? () => PACE_BASE : (cell: number) => footprintPace(grid, cell, size, speed);
-  const { points, paces } = cellPathToPacedWaypoints(result.cells, size, paceAt);
+  // 시야선 다듬기(smooth.ts): 남긴 기준 칸의 중심과 구간 배율
+  const smoothed = smoothCellPath(grid, result.cells, size, paceAt);
+  const points = smoothed.cells.map((cell) => centerOfCell(cell, size));
+  const paces = [...smoothed.paces];
   const first = points[0];
   if (first && (first.x !== from.x || first.y !== from.y)) {
     // 지금 자리 → 출발 칸 중심은 출발 칸의 배율

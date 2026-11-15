@@ -49,6 +49,8 @@ interface BuildingPanelProps {
   readonly operator: boolean;
   readonly sending: boolean;
   readonly onEnter: () => void;
+  /** 들어가기로 머문 내 유닛 [나가기](멈추기 명령 — 서버가 안에 머묾을 끝낸다, 사용자 답 2026-11-15) */
+  readonly onLeave: (unitId: number) => void;
   readonly onClose: () => void;
   readonly notify: (text: string) => void;
 }
@@ -87,6 +89,7 @@ export function BuildingPanel({
   operator,
   sending,
   onEnter,
+  onLeave,
   onClose,
   notify,
 }: BuildingPanelProps) {
@@ -266,6 +269,16 @@ export function BuildingPanel({
                         </span>
                         <span className="bp-grow">{unitLabel(unit.unitId)}</span>
                         {unit.own ? <span className="bp-mine-dot">{m.building_mine_short()}</span> : null}
+                        {unit.own && unit.via === "inside" ? (
+                          <button
+                            type="button"
+                            className="button-small gather-leave"
+                            disabled={sending}
+                            onClick={() => onLeave(unit.unitId)}
+                          >
+                            {m.gather_building_leave()}
+                          </button>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

@@ -50,6 +50,8 @@ export interface NationRingView {
   readonly pixelsPerMetre: number;
   /** 유닛 표현 단계가 점(아이콘)인가 */
   readonly icons: boolean;
+  /** 칸 표시(workingUnits.ts): HIDDEN_FLAG(2)인 칸은 건물 안이라 고리를 그리지 않는다 */
+  readonly flags?: Uint8Array | undefined;
 }
 
 export class NationRings {
@@ -129,7 +131,7 @@ export class NationRings {
       const c = this.colors;
       for (let i = 0; i < n; i++) {
         const rgb = nationAccent(this.slotAccent[i]);
-        if (rgb === null) continue;
+        if (rgb === null || view.flags?.[i] === 2) continue;
         const wx = (view.x[i] ?? 0) * view.cellM;
         const wz = (view.y[i] ?? 0) * view.cellM;
         const outer = Math.max(view.radiusOf(i) * NATION_RING_SCALE, minOuter);

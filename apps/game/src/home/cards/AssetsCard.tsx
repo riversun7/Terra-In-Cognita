@@ -5,9 +5,10 @@ import { indexCatalog } from "../../economy/economyText.ts";
 import { NO_ARGS, useCatalog, useHoldings, useMarketItems } from "../../economy/queries.ts";
 import { holdingsSummary } from "../../economy/shape.ts";
 import { estimateValue, totalLines } from "../../inventory/inventoryModel.ts";
-import { priceLookup, valueText } from "../../inventory/inventoryValue.ts";
+import { priceLookup, valueParts } from "../../inventory/inventoryValue.ts";
 import { m } from "../../paraglide/messages.js";
 import { AppLink } from "../../shell/AppLink.tsx";
+import { MoneyList } from "../../ui/Money.tsx";
 import { HomeLoading } from "../InboxBody.tsx";
 
 export function AssetsCardBody() {
@@ -25,7 +26,7 @@ export function AssetsCardBody() {
   if (!data.hasOwner) return <p className="home-card-hint">{m.card_assets_empty()}</p>;
   const index = indexCatalog(catalog.data);
   const summary = holdingsSummary(data);
-  const value = valueText(
+  const value = valueParts(
     estimateValue(
       totalLines(data.places),
       priceLookup(index, market.data, catalog.data?.baseCurrency ?? null),
@@ -35,7 +36,13 @@ export function AssetsCardBody() {
   return (
     <>
       <p className="home-card-hint" data-metric="value">
-        {value === null ? m.inventory_value_none() : m.economy_overview_value({ value })}
+        {value === null ? (
+          m.inventory_value_none()
+        ) : (
+          <>
+            {m.inventory_fact_value()} <MoneyList items={value} />
+          </>
+        )}
       </p>
       <p className="home-card-hint" data-metric="kinds">
         {m.economy_overview_warehouse({ places: summary.places, kinds: summary.kinds })}

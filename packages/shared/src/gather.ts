@@ -154,6 +154,17 @@ export interface GatherInsideUnit {
 }
 
 /** 2차맵 건물 판 */
+/**
+ * 그 2차맵에서 건물 안에 머무는 유닛(사용자 답 2026-11-15 "숨기고 건물에 표시"): 기기가 그 유닛을 지도에서 숨기고 건물 위에 "안에 N명"을 띄운다.
+ * 건물 판(gather.building)과 같은 범위(로그인한 사용자 누구나 — 그 판이 이미 안에 있는 유닛을 보인다). 들어가기로 머문 유닛만(직무 일꾼은 빼고)
+ */
+export interface GatherInsideResponse {
+  readonly status: "ok" | "not_ready";
+  readonly mapKey: number;
+  readonly units: readonly { readonly unitId: number; readonly buildingId: number; readonly own: boolean }[];
+  readonly generatedAt: number;
+}
+
 export interface GatherBuildingResponse {
   readonly status: GatherStatus | "unknown_building";
   readonly buildingId: number;

@@ -39,6 +39,7 @@ function fakeService(map: SecondMap): GatherService {
     objectsAt: () => undefined,
     loops: () => [],
     insideOf: () => [],
+    insideOn: () => [],
     runDue: () => {},
     active: 0,
     acting: () => false,

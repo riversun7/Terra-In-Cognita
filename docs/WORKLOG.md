@@ -5,7 +5,9 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 20:40 | 건물 안 유닛 숨김·"안에 N명" 표시·[나가기] | Claude Code | [15-2040-building-inside-hide](worklog/2026/11/15-2040-building-inside-hide.md) |
 | 2026-11-15 20:40 | 2026-11-15 열셋째 묶음 합치기 (배 2·건물 화면) | Claude Code | [15-2040-batch-1116b-merge](worklog/2026/11/15-2040-batch-1116b-merge.md) |
+| 2026-11-15 19:20 | 경로 시야선 다듬기·텔레포트·정부 판·돈 표시·확대 4단계 유닛 | Claude Code | [15-1920-path-teleport-money-ui](worklog/2026/11/15-1920-path-teleport-money-ui.md) |
 | 2026-11-15 18:00 | 건물 판 개편·임금형/임대형·건물 관리·재무 화면·생산시설 지분 사고팔기 | Claude Code | [15-1800-building-screen](worklog/2026/11/15-1800-building-screen.md) |
 | 2026-11-15 17:44 | 2026-11-15 열두째 묶음 합치기 (전투 움직임·사업장 장부·좌표 이동·운영자 모드) | Claude Code | [15-1744-batch-1116-merge](worklog/2026/11/15-1744-batch-1116-merge.md) |
 | 2026-11-15 16:10 | 배 D-559 — 조선소 도크·남의 조선소 수리·모듈·나라 화폐·연료·오버히트·보직·함선 칸·표류·빼앗기 | Claude Code | [15-1610-boats-2](worklog/2026/11/15-1610-boats-2.md) |

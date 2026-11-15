@@ -1,5 +1,12 @@
 // 2차맵 저장 행·저장 고리 모양(secondMap.ts에서 나눔 — 그 파일 1,000줄 상한). secondMap.ts가 다시 내보낸다
-import { type BuildingPlacement, type Motion, type Point, type SizeClass, createMotion } from "@terra/sim";
+import {
+  type BuildingPlacement,
+  MAX_SPEED,
+  type Motion,
+  type Point,
+  type SizeClass,
+  createMotion,
+} from "@terra/sim";
 import type { WorldDomain } from "../db/schema.ts";
 import { type UnitCondition, conditionColumns } from "./unitCondition.ts";
 
@@ -33,6 +40,11 @@ export interface UnitRow {
    */
   pace?: number[] | null | undefined;
   departAtMs: number;
+  /**
+   * 지금 움직임의 속도(단위/초). 없거나 null이면 speed와 같다. 운영자 배율로 걷던 움직임(operatorPace.ts)이나 걷는 중에 기본 속도가 바뀐
+   * 유닛(D-540 실효 AGI)은 speed와 다르다 — 다시 켜도 걷던 움직임을 그 속도로 끝낸다(motionOfRow). 기본 속도(speed)는 그대로 유닛 속도다
+   */
+  motionSpeed?: number | null | undefined;
   wakeAtMs: number | null;
   aiStep: number;
   job: UnitJob;
@@ -99,6 +111,7 @@ export function unitRowOf(
     path,
     pace: unit.motion.paces ? [...unit.motion.paces] : null,
     departAtMs: unit.motion.departAtMs,
+    motionSpeed: unit.motion.speed === unit.speed ? null : unit.motion.speed,
     wakeAtMs: unit.wakeAtMs ?? null,
     aiStep: unit.aiStep,
     job: unit.job,
@@ -106,24 +119,35 @@ export function unitRowOf(
   };
 }
 
+/** 저장한 움직임 속도가 쓸 만하면 그 값, 아니면(없음·정수가 아님·1 ~ MAX_SPEED 밖) 기본 속도 */
+function motionSpeedOf(row: Pick<UnitRow, "speed" | "motionSpeed">): number {
+  const speed = row.motionSpeed;
+  return typeof speed === "number" && Number.isInteger(speed) && speed >= 1 && speed <= MAX_SPEED
+    ? speed
+    : row.speed;
+}
+
 /**
  * 저장 행 → 움직임. 틀린 행이면 undefined(부르는 쪽이 그 유닛을 버린다).
- * 걸음 배율 길이가 점 수 − 1이 아니면(옛 앱이 path만 고쳐 쓴 행 — 마이그레이션은 직전 앱이 그대로 돌게 칸만 더했다) 배율 없이 읽는다
+ * 걸음 배율 길이가 점 수 − 1이 아니면(옛 앱이 path만 고쳐 쓴 행 — 마이그레이션은 직전 앱이 그대로 돌게 칸만 더했다) 배율 없이 읽는다.
+ * 움직임 속도(motionSpeed)가 있으면 그 속도로 만든다(운영자 배율로 걷던 한 움직임을 다시 켜도 같은 자리·같은 도착 시각으로 — operatorPace.ts).
+ * 범위 밖이면 기본 속도로 읽는다. 옛 앱이 움직임만 고쳐 쓴 행의 남은 값은 읽을 때 버린다(persist/load.ts — 출발 시각 짝)
  */
 export function motionOfRow(
-  row: Pick<UnitRow, "path" | "pace" | "departAtMs" | "speed">,
+  row: Pick<UnitRow, "path" | "pace" | "departAtMs" | "speed" | "motionSpeed">,
 ): Motion | undefined {
   const waypoints: Point[] = [];
   for (let i = 0; i + 1 < row.path.length; i += 2)
     waypoints.push({ x: row.path[i] ?? 0, y: row.path[i + 1] ?? 0 });
   const pace = row.pace ?? undefined;
   const paces = pace !== undefined && pace.length === waypoints.length - 1 ? pace : undefined;
+  const speed = motionSpeedOf(row);
   try {
-    return createMotion({ waypoints, departAtMs: row.departAtMs, speed: row.speed, paces });
+    return createMotion({ waypoints, departAtMs: row.departAtMs, speed, paces });
   } catch {
     if (paces === undefined) return undefined;
     try {
-      return createMotion({ waypoints, departAtMs: row.departAtMs, speed: row.speed });
+      return createMotion({ waypoints, departAtMs: row.departAtMs, speed });
     } catch {
       return undefined;
     }
@@ -144,6 +168,9 @@ export function unitColumnsOf(row: UnitRow): Record<string, unknown> {
     path: row.path,
     pace: row.pace ?? null,
     depart_at_ms: row.departAtMs,
+    // 움직임 속도와 그 움직임의 출발 시각(짝). 이 칸을 모르는 옛 앱이 움직임만 고쳐 쓰면 짝이 어긋나 읽을 때 버린다(persist/load.ts)
+    motion_speed: row.motionSpeed ?? null,
+    motion_depart_at_ms: (row.motionSpeed ?? null) === null ? null : row.departAtMs,
     wake_at_ms: row.wakeAtMs,
     ai_step: row.aiStep,
     job: row.job.job,

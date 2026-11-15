@@ -1,5 +1,6 @@
 // 월드 저장·복구 DB 통합 시험(S3 ADR 1·2절) — TEST_DATABASE_URL이 있을 때만. 계정 값은 모두 시험용 가짜 값이다.
 // kill -9 흉내: 쓰기 대기열을 정해진 자리(커밋 전·진행 중 커밋 되돌림·진행 중 커밋 끝남)에서 버리고 같은 DB로 새 월드를 띄운다.
+import { anchorCenter, arrivalAt, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { createWorldWriter } from "./persist/writer.ts";
@@ -36,6 +37,9 @@ function boot(testBots: number): World {
   worlds.push(world);
   return world;
 }
+
+/** 줄 시작 칸에서 dx만큼 옆 칸(addUnit 기준 칸) */
+const cellOf = (start: { x: number; y: number }, dx: number) => ({ cellX: start.x + dx, cellY: start.y });
 
 /** DB의 유닛 ID 목록(정렬) */
 async function unitIds(): Promise<number[]> {
@@ -215,6 +219,67 @@ describe.skipIf(!TEST_DATABASE_URL)("월드 부팅 복구(kill -9 흉내)", () =
     expect(restored?.unitInfo(9998)?.motion.paces).toEqual([1800, 1000]);
     expect(restored?.unitInfo(9997)?.motion.paces).toBeUndefined();
     expect(restored?.unitInfo(9997)?.motion.waypoints).toHaveLength(2);
+  });
+
+  it("운영자 배율로 걷던 움직임은 다시 켜도 그 속도로 같은 자리·같은 도착 시각, 보통 유닛은 그대로(operatorPace.ts)", async () => {
+    const first = boot(0);
+    await first.ready;
+    const map = [...first.maps.values()][0];
+    if (!map) throw new Error("no map");
+    const owner = first.persistence?.npcOwnerId ?? 0;
+    // 설 수 있는 줄(같은 y에서 x, x + 40)을 찾는다 — 시험 2차맵 지형은 행성 값에서 온다
+    let start: { x: number; y: number } | undefined;
+    for (let y = 20; y < 200 && !start; y += 7)
+      for (let x = 20; x < 150 && !start; x += 5)
+        if ([0, 2, 40, 42].every((dx) => map.isStandable(x + dx, y, 1))) start = { x, y };
+    if (!start) throw new Error("no standable row");
+    // 사람이 아닌 종류(2)라 스스로 다시 걷지 않는다. 9990 = 운영자 배율 10, 9991 = 보통
+    expect(map.addUnit({ id: 9990, ownerId: owner, kind: 2, size: 1, speed: 437, ...cellOf(start, 0) })).toBe(
+      true,
+    );
+    expect(map.addUnit({ id: 9991, ownerId: owner, kind: 2, size: 1, speed: 437, ...cellOf(start, 2) })).toBe(
+      true,
+    );
+    const target = anchorCenter(start.x + 40, start.y, 1);
+    expect(await map.moveUnit(9990, target, { speedFactor: 10 })).toEqual({ ok: true });
+    expect(await map.moveUnit(9991, anchorCenter(start.x + 42, start.y, 1))).toEqual({ ok: true });
+    const fast = map.unitInfo(9990)?.motion;
+    const slow = map.unitInfo(9991)?.motion;
+    if (!fast || !slow) throw new Error("no motion");
+    expect(fast.speed).toBe(4370);
+    expect(slow.speed).toBe(437);
+    await first.persistence?.writer.durable();
+    expect(
+      await rows(test.db, "select id, speed, motion_speed, motion_depart_at_ms from world_units order by id"),
+    ).toEqual([
+      { id: "9990", speed: 437, motion_speed: 4370, motion_depart_at_ms: String(fast.departAtMs) },
+      { id: "9991", speed: 437, motion_speed: null, motion_depart_at_ms: null },
+    ]);
+    await first.crashForTest("commit");
+
+    const second = boot(0);
+    await second.ready;
+    const restored = [...second.maps.values()].find((m) => m.mapKey === map.mapKey);
+    const fastAgain = restored?.unitInfo(9990);
+    expect(fastAgain?.speed).toBe(437);
+    expect(fastAgain?.motion.speed).toBe(4370);
+    expect(fastAgain?.motion.waypoints).toEqual(fast.waypoints);
+    expect(fastAgain && arrivalAt(fastAgain.motion)).toBe(arrivalAt(fast));
+    const probe = fast.departAtMs + 1_234;
+    expect(fastAgain && positionAt(fastAgain.motion, probe)).toEqual(positionAt(fast, probe));
+    const slowAgain = restored?.unitInfo(9991)?.motion;
+    expect(slowAgain?.speed).toBe(437);
+    expect(slowAgain?.arrivals).toEqual(slow.arrivals);
+    await second.persistence?.writer.durable();
+    await second.crashForTest("commit");
+
+    // 직전 판 앱이 움직임만 고쳐 쓴 행(새 칸을 몰라 motion_speed가 남음): 출발 시각 짝이 어긋나 기본 속도로 읽는다
+    await test.db.$client.query("update world_units set depart_at_ms = depart_at_ms + 1 where id = 9990");
+    const third = boot(0);
+    await third.ready;
+    const stale = [...third.maps.values()].find((m) => m.mapKey === map.mapKey)?.unitInfo(9990)?.motion;
+    expect(stale?.speed).toBe(437);
+    expect(stale?.departAtMs).toBe(fast.departAtMs + 1);
   });
 
   it("접속 중으로 남은 사용자는 지난 생존 시각에 끊긴 것으로 고친다(I8)", async () => {

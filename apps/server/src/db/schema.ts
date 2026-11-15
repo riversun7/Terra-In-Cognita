@@ -583,12 +583,12 @@ export const worldUnits = pgTable(
     domain: domainColumn(),
     /** 꺾이는 점 [x0, y0, x1, y1, …] (고정소수점) */
     path: integer("path").array().notNull(),
-    /**
-     * 구간마다 걸음 배율(천분율, 길이 = 점 수 − 1) — docs/adr/2026-11-14-segment-speed.md. null = 구간 빠르기가 같다.
-     * 길이가 맞지 않으면(이 칸을 모르는 옛 앱이 path만 고쳐 쓴 행) 서버가 배율 없이 읽는다
-     */
+    /** 구간 걸음 배율(천분율, 길이 = 점 수 − 1, ADR 2026-11-14-segment-speed). null = 같다. 길이가 틀리면(옛 앱이 path만 고친 행) 버린다 */
     pace: integer("pace").array(),
     departAtMs: bigint("depart_at_ms", { mode: "number" }).notNull(),
+    /** 지금 움직임의 속도(운영자 배율 등). null = speed. motion_depart_at_ms ≠ depart_at_ms면(옛 앱이 움직임만 고친 행) 버린다 */
+    motionSpeed: integer("motion_speed"),
+    motionDepartAtMs: bigint("motion_depart_at_ms", { mode: "number" }),
     /** 쉬기 끝 예약(시험 봇). 없으면 null */
     wakeAtMs: bigint("wake_at_ms", { mode: "number" }),
     /** 판단 횟수 — 봇 난수를 (유닛, 횟수)로 뽑아 다시 켜도 이어진다 */

@@ -35,6 +35,9 @@ export const WORLD_TABLES = {
       "path",
       "pace",
       "depart_at_ms",
+      // 움직임 속도(운영자 배율 등)와 그 움직임의 출발 시각 짝(secondMapRows.ts unitColumnsOf)
+      "motion_speed",
+      "motion_depart_at_ms",
       "wake_at_ms",
       "ai_step",
       "job",

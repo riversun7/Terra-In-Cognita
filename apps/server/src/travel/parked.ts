@@ -54,6 +54,7 @@ export function standingRow(
     path: [center.x, center.y],
     pace: null,
     departAtMs: atMs,
+    motionSpeed: null,
     wakeAtMs: null,
     aboardId: aboardId === undefined ? (row.aboardId ?? null) : aboardId,
   };

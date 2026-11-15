@@ -7389,7 +7389,7 @@
   "dev_prod_expect_water": "낚시터 물 종류",
   "dev_prod_expect_water_none": "접지 않음(사다리 전체)",
   "dev_prod_expect_water_option": "{water} T{min}~T{max}",
-  "dev_prod_expect_water_hint": "낚시터 일꾼은 그 자리 물 종류의 티어 범위 안에서만 낸다(범위 밖은 끝으로 접는다, D-542). 범위는 설정 칸 fish_tier_*.",
+  "dev_prod_expect_water_hint": "NPC 낚시터는 배후지 물 종류의 위 끝까지만 낸다(위는 끝으로 접는다). 위 끝은 그 물의 물터·어군 오브젝트 범위에서 끌어낸다(D-562). 플레이어 낚시터 일꾼은 반경 안 오브젝트마다 그 범위를 쓴다.",
   "inventory_title": "인벤토리",
   "inventory_tabs_label": "인벤토리 칸",
   "inventory_tab_all": "전체",

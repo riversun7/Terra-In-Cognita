@@ -5,7 +5,7 @@
 // - 티어 구간 = @terra/shared/gatherMath gatherBandIndex로 고른 팩 gather_tiers 구간(표 하나 — 기획 D-552)의 가중치(‰). select(농장·목장)는 해금 티어 한 칸.
 // - 최적 작업 = @terra/shared/unitGuide recommendProduction 첫째(유닛 추천 표와 같은 고르기: 주 + 보조가 큰 차례, 같으면 주 스탯).
 // 표시만 하고 판정에 쓰지 않는다. 2차맵 산지 티어 막기(광산 oreTierCapOf)·시설 레벨 보너스는 자리마다라 넣지 않는다.
-// 바뀜 (2026-11-14, 기획 D-542 질문 1365 나): 낚시터 물 종류도 자리마다라 기본 줄은 접지 않고, 어류 시설 줄에 물 종류마다(설정 칸 fish_tier_*)
+// 바뀜 (2026-11-14, 기획 D-542 질문 1365 나): 낚시터 물 종류도 자리마다라 기본 줄은 접지 않고, 어류 시설 줄에 물 종류마다(팩 오브젝트 범위 — D-562)
 // 접은 확률(@terra/shared/fishWater foldTierPm — 판정 rollGatherOutputs tierRange와 같은 접기)을 함께 싣는다(waters).
 // 바뀜 (2026-11-15, 기획 D-562 1562·1569, D-556 1255·1256): 물 종류 범위는 설정 칸이 아니라 팩 오브젝트 범위에서 끌어낸다(gather/npcTiers.ts).
 // 유닛이 일하는 채집 시설이면 그 레벨(레벨 보너스)로 센다. 최적 작업 = 시간당 기대 금액(gatherValue.ts — 시설 오브젝트 묶음 위 끝·같은 티어 비중,

@@ -7389,7 +7389,7 @@
   "dev_prod_expect_water": "Fishing spot water",
   "dev_prod_expect_water_none": "No fold (whole ladder)",
   "dev_prod_expect_water_option": "{water} T{min}–T{max}",
-  "dev_prod_expect_water_hint": "Fishing spot workers only yield tiers in the range of the water at their spot (out-of-range rolls fold to the ends, D-542). Ranges are the fish_tier_* settings.",
+  "dev_prod_expect_water_hint": "NPC fishing spots only yield up to the top tier of their area's water kind (higher rolls fold down). The top comes from that water's fishing water and school object ranges (D-562). Player fishing spot workers use each nearby object's own range.",
   "inventory_title": "Inventory",
   "inventory_tabs_label": "Inventory sections",
   "inventory_tab_all": "All",

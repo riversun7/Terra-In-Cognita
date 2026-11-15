@@ -19,7 +19,7 @@ export interface UnitGuideSource {
   readonly combatClasses: readonly CombatClassEntry[];
   /** 분류 문턱(설정 칸 실효 값). 없으면 옛 값 600·800 */
   readonly rule?: CombatClassRule | undefined;
-  /** 낚시터 물 종류마다 티어 범위(설정 칸 fish_tier_*, 기획 D-542 질문 1365 나). 없으면 어류 시설 줄에 싣지 않는다 */
+  /** 낚시터 물 종류마다 티어 범위(팩 오브젝트에서 끌어냄 — 기획 D-562 1562, 옛 설정 칸 fish_tier_*). 없으면 어류 시설 줄에 싣지 않는다 */
   readonly fishTiers?: FishTierRanges | undefined;
 }
 

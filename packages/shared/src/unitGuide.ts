@@ -26,7 +26,7 @@ export interface ProductionTypeView {
   /** roll = 확률표 추첨, select = 선택 + 효율(해금 티어) */
   readonly mode: "roll" | "select";
   readonly group: ProductionGroup;
-  /** 낚시터 물 종류마다 티어 범위(기획 D-542 질문 1365 나, 설정 칸 fish_tier_*). 어류 시설만, 옛 서버면 없음 */
+  /** 낚시터 물 종류마다 티어 범위(기획 D-542 질문 1365 나, 팩 오브젝트에서 끌어냄 — D-562 1562). 어류 시설만, 옛 서버면 없음 */
   readonly waterTiers?: readonly FishWaterRangeView[] | undefined;
 }
 

@@ -3,8 +3,10 @@
 //   [보고서 기록]에서 이름으로 찾기 → 열기 → N번째 판 한 대 풀이 → 다시 돌리기 → 둘 골라 견주기. 웨이브 공성 4판은 공성 칸이 나온다.
 // - 실제 세계 도시(기획 D-543·D-545 1383): 도시 고르기(찾기 목록) → 실제 도시 수비·팀 A 군단 파티 둘로 파티 공성 4판 → 보고서의 도시 칸
 //   (스냅숏·지금 도시와 같음)·군단 모양. 웨이브 팀 수비(1384): 팀 B 군단이 지키는 웨이브 4판 → 파티 유닛 줄.
+// - 파티·군단 명령(기획 D-549): 팀 A 파티 둘 + 군단 전진·2번 파티 자리 지키기, 팀 B 목표 공격 → 20판 보고서의 명령 거절 칸·군단 모양,
+//   한 판도 군단 전체(사용자 1469 — 2번 파티 유닛 A2·1이 결과 표에). 공성은 공격 변 무작위(1465)라 보고서에 변마다 판 수.
 // - player: tRPC battleReport.*는 403.
-// - 사진: 보고서(피해 흐름 포함)·기록 목록·실제 도시 설정 판 × 네온 다크·라이트 × 390·1440. 가로 넘침 없음.
+// - 사진: 보고서(피해 흐름 포함)·기록 목록·실제 도시 설정 판·명령 칸 × 네온 다크·라이트 × 390·1440. 가로 넘침 없음.
 // 보고서 일은 서버 전체 한 번에 하나라 같은 파일 안 시험은 차례로 돈다(describe.serial).
 import type { Page } from "@playwright/test";
 import { elementShot, horizontalOverflow, shot } from "./helpers/screen.ts";
@@ -124,6 +126,44 @@ test.describe
   .serial("개발자: 실제 도시·웨이브 팀 수비·군단", () => {
     test.use({ account: "dev" });
 
+    test("파티·군단 명령 20판·군단 전체 한 판: 명령 칸 → 보고서 명령 칸·군단 모양, 한 판에 2번 파티 유닛", async ({
+      page,
+      deviceErrors,
+    }) => {
+      test.setTimeout(300_000);
+      await reportReady(page);
+      await page.locator(".rp-mode[data-mode='arena']").click();
+      const teamA = page.locator(".rp-legion-team[data-team='a']");
+      await teamA.locator(".rp-party-add").click();
+      const ordersA = page.locator(".rp-orders[data-team='a']");
+      // 군단 전체 진형 전진(새 명령 기본값) + 2번 파티 자리 지키기
+      await ordersA.locator(".rp-order-add").click();
+      await ordersA.locator(".rp-order-add").click();
+      const hold = ordersA.locator(".rp-order").nth(1);
+      await hold.locator(".rp-order-who").selectOption("1");
+      await hold.locator(".rp-order-kind").selectOption("hold");
+      // 팀 B: 목표 공격(상대 1번 파티 첫 유닛)
+      const ordersB = page.locator(".rp-orders[data-team='b']");
+      await ordersB.locator(".rp-order-add").click();
+      await ordersB.locator(".rp-order").first().locator(".rp-order-kind").selectOption("attack");
+      await expect(ordersB.locator(".rp-order-target")).toHaveValue("0.0");
+      await page.locator(".rp-runs").selectOption("20");
+      await runReport(page, `${RUN_TAG} orders`);
+      const report = page.locator(".rp-latest .rp-report");
+      await expect(report.locator(".rp-orders-result")).toBeVisible();
+      await expect(report.locator(".rp-legion-view li[data-team='a']")).toContainText("2");
+      // 한 판도 군단 전체(1469): 결과 표에 2번 파티 유닛
+      await page.locator(".bl-battle").click();
+      await expect(page.locator(".bl-result")).toBeVisible({ timeout: 60_000 });
+      await expect(page.locator(".bl-unit-key", { hasText: "A2·1" })).toHaveCount(1);
+      // 다음 시험을 위해 명령·파티를 거둔다(명령은 이 기기에 남는다)
+      for (const orders of [ordersA, ordersB])
+        while ((await orders.locator(".rp-order-remove").count()) > 0)
+          await orders.locator(".rp-order-remove").first().click();
+      await teamA.locator(".rp-party-remove").click();
+      expect(withoutBusy(deviceErrors)).toEqual([]);
+    });
+
     test("실제 도시 파티 공성 4판: 도시 고르기·실제 수비·팀 A 군단 파티 둘 → 도시 칸(지금과 같음)·군단 모양", async ({
       page,
       deviceErrors,
@@ -149,6 +189,8 @@ test.describe
       await expect(report.locator(".rp-legion-view li[data-team='a']")).toContainText("2");
       await expect(report.locator(".rp-units tbody tr[data-row='defenders']")).toHaveCount(1);
       await expect(report.locator(".rp-siege")).toBeVisible();
+      // 공격 변 무작위(1465 — 새 폼 기본값): 변마다 판 수
+      await expect(report.locator(".rp-edges")).toBeVisible();
       expect(withoutBusy(deviceErrors)).toEqual([]);
     });
 
@@ -237,6 +279,18 @@ for (const { theme, width, height } of [
         page.locator(".rp-legion-team[data-team='a']"),
         `battle-report-legion-${theme}-${width}`,
       );
+      // 파티·군단 명령 칸(D-549): 군단 전진 + 2번 파티 자리 지키기, 공격 변 고르기(1465)
+      const orders = page.locator(".rp-orders[data-team='a']");
+      await orders.locator(".rp-order-add").click();
+      await orders.locator(".rp-order-add").click();
+      await orders.locator(".rp-order").nth(1).locator(".rp-order-who").selectOption("1");
+      await orders.locator(".rp-order").nth(1).locator(".rp-order-kind").selectOption("hold");
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
+      expect(await horizontalOverflow(page)).toEqual([]);
+      await elementShot(page.locator(".rp-legion"), `battle-report-orders-${theme}-${width}`);
+      await elementShot(page.locator(".rp-edge"), `battle-report-edge-${theme}-${width}`);
+      while ((await orders.locator(".rp-order-remove").count()) > 0)
+        await orders.locator(".rp-order-remove").first().click();
       // 다음 시험을 위해 파티 공성·시뮬 도시로 되돌린다(폼은 이 기기에 남는다)
       await page.locator(".rp-layout").selectOption("city");
       await page.locator(".rp-mode[data-mode='arena']").click();

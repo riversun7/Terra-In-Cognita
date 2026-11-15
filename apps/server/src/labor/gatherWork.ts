@@ -1,7 +1,7 @@
 // 채집 직무 산출(서버) — docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산", 기획 D-506(채집 티어)·D-507(옛 1차 생산 규칙)·49 N32·N43·N44
 // 소유 주체 정산(world/settlement.ts → @terra/sim settleOwnerPeriod)이 채집 시설에서 일한 주기(1주기 = 1분, 덤 포함)를 넘기면 여기서 진짜 물건으로
 // 바꾼다. 판정은 시뮬레이터 시설 생산과 같은 함수다(@terra/sim workerEffects·rollGatherOutputs·tierRequiredProgress):
-// - 진행: 주기마다 진행 속도 max(1, ⌊주 스탯 ÷ N32⌋) × 일한 시간. 다음 묶음(차례 seq)의 티어를 뽑고(농장은 해금 티어에서 고름), 그 티어의 필요
+// - 진행: 주기마다 진행 속도 max(1, ⌊주 스탯 ÷ N32⌋) × 일한 시간. 다음 묶음(차례 seq)의 티어를 뽑고(건물 채집소는 건물 레벨 최고 티어), 그 티어의 필요
 //   진행 max(기본, 기본 + 티어 × 걸음)(N44) × 진행 1의 시간만큼 쌓이면 수확량(min(상한, 기본 + ⌊보조 × 비율⌋))만큼 낸다.
 // - 묶음 차례 seq의 추첨 난수는 (유닛, seq)로만 정한다 → 정산을 어떻게 나눠도 같은 묶음이 같은 물건을 낸다(나눠 정산해도 같다, S3 4절).
 //   스탯·시설 레벨이 그 사이 바뀌면 바뀐 값으로 뽑는다. 쌓인 진행·seq는 unit_work 줄에 남긴다(work.ts).
@@ -10,6 +10,8 @@
 // - 오브젝트 규칙(기획 D-552 "직접 채집과 일꾼 채집이 같은 규칙", docs/adr/2026-11-15-gather-object-tiers.md): 채집소가 묶음마다 쓸 오브젝트의
 //   규칙(lotRoll — 사다리·티어 범위·대표 아이템·굴림표)을 주면 그 묶음을 그것으로 굴린다(직접 채집 gather/objectYield.ts와 같은 rollGatherOutputs).
 //   주지 않으면(오브젝트를 맡지 않는 채집 시설) 시설 사다리 그대로.
+// - 건물 채집소(농장·목장·약초원 — 선택 방식, 기획 D-566 1721·D-567): 티어 = 건물 레벨의 최고 티어, 수확 배율 = 일꾼 권장 스탯 미달 효율 ×
+//   면적 모듈(site.plots). 오브젝트를 쓰지 않는다(채집소가 lotRoll을 주지 않는다).
 // 정수 연산만 쓴다(판정 코드 규칙).
 import { createRng } from "@terra/shared";
 import {
@@ -40,6 +42,8 @@ export interface GatherSite {
   readonly lotSize: ReadonlyMap<string, bigint>;
   /** 건물이 선 도시(산출이 가는 도시 창고). 그 2차맵에 도시가 없으면 null */
   readonly cityId: number | null;
+  /** 붙은 면적 모듈 수(건물 채집소, D-567). 없으면 0 */
+  readonly plots?: number | undefined;
 }
 
 /** 묶음 하나가 쓰는 오브젝트의 굴림 규칙(기획 D-552 — gather/objectYield.ts objectRollOf) */
@@ -68,6 +72,7 @@ export function gatherSettingsOf(c: SocietyCoefficients): GatherSettings {
     tickMs: c.gatherTickMs,
     oreGrams: c.gatherOreGrams,
     conditionCap: c.condition.cap,
+    building: c.buildingGather,
   };
 }
 
@@ -157,9 +162,11 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
       primaryStat: primary,
       secondaryStat: secondary,
       condition: clampCondition(input.condition ?? 0, { cap: settings.conditionCap ?? 0 }),
+      plots: site.plots ?? 0,
     },
     settings,
   );
+  const select = site.rule.mode === "select";
   const tickMs = Math.max(1, settings.tickMs ?? 60_000);
   const base = settings.tierProgressBase ?? 30;
   const step = settings.tierProgressStep ?? 30;
@@ -178,8 +185,9 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
         stat: effects.gatherStat,
         lots: 1,
         lotSize: site.lotSize,
-        selectTier: site.rule.mode === "select" ? effects.selectTier : undefined,
+        selectTier: select ? effects.selectTier : undefined,
         yieldPerLot: effects.yieldPerLot,
+        yieldPm: select ? effects.yieldPm : undefined,
         successPm: effects.catchPm,
         harvestGrams: BigInt(settings.oreGrams ?? 1000),
         tierRange: object?.tierRange,

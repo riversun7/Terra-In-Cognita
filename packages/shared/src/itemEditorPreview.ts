@@ -122,11 +122,11 @@ export interface ItemGatherPreview {
   /** 초안이 꺼져 있으면 거짓(세계에서 나오지 않는다) */
   readonly enabled: boolean;
   /**
-   * 채집 방식: roll = 확률표 추첨(levels·bands), select = 선택 + 효율(농장·목장, 49 P8): 해금 티어 = min(⌊(주 + 보조) ÷ 20⌋, 9)에서
-   * 켜진 아이템이 있는 가장 높은 티어를 고른다(레벨 보너스 없음, levels의 band는 -1)
+   * 채집 방식: roll = 확률표 추첨(levels·bands), select = 건물 채집소(농장·목장·약초원, 기획 D-566 1721·D-568): 레벨마다 그 레벨의 최고
+   * 티어(2 × 레벨 − 1)에서 켜진 아이템이 있는 가장 높은 티어를 고른다(레벨 보너스 없음, levels의 band는 -1)
    */
   readonly mode: "roll" | "select";
-  /** select면 기준 유닛의 해금 티어. roll이면 null */
+  /** 옛 칸(49 P8 해금 티어) — 건물 채집소 규칙(D-566 1721)부터 늘 null(티어는 레벨마다 levels로) */
   readonly unitTier: number | null;
   /**
    * 옛 1차 생산 규칙(D-507, 49 N32·N44): 주 스탯 → 진행 속도 max(1, ⌊주 ÷ divisor⌋), 보조 스탯 → 한 번 캘 때 개수

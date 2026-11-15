@@ -1,6 +1,7 @@
 // 건물(시설) 명령 (프로토콜 10부터, 창고 옮기기는 12부터) — docs/adr/2026-11-07-buildings-runtime.md, 기획 49 N50·M14·M15·N54,
 // D-171·D-508·D-509·D-514·D-516(361·382)
 // - 바꾸는 명령: 짓기(facility_build), 레벨업(facility_upgrade), 건물·영토 비콘 수리(facility_repair), 공방 장비 수리(equipment_repair),
+//   면적 모듈 붙이기(facility_plot, 프로토콜 41 — 건물 채집소, 기획 D-567),
 //   개발 시험(dev_facility_grant: 재료 받기, dev_facility_finish: 하던 작업 바로 끝내기 — 권한 secondMap: dev-test).
 //   창고 옮기기(storage_move, 프로토콜 11): 도시 창고·화물 ↔ 창고 시설, 건물 창고(임대 몫) → 도시 창고. 조회는 tRPC facilities.overview다.
 //   건물·영토 비콘 공격(facility_attack, 프로토콜 12, 질문 381): 내 유닛으로 남의 시설·다른 세력 비콘을 넥서스로 하는 공성 전투를 연다.
@@ -18,6 +19,8 @@ export const STORAGE_PROTOCOL_VERSION = 11;
 export const ATTACK_PROTOCOL_VERSION = 12;
 /** 물가 조건 결과 코드 needs_water가 생긴 판(질문 947 나). 더 낮은 판 연결은 blocked_terrain을 받는다 */
 export const WATER_PLACE_PROTOCOL_VERSION = 21;
+/** 면적 모듈 붙이기(facility_plot, 기획 D-567)와 결과 코드 plot_full이 생긴 판. 더 낮은 판 기기는 보내지 않는다(코드는 이 메시지의 답에만) */
+export const PLOT_PROTOCOL_VERSION = 41;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -137,6 +140,17 @@ export const facilityAttackMessage = z
   })
   .refine((message) => (message.buildingId === undefined) !== (message.beaconId === undefined));
 
+/**
+ * 면적 모듈 하나 붙이기(프로토콜 41, 기획 D-567 "모듈을 추가하여 건물의 목장이나 밭 등의 면적을 넓힌다"): 내 건물 채집소(농장·목장·약초원 — 선택
+ * 방식)에 밭·목장·약초밭 면적 모듈을 하나 더한다. 자리 = 레벨 × 설정 칸 plot_module_slots_per_level, 재료 = 그 시설 레벨 1 짓기 재료(건물이 선
+ * 도시 창고 등에서 뺀다 — 짓기와 같은 자리·같은 레벨 0 재료 규칙). 바로 붙는다(작업 시간 없음 [임시])
+ */
+export const facilityPlotMessage = z.object({
+  t: z.literal("facility_plot"),
+  id: requestId,
+  buildingId: rowId,
+});
+
 /** 개발 시험: 하던 작업(짓기·레벨업·수리·장비 수리) 바로 끝내기(권한 secondMap: dev-test) */
 export const devFacilityFinishMessage = z
   .object({
@@ -225,6 +239,8 @@ export const FACILITY_RESULT_CODES = [
    * docs/adr/2026-11-15-business-ledger.md)
    */
   "insufficient_funds",
+  /** 면적 모듈 자리가 가득(레벨 × 레벨당 자리, 41 — facility_plot의 답에만) */
+  "plot_full",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];
@@ -256,5 +272,6 @@ export const facilityClientMessages = [
   devFacilityFinishMessage,
   storageMoveMessage,
   facilityAttackMessage,
+  facilityPlotMessage,
 ] as const;
 export const facilityServerMessages = [facilityResultMessage] as const;

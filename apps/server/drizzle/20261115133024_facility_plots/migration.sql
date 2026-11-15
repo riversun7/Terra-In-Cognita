@@ -1,0 +1,2 @@
+ALTER TABLE "world_facilities" ADD COLUMN "plots" smallint DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "world_facilities" ADD CONSTRAINT "world_facilities_plots" CHECK ("plots" between 0 and 100);

@@ -169,6 +169,8 @@ export function createBuildingEditorServices(deps: {
         conditionCap: society.condition.cap,
         // 낚시터 물 종류 티어 범위("예상 확률" 탭 물 종류 고르기 — 팩 오브젝트에서 끌어냄, 기획 D-562 1562)
         fishTiers: fishRangesOfKinds(gatherKinds, (id) => itemTiers().get(id)),
+        // 건물 채집소 효율·면적 모듈(기획 D-566 1721·D-567)
+        building: { ...society.buildingGather },
       },
       combatClasses: combatClassViews(state, snapshot),
       classRule: {

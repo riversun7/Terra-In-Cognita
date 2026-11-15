@@ -6,8 +6,14 @@ import {
   GATHER_TIERS,
   GATHER_WEIGHT_TOTAL,
   TEST_GATHER_BANDS,
+  DEFAULT_BUILDING_GATHER,
   accessibleTier,
+  buildingGatherEfficiencyPm,
+  buildingGatherTier,
+  buildingYieldPm,
   gatherBandIndex,
+  plotAreaPm,
+  plotSlots,
   gatherCatchPm,
   gatherChancesPm,
   gatherProgress,
@@ -200,6 +206,47 @@ describe("옛 1차 생산 규칙(D-507, AntiGravt01 gather 엔진·ITM-10 값)",
       accessibleTier(90, 90),
     ]).toEqual([0, 1, 8, 9]);
     expect(accessibleTier(200, 200)).toBe(9);
+  });
+
+  it("건물 채집소(D-566 1721): 티어 = 2 × 레벨 − 1, 권장 스탯 미달 효율 = max(300, 1000 − 25 × 모자란 합), 면적 모듈 +200‰씩(D-567)", () => {
+    expect([0, 1, 2, 3, 4, 5, 6].map((level) => buildingGatherTier(level))).toEqual([0, 1, 3, 5, 7, 9, 9]);
+    const rules = DEFAULT_BUILDING_GATHER;
+    // T5 권장 100: 합 100 이상 1000, 80 → 500, 60 → 바닥 300
+    expect([120, 100, 80, 72, 60, 0].map((sum) => buildingGatherEfficiencyPm(sum, 5, rules))).toEqual([
+      1000, 1000, 500, 300, 300, 300,
+    ]);
+    expect(buildingGatherEfficiencyPm(0, 0, rules)).toBe(1000);
+    expect([0, 1, 3].map((plots) => plotAreaPm(plots, rules))).toEqual([1000, 1200, 1600]);
+    expect(buildingYieldPm(80, 5, 3, rules)).toBe(800);
+    expect([0, 1, 5].map((level) => plotSlots(level, rules))).toEqual([0, 1, 5]);
+    expect(plotSlots(3, { ...rules, plotSlotsPerLevel: 2 })).toBe(6);
+  });
+
+  it("수확 배율(yieldPm): 한 번 캘 때 개수 × ‰, 나머지는 난수로 올림 — 기댓값이 맞고 1000‰이면 그대로", () => {
+    const ladder = [["item:barley"], ["item:potato"], [], [], [], [], [], [], [], []];
+    const base = {
+      ladder,
+      bands: BANDS,
+      stat: 20,
+      lots: 2000,
+      lotSize: new Map(),
+      selectTier: 1,
+      yieldPerLot: 3,
+    };
+    const qty = (yieldPm: number | undefined) =>
+      rollGatherOutputs({ ...base, yieldPm }, createRng(11)).outputs.find(
+        (row) => row.asset === "item:potato",
+      )?.qty ?? 0n;
+    expect(qty(undefined)).toBe(6000n);
+    expect(qty(1000)).toBe(6000n);
+    expect(qty(2000)).toBe(12_000n);
+    // 3 × 0.5 = 1.5 → 1 또는 2, 평균 1.5 × 2000 = 3000
+    const half = Number(qty(500));
+    expect(Math.abs(half - 3000)).toBeLessThan(120);
+    // 0개가 된 번도 나온 티어는 센다(필요 진행)
+    const zero = rollGatherOutputs({ ...base, yieldPerLot: 1, yieldPm: 0 }, createRng(3));
+    expect(zero.outputs).toEqual([]);
+    expect(zero.landed[1]).toBe(2000);
   });
 
   it("수확량 = min(상한, 기본 + ⌊보조 × 비율⌋): 광산 1 + 0.10·상한 10, 농장 1 + 0.08·상한 8, 낚시터 상한 5", () => {

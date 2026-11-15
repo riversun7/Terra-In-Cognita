@@ -238,20 +238,24 @@ describe("미리 보기(판정과 같은 식)", () => {
     expect(fast.yieldPerLot).toBe(1);
   });
 
-  it("선택(목장): 해금 티어 = ⌊(주 + 보조) ÷ 20⌋, 그 티어가 비면 아래로. 확률표를 쓰지 않는다", () => {
-    const preview = typePreview(input(gatherOf(RANCH), 30, 30));
-    expect(preview).toMatchObject({ selectTier: 3, bandIndex: -1, emptyPm: 0, topTier: 3 });
+  it("선택(목장, 건물 채집소 D-566 1721): 티어 = 레벨 최고 티어(Lv2 = T3), 그 티어가 비면 아래로. 확률표를 쓰지 않는다", () => {
+    const preview = typePreview(input(gatherOf(RANCH), 30, 30, 2));
+    expect(preview).toMatchObject({ selectTier: 3, yieldPm: 1000, bandIndex: -1, emptyPm: 0, topTier: 3 });
     expect(preview.tierPm[3]).toBe(1000);
     // T3 필요 진행 120분 ÷ 진행 1 = 120분, 수확량 1 + ⌊30 × 0.08⌋ = 3 → 시간당 1.5
     expect(preview.minutesPerLot).toBeCloseTo(120, 6);
     expect(preview.perHour).toBeCloseTo(1.5, 6);
+    // Lv3 = T5(권장 100), 합 60 → 효율 max(300, 1000 − 25 × 40) = 300‰ → 시간당 수확도 0.3배
+    const low = typePreview(input(gatherOf(RANCH), 30, 30, 3));
+    expect(low).toMatchObject({ selectTier: 5, yieldPm: 300 });
+    expect(low.perHour).toBeCloseTo((60 / 180) * 3 * 0.3, 6);
     const sparse = typePreview({
-      ...input(gatherOf(RANCH), 30, 30),
+      ...input(gatherOf(RANCH), 30, 30, 2),
       ladderCounts: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     });
     expect(sparse.topTier).toBe(0);
     const none = typePreview({
-      ...input(gatherOf(RANCH), 30, 30),
+      ...input(gatherOf(RANCH), 30, 30, 2),
       ladderCounts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     });
     expect(none).toMatchObject({ emptyPm: 1000, perHour: 0, topTier: null });

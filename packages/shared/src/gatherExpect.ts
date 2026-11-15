@@ -5,13 +5,18 @@
 // 확률 = 두 스탯의 K를 범위 안 고른 칸(양 끝 포함 K_STEPS × K_STEPS)으로 나눠 그 칸들의 구간 가중치를 평균한 것(K는 생성 때 범위 안 균등, N6).
 // 바뀜(D-535 1154 나): 선택 방식(농장·목장)의 해금 티어 범위(K 최소·최대)도 칸마다 보인다 — 컨디션을 두 스탯에 반씩 더한 판정과 같은 셈
 // (gatherMath conditionedStats·accessibleTier). 시설 레벨은 해금 티어에 들지 않는다.
+// 바뀜(기획 D-566 1721·D-567·D-568): 선택 방식 = 건물 채집소(농장·목장·약초원)는 시설 레벨의 최고 티어(2 × 레벨 − 1)를 기르고, 칸마다 K 최소·최대일
+// 때의 수확 효율(‰, 권장 합 20 × 티어 미달이면 깎임, 면적 모듈 없음 — gatherMath buildingYieldPm)을 보인다.
 // 바뀜(D-542 1365 나): 낚시터 물 종류를 고르면 확률을 그 물 종류 티어 범위로 접는다(tierRange).
 // 정수 연산만 쓴다(화면 계산이지만 판정 함수와 같은 결과를 보이게).
 import {
   GATHER_TIERS,
   GATHER_WEIGHT_TOTAL,
+  type BuildingGatherRules,
+  DEFAULT_BUILDING_GATHER,
   type GatherBand,
-  accessibleTier,
+  buildingGatherTier,
+  buildingYieldPm,
   conditionedStats,
   gatherBandIndex,
   gatherStat,
@@ -44,6 +49,8 @@ export interface GatherExpectInput {
    * tierRange와 같은 접기). 없으면 접지 않는다
    */
   readonly tierRange?: FishTierRange | undefined;
+  /** 건물 채집소 규칙(설정 칸 실효 값). 없으면 출발값 */
+  readonly building?: BuildingGatherRules | undefined;
 }
 
 export interface GatherExpectCell {
@@ -58,9 +65,11 @@ export interface GatherExpectCell {
   readonly tierPm: readonly number[];
   /** 기대 티어(밀리, 1000 = T1) */
   readonly averageTierMilli: number;
-  /** 선택 방식(농장·목장) 해금 티어: K 최소·최대일 때(D-535 1154 나, 컨디션 포함) */
-  readonly selectMin: number;
-  readonly selectMax: number;
+  /** 건물 채집소가 기르는 티어 = 시설 레벨의 최고 티어(D-566 1721) */
+  readonly selectTier: number;
+  /** 건물 채집소 수확 효율(‰): K 최소·최대일 때(컨디션을 두 스탯에 반씩, 면적 모듈 없음) */
+  readonly selectEffMinPm: number;
+  readonly selectEffMaxPm: number;
 }
 
 /** 두 스탯 초기 합을 반씩 나눈다(홀수면 주 스탯이 1 더) */
@@ -92,19 +101,20 @@ export function expectedGatherStat(
   return gatherStat(grown, Math.max(1, input.facilityLevel), input.levelBonus, input.condition);
 }
 
-/** 두 스탯 초기 값·레벨·K 둘 → 선택 방식 해금 티어(컨디션을 두 스탯에 반씩, 판정 workerEffects와 같은 셈) */
-export function expectedSelectTier(
+/** 두 스탯 초기 값·레벨·K 둘 → 건물 채집소 수확 효율(‰, 컨디션을 두 스탯에 반씩 — 판정 workerEffects와 같은 셈, 면적 모듈 없음) */
+export function expectedSelectEfficiency(
   stats: readonly [number, number],
   level: number,
   kPm: readonly [number, number],
-  input: Pick<GatherExpectInput, "growthPm" | "condition">,
+  input: Pick<GatherExpectInput, "growthPm" | "condition" | "facilityLevel" | "building">,
 ): number {
   const [main, sub] = conditionedStats(
     primaryAtLevel(stats[0], input.growthPm, kPm[0], level),
     primaryAtLevel(stats[1], input.growthPm, kPm[1], level),
     input.condition,
   );
-  return accessibleTier(main, sub);
+  const tier = buildingGatherTier(Math.max(1, input.facilityLevel));
+  return buildingYieldPm(main + sub, tier, 0, input.building ?? DEFAULT_BUILDING_GATHER);
 }
 
 /** 가중치 합(‰ 단위 몫)을 합 1000으로 맞춘다(가장 큰 나머지, 같으면 낮은 티어 먼저) */
@@ -154,8 +164,9 @@ export function expectedGatherCell(sum: number, level: number, input: GatherExpe
     statMax: expectedGatherStat(stats, level, [hi, hi], input),
     tierPm,
     averageTierMilli,
-    selectMin: expectedSelectTier(stats, level, [lo, lo], input),
-    selectMax: expectedSelectTier(stats, level, [hi, hi], input),
+    selectTier: buildingGatherTier(Math.max(1, input.facilityLevel)),
+    selectEffMinPm: expectedSelectEfficiency(stats, level, [lo, lo], input),
+    selectEffMaxPm: expectedSelectEfficiency(stats, level, [hi, hi], input),
   };
 }
 

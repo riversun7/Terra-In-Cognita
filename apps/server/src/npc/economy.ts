@@ -227,6 +227,7 @@ export function gatherSettingsOf(c: SocietyCoefficients): GatherSettings {
     tickMs: c.gatherTickMs,
     oreGrams: c.gatherOreGrams,
     conditionCap: c.condition.cap,
+    building: c.buildingGather,
   };
 }
 

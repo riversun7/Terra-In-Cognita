@@ -16,6 +16,7 @@ export const FACILITY_ERROR_TEXT: Readonly<Record<FacilityResultCode | "offline"
   {
     sign_in_required: m.facility_error_sign_in_required,
     insufficient_funds: m.facility_error_insufficient_funds,
+    plot_full: m.facility_error_plot_full,
     busy: m.facility_error_busy,
     rate_limited: m.facility_error_rate_limited,
     forbidden: m.facility_error_forbidden,

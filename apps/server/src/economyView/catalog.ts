@@ -32,7 +32,7 @@ import {
   BASE_EFFICIENCY,
   GATHER_TIERS,
   TEST_SOCIETY_COEFFICIENTS,
-  accessibleTier,
+  buildingGatherTier,
   batchDurationMs,
   defaultGatherStat,
   gatherProgress,
@@ -125,7 +125,7 @@ type WorkerRules = Pick<
   | "gatherTickMs"
 > & { readonly cyborg: { readonly initialSum: number } };
 
-/** 시설 스탯 짝 → 레시피 일꾼 효과(사다리 산출이면 티어별 한 번 시간, 선택 방식이면 해금 티어) */
+/** 시설 스탯 짝 → 레시피 일꾼 효과(사다리 산출이면 티어별 한 번 시간, 선택 방식이면 Lv1이 기르는 티어) */
 export function workerViewOf(
   gather: NonNullable<FacilityEntry["gather"]>,
   ladder: "roll" | "select" | null,
@@ -160,7 +160,8 @@ export function workerViewOf(
                 unitProgress,
             ),
           ),
-    unitTier: ladder === "select" ? accessibleTier(unitStat, unitStat) : null,
+    // 건물 채집소(D-566 1721): Lv1이 기르는 티어(2 × 레벨 − 1)
+    unitTier: ladder === "select" ? buildingGatherTier(1) : null,
   };
 }
 

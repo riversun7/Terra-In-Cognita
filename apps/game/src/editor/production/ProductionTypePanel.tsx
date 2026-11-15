@@ -409,7 +409,12 @@ export function ProductionTypePanel({
             <dt>{select ? m.dev_prod_result_unlock() : m.dev_prod_result_band()}</dt>
             <dd>
               {select ? (
-                <strong className="pd-num">T{preview.selectTier ?? 0}</strong>
+                <>
+                  <strong className="pd-num">T{preview.selectTier ?? 0}</strong>{" "}
+                  <span className="pd-muted" data-part="select-efficiency">
+                    {m.dev_prod_result_efficiency({ pct: percentOfPm(preview.yieldPm ?? 1000, locale) })}
+                  </span>
+                </>
               ) : (
                 <strong className="pd-num">{bandText(bands, preview.bandIndex)}</strong>
               )}

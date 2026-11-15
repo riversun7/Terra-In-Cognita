@@ -10,6 +10,8 @@
 // 바뀜 (2026-11-15, 기획 D-562 1562·1569, D-556 1255·1256): 물 종류 범위는 설정 칸이 아니라 팩 오브젝트 범위에서 끌어낸다(gather/npcTiers.ts).
 // 유닛이 일하는 채집 시설이면 그 레벨(레벨 보너스)로 센다. 최적 작업 = 시간당 기대 금액(gatherValue.ts — 시설 오브젝트 묶음 위 끝·같은 티어 비중,
 // 시세 = 그 유닛이 있는 도시 거래소의 마지막 체결가, 없으면 시작 시세)이 가장 큰 일. 금액이 모두 0이면 옛 고르기(주 + 보조).
+// 바뀜 (2026-11-15, 기획 D-566 1721·D-567·D-568): 건물 채집소(select — 농장·목장·약초원)는 그 레벨의 최고 티어 한 칸(2 × 레벨 − 1)이고, 권장 스탯
+// 미달 효율 × 면적 모듈 배율(yieldPm)을 싣는다(일터면 그 시설의 모듈 수). 오브젝트 묶음 위 끝은 걸지 않는다(건물 안에서 기른다).
 import {
   type FacilityEntry,
   type GatherTierEntry,
@@ -32,8 +34,10 @@ import { productionTypesOf } from "./guide.ts";
 
 /** 유닛 자리(기획 D-562 1569·D-556 1255): 일하는 채집 시설과 그 도시 거래소 시세 */
 export interface GatherPlace {
-  /** 일하는 채집 시설(시설 ID·레벨). 없으면 모든 줄 레벨 1 */
-  readonly workplace?: { readonly facility: string; readonly level: number } | undefined;
+  /** 일하는 채집 시설(시설 ID·레벨·면적 모듈 수). 없으면 모든 줄 레벨 1·모듈 0 */
+  readonly workplace?:
+    | { readonly facility: string; readonly level: number; readonly plots?: number | undefined }
+    | undefined;
   /** 아이템 ID → 그 도시 거래소 마지막 체결가(없으면 undefined — 시작 시세) */
   readonly lastPrice: (item: string) => bigint | undefined;
   /** 그 도시 화폐 코드(모르면 없음) */
@@ -96,8 +100,9 @@ export function gatherSheetOf(
     const subcategory = gather.subcategory.id;
     const primaryValue = Math.max(0, stats[type.primary]);
     const secondaryValue = Math.max(0, stats[type.secondary]);
-    const level =
-      place?.workplace?.facility === type.facility ? Math.max(1, place.workplace.level) : SHEET_LEVEL;
+    const here = place?.workplace?.facility === type.facility ? place.workplace : undefined;
+    const level = here ? Math.max(1, here.level) : SHEET_LEVEL;
+    const plots = here?.plots ?? 0;
     const effects = workerEffects(
       {
         primary: gather.primary,
@@ -109,7 +114,7 @@ export function gatherSheetOf(
         yieldCap: gather.yieldCap,
         catch: gather.catch,
       },
-      { level, primaryStat: primaryValue, secondaryStat: secondaryValue, condition: clamped },
+      { level, primaryStat: primaryValue, secondaryStat: secondaryValue, condition: clamped, plots },
       settings,
     );
     // 띠 표 하나(기획 D-552 "표 하나")
@@ -139,7 +144,8 @@ export function gatherSheetOf(
     for (const item of items)
       if (item.enabled && item.subcategory && subs.has(item.subcategory.id))
         ladder[Math.min(9, Math.max(0, item.tier))]?.push(item.id);
-    const roll = npcTierRollOf(tiers.get(type.facility), {});
+    // 건물 채집소는 오브젝트를 캐지 않아 묶음 위 끝을 걸지 않는다(D-567)
+    const roll = select ? {} : npcTierRollOf(tiers.get(type.facility), {});
     const value = gatherValuePerHour({
       tierPm,
       maxTier: roll.tierRange?.max,
@@ -147,6 +153,7 @@ export function gatherSheetOf(
       weights: roll.weights,
       priceOf,
       yieldPerLot: effects.yieldPerLot,
+      yieldPm: effects.yieldPm,
       progress: effects.progress,
       catchPm: effects.catchPm,
       tierProgressBase: settings.tierProgressBase ?? 30,
@@ -171,6 +178,15 @@ export function gatherSheetOf(
         tierPm,
         ...(waters ? { waters } : {}),
         selectTier: effects.selectTier,
+        ...(select && effects.yieldPm !== undefined
+          ? {
+              yieldPm: effects.yieldPm,
+              recommendedStat: settings.building
+                ? settings.building.statPerTier * effects.selectTier
+                : 20 * effects.selectTier,
+              plots,
+            }
+          : {}),
         progress: effects.progress,
         yieldPerLot: effects.yieldPerLot,
         ...(effects.catchPm === undefined ? {} : { catchPm: effects.catchPm }),

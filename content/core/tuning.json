@@ -9572,6 +9572,96 @@
       "source": "ADR 2026-11-07-gather-objects [임시] · D-555 질문 1505(자동 옮김 끔)"
     },
     {
+      "id": "building_gather_stat_per_tier",
+      "code": "",
+      "name": {
+        "ko": "건물 채집소 티어당 권장 스탯 합",
+        "en": "Building gatherer recommended stat sum per tier"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 200,
+      "desc": {
+        "ko": "농장·목장·약초원은 건물 레벨의 최고 티어(Lv1 T1 … Lv5 T9)를 기른다. 일꾼 주 + 보조 스탯 합이 이 값 × 티어보다 모자라면 수확 효율이 준다(D-566 1721).",
+        "en": "Farms, ranches and herb gardens grow the top tier of their level (Lv1 T1 … Lv5 T9). If a worker's main + sub stat sum is below this × tier, harvest efficiency drops (D-566 1721)."
+      },
+      "source": "ADR 2026-11-15-gather-object-tiers \"바뀜 (D-566·D-567)\" [임시]"
+    },
+    {
+      "id": "building_gather_short_step_pm",
+      "code": "",
+      "name": {
+        "ko": "권장 스탯 1점 모자랄 때 깎는 수확 효율(‰)",
+        "en": "Harvest efficiency cut per missing stat point (‰)"
+      },
+      "value": 25,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "효율(‰) = max(바닥, 1000 − 이 값 × 모자란 스탯 합).",
+        "en": "Efficiency (‰) = max(floor, 1000 − this × missing stat sum)."
+      },
+      "source": "ADR 2026-11-15-gather-object-tiers \"바뀜 (D-566·D-567)\" [임시]"
+    },
+    {
+      "id": "building_gather_floor_pm",
+      "code": "",
+      "name": {
+        "ko": "건물 채집소 수확 효율 바닥(‰)",
+        "en": "Building gatherer harvest efficiency floor (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "스탯이 아무리 모자라도 수확 효율은 이 아래로 내려가지 않는다.",
+        "en": "Harvest efficiency never drops below this however low the stats are."
+      },
+      "source": "ADR 2026-11-15-gather-object-tiers \"바뀜 (D-566·D-567)\" [임시]"
+    },
+    {
+      "id": "plot_module_area_pm",
+      "code": "",
+      "name": {
+        "ko": "면적 모듈 하나의 수확 더함(‰)",
+        "en": "Extra harvest per area module (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "농장 밭·목장·약초밭 면적 모듈 하나가 수확량에 더하는 몫. 같은 모듈 여럿은 모두 겹친다(D-567).",
+        "en": "How much one field, pasture or herb plot module adds to harvests. Several modules all stack (D-567)."
+      },
+      "source": "ADR 2026-11-15-gather-object-tiers \"바뀜 (D-566·D-567)\" [임시]"
+    },
+    {
+      "id": "plot_module_slots_per_level",
+      "code": "",
+      "name": {
+        "ko": "시설 레벨당 면적 모듈 자리",
+        "en": "Area module slots per facility level"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 10,
+      "desc": {
+        "ko": "농장·목장·약초원에 붙일 수 있는 면적 모듈 수 = 시설 레벨 × 이 값(D-567).",
+        "en": "Area modules a farm, ranch or herb garden can hold = facility level × this (D-567)."
+      },
+      "source": "ADR 2026-11-15-gather-object-tiers \"바뀜 (D-566·D-567)\" [임시]"
+    },
+    {
       "id": "lodging_recovery_mode",
       "code": "",
       "name": {

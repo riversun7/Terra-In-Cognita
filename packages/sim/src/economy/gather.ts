@@ -10,8 +10,9 @@
 // - 진행 속도: 틱마다 진행 = max(1, ⌊주 스탯 ÷ 20⌋)(옛 BuildingGatherEngine.js 291·527). 시뮬은 시설의 시간당 작업량에 곱한다.
 // - 수확량: 한 번 캘 때 개수 = min(상한, 기본 + ⌊보조 스탯 × 비율⌋)(옛 gather_type_config yield_base·yield_per_stat·yield_cap,
 //   migrations/index.js 642~736). 옛 마지막 코드는 1개 고정이었고 기획 D-507이 켰다. 광석은 개수 = 묶음 수(1개 = 1kg 묶음, 49 N44).
-// - 선택 + 효율(농장·목장): 해금 티어 = min(⌊(주 + 보조) ÷ 20⌋, 9)(49 P8, 옛 calcAccessibleTier)에서 켜진 아이템이 있는 가장 높은
-//   티어를 고르고 같은 티어 여럿이면 고르게(옛 ORDER BY tier DESC, RANDOM()). 추첨하지 않는다.
+// - 선택 + 효율(건물 채집소 — 농장·목장·약초원): 부르는 쪽이 준 티어(selectTier)에서 켜진 아이템이 있는 가장 높은 티어를 고르고 같은 티어
+//   여럿이면 고르게(옛 ORDER BY tier DESC, RANDOM()). 추첨하지 않는다. 바뀜 (기획 D-566 1721·D-567): 티어 = 건물 레벨의 최고 티어(옛 49 P8
+//   해금 티어 대신), 수확 배율 yieldPm(권장 스탯 미달 효율 × 면적 모듈)을 한 번 캘 때 개수에 곱한다(‰ 나머지는 그때만 난수 하나로 올림·버림).
 // - 성공 확률(낚시터, docs/adr/2026-11-11-production-six.md): 한 번 시도마다 성공 ‰를 먼저 굴리고 성공한 번만 티어를 뽑는다
 //   (옛 BuildingGatherEngine.js runFishingWorkers 715~735, fishing_config 0.30·0.80·0.50).
 // - 낚시터 티어 범위(기획 D-542 질문 1365 나): 뽑은 티어를 그 자리 물 종류의 범위로 접는다(GatherRoll.tierRange, @terra/shared/fishWater).
@@ -32,9 +33,15 @@ import {
 // 난수 없는 셈(구간 찾기·진행·수확량·필요 진행·해금 티어·성공 확률·나올 확률)은 @terra/shared/gatherMath에 있다(화면 미리 보기와 같은 식)
 export {
   ACCESSIBLE_TIER_STEP,
+  DEFAULT_BUILDING_GATHER,
   GATHER_TIERS,
   GATHER_WEIGHT_TOTAL,
   accessibleTier,
+  buildingGatherEfficiencyPm,
+  buildingGatherTier,
+  buildingYieldPm,
+  plotAreaPm,
+  plotSlots,
   conditionedStats,
   gatherBandIndex,
   gatherCatchPm,
@@ -45,6 +52,7 @@ export {
   gatherSubcategories,
   gatherYield,
   tierRequiredProgress,
+  type BuildingGatherRules,
   type GatherBand,
   type GatherCatchRule,
   type GatherSubcategorySource,
@@ -156,10 +164,15 @@ export interface GatherRoll {
   readonly lots: number;
   /** 아이템 자산 → 묶음 크기(기본 단위, 없으면 1) */
   readonly lotSize: ReadonlyMap<string, bigint>;
-  /** 선택 + 효율(농장·목장): 있으면 추첨하지 않고 이 해금 티어(accessibleTier)에서 고른다 */
+  /** 선택 + 효율(건물 채집소): 있으면 추첨하지 않고 이 티어(buildingGatherTier — 건물 레벨 최고 티어, D-566 1721)에서 고른다 */
   readonly selectTier?: number | undefined;
   /** 한 번 캘 때 나오는 개수(gatherYield, 없으면 1). 고른 아이템이 이만큼 나온다 */
   readonly yieldPerLot?: number | undefined;
+  /**
+   * 한 번 캘 때 개수에 곱하는 배율(‰ — 건물 채집소 효율 × 면적, buildingYieldPm, D-566 1721·D-567). 개수 × ‰ ÷ 1000의 나머지는 그 번에 난수
+   * 하나로 올린다(나머지가 0이면 난수를 쓰지 않는다). 0개가 된 번은 빈 번이다. 없으면 배율 없음(난수를 더 쓰지 않는다)
+   */
+  readonly yieldPm?: number | undefined;
   /**
    * 기본 단위가 g이고 묶음이 큰 아이템(lotSize > 1, 광석)의 한 개 = 이 g(49 N44, 옛 1개 = 1kg → 1,000). 없으면 묶음 크기.
    * 그 밖의 아이템은 한 개 = 기본 단위 하나 × 묶음 크기(1)
@@ -193,6 +206,14 @@ export interface GatherRoll {
    * 사다리 안 자리(없으면 T0 — 필요 진행이 본다)
    */
   readonly table?: readonly { readonly asset: string; readonly weightPm: number }[] | undefined;
+}
+
+/** 한 번 캘 때 개수 × 배율(‰). 나머지(‰)는 난수 하나로 올린다(나머지 0이면 난수를 쓰지 않는다) */
+function scaleLot(each: bigint, yieldPm: number, rng: Rng): bigint {
+  const total = each * BigInt(Math.max(0, Math.trunc(yieldPm)));
+  const rest = Number(total % 1000n);
+  const whole = total / 1000n;
+  return rest > 0 && rng.nextInt(1000) < rest ? whole + 1n : whole;
 }
 
 /** 굴림표에서 하나(가중치 합이 0이면 첫 줄, 표가 비면 undefined) */
@@ -265,7 +286,8 @@ export function rollGatherOutputs(
     }
     const at = roll.ladder.findIndex((choices) => choices.includes(asset));
     landed[at] = (landed[at] ?? 0) + 1;
-    lots.set(asset, (lots.get(asset) ?? 0n) + each);
+    const qty = roll.yieldPm === undefined ? each : scaleLot(each, roll.yieldPm, rng);
+    if (qty > 0n) lots.set(asset, (lots.get(asset) ?? 0n) + qty);
   }
   // 사다리 밖 자산(굴림표 줄)은 사다리 차례 뒤에 처음 나온 차례로
   const ordered = new Set<string>();

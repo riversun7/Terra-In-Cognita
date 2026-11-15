@@ -99,18 +99,21 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(off?.levels[4]?.chanceBp).toBe(0);
   });
 
-  it("새 세 사다리(1차 생산 여섯 가지): 약초 = 약초원 추첨, 축산물 = 목장 선택, 어류 = 낚시터 추첨 × 성공 확률", () => {
-    // 자생초(T0, 같은 티어 셋): 새 유닛 20 → T0 700‰ ÷ 3 = 23.33%(사다리 띠 표 — 약초는 기본 표, 기획 D-540 1217 나)
-    const herb = previewGather(ctx, find("wild_herb"), pack.items, DEFAULT_PREVIEW_UNIT);
-    expect(herb).toMatchObject({
+  it("새 세 사다리(1차 생산 여섯 가지): 약초 = 약초원 선택, 축산물 = 목장 선택, 어류 = 낚시터 추첨 × 성공 확률", () => {
+    // 약초원은 건물 채집소(D-567·D-568, core@107): 레벨마다 2 × 레벨 − 1 티어 — 알로에(T1, 같은 티어 셋)는 Lv1에서만 33.33%, 자생초(T0)는 0
+    const aloe = previewGather(ctx, find("aloe"), pack.items, DEFAULT_PREVIEW_UNIT);
+    expect(aloe).toMatchObject({
       facility: "herb_field",
       primary: "int",
       secondary: "wis",
-      mode: "roll",
+      mode: "select",
       sameTier: 3,
     });
-    expect(herb?.levels[0]?.chanceBp).toBe(2333);
-    // 사슴 고기(T1): 목장 선택 — 새 유닛 해금 ⌊20 ÷ 20⌋ = T1. 목장 사다리 = 축산물 + 목축 부산물(질문 946 나, core@63)이라 T1은
+    expect(aloe?.levels.map((row) => row.chanceBp)).toEqual([3333, 0, 0, 0, 0]);
+    expect(previewGather(ctx, find("wild_herb"), pack.items, DEFAULT_PREVIEW_UNIT)?.levels[0]?.chanceBp).toBe(
+      0,
+    );
+    // 사슴 고기(T1): 목장 선택 — Lv1 = T1(D-566 1721). 목장 사다리 = 축산물 + 목축 부산물(질문 946 나, core@63)이라 T1은
     // 사슴 고기·사슴 가죽·사슴뿔 셋 → 33.33%, 생고기(T0)는 0
     const venison = previewGather(ctx, find("venison"), pack.items, DEFAULT_PREVIEW_UNIT);
     expect(venison).toMatchObject({
@@ -118,7 +121,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       primary: "wis",
       secondary: "agi",
       mode: "select",
-      unitTier: 1,
+      unitTier: null,
       sameTier: 3,
     });
     expect(venison?.levels[0]?.chanceBp).toBe(3333);
@@ -175,35 +178,41 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     });
   });
 
-  it("농장은 선택 + 효율(49 P8): VIT 10 + INT 10 = 20 → 해금 T1, T1 작물 셋(감자·배추·당근)이 나눠 나온다(레벨 보너스 없음)", () => {
+  it("농장은 건물 채집소(D-566 1721): 레벨마다 2 × 레벨 − 1 티어 — 감자(T1, 작물 셋)는 Lv1에서만, 옥수수(T4)는 사다리 T5가 없으면 Lv3에서", () => {
     const potato = find("potato");
     const shown = previewGather(ctx, potato, pack.items, DEFAULT_PREVIEW_UNIT);
     expect(shown).toMatchObject({
       facility: "farm",
       mode: "select",
-      unitTier: 1,
+      unitTier: null,
       levelBonus: 0,
       tier: 1,
       sameTier: 3,
     });
-    expect(shown?.levels.map((row) => [row.band, row.chanceBp])).toEqual(
-      Array.from({ length: 5 }, () => [-1, 3333]),
-    );
+    expect(shown?.levels.map((row) => [row.band, row.chanceBp])).toEqual([
+      [-1, 3333],
+      [-1, 0],
+      [-1, 0],
+      [-1, 0],
+      [-1, 0],
+    ]);
     expect(shown?.work).toMatchObject({
       yieldPerStatPm: 80,
       yieldCap: 8,
       unitYield: 1,
       requiredProgress: 60,
     });
-    // 옛 예시 VIT 60 + INT 20 = 80 → T4: T4 작물(옥수수·아스파라거스·셀러리)을 고르고 감자는 나오지 않는다
+    // T5 작물(대두·올리브·참깨)이 있어 옥수수(T4)는 어느 레벨에서도 기르지 않는다(Lv2 = T3, Lv3 = T5)
     const strong = {
       ...DEFAULT_PREVIEW_UNIT,
       primaries: { ...DEFAULT_PREVIEW_UNIT.primaries, vit: 60, int: 20 },
     };
-    expect(previewGather(ctx, potato, pack.items, strong)?.levels[0]?.chanceBp).toBe(0);
     const high = previewGather(ctx, find("corn"), pack.items, strong);
-    expect(high).toMatchObject({ unitTier: 4, tier: 4, sameTier: 3 });
-    expect(high?.levels[0]?.chanceBp).toBe(3333);
+    expect(high).toMatchObject({ tier: 4, sameTier: 3 });
+    expect(high?.levels.map((row) => row.chanceBp)).toEqual([0, 0, 0, 0, 0]);
+    expect(
+      previewGather(ctx, find("soybean"), pack.items, strong)?.levels.map((row) => row.chanceBp),
+    ).toEqual([0, 0, 3333, 0, 0]);
     expect(high?.work).toMatchObject({ unitProgress: 3, unitYield: 2 });
   });
 

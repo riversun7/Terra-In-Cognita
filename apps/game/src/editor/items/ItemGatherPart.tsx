@@ -37,10 +37,13 @@ export function GatherPart({ gather, locale }: { gather: ItemGatherPreview; loca
       {select ? (
         <>
           <p className="field-hint" data-part="gather-select">
-            {m.dev_items_gather_select({ stats, stat: gather.unitStat, tier: gather.unitTier ?? 0 })}
+            {m.dev_items_gather_select({ stats, stat: gather.unitStat })}
           </p>
           <p className="field-hint" data-part="chance">
-            {m.dev_items_gather_select_chance({ chance: bpText(gather.levels[0]?.chanceBp ?? 0) })}
+            {m.dev_items_gather_select_chance({
+              // 레벨마다 기르는 티어가 달라 몫도 레벨마다(D-566 1721)
+              chance: gather.levels.map((row) => `Lv${row.level} ${bpText(row.chanceBp)}`).join(" · "),
+            })}
           </p>
         </>
       ) : (

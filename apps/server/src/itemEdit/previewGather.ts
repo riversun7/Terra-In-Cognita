@@ -1,7 +1,8 @@
 // 아이템 편집기 미리 보기 — 채집 티어 추첨(D-506, 49 N43, docs/adr/2026-10-31-economy-core.md "바뀜 (300~302)")과
 // 옛 1차 생산 규칙(D-507, 49 N32·N44·P8, 같은 ADR "바뀜 (옛 1차 생산 규칙)").
 // 초안이 켜진 채집 시설(팩 facilities gather)의 사다리(같은 중분류)에 있으면: 기준 유닛의 primary + secondary, 시설 Lv1~5의 유효 스탯
-// (+ 실효 레벨 보너스 N43), 한 번 캘 때 이 아이템이 나올 확률(만분율). 선택 방식(농장·목장)이면 해금 티어에서 고른다(레벨 보너스 없음).
+// (+ 실효 레벨 보너스 N43), 한 번 캘 때 이 아이템이 나올 확률(만분율). 선택 방식(건물 채집소 — 농장·목장·약초원)이면 레벨마다 그 레벨의 최고
+// 티어(2 × 레벨 − 1, 기획 D-566 1721·D-568)에서 고른다(레벨 보너스 없음 — 스탯은 수확 효율·작업량).
 // 진행 속도·수확량·이 티어 한 번의 필요 진행과 시간, 스탯 표. 셈은 시뮬과 같은 @terra/sim 함수.
 // 사다리 = 그 세계 실효 아이템(초안이 같은 ID를 대신한다) 가운데 켜진 같은 중분류(시설이 함께 내는 중분류 포함, 질문 946 나). 확률표는 팩 gather_tiers(세계 덮어쓰기 없음).
 import type { FacilityEntry } from "@terra/content";
@@ -9,7 +10,7 @@ import type { ItemGatherPreview, ItemGatherWork, ItemPreviewUnit } from "@terra/
 import {
   GATHER_TIERS,
   type GatherBand,
-  accessibleTier,
+  buildingGatherTier,
   gatherBandIndex,
   gatherChancesPm,
   gatherProgress,
@@ -131,18 +132,19 @@ export function previewGather(
   const secondary = unit.primaries[gather.secondary];
   const unitStat = primary + secondary;
   const mode = gather.mode ?? "roll";
-  // 선택 방식: 해금 티어에서 켜진 아이템이 있는 가장 높은 티어가 이 아이템 티어면 그 티어 몫(같은 티어 여럿이면 나눔)
-  const unitTier = mode === "select" ? accessibleTier(primary, secondary) : null;
-  const selectBp = (): number => {
-    if (unitTier === null || !draft.enabled || sameTier === 0) return 0;
-    // pickGatherItem과 같은 규칙: 해금 티어부터 내려가며 켜진 아이템이 있는 첫 티어
+  // 선택 방식(건물 채집소): 그 레벨의 최고 티어부터 내려가며 켜진 아이템이 있는 첫 티어가 이 아이템 티어면 그 티어 몫(같은 티어 여럿이면 나눔)
+  const unitTier = null;
+  const selectBp = (level: number): number => {
+    if (!draft.enabled || sameTier === 0) return 0;
+    // pickGatherItem과 같은 규칙
     let landedTier = -1;
-    for (let t = unitTier; t >= 0 && landedTier < 0; t--) if ((ladder[t]?.length ?? 0) > 0) landedTier = t;
+    for (let t = buildingGatherTier(level); t >= 0 && landedTier < 0; t--)
+      if ((ladder[t]?.length ?? 0) > 0) landedTier = t;
     return landedTier === tier ? Math.floor(10_000 / sameTier) : 0;
   };
   const catchPm = gather.catch ? gatherCatchPm(unitStat, gather.catch) : 1000;
   const levels = LEVELS.map((level) => {
-    if (mode === "select") return { level, stat: unitStat, band: -1, chanceBp: selectBp() };
+    if (mode === "select") return { level, stat: unitStat, band: -1, chanceBp: selectBp(level) };
     const stat = gatherStat(unitStat, level, ctx.levelBonus);
     const { tierPm } = gatherChancesPm(bands, stat, ladder);
     // 성공 확률(낚시터 gather.catch): 성공한 시도만 티어를 뽑는다 → 그 티어 확률 × 성공 ‰

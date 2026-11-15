@@ -121,6 +121,12 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "gatherTierProgressStep",
   "gatherTickMs",
   "gatherOreGrams",
+  // 건물 채집소 효율·면적 모듈(D-566 1721·D-567): 채집 정산(labor/gatherWork.ts)·모듈 붙이기(facilities/plots.ts)·채집소 판·사이보그 판마다 읽는다
+  "buildingGather.statPerTier",
+  "buildingGather.shortStepPm",
+  "buildingGather.floorPm",
+  "buildingGather.plotAreaPm",
+  "buildingGather.plotSlotsPerLevel",
   // 컨디션(관리 보너스, D-534, labor/condition.ts): 채집 정산·유닛 화면마다 읽는다. 휴먼·크리쳐 초기 합 상한(N9): 인큐베이터·유전자 합성·크리쳐 편집기
   "condition.cap",
   "condition.housingMatch",

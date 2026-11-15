@@ -655,10 +655,17 @@ export interface RosterGather {
   /** 유효 스탯이 든 구간의 시작과 다음 구간 시작(마지막이면 null) */
   readonly bandFrom: number;
   readonly bandNext: number | null;
-  /** T0~T9 확률(‰, 합 1000). select는 해금 티어 한 칸 1000 */
+  /** T0~T9 확률(‰, 합 1000). select는 기르는 티어 한 칸 1000 */
   readonly tierPm: readonly number[];
-  /** 해금 티어(⌊(주 + 보조, 컨디션 반씩) ÷ 20⌋, 최대 9) */
+  /** 건물 채집소(select)가 기르는 티어 = 그 레벨의 최고 티어(2 × 레벨 − 1, 기획 D-566 1721). select가 아니면 쓰지 않는다 */
   readonly selectTier: number;
+  /**
+   * 건물 채집소 수확 배율(‰ — 권장 스탯 미달 효율 × 면적 모듈, D-566 1721·D-567)과 그 티어의 권장 스탯 합(20 × 티어)·셈한 면적 모듈 수.
+   * select만, 옛 서버면 없음
+   */
+  readonly yieldPm?: number | undefined;
+  readonly recommendedStat?: number | undefined;
+  readonly plots?: number | undefined;
   /** 진행 속도(틱마다)·한 번 캘 때 개수 */
   readonly progress: number;
   readonly yieldPerLot: number;

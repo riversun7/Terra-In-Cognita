@@ -1,5 +1,7 @@
 // 1차 생산 여섯 가지(docs/adr/2026-11-11-production-six.md, 사용자 2026-11-11 "낚시 채집 등 6가지 전부에 적용") — 새 셋(약초원·목장·낚시터)이
-// 앞 셋과 같은 규칙 함수로 돈다: 약초원 = 추첨(INT + WIS), 목장 = 선택 + 효율(WIS + AGI, 해금 티어), 낚시터 = 성공 확률 뒤 추첨(AGI + DEX).
+// 앞 셋과 같은 규칙 함수로 돈다: 약초원 = 추첨(INT + WIS), 목장 = 선택 + 효율(WIS + AGI), 낚시터 = 성공 확률 뒤 추첨(AGI + DEX).
+// 바뀜 (기획 D-566 1721·D-567): 선택 방식(건물 채집소)은 건물 레벨의 최고 티어를 기르고 권장 스탯 미달이면 수확 효율이 준다. 이 시험 목록의
+// 약초원은 옛 추첨 칸 그대로다(팩 core@107은 약초원도 선택 방식).
 import { describe, expect, it } from "vitest";
 import { type CatalogGather, type EconomyCatalog, prepareCatalog } from "./catalog.ts";
 import { workerEffects } from "./economy.ts";
@@ -98,7 +100,7 @@ const SIX_CATALOG: EconomyCatalog = {
 };
 
 /** 농업 나라 도시에 새 세 시설을 더한 시나리오(일꾼 스탯은 주·보조 같은 값) */
-function scenarioWith(stat: number | undefined): Scenario {
+function scenarioWith(stat: number | undefined, ranchLevel = 1): Scenario {
   const stats = stat === undefined ? {} : { primaryStat: stat, secondaryStat: stat };
   return parseScenario({
     ...TEST_ECONOMY_SCENARIO_RAW,
@@ -109,7 +111,7 @@ function scenarioWith(stat: number | undefined): Scenario {
             cityPlan: [
               ...faction.cityPlan,
               { facility: "herb_field", recipe: "gather_herbs", level: 1, workers: 2, ...stats },
-              { facility: "ranch", recipe: "raise_livestock", level: 1, workers: 2, ...stats },
+              { facility: "ranch", recipe: "raise_livestock", level: ranchLevel, workers: 2, ...stats },
               { facility: "fishing_spot", recipe: "catch_fish", level: 1, workers: 2, ...stats },
             ],
           }
@@ -147,24 +149,25 @@ describe("1차 생산 여섯 가지: 약초원·목장·낚시터", () => {
   });
 
   it("일꾼 효과는 앞 셋과 같은 식: 유효 스탯 = 주 + 보조, 진행 = ⌊주 ÷ 20⌋, 수확량 = 시설 칸", () => {
-    // 약초원(옛 1·0.10·8): INT 60·WIS 45 → 유효 105, 진행 3, 한 번에 1 + 4 = 5개
+    // 약초원(옛 1·0.10·8, 추첨 칸): INT 60·WIS 45 → 유효 105, 진행 3, 한 번에 1 + 4 = 5개(선택 티어는 레벨 1 = T1, 쓰지 않음)
     expect(workerEffects(HERB, { level: 1, primaryStat: 60, secondaryStat: 45 }, settings)).toEqual({
       gatherStat: 105,
-      selectTier: 5,
+      selectTier: 1,
       progress: 3,
       yieldPerLot: 5,
     });
-    // 목장(옛 1·0.08·6): WIS 50·AGI 100 → 해금 ⌊150 ÷ 20⌋ = T7, 수확량 1 + 8 = 9 → 상한 6
-    expect(workerEffects(RANCH, { level: 1, primaryStat: 50, secondaryStat: 100 }, settings)).toEqual({
-      gatherStat: 150,
+    // 목장(옛 1·0.08·6): 레벨 4 → T7(D-566 1721), WIS 50·AGI 100 = 합 150 ≥ 권장 140 → 효율 1000‰, 수확량 1 + 8 = 9 → 상한 6
+    expect(workerEffects(RANCH, { level: 4, primaryStat: 50, secondaryStat: 100 }, settings)).toEqual({
+      gatherStat: 180,
       selectTier: 7,
+      yieldPm: 1000,
       progress: 2,
       yieldPerLot: 6,
     });
     // 낚시터(옛 1·0.10·5, 성공률 0.30 + 0.50 × min(1, 합 ÷ 200), 상한 0.80): AGI 30·DEX 30 → 300 + ⌊500 × 60 ÷ 200⌋ = 450‰
     expect(workerEffects(FISHING, { level: 1, primaryStat: 30, secondaryStat: 30 }, settings)).toEqual({
       gatherStat: 60,
-      selectTier: 3,
+      selectTier: 1,
       progress: 1,
       yieldPerLot: 4,
       catchPm: 450,
@@ -188,7 +191,7 @@ describe("1차 생산 여섯 가지: 약초원·목장·낚시터", () => {
     // 새 유닛(스탯 10·10 = 유효 20): 약초 T0가 가장 많고 T3까지 나온다
     expect(qty("wild_herb")).toBeGreaterThan(qty("aloe"));
     expect(qty("wild_herb") + qty("aloe") + qty("lavender") + qty("angelica_root")).toBeGreaterThan(0n);
-    // 목장 선택: 해금 ⌊20 ÷ 20⌋ = T1 → 사슴 고기만(T0 생고기·T2 양고기는 나오지 않는다)
+    // 목장 선택: 레벨 1 = T1(D-566 1721) → 사슴 고기만(T0 생고기·T2 양고기는 나오지 않는다)
     expect(qty("venison")).toBeGreaterThan(0n);
     expect(qty("raw_meat")).toBe(0n);
     expect(qty("mutton")).toBe(0n);
@@ -198,11 +201,15 @@ describe("1차 생산 여섯 가지: 약초원·목장·낚시터", () => {
     expect(fish).toBeLessThan(qty("wild_herb") + qty("aloe") + qty("lavender") + qty("angelica_root"));
   });
 
-  it("목장은 스탯이 오르면 더 높은 티어를 기른다(해금 티어): 스탯 20·20 → T2 양고기", () => {
-    const summary = runSimulation({ scenario: scenarioWith(20), catalog: SIX_CATALOG, seed: 7, days: 5 });
-    const produced = summary.economy?.produced ?? {};
-    expect(BigInt(produced["item:mutton"] ?? "0")).toBeGreaterThan(0n);
-    expect(BigInt(produced["item:venison"] ?? "0")).toBe(0n);
+  it("목장은 건물 레벨의 최고 티어를 기른다(D-566 1721): 레벨 2 = T3 → 사다리에 없어 T2 양고기, 스탯이 모자라면 덜 거둔다", () => {
+    const full = runSimulation({ scenario: scenarioWith(40, 2), catalog: SIX_CATALOG, seed: 7, days: 5 });
+    const low = runSimulation({ scenario: scenarioWith(10, 2), catalog: SIX_CATALOG, seed: 7, days: 5 });
+    const mutton = (summary: typeof full) => BigInt(summary.economy?.produced["item:mutton"] ?? "0");
+    expect(mutton(full)).toBeGreaterThan(0n);
+    expect(BigInt(full.economy?.produced["item:venison"] ?? "0")).toBe(0n);
+    // 스탯 10·10 = 합 20, 권장 60 → 효율 max(300, 1000 − 25 × 40) = 300‰: 같은 티어를 기르되 덜 거둔다
+    expect(mutton(low)).toBeGreaterThan(0n);
+    expect(mutton(low)).toBeLessThan(mutton(full));
   });
 
   it("같은 시드면 같은 결과(결정적)", () => {

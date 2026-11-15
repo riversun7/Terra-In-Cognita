@@ -11,6 +11,7 @@
 //   잇지 않는다). 34의 새 코드 insufficient_funds(주인 꺼내기 값)는 더 낮은 판에 insufficient_materials로 간다.
 // - 지분 주문(프로토콜 38, docs/adr/2026-11-15-building-screen.md)도 여기서 받는다. 운영자 모드 연결(전체 보기 + 모든 유닛 명령 권한)의 관리 명령은
 //   남의 사업장에도 된다(사용자 요청 2026-11-15 "운영자도 조작가능").
+// - 면적 모듈 붙이기(facility_plot, 프로토콜 41 — 건물 채집소, 기획 D-567): plots.ts. 새 코드 plot_full은 이 메시지의 답에만 간다.
 import {
   BUSINESS_PROTOCOL_VERSION,
   type ClientMessageOf,
@@ -49,6 +50,7 @@ export type FacilityClientMessage = ClientMessageOf<
   | "dev_facility_finish"
   | "storage_move"
   | "facility_attack"
+  | "facility_plot"
 >;
 
 const MAX_PENDING = 8;
@@ -195,6 +197,8 @@ function run(
       });
     case "facility_upgrade":
       return service.upgrade(userId, message.buildingId, message.unitIds ?? [], operator);
+    case "facility_plot":
+      return service.plot(userId, message.buildingId, operator);
     case "facility_repair":
       return service.repair(
         userId,

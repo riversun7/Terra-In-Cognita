@@ -53,18 +53,18 @@ test.describe("개발자: 예상 확률 탭", () => {
     await expect(cell(page, 30, 50).locator(".pd-expect-stat")).toHaveText("186~246");
     await expect(topTier(page, 30, 50)).not.toHaveText("0");
     await expect(cell(page, 30, 50)).toHaveAttribute("data-top", "true");
-    // 선택 방식(농장·목장) 해금 티어도 컨디션을 받는다(D-535 1154 나): 15·15 Lv20 T3~T4 → +40이면 T5~T6
+    // 건물 채집소(D-566 1721): 시설 Lv1 = T1(권장 20) — 15·15 Lv20은 넉넉해 효율 100%
     await expect(page.getByTestId("expect-select-30-20")).toHaveText(
-      message("ko", "dev_prod_expect_select", { min: 5, max: 6 }),
+      message("ko", "dev_prod_expect_select_one", { tier: 1, pct: "100%" }),
     );
     // 시설 레벨 5: 레벨당 +5(D-535 1155 나) → +20 더 — 컨디션 상한 +40보다 작다
     await page.getByTestId("expect-facility").fill("5");
     await expect(page.getByTestId("expect-facility-value")).toHaveText("Lv5");
     await expect(cell(page, 30, 50).locator(".pd-expect-stat")).toHaveText("206~266");
     await expect(cell(page, 30, 1).locator(".pd-expect-stat")).toHaveText("90");
-    // 시설 레벨은 해금 티어를 올리지 않는다
+    // 시설 Lv5 = T9(권장 180): 15·15 Lv20(+40)은 합이 모자라 효율 바닥 30%
     await expect(page.getByTestId("expect-select-30-20")).toHaveText(
-      message("ko", "dev_prod_expect_select", { min: 5, max: 6 }),
+      message("ko", "dev_prod_expect_select_one", { tier: 9, pct: "30%" }),
     );
     // 컨디션 −40: 0 아래로 가지 않는다(레벨 1의 20·20 = 20, 컨디션은 20까지만 깎고 + 레벨 보너스 20)
     await page.getByTestId("expect-condition").fill("-40");

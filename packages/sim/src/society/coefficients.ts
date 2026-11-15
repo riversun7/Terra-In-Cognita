@@ -18,6 +18,7 @@ import { type RestorationCoefficients, START_RESTORATION_COEFFICIENTS } from "./
 import { OLD_TEMPLE_COEFFICIENTS, type TempleCoefficients } from "./temple.ts";
 import { START_WAR_COEFFICIENTS, type WarCoefficients } from "./warOutcomes.ts";
 import { START_WORLD_SEED, type WorldSeedCoefficients } from "./worldSeed.ts";
+import { type BuildingGatherRules, DEFAULT_BUILDING_GATHER } from "@terra/shared/gatherMath";
 import { type GatherObjectCoefficients, START_GATHER_OBJECTS } from "./gatherObjects.ts";
 import { type LogisticsCoefficients, START_LOGISTICS } from "./logisticsCoefficients.ts";
 import { type BoatCoefficients, START_BOATS } from "./boatCoefficients.ts";
@@ -114,6 +115,11 @@ export interface SocietyCoefficients {
   readonly worldSeed: WorldSeedCoefficients;
   /** 2차맵 원자재 오브젝트 채집(팩 tuning 경로 "gatherObjects.*", 모두 [임시]). docs/adr/2026-11-07-gather-objects.md. 시뮬은 읽지 않는다 */
   readonly gatherObjects: GatherObjectCoefficients;
+  /**
+   * 건물 채집소(농장·목장·약초원, 팩 tuning 경로 "buildingGather.*" [임시], 기획 D-566 1721·D-567): 권장 스탯 미달 효율·면적 모듈.
+   * @terra/shared/gatherMath BuildingGatherRules
+   */
+  readonly buildingGather: BuildingGatherRules;
   /**
    * 숙소 회복·채집소 옮김(팩 tuning 경로 "logistics.*", 모두 [임시], 질문 1047 다·1050 가 — D-533). 셈은 logistics.ts.
    * docs/adr/2026-11-11-city-building-layout.md "바뀜 (2026-11-12)"
@@ -459,6 +465,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   war: { ...START_WAR_COEFFICIENTS },
   worldSeed: { ...START_WORLD_SEED },
   gatherObjects: { ...START_GATHER_OBJECTS },
+  buildingGather: { ...DEFAULT_BUILDING_GATHER },
   logistics: { ...START_LOGISTICS },
   boats: { ...START_BOATS },
   business: { ...START_BUSINESS },

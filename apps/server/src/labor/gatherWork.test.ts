@@ -157,16 +157,31 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
       yieldPerStatPm: 80,
       yieldCap: 6,
     };
-    // WIS 30 + AGI 30 = 60 → 해금 T3, 사다리는 T2까지 → 양고기(T2, 필요 진행 90). WIS 30 → 진행 1, AGI 30 → 1 + 2 = 3개
+    // 건물 채집소(D-566 1721): 레벨 2 = T3, 사다리는 T2까지 → 양고기(T2, 필요 진행 90). WIS 30 + AGI 30 = 60 ≥ 권장 60 → 효율 1000‰.
+    // WIS 30 → 진행 1, AGI 30 → 1 + 2 = 3개
     const meat = gatherLots({ points: 0, seq: 0 }, 90, {
       unitId: 22,
-      site: site(ranch, ladderOf({ 0: ["item:raw_meat"], 2: ["item:mutton"] })),
+      site: { ...site(ranch, ladderOf({ 0: ["item:raw_meat"], 2: ["item:mutton"] })), level: 2 },
       primaries: stats,
       settings,
       cycleMs: CYCLE_MS,
     });
     expect(meat.lots).toBe(1);
     expect(meat.outputs).toEqual([{ asset: "item:mutton", qty: 3n }]);
+    // 레벨 3(T5, 권장 100)이면 합 60 → 효율 max(300, 1000 − 25 × 40) = 300‰, 면적 모듈 셋(+200‰씩) → 300 × 1600 ÷ 1000 = 480‰:
+    // 사다리가 T2까지라 같은 양고기 묶음이 3 × 0.48 = 1.44개 꼴(묶음마다 1 또는 2)
+    const low = gatherLots({ points: 0, seq: 0 }, 9000, {
+      unitId: 23,
+      site: { ...site(ranch, ladderOf({ 2: ["item:mutton"] })), level: 3, plots: 3 },
+      primaries: stats,
+      settings,
+      cycleMs: CYCLE_MS,
+    });
+    expect(low.lots).toBe(100);
+    const qty = Number(low.outputs[0]?.qty ?? 0n);
+    expect(qty).toBeGreaterThanOrEqual(100);
+    expect(qty).toBeLessThanOrEqual(200);
+    expect(Math.abs(qty - 144)).toBeLessThan(25);
   });
 
   it("낚시터(성공 확률 뒤 추첨 AGI + DEX): 실패한 시도는 시간만 들고 아무것도 내지 않는다", () => {

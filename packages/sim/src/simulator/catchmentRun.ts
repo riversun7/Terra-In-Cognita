@@ -62,6 +62,10 @@ export interface CatchmentGeometry {
    * 칸의 낚시터 물 종류와 땅 여부(기획 D-542 질문 1365 나, @terra/shared/fishWater fishWaterCellOf). 없으면 물 종류를 모른다(모든 물 묶음)
    */
   fishWaterOf?(cell: number): FishWaterCell;
+  /**
+   * 칸의 바이옴 ID(기획 D-566 1722 — 지형별 특수 자리가 NPC 채집 묶음에 드는지). 없으면 바이옴을 모른다(자리를 넣지 않는다 — 시뮬 평면)
+   */
+  biomeOf?(cell: number): string | undefined;
 }
 
 /** 배후지 셈에 쓰는 설정 칸 값(부를 때마다 읽는다 — 서버는 설정 칸을 바꾸면 다음 하루부터) */
@@ -153,22 +157,58 @@ function cityFishWater(state: CatchmentState, cityId: number, city: CityCatchmen
 
 /**
  * NPC 채집 시설이 선 배후지 자리(기획 D-562 1562 — @terra/shared/npcGatherTiers npcTierRollOf가 받는 모양): 광석 시설이면 배후지 광석의
- * 산지 몫, 어류 시설이면 낚시터 물 종류. 배후지가 없거나 아직 하루 끝 전이면 빈 자리(산지로 셈·물 종류 모름 — 모든 물 묶음)
+ * 산지 몫, 어류 시설이면 낚시터 물 종류, 어류 밖 시설은 배후지 칸 바이옴(D-566 1722 — 기하가 바이옴을 알 때만). 배후지가 없거나 아직 하루 끝 전이면 빈 자리(산지로 셈·물 종류 모름 — 모든 물 묶음)
  */
 export function catchmentPlaceOf(
   state: CatchmentState | undefined,
   cityId: number,
   facility: string,
-): { highOrePm?: number; water?: FishWater } {
+): { highOrePm?: number; water?: FishWater; biomes?: ReadonlySet<string> } {
   const city = state?.cities.get(cityId);
   if (!state || !city) return {};
   const material = materialOfFacility(facility);
-  if (material === "ore") return { highOrePm: city.highOrePm };
   if (material === "fish") {
     const water = cityFishWater(state, cityId, city);
     return water === undefined ? {} : { water };
   }
-  return {};
+  // 지형별 특수 자리(D-566 1722): 배후지 칸 바이옴(모르면 넣지 않는다)
+  const biomes = cityBiomes(state, cityId, city);
+  return {
+    ...(material === "ore" ? { highOrePm: city.highOrePm } : {}),
+    ...(biomes ? { biomes } : {}),
+  };
+}
+
+/** 도시 → 배후지 바이옴 묶음(반경이 바뀌면 다시 센다 — 칸 바이옴은 정해져 있다) */
+const biomeCache = new WeakMap<
+  CatchmentState,
+  Map<number, { radiusMilli: number; biomes: ReadonlySet<string> | undefined }>
+>();
+
+/** 그 도시 배후지 칸들의 바이옴(기하가 바이옴을 모르면 undefined) */
+function cityBiomes(
+  state: CatchmentState,
+  cityId: number,
+  city: CityCatchment,
+): ReadonlySet<string> | undefined {
+  const biomeOf = state.geometry.biomeOf?.bind(state.geometry);
+  if (!biomeOf) return undefined;
+  let cache = biomeCache.get(state);
+  if (!cache) {
+    cache = new Map();
+    biomeCache.set(state, cache);
+  }
+  let known = cache.get(cityId);
+  if (!known || known.radiusMilli !== city.radiusMilli) {
+    const biomes = new Set<string>();
+    for (const cell of state.geometry.cellsOf(cityId, city.radiusMilli)) {
+      const biome = biomeOf(cell);
+      if (biome !== undefined) biomes.add(biome);
+    }
+    known = { radiusMilli: city.radiusMilli, biomes };
+    cache.set(cityId, known);
+  }
+  return known.biomes;
 }
 
 /** 경제 자료 가운데 배후지 하루가 읽는 것(Economy의 일부 — 순환 import를 피한다) */

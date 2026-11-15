@@ -78,7 +78,7 @@ export interface WorldFacilities {
   unitPlace(unitId: number):
     | {
         readonly cityId: number | null;
-        readonly workplace?: { readonly facility: string; readonly level: number };
+        readonly workplace?: { readonly facility: string; readonly level: number; readonly plots?: number };
       }
     | undefined;
   /** 플레이어 일꾼 쉼터를 잇는다(채집 세계가 세계 준비 뒤 labor/workerRest.ts로 만든다 — D-535 1152 나) */
@@ -173,6 +173,8 @@ export function gatherSiteOf(
     lotSize: catalog.lotSize,
     cityId: record.cityId ?? buildingPlace(service.places, buildingId)?.cityId ?? null,
     slots: Math.max(0, record.level) * Math.max(0, def.slotsPerLevel),
+    // 면적 모듈(건물 채집소, D-567)
+    plots: record.plots ?? 0,
   };
 }
 
@@ -452,7 +454,11 @@ export function createWorldFacilities(input: {
       const buildingId = labor?.assignedTo(unitId);
       const record = buildingId === undefined ? undefined : service.facilities.get(buildingId);
       return record && record.level >= 1
-        ? { cityId, workplace: { facility: record.facilityId, level: record.level } }
+        ? {
+            cityId,
+            // 면적 모듈(건물 채집소, D-567)
+            workplace: { facility: record.facilityId, level: record.level, plots: record.plots ?? 0 },
+          }
         : { cityId };
     },
     attachRest(read) {

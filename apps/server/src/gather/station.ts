@@ -7,7 +7,10 @@
 //   D-507 등)은 그대로다.
 // - 1차 생산 여섯 가지가 모두 땅에 묶인 자리를 맡는다(docs/adr/2026-11-11-city-catchment.md): 팩 core@66부터 농장·목장·낚시터도 밭·목초지·
 //   물터(gather_objects source plot)를 맡아 "objects" 채집소다 — 반경 안 자리 번수가 일꾼 묶음 상한이다(다른 채집소·다른 도시와 같은 칸을
-//   다툰다). "facility" 채집소는 맡는 오브젝트 종류가 없는 채집 시설(지금 팩에는 없다 — 덮어쓰기·시험 팩)에 남는다.
+//   다툰다). "facility" 채집소는 맡는 오브젝트 종류가 없는 채집 시설(덮어쓰기·시험 팩)에 남는다.
+// - 바뀜 (기획 D-567 "허브약초원 농장 목장은 건물 채집소로 하자"): 선택 방식(gather mode "select" — 농장·목장·약초원)은 건물 안에서 기르는
+//   "facility" 채집소다. 2차맵 오브젝트(밭·목초지·약초 덤불·야생 곡물 등)를 쓰지 않고(반경 안 번수 상한 없음), 산출은 건물 레벨 최고 티어 ×
+//   일꾼 효율 × 면적 모듈(labor/gatherWork.ts). 야생 약초·야생 곡물 오브젝트는 직접 채집용으로 남는다(D-552).
 // - 일꾼(직무 배치·노동 계약, 같은 2차맵 522 ①)은 소유 주체 정산(labor/workBook.ts goodsFor → 이 고리)에서 묶음마다 반경 안 오브젝트 번수를
 //   하나씩 쓴다(objects 채집소만, 가까운 것부터, 질문 664 ②). 남은 번수가 없으면 그 묶음을 끝내지 못하고 진행은 묶음 하나 몫까지만 쌓인다. 레벨
 //   수확 버프를 곱하고(‰ 나머지는 결정적 굴림), 산출은 채집소 창고(그 건물 창고, 상한 = 팩 storageKg × 레벨)로 간다. 창고가 가득이면 묶음을
@@ -48,7 +51,7 @@ import type { ObjectStore } from "./state.ts";
 export interface StationSite {
   readonly buildingId: number;
   readonly facilityId: string;
-  /** objects = 반경 안 오브젝트를 쓰는 채집소, facility = 맡는 오브젝트가 없는 채집 시설(농장 등 — 창고·수확·피로 버프만, 756 ②) */
+  /** objects = 반경 안 오브젝트를 쓰는 채집소, facility = 건물 채집소(농장·목장·약초원, D-567)·맡는 오브젝트가 없는 채집 시설(창고·수확·피로 버프만, 756 ②) */
   readonly kind: "objects" | "facility";
   readonly level: number;
   readonly maxLevel: number;
@@ -205,10 +208,12 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     if (!world || !record || !def?.gather) return undefined;
     const cell = buildingCell(world.maps, buildingId);
     if (!cell) return undefined;
+    // 건물 채집소(선택 방식, D-567)는 오브젝트를 맡지 않는다
     const kindIndexes: number[] = [];
-    deps.kinds().forEach((kind, index) => {
-      if (kind.facility === def.id) kindIndexes.push(index);
-    });
+    if (def.gather.mode !== "select")
+      deps.kinds().forEach((kind, index) => {
+        if (kind.facility === def.id) kindIndexes.push(index);
+      });
     const level = Math.max(0, record.level);
     return {
       buildingId,

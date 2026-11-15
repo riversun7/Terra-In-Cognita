@@ -66,9 +66,20 @@ function GatherRow({ row }: { row: RosterGather }) {
         })}
       </p>
       {row.mode === "select" ? (
-        <p className="combat-line combat-result" translate="no">
-          {m.cyborg_gather_select({ tier: `T${String(row.selectTier)}` })}
-        </p>
+        <>
+          <p className="combat-line combat-result" translate="no">
+            {m.cyborg_gather_select({ tier: `T${String(row.selectTier)}`, level: row.level ?? 1 })}
+          </p>
+          {row.yieldPm === undefined ? null : (
+            <p className="combat-line" translate="no" data-part="gather-efficiency">
+              {m.cyborg_gather_efficiency({
+                recommended: formatNumber(row.recommendedStat ?? 0),
+                pct: pctText(row.yieldPm),
+                plots: row.plots ?? 0,
+              })}
+            </p>
+          )}
+        </>
       ) : (
         <>
           <p className="combat-line combat-result" translate="no">

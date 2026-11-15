@@ -1,7 +1,9 @@
 // 원자재 오브젝트 한 번에서 나오는 아이템 고르기 — 기획 D-540 1222(다 + 나), D-552(docs/adr/2026-11-15-gather-object-tiers.md).
 // - 오브젝트 = 원자재 종류(대표 아이템 item의 중분류 사다리 — 맡는 시설 사다리에 들면 그 사다리) + 양 + 티어 범위(tierRange, 없으면 대표 아이템
 //   티어 하나). 한 번 캘 때 채집 확률표(표 하나)와 캐는 유닛의 유효 스탯(주 + 보조 + 맡는 시설 반경 안이면 레벨 보너스, @terra/sim gatherStat)으로
-//   티어를 뽑고(맡는 시설이 선택 방식이면 해금 티어) 범위로 자른 뒤, 그 티어에 대표 아이템이 있으면 대표 아이템, 아니면 그 티어 아이템 하나.
+//   티어를 뽑고 범위로 자른 뒤, 그 티어에 대표 아이템이 있으면 대표 아이템, 아니면 그 티어 아이템 하나. 바뀜 (기획 D-567): 맡는 시설이 건물
+//   채집소(선택 방식 — 농장·목장·약초원)여도 오브젝트는 직접 채집용이라 늘 확률표로 뽑는다(옛 해금 티어 고르기 없음 — 건물 채집소는 오브젝트를
+//   쓰지 않는다, gather/station.ts).
 // - 굴림표(table, 난파선·고래 무리): 가중치(‰)로 하나를 뽑는다.
 // - 직접 채집(objectYieldItem)과 채집소 일꾼(gather/station.ts lotRoll → labor/gatherWork.ts)이 같은 규칙(objectRollOf)과 같은 함수
 //   (@terra/sim rollGatherOutputs)를 쓴다(D-552 "직접 채집과 일꾼 채집이 같은 규칙").
@@ -9,7 +11,7 @@
 // 난수는 (유닛, 오브젝트, 차례)로 정한 시드 하나(서버 권위, 같은 입력이면 같은 결과). 정수 연산만 쓴다.
 import { createRng } from "@terra/shared";
 import { GATHER_TIERS, gatherSubcategories } from "@terra/shared/gatherMath";
-import { accessibleTier, gatherStat, mix32, rollGatherOutputs } from "@terra/sim";
+import { gatherStat, mix32, rollGatherOutputs } from "@terra/sim";
 import type { GatherBand, GatherSubcategorySource } from "@terra/sim";
 import type { LotRoll } from "../labor/gatherWork.ts";
 import type { GatherKind } from "./kinds.ts";
@@ -43,10 +45,8 @@ export interface ObjectYieldInput {
   readonly levelBonus: number;
 }
 
-/** 오브젝트 규칙(굴림 입력) + 맡는 시설이 선택 방식인가 */
-export interface ObjectRoll extends LotRoll {
-  readonly select: boolean;
-}
+/** 오브젝트 규칙(굴림 입력) */
+export type ObjectRoll = LotRoll;
 
 /** 시드(유닛·오브젝트·차례만으로) */
 function yieldSeed(input: ObjectYieldInput): number {
@@ -95,7 +95,6 @@ export function objectRollOf(
     prefer,
     ...(weights ? { weights } : {}),
     ...(table ? { table } : {}),
-    select: gather?.mode === "select",
   };
 }
 
@@ -115,7 +114,6 @@ export function objectYieldItem(
       stat: gatherStat(primary + secondary, Math.max(1, input.level), input.levelBonus),
       lots: 1,
       lotSize: new Map(),
-      selectTier: roll.select ? accessibleTier(primary, secondary) : undefined,
       tierRange: roll.tierRange,
       prefer: roll.prefer,
       weights: roll.weights,

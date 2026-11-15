@@ -126,16 +126,20 @@ describe("오브젝트 규칙(기획 D-552)", () => {
     expect(Math.abs((got.get("loach") ?? 0) - 2800)).toBeLessThan(150);
   });
 
-  it("선택 방식 시설(농장)이 맡으면 해금 티어를 범위로 자른다(기획 D-552 질문 1565)", () => {
-    // 합 40 → 해금 T2, 범위 T0~T1 → 감자
-    expect(
-      objectYieldItem(
+  it("선택 방식 시설(농장)이 맡아도 직접 채집은 확률표로 뽑아 범위로 자른다(기획 D-567 — 건물 채집소는 오브젝트를 쓰지 않는다)", () => {
+    const got = new Map<string, number>();
+    for (let seq = 0; seq < 2000; seq++) {
+      const item = objectYieldItem(
         { item: "barley", facility: "farm", tierRange: { min: 0, max: 1 } },
         catalog,
-        input(1, 20, 20),
-      ),
-    ).toBe("potato");
-    // 범위가 없으면 보리(대표 티어)
+        { ...input(1, 20, 20), seq },
+      );
+      got.set(item, (got.get(item) ?? 0) + 1);
+    }
+    // 합 40 구간 T0 650 · T1 220 · T2 100 · T3 30 → T1 위는 T1(감자)로 접힌다
+    expect([...got.keys()].toSorted()).toEqual(["barley", "potato"]);
+    expect(Math.abs((got.get("barley") ?? 0) - 1300)).toBeLessThan(120);
+    // 범위가 없으면 보리(대표 티어 하나)
     expect(objectYieldItem({ item: "barley", facility: "farm" }, catalog, input(1, 20, 20))).toBe("barley");
   });
 
@@ -143,8 +147,6 @@ describe("오브젝트 규칙(기획 D-552)", () => {
     const roll = objectRollOf(fish("carp", { min: 0, max: 2 }), catalog);
     expect(roll.tierRange).toEqual({ min: 0, max: 2 });
     expect(roll.prefer).toBe("item:carp");
-    expect(roll.select).toBe(false);
     expect(roll.ladder).toBe(FISH_LADDER);
-    expect(objectRollOf({ item: "barley", facility: "farm" }, catalog).select).toBe(true);
   });
 });

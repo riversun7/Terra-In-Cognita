@@ -21,6 +21,10 @@ export interface FacilityRecord {
    * 상한 = 주거 그대로). 없으면 false(지은 시설)
    */
   seeded?: boolean | undefined;
+  /**
+   * 붙은 면적 모듈 수(건물 채집소 — 농장·목장·약초원, 기획 D-567 "모듈을 추가하여 건물의 목장이나 밭 등의 면적을 넓힌다"). 없으면 0
+   */
+  plots?: number | undefined;
 }
 
 export const JOB_KINDS = ["build", "upgrade", "repair", "beacon_repair", "equipment"] as const;
@@ -84,7 +88,7 @@ const numOrNull = (value: unknown): number | null => (value === null ? null : Nu
 
 export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities> {
   const facilities = await pool.query(
-    `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id, seeded
+    `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id, seeded, plots
      from world_facilities order by building_id`,
   );
   const jobs = await pool.query(
@@ -106,6 +110,7 @@ export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities>
       builtBy: typeof row.built_by === "string" ? row.built_by : null,
       cityId: numOrNull(row.city_id),
       ...(row.seeded === true ? { seeded: true } : {}),
+      ...(Number(row.plots ?? 0) > 0 ? { plots: Number(row.plots) } : {}),
     })),
     jobs: jobs.rows.flatMap((row) => {
       const kind: unknown = row.kind;
@@ -142,6 +147,7 @@ export const facilityRow = (record: FacilityRecord) => ({
   built_by: record.builtBy,
   city_id: record.cityId,
   seeded: record.seeded === true,
+  plots: Math.max(0, Math.trunc(record.plots ?? 0)),
 });
 
 export const jobRow = (job: JobRecord) => ({

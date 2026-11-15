@@ -50,16 +50,18 @@ describe("줄·칸·K 점", () => {
   });
 });
 
-describe("선택 방식 해금 티어·시설 레벨 보너스(D-535 1154·1155 나)", () => {
-  it("농장·목장 해금 티어도 컨디션을 받는다(두 스탯에 반씩 → 합 +컨디션 ÷ 20 티어)", () => {
-    const plain = expectedGatherCell(30, 50, BASE);
-    const managed = expectedGatherCell(30, 50, { ...BASE, condition: 40 });
-    expect([plain.selectMin, plain.selectMax]).toEqual([7, 9]);
-    expect([managed.selectMin, managed.selectMax]).toEqual([9, 9]);
-    expect(expectedGatherCell(30, 1, { ...BASE, condition: -40 })).toMatchObject({
-      selectMin: 0,
-      selectMax: 0,
-    });
+describe("건물 채집소 티어·효율(D-566 1721)·시설 레벨 보너스(D-535 1154·1155 나)", () => {
+  it("기르는 티어 = 시설 레벨 최고 티어, 효율은 컨디션을 받는다(두 스탯에 반씩)", () => {
+    const lv1 = expectedGatherCell(30, 1, BASE);
+    expect(lv1).toMatchObject({ selectTier: 1, selectEffMinPm: 1000, selectEffMaxPm: 1000 });
+    // 시설 Lv5 = T9(권장 180), 15·15 만렙 50은 K에 따라 합이 모자라 효율이 깎인다 — 컨디션 +40이면 덜 깎인다
+    const plain = expectedGatherCell(30, 50, { ...BASE, facilityLevel: 5 });
+    const managed = expectedGatherCell(30, 50, { ...BASE, facilityLevel: 5, condition: 40 });
+    expect(plain.selectTier).toBe(9);
+    expect(plain.selectEffMinPm).toBeLessThan(plain.selectEffMaxPm);
+    expect(managed.selectEffMinPm).toBeGreaterThan(plain.selectEffMinPm);
+    // 레벨 1 유닛은 바닥 300‰
+    expect(expectedGatherCell(30, 1, { ...BASE, facilityLevel: 5 }).selectEffMaxPm).toBe(300);
   });
 
   it("시설 Lv5(레벨당 5 → +20)는 컨디션 +40보다 작다 — 관리가 시설 레벨보다 크다", () => {
@@ -67,7 +69,6 @@ describe("선택 방식 해금 티어·시설 레벨 보너스(D-535 1154·1155 
     const managed = expectedGatherCell(36, 60, { ...BASE, condition: 40 });
     expect(managed.statMin - facility.statMin).toBe(20);
     expect(managed.averageTierMilli).toBeGreaterThan(facility.averageTierMilli);
-    expect(facility.selectMin).toBe(expectedGatherCell(36, 60, BASE).selectMin);
   });
 });
 

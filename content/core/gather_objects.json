@@ -109,8 +109,8 @@
       "id": "crop_field",
       "name": { "ko": "밭", "en": "Crop field" },
       "description": {
-        "ko": "풀·흙 땅에 일군 밭. 농장 일꾼만 거둔다(직접 캐지 못함). 기온·강수가 농사지을 만한 땅에만 선다.",
-        "en": "A field on grass or soil. Only farm workers harvest it (no direct gathering). Appears only where the climate allows farming."
+        "ko": "풀·흙 땅에 일군 밭 자리. 기온·강수가 농사지을 만한 땅에만 선다. 농장은 건물 안 밭에서 기르므로(모듈로 넓힘) 이 자리를 캐지 않는다(직접 캐지 못함).",
+        "en": "A field spot on grass or soil, only where the climate allows farming. Farms grow crops inside the building (widened with modules), so nobody harvests this spot (no direct gathering)."
       },
       "source": "plot",
       "surfaces": ["grass", "dirt", "mud"],
@@ -131,8 +131,8 @@
       "id": "pasture",
       "name": { "ko": "목초지", "en": "Pasture" },
       "description": {
-        "ko": "가축을 먹이는 풀밭. 목장 일꾼만 쓴다(직접 캐지 못함). 기온·강수가 농사지을 만한 땅에만 선다.",
-        "en": "Grazing grassland. Only ranch workers use it (no direct gathering). Appears only where the climate allows farming."
+        "ko": "가축을 먹이는 풀밭 자리. 기온·강수가 농사지을 만한 땅에만 선다. 목장은 건물 안 목장에서 기르므로(모듈로 넓힘) 이 자리를 쓰지 않는다(직접 캐지 못함).",
+        "en": "A grazing spot, only where the climate allows farming. Ranches raise animals inside the building (widened with modules), so nobody uses this spot (no direct gathering)."
       },
       "source": "plot",
       "surfaces": ["grass"],

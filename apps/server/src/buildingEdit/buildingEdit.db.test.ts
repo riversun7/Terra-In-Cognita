@@ -352,7 +352,12 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 편집기 (DB)", () => {
       mode: "roll",
       group: "building",
     });
-    expect(typeOf(before, "herb_field")).toMatchObject({ primary: "int", secondary: "wis", group: "field" });
+    // 약초원은 건물 채집소(D-567, core@107)
+    expect(typeOf(before, "herb_field")).toMatchObject({
+      primary: "int",
+      secondary: "wis",
+      group: "building",
+    });
     expect(arr(before.classes)).toHaveLength(36);
 
     // 약초원 스탯 짝을 WIS + INT로 뒤집고, 워리어 이름을 고친다

@@ -22,6 +22,8 @@ export function npcObjectSourcesOf(kinds: readonly GatherKind[]): NpcObjectSourc
     ...(kind.source === "school" && kind.biomes
       ? { biomes: [...kind.biomes].map(([biome, amount]) => ({ biome, amount })) }
       : {}),
+    // 지형별 특수 자리의 바이옴(기획 D-566 1722 — 배후지에 그 바이옴 칸이 있는 NPC 도시만 묶음에 넣는다)
+    ...(kind.source === "site" && kind.biomes ? { siteBiomes: [...kind.biomes.keys()] } : {}),
   }));
 }
 

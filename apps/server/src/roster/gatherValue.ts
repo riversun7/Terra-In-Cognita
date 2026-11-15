@@ -26,6 +26,8 @@ export interface GatherValueInput {
   /** 아이템 시세(최소 단위)와 거래소 체결가인가 */
   readonly priceOf: (item: string) => { readonly price: bigint; readonly market: boolean };
   readonly yieldPerLot: number;
+  /** 한 번 개수에 곱하는 배율(‰ — 건물 채집소 효율 × 면적, 기획 D-566 1721·D-567). 없으면 1000 */
+  readonly yieldPm?: number | undefined;
   /** 진행 속도(틱마다) */
   readonly progress: number;
   /** 한 번 시도의 성공 ‰(없으면 늘 성공) */
@@ -102,7 +104,12 @@ export function gatherValuePerHour(input: GatherValueInput): GatherValue {
   const speed = BigInt(Math.max(0, Math.trunc(input.progress)));
   if (totalPm === 0n || speed === 0n) return { perHour: 0n, market };
   // 한 번 시도: 금액(× 10⁹) = 성공 ‰ × Σ (티어 ‰ × 시세 × 1000) × 개수, 진행(× 10⁶) = 성공 ‰ × Σ 티어 ‰ × 필요 + 실패 ‰ × 1000 × T0 필요
-  const amount = catchPm * valueMilli * BigInt(Math.max(0, Math.trunc(input.yieldPerLot)));
+  const amount =
+    (catchPm *
+      valueMilli *
+      BigInt(Math.max(0, Math.trunc(input.yieldPerLot))) *
+      BigInt(Math.max(0, Math.trunc(input.yieldPm ?? 1000)))) /
+    1000n;
   const work = catchPm * workPm + (1000n - catchPm) * totalPm * BigInt(need(0, base, step));
   // 시간(ms) = 진행 × 틱 ÷ 속도 → 시간당 = (금액 ÷ 10⁹) × 1시간 × 속도 ÷ ((진행 ÷ 10⁶) × 틱)
   const tick = BigInt(Math.max(1, Math.trunc(input.tickMs)));

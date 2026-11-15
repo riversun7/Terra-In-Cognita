@@ -19,7 +19,9 @@ import {
   GATHER_TIERS,
   type GatherBand,
   type GatherSubcategorySource,
-  accessibleTier,
+  DEFAULT_BUILDING_GATHER,
+  buildingGatherTier,
+  buildingYieldPm,
   gatherBandIndex,
   gatherCatchPm,
   gatherChancesPm,
@@ -268,8 +270,10 @@ export interface TypePreview {
   readonly stat: number;
   /** 유효 스탯이 든 구간 번호(선택 방식은 쓰지 않아 -1) */
   readonly bandIndex: number;
-  /** 선택 방식의 해금 티어(추첨이면 null) */
+  /** 선택 방식(건물 채집소)이 기르는 티어 = 그 레벨 최고 티어(D-566 1721, 추첨이면 null) */
   readonly selectTier: number | null;
+  /** 건물 채집소 수확 배율(‰ — 권장 스탯 미달 효율, 면적 모듈 없음 기준. 추첨이면 null) */
+  readonly yieldPm: number | null;
   /** 한 번 시도에서 그 티어 아이템이 나올 확률(‰, 성공 확률을 곱한 값) */
   readonly tierPm: readonly number[];
   /** 아무것도 나오지 않을 확률(‰: 실패 + 빈 사다리) */
@@ -304,9 +308,12 @@ export function typePreview(input: TypePreviewInput): TypePreview {
   let tierPm = Array.from({ length: GATHER_TIERS }, () => 0);
   let emptyPm = 0;
   let selectTier: number | null = null;
+  let yieldPm: number | null = null;
   let bandIndex = -1;
   if (select) {
-    selectTier = accessibleTier(primary, secondary);
+    // 건물 채집소(D-566 1721·D-568): 레벨 최고 티어, 스탯은 수확 효율
+    selectTier = buildingGatherTier(Math.max(1, input.level));
+    yieldPm = buildingYieldPm(primary + secondary, selectTier, 0, rules.building ?? DEFAULT_BUILDING_GATHER);
     let landed = -1;
     for (let tier = selectTier; tier >= 0; tier--)
       if ((input.ladderCounts[tier] ?? 0) > 0) {
@@ -339,7 +346,10 @@ export function typePreview(input: TypePreviewInput): TypePreview {
   });
   expectedMs /= Math.max(1, progress);
   const landedPm = 1000 - emptyPm;
-  const perHour = expectedMs <= 0 ? 0 : (3_600_000 / expectedMs) * (landedPm / 1000) * yieldPerLot;
+  const perHour =
+    expectedMs <= 0
+      ? 0
+      : (3_600_000 / expectedMs) * (landedPm / 1000) * yieldPerLot * ((yieldPm ?? 1000) / 1000);
   let topTier: number | null = null;
   tierPm.forEach((pm, tier) => {
     if (pm > 0 && (topTier === null || pm > (tierPm[topTier] ?? 0))) topTier = tier;
@@ -348,6 +358,7 @@ export function typePreview(input: TypePreviewInput): TypePreview {
     stat,
     bandIndex,
     selectTier,
+    yieldPm,
     tierPm,
     emptyPm,
     catchPm,

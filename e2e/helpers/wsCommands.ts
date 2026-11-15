@@ -13,7 +13,7 @@ const ASSET_CREDIT = "s3_test_credit";
 
 /**
  * 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들(result, 2차맵 사이 이동은 travel_result,
- * 구인 고용은 recruit_result, 건물은 facility_result, 배는 boat_result, 채집은 gather_result, 영토 비콘은 beacon_result)
+ * 구인 고용은 recruit_result, 건물은 facility_result, 배는 boat_result, 채집은 gather_result, 영토 비콘은 beacon_result, 가문 창설은 house_result)
  * 운영자 빠르기(기획 D-560 1246~1248, apps/server/src/world/operatorPace.ts): 전체 보기 구독(observe) 다음에는 운영자 배율 100(operator_pace)을
  * 함께 보낸다(그 답은 결과 목록에 넣지 않는다) — 배율 기본이 1이 된 뒤에도 시험은 운영자 빠르기로 유닛을 옮긴다. 운영자 모드는 연결이 끊기면 풀리고
  * 가는 길의 빠르기도 1로 돌아가므로, 전체 보기로 구독한 연결은 닫지 않고 다음 sendCommands·페이지 이동 때까지 열어 둔다(그동안 받는 메시지는 버린다)
@@ -66,6 +66,7 @@ export async function sendCommands(
               "boat_result",
               "gather_result",
               "beacon_result",
+              "house_result",
             ].includes(String(Reflect.get(reply, "t"))) &&
             Reflect.get(reply, "id") === id,
         );
@@ -164,12 +165,59 @@ export async function grantCredit(page: Page, loginId: string, amount: number): 
   return BigInt(String(pick(granted, "balance")));
 }
 
+/** 대문자 글자 n개(가문 이름·약어 — 사람 이름 규칙에 숫자를 쓰지 않는다) */
+function letters(n: number): string {
+  return Array.from({ length: n }, () => String.fromCodePoint(65 + Math.floor(Math.random() * 26))).join("");
+}
+
+/**
+ * 이 계정에 가문이 없으면 만든다(기획 D-565 — 유닛을 고용하려면 가문이 있어야 한다). 실제 길: 정체성 저장(tRPC factionIdentity.save, 무작위
+ * 시험 이름·약어 — 겹치면 다시) → 가문 창설(WebSocket house_found, 무료). 이미 가문원이거나 창설했으면 아무것도 하지 않는다.
+ * 저장한 정체성이 있으면 그것으로 창설한다. /health로 옮겨 보내므로 부른 뒤 화면을 다시 연다
+ */
+export async function ensureHouse(page: Page): Promise<void> {
+  await page.goto("/health");
+  const view = await trpc(page, "factionIdentity.house", undefined);
+  if (pick(view, "house") !== null) return;
+  const mine = await trpc(page, "factionIdentity.mine", undefined);
+  if (pick(mine, "identity") === null) {
+    let saved = false;
+    for (let attempt = 0; attempt < 5 && !saved; attempt += 1) {
+      try {
+        await trpc(
+          page,
+          "factionIdentity.save",
+          {
+            name: `Testhouse${letters(4)}`,
+            shortName: letters(3),
+            color: "#16a085",
+            emblem: { shape: "shield", division: "pale", charge: "tree", scheme: 1 },
+            upload: { mode: "none" },
+          },
+          true,
+        );
+        saved = true;
+      } catch {
+        // 이름·약어가 겹쳤다 — 다른 글자로 다시
+      }
+    }
+    if (!saved) throw new Error("house identity could not be saved");
+  }
+  const [reply] = await sendCommands(
+    page,
+    [{ t: "house_found", cost: "0" }],
+    9500 + Math.floor(Math.random() * 400),
+  );
+  if (pick(reply, "ok") !== true) throw new Error(`house_found failed: ${JSON.stringify(reply)}`);
+}
+
 /**
  * 구인 카드로 휴먼 하나를 고용한다(실제 플레이어 길, recruit_hire). 그 2차맵(없으면 내 사이보그가 선 2차맵)에 있는 도시의 정부기관에서 가장 싼
- * 남은 카드를 산다 — 휴먼은 그 도시 둘레에 선다. 잔고가 모자라면 실패한다(먼저 grantCredit). 고용한 유닛 ID.
- * /health로 옮겨 보내므로 부른 뒤 화면을 다시 연다
+ * 남은 카드를 산다 — 휴먼은 그 도시 둘레에 선다. 잔고가 모자라면 실패한다(먼저 grantCredit). 가문이 없으면 먼저 만든다(ensureHouse, D-565).
+ * 고용한 유닛 ID. /health로 옮겨 보내므로 부른 뒤 화면을 다시 연다
  */
 export async function hireHuman(page: Page, mapKey?: number): Promise<number> {
+  await ensureHouse(page);
   await page.goto("/health");
   const target = mapKey ?? (await cyborgMapKey(page));
   const cities = pick(await trpc(page, "world.cities", undefined), "cities");

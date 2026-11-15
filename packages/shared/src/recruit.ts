@@ -52,6 +52,8 @@ export interface RecruitBoardResponse {
   readonly balance: string;
   /** 사이보그가 있는가(고용한 휴먼의 소유자 = 사이보그, D-469. 없으면 고용할 수 없다) */
   readonly hasCyborg: boolean;
+  /** 가문에 들어 있나(D-565 — 유닛을 고용하려면 가문이 있어야 한다). 옛 서버는 보내지 않는다(없으면 막지 않은 것으로 본다) */
+  readonly hasHouse?: boolean | undefined;
   /** dev·admin만: 그 도시 주인(NPC 세력)이 지금 창에 보는 카드와 산 칸. 아니면 null */
   readonly owner: { readonly cards: readonly RecruitCardView[] } | null;
   readonly generatedAt: number;

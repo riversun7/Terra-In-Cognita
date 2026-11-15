@@ -14,13 +14,7 @@ const k = (id: string, code: string, path: string, ko: string, en: string): Tuni
 });
 
 export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
-  k(
-    "house_found_cost",
-    "",
-    "house.foundCost",
-    "가문 창설 비용(최소 단위)",
-    "House founding cost (minor units)",
-  ),
+  // 가문 창설 비용 칸(house_found_cost)은 지웠다 — 창설은 무료(기획 D-565, 팩 core@106)
   k("s20_short_min", "S20", "house.shortMin", "세력 약어 최소 글자 수", "Faction tag minimum length"),
   k("s20_short_max", "S20", "house.shortMax", "세력 약어 최대 글자 수", "Faction tag maximum length"),
   k(
@@ -89,4 +83,12 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "House village founding cost (minor units)",
   ),
   k("house_village_housing", "", "house.villageHousing", "가문 새 마을 주거 수", "House new village housing"),
+  // 가문 소속 도시 바꾸기 대기(기획 D-565, 질문 1741) — 49에 칸이 없다
+  k(
+    "house_home_wait_ms",
+    "",
+    "house.homeWaitMs",
+    "가문 소속 도시 바꾸기 대기(ms)",
+    "House home city change wait (ms)",
+  ),
 ];

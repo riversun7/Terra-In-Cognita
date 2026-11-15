@@ -21,6 +21,7 @@ import { silentLog } from "../world/testSupport.ts";
 import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { type World, type WorldConfig, startWorld } from "../world/world.ts";
+import { giveTestHouse } from "../factionIdentity/testHouses.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source) throw new Error("content pack");
@@ -111,6 +112,8 @@ async function withHuman(world: World, name: string, credit: bigint) {
       { account: persistence.ledger.ownerAccount(ownerId, ASSET_CREDIT), amount: credit },
     ],
   });
+  // 유닛을 고용하려면 가문이 있어야 한다(D-565)
+  await giveTestHouse(test.db.$client, userId, persistence);
   const board = persistence.recruits.board({ id: userId, owner: false }, undefined, clock);
   if (!board || board.cityId === null) throw new Error("no board");
   const card = board.cards.toSorted((a, b) => Number(BigInt(a.cost) - BigInt(b.cost)))[0];

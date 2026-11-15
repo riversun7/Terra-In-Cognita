@@ -1,9 +1,9 @@
 // 플레이어 가문 저장·읽기(질문 926 나·930 나, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 926~935 답)"). SQL만 둔다.
-// - 창설(foundHouse): 정체성 줄(faction_identities, 아직 가문 없음) 하나에서 세력 행(factions kind = player, born_of = 창설자 나라)·세력
-//   정체성(faction_profiles source = player)·가문장 줄(house_members)을 만들고 정체성 줄에 가문을 잇는다. 한 문장(데이터를 바꾸는 CTE)이라
+// - 창설(foundHouse): 정체성 줄(faction_identities, 아직 가문 없음) 하나에서 세력 행(factions kind = player, born_of = 가문 나라 — 소속 도시의
+//   나라, D-565)·세력 정체성(faction_profiles source = player)·가문장 줄(house_members)·소속 도시 줄(house_homes)을 만들고 정체성 줄에 가문을 잇는다. 한 문장(데이터를 바꾸는 CTE)이라
 //   하나라도 실패하면(약어 겹침 등) 아무것도 남지 않는다. 같은 줄을 두 번 창설하지 않는다(faction_id is null 조건 + 줄 잠금).
-// - 창설한 가문은 소유 주체(world_owners)를 만들지 않는다: 국고·도시가 없고, 나라 소속(faction_members·cyborgs.faction_id)은 그대로라 같은
-//   나라 시야 공유(D-250)·화폐(따르는 나라)가 바뀌지 않는다. 도시를 얻으며 봉신·독립을 고르면 그때 주체를 만든다(houseCity.ts, 질문 1005 가).
+// - 창설한 가문은 소유 주체(world_owners)를 만들지 않는다: 국고·도시가 없고, 창설자 시민권(faction_members·cyborgs.faction_id)은 그대로다.
+//   같은 나라 시야 공유(D-250)는 가문원이면 가문 나라(소속 도시의 나라)를 따른다(world/houseTies.ts, D-565). 도시를 얻으며 봉신·독립을 고르면 그때 주체를 만든다(houseCity.ts, 질문 1005 가).
 // - 신고(reportHouse): 계정마다 가문 하나에 한 줄, 하루(24시간) 횟수는 설정 칸으로 센다.
 import type { FactionReportStatus } from "@terra/shared/factionIdentity";
 import type { IdentityQueryable } from "./store.ts";
@@ -20,7 +20,7 @@ export const REPORT_WINDOW_MS = 24 * 60 * 60 * 1000;
  */
 export async function foundHouse(
   pool: IdentityQueryable,
-  input: { userId: string; nationId: number | null; nowMs: number },
+  input: { userId: string; nationId: number | null; homeCityId?: number | null | undefined; nowMs: number },
 ): Promise<number | null> {
   const { rows } = await pool.query<{ id: string }>(
     `with ident as (
@@ -41,28 +41,36 @@ export async function foundHouse(
      linked as (
        update faction_identities i set faction_id = created.id, founded_at_ms = $3
          from created where i.user_id = $1 returning i.faction_id
+     ),
+     homed as (
+       insert into house_homes (faction_id, city_id, set_at_ms)
+       select created.id, $4::bigint, $3 from created where $4::bigint is not null returning faction_id
      )
      select created.id from created, profile, member, linked`,
-    [input.userId, input.nationId, input.nowMs],
+    [input.userId, input.nationId, input.nowMs, input.homeCityId ?? null],
   );
   const row = rows[0];
   return row ? Number(row.id) : null;
 }
 
-/** 창설하지 않은 정체성 줄과 그 창설자의 나라(사이보그 시민권) — 서버를 켤 때 옛 정체성을 가문으로 옮긴다. 다른 가문의 가문원은 뺀다 */
+/** 창설하지 않은 정체성 줄과 그 창설자의 나라(사이보그 시민권)·내 도시 — 서버를 켤 때 옛 정체성을 가문으로 옮긴다. 다른 가문의 가문원은 뺀다 */
 export async function unfoundedIdentities(
   pool: IdentityQueryable,
-): Promise<{ userId: string; nationId: number }[]> {
-  const { rows } = await pool.query<{ user_id: string; faction_id: string }>(
-    `select i.user_id, c.faction_id from faction_identities i join cyborgs c on c.user_id = i.user_id
+): Promise<{ userId: string; nationId: number; cityId: number }[]> {
+  const { rows } = await pool.query<{ user_id: string; faction_id: string; start_city_id: string }>(
+    `select i.user_id, c.faction_id, c.start_city_id from faction_identities i join cyborgs c on c.user_id = i.user_id
       where i.faction_id is null
         and not exists (select 1 from house_members m where m.user_id = i.user_id)
       order by i.created_at_ms`,
   );
-  return rows.map((row) => ({ userId: row.user_id, nationId: Number(row.faction_id) }));
+  return rows.map((row) => ({
+    userId: row.user_id,
+    nationId: Number(row.faction_id),
+    cityId: Number(row.start_city_id),
+  }));
 }
 
-/** 가문 나라(창설할 때 창설자 나라) */
+/** 가문 나라(소속 도시의 나라 — D-565) */
 export async function houseNation(pool: IdentityQueryable, factionId: number): Promise<number | null> {
   const { rows } = await pool.query<{ born_of: string | null }>(
     "select born_of from factions where id = $1 and kind = 'player'",

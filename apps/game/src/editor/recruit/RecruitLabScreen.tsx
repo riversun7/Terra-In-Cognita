@@ -277,7 +277,7 @@ function RecruitLabBody({
                 </h2>
                 <ul className="rl-cards">
                   {board.cards.map((card) => {
-                    const state = hireState(card, board.balance, board.hasCyborg);
+                    const state = hireState(card, board.balance, board.hasCyborg, board.hasHouse !== false);
                     return (
                       <li key={card.slot} className="rl-card" data-state={state}>
                         <div className="rl-card-head">

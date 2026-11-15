@@ -337,7 +337,7 @@ export interface SocietyCoefficients {
   };
   /**
    * 플레이어 가문(질문 926~935 답, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 926~935 답)"). 판정 코드는 쓰지 않는다(서버만).
-   * - foundCost: 가문 창설 비용(최소 단위, 창설자 → 창설자 나라 국고 [임시], 출발값 0 — 질문 926 나).
+   * - (가문 창설은 무료 — 기획 D-565. 옛 foundCost 칸은 팩 core@106에서 지웠다)
    * - shortMin·shortMax: 새로 정하는 약어(지도 태그) 글자 수(49 S20 "태그 2~4자", D-328). 이미 정한 약어는 그대로 둔다.
    * - renameWaitMs: 이름·약어를 다시 바꾸기까지 기다리는 시간(49 S20, D-328 — 질문 932 가: 변경권 없이 대기만).
    * - reportDaily: 계정마다 하루(24시간) 신고 횟수(질문 930 나).
@@ -346,9 +346,9 @@ export interface SocietyCoefficients {
    *   사람마다 보낼 수 있는 신청 수, 초대·신청이 사라지는 시간(ms). 기획에 값이 없어 모두 [임시] 출발값이다(D-515).
    * - nameResetBlock: 운영자가 이름을 이만큼 되돌리면 그 가문의 이름·약어 바꾸기를 저절로 막는다(질문 1006 나, 0 = 끔).
    * - villageCost·villageHousing: 가문 마을 세우기(질문 1005 가, D-340) 값(최소 단위, 가문장 → 소각)·새 마을 주거 수. [임시] 출발값.
+   * - homeWaitMs: 가문장이 가문 소속 도시(D-565)를 다시 바꾸기까지 기다리는 시간(ms, 0 = 바로). [임시] 출발값 7일(질문 1741).
    */
   readonly house: {
-    readonly foundCost: number;
     readonly shortMin: number;
     readonly shortMax: number;
     readonly renameWaitMs: number;
@@ -361,6 +361,7 @@ export interface SocietyCoefficients {
     readonly nameResetBlock: number;
     readonly villageCost: number;
     readonly villageHousing: number;
+    readonly homeWaitMs: number;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -578,7 +579,6 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     naturalizeStandingDropHostile: 60,
   },
   house: {
-    foundCost: 0,
     shortMin: 2,
     shortMax: 4,
     renameWaitMs: 7 * 86_400_000,
@@ -591,6 +591,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     nameResetBlock: 3,
     villageCost: 5000,
     villageHousing: 8,
+    homeWaitMs: 7 * 86_400_000,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

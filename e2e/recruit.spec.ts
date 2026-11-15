@@ -10,6 +10,7 @@ import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
+import { ensureHouse } from "./helpers/wsCommands.ts";
 
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
@@ -46,6 +47,8 @@ test.describe("관리자", () => {
     deviceErrors,
   }) => {
     test.setTimeout(60_000);
+    // 유닛을 고용하려면 가문이 있어야 한다(D-565) — 없으면 만든다
+    await ensureHouse(page);
     await ready(page);
     const count = await cards(page).count();
     expect(count).toBeGreaterThanOrEqual(3);

@@ -1,13 +1,14 @@
-// 가문 가입·귀화 따라가기·이름 되돌리기 DB 통합 시험(질문 983 가·985 다·986 가, docs/adr/2026-11-11-faction-identity.md "바뀜 (981~986 답)").
-// 초대·신청·받기·거절·서로 맞으면 바로 듦·나가기·내보내기, 같은 나라 시민만, 상한(인원·대기·신청)·요청 유효 시간, 가문원의 유닛 한눈 정보,
-// 가문장이 귀화하면 가문이 따라가고 옛 나라 가문원은 빠짐(소식), 가문원이 귀화하면 빠짐, 서버를 켤 때 맞추기, 운영자 이름 되돌리기(감사 기록·
-// 소식·대기 없이 다시 정함), 처리할 일(초대·신청·소식).
+// 가문 가입·소속 도시·이름 되돌리기 DB 통합 시험(질문 985 다·986 가·기획 D-565, docs/adr/2026-11-11-faction-identity.md "바뀜 (981~986 답)"·
+// "바뀜 (2026-11-15, D-565)"). 초대·신청·받기·거절·서로 맞으면 바로 듦·나가기·내보내기, 나라를 가리지 않음(D-565), 상한(인원·대기·신청)·요청
+// 유효 시간, 가문원의 유닛 한눈 정보, 귀화해도 가문은 그대로(D-565), 소속 도시(창설 때 고름·가문장이 바꿈·대기·나라 자동·소식·시야 나라·구인
+// 자격), 운영자 이름 되돌리기(감사 기록·소식·대기 없이 다시 정함), 처리할 일(초대·신청·소식).
 // TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
 import { houseResetName, houseResetShort } from "@terra/shared/house";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
-import { followAllHouses, followNation } from "./follow.ts";
+import { attachHouseTies } from "../world/houseTies.ts";
 import { createHouseFounder, nationFromDb } from "./found.ts";
+import { createHouseHome } from "./houseHome.ts";
 import { createHouseInboxProviders } from "./houseInbox.ts";
 import { createHouseMembers } from "./members.ts";
 import { type HouseRules, TEST_HOUSE_RULES } from "./rules.ts";
@@ -19,7 +20,7 @@ const RELAXED = { capacity: 1000, refillPerMinute: 1000 };
 const viewer = (id: string, roles: readonly ("player" | "gm")[] = ["player"]) => ({ id, roles });
 const account = (userId: string) => ({ userId, roles: ["player" as const] });
 
-describe.skipIf(!TEST_DATABASE_URL)("가문 가입·귀화 따라가기 (DB)", () => {
+describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
   let test: TestDatabase;
   let nationA = 0;
   let nationB = 0;
@@ -70,7 +71,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·귀화 따라가기 (DB)", (
       emblem: EMBLEM,
       upload: { mode: "none" },
     });
-    const result = await createHouseFounder({ ...deps(), rules: () => rules }).found(userId, { cost: "0" });
+    const result = await createHouseFounder(deps()).found(userId, { cost: "0" });
     if (!result.ok) throw new Error(result.code);
     return result.factionId;
   };
@@ -166,7 +167,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·귀화 따라가기 (DB)", (
       emblem: EMBLEM,
       upload: { mode: "none" },
     });
-    expect(await createHouseFounder({ ...deps(), rules: () => rules }).found(sea, { cost: "0" })).toEqual({
+    expect(await createHouseFounder(deps()).found(sea, { cost: "0" })).toEqual({
       ok: false,
       code: "already_founded",
     });
@@ -178,16 +179,21 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·귀화 따라가기 (DB)", (
     expect(audit.map((row) => row.action)).toEqual(["faction.house_invite", "faction.house_join"]);
   });
 
-  it("같은 나라 시민만: 다른 나라 초대·신청은 other_nation, 없는 이름·나 자신·가문원·가문장 아님·사이보그 없음", async () => {
+  it("나라를 가리지 않는다(D-565): 다른 나라 시민도 초대·신청, 없는 이름·나 자신·가문원·가문장 아님·사이보그 없음", async () => {
     const leader = await citizen("Rivera2", nationA);
     const foreigner = await citizen("Foreign2", nationB);
     const other = await citizen("Othera2", nationA);
     const houseId = await found(leader, "강가문", "RIV");
     const otherHouse = await found(other, "들가문", "FLD");
     const service = members();
-    expect(await service.invite(leader, "Foreign2")).toEqual({ ok: false, code: "other_nation" });
-    expect(await service.apply(foreigner, houseId)).toEqual({ ok: false, code: "other_nation" });
-    expect((await view(foreigner)).joinable.map((house) => house.factionId)).not.toContain(houseId);
+    // 다른 나라 시민도 가입 목록에 보이고(내 나라 가문이 앞) 신청할 수 있다
+    expect((await view(foreigner)).joinable.map((house) => house.factionId)).toContain(houseId);
+    expect(await service.apply(foreigner, houseId)).toMatchObject({ ok: true, action: "applied" });
+    expect(await service.invite(leader, "Foreign2")).toMatchObject({ ok: true, action: "joined" });
+    // 시민권은 그대로(이중 소속)
+    expect(await rows(test.db, "select faction_id from cyborgs where user_id = $1", [foreigner])).toEqual([
+      { faction_id: String(nationB) },
+    ]);
     expect(await service.invite(leader, "Nobody99")).toEqual({ ok: false, code: "not_found" });
     expect(await service.invite(leader, "이름 틀림")).toEqual({ ok: false, code: "not_found" });
     expect(await service.invite(leader, "Rivera2")).toEqual({ ok: false, code: "self" });
@@ -315,67 +321,95 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·귀화 따라가기 (DB)", (
     expect((await identity().dismissHouseNotices(viewer(leader), {})).notices).toEqual([]);
   });
 
-  it("귀화(983 가): 가문장이 귀화하면 가문이 따라가고 옛 나라 가문원은 빠진다(소식) — 같이 옮긴 가문원은 남고, 가문원이 귀화하면 그 사람만 빠진다", async () => {
+  it("귀화해도 가문은 그대로(D-565 — 983 가를 대신함): 가문 나라는 소속 도시가 정한다", async () => {
     const leader = await citizen("Movera6", nationA);
     const houseId = await found(leader, "철새가문", "BRD");
-    const stays = await citizen("Staysa6", nationA);
-    const moves = await citizen("Movesa6", nationA);
-    const pending = await citizen("Pendinga6", nationA);
+    const member = await citizen("Movesa6", nationA);
     const service = members();
-    for (const user of [stays, moves]) {
-      await service.invite(leader, user === stays ? "Staysa6" : "Movesa6");
-      const offer = (await view(user)).offers[0]?.id ?? 0;
-      await service.answer(user, offer, true);
-    }
-    await service.invite(leader, "Pendinga6");
-    // 가문원 하나가 먼저 B로 귀화 — 아직 가문 나라는 A라 빠진다
-    await naturalize(moves, nationB);
-    expect(await followNation(deps(), moves)).toEqual({ movedTo: null, removed: [moves] });
-    expect(await noticeKinds(moves)).toEqual(["nation_left"]);
-    // 다시 넣기 위해: 가문장이 B로 귀화하기 전에 그 사람은 B 시민이라 초대할 수 없다
-    expect(await service.invite(leader, "Movesa6")).toEqual({ ok: false, code: "other_nation" });
-
+    await service.invite(leader, "Movesa6");
+    await service.answer(member, (await view(member)).offers[0]?.id ?? 0, true);
+    await naturalize(member, nationB);
     await naturalize(leader, nationB);
-    const result = await followNation(deps(), leader);
-    expect(result).toEqual({ movedTo: nationB, removed: [stays] });
     expect(await rows(test.db, "select born_of from factions where id = $1", [houseId])).toEqual([
-      { born_of: String(nationB) },
+      { born_of: String(nationA) },
     ]);
-    expect((await view(leader)).house).toMatchObject({ nationId: nationB, memberCount: 1, requests: [] });
-    const moved = (await view(leader)).notices.find((notice) => notice.kind === "house_moved");
-    expect(moved?.count).toBe(1);
-    expect(await noticeKinds(stays)).toEqual(["nation_left"]);
-    // 옛 나라 기준 초대는 지웠다
-    expect((await view(pending)).offers).toEqual([]);
-    // 이제 B 시민을 초대할 수 있다
-    expect(await service.invite(leader, "Movesa6")).toMatchObject({ ok: true, action: "invited" });
-    // 나라 소속은 사이보그 시민권 그대로(시야 공유 D-250은 그것만 본다) — 가문 처리가 바꾸지 않는다
-    expect(await rows(test.db, "select faction_id from faction_members where user_id = $1", [stays])).toEqual(
-      [{ faction_id: String(nationA) }],
-    );
-    // 여러 번 불러도 같다
-    expect(await followNation(deps(), leader)).toEqual({ movedTo: null, removed: [] });
-    const audit = await rows<{ after: unknown }>(
-      test.db,
-      "select after from audit_log where action = 'faction.house_follow' and target_id = $1",
-      [leader],
-    );
-    expect(audit).toMatchObject([{ after: { nationId: nationB, removed: [stays] } }]);
+    expect((await view(member)).house).toMatchObject({
+      factionId: houseId,
+      nationId: nationA,
+      memberCount: 2,
+    });
+    expect(await noticeKinds(member)).toEqual([]);
   });
 
-  it("서버를 켤 때 맞추기: 귀화 뒤 맞추지 못한 가문을 모두 맞춘다", async () => {
-    const leader = await citizen("Boota7", nationA);
-    const houseId = await found(leader, "부팅가문", "BOT");
-    const member = await citizen("Bootb7", nationA);
-    const service = members();
-    await service.invite(leader, "Bootb7");
-    await service.answer(member, (await view(member)).offers[0]?.id ?? 0, true);
-    await naturalize(leader, nationB);
-    expect(await followAllHouses(deps())).toBeGreaterThanOrEqual(1);
+  it("소속 도시(D-565): 창설 때 고르면 그 도시의 나라 가문, 가문장이 바꾸면 나라도 바뀜(대기·소식·감사 기록), 시야 나라·구인 자격", async () => {
+    const leader = await citizen("Homea8", nationA);
+    // 고른 도시가 없으면 unknown_city, 다른 나라 도시를 고르면 그 나라 가문(시민권과 별개)
+    await identity().save(viewer(leader), {
+      name: "집가문",
+      shortName: "HOM",
+      color: "#2980b9",
+      emblem: EMBLEM,
+      upload: { mode: "none" },
+    });
+    const founder = createHouseFounder(deps());
+    expect(await founder.found(leader, { cost: "0", cityId: 999_999 })).toEqual({
+      ok: false,
+      code: "unknown_city",
+    });
+    const made = await founder.found(leader, { cost: "0", cityId: 912 });
+    const houseId = made.ok ? made.factionId : 0;
     expect(await rows(test.db, "select born_of from factions where id = $1", [houseId])).toEqual([
       { born_of: String(nationB) },
     ]);
-    expect((await view(member)).house).toBeNull();
+    expect(
+      await rows(test.db, "select city_id, set_at_ms from house_homes where faction_id = $1", [houseId]),
+    ).toEqual([{ city_id: "912", set_at_ms: String(clock) }]);
+    const member = await citizen("Homeb8", nationA);
+    await members().invite(leader, "Homeb8");
+    await members().answer(member, (await view(member)).offers[0]?.id ?? 0, true);
+    const seen = await view(leader);
+    expect(seen.home).toMatchObject({ city: { id: 912, nationId: nationB }, locked: false });
+    expect(seen.home?.changeAt).toBe(clock + rules.homeWaitMs);
+    expect(seen.home?.choices.map((city) => city.id)).toEqual(expect.arrayContaining([911, 912]));
+    // 가문원은 후보를 받지 않는다. 무소속은 내 도시
+    expect((await view(member)).home?.choices).toEqual([]);
+    const loner = await citizen("Homec8", nationA);
+    expect((await view(loner)).home).toMatchObject({ city: { id: 911, nationId: nationA }, choices: [] });
+
+    // 시야 나라·구인 자격(메모리 표): 가문원 = 가문 나라(B), 무소속은 표에 없다(시민권 A를 쓴다)
+    const ties = attachHouseTies({}, test.db.$client);
+    await ties.reload();
+    expect(ties.memberNationOf(member)).toBe(nationB);
+    expect(ties.houseOfUser(member)).toBe(houseId);
+    expect(ties.houseOfUser(loner)).toBeUndefined();
+
+    const home = createHouseHome({ ...deps(), rules: () => rules });
+    expect(await home.set(member, 911)).toEqual({ ok: false, code: "not_leader" });
+    expect(await home.set(loner, 911)).toEqual({ ok: false, code: "not_in_house" });
+    expect(await home.set(leader, 912)).toEqual({ ok: false, code: "same_city" });
+    expect(await home.set(leader, 999_999)).toEqual({ ok: false, code: "unknown_city" });
+    expect(await home.set(leader, 911)).toEqual({ ok: false, code: "home_wait" });
+    clock += rules.homeWaitMs;
+    expect(await home.set(leader, 911)).toEqual({ ok: true, action: "home_set", factionId: houseId });
+    expect(await rows(test.db, "select born_of from factions where id = $1", [houseId])).toEqual([
+      { born_of: String(nationA) },
+    ]);
+    expect(await noticeKinds(member)).toEqual(["home_changed"]);
+    await ties.reload();
+    expect(ties.memberNationOf(member)).toBe(nationA);
+    const audit = await rows<{ after: unknown }>(
+      test.db,
+      "select after from audit_log where action = 'faction.house_home' and target_id = $1",
+      [leader],
+    );
+    expect(audit).toMatchObject([
+      { after: { factionId: houseId, beforeCity: 912, city: 911, nation: nationA } },
+    ]);
+    // 도시를 가진 가문(소유 주체가 있음)은 아직 바꾸지 못한다
+    clock += rules.homeWaitMs;
+    await sql("insert into world_owners (id, faction_id, settled_at_ms) values (99001, $1, 0)", [houseId]);
+    expect(await home.set(leader, 912)).toEqual({ ok: false, code: "has_city" });
+    expect((await view(leader)).home?.locked).toBe(true);
   });
 
   it('운영자 이름 되돌리기(986 가): "가문 #ID"·세력 정체성도·신고 지움·주인에게 사유 소식·대기 없이 다시 정함·감사 기록', async () => {

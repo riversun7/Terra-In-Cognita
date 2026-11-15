@@ -13,6 +13,7 @@ import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
+import { ensureHouse } from "./helpers/wsCommands.ts";
 
 test.beforeEach(async ({ page }) => {
   await rewriteTrpc(page, { "summary.get": hideSummary });
@@ -53,6 +54,8 @@ test.describe("관리자", () => {
     deviceErrors,
   }) => {
     test.setTimeout(120_000);
+    // 유닛을 고용하려면 가문이 있어야 한다(D-565) — 없으면 만든다
+    await ensureHouse(page);
     await openFusion(page);
     const success = page.locator(".message-success");
     const grant = page.getByRole("button", { name: message("ko", "fusion_dev_materials"), exact: true });

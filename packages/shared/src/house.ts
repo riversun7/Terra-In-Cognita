@@ -1,6 +1,8 @@
-// 가문 가입·구성원 조회 모양(tRPC factionIdentity.house) — 질문 985 다(초대 + 신청, 같은 나라 시민만), 983 가(가문은 창설자를 따라 나라를
-// 옮긴다), 986 가(운영자가 신고된 이름을 "가문 #ID"로 되돌린다). docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)".
+// 가문 가입·구성원 조회 모양(tRPC factionIdentity.house) — 질문 985 다(초대 + 신청), 986 가(운영자가 신고된 이름을 "가문 #ID"로 되돌린다).
+// docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)". 기획 D-565(2026-11-15): 가문은 소속 도시를 골라 그 도시 나라의
+// 가문이 된다 — 같은 나라 시민만 든다(985 다)·귀화하면 가문이 따라간다(983 가)는 D-565가 대신한다(가문은 시작 국가와 별개, "바뀜 (D-565)").
 // 바꾸는 명령(초대·신청·받기·거절·거두기·나가기·내보내기)은 WebSocket(@terra/protocol house.ts)이다. 이 파일은 조회 모양과 공용 값만 둔다.
+import type { LocalizedName } from "./faction.ts";
 import type { NationEmblemSpec } from "./nationEmblem.ts";
 import type { RecruitCardView } from "./recruit.ts";
 
@@ -64,6 +66,7 @@ export interface HouseOfferRow {
  * - leader_given: 가문장이 나에게 가문장을 넘겼다(other = 앞 가문장, 1003 가)
  * - leader_changed: 가문장이 바뀌었다(other = 새 가문장)
  * - city_gained: 가문이 도시를 얻었다(reason = vassal | independent, 1005 가)
+ * - home_changed: 가문장이 가문 소속 도시를 바꿨다(other = 가문장, reason = 새 소속 도시 이름 — 없으면 null, D-565)
  */
 export const HOUSE_NOTICE_KINDS = [
   "invite_accepted",
@@ -78,6 +81,7 @@ export const HOUSE_NOTICE_KINDS = [
   "leader_given",
   "leader_changed",
   "city_gained",
+  "home_changed",
 ] as const;
 export type HouseNoticeKind = (typeof HOUSE_NOTICE_KINDS)[number];
 
@@ -166,6 +170,37 @@ export interface HouseRecruitView {
   readonly cities: readonly HouseRecruitCity[];
 }
 
+/** 소속 도시 한 줄(D-565): 도시와 그 도시가 속한 나라(최상위 세력 — 봉신 관계를 따라 올라간다) */
+export interface HouseHomeCity {
+  readonly id: number;
+  /** 도시 이름(아직 없으면 null — 화면이 "도시 #ID") */
+  readonly name: string | null;
+  /** 그 도시가 속한 나라(세력 행 ID) */
+  readonly nationId: number;
+  /** 나라 이름(팩 국가 프리셋·가문 정체성 이름). 모르면 null(화면이 "세력 #ID") */
+  readonly nation: LocalizedName | null;
+}
+
+/**
+ * 소속 도시 칸(D-565): 가문은 소속 도시를 골라 그 도시 나라의 가문이 된다(세금 납부·랭킹 집계). 가문 없는 사람은 "무소속"이고 소속 도시는
+ * 사이보그의 내 도시(cyborgs.start_city_id — 귀화하면 바뀐다)다.
+ */
+export interface HouseHomeView {
+  /** 지금 소속 도시(가문이면 가문 소속 도시, 무소속이면 내 도시). 모르면 null */
+  readonly city: HouseHomeCity | null;
+  /** 가문장이 소속 도시를 다시 바꿀 수 있게 되는 시각(지금 바꿀 수 있거나 가문장이 아니면 null) */
+  readonly changeAt: number | null;
+  /** 소속 도시 바꾸기 대기(ms, 설정 칸 house_home_wait_ms) */
+  readonly waitMs: number;
+  /** 도시를 가진 가문은 아직 소속 도시를 바꾸지 못한다([임시] 질문 1743) */
+  readonly locked: boolean;
+  /** 고를 수 있는 도시(가문장만 받는다 — 가문원·무소속은 빈 목록. 무소속이 가문을 만들 때는 factionIdentity.mine의 homeChoices) */
+  readonly choices: readonly HouseHomeCity[];
+}
+
+/** 소속 도시 후보 상한(나라·도시 ID 차례) */
+export const HOUSE_HOME_CHOICE_LIMIT = 300;
+
 /** factionIdentity.house 응답 */
 export interface HouseView {
   /** 내 나라(사이보그 시민권). 사이보그가 없으면 null — 가입·초대를 할 수 없다 */
@@ -184,10 +219,12 @@ export interface HouseView {
     | null;
   /** 내가 받은 초대·내가 보낸 신청(가문이 없을 때) */
   readonly offers: readonly HouseOfferRow[];
-  /** 내 나라의 가문(가문이 없을 때 — 가입 신청 대상, 인원 많은 차례, 상한 HOUSE_LIST_LIMIT) */
+  /** 가입 신청할 수 있는 가문(가문이 없을 때 — 인원 많은 차례, 상한 HOUSE_LIST_LIMIT. D-565부터 나라를 가리지 않는다) */
   readonly joinable: readonly HouseBadge[];
   readonly notices: readonly HouseNoticeRow[];
   readonly limits: HouseLimits;
+  /** 소속 도시(D-565 — 가문이면 가문 소속 도시, 없으면 무소속의 내 도시). 옛 서버는 보내지 않는다 */
+  readonly home?: HouseHomeView | undefined;
 }
 
 /** 가입 신청 목록 상한 */

@@ -1,5 +1,5 @@
 // 플레이어 가문 DB 통합 시험(질문 926~935 답, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 926~935 답)").
-// 창설(세력 행·세력 정체성·가문장 줄을 한 번만, 창설자는 나라 시민 그대로, 소유 주체 없음), 창설 비용 = 설정 칸(기기가 본 값·잔고·나라 국고),
+// 창설(세력 행·세력 정체성·가문장 줄을 한 번만, 창설자는 나라 시민 그대로, 소유 주체 없음), 창설은 무료(D-565 — 기기가 보낸 값을 보지 않는다),
 // 옛 정체성 옮기기, 약어 2~4자(새 약어만 — 옛 5자 약어는 그대로), 신고(하루 횟수·한 번만·내 가문), 마크 내리기 횟수 → 올리기 자동 막기,
 // 마크 관리 목록의 신고 수·차례·넘기기.
 // TEST_DATABASE_URL이 있을 때만. 계정·그림은 시험용 가짜 값이다.
@@ -7,7 +7,7 @@ import { FACTION_EMBLEM_UPLOAD } from "@terra/shared/factionIdentity";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { makeTestPng } from "../nationEdit/testPng.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
-import { type HouseWallet, adoptUnfoundedIdentities, createHouseFounder } from "./found.ts";
+import { adoptUnfoundedIdentities, createHouseFounder } from "./found.ts";
 import { type HouseRules, TEST_HOUSE_RULES } from "./rules.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "./services.ts";
 import { ownerIdentityOf } from "./store.ts";
@@ -54,14 +54,12 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 가문 (DB)", () => {
       }),
       { db: test.db, ip: null },
     );
-  const founder = (wallet?: HouseWallet, nationOf: (id: string) => number | undefined = () => nation) =>
+  const founder = (nationOf: (id: string) => number | undefined = () => nation) =>
     createHouseFounder({
       pool: test.db.$client,
       db: test.db,
-      rules: () => rules,
       now: () => clock,
       nationOf,
-      wallet,
     });
   /** 정체성을 저장하고 창설한다. 가문 세력 행 ID */
   const house = async (userId: string, name: string, shortName: string): Promise<number> => {
@@ -108,7 +106,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 가문 (DB)", () => {
     // 창설 전: 초안(가문 없음, 남의 한눈 정보에 보이지 않음)
     expect((await service.mine(viewer(user))).house).toBeNull();
     expect(await ownerIdentityOf(test.db.$client, user)).toBeNull();
-    expect(await founder(undefined, () => undefined).found(user, { cost: "0" })).toEqual({
+    expect(await founder(() => undefined).found(user, { cost: "0" })).toEqual({
       ok: false,
       code: "no_cyborg",
     });
@@ -159,7 +157,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 가문 (DB)", () => {
     ).toEqual([{ color: "#c0392b" }]);
   });
 
-  it("창설 비용 = 설정 칸: 기기가 본 값과 다르면 terms_changed, 잔고가 모자라면 거절, 내면 나라 국고로", async () => {
+  it("창설은 무료(D-565): 기기가 어떤 값을 보내도 낸 값 0, 조회의 창설 비용도 0", async () => {
     const user = await newUser("Fake_HouseB");
     await identity().save(viewer(user), {
       name: "바다가문",
@@ -168,37 +166,8 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 가문 (DB)", () => {
       emblem: EMBLEM,
       upload: { mode: "none" },
     });
-    rules = { ...TEST_HOUSE_RULES, foundCost: 250n };
-    try {
-      expect((await identity().mine(viewer(user))).foundCost).toBe("250");
-      expect(await founder().found(user, { cost: "0" })).toEqual({ ok: false, code: "terms_changed" });
-      expect(await founder().found(user, { cost: "250" })).toEqual({ ok: false, code: "insufficient_funds" });
-      const paid: unknown[] = [];
-      let balance = 100n;
-      const wallet: HouseWallet = {
-        balance: () => balance,
-        pay: (userId, nationId, amount) => {
-          paid.push([userId, nationId, amount]);
-          balance -= amount;
-          return true;
-        },
-        durable: () => Promise.resolve(),
-      };
-      expect(await founder(wallet).found(user, { cost: "250" })).toEqual({
-        ok: false,
-        code: "insufficient_funds",
-      });
-      // 실패한 창설은 아무것도 남기지 않는다
-      expect(await rows(test.db, "select faction_id from house_members where user_id = $1", [user])).toEqual(
-        [],
-      );
-      balance = 1000n;
-      expect(await founder(wallet).found(user, { cost: "250" })).toMatchObject({ ok: true, paid: "250" });
-      expect(paid).toEqual([[user, nation, 250n]]);
-      expect(balance).toBe(750n);
-    } finally {
-      rules = TEST_HOUSE_RULES;
-    }
+    expect((await identity().mine(viewer(user))).foundCost).toBe("0");
+    expect(await founder().found(user, { cost: "250" })).toMatchObject({ ok: true, paid: "0" });
   });
 
   it("약어: 새로 정하는 약어는 설정 칸 폭(2~4자), 이미 정한 5자 약어는 그대로 둔다", async () => {

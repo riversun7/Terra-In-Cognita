@@ -23,6 +23,7 @@ import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import type { WorldBattleInit } from "../world/battleTargets.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { GUARDIAN_DEFENSE_EFFECT, createCityDefense } from "./cityDefense.ts";
+import { giveTestHouse } from "../factionIdentity/testHouses.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source) throw new Error("content pack");
@@ -118,6 +119,8 @@ async function withHumans(world: World, name: string) {
       { account: persistence.ledger.ownerAccount(ownerId, ASSET_CREDIT), amount: credit },
     ],
   });
+  // 유닛을 고용하려면 가문이 있어야 한다(D-565)
+  await giveTestHouse(test.db.$client, userId, persistence);
   const board = persistence.recruits.board({ id: userId, owner: false }, undefined, clock);
   if (!board || board.cityId === null) throw new Error("no board");
   const units: number[] = [];

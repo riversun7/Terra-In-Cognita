@@ -4,6 +4,7 @@
 // - 도시: 기본은 내 시작 도시(서버가 고른다). 구인 도시가 여럿이면 고른다. [임시] 어느 도시에서든 고용한다(서버 규칙 그대로).
 //   2차맵 정부 판(government/GovernmentDialog.tsx, docs/adr/2026-11-07-play-flow.md "WP-NPC")은 cityId로 그 도시 카드만 보인다(고르기 없음).
 // - 카드: 토탈·스탯 묶음(STR·VIT / INT·WIS / DEX·AGI, D-448)·속성·값과 [고용]. 고용하면 건물 칸의 채집 시설 카드에서 직무 배치한다.
+// - 가문(기획 D-565): 유닛을 고용하려면 가문이 있어야 한다. 가문이 없으면 카드는 보이되 [고용]을 막고 세력 화면(가문 창설·가입)으로 안내한다.
 import type { RecruitCardView } from "@terra/shared/recruit";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
@@ -13,6 +14,7 @@ import { RECRUIT_RESULT_TEXT, sendRecruitHire } from "../recruit/recruitCommands
 import { UnitAdvice } from "../roster/UnitAdvice.tsx";
 import { RECRUIT_STAT_PAIRS, activeElements, hireState, refreshLeft } from "../recruit/recruitModel.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
+import { AppLink } from "../shell/AppLink.tsx";
 import { useCityText } from "./cityText.ts";
 import { Loaded } from "./parts.tsx";
 import { useFacilities, useLabor, useRecruitBoard } from "./queries.ts";
@@ -132,12 +134,23 @@ export function RecruitPanel({ cityId: fixedCity }: RecruitPanelProps = {}) {
                 })}
               </p>
               {loaded.hasCyborg ? null : <p className="eco-footnote">{m.dev_recruit_need_cyborg()}</p>}
+              {loaded.hasCyborg && loaded.hasHouse === false ? (
+                <p className="eco-footnote" data-part="recruit-need-house">
+                  {m.recruit_need_house()}{" "}
+                  <AppLink to={{ route: "faction" }}>{m.recruit_need_house_link()}</AppLink>
+                </p>
+              ) : null}
               {loaded.cards.length === 0 ? (
                 <p className="eco-empty">{m.recruit_no_cards()}</p>
               ) : (
                 <ul className="recruit-cards">
                   {loaded.cards.map((card) => {
-                    const state = hireState(card, loaded.balance, loaded.hasCyborg);
+                    const state = hireState(
+                      card,
+                      loaded.balance,
+                      loaded.hasCyborg,
+                      loaded.hasHouse !== false,
+                    );
                     const titleId = `recruit-card-${card.slot}`;
                     return (
                       <li

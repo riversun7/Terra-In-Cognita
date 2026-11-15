@@ -85,6 +85,7 @@ export const HOUSE_RESULT_TEXT: Readonly<Record<HouseResultCode | "offline" | "t
   terms_changed: m.fid_found_terms_changed,
   insufficient_funds: m.fid_found_insufficient,
   short_taken: m.fid_short_taken,
+  unknown_city: m.fid_home_error_unknown_city,
   offline: m.fid_found_offline,
   timeout: m.fid_found_offline,
 };

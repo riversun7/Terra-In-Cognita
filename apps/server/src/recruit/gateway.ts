@@ -3,7 +3,12 @@
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(산 칸·잔고를 차례로 본다).
 // - 사용자별 속도 제한(순간 10번, 분당 30번). 밀린 요청이 MAX_PENDING을 넘으면 busy. 세계가 아직 없으면 busy.
 // - 판정·저장은 서비스(service.ts)가 한다.
-import { type ClientMessageOf, type RecruitResultCode, encodeMessage } from "@terra/protocol";
+import {
+  type ClientMessageOf,
+  type RecruitResultCode,
+  encodeMessage,
+  legacyRecruitCode,
+} from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { RecruitHireResult, RecruitService } from "./service.ts";
@@ -16,6 +21,8 @@ const LIMIT = { capacity: 10, refillPerMinute: 30 };
 export interface RecruitLink {
   send(text: string): void;
   viewer(): Promise<Viewer | null>;
+  /** 연결이 인사한 프로토콜 판(39 아래면 no_house를 internal_error로 낮춘다 — D-565). 없으면 지금 판 */
+  readonly protocolVersion?: number | undefined;
 }
 
 export interface RecruitSocket {
@@ -27,11 +34,16 @@ export interface RecruitGateway {
   open(link: RecruitLink): RecruitSocket;
 }
 
-function resultText(id: number, result: RecruitHireResult): string {
+function resultText(id: number, result: RecruitHireResult, protocolVersion: number | undefined): string {
   return encodeMessage(
     result.ok
       ? { t: "recruit_result", id, ok: true, unitId: result.unitId }
-      : { t: "recruit_result", id, ok: false, code: result.code },
+      : {
+          t: "recruit_result",
+          id,
+          ok: false,
+          code: protocolVersion === undefined ? result.code : legacyRecruitCode(result.code, protocolVersion),
+        },
   );
 }
 
@@ -50,7 +62,7 @@ export function createRecruitGateway(options: {
       let pending = 0;
       let closed = false;
       const reply = (id: number, result: RecruitHireResult): void => {
-        if (!closed) link.send(resultText(id, result));
+        if (!closed) link.send(resultText(id, result, link.protocolVersion));
       };
 
       const process = async (message: RecruitClientMessage): Promise<void> => {

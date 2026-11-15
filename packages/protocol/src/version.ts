@@ -141,7 +141,10 @@
  * 38: 건물 화면 개편(docs/adr/2026-11-15-building-screen.md) — 생산시설 지분 주문(business.ts business_share_order·business_share_cancel →
  *    business_result, 새 코드 order_limit·unknown_order·insufficient_shares는 이 메시지의 답에만 간다, ok 답에 orderId). 더하기만 했고 37판 기기는
  *    그대로 받는다(이 메시지를 보내지 않는다).
- * 39: 같은 묶음의 다른 줄기가 받는 판(통합 세션이 차례를 맞춘다).
+ * 39: 가문 시스템 D-565(house.ts, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-15, D-565)") — 가문 창설에 소속 도시(house_found cityId, 선택 칸,
+ *    새 코드 unknown_city는 그 창설의 답에만 간다), 가문장의 소속 도시 바꾸기(house_home → house_member_result, 한 일 home_set·새 코드 unknown_city·same_city·
+ *    home_wait는 이 메시지의 답에만 간다). 구인 카드 고용(recruit.ts)은 가문이 있어야 한다 — 새 코드 no_house는 39판 연결에만 가고 38판 연결은
+ *    internal_error로 낮춘다(legacyRecruitCode). 더하기만 했고 38판 기기는 그대로 받는다. 받는 가장 낮은 판은 원칙대로 38.
  * 40: 사업장 지급준비율(business.ts business_reserve → business_result, 기획 D-564 1623 — 정산 때 금고에 남길 비율). 더하기만 했고 39판 기기는
  *    그대로 받는다(이 메시지를 보내지 않는다).
  */

@@ -135,7 +135,6 @@ async function house(
   const founded = await createHouseFounder({
     pool,
     db: test.db,
-    rules: () => TEST_HOUSE_RULES,
     now: () => clock,
     nationOf,
   }).found(leader, { cost: "0" });

@@ -1,0 +1,89 @@
+// "내 가문" 칸의 소속 도시 부분(기획 D-565) — 가문은 소속 도시를 골라 그 도시가 속한 나라의 가문이 된다(세금 납부·랭킹 집계).
+// - 가문원: 지금 소속 도시·나라. 가문장: 후보 고르기 + [소속 도시 바꾸기](WebSocket house_home, 프로토콜 39). 대기 중이면 다음 시각을 보이고
+//   단추를 막는다. 도시를 가진 가문은 아직 바꾸지 못한다(서버 has_city — 안내만).
+// - 무소속(가문 없음): 내 도시가 소속 도시이고 개인 세금을 낸다는 안내, 유닛을 고용하려면 가문이 필요하다는 안내.
+// docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-15, D-565)"
+import type { HouseHomeView } from "@terra/shared/house";
+import { useId, useState } from "react";
+import { m } from "../../paraglide/messages.js";
+import { dateText } from "../../sections/screenText.ts";
+import { homeChoiceText } from "./homeText.ts";
+
+export function HouseHomeBlock({
+  home,
+  inHouse,
+  leader,
+  busy,
+  onChange,
+}: {
+  home: HouseHomeView;
+  /** 가문에 들어 있나(아니면 무소속 안내) */
+  inHouse: boolean;
+  leader: boolean;
+  busy: boolean;
+  onChange: (cityId: number) => void;
+}) {
+  const id = useId();
+  const [picked, setPicked] = useState(String(home.city?.id ?? home.choices[0]?.id ?? ""));
+  const where = home.city === null ? m.fid_home_unknown() : homeChoiceText(home.city);
+  if (!inHouse)
+    return (
+      <div className="fid-house-block" data-testid="house-home" data-unaffiliated="">
+        <h3 className="fid-house-sub">{m.fid_home_unaffiliated_title()}</h3>
+        <p>{m.fid_home_unaffiliated({ where })}</p>
+        <p className="faction-muted">{m.fid_home_unaffiliated_hint()}</p>
+      </div>
+    );
+  const canChange = leader && !home.locked && home.choices.length > 0;
+  const waiting = home.changeAt !== null;
+  const same = picked === String(home.city?.id ?? "");
+  return (
+    <div className="fid-house-block" data-testid="house-home">
+      <h3 className="fid-house-sub">{m.fid_home_title()}</h3>
+      <p data-part="house-home-city">{m.fid_home_current({ where })}</p>
+      <p className="faction-muted">{m.fid_home_hint()}</p>
+      {leader && home.locked ? <p className="faction-muted">{m.fid_home_locked()}</p> : null}
+      {canChange ? (
+        <form
+          className="fid-house-home-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const cityId = Number(picked);
+            if (!Number.isSafeInteger(cityId) || cityId <= 0 || same || waiting) return;
+            onChange(cityId);
+          }}
+        >
+          <label className="fid-house-sub" htmlFor={`${id}-home`}>
+            {m.fid_home_change_label()}
+          </label>
+          <span className="fid-house-invite-row">
+            <select
+              id={`${id}-home`}
+              className="input"
+              value={picked}
+              onChange={(event) => setPicked(event.target.value)}
+            >
+              {home.choices.map((city) => (
+                <option key={city.id} value={String(city.id)}>
+                  {homeChoiceText(city)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="button-small button-primary"
+              aria-disabled={busy || same || waiting}
+            >
+              {m.fid_home_change()}
+            </button>
+          </span>
+          <span className="faction-muted">
+            {waiting
+              ? m.fid_home_wait({ when: dateText(home.changeAt ?? 0) })
+              : m.fid_home_wait_rule({ days: Math.max(0, Math.round(home.waitMs / 86_400_000)) })}
+          </span>
+        </form>
+      ) : null}
+    </div>
+  );
+}

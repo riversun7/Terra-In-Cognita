@@ -352,6 +352,14 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "house_found_cost",
+      "since": 109,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

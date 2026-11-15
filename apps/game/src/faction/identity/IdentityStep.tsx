@@ -6,8 +6,8 @@
 // - 색: 지도에서 읽기 쉬운 색 20개. 마크: IdentityEmblemField.
 // - 맨 위 "게임에서 보이는 모습"이 고칠 때마다 바뀐다.
 // - 가문 창설(질문 926 나): 아직 가문이 없으면 [가문 창설]이 정체성을 저장한 뒤(tRPC — 그림이 WebSocket 메시지 한도보다 크다) WebSocket
-//   house_found로 창설한다. 창설 비용(설정 칸)을 단추 위에 보이고 그 값을 함께 보낸다. 저장은 됐는데 창설이 실패하면(잔고 등) 화면에
-//   남아 다시 누를 수 있다(저장한 초안은 그대로).
+//   house_found로 창설한다. 저장은 됐는데 창설이 실패하면(연결 등) 화면에 남아 다시 누를 수 있다(저장한 초안은 그대로).
+// - 기획 D-565: 창설은 무료이고, 가문 소속 도시를 고른다(기본 = 내 도시). 가문은 그 도시가 속한 나라의 가문이 된다(창설 명령 cityId).
 import {
   FACTION_IDENTITY_COLORS,
   type FactionIdentityCheck,
@@ -19,12 +19,13 @@ import { refreshSession } from "../../auth/session.ts";
 import { apiErrorInfo } from "../../net/apiErrors.ts";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
-import { amountText, dateText } from "../../sections/screenText.ts";
+import { dateText } from "../../sections/screenText.ts";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { StatusIcon } from "../../ui/StatusIcon.tsx";
 import { text } from "../../ui/text.ts";
 import { IdentityEmblemField } from "./IdentityEmblemField.tsx";
 import { IdentityPreview } from "./IdentityPreview.tsx";
+import { homeChoiceText } from "./homeText.ts";
 import {
   type IdentityDraft,
   type IdentityField,
@@ -126,6 +127,12 @@ export function IdentityStep({
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<{ field: IdentityField; message: string } | null>(null);
   const failure = useLiveLines();
+  // 가문 소속 도시(D-565): 기본 = 내 도시(후보에 없으면 첫 후보). 옛 서버는 후보를 보내지 않는다(그러면 고르지 않고 서버 기본값)
+  const homeChoices = mine.homeChoices ?? [];
+  const [homeCity, setHomeCity] = useState<string>(() => {
+    const mineCity = homeChoices.find((city) => city.id === mine.homeCityId);
+    return String(mineCity?.id ?? homeChoices[0]?.id ?? "");
+  });
   const nameRef = useRef<HTMLInputElement>(null);
   const shortRef = useRef<HTMLInputElement>(null);
 
@@ -187,7 +194,10 @@ export function IdentityStep({
         return;
       }
       // 가문 창설(WebSocket). 실패해도 저장한 초안은 그대로다
-      const outcome = await sendHouseFound(saved.foundCost);
+      const pickedCity = Number(homeCity);
+      const outcome = await sendHouseFound(
+        homeChoices.length > 0 && Number.isSafeInteger(pickedCity) && pickedCity > 0 ? pickedCity : null,
+      );
       if (outcome.ok) {
         onSaved({
           ...saved,
@@ -395,12 +405,30 @@ export function IdentityStep({
         onChange={edit}
       />
 
+      {founding && homeChoices.length > 0 ? (
+        <div className="field fid-group">
+          <label className="field-label" htmlFor={`${id}-home`}>
+            {m.fid_home_found_label()}
+          </label>
+          <select
+            id={`${id}-home`}
+            className="input"
+            data-testid="fid-found-home"
+            value={homeCity}
+            onChange={(event) => setHomeCity(event.target.value)}
+          >
+            {homeChoices.map((city) => (
+              <option key={city.id} value={String(city.id)}>
+                {homeChoiceText(city)}
+              </option>
+            ))}
+          </select>
+          <p className="field-hint">{m.fid_home_found_hint()}</p>
+        </div>
+      ) : null}
       {founding ? (
         <p className="field-hint fid-found-cost" data-testid="fid-found-cost">
-          {mine.foundCost === "0"
-            ? m.fid_found_cost_free()
-            : m.fid_found_cost({ amount: amountText(mine.foundCost) })}{" "}
-          {m.fid_found_citizen()}
+          {m.fid_found_cost_free()} {m.fid_found_citizen()}
         </p>
       ) : null}
       <LiveMessage tone="error" lines={failure.lines} version={failure.version} />

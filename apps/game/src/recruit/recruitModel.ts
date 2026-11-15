@@ -11,12 +11,19 @@ export const RECRUIT_STAT_PAIRS: readonly (readonly [PrimaryStat, PrimaryStat])[
   ["dex", "agi"],
 ];
 
-/** 고용 단추 상태: 살 수 있음 / 이미 삼 / 사이보그 없음 / 돈 모자람 */
-export type HireState = "ready" | "taken" | "no_cyborg" | "funds";
+/** 고용 단추 상태: 살 수 있음 / 이미 삼 / 사이보그 없음 / 가문 없음(D-565) / 돈 모자람 */
+export type HireState = "ready" | "taken" | "no_cyborg" | "no_house" | "funds";
 
-export function hireState(card: RecruitCardView, balance: string, hasCyborg: boolean): HireState {
+export function hireState(
+  card: RecruitCardView,
+  balance: string,
+  hasCyborg: boolean,
+  hasHouse = true,
+): HireState {
   if (card.taken) return "taken";
   if (!hasCyborg) return "no_cyborg";
+  // 가문이 없으면 고용할 수 없다(D-565)
+  if (!hasHouse) return "no_house";
   return BigInt(balance) < BigInt(card.cost) ? "funds" : "ready";
 }
 

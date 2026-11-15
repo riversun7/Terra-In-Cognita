@@ -30,6 +30,7 @@ export const RECRUIT_RESULT_TEXT: Readonly<Record<RecruitResultCode | "offline" 
     insufficient_funds: m.dev_recruit_err_funds,
     no_room: m.dev_recruit_err_no_room,
     internal_error: m.dev_recruit_err_internal,
+    no_house: m.recruit_err_no_house,
     offline: m.dev_recruit_err_offline,
     timeout: m.dev_recruit_err_timeout,
   };

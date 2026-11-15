@@ -1,8 +1,9 @@
-// 세력 화면 "내 가문" 칸의 가입 부분(질문 985 다 — 초대 + 신청, 같은 나라 시민만) — 가문원 목록·가문장의 초대·대기 중인 요청(받기·거절·거두기)·
-// 내보내기, 가문원의 나가기, 가문이 없으면 받은 초대·보낸 신청과 내 나라 가문 목록([가입 신청]), 가문 소식([확인]).
+// 세력 화면 "내 가문" 칸의 가입 부분(질문 985 다 — 초대 + 신청) — 가문원 목록·가문장의 초대·대기 중인 요청(받기·거절·거두기)·
+// 내보내기, 가문원의 나가기, 가문이 없으면 받은 초대·보낸 신청과 가입할 수 있는 가문 목록([가입 신청]), 가문 소식([확인]).
 // 자료는 tRPC factionIdentity.house, 바꾸는 명령은 WebSocket(houseCommands.ts sendHouseMember, 프로토콜 23). 명령 뒤에는 자료를 다시 받는다.
 // 프로토콜 24(질문 1003 가·1005 가): 가문장의 [가문장 넘기기]·혼자 남은 가문장의 [가문 해산](도시 없는 가문만), 가문 도시 부분(HouseCityBlock.tsx).
-// docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)"
+// 프로토콜 39(기획 D-565): 소속 도시 부분(HouseHomeBlock.tsx — 가문장의 [소속 도시 바꾸기], 무소속 안내). 가입은 나라를 가리지 않는다.
+// docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)"·"바뀜 (2026-11-15, D-565)"
 import { labelTextOn } from "@terra/shared/factionIdentity";
 import type { HouseBadge, HouseView } from "@terra/shared/house";
 import { type ReactNode, useState } from "react";
@@ -10,6 +11,7 @@ import { m } from "../../paraglide/messages.js";
 import { dateText } from "../../sections/screenText.ts";
 import { NationEmblem } from "../../ui/NationEmblem.tsx";
 import { HouseCityBlock } from "./HouseCityBlock.tsx";
+import { HouseHomeBlock } from "./HouseHomeBlock.tsx";
 import { type HouseMemberRequest, sendHouseMember } from "./houseCommands.ts";
 import { HOUSE_ACTION_TEXT, HOUSE_MEMBER_ERROR_TEXT, houseNoticeText } from "./houseText.ts";
 import { dismissHouseNotices } from "./identityQueries.ts";
@@ -156,11 +158,13 @@ function ConfirmButton({
 
 function MyHouse({
   house,
+  home,
   limits,
   command,
   onChanged,
 }: {
   house: NonNullable<HouseView["house"]>;
+  home: HouseView["home"];
   limits: HouseView["limits"];
   command: ReturnType<typeof useHouseCommand>;
   onChanged: () => void;
@@ -170,6 +174,15 @@ function MyHouse({
   const { busy, run } = command;
   return (
     <>
+      {home ? (
+        <HouseHomeBlock
+          home={home}
+          inHouse
+          leader={leader}
+          busy={busy}
+          onChange={(cityId) => void run({ t: "house_home", cityId })}
+        />
+      ) : null}
       <div className="fid-house-block" data-testid="house-members">
         <h3 className="fid-house-sub">
           {m.fid_house_members_title()}{" "}
@@ -326,11 +339,15 @@ function MyHouse({
 function NoHouse({ view, command }: { view: HouseView; command: ReturnType<typeof useHouseCommand> }) {
   const { busy, run } = command;
   if (view.nationId === null) return <p className="faction-muted">{m.fid_house_no_cyborg()}</p>;
+  const home = view.home;
   const applied = new Set(
     view.offers.filter((offer) => offer.kind === "apply").map((offer) => offer.house.factionId),
   );
   return (
     <>
+      {home ? (
+        <HouseHomeBlock home={home} inHouse={false} leader={false} busy={busy} onChange={() => undefined} />
+      ) : null}
       {view.offers.length > 0 ? (
         <div className="fid-house-block" data-testid="house-offers">
           <h3 className="fid-house-sub">{m.fid_house_offers_title()}</h3>
@@ -432,7 +449,13 @@ export function HouseSection({
     <div className="fid-house" data-testid="house-section">
       <Notices view={view} onView={onView} />
       {view.house ? (
-        <MyHouse house={view.house} limits={view.limits} command={command} onChanged={onChanged} />
+        <MyHouse
+          house={view.house}
+          home={view.home}
+          limits={view.limits}
+          command={command}
+          onChanged={onChanged}
+        />
       ) : null}
       {view.house ? null : <NoHouse view={view} command={command} />}
       {command.status ? (

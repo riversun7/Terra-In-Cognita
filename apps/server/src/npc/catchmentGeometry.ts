@@ -5,6 +5,7 @@
 // 산지 칸(고도 ≥ npc_seed_mine_height_m)만 높은 티어 광석을 낸다(highOrePm). 바뀜 (2026-11-12, 기획 D-535): 산지 = 고도 ≥ ore_high_min_m,
 // 산지 밖 마른 땅은 높은 티어 몫 ore_flat_high_pm(같은 highOrePm).
 // 바뀜 (2026-11-14, 기획 D-542 질문 1365 나): 칸의 낚시터 물 종류(@terra/shared/fishWater fishWaterCellOf — 수심 등급·바이옴·물 비트)를 준다.
+// 바뀜 (2026-11-15, 기획 D-566 1722): 칸의 바이옴 ID를 준다(지형별 특수 자리가 NPC 채집 묶음에 든다 — @terra/shared/npcGatherTiers).
 import { cellLevel, isCellKey } from "@terra/planet";
 import { CATCHMENT_MATERIALS, type CatchmentLand, cellSharesPm, highOrePm } from "@terra/shared/catchment";
 import { type FishWaterCell, fishWaterCellOf } from "@terra/shared/fishWater";
@@ -48,6 +49,10 @@ export function planetCatchmentGeometry(
     },
     highOrePm(cell) {
       return sharesOf(cell)[CATCHMENT_MATERIALS.length] ?? 0;
+    },
+    biomeOf(cell) {
+      const biome = land(cell)?.biomeId;
+      return typeof biome === "string" && biome !== "" ? biome : undefined;
     },
     fishWaterOf(cell) {
       let known = fishWaters.get(cell);

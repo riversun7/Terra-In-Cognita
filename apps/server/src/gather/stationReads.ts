@@ -7,6 +7,7 @@
 import type {
   GatherStationBuffs,
   GatherStationGoods,
+  GatherStationPlots,
   GatherStationResponse,
   GatherStationUpgrade,
   GatherStationWorker,
@@ -14,6 +15,7 @@ import type {
   GatherStationWorkerState,
 } from "@terra/shared/gatherStation";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
+import { buildingGatherTier, plotAreaPm, plotSlots } from "@terra/shared/gatherMath";
 import { haulMs } from "@terra/sim";
 import { buildingLocation } from "@terra/shared/goodsPlaces";
 import { storageCapacityAt } from "@terra/shared/facilityRuntime";
@@ -210,6 +212,34 @@ export function stationView(
     };
   }
 
+  // 건물 채집소 면적 모듈·기르는 티어(D-566 1721·D-567)
+  let plots: GatherStationPlots | null = null;
+  if (def?.gather?.mode === "select") {
+    const building = rules.buildingGather;
+    const count = Math.max(0, record?.plots ?? 0);
+    const slots = plotSlots(site.level, building);
+    const tier = buildingGatherTier(Math.max(1, site.level));
+    const scope =
+      mine && ownerId !== undefined ? materialScope(world, ownerId, site.mapKey, site.cityId) : undefined;
+    plots = {
+      count,
+      slots,
+      areaPm: plotAreaPm(count, building),
+      perPlotPm: building.plotAreaPm,
+      tier,
+      recommendedStat: building.statPerTier * tier,
+      materials:
+        scope && ledger && ownerId !== undefined && def.build && site.level >= 1 && count < slots
+          ? buildCostAt(def.build, 1).map((stack) => ({
+              item: stack.item,
+              name: catalog.itemName(stack.item) ?? null,
+              qty: stack.qty,
+              have: Number(goodsStock(ledger, ownerId, stack.item, scope)),
+            }))
+          : null,
+    };
+  }
+
   const haulEvery = Math.max(0, Math.floor(rules.gatherObjects.stationHaulMs));
   const route = station.haulRoute(buildingId);
   // 지금 든 내 몫 무게(옮김 시간 셈)
@@ -251,6 +281,7 @@ export function stationView(
     fatigueMax: rules.fatigueMax,
     upgradingUntilMs,
     upgrade,
+    plots,
     generatedAt: nowMs,
   };
 }

@@ -36,9 +36,12 @@ export const worldFacilities = pgTable(
     cityId: bigint("city_id", { mode: "number" }),
     // 세계 씨앗이 세운 시설(질문 1131 나 — 씨앗 숙소 침대는 인구 상한에 더하지 않는다). 열 더하기만(직전 판 앱은 false로 넣는다)
     seeded: boolean("seeded").notNull().default(false),
+    // 붙은 면적 모듈 수(건물 채집소, 기획 D-567). 열 더하기만(직전 판 앱은 이 열을 모른 채 넣고 처음 값 0을 받는다)
+    plots: smallint("plots").notNull().default(0),
   },
   (table) => [
     check("world_facilities_level", sql`${table.level} between 0 and 5`),
+    check("world_facilities_plots", sql`${table.plots} between 0 and 100`),
     check("world_facilities_condition", sql`${table.conditionPpm} between 0 and 1000000`),
     check("world_facilities_id_format", sql`${table.facilityId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],

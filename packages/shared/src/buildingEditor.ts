@@ -15,6 +15,7 @@ import type {
 import type { FacilityBuildJson, FacilityBuildRules, FacilityRepairJson } from "./facilityBuild.ts";
 import type { FacilityCategory } from "./facilityCategory.ts";
 import type { FacilityLookJson } from "./facilityLook.ts";
+import type { BuildingGatherRules } from "./gatherMath.ts";
 import type { FishTierRanges } from "./fishWater.ts";
 import type { CombatClassRule, CombatClassView } from "./unitGuide.ts";
 
@@ -103,6 +104,8 @@ export interface BuildingEditorGatherRules {
   readonly conditionCap?: number | undefined;
   /** 낚시터 물 종류마다 티어 범위(팩 오브젝트에서 끌어냄 — 기획 D-562 1562, "예상 확률" 탭 물 종류 고르기). 옛 서버면 없음 */
   readonly fishTiers?: FishTierRanges | undefined;
+  /** 건물 채집소 규칙(권장 스탯 미달 효율·면적 모듈, 기획 D-566 1721·D-567 — 설정 칸 실효 값). 옛 서버면 없음(출발값) */
+  readonly building?: BuildingGatherRules | undefined;
 }
 
 export interface BuildingEditorGatherBand {

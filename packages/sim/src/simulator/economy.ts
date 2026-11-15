@@ -9,7 +9,9 @@
 // - 채집 티어 추첨(D-506): 추첨 레시피는 한 번 돌릴 때마다 묶음마다 티어를 뽑는다(economy/gather.ts). 난수 = 흐름 7(시설, 차례).
 //   유효 스탯 = 시설 계획의 일꾼 주 + 보조 스탯(없으면 새 유닛 평균) + N43 레벨 보너스. 채집 시설은 레벨 티어 상한을 받지 않는다.
 // - 옛 1차 생산 규칙(D-507, 49 N32·P8): 스탯 짝이 있는 시설은 시간당 작업량 = 일꾼 × 1000 × 진행 속도(max(1, ⌊주 ÷ 20⌋)),
-//   산출 = 한 번 캘 때 수확량(min(상한, 기본 + ⌊보조 × 비율⌋)) 배. 선택 방식(농장)은 해금 티어 min(⌊(주 + 보조) ÷ 20⌋, 9)에서 고른다.
+//   산출 = 한 번 캘 때 수확량(min(상한, 기본 + ⌊보조 × 비율⌋)) 배.
+// - 바뀜 (기획 D-566 1721·D-567): 선택 방식 = 건물 채집소(농장·목장·약초원)는 건물 레벨의 최고 티어(2 × 레벨 − 1)를 기르고, 권장 스탯(20 × 티어)에
+//   못 미치면 수확 효율이 준다(‰, 바닥 300). 면적 모듈(plots)마다 수확이 는다. 2차맵 오브젝트(NPC 티어 규칙)는 보지 않는다.
 import type { LedgerBook } from "../ledger/ledgerBook.ts";
 import {
   type CentralBankRule,
@@ -20,7 +22,10 @@ import {
 import { type FxMarket, createFxMarket } from "../economy/fxMarket.ts";
 import { type GoodsMarket, createGoodsMarket } from "../economy/goodsMarket.ts";
 import {
-  accessibleTier,
+  type BuildingGatherRules,
+  DEFAULT_BUILDING_GATHER,
+  buildingGatherTier,
+  buildingYieldPm,
   conditionedStats,
   gatherCatchPm,
   gatherProgress,
@@ -86,6 +91,8 @@ export interface GatherSettings {
   readonly oreGrams?: number | undefined;
   /** 컨디션 합계 상한(±, 49 N43 condition_cap, D-534 출발 40). 없으면 0(컨디션을 쓰지 않는다) */
   readonly conditionCap?: number | undefined;
+  /** 건물 채집소 규칙(기획 D-566 1721·D-567, 설정 칸 building_gather_*·plot_module_*). 없으면 출발값 */
+  readonly building?: BuildingGatherRules | undefined;
 }
 
 /** 시설 계획에 일꾼 스탯이 없을 때: 새 유닛 평균 1차 스탯 하나 = ⌊N9 초기 합 ÷ 6⌋([임시] 시뮬 유닛에 스탯이 없다, 출발값 60 → 10) */
@@ -101,8 +108,14 @@ export interface EcoFacility {
   readonly workers: number;
   /** 채집 티어 추첨의 유효 스탯(일꾼 주 + 보조 + 레벨 보너스). 추첨 레시피가 아니면 쓰지 않는다 */
   readonly gatherStat: number;
-  /** 선택 방식의 해금 티어(49 P8). 선택 레시피가 아니면 쓰지 않는다 */
+  /** 선택 방식(건물 채집소)이 기르는 티어 = 건물 레벨의 최고 티어(D-566 1721). 선택 레시피가 아니면 쓰지 않는다 */
   readonly selectTier: number;
+  /**
+   * 건물 채집소 수확 배율(‰ — 권장 스탯 미달 효율 × 면적 모듈, D-566 1721·D-567). 선택 레시피가 아니면 없다(배율 없음)
+   */
+  readonly yieldPm?: number | undefined;
+  /** 붙은 면적 모듈 수(D-567). 없으면 0 — NPC 시설은 모듈을 붙이지 않는다 [임시, 질문 1768] */
+  readonly plots?: number | undefined;
   /** 진행 속도(49 N32): 일꾼 한 명의 효율 = 1000 × 이 값. 스탯 짝이 없는 시설은 1 */
   readonly progress: number;
   /** 한 번 캘 때 수확량(옛 gather_type_config): 산출 × 이 값. 스탯 짝이 없는 시설은 1 */
@@ -444,10 +457,12 @@ export function scheduleEconomy(
 }
 
 /**
- * 시설 계획의 일꾼 스탯이 시설에 주는 효과(D-506·D-507): 추첨 유효 스탯, 선택 해금 티어, 진행 속도, 수확량.
+ * 시설 계획의 일꾼 스탯이 시설에 주는 효과(D-506·D-507): 추첨 유효 스탯, 선택 방식 티어·수확 배율, 진행 속도, 수확량.
  * 스탯 짝(gather)이 없는 시설은 속도·수확량 1(효과 없음). condition = 컨디션(관리 보너스, D-534 — society/condition.ts unitCondition의
- * 합계, 상한으로 자른 값)은 추첨 유효 스탯에 더하고, 반씩 나눠 주·보조 스탯에도 더한다(진행 속도·수확량·해금 티어·성공 확률,
- * 기획 D-535 1154 나 — @terra/shared/gatherMath conditionedStats). 없으면 0
+ * 합계, 상한으로 자른 값)은 추첨 유효 스탯에 더하고, 반씩 나눠 주·보조 스탯에도 더한다(진행 속도·수확량·건물 채집소 효율·성공 확률,
+ * 기획 D-535 1154 나 — @terra/shared/gatherMath conditionedStats). 없으면 0.
+ * 바뀜 (기획 D-566 1721·D-567): 선택 방식(건물 채집소)은 티어 = 건물 레벨의 최고 티어(buildingGatherTier), 수확 배율 = 권장 스탯 미달 효율 ×
+ * 면적 모듈(buildingYieldPm, plots = 붙은 모듈 수)
  */
 export function workerEffects(
   rule: CatalogGather | undefined,
@@ -456,18 +471,30 @@ export function workerEffects(
     primaryStat?: number | undefined;
     secondaryStat?: number | undefined;
     condition?: number | undefined;
+    plots?: number | undefined;
   },
   gather: GatherSettings,
-): Pick<EcoFacility, "gatherStat" | "selectTier" | "progress" | "yieldPerLot" | "catchPm"> {
+): Pick<EcoFacility, "gatherStat" | "selectTier" | "yieldPm" | "progress" | "yieldPerLot" | "catchPm"> {
   const primary = plan.primaryStat ?? gather.defaultStat;
   const secondary = plan.secondaryStat ?? gather.defaultStat;
   if (!rule) return { gatherStat: 0, selectTier: 0, progress: 1, yieldPerLot: 1 };
   const condition = plan.condition ?? 0;
-  // 컨디션을 두 스탯에 반씩(D-535 1154 나): 선택 방식(농장·목장) 해금 티어·진행 속도·수확량·성공 확률도 관리의 덕을 본다
+  // 컨디션을 두 스탯에 반씩(D-535 1154 나): 건물 채집소 효율·진행 속도·수확량·성공 확률도 관리의 덕을 본다
   const [mainStat, subStat] = conditionedStats(primary, secondary, condition);
+  const selectTier = buildingGatherTier(plan.level);
   return {
     gatherStat: gatherStat(primary + secondary, plan.level, gather.levelBonus, condition),
-    selectTier: accessibleTier(mainStat, subStat),
+    selectTier,
+    ...(rule.mode === "select"
+      ? {
+          yieldPm: buildingYieldPm(
+            mainStat + subStat,
+            selectTier,
+            plan.plots ?? 0,
+            gather.building ?? DEFAULT_BUILDING_GATHER,
+          ),
+        }
+      : {}),
     progress: gatherProgress(mainStat, gather.progressDivisor ?? 20),
     yieldPerLot: gatherYield(subStat, {
       base: rule.yieldBase ?? 1,
@@ -549,11 +576,15 @@ function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): P
   const rules = economy.gather;
   const rng = streamRng(world.seed, STREAM_GATHER, facility.id, facility.batches);
   facility.batches += 1;
-  // NPC 채집 티어 규칙(기획 D-562 1562): 팩 오브젝트 묶음의 위 끝·같은 티어 비중 + 배후지 자리(산지 몫·물 종류)
-  const tierRoll = npcTierRollOf(
-    economy.catalog.npcTiers.get(facility.recipe.facility),
-    catchmentPlaceOf(economy.catchment, facility.city, facility.recipe.facility),
-  );
+  // NPC 채집 티어 규칙(기획 D-562 1562): 팩 오브젝트 묶음의 위 끝·같은 티어 비중 + 배후지 자리(산지 몫·물 종류·바이옴). 건물 채집소(선택 방식,
+  // D-567)는 2차맵 오브젝트를 캐지 않아 규칙을 걸지 않는다
+  const select = roll.mode === "select";
+  const tierRoll = select
+    ? {}
+    : npcTierRollOf(
+        economy.catalog.npcTiers.get(facility.recipe.facility),
+        catchmentPlaceOf(economy.catchment, facility.city, facility.recipe.facility),
+      );
   const result = rollGatherOutputs(
     {
       ladder,
@@ -561,8 +592,9 @@ function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): P
       stat: facility.gatherStat,
       lots: roll.lots,
       lotSize: economy.catalog.lotSize,
-      selectTier: roll.mode === "select" ? facility.selectTier : undefined,
+      selectTier: select ? facility.selectTier : undefined,
       yieldPerLot: facility.yieldPerLot,
+      yieldPm: select ? facility.yieldPm : undefined,
       successPm: facility.catchPm,
       harvestGrams: BigInt(rules.oreGrams ?? 1000),
       tierCap: tierRoll.tierCap,

@@ -92,24 +92,24 @@ test.describe("개발자", () => {
     await page.reload();
     await expect(screen(page)).toHaveAttribute("data-status", "ready");
 
-    // 탭 줄: 필드채집 = 벌목장·광산·약초원, 건물생산 = 농장·목장·낚시터, 공용 = 확률 분포·스탯 매핑·전투 클래스·개요
+    // 탭 줄: 필드채집 = 벌목장·광산, 건물생산 = 농장·약초원(건물 채집소, D-567)·목장·낚시터, 공용 = 확률 분포·스탯 매핑·전투 클래스·개요
     const tabsOf = (group: string) =>
       page
         .locator(`.pd-tab-group[data-group="${group}"] .pd-tab`)
         .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tab")));
-    expect(await tabsOf("field")).toEqual(["lumber_camp", "mine", "herb_field"]);
-    expect(await tabsOf("building")).toEqual(["farm", "ranch", "fishing_spot"]);
+    expect(await tabsOf("field")).toEqual(["lumber_camp", "mine"]);
+    expect(await tabsOf("building")).toEqual(["farm", "herb_field", "ranch", "fishing_spot"]);
     expect(await tabsOf("common")).toEqual(["tiers", "expect", "mapping", "classes", "overview"]);
     expect((await tabsOf("process")).length).toBeGreaterThan(0);
-    // 수: 사다리 아이템(약초 30·어류 26·목장 30)·확률표 구간 14(D-534 240·260 구간)·클래스 36
+    // 수: 사다리 아이템(약초 30·어류 29 — 조개·고래 고기·기름이 어류로 옮겨 옴(D-556)·목장 30)·확률표 구간 14(D-534 240·260 구간)·클래스 36
     await expect(tab(page, "herb_field").locator(".pd-tab-count")).toHaveAttribute("data-count", "30");
-    await expect(tab(page, "fishing_spot").locator(".pd-tab-count")).toHaveAttribute("data-count", "26");
+    await expect(tab(page, "fishing_spot").locator(".pd-tab-count")).toHaveAttribute("data-count", "29");
     // 목장 = 축산물 13 + 목축 부산물 17(질문 946 나, core@63)
     await expect(tab(page, "ranch").locator(".pd-tab-count")).toHaveAttribute("data-count", "30");
     await expect(tab(page, "tiers").locator(".pd-tab-count")).toHaveAttribute("data-count", "14");
     await expect(tab(page, "classes").locator(".pd-tab-count")).toHaveAttribute("data-count", "36");
 
-    // 처음 탭 = 첫 생산 종류(벌목장). 미리 보기: 스탯 10·10 → 유효 20 → 둘째 구간(20~39). 농장은 선택 방식이라 해금 T1
+    // 처음 탭 = 첫 생산 종류(벌목장). 미리 보기: 스탯 10·10 → 유효 20 → 둘째 구간(20~39). 농장은 건물 채집소라 Lv1 T1(D-566 1721)
     await expect(screen(page)).toHaveAttribute("data-tab", "lumber_camp");
     await expect(page.locator(".pd-result")).toHaveAttribute("data-stat", "20");
     await expect(page.locator(".pd-result")).toHaveAttribute("data-band", "1");

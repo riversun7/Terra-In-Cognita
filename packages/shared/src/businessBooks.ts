@@ -103,6 +103,8 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   // 유지 재료(D-555 1505 — 사업장 창고 먼저)
   facility_repair: "upkeep",
   facility_upgrade: "upkeep",
+  // 면적 모듈 붙이기(건물 채집소, D-567)
+  facility_plot: "upkeep",
   equipment_repair: "upkeep",
   // 적자 미리 넣기·갚기(D-555 1504)
   business_debt: "debt",

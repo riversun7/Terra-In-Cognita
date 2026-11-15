@@ -83,6 +83,7 @@ export {
   FACILITY_PROTOCOL_VERSION,
   FACILITY_RESULT_CODES,
   type FacilityResultCode,
+  PLOT_PROTOCOL_VERSION,
   STORAGE_PROTOCOL_VERSION,
 } from "./facilities.ts";
 export {

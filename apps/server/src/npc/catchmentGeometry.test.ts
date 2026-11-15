@@ -51,6 +51,13 @@ describe("NPC 배후지 낚시터 물 종류", () => {
     });
     // 낚시터 자리 = 연안(범위는 팩 오브젝트에서 — @terra/shared/npcGatherTiers, 기획 D-562 1562), 광산 자리 = 산지 몫
     expect(catchmentPlaceOf(state, 1, "fishing_spot")).toEqual({ water: "coast" });
-    expect(catchmentPlaceOf(state, 1, "mine")).toEqual({ highOrePm: 1000 });
+    // 광산·벌목장 자리에는 배후지 칸 바이옴도 든다(지형별 특수 자리, 기획 D-566 1722)
+    expect(catchmentPlaceOf(state, 1, "mine")).toEqual({
+      highOrePm: 1000,
+      biomes: new Set(["grassland", "ocean_deep"]),
+    });
+    expect(catchmentPlaceOf(state, 1, "lumber_camp")).toEqual({
+      biomes: new Set(["grassland", "ocean_deep"]),
+    });
   });
 });

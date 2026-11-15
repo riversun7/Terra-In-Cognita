@@ -44,10 +44,76 @@ export function tierRequiredProgress(tier: number, base: number, step: number): 
   return Math.max(base, base + Math.max(0, tier) * step);
 }
 
-/** 선택 + 효율의 해금 티어(49 P8): min(⌊(주 + 보조) ÷ 20⌋, 9) */
+/** 선택 + 효율의 해금 티어(49 P8): min(⌊(주 + 보조) ÷ 20⌋, 9). 판정은 건물 채집소 규칙(buildingGatherTier)으로 바뀌었다 — 옛 값 비교·시험용 */
 export function accessibleTier(primary: number, secondary: number): number {
   const sum = Math.max(0, primary) + Math.max(0, secondary);
   return Math.min(GATHER_TIERS - 1, Math.floor(sum / ACCESSIBLE_TIER_STEP));
+}
+
+/**
+ * 건물 채집소(농장·목장·약초원 — 선택 방식 mode "select") 규칙(기획 D-566 1721·D-567, docs/adr/2026-11-15-gather-object-tiers.md
+ * "바뀜 (2026-11-15, D-566·D-567)"). 값은 설정 칸(팩 tuning building_gather_*·plot_module_*) [임시]
+ */
+export interface BuildingGatherRules {
+  /** 티어 하나의 권장 스탯 합(주 + 보조, 49 P8을 거꾸로 — 20 × 티어) */
+  readonly statPerTier: number;
+  /** 권장 합에서 모자란 1점마다 깎는 수확 효율(‰, 25) */
+  readonly shortStepPm: number;
+  /** 수확 효율 바닥(‰, 300) */
+  readonly floorPm: number;
+  /** 면적 모듈 하나가 더하는 수확(‰, 기획 D-567 "모듈을 추가하여 면적을 넓힌다") */
+  readonly plotAreaPm: number;
+  /** 시설 레벨 하나마다 붙일 수 있는 면적 모듈 수 */
+  readonly plotSlotsPerLevel: number;
+}
+
+/** 설정 칸이 없을 때의 출발값(팩 tuning과 같다 [임시]) */
+export const DEFAULT_BUILDING_GATHER: BuildingGatherRules = {
+  statPerTier: 20,
+  shortStepPm: 25,
+  floorPm: 300,
+  plotAreaPm: 200,
+  plotSlotsPerLevel: 1,
+};
+
+/**
+ * 건물 채집소가 기르는 티어 = 건물 레벨의 최고 티어(기획 D-566 1721 = D-5001 "Lv1 T1 … Lv5 T9", 2 × 레벨 − 1). 레벨 1 아래는 T0.
+ * 이 셋만 D-506 "채집 시설 레벨은 티어를 막지 않는다"의 예외다(다른 채집 시설은 확률표)
+ */
+export function buildingGatherTier(level: number): number {
+  return Math.max(0, Math.min(GATHER_TIERS - 1, Math.trunc(level) * 2 - 1));
+}
+
+/** 권장 스탯 합 미달 효율(‰): max(바닥, 1000 − 걸음 × max(0, 권장 × 티어 − (주 + 보조))). 넘쳐도 1000(보너스는 진행 속도·수확량에 이미 든다) */
+export function buildingGatherEfficiencyPm(
+  statSum: number,
+  tier: number,
+  rules: BuildingGatherRules,
+): number {
+  const need = Math.max(0, rules.statPerTier) * Math.max(0, tier);
+  const short = Math.max(0, need - Math.max(0, statSum));
+  const floor = Math.max(0, Math.min(1000, rules.floorPm));
+  return Math.max(floor, 1000 - Math.max(0, rules.shortStepPm) * short);
+}
+
+/** 면적 모듈 자리 수 = 레벨 × 레벨당 수(레벨 0 = 짓는 중이면 0) */
+export function plotSlots(level: number, rules: BuildingGatherRules): number {
+  return Math.max(0, Math.trunc(level)) * Math.max(0, Math.trunc(rules.plotSlotsPerLevel));
+}
+
+/** 면적 배율(‰) = 1000 + 붙은 모듈 수 × 모듈 하나 몫(같은 모듈 여럿은 모두 겹친다 — D-564 1681과 같은 뜻) */
+export function plotAreaPm(plots: number, rules: BuildingGatherRules): number {
+  return 1000 + Math.max(0, Math.trunc(plots)) * Math.max(0, rules.plotAreaPm);
+}
+
+/** 건물 채집소 한 번 수확의 배율(‰) = 효율 × 면적 ÷ 1000 */
+export function buildingYieldPm(
+  statSum: number,
+  tier: number,
+  plots: number,
+  rules: BuildingGatherRules,
+): number {
+  return Math.floor((buildingGatherEfficiencyPm(statSum, tier, rules) * plotAreaPm(plots, rules)) / 1000);
 }
 
 /** 성공 확률 규칙(낚시터, 옛 fishing_config): 기본·상한·스탯 몫(‰)과 스탯 몫이 다 차는 스탯 합 */

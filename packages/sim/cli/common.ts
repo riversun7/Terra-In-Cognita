@@ -171,6 +171,8 @@ function gatherObjectsOf(source: PackSource): NpcObjectSource[] {
       ...(entry.source === "school"
         ? { biomes: entry.biomes.map((row) => ({ biome: id(row.biome), amount: row.count })) }
         : {}),
+      // 지형별 특수 자리 바이옴(D-566 1722 — 시뮬 평면은 배후지 바이옴이 없어 묶음에 들지 않는다)
+      ...(entry.source === "site" ? { siteBiomes: entry.biomes.map((row) => id(row.biome)) } : {}),
     }),
   );
 }

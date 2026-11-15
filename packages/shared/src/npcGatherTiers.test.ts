@@ -1,4 +1,4 @@
-// NPC 채집 티어 규칙(기획 D-562 1562) — 팩 오브젝트 묶음에서 위 끝·같은 티어 비중, 자리(산지 몫·물 종류)로 굴림 규칙
+// NPC 채집 티어 규칙(기획 D-562 1562, D-566 1722) — 팩 오브젝트 묶음에서 위 끝·같은 티어 비중, 자리(산지 몫·물 종류·배후지 바이옴)로 굴림 규칙
 import { describe, expect, it } from "vitest";
 import { type NpcObjectSource, npcFishRanges, npcGatherTiersOf, npcTierRollOf } from "./npcGatherTiers.ts";
 
@@ -26,6 +26,27 @@ const OBJECTS: NpcObjectSource[] = [
   { source: "prop", facility: "lumber_camp", item: "pine_log", tierRange: { min: 0, max: 1 } },
   { source: "prop", facility: "lumber_camp", item: "birch_log", tierRange: { min: 1, max: 5 } },
   { source: "site", facility: "lumber_camp", item: "cypress_log", tierRange: { min: 2, max: 9 } },
+  {
+    source: "site",
+    facility: "lumber_camp",
+    item: "birch_log",
+    tierRange: { min: 1, max: 6 },
+    siteBiomes: ["savanna"],
+  },
+  {
+    source: "site",
+    facility: "mine",
+    item: "iron_ore",
+    tierRange: { min: 3, max: 7 },
+    siteBiomes: ["ice_sheet", "tundra"],
+  },
+  {
+    source: "site",
+    facility: "lumber_camp",
+    item: "cypress_log",
+    tierRange: { min: 2, max: 9 },
+    siteBiomes: ["tropical_rainforest"],
+  },
   {
     source: "plot",
     facility: "fishing_spot",
@@ -116,5 +137,39 @@ describe("시설 규칙(묶음 — 지형별 특수 자리·굴림표 빼고)", 
       deep: { min: 0, max: 8 },
     });
     expect(npcFishRanges(npcGatherTiersOf([], () => 0))).toBeUndefined();
+  });
+});
+
+describe("지형별 특수 자리(기획 D-566 1722): 배후지 바이옴을 알면 그 바이옴 자리를 더한다", () => {
+  it("바이옴을 모르면 자리를 넣지 않는다(옛 규칙 — 바이옴 칸이 없는 자리 오브젝트도 빠진다)", () => {
+    expect(npcTierRollOf(tiers.get("lumber_camp"), {}).tierRange).toEqual({ min: 0, max: 5 });
+    expect(npcTierRollOf(tiers.get("lumber_camp"), { biomes: new Set() }).tierRange).toEqual({
+      min: 0,
+      max: 5,
+    });
+    expect(npcTierRollOf(tiers.get("lumber_camp"), { biomes: new Set(["grassland"]) }).tierRange).toEqual({
+      min: 0,
+      max: 5,
+    });
+  });
+
+  it("열대우림 배후지 벌목장은 거대목 위 끝 T9와 그 대표 아이템 비중을 받는다, 사바나는 바오밥 T6", () => {
+    const jungle = npcTierRollOf(tiers.get("lumber_camp"), { biomes: new Set(["tropical_rainforest"]) });
+    expect(jungle.tierRange).toEqual({ min: 0, max: 9 });
+    expect(jungle.weights?.get("cypress_log")).toBe(1);
+    const both = npcTierRollOf(tiers.get("lumber_camp"), { biomes: new Set(["savanna", "taiga"]) });
+    expect(both.tierRange).toEqual({ min: 0, max: 6 });
+    expect(both.weights?.get("birch_log")).toBe(2);
+    // 같은 자리 묶음은 붙잡아 같은 값을 준다
+    expect(npcTierRollOf(tiers.get("lumber_camp"), { biomes: new Set(["savanna"]) }).weights).toBe(
+      both.weights,
+    );
+  });
+
+  it("광산: 툰드라 운석(T7)은 평지 위 끝을 올린다(산지 몫 막기는 그 위 끝으로)", () => {
+    const mine = npcTierRollOf(tiers.get("mine"), { highOrePm: 0, biomes: new Set(["tundra"]) });
+    expect(mine.tierCap).toEqual({ maxTier: 7, keepAbovePm: 0 });
+    expect(mine.tierRange).toEqual({ min: 0, max: 9 });
+    expect(mine.weights?.get("iron_ore")).toBe(1);
   });
 });

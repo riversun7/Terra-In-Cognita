@@ -120,7 +120,8 @@ describe("옛 1차 생산 규칙(D-507): 주 스탯 → 진행 속도, 보조 �
       progress: 1,
       yieldPerLot: 2,
     });
-    // 옛 문서 예시(ITM-10): VIT 60 + INT 20 = 80 → T4 해금, 진행 ⌊60 ÷ 20⌋ = 3. 농장 수확량 0.08 → 1 + ⌊20 × 0.08⌋ = 2
+    // 옛 문서 예시(ITM-10): VIT 60 + INT 20 = 80, 진행 ⌊60 ÷ 20⌋ = 3. 농장 수확량 0.08 → 1 + ⌊20 × 0.08⌋ = 2.
+    // 바뀜 (D-566 1721): 티어 = 건물 레벨 최고 티어(레벨 1 = T1), 합 80 ≥ 권장 20 → 효율 1000‰
     const farm: CatalogGather = {
       primary: "vit",
       secondary: "int",
@@ -132,10 +133,20 @@ describe("옛 1차 생산 규칙(D-507): 주 스탯 → 진행 속도, 보조 �
     };
     expect(workerEffects(farm, { level: 1, primaryStat: 60, secondaryStat: 20 }, settings)).toEqual({
       gatherStat: 80,
-      selectTier: 4,
+      selectTier: 1,
+      yieldPm: 1000,
       progress: 3,
       yieldPerLot: 2,
     });
+    // 레벨 3 = T5(권장 100), 합 80 → 효율 1000 − 25 × 20 = 500‰, 면적 모듈 둘(+200‰씩) → 500 × 1400 ÷ 1000 = 700‰
+    expect(
+      workerEffects(farm, { level: 3, primaryStat: 60, secondaryStat: 20, plots: 2 }, settings).yieldPm,
+    ).toBe(700);
+    expect(workerEffects(farm, { level: 3, primaryStat: 60, secondaryStat: 20 }, settings).selectTier).toBe(
+      5,
+    );
+    // 합 20 → 권장 100에 80 모자람 → 바닥 300‰
+    expect(workerEffects(farm, { level: 3, primaryStat: 10, secondaryStat: 10 }, settings).yieldPm).toBe(300);
     // 스탯 짝이 없는 시설(제련소 등)은 효과 없음
     expect(workerEffects(undefined, { level: 3, primaryStat: 200 }, settings)).toEqual({
       gatherStat: 0,

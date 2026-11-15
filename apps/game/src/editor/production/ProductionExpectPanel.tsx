@@ -78,9 +78,13 @@ function ExpectCell({ cell }: { cell: GatherExpectCell }) {
         {m.dev_prod_expect_avg({ tier: (cell.averageTierMilli / 1000).toFixed(2) })}
       </span>
       <span className="pd-expect-avg" data-testid={`expect-select-${cell.sum}-${cell.level}`}>
-        {cell.selectMin === cell.selectMax
-          ? m.dev_prod_expect_select_one({ tier: cell.selectMin })
-          : m.dev_prod_expect_select({ min: cell.selectMin, max: cell.selectMax })}
+        {cell.selectEffMinPm === cell.selectEffMaxPm
+          ? m.dev_prod_expect_select_one({ tier: cell.selectTier, pct: percentText(cell.selectEffMinPm) })
+          : m.dev_prod_expect_select({
+              tier: cell.selectTier,
+              min: percentText(cell.selectEffMinPm),
+              max: percentText(cell.selectEffMaxPm),
+            })}
       </span>
     </td>
   );
@@ -120,6 +124,7 @@ export function ProductionExpectPanel({
     facilityLevel,
     condition: shown,
     tierRange,
+    building: rules.building,
   });
   return (
     <div className="pd-expect">

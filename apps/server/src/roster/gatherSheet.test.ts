@@ -66,12 +66,25 @@ describe("원자재별 채집 예상(사이보그 판 효율 묶음)", () => {
     for (const row of rows) expect(row.tierPm.reduce((sum, pm) => sum + pm, 0)).toBe(1000);
   });
 
-  it("선택 방식(농장·목장)은 해금 티어 한 칸, 컨디션은 상한으로 잘라 더한다", () => {
+  it("건물 채집소(농장·목장·약초원)는 레벨 최고 티어 한 칸과 효율, 컨디션은 상한으로 잘라 더한다(D-566 1721)", () => {
     const strong = { str: 10, vit: 30, int: 25, wis: 10, dex: 10, agi: 10 };
     const farm = gatherSheetOf(source, strong, 0, society).find((row) => row.facility === "farm");
-    // VIT 30 + INT 25 = 55 → 해금 ⌊55 ÷ 20⌋ = T2
-    expect(farm).toMatchObject({ mode: "select", selectTier: 2, stat: 55 });
-    expect(farm?.tierPm).toEqual([0, 0, 1000, 0, 0, 0, 0, 0, 0, 0]);
+    // 일터가 아니면 레벨 1 = T1, VIT 30 + INT 25 = 55 ≥ 권장 20 → 효율 1000‰
+    expect(farm).toMatchObject({
+      mode: "select",
+      selectTier: 1,
+      stat: 55,
+      yieldPm: 1000,
+      recommendedStat: 20,
+    });
+    expect(farm?.tierPm).toEqual([0, 1000, 0, 0, 0, 0, 0, 0, 0, 0]);
+    // 레벨 3 농장(T5, 권장 100)에서 일하면 합 55 → 효율 max(300, 1000 − 25 × 45) = 300‰, 모듈 둘 → 300 × 1400 ÷ 1000 = 420‰
+    const placed: GatherSheetSource = {
+      ...source,
+      place: () => ({ workplace: { facility: "farm", level: 3, plots: 2 }, lastPrice: () => undefined }),
+    };
+    const worker = gatherSheetOf(placed, strong, 0, society, 9).find((row) => row.facility === "farm");
+    expect(worker).toMatchObject({ selectTier: 5, yieldPm: 420, recommendedStat: 100, plots: 2, level: 3 });
     const cap = society.condition.cap;
     const boosted = gatherSheetOf(source, strong, cap + 100, society).find((row) => row.facility === "farm");
     expect(boosted?.condition).toBe(cap);

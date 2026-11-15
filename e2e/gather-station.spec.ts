@@ -235,19 +235,23 @@ for (const look of LOOKS) {
   test.describe(`농장 채집소 판(756 ②) 390·${look.theme}·${look.language}`, () => {
     test.use({ account: "player", theme: look.theme, language: look.language, ...VIEWPORTS.phone });
 
-    test(`농장 판: 밭 채집소 — 반경·버프·밭·창고·자동 옮김, 반경 고리 (390·${look.theme}·${look.language})`, async ({
+    test(`농장 판: 건물 채집소 — 기르는 티어·버프·창고·자동 옮김, 반경 고리 없음 (390·${look.theme}·${look.language})`, async ({
       page,
       deviceErrors,
     }) => {
       test.setTimeout(240_000);
       const station = await openStationSheet(page, true);
-      // 팩 core@66: 농장은 밭(plot)을 맡는 원자재 채집소(docs/adr/2026-11-11-city-catchment.md)
-      await expect(station).toHaveAttribute("data-kind", "objects");
-      // 시작 도시 농장은 Lv 1: 채집량 +0% · 피로 −50% · 다시 자람 −50%
+      // 기획 D-567: 농장은 건물 안에서 기르는 채집소("facility" — 2차맵 밭을 쓰지 않는다)
+      await expect(station).toHaveAttribute("data-kind", "facility");
+      // 시작 도시 농장은 Lv 1: 채집량 +0% · 피로 −50%(다시 자람은 오브젝트에만)
       await expect(station.locator('[data-part="station-buffs"]')).toHaveText(
-        message(look.language, "station_buffs_line", { gain: 0, fatigue: 50, regrow: 50 }),
+        message(look.language, "station_buffs_line_facility", { gain: 0, fatigue: 50 }),
       );
-      await expect(station.locator('[data-part="station-objects"]')).toBeVisible();
+      await expect(station.locator('[data-part="station-objects"]')).toHaveCount(0);
+      // 기르는 티어 = Lv1 T1, 권장 합 20, 면적 100%(D-566 1721)
+      await expect(station.locator('[data-part="station-grow"]')).toHaveText(
+        message(look.language, "station_grow_tier", { tier: 1, stat: 20, area: "100" }),
+      );
       // 창고·자동 옮김은 [창고] 칸(건물 판 개편 — docs/adr/2026-11-15-building-screen.md)
       await page.locator('.gather-sheet[data-building] .bp-tab[data-tab="storage"]').click();
       await expect(station).toHaveAttribute("data-station-part", "storage");
@@ -260,10 +264,10 @@ for (const look of LOOKS) {
         station.locator('[data-part="station-haul-route"]'),
         `gather-station-haul-route-390-${look.theme}-${look.language}`,
       );
-      // 반경 고리를 그린다
+      // 건물 채집소는 반경 고리를 그리지 않는다
       await expect
         .poll(() => page.locator(".gather-ring").evaluate((element) => getComputedStyle(element).display))
-        .not.toBe("none");
+        .toBe("none");
       expect(await horizontalOverflow(page)).toEqual([]);
       expect(await smallTapTargets(page)).toEqual([]);
       await shot(page, `gather-station-farm-390-${look.theme}-${look.language}`);
@@ -289,8 +293,8 @@ async function gatherCard(
   const panel = facilitiesPanel(page);
   await expect(panel.locator('[data-part="facility-units"]')).toBeVisible({ timeout: 15_000 });
   const cards = panel.locator('li[data-part="facility-card"]');
-  // 여섯 채집 시설이 모두 원자재 채집소(팩 core@66) — 카드는 시설 ID로 고른다
-  const station = '[data-part="facility-station"][data-kind="objects"]';
+  // 벌목장은 원자재 채집소, 농장은 건물 채집소(D-567 — "facility") — 카드는 시설 ID로 고른다
+  const station = `[data-part="facility-station"][data-kind="${facility === "farm" ? "facility" : "objects"}"]`;
   const existing = panel.locator(`li[data-part="facility-card"][data-facility="${facility}"]`).filter({
     has: page.locator(station),
   });
@@ -344,9 +348,30 @@ for (const look of LOOKS) {
       test.setTimeout(120_000);
       const card = await gatherCard(page, look.language, "farm");
       const part = card.locator('[data-part="facility-station"]');
-      // 팩 core@66: 농장도 반경 안 밭을 쓰는 원자재 채집소
-      await expect(part).toContainText(message(look.language, "station_summary_title", { cells: 40 }));
+      // 건물 채집소(D-567): 반경 대신 "facility" 제목, 기르는 티어·면적 모듈 줄
+      await expect(part).toContainText(message(look.language, "station_summary_title_facility"));
       await expect(part.locator('[data-part="station-haul"]')).toBeVisible();
+      const line = part.locator('[data-part="station-plots-line"]');
+      await expect(line).toContainText("T1");
+      // 모듈 하나 붙이기(Lv1 = 자리 하나): 붙으면 자리가 가득 차 단추가 사라진다(재료 = 레벨 1 짓기 재료 — 개발 재료 받기로 채운다)
+      const add = part.locator('[data-part="station-plot-add"]');
+      if ((await add.count()) > 0) {
+        // 개발 재료 받기(고른 시설 = 농장의 짓기 재료)로 모듈 재료를 채운다
+        const form = facilitiesPanel(page).locator("form.labor-form");
+        await form.getByLabel(message(look.language, "facility_field_facility")).selectOption("farm");
+        await form.getByRole("button", { name: message(look.language, "facility_dev_grant") }).click();
+        await page.waitForTimeout(1_000);
+        await add.click();
+        await expect(line).toHaveText(
+          message(look.language, "station_plots_card", { tier: 1, count: 1, slots: 1, area: "120" }),
+          { timeout: 15_000 },
+        );
+        await expect(add).toHaveCount(0);
+      } else {
+        await expect(line).toHaveText(
+          message(look.language, "station_plots_card", { tier: 1, count: 1, slots: 1, area: "120" }),
+        );
+      }
       expect(await horizontalOverflow(page)).toEqual([]);
       await elementShot(card, `gather-station-farm-card-390-${look.theme}-${look.language}`);
       expect(deviceErrors).toEqual([]);

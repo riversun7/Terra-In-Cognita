@@ -108,6 +108,26 @@ export interface GatherStationUpgrade {
   readonly buffs: GatherStationBuffs | null;
 }
 
+/**
+ * 건물 채집소(농장·목장·약초원 — 선택 방식, 기획 D-566 1721·D-567) 면적 모듈과 기르는 티어. 다른 채집소는 null
+ */
+export interface GatherStationPlots {
+  /** 붙은 면적 모듈 수 */
+  readonly count: number;
+  /** 붙일 수 있는 수(레벨 × 레벨당 자리) */
+  readonly slots: number;
+  /** 지금 면적 배율(‰, 1000 + 모듈 수 × 모듈 몫) */
+  readonly areaPm: number;
+  /** 모듈 하나가 더하는 몫(‰) */
+  readonly perPlotPm: number;
+  /** 기르는 티어 = 건물 레벨의 최고 티어(2 × 레벨 − 1) */
+  readonly tier: number;
+  /** 그 티어의 권장 스탯 합(주 + 보조, 미달이면 수확 효율이 준다) */
+  readonly recommendedStat: number;
+  /** 다음 모듈 재료(내 채집소이고 자리가 남았을 때만, 그 시설 레벨 1 짓기 재료) */
+  readonly materials: GatherStationUpgrade["materials"] | null;
+}
+
 export interface GatherStationResponse {
   readonly status: GatherStationStatus;
   readonly buildingId: number;
@@ -157,5 +177,7 @@ export interface GatherStationResponse {
   readonly upgradingUntilMs: number | null;
   /** 다음 레벨(내 채집소이고 더 올릴 수 있을 때만) */
   readonly upgrade: GatherStationUpgrade | null;
+  /** 건물 채집소 면적 모듈·기르는 티어(D-567). 다른 채집소는 null(옛 서버는 칸이 없다) */
+  readonly plots?: GatherStationPlots | null | undefined;
   readonly generatedAt: number;
 }

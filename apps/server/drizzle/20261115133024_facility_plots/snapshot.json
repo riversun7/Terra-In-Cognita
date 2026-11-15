@@ -1,0 +1,77 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "f538ae35-2fe1-4d0f-8446-0928e4de69e6",
+  "prevIds": [
+    "e5d6a5de-08cf-40fa-8895-fdc71836912a",
+    "7eb4628a-4470-4c9b-acb2-9c0a9891242e"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_facilities",
+        "plots"
+      ],
+      "writes": [
+        "s|col|public.world_facilities.plots",
+        "n|col|public.world_facilities.plots",
+        "e|col|public.world_facilities.plots"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_facilities"
+      ],
+      "writes": [
+        "s|ck|public.world_facilities.world_facilities_plots",
+        "n|ck|public.world_facilities.world_facilities_plots",
+        "e|ck|public.world_facilities.world_facilities_plots",
+        "n|con|public.world_facilities.world_facilities_plots"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public",
+        "n|col|public.world_facilities.plots"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "plots",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "world_facilities_plots",
+        "value": "\"plots\" between 0 and 100",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

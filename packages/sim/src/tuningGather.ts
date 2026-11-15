@@ -84,3 +84,51 @@ export const GATHER_OBJECT_TUNING_KEYS: readonly TuningKey[] = [
     "Gather station auto haul interval (ms)",
   ),
 ];
+
+/** 건물 채집소 칸(경로 buildingGather.*) */
+const b = (id: string, path: string, ko: string, en: string): TuningKey => ({
+  id,
+  code: "",
+  target: "society",
+  path: `buildingGather.${path}`,
+  structural: false,
+  ko,
+  en,
+});
+
+/**
+ * 건물 채집소(농장·목장·약초원 — 기획 D-566 1721·D-567, docs/adr/2026-11-15-gather-object-tiers.md "바뀜 (2026-11-15, D-566·D-567)").
+ * 49에 칸이 없어 앞머리 building_gather_·plot_module_ [임시]. 기르는 티어 = 건물 레벨 최고 티어(D-5001, 구조 값이라 칸 없음)
+ */
+export const BUILDING_GATHER_TUNING_KEYS: readonly TuningKey[] = [
+  b(
+    "building_gather_stat_per_tier",
+    "statPerTier",
+    "건물 채집소 티어당 권장 스탯 합",
+    "Building gatherer recommended stat sum per tier",
+  ),
+  b(
+    "building_gather_short_step_pm",
+    "shortStepPm",
+    "권장 스탯 1점 모자랄 때 깎는 수확 효율(‰)",
+    "Harvest efficiency cut per missing stat point (‰)",
+  ),
+  b(
+    "building_gather_floor_pm",
+    "floorPm",
+    "건물 채집소 수확 효율 바닥(‰)",
+    "Building gatherer harvest efficiency floor (‰)",
+  ),
+  b(
+    "plot_module_area_pm",
+    "plotAreaPm",
+    "면적 모듈 하나의 수확 더함(‰)",
+    "Extra harvest per area module (‰)",
+  ),
+  b(
+    "plot_module_slots_per_level",
+    "plotSlotsPerLevel",
+    "시설 레벨당 면적 모듈 자리",
+    "Area module slots per facility level",
+  ),
+];

@@ -136,7 +136,7 @@ export interface CatalogWorkerView {
   readonly unitYield: number;
   /** 사다리 산출이면 기준 유닛 한 명이 한 번 캐는 시간(ms, T0~T9). 아니면 null(레시피 작업량 시간) */
   readonly tierHarvestMs: readonly number[] | null;
-  /** 선택 방식이면 기준 유닛의 해금 티어(49 P8). 아니면 null */
+  /** 선택 방식(건물 채집소)이면 Lv1이 기르는 티어(기획 D-566 1721 — 2 × 레벨 − 1). 아니면 null */
   readonly unitTier: number | null;
 }
 

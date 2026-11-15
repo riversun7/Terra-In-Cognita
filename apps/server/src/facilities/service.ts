@@ -37,7 +37,6 @@ import {
 } from "@terra/shared/facilityRuntime";
 import {
   PLACEMENT_SIZE,
-  type Primaries,
   type Rotation,
   type SocietyCoefficients,
   type StatRow,
@@ -55,6 +54,8 @@ import type { Settlement } from "../world/settlement.ts";
 import type { FacilityCatalog, FacilityDef } from "./catalog.ts";
 import { type GoodsScope, grantGoods, hasGoods, spendGoods } from "./materials.ts";
 import { waterOk } from "./water.ts";
+import { PLACE_CODES, averagePrimaries } from "./serviceHelpers.ts";
+import { type PlotDeps, addPlot } from "./plots.ts";
 import {
   type PlaceWorld,
   beaconMaterialScope,
@@ -173,6 +174,8 @@ export interface FacilityService {
    * 유닛을 묶지 않는다). 동기(쓰기 대기열 같은 묶음)
    */
   npcJob(input: NpcJobInput): FacilityCommandResult;
+  /** 면적 모듈 붙이기(건물 채집소, 기획 D-567 — plots.ts). operator = 운영자 모드(재료 없이) */
+  plot(userId: string, buildingId: number, operator?: OperatorBuild): Promise<FacilityCommandResult>;
   /** 레벨 올리기. operator = 운영자 모드(재료 없이, 시간 ÷ 배율 — FacilityBuildInput.operator와 같다) */
   upgrade(
     userId: string,
@@ -286,30 +289,6 @@ export interface FacilityServiceOptions {
 }
 
 const fail = (code: FacilityResultCode): FacilityCommandResult => ({ ok: false, code });
-
-/** 2차맵 배치 결과 코드 → 건물 결과 코드 */
-const PLACE_CODES: Readonly<Record<string, FacilityResultCode>> = {
-  out_of_bounds: "out_of_bounds",
-  overlaps_building: "overlaps_building",
-  overlaps_road: "overlaps_road",
-  blocked_terrain: "blocked_terrain",
-  overlaps_unit: "overlaps_unit",
-  building_limit: "building_limit",
-};
-
-/** 1차 스탯 평균(내림) — 여러 장인이 함께 고칠 때 한 사람으로 친다 */
-function averagePrimaries(list: readonly Primaries[]): Primaries {
-  const n = Math.max(1, list.length);
-  const sum = (key: keyof Primaries) => Math.floor(list.reduce((total, p) => total + p[key], 0) / n);
-  return {
-    str: sum("str"),
-    dex: sum("dex"),
-    agi: sum("agi"),
-    vit: sum("vit"),
-    int: sum("int"),
-    wis: sum("wis"),
-  };
-}
 
 export function createFacilityService(options: FacilityServiceOptions): FacilityService {
   const { maps, settlement, ledger, writer, now } = options;
@@ -474,6 +453,17 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     if (!def) return "unknown_facility";
     fillCity(record);
     return { record, def };
+  };
+
+  /** 면적 모듈 붙이기(plots.ts) 고리 */
+  const plotDeps: PlotDeps<FacilityDef> = {
+    now,
+    ownerFor,
+    myFacility,
+    save: saveFacility,
+    rules: () => options.rules().buildingGather,
+    spend: (me, list, at, id) => spendGoods(ledger, me, list, at, "facility_plot", scopeOf(me, id)),
+    levelMaterials: (def, level) => levelCost(def, level).materials,
   };
 
   const craftScoreOf = (unitId: number): number => {
@@ -793,6 +783,11 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       });
       if (ms === 0) finish(job);
       return done({ ok: true, doneAtMs: at + ms });
+    },
+
+    async plot(userId, buildingId, operator) {
+      const result = addPlot(plotDeps, userId, buildingId, operator !== undefined);
+      return result.ok ? done(result) : result;
     },
 
     async repair(userId, target, steps, unitIds) {

@@ -328,6 +328,7 @@ export function runSimulation(options: RunOptions): RunSummary {
             tickMs: societyCoefficients.gatherTickMs,
             oreGrams: societyCoefficients.gatherOreGrams,
             conditionCap: societyCoefficients.condition.cap,
+            building: societyCoefficients.buildingGather,
           },
           ruinedGoodsHome(world, simCityDistance),
         )

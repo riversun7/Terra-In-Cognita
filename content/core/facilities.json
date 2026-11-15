@@ -184,6 +184,7 @@
         "primary": "int",
         "secondary": "wis",
         "subcategory": "herb",
+        "mode": "select",
         "yieldBase": 1,
         "yieldPerStatPm": 100,
         "yieldCap": 8

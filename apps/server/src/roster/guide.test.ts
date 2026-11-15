@@ -63,7 +63,7 @@ describe("유닛 추천 표(팩 core)", () => {
       ["farm", "vit", "int", "select", "building"],
       ["lumber_camp", "dex", "str", "roll", "field"],
       ["mine", "str", "vit", "roll", "field"],
-      ["herb_field", "int", "wis", "roll", "field"],
+      ["herb_field", "int", "wis", "select", "building"],
       ["ranch", "wis", "agi", "select", "building"],
       ["fishing_spot", "agi", "dex", "roll", "building"],
     ]);

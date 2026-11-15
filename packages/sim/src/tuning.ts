@@ -13,7 +13,7 @@ import { WAR_TUNING_KEYS } from "./tuningWar.ts";
 import { RECRUIT_TUNING_KEYS } from "./tuningRecruit.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
-import { GATHER_OBJECT_TUNING_KEYS } from "./tuningGather.ts";
+import { BUILDING_GATHER_TUNING_KEYS, GATHER_OBJECT_TUNING_KEYS } from "./tuningGather.ts";
 import { HOUSE_TUNING_KEYS } from "./tuningHouse.ts";
 import { LABOR_TUNING_KEYS } from "./tuningLabor.ts";
 import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
@@ -653,6 +653,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...SWITCH_TUNING_KEYS,
   // 2차맵 원자재 오브젝트 채집(49에 칸 없음 [임시], docs/adr/2026-11-07-gather-objects.md): tuningGather.ts
   ...GATHER_OBJECT_TUNING_KEYS,
+  // 건물 채집소(농장·목장·약초원, 49에 칸 없음 [임시], 기획 D-566 1721·D-567): tuningGather.ts
+  ...BUILDING_GATHER_TUNING_KEYS,
   // 숙소 회복·채집소 옮김(49에 칸 없음 [임시], 질문 1047·1050 — D-533): tuningLogistics.ts
   ...LOGISTICS_TUNING_KEYS,
   // 배(49 P20, docs/adr/2026-11-13-boats.md): tuningBoats.ts

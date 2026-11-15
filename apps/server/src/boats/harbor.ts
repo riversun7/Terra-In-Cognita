@@ -367,7 +367,10 @@ export function createHarbor(
       if (state.homeId !== null) {
         const home = findBuilding(maps, state.homeId);
         const fac = facilityOf(places, state.homeId);
-        if (!home || !fac || !isBerth(fac.def) || fac.record.conditionPpm <= 0) {
+        // 정박장 2차맵을 띄우지 않았으면(보는 사람이 없음 — ADR 2026-11-15-unloaded-second-maps) 시설 줄로만 본다. 정박료는 띄운 뒤 밀린 날만큼 낸다
+        if (places && fac && !home && isBerth(fac.def) && fac.record.conditionPpm > 0) {
+          // 그대로
+        } else if (!home || !fac || !isBerth(fac.def) || fac.record.conditionPpm <= 0) {
           evict(state);
           evicted += 1;
           dirty = true;

@@ -3,6 +3,7 @@
 // - 기준 도시 = 내 사이보그 시작 도시(없으면 내 창고가 있는 첫 도시, 그것도 없으면 가장 작은 도시 ID).
 // - 도시 이름 = 도시 자리의 이름(world_cities.name, 팩 도시 이름 — 번역하지 않는다 D-476), 이름 없는 도시만 "#<도시 ID>"(폐허 카드와 같은
 //   대체, docs/adr/2026-11-07-play-flow.md "WP12 특산·이름 마무리"). 시야·운임은 아직 없다(모두 지금 값, 운임 없음).
+// - 거래소 건물(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md): 팔 수 있는 양 = 그 도시 물자 거래소 건물 창고, 건물이 없으면 안내(exchange null).
 // - 화폐(WP6): 값은 그 도시 거래소 화폐(주인 나라 화폐)다. 화면에는 팩 화폐 코드(원장 자산 cur:<코드>의 코드, 기준 통화는 자산 코드 그대로)로 보낸다.
 import type {
   EconomyOrdersResponse,
@@ -21,6 +22,8 @@ import { bookLevels, candles, changeBp, recentTrades, tradeStats } from "../econ
 import type { NpcRuntime } from "../npc/runtime.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { MarketBook, TradeRecord } from "./books.ts";
+import { type ExchangeDirectory, fxExchangeCurrencies } from "./exchangeBuildings.ts";
+import { exchangeHolding } from "./exchangeStock.ts";
 import { type FxExchangeView, createFxViews, currencyCode } from "./fxViews.ts";
 import { EXPIRY_DAYS, ORDER_MAX } from "./service.ts";
 
@@ -39,6 +42,15 @@ export interface MarketViewSource {
   readonly ownerOf: (userId: string) => number | undefined;
   /** 사용자의 사이보그 시작 도시(없으면 undefined) */
   readonly homeCityOf: (userId: string) => number | undefined;
+  /**
+   * 거래소 건물(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md): 그 도시 물자 거래소·배치 유닛 주문 한도. 없으면(시험) 건물 안내 없이 도시 창고·
+   * 기본 한도(예전과 같다)
+   */
+  readonly exchanges?: ExchangeDirectory | undefined;
+  /** 건물 ID → 시설 이름(거래소 건물 안내). 없으면 빈 이름 */
+  readonly buildingName?:
+    | ((buildingId: number) => { readonly ko: string; readonly en: string } | undefined)
+    | undefined;
 }
 
 export interface MarketViews {
@@ -81,7 +93,24 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
     return runtime.economy;
   };
   const cityIds = (): number[] => [...runtime.world.cities.keys()].toSorted((a, b) => a - b);
-  const fxViews = createFxViews({ runtime, ledger, ownerOf: src.ownerOf });
+  const exchanges = src.exchanges;
+  /** 도시 → 그 도시 주인 나라 화폐 */
+  const cityCurrency = (cityId: number): string | undefined => {
+    const owner = runtime.world.cities.get(cityId)?.owner;
+    return owner === undefined ? undefined : runtime.economy?.economy.currencyOf.get(owner);
+  };
+  const fxViews = createFxViews({
+    runtime,
+    ledger,
+    ownerOf: src.ownerOf,
+    ...(exchanges
+      ? {
+          fxOpen: () => fxExchangeCurrencies(exchanges, cityCurrency),
+          fxLimit: (me: number | undefined) =>
+            me === undefined ? ORDER_MAX : exchanges.orderLimit(me, "fx"),
+        }
+      : {}),
+  });
 
   const homeCity = (userId: string, me: number | undefined): number | undefined => {
     const start = src.homeCityOf(userId);
@@ -150,10 +179,11 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
 
   const limitOf = (me: number | undefined) => {
     const open = me === undefined ? [] : econ().registry.openOf(me);
-    const used = Math.min(ORDER_MAX, open.length);
-    const recoversAt =
-      open.length < ORDER_MAX ? null : Math.min(...open.map((entry) => entry.order.expiresAtMs));
-    return { used, max: ORDER_MAX, recoversAt };
+    // 한도 = 기본 + 물자 거래소 건물 둘레에 선 내 유닛 몫(D-148, exchangeBuildings.ts)
+    const max = me === undefined || !exchanges ? ORDER_MAX : exchanges.orderLimit(me, "goods");
+    const used = Math.min(max, open.length);
+    const recoversAt = open.length < max ? null : Math.min(...open.map((entry) => entry.order.expiresAtMs));
+    return { used, max, recoversAt };
   };
 
   return {
@@ -236,6 +266,22 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
       const last = stats.last ?? found?.market.lastPrice ?? found?.trades.at(-1)?.price;
       const levels = found ? bookLevels(found.market.orders(), me ?? -1) : { asks: [], bids: [] };
       const currency = currencyOf(cityId, found);
+      // 거래소 건물(D-561): 팔 수 있는 양 = 그 건물 창고, 도시 창고 몫은 실어 나를 양으로 따로 보인다(D-564 1628)
+      const exchangeId = exchanges?.cityExchange(cityId, "goods");
+      const holding = exchanges ? exchangeHolding(cityId, true, exchangeId) : cityId;
+      const exchange =
+        exchanges === undefined
+          ? {}
+          : {
+              exchange:
+                exchangeId === undefined
+                  ? null
+                  : {
+                      buildingId: String(exchangeId),
+                      name: src.buildingName?.(exchangeId) ?? { ko: "", en: "" },
+                      cityGoods: String(me === undefined ? 0n : ledger.balanceOf(me, asset, cityId) / lot),
+                    },
+            };
       return {
         item,
         city: String(cityId),
@@ -251,12 +297,13 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
         trades: found ? recentTrades(found.trades) : [],
         candles: found ? candles(found.trades, end - DAY, end, BOOK_CANDLE_MS) : [],
         candleMs: BOOK_CANDLE_MS,
-        // 팔 수 있는 양 = 이 도시 내 창고(기본 단위) ÷ 묶음(버림), 살 수 있는 돈 = 지갑의 이 화폐
+        // 팔 수 있는 양 = 거래소 건물 창고(기본 단위) ÷ 묶음(버림), 살 수 있는 돈 = 지갑의 이 화폐
         mine: {
-          goods: String(me === undefined ? 0n : ledger.balanceOf(me, asset, cityId) / lot),
+          goods: String(me === undefined ? 0n : ledger.balanceOf(me, asset, holding) / lot),
           cash: String(me === undefined ? 0n : ledger.balanceOf(me, currency)),
         },
         limit: limitOf(me),
+        ...exchange,
         expiryDays: [...EXPIRY_DAYS],
         observedAt: now,
         inSight: true,

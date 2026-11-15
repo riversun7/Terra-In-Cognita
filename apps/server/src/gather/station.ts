@@ -32,6 +32,8 @@
 //   사업장)에도 맡는다 — 예전에는 운반꾼 없이 바로 옮겼다. 운반꾼은 그 건물 일꾼, 없으면 받을 사람의 그 2차맵 유닛(porter.ts ownUnits). 사업장 판매
 //   (business_buy)도 같은 길이다: 판 사람의 건물 창고 물건을 산 사람의 도시 창고로(sellerId). 길 = 그 건물 가운데 → 받을 사람의 가장 가까운 다른
 //   창고, 없으면 도시 칸. 운반꾼이 없으면 unknown_unit·unit_busy(물건은 건물 창고에 그대로).
+// - 거래소 넣기(haulIn, 기획 D-564 1628·D-569 1784, docs/adr/2026-11-16-exchange-buildings.md): 도시 창고 → 물자 거래소 건물 창고도 운반꾼(받을 사람의 그
+//   2차맵 유닛 — 거래소 건물에는 일꾼 자리가 없다)이 도시 칸 → 건물 가운데를 같은 셈 시간으로 나른다. 옮김 셈 끔·거리 0이면 바로(exchange_deposit).
 // - 오브젝트 규칙(기획 D-552 "직접 채집과 일꾼 채집이 같은 규칙", docs/adr/2026-11-15-gather-object-tiers.md): objects 채집소 일꾼의 k번째 묶음은
 //   번수를 쓸 차례(가까운 것부터)의 k번째 오브젝트 규칙(사다리·티어 범위·대표 아이템·굴림표 — objectYield.ts objectRollOf)으로 굴린다(lotRoll).
 // [임시] 일꾼 상태·끝낸 묶음 수·피로 나머지는 메모리에만 있다(다시 켜면 0부터). 정산이 길게 밀리면(오프라인) 그 사이 다시 자란 번수는 세지 못하고
@@ -185,6 +187,17 @@ export interface StationRuntime {
     qty: bigint,
     atMs: number,
     sellerId?: number,
+  ): FacilityResultCode | null | undefined;
+  /**
+   * 거래소 넣기(기획 D-564 1628 "거래소로 실어 나른 물건만", docs/adr/2026-11-16-exchange-buildings.md): ownerId의 그 도시 창고 asset qty를 운반꾼(받을 사람의
+   * 그 2차맵 유닛)이 도시 칸 → 물자 거래소 건물로 나른다. 옮김 셈 끔·거리 0이면 바로 넣는다. null = 떠남(또는 넣음), 아니면 결과 코드. 건물을 모르면 undefined
+   */
+  haulIn(
+    ownerId: number,
+    buildingId: number,
+    asset: string,
+    qty: bigint,
+    atMs: number,
   ): FacilityResultCode | null | undefined;
   stop(): void;
 }
@@ -664,6 +677,68 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     return null;
   };
 
+  const haulIn = (
+    ownerId: number,
+    buildingId: number,
+    asset: string,
+    qty: bigint,
+    atMs: number,
+  ): FacilityResultCode | null | undefined => {
+    const world = deps.places();
+    const target = placeOf(buildingId);
+    if (!world || !target) return undefined;
+    if (target.cityId === null) return "no_place";
+    // 거래소에는 물자만 올린다(화폐·지분은 자리 없는 지갑)
+    if (!asset.startsWith("item:")) return "not_storage";
+    const cityId = target.cityId;
+    const source = cityLocation(cityId);
+    const deliverTo = buildingLocation(buildingId);
+    if (qty <= 0n || ledger.balanceOf(ownerId, asset, source) < qty) return "insufficient_materials";
+    const city = world.cities().find((entry) => entry.id === cityId);
+    const from = city ? { x: city.x, y: city.y } : { x: target.x, y: target.y };
+    const to = centerOf(target.mapKey, buildingId) ?? { x: target.x, y: target.y };
+    const cells = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y));
+    const grams = qty * assetWeightG(world.catalog(), asset);
+    const rules = deps.rules();
+    if (!haulOn(rules) || haulMs(grams, cells, 1, rules) <= 0) {
+      ledger.post({
+        kind: "exchange_deposit",
+        atMs,
+        entries: [
+          { account: ledger.ownerAccount(ownerId, asset, source), amount: -qty },
+          { account: ledger.ownerAccount(ownerId, asset, deliverTo), amount: qty },
+        ],
+      });
+      return null;
+    }
+    const porter = porters.pick(buildingId, target.mapKey, ownerId, atMs);
+    if (porter === undefined) {
+      const map = maps.get(target.mapKey);
+      const own = deps.ownUnits?.(ownerId, target.mapKey) ?? [];
+      return own.some((unitId) => map?.unitInfo(unitId) !== undefined) ? "unit_busy" : "unknown_unit";
+    }
+    const pace = maps.get(target.mapKey)?.paceOf(porter) ?? 1;
+    porters.depart({
+      buildingId,
+      ownerId,
+      cityId,
+      mapKey: target.mapKey,
+      porter,
+      stationLocation: source,
+      loads: [{ asset, qty, grams }],
+      from,
+      to,
+      nowMs: atMs,
+      timeMs: (total) => {
+        const ms = haulMs(total, cells, 1, deps.rules());
+        return ms <= 0 ? ms : Math.ceil(ms / pace);
+      },
+      deliverTo,
+    });
+    rearm();
+    return null;
+  };
+
   const haulEvery = (): number => Math.max(0, Math.floor(deps.rules().gatherObjects.stationHaulMs));
   /** 마지막으로 싣고 떠난 정시 차례(타이머가 정시 사이에 깨어나도 다시 떠나지 않게) */
   let lastBoundary = -1;
@@ -728,6 +803,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
         : undefined;
     },
     haulOut,
+    haulIn,
     stop() {
       stopped = true;
       if (timer) clearTimeout(timer);

@@ -120,6 +120,8 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   storage_move: "goods",
   station_haul: "goods",
   station_haul_load: "goods",
+  // 도시 창고 → 물자 거래소 건물(운반 거리 0·옮김 셈 끔일 때, docs/adr/2026-11-16-exchange-buildings.md)
+  exchange_deposit: "goods",
   gather_deposit: "goods",
   job_output: "goods",
   labor_leftovers: "goods",

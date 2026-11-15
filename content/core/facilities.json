@@ -1403,6 +1403,218 @@
         "model": "dock",
         "heightPm": 800
       }
+    },
+    {
+      "id": "goods_exchange",
+      "name": {
+        "ko": "물자 거래소",
+        "en": "Goods exchange"
+      },
+      "stage": "commerce",
+      "category": "commerce",
+      "maxLevel": 3,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 14
+              },
+              {
+                "item": "stone",
+                "qty": 12
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 14
+              },
+              {
+                "item": "brick",
+                "qty": 12
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 300,
+      "exchange": "goods",
+      "look": {
+        "model": "warehouse",
+        "wall": "cream",
+        "roof": "wood"
+      }
+    },
+    {
+      "id": "fx_exchange",
+      "name": {
+        "ko": "외환 거래소",
+        "en": "Currency exchange"
+      },
+      "stage": "commerce",
+      "category": "commerce",
+      "maxLevel": 3,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 14
+              },
+              {
+                "item": "stone",
+                "qty": 12
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 14
+              },
+              {
+                "item": "brick",
+                "qty": 12
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 300,
+      "exchange": "fx",
+      "look": {
+        "model": "government",
+        "wall": "white",
+        "roof": "stone"
+      }
+    },
+    {
+      "id": "unit_exchange",
+      "name": {
+        "ko": "유닛 거래소",
+        "en": "Unit exchange"
+      },
+      "stage": "commerce",
+      "category": "commerce",
+      "maxLevel": 3,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 14
+              },
+              {
+                "item": "stone",
+                "qty": 12
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 14
+              },
+              {
+                "item": "brick",
+                "qty": 12
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 300,
+      "exchange": "units",
+      "look": {
+        "model": "government",
+        "wall": "wood",
+        "roof": "stone"
+      }
+    },
+    {
+      "id": "stock_exchange",
+      "name": {
+        "ko": "증권 거래소",
+        "en": "Stock exchange"
+      },
+      "stage": "commerce",
+      "category": "commerce",
+      "maxLevel": 3,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 14
+              },
+              {
+                "item": "stone",
+                "qty": 12
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 14
+              },
+              {
+                "item": "brick",
+                "qty": 12
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 300,
+      "exchange": "securities",
+      "look": {
+        "model": "government",
+        "wall": "stone",
+        "roof": "white"
+      }
     }
   ]
 }

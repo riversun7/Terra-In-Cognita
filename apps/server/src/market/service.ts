@@ -9,6 +9,7 @@
 //   기준 통화, 팔기 = 지갑의 그 화폐를 묶고 다음 회차(1시간)에 한꺼번에 체결, 남은 양은 회차 뒤 돌려받는다. 한 회차에 낼 수 있는 내 주문 수 =
 //   ORDER_MAX [임시]. 회차 전에 거둘 수 있다. 거래소 끔(49 N53)이면 내기만 막는다.
 import type { FxResultCode, MarketResultCode } from "@terra/protocol";
+import { ORDER_BASE } from "@terra/shared/exchange";
 import { DAY_MS, type Side, type SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
@@ -16,10 +17,14 @@ import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { Settlement } from "../world/settlement.ts";
 import type { FillNotice } from "./books.ts";
-import { exchangeGoodsLocation } from "./exchangeStock.ts";
+import { type ExchangeDirectory, fxExchangeCurrencies } from "./exchangeBuildings.ts";
+import { exchangeHolding } from "./exchangeStock.ts";
 
-/** [임시] 걸어 둘 수 있는 주문 수(질문 149 기본안 → D-443 출발값, 경제 화면 시안과 같다). 거래소 유닛 INT·WIS 식은 기획 Step 5 */
-export const ORDER_MAX = 10;
+/**
+ * [임시] 걸어 둘 수 있는 기본 주문 수(질문 149 기본안 → D-443 출발값, 경제 화면 시안과 같다). 거래소 건물 둘레에 선 내 유닛의 INT·WIS가 한도를 더한다
+ * (D-148 — @terra/shared/exchange orderLimit, exchangeBuildings.ts)
+ */
+export const ORDER_MAX = ORDER_BASE;
 /** [임시] 지정가 만료로 고르는 날(기획 잠정 7일, E10) */
 export const EXPIRY_DAYS: readonly number[] = [1, 3, 7];
 /** DB int8 상한(묶이는 양·체결 총액이 넘으면 받지 않는다) */
@@ -74,6 +79,12 @@ export interface MarketDeps {
   readonly writer: WorldWriter;
   readonly rules: () => SocietyCoefficients;
   readonly now: () => number;
+  /**
+   * 거래소 건물(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md): 물자 주문은 그 도시 물자 거래소 건물이 있어야 하고(팔 물건 = 그 건물 창고),
+   * 환전은 그 화폐 나라 도시에 외환 거래소가 있어야 한다. 주문 한도는 그 종류 거래소의 배치 유닛 몫을 더한다(D-148). 없으면(시험) 건물을 보지 않고
+   * 예전처럼 도시 창고·기본 한도
+   */
+  readonly exchanges?: ExchangeDirectory | undefined;
 }
 
 const fail = (code: MarketResultCode): MarketCommandResult => ({ ok: false, code });
@@ -84,6 +95,14 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
   if (!econ) return undefined;
   const { registry, fx } = econ;
   const world = d.runtime.world;
+
+  /** 그 화폐(원장 자산)를 쓰는 나라의 도시에 외환 거래소 건물이 있나 */
+  const fxOpen = (currency: string): boolean =>
+    d.exchanges !== undefined &&
+    fxExchangeCurrencies(d.exchanges, (cityId) => {
+      const owner = world.cities.get(cityId)?.owner;
+      return owner === undefined ? undefined : econ.economy.currencyOf.get(owner);
+    }).has(currency);
 
   const commit = async <T>(result: T): Promise<T> => {
     await d.writer.durable();
@@ -113,12 +132,16 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
       const me = d.settlement.ownerOfUser(userId, at).id;
       // 잔고를 지금까지 정산한 뒤 본다(직무 산출·유지비가 먼저)
       d.settlement.settleOwner(me, at);
-      if (input.kind === "limit" && registry.openOf(me).length >= ORDER_MAX) return fail("order_limit");
+      // 거래소 건물(D-561): 그 도시 물자 거래소가 없으면 주문을 받지 않는다(거두기는 된다)
+      const exchange = d.exchanges?.cityExchange(input.city, "goods");
+      if (d.exchanges && exchange === undefined) return fail("no_exchange");
+      const limit = d.exchanges?.orderLimit(me, "goods") ?? ORDER_MAX;
+      if (input.kind === "limit" && registry.openOf(me).length >= limit) return fail("order_limit");
       const currency = book.market.config.currency;
-      // 팔 물건은 거래소로 실어 나른 것만(D-564 1628 — exchangeStock.ts, 지금은 그 도시 창고)
+      // 팔 물건은 거래소 건물로 실어 나른 것만(D-564 1628 — exchangeStock.ts, 그 건물 창고)
       if (
         input.side === "sell" &&
-        d.ledger.balanceOf(me, asset, exchangeGoodsLocation(input.city)) < qty * lot
+        d.ledger.balanceOf(me, asset, exchangeHolding(input.city, true, exchange)) < qty * lot
       )
         return fail("insufficient_goods");
       if (input.side === "buy" && d.ledger.balanceOf(me, currency) < price * qty)
@@ -170,7 +193,10 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
       const me = d.settlement.ownerOfUser(userId, at).id;
       // 잔고를 지금까지 정산한 뒤 본다(직무 산출·유지비가 먼저)
       d.settlement.settleOwner(me, at);
-      if (fx.openOf(me).length >= ORDER_MAX) return fxFail("order_limit");
+      // 외환 거래소(D-561): 그 화폐를 쓰는 나라의 도시에 외환 거래소 건물이 있어야 한다
+      if (d.exchanges && !fxOpen(book.market.pair.base)) return fxFail("no_exchange");
+      const limit = d.exchanges?.orderLimit(me, "fx") ?? ORDER_MAX;
+      if (fx.openOf(me).length >= limit) return fxFail("order_limit");
       const result = book.market.place(me, input.side, price, lots, at);
       if (!result.ok) return fxFail("insufficient_funds");
       return commit({ ok: true, orderId: result.orderId });

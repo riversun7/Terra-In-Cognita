@@ -209,7 +209,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 도시 구인(질문 1041 다)", () 
     if (!made.ok) throw new Error(made.code);
     const cityId = made.cityId;
     const { npc } = parts(world);
-    // 마을 건물(질문 1052 다): 행정 건물(마을 칸 가운데 둘레) + 숙소 하나가 도시 배치 함수로 선다
+    // 마을 건물(질문 1052 다): 행정 건물(마을 칸 가운데 둘레) + 숙소 하나 + 물자 거래소(D-561, 질문 1946)가 도시 배치 함수로 선다
     await parts(world).persistence.writer.durable();
     const built = await rows<{ facility_id: string; x: number; y: number; width: number; height: number }>(
       test.db,
@@ -217,8 +217,8 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 도시 구인(질문 1041 다)", () 
         where f.city_id = $1 order by f.facility_id`,
       [cityId],
     );
-    expect(built.map((row) => row.facility_id)).toEqual(["government_hall", "lodging"]);
-    const hall = built[0];
+    expect(built.map((row) => row.facility_id)).toEqual(["goods_exchange", "government_hall", "lodging"]);
+    const hall = built.find((row) => row.facility_id === "government_hall");
     if (!hall) throw new Error("no hall");
     expect(Math.abs(hall.x + (hall.width >> 1) - site.x)).toBeLessThanOrEqual(4);
     expect(Math.abs(hall.y + (hall.height >> 1) - site.y)).toBeLessThanOrEqual(4);

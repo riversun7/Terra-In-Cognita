@@ -7,6 +7,8 @@
 // - 거래세 = ⌊총액 × 세율(만분율) ÷ 10000⌋(버림), 판 쪽이 내고 그 도시를 가진 나라의 국고로 간다(D-128·D-131, 기술 기본안).
 // - 불변식: 물건 에스크로 = 걸린 팔 주문 남은 양 합, 돈 에스크로 = 걸린 살 주문 (값 × 남은 양) 합(checkEscrow).
 // - 걷은 거래세 누적(taxCollected, 읽기 전용 통계): 도시 세금 정산(D-304, society/dividends.ts)이 기간 차이를 쓴다. 장부는 바꾸지 않는다.
+// - 주인 물건 자리(holdingOf, docs/adr/2026-11-16-exchange-buildings.md): 있으면 주인마다 팔 물건을 꺼내고 산 물건을 넣는 위치를 고른다(서버 유저 =
+//   거래소 건물 창고). 에스크로 계정은 늘 location이다. 시뮬은 쓰지 않는다(판정 그대로).
 // - 묶음(302·D-506): 주문 수량·남은 양·체결 수량·volume은 묶음 단위, 값은 묶음 하나당이다. 물건 계정(창고·에스크로)은 기본 단위라
 //   묶을 때·체결·돌려줄 때 수량 × lotSize를 옮긴다(광석: 묶음 1 = 1,000g). lotSize가 없으면 1(지금까지와 같다).
 import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
@@ -26,6 +28,11 @@ export interface GoodsMarketConfig {
   readonly treasuryOwner: number;
   /** 묶음 크기(물건 기본 단위 개수, 없으면 1) */
   readonly lotSize?: bigint | undefined;
+  /**
+   * 그 주인의 물건 자리(팔 때 꺼내는·살 때 받는·돌려받는 원장 위치). 없으면 location(시뮬은 늘 도시). 에스크로는 늘 location이다.
+   * 서버는 유저 물건을 거래소 건물 창고에 둔다(기획 D-561·D-564 1628, docs/adr/2026-11-16-exchange-buildings.md)
+   */
+  readonly holdingOf?: ((owner: number) => number) | undefined;
 }
 
 export type PlaceResult =
@@ -88,7 +95,8 @@ export function createGoodsMarket(
     book.systemAccount(`escrow:goods:${config.id}`, config.item, config.location);
   const cashEscrow = (): number =>
     book.systemAccount(`escrow:cash:${config.id}:${config.currency}`, config.currency);
-  const goodsOf = (owner: number): number => book.ownerAccount(owner, config.item, config.location);
+  const goodsOf = (owner: number): number =>
+    book.ownerAccount(owner, config.item, config.holdingOf?.(owner) ?? config.location);
   const cashOf = (owner: number): number => book.ownerAccount(owner, config.currency);
 
   const refund = (order: BookOrder, atMs: number): void => {

@@ -19,6 +19,7 @@ import {
   itemAsset,
 } from "@terra/sim";
 import { bareHandAcceptsOf, bareHandFlag } from "@terra/shared/bareHandMaterials";
+import type { ExchangeKind } from "@terra/shared/exchange";
 import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
 import { type FacilityCategory, facilityCategoryOf } from "@terra/shared/facilityCategory";
 import { type FacilityLookJson, cleanFacilityLook } from "@terra/shared/facilityLook";
@@ -54,6 +55,8 @@ export interface FacilityDef {
   readonly harbor?: HarborRole | undefined;
   /** 조선소의 배 종류 표(D-547 1484). 조선소가 아니면 undefined */
   readonly boats?: readonly BoatTypeDef[] | undefined;
+  /** 거래소 종류(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md). 없으면 거래소가 아니다 */
+  readonly exchange?: ExchangeKind | undefined;
 }
 
 /** 배 종류 한 줄(팩 참조를 ID 글자로) */
@@ -139,6 +142,7 @@ function defOf(entry: FacilityEntry): FacilityDef {
     storageKg: entry.storageKg,
     look: cleanFacilityLook(entry.look),
     ...(entry.harbor === undefined ? {} : { harbor: entry.harbor }),
+    ...(entry.exchange === undefined ? {} : { exchange: entry.exchange }),
     ...(entry.boats === undefined
       ? {}
       : {

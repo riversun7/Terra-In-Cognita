@@ -1,4 +1,5 @@
 // 건물 화면 자료(tRPC facilities.overview) — docs/adr/2026-11-07-buildings-runtime.md. 읽기만 한다(게임 상태를 바꾸지 않는다).
+import { EXCHANGE_LOCKS } from "@terra/shared/exchange";
 import type {
   FacilitiesOverviewResponse,
   FacilityBeaconView,
@@ -77,6 +78,20 @@ export interface BeaconEntry {
 const isCash = (asset: string): boolean =>
   asset.startsWith("cur:") || asset === "s3_test_credit" || asset.startsWith("share:");
 
+/** 그 도시의 물자 거래소 건물(다 지은 것 가운데 가장 작은 건물 ID, 없으면 null — market/exchangeBuildings.ts와 같은 고르기, 상태는 서버 명령이 본다) */
+function goodsExchangeIn(world: PlaceWorld, catalog: FacilityCatalog, cityId: number | null): number | null {
+  let found: number | null = null;
+  for (const record of world.facilities.values())
+    if (
+      record.cityId === cityId &&
+      record.level >= 1 &&
+      catalog.facility(record.facilityId)?.exchange === "goods" &&
+      (found === null || record.buildingId < found)
+    )
+      found = record.buildingId;
+  return found;
+}
+
 /** 내 물건이 있는 자리(잔고 > 0, 화폐 빼고) — 도시 창고 → 건물 창고 → 화물 → 자리 없음 차례 */
 function placesOf(
   world: PlaceWorld,
@@ -99,19 +114,36 @@ function placesOf(
       let storage = false;
       let sale = false;
       let facilityId: string | null = null;
-      if (place.kind === "city") cityId = place.id;
-      else if (place.kind === "building" && place.id !== null) {
+      let exchange: GoodsPlaceView["exchange"];
+      let exchangeId: number | null | undefined;
+      if (place.kind === "city") {
+        cityId = place.id;
+        // 그 도시 물자 거래소 건물(D-561 — 화면 [거래소로 옮기기], docs/adr/2026-11-16-exchange-buildings.md)
+        exchangeId = goodsExchangeIn(world, catalog, cityId);
+      } else if (place.kind === "building" && place.id !== null) {
         const found = buildingPlace(world, place.id);
         cityId = found?.cityId ?? null;
         mapKey = found?.mapKey ?? null;
         storage = found?.ownerId === ownerId && isStorage(world, place.id);
         facilityId = world.facilities.get(place.id)?.facilityId ?? null;
-        // 내 사업장 물건은 판매만(D-569 1781)
-        sale = found?.ownerId === ownerId && facilityId !== null && !storage;
+        exchange = facilityId === null ? undefined : catalog.facility(facilityId)?.exchange;
+        // 내 사업장 물건은 판매만(D-569 1781). 거래소 건물 창고는 맡긴 물건이라 꺼낸다
+        sale = found?.ownerId === ownerId && facilityId !== null && !storage && exchange === undefined;
       } else if (place.kind === "cargo" && place.id !== null)
         for (const map of world.maps.values()) if (map.unitInfo(place.id)) mapKey = map.mapKey;
       entry = {
-        view: { key, kind: place.kind, id: place.id, cityId, mapKey, storage, facilityId, sale },
+        view: {
+          key,
+          kind: place.kind,
+          id: place.id,
+          cityId,
+          mapKey,
+          storage,
+          facilityId,
+          sale,
+          ...(exchange === undefined ? {} : { exchange }),
+          ...(exchangeId === undefined ? {} : { exchangeId }),
+        },
         lines: [],
       };
       byKey.set(key, entry);
@@ -176,6 +208,11 @@ function catalogView(
         })
       : [],
     repairsEquipment: (def.repair?.length ?? 0) > 0,
+    // 거래소 건물(D-561): 종류·잠금(유닛·증권 — 짓기 목록에서 잠금 까닭을 보인다)
+    ...(def.exchange === undefined ? {} : { exchange: def.exchange }),
+    ...(def.exchange === undefined || EXCHANGE_LOCKS[def.exchange] === undefined
+      ? {}
+      : { exchangeLock: EXCHANGE_LOCKS[def.exchange] }),
   };
 }
 

@@ -36,6 +36,7 @@ const FX_ERROR_TEXT: Readonly<Record<FxCode, () => string>> = {
   insufficient_funds: m.fx_err_funds,
   invalid_amount: MARKET_ERROR_TEXT.invalid_amount,
   order_limit: m.fx_err_order_limit,
+  no_exchange: m.fx_err_no_exchange,
   offline: MARKET_ERROR_TEXT.offline,
   timeout: MARKET_ERROR_TEXT.timeout,
 };
@@ -81,6 +82,11 @@ function PairCard({ pair, index, preview }: { pair: FxPairView; index: CatalogIn
         {preview ? <PreviewTag /> : null}
       </div>
       <p className="eco-row-meta">{m.economy_exchange_lot({ lot: fmt(pair.lotSize) })}</p>
+      {pair.exchange === false ? (
+        <p className="eco-notice" data-tone="warning" data-part="fx-no-exchange">
+          {m.fx_exchange_none()}
+        </p>
+      ) : null}
       <div className="eco-fx-prices">
         <div>
           <span className="eco-quote-label">{m.economy_exchange_indicative()}</span>

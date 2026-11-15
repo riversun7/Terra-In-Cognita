@@ -70,6 +70,9 @@ test.describe("플레이어(실제 자료)", () => {
     await cities.first().click();
     await expect(page).toHaveURL(/\/economy\/market\/ration\/\d+$/);
     await expect(economy(page)).toHaveAttribute("data-density", "compact");
+    // 거래소 건물(D-561): 세계 씨앗이 NPC 도시마다 물자 거래소를 세우고, 거래창은 그 건물을 알린다(팔 물건 = 그 건물 창고)
+    await expect(economy(page).locator('[data-part="market-exchange"]')).toBeVisible();
+    await shot(page, "market-exchange-note", { fullPage: true });
     // 실제 거래소의 [주문]은 "곧 열림"이 아니라 쪽에 맞는 보내기 단추다. 조건 주문은 아직 서버에 없어 잠근다
     const submit = economy(page).locator(".eco-submit");
     await expect(submit).toHaveText(message("ko", "market_submit_buy"));

@@ -3,6 +3,7 @@
 // facilities.json 한 줄과 같은 JSON 모양이다(참조는 ID 글자). 형식 검사는 서버가 팩 스키마로 한다(게임 앱은 @terra/content를 가져오지
 // 않는다). 값의 범위 상수는 화면 입력 칸이 쓰고, 맞는지는 서버가 다시 본다(서버 시험이 팩 스키마와 맞춰 본다).
 import type { FuelItem, NavalSpec } from "./naval.ts";
+import type { ExchangeKind } from "./exchange.ts";
 import type { HarborRole } from "./harbor.ts";
 import type {
   ContentEditOrigin,
@@ -120,7 +121,7 @@ export interface BuildingEditorGatherBand {
  * 생산 단계(@terra/content FACILITY_STAGES와 같다, D-114) + 영토(영토 비콘, D-485·49 N51) + 창고(일하지 않는 시설, N50·382)
  * + 신앙(신전, 46 §7·D-311) + 생명공학(생명과학 연구소, D-517) + 행정(폐허에 짓는 정부, D-510) + 의료(병원, D-521)
  * + 생활(숙소, 48 §7.1·D-245 — docs/adr/2026-11-11-city-building-layout.md) + 방어(성벽, 질문 1048 가)
- * + 교통(부두, docs/adr/2026-11-13-boats.md)
+ * + 교통(부두, docs/adr/2026-11-13-boats.md) + 상업(거래소 건물, docs/adr/2026-11-16-exchange-buildings.md)
  */
 export const FACILITY_STAGE_IDS = [
   "gather",
@@ -136,6 +137,7 @@ export const FACILITY_STAGE_IDS = [
   "living",
   "defense",
   "transport",
+  "commerce",
 ] as const;
 export type FacilityStageId = (typeof FACILITY_STAGE_IDS)[number];
 
@@ -197,6 +199,8 @@ export interface FacilityJson {
   readonly storageKg?: number | undefined;
   /** 배 시설 역할(조선소·정박장·교역 부두 — docs/adr/2026-11-15-shipyard-harbor.md). 편집기는 고치지 않고 그대로 둔다 */
   readonly harbor?: HarborRole | undefined;
+  /** 거래소 종류(docs/adr/2026-11-16-exchange-buildings.md). 편집기는 고치지 않고 그대로 둔다 */
+  readonly exchange?: ExchangeKind | undefined;
   /** 조선소 배 종류 표(D-547 1484). 편집기는 고치지 않고 그대로 둔다 */
   readonly boats?:
     | readonly {

@@ -85,6 +85,8 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
     ...(entry.storageKg === undefined ? {} : { storageKg: entry.storageKg }),
     // 배 시설 역할·배 종류 표(docs/adr/2026-11-15-shipyard-harbor.md — 편집기는 고치지 않고 그대로 돌려보낸다)
     ...(entry.harbor === undefined ? {} : { harbor: entry.harbor }),
+    // 거래소 종류(docs/adr/2026-11-16-exchange-buildings.md — 편집기는 고치지 않고 그대로 돌려보낸다)
+    ...(entry.exchange === undefined ? {} : { exchange: entry.exchange }),
     ...(entry.boats === undefined
       ? {}
       : {

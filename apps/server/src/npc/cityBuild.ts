@@ -14,6 +14,8 @@
 // 물가 자리를 찾는 도시)는 목표에 부두(배를 만드는 시설 — 단계 교통 + 물가 조건) 하나를 더한다. 바닷가인지는 도시마다 COAST_TTL_MS 동안 기억하고,
 // 부두 자리를 못 찾아 짓기가 실패하면 그 도시는 바닷가가 아닌 것으로 본다(같은 목표에 묶여 다른 짓기가 멈추지 않게). 시뮬 도시는 땅을 몰라 부두를
 // 짓지 않는다(시뮬 판정은 그대로 — SIM_VERSION 그대로).
+// 바뀜 (2026-11-16, 기획 D-561 — docs/adr/2026-11-16-exchange-buildings.md): 목표에 물자·외환 거래소 하나씩을 더한다(서버만 — 시뮬 도시는 거래소 건물이
+// 없다. SIM_VERSION 그대로).
 import type { CityCell } from "@terra/shared/goodsPlaces";
 import type {
   Economy,
@@ -292,14 +294,27 @@ export function npcBuildRunOf(o: {
     economy: econ.economy,
     builder,
     // 바닷가 도시는 정박장 하나 + 조선소 하나(D-541 1281 나, D-547 1497 — NPC도 플레이어와 같은 규칙)
+    // 거래소 건물(기획 D-561): 도시마다 물자·외환 거래소 하나(씨앗이 세우지만 부서지거나 지운 것은 증축이 다시 짓는다)
     targetsOf: (faction, cityId) => {
       const berth = coast.dockOf(cityId, faction.id);
-      return withCoastalDock(
+      let targets = withCoastalDock(
         withCoastalDock(base?.(faction, cityId), berth),
         berth === undefined ? undefined : coast.shipyard(),
       );
+      for (const exchange of exchangeTargets(world)) targets = withCoastalDock(targets, exchange);
+      return targets;
     },
   };
+}
+
+/** NPC 증축 목표에 넣는 거래소 시설(팩에 있고 지을 수 있고 잠기지 않은 물자·외환 거래소, docs/adr/2026-11-16-exchange-buildings.md) */
+function exchangeTargets(world: NpcBuildWorld): string[] {
+  return world
+    .catalog()
+    .facilities.filter(
+      (def) => (def.exchange === "goods" || def.exchange === "fx") && def.build && def.footprint,
+    )
+    .map((def) => def.id);
 }
 
 /** 바닷가인지 기억하는 시간(ms) — 건물이 물가를 채우면 다시 본다 */

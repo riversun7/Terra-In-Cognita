@@ -385,6 +385,15 @@ export interface Candle {
   readonly volume: DecimalString;
 }
 
+/** 그 도시 물자 거래소 건물(거래창 안내, docs/adr/2026-11-16-exchange-buildings.md) */
+export interface MarketExchangeView {
+  readonly buildingId: string;
+  /** 시설 이름(팩, 번역된 두 말) */
+  readonly name: { readonly ko: string; readonly en: string };
+  /** 그 도시 내 도시 창고의 이 물건(묶음) */
+  readonly cityGoods: DecimalString;
+}
+
 /** economy.marketBook — 도시 하나 × 물건 하나의 호가창·체결·봉·주문표 자료 */
 export interface MarketBookResponse extends EconomyResponseHead {
   readonly item: string;
@@ -408,9 +417,17 @@ export interface MarketBookResponse extends EconomyResponseHead {
   readonly candles: readonly Candle[];
   /** 봉 하나의 길이(ms) */
   readonly candleMs: number;
-  /** 내 몫: 이 도시 창고의 이 물건(팔 수 있는 양), 지갑의 이 화폐(살 수 있는 돈) */
+  /**
+   * 내 몫: 거래소 건물 창고의 이 물건(팔 수 있는 양 — 실제 거래소는 그 도시 물자 거래소 건물 창고, docs/adr/2026-11-16-exchange-buildings.md),
+   * 지갑의 이 화폐(살 수 있는 돈)
+   */
   readonly mine: { readonly goods: DecimalString; readonly cash: DecimalString };
   readonly limit: OrderLimit;
+  /**
+   * 그 도시 물자 거래소 건물(기획 D-561 "거래소는 건물"). null = 그 도시에 거래소 건물이 없어 주문을 못 낸다. 칸이 없으면(시안) 건물 안내를 보이지 않는다.
+   * cityGoods = 그 도시 내 도시 창고의 이 물건(묶음 — 거래소 건물로 실어 날라야 판다, D-564 1628)
+   */
+  readonly exchange?: MarketExchangeView | null | undefined;
   /** [임시] 고를 수 있는 지정가 만료(날). 기획 잠정 7일(E10) */
   readonly expiryDays: readonly number[];
   readonly observedAt: number;
@@ -483,6 +500,11 @@ export interface FxPairView {
   readonly history: readonly { readonly at: number; readonly price: DecimalString }[];
   /** 내 X 잔고 */
   readonly balance: DecimalString;
+  /**
+   * 이 화폐를 쓰는 나라의 도시에 외환 거래소 건물이 있나(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md — false면 주문을 못 낸다).
+   * 칸이 없으면(시안) 안내를 보이지 않는다
+   */
+  readonly exchange?: boolean | undefined;
 }
 
 /** 내 환전 주문(이번 회차에 낸 것, 회차 전에 거둘 수 있다 — 실제 자료, docs/adr/2026-11-07-play-flow.md WP6) */

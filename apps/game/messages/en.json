@@ -7914,5 +7914,19 @@
   "station_buy_haul": "Buy at sale price to city storage",
   "station_buy_haul_done": "Bought. The money counts as business sales, and a carrier walks the goods to city storage.",
   "facility_place_sale_only": "Business goods · buy them at the sale price in the building panel [Books]",
-  "facility_move_no_carrier": "No carrier for the goods. Put a worker at that building or one of your humans or cyborg units on this map and they walk it to city storage."
+  "facility_move_no_carrier": "No carrier for the goods. Put a worker at that building or one of your humans or cyborg units on this map and they walk it to city storage.",
+  "economy_stage_commerce": "Commerce",
+  "market_err_no_exchange": "This city has no goods exchange building, so you can't place orders here.",
+  "fx_err_no_exchange": "No nation using this currency has a currency exchange building, so it can't be exchanged.",
+  "facility_error_exchange_locked": "This exchange isn't open yet.",
+  "facility_error_exchange_exists": "This city already has this kind of exchange. Each city has one.",
+  "build_exchange_after_launch": "Opens after launch",
+  "build_exchange_not_ready": "Coming soon",
+  "fx_exchange_none": "No nation using this currency has a currency exchange building, so orders are closed for now.",
+  "market_exchange_none": "This city has no goods exchange building, so you can't place orders. You can still cancel open orders.",
+  "market_exchange_at": "Exchange: {name}. Goods you sell must be in this building's storage.",
+  "market_exchange_city_goods": "You have {qty} in city storage.",
+  "market_exchange_go_move": "Move to the exchange",
+  "facility_place_exchange": "{name} {id}",
+  "facility_to_exchange": "{name} to exchange"
 }

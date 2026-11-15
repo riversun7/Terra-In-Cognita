@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-16 07:50 | 거래소 건물: 물자·외환 거래소를 도시의 건물로, 지금 세계는 켤 때 세우기 (D-561) | Claude Code | [16-0750-exchange-buildings](worklog/2026/11/16-0750-exchange-buildings.md) |
 | 2026-11-16 07:30 | 화면 시험 "경계 너머 보기" 시간 초과 고침(vision-fix) | Claude Code | [16-0730-vision-fix](worklog/2026/11/16-0730-vision-fix.md) |
 | 2026-11-16 06:00 | 2026-11-16 묶음 1116g 합치기 (D-564 좌표 이동 2 · D-568 영토 판정 = 1차맵 지도) | Claude Code | [16-0600-batch-1116g-merge](worklog/2026/11/16-0600-batch-1116g-merge.md) |
 | 2026-11-16 04:10 | 영토 판정도 1차맵 지도대로 (D-568) | Claude Code | [16-0410-territory-2](worklog/2026/11/16-0410-territory-2.md) |

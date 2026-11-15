@@ -55,10 +55,17 @@
 - 배포 뒤 1분 지표에 `coordUnits`·`coordParked`·`mapParks`가 새로 보인다. `mapsOnDemand`는 줄어들 것이다(Assumed — NAS에서 재지 않음).
 
 ## 미검증·TODO·알려진 문제
-- 시험 결과는 아래 "검사" 절(끝에 채움).
 - 서버 단위 시험을 `apps/server`에서 `pnpm vitest run`으로 돌리면 빌드 도장 시험 3개(`app.test.ts`·`trpc/system.test.ts`)가 실패한다 — 서버 `vite.config.ts`의 빌드 도장 define이 그 폴더 실행에 걸려서다(이 줄기와 무관, 루트 `pnpm test`는 별도 확인).
 - 좌표 구간은 지형을 보지 않는다(질문 1643, ADR WP-4). 좌표 유닛끼리 만나지 않는다(질문 1641).
 - NAS 부하는 재지 않았다(Unknown): 보는 사람이 많을 때의 `mapsOnDemand`·RSS는 배포 뒤 1분 지표로 본다.
 
 ## 사용자 결정 대기
 - 질문 1641~1648(추천안으로 만듦): 좌표 유닛 조우, 탐사만 한 2차맵 보기, 좌표 구간 지형, 상한, 도시 밖 건물 2차맵, 남의 좌표 유닛 표시, 멈추기, 배 해상 전투.
+
+## 검사 (Verified — 실행함)
+- `pnpm check`(TEST_DATABASE_URL, 공유 기계): 포맷·린트·타입·경계·크기·다국어·대비·콘텐츠 통과, 시험 5,409 통과 / 1 실패 — `npc/cityBuildUpgrade.db.test.ts` "제재소·가마 … 판자·벽돌 레시피"(받은 값 undefined). 그 파일만 다시 돌리면 2번 모두 4/4 통과 → 부하 때 흔들리는 시험으로 본다(이 줄기가 건드리지 않은 NPC 건설 — Assumed: 무관).
+- 이 줄기 시험: 서버 `travel/`(DB 포함) 10파일 54개 통과, `world/mapSpawn`·`edgeWatch`·`gateway` 통과, 게임 `src/map` 45파일 314개 통과.
+- `pnpm build` 통과, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 109,797B / 상한 131,416B.
+- 화면 시험(`pnpm e2e`, 빌드한 서버): `play-map`·`seamless`·`planet-view`·`boats` 51 통과·1 건너뜀(측정 시험), 새 시험 "좌표 유닛"은 처음 시험 코드 실수(`stepCell` 두 칸)로 실패 → 고친 뒤 단독 1/1 통과(40초). 사진 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/map-coords-shots/map-coords-planet-390.png`·`map-coords-second-390.png`(파스텔). 1차맵 사진에서 휴먼 점은 4칸 옆 사이보그 표시 밑에 겹쳐 보이지 않는다(속성으로 확인).
+- 부하 잰 값: 실제 장부 모듈 10만 줄 = 힙 64MB·RSS +114MB(개발 컨테이너).
+

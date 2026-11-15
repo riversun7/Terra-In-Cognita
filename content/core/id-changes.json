@@ -264,6 +264,14 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "item_subcategories",
+      "id": "wild_goods",
+      "since": 98,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

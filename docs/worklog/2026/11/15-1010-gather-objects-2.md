@@ -13,10 +13,18 @@
 - 편집기 `/dev/gather-objects`(새 지연 조각 `GatherObjectsScreen-*`): 목록·판(3D 모델·대표 아이템·양·티어 범위·바이옴·지표·천분율·미리 보기), 차이 내보내기(entries `gather_objects`). 자료는 `planetEditor.definitions`에 `gatherRefs`(원자재 아이템·중분류·확률표)를 더해 받는다. 미리 캐시 밖(`globIgnores`·`DEV_ONLY_CHUNK`·`DEV_ONLY_SOURCE`), 개발 홈 도구 20개.
 - 판: 팩 core@98, `SIM_VERSION` 45. 프로토콜 그대로.
 
+## 추가: 기획 D-556(조율자 전달, 계획 커밋 ce1202e)
+- 사용자 원문(1301·1302): "멋대로 개판을 만들어 놨네. 고래 같은 어류는 다 fishing 계열이지 뭘 또 새로 만든거냐?", "맞는 분류에 넣기". 중분류 `wild_goods`를 지우고 열 아이템을 어류(고래 고기·고래 기름·조개)·작물(베리·야생 과일·식물 섬유)·광석(소금·화석·이탄)·음료(물)로 옮겼다. ID 그대로, `id-changes.json`에 `item_subcategories/wild_goods`. 민물 고래는 오브젝트 범위(민물 T0~T2)로 막힌다. 경제 e2e 물건 수 161은 그대로(주석만).
+- 1255·1256(유닛 추천 = 일터 레벨·오브젝트 범위, 최적 = 예상 티어 × 시세): WP-G1·질문 1569로 남김(구현 안 함).
+- 질문 1567(물·섬유·이탄 분류)·1568(광산 T0 잡석이 1/4로) 추가.
+- 측정(econ16 30일, Verified): 잡석 169,818 → 66,174, 소금·화석·이탄 각 약 67,000, 석재 118,842 → 57,024, 목재 그대로, NPC 짓기 836 → 863. ADR "바뀜 (D-556)".
+
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
 |---|---|
 | `content/core/gather_tiers.json`·`gather_objects.json`·`id-changes.json`·`manifest.json` | 표 하나, 오브젝트 범위, 지운 ID 기록, core@98 |
+| `content/core/items.json`·`item_subcategories.json` | D-556 자연 채집물 분류 없앰(아이템 분류만 옮김) |
+| `apps/server/src/facilities/catalog.test.ts`·`itemEdit/previewGather.test.ts`·`e2e/economy.spec.ts` | 어류 사다리 29개·미꾸라지 같은 티어 셋, 주석 |
 | `packages/content/src/schema/economy.ts`·`schema/gatherObjects.ts`·`validate/gather.ts`(+시험) | `ladder` 칸 지움, `gather_tier_range_table` 검사, 사다리 검사 지움 |
 | `packages/shared/src/gatherMath.ts`·`buildingEditor.ts` | 띠 표 사다리 지움 |
 | `packages/sim/src/economy/gather.ts`(+시험)·`simulator/economy.ts`·`index.ts`·`cli/common.ts`·`version.ts` | 표 하나, prefer·table·선택 방식 범위, SIM 45 |
@@ -62,4 +70,4 @@
 - 일꾼 묶음이 쓰는 오브젝트는 정산 때 반경 안 상태로 정한다 — 오브젝트가 그 사이 바뀌면 "나눠 정산해도 같다"가 깨질 수 있다(Assumed, ADR 결과).
 
 ## 사용자 결정 대기
-- 질문 1561~1566(대표 아이템 우선, NPC 배후지 규칙, D-551 전 소나무 오브젝트 범위, NPC 석재, 선택 방식 범위, 바다 물터).
+- 질문 1561~1569(대표 아이템 우선, NPC 배후지 규칙, D-551 전 소나무 오브젝트 범위, NPC 석재, 선택 방식 범위, 바다 물터, 물·섬유·이탄 분류, 광산 T0 잡석, 유닛 추천 시세 — WP-G1).

@@ -129,16 +129,16 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(previewGather(ctx, find("raw_meat"), pack.items, DEFAULT_PREVIEW_UNIT)?.levels[0]?.chanceBp).toBe(
       0,
     );
-    // 미꾸라지(T0, 같은 티어 둘): 낚시터 — 성공 300 + ⌊500 × 20 ÷ 200⌋ = 350‰ → T0 700‰(기본 표) × 0.35 = 245‰ ÷ 2 = 12.25%
+    // 미꾸라지(T0, 같은 티어 셋 — 조개가 어류로 옮겨 옴, 기획 D-556): 낚시터 — 성공 300 + ⌊500 × 20 ÷ 200⌋ = 350‰ → T0 700‰(기본 표) × 0.35 = 245‰ ÷ 3 = 8.16%
     const loach = previewGather(ctx, find("loach"), pack.items, DEFAULT_PREVIEW_UNIT);
     expect(loach).toMatchObject({
       facility: "fishing_spot",
       primary: "agi",
       secondary: "dex",
       mode: "roll",
-      sameTier: 2,
+      sameTier: 3,
     });
-    expect(loach?.levels[0]?.chanceBp).toBe(1225);
+    expect(loach?.levels[0]?.chanceBp).toBe(816);
   });
 
   it("진행·수확량(D-507): 철광석 = 새 유닛 속도 ×1·한 번에 2개(1 + ⌊10 × 0.10⌋)·T3 필요 진행 120 = 2시간, 광석 한 번 1,000g", () => {

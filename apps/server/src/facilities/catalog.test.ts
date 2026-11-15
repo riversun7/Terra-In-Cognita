@@ -17,7 +17,8 @@ describe("채집 사다리(서버 시설 목록)", () => {
     // 같은 사다리를 다시 만들지 않는다
     expect(catalog.gatherLadder(ranch)).toBe(ladder);
     const fishing = catalog.facility("fishing_spot")?.gather;
-    if (fishing) expect(catalog.gatherLadder(fishing).flat()).toHaveLength(26);
+    // 어류 26 + 조개·고래 고기·고래 기름(기획 D-556 — 자연 채집물 분류를 없애고 어류로)
+    if (fishing) expect(catalog.gatherLadder(fishing).flat()).toHaveLength(29);
     expect(catalog.gatherLadder({ subcategory: "livestock_product" }).flat()).toHaveLength(13);
   });
 });

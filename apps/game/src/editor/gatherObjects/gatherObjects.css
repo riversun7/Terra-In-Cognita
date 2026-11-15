@@ -64,8 +64,12 @@
   content: " •";
   color: var(--color-primary);
 }
+.go-table th[scope="row"] {
+  text-align: start;
+}
 .go-pick {
   display: grid;
+  justify-items: start;
   gap: var(--space-1);
   inline-size: 100%;
   min-height: var(--tap-size);

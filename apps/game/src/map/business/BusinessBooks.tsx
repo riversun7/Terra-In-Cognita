@@ -203,61 +203,64 @@ export function BusinessBooks({ buildingId }: { readonly buildingId: number }) {
                           ? m.books_not_for_sale()
                           : m.books_price({ price: formatAmount(line.price, locale) })}
                       </span>
-                      <span className="books-row">
-                        <input
-                          className="books-input"
-                          inputMode="numeric"
-                          aria-label={m.books_qty()}
-                          placeholder={m.books_qty()}
-                          value={qty[line.asset] ?? ""}
-                          onChange={(event) => setQty({ ...qty, [line.asset]: event.target.value })}
-                        />
-                        <button
-                          type="button"
-                          className="button-small"
-                          disabled={sending || want.kind !== "ok" || want.value <= 0n}
-                          onClick={() => {
-                            if (want.kind !== "ok") return;
-                            run(
-                              { t: "business_buy", buildingId, item: line.asset, qty: Number(want.value) },
-                              m.books_bought(),
-                            );
-                          }}
-                        >
-                          {ok.mine ? m.books_take() : m.books_buy()}
-                        </button>
-                        {ok.mine ? (
-                          <>
-                            <input
-                              className="books-input"
-                              inputMode="numeric"
-                              aria-label={m.books_set_price()}
-                              placeholder={m.books_set_price()}
-                              value={price[line.asset] ?? ""}
-                              onChange={(event) => setPrice({ ...price, [line.asset]: event.target.value })}
-                            />
-                            <button
-                              type="button"
-                              className="button-small"
-                              disabled={sending || priceIn.kind !== "ok"}
-                              onClick={() => {
-                                if (priceIn.kind !== "ok") return;
-                                run(
-                                  {
-                                    t: "business_price",
-                                    buildingId,
-                                    item: line.asset,
-                                    price: String(priceIn.value),
-                                  },
-                                  m.books_price_set(),
-                                );
-                              }}
-                            >
-                              {m.books_set_price()}
-                            </button>
-                          </>
-                        ) : null}
-                      </span>
+                      {/* 남에게 팔지 않는 물건(값 0)은 주인만 꺼낸다 */}
+                      {ok.mine || line.price !== null ? (
+                        <span className="books-row">
+                          <input
+                            className="books-input"
+                            inputMode="numeric"
+                            aria-label={m.books_qty()}
+                            placeholder={m.books_qty()}
+                            value={qty[line.asset] ?? ""}
+                            onChange={(event) => setQty({ ...qty, [line.asset]: event.target.value })}
+                          />
+                          <button
+                            type="button"
+                            className="button-small"
+                            disabled={sending || want.kind !== "ok" || want.value <= 0n}
+                            onClick={() => {
+                              if (want.kind !== "ok") return;
+                              run(
+                                { t: "business_buy", buildingId, item: line.asset, qty: Number(want.value) },
+                                m.books_bought(),
+                              );
+                            }}
+                          >
+                            {ok.mine ? m.books_take() : m.books_buy()}
+                          </button>
+                          {ok.mine ? (
+                            <>
+                              <input
+                                className="books-input"
+                                inputMode="numeric"
+                                aria-label={m.books_set_price()}
+                                placeholder={m.books_set_price()}
+                                value={price[line.asset] ?? ""}
+                                onChange={(event) => setPrice({ ...price, [line.asset]: event.target.value })}
+                              />
+                              <button
+                                type="button"
+                                className="button-small"
+                                disabled={sending || priceIn.kind !== "ok"}
+                                onClick={() => {
+                                  if (priceIn.kind !== "ok") return;
+                                  run(
+                                    {
+                                      t: "business_price",
+                                      buildingId,
+                                      item: line.asset,
+                                      price: String(priceIn.value),
+                                    },
+                                    m.books_price_set(),
+                                  );
+                                }}
+                              >
+                                {m.books_set_price()}
+                              </button>
+                            </>
+                          ) : null}
+                        </span>
+                      ) : null}
                     </li>
                   );
                 })}

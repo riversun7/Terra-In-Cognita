@@ -66,6 +66,7 @@
 - Verified: `pnpm check`(TEST_DATABASE_URL 있음) 통과 — 시험 파일 719개, 시험 5,382개 통과(DB 시험 포함).
 - Verified: `pnpm build`, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 109,727 B / 상한 131,416 B(바뀌지 않음 — 장부 칸은 지도 조각).
 - Verified: 화면 시험 `e2e/business-books.spec.ts`·`labor`·`facilities`·`temple`·`gather-station`·`produce` 31개 통과(18.8분). 장부 사진 시험은 판 전체 두 장씩 찍게 고친 뒤 다시 돌렸다.
+- 사진 뒤 고침: 남에게 팔지 않는 물건(값 0)은 남에게 [사기] 칸을 숨겼다(타입·린트만 돌림, 화면 시험은 다시 돌리지 않았다 — 미실행).
 - 사진(저장소 밖): `business-books-390-{pastel-ko,dark-en}.png`, `business-books-goods-390-{pastel-ko,dark-en}.png` — 사진의 장부 값은 견본(rewriteTrpc), 판정 시험은 실제 서버 값.
 - Verified(단위·DB): `business/core.test.ts` 7, `commands.test.ts` 4, `business.db.test.ts` 1(헌금 → 금고·소득세·장부·손 정산·꺼내기 값·자동 정산·다시 켜기), `labor.db.test.ts` 8(금고·적자 규칙),
   `workerRest.test.ts` 3, 공용 `businessBooks.test.ts` 7, 프로토콜 `business.test.ts` 4.

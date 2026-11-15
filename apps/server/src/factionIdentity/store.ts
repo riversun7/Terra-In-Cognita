@@ -427,11 +427,31 @@ export async function ownerIdentityOf(
   pool: RowQueryable,
   userId: string,
 ): Promise<MapUnitOwnerIdentity | null> {
+  return identityRow(
+    pool,
+    "house_members m join faction_identities i on i.faction_id = m.faction_id where m.user_id = $1",
+    userId,
+  );
+}
+
+/** 가문 행의 정체성(유닛 단위 가문 D-569 — 유닛 한눈 정보가 유닛의 가문으로 읽는다). 없으면 null */
+export async function houseIdentityOf(
+  pool: RowQueryable,
+  factionId: number,
+): Promise<MapUnitOwnerIdentity | null> {
+  return identityRow(pool, "faction_identities i where i.faction_id = $1", factionId);
+}
+
+async function identityRow(
+  pool: RowQueryable,
+  from: string,
+  key: string | number,
+): Promise<MapUnitOwnerIdentity | null> {
   const { rows } = await pool.query(
     `select i.name, i.short_name, i.color, i.emblem_shape, i.emblem_division, i.emblem_charge, i.emblem_scheme,
             i.emblem_sha256, i.faction_id
-       from house_members m join faction_identities i on i.faction_id = m.faction_id where m.user_id = $1`,
-    [userId],
+       from ${from}`,
+    [key],
   );
   const row = rows[0];
   if (!row) return null;

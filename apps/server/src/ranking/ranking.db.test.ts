@@ -378,6 +378,39 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 집계·조회 (DB)", () => {
       [1, true, 2],
       [2, false, 1],
     ]);
+    // 가문 판(D-569 1746): 가문원 점수 합 — 가문에 들기 전에는 빈 판, 든 뒤 가문 한 줄(소속 도시·나라·가문원 수)
+    const houseBoard = () =>
+      query<Outputs["ranking"]["board"]>(
+        "ranking.board",
+        { board: { kind: "house", path: "conqueror" } },
+        player,
+      );
+    expect(await houseBoard()).toMatchObject({ status: "ready", total: 0, rows: [], me: null });
+    const made = await sql("insert into factions (kind, born_of) values ('player', $1) returning id", [
+      factionA,
+    ]);
+    const houseId = Number(made.rows[0]?.id);
+    await sql(
+      "insert into house_members (user_id, faction_id, role, joined_at_ms) values ($1, $2, 'leader', 0)",
+      [playerId, houseId],
+    );
+    await sql("update world_cities set name = 'Rank Town' where id = 1");
+    await sql("insert into house_homes (faction_id, city_id, set_at_ms) values ($1, 1, 0)", [houseId]);
+    const houses = await houseBoard();
+    expect(houses.board).toEqual({ kind: "house", path: "conqueror" });
+    expect(houses.total).toBe(1);
+    expect(
+      houses.rows.map((row) => [row.rank, row.kind, row.me, row.score, row.home, row.members, row.faction]),
+    ).toEqual([[1, "house", true, 3000, "Rank Town", 1, { ko: "시험 국가 가", en: "Test nation A" }]]);
+    expect(houses.me?.score).toBe(3000);
+    // 경로를 비우면 유저 판과 같이 내 점수가 가장 높은 경로
+    const chosenHouse = await query<Outputs["ranking"]["board"]>(
+      "ranking.board",
+      { board: { kind: "house", path: null } },
+      player,
+    );
+    expect(chosenHouse.board).toEqual({ kind: "house", path: "landlord" });
+    await sql("delete from house_members where user_id = $1", [playerId]);
   });
 
   it("다음 경계: 흐름이 없으면 감쇠(18‰), 재고는 다시 더한다, 지난 순위를 남긴다", async () => {

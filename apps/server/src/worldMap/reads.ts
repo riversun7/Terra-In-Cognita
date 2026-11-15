@@ -39,7 +39,8 @@ import type {
   WorldTerritoryDisplay,
 } from "@terra/shared/worldMap";
 import { NATION_COLOR_PATTERN, TERRITORY_DISPLAY_START } from "@terra/shared/worldMap";
-import { ownerIdentityOf } from "../factionIdentity/store.ts";
+import { houseIdentityOf, ownerIdentityOf } from "../factionIdentity/store.ts";
+import { houseTiesOf } from "../world/houseTies.ts";
 import { type GovernmentReads, governmentReadsOfWorld } from "../government/reads.ts";
 import { loadEmblemHashes } from "../nationEdit/emblems.ts";
 import { type NaturalizationReads, naturalizationReadsOfWorld } from "../citizenship/attach.ts";
@@ -675,9 +676,14 @@ export function worldMapReadsOf(options: {
       ),
     // 유저 유닛의 주인 줄: 그 유저가 정한 세력 정체성(docs/adr/2026-11-11-faction-identity.md 6절)
     isUserOwner: (ownerId) => (world.persistence?.owners.get(ownerId)?.userId ?? null) !== null,
-    identityOfOwner: async (ownerId) => {
+    identityOfOwner: async (ownerId, unitId) => {
       const userId = world.persistence?.owners.get(ownerId)?.userId ?? null;
-      return userId === null ? null : ownerIdentityOf(options.pool, userId);
+      if (userId === null) return null;
+      // 유닛 단위 가문(D-569 1744): 그 유닛의 가문(본체는 주인 가문). 표가 없으면(시험) 주인 가문
+      const ties = houseTiesOf(world.persistence);
+      if (!ties) return ownerIdentityOf(options.pool, userId);
+      const house = ties.unitHouseOf(unitId, userId);
+      return house === undefined ? null : houseIdentityOf(options.pool, house);
     },
     leaderName: leaderOfCode,
     // 고른 유닛의 추천 줄(1차 생산·전투 유형): 직무 산출과 같은 1차 스탯

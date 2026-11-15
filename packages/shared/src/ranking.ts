@@ -32,16 +32,23 @@ export function isRankingMeasure(value: unknown): value is RankingMeasure {
   return typeof value === "string" && (RANKING_MEASURES as readonly string[]).includes(value);
 }
 
-/** 화면이 고르는 판: 경로 하나 또는 세력 판 */
-export type RankingBoardKey = { readonly kind: "path"; readonly path: string } | { readonly kind: "faction" };
+/**
+ * 화면이 고르는 판: 경로 하나(유저·세력 주체마다) · 세력 판 · 경로 하나의 가문 판(D-569 1746 "랭킹은 가문별 유닛별 모두 존재" — 가문원 점수의
+ * 합, 가문마다 한 줄, 소속 도시 표시)
+ */
+export type RankingBoardKey =
+  | { readonly kind: "path"; readonly path: string }
+  | { readonly kind: "faction" }
+  | { readonly kind: "house"; readonly path: string };
 
 /** 판 요청: 경로를 비우면(null) 서버가 고른다 — 내 점수가 가장 높은 경로, 없으면 연 경로의 첫째 */
 export type RankingBoardRequest =
   | { readonly kind: "path"; readonly path: string | null }
-  | { readonly kind: "faction" };
+  | { readonly kind: "faction" }
+  | { readonly kind: "house"; readonly path: string | null };
 
-/** 판에 오른 주체의 종류: 유저(사이보그) · NPC 세력 · 유저 세력(D-043: NPC도 같은 판에 같은 규칙으로) */
-export type RankingSubjectKind = "user" | "npc_faction" | "player_faction";
+/** 판에 오른 주체의 종류: 유저(사이보그) · NPC 세력 · 유저 세력(D-043: NPC도 같은 판에 같은 규칙으로) · 가문(가문 판) */
+export type RankingSubjectKind = "user" | "npc_faction" | "player_faction" | "house";
 
 /** 경로 하나(팩 자료). 안 연 경로는 지표가 없어도 된다(D-392 "곧 열림") */
 export interface RankingPathInfo {
@@ -107,6 +114,9 @@ export interface RankingRow {
   readonly me: boolean;
   /** 세력 판에만 */
   readonly detail: RankingFactionDetail | null;
+  /** 가문 판에만: 소속 도시 이름(이름 없는 도시·모르면 null)과 점수를 더한 가문원 수 */
+  readonly home?: string | null | undefined;
+  readonly members?: number | undefined;
   /** 시안 자료(dev·admin이 켰을 때)면 true */
   readonly preview?: boolean | undefined;
 }

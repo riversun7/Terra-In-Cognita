@@ -172,10 +172,10 @@ export const ROUTES = {
     frame: "shown",
     access: "everyone",
   },
-  // 세력 판(같은 화면을 세력 칸으로 연다)
+  // 세력 판(같은 화면을 세력 칸으로 연다). ?house=<경로 ID>는 그 경로의 가문 판(D-569 1746)
   faction_ranking: {
     path: "/faction/ranking",
-    search: [],
+    search: ["house"],
     parent: "faction",
     frame: "shown",
     access: "everyone",

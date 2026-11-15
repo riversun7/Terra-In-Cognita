@@ -1,6 +1,7 @@
 // 국적 바꾸기 서비스를 월드에 잇는다(app.ts의 게이트웨이·worldMap/reads.ts의 조회가 부른다) — docs/adr/2026-11-08-citizenship.md.
 // 세계가 준비된 뒤(DB가 있는 월드 + NPC 사회 런타임) 처음 부를 때 만들고 다시 쓴다. 서비스는 상태를 따로 들지 않는다(사이보그 기록·원장이
 // 원본)라 조회용(안개·이름)과 명령용이 따로 만들어도 같은 값을 본다. 월드 파일(world/world.ts)을 키우지 않으려고 월드 밖에서 잇는다.
+import { houseTiesOf } from "../world/houseTies.ts";
 import type { World } from "../world/world.ts";
 import {
   type CitizenshipService,
@@ -35,6 +36,7 @@ export function citizenshipServiceOf(
       ready: () => world.status().state === "ready",
       knownCityIds: options.knownCityIds,
       nationName: options.nationName,
+      inHouse: (userId) => houseTiesOf(p)?.houseOfUser(userId) !== undefined,
     });
     built = { persistence: p, service };
     return service;

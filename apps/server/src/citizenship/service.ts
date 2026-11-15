@@ -10,6 +10,8 @@
 // - 우호도(D-526): 떠난 사람과 옛 나라 사이 우호도가 설정 칸 citizenship_standing_drop만큼, 받는 나라가 옛 나라와 전쟁 중(적대 세력)이면
 //   citizenship_standing_drop_hostile만큼 떨어진다(−100~100 눈금, 표 user_nation_standings).
 // - 쉬는 날: 마지막으로 바꾼 뒤 설정 칸 citizenship_rest_ms 동안 다시 바꿀 수 없다(첫 접속 고르기는 세지 않는다).
+// - 나라는 하나(기획 D-569): 가문원의 나라는 가문 소속 도시의 나라라 귀화하지 못한다(in_house — 가문장은 소속 도시를 바꾸고 가문원은 가문을
+//   나간 뒤 귀화한다). 귀화는 무소속의 소속 도시(내 도시)와 그 나라를 바꾸는 길이다.
 // - 바뀌는 것: 나라(사이보그 행·세력 가입)와 내 도시(start_city_id = 귀화한 도시)·옛 나라 우호도. 그대로인 것: 유닛·건물·직무·노동 계약·고용한
 //   휴먼(모두 내 소유 주체 것이라 주인이 그대로다), 받은 정착 지원금은 새 나라가 다시 주지 않는다([임시] 질문 793). 시야 공유·아는 도시는 다음
 //   시야 틱·조회부터 새 나라.
@@ -78,6 +80,8 @@ export interface CitizenshipServiceOptions {
   readonly knownCityIds?: ((viewer: Viewer) => Promise<ReadonlySet<number>>) | undefined;
   /** 조회만: 세력 코드 → 나라 이름(팩 국가 프리셋) */
   readonly nationName?: ((code: string) => LocalizedName | undefined) | undefined;
+  /** 가문원인가(D-569 — 가문원의 나라는 가문 소속 도시가 정해 귀화하지 못한다, world/houseTies.ts). 없으면 막지 않는다(시험) */
+  readonly inHouse?: ((userId: string) => boolean) | undefined;
 }
 
 export interface CitizenshipService {
@@ -175,7 +179,8 @@ export function createCitizenshipService(o: CitizenshipServiceOptions): Citizens
   };
 
   /**
-   * 신청을 막는 까닭(값·잔고 앞의 것만). 같은 나라 → 받을 수 없는 나라 → 잡힘 → 그 도시에 없음 → 쉬는 날 차례(화면이 첫 까닭 하나를 보인다)
+   * 신청을 막는 까닭(값·잔고 앞의 것만). 같은 나라 → 가문원 → 받을 수 없는 나라 → 잡힘 → 그 도시에 없음 → 쉬는 날 차례(화면이 첫 까닭
+   * 하나를 보인다)
    */
   const blockOf = (
     record: CyborgRecord,
@@ -183,6 +188,7 @@ export function createCitizenshipService(o: CitizenshipServiceOptions): Citizens
     at: number,
   ): Exclude<NaturalizationBlock, "insufficient_funds"> | null => {
     if (hall.factionRow === record.factionId) return "same_nation";
+    if (o.inHouse?.(record.userId) === true) return "in_house";
     if (hall.factionRow === null || !hall.alive || !o.cyborgs.joinable(hall.factionRow))
       return "not_joinable";
     const held = record.unitId === null ? null : (bodyInfo(record.unitId)?.condition.heldBy ?? null);

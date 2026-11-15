@@ -70,7 +70,8 @@ export interface MapUnitSource {
   /** 소유 주체 → 세력 정보(NPC 주체는 세력, 유저 주체는 가입한 국가). 없으면 null */
   factionOfOwner?: ((ownerId: number) => Promise<MapUnitGlance["faction"]>) | undefined;
   /** 소유 주체(유저) → 그 유저가 정한 세력 정체성(docs/adr/2026-11-11-faction-identity.md). NPC 주체·정하지 않음이면 null */
-  identityOfOwner?: ((ownerId: number) => Promise<MapUnitGlance["owner"]>) | undefined;
+  /** 유저 유닛의 가문 정체성(유닛 단위 가문 D-569 — 그 유닛의 가문, 없으면 null = 무소속) */
+  identityOfOwner?: ((ownerId: number, unitId: number) => Promise<MapUnitGlance["owner"]>) | undefined;
   /** 유저 소유 주체인가(가문이 없으면 한눈 정보에 "무소속" — 기획 D-565). 없으면 무소속 표시를 하지 않는다 */
   isUserOwner?: ((ownerId: number) => boolean) | undefined;
   /** 세력 코드 → 그 나라 지도자 이름(팩 국가 프리셋, "WP-NPC"). 없으면 지도자 이름 없음 */
@@ -327,8 +328,8 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
       if (!visible) return none;
       const faction = (await source.factionOfOwner?.(info.ownerId)) ?? null;
       // 유저 유닛이면 주인이 정한 세력 정체성(이름·약어·마크). 읽지 못해도 한눈 정보는 그대로 준다
-      const owner = (await source.identityOfOwner?.(info.ownerId)?.catch(() => null)) ?? null;
-      // 가문 없는 유저 유닛 = 무소속(D-565)
+      const owner = (await source.identityOfOwner?.(info.ownerId, unitId)?.catch(() => null)) ?? null;
+      // 가문 없는 유저 유닛 = 무소속(D-565·D-569 — 유닛마다)
       const ownerPart = owner
         ? { owner }
         : source.isUserOwner?.(info.ownerId) === true

@@ -19,6 +19,7 @@ import {
 import type { RankingCoefficients } from "@terra/sim";
 import type { NationNames } from "./paths.ts";
 import type { Queryable } from "./measures.ts";
+import { readHouseBoard } from "./houseBoard.ts";
 import { MIN_PERIOD_MS, readSnapshotState } from "./snapshot.ts";
 
 const num = (value: unknown): number => (typeof value === "number" ? value : Number(value ?? 0));
@@ -189,7 +190,7 @@ function factionRow(
   return out;
 }
 
-async function countOf(db: Queryable, board: RankingBoardKey): Promise<number> {
+async function countOf(db: Queryable, board: Exclude<RankingBoardKey, { kind: "house" }>): Promise<number> {
   const result =
     board.kind === "path"
       ? await db.query(`select count(*)::int as n from ranking_path_scores where path_id = $1`, [board.path])
@@ -214,11 +215,14 @@ export async function readBoard(
     me: null,
     tiers: tiers.toSorted((a, b) => a - b).map((tierPm) => ({ tierPm, minScore: null })),
   };
-  if (board.kind === "path") {
+  if (board.kind !== "faction") {
     const path = ctx.paths.find((entry) => entry.id === board.path);
     if (path === undefined) return { ...base, status: "unknown", ...empty };
     if (!path.open) return { ...base, status: "closed", ...empty };
   }
+  // 가문 판(D-569 1746): 경로 점수를 가문원끼리 더해 읽을 때 센다
+  if (board.kind === "house")
+    return { ...base, status: "ready", ...(await readHouseBoard(ctx, userId, board.path)) };
   const me = await viewerSubjects(ctx.db, userId);
   const total = await countOf(ctx.db, board);
   if (board.kind === "path") {

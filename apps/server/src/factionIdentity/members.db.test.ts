@@ -1,6 +1,6 @@
 // 가문 가입·소속 도시·이름 되돌리기 DB 통합 시험(질문 985 다·986 가·기획 D-565, docs/adr/2026-11-11-faction-identity.md "바뀜 (981~986 답)"·
 // "바뀜 (2026-11-15, D-565)"). 초대·신청·받기·거절·서로 맞으면 바로 듦·나가기·내보내기, 나라를 가리지 않음(D-565), 상한(인원·대기·신청)·요청
-// 유효 시간, 가문원의 유닛 한눈 정보, 귀화해도 가문은 그대로(D-565), 소속 도시(창설 때 고름·가문장이 바꿈·대기·나라 자동·소식·시야 나라·구인
+// 유효 시간, 가문원의 유닛 한눈 정보, 소속 도시(창설 때 고름·가문장이 바꿈·대기·나라 자동·소식·시야 나라·구인
 // 자격), 운영자 이름 되돌리기(감사 기록·소식·대기 없이 다시 정함), 처리할 일(초대·신청·소식).
 // TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
 import { houseResetName, houseResetShort } from "@terra/shared/house";
@@ -77,11 +77,6 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
   };
   const view = (userId: string) => identity().house(viewer(userId));
   const noticeKinds = async (userId: string) => (await view(userId)).notices.map((notice) => notice.kind);
-  /** 귀화(사이보그 행만 바꾼다 — 서비스는 citizenship 시험이 본다) */
-  const naturalize = async (userId: string, nation: number) => {
-    await sql("update cyborgs set faction_id = $2 where user_id = $1", [userId, nation]);
-    await sql("update faction_members set faction_id = $2 where user_id = $1", [userId, nation]);
-  };
 
   beforeAll(async () => {
     test = await createTestDatabase();
@@ -319,26 +314,6 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
     const one = await identity().dismissHouseNotices(viewer(leader), { ids: [notices[0]?.id ?? 0] });
     expect(one.notices).toHaveLength(notices.length - 1);
     expect((await identity().dismissHouseNotices(viewer(leader), {})).notices).toEqual([]);
-  });
-
-  it("귀화해도 가문은 그대로(D-565 — 983 가를 대신함): 가문 나라는 소속 도시가 정한다", async () => {
-    const leader = await citizen("Movera6", nationA);
-    const houseId = await found(leader, "철새가문", "BRD");
-    const member = await citizen("Movesa6", nationA);
-    const service = members();
-    await service.invite(leader, "Movesa6");
-    await service.answer(member, (await view(member)).offers[0]?.id ?? 0, true);
-    await naturalize(member, nationB);
-    await naturalize(leader, nationB);
-    expect(await rows(test.db, "select born_of from factions where id = $1", [houseId])).toEqual([
-      { born_of: String(nationA) },
-    ]);
-    expect((await view(member)).house).toMatchObject({
-      factionId: houseId,
-      nationId: nationA,
-      memberCount: 2,
-    });
-    expect(await noticeKinds(member)).toEqual([]);
   });
 
   it("소속 도시(D-565): 창설 때 고르면 그 도시의 나라 가문, 가문장이 바꾸면 나라도 바뀜(대기·소식·감사 기록), 시야 나라·구인 자격", async () => {

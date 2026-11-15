@@ -71,6 +71,16 @@ function BoardPicker({ view }: { view: RankingBoardResponse }) {
         <optgroup label={m.ranking_group_faction()}>
           <option value="faction:">{m.ranking_board_faction()}</option>
         </optgroup>
+        {/* 가문 판(D-569 1746): 연 경로마다 가문원 점수 합 */}
+        <optgroup label={m.ranking_group_house()}>
+          {view.paths
+            .filter((path) => path.open)
+            .map((path) => (
+              <option key={path.id} value={`house:${path.id}`}>
+                {m.ranking_board_house({ name: nameText(path.name) })}
+              </option>
+            ))}
+        </optgroup>
         {pathsByArea(view.paths).map((group) => (
           <optgroup key={group.area} label={AREA_NAMES[group.area]()}>
             {group.paths.map((path) => (
@@ -89,13 +99,14 @@ function BoardPicker({ view }: { view: RankingBoardResponse }) {
 /** 이 판이 재는 것 */
 function Measures({ view }: { view: RankingBoardResponse }) {
   const board = view.board;
-  const text =
+  const measures =
     board.kind === "faction"
       ? m.ranking_faction_measures()
       : (view.paths
           .find((path) => path.id === board.path)
           ?.measures.map((item) => MEASURE_NAMES[item.measure]())
           .join(" · ") ?? "");
+  const text = board.kind === "house" && measures !== "" ? m.ranking_house_measures({ measures }) : measures;
   if (text === "") return null;
   return (
     <p className="ranking-measures">
@@ -118,20 +129,36 @@ function factionSizeTexts(row: RankingRow): string[] {
   ];
 }
 
+/** 가문 줄 덧붙임 글: 소속 도시·가문원 수(D-569 1746 — 가문 판에만) */
+function houseTexts(row: RankingRow): string[] {
+  if (row.kind !== "house") return [];
+  const texts = [m.ranking_house_home({ city: row.home ?? m.ranking_house_home_unknown() })];
+  if (row.members !== undefined) texts.push(m.ranking_house_members({ count: formatCount(row.members) }));
+  return texts;
+}
+
+/** 내 자리 칸 제목·빈 글(판 종류마다) */
+const ME_TEXT = {
+  faction: { title: m.ranking_me_faction_title, none: m.ranking_me_no_faction },
+  house: { title: m.ranking_me_house_title, none: m.ranking_me_no_house },
+  path: { title: m.ranking_me_title, none: m.ranking_me_none },
+} as const;
+
 /** 내 자리 판 */
 function MyStanding({ view }: { view: RankingBoardResponse }) {
   const me = view.me;
-  const faction = view.board.kind === "faction";
+  const kind = view.board.kind;
+  const group = kind !== "path";
   return (
     <section className="panel ranking-me" aria-labelledby="ranking-me-title">
       <h2 id="ranking-me-title" className="screen-section-title">
-        {faction ? m.ranking_me_faction_title() : m.ranking_me_title()}
+        {ME_TEXT[kind].title()}
       </h2>
       {me === null ? (
-        <p className="ranking-muted">{faction ? m.ranking_me_no_faction() : m.ranking_me_none()}</p>
+        <p className="ranking-muted">{ME_TEXT[kind].none()}</p>
       ) : (
         <>
-          {faction ? (
+          {group ? (
             <p className="ranking-me-name" translate="no">
               {nameText(me.name)}
             </p>
@@ -145,11 +172,15 @@ function MyStanding({ view }: { view: RankingBoardResponse }) {
             <Change row={me} />
           </p>
           <p className="ranking-me-score">
-            {[m.ranking_score({ score: formatCount(me.score) }), ...factionSizeTexts(me)].join(" · ")}
+            {[
+              m.ranking_score({ score: formatCount(me.score) }),
+              ...factionSizeTexts(me),
+              ...houseTexts(me),
+            ].join(" · ")}
           </p>
         </>
       )}
-      {faction ? null : (
+      {group ? null : (
         <p className="ranking-muted ranking-renown">
           {view.renown === null
             ? m.ranking_renown_none()
@@ -191,7 +222,7 @@ function Row({ row }: { row: RankingRow }) {
           {row.me ? <StateChip tone="good" label={m.ranking_me_tag()} /> : null}
           {row.kind === "user" ? null : <StateChip tone="plain" label={KIND_NAMES[row.kind]()} />}
           {row.faction === null ? null : <span translate="no">{nameText(row.faction)}</span>}
-          {factionSizeTexts(row).map((text) => (
+          {[...factionSizeTexts(row), ...houseTexts(row)].map((text) => (
             <span key={text}>{text}</span>
           ))}
           {row.preview === true ? <PreviewTag /> : null}
@@ -259,6 +290,7 @@ function Notes({ view }: { view: RankingBoardResponse }) {
         </>
       )}
       {view.board.kind === "faction" ? <p>{m.ranking_renown_note()}</p> : null}
+      {view.board.kind === "house" ? <p>{m.ranking_house_note()}</p> : null}
     </footer>
   );
 }

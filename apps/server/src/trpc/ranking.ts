@@ -12,6 +12,8 @@ const boardInput = z.strictObject({
     // 경로를 비우면(null) 서버가 고른다(내 점수가 가장 높은 경로 → 연 경로의 첫째)
     z.strictObject({ kind: z.literal("path"), path: z.string().regex(ID_PATTERN).nullable() }),
     z.strictObject({ kind: z.literal("faction") }),
+    // 가문 판(D-569 1746): 경로 하나의 가문원 점수 합
+    z.strictObject({ kind: z.literal("house"), path: z.string().regex(ID_PATTERN).nullable() }),
   ]),
   preview: previewField,
 });

@@ -91,3 +91,6 @@
 - 설정 칸: `citizenship_fee`(뜻을 부호 있는 기본값으로 넓힘), `citizenship_standing_drop`·`citizenship_standing_drop_hostile`(새로) — 팩 core@56. 판정 코드(`packages/sim`)는 쓰지 않아 `SIM_VERSION` 그대로.
 - 시험: 서버 DB `citizenship/citizenship.db.test.ts`(입회비 → 새 나라·옛 나라 국고 그대로·우호도 −20·기록 칸·다시 켜도 남음·되돌아가면 떠나는 나라 우호도 / 나라 설정 지원금 + 전쟁 중 → 지원금 ← 새 나라 국고·우호도 −60·hostile / 입회비가 잔고보다 크면 거절), 프로토콜 `citizenship.test.ts`(부호 있는 cost·새 결과 칸·18 결과도 받음), 게임 `naturalizeData.test.ts`, 화면 `e2e/citizenship.spec.ts`(실제 조건 = 입회비 100·지원금 0·우호도 하락 20, 입회비 칸·우호도 줄·확인 줄, 다크 사진은 고친 응답으로 지원금 250·적대 세력 줄).
 - 확인 대기: 질문 845~849(`docs/questions/2026-11-08-injury-citizen2.md`).
+
+## 바뀜 (D-569, 2026-11-16 — 줄기 `work/house-4`)
+- 기획 D-569 "나라는 하나"(시민권 나라 = 가문 소속 도시의 나라): 가문원의 나라·내 도시는 가문 표가 가문 소속 도시와 그 나라로 맞춘다(ADR `2026-11-11-faction-identity.md` "바뀜 (2026-11-16, D-569)" 1절). 그래서 **가문원은 귀화하지 못한다** — 막는 까닭 `in_house`(차례: `same_nation` 다음), 명령 결과 코드 `in_house`는 프로토콜 44 연결에만(43은 `not_joinable`). 귀화는 무소속의 소속 도시(내 도시)와 그 나라를 바꾸는 길이다. 위 1절의 나머지 규칙(값·쉬는 날·우호도)은 그대로다. 화면 문구 `naturalize_block_in_house`(ko·en). 질문 1846.

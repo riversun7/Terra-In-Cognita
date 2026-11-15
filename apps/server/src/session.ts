@@ -658,6 +658,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         citizenshipSocket ??= context.citizenship.open({
           send: sendText,
           viewer: context.viewer ?? signedOut,
+          protocolVersion,
         });
         citizenshipSocket.handle(message);
         return;

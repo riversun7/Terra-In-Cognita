@@ -80,6 +80,12 @@ export const WORLD_TABLES = {
     columns: ["user_id", "faction_id"],
     key: ["user_id"],
   },
+  /** 유닛 단위 가문(기획 D-569 1744 — 고용한 사람의 가문, world/houseTies.ts). 주인이 그 가문을 떠나면 지운다 */
+  houseUnits: {
+    name: "house_units",
+    columns: ["unit_id", "faction_id", "user_id", "set_at_ms"],
+    key: ["unit_id"],
+  },
   /** 사이보그(계정당 하나, docs/adr/2026-11-01-first-login-cyborg.md 2절) — 만들 때 유닛과 같은 커밋 */
   cyborgs: {
     name: "cyborgs",
@@ -874,6 +880,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "exploration",
   "heartbeat",
   "factionMembers",
+  "houseUnits",
   "cyborgs",
   "nationalityChanges",
   "userNationStandings",

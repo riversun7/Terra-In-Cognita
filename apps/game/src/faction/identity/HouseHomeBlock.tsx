@@ -84,6 +84,8 @@ export function HouseHomeBlock({
           </span>
         </form>
       ) : null}
+      {/* 나라는 하나(D-569): 소속 도시를 바꾸면 가문원 모두의 나라가 바뀐다 */}
+      {canChange ? <p className="faction-muted">{m.fid_home_change_note()}</p> : null}
     </div>
   );
 }

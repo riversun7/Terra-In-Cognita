@@ -4,6 +4,8 @@
 //    우호도가 남음 → 쉬는 날 뒤 A로 되돌아가면 이번에는 B 우호도가 떨어짐.
 // 2) 받는 나라가 지원금을 정하고(나라 설정 naturalize_fee < 0) 옛 나라와 전쟁 중이면: 지원금 ← B 국고, 우호도 크게 하락(적대 세력).
 // 3) 입회비가 잔고보다 크면 insufficient_funds(일부만 내지 않는다).
+// 4) 나라는 하나(기획 D-569): 가문원 시민권·내 도시 = 가문 소속 도시와 그 나라(가문 표 다시 읽기가 맞춘다), 가문원은 귀화하지 못한다(in_house),
+//    고용한 유닛은 고용할 때의 가문(유닛 단위), 가문을 나가면 나라는 그대로·유닛은 무소속, 도시를 가진 가문의 소속 도시 = 그 가문 도시.
 import { loadContentPack } from "@terra/content/node";
 import { DAY_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -12,6 +14,7 @@ import { createContentEditState } from "../contentEdit/state.ts";
 import { GOVERNMENT_FACILITY } from "../government/reads.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import type { Viewer } from "../trpc/context.ts";
+import { houseTiesOf } from "../world/houseTies.ts";
 import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
@@ -468,5 +471,90 @@ describe.skipIf(!TEST_DATABASE_URL)("국적 바꾸기(귀화, 질문 745 나·D-
     expect(balanceOf(world, poor.ownerId)).toBe(before);
     expect(p.cyborgs.record(poor.userId)?.factionId).toBe(poor.factionId);
     expect(p.cyborgs.standingOf(poor.userId, poor.factionId)).toBe(0);
+  });
+
+  it("나라는 하나(D-569): 가문원 시민권·내 도시 = 가문 소속 도시, 귀화 막힘(in_house), 유닛 단위 가문, 나가도 나라 그대로, 도시 가진 가문", async () => {
+    const world = await boot();
+    const p = persistenceOf(world);
+    const ties = houseTiesOf(p);
+    if (!ties) throw new Error("house ties");
+    const service = citizenshipServiceOf(world, { now: () => clock })();
+    if (!service) throw new Error("citizenship service");
+    const me = await cyborgIn(world, "Onenation", 0, 1_000n);
+    const target = p.cyborgs.creation(me.userId, clock).factions.find((f) => f.id !== me.factionId);
+    if (!target) throw new Error("second nation");
+    const hall = hallOf(world, target.id);
+    // 나라 B 도시를 소속 도시로 둔 가문에 든다(가문장)
+    const made = await rows<{ id: string }>(
+      test.db,
+      "insert into factions (kind, born_of) values ('player', $1) returning id",
+      [target.id],
+    );
+    const houseId = Number(made[0]?.id);
+    await test.db.$client.query(
+      "insert into house_members (user_id, faction_id, role, joined_at_ms) values ($1, $2, 'leader', 0)",
+      [me.userId, houseId],
+    );
+    await test.db.$client.query(
+      "insert into house_homes (faction_id, city_id, set_at_ms) values ($1, $2, 0)",
+      [houseId, hall.cityId],
+    );
+    await ties.reload();
+    expect(p.cyborgs.record(me.userId)).toMatchObject({ factionId: target.id, startCityId: hall.cityId });
+    expect(
+      await rows(test.db, "select faction_id from faction_members where user_id = $1", [me.userId]),
+    ).toEqual([{ faction_id: String(target.id) }]);
+    expect(
+      await rows(test.db, "select faction_id, start_city_id from cyborgs where user_id = $1", [me.userId]),
+    ).toEqual([{ faction_id: String(target.id), start_city_id: String(hall.cityId) }]);
+    // 가문원은 귀화하지 못한다: 옛 나라 A 정부에서 조건·명령 모두 in_house
+    const home = hallOf(world, me.factionId);
+    moveBodyTo(world, me.userId, home.cityId);
+    const viewer: Viewer = { id: me.userId, loginId: "onenation", roles: [] };
+    expect((await service.terms(viewer, home.buildingId, clock)).terms?.blocked).toBe("in_house");
+    expect(
+      await service.change(me.userId, {
+        buildingId: home.buildingId,
+        factionId: me.factionId,
+        cost: String(FEE),
+      }),
+    ).toEqual({ ok: false, code: "in_house" });
+
+    // 유닛 단위 가문: 고용한 유닛은 고용할 때의 가문, 본체는 주인 가문, 적지 않은 유닛은 무소속
+    const body = p.cyborgs.record(me.userId)?.unitId ?? 0;
+    ties.assignUnit(900_001, me.userId, clock);
+    await p.writer.durable();
+    expect(ties.unitHouseOf(900_001, me.userId)).toBe(houseId);
+    expect(ties.unitHouseOf(body, me.userId)).toBe(houseId);
+    expect(ties.unitHouseOf(900_002, me.userId)).toBeUndefined();
+    expect(await rows(test.db, "select faction_id from house_units where unit_id = 900001")).toEqual([
+      { faction_id: String(houseId) },
+    ]);
+
+    // 도시를 가진 가문(D-569 1743): 소속 도시 = 그 가문 도시, 독립이면 나라 = 그 가문
+    await test.db.$client.query(
+      "insert into world_owners (id, faction_id, settled_at_ms) values (99101, $1, 0)",
+      [houseId],
+    );
+    await test.db.$client.query(
+      "insert into world_cities (id, faction_id, map_key, cell_x, cell_y, start, founded_at_ms) values (990101, $1, 7, 3, 3, false, 0)",
+      [houseId],
+    );
+    await ties.reload();
+    expect(await rows(test.db, "select city_id from house_homes where faction_id = $1", [houseId])).toEqual([
+      { city_id: "990101" },
+    ]);
+    expect(p.cyborgs.record(me.userId)).toMatchObject({ factionId: houseId, startCityId: 990101 });
+    // 다시 읽어도 그대로(멱등)
+    await ties.reload();
+    expect(p.cyborgs.record(me.userId)).toMatchObject({ factionId: houseId, startCityId: 990101 });
+
+    // 가문을 나가면(여기서는 줄을 지움) 나라·내 도시는 그대로, 고용한 유닛은 무소속(줄 지움)
+    await test.db.$client.query("delete from house_members where user_id = $1", [me.userId]);
+    await ties.reload();
+    expect(ties.houseOfUser(me.userId)).toBeUndefined();
+    expect(ties.unitHouseOf(900_001, me.userId)).toBeUndefined();
+    expect(await rows(test.db, "select unit_id from house_units where unit_id = 900001")).toEqual([]);
+    expect(p.cyborgs.record(me.userId)).toMatchObject({ factionId: houseId, startCityId: 990101 });
   });
 });

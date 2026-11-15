@@ -167,6 +167,23 @@ test.describe("dev 시안 자료", () => {
       message("ko", "ranking_renown", { renown: "480" }),
     );
     await expect(screen.locator(".ranking-row").last()).toContainText(message("ko", "ranking_renown_none"));
+
+    // 가문 판(D-569 1746): 경로 하나의 가문원 점수 합 — 가문 줄·소속 도시·가문원 수·내 가문 자리
+    await screen.locator(".ranking-picker select").selectOption("house:mercenary");
+    await rankingReady(page);
+    await expect(page).toHaveURL(/\/faction\/ranking\?house=mercenary/);
+    await expect(screen.locator(".ranking-row")).toHaveCount(16);
+    await expect(screen.locator(".ranking-row[data-me]")).toHaveCount(1);
+    await expect(screen.locator(".ranking-row").nth(1)).toContainText(
+      message("ko", "ranking_house_home", { city: "Preview City 2" }),
+    );
+    await expect(screen.locator(".ranking-row").first()).toContainText(
+      message("ko", "ranking_house_home", { city: message("ko", "ranking_house_home_unknown") }),
+    );
+    await expect(screen.locator("#ranking-me-title")).toHaveText(message("ko", "ranking_me_house_title"));
+    await expect(screen.locator(".ranking-notes")).toContainText(message("ko", "ranking_house_note"));
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(await smallTapTargets(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -215,6 +232,10 @@ test.describe("사진", () => {
         await rankingReady(page);
         await expect(page.locator("section.ranking .ranking-row").first()).toBeVisible();
         await tallShot(page, `ranking-faction-${theme}-${language}-${String(width)}`);
+        await page.goto("/faction/ranking?house=conqueror");
+        await rankingReady(page);
+        await expect(page.locator("section.ranking .ranking-row").first()).toBeVisible();
+        await tallShot(page, `ranking-house-${theme}-${language}-${String(width)}`);
         await page.goto("/faction");
         await expect(page.locator("section.faction .faction-ranking")).toBeVisible({ timeout: 20_000 });
         await page.locator("section.faction .faction-ranking").scrollIntoViewIfNeeded();

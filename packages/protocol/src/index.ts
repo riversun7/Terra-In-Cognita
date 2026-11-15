@@ -104,9 +104,11 @@ export {
 } from "./market.ts";
 export {
   CITIZENSHIP_PROTOCOL_VERSION,
+  NATIONALITY_HOUSE_PROTOCOL_VERSION,
   NATIONALITY_RESULT_CODES,
   NATURALIZE_TERMS_PROTOCOL_VERSION,
   type NationalityResultCode,
+  legacyNationalityCode,
 } from "./citizenship.ts";
 export {
   HOUSE_CITY_MODES,

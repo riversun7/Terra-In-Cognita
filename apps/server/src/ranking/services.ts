@@ -35,9 +35,8 @@ export async function resolveBoard(
   best: () => Promise<string | null>,
 ): Promise<RankingBoardKey> {
   if (request.kind === "faction") return { kind: "faction" };
-  if (request.path !== null) return { kind: "path", path: request.path };
-  const mine = await best();
-  return { kind: "path", path: mine ?? paths.find((path) => path.open)?.id ?? "" };
+  const path = request.path ?? (await best()) ?? paths.find((entry) => entry.open)?.id ?? "";
+  return request.kind === "house" ? { kind: "house", path } : { kind: "path", path };
 }
 
 export interface RankingServiceOptions {
@@ -64,7 +63,8 @@ export function createRankingServices(options: RankingServiceOptions): RankingSe
       });
       if (query.preview) return previewBoard(board, options.paths, coefficients(), query.now);
       if (ctx) return readBoard(ctx, viewer.id, board, query.now);
-      const path = board.kind === "path" ? options.paths.find((entry) => entry.id === board.path) : undefined;
+      const path =
+        board.kind === "faction" ? undefined : options.paths.find((entry) => entry.id === board.path);
       const status = board.kind === "faction" || path?.open === true ? "ready" : path ? "closed" : "unknown";
       return {
         generatedAt: query.now,

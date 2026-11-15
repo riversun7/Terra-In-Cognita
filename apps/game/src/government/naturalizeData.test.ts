@@ -27,6 +27,7 @@ describe("귀화 글", () => {
     expect(blockText(terms, now, "ko")).toBeNull();
     expect(blockText({ ...terms, blocked: "wrong_city" }, now, "ko")).toBe(m.naturalize_block_wrong_city());
     expect(blockText({ ...terms, blocked: "same_nation" }, now, "ko")).toBe(m.naturalize_block_same());
+    expect(blockText({ ...terms, blocked: "in_house" }, now, "ko")).toBe(m.naturalize_block_in_house());
     const resting = blockText({ ...terms, blocked: "resting", restUntilMs: now + 3 * 86_400_000 }, now, "en");
     expect(resting).toContain("3");
     expect(blockText({ ...terms, blocked: "insufficient_funds", balance: "900" }, now, "en")).toContain(

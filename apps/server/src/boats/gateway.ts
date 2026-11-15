@@ -3,18 +3,29 @@
 // - 사용자별 속도 제한(순간 10번, 분당 30번 — 채집·건물 명령과 같음). 밀린 요청이 MAX_PENDING을 넘으면 busy. 세계가 아직 없으면 busy.
 // - 운영자 모드(같은 연결이 2차맵 전체 보기 + 모든 유닛 명령 권한)는 남의 부두·유닛·배에 명령하고 배를 재료 없이 만든다. 타러 걷는 길은 운영자
 //   빠르기(world/operatorPace.ts).
+// - 프로토콜 30(배 체계 개편, docs/adr/2026-11-15-shipyard-harbor.md): 수리·집 정박장·교역 부두 시간·주인 설정. 새 결과 코드는 30판 연결에만, 29판은 옛 코드로.
 import {
   BOAT_B2_PROTOCOL_VERSION,
   type BoatResultCode,
   type ClientMessageOf,
+  HARBOR_PROTOCOL_VERSION,
   encodeMessage,
+  legacyBoatCode,
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { type PaceMap, isOperatorMode, withPace } from "../world/operatorPace.ts";
 import type { BoatCommandResult, BoatService } from "./service.ts";
 
-export type BoatClientMessage = ClientMessageOf<"boat_build" | "boat_board" | "boat_leave">;
+export type BoatClientMessage = ClientMessageOf<
+  | "boat_build"
+  | "boat_board"
+  | "boat_leave"
+  | "boat_repair"
+  | "boat_berth"
+  | "boat_dock_time"
+  | "harbor_policy"
+>;
 
 const MAX_PENDING = 8;
 const LIMIT = { capacity: 10, refillPerMinute: 30 };
@@ -39,9 +50,9 @@ export interface BoatGateway {
 
 function resultText(id: number, result: BoatCommandResult, protocolVersion: number): string {
   if (!result.ok) {
-    // dock_busy는 그 코드를 아는 연결(28)에만, 아니면 busy(다시 해 볼 수 있다)
-    const code =
-      result.code === "dock_busy" && protocolVersion < BOAT_B2_PROTOCOL_VERSION ? "busy" : result.code;
+    // 30판 새 코드는 29판 연결에 옛 코드로. dock_busy는 그 코드를 아는 연결(28)에만, 아니면 busy(다시 해 볼 수 있다)
+    const known = protocolVersion < HARBOR_PROTOCOL_VERSION ? legacyBoatCode(result.code) : result.code;
+    const code = known === "dock_busy" && protocolVersion < BOAT_B2_PROTOCOL_VERSION ? "busy" : known;
     return encodeMessage({
       t: "boat_result",
       id,
@@ -90,7 +101,35 @@ export function createBoatGateway(options: {
         const operator = isOperatorMode(link.observing?.() === true, viewer.roles);
         switch (message.t) {
           case "boat_build":
-            return reply(message.id, service.build(viewer.id, message.buildingId, operator));
+            return reply(
+              message.id,
+              service.build(viewer.id, message.buildingId, operator, message.boatType),
+            );
+          case "boat_repair":
+            return reply(
+              message.id,
+              await service.repair(viewer.id, message.boatId, message.buildingId, operator),
+            );
+          case "boat_berth":
+            return reply(
+              message.id,
+              await service.berth(viewer.id, message.boatId, message.buildingId, operator),
+            );
+          case "boat_dock_time":
+            return reply(
+              message.id,
+              await service.dockTime(viewer.id, message.boatId, message.buildingId, message.hours, operator),
+            );
+          case "harbor_policy":
+            return reply(
+              message.id,
+              service.policy(
+                viewer.id,
+                message.buildingId,
+                { access: message.access, fee: message.fee, module: message.module },
+                operator,
+              ),
+            );
           case "boat_board":
             return reply(
               message.id,

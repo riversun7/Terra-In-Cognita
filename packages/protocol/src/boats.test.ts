@@ -4,6 +4,7 @@ import {
   BOAT_B2_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
   BOAT_RESULT_CODES,
+  HARBOR_PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   ProtocolError,
@@ -12,6 +13,7 @@ import {
   decodeClientMessage,
   decodeServerMessage,
   encodeMessage,
+  legacyBoatCode,
 } from "./index.ts";
 
 function decodes(decode: (text: string) => unknown, message: unknown): boolean {
@@ -73,5 +75,40 @@ describe("배 메시지(프로토콜 27)", () => {
   it("이동 결과 코드 aboard, 표시 종류 boat", () => {
     expect(RESULT_CODES).toContain("aboard");
     expect(UNIT_WIRE_KINDS).toContain("boat");
+  });
+
+  it("30: 조선소 배 종류·수리·집 정박장·교역 부두 시간·주인 설정(D-547)", () => {
+    expect(HARBOR_PROTOCOL_VERSION).toBe(30);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HARBOR_PROTOCOL_VERSION);
+    const build = { t: "boat_build", id: 1, buildingId: 12, boatType: "cargo_boat" } as const;
+    expect(decodeClientMessage(encodeMessage(build))).toEqual(build);
+    expect(decodes(decodeClientMessage, { ...build, boatType: "Big Boat" })).toBe(false);
+    const repair = { t: "boat_repair", id: 2, boatId: 9, buildingId: 12 } as const;
+    expect(decodeClientMessage(encodeMessage(repair))).toEqual(repair);
+    const berth = { t: "boat_berth", id: 3, boatId: 9, buildingId: 14 } as const;
+    expect(decodeClientMessage(encodeMessage(berth))).toEqual(berth);
+    const away = { t: "boat_berth", id: 4, boatId: 9, buildingId: null } as const;
+    expect(decodeClientMessage(encodeMessage(away))).toEqual(away);
+    const time = { t: "boat_dock_time", id: 5, boatId: 9, buildingId: 15, hours: 3 } as const;
+    expect(decodeClientMessage(encodeMessage(time))).toEqual(time);
+    expect(decodes(decodeClientMessage, { ...time, hours: 0 })).toBe(false);
+    const policy = {
+      t: "harbor_policy",
+      id: 6,
+      buildingId: 14,
+      access: "peace",
+      fee: 25,
+      module: null,
+    } as const;
+    expect(decodeClientMessage(encodeMessage(policy))).toEqual(policy);
+    expect(decodes(decodeClientMessage, { ...policy, access: "everyone" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...policy, fee: -1 })).toBe(false);
+  });
+
+  it("30판 새 결과 코드는 29판 연결에 옛 코드로", () => {
+    const old = BOAT_RESULT_CODES.slice(0, BOAT_RESULT_CODES.indexOf("dock_busy") + 1);
+    for (const code of BOAT_RESULT_CODES) expect(old).toContain(legacyBoatCode(code));
+    expect(legacyBoatCode("not_shipyard")).toBe("not_dock");
+    expect(legacyBoatCode("dock_busy")).toBe("dock_busy");
   });
 });

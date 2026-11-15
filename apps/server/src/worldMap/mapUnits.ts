@@ -53,6 +53,12 @@ export interface MapUnitSource {
     | undefined;
   /** 배 하나의 자리 수(설정 칸 boat_capacity, docs/adr/2026-11-13-boats.md). 없으면 배 줄에 자리 수 0 */
   boatCapacity?: (() => number) | undefined;
+  /** 배 표시 정보(배 종류 자리 수·내구도·집 정박장 — docs/adr/2026-11-15-shipyard-harbor.md). 없으면 boatCapacity만 */
+  boatInfo?:
+    | ((
+        unitId: number,
+      ) => { typeId: string; capacity: number; hullPm: number; homeId: number | null } | undefined)
+    | undefined;
   /** 사용자의 소유 주체(없으면 내 유닛 없음) */
   ownerOfUser(userId: string): number | undefined;
   /** 사이보그 이름(없으면 undefined) */
@@ -121,6 +127,17 @@ function kindOf(kind: number): MapUnitKind {
   if (kind === UNIT_KIND_BOAT) return "boat";
   const type = unitTypeOf(kind);
   return type === "creature" || type === "android" ? "test_unit" : type;
+}
+
+/** 배 줄 칸(정보가 있으면 종류 자리 수·내구도·집 정박장) */
+function boatRow(
+  passengers: readonly number[],
+  info: { typeId: string; capacity: number; hullPm: number; homeId: number | null } | undefined,
+  capacity: number,
+): NonNullable<MapUnit["boat"]> {
+  return info
+    ? { passengers, capacity: info.capacity, typeId: info.typeId, hullPm: info.hullPm, homeId: info.homeId }
+    : { passengers, capacity };
 }
 
 /** 판정 스탯 묶음 → 목록 줄의 stats 칸(없으면 칸을 두지 않는다) */
@@ -215,7 +232,13 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
           // 배(docs/adr/2026-11-13-boats.md): 탄 배, 배 줄의 승객·자리 수
           aboard: info.aboard ?? null,
           ...(info.kind === UNIT_KIND_BOAT
-            ? { boat: { passengers: map.passengers?.(unitId) ?? [], capacity: source.boatCapacity?.() ?? 0 } }
+            ? {
+                boat: boatRow(
+                  map.passengers?.(unitId) ?? [],
+                  source.boatInfo?.(unitId),
+                  source.boatCapacity?.() ?? 0,
+                ),
+              }
             : {}),
         });
       }

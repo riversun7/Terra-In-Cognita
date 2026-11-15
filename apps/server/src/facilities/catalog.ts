@@ -20,6 +20,7 @@ import {
 } from "@terra/sim";
 import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
 import { type FacilityLookJson, cleanFacilityLook } from "@terra/shared/facilityLook";
+import type { HarborRole } from "@terra/shared/harbor";
 import type { LocalizedName } from "@terra/shared/roster";
 
 /** 레벨 1 최대 내구도가 팩에 없을 때(옛 코드 기본 max_durability 100) */
@@ -44,6 +45,20 @@ export interface FacilityDef {
   readonly gather: CatalogGather | undefined;
   /** 2차맵 겉모습(그림 자료, 팩 look — docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)"). 없으면 undefined */
   readonly look?: FacilityLookJson | undefined;
+  /** 배 시설 역할(조선소·정박장·교역 부두 — docs/adr/2026-11-15-shipyard-harbor.md). 없으면 배 시설이 아니다 */
+  readonly harbor?: HarborRole | undefined;
+  /** 조선소의 배 종류 표(D-547 1484). 조선소가 아니면 undefined */
+  readonly boats?: readonly BoatTypeDef[] | undefined;
+}
+
+/** 배 종류 한 줄(팩 참조를 ID 글자로) */
+export interface BoatTypeDef {
+  readonly id: string;
+  readonly name: LocalizedName;
+  readonly materials: readonly { readonly item: string; readonly qty: number }[];
+  readonly buildMs: number;
+  readonly speedPm: number;
+  readonly capacity: number;
 }
 
 export interface FacilityCatalog {
@@ -98,6 +113,19 @@ function defOf(entry: FacilityEntry): FacilityDef {
     durability: entry.durability ?? DEFAULT_FACILITY_DURABILITY,
     storageKg: entry.storageKg,
     look: cleanFacilityLook(entry.look),
+    ...(entry.harbor === undefined ? {} : { harbor: entry.harbor }),
+    ...(entry.boats === undefined
+      ? {}
+      : {
+          boats: entry.boats.map((type) => ({
+            id: type.id,
+            name: { ko: type.name.ko, en: type.name.en },
+            materials: type.materials.map((stack) => ({ item: stack.item.id, qty: stack.qty })),
+            buildMs: type.buildMs,
+            speedPm: type.speedPm,
+            capacity: type.capacity,
+          })),
+        }),
     build: build
       ? {
           mulPm: build.mulPm,

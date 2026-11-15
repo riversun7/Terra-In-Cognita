@@ -34,6 +34,7 @@
     "./formula": "./src/formula.ts",
     "./gatherMath": "./src/gatherMath.ts",
     "./gatherExpect": "./src/gatherExpect.ts",
+    "./harbor": "./src/harbor.ts",
     "./statGrowth": "./src/statGrowth.ts",
     "./goodsPlaces": "./src/goodsPlaces.ts",
     "./government": "./src/government.ts",

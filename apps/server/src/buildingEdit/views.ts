@@ -82,6 +82,20 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
     ...(entry.needsWaterWithin === undefined ? {} : { needsWaterWithin: entry.needsWaterWithin }),
     ...(entry.durability === undefined ? {} : { durability: entry.durability }),
     ...(entry.storageKg === undefined ? {} : { storageKg: entry.storageKg }),
+    // 배 시설 역할·배 종류 표(docs/adr/2026-11-15-shipyard-harbor.md — 편집기는 고치지 않고 그대로 돌려보낸다)
+    ...(entry.harbor === undefined ? {} : { harbor: entry.harbor }),
+    ...(entry.boats === undefined
+      ? {}
+      : {
+          boats: entry.boats.map((type) => ({
+            id: type.id,
+            name: { ko: type.name.ko, en: type.name.en },
+            materials: type.materials.map((stack) => ({ item: stack.item.id, qty: stack.qty })),
+            buildMs: type.buildMs,
+            speedPm: type.speedPm,
+            capacity: type.capacity,
+          })),
+        }),
     // 2차맵 겉모습(docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)")
     ...(entry.look ? { look: lookJsonOf(entry.look) } : {}),
   };

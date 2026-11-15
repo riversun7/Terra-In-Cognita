@@ -10,6 +10,7 @@ import type { FacilityResultCode } from "@terra/protocol";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { type FacilityRuntimeRules, conditionWorks, storageCapacityAt } from "@terra/shared/facilityRuntime";
 import type { Ledger } from "../economy/ledger.ts";
+import { TEST_ASSET_CREDIT as ASSET_CREDIT } from "@terra/sim";
 import type { FacilityCatalog } from "./catalog.ts";
 import {
   type PlaceWorld,
@@ -111,8 +112,12 @@ export function moveStorage(
   return null;
 }
 
+/** 화폐 자산인가(서버 시험 화폐·나라 화폐 cur:<코드>) */
+const isMoneyAsset = (asset: string): boolean => asset === ASSET_CREDIT || asset.startsWith("cur:");
+
 /**
- * 사라진 건물(관리자가 지움 등)의 건물 창고 물건을 주인마다 그 도시 창고로(도시를 모르면 위치 없음) 돌려놓는다. 거래 하나. 옮긴 계정 수
+ * 사라진 건물(관리자가 지움 등)의 건물 창고 물건을 주인마다 그 도시 창고로(도시를 모르면 위치 없음) 돌려놓는다. 거래 하나. 옮긴 계정 수.
+ * 건물 위치의 화폐(사업장 금고 — 정박료 등, 기획 D-548·docs/adr/2026-11-15-business-ledger.md 결정 5)는 도시 창고가 아니라 주인 지갑(위치 없음)으로 간다
  */
 export function rehomeBuildingGoods(
   ledger: Ledger,
@@ -129,7 +134,11 @@ export function rehomeBuildingGoods(
     const ownerId = account.ownerId ?? 0;
     entries.push({ account: account.id, amount: -account.balance });
     entries.push({
-      account: ledger.ownerAccount(ownerId, account.asset, cityId === null ? null : cityLocation(cityId)),
+      account: ledger.ownerAccount(
+        ownerId,
+        account.asset,
+        cityId === null || isMoneyAsset(account.asset) ? null : cityLocation(cityId),
+      ),
       amount: account.balance,
     });
   }

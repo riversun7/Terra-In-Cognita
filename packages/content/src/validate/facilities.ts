@@ -5,6 +5,8 @@
 // - 시설의 처음 짓기 구간(Lv1)에 꺼진 아이템이 있으면 알림(build_material_disabled, 오류 아님). D-508: 처음 건물은 1차 원자재로 지어 초기
 //   발전이 막히지 않아야 한다. 시설은 켬·끔이 없어(늘 켜짐, 팩 core@32·사용자 답 2026-11-03) 모든 시설을 본다. 아이템을 끄는 길은 아이템
 //   편집기의 끄기(은퇴 대신)만 남았다. 위 구간의 꺼진 재료는 알리지 않는다(건물 편집기 레벨 표가 레벨마다 꺼진 재료를 보인다).
+// - 배 시설(harbor, docs/adr/2026-11-15-shipyard-harbor.md): 교통 단계 + 물가 조건이 있어야 하고(harbor_needs_transport), 배 종류 표(boats)는
+//   조선소에만 있고 조선소에는 꼭 있다(harbor_boats_shipyard_only·harbor_shipyard_no_boats).
 // 참조가 없는 경우는 참조 단계가 알린다. 항목은 스키마를 통과한 파싱 결과(참조 = ContentRef)다(items.ts와 같은 방식).
 import { FACILITY_LEVEL_MAX } from "@terra/shared/facilityBuild";
 import type { ContentIssue } from "../issue.ts";
@@ -38,6 +40,7 @@ export function checkFacilities(pack: ContentPack): ContentIssue[] {
   const enabledOf = new Map((pack.entries.get("items") ?? []).map((item) => [item.id, get(item, "enabled")]));
 
   for (const facility of pack.entries.get("facilities") ?? []) {
+    checkHarbor(facility, error);
     const build = get(facility, "build");
     if (build === undefined) continue;
     const maxLevel = get(facility, "maxLevel");
@@ -96,4 +99,37 @@ export function checkFacilities(pack: ContentPack): ContentIssue[] {
     });
   }
   return issues;
+}
+
+/** 배 시설 칸 검사(역할 ↔ 단계·물가 조건·배 종류 표) */
+function checkHarbor(
+  facility: { readonly id: string },
+  error: (id: string, path: string, code: string, message: string) => void,
+): void {
+  const role = get(facility, "harbor");
+  const boats = get(facility, "boats");
+  if (
+    role !== undefined &&
+    (get(facility, "stage") !== "transport" || get(facility, "needsWaterWithin") === undefined)
+  )
+    error(
+      facility.id,
+      "harbor",
+      "harbor_needs_transport",
+      "배 시설(harbor)은 교통 단계(transport)이고 물가 조건(needsWaterWithin)이 있어야 합니다.",
+    );
+  if (boats !== undefined && role !== "shipyard")
+    error(
+      facility.id,
+      "boats",
+      "harbor_boats_shipyard_only",
+      "배 종류 표(boats)는 조선소(harbor shipyard)에만 둡니다.",
+    );
+  if (role === "shipyard" && boats === undefined)
+    error(
+      facility.id,
+      "boats",
+      "harbor_shipyard_no_boats",
+      "조선소에는 배 종류 표(boats)가 하나 이상 있어야 합니다.",
+    );
 }

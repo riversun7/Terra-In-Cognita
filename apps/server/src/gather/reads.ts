@@ -12,6 +12,8 @@ import {
   type GatherObjectsResponse,
   type GatherSchoolView,
 } from "@terra/shared/gather";
+import type { HarborPanel } from "@terra/shared/harbor";
+import type { HarborPanelSource } from "../boats/service.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { buildingPlace } from "../facilities/places.ts";
 import { entryOptions } from "./enter.ts";
@@ -43,14 +45,46 @@ const emptyBuilding = (
   generatedAt: nowMs,
 });
 
-/** 부두 판의 만드는 중인 배 칸 */
-const boatJobOf = (job: { readonly startedAtMs: number; readonly readyAtMs: number } | undefined) =>
-  job ? { boatJob: { startedAt: job.startedAtMs, readyAt: job.readyAtMs } } : {};
+/** 배 시설 판(보는 사람 owner에 맞춰 내 것·금고를 거른다 — docs/adr/2026-11-15-shipyard-harbor.md). 조선소 첫 만들기 작업은 옛 boatJob 칸으로도 */
+function harborOf(source: HarborPanelSource | undefined, ownerId: number | undefined) {
+  if (!source) return {};
+  const own = (id: number): boolean => ownerId !== undefined && id === ownerId;
+  const mine = source.ownerId !== null && own(source.ownerId);
+  const strip = <T extends { readonly ownerId: number }>(
+    row: T,
+  ): Omit<T, "ownerId"> & { readonly own: boolean } => {
+    const { ownerId: rowOwner, ...rest } = row;
+    return { ...rest, own: own(rowOwner) };
+  };
+  const harbor: HarborPanel = {
+    role: source.role,
+    closed: source.closed,
+    access: source.access,
+    fee: source.fee,
+    module: source.module,
+    capacity: source.capacity,
+    used: source.used,
+    jobs: source.jobs.map(strip),
+    types: source.types,
+    boats: source.boats.map(strip),
+    visits: source.visits.map(strip),
+    mine: source.nearby.filter((row) => own(row.ownerId)).map(strip),
+    cash: mine ? source.cash : null,
+    overstayMul: source.overstayMul,
+    maxHours: source.maxHours,
+  };
+  return {
+    harbor,
+    ...(source.startedAtMs !== undefined && source.readyAtMs !== undefined
+      ? { boatJob: { startedAt: source.startedAtMs, readyAt: source.readyAtMs } }
+      : {}),
+  };
+}
 
 export function gatherReadsOf(
   source: () => GatherWorld | undefined,
-  /** 부두가 만드는 중인 배(배 서비스 dockJob). 없으면 싣지 않는다 */
-  dockBoat?: (buildingId: number) => { readonly startedAtMs: number; readonly readyAtMs: number } | undefined,
+  /** 배 시설 판 원본(배 서비스 dockJob — 이름은 옛 부두 판 고리). 없으면 싣지 않는다 */
+  dockBoat?: (buildingId: number) => HarborPanelSource | undefined,
 ): GatherReads {
   return {
     objects(_viewer, mapKey, nowMs) {
@@ -169,7 +203,7 @@ export function gatherReadsOf(
         accepts: options?.deposit !== null && options !== undefined,
         hires: options?.workplace === true,
         inside: inside.toSorted((a, b) => a.unitId - b.unitId),
-        ...boatJobOf(dockBoat?.(buildingId)),
+        ...harborOf(dockBoat?.(buildingId), ownerId),
         generatedAt: nowMs,
       };
     },

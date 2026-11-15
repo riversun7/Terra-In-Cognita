@@ -50,6 +50,7 @@ import { roomGrams } from "./storage.ts";
 import { type BusinessCore, EMPTY_BUSINESS, createBusinessCore } from "../business/core.ts";
 import { type BusinessCommands, createBusinessCommands } from "../business/commands.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
+import { DEFAULT_TAX_BP } from "../npc/currency.ts";
 import { TEST_PLANET_ID } from "../world/testMaps.ts";
 import type { LoadedFacilities } from "./state.ts";
 
@@ -316,7 +317,8 @@ export function createWorldFacilities(input: {
     tax: (cityId) => {
       const city = npcCity(cityId);
       if (!city) return undefined;
-      const bp = input.npc?.()?.economy?.economy.taxOf.get(city.owner) ?? 0;
+      // 그 나라 거래세(만분율 [임시]). 도시 경제가 없으면(시험) 기본 거래세
+      const bp = input.npc?.()?.economy?.economy.taxOf.get(city.owner) ?? DEFAULT_TAX_BP;
       return { treasuryOwner: city.owner, bp };
     },
     rules: () => input.rules().business,

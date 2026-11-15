@@ -211,6 +211,8 @@ export interface BookGoods {
   readonly name: { readonly ko: string; readonly en: string } | null;
 }
 
+export type BookOwnerKind = "me" | "player" | "npc";
+
 export type BusinessBooksResponse =
   | { readonly status: "not_ready" | "not_business" }
   | {
@@ -218,15 +220,12 @@ export type BusinessBooksResponse =
       readonly buildingId: number;
       readonly facilityId: string | null;
       readonly facilityName: { readonly ko: string; readonly en: string } | null;
-      readonly ownerName: string | null;
+      /** 주인 종류(me = 보는 사람, npc = NPC 세력, player = 다른 플레이어 — 장부는 모두에게 공개, D-555 1513) */
+      readonly ownerKind: BookOwnerKind;
       /** 보는 사람이 주인(대주주)인가 — 정산·넣기·값 정하기 단추 */
       readonly mine: boolean;
-      /** 지분(주주 — 지금은 주인 하나) */
-      readonly holders: readonly {
-        readonly name: string | null;
-        readonly shares: string;
-        readonly mine: boolean;
-      }[];
+      /** 지분(주주 — 지금은 주인 하나 1주 [임시]) */
+      readonly holders: readonly { readonly kind: BookOwnerKind; readonly shares: string }[];
       readonly vault: readonly BookBalance[];
       /** 갚을 돈(적자, 화폐별 양수) */
       readonly debt: readonly BookBalance[];

@@ -84,6 +84,8 @@ export interface BusinessCore {
    * 않고 true. from 잔고가 모자라면 LedgerError(부르는 쪽이 미리 확인한다)
    */
   receive(input: IncomeInput): boolean;
+  /** 그 사업장 수입의 소득세 만분율(세금이 없으면 0) */
+  taxRateOf(buildingId: number, ownerId: number): number;
   /** 이미 금고에 든 수입의 소득세(공용 함수가 넣은 임대료 등). 낸 세금 */
   taxIncome(buildingId: number, ownerId: number, asset: string, gross: bigint, atMs: number): bigint;
   /** 금고가 needed보다 모자라면 모자란 만큼 적자로 미리 넣는다(1504). 미리 넣은 양 */
@@ -355,6 +357,11 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
 
   return {
     vault,
+    taxRateOf(buildingId, ownerId) {
+      const cityId = deps.place(buildingId)?.cityId ?? null;
+      const tax = cityId === null ? undefined : deps.tax(cityId);
+      return !tax || tax.treasuryOwner === ownerId ? 0 : Math.max(0, tax.bp);
+    },
     vaultBalances,
     receive,
     taxIncome,

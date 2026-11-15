@@ -158,7 +158,8 @@ test.describe
       await expect(report.locator(".rp-siege")).toBeVisible();
       await expect(report.locator(".rp-units tbody tr")).toHaveCount(3);
       await page.locator(".rp-mode[data-mode='arena']").click();
-      expect(deviceErrors).toEqual([]);
+      // 앞 시험(A/B 계산식)이 시작을 여러 번 눌러 속도 제한(429)에 한 번 밀릴 수 있다 — runReport가 기다렸다 다시 누른다
+      expect(withoutBusy(deviceErrors)).toEqual([]);
     });
   });
 

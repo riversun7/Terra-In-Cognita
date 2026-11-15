@@ -121,7 +121,9 @@ describe("명령 규칙(markPace·withPace)", () => {
     const { map } = createTestMap();
     map.addUnit({ id: 1, size: 1, speed: WALK_SPEED, cellX: 10, cellY: 10 });
     // 운영자의 거절된 명령 → 표시 없음 그대로
-    expect(await withPace([map], 1, OPERATOR_SPEED_FACTOR, () => Promise.resolve({ ok: false }))).toEqual({ ok: false });
+    expect(await withPace([map], 1, OPERATOR_SPEED_FACTOR, () => Promise.resolve({ ok: false }))).toEqual({
+      ok: false,
+    });
     expect(map.paceOf(1)).toBe(1);
     // 된 명령 → 표시. 플레이어의 거절된 명령은 지우지 않는다
     await withPace([map], 1, OPERATOR_SPEED_FACTOR, () => Promise.resolve({ ok: true }));

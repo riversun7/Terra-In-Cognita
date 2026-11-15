@@ -795,9 +795,11 @@ export function createTravelService(deps: TravelDeps): TravelService {
         return fail("goal_blocked");
       }
       // 닿은 자리의 시야를 탐사 기록에 남긴다(걸어서 닿은 것과 같게 — 구독하지 않아도 그 2차맵을 볼 수 있다)
-      target.vision.explore(userId, [anchorCenter(spot.x, spot.y, where.info.size)]).catch((error: unknown) => {
-        log.error({ err: error, unitId: found.id }, "travel: teleport exploration record failed");
-      });
+      target.vision
+        .explore(userId, [anchorCenter(spot.x, spot.y, where.info.size)])
+        .catch((error: unknown) => {
+          log.error({ err: error, unitId: found.id }, "travel: teleport exploration record failed");
+        });
       log.info({ unitId: found.id, from: where.map.mapKey, to: target.mapKey }, "operator teleport");
       return { ok: true, maps: 1, arriveAt: now() };
     },

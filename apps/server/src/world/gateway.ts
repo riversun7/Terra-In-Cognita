@@ -29,7 +29,13 @@ import { canObserve, canViewSecondMap } from "./visibility.ts";
 import type { WorldStats } from "./worldStats.ts";
 
 export type SecondMapClientMessage = ClientMessageOf<
-  "subscribe" | "unsubscribe" | "move_unit" | "stop_unit" | "place_building" | "remove_building" | "operator_pace"
+  | "subscribe"
+  | "unsubscribe"
+  | "move_unit"
+  | "stop_unit"
+  | "place_building"
+  | "remove_building"
+  | "operator_pace"
 >;
 type CommandMessage = ClientMessageOf<"move_unit" | "stop_unit" | "place_building" | "remove_building">;
 

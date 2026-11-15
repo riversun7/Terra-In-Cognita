@@ -237,6 +237,7 @@ test.describe("운영자 속도(D-560 1246~1248): dev", () => {
     // 운영자 모드 끄기 → 다시 켜면 1×(바로 해제)
     await page.locator(".map-operator-menu .map-operator-toggle").click();
     await expect(screen).toHaveAttribute("data-operator", "off");
+    await openOperatorMenu(page);
     await menuToggleOperator(page);
     await expect(page.locator(".map-operator-menu .map-operator-pace")).toHaveAttribute("data-pace", "1");
     expect(deviceErrors).toEqual([]);

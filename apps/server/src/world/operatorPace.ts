@@ -122,7 +122,6 @@ export function operatorFactor(
   return link.operatorPace?.factor() ?? 1;
 }
 
-
 /** 단 표시 하나: 되돌리기(거절된 명령)·놓기(끝난 명령) */
 export interface PaceMark {
   undo(): void;

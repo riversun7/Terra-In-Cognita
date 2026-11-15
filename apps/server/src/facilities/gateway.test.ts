@@ -44,7 +44,9 @@ function fakeService(calls: string[]): FacilityService {
       return Promise.resolve({ ok: true, buildingId: 7, doneAtMs: 1_000 });
     },
     upgrade: (userId, buildingId, unitIds, operator) => {
-      calls.push(`upgrade:${userId}:${buildingId}:${unitIds.length}${operator ? `:operator×${operator.pace}` : ""}`);
+      calls.push(
+        `upgrade:${userId}:${buildingId}:${unitIds.length}${operator ? `:operator×${operator.pace}` : ""}`,
+      );
       return Promise.resolve({ ok: false, code: "insufficient_materials" });
     },
     repair: (userId, target, steps, unitIds) => {
@@ -222,14 +224,24 @@ describe("건물 연결 처리", () => {
 
   it("운영자 모드(전체 보기 + dev·admin) 짓기·레벨 올리기는 제한 없이 — 표지와 배율을 서비스로 넘긴다. 플레이어·전체 보기 아님은 보통(D-560 1239)", async () => {
     const calls: string[] = [];
-    const build = { t: "facility_build", id: 1, mapKey: 9, facility: "farm", x: 3, y: 4, rotation: 0 } as const;
+    const build = {
+      t: "facility_build",
+      id: 1,
+      mapKey: 9,
+      facility: "farm",
+      x: 3,
+      y: 4,
+      rotation: 0,
+    } as const;
     const upgrade = { t: "facility_upgrade", id: 2, buildingId: 7 } as const;
     const devOperator = open(fakeService(calls), dev, undefined, undefined, { observing: true, pace: 10 });
     devOperator.socket.handle(build);
     devOperator.socket.handle(upgrade);
     for (let i = 0; i < 6; i++) await settle();
     // 플레이어는 전체 보기 구독을 못 한다 — 그래도 권한을 서버가 다시 본다
-    open(fakeService(calls), player, undefined, undefined, { observing: true, pace: 10 }).socket.handle(build);
+    open(fakeService(calls), player, undefined, undefined, { observing: true, pace: 10 }).socket.handle(
+      build,
+    );
     open(fakeService(calls), dev, undefined, undefined, { observing: false, pace: 10 }).socket.handle(build);
     for (let i = 0; i < 6; i++) await settle();
     expect(calls).toEqual([

@@ -6,6 +6,9 @@
 //   차례 → 화물)로, 화면의 모든 자리 합(옛 materials 칸)만 쓴다.
 // - 쓴 재료는 시스템 계정 sink:item:<ID>로 간다(시뮬 생산 소비와 같은 계정 이름) → 자산마다 합 0(불변 조건 I1).
 // - 개발 시험 재료는 source:item:<ID>에서 부르는 쪽이 고른 자리(짓는 칸의 도시 창고)로 준다.
+// - 바뀜 (기획 D-562 1563·1564 "레벨 0은 T0~T1 인정"): 재료 줄에 받는 아이템(accepts)이 있으면 그 가운데 무엇이든 그 줄의 재료로 센다
+//   (@terra/shared/bareHandMaterials allocateMaterials — 그 줄 아이템 먼저, 모자라면 같은 원자재 종류 T0~T1). 받는 아이템은 부르는 쪽이 붙인다.
+import { allocateMaterials } from "@terra/shared/bareHandMaterials";
 import type { Ledger } from "../economy/ledger.ts";
 import type { JobMaterial } from "./state.ts";
 
@@ -52,12 +55,21 @@ export function goodsStock(
   return total;
 }
 
-const needOf = (materials: readonly JobMaterial[]): Map<string, bigint> => {
-  const need = new Map<string, bigint>();
-  for (const stack of materials)
-    if (stack.qty > 0) need.set(stack.item, (need.get(stack.item) ?? 0n) + BigInt(stack.qty));
-  return need;
-};
+/** 실제로 꺼낼 아이템별 수량(받는 아이템 — 머리 주석). 모자라면 undefined */
+function planOf(
+  ledger: Ledger,
+  ownerId: number,
+  materials: readonly JobMaterial[],
+  scope: GoodsScope,
+): Map<string, bigint> | undefined {
+  const accepts = new Map<string, readonly string[]>();
+  for (const stack of materials) if (stack.accepts) accepts.set(stack.item, stack.accepts);
+  return allocateMaterials(
+    materials,
+    (item) => accepts.get(item) ?? [item],
+    (item) => goodsStock(ledger, ownerId, item, scope),
+  );
+}
 
 /** 모두 있나 */
 export function hasGoods(
@@ -66,9 +78,7 @@ export function hasGoods(
   materials: readonly JobMaterial[],
   scope: GoodsScope,
 ): boolean {
-  for (const [item, qty] of needOf(materials))
-    if (goodsStock(ledger, ownerId, item, scope) < qty) return false;
-  return true;
+  return planOf(ledger, ownerId, materials, scope) !== undefined;
 }
 
 /**
@@ -82,9 +92,10 @@ export function spendGoods(
   kind: string,
   scope: GoodsScope,
 ): boolean {
-  const need = needOf(materials);
+  const need = planOf(ledger, ownerId, materials, scope);
+  if (!need) return false;
+  for (const [item, qty] of need) if (qty <= 0n) need.delete(item);
   if (need.size === 0) return true;
-  if (!hasGoods(ledger, ownerId, materials, scope)) return false;
   const entries: { account: number; amount: bigint }[] = [];
   for (const [item, qty] of need) {
     let left = qty;

@@ -72,21 +72,33 @@ describe("원자재 오브젝트 종류", () => {
       "shell_pick",
       "fossil_dig",
     ];
-    expect(ids.slice(-wild.length)).toEqual(wild);
-    expect(ids.at(-wild.length - 1)).toBe("brushwood");
-    expect(kinds.slice(-wild.length).every((kind) => kind.source === "prop" && kind.facility === null)).toBe(
+    // 그 뒤 맨 끝에 바다 물터(기획 D-562 1565 — 앞 종류 차례는 그대로)
+    expect(ids.at(-1)).toBe("fishing_water_sea");
+    const before = kinds.slice(0, -1);
+    const beforeIds = ids.slice(0, -1);
+    expect(beforeIds.slice(-wild.length)).toEqual(wild);
+    expect(beforeIds.at(-wild.length - 1)).toBe("brushwood");
+    expect(before.slice(-wild.length).every((kind) => kind.source === "prop" && kind.facility === null)).toBe(
       true,
     );
     expect(
-      kinds
+      before
         .slice(ids.indexOf("copper_outcrop") + 1, -wild.length - 1)
         .every((kind) => kind.source === "site" || kind.source === "school"),
     ).toBe(true);
+    // 민물·바다 물터: 같은 지표, 서는 물 종류가 다르다(바다 물터는 T0이 조개 — 아이템 비중, D-562 1561)
+    expect(byId.get("fishing_water")?.waters).toEqual(["fresh"]);
+    expect(byId.get("fishing_water_sea")).toMatchObject({
+      source: "plot",
+      waters: ["coast", "shelf", "deep"],
+      itemWeights: [{ item: "shellfish", weight: 1000 }],
+      tierRange: { min: 0, max: 4 },
+    });
     // 바다 오브젝트(기획 D-540 1222): 어군 넷은 낚시터가 맡고 티어 범위로 굴림, 고래 무리는 고래 고기·기름 굴림표, 난파선은 굴림표
     for (const id of ["school_lake", "school_coastal", "school_shelf", "school_deep"])
       expect(byId.get(id)).toMatchObject({ facility: "fishing_spot" });
-    // 오브젝트마다 티어 범위(기획 D-552): 굴림표가 아닌 47종 모두 범위가 있고, 굴림표 둘은 없다
-    expect(kinds.filter((kind) => kind.tierRange !== undefined)).toHaveLength(47);
+    // 오브젝트마다 티어 범위(기획 D-552): 굴림표가 아닌 48종(D-562 바다 물터 더함) 모두 범위가 있고, 굴림표 둘은 없다
+    expect(kinds.filter((kind) => kind.tierRange !== undefined)).toHaveLength(48);
     expect(byId.get("whale_pod")?.tierRange).toBeUndefined();
     expect(byId.get("boulder_stone")?.tierRange).toEqual({ min: 1, max: 1 });
     expect(byId.get("conifer_tree")?.tierRange).toEqual({ min: 0, max: 1 });

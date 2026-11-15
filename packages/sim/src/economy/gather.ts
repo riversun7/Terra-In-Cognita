@@ -18,6 +18,8 @@
 // - 오브젝트 규칙(기획 D-552 — docs/adr/2026-11-15-gather-object-tiers.md): 확률표는 하나(사다리마다 띠 표 없음). 오브젝트 범위(tierRange)는
 //   선택 방식에도 걸고, 그 티어에 대표 아이템(prefer)이 있으면 그것을 낸다. 굴림표 오브젝트(table)도 같은 함수가 가중치로 고른다 — 직접 채집과
 //   채집소 일꾼이 같은 함수를 쓴다.
+// - 바뀜 (기획 D-562 1561 "각각의 비중은 오브젝트마다 다름 에디터에서 조정가능"): 오브젝트마다 아이템별 비중(weights)을 둘 수 있다. 뽑은 티어에
+//   비중을 적은 아이템이 하나라도 있으면 그 티어는 비중대로 고른다(적지 않은 아이템은 0). 비중이 없는 티어는 옛 규칙(대표 아이템 → 고르게).
 // 정수 연산만 쓴다(판정 코드 규칙).
 import type { Rng } from "@terra/shared";
 import {
@@ -95,19 +97,47 @@ export function rollGatherTier(bands: readonly GatherBand[], stat: number, rng: 
   return 0;
 }
 
+/** 그 티어 아이템 가운데 비중을 적은 것이 있으면 비중대로 하나(합이 0이면 undefined — 옛 규칙으로). 하나뿐이면 rng를 쓰지 않는다 */
+function pickWeighted(
+  choices: readonly string[],
+  weights: ReadonlyMap<string, number>,
+  rng: Rng,
+): string | undefined {
+  let total = 0;
+  const listed: { asset: string; weight: number }[] = [];
+  for (const asset of choices) {
+    const weight = Math.max(0, Math.trunc(weights.get(asset) ?? 0));
+    if (weight > 0) listed.push({ asset, weight });
+    total += weight;
+  }
+  if (total <= 0) return undefined;
+  if (listed.length === 1) return listed[0]?.asset;
+  let left = rng.nextInt(total);
+  for (const row of listed) {
+    if (left < row.weight) return row.asset;
+    left -= row.weight;
+  }
+  return listed[0]?.asset;
+}
+
 /**
  * 뽑은 티어의 아이템(ladder[티어] = 그 티어의 켜진 아이템 자산, 팩 차례). 없으면 더 낮은 티어, T0까지 없으면 undefined.
- * 그 티어에 prefer(오브젝트 대표 아이템, 기획 D-552)가 있으면 그것(rng를 쓰지 않는다). 아니면 같은 티어에 여럿이면 rng로 고르게 하나
- * (하나면 rng를 쓰지 않는다)
+ * 그 티어에 비중(weights, 오브젝트마다 아이템별 — 기획 D-562 1561)을 적은 아이템이 있으면 비중대로. 아니면 prefer(오브젝트 대표 아이템,
+ * 기획 D-552)가 있으면 그것(rng를 쓰지 않는다). 아니면 같은 티어에 여럿이면 rng로 고르게 하나(하나면 rng를 쓰지 않는다)
  */
 export function pickGatherItem(
   ladder: readonly (readonly string[])[],
   tier: number,
   rng: Rng,
   prefer?: string,
+  weights?: ReadonlyMap<string, number>,
 ): string | undefined {
   for (let t = Math.min(tier, ladder.length - 1); t >= 0; t--) {
     const choices = ladder[t] ?? [];
+    if (weights && weights.size > 0 && choices.some((asset) => weights.has(asset))) {
+      const weighted = pickWeighted(choices, weights, rng);
+      if (weighted !== undefined) return weighted;
+    }
     if (prefer !== undefined && choices.includes(prefer)) return prefer;
     if (choices.length === 1) return choices[0];
     if (choices.length > 1) return choices[rng.nextInt(choices.length)];
@@ -153,6 +183,11 @@ export interface GatherRoll {
   readonly tierRange?: { readonly min: number; readonly max: number } | undefined;
   /** 대표 아이템 자산(오브젝트, 기획 D-552): 그 티어에 있으면 그것이 나온다(pickGatherItem). 없으면 고르게 */
   readonly prefer?: string | undefined;
+  /**
+   * 아이템별 비중(오브젝트마다, 기획 D-562 1561 — 자산 → 비중). 뽑은 티어에 적은 아이템이 있으면 그 티어는 비중대로(적지 않은 아이템은 0).
+   * 없거나 그 티어에 적은 것이 없으면 prefer → 고르게(옛 규칙)
+   */
+  readonly weights?: ReadonlyMap<string, number> | undefined;
   /**
    * 굴림표(오브젝트 table — 난파선·고래 무리, 기획 D-540 1222 나): 있으면 티어를 뽑지 않고 가중치(합 0이면 첫 줄)로 하나를 고른다. 나온 티어 =
    * 사다리 안 자리(없으면 T0 — 필요 진행이 본다)
@@ -223,7 +258,7 @@ export function rollGatherOutputs(
     const range = roll.tierRange;
     if (range) tier = Math.max(0, Math.min(GATHER_TIERS - 1, Math.min(Math.max(tier, range.min), range.max)));
     tiers[tier] = (tiers[tier] ?? 0) + 1;
-    const asset = pickGatherItem(roll.ladder, tier, rng, roll.prefer);
+    const asset = pickGatherItem(roll.ladder, tier, rng, roll.prefer, roll.weights);
     if (asset === undefined || each === 0n) {
       empty += 1;
       continue;

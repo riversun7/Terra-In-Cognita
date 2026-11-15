@@ -272,6 +272,86 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "ore_low_tier_max",
+      "since": 105,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "fish_tier_fresh_min",
+      "since": 105,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "fish_tier_fresh_max",
+      "since": 105,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "fish_tier_coast_min",
+      "since": 105,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "fish_tier_coast_max",
+      "since": 105,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "fish_tier_shelf_min",
+      "since": 105,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "fish_tier_shelf_max",
+      "since": 105,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "fish_tier_deep_min",
+      "since": 105,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "fish_tier_deep_max",
+      "since": 105,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "ore_flat_high_pm",
+      "since": 105,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

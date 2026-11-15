@@ -1,6 +1,6 @@
 // 채집 오브젝트 편집기 문구 표·작은 도우미(기획 D-552). 메시지 키는 표로 고른다(oxlint import(namespace) — AGENTS 6장).
 import { m } from "../../paraglide/messages.js";
-import type { GatherSource, LocalName, SurfaceName } from "./gatherObjectsModel.ts";
+import type { GatherSource, LocalName, SurfaceName, WaterName } from "./gatherObjectsModel.ts";
 
 /** 자리 종류 이름 */
 export const SOURCE_TEXT: Readonly<Record<GatherSource, () => string>> = {
@@ -25,6 +25,14 @@ export const SURFACE_TEXT: Readonly<Record<SurfaceName, () => string>> = {
   mud: m.dev_gather_objects_surface_mud,
   ash: m.dev_gather_objects_surface_ash,
   shallow_water: m.dev_gather_objects_surface_shallow_water,
+};
+
+/** 물 종류 이름(기획 D-562 1565) */
+export const WATER_TEXT: Readonly<Record<WaterName, () => string>> = {
+  fresh: m.dev_gather_objects_water_fresh,
+  coast: m.dev_gather_objects_water_coast,
+  shelf: m.dev_gather_objects_water_shelf,
+  deep: m.dev_gather_objects_water_deep,
 };
 
 /** 이름(언어) */

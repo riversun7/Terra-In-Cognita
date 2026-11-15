@@ -274,7 +274,6 @@ export {
   type WorldSeedCoefficients,
   catchmentGrowthOf,
   catchmentSupplyOf,
-  fishTierRangesOf,
   plannedCityRadiusMilli,
   startCitiesFor,
 } from "./society/worldSeed.ts";

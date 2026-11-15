@@ -18,6 +18,7 @@ import {
   gatherSubcategories,
   itemAsset,
 } from "@terra/sim";
+import { bareHandAcceptsOf } from "@terra/shared/bareHandMaterials";
 import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
 import { type FacilityCategory, facilityCategoryOf } from "@terra/shared/facilityCategory";
 import { type FacilityLookJson, cleanFacilityLook } from "@terra/shared/facilityLook";
@@ -96,6 +97,11 @@ export interface FacilityCatalog {
   subcategoryOf(item: string): string | undefined;
   /** 아이템 티어(없으면 undefined — 오브젝트 대표 아이템 티어, 기획 D-552) */
   itemTier(item: string): number | undefined;
+  /**
+   * 재료 줄 아이템 → 그 줄로 받는 아이템(첫째 = 그 아이템, 원자재 T0~T1이면 같은 중분류 켜진 T0~T1 — 기획 D-562 1563·1564,
+   * @terra/shared/bareHandMaterials). 없으면 그 아이템만 받는다(옛 시험 목록)
+   */
+  bareHandAccepts?(item: string): readonly string[];
   /** 중분류 이름(목록에 없으면 undefined) */
   subcategoryName(id: string): LocalizedName | undefined;
 }
@@ -249,6 +255,15 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
         .map((sub) => sub.id),
       subcategoryOf: (id) => items.get(id)?.subcategory?.id,
       itemTier: (id) => items.get(id)?.tier,
+      bareHandAccepts: bareHandAcceptsOf(
+        current.items.map((item) => ({
+          id: item.id,
+          category: item.category,
+          subcategory: item.subcategory?.id,
+          tier: item.tier,
+          enabled: item.enabled,
+        })),
+      ),
       subcategoryName(id) {
         const sub = subcategoryById.get(id);
         return sub ? { ko: sub.name.ko, en: sub.name.en } : undefined;

@@ -632,7 +632,7 @@ export interface RosterMove {
 /**
  * 원자재 하나의 채집 예상(사이보그 판 효율 묶음, 사용자 요청 2026-11-12 "효율에 스탯에 따른 원자재별 티어구간이나 최적 작업을 보여줌").
  * 서버가 판정과 같은 함수로 셈한다(@terra/sim workerEffects — 유효 스탯·해금 티어·진행·수확량·성공 확률, @terra/shared/gatherMath
- * gatherBandIndex — 팩 gather_tiers 구간, @terra/shared/unitGuide recommendProduction — 최적 작업). 시설 레벨 1(레벨 보너스 0) 기준이다
+ * gatherBandIndex — 팩 gather_tiers 구간). 시설 레벨은 일하는 채집 시설이면 그 레벨, 아니면 1. 최적 작업 = 시간당 기대 금액(D-562 1569)
  */
 export interface RosterGather {
   /** 채집 시설 ID(팩 facilities)와 이름 */
@@ -676,7 +676,17 @@ export interface RosterGather {
         readonly tierPm: readonly number[];
       }[]
     | undefined;
-  /** 이 유닛의 최적 작업(주 + 보조가 가장 큰 1차 생산, 유닛 추천과 같은 고르기) */
+  /** 셈에 쓴 시설 레벨(일하는 채집 시설이면 그 레벨, 아니면 1 — 기획 D-556 1255). 옛 서버면 없음 */
+  readonly level?: number | undefined;
+  /**
+   * 시간당 기대 금액(최소 단위 정수 문자열, 기획 D-556 1256·D-562 1569): 확률 × 그 티어 아이템 시세 × 개수 ÷ 걸리는 시간. 시세 = 그 유닛이
+   * 있는 도시 거래소의 마지막 체결가(priceSource market), 없으면 시작 시세(start). 옛 서버면 없음
+   */
+  readonly valuePerHour?: string | undefined;
+  readonly priceSource?: "market" | "start" | undefined;
+  /** 그 도시 화폐 코드(모르면 없음) */
+  readonly currency?: string | undefined;
+  /** 이 유닛의 최적 작업(시간당 기대 금액이 가장 큰 일 — 금액이 없으면 주 + 보조가 가장 큰 1차 생산) */
   readonly best: boolean;
 }
 

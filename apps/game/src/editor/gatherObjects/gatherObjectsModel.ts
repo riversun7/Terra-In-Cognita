@@ -8,6 +8,8 @@
 // - 미리 보기: 유효 스탯 하나에서 확률표(표 하나) → 범위로 자름 → 그 티어에 대표 아이템이 있으면 대표, 아니면 그 티어 켜진 아이템 고르게(없으면
 //   더 낮은 티어) — @terra/sim rollGatherOutputs와 같은 셈을 확률로. 맡는 시설이 선택 방식(농장·목장)이면 해금 티어를 쓰는데, 이 화면은 시설
 //   방식을 모르므로 추첨으로 보인다(질문 1565 메모).
+// - 바뀜 (기획 D-562 1561·1565): 같은 티어 아이템마다 비중(itemWeights — 적은 티어는 비중대로, 적지 않은 아이템 0)과 밭·물터(plot)가 서는 물
+//   종류(waters — 민물·바다 물터)를 고친다. 미리 보기도 비중을 쓴다(@terra/sim pickGatherItem과 같은 차례: 비중 → 대표 → 고르게).
 // 판정 코드가 아니다(화면 미리 보기) — 그래도 정수 연산만 쓴다.
 import { MAP_PROP_ARTS, type MapPropArt, isUsableMapPropArt } from "@terra/shared";
 import { hashEntry, sortKeys } from "../terrainObjects/terrainObjectsModel.ts";
@@ -39,6 +41,12 @@ export const SURFACES = [
   "shallow_water",
 ] as const;
 export type SurfaceName = (typeof SURFACES)[number];
+
+/** 물 종류(@terra/shared/fishWater FISH_WATERS와 같은 차례 — 얕은 것부터) */
+export const WATERS = ["fresh", "coast", "shelf", "deep"] as const;
+export type WaterName = (typeof WATERS)[number];
+/** 아이템 비중 범위(팩 스키마 itemWeights weight와 같다) */
+export const WEIGHT_RANGE = { min: 0, max: 1000 } as const;
 
 /** 고를 수 있는 소품 그림(3D 모델) 이름 */
 export const MODEL_ARTS: readonly MapPropArt[] = MAP_PROP_ARTS.filter(isUsableMapPropArt);
@@ -203,8 +211,25 @@ export function setTierRange(
       edge === "min"
         ? { min: tier, max: Math.max(tier, range.max) }
         : { min: Math.min(tier, range.min), max: tier };
-    return { ...entry, tierRange: next };
+    return pruneWeights({ ...entry, tierRange: next }, refs);
   });
+}
+
+/** 사다리·범위 밖이 된 아이템 비중을 뺀다(팩 검사 gather_item_weight_* — 대표 아이템·범위를 바꿀 때) */
+function pruneWeights(entry: JsonEntry, refs: GatherRefs): JsonEntry {
+  const weights = itemWeightsOf(entry);
+  if (weights.size === 0) return entry;
+  const range = effectiveRange(entry, refs);
+  const ladder = ladderOf(entry, refs);
+  const keep = [...weights].filter(([item]) => {
+    if (!range) return false;
+    const tier = ladder.findIndex((choices) => choices.includes(item));
+    return tier >= range.min && tier <= range.max;
+  });
+  const { itemWeights: _old, ...rest } = entry;
+  return keep.length === 0
+    ? rest
+    : { ...rest, itemWeights: keep.map(([item, weight]) => ({ item, weight })) };
 }
 
 /** 양(한 번 캘 때 묶음 수) */
@@ -212,9 +237,19 @@ export function setLots(entries: readonly JsonEntry[], id: string, lots: number)
   return mapEntry(entries, id, (entry) => ({ ...entry, lots: clampTo(lots, LOTS_RANGE) }));
 }
 
-/** 대표 아이템(= 원자재 종류). 굴림표 오브젝트는 그대로 */
-export function setItem(entries: readonly JsonEntry[], id: string, item: string): JsonEntry[] {
-  return mapEntry(entries, id, (entry) => (Array.isArray(entry.table) ? entry : { ...entry, item }));
+/** 대표 아이템(= 원자재 종류). 굴림표 오브젝트는 그대로. 사다리·범위 밖이 된 아이템 비중은 뺀다(refs가 없으면 비중을 모두 뺀다) */
+export function setItem(
+  entries: readonly JsonEntry[],
+  id: string,
+  item: string,
+  refs?: GatherRefs,
+): JsonEntry[] {
+  return mapEntry(entries, id, (entry) => {
+    if (Array.isArray(entry.table)) return entry;
+    if (refs) return pruneWeights({ ...entry, item }, refs);
+    const { itemWeights: _old, ...rest } = entry;
+    return { ...rest, item };
+  });
 }
 
 /**
@@ -278,6 +313,93 @@ export function setChance(entries: readonly JsonEntry[], id: string, chancePm: n
   });
 }
 
+/** 아이템별 비중(아이템 ID → 비중). 칸이 없으면 빈 표 */
+export function itemWeightsOf(entry: JsonEntry): Map<string, number> {
+  const out = new Map<string, number>();
+  if (!Array.isArray(entry.itemWeights)) return out;
+  const rows: readonly unknown[] = entry.itemWeights;
+  for (const row of rows)
+    if (isRecord(row) && typeof row.item === "string" && typeof row.weight === "number")
+      out.set(row.item, row.weight);
+  return out;
+}
+
+/** 오브젝트 사다리(대표 아이템 중분류의 켜진 아이템, 티어마다 — 대표 아이템은 꺼져 있어도 그 티어에 든다, 서버와 같다) */
+function ladderOf(entry: JsonEntry, refs: GatherRefs): string[][] {
+  const item = typeof entry.item === "string" ? entry.item : "";
+  const ref = refItem(refs, item);
+  const ladder: string[][] = Array.from({ length: TIER_MAX + 1 }, () => []);
+  for (const candidate of refs.items)
+    if (candidate.subcategory === ref?.subcategory && candidate.enabled)
+      ladder[clampTier(candidate.tier)]?.push(candidate.id);
+  const own = clampTier(ref?.tier ?? 0);
+  if (item !== "" && !ladder[own]?.includes(item)) ladder[own]?.push(item);
+  return ladder;
+}
+
+/** 비중 칸 한 티어: 범위 안 티어 가운데 아이템이 둘 이상인 것(굴림표면 빈 목록) */
+export interface WeightTier {
+  readonly tier: number;
+  readonly items: readonly { readonly id: string; readonly weight: number | undefined }[];
+  /** 이 티어에 비중을 하나라도 적었나(적었으면 비중대로, 아니면 대표 → 고르게) */
+  readonly weighted: boolean;
+}
+
+export function weightTiers(entry: JsonEntry, refs: GatherRefs): WeightTier[] {
+  const range = effectiveRange(entry, refs);
+  if (!range) return [];
+  const ladder = ladderOf(entry, refs);
+  const weights = itemWeightsOf(entry);
+  const out: WeightTier[] = [];
+  for (let tier = range.min; tier <= range.max; tier++) {
+    const choices = ladder[tier] ?? [];
+    if (choices.length < 2) continue;
+    out.push({
+      tier,
+      items: choices.map((id) => ({ id, weight: weights.get(id) })),
+      weighted: choices.some((id) => weights.has(id)),
+    });
+  }
+  return out;
+}
+
+/** 아이템 하나의 비중을 고친다(null = 칸에서 뺀다, 모두 빠지면 itemWeights 칸을 지운다). 굴림표 오브젝트는 그대로 */
+export function setItemWeight(
+  entries: readonly JsonEntry[],
+  id: string,
+  item: string,
+  weight: number | null,
+): JsonEntry[] {
+  return mapEntry(entries, id, (entry) => {
+    if (Array.isArray(entry.table)) return entry;
+    const weights = itemWeightsOf(entry);
+    if (weight === null) weights.delete(item);
+    else weights.set(item, clampTo(weight, WEIGHT_RANGE));
+    const { itemWeights: _old, ...rest } = entry;
+    if (weights.size === 0) return rest;
+    return { ...rest, itemWeights: [...weights].map(([key, value]) => ({ item: key, weight: value })) };
+  });
+}
+
+/** 밭·물터(plot)가 서는 물 종류(칸이 없으면 빈 목록 = 보지 않음) */
+export function watersOf(entry: JsonEntry): WaterName[] {
+  if (sourceOf(entry) !== "plot" || !Array.isArray(entry.waters)) return [];
+  const list: readonly unknown[] = entry.waters;
+  return WATERS.filter((water) => list.includes(water));
+}
+
+/** 물 종류를 켜고 끈다(plot만, 물 종류 차례로). 모두 끄면 waters 칸을 지운다(보지 않음) */
+export function toggleWater(entries: readonly JsonEntry[], id: string, water: WaterName): JsonEntry[] {
+  return mapEntry(entries, id, (entry) => {
+    if (sourceOf(entry) !== "plot") return entry;
+    const current = watersOf(entry);
+    const has = current.includes(water);
+    const next = WATERS.filter((name) => (name === water ? !has : current.includes(name)));
+    const { waters: _old, ...rest } = entry;
+    return next.length === 0 ? rest : { ...rest, waters: next };
+  });
+}
+
 /** 미리 보기 한 줄: 나오는 아이템·티어·확률(‰, 소수 한 자리는 화면이 낸다 — 여기는 ‰ × 1000 정수) */
 export interface ChanceRow {
   readonly item: string;
@@ -305,15 +427,9 @@ export function chancePreview(entry: JsonEntry, refs: GatherRefs, stat: number):
         out.set(row.item, { tier: refItem(refs, row.item)?.tier ?? 0, ppm: row.weightPm * 1000 });
   } else {
     const item = typeof entry.item === "string" ? entry.item : "";
-    const ref = refItem(refs, item);
     const range = effectiveRange(entry, refs) ?? { min: 0, max: 0 };
-    // 사다리: 대표 아이템 중분류의 켜진 아이템(대표 아이템은 꺼져 있어도 그 티어에 든다 — 서버와 같다)
-    const ladder: string[][] = Array.from({ length: TIER_MAX + 1 }, () => []);
-    for (const candidate of refs.items)
-      if (candidate.subcategory === ref?.subcategory && candidate.enabled)
-        ladder[clampTier(candidate.tier)]?.push(candidate.id);
-    const own = clampTier(ref?.tier ?? 0);
-    if (!ladder[own]?.includes(item)) ladder[own]?.push(item);
+    const ladder = ladderOf(entry, refs);
+    const itemWeights = itemWeightsOf(entry);
     const weights = bandAt(refs, stat);
     let total = 0;
     for (const weight of weights) total += Math.max(0, weight);
@@ -324,11 +440,21 @@ export function chancePreview(entry: JsonEntry, refs: GatherRefs, stat: number):
       for (let t = tier; t >= 0; t--) {
         const choices = ladder[t] ?? [];
         if (choices.length === 0) continue;
-        const picks = choices.includes(item) ? [item] : choices;
-        const share = Math.floor((weight * 1_000_000) / total / picks.length);
+        // 비중 → 대표 → 고르게(@terra/sim pickGatherItem과 같은 차례)
+        let sum = 0;
+        for (const choice of choices) sum += Math.max(0, itemWeights.get(choice) ?? 0);
+        const picks: { id: string; part: number; of: number }[] =
+          sum > 0
+            ? choices
+                .filter((choice) => (itemWeights.get(choice) ?? 0) > 0)
+                .map((choice) => ({ id: choice, part: itemWeights.get(choice) ?? 0, of: sum }))
+            : choices.includes(item)
+              ? [{ id: item, part: 1, of: 1 }]
+              : choices.map((choice) => ({ id: choice, part: 1, of: choices.length }));
         for (const pick of picks) {
-          const before = out.get(pick);
-          out.set(pick, { tier: t, ppm: (before?.ppm ?? 0) + share });
+          const share = Math.floor((weight * 1_000_000 * pick.part) / total / pick.of);
+          const before = out.get(pick.id);
+          out.set(pick.id, { tier: t, ppm: (before?.ppm ?? 0) + share });
         }
         break;
       }

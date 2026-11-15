@@ -6,8 +6,8 @@
 //   배후지(반경 R) 겹침(둘 이상 배후지에 든 칸, 겹친 도시 쌍)과 도시마다 덮임(혼자일 때 · 가장 가까운 도시가 나눠 가진 뒤).
 // - --old: 배후지 규칙을 끈 옛 배치(설정 칸 city_catchment_radius_cells = 0)로 잰다.
 // - --planet <ID>: 다른 팩 행성(기본 s2_test_planet). --mountain-m <m>: 광석 몫 1000 고도(npc_seed_mine_height_m)를 바꿔 잰다.
-// - --high-m <m>: 높은 티어 광석 산지 고도(ore_high_min_m), --flat-high-pm <‰>: 산지 밖 높은 티어 몫(ore_flat_high_pm) — 기획 D-535.
-//   --old-ore: D-535 전 규칙(산지 = 500m, 산지 밖 0)으로 잰다.
+// - --high-m <m>: 높은 티어 광석 산지 고도(ore_high_min_m) — 기획 D-535. --old-ore: D-535 전 규칙(산지 = 500m)으로 잰다.
+//   바뀜 (기획 D-562 1562): 산지 밖 높은 티어 몫(ore_flat_high_pm)·--flat-high-pm은 없앴다(산지 밖 0).
 // - --no-mountain: 광산 국가 산지 점수(설정 칸 city_catchment_mountain_site_pm)를 0으로 — 질문 1079 나 전 배치.
 // - --fixed <칸>: 도시 크기와 상관없이 고정 반경(반경 아래 끝 = 위 끝 = 칸 × 1000) — 앞 줄기(city-spacing) 배치를 다시 잰다.
 // - 바뀜 (2026-11-12, ADR "바뀜 (2026-11-12)"): 도시마다 요구 반경(처음 기간에 이를 크기 — 국가 등급 주거·기술, 수도는 더 크게)을 함께 보인다.
@@ -84,19 +84,17 @@ const presets = nationPresetsOf(pack);
 // --mountain-m <m>: 산지 고도(설정 칸 npc_seed_mine_height_m)를 바꿔 잰다(산지가 먼 행성에서 규칙이 듣는지 보기)
 const mountainAt = args.indexOf("--mountain-m");
 const mountainM = mountainAt >= 0 ? Number(args[mountainAt + 1]) : undefined;
-// --high-m <m>·--flat-high-pm <‰>·--old-ore: 높은 티어 광석 규칙(기획 D-535)
+// --high-m <m>·--old-ore: 높은 티어 광석 규칙(기획 D-535)
 const numberAfter = (flag: string): number | undefined => {
   const at = args.indexOf(flag);
   return at >= 0 ? Number(args[at + 1]) : undefined;
 };
 const highM = args.includes("--old-ore") ? 500 : numberAfter("--high-m");
-const flatHighPm = args.includes("--old-ore") ? 0 : numberAfter("--flat-high-pm");
 const baseSeed = {
   ...START_WORLD_SEED,
   ...(noMountain ? { catchmentMountainSitePm: 0 } : {}),
   ...(mountainM === undefined ? {} : { mineMinHeightM: mountainM }),
   ...(highM === undefined ? {} : { oreHighMinM: highM }),
-  ...(flatHighPm === undefined ? {} : { oreFlatHighPm: flatHighPm }),
 };
 const seed = old
   ? { ...baseSeed, catchmentRadiusCells: 0 }
@@ -394,7 +392,7 @@ lines.push(
   `- 광석(석재·구리)을 얻는 도시(배후지 광석 몫 > 0): ${ore.filter((row) => row.orePm > 0).length}/${cities.length} · 높은 티어(높은 티어 몫 > 0): ${ore.filter((row) => row.highOrePm > 0).length}/${cities.length} · 배후지에 산지 칸(${baseSeed.oreHighMinM}m 이상): ${coverRows.filter((row) => row.alone.counts.ore > 0).length}/${cities.length}`,
 );
 lines.push(
-  `- 높은 티어 규칙: 산지 ${baseSeed.oreHighMinM}m 이상 1000‰ · 산지 밖 ${baseSeed.oreFlatHighPm}‰ · 산지 밖 가장 높은 티어 T${baseSeed.oreLowTierMax}`,
+  `- 높은 티어 규칙: 산지 ${baseSeed.oreHighMinM}m 이상 1000‰ · 산지 밖 0‰(위 끝은 채집 오브젝트 범위, D-562)`,
 );
 lines.push(`- 배후지 광석 몫(‰): ${pmStats(ore.map((row) => row.orePm))}`);
 lines.push(

@@ -385,10 +385,15 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
   };
 
   /** 지금 레벨의 건설 재료·시간(수리 셈의 바탕) */
+  /** 재료 줄에 받는 아이템을 붙인다(레벨 0 재료는 같은 원자재 종류 T0~T1 — 기획 D-562 1563·1564) */
+  const withAccepts = (materials: readonly JobMaterial[]): JobMaterial[] => {
+    const accepts = options.catalog().bareHandAccepts?.bind(options.catalog());
+    return materials.map((stack) => (accepts ? { ...stack, accepts: accepts(stack.item) } : stack));
+  };
   const levelCost = (def: FacilityDef, level: number): { materials: JobMaterial[]; ms: number } => {
     if (!def.build || level < 1) return { materials: [], ms: 0 };
     return {
-      materials: buildCostAt(def.build, level),
+      materials: withAccepts(buildCostAt(def.build, level)),
       ms: buildTimeAt(def.build, level, weightOf, options.rules().facilityBuild).ms,
     };
   };
@@ -671,12 +676,13 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (!waterOk(map, def, input.x, input.y, 0)) return fail("needs_water");
       // 재료 자리: 그 도시 창고·그 도시의 내 창고 시설(유닛 화물은 보지 않는다 — NPC 휴먼은 화물을 들지 않는다)
       const scope = materialScope(places, input.ownerId, input.mapKey, input.cityId, false);
-      if (!hasGoods(ledger, input.ownerId, input.materials, scope)) return fail("insufficient_materials");
+      const materials = withAccepts(input.materials);
+      if (!hasGoods(ledger, input.ownerId, materials, scope)) return fail("insufficient_materials");
       const { width, height } = def.footprint;
       const placed = map.placeBuilding({ x: input.x, y: input.y, width, height, rotation: 0 }, input.ownerId);
       if (!placed.ok) return fail(PLACE_CODES[placed.code] ?? "out_of_bounds");
       if (placed.buildingId === undefined) return fail("internal_error");
-      spendGoods(ledger, input.ownerId, input.materials, at, "facility_build", scope);
+      spendGoods(ledger, input.ownerId, materials, at, "facility_build", scope);
       const ms = Math.max(0, Math.trunc(input.ms));
       const record: FacilityRecord = {
         buildingId: placed.buildingId,
@@ -729,7 +735,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const place = buildingPlace(places, input.buildingId);
       const scope = place ? materialScope(places, input.ownerId, place.mapKey, place.cityId, false) : [];
       const reason = input.kind === "upgrade" ? "facility_upgrade" : "facility_repair";
-      if (!spendGoods(ledger, input.ownerId, input.materials, at, reason, scope))
+      if (!spendGoods(ledger, input.ownerId, withAccepts(input.materials), at, reason, scope))
         return fail("insufficient_materials");
       const ms = Math.max(0, Math.trunc(input.ms));
       const job = newJob({
@@ -829,7 +835,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (unitProblem) return fail(unitProblem);
       const restore = repairRestorePpm(condition, steps, runtime());
       if (restore <= 0) return fail("not_damaged");
-      const materials = repairMaterialsFor(cost.materials, restore);
+      const materials = withAccepts(repairMaterialsFor(cost.materials, restore));
       if (!spendGoods(ledger, me, materials, started, "facility_repair", scope))
         return fail("insufficient_materials");
       const ms = repairTimeMs(cost.ms, restore, unitIds.length, runtime());

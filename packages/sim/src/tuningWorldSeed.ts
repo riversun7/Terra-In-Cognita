@@ -302,46 +302,7 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
   k("ore_share_low_pm", "oreShareLowPm", "광석 몫: 해수면(0m 이하) 땅(‰)", "Ore share: sea-level land (‰)"),
   k("ore_share_hill_m", "oreShareHillM", "광석 몫: 언덕 고도(m)", "Ore share: hill height (m)"),
   k("ore_share_hill_pm", "oreShareHillPm", "광석 몫: 언덕 고도에서(‰)", "Ore share: at hill height (‰)"),
-  k(
-    "ore_low_tier_max",
-    "oreLowTierMax",
-    "산지 밖 광석의 가장 높은 티어",
-    "Highest ore tier outside mountains",
-  ),
-  // 낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나): 49에 칸이 없어 fish_tier_*를 앞머리로 쓴다
-  k(
-    "fish_tier_fresh_min",
-    "fishFreshMin",
-    "낚시터 민물: 가장 낮은 티어",
-    "Fishing spot freshwater: lowest tier",
-  ),
-  k(
-    "fish_tier_fresh_max",
-    "fishFreshMax",
-    "낚시터 민물: 가장 높은 티어",
-    "Fishing spot freshwater: highest tier",
-  ),
-  k("fish_tier_coast_min", "fishCoastMin", "낚시터 연안: 가장 낮은 티어", "Fishing spot coast: lowest tier"),
-  k("fish_tier_coast_max", "fishCoastMax", "낚시터 연안: 가장 높은 티어", "Fishing spot coast: highest tier"),
-  k(
-    "fish_tier_shelf_min",
-    "fishShelfMin",
-    "낚시터 대륙붕: 가장 낮은 티어",
-    "Fishing spot shelf: lowest tier",
-  ),
-  k(
-    "fish_tier_shelf_max",
-    "fishShelfMax",
-    "낚시터 대륙붕: 가장 높은 티어",
-    "Fishing spot shelf: highest tier",
-  ),
-  k("fish_tier_deep_min", "fishDeepMin", "낚시터 심해: 가장 낮은 티어", "Fishing spot deep sea: lowest tier"),
-  k(
-    "fish_tier_deep_max",
-    "fishDeepMax",
-    "낚시터 심해: 가장 높은 티어",
-    "Fishing spot deep sea: highest tier",
-  ),
+  // 바뀜 (기획 D-562 1562): ore_low_tier_max·fish_tier_*는 없앴다(NPC 채집 티어 = 팩 오브젝트 범위, @terra/shared/npcGatherTiers)
   // 목재·약초·목장 바이옴 나눔과 노이즈(기획 D-536): 49에 칸이 없어 resource_*를 앞머리로 쓴다
   k("resource_wood_forest_pm", "woodForestPm", "목재 배율: 숲 바이옴(‰)", "Wood scale: forest biomes (‰)"),
   k("resource_wood_other_pm", "woodOtherPm", "목재 배율: 그 밖의 땅(‰)", "Wood scale: other land (‰)"),
@@ -394,14 +355,8 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "약초·축산물 있음 문턱(칸 몫 ‰)",
     "Herb and livestock present from (cell share ‰)",
   ),
-  // 높은 티어 광석 분포(기획 D-535, 질문 1121): 산지 고도를 낮추고 산지 밖에도 드물게
+  // 높은 티어 광석 분포(기획 D-535, 질문 1121): 산지 고도. 바뀜 (D-562 1562): 산지 밖 몫 ore_flat_high_pm은 없앴다
   k("ore_high_min_m", "oreHighMinM", "높은 티어 광석: 산지 고도(m)", "High-tier ore: mountain height (m)"),
-  k(
-    "ore_flat_high_pm",
-    "oreFlatHighPm",
-    "높은 티어 광석: 산지 밖 몫(‰)",
-    "High-tier ore: share outside mountains (‰)",
-  ),
   // 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 49에 칸이 없어 map_spawn_*를 앞머리로 쓴다
   k(
     "map_spawn_max_loaded",

@@ -3,6 +3,8 @@
 // (apps/server/src/roster/gatherSheet.ts). 줄 모양은 2차 스탯 줄과 같다(SpecRow): 이름 = 원자재 · 시설, 값 = 확률이 있는 티어 폭,
 // 막대 = 기대 티어 ÷ T9, 최적 작업은 값 옆 "최적" 표. 펼치면 유효 스탯 셈·구간의 티어별 확률·T9 확률·진행·수확량(·성공 확률).
 // 바뀜 (2026-11-14, 기획 D-542 질문 1365 나): 낚시터 줄은 물 종류마다 그 범위로 접은 티어별 확률도 보인다(row.waters).
+// 바뀜 (2026-11-15, 기획 D-556 1255·1256, D-562 1569): 셈에 쓴 시설 레벨, 시간당 기대 금액과 시세 출처(그 도시 거래소 체결가·시작 시세)를
+// 보인다. 최적 = 기대 금액이 가장 큰 일(서버가 고른다).
 import type { RosterGather } from "@terra/shared/roster";
 import { m } from "../paraglide/messages.js";
 import { formatMilli, formatNumber, localName, primaryCode } from "../roster/rosterText.ts";
@@ -105,6 +107,24 @@ function GatherRow({ row }: { row: RosterGather }) {
         <p className="combat-line" translate="no">
           {m.cyborg_gather_catch({ pct: pctText(row.catchPm) })}
         </p>
+      )}
+      {row.level === undefined ? null : (
+        <p className="combat-line" data-part="gather-level">
+          {m.cyborg_gather_level({ level: formatNumber(row.level) })}
+        </p>
+      )}
+      {row.valuePerHour === undefined ? null : (
+        <>
+          <p className="combat-line combat-result" translate="no" data-part="gather-value">
+            {m.cyborg_gather_value({
+              value: formatNumber(Number(row.valuePerHour)),
+              currency: row.currency ? ` ${row.currency}` : "",
+            })}
+          </p>
+          <p className="combat-formula-note">
+            {row.priceSource === "market" ? m.cyborg_gather_price_market() : m.cyborg_gather_price_start()}
+          </p>
+        </>
       )}
       {row.best ? <p className="combat-line">{m.cyborg_gather_best_line()}</p> : null}
     </SpecRow>

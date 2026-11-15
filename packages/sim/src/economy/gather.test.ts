@@ -455,6 +455,40 @@ describe("오브젝트 규칙(기획 D-552 — 대표 아이템·굴림표)", ()
     expect(fixed.outputs).toEqual([{ asset: "item:chamomile", qty: 500n }]);
   });
 
+  it("아이템별 비중(D-562 1561): 적은 티어는 비중대로(적지 않은 아이템 0), 적지 않은 티어는 옛 규칙", () => {
+    const weights = new Map([
+      ["item:aloe", 300],
+      ["item:peppermint", 700],
+    ]);
+    const rolled = rollGatherOutputs(
+      {
+        ladder: herbs,
+        bands: BANDS,
+        stat: 20,
+        lots: 2000,
+        lotSize: new Map(),
+        tierRange: { min: 1, max: 1 },
+        prefer: "item:chamomile",
+        weights,
+      },
+      createRng(9),
+    );
+    const qty = (asset: string) => rolled.outputs.find((row) => row.asset === asset)?.qty ?? 0n;
+    // 캐모마일은 대표지만 비중을 적은 티어라 0
+    expect(qty("item:chamomile")).toBe(0n);
+    expect(qty("item:aloe") + qty("item:peppermint")).toBe(2000n);
+    expect(Number(qty("item:peppermint"))).toBeGreaterThan(1250);
+    expect(Number(qty("item:peppermint"))).toBeLessThan(1550);
+    // 비중을 적지 않은 티어(T2)는 그 티어 아이템, 비중이 모두 0이면 옛 규칙(대표)
+    const rng = createRng(3);
+    expect(pickGatherItem(herbs, 2, rng, "item:chamomile", weights)).toBe("item:lavender");
+    expect(pickGatherItem(herbs, 1, rng, "item:chamomile", new Map([["item:aloe", 0]]))).toBe(
+      "item:chamomile",
+    );
+    // 하나만 적으면 난수 없이 그것
+    expect(pickGatherItem(herbs, 1, rng, "item:chamomile", new Map([["item:aloe", 5]]))).toBe("item:aloe");
+  });
+
   it("굴림표: 티어를 뽑지 않고 가중치로 하나, 사다리 밖 자산은 사다리 차례 뒤", () => {
     const table = [
       { asset: "item:whale_meat", weightPm: 700 },

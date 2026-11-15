@@ -24,6 +24,7 @@
 // 지금 값은 모두 [임시]다(D-515).
 import { MAP_PROP_ARTS, isUsableMapPropArt } from "@terra/shared";
 import { CATCHMENT_MATERIALS } from "@terra/shared/catchment";
+import { FISH_WATERS } from "@terra/shared/fishWater";
 import { GATHER_TIERS } from "@terra/shared/gatherMath";
 import { z } from "zod";
 import { PRIMARY_STAT_CODES } from "./combat.ts";
@@ -84,6 +85,20 @@ const common = {
         .max(GATHER_TIERS - 1),
     })
     .optional(),
+  /**
+   * 아이템별 비중(기획 D-562 1561 — 사용자 "각각의 비중은 오브젝트마다 다름 에디터에서 조정가능"): 같은 티어에 아이템이 여럿일 때 이
+   * 오브젝트에서 무엇이 나오는지. 뽑은 티어에 비중을 적은 아이템이 하나라도 있으면 그 티어는 비중대로 고른다(적지 않은 아이템은 0). 적은 것이
+   * 없는 티어는 대표 아이템 → 고르게(옛 규칙). 아이템은 이 오브젝트 사다리·티어 범위 안이어야 하고(2단계 검사 gather_item_weight_*), 굴림표와
+   * 함께 쓰지 않는다
+   */
+  itemWeights: z
+    .array(z.strictObject({ item: ref("items"), weight: z.int().min(0).max(1000) }))
+    .min(1)
+    .max(64)
+    .refine((rows) => new Set(rows.map((row) => row.item.id)).size === rows.length, {
+      error: "같은 아이템을 두 번 적지 마세요.",
+    })
+    .optional(),
 };
 
 /** 2차맵 지형 칸 지표 이름(@terra/protocol TERRAIN_SURFACE 차례 — 서버 시험이 같은지 본다) */
@@ -124,6 +139,16 @@ const plotObject = z.strictObject({
   minCells: z.int().min(1).max(64),
   /** 그 2차맵의 행성 값에 있어야 하는 원자재(없으면 지표만 본다) */
   material: z.enum(CATCHMENT_MATERIALS).optional(),
+  /**
+   * 서는 물 종류(기획 D-562 1565 "물터를 민물·바다로 나눔"): 그 2차맵(1차맵 칸)의 물 종류(@terra/shared/fishWater fishWaterOfLand — 물
+   * 비트·수심·바이옴, 모르면 민물)가 이 가운데 하나일 때만 선다. 없으면 보지 않는다
+   */
+  waters: z
+    .array(z.enum(FISH_WATERS))
+    .min(1)
+    .max(FISH_WATERS.length)
+    .refine((list) => new Set(list).size === list.length, { error: "같은 물 종류를 두 번 적지 마세요." })
+    .optional(),
 });
 
 const outcropObject = z.strictObject({

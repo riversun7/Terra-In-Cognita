@@ -130,6 +130,30 @@ function checkGatherObjects(
   error: (file: string, id: string, path: string, code: string, message: string) => void,
 ): void {
   const FILE = "gather_objects.json";
+  const items = new Map<string, ItemFacts>(
+    (pack.entries.get("items") ?? []).map((entry) => {
+      const sub = get(entry, "subcategory");
+      const tier = get(entry, "tier");
+      return [
+        entry.id,
+        {
+          sub: sub instanceof ContentRef ? sub.id : undefined,
+          tier: typeof tier === "number" ? tier : undefined,
+        },
+      ];
+    }),
+  );
+  const facilities = new Map<string, readonly string[]>();
+  for (const facility of pack.entries.get("facilities") ?? []) {
+    const gather = get(facility, "gather");
+    const sub = get(gather, "subcategory");
+    const extras = get(gather, "extraSubcategories");
+    if (!(sub instanceof ContentRef)) continue;
+    const list = [sub.id];
+    if (Array.isArray(extras))
+      for (const extra of extras) if (extra instanceof ContentRef) list.push(extra.id);
+    facilities.set(facility.id, list);
+  }
   for (const entry of pack.entries.get("gather_objects") ?? []) {
     const table = get(entry, "table");
     const item = get(entry, "item");
@@ -183,5 +207,82 @@ function checkGatherObjects(
           `티어 범위 아래(min ${min})가 위(max ${max})보다 큽니다.`,
         );
     }
+    checkItemWeights(entry, item, table, range, items, facilities, error);
   }
+}
+
+/** 아이템 요약(중분류·티어) */
+interface ItemFacts {
+  readonly sub: string | undefined;
+  readonly tier: number | undefined;
+}
+
+/**
+ * 아이템별 비중(기획 D-562 1561): 굴림표와 함께 쓰지 않고(gather_item_weight_table), 아이템은 이 오브젝트 사다리(맡는 시설 사다리에 대표
+ * 아이템이 들면 그 사다리 중분류들, 아니면 대표 아이템 중분류) 안(gather_item_weight_ladder), 티어는 티어 범위(없으면 대표 아이템 티어) 안
+ * (gather_item_weight_range)
+ */
+function checkItemWeights(
+  entry: { readonly id: string },
+  item: unknown,
+  table: unknown,
+  range: unknown,
+  items: ReadonlyMap<string, ItemFacts>,
+  facilities: ReadonlyMap<string, readonly string[]>,
+  error: (file: string, id: string, path: string, code: string, message: string) => void,
+): void {
+  const FILE = "gather_objects.json";
+  const weights = get(entry, "itemWeights");
+  if (!Array.isArray(weights)) return;
+  if (Array.isArray(table)) {
+    error(
+      FILE,
+      entry.id,
+      "itemWeights",
+      "gather_item_weight_table",
+      "굴림표(table) 오브젝트는 아이템별 비중(itemWeights)을 쓰지 않습니다. 굴림표 가중치를 고치세요.",
+    );
+    return;
+  }
+  const rep = item instanceof ContentRef ? items.get(item.id) : undefined;
+  const facility = get(entry, "facility");
+  const facilitySubs = facility instanceof ContentRef ? facilities.get(facility.id) : undefined;
+  const subs =
+    facilitySubs && rep?.sub !== undefined && facilitySubs.includes(rep.sub)
+      ? facilitySubs
+      : rep?.sub === undefined
+        ? []
+        : [rep.sub];
+  const min = get(range, "min");
+  const max = get(range, "max");
+  const low = typeof min === "number" ? min : rep?.tier;
+  const high = typeof max === "number" ? max : rep?.tier;
+  (weights as unknown[]).forEach((row, index) => {
+    const ref = get(row, "item");
+    if (!(ref instanceof ContentRef)) return;
+    const facts = items.get(ref.id);
+    if (!facts) return;
+    const path = `itemWeights.${index}.item`;
+    if (facts.sub === undefined || !subs.includes(facts.sub))
+      error(
+        FILE,
+        entry.id,
+        path,
+        "gather_item_weight_ladder",
+        `아이템 ${ref.id}는 이 오브젝트 사다리(${subs.join(", ") || "없음"})에 없습니다.`,
+      );
+    else if (
+      facts.tier !== undefined &&
+      low !== undefined &&
+      high !== undefined &&
+      (facts.tier < low || facts.tier > high)
+    )
+      error(
+        FILE,
+        entry.id,
+        path,
+        "gather_item_weight_range",
+        `아이템 ${ref.id}(T${facts.tier})는 티어 범위 T${low}~T${high} 밖이라 나오지 않습니다.`,
+      );
+  });
 }

@@ -86,7 +86,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(shown?.bands.at(-1)?.to).toBeNull();
   });
 
-  it("구리(T2)는 0~39 구간 10%, 은(T4)은 Lv5(60~79)에서 1%이고 초안을 끄면 0(그 몫은 철로 내려온다)", () => {
+  it("구리(T2)는 0~39 구간 10%, 은(T4)은 Lv5(60~79)에서 0.5%(T4 1%를 화석과 나눔 — D-562 1568)이고 초안을 끄면 0", () => {
     expect(
       previewGather(ctx, find("copper_ore"), pack.items, DEFAULT_PREVIEW_UNIT)?.levels[0]?.chanceBp,
     ).toBe(1000);
@@ -94,7 +94,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(silver.enabled).toBe(true);
     expect(
       previewGather(ctx, silver, pack.items, DEFAULT_PREVIEW_UNIT)?.levels.map((row) => row.chanceBp),
-    ).toEqual([0, 0, 0, 0, 100]);
+    ).toEqual([0, 0, 0, 0, 50]);
     const off = previewGather(ctx, { ...silver, enabled: false }, pack.items, DEFAULT_PREVIEW_UNIT);
     expect(off?.levels[4]?.chanceBp).toBe(0);
   });

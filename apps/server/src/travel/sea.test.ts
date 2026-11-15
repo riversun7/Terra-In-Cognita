@@ -57,10 +57,10 @@ function rig(seas: readonly number[], loaded: readonly number[] = [0, 1, 2]) {
   /** 그때 띄우기(가짜 — 닿을 때 그 2차맵을 만든다) */
   const opened: number[] = [];
   const spawn = {
-    canOpen: (mapKey: number) => K.includes(mapKey) && !maps.has(mapKey),
+    canOpen: (mapKey: number) => K.some((key) => key === mapKey) && !maps.has(mapKey),
     hasRoom: () => true,
     open: (mapKey: number) => {
-      const index = K.indexOf(mapKey);
+      const index = K.findIndex((key) => key === mapKey);
       const built = make(index, mapKey);
       maps.set(mapKey, built);
       paths.add(built.replicaInit());

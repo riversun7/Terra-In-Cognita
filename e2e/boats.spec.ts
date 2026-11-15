@@ -216,7 +216,7 @@ async function harborAt(
 /** 조선소를 짓고 배를 만든다(운영자 모드 연결). 조선소·배 ID와 자리 */
 async function dockAndBoat(page: Page, mapKey: number, sites: readonly Site[], firstId: number) {
   let id = firstId;
-  for (const site of sites.slice(0, 12)) {
+  for (const site of sites.slice(0, 40)) {
     const replies = await sendCommands(
       page,
       [
@@ -383,11 +383,13 @@ for (const theme of ["pastel", "dark"] as const) {
       expect(deviceErrors).toEqual([]);
 
       // 정박장·교역 부두(D-547 1481·1487·1488·1489): 다른 물가 자리에 짓고, 배를 정박장에 넣는다(집 = 정박장, 배가 그리로 간다)
+      // 명령은 다른 탭에서 보낸다(sendCommands가 그 탭을 /health로 옮긴다 — 지도 화면은 그대로)
       const used: Site[] = [site];
-      const berth = await harborAt(page, me.mapKey, sites, used, "dock", requestId + 100);
-      const trade = await harborAt(page, me.mapKey, sites, used, "trade_dock", berth.nextId);
+      const tab = await page.context().newPage();
+      const berth = await harborAt(tab, me.mapKey, sites, used, "dock", requestId + 100);
+      const trade = await harborAt(tab, me.mapKey, sites, used, "trade_dock", berth.nextId);
       const harborReplies = await sendCommands(
-        page,
+        tab,
         [
           { t: "subscribe", mapKey: me.mapKey, observe: true },
           { t: "boat_berth", boatId, buildingId: berth.buildingId },
@@ -420,7 +422,7 @@ for (const theme of ["pastel", "dark"] as const) {
       await page.locator(".gather-sheet-close").click();
       // 교역 부두: 시간을 산다(운영자 = 요금 없음). 배가 그리로 간다
       const timeReply = await sendCommands(
-        page,
+        tab,
         [
           { t: "subscribe", mapKey: me.mapKey, observe: true },
           { t: "boat_dock_time", boatId, buildingId: trade.buildingId, hours: 1 },
@@ -430,6 +432,7 @@ for (const theme of ["pastel", "dark"] as const) {
       );
       expect(timeReply[1]).toMatchObject({ t: "boat_result", ok: true });
       expect(timeReply[2]).toMatchObject({ t: "boat_result", ok: false, code: "not_trade_dock" });
+      await tab.close();
       await expect
         .poll(async () => field(await myUnit(page, me.mapKey, boatId), "moving"), { timeout: 60_000 })
         .toBe(false);

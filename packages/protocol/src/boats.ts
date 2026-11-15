@@ -2,6 +2,9 @@
 // - 바꾸는 명령: 배 만들기(boat_build: 다 지은 부두에서 배 하나를 만들어 둘레 물 칸에 세운다), 타기(boat_board: 내 유닛이 내 배에 탄다 — 멀면 배 옆 땅까지
 //   걸어간 뒤 탄다), 내리기(boat_leave: 그 배의 승객 모두가 배 둘레 땅 칸에 내린다). 배를 움직이는 것은 보통 이동 명령(move_unit)이다 — 서버가 배는 물 길로 푼다.
 // - 결과의 ok는 그 일이 되었거나(만들기·내리기·바로 탄 타기) 걷기를 시작했다(먼 타기)는 뜻이다.
+// 배 체계 개편(프로토콜 30, 기획 D-547 — docs/adr/2026-11-15-shipyard-harbor.md): 만들기는 조선소에서(배 종류 boatType), 수리(boat_repair: 조선소 도크에서 —
+// 멀면 배가 조선소로 간 뒤 시작), 집 정박장(boat_berth: 정박장 자리를 잡고 배가 그리로 간다, buildingId null = 집 비우기), 교역 부두 시간 사기(boat_dock_time),
+// 배 시설 주인 설정(harbor_policy: 받기 범위·요금·조선소 모듈). 새 결과 코드는 30판 연결에만 가고 29판 연결은 옛 코드로 낮춘다(서버 boats/gateway.ts).
 // 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다: 소유·거리·재료 판정은 서버가 하고, 여기서는 모양만 본다.
 import { z } from "zod";
 
@@ -12,19 +15,67 @@ export const BOAT_PROTOCOL_VERSION = 27;
  * 결과 코드 dock_busy(그 부두가 이미 배를 만드는 중)가 생겼다. dock_busy는 이 판 연결에만 가고 27판 연결은 busy를 받는다(readyAtMs는 선택 칸)
  */
 export const BOAT_B2_PROTOCOL_VERSION = 28;
+/** 배 체계 개편(조선소·정박장·교역 부두·수리·주인 설정 — D-547). 새 메시지·결과 코드는 이 판부터 */
+export const HARBOR_PROTOCOL_VERSION = 30;
+
+/** 받기 범위(@terra/shared/harbor HARBOR_ACCESS와 같다 — 이 꾸러미는 shared를 가져오지 않는다) */
+export const HARBOR_ACCESS_VALUES = ["owner", "nation", "peace"] as const;
+/** 조선소 모듈(@terra/shared/harbor SHIPYARD_MODULES와 같다) */
+export const SHIPYARD_MODULE_VALUES = ["docks", "build", "repair"] as const;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const unitId = z.number().int().positive().max(0xffff_ffff);
 const buildingId = z.number().int().positive().max(0xffff_ffff);
 const timeMs = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+/** 배 종류 ID(콘텐츠 ID 모양) */
+const boatTypeId = z.string().regex(/^[a-z][a-z0-9_]{1,47}$/);
 
 // ---------- 기기 → 서버 ----------
 
-/** 그 부두에서 배 하나를 만든다(재료는 그 도시 창고·내 창고 시설·그 2차맵 내 유닛 화물, 운영자 모드는 재료 없이) */
+/**
+ * 그 조선소에서 배 하나를 만든다(재료는 그 도시 창고·내 창고 시설·그 2차맵 내 유닛 화물, 운영자 모드는 재료 없이). boatType = 배 종류(30판부터, 없으면
+ * 그 조선소의 처음 종류)
+ */
 export const boatBuildMessage = z.object({
   t: z.literal("boat_build"),
   id: requestId,
   buildingId,
+  boatType: boatTypeId.optional(),
+});
+
+/** 내 배를 그 조선소에서 고친다(30판부터). 멀면 배가 조선소 옆 물로 간 뒤 시작한다 */
+export const boatRepairMessage = z.object({
+  t: z.literal("boat_repair"),
+  id: requestId,
+  boatId: unitId,
+  buildingId,
+});
+
+/** 내 배의 집 정박장을 정하고 배를 그리로 보낸다(30판부터). buildingId null = 집 비우기 */
+export const boatBerthMessage = z.object({
+  t: z.literal("boat_berth"),
+  id: requestId,
+  boatId: unitId,
+  buildingId: buildingId.nullable(),
+});
+
+/** 교역 부두에서 시간을 산다(30판부터). 멀면 배가 그리로 간다. 요금은 바로 낸다 */
+export const boatDockTimeMessage = z.object({
+  t: z.literal("boat_dock_time"),
+  id: requestId,
+  boatId: unitId,
+  buildingId,
+  hours: z.number().int().min(1).max(72),
+});
+
+/** 배 시설 주인 설정(30판부터): 받기 범위·요금(정박장 하루·교역 부두 한 시간)·조선소 모듈(null = 떼기). 빠진 칸은 그대로 */
+export const harborPolicyMessage = z.object({
+  t: z.literal("harbor_policy"),
+  id: requestId,
+  buildingId,
+  access: z.enum(HARBOR_ACCESS_VALUES).optional(),
+  fee: z.number().int().min(0).max(1_000_000_000).optional(),
+  module: z.enum(SHIPYARD_MODULE_VALUES).nullable().optional(),
 });
 
 /** 내 유닛을 내 배에 태운다 */
@@ -80,8 +131,33 @@ export const BOAT_RESULT_CODES = [
   "empty",
   /** 내리기: 배 둘레에 내릴 땅 칸이 없다(물가로 몰고 가서 다시) */
   "no_shore",
-  /** 만들기: 그 부두가 이미 배를 만드는 중(readyAtMs = 그 배가 뜨는 시각, 28판부터) */
+  /** 만들기: 그 부두가 이미 배를 만드는 중(readyAtMs = 그 배가 뜨는 시각, 28판부터). 30판부터는 조선소 도크가 모두 찼다(만들기·수리) */
   "dock_busy",
+  // ---------- 30판부터(배 체계 개편, D-547) ----------
+  /** 조선소가 아니다(만들기·수리) */
+  "not_shipyard",
+  /** 정박장이 아니다 */
+  "not_berth",
+  /** 교역 부두가 아니다 */
+  "not_trade_dock",
+  /** 그 조선소가 만들지 않는 배 종류 */
+  "unknown_boat_type",
+  /** 정박장에 빈 정박 자리가 없다 */
+  "no_berth",
+  /** 교역 부두에 빈 임시 자리가 없다 */
+  "trade_full",
+  /** 그 시설 주인이 이 배를 받지 않는다(받기 범위) */
+  "berth_denied",
+  /** 시설 내구도가 기준 아래라 새 배·임시 정박·작업을 받지 않는다(1500) */
+  "harbor_closed",
+  /** 요금을 낼 돈이 모자라다 */
+  "insufficient_funds",
+  /** 고칠 것이 없다(내구도 가득) */
+  "hull_full",
+  /** 조선소 모듈은 레벨 2부터 */
+  "module_locked",
+  /** 배 시설 설정을 받지 않는 칸(예: 정박장에 모듈) */
+  "invalid_policy",
 ] as const;
 export type BoatResultCode = (typeof BOAT_RESULT_CODES)[number];
 
@@ -107,5 +183,38 @@ const boatResultMessage = z.discriminatedUnion("ok", [
   }),
 ]);
 
-export const boatClientMessages = [boatBuildMessage, boatBoardMessage, boatLeaveMessage] as const;
+export const boatClientMessages = [
+  boatBuildMessage,
+  boatBoardMessage,
+  boatLeaveMessage,
+  boatRepairMessage,
+  boatBerthMessage,
+  boatDockTimeMessage,
+  harborPolicyMessage,
+] as const;
+
+/** 30판 결과 코드 → 29판 연결이 아는 코드(새 메시지의 답은 29판 연결이 보내지 않으니 만들기·타기·내리기에서 나올 수 있는 것만 중요하다) */
+export function legacyBoatCode(code: BoatResultCode): BoatResultCode {
+  switch (code) {
+    case "not_shipyard":
+    case "not_berth":
+    case "not_trade_dock":
+      return "not_dock";
+    case "harbor_closed":
+      return "not_ready";
+    case "insufficient_funds":
+      return "insufficient_materials";
+    case "berth_denied":
+    case "invalid_policy":
+    case "module_locked":
+      return "forbidden";
+    case "unknown_boat_type":
+    case "no_berth":
+    case "trade_full":
+    case "hull_full":
+      return "busy";
+    default:
+      return code;
+  }
+}
 export const boatServerMessages = [boatResultMessage] as const;

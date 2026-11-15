@@ -21,9 +21,9 @@
 //   world/mapSpawn.ts가 띄운 뒤 넘긴다. 띄우는 동안 유닛은 변 앞에 서서 기다린다. 못 띄우면(상한) map_full로 멈춘다. 지나는 2차맵은 그대로 건너뛴다.
 // - 바다 건너기(기획 D-541 1283 나, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"): 배(영역 sea)도 같은 길로 간다. 설 칸 = 물 칸(물 격자 —
 //   넘는 자리는 두 2차맵 모두 물인 변 칸), 승객은 배와 함께 넘는다(transferOut의 riders). 승객에게 보낸 길은 그 배의 길이다.
-//   먼 바다(기획 D-542 1329 나, ADR "바뀜 (2026-11-14, B3)"): 띄우지 않은 지나는 2차맵이 행성 값으로 바다(물 비트 WATER_OCEAN — attachSea)면 배도
-//   걷는 유닛처럼 건너뛴다(곧은 거리 ÷ 배 빠르기 뒤 다음 띄운 2차맵 물 변에 나타난다, 승객도 함께). 바다가 아닌 2차맵이 끼면 no_route(가는 중에
-//   바뀌었으면 멈춘다). 바다 습격 표는 해상 전투 때(1330 가) — 배는 도중 습격을 굴리지 않는다.
+//   먼 바다(기획 D-553 1329 — D-542 1329 나 "건너뛰기"를 대체, docs/adr/2026-11-15-sea-combat-routes.md): 배는 건너뛰지 않는다. 띄우지 않은 지나는
+//   2차맵이 행성 값으로 바다(물 비트 WATER_OCEAN — attachSea)면 길에 넣을 수 있고, 닿을 때 그 2차맵을 띄워(목적지처럼, 상한이면 map_full) 실제로 항해한다.
+//   바다가 아닌 2차맵이 끼면 no_route(가는 중에 바뀌었으면 멈춘다). 바다 습격 표는 해상 전투 때(1330 가) — 배는 도중 습격을 굴리지 않는다.
 import { AVERAGE_CELL_EDGE_METERS } from "@terra/planet/territory";
 import {
   type CellPoint,
@@ -408,7 +408,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
 
   /** 다음 2차맵을 띄우지 않았다: 변 끝에서 사라져 다음 띄운 2차맵 변에 나타날 때까지 건너뛴다(593 나) */
   const hide = (journey: Journey, map: SecondMap, info: Info): void => {
-    // 배는 행성 값이 바다인 2차맵만 건너뛴다(D-542 1329 나) — 그 사이 땅 2차맵이 내려갔으면 멈춘다
+    // 배는 건너뛰지 않는다(D-553 1329 — check가 띄운다). 여기 온 배(옛 저장 줄)는 길에 땅 2차맵이 끼었으면 멈춘다
     if (journey.sea === true && !journey.route.slice(journey.leg + 1, -1).every(seaPassable)) {
       finish(journey, "stopped", "blocked");
       return;
@@ -577,7 +577,8 @@ export function createTravelService(deps: TravelDeps): TravelService {
       return;
     }
     if (loaded(nextKey)) cross(journey, map, info, nextKey);
-    else if (nextKey === opensAt(journey.route))
+    // 배는 먼 바다를 건너뛰지 않는다(기획 D-553 1329 — "먼바다로 순간이동하는기능은 없다"): 지나는 바다 2차맵도 닿을 때 띄우고 실제로 항해한다
+    else if (nextKey === opensAt(journey.route) || journey.sea === true)
       // 띄운 뒤 이 2차맵의 넘는 자리를 실제 지형으로 다시 고른다(이미 그 칸이면 바로 넘는다). 기다리는 동안 다른 명령을 받았으면 벗어남
       openThen(journey, nextKey, () => {
         if (map.unitInfo(journey.unitId)?.motion === info.motion) void beginLeg(journey, true);
@@ -643,7 +644,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
     const route = mapRoute(where.map.mapKey, target.mapKey, loadedOr(opens));
     if (!route) return { problem: "no_route" };
     const sea = where.info.domain === "sea";
-    // 배는 행성 값이 바다인 띄우지 않은 2차맵만 건너뛴다(D-542 1329 나, 목적지는 닿을 때 띄울 수 있다)
+    // 배는 행성 값이 바다인 띄우지 않은 2차맵만 길에 넣는다(닿을 때 띄우고 항해한다 — D-553 1329, 목적지도 닿을 때 띄울 수 있다)
     if (sea && !route.slice(1, -1).every(seaPassable)) return { problem: "no_route" };
     const cell = { x: target.x, y: target.y };
     const legs = planLegs(

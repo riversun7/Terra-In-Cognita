@@ -172,8 +172,12 @@ export function walkSpeedsOf(
   catalog: (() => RosterCatalog) | undefined,
   now: () => number,
   rules?: () => { readonly boats: { readonly speed: number } },
+  /** 배 종류·내구도 빠르기 배율(‰, boats/hooks.ts — D-547 1484·1495). 없으면 1000 */
+  boatPm?: (unitId: number) => number,
 ): (unit: WalkUnit) => number {
   const walk = createWalkSpeeds({ cyborgs, gearOf, catalog, fallback: TEST_COMBAT_COEFFICIENTS, now });
   return (unit) =>
-    unit.kind === UNIT_KIND_BOAT && rules ? boatSpeedOf(unit, rules().boats.speed) : walk.speedOf(unit);
+    unit.kind === UNIT_KIND_BOAT && rules
+      ? Math.max(1, Math.round((boatSpeedOf(unit, rules().boats.speed) * (boatPm?.(unit.id) ?? 1000)) / 1000))
+      : walk.speedOf(unit);
 }

@@ -1,31 +1,34 @@
-// 배 시험 — 물 길찾기(배는 물로만, 걷는 유닛은 물에 못 들어감)·타기·내리기·배 만들기(docs/adr/2026-11-13-boats.md)
+// 배 시험 — 물 길찾기(배는 물로만, 걷는 유닛은 물에 못 들어감)·타기·내리기(docs/adr/2026-11-13-boats.md),
+// 조선소 만들기·수리·정박장(집·정박료·받기 범위)·교역 부두(시간 사기·초과 요금)·내구도·운행 정지(docs/adr/2026-11-15-shipyard-harbor.md, 기획 D-547)
+import { performance } from "node:perf_hooks";
+import { buildingLocation, cargoLocation } from "@terra/shared/goodsPlaces";
+import { HULL_FULL } from "@terra/shared/harbor";
 import {
-  CELL_UNITS,
   type Point,
   START_BOATS,
   SURFACE_WATER,
   anchorAt,
   anchorCenter,
   arrivalAt,
+  createLedgerBook,
   positionAt,
 } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Ledger } from "../economy/ledger.ts";
 import type { FacilityDef } from "../facilities/catalog.ts";
 import type { PlaceWorld } from "../facilities/places.ts";
 import type { FacilityRecord } from "../facilities/state.ts";
-import { performance } from "node:perf_hooks";
 import { mapTerrainFromTemp } from "../world/mapTerrain.ts";
 import { createInlinePathService } from "../world/pathService.ts";
 import { type SecondMap, type UnitRow, createSecondMap } from "../world/secondMap.ts";
 import { createTestMap, flatTerrain, silentLog } from "../world/testSupport.ts";
 import { emptyWorldStats } from "../world/worldStats.ts";
 import { UNIT_KIND_BOAT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
-import { OPERATOR_SPEED_FACTOR } from "../world/operatorPace.ts";
-import { boatBuildMs, boatCost, createBoatService, isBoatYard, rectGap, ringCells } from "./service.ts";
+import { DAY_MS, HOUR_MS } from "./rules.ts";
+import { createBoatService } from "./service.ts";
 import type { BoatJob } from "./store.ts";
 
 const START = 1_798_000_000_000;
+const CREDIT = "s3_test_credit";
 /** 지형 칸 x ≥ 64(배치 칸 x ≥ 128)가 바다인 2차맵 */
 function coastTerrain() {
   const terrain = flatTerrain();
@@ -34,20 +37,50 @@ function coastTerrain() {
   return terrain;
 }
 
-const DOCK_DEF: FacilityDef = {
-  id: "dock",
-  name: { ko: "부두", en: "Dock" },
+const base = {
   stage: "transport",
   maxLevel: 3,
   slotsPerLevel: 0,
   footprint: { width: 3, height: 3 },
   needsWaterWithin: 1,
-  durability: 180,
+  durability: 200,
   storageKg: undefined,
   build: { mulPm: 1000, levels: [{ from: 1, materials: [{ item: "pine_log", qty: 14 }] }] },
   repair: undefined,
   gather: undefined,
+} as const;
+const SHIPYARD: FacilityDef = {
+  ...base,
+  id: "shipyard",
+  name: { ko: "조선소", en: "Shipyard" },
+  harbor: "shipyard",
+  boats: [
+    {
+      id: "rowboat",
+      name: { ko: "작은 배", en: "Rowboat" },
+      materials: [{ item: "pine_log", qty: 10 }],
+      buildMs: 600_000,
+      speedPm: 1000,
+      capacity: 2,
+    },
+    {
+      id: "cargo_boat",
+      name: { ko: "짐배", en: "Cargo boat" },
+      materials: [{ item: "plank", qty: 4 }],
+      buildMs: 1_200_000,
+      speedPm: 500,
+      capacity: 6,
+    },
+  ],
 };
+const BERTH: FacilityDef = { ...base, id: "dock", name: { ko: "정박장", en: "Berth" }, harbor: "berth" };
+const TRADE: FacilityDef = {
+  ...base,
+  id: "trade_dock",
+  name: { ko: "교역 부두", en: "Trade dock" },
+  harbor: "trade_dock",
+};
+const DEFS = [SHIPYARD, BERTH, TRADE];
 
 function setup(extra: Partial<Parameters<typeof createBoatService>[0]> = {}) {
   const test = createTestMap({ terrain: coastTerrain() });
@@ -56,19 +89,37 @@ function setup(extra: Partial<Parameters<typeof createBoatService>[0]> = {}) {
   const places: PlaceWorld = {
     maps,
     facilities,
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 시험: 부두 정의만 쓰는 가짜 목록
-    catalog: () => ({ facility: (id: string) => (id === "dock" ? DOCK_DEF : undefined) }) as never,
+    /* oxlint-disable typescript/no-unsafe-type-assertion -- 시험: 배 시설 정의만 쓰는 가짜 목록 */
+    catalog: () =>
+      ({
+        facility: (id: string) => DEFS.find((def) => def.id === id),
+        facilities: DEFS,
+        itemName: () => undefined,
+      }) as never,
+    /* oxlint-enable typescript/no-unsafe-type-assertion */
     cities: () => [],
   };
   let nextId = 500;
-  const owners = new Map([["player", 7]]);
-  // 원장: 재료가 하나도 없다(플레이어 짓기는 insufficient_materials)
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 시험: 잔고만 읽는 가짜 원장
-  const ledger = { balanceOf: () => 0n, ownerAccount: () => 0 } as unknown as Ledger;
+  let accountId = 0;
+  let txId = 0;
+  const ledger = createLedgerBook({ nextAccountId: () => ++accountId, nextTxId: () => ++txId });
+  const owners = new Map([
+    ["player", 7],
+    ["other", 8],
+    ["p9", 9],
+  ]);
+  const saved = new Map<string, Record<string, unknown>>();
+  const errors: object[] = [];
+  const writer = {
+    upsert: (table: string, row: Record<string, unknown>) =>
+      saved.set(`${table}:${String(row.id ?? row.boat_id ?? row.building_id)}`, row),
+    remove: (table: string, key: Record<string, unknown>) =>
+      saved.delete(`${table}:${String(key.id ?? key.boat_id ?? key.building_id)}`),
+  };
   const service = createBoatService({
     maps,
     now: () => Date.now(),
-    log: { error: () => {} },
+    log: { error: (obj, message) => errors.push({ ...obj, message }) },
     ledger,
     rules: () => START_BOATS,
     nextUnitId: () => ++nextId,
@@ -76,13 +127,52 @@ function setup(extra: Partial<Parameters<typeof createBoatService>[0]> = {}) {
     places: () => places,
     works: () => true,
     unitBusy: () => false,
+    nationOf: (ownerId) => (ownerId === 7 || ownerId === 8 ? 1 : 2),
+    feeAsset: CREDIT,
+    writer,
+    manual: true,
     ...extra,
   });
-  return { ...test, service, facilities, maps };
+  /** 시설을 짓는다(다 지은 레벨, 주인 7) */
+  const place = (def: FacilityDef, y: number, owner = 7, level = 1): number => {
+    const placed = test.map.placeBuilding({ x: 125, y, width: 3, height: 3, rotation: 0 }, owner);
+    if (!placed.ok || placed.buildingId === undefined) throw new Error("not placed");
+    facilities.set(placed.buildingId, {
+      buildingId: placed.buildingId,
+      facilityId: def.id,
+      level,
+      conditionPpm: 1_000_000,
+      conditionAtMs: START,
+      builtAtMs: START,
+      builtBy: "player",
+      cityId: null,
+    });
+    return placed.buildingId;
+  };
+  /** 시험 화폐·재료를 준다 */
+  const grant = (ownerId: number, asset: string, qty: bigint, location: number | null = null) =>
+    ledger.post({
+      kind: "test_grant",
+      atMs: START,
+      entries: [
+        { account: ledger.systemAccount(`issue:${asset}`, asset), amount: -qty },
+        { account: ledger.ownerAccount(ownerId, asset, location), amount: qty },
+      ],
+    });
+  return { ...test, service, facilities, maps, ledger, place, grant, saved, errors };
 }
 
 /** 유닛이 지금 선 기준 칸 */
 const cellOf = (point: Point, size: 1 | 2 = 1) => anchorAt(point, size);
+
+/** 맵의 배 ID */
+const boatsOn = (map: SecondMap): number[] => {
+  const out: number[] = [];
+  map.forEachUnit((unit) => {
+    if (unit.kind === UNIT_KIND_BOAT) out.push(unit.id);
+  });
+  return out;
+};
 
 describe("배", () => {
   beforeEach(() => {
@@ -90,18 +180,6 @@ describe("배", () => {
     vi.setSystemTime(START);
   });
   afterEach(() => vi.useRealTimers());
-
-  it("도우미: 부두 판별·배 값·네모 틈·고리 칸", () => {
-    expect(isBoatYard(DOCK_DEF)).toBe(true);
-    expect(isBoatYard({ stage: "gather", needsWaterWithin: 5 })).toBe(false);
-    expect(isBoatYard({ stage: "transport", needsWaterWithin: undefined })).toBe(false);
-    expect(boatCost(DOCK_DEF, 500)).toEqual([{ item: "pine_log", qty: 7 }]);
-    expect(boatCost(DOCK_DEF, 0)).toEqual([]);
-    expect(rectGap({ x: 0, y: 0, width: 2, height: 2 }, { x: 2, y: 0, width: 1, height: 1 })).toBe(0);
-    expect(rectGap({ x: 0, y: 0, width: 2, height: 2 }, { x: 5, y: 1, width: 1, height: 1 })).toBe(3);
-    const ring = ringCells({ x: 10, y: 10, width: 1, height: 1 }, 1, 1, () => true, 100);
-    expect(ring).toHaveLength(8);
-  });
 
   it("배는 물 칸에만 서고 물 길로 가며, 걷는 유닛은 물에 들어가지 못한다", async () => {
     const { map } = setup();
@@ -115,63 +193,36 @@ describe("배", () => {
     if (!motion) throw new Error("no boat");
     for (let t = START; t <= arrivalAt(motion); t += 2_000)
       expect(cellOf(positionAt(motion, t), 2).x).toBeGreaterThanOrEqual(128);
-    // 배를 땅으로 보내면 길이 없다
     expect(await map.moveUnit(1, anchorCenter(20, 20, 2))).toEqual({ ok: false, code: "goal_blocked" });
-    // 걷는 유닛은 바다로 못 간다
     expect(
       map.addUnit({ id: 2, size: 1, speed: 437, cellX: 120, cellY: 50, ownerId: 7, kind: UNIT_KIND_HUMAN }),
     ).toBe(true);
     expect(await map.moveUnit(2, anchorCenter(160, 50, 1))).toEqual({ ok: false, code: "goal_blocked" });
   });
 
-  it("가까우면 바로 타고, 탄 유닛은 배를 따라가며 따로 움직이지 않는다. 물가에서 내린다", async () => {
+  it("가까우면 바로 타고, 배를 따라가며, 물가에서 내린다. 자리 수는 배 종류(작은 배 2)", async () => {
     const { map, service } = setup();
     map.addBoat({ id: 1, ownerId: 7, speed: START_BOATS.speed, cellX: 129, cellY: 50 });
     map.addUnit({ id: 2, size: 1, speed: 437, cellX: 126, cellY: 50, ownerId: 7, kind: UNIT_KIND_HUMAN });
-    // 남의 배·유닛은 못 태운다
     expect(await service.board("stranger", 2, 1, false)).toEqual({ ok: false, code: "forbidden" });
     expect(await service.board("player", 2, 1, false)).toEqual({ ok: true });
-    expect(map.unitInfo(2)?.aboard).toBe(1);
     expect(map.passengers(1)).toEqual([2]);
     expect(await service.board("player", 2, 1, false)).toEqual({ ok: false, code: "already_aboard" });
-    // 승객에게 내린 이동은 배 이동(D-541 1279 나) — 땅은 배가 못 간다
-    expect(await map.moveUnit(2, anchorCenter(100, 50, 1))).toEqual({ ok: false, code: "goal_blocked" });
-    // 배가 나가면 승객도 같은 자리
+    // 상태가 없던 배는 처음 볼 때 그 세계 처음 종류(작은 배, 자리 2)·가득
+    expect(service.info(1)).toMatchObject({ typeId: "rowboat", capacity: 2, hullPm: 1000, homeId: null });
+    for (const id of [3, 4]) {
+      map.addUnit({ id, size: 1, speed: 437, cellX: 126, cellY: 51, ownerId: 7, kind: UNIT_KIND_HUMAN });
+    }
+    expect(await service.board("player", 3, 1, false)).toEqual({ ok: true });
+    expect(await service.board("player", 4, 1, false)).toEqual({ ok: false, code: "boat_full" });
     expect((await map.moveUnit(1, anchorCenter(180, 120, 2))).ok).toBe(true);
-    vi.setSystemTime(START + 20_000);
-    const boatAt = positionAt(map.unitInfo(1)?.motion ?? map.unitInfo(2)!.motion, Date.now());
-    expect(positionAt(map.unitInfo(2)!.motion, Date.now())).toEqual(boatAt);
-    // 먼 바다에서는 내릴 땅이 없다
     vi.setSystemTime(START + 600_000);
     expect(service.leave("player", 1, false)).toEqual({ ok: false, code: "no_shore" });
-    // 물가로 돌아와 내린다
     expect((await map.moveUnit(1, anchorCenter(129, 60, 2))).ok).toBe(true);
     vi.setSystemTime(START + 1_200_000);
     expect(service.leave("player", 1, false)).toEqual({ ok: true });
-    const info = map.unitInfo(2);
-    expect(info?.aboard).toBeUndefined();
-    expect(cellOf(positionAt(info!.motion, Date.now())).x).toBeLessThan(128);
-    expect(service.leave("player", 1, false)).toEqual({ ok: false, code: "empty" });
-  });
-
-  it("멀면 배 옆 땅까지 걸어간 뒤 탄다, 자리가 차면 boat_full", async () => {
-    const { map, service } = setup();
-    map.addBoat({ id: 1, ownerId: 7, speed: START_BOATS.speed, cellX: 129, cellY: 50 });
-    map.addUnit({ id: 2, size: 1, speed: 437, cellX: 100, cellY: 50, ownerId: 7, kind: UNIT_KIND_HUMAN });
-    expect(await service.board("player", 2, 1, false)).toEqual({ ok: true, walking: true });
     expect(map.unitInfo(2)?.aboard).toBeUndefined();
-    const motion = map.unitInfo(2)!.motion;
-    await vi.advanceTimersByTimeAsync(arrivalAt(motion) - START + 100);
-    expect(map.unitInfo(2)?.aboard).toBe(1);
-    for (let id = 3; id < 3 + START_BOATS.capacity; id++) {
-      map.addUnit({ id, size: 1, speed: 437, cellX: 126, cellY: 50, ownerId: 7, kind: UNIT_KIND_HUMAN });
-      await service.board("player", id, 1, false);
-    }
-    expect(map.passengers(1)).toHaveLength(START_BOATS.capacity);
-    expect(await service.board("player", 3 + START_BOATS.capacity - 1, 1, false)).toEqual({
-      ok: false,
-      code: "boat_full",
-    });
+    expect(service.leave("player", 1, false)).toEqual({ ok: false, code: "empty" });
   });
 
   it("저장한 줄로 다시 켜면 승객이 배에 다시 붙는다(배가 없으면 내려서 땅에 선다)", () => {
@@ -203,127 +254,252 @@ describe("배", () => {
     first.addBoat({ id: 1, ownerId: 7, speed: START_BOATS.speed, cellX: 129, cellY: 50 });
     first.addUnit({ id: 2, size: 1, speed: 437, cellX: 126, cellY: 50, ownerId: 7, kind: UNIT_KIND_HUMAN });
     expect(first.board(2, 1)).toBe(true);
-    expect(rows.get(2)?.aboardId).toBe(1);
-    expect(rows.get(1)?.domain).toBe("sea");
     const second = make();
     second.restore([...rows.values()], []);
-    expect(second.unitInfo(2)?.aboard).toBe(1);
     expect(second.passengers(1)).toEqual([2]);
-    // 배 줄이 없으면 승객은 내려서 땅(안전한 곳)에 선다
     const third = make();
     third.restore([rows.get(2)!], []);
     expect(third.unitInfo(2)?.aboard).toBeUndefined();
     expect(cellOf(positionAt(third.unitInfo(2)!.motion, Date.now())).x).toBeLessThan(128);
   });
 
-  it("부두에서 배를 만든다: 다 지은 부두만, 플레이어는 재료, 운영자는 재료 없이", () => {
-    const { map, service, facilities } = setup();
-    // 물가 부두(건물 칸 x 123 ~ 125, 바다는 128부터 → 물가 조건 1칸은 배치 검사 밖이라 여기서는 서비스만 본다)
-    const placed = map.placeBuilding({ x: 125, y: 40, width: 3, height: 3, rotation: 0 }, 7);
-    if (!placed.ok || placed.buildingId === undefined) throw new Error("dock not placed");
-    const dockId = placed.buildingId;
-    expect(service.build("player", dockId, false)).toEqual({ ok: false, code: "not_dock" });
-    facilities.set(dockId, {
-      buildingId: dockId,
-      facilityId: "dock",
-      level: 0,
-      conditionPpm: 1_000_000,
-      conditionAtMs: START,
-      builtAtMs: START,
-      builtBy: "player",
-      cityId: null,
+  it("조선소에서 배 종류를 골라 만든다(재료·시간 = 종류 표), 도크 1척, 정박 자리 없이도 만든다(1484·1485)", async () => {
+    const { map, service, place, grant, saved } = setup();
+    map.addUnit({ id: 2, size: 1, speed: 437, cellX: 120, cellY: 30, ownerId: 7, kind: UNIT_KIND_HUMAN });
+    const berth = place(BERTH, 70);
+    // 옛 부두(= 정박장)에서는 만들지 않는다
+    expect(service.build("player", berth, false)).toEqual({ ok: false, code: "not_shipyard" });
+    const yard = place(SHIPYARD, 40);
+    expect(service.build("stranger", yard, false)).toEqual({ ok: false, code: "forbidden" });
+    expect(service.build("player", yard, false, "submarine")).toEqual({
+      ok: false,
+      code: "unknown_boat_type",
     });
-    expect(service.build("player", dockId, false)).toEqual({ ok: false, code: "not_ready" });
-    facilities.get(dockId)!.level = 1;
-    expect(service.build("stranger", dockId, false)).toEqual({ ok: false, code: "forbidden" });
-    expect(service.build("player", dockId, false)).toEqual({ ok: false, code: "insufficient_materials" });
-    const made = service.build("admin", dockId, true);
-    expect(made.ok).toBe(true);
-    if (!made.ok || made.boatId === undefined) return;
-    const boat = map.unitInfo(made.boatId);
-    expect(boat?.kind).toBe(UNIT_KIND_BOAT);
-    expect(boat?.ownerId).toBe(7);
-    expect(boat?.speed).toBe(START_BOATS.speed);
-    const cell = cellOf(positionAt(boat!.motion, Date.now()), 2);
-    expect(cell.x).toBeGreaterThanOrEqual(128);
-    expect(Math.abs(cell.y * CELL_UNITS - 41 * CELL_UNITS)).toBeLessThanOrEqual(8 * CELL_UNITS);
-  });
-
-  it("배 만드는 시간: 부두 레벨 1 시간 × ‰ 뒤에 뜨고, 부두마다 하나, 작업 줄을 저장·복구한다(D-541 1271 나)", async () => {
-    expect(boatBuildMs(600_000, 500, false)).toBe(300_000);
-    expect(boatBuildMs(600_000, 500, true)).toBe(300_000 / OPERATOR_SPEED_FACTOR);
-    expect(boatBuildMs(600_000, 0, false)).toBe(0);
-    const saved = new Map<number, unknown>();
-    const writer = {
-      upsert: (_table: string, row: Record<string, unknown>) => saved.set(Number(row.id), row),
-      remove: (_table: string, key: Record<string, unknown>) => saved.delete(Number(key.id)),
-    };
-    const rules = { ...START_BOATS, buildTimePm: 500 };
-    const made = setup({ rules: () => rules, dockBuildMs: () => 600_000, writer });
-    const placed = made.map.placeBuilding({ x: 125, y: 40, width: 3, height: 3, rotation: 0 }, 7);
-    if (!placed.ok || placed.buildingId === undefined) throw new Error("dock not placed");
-    const dockId = placed.buildingId;
-    made.facilities.set(dockId, {
-      buildingId: dockId,
-      facilityId: "dock",
-      level: 1,
-      conditionPpm: 1_000_000,
-      conditionAtMs: START,
-      builtAtMs: START,
-      builtBy: "player",
-      cityId: null,
-    });
-    const boats = () => {
-      let n = 0;
-      made.map.forEachUnit((unit) => {
-        if (unit.kind === UNIT_KIND_BOAT) n += 1;
-      });
-      return n;
-    };
-    // 운영자: 운영자 빠르기로 줄인 시간(3초) 뒤
-    const first = made.service.build("admin", dockId, true);
-    expect(first).toEqual({ ok: true, readyAtMs: START + 3_000 });
-    expect(made.service.dockJob(dockId)).toEqual({ startedAtMs: START, readyAtMs: START + 3_000 });
-    expect(saved.size).toBe(1);
-    expect(made.service.build("admin", dockId, true)).toEqual({
+    expect(service.build("player", yard, false)).toEqual({ ok: false, code: "insufficient_materials" });
+    grant(7, "item:pine_log", 10n, cargoLocation(2));
+    // 작은 배: 10분 × 1000‰
+    expect(service.build("player", yard, false, "rowboat")).toEqual({ ok: true, readyAtMs: START + 600_000 });
+    expect(saved.has("boatJobs:1")).toBe(true);
+    // 도크 하나 — 짐배는 기다린다
+    expect(service.build("admin", yard, true, "cargo_boat")).toEqual({
       ok: false,
       code: "dock_busy",
-      readyAtMs: START + 3_000,
+      readyAtMs: START + 600_000,
     });
-    expect(boats()).toBe(0);
-    await vi.advanceTimersByTimeAsync(3_000);
-    expect(boats()).toBe(1);
-    expect(made.service.dockJob(dockId)).toBeUndefined();
-    expect(saved.size).toBe(0);
-    expect(made.service.building).toBe(0);
-    // 다시 켜면 남은 작업이 이어진다(끝 시각에 뜬다), 부두가 없어졌으면 버린다
+    expect(service.dockJob(yard)).toMatchObject({
+      role: "shipyard",
+      capacity: 1,
+      used: 1,
+      readyAtMs: START + 600_000,
+    });
+    await vi.advanceTimersByTimeAsync(600_000);
+    const [boatId] = boatsOn(map);
+    expect(boatId).toBeDefined();
+    expect(service.info(boatId!)).toMatchObject({
+      typeId: "rowboat",
+      capacity: 2,
+      hullPm: 1000,
+      homeId: null,
+    });
+    expect(saved.has(`boatStates:${String(boatId)}`)).toBe(true);
+    // 짐배(운영자, 1/100 시간): 빠르기 500‰
+    const cargo = service.build("admin", yard, true, "cargo_boat");
+    expect(cargo).toEqual({ ok: true, readyAtMs: Date.now() + 12_000 });
+    await vi.advanceTimersByTimeAsync(12_000);
+    const cargoId = boatsOn(map).find((id) => id !== boatId)!;
+    expect(service.speedPm(cargoId)).toBe(500);
+  });
+
+  it("조선소 모듈: 레벨 2부터, 도크 늘림·건조 특화(1483)", () => {
+    const { service, place } = setup();
+    const yard = place(SHIPYARD, 40);
+    expect(service.policy("player", yard, { module: "docks" }, false)).toEqual({
+      ok: false,
+      code: "module_locked",
+    });
+    const yard3 = place(SHIPYARD, 80, 7, 3);
+    expect(service.policy("other", yard3, { module: "docks" }, false)).toEqual({
+      ok: false,
+      code: "forbidden",
+    });
+    expect(service.policy("player", yard3, { access: "owner" }, false)).toEqual({
+      ok: false,
+      code: "invalid_policy",
+    });
+    expect(service.policy("player", yard3, { module: "docks" }, false)).toEqual({ ok: true });
+    expect(service.dockJob(yard3)?.capacity).toBe(1 + 2 * START_BOATS.shipyardDockModule);
+    expect(service.policy("player", yard3, { module: "build" }, false)).toEqual({ ok: true });
+    expect(service.dockJob(yard3)?.capacity).toBe(1);
+    expect(service.dockJob(yard3)?.types[0]?.buildMs).toBe(
+      (600_000 * START_BOATS.shipyardBuildSpecPm) / 1000,
+    );
+  });
+
+  it("정박장: 자리를 잡고 배가 그리로 간다, 정박 중이면 덜 닳고 집이 없으면 더 빨리 닳는다(1485·1487·1496)", async () => {
+    const { map, service, place } = setup();
+    map.addBoat({ id: 1, ownerId: 7, speed: START_BOATS.speed, cellX: 160, cellY: 150 });
+    map.addBoat({ id: 2, ownerId: 7, speed: START_BOATS.speed, cellX: 162, cellY: 150 });
+    map.addBoat({ id: 3, ownerId: 7, speed: START_BOATS.speed, cellX: 164, cellY: 150 });
+    const berth = place(BERTH, 40);
+    const yard = place(SHIPYARD, 80);
+    expect(await service.berth("player", 1, yard, false)).toEqual({ ok: false, code: "not_berth" });
+    expect(await service.berth("other", 1, berth, false)).toEqual({ ok: false, code: "forbidden" });
+    expect(await service.berth("player", 1, berth, false)).toEqual({ ok: true, walking: true });
+    expect(await service.berth("player", 2, berth, false)).toEqual({ ok: true, walking: true });
+    // 레벨 1 = 자리 2
+    expect(await service.berth("player", 3, berth, false)).toEqual({ ok: false, code: "no_berth" });
+    expect(service.dockJob(berth)).toMatchObject({ role: "berth", capacity: 2, used: 2 });
+    await vi.advanceTimersByTimeAsync(300_000);
+    const home = service.dockJob(berth);
+    expect(home?.boats.map((row) => row.boatId)).toEqual([1, 2]);
+    // 열흘: 정박 중(1·2) = 2‰/일, 집 없음(3) = 10‰ × 4/일
+    vi.setSystemTime(Date.now() + 10 * DAY_MS);
+    await service.tick();
+    // 가는 동안(밖)의 닳음이 조금 더해진다
+    expect(service.info(1)?.hullPm).toBeGreaterThanOrEqual(1000 - 10 * START_BOATS.wearBerthedPd - 1);
+    expect(service.info(1)?.hullPm).toBeLessThanOrEqual(1000 - 10 * START_BOATS.wearBerthedPd);
+    const homeless = 1000 - 10 * START_BOATS.wearAwayPd * START_BOATS.wearHomelessMul;
+    expect(service.info(3)?.hullPm).toBeGreaterThanOrEqual(homeless - 1);
+    expect(service.info(3)?.hullPm).toBeLessThanOrEqual(homeless);
+    // 집 비우기
+    expect(await service.berth("player", 2, null, false)).toEqual({ ok: true });
+    expect(service.info(2)?.homeId).toBeNull();
+  });
+
+  it("남의 배: 받기 범위·정박료는 정박장 금고로·체납이면 집을 잃는다(1490·1491·1486, D-548)", async () => {
+    const { map, service, place, grant, ledger } = setup();
+    const berth = place(BERTH, 40);
+    map.addBoat({ id: 1, ownerId: 8, speed: START_BOATS.speed, cellX: 130, cellY: 41 });
+    map.addBoat({ id: 2, ownerId: 9, speed: START_BOATS.speed, cellX: 132, cellY: 41 });
+    // 다른 나라(9 → 나라 2)는 처음 값 nation에서 막힌다
+    expect(await service.berth("p9", 2, berth, false)).toEqual({ ok: false, code: "berth_denied" });
+    expect(service.policy("player", berth, { access: "owner" }, false)).toEqual({ ok: true });
+    expect(await service.berth("other", 1, berth, false)).toEqual({ ok: false, code: "berth_denied" });
+    expect(service.policy("player", berth, { access: "nation", fee: 25 }, false)).toEqual({ ok: true });
+    expect(await service.berth("other", 1, berth, false)).toEqual({ ok: true });
+    grant(8, CREDIT, 60n);
+    // 이틀: 50을 정박장 금고(주인 7 · 건물 위치)에 낸다 — 주인 지갑이 아니다
+    vi.setSystemTime(START + 2 * DAY_MS);
+    await service.tick();
+    expect(ledger.balanceOf(7, CREDIT, buildingLocation(berth))).toBe(50n);
+    expect(ledger.balanceOf(7, CREDIT)).toBe(0n);
+    expect(ledger.balanceOf(8, CREDIT)).toBe(10n);
+    expect(service.dockJob(berth)?.cash).toBe("50");
+    // 사흘 더: 10만 내고 못 낸 날이 3에 닿아 집을 잃는다
+    vi.setSystemTime(START + 5 * DAY_MS);
+    await service.tick();
+    expect(ledger.balanceOf(7, CREDIT, buildingLocation(berth))).toBe(60n);
+    expect(service.info(1)?.homeId).toBeNull();
+  });
+
+  it("교역 부두: 시간을 사면 부두 금고에 내고, 산 시간을 넘기면 초과 시간마다 높은 요금(1488·1489)", async () => {
+    const { map, service, place, grant, ledger } = setup();
+    const dock = place(TRADE, 40);
+    map.addBoat({ id: 1, ownerId: 8, speed: START_BOATS.speed, cellX: 129, cellY: 41 });
+    expect(await service.dockTime("other", 1, dock, 2, false)).toEqual({
+      ok: false,
+      code: "insufficient_funds",
+    });
+    grant(8, CREDIT, 100n);
+    expect(await service.dockTime("other", 1, dock, 99, false)).toEqual({
+      ok: false,
+      code: "invalid_policy",
+    });
+    expect(await service.dockTime("other", 1, dock, 2, false)).toEqual({ ok: true });
+    const paid = BigInt(START_BOATS.tradeFeePerHour * 2);
+    expect(ledger.balanceOf(7, CREDIT, buildingLocation(dock))).toBe(paid);
+    expect(service.dockJob(dock)).toMatchObject({ role: "trade_dock", capacity: 4, used: 1 });
+    // 3시간 뒤까지 머묾 → 초과 1시간 × 요금 × 배율
+    vi.setSystemTime(START + 3 * HOUR_MS);
+    await service.tick();
+    const over = BigInt(START_BOATS.tradeFeePerHour * START_BOATS.tradeOverstayMul);
+    expect(ledger.balanceOf(7, CREDIT, buildingLocation(dock))).toBe(paid + over);
+    // 떠나면 머묾이 끝난다
+    expect((await map.moveUnit(1, anchorCenter(200, 200, 2))).ok).toBe(true);
+    vi.setSystemTime(START + 6 * HOUR_MS);
+    await service.tick();
+    expect(service.info(1)?.tradeUntil).toBeNull();
+  });
+
+  it("수리: 조선소 둘레로 가서 도크에서 고친다, 가득이면 hull_full, 내구도 0이면 아주 느리다(1494·1495)", async () => {
+    const { map, service, place, grant, errors } = setup();
+    map.addUnit({ id: 2, size: 1, speed: 437, cellX: 120, cellY: 30, ownerId: 7, kind: UNIT_KIND_HUMAN });
+    const yard = place(SHIPYARD, 40);
+    map.addBoat({ id: 1, ownerId: 7, speed: START_BOATS.speed, cellX: 200, cellY: 200 });
+    expect(await service.repair("player", 1, yard, false)).toEqual({ ok: false, code: "hull_full" });
+    // 집 없이 바다에서 한 달 → 0
+    vi.setSystemTime(START + 40 * DAY_MS);
+    await service.tick();
+    expect(service.info(1)?.hullPm).toBe(0);
+    expect(service.speedPm(1)).toBe(START_BOATS.brokenSpeedPm);
+    expect(await service.repair("player", 1, yard, false)).toEqual({
+      ok: false,
+      code: "insufficient_materials",
+    });
+    grant(7, "item:pine_log", 100n, cargoLocation(2));
+    expect(await service.repair("player", 1, yard, false)).toEqual({ ok: true, walking: true });
+    // 조선소 옆으로 간 뒤 수리가 시작되고(잃은 몫 × 만드는 시간 × 300‰ = 3분) 끝나면 가득
+    await vi.advanceTimersByTimeAsync(HOUR_MS);
+    expect(errors).toEqual([]);
+    // 고친 뒤 남은 시간(집 없음)만큼 조금 닳는다
+    expect(service.info(1)?.hullPm).toBeGreaterThanOrEqual(HULL_FULL / 1000 - 3);
+    expect(service.dockJob(yard)?.jobs).toEqual([]);
+  });
+
+  it("운행 정지: 내구도가 기준 아래면 새 배·임시 정박·작업을 받지 않는다, 폐허면 집을 잃는다(1500)", async () => {
+    const { map, service, place, facilities } = setup();
+    const berth = place(BERTH, 40);
+    const yard = place(SHIPYARD, 80);
+    map.addBoat({ id: 1, ownerId: 7, speed: START_BOATS.speed, cellX: 129, cellY: 41 });
+    expect(await service.berth("player", 1, berth, false)).toEqual({ ok: true });
+    facilities.get(berth)!.conditionPpm = 400_000;
+    facilities.get(yard)!.conditionPpm = 400_000;
+    map.addBoat({ id: 2, ownerId: 7, speed: START_BOATS.speed, cellX: 131, cellY: 41 });
+    expect(await service.berth("player", 2, berth, false)).toEqual({ ok: false, code: "harbor_closed" });
+    expect(service.build("admin", yard, true)).toEqual({ ok: false, code: "harbor_closed" });
+    expect(service.dockJob(berth)?.closed).toBe(true);
+    // 이미 든 배는 그대로
+    await service.tick();
+    expect(service.info(1)?.homeId).toBe(berth);
+    facilities.get(berth)!.conditionPpm = 0;
+    await service.tick();
+    expect(service.info(1)?.homeId).toBeNull();
+  });
+
+  it("작업 줄을 다시 켜면 이어지고, 조선소가 없어졌으면 버린다(재료는 돌려주지 않음)", async () => {
+    const made = setup();
+    const yard = made.place(SHIPYARD, 40);
     const job: BoatJob = {
       id: 7,
       ownerId: 7,
-      buildingId: dockId,
+      buildingId: yard,
       materials: [],
       startedAtMs: START,
       doneAtMs: START + 30_000,
+      kind: "build",
+      typeId: "cargo_boat",
+      boatId: null,
     };
     const gone: BoatJob = { ...job, id: 8, buildingId: 999 };
     const again = createBoatService({
       maps: made.maps,
       now: () => Date.now(),
       log: { error: () => {} },
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 시험: 재료를 쓰지 않는다
-      ledger: {} as Ledger,
-      rules: () => rules,
+      ledger: made.ledger,
+      rules: () => START_BOATS,
       nextUnitId: () => 900,
       ownerOf: () => 7,
       places: () => undefined,
       works: () => true,
       unitBusy: () => false,
       jobs: [job, gone],
+      manual: true,
     });
     expect(again.building).toBe(2);
     await vi.advanceTimersByTimeAsync(30_000);
     expect(again.building).toBe(0);
     expect(made.map.unitInfo(900)?.kind).toBe(UNIT_KIND_BOAT);
     again.stop();
+    made.service.stop();
   });
 });

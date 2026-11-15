@@ -43,6 +43,7 @@ import { unitColumnsOf } from "./secondMapRows.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import { walkSpeedsOf } from "./walkSpeed.ts";
+import { type BoatHooks, createBoatHooks } from "../boats/hooks.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
 import { retireTestMaps } from "./pins.ts";
@@ -235,6 +236,8 @@ export interface WorldPersistence {
   readonly travel: TravelService;
   /** 옆 2차맵을 그때 띄우기·비면 내리기(WP15, 기획 답 730 다) */
   readonly spawn: MapSpawner;
+  /** 배 고리(배 종류·내구도 빠르기, 배 표시 정보 — boats/hooks.ts, 배 서비스가 채운다) */
+  readonly boatHooks: BoatHooks;
 }
 export interface WorldStatus {
   state: "recovering" | "ready" | "failed";
@@ -299,6 +302,7 @@ export function startWorld(
   const mapCount = Math.max(1, config.testMaps ?? 1);
   const status: WorldStatus = { state: "recovering", issues: 0, bootMs: undefined };
   let persistence: WorldPersistence | undefined;
+  const boatHooks = createBoatHooks();
   let npc: NpcRuntime | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let stopped = false;
@@ -565,7 +569,9 @@ export function startWorld(
     gearOf = holdings.gearOf;
     // 세계 전투 시작 사양의 몸: 사이보그 화면·유닛 상세와 같은 셈(입은 장비·인공장기·버프)
     const bodies = createBattleBodies({ maps, cyborgs, gearOf: holdings.gearOf, catalog: config.roster });
-    factory.attachWalk?.(walkSpeedsOf(cyborgs, holdings.gearOf, config.roster, now, societyRules)); // 걷기 AGI·배 속도
+    factory.attachWalk?.(
+      walkSpeedsOf(cyborgs, holdings.gearOf, config.roster, now, societyRules, boatHooks.speedPm),
+    ); // 걷기 AGI·배 속도
     // 전투에 가지고 들어가는 물약·탄(287): 생명 수치 다음에 붙인다
     items = createBattleItems({
       holdings: holdings.service,
@@ -673,6 +679,7 @@ export function startWorld(
     const spawn = attachMapSpawn({ ...spawnParts, ...spawnRules, extraKeys });
     persistence = {
       spawn,
+      boatHooks,
       travel,
       writer,
       pool: db,

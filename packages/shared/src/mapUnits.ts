@@ -50,8 +50,19 @@ export interface MapUnit {
   readonly stats?: Readonly<Record<PrimaryStat, number>> | undefined;
   /** 타고 있는 배의 유닛 ID(docs/adr/2026-11-13-boats.md 4절). 안 탔으면 null, 옛 서버면 없음 */
   readonly aboard?: number | null | undefined;
-  /** 배 줄이면 승객 유닛 ID와 자리 수(타기·내리기 단추). 배가 아니면 없음 */
-  readonly boat?: { readonly passengers: readonly number[]; readonly capacity: number } | undefined;
+  /**
+   * 배 줄이면 승객 유닛 ID와 자리 수(타기·내리기 단추). 배가 아니면 없음. 배 체계 개편(docs/adr/2026-11-15-shipyard-harbor.md): 배 종류·내구도(‰)·집 정박장
+   * (없으면 null — 더 빨리 닳는다). 옛 서버면 없음
+   */
+  readonly boat?:
+    | {
+        readonly passengers: readonly number[];
+        readonly capacity: number;
+        readonly typeId?: string | undefined;
+        readonly hullPm?: number | undefined;
+        readonly homeId?: number | null | undefined;
+      }
+    | undefined;
 }
 
 export interface MapUnitsResponse {

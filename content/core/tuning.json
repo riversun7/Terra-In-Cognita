@@ -11009,17 +11009,17 @@
       "min": 1,
       "max": 64,
       "desc": {
-        "ko": "배 하나에 함께 탈 수 있는 유닛 수.",
-        "en": "How many units can ride one boat."
+        "ko": "배 하나에 함께 탈 수 있는 유닛 수(배 종류 표에 자리 수가 없는 배만).",
+        "en": "How many units can ride a boat whose type has no capacity."
       },
-      "source": "ADR 2026-11-13-boats · 질문 1272 [임시]"
+      "source": "ADR 2026-11-13-boats · 질문 1272 [임시] · D-547 1484·1497 [임시]"
     },
     {
       "id": "boat_cost_pm",
       "code": "",
       "name": {
-        "ko": "배 값(부두 레벨 1 재료 × ‰)",
-        "en": "Boat cost (dock level 1 materials × ‰)"
+        "ko": "배 값(배 종류 재료 × ‰)",
+        "en": "Boat cost (boat type materials × ‰)"
       },
       "value": 1000,
       "structural": false,
@@ -11027,10 +11027,10 @@
       "min": 0,
       "max": 100000,
       "desc": {
-        "ko": "배 하나를 만드는 재료 = 부두 레벨 1 건설 재료 × 이 값 ÷ 1000. 0이면 재료 없이 만든다.",
-        "en": "Materials for one boat = the dock's level 1 build materials × this ÷ 1000. 0 = free."
+        "ko": "배 하나를 만드는 재료 = 배 종류 재료(조선소 배 종류 표) × 이 값 ÷ 1000. 0이면 재료 없이 만든다.",
+        "en": "Materials for one boat = the boat type's materials (shipyard boat table) × this ÷ 1000. 0 = free."
       },
-      "source": "ADR 2026-11-13-boats · 질문 1272 [임시]"
+      "source": "ADR 2026-11-13-boats · 질문 1272 [임시] · D-547 1484·1497 [임시]"
     },
     {
       "id": "boat_board_cells",
@@ -11054,8 +11054,8 @@
       "id": "boat_build_time_pm",
       "code": "",
       "name": {
-        "ko": "배 만드는 시간(부두 레벨 1 건설 시간 × ‰)",
-        "en": "Boat build time (dock level 1 build time × ‰)"
+        "ko": "배 만드는 시간(배 종류 시간 × ‰)",
+        "en": "Boat build time (boat type time × ‰)"
       },
       "value": 1000,
       "structural": false,
@@ -11063,10 +11063,10 @@
       "min": 0,
       "max": 100000,
       "desc": {
-        "ko": "배 하나를 만드는 시간 = 부두 레벨 1 건설 시간 × 이 값 ÷ 1000. 다 되면 부두 옆 물에 배가 뜬다. 0이면 바로 만든다.",
-        "en": "Time to build one boat = the dock's level 1 build time × this ÷ 1000. The boat appears on the water next to the dock when done. 0 = instant."
+        "ko": "배 하나를 만드는 시간 = 배 종류 기준 시간 × 이 값 ÷ 1000. 다 되면 조선소 옆 물에 배가 뜬다. 0이면 바로 만든다.",
+        "en": "Time to build one boat = the boat type's base time × this ÷ 1000. The boat appears on the water next to the shipyard. 0 = instant."
       },
-      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B2)\" · D-541 질문 1271 나 [임시]"
+      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B2)\" · D-541 질문 1271 나 [임시] · D-547 1484·1497 [임시]"
     },
     {
       "id": "boat_upkeep_pm",
@@ -11108,8 +11108,8 @@
       "id": "npc_boats_per_dock",
       "code": "",
       "name": {
-        "ko": "NPC 부두 하나의 배 상한",
-        "en": "NPC boats per dock"
+        "ko": "NPC 정박장 하나의 배 상한",
+        "en": "NPC boats per berth"
       },
       "value": 1,
       "structural": false,
@@ -11117,10 +11117,10 @@
       "min": 0,
       "max": 8,
       "desc": {
-        "ko": "바닷가 NPC 도시의 부두 하나가 만들어 두는 배 수. 0이면 NPC는 배를 만들지 않는다.",
-        "en": "Boats one dock of a coastal NPC city keeps. 0 = NPCs build no boats."
+        "ko": "NPC 정박장 하나에 두는 NPC 배 상한. NPC도 조선소에서 만들고 정박장에 산다(플레이어와 같은 규칙). 0이면 NPC는 배를 만들지 않는다.",
+        "en": "NPC boats kept per NPC berth. NPCs also build at a shipyard and live in a berth (same rules as players). 0 = NPCs build no boats."
       },
-      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B3)\" · D-542 질문 1331 나 [임시]"
+      "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B3)\" · D-542 질문 1331 나 [임시] · D-547 1484·1497 [임시]"
     },
     {
       "id": "npc_boat_fishers",
@@ -11139,6 +11139,366 @@
         "en": "City humans put on one NPC boat to fish sea schools (within the boat capacity). The catch goes to the city warehouse."
       },
       "source": "ADR 2026-11-13-boats \"바뀜 (2026-11-14, B3)\" · D-542 질문 1331 나 [임시]"
+    },
+    {
+      "id": "shipyard_docks_base",
+      "code": "",
+      "name": {
+        "ko": "조선소 기본 도크 수",
+        "en": "Shipyard base docks"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "조선소 하나가 동시에 만들거나 고치는 배 수(모듈 없이). 사용자: \"기본 한척\".",
+        "en": "Boats one shipyard builds or repairs at once without a module. User: \"one by default\"."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1483 [임시]"
+    },
+    {
+      "id": "shipyard_dock_module",
+      "code": "",
+      "name": {
+        "ko": "도크 모듈의 레벨당 도크",
+        "en": "Docks per level (dock module)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 8,
+      "desc": {
+        "ko": "도크 모듈을 붙인 조선소가 레벨 1 위로 한 레벨마다 더 얻는 도크 수.",
+        "en": "Extra docks per level above 1 for a shipyard with the dock module."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1483 [임시]"
+    },
+    {
+      "id": "shipyard_build_spec_pm",
+      "code": "",
+      "name": {
+        "ko": "건조 특화 시간(‰)",
+        "en": "Build specialisation time (‰)"
+      },
+      "value": 700,
+      "structural": false,
+      "unit": "pm",
+      "min": 100,
+      "max": 1000,
+      "desc": {
+        "ko": "건조 특화 모듈을 붙인 조선소의 배 만드는 시간 = 보통 시간 × 이 값 ÷ 1000.",
+        "en": "Build time at a shipyard with the build module = normal time × this ÷ 1000."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1483 [임시]"
+    },
+    {
+      "id": "shipyard_repair_spec_pm",
+      "code": "",
+      "name": {
+        "ko": "수리 특화 재료·시간(‰)",
+        "en": "Repair specialisation cost and time (‰)"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "pm",
+      "min": 100,
+      "max": 1000,
+      "desc": {
+        "ko": "수리 특화 모듈을 붙인 조선소의 수리 재료·시간 = 보통 값 × 이 값 ÷ 1000.",
+        "en": "Repair materials and time at a shipyard with the repair module = normal × this ÷ 1000."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1483 [임시]"
+    },
+    {
+      "id": "shipyard_reach_cells",
+      "code": "",
+      "name": {
+        "ko": "조선소에 닿는 거리(칸)",
+        "en": "Shipyard reach (cells)"
+      },
+      "value": 8,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 32,
+      "desc": {
+        "ko": "조선소 둘레 이 칸 수 안 물에 선 배를 고친다. 멀면 배가 조선소까지 간 뒤 고치기를 시작한다.",
+        "en": "Boats on the water within this many cells of the shipyard are repaired. A far boat sails there first."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1494 [임시]"
+    },
+    {
+      "id": "boat_repair_cost_pm",
+      "code": "",
+      "name": {
+        "ko": "배 수리 재료(‰)",
+        "en": "Boat repair materials (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "수리 재료 = 배 종류 재료 × 잃은 내구도 몫 × 이 값 ÷ 1000(올림). 재료는 돌려주지 않는다.",
+        "en": "Repair materials = boat type materials × share of hull lost × this ÷ 1000 (rounded up). Not refunded."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1494 [임시]"
+    },
+    {
+      "id": "boat_repair_time_pm",
+      "code": "",
+      "name": {
+        "ko": "배 수리 시간(‰)",
+        "en": "Boat repair time (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "수리 시간 = 배 만드는 시간 × 잃은 내구도 몫 × 이 값 ÷ 1000. 도크 하나를 쓴다.",
+        "en": "Repair time = boat build time × share of hull lost × this ÷ 1000. Uses one dock."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1494 [임시]"
+    },
+    {
+      "id": "harbor_berths_per_level",
+      "code": "",
+      "name": {
+        "ko": "정박장 레벨당 정박 자리",
+        "en": "Berths per harbor level"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 64,
+      "desc": {
+        "ko": "정박장 정박 자리 = 레벨 × 이 값. 자리가 없어도 배는 만들 수 있다(만들기와 정박은 별개).",
+        "en": "Berth slots = level × this. Boats can still be built without a free berth."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1487 [임시]"
+    },
+    {
+      "id": "harbor_reach_cells",
+      "code": "",
+      "name": {
+        "ko": "정박장에 든 거리(칸)",
+        "en": "Berth reach (cells)"
+      },
+      "value": 8,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 32,
+      "desc": {
+        "ko": "집 정박장 둘레 이 칸 수 안 물에 있으면 정박 중으로 본다(정박장 옆 바다에 보인다).",
+        "en": "A boat within this many cells of its home berth counts as berthed (shown on the sea next to it)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1496 [임시]"
+    },
+    {
+      "id": "harbor_fee_per_day",
+      "code": "",
+      "name": {
+        "ko": "정박료 처음 값(하루)",
+        "en": "Default berth fee (per day)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "새 정박장의 하루 정박료(화폐 최소 단위). 주인이 바꾼다. 남의 배만 내고, 돈은 정박장 장부(사업장 금고)에 든다.",
+        "en": "Daily berth fee of a new berth (smallest money unit). The owner changes it. Only other owners' boats pay, into the berth's own account."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1491·D-548 [임시]"
+    },
+    {
+      "id": "harbor_arrears_days",
+      "code": "",
+      "name": {
+        "ko": "정박료 체납 한도(일)",
+        "en": "Berth fee arrears limit (days)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 60,
+      "desc": {
+        "ko": "정박료를 못 낸 날이 이만큼 쌓이면 그 배는 집 정박 자리를 잃는다. 배는 잃지 않고 더 빨리 닳는다.",
+        "en": "After this many unpaid days the boat loses its berth. The boat is not lost; it wears faster."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1486 [임시]"
+    },
+    {
+      "id": "harbor_stop_pm",
+      "code": "",
+      "name": {
+        "ko": "배 시설 운행 정지 내구도(‰)",
+        "en": "Harbor stop durability (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "정박장·교역 부두·조선소의 내구도가 이보다 낮으면 새 배·임시 정박·새 작업을 받지 않는다. 이미 든 배는 그대로다.",
+        "en": "Below this durability a berth, trade dock or shipyard takes no new boats, visits or jobs. Boats already in stay."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1500 [임시]"
+    },
+    {
+      "id": "trade_dock_slots_per_level",
+      "code": "",
+      "name": {
+        "ko": "교역 부두 레벨당 임시 자리",
+        "en": "Trade dock slots per level"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 64,
+      "desc": {
+        "ko": "교역 부두 임시 자리 = 레벨 × 이 값.",
+        "en": "Trade dock slots = level × this."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1488 [임시]"
+    },
+    {
+      "id": "trade_dock_fee_per_hour",
+      "code": "",
+      "name": {
+        "ko": "교역 부두 요금 처음 값(시간)",
+        "en": "Default trade dock fee (per hour)"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "새 교역 부두의 한 시간 요금(화폐 최소 단위). 주인이 바꾼다. 시간을 사서 상하차·보급을 하고 떠난다.",
+        "en": "Hourly fee of a new trade dock (smallest money unit). The owner changes it. Buy time to load, unload and resupply, then leave."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1489 [임시]"
+    },
+    {
+      "id": "trade_dock_max_hours",
+      "code": "",
+      "name": {
+        "ko": "교역 부두 한 번에 사는 시간 상한",
+        "en": "Trade dock max hours per purchase"
+      },
+      "value": 24,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 72,
+      "desc": {
+        "ko": "교역 부두에서 한 번에 살 수 있는 시간. 오래 머물려면 정박장으로 옮긴다.",
+        "en": "Hours one purchase can buy at a trade dock. For a long stay, move to a berth."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1489 [임시]"
+    },
+    {
+      "id": "trade_dock_overstay_mul",
+      "code": "",
+      "name": {
+        "ko": "교역 부두 초과 요금 배율",
+        "en": "Trade dock overstay multiplier"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 100,
+      "desc": {
+        "ko": "산 시간을 넘겨 머물면 초과 한 시간마다 한 시간 요금 × 이 값을 낸다.",
+        "en": "Staying past the bought time costs the hourly fee × this for each extra hour."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1489 [임시]"
+    },
+    {
+      "id": "boat_wear_berthed_pd",
+      "code": "",
+      "name": {
+        "ko": "정박 중 배 닳음(‰/일)",
+        "en": "Berthed boat wear (‰/day)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "집 정박장에 든 배가 하루에 닳는 내구도.",
+        "en": "Hull a boat in its home berth loses per day."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1485 [임시]"
+    },
+    {
+      "id": "boat_wear_away_pd",
+      "code": "",
+      "name": {
+        "ko": "정박장 밖 배 닳음(‰/일)",
+        "en": "Boat wear away from berth (‰/day)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "집이 있는 배가 정박장 밖에 있을 때 하루에 닳는 내구도(쓰지 않아도).",
+        "en": "Hull a boat with a home loses per day while away from it (even unused)."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1485 [임시]"
+    },
+    {
+      "id": "boat_wear_homeless_mul",
+      "code": "",
+      "name": {
+        "ko": "집 없는 배 닳음 배율",
+        "en": "Homeless boat wear multiplier"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 20,
+      "desc": {
+        "ko": "집 정박 자리가 없는 배는 정박장 밖 닳음 × 이 값으로 닳는다. 그래서 정박료보다 수리비가 더 든다.",
+        "en": "A boat without a berth wears at the away rate × this, so repairs cost more than the berth fee."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1485 [임시]"
+    },
+    {
+      "id": "boat_broken_speed_pm",
+      "code": "",
+      "name": {
+        "ko": "내구도 0 배 빠르기(‰)",
+        "en": "Broken boat speed (‰)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 10,
+      "max": 1000,
+      "desc": {
+        "ko": "내구도가 0인 배의 빠르기(보통 빠르기에 대한 ‰). 잃지 않고 조선소까지 끌고 가 고친다.",
+        "en": "Speed of a boat at 0 hull (‰ of normal). It is not lost and can limp to a shipyard."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1495 [임시]"
     }
   ]
 }

@@ -26,6 +26,7 @@ import {
 import { NATION_LIST_LIMITS, NATION_SEED_LIMITS } from "@terra/shared/nationEditor";
 import { NATION_TIER_LIMITS, POWER_TIERS } from "@terra/shared/nationTier";
 import { z } from "zod";
+import { boatTypesSchema, harborRoleSchema } from "./boats.ts";
 import { EQUIP_SLOT_KINDS, PRIMARY_STAT_CODES } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
 
@@ -243,6 +244,13 @@ export const facilityEntrySchema = z.strictObject({
    * 벽 색·지붕 색(엔진 색 표 이름)·높이 배율(‰). 모두 선택: 모델이 없으면 엔진이 시설 ID로 고르고(모르는 ID는 일반 집), 색이 없으면 그
    * 모델의 기본 색, 높이가 없으면 1000‰. 출발값 = 엔진이 시설 ID로 고르던 모델(core@59). 건물 편집기 "2차맵 모습"에서 고친다
    */
+  /**
+   * 배 시설 역할(기획 D-547 1481·1488, docs/adr/2026-11-15-shipyard-harbor.md): shipyard = 조선소(배 만들기·고치기), berth = 정박장(배가 사는 곳),
+   * trade_dock = 교역 부두(시간을 사서 상하차). 교통 단계(transport)·물가 조건과 함께 쓴다. 없으면 배 시설이 아니다
+   */
+  harbor: harborRoleSchema.optional(),
+  /** 조선소가 만드는 배 종류 표(D-547 1484 — 배 종류마다 재료·시간). 조선소(harbor shipyard)에만 쓴다 */
+  boats: boatTypesSchema.optional(),
   look: z
     .strictObject({
       model: z.enum(FACILITY_LOOK_MODELS).optional(),

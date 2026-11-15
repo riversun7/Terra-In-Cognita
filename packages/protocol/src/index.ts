@@ -148,6 +148,10 @@ export {
   BOAT_PROTOCOL_VERSION,
   BOAT_RESULT_CODES,
   type BoatResultCode,
+  HARBOR_ACCESS_VALUES,
+  HARBOR_PROTOCOL_VERSION,
+  SHIPYARD_MODULE_VALUES,
+  legacyBoatCode,
 } from "./boats.ts";
 export {
   GUARDIAN_BUFF_IDS,

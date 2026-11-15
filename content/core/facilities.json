@@ -1127,8 +1127,8 @@
     {
       "id": "dock",
       "name": {
-        "ko": "부두",
-        "en": "Dock"
+        "ko": "정박장",
+        "en": "Berth"
       },
       "stage": "transport",
       "maxLevel": 3,
@@ -1170,8 +1170,155 @@
       },
       "needsWaterWithin": 1,
       "durability": 180,
+      "harbor": "berth",
       "look": {
         "model": "dock"
+      }
+    },
+    {
+      "id": "shipyard",
+      "name": {
+        "ko": "조선소",
+        "en": "Shipyard"
+      },
+      "stage": "transport",
+      "maxLevel": 3,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 20
+              },
+              {
+                "item": "stone",
+                "qty": 6
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 18
+              },
+              {
+                "item": "iron_ingot",
+                "qty": 4
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "needsWaterWithin": 1,
+      "durability": 220,
+      "harbor": "shipyard",
+      "boats": [
+        {
+          "id": "rowboat",
+          "name": {
+            "ko": "작은 배",
+            "en": "Rowboat"
+          },
+          "materials": [
+            {
+              "item": "pine_log",
+              "qty": 14
+            },
+            {
+              "item": "stone",
+              "qty": 4
+            }
+          ],
+          "buildMs": 600000,
+          "speedPm": 1000,
+          "capacity": 4
+        },
+        {
+          "id": "cargo_boat",
+          "name": {
+            "ko": "짐배",
+            "en": "Cargo boat"
+          },
+          "materials": [
+            {
+              "item": "plank",
+              "qty": 16
+            },
+            {
+              "item": "iron_ingot",
+              "qty": 3
+            }
+          ],
+          "buildMs": 1800000,
+          "speedPm": 750,
+          "capacity": 8
+        }
+      ],
+      "look": {
+        "model": "dock",
+        "heightPm": 1300
+      }
+    },
+    {
+      "id": "trade_dock",
+      "name": {
+        "ko": "교역 부두",
+        "en": "Trade dock"
+      },
+      "stage": "transport",
+      "maxLevel": 3,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 12
+              },
+              {
+                "item": "stone",
+                "qty": 8
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 12
+              },
+              {
+                "item": "brick",
+                "qty": 8
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "needsWaterWithin": 1,
+      "durability": 200,
+      "harbor": "trade_dock",
+      "look": {
+        "model": "dock",
+        "heightPm": 800
       }
     }
   ]

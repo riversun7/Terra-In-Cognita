@@ -1,5 +1,5 @@
 // 배 B3 규칙 시험(docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B3)", 기획 D-542):
-// - 재료(기획 D-545 1405 "돌려주지 않음", D-542 1321 나 반환을 대체): 만드는 중에 부두가 없어지면 재료도 잃는다
+// - 재료(기획 D-545 1405 "돌려주지 않음", D-542 1321 나 반환을 대체): 만드는 중에 조선소가 없어지면 재료도 잃는다(D-547부터 만들기는 조선소)
 // - 1326 나: 배는 보유 유닛 수에서 빠진다(유지비는 그대로 boat_upkeep_pm)
 import { START_BOATS, SURFACE_WATER, TEST_SOCIETY_COEFFICIENTS, createLedgerBook } from "@terra/sim";
 import { cityLocation } from "@terra/shared/goodsPlaces";
@@ -27,8 +27,19 @@ function coastTerrain() {
 }
 
 const DOCK_DEF: FacilityDef = {
-  id: "dock",
-  name: { ko: "부두", en: "Dock" },
+  id: "shipyard",
+  name: { ko: "조선소", en: "Shipyard" },
+  harbor: "shipyard",
+  boats: [
+    {
+      id: "rowboat",
+      name: { ko: "작은 배", en: "Rowboat" },
+      materials: [{ item: "pine_log", qty: 14 }],
+      buildMs: 60_000,
+      speedPm: 1000,
+      capacity: 4,
+    },
+  ],
   stage: "transport",
   maxLevel: 3,
   slotsPerLevel: 0,
@@ -69,15 +80,21 @@ describe("배 재료는 돌려주지 않음(D-545 1405)", () => {
     ]);
   });
 
-  it("만드는 중에 부두가 부서지면 작업은 버리고 재료는 돌아오지 않는다", async () => {
+  it("만드는 중에 조선소가 부서지면 작업은 버리고 재료는 돌아오지 않는다", async () => {
     const { map } = createTestMap({ terrain: coastTerrain() });
     const maps = new Map([[map.mapKey, map]]);
     const facilities = new Map<number, FacilityRecord>();
     const places: PlaceWorld = {
       maps,
       facilities,
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 시험: 부두 정의만 쓰는 가짜 목록
-      catalog: () => ({ facility: (id: string) => (id === "dock" ? DOCK_DEF : undefined) }) as never,
+      /* oxlint-disable typescript/no-unsafe-type-assertion -- 시험: 조선소 정의만 쓰는 가짜 목록 */
+      catalog: () =>
+        ({
+          facility: (id: string) => (id === "shipyard" ? DOCK_DEF : undefined),
+          facilities: [DOCK_DEF],
+          itemName: () => undefined,
+        }) as never,
+      /* oxlint-enable typescript/no-unsafe-type-assertion */
       cities: () => [{ id: CITY, mapKey: map.mapKey, x: 100, y: 40 }],
     };
     const ledger = ledgerBook();
@@ -102,14 +119,14 @@ describe("배 재료는 돌려주지 않음(D-545 1405)", () => {
       places: () => places,
       works: () => true,
       unitBusy: () => false,
-      dockBuildMs: () => 60_000,
+      manual: true,
     });
     const placed = map.placeBuilding({ x: 125, y: 40, width: 3, height: 3, rotation: 0 }, 7);
     if (!placed.ok || placed.buildingId === undefined) throw new Error("dock not placed");
     const dockId = placed.buildingId;
     facilities.set(dockId, {
       buildingId: dockId,
-      facilityId: "dock",
+      facilityId: "shipyard",
       level: 1,
       conditionPpm: 1_000_000,
       conditionAtMs: START,
@@ -119,7 +136,7 @@ describe("배 재료는 돌려주지 않음(D-545 1405)", () => {
     });
     expect(service.build("player", dockId, false)).toEqual({ ok: true, readyAtMs: START + 60_000 });
     expect(ledger.balanceOf(7, asset, cityLocation(CITY))).toBe(6n);
-    // 부두가 없어짐(전투·치움)
+    // 조선소가 없어짐(전투·치움)
     map.removeBuilding(dockId);
     facilities.delete(dockId);
     await vi.advanceTimersByTimeAsync(60_000);

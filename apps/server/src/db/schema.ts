@@ -979,7 +979,7 @@ export { fxOrders, fxPairs, fxRounds, marketBooks, marketOrders, marketTrades } 
 export { worldTravels } from "./travelSchema.ts";
 export { gatherObjectStates } from "./gatherSchema.ts";
 /** 배 만들기 작업 표(docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)") */
-export { boatJobs } from "./boatSchema.ts";
+export { boatFacilities, boatJobs, boatResets, boatStates } from "./boatSchema.ts";
 /** 공성 결과 표(docs/adr/2026-11-07-war-outcomes.md) */
 export { warOutcomes } from "./warSchema.ts";
 /** 국적 바꾸기(귀화) 기록 표(docs/adr/2026-11-08-citizenship.md) */

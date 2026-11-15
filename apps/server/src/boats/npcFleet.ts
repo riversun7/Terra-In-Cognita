@@ -1,13 +1,13 @@
-// NPC 배(기획 D-542 1331 나 — docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B3)"): 바닷가 NPC 도시의 부두가 배를 만들고 그 도시 휴먼을 어부로
-// 태워 바다 어군을 낚게 한다. 작게·설정 칸으로 막는다:
-// - 부두마다 배 상한 = 설정 칸 npc_boats_per_dock([임시] 1, 0이면 끔), 배마다 어부 = npc_boat_fishers([임시] 2, 배 자리 수 안).
-// - 배 만들기·타기·내리기·캐기는 플레이어와 같은 서비스(배 서비스 buildAs·boardAs·leaveAs, 채집 서비스 startAs)라 재료(그 도시 창고)·시간·
-//   거리·채집 규칙(사다리 굴림·티어 범위·굴림표)·넣는 곳(창고·도시, 물이 없으면 부두 도시 창고)이 같다.
-// - 살피기는 FLEET_TICK_MS마다 한 번(이벤트 루프 몫이 작다 — 부두 수 × 배 수만 본다). 그 사이 어부의 채집 줄이 스스로 돈다.
-// - 배마다 차례: 어부 중 누가 지쳤으면(피로 상한) 부두로 돌아가 모두 내린다(봇은 내리면 다시 집·일터를 걷는다) → 자리가 남으면 부두 둘레의
-//   그 세력 휴먼(봇, 일이 없는 것)을 태운다(멀면 걸어온다) → 아무도 캐지 않으면 가장 가까운 남은 어군을 모두에게 시킨다.
-// - 배 ↔ 부두 짝은 메모리(다시 켜면 부두 둘레 SPOT_CELLS 안의 그 세력 배를 다시 짝짓는다).
-// [임시] 어부는 도시 경제의 일꾼 셈과 따로다(도시 경제는 휴먼이 어디 있든 같은 산출을 센다 — npc/humanPlaces.ts). 잡은 고기는 원장 도시 창고로 간다.
+// NPC 배(기획 D-547 1497 "플레이어와 같은 규칙" — 1402·D-542 1331 나를 대체, docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15)"): 바닷가 NPC 도시의
+// 조선소가 배를 만들고 정박장이 배의 집이다. 그 도시 휴먼을 어부로 태워 바다 어군을 낚게 한다. 작게·설정 칸으로 막는다:
+// - 정박장마다 배 상한 = 설정 칸 npc_boats_per_dock([임시] 1, 0이면 끔), 배마다 어부 = npc_boat_fishers([임시] 2, 배 자리 수 안).
+// - 배 만들기·집 정박장·고치기·타기·내리기·캐기는 플레이어와 같은 서비스(buildAs·berthAs·repairAs·boardAs·leaveAs, 채집 startAs)라 재료(그 도시 창고)·시간·
+//   도크·정박 자리·받기 범위·내구도·거리·채집 규칙이 같다.
+// - 살피기는 FLEET_TICK_MS마다 한 번(이벤트 루프 몫이 작다 — 정박장 수 × 배 수만 본다). 그 사이 어부의 채집 줄이 스스로 돈다.
+// - 정박장마다 차례: 같은 2차맵의 집 없는 그 세력 배를 이 정박장에 넣는다 → 배가 모자라면 같은 2차맵의 그 세력 조선소에서 만든다(도크가 비면) →
+//   배마다: 내구도가 NPC_REPAIR_PM 아래면 조선소로 보내 고친다 → 어부 중 누가 지쳤으면 정박장으로 돌아가 모두 내린다 → 자리가 남으면 정박장 둘레의 그 세력
+//   휴먼(봇, 일이 없는 것)을 태운다 → 아무도 캐지 않으면 가장 가까운 남은 어군을 모두에게 시킨다.
+// [임시] 어부는 아직 도시 경제의 "어부" 일자리에서 뽑지 않는다(둘레 휴먼 — 질문 1530). 잡은 고기는 원장 도시 창고로 간다.
 import {
   type CellPoint,
   type SocietyCoefficients,
@@ -23,15 +23,16 @@ import { seaObject } from "../gather/stand.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { unavailable } from "../world/unitCondition.ts";
 import { UNIT_KIND_BOAT, UNIT_KIND_BOT } from "../world/unitKinds.ts";
-import { type BoatService, isBoatYard } from "./service.ts";
+import { isBerth, isShipyard } from "./rules.ts";
+import type { BoatService } from "./service.ts";
 
 /** 살피기 간격(ms) [임시] */
 export const FLEET_TICK_MS = 120_000;
-/** 부두와 배를 짝짓는 거리(배치 칸) — 다시 켠 뒤 다시 짝짓기 */
-const SPOT_CELLS = 16;
+/** NPC 배를 고치러 보내는 내구도(‰) [임시] */
+const NPC_REPAIR_PM = 300;
 /** 어부를 고르는 부두 둘레 거리(배치 칸) [임시] — 먼 휴먼은 걸어오는 데 오래 걸린다 */
 const FISHER_CELLS = 48;
-/** 부두에 닿았다고 보는 거리(배치 칸) — 이 안이면 내린다 */
+/** 정박장에 닿았다고 보는 거리(배치 칸) — 이 안이면 내린다 */
 const HOME_CELLS = 6;
 
 export interface NpcFleetDeps {
@@ -50,9 +51,13 @@ export interface NpcFleetDeps {
 
 /** 한 번 살핀 결과(지표·시험) */
 export interface FleetTick {
+  /** 살핀 NPC 정박장 수 */
   readonly docks: number;
   readonly boats: number;
   readonly built: number;
+  /** 집에 넣은 배 / 고치러 보낸 배 */
+  readonly berthed: number;
+  readonly repairs: number;
   readonly boarded: number;
   readonly fishing: number;
   readonly returned: number;
@@ -62,7 +67,7 @@ export interface FleetTick {
 export interface NpcFleet {
   /** 한 번 살핀다(타이머가 부른다. 시험은 바로 부른다) */
   tick(): Promise<FleetTick>;
-  /** 짝지은 배 수 */
+  /** 지난 살피기에서 정박장에 든 NPC 배 수 */
   readonly boats: number;
   stop(): void;
 }
@@ -77,20 +82,26 @@ const chebyshev = (a: CellPoint, b: CellPoint): number => Math.max(Math.abs(a.x 
 
 export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: boolean } = {}): NpcFleet {
   const { maps, now, log } = deps;
-  /** 배 ID → 부두 건물 ID */
-  const homes = new Map<number, number>();
   /** 배 ID → 걸어와 타는 중인 어부를 기다리는 끝 시각(그 전에는 새로 부르지 않는다) */
   const waiting = new Map<number, number>();
+  let homed = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
   let running = false;
 
-  /** NPC 부두: 다 지었고 일하는 배 만드는 시설, 주인이 NPC 세력 */
-  const npcDocks = (places: PlaceWorld) => {
-    const out: { buildingId: number; map: SecondMap; ownerId: number; center: CellPoint }[] = [];
+  /** NPC 배 시설: 다 지었고 일하는, 주인이 NPC 세력인 정박장·조선소 */
+  const npcHarbors = (places: PlaceWorld) => {
+    const out: {
+      buildingId: number;
+      map: SecondMap;
+      ownerId: number;
+      center: CellPoint;
+      role: "berth" | "shipyard";
+    }[] = [];
     const catalog = places.catalog();
     for (const record of places.facilities.values()) {
       const def = catalog.facility(record.facilityId);
-      if (!def || !isBoatYard(def) || record.level < 1 || !deps.works(record.buildingId)) continue;
+      const role = isBerth(def) ? "berth" : isShipyard(def) ? "shipyard" : undefined;
+      if (!role || record.level < 1 || !deps.works(record.buildingId)) continue;
       for (const map of maps.values()) {
         let found: { ownerId: number | null; center: CellPoint } | undefined;
         map.forEachBuilding((building) => {
@@ -104,38 +115,29 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
         if (!found) continue;
         const { ownerId, center } = found;
         if (ownerId !== null && deps.isNpc(ownerId))
-          out.push({ buildingId: record.buildingId, map, ownerId, center });
+          out.push({ buildingId: record.buildingId, map, ownerId, center, role });
         break;
       }
     }
-    return out;
+    return out.toSorted((a, b) => a.buildingId - b.buildingId);
   };
+  type NpcHarbor = ReturnType<typeof npcHarbors>[number];
 
-  /** 그 부두의 배(짝, 없으면 둘레의 짝 없는 그 세력 배를 짝짓는다) */
-  const boatsOf = (dock: ReturnType<typeof npcDocks>[number], at: number): number[] => {
-    const out: number[] = [];
+  /** 그 정박장을 집으로 둔 배와 같은 2차맵의 집 없는 그 세력 배 */
+  const boatsAt = (dock: NpcHarbor, boats: BoatService) => {
+    const own: number[] = [];
+    const loose: number[] = [];
     dock.map.forEachUnit((unit) => {
       if (unit.kind !== UNIT_KIND_BOAT || unit.ownerId !== dock.ownerId) return;
-      const home = homes.get(unit.id);
-      if (home === dock.buildingId) out.push(unit.id);
-      else if (home === undefined) {
-        const cell = cellOf(dock.map, unit.id, at);
-        if (cell && chebyshev(cell, dock.center) <= SPOT_CELLS) {
-          homes.set(unit.id, dock.buildingId);
-          out.push(unit.id);
-        }
-      }
+      const info = boats.info(unit.id);
+      if (info?.homeId === dock.buildingId) own.push(unit.id);
+      else if (info && info.homeId === null) loose.push(unit.id);
     });
-    return out.toSorted((a, b) => a - b);
+    return { own: own.toSorted((a, b) => a - b), loose: loose.toSorted((a, b) => a - b) };
   };
 
   /** 태울 어부: 부두 둘레의 그 세력 휴먼(봇), 타지 않았고 활동 가능, 채집 줄 없음, 피로가 상한의 반 밑 — 가까운 차례 */
-  const fishersNear = (
-    dock: ReturnType<typeof npcDocks>[number],
-    at: number,
-    gather: GatherService,
-    fatigueMax: number,
-  ) => {
+  const fishersNear = (dock: NpcHarbor, at: number, gather: GatherService, fatigueMax: number) => {
     const found: { id: number; d: number }[] = [];
     dock.map.forEachUnit((unit) => {
       if (unit.kind !== UNIT_KIND_BOT || unit.ownerId !== dock.ownerId || unit.aboard !== undefined) return;
@@ -167,7 +169,16 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
 
   const tick = async (): Promise<FleetTick> => {
     const started = performance.now();
-    const counts = { docks: 0, boats: 0, built: 0, boarded: 0, fishing: 0, returned: 0 };
+    const counts = {
+      docks: 0,
+      boats: 0,
+      built: 0,
+      berthed: 0,
+      repairs: 0,
+      boarded: 0,
+      fishing: 0,
+      returned: 0,
+    };
     const places = deps.places();
     const boats = deps.boats();
     const gather = deps.gather();
@@ -177,13 +188,32 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
     running = true;
     try {
       const at = now();
-      for (const dock of npcDocks(places)) {
+      const harbors = npcHarbors(places);
+      const yards = harbors.filter((entry) => entry.role === "shipyard");
+      for (const dock of harbors.filter((entry) => entry.role === "berth")) {
         counts.docks += 1;
-        const own = boatsOf(dock, at);
+        const yard = yards
+          .filter((entry) => entry.map === dock.map && entry.ownerId === dock.ownerId)
+          .toSorted((a, b) => chebyshev(a.center, dock.center) - chebyshev(b.center, dock.center))[0];
+        const { own, loose } = boatsAt(dock, boats);
+        // 집 없는 배를 넣는다(자리가 남는 만큼 — 서비스가 다시 본다)
+        for (const boatId of loose) {
+          if (own.length >= perDock) break;
+          const result = await boats.berthAs(dock.ownerId, boatId, dock.buildingId);
+          if (!result.ok) continue;
+          own.push(boatId);
+          counts.berthed += 1;
+        }
         counts.boats += own.length;
-        if (own.length < perDock && boats.dockJob(dock.buildingId) === undefined) {
-          const made = boats.buildAs(dock.ownerId, dock.buildingId);
-          if (made.ok) counts.built += 1;
+        // 배가 모자라면 조선소에서 만든다(만드는 중인 배가 없을 때)
+        if (yard && own.length + loose.length < perDock) {
+          const panel = boats.dockJob(yard.buildingId);
+          if (
+            panel &&
+            !panel.jobs.some((job) => job.kind === "build") &&
+            boats.buildAs(dock.ownerId, yard.buildingId).ok
+          )
+            counts.built += 1;
         }
         for (const boatId of own.slice(0, perDock)) {
           const riders = dock.map.passengers(boatId);
@@ -191,7 +221,14 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
             counts.fishing += 1;
             continue;
           }
-          // 지친 어부가 있으면 부두로 돌아가 모두 내린다
+          // 낡았으면 조선소로(어부는 먼저 내린다)
+          const hull = boats.info(boatId)?.hullPm ?? 1000;
+          if (yard && hull < NPC_REPAIR_PM) {
+            if (riders.length > 0) boats.leaveAs(dock.ownerId, boatId);
+            if ((await boats.repairAs(dock.ownerId, boatId, yard.buildingId)).ok) counts.repairs += 1;
+            continue;
+          }
+          // 지친 어부가 있으면 정박장으로 돌아가 모두 내린다
           const tired = riders.some(
             (id) => (dock.map.unitInfo(id)?.job.fatigue ?? 0) >= Math.max(1, rules.fatigueMax),
           );
@@ -203,7 +240,8 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
             } else if (spot) await dock.map.moveUnit(boatId, anchorCenter(spot.x, spot.y, 2));
             continue;
           }
-          const want = Math.min(Math.max(0, rules.boats.npcFishers), Math.max(0, rules.boats.capacity));
+          const capacity = boats.info(boatId)?.capacity ?? rules.boats.capacity;
+          const want = Math.min(Math.max(0, rules.boats.npcFishers), Math.max(0, capacity));
           if (riders.length < want && (waiting.get(boatId) ?? 0) <= at) {
             for (const id of fishersNear(dock, at, gather, rules.fatigueMax).slice(0, want - riders.length)) {
               const boarded = await boats.boardAs(dock.ownerId, id, boatId);
@@ -225,14 +263,12 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
           }
         }
       }
-      for (const boatId of homes.keys()) {
+      for (const boatId of waiting.keys()) {
         let alive = false;
         for (const map of maps.values()) if (map.unitInfo(boatId)) alive = true;
-        if (!alive) {
-          homes.delete(boatId);
-          waiting.delete(boatId);
-        }
+        if (!alive) waiting.delete(boatId);
       }
+      homed = counts.boats;
     } catch (error) {
       log.error({ err: error }, "npc fleet tick failed");
     } finally {
@@ -253,7 +289,7 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
   return {
     tick,
     get boats() {
-      return homes.size;
+      return homed;
     },
     stop() {
       if (timer) clearInterval(timer);

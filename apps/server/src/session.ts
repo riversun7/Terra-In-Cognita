@@ -40,6 +40,7 @@ import {
   HOUSE_PROTOCOL_VERSION,
   HOUSE_RECRUIT_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
+  HARBOR_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -662,9 +663,14 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       }
       case "boat_build":
       case "boat_board":
-      case "boat_leave": {
-        // 배는 프로토콜 27의 메시지다(docs/adr/2026-11-13-boats.md)
-        if (protocolVersion < BOAT_PROTOCOL_VERSION) {
+      case "boat_leave":
+      case "boat_repair":
+      case "boat_berth":
+      case "boat_dock_time":
+      case "harbor_policy": {
+        // 배는 프로토콜 27의 메시지, 수리·정박장·교역 부두·주인 설정은 30(docs/adr/2026-11-15-shipyard-harbor.md)
+        const harbor = message.t !== "boat_build" && message.t !== "boat_board" && message.t !== "boat_leave";
+        if (protocolVersion < (harbor ? HARBOR_PROTOCOL_VERSION : BOAT_PROTOCOL_VERSION)) {
           reject("invalid_message");
           return;
         }

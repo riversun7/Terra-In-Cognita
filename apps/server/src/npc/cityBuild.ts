@@ -32,7 +32,7 @@ import type { SeedLand } from "../facilities/npcSeed.ts";
 import { materialScope } from "../facilities/places.ts";
 import type { FacilityService, NpcJobInput } from "../facilities/service.ts";
 import type { GatherKind } from "../gather/kinds.ts";
-import { isBoatYard } from "../boats/service.ts";
+import { isBerth, isShipyard } from "../boats/rules.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 
 /** 월드가 넘기는 짓기 입력(market/worldInput.ts — NPC 도시 경제 입력의 build 칸) */
@@ -278,16 +278,21 @@ export function npcBuildRunOf(o: {
   return {
     economy: econ.economy,
     builder,
-    // 바닷가 도시는 부두 하나(D-541 1281 나)
-    targetsOf: (faction, cityId) =>
-      withCoastalDock(base?.(faction, cityId), coast.dockOf(cityId, faction.id)),
+    // 바닷가 도시는 정박장 하나 + 조선소 하나(D-541 1281 나, D-547 1497 — NPC도 플레이어와 같은 규칙)
+    targetsOf: (faction, cityId) => {
+      const berth = coast.dockOf(cityId, faction.id);
+      return withCoastalDock(
+        withCoastalDock(base?.(faction, cityId), berth),
+        berth === undefined ? undefined : coast.shipyard(),
+      );
+    },
   };
 }
 
 /** 바닷가인지 기억하는 시간(ms) — 건물이 물가를 채우면 다시 본다 */
 export const COAST_TTL_MS = 6 * 60 * 60_000;
 
-/** 목표에 부두 하나를 더한다(이미 목표가 있으면 그대로). dock이 없으면 목표 그대로 */
+/** 목표에 배 시설 하나를 더한다(이미 목표가 있으면 그대로). dock이 없으면 목표 그대로 */
 export function withCoastalDock(
   targets: ReadonlyMap<string, number> | undefined,
   dock: string | undefined,
@@ -307,10 +312,15 @@ function coastalDocks(o: {
   readonly rules: () => { readonly worldSeed: WorldSeedCoefficients };
 }) {
   const known = new Map<number, { dock: string | undefined; atMs: number }>();
+  // 바닷가 판단은 정박장 자리로 본다(조선소는 같은 물가 규칙이라 같은 도시에 선다)
   const dockId = (): string | undefined =>
-    o.world.catalog().facilities.find((def) => isBoatYard(def) && def.build)?.id;
+    o.world.catalog().facilities.find((def) => isBerth(def) && def.build)?.id;
+  const shipyardId = (): string | undefined =>
+    o.world.catalog().facilities.find((def) => isShipyard(def) && def.build)?.id;
   return {
-    /** 그 도시가 바닷가면 부두 시설 ID(아니면 undefined) */
+    /** 조선소 시설 ID(팩에 없으면 undefined) */
+    shipyard: shipyardId,
+    /** 그 도시가 바닷가면 정박장 시설 ID(아니면 undefined) */
     dockOf(cityId: number, ownerId: number): string | undefined {
       const cached = known.get(cityId);
       if (cached && now() - cached.atMs < COAST_TTL_MS) return cached.dock;
@@ -336,9 +346,10 @@ function coastalDocks(o: {
       known.set(cityId, { dock: found, atMs: now() });
       return found;
     },
-    /** 짓기 자리를 못 찾은 부두 → 그 도시는 바닷가가 아니다(기억 시간 동안) */
+    /** 짓기 자리를 못 찾은 정박장·조선소 → 그 도시는 바닷가가 아니다(기억 시간 동안) */
     noSpot(cityId: number, facility: string): void {
-      if (facility === dockId()) known.set(cityId, { dock: undefined, atMs: now() });
+      if (facility === dockId() || facility === shipyardId())
+        known.set(cityId, { dock: undefined, atMs: now() });
     },
   };
 }

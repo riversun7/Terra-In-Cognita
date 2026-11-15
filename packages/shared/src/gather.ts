@@ -1,6 +1,7 @@
 // 2차맵 원자재 오브젝트 채집·건물 들어가기 조회 응답 모양(tRPC gather.*) — docs/adr/2026-11-07-gather-objects.md.
 // 서버(apps/server/src/gather/)가 만들고 2차맵 화면(apps/game/src/map/gather/)이 읽는다. 바꾸는 명령은 WebSocket(프로토콜 17 gather_*·unit_enter)이다.
 
+import type { HarborPanel } from "./harbor.ts";
 export type GatherStatus = "ok" | "not_ready" | "unknown_map";
 
 /** 이름(ko·en) */
@@ -165,7 +166,9 @@ export interface GatherBuildingResponse {
   /** 내가 들어가면 직무를 받을 수 있나(내 채집 시설, 자리가 남음) */
   readonly hires: boolean;
   readonly inside: readonly GatherInsideUnit[];
-  /** 부두가 만드는 중인 배(docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"). 없으면 만드는 배 없음 */
+  /** 조선소가 만드는 중인 첫 배(docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)"). 없으면 만드는 배 없음 */
   readonly boatJob?: { readonly startedAt: number; readonly readyAt: number } | undefined;
+  /** 배 시설 판(조선소·정박장·교역 부두 — docs/adr/2026-11-15-shipyard-harbor.md). 배 시설이 아니면 없음 */
+  readonly harbor?: HarborPanel | undefined;
   readonly generatedAt: number;
 }

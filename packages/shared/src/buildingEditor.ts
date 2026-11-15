@@ -2,6 +2,7 @@
 // 서버(tRPC buildings.*, apps/server/src/buildingEdit/)와 화면(apps/game/src/editor/buildings/)이 같이 쓴다. 시설 항목은 콘텐츠 팩
 // facilities.json 한 줄과 같은 JSON 모양이다(참조는 ID 글자). 형식 검사는 서버가 팩 스키마로 한다(게임 앱은 @terra/content를 가져오지
 // 않는다). 값의 범위 상수는 화면 입력 칸이 쓰고, 맞는지는 서버가 다시 본다(서버 시험이 팩 스키마와 맞춰 본다).
+import type { HarborRole } from "./harbor.ts";
 import type {
   ContentEditOrigin,
   ContentHistoryRow,
@@ -183,6 +184,19 @@ export interface FacilityJson {
   readonly durability?: number | undefined;
   /** 레벨 1 창고 용량(kg, 49 N50). 없으면 창고 없음 */
   readonly storageKg?: number | undefined;
+  /** 배 시설 역할(조선소·정박장·교역 부두 — docs/adr/2026-11-15-shipyard-harbor.md). 편집기는 고치지 않고 그대로 둔다 */
+  readonly harbor?: HarborRole | undefined;
+  /** 조선소 배 종류 표(D-547 1484). 편집기는 고치지 않고 그대로 둔다 */
+  readonly boats?:
+    | readonly {
+        readonly id: string;
+        readonly name: LocalizedName;
+        readonly materials: readonly { readonly item: string; readonly qty: number }[];
+        readonly buildMs: number;
+        readonly speedPm: number;
+        readonly capacity: number;
+      }[]
+    | undefined;
   /** 2차맵 겉모습(모델 종류·벽·지붕 색·높이 배율, docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)"). 그림 자료 */
   readonly look?: FacilityLookJson | undefined;
 }

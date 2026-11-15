@@ -7,6 +7,7 @@
 // 2차 행이 없는 관통은 값이 있을 때만 줄을 더한다. 이동 속도 줄은 서버가 걷기 빠르기(move)를 보내면 늘 있다(2026-11-12).
 // 맨손 크리(crit.bare)는 맨손 식 풀이 "맨손 크리 = AGI(10) + DEX(10) = 20‰ = 2%", 맨손 명중(hit.bare)은 늘 100%(사용자 결정 2026-11-12),
 // 맨손 간격(interval.bare)은 "2,000 ÷ (AGI(10) ÷ 10)² = 2,000ms"(사용자 답 1252).
+// 공식 첫 줄(D-556): 서버가 보낸 판정 식(combat.formulas)을 글로 푼 것 — "크리 확률 = AGI + DEX (‰)". 옛 서버(식 없음)는 옛 문구.
 import type {
   RosterBuffs,
   RosterCombat,
@@ -18,6 +19,7 @@ import type {
 import { type ReactNode, useId, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { formatMilli, formatNumber, formatSigned, localName, primaryCode } from "../roster/rosterText.ts";
+import { combatSourceText } from "../roster/formulaLabels.ts";
 import { BuffChip } from "./BuffChip.tsx";
 import {
   barFill,
@@ -27,6 +29,7 @@ import {
   mapCrossMinutes,
   walkCellsMilli,
 } from "./cyborgText.ts";
+import { FormulaTextLines } from "./FormulaTextLines.tsx";
 import { StatIcon } from "./statIcons.tsx";
 
 const pct = (share: number): string => `${String(Math.round(share * 1000) / 10)}%`;
@@ -204,6 +207,19 @@ export function AttackRows({
   const attackCode = primaryCode(attack.kind === "physical" ? "str" : "int");
   const dex = primaryCode("dex");
   const agi = primaryCode("agi");
+  const attackStat = attack.kind === "physical" ? "str" : "int";
+  const texts = {
+    attack: combatSourceText(combat.formulas?.attack, attackStat),
+    hit: combatSourceText(combat.formulas?.hit),
+    crit: combatSourceText(combat.formulas?.crit),
+    interval: combatSourceText(combat.formulas?.interval),
+  };
+  const ids = {
+    attack: combat.formulas?.attack.id ?? null,
+    hit: combat.formulas?.hit.id ?? null,
+    crit: combat.formulas?.crit.id ?? null,
+    interval: combat.formulas?.interval.id ?? null,
+  };
   const weapon =
     combat.weapon === null
       ? m.cyborg_attack_bare()
@@ -218,10 +234,14 @@ export function AttackRows({
         fill={attackBar.fill}
         buff={attackBar.buff}
       >
-        <p className="combat-formula">
-          <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
-          {m.cyborg_attack_formula({ stat: attackCode })}
-        </p>
+        {texts.attack ? (
+          <FormulaTextLines name={m.cyborg_attack_real()} text={texts.attack} formulaId={ids.attack} />
+        ) : (
+          <p className="combat-formula">
+            <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+            {m.cyborg_attack_formula({ stat: attackCode })}
+          </p>
+        )}
         <p className="combat-line">{weapon}</p>
         <PartLine code={attackCode} part={attack.part} />
         <p className="combat-line combat-result" translate="no">
@@ -248,10 +268,13 @@ export function AttackRows({
         fill={hitBar.fill}
         buff={hitBar.buff}
       >
+        {texts.hit ? (
+          <FormulaTextLines name={m.cyborg_attack_hit()} text={texts.hit} unit="pm" formulaId={ids.hit} />
+        ) : null}
         {hit.bare ? (
           <>
-            <p className="combat-formula">
-              <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+            <p className={texts.hit ? "combat-formula-note" : "combat-formula"}>
+              {texts.hit ? null : <span className="combat-formula-label">{m.cyborg_formula_label()} </span>}
               {m.cyborg_attack_bare_hit_formula()}
             </p>
             <p className="combat-line combat-result" translate="no">
@@ -280,12 +303,17 @@ export function AttackRows({
         fill={critBar.fill}
         buff={critBar.buff}
       >
+        {texts.crit ? (
+          <FormulaTextLines name={m.cyborg_attack_crit()} text={texts.crit} unit="pm" formulaId={ids.crit} />
+        ) : null}
         {crit.bare ? (
           <>
-            <p className="combat-formula">
-              <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
-              {m.cyborg_attack_bare_crit_formula({ agi, dex })}
-            </p>
+            {texts.crit ? null : (
+              <p className="combat-formula">
+                <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+                {m.cyborg_attack_bare_crit_formula({ agi, dex })}
+              </p>
+            )}
             <p className="combat-line combat-result" translate="no">
               {m.cyborg_attack_bare_crit_line({
                 agi,
@@ -321,12 +349,22 @@ export function AttackRows({
         fill={intervalBar.fill}
         buff={intervalBar.buff}
       >
+        {texts.interval ? (
+          <FormulaTextLines
+            name={m.cyborg_attack_interval()}
+            text={texts.interval}
+            unit="ms"
+            formulaId={ids.interval}
+          />
+        ) : null}
         {interval.bare ? (
           <>
-            <p className="combat-formula">
-              <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
-              {m.cyborg_attack_bare_interval_formula({ agi })}
-            </p>
+            {texts.interval ? null : (
+              <p className="combat-formula">
+                <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+                {m.cyborg_attack_bare_interval_formula({ agi })}
+              </p>
+            )}
             <p className="combat-line combat-result" translate="no">
               {m.cyborg_attack_bare_interval_line({
                 agi,
@@ -490,13 +528,25 @@ export function MoveSpeedRow({
 }
 
 /** 스태미나 회복 줄을 펼친 공식 상자 끝: 실제 회복 = 행 값 × min(2, STA 점수 ÷ 적정 STA)(D-511) */
-export function StaminaRealLines({ regen }: { regen: RosterCombat["staminaRegen"] }) {
+export function StaminaRealLines({
+  regen,
+  formula,
+}: {
+  regen: RosterCombat["staminaRegen"];
+  /** 판정 식(real_stamina_regen, D-556). 옛 서버는 없음 */
+  formula?: { readonly id: string; readonly source: string } | undefined;
+}) {
+  const text = combatSourceText(formula);
   return (
     <>
-      <p className="combat-formula">
-        <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
-        {m.cyborg_stamina_real_formula()}
-      </p>
+      {text ? (
+        <FormulaTextLines name={m.cyborg_stamina_real()} text={text} formulaId={formula?.id ?? null} />
+      ) : (
+        <p className="combat-formula">
+          <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+          {m.cyborg_stamina_real_formula()}
+        </p>
+      )}
       <p className="combat-line combat-result" translate="no">
         {m.cyborg_stamina_real_line({
           row: formatNumber(regen.row),

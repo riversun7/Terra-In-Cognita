@@ -373,3 +373,9 @@
     align-items: start;
   }
 }
+/* 식 글 아래 뜻 줄(0 아래면 0·확률곡선 뜻, D-556) */
+.combat-formula-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}

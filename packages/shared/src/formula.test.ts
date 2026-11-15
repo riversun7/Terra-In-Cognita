@@ -228,6 +228,23 @@ describe("풀이·영향", () => {
     expect(influence.contribution).toEqual([10_000, 0, 0, 30_000, 0, 0]);
     expect(influence.sharePm).toEqual([250, 0, 0, 750, 0, 0]);
     expect(influence.plus10).toEqual([10_000, 0, 0, 30_000, 0, 0]);
+    expect(influence.equalLevel).toBe(10);
+    expect(influence.equalPlus10).toEqual([10_000, 0, 0, 30_000, 0, 0]);
+  });
+
+  it("AGI + DEX(1:1)는 분포가 기울어도 식의 가중치가 같다 — 기여 몫만 분포를 따른다(D-556)", () => {
+    const p = program("max(0, AGI) + max(0, DEX)");
+    const names = ["STR", "DEX", "AGI", "VIT", "INT", "WIS"];
+    // 재능계처럼 DEX가 AGI보다 큰 분포
+    const influence = primaryInfluence(
+      (primaries) =>
+        evaluateFormula(p, scope(Object.fromEntries(names.map((name, i) => [name, primaries[i] ?? 0])))),
+      [20, 120, 100, 22, 15, 15],
+    );
+    expect(influence.sharePm[1]).toBe(545);
+    expect(influence.sharePm[2]).toBe(454);
+    expect(influence.equalLevel).toBe(48);
+    expect(influence.equalPlus10).toEqual([0, 10_000, 10_000, 0, 0, 0]);
   });
 });
 

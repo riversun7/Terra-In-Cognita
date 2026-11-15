@@ -184,7 +184,10 @@ test.describe("플레이어: 사이보그 화면", () => {
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     const detail = hp.locator(".combat-detail");
     await expect(detail).toBeVisible();
-    await expect(detail.locator(".combat-formula")).toContainText(message("ko", "cyborg_formula_quantity"));
+    // 공식 첫 줄 = 그 행의 식 글(D-556, 가중치 행 → 판정과 같은 행 식)
+    await expect(detail.locator(".combat-formula")).toContainText(
+      /= STR × 1\.5 \+ DEX \+ AGI × 1\.5 \+ VIT × 3 \+ INT \+ WIS × 1\.2 \+ 장비 \+ 버프$/,
+    );
     await expect(detail.locator(".combat-line")).toHaveCount(8);
     const hpValue = (await hp.locator(".combat-value").textContent()) ?? "";
     await expect(detail.locator(".combat-result")).toHaveText(`= ${hpValue}`);
@@ -192,8 +195,9 @@ test.describe("플레이어: 사이보그 화면", () => {
     const evade = page.locator('.combat-row[data-sec="evade"]');
     await evade.locator(".combat-toggle").focus();
     await page.keyboard.press("Enter");
-    await expect(evade.locator(".combat-formula")).toContainText(message("ko", "cyborg_formula_probability"));
-    await expect(evade.locator(".combat-formula")).toContainText("|");
+    await expect(evade.locator(".combat-formula")).toContainText("= 확률곡선(⌊AGI⌋ + 장비, 850, 250) (‰)");
+    await expect(evade.locator(".combat-formula-note")).toContainText(message("ko", "formula_curve_note"));
+    await expect(evade.locator(".combat-formula-note")).toContainText("|");
     // 다시 누르면 접힌다
     await toggle.click();
     await expect(hp.locator(".combat-detail")).toBeHidden();
@@ -351,6 +355,18 @@ for (const theme of ["pastel", "dark", "station"] as const) {
       const crit = page.locator('.combat-row[data-real="crit"]');
       await crit.locator(".combat-toggle").click();
       await expect(crit.locator(".combat-result")).toContainText(/AGI\(\d+\) \+ DEX\(\d+\) = \d+‰/);
+      // 공식 첫 줄 = 서버가 보낸 판정 식의 글(D-556): 크리 확률 = AGI + DEX (‰), 0 아래면 0 한 줄
+      await expect(crit.locator(".combat-formula")).toHaveText(
+        `${message("ko", "cyborg_formula_label")} ${message("ko", "cyborg_attack_crit")} = AGI + DEX (‰)`,
+      );
+      await expect(crit.locator(".combat-formula-note")).toHaveText(
+        message("ko", "formula_floor_note", { names: "AGI·DEX" }),
+      );
+      const interval = page.locator('.combat-row[data-real="interval"]');
+      await interval.locator(".combat-toggle").click();
+      await expect(interval.locator(".combat-formula")).toContainText(
+        `${message("ko", "cyborg_attack_interval")} = min(5000, max(250, ⌊2000 ÷ (r × r)⌋)) (ms)`,
+      );
       const hit = page.locator('.combat-row[data-real="hit"]');
       await expect(hit.locator(".combat-value")).toHaveText("100%");
       await hit.locator(".combat-toggle").click();

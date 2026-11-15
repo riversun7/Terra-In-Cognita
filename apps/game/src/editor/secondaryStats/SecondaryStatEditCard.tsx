@@ -1,10 +1,12 @@
 // 선택한 2차 스탯(가중치·기본값·상한·반감) 또는 파생 전투식 편집 카드.
 import { FORMULA_FUNCTION_NAMES, type FormulaIssue, statFormulaKey } from "@terra/shared/formula";
+import type { FormulaText } from "@terra/shared/formulaText";
 import { PRIMARY_STATS } from "@terra/shared/roster";
 import { STAT_CELL_LIMITS, type StatCellField } from "@terra/shared/tuning";
 import { type ChangeEvent, useId, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { NumberControl } from "../content/contentEditorNumber.tsx";
+import { SecondaryFormulaLine } from "./SecondaryFormulaLine.tsx";
 import { cellFieldText, primaryCode, primaryName } from "./secondaryStatsMessages.ts";
 import {
   type SecondaryDraftState,
@@ -13,12 +15,15 @@ import {
   formulaSlotDefOf,
   hasTargetChanges,
   statRowModeOf,
+  targetLineUnit,
   targetFormulaSourceOf,
   validateTargetFormula,
 } from "./secondaryStatsModel.ts";
 
 interface Props {
   readonly target: TargetEntry;
+  /** 그래프 값을 낸 담은 식의 글(D-556) */
+  readonly formula: FormulaText | null;
   readonly drafts: SecondaryDraftState;
   readonly locale: string;
   readonly onCellChange: (key: string, value: number | null) => void;
@@ -105,6 +110,7 @@ function StatCellEditor({
 
 export function SecondaryStatEditCard({
   target,
+  formula,
   drafts,
   locale,
   onCellChange,
@@ -187,6 +193,13 @@ export function SecondaryStatEditCard({
           ) : null}
         </div>
       </header>
+
+      <SecondaryFormulaLine
+        name={name}
+        text={formula}
+        unit={targetLineUnit(target)}
+        formulaId={target.kind === "combat" ? target.formulaId : null}
+      />
 
       {!showFormulaBox && target.kind === "stat" ? (
         <div className="sec-weights-body">

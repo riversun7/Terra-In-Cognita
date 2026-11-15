@@ -1,7 +1,8 @@
 // 상세 전투 스펙 — 옛 프로젝트 SecondaryStatsCard를 그대로 따른다(사용자 요청 2026-11-01 "차라리 원래 프로젝트를 그냥 따라해라").
 // ADR 2026-11-01-ui-visibility "바뀜": 묶음 칸(VITALS 전투자원·OFFENSE 공격·DEFENSE 방어·MOBILITY 기동·EFFICIENCY 효율) 안에 줄마다
 // ▶ 펼침 + 아이콘 + 이름 + 한 색 막대 + 오른쪽 값. 색은 2차 스탯 색(--color-sec-*, 1차 스탯 색과 겹치지 않음). 1차 스탯 기여로 칠하지 않는다.
-// 펼치면 옛 화면의 공식 상자: "공식 … | 캡 …", 입력 줄(STR(43)×1.5 = 64.5 …), "= 결과". 값·항은 서버가 팩 stat_rows 식으로 계산해 보낸다.
+// 펼치면 옛 화면의 공식 상자: "공식 HP = STR × 1.5 + … + 장비 + 버프"(그 행의 식을 글로 — D-556), 입력 줄(STR(43)×1.5 = 64.5 …), "= 결과".
+// 값·항은 서버가 팩 stat_rows 식으로 계산해 보낸다. 식 글은 행 식이면 그 식, 가중치 행이면 판정과 같은 결과의 행 식(statRowExpression)이다.
 // 판정 값(서버 CyborgBody.combat, 입은 장비가 든 몸): 공격 묶음 끝에 실제 공격력·명중·크리·간격, 스태미나 회복 줄은 실제 회복(D-511).
 // 버프 몫(질문 354 → D-515 "기본값과 버프를 나눠 보인다"): 줄 값·풀이는 걸린 효과를 뺀 기본(서버 breakdown·combat), 값 옆 알약과
 // 막대 빗금 칸이 몫(CyborgBody.buffs — 1차 스탯 버프 몫 + 방어율·회피·크리 배율·쉴드 재생 등 전투 수치 버프, 판정과 같은 셈).
@@ -27,8 +28,10 @@ import {
   localName,
   primaryCode,
 } from "../roster/rosterText.ts";
+import { breakdownText } from "../roster/formulaLabels.ts";
 import { AttackRows, BuffLines, MoveSpeedRow, SpecRow, StaminaRealLines, shareOf } from "./CombatAttack.tsx";
 import { GatherRows } from "./CombatGather.tsx";
+import { FormulaTextLines } from "./FormulaTextLines.tsx";
 import { type CombatGroup, combatGroups, termMilliSum } from "./cyborgText.ts";
 import "./combatSpecs.css";
 
@@ -158,8 +161,12 @@ function CombatRow({
       fill={bar.fill}
       buff={bar.buff}
     >
-      {row.formula ? <FormulaLines row={row} shown={rowShown} /> : <WeightLines row={row} shown={rowShown} />}
-      {regen ? <StaminaRealLines regen={regen} /> : null}
+      {row.formula ? (
+        <FormulaLines row={row} name={name} shown={rowShown} />
+      ) : (
+        <WeightLines row={row} name={name} shown={rowShown} />
+      )}
+      {regen ? <StaminaRealLines regen={regen} formula={combat?.formulas?.staminaRegen} /> : null}
       {bar.buff ? (
         <BuffLines
           share={shareText}
@@ -171,14 +178,23 @@ function CombatRow({
   );
 }
 
-/** 행 식으로 셈한 행(개발자 모드 계산식, docs/adr/2026-11-01-formula-editor.md): 식 글과 항마다 값 */
-function FormulaLines({ row, shown }: { row: RosterStatBreakdown; shown: string }) {
+/** 줄 결과 단위: 확률 모양·크리 배율 점수는 ‰ */
+const rowUnit = (row: RosterStatBreakdown) =>
+  row.shape === "probability" || row.id === "crit_multiplier" ? ("pm" as const) : ("none" as const);
+
+/** 행 식으로 셈한 행(개발자 모드 계산식, docs/adr/2026-11-01-formula-editor.md): 식 글(D-556)과 항마다 값 */
+function FormulaLines({ row, name, shown }: { row: RosterStatBreakdown; name: string; shown: string }) {
+  const text = breakdownText(row);
   return (
     <>
-      <p className="combat-formula" translate="no">
-        <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
-        {row.formula?.source}
-      </p>
+      {text ? (
+        <FormulaTextLines name={name} text={text} unit={rowUnit(row)} />
+      ) : (
+        <p className="combat-formula" translate="no">
+          <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+          {row.formula?.source}
+        </p>
+      )}
       {row.formula?.terms.map((term, index) => (
         <p key={`${index}-${term.text}`} className="combat-line" translate="no">
           {term.sign < 0 ? "− " : ""}
@@ -190,21 +206,39 @@ function FormulaLines({ row, shown }: { row: RosterStatBreakdown; shown: string 
   );
 }
 
-/** 가중치 행: 공식 이름·항·가중합·장비·확률 모양 */
-function WeightLines({ row, shown }: { row: RosterStatBreakdown; shown: string }) {
+/** 가중치 행: 식 글(D-556)·확률 모양 뜻·항·가중합·장비 */
+function WeightLines({ row, name, shown }: { row: RosterStatBreakdown; name: string; shown: string }) {
   const probability = row.shape === "probability" && row.cap !== null && row.halfConstant !== null;
+  const text = breakdownText(row);
+  const shapeText = `${probability ? m.cyborg_formula_probability() : m.cyborg_formula_quantity()}${
+    probability && row.cap !== null && row.halfConstant !== null
+      ? ` | ${m.cyborg_formula_cap({
+          cap: formatStat({ id: row.id, shape: "probability", value: row.cap }),
+          half: formatNumber(row.halfConstant),
+        })}`
+      : ""
+  }`;
   return (
     <>
-      <p className="combat-formula">
-        <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
-        {probability ? m.cyborg_formula_probability() : m.cyborg_formula_quantity()}
-        {probability && row.cap !== null && row.halfConstant !== null
-          ? ` | ${m.cyborg_formula_cap({
-              cap: formatStat({ id: row.id, shape: "probability", value: row.cap }),
-              half: formatNumber(row.halfConstant),
-            })}`
-          : null}
-      </p>
+      {text ? (
+        <>
+          <FormulaTextLines name={name} text={text} unit={rowUnit(row)} explainCurve={false} />
+          {probability && row.cap !== null && row.halfConstant !== null ? (
+            <p className="combat-formula-note">
+              {m.formula_curve_note()} |{" "}
+              {m.cyborg_formula_cap({
+                cap: formatStat({ id: row.id, shape: "probability", value: row.cap }),
+                half: formatNumber(row.halfConstant),
+              })}
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <p className="combat-formula">
+          <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+          {shapeText}
+        </p>
+      )}
       {row.shape === "quantity" && row.base !== 0 ? (
         <p className="combat-line">
           {m.cyborg_term_base()} {formatNumber(row.base)}

@@ -303,7 +303,13 @@ export interface SimulationConfig {
 }
 
 export interface SecondaryChartBundle {
-  readonly influence: { readonly base: number; readonly items: readonly OrderedPrimaryInfluence[] };
+  /** 그래프·표의 값을 낸 담은 식 묶음(식 글도 여기서 만든다 — 글과 값이 같은 식, D-556) */
+  readonly programs: CompiledSecondaryPrograms;
+  readonly influence: {
+    readonly base: number;
+    readonly equalLevel: number;
+    readonly items: readonly OrderedPrimaryInfluence[];
+  };
   readonly curves: readonly ArchetypeLevelCurve[];
   readonly kBand: readonly KBandPoint[];
   readonly probabilityCurve: readonly ProbabilityCurvePoint[] | null;
@@ -429,6 +435,7 @@ export function computeChartBundle(
   });
 
   return {
+    programs: draftPrograms,
     influence,
     curves,
     kBand,
@@ -436,6 +443,22 @@ export function computeChartBundle(
     probabilityMarker,
     matrix,
   };
+}
+
+/** 대상(행 ID 또는 "combat:<식 ID>")의 값을 낸 식(없으면 null) */
+export function targetProgram(key: string, programs: CompiledSecondaryPrograms): FormulaProgram | null {
+  if (key.startsWith("combat:")) {
+    const id = key.slice("combat:".length);
+    return isCombatFormulaId(id) ? programs.combat[id] : null;
+  }
+  return programs.rows.find((row) => row.id === key)?.program ?? null;
+}
+
+/** 식 글 단위: ‰(확률·크리 배율 점수·‰ 전투 식), ms, 그 밖에는 없음 */
+export function targetLineUnit(target: TargetEntry): "pm" | "ms" | "none" {
+  const kind = targetUnitKind(target);
+  if (kind === "pm" || kind === "x") return "pm";
+  return kind === "ms" ? "ms" : "none";
 }
 
 /** 대상(선택된 행/전투식)과 관련된 초안만 되돌리기 */

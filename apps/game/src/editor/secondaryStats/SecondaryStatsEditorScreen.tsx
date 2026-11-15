@@ -4,7 +4,8 @@
 // docs/research/2026-11-14-dev-tools-overlap.md 5절). 옛 /dev/balance [가중치 표]·[계산식] 탭은 이 화면과 겹쳐 지웠다.
 import type { BalancePrimaries, BalanceTableResponse } from "@terra/shared/balance";
 import type { FormulaListResponse } from "@terra/shared/formula";
-import { PRIMARY_STATS } from "@terra/shared/roster";
+import type { FormulaText } from "@terra/shared/formulaText";
+import { PRIMARY_STATS, type PrimaryStat } from "@terra/shared/roster";
 import {
   SECONDARY_ARCHETYPE_IDS,
   SECONDARY_ARCHETYPE_WEIGHTS,
@@ -19,10 +20,12 @@ import { refreshSession } from "../../auth/session.ts";
 import { api } from "../../net/api.ts";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
+import { programText } from "../../roster/formulaLabels.ts";
 import { ScopeTarget } from "../../scope/ScopeBar.tsx";
 import { AppLink } from "../../shell/AppLink.tsx";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
+import { SecondaryFormulaLine } from "./SecondaryFormulaLine.tsx";
 import { SecondaryStatEditCard } from "./SecondaryStatEditCard.tsx";
 import { SecondaryStatsCharts } from "./SecondaryStatsCharts.tsx";
 import { SecondaryStatsExtras } from "./SecondaryStatsExtras.tsx";
@@ -39,6 +42,8 @@ import {
   extractErrorKey,
   hasTargetChanges,
   revertTargetDrafts,
+  targetLineUnit,
+  targetProgram,
 } from "./secondaryStatsModel.ts";
 import "./secondaryStats.css";
 
@@ -168,6 +173,25 @@ export default function SecondaryStatsEditorScreen({ initialTarget }: SecondaryS
     if (load.status !== "ready" || !activeTarget) return null;
     return computeChartBundle(activeTarget, load.table, load.formulas, drafts, config);
   }, [load, activeTarget, drafts, config]);
+
+  // 식 글(D-556): 그래프·표의 값을 낸 담은 식에서 만든다. 실제 공격력의 적정 대상 1차는 표본 무기 종류(물리 STR·속성 INT)
+  const attackStat: PrimaryStat =
+    load.status === "ready" &&
+    load.formulas.weapons.find((w) => w.id === config.weaponId)?.kind === "elemental"
+      ? "int"
+      : "str";
+  const formulaTexts = useMemo(() => {
+    const out = new Map<string, FormulaText | null>();
+    if (!chartBundle) return out;
+    for (const entry of catalog) {
+      const program = targetProgram(entry.key, chartBundle.programs);
+      out.set(
+        entry.key,
+        program ? programText(program, entry.kind === "combat" ? entry.formulaId : null, attackStat) : null,
+      );
+    }
+    return out;
+  }, [catalog, chartBundle, attackStat]);
 
   const payload = useMemo(() => buildSavePayload(drafts), [drafts]);
 
@@ -336,8 +360,17 @@ export default function SecondaryStatsEditorScreen({ initialTarget }: SecondaryS
                             aria-current={active ? "true" : undefined}
                             onClick={() => setSelectedKey(entry.key)}
                           >
-                            <span className="sec-target-name">
-                              {locale === "en" ? entry.name.en : entry.name.ko}
+                            <span className="sec-target-text">
+                              <span className="sec-target-name">
+                                {locale === "en" ? entry.name.en : entry.name.ko}
+                              </span>
+                              <SecondaryFormulaLine
+                                compact
+                                name={locale === "en" ? entry.name.en : entry.name.ko}
+                                text={formulaTexts.get(entry.key) ?? null}
+                                unit={targetLineUnit(entry)}
+                                formulaId={entry.kind === "combat" ? entry.formulaId : null}
+                              />
                             </span>
                             <span className="sec-target-marks">
                               <code className="sec-target-id">
@@ -565,6 +598,7 @@ export default function SecondaryStatsEditorScreen({ initialTarget }: SecondaryS
 
             <SecondaryStatEditCard
               target={activeTarget}
+              formula={formulaTexts.get(activeTarget.key) ?? null}
               drafts={drafts}
               locale={locale}
               onCellChange={onCellChange}
@@ -580,6 +614,7 @@ export default function SecondaryStatsEditorScreen({ initialTarget }: SecondaryS
               kMaxPm={load.formulas.growth?.kMaxPm ?? 1200}
               config={config}
               locale={locale}
+              formulaTexts={formulaTexts}
               onSelectStat={(rowId) => setSelectedKey(rowId)}
             />
 

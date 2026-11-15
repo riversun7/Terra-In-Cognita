@@ -60,3 +60,8 @@
   - items 44/44, gather-tiers 12/12, battleLab 18/18, unit-control 21/21, secondaryStats 7/7, cyborg 22/22, dev 15/15 (30.6분)
   - battle-replay 9/9(측정 2개 건너뜀, 1.9분)
 - 나머지 여덟(boats·gather·gather-station·terrain-objects·gather-objects·gather-expect·economy·battleReport)도 e65b78f에서 다시 돌렸다(Verified): 79 통과·1 건너뜀(측정 전용), 25.2분.
+
+## 배포 (Verified)
+- main a19e586, CI 342: 검사(약 6분)·이미지·NAS 배포 성공(2026-11-15 14:36 KST 앱 다시 켬, core@98). 세계는 새로 시작하지 않았다.
+- 켠 뒤 8분 nas-metrics(run 43682379515): RSS 562~579MB(컨테이너 메모리 56.9%), 루프 p99 1.0~1.7ms(첫 1분 최대 371ms → 그 뒤 최대 1.3~25.6ms), DB 실패 0, 경로 대기 p95 첫 1분 1,053ms → 0.4~0.7ms. 도시 49·건물 896·휴먼 2,279, 2차맵 58, 유닛 3,296, 세력 16, 지형 디스크 캐시 431장(새로 만든 것 0, 실패 0). 기기 오류 0.
+- 배·부두 지우기 기록("boat reset: legacy boats and docks removed")은 nas-metrics가 모으는 줄이 아니라 보지 못했다(Unknown). 다음 묶음에서 nas-metrics에 그 줄을 모으게 하거나 `boat_resets` 표를 읽게 한다.

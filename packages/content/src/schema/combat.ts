@@ -131,7 +131,16 @@ const conditionPart = z.discriminatedUnion("part", [
  * 스킬 모양(보는 쪽이 그림을 고르는 칸, ADR combat-core "바뀜 (2026-11-01, 마법 스킬)"). 판정은 대상·사거리·반지름·연쇄 칸으로 하고
  * checkSkillShape가 둘이 맞는지 본다
  */
-export const SKILL_SHAPES = ["single", "projectile", "area", "chain", "heal", "buff", "debuff", "move"] as const;
+export const SKILL_SHAPES = [
+  "single",
+  "projectile",
+  "area",
+  "chain",
+  "heal",
+  "buff",
+  "debuff",
+  "move",
+] as const;
 const ENEMY_SHAPES: readonly string[] = ["single", "projectile", "area", "chain", "debuff", "move"];
 const DAMAGE_SHAPES: readonly string[] = ["single", "projectile", "area", "chain"];
 
@@ -166,7 +175,10 @@ function checkSkillShape(entry: unknown, ctx: z.RefinementCtx): void {
       `모양 ${shape}은(는) 피해를 줍니다(damage: physical·elemental). 피해 없이 효과만 걸면 debuff입니다.`,
     );
   if (shape === "move" && damage !== "none")
-    fail("damage", "모양 move는 피해 없이(damage: none) 자기 몸만 옮깁니다. 끝에 치면 single·area에 move 칸을 답니다.");
+    fail(
+      "damage",
+      "모양 move는 피해 없이(damage: none) 자기 몸만 옮깁니다. 끝에 치면 single·area에 move 칸을 답니다.",
+    );
   if (shape === "debuff" && damage !== "none")
     fail(
       "damage",
@@ -237,7 +249,10 @@ function checkSkillMoves(entry: unknown, ctx: z.RefinementCtx): void {
   if (shape === "move" && !motion)
     fail("move", "모양 move는 자기 몸 이동 부품(dash·leap·blink·backstep)이 있어야 합니다.");
   if (get("displace") !== undefined && (typeof shape !== "string" || !DISPLACE_SHAPES.includes(shape)))
-    fail("displace", "밀치기·끌어오기·묶기는 적에게 맞는 모양(single·projectile·area·chain·debuff)에만 답니다.");
+    fail(
+      "displace",
+      "밀치기·끌어오기·묶기는 적에게 맞는 모양(single·projectile·area·chain·debuff)에만 답니다.",
+    );
   if (get("shots") !== undefined && (typeof shape !== "string" || !SHOT_SHAPES.includes(shape)))
     fail("shots", "연사(shots)는 대상 하나 모양(single·projectile)에만 답니다.");
   const curves = get("curves");

@@ -222,9 +222,7 @@ describe("전투 리플레이 이진 형식", () => {
     const v1: BattleReplay = {
       ...old,
       formatVersion: 1,
-      events: old.events.filter(
-        (event) => !["motion", "stealth", "run", "multishot"].includes(event.k),
-      ),
+      events: old.events.filter((event) => !["motion", "stealth", "run", "multishot"].includes(event.k)),
       keyframes: old.keyframes.map((keyframe) => ({
         ...keyframe,
         units: keyframe.units.map(({ stealth: _stealth, running: _running, ...rest }) => rest),

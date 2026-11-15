@@ -97,22 +97,22 @@ function recorder(): { trace: BattleTrace; seen: Seen } {
     attack() {},
     building() {},
     skill() {},
-    skillHit(unit, skillRow, target) {
-      seen.hits.push({ unit: unit.id, target: target.id, skill: skillRow.id });
+    skillHit(who, skillRow, target) {
+      seen.hits.push({ unit: who.id, target: target.id, skill: skillRow.id });
     },
     heal() {},
     dot() {},
-    motion(unit, kind, fromX, fromY) {
-      seen.motion.push({ unit: unit.id, kind, from: [fromX, fromY], to: [unit.x, unit.y] });
+    motion(who, kind, fromX, fromY) {
+      seen.motion.push({ unit: who.id, kind, from: [fromX, fromY], to: [who.x, who.y] });
     },
-    stealth(unit, on, cause) {
-      seen.stealth.push({ unit: unit.id, on, cause });
+    stealth(who, on, cause) {
+      seen.stealth.push({ unit: who.id, on, cause });
     },
-    run(unit, on) {
-      seen.run.push({ unit: unit.id, on });
+    run(who, on) {
+      seen.run.push({ unit: who.id, on });
     },
-    multishot(unit, _skill, _target, shots) {
-      seen.multishot.push({ unit: unit.id, shots });
+    multishot(who, _skill, _target, shots) {
+      seen.multishot.push({ unit: who.id, shots });
     },
   };
   return { trace, seen };
@@ -151,7 +151,9 @@ describe("계수 곡선(ADR 3절, [임시] 출발값)", () => {
     expect([1, 2, 5, 30].map((r) => rangeIntervalPm(r, m))).toEqual([1000, 1100, 1400, 2500]);
     expect([1, 2, 5, 9, 20].map((d) => magicDistancePm(d, m))).toEqual([1200, 1150, 1000, 800, 800]);
     expect([1, 2, 3, 20].map((n) => magicTargetsPm(n, m))).toEqual([1000, 550, 525, 300]);
-    expect([0, 3000, 5000, 13_000, 60_000].map((ms) => dotTotalPm(ms, m))).toEqual([500, 1000, 900, 500, 500]);
+    expect([0, 3000, 5000, 13_000, 60_000].map((ms) => dotTotalPm(ms, m))).toEqual([
+      500, 1000, 900, 500, 500,
+    ]);
     expect([1, 2, 3, 5, 8].map((n) => multishotPm(n, m))).toEqual([1000, 850, 700, 400, 300]);
     expect([closeShotPm(6, 2, m), closeShotPm(6, 3, m), closeShotPm(1, 1, m)]).toEqual([1200, 1000, 1000]);
   });
@@ -216,7 +218,9 @@ describe("계수 곡선(ADR 3절, [임시] 출발값)", () => {
   });
 
   it("사거리 간격 예산: 고른 스킬은 뒤 행동 간격이 사거리만큼 길다", () => {
-    const caster = unitFrom(unit(1, 1, 1, 0, 10, { skills: [skill({ range: 5, curves: ["range_interval"] })] }));
+    const caster = unitFrom(
+      unit(1, 1, 1, 0, 10, { skills: [skill({ range: 5, curves: ["range_interval"] })] }),
+    );
     startSkill(caster, 0, 101, 0, TEST_COMBAT_COEFFICIENTS);
     expect(caster.nextActionMs).toBe(700);
     const plain = unitFrom(unit(2, 1, 1, 0, 11, { skills: [skill({ range: 5 })] }));
@@ -295,9 +299,17 @@ describe("이동 부품(ADR 2절)", () => {
 
     const walled = openMap(32);
     walled.buildings = [
-      { id: 7, cells: Array.from({ length: 32 }, (_, y) => y * 32 + 8), durability: 100, nexus: false, wall: true },
+      {
+        id: 7,
+        cells: Array.from({ length: 32 }, (_, y) => y * 32 + 8),
+        durability: 100,
+        nexus: false,
+        wall: true,
+      },
     ];
-    const blocked = createBattle(fight([unit(1, 1, 1, 5, 10, { skills: [leap] }), dummy(101, 11, 10)], walled));
+    const blocked = createBattle(
+      fight([unit(1, 1, 1, 5, 10, { skills: [leap] }), dummy(101, 11, 10)], walled),
+    );
     blocked.step([]);
     expect(byId(blocked.state, 1).x).toBeLessThan(8);
     expect(byId(blocked.state, 101).hp).toBe(5000);
@@ -320,7 +332,12 @@ describe("이동 부품(ADR 2절)", () => {
     expect(cheb(byId(short.state, 1), { x: 5, y: 10 })).toBeLessThanOrEqual(3);
     expect(byId(short.state, 1).x).toBeGreaterThan(5);
 
-    const away = skill({ shape: "move", damage: "none", range: 3, move: { kind: "blink", cells: 4, dir: "away" } });
+    const away = skill({
+      shape: "move",
+      damage: "none",
+      range: 3,
+      move: { kind: "blink", cells: 4, dir: "away" },
+    });
     const flee = createBattle(fight([unit(1, 1, 1, 10, 10, { skills: [away] }), dummy(101, 11, 10)]));
     flee.step([]);
     expect(cheb(byId(flee.state, 1), byId(flee.state, 101))).toBe(5);
@@ -357,7 +374,9 @@ describe("이동 부품(ADR 2절)", () => {
     const root = skill({ displace: { kind: "root", durationMs: 2000 } });
     const c = createBattle(fight([unit(1, 1, 1, 5, 10, { skills: [root] }), dummy(101, 6, 10)]));
     c.step([]);
-    expect(byId(c.state, 101).effects.map((e) => [e.id, e.status, e.untilMs])).toEqual([["move_root", "root", 2000]]);
+    expect(byId(c.state, 101).effects.map((e) => [e.id, e.status, e.untilMs])).toEqual([
+      ["move_root", "root", 2000],
+    ]);
   });
 
   it("은신: 적 편 시야에서 빠지고, 다가온 적에게 들키면 깨진다", () => {
@@ -463,7 +482,9 @@ describe("달리기(ADR 1절)", () => {
     expect(byId(battle.state, 1).running).toBeUndefined();
 
     const short = createBattle(fight([unit(1, 1, 1, 2, 20, { sight: 0 }), dummy(101, 30, 2)]));
-    short.step([{ tick: 0, kind: "command", unit: 1, command: { kind: "move", cell: 20 * 32 + 4, run: true } }]);
+    short.step([
+      { tick: 0, kind: "command", unit: 1, command: { kind: "move", cell: 20 * 32 + 4, run: true } },
+    ]);
     for (let i = 0; i < 20; i++) short.step([]);
     expect(byId(short.state, 1).command).toBeNull();
     expect(byId(short.state, 1).running).toBeUndefined();
@@ -482,8 +503,23 @@ function mixedBattle(seed: number): { init: BattleInit; inputs: BattleInput[] } 
     move: { kind: "stealth", durationMs: 4000 },
   });
   const kit = [
-    [skill({ id: "dash", range: 6, move: { kind: "dash", cells: 5 }, displace: { kind: "knockback", cells: 2 } })],
-    [skill({ id: "volley", shape: "projectile", range: 7, shots: 3, curves: ["close_shot", "range_interval"] })],
+    [
+      skill({
+        id: "dash",
+        range: 6,
+        move: { kind: "dash", cells: 5 },
+        displace: { kind: "knockback", cells: 2 },
+      }),
+    ],
+    [
+      skill({
+        id: "volley",
+        shape: "projectile",
+        range: 7,
+        shots: 3,
+        curves: ["close_shot", "range_interval"],
+      }),
+    ],
     [
       skill({ id: "blink", range: 9, move: { kind: "blink", cells: 6, dir: "toward" } }),
       skill({ id: "pull", shape: "projectile", range: 6, displace: { kind: "pull", cells: 3 } }),
@@ -492,7 +528,9 @@ function mixedBattle(seed: number): { init: BattleInit; inputs: BattleInput[] } 
   ];
   const units: CombatUnitSpec[] = [];
   for (let i = 0; i < 4; i++) {
-    units.push(unit(1 + i, 1, 1, 9, 12 + i * 2, { skills: kit[i] ?? [], maxHp: 300, range: i === 1 ? 6 : 1 }));
+    units.push(
+      unit(1 + i, 1, 1, 9, 12 + i * 2, { skills: kit[i] ?? [], maxHp: 300, range: i === 1 ? 6 : 1 }),
+    );
     units.push(
       unit(101 + i, 2, 11, 20, 12 + i * 2, { skills: kit[3 - i] ?? [], maxHp: 300, range: i === 2 ? 6 : 1 }),
     );
@@ -535,14 +573,22 @@ describe("결정성·재생(ADR 4·5절)", () => {
     const recorded = recordBattleReplay(init, { inputs });
     expect(recorded.finalState).toBe(plain.finalState);
     const kinds = new Set(recorded.replay.events.map((event) => event.k));
-    for (const kind of ["motion", "stealth", "run", "multishot"] as const) expect(kinds.has(kind), kind).toBe(true);
-    const motions = new Set(recorded.replay.events.flatMap((event) => (event.k === "motion" ? [event.kind] : [])));
+    for (const kind of ["motion", "stealth", "run", "multishot"] as const)
+      expect(kinds.has(kind), kind).toBe(true);
+    const motions = new Set(
+      recorded.replay.events.flatMap((event) => (event.k === "motion" ? [event.kind] : [])),
+    );
     expect([...motions].toSorted()).toEqual(expect.arrayContaining(["dash", "knockback"]));
     const state = rebuilt(recorded.replay);
     recorded.replay.units.forEach((row, index) => {
       const real = byId(recorded.state, row.id);
       const mine = state[index];
-      expect({ x: mine?.x, y: mine?.y, stealth: mine?.stealth === true, running: mine?.running === true }).toEqual({
+      expect({
+        x: mine?.x,
+        y: mine?.y,
+        stealth: mine?.stealth === true,
+        running: mine?.running === true,
+      }).toEqual({
         x: real.x,
         y: real.y,
         stealth: real.stealthUntilMs !== undefined,

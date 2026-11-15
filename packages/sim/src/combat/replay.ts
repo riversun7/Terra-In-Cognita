@@ -347,7 +347,17 @@ export function recordBattleReplay(init: BattleInit, options: RecordBattleOption
         : facingBetween(fromX, fromY, unit.x, unit.y, facing.get(unit.id) ?? 2);
       facing.set(unit.id, next);
       motioned.add(unit.id);
-      events.push({ k: "motion", t: tickNow(), u: unitIndex(unit.id), kind, fromX, fromY, x: unit.x, y: unit.y, facing: next });
+      events.push({
+        k: "motion",
+        t: tickNow(),
+        u: unitIndex(unit.id),
+        kind,
+        fromX,
+        fromY,
+        x: unit.x,
+        y: unit.y,
+        facing: next,
+      });
     },
     stealth(unit, on, cause) {
       events.push({ k: "stealth", t: tickNow(), u: unitIndex(unit.id), on, cause });

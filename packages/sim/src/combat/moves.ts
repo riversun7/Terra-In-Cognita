@@ -200,7 +200,8 @@ export function performMotion(
     if (spot) relocate(world, unit, spot[0], spot[1]);
   }
   if (unit.x !== fromX || unit.y !== fromY) world.trace?.motion?.(unit, move.kind, fromX, fromY);
-  if (move.kind === "dash") return chebyshev(unit.x, unit.y, goal.x, goal.y) <= Math.max(1, move.hitRange ?? 1);
+  if (move.kind === "dash")
+    return chebyshev(unit.x, unit.y, goal.x, goal.y) <= Math.max(1, move.hitRange ?? 1);
   if (move.kind === "leap") return chebyshev(unit.x, unit.y, goal.x, goal.y) <= 1;
   return world.reach(unit, goal, skillRange);
 }

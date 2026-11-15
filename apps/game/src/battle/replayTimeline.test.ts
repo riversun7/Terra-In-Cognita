@@ -306,7 +306,11 @@ describe("리플레이 해석", () => {
       { k: "motion", t: 25, u: 3, kind: "blink", fromX: 10, fromY: 6, x: 14, y: 6, facing: 2 },
       { k: "multishot", t: 25, u: 1, target: 3, skill: 0, shots: 3 },
     ];
-    const events = [...base.events.filter((event) => event.t < 20), ...extra, ...base.events.filter((event) => event.t >= 20)];
+    const events = [
+      ...base.events.filter((event) => event.t < 20),
+      ...extra,
+      ...base.events.filter((event) => event.t >= 20),
+    ];
     const timeline = createReplayTimeline({ ...base, events });
     // 돌진: 틱 20 사건은 2100ms에 닿고, 한 틱(100ms) 앞에서 출발한다
     expect(timeline.unitsAt(2000)[0]?.x).toBe(4.5);

@@ -8,7 +8,7 @@
 - 사용자 요청 "시작 (판정 토대부터)" — 전투 개편 1단계만(`packages/sim` 판정). 수치는 모두 설정 칸 `moves_*`(19칸, [임시], 49에 칸 없음).
 - 달리기: 유닛 상태 `running`(켜졌을 때만), 걷기 간격 × 600‰, 초당 스태미나 15(STA 배율), 모자라면 꺼짐·3초 몫 차야 다시. 켜는 곳 = 대기 명령 `run` 칸(sim 입력)과 AI 고리 `wantsRun`. 걷기는 그대로 무료.
 - 이동 부품(스킬 칸 `move`): 돌진(곧은 줄, 막히면 멈춤, 끝에서 hitRange 안이면 붙음)·도약(길 무시, 건물은 못 넘음)·점멸(자기 시야·시선 안, toward/away)·뒷걸음·은신(적 편 시야에서 빠짐, 공격·들킴으로 깨짐)·감지. 대상 옮김(`displace`): 밀치기·끌어오기·묶기(`move_root` 상태이상).
-- 곡선(`combat/curves.ts`, 스킬 칸 `curves`·`shots`): 사거리 ↔ 간격 예산, 마법 거리, 마법 대상 수, 지속 피해 합, 연사(발마다 따로 굴림), 가까이 쏘기. 고른 스킬만 걸린다. 계열 사이 고정 상성 고리는 넣지 않았다(통합 담당 전달 — D-557의 "상성 고리"는 해석, D-181).
+- 곡선(`combat/curves.ts`, 스킬 칸 `curves`·`shots`): 사거리 ↔ 간격 예산, 마법 거리, 마법 대상 수, 지속 피해 합, 연사(발마다 따로 굴림), 가까이 쏘기. 고른 스킬만 걸린다. 계열 사이 상성 고리는 규칙이 아니다(사용자 답 2026-11-15 "이 고리를 규칙으로 정할지는 정하지 않는다 … 특색있는 유닛들을 만들고 밸런스를 맞춘다") — 부품·곡선·스탯 조합에서 나오고 밸런스 화면으로 맞춘다.
 - AI 고리 `combat/moveAi.ts`: `wantsRun`·`moveSkillAllowed`(지금 늘 참)·`STEALTH_BREAKS_ON_DAMAGE`(거짓). 4단계가 몸통을 바꾼다.
 - 리플레이 형식 2(`@terra/protocol`): 사건 `motion`(dash·leap·blink·backstep·knockback·pull)·`stealth`(까닭 넷)·`run`·`multishot`, 스킬 모양 `move`, 키프레임 은신·달리기 표지(상태 바이트 비트). 읽기는 1·2 둘 다. **WebSocket PROTOCOL_VERSION은 그대로**(리플레이는 WS 메시지가 아니다).
 - 팩 스킬 항목 선택 칸 `move`·`displace`·`curves`·`shots` + 모양 `move` + 검사(`checkSkillMoves`). `@terra/shared` 스킬 JSON 모양에도 칸. 스킬 편집기 모양 고르기에 "움직임만"(ko·en).
@@ -39,6 +39,8 @@
 - Verified: `moves.test.ts` 24개(곡선 값·곧은 줄·돌진/막힘·도약/성벽·점멸 시야/away·뒷걸음·밀치기/끌어오기/묶기·은신 들킴/공격·NPC 편 같은 판정·달리기 빠르기/소모/지침/명령 끝·결정성 시드 셋·스냅숏 다시 켜기·리플레이 끝 상태·사건 되짚기 자리·은신 표지·부호화 왕복). sim 전투·설정 칸 시험 묶음 통과.
 - Verified: 프로토콜 리플레이 시험 11개(모든 사건 종류를 시험 자료가 씀, 형식 1 읽기), 팩 검사 시험 17개, 게임 앱 `src/battle` 시험 통과, 게임 앱 typecheck, `pnpm check:content --no-compat`.
 - 전체 `pnpm check`·빌드·check-pwa·check:bundle·전투 보고서 e2e 결과는 아래 "마지막 검사"에 적는다.
+
+- 다음 줄기(전투 편집기 + 절차적 그림)를 위한 고리를 ADR 8절에 적었다(서버 없이 손으로 만든 리플레이로 보기 화면을 돌림).
 
 ## 함께 바꿔야 하는 파일
 - 스킬 모양을 더하면 `@terra/content` SKILL_SHAPES·`@terra/shared` SKILL_SHAPE_IDS·sim `SkillShape`·프로토콜 REPLAY_SKILL_SHAPES(끝에)·스킬 편집기 문구를 함께.

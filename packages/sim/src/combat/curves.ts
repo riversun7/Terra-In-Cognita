@@ -3,7 +3,13 @@
 // 곡선은 스킬이 고른 것만 걸린다(스킬 칸 curves·shots). 고르지 않은 스킬·기본 공격은 옛 판정 그대로다.
 
 /** 스킬이 고르는 곡선 이름(팩 스킬 칸 curves) */
-export const SKILL_CURVES = ["range_interval", "magic_distance", "magic_targets", "dot_total", "close_shot"] as const;
+export const SKILL_CURVES = [
+  "range_interval",
+  "magic_distance",
+  "magic_targets",
+  "dot_total",
+  "close_shot",
+] as const;
 export type SkillCurve = (typeof SKILL_CURVES)[number];
 
 /** 움직임·곡선 설정 칸(계수표 moves). 모두 [임시] */

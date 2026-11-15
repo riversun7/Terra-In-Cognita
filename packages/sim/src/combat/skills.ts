@@ -225,7 +225,10 @@ export function skillFromData(
 }
 
 /** 스킬이 이 곡선을 골랐나 */
-export function hasCurve(skill: { readonly curves?: readonly SkillCurve[] | undefined }, curve: SkillCurve): boolean {
+export function hasCurve(
+  skill: { readonly curves?: readonly SkillCurve[] | undefined },
+  curve: SkillCurve,
+): boolean {
   return skill.curves?.includes(curve) === true;
 }
 

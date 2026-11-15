@@ -192,8 +192,7 @@ export function createReplayTimeline(replay: BattleReplay): ReplayTimeline {
     if (low >= track.arrive.length) return { x: px + 0.5, y: py + 0.5, facing: null };
     const arrive = track.arrive[low] ?? 0;
     const previous = track.arrive[before] ?? Number.NEGATIVE_INFINITY;
-    const duration =
-      track.span[low] ?? Math.max(tickMs, Math.min(unit.moveIntervalMs, arrive - previous));
+    const duration = track.span[low] ?? Math.max(tickMs, Math.min(unit.moveIntervalMs, arrive - previous));
     const left = arrive - timeMs;
     if (left >= duration) return { x: px + 0.5, y: py + 0.5, facing: null };
     const alpha = 1 - left / duration;
@@ -433,7 +432,13 @@ export function createReplayTimeline(replay: BattleReplay): ReplayTimeline {
               ] as const)
                 out.push({ kind: "glow", x: x + 0.5, y: y + 0.5, progress, tone: { kind: "buff" } });
             } else if (event.kind === "knockback" || event.kind === "pull")
-              out.push({ kind: "flash", x: event.x + 0.5, y: event.y + 0.5, progress, tone: { kind: "debuff" } });
+              out.push({
+                kind: "flash",
+                x: event.x + 0.5,
+                y: event.y + 0.5,
+                progress,
+                tone: { kind: "debuff" },
+              });
             else
               out.push({
                 kind: "beam",

@@ -5,7 +5,7 @@
 // 바뀜(2026-11-09): "탐사한 곳이 없어 어둡다" 안내를 지웠다(내 유닛이 없는 2차맵은 들어갈 수 없다 — 넘은 직후에만 틀리게 떴다).
 // 2차맵 낮밤(ADR 2026-10-28-s1-second-map "구현하며 정한 것 (2차맵 낮밤)"): ?second-map-time=<0~24>로 지역 시각을 멈추고
 // 빛 표지(data-light-*)와 화면 밝기를 본다. 사진은 낮·박명·밤 × 390·1440 × 기본 테마 둘(세계 색은 테마와 상관없다, HUD만 바뀐다).
-import { closeOperatorMenu, freeViewToggle, operatorToggle } from "./helpers/mapHud.ts";
+import { closeOperatorMenu, freeViewToggle, operatorToggle, setOperatorMode } from "./helpers/mapHud.ts";
 import type { Page } from "@playwright/test";
 import { horizontalOverflow, shot } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
@@ -24,10 +24,8 @@ async function openMap(page: Page, search: string): Promise<void> {
   const screen = page.locator(".map-screen");
   await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 15_000 });
   await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
-  const toggle = await operatorToggle(page);
-  if ((await toggle.getAttribute("aria-pressed")) !== "true") await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
-  // 운영 메뉴는 닫는다(위 판 줄이 지도를 덜 가리게 — 밝기 재기)
+  // 운영 메뉴는 항목을 누르면 닫힌다(D-560 1239 — 위 판 줄이 지도를 덜 가리게, 밝기 재기)
+  await setOperatorMode(page, true);
   await closeOperatorMenu(page);
   await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
 }
@@ -97,10 +95,11 @@ test.describe("dev", () => {
     const observe = await operatorToggle(page);
     await expect(observe).toHaveAttribute("aria-pressed", "false");
     await observe.click();
-    await expect(observe).toHaveAttribute("aria-pressed", "true");
+    await expect(screen).toHaveAttribute("data-operator", "on");
+    await expect(await operatorToggle(page)).toHaveAttribute("aria-pressed", "true");
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
-    await observe.click();
-    await expect(observe).toHaveAttribute("aria-pressed", "false");
+    await (await operatorToggle(page)).click();
+    await expect(screen).toHaveAttribute("data-operator", "off");
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
     expect(deviceErrors).toEqual([]);
   });

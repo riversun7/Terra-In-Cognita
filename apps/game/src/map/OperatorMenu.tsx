@@ -1,9 +1,10 @@
 // 지도 운영 메뉴 — 사용자 지적 2026-11-12 "운영자메뉴를 하나로 모아 열고닫게 해라 너무 지저분하다. Fast ms 같은 장보창도 토글로해라".
 // 운영진(gm·admin·dev, useStaffView)에게만 위 판 머리에 [운영] 단추 하나를 두고, 누르면 위 판 줄 아래에 판이 열린다(다시 누르면·Esc·밖을 누르면 닫힘).
+// 판 안 항목(단추)을 누르면 그 일을 하고 판을 닫는다(기획 D-560 1239 "운영 메뉴 누르면 닫힘"). 밀대(1차맵 시점 등)는 단추가 아니라 닫지 않는다.
 // 판 안: [성능 표시](운영진 — 1·2차맵이 같은 값, perfPanelToggle.ts), 2차맵이면 [운영자 모드]·[자유 시점](dev·admin, 옛 아래 판의 흩어진 단추).
 // 운영자 단추는 빨간 운영자 모양(map-operator-button, 사용자 답 Q2). 운영자 권한이 없으면 단추도 판도 없다 — 서버도 명령마다 권한을 본다.
 // 상태는 화면이 갖는다(useOperatorMenu) — 단추는 머리 판 안에, 판은 위 판 줄의 한 줄로 따로 놓기 때문이다.
-import { type ReactNode, useEffect, useId, useState } from "react";
+import { type MouseEvent, type ReactNode, useEffect, useId, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { MapIcon } from "./mapIcons.tsx";
 import { setPerfPanel, usePerfPanel } from "./perfPanelToggle.ts";
@@ -116,12 +117,18 @@ export function OperatorMenuPanel({
   readonly children: ReactNode;
 }) {
   if (!control.open) return null;
+  // 항목 단추를 누르면(그 단추의 일이 먼저 돈다 — 거품 차례) 판을 닫는다(D-560 1239)
+  const onPick = (event: MouseEvent<HTMLElement>): void => {
+    const target = event.target;
+    if (target instanceof Element && target.closest("button.map-operator-menu-item")) control.close();
+  };
   return (
     <section
       id={control.panelId}
       className="map-panel map-operator-menu"
       aria-label={m.map_ops_menu_title()}
       data-part="operator-menu"
+      onClick={onPick}
     >
       <h2 className="map-operator-menu-title">{m.map_ops_menu_title()}</h2>
       <ul className="map-operator-menu-list">{children}</ul>

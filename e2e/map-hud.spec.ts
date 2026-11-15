@@ -145,7 +145,7 @@ test.describe("2차맵 아래 탭·도시 화면: 플레이어", () => {
 test.describe("2차맵 운영 메뉴: dev", () => {
   test.use({ account: "dev" });
 
-  test("[운영] 메뉴 하나(처음 닫힘) — 성능 표시(처음 끔·기억)·운영자 모드·자유 시점, Esc·밖 누르기로 닫힘", async ({
+  test("[운영] 메뉴 하나(처음 닫힘) — 성능 표시(처음 끔·기억)·운영자 모드·자유 시점, 항목을 누르거나 Esc·밖 누르기로 닫힘", async ({
     page,
     deviceErrors,
   }) => {
@@ -168,12 +168,15 @@ test.describe("2차맵 운영 메뉴: dev", () => {
     await expect(menu.locator(".map-perf-toggle")).toHaveAttribute("aria-pressed", "false");
     await expect(menu.locator(".map-operator-toggle")).toHaveAttribute("aria-pressed", "false");
     await expect(menu.locator(".map-free-view")).toHaveCount(0);
+    // 항목을 누르면 그 일을 하고 메뉴가 닫힌다(기획 D-560 1239)
     await menu.locator(".map-operator-toggle").click();
     await expect(screen).toHaveAttribute("data-operator", "on");
-    await expect(menu.locator(".map-free-view")).toBeVisible();
-    await menu.locator(".map-free-view").click();
+    await expect(page.locator(".map-operator-menu")).toHaveCount(0);
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await (await openOperatorMenu(page)).locator(".map-free-view").click();
     await expect(screen).toHaveAttribute("data-free-view", "on");
-    await menu.locator(".map-operator-toggle").click();
+    await expect(page.locator(".map-operator-menu")).toHaveCount(0);
+    await (await openOperatorMenu(page)).locator(".map-operator-toggle").click();
     await expect(screen).toHaveAttribute("data-operator", "off");
     await expect(screen).not.toHaveAttribute("data-free-view", /./);
 
@@ -182,6 +185,7 @@ test.describe("2차맵 운영 메뉴: dev", () => {
     await expect(page.locator(".map-perf")).toBeVisible();
     await expect(page.locator(".map-perf")).toContainText("fps");
     // Esc로 닫힌다
+    await openOperatorMenu(page);
     await page.keyboard.press("Escape");
     await expect(page.locator(".map-operator-menu")).toHaveCount(0);
     await page.reload();
@@ -190,6 +194,7 @@ test.describe("2차맵 운영 메뉴: dev", () => {
     // 밖(아래 탭)을 누르면 닫힌다. 끄면 성능 판도 닫힌다
     await setPerfPanel(page, false);
     await expect(page.locator(".map-perf")).toHaveCount(0);
+    await openOperatorMenu(page);
     await navButton(page, "nearby").click();
     await expect(page.locator(".map-operator-menu")).toHaveCount(0);
     expect(deviceErrors).toEqual([]);
@@ -260,6 +265,8 @@ test.describe("2차맵 정리 사진", () => {
 async function menuToggleOperator(page: Page): Promise<void> {
   const menu = page.locator(".map-operator-menu");
   const toggle = menu.locator(".map-operator-toggle");
+  // 항목을 누르면 메뉴가 닫힌다(D-560 1239) — 다시 연다
   if ((await toggle.getAttribute("aria-pressed")) !== "true") await toggle.click();
+  await openOperatorMenu(page);
   await expect(menu.locator(".map-free-view")).toBeVisible();
 }

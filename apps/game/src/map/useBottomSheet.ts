@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { type BottomSheet, bottomSheetOf } from "./anchorUnit.ts";
 import type { GatherState } from "./gather/gatherState.ts";
-import type { NearbyState } from "./nearby/nearbyState.ts";
+import { NEARBY_FIRST_TAB, type NearbyState } from "./nearby/nearbyState.ts";
 
 /**
  * 눌러도 작은 창을 닫지 않는 곳: 작은 창 안(그 안에서 연 대화상자 포함), 지도(엔진이 누르기를 가려 알린다), 아래 탭(탭이 판을 바꾸며 창을 닫는다 —
@@ -129,7 +129,8 @@ export function useBottomSheet(gather: GatherState, nearby: NearbyState): Bottom
         setCityOpen(false);
         setBagOpen(false);
         setPeek(null);
-        if (nearby.tab === null) nearby.setTab("units");
+        // 처음 열면 건물 탭(기획 D-560 1241)
+        if (nearby.tab === null) nearby.setTab(NEARBY_FIRST_TAB);
         else nearby.setExpanded(true);
       },
       openPeek: (unit: PeekUnit) => {

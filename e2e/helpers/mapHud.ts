@@ -44,12 +44,17 @@ export async function setOperatorMode(page: Page, on: boolean): Promise<void> {
   await expect(page.locator(".map-screen")).toHaveAttribute("data-operator", on ? "on" : "off");
 }
 
-/** 성능 판을 켜거나 끈다(운영 메뉴 [성능 표시] — 이 기기에 기억된다) */
+/** 성능 판을 켜거나 끈다(운영 메뉴 [성능 표시] — 이 기기에 기억된다). 항목을 누르면 메뉴가 닫힌다(D-560 1239): 다시 열어 상태를 보고 닫는다 */
 export async function setPerfPanel(page: Page, on: boolean): Promise<void> {
   const menu = await openOperatorMenu(page);
   const toggle = menu.locator(".map-perf-toggle");
-  if ((await toggle.getAttribute("aria-pressed")) !== String(on)) await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", String(on));
+  if ((await toggle.getAttribute("aria-pressed")) !== String(on)) {
+    await toggle.click();
+    await expect(menu).toHaveCount(0);
+  }
+  const again = await openOperatorMenu(page);
+  await expect(again.locator(".map-perf-toggle")).toHaveAttribute("aria-pressed", String(on));
+  await closeOperatorMenu(page);
 }
 
 /** 아래 탭 [도시]로 도시 화면을 연다 */

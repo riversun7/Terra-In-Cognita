@@ -96,7 +96,7 @@ import {
 } from "./UnitControlPanels.tsx";
 import { BoatActions } from "./boats/BoatActions.tsx";
 import { NearbyPanel, type NearbySources } from "./nearby/NearbyPanel.tsx";
-import { createNearbyState } from "./nearby/nearbyState.ts";
+import { NEARBY_FIRST_TAB, createNearbyState } from "./nearby/nearbyState.ts";
 import { GatherPanel } from "./gather/GatherPanel.tsx";
 import { createGatherState } from "./gather/gatherState.ts";
 import { GovernmentSheet } from "../government/GovernmentSheet.tsx";
@@ -223,9 +223,11 @@ function SecondMapView({
     staleUnits,
   );
   const unitsRef = useRef<readonly MapUnit[] | null>(null);
-  // 근처 판(덧그림과 같이 보는 상태, React 밖). 넓은 화면은 유닛 탭을 펼친 채 연다(옛 내 유닛 목록처럼)
+  // 근처 판(덧그림과 같이 보는 상태, React 밖). 넓은 화면은 처음 탭(건물, 기획 D-560 1241)을 펼친 채 연다
   const [nearby] = useState(() =>
-    createNearbyState(wideScreen() ? { tab: "units", expanded: true } : { tab: null, expanded: false }),
+    createNearbyState(
+      wideScreen() ? { tab: NEARBY_FIRST_TAB, expanded: true } : { tab: null, expanded: false },
+    ),
   );
   const nearbyTab = useSyncExternalStore(
     (listener) => nearby.subscribe(listener),

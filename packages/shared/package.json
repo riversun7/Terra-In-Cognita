@@ -24,6 +24,7 @@
     "./cyborg": "./src/cyborg.ts",
     "./dashboard": "./src/dashboard.ts",
     "./economy": "./src/economy.ts",
+    "./exchange": "./src/exchange.ts",
     "./facilities": "./src/facilities.ts",
     "./facilityBuild": "./src/facilityBuild.ts",
     "./facilityCategory": "./src/facilityCategory.ts",

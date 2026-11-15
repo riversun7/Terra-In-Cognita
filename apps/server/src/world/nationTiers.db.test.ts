@@ -255,8 +255,17 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
       facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id);
     // 숙소 수 = ⌈주거 ÷ Lv1 침대 10⌉, 위 끝 8(질문 1049 나, facilities/npcSeed.ts seedLodgings). 광산은 낮은 땅에도 선다(기획 D-533 광석 고도
     // 몫 — 등급 시작 시설에 광산이 있는 나라). 숙소 수는 맨 위 lodgingsOf
-    const big = ["farm", "farm", "government_hall", "storehouse", "storehouse"];
-    const plain = ["farm", "government_hall", "storehouse"];
+    // 거래소 건물(D-561): 시작 도시마다 물자·외환 거래소 하나씩
+    const big = [
+      "farm",
+      "farm",
+      "fx_exchange",
+      "goods_exchange",
+      "government_hall",
+      "storehouse",
+      "storehouse",
+    ];
+    const plain = ["farm", "fx_exchange", "goods_exchange", "government_hall", "storehouse"];
     // 등급 시작 시설 광산 수: 초강대국 2 · 강대국 1 · 중견국 1 · 소국 0
     // 등급 시작 시설 벌목장 수: 초강대국 2 · 강대국 1 · 중견국 1 · 소국 1(목재 바닥으로 풀밭에도 선다)
     const expected = [

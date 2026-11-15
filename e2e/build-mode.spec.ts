@@ -6,6 +6,7 @@
 import type { Page } from "@playwright/test";
 import { groundOffsets } from "./helpers/mapGround.ts";
 import { navButton, openCitySheet } from "./helpers/mapHud.ts";
+import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot } from "./helpers/screen.ts";
 import { type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
@@ -70,6 +71,15 @@ test.describe("건축 모드: 플레이어", () => {
     test.setTimeout(150_000);
     await openMap(page);
     const sheet = await openBuild(page);
+    await expect(sheet).toHaveAttribute("data-phase", "list");
+    // 잠긴 거래소(D-561 — 증권 거래소는 출시 뒤)는 목록에 있되 고를 수 없고 까닭이 보인다
+    const locked = sheet.locator('.map-build-option[data-facility="stock_exchange"]');
+    await expect(locked).toHaveAttribute("aria-disabled", "true", { timeout: 20_000 });
+    await expect(locked.locator('[data-part="build-locked"]')).toHaveText(
+      message("ko", "build_exchange_after_launch"),
+    );
+    // aria-disabled는 Playwright가 누를 수 없는 것으로 본다 — 눌러도 고르지 않는지는 힘으로 누른다
+    await locked.click({ force: true });
     await expect(sheet).toHaveAttribute("data-phase", "list");
     await pickAndPlace(page);
     // 땅을 눌러도 이동 명령·채집 판이 아니다(건축 모드가 누르기를 가져간다)

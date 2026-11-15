@@ -27,6 +27,7 @@ export const STAGE_TEXT: Readonly<Record<FacilityStageId, Text>> = {
   living: m.economy_stage_living,
   defense: m.economy_stage_defense,
   transport: m.economy_stage_transport,
+  commerce: m.economy_stage_commerce,
 };
 
 export const STAT_TEXT: Readonly<Record<FacilityStatId, Text>> = {

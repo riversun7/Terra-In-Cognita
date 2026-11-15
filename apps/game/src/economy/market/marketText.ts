@@ -22,6 +22,7 @@ export const MARKET_ERROR_TEXT: Readonly<Record<MarketCode, () => string>> = {
   invalid_amount: m.market_err_invalid_amount,
   order_limit: m.market_err_order_limit,
   no_liquidity: m.market_err_no_liquidity,
+  no_exchange: m.market_err_no_exchange,
   offline: m.market_err_offline,
   timeout: m.market_err_timeout,
 };

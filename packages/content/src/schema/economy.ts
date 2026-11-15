@@ -7,6 +7,7 @@ import {
   FACILITY_LEVEL_MAX,
   FACILITY_REPAIR_LIMITS,
 } from "@terra/shared/facilityBuild";
+import { EXCHANGE_KINDS } from "@terra/shared/exchange";
 import { FACILITY_CATEGORIES } from "@terra/shared/facilityCategory";
 import { FACILITY_LOOK_COLORS, FACILITY_LOOK_LIMITS, FACILITY_LOOK_MODELS } from "@terra/shared/facilityLook";
 import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
@@ -58,6 +59,8 @@ export const FACILITY_STAGES = [
   "defense",
   // 교통(부두 — docs/adr/2026-11-13-boats.md 3절, 42 §5 대분류 "교통")
   "transport",
+  // 상업(거래소 건물 — 기획 D-561·D-560 분류 "상업", docs/adr/2026-11-16-exchange-buildings.md). 일하지 않고 생산하지 않는다
+  "commerce",
 ] as const;
 
 /** 채집 방식: roll = 확률표 추첨, select = 선택 + 효율(옛 ITM-10) */
@@ -257,6 +260,11 @@ export const facilityEntrySchema = z.strictObject({
   harbor: harborRoleSchema.optional(),
   /** 조선소가 만드는 배 종류 표(D-547 1484 — 배 종류마다 재료·시간). 조선소(harbor shipyard)에만 쓴다 */
   boats: boatTypesSchema.optional(),
+  /**
+   * 거래소 종류(기획 D-561 "거래소는 건물", docs/adr/2026-11-16-exchange-buildings.md, @terra/shared/exchange): goods = 물자 거래소, fx = 외환 거래소,
+   * units = 유닛 거래소(D-242, 기능 전 잠금), securities = 증권 거래소(D-393·D-409 출시 뒤 잠금). 상업 단계(commerce)에만 쓴다. 없으면 거래소가 아니다
+   */
+  exchange: z.enum(EXCHANGE_KINDS).optional(),
   look: z
     .strictObject({
       model: z.enum(FACILITY_LOOK_MODELS).optional(),

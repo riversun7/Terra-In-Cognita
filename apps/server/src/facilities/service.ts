@@ -46,6 +46,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityDef } from "./catalog.ts";
 import { type GoodsScope, grantGoods, hasGoods, spendGoods } from "./materials.ts";
 import { waterOk } from "./water.ts";
+import { exchangeBuildProblem, exchangeKindOf } from "../market/exchangeBuildings.ts";
 import { PLACE_CODES, averagePrimaries } from "./serviceHelpers.ts";
 import {
   PLOT_JOB,
@@ -177,6 +178,8 @@ export interface FacilityService extends PlotCommands {
    * undefined를 돌려주면(채집소 아님·거리 0) 예전처럼 바로 옮긴다
    */
   attachStorageOut(hook: StorageOutHook | undefined): void;
+  /** 물자 거래소 건물 창고 넣기(in) 고리(기획 D-564 1628, gather/station.ts haulIn — 도시 창고 → 운반꾼 → 거래소 건물) */
+  attachExchangeIn(hook: StorageOutHook | undefined): void;
   /**
    * 사업장 판매 물건 나르기(기획 D-569 1784, business/commands.ts carry): seller의 그 건물 창고 → buyer의 그 도시 창고를 운반꾼 고리로.
    * 고리가 없거나 맡지 않으면 undefined(부르는 쪽이 바로 옮긴다)
@@ -218,6 +221,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
   let lastJobId = options.loaded.maxJobId;
   let government: GovernmentHook | undefined;
   let storageOut: StorageOutHook | undefined;
+  let exchangeIn: StorageOutHook | undefined;
   let business: BusinessCommands | undefined;
   const runtime = (): FacilityRuntimeRules => options.rules().facilityRuntime;
   const saveFacility = (record: FacilityRecord): void => writer.upsert("facilities", facilityRow(record));
@@ -505,6 +509,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     attachStorageOut(hook) {
       storageOut = hook;
     },
+    attachExchangeIn(hook) {
+      exchangeIn = hook;
+    },
     ownerSale: (ownerId, buildingId, asset, qty, atMs) =>
       business ? business.sellTo(ownerId, buildingId, asset, qty, atMs) : qty,
     carryOut(sellerId, buyerId, buildingId, asset, qty, atMs) {
@@ -563,6 +570,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const cost = operator ? { ...packCost, materials: [] } : packCost;
       // 재료 자리(D-516 361): 짓는 칸이 속한 도시의 창고·창고 시설 + 그 2차맵 내 유닛 화물
       const cityId = cityAt(places, input.mapKey, input.x, input.y);
+      // 거래소 건물(D-561): 잠긴 종류·도시 밖·그 도시에 같은 종류가 있으면 못 짓는다(market/exchangeBuildings.ts)
+      const exchangeProblem = exchangeBuildProblem(options.catalog(), facilities.values(), def.id, cityId);
+      if (exchangeProblem) return fail(exchangeProblem);
       const scope = materialScope(places, me, input.mapKey, cityId);
       if (!hasGoods(ledger, me, cost.materials, scope)) return fail("insufficient_materials");
       // 땅(docs/adr/2026-11-14-second-map-build.md): 다른 세력 도시 2차맵이면 못 짓는다(결과 코드는 forbidden — 화면은 미리 묻기
@@ -914,8 +924,20 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       // 맡아 두는 곳)은 사업장 물건이 아니라 꺼낸다
       if (input.direction === "out") {
         const place = buildingPlace(places, input.buildingId);
-        if (place?.ownerId === me && facilities.has(input.buildingId) && !isStorage(places, input.buildingId))
-          return fail("sale_only");
+        const kept =
+          isStorage(places, input.buildingId) ||
+          exchangeKindOf(options.catalog(), record?.facilityId ?? "") !== undefined;
+        if (place?.ownerId === me && facilities.has(input.buildingId) && !kept) return fail("sale_only");
+      }
+      // 물자 거래소 건물 넣기는 운반꾼이 도시 창고에서 실어 나른다(D-564 1628 — 거래소에는 실어 나른 물건만)
+      if (
+        input.direction === "in" &&
+        exchangeKindOf(options.catalog(), record?.facilityId ?? "") === "goods" &&
+        exchangeIn
+      ) {
+        if ((record?.level ?? 0) < 1) return fail("under_construction");
+        const carried = exchangeIn(me, input, at);
+        if (carried !== undefined) return carried === null ? done({ ok: true }) : fail(carried);
       }
       // 창고 꺼내기는 운반꾼이 나른다(질문 1091 가, D-569 1784 — 채집소는 그 일꾼, 다른 건물은 그 건물 일꾼·내 유닛). 고리가 맡지 않으면(옮김 셈 끔·
       // 거리 0·고리 없음) 예전처럼 바로

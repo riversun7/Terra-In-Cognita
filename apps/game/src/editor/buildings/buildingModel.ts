@@ -128,6 +128,8 @@ export function cleanFacility(entry: FacilityJson): FacilityJson {
     ...(entry.repair === undefined ? {} : { repair: entry.repair }),
     // 배 시설 칸(docs/adr/2026-11-15-shipyard-harbor.md): 편집기가 고치지 않지만 빼면 다른 칸만 고쳐도 덮어쓰기가 이 칸을 지운다
     ...(entry.harbor === undefined ? {} : { harbor: entry.harbor }),
+    // 거래소 종류(docs/adr/2026-11-16-exchange-buildings.md): 같은 까닭으로 그대로 돌려보낸다
+    ...(entry.exchange === undefined ? {} : { exchange: entry.exchange }),
     ...(entry.boats === undefined ? {} : { boats: entry.boats }),
     // 2차맵 겉모습(빈 칸을 빼고, 칸이 하나도 없으면 칸째 뺀다 — docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)")
     ...(look === undefined ? {} : { look }),

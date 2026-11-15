@@ -1,6 +1,7 @@
 // 건물(시설) 화면 자료 모양 — tRPC facilities.overview(조회만, 바꾸는 명령은 WebSocket facility_*·storage_move, 프로토콜 10~12).
 // docs/adr/2026-11-07-buildings-runtime.md. 서버(apps/server/src/facilities/views.ts)와 경제 화면(apps/game/src/economy/FacilityPanel.tsx)이 같이 쓴다.
 // 수량은 묶음 단위 정수, 원장 잔고는 10진 글자(BigInt). 상태는 ppm(가득 1,000,000, @terra/shared/facilityRuntime).
+import type { ExchangeKind } from "./exchange.ts";
 import type { ConditionState, FacilityRuntimeRules } from "./facilityRuntime.ts";
 import { type CityCell, type GoodsPlaceKind, isMaterialSource } from "./goodsPlaces.ts";
 import type { LocalizedName } from "./roster.ts";
@@ -40,6 +41,10 @@ export interface FacilityCatalogView {
   }[];
   /** 장비를 고치는 시설(공방) */
   readonly repairsEquipment: boolean;
+  /** 거래소 종류(docs/adr/2026-11-16-exchange-buildings.md). 거래소가 아니면 없다 */
+  readonly exchange?: ExchangeKind | undefined;
+  /** 잠긴 거래소(짓지 못함)와 까닭: after_launch = 출시 뒤(증권), not_ready = 기능 준비 중(유닛). 없으면 잠기지 않음 */
+  readonly exchangeLock?: "after_launch" | "not_ready" | undefined;
 }
 
 /** plot = 면적 모듈 붙이기(기획 D-569 1765) */
@@ -234,6 +239,10 @@ export interface GoodsPlaceView {
    * 없으면 false
    */
   readonly sale?: boolean | undefined;
+  /** 건물 창고: 거래소 건물이면 그 종류(맡긴 물건 — 꺼낸다, docs/adr/2026-11-16-exchange-buildings.md). 없으면 거래소가 아니다 */
+  readonly exchange?: ExchangeKind | undefined;
+  /** 도시 창고: 그 도시 물자 거래소 건물 ID(없으면 null — [거래소로 옮기기]를 숨긴다). 칸이 없으면 옛 서버 */
+  readonly exchangeId?: number | null | undefined;
   readonly lines: readonly {
     /** 원장 자산 코드(item:<ID>, 시험 광석 등) */
     readonly asset: string;

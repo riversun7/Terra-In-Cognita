@@ -10,6 +10,7 @@ import type { TripArea } from "../world/bots.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { ServerEconomyCatalog } from "./catalog.ts";
+import { createExchangeDirectory } from "./exchangeBuildings.ts";
 
 export function npcEconomyInputOf(
   catalog: (() => ServerEconomyCatalog) | undefined,
@@ -28,12 +29,21 @@ export function npcEconomyInputOf(
     return null;
   };
   const places = cityRestPlacesOf(facilities, maps);
+  const exchanges = createExchangeDirectory({
+    records: () => facilities.service.facilities.values(),
+    catalog: facilities.catalog,
+    works: (buildingId) => facilities.service.works(buildingId),
+    maps,
+    now: () => Date.now(),
+  });
   return {
     catalog,
     presets,
     land,
     // 사업장 장부(D-548): 남의 숙소 요금 → 그 숙소 금고
     business: facilities.business,
+    // 유저 거래소 물건 자리 = 그 도시 물자 거래소 건물 창고(기획 D-561·D-564 1628, exchangeStock.ts)
+    exchangeOf: (cityId) => exchanges.cityExchange(cityId, "goods"),
     // NPC 증축(질문 1101 나): 건물 서비스로 짓고 전략 배치로 자리를 고른다
     build: {
       service: facilities.service,

@@ -218,7 +218,11 @@ export function BuildSheet({
                       type="button"
                       className="map-build-option"
                       data-facility={entry.id}
-                      onClick={() => mode.choose(entry.id)}
+                      aria-disabled={entry.exchangeLock ? "true" : undefined}
+                      onClick={() => {
+                        // 잠긴 거래소(유닛·증권, D-561)는 고르지 않는다 — 까닭은 아래 줄
+                        if (!entry.exchangeLock) mode.choose(entry.id);
+                      }}
                     >
                       <span className="map-build-option-name">{pickName(entry.name, entry.id)}</span>
                       <span className="map-build-option-meta">
@@ -231,6 +235,13 @@ export function BuildSheet({
                       {first ? (
                         <span className="map-build-option-meta">
                           {stacksText(data, stock, first.materials)}
+                        </span>
+                      ) : null}
+                      {entry.exchangeLock ? (
+                        <span className="map-build-option-meta" data-part="build-locked">
+                          {entry.exchangeLock === "after_launch"
+                            ? m.build_exchange_after_launch()
+                            : m.build_exchange_not_ready()}
                         </span>
                       ) : null}
                     </button>

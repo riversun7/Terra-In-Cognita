@@ -7,6 +7,8 @@
 //   편집기의 끄기(은퇴 대신)만 남았다. 위 구간의 꺼진 재료는 알리지 않는다(건물 편집기 레벨 표가 레벨마다 꺼진 재료를 보인다).
 // - 배 시설(harbor, docs/adr/2026-11-15-shipyard-harbor.md): 교통 단계 + 물가 조건이 있어야 하고(harbor_needs_transport), 배 종류 표(boats)는
 //   조선소에만 있고 조선소에는 꼭 있다(harbor_boats_shipyard_only·harbor_shipyard_no_boats).
+// - 거래소(exchange, docs/adr/2026-11-16-exchange-buildings.md): 거래소 종류는 상업 단계에만(exchange_needs_commerce), 상업 단계는 종류가 있어야 한다
+//   (commerce_needs_exchange).
 // 참조가 없는 경우는 참조 단계가 알린다. 항목은 스키마를 통과한 파싱 결과(참조 = ContentRef)다(items.ts와 같은 방식).
 import { FACILITY_LEVEL_MAX } from "@terra/shared/facilityBuild";
 import type { ContentIssue } from "../issue.ts";
@@ -41,6 +43,7 @@ export function checkFacilities(pack: ContentPack): ContentIssue[] {
 
   for (const facility of pack.entries.get("facilities") ?? []) {
     checkHarbor(facility, error);
+    checkExchange(facility, error);
     const build = get(facility, "build");
     if (build === undefined) continue;
     const maxLevel = get(facility, "maxLevel");
@@ -99,6 +102,29 @@ export function checkFacilities(pack: ContentPack): ContentIssue[] {
     });
   }
   return issues;
+}
+
+/** 거래소 칸 검사(docs/adr/2026-11-16-exchange-buildings.md): 거래소 종류는 상업 단계에만, 상업 단계는 거래소 종류가 있어야 한다 */
+function checkExchange(
+  facility: { readonly id: string },
+  error: (id: string, path: string, code: string, message: string) => void,
+): void {
+  const kind = get(facility, "exchange");
+  const commerce = get(facility, "stage") === "commerce";
+  if (kind !== undefined && !commerce)
+    error(
+      facility.id,
+      "exchange",
+      "exchange_needs_commerce",
+      "거래소 종류(exchange)는 상업 단계(commerce) 시설에만 둡니다.",
+    );
+  if (commerce && kind === undefined)
+    error(
+      facility.id,
+      "exchange",
+      "commerce_needs_exchange",
+      "상업 단계(commerce) 시설에는 거래소 종류(exchange)를 적습니다.",
+    );
 }
 
 /** 배 시설 칸 검사(역할 ↔ 단계·물가 조건·배 종류 표) */

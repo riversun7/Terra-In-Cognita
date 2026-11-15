@@ -15,6 +15,8 @@ import { z } from "zod";
 export const MARKET_PROTOCOL_VERSION = 14;
 /** 환전 메시지에 필요한 가장 낮은 프로토콜 버전 */
 export const FX_PROTOCOL_VERSION = 15;
+/** 거래소 건물(기획 D-561): 결과 코드 no_exchange(물자·환전)가 생긴 판. 더 낮은 판 연결은 unknown_city·unknown_currency를 받는다 */
+export const EXCHANGE_MARKET_PROTOCOL_VERSION = 47;
 /** 지정가 만료로 고를 수 있는 가장 긴 날(기획 잠정 7일 E10, 서버가 고를 수 있는 날만 받는다) */
 export const MARKET_EXPIRY_DAYS_MAX = 30;
 
@@ -106,6 +108,11 @@ export const MARKET_RESULT_CODES = [
   "order_limit",
   /** 시장가인데 안전망 안에 반대쪽 호가가 없음 */
   "no_liquidity",
+  /**
+   * 그 도시에 물자 거래소 건물이 없음(기획 D-561 — 47, 더 낮은 판 연결은 unknown_city, EXCHANGE_MARKET_PROTOCOL_VERSION). 거래소에 올릴 물건은 거래소
+   * 건물 창고로 실어 나른다
+   */
+  "no_exchange",
 ] as const;
 export type MarketResultCode = (typeof MARKET_RESULT_CODES)[number];
 
@@ -145,6 +152,8 @@ export const FX_RESULT_CODES = [
   "invalid_amount",
   /** 회차에 낼 수 있는 주문 수가 한도에 닿음 */
   "order_limit",
+  /** 그 화폐를 쓰는 나라의 도시에 외환 거래소 건물이 없음(기획 D-561 — 47, 더 낮은 판 연결은 unknown_currency) */
+  "no_exchange",
 ] as const;
 export type FxResultCode = (typeof FX_RESULT_CODES)[number];
 

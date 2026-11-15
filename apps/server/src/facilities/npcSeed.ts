@@ -15,6 +15,8 @@
 // 마을(질문 1052 다, 기획 D-533 "추천대로" — docs/adr/2026-11-11-city-building-layout.md "바뀜 (2026-11-12)"): 시작 도시가 아닌 도시(NPC 새 마을·
 // 가문 마을·되살린 폐허)는 행정 건물 하나(그 도시 자리에 누구 것이든 행정 건물이 이미 있으면 없음) + 숙소(설정 칸 npc_village_lodgings)를 같은
 // 배치 함수로 세운다. 부팅 때 모자란 것을 채우고, 실행 중에 새 도시가 처음 저장될 때(npc/persist.ts onCityFounded) 그 도시 하나만 바로 세운다.
+// 거래소 건물(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md): 시작 도시는 물자·외환 거래소 하나씩, 마을은 물자 거래소 하나 — 옛 세계도 다음 켤 때
+// 모자란 것만 선다(지금 세계 옮기기 = 켤 때 한 번 세우기, 리셋 없음).
 // 멱등: 도시마다 그 세력이 가진 같은 시설 줄(도시 ID 같음) 수를 세어 모자란 것만 더한다(있는 것은 그대로 — 관리자가 지운 시설은 다음 켤 때
 // 다시 선다). 재료·작업·일꾼 없이 선다(세계를 차리는 일이라 원장을 거치지 않는다 — 확인 대기, docs/questions/2026-11-07-play-seed.md).
 import { MATERIAL_BIT, cellMaterials, oreSharePm } from "@terra/shared/catchment";
@@ -121,6 +123,13 @@ export function seedLodgings(seed: WorldSeedCoefficients, housing?: number, beds
   return Math.min(cap, Math.ceil(homes / beds));
 }
 
+/**
+ * 시작 도시마다 세우는 거래소 건물(D-561, D-117 "도시마다 거래소"). 마을은 물자 거래소만(VILLAGE_EXCHANGES — 질문 1946). 팩에 없는 거래소 시설(옛 팩·
+ * 시험 팩)은 건너뛴다(못 세운 수에 넣지 않는다)
+ */
+export const SEED_EXCHANGES: readonly string[] = ["goods_exchange", "fx_exchange"];
+export const VILLAGE_EXCHANGES: readonly string[] = ["goods_exchange"];
+
 export function seedPlan(
   seed: WorldSeedCoefficients,
   land?: SeedLand,
@@ -134,6 +143,8 @@ export function seedPlan(
     { facility: "storehouse", count: seed.storehouses },
     { facility: "lodging", count: seedLodgings(seed, rest?.housing, rest?.bedsPerLevel) },
     ...SEED_GATHER.map((kind) => ({ facility: kind.facility, count: kind.fits(fit) ? kind.count(seed) : 0 })),
+    // 거래소 건물(기획 D-561 — 도시마다 물자·외환 거래소 하나, docs/adr/2026-11-16-exchange-buildings.md)
+    ...SEED_EXCHANGES.map((facility) => ({ facility, count: 1 })),
   ];
 }
 
@@ -142,6 +153,7 @@ export function villagePlan(seed: WorldSeedCoefficients): SeedItem[] {
   return [
     { facility: "government_hall", count: 1 },
     { facility: "lodging", count: Math.max(0, Math.trunc(seed.villageLodgings)) },
+    ...VILLAGE_EXCHANGES.map((facility) => ({ facility, count: 1 })),
   ];
 }
 
@@ -245,6 +257,7 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
 
     const citySeed = input.seedOfFaction?.(city.factionId) ?? input.seed;
     const items = plan.flatMap((item) => {
+      if (SEED_EXCHANGES.includes(item.facility) && !catalog.facility(item.facility)) return [];
       const need = Math.max(0, item.count - (have.get(item.facility) ?? 0));
       return Array.from({ length: need }, () => item.facility);
     });

@@ -9,6 +9,8 @@
 // - 바뀜 (기획 D-569 1784 "거래소 반입은 실제 운반만 — 우회 길 없음"): 채집소가 아닌 건물(창고 시설·사업장)의 꺼내기와 사업장 판매(business_buy)도
 //   같은 운반꾼이 나른다. 운반꾼 후보 = 그 건물 일꾼(물건 받을 사람의 유닛 먼저) → 받을 사람의 그 2차맵 유닛(ownUnits — 휴먼·사이보그 유닛, 사이보그
 //   본체는 빼낸다 [임시]). 판매면 물건은 떠날 때 판 사람의 건물 창고에서 산 사람 몫의 운반꾼 화물로 간다(거래 business_sale_goods).
+// - 거래소 넣기(기획 D-564 1628, docs/adr/2026-11-16-exchange-buildings.md): 도시 창고 → 물자 거래소 건물 창고도 같은 운반꾼이 나른다(deliverTo = 그 건물
+//   창고). 떠날 때 도시 창고에서 운반꾼 화물로, 닿으면 거래소 건물 창고로 넣는다(같은 거래 이름).
 // - 같은 채집소·같은 주인의 짐이 떠난 지 MERGE_MS 안이면 그 짐에 더한다(손으로 옮기기는 물건마다 명령을 보낸다 — 운반꾼 하나가 한 번에 진다).
 // - [임시] 나르는 중 상태는 메모리다. 다시 켜면 화물은 운반꾼에 남아 있어 다음 정시에 그 유닛의 화물로 짐을 다시 떠나보낸다(resume).
 // 정수 연산만 쓴다.
@@ -42,6 +44,8 @@ export interface PorterTrip {
   /** 채집소·창고(없으면 도시 칸) 가운데 */
   readonly from: CellPoint;
   readonly to: CellPoint;
+  /** 닿으면 넣는 원장 위치(도시 창고, 거래소 넣기는 그 거래소 건물 창고 — D-564 1628) */
+  readonly deliverTo: number;
   /** 다음에 걸어갈 쪽 */
   heading: "store" | "station";
   /** 이동 명령을 기다리는 중 */
@@ -110,6 +114,8 @@ export interface Porters {
     readonly resumed?: boolean | undefined;
     /** 건물 창고에서 물건을 내는 사람(사업장 판매면 판 사람, D-569 1784). 없으면 ownerId */
     readonly sourceOwnerId?: number | undefined;
+    /** 닿으면 넣는 원장 위치(없으면 그 도시 창고 — 거래소 넣기는 거래소 건물 창고, docs/adr/2026-11-16-exchange-buildings.md) */
+    readonly deliverTo?: number | undefined;
   }): PorterTrip;
   /** 닿은 짐을 도시 창고에 넣는다. 넣은 계정 수 */
   arriveDue(nowMs: number): number;
@@ -171,7 +177,7 @@ export function createPorters(deps: PorterDeps): Porters {
       if (moved <= 0n) continue;
       entries.push(
         { account: from, amount: -moved },
-        { account: ledger.ownerAccount(trip.ownerId, asset, cityLocation(trip.cityId)), amount: moved },
+        { account: ledger.ownerAccount(trip.ownerId, asset, trip.deliverTo), amount: moved },
       );
       count += 1;
     }
@@ -250,10 +256,12 @@ export function createPorters(deps: PorterDeps): Porters {
           atMs: spec.nowMs,
           entries,
         });
-      // 같은 채집소·주인·운반꾼의 막 떠난 짐에 더한다
+      const deliverTo = spec.deliverTo ?? cityLocation(spec.cityId);
+      // 같은 채집소·주인·운반꾼·받는 자리의 막 떠난 짐에 더한다
       for (const trip of trips.values()) {
         if (
           trip.buildingId !== spec.buildingId ||
+          trip.deliverTo !== deliverTo ||
           trip.ownerId !== spec.ownerId ||
           trip.porter !== spec.porter ||
           spec.nowMs - trip.departAtMs > MERGE_MS
@@ -277,6 +285,7 @@ export function createPorters(deps: PorterDeps): Porters {
         lines,
         from: spec.from,
         to: spec.to,
+        deliverTo,
         heading: "store",
         walking: false,
       };

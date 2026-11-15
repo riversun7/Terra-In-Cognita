@@ -18,6 +18,7 @@ import {
   itemName,
   lotOf,
   lotText,
+  pickName,
 } from "../economyText.ts";
 import type { OrderContext, OrderDraft } from "../orderForm.ts";
 import { Change, Loaded, NotReady, PreviewTag } from "../parts.tsx";
@@ -40,6 +41,33 @@ function contextOf(book: MarketBookResponse): OrderContext {
     goods: toBig(book.mine.goods),
     ordersLeft: Math.max(0, book.limit.max - book.limit.used),
   };
+}
+
+/**
+ * 거래소 건물 안내(기획 D-561·D-564 1628, docs/adr/2026-11-16-exchange-buildings.md): 그 도시 물자 거래소 건물 이름과 팔 물건 자리, 도시 창고에 남은 이 물건.
+ * 건물이 없으면 주문을 못 낸다는 알림. 시안(칸 없음)은 보이지 않는다
+ */
+function ExchangeNote({ book }: { book: MarketBookResponse }) {
+  const exchange = book.exchange;
+  if (exchange === undefined) return null;
+  if (exchange === null)
+    return (
+      <p className="eco-notice" data-tone="warning" data-part="market-no-exchange">
+        {m.market_exchange_none()}
+      </p>
+    );
+  return (
+    <p className="eco-notice" data-part="market-exchange">
+      {m.market_exchange_at({ name: pickName(exchange.name, `#${exchange.buildingId}`) })}
+      {toBig(exchange.cityGoods) > 0n ? (
+        <>
+          {" "}
+          {m.market_exchange_city_goods({ qty: fmt(exchange.cityGoods) })}{" "}
+          <AppLink to={{ route: "economy_production" }}>{m.market_exchange_go_move()}</AppLink>
+        </>
+      ) : null}
+    </p>
+  );
 }
 
 function TradesList({ book }: { book: MarketBookResponse }) {
@@ -177,6 +205,7 @@ function BookTrader({
             {m.economy_lot_note({ size: lotText(index.items.get(book.item)) })}
           </p>
         ) : null}
+        <ExchangeNote book={book} />
         {book.inSight ? null : (
           <p className="eco-notice" data-tone="warning">
             {m.economy_book_observed({ time: formatAgo(book.observedAt, book.generatedAt) })}

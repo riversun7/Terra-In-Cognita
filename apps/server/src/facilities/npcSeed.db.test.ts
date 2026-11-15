@@ -158,16 +158,22 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
     const facilities = await seeded();
     for (const line of mine)
       expect(facilities.filter((row) => row.city_id === line.id).map((row) => row.facility_id)).toEqual(
-        withLodgings(["farm", "farm", "government_hall", "storehouse", "storehouse"], line.housing),
+        withLodgings(
+          ["farm", "farm", "fx_exchange", "goods_exchange", "government_hall", "storehouse", "storehouse"],
+          line.housing,
+        ),
       );
     for (const line of others)
       expect(facilities.filter((row) => row.city_id === line.id).map((row) => row.facility_id)).toEqual(
-        withLodgings(["farm", "government_hall", "lumber_camp", "mine", "storehouse"], line.housing),
+        withLodgings(
+          ["farm", "fx_exchange", "goods_exchange", "government_hall", "lumber_camp", "mine", "storehouse"],
+          line.housing,
+        ),
       );
     expect(await world.checkInvariants()).toEqual([]);
   });
 
-  it("빈 세계: 국가 넷 × 나라 성격 수(2·4·3·2)를 2차맵 셋에 나누고, 팩 도시 이름, 도시마다 기본 시설 여덟(전략 배치), 다시 켜도 그대로", async () => {
+  it("빈 세계: 국가 넷 × 나라 성격 수(2·4·3·2)를 2차맵 셋에 나누고, 팩 도시 이름, 도시마다 기본 시설 여덟 + 거래소 둘(전략 배치), 다시 켜도 그대로", async () => {
     const world = await boot({ testMaps: 3 });
     const cities = await startCities();
     const perNation = codes.map((code) => cities.filter((city) => city.code === code));
@@ -185,7 +191,7 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
 
     const facilities = await seeded();
     expect(facilities).toHaveLength(
-      cities.reduce((sum, city) => sum + withLodgings([], city.housing).length + 5, 0),
+      cities.reduce((sum, city) => sum + withLodgings([], city.housing).length + 7, 0),
     );
     // 성벽 고리(설정 칸 city_wall_mode 1): 도시마다 행정 건물 둘레에 몇 토막
     const wallRows = await walls();
@@ -208,7 +214,10 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
     ).toBeGreaterThan(halls.length / 2);
     for (const city of cities)
       expect(facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id)).toEqual(
-        withLodgings(["farm", "government_hall", "lumber_camp", "mine", "storehouse"], city.housing),
+        withLodgings(
+          ["farm", "fx_exchange", "goods_exchange", "government_hall", "lumber_camp", "mine", "storehouse"],
+          city.housing,
+        ),
       );
     expect(facilities.every((row) => row.level === 1 && row.owner_ok)).toBe(true);
 
@@ -249,7 +258,7 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
             32,
           );
     expect(await seeded()).toHaveLength(
-      after.reduce((sum, city) => sum + withLodgings([], city.housing).length + 5, 0),
+      after.reduce((sum, city) => sum + withLodgings([], city.housing).length + 7, 0),
     );
     expect(await world.checkInvariants()).toEqual([]);
   }, 60_000);

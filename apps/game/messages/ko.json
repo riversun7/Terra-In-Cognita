@@ -7914,5 +7914,19 @@
   "station_buy_haul": "판매가로 사서 도시 창고로",
   "station_buy_haul_done": "샀습니다. 돈은 사업장 매출로 잡히고, 운반꾼이 도시 창고로 걸어 나릅니다.",
   "facility_place_sale_only": "사업장 물건 · 건물 판 [장부]에서 판매가로 삽니다",
-  "facility_move_no_carrier": "나를 운반꾼이 없습니다. 그 건물에 일꾼을 두거나 이 2차맵에 내 휴먼·사이보그 유닛을 두면 걸어서 도시 창고로 나릅니다."
+  "facility_move_no_carrier": "나를 운반꾼이 없습니다. 그 건물에 일꾼을 두거나 이 2차맵에 내 휴먼·사이보그 유닛을 두면 걸어서 도시 창고로 나릅니다.",
+  "economy_stage_commerce": "상업",
+  "market_err_no_exchange": "이 도시에는 물자 거래소 건물이 없어 주문을 낼 수 없습니다.",
+  "fx_err_no_exchange": "이 화폐를 쓰는 나라에 외환 거래소 건물이 없어 환전할 수 없습니다.",
+  "facility_error_exchange_locked": "아직 열리지 않은 거래소입니다.",
+  "facility_error_exchange_exists": "이 도시에는 같은 종류의 거래소가 이미 있습니다. 거래소는 도시마다 하나입니다.",
+  "build_exchange_after_launch": "출시 뒤 열립니다",
+  "build_exchange_not_ready": "기능 준비 중",
+  "fx_exchange_none": "이 화폐를 쓰는 나라에 외환 거래소 건물이 없어 지금은 주문을 낼 수 없습니다.",
+  "market_exchange_none": "이 도시에는 물자 거래소 건물이 없어 주문을 낼 수 없습니다. 걸어 둔 주문은 거둘 수 있습니다.",
+  "market_exchange_at": "거래소: {name}. 팔 물건은 이 건물 창고에 있어야 합니다.",
+  "market_exchange_city_goods": "도시 창고에 {qty}개가 있습니다.",
+  "market_exchange_go_move": "거래소로 옮기기",
+  "facility_place_exchange": "{name} {id}",
+  "facility_to_exchange": "{name} 거래소로"
 }

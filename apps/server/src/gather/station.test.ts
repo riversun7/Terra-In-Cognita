@@ -586,6 +586,39 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
     expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(3n);
   });
 
+  it("거래소 넣기(D-564 1628, haulIn): 도시 창고 물건을 내 유닛이 화물로 지고 거래소 건물로, 닿으면 그 건물 창고에", () => {
+    const r = rig({ store: { x: 30, y: 24 } });
+    const exchangeId = r.storeId ?? 0;
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -5n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, cityLocation(CITY)), amount: 5n },
+      ],
+    });
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 9n, NOW)).toBe("insufficient_materials");
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 3n, NOW)).toBe("unknown_unit");
+    expect(r.runtime.haulIn(OWNER, 999, ORE, 1n, NOW)).toBeUndefined();
+    r.map.addUnit({
+      id: 22,
+      size: 1,
+      speed: WALK_SPEED,
+      cellX: 40,
+      cellY: 30,
+      ownerId: OWNER,
+      kind: UNIT_KIND_HUMAN,
+    });
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 3n, NOW)).toBeNull();
+    expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(2n);
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(22))).toBe(3n);
+    const trip = r.runtime.trip(exchangeId);
+    expect(trip).toMatchObject({ porter: 22, grams: 3n });
+    r.runtime.haulNow(trip?.arriveAtMs ?? 0);
+    expect(r.ledger.balanceOf(OWNER, ORE, buildingLocation(exchangeId))).toBe(3n);
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(22))).toBe(0n);
+  });
+
   it("자동 옮김은 주인 자동 구매(D-569 1781): 산 만큼만 옮기고, 못 사면 창고에 남는다", () => {
     const asked: bigint[] = [];
     let allow = 0n;

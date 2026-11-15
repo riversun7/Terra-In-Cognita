@@ -4,6 +4,7 @@
 // 나라 화폐(WP6): 도시 거래소 값 = 그 나라 화폐, 처음 발행(나라마다 한 번), 유저가 기준 통화로 나라 화폐를 사서(환전 회차) 물건을 사고, 환전 주문을
 // 거두고, 다시 켜도 걸린 환전 주문이 그대로(M2). 없는 동안 체결된 내 주문은 복귀 요약 거래 칸에 센다(질문 538).
 import { loadContentPack } from "@terra/content/node";
+import { buildingLocation } from "@terra/shared/goodsPlaces";
 import { DAY_MS, HOUR_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
@@ -241,7 +242,16 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     });
     expect(await world.checkInvariants()).toEqual([]);
     const summaryFrom = clock - 3 * HOUR_MS;
-    const before = ledger.balanceOf(buyer.ownerId, ask.asset, ask.cityId);
+    // 거래소 건물(D-561, docs/adr/2026-11-16-exchange-buildings.md): 세계 씨앗이 도시마다 물자 거래소를 세우고, 유저 물건 자리 = 그 건물 창고
+    const exchangeRecord = [...persistence.facilities.service.facilities.values()].find(
+      (record) => record.cityId === ask.cityId && record.facilityId === "goods_exchange",
+    );
+    if (!exchangeRecord) throw new Error("no goods exchange");
+    const holding = buildingLocation(exchangeRecord.buildingId);
+    expect(source.views.book(buyer.userId, ask.item, ask.cityId, clock)?.exchange).toMatchObject({
+      buildingId: String(exchangeRecord.buildingId),
+    });
+    const before = ledger.balanceOf(buyer.ownerId, ask.asset, holding);
     const bought = await source.service.place(buyer.userId, {
       city: ask.cityId,
       item: ask.item,
@@ -253,7 +263,9 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     });
     expect(bought).toMatchObject({ ok: true, filled: "1", resting: "0" });
     const lot = ask.market.config.lotSize ?? 1n;
-    expect(ledger.balanceOf(buyer.ownerId, ask.asset, ask.cityId) - before).toBe(lot);
+    expect(ledger.balanceOf(buyer.ownerId, ask.asset, holding) - before).toBe(lot);
+    // 산 물건은 도시 창고가 아니라 거래소 건물 창고로 간다(D-564 1628)
+    expect(ledger.balanceOf(buyer.ownerId, ask.asset, ask.cityId)).toBe(0n);
     expect(await count(`select id from market_trades where taker_owner_id = ${buyer.ownerId}`)).toBe(1);
     expect(
       await count(`select id from market_orders where owner_id = ${buyer.ownerId} and state = 'filled'`),
@@ -274,7 +286,7 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
       expiryDays: 3,
     });
     expect(sell).toMatchObject({ ok: true, filled: "0", resting: "1" });
-    expect(ledger.balanceOf(buyer.ownerId, ask.asset, ask.cityId)).toBe(before);
+    expect(ledger.balanceOf(buyer.ownerId, ask.asset, holding)).toBe(before);
     const cash = ledger.balanceOf(buyer.ownerId, currency);
     const low = await source.service.place(buyer.userId, {
       city: ask.cityId,

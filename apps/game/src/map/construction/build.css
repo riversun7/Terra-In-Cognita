@@ -25,6 +25,12 @@
   text-align: start;
   cursor: pointer;
 }
+/* 잠긴 거래소(유닛·증권, D-561): 목록에 있되 고르지 못한다 — 점선 테두리·바탕 면 */
+.map-build-option[aria-disabled="true"] {
+  border-style: dashed;
+  background-color: var(--color-surface);
+  cursor: not-allowed;
+}
 .map-build-option:focus-visible {
   outline: var(--focus-w) solid var(--color-focus);
   outline-offset: var(--focus-offset);

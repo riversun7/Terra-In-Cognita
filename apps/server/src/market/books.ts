@@ -21,7 +21,7 @@ import {
   createGoodsMarket,
 } from "@terra/sim";
 import type { WorldWriter } from "../world/persist/writer.ts";
-import { exchangeGoodsLocation } from "./exchangeStock.ts";
+import { exchangeEscrowLocation, exchangeHolding } from "./exchangeStock.ts";
 
 /** 화폐 칸이 빈 거래소·체결 줄(WP4 판 앱이 쓴 것)의 화폐 */
 export const LEGACY_MARKET_CURRENCY = TEST_ASSET_CREDIT;
@@ -128,6 +128,11 @@ export interface MarketRegistryOptions {
   readonly configOf: (cityId: number, asset: string) => Omit<GoodsMarketConfig, "id" | "location" | "item">;
   /** 유저 소유 주체인가(아니면 NPC 세력 — 끝난 주문 줄을 지운다) */
   readonly isUser: (ownerId: number) => boolean;
+  /**
+   * 그 도시 물자 거래소 건물 ID(docs/adr/2026-11-16-exchange-buildings.md — 유저 물건 자리, exchangeStock.ts). 없거나 undefined면 유저 물건도
+   * 도시 창고(예전과 같다)
+   */
+  readonly exchangeOf?: ((cityId: number) => number | undefined) | undefined;
   readonly now: () => number;
 }
 
@@ -440,8 +445,12 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       ...wanted,
       currency: stored ?? wanted.currency,
       id,
-      // 거래소 물건 자리(D-564 1628 — exchangeStock.ts)
-      location: exchangeGoodsLocation(cityId),
+      // 에스크로 = 그 도시(거래소 금고), 주인 물건 자리 = 유저는 거래소 건물 창고(D-564 1628 — exchangeStock.ts)
+      location: exchangeEscrowLocation(cityId),
+      holdingOf: (owner) =>
+        o.isUser(owner)
+          ? exchangeHolding(cityId, true, o.exchangeOf?.(cityId))
+          : exchangeEscrowLocation(cityId),
       item: asset,
     };
     const ref: { current?: MarketBook } = {};

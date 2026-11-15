@@ -54,6 +54,12 @@ export interface FxViewSource {
   readonly runtime: NpcRuntime;
   readonly ledger: Ledger;
   readonly ownerOf: (userId: string) => number | undefined;
+  /**
+   * 거래소 건물(docs/adr/2026-11-16-exchange-buildings.md): 외환 거래소가 있는 화폐(원장 자산)들·내 환전 주문 한도(D-148 배치 유닛 몫). 없으면 안내 없이
+   * 기본 한도(예전과 같다)
+   */
+  readonly fxOpen?: (() => ReadonlySet<string>) | undefined;
+  readonly fxLimit?: ((ownerId: number | undefined) => number) | undefined;
 }
 
 export type FxExchangeView = Omit<EconomyExchangeResponse, "generatedAt" | "preview" | "status">;
@@ -81,7 +87,7 @@ export function createFxViews(src: FxViewSource): { exchange(userId: string, now
     return out;
   };
 
-  const pairView = (book: FxBook, me: number | undefined): FxPairView => {
+  const pairView = (book: FxBook, me: number | undefined, open?: ReadonlySet<string>): FxPairView => {
     const orders = [...makerOrders(book), ...book.market.orders()];
     const buys = orders.filter((order) => order.side === "buy");
     const sells = orders.filter((order) => order.side === "sell");
@@ -103,6 +109,7 @@ export function createFxViews(src: FxViewSource): { exchange(userId: string, now
       sells: levels(sells, false),
       history,
       balance: String(me === undefined ? 0n : ledger.balanceOf(me, book.currency)),
+      ...(open === undefined ? {} : { exchange: open.has(book.currency) }),
     };
   };
 
@@ -146,15 +153,16 @@ export function createFxViews(src: FxViewSource): { exchange(userId: string, now
         });
       }
       const interval = econ.economy.settings.fxEveryMs;
+      const fxOpenNow = src.fxOpen?.();
       return {
         base: currencyCode(base),
         baseBalance: String(me === undefined ? 0n : ledger.balanceOf(me, base)),
         intervalMs: interval,
         nextAuctionAt: Math.max(now, econ.nextFxAt()),
-        pairs: books.map((book) => pairView(book, me)),
+        pairs: books.map((book) => pairView(book, me, fxOpenNow)),
         open,
         done,
-        maxOrders: ORDER_MAX,
+        maxOrders: src.fxLimit?.(me) ?? ORDER_MAX,
       };
     },
   };

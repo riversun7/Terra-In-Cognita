@@ -3,6 +3,8 @@
 // - 넣기 = 그 건물이 선 도시의 내 도시 창고 → 이 2차맵 내 유닛 화물 차례로 꺼내 창고 시설에(서버 판정: 용량·상태·물자만).
 // - 꺼내기 = 그 건물 창고의 내 몫 → 그 도시의 내 도시 창고. 남의 건물(임대 몫)도 꺼낸다(유예 동안 가져가기). 운반꾼(그 건물 일꾼·내 유닛)이
 //   걸어 나른다(기획 D-569 1784). 내 사업장 물건(sale)은 꺼내지 못하고 건물 판 [장부]에서 판매가로 산다(1781) — 단추 대신 안내 한 줄.
+// - 거래소 건물(기획 D-561·D-564 1628, docs/adr/2026-11-16-exchange-buildings.md): 도시 창고 줄마다 [거래소로](그 도시 물자 거래소 건물 storage_move in —
+//   서버가 운반꾼으로 나른다), 거래소 건물 창고는 "물자 거래소 #id"로 보이고 [꺼내기](도시 창고로, 운반꾼)를 쓴다.
 // - 바꾸는 명령은 WebSocket storage_move(프로토콜 11)이고, 화면은 가진 수로 단추만 막는다.
 import type { FacilitiesOverviewResponse, FacilityView, GoodsPlaceView } from "@terra/shared/facilities";
 import { useState } from "react";
@@ -24,6 +26,14 @@ function placeTitle(place: GoodsPlaceView, data: FacilitiesOverviewResponse, cit
   if (place.kind === "cargo") return m.facility_place_cargo({ id });
   if (place.kind === "ledger") return m.facility_place_ledger();
   const mine = data.facilities.find((facility) => facility.buildingId === id);
+  if (place.exchange !== undefined)
+    return m.facility_place_exchange({
+      name: pickName(
+        data.catalog.find((entry) => entry.id === place.facilityId)?.name,
+        place.facilityId ?? "",
+      ),
+      id,
+    });
   return place.storage && mine
     ? m.facility_place_storage({ name: pickName(mine.name, mine.facilityId), id })
     : m.facility_place_building({ id });
@@ -158,6 +168,30 @@ export function PlacesList({
               {place.lines.map((line) => `${lineName(line)} ${fmt(line.qty)}`).join(" · ")}
             </span>
           </div>
+          {place.kind === "city" && typeof place.exchangeId === "number"
+            ? place.lines
+                .filter((line) => line.item !== null)
+                .map((line) => (
+                  <button
+                    key={`exchange-${line.asset}`}
+                    type="button"
+                    className="button-small"
+                    data-part="facility-to-exchange"
+                    disabled={busy}
+                    onClick={() =>
+                      void run({
+                        t: "storage_move",
+                        buildingId: place.exchangeId ?? 0,
+                        asset: line.asset,
+                        qty: Math.min(MOVE_MAX, Number(line.qty)),
+                        direction: "in",
+                      })
+                    }
+                  >
+                    {m.facility_to_exchange({ name: lineName(line) })}
+                  </button>
+                ))
+            : null}
           {place.kind === "building" && place.sale === true ? (
             <span className="eco-row-meta" data-part="facility-place-sale">
               {m.facility_place_sale_only()}

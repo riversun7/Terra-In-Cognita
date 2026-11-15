@@ -83,6 +83,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
         .toSorted();
     expect(of(1)).toEqual([
       "farm",
+      "fx_exchange",
+      "goods_exchange",
       "government_hall",
       "lodging",
       "lodging",
@@ -95,6 +97,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     expect(of(2)).toEqual([
       "farm",
       "farm",
+      "fx_exchange",
+      "goods_exchange",
       "government_hall",
       "lodging",
       "lodging",
@@ -125,18 +129,18 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     };
     const result = seedNpcFacilities(input);
     const perCity = seedPlan(NO_WALLS).reduce((sum, item) => sum + item.count, 0);
-    // 행정 건물 1 + 창고 1 + 숙소 4(주거 40 ÷ 침대 10, 질문 1049 나) + 농장·벌목장·광산 1씩
-    expect(perCity).toBe(9);
-    // 시작 도시가 아닌 도시(3 — 마을)는 행정 건물 + 숙소(설정 칸 npc_village_lodgings)만(질문 1052 다)
+    // 행정 건물 1 + 창고 1 + 숙소 4(주거 40 ÷ 침대 10, 질문 1049 나) + 농장·벌목장·광산 1씩 + 물자·외환 거래소 1씩(D-561)
+    expect(perCity).toBe(11);
+    // 시작 도시가 아닌 도시(3 — 마을)는 행정 건물 + 숙소(설정 칸 npc_village_lodgings) + 물자 거래소(질문 1052 다, 1946)
     const perVillage = villagePlan(START_WORLD_SEED).reduce((sum, item) => sum + item.count, 0);
-    expect(perVillage).toBe(2);
+    expect(perVillage).toBe(3);
     expect(result).toEqual({ placed: perCity * 2 + perVillage, missing: 0 });
     expect(
       [...facilities.values()]
         .filter((record) => record.cityId === 3)
         .map((record) => record.facilityId)
         .toSorted(),
-    ).toEqual(["government_hall", "lodging"]);
+    ).toEqual(["goods_exchange", "government_hall", "lodging"]);
     for (const record of facilities.values()) {
       expect(record).toMatchObject({
         level: 1,
@@ -154,6 +158,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
         .toSorted(),
     ).toEqual([
       "farm",
+      "fx_exchange",
+      "goods_exchange",
       "government_hall",
       "lodging",
       "lodging",
@@ -224,8 +230,9 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       seed: START_WORLD_SEED,
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 1, missing: 0 });
+    expect(result).toEqual({ placed: 2, missing: 0 });
     expect([...facilities.values()].map((record) => record.facilityId).toSorted()).toEqual([
+      "goods_exchange",
       "government_hall",
       "lodging",
     ]);
@@ -245,7 +252,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       seed: oldSeed,
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 18, missing: 0 });
+    expect(result).toEqual({ placed: 22, missing: 0 });
     // 가운데 마당(둘레 길 포함)에는 짓지 않고, 건물은 그 도시 자리(가장 가까운 도시)에 선다
     map.forEachBuilding((building) => {
       const record = facilities.get(building.id);
@@ -279,8 +286,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       seed: NO_WALLS,
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 8, missing: 1 });
-    expect(facilities.size).toBe(8);
+    expect(result).toEqual({ placed: 10, missing: 1 });
+    expect(facilities.size).toBe(10);
   });
 
   it("시작 도시 숙소 수 = ⌈주거 ÷ Lv1 침대⌉, 위 끝 npc_seed_lodgings(질문 1049 나)", () => {
@@ -308,8 +315,10 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "herb_field",
       "ranch",
       "fishing_spot",
+      "goods_exchange",
+      "fx_exchange",
     ]);
-    expect(seedPlan(NO_WALLS).filter((item) => item.count > 0)).toHaveLength(6);
+    expect(seedPlan(NO_WALLS).filter((item) => item.count > 0)).toHaveLength(8);
     const six = { ...NO_WALLS, herbFields: 1, ranches: 2, fishingSpots: 1 };
     // 숲만 있는 추운 고원(타이가): 벌목장·광산 + 약초원(숲 가장자리 약초 몫 — 질문 1213 가), 목장은 축산물 몫이 없어 서지 않는다. 낚시터는 땅 조건이 없다
     const cold = { elevationM: 900, temperatureC: -5, precipitationMm: 100, forest: 200, biomeId: "taiga" };
@@ -325,6 +334,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "mine:1",
       "herb_field:1",
       "fishing_spot:1",
+      "goods_exchange:1",
+      "fx_exchange:1",
     ]);
     // 따뜻한 초지: 농장 + 벌목장(목재 바닥 — 사용자 결정 2026-11-12 기본 재료 바닥 보장) + 목장(축산물 몫). 약초 몫은 초지 100‰라 약초원은 없다(1213 가)
     const warm = { elevationM: 50, temperatureC: 18, precipitationMm: 900, forest: 0, biomeId: "grassland" };
@@ -341,6 +352,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "mine:1",
       "ranch:2",
       "fishing_spot:1",
+      "goods_exchange:1",
+      "fx_exchange:1",
     ]);
   });
 
@@ -395,6 +408,8 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       "farm",
       "lumber_camp",
       "mine",
+      "goods_exchange",
+      "fx_exchange",
     ]);
 
     const { map, facilities, service } = setup();
@@ -409,9 +424,11 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       landOf: (mapKey) => (mapKey === 9 ? grass : undefined),
       nowMs: 1_000,
     });
-    expect(result).toEqual({ placed: 9, missing: 0 });
+    expect(result).toEqual({ placed: 11, missing: 0 });
     expect([...facilities.values()].map((record) => record.facilityId).toSorted()).toEqual([
       "farm",
+      "fx_exchange",
+      "goods_exchange",
       "government_hall",
       "lodging",
       "lodging",

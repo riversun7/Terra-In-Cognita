@@ -15,6 +15,7 @@
 //   메시지의 답에만 간다. 모듈 떼기(facility_plot_remove)·기르는 티어 고르기(facility_gather_tier, 45 — D-569 1761·1765)도 plots.ts(코드 no_plot·
 //   tier_locked는 그 답에만).
 // - 판매만·실제 운반(프로토콜 46, 기획 D-569 1781·1784): 새 코드 sale_only(storage_move)는 더 낮은 판에 forbidden, no_carrier(business_buy)는 busy로 간다.
+// - 거래소 건물(프로토콜 47, 기획 D-561): 짓기의 새 코드 exchange_locked·exchange_exists는 더 낮은 판에 forbidden으로 간다.
 import {
   BUSINESS_CARRY_PROTOCOL_VERSION,
   BUSINESS_PROTOCOL_VERSION,
@@ -22,6 +23,7 @@ import {
   type FacilityResultCode,
   RUINS_PROTOCOL_VERSION,
   SALE_ONLY_PROTOCOL_VERSION,
+  EXCHANGE_PROTOCOL_VERSION,
   WATER_PLACE_PROTOCOL_VERSION,
   encodeMessage,
 } from "@terra/protocol";
@@ -271,12 +273,17 @@ export function createFacilityGateway(options: {
       const beforeBusiness = (link.protocolVersion ?? BUSINESS_PROTOCOL_VERSION) < BUSINESS_PROTOCOL_VERSION;
       const beforeSaleOnly =
         (link.protocolVersion ?? SALE_ONLY_PROTOCOL_VERSION) < SALE_ONLY_PROTOCOL_VERSION;
+      const beforeExchange = (link.protocolVersion ?? EXCHANGE_PROTOCOL_VERSION) < EXCHANGE_PROTOCOL_VERSION;
       const beforeCarry =
         (link.protocolVersion ?? BUSINESS_CARRY_PROTOCOL_VERSION) < BUSINESS_CARRY_PROTOCOL_VERSION;
       const reply = (id: number, result: FacilityCommandResult): void => {
         if (closed) return;
-        // 판매만(46)은 더 낮은 판에 권한 없음으로
-        if (beforeSaleOnly && !result.ok && result.code === "sale_only") {
+        // 판매만(46)·거래소 건물 짓기(47)는 더 낮은 판에 권한 없음으로
+        if (
+          !result.ok &&
+          ((beforeSaleOnly && result.code === "sale_only") ||
+            (beforeExchange && (result.code === "exchange_locked" || result.code === "exchange_exists")))
+        ) {
           link.send(resultText(id, fail("forbidden")));
           return;
         }

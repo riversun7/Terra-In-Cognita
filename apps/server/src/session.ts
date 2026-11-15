@@ -588,7 +588,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           else send({ t: "market_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        marketSocket ??= context.market.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        marketSocket ??= context.market.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         marketSocket.handle(message);
         return;
       }

@@ -155,6 +155,11 @@ export interface NpcEconomyInput {
   readonly land?: ((mapKey: number) => CatchmentLand | undefined) | undefined;
   /** NPC 증축 짓기 자리(질문 1101 나, cityBuild.ts — 건물 서비스·2차맵). 없으면 NPC가 짓지 않는다 */
   readonly build?: NpcBuildWorld | undefined;
+  /**
+   * 그 도시 물자 거래소 건물 ID(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md — 유저 거래소 물건 자리, market/exchangeStock.ts).
+   * 없으면 유저 물건도 도시 창고(예전과 같다)
+   */
+  readonly exchangeOf?: ((cityId: number) => number | undefined) | undefined;
 }
 
 /** 시설 하나의 지금 생산(화면용) */
@@ -282,6 +287,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       };
     },
     isUser,
+    exchangeOf: o.input.exchangeOf,
     now: o.now,
   });
   // 환전 시장(찍는 나라가 있는 화폐마다, 걸린 주문이 남은 짝은 fx.ts가 부팅 때 되살린다)

@@ -163,6 +163,10 @@ export function startWorldGather(
       facilities.service.attachStorageOut((ownerId, input, atMs, sellerId) =>
         station.haulOut(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs, sellerId),
       );
+      // 물자 거래소 건물 넣기도 운반꾼(기획 D-564 1628 — docs/adr/2026-11-16-exchange-buildings.md)
+      facilities.service.attachExchangeIn((ownerId, input, atMs) =>
+        station.haulIn(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs),
+      );
       // 플레이어 일꾼도 숙소에서 회복한다(질문 1088 가, labor/workerRest.ts) — 세계가 준비된 뒤 정산에 잇는다(DB가 있는 세계만 일꾼이 있다)
       const workerRest = attachWorkerRest({
         settlement: parts.settlement,

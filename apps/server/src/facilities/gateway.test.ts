@@ -28,6 +28,7 @@ function fakeService(calls: string[]): FacilityService {
     damage: () => false,
     attachGovernment: () => {},
     attachStorageOut: () => {},
+    attachExchangeIn: () => {},
     carryOut: () => undefined,
     ownerSale: (_owner, _building, _asset, qty) => qty,
     attachBusiness: () => {},
@@ -141,6 +142,32 @@ describe("건물 연결 처리", () => {
         { t: "facility_result", id: 1, ok: false, code: move },
         { t: "business_result", id: 2, ok: false, code: buy },
       ]);
+    }
+  });
+
+  it("거래소 건물 짓기(47, D-561): exchange_locked·exchange_exists는 47판에만, 46판은 forbidden으로", async () => {
+    for (const code of ["exchange_locked", "exchange_exists"] as const) {
+      const service: FacilityService = {
+        ...fakeService([]),
+        build: () => Promise.resolve({ ok: false, code }),
+      };
+      for (const [version, shown] of [
+        [47, code],
+        [46, "forbidden"],
+      ] as const) {
+        const { sent, socket } = open(service, player, undefined, version);
+        socket.handle({
+          t: "facility_build",
+          id: 1,
+          mapKey: 9,
+          facility: "stock_exchange",
+          x: 3,
+          y: 4,
+          rotation: 0,
+        });
+        for (let i = 0; i < 6; i++) await settle();
+        expect(sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: shown }]);
+      }
     }
   });
 

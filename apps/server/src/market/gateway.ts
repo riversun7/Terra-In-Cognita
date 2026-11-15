@@ -4,8 +4,10 @@
 // - 체결 알림(market_watch on): 그 연결을 사용자 몫 알림 목록에 둔다. 거래소 모음의 체결이 그 사용자의 걸린 주문이면 market_fill을 보낸다.
 // - 환전(fx_place·fx_cancel, 프로토콜 15)도 같은 연결 차례·속도 제한으로 받아 fx_result로 답한다(WP6).
 // - 판정·저장은 서비스(service.ts)가 한다.
+// - 거래소 건물(프로토콜 47, docs/adr/2026-11-16-exchange-buildings.md): 새 코드 no_exchange는 더 낮은 판에 unknown_city(물자)·unknown_currency(환전)로 간다.
 import {
   type ClientMessageOf,
+  EXCHANGE_MARKET_PROTOCOL_VERSION,
   type FxResultCode,
   type MarketResultCode,
   encodeMessage,
@@ -25,6 +27,8 @@ const LIMIT = { capacity: 10, refillPerMinute: 60 };
 export interface MarketLink {
   send(text: string): void;
   viewer(): Promise<Viewer | null>;
+  /** 연결의 프로토콜 판(없으면 지금 판). 47 아래 판에는 no_exchange를 unknown_city·unknown_currency로 낮춘다 */
+  readonly protocolVersion?: number | undefined;
 }
 
 export interface MarketSocket {
@@ -114,7 +118,25 @@ export function createMarketGateway(options: {
       const send = (text: string): void => {
         if (!closed) link.send(text);
       };
-      const reply = (id: number, result: MarketCommandResult): void => send(resultText(id, result));
+      // 거래소 건물(47, 기획 D-561): 더 낮은 판은 no_exchange를 모른다
+      const beforeExchange =
+        (link.protocolVersion ?? EXCHANGE_MARKET_PROTOCOL_VERSION) < EXCHANGE_MARKET_PROTOCOL_VERSION;
+      const reply = (id: number, result: MarketCommandResult): void =>
+        send(
+          resultText(
+            id,
+            beforeExchange && !result.ok && result.code === "no_exchange" ? fail("unknown_city") : result,
+          ),
+        );
+      const fxSend = (id: number, result: FxCommandResult): void =>
+        send(
+          fxResultText(
+            id,
+            beforeExchange && !result.ok && result.code === "no_exchange"
+              ? { ok: false, code: "unknown_currency" }
+              : result,
+          ),
+        );
       /** 공통 실패(로그인·바쁨·속도 제한·내부 오류)를 그 메시지 모양으로 */
       const replyFail = (message: MarketClientMessage, code: FxResultCode & MarketResultCode): void => {
         if (isFx(message)) send(fxResultText(message.id, fxFail(code)));
@@ -147,19 +169,17 @@ export function createMarketGateway(options: {
         }
         if (!limiter.take(viewer.id)) return replyFail(message, "rate_limited");
         if (message.t === "fx_place")
-          return send(
-            fxResultText(
-              message.id,
-              await service.fxPlace(viewer.id, {
-                currency: message.currency,
-                side: message.side,
-                price: message.price,
-                lots: message.lots,
-              }),
-            ),
+          return fxSend(
+            message.id,
+            await service.fxPlace(viewer.id, {
+              currency: message.currency,
+              side: message.side,
+              price: message.price,
+              lots: message.lots,
+            }),
           );
         if (message.t === "fx_cancel")
-          return send(fxResultText(message.id, await service.fxCancel(viewer.id, message.order)));
+          return fxSend(message.id, await service.fxCancel(viewer.id, message.order));
         if (message.t === "market_cancel")
           return reply(message.id, await service.cancel(viewer.id, message.order));
         reply(

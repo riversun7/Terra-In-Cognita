@@ -34,6 +34,11 @@ export const GATHER_TIER_PROTOCOL_VERSION = 45;
  * sale_only로 거절하는 판. 더 낮은 판 연결은 forbidden을 받는다(그 판 기기가 모르는 코드라 메시지를 풀지 못한다)
  */
 export const SALE_ONLY_PROTOCOL_VERSION = 46;
+/**
+ * 거래소 건물(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md): 짓기의 결과 코드 exchange_locked(잠긴 거래소 — 유닛·증권)·exchange_exists(그 도시에
+ * 같은 종류 거래소가 이미 있음)가 생긴 판. 더 낮은 판 연결은 forbidden을 받는다. 물자 거래소 건물의 창고 넣기(storage_move in)는 운반꾼이 나른다(메시지 꼴 그대로)
+ */
+export const EXCHANGE_PROTOCOL_VERSION = 47;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -286,6 +291,10 @@ export const FACILITY_RESULT_CODES = [
    * SALE_ONLY_PROTOCOL_VERSION)
    */
   "sale_only",
+  /** 잠긴 거래소 건물(유닛 거래소 = 기능 전, 증권 거래소 = 출시 뒤, 47 — 더 낮은 판 연결은 forbidden, EXCHANGE_PROTOCOL_VERSION) */
+  "exchange_locked",
+  /** 그 도시에 같은 종류 거래소 건물이 이미 있다(도시마다 하나, D-117, 47 — 더 낮은 판 연결은 forbidden) */
+  "exchange_exists",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];

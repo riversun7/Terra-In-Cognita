@@ -7632,7 +7632,6 @@
   "books_price": "{price} each",
   "books_qty": "Qty",
   "books_buy": "Buy",
-  "books_take": "Pay and take out",
   "books_set_price": "Set price",
   "books_price_set": "Price set.",
   "books_bought": "Bought.",
@@ -7861,5 +7860,12 @@
   "recruit_err_no_house": "You need a house to hire units.",
   "recruit_need_house": "You need a house to hire units. Found one (free) or join one.",
   "recruit_need_house_link": "Go to the faction screen",
-  "map_peek_unaffiliated": "Unaffiliated (no house)"
+  "map_peek_unaffiliated": "Unaffiliated (no house)",
+  "facility_error_sale_only": "Business storage is for sale only. Owners also buy at the sale price in the building panel [Books] (the money counts as business sales).",
+  "books_err_no_carrier": "No carrier for the goods you bought. Put a worker at that building or one of your units on this map and they walk it to city storage.",
+  "books_sale_note": "Owners buy at the sale price too. The money counts as this business's sales.",
+  "station_buy_haul": "Buy at sale price to city storage",
+  "station_buy_haul_done": "Bought. The money counts as business sales, and a carrier walks the goods to city storage.",
+  "facility_place_sale_only": "Business goods · buy them at the sale price in the building panel [Books]",
+  "facility_move_no_carrier": "No carrier for the goods. Put a worker at that building or one of your humans or cyborg units on this map and they walk it to city storage."
 }

@@ -282,7 +282,10 @@ export function EntryList({ books }: { readonly books: BooksOk }) {
   );
 }
 
-/** 창고 물건 사기(남 — 최소 묶음, 주인 — 꺼내기 값). 주인·대주주는 값을 정한다 */
+/**
+ * 창고 물건 사기 — 누구나 같은 판매가·최소 묶음(주인도, 기획 D-569 1781 "주인이 꺼내는 기능은 존재하지 않는다 무조건 판매"). 값 0(안 팖)이면
+ * 아무도 못 산다. 산 물건은 운반꾼이 도시 창고로 나른다(1784). 주인·대주주는 값을 정한다
+ */
 export function GoodsSale({
   books,
   manage,
@@ -307,6 +310,11 @@ export function GoodsSale({
           · {books.retail ? m.books_lot_retail() : m.books_lot({ lot: books.minLot })}
         </span>
       </h3>
+      {books.mine ? (
+        <p className="bp-muted" data-part="books-sale-note">
+          {m.books_sale_note()}
+        </p>
+      ) : null}
       <ul className="bp-list">
         {books.goods.map((line) => {
           const name = line.name ? (locale === "ko" ? line.name.ko : line.name.en) : line.asset.slice(5);
@@ -323,7 +331,7 @@ export function GoodsSale({
                     : m.books_price({ price: formatAmount(line.price, locale) })}
                 </span>
               </div>
-              {books.mine || line.price !== null ? (
+              {line.price !== null ? (
                 <div className="bp-form-row">
                   <input
                     className="bp-input"
@@ -350,7 +358,7 @@ export function GoodsSale({
                       );
                     }}
                   >
-                    {books.mine ? m.books_take() : m.books_buy()}
+                    {m.books_buy()}
                   </button>
                 </div>
               ) : null}

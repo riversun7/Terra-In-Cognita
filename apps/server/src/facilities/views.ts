@@ -97,6 +97,7 @@ function placesOf(
       let cityId: number | null = null;
       let mapKey: number | null = null;
       let storage = false;
+      let sale = false;
       let facilityId: string | null = null;
       if (place.kind === "city") cityId = place.id;
       else if (place.kind === "building" && place.id !== null) {
@@ -105,10 +106,12 @@ function placesOf(
         mapKey = found?.mapKey ?? null;
         storage = found?.ownerId === ownerId && isStorage(world, place.id);
         facilityId = world.facilities.get(place.id)?.facilityId ?? null;
+        // 내 사업장 물건은 판매만(D-569 1781)
+        sale = found?.ownerId === ownerId && facilityId !== null && !storage;
       } else if (place.kind === "cargo" && place.id !== null)
         for (const map of world.maps.values()) if (map.unitInfo(place.id)) mapKey = map.mapKey;
       entry = {
-        view: { key, kind: place.kind, id: place.id, cityId, mapKey, storage, facilityId },
+        view: { key, kind: place.kind, id: place.id, cityId, mapKey, storage, facilityId, sale },
         lines: [],
       };
       byKey.set(key, entry);

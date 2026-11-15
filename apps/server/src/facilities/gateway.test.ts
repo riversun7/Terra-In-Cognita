@@ -28,6 +28,8 @@ function fakeService(calls: string[]): FacilityService {
     damage: () => false,
     attachGovernment: () => {},
     attachStorageOut: () => {},
+    carryOut: () => undefined,
+    ownerSale: (_owner, _building, _asset, qty) => qty,
     attachBusiness: () => {},
     businessCommand: () => Promise.resolve({ ok: true }),
     seedBuilt: () => {},
@@ -106,6 +108,34 @@ function open(
 }
 
 describe("건물 연결 처리", () => {
+  it("판매만·운반꾼 없음(46, D-569 1781·1784): 새 코드는 46판에만, 45판은 forbidden·busy로", async () => {
+    const service: FacilityService = {
+      ...fakeService([]),
+      storageMove: () => Promise.resolve({ ok: false, code: "sale_only" }),
+      businessCommand: () => Promise.resolve({ ok: false, code: "no_carrier" }),
+    };
+    for (const [version, move, buy] of [
+      [46, "sale_only", "no_carrier"],
+      [45, "forbidden", "busy"],
+    ] as const) {
+      const { sent, socket } = open(service, player, undefined, version);
+      socket.handle({
+        t: "storage_move",
+        id: 1,
+        buildingId: 8,
+        asset: "item:plank",
+        qty: 3,
+        direction: "out",
+      });
+      socket.handle({ t: "business_buy", id: 2, buildingId: 8, item: "item:plank", qty: 3 });
+      for (let i = 0; i < 6; i++) await settle();
+      expect(sent).toEqual([
+        { t: "facility_result", id: 1, ok: false, code: move },
+        { t: "business_result", id: 2, ok: false, code: buy },
+      ]);
+    }
+  });
+
   it("명령을 받은 차례대로 넘기고 결과를 요청 id로 돌려준다(수리 대상은 건물·비콘 가운데 하나)", async () => {
     const calls: string[] = [];
     const { sent, socket } = open(fakeService(calls), player);

@@ -129,7 +129,13 @@ const HAUL_ON = {
 };
 
 function rig(
-  level: number | { store?: { x: number; y: number } | undefined; haulMode?: number | undefined } = 1,
+  level:
+    | number
+    | {
+        store?: { x: number; y: number } | undefined;
+        haulMode?: number | undefined;
+        ownerSale?: ((ownerId: number, buildingId: number, asset: string, qty: bigint) => bigint) | undefined;
+      } = 1,
 ) {
   const opts = typeof level === "number" ? {} : level;
   if (typeof level !== "number") level = 1;
@@ -172,6 +178,7 @@ function rig(
     [mineId, record(mineId, "mine")],
     [farmId, record(farmId, "farm")],
   ]);
+  let storeId: number | undefined;
   if (opts.store) {
     const stored = map.placeBuilding(
       { x: opts.store.x, y: opts.store.y, width: 3, height: 3, rotation: 0 },
@@ -179,6 +186,7 @@ function rig(
     );
     if (!stored.ok || stored.buildingId === undefined) throw new Error("no store");
     facilities.set(stored.buildingId, record(stored.buildingId, "storehouse"));
+    storeId = stored.buildingId;
   }
   const places: PlaceWorld = {
     maps,
@@ -213,6 +221,15 @@ function rig(
     timers: false,
     workersAt: (buildingId) =>
       (workers.get(buildingId) ?? []).map((unitId) => ({ unitId, workerOwnerId: OWNER })),
+    // 받을 사람의 그 2차맵 유닛(기획 D-569 1784 — 일꾼 다음 운반꾼)
+    ownUnits: (ownerId, mapKey) => {
+      const found: number[] = [];
+      maps.get(mapKey)?.forEachUnit((unit) => {
+        if (unit.ownerId === ownerId) found.push(unit.id);
+      });
+      return found;
+    },
+    ownerSale: opts.ownerSale,
   });
   /** 그 채집소 일꾼(운반꾼 후보)으로 유닛을 놓는다 */
   const hire = (buildingId: number, unitId: number, cellX: number, cellY: number): void => {
@@ -227,7 +244,7 @@ function rig(
     });
     workers.set(buildingId, [...(workers.get(buildingId) ?? []), unitId]);
   };
-  return { maps, map, mineId, farmId, ledger, store, runtime, objects, hire };
+  return { maps, map, mineId, farmId, storeId, ledger, store, runtime, objects, hire };
 }
 
 const commitOf = (made: number, lots: number, capped = false, clipped = false) => ({
@@ -389,7 +406,7 @@ describe("채집소 일꾼 산출·창고", () => {
     const trip = r.runtime.trip(r.mineId);
     expect(trip).toMatchObject({ porter: 7, grams: 9n, arriveAtMs: NOW + 2 * 77 * walkMsPerCell() });
     expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(7))).toBe(9n);
-    // 채집소가 아닌 건물은 맡지 않는다(예전처럼 바로)
+    // 시설 건물이 아니면 맡지 않는다(예전처럼 바로)
     expect(r.runtime.haulOut(OWNER, 999, ORE, 1n, NOW)).toBeUndefined();
     expect(r.runtime.haulNow(trip?.arriveAtMs ?? 0)).toBe(1);
     expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(9n);
@@ -515,5 +532,85 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
     expect(r.runtime.haulNow(arrive)).toBe(1);
     expect(r.ledger.balanceOf(OWNER, CROP, here)).toBe(0n);
     expect(r.ledger.balanceOf(OWNER, CROP, cityLocation(CITY))).toBe(4n);
+  });
+
+  it("사업장 판매(기획 D-569 1784): 판 사람 몫을 산 사람 몫의 운반꾼 화물로 싣고, 닿으면 산 사람 도시 창고로", () => {
+    const r = rig();
+    const here = buildingLocation(r.mineId);
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -9n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, here), amount: 9n },
+      ],
+    });
+    r.hire(r.mineId, 7, 30, 30);
+    // 산 사람(TENANT) 몫이 모자라도 판 사람(OWNER) 몫을 본다
+    expect(r.runtime.haulOut(TENANT, r.mineId, ORE, 10n, NOW, OWNER)).toBe("insufficient_materials");
+    expect(r.runtime.haulOut(TENANT, r.mineId, ORE, 4n, NOW, OWNER)).toBeNull();
+    expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(5n);
+    expect(r.ledger.balanceOf(TENANT, ORE, cargoLocation(7))).toBe(4n);
+    const trip = r.runtime.trip(r.mineId);
+    r.runtime.haulNow(trip?.arriveAtMs ?? 0);
+    expect(r.ledger.balanceOf(TENANT, ORE, cityLocation(CITY))).toBe(4n);
+    expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(0n);
+  });
+
+  it("채집소가 아닌 시설(창고 시설) 꺼내기도 운반꾼(D-569 1784): 일꾼이 없으면 내 유닛, 아무도 없으면 unknown_unit", () => {
+    const r = rig({ store: { x: 30, y: 24 } });
+    const storeId = r.storeId ?? 0;
+    const here = buildingLocation(storeId);
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -3n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, here), amount: 3n },
+      ],
+    });
+    expect(r.runtime.haulOut(OWNER, storeId, ORE, 3n, NOW)).toBe("unknown_unit");
+    r.map.addUnit({
+      id: 21,
+      size: 1,
+      speed: WALK_SPEED,
+      cellX: 40,
+      cellY: 30,
+      ownerId: OWNER,
+      kind: UNIT_KIND_HUMAN,
+    });
+    expect(r.runtime.haulOut(OWNER, storeId, ORE, 3n, NOW)).toBeNull();
+    expect(r.runtime.trip(storeId)).toMatchObject({ porter: 21, grams: 3n });
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(21))).toBe(3n);
+    r.runtime.haulNow(r.runtime.trip(storeId)?.arriveAtMs ?? 0);
+    expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(3n);
+  });
+
+  it("자동 옮김은 주인 자동 구매(D-569 1781): 산 만큼만 옮기고, 못 사면 창고에 남는다", () => {
+    const asked: bigint[] = [];
+    let allow = 0n;
+    const r = rig({
+      haulMode: 0,
+      ownerSale: (_owner, _building, _asset, qty) => {
+        asked.push(qty);
+        return allow < qty ? allow : qty;
+      },
+    });
+    const here = buildingLocation(r.mineId);
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -5n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, here), amount: 5n },
+      ],
+    });
+    expect(r.runtime.haulNow(NOW)).toBe(0);
+    expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(5n);
+    allow = 3n;
+    expect(r.runtime.haulNow(NOW + 1)).toBe(1);
+    expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(2n);
+    expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(3n);
+    expect(asked).toEqual([5n, 5n]);
   });
 });

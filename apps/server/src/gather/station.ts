@@ -19,6 +19,8 @@
 //   하나도 못 끝낸 구간은 기다림이라 피로를 모두 덜어 준다. 나머지 ‰은 메모리에 들고 다음 정산에 더한다.
 // - 자동 옮김: 설정 칸 간격(gather_obj_station_haul_ms)의 정시마다 채집소 창고의 주인 몫 물자를 그 도시의 주인 도시 창고로 옮긴다(거래 하나,
 //   kind station_haul). 임대형 임차인 몫은 그대로(유예 규칙). 손으로는 이미 있는 창고 꺼내기(storage_move out)로 옮긴다.
+//   바뀜 (기획 D-569 1781): 주인 몫은 사업장 물건이라 자동 옮김은 주인 자동 구매다(ownerSale — 판매가, 지갑이 되는 만큼, 값 0이면 옮기지 않음). 손으로는
+//   storage_move out이 아니라 business_buy(판매가)로 산다. 기본값은 자동 옮김 끔(설정 칸 0, D-555 1505).
 // - 옮김 거리(질문 1050 가, D-533 "창고와 원자재채집소와의 관계", 기획 43 §7.1 직접 운반·§7.3)와 운반꾼(질문 1090 가·1092 가·1091 가, D-534):
 //   거리가 있으면 보이는 운반꾼(그 채집소 일꾼 하나, porter.ts)이 정시에 주인 몫을 화물로 싣고 걸어 나른다 — 물건은 채집소 창고에서 운반꾼 화물로
 //   옮겨 채집소 창고 자리가 바로 빈다. 걸리는 시간은 옛 셈(@terra/sim haulMs — 무게 ÷ 화물 상한 gather_obj_carry_g 횟수 × 왕복 2 × 칸 × 걷기 ms,
@@ -26,6 +28,10 @@
 //   창고(창고 단계, 일하는 것) 가운데, 창고가 없으면 도시 칸(체비셰프). 나르는 동안 그 채집소는 다음 정시를 건너뛴다. 운반꾼으로 쓸 일꾼이 없으면
 //   물건은 채집소 창고에서 기다린다 [임시]. 손으로 옮기기(창고 꺼내기 storage_move out, haulOut)도 같은 운반꾼·시간이다. 옮김 셈을 끄면
 //   (haul_distance_mode 0) 또는 거리 0이면 예전처럼 바로.
+// - 바뀜 (기획 D-569 1781·1784 "거래소 반입은 실제 운반만 — 우회 길 없음"): 손으로 옮기기(haulOut)는 채집소가 아닌 시설 건물(창고 시설·임대 몫·
+//   사업장)에도 맡는다 — 예전에는 운반꾼 없이 바로 옮겼다. 운반꾼은 그 건물 일꾼, 없으면 받을 사람의 그 2차맵 유닛(porter.ts ownUnits). 사업장 판매
+//   (business_buy)도 같은 길이다: 판 사람의 건물 창고 물건을 산 사람의 도시 창고로(sellerId). 길 = 그 건물 가운데 → 받을 사람의 가장 가까운 다른
+//   창고, 없으면 도시 칸. 운반꾼이 없으면 unknown_unit·unit_busy(물건은 건물 창고에 그대로).
 // - 오브젝트 규칙(기획 D-552 "직접 채집과 일꾼 채집이 같은 규칙", docs/adr/2026-11-15-gather-object-tiers.md): objects 채집소 일꾼의 k번째 묶음은
 //   번수를 쓸 차례(가까운 것부터)의 k번째 오브젝트 규칙(사다리·티어 범위·대표 아이템·굴림표 — objectYield.ts objectRollOf)으로 굴린다(lotRoll).
 // [임시] 일꾼 상태·끝낸 묶음 수·피로 나머지는 메모리에만 있다(다시 켜면 0부터). 정산이 길게 밀리면(오프라인) 그 사이 다시 자란 번수는 세지 못하고
@@ -109,6 +115,25 @@ export interface StationDeps {
     | undefined;
   /** 다른 일(채집 줄 등)이 있는 유닛 — 운반꾼에서 뺀다 */
   readonly busy?: ((unitId: number) => boolean) | undefined;
+  /** 받을 사람의 그 2차맵 유닛(일꾼 다음 운반꾼 후보, D-569 1784 — porter.ts). 없으면 일꾼만 */
+  readonly ownUnits?: ((ownerId: number, mapKey: number) => readonly number[]) | undefined;
+  /**
+   * 자동 옮김의 주인 구매(기획 D-569 1781 — business/commands.ts sellTo): 채집소 주인이 제 사업장 창고 asset을 qty까지 판매가로 사고 산 수량을
+   * 돌려준다(돈 → 사업장 금고, 매출). 없으면(시험) 예전처럼 값 없이 옮긴다
+   */
+  readonly ownerSale?:
+    | ((ownerId: number, buildingId: number, asset: string, qty: bigint, atMs: number) => bigint)
+    | undefined;
+}
+
+/** 옮김 길의 출발 건물(채집소 또는 다른 시설 건물, D-569 1784) */
+export interface HaulPlace {
+  readonly buildingId: number;
+  readonly mapKey: number;
+  readonly x: number;
+  readonly y: number;
+  readonly ownerId: number | null;
+  readonly cityId: number | null;
 }
 
 /** 채집소 하나의 옮김 길(질문 1050 가) */
@@ -149,8 +174,9 @@ export interface StationRuntime {
   /** 나르는 중인 짐(여럿이면 가장 늦게 닿는 것, 없으면 undefined) */
   trip(buildingId: number): StationTrip | undefined;
   /**
-   * 손으로 옮기기(질문 1091 가): 채집소 창고의 내 몫 asset qty를 운반꾼에게 실어 보낸다. 채집소가 아니거나 거리 셈이 없으면(옮김 셈 끔·거리 0)
-   * undefined(부르는 쪽이 예전처럼 바로 옮긴다). null = 떠남, 아니면 결과 코드(운반꾼 없음 unknown_unit, 모두 바쁨 unit_busy 등)
+   * 손으로 옮기기(질문 1091 가, D-569 1784): 그 건물(채집소·창고 시설·사업장 등 시설 건물) 창고의 asset qty를 운반꾼에게 실어 ownerId의 그 도시 창고로
+   * 보낸다. sellerId가 있으면 판매(business_buy) — 판 사람의 몫을 산 사람에게. 시설 건물이 아니거나 거리 셈이 없으면(옮김 셈 끔·거리 0) undefined
+   * (부르는 쪽이 예전처럼 바로 옮긴다). null = 떠남, 아니면 결과 코드(운반꾼 없음 unknown_unit, 모두 바쁨 unit_busy 등)
    */
   haulOut(
     ownerId: number,
@@ -158,6 +184,7 @@ export interface StationRuntime {
     asset: string,
     qty: bigint,
     atMs: number,
+    sellerId?: number,
   ): FacilityResultCode | null | undefined;
   stop(): void;
 }
@@ -376,23 +403,37 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     return found;
   };
 
-  /** 채집소 → 창고(없으면 도시 칸)의 칸·두 끝 가운데 */
+  /** 옮김 길의 출발 건물(채집소, D-569 1784부터는 시설 건물 모두): 2차맵·기준 칸·주인·도시 */
+  const placeOf = (buildingId: number): HaulPlace | undefined => {
+    const station = site(buildingId);
+    if (station) return station;
+    const world = deps.places();
+    if (!world?.facilities.has(buildingId)) return undefined;
+    const cell = buildingCell(world.maps, buildingId);
+    if (!cell) return undefined;
+    return { ...cell, buildingId, cityId: buildingPlace(world, buildingId)?.cityId ?? null };
+  };
+
+  /** 건물 → 받을 사람(없으면 건물 주인)의 가장 가까운 다른 창고(없으면 도시 칸)의 칸·두 끝 가운데 */
   const routeOf = (
     buildingId: number,
+    receiverId?: number,
   ):
     | { cells: number; storeId: number | null; from: { x: number; y: number }; to: { x: number; y: number } }
     | undefined => {
     const world = deps.places();
-    const target = site(buildingId);
+    const target = placeOf(buildingId);
     if (!world || !target || target.cityId === null) return undefined;
+    const storeOwner = receiverId ?? target.ownerId;
     const from = centerOf(target.mapKey, buildingId) ?? { x: target.x, y: target.y };
     const catalog = world.catalog();
     let best: { cells: number; storeId: number | null; to: { x: number; y: number } } | undefined;
     for (const record of world.facilities.values()) {
+      if (record.buildingId === buildingId) continue;
       if (record.cityId !== target.cityId || record.level < 1 || !deps.works(record.buildingId)) continue;
       if (catalog.facility(record.facilityId)?.stage !== "storage") continue;
       const cell = buildingCell(maps, record.buildingId);
-      if (!cell || cell.mapKey !== target.mapKey || cell.ownerId !== target.ownerId) continue;
+      if (!cell || cell.mapKey !== target.mapKey || cell.ownerId !== storeOwner) continue;
       const to = centerOf(cell.mapKey, record.buildingId) ?? cell;
       const cells = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y));
       if (!best || cells < best.cells || (cells === best.cells && record.buildingId < (best.storeId ?? 0)))
@@ -418,6 +459,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     log: deps.log,
     workersAt: (buildingId) => deps.workersAt?.(buildingId) ?? [],
     busy: deps.busy,
+    ownUnits: deps.ownUnits,
   });
 
   /** 옮김 거래 하나(그때 남은 양까지만, 거리 0·옮김 셈 끔). 넣은 계정 수 */
@@ -440,14 +482,15 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
 
   /** 운반꾼에게 실어 보낸다(거리 셈이 0이면 false — 부르는 쪽이 바로 옮긴다) */
   const sendWithPorter = (
-    target: StationSite & { readonly cityId: number },
+    target: HaulPlace & { readonly cityId: number },
     ownerId: number,
     porter: number,
     loads: readonly { asset: string; qty: bigint; grams: bigint }[],
     atMs: number,
     resumed = false,
+    sellerId?: number,
   ): boolean => {
-    const route = routeOf(target.buildingId);
+    const route = routeOf(target.buildingId, ownerId);
     const rules = deps.rules();
     if (!route) return false;
     // 운영자 빠르기 표시(world/operatorPace.ts)가 달린 운반꾼은 걸음처럼 나르는 시간도 그 배수로 준다(사용자 지적 2026-11-12) [임시]
@@ -472,6 +515,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       nowMs: atMs,
       timeMs,
       resumed,
+      sourceOwnerId: sellerId,
     });
     return true;
   };
@@ -549,20 +593,34 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
         accounts += postMoves(moves, nowMs);
       }
     }
-    for (const [buildingId, moves] of [...loads].toSorted((a, b) => a[0] - b[0])) {
+    for (const [buildingId, found] of [...loads].toSorted((a, b) => a[0] - b[0])) {
       const target = targets.get(buildingLocation(buildingId));
       if (!target || porters.busyAt(buildingId)) continue;
-      const lines = moves.map((move) => ({ asset: move.asset, qty: move.amount, grams: move.grams }));
       const route = routeOf(buildingId);
-      let grams = 0n;
-      for (const line of lines) grams += line.grams;
-      if (!route || haulMs(grams, route.cells, 1, deps.rules()) <= 0) {
+      let total = 0n;
+      for (const move of found) total += move.grams;
+      const instant = !route || haulMs(total, route.cells, 1, deps.rules()) <= 0;
+      // 운반꾼이 없으면 채집소 창고에서 기다린다 [임시]
+      const porter = instant ? undefined : porters.pick(buildingId, target.mapKey, target.ownerId, nowMs);
+      if (!instant && porter === undefined) continue;
+      // 주인 자동 구매(기획 D-569 1781 "주인이 꺼내는 기능은 존재하지 않는다 무조건 판매"): 고리가 있으면 판매가로 산 만큼만 옮긴다(매출로 잡힘)
+      const sale = deps.ownerSale;
+      const moves = sale
+        ? found
+            .map((move) => {
+              const amount = sale(target.ownerId, buildingId, move.asset, move.amount, nowMs);
+              const grams = move.amount > 0n ? (move.grams * amount) / move.amount : 0n;
+              return { ...move, amount, grams };
+            })
+            .filter((move) => move.amount > 0n)
+        : found;
+      if (moves.length === 0) continue;
+      if (instant || porter === undefined) {
         accounts += postMoves(moves, nowMs);
         continue;
       }
-      // 운반꾼이 없으면 채집소 창고에서 기다린다 [임시]
-      const porter = porters.pick(buildingId, target.mapKey, target.ownerId, nowMs);
-      if (porter !== undefined) sendWithPorter(target, target.ownerId, porter, lines, nowMs);
+      const lines = moves.map((move) => ({ asset: move.asset, qty: move.amount, grams: move.grams }));
+      sendWithPorter(target, target.ownerId, porter, lines, nowMs, false, sale ? target.ownerId : undefined);
     }
     return accounts;
   };
@@ -573,23 +631,35 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     asset: string,
     qty: bigint,
     atMs: number,
+    sellerId?: number,
   ): FacilityResultCode | null | undefined => {
     const world = deps.places();
-    const target = site(buildingId);
+    const target = placeOf(buildingId);
     if (!world || !target || target.cityId === null || !haulOn(deps.rules())) return undefined;
     const here = buildingLocation(buildingId);
-    if (qty <= 0n || ledger.balanceOf(ownerId, asset, here) < qty) return "insufficient_materials";
+    if (qty <= 0n || ledger.balanceOf(sellerId ?? ownerId, asset, here) < qty)
+      return "insufficient_materials";
     const grams = qty * assetWeightG(world.catalog(), asset);
-    const route = routeOf(buildingId);
+    const route = routeOf(buildingId, ownerId);
     if (!route || haulMs(grams, route.cells, 1, deps.rules()) <= 0) return undefined;
     const porter = porters.pick(buildingId, target.mapKey, ownerId, atMs);
     if (porter === undefined) {
-      const any = (deps.workersAt?.(buildingId) ?? []).some(
-        (worker) => maps.get(target.mapKey)?.unitInfo(worker.unitId) !== undefined,
-      );
-      return any ? "unit_busy" : "unknown_unit";
+      const map = maps.get(target.mapKey);
+      const candidates = [
+        ...(deps.workersAt?.(buildingId) ?? []).map((worker) => worker.unitId),
+        ...(deps.ownUnits?.(ownerId, target.mapKey) ?? []),
+      ];
+      return candidates.some((unitId) => map?.unitInfo(unitId) !== undefined) ? "unit_busy" : "unknown_unit";
     }
-    sendWithPorter({ ...target, cityId: target.cityId }, ownerId, porter, [{ asset, qty, grams }], atMs);
+    sendWithPorter(
+      { ...target, cityId: target.cityId },
+      ownerId,
+      porter,
+      [{ asset, qty, grams }],
+      atMs,
+      false,
+      sellerId,
+    );
     rearm();
     return null;
   };

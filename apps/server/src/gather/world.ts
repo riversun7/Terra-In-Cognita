@@ -9,6 +9,7 @@ import type { StorageContext } from "../facilities/storage.ts";
 import type { LaborWorkerEntry } from "../labor/service.ts";
 import { type WorkerRest, attachWorkerRest } from "../labor/workerRest.ts";
 import { createGatherInjury } from "../world/unitCondition.ts";
+import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import type { GatherKind } from "./kinds.ts";
 import { type GatherService, createGatherService } from "./service.ts";
@@ -138,11 +139,27 @@ export function startWorldGather(
         // 운반꾼(질문 1090 가): 그 채집소 일꾼 가운데 채집 줄이 없는 유닛
         workersAt,
         busy: (unitId) => service.acting(unitId),
+        // 일꾼 다음 운반꾼(기획 D-569 1784): 받을 사람의 그 2차맵 휴먼·사이보그 유닛(사이보그 본체는 빼낸다 [임시])
+        ownUnits: (ownerId, mapKey) => {
+          const found: number[] = [];
+          world.maps.get(mapKey)?.forEachUnit((unit) => {
+            if (
+              unit.ownerId === ownerId &&
+              (unit.kind === UNIT_KIND_HUMAN || unit.kind === UNIT_KIND_CYBORG_UNIT)
+            )
+              found.push(unit.id);
+          });
+          return found;
+        },
+        // 자동 옮김은 주인 자동 구매(기획 D-569 1781 — 판매가, 매출로 잡힘)
+        ownerSale: (ownerId, buildingId, asset, qty, atMs) =>
+          facilities.service.ownerSale(ownerId, buildingId, asset, qty, atMs),
       });
       parts.labor.attachStation(station.hook);
       // 손으로 옮기기도 운반꾼·거리 시간(질문 1091 가)
-      facilities.service.attachStorageOut((ownerId, input, atMs) =>
-        station.haulOut(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs),
+      // 사업장 판매(business_buy)·창고 시설 꺼내기도 같은 운반꾼(기획 D-569 1784 — sellerId = 판 사람)
+      facilities.service.attachStorageOut((ownerId, input, atMs, sellerId) =>
+        station.haulOut(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs, sellerId),
       );
       // 플레이어 일꾼도 숙소에서 회복한다(질문 1088 가, labor/workerRest.ts) — 세계가 준비된 뒤 정산에 잇는다(DB가 있는 세계만 일꾼이 있다)
       const workerRest = attachWorkerRest({

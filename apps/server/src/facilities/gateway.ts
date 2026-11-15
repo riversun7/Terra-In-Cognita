@@ -12,11 +12,14 @@
 // - 지분 주문(프로토콜 38, docs/adr/2026-11-15-building-screen.md)도 여기서 받는다. 운영자 모드 연결(전체 보기 + 모든 유닛 명령 권한)의 관리 명령은
 //   남의 사업장에도 된다(사용자 요청 2026-11-15 "운영자도 조작가능").
 // - 면적 모듈 붙이기(facility_plot, 프로토콜 41 — 건물 채집소, 기획 D-567): plots.ts. 새 코드 plot_full은 이 메시지의 답에만 간다.
+// - 판매만·실제 운반(프로토콜 46, 기획 D-569 1781·1784): 새 코드 sale_only(storage_move)는 더 낮은 판에 forbidden, no_carrier(business_buy)는 busy로 간다.
 import {
+  BUSINESS_CARRY_PROTOCOL_VERSION,
   BUSINESS_PROTOCOL_VERSION,
   type ClientMessageOf,
   type FacilityResultCode,
   RUINS_PROTOCOL_VERSION,
+  SALE_ONLY_PROTOCOL_VERSION,
   WATER_PLACE_PROTOCOL_VERSION,
   encodeMessage,
 } from "@terra/protocol";
@@ -258,8 +261,17 @@ export function createFacilityGateway(options: {
       const beforeWater =
         (link.protocolVersion ?? WATER_PLACE_PROTOCOL_VERSION) < WATER_PLACE_PROTOCOL_VERSION;
       const beforeBusiness = (link.protocolVersion ?? BUSINESS_PROTOCOL_VERSION) < BUSINESS_PROTOCOL_VERSION;
+      const beforeSaleOnly =
+        (link.protocolVersion ?? SALE_ONLY_PROTOCOL_VERSION) < SALE_ONLY_PROTOCOL_VERSION;
+      const beforeCarry =
+        (link.protocolVersion ?? BUSINESS_CARRY_PROTOCOL_VERSION) < BUSINESS_CARRY_PROTOCOL_VERSION;
       const reply = (id: number, result: FacilityCommandResult): void => {
         if (closed) return;
+        // 판매만(46)은 더 낮은 판에 권한 없음으로
+        if (beforeSaleOnly && !result.ok && result.code === "sale_only") {
+          link.send(resultText(id, fail("forbidden")));
+          return;
+        }
         // 돈 모자람(34)은 더 낮은 판에 재료 모자람으로
         if (beforeBusiness && !result.ok && result.code === "insufficient_funds") {
           link.send(resultText(id, fail("insufficient_materials")));
@@ -277,7 +289,11 @@ export function createFacilityGateway(options: {
         const viewer = await link.viewer();
         if (closed) return;
         const send = (result: BusinessCommandResult): void => {
-          if (!closed) link.send(businessText(message.id, result));
+          if (closed) return;
+          // 운반꾼 없음(46)은 더 낮은 판에 busy로
+          const shown: BusinessCommandResult =
+            beforeCarry && !result.ok && result.code === "no_carrier" ? { ok: false, code: "busy" } : result;
+          link.send(businessText(message.id, shown));
         };
         if (!viewer) return send({ ok: false, code: "sign_in_required" });
         const service = options.service();

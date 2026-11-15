@@ -3,6 +3,8 @@
 // - 넣기(business_invest): 주인 지갑 → 사업장 금고(적자를 바로 갚는다 — 1504).
 // - 사기(business_buy, 1507): 사업장 창고 물건을 산다. 남은 대량(B2B, 최소 묶음)으로, 저급 도시는 낱개(소매)로도. 주인도 값을 내고 꺼낸다.
 //   물건은 산 사람의 그 도시 창고로, 돈은 사업장 금고로(소득세).
+//   바뀜 (프로토콜 46, 기획 D-569 1781·1784): 주인도 누구나와 같은 판매(같은 판매가·최소 묶음, 0 = 아무에게도 안 팖)이고 돈은 사업장 매출로 잡힌다.
+//   산 물건은 운반꾼(그 건물 일꾼 또는 산 사람의 유닛)이 도시 창고로 걸어 나른다 — 운반꾼이 없으면 no_carrier(옮김 셈을 끄거나 거리 0이면 바로).
 // - 값 정하기(business_price): 주인·대주주가 아이템 1개 값을 정한다(0 = 남에게 팔지 않음).
 // - 선물(unit_gift, 1508): 내 유닛의 사유재산(유닛 지갑)에 돈을 준다. 유닛은 그 돈으로 숙박비를 낸다.
 // - 지분 주문(business_share_order·business_share_cancel, 프로토콜 38 — docs/adr/2026-11-15-building-screen.md): 생산시설 지분(기획 44 §6
@@ -21,6 +23,9 @@ export const BUSINESS_SHARES_PROTOCOL_VERSION = 38;
 
 /** 지급준비율 메시지(business_reserve)에 필요한 가장 낮은 프로토콜 버전(D-564 1623). 39판 기기는 보내지 않는다 */
 export const BUSINESS_RESERVE_PROTOCOL_VERSION = 40;
+
+/** 산 물건을 나를 운반꾼이 없음(no_carrier, 기획 D-569 1784)이 생긴 판. 더 낮은 판 연결은 busy를 받는다 */
+export const BUSINESS_CARRY_PROTOCOL_VERSION = 46;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -136,6 +141,8 @@ export const BUSINESS_RESULT_CODES = [
   "order_limit",
   "unknown_order",
   "insufficient_shares",
+  /** 판 46 사기: 산 물건을 나를 운반꾼(그 건물 일꾼·산 사람의 유닛)이 없거나 모두 바쁨(기획 D-569 1784 — 더 낮은 판 연결은 busy) */
+  "no_carrier",
 ] as const;
 export type BusinessResultCode = (typeof BUSINESS_RESULT_CODES)[number];
 

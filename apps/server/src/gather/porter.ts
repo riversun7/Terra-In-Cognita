@@ -6,6 +6,9 @@
 //   닿는 시각에 운반꾼 화물에 남은 만큼 도시 창고로 넣는다(거래 station_haul). 습격으로 빼앗기면(전투 화물 약탈) 남은 것만 닿는다.
 // - 걸리는 시간은 옛 셈 그대로(@terra/sim haulMs: 무게 ÷ 화물 상한 × 왕복 2 × 칸 × 걷기 ms), 나르는 사람은 운반꾼 하나 [임시]. 운반꾼은 그동안 채집소 ↔
 //   창고를 오가며 걷고(보이는 모습 — 닿는 시각은 셈이 정한다), 닿으면 채집소로 돌아간다.
+// - 바뀜 (기획 D-569 1784 "거래소 반입은 실제 운반만 — 우회 길 없음"): 채집소가 아닌 건물(창고 시설·사업장)의 꺼내기와 사업장 판매(business_buy)도
+//   같은 운반꾼이 나른다. 운반꾼 후보 = 그 건물 일꾼(물건 받을 사람의 유닛 먼저) → 받을 사람의 그 2차맵 유닛(ownUnits — 휴먼·사이보그 유닛, 사이보그
+//   본체는 빼낸다 [임시]). 판매면 물건은 떠날 때 판 사람의 건물 창고에서 산 사람 몫의 운반꾼 화물로 간다(거래 business_sale_goods).
 // - 같은 채집소·같은 주인의 짐이 떠난 지 MERGE_MS 안이면 그 짐에 더한다(손으로 옮기기는 물건마다 명령을 보낸다 — 운반꾼 하나가 한 번에 진다).
 // - [임시] 나르는 중 상태는 메모리다. 다시 켜면 화물은 운반꾼에 남아 있어 다음 정시에 그 유닛의 화물로 짐을 다시 떠나보낸다(resume).
 // 정수 연산만 쓴다.
@@ -53,6 +56,8 @@ export interface PorterDeps {
   workersAt(buildingId: number): readonly { readonly unitId: number; readonly workerOwnerId: number }[];
   /** 채집 줄 등 다른 일이 있는 유닛(운반꾼에서 뺀다). 없으면 모두 한가 */
   readonly busy?: ((unitId: number) => boolean) | undefined;
+  /** 물건 받을 사람의 그 2차맵 유닛(일꾼 다음 운반꾼 후보, 기획 D-569 1784). 없으면 일꾼만 */
+  readonly ownUnits?: ((ownerId: number, mapKey: number) => readonly number[]) | undefined;
 }
 
 /** 목표 칸 둘레에서 가장 가까운 설 칸(체비셰프 고리). 없으면 null */
@@ -103,6 +108,8 @@ export interface Porters {
     readonly timeMs: (grams: bigint) => number;
     /** 이미 화물에 든 것을 다시 떠나보낸다(다시 켠 뒤) — 원장을 옮기지 않는다 */
     readonly resumed?: boolean | undefined;
+    /** 건물 창고에서 물건을 내는 사람(사업장 판매면 판 사람, D-569 1784). 없으면 ownerId */
+    readonly sourceOwnerId?: number | undefined;
   }): PorterTrip;
   /** 닿은 짐을 도시 창고에 넣는다. 넣은 계정 수 */
   arriveDue(nowMs: number): number;
@@ -187,28 +194,31 @@ export function createPorters(deps: PorterDeps): Porters {
     pick(buildingId, mapKey, ownerId, nowMs) {
       const map = maps.get(mapKey);
       if (!map) return undefined;
-      const candidates = deps
+      const workers = deps
         .workersAt(buildingId)
         .toSorted(
           (a, b) =>
             Number(b.workerOwnerId === ownerId) - Number(a.workerOwnerId === ownerId) || a.unitId - b.unitId,
-        );
-      for (const worker of candidates) {
-        const info = map.unitInfo(worker.unitId);
+        )
+        .map((worker) => worker.unitId);
+      // 일꾼 다음은 받을 사람의 그 2차맵 유닛(D-569 1784 — 창고 시설·일꾼 없는 사업장)
+      const own = (deps.ownUnits?.(ownerId, mapKey) ?? []).filter((unitId) => !workers.includes(unitId));
+      for (const unitId of [...workers, ...own.toSorted((a, b) => a - b)]) {
+        const info = map.unitInfo(unitId);
         if (!info || unavailable(info.condition, nowMs)) continue;
-        if (deps.busy?.(worker.unitId) === true) continue;
+        if (deps.busy?.(unitId) === true) continue;
         // 같은 채집소 짐에 더할 수 있으면 그 운반꾼
-        if (carrying(worker.unitId)) {
+        if (carrying(unitId)) {
           const merging = [...trips.values()].some(
             (trip) =>
-              trip.porter === worker.unitId &&
+              trip.porter === unitId &&
               trip.buildingId === buildingId &&
               trip.ownerId === ownerId &&
               nowMs - trip.departAtMs <= MERGE_MS,
           );
           if (!merging) continue;
         }
-        return worker.unitId;
+        return unitId;
       }
       return undefined;
     },
@@ -216,12 +226,13 @@ export function createPorters(deps: PorterDeps): Porters {
       const entries: { account: number; amount: bigint }[] = [];
       let grams = 0n;
       const lines = new Map<string, bigint>();
+      const source = spec.sourceOwnerId ?? spec.ownerId;
       for (const load of spec.loads) {
         if (load.qty <= 0n) continue;
         if (!spec.resumed)
           entries.push(
             {
-              account: ledger.ownerAccount(spec.ownerId, load.asset, spec.stationLocation),
+              account: ledger.ownerAccount(source, load.asset, spec.stationLocation),
               amount: -load.qty,
             },
             {
@@ -232,7 +243,13 @@ export function createPorters(deps: PorterDeps): Porters {
         lines.set(load.asset, (lines.get(load.asset) ?? 0n) + load.qty);
         grams += load.grams;
       }
-      if (entries.length > 0) ledger.post({ kind: "station_haul_load", atMs: spec.nowMs, entries });
+      // 판매(D-569 1781·1784)면 물건이 산 사람에게 넘어가는 거래(장부 물건 칸), 아니면 옮겨 싣기
+      if (entries.length > 0)
+        ledger.post({
+          kind: spec.sourceOwnerId === undefined ? "station_haul_load" : "business_sale_goods",
+          atMs: spec.nowMs,
+          entries,
+        });
       // 같은 채집소·주인·운반꾼의 막 떠난 짐에 더한다
       for (const trip of trips.values()) {
         if (

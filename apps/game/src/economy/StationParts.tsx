@@ -1,8 +1,9 @@
 // 건물 화면 채집 시설 카드의 채집소 칸 — 사용자 지적(2026-11-08) "원자재채집소의 기능도 필요",
 // docs/adr/2026-11-07-gather-objects.md "바뀜 (2026-11-08 사용자 지적: 채집소 기능)".
 // - 자료는 tRPC gather.station(2차맵 채집소 판과 같은 자료, map/gather/stationData.ts). 카드마다 열 때와 STATION_POLL_MS마다 묻는다.
-// - 버프·반경 안 원자재·채집소 창고(무게·내 몫)·자동 옮김·일꾼 상태 수를 한눈에 보이고, [도시 창고로 옮기기]는 이미 있는 창고 꺼내기
-//   (storage_move out)를 내 몫 물자마다 보낸다. 레벨 올리기·일꾼 배치는 같은 카드의 기존 단추를 쓴다.
+// - 버프·반경 안 원자재·채집소 창고(무게·내 몫)·자동 옮김·일꾼 상태 수를 한눈에 보이고, [판매가로 사서 도시 창고로]는 사업장 사기
+//   (business_buy — 기획 D-569 1781 "주인이 꺼내는 기능은 존재하지 않는다 무조건 판매", 돈은 사업장 매출)를 내 몫 물자마다 보낸다. 산 물건은
+//   운반꾼이 나른다(1784). 결과는 카드 아래 한 줄. 레벨 올리기·일꾼 배치는 같은 카드의 기존 단추를 쓴다.
 // - 농장(facility 채집소, 오브젝트 없음 — 기획 정리 756 ②)도 보인다: 반경·원자재 대신 수확·피로 버프·창고·자동 옮김·일꾼 상태 수.
 // - 건물 채집소(농장·목장·약초원, 기획 D-566 1721·D-567): 기르는 티어·면적 모듈 줄과 [모듈 하나 붙이기](facility_plot, 프로토콜 41).
 import type { FacilityView } from "@terra/shared/facilities";
@@ -10,12 +11,14 @@ import type { GatherStationResponse } from "@terra/shared/gatherStation";
 import { useEffect, useState } from "react";
 import { minutesText, nameText } from "../map/gather/gatherData.ts";
 import { STATION_POLL_MS, buffsText, kgOf, loadGatherStation, qtyOf } from "../map/gather/stationData.ts";
+import { sendBusinessCommand } from "../map/business/businessCommands.ts";
+import { RESULT_TEXT } from "../map/business/businessText.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { m } from "../paraglide/messages.js";
 import type { FacilityRun } from "./facilityText.ts";
 import "./station.css";
 
-/** 프로토콜 입력 한도(storage_move qty, 게임 값 아님) */
+/** 프로토콜 입력 한도(business_buy qty, 게임 값 아님) */
 const MOVE_MAX = 1_000_000;
 
 const serverNow = (): number => Date.now() + serverLink.clockOffsetMs();
@@ -30,6 +33,8 @@ export function StationSummary({
   busy: boolean;
 }) {
   const [station, setStation] = useState<GatherStationResponse | null>(null);
+  const [buyNote, setBuyNote] = useState<string | null>(null);
+  const [buying, setBuying] = useState(false);
   const buildingId = facility.buildingId;
   useEffect(() => {
     let stopped = false;
@@ -70,11 +75,19 @@ export function StationSummary({
     else if (worker.state !== "waiting") counts.blocked += 1;
   }
   const haul = async (): Promise<void> => {
+    setBuying(true);
+    let note: string = m.station_buy_haul_done();
     for (const line of ok.storage.goods) {
       const qty = /^[0-9]{1,30}$/.test(line.qty) ? Math.min(MOVE_MAX, Number(line.qty)) : 0;
       if (qty <= 0) continue;
-      if (!(await run({ t: "storage_move", buildingId, asset: line.asset, qty, direction: "out" }))) break;
+      const outcome = await sendBusinessCommand({ t: "business_buy", buildingId, item: line.asset, qty });
+      if (!outcome.ok) {
+        note = RESULT_TEXT[outcome.code]();
+        break;
+      }
     }
+    setBuying(false);
+    setBuyNote(note);
     await refresh();
   };
   const addPlot = async (): Promise<void> => {
@@ -152,10 +165,21 @@ export function StationSummary({
       </p>
       {ok.mine && ok.cityId !== null && ok.storage.goods.length > 0 ? (
         <div className="labor-actions">
-          <button type="button" className="button-small" disabled={busy} onClick={() => void haul()}>
-            {m.station_haul()}
+          <button
+            type="button"
+            className="button-small"
+            data-part="station-buy-haul"
+            disabled={busy || buying}
+            onClick={() => void haul()}
+          >
+            {m.station_buy_haul()}
           </button>
         </div>
+      ) : null}
+      {buyNote !== null ? (
+        <p className="eco-footnote" role="status" data-part="station-buy-note">
+          {buyNote}
+        </p>
       ) : null}
     </fieldset>
   );

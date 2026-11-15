@@ -4,6 +4,8 @@
 //   면적 모듈 붙이기(facility_plot, 프로토콜 41 — 건물 채집소, 기획 D-567),
 //   개발 시험(dev_facility_grant: 재료 받기, dev_facility_finish: 하던 작업 바로 끝내기 — 권한 secondMap: dev-test).
 //   창고 옮기기(storage_move, 프로토콜 11): 도시 창고·화물 ↔ 창고 시설, 건물 창고(임대 몫) → 도시 창고. 조회는 tRPC facilities.overview다.
+//   바뀜 (프로토콜 46, 기획 D-569 1781·1784): 주인의 사업장 창고 물건은 꺼내지 못한다(sale_only — business_buy로 판매가에 산다). 꺼내기는 운반꾼
+//   (그 건물 일꾼 또는 내 유닛)이 걸어 나른다(운반꾼이 없으면 unknown_unit, 모두 바쁘면 unit_busy — 옮김 셈을 끄거나 거리 0이면 바로).
 //   건물·영토 비콘 공격(facility_attack, 프로토콜 12, 질문 381): 내 유닛으로 남의 시설·다른 세력 비콘을 넥서스로 하는 공성 전투를 연다.
 // - 재료를 꺼내는 자리(12부터 서버 규칙, D-516 361): 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 그 2차맵 내 유닛 화물(@terra/shared/goodsPlaces).
 // - 서버가 판정한다: 소유(내 건물·내 유닛·내 물건), 재료(주인 원장의 재료를 뺀다), 배치(2차맵 칸), 시간(M14 식 × 일꾼 단축),
@@ -21,6 +23,11 @@ export const ATTACK_PROTOCOL_VERSION = 12;
 export const WATER_PLACE_PROTOCOL_VERSION = 21;
 /** 면적 모듈 붙이기(facility_plot, 기획 D-567)와 결과 코드 plot_full이 생긴 판. 더 낮은 판 기기는 보내지 않는다(코드는 이 메시지의 답에만) */
 export const PLOT_PROTOCOL_VERSION = 41;
+/**
+ * 판매만(기획 D-569 1781 "주인이 꺼내는 기능은 존재하지 않는다 무조건 판매"): 주인이 제 사업장 창고 물건을 꺼내는 storage_move out을 결과 코드
+ * sale_only로 거절하는 판. 더 낮은 판 연결은 forbidden을 받는다(그 판 기기가 모르는 코드라 메시지를 풀지 못한다)
+ */
+export const SALE_ONLY_PROTOCOL_VERSION = 46;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -241,6 +248,11 @@ export const FACILITY_RESULT_CODES = [
   "insufficient_funds",
   /** 면적 모듈 자리가 가득(레벨 × 레벨당 자리, 41 — facility_plot의 답에만) */
   "plot_full",
+  /**
+   * 사업장 창고 물건은 판매만(기획 D-569 1781): 주인도 꺼내지 못하고 business_buy로 판매가에 산다(46 — 더 낮은 판 연결은 forbidden,
+   * SALE_ONLY_PROTOCOL_VERSION)
+   */
+  "sale_only",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];

@@ -465,8 +465,9 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
               id,
               buildingId: want.buildingId,
               workers: workers.get(id) ?? 0,
-              station:
-                want.buildingId !== null && catalog.facilities.get(want.facility)?.gather !== undefined,
+              // 건물 시설은 모두 산출을 창고로 나르는 시간을 센다(기획 D-569 1784 "거래소 반입은 실제 운반만", D-564 1626 "보이지 않는 곳은
+              // 시간 자동 계산" — 예전에는 채집소만, 가공 시설 산출은 도시 창고로 바로). 도시 직무(건물 없음)는 시청 칸에서 일해 거리가 없다
+              hauls: want.buildingId !== null,
             })),
             rules,
           )

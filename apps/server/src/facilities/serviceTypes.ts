@@ -11,11 +11,15 @@ export type FacilityCommandResult =
 export type FacilityTarget = { readonly buildingId: number } | { readonly beaconId: number };
 
 /** 행정 건물(폐허 정부) 짓기 고리 — 폐허 서비스(src/ruins/service.ts)가 붙인다 */
-/** 창고 꺼내기 고리: null = 맡아 처리함(성공), 코드 = 맡아 실패, undefined = 맡지 않음 */
+/**
+ * 창고 꺼내기 고리(운반꾼이 나름, 기획 D-569 1784): null = 맡아 처리함(성공), 코드 = 맡아 실패, undefined = 맡지 않음(나를 거리 없음 — 부르는 쪽이
+ * 바로 옮긴다). ownerId = 받는 사람(그 도시의 이 사람 도시 창고로), sellerId = 그 건물 창고에서 물건을 내는 사람(사업장 판매면 건물 주인, 없으면 받는 사람)
+ */
 export type StorageOutHook = (
   ownerId: number,
   input: StorageMoveInput,
   atMs: number,
+  sellerId?: number,
 ) => FacilityResultCode | null | undefined;
 
 export interface GovernmentHook {

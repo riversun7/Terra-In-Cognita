@@ -300,3 +300,22 @@ WP1~WP4는 답 없이도 [임시] 추천안으로 갈 수 있다(돈이 사라�
 
 - DB: `business_states.reserve_pm` 열 더하기만(마이그레이션 `20261115132252_business_reserve`, `prevIds` = `business_shares`·`boats_dock_fuel` 두 끝). 리셋 없음.
 - SIM_VERSION 그대로: 시뮬은 노동 계약·사업장 금고를 돌리지 않고, 바꾼 공용 함수(`openLabor` deposit 선택 칸, `fundLaborDeposit` 새 함수)는 기본값이 예전과 같다.
+
+## 바뀜 (D-569, 2026-11-16)
+
+기획 D-569(질문 1781·1784 답 — 1781 원문 "주인이 꺼내는 기능은 존재하지 않는다 무조건 판매이고 재무상태로 수익으로 잡혀야한다", 1784 "거래소 반입은 실제 운반만 —
+우회 길 없음")를 줄기 `work/business-3`에서 옮겼다. 위 "바뀜 (D-564)" 표의 1627·1628·1625·1626 줄보다 이 절이 앞선다. 남은 세부는 질문
+`docs/questions/2026-11-16-business-3.md`(1881~1887).
+
+| 답 | 바뀐 것 | 코드 |
+|---|---|---|
+| 1781 판매만 | 주인이 제 사업장 창고(창고 시설이 아닌 시설 건물) 물건을 꺼내는 길을 없앴다 — `storage_move out`은 새 결과 코드 `sale_only`(프로토콜 46, 45판 연결은 `forbidden`). 주인도 `business_buy`로 **누구나와 같은 판매가·최소 묶음**으로 산다(값 0 = 아무에게도 안 팖 — 주인도 못 산다). 주인 지갑 → 사업장 금고 거래가 매출(`business_sale`, 장부 판매 칸 = 손익계산서)로 잡히고 소득세가 붙는다. 옛 "주인 값 받기"(`chargeTake`·`ownerPriceOf`)는 지웠다 | `facilities/service.ts` storageMove, `business/commands.ts` buy |
+| 1781 자동 옮김 | 채집소 자동 옮김(설정 칸 `gather_obj_station_haul_ms`, 기본 0 = 끔)이 켜져 있으면 **주인 자동 구매**다 — 판매가로 지갑이 되는 만큼·최소 묶음부터 산 만큼만 옮긴다(`sellTo`) | `gather/station.ts` haulNow `ownerSale`, `business/commands.ts` sellTo |
+| 1784 실제 운반 (가) | 채집소가 아닌 시설 건물(창고 시설·임대 몫)의 꺼내기도 운반꾼이 걸어 나른다. 운반꾼 = 그 건물 일꾼 → 받을 사람의 그 2차맵 휴먼·사이보그 유닛(사이보그 본체는 빼냄 [임시]). 없으면 `unknown_unit`·모두 바쁘면 `unit_busy`(물건 그대로). 옮김 셈 끔·거리 0이면 예전처럼 바로 | `gather/station.ts` placeOf·routeOf·haulOut, `gather/porter.ts` pick·`ownUnits` |
+| 1784 실제 운반 (판매) | `business_buy`로 산 물건도 같은 운반꾼이 판 사람의 건물 창고 → 산 사람의 그 도시 창고로 나른다(떠날 때 `business_sale_goods`로 산 사람 몫의 운반꾼 화물에 실림, 닿으면 `station_haul`). 운반꾼이 없으면 새 코드 `no_carrier`(45판은 `busy`) — 돈·물건 그대로 | `business/commands.ts` carry, `facilities/service.ts` carryOut |
+| 1784 실제 운반 (나) | 임금형·직무 배치 산출은 채집소 고리가 없어도 늘 그 건물 창고(사업장 창고)로(예전: 그 도시의 도시 창고) | `labor/workBook.ts` businessReceiver |
+| 1784·1626 NPC (다) | NPC 도시 경제의 **건물 시설 모두**(예전: 채집소만)가 산출을 창고로 나르는 시간을 생산 시간에 더한다(보이지 않는 시간 자동 계산, 시뮬과 같은 `haulOfBatch`). 도시 직무(건물 없음)는 시청 칸이라 거리 0 | `npc/economy.ts`, `npc/cityRest.ts` `hauls` |
+
+- NPC 보이는 운반꾼·NPC 사업장 판매(NPC 세력이 제 시설 물건을 도시 창고로 들이는 것도 판매인가)는 이번에 하지 않았다 — 질문 1886·1887과 설계안.
+- 거래소 건물(D-561)이 생기면 `market/exchangeStock.ts` `exchangeGoodsLocation`만 그 건물 창고로 바꾸고, 도시 창고 → 거래소 건물도 같은 운반꾼 길(haulOut)로 잇는다.
+- 프로토콜 46(최소 45): 메시지 꼴은 그대로, 새 결과 코드 둘만. DB·마이그레이션 없음. SIM_VERSION·팩 그대로(시뮬 판정 함수를 바꾸지 않았다 — 서버 NPC 경제의 옮김 칸 입력만 넓혔다).

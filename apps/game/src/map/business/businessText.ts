@@ -50,6 +50,7 @@ export const RESULT_TEXT: Readonly<Record<BusinessResultCode | "offline" | "time
   order_limit: m.shares_err_order_limit,
   unknown_order: m.shares_err_unknown_order,
   insufficient_shares: m.shares_err_shares,
+  no_carrier: m.books_err_no_carrier,
 };
 
 /** 화폐 자산 이름(서버 시험 화폐 → 이름, 나라 화폐 cur:<코드> → 코드) */

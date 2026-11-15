@@ -216,17 +216,16 @@ describe.skipIf(!TEST_DATABASE_URL)("사업장 장부(D-548·D-555)", () => {
     ).toEqual({ ok: true, paid: 100n });
     expect(ledger.balanceOf(shop.ownerId, ASSET_CREDIT)).toBe(walletBefore + 100n);
 
-    // 주인이 사업장 창고 물건을 꺼낼 때도 값을 낸다(1507)
+    // 주인이 꺼내는 길은 없다(기획 D-569 1781): storage_move out은 sale_only, 판매가로 산다(돈은 매출 business_sale로 금고에)
     const here = businessLocation(templeId);
     ledger.post({
       kind: "grant",
       atMs: clock,
       entries: [
-        { account: ledger.systemAccount("source:item:stone", "item:stone"), amount: -5n },
-        { account: ledger.ownerAccount(shop.ownerId, "item:stone", here), amount: 5n },
+        { account: ledger.systemAccount("source:item:stone", "item:stone"), amount: -10n },
+        { account: ledger.ownerAccount(shop.ownerId, "item:stone", here), amount: 10n },
       ],
     });
-    const beforeTake = vault();
     expect(
       await service.storageMove(shop.userId, {
         buildingId: templeId,
@@ -234,8 +233,20 @@ describe.skipIf(!TEST_DATABASE_URL)("사업장 장부(D-548·D-555)", () => {
         qty: 5,
         direction: "out",
       }),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: false, code: "sale_only" });
+    expect(ledger.balanceOf(shop.ownerId, "item:stone", here)).toBe(10n);
+    const beforeTake = vault();
+    const bought = await service.businessCommand(shop.userId, {
+      kind: "buy",
+      buildingId: templeId,
+      item: "item:stone",
+      qty: 10,
+    });
+    expect(bought.ok).toBe(true);
     expect(vault()).toBeGreaterThan(beforeTake);
+    expect(ledger.balanceOf(shop.ownerId, "item:stone", here)).toBe(0n);
+    const sold = await source.books(shop.userId, templeId, 7, clock);
+    expect(sold.status === "ok" && sold.entries.some((entry) => entry.kind === "business_sale")).toBe(true);
 
     // 자동 정산(주기 끝): 남은 금고 돈이 지분대로 주인 지갑에
     await p.writer.durable();

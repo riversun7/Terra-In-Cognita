@@ -1,6 +1,6 @@
 // 플레이어 생산 DB 통합 시험(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산") — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
-// 가짜 시계로: 채집 시설(벌목장·농장)을 짓고 → 내 휴먼 유닛을 직무 배치(돈 없음)하면 그 도시 창고에 진짜 물건이 쌓이고, 남의 채집 시설 임금형
-// 계약도 고용주 도시 창고로 물건을 낸다. 플레이어 유닛은 계약·배치 밖에서 시험 광석을 내지 않는다. 다시 켜도 배치·진행이 이어진다.
+// 가짜 시계로: 채집 시설(벌목장·농장)을 짓고 → 내 휴먼 유닛을 직무 배치(돈 없음)하면 그 건물 창고(사업장 창고, D-569 1784)에 진짜 물건이 쌓이고,
+// 남의 채집 시설 임금형 계약도 고용주의 그 건물 창고로 물건을 낸다. 플레이어 유닛은 계약·배치 밖에서 시험 광석을 내지 않는다. 다시 켜도 배치·진행이 이어진다.
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { JOB_GATHER, JOB_NONE, PHASE_REST, UPKEEP_PERIOD_MS, WALK_SPEED } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -174,7 +174,8 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     const yard = await buildAt(world, a.userId, "stockpile", 70, { pine_log: 5 });
     const cityId = p.facilities.service.facilities.get(camp)?.cityId ?? null;
     expect(cityId).not.toBeNull();
-    const city = cityLocation(cityId ?? 0);
+    // 산출은 그 건물 창고(사업장 창고, 기획 D-569 1784 — 예전에는 도시 창고)
+    const city = buildingLocation(camp);
     const before = stockAt(world, a.ownerId, city, woodAssets);
 
     // 창고 시설은 일터가 아니다, 남의 유닛은 둘 수 없다
@@ -193,7 +194,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
       code: "unit_busy",
     });
 
-    // 2시간(진행 1 → T0 묶음 30분, 일 120주기 뒤 쉼): 원목이 도시 창고로, 시험 광석은 없다
+    // 2시간(진행 1 → T0 묶음 30분, 일 120주기 뒤 쉼): 원목이 벌목장 창고로, 시험 광석은 없다
     clock += 2 * HOUR;
     p.settlement.settleOwner(a.ownerId, clock);
     const after = stockAt(world, a.ownerId, city, woodAssets);
@@ -257,7 +258,8 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     // 농장(선택 방식): 스탯 10·10 → 해금 T1(감자·배추·당근), 필요 진행 60 = 1시간에 하나
     clock += 3 * HOUR;
     p.settlement.settleOwner(a.ownerId, clock);
-    expect(stockAt(second, a.ownerId, cityLocation(cityId), cropAssets)).toBeGreaterThan(0n);
+    expect(stockAt(second, a.ownerId, buildingLocation(farm), cropAssets)).toBeGreaterThan(0n);
+    expect(stockAt(second, a.ownerId, cityLocation(cityId), cropAssets)).toBe(0n);
 
     // 시설이 사라지면(관리자 지우기 등) 다음 정산에서 풀리고 직무가 꺼진다
     expect(firstMap(second).removeBuilding(farm)).toEqual({ ok: true });
@@ -379,18 +381,17 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     expect(await world.checkInvariants()).toEqual([]);
   });
 
-  it("남의 채집 시설 임금형 계약(구인 받기 = 임금형과 같은 길): 산출은 고용주의 그 도시 창고, 해지하면 직무가 꺼진다", async () => {
+  it("남의 채집 시설 임금형 계약(구인 받기 = 임금형과 같은 길): 산출은 고용주의 그 건물 창고, 해지하면 직무가 꺼진다", async () => {
     const world = await boot();
     const p = persistence(world);
     const boss = await setup(world, "boss", 30);
     const camp = await buildAt(world, boss.userId, "lumber_camp", 50, { pine_log: 30, stone: 20 });
-    const cityId = p.facilities.service.facilities.get(camp)?.cityId ?? 0;
     const made = await p.labor.create(boss.userId, { kind: "wage", buildingId: camp, unitId: boss.unitId });
     expect(made.ok).toBe(true);
     expect(jobOf(world, boss.unitId)).toBe(JOB_GATHER);
     clock += 2 * HOUR;
     p.settlement.settleOwner(boss.ownerId, clock);
-    expect(stockAt(world, boss.ownerId, cityLocation(cityId), woodAssets)).toBeGreaterThan(0n);
+    expect(stockAt(world, boss.ownerId, buildingLocation(camp), woodAssets)).toBeGreaterThan(0n);
     expect(p.ledger.balanceOf(boss.ownerId, ASSET_ORE)).toBe(0n);
     expect(p.labor.workersAt(camp)).toEqual([
       { unitId: boss.unitId, via: "wage", workerOwnerId: boss.ownerId },

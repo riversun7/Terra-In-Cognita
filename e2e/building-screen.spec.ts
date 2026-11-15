@@ -264,6 +264,20 @@ for (const look of LOOKS) {
       await sheet.locator('.bp-tab[data-tab="shares"]').click();
       await expect(sheet.locator('[data-part="share-market"]')).toBeVisible({ timeout: 20_000 });
       await elementShot(sheet, `building-shares-390-${look.theme}-${look.language}`);
+      // [창고] 칸 판매(기획 D-569 1781): 값이 있는 물건만 [사기] — 주인도 같은 판매(값 0·없음이면 단추 없음)
+      await sheet.locator('.bp-tab[data-tab="storage"]').click();
+      const goods = sheet.locator('[data-part="books-goods"]');
+      await expect(goods).toBeVisible({ timeout: 20_000 });
+      const buy = message(look.language, "books_buy");
+      await expect(
+        goods.locator('[data-asset="item:pine_log"]').getByRole("button", { name: buy }),
+      ).toBeVisible();
+      await expect(goods.locator('[data-asset="item:stone"]').getByRole("button", { name: buy })).toHaveCount(
+        0,
+      );
+      expect(await horizontalOverflow(page)).toEqual([]);
+      await goods.scrollIntoViewIfNeeded();
+      await elementShot(goods, `building-goods-390-${look.theme}-${look.language}`);
       await sheet.locator('.bp-tab[data-tab="books"]').click();
       await sheet.locator('[data-part="books-open"]').click();
       const screen = page.locator(`.bbs[data-building="${String(id)}"]`);

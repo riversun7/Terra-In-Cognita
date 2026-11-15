@@ -6,7 +6,7 @@
 //   명령마다 서버가 확인한다. 남의 유닛은 not_owner, 내 수호신은 unit_stays(프로토콜 17 연결만, 더 낮으면 forbidden).
 // - 사용자별 속도 제한, 명령 중복 방지(같은 사용자·같은 요청 번호면 10분 동안 같은 결과를 다시 준다 —
 //   끊긴 뒤 다시 보낸 명령이 두 번 실행되지 않게).
-// - 볼 수 있는지는 canViewSecondMap(ADR 26, 내 유닛·건물 또는 탐사한 칸)이 정한다.
+// - 볼 수 있는지는 canViewSecondMap(ADR 26, 내 유닛·건물·같은 나라 — 탐사만 한 2차맵은 아님, D-564 1642)이 정한다.
 import { isCellKey } from "@terra/planet";
 import {
   type ClientMessageOf,

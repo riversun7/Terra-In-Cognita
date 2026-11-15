@@ -66,6 +66,8 @@ export interface CoordinateUnit {
   readonly moving: boolean;
   /** 배에 탄 승객이면 그 배 ID */
   readonly aboard: number | null;
+  /** 배(물 길 영역)인가 — 좌표 조우에서 뺀다(해상 조우 없음, D-559 3차·질문 1648) */
+  readonly sea: boolean;
 }
 
 /** 건너뛰는 중인 유닛의 지금 자리(보기 값 — 1차맵 내 자리 표시) */
@@ -99,8 +101,17 @@ export interface TravelService {
   hiddenAt(unitId: number): HiddenPlace | undefined;
   /** 좌표 유닛(서 있음)의 자리(아니면 undefined) */
   parkedAt(unitId: number): HiddenPlace | undefined;
-  /** 그 주인들의 좌표 유닛(서 있음 + 가는 중, 승객 포함, 유닛 ID 차례) */
-  coordinateUnits(ownerIds: ReadonlySet<number>): CoordinateUnit[];
+  /** 그 주인들의(null = 모든 주인) 좌표 유닛(서 있음 + 가는 중, 승객 포함, 유닛 ID 차례) */
+  coordinateUnits(ownerIds: ReadonlySet<number> | null): CoordinateUnit[];
+  /**
+   * 좌표 조우(기획 D-564 1641, encounter.ts): 띄우지 않은 그 2차맵을 지금 좌표로 지나는 그 유닛들의 길을 멈추고(stop "encounter") 그 자리의
+   * 좌표 유닛으로 세운다. 멈춘 유닛 ID
+   */
+  haltOn(mapKey: number, unitIds: ReadonlySet<number>): number[];
+  /** 그 시각까지 그 2차맵을 내리지 않는다(touches가 true — 좌표 조우 전투가 끝나 결과를 적용할 때까지) */
+  holdMap(mapKey: number, untilMs: number): void;
+  /** 좌표 구간의 2차맵 걸음 배율(‰, coordPace.ts — 행성 값)을 붙인다. 없으면 곧은 선 ÷ 걷기 속도(D-564 1643 전과 같다) */
+  attachPace(paceOf: ((mapKey: number) => number) | undefined): void;
   /** 이 서비스가 든 유닛인가(가는 중인 좌표 이동·좌표 유닛 장부) — 2차맵을 띄울 때 DB 행 대신 장부를 쓴다 */
   carries(unitId: number): boolean;
   /** 2차맵을 띄울 때: 그 2차맵에 선 좌표 유닛 줄을 꺼낸다(목표 칸이 막혔으면 가까운 설 칸으로) */

@@ -39,9 +39,8 @@ import {
 } from "@terra/sim";
 import type { WorldTravelStop } from "@terra/shared/worldMap";
 import { lastPoint } from "../world/mapGeometry.ts";
-import { type TransferRow, motionOfRow } from "../world/secondMapRows.ts";
+import type { TransferRow } from "../world/secondMapRows.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
 import {
   type Hop,
   type RouteContext,
@@ -60,7 +59,6 @@ import {
   travelMs,
 } from "./route.ts";
 import {
-  type CoordinateUnit,
   type Finished,
   type Hidden,
   type Journey,
@@ -78,8 +76,11 @@ import { createParkedBook } from "./parked.ts";
 import { createPlanner } from "./planner.ts";
 import { raidSeed } from "./raid.ts";
 import { createTeleport } from "./teleport.ts";
-import { coordinateOf, fitCell, standsOn, travelEta, travelView, walkSpeed } from "./serviceParts.ts";
-import { loadTravels, travelWriter } from "./store.ts";
+import { fitCell, standsOn, travelEta, travelView, walkSpeed } from "./serviceParts.ts";
+import { carriesUnit, coordinateRows } from "./coordReads.ts";
+import { hopPaceDistance } from "./coordPace.ts";
+import { restoreTravels } from "./restore.ts";
+import { travelWriter } from "./store.ts";
 import { parkMapUnits, parkableMap, placeFinder } from "./unloadPark.ts";
 
 export { walkSpeed } from "./serviceParts.ts";
@@ -117,6 +118,10 @@ export function createTravelService(deps: TravelDeps): TravelService {
   let spawn = deps.spawn;
   let isSea: ((mapKey: number) => boolean) | undefined;
   let counts = { parks: 0, lands: 0 };
+  /** 좌표 구간의 2차맵 걸음 배율(‰, coordPace.ts — 행성 값). 없으면 1000(곧은 선 ÷ 걷기 속도) */
+  let paceOf: ((mapKey: number) => number) | undefined;
+  /** 좌표 조우 전투가 끝날 때까지 내리지 않을 2차맵 → 그 시각(encounter.ts) */
+  const held = new Map<number, number>();
   /** 배가 건너뛸 수 있나: 띄운 2차맵이거나(지나며 물 변을 다시 본다) 행성 값이 바다 */
   const seaPassable = (mapKey: number): boolean => maps.has(mapKey) || isSea?.(mapKey) === true;
   /** 설 칸 시험(걷는 유닛 = 땅, 배 = 물) */
@@ -149,6 +154,21 @@ export function createTravelService(deps: TravelDeps): TravelService {
       size,
       planStandable(journey.sea === true),
       loaded,
+    );
+
+  /**
+   * 좌표 구간 하나에 걸리는 시간(ms): 곧은 거리 × 지나는 2차맵 지형 배율 평균 ÷ 속도(D-564 1643, coordPace.ts). route = 그 hop이 가리키는 줄
+   * (route[hop.from..hop.to]). 배는 배율 없이(구간 빠르기 ADR 2절)
+   */
+  const hopMs = (
+    journey: Pick<Journey, "sea">,
+    route: readonly number[],
+    hop: Pick<Hop, "from" | "to" | "distance">,
+    speed: number,
+  ): number =>
+    travelMs(
+      journey.sea === true || !paceOf ? hop.distance : hopPaceDistance(route, hop, paceOf, loaded),
+      speed,
     );
 
   const arm = (): void => {
@@ -349,7 +369,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
     if (!row) return false;
     const exit = lastPoint(info.motion);
     const speed = walkSpeed(info.speed, journey.speedFactor);
-    const duration = travelMs(hop.distance, speed);
+    const duration = hopMs(journey, journey.route.slice(journey.leg), hop, speed);
     journey.hidden = {
       row,
       startMs: Math.min(now(), untilMs - duration),
@@ -387,7 +407,8 @@ export function createTravelService(deps: TravelDeps): TravelService {
         map,
         info,
         hop,
-        now() + travelMs(hop.distance, walkSpeed(info.speed, journey.speedFactor)),
+        now() +
+          hopMs(journey, journey.route.slice(journey.leg), hop, walkSpeed(info.speed, journey.speedFactor)),
       )
     ) {
       finish(journey, "stopped", "interrupted");
@@ -439,7 +460,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
   ): boolean => {
     const hop = hopFrom(contextOf(journey, row.size, from), 0, exit, true);
     if (!hop) return false;
-    const duration = travelMs(hop.distance, speed);
+    const duration = hopMs(journey, journey.route.slice(from), hop, speed);
     const until = untilMs ?? now() + duration;
     journey.hidden = {
       row,
@@ -689,6 +710,29 @@ export function createTravelService(deps: TravelDeps): TravelService {
     return travelEta(journey, at, (from) => contextOf(journey, size ?? info?.size ?? 1, from), info);
   };
 
+  /**
+   * 좌표 조우(D-564 1641, encounter.ts): 그 2차맵을 지금 좌표로 지나는 그 유닛들의 길을 멈추고 그 자리의 좌표 유닛으로 세운다(2차맵을 띄우면
+   * 장부에서 꺼내 놓인다). 멈춘 유닛 ID
+   */
+  const haltOn = (mapKey: number, unitIds: ReadonlySet<number>): number[] => {
+    const halted: number[] = [];
+    // finish가 목록에서 지우므로 사본으로 돈다
+    for (const journey of Array.from(journeys.values())) {
+      const hidden = journey.hidden;
+      if (!hidden || !unitIds.has(journey.unitId)) continue;
+      const place = hiddenPlace(journey, hidden);
+      if (!place || place.mapKey !== mapKey || maps.has(mapKey)) continue;
+      park(hidden.row, mapKey, place.cell);
+      journey.hidden = null;
+      journey.hiddenUntilMs = null;
+      journey.leg = place.index;
+      finish(journey, "stopped", "encounter");
+      halted.push(journey.unitId);
+    }
+    arm();
+    return halted;
+  };
+
   /** 운영자 텔레포트(teleport.ts, D-560 1239) */
   const teleport = createTeleport({
     deps,
@@ -845,6 +889,11 @@ export function createTravelService(deps: TravelDeps): TravelService {
     },
 
     touches(mapKey) {
+      const until = held.get(mapKey);
+      if (until !== undefined) {
+        if (now() < until) return true;
+        held.delete(mapKey);
+      }
       // 목적지만 노리는 것은 붙잡지 않는다(내려가면 좌표 유닛으로 닿는다 — ADR 2026-11-15 3절)
       for (const journey of journeys.values()) {
         if (!journey.hidden && journey.route[journey.leg] === mapKey) return true;
@@ -865,30 +914,16 @@ export function createTravelService(deps: TravelDeps): TravelService {
       return spot ? { mapKey: spot.row.mapKey, cellX: spot.cell.x, cellY: spot.cell.y } : undefined;
     },
 
-    coordinateUnits(ownerIds) {
-      const out: CoordinateUnit[] = [];
-      for (const ownerId of ownerIds)
-        for (const spot of parked.ofOwner(ownerId))
-          out.push(coordinateOf(spot.row, spot.row.mapKey, spot.cell, false));
-      for (const journey of journeys.values()) {
-        const hidden = journey.hidden;
-        if (!hidden || !ownerIds.has(journey.ownerId)) continue;
-        const place = hiddenPlace(journey, hidden);
-        const mapKey = place?.mapKey ?? journey.route[hidden.hop.from] ?? 0;
-        const cell = place?.cell ?? anchorOf(hidden.exit, hidden.size);
-        out.push(coordinateOf(hidden.row, mapKey, cell, true));
-        for (const rider of hidden.row.riders ?? []) out.push(coordinateOf(rider, mapKey, cell, true));
-      }
-      return out.toSorted((a, b) => a.unitId - b.unitId);
+    coordinateUnits: (ownerIds) => coordinateRows(parked, journeys, hiddenPlace, ownerIds),
+    carries: (unitId) => carriesUnit(parked, journeys, unitId),
+    haltOn: (mapKey, unitIds) => haltOn(mapKey, unitIds),
+
+    holdMap(mapKey, untilMs) {
+      held.set(mapKey, Math.max(untilMs, held.get(mapKey) ?? 0));
     },
 
-    carries(unitId) {
-      if (parked.get(unitId)) return true;
-      for (const journey of journeys.values()) {
-        const row = journey.hidden?.row;
-        if (row && (row.id === unitId || row.riders?.some((rider) => rider.id === unitId))) return true;
-      }
-      return false;
+    attachPace(next) {
+      paceOf = next;
     },
 
     claim: (mapKey, map) => parked.claim(mapKey, placeFinder(map)),
@@ -914,70 +949,21 @@ export function createTravelService(deps: TravelDeps): TravelService {
       return out;
     },
 
-    async restore(orphans) {
-      // 띄우지 않은 2차맵의 유닛 행(봇 빼고) = 좌표 유닛(서 있음). 자리 = 그 행의 움직임이 끝난 점(쓰지 않는다 — 이미 그 자리다)
-      for (const unit of orphans ?? []) {
-        if (unit.planetId !== deps.planetId || maps.has(unit.mapKey) || unit.kind === UNIT_KIND_BOT) continue;
-        if (!isTarget(unit.mapKey) || parked.get(unit.id)) continue;
-        const motion = motionOfRow(unit);
-        if (!motion) continue;
-        parked.put(unit, unit.mapKey, anchorOf(lastPoint(motion), unit.size), unit.departAtMs, false);
-      }
-      if (!deps.pool) return 0;
-      const rows = await loadTravels(deps.pool, deps.planetId);
-      let resumed = 0;
-      for (const row of rows) {
-        // 유닛이 지나는 2차맵 가운데 어디 서 있나(좌표 유닛이면 그 2차맵). 없으면(사라짐) 줄을 지운다
-        const leg = row.route.findIndex(
-          (key) =>
-            maps.get(key)?.unitInfo(row.unitId) !== undefined || parked.get(row.unitId)?.row.mapKey === key,
-        );
-        if (leg < 0 || journeys.has(row.unitId)) {
-          store.remove(row.unitId);
-          continue;
-        }
-        const journey: Journey = {
-          ...row,
-          leg,
-          seq: 0,
-          motion: null,
-          checkAtMs: null,
-          hidden: null,
-          speedFactor: 1,
-          sea:
-            (maps.get(row.route[leg] ?? -1)?.unitInfo(row.unitId)?.domain ??
-              parked.get(row.unitId)?.row.domain) === "sea",
-        };
-        journeys.set(row.unitId, journey);
-        resumed += 1;
-        const until = row.hiddenUntilMs;
-        // 좌표 유닛이 된 유닛(띄우지 않은 2차맵): 그 자리에서 좌표 이동을 잇는다(건너뛰던 중이면 남은 시간 그대로)
-        const spot = parked.get(row.unitId);
-        if (spot) {
-          const exit = anchorCenter(spot.cell.x, spot.cell.y, spot.row.size);
-          const keep = until !== null && (leg === row.leg || leg === row.leg - 1) ? until : undefined;
-          const taken = parked.take(row.unitId);
-          if (taken && float(journey, taken, leg, exit, taken.speed, keep)) continue;
-          if (taken) park(taken, spot.row.mapKey, spot.cell);
-          journeys.delete(row.unitId);
-          store.remove(row.unitId);
-          resumed -= 1;
-          continue;
-        }
-        // 건너뛰던 중: 유닛은 사라진 자리(변 끝)에 다시 놓였다 → 다시 숨기고 남은 시간을 기다린다
-        const map = maps.get(row.route[leg] ?? -1);
-        const info = map?.unitInfo(row.unitId);
-        if (until !== null && leg === row.leg - 1 && !loaded(row.route[row.leg] ?? -1) && map && info) {
-          const hop = hopFrom(contextOf(journey, info.size, leg), 0, lastPoint(info.motion));
-          if (hop && conceal(journey, map, info, hop, until)) continue;
-        }
-        journey.hiddenUntilMs = null;
-        if (leg !== row.leg || until !== null) store.save(journey);
-        void beginLeg(journey, true);
-      }
-      if (rows.length > 0) log.info({ travels: rows.length, resumed }, "world boot: travels resumed");
-      return resumed;
-    },
+    restore: (orphans) =>
+      restoreTravels(orphans, {
+        deps,
+        maps,
+        parked,
+        journeys,
+        store,
+        isTarget,
+        loaded,
+        contextOf,
+        float,
+        park,
+        conceal,
+        beginLeg,
+      }),
 
     runDue,
 

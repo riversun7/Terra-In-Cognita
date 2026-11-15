@@ -6,7 +6,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { EARTH_FACE_LEVEL } from "@terra/planet";
-import type { CombatCatalog, CombatCoefficients } from "@terra/sim";
+import type { BattleInit, CombatCatalog, CombatCoefficients } from "@terra/sim";
 import type { WorldDirectory } from "./gateway.ts";
 import { type Ledger, createLedger } from "../economy/ledger.ts";
 import { type MemoryChecks, checkMemoryInvariants, checkSqlInvariants } from "./invariants.ts";
@@ -226,6 +226,8 @@ export interface WorldPersistence {
   readonly bodies: BattleBodies;
   /** 전투에 가지고 들어가는 물약·탄(287). NPC 런타임 startBattle이 생명 수치 다음에 거친다 */
   readonly items: BattleItems;
+  /** 세계 전투를 연다(몸 → 도시 방어 → 생명 수치 → 물약·탄, battleStart.ts). 좌표 조우(travel/encounterWorld.ts)가 쓴다 */
+  readonly startBattle: (init: BattleInit, war: boolean) => Promise<number>;
   /** 노동 계약(임금형·임대형, docs/adr/2026-11-03-labor-contracts.md) */
   readonly labor: LaborService;
   /** 사이보그 유닛 융합·유전자 환생·사망 조각(docs/adr/2026-11-07-cyborg-fusion-genes.md) */
@@ -699,6 +701,7 @@ export function startWorld(
       vitals,
       bodies,
       items,
+      startBattle: startWorldBattle,
       labor,
       fusion,
       facilities,

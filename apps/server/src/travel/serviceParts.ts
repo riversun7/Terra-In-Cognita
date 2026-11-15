@@ -64,6 +64,7 @@ export function coordinateOf(row: UnitRow, mapKey: number, cell: CellPoint, movi
     cellY: cell.y,
     moving,
     aboard: row.aboardId ?? null,
+    sea: row.domain === "sea",
   };
 }
 

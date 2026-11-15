@@ -46,6 +46,7 @@ import { configureInjuryRules } from "./world/unitCondition.ts";
 import { createRuinGateway } from "./ruins/gateway.ts";
 import { marketSourceOf } from "./market/appSource.ts";
 import { marketContentOf, serverEconomyCatalogAccessor } from "./market/catalog.ts";
+import { type CoordinateRules, startCoordinateRules } from "./travel/encounterWorld.ts";
 import { createTravelRaids } from "./travel/raid.ts";
 import { createMarketGateway } from "./market/gateway.ts";
 import { createTravelGateway } from "./travel/gateway.ts";
@@ -445,6 +446,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           society: tuningState ? () => tuningState.society() : undefined,
         })
       : undefined;
+  let coordinateRules: CoordinateRules | undefined;
   if (world) {
     app.addHook("onReady", async () => {
       await world.ready;
@@ -462,8 +464,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             bodies: persistence.bodies,
           }),
         );
+      // 좌표 이동 지형 빠르기·좌표 유닛 조우(D-564 1641·1643, travel/encounterWorld.ts)
+      coordinateRules = startCoordinateRules(world, { now, log: app.log });
     });
     app.addHook("onClose", async () => {
+      coordinateRules?.stop();
       // 지형 서비스를 먼저 닫는다: 행성 값을 기다리던 부팅이 실패로 끝나야 world.stop이 기다리지 않는다
       await terrain?.close();
       await world.stop();

@@ -1,7 +1,7 @@
 // 2차맵 사이 이동 확인 단계의 위험 구간(서버, 읽기만) — docs/adr/2026-11-07-play-flow.md "WP11 이동 2", 질문 594 나(위험 = 지나는 2차맵의
 // 정원사 오염·전쟁 중 세력 영토, 아는 것만 — 안개 규칙. 비용 = 없음(걷기)).
-// - 아는 2차맵: 전체 보기 권한, 띄운 2차맵이면 구독과 같은 시야 규칙(canViewSecondMap — 내 유닛·건물이 있거나 한 칸이라도 탐사, U3),
-//   띄우지 않은 2차맵이면 탐사 기록(world_exploration)이 있을 때. 아는 2차맵만 오염 값을 보인다.
+// - 아는 2차맵: 전체 보기 권한, 구독과 같은 시야 규칙(canViewSecondMap — 내 유닛·건물·같은 나라)이거나 탐사 기록(world_exploration, 띄운
+//   2차맵은 지금 시야 포함)이 있을 때(D-564 1642부터 탐사만으로는 2차맵이 열리지 않지만 아는 곳이다). 아는 2차맵만 오염 값을 보인다.
 // - 오염이 위험: 그 2차맵(F9 칸 키)의 planet_pollution 값 ≥ 문턱. [임시] 문턱 = 유목 목표 오염 문턱(설정 칸 S17 — 유목 부대가 노리는
 //   오염이라 지나기 위험하다, 새 칸 없음, 확인 대기 질문 611).
 // - 전쟁(기획 답 611 나, docs/adr/2026-11-07-play-flow.md "WP13"): 내 국가(faction_members)와 전쟁(faction_wars state = war) 중인 세력만.
@@ -144,7 +144,8 @@ export function createTravelDanger(deps: TravelDangerDeps) {
     for (const [cellKey, factionId] of territory?.cells ?? [])
       if (wanted.has(cellKey) && enemies.has(factionId)) cells.set(cellKey, factionId);
     return travelDangers(route, {
-      knownMap: (key) => observer || viewable.has(key) || (!maps.has(key) && explored(key)),
+      // 아는 2차맵 = 볼 수 있거나(내 유닛·건물·같은 나라) 탐사 기록이 있다(D-564 1642부터 탐사만으로는 열리지 않지만 위험은 안다)
+      knownMap: (key) => observer || viewable.has(key) || explored(key),
       pollution: new Map(pollutionRows.rows.map((row) => [Number(row.cell_key), Number(row.value)])),
       knownCities: cities.filter(
         (city) => knownWithoutSight(city, knowing) || isCityKnown(city, { ...knowing, sighted }),

@@ -964,6 +964,7 @@
   "world_travel_stopped_blocked": "길이 막혀 멈췄습니다.",
   "world_travel_stopped_unavailable": "움직일 수 없게 되어 멈췄습니다.",
   "world_travel_stopped_raided": "건너뛰는 길에서 습격을 받아 다쳤습니다. 나타난 자리에 멈췄습니다.",
+  "world_travel_stopped_encounter": "가는 길에 적과 만나 전투가 났습니다. 만난 자리에 멈췄습니다.",
   "map_travel_going": "내 사이보그가 가는 중: 2차맵 {at}/{total} · 도착 예상 {time}",
   "map_travel_follow": "따라가기",
   "world_command_scout_note": "정찰: 목표 2차맵을 보고 출발한 자리로 돌아옵니다.",

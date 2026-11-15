@@ -255,6 +255,8 @@ export type WorldTravelStop =
   | "blocked"
   | "unavailable"
   | "raided"
+  /** 좌표로 가던 중 띄우지 않은 2차맵에서 적(전쟁 중인 나라)의 유닛과 만나 조우 전투가 났다 — 그 자리에 섬(기획 D-564 1641·D-475) */
+  | "encounter"
   /** 목적 2차맵에 들어서려 했지만 서버가 더 띄울 수 없었다(WP15 상한) — 변 앞(건너뛰던 중이면 사라진 자리)에 멈춤 */
   | "map_full";
 

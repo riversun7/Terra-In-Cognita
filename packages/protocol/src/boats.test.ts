@@ -4,6 +4,7 @@ import {
   BOAT_B2_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
   BOAT_RESULT_CODES,
+  type ClientMessage,
   HARBOR_PROTOCOL_VERSION,
   VOYAGE_PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,
@@ -118,7 +119,7 @@ describe("배 메시지(프로토콜 27)", () => {
   it("37: 도크 출고·모듈 묶음·연료 보급·오버히트·보직·빼앗기(D-559)", () => {
     expect(VOYAGE_PROTOCOL_VERSION).toBe(37);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(VOYAGE_PROTOCOL_VERSION);
-    const messages = [
+    const messages: ClientMessage[] = [
       { t: "boat_release", id: 1, boatId: 9 },
       { t: "boat_refuel", id: 2, boatId: 9, buildingId: 15 },
       { t: "boat_overheat", id: 3, boatId: 9, on: true },
@@ -126,7 +127,7 @@ describe("배 메시지(프로토콜 27)", () => {
       { t: "boat_crew", id: 5, boatId: 9, unitId: 11, post: null },
       { t: "boat_seize", id: 6, boatId: 9, unitId: 11 },
       { t: "harbor_policy", id: 7, buildingId: 14, modules: ["docks", "build"] },
-    ] as const;
+    ];
     for (const message of messages) expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
     expect(decodes(decodeClientMessage, { t: "boat_crew", id: 8, boatId: 9, unitId: 11, post: "cook" })).toBe(
       false,

@@ -45,7 +45,8 @@ export function StatInfluenceSection({ locale }: { readonly locale: string }) {
           {open ? m.dev_sec_influence_close() : m.dev_sec_influence_open()}
         </button>
       </div>
-      <p className="sec-extra-note">{m.dev_sec_influence_note()}</p>
+      {/* 연 뒤에는 영향도 판이 자기 설명 줄을 보인다(겹치지 않게 닫힌 동안만) */}
+      {open ? null : <p className="sec-extra-note">{m.dev_sec_influence_note()}</p>}
       <div id={`${id}-influence-body`} hidden={!open}>
         {open ? <InfluencePanel locale={locale} /> : null}
       </div>

@@ -23,11 +23,14 @@
 //   누르면 버튼 대신 "2차맵에서 걸어가세요".
 // - 사진: [이곳으로 이동]·명령 판 390 × 파스텔·다크(한국어), 명령 판 390 파스텔 영어.
 import type { Page } from "@playwright/test";
+import { isCellKey, stepCell } from "../packages/planet/src/index.ts";
+import { myPosition, waitAt } from "./helpers/cyborgTravel.ts";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
+import { ensureHuman, sendCommands } from "./helpers/wsCommands.ts";
 
 /** tRPC 조회 하나(로그인한 이 화면의 쿠키로)의 data */
 async function trpcData(page: Page, procedure: string): Promise<unknown> {
@@ -719,4 +722,99 @@ test.describe("지도 흐름 사진", () => {
       });
     });
   }
+});
+
+// 좌표 유닛(기획 D-559 1619, docs/adr/2026-11-15-unloaded-second-maps.md): 아무도 보지 않는 2차맵은 띄우지 않는다. dev가 운영자 빠르기로 내 사이보그와
+// 휴먼을 동쪽 두 장 너머(띄우지 않은 들판)로 보내면 그 2차맵을 띄우지 않고 좌표 유닛으로 선다 → 1차맵에 내 자리(사이보그)·좌표 유닛 점(휴먼)이
+// 보인다 → 2차맵을 열면(구독) 서버가 그때 띄워 내 사이보그가 그 자리에 있다. 끝나면 둘 다 출발한 2차맵으로 돌려보낸다.
+test.describe("좌표 유닛: 아무도 보지 않는 2차맵은 띄우지 않는다", () => {
+  test.use({ account: "dev" });
+
+  test("띄우지 않은 들판으로 보낸 내 유닛은 1차맵에만 보이고, 2차맵을 열면 그때 띄운다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(300_000);
+    const side = await page.context().newPage();
+    await side.goto("/health");
+    const home = await myPosition(side);
+    if (!home) throw new Error("dev 사이보그 자리를 모릅니다");
+    const far = isCellKey(home.mapKey) ? stepCell(home.mapKey, 2, 0) : null;
+    if (far === null) throw new Error("동쪽 두 장 너머 2차맵이 없습니다");
+    const human = await ensureHuman(side, "e2e_dev", home.mapKey);
+    await side.goto("/health");
+    const loaded = async (mapKey: number): Promise<unknown> =>
+      Reflect.get(
+        Object(
+          await trpcData(side, `world.mapUnits?input=${encodeURIComponent(JSON.stringify({ mapKey }))}`),
+        ),
+        "loaded",
+      );
+    test.skip((await loaded(far)) === true, "그 2차맵이 이미 떠 있다(도시 등) — 좌표 유닛을 볼 수 없다");
+    try {
+      // 운영자 빠르기(전체 보기 연결): 둘 다 그 2차맵 (128, 128)·(132, 128)으로
+      const replies = await sendCommands(
+        side,
+        [
+          { t: "subscribe", mapKey: home.mapKey, observe: true },
+          { t: "travel_start", unitId: home.unitId, mapKey: far, x: 128, y: 128, kind: "move" },
+          { t: "travel_start", unitId: human, mapKey: far, x: 132, y: 128, kind: "move" },
+        ],
+        8800 + (Date.now() % 50) * 2,
+      );
+      expect(replies[1], "사이보그 보내기").toMatchObject({ ok: true });
+      expect(replies[2], "휴먼 보내기").toMatchObject({ ok: true });
+      // 닿으면 좌표 유닛: 내 자리 = 그 2차맵 칸(가는 중 아님), 2차맵은 여전히 띄우지 않았다
+      await waitAt(side, { mapKey: far, cellX: 128, cellY: 128 }, 2);
+      expect(await loaded(far)).toBe(false);
+
+      // 1차맵: 내 자리 표시가 그 2차맵, 휴먼은 좌표 유닛 점
+      await rewriteTrpc(page, { "summary.get": hideSummary });
+      await openPlanet(page);
+      const screen = page.locator(".planet-screen");
+      await expect(screen).toHaveAttribute("data-me", String(far));
+      await expect(screen).toHaveAttribute("data-away-units", /^[1-9]/, { timeout: 20_000 });
+      await expect(page.locator(`.city-away[data-away-unit="${human}"]`)).toHaveAttribute(
+        "aria-label",
+        /#\d+/,
+      );
+      await shot(page, "map-coords-planet-390");
+
+      // 2차맵을 열면(내 사이보그가 선 곳) 서버가 그때 띄운다
+      await page.goto("/map");
+      const map = page.locator(".map-screen[data-map-key]");
+      await expect(map).toHaveAttribute("data-map-key", String(far), { timeout: 30_000 });
+      await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+      await expect(map).toHaveAttribute("data-cyborg", String(home.unitId), { timeout: 20_000 });
+      expect(await loaded(far)).toBe(true);
+      await shot(page, "map-coords-second-390");
+      expect(deviceErrors).toEqual([]);
+    } finally {
+      await sendCommands(
+        side,
+        [
+          { t: "subscribe", mapKey: far, observe: true },
+          {
+            t: "travel_start",
+            unitId: home.unitId,
+            mapKey: home.mapKey,
+            x: home.cellX,
+            y: home.cellY,
+            kind: "move",
+          },
+          {
+            t: "travel_start",
+            unitId: human,
+            mapKey: home.mapKey,
+            x: home.cellX + 4,
+            y: home.cellY,
+            kind: "move",
+          },
+        ],
+        8900 + (Date.now() % 50) * 2,
+      ).catch(() => []);
+      await waitAt(side, home, 4).catch(() => undefined);
+      await side.close();
+    }
+  });
 });

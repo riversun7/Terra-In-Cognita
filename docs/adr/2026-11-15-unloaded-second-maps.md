@@ -107,3 +107,21 @@
   - 보는 사람이 띄우게 할 때 수십 ms(캐시)~수백 ms(지형 생성) 기다린다. 상한에 닿으면 `busy`.
   - 건물이 선 2차맵은 여전히 늘 떠 있다(WP-5).
 - 다시 볼 조건: NAS 1분 지표 `mapsOnDemand`·`coordUnits`·RSS, 상한 거절(`mapOpenRefused`)이 잦을 때, 좌표 유닛 조우·공격 명령 기획 답, 도로 기능.
+
+## 구현하며 정한 것 (2026-11-15, WP-1·WP-2)
+- 가지 `work/map-coords`, 작업 기록 `docs/worklog/2026/11/15-*-map-coords.md`, 질문 `docs/questions/2026-11-15-map-coords.md`(1641~1648, 추천안으로 만듦).
+- 좌표 유닛 장부: `apps/server/src/travel/parked.ts`(유닛 → (2차맵 키, 칸, 서 있는 줄), 2차맵·주인 색인, 배는 승객 줄과 함께). 넣을 때 유닛 행을 쓰기 대기열로 쓴다(부팅 adopt는 쓰지 않음).
+- 좌표 이동: `travel/route.ts hopFrom`을 넓혔다 — 목적지까지 띄운 2차맵이 없으면 목표 칸까지 곧은 선(`landHop`), `adjacent`면 바로 옆 띄운 2차맵에도 나타난다(띄우지 않은 2차맵에서 떠날 때). `travel/service.ts`의 `float`(좌표 이동 시작)·`landUnloaded`·`arriveUnloaded`(습격이 나면 띄워 싸움)·`settleAt`(멈추기 = 그 좌표). 확인 단계 몫은 `travel/planner.ts`, 순수 도우미는 `travel/serviceParts.ts`, 월드 잇기는 `travel/worldTravel.ts`(service.ts 1,000줄 상한 때문에 나눔).
+- 내리기·띄우기: `world/mapSpawn.ts`(한가함 = 구독·건물·붙잡음 없음 + 유닛 0이거나 `parkable`, 내릴 때 `park`), `travel/unloadPark.ts`(쉬는 유닛 → 좌표 유닛, 띄울 때 막힌 칸 고치기, 띄우지 않은 2차맵 탐사 비트). 띄울 때 행 = DB 행(이동 서비스가 든 유닛·다른 띄운 2차맵에 선 유닛 빼고) + 장부 줄(`mapSpawnWorld.ts rows`).
+- 보는 사람이 띄우기: `world/viewOpen.ts` + 게이트웨이(`gateway.ts` 구독에서 `world.openForView`), 상한이면 `busy`. 구독을 받으면 `world.viewed`로 그 2차맵의 변 미리 띄우기를 바로 다시 본다(1분 다시 보기를 기다리면 걸어가는 사람에게 이웃이 늦게 열렸다 — 화면 시험 `seamless.spec.ts` "unknown_map 없음").
+- 변 미리 띄우기 = 주인이 볼 때만: `edgeWatch.ts watching`, 판정 = 그 2차맵 시야 묶음에 그 주인이 있거나(`vision.watchedBy`) 전체 보기 구독이 있음.
+- 부팅: `bootExtraMaps` = 건물이 선 2차맵만. `travel.restore(units)`가 띄우지 않은 2차맵의 유닛 행(이 행성, 봇 빼고)을 장부에 넣고, 저장한 길의 유닛이 장부에 있으면 그 자리에서 좌표 이동으로 잇는다(건너뛰던 중이면 남은 시각 그대로).
+- 정산·셈: `settlement.offMapUnits`(좌표 유닛 = 직무 없이 유지비만 — 가는 중 포함), 로스터 유닛 수·2차맵 화면 "밖의 내 유닛" 수에 더함. 내 사이보그가 좌표 유닛이면 `world.myPosition`은 그 자리(`hidden: false`).
+- 1차맵: `world.travels` 응답 새 칸 `parked`(`WorldParkedUnit` — 선택 칸, 옛 서버는 없음), 화면 `CityOverlay`가 사이보그 본체를 뺀 좌표 유닛을 작은 점(배는 네모)으로, 화면 뿌리 `data-away-units`. 새 메시지 `world_parked_unit`·`world_parked_boat`(ko·en).
+- 지표: `coordUnits`·`coordParked`·`coordLands`·`mapParks`(1분마다), `mapViewOpens`(있을 때).
+- 판·마이그레이션: 프로토콜 그대로(30 — 메시지·결과 코드 바뀜 없음, 구독 거절은 있던 `busy`·`unknown_map`). 팩·`SIM_VERSION` 그대로(설정 칸 바뀜 없음). 마이그레이션 없음. tRPC: `WorldTravelsResponse.parked`(선택), `WorldTravelRoute.opensMap`은 더 이상 싣지 않음(선택 칸이라 옛 화면도 됨).
+- 리셋 없음(Verified: DB 시험 `layoutTravel.db.test.ts` — 좌표 유닛으로 선 뒤 다시 켜면 장부에 들고, 주인이 열면 그 자리에 다시 선다).
+
+### 남는 위험
+- 띄운 2차맵에서만 유닛을 찾는 서비스(보유 물건·생명 수치·병원·신전·시민권·채집 등)는 좌표 유닛을 "그 자리에 없음"으로 본다 — 지금 건너뛰는 유닛과 같다. 이 일들은 도시(늘 떠 있음)나 그 2차맵을 보면서 하므로 막히는 흐름은 없다고 본다(Assumed — 화면마다 재지 않음).
+- 쓰기 대기열이 늦게 비면 DB의 옛 2차맵 행이 남을 수 있다 → 띄울 때 이동 서비스가 든 유닛·다른 띄운 2차맵에 선 유닛은 DB 행을 버린다(두 곳에 서지 않음).

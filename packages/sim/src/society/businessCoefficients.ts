@@ -20,6 +20,21 @@ export interface BusinessCoefficients {
   readonly shareRoundMs: number;
   /** [임시] 한 사람이 한 회차에 걸어 둘 수 있는 지분 주문 수(환전 ORDER_MAX와 같은 값) */
   readonly shareOrderMax: number;
+  /**
+   * [임시] 지급준비금 임금 상승 여유(‰, 기획 D-564 1623 "임금이 상승할 경우도 고려하여 여유 있게"). 정산 때 자동 계산한 필요액(다음 정산
+   * 주기까지 임금 + 한 달치 보증금 모자람)에 (1000 + 이 값)/1000을 곱한다
+   */
+  readonly reserveMarginPm: number;
+  /**
+   * [임시] 지급준비율 기본값(‰, D-564 1623 "남길 비율 선택"). 주인이 사업장마다 고르지 않았으면 이 값. 남길 돈 = 필요액(여유 포함) × 이 값/1000.
+   * 0이면 예전처럼 모두 나눈다(보증금 자동 채우기도 없음)
+   */
+  readonly reserveDefaultPm: number;
+  /**
+   * [임시] 외주 요금(‰, 기획 D-564 1682 "조선소·상업시설은 외주를 받아 장사" — 요금은 그 사업장 금고). 남의 공방에서 장비를 고치면 쓰는 재료 기준 값
+   * 합 × 이 값/1000(올림)을 그 공방 금고에 낸다. 0이면 요금 없음. 주인이 요금을 정하는 길은 질문 1785
+   */
+  readonly serviceFeePm: number;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -29,4 +44,7 @@ export const START_BUSINESS: BusinessCoefficients = {
   shareCount: 1000,
   shareRoundMs: 1_800_000,
   shareOrderMax: 10,
+  reserveMarginPm: 200,
+  reserveDefaultPm: 1000,
+  serviceFeePm: 200,
 };

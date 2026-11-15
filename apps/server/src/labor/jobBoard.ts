@@ -142,11 +142,17 @@ export function createJobBoard(options: {
   /** 맺은 계약을 서비스에 넣고 저장한다 */
   addContract: (contract: LaborContract) => void;
   /**
-   * 보증금을 내기 전: 고용주 사업장 금고가 모자라면 적자로 미리 넣는다(D-555 1504, business/core.ts advance). 없으면 금고에 있는 만큼만(모자라면
-   * employer_insufficient_funds)
+   * 보증금을 정한다(D-564 1624 "보증금은 있는 만큼만", business/core.ts fundDeposit): 고용주 사업장 금고에 한 주기 임금도 없으면 그만큼만 적자로
+   * 미리 넣고, 금고에 있는 만큼(한 주기 임금 이상) 묶는다. undefined를 돌려주면 N48 날수 전부(모자라면 employer_insufficient_funds)
    */
-  advance?:
-    | ((buildingId: number, ownerId: number, asset: string, needed: bigint, atMs: number) => void)
+  fundDeposit?:
+    | ((
+        buildingId: number,
+        ownerId: number,
+        asset: string,
+        perCycle: bigint,
+        atMs: number,
+      ) => bigint | undefined)
     | undefined;
 }): JobBoard {
   const { settlement, ledger, writer, accounts } = options;
@@ -227,18 +233,17 @@ export function createJobBoard(options: {
       settlement.settleOwner(job.ownerId, at);
       settlement.settleOwner(me, at);
       const rules = options.rules();
-      // 보증금은 고용주 사업장 금고에서(D-555 1504) — 모자라면 적자로 미리 넣는다
-      if (job.state === "open" && job.filled < job.slots && me !== job.ownerId)
-        options.advance?.(
-          job.buildingId,
-          job.ownerId,
-          job.asset,
-          requiredDeposit(
-            laborJobWage(job, rules.efficiency, rules.rateMilli, rules.society, rules.labor),
-            rules.labor,
-          ),
-          at,
-        );
+      // 보증금은 고용주 사업장 금고에서(D-555 1504) — 있는 만큼만, 한 주기 임금도 없으면 그만큼만 적자로(D-564 1624)
+      const deposit =
+        job.state === "open" && job.filled < job.slots && me !== job.ownerId
+          ? options.fundDeposit?.(
+              job.buildingId,
+              job.ownerId,
+              job.asset,
+              laborJobWage(job, rules.efficiency, rules.rateMilli, rules.society, rules.labor),
+              at,
+            )
+          : undefined;
       const result = acceptLaborJob(
         job,
         {
@@ -248,6 +253,7 @@ export function createJobBoard(options: {
           efficiency: rules.efficiency,
           rateMilli: rules.rateMilli,
           atMs: at,
+          deposit,
         },
         ledger,
         accounts,

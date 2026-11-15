@@ -23,7 +23,7 @@ const numOrNull = (value: unknown): number | null =>
 
 export async function loadBusiness(pool: QueryPool): Promise<LoadedBusiness> {
   const states = await pool.query(
-    `select building_id, debt_since_ms, suspended_at_ms, settled_at_ms from business_states order by building_id`,
+    `select building_id, debt_since_ms, suspended_at_ms, settled_at_ms, reserve_pm from business_states order by building_id`,
   );
   const prices = await pool.query(
     `select building_id, item, price from business_prices order by building_id, item`,
@@ -36,6 +36,7 @@ export async function loadBusiness(pool: QueryPool): Promise<LoadedBusiness> {
       debtSinceMs: numOrNull(row.debt_since_ms),
       suspendedAtMs: numOrNull(row.suspended_at_ms),
       settledAtMs: numOrNull(row.settled_at_ms),
+      reservePm: numOrNull(row.reserve_pm),
     })),
     prices: prices.rows.map((row) => ({
       buildingId: Number(row.building_id),

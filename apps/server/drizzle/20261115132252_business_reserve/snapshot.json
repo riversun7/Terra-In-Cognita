@@ -1,0 +1,48 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b551eca4-f70a-4d10-991b-42161197c963",
+  "prevIds": [
+    "e5d6a5de-08cf-40fa-8895-fdc71836912a",
+    "7eb4628a-4470-4c9b-acb2-9c0a9891242e"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "business_states",
+        "reserve_pm"
+      ],
+      "writes": [
+        "s|col|public.business_states.reserve_pm",
+        "n|col|public.business_states.reserve_pm",
+        "e|col|public.business_states.reserve_pm"
+      ],
+      "reads": [
+        "n|tbl|public.business_states",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "business_states",
+        "name": "reserve_pm",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

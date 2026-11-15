@@ -8,6 +8,8 @@
 // - 지분 주문(business_share_order·business_share_cancel, 프로토콜 38 — docs/adr/2026-11-15-building-screen.md): 생산시설 지분(기획 44 §6
 //   "100% 매각 가능, 배당은 지분만큼")을 동시호가(D-125)로 사고판다. 사기 = 1주 상한 × 주 수를 지갑(사업장 금고 화폐)에서 묶고, 팔기 = 그 지분을
 //   묶는다. 회차(설정 칸 business_share_round_ms)마다 한 값으로 체결하고 남은 것은 돌려준다. 회차 전에 거둘 수 있다.
+// - 지급준비율(business_reserve, 프로토콜 40 — 기획 D-564 1623): 주인·대주주가 정산 때 금고에 남길 비율(‰, 자동 계산한 필요액 × 비율)을 고른다.
+//   null이면 설정 칸 기본값으로 돌린다.
 // 결과는 business_result 하나(id = 요청 id). 오류는 코드다(기기가 번역). 조회는 tRPC facilities.books다.
 import { z } from "zod";
 
@@ -16,6 +18,9 @@ export const BUSINESS_PROTOCOL_VERSION = 34;
 
 /** 사업장 지분 주문 메시지(business_share_order·business_share_cancel)에 필요한 가장 낮은 프로토콜 버전. 37판 기기는 보내지 않는다 */
 export const BUSINESS_SHARES_PROTOCOL_VERSION = 38;
+
+/** 지급준비율 메시지(business_reserve)에 필요한 가장 낮은 프로토콜 버전(D-564 1623). 39판 기기는 보내지 않는다 */
+export const BUSINESS_RESERVE_PROTOCOL_VERSION = 40;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -90,6 +95,14 @@ export const businessShareCancelMessage = z.object({
   orderId: rowId,
 });
 
+/** 지급준비율(판 40): ‰ 0~5000(필요액의 5배까지), null = 설정 칸 기본값 */
+export const businessReserveMessage = z.object({
+  t: z.literal("business_reserve"),
+  id: requestId,
+  buildingId: rowId,
+  reservePm: z.number().int().min(0).max(5000).nullable(),
+});
+
 export const unitGiftMessage = z.object({
   t: z.literal("unit_gift"),
   id: requestId,
@@ -152,5 +165,6 @@ export const businessClientMessages = [
   unitGiftMessage,
   businessShareOrderMessage,
   businessShareCancelMessage,
+  businessReserveMessage,
 ] as const;
 export const businessServerMessages = [businessResultMessage] as const;

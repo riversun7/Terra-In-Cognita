@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { cargoLocation } from "../world/battleResults.ts";
-import { ASSET_ORE } from "../world/settlement.ts";
+import { ASSET_CREDIT, ASSET_ORE } from "../world/settlement.ts";
 import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { HEALTHY } from "../world/unitCondition.ts";
 import { type World, startWorld } from "../world/world.ts";
@@ -106,7 +106,11 @@ describe.skipIf(!TEST_DATABASE_URL)("실제 유닛 읽기", () => {
       domain: "land",
       job: { kind: "test_gather", phase: "work" },
       captive: false,
-      cargo: [{ asset: ASSET_ORE, amount: "7" }],
+      // 첫 임금(20)은 그 휴먼의 유닛 지갑(= 화물 자리, 사유재산 — D-097·D-564 1631)
+      cargo: [
+        { asset: ASSET_CREDIT, amount: "20" },
+        { asset: ASSET_ORE, amount: "7" },
+      ],
     });
     // 정산 뒤 값: 5분 일했으니 피로가 쌓였다
     expect(first?.fatigue).toBeGreaterThan(0);

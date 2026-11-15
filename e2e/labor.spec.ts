@@ -1,7 +1,8 @@
 // 노동 계약 화면 시험 — 생산 칸 아래 "노동 계약"(docs/adr/2026-11-03-labor-contracts.md, 기획 D-479·49 N48, 338~342).
 // - admin: player 사이보그가 선 2차맵의 내 휴먼(없으면 그 2차맵 도시에서 구인 카드로 고용)과 운영자 지급 시험 화폐(ops.economy.grant)를 갖춘 뒤
 //   (recruit_hire — 시험 일꾼은 없앴다, 사용자 지적 2026-11-09) 시험 건물을 놓고(place_building, 놓은 사람 것),
-//   화면에서 그 휴먼으로 임금형을 맺고(보증금 = 임금 × 30일, 첫 임금 선불) 보증금을 채우고 내 시설 임대료를 정하고 구인을 낸다.
+//   화면에서 그 휴먼으로 임금형을 맺고(보증금은 사업장 금고에 있는 만큼 — 빈 금고면 한 주기 임금만 적자로 내고 첫 임금 선불, D-564 1624),
+//   보증금 채우기가 빈 금고에서는 막히는 것을 보고(있는 만큼만) 내 시설 임대료를 정하고 구인을 낸다.
 // - player: 사이보그 본체로 admin 시설을 임대형으로 빌렸다가 해지한다 → 7일 유예(기획 341, 유예는 손으로 끝내지 않는다).
 //   그다음 구인 게시판에서 admin 일자리를 본체로 받는다 → 임금형(고용주 = admin, 역할 "내 유닛").
 // - 끝에 admin이 임금형 둘을 해지한다(남은 보증금은 돌아온다, 본체는 다시 쉰다). 유예 중인 임대는 돈이 오가지 않아 그대로 둔다.
@@ -92,13 +93,16 @@ test.describe("노동 계약", () => {
     await expect(labor.locator('[role="status"]')).toContainText(message("ko", "labor_done"));
     const wageRow = labor.locator('li.labor-contract[data-state="active"]').first();
     await expect(wageRow).toContainText(message("ko", "labor_kind_wage"));
-    // 첫 임금(16)을 선불로 내서 보증금 464, 29번 남음
-    await expect(wageRow).toContainText(message("ko", "labor_deposit", { amount: "464", cycles: 29 }));
+    // 시험 건물 금고가 비어 보증금 = 한 주기 임금(16)만 적자로 넣어 첫 임금으로 냈다 → 보증금 0(D-564 1624 "보증금은 있는 만큼만")
+    await expect(wageRow).toContainText(message("ko", "labor_deposit", { amount: "0", cycles: 0 }));
 
-    // 보증금 채우기 10 → 474
+    // 보증금 채우기도 금고에 있는 만큼만 — 빈 금고면 돈이 모자람(적자로 넣지 않는다)
     await wageRow.getByLabel(message("ko", "labor_amount_label")).fill("10");
     await wageRow.getByRole("button", { name: message("ko", "labor_top_up") }).click();
-    await expect(wageRow).toContainText(message("ko", "labor_deposit", { amount: "474", cycles: 29 }));
+    await expect(labor.locator('[role="alert"]')).toContainText(
+      message("ko", "labor_error_insufficient_funds"),
+    );
+    await expect(wageRow).toContainText(message("ko", "labor_deposit", { amount: "0", cycles: 0 }));
 
     // 내 시설 임대료 5/시간
     // 건물 시험이 지은 admin 공방도 임대료 줄이 있어 시험 건물 줄만 고른다

@@ -16,6 +16,7 @@ import {
   type BookOwnerKind,
   type BookTotals,
   type BusinessBooksResponse,
+  type ReserveView,
   bookColumnOf,
   businessLocation,
   countsForProfit,
@@ -28,6 +29,7 @@ import type { QueryPool } from "../world/persist/load.ts";
 import type { BusinessCommands } from "./commands.ts";
 import type { BusinessCore } from "./core.ts";
 import type { OwnerNames } from "./names.ts";
+import type { ReservePlan } from "./reserve.ts";
 import type { ShareMarkets } from "./shares.ts";
 
 const DAY_MS = 86_400_000;
@@ -195,6 +197,7 @@ export async function readBusinessBooks(
     ownerName: names?.get(ownerId) ?? null,
     stockValue: String(stockValue),
     ...(source.shares ? { market: source.shares.view(buildingId, viewerOwnerId, nowMs) } : {}),
+    reserve: reserveView(source.core.reserve(buildingId)),
     vault: vault.toSorted((a, b) => (a.asset < b.asset ? -1 : 1)),
     debt: [...source.core.debts(buildingId)]
       .toSorted((a, b) => (a[0] < b[0] ? -1 : 1))
@@ -212,6 +215,18 @@ export async function readBusinessBooks(
     totals,
     days: bars,
     entries,
+  };
+}
+
+/** 지급준비금 계획 → 응답(화폐 차례) */
+function reserveView(plan: ReservePlan): ReserveView {
+  return {
+    ratioPm: plan.ratioPm,
+    chosen: plan.chosen,
+    marginPm: plan.marginPm,
+    lines: [...plan.assets]
+      .toSorted((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([asset, line]) => ({ asset, needed: String(line.needed), keep: String(line.keep) })),
   };
 }
 

@@ -439,6 +439,7 @@ export {
   OLD_LABOR_RULES,
   checkLaborEscrow,
   depositCyclesLeft,
+  fundLaborDeposit,
   laborAccounts,
   laborEscrowCode,
   laborWarning,

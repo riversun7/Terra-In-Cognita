@@ -786,7 +786,7 @@ export const WORLD_TABLES = {
   /** 사업장 상태(적자·멈춤·자동 정산 주기 — docs/adr/2026-11-15-business-ledger.md). 건물이 사라지면 지운다 */
   businessStates: {
     name: "business_states",
-    columns: ["building_id", "planet_id", "debt_since_ms", "suspended_at_ms", "settled_at_ms"],
+    columns: ["building_id", "planet_id", "debt_since_ms", "suspended_at_ms", "settled_at_ms", "reserve_pm"],
     key: ["building_id"],
   },
   /** 사업장 창고 판매 값(D-555 1507) */

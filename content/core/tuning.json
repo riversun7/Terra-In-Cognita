@@ -12138,6 +12138,60 @@
         "en": "How many business share orders one player may have open in a round (across all businesses)."
       },
       "source": "ADR 2026-11-15-building-screen · 환전 주문 한도(ORDER_MAX)와 같은 값 [임시]"
+    },
+    {
+      "id": "business_reserve_margin_pm",
+      "code": "",
+      "name": {
+        "ko": "지급준비금 임금 상승 여유(‰)",
+        "en": "Payroll reserve wage-rise margin (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "정산 때 사업장 금고에 남길 필요액(다음 정산까지 임금 + 한 달치 보증금 모자람)에 더하는 여유. 200이면 20% 더 남긴다.",
+        "en": "Extra kept on top of the amount a business needs at settlement (wages until the next settlement + one month of missing deposit). 200 keeps 20% more."
+      },
+      "source": "D-564 1623·1624 \"임금 상승을 고려하여 여유 있게\" [임시]"
+    },
+    {
+      "id": "business_reserve_default_pm",
+      "code": "",
+      "name": {
+        "ko": "지급준비율 기본값(‰)",
+        "en": "Default payroll reserve ratio (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "주인이 사업장 지급준비율을 고르지 않았을 때 쓰는 값. 남길 돈 = 필요액(여유 포함) × 이 값 ÷ 1000. 0이면 정산 때 모두 나눈다.",
+        "en": "Used when the owner has not picked a reserve ratio for the business. Kept = needed amount (with margin) × this ÷ 1000. 0 pays everything out at settlement."
+      },
+      "source": "D-564 1623 \"남길 비율 선택\" [임시]"
+    },
+    {
+      "id": "business_service_fee_pm",
+      "code": "",
+      "name": {
+        "ko": "외주 요금(‰)",
+        "en": "Outsourcing fee (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "남의 공방에서 장비를 고칠 때 그 공방 사업장 금고에 내는 요금. 쓰는 재료 기준 값 합 × 이 값 ÷ 1000(올림). 0이면 요금이 없다.",
+        "en": "Fee paid into the workshop's vault when repairing gear at someone else's workshop. Sum of the materials' base value × this ÷ 1000 (rounded up). 0 means no fee."
+      },
+      "source": "D-564 1682 \"상업시설은 외주를 받아 장사\" [임시] · 질문 1785"
     }
   ]
 }

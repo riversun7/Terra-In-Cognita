@@ -3,14 +3,16 @@
 // - 정산(1501·1502): 주인·대주주만. 적자를 먼저 갚고 남은 돈(금액이 있으면 그만큼)을 지분 수대로.
 // - 넣기: 주인·대주주가 자기 지갑에서. 적자를 바로 갚는다(멈춘 사업장이 다시 돈다).
 // - 사기(1507): 그 건물 주인의 사업장 창고 물건(임대형 임차인 몫은 아니다). 값 = 주인이 정한 1단위 값(없으면 팩 기준 값 [임시]), 0이면 남에게
-//   팔지 않는다. 주인이 꺼낼 때는 팩 기준 값(주인이 정한 값과 상관없이 [임시] — 장부에 물건 값이 남게). 남에게는 최소 묶음(business_min_lot)부터,
+//   팔지 않는다. 주인이 꺼낼 때도 주인이 정한 값을 낸다(D-564 1627 "판매가를 정하고 모두가 그 가격에 구매" — 너무 낮으면 남이 다 사 가고, 너무
+//   높으면 안 팔린다). 값이 0(남에게 안 팖)이거나 없으면 주인은 팩 기준 값을 낸다(공짜로 꺼내 다른 주주 몫을 빼 가지 않게 — 질문 1781). 남에게는 최소 묶음(business_min_lot)부터,
 //   그 도시 행정 레벨이 business_retail_max_admin 이하(저급 도시)면 낱개도(소매). 물건은 산 사람의 그 도시 창고로, 돈은 사업장 금고로(소득세).
 //   멈춘 사업장은 팔지 않는다(1504).
 // - 값 정하기: 주인·대주주. 원장 물자만.
+// - 지급준비율(D-564 1623): 주인·대주주. 정산이 이 비율로 금고에 돈을 남긴다(core.ts·reserve.ts).
 // - 선물(1508): 내 유닛의 유닛 지갑(@terra/shared/businessBooks unitPurseLocation)에 내 지갑 돈을 준다.
 // - 화폐는 서버 시험 화폐가 기본 [임시](요금·임금과 같다). 넣기·정산은 고른 화폐.
 import type { BusinessResultCode } from "@terra/protocol";
-import { businessLocation, unitPurseLocation } from "@terra/shared/businessBooks";
+import { businessLocation, isReservePm, unitPurseLocation } from "@terra/shared/businessBooks";
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import type { BusinessCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
@@ -36,7 +38,8 @@ export type BusinessCommand =
       readonly price: bigint;
       readonly shares: bigint;
     }
-  | { readonly kind: "share_cancel"; readonly orderId: number };
+  | { readonly kind: "share_cancel"; readonly orderId: number }
+  | { readonly kind: "reserve"; readonly buildingId: number; readonly reservePm: number | null };
 
 export type BusinessCommandResult =
   | { readonly ok: true; readonly paid?: bigint; readonly orderId?: number }
@@ -86,6 +89,21 @@ export interface BusinessCommands {
   priceOf(buildingId: number, asset: string): bigint | null;
   /** 판매 최소 묶음·소매 도시인가 */
   lotOf(buildingId: number): { minLot: number; retail: boolean };
+  /**
+   * 외주 요금(기획 D-564 1682 — 남의 공방 장비 수리 등): 쓰는 재료 기준 값 합 × 설정 칸 business_service_fee_pm ‰, 올림. 재료가 없으면 0 [임시]
+   * (주인이 정하는 요금은 질문 1785)
+   */
+  serviceFee(materials: readonly { readonly item: string; readonly qty: number }[]): bigint;
+  /** 그 사람 지갑(기본 화폐)에 fee가 있나 */
+  canPay(ownerId: number, fee: bigint): boolean;
+  /** 외주 요금을 낸다: 지갑 → 그 사업장 금고(소득세). 모자라면 "insufficient_funds" */
+  chargeService(
+    ownerId: number,
+    buildingId: number,
+    fee: bigint,
+    kind: string,
+    atMs: number,
+  ): "insufficient_funds" | null;
 }
 
 const fail = (code: BusinessResultCode): BusinessCommandResult => ({ ok: false, code });
@@ -101,6 +119,12 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     const set = core.price(buildingId, asset);
     if (set !== undefined) return set > 0n ? set : null;
     return basePrice(asset);
+  };
+
+  /** 주인이 꺼낼 때 1단위 값: 주인이 정한 값(0보다 크면), 아니면 팩 기준 값(D-564 1627, 질문 1781) */
+  const ownerPriceOf = (buildingId: number, asset: string): bigint => {
+    const set = core.price(buildingId, asset);
+    return set !== undefined && set > 0n ? set : basePrice(asset);
   };
 
   const lotOf = (buildingId: number): { minLot: number; retail: boolean } => {
@@ -124,7 +148,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     const place = deps.place(buildingId);
     if (!place || place.ownerId !== ownerId || isMoney(asset) || qty <= 0n) return null;
     if (!deps.isBusiness(buildingId) || deps.isStorage(buildingId)) return null;
-    const cost = basePrice(asset) * qty;
+    const cost = ownerPriceOf(buildingId, asset) * qty;
     const wallet = ledger.ownerAccount(ownerId, deps.fallbackAsset);
     if (ledger.balance(wallet) < cost) return "insufficient_funds";
     core.receive({
@@ -166,7 +190,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     if (place.cityId === null) return fail("no_place");
     const seller = place.ownerId;
     const own = seller === me;
-    const unit = own ? basePrice(asset) : priceOf(buildingId, asset);
+    const unit = own ? ownerPriceOf(buildingId, asset) : priceOf(buildingId, asset);
     if (unit === null) return fail("not_for_sale");
     const lot = lotOf(buildingId);
     if (!own && !lot.retail && qty < lot.minLot) return fail("below_lot");
@@ -263,6 +287,14 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
           return fail("insufficient_funds");
         return { ok: true, paid: command.amount };
       }
+      case "reserve": {
+        // 지급준비율(D-564 1623): 주인·대주주(운영자 모드도)가 고른다. null = 설정 칸 기본값
+        const found = managed(me, command.buildingId, operator);
+        if (!found.ok) return fail(found.code);
+        if (command.reservePm !== null && !isReservePm(command.reservePm)) return fail("invalid_amount");
+        core.setReserve(command.buildingId, command.reservePm);
+        return { ok: true };
+      }
       case "price": {
         const found = managed(me, command.buildingId, operator);
         if (!found.ok) return fail(found.code);
@@ -290,5 +322,19 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     chargeTake,
     priceOf,
     lotOf,
+    serviceFee(materials) {
+      const pm = BigInt(Math.max(0, Math.trunc(deps.rules().serviceFeePm)));
+      let base = 0n;
+      for (const stack of materials) base += basePrice(`item:${stack.item}`) * BigInt(Math.max(0, stack.qty));
+      return base > 0n && pm > 0n ? (base * pm + 999n) / 1000n : 0n;
+    },
+    canPay: (ownerId, fee) => ledger.balance(ledger.ownerAccount(ownerId, deps.fallbackAsset)) >= fee,
+    chargeService(ownerId, buildingId, fee, kind, atMs) {
+      if (fee <= 0n) return null;
+      const wallet = ledger.ownerAccount(ownerId, deps.fallbackAsset);
+      if (ledger.balance(wallet) < fee) return "insufficient_funds";
+      core.receive({ from: wallet, buildingId, asset: deps.fallbackAsset, amount: fee, kind, atMs });
+      return null;
+    },
   };
 }

@@ -37,6 +37,7 @@ export type BusinessClientMessage = ClientMessageOf<
   | "unit_gift"
   | "business_share_order"
   | "business_share_cancel"
+  | "business_reserve"
 >;
 
 export type FacilityClientMessage = ClientMessageOf<
@@ -61,11 +62,11 @@ export interface FacilityLink {
   /** 인사한 프로토콜 판(없으면 지금 판). 13 아래면 폐허 코드를 not_buildable로, 21 아래면 needs_water를 blocked_terrain으로 */
   protocolVersion?: number | undefined;
   /**
-   * 같은 연결이 2차맵을 전체 보기(운영자 모드)로 구독 중인가. 그러면서 모든 유닛 명령 권한(dev·admin)이면 짓기·레벨 올리기는 제한 없이(기획 D-560
-   * 1239 — 재료·땅 규칙 없이, 시간 ÷ 운영자 배율). 서버 권위: 권한은 여기서 본다(기기의 운영자 모드 단추는 화면 편의)
+   * 같은 연결이 2차맵을 전체 보기(운영자 모드)로 구독 중인가. 그러면서 모든 유닛 명령 권한(dev·admin)이면 짓기·레벨 올리기는 재료·건설 시간
+   * 없이(기획 D-560 1239·D-564 1663 — 땅 규칙 등 그 밖의 건설 규칙은 그대로). 서버 권위: 권한은 여기서 본다(기기의 운영자 모드 단추는 화면 편의)
    */
   observing?(): boolean;
-  /** 이 연결의 운영자 배율(기본 1, world/operatorPace.ts) — 운영자 모드 짓는 시간 나눗수 */
+  /** 이 연결의 운영자 배율(기본 1, world/operatorPace.ts) — 운영자 모드 건설 표지에 싣는다(짓는 시간은 D-564 1663부터 0) */
   operatorPace?: OperatorPaceLink | undefined;
 }
 
@@ -102,6 +103,7 @@ const BUSINESS_TYPES: ReadonlySet<string> = new Set([
   "unit_gift",
   "business_share_order",
   "business_share_cancel",
+  "business_reserve",
 ]);
 const isBusiness = (
   message: FacilityClientMessage | BusinessClientMessage,
@@ -144,6 +146,8 @@ function businessCommandOf(message: BusinessClientMessage): BusinessCommand {
       };
     case "business_share_cancel":
       return { kind: "share_cancel", orderId: message.orderId };
+    case "business_reserve":
+      return { kind: "reserve", buildingId: message.buildingId, reservePm: message.reservePm };
     default: {
       const unhandled: never = message;
       return unhandled;
@@ -289,7 +293,7 @@ export function createFacilityGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
-        // 운영자 모드 건설(D-560 1239): 전체 보기 구독 + 모든 유닛 명령 권한일 때만
+        // 운영자 모드 건설(D-560 1239·D-564 1663 재료·시간 없음): 전체 보기 구독 + 모든 유닛 명령 권한일 때만
         const operator: OperatorBuild | undefined = isOperatorMode(link.observing?.() === true, viewer.roles)
           ? { pace: link.operatorPace?.factor() ?? 1 }
           : undefined;

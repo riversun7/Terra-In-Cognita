@@ -14,7 +14,7 @@ import {
   joinCityFaction,
   rows,
 } from "../testDb.ts";
-import { ASSET_ORE } from "../world/settlement.ts";
+import { ASSET_CREDIT, ASSET_ORE } from "../world/settlement.ts";
 import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import type { Viewer } from "../trpc/context.ts";
@@ -31,6 +31,8 @@ const DAY = 24 * HOUR;
 const T0 = 1_800_000_000_000 - (1_800_000_000_000 % UPKEEP_PERIOD_MS) + 1;
 /** 공방 Lv1(팩): 소나무 10·철광석 6 × 배율 1200‰ → 12·7, 시간 = (2,000g × 10 + 1,000g × 6) × 1.2 × 10초/kg = 312초 */
 const WORKSHOP_L1_MS = 312_000;
+/** 공방 Lv1 짓기 소나무 통나무(개) */
+const WORKSHOP_L1_PINE = 12n;
 
 let test: TestDatabase;
 let clock = T0;
@@ -153,8 +155,8 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
     expect(blocked).toEqual({ ok: false, code: "forbidden" });
     // 재료는 그대로
     expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(60n);
-    // 운영자 모드(기획 D-560 1239)는 땅 규칙·재료 없이 짓고, 짓는 시간은 배율로 나눈다
-    const operatorBuilt = await service.build(a.userId, {
+    // 운영자 모드(기획 D-564 1663)도 땅 규칙은 본다 — 없애는 것은 재료·건설 시간뿐
+    const operatorBlocked = await service.build(a.userId, {
       mapKey: a.map.mapKey,
       facility: "workshop",
       x: 80,
@@ -162,7 +164,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
       rotation: 0,
       operator: { pace: 10 },
     });
-    expect(operatorBuilt).toMatchObject({ ok: true, doneAtMs: clock + Math.floor(WORKSHOP_L1_MS / 10) });
+    expect(operatorBlocked).toEqual({ ok: false, code: "forbidden" });
     expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(60n);
     // 그 세력에 들면(내 세력 도시) 짓는다
     await rows(test.db, "insert into faction_members (user_id, faction_id) values ($1, $2)", [
@@ -178,6 +180,17 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
       rotation: 0,
     });
     expect(built.ok).toBe(true);
+    // 운영자 모드는 재료 없이 바로 다 짓는다(시간 0, D-564 1663)
+    const operatorBuilt = await service.build(a.userId, {
+      mapKey: a.map.mapKey,
+      facility: "workshop",
+      x: 80,
+      y: 80,
+      rotation: 0,
+      operator: { pace: 10 },
+    });
+    expect(operatorBuilt).toMatchObject({ ok: true, doneAtMs: clock });
+    expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(60n - WORKSHOP_L1_PINE);
   });
 });
 
@@ -392,6 +405,52 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       [holdingId],
     );
     expect(saved[0]?.durability).toBe(record.maxDurability);
+    expect(await world.checkInvariants()).toEqual([]);
+  });
+
+  it("외주(D-564 1682): 남의 공방에서도 내 장인·내 재료로 장비를 고치고 요금은 그 공방 사업장 금고로", async () => {
+    const world = await boot();
+    const p = persistence(world);
+    const service = p.facilities.service;
+    const owner = await setup(world, "shopkeeper", 1, { pine_log: 30, iron_ore: 20 });
+    const buildingId = await workshop(world, owner, 40);
+    const guest = await setup(world, "customer", 1, { iron_ingot: 5, deer_hide: 5 });
+    const unitId = guest.units[0] ?? 0;
+    const granted = p.holdings.service.acquire({
+      ownerId: guest.ownerId,
+      item: "hold_vest",
+      quantity: 1,
+      location: -unitId,
+      source: "dev_grant",
+      atMs: clock,
+      seed: 7,
+    });
+    const holdingId = granted.ok ? (granted.holdings[0] ?? 0) : 0;
+    const record = p.holdings.service
+      .list(guest.ownerId, clock)
+      .holdings.find((entry) => entry.id === holdingId);
+    if (!record) throw new Error("no vest");
+    record.durability = 40;
+    const vault = () => p.ledger.balanceOf(owner.ownerId, ASSET_CREDIT, buildingLocation(buildingId));
+    const wallet = () => p.ledger.balanceOf(guest.ownerId, ASSET_CREDIT);
+    const walletBefore = wallet();
+    // 요금 = 재료 기준 값 합 × 외주 요금‰(올림) — 그 공방 금고로(소득세는 도시 나라 국고)
+    const fee = p.facilities.businessCommands.serviceFee([
+      { item: "iron_ingot", qty: 1 },
+      { item: "deer_hide", qty: 1 },
+    ]);
+    expect(fee).toBeGreaterThan(0n);
+    expect(await service.repairEquipment(guest.userId, buildingId, holdingId, [unitId])).toEqual({
+      ok: true,
+      doneAtMs: clock + 360_000,
+    });
+    expect(goodsStock(p.ledger, guest.ownerId, "iron_ingot")).toBe(4n);
+    expect(wallet()).toBe(walletBefore - fee);
+    const tax = (fee * BigInt(p.facilities.business.taxRateOf(buildingId, owner.ownerId))) / 10_000n;
+    expect(vault()).toBe(fee - tax);
+    clock += 360_000;
+    expect(service.finishDue(clock)).toBe(1);
+    expect(record.durability).toBe(record.maxDurability);
     expect(await world.checkInvariants()).toEqual([]);
   });
 

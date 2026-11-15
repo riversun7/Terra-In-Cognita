@@ -118,6 +118,27 @@ describe("사업장 장부 명령", () => {
     expect(commands.chargeTake(BUYER, FARM, WOOD, 1n, 1)).toBeNull();
   });
 
+  it("주인도 주인이 정한 판매가를 낸다(D-564 1627), 값 0이면 기준 값", async () => {
+    const { ledger, commands, grant } = setup();
+    grant(OWNER, ASSET, 100n);
+    grant(OWNER, WOOD, 50n, businessLocation(FARM));
+    expect((await commands.run("owner", { kind: "price", buildingId: FARM, item: WOOD, price: 7n })).ok).toBe(
+      true,
+    );
+    expect(commands.chargeTake(OWNER, FARM, WOOD, 2n, 1)).toBeNull();
+    expect(ledger.balanceOf(OWNER, ASSET)).toBe(86n);
+    expect(await commands.run("owner", { kind: "buy", buildingId: FARM, item: WOOD, qty: 1 })).toEqual({
+      ok: true,
+      paid: 7n,
+    });
+    // 값 0(남에게 안 팖)이면 주인은 기준 값(3)을 낸다 — 공짜로 꺼내지 않는다
+    expect((await commands.run("owner", { kind: "price", buildingId: FARM, item: WOOD, price: 0n })).ok).toBe(
+      true,
+    );
+    expect(commands.chargeTake(OWNER, FARM, WOOD, 1n, 1)).toBeNull();
+    expect(ledger.balanceOf(OWNER, ASSET)).toBe(76n);
+  });
+
   it("정산·넣기는 주인만, 유닛 선물은 내 유닛 지갑으로", async () => {
     const { ledger, commands, grant } = setup();
     grant(OWNER, ASSET, 100n);

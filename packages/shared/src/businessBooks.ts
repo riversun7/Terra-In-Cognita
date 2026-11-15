@@ -86,6 +86,8 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   labor_rent: "income",
   temple_offering: "income",
   hospital_treat: "income",
+  // 외주 요금(남의 공방 장비 수리, D-564 1682)
+  equipment_repair_fee: "income",
   gene_incubate: "income",
   gene_convert: "income",
   berth_fee: "income",
@@ -202,6 +204,30 @@ export function settleBoundary(nowMs: number, periodMs: number): number | undefi
   return Math.floor(nowMs / periodMs) * periodMs;
 }
 
+// ---------- 지급준비금(기획 D-564 1623·1624) ----------
+
+/** 지급준비율 상한(‰, 입력 한도 — 필요액의 5배) */
+export const RESERVE_MAX_PM = 5000;
+/** 화면에서 고르는 지급준비율(‰): 남기지 않음·절반·필요액·1.5배·2배·3배 */
+export const RESERVE_CHOICES_PM: readonly number[] = [0, 500, 1000, 1500, 2000, 3000];
+
+/** 지급준비율로 받을 수 있는 값인가(0~RESERVE_MAX_PM 정수) */
+export function isReservePm(value: number): boolean {
+  return Number.isInteger(value) && value >= 0 && value <= RESERVE_MAX_PM;
+}
+
+/**
+ * 정산 때 금고에 남길 돈: 필요액(다음 정산까지 임금 + 한 달치 보증금 모자람) × (1000 + 상승 여유‰)/1000 × 지급준비율‰/1000, 올림.
+ * 필요액·비율이 0 이하이면 0
+ */
+export function reserveKeep(needed: bigint, marginPm: number, ratioPm: number): bigint {
+  if (needed <= 0n || !(ratioPm > 0)) return 0n;
+  const margin = BigInt(1000 + Math.max(0, Math.trunc(marginPm)));
+  const ratio = BigInt(Math.trunc(ratioPm));
+  const scale = 1_000_000n;
+  return (needed * margin * ratio + scale - 1n) / scale;
+}
+
 // ---------- 장부 조회 응답(tRPC facilities.books) ----------
 
 /** 화폐 잔고 한 줄 */
@@ -257,6 +283,17 @@ export interface BookHolder {
   readonly name?: LocalizedName | null | undefined;
   /** 지분 몫(‰) */
   readonly pm?: number | undefined;
+}
+
+/**
+ * 지급준비금(D-564 1623·1624): 정산 때 금고에 남길 돈. ratioPm = 쓰는 지급준비율(‰), chosen = 주인이 골랐나(아니면 설정 칸 기본값),
+ * marginPm = 임금 상승 여유(‰). 화폐마다 needed(필요액 = 다음 정산까지 임금 + 한 달치 보증금 모자람)·keep(남길 돈)
+ */
+export interface ReserveView {
+  readonly ratioPm: number;
+  readonly chosen: boolean;
+  readonly marginPm: number;
+  readonly lines: readonly { readonly asset: string; readonly needed: string; readonly keep: string }[];
 }
 
 /** 지분 동시호가 회차 하나 */
@@ -321,6 +358,8 @@ export type BusinessBooksResponse =
       readonly stockValue?: string | undefined;
       /** 지분 시장(옛 응답에는 없다) */
       readonly market?: ShareMarketView | undefined;
+      /** 지급준비금(D-564 1623, 옛 응답에는 없다) */
+      readonly reserve?: ReserveView | undefined;
       readonly vault: readonly BookBalance[];
       /** 갚을 돈(적자, 화폐별 양수) */
       readonly debt: readonly BookBalance[];

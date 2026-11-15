@@ -88,8 +88,8 @@ export function BuildSheet({
     footprint,
     anchor ? { x: anchor.x, y: anchor.y, rotation: state.rotation } : null,
   );
-  // 운영자 모드는 땅 규칙을 보지 않는다(모름 = 막지 않음)
-  const landAllowed = operator ? null : land.data?.status === "ready" ? land.data.allowed : null;
+  // 운영자 모드도 땅 규칙은 본다(D-564 1663 — 운영자 모드가 없애는 것은 재료·건설 시간뿐)
+  const landAllowed = land.data?.status === "ready" ? land.data.allowed : null;
   const problems = footprint
     ? placementProblems({
         anchor,

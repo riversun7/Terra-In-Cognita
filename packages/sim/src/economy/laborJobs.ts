@@ -132,6 +132,8 @@ export interface LaborJobAcceptInput {
   /** 단가(도시 노동 시장 D-432, 효율 1점당 밀리 화폐) */
   readonly rateMilli: number;
   readonly atMs: number;
+  /** 보증금(선택, LaborOpenInput.deposit — 서버는 사업장 금고에 있는 만큼만, D-564 1624). 빠지면 N48 날수 전부 */
+  readonly deposit?: bigint | undefined;
 }
 
 /**
@@ -161,6 +163,7 @@ export function acceptLaborJob(
       rate: laborJobWage(job, input.efficiency, input.rateMilli, society, rules),
       atMs: input.atMs,
       endsAtMs: job.termHours === null ? null : input.atMs + job.termHours * HOUR_MS,
+      deposit: input.deposit,
     },
     book,
     accounts,

@@ -1,6 +1,6 @@
 // 전투 보고서 화면 문구(메시지 키 표) — 키로 고르는 문구는 표에 적는다(oxlint import(namespace) 규칙, AGENTS.md 6절).
 import type { LabTerrainView } from "@terra/shared/battleLab";
-import type { ReportMode, ReportWaveDefense } from "@terra/shared/battleReport";
+import type { ReportEdge, ReportMode, ReportOrderKind, ReportWaveDefense } from "@terra/shared/battleReport";
 import type { ReportCityChange } from "@terra/shared/battleReportCity";
 import { m } from "../../../paraglide/messages.js";
 import type { CompareRow, FlowStepId, ReportErrorKey } from "./reportModel.ts";
@@ -134,3 +134,21 @@ const COMPARE_TEXT: Readonly<Record<string, () => string>> = {
   bDeaths: m.dev_report_cmp_b_deaths,
 };
 export const compareText = (row: CompareRow): string => COMPARE_TEXT[row.id]?.() ?? row.id;
+
+const ORDER_TEXT: Readonly<Record<ReportOrderKind, () => string>> = {
+  advance: m.dev_report_order_kind_advance,
+  hold: m.dev_report_order_kind_hold,
+  attack: m.dev_report_order_kind_attack,
+  retreat: m.dev_report_order_kind_retreat,
+  free: m.dev_report_order_kind_free,
+};
+export const orderKindText = (kind: ReportOrderKind): string => ORDER_TEXT[kind]();
+
+const EDGE_TEXT: Readonly<Record<string, () => string>> = {
+  random: m.dev_report_edge_random,
+  "0": m.dev_report_edge_0,
+  "1": m.dev_report_edge_1,
+  "2": m.dev_report_edge_2,
+  "3": m.dev_report_edge_3,
+};
+export const edgeText = (edge: ReportEdge): string => EDGE_TEXT[String(edge)]?.() ?? String(edge);

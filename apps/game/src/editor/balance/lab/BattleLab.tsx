@@ -15,7 +15,15 @@ import { m } from "../../../paraglide/messages.js";
 import { LiveMessage, useLiveLines } from "../../../ui/LiveMessage.tsx";
 import { ReportPanel } from "../report/ReportPanel.tsx";
 import { ReportView } from "../report/ReportView.tsx";
-import { type ReportForm, teamsShown } from "../report/reportModel.ts";
+import {
+  type ReportForm,
+  legionInput,
+  legionsOf,
+  ordersWithoutParty,
+  ordersWithoutTarget,
+  teamsShown,
+  withLegions,
+} from "../report/reportModel.ts";
 import type { ReportJobState } from "../report/useReportJob.ts";
 import { ArenaPanel } from "./ArenaPanel.tsx";
 import {
@@ -92,14 +100,15 @@ export function BattleLab(props: {
   // 고치는 팀: B 설정을 고르면 B 팀(따로 고칠 때만), 아니면 실험실 팀(A 설정)
   const editingB = editing === "b" && form.variantTeams !== null && form.mode !== "wave";
   const baseTeams: Teams = editingB && form.variantTeams ? form.variantTeams : data.teams;
-  // 군단(기획 D-179·D-545): 팀마다 고른 파티. 1번 파티 = 실험실 팀, 2번부터 = 보고서 폼 군단(A·B 설정이 같이 쓴다)
+  // 군단(기획 D-179·D-545): 팀마다 고른 파티. 1번 파티 = 실험실 팀(B 팀 따로면 B 팀), 2번부터 = 고치는 설정의 군단 폼(사용자 1468)
+  const legions = legionsOf(form, editingB);
   const [partyAt, setPartyAt] = useState<Readonly<Record<LabTeam, number>>>({ a: 0, b: 0 });
   const at: Record<LabTeam, number> = {
-    a: Math.min(partyAt.a, form.legion.a.extra.length),
-    b: Math.min(partyAt.b, form.legion.b.extra.length),
+    a: Math.min(partyAt.a, legions.a.extra.length),
+    b: Math.min(partyAt.b, legions.b.extra.length),
   };
   const partyOf = (team: LabTeam) =>
-    at[team] === 0 ? baseTeams[team] : (form.legion[team].extra[at[team] - 1] ?? baseTeams[team]);
+    at[team] === 0 ? baseTeams[team] : (legions[team].extra[at[team] - 1] ?? baseTeams[team]);
   const teams: Teams = { a: partyOf("a"), b: partyOf("b") };
   const setTeams = (change: (current: Teams) => Teams): void => {
     const next = change(teams);
@@ -110,9 +119,10 @@ export function BattleLab(props: {
       const slot = at[team];
       if (slot === 0) first[team] = next[team];
       else {
-        const legion = nextForm.legion[team];
+        const current = legionsOf(nextForm, editingB);
+        const legion = current[team];
         const extra = legion.extra.map((party, index) => (index === slot - 1 ? next[team] : party));
-        nextForm = { ...nextForm, legion: { ...nextForm.legion, [team]: { ...legion, extra } } };
+        nextForm = withLegions(nextForm, editingB, { ...current, [team]: { ...legion, extra } });
       }
     }
     if (Object.keys(first).length > 0) {
@@ -124,25 +134,33 @@ export function BattleLab(props: {
   };
   /** 파티 더하기(고른 파티를 베낀다)·빼기(2번부터) */
   const addParty = (team: LabTeam): void => {
-    const legion = form.legion[team];
+    const legion = legions[team];
     if (legion.extra.length + 1 >= REPORT_LIMITS.legionPartiesMax) return;
-    onForm({
-      ...form,
-      legion: { ...form.legion, [team]: { ...legion, extra: [...legion.extra, partyOf(team)] } },
-    });
+    onForm(
+      withLegions(form, editingB, {
+        ...legions,
+        [team]: { ...legion, extra: [...legion.extra, partyOf(team)] },
+      }),
+    );
     setPartyAt({ ...at, [team]: legion.extra.length + 1 });
   };
+  /** 파티 빼기: 그 파티 명령은 지우고 뒤 파티 번호를 당긴다. 상대 군단의 그 파티 목표 공격도 지운다 */
   const removeParty = (team: LabTeam): void => {
     const slot = at[team];
     if (slot === 0) return;
-    const legion = form.legion[team];
-    onForm({
-      ...form,
-      legion: {
-        ...form.legion,
-        [team]: { ...legion, extra: legion.extra.filter((_, index) => index !== slot - 1) },
-      },
-    });
+    const legion = legions[team];
+    const other = team === "a" ? "b" : "a";
+    onForm(
+      withLegions(form, editingB, {
+        ...legions,
+        [team]: {
+          ...legion,
+          extra: legion.extra.filter((_, index) => index !== slot - 1),
+          orders: ordersWithoutParty(legion.orders, slot),
+        },
+        [other]: { ...legions[other], orders: ordersWithoutTarget(legions[other].orders, slot) },
+      }),
+    );
     setPartyAt({ ...at, [team]: slot - 1 });
   };
   const shown = teamsShown(form);
@@ -190,7 +208,7 @@ export function BattleLab(props: {
     return () => clearTimeout(timer);
   }, [ready, unitJson]);
 
-  const battleKey = JSON.stringify([baseTeams, form.terrain, form.limitSec, form.seed]);
+  const battleKey = JSON.stringify([baseTeams, legions, form.terrain, form.limitSec, form.seed]);
 
   const onNotice = (line: string, tone: "success" | "error"): void => {
     if (tone === "success") {
@@ -208,14 +226,22 @@ export function BattleLab(props: {
     problem.show([labErrorText(info.key)]);
   };
 
-  // 한 판·3D 관람은 1번 파티끼리(옛 실험실 그대로)
-  const arenaInput = () => ({
-    a: baseTeams.a,
-    b: baseTeams.b,
-    terrain: form.terrain,
-    limitSec: Math.min(600, form.limitSec),
-    seed: form.seed,
-  });
+  // 한 판·3D 관람도 군단 전체(모든 파티와 명령, 사용자 1469). 파티 하나·명령 없음이면 옛 실험실 입력 그대로
+  const arenaInput = () => {
+    const limitSec = Math.min(600, form.limitSec);
+    const whole = legions.a.extra.length > 0 || legions.b.extra.length > 0;
+    const orders = legions.a.orders.length > 0 || legions.b.orders.length > 0;
+    return {
+      a: baseTeams.a,
+      b: baseTeams.b,
+      terrain: form.terrain,
+      limitSec,
+      seed: form.seed,
+      ...(whole || orders
+        ? { legion: { a: legionInput(baseTeams.a, legions.a), b: legionInput(baseTeams.b, legions.b) } }
+        : {}),
+    };
+  };
 
   const runBattle = (): void => {
     if (busy) return;
@@ -289,7 +315,7 @@ export function BattleLab(props: {
               <div key={team} className="rp-legion-team" data-team={team}>
                 <PartyBar
                   team={team}
-                  count={form.legion[team].extra.length + 1}
+                  count={legions[team].extra.length + 1}
                   at={at[team]}
                   onPick={(index) => setPartyAt({ ...at, [team]: index })}
                   onAdd={() => addParty(team)}
@@ -330,6 +356,10 @@ export function BattleLab(props: {
               battle={battle ? { result: battle.result, stale: battle.key !== battleKey } : null}
               problem={problem}
               teams={baseTeams}
+              legion={{
+                a: [baseTeams.a, ...legions.a.extra],
+                b: [baseTeams.b, ...legions.b.extra],
+              }}
               locale={locale}
             />
           ) : null}

@@ -6,7 +6,7 @@
 //   (NPC 휴먼 수비대는 시뮬과 같은 [임시] 사양 sim specOf — 저장된 유닛 스탯이 아직 없다).
 // - 자리·편·파티·이동 간격·건물 피해 배율·시선 높이·공중·지휘 정원은 시작 자료 그대로 둔다. 세계에 없는 전투 유닛(크리쳐)은 건너뛴다.
 // 생명 수치(남은 HP·아머·쉴드, src/vitals/ battleStart)는 이 뒤에 붙인다(새 최대로 자르게).
-import type { BattleInit, CombatUnitSpec } from "@terra/sim";
+import { BATTLE_BASE_MOVE_MS, type BattleInit, type CombatUnitSpec } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import {
@@ -77,11 +77,12 @@ export function createBattleBodies(input: {
             party: spec.party,
             x: spec.x,
             y: spec.y,
-            moveIntervalMs: spec.moveIntervalMs,
+            // 기본 간격(1초)을 넘긴다 — 걸음은 다시 만든 몸의 실효 AGI로 다시 센다(사용자 1265, D-553. 옛 사양 값을 넘기면 두 번 줄어든다)
+            moveIntervalMs: BATTLE_BASE_MOVE_MS,
             buildingMulPm: spec.buildingMulPm,
             eye: spec.eye,
             air: spec.air,
-            commandCap: spec.commandCap,
+            // 지휘관 정원은 다시 만든 몸의 1차 스탯으로 센다(설정 칸 C7, 사용자 1464)
           },
           nowMs,
         );

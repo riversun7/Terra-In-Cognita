@@ -511,3 +511,57 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+.rp-orders {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.rp-orders-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.rp-order-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rp-order {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: var(--space-2);
+  align-items: end;
+  min-width: 0;
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.rp-order .field,
+.rp-order .bl-num {
+  min-width: 0;
+}
+.rp-order select {
+  width: 100%;
+  min-width: 0;
+}
+.rp-order-remove {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: var(--dev-touch-tap);
+  min-height: var(--dev-touch-tap);
+}
+.rp-order-add {
+  justify-self: start;
+}
+@media (min-width: 900px) {
+  .rp-order {
+    grid-template-columns: minmax(0, 0.7fr) repeat(3, minmax(0, 1fr)) auto;
+  }
+  /* 목표 칸이 없는 줄도 빼기 단추는 마지막 칸에, 제 크기로 */
+  .rp-order-remove {
+    grid-column: -2;
+    grid-row: 1;
+    justify-self: end;
+  }
+}

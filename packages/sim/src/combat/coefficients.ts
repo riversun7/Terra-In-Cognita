@@ -7,6 +7,7 @@
 // 식(실제 공격력·명중·크리·맨손 적정·크리 배율·공격 간격·STA 점수·적정 STA·스태미나 소모·실제 스태미나 회복·최종 회피)은
 // 개발자 모드에서 고치는 계산식이다
 // (formulas.ts, docs/adr/2026-11-01-formula-editor.md). 이 표의 수(N10·N11·N12·N13)는 식의 변수로 들어간다.
+import type { CommandCapCoefficients } from "./command.ts";
 import { type CombatFormulaSet, staminaCostMilliOf, staminaScoreOf } from "./formulas.ts";
 
 export interface CombatCoefficients {
@@ -62,6 +63,8 @@ export interface CombatCoefficients {
    * 없으면 0(옛 계수표)
    */
   readonly armorRegenPm?: number | undefined;
+  /** 지휘관 정원 식(49 C7, command.ts — 사용자 결정 1464). 없으면 정원 0(옛 계수표) */
+  readonly command?: CommandCapCoefficients | undefined;
   /**
    * 전투 계산식 묶음(팩 formulas + 그 세계의 덮어쓰기, docs/adr/2026-11-01-formula-editor.md). 없으면 기본 식
    * (DEFAULT_COMBAT_FORMULA_SET = 지금 코드와 같은 결과)
@@ -113,6 +116,8 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
   },
   // [임시] N54 아머 회복: 분당 최대의 10%(가득까지 10분, 쉴드 재생 새 사이보그 WIS 10 ÷ 쉴드 48 ≈ 21%보다 느림)
   armorRegenPm: 100,
+  // [임시] C7 지휘관 정원: 2 + ⌊(INT×500 + WIS×500)‰ ÷ 10⌋, 3~20(사용자 1464 "3개에서 20개정도"). 새 사이보그(1차 10) = 3, 지휘 점수 180 = 20
+  command: { base: 2, intPm: 500, wisPm: 500, pointsPerParty: 10, min: 3, max: 20 },
 };
 
 /** 아머 회복(분당) = ⌊최대 아머 HP × armorRegenPm ÷ 1000⌋(D-514, 음수는 0) */

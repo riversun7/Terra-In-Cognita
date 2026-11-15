@@ -373,6 +373,15 @@ export function finishTotals(setup: PlaySetup, totals: SetupTotals): ReportResul
     samples: totals.samples,
     cpuMs: Math.round(totals.cpuMs),
     ...(setup.legion ? { legion: setup.legion } : {}),
+    ...(setup.edges ? { edges: [0, 1, 2, 3].map((edge) => count((end) => end.edge === edge)) } : {}),
+    ...((setup.inputs?.length ?? 0) > 0
+      ? {
+          orders: {
+            given: (setup.inputs?.length ?? 0) * runs,
+            rejected: ends.reduce((sum, end) => sum + end.rejected, 0),
+          },
+        }
+      : {}),
   };
 }
 

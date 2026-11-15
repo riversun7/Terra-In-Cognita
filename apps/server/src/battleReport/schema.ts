@@ -1,7 +1,7 @@
 // 전투 보고서 입력 형식(zod) — tRPC battleReport.* 입력과 DB 기록 입력(jsonb) 읽기가 같은 스키마를 쓴다.
 // 범위는 @terra/shared REPORT_LIMITS(실험 도구 입력 범위). 판 수·예산 같은 여러 칸 검사는 reportProblem(서버·화면 같이)이 본다.
 import { normalizeLabName } from "@terra/shared/battleLab";
-import { REPORT_LIMITS, REPORT_MODES } from "@terra/shared/battleReport";
+import { REPORT_LIMITS, REPORT_MODES, REPORT_ORDER_KINDS } from "@terra/shared/battleReport";
 import { REPORT_CITY_LIST_MAX } from "@terra/shared/battleReportCity";
 import { z } from "zod";
 import { labPartySchema } from "../battleLab/schema.ts";
@@ -25,11 +25,25 @@ const city = z.strictObject({
   cityId: cityId.optional(),
 });
 
-/** 군단(파티 여럿 + 군단 퇴각 시각, 기획 D-179·D-545). 시각은 제한 시간 안인지 reportProblem이 본다 */
-const legion = z.strictObject({
+/** 시각 명령 하나(파티 번호 −1 = 군단, D-549). 파티 번호·목표가 군단 안인지는 reportProblem이 본다 */
+const order = z.strictObject({
+  atSec: int(0, L.siegeLimitSecMax),
+  party: int(-1, L.legionPartiesMax - 1),
+  kind: z.enum(REPORT_ORDER_KINDS),
+  target: z.strictObject({ party: int(0, L.legionPartiesMax - 1), index: int(0, 5) }).optional(),
+});
+
+/** 군단(파티 여럿 + 명령, 기획 D-179·D-545·D-549). 옛 기록은 군단 퇴각 시각만. 시각은 제한 시간 안인지 reportProblem이 본다 */
+export const reportLegionSchema = z.strictObject({
   parties: z.array(labPartySchema).min(1).max(L.legionPartiesMax).readonly(),
   retreatAtSec: int(0, L.siegeLimitSecMax),
+  orders: z.array(order).max(L.legionOrdersMax).readonly().optional(),
 });
+const legion = reportLegionSchema;
+/** 공격 변(1465): 0 북·1 동·2 남·3 서 또는 random. 없으면 서쪽(옛 기록) */
+const edge = z
+  .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal("random")])
+  .optional();
 /** 팀: 군단 또는 옛 기록의 파티 하나 */
 const team = z.union([labPartySchema, legion]);
 
@@ -49,6 +63,7 @@ export const reportSetupSchema = z.discriminatedUnion("mode", [
     nexusDurability: int(1, L.nexusMax),
     limitSec: int(L.limitSecMin, L.siegeLimitSecMax),
     defense: z.enum(["party", "world"]).optional(),
+    edge,
   }),
   z.strictObject({
     mode: z.literal("wave"),
@@ -62,6 +77,7 @@ export const reportSetupSchema = z.discriminatedUnion("mode", [
     limitSec: int(L.limitSecMin, L.siegeLimitSecMax),
     defense: z.enum(["sim", "party", "world"]).optional(),
     b: team.optional(),
+    edge,
   }),
 ]);
 

@@ -9,6 +9,7 @@
 // [임시] 생명 수치(남은 HP·아머·쉴드)·물약·탄은 바꾸지 않는다, 습격 기록은 서버 기록 한 줄뿐이다(확인 대기 질문 700).
 import {
   type BattleInit,
+  BATTLE_BASE_MOVE_MS,
   type CombatCatalog,
   type CombatCoefficients,
   type GardenerCoefficients,
@@ -168,7 +169,8 @@ export function createTravelRaids(deps: {
               party: spec.party,
               x: spec.x,
               y: spec.y,
-              moveIntervalMs: spec.moveIntervalMs,
+              // 기본 간격 — 걸음은 몸의 실효 AGI로 센다(사용자 1265, D-553)
+              moveIntervalMs: BATTLE_BASE_MOVE_MS,
               buildingMulPm: spec.buildingMulPm,
             },
             nowMs,

@@ -48,6 +48,7 @@ import {
   wearable,
   withAttackModifiers,
   walkSpeedOf,
+  battleMoveIntervalMs,
   withDefenseModifiers,
 } from "@terra/sim";
 import type { CyborgRecord } from "../cyborg/state.ts";
@@ -288,7 +289,8 @@ export function rosterMoveOf(catalog: RosterCatalog, agi: number): RosterMove {
     walkCap: walkSpeedOf(WALK_CAP_PROBE_AGI, c),
     cellUnits: CELL_UNITS,
     mapCells: PLACEMENT_SIZE,
-    battleMs: SUMMARY_PLACE.moveIntervalMs,
+    // 전투맵 한 칸도 실효 AGI 걷기 식(사용자 1265, D-553)
+    battleMs: battleMoveIntervalMs(SUMMARY_PLACE.moveIntervalMs, agi, c),
   };
 }
 

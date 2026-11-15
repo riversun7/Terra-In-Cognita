@@ -1,13 +1,31 @@
 // 전투 결과 — 한 판(이긴 팀·까닭·끝 시각·남은 몫, 유닛 요약 표, 사건 기록). N회 반복은 전투 보고서(report/ReportView.tsx).
 // 수는 모두 서버 판정 결과다. 유닛은 A1·B3처럼 짧게, 표에는 제목도 함께.
-import type { LabBattleEvent, LabBattleResponse, LabCatalogResponse, LabTeam } from "@terra/shared/battleLab";
+import {
+  LAB_LIMITS,
+  type LabBattleEvent,
+  type LabBattleResponse,
+  type LabCatalogResponse,
+  type LabParty,
+  type LabTeam,
+} from "@terra/shared/battleLab";
 import { m } from "../../../paraglide/messages.js";
 import { type Teams, clockText, numberText, percentText } from "./labModel.ts";
 import { itemName, skillName, statName, teamText, unitShort, unitTitle } from "./labMessages.ts";
 
-function titleOf(teams: Teams, key: string, catalog: LabCatalogResponse, locale: string): string {
+/** 군단 파티 목록(없으면 팀 1번 파티 하나) */
+export type LegionParties = Readonly<Record<LabTeam, readonly LabParty[]>>;
+
+function titleOf(
+  teams: Teams,
+  legion: LegionParties | undefined,
+  key: string,
+  catalog: LabCatalogResponse,
+  locale: string,
+): string {
   const team: LabTeam = key.startsWith("b") ? "b" : "a";
-  const unit = teams[team].units[Number(key.slice(1))];
+  const index = Number(key.slice(1));
+  const parties = legion?.[team] ?? [teams[team]];
+  const unit = parties[Math.floor(index / LAB_LIMITS.partyMax)]?.units[index % LAB_LIMITS.partyMax];
   return unit ? unitTitle(unit, catalog, locale) : key;
 }
 
@@ -45,6 +63,8 @@ function eventText(event: LabBattleEvent, catalog: LabCatalogResponse, locale: s
 export function BattleResult(props: {
   readonly result: LabBattleResponse;
   readonly teams: Teams;
+  /** 군단 전체 한 판이면 팀마다 파티 목록(사용자 1469) */
+  readonly legion?: LegionParties | undefined;
   readonly catalog: LabCatalogResponse;
   readonly locale: string;
 }) {
@@ -102,7 +122,7 @@ export function BattleResult(props: {
               <tr key={unit.key} data-team={unit.team} data-status={unit.status}>
                 <th scope="row">
                   <span className="bl-unit-key">{unitShort(unit.key)}</span>{" "}
-                  {titleOf(teams, unit.key, catalog, locale)}
+                  {titleOf(teams, props.legion, unit.key, catalog, locale)}
                 </th>
                 <td>{n(unit.dealt)}</td>
                 <td>{n(unit.taken)}</td>

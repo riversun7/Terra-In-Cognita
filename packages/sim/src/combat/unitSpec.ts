@@ -16,11 +16,13 @@ import {
   staminaScore,
 } from "./coefficients.ts";
 import { UNARMED, UNARMED_ELEMENTAL } from "./catalog.ts";
+import { commandCapOf } from "./command.ts";
 import { type AttackProfile, ELEMENT_COUNT } from "./formula.ts";
 import {
   attackIntervalMs,
   bareAppropriateMilli,
   bareIntervalMs,
+  battleMoveIntervalMs,
   realStaminaRegen,
   staminaAppropriateMilli,
 } from "./formulas.ts";
@@ -250,7 +252,8 @@ export function specFromStats(
       w.unarmed === true
         ? bareIntervalMs(w.intervalMs, primaries[2] ?? 0, body.level ?? 1, c)
         : attackIntervalMs(w.intervalMs, primaries[2] ?? 0, appropriateMilliOf(w, basic, bareMilli).agi, c),
-    moveIntervalMs: body.moveIntervalMs,
+    // 전투맵 걸음도 AGI(사용자 1265, D-553): 몸의 기본 간격(1초)을 실효 AGI의 걷기 식으로 줄인다
+    moveIntervalMs: battleMoveIntervalMs(body.moveIntervalMs, primaries[2] ?? 0, c),
     staminaMax: Math.max(0, s("stamina")),
     staminaCost: w.staminaCost,
     staminaScore: sta,
@@ -267,7 +270,8 @@ export function specFromStats(
     sight: Math.max(0, s("sight")),
     eye: body.eye ?? 16 * 180,
     air: body.air ?? false,
-    commandCap: body.commandCap ?? 0,
+    // 지휘관 정원(C7, 사용자 1464): 주어지지 않으면 1차 스탯 식(계수표에 식이 없으면 0)
+    commandCap: body.commandCap ?? commandCapOf(primaries, c),
     cyborg: body.cyborg ?? false,
     buildingMulPm: body.buildingMulPm ?? 1000,
     primaries,

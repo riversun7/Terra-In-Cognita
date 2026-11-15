@@ -172,9 +172,38 @@ export type Command =
   | { kind: "attack"; target: number }
   | { kind: "retreat" };
 
-/** 입력(틱 차례, 같은 틱이면 배열 차례): 대기 명령 1칸(D-177·D-180), 참전(파티 단위, D-209) */
+/**
+ * 파티·군단 명령(기획 D-545·D-549, orders.ts). 유닛 대기 명령(D-180) 위층이다: 내리면 그 유닛들의 대기 명령을 비우고(채운다), 그 뒤 유닛
+ * 명령이 들어온 유닛은 유닛 명령을 먼저 따른다(끝나면 다시 파티 명령). advance = 진형을 지키며 전진(cell이 있으면 그 칸으로 지금 모양 그대로,
+ * 없으면 적 쪽으로), hold = 자리 지키기(움직이지 않고 닿는 적만), attack = 목표 공격(target 유닛을 모두 친다, 쓰러지면 명령이 끝난다),
+ * retreat = 파티 퇴각(D-205·D-6025), free = 명령을 거두고 AI 작전으로
+ */
+export type PartyOrderInput =
+  | { readonly kind: "advance"; readonly cell?: number | undefined }
+  | { readonly kind: "hold" }
+  | { readonly kind: "attack"; readonly target: number }
+  | { readonly kind: "retreat" }
+  | { readonly kind: "free" };
+
+/** 파티가 들고 있는 명령(상태 — 직렬화되는 값만). legion = 군단 명령으로 받았나(진형 묶음이 편 전체) */
+export type PartyOrder =
+  | {
+      readonly kind: "advance";
+      readonly legion: boolean;
+      /** 칸으로 전진할 때 유닛마다 자리 칸(내릴 때의 모양 그대로 옮긴 칸) */
+      readonly slots?: readonly { readonly unit: number; readonly cell: number }[] | undefined;
+    }
+  | { readonly kind: "hold"; readonly legion: boolean }
+  | { readonly kind: "attack"; readonly legion: boolean; readonly target: number };
+
+/**
+ * 입력(틱 차례, 같은 틱이면 배열 차례): 대기 명령 1칸(D-177·D-180), 참전(파티 단위, D-209), 파티 명령·군단 명령(D-549 — 군단 명령은
+ * 지휘관 정원 안 파티만 받는다, 1463)
+ */
 export type BattleInput =
   | { readonly tick: number; readonly kind: "command"; readonly unit: number; readonly command: Command }
+  | { readonly tick: number; readonly kind: "order"; readonly party: number; readonly order: PartyOrderInput }
+  | { readonly tick: number; readonly kind: "legion"; readonly side: number; readonly order: PartyOrderInput }
   | {
       readonly tick: number;
       readonly kind: "join";
@@ -221,6 +250,10 @@ export interface PartyState extends BattlePartySpec {
   /** 퇴각 중(퇴각 명령 또는 ⑦ 기준선, D-434). 퇴각 중인 파티만 가장자리 구역으로 빠진다 */
   retreating: boolean;
   retreated: boolean;
+  /** 파티·군단 명령(D-549). 명령을 받은 적이 없으면 칸이 없다(옛 상태 모양 그대로) */
+  order?: PartyOrder | undefined;
+  /** 마지막으로 파티 명령을 받은 시각(ms, 다시 넣기 막기 — C5와 같은 시간). 받은 적이 없으면 칸이 없다 */
+  orderMs?: number | undefined;
 }
 
 export interface SideState extends BattleSideSpec {
@@ -231,6 +264,8 @@ export interface SideState extends BattleSideSpec {
   visible: number[];
   /** 마지막으로 본 칸(놓친 적 찾기) */
   lastSeen: number[];
+  /** 마지막으로 군단 명령을 받은 시각(ms). 받은 적이 없으면 칸이 없다 */
+  orderMs?: number | undefined;
 }
 
 export interface BattleResult {

@@ -544,6 +544,8 @@ export {
   staminaCostMilliOf,
   staminaScoreOf,
   walkSpeedOf,
+  battleMoveIntervalMs,
+  BATTLE_BASE_MOVE_MS,
   type CombatFormulaSet,
 } from "./combat/formulas.ts";
 export {
@@ -600,6 +602,11 @@ export {
 export { DEMO_ROLES, demoSkirmish, type DemoRole, type DemoSkirmish } from "./combat/replayDemo.ts";
 export { arenaFromSecondMap, pickArenaOrigin, type SecondMapLayers } from "./combat/arena.ts";
 export { activeStartEffects } from "./combat/battleState.ts";
+export {
+  FORMATION_LEASH_CELLS,
+  edgeProgress,
+  oppositeEdgeCells,
+} from "./combat/orders.ts";
 export type {
   Battle,
   BattleInit,
@@ -613,6 +620,8 @@ export type {
   CombatUnitSpec,
   Command,
   Edge,
+  PartyOrder,
+  PartyOrderInput,
   PartyState,
   StartEffect,
   UnitState,

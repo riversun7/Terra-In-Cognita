@@ -17,8 +17,9 @@ import {
   type ReportSetup,
   legionOf,
   reportDefense,
+  reportEdge,
 } from "@terra/shared/battleReport";
-import { REPORT_WORLD_DEFENDERS, type ReportCityInfo } from "@terra/shared/battleReportCity";
+import { REPORT_WORLD_DEFENDERS_MAX, type ReportCityInfo } from "@terra/shared/battleReportCity";
 import {
   type BattleInit,
   type BattleInput,
@@ -40,6 +41,7 @@ import {
 } from "@terra/sim/siegeArena";
 import { type ArenaParty, arenaLegionInit, arenaPartyId, arenaUnitId } from "../battleLab/arena.ts";
 import { type LabRules, buildLabUnit } from "../battleLab/build.ts";
+import { legionInputs } from "./orderInputs.ts";
 import type { PlayRow, PlaySetup } from "./play.ts";
 import { type ReportCitySnapshot, reportCityInfo } from "./worldCity.ts";
 
@@ -55,8 +57,6 @@ const WORLD_CREATURE_ID_BASE = 1_900_000_000;
 const WORLD_LAB_ID_BASE = 2_000_000_001;
 /** 수비 파티 ID 시작(웨이브 크리쳐 파티 1~와 겹치지 않게, 웨이브 시뮬 수비와 같다) */
 const DEFENDER_PARTY_BASE = 101;
-/** 공성 공격 편이 들어오는 변(서쪽, 시뮬 공성·맞추기 도구와 같다) */
-const SIEGE_EDGE: Edge = 3;
 /** 실험실 공격 편 세력 칸(세계 수비와 싸울 때 — 어느 세계 주인과도 다르게, 수호신이 공격 편 주인 것으로 빠지지 않게) */
 const LAB_ATTACKER_FACTION = -1;
 
@@ -133,24 +133,6 @@ function legionRows(
       rows.push({ key: `${team}${p}.${index}`, team, label: labelOf(unit), members: 1 });
     });
   });
-}
-
-/** 군단 퇴각 명령 → 판정 입력(그 시각 틱에 군단 모든 유닛에 퇴각 — 판정은 파티 퇴각으로 받는다) */
-function legionInputs(
-  legion: ReportLegion,
-  idOf: (p: number, index: number) => number,
-  tickMs: number,
-): BattleInput[] {
-  if (legion.retreatAtSec <= 0) return [];
-  const tick = Math.ceil((legion.retreatAtSec * 1000) / tickMs);
-  return legion.parties.flatMap((party, p) =>
-    party.units.map((_, index) => ({
-      tick,
-      kind: "command" as const,
-      unit: idOf(p, index),
-      command: { kind: "retreat" as const },
-    })),
-  );
 }
 
 /** 시뮬 도시 평지 배치(시작 도시, 주거·행정 레벨) — 열린 맵이면 undefined */
@@ -289,12 +271,23 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
     legionRows("a", la, idA, rows, rowOf);
     legionRows("b", lb, idB, rows, rowOf);
     const normal = arenaLegionInit(job, 0, false);
-    const inputs = [...legionInputs(la, idA, tickMs), ...legionInputs(lb, idB, tickMs)];
+    // 편 바꾼 판(홀수 판)은 팀 A가 편 2 — 군단 명령의 편 번호만 바뀐다
+    const arenaInputs = (sideOfA: number): BattleInput[] =>
+      [
+        ...legionInputs(la, { partyId: (p) => arenaPartyId("a", p), side: sideOfA, enemyId: idB }, tickMs),
+        ...legionInputs(
+          lb,
+          { partyId: (p) => arenaPartyId("b", p), side: 3 - sideOfA, enemyId: idA },
+          tickMs,
+        ),
+      ].toSorted((x, y) => x.tick - y.tick);
+    const inputs = arenaInputs(1);
     return {
       play: {
         mode: "arena",
         normal,
         swapped: arenaLegionInit(job, 0, true),
+        swappedInputs: arenaInputs(2),
         coefficients,
         rows,
         rowOf,
@@ -315,12 +308,89 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
 
   const city = cityOf(setup, ctx);
   const defense = reportDefense(setup);
-  const worldDefense = defense === "world";
-  if (worldDefense && !city) throw new CityMissingError();
+  if (defense === "world" && !city) throw new CityMissingError();
   const { layout, arena } = siegeMaterial(setup, ctx, city);
-  const size = REPORT_SIEGE_MAP_SIZE;
-  const edge = SIEGE_EDGE;
   await yieldToLoop();
+  // 공격 변(1465): 고른 변 하나, random이면 네 변 모두 만들어 두고 판마다 그 판 시드로 고른다(play.ts reportRunEdge)
+  const chosen = reportEdge(setup);
+  const edges: Edge[] = chosen === "random" ? [0, 1, 2, 3] : [chosen];
+  const built: SiegeBuilt[] = [];
+  for (const edge of edges) {
+    built.push(await siegeOnce(setup, ctx, city, layout, arena, edge));
+    await yieldToLoop();
+  }
+  const first = built[0];
+  if (!first) throw new RangeError("no siege edge");
+  const { init } = first;
+  const inTeam = (team: "a" | "b") => (id: number) => first.rows[first.rowOf[id] ?? -1]?.team === team;
+  return {
+    play: {
+      mode: setup.mode,
+      normal: init,
+      swapped: null,
+      coefficients,
+      timeoutByShare: false,
+      rows: first.rows,
+      rowOf: first.rowOf,
+      ...buildingsOf(init),
+      inputs: first.inputs,
+      ...(chosen === "random" ? { edges: built.map((entry) => entry.init) } : {}),
+      legion: { a: legionView(init, inTeam("a")), b: legionView(init, inTeam("b")) },
+    },
+    dropped: first.dropped,
+    city: city ? reportCityInfo(city, init, first.worldIds, first.guardians) : null,
+  };
+}
+
+/** 공성 판 재료 한 벌(공격 변 하나) */
+interface SiegeBuilt {
+  readonly init: BattleInit;
+  readonly inputs: BattleInput[];
+  readonly rows: PlayRow[];
+  readonly rowOf: Record<number, number>;
+  readonly dropped: LabDropped[];
+  readonly worldIds: ReadonlySet<number>;
+  readonly guardians: number;
+}
+
+/**
+ * 실제 도시 수비 군단(1464·1466 — 사용자 "수비도 군단 가능", 정해진 10명 대신): 휴먼 수비 파티(6명씩) 가운데 지휘관 정원(그 휴먼들
+ * 가운데 가장 큰 값, 설정 칸 C7)만큼 앞 파티만 남긴다. 수호신 파티는 그대로 둔다
+ */
+function worldDefenderLegion(
+  init: BattleInit,
+  humans: ReadonlySet<number>,
+  worldIds: ReadonlySet<number>,
+): { init: BattleInit; worldIds: Set<number> } {
+  const humanUnits = init.units.filter((unit) => humans.has(unit.id));
+  const cap = humanUnits.reduce((max, unit) => Math.max(max, unit.commandCap), 0);
+  const humanParties = [...new Set(humanUnits.map((unit) => unit.party))].toSorted((x, y) => x - y);
+  const dropped = new Set(humanParties.slice(Math.max(1, cap)));
+  const units = init.units.filter((unit) => !(humans.has(unit.id) && dropped.has(unit.party)));
+  const kept = new Set(units.map((unit) => unit.id));
+  return {
+    init: { ...init, units, parties: init.parties.filter((party) => !dropped.has(party.id)) },
+    worldIds: new Set([...worldIds].filter((id) => kept.has(id))),
+  };
+}
+
+async function siegeOnce(
+  setup: Exclude<ReportSetup, { mode: "arena" }>,
+  ctx: SetupContext,
+  city: ReportCitySnapshot | undefined,
+  layout: SiegeLayout | undefined,
+  arena: SiegeArena,
+  edge: Edge,
+): Promise<SiegeBuilt> {
+  const { rules } = ctx;
+  const coefficients = rules.coefficients;
+  const tickMs = coefficients.tickMs;
+  const limitMs = setup.limitSec * 1000;
+  const rows: PlayRow[] = [];
+  const rowOf: Record<number, number> = {};
+  const defense = reportDefense(setup);
+  const worldDefense = defense === "world";
+  const size = REPORT_SIEGE_MAP_SIZE;
   // 시작 자리는 한 번만 만들어 웨이브 시작 자료와 이어 쓴다(자리 찾기가 공성 재료에서 가장 비싸다 — 주 스레드 루프 지연)
   const placer = siegePlacer(arena, edge);
   const prepared = layout ? { arena, placer } : undefined;
@@ -330,7 +400,7 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
   let init: BattleInit;
   /** 세계 수비 유닛 ID(세계 전투 시작 길을 지난다) */
   let worldIds: ReadonlySet<number> = new Set<number>();
-  /** 세계 수비 시작 자료(크리쳐 strength마리 + 세계 휴먼) — 실제 도시 스냅숏의 기술 단계·수비 상한 */
+  /** 세계 수비 시작 자료(크리쳐 strength마리 + 세계 휴먼 — 군단 위 끝까지, 지휘관 정원은 몸을 만든 뒤 자른다) */
   const worldWave = (
     snapshot: ReportCitySnapshot,
     strength: number,
@@ -350,7 +420,7 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
         firstCreatureId: WORLD_CREATURE_ID_BASE,
         mapSize: size,
         nexusDurability: setup.nexusDurability,
-        maxDefenders: REPORT_WORLD_DEFENDERS,
+        maxDefenders: REPORT_WORLD_DEFENDERS_MAX,
         limitMs,
         layout,
         attackEdge: edge,
@@ -387,7 +457,7 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
     };
     if (worldDefense && city) {
       init = worldWave(city, setup.strength, setup.physical, setup.creatureTech);
-      worldIds = new Set(city.defenders.slice(0, REPORT_WORLD_DEFENDERS).map((unit) => unit.id));
+      worldIds = new Set(city.defenders.slice(0, REPORT_WORLD_DEFENDERS_MAX).map((unit) => unit.id));
     } else init = waveBattleInit(waveInput, rules.catalog, coefficients);
     await yieldToLoop();
     for (const unit of init.units)
@@ -416,7 +486,7 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
         });
       });
       legionRows("b", lb, idB, rows, rowOf);
-      inputs.push(...legionInputs(lb, idB, tickMs));
+      inputs.push(...legionInputs(lb, { partyId: (p) => DEFENDER_PARTY_BASE + p, side: 2 }, tickMs));
       init = {
         ...init,
         units: [...init.units, ...units],
@@ -431,7 +501,7 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
       };
     }
   } else {
-    // 파티 공성: 팀 A 군단이 서쪽에서 친다
+    // 파티 공성: 팀 A 군단이 공격 변에서 친다
     const la = legionOf(setup.a);
     const a = legionSpecs(la, rules);
     dropped.push(...a.dropped);
@@ -455,7 +525,6 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
       });
     });
     legionRows("a", la, attackerId, rows, rowOf);
-    inputs.push(...legionInputs(la, attackerId, tickMs));
     const attackerParties = la.parties.map((party, p) => ({
       id: arenaPartyId("a", p),
       side: 1,
@@ -463,6 +532,7 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
     }));
     if (worldDefense && city) {
       // 실제 도시 수비: 서버 정원사와 같은 수비 휴먼·자리(크리쳐 없이 만든 웨이브 시작 자료의 수비 몫) + 실험실 공격 편
+      inputs.push(...legionInputs(la, { partyId: (p) => arenaPartyId("a", p), side: 1 }, tickMs));
       await yieldToLoop();
       const base = worldWave(city, 0, 0, 1);
       worldIds = new Set(base.units.map((unit) => unit.id));
@@ -497,7 +567,10 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
         });
       });
       legionRows("b", lb, idB, rows, rowOf);
-      inputs.push(...legionInputs(lb, idB, tickMs));
+      inputs.push(
+        ...legionInputs(la, { partyId: (p) => arenaPartyId("a", p), side: 1, enemyId: idB }, tickMs),
+        ...legionInputs(lb, { partyId: (p) => arenaPartyId("b", p), side: 2, enemyId: idA }, tickMs),
+      );
       init = {
         id: 1,
         kind: "siege",
@@ -521,12 +594,17 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
     }
   }
 
-  // 세계 수비: 세계 전투 시작 길(몸·비활성·수호신·생명 수치·물약 — 읽기만)
+  // 세계 수비: 세계 전투 시작 길(몸·비활성·수호신·생명 수치·물약 — 읽기만), 그다음 지휘관 정원만큼의 수비 군단
   let guardians = 0;
   if (worldDefense && city) {
     const defended = await city.prepare(init, worldIds);
-    init = defended.init;
-    worldIds = defended.worldIds;
+    const legion = worldDefenderLegion(
+      defended.init,
+      new Set(city.defenders.map((unit) => unit.id)),
+      defended.worldIds,
+    );
+    init = legion.init;
+    worldIds = legion.worldIds;
     guardians = defended.guardians;
   }
   // 수비 무리 줄: 실험실 군단이 아닌 수비 편 유닛(시뮬 휴먼·세계 수비·수호신)
@@ -542,22 +620,14 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
     const row = rowOf[unit.id];
     if (row !== undefined) members[row] = (members[row] ?? 0) + 1;
   }
-  const inTeam = (team: "a" | "b") => (id: number) => rows[rowOf[id] ?? -1]?.team === team;
   return {
-    play: {
-      mode: setup.mode,
-      normal: init,
-      swapped: null,
-      coefficients,
-      rows: rows.map((row, index) => (row.members === 1 ? row : { ...row, members: members[index] ?? 0 })),
-      rowOf,
-      timeoutByShare: false,
-      ...buildingsOf(init),
-      inputs: inputs.toSorted((x, y) => x.tick - y.tick),
-      legion: { a: legionView(init, inTeam("a")), b: legionView(init, inTeam("b")) },
-    },
+    init,
+    inputs: inputs.toSorted((x, y) => x.tick - y.tick),
+    rows: rows.map((row, index) => (row.members === 1 ? row : { ...row, members: members[index] ?? 0 })),
+    rowOf,
     dropped,
-    city: city ? reportCityInfo(city, init, worldIds, guardians) : null,
+    worldIds,
+    guardians,
   };
 }
 

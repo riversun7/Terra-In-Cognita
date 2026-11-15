@@ -135,7 +135,8 @@ export function defendCity<T extends BattleInit>(init: T, input: DefendCityInput
       party: firstParty + Math.floor(added.length / PARTY_SIZE),
       x: cell.x,
       y: cell.y,
-      moveIntervalMs: guard?.moveIntervalMs ?? MOVE_INTERVAL_MS,
+      // 기본 간격 — 수호신 걸음은 제 몸의 실효 AGI로 센다(사용자 1265, D-553. 수비 휴먼의 줄어든 간격을 넘기지 않는다)
+      moveIntervalMs: MOVE_INTERVAL_MS,
       buildingMulPm: guard?.buildingMulPm ?? BUILDING_MUL_PM,
     });
     if (spec) added.push(spec);

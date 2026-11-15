@@ -1,14 +1,20 @@
 // 보고서 설정 판 — 종류(파티 대 파티·파티 공성·웨이브 공성), 전투장·도시·웨이브 값, 제한 시간·판 수·시드, A/B(B 팀 따로·설정 칸 바꿈),
 // 이름·메모, [보고서 돌리기]·진행 막대·[멈춤]. 판정은 서버 워커가 한다(서버 전체 한 번에 하나).
 import type { LabCatalogResponse } from "@terra/shared/battleLab";
-import { REPORT_LIMITS, type ReportMode, type ReportWaveDefense } from "@terra/shared/battleReport";
-import { REPORT_WORLD_DEFENDERS } from "@terra/shared/battleReportCity";
+import {
+  REPORT_EDGES,
+  REPORT_LIMITS,
+  type ReportMode,
+  type ReportWaveDefense,
+} from "@terra/shared/battleReport";
+import { REPORT_WORLD_DEFENDERS_MAX } from "@terra/shared/battleReportCity";
 import { useId } from "react";
 import { m } from "../../../paraglide/messages.js";
 import { NumberField } from "../lab/fields.tsx";
 import type { Teams } from "../lab/labModel.ts";
 import { CityPicker } from "./CityPicker.tsx";
-import { cityName, defenseText, modeText, reasonText, terrainLabel } from "./reportMessages.ts";
+import { OrdersEditor } from "./OrdersEditor.tsx";
+import { cityName, defenseText, edgeText, modeText, reasonText, terrainLabel } from "./reportMessages.ts";
 import {
   REPORT_LIMIT_OPTIONS,
   REPORT_RUN_OPTIONS,
@@ -17,9 +23,11 @@ import {
   type ReportForm,
   type WaveForm,
   formProblem,
+  legionsOf,
   siegeDefenseOf,
   teamsShown,
   waveDefenseOf,
+  withLegions,
   withMode,
 } from "./reportModel.ts";
 import type { ReportJobState } from "./useReportJob.ts";
@@ -105,6 +113,19 @@ export function ReportPanel(props: {
   const percent = current && current.total > 0 ? Math.floor((current.done * 100) / current.total) : 0;
   const separateB = form.mode === "wave" ? form.variantWave !== null : form.variantTeams !== null;
   const shown = teamsShown(form);
+  // 명령 칸은 고치는 설정(A·B)의 군단을 고친다(B 팀 따로면 B 군단 — 사용자 1468)
+  const editingB = props.editing === "b" && form.variantTeams !== null && form.mode !== "wave";
+  const legions = legionsOf(form, editingB);
+  const editTeams = editingB && form.variantTeams ? form.variantTeams : teams;
+  const partyCounts = (team: "a" | "b"): number[] => [
+    editTeams[team].units.length,
+    ...legions[team].extra.map((party) => party.units.length),
+  ];
+  // 목표 공격은 상대가 실험실 군단일 때만(파티 대 파티·팀 수비 파티 공성)
+  const enemyCounts = (team: "a" | "b"): number[] | null =>
+    form.mode === "arena" || (form.mode === "siege" && siegeDefenseOf(form) === "party")
+      ? partyCounts(team === "a" ? "b" : "a")
+      : null;
   return (
     <section className="bp-panel rp-panel" aria-labelledby={`${id}-title`} data-mode={form.mode}>
       <div className="bp-panel-head">
@@ -297,7 +318,9 @@ export function ReportPanel(props: {
             })}
           </div>
           {(form.mode === "wave" ? waveDefenseOf(form) : siegeDefenseOf(form)) === "world" ? (
-            <p className="field-hint">{m.dev_report_defense_world_hint({ max: REPORT_WORLD_DEFENDERS })}</p>
+            <p className="field-hint">
+              {m.dev_report_defense_world_hint({ max: REPORT_WORLD_DEFENDERS_MAX })}
+            </p>
           ) : null}
         </fieldset>
       ) : null}
@@ -311,30 +334,46 @@ export function ReportPanel(props: {
           />
         </fieldset>
       ) : null}
+      {siege ? (
+        <fieldset className="rp-group rp-edge">
+          <legend>{m.dev_report_edge()}</legend>
+          <div className="rp-modes" role="radiogroup" aria-label={m.dev_report_edge()}>
+            {REPORT_EDGES.map((edge) => (
+              <button
+                key={String(edge)}
+                type="button"
+                role="radio"
+                aria-checked={form.edge === edge}
+                className="rp-mode rp-edge-btn"
+                data-edge={String(edge)}
+                onClick={() => onForm({ ...form, edge })}
+              >
+                {edgeText(edge)}
+              </button>
+            ))}
+          </div>
+          <p className="field-hint">{m.dev_report_edge_hint()}</p>
+        </fieldset>
+      ) : null}
       {shown.a || shown.b ? (
         <fieldset className="rp-group rp-legion">
           <legend>{m.dev_report_legion_title()}</legend>
           <p className="field-hint">{m.dev_report_legion_hint()}</p>
-          <div className="rp-fields">
-            {(["a", "b"] as const)
-              .filter((team) => shown[team])
-              .map((team) => (
-                <NumberField
-                  key={team}
-                  label={m.dev_report_legion_retreat({ team: team.toUpperCase() })}
-                  value={form.legion[team].retreatAtSec}
-                  min={0}
-                  max={form.limitSec}
-                  className={`rp-legion-retreat-${team}`}
-                  onChange={(retreatAtSec) =>
-                    onForm({
-                      ...form,
-                      legion: { ...form.legion, [team]: { ...form.legion[team], retreatAtSec } },
-                    })
-                  }
-                />
-              ))}
-          </div>
+          {(["a", "b"] as const)
+            .filter((team) => shown[team])
+            .map((team) => (
+              <OrdersEditor
+                key={`${editingB ? "B" : "A"}-${team}`}
+                team={team}
+                orders={legions[team].orders}
+                parties={partyCounts(team).length}
+                limitSec={form.limitSec}
+                enemy={enemyCounts(team)}
+                onChange={(orders) =>
+                  onForm(withLegions(form, editingB, { ...legions, [team]: { ...legions[team], orders } }))
+                }
+              />
+            ))}
         </fieldset>
       ) : null}
 
@@ -375,9 +414,11 @@ export function ReportPanel(props: {
                   if (form.mode === "wave")
                     onForm({ ...form, variantWave: event.target.checked ? { ...form.wave } : null });
                   else {
+                    // B 군단 전체(2번 파티부터·명령)를 A에서 베껴 따로 고친다(사용자 1468)
                     onForm({
                       ...form,
                       variantTeams: event.target.checked ? { a: teams.a, b: teams.b } : null,
+                      variantLegion: event.target.checked ? form.legion : null,
                     });
                     props.onEditing(event.target.checked ? "b" : "a");
                   }

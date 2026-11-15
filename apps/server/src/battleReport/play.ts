@@ -19,7 +19,12 @@ import {
   specStaminaCostMilli,
   waveSiegeSpent,
 } from "@terra/sim";
-import type { ReportHitTrace, ReportLegionView, ReportMode } from "@terra/shared/battleReport";
+import {
+  type ReportHitTrace,
+  type ReportLegionView,
+  type ReportMode,
+  reportRunEdge,
+} from "@terra/shared/battleReport";
 import type { RunSink } from "./aggregate.ts";
 
 /** 보고서 줄(파티 유닛 또는 웨이브 무리) */
@@ -46,8 +51,12 @@ export interface PlaySetup {
   readonly wallIds: readonly number[];
   readonly nexusId: number | null;
   readonly nexusMax: number;
-  /** 판정 입력(군단 명령 — 틱 차례, 유닛 ID는 편 바꾼 판에도 같다). 없으면 명령 없음 */
+  /** 판정 입력(파티·군단 명령 — 틱 차례, 유닛·파티 ID는 편 바꾼 판에도 같다). 없으면 명령 없음 */
   readonly inputs?: readonly BattleInput[] | undefined;
+  /** 편 바꾼 판의 입력(군단 명령의 편 번호가 바뀐다 — 파티 대 파티만). 없으면 inputs */
+  readonly swappedInputs?: readonly BattleInput[] | undefined;
+  /** 공격 변 random(1465): 변마다 시작 자료(북·동·남·서). 판마다 그 판 시드로 고른다(reportRunEdge). 없으면 normal 하나 */
+  readonly edges?: readonly BattleInit[] | undefined;
   /** 편마다 군단 모양(결과에 그대로 적는다) */
   readonly legion?: { readonly a: ReportLegionView; readonly b: ReportLegionView } | undefined;
 }
@@ -59,6 +68,10 @@ export interface PlayEnd {
   readonly endMs: number;
   /** 넥서스 남은 몫(‰, 넥서스가 없으면 0) */
   readonly nexusLeftPm: number;
+  /** 공격 변 random이면 이 판의 변(아니면 null) */
+  readonly edge: 0 | 1 | 2 | 3 | null;
+  /** 판정이 거절한 입력 수(파티·군단 명령) */
+  readonly rejected: number;
 }
 
 /** 쓰러졌나(지속 피해 관찰자는 쓰러짐 표시 전에 불린다, observe.ts와 같다) */
@@ -91,7 +104,15 @@ export function hitTraceOf(
  * 같은 (설정, 판 번호, 시드)면 같은 결과다
  */
 export function playRun(setup: PlaySetup, run: number, seed: number, sink: RunSink): PlayEnd {
-  const base = run % 2 === 1 && setup.swapped ? setup.swapped : setup.normal;
+  const edge = setup.edges ? reportRunEdge(seed) : null;
+  const swappedRun = edge === null && run % 2 === 1 && setup.swapped !== null;
+  const base =
+    edge !== null
+      ? (setup.edges?.[edge] ?? setup.normal)
+      : swappedRun && setup.swapped
+        ? setup.swapped
+        : setup.normal;
+  const runInputs = (swappedRun ? setup.swappedInputs : undefined) ?? setup.inputs ?? [];
   const init: BattleInit = { ...base, seed };
   const c = setup.coefficients;
   const tickMs = c.tickMs;
@@ -166,7 +187,7 @@ export function playRun(setup: PlaySetup, run: number, seed: number, sink: RunSi
   const wave = setup.mode === "wave";
   /** 틱 → 그 틱의 판정 입력(군단 명령) */
   const byTick = new Map<number, BattleInput[]>();
-  for (const input of setup.inputs ?? []) {
+  for (const input of runInputs) {
     const list = byTick.get(input.tick);
     if (list) list.push(input);
     else byTick.set(input.tick, [input]);
@@ -222,5 +243,5 @@ export function playRun(setup: PlaySetup, run: number, seed: number, sink: RunSi
     end = result.reason;
     winner = result.winner === sideOfA ? "a" : "b";
   }
-  return { winner, end, endMs, nexusLeftPm };
+  return { winner, end, endMs, nexusLeftPm, edge, rejected: state.rejected };
 }

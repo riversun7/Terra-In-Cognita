@@ -30,8 +30,13 @@ export const REPORT_LIMITS = {
   waveDefendersMax: 32,
   techMin: 1,
   techMax: 10,
-  /** 군단(팀) 하나의 파티 수 상한([임시], 기획 D-179·D-545 — 파티 6명이 기본 단위, 파티를 묶어 군단) */
-  legionPartiesMax: 4,
+  /**
+   * 군단(팀) 하나의 파티 수 상한(기획 D-179·D-545 — 파티 6명이 기본 단위, 파티를 묶어 군단). 사용자 결정 1464(2026-11-15 "3개에서 20개정도로
+   * 하고 지휘관 능력이나 스킬에 따라") — 지휘관 정원 위 끝(설정 칸 c7_command_max 출발값)과 같다. 정원 밖 파티는 군단 명령을 받지 않는다
+   */
+  legionPartiesMax: 20,
+  /** 군단 하나의 시각 명령 수 상한(파티·군단 명령 합) */
+  legionOrdersMax: 40,
   /** 도시 배치: 주거 인원·행정 레벨 */
   housingMax: 200,
   adminLevelMax: 5,
@@ -67,15 +72,59 @@ export type ReportSiegeDefense = "party" | "world";
 /** 웨이브 수비: 시뮬 휴먼 N명(기본), 팀 B 파티(기획 D-543 1384 나), 실제 도시의 세계 수비(layout = world일 때만) */
 export type ReportWaveDefense = "sim" | "party" | "world";
 
+/** 파티·군단 명령 종류(판정 PartyOrderInput과 같은 이름, 기획 D-549): 진형 전진·자리 지키기·목표 공격·퇴각·거두기(AI로) */
+export const REPORT_ORDER_KINDS = ["advance", "hold", "attack", "retreat", "free"] as const;
+export type ReportOrderKind = (typeof REPORT_ORDER_KINDS)[number];
+/** 군단 명령 자리(ReportOrder.party) */
+export const REPORT_LEGION_ORDER = -1;
+
 /**
- * 군단 = 파티(유닛 6 기본) 여럿과 군단 명령(기획 D-179·D-545 "파티가 모여 군단 단위로 명령"). 파티 명령 = 파티 퇴각 기준선(⑦, 파티의
- * retreatHpPct), 군단 명령 = 정한 시각에 군단의 모든 파티에 퇴각 명령(판정의 파티 퇴각, D-205·D-6025). 그 밖의 파티·군단 명령(전진·자리
- * 지키기·목표)은 판정에 아직 없다(질문 1461)
+ * 시각 명령 하나: atSec초에 파티(0부터) 또는 군단(REPORT_LEGION_ORDER)에. 목표 공격은 상대 군단의 파티·자리. 칸 전진은 보고서에 없다
+ * (판마다 편·공격 변이 바뀌어 칸이 같은 뜻이 아니다 — 전진은 적 쪽으로)
+ */
+export interface ReportOrder {
+  readonly atSec: number;
+  readonly party: number;
+  readonly kind: ReportOrderKind;
+  readonly target?: { readonly party: number; readonly index: number } | undefined;
+}
+
+/**
+ * 군단 = 파티(유닛 6 기본) 여럿과 명령(기획 D-179·D-545 "파티가 모여 군단 단위로 명령", D-549). 파티 퇴각 기준선(⑦)은 파티의
+ * retreatHpPct. 파티·군단 명령은 orders(시각 차례로 판정 입력이 된다 — 군단 명령은 지휘관 정원 안 파티만 받는다, 1463).
+ * retreatAtSec는 옛 기록의 군단 퇴각(군단 퇴각 명령 하나로 읽는다)
  */
 export interface ReportLegion {
   readonly parties: readonly LabParty[];
-  /** 군단 퇴각 명령 시각(초, 0 = 없음) */
+  /** 군단 퇴각 명령 시각(초, 0 = 없음 — 옛 기록) */
   readonly retreatAtSec: number;
+  /** 파티·군단 명령(없으면 명령 없음) */
+  readonly orders?: readonly ReportOrder[] | undefined;
+}
+
+/** 군단의 명령 목록(옛 군단 퇴각 시각을 군단 퇴각 명령으로, 시각 차례 — 같은 시각이면 넣은 차례) */
+export function legionOrders(legion: ReportLegion): ReportOrder[] {
+  const old: ReportOrder[] =
+    legion.retreatAtSec > 0
+      ? [{ atSec: legion.retreatAtSec, party: REPORT_LEGION_ORDER, kind: "retreat" }]
+      : [];
+  return [...old, ...(legion.orders ?? [])].toSorted((x, y) => x.atSec - y.atSec);
+}
+
+/**
+ * 공성 공격 변(기획 1465 — 사용자 "실제 웨이브처럼, 위치는 매번설정가능하고 다회반복실험시 랜덤으로 알아서"): 0 북·1 동·2 남·3 서 또는
+ * random(판마다 그 판 시드로 고른다 — 같은 시드면 같은 변). 없으면 서쪽(옛 기록)
+ */
+export type ReportEdge = 0 | 1 | 2 | 3 | "random";
+export const REPORT_EDGES: readonly ReportEdge[] = ["random", 0, 1, 2, 3];
+
+/** 판 시드 → 공격 변(random일 때, 서버 판과 화면 설명이 같은 식) */
+export function reportRunEdge(seed: number): 0 | 1 | 2 | 3 {
+  let h = Math.imul((seed >>> 0) ^ 0x9e37_79b9, 0x85eb_ca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2_ae35) >>> 0;
+  h ^= h >>> 16;
+  const edge = h & 3;
+  return edge === 0 ? 0 : edge === 1 ? 1 : edge === 2 ? 2 : 3;
 }
 
 /** 팀: 군단, 또는 옛 기록의 파티 하나(= 파티 하나뿐인 군단) */
@@ -112,6 +161,8 @@ export interface ReportSiegeSetup {
   readonly limitSec: number;
   /** 수비(없으면 party — 옛 기록) */
   readonly defense?: ReportSiegeDefense | undefined;
+  /** 공격 변(없으면 서쪽 — 옛 기록) */
+  readonly edge?: ReportEdge | undefined;
 }
 
 export interface ReportWaveSetup {
@@ -130,6 +181,13 @@ export interface ReportWaveSetup {
   readonly defense?: ReportWaveDefense | undefined;
   /** 수비 군단(defense = party일 때 — 실험실 팀 B) */
   readonly b?: ReportTeam | undefined;
+  /** 웨이브가 오는 변(없으면 서쪽 — 옛 기록) */
+  readonly edge?: ReportEdge | undefined;
+}
+
+/** 설정의 공격 변(없으면 서쪽). 파티 대 파티는 쓰지 않는다 */
+export function reportEdge(setup: ReportSetup): ReportEdge {
+  return setup.mode === "arena" ? 3 : (setup.edge ?? 3);
 }
 
 export type ReportSetup = ReportArenaSetup | ReportSiegeSetup | ReportWaveSetup;
@@ -390,11 +448,15 @@ export interface ReportResult {
   readonly city?: ReportCityInfo | null | undefined;
   /** 편마다 군단 모양(시작 때 — 옛 기록은 칸이 없다) */
   readonly legion?: { readonly a: ReportLegionView; readonly b: ReportLegionView } | undefined;
+  /** 공격 변이 random이면 변마다 판 수(북·동·남·서, 그 밖은 칸이 없다) */
+  readonly edges?: readonly number[] | undefined;
+  /** 파티·군단 명령: 판 전체에서 넣은 수와 판정이 거절한 수(목표가 쓰러짐·정원 밖·다시 넣기 막기 등). 명령이 없으면 칸이 없다 */
+  readonly orders?: { readonly given: number; readonly rejected: number } | undefined;
 }
 
 /**
- * 편 하나의 군단 모양(시작 때): 파티 수·유닛 수, 지휘 정원(그 편 유닛 가운데 가장 큰 값 — 판정의 지휘관 고르기, D-179·D-331)과 정원 밖
- * "지휘 없음" 파티 수. 지휘 없음은 판정에서 아직 행동을 바꾸지 않는다(질문 1463)
+ * 편 하나의 군단 모양(시작 때): 파티 수·유닛 수, 지휘 정원(그 편 유닛 가운데 가장 큰 값 — 판정의 지휘관 고르기, D-179·D-331, 정원 식은
+ * 설정 칸 C7)과 정원 밖 "지휘 없음" 파티 수. 지휘 없음 파티는 군단 명령을 받지 않는다(1463)
  */
 export interface ReportLegionView {
   readonly parties: number;
@@ -522,19 +584,28 @@ export function reportProblem(
     }
     // 군단: 파티 1~상한, 파티마다 1명 이상, 군단 퇴각 시각은 제한 시간 안
     // 세계 수비 파티 공성의 팀 B는 쓰지 않는다(검사도 하지 않는다)
-    const teams =
+    const teams: ["a" | "b", ReportTeam][] =
       one.mode === "wave"
         ? one.b
-          ? [one.b]
+          ? [["b", one.b]]
           : []
         : one.mode === "siege" && reportDefense(one) === "world"
-          ? [one.a]
-          : [one.a, one.b];
-    for (const team of teams) {
+          ? [["a", one.a]]
+          : [
+              ["a", one.a],
+              ["b", one.b],
+            ];
+    for (const [side, team] of teams) {
       const legion = legionOf(team);
       if (!intIn(legion.parties.length, 1, L.legionPartiesMax)) return "invalid_settings";
       if (legion.parties.some((party) => party.units.length === 0)) return "invalid_settings";
       if (!intIn(legion.retreatAtSec, 0, one.limitSec)) return "invalid_settings";
+      // 목표 공격은 상대가 실험실 군단일 때만(파티 대 파티·팀 수비 파티 공성 — 상대 유닛 자리를 안다)
+      if (orderProblem(legion, one.limitSec, enemyOf(one, side))) return "invalid_settings";
+    }
+    if (one.mode !== "arena") {
+      const edge = one.edge ?? 3;
+      if (edge !== "random" && !intIn(edge, 0, 3)) return "invalid_settings";
     }
   }
   if (input.variant) {
@@ -546,6 +617,29 @@ export function reportProblem(
   const seconds = input.runs * longest * (input.variant ? 2 : 1);
   if (seconds > (siege ? L.siegeBattleSecondsMax : L.battleSecondsMax)) return "budget";
   return null;
+}
+
+/** 팀(a·b)의 상대 군단 — 상대가 실험실 군단이 아니면(웨이브 크리쳐·세계 수비·시뮬 휴먼) null */
+function enemyOf(setup: ReportSetup, team: "a" | "b"): ReportLegion | null {
+  if (setup.mode === "arena") return legionOf(team === "a" ? setup.b : setup.a);
+  if (setup.mode === "siege")
+    return reportDefense(setup) === "party" ? legionOf(team === "a" ? setup.b : setup.a) : null;
+  return null;
+}
+
+/** 군단 명령 검사(수·시각·자리·목표). 문제가 있으면 true */
+function orderProblem(legion: ReportLegion, limitSec: number, enemy: ReportLegion | null): boolean {
+  const orders = legion.orders ?? [];
+  if (orders.length > REPORT_LIMITS.legionOrdersMax) return true;
+  return orders.some((order) => {
+    if (!intIn(order.atSec, 0, limitSec) || !REPORT_ORDER_KINDS.includes(order.kind)) return true;
+    if (!intIn(order.party, REPORT_LEGION_ORDER, legion.parties.length - 1)) return true;
+    if (order.kind !== "attack") return order.target !== undefined;
+    const target = order.target;
+    if (!target || !enemy) return true;
+    const party = enemy.parties[target.party];
+    return !party || !intIn(target.index, 0, party.units.length - 1);
+  });
 }
 
 /** 0~1000‰ 비율(분모 0이면 0) */

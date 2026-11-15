@@ -5,8 +5,11 @@
 
 /** 도시 목록 한 번에 받는 수 상한 */
 export const REPORT_CITY_LIST_MAX = 50;
-/** 실제 도시 수비 인원 상한(서버 정원사 웨이브와 같은 값 — apps/server/src/npc/gardener.ts WAVE_DEFENDERS) */
-export const REPORT_WORLD_DEFENDERS = 10;
+/**
+ * 실제 도시 수비 휴먼 상한(군단 위 끝 20파티 × 6명 — 사용자 결정 1464·1466 "수비도 군단 가능"). 판에 드는 수는 그 휴먼 가운데 지휘관 정원
+ * (설정 칸 C7)만큼의 앞 파티다. 서버 정원사 실제 웨이브(apps/server/src/npc/gardener.ts WAVE_DEFENDERS 10)는 그대로다(질문 1547)
+ */
+export const REPORT_WORLD_DEFENDERS_MAX = 120;
 
 /** 보고서가 쓴 실제 도시 스냅숏(결과 칸 city) */
 export interface ReportCityInfo {
@@ -32,7 +35,7 @@ export interface ReportCityInfo {
   /** 넥서스(행정 건물) 지금 내구도, 성벽·성문 내구도 합 */
   readonly nexusDurability: number;
   readonly wallDurability: number;
-  /** 그 도시 휴먼 수(세계 거울)와 수비로 든 세계 유닛 수(휴먼 상한 REPORT_WORLD_DEFENDERS + 수호신) */
+  /** 그 도시 휴먼 수(세계 거울)와 수비로 든 세계 유닛 수(지휘관 정원만큼의 휴먼 수비 파티 + 수호신) */
   readonly humans: number;
   readonly defenders: number;
   readonly guardians: number;

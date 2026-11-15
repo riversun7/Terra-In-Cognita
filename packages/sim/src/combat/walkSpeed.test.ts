@@ -1,5 +1,5 @@
 // 걷기 속도 식(walk_speed, 사용자 결정 D-540 "걷기만 AGI 반영") — 기본 식이 지금 걷기 빠르기와 이어지는지
-import { combatFormulaSetFrom, walkSpeedOf } from "./formulas.ts";
+import { BATTLE_BASE_MOVE_MS, battleMoveIntervalMs, combatFormulaSetFrom, walkSpeedOf } from "./formulas.ts";
 import { TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
 import { WALK_SPEED } from "../units.ts";
 import { describe, expect, it } from "vitest";
@@ -35,5 +35,18 @@ describe("걷기 속도(walk_speed)", () => {
     expect(walkSpeedOf(10, fast)).toBe(0x10_0000);
     const zero = { ...c, formulas: combatFormulaSetFrom({ walk_speed: "0" }) };
     expect(walkSpeedOf(10, zero)).toBe(1);
+  });
+});
+
+describe("전투맵 걸음(사용자 1265, D-553 — 2차맵과 같은 walk_speed 식)", () => {
+  it("AGI 10 = 기본 간격 1초, AGI가 오르면 줄고 상한(기본 × 4)에서 멈춘다, 정수", () => {
+    expect(battleMoveIntervalMs(BATTLE_BASE_MOVE_MS, 10, c)).toBe(1000);
+    // 1000 × 437 ÷ 476 = 918.06…
+    expect(battleMoveIntervalMs(BATTLE_BASE_MOVE_MS, 20, c)).toBe(918);
+    expect(battleMoveIntervalMs(BATTLE_BASE_MOVE_MS, 100, c)).toBe(550);
+    expect(battleMoveIntervalMs(BATTLE_BASE_MOVE_MS, 300, c)).toBe(275);
+    expect(battleMoveIntervalMs(BATTLE_BASE_MOVE_MS, 10_000, c)).toBe(275);
+    // AGI 0(아래 끝 397): 1000 × 437 ÷ 397 = 1100.7…
+    expect(battleMoveIntervalMs(BATTLE_BASE_MOVE_MS, 0, c)).toBe(1100);
   });
 });

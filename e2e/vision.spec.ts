@@ -223,7 +223,7 @@ test.describe("경계 너머 보기", () => {
     page,
     deviceErrors,
   }) => {
-    // 이웃 8장 + 끌기 16번 — 여러 줄기가 같이 도는 기계에서 120초를 넘겼다(2026-11-12)
+    // 이웃 8장 + 끌기(3/6에서 4~6번이면 넘는다) — 여러 줄기가 같이 도는 기계에서 120초를 넘겼다(2026-11-12)
     test.setTimeout(240_000);
     await openMap(page, "?second-map-neighbours=all&second-map-sky=off");
     const screen = page.locator(".map-screen");
@@ -244,12 +244,17 @@ test.describe("경계 너머 보기", () => {
     const box = await page.locator(".map-view canvas").boundingBox();
     if (!box) throw new Error("no canvas");
     const y = box.y + box.height * 0.55;
-    // 처음 화면은 가까이 본다: 멀리 본 뒤 끈다(한 번 끌 때 더 멀리 간다)
-    await page.mouse.move(box.x + box.width / 2, y);
-    for (let k = 0; k < 6; k++) {
-      await page.mouse.wheel(0, 400);
-      await page.waitForTimeout(150);
+    // 처음 화면은 가장 가까이(6/6, 짧은 변 15m — 들어올 때 최대 확대 e702390·가장 가까이 15m 8b34cf6)라 한 번 끌어도 수십 m뿐이다.
+    // 확대 사다리 [−]로 3/6(짧은 변 약 270m — 소품 모델이 서는 420m 아래)까지 멀리 본 뒤 끈다. 바퀴는 기기 배율(DPR 3)로 한 칸이
+    // 1/3로 줄어 6번이어도 5/6에 머물러, 2차맵 가운데에서 경계(약 720m 동쪽)까지 16번 끌어도 닿지 않았다(2026-11-16 추적: 끌기마다 약 43m)
+    const ladder = page.locator(".zoom-ladder");
+    await expect(ladder).toHaveAttribute("data-stage", /^[1-6]$/, { timeout: 15_000 });
+    for (let k = 0; k < 6 && Number(await ladder.getAttribute("data-stage")) > 3; k++) {
+      await ladder.locator(".zoom-ladder-out").click();
+      await page.waitForTimeout(700);
     }
+    await expect(ladder).toHaveAttribute("data-stage", "3");
+    await page.waitForTimeout(1_000);
     for (let k = 0; k < 16; k++) {
       if ((await screen.getAttribute("data-view-map")) === "1,0") break;
       // 채집·건물 표시에서 시작하면 지도가 끌리지 않는다(합치기 2026-11-08) — 캔버스에 닿는 높이에서 끈다

@@ -19,8 +19,10 @@ const amount = z.string().regex(/^(0|[1-9][0-9]{0,30})$/);
 export const houseFoundMessage = z.object({
   t: z.literal("house_found"),
   id: requestId,
-  /** 기기가 본 창설 비용(10진 문자열 최소 단위) */
+  /** 기기가 본 창설 비용(10진 문자열 최소 단위). D-565부터 창설은 무료라 서버가 보지 않는다(옛 기기 호환으로 남김) */
   cost: amount,
+  /** 가문 소속 도시(39판부터, D-565 — 그 도시가 속한 나라의 가문이 된다). 없으면 창설자 사이보그의 내 도시 */
+  cityId: rowId.optional(),
 });
 
 // ---------- 서버 → 기기 ----------
@@ -44,6 +46,9 @@ export const HOUSE_RESULT_CODES = [
   "insufficient_funds",
   /** 그 사이 다른 세력이 같은 약어를 정했다 — 정체성을 고친다 */
   "short_taken",
+  // 39판부터(소속 도시 cityId를 보낸 창설의 답에만 간다)
+  /** 그런 도시가 없거나 나라를 모르는 도시다(폐허가 됐을 수 있다) */
+  "unknown_city",
 ] as const;
 export type HouseResultCode = (typeof HOUSE_RESULT_CODES)[number];
 
@@ -151,8 +156,15 @@ export const HOUSE_MEMBER_RESULT_CODES = [
   // 24판부터(가문장 넘기기·해산 — 24판 연결에만 간다)
   /** 혼자 남은 가문장만 해산한다 */
   "not_alone",
-  /** 도시를 가진 가문은 해산할 수 없다 */
+  /** 도시를 가진 가문은 해산할 수 없다(39판부터 소속 도시 바꾸기도 — 도시를 가진 가문은 아직 바꾸지 못한다) */
   "has_city",
+  // 39판부터(소속 도시 바꾸기 house_home의 답에만 간다)
+  /** 그런 도시가 없거나 나라를 모르는 도시다 */
+  "unknown_city",
+  /** 이미 그 도시다 */
+  "same_city",
+  /** 소속 도시를 바꾼 지 얼마 되지 않았다(설정 칸 house_home_wait_ms) */
+  "home_wait",
 ] as const;
 export type HouseMemberResultCode = (typeof HOUSE_MEMBER_RESULT_CODES)[number];
 
@@ -168,6 +180,8 @@ export const HOUSE_MEMBER_ACTIONS = [
   // 24판부터
   "handed_over",
   "dissolved",
+  // 39판부터: 소속 도시를 바꿈(house_home)
+  "home_set",
 ] as const;
 export type HouseMemberAction = (typeof HOUSE_MEMBER_ACTIONS)[number];
 
@@ -296,6 +310,20 @@ const houseCityResultMessage = z.discriminatedUnion("ok", [
   }),
 ]);
 
+// ---------- 가문 소속 도시(프로토콜 39부터) ----------
+// 기획 D-565: 가문은 소속 도시를 고르고 그 도시가 속한 나라의 가문이 된다(세금 납부·랭킹 집계). 창설 때 고르고(house_found cityId), 가문장이
+// 나중에 바꾼다(house_home → house_member_result, 한 일 home_set). docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-15, D-565)".
+
+/** 소속 도시 메시지(house_found cityId·house_home)에 필요한 가장 낮은 프로토콜 버전 */
+export const HOUSE_HOME_PROTOCOL_VERSION = 39;
+
+/** 가문장이 가문 소속 도시를 바꾼다(가문 나라가 그 도시의 나라로 바뀐다) */
+export const houseHomeMessage = z.object({
+  t: z.literal("house_home"),
+  id: requestId,
+  cityId: rowId,
+});
+
 export const houseClientMessages = [
   houseFoundMessage,
   houseInviteMessage,
@@ -308,6 +336,7 @@ export const houseClientMessages = [
   houseDissolveMessage,
   houseVillageMessage,
   houseRuinMessage,
+  houseHomeMessage,
 ] as const;
 export const houseServerMessages = [
   houseResultMessage,

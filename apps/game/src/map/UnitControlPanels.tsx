@@ -220,6 +220,12 @@ export function PeekCard({
           </span>
         </p>
       ) : null}
+      {glance?.unaffiliated === true ? (
+        // 가문 없는 유저 유닛 = 무소속(기획 D-565)
+        <p className="map-peek-line map-peek-owner" data-part="peek-unaffiliated">
+          {m.map_peek_unaffiliated()}
+        </p>
+      ) : null}
       {/* 다른 가문 [신고](질문 930 나) — 옛 서버면 가문 ID가 없어 단추가 없다 */}
       {glance?.owner?.houseId === undefined ? null : (
         <HouseReport houseId={glance.owner.houseId} name={glance.owner.name} />

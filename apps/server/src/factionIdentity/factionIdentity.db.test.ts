@@ -186,7 +186,6 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 세력 정체성 (DB)", () => 
     );
     const founded = await createHouseFounder({
       pool: test.db.$client,
-      rules: () => TEST_HOUSE_RULES,
       now: () => Date.now(),
       nationOf: () => Number(nationRow[0]?.id),
     }).found(a.id, { cost: "0" });
@@ -409,7 +408,6 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 세력 정체성 (DB)", () => 
     );
     const founder = createHouseFounder({
       pool: test.db.$client,
-      rules: () => TEST_HOUSE_RULES,
       now: () => Date.now(),
       nationOf: () => Number(nation[0]?.id),
     });
@@ -521,7 +519,6 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 세력 정체성 (DB)", () => 
       );
       const founder = createHouseFounder({
         pool: test.db.$client,
-        rules: () => TEST_HOUSE_RULES,
         now: () => clock,
         nationOf: () => Number(nation[0]?.id),
       });

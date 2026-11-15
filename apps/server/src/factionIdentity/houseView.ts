@@ -1,8 +1,10 @@
 // 가문 가입 조회(tRPC factionIdentity.house)와 가문 소식 확인 — 질문 985 다, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)".
+// 기획 D-565: 소속 도시 칸(home — 가문이면 가문 소속 도시·대기·가문장의 후보, 무소속이면 내 도시), 가입할 수 있는 가문은 나라를 가리지 않는다.
 // SQL만 둔다. 지난 초대·신청은 거른다(지우기는 명령이 한다 — members.ts). 그림 바이트는 읽지 않는다(해시만).
 import {
   HOUSE_LIST_LIMIT,
   type HouseBadge,
+  type HouseHomeView,
   type HouseLimits,
   type HouseMemberRow,
   type HouseNoticeRow,
@@ -17,6 +19,8 @@ import {
   type NationEmblemSpec,
   normalizeEmblem,
 } from "@terra/shared/nationEmblem";
+import type { NationPreset } from "../npc/nations.ts";
+import { cityHome, cyborgCityOf, homeChoices, houseHasCity, houseHomeRow } from "./houseHome.ts";
 import { membershipOf } from "./members.ts";
 import type { HouseRules } from "./rules.ts";
 import type { IdentityQueryable } from "./store.ts";
@@ -111,14 +115,49 @@ async function noticesOf(q: IdentityQueryable, userId: string): Promise<HouseNot
   }));
 }
 
-/** 내 가문·받은 초대·보낸 신청·가입할 수 있는 가문·소식 */
+/** 소속 도시 칸(D-565): 가문이면 가문 소속 도시, 무소속이면 내 도시 */
+async function homeView(
+  q: IdentityQueryable,
+  input: { userId: string; rules: HouseRules; nowMs: number; presets: readonly NationPreset[] },
+  house: { factionId: number; leader: boolean } | null,
+): Promise<HouseHomeView> {
+  const waitMs = input.rules.homeWaitMs;
+  if (!house) {
+    const cityId = await cyborgCityOf(q, input.userId);
+    return {
+      city: cityId === null ? null : await cityHome(q, cityId, input.presets),
+      changeAt: null,
+      waitMs,
+      locked: false,
+      choices: [],
+    };
+  }
+  const row = await houseHomeRow(q, house.factionId);
+  const changeAt = row && house.leader ? row.setAtMs + waitMs : null;
+  return {
+    city: row ? await cityHome(q, row.cityId, input.presets) : null,
+    changeAt: changeAt !== null && changeAt > input.nowMs ? changeAt : null,
+    waitMs,
+    locked: await houseHasCity(q, house.factionId),
+    choices: house.leader ? await homeChoices(q, input.presets) : [],
+  };
+}
+
+/** 내 가문·받은 초대·보낸 신청·가입할 수 있는 가문·소식·소속 도시 */
 export async function readHouseView(
   q: IdentityQueryable,
-  input: { userId: string; nationId: number | null; rules: HouseRules; nowMs: number },
+  input: {
+    userId: string;
+    nationId: number | null;
+    rules: HouseRules;
+    nowMs: number;
+    presets?: readonly NationPreset[] | undefined;
+  },
 ): Promise<HouseView> {
   const notices = await noticesOf(q, input.userId);
   const limits = limitsOf(input.rules);
   const mine = await membershipOf(q, input.userId);
+  const homeInput = { ...input, presets: input.presets ?? [] };
   if (mine) {
     const [badge] = await badges(q, "f.id = $1", [mine.factionId]);
     const nation = await q.query<{ born_of: string | null }>("select born_of from factions where id = $1", [
@@ -182,6 +221,7 @@ export async function readHouseView(
       joinable: [],
       notices,
       limits,
+      home: await homeView(q, homeInput, { factionId: mine.factionId, leader: mine.role === "leader" }),
     };
   }
   const offered = await q.query<{
@@ -212,13 +252,24 @@ export async function readHouseView(
       expiresAt: Number(row.expires_at_ms),
     });
   }
+  // 가입할 수 있는 가문: 나라를 가리지 않는다(D-565 — 가문은 시작 국가와 별개). 내 나라 가문을 앞에, 그다음 인원 많은 차례
   const joinable =
     input.nationId === null
       ? []
-      : await badges(q, `f.born_of = $1 order by members desc, f.id limit ${HOUSE_LIST_LIMIT}`, [
-          input.nationId,
-        ]);
-  return { nationId: input.nationId, house: null, offers, joinable, notices, limits };
+      : await badges(
+          q,
+          `true order by (f.born_of = $1) desc nulls last, members desc, f.id limit ${HOUSE_LIST_LIMIT}`,
+          [input.nationId],
+        );
+  return {
+    nationId: input.nationId,
+    house: null,
+    offers,
+    joinable,
+    notices,
+    limits,
+    home: await homeView(q, homeInput, null),
+  };
 }
 
 /** 가문 소식을 확인했다(ids가 없으면 모두). 지운 수 */

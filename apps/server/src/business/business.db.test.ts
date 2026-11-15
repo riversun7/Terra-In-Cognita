@@ -13,6 +13,7 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { silentLog } from "../world/testSupport.ts";
 import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { type World, startWorld } from "../world/world.ts";
+import { giveTestHouse } from "../factionIdentity/testHouses.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 /** 지분 동시호가 회차(설정 칸 기본값 — 팩 tuning도 같다) */
@@ -106,6 +107,8 @@ async function withHumans(world: World, name: string) {
       { account: persistence.ledger.ownerAccount(ownerId, ASSET_CREDIT), amount: credit },
     ],
   });
+  // 유닛을 고용하려면 가문이 있어야 한다(D-565)
+  await giveTestHouse(test.db.$client, userId, persistence);
   const board = persistence.recruits.board({ id: userId, owner: false }, undefined, clock);
   if (!board || board.cityId === null) throw new Error("no board");
   const units: number[] = [];

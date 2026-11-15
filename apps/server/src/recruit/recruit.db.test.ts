@@ -4,6 +4,7 @@
 import { DAY_MS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import { giveTestHouse } from "../factionIdentity/testHouses.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
@@ -170,6 +171,15 @@ describe.skipIf(!TEST_DATABASE_URL)("구인 카드(D-469)", () => {
     const board = recruits.board({ id: userId, owner: false }, undefined, clock);
     if (!board || board.cityId === null) throw new Error("no board");
     expect(board.hasCyborg).toBe(true);
+    // 가문이 없으면 카드는 보이되 고용할 수 없다(D-565 — 가문이 생기면 고용한다)
+    expect(board.hasHouse).toBe(false);
+    const first = board.cards[0];
+    if (!first) throw new Error("card");
+    expect(
+      await recruits.hire(userId, { cityId: board.cityId, window: board.window, slot: 0, cost: first.cost }),
+    ).toEqual({ ok: false, code: "no_house" });
+    await giveTestHouse(test.db.$client, userId, world.persistence);
+    expect(recruits.board({ id: userId, owner: false }, undefined, clock)?.hasHouse).toBe(true);
     expect(board.owner).toBeNull();
     expect(board.level).toBe(1);
     expect(board.cards.length).toBeGreaterThanOrEqual(3);
@@ -255,6 +265,7 @@ describe.skipIf(!TEST_DATABASE_URL)("구인 카드(D-469)", () => {
           { account: persistence.ledger.systemAccount(`sink:${ASSET_CREDIT}`, ASSET_CREDIT), amount: left },
         ],
       });
+    await giveTestHouse(test.db.$client, userId, persistence);
     const board = persistence.recruits.board({ id: userId, owner: false }, undefined, clock);
     const card = board?.cards[0];
     if (!board || board.cityId === null || !card) throw new Error("no board");

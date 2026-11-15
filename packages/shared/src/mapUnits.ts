@@ -129,6 +129,8 @@ export interface MapUnitGlance {
    * null·없음
    */
   readonly owner?: MapUnitOwnerIdentity | null;
+  /** 가문 없는 유저의 유닛(기획 D-565 "무소속" — 소속 도시가 있고 개인 세금을 낸다). 아니면 없음 */
+  readonly unaffiliated?: true;
   /** 유닛 이름(NPC 국가 지도자면 팩 국가 프리셋 leaderName). 없으면 null·없음(기기는 "종류 #번호") */
   readonly name?: LocalizedName | null;
   /**

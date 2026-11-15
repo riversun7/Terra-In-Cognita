@@ -9680,24 +9680,6 @@
       "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12 2차)\" · 질문 1095 가(D-534) [임시]"
     },
     {
-      "id": "house_found_cost",
-      "code": "",
-      "name": {
-        "ko": "가문 창설 비용(최소 단위)",
-        "en": "House founding cost (minor units)"
-      },
-      "value": 0,
-      "structural": false,
-      "unit": "minor",
-      "min": 0,
-      "max": 1000000000,
-      "desc": {
-        "ko": "가문(플레이어 세력)을 만들 때 내는 값. 창설자 나라 국고로 간다. 0이면 공짜.",
-        "en": "Paid when founding a house (player faction); goes to the founder's nation treasury. 0 = free."
-      },
-      "source": "ADR 2026-11-11-faction-identity \"바뀜 (926~935 답)\" · 질문 926"
-    },
-    {
       "id": "s20_short_min",
       "code": "S20",
       "name": {
@@ -9894,6 +9876,24 @@
         "en": "What a house leader pays to found a village. It leaves the wallet and is burned (same start value as NPC villages)."
       },
       "source": "ADR 2026-11-11-house-village · 질문 1005"
+    },
+    {
+      "id": "house_home_wait_ms",
+      "code": "",
+      "name": {
+        "ko": "가문 소속 도시 바꾸기 대기(ms)",
+        "en": "House home city change wait (ms)"
+      },
+      "value": 604800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 31536000000,
+      "desc": {
+        "ko": "가문장이 가문 소속 도시를 다시 바꾸기까지 기다리는 시간. 0이면 바로 다시 바꾼다. 창설 때 고른 것도 센다.",
+        "en": "Wait before a house leader can change the house home city again. 0 = no wait. Choosing at founding counts."
+      },
+      "source": "ADR 2026-11-11-faction-identity \"바뀜 (2026-11-15, D-565)\" · 질문 1741"
     },
     {
       "id": "house_village_housing",

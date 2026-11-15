@@ -32,6 +32,9 @@ export const HOUSE_MEMBER_ERROR_TEXT: Readonly<Record<HouseMemberResultCode | "o
     leader_cannot_leave: m.fid_house_leader_note,
     not_alone: m.fid_house_error_not_alone,
     has_city: m.fid_house_error_has_city,
+    unknown_city: m.fid_home_error_unknown_city,
+    same_city: m.fid_home_error_same_city,
+    home_wait: m.fid_home_error_wait,
     offline: m.fid_found_offline,
     timeout: m.fid_found_offline,
   };
@@ -48,6 +51,7 @@ export const HOUSE_ACTION_TEXT: Readonly<Record<HouseMemberAction | "accepted", 
   kicked: m.fid_house_done_kicked,
   handed_over: m.fid_house_done_handed_over,
   dissolved: m.fid_house_done_dissolved,
+  home_set: m.fid_home_done,
 };
 
 /** 가문 도시 명령 결과 코드 → 문장(질문 1005 가) */
@@ -107,6 +111,7 @@ const NOTICE_TEXT: Readonly<Record<HouseNoticeKind, NoticeText>> = {
   leader_given: (v) => m.fid_house_notice_leader_given(v),
   leader_changed: (v) => m.fid_house_notice_leader_changed(v),
   city_gained: (v) => m.fid_house_notice_city_gained({ house: v.house }),
+  home_changed: (v) => m.fid_house_notice_home_changed({ house: v.house, other: v.other }),
 };
 
 /** 가문 소식 한 줄의 문장(모르는 종류는 "가문 소식이 있습니다") */

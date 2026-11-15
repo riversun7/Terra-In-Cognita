@@ -14,6 +14,7 @@ import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { HouseFounder, HouseFoundResult } from "./found.ts";
 import type { HouseCityResult, HouseCityService } from "./houseCity.ts";
+import type { HouseHomeService } from "./houseHome.ts";
 import type { HouseMemberResult, HouseMembers } from "./members.ts";
 import type { HouseRecruitResult, HouseRecruitService } from "./houseRecruit.ts";
 import type { HouseSuccession } from "./succession.ts";
@@ -27,6 +28,7 @@ export type HouseMemberClientMessage = ClientMessageOf<
   | "house_kick"
   | "house_handover"
   | "house_dissolve"
+  | "house_home"
 >;
 export type HouseCityClientMessage = ClientMessageOf<"house_village" | "house_ruin">;
 export type HouseRecruitClientMessage = ClientMessageOf<"house_recruit_auto" | "house_recruit_hire">;
@@ -108,10 +110,13 @@ const memberFail = (code: HouseMemberResultCode): HouseMemberResult => ({ ok: fa
 function runMember(
   members: HouseMembers,
   succession: HouseSuccession | undefined,
+  home: HouseHomeService | undefined,
   userId: string,
   message: HouseMemberClientMessage,
 ): Promise<HouseMemberResult> {
   switch (message.t) {
+    case "house_home":
+      return home ? home.set(userId, message.cityId) : Promise.resolve(memberFail("busy"));
     case "house_handover":
       return succession ? succession.handover(userId, message.userId) : Promise.resolve(memberFail("busy"));
     case "house_dissolve":
@@ -143,7 +148,9 @@ export function createHouseGateway(options: {
   city?: (() => HouseCityService | undefined) | undefined;
   /** 가문 도시 구인(자동 켬·끔·사기, 프로토콜 25, 없으면 busy) */
   recruit?: (() => HouseRecruitService | undefined) | undefined;
-  /** 가입·넘기기·해산이 성공한 뒤(시야 묶음 다시 읽기 — 독립 가문의 가문원이 바뀐다) */
+  /** 가문 소속 도시 바꾸기(프로토콜 39, D-565, 없으면 busy) */
+  home?: (() => HouseHomeService | undefined) | undefined;
+  /** 창설·가입·넘기기·해산·소속 도시가 성공한 뒤(시야 묶음·가문 표 다시 읽기 — 가문원 나라·구인 자격이 바뀐다) */
   afterMembership?: (() => Promise<void>) | undefined;
   now: () => number;
   log: {
@@ -223,7 +230,7 @@ export function createHouseGateway(options: {
         const members = options.members?.();
         if (!members) return replyMember(message.id, memberFail("busy"));
         if (!memberLimiter.take(viewer.id)) return replyMember(message.id, memberFail("rate_limited"));
-        const result = await runMember(members, options.succession?.(), viewer.id, message);
+        const result = await runMember(members, options.succession?.(), options.home?.(), viewer.id, message);
         if (result.ok) {
           options.log.info(
             { userId: viewer.id, factionId: result.factionId, action: result.action },
@@ -269,12 +276,17 @@ export function createHouseGateway(options: {
         const founder = options.founder();
         if (!founder) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
-        const result = await founder.found(viewer.id, { cost: message.cost });
-        if (result.ok)
-          options.log.info(
-            { userId: viewer.id, factionId: result.factionId, paid: result.paid },
-            "house founded",
-          );
+        const result = await founder.found(viewer.id, {
+          cost: message.cost,
+          ...(message.cityId === undefined ? {} : { cityId: message.cityId }),
+        });
+        if (result.ok) {
+          options.log.info({ userId: viewer.id, factionId: result.factionId }, "house founded");
+          // 가문이 생기면 구인 자격·시야 나라가 바뀐다(D-565)
+          await options
+            .afterMembership?.()
+            .catch((error: unknown) => options.log.error({ err: error }, "house ties reload failed"));
+        }
         reply(message.id, result);
       };
       return {

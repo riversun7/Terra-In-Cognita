@@ -166,10 +166,14 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
       const form = step(page);
       await expect(form).toHaveAttribute("data-mode", "create");
       await expect(page.locator("#fid-title")).toHaveText(message("ko", "fid_title_create"));
-      // 창설 비용(설정 칸 출발값 0)과 나라 시민으로 남는다는 안내, 마지막 단추는 [가문 창설]
+      // 창설은 무료(D-565)이고 나라 시민으로 남는다는 안내, 소속 도시 고르기(기본 = 내 도시), 마지막 단추는 [가문 창설]
       await expect(form.locator('[data-testid="fid-found-cost"]')).toContainText(
         message("ko", "fid_found_cost_free"),
       );
+      const homeSelect = form.locator('[data-testid="fid-found-home"]');
+      await expect(homeSelect).toBeVisible();
+      const myCity = Number(field(await trpcInPage(page, "factionIdentity.mine"), "homeCityId"));
+      expect(Number(await homeSelect.inputValue())).toBe(myCity);
       await expect(form.locator(".fid-submit")).toHaveText(message("ko", "fid_submit_found"));
 
       // 빈 칸으로 누르면 이름 칸으로 가고 저장하지 않는다
@@ -235,6 +239,11 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
       expect(saves).toHaveLength(1);
       expect(field(field(saves[0]?.inputs[0], "upload"), "mode")).toBe("none");
       expect(field(field(saves[0]?.inputs[0], "emblem"), "shape")).toBe("hexagon");
+      // 소속 도시 칸(D-565): 가문장에게 지금 소속 도시와 [소속 도시 바꾸기]
+      const home = house(page).locator('[data-testid="house-home"]');
+      await expect(home).toContainText(message("ko", "fid_home_title"));
+      await expect(home.locator("select")).toHaveValue(String(myCity));
+      await tallShot(page, "fid-house-home-pastel-ko-390");
       expect(deviceErrors).toEqual([]);
     });
   });
@@ -608,6 +617,22 @@ test.describe("가문 가입·이름 되돌리기", () => {
 
 // 사진(저장하지 않는다): dev는 정체성을 정하지 않은 계정이라 늘 "정하기" 모습이다
 test.describe("사진 390px", () => {
+  // 무소속 칸(D-565): dev는 가문에서 내보내져 가문이 없다 — 소속 도시(내 도시)·개인 세금·고용하려면 가문 안내
+  for (const theme of ["pastel", "dark"] as const) {
+    test.describe(`무소속 칸 ${theme}·한국어`, () => {
+      test.use({ account: "dev", theme, language: "ko" });
+
+      test("무소속·소속 도시 안내, 가로 넘침 없음", async ({ page, deviceErrors }) => {
+        await openFaction(page);
+        const home = house(page).locator('[data-testid="house-home"][data-unaffiliated]');
+        await expect(home).toContainText(message("ko", "fid_home_unaffiliated_title"));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await tallShot(page, `fid-house-unaffiliated-${theme}-ko-390`);
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
+
   test.describe("단계 다크·영어", () => {
     test.use({ account: "dev", theme: "dark", language: "en" });
 

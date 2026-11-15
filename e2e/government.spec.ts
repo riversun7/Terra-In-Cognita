@@ -15,6 +15,7 @@ import { openBuildingFromList, openNearby } from "./helpers/nearby.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
+import { ensureHouse } from "./helpers/wsCommands.ts";
 
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
@@ -128,6 +129,8 @@ test.describe("정부 판·지도자: 플레이어", () => {
     deviceErrors,
   }) => {
     test.setTimeout(240_000);
+    // 유닛을 고용하려면 가문이 있어야 한다(D-565) — 전체 실행에서는 앞 가문 시험이 만든 가문이 있다(없을 때만 만든다)
+    await ensureHouse(page);
     const hall = await openSheet(page);
     const city = field(hall.data, "city");
     const nation = field(hall.data, "nation");

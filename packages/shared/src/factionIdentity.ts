@@ -12,6 +12,7 @@
 // 진입점은 @terra/shared/factionIdentity다(첫 화면 묶음에 들어가지 않게 index.ts에서 내보내지 않는다).
 import { type CyborgNameProblem, parseCyborgName } from "./cyborgName.ts";
 import type { NameStyleId } from "./nameGen.ts";
+import type { HouseHomeCity } from "./house.ts";
 import { NATION_EMBLEM_UPLOAD } from "./nationEditor.ts";
 import {
   EMBLEM_CHARGES,
@@ -263,7 +264,7 @@ export interface FactionHouseView {
   /** 가문 세력 행 ID */
   readonly factionId: number;
   readonly foundedAt: number;
-  /** 가문이 든 나라(창설할 때 창설자의 나라 — factions.born_of). 없으면 null */
+  /** 가문이 든 나라(가문 소속 도시가 속한 나라 — factions.born_of, D-565). 없으면 null */
   readonly nationId: number | null;
 }
 
@@ -272,8 +273,12 @@ export interface FactionIdentityMine {
   readonly identity: FactionIdentityView | null;
   /** 가문을 창설했으면 그 가문(정체성만 저장하고 창설을 마치지 못했으면 null) */
   readonly house: FactionHouseView | null;
-  /** 가문 창설 비용(10진 글자 최소 단위, 설정 칸 house_found_cost — 출발값 0). 기기가 본 값을 창설 명령에 실어 보낸다 */
+  /** 가문 창설 비용(10진 글자 최소 단위). D-565부터 창설은 무료라 늘 "0"(옛 기기가 창설 명령에 실어 보낸다 — 서버는 보지 않는다) */
   readonly foundCost: string;
+  /** 가문 소속 도시 후보(D-565 — 창설할 때 고른다). 옛 서버는 보내지 않는다 */
+  readonly homeChoices?: readonly HouseHomeCity[] | undefined;
+  /** 처음 고른 소속 도시(내 사이보그의 내 도시, 없으면 null) */
+  readonly homeCityId?: number | null | undefined;
   /** 새로 정하는 약어의 글자 수 폭(설정 칸 S20) */
   readonly shortRange: FactionShortRange;
   /** 그림 올리기(null = 올릴 수 있다) */

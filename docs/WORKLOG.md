@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 22:40 | 가문 시스템 D-565: 고용에는 가문, 가문 소속 도시(나라 자동), 창설 무료, 무소속 | Claude Code | [15-2240-house-565](worklog/2026/11/15-2240-house-565.md) |
 | 2026-11-15 22:00 | 2026-11-15 열넷째 묶음 합치기 (채집 3) | Claude Code | [15-2200-batch-1116c-merge](worklog/2026/11/15-2200-batch-1116c-merge.md) |
 | 2026-11-15 20:40 | 건물 안 유닛 숨김·"안에 N명" 표시·[나가기] | Claude Code | [15-2040-building-inside-hide](worklog/2026/11/15-2040-building-inside-hide.md) |
 | 2026-11-15 20:40 | 2026-11-15 열셋째 묶음 합치기 (배 2·건물 화면) | Claude Code | [15-2040-batch-1116b-merge](worklog/2026/11/15-2040-batch-1116b-merge.md) |

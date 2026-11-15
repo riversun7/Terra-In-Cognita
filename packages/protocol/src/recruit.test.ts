@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   PROTOCOL_VERSION,
   ProtocolError,
+  RECRUIT_HOUSE_PROTOCOL_VERSION,
   RECRUIT_PROTOCOL_VERSION,
   RECRUIT_RESULT_CODES,
+  legacyRecruitCode,
   decodeClientMessage,
   decodeServerMessage,
   encodeMessage,
@@ -38,5 +40,15 @@ describe("구인 카드 고용 메시지(프로토콜 7)", () => {
     for (const code of RECRUIT_RESULT_CODES)
       expect(decodes(decodeServerMessage, { t: "recruit_result", id: 1, ok: false, code })).toBe(true);
     expect(decodes(decodeServerMessage, { t: "recruit_result", id: 1, ok: false, code: "nope" })).toBe(false);
+  });
+});
+
+describe("구인 가문 검사 코드(프로토콜 39, D-565)", () => {
+  it("no_house는 39판 연결에만 가고 38판 연결은 internal_error로 낮춘다", () => {
+    expect(RECRUIT_HOUSE_PROTOCOL_VERSION).toBe(39);
+    expect(RECRUIT_RESULT_CODES).toContain("no_house");
+    expect(legacyRecruitCode("no_house", 39)).toBe("no_house");
+    expect(legacyRecruitCode("no_house", 38)).toBe("internal_error");
+    expect(legacyRecruitCode("taken", 38)).toBe("taken");
   });
 });

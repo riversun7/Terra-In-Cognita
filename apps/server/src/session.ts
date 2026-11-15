@@ -40,6 +40,7 @@ import {
   HOSPITAL_PROTOCOL_VERSION,
   CITIZENSHIP_PROTOCOL_VERSION,
   HOUSE_CITY_PROTOCOL_VERSION,
+  HOUSE_HOME_PROTOCOL_VERSION,
   HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_PROTOCOL_VERSION,
   HOUSE_RECRUIT_PROTOCOL_VERSION,
@@ -353,7 +354,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "recruit_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        recruitSocket ??= context.recruit.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        recruitSocket ??= context.recruit.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         recruitSocket.handle(message);
         return;
       }
@@ -683,15 +688,19 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       }
       case "house_handover":
       case "house_dissolve":
+      case "house_home":
       case "house_village":
       case "house_ruin": {
-        // 가문장 넘기기·해산·가문 도시는 프로토콜 24의 메시지다(질문 1003 가·1005 가)
-        if (protocolVersion < HOUSE_CITY_PROTOCOL_VERSION) {
+        // 가문장 넘기기·해산·가문 도시는 프로토콜 24, 소속 도시 바꾸기는 39의 메시지다(질문 1003 가·1005 가, D-565)
+        if (
+          protocolVersion < HOUSE_CITY_PROTOCOL_VERSION ||
+          (message.t === "house_home" && protocolVersion < HOUSE_HOME_PROTOCOL_VERSION)
+        ) {
           reject("invalid_message");
           return;
         }
         if (!context.house) {
-          if (message.t === "house_handover" || message.t === "house_dissolve")
+          if (message.t === "house_handover" || message.t === "house_dissolve" || message.t === "house_home")
             send({ t: "house_member_result", id: message.id, ok: false, code: "busy" });
           else send({ t: "house_city_result", id: message.id, ok: false, code: "busy" });
           return;

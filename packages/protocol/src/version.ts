@@ -141,20 +141,24 @@
  * 38: 건물 화면 개편(docs/adr/2026-11-15-building-screen.md) — 생산시설 지분 주문(business.ts business_share_order·business_share_cancel →
  *    business_result, 새 코드 order_limit·unknown_order·insufficient_shares는 이 메시지의 답에만 간다, ok 답에 orderId). 더하기만 했고 37판 기기는
  *    그대로 받는다(이 메시지를 보내지 않는다).
+ * 39: 가문 시스템 D-565(house.ts, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-15, D-565)") — 가문 창설에 소속 도시(house_found cityId, 선택 칸,
+ *    새 코드 unknown_city는 그 창설의 답에만 간다), 가문장의 소속 도시 바꾸기(house_home → house_member_result, 한 일 home_set·새 코드 unknown_city·same_city·
+ *    home_wait는 이 메시지의 답에만 간다). 구인 카드 고용(recruit.ts)은 가문이 있어야 한다 — 새 코드 no_house는 39판 연결에만 가고 38판 연결은
+ *    internal_error로 낮춘다(legacyRecruitCode). 더하기만 했고 38판 기기는 그대로 받는다. 받는 가장 낮은 판은 원칙대로 38.
  */
-export const PROTOCOL_VERSION = 38;
+export const PROTOCOL_VERSION = 39;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
  * protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용). 6부터 4판 기기도, 7부터 5판 기기도, 8부터 6판 기기도, 9부터 7판 기기도,
  * 10부터 8판 기기도, 11부터 9판 기기도, 12부터 10판 기기도, 13부터 11판 기기도, 14부터 12판 기기도, 15부터 13판 기기도, 16부터 14판 기기도,
- * 17부터 15판 기기도, 18부터 16판 기기도, 19부터 17판 기기도, 20부터 18판 기기도, 21부터 19판 기기도, 22부터 20판 기기도, 23부터 21판 기기도, 24부터 22판 기기도, 25부터 23판 기기도, 26부터 24판 기기도, 27부터 25판 기기도, 28부터 26판 기기도, 29부터 27판 기기도, 30부터 28판 기기도, 34부터 33판 아래 기기도, 36부터 34판 이하 기기도, 37부터 35판 이하 기기도, 38부터 36판 이하 기기도 같다(현재 + 직전 1개).
+ * 17부터 15판 기기도, 18부터 16판 기기도, 19부터 17판 기기도, 20부터 18판 기기도, 21부터 19판 기기도, 22부터 20판 기기도, 23부터 21판 기기도, 24부터 22판 기기도, 25부터 23판 기기도, 26부터 24판 기기도, 27부터 25판 기기도, 28부터 26판 기기도, 29부터 27판 기기도, 30부터 28판 기기도, 34부터 33판 아래 기기도, 36부터 34판 이하 기기도, 37부터 35판 이하 기기도, 38부터 36판 이하 기기도, 39부터 37판 이하 기기도 같다(현재 + 직전 1개).
  * (3에서는 예외로 2를 받지 않았다: 2판 기기는 걸러지지 않은 2차맵 흐름을 기대하는데, 시야 전송은 보안 규칙이라 그 흐름을 남기지
  * 않는다, S3 ADR 3절.)
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 37;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 38;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

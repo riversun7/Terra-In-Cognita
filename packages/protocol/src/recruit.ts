@@ -50,6 +50,9 @@ export const RECRUIT_RESULT_CODES = [
   /** 도시 둘레에 세울 빈 칸이 없음 */
   "no_room",
   "internal_error",
+  // 39판부터(38판 연결은 internal_error로 낮춘다 — legacyRecruitCode)
+  /** 가문이 없다 — 유닛을 고용하려면 가문을 만들거나 가문에 든다(D-565) */
+  "no_house",
 ] as const;
 export type RecruitResultCode = (typeof RECRUIT_RESULT_CODES)[number];
 
@@ -68,6 +71,14 @@ const recruitResultMessage = z.discriminatedUnion("ok", [
     code: z.enum(RECRUIT_RESULT_CODES),
   }),
 ]);
+
+/** 구인 결과 코드 no_house를 받는 가장 낮은 프로토콜 버전(D-565) */
+export const RECRUIT_HOUSE_PROTOCOL_VERSION = 39;
+
+/** 연결 판에 맞춘 구인 결과 코드: 38판 기기는 no_house를 모르니 internal_error로 낮춘다 */
+export function legacyRecruitCode(code: RecruitResultCode, protocolVersion: number): RecruitResultCode {
+  return code === "no_house" && protocolVersion < RECRUIT_HOUSE_PROTOCOL_VERSION ? "internal_error" : code;
+}
 
 export const recruitClientMessages = [recruitHireMessage] as const;
 export const recruitServerMessages = [recruitResultMessage] as const;

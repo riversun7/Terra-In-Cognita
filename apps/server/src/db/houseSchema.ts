@@ -108,3 +108,18 @@ export const houseNotices = pgTable(
     check("house_notices_reason", sql`char_length(${table.reason}) <= 200`),
   ],
 );
+
+/**
+ * 가문 소속 도시(기획 D-565): 가문 행마다 한 줄. 가문은 소속 도시를 고르고 그 도시가 속한 나라(최상위 세력)의 가문이 된다 — 나라는
+ * factions.born_of에 함께 적는다(시야 공유 D-250·가입 목록이 읽는다). 소속 도시는 세금 납부·랭킹 집계에 쓴다. 도시가 폐허가 되어
+ * world_cities 행이 지워져도 남는다(외래 키 없음 — 가문 나라는 그대로, 가문장이 다시 고른다).
+ * 마이그레이션이 이 표 전의 가문을 가문장 사이보그의 내 도시(cyborgs.start_city_id)로 채운다. 세계 표라 시험 세계 새로 시작에서 지운다
+ */
+export const houseHomes = pgTable("house_homes", {
+  factionId: bigint("faction_id", { mode: "number" })
+    .primaryKey()
+    .references(() => factions.id, { onDelete: "cascade" }),
+  cityId: bigint("city_id", { mode: "number" }).notNull(),
+  /** 소속 도시를 마지막으로 정한 시각(창설 포함 — 다시 바꾸기 대기 house_home_wait_ms가 센다) */
+  setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
+});

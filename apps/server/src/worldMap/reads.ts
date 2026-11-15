@@ -674,6 +674,7 @@ export function worldMapReadsOf(options: {
         emblemOfCode,
       ),
     // 유저 유닛의 주인 줄: 그 유저가 정한 세력 정체성(docs/adr/2026-11-11-faction-identity.md 6절)
+    isUserOwner: (ownerId) => (world.persistence?.owners.get(ownerId)?.userId ?? null) !== null,
     identityOfOwner: async (ownerId) => {
       const userId = world.persistence?.owners.get(ownerId)?.userId ?? null;
       return userId === null ? null : ownerIdentityOf(options.pool, userId);

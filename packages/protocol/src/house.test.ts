@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   HOUSE_CITY_PROTOCOL_VERSION,
   HOUSE_CITY_RESULT_CODES,
+  HOUSE_HOME_PROTOCOL_VERSION,
   HOUSE_MEMBER_ACTIONS,
   HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_MEMBER_RESULT_CODES,
@@ -159,5 +160,27 @@ describe("가문장 넘기기·해산·가문 도시(프로토콜 24, 질문 100
       const fail = { t: "house_city_result", id: 3, ok: false, code } as const;
       expect(decodeServerMessage(encodeMessage(fail))).toEqual(fail);
     }
+  });
+});
+
+describe("가문 소속 도시(프로토콜 39, D-565)", () => {
+  it("판: 39부터, 창설에 소속 도시(선택 칸)·소속 도시 바꾸기가 왕복한다", () => {
+    expect(HOUSE_HOME_PROTOCOL_VERSION).toBe(39);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOUSE_HOME_PROTOCOL_VERSION);
+    const found = { t: "house_found", id: 3, cost: "0", cityId: 12 } as const;
+    expect(decodeClientMessage(encodeMessage(found))).toEqual(found);
+    expect(decodes(decodeClientMessage, { ...found, cityId: 0 })).toBe(false);
+    const home = { t: "house_home", id: 4, cityId: 12 } as const;
+    expect(decodeClientMessage(encodeMessage(home))).toEqual(home);
+    expect(decodes(decodeClientMessage, { t: "house_home", id: 4 })).toBe(false);
+  });
+
+  it("결과: 창설 unknown_city, 가입 결과 home_set·unknown_city·same_city·home_wait", () => {
+    expect(HOUSE_RESULT_CODES).toContain("unknown_city");
+    for (const code of ["unknown_city", "same_city", "home_wait"])
+      expect(HOUSE_MEMBER_RESULT_CODES).toContain(code);
+    expect(HOUSE_MEMBER_ACTIONS).toContain("home_set");
+    const ok = { t: "house_member_result", id: 4, ok: true, action: "home_set", factionId: 9 } as const;
+    expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
   });
 });

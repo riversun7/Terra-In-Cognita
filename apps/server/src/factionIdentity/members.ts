@@ -1,7 +1,8 @@
 // 가문 가입(WebSocket house_invite·house_apply·house_answer·house_withdraw·house_leave·house_kick, 프로토콜 23) — 질문 985 다(기획 정리 D-216
-// 포인터: 초대 + 신청, 같은 나라 시민만). docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)".
-// - 같은 나라 시민만: 가문원은 그 가문 나라(factions.born_of)의 시민이다(D-216 "가문원은 소속 NPC 국가의 시민으로 남는다"). 그래서 같은 나라
-//   시야 공유(D-250 — 사이보그 시민권을 본다)와 가문이 어긋나지 않는다. 나라가 달라지면 follow.ts가 가문에서 뺀다(983 가).
+// 포인터: 초대 + 신청). docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)"·"바뀜 (2026-11-15, D-565)".
+// - 나라를 가리지 않는다(D-565): 가문은 시작 국가와 별개의 세력이고 소속 도시를 골라 그 도시 나라에 든다(houseHome.ts). 그래서 985 다의
+//   "같은 나라 시민만"은 D-565가 대신한다 — 사이보그가 있는 사람이면 누구든 초대·신청한다. 같은 나라 시야 공유(D-250)는 가문원이면 가문
+//   나라(소속 도시의 나라)를 따른다(world/houseTies.ts memberNationOf).
 // - 초대와 신청이 맞으면(가문장이 이미 신청한 사람을 초대, 이미 초대받은 사람이 신청) 바로 든다.
 // - 가문장은 나갈 수 없다(먼저 넘기거나 혼자면 해산한다 — succession.ts, 질문 1003 가). 가문원은 나가고, 가문장은 가문원을 내보낸다.
 // - 상한은 설정 칸(rules.ts): 인원(가문장 포함)·가문마다 대기 수·사람마다 신청 수·요청 유효 시간. 지난 요청은 명령마다 지운다.
@@ -231,11 +232,6 @@ export function createHouseMembers(o: HouseMemberOptions): HouseMembers {
     return result;
   };
 
-  const sameNation = async (userId: string, nation: number | null): Promise<boolean> => {
-    const mine = await o.nationOf(userId);
-    return mine !== undefined && nation !== null && mine === nation;
-  };
-
   return {
     invite(leaderId, rawName) {
       return run(async (q, now, audits) => {
@@ -252,7 +248,6 @@ export function createHouseMembers(o: HouseMemberOptions): HouseMembers {
         const target = rows[0];
         if (!target) return fail("not_found");
         if (target.user_id === leaderId) return fail("self");
-        if (!(await sameNation(target.user_id, house.nation))) return fail("other_nation");
         if (await membershipOf(q, target.user_id)) return fail("already_in_house");
         const existing = await requestBy(q, "faction_id = $1 and user_id = $2", [house.id, target.user_id]);
         if (existing?.kind === "invite") return fail("already_requested");
@@ -292,13 +287,12 @@ export function createHouseMembers(o: HouseMemberOptions): HouseMembers {
     },
 
     async apply(userId, factionId) {
-      const nation = await o.nationOf(userId);
-      if (nation === undefined) return fail("no_cyborg");
+      // 사이보그(시민권)가 있어야 한다 — 나라는 가리지 않는다(D-565)
+      if ((await o.nationOf(userId)) === undefined) return fail("no_cyborg");
       return run(async (q, now, audits) => {
         if (await membershipOf(q, userId)) return fail("already_in_house");
         const house = await lockHouse(q, factionId);
         if (!house) return fail("not_found");
-        if (house.nation !== nation) return fail("other_nation");
         const existing = await requestBy(q, "faction_id = $1 and user_id = $2", [house.id, userId]);
         if (existing?.kind === "apply") return fail("already_requested");
         if ((await memberCount(q, house.id)) >= o.rules().memberMax) return fail("house_full");
@@ -377,14 +371,10 @@ export function createHouseMembers(o: HouseMemberOptions): HouseMembers {
           });
           return done("declined", house.id);
         }
-        // 받기: 그 사이 다른 가문에 들었거나 나라가 바뀌었으면 요청을 지우고 알린다
+        // 받기: 그 사이 다른 가문에 들었으면 요청을 지우고 알린다
         if (await membershipOf(q, request.userId)) {
           await q.query("delete from house_requests where id = $1", [request.id]);
           return fail("already_in_house");
-        }
-        if (!(await sameNation(request.userId, house.nation))) {
-          await q.query("delete from house_requests where id = $1", [request.id]);
-          return fail("other_nation");
         }
         if ((await memberCount(q, house.id)) >= o.rules().memberMax) return fail("house_full");
         await join(q, request.userId, house.id, now);

@@ -8,6 +8,9 @@
 //   (종류 4)을 세움 → 휴먼 행(레벨 1·카드 스탯·속성, 고용한 때부터 수명) → 산 칸. 커밋 뒤 답한다.
 // - [임시] 도시 화폐 = 시험 화폐(서버에 세력 화폐가 아직 없다, 정착 지원금·유지비와 같은 자산).
 // - 아직 안 하는 것: 유저 휴먼의 수명·만족도·상속(NPC 사회 런타임은 시험 봇 휴먼만 돌린다), 직무 배치(노동 계약 줄기).
+// - 가문(기획 D-565): 유닛을 새로 고용하려면 가문이 있어야 한다(만들었거나 든 가문). 없으면 no_house(카드는 보이되 살 수 없다 — 조회 hasHouse).
+//   이미 가문 없이 고용한 유닛은 무소속으로 그대로 남는다(지우거나 막지 않는다). 가문 도시 구인(factionIdentity/houseRecruit.ts)은 가문장만이라
+//   이미 가문이 있다.
 import {
   type RecruitCard,
   type RecruitDraw,
@@ -70,6 +73,8 @@ export interface RecruitServiceOptions {
   readonly now: () => number;
   /** 부팅 때 읽은 산 칸(recruit_draws) */
   readonly draws: readonly RecruitDrawRow[];
+  /** 가문에 들어 있나(D-565, 메모리 표 world/houseTies.ts — 가문 명령 뒤 다시 읽는다). 없으면(시험) 막지 않는다 */
+  readonly hasHouse?: ((userId: string) => boolean) | undefined;
 }
 
 /** STR·DEX·AGI·VIT·INT·WIS 배열 → 화면 스탯 */
@@ -135,6 +140,7 @@ export function createRecruitService(o: RecruitServiceOptions): RecruitService {
         refreshMs: rules.refreshMs,
         balance: String(ownerId === undefined ? 0n : o.ledger.balanceOf(ownerId, ASSET_CREDIT)),
         hasCyborg: record !== undefined,
+        hasHouse: o.hasHouse?.(viewer.id) ?? true,
         generatedAt: nowMs,
       };
       const city = chosen ? runtime.world.cities.get(chosen.id) : undefined;
@@ -168,6 +174,7 @@ export function createRecruitService(o: RecruitServiceOptions): RecruitService {
       if (!runtime) return fail("busy");
       const record = o.cyborgOf(userId);
       if (!record) return fail("no_cyborg");
+      if (o.hasHouse && !o.hasHouse(userId)) return fail("no_house");
       const city = runtime.world.cities.get(input.cityId);
       const place = runtime.places.get(input.cityId);
       const map = place ? o.maps.get(place.mapKey) : undefined;

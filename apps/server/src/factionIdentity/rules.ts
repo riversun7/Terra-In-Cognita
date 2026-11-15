@@ -5,8 +5,6 @@ import { type FactionShortRange, clampShortRange } from "@terra/shared/factionId
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 
 export interface HouseRules {
-  /** 가문 창설 비용(최소 단위, 0 이상) */
-  readonly foundCost: bigint;
   /** 새로 정하는 약어 폭(S20) */
   readonly shortRange: FactionShortRange;
   /** 이름·약어 다시 바꾸기 대기(ms, S20) */
@@ -25,6 +23,8 @@ export interface HouseRules {
   /** 가문 마을 세우기 값(최소 단위)·새 마을 주거 수(1 이상) — 질문 1005 가 */
   readonly villageCost: bigint;
   readonly villageHousing: number;
+  /** 가문 소속 도시 바꾸기 대기(ms, 0 = 바로 — 기획 D-565, 질문 1741) */
+  readonly homeWaitMs: number;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -35,7 +35,6 @@ const atLeastOne = (value: number): number => Math.max(1, whole(value));
 export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
   const h = c.house;
   return {
-    foundCost: BigInt(whole(h.foundCost)),
     shortRange: clampShortRange({ min: h.shortMin, max: h.shortMax }),
     renameWaitMs: whole(h.renameWaitMs),
     reportDaily: whole(h.reportDaily),
@@ -47,6 +46,7 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
     nameResetBlock: whole(h.nameResetBlock),
     villageCost: BigInt(whole(h.villageCost)),
     villageHousing: atLeastOne(h.villageHousing),
+    homeWaitMs: whole(h.homeWaitMs),
   };
 }
 

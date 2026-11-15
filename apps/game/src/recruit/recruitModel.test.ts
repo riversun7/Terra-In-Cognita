@@ -18,6 +18,8 @@ describe("구인 카드 시험 화면 셈", () => {
     expect(hireState(card, "1000", false)).toBe("no_cyborg");
     expect(hireState(card, "61", true)).toBe("funds");
     expect(hireState(card, "62", true)).toBe("ready");
+    // 가문이 없으면 고용할 수 없다(D-565)
+    expect(hireState(card, "62", true, false)).toBe("no_house");
   });
 
   it("점수가 있는 속성만 4원소 차례로", () => {

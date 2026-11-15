@@ -1,6 +1,7 @@
 // 가문 창설·가입 명령(WebSocket house_found → house_result, 프로토콜 22 / house_invite·house_apply·house_answer·house_withdraw·house_leave·
 // house_kick → house_member_result, 프로토콜 23 / house_handover·house_dissolve → house_member_result, house_village·house_ruin →
-// house_city_result, 프로토콜 24 / house_recruit_auto·house_recruit_hire → house_recruit_result, 프로토콜 25) — 보내고 같은 요청 번호의 답을 기다린다.
+// house_city_result, 프로토콜 24 / house_recruit_auto·house_recruit_hire → house_recruit_result, 프로토콜 25 / house_home → house_member_result,
+// house_found cityId, 프로토콜 39 — D-565) — 보내고 같은 요청 번호의 답을 기다린다.
 // 질문 926 나·985 다, docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"·"바뀜 (981~986 답)". 게임 상태를 바꾸는 명령은 WebSocket으로만.
 // 국적 바꾸기 명령(government/naturalizeCommands.ts)과 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
 import type {
@@ -34,7 +35,9 @@ export type HouseMemberRequest =
   | { readonly t: "house_kick"; readonly userId: string }
   // 프로토콜 24(질문 1003 가)
   | { readonly t: "house_handover"; readonly userId: string }
-  | { readonly t: "house_dissolve" };
+  | { readonly t: "house_dissolve" }
+  // 프로토콜 39(D-565): 가문장이 소속 도시를 바꾼다
+  | { readonly t: "house_home"; readonly cityId: number };
 
 export type HouseCityOutcome =
   | {
@@ -129,11 +132,14 @@ function request<T>(
   });
 }
 
-/** 창설 명령 하나를 보내고 결과를 기다린다. cost = 화면이 본 창설 비용(서버 값과 다르면 terms_changed) */
-export function sendHouseFound(cost: string, link: ServerLink = serverLink): Promise<HouseOutcome> {
+/**
+ * 창설 명령 하나를 보내고 결과를 기다린다. 창설은 무료(D-565 — cost는 옛 서버 호환으로 "0"을 보낸다). cityId = 고른 가문 소속 도시(없으면 서버가
+ * 내 사이보그의 내 도시로)
+ */
+export function sendHouseFound(cityId: number | null, link: ServerLink = serverLink): Promise<HouseOutcome> {
   return request<HouseOutcome>(
     link,
-    (id) => ({ t: "house_found", id, cost }),
+    (id) => ({ t: "house_found", id, cost: "0", ...(cityId === null ? {} : { cityId }) }),
     (message, id) => {
       if (message.t !== "house_result" || message.id !== id) return null;
       return message.ok

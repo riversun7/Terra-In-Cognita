@@ -38,6 +38,7 @@ import { reasonedError } from "../trpc/init.ts";
 import { nationFromDb } from "./found.ts";
 import { clearReports, houseNation, reportHouse, resetHouseName } from "./house.ts";
 import type { HouseCityService } from "./houseCity.ts";
+import { cyborgCityOf, homeChoices } from "./houseHome.ts";
 import { dismissHouseNotices, readHouseView } from "./houseView.ts";
 import { notify } from "./members.ts";
 import { checkPlayerEmblemPng } from "./png.ts";
@@ -236,10 +237,13 @@ export function createFactionIdentityServices(
   ): Promise<FactionIdentityMine> => {
     const row = loaded === undefined ? await loadIdentity(pool, viewer.id) : loaded;
     const rules = shared.rules();
-    const [switchOff, nation] = await Promise.all([
+    const [switchOff, nation, homeCityId] = await Promise.all([
       uploadSwitchBlocked(pool),
       row?.factionId == null ? Promise.resolve(null) : houseNation(pool, row.factionId),
+      cyborgCityOf(pool, viewer.id),
     ]);
+    // 가문 소속 도시 후보(D-565): 아직 창설하지 않았을 때만(창설한 가문은 세력 화면 소속 도시 칸에서 바꾼다)
+    const choices = row?.factionId == null ? await homeChoices(pool, shared.presets()) : [];
     // 이름 대기는 창설한 가문에만(창설 전 초안은 몇 번이고 고친다)
     const renameAt = row?.factionId == null ? 0 : row.nameChangedAt + rules.renameWaitMs;
     return {
@@ -248,7 +252,10 @@ export function createFactionIdentityServices(
         row?.factionId == null
           ? null
           : { factionId: row.factionId, foundedAt: row.foundedAt ?? row.createdAt, nationId: nation },
-      foundCost: rules.foundCost.toString(),
+      // 창설은 무료(D-565). 옛 기기가 이 값을 창설 명령에 실어 보낸다
+      foundCost: "0",
+      homeChoices: choices,
+      homeCityId,
       shortRange: rules.shortRange,
       uploadBlock: switchOff ? "switch_off" : row?.uploadBlocked ? "account_blocked" : null,
       notice: row?.notice ?? null,
@@ -333,6 +340,7 @@ export function createFactionIdentityServices(
       nationId: (await nationFromDb(pool, viewer.id)) ?? null,
       rules: shared.rules(),
       nowMs: shared.now(),
+      presets: shared.presets(),
     });
     const city = shared.houseCity?.();
     if (!view.house || !city) return view;

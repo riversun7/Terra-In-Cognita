@@ -111,6 +111,7 @@ export {
   HOUSE_CITY_MODES,
   HOUSE_CITY_PROTOCOL_VERSION,
   HOUSE_CITY_RESULT_CODES,
+  HOUSE_HOME_PROTOCOL_VERSION,
   HOUSE_REGIMES,
   type HouseCityMode,
   type HouseCityResultCode,
@@ -187,8 +188,10 @@ export {
   type BeaconResultCode,
 } from "./territory.ts";
 export {
+  RECRUIT_HOUSE_PROTOCOL_VERSION,
   RECRUIT_PROTOCOL_VERSION,
   RECRUIT_RESULT_CODES,
+  legacyRecruitCode,
   recruitHireMessage,
   type RecruitResultCode,
 } from "./recruit.ts";

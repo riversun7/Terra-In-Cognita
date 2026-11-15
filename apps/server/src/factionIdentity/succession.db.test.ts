@@ -61,7 +61,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문장 넘기기·해산·이름 자동 
     identity().save(viewer(userId), { name, shortName, color, emblem: EMBLEM, upload: { mode: "none" } });
   const found = async (userId: string, name: string, shortName: string): Promise<number> => {
     await save(userId, name, shortName);
-    const result = await createHouseFounder({ ...deps(), rules: () => rules }).found(userId, { cost: "0" });
+    const result = await createHouseFounder(deps()).found(userId, { cost: "0" });
     if (!result.ok) throw new Error(result.code);
     return result.factionId;
   };
@@ -194,9 +194,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문장 넘기기·해산·이름 자동 
     expect(await identity().report(viewer(friend), { factionId: houseId })).toEqual({ status: "unknown" });
     // 앞 가문장은 새 이름으로 다시 창설한다
     await save(leader, "다시가문", "AGN");
-    expect(
-      await createHouseFounder({ ...deps(), rules: () => rules }).found(leader, { cost: "0" }),
-    ).toMatchObject({
+    expect(await createHouseFounder(deps()).found(leader, { cost: "0" })).toMatchObject({
       ok: true,
     });
     expect((await audits("faction.house_dissolve")).at(-1)).toMatchObject({

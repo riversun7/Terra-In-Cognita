@@ -310,4 +310,40 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 레벨 재료 가공 시설: 상한 몇 채 전부터",
     "NPC level-material processors: buildings before cap",
   ),
+  // 기르는 티어 성향 가중 고르기(기획 답 1862 — D-554, 질문 1991~1993 [임시])
+  k(
+    "npc_gather_tier_commerce",
+    "",
+    "gatherTierCommercePm",
+    "NPC 기르는 티어: 상업 성향 → 높은 티어(‰)",
+    "NPC gather tier: commerce → higher tier (‰)",
+  ),
+  k(
+    "npc_gather_tier_aggression",
+    "",
+    "gatherTierAggressionPm",
+    "NPC 기르는 티어: 공격 성향 → 높은 티어(‰)",
+    "NPC gather tier: aggression → higher tier (‰)",
+  ),
+  k(
+    "npc_gather_tier_faith",
+    "",
+    "gatherTierFaithPm",
+    "NPC 기르는 티어: 신앙 성향 → 낮은 티어(‰)",
+    "NPC gather tier: faith → lower tier (‰)",
+  ),
+  k(
+    "npc_gather_tier_leader",
+    "",
+    "gatherTierLeaderPm",
+    "NPC 기르는 티어: 지도자 기질 폭(‰)",
+    "NPC gather tier: leader temper spread (‰)",
+  ),
+  k(
+    "npc_gather_tier_floor",
+    "",
+    "gatherTierFloorPm",
+    "NPC 기르는 티어: 후보 바닥(가장 좋은 티어의 ‰)",
+    "NPC gather tier: candidate floor (‰ of best tier)",
+  ),
 ];

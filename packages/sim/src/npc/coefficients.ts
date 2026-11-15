@@ -108,6 +108,16 @@ export interface NpcCoefficients {
    * 상한보다 크면 처음부터(예전 판). 없으면 2
    */
   readonly buildLevelSupplyLead?: number | undefined;
+  /**
+   * [임시] NPC 건물 채집소의 기르는 티어 성향 가중 고르기(기획 답 1862 — D-554 "세력성향마다 지도자 성향마다 다양한 변수로", 질문 1991~1993,
+   * simulator/npcGatherTier.ts): 상업·공격 성향은 높은 티어 쪽, 신앙 성향은 낮은 티어 쪽으로 치우치는 세기(‰ — 축 끝에서 이 값), 지도자 기질 폭(‰),
+   * 후보 바닥(가장 큰 시간당 값의 ‰). 없으면 0·0·0·0·1000(가장 큰 시간당 값 — 옛 판)
+   */
+  readonly gatherTierCommercePm?: number | undefined;
+  readonly gatherTierAggressionPm?: number | undefined;
+  readonly gatherTierFaithPm?: number | undefined;
+  readonly gatherTierLeaderPm?: number | undefined;
+  readonly gatherTierFloorPm?: number | undefined;
   /** 굶어 멈춤(D-220, 기술 정의): 국고 0 + 생필품 충족 이 ‰ 미만이 이 날 수 이어짐 */
   readonly stallFoodPm: number;
   readonly stallDays: number;
@@ -176,6 +186,11 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   restoreClaimScore: 400,
   restoreFormerBonus: 150,
   restoreCityPenalty: 40,
+  gatherTierCommercePm: 600,
+  gatherTierAggressionPm: 300,
+  gatherTierFaithPm: 300,
+  gatherTierLeaderPm: 300,
+  gatherTierFloorPm: 300,
   stallFoodPm: 500,
   stallDays: 7,
   bankTargetMilli: 1000,

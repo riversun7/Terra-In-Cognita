@@ -9320,6 +9320,96 @@
       "source": "기획 D-541 · 질문 1291 나 [임시]"
     },
     {
+      "id": "npc_gather_tier_commerce",
+      "code": "",
+      "name": {
+        "ko": "NPC 기르는 티어: 상업 성향 → 높은 티어(‰)",
+        "en": "NPC gather tier: commerce → higher tier (‰)"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 농장·목장·약초원이 기를 티어를 고를 때 상업 성향이 가운데보다 높으면 높은 티어 쪽으로, 낮으면 낮은 티어 쪽으로 치우친다. 성향 끝에서 이 값만큼 최고 티어의 무게를 더하고 가장 낮은 티어의 무게를 뺀다. 0이면 상업 성향을 보지 않는다.",
+        "en": "When NPC farms, ranches and herb gardens pick a tier, a commerce trait above the middle tilts toward higher tiers and below it toward lower tiers. At the trait's end it adds this much weight to the top tier and takes it from the lowest. 0 ignores commerce."
+      },
+      "source": "기획 답 1862(D-554·D-212) · 질문 1991~1993 [임시]"
+    },
+    {
+      "id": "npc_gather_tier_aggression",
+      "code": "",
+      "name": {
+        "ko": "NPC 기르는 티어: 공격 성향 → 높은 티어(‰)",
+        "en": "NPC gather tier: aggression → higher tier (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "상업 성향 칸과 같은 방식으로 공격 성향이 높은 세력은 높은 티어(모험), 낮은 세력은 낮은 티어 쪽으로 치우친다. 0이면 보지 않는다.",
+        "en": "Like the commerce cell, aggressive factions tilt toward higher tiers (risk) and peaceful ones toward lower tiers. 0 ignores it."
+      },
+      "source": "기획 답 1862(D-554·D-212) · 질문 1991~1993 [임시]"
+    },
+    {
+      "id": "npc_gather_tier_faith",
+      "code": "",
+      "name": {
+        "ko": "NPC 기르는 티어: 신앙 성향 → 낮은 티어(‰)",
+        "en": "NPC gather tier: faith → lower tier (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "신앙 성향이 높은 세력은 낮은 티어(익숙한 작물·가축), 낮은 세력은 높은 티어 쪽으로 치우친다. 성향 끝에서 이 값. 0이면 보지 않는다.",
+        "en": "Devout factions tilt toward lower tiers (familiar crops and livestock), secular ones toward higher tiers; this value at the trait's end. 0 ignores it."
+      },
+      "source": "기획 답 1862(D-554·D-212) · 질문 1991~1993 [임시]"
+    },
+    {
+      "id": "npc_gather_tier_leader",
+      "code": "",
+      "name": {
+        "ko": "NPC 기르는 티어: 지도자 기질 폭(‰)",
+        "en": "NPC gather tier: leader temper spread (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 900,
+      "desc": {
+        "ko": "세력마다 지도자 기질 하나를 세계 시드로 굴린다(이 폭 안의 − ~ +). 기질이 +면 높은 티어, −면 낮은 티어 쪽으로 성향 치우침에 더한다. 치우침 합은 ±900에서 자른다. 0이면 지도자 기질이 없다.",
+        "en": "Each faction rolls one leader temper from the world seed (within ± this spread). A positive temper adds a tilt toward higher tiers, a negative one toward lower tiers. The total tilt is capped at ±900. 0 means no leader temper."
+      },
+      "source": "기획 답 1862(D-554·D-212) · 질문 1991~1993 [임시]"
+    },
+    {
+      "id": "npc_gather_tier_floor",
+      "code": "",
+      "name": {
+        "ko": "NPC 기르는 티어: 후보 바닥(가장 좋은 티어의 ‰)",
+        "en": "NPC gather tier: candidate floor (‰ of best tier)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "시세로 셈한 시간당 값(값 × 수확 배율 ÷ 필요 진행)이 가장 좋은 티어의 이 몫 이상인 티어만 후보다. 후보 가운데 시간당 값 × 성향 치우침을 무게로 시설마다 고정된 시드 난수가 하나를 고른다. 1000이고 성향 칸이 모두 0이면 늘 가장 좋은 티어(옛 판).",
+        "en": "Only tiers whose hourly value at market prices (value × yield ÷ required progress) is at least this share of the best tier are candidates. Among them a per-facility fixed seeded roll picks one, weighted by hourly value × trait tilt. 1000 with all trait cells at 0 always picks the best tier (the old rule)."
+      },
+      "source": "기획 답 1862(D-554·D-212) · 질문 1991~1993 [임시]"
+    },
+    {
       "id": "gather_obj_carry_g",
       "code": "",
       "name": {

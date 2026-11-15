@@ -203,8 +203,28 @@ describe("1차 생산 여섯 가지: 약초원·목장·낚시터", () => {
   });
 
   it("목장은 건물 레벨의 최고 티어를 기른다(D-566 1721): 레벨 2 = T3 → 사다리에 없어 T2 양고기, 스탯이 모자라면 덜 거둔다", () => {
-    const full = runSimulation({ scenario: scenarioWith(40, 2), catalog: SIX_CATALOG, seed: 7, days: 5 });
-    const low = runSimulation({ scenario: scenarioWith(10, 2), catalog: SIX_CATALOG, seed: 7, days: 5 });
+    // NPC 기를 티어 성향 가중(답 1862)을 끈다 — 이 시험은 시세가 가장 좋은 티어(양고기)를 기를 때의 효율만 본다
+    const tuning = new Map([
+      ["npc_gather_tier_commerce", 0],
+      ["npc_gather_tier_aggression", 0],
+      ["npc_gather_tier_faith", 0],
+      ["npc_gather_tier_leader", 0],
+      ["npc_gather_tier_floor", 1000],
+    ]);
+    const full = runSimulation({
+      scenario: scenarioWith(40, 2),
+      catalog: SIX_CATALOG,
+      seed: 7,
+      days: 5,
+      tuning,
+    });
+    const low = runSimulation({
+      scenario: scenarioWith(10, 2),
+      catalog: SIX_CATALOG,
+      seed: 7,
+      days: 5,
+      tuning,
+    });
     const mutton = (summary: typeof full) => BigInt(summary.economy?.produced["item:mutton"] ?? "0");
     expect(mutton(full)).toBeGreaterThan(0n);
     expect(BigInt(full.economy?.produced["item:venison"] ?? "0")).toBe(0n);

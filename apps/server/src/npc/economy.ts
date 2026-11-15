@@ -59,6 +59,7 @@ import {
   restsPerDay,
   isSelectRecipe,
   npcSelectTier,
+  tierTemperOf,
 } from "@terra/sim";
 import type { CatchmentLand } from "@terra/shared/catchment";
 import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
@@ -441,12 +442,18 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       )) {
         const plots = plan.buildingId === null ? 0 : (plotsOf.get(plan.buildingId) ?? 0);
         const recipe = catalog.recipes.get(plan.recipe);
-        // 건물 채집소의 기르는 티어 = 시세로 고른 기술 추천(기획 D-569 1761 — 시뮬과 같은 함수)
+        // 건물 채집소의 기르는 티어 = 시세 × 주인 성향 가중 고르기(기획 D-569 1761·답 1862 — 시뮬과 같은 함수, 굴림은 시설 열쇠마다 고정)
+        const key = plan.buildingId ?? CITY_JOB_BASE + cityId * 16 + (plan.jobIndex ?? 0);
         const tier =
           recipe && isSelectRecipe(recipe)
-            ? npcSelectTier(economy, cityId, { recipe, level: plan.level, plots })
+            ? npcSelectTier(economy, cityId, {
+                recipe,
+                level: plan.level,
+                plots,
+                temper: tierTemperOf(world, cityId, key, o.rules().npc),
+              })
             : undefined;
-        wanted.set(plan.buildingId ?? CITY_JOB_BASE + cityId * 16 + (plan.jobIndex ?? 0), {
+        wanted.set(key, {
           recipe: plan.recipe,
           facility: plan.facility,
           level: plan.level,

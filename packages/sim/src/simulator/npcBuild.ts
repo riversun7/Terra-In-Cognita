@@ -44,12 +44,13 @@ import {
   rankCityUpgrades,
 } from "../npc/build.ts";
 import type { RecipeSpec } from "../economy/production.ts";
+import type { NpcCoefficients } from "../npc/coefficients.ts";
 import { cityHousingCap } from "../society/logistics.ts";
 import { itemAsset, lotSizeOf } from "./catalog.ts";
-import { type Economy, scheduleProduce, workerEffects } from "./economy.ts";
+import { type EcoFacility, type Economy, scheduleProduce, workerEffects } from "./economy.ts";
 import type { SimLoop } from "./loop.ts";
 import type { NpcContext, SimEvent } from "./npcRun.ts";
-import { retierFacility } from "./npcGatherTier.ts";
+import { retierFacility, tierTemperOf } from "./npcGatherTier.ts";
 import { marketRefPrice } from "./npcTrade.ts";
 import type { SimFaction, SimWorld } from "./world.ts";
 
@@ -403,7 +404,10 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
         };
       }
     }
-    // 2-1. 면적 모듈(기획 D-569 1768 — D-212 NPC도 같은 시스템): 지을 것이 없을 때, 재료가 이미 창고에 있을 때만(모듈 재료는 사지 않는다)
+    // 2-1. 면적 모듈(기획 D-569 1768 — D-212 NPC도 같은 시스템): 지을 것이 없을 때. 기획 답 1864(D-212 — 2026-11-16): 재료가 창고에 없으면
+    // 짓기·레벨 올리기와 같은 길(도시 목표 재고 → 거래 판단이 도시 거래소에서 산다)로 산다. 다만 바로 할 수 있는 레벨 올리기(재료가 이미 창고에
+    // 있음)가 있으면 그것을 먼저 하고 모듈 재료는 다음 판단에 산다(남는 재료로 놀지 않게, 질문 1994)
+    let plotAction: typeof action;
     if (!action && builder.plot) {
       const rules = economy.gather.building ?? DEFAULT_BUILDING_GATHER;
       const target = chooseCityPlot(facilities, (facility, level) =>
@@ -418,8 +422,8 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
           c.facilityRuntime,
         );
         const plot = builder.plot.bind(builder);
-        if (builder.has(faction, cityId, materials))
-          action = {
+        if (canObtain(materials))
+          plotAction = {
             materials,
             run: () => {
               const ok = plot(faction, cityId, target.key, materials, ms, nowMs);
@@ -428,6 +432,7 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
             },
           };
       }
+      if (plotAction && builder.has(faction, cityId, plotAction.materials)) action = plotAction;
     }
     // 3. 상한에 닿았으면 레벨 올리기(1146 나): 한 번에 한 레벨, 플레이어 레벨업과 같은 재료·시간. 구할 길이 없는 재료가 드는 시설은 건너뛴다
     if (!action && cap > 0 && builder.upgrade && countedBuildings(site.counts, stageOf) >= cap) {
@@ -454,6 +459,8 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
         break;
       }
     }
+    // 모듈 재료를 살 때(1864): 레벨 올리기 재료가 창고에 없으면 모듈이 먼저(살 몫)
+    if (plotAction && (!action || !builder.has(faction, cityId, action.materials))) action = plotAction;
     if (!action) continue;
     if (builder.has(faction, cityId, action.materials)) {
       action.run();
@@ -540,14 +547,22 @@ export function npcCityGrades(ctx: NpcContext, run: NpcBuildRun): NpcCityGrade[]
  * 시뮬 짓기 자리: 경제 시설만(자리 없음). 다 지으면 그 시설의 첫 레시피로 레벨 1, 일꾼 = 일 없는 휴먼(자리 수까지). 생산하지 않는 시설(숙소 등)은
  * 레벨만 센다 — 숙소 침대(레벨 × lodging_beds_per_level)는 도시 beds에 적어 인구 상한에 더한다(1131 나: 시뮬 도시에는 씨앗 숙소가 없어 지은 숙소는
  * 모두 센다). 레벨 올리기(1146 나)는 끝나면 그 시설 레벨 + 1(자리·일꾼·채집 효과를 다시 셈). 시뮬 시설에는 상태가 없어 수리하지 않는다.
- * bedsPerLevel = 숙소 레벨당 침대(부를 때마다 읽는다)
+ * bedsPerLevel = 숙소 레벨당 침대(부를 때마다 읽는다). npc = NPC 판단 계수(기르는 티어 성향 가중 고르기 — 기획 답 1862, 없으면 가장 큰 시간당 값)
  */
 export function simNpcBuilder(
   economy: Economy,
   world: SimWorld,
   loop: SimLoop<SimEvent>,
   bedsPerLevel: () => number = () => 0,
+  npc?: () => NpcCoefficients,
 ): NpcBuilder {
+  /** 시설의 기르는 티어를 그 도시 주인 성향으로 다시 고른다(1862) */
+  const retier = (facility: EcoFacility): EcoFacility =>
+    retierFacility(
+      economy,
+      facility,
+      npc ? tierTemperOf(world, facility.city, facility.id, npc()) : undefined,
+    );
   /** 도시 → 짓는 것(짓기 = facility, 레벨 올리기 = key) */
   const active = new Map<number, { facility: string; key: number | null; doneAtMs: number; plot?: true }>();
   /** 생산하지 않는 다 지은 시설(숙소 등): 열쇠 → 도시·시설·레벨 */
@@ -583,7 +598,7 @@ export function simNpcBuilder(
       if (facility === BUILD_LODGING) refreshBeds(cityId);
       return;
     }
-    const built = retierFacility(economy, {
+    const built = retier({
       id,
       city: cityId,
       recipe,
@@ -612,7 +627,7 @@ export function simNpcBuilder(
     const workers = Math.min(spec.slotsPerLevel * level, facility.workers + free);
     economy.facilities.set(
       key,
-      retierFacility(economy, {
+      retier({
         ...facility,
         level,
         workers,
@@ -627,7 +642,7 @@ export function simNpcBuilder(
     if (!facility || !spec) return;
     economy.facilities.set(
       key,
-      retierFacility(economy, {
+      retier({
         ...facility,
         ...workerEffects(
           spec.gather,
@@ -641,7 +656,7 @@ export function simNpcBuilder(
   const retierCity = (cityId: number): void => {
     for (const facility of [...economy.facilities.values()].toSorted((a, b) => a.id - b.id)) {
       if (facility.city !== cityId) continue;
-      const next = retierFacility(economy, facility);
+      const next = retier(facility);
       if (next !== facility) economy.facilities.set(facility.id, next);
     }
   };

@@ -374,6 +374,7 @@ export function runSimulation(options: RunOptions): RunSummary {
             world,
             loop,
             () => societyCoefficients.logistics.lodgingBedsPerLevel,
+            () => societyCoefficients.npc,
           ),
           targetsOf: simBuildTargets(scenario),
         }

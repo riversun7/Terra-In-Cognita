@@ -739,7 +739,7 @@ test.describe("좌표 유닛: 아무도 보지 않는 2차맵은 띄우지 않�
     await side.goto("/health");
     const home = await myPosition(side);
     if (!home) throw new Error("dev 사이보그 자리를 모릅니다");
-    const far = isCellKey(home.mapKey) ? stepCell(home.mapKey, 2, 0) : null;
+    const far = isCellKey(home.mapKey) ? stepCell(stepCell(home.mapKey, 1, 0) ?? home.mapKey, 1, 0) : null;
     if (far === null) throw new Error("동쪽 두 장 너머 2차맵이 없습니다");
     const human = await ensureHuman(side, "e2e_dev", home.mapKey);
     await side.goto("/health");

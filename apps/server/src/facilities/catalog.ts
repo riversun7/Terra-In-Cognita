@@ -75,6 +75,10 @@ export interface FacilityCatalog {
   /** 원장 물자(보유 물건이 아닌 아이템)인가 — 개발 시험 재료 받기 */
   isGoods(item: string): boolean;
   /**
+   * 기본 단위 하나의 기준 값(팩 startPrice ÷ 묶음 크기, 내림, 최소 1) — 사업장 창고 판매 처음 값·주인 꺼내기 값(D-555 1507 [임시]). 모르면 undefined
+   */
+  unitPriceOf?(item: string): bigint | undefined;
+  /**
    * 채집 사다리: 시설 채집 칸의 중분류들(주 + 함께 내는 것, 질문 946 나)의 티어별 켜진 아이템 자산(item:<ID>, 팩 차례, 길이 10) —
    * @terra/sim simulator/catalog.ts prepareCatalog와 같은 규칙(WP3 플레이어 생산, gatherWork.ts)
    */
@@ -194,6 +198,12 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
         return item?.weight === undefined ? undefined : item.weight * (item.lotSize ?? 1);
       },
       unitWeightOf: (id) => items.get(id)?.weight,
+      unitPriceOf(id) {
+        const item = items.get(id);
+        if (!item) return undefined;
+        const per = BigInt(item.startPrice) / BigInt(Math.max(1, item.lotSize ?? 1));
+        return per > 0n ? per : 1n;
+      },
       itemName(id) {
         const item = items.get(id);
         return item ? { ko: item.name.ko, en: item.name.en } : undefined;

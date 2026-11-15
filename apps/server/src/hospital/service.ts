@@ -272,7 +272,15 @@ export function createHospitalService(o: HospitalServiceOptions): HospitalServic
       if (!quote) return fail("not_faster");
       if (String(quote.cost) !== input.cost) return fail("cost_changed");
       if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < quote.cost) return fail("insufficient_funds");
-      payServiceFee(ledger, owner.ownerId, hospital.ownerId, quote.cost, at, "hospital_treat");
+      payServiceFee(
+        o.facilities,
+        ledger,
+        owner.ownerId,
+        { ownerId: hospital.ownerId, buildingId: input.buildingId },
+        quote.cost,
+        at,
+        "hospital_treat",
+      );
       const treated = treatInjury(injuryStateOf(found.info.condition), at, quote.speedPm, c);
       found.map.setCondition(input.unit, withInjury(found.info.condition, treated));
       await writer.durable();

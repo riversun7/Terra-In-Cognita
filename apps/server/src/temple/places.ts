@@ -1,7 +1,7 @@
 // 비활성 휴먼을 받는 시설(신전·생명과학 연구소)의 공용 셈 — docs/adr/2026-11-07-temple-religion.md(D-517·D-311).
 // - 시설 판단: 시설 줄 + 실효 팩 시설의 단계(religion = 신전, biotech = 생명과학 연구소) → 다 지었고 30% 이상(건물 서비스 works).
 // - 자리: 유닛이 지금 선 칸의 도시 = 시설이 선 도시(361 재료 자리와 같은 "같은 2차맵의 가장 가까운 도시" 규칙, @terra/shared/goodsPlaces).
-// - 요금: 남의 시설 = 주인 수입, 내 시설·주인 없음 = 소각 [임시](D-311 "유저 시설 요금은 유저 수입" — 내 시설이면 나에게 내는 셈이라 소각, 질문 454).
+// - 요금: 주인이 있는 시설 = 그 사업장 금고(D-548, 제 시설도 — D-555 1514가 454 소각을 대신한다), 주인 없음 = 소각 [임시].
 import { CELL_UNITS, positionAt } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import { buildingPlace, cityAt } from "../facilities/places.ts";
@@ -55,26 +55,39 @@ export function unitCity(
   return null;
 }
 
-/** 시설 요금: 남의 시설 = 주인 수입, 내 시설·주인 없음 = 소각 [임시] */
+/**
+ * 시설 요금(D-548·D-555): 주인이 있는 시설이면 그 사업장 금고로(남의 시설도, 제 시설도 — 1514 "내 시설도 요금이 들고 그 사업장 금고로", 질문 454
+ * 소각을 대신한다), 들어올 때 소득세(1503). 주인 없는 시설·사업장 장부가 없는 세계(시험)는 소각 [임시]
+ */
 export function payServiceFee(
+  world: Pick<WorldFacilities, "business"> | undefined,
   ledger: Ledger,
   payer: number,
-  facilityOwner: number | null,
+  facility: { readonly ownerId: number | null; readonly buildingId: number },
   amount: bigint,
   atMs: number,
   kind: string,
 ): void {
   if (amount <= 0n) return;
-  const to =
-    facilityOwner !== null && facilityOwner !== payer
-      ? ledger.ownerAccount(facilityOwner, ASSET_CREDIT)
-      : ledger.systemAccount(SYSTEM_SINK_CREDIT, ASSET_CREDIT);
+  const from = ledger.ownerAccount(payer, ASSET_CREDIT);
+  if (
+    facility.ownerId !== null &&
+    world?.business.receive({
+      from,
+      buildingId: facility.buildingId,
+      asset: ASSET_CREDIT,
+      amount,
+      kind,
+      atMs,
+    })
+  )
+    return;
   ledger.post({
     kind,
     atMs,
     entries: [
-      { account: ledger.ownerAccount(payer, ASSET_CREDIT), amount: -amount },
-      { account: to, amount },
+      { account: from, amount: -amount },
+      { account: ledger.systemAccount(SYSTEM_SINK_CREDIT, ASSET_CREDIT), amount },
     ],
   });
 }

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 11:30 | 사업장 장부 구현(D-548·D-555) | Claude Code | [15-1130-business-ledger-impl](worklog/2026/11/15-1130-business-ledger-impl.md) |
 | 2026-11-15 11:30 | 2026-11-15 열한째 묶음 합치기 (배 체계 개편·파티·군단 명령·채집 오브젝트 티어 범위·2차 스탯 식 글·미러 D-559) | Claude Code | [15-1130-batch-1115c-merge](worklog/2026/11/15-1130-batch-1115c-merge.md) |
 | 2026-11-15 10:50 | 2차 스탯 식 글·영향 막대 나눔 (D-556) | Claude Code | [15-1050-stat-formula-text](worklog/2026/11/15-1050-stat-formula-text.md) |
 | 2026-11-15 10:35 | 전투 움직임 판정 토대(1단계): 달리기·이동 부품·은신·계수 곡선·리플레이 사건 | Claude Code | [15-1035-combat-moves](worklog/2026/11/15-1035-combat-moves.md) |

@@ -139,6 +139,13 @@ export function createJobBoard(options: {
   nextContractId: () => number;
   /** 맺은 계약을 서비스에 넣고 저장한다 */
   addContract: (contract: LaborContract) => void;
+  /**
+   * 보증금을 내기 전: 고용주 사업장 금고가 모자라면 적자로 미리 넣는다(D-555 1504, business/core.ts advance). 없으면 금고에 있는 만큼만(모자라면
+   * employer_insufficient_funds)
+   */
+  advance?:
+    | ((buildingId: number, ownerId: number, asset: string, needed: bigint, atMs: number) => void)
+    | undefined;
 }): JobBoard {
   const { settlement, ledger, writer, accounts } = options;
   const jobs = new Map<number, LaborJob>(options.loaded.jobs.map((job) => [job.id, job]));
@@ -218,6 +225,18 @@ export function createJobBoard(options: {
       settlement.settleOwner(job.ownerId, at);
       settlement.settleOwner(me, at);
       const rules = options.rules();
+      // 보증금은 고용주 사업장 금고에서(D-555 1504) — 모자라면 적자로 미리 넣는다
+      if (job.state === "open" && job.filled < job.slots && me !== job.ownerId)
+        options.advance?.(
+          job.buildingId,
+          job.ownerId,
+          job.asset,
+          requiredDeposit(
+            laborJobWage(job, rules.efficiency, rules.rateMilli, rules.society, rules.labor),
+            rules.labor,
+          ),
+          at,
+        );
       const result = acceptLaborJob(
         job,
         {

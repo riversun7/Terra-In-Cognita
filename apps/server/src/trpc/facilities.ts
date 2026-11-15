@@ -22,6 +22,17 @@ export const facilitiesRouter = router({
    * 공개 범위(로그인한 누구나)다
    */
   /** 그 2차맵에 지을 수 있나(땅 규칙 — 건축 모드 미리 묻기, docs/adr/2026-11-14-second-map-build.md) */
+  /** 사업장 장부(누구나 — 기획 D-555 1513, docs/adr/2026-11-15-business-ledger.md). days = 1·7·30(그 밖은 7) */
+  books: signedInProcedure
+    .input(
+      z.strictObject({
+        buildingId: z.int().min(1).max(Number.MAX_SAFE_INTEGER),
+        days: z.int().min(1).max(30),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      (ctx.facilities ?? notReady).books(ctx.viewer, input.buildingId, input.days, ctx.now()),
+    ),
   landRule: signedInProcedure
     .input(z.strictObject({ mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }))
     .query(({ ctx, input }) => (ctx.facilities ?? notReady).landRule(ctx.viewer, input.mapKey)),

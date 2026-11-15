@@ -13,6 +13,7 @@
     "./battleReportCity": "./src/battleReportCity.ts",
     "./battleReplay": "./src/battleReplay.ts",
     "./buildingEditor": "./src/buildingEditor.ts",
+    "./businessBooks": "./src/businessBooks.ts",
     "./buildStamp": "./src/buildStamp.ts",
     "./catchment": "./src/catchment.ts",
     "./characterLook": "./src/characterLook.ts",

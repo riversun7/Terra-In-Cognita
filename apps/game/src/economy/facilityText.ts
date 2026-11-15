@@ -15,6 +15,7 @@ import type { FacilityCommand } from "./facilityCommands.ts";
 export const FACILITY_ERROR_TEXT: Readonly<Record<FacilityResultCode | "offline" | "timeout", () => string>> =
   {
     sign_in_required: m.facility_error_sign_in_required,
+    insufficient_funds: m.facility_error_insufficient_funds,
     busy: m.facility_error_busy,
     rate_limited: m.facility_error_rate_limited,
     forbidden: m.facility_error_forbidden,

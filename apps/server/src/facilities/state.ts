@@ -1,5 +1,6 @@
 // 건물(시설) 상태·작업 — 메모리 모양, 부팅 때 읽기, 쓰기 대기열 줄(docs/adr/2026-11-07-buildings-runtime.md)
 // 원본은 world_facilities·facility_jobs(db/facilitySchema.ts). 쓰는 프로세스가 하나라 메모리가 캐시이고 바뀜은 쓰기 대기열로 간다.
+import { type LoadedBusiness, loadBusiness } from "../business/store.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 
 /** 시설 한 줄(2차맵 건물 하나) */
@@ -51,6 +52,8 @@ export interface LoadedFacilities {
   readonly facilities: readonly FacilityRecord[];
   readonly jobs: readonly JobRecord[];
   readonly maxJobId: number;
+  /** 사업장 상태·판매 값(docs/adr/2026-11-15-business-ledger.md). 없으면 빈 것 */
+  readonly business?: LoadedBusiness | undefined;
 }
 
 export const EMPTY_FACILITIES: LoadedFacilities = { facilities: [], jobs: [], maxJobId: 0 };
@@ -85,7 +88,9 @@ export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities>
      from facility_jobs order by id`,
   );
   const maxJob = await pool.query(`select coalesce(max(id), 0) as id from facility_jobs`);
+  const business = await loadBusiness(pool);
   return {
+    business,
     facilities: facilities.rows.map((row) => ({
       buildingId: Number(row.building_id),
       facilityId: String(row.facility_id),

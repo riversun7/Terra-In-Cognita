@@ -21,6 +21,7 @@ import {
   ATTACK_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
   STORAGE_PROTOCOL_VERSION,
+  BUSINESS_PROTOCOL_VERSION,
   FUSION_PROTOCOL_VERSION,
   GENE_PROTOCOL_VERSION,
   GENE_CONVERT_PROTOCOL_VERSION,
@@ -451,6 +452,28 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         if (!context.facilities) {
           send({ t: "facility_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        facilitySocket ??= context.facilities.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
+        facilitySocket.handle(message);
+        return;
+      }
+      case "business_settle":
+      case "business_invest":
+      case "business_buy":
+      case "business_price":
+      case "unit_gift": {
+        // 사업장 장부 명령은 프로토콜 34의 메시지다(건물 게이트웨이가 받는다)
+        if (protocolVersion < BUSINESS_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.facilities) {
+          send({ t: "business_result", id: message.id, ok: false, code: "busy" });
           return;
         }
         facilitySocket ??= context.facilities.open({

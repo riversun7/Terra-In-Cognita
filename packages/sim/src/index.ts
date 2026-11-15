@@ -89,6 +89,7 @@ export { NOISE_MAX, valueNoise } from "./terrain/noise.ts";
 export * from "./terrain/layerCosts.ts";
 export * from "./grid/waterGrid.ts";
 export { type BoatCoefficients, START_BOATS } from "./society/boatCoefficients.ts";
+export { type BusinessCoefficients, START_BUSINESS } from "./society/businessCoefficients.ts";
 export {
   CLIFF_RELIEF_CM,
   ROCK_RELIEF_CM,

@@ -125,6 +125,14 @@ export interface LaborService {
   attachProduction(source: ProductionSource | undefined): void;
   /** 채집소 고리를 잇는다(gather/station.ts — 반경 안 오브젝트·채집소 창고·레벨 버프, 사용자 지적 2026-11-08) */
   attachStation(hook: StationHook | undefined): void;
+  /** 사업장 장부를 잇는다(건물 세계 — 보증금 적자·임대료 소득세, D-555 1503·1504) */
+  attachBusiness(hook: LaborBusinessHook | undefined): void;
+}
+
+/** 노동 계약이 쓰는 사업장 장부 고리(business/core.ts의 일부) */
+export interface LaborBusinessHook {
+  advance(buildingId: number, ownerId: number, asset: string, needed: bigint, atMs: number): bigint;
+  taxIncome(buildingId: number, ownerId: number, asset: string, gross: bigint, atMs: number): bigint;
 }
 
 /** 시설에서 일하는 유닛 하나 */
@@ -176,7 +184,17 @@ export function createLaborService(options: {
   const contracts = new Map<number, LaborContract>(options.loaded.contracts.map((c) => [c.id, c]));
   const rents = new Map<number, RentRow>(options.loaded.rents.map((r) => [r.buildingId, r]));
   let lastId = options.loaded.maxId;
-  const accounts = laborAccounts(ledger);
+  // 시설 주인 쪽 = 그 시설의 사업장 금고(D-548·D-555 1504): 보증금·채우기를 내고, 돌려받고(옛 계약도 금고로 — 주인이 정산으로 꺼낸다),
+  // 임대료를 받는다(소득세는 정산 뒤 taxRent)
+  const accounts = laborAccounts(ledger, undefined, (c) =>
+    ledger.ownerAccount(c.ownerId, c.asset, buildingLocation(c.buildingId)),
+  );
+  let business: LaborBusinessHook | undefined;
+  /** 임대료 소득세(D-555 1503): 정산 전후 낸 임대료 차이 */
+  const taxRent = (c: LaborContract, paidBefore: bigint, atMs: number): void => {
+    if (c.kind !== "lease" || c.paidTotal <= paidBefore) return;
+    business?.taxIncome(c.buildingId, c.ownerId, c.asset, c.paidTotal - paidBefore, atMs);
+  };
   const save = (c: LaborContract): void => writer.upsert("laborContracts", contractRow(c));
   const work = createWorkBook({
     loaded: options.loaded.work ?? [],
@@ -300,7 +318,9 @@ export function createLaborService(options: {
       }
       const start = c.settledAtMs;
       const movedBefore = c.leftoversMovedAtMs;
+      const paidBefore = c.paidTotal;
       const segments = settleLabor(c, toMs, ledger, accounts, rules);
+      taxRent(c, paidBefore, toMs);
       save(c);
       // 이번 정산에서 유예가 끝났으면(한 번에 일함 → 유예 → 끝이어도) 정산 뒤에 남은 물건을 옮긴다
       if (c.kind === "lease" && c.leftoversMovedAtMs !== null && c.leftoversMovedAtMs !== movedBefore)
@@ -395,6 +415,8 @@ export function createLaborService(options: {
       // 받은 유닛이 일을 시작한다(직무 = 채집)
       work.startJob(c.unitId);
     },
+    advance: (buildingId, ownerId, asset, needed, atMs) =>
+      business?.advance(buildingId, ownerId, asset, needed, atMs),
   });
   /** 구인 명령 공통: 세계 준비·내 주체 → 판단 → 바뀌었으면 커밋 뒤 답 */
   const jobCommand = async (
@@ -421,6 +443,9 @@ export function createLaborService(options: {
     },
     attachProduction: (source) => work.attach(source),
     attachStation: (hook) => work.attachStation(hook),
+    attachBusiness(hook) {
+      business = hook;
+    },
     afterSettle(ownerId) {
       // 채집소 일꾼 피로 덜기(직무 상태를 적은 뒤, 직무를 끄기 전)
       work.station()?.afterSettle(ownerId);
@@ -496,6 +521,9 @@ export function createLaborService(options: {
       }
       // 일하는 쪽(유닛 소유 주체 = 나)을 지금까지 정산한 뒤 맺는다: 계약 구간이 주체 정산 시각에서 시작한다
       settlement.settleOwner(me, at);
+      // 임금형 보증금은 그 사업장 금고에서(D-555 1504) — 모자라면 적자로 미리 넣는다
+      if (input.kind === "wage" && rate > 0n && (input.termHours === undefined || input.termHours > 0))
+        business?.advance(input.buildingId, ownerId, ASSET_CREDIT, requiredDeposit(rate, rules.labor), at);
       const result = openLabor(
         {
           id: lastId + 1,
@@ -514,6 +542,7 @@ export function createLaborService(options: {
         rules.labor,
       );
       if (!result.ok) return fail(result.code);
+      taxRent(result.contract, 0n, at);
       lastId += 1;
       contracts.set(result.contract.id, result.contract);
       save(result.contract);
@@ -548,6 +577,8 @@ export function createLaborService(options: {
       // 보증금이 나가는 고용주(남의 유닛을 고용했으면 일꾼 쪽과 다르다)와 계약을 정산하는 일꾼 쪽을 지금까지
       settlement.settleOwner(c.ownerId, at);
       settlement.settleOwner(c.workerOwnerId, at);
+      // 채우기도 사업장 금고에서(모자라면 적자, D-555 1504)
+      if (amount > 0n && isOpen(c)) business?.advance(c.buildingId, c.ownerId, c.asset, amount, at);
       const result = topUpLabor(c, amount, at, ledger, accounts, wageRulesOf(options.rules()).labor);
       if (!result.ok) return fail(result.code);
       save(c);

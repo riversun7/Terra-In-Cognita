@@ -767,6 +767,18 @@ export const WORLD_TABLES = {
     columns: ["building_id", "planet_id", "access", "fee", "module"],
     key: ["building_id"],
   },
+  /** 사업장 상태(적자·멈춤·자동 정산 주기 — docs/adr/2026-11-15-business-ledger.md). 건물이 사라지면 지운다 */
+  businessStates: {
+    name: "business_states",
+    columns: ["building_id", "planet_id", "debt_since_ms", "suspended_at_ms", "settled_at_ms"],
+    key: ["building_id"],
+  },
+  /** 사업장 창고 판매 값(D-555 1507) */
+  businessPrices: {
+    name: "business_prices",
+    columns: ["building_id", "item", "planet_id", "price"],
+    key: ["building_id", "item"],
+  },
   /** 전투 결과 적용 기록(추가만, 전투마다 한 줄 — 유닛 바뀜·탈취 거래와 같은 묶음) */
   battleResults: {
     name: "world_battle_results",
@@ -835,6 +847,8 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "boatJobs",
   "boatStates",
   "boatFacilities",
+  "businessStates",
+  "businessPrices",
   "marketBooks",
   "marketOrders",
   "marketTrades",

@@ -8,6 +8,7 @@
 // - 시설(facilities): 지은 사람(world_facilities.built_by)의 소유 주체에 Σ 레벨 × 상태(ppm), 다 지은 것(레벨 1 이상)만
 // - 세력 규모(세력 판): 사라지지 않은 세력마다 도시·발전도·휴먼(그 세력 도시에 사는)·국고(시험 화폐, 위치 없는 계정)·명성(정원사 2)
 // - 보호 레이드(D-500, gardener_waves.kind = protection) 전투는 랭킹 점수가 없다 → 전투 승리에서 뺀다
+import { BUILDING_LOCATION_BASE } from "@terra/shared/goodsPlaces";
 import { underdogPm } from "@terra/sim";
 
 /** pg Pool·Client 모양(query만) */
@@ -180,7 +181,10 @@ export interface FactionScaleRow {
   readonly renown: number | null;
 }
 
-/** 사라지지 않은 세력마다 규모. 국고 = 그 세력 소유 주체의 creditAsset 위치 없는 계정 잔고 */
+/**
+ * 사라지지 않은 세력마다 규모. 국고 = 그 세력 소유 주체의 creditAsset 위치 없는 계정 잔고 + 그 세력 사업장 금고(건물 위치 계정, 지분만큼 — 지금은 주인
+ * 하나 = 전부, 기획 D-555 1512, docs/adr/2026-11-15-business-ledger.md)
+ */
 export async function readFactionScales(db: Queryable, creditAsset: string): Promise<FactionScaleRow[]> {
   const result = await db.query(
     `select f.id,
@@ -188,11 +192,11 @@ export async function readFactionScales(db: Queryable, creditAsset: string): Pro
             (select coalesce(sum(c.development), 0)::int from world_cities c where c.faction_id = f.id) as dev,
             (select count(*)::int from world_humans h join world_cities c on c.id = h.city_id where c.faction_id = f.id) as humans,
             (select coalesce(sum(a.balance), 0)::text from ledger_accounts a join world_owners o on o.id = a.owner_id
-              where o.faction_id = f.id and a.asset = $1 and a.location is null) as treasury
+              where o.faction_id = f.id and a.asset = $1 and (a.location is null or a.location >= $2)) as treasury
        from factions f
       where f.dissolved_at_ms is null
       order by f.id`,
-    [creditAsset],
+    [creditAsset, BUILDING_LOCATION_BASE],
   );
   const renown = await readFactionRenown(db);
   return result.rows.map((row) => ({

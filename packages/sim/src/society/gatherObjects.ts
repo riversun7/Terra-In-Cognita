@@ -51,5 +51,6 @@ export const START_GATHER_OBJECTS: GatherObjectCoefficients = {
   stationFatigueStepPm: 50,
   stationRegrowStepPm: 50,
   stationFloorPm: 200,
-  stationHaulMs: 600_000,
+  // 자동 옮김 끔(기획 D-555 1505 — 사업장은 제 창고로 돌고 물건은 유닛이 실제로 나른다). 설정 칸으로 다시 켤 수 있다
+  stationHaulMs: 0,
 };

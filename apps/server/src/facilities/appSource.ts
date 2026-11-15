@@ -7,6 +7,8 @@ import { canObserve } from "../world/visibility.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import { mapBuildingLooks, mapOwnerIds } from "./mapLooks.ts";
 import type { FacilityScreenSource } from "./screen.ts";
+import { readBusinessBooks } from "../business/books.ts";
+import { buildingPlace } from "./places.ts";
 import { attackTargetsOf, ownerFactionsOf } from "./targets.ts";
 
 export function facilityScreenSourceOf(world: World): FacilityScreenSource | undefined {
@@ -33,6 +35,28 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
     },
     ownerOf: (userId) => settlement.findOwnerOfUser(userId),
     map: (mapKey) => world.maps.get(mapKey),
+    // 사업장 장부(D-555 1513 — 누구나 본다)
+    books: (userId, buildingId, days, nowMs) =>
+      readBusinessBooks(
+        {
+          pool,
+          ledger,
+          core: facilities.business,
+          commands: facilities.businessCommands,
+          catalog: facilities.catalog,
+          durable: () => persistence.writer.durable(),
+          place: (id) => buildingPlace(facilities.service.places, id),
+          facilityOf: (id) => facilities.service.facilities.get(id)?.facilityId,
+          isNpc: (ownerId) => {
+            const row = owners.get(ownerId);
+            return row !== undefined && row.userId === null && row.factionId !== null;
+          },
+        },
+        settlement.findOwnerOfUser(userId),
+        buildingId,
+        days,
+        nowMs,
+      ),
     land: facilities.land,
     async mapLooks(viewer, mapKey, nowMs) {
       // 보는 건물만(시야 전송과 같은 규칙): 전체 보기, 내 건물, 아는 시야 칸

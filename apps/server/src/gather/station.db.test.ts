@@ -3,6 +3,7 @@
 // 광석이 도시 창고가 아니라 채집소 창고(그 건물 창고)에 쌓이고 반경 안 광맥 번수가 줄며, 채집소 판에 일꾼 상태·창고·버프가 보이고, 자동 옮김이
 // 주인 몫을 그 도시 창고로 옮긴다. 농장(오브젝트 없음, 기획 정리 756 ②)도 직무 배치 산출이 채집소 창고로 가고 판에 수확·피로 버프(반경·다시 자람
 // 없음)·자동 옮김이 보이며 자동 옮김이 도시 창고로 옮긴다. 원장 불변 조건은 그대로다.
+import { TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { UPKEEP_PERIOD_MS, WALK_SPEED } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -81,6 +82,11 @@ async function boot(): Promise<{ world: World; gather: WorldGather }> {
     },
     facilities: { content: () => TEST_FACILITY_SOURCE },
     holdings: { content: () => TEST_HOLDING_CONTENT },
+    // 자동 옮김을 켠다(기본값은 끔 — 기획 D-555 1505. 이 시험은 켰을 때의 옮김을 본다)
+    cyborgRules: () => ({
+      ...TEST_SOCIETY_COEFFICIENTS,
+      gatherObjects: { ...TEST_SOCIETY_COEFFICIENTS.gatherObjects, stationHaulMs: 600_000 },
+    }),
   });
   await world.ready;
   const gather = startWorldGather(world, { kinds: () => KINDS, now: () => clock, log: silentLog });

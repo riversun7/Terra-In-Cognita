@@ -1,6 +1,7 @@
 // 플레이어 일꾼 쉼터(workerRest.ts) 시험 — 질문 1088 가
 import { TEST_JOB_RULES, TEST_SOCIETY_COEFFICIENTS, createLedgerBook, restPeriodMs } from "@terra/sim";
 import { describe, expect, it } from "vitest";
+import { unitPurseLocation } from "@terra/shared/businessBooks";
 import { createWorkerRest } from "./workerRest.ts";
 
 const rules = TEST_SOCIETY_COEFFICIENTS;
@@ -42,26 +43,51 @@ describe("createWorkerRest", () => {
     expect(setup(3).rest.restOf(100)?.recoveryPm).toBeGreaterThan(1500);
   });
 
-  it("남의 숙소는 일·쉼 한 바퀴마다 하룻밤 요금을 일꾼 주인 지갑에서 숙소 주인에게(잔고만큼)", () => {
+  it("숙박비는 유닛 사유재산에서 숙소에 낸다(제 주인 숙소도, D-555 1508·1514)", () => {
     const { rest, ledger } = setup(1, 9);
-    const wallet = ledger.ownerAccount(5, "credit");
+    const purse = ledger.ownerAccount(5, "credit", unitPurseLocation(100));
     const issue = ledger.systemAccount("issue:credit", "credit");
     ledger.post({
       kind: "grant",
       atMs: 0,
       entries: [
         { account: issue, amount: -10n },
-        { account: wallet, amount: 10n },
+        { account: purse, amount: 10n },
       ],
     });
     const view = rest.restOf(100);
     if (!view) throw new Error("no rest");
     const period = restPeriodMs(view.place, view.commuteCells, rules);
     rest.rulesFor(5, [{ id: 100 }], 0, period * 3 + 5);
-    expect(ledger.balanceOf(9, "credit")).toBe(3n * BigInt(rules.logistics.lodgingFeePerNight));
-    // 내 숙소면 요금 없음
+    const fee = BigInt(rules.logistics.lodgingFeePerNight);
+    // 장부가 없는 세계는 숙소 주인 지갑으로(옛 길)
+    expect(ledger.balanceOf(9, "credit")).toBe(3n * fee);
+    expect(ledger.balanceOf(5, "credit", unitPurseLocation(100))).toBe(10n - 3n * fee);
+    // 주인 지갑은 건드리지 않는다
+    expect(ledger.balanceOf(5, "credit")).toBe(0n);
+    // 제 주인 숙소여도 낸다(유닛 돈 → 숙소)
     const own = setup(1, 5);
+    const ownPurse = own.ledger.ownerAccount(5, "credit", unitPurseLocation(100));
+    own.ledger.post({
+      kind: "grant",
+      atMs: 0,
+      entries: [
+        { account: own.ledger.systemAccount("issue:credit", "credit"), amount: -10n },
+        { account: ownPurse, amount: 10n },
+      ],
+    });
     own.rest.rulesFor(5, [{ id: 100 }], 0, period * 3);
-    expect(own.ledger.balanceOf(5, "credit")).toBe(0n);
+    expect(own.ledger.balance(ownPurse)).toBe(10n - 3n * fee);
+  });
+
+  it("숙박비를 다 못 내면 회복이 떨어진다(노숙 회복)", () => {
+    const { rest } = setup(3, 9);
+    const view = rest.restOf(100);
+    if (!view) throw new Error("no rest");
+    const period = restPeriodMs(view.place, view.commuteCells, rules);
+    const paid = rest.rulesFor(5, [{ id: 100 }], 0, period - 1)?.[0]?.restStepMs;
+    const broke = rest.rulesFor(5, [{ id: 100 }], period - 1, period * 2)?.[0]?.restStepMs;
+    expect(broke).toBeGreaterThan(paid ?? 0);
+    expect(rest.restOf(100)?.unpaid).toBe(true);
   });
 });

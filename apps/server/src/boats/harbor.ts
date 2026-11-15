@@ -233,11 +233,14 @@ export function createHarbor(
     atMs: number,
   ): bigint => {
     const asset = deps.feeAsset;
-    if (!asset || facilityOwner === null || facilityOwner === boatOwner || amount <= 0n) return 0n;
+    // 제 시설을 써도 요금을 낸다(D-555 1514 — 그 사업장 금고로)
+    if (!asset || facilityOwner === null || amount <= 0n) return 0n;
     const from = deps.ledger.ownerAccount(boatOwner, asset);
     const have = deps.ledger.balance(from);
     const pay = have < amount ? have : amount;
     if (pay <= 0n) return 0n;
+    // 사업장 장부(소득세 포함, D-555 1503). 장부가 없는 세계(시험)는 금고로 바로
+    if (deps.business?.receive({ from, buildingId, asset, amount: pay, kind, atMs })) return pay;
     deps.ledger.post({
       kind,
       atMs,
@@ -273,9 +276,13 @@ export function createHarbor(
           evict(state);
           evicted += 1;
           dirty = true;
-        } else if (home.ownerId !== null && home.ownerId !== boat.ownerId) {
+        } else if (home.ownerId !== null) {
           const row = facility(state.homeId, home.ownerId);
-          if (!(await accessAllows(row.access, home.ownerId, boat.ownerId))) {
+          // 받기 범위는 남의 배만 본다. 정박료는 제 배도 낸다(D-555 1514 — 제 정박장 금고로)
+          if (
+            home.ownerId !== boat.ownerId &&
+            !(await accessAllows(row.access, home.ownerId, boat.ownerId))
+          ) {
             evict(state);
             evicted += 1;
             dirty = true;

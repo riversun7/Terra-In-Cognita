@@ -360,6 +360,14 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "boat_fuel_price",
+      "since": 111,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

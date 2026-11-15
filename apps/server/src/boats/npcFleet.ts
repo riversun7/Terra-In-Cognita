@@ -258,14 +258,15 @@ export function createNpcFleet(deps: NpcFleetDeps, options: { readonly timer?: b
           const aboard = dock.map.passengers(boatId);
           const school = aboard.length > 0 ? schoolNear(dock.map, boatId, at, gather) : undefined;
           if (school === undefined) continue;
-          for (const id of aboard) {
-            const result = await gather.startAs(dock.ownerId, {
-              unitId: id,
-              mapKey: dock.map.mapKey,
-              objectId: school,
-            });
-            if (result.ok) counts.fishing += 1;
-          }
+          // 배 단위 작업(D-568): 첫 승객이 배 줄을 맡고 나머지 승객은 일꾼으로 함께 캔다
+          const lead = aboard[0];
+          if (lead === undefined) continue;
+          const result = await gather.startAs(dock.ownerId, {
+            unitId: lead,
+            mapKey: dock.map.mapKey,
+            objectId: school,
+          });
+          if (result.ok) counts.fishing += 1;
         }
       }
       for (const boatId of waiting.keys()) {

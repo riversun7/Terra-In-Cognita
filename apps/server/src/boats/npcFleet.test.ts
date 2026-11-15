@@ -106,6 +106,8 @@ function setup(perDock = 1) {
         facility: (id: string) => DEFS.find((def) => def.id === id),
         facilities: DEFS,
         itemName: () => undefined,
+        lotSize: new Map<string, bigint>(),
+        unitWeightOf: () => 1000,
       }) as never,
     /* oxlint-enable typescript/no-unsafe-type-assertion */
     cities: () => [{ id: CITY, mapKey: map.mapKey, x: 100, y: 40 }],
@@ -241,7 +243,8 @@ describe("NPC 배(D-547 1497, D-559 1523 도크)", () => {
     await vi.advanceTimersByTimeAsync(600_000);
     expect(r.map.passengers(boatId)).toEqual([11, 12]);
     await r.fleet.tick();
-    expect(r.started.map((entry) => entry.unitId)).toEqual([11, 12]);
+    // 배 단위 작업(D-568): 첫 승객 하나가 배 줄을 맡는다
+    expect(r.started.map((entry) => entry.unitId)).toEqual([11]);
     expect(r.started.every((entry) => entry.ownerId === NPC && entry.objectId === 70_000)).toBe(true);
     expect(await r.fleet.tick()).toMatchObject({ fishing: 1, boarded: 0 });
     // 지침: 정박장 옆이면 모두 내린다(봇은 다시 걷는다)

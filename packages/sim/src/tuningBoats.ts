@@ -117,7 +117,6 @@ export const BOAT_TUNING_KEYS: readonly TuningKey[] = [
   ),
   k("boat_fuel_capacity", "", "fuelCapacity", "배 연료 통(단위)", "Boat fuel tank (units)"),
   k("boat_fuel_per_hour", "", "fuelPerHour", "항해 한 시간 연료(단위)", "Fuel per sailing hour (units)"),
-  k("boat_fuel_price", "", "fuelPrice", "연료 한 단위 값", "Fuel price per unit"),
   k("boat_nofuel_speed_pm", "", "noFuelSpeedPm", "연료 없는 배 빠르기(‰)", "Out-of-fuel boat speed (‰)"),
   k("boat_overheat_speed_pm", "", "overheatSpeedPm", "오버히트 빠르기(‰)", "Overheat speed (‰)"),
   k("boat_overheat_fuel_pm", "", "overheatFuelPm", "오버히트 연료(‰)", "Overheat fuel use (‰)"),
@@ -150,4 +149,21 @@ export const BOAT_TUNING_KEYS: readonly TuningKey[] = [
   k("naval_shell_ap_hull_pm", "", "shellApHullPm", "AP탄 선체 피해(‰)", "AP shell hull damage (‰)"),
   k("naval_shell_he_hull_pm", "", "shellHeHullPm", "HE탄 선체 피해(‰)", "HE shell hull damage (‰)"),
   k("naval_shell_he_deck_pm", "", "shellHeDeckPm", "HE탄 갑판 피해(‰)", "HE shell deck damage (‰)"),
+  // D-564·D-568(외주 주문·압류·배 창고) — docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (D-564·D-568)"
+  k(
+    "shipyard_build_fee_pm",
+    "",
+    "shipyardBuildFeePm",
+    "남의 배 짓기 주문 요금(외주 요금 × ‰)",
+    "Build order fee for others (service fee × ‰)",
+  ),
+  k(
+    "shipyard_impound_days",
+    "",
+    "impoundDays",
+    "보관료 밀림 압류(일)",
+    "Storage arrears before impound (days)",
+  ),
+  k("boat_value_pm", "", "valuePm", "배값(재료 시작 시세 × ‰)", "Boat value (material start price × ‰)"),
+  k("boat_hold_kg", "", "holdKg", "배 창고(kg)", "Boat hold (kg)"),
 ];

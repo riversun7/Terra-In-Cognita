@@ -43,6 +43,9 @@ export const SHIPYARD: FacilityDef = {
       buildMs: 600_000,
       speedPm: 1000,
       capacity: 2,
+      // 배 창고 2kg·연료 아이템(D-568·D-564 1687)
+      holdKg: 2,
+      fuelItems: [{ item: "whale_oil", units: 200 }],
     },
     {
       id: "cargo_boat",
@@ -81,6 +84,10 @@ export function setup(extra: Partial<Parameters<typeof createBoatService>[0]> = 
         facility: (id: string) => DEFS.find((def) => def.id === id),
         facilities: DEFS,
         itemName: () => undefined,
+        lotSize: new Map<string, bigint>(),
+        unitWeightOf: () => 1000,
+        weightOf: () => 1000,
+        unitPriceOf: () => 5n,
       }) as never,
     /* oxlint-enable typescript/no-unsafe-type-assertion */
     cities: () => [],

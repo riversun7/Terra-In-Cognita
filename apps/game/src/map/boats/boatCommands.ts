@@ -18,7 +18,8 @@ export type BoatCommand =
   | Omit<ClientMessageOf<"boat_refuel">, "id">
   | Omit<ClientMessageOf<"boat_overheat">, "id">
   | Omit<ClientMessageOf<"boat_crew">, "id">
-  | Omit<ClientMessageOf<"boat_seize">, "id">;
+  | Omit<ClientMessageOf<"boat_seize">, "id">
+  | Omit<ClientMessageOf<"boat_unload">, "id">;
 
 export type BoatOutcome =
   | {

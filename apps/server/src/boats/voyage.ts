@@ -1,11 +1,13 @@
 // 항해 명령(연료 보급·오버히트·보직·표류한 배 빼앗기) — 기획 D-559 1529·1533·1534·1537·1540, docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559",
 // docs/adr/2026-11-15-sea-combat-routes.md "바뀜 (2026-11-15) D-559".
-// - 연료 보급(1529 "교역 부두에서 보급"): 교역 부두에 시간을 사고 둘레에 대어 있어야 한다. 통을 채우는 만큼 연료 값(그 항구 나라 화폐)을 부두 금고에 낸다.
+// - 연료 보급(1529 "교역 부두에서 보급", D-564 1687 "처음부터 아이템만"): 교역 부두에 시간을 사고 둘레에 대어 있어야 한다. 배 종류 연료 아이템을 배 창고 →
+//   그 교역 부두 도시의 내 창고 차례로 태워 통을 채운다(hold.ts burnFuelItems). 돈으로 채우기는 없다(옛 boat_fuel_price 칸을 뺐다).
 // - 오버히트(1540 "연료도 씀", "전투 밖에서도"): 켜면 빠르기가 오르고 연료·내구도를 더 쓴다(셈은 harbor.ts 정시 살피기). 끄면 식는 시간 동안 다시 못 켠다.
 //   연료가 없으면 켜지 않는다. 켜고 끌 때 지난 구간을 먼저 셈하고 빠르기를 다시 읽는다(가던 길은 새 빠르기로 이어 간다).
 // - 보직(1533 "캡틴함장, 화포수, 엔진실, 갑판병 기본수리"): 배에 탄 내 유닛을 보직에 둔다. 자리 수는 배 종류 함선 칸(함장 1, 없으면 갑판병 1).
 // - 빼앗기(1534 "침략 세력이 선장을 앉혀 소유권을 뺐어올수있음"): 표류(내구도 0이나 연료 0)하고 아무도 타지 않은 남의 배에, 내 배에 탄 내 유닛을 함장으로
-//   옮겨 앉히면 그 배가 내 것이 된다. 내 배가 붙어 있어야 한다(boat_board_cells). 같은 나라 배는 빼앗지 않는다 [임시]. 승객이 남은 배는 해상 전투(백병전)가
+//   옮겨 앉히면 그 배가 내 것이 된다. 내 배가 붙어 있어야 한다(boat_board_cells). 같은 나라 배는 빼앗지 않고, 다른 나라 배는 전쟁 여부와 상관없이 빼앗는다
+//   (D-564 1690 "같은 나라는 막음"). 배 창고 물건도 함께 넘어간다(D-568 배 창고 — hold.ts moveHoldOwner). 승객이 남은 배는 해상 전투(백병전)가
 //   생기면 그때(함장 포로·짐 약탈은 전투 고리 — ADR).
 import { type CrewPost, postSeats } from "@terra/shared/naval";
 import {
@@ -18,6 +20,9 @@ import {
   rectGap,
 } from "./core.ts";
 import { type Harbor, harborAccepts } from "./harbor.ts";
+import { burnFuelItems, moveHoldOwner } from "./hold.ts";
+import { cargoLocation, cityLocation } from "@terra/shared/goodsPlaces";
+import { cityAt } from "../facilities/places.ts";
 import { UNIT_KIND_BOAT } from "../world/unitKinds.ts";
 
 export interface Voyage {
@@ -68,15 +73,24 @@ export function createVoyage(deps: BoatDeps, harbor: Harbor): Voyage {
         return fail("not_moored");
       harbor.account(state, at);
       const fuel = harbor.fuelOf(state);
-      const units = Math.ceil((fuel.tank - fuel.milli) / 1000);
-      if (units <= 0) return fail("fuel_full");
-      const cost = BigInt(units) * BigInt(Math.max(0, rules.fuelPrice));
-      // 제 부두에서 넣어도 연료값을 낸다(D-555 1514 — 그 사업장 금고로)
-      const pays = !operator && dock.ownerId !== null && cost > 0n;
-      if (pays && harbor.balanceOf(boat.ownerId, buildingId) < cost) return fail("insufficient_funds");
-      if (pays) harbor.charge(boat.ownerId, dock.ownerId, buildingId, cost, "boat_fuel", at);
+      const need = fuel.tank - fuel.milli;
+      if (need < 1000) return fail("fuel_full");
       const wasEmpty = harbor.fuelEmpty(state);
-      state.fuelMilli = fuel.tank;
+      let filled = need;
+      if (!operator) {
+        // 연료 아이템(배 종류 fuelItems)을 배 창고 → 그 부두 도시의 내 창고 차례로 태운다(D-564 1687)
+        const places = deps.places();
+        const catalog = places?.catalog();
+        const fuels = harbor.typeOf(state)?.fuelItems ?? [];
+        if (!places || !catalog || fuels.length === 0) return fail("no_fuel_items");
+        const cityId =
+          places.facilities.get(buildingId)?.cityId ??
+          cityAt(places, dock.map.mapKey, dock.rect.x, dock.rect.y);
+        const from = [cargoLocation(boatId), ...(cityId === null ? [] : [cityLocation(cityId)])];
+        filled = burnFuelItems(deps.ledger, catalog, boat.ownerId, fuels, from, need, at).milli;
+        if (filled <= 0) return fail("no_fuel_items");
+      }
+      state.fuelMilli = Math.min(fuel.tank, fuel.milli + filled);
       state.fuelAtMs = at;
       harbor.saveState(state);
       if (wasEmpty) map.refreshSpeed(boatId);
@@ -152,6 +166,8 @@ export function createVoyage(deps: BoatDeps, harbor: Harbor): Voyage {
         return fail("forbidden");
       if (!map.board(unitId, boatId)) return fail("internal_error");
       map.setOwner(boatId, owner);
+      // 배 창고 물건도 새 주인에게(짐째 넘어간다)
+      moveHoldOwner(deps.ledger, boatId, target.ownerId, owner, at, "boat_seize");
       state.homeId = null;
       state.feePaidToMs = null;
       state.arrears = 0;

@@ -38,7 +38,18 @@ export const NAVAL_LIMITS = {
   /** 연료 통·한 시간 연료(단위) */
   fuelCapacity: { min: 1, max: 1_000_000 },
   fuelPerHour: { min: 0, max: 100_000 },
+  /** 배 창고(kg, D-568 — 배에서 캔 것이 든다) */
+  holdKg: { min: 1, max: 1_000_000 },
+  /** 태우는 연료 아이템 줄 수·한 개가 채우는 연료(단위, D-564 1687 — 연료는 아이템만) */
+  fuelItems: 8,
+  fuelUnits: { min: 1, max: 1_000_000 },
 } as const;
+
+/** 연료 아이템 한 줄(그 아이템 1개 = 연료 units 단위) */
+export interface FuelItem {
+  readonly item: string;
+  readonly units: number;
+}
 
 /** 배 종류의 함선 칸(서버·화면 공용 모양) */
 export interface NavalSpec {

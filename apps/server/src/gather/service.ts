@@ -8,10 +8,10 @@
 // - 길에서 벗어남(확인할 때 움직임이 바뀜·유닛 없음) = interrupted. 같은 유닛에 새 명령이 오면 앞 줄을 버린다.
 // [임시] 채집 줄·안에 머묾은 메모리에만 둔다(다시 켜면 유닛은 그 자리에 선다. 든 화물은 원장에 남는다 — 확인 대기, 질문 670).
 // 배에서 캐기(기획 D-541 1280 가, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B3)"): 배에 탄 유닛(승객)은 바다 오브젝트(배로만 닿는 것·어군)만 캐고,
-// 채집 줄이 배를 몬다(승객에게 내린 이동 = 배 이동, D-541 1279 나). 설 칸은 배가 설 물 칸, 거리는 배에서 캐는 거리(stand.ts). 캔 것은 승객 화물에
-// 들고(걷는 채집과 같은 원장 위치), 차면 배가 넣는 곳 둘레 물(없으면 내 부두)로 가서 넣는다(닿을 물이 없으면 no_deposit — 화물은 승객이 든 채).
-// 한 배의 승객들은 같은 오브젝트만 함께 캔다(다른 오브젝트를 시키면 앞 줄이 끝난다). 같은 배의 다른 승객 채집 줄이 배를 옮긴 것은 벗어남으로
-// 보지 않고 다시 찾아간다(steer).
+// 채집 줄이 배를 몬다(승객에게 내린 이동 = 배 이동, D-541 1279 나). 설 칸은 배가 설 물 칸, 거리는 배에서 캐는 거리(stand.ts).
+// 바뀜(D-568, boatCrew.ts): 작업은 배 단위다 — 한 배에 줄 하나(승객 누가 시켜도 앞 줄을 끝낸다), 일꾼 = 탄 승객 모두, 캔 것은 **배 창고**(원장 위치
+// cargoLocation(배 ID), 상한 = 배 종류 창고)에 든다. 차면 배가 부두의 내 창고(넣는 곳 둘레 물, 없으면 내 부두 도시 창고)로 가서 넣는다(닿을 물이 없으면
+// no_deposit — 배 창고에 든 채, 교역 부두에 내리기는 boats/cargo.ts). 같은 배의 앞 줄이 배를 옮긴 움직임은 벗어남으로 보지 않는다(steer).
 import type { GatherResultCode } from "@terra/protocol";
 import type { GatherLoopView, GatherPhase, GatherStop } from "@terra/shared/gather";
 import {
@@ -58,6 +58,8 @@ import type { GatherCommandResult, GatherDeps, GatherService } from "./serviceTy
 
 export type { GatherCommandResult, GatherDeps, GatherService } from "./serviceTypes.ts";
 import { BOAT_BODY_SIZE, boatReach, commandCode, onLand, onWater, seaObject, standNear } from "./stand.ts";
+import { boatCrew, tireCrew } from "./boatCrew.ts";
+import { holdStacks } from "../boats/hold.ts";
 
 /** 끝난 줄을 화면에 보이는 시간(ms) */
 export const RECENT_MS = 10 * 60_000;
@@ -189,11 +191,17 @@ export function createGatherService(deps: GatherDeps): GatherService {
 
   const kindOf = (action: Action): GatherKind | undefined => deps.kinds()[action.kindIndex];
 
-  const capacity = (): number => Math.max(0, deps.rules().gatherObjects.carryGrams);
+  /** 캔 것이 드는 곳: 배 줄은 배 창고(배 ID 화물 위치 — D-568), 아니면 그 유닛 화물 */
+  const holder = (action: Action): number => action.boatId ?? action.unitId;
+  /** 화물 상한(g): 배 줄은 배 창고(배 고리, 없으면 설정 칸 boat_hold_kg), 아니면 걷는 화물 */
+  const capacity = (action: Action): number =>
+    action.boatId === null
+      ? Math.max(0, deps.rules().gatherObjects.carryGrams)
+      : (deps.boatHoldGrams?.(action.boatId) ?? Math.max(1, deps.rules().boats.holdKg) * 1000);
 
   const carried = (action: Action): bigint => {
     const ctx = storageCtx();
-    return ctx ? carriedGrams(ctx, action.ownerId, action.unitId, action.assets) : 0n;
+    return ctx ? carriedGrams(ctx, action.ownerId, holder(action), action.assets) : 0n;
   };
 
   const viewOf = (action: Action): GatherLoopView => ({
@@ -204,7 +212,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     buildingId: action.buildingId,
     phase: action.phase,
     carriedGrams: Number(carried(action)),
-    capacityGrams: capacity(),
+    capacityGrams: capacity(action),
     deposit: action.deposit?.kind ?? null,
     gatheredLots: action.gatheredLots,
     depositedUnits: action.depositedUnits,
@@ -462,7 +470,10 @@ export function createGatherService(deps: GatherDeps): GatherService {
       await goToObject(action);
       return;
     }
-    const primary = statOf(deps.primaries(action.unitId), kind.primary) ?? 0;
+    // 배 줄은 일꾼 가운데 가장 높은 주 스탯(D-568 배 단위 작업)
+    const crew =
+      action.boatId === null ? [action.unitId] : boatCrew(where.map, action.boatId, action.ownerId, now());
+    const primary = Math.max(0, ...crew.map((id) => statOf(deps.primaries(id), kind.primary) ?? 0));
     const duration = gatherDurationMs(kind, primary, deps.rules().productionMainDivisor);
     action.phase = "gathering";
     action.motion = where.info.motion;
@@ -514,27 +525,35 @@ export function createGatherService(deps: GatherDeps): GatherService {
       levelBonus: rules.gatherLevelBonus,
     })}`;
     const efficiency = gatherEfficiencyPm(rules.gatherObjects, action.campLevel);
-    const lots = splitPm(
-      gatherYieldPm(kind, secondary, rule, rules.productionSubYieldPm, efficiency),
-      action.yieldCarryPm,
-    );
+    // 배 줄은 일꾼마다 보조 스탯으로 센 몫의 합(D-568 배 단위 작업)
+    const crew =
+      action.boatId === null ? [action.unitId] : boatCrew(where.map, action.boatId, action.ownerId, at);
+    let yieldPm = 0;
+    for (const id of crew.length > 0 ? crew : [action.unitId]) {
+      const sub = id === action.unitId ? secondary : (statOf(deps.primaries(id), kind.secondary) ?? 0);
+      yieldPm += gatherYieldPm(kind, sub, rule, rules.productionSubYieldPm, efficiency);
+    }
+    const lots = splitPm(yieldPm, action.yieldCarryPm);
     action.yieldCarryPm = lots.carryPm;
     if (lots.whole > 0) {
       const qty = BigInt(lots.whole) * (catalog.lotSize.get(asset) ?? 1n);
-      gatherIntoCargo(deps.ledger, action.ownerId, action.unitId, asset, qty, at);
+      gatherIntoCargo(deps.ledger, action.ownerId, holder(action), asset, qty, at);
       action.assets.add(asset);
       action.gatheredLots += lots.whole;
     }
     // 피로(시설 반경 안이면 덜)
     const fatigue = splitPm(gatherFatiguePm(rules.gatherObjects, action.campLevel), action.fatigueCarryPm);
     action.fatigueCarryPm = fatigue.carryPm;
-    let tired = false;
-    if (fatigue.whole > 0) {
-      const job = where.info.job;
-      const value = Math.min(rules.fatigueMax, job.fatigue + fatigue.whole);
-      where.map.setJob(action.unitId, { ...job, fatigue: value });
-      tired = value >= rules.fatigueMax;
-    }
+    // 피로는 일꾼 모두(배 줄), 이끄는 유닛이 상한이면 끝
+    const tired =
+      fatigue.whole > 0 &&
+      tireCrew(
+        where.map,
+        crew.includes(action.unitId) ? crew : [action.unitId, ...crew],
+        action.unitId,
+        fatigue.whole,
+        rules.fatigueMax,
+      );
     // 채집 중 부상(D-521): 지난번 뒤로 지난 작업 주기 경계를 굴린다. 빨강(활동 불가)이면 그 자리에서 끝(든 화물은 그대로)
     if (deps.workInjury) {
       const fatigueNow = where.map.unitInfo(action.unitId)?.job.fatigue ?? where.info.job.fatigue;
@@ -550,7 +569,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     // 다음: 화물이 차면 넣으러, 피로 상한이면 넣고 끝, 오브젝트가 남았으면 또 캐기, 떨어졌으면 다음 오브젝트
     const weight =
       BigInt(catalog.unitWeightOf(asset.slice("item:".length)) ?? 0) * (catalog.lotSize.get(asset) ?? 1n);
-    const full = carried(action) + weight > BigInt(capacity());
+    const full = carried(action) + weight > BigInt(capacity(action));
     if (tired) {
       action.endAfterDeposit = "tired";
       if (carried(action) > 0n) await goToDeposit(action);
@@ -577,7 +596,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
       return;
     }
     const before = carried(action);
-    const moved = depositCargo(ctx, action.ownerId, action.unitId, action.assets, deposit, now());
+    const moved = depositCargo(ctx, action.ownerId, holder(action), action.assets, deposit, now());
     action.depositedUnits += Number(moved);
     if (carried(action) > 0n && before > 0n) {
       // 창고가 찼다: 다른 넣는 곳으로(시설이었으면 시설은 그대로 — 시설 창고 상한은 도시가 없는 시설만)
@@ -777,12 +796,14 @@ export function createGatherService(deps: GatherDeps): GatherService {
     if (boatId === null && kind.boat === true) return fail("unavailable");
     if (deps.store.read(input.mapKey, object.id, kind.uses, now()).usesLeft <= 0) return fail("depleted");
     if (!(await freeUnit(userId, unit.ownerId, input.unitId))) return fail("unavailable");
-    // 한 배의 승객들은 같은 오브젝트만 함께 캔다: 다른 오브젝트를 캐던 같은 배의 줄은 끝낸다(배가 오가지 않게, 질문 1400)
+    // 배 단위 작업(D-568 "승선한 유닛들 독자행동x"): 한 배에 줄 하나 — 같은 배의 앞 줄은 끝내고 새 줄이 배를 맡는다
     if (boatId !== null)
       for (const other of actions.values())
-        if (other.boatId === boatId && other.unitId !== input.unitId && other.objectId !== object.id)
-          finish(other, "interrupted");
+        if (other.boatId === boatId && other.unitId !== input.unitId) finish(other, "interrupted");
     const action = newAction(userId, unit.ownerId, input.unitId, input.mapKey, "gather", boatId);
+    // 배 창고에 이미 든 물건도 상한에 센다(앞 줄이 캔 것)
+    if (boatId !== null)
+      for (const stack of holdStacks(deps.ledger, unit.ownerId, boatId)) action.assets.add(stack.asset);
     action.objectId = object.id;
     action.kindIndex = object.kind;
     replace(action);

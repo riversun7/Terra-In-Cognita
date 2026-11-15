@@ -174,6 +174,8 @@ function rig(options: RigOptions = {}): Rig {
     primaries: () => ({ str: 20, dex: 20, agi: 20, vit: 20, int: 20, wis: 20 }),
     pollution: () => 0,
     terrainKind: () => (options.waterStrip ? { biomeId: "ocean_coastal", waterBits: 1 } : undefined),
+    // 배 창고 3kg(D-568 — 걷는 화물과 같은 값으로 시험 시간을 맞춘다)
+    boatHoldGrams: () => 3000,
     ready: () => true,
   });
   return { maps, gather, ledger, facilities, store };
@@ -436,14 +438,16 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
       ok: true,
     });
     await until(() => loopOf(r)?.phase === "gathering");
-    await until(() => r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(1)) > 0n);
+    // 캔 것은 배 창고(배 화물 위치, D-568)
+    await until(() => r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(50)) > 0n);
+    expect(r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(1))).toBe(0n);
     // 승객은 내리지 않았고 배와 같은 움직임
     expect(map.unitInfo(1)?.aboard).toBe(50);
     expect(map.unitInfo(1)?.motion).toBe(map.unitInfo(50)?.motion);
-    // 화물이 차면(3kg) 넣는 곳(도시 (100, 16))으로 — 둘레 14칸 안에 배가 닿을 물이 없어 든 채 끝
+    // 배 창고가 차면(3kg) 넣는 곳(도시 (100, 16))으로 — 둘레 14칸 안에 배가 닿을 물이 없어 배 창고에 든 채 끝
     await until(() => loopOf(r)?.phase === "done");
     expect(loopOf(r)?.stop).toBe("no_deposit");
-    expect(r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(1))).toBeGreaterThanOrEqual(3n);
+    expect(r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(50))).toBeGreaterThanOrEqual(3n);
     expect(r.ledger.balanceOf(OWNER, "item:saury", cityLocation(CITY))).toBe(0n);
     r.gather.stop();
   });
@@ -496,7 +500,7 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
     r.gather.stop();
   });
 
-  it("한 배의 승객들은 같은 오브젝트만 함께 캔다 — 다른 오브젝트를 시키면 앞 줄이 끝난다(질문 1400)", async () => {
+  it("배 단위 작업(D-568): 한 배에 줄 하나 — 다른 승객이 시키면 앞 줄이 끝나고, 탄 승객 모두가 일꾼", async () => {
     const kinds = [VEIN, school("school_coastal", 6), school("school_shelf", 0)];
     const r = rig({ kinds, waterStrip: true });
     const map = r.maps.get(K[0] ?? 0);
@@ -511,14 +515,16 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
     map.board(2, 50);
     const mapKey = K[0] ?? 0;
     expect(await r.gather.start(USER, { unitId: 1, mapKey, objectId: shelf?.id ?? 0 })).toEqual({ ok: true });
+    // 같은 오브젝트라도 다른 승객이 시키면 배 줄이 넘어간다(승선한 유닛은 따로 행동하지 않는다)
     expect(await r.gather.start(USER, { unitId: 2, mapKey, objectId: shelf?.id ?? 0 })).toEqual({ ok: true });
-    expect(r.gather.acting(1) && r.gather.acting(2)).toBe(true);
+    expect(r.gather.acting(1)).toBe(false);
+    expect(loopOf(r, 1)).toMatchObject({ phase: "done", stop: "interrupted" });
     expect(await r.gather.start(USER, { unitId: 2, mapKey, objectId: coastal?.id ?? 0 })).toEqual({
       ok: true,
     });
-    expect(r.gather.acting(1)).toBe(false);
-    expect(loopOf(r, 1)).toMatchObject({ phase: "done", stop: "interrupted" });
     expect(r.gather.acting(2)).toBe(true);
+    // 일꾼 둘 다 지친다(배 줄 하나가 두 승객의 피로를 올린다)
+    await until(() => (map.unitInfo(1)?.job.fatigue ?? 0) > 0 && (map.unitInfo(2)?.job.fatigue ?? 0) > 0);
     r.gather.stop();
   });
 });

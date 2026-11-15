@@ -110,20 +110,23 @@ describe("배", () => {
     map.addUnit({ id: 2, size: 1, speed: 437, cellX: 120, cellY: 30, ownerId: 7, kind: UNIT_KIND_HUMAN });
     const berth = place(BERTH, 70);
     // 옛 부두(= 정박장)에서는 만들지 않는다
-    expect(service.build("player", berth, false)).toEqual({ ok: false, code: "not_shipyard" });
+    expect(await service.build("player", berth, false)).toEqual({ ok: false, code: "not_shipyard" });
     const yard = place(SHIPYARD, 40);
-    expect(service.build("stranger", yard, false)).toEqual({ ok: false, code: "forbidden" });
-    expect(service.build("player", yard, false, "submarine")).toEqual({
+    expect(await service.build("stranger", yard, false)).toEqual({ ok: false, code: "forbidden" });
+    expect(await service.build("player", yard, false, "submarine")).toEqual({
       ok: false,
       code: "unknown_boat_type",
     });
-    expect(service.build("player", yard, false)).toEqual({ ok: false, code: "insufficient_materials" });
+    expect(await service.build("player", yard, false)).toEqual({ ok: false, code: "insufficient_materials" });
     grant(7, "item:pine_log", 10n, cargoLocation(2));
     // 작은 배: 10분 × 1000‰
-    expect(service.build("player", yard, false, "rowboat")).toEqual({ ok: true, readyAtMs: START + 600_000 });
+    expect(await service.build("player", yard, false, "rowboat")).toEqual({
+      ok: true,
+      readyAtMs: START + 600_000,
+    });
     expect(saved.has("boatJobs:1")).toBe(true);
     // 도크 하나 — 짐배는 기다린다
-    expect(service.build("admin", yard, true, "cargo_boat")).toEqual({
+    expect(await service.build("admin", yard, true, "cargo_boat")).toEqual({
       ok: false,
       code: "dock_busy",
       readyAtMs: START + 600_000,
@@ -141,7 +144,10 @@ describe("배", () => {
     expect(docked).toMatchObject([{ typeId: "rowboat", hullPm: 1000, repairUntil: null, storageDue: "0" }]);
     const boatId = docked[0]?.boatId;
     expect(service.dockJob(yard)?.used).toBe(1);
-    expect(service.build("admin", yard, true, "cargo_boat")).toMatchObject({ ok: false, code: "dock_busy" });
+    expect(await service.build("admin", yard, true, "cargo_boat")).toMatchObject({
+      ok: false,
+      code: "dock_busy",
+    });
     expect(service.release("other", boatId!, false)).toEqual({ ok: false, code: "forbidden" });
     expect(service.release("player", boatId!, false)).toEqual({ ok: true, boatId });
     expect(boatsOn(map)).toEqual([boatId]);
@@ -154,7 +160,7 @@ describe("배", () => {
     });
     expect(saved.has(`boatStates:${String(boatId)}`)).toBe(true);
     // 짐배(운영자, 1/100 시간): 빠르기 500‰
-    const cargo = service.build("admin", yard, true, "cargo_boat");
+    const cargo = await service.build("admin", yard, true, "cargo_boat");
     expect(cargo).toEqual({ ok: true, readyAtMs: Date.now() + 12_000 });
     await vi.advanceTimersByTimeAsync(12_000);
     const cargoId = service.dockJob(yard)?.docked[0]?.boatId;
@@ -178,16 +184,19 @@ describe("배", () => {
     expect(service.policy("player", yard3, { access: "owner" }, false)).toEqual({ ok: true });
     expect(service.policy("player", yard3, { module: "docks" }, false)).toEqual({ ok: true });
     expect(service.dockJob(yard3)?.capacity).toBe(1 + START_BOATS.shipyardDockModule);
-    // 레벨 3 = 자리 둘: 도크 늘림 둘은 겹치고, 건조 특화 둘은 막는다
+    // 레벨 3 = 자리 둘: 같은 모듈은 모두 겹친다(D-564 1681 — 건조 특화 둘도 붙고 시간이 두 번 준다)
+    expect(service.policy("player", yard3, { modules: ["build", "build"] }, false)).toEqual({ ok: true });
+    expect(service.dockJob(yard3)?.types[0]?.buildMs).toBe(
+      Math.floor(
+        (Math.floor((600_000 * START_BOATS.shipyardBuildSpecPm) / 1000) * START_BOATS.shipyardBuildSpecPm) /
+          1000,
+      ),
+    );
     expect(service.policy("player", yard3, { modules: ["docks", "docks"] }, false)).toEqual({ ok: true });
     expect(service.dockJob(yard3)).toMatchObject({
       capacity: 3,
       moduleSlots: 2,
       modules: ["docks", "docks"],
-    });
-    expect(service.policy("player", yard3, { modules: ["build", "build"] }, false)).toEqual({
-      ok: false,
-      code: "invalid_policy",
     });
     expect(service.policy("player", yard3, { modules: ["docks", "docks", "build"] }, false)).toEqual({
       ok: false,
@@ -329,7 +338,7 @@ describe("배", () => {
     facilities.get(yard)!.conditionPpm = 200_000;
     map.addBoat({ id: 2, ownerId: 7, speed: START_BOATS.speed, cellX: 131, cellY: 41 });
     expect(await service.berth("player", 2, berth, false)).toEqual({ ok: false, code: "harbor_closed" });
-    expect(service.build("admin", yard, true)).toEqual({ ok: false, code: "harbor_closed" });
+    expect(await service.build("admin", yard, true)).toEqual({ ok: false, code: "harbor_closed" });
     expect(service.dockJob(berth)?.closed).toBe(true);
     // 이미 든 배는 그대로
     await service.tick();

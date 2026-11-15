@@ -134,7 +134,7 @@ describe("배 재료는 돌려주지 않음(D-545 1405)", () => {
       builtBy: "player",
       cityId: CITY,
     });
-    expect(service.build("player", dockId, false)).toEqual({ ok: true, readyAtMs: START + 60_000 });
+    expect(await service.build("player", dockId, false)).toEqual({ ok: true, readyAtMs: START + 60_000 });
     expect(ledger.balanceOf(7, asset, cityLocation(CITY))).toBe(6n);
     // 조선소가 없어짐(전투·치움)
     map.removeBuilding(dockId);

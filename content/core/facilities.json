@@ -1269,6 +1269,17 @@
           "capacity": 4,
           "fuelCapacity": 600,
           "fuelPerHour": 60,
+          "holdKg": 200,
+          "fuelItems": [
+            {
+              "item": "whale_oil",
+              "units": 200
+            },
+            {
+              "item": "peat",
+              "units": 60
+            }
+          ],
           "naval": {
             "shipClass": "skiff",
             "hullPoints": 300,
@@ -1303,6 +1314,17 @@
           "capacity": 8,
           "fuelCapacity": 2000,
           "fuelPerHour": 120,
+          "holdKg": 2000,
+          "fuelItems": [
+            {
+              "item": "whale_oil",
+              "units": 200
+            },
+            {
+              "item": "peat",
+              "units": 60
+            }
+          ],
           "naval": {
             "shipClass": "cargo",
             "hullPoints": 800,

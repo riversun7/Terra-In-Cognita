@@ -6,6 +6,9 @@
 // - 들이기(admit): 수리를 시작할 때 승객을 내리고 배를 2차맵에서 뺀다. 교역 부두 머묾·오버히트·보직은 지운다. 집 정박장은 그대로(자리를 지킨다).
 // - 출고(release): 배 주인(또는 운영자)만. 고치는 중이면 dock_busy. 남의 조선소면 다 된 뒤 보관료 없는 시간이 지나 하루(올림)마다 장기 보관료를 그 조선소 금고에
 //   내야 꺼낸다(모자라면 insufficient_funds — 그동안 그 도크는 막힌다). 꺼낸 배는 집이 없으면 집 없는 배다(정박은 따로 — 1485 "생산과 정박은 별개").
+// - 압류(D-564 1686 "밀리면 압류", "배값초과시 소유권 넘어감"): 남의 배 장기 보관료가 impoundDays일 넘게 밀리면 압류다(판에 보인다 — 배 주인은 밀린 보관료를
+//   모두 내면 그대로 꺼낸다). 밀린 보관료가 배값(배 종류 재료 × 아이템 시작 시세 × valuePm ÷ 1000)을 넘으면 정시 살피기가 배를 조선소 주인 것으로 바꾼다
+//   (배 창고 물건도 함께, 보관료는 그때부터 없다 — 제 배). 조선소 2차맵을 띄웠을 때만 본다(주인을 건물에서 읽는다).
 // - 조선소가 없어지면(관리자 지움·재배치) 그 도크의 배는 조선소가 섰던 자리 옆 물에 띄운다(보관료 없음). 그 2차맵을 띄우지 않았으면 띄울 때까지 기다린다.
 import { type CellPoint, PLACEMENT_SIZE } from "@terra/sim";
 import {
@@ -20,7 +23,8 @@ import {
   waterSpot,
 } from "./core.ts";
 import type { Harbor } from "./harbor.ts";
-import { storageDue } from "./rules.ts";
+import { moveHoldOwner } from "./hold.ts";
+import { DAY_MS, HOUR_MS, boatCost, storageDue } from "./rules.ts";
 import type { Shipyard } from "./shipyard.ts";
 import type { BoatState } from "./store.ts";
 
@@ -34,7 +38,11 @@ export interface Dock {
   release(me: number | undefined, boatId: number, operator: boolean): BoatCommandResult;
   /** 지금 꺼내면 낼 장기 보관료(남의 배만) */
   storageOf(state: BoatState, nowMs: number): bigint;
-  /** 정시 살피기: 없어진 조선소의 배 띄우기·조선소 자리 채우기. 띄운 수 */
+  /** 압류 중인가(남의 배 보관료가 impoundDays일 넘게 밀림, D-564 1686) */
+  impounded(state: BoatState, nowMs: number): boolean;
+  /** 배값(밀린 보관료가 넘으면 조선소 주인 것이 된다) */
+  valueOf(state: BoatState): bigint;
+  /** 정시 살피기: 없어진 조선소의 배 띄우기·조선소 자리 채우기·압류한 배 넘기기. 띄운 수 */
   tick(nowMs: number): number;
 }
 
@@ -54,6 +62,53 @@ export function createDock(
     const owner = yardOwner(state);
     if (owner === undefined || owner === null || owner === state.ownerId) return 0n;
     return storageDue(state.yardSinceMs, nowMs, deps.rules().storageFeePerDay, deps.rules());
+  };
+
+  /** 밀린 보관료 날 수(보관료 없는 시간 뒤 하루 올림) */
+  const owedDays = (state: BoatState, nowMs: number): number => {
+    if (state.yardSinceMs === null) return 0;
+    const billed = nowMs - state.yardSinceMs - Math.max(0, deps.rules().storageFreeHours) * HOUR_MS;
+    return billed <= 0 ? 0 : Math.ceil(billed / DAY_MS);
+  };
+
+  const impounded = (state: BoatState, nowMs: number): boolean =>
+    storageOf(state, nowMs) > 0n && owedDays(state, nowMs) >= Math.max(1, deps.rules().impoundDays);
+
+  /** 배값 = 배 종류 재료(boat_cost_pm 반영) × 아이템 시작 시세 × valuePm ÷ 1000. 종류·값을 모르면 0(넘어가지 않는다) */
+  const valueOf = (state: BoatState): bigint => {
+    const type = harbor.typeOf(state);
+    const catalog = deps.places()?.catalog();
+    if (!type || !catalog) return 0n;
+    const rules = deps.rules();
+    let total = 0n;
+    for (const stack of boatCost(type, rules.costPm)) {
+      const asset = `item:${stack.item}`;
+      const lot = catalog.lotSize.get(asset) ?? 1n;
+      total += BigInt(stack.qty) * (catalog.unitPriceOf?.(stack.item) ?? 0n) * lot;
+    }
+    return (total * BigInt(Math.max(0, rules.valuePm))) / 1000n;
+  };
+
+  /** 밀린 보관료가 배값을 넘으면 조선소 주인 것으로(D-564 1686). 넘어갔으면 true */
+  const forfeit = (state: BoatState, nowMs: number): boolean => {
+    const owner = yardOwner(state);
+    const from = state.ownerId;
+    if (owner === undefined || owner === null || from === null || owner === from) return false;
+    if (!impounded(state, nowMs)) return false;
+    const value = valueOf(state);
+    if (value <= 0n || storageOf(state, nowMs) <= value) return false;
+    moveHoldOwner(deps.ledger, state.boatId, from, owner, nowMs, "boat_forfeit");
+    state.ownerId = owner;
+    state.yardSinceMs = nowMs;
+    state.homeId = null;
+    state.feePaidToMs = null;
+    state.arrears = 0;
+    harbor.saveState(state);
+    deps.log.info?.(
+      { boatId: state.boatId, from, to: owner, yardId: state.yardId },
+      "impounded boat forfeited to the shipyard owner",
+    );
+    return true;
   };
 
   /** 배를 그 자리에 띄우고 상태를 2차맵 배로 돌린다 */
@@ -100,6 +155,8 @@ export function createDock(
       return null;
     },
     storageOf,
+    impounded,
+    valueOf,
     release(me, boatId, operator) {
       const state = harbor.states.get(boatId);
       if (!state || state.yardId === null) return fail("not_docked");
@@ -139,7 +196,11 @@ export function createDock(
           state.yardY = found.rect.y;
           harbor.saveState(state);
         }
-        if (facilityOf(places, state.yardId)) continue;
+        if (facilityOf(places, state.yardId)) {
+          // 압류한 배: 밀린 보관료가 배값을 넘으면 조선소 주인 것으로
+          if (found) forfeit(state, nowMs);
+          continue;
+        }
         // 조선소가 없어졌다: 섰던 자리 옆 물에 띄운다(그 2차맵을 띄웠을 때만, 고치던 작업은 shipyard가 버린다)
         if (state.yardMapKey === null || state.yardX === null || state.yardY === null) continue;
         const map = maps.get(state.yardMapKey);

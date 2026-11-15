@@ -120,6 +120,8 @@ export function startWorldGather(
         },
         // 채집 중 부상(D-521, docs/adr/2026-11-08-injury.md 5절): 직무 정산과 같은 판정·시드
         workInjury: createGatherInjury(),
+        // 배 창고 상한(D-568 배 단위 채집 — 배 서비스가 배 고리에 채운다)
+        boatHoldGrams: (boatId) => world.persistence?.boatHooks.info(boatId)?.holdCapGrams,
         ready: () => world.status().state === "ready",
       });
       const station = createStationRuntime({

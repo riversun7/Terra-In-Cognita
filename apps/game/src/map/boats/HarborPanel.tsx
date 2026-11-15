@@ -163,10 +163,13 @@ export function HarborPanel({
                 <button
                   type="button"
                   className="button-small button-primary boat-build"
-                  disabled={sending || level < 1 || !mine}
+                  disabled={sending || level < 1}
                   onClick={() => run("build", { t: "boat_build", buildingId, boatType: type.id })}
                 >
-                  {m.boat_build()}
+                  {/* 남의 조선소는 외주 주문(D-564 1682 — 받기 범위·요금은 서버가 본다) */}
+                  {mine
+                    ? m.boat_build()
+                    : m.harbor_order_build({ fee: harbor.orderFee ?? "0", currency: harbor.currency })}
                 </button>
               </li>
             ))}
@@ -188,6 +191,10 @@ export function HarborPanel({
                         : m.harbor_docked_ready({ id: row.boatId, type: row.typeId })}
                       {row.storageDue !== "0"
                         ? ` · ${m.harbor_storage_due({ fee: row.storageDue, currency: harbor.currency })}`
+                        : ""}
+                      {/* 압류(D-564 1686): 밀린 보관료가 배값을 넘으면 조선소 주인 것이 된다 */}
+                      {row.impounded === true
+                        ? ` · ${m.harbor_impounded({ value: row.value ?? "0", currency: harbor.currency })}`
                         : ""}
                     </span>
                     {row.own ? (
@@ -297,7 +304,23 @@ export function HarborPanel({
           <ul className="harbor-list">
             {harbor.mine.map((boat) => (
               <li key={boat.boatId} className="harbor-boat" data-boat={boat.boatId}>
-                <span>{boatLine(boat)}</span>
+                <span>
+                  {boatLine(boat)}
+                  {boat.holdGrams !== undefined && boat.holdCapGrams !== undefined
+                    ? ` · ${m.harbor_hold({ kg: Math.floor(boat.holdGrams / 1000), cap: Math.floor(boat.holdCapGrams / 1000) })}`
+                    : ""}
+                </span>
+                {/* 배 창고 내리기(D-568): 교역 부두(대어 있을 때)나 내 배 시설 → 그 도시 내 창고 */}
+                {(harbor.role === "trade_dock" || mine) && (boat.holdGrams ?? 0) > 0 ? (
+                  <button
+                    type="button"
+                    className="button-small harbor-unload"
+                    disabled={sending}
+                    onClick={() => run("unload", { t: "boat_unload", boatId: boat.boatId, buildingId })}
+                  >
+                    {harbor.role === "trade_dock" && !mine ? m.harbor_unload_sell() : m.harbor_unload_store()}
+                  </button>
+                ) : null}
                 {harbor.role === "shipyard" ? (
                   <button
                     type="button"

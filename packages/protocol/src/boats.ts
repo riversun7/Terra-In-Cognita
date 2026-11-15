@@ -8,6 +8,9 @@
 // D-559(프로토콜 37 — docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559"): 다 된 배는 조선소 도크에 들고 꺼내기(boat_release, 남의 배는 장기 보관료),
 // 조선소 모듈 묶음(harbor_policy modules), 연료 보급(boat_refuel)·오버히트(boat_overheat)·보직(boat_crew)·표류한 배 빼앗기(boat_seize). 새 결과 코드는 37판 연결에만,
 // 36판 연결은 legacyBoatCode가 옛 코드로 낮춘다.
+// D-564·D-568(프로토콜 43 — docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (D-564·D-568)"): 배 창고 내리기(boat_unload — 교역 부두나 내 부두·창고에),
+// 연료는 아이템만(결과 코드 no_fuel_items), 남의 조선소에 배 짓기 주문(boat_build 그대로 — 받기 범위·요금은 서버). 새 결과 코드는 43판 연결에만,
+// 그 아래 연결은 legacyHoldCode로 낮춘다.
 // 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다: 소유·거리·재료 판정은 서버가 하고, 여기서는 모양만 본다.
 import { z } from "zod";
 
@@ -22,6 +25,8 @@ export const BOAT_B2_PROTOCOL_VERSION = 28;
 export const HARBOR_PROTOCOL_VERSION = 30;
 /** D-559(도크 출고·모듈 묶음·연료·오버히트·보직·빼앗기). 새 메시지·결과 코드는 이 판부터 */
 export const VOYAGE_PROTOCOL_VERSION = 37;
+/** D-564·D-568(배 창고 내리기·연료 아이템). 새 메시지·결과 코드는 이 판부터 */
+export const HOLD_PROTOCOL_VERSION = 43;
 
 /** 받기 범위(@terra/shared/harbor HARBOR_ACCESS와 같다 — 이 꾸러미는 shared를 가져오지 않는다) */
 export const HARBOR_ACCESS_VALUES = ["owner", "nation", "peace"] as const;
@@ -127,6 +132,16 @@ export const boatSeizeMessage = z.object({
   unitId,
 });
 
+/**
+ * 배 창고를 내린다(43판부터, D-568): 교역 부두(시간을 사고 대어 있을 때 — 그 도시의 내 창고로, 거기서 거래소에 판다)나 내 배 시설·창고 둘레(내 창고로)
+ */
+export const boatUnloadMessage = z.object({
+  t: z.literal("boat_unload"),
+  id: requestId,
+  boatId: unitId,
+  buildingId,
+});
+
 /** 내 유닛을 내 배에 태운다 */
 export const boatBoardMessage = z.object({
   t: z.literal("boat_board"),
@@ -226,6 +241,11 @@ export const BOAT_RESULT_CODES = [
   "own_boat",
   /** 표류하는 배가 아니다(내구도·연료가 남았다) */
   "not_drifting",
+  // ---------- 43판부터(D-564·D-568) ----------
+  /** 태울 연료 아이템이 배 창고·그 도시 내 창고에 없다(연료는 아이템만, 1687) */
+  "no_fuel_items",
+  /** 배 창고가 비었다(내리기) */
+  "hold_empty",
 ] as const;
 export type BoatResultCode = (typeof BOAT_RESULT_CODES)[number];
 
@@ -264,7 +284,20 @@ export const boatClientMessages = [
   boatOverheatMessage,
   boatCrewMessage,
   boatSeizeMessage,
+  boatUnloadMessage,
 ] as const;
+
+/** 43판 결과 코드 → 42판 이하 연결이 아는 코드(boat_unload는 그 연결이 보내지 않는다 — 연료 보급의 답만 중요하다) */
+export function legacyHoldCode(code: BoatResultCode): BoatResultCode {
+  switch (code) {
+    case "no_fuel_items":
+      return "insufficient_materials";
+    case "hold_empty":
+      return "empty";
+    default:
+      return code;
+  }
+}
 
 /** 37판 결과 코드 → 36판 연결이 아는 코드(새 메시지의 답은 36판 연결이 보내지 않는다 — 만들기·수리 등 옛 메시지에서 나올 수 있는 것만 중요하다) */
 export function legacyVoyageCode(code: BoatResultCode): BoatResultCode {
@@ -281,7 +314,8 @@ export function legacyVoyageCode(code: BoatResultCode): BoatResultCode {
     case "not_drifting":
       return "busy";
     default:
-      return code;
+      // 43판 코드도 먼저 낮춘다(게이트웨이는 43 → 37 → 30 차례로 낮춘다)
+      return legacyHoldCode(code);
   }
 }
 

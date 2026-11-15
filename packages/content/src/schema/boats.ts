@@ -1,6 +1,7 @@
 // 조선소가 만드는 배 종류 표(시설 boats 칸) — 기획 D-547 1484("장비 제작처럼 당연히 배 종류마다 다르지") — docs/adr/2026-11-15-shipyard-harbor.md.
 // 배 종류마다 재료·만드는 시간·빠르기·자리 수를 적는다(장비 제작 레시피처럼). 시설 역할(harbor)은 조선소·정박장·교역 부두(D-547 1481·1488).
 // D-559: 배 종류에 연료(1529)·함선 칸(함급·HP·장갑·모듈 총한도·함포·보직·격납고, 1533·1537)을 더했다(선택 칸 — 없으면 설정 칸·처음 값).
+// D-564·D-568: 태우는 연료 아이템(fuelItems — 연료는 아이템만, 1687)·배 창고(holdKg — 배에서 캔 것)를 더했다(선택 칸).
 // 배 종류 ID는 그 시설 안에서 하나다(2단계 검사가 아니라 여기 superRefine이 본다 — 다른 시설과 같은 ID면 처음 시설의 것을 쓴다).
 import { BOAT_TYPE_LIMITS, HARBOR_ROLES } from "@terra/shared/harbor";
 import { CREW_POSTS, GUN_CALIBERS, NAVAL_LIMITS, SHELL_KINDS } from "@terra/shared/naval";
@@ -56,6 +57,22 @@ export const boatTypeSchema = z.strictObject({
   fuelPerHour: z.int().min(NAVAL_LIMITS.fuelPerHour.min).max(NAVAL_LIMITS.fuelPerHour.max).optional(),
   /** 함선 칸(없으면 함장 1·갑판병 1, 함포 없음) */
   naval: navalSpecSchema.optional(),
+  /** 배 창고(kg, D-568 — 배에서 캔 것이 든다. 없으면 설정 칸 boat_hold_kg) */
+  holdKg: z.int().min(NAVAL_LIMITS.holdKg.min).max(NAVAL_LIMITS.holdKg.max).optional(),
+  /**
+   * 태우는 연료 아이템(D-564 1687 "처음부터 아이템만" — 아이템 1개 = 연료 units 단위). 교역 부두에서 배 창고·그 도시 내 창고의 이 아이템을 태워 채운다.
+   * 없으면 보급할 수 없다(연료가 떨어지면 표류)
+   */
+  fuelItems: z
+    .array(
+      z.strictObject({
+        item: ref("items"),
+        units: z.int().min(NAVAL_LIMITS.fuelUnits.min).max(NAVAL_LIMITS.fuelUnits.max),
+      }),
+    )
+    .min(1)
+    .max(NAVAL_LIMITS.fuelItems)
+    .optional(),
 });
 
 /** 조선소의 배 종류 목록(종류 ID가 겹치면 막는다) */

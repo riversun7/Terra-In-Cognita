@@ -1,6 +1,8 @@
 // 조선소 작업(만들기·수리) — 기획 D-547 1481·1483·1484·1494, D-545 1405, D-559 1521~1523, docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15)"·"바뀜 (2026-11-15) D-559".
 // - 도크 수(rules.ts shipyardDocks — 모듈 묶음)만큼 쓴다. 도크를 쓰는 것 = 만드는 작업 + 도크에 든 배(고치는 중·출고 기다림).
-// - 만들기: 내 조선소에서만. 배 종류마다 재료·시간(1484). 재료는 지금 뺀다(건물 짓기와 같은 재료 자리 materialScope). 끝 시각에 배가 **도크에 든다**
+// - 만들기: 내 조선소, 또는 받기 범위 안의 남의 조선소(외주 주문 — D-564 1682 "남의 조선소에 주문 가능", 받기 범위는 서비스가 먼저 봤다). 배 종류마다 재료·시간(1484).
+//   남의 조선소면 재료는 주문자가 그 조선소 자리(그 도시 창고·그 2차맵 내 유닛 화물)에서 내고, 주문 요금(외주 요금 × shipyardBuildFeePm ÷ 1000)은 그 조선소
+//   금고로(D-548). 다 된 배는 주문자 것이고 그 조선소 도크에 든다(남의 배 — 보관료 규칙 그대로). 주인 자신의 만들기는 요금이 없다(외주가 아니다). 재료는 지금 뺀다(건물 짓기와 같은 재료 자리 materialScope). 끝 시각에 배가 **도크에 든다**
 //   (D-559 1523 — 2차맵 유닛이 아니다, 꺼낼 때(출고 — dock.ts) 조선소 옆 물에 뜬다). 연료는 가득.
 // - 수리: 배가 조선소 둘레 shipyardReachCells 안 물에 있어야 시작한다. 승객을 내리고 배를 도크에 넣는다(2차맵에서 뺀다). 끝 시각에 가득으로 고치고 배는 도크에
 //   남는다(출고 기다림). 남의 조선소도 받기 범위 안이면 고친다(D-559 1522) — 재료는 배 주인이 그 자리에서 내고, 수리 요금은 조선소 금고로(그 나라 화폐).
@@ -40,12 +42,13 @@ export interface Shipyard {
   /** 그 배를 고치는 중인가(끝 시각, 아니면 undefined) */
   repairUntil(boatId: number): number | undefined;
   repairing(boatId: number): boolean;
-  /** 만들기(me = 부르는 소유 주체, 운영자는 재료 없이) */
+  /** 만들기(me = 부르는 소유 주체, 운영자는 재료 없이). order = 남의 조선소 주문(받기 범위는 부르는 쪽이 봤다) */
   build(
     me: number | undefined,
     buildingId: number,
     operator: boolean,
     typeId: string | undefined,
+    order?: boolean,
   ): BoatCommandResult;
   /** 수리 시작(배가 둘레에 있어야 한다 — 서비스가 먼저 보낸다. 받기 범위는 서비스가 먼저 봤다) */
   startRepair(
@@ -295,25 +298,41 @@ export function createShipyard(
   const foreignFee = (yardOwner: number | null, buildingId: number, operator: boolean) =>
     yardOwner === null || operator ? 0n : BigInt(Math.max(0, harborOf().facility(buildingId, yardOwner).fee));
 
+  /** 남의 조선소 주문 요금 = 외주 요금 × shipyardBuildFeePm ÷ 1000(주인 자신·운영자·주인 없는 조선소는 0) */
+  const orderFee = (
+    yardOwner: number | null,
+    orderer: number,
+    buildingId: number,
+    operator: boolean,
+  ): bigint => {
+    if (yardOwner === null || yardOwner === orderer || operator) return 0n;
+    const base = BigInt(Math.max(0, harborOf().facility(buildingId, yardOwner).fee));
+    return (base * BigInt(Math.max(0, deps.rules().shipyardBuildFeePm))) / 1000n;
+  };
+
   return {
     jobs,
     jobsAt,
     occupied,
     repairUntil,
     repairing: (boatId) => repairUntil(boatId) !== undefined,
-    build(me, buildingId, operator, typeId) {
-      const yard = yardProblem(me, buildingId, operator, true);
+    build(me, buildingId, operator, typeId, order = false) {
+      const yard = yardProblem(me, buildingId, operator, !order, order ? me : undefined);
       if ("problem" in yard) return yard.problem;
-      const { fac, modules, owner, scope, rules } = yard;
+      const { fac, found, modules, owner, scope, rules } = yard;
       const list = fac.def.boats ?? [];
       const type = typeId === undefined ? list[0] : list.find((entry) => entry.id === typeId);
       if (!type) return fail("unknown_boat_type");
       const at = now();
       const materials = operator ? [] : boatCost(type, rules.costPm);
       if (!hasGoods(ledger, owner, materials, scope)) return fail("insufficient_materials");
+      // 외주 주문 요금(D-564 1682 — 그 조선소 금고로, 그 나라 화폐). 주인 자신의 만들기·운영자는 없다
+      const fee = orderFee(found.ownerId, owner, buildingId, operator);
+      if (fee > 0n && harborOf().balanceOf(owner, buildingId) < fee) return fail("insufficient_funds");
       const ms = boatBuildMs(type, rules, modules, operator);
       if (!spendGoods(ledger, owner, materials, at, "boat_build", scope))
         return fail("insufficient_materials");
+      if (fee > 0n) harborOf().charge(owner, found.ownerId, buildingId, fee, "shipyard_build_fee", at);
       if (ms > 0) {
         const job = addJob({
           ownerId: owner,

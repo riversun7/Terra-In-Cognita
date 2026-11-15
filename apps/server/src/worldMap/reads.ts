@@ -11,21 +11,20 @@
 // 세계 규칙은 바꾸지 않는다(조회만). 표·쓰기 대기열·NPC 런타임 파일은 건드리지 않는다.
 import { type CellKey, decodeCellKey, isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
-import { placementCellKey, territoryMetric } from "@terra/planet/territory";
+import { placementCellKey, territoryMetric, territoryPoint } from "@terra/planet/territory";
 import { planetCellValuesFromFile } from "@terra/planet/secondMap";
 import {
   CELL_UNITS,
   PLACEMENT_SIZE,
   type SocietyCoefficients,
   TEST_GARDENER_COEFFICIENTS,
-  catchmentGrowthOf,
   positionAt,
 } from "@terra/sim";
 import type { MapUnitGlance } from "@terra/shared/mapUnits";
 import type { NationEmblemView } from "@terra/shared/nationEditor";
 import type { LocalizedName } from "@terra/shared/roster";
-import { type CatchmentGrowthRules, catchmentRadiusMilli } from "@terra/shared/catchment";
-import { type TerritoryCoefficients, cityGrade } from "@terra/shared/territory";
+import { catchmentRadiusMilli } from "@terra/shared/catchment";
+import { cityGrade } from "@terra/shared/territory";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import type {
   WorldCitiesResponse,
@@ -39,6 +38,7 @@ import type {
   WorldTerritoryDisplay,
 } from "@terra/shared/worldMap";
 import { NATION_COLOR_PATTERN, TERRITORY_DISPLAY_START } from "@terra/shared/worldMap";
+import { type CatchmentRadiusRules, catchmentRadiusRulesOf } from "../territory/catchmentRules.ts";
 import { ownerIdentityOf } from "../factionIdentity/store.ts";
 import { type GovernmentReads, governmentReadsOfWorld } from "../government/reads.ts";
 import { loadEmblemHashes } from "../nationEdit/emblems.ts";
@@ -146,20 +146,8 @@ interface CityRecord {
   readonly tech: number;
 }
 
-/** 배후지 지금 반경 규칙(세계 씨앗 설정 칸 city_catchment_* + 도시 등급 문턱). 배후지 규칙이 꺼졌으면 앱이 undefined를 준다 */
-export interface CatchmentRadiusRules {
-  readonly growth: CatchmentGrowthRules;
-  readonly territory: Pick<TerritoryCoefficients, "gradeAtDevelopment">;
-}
-
-/** 설정 칸 실효 값 → 배후지 지금 반경 규칙. 배후지 스위치(city_catchment_radius_cells)가 0이면 옛 배치라 배후지가 없다 → undefined */
-export function catchmentRadiusRulesOf(
-  society: Pick<SocietyCoefficients, "worldSeed" | "territory">,
-): CatchmentRadiusRules | undefined {
-  return society.worldSeed.catchmentRadiusCells > 0
-    ? { growth: catchmentGrowthOf(society.worldSeed), territory: society.territory }
-    : undefined;
-}
+// 배후지 지금 반경 규칙은 영토 판정(territory/service.ts)과 같이 쓴다(D-568) — territory/catchmentRules.ts
+export { type CatchmentRadiusRules, catchmentRadiusRulesOf } from "../territory/catchmentRules.ts";
 
 async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityRecord[]> {
   const result = await pool.query(
@@ -388,6 +376,8 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
                 catchmentRules.growth,
               )
             : null,
+          // 영토 판정과 같은 점(D-568 — 화면이 같은 함수·같은 점으로 그린다)
+          point: territoryPoint(placementCellKey(record.mapKey, record.cellX, record.cellY)),
           loaded: map !== undefined,
           viewable: viewable.get(record.mapKey) ?? false,
           land: landOf(record.mapKey, bytes),
@@ -516,6 +506,7 @@ export function worldMapBeaconsOf(
       factionId: beacon.factionId,
       cityId: beacon.cityId,
       ...latLonOfDirection(...beacon.point),
+      point: beacon.point,
     });
   }
   return beacons;
@@ -618,8 +609,9 @@ export function worldMapReadsOf(options: {
       directory: world,
       cyborgOf: (userId) => world.persistence?.cyborgs.record(userId),
       sighted,
+      // 1차맵 world.cities는 칸 표가 필요 없다(칸 표 셈을 건너뛴다)
       territory: (id, userId) =>
-        world.persistence?.territory.planetView(id, userId) ?? Promise.resolve(undefined),
+        world.persistence?.territory.planetView(id, userId, { cells: false }) ?? Promise.resolve(undefined),
       travelling: (unitId) => world.persistence?.travel.hiddenAt(unitId),
       parked: (unitId) => world.persistence?.travel.parkedAt(unitId),
     },

@@ -2,7 +2,8 @@
 // - 왼쪽 지도(TerritoryMap: 세밀 경계·칸 표·껍질·영향권·도시·비콘), 오른쪽 판: 고른 칸(소유·칸 가운데 소속·그 칸 비콘) + 놓기·치우기,
 //   세력 표·도시 표(.dev-table). 390px에서는 지도 → 판이 한 칸씩 쌓인다.
 // - 자료 = tRPC territory.planet(모든 세력, 권한 territory: observe). 놓기·치우기 = WebSocket beacon_place·beacon_remove(다른 세력 대신은
-//   territory: dev-place). 명령이 끝나면 다시 읽는다. 세밀 경계는 기기가 같은 함수(claimAt)로 다시 셈한 것이다(서버 칸 표와 같은 규칙).
+//   territory: dev-place). 명령이 끝나면 다시 읽는다. 세밀 경계는 기기가 같은 함수(claimAt — 1차맵 영토 지도, D-568)로 다시 셈한 것이다
+//   (서버 칸 표와 같은 규칙).
 // 조각 이름 TerritoryLabScreen-*([Tt]erritoryLab).
 import { type CellKey, decodeCellKey } from "@terra/planet";
 import { territoryPoint } from "@terra/planet/territory";
@@ -147,7 +148,7 @@ function TerritoryLabBody({ scope }: { scope: PlanetScope }) {
           <ul className="tl-legend">
             <li data-mark="fine">{m.dev_territory_legend_fine()}</li>
             <li data-mark="cells">{m.dev_territory_legend_cells()}</li>
-            <li data-mark="hull">{m.dev_territory_legend_hull()}</li>
+            <li data-mark="territory">{m.dev_territory_legend_territory()}</li>
             <li data-mark="influence">{m.dev_territory_legend_influence()}</li>
             <li data-mark="city">{m.dev_territory_legend_city()}</li>
             <li data-mark="beacon">{m.dev_territory_legend_beacon()}</li>
@@ -207,7 +208,7 @@ function TerritoryLabBody({ scope }: { scope: PlanetScope }) {
                           source:
                             centerClaim.source === "city"
                               ? m.dev_territory_source_city()
-                              : m.dev_territory_source_hull(),
+                              : m.dev_territory_source_beacon(),
                         })
                       : m.dev_territory_claim_center_none()}
                   </p>

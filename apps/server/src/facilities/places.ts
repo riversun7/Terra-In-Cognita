@@ -27,6 +27,10 @@ export interface PlaceWorld {
   readonly catalog: () => FacilityCatalog;
   /** 띄운 2차맵의 도시 자리(부팅 때 읽은 도시 + NPC 런타임이 새로 세운 도시) */
   readonly cities: () => readonly CityCell[];
+  /**
+   * 지방(D-568 — 1차맵 영토 지도): 그 배치 칸 땅의 도시 ID, 영토 밖이면 null, 모르면(셈 전·영토 서비스 없음) undefined. 없으면 옛 규칙만
+   */
+  readonly province?: ((mapKey: number, x: number, y: number) => number | null | undefined) | undefined;
 }
 
 /** 건물의 2차맵·기준 칸(없으면 undefined) */
@@ -46,9 +50,12 @@ export function buildingCell(
   return undefined;
 }
 
-/** 그 칸이 속한 도시 ID(그 2차맵에 도시가 없으면 null) */
+/**
+ * 그 칸이 속한 도시 ID: 1차맵 영토 지도의 지방(D-568 "세금·지방 판정도 지도대로" — 다른 나라 땅이면 그 나라 도시). 영토 밖이거나 영토를 아직
+ * 셈하지 않았으면 옛 규칙(같은 2차맵의 가장 가까운 도시, 없으면 null). 이미 지은 건물은 지을 때 정한 도시(시설 줄)를 그대로 쓴다(buildingPlace)
+ */
 export const cityAt = (world: PlaceWorld, mapKey: number, x: number, y: number): number | null =>
-  cityOfCell(world.cities(), mapKey, x, y)?.id ?? null;
+  world.province?.(mapKey, x, y) ?? cityOfCell(world.cities(), mapKey, x, y)?.id ?? null;
 
 /**
  * 건물이 선 도시·2차맵. 시설 줄의 도시(지을 때 정함)가 있으면 그것, 없으면(관리자 시험 건물·직전 판 줄) 칸에서 정한다.

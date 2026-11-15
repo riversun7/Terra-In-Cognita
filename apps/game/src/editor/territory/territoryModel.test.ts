@@ -58,7 +58,17 @@ function viewOf(beacons: readonly number[]): TerritoryPlanetView {
       durability: 10,
       builtAtMs: 0,
     })),
-    groups: [],
+    // 서버 덩이에 든 비콘만 영토를 넓힌다(짓는 중·멈춘 비콘은 빠짐 — 마지막 비콘은 덩이 밖으로 둔다)
+    groups: [
+      {
+        factionId: 1,
+        members: [
+          { kind: "city", id: 10 },
+          ...beacons.slice(0, 1).map((_, index) => ({ kind: "beacon" as const, id: index + 1 })),
+        ],
+        hull: null,
+      },
+    ],
     cells: [
       [CENTER, 1, 10, 16],
       [-1, 1, 10, 16],
@@ -88,15 +98,20 @@ describe("영토 지도 투영", () => {
     expect(project(view, [-x, -y, -z])).toBeNull();
   });
 
-  it("서버 자료로 같은 배치를 만들고, 세밀 표본은 껍질 안을 그 세력으로 칠한다", () => {
-    const data = viewOf([cell(287, 328), cell(282, 333), cell(287, 333)]);
+  it("서버 자료로 같은 배치(1차맵 지도, D-568)를 만들고, 세밀 표본은 도시 원·비콘 외곽선 안을 그 세력·그 도시 지방으로 칠한다", () => {
+    const data = viewOf([cell(290, 328), cell(282, 336)]);
     const layout = layoutOf(data);
-    expect(layout.groups[0]?.hull).toHaveLength(4);
-    const samples = fineSamples(mapViewOf(CENTER, 6, 300), layout, 2);
-    // 정사각형 5×5칸 = 25칸 × 표본 16 ≈ 400(가장자리 반쪽 포함)
-    expect(samples.length).toBeGreaterThan(300);
-    expect(samples.length).toBeLessThan(500);
+    // 덩이에 든 비콘(1)만 꼭짓점이다
+    expect(layout.groups[0]?.members.map((member) => `${member.kind}${member.id}`)).toEqual([
+      "city10",
+      "beacon1",
+    ]);
+    const samples = fineSamples(mapViewOf(CENTER, 10, 300), layout, 2);
+    // 마을 원(아래 끝 4칸, π·16 ≈ 50칸) + 비콘까지 띠(약 8칸 × 폭 2~8칸) → 표본 16씩
+    expect(samples.length).toBeGreaterThan(50 * 16);
+    expect(samples.length).toBeLessThan(140 * 16);
     expect(samples.every((sample) => sample.claim.faction === 1 && sample.claim.province === 10)).toBe(true);
+    expect(samples.some((sample) => sample.claim.source === "beacon")).toBe(true);
     // 칸 표: 칸 키가 아닌 줄은 버린다
     expect([...cellRows(data).keys()]).toEqual([CENTER]);
   });

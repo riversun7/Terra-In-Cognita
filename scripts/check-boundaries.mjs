@@ -73,7 +73,7 @@ for (const file of files.filter((f) => /^(apps|packages)\/[^/]+\/package\.json$/
 // (ADR 2026-10-29-s2-planet-lod). 시험 파일(*.test.ts)과 시험 도우미(test로 시작하는 파일: testOracle.ts·testFixtures.ts)는
 // 뺀다 — 기준값을 Math 함수로 만들어도 된다. 대신 시험이 아닌 파일은 시험 도우미를 가져오지 않는다(검사를 피하지 않게)
 const DETERMINISTIC_SOURCE =
-  /^packages\/(sim|planet)\/src\/.*\.ts$|^packages\/shared\/src\/(detMath|rng|planetDefinition|planetPresets|planetCalendar|territory|formula[A-Za-z]*)\.ts$/;
+  /^packages\/(sim|planet)\/src\/.*\.ts$|^packages\/shared\/src\/(detMath|rng|planetDefinition|planetPresets|planetCalendar|territory|territoryMap|formula[A-Za-z]*)\.ts$/;
 const TEST_ONLY = /(\.test\.ts|\/test[A-Z][^/]*\.ts)$/;
 for (const file of files.filter((f) => DETERMINISTIC_SOURCE.test(f) && !TEST_ONLY.test(f))) {
   if (!existsSync(file)) continue;

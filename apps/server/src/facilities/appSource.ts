@@ -121,7 +121,7 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       );
     },
     async beaconsOf(userId) {
-      const view = await territory.mineView(TEST_PLANET_ID, userId);
+      const view = await territory.mineView(TEST_PLANET_ID, userId, { cells: false });
       // 재료를 꺼내는 도시(질문 410 ①): 그 세력에서 비콘 칸과 가장 가까운 도시(서버 판정과 같은 함수)
       const cities = (view?.cities ?? []).map((city) => ({
         id: city.id,
@@ -139,7 +139,7 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       const ownerId = settlement.findOwnerOfUser(userId);
       if (ownerId === undefined) return [];
       // 모든 세력 비콘과 내 세력(시야로 거르지 않는다 — 2차맵에 내 유닛이 있는 칸만 남는다)
-      const planet = await territory.planetView(TEST_PLANET_ID, userId);
+      const planet = await territory.planetView(TEST_PLANET_ID, userId, { cells: false });
       const buildingOwners: number[] = [];
       for (const map of world.maps.values())
         map.forEachBuilding((building) => {

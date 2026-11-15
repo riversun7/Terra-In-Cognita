@@ -1,20 +1,23 @@
 // 1차맵 영토 모양 — 국가마다 도시 원 + 도시 사이까지 덮는 넓은 영토, 도시 소유 비콘은 그 도시·국가 외곽선을 넓힌다, 다른 국가와 겹친 곳은
-// 영향력 비율로 나눈다(사용자 결정 2026-11-14 "도시마다 영향권 원" → 질문 1437 답 "도시 사이도 모두 포함하는 넓은 범위로" → 기획 D-546
-// 1431 "지금 배후지 기준"·1432 "영향력 비율"·1434 "도시소유의 비콘은 국가 및 도시의 최대 외곽선을 넓히는 용도라고 생각하라",
-// ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"·"바뀜 (2026-11-15 D-546)"). 화면 표시용(판정 아님) 순수 계산.
-//
-// 덮임(덩이가 점 p를 덮나): 덩이의 "뼈대"에서 반지름 안이면 덮는다. 뼈대 = 자리(도시·도시 소유 비콘) 점 + 서로 잇기 상한(설정 칸
-// planet_territory_corridor_cells) 안인 같은 국가 자리 쌍의 줄 + 비콘과 그 기준 도시·같은 기준 도시 비콘끼리의 줄(거리와 상관없이) + 세 쌍이 모두 이어진 자리 셋의
-// 삼각형(속을 채운다). 반지름 = 도시는 원 반지름(배후지 지금 반경 × 배율, 아래 끝 — 설정 칸), 비콘은 둘레 여유(설정 칸), 줄 위에서는 두 끝
-// 반지름을 잇는 값. 그래서 도시 원들이 둥근 띠로 이어지고 도시들 사이 땅도 들며, 비콘은 그 도시 원에서 비콘까지 외곽선을 밀어낸다(비콘이
-// 여럿이면 비콘·도시 삼각형이 채워져 넓은 둥근 모양 — 각진 껍질이 아니다). 멀리 떨어진 같은 국가 도시는 잇지 않는다.
-// 주인: 덮는 덩이가 여럿이면 영향력 비율(거리 ÷ 영향력 반지름)이 가장 작은 자리(같으면 도시 → 작은 ID)의 덩이 — 서버 칸 소속 claimAt과
-// 같은 방식. 도시의 영향력 반지름 = 그 원 반지름, 비콘 = 기준 도시 원 반지름(비콘 자리에 도시를 넓힌다). 반지름이 같은 두 도시의 경계는
-// 가운데, 큰 도시가 조금 더 가진다. 다른 국가 도시가 띠를 가르면 영토가 둘로 갈린다.
+// 영향력 비율로 나눈다(기획 D-543·D-544·D-546·D-555, ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"·"바뀜 (2026-11-15 D-546)").
+// 모양 규칙(뼈대 = 자리·잇기 상한 안 줄·비콘 줄·삼각형, 영향력 비율 주인)은 @terra/shared/territoryMap 하나이고 서버 판정(비콘 놓기·세금·지방,
+// 서버 칸 소속 claimAt)이 같은 함수를 쓴다 — 기획 D-568 "판정도 지도대로"(ADR 2026-11-16-territory-judgement-map). 서버가 world.cities에 실은
+// 영토 점(point)·배후지 반경·설정 칸 값을 그대로 넣으면 판정과 같은 땅이 그려진다(안개: 아는 도시·비콘만 그리므로 모르는 이웃 땅은 빠진다).
 // 그리기: 덩이마다 둘레를 접평면 격자에서 마칭 스퀘어로 찾는다(격자 칸 변 위 경계 점은 주인 함수 이분 탐색이라 두 국가가 같은 점을 쓴다).
 // 고리마다 닫힌 다각형(위도·경도) — 칠·테두리가 같은 고리다. 국가 사이 경계 몫(받침 선)은 고리 변 바깥쪽 주인이 다른 국가인 곳이다.
-// 3차원 단위 벡터로 셈해 면·경도 ±180°·극에 이음매가 없다. 표시 값은 서버 world.cities territoryDisplay(없으면 TERRITORY_DISPLAY_START) —
-// 보기 전용, 판정(D-485 비콘 볼록 도형·D-104 영향권·claimAt 칸 소속)과 다를 수 있다(D-544 미결).
+// 3차원 단위 벡터로 셈해 면·경도 ±180°·극에 이음매가 없다. 표시 값은 서버 world.cities territoryDisplay(없으면 TERRITORY_DISPLAY_START).
+import {
+  type TerritoryMap,
+  type TerritoryMapGroup,
+  type TerritoryMapSite,
+  TERRITORY_MAP_MAX_RADIUS,
+  buildTerritoryMap,
+  territoryBeaconRadius,
+  territoryCircleMilli,
+  territoryCorridorRadius,
+  territoryMapOwnerOf,
+  territoryMilliToRadius,
+} from "@terra/shared/territoryMap";
 import {
   TERRITORY_DISPLAY_START,
   type WorldCitiesResponse,
@@ -27,8 +30,6 @@ type Vec = readonly [number, number, number];
 type LatLon = readonly [latDeg: number, lonDeg: number];
 
 const DEG = Math.PI / 180;
-/** 각 반지름 위 끝 */
-const MAX_RADIUS = Math.PI / 2 - 1e-6;
 /** 격자 간격 = 그 덩이 가장 작은 원 반지름 ÷ 이 값 */
 const GRID_PER_RADIUS = 6;
 /** 덩이 하나 격자 마디 수 위 끝(넘으면 간격을 넓힌다) */
@@ -48,7 +49,6 @@ const cross = (a: Vec, b: Vec): Vec => [
   a[0] * b[1] - a[1] * b[0],
 ];
 const add = (a: Vec, b: Vec): Vec => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sub = (a: Vec, b: Vec): Vec => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const scale = (a: Vec, k: number): Vec => [a[0] * k, a[1] * k, a[2] * k];
 const norm = (a: Vec): number => Math.hypot(a[0], a[1], a[2]);
 const unit = (a: Vec): Vec => {
@@ -74,6 +74,8 @@ export interface TerritorySite {
   readonly radius: number;
   /** 비콘의 기준 도시(도시 소유 비콘만 그린다 — 그 도시 원 반지름을 영향력으로 쓴다). 도시는 없음 */
   readonly anchorCityId?: number | null | undefined;
+  /** 서버 영토 점(판정과 같은 정수 벡터, D-568). 없으면 위도·경도에서 만든다 */
+  readonly point?: Vec | undefined;
 }
 
 /** 국가 덩이 하나(같은 국가의 이어진 도시·비콘)의 둘레 고리들 */
@@ -121,18 +123,27 @@ export function territoryDisplayOf(display: WorldTerritoryDisplay | undefined): 
   };
 }
 
-/** 1000분율 칸 → 라디안: 같은 국가 도시·비콘을 잇는 가장 먼 거리(라디안, 설정 칸 corridorCells). 환산이 없으면 0(잇지 않는다) */
+/** 같은 국가 도시·비콘을 잇는 가장 먼 거리(라디안, 설정 칸 corridorCells — 판정과 같은 함수). 환산이 없으면 0(잇지 않는다) */
 export function corridorOf(
   milliPerRadian: number | undefined,
   display: WorldTerritoryDisplay = TERRITORY_DISPLAY_START,
 ): number {
-  return milliPerRadian && milliPerRadian > 0 ? (display.corridorCells * 1000) / milliPerRadian : 0;
+  return territoryCorridorRadius(display, milliPerRadian ?? 0);
 }
+
+/** 서버가 보낸 영토 점(정수 세 칸)만 받는다 */
+const pointOf = (value: readonly number[] | undefined): Vec | undefined => {
+  if (!value || value.length !== 3) return undefined;
+  const [x = 0, y = 0, z = 0] = value;
+  return [x, y, z].every((n) => Number.isFinite(n)) && (x !== 0 || y !== 0 || z !== 0)
+    ? [x, y, z]
+    : undefined;
+};
 
 /**
  * 서버 도시·비콘 목록 → 영토 자리. 도시 바탕 반경 = 배후지(catchmentMilli), 없으면 영향권(radiusMilli). 도시 화면 반지름 = max(바탕 ×
- * radiusScalePm ÷ 1000, minCells칸), 비콘 둘레 여유 = beaconCells칸(설정 칸, 보기 전용). 1000분율 칸 → 라디안 = 값 ÷ milliPerRadian. 바탕 반경·환산이
- * 없으면 그 도시는 영토를 그리지 않는다. 비콘은 기준 도시가 이 목록에 있을 때만 뼈대에 든다(skeletonsOf)
+ * radiusScalePm ÷ 1000, minCells칸), 비콘 둘레 여유 = beaconCells칸(설정 칸 — 판정도 같은 값, D-568). 1000분율 칸 → 라디안 = 값 ÷ milliPerRadian. 바탕 반경·환산이
+ * 없으면 그 도시는 영토를 그리지 않는다. 비콘은 기준 도시가 이 목록에 있을 때만 뼈대에 든다(@terra/shared/territoryMap)
  */
 export function territorySitesOf(
   cities: readonly WorldMapCity[],
@@ -143,21 +154,23 @@ export function territorySitesOf(
   if (!milliPerRadian || milliPerRadian <= 0) return [];
   const sites: TerritorySite[] = [];
   for (const city of cities) {
-    const milli = city.catchmentMilli ?? city.radiusMilli;
-    if (!milli || milli <= 0) continue;
+    // 판정(서버 buildTerritory)과 같은 식: 원 = max(바탕 × 배율, 아래 끝), 바탕 = 배후지(없으면 영향권)
+    const radius = territoryMilliToRadius(
+      territoryCircleMilli(city.catchmentMilli ?? city.radiusMilli, display),
+      milliPerRadian,
+    );
+    if (radius <= 0) continue;
     sites.push({
       kind: "city",
       id: city.id,
       factionId: city.factionId,
       latDeg: city.latDeg,
       lonDeg: city.lonDeg,
-      radius: Math.min(
-        MAX_RADIUS,
-        Math.max((milli * display.radiusScalePm) / 1000, display.minCells * 1000) / milliPerRadian,
-      ),
+      radius,
+      point: pointOf(city.point),
     });
   }
-  const beaconRadius = Math.min(MAX_RADIUS, (display.beaconCells * 1000) / milliPerRadian);
+  const beaconRadius = territoryBeaconRadius(display, milliPerRadian);
   if (beaconRadius > 0)
     for (const beacon of beacons)
       sites.push({
@@ -168,6 +181,7 @@ export function territorySitesOf(
         lonDeg: beacon.lonDeg,
         radius: beaconRadius,
         anchorCityId: beacon.cityId,
+        point: pointOf(beacon.point),
       });
   return sites;
 }
@@ -188,186 +202,29 @@ export function territoryInputOf(
   };
 }
 
-/** 자리 차례: 도시 먼저, 같은 종류는 작은 ID(같은 거리 주인 가르기·뼈대 차례) */
-const siteOrder = (a: TerritorySite, b: TerritorySite): number =>
-  Number(a.kind === "beacon") - Number(b.kind === "beacon") || a.id - b.id;
+const siteKey = (kind: TerritorySite["kind"], id: number): string => `${kind}:${String(id)}`;
 
-interface Node {
-  readonly site: TerritorySite;
-  readonly p: Vec;
-  /** 덮임 반지름(뼈대에서 이만큼 안이면 덮는다) */
-  readonly radius: number;
-  /** 영향력 반지름(주인 = 거리 ÷ 이 값이 가장 작은 자리). 도시 = 원 반지름, 비콘 = 기준 도시 원 반지름(비콘은 그 도시를 넓힌다) */
-  readonly influence: number;
+/** 화면 자리 → 공용 영토 지도(@terra/shared/territoryMap)와 자리 찾기 표 */
+interface ShapeMap {
+  readonly map: TerritoryMap;
+  readonly sites: ReadonlyMap<string, TerritorySite>;
 }
 
-/** 뼈대 줄(같은 국가 두 자리) */
-interface Link {
-  readonly a: Node;
-  readonly b: Node;
-}
-
-/** 국가 덩이 하나(같은 국가의 이어진 도시·비콘)의 뼈대 */
-interface Skeleton {
-  readonly factionId: number;
-  readonly nodes: readonly Node[];
-  readonly links: readonly Link[];
-  readonly triangles: readonly (readonly [Node, Node, Node])[];
-  /** 빠른 거르기: 뼈대를 품는 원(가운데·각 반지름, 덮임 반지름 포함) */
-  readonly center: Vec;
-  readonly reach: number;
-}
-
-/** 점에서 줄(대원 조각 a–b)까지 가장 가까운 점의 몫 t(0~1). 짧은 줄이라 현(chord)에 내린 수선을 쓴다 */
-function nearestOnLink(p: Vec, a: Vec, b: Vec): number {
-  const ab = sub(b, a);
-  const length2 = dot(ab, ab);
-  if (length2 <= 0) return 0;
-  return Math.min(1, Math.max(0, dot(sub(p, a), ab) / length2));
-}
-
-/** 점이 세 자리 삼각형(구면, 짧다) 안인가 */
-function insideTriangle(p: Vec, [a, b, c]: readonly [Node, Node, Node]): boolean {
-  const s1 = dot(cross(a.p, b.p), p);
-  const s2 = dot(cross(b.p, c.p), p);
-  const s3 = dot(cross(c.p, a.p), p);
-  return (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
-}
-
-/** 덩이가 점을 덮나: 뼈대(자리·줄·삼각형)에서 반지름 안 */
-function covers(skeleton: Skeleton, p: Vec): boolean {
-  if (angleBetween(p, skeleton.center) > skeleton.reach) return false;
-  for (const node of skeleton.nodes) if (angleBetween(p, node.p) <= node.radius) return true;
-  for (const link of skeleton.links) {
-    const t = nearestOnLink(p, link.a.p, link.b.p);
-    const q = unit(add(link.a.p, scale(sub(link.b.p, link.a.p), t)));
-    if (angleBetween(p, q) <= link.a.radius + (link.b.radius - link.a.radius) * t) return true;
-  }
-  for (const triangle of skeleton.triangles) if (insideTriangle(p, triangle)) return true;
-  return false;
-}
-
-/** 자리 번호 쌍 키(작은 번호 먼저) */
-const pairKey = (i: number, j: number): string => `${String(Math.min(i, j))}:${String(Math.max(i, j))}`;
-
-/**
- * 국가마다 뼈대를 만들고 이어진 덩이로 나눈다. 줄 = 서로 corridor 안인 같은 국가 자리 쌍 + 비콘과 그 기준 도시·같은 기준 도시의 비콘끼리
- * (거리와 상관없이 — 도시 소유 비콘은 그 도시 외곽선을 넓힌다, D-546 1434), 삼각형 = 세 쌍이 모두 줄인 자리 셋. 덩이 = 줄로 이어졌거나 원이 겹친 자리들.
- * 기준 도시가 자리에 없는 비콘(모르는 도시·기준 도시 없음)은 넣지 않는다
- */
-function skeletonsOf(sites: readonly TerritorySite[], corridor: number): Skeleton[] {
-  const ordered = sites.filter((site) => Number.isFinite(site.radius) && site.radius > 0).toSorted(siteOrder);
-  const cityNodes = new Map<number, Node>();
-  const byFaction = new Map<number, Node[]>();
-  const push = (node: Node): void => {
-    const list = byFaction.get(node.site.factionId) ?? [];
-    list.push(node);
-    byFaction.set(node.site.factionId, list);
-  };
-  for (const site of ordered) {
-    if (site.kind !== "city") continue;
-    const radius = Math.min(MAX_RADIUS, site.radius);
-    const node: Node = { site, p: toVec(site.latDeg, site.lonDeg), radius, influence: radius };
-    cityNodes.set(site.id, node);
-    push(node);
-  }
-  for (const site of ordered) {
-    if (site.kind !== "beacon") continue;
-    const anchor =
-      site.anchorCityId === null || site.anchorCityId === undefined
-        ? undefined
-        : cityNodes.get(site.anchorCityId);
-    if (!anchor || anchor.site.factionId !== site.factionId) continue;
-    push({
-      site,
-      p: toVec(site.latDeg, site.lonDeg),
-      radius: Math.min(MAX_RADIUS, site.radius),
-      influence: anchor.influence,
+function shapeMapOf(sites: readonly TerritorySite[], corridor: number): ShapeMap {
+  const byKey = new Map<string, TerritorySite>();
+  const mapSites: TerritoryMapSite[] = [];
+  for (const site of sites) {
+    byKey.set(siteKey(site.kind, site.id), site);
+    mapSites.push({
+      kind: site.kind,
+      id: site.id,
+      faction: site.factionId,
+      point: site.point ?? toVec(site.latDeg, site.lonDeg),
+      radius: Math.min(TERRITORY_MAP_MAX_RADIUS, site.radius),
+      anchorCity: site.anchorCityId,
     });
   }
-  const skeletons: Skeleton[] = [];
-  for (const [factionId, nodes] of byFaction) {
-    const index = new Map(nodes.map((node, i) => [node, i]));
-    const linked = new Set<string>();
-    const joined = (i: number, j: number): boolean => linked.has(pairKey(i, j));
-    nodes.forEach((a, i) => {
-      nodes.forEach((b, j) => {
-        if (j <= i) return;
-        // 비콘 ↔ 기준 도시, 같은 기준 도시의 비콘끼리는 거리와 상관없이 잇는다(도시 + 비콘 꼭짓점 도형, D-485·D-546 1434)
-        const anchored =
-          (a.site.kind === "beacon" && a.site.anchorCityId === b.site.id && b.site.kind === "city") ||
-          (b.site.kind === "beacon" && b.site.anchorCityId === a.site.id && a.site.kind === "city") ||
-          (a.site.kind === "beacon" &&
-            b.site.kind === "beacon" &&
-            a.site.anchorCityId === b.site.anchorCityId);
-        if (anchored || angleBetween(a.p, b.p) <= corridor) linked.add(pairKey(i, j));
-      });
-    });
-    // 덩이: 줄로 이어졌거나 원이 겹친 자리
-    const parent = nodes.map((_, i) => i);
-    const find = (i: number): number => {
-      let root = i;
-      while ((parent[root] ?? root) !== root) root = parent[root] ?? root;
-      return root;
-    };
-    nodes.forEach((a, i) => {
-      nodes.forEach((b, j) => {
-        if (j <= i) return;
-        if (joined(i, j) || angleBetween(a.p, b.p) <= a.radius + b.radius) {
-          const [ra, rb] = [find(i), find(j)];
-          if (ra !== rb) parent[Math.max(ra, rb)] = Math.min(ra, rb);
-        }
-      });
-    });
-    const groups = new Map<number, Node[]>();
-    nodes.forEach((node, i) => {
-      const root = find(i);
-      groups.set(root, [...(groups.get(root) ?? []), node]);
-    });
-    for (const group of groups.values()) {
-      const links: Link[] = [];
-      const triangles: [Node, Node, Node][] = [];
-      const at = (node: Node): number => index.get(node) ?? -1;
-      for (let i = 0; i < group.length; i++) {
-        const a = group[i];
-        if (!a) continue;
-        for (let j = i + 1; j < group.length; j++) {
-          const b = group[j];
-          if (!b || !joined(at(a), at(b))) continue;
-          links.push({ a, b });
-          for (let k = j + 1; k < group.length; k++) {
-            const c = group[k];
-            if (c && joined(at(a), at(c)) && joined(at(b), at(c))) triangles.push([a, b, c]);
-          }
-        }
-      }
-      const center = unit(group.reduce<Vec>((sum, node) => add(sum, node.p), [0, 0, 0]));
-      const reach = Math.max(...group.map((node) => angleBetween(center, node.p) + node.radius));
-      skeletons.push({ factionId, nodes: group, links, triangles, center, reach });
-    }
-  }
-  return skeletons;
-}
-
-/**
- * 점의 주인: 그 점을 덮는 덩이들의 자리 가운데 영향력 비율(거리 ÷ 영향력 반지름)이 가장 작은 자리(같으면 도시 → 작은 ID) — 서버 칸 소속
- * claimAt(@terra/shared/territory, 도시 영향권 = 거리 ÷ 반경이 가장 작은 도시)과 같은 방식(D-546 1432 "영향력 비율"). 반지름이 같으면
- * 경계는 두 도시의 가운데, 다르면 큰 도시 쪽으로 밀린다. 덮는 덩이가 없으면 undefined
- */
-function ownerAmong(skeletons: readonly Skeleton[], p: Vec): { node: Node; skeleton: Skeleton } | undefined {
-  let best: { node: Node; skeleton: Skeleton } | undefined;
-  let bestRatio = Number.POSITIVE_INFINITY;
-  for (const skeleton of skeletons) {
-    if (!covers(skeleton, p)) continue;
-    for (const node of skeleton.nodes) {
-      const ratio = angleBetween(p, node.p) / node.influence;
-      if (ratio < bestRatio || (ratio === bestRatio && best && siteOrder(node.site, best.node.site) < 0)) {
-        best = { node, skeleton };
-        bestRatio = ratio;
-      }
-    }
-  }
-  return best;
+  return { map: buildTerritoryMap(mapSites, corridor), sites: byKey };
 }
 
 /** 점의 주인 자리(도시·비콘, 어느 국가 영토도 아니면 null). 그리기와 같은 규칙 — 누른 곳의 국가(territoryPick.ts)가 쓴다 */
@@ -377,7 +234,9 @@ export function territoryOwner(
   sites: readonly TerritorySite[],
   corridor: number,
 ): TerritorySite | null {
-  return ownerAmong(skeletonsOf(sites, corridor), toVec(latDeg, lonDeg))?.node.site ?? null;
+  const shape = shapeMapOf(sites, corridor);
+  const owner = territoryMapOwnerOf(shape.map, toVec(latDeg, lonDeg))?.node.site;
+  return owner ? (shape.sites.get(siteKey(owner.kind, owner.id)) ?? null) : null;
 }
 
 /** 접평면(중심 투영) 틀: 가운데 c, 두 축 e1·e2. (u, v) ↔ 구 위 방향 */
@@ -554,18 +413,19 @@ function trace(
 
 /** 도시들의 국가 영토 고리·국가 경계 받침 선·국가 이름표 자리. corridor = 같은 국가 도시를 잇는 가장 먼 거리(라디안) */
 export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: number): TerritoryShapes {
-  const skeletons = skeletonsOf(sites, corridor);
+  const { map } = shapeMapOf(sites, corridor);
   const areas: TerritoryArea[] = [];
   const dividers: LatLon[][] = [];
   const pairs = new Set<string>();
   const best = new Map<number, { area: number; total: number; spot: Vec }>();
-  for (const skeleton of skeletons) {
+  const ownerGroup = (p: Vec): TerritoryMapGroup | undefined => territoryMapOwnerOf(map, p)?.group;
+  for (const skeleton of map.groups) {
     const component = skeleton.nodes;
-    const center = unit(component.reduce<Vec>((sum, node) => add(sum, node.p), [0, 0, 0]));
+    const center = unit(component.reduce<Vec>((sum, node) => add(sum, node.u), [0, 0, 0]));
     const frame = frameAt(center);
     const minRadius = Math.min(...component.map((node) => node.radius));
     const maxRadius = Math.max(...component.map((node) => node.radius));
-    const planar = component.map((node) => toPlane(frame, node.p));
+    const planar = component.map((node) => toPlane(frame, node.u));
     const pad = maxRadius * 1.2;
     const u0 = Math.min(...planar.map((point) => point[0])) - pad;
     const u1 = Math.max(...planar.map((point) => point[0])) + pad;
@@ -577,7 +437,7 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
     const nx = Math.max(2, Math.ceil((u1 - u0) / step));
     const ny = Math.max(2, Math.ceil((v1 - v0) / step));
     // 이 덩이 땅 = 주인이 이 덩이 자리인 곳
-    const inside = (p: Vec): boolean => ownerAmong(skeletons, p)?.skeleton === skeleton;
+    const inside = (p: Vec): boolean => ownerGroup(p) === skeleton;
     const loops = trace(frame, { u0, v0, step, nx, ny }, inside).map((loop) =>
       simplifyLoop(loop, step * 0.05),
     );
@@ -599,10 +459,10 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
           (point[0] + after[0]) / 2 + (dy / length) * step * 0.5,
           (point[1] + after[1]) / 2 - (dx / length) * step * 0.5,
         );
-        const other = ownerAmong(skeletons, probe)?.skeleton;
+        const other = ownerGroup(probe);
         // 한 쪽(작은 국가 ID)에서만 넣는다
-        if (other && other.factionId > skeleton.factionId) {
-          pairs.add(`${String(skeleton.factionId)}:${String(other.factionId)}`);
+        if (other && other.faction > skeleton.faction) {
+          pairs.add(`${String(skeleton.faction)}:${String(other.faction)}`);
           if (run.length === 0) run.push(latLonOf(fromPlane(frame, point[0], point[1])));
           run.push(latLonOf(fromPlane(frame, after[0], after[1])));
         } else flush();
@@ -614,9 +474,9 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
     const largest = outer.toSorted((a, b) => b.area - a.area)[0];
     if (largest && largest.area > 0) {
       const [cu, cv] = centroidOf(largest.loop);
-      const known = best.get(skeleton.factionId);
+      const known = best.get(skeleton.faction);
       if (!known || largest.area > known.area)
-        best.set(skeleton.factionId, {
+        best.set(skeleton.faction, {
           area: largest.area,
           total: (known?.total ?? 0) + total,
           spot: fromPlane(frame, cu, cv),
@@ -637,7 +497,7 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
       }),
     );
     areas.push({
-      factionId: skeleton.factionId,
+      factionId: skeleton.faction,
       cityIds: component.filter((node) => node.site.kind === "city").map((node) => node.site.id),
       loops: loopsLatLon,
       center: latLonOf(center),

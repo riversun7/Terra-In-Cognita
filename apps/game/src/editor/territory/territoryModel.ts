@@ -1,6 +1,6 @@
 // 영토 화면 모형 — 서버 자료(tRPC territory.planet)로 배치를 다시 만들고, 지도 투영(중심 투영 평면)·칸 고르기·세밀 표본을 셈한다.
-// docs/adr/2026-11-03-territory-layer.md 5절. 서버와 같은 함수(@terra/shared/territory buildTerritory·claimAt)·같은 입력이라 같은 답이다.
-// 중심 투영은 대원을 직선으로 보내서 껍질 가장자리(대원)가 화면에서 곧은 선이다.
+// docs/adr/2026-11-03-territory-layer.md 5절. 서버와 같은 함수(@terra/shared/territory buildTerritory·claimAt — 1차맵 영토 지도, D-568)·같은
+// 입력(배후지 반경·영토 값·꼭짓점 비콘)이라 같은 답이다.
 import { type CellKey, cellKey, decodeCellKey, descendantAt, isCellKey, parseCellKey } from "@terra/planet";
 import { type Vec3, cellCenter, cellCorners, xyzToCell } from "@terra/planet/projection";
 import { territoryPoint } from "@terra/planet/territory";
@@ -12,6 +12,7 @@ import {
   claimAt,
 } from "@terra/shared/territory";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
+import { TERRITORY_MAP_START } from "@terra/shared/territoryMap";
 import { S1_TEST_MAP_KEY } from "@terra/protocol";
 
 /**
@@ -24,23 +25,35 @@ export function labCenter(view: TerritoryPlanetView | null, factionId: number | 
   return city && isCellKey(city.mapKey) ? city.mapKey : parseCellKey(S1_TEST_MAP_KEY);
 }
 
-/** 서버 자료 → 배치(서버와 같은 입력) */
+/**
+ * 서버 자료 → 배치(서버와 같은 입력): 도시 원 바탕 = 배후지 반경(없으면 영향권), 비콘은 서버 덩이에 든 것(다 지었고 상태 문턱 이상)만,
+ * 영토 값 = 서버 설정 칸 값(옛 서버면 출발값)
+ */
 export function layoutOf(view: TerritoryPlanetView): TerritoryLayout {
+  const members = new Set(
+    view.groups.flatMap((group) =>
+      group.members.filter((member) => member.kind === "beacon").map((member) => member.id),
+    ),
+  );
   return buildTerritory(
     view.cities.map((city) => ({
       id: city.id,
       faction: city.factionId,
       point: city.point,
       grade: city.grade,
+      catchmentMilli: city.catchmentMilli ?? null,
     })),
-    view.beacons.map((beacon) => ({
-      id: beacon.id,
-      faction: beacon.factionId,
-      point: beacon.point,
-      anchorCity: beacon.cityId,
-    })),
+    view.beacons
+      .filter((beacon) => members.has(beacon.id))
+      .map((beacon) => ({
+        id: beacon.id,
+        faction: beacon.factionId,
+        point: beacon.point,
+        anchorCity: beacon.cityId,
+      })),
     view.rules,
     { milliPerRadian: view.milliPerRadian },
+    view.mapValues ?? TERRITORY_MAP_START,
   );
 }
 

@@ -50,54 +50,45 @@ const layoutOf = (beacons: readonly CellKey[]) =>
     metric,
   );
 
-describe("영토 칸 표", () => {
-  it("도시 + 비콘 셋(사각형): 안쪽·가장자리 칸이 모두 그 세력·그 도시의 지방이다. 같은 입력이면 같은 표", () => {
-    const beacons = [cell(288, 328), cell(282, 334), cell(288, 334)];
-    const layout = layoutOf(beacons);
-    expect(layout.groups[0]?.hull).toHaveLength(4);
-    const raster = rasterizeTerritory(layout, [MAP, ...beacons], F);
-    // 꼭짓점 칸(도시 칸)은 넓이의 1/4만 도형 안 → 표본 4곳 → 소속 없음이 이긴다. 가장자리 칸은 절반 → 같으면 세력
-    expect(raster.has(MAP)).toBe(false);
-    expect(raster.get(cell(285, 328))?.samples).toBe(8);
-    expect(raster.get(cell(283, 329))).toEqual({ faction: 7, province: 1, samples: 16 });
+describe("영토 칸 표(1차맵 지도대로, D-568)", () => {
+  it("마을 하나: 영토 원(아래 끝 4칸) 안 칸이 모두 그 세력·그 도시의 지방이다. 같은 입력이면 같은 표", () => {
+    const raster = rasterizeTerritory(layoutOf([]), [MAP], F);
+    expect(raster.get(MAP)).toEqual({ faction: 7, province: 1, samples: 16 });
     expect([...raster.values()].every((c) => c.faction === 7 && c.province === 1)).toBe(true);
-    // 도형 = 칸 중심 (282,328)~(288,334) 정사각형(넓이 36칸) → 가장자리 칸의 반쯤이 들어가 칸 수가 그 근처다
-    expect(raster.size).toBeGreaterThan(25);
-    expect(raster.size).toBeLessThan(55);
+    // 원 넓이 π·4² ≈ 50칸
+    expect(raster.size).toBeGreaterThan(40);
+    expect(raster.size).toBeLessThan(62);
+    expect(raster.has(cell(282, 334))).toBe(false);
+  });
+
+  it("도시 소유 비콘은 외곽선을 비콘까지 넓힌다(칸 표도 같이). 골든", () => {
+    const beacons = [cell(282, 338)];
+    const raster = rasterizeTerritory(layoutOf(beacons), [MAP, ...beacons], F);
+    expect(raster.get(cell(282, 336))).toEqual({ faction: 7, province: 1, samples: 16 });
+    expect(raster.get(cell(282, 338))?.faction).toBe(7);
+    expect(raster.has(cell(282, 342))).toBe(false);
     const again = rasterizeTerritory(layoutOf(beacons.toReversed()), [...beacons, MAP].toReversed(), F);
     expect([...again.entries()]).toEqual([...raster.entries()]);
-    // 골든: 칸 수와 칸 키 합(결정성, 바뀌면 껍질·투영·표본 규칙이 바뀐 것)
+    // 골든: 칸 수와 칸 키 합(결정성, 바뀌면 영토 모양·투영·표본 규칙이 바뀐 것)
     expect([raster.size, [...raster.keys()].reduce((sum, key) => sum + (key % 1_000_003), 0)]).toEqual(
       RASTER_GOLDEN,
     );
   });
 
-  it("도시 하나 + 비콘 하나(꼭짓점 둘)는 껍질 없이 영향권만", () => {
-    const one = layoutOf([cell(288, 328)]);
-    expect(one.groups[0]?.hull).toBeNull();
-    // 마을 영향권(0.1칸)은 칸 하나의 표본 16곳 중 가운데 근처만 → 가장 많은 쪽이 소속 없음
-    expect(rasterizeTerritory(one, [MAP], F).size).toBe(0);
-  });
-
-  it("큐브 꼭짓점(면 0·1·2가 만나는 곳)을 넘는 껍질도 세 면의 칸을 칠한다", () => {
+  it("큐브 꼭짓점(면 0·1·2가 만나는 곳)을 넘는 영토도 세 면의 칸을 칠한다", () => {
     const n = 512;
     const corner = cell(n - 1, n - 1, 0);
     const layout = buildTerritory(
-      [{ id: 1, faction: 3, point: territoryPoint(cell(n - 3, n - 3, 0)), grade: 1 }],
-      [
-        { id: 11, faction: 3, point: territoryPoint(cell(2, n - 3, 1)), anchorCity: 1 },
-        { id: 12, faction: 3, point: territoryPoint(cell(n - 3, 2, 2)), anchorCity: 1 },
-        { id: 13, faction: 3, point: territoryPoint(cell(n - 6, n - 6, 0)), anchorCity: 1 },
-      ],
+      [{ id: 1, faction: 3, point: territoryPoint(cell(n - 2, n - 2, 0)), grade: 1 }],
+      [],
       rules,
       metric,
     );
-    expect(layout.groups[0]?.hull).not.toBeNull();
-    const raster = rasterizeTerritory(layout, [corner, cell(n - 3, n - 3, 0)], F);
+    const raster = rasterizeTerritory(layout, [cell(n - 2, n - 2, 0)], F);
     expect(new Set([...raster.keys()].map((key) => cellFace(key)))).toEqual(new Set([0, 1, 2]));
     expect(raster.has(corner)).toBe(true);
   });
 });
 
-/** rasterizeTerritory 골든(2026-11-03 처음 실행에서 잰 값: 안쪽 25칸 + 가장자리 20칸) */
-const RASTER_GOLDEN = [45, 23_373_753];
+/** rasterizeTerritory 골든(2026-11-16 D-568 지도 판정으로 다시 잼: 마을 원 + 비콘 띠) */
+const RASTER_GOLDEN = [85, 44_266_717];

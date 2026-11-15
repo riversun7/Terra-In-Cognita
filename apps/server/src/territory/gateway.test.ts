@@ -37,6 +37,8 @@ function fakeService(calls: string[]): TerritoryService {
     supplyCity: () => Promise.resolve(null),
     urbanCity: () => Promise.resolve(null),
     damageBeacon: () => false,
+    provinceAt: () => undefined,
+    warm: async () => undefined,
   };
 }
 

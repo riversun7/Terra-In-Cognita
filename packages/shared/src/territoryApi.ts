@@ -1,8 +1,9 @@
 // 영토 조회 응답 모양(tRPC territory.*) — docs/adr/2026-11-03-territory-layer.md 5절
-// 기기(개발 영토 화면·1차맵 영토 층)는 같은 자료로 @terra/shared/territory buildTerritory·claimAt을 다시 돌려 칸보다 세밀한 경계를
-// 그린다(서버와 같은 함수·같은 입력이라 같은 답). 서버 권위 판정(비콘 놓기)은 서버만 한다.
+// 기기(개발 영토 화면)는 같은 자료로 @terra/shared/territory buildTerritory·claimAt(1차맵 영토 지도, D-568)을 다시 돌려 칸보다 세밀한
+// 경계를 그린다(서버와 같은 함수·같은 입력이라 같은 답). 서버 권위 판정(비콘 놓기·지방)은 서버만 한다.
 import type { LocalizedName } from "./roster.ts";
 import type { TerritoryCoefficients, TerritoryVec, TerritoryVertexKind } from "./territory.ts";
+import type { TerritoryMapValues } from "./territoryMap.ts";
 
 /** 비콘을 시설로 다루는 팩 시설 ID(건물 편집기 재료 D-508, 49 N51). 시설은 늘 켜져 있다(팩 core@32) */
 export const TERRITORY_BEACON_FACILITY = "territory_beacon";
@@ -27,8 +28,12 @@ export interface TerritoryCityView {
   readonly development: number;
   /** 도시 등급 1~6(M2 문턱) */
   readonly grade: number;
-  /** 영향권 반경(1000분율 칸, M3) */
+  /** 영향권 반경(1000분율 칸, M3 — 시가지·새 도시 겹침 검사) */
   readonly radiusMilli: number;
+  /** 배후지 지금 반경(1000분율 칸, 영토 원 바탕). 배후지 규칙이 꺼졌으면 null(바탕 = 영향권). 옛 서버는 없다 */
+  readonly catchmentMilli?: number | null | undefined;
+  /** 영토 원 반지름(1000분율 칸, 1차맵 지도와 같다 — D-568). 옛 서버는 없다 */
+  readonly territoryMilli?: number | undefined;
   /** 비콘 최대 거리(1000분율 칸, N42) */
   readonly rangeMilli: number;
   /** 이 도시를 기준으로 놓은 비콘 수 / 상한(N42) */
@@ -55,7 +60,7 @@ export interface TerritoryBeaconView {
 export interface TerritoryGroupView {
   readonly factionId: number;
   readonly members: readonly { readonly kind: TerritoryVertexKind; readonly id: number }[];
-  /** 껍질 꼭짓점(반시계). 셋 미만이면 null */
+  /** 옛 볼록 껍질 꼭짓점. D-568부터 껍질 판정이 없어 늘 null(옛 화면 호환) */
   readonly hull:
     | readonly { readonly kind: TerritoryVertexKind; readonly id: number; readonly point: TerritoryVec }[]
     | null;
@@ -86,6 +91,8 @@ export interface TerritoryPlanetView {
   /** 각 → 1000분율 칸(buildTerritory metric) */
   readonly milliPerRadian: number;
   readonly rules: TerritoryCoefficients;
+  /** 1차맵 영토 값(설정 칸 planet_territory_* 실효 값 — 판정과 화면이 같이 쓴다, D-568). 옛 서버는 없다 → 출발값 */
+  readonly mapValues?: TerritoryMapValues | undefined;
   readonly beacon: TerritoryBeaconFacilityView;
   readonly factions: readonly TerritoryFactionView[];
   readonly cities: readonly TerritoryCityView[];
@@ -96,4 +103,8 @@ export interface TerritoryPlanetView {
   readonly myFactionId: number | null;
   /** 이 배치를 셈한 서버 시각 */
   readonly computedAtMs: number;
+  /** 배치를 셈한 시간(ms, 측정용). 옛 서버는 없다 */
+  readonly computeMs?: number | undefined;
+  /** 칸 표를 셈한 시간(ms, 측정용 — 그 배치에서 칸 표를 셈했을 때만) */
+  readonly rasterMs?: number | undefined;
 }

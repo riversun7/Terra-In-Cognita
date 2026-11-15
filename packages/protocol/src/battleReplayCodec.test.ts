@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BATTLE_REPLAY_FORMAT_VERSION,
+  REPLAY_EVENT_KINDS,
   type BattleReplay,
   type ReplayEvent,
   type ReplayUnitFrame,
@@ -99,6 +100,13 @@ function sample(): BattleReplay {
     { k: "vision", t: 51, side: 2, u: 0, on: false },
     { k: "down", t: 60, u: 1 },
     { k: "retreat", t: 61, u: 0 },
+    // 형식 2: 움직임 사건(docs/adr/2026-11-15-combat-moves.md 5절)
+    { k: "motion", t: 61, u: 0, kind: "dash", fromX: 3, fromY: 4, x: 8, y: 4, facing: 2 },
+    { k: "motion", t: 61, u: 1, kind: "knockback", fromX: 9, fromY: 4, x: 11, y: 4, facing: 6 },
+    { k: "stealth", t: 61, u: 1, on: true, cause: "skill" },
+    { k: "stealth", t: 61, u: 1, on: false, cause: "detected" },
+    { k: "run", t: 61, u: 0, on: true },
+    { k: "multishot", t: 61, u: 1, target: 0, skill: 0, shots: 3 },
     { k: "end", t: 62, winner: 1, reason: "wipe" },
   ];
   return {
@@ -187,7 +195,7 @@ function sample(): BattleReplay {
       {
         tick: 30,
         units: [
-          frame({ effects: [{ effect: 1, stacks: 1, untilTick: -1 }] }),
+          frame({ effects: [{ effect: 1, stacks: 1, untilTick: -1 }], stealth: true, running: true }),
           frame({ x: 10, cast: { skill: 0, target: 0, endTick: 38 }, hp: Number.MAX_SAFE_INTEGER }),
         ],
       },
@@ -202,6 +210,30 @@ describe("전투 리플레이 이진 형식", () => {
     const bytes = encodeBattleReplay(replay);
     expect(Array.from(bytes.subarray(0, 4))).toEqual([0x54, 0x43, 0x42, 0x52]);
     expect(decodeBattleReplay(bytes)).toEqual(replay);
+  });
+
+  it("모든 사건 종류 번호를 시험 자료가 쓴다(새 종류를 더하면 시험 자료에도)", () => {
+    const used = new Set(sample().events.map((event) => event.k));
+    expect(REPLAY_EVENT_KINDS.filter((kind) => !used.has(kind))).toEqual([]);
+  });
+
+  it("형식 1(움직임 사건·표지 없음) 리플레이도 읽는다", () => {
+    const old = sample();
+    const v1: BattleReplay = {
+      ...old,
+      formatVersion: 1,
+      events: old.events.filter(
+        (event) => !["motion", "stealth", "run", "multishot"].includes(event.k),
+      ),
+      keyframes: old.keyframes.map((keyframe) => ({
+        ...keyframe,
+        units: keyframe.units.map(({ stealth: _stealth, running: _running, ...rest }) => rest),
+      })),
+    };
+    const bytes = encodeBattleReplay(v1);
+    bytes[4] = 1;
+    bytes[5] = 0;
+    expect(decodeBattleReplay(bytes)).toEqual(v1);
   });
 
   it("base64로 tRPC에 싣고 다시 읽는다", () => {

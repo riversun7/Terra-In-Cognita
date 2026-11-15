@@ -1,12 +1,13 @@
 // 가문 소속 도시(기획 D-565) — docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-15, D-565)".
 // - 가문은 소속 도시를 고르고, 그 도시가 속한 나라(도시 주인 세력에서 봉신 관계를 따라 올라간 최상위 세력)의 가문이 자동으로 된다. 소속 도시는
 //   세금 납부·랭킹 집계에 쓴다. 가문 나라는 factions.born_of에 함께 적는다 — 같은 나라 시야 공유(D-250, world/houseTies.ts memberNationOf)·
-//   봉신 고르기(houseCity.ts)가 읽는다. "시작 국가와 별개": 가문 나라는 창설자 시민권과 상관없다.
+//   봉신 고르기(houseCity.ts)가 읽는다. 나라는 하나(D-569): 가문원의 시민권·내 도시는 이 도시와 그 나라로 맞춘다(houseTies.ts — 소속 도시를
+//   바꾸면 가문원 모두의 나라가 바뀐다).
 // - 창설할 때 고른다(found.ts — 안 고르면 창설자 사이보그의 내 도시). 가문장은 나중에 바꾼다(WebSocket house_home, 프로토콜 39):
-//   대기 = 설정 칸 house_home_wait_ms([임시] 출발값 7일, 질문 1741), 도시를 가진 가문은 아직 바꾸지 못한다(has_city — 봉신 위 세력·독립 시야가
-//   얽힌다 [임시], 질문 1743). 바꾸면 가문원에게 소식 home_changed, 감사 기록 faction.house_home.
-// - 무소속(가문 없는 사람)의 소속 도시는 사이보그의 내 도시(cyborgs.start_city_id — 귀화하면 바뀐다)다. 개인 세금은 이 도시로 낸다(D-565 —
-//   세금 종류·세율은 기획이 정할 일, 질문 1745).
+//   대기 = 설정 칸 house_home_wait_ms([임시] 출발값 7일, D-569 1741 설정값), 도시를 가진 가문은 바꾸지 못한다(has_city — 소속 도시 = 그 가문
+//   도시, D-569 1743. houseTies.ts가 맞춘다). 바꾸면 가문원에게 소식 home_changed, 감사 기록 faction.house_home.
+// - 무소속(가문 없는 사람)의 소속 도시는 사이보그의 내 도시(cyborgs.start_city_id — 귀화하면 바뀌고, 가문에 있던 사람은 마지막 가문 소속
+//   도시)다. 개인 세금은 이 도시 정부가 정한 세율로 낸다(D-569 1745 → D-128 — 걷는 자리는 아직 없다, 질문 1843).
 // SQL만 둔다(도시·나라는 DB world_cities·factions — 쓰기 대기열이 밀리면 막 생긴 도시가 잠깐 안 보일 수 있다).
 import type { HouseMemberResultCode } from "@terra/protocol";
 import type { LocalizedName } from "@terra/shared/faction";

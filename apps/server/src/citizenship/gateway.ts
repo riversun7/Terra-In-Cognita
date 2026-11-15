@@ -2,7 +2,12 @@
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(잔고·쉬는 날을 차례로 본다).
 // - 사용자별 속도 제한(순간 5번, 분당 10번 — 드문 명령이라 다른 명령보다 낮다). 밀린 요청이 MAX_PENDING을 넘으면 busy. 세계가 없으면 busy.
 // - 판정·저장은 서비스(service.ts)가 한다. 결과 코드는 화면 문구와 감사(원장 거래·기록 표)에 그대로 쓴다.
-import { type ClientMessageOf, type NationalityResultCode, encodeMessage } from "@terra/protocol";
+import {
+  type ClientMessageOf,
+  type NationalityResultCode,
+  encodeMessage,
+  legacyNationalityCode,
+} from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { CitizenshipService, NationalityCommandResult } from "./service.ts";
@@ -15,6 +20,8 @@ const LIMIT = { capacity: 5, refillPerMinute: 10 };
 export interface CitizenshipLink {
   send(text: string): void;
   viewer(): Promise<Viewer | null>;
+  /** 인사한 판(새 결과 코드를 낮출 때 — 44 in_house). 없으면 낮추지 않는다(시험) */
+  readonly protocolVersion?: number | undefined;
 }
 
 export interface CitizenshipSocket {
@@ -26,8 +33,16 @@ export interface CitizenshipGateway {
   open(link: CitizenshipLink): CitizenshipSocket;
 }
 
-function resultText(id: number, result: NationalityCommandResult): string {
-  if (!result.ok) return encodeMessage({ t: "nationality_result", id, ok: false, code: result.code });
+function resultText(
+  id: number,
+  result: NationalityCommandResult,
+  protocolVersion: number | undefined,
+): string {
+  if (!result.ok) {
+    const code =
+      protocolVersion === undefined ? result.code : legacyNationalityCode(result.code, protocolVersion);
+    return encodeMessage({ t: "nationality_result", id, ok: false, code });
+  }
   return encodeMessage({
     t: "nationality_result",
     id,
@@ -49,7 +64,7 @@ const fail = (code: NationalityResultCode): NationalityCommandResult => ({ ok: f
 export function createCitizenshipGateway(options: {
   /** 세계가 준비되면 서비스(없으면 busy) */
   service: () => CitizenshipService | undefined;
-  /** 귀화가 커밋된 뒤 답하기 전에 부른다(가문 나라 맞추기 — 질문 983 가). 실패해도 귀화 결과는 그대로 답한다 */
+  /** 귀화가 커밋된 뒤 답하기 전에 부른다. 실패해도 귀화 결과는 그대로 답한다 */
   afterChange?: ((userId: string) => Promise<void>) | undefined;
   now: () => number;
   log: {
@@ -64,7 +79,7 @@ export function createCitizenshipGateway(options: {
       let pending = 0;
       let closed = false;
       const reply = (id: number, result: NationalityCommandResult): void => {
-        if (!closed) link.send(resultText(id, result));
+        if (!closed) link.send(resultText(id, result, link.protocolVersion));
       };
 
       const process = async (message: CitizenshipClientMessage): Promise<void> => {

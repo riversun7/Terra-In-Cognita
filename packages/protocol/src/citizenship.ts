@@ -14,6 +14,8 @@ import { z } from "zod";
 export const CITIZENSHIP_PROTOCOL_VERSION = 18;
 /** 받는 나라 조건(지원금·입회비)·우호도(D-526)가 든 판 — 부호 있는 cost, 결과 granted·standingDrop·hostile */
 export const NATURALIZE_TERMS_PROTOCOL_VERSION = 19;
+/** 가문원 귀화 막기(기획 D-569 "나라는 하나" — 결과 코드 in_house)가 든 판. 더 낮은 연결은 not_joinable을 받는다(legacyNationalityCode) */
+export const NATIONALITY_HOUSE_PROTOCOL_VERSION = 44;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -65,8 +67,19 @@ export const NATIONALITY_RESULT_CODES = [
   "terms_changed",
   /** 화폐가 모자람(입회비가 잔고보다 큼) */
   "insufficient_funds",
+  // 44판부터(더 낮은 연결은 not_joinable로 낮춘다 — legacyNationalityCode)
+  /** 가문원이다 — 나라는 가문 소속 도시의 나라다(D-569). 가문장은 소속 도시를 바꾸고, 가문원은 가문을 나간 뒤 귀화한다 */
+  "in_house",
 ] as const;
 export type NationalityResultCode = (typeof NATIONALITY_RESULT_CODES)[number];
+
+/** 연결 판에 맞춘 결과 코드(44판 전 연결은 in_house를 모른다 → not_joinable) */
+export function legacyNationalityCode(
+  code: NationalityResultCode,
+  protocolVersion: number,
+): NationalityResultCode {
+  return code === "in_house" && protocolVersion < NATIONALITY_HOUSE_PROTOCOL_VERSION ? "not_joinable" : code;
+}
 
 const nationalityResultMessage = z.discriminatedUnion("ok", [
   z.object({

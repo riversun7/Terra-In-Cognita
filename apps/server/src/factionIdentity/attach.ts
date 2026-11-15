@@ -2,8 +2,8 @@
 // - 게이트웨이(WebSocket house_found): DB가 있으면 선다. 시민권(사이보그 나라)은 세계가 준비됐으면 월드 사이보그 기록, 아니면 DB에서 읽는다.
 //   창설은 무료다(기획 D-565 — 옛 창설 비용·국고 이체를 지웠다).
 // - 서버를 켤 때 옛 정체성(가문 없는 줄)을 한 번 가문으로 옮긴다(found.ts adoptUnfoundedIdentities, 뒤에서 — 실패해도 서버는 뜬다).
-// - 가문 가입(질문 985 다, members.ts)·소속 도시 바꾸기(D-565, houseHome.ts)도 같은 게이트웨이가 받는다. 귀화해도 가문은 따라가지 않는다
-//   (D-565 — 가문 나라는 소속 도시가 정한다. 옛 983 가 follow.ts를 지웠다).
+// - 가문 가입(질문 985 다, members.ts)·소속 도시 바꾸기(D-565, houseHome.ts)도 같은 게이트웨이가 받는다. 명령 뒤 가문 표를 다시 읽어
+//   가문원 시민권·내 도시를 가문 소속 도시에 맞춘다(D-569 "나라는 하나", world/houseTies.ts). 가문원은 귀화하지 못한다(citizenship in_house).
 import type { Database } from "../db/client.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import type { World } from "../world/world.ts";

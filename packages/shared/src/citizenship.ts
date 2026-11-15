@@ -22,6 +22,8 @@ export type NaturalizationStatus =
  */
 export type NaturalizationBlock =
   | "same_nation"
+  /** 가문원(기획 D-569 "나라는 하나" — 나라는 가문 소속 도시의 나라. 가문장은 소속 도시를 바꾸고 가문원은 가문을 나간 뒤 귀화한다) */
+  | "in_house"
   | "not_joinable"
   | "captive"
   | "wrong_city"

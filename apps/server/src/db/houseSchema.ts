@@ -5,9 +5,8 @@ import { bigint, check, index, integer, pgTable, text, uniqueIndex, uuid } from 
 import { factions, users } from "./schema.ts";
 
 /**
- * 가문 구성원(D-216 이중 소속): 사용자 → 가문(세력 행, kind = player). 사용자마다 한 가문. 나라 소속(시민권)은 그대로 faction_members·
- * cyborgs.faction_id다 — 같은 나라 시야 공유(D-250)는 이 표를 보지 않는다. 가문원은 그 가문 나라(factions.born_of)의 시민만이다(질문 985 다 —
- * 가입은 house_requests, 나라가 달라지면 빠진다 983 가)
+ * 가문 구성원: 사용자 → 가문(세력 행, kind = player). 사용자마다 한 가문. 나라는 하나(기획 D-569 — D-216 이중 소속을 대신함): 가문원의
+ * 시민권(faction_members·cyborgs.faction_id)은 가문 소속 도시의 나라로 맞춘다(world/houseTies.ts). 가입은 house_requests
  */
 export const houseMembers = pgTable(
   "house_members",
@@ -123,3 +122,24 @@ export const houseHomes = pgTable("house_homes", {
   /** 소속 도시를 마지막으로 정한 시각(창설 포함 — 다시 바꾸기 대기 house_home_wait_ms가 센다) */
   setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
 });
+
+/**
+ * 유닛 단위 가문(기획 D-569 1744 "고용한 주체의 가문 소속에 들어간다"): 고용한 유닛마다 한 줄 — 고용한 사람(user_id)의 그때 가문. 사이보그 본체는
+ * 줄이 없다(주인의 가문을 따른다). 주인이 그 가문을 나가거나 내보내지거나 해산하면 지운다(무소속, D-565 1747 — world/houseTies.ts). 쓰기
+ * 대기열이 유닛과 같은 커밋에 쓴다. 유닛 외래 키는 unit_effects와 같은 까닭으로 두지 않는다. 세계 표(시험 세계 새로 시작에서 지운다)
+ */
+export const houseUnits = pgTable(
+  "house_units",
+  {
+    unitId: bigint("unit_id", { mode: "number" }).primaryKey(),
+    factionId: bigint("faction_id", { mode: "number" })
+      .notNull()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
+    setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("house_units_faction_idx").on(table.factionId),
+    index("house_units_user_idx").on(table.userId),
+  ],
+);

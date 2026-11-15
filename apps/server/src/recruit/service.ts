@@ -75,6 +75,8 @@ export interface RecruitServiceOptions {
   readonly draws: readonly RecruitDrawRow[];
   /** 가문에 들어 있나(D-565, 메모리 표 world/houseTies.ts — 가문 명령 뒤 다시 읽는다). 없으면(시험) 막지 않는다 */
   readonly hasHouse?: ((userId: string) => boolean) | undefined;
+  /** 고용한 유닛을 고용한 사람의 가문에 적는다(D-569 1744 — 유닛 단위 가문, world/houseTies.ts assignUnit). 같은 커밋에 든다 */
+  readonly assignHouse?: ((unitId: number, userId: string, nowMs: number) => void) | undefined;
 }
 
 /** STR·DEX·AGI·VIT·INT·WIS 배열 → 화면 스탯 */
@@ -241,6 +243,7 @@ export function createRecruitService(o: RecruitServiceOptions): RecruitService {
         stats: [...card.stats],
         elements: recruitElementSlots(card.elements),
       });
+      o.assignHouse?.(unitId, userId, at);
       draws.set(key, next);
       o.writer.upsert("recruitDraws", {
         owner_id: owner.id,

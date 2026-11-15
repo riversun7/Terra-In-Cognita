@@ -30,8 +30,17 @@ describe("랭킹 화면 글", () => {
   });
 
   it("판 고르기 값 ↔ 판, 판 → 주소, 모르는 값은 null", () => {
-    for (const board of [{ kind: "faction" } as const, { kind: "path", path: "conqueror" } as const])
+    for (const board of [
+      { kind: "faction" } as const,
+      { kind: "path", path: "conqueror" } as const,
+      { kind: "house", path: "conqueror" } as const,
+    ])
       expect(boardFromValue(boardValue(board))).toEqual(board);
+    expect(boardFromValue("house:")).toBeNull();
+    expect(boardTarget({ kind: "house", path: "landlord" })).toEqual({
+      route: "faction_ranking",
+      search: { house: "landlord" },
+    });
     expect(boardFromValue("path:")).toBeNull();
     expect(boardFromValue("x")).toBeNull();
     expect(boardTarget({ kind: "faction" })).toEqual({ route: "faction_ranking" });
@@ -48,6 +57,9 @@ describe("랭킹 화면 글", () => {
     expect(boardRequestOf(faction)).toEqual({ kind: "faction" });
     expect(boardRequestOf(chosen)).toEqual({ kind: "path", path: "mercenary" });
     expect(boardRequestOf(open)).toEqual({ kind: "path", path: null });
+    // 가문 판(D-569 1746): 세력 주소 + ?house=<경로>
+    const house = { id: "faction_ranking", params: {}, search: { house: "mercenary" } } as RouteMatch;
+    expect(boardRequestOf(house)).toEqual({ kind: "house", path: "mercenary" });
   });
 
   it("영역마다 묶기(팩 차례 그대로), 이름은 지금 언어, 등급 퍼센트", () => {

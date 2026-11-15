@@ -35,6 +35,7 @@ export const KIND_NAMES: Record<RankingSubjectKind, () => string> = {
   user: m.ranking_kind_user,
   npc_faction: m.ranking_kind_npc_faction,
   player_faction: m.ranking_kind_player_faction,
+  house: m.ranking_kind_house,
 };
 
 /** 등급 문턱(‰) → 퍼센트 글자(10 → "1", 5 → "0.5") */
@@ -80,28 +81,32 @@ export function nameText(name: LocalizedName | null, locale: Locale = getLocale(
   return locale === "en" ? name.en : name.ko;
 }
 
-/** 주소 → 판 요청: 세력 판 주소, 경로 판 주소(?path= 없으면 서버가 고른다) */
+/** 주소 → 판 요청: 세력 판 주소(?house=<경로>면 그 경로의 가문 판), 경로 판 주소(?path= 없으면 서버가 고른다) */
 export function boardRequestOf(match: RouteMatch): RankingBoardRequest {
-  if (match.id === "faction_ranking") return { kind: "faction" };
+  if (match.id === "faction_ranking") {
+    const house = match.search.house;
+    return house === undefined || house === "" ? { kind: "faction" } : { kind: "house", path: house };
+  }
   if (match.id === "cyborg_ranking") return { kind: "path", path: match.search.path ?? null };
   return { kind: "path", path: null };
 }
 
 /** 판 → 주소(고르기 칸이 바꾼다) */
 export function boardTarget(board: RankingBoardKey): RouteTarget {
-  return board.kind === "faction"
-    ? { route: "faction_ranking" }
-    : { route: "cyborg_ranking", search: { path: board.path } };
+  if (board.kind === "faction") return { route: "faction_ranking" };
+  if (board.kind === "house") return { route: "faction_ranking", search: { house: board.path } };
+  return { route: "cyborg_ranking", search: { path: board.path } };
 }
 
-/** 판 고르기 칸 값(세력 = "faction:", 경로 = "path:<ID>") ↔ 판 */
+/** 판 고르기 칸 값(세력 = "faction:", 경로 = "path:<ID>", 가문 판 = "house:<ID>") ↔ 판 */
 export const boardValue = (board: RankingBoardKey): string =>
-  board.kind === "faction" ? "faction:" : `path:${board.path}`;
+  board.kind === "faction" ? "faction:" : `${board.kind}:${board.path}`;
 
 export function boardFromValue(value: string): RankingBoardKey | null {
   if (value === "faction:") return { kind: "faction" };
-  if (value.startsWith("path:") && value.length > "path:".length)
-    return { kind: "path", path: value.slice(5) };
+  for (const kind of ["path", "house"] as const)
+    if (value.startsWith(`${kind}:`) && value.length > kind.length + 1)
+      return { kind, path: value.slice(kind.length + 1) };
   return null;
 }
 

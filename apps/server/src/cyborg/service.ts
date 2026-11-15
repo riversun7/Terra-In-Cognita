@@ -178,6 +178,11 @@ export interface CyborgService {
    */
   changeNation(userId: string, change: NationChange): boolean;
   /**
+   * 가문원의 나라·내 도시를 가문 소속 도시에 맞춘다(기획 D-569 "나라는 하나" — 시민권 = 가문 소속 도시의 나라, world/houseTies.ts가 가문 명령 뒤·
+   * 1분마다 부른다). 값·우호도·쉬는 날·기록 줄은 없다(귀화가 아니다). 도시를 모르면(null) 나라만. 바뀌었으면 true(쓰기 대기열에 넣기만 한다)
+   */
+  alignHome(userId: string, home: { readonly factionId: number; readonly cityId: number | null }): boolean;
+  /**
    * 국적 바꾸기 설정 칸(실효 값, 부를 때마다). fee = 받는 나라(nation)의 귀화 조건(D-526 부호 있는 최소 단위: + 입회비 / − 지원금 — 나라가 정한
    * 값, 없으면 설정 칸 기본값), restMs = 쉬는 기간, standingDrop·standingDropHostile = 옛 나라 우호도 하락(보통·적대 세력으로)
    */
@@ -723,6 +728,18 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         standing_drop: Math.max(0, change.standingDrop),
         hostile: change.hostile,
       });
+      return true;
+    },
+    alignHome(userId, home) {
+      const record = byUser.get(userId);
+      if (!record) return false;
+      const city = home.cityId ?? record.startCityId;
+      if (record.factionId === home.factionId && record.startCityId === city) return false;
+      if (record.factionId !== home.factionId)
+        writer.upsert("factionMembers", { user_id: userId, faction_id: home.factionId });
+      record.factionId = home.factionId;
+      record.startCityId = city;
+      writer.upsert("cyborgs", cyborgRow(record));
       return true;
     },
     repairUnits(knownUnitIds) {

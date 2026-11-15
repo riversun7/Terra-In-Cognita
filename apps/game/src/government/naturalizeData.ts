@@ -43,6 +43,8 @@ export function blockText(
       return null;
     case "same_nation":
       return m.naturalize_block_same({}, { locale });
+    case "in_house":
+      return m.naturalize_block_in_house({}, { locale });
     case "not_joinable":
       return m.naturalize_block_not_joinable({}, { locale });
     case "captive":
@@ -146,6 +148,7 @@ export const NATURALIZE_RESULT_TEXT: Readonly<Record<FailCode, () => string>> = 
   no_cyborg: m.naturalize_err_no_cyborg,
   not_government: m.naturalize_err_not_government,
   same_nation: m.naturalize_block_same,
+  in_house: m.naturalize_block_in_house,
   not_joinable: m.naturalize_block_not_joinable,
   wrong_city: m.naturalize_block_wrong_city,
   captive: m.naturalize_block_captive,

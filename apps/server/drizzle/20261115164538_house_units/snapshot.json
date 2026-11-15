@@ -1,0 +1,252 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e39360c4-a832-4a11-a9d1-41c1f6cfbfcb",
+  "prevIds": [
+    "15ffb077-1836-49ea-bb84-0e21b2e29e3a",
+    "f538ae35-2fe1-4d0f-8446-0928e4de69e6",
+    "b551eca4-f70a-4d10-991b-42161197c963",
+    "2c839e64-6226-4e8d-84a8-7f67d118c51d"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_units"
+      ],
+      "writes": [
+        "s|tbl|public.house_units",
+        "n|tbl|public.house_units",
+        "e|tbl|public.house_units",
+        "n|rel|public.house_units",
+        "n|type|public.house_units",
+        "n|rel|public.house_units_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "house_units",
+        "house_units_faction_idx"
+      ],
+      "writes": [
+        "s|idx|public.house_units_faction_idx",
+        "n|idx|public.house_units_faction_idx",
+        "e|idx|public.house_units_faction_idx",
+        "n|rel|public.house_units_faction_idx"
+      ],
+      "reads": [
+        "n|tbl|public.house_units",
+        "n|sch|public",
+        "n|col|public.house_units.faction_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "house_units",
+        "house_units_user_idx"
+      ],
+      "writes": [
+        "s|idx|public.house_units_user_idx",
+        "n|idx|public.house_units_user_idx",
+        "e|idx|public.house_units_user_idx",
+        "n|rel|public.house_units_user_idx"
+      ],
+      "reads": [
+        "n|tbl|public.house_units",
+        "n|sch|public",
+        "n|col|public.house_units.user_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_units"
+      ],
+      "writes": [
+        "s|fk|public.house_units.house_units_faction_id_factions_id_fkey",
+        "n|fk|public.house_units.house_units_faction_id_factions_id_fkey",
+        "e|fk|public.house_units.house_units_faction_id_factions_id_fkey",
+        "n|con|public.house_units.house_units_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_units",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.house_units.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "house_units",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_units",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_units",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_units",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_units",
+        "name": "set_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_units",
+        "name": "house_units_faction_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "faction_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_units",
+        "name": "house_units_user_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_units",
+        "name": "house_units_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_units",
+        "name": "house_units_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

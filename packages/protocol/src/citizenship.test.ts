@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CITIZENSHIP_PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,
+  NATIONALITY_HOUSE_PROTOCOL_VERSION,
   NATIONALITY_RESULT_CODES,
   NATURALIZE_TERMS_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
@@ -10,6 +11,7 @@ import {
   decodeClientMessage,
   decodeServerMessage,
   encodeMessage,
+  legacyNationalityCode,
 } from "./index.ts";
 
 function decodes(decode: (text: string) => unknown, message: unknown): boolean {
@@ -29,6 +31,17 @@ describe("국적 바꾸기 메시지(프로토콜 18·19)", () => {
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(NATURALIZE_TERMS_PROTOCOL_VERSION);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(CITIZENSHIP_PROTOCOL_VERSION);
     expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
+  });
+
+  it("가문원 귀화 막기 in_house(D-569)는 44부터, 더 낮은 연결은 not_joinable", () => {
+    expect(NATIONALITY_HOUSE_PROTOCOL_VERSION).toBe(44);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(NATIONALITY_HOUSE_PROTOCOL_VERSION);
+    expect(NATIONALITY_RESULT_CODES).toContain("in_house");
+    expect(legacyNationalityCode("in_house", 44)).toBe("in_house");
+    expect(legacyNationalityCode("in_house", 43)).toBe("not_joinable");
+    expect(legacyNationalityCode("resting", 43)).toBe("resting");
+    const result = { t: "nationality_result", id: 9, ok: false, code: "in_house" } as const;
+    expect(decodeServerMessage(encodeMessage(result))).toEqual(result);
   });
 
   it("신청이 왕복하고 값 모양을 본다", () => {

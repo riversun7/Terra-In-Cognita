@@ -50,6 +50,7 @@ function fakeService(calls: string[]): CyborgService {
     repairUnits: () => 0,
     joinable: () => false,
     changeNation: () => false,
+    alignHome: () => false,
     naturalizationRules: () => ({ fee: 0n, restMs: 0, standingDrop: 0, standingDropHostile: 0 }),
     standingOf: () => 0,
     addFaith: () => undefined,

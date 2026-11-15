@@ -128,6 +128,27 @@ export function previewBoard(
   const path = paths.find((entry) => entry.id === board.path);
   const status = path === undefined ? "unknown" : path.open ? "ready" : "closed";
   if (status !== "ready") return { ...base, status, total: 0, rows: [], me: null, tiers: tierCuts(0, c) };
+  if (board.kind === "house") {
+    // 가문 판 시안: 유저 줄 모양에 가문 표시(소속 도시·가문원 수)
+    const houses = Array.from(
+      { length: PREVIEW_FACTION_TOTAL },
+      (_, index): RankingRow => ({
+        ...userRow(index + 1, PREVIEW_FACTION_TOTAL, c, index + 1 === PREVIEW_MY_FACTION_RANK),
+        kind: "house",
+        prevRank: null,
+        home: index % 3 === 0 ? null : `Preview City ${(index % 5) + 1}`,
+        members: 20 - (index % 17),
+      }),
+    );
+    return {
+      ...base,
+      status,
+      total: PREVIEW_FACTION_TOTAL,
+      rows: houses,
+      me: houses.find((row) => row.me) ?? null,
+      tiers: tierCuts(PREVIEW_FACTION_TOTAL, c),
+    };
+  }
   const rows = Array.from({ length: RANKING_BOARD_ROWS }, (_, index) =>
     userRow(index + 1, PREVIEW_TOTAL, c, index + 1 === PREVIEW_ME_RANK),
   );

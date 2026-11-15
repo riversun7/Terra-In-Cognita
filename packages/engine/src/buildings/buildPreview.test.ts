@@ -24,6 +24,7 @@ describe("건축 미리보기", () => {
     const view = {
       cellM: 2,
       pixelsPerMetre: 10,
+      zoomStage: 6,
       width: 400,
       height: 800,
       groundAt: () => 5,

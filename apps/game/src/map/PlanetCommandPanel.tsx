@@ -53,10 +53,6 @@ interface PlanetCommandPanelProps {
   /** 명령 뒤 길을 다시 묻게 한다 */
   readonly onTravelChanged: () => void;
   readonly onClose: () => void;
-  /**
-   * 운영자 모드(dev·admin + 기기 기억 — 기획 D-560 1239): [텔레포트]로 걷지 않고 바로 옮긴다(travel_start teleport). 권한은 서버가 다시 본다
-   */
-  readonly operator?: boolean | undefined;
 }
 
 /** 확인 단계 답. unit = 그 답을 물은 유닛(유닛을 바꾸면 새 답이 올 때까지 받는 중으로 본다) */
@@ -87,7 +83,6 @@ export function PlanetCommandPanel({
   travel,
   onTravelChanged,
   onClose,
-  operator = false,
 }: PlanetCommandPanelProps) {
   const titleId = useId();
   const noteId = useId();
@@ -178,26 +173,6 @@ export function PlanetCommandPanel({
     }).then((outcome) => {
       setSending(false);
       if (!outcome.ok) setNotice(travelProblemText(outcome.code));
-      refresh();
-    });
-  };
-
-  /** 운영자 텔레포트(D-560 1239): 길 없이 목적 칸 둘레로 바로 옮긴다(가던 길은 버린다) */
-  const teleport = (): void => {
-    if (unitId === null || sending) return;
-    setSending(true);
-    setNotice(null);
-    void sendTravelCommand({
-      t: "travel_start",
-      unitId,
-      mapKey: target.mapKey,
-      x: target.x,
-      y: target.y,
-      kind: "move",
-      teleport: true,
-    }).then((outcome) => {
-      setSending(false);
-      setNotice(outcome.ok ? m.world_command_teleported() : travelProblemText(outcome.code));
       refresh();
     });
   };
@@ -375,16 +350,6 @@ export function PlanetCommandPanel({
             {m.world_command_confirm()}
           </button>
         )}
-        {operator && unitId !== null ? (
-          <button
-            type="button"
-            className="button-small map-operator-button planet-command-teleport"
-            disabled={sending}
-            onClick={teleport}
-          >
-            {m.world_command_teleport()}
-          </button>
-        ) : null}
         <button type="button" className="button-small" onClick={onClose}>
           {m.world_city_close()}
         </button>

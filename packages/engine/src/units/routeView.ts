@@ -1,5 +1,6 @@
 // 이동 경로·목적지 표시 — 사용자 요청 2026-11-09 "2차맵에서 이동 클릭시 목적지와 경로를 표시하는 ui 추가".
-// - 경로: 고른 유닛(화면이 정한 경로 표시 유닛, setRouteUnit)의 서버 경로를 땅 위 점선 띠로 그린다. 이미 간 부분은 셰이더가 지운다(uTravelled).
+// - 경로: 고른 유닛(화면이 정한 경로 표시 유닛, setRouteUnit)의 서버 경로를 땅 위 이어진 띠로 그린다(바뀜 2026-11-15 사용자 지적
+//   "이동하는 선이 다 끊겨있고" — 점선을 실선으로). 이미 간 부분은 셰이더가 지운다(uTravelled).
 //   띠 너비는 화면 픽셀 기준(가까이·멀리 같은 굵기)이라 다시 만들지 않고 유니폼만 바꾼다.
 // - 목적지: 누른 자리(명령 직후, 경로가 오기 전에도) 또는 경로 끝에 고리를 둔다.
 // - 땅에 가려지지 않게 깊이 검사를 끈다(언덕 뒤 경로도 보인다 — 길 안내용). 선택 고리와 같은 색(HIGHLIGHT_COLOR).
@@ -24,8 +25,6 @@ const ROUTE_LIFT_M = 0.15;
 /** 띠 너비(CSS 픽셀)와 최소 너비(m) */
 const ROUTE_WIDTH_PX = 6;
 const ROUTE_MIN_WIDTH_M = 0.12;
-/** 점선 한 마디(배치 칸) */
-const ROUTE_DASH_CELLS = 1.6;
 /** 목적지 고리 바깥 반지름(CSS 픽셀 최소)과 m 최소 */
 const TARGET_MIN_PX = 18;
 const TARGET_MIN_M = 0.6;
@@ -47,15 +46,12 @@ void main() {
 
 const ROUTE_FRAGMENT = /* glsl */ `
 uniform float uTravelled;
-uniform float uDash;
 uniform vec3 uColor;
 uniform vec3 uEdge;
 varying float vDist;
 varying float vSide;
 void main() {
   if (vDist < uTravelled) discard;
-  // 점선: 한 마디의 앞 60%만 그린다
-  if (fract(vDist / uDash) > 0.6) discard;
   // 가장자리는 어둡게(밝은 땅에서도 보이게)
   vec3 colour = mix(uColor, uEdge, smoothstep(0.55, 0.9, abs(vSide)));
   gl_FragColor = vec4(colour, 0.92);
@@ -68,7 +64,6 @@ export class RouteView {
   private readonly uniforms = {
     uHalfWidth: { value: 0.2 },
     uTravelled: { value: 0 },
-    uDash: { value: ROUTE_DASH_CELLS },
     uColor: { value: new Color(HIGHLIGHT_COLOR) },
     uEdge: { value: new Color(OUTLINE_COLOR) },
   };

@@ -29,7 +29,7 @@ import { CameraGlide, FOLLOW_SMOOTH_MS } from "./camera/cameraGlide.ts";
 import { attachControls } from "./camera/controls.ts";
 import { CharacterLayer } from "./characters/characterLayer.ts";
 import { WorkingUnits } from "./characters/workingUnits.ts";
-import { localZoomStage, localZoomStepTarget } from "./camera/secondMapZoom.ts";
+import { UNIT_DETAIL_STAGE, localZoomStage, localZoomStepTarget } from "./camera/secondMapZoom.ts";
 import { inertEngine } from "./engineParts.ts";
 import type {
   EngineStats,
@@ -349,9 +349,9 @@ export function createSecondMapEngine(
 
   const chooseUnitMode = (ppm: number): void => {
     const unitPx = REFERENCE_UNIT_HEIGHT_M * ppm;
-    if (unitView.mode === "model" && unitPx < iconThresholdPx) unitView.setMode("icon");
-    else if (unitView.mode === "icon" && unitPx > iconThresholdPx * ICON_HYSTERESIS)
-      unitView.setMode("model");
+    const limit = unitView.mode === "model" ? iconThresholdPx : iconThresholdPx * ICON_HYSTERESIS;
+    const mode = zoomStage >= UNIT_DETAIL_STAGE || unitPx >= limit ? "model" : "icon"; // 4단계부터 늘 모델
+    if (mode !== unitView.mode) unitView.setMode(mode);
   };
 
   /** 고른 유닛을 마지막 프레임에 어떻게 그렸나(시험·HUD) */
@@ -392,6 +392,7 @@ export function createSecondMapEngine(
     cellM: () => cellM,
     pixelsPerMetre: () => pixelsPerMetre(state.distance, viewport),
     viewport: () => viewport,
+    zoomStage: () => zoomStage,
     groundAt: (x, z) => groundAt(x, z),
   });
 

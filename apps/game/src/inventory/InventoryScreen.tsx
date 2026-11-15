@@ -31,7 +31,8 @@ import {
   parseInventoryTab,
   totalLines,
 } from "./inventoryModel.ts";
-import { priceLookup, valueText } from "./inventoryValue.ts";
+import { MoneyList } from "../ui/Money.tsx";
+import { priceLookup, valueParts } from "./inventoryValue.ts";
 import { PlaceCard, WalletPanel } from "./PlaceCard.tsx";
 import { UnitsTab } from "./UnitsTab.tsx";
 import { useGearSources } from "./unitGear.ts";
@@ -104,7 +105,12 @@ function AllTab({
           </div>
           <div>
             <dt>{m.inventory_fact_value()}</dt>
-            <dd data-fact="value">{valueText(value, index) ?? m.inventory_value_none()}</dd>
+            <dd data-fact="value">
+              {(() => {
+                const parts = valueParts(value, index);
+                return parts ? <MoneyList items={parts} size="lg" /> : m.inventory_value_none();
+              })()}
+            </dd>
           </div>
         </dl>
         <p className="eco-footnote">

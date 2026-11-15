@@ -232,3 +232,160 @@
     background: none;
   }
 }
+
+/*
+ * 바뀜(사용자 지적 2026-11-15 "정보창 ui가 매우 허접 … 너무 단일톤 … 칸이나 정보구간 나누는것도 다 똑같에서 구분이 안된다"):
+ * - 구간(.gov-band): 다스리는 사람·도시 현황·하루 값을 각각 테두리 판으로 묶고, 제목 앞에 굵은 띠를 둔다.
+ * - 사람 줄(.gov-person, PersonFact.tsx): 역할마다 왼쪽 띠와 역할 이름표 색(나라 = 주 색, 지도자 = 금색 왕관, 시장 = 시장 파랑). 이름은 크고 굵게.
+ * - 도시 현황(.gov-tiles): 작은 이름표 + 큰 숫자 칸 셋.
+ * - 하루 값 막대(.gov-meter): 높음 초록·가운데 금색·낮음 빨강(값 글자가 함께라 색에만 기대지 않는다).
+ */
+.gov-band {
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-bg);
+}
+.gov-band > .gov-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  letter-spacing: var(--letter-spacing-display);
+  color: var(--color-text-muted);
+}
+.gov-band > .gov-section-title::before {
+  content: "";
+  flex: none;
+  inline-size: var(--space-1);
+  block-size: 1.1em;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+}
+.gov-people {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+.gov-person {
+  --gov-role-color: var(--color-primary);
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-inline-start: var(--space-1) solid var(--gov-role-color);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.gov-person[data-role="leader"] {
+  --gov-role-color: var(--color-warning);
+}
+.gov-person[data-role="mayor"] {
+  --gov-role-color: var(--color-market-blue);
+}
+.gov-role {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  justify-self: start;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--gov-role-color);
+  border-radius: var(--radius-pill);
+  color: var(--gov-role-color);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+}
+.gov-person[data-role="nation"] .gov-role {
+  color: var(--color-text);
+}
+.gov-role-mark {
+  flex: none;
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+  fill: currentColor;
+}
+.gov-person-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+.gov-person-name {
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-display);
+  letter-spacing: var(--letter-spacing-display);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.gov-person-name[data-empty="true"] {
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-weight: var(--font-weight-strong);
+}
+.gov-person-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.gov-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+.gov-tile {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  min-inline-size: 0;
+}
+.gov-tile dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.gov-tile dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-display);
+  line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.gov-meter-fact {
+  --gov-meter-color: var(--color-text-muted);
+}
+.gov-meter-fact[data-level="high"] {
+  --gov-meter-color: var(--color-success);
+}
+.gov-meter-fact[data-level="mid"] {
+  --gov-meter-color: var(--color-warning);
+}
+.gov-meter-fact[data-level="low"] {
+  --gov-meter-color: var(--color-danger);
+}
+.gov-meter-fact dd {
+  color: var(--gov-meter-color);
+}
+.gov-meter {
+  flex: 1 0 100%;
+  block-size: var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-bg);
+  overflow: hidden;
+}
+.gov-meter-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--gov-meter-color);
+}

@@ -296,6 +296,29 @@ describe("2차맵 사이 이동", () => {
     r.travel.stop();
   });
 
+  it("운영자 텔레포트: 건너뛰는 중(in_transit)이어도 가던 길을 버리고 목적 칸에 바로 놓는다(사용자 지적 2026-11-15)", async () => {
+    const r = rig([0, 2]);
+    placeMine(r, 250, 100);
+    expect(
+      (await r.travel.start(USER, { unitId: 1, mapKey: K[2] ?? 0, x: 10, y: 100, kind: "move" })).ok,
+    ).toBe(true);
+    const first = mapAt(r, 0).unitInfo(1);
+    await vi.advanceTimersByTimeAsync((first ? arrivalAt(first.motion) : 0) - Date.now() + 1_000);
+    expect(whereIs(r, 1)).toBe(-1);
+    expect(r.travel.list(USER)).toMatchObject([{ state: "going", hidden: true }]);
+    expect(await r.travel.teleport(USER, { unitId: 1, mapKey: K[0] ?? 0, x: 40, y: 60 })).toMatchObject({
+      ok: true,
+    });
+    expect(whereIs(r, 1)).toBe(0);
+    const placed = mapAt(r, 0).unitInfo(1);
+    expect(placed && positionAt(placed.motion, Date.now())).toEqual(anchorCenter(40, 60, 1));
+    // 가던 길은 버렸다(나중에 다른 2차맵에 나타나지 않는다)
+    expect(r.travel.list(USER)).toEqual([]);
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(whereIs(r, 1)).toBe(0);
+    r.travel.stop();
+  });
+
   it("건너뛰는 중 멈추기: 지금 좌표(띄우지 않은 2차맵)의 좌표 유닛으로 선다(ADR 2026-11-15 4절)", async () => {
     const r = rig([0, 2]);
     placeMine(r, 250, 100);

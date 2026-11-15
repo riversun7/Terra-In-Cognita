@@ -1,6 +1,7 @@
 // 1차맵 누른 칸 안내 판 — 누른 칸 줄(자리·땅·기후)·범례·받기 실패 수, 그리고 누른 지역으로 보내기(바뀜 2026-11-09, 사용자 요청 "1차맵에서
 // 해당지역으로 이동"): 보낼 수 있으면 [이곳으로 이동], 바다·내 사이보그 2차맵이면 까닭 한 줄(commandTarget.ts areaCheck).
 // 줄은 role="status"(누를 때마다 읽힌다), 버튼은 그 밖에 둔다.
+// 운영자 모드면 [이곳으로 이동] 바로 옆에 [텔레포트](D-560 1239)를 둔다(사용자 지적 2026-11-15 "이곳으로 이동 바로옆에 텔레포트 버튼옮겨라").
 import { m } from "../paraglide/messages.js";
 import { type AreaCheck, areaCheckText } from "./commandTarget.ts";
 
@@ -15,9 +16,24 @@ interface PlanetReadoutProps {
   readonly area: AreaCheck;
   /** [이곳으로 이동] — 없으면(도시 자료 전) 버튼을 감춘다 */
   readonly onMove: (() => void) | null;
+  /** 운영자 [텔레포트] — 운영자 모드가 아니면 null */
+  readonly onTeleport: (() => void) | null;
+  /** 텔레포트 결과 한 줄(없으면 null) */
+  readonly teleportNotice: string | null;
+  readonly teleporting: boolean;
 }
 
-export function PlanetReadout({ lines, hidden, climate, tilesFailed, area, onMove }: PlanetReadoutProps) {
+export function PlanetReadout({
+  lines,
+  hidden,
+  climate,
+  tilesFailed,
+  area,
+  onMove,
+  onTeleport,
+  teleportNotice,
+  teleporting,
+}: PlanetReadoutProps) {
   const note = areaCheckText(area);
   return (
     <div className="map-panel planet-readout" hidden={hidden}>
@@ -31,12 +47,23 @@ export function PlanetReadout({ lines, hidden, climate, tilesFailed, area, onMov
           <p className="planet-legend">{m.planet_tile_errors({ count: tilesFailed })}</p>
         ) : null}
         {note ? <p className="planet-legend planet-area-note">{note}</p> : null}
+        {teleportNotice ? <p className="planet-legend planet-teleport-note">{teleportNotice}</p> : null}
       </div>
       {area.kind === "ok" && onMove ? (
         <div className="planet-jump planet-area">
           <button type="button" className="button-small button-primary planet-area-move" onClick={onMove}>
             {m.world_area_move()}
           </button>
+          {onTeleport ? (
+            <button
+              type="button"
+              className="button-small map-operator-button planet-area-teleport"
+              disabled={teleporting}
+              onClick={onTeleport}
+            >
+              {m.world_command_teleport()}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

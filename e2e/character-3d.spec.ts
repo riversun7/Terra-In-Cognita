@@ -207,6 +207,10 @@ test.describe("2차맵 캐릭터 모델: 좁은 화면", () => {
     // 한 단계 줄이면(짧은 변 약 30~60m) 키가 28px 아래라 먼 단계(옛 가장 가까운 화면과 같은 그림)
     await zoomOutTo(page, 5);
     await expect(screen).toHaveAttribute("data-selected-draw", "character1", { timeout: 15_000 });
+    // 사용자 지적 2026-11-15 "확대 4단계도 유닛과 이름태그가 보이게": 4단계(키 약 9px)도 아이콘이 아니라 모델
+    await zoomOutTo(page, 4);
+    await expect(screen).toHaveAttribute("data-unit-mode", "model");
+    await shot(page, "character-3d-map-stage4-390-pastel");
     expect(deviceErrors).toEqual([]);
   });
 });

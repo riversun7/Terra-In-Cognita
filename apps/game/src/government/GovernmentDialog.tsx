@@ -7,6 +7,8 @@
 // 바뀜("WP-NPC3", 기획 정리 742 나·743 나): 지도자로 열면(via "leader" — 2차맵에서 누른 지도자, LeaderSheet.tsx) 머리가 지도자(이름·나라)다.
 // 사실 줄 아래 도시 하루 값(GovernmentDay.tsx), 링크 아래 창구(외교·의뢰·국적 상담, GovernmentDesk.tsx — 국적 상담은 CitizenshipSlot.tsx —
 // 다른 나라 정부면 귀화 신청 NaturalizePanel.tsx, docs/adr/2026-11-08-citizenship.md).
+// 바뀜(사용자 지적 2026-11-15 "정보창 ui가 매우 허접 … 너무 단일톤 … 칸이나 정보구간 나누는것도 다 똑같에서 구분이 안된다"): 사실 줄을 두 구간으로
+// 나눴다 — [다스리는 사람](나라·지도자·시장, 역할 색 사람 줄 PersonFact.tsx)과 [도시 현황](거래세·행정 레벨·휴먼, 큰 숫자 칸). 하루 값은 막대.
 import type { GovernmentResponse } from "@terra/shared/government";
 import { useEffect, useId, useRef } from "react";
 import { RecruitPanel } from "../economy/RecruitPanel.tsx";
@@ -18,6 +20,7 @@ import { type DeskRoute, GovernmentDesk } from "./GovernmentDesk.tsx";
 import { LeaderHead } from "./LeaderHead.tsx";
 import { cityTitle, leaderTitle, nationTitle, populationText, taxText } from "./governmentData.ts";
 import { MayorFact } from "./MayorFact.tsx";
+import { PersonFact } from "./PersonFact.tsx";
 import "../economy/economy.css";
 import "../economy/labor.css";
 import "../economy/facilities.css";
@@ -31,10 +34,10 @@ export interface GovernmentDialogProps {
   readonly via?: "building" | "leader" | undefined;
 }
 
-/** 사실 한 줄(이름표 + 값) */
-function Fact({ label, value, part }: { label: string; value: string; part: string }) {
+/** 도시 현황 칸 하나(작은 이름표 + 큰 값) */
+function Tile({ label, value, part }: { label: string; value: string; part: string }) {
   return (
-    <div className="gov-fact" data-part={part}>
+    <div className="gov-tile" data-part={part}>
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
@@ -99,26 +102,50 @@ export default function GovernmentDialog({ government, onClose, via = "building"
           {city.capital ? <span className="gov-chip">{m.government_chip_capital()}</span> : null}
           {city.start ? <span className="gov-chip">{m.government_chip_start()}</span> : null}
         </p>
-        <dl className="gov-facts">
-          <Fact part="government-nation" label={m.government_field_nation()} value={nationTitle(nation)} />
-          <Fact
-            part="government-leader"
-            label={m.government_field_leader()}
-            value={
-              leader !== null && !leader.here
-                ? m.government_leader_away({ name: leaderTitle(leader) })
-                : leaderTitle(leader)
-            }
-          />
-          <MayorFact mayor={government.mayor} />
-          <Fact part="government-tax" label={m.government_field_tax()} value={taxText(nation.taxBp)} />
-          <Fact
-            part="government-admin"
-            label={m.government_field_admin()}
-            value={m.government_admin_level({ level: city.adminLevel })}
-          />
-          <Fact part="government-humans" label={m.government_field_humans()} value={populationText(city)} />
-        </dl>
+        <section
+          className="gov-section gov-band"
+          aria-labelledby={`${titleId}-rulers`}
+          data-part="government-rulers"
+        >
+          <h3 id={`${titleId}-rulers`} className="gov-section-title">
+            {m.government_rulers_title()}
+          </h3>
+          <dl className="gov-people">
+            <PersonFact
+              part="government-nation"
+              role="nation"
+              label={m.government_field_nation()}
+              name={nationTitle(nation)}
+            />
+            <PersonFact
+              part="government-leader"
+              role="leader"
+              label={m.government_field_leader()}
+              name={leaderTitle(leader)}
+              empty={leader === null}
+              notes={leader !== null && !leader.here ? [{ text: m.government_leader_away_note() }] : []}
+            />
+            <MayorFact mayor={government.mayor} />
+          </dl>
+        </section>
+        <section
+          className="gov-section gov-band"
+          aria-labelledby={`${titleId}-city`}
+          data-part="government-city"
+        >
+          <h3 id={`${titleId}-city`} className="gov-section-title">
+            {m.government_city_title()}
+          </h3>
+          <dl className="gov-tiles">
+            <Tile part="government-tax" label={m.government_field_tax()} value={taxText(nation.taxBp)} />
+            <Tile
+              part="government-admin"
+              label={m.government_field_admin()}
+              value={m.government_admin_level({ level: city.adminLevel })}
+            />
+            <Tile part="government-humans" label={m.government_field_humans()} value={populationText(city)} />
+          </dl>
+        </section>
         <GovernmentDay day={city.day} />
         <div className="gov-links">
           <button type="button" className="button-small gov-link" onClick={() => go("economy_warehouse")}>

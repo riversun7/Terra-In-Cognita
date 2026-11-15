@@ -5,9 +5,15 @@
 // - 다른 유닛 이름: 사람 키(1.8m)가 화면 NAME_MIN_PX 이상일 때만([임시] — 휴대폰 세로 6/6·5/6, 넓은 화면 6/6~4/6), 화면 가운데에서 가까운
 //   차례로 NAME_MAX개까지. 화면 안 이름 있는 유닛이 NAME_CROWD개를 넘으면 다른 유닛 이름은 모두 숨긴다(빽빽한 도시에서 읽히고 빠르게).
 //   앞서 놓은 이름표와 겹치는 이름표는 건너뛴다.
+//   바뀜(사용자 지적 2026-11-15 "확대 4단계도 유닛과 이름태그가 보이게 하라"): 확대 UNIT_DETAIL_STAGE(4)단계 이상이면 화면 크기와 상관없이 띄운다.
 // - NPC 국가 지도자는 지도자 이름표가 따로 그린다(여기서는 건너뛴다).
 // - 이름·종류는 유닛 외형 조회의 이름표 자료(unitModels.ts labels — 내가 보는 유닛만, 서버가 시야를 본다).
-import type { EngineLayer, EngineLayerView, SecondMapEngine } from "@terra/engine";
+import {
+  type EngineLayer,
+  type EngineLayerView,
+  type SecondMapEngine,
+  UNIT_DETAIL_STAGE,
+} from "@terra/engine";
 import { localName } from "../roster/rosterText.ts";
 import { m } from "../paraglide/messages.js";
 import { kindLabel } from "./mapUnits.ts";
@@ -189,7 +195,7 @@ export function attachUnitNames(
       if (point) show(unitId, role, point.x, point.y);
     }
 
-    if (1.8 * view.pixelsPerMetre >= NAME_MIN_PX) {
+    if (1.8 * view.pixelsPerMetre >= NAME_MIN_PX || view.zoomStage >= UNIT_DETAIL_STAGE) {
       const candidates: NameCandidate[] = [];
       for (const unitId of labels.named()) {
         if (unitId === own || unitId === selected || options.isLeader(unitId)) continue;

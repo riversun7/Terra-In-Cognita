@@ -74,6 +74,8 @@ import { PlanetCityPanel } from "./PlanetCityPanel.tsx";
 import { PlanetCommandPanel } from "./PlanetCommandPanel.tsx";
 import { PlanetReadout } from "./PlanetReadout.tsx";
 import { type CommandTarget, areaCheck, areaTarget, cityTarget, commandKey } from "./commandTarget.ts";
+import { sendTravelCommand } from "./travelCommands.ts";
+import { travelProblemText } from "./travelData.ts";
 import { PlanetLayerPicker, PlanetLayerToggle } from "./PlanetLayerPicker.tsx";
 import { PlanetPerfPanel } from "./PlanetPerfPanel.tsx";
 import {
@@ -196,6 +198,8 @@ function PlanetMapView({
   };
   // 1차맵 명령 판의 대상(도시 판 [정찰 보내기] 또는 누른 지역의 [이곳으로 이동]). 있으면 도시 판·누른 칸 안내 대신 명령 판
   const [command, setCommand] = useState<CommandTarget | null>(null);
+  const [teleporting, setTeleporting] = useState(false);
+  const [teleported, setTeleported] = useState<{ at: string | null; text: string } | null>(null);
   const [planet, setPlanet] = useState<{ faceLevel: number; radiusM: number } | null>(null);
   // 확대 단계(엔진이 바뀔 때 알린다)와 항성계 보기(1단계보다 더 줄였을 때)
   const [zoomStage, setZoomStage] = useState(0);
@@ -414,6 +418,32 @@ function PlanetMapView({
     if (area.kind !== "ok" || !world) return;
     setCommand(areaTarget(area.place, cities, world.factions, picked?.ground ?? null));
   };
+  // 운영자 텔레포트(D-560 1239): 누른 지역 칸으로 내 사이보그를 바로 옮긴다. 결과 줄은 그 칸을 누른 동안만 보인다
+  const areaAt =
+    area.kind === "ok"
+      ? `${String(area.place.mapKey)}:${String(area.place.x)},${String(area.place.y)}`
+      : null;
+  const teleportToArea = (): void => {
+    if (area.kind !== "ok" || !me || teleporting) return;
+    const at = areaAt;
+    setTeleporting(true);
+    void sendTravelCommand({
+      t: "travel_start",
+      unitId: me.unitId,
+      mapKey: area.place.mapKey,
+      x: area.place.x,
+      y: area.place.y,
+      kind: "move",
+      teleport: true,
+    }).then((outcome) => {
+      setTeleporting(false);
+      setTeleported({
+        at,
+        text: outcome.ok ? m.world_command_teleported() : travelProblemText(outcome.code),
+      });
+      refreshTravel();
+    });
+  };
   const firstMs = stats?.firstDisplayMs ?? null;
   const sky = stats?.sky;
 
@@ -598,7 +628,6 @@ function PlanetMapView({
             travel={travel}
             onTravelChanged={refreshTravel}
             onClose={() => setCommand(null)}
-            operator={operator}
           />
         ) : null}
         {city && world && !command ? (
@@ -620,6 +649,9 @@ function PlanetMapView({
           tilesFailed={stats && tileProblem !== "not_found" ? stats.tilesFailed : 0}
           area={area}
           onMove={world ? moveToArea : null}
+          onTeleport={operator && me ? teleportToArea : null}
+          teleportNotice={teleported && teleported.at === areaAt ? teleported.text : null}
+          teleporting={teleporting}
         />
         <div className="planet-controls">
           <PlanetLayerPicker

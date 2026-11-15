@@ -14,6 +14,8 @@ export interface EngineLayerView {
   /** 화면 크기(CSS 픽셀) */
   readonly width: number;
   readonly height: number;
+  /** 2차맵 확대 단계(1~6, 아직 모르면 0) */
+  readonly zoomStage: number;
   /** 땅 높이(m, 세계 좌표 x·z) */
   groundAt(worldX: number, worldZ: number): number;
   /** 배치 칸 (x, y) 땅 위 liftM(m) 점의 화면 좌표. 카메라 뒤·너무 멀면 null(묶지 않은 함수로 넘겨도 된다) */
@@ -37,6 +39,7 @@ export function createLayerView(deps: {
   readonly cellM: () => number;
   readonly pixelsPerMetre: () => number;
   readonly viewport: () => { readonly width: number; readonly height: number };
+  readonly zoomStage: () => number;
   readonly groundAt: (worldX: number, worldZ: number) => number;
 }): EngineLayerView {
   const point = new Vector3();
@@ -52,6 +55,9 @@ export function createLayerView(deps: {
     },
     get height() {
       return deps.viewport().height;
+    },
+    get zoomStage() {
+      return deps.zoomStage();
     },
     groundAt: deps.groundAt,
     project: (cellX, cellY, liftM) => {

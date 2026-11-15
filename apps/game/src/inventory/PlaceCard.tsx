@@ -19,6 +19,7 @@ import { Amount, PreviewTag } from "../economy/parts.tsx";
 import { SPOIL_SOON_MS } from "../economy/shape.ts";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
+import { Money } from "../ui/Money.tsx";
 
 export function placeTitle(place: HoldingPlace): string {
   if (place.name !== null) return place.name;
@@ -161,7 +162,8 @@ export function WalletPanel({ wallet, index }: { wallet: readonly HoldingLine[];
                 <span className="eco-hold-title">{assetName(index, line)}</span>
                 {line.preview ? <PreviewTag /> : null}
               </span>
-              <Amount value={line.qty} className="eco-hold-qty" />
+              {/* 돈 표시(동전 + 금색 숫자, 사용자 지적 2026-11-15) */}
+              <Money amount={fmt(line.qty)} size="lg" className="eco-hold-qty" />
             </li>
           ))}
         </ul>

@@ -367,7 +367,8 @@ export function createBoatService(deps: BoatDeps): BoatService {
       .filter((other) => other.boatId !== boatId && (other.tradeUntilMs ?? 0) > at);
     if (staying.length >= tradeSlots(fac.record.level, rules)) return fail("trade_full");
     const fee = BigInt(Math.max(0, harbor.facility(buildingId, found.ownerId).fee)) * BigInt(hours);
-    const pays = found.ownerId !== null && found.ownerId !== boat.ownerId && fee > 0n && !operator;
+    // 제 교역 부두도 요금을 낸다(D-555 1514 — 그 사업장 금고로)
+    const pays = found.ownerId !== null && fee > 0n && !operator;
     if (pays && harbor.balanceOf(boat.ownerId) < fee) return fail("insufficient_funds");
     if (pays) harbor.charge(boat.ownerId, found.ownerId, buildingId, fee, "dock_time_fee", at);
     const base =

@@ -1,4 +1,5 @@
 // 배 서비스 공용 부품(형·찾기 도우미) — docs/adr/2026-11-13-boats.md, docs/adr/2026-11-15-shipyard-harbor.md. service.ts·shipyard.ts·harbor.ts가 같이 쓴다.
+import type { BusinessCore } from "../business/core.ts";
 import type { BoatResultCode } from "@terra/protocol";
 import {
   type BoatCoefficients,
@@ -55,6 +56,8 @@ export interface BoatDeps {
   atWar?: ((a: number, b: number) => Promise<boolean>) | undefined;
   /** 정박료·교역 부두 요금 화폐(없으면 요금 없음) */
   readonly feeAsset?: string | undefined;
+  /** 사업장 장부(요금 → 시설 금고·소득세, D-548·D-555). 없으면 금고로 바로(시험) */
+  readonly business?: Pick<BusinessCore, "receive"> | undefined;
   /** 작업·상태 줄 쓰기(없으면 메모리에만) */
   readonly writer?: Pick<WorldWriter, "upsert" | "remove"> | undefined;
   readonly planetId?: string | undefined;

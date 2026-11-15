@@ -117,13 +117,18 @@ export function laborEscrowCode(contractId: number): string {
   return `escrow:labor:${contractId}`;
 }
 
+/**
+ * owner = 시설 주인 쪽 계정(보증금·채우기를 내고, 돌려받고, 임대료를 받는 곳). 빠지면 시설 주인 지갑(시뮬 — 노동 계약을 돌리지 않는다).
+ * 서버는 그 시설의 사업장 금고를 넘긴다(기획 D-548·D-555 1504, docs/adr/2026-11-15-business-ledger.md)
+ */
 export function laborAccounts(
   book: LedgerBook,
   workerWallet?: (contract: LaborContract) => number,
+  owner?: (contract: LaborContract) => number,
 ): LaborAccounts {
   const workerOwner = (c: LaborContract): number => book.ownerAccount(c.workerOwnerId, c.asset);
   return {
-    owner: (c) => book.ownerAccount(c.ownerId, c.asset),
+    owner: owner ?? ((c) => book.ownerAccount(c.ownerId, c.asset)),
     workerOwner,
     workerWallet: workerWallet ?? workerOwner,
     escrow: (c) => book.systemAccount(laborEscrowCode(c.id), c.asset),

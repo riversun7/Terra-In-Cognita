@@ -331,7 +331,9 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         readonly y: number;
         readonly cityId: number | null;
       };
-      let fee: { readonly to: number | null; readonly amount: bigint } | undefined;
+      let fee:
+        | { readonly to: number | null; readonly buildingId: number; readonly amount: bigint }
+        | undefined;
       if (input.lab) {
         const lab = labOf(input.lab.buildingId);
         if (!lab.ok) return fail(lab.code);
@@ -342,7 +344,7 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         if (String(amount) !== input.lab.cost) return fail("cost_changed");
         if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < amount) return fail("insufficient_funds");
         birth = { map, x: cell.x, y: cell.y, cityId: lab.cityId };
-        fee = { to: lab.ownerId, amount };
+        fee = { to: lab.ownerId, buildingId: input.lab.buildingId, amount };
       } else {
         const cyborg = cyborgUnitOf(owner.ownerId);
         const motion = cyborg?.map.unitInfo(cyborg.id)?.motion;
@@ -376,7 +378,16 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         }
       }
       if (!placed) return fail("no_room");
-      if (fee) payServiceFee(ledger, owner.ownerId, fee.to, fee.amount, at, "gene_incubate");
+      if (fee)
+        payServiceFee(
+          o.facilities,
+          ledger,
+          owner.ownerId,
+          { ownerId: fee.to, buildingId: fee.buildingId },
+          fee.amount,
+          at,
+          "gene_incubate",
+        );
       holdings.remove(record.id);
       const rng = createRng(o.seed());
       writer.upsert("humans", {
@@ -497,7 +508,15 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
       const cost = BigInt(Math.max(0, o.rules().fusion.geneConvertCurrency));
       if (String(cost) !== input.cost) return fail("cost_changed");
       if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < cost) return fail("insufficient_funds");
-      payServiceFee(ledger, owner.ownerId, checked.ownerId, cost, at, "gene_convert");
+      payServiceFee(
+        o.facilities,
+        ledger,
+        owner.ownerId,
+        { ownerId: checked.ownerId, buildingId: input.buildingId },
+        cost,
+        at,
+        "gene_convert",
+      );
       const genes = retire(owner.ownerId, human, skills, at);
       if (!genes) return fail("unknown_unit");
       await writer.durable();

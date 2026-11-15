@@ -247,6 +247,12 @@ export interface FacilityServiceOptions {
   readonly ready: () => boolean;
   /** 타이머 없이(시험이 finishDue·age를 부른다) */
   readonly manual?: boolean | undefined;
+  /** 사업장이 멈췄나(적자를 한 주기 넘게 못 갚음 — D-555 1504, business/core.ts). 멈춘 시설은 일하지 않는다. 없으면 늘 false */
+  readonly suspended?: ((buildingId: number) => boolean) | undefined;
+  /** 노화 정시마다(사업장 주기 끝 처리 — 자동 정산·적자) */
+  readonly onAge?: ((nowMs: number) => void) | undefined;
+  /** 건물이 사라져 시설 줄을 지울 때(사업장 상태 줄 지우기) */
+  readonly onGone?: ((buildingId: number) => void) | undefined;
 }
 
 const fail = (code: FacilityResultCode): FacilityCommandResult => ({ ok: false, code });
@@ -451,6 +457,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         for (const job of jobs.values()) if (job.buildingId === record.buildingId) dropJob(job, nowMs);
         // 창고 시설·임대 몫의 물건은 주인마다 그 도시 창고로(도시를 모르면 위치 없음)
         rehomeBuildingGoods(ledger, record.buildingId, record.cityId, nowMs);
+        options.onGone?.(record.buildingId);
         facilities.delete(record.buildingId);
         writer.remove("facilities", { building_id: record.buildingId });
         continue;
@@ -476,6 +483,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         gone.add(buildingId);
     }
     for (const buildingId of gone) rehomeBuildingGoods(ledger, buildingId, null, nowMs);
+    options.onAge?.(nowMs);
     return saved;
   };
 
@@ -503,6 +511,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     works(buildingId) {
       const record = facilities.get(buildingId);
       if (!record) return true;
+      if (options.suspended?.(buildingId)) return false;
       return record.level >= 1 && conditionWorks(record.conditionPpm, runtime());
     },
     holdingLocked: (holdingId) =>

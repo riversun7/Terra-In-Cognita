@@ -233,7 +233,15 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       await writer.durable();
       // 읽는 동안 잔고가 바뀌었을 수 있다 → 다시 본다
       if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < amount) return fail("insufficient_funds");
-      payServiceFee(ledger, owner.ownerId, temple.ownerId, amount, o.now(), "temple_offering");
+      payServiceFee(
+        o.facilities,
+        ledger,
+        owner.ownerId,
+        { ownerId: temple.ownerId, buildingId: input.buildingId },
+        amount,
+        o.now(),
+        "temple_offering",
+      );
       const faith = await devote(userId, owner.ownerId, gain);
       await writer.durable();
       return { ok: true, gained: gain, ...(faith === undefined ? {} : { faith }) };
@@ -280,7 +288,15 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       if (blockers.includes("faith")) return fail("faith_low");
       if (blockers.includes("currency")) return fail("insufficient_funds");
       if (blockers.includes("guardian_cap")) return fail("guardian_cap");
-      payServiceFee(ledger, owner.ownerId, temple.ownerId, cost.currency, at, `temple_${input.rite}`);
+      payServiceFee(
+        o.facilities,
+        ledger,
+        owner.ownerId,
+        { ownerId: temple.ownerId, buildingId: input.buildingId },
+        cost.currency,
+        at,
+        `temple_${input.rite}`,
+      );
       if (input.rite === "rebirth") {
         // 굴림 차례: 수명(T4) → 어드밴티지 종류 → 어느 스탯(D-520 "어드벤티지를 준다. 초기스탯이나 k값 증가이나 확률로.")
         const rng = createRng(o.seed());

@@ -9560,16 +9560,16 @@
         "ko": "채집소 창고 → 도시 창고 자동 옮김 간격(ms)",
         "en": "Gather station auto haul interval (ms)"
       },
-      "value": 600000,
+      "value": 0,
       "structural": false,
       "unit": "ms",
       "min": 0,
       "max": 86400000,
       "desc": {
-        "ko": "채집소 창고에서 도시 창고로 저절로 옮기는 간격.",
-        "en": "How often station storage is hauled to the city storage."
+        "ko": "채집소 창고에서 도시 창고로 저절로 옮기는 간격. 0 = 자동 옮김 없음(D-555 1505: 사업장은 제 창고로 돌고 물건은 유닛이 실제로 나른다).",
+        "en": "How often station storage is hauled to the city storage. 0 = no automatic hauling (D-555 1505: each business runs on its own storage and units carry goods)."
       },
-      "source": "ADR 2026-11-07-gather-objects [임시]"
+      "source": "ADR 2026-11-07-gather-objects [임시] · D-555 질문 1505(자동 옮김 끔)"
     },
     {
       "id": "lodging_recovery_mode",
@@ -11499,6 +11499,60 @@
         "en": "Speed of a boat at 0 hull (‰ of normal). It is not lost and can limp to a shipyard."
       },
       "source": "ADR 2026-11-15-shipyard-harbor · D-547 질문 1495 [임시]"
+    },
+    {
+      "id": "business_settle_period_ms",
+      "code": "",
+      "name": {
+        "ko": "사업장 자동 정산 주기(ms)",
+        "en": "Business auto-settlement period (ms)"
+      },
+      "value": 86400000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 604800000,
+      "desc": {
+        "ko": "이 간격의 끝(UTC 0시 기준)마다 사업장 적자를 먼저 갚고 남은 금고 돈을 지분 수대로 주주 지갑에 나눈다. 한 주기 넘게 못 갚은 적자가 있으면 사업장이 멈춘다. 0이면 자동 정산을 하지 않는다.",
+        "en": "At the end of each period (aligned to UTC midnight) a business first repays its deficit, then splits the rest of its vault among shareholders by share count. A deficit older than one period stops the business. 0 turns automatic settlement off."
+      },
+      "source": "ADR 2026-11-15-business-ledger · D-555 질문 1501·1504 [임시]"
+    },
+    {
+      "id": "business_min_lot",
+      "code": "",
+      "name": {
+        "ko": "사업장 판매 최소 묶음(개)",
+        "en": "Business sale minimum lot (count)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 10000,
+      "desc": {
+        "ko": "사업장 창고에서 남에게 파는 한 번의 최소 양(대량 B2B). 주인이 꺼낼 때와 소매 도시에서는 1개부터.",
+        "en": "Smallest quantity a business sells to others from its storage in one purchase (bulk B2B). The owner and retail cities can buy from 1."
+      },
+      "source": "ADR 2026-11-15-business-ledger · D-555 질문 1507 [임시]"
+    },
+    {
+      "id": "business_retail_max_admin",
+      "code": "",
+      "name": {
+        "ko": "소매 도시 행정 레벨 상한",
+        "en": "Retail city admin level limit"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "level",
+      "min": 0,
+      "max": 5,
+      "desc": {
+        "ko": "행정 건물 레벨이 이 값 이하인 도시(저급 도시)의 사업장은 낱개로도 판다(소매). 0이면 소매 없음.",
+        "en": "Businesses in cities whose admin building level is at most this (low-grade cities) also sell single items (retail). 0 means no retail."
+      },
+      "source": "ADR 2026-11-15-business-ledger · D-555 질문 1507 [임시]"
     }
   ]
 }

@@ -27,6 +27,7 @@ import { INJURY_TUNING_KEYS } from "./tuningInjury.ts";
 import { WORLD_SEED_TUNING_KEYS } from "./tuningWorldSeed.ts";
 import { LOGISTICS_TUNING_KEYS } from "./tuningLogistics.ts";
 import { BOAT_TUNING_KEYS } from "./tuningBoats.ts";
+import { BUSINESS_TUNING_KEYS } from "./tuningBusiness.ts";
 import { CONDITION_TUNING_KEYS } from "./tuningCondition.ts";
 
 export interface TuningKey {
@@ -653,6 +654,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...LOGISTICS_TUNING_KEYS,
   // 배(49 P20, docs/adr/2026-11-13-boats.md): tuningBoats.ts
   ...BOAT_TUNING_KEYS,
+  // 사업장 장부(49에 칸 없음 [임시], D-548·D-555): tuningBusiness.ts
+  ...BUSINESS_TUNING_KEYS,
   // 플레이어 가문(49 S20, 질문 926~935 답): tuningHouse.ts
   ...HOUSE_TUNING_KEYS,
   // 컨디션·초기 스탯 합 상한(49 N43·N9, D-534): tuningCondition.ts

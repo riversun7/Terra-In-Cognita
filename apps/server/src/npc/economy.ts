@@ -20,6 +20,7 @@
 //   켜도 화면 "다음 체결까지"가 같은 시각이고, 끈 동안 지나간 회차는 따라 돌리지 않는다(걸린 주문은 켠 뒤 첫 회차에 체결).
 // - 운송은 즉시다(shipMs 0: 화물 줄을 저장하지 않아도 같은 처리 안에서 도착한다 [임시]). 운영 스위치(49 N53): 생산 끔이면 생산을 건너뛰고 다음
 //   차례만 잡고, 거래소 끔이면 NPC 거래 판단을 건너뛴다(주문 명령은 거래소 서비스가 막는다).
+import type { BusinessCore } from "../business/core.ts";
 import {
   DAY_MS,
   type EcoFacility,
@@ -115,6 +116,11 @@ export interface CityFacility {
 
 /** 월드가 넘기는 경제 입력(world.ts → runtime.ts) */
 export interface NpcEconomyInput {
+  /**
+   * 사업장 장부(D-548·D-555, docs/adr/2026-11-15-business-ledger.md): 남의 숙소 요금은 그 숙소 금고로 든다(소득세 포함). 없으면 숙소 주인
+   * 지갑(옛 길, 시험)
+   */
+  readonly business?: Pick<BusinessCore, "receive"> | undefined;
   /** 시뮬 경제 목록(없으면 경제 끔) */
   readonly catalog: () => ServerEconomyCatalog | undefined;
   /** 팩 국가 프리셋(나라 성격: 도시 직무·처음 창고). 없으면 모든 국가가 기본 */
@@ -520,7 +526,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   /**
    * 숙소 요금(D-245 "요금은 시설 주인이", 설정 칸 lodging_fee_per_night [임시]): 하루 끝에 그 도시 일꾼이 쓴 남의 숙소(도시 주인 세력이 아닌
    * 주인 — 플레이어가 NPC 도시에 지은 숙소 등)마다 일꾼 × 하루 쉬는 번 수 × 요금을 도시 주인 국고(나라 화폐)에서 숙소 주인에게 낸다.
-   * 국고가 모자라면 남은 만큼만. 도시 주인 세력의 숙소는 같은 주머니라 오가지 않는다
+   * 국고가 모자라면 남은 만큼만. 받는 곳은 그 숙소 사업장 금고(D-548). 사업장 장부가 있으면 도시 주인 세력의 숙소도 낸다(D-555 1509 — NPC도
+   * 플레이어와 같다, 금고 돈은 자동 정산으로 국고에 돌아간다). 장부가 없으면(시험) 같은 주머니라 오가지 않는다
    */
   const chargeLodgingFees = (nowMs: number): { paid: bigint; lodgings: number } => {
     const c = o.rules();
@@ -536,7 +543,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       for (const worker of plan.workers) {
         if (worker.lodgingId === null) continue;
         const owner = plan.owners.get(worker.lodgingId) ?? null;
-        if (owner === null || owner === city.owner) continue;
+        // 도시 주인 세력의 숙소도 요금을 낸다(사업장 장부가 있을 때 — D-555 1509·1514, NPC도 플레이어와 같다). 장부가 없으면 같은 주머니라 건너뛴다
+        if (owner === null || (owner === city.owner && !o.input.business)) continue;
         const nights = BigInt(restsPerDay(worker.place, worker.commuteCells, c));
         due.set(worker.lodgingId, (due.get(worker.lodgingId) ?? 0n) + nights * fee);
       }
@@ -546,15 +554,25 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         const from = book.ownerAccount(city.owner, currency);
         const pay = book.balance(from) < amount ? book.balance(from) : amount;
         if (pay <= 0n) continue;
-        book.post({
+        // 사업장 금고로(D-548) — 장부가 없으면 숙소 주인 지갑(옛 길)
+        const vaulted = o.input.business?.receive({
+          from,
+          buildingId: lodgingId,
+          asset: currency,
+          amount: pay,
           kind: "lodging_fee",
           atMs: nowMs,
-          key: `lodging_fee:${cityId}:${lodgingId}:${nowMs}`,
-          entries: [
-            { account: from, amount: -pay },
-            { account: book.ownerAccount(owner, currency), amount: pay },
-          ],
         });
+        if (!vaulted)
+          book.post({
+            kind: "lodging_fee",
+            atMs: nowMs,
+            key: `lodging_fee:${cityId}:${lodgingId}:${nowMs}`,
+            entries: [
+              { account: from, amount: -pay },
+              { account: book.ownerAccount(owner, currency), amount: pay },
+            ],
+          });
         paid += pay;
         lodgings += 1;
       }

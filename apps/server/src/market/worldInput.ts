@@ -32,6 +32,8 @@ export function npcEconomyInputOf(
     catalog,
     presets,
     land,
+    // 사업장 장부(D-548): 남의 숙소 요금 → 그 숙소 금고
+    business: facilities.business,
     // NPC 증축(질문 1101 나): 건물 서비스로 짓고 전략 배치로 자리를 고른다
     build: {
       service: facilities.service,

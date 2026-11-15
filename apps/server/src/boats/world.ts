@@ -89,6 +89,7 @@ export function startWorldBoats(
           return found.rows.length > 0;
         },
         feeAsset: ASSET_CREDIT,
+        business: facilities.business,
         writer: parts.writer,
         planetId: TEST_PLANET_ID,
         jobs,

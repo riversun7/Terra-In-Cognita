@@ -288,7 +288,7 @@ describe("이동 부품(ADR 2절)", () => {
     expect(byId(battle.state, 101).hp).toBe(5000);
   });
 
-  it("도약: 막는 유닛·바위를 넘어 목표 옆에 내린다. 성벽은 넘지 않는다", () => {
+  it("도약: 막는 유닛·바위를 넘어 목표 옆에 내린다. 성벽도 넘는다(D-564 1586·D-568)", () => {
     const leap = skill({ range: 6, move: { kind: "leap", cells: 6 } });
     const map = openMap(32);
     for (let y = 0; y < 32; y++) map.passable[y * 32 + 8] = 0;
@@ -307,24 +307,43 @@ describe("이동 부품(ADR 2절)", () => {
         wall: true,
       },
     ];
-    const blocked = createBattle(
-      fight([unit(1, 1, 1, 5, 10, { skills: [leap] }), dummy(101, 11, 10)], walled),
+    // 성벽 너머 목표는 성벽 위 망루 동료(시선이 열린 쪽)가 보여 준다. 도약은 시선 없이 거리만 보고 넘는다
+    const over = createBattle(
+      fight(
+        [
+          unit(1, 1, 1, 5, 10, { skills: [leap] }),
+          unit(2, 1, 1, 12, 16, { sight: 10, moveIntervalMs: 1_000_000, range: 0 }),
+          dummy(101, 11, 10),
+        ],
+        walled,
+      ),
     );
-    blocked.step([]);
-    expect(byId(blocked.state, 1).x).toBeLessThan(8);
-    expect(byId(blocked.state, 101).hp).toBe(5000);
+    over.step([]);
+    expect(byId(over.state, 1).x).toBeGreaterThan(8);
+    expect(cheb(byId(over.state, 1), byId(over.state, 101))).toBe(1);
+    expect(byId(over.state, 101).hp).toBeLessThan(5000);
   });
 
-  it("점멸: 자기 시야 안에서만 순간이동한다(toward), away는 멀어진다", () => {
+  it("점멸: 사정거리 안 아군 시야 칸으로만 순간이동한다(toward, D-564 1585), away는 멀어진다", () => {
     const toward = skill({ range: 10, move: { kind: "blink", cells: 8, dir: "toward" } });
     const far = createBattle(fight([unit(1, 1, 1, 5, 10, { skills: [toward] }), dummy(101, 15, 10)]));
     far.step([]);
     expect(cheb(byId(far.state, 1), byId(far.state, 101))).toBe(2);
-    // 시야 3인 유닛(멀리 보는 동료가 목표를 보여 준다)은 3칸 안까지만
-    const short = createBattle(
+    // 시야 3인 유닛도 멀리 보는 동료의 시야 칸이면 거기까지 간다(편 시야)
+    const shared = createBattle(
       fight([
         unit(1, 1, 1, 5, 10, { skills: [toward], sight: 3 }),
         unit(2, 1, 1, 5, 20, { sight: 20, moveIntervalMs: 1_000_000, range: 0 }),
+        dummy(101, 15, 10),
+      ]),
+    );
+    shared.step([]);
+    expect(cheb(byId(shared.state, 1), byId(shared.state, 101))).toBe(2);
+    // 동료가 목표 쪽 너머만 보면(사정거리 안 칸을 보지 않으면) 자기 시야 3칸 안까지만
+    const short = createBattle(
+      fight([
+        unit(1, 1, 1, 5, 10, { skills: [toward], sight: 3 }),
+        unit(2, 1, 1, 25, 10, { sight: 10, moveIntervalMs: 1_000_000, range: 0 }),
         dummy(101, 15, 10),
       ]),
     );

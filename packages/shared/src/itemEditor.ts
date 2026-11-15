@@ -148,9 +148,13 @@ export const ITEM_LIMITS = {
   createdMax: 500,
 } as const;
 
-/** 무기 공격력 칸(공격력 = 스탯 공격력 + 이 값 × 적정 비율, D-502) */
+/**
+ * 무기 공격력 칸(공격력 = 스탯 공격력 + 이 값 × 적정 비율, D-502). 칸 종류 = 계열(물리 칸 STR·VIT, 속성 칸 INT·WIS), damage = 이 칸으로
+ * 하는 기본 공격의 피해 방식(D-568, 없으면 칸 종류와 같다)
+ */
 export interface ItemWeaponFieldJson {
   readonly attack: number;
+  readonly damage?: "physical" | "elemental" | undefined;
 }
 
 /** 무기 1차 적정 스탯 칸(D-502: str 물리 공격·int 속성 공격·dex 명중·크리·agi 공격 간격, 팩 WEAPON_APPROPRIATE_CODES와 같다) */
@@ -172,6 +176,8 @@ export interface ItemWeaponJson {
   readonly staminaCost: number;
   readonly mpCost: number;
   readonly skillElementsPm?: readonly number[] | undefined;
+  /** 기본 공격 곡선(D-564 1594): range_interval = 공격 간격 × 사거리 예산 */
+  readonly curves?: readonly "range_interval"[] | undefined;
   readonly twoHanded?: boolean | undefined;
   /** 탄약 연결: 보조 칸 무기 종류 ID */
   readonly ammo?: string | undefined;

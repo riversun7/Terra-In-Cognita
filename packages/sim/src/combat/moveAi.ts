@@ -5,7 +5,10 @@
 // 고리는 판정 안에서 불리므로 상태·시드에서만 값을 낸다(바깥 함수를 받지 않는다 — 결정성).
 import type { UnitState } from "./battleTypes.ts";
 
-/** 이 유닛이 지금 달리고 싶은가. 지금 = 대기 명령(이동·공격)의 run 칸 */
+/**
+ * 이 유닛이 지금 달리고 싶은가. 지금 = 대기 명령(이동·공격)의 run 칸(sim 입력·시험용). 달리기는 AI가 작전 슬라이더로 정한다(기획 D-564
+ * 1581 → D-557 답 2·D-177·D-180) — 유저 "달려" 단추·프로토콜 칸은 두지 않고 4단계(WP-4)가 이 몸통을 슬라이더 판단으로 바꾼다
+ */
 export function wantsRun(unit: UnitState): boolean {
   const command = unit.command;
   return (command?.kind === "move" || command?.kind === "attack") && command.run === true;
@@ -24,5 +27,8 @@ export function moveSkillAllowed(
   return true;
 }
 
-/** 맞으면 은신이 깨지나(질문 1583 — 추천 거짓: 공격·들킴으로만 깨진다, 범위 스킬은 보이지 않아도 맞는다 D-227) */
+/**
+ * 맞으면 은신이 깨지나: 깨지지 않는다(기획 D-564 1583 "맞아도 은신 유지"). 공격·들킴으로만 깨진다 — 찾는 쪽은 감지·범위 공격을 쓴다
+ * (범위 스킬은 보이지 않아도 맞는다 D-227). 규칙 값이라 AI가 바꾸지 않는다
+ */
 export const STEALTH_BREAKS_ON_DAMAGE = false;

@@ -1,6 +1,7 @@
 // 무기 칸(장비 칸이 weapon일 때, 설계안 2.4·3.4) — 공격력 칸 둘(물리·속성, D-465)과 기본 공격 칸, 1차 적정 스탯(D-502, 사용자 답
 // 296~298: 착용 제한 없음, 몫마다 하나 — 물리 칸 STR·속성 칸 INT·명중과 크리 DEX·공격 간격 AGI, 못 미치면 그 몫이 비율대로 줄고 넘는
 // 보너스는 없다, 비우면 100%. 기준 유닛의 비율은 미리 보기 판에서 받아 칸 아래에 보인다), 명중‰·크리‰·공격 간격·사거리·곡사,
+// 칸마다 기본 공격 피해 방식(D-568: 칸 = 계열, 피해 방식은 따로), 사거리 예산 곡선(D-564 1594),
 // 스태미나·MP 소모(행동별 소모 화면과 같은 값), 속성 계수 12칸, 양손(든 동안 보조 칸 장비를 쓰지 않음), 탄약 연결(보조 칸 탄약 종류, D-497).
 import {
   ITEM_LIMITS,
@@ -65,8 +66,17 @@ export function ItemWeaponFields({
     onChange(both ? { ...base, basic: weapon.basic ?? "physical" } : base);
   };
   const setAttack = (field: Field, attack: number) => {
-    if (weapon[field]) onChange({ ...weapon, [field]: { attack } });
+    const value = weapon[field];
+    if (value) onChange({ ...weapon, [field]: { ...value, attack } });
   };
+  /** 기본 공격 피해 방식(D-568): 칸 종류와 같으면 칸을 뺀다(옛 자료와 같은 모양) */
+  const setDamage = (field: Field, damage: Field) => {
+    const value = weapon[field];
+    if (!value) return;
+    const { damage: _drop, ...rest } = value;
+    onChange({ ...weapon, [field]: damage === field ? rest : { ...rest, damage } });
+  };
+  const rangeInterval = weapon.curves?.includes("range_interval") === true;
   const appropriate = weapon.appropriate ?? {};
   /** 적정 칸 아래 글: 기준 유닛 1차 → 비율(미리 보기 값, 없으면 일반 도움말) */
   const ratioHint = (part: WeaponPartRatio["part"]): string | undefined => {
@@ -129,6 +139,18 @@ export function ItemWeaponFields({
                   {field === "physical"
                     ? appropriateField("str", m.dev_items_field_appropriate_str(), ratioHint("physical"))
                     : appropriateField("int", m.dev_items_field_appropriate_int(), ratioHint("elemental"))}
+                  <SelectField
+                    label={m.dev_items_field_damage()}
+                    value={value.damage ?? field}
+                    options={[
+                      { value: "physical", label: m.dev_items_damage_physical() },
+                      { value: "elemental", label: m.dev_items_damage_elemental() },
+                    ]}
+                    hint={m.dev_items_damage_hint()}
+                    path={`equip.weapon.${field}.damage`}
+                    problem={at(`${field}.damage`)}
+                    onChange={(damage) => setDamage(field, damage)}
+                  />
                 </div>
               ) : null}
             </fieldset>
@@ -220,6 +242,15 @@ export function ItemWeaponFields({
         label={m.dev_items_field_arc()}
         checked={weapon.arc}
         onChange={(arc) => onChange({ ...weapon, arc })}
+      />
+      <CheckField
+        label={m.dev_items_field_range_interval()}
+        checked={rangeInterval}
+        hint={m.dev_items_range_interval_hint()}
+        onChange={(on) => {
+          const { curves: _drop, ...rest } = weapon;
+          onChange(on ? { ...rest, curves: ["range_interval"] } : rest);
+        }}
       />
       <CheckField
         label={m.dev_items_field_two_handed()}

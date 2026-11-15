@@ -152,6 +152,7 @@ export {
   PRIMARY_STAT_SLOTS,
   SKILL_CURVE_IDS,
   SKILL_SHAPES,
+  WEAPON_CURVE_IDS,
   effectEntrySchema,
   equipSchema,
   WEAPON_APPROPRIATE_CODES,

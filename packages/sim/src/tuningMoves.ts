@@ -112,4 +112,54 @@ export const MOVE_TUNING_KEYS: readonly TuningKey[] = [
   ),
   k("moves_close_shot_cells", "closeShot.cells", "가까이 쏘기: 거리(칸)", "Close shot: distance (cells)"),
   k("moves_close_shot_bonus_pm", "closeShot.bonusPm", "가까이 쏘기: 보너스(‰)", "Close shot: bonus (\u2030)"),
+  // 밀치기 부딪힘·밀림 저항(D-564 1587·1588, docs/adr/2026-11-15-combat-moves.md "바뀜 (D-564·D-568)")
+  k(
+    "moves_knock_wall_pm",
+    "knockback.wallPm",
+    "밀치기: 벽 부딪힘 피해(한 방의 ‰)",
+    "Knockback: wall impact damage (\u2030 of the hit)",
+  ),
+  k(
+    "moves_knock_unit_pm",
+    "knockback.unitPm",
+    "밀치기: 유닛 부딪힘 피해(한 방의 ‰)",
+    "Knockback: unit impact damage (\u2030 of the hit)",
+  ),
+  k(
+    "moves_resist_cap_pm",
+    "resist.capPm",
+    "밀림 저항: 스탯 몫 위 끝(‰)",
+    "Displace resist: stat cap (\u2030)",
+  ),
+  k(
+    "moves_resist_half",
+    "resist.halfConstant",
+    "밀림 저항: 반 지점 점수",
+    "Displace resist: half-point score",
+  ),
+  k(
+    "moves_resist_str_pm",
+    "resist.strPm",
+    "밀림 저항: STR 가중치(‰)",
+    "Displace resist: STR weight (\u2030)",
+  ),
+  k(
+    "moves_resist_vit_pm",
+    "resist.vitPm",
+    "밀림 저항: VIT 가중치(‰)",
+    "Displace resist: VIT weight (\u2030)",
+  ),
+  k(
+    "moves_body_large_pm",
+    "body.largePm",
+    "밀림 저항: 큰 몸(L)(‰)",
+    "Displace resist: large body (L) (\u2030)",
+  ),
+  k(
+    "moves_body_huge_pm",
+    "body.hugePm",
+    "밀림 저항: 거대한 몸(XL)(‰)",
+    "Displace resist: huge body (XL) (\u2030)",
+  ),
+  k("moves_body_boss_pm", "body.bossPm", "밀림 저항: 보스 등급(‰)", "Displace resist: boss grade (\u2030)"),
 ];

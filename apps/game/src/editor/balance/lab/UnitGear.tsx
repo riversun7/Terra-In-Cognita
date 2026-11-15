@@ -1,4 +1,4 @@
-// 유닛 편집 — 무기(타고난·팩 무기·직접 값, D-465 물리·속성 칸 + basic, D-502 1차 적정 스탯: 물리 STR·속성 INT·명중과 크리 DEX·공격
+// 유닛 편집 — 무기(타고난·팩 무기·직접 값, D-465 물리·속성 칸 + basic + 칸마다 피해 방식 D-568, D-502 1차 적정 스탯: 물리 STR·속성 INT·명중과 크리 DEX·공격
 // 간격 AGI, 0 = 없음 → 100%)·장비 칸(팩 장비, 유닛 종류 칸 배치)·장비 직접 값(2차 행 더하기·고정 방어·관통·속성별 저항·1차 보너스,
 // 장비 모델 그대로). 공격력 두 행은 장비가 올리지 않는다(D-438, 목록이 gear: false).
 import {
@@ -71,11 +71,34 @@ function CustomWeapon(props: {
               value={value.attack}
               min={0}
               max={L.valueMax}
-              onChange={(attack) => set(fieldPatch(kind, { attack }))}
+              onChange={(attack) => set(fieldPatch(kind, { ...value, attack }))}
             />
             {kind === "physical"
               ? appropriateField("str", m.dev_lab_weapon_appropriate_str())
               : appropriateField("int", m.dev_lab_weapon_appropriate_int())}
+            <div className="field">
+              <label className="field-label" htmlFor={`${id}-${kind}-damage`}>
+                {m.dev_lab_weapon_damage()}
+              </label>
+              <select
+                id={`${id}-${kind}-damage`}
+                data-damage={kind}
+                value={value.damage ?? kind}
+                onChange={(event) => {
+                  // 칸 종류(계열)와 같으면 칸을 뺀다(D-568: 피해 방식은 계열과 따로)
+                  const damage = event.target.value === "elemental" ? "elemental" : "physical";
+                  set(
+                    fieldPatch(
+                      kind,
+                      damage === kind ? { attack: value.attack } : { attack: value.attack, damage },
+                    ),
+                  );
+                }}
+              >
+                <option value="physical">{m.dev_lab_weapon_damage_physical()}</option>
+                <option value="elemental">{m.dev_lab_weapon_damage_elemental()}</option>
+              </select>
+            </div>
           </div>
         ) : null}
       </fieldset>

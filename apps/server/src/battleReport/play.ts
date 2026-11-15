@@ -177,6 +177,12 @@ export function playRun(setup: PlaySetup, run: number, seed: number, sink: RunSi
       );
       if (source !== null && enemies(source, target.id) && isDown(target)) sink.kill(rowIndex(source));
     },
+    collision(source, target, amount) {
+      // 밀치기 부딪힘 피해(D-564 1587): 밀어낸 유닛이 준 지속형 피해로 센다(방어 없이 체력에서)
+      const from = enemies(source.id, target.id) ? rowIndex(source.id) : -1;
+      sink.dot(from, rowIndex(target.id), amount);
+      if (from >= 0 && isDown(target)) sink.kill(from);
+    },
     attackStages(attacker, target, stages) {
       if (!enemies(attacker.id, target.id)) return;
       sink.stages(rowIndex(attacker.id), rowIndex(target.id), stages, nowMs());

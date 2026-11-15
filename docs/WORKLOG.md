@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-16 00:27 | 전투 움직임 2단계: 점멸 아군 시야·도약 성벽·부딪힘 피해·밀림 저항·피해 방식은 계열과 별개 | Claude Code | [16-0027-combat-moves-2](worklog/2026/11/16-0027-combat-moves-2.md) |
 | 2026-11-15 23:00 | 운영자 배율로 걷던 움직임을 다시 켜도 그 속도로 끝내기 | Claude Code | [15-2300-operator-motion](worklog/2026/11/15-2300-operator-motion.md) |
 | 2026-11-15 22:00 | 2026-11-15 열넷째 묶음 합치기 (채집 3) | Claude Code | [15-2200-batch-1116c-merge](worklog/2026/11/15-2200-batch-1116c-merge.md) |
 | 2026-11-15 20:40 | 건물 안 유닛 숨김·"안에 N명" 표시·[나가기] | Claude Code | [15-2040-building-inside-hide](worklog/2026/11/15-2040-building-inside-hide.md) |

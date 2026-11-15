@@ -53,9 +53,13 @@ export const LAB_LIMITS = {
   logMax: 400,
 } as const;
 
-/** 무기 공격력 칸 하나(D-465). 공격력 = 스탯 공격력 + 이 값 × 적정 비율(D-502) */
+/**
+ * 무기 공격력 칸 하나(D-465). 공격력 = 스탯 공격력 + 이 값 × 적정 비율(D-502). 칸 종류 = 계열(물리 칸 STR·VIT, 속성 칸 INT·WIS),
+ * damage = 이 칸으로 하는 기본 공격의 피해 방식(D-568, 없으면 칸 종류와 같다)
+ */
 export interface LabWeaponField {
   readonly attack: number;
+  readonly damage?: "physical" | "elemental" | undefined;
 }
 
 /**

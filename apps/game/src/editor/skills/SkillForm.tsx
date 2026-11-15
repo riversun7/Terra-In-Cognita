@@ -1,5 +1,5 @@
 // 스킬 편집기 한 스킬의 칸 전부 — 구역(FormSection: 제목·쉬운 풀이·출처·담은 칸 수·팩과 다른 칸 수): 기본(이름·설명·켜기), 무기·피해
-// (기반·피해 종류·필요한 무기 칸·맨손 스킬 D-490), 모양·대상(모양·발동·대상·사거리·반지름·연쇄), 소모·시간(자원·소모·시전·쿨), 공식 부품·
+// (기반 = 계열·피해 종류 = 피해 방식, 둘은 따로 고른다 D-568, 필요한 무기 칸·맨손 스킬 D-490), 모양·대상(모양·발동·대상·사거리·반지름·연쇄), 소모·시간(자원·소모·시전·쿨), 공식 부품·
 // 조건·특수 효과·등급(SkillParts). 칸마다 path로 팩 값·지금 값과 견주고 칸마다 되돌린다(CompareProvider는 편집 판이 준다).
 // 고친 칸은 초안에만 들고 담은 변경 막대의 [적용]이 서버 묶음(skills.save) 하나로 보낸다. docs/adr/2026-11-01-skill-editor.md
 import {
@@ -18,15 +18,22 @@ import { m } from "../../paraglide/messages.js";
 import { CheckField, NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
 import { FormSection } from "../content/contentEditorLayout.tsx";
 import { ConditionSection, EffectSection, FormulaSection, GradeSection } from "./SkillParts.tsx";
-import { DAMAGE_TEXT, RESOURCE_TEXT, SHAPE_TEXT, TARGET_TEXT, TRIGGER_TEXT } from "./skillMessages.ts";
+import {
+  BASE_TEXT,
+  DAMAGE_TEXT,
+  RESOURCE_TEXT,
+  SHAPE_TEXT,
+  TARGET_TEXT,
+  TRIGGER_TEXT,
+} from "./skillMessages.ts";
 import { withShape } from "./skillModel.ts";
 
 type WeaponChoice = "base" | SkillWeaponFieldId;
 
 const WEAPON_TEXT: Readonly<Record<WeaponChoice, () => string>> = {
   base: m.dev_skills_same_as_base,
-  physical: m.dev_skills_damage_physical,
-  elemental: m.dev_skills_damage_elemental,
+  physical: m.dev_skills_base_physical,
+  elemental: m.dev_skills_base_elemental,
   any: m.dev_skills_field_any,
 };
 const WEAPON_CHOICES: readonly WeaponChoice[] = ["base", "physical", "elemental", "any"];
@@ -109,7 +116,7 @@ export function SkillForm({
         className="sk-section"
         title={m.dev_skills_section_weapon()}
         desc={m.dev_skills_section_weapon_desc()}
-        source="D-490"
+        source="D-490 · D-568"
         paths={["base", "damage", "weaponField", "bareHand"]}
       >
         <div className="sk-grid">
@@ -118,8 +125,8 @@ export function SkillForm({
             path="base"
             desc={m.dev_skills_base_desc()}
             value={draft.base}
-            options={SKILL_BASES.map((value) => ({ value, label: DAMAGE_TEXT[value]() }))}
-            onChange={(base) => update({ ...draft, base, damage: draft.damage === "none" ? "none" : base })}
+            options={SKILL_BASES.map((value) => ({ value, label: BASE_TEXT[value]() }))}
+            onChange={(base) => update({ ...draft, base })}
           />
           <SelectField
             label={m.dev_skills_field_damage()}
@@ -127,7 +134,7 @@ export function SkillForm({
             desc={m.dev_skills_damage_desc()}
             value={draft.damage}
             options={SKILL_DAMAGES.map((value) => ({ value, label: DAMAGE_TEXT[value]() }))}
-            onChange={(damage) => update({ ...draft, damage, base: damage === "none" ? draft.base : damage })}
+            onChange={(damage) => update({ ...draft, damage })}
           />
           {draft.bareHand === true ? null : (
             <SelectField

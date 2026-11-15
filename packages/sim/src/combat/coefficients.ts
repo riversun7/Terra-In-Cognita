@@ -134,6 +134,10 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
     dotTotal: { freeMs: 3000, stepPm: 50, minPm: 500 },
     multishot: { stepPm: 150, minPm: 300 },
     closeShot: { cells: 2, bonusPm: 200 },
+    // [임시] 밀치기 부딪힘·밀림 저항(D-564 1587·1588, 사용자 제안 "10-20%정도")
+    knockback: { wallPm: 200, unitPm: 150 },
+    resist: { capPm: 600, halfConstant: 100, strPm: 500, vitPm: 1000 },
+    body: { largePm: 250, hugePm: 500, bossPm: 300 },
   },
 };
 

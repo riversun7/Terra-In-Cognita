@@ -23,7 +23,8 @@ export function ready(unit: UnitState, nowMs: number, c: CombatCoefficients): bo
     nowMs >= unit.nextActionMs &&
     hasAmmo(unit) &&
     unit.staminaMilli >= specStaminaCostMilli(unit, unit.staminaCost, c) &&
-    (unit.attack.kind !== "elemental" || unit.mpMilli >= unit.mpCost * 1000)
+    // MP는 무기 자료의 mpCost만큼(D-568: 피해 방식과 상관없다 — 마검 STR 속성 공격·메이스 INT 물리 공격). 옛 자료는 속성 무기만 MP를 적는다
+    unit.mpMilli >= Math.max(0, unit.mpCost) * 1000
   );
 }
 
@@ -31,7 +32,7 @@ export function ready(unit: UnitState, nowMs: number, c: CombatCoefficients): bo
 export function spend(unit: UnitState, nowMs: number, c: CombatCoefficients): void {
   unit.staminaMilli -= specStaminaCostMilli(unit, unit.staminaCost, c);
   spendShot(unit);
-  if (unit.attack.kind === "elemental") unit.mpMilli -= unit.mpCost * 1000;
+  if (unit.mpCost > 0) unit.mpMilli -= unit.mpCost * 1000;
   unit.nextActionMs = nowMs + unit.attackIntervalMs;
 }
 

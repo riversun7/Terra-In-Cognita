@@ -20,7 +20,7 @@ import { hasStatus, modifiersOf, moveIntervalMs, shieldRegenPerMinute, tickEffec
 import { buildingDamage, resolveAttack, withAttackModifiers, withDefenseModifiers } from "./formula.ts";
 import { lineClear } from "./los.ts";
 import { visibleEnemies } from "./sight.ts";
-import { pickSkill, resolveSkill, singleAlly, startSkill, takeDamage } from "./skills.ts";
+import { pickSkill, resolveSkill, singleAlly, skillReaches, startSkill, takeDamage } from "./skills.ts";
 import type { BattleTrace } from "./battleTrace.ts";
 import { newAttackStages, recordApplied } from "./attackStages.ts";
 import { active, electCommander, initialState, ready, spend, unitFrom } from "./battleState.ts";
@@ -469,7 +469,7 @@ function makeBattle(
     if (!cast || !skill || !goal || !active(goal)) return;
     if (skill.target === "enemy") {
       const visible = state.sides.find((side) => side.id === unit.side)?.visible ?? [];
-      if (!visible.includes(goal.id) || !reach(unit, gone)(goal, skill.range)) return;
+      if (!visible.includes(goal.id) || !skillReaches(unit, skill, goal, reach(unit, gone))) return;
     } else if (singleAlly(skill) && !reach(unit, gone)(goal, skill.range)) return;
     fire(unit, cast.skill, goal, rng, nowMs);
   };

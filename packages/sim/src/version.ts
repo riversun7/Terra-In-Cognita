@@ -194,8 +194,14 @@
  *    설정 칸 ore_low_tier_max·ore_flat_high_pm·fish_tier_*를 없앴다(산지 밖 높은 티어 몫 0). 레벨 0 재료는 같은 원자재 종류 T0~T1을 받는다
  *    (D-562 1563·1564, @terra/shared/bareHandMaterials — NPC 짓기 있나·빼기·구할 길). 팩 core@105: 소금·이탄 T1·화석 T4(1567·1568), 바다
  *    물터(1565). 팩으로 도는 시나리오(econ16 등) 결과가 달라진다(47~51은 같은 묶음의 다른 줄기가 쓴다)
+ * 54: 전투 움직임 2단계(docs/adr/2026-11-15-combat-moves.md "바뀜 (D-564·D-568)", 기획 D-564·D-568): 점멸은 사정거리(cells) 안 아군 시야
+ *    칸, 도약은 성벽·성문도 넘는다, 밀치기 부딪힘 피해(벽 moves_knock_wall_pm·뒤 유닛 moves_knock_unit_pm, 방어 없이 체력), 밀림 저항(STR·VIT
+ *    점수 + 몸 크기 L·XL·보스, moves_resist_*·moves_body_*)이 밀치기·끌어오기 칸 수와 묶기 지속을 줄인다. 피해 방식은 계열과 따로(D-568):
+ *    스킬은 피해 종류(damage)가, 기본 공격은 무기 칸의 damage(없으면 칸 종류)가 정한다(옛 판정은 기반·칸 종류가 정했다). 기본 공격 MP는
+ *    무기 mpCost만큼(옛 판정은 속성 칸 무기만). 무기 곡선 range_interval(공격 간격 × 사거리 예산). 지금 팩·시뮬 시나리오는 결과가 그대로다
+ *    (팩 스킬은 damage = base, 이동 부품·새 칸 없음, MP를 적은 무기는 속성 칸 무기뿐). 53은 같은 묶음의 다른 줄기가 쓴다
  */
-export const SIM_VERSION = 52;
+export const SIM_VERSION = 54;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

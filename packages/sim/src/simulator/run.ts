@@ -5,6 +5,7 @@
 import { createFnv1a, mix32 } from "../math/hash.ts";
 import { createBattle } from "../combat/battle.ts";
 import { TEST_COMBAT_CATALOG } from "../combat/catalog.ts";
+import { waveDefendersMaxOf } from "../gardener/coefficients.ts";
 import { squareGrid } from "../gardener/pollution.ts";
 import { type GardenerRun, type GardenerSummary, attachGardener } from "./gardenerRun.ts";
 import { type MetricsRecorder } from "./metrics.ts";
@@ -94,7 +95,6 @@ const SIM_GRID_SIZE = 1024;
 const SIM_GRID_ROW = 32;
 const DEFAULT_WAVE_MAP = 128;
 const DEFAULT_NEXUS = 2000;
-const DEFAULT_WAVE_DEFENDERS = 10;
 /** 정원사 크리쳐 전투 유닛 ID 시작(시뮬 유닛 ID와 겹치지 않게) */
 const WAVE_CREATURE_ID_BASE = 1_900_000_000;
 
@@ -438,7 +438,8 @@ export function runSimulation(options: RunOptions): RunSummary {
             firstCreatureId: WAVE_CREATURE_ID_BASE,
             mapSize: scenario.combat?.siegeMapSize ?? DEFAULT_WAVE_MAP,
             nexusDurability: scenario.combat?.nexusDurability ?? DEFAULT_NEXUS,
-            maxDefenders: scenario.combat?.siegeUnits ?? DEFAULT_WAVE_DEFENDERS,
+            // 시나리오 공성 인원이 없으면 설정 칸 웨이브 수비 상한(D-558 1547)
+            maxDefenders: scenario.combat?.siegeUnits ?? waveDefendersMaxOf(societyCoefficients.gardener),
             // 도시 배치(질문 1068 가)·모함 쪽 변(질문 1067 가 — 합성 격자 칸 방향, 서버는 행성 칸 방향)
             layout: siegeLayouts(wave.city),
             attackEdge: simWaveEdge(wave.city, seed, wave.id),

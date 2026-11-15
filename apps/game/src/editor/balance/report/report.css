@@ -572,6 +572,12 @@
 .rp-order-add {
   justify-self: start;
 }
+/* 전투맵 명령 화면이 넣은 칸(보이기만) */
+.rp-order-cell {
+  align-self: center;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
 @media (min-width: 900px) {
   .rp-order {
     grid-template-columns: minmax(0, 0.7fr) repeat(3, minmax(0, 1fr)) auto;

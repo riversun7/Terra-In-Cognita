@@ -26,6 +26,7 @@ import {
 } from "./labModel.ts";
 import { ELEMENT_TEXT, localized, rowText, skillName } from "./labMessages.ts";
 import { PresetBar } from "./PresetBar.tsx";
+import { RankFields } from "./RankFields.tsx";
 import { UnitGear } from "./UnitGear.tsx";
 
 const L = LAB_LIMITS;
@@ -139,6 +140,7 @@ export function UnitEditor(props: {
             max={L.rebirthsMax}
             onChange={(rebirths) => onChange((current) => ({ ...current, rebirths }))}
           />
+          <RankFields unit={unit} onChange={onChange} />
           <div className="field">
             <label className="field-label" htmlFor={`${id}-row`}>
               {m.dev_lab_row()}

@@ -69,7 +69,7 @@ export interface CombatCoefficients {
    * 쓴다(새 부품이 없는 전투는 이 표와 상관없다). 없으면 출발값(DEFAULT_MOVE_COEFFICIENTS)
    */
   readonly moves?: MoveCoefficients | undefined;
-  /** 지휘관 정원 식(49 C7, command.ts — 사용자 결정 1464). 없으면 정원 0(옛 계수표) */
+  /** 지휘관 정원 표(49 C7, command.ts — D-558 계급·랭킹·환생). 없으면 정원 0(옛 계수표) */
   readonly command?: CommandCapCoefficients | undefined;
   /**
    * 전투 계산식 묶음(팩 formulas + 그 세계의 덮어쓰기, docs/adr/2026-11-01-formula-editor.md). 없으면 기본 식
@@ -122,8 +122,15 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
   },
   // [임시] N54 아머 회복: 분당 최대의 10%(가득까지 10분, 쉴드 재생 새 사이보그 WIS 10 ÷ 쉴드 48 ≈ 21%보다 느림)
   armorRegenPm: 100,
-  // [임시] C7 지휘관 정원: 2 + ⌊(INT×500 + WIS×500)‰ ÷ 10⌋, 3~20(사용자 1464 "3개에서 20개정도"). 새 사이보그(1차 10) = 3, 지휘 점수 180 = 20
-  command: { base: 2, intPm: 500, wisPm: 500, pointsPerParty: 10, min: 3, max: 20 },
+  // [임시] C7 지휘관 정원(D-558 "군단은 3~10개 분대", 계급처럼): 작위 민간인·시민 3 → 공훈자 4 → 기사 5 → 영주 7 → 대공 9,
+  // 전투 랭킹 등급(상위 1%·5%·20%·50%) 9·7·5·4, 환생했으면 +1, 3~10
+  command: {
+    titleParties: [3, 3, 4, 5, 7, 9],
+    tierParties: [9, 7, 5, 4],
+    rebirthBonus: 1,
+    min: 3,
+    max: 10,
+  },
   // [임시] 달리기·감지·계수 곡선(docs/adr/2026-11-15-combat-moves.md 1·3절, curves.ts DEFAULT_MOVE_COEFFICIENTS와 같은 값)
   moves: {
     run: { intervalPm: 600, staminaPerSec: 15, resumeSec: 3 },

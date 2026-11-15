@@ -327,6 +327,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         now,
         log: app.log,
         pool: options.db?.$client,
+        combatRankingPaths: options.ranking?.paths.filter((p) => p.area === "force").map((p) => p.id), // D-558 지휘 계급
         // 사이보그 만들기 규칙: 설정 칸 실효 값을 얹은 세력·사회 계수표(N9·N6·N36·N39, 환생과 같은 굴리기), 부를 때마다 읽는다.
         // 팩이 없으면 sim 시험 계수표
         cyborgRules: tuningState

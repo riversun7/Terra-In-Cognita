@@ -2,6 +2,7 @@
 // 서버(tRPC battleReport.*, apps/server/src/battleReport/)와 화면(apps/game/src/editor/balance/report/)이 같이 쓴다. 판정·집계는 서버만 한다
 // (기기는 판정 코드를 받지 않는다). 수치 칸의 범위는 실험 도구의 입력 범위(넘침·NAS 부담 방지)이지 게임 규칙이 아니다.
 // 집계 값은 모두 판 전체의 합(정수)이다. 판마다 평균·비율은 화면이 runs로 나눠 보인다(reportRate·perRun).
+import { REPORT_LEGION_ORDER, type ReportOrder, reportOrdersProblem } from "./battleReportOrders.ts";
 import type { LabParty } from "./battleLab.ts";
 import type { ReportCityInfo } from "./battleReportCity.ts";
 
@@ -31,10 +32,15 @@ export const REPORT_LIMITS = {
   techMin: 1,
   techMax: 10,
   /**
-   * 군단(팀) 하나의 파티 수 상한(기획 D-179·D-545 — 파티 6명이 기본 단위, 파티를 묶어 군단). 사용자 결정 1464(2026-11-15 "3개에서 20개정도로
-   * 하고 지휘관 능력이나 스킬에 따라") — 지휘관 정원 위 끝(설정 칸 c7_command_max 출발값)과 같다. 정원 밖 파티는 군단 명령을 받지 않는다
+   * 군단(팀) 하나의 파티 수 입력 상한(기획 D-179·D-545 — 파티 6명이 기본 단위, 파티를 묶어 군단). D-549 1464(3~20) 때 저장한 기록을 읽으려고
+   * 20으로 둔다(D-558로 군단은 3~10 — 정원 밖 파티는 군단 명령을 받지 않는다)
    */
   legionPartiesMax: 20,
+  /**
+   * 화면에서 새로 짜는 군단의 파티 수 상한(D-558 "군단은 3~10개 분대다 정정" — 지휘관 정원 위 끝 c7_command_max 출발값). 위 legionPartiesMax(20)는
+   * D-549 때 저장한 옛 기록을 그대로 읽으려는 입력 상한이다(정원 밖 파티는 군단 명령을 받지 않고 각자 AI)
+   */
+  legionPartiesEditMax: 10,
   /** 군단 하나의 시각 명령 수 상한(파티·군단 명령 합) */
   legionOrdersMax: 40,
   /** 도시 배치: 주거 인원·행정 레벨 */
@@ -73,22 +79,17 @@ export type ReportSiegeDefense = "party" | "world";
 /** 웨이브 수비: 시뮬 휴먼 N명(기본), 팀 B 파티(기획 D-543 1384 나), 실제 도시의 세계 수비(layout = world일 때만) */
 export type ReportWaveDefense = "sim" | "party" | "world";
 
-/** 파티·군단 명령 종류(판정 PartyOrderInput과 같은 이름, 기획 D-549): 진형 전진·자리 지키기·목표 공격·퇴각·거두기(AI로) */
-export const REPORT_ORDER_KINDS = ["advance", "hold", "attack", "retreat", "free"] as const;
-export type ReportOrderKind = (typeof REPORT_ORDER_KINDS)[number];
-/** 군단 명령 자리(ReportOrder.party) */
-export const REPORT_LEGION_ORDER = -1;
-
-/**
- * 시각 명령 하나: atSec초에 파티(0부터) 또는 군단(REPORT_LEGION_ORDER)에. 목표 공격은 상대 군단의 파티·자리. 칸 전진은 보고서에 없다
- * (판마다 편·공격 변이 바뀌어 칸이 같은 뜻이 아니다 — 전진은 적 쪽으로)
- */
-export interface ReportOrder {
-  readonly atSec: number;
-  readonly party: number;
-  readonly kind: ReportOrderKind;
-  readonly target?: { readonly party: number; readonly index: number } | undefined;
-}
+export {
+  REPORT_FORMATIONS,
+  REPORT_LEGION_ORDER,
+  REPORT_ORDER_CELL_MAX,
+  REPORT_ORDER_KINDS,
+  REPORT_TACTICS,
+  type ReportFormation,
+  type ReportOrder,
+  type ReportOrderKind,
+  type ReportTactic,
+} from "./battleReportOrders.ts";
 
 /**
  * 군단 = 파티(유닛 6 기본) 여럿과 명령(기획 D-179·D-545 "파티가 모여 군단 단위로 명령", D-549). 파티 퇴각 기준선(⑦)은 파티의
@@ -640,17 +641,13 @@ function enemyOf(setup: ReportSetup, team: "a" | "b"): ReportLegion | null {
 
 /** 군단 명령 검사(수·시각·자리·목표). 문제가 있으면 true */
 function orderProblem(legion: ReportLegion, limitSec: number, enemy: ReportLegion | null): boolean {
-  const orders = legion.orders ?? [];
-  if (orders.length > REPORT_LIMITS.legionOrdersMax) return true;
-  return orders.some((order) => {
-    if (!intIn(order.atSec, 0, limitSec) || !REPORT_ORDER_KINDS.includes(order.kind)) return true;
-    if (!intIn(order.party, REPORT_LEGION_ORDER, legion.parties.length - 1)) return true;
-    if (order.kind !== "attack") return order.target !== undefined;
-    const target = order.target;
-    if (!target || !enemy) return true;
-    const party = enemy.parties[target.party];
-    return !party || !intIn(target.index, 0, party.units.length - 1);
-  });
+  return reportOrdersProblem(
+    legion.orders ?? [],
+    legion.parties.length,
+    limitSec,
+    enemy ? enemy.parties.map((party) => party.units.length) : null,
+    REPORT_LIMITS.legionOrdersMax,
+  );
 }
 
 /** 0~1000‰ 비율(분모 0이면 0) */

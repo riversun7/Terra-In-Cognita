@@ -29,6 +29,7 @@ import {
   type SimUnit,
   type SocietyCoefficients,
   waveBattleInit,
+  waveDefendersMaxOf,
 } from "@terra/sim";
 import { type SiegeCityKit, TEST_SIEGE_KIT, simCitySiegeLayout } from "@terra/sim/city";
 import {
@@ -271,13 +272,18 @@ export async function playSetupOf(setup: ReportSetup, ctx: SetupContext): Promis
     legionRows("a", la, idA, rows, rowOf);
     legionRows("b", lb, idB, rows, rowOf);
     const normal = arenaLegionInit(job, 0, false);
+    const size = ctx.arenaMap.size;
     // 편 바꾼 판(홀수 판)은 팀 A가 편 2 — 군단 명령의 편 번호만 바뀐다
     const arenaInputs = (sideOfA: number): BattleInput[] =>
       [
-        ...legionInputs(la, { partyId: (p) => arenaPartyId("a", p), side: sideOfA, enemyId: idB }, tickMs),
+        ...legionInputs(
+          la,
+          { partyId: (p) => arenaPartyId("a", p), side: sideOfA, enemyId: idB, size },
+          tickMs,
+        ),
         ...legionInputs(
           lb,
-          { partyId: (p) => arenaPartyId("b", p), side: 3 - sideOfA, enemyId: idA },
+          { partyId: (p) => arenaPartyId("b", p), side: 3 - sideOfA, enemyId: idA, size },
           tickMs,
         ),
       ].toSorted((x, y) => x.tick - y.tick);
@@ -354,24 +360,12 @@ interface SiegeBuilt {
 }
 
 /**
- * 실제 도시 수비 군단(1464·1466 — 사용자 "수비도 군단 가능", 정해진 10명 대신): 휴먼 수비 파티(6명씩) 가운데 지휘관 정원(그 휴먼들
- * 가운데 가장 큰 값, 설정 칸 C7)만큼 앞 파티만 남긴다. 수호신 파티는 그대로 둔다
+ * 실제 도시 수비 인원(D-558 1547 "군단이 존재하면 군단 … 파티도 없으면 유닛들 개별 참전" — 서버 정원사와 같은 규칙): 세계 휴먼에는 파티가
+ * 없어 유닛 개별로 들고, 상한은 설정 칸 웨이브 수비 상한(d558_wave_defenders_max, 보고서 상한 REPORT_WORLD_DEFENDERS_MAX 안)이다.
+ * D-549 1464·1466의 "지휘관 정원만큼의 수비 파티"는 이것으로 대체됐다
  */
-function worldDefenderLegion(
-  init: BattleInit,
-  humans: ReadonlySet<number>,
-  worldIds: ReadonlySet<number>,
-): { init: BattleInit; worldIds: Set<number> } {
-  const humanUnits = init.units.filter((unit) => humans.has(unit.id));
-  const cap = humanUnits.reduce((max, unit) => Math.max(max, unit.commandCap), 0);
-  const humanParties = [...new Set(humanUnits.map((unit) => unit.party))].toSorted((x, y) => x - y);
-  const dropped = new Set(humanParties.slice(Math.max(1, cap)));
-  const units = init.units.filter((unit) => !(humans.has(unit.id) && dropped.has(unit.party)));
-  const kept = new Set(units.map((unit) => unit.id));
-  return {
-    init: { ...init, units, parties: init.parties.filter((party) => !dropped.has(party.id)) },
-    worldIds: new Set([...worldIds].filter((id) => kept.has(id))),
-  };
+function worldDefendersMax(society: SocietyCoefficients): number {
+  return Math.min(REPORT_WORLD_DEFENDERS_MAX, waveDefendersMaxOf(society.gardener));
 }
 
 async function siegeOnce(
@@ -420,7 +414,7 @@ async function siegeOnce(
         firstCreatureId: WORLD_CREATURE_ID_BASE,
         mapSize: size,
         nexusDurability: setup.nexusDurability,
-        maxDefenders: REPORT_WORLD_DEFENDERS_MAX,
+        maxDefenders: worldDefendersMax(ctx.society),
         limitMs,
         layout,
         attackEdge: edge,
@@ -457,7 +451,7 @@ async function siegeOnce(
     };
     if (worldDefense && city) {
       init = worldWave(city, setup.strength, setup.physical, setup.creatureTech);
-      worldIds = new Set(city.defenders.slice(0, REPORT_WORLD_DEFENDERS_MAX).map((unit) => unit.id));
+      worldIds = new Set(city.defenders.slice(0, worldDefendersMax(ctx.society)).map((unit) => unit.id));
     } else init = waveBattleInit(waveInput, rules.catalog, coefficients);
     await yieldToLoop();
     for (const unit of init.units)
@@ -486,7 +480,7 @@ async function siegeOnce(
         });
       });
       legionRows("b", lb, idB, rows, rowOf);
-      inputs.push(...legionInputs(lb, { partyId: (p) => DEFENDER_PARTY_BASE + p, side: 2 }, tickMs));
+      inputs.push(...legionInputs(lb, { partyId: (p) => DEFENDER_PARTY_BASE + p, side: 2, size }, tickMs));
       init = {
         ...init,
         units: [...init.units, ...units],
@@ -532,7 +526,7 @@ async function siegeOnce(
     }));
     if (worldDefense && city) {
       // 실제 도시 수비: 서버 정원사와 같은 수비 휴먼·자리(크리쳐 없이 만든 웨이브 시작 자료의 수비 몫) + 실험실 공격 편
-      inputs.push(...legionInputs(la, { partyId: (p) => arenaPartyId("a", p), side: 1 }, tickMs));
+      inputs.push(...legionInputs(la, { partyId: (p) => arenaPartyId("a", p), side: 1, size }, tickMs));
       await yieldToLoop();
       const base = worldWave(city, 0, 0, 1);
       worldIds = new Set(base.units.map((unit) => unit.id));
@@ -568,8 +562,8 @@ async function siegeOnce(
       });
       legionRows("b", lb, idB, rows, rowOf);
       inputs.push(
-        ...legionInputs(la, { partyId: (p) => arenaPartyId("a", p), side: 1, enemyId: idB }, tickMs),
-        ...legionInputs(lb, { partyId: (p) => arenaPartyId("b", p), side: 2, enemyId: idA }, tickMs),
+        ...legionInputs(la, { partyId: (p) => arenaPartyId("a", p), side: 1, enemyId: idB, size }, tickMs),
+        ...legionInputs(lb, { partyId: (p) => arenaPartyId("b", p), side: 2, enemyId: idA, size }, tickMs),
       );
       init = {
         id: 1,
@@ -594,17 +588,12 @@ async function siegeOnce(
     }
   }
 
-  // 세계 수비: 세계 전투 시작 길(몸·비활성·수호신·생명 수치·물약 — 읽기만), 그다음 지휘관 정원만큼의 수비 군단
+  // 세계 수비: 세계 전투 시작 길(몸·비활성·수호신·생명 수치·물약 — 읽기만). 수비 휴먼은 유닛 개별 참전(D-558 1547)
   let guardians = 0;
   if (worldDefense && city) {
     const defended = await city.prepare(init, worldIds);
-    const legion = worldDefenderLegion(
-      defended.init,
-      new Set(city.defenders.map((unit) => unit.id)),
-      defended.worldIds,
-    );
-    init = legion.init;
-    worldIds = legion.worldIds;
+    init = defended.init;
+    worldIds = defended.worldIds;
     guardians = defended.guardians;
   }
   // 수비 무리 줄: 실험실 군단이 아닌 수비 편 유닛(시뮬 휴먼·세계 수비·수호신)

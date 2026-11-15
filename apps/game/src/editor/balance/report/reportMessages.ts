@@ -143,6 +143,10 @@ const ORDER_TEXT: Readonly<Record<ReportOrderKind, () => string>> = {
   attack: m.dev_report_order_kind_attack,
   retreat: m.dev_report_order_kind_retreat,
   free: m.dev_report_order_kind_free,
+  rally: m.battle_cmd_rally,
+  follow: m.battle_cmd_follow,
+  formation: m.battle_cmd_formation,
+  tactic: m.battle_cmd_tactic_order,
 };
 export const orderKindText = (kind: ReportOrderKind): string => ORDER_TEXT[kind]();
 

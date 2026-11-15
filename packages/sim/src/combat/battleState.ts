@@ -1,5 +1,6 @@
 // 전투 상태 만들기와 유닛 도우미 — battle.ts가 쓴다. docs/adr/2026-10-31-combat-core.md
 import { type CombatCoefficients, msToTicks, specStaminaCostMilli } from "./coefficients.ts";
+import { commanderOrder } from "./command.ts";
 import { applyPassives } from "./skills.ts";
 import { consumableState, hasAmmo, spendShot } from "./consumables.ts";
 import type {
@@ -91,18 +92,23 @@ export function unitFrom(spec: CombatUnitSpec): UnitState {
   return unit;
 }
 
-/** 지휘관 = 남은 유닛 가운데 지휘 정원이 가장 큰 유닛(같으면 작은 ID), 정원 밖 파티는 지휘 없음(D-331) */
+/**
+ * 지휘관 = 남은 유닛 가운데 승계 순서(command.ts commanderOrder — D-558 1545 작위 → 전투 랭킹, 계급이 없으면 정원 → 작은 ID, D-331)가
+ * 가장 앞선 유닛. 지휘관의 파티가 정원 첫 자리(D-558 "군단 지휘관도 하나의 분대에 속함"), 나머지는 ID 차례로 정원을 채우고 그 밖은 지휘 없음
+ */
 export function electCommander(state: BattleState, side: SideState): void {
   let best: UnitState | undefined;
   for (const unit of state.units) {
     if (unit.side !== side.id || unit.status !== "alive" || unit.commandCap <= 0) continue;
-    if (!best || unit.commandCap > best.commandCap) best = unit;
+    if (!best || commanderOrder(unit, best) < 0) best = unit;
   }
   side.commander = best?.id ?? 0;
   const parties = state.parties
     .filter((party) => party.side === side.id && !party.retreated)
     .map((party) => party.id);
-  side.uncommanded = parties.slice(best ? best.commandCap : 0);
+  const own = best ? parties.indexOf(best.party) : -1;
+  if (own > 0) parties.unshift(...parties.splice(own, 1));
+  side.uncommanded = parties.slice(best ? best.commandCap : 0).toSorted((a, b) => a - b);
 }
 
 export function initialState(init: BattleInit, c: CombatCoefficients): BattleState {

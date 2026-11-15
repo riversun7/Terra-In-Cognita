@@ -3,6 +3,7 @@
 // 보기 화면은 엔진(three)을 들어 무거워서 열 때만 받는다(지연 조각). 화면 하나가 엔진 하나를 든다: 닫으면 보기 화면을 버린다.
 import type { BattleReplay } from "@terra/protocol/battleReplay";
 import { Suspense, lazy, useEffect, useRef } from "react";
+import type { BattleCommandIssue } from "../../../battle/battleCommands.ts";
 import type { ReplayGround } from "../../../battle/replayTerrain.ts";
 import { m } from "../../../paraglide/messages.js";
 
@@ -11,9 +12,27 @@ const BattleReplayView = lazy(() => import("../../../battle/BattleReplayView.tsx
 export interface WatchedBattle {
   readonly replay: BattleReplay;
   readonly ground: ReplayGround;
+  /** 명령을 넣고 다시 기록한 판이면 그 명령 시각(ms)부터 멈춘 채 본다 */
+  readonly startAtMs?: number | undefined;
 }
 
-export function ReplayOverlay({ watched, onClose }: { watched: WatchedBattle | null; onClose: () => void }) {
+/** 전투맵 명령 화면(D-558 1546): 팀 A(편 1)에 군단·분대 명령을 내린다 */
+export interface WatchCommand {
+  readonly side: number;
+  readonly issued: readonly BattleCommandIssue[];
+  readonly busy: boolean;
+  readonly onIssue: (issue: BattleCommandIssue) => void;
+}
+
+export function ReplayOverlay({
+  watched,
+  onClose,
+  command,
+}: {
+  watched: WatchedBattle | null;
+  onClose: () => void;
+  command?: WatchCommand | undefined;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current;
@@ -34,7 +53,13 @@ export function ReplayOverlay({ watched, onClose }: { watched: WatchedBattle | n
             </button>
           </header>
           <Suspense fallback={<p className="field-hint bl-watch-loading">{m.dev_lab_watch_loading()}</p>}>
-            <BattleReplayView replay={watched.replay} ground={watched.ground} />
+            <BattleReplayView
+              replay={watched.replay}
+              ground={watched.ground}
+              autoPlay={watched.startAtMs === undefined}
+              startAtMs={watched.startAtMs}
+              command={command}
+            />
           </Suspense>
         </div>
       ) : null}

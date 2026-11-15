@@ -23,7 +23,7 @@ import {
   rangeIntervalPm,
   scalePm,
 } from "./curves.ts";
-import { commandCapOf } from "./command.ts";
+import { type CommandRank, commandCapOf } from "./command.ts";
 import { type AttackProfile, ELEMENT_COUNT } from "./formula.ts";
 import {
   attackIntervalMs,
@@ -35,6 +35,13 @@ import {
 } from "./formulas.ts";
 import type { CombatSkill } from "./skills.ts";
 import type { Primaries } from "./stats.ts";
+import { MIN_MOVE_SPEED_PM } from "./effects.ts";
+
+/** 걸음 간격에 장비 이동 속도‰를 곱한다(0이면 그대로, effects.ts moveIntervalMs와 같은 식·하한) */
+function gearMoveInterval(intervalMs: number, speedPm: number | undefined): number {
+  if (!speedPm) return intervalMs;
+  return Math.max(1, Math.floor((intervalMs * 1000) / Math.max(MIN_MOVE_SPEED_PM, 1000 + speedPm)));
+}
 
 /** 공격력 칸 종류(D-465): 물리 = 물리 공격력, 속성 = 속성 공격력(m.atk) */
 export type AttackField = AttackProfile["kind"];
@@ -125,6 +132,14 @@ export interface UnitBody {
   readonly eye?: number | undefined;
   readonly air?: boolean | undefined;
   readonly commandCap?: number | undefined;
+  /**
+   * 지휘 계급(D-558: 국가 작위·전투 랭킹 등급)과 환생 횟수. commandCap이 없으면 이것으로 정원을 센다(command.ts commandCapOf — 없으면
+   * 작위 0·등급 밖·환생 0 = 아래 끝). 계급은 사양에도 실어 승계 순서를 정한다
+   */
+  readonly commandRank?: CommandRank | undefined;
+  readonly commandRebirths?: number | undefined;
+  /** 장비 이동 속도‰(D-558 1548, loadoutOf moveSpeedPm). 없으면 0 */
+  readonly moveSpeedPm?: number | undefined;
   readonly cyborg?: boolean | undefined;
   readonly buildingMulPm?: number | undefined;
   /** 1차 스탯(장비 포함, 상태이상 저항 D-429) */
@@ -281,7 +296,11 @@ export function specFromStats(
       c,
     ),
     // 전투맵 걸음도 AGI(사용자 1265, D-553): 몸의 기본 간격(1초)을 실효 AGI의 걷기 식으로 줄인다
-    moveIntervalMs: battleMoveIntervalMs(body.moveIntervalMs, primaries[2] ?? 0, c),
+    // 장비 이동 속도(D-558 1548)는 AGI 걸음 간격에 곱한다(걸린 효과 move_speed와 같은 셈 — 판정은 그 위에 효과를 또 곱한다)
+    moveIntervalMs: gearMoveInterval(
+      battleMoveIntervalMs(body.moveIntervalMs, primaries[2] ?? 0, c),
+      body.moveSpeedPm,
+    ),
     staminaMax: Math.max(0, s("stamina")),
     staminaCost: w.staminaCost,
     staminaScore: sta,
@@ -298,8 +317,9 @@ export function specFromStats(
     sight: Math.max(0, s("sight")),
     eye: body.eye ?? 16 * 180,
     air: body.air ?? false,
-    // 지휘관 정원(C7, 사용자 1464): 주어지지 않으면 1차 스탯 식(계수표에 식이 없으면 0)
-    commandCap: body.commandCap ?? commandCapOf(primaries, c),
+    // 지휘관 정원(C7, D-558): 주어지지 않으면 계급·환생 표(계수표에 표가 없으면 0). 계급이 있을 때만 칸을 둔다
+    commandCap: body.commandCap ?? commandCapOf(body.commandRank, body.commandRebirths ?? 0, c),
+    ...(body.commandRank ? { commandRank: body.commandRank } : {}),
     cyborg: body.cyborg ?? false,
     buildingMulPm: body.buildingMulPm ?? 1000,
     primaries,

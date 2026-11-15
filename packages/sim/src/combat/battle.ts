@@ -42,7 +42,11 @@ import {
   applyOrderInput,
   oppositeEdgeCells,
   prepareOrders,
+  standGoal,
+  succeedCommanders,
 } from "./orders.ts";
+import { ownEdgeCells } from "./formation.ts";
+import { planTactic } from "./tactics.ts";
 import type {
   BattleInit,
   BattleInput,
@@ -513,8 +517,14 @@ function makeBattle(
     }
     // 유닛 명령이 없으면 파티·군단 명령(D-549). 자리 지키기·칸 전진은 따로, 전진·목표 공격은 아래 AI 길에 진형 기다림·목표만 더한다
     const order = command === null ? orderTick.orders?.get(unit.party) : undefined;
-    if (order && (order.kind === "hold" || (order.kind === "advance" && order.slots))) {
-      standOrSlot(unit, order, rng, occupied, gone, canMove && !orderTick.waiting.has(unit.id));
+    // 서서 싸우는 명령(자리 지키기·칸 전진·집결·따라가기)과 전개 방식(D-558)은 따로
+    const standAt = order ? standGoal(order, unit, orderTick) : undefined;
+    if (standAt !== undefined) {
+      standOrSlot(unit, standAt, rng, occupied, gone, canMove && !orderTick.waiting.has(unit.id));
+      return;
+    }
+    if (order?.kind === "tactic") {
+      tacticAct(unit, order, rng, occupied, gone, canMove);
       return;
     }
     let target: UnitState | undefined;
@@ -581,10 +591,10 @@ function makeBattle(
     return staticField(`advance:${unit.side}`, () => oppositeEdgeCells(edge, size), unit.side, gone);
   };
 
-  /** 자리 지키기·칸 전진: 닿는 적만 치고(공성 공격 편은 닿는 넥서스도), 칸 전진이면 자기 자리로 걷는다. 적을 쫓지 않는다 */
+  /** 서서 싸우는 명령: 닿는 적만 치고(공성 공격 편은 닿는 넥서스도), 설 칸이 있으면 그리로 걷는다(null = 움직이지 않음). 적을 쫓지 않는다 */
   const standOrSlot = (
     unit: UnitState,
-    order: PartyOrder,
+    goal: number | null,
     rng: { nextInt(n: number): number },
     occupied: Int32Array,
     gone: ReadonlySet<number>,
@@ -600,15 +610,85 @@ function makeBattle(
       const nexus = nexusOf(gone);
       if (nexus !== undefined && ready(unit, nowMs, c) && attackBuilding(unit, nexus, nowMs)) return;
     }
-    if (order.kind !== "advance" || !canMove) return;
-    const slot = order.slots?.find((entry) => entry.unit === unit.id)?.cell;
-    if (slot === undefined || slot === unit.y * size + unit.x) return;
+    if (goal === null || !canMove || goal === unit.y * size + unit.x) return;
     stepAlong(
       unit,
-      staticField(`cell:${unit.side}:${slot}`, () => [slot], unit.side, gone),
+      staticField(`cell:${unit.side}:${goal}`, () => [goal], unit.side, gone),
       occupied,
       gone,
     );
+  };
+
+  /** AI 전개 방식(D-558 2차, tactics.ts planTactic): 계획대로 치고, 쫓거나 물러나거나 길을 걷는다 */
+  const tacticAct = (
+    unit: UnitState,
+    order: Extract<PartyOrder, { kind: "tactic" }>,
+    rng: { nextInt(n: number): number },
+    occupied: Int32Array,
+    gone: ReadonlySet<number>,
+    canMove: boolean,
+  ): void => {
+    const nowMs = state.tick * c.tickMs;
+    const side = state.sides.find((entry) => entry.id === unit.side);
+    const edge = side?.edge ?? 3;
+    const enemies: UnitState[] = [];
+    for (const id of side?.visible ?? []) {
+      const enemy = unitById(id);
+      if (enemy && active(enemy)) enemies.push(enemy);
+    }
+    const commanders = new Set(
+      state.sides.filter((entry) => entry.id !== unit.side).map((entry) => entry.commander),
+    );
+    const anchor = order.slots?.find((slot) => slot.unit === unit.id)?.cell;
+    const plan = planTactic(unit, order.tactic, {
+      size,
+      edge,
+      enemies,
+      commanders,
+      anchor,
+      retreatBand: c.retreatBand,
+    });
+    const target = plan.target;
+    if (target) {
+      if (useSkill(unit, target, rng, gone, nowMs)) return;
+      if (ready(unit, nowMs, c) && attackUnit(unit, target, rng, gone, nowMs)) return;
+    } else if (siegeAttacker(unit)) {
+      const nexus = nexusOf(gone);
+      if (nexus !== undefined && ready(unit, nowMs, c) && attackBuilding(unit, nexus, nowMs)) return;
+      if (breakable && !plan.stay) {
+        breach(unit, occupied, gone, canMove);
+        return;
+      }
+    }
+    if (!canMove) return;
+    if (plan.back) {
+      stepAlong(
+        unit,
+        staticField(`back:${unit.side}`, () => ownEdgeCells(edge, size), unit.side, gone),
+        occupied,
+        gone,
+      );
+      return;
+    }
+    const distance = target ? chebyshev(unit.x, unit.y, target.x, target.y) : 0;
+    // 닿는 적이 있으면(행동 시각 전이라 못 쳤어도) 그 자리를 지킨다
+    if (target && distance <= unit.range) return;
+    if (target && plan.chase) {
+      // 가까운 적이면 편 공격 흐름장(옛 AI 길), 고른 적이면 그 칸까지 거리장
+      const cell = target.y * size + target.x;
+      const field =
+        target === nearestVisible(unit)
+          ? (attackFields.get(unit.side) ?? null)
+          : staticField(`cell:${unit.side}:${cell}`, () => [cell], unit.side, gone);
+      stepAlong(unit, field, occupied, gone);
+      return;
+    }
+    if (plan.goal) {
+      stepAlong(unit, staticField(plan.goal.key, plan.goal.cells, unit.side, gone), occupied, gone);
+      return;
+    }
+    if (plan.stay || target) return;
+    stepAlong(unit, attackFields.get(unit.side) ?? advanceField(unit, gone), occupied, gone);
   };
 
   /**
@@ -728,7 +808,8 @@ function makeBattle(
     }
     computeSight(gone);
     if (state.tick % msToTicks(c.fieldMs, c) === 0 || attackFields.size === 0) refreshAttackFields(gone);
-    // 파티·군단 명령 묶음(명령이 없으면 옛 길 그대로)
+    // 파티·군단 명령 묶음(명령이 없으면 옛 길 그대로). 쓰러진 지휘관은 먼저 승계(D-558 1545, 군단 명령을 받은 편만)
+    succeedCommanders(state);
     orderTick = prepareOrders(orderWorld, (unit, cell) =>
       staticField(`cell:${unit.side}:${cell}`, () => [cell], unit.side, gone),
     );

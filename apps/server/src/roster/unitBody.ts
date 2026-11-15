@@ -36,7 +36,9 @@ import {
   type CombatSkill,
   DEFAULT_COMBAT_FORMULA_SET,
   type CombatUnitSpec,
+  type CommandRank,
   type EffectHolder,
+  applyEffect,
   MIN_MOVE_SPEED_PM,
   type ModifierStat,
   type Modifiers,
@@ -53,6 +55,7 @@ import {
   realHitPm,
   shieldRegenPerMinute,
   skillFromData,
+  skillUsable,
   specFromStats,
   weaponRatioPm,
   wearable,
@@ -269,6 +272,8 @@ export interface SpecPlace {
   readonly eye?: number | undefined;
   readonly air?: boolean | undefined;
   readonly commandCap?: number | undefined;
+  /** 지휘 계급(D-558 — 사이보그 본체의 작위·전투 랭킹 등급, world/commandRanks.ts). commandCap이 없으면 이것과 몸의 환생으로 정원을 센다 */
+  readonly commandRank?: CommandRank | undefined;
 }
 
 /** [임시] 한 칸 1초(C28 전투 속도, 대결·시뮬레이터·전투 실험실과 같다) — 화면 요약이 쓰는 자리 */
@@ -307,6 +312,31 @@ export function rosterMoveOf(catalog: RosterCatalog, agi: number): RosterMove {
 /** 몸의 실효 AGI(2차맵 걷기 속도의 AGI, D-540): 전투 사양과 같은 1차 스탯(bodyParts loadout — 성장값 + 장비·버프 − 부상) */
 export function walkAgiOf(catalog: RosterCatalog, base: BodyBase, gear: UnitGear): number {
   return bodyParts(catalog, bodySpecOf(base, gear)).loadout.primaries.agi;
+}
+
+/**
+ * 2차맵 걷기 몸(D-540 실효 AGI + D-558 1548 이동 속도 출처): 장비 옵션 이동 속도‰(loadoutOf moveSpeedPm)와 지속형 스킬(쓸 수 있는 것 —
+ * 전투 applyPassives와 같은 거르기)의 move_speed 효과를 전투와 같은 합으로 더한다. 걸린 효과(아이템 버프 unit_effects)는 walkSpeed.ts가
+ * 이동을 시작할 때 따로 더한다(끝나는 시각이 있어서)
+ */
+export function walkBodyOf(
+  catalog: RosterCatalog,
+  base: BodyBase,
+  gear: UnitGear,
+): { readonly agi: number; readonly moveSpeedPm: number } {
+  const spec = bodySpecOf(base, gear);
+  const parts = bodyParts(catalog, spec);
+  const unit = specOfParts(catalog, spec, parts, SUMMARY_PLACE);
+  const holder = holderOf([]);
+  for (const skill of unit.skills) {
+    if (skill.trigger !== "passive" || !skillUsable(unit, skill)) continue;
+    for (const part of skill.effects) applyEffect(holder, part.def, part.value, part.durationMs, 0);
+  }
+  let moveSpeedPm = parts.loadout.moveSpeedPm;
+  for (const effect of holder.effects)
+    if (effect.stat === "move_speed" && (effect.kind === "buff" || effect.kind === "debuff"))
+      moveSpeedPm += (effect.kind === "buff" ? effect.value : -effect.value) * effect.stacks;
+  return { agi: parts.loadout.primaries.agi, moveSpeedPm };
 }
 
 /** 무기 간격의 적정스탯 상한(2배, 사용자 결정 2026-11-13 — 계산식 attack_interval 기본 식의 min(2, …)과 같다). 화면 풀이의 비율에만 쓴다 */
@@ -348,6 +378,10 @@ function specOfParts(
       penetrationPm: loadout.penetrationPm,
       cyborg: spec.kind === "cyborg",
       skills: skillsFor(catalog, loadout.skills),
+      // 지휘관 정원(D-558): 환생 덤은 몸의 환생 횟수
+      commandRebirths: spec.rebirths,
+      // 장비 이동 속도(D-558 1548): 전투맵 걸음 간격에도 든다
+      moveSpeedPm: loadout.moveSpeedPm,
     },
     catalog.coefficients,
   );

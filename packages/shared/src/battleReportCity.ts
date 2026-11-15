@@ -6,8 +6,8 @@
 /** 도시 목록 한 번에 받는 수 상한 */
 export const REPORT_CITY_LIST_MAX = 50;
 /**
- * 실제 도시 수비 휴먼 상한(군단 위 끝 20파티 × 6명 — 사용자 결정 1464·1466 "수비도 군단 가능"). 판에 드는 수는 그 휴먼 가운데 지휘관 정원
- * (설정 칸 C7)만큼의 앞 파티다. 서버 정원사 실제 웨이브(apps/server/src/npc/gardener.ts WAVE_DEFENDERS 10)는 그대로다(질문 1547)
+ * 실제 도시 수비 휴먼을 읽는 상한(판정 비용 막이). 판에 드는 수는 서버 정원사와 같은 설정 칸 웨이브 수비 상한(d558_wave_defenders_max,
+ * 출발값 60)이고, 휴먼은 유닛 개별로 든다(D-558 1547 — 세계 휴먼에는 파티가 없다)
  */
 export const REPORT_WORLD_DEFENDERS_MAX = 120;
 

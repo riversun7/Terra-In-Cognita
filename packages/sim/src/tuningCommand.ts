@@ -1,6 +1,6 @@
-// 지휘관 정원 설정 칸 값 ↔ 계수표 — 49 C7("군단 크기 상한, 등급·스탯 함수"), 48 정원 틀, 사용자 결정 1464(2026-11-15 "군단은 3개에서
-// 20개정도로하고 지휘관 능력이나 스킬에 따라 결정되게하자"), docs/adr/2026-10-31-combat-core.md "바뀜 (2026-11-14, 파티·군단 명령)".
-// 모두 [임시] 출발값이다(식은 combat/command.ts commandCapOf).
+// 지휘관 정원 설정 칸 값 ↔ 계수표 — 49 C7("군단 크기 상한"), 기획 D-558(사용자 1543·1544 "군단은 3~10개 분대다. 능력은 스탯이 아니라, 환생시
+// +1까지만, 전투계열 랭킹이나 해당국가 작위로 지휘가능한 분대수가 정해짐(군대 계급처럼)"), docs/adr/2026-10-31-combat-core.md "바뀜 (D-558)".
+// 모두 [임시] 출발값이다(식은 combat/command.ts commandCapOf). D-549의 INT·WIS 지휘 점수 칸 넷은 지웠다(id-changes 115).
 import type { TuningKey } from "./tuning.ts";
 
 const k = (id: string, path: string, ko: string, en: string): TuningKey => ({
@@ -13,15 +13,38 @@ const k = (id: string, path: string, ko: string, en: string): TuningKey => ({
   en,
 });
 
+/** 작위 단계(D-326) — 칸 ID 끝 · 이름 */
+const TITLES: readonly (readonly [string, string, string])[] = [
+  ["commoner", "민간인", "commoner"],
+  ["citizen", "시민", "citizen"],
+  ["merit", "공훈자", "meritorious"],
+  ["knight", "기사", "knight"],
+  ["lord", "영주", "lord"],
+  ["duke", "대공", "grand duke"],
+];
+
 export const COMMAND_TUNING_KEYS: readonly TuningKey[] = [
-  k("c7_command_base", "base", "지휘관 정원: 기본(파티 수)", "Commander cap: base (parties)"),
-  k("c7_command_int_pm", "intPm", "지휘관 정원: 지휘 점수의 INT 가중치(‰)", "Commander cap: INT weight (‰)"),
-  k("c7_command_wis_pm", "wisPm", "지휘관 정원: 지휘 점수의 WIS 가중치(‰)", "Commander cap: WIS weight (‰)"),
+  ...TITLES.map(([id, ko, en], index) =>
+    k(
+      `c7_command_title_${id}`,
+      `titleParties.${index}`,
+      `지휘관 정원: 작위 ${ko}(파티 수)`,
+      `Commander cap: title ${en} (parties)`,
+    ),
+  ),
+  ...[1, 2, 3, 4].map((tier, index) =>
+    k(
+      `c7_command_tier_${tier}`,
+      `tierParties.${index}`,
+      `지휘관 정원: 전투 랭킹 등급 ${tier}(파티 수)`,
+      `Commander cap: combat ranking tier ${tier} (parties)`,
+    ),
+  ),
   k(
-    "c7_command_points",
-    "pointsPerParty",
-    "지휘관 정원: 지휘 점수 몇 점마다 파티 하나",
-    "Commander cap: command points per extra party",
+    "c7_command_rebirth",
+    "rebirthBonus",
+    "지휘관 정원: 환생 덤(파티 수)",
+    "Commander cap: rebirth bonus (parties)",
   ),
   k("c7_command_min", "min", "지휘관 정원: 아래 끝(파티 수)", "Commander cap: minimum (parties)"),
   k("c7_command_max", "max", "지휘관 정원: 위 끝(파티 수)", "Commander cap: maximum (parties)"),

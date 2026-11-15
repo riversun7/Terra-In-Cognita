@@ -66,8 +66,14 @@ export interface WaveBattleInput {
    * combat/siegeArena.ts siegeNexusDurability)
    */
   readonly nexusDurability: number;
-  /** 수비 인원 상한(질문 218 가) */
+  /** 수비 인원 상한(질문 218 가 → D-558 1547: 고정 10명 대신 설정 칸 d558_wave_defenders_max, gardener waveDefendersMaxOf) */
   readonly maxDefenders: number;
+  /**
+   * 수비 편성(D-558 1547 "군단이 존재하면 군단이고 각각의 파티분대 만있으면 각파티형태로 참전, 파티도 없으면 유닛들 개별 참전"): 수비 유닛
+   * ID → 파티 묶음 키(같은 키 = 한 파티, 수비 편 전체가 한 군단). 없거나 undefined면 그 유닛 혼자 한 파티(개별 참전). 세계 휴먼에는 아직
+   * 파티가 없어 모두 개별이다
+   */
+  readonly defenderPartyOf?: ((unitId: number) => number | undefined) | undefined;
   /**
    * 공성 제한 시간(ms, C2). 없으면 전투를 만드는 쪽의 계수표 값. 서버 전투 서비스는 시험 계수표로 전투를 만들므로 설정 칸
    * 실효 값을 여기로 넘긴다
@@ -220,6 +226,17 @@ export function waveBattleInit(
     );
     units.push({ ...spec, buildingMulPm: physical ? SIEGE_BUILDING_MUL_PM : MAGIC_BUILDING_MUL_PM });
   }
+  // 수비 파티 ID: 묶음 키마다 하나(처음 나온 차례), 묶음이 없는 유닛은 혼자 하나 — 101부터
+  const groupIds = new Map<number, number>();
+  let nextParty = 101;
+  const defenderParty = (unitId: number): number => {
+    const key = input.defenderPartyOf?.(unitId);
+    if (key === undefined) return nextParty++;
+    const known = groupIds.get(key);
+    if (known !== undefined) return known;
+    groupIds.set(key, nextParty);
+    return nextParty++;
+  };
   input.defenders.slice(0, input.maxDefenders).forEach((unit, index) => {
     const at = placer
       ? placer.defender(index)
@@ -234,7 +251,7 @@ export function waveBattleInit(
         skillCache,
         {
           side: 2,
-          party: 101 + Math.floor(index / PARTY_SIZE),
+          party: defenderParty(unit.id),
           x: at.x,
           y: at.y,
         },

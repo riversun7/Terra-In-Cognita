@@ -1,7 +1,14 @@
 // 전투 보고서 입력 형식(zod) — tRPC battleReport.* 입력과 DB 기록 입력(jsonb) 읽기가 같은 스키마를 쓴다.
 // 범위는 @terra/shared REPORT_LIMITS(실험 도구 입력 범위). 판 수·예산 같은 여러 칸 검사는 reportProblem(서버·화면 같이)이 본다.
 import { normalizeLabName } from "@terra/shared/battleLab";
-import { REPORT_LIMITS, REPORT_MODES, REPORT_ORDER_KINDS } from "@terra/shared/battleReport";
+import {
+  REPORT_FORMATIONS,
+  REPORT_LIMITS,
+  REPORT_MODES,
+  REPORT_ORDER_CELL_MAX,
+  REPORT_ORDER_KINDS,
+  REPORT_TACTICS,
+} from "@terra/shared/battleReport";
 import { REPORT_CITY_LIST_MAX } from "@terra/shared/battleReportCity";
 import { FORMULA_MAX_LENGTH } from "@terra/shared/formula";
 import { z } from "zod";
@@ -32,6 +39,11 @@ const order = z.strictObject({
   party: int(-1, L.legionPartiesMax - 1),
   kind: z.enum(REPORT_ORDER_KINDS),
   target: z.strictObject({ party: int(0, L.legionPartiesMax - 1), index: int(0, 5) }).optional(),
+  // D-558: 따라가기의 앞 파티·대형·전개 방식(종류와 맞는지는 reportProblem이 본다)
+  leader: int(0, L.legionPartiesMax - 1).optional(),
+  shape: z.enum(REPORT_FORMATIONS).optional(),
+  tactic: z.enum(REPORT_TACTICS).optional(),
+  cell: z.strictObject({ x: int(0, REPORT_ORDER_CELL_MAX), y: int(0, REPORT_ORDER_CELL_MAX) }).optional(),
 });
 
 /** 군단(파티 여럿 + 명령, 기획 D-179·D-545·D-549). 옛 기록은 군단 퇴각 시각만. 시각은 제한 시간 안인지 reportProblem이 본다 */

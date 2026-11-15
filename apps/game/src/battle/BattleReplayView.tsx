@@ -10,6 +10,7 @@ import type { BattleReplay } from "@terra/protocol/battleReplay";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
+import { BattleCommandBar } from "./BattleCommandBar.tsx";
 import { BattleLog } from "./BattleLog.tsx";
 import { BattleSummary } from "./BattleSummary.tsx";
 import { BattleUnits } from "./BattleUnits.tsx";
@@ -18,6 +19,12 @@ import { type Locale, reasonText, sideName } from "./battleText.ts";
 import { REPLAY_SPEEDS, type ReplaySpeed, clockText } from "./replayClock.ts";
 import type { ReplayGround } from "./replayTerrain.ts";
 import { createReplayTimeline } from "./replayTimeline.ts";
+import {
+  type BattleCommandIssue,
+  type BattleOrderDraft,
+  type BattlePick,
+  sideParties,
+} from "./battleCommands.ts";
 import "./battleReplay.css";
 
 export interface BattleReplayViewProps {
@@ -25,6 +32,20 @@ export interface BattleReplayViewProps {
   readonly ground: ReplayGround;
   /** 열자마자 재생(기본 true) */
   readonly autoPlay?: boolean | undefined;
+  /** 처음 볼 시각(ms, 명령을 넣고 다시 계산한 리플레이를 그 시각부터 — 없으면 처음) */
+  readonly startAtMs?: number | undefined;
+  /**
+   * 전투맵 명령 화면(D-558 1546): 이 편에 군단·분대 명령을 내린다. 명령을 내리면 그 시각에 멈추고 onIssue를 부른다(판정은 서버 —
+   * 부르는 쪽이 명령을 넣어 다시 계산한 리플레이를 넘긴다). 없으면 보기만
+   */
+  readonly command?:
+    | {
+        readonly side: number;
+        readonly issued: readonly BattleCommandIssue[];
+        readonly busy: boolean;
+        readonly onIssue: (issue: BattleCommandIssue) => void;
+      }
+    | undefined;
 }
 
 const SEEK_STEP_MS = 100;
@@ -49,7 +70,13 @@ function RestartIcon() {
   );
 }
 
-export default function BattleReplayView({ replay, ground, autoPlay = true }: BattleReplayViewProps) {
+export default function BattleReplayView({
+  replay,
+  ground,
+  autoPlay = true,
+  startAtMs,
+  command,
+}: BattleReplayViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BattleScene | null>(null);
   const timeline = useMemo(() => createReplayTimeline(replay), [replay]);
@@ -59,14 +86,60 @@ export default function BattleReplayView({ replay, ground, autoPlay = true }: Ba
   const [vision, setVision] = useState<number | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(true);
   const locale: Locale = getLocale() === "en" ? "en" : "ko";
+  // 전투맵 명령: 칸·목표를 고르는 중인 명령(장면 누르기 처리가 읽으므로 ref에도 둔다)
+  const [pick, setPickState] = useState<BattlePick>(null);
+  const pickRef = useRef<BattlePick>(null);
+  const commandRef = useRef(command);
+  useEffect(() => {
+    commandRef.current = command;
+  }, [command]);
+  const setPick = (next: BattlePick): void => {
+    pickRef.current = next;
+    setPickState(next);
+    // 칸·목표를 고르는 동안은 멈춘다(그 시각에 내린다)
+    if (next) sceneRef.current?.pause();
+  };
+  const issueRef = useRef((party: number | null, order: BattleOrderDraft): void => {
+    const scene = sceneRef.current;
+    const handler = commandRef.current;
+    if (!scene || !handler) return;
+    scene.pause();
+    handler.onIssue({ atMs: scene.clock.timeMs, party, order });
+  });
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return () => undefined;
-    const scene = new BattleScene({ host, replay, timeline, ground, onUi: setUi, onStatus: setStatus });
+    const issue = issueRef.current;
+    const finish = (): void => {
+      pickRef.current = null;
+      setPickState(null);
+    };
+    const scene = new BattleScene({
+      host,
+      replay,
+      timeline,
+      ground,
+      onUi: setUi,
+      onStatus: setStatus,
+      onGroundTap: (cell) => {
+        const picking = pickRef.current;
+        if (!picking || picking.kind === "attack") return;
+        finish();
+        issue(picking.party, { kind: picking.kind, cell });
+      },
+      onUnitTap: (index) => {
+        const picking = pickRef.current;
+        const target = replay.units[index];
+        const side = commandRef.current?.side;
+        if (picking?.kind !== "attack" || !target || target.side === side) return;
+        finish();
+        issue(picking.party, { kind: "attack", target: index });
+      },
+    });
     sceneRef.current = scene;
     if (autoPlay) scene.play();
-    else scene.seek(0);
+    else scene.seek(startAtMs ?? 0);
     // 엔진 요약(측정·시험): 1초마다
     const timer = setInterval(() => {
       const stats = scene.stats();
@@ -77,7 +150,7 @@ export default function BattleReplayView({ replay, ground, autoPlay = true }: Ba
       sceneRef.current = null;
       scene.dispose();
     };
-  }, [replay, timeline, ground, autoPlay]);
+  }, [replay, timeline, ground, autoPlay, startAtMs]);
 
   const timeMs = ui?.timeMs ?? 0;
   const ended = timeMs >= timeline.durationMs && timeline.durationMs > 0;
@@ -198,6 +271,18 @@ export default function BattleReplayView({ replay, ground, autoPlay = true }: Ba
           onChange={(event) => scene()?.seek(Number(event.currentTarget.value))}
         />
       </div>
+
+      {command ? (
+        <BattleCommandBar
+          parties={sideParties(replay, command.side)}
+          timeMs={timeMs}
+          pick={pick}
+          issued={command.issued}
+          busy={command.busy}
+          onPick={setPick}
+          onIssue={(party, order) => issueRef.current(party, order)}
+        />
+      ) : null}
 
       <BattleUnits
         replay={replay}

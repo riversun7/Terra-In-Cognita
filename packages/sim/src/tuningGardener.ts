@@ -239,4 +239,12 @@ export const GARDENER_TUNING_KEYS: readonly TuningKey[] = [
   ),
   k("travel_raid_max", "", "travelRaidMaxPm", "이동 도중 습격 확률 상한(‰)", "Travel raid chance cap (‰)"),
   k("travel_raid_creatures", "", "travelRaidCreatures", "이동 도중 습격 크리쳐 수", "Travel raid creatures"),
+  // 웨이브 수비 인원 상한(D-558 1547 "고정 10명 없앰"): 49에 칸이 없어 결정 번호 앞머리
+  k(
+    "d558_wave_defenders_max",
+    "",
+    "waveDefendersMax",
+    "도시 웨이브 수비 인원 상한(명)",
+    "City wave defenders cap (units)",
+  ),
 ];

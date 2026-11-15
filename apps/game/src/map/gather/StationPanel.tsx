@@ -2,7 +2,9 @@
 // docs/adr/2026-11-07-gather-objects.md "바뀜 (2026-11-08 사용자 지적: 채집소 기능)". 건물 판(GatherPanel.tsx) 안에 그 건물이 채집소면 보인다.
 // - 레벨·반경(지도에 고리로 그린다)·버프(채집량·피로·다시 자람)·반경 안 원자재(캘 수 있음·다시 자라는 중·남은 번수)·채집소 창고(무게·내 몫·
 //   [도시 창고로 옮기기]·자동 옮김 다음 시각)·일꾼(상태·묶음·피로, [고른 유닛을 일꾼으로]·[빼기])·[고른 유닛으로 직접 캐기]·레벨 올리기(재료·시간).
-// - 판정은 서버다. 바꾸는 명령은 이미 있는 WebSocket 명령: labor_assign·labor_unassign, facility_upgrade, storage_move(out), gather_start.
+// - 판정은 서버다. 바꾸는 명령은 이미 있는 WebSocket 명령: labor_assign·labor_unassign, facility_upgrade, business_buy, gather_start.
+// - 바뀜 (기획 D-569 1781 "주인이 꺼내는 기능은 존재하지 않는다 무조건 판매"): 채집소 창고의 주인 몫은 사업장 물건이라 [판매가로 사서 도시 창고로]
+//   = business_buy(누구나와 같은 판매가·최소 묶음, 돈은 사업장 매출)다. 산 물건은 운반꾼이 걸어 나른다(1784). 예전 storage_move out은 서버가 sale_only로 막는다.
 // - 보내는 유닛 = 건물 판과 같다(고른 유닛, 없으면 이 2차맵의 내 사이보그). 모바일 우선: 판은 세로로 넘친 만큼만 안에서 넘긴다.
 // - 농장(facility 채집소, 오브젝트 없음 — 기획 정리 756 ②): 반경 고리·원자재·[직접 캐기]는 없고, 수확·피로 버프·채집소 창고·자동 옮김·일꾼·
 //   레벨 올리기는 같다.
@@ -15,6 +17,8 @@ import type { GatherStationResponse } from "@terra/shared/gatherStation";
 import { useEffect, useState } from "react";
 import { formatDuration } from "../../economy/economyText.ts";
 import { sendFacilityCommand } from "../../economy/facilityCommands.ts";
+import { sendBusinessCommand } from "../business/businessCommands.ts";
+import { RESULT_TEXT } from "../business/businessText.ts";
 import { FACILITY_ERROR_TEXT } from "../../economy/facilityText.ts";
 import { sendLaborCommand } from "../../economy/laborCommands.ts";
 import { LABOR_ERROR_TEXT } from "../../economy/laborText.ts";
@@ -137,23 +141,14 @@ export function StationPanel({
     });
   const haul = () =>
     void run(async () => {
-      // 내 몫 물자마다 창고 꺼내기(out = 그 도시의 내 도시 창고로)
+      // 내 몫 물자마다 판매가로 산다(D-569 1781 — 주인도 판매, 돈은 사업장 매출). 산 물건은 운반꾼이 그 도시의 내 도시 창고로(1784)
       for (const line of ok.storage.goods) {
         const qty = /^[0-9]{1,30}$/.test(line.qty) ? Math.min(MOVE_MAX, Number(line.qty)) : 0;
         if (qty <= 0) continue;
-        const outcome = await sendFacilityCommand({
-          t: "storage_move",
-          buildingId,
-          asset: line.asset,
-          qty,
-          direction: "out",
-        });
-        // 운반꾼(이 채집소 일꾼)이 없거나 모두 바쁨(질문 1090 가·1091 가)
-        if (!outcome.ok && (outcome.code === "unknown_unit" || outcome.code === "unit_busy"))
-          return m.station_haul_no_porter();
-        if (!outcome.ok) return FACILITY_ERROR_TEXT[outcome.code]();
+        const outcome = await sendBusinessCommand({ t: "business_buy", buildingId, item: line.asset, qty });
+        if (!outcome.ok) return RESULT_TEXT[outcome.code]();
       }
-      return m.station_haul_done();
+      return m.station_buy_haul_done();
     });
   const upgrade = () =>
     void run(async () => {
@@ -312,7 +307,7 @@ export function StationPanel({
           {ok.mine && ok.cityId !== null && ok.storage.goods.length > 0 ? (
             <div className="gather-actions">
               <button type="button" className="button-small" disabled={sending} onClick={haul}>
-                {m.station_haul()}
+                {m.station_buy_haul()}
               </button>
             </div>
           ) : null}

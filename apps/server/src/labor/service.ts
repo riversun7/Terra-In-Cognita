@@ -17,7 +17,7 @@
 // - 건물 작업(짓기·수리 등)에 묶인 유닛은 계약을 맺지 못한다(unit_busy, D-516 364 — 작업 동안 직무 산출이 없다).
 // - 비활성(수명이 다한 휴먼, D-517)은 일하지 않는다: 계약을 맺지 못하고 열린 계약은 "유닛 사라짐"으로 끝난다(docs/adr/2026-11-07-temple-religion.md).
 // - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 채집 시설(팩 gather)에서 일한 구간은 시험 광석 대신 진짜 물건을 낸다
-//   (workBook.ts goodsFor — 임금형·직무 배치 = 그 건물이 선 도시의 도시 창고, 임대형 = 그 건물 창고). 계약 밖 구간(앞·끝 뒤)은 산출이 없다
+//   (workBook.ts goodsFor — 임금형·직무 배치 = 그 건물 창고(사업장 몫, D-569 1784), 임대형 = 그 건물 창고(임차인 몫)). 계약 밖 구간(앞·끝 뒤)은 산출이 없다
 //   (그 구간에 시험 광석을 내던 개발 시험 일꾼은 없앴다 — 사용자 지적 2026-11-09 "시험일꾼 다 없애라고"). 계약을 맺으면 유닛 직무를
 //   채집으로 켜고, 일이 끝나면 정산 뒤 고리가 끈다.
 //   직무 배치(assign·unassign, 프로토콜 14)는 내 유닛을 내 채집 시설에 돈 없이 둔다(질문 521, 자리 = 레벨 × 레벨당 자리).
@@ -62,7 +62,7 @@ import {
   type ProductionSource,
   type StationHook,
   buildingReceiver,
-  cityReceiver,
+  businessReceiver,
   createWorkBook,
 } from "./workBook.ts";
 import type { CityRow } from "../world/cities.ts";
@@ -403,12 +403,12 @@ export function createLaborService(options: {
       const works = options.buildingWorks?.(c.buildingId) ?? true;
       // 그 도시 수호신 생산 버프(470 가): 일한 구간 산출에 ‰ 덤
       const bonusPm = works ? (options.outputBonusPm?.(c.buildingId) ?? 0) : 0;
-      // 채집 시설이면 진짜 물건(임금형 = 고용주의 그 도시 창고, 임대형 = 임차인의 그 건물 창고). 아니면 예전처럼 시험 광석
+      // 채집 시설이면 진짜 물건(임금형 = 고용주의 그 건물 창고(사업장 창고, D-569 1784), 임대형 = 임차인의 그 건물 창고). 아니면 예전처럼 시험 광석
       const goods = work.goodsFor(
         c.unitId,
         ownerId,
         c.buildingId,
-        c.kind === "wage" ? cityReceiver(c.ownerId) : buildingReceiver(ownerId),
+        c.kind === "wage" ? businessReceiver(c.ownerId) : buildingReceiver(ownerId),
         c.kind === "lease" ? rooms : undefined,
         rooms,
       );
@@ -441,7 +441,7 @@ export function createLaborService(options: {
       const works = productionOn && (options.buildingWorks?.(buildingId) ?? true);
       const bonusPm = works ? (options.outputBonusPm?.(buildingId) ?? 0) : 0;
       const goods = works
-        ? work.goodsFor(record.unitId, ownerId, buildingId, cityReceiver(ownerId), undefined, rooms)
+        ? work.goodsFor(record.unitId, ownerId, buildingId, businessReceiver(ownerId), undefined, rooms)
         : undefined;
       out.set(record.unitId, [
         goods

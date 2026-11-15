@@ -19,9 +19,8 @@
 //   그 폐허)에만 짓고, 짓기 시작한 쪽이 폐허 주인이 된다(고리 GovernmentHook = 폐허 서비스, docs/adr/2026-11-07-ruins-restoration.md). 같은
 //   동기 처리 = 같은 커밋. 시설 줄 도시는 그 폐허(되살아날 도시 ID)다 — 되살아난 도시의 행정 레벨 = 그 건물 레벨(489 다). 짓는 재료는
 //   지금처럼 그 칸에서 가장 가까운 도시 창고·창고 시설·화물에서.
-import type { LandCheck } from "./landRule.ts";
 import type { FacilityResultCode } from "@terra/protocol";
-import { type CityCell, buildingLocation, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
+import { buildingLocation, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
 import {
   CONDITION_FULL,
@@ -37,20 +36,14 @@ import {
 } from "@terra/shared/facilityRuntime";
 import {
   PLACEMENT_SIZE,
-  type SocietyCoefficients,
   type StatRow,
   TEST_STAT_TABLE,
   craftScore,
   repairMaterials,
   repairRuleFor,
 } from "@terra/sim";
-import type { Ledger } from "../economy/ledger.ts";
-import type { WorldHoldings } from "../holdings/world.ts";
-import type { TerritoryService } from "../territory/service.ts";
-import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import type { Settlement } from "../world/settlement.ts";
-import type { FacilityCatalog, FacilityDef } from "./catalog.ts";
+import type { FacilityDef } from "./catalog.ts";
 import { type GoodsScope, grantGoods, hasGoods, spendGoods } from "./materials.ts";
 import { waterOk } from "./water.ts";
 import { PLACE_CODES, averagePrimaries } from "./serviceHelpers.ts";
@@ -70,6 +63,7 @@ import {
   buildingOfLocation,
   buildingPlace,
   cityAt,
+  isStorage,
   materialScope,
 } from "./places.ts";
 import { type StorageMoveInput, moveStorage, rehomeBuildingGoods } from "./storage.ts";
@@ -83,6 +77,7 @@ import {
   type OperatorBuild,
   type StorageOutHook,
   operatorMs,
+  type FacilityServiceOptions,
 } from "./serviceTypes.ts";
 import type { BusinessCommand, BusinessCommandResult, BusinessCommands } from "../business/commands.ts";
 import {
@@ -90,7 +85,6 @@ import {
   type JobKind,
   type JobMaterial,
   type JobRecord,
-  type LoadedFacilities,
   facilityRow,
   jobRow,
 } from "./state.ts";
@@ -103,6 +97,7 @@ export const CONDITION_TICK_MS = 60_000;
 export type {
   FacilityBuildInput,
   FacilityCommandResult,
+  FacilityServiceOptions,
   FacilityTarget,
   GovernmentHook,
   NpcBuildInput,
@@ -182,6 +177,20 @@ export interface FacilityService extends PlotCommands {
    * undefined를 돌려주면(채집소 아님·거리 0) 예전처럼 바로 옮긴다
    */
   attachStorageOut(hook: StorageOutHook | undefined): void;
+  /**
+   * 사업장 판매 물건 나르기(기획 D-569 1784, business/commands.ts carry): seller의 그 건물 창고 → buyer의 그 도시 창고를 운반꾼 고리로.
+   * 고리가 없거나 맡지 않으면 undefined(부르는 쪽이 바로 옮긴다)
+   */
+  carryOut(
+    sellerId: number,
+    buyerId: number,
+    buildingId: number,
+    asset: string,
+    qty: bigint,
+    atMs: number,
+  ): FacilityResultCode | null | undefined;
+  /** 채집소 자동 옮김의 주인 구매(기획 D-569 1781, business/commands.ts sellTo). 장부 고리가 없으면 qty 그대로(값 없이 옮김 — 시험) */
+  ownerSale(ownerId: number, buildingId: number, asset: string, qty: bigint, atMs: number): bigint;
   /** 사업장 장부 명령을 잇는다(건물 세계 — business/commands.ts, 프로토콜 34) */
   attachBusiness(commands: BusinessCommands | undefined): void;
   /** 사업장 장부 명령(정산·넣기·사기·값·선물 — 건물 게이트웨이가 넘긴다). 고리가 없으면 busy */
@@ -198,42 +207,6 @@ export interface FacilityService extends PlotCommands {
   readonly facilities: ReadonlyMap<number, FacilityRecord>;
   readonly jobs: ReadonlyMap<number, JobRecord>;
   stop(): void;
-}
-
-export interface FacilityServiceOptions {
-  readonly loaded: LoadedFacilities;
-  readonly maps: ReadonlyMap<number, SecondMap>;
-  readonly settlement: Settlement;
-  readonly ledger: Ledger;
-  readonly writer: WorldWriter;
-  /** 세력·사회 계수표(설정 칸 실효 값: facilityBuild·facilityRuntime·durability), 부를 때마다 읽는다 */
-  readonly rules: () => SocietyCoefficients;
-  /** 실효 시설·아이템(건물 편집기 덮어쓰기가 바로 든다) */
-  readonly catalog: () => FacilityCatalog;
-  readonly holdings: WorldHoldings;
-  /** 띄운 2차맵의 도시 자리(건물이 선 도시 = 가장 가까운 도시, 부를 때마다 읽는다). 없으면 도시 없음(재료는 화물만) */
-  readonly cities?: (() => readonly CityCell[]) | undefined;
-  /** 영토 서비스(비콘 수리). 없으면 비콘 수리는 unknown_beacon */
-  readonly territory?: (() => TerritoryService | undefined) | undefined;
-  /** 2차맵 건설 땅 규칙(landRule.ts, docs/adr/2026-11-14-second-map-build.md). 없으면 막지 않는다(시험·DB 없는 세계) */
-  readonly land?: LandCheck | undefined;
-  /** 유닛이 노동 계약 중인가 / 건물에 일하는 계약이 있나(사용 닳음) */
-  readonly labor?:
-    | {
-        readonly unitBusy: (unitId: number) => boolean;
-        readonly buildingInUse: (buildingId: number) => boolean;
-      }
-    | undefined;
-  readonly now: () => number;
-  readonly ready: () => boolean;
-  /** 타이머 없이(시험이 finishDue·age를 부른다) */
-  readonly manual?: boolean | undefined;
-  /** 사업장이 멈췄나(적자를 한 주기 넘게 못 갚음 — D-555 1504, business/core.ts). 멈춘 시설은 일하지 않는다. 없으면 늘 false */
-  readonly suspended?: ((buildingId: number) => boolean) | undefined;
-  /** 노화 정시마다(사업장 주기 끝 처리 — 자동 정산·적자) */
-  readonly onAge?: ((nowMs: number) => void) | undefined;
-  /** 건물이 사라져 시설 줄을 지울 때(사업장 상태 줄 지우기) */
-  readonly onGone?: ((buildingId: number) => void) | undefined;
 }
 
 const fail = (code: FacilityResultCode): FacilityCommandResult => ({ ok: false, code });
@@ -530,6 +503,12 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     },
     attachStorageOut(hook) {
       storageOut = hook;
+    },
+    ownerSale: (ownerId, buildingId, asset, qty, atMs) =>
+      business ? business.sellTo(ownerId, buildingId, asset, qty, atMs) : qty,
+    carryOut(sellerId, buyerId, buildingId, asset, qty, atMs) {
+      if (qty <= 0n || qty > BigInt(Number.MAX_SAFE_INTEGER)) return undefined;
+      return storageOut?.(buyerId, { buildingId, asset, qty: Number(qty), direction: "out" }, atMs, sellerId);
     },
     attachBusiness(commands) {
       business = commands;
@@ -930,16 +909,15 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         fillCity(record);
         advance(record, at);
       }
-      // 주인도 제 사업장 창고 물건은 값을 내고 꺼낸다(D-555 1507 — 돈은 그 사업장 금고로). 창고 시설은 값이 없다
-      if (input.direction === "out" && input.qty > 0) {
+      // 사업장 창고 물건은 판매만(기획 D-569 1781): 주인은 꺼내지 못하고 business_buy로 판매가에 산다(돈은 사업장 매출). 창고 시설(주인 물건을
+      // 맡아 두는 곳)은 사업장 물건이 아니라 꺼낸다
+      if (input.direction === "out") {
         const place = buildingPlace(places, input.buildingId);
-        const here = buildingLocation(input.buildingId);
-        if (place?.ownerId === me && ledger.balanceOf(me, input.asset, here) >= BigInt(input.qty)) {
-          const charged = business?.chargeTake(me, input.buildingId, input.asset, BigInt(input.qty), at);
-          if (charged) return fail(charged);
-        }
+        if (place?.ownerId === me && facilities.has(input.buildingId) && !isStorage(places, input.buildingId))
+          return fail("sale_only");
       }
-      // 채집소 창고 꺼내기는 운반꾼이 나른다(질문 1091 가) — 고리가 맡지 않으면 예전처럼 바로
+      // 창고 꺼내기는 운반꾼이 나른다(질문 1091 가, D-569 1784 — 채집소는 그 일꾼, 다른 건물은 그 건물 일꾼·내 유닛). 고리가 맡지 않으면(옮김 셈 끔·
+      // 거리 0·고리 없음) 예전처럼 바로
       const hauled = input.direction === "out" ? storageOut?.(me, input, at) : undefined;
       if (hauled !== undefined) return hauled === null ? done({ ok: true }) : fail(hauled);
       const code = moveStorage(

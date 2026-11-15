@@ -349,7 +349,19 @@ export function FacilityPanel() {
     const outcome = await sendFacilityCommand(command);
     setBusy(false);
     setTone(outcome.ok ? "success" : "error");
-    live.show([outcome.ok ? m.facility_done() : FACILITY_ERROR_TEXT[outcome.code]()]);
+    // 꺼내기는 운반꾼이 나른다(기획 D-569 1784): 운반꾼이 없거나 모두 바쁘면 그 뜻으로 알린다
+    const noCarrier =
+      !outcome.ok &&
+      command.t === "storage_move" &&
+      command.direction === "out" &&
+      (outcome.code === "unknown_unit" || outcome.code === "unit_busy");
+    live.show([
+      outcome.ok
+        ? m.facility_done()
+        : noCarrier
+          ? m.facility_move_no_carrier()
+          : FACILITY_ERROR_TEXT[outcome.code](),
+    ]);
     facilities.refresh();
     // 신전·연구소 칸(TemplePanel.tsx)·폐허 칸(RuinsPanel.tsx — 행정 건물 = 폐허 주인)도 건물 목록을 보인다
     useTemple.refreshAll();

@@ -105,7 +105,7 @@ test.describe("건물", () => {
     await expect(card).toContainText("360/360");
     await expect(facilities).toContainText(message("ko", "facility_holdings_empty"));
 
-    // 야적장(창고 단계): 지은 칸의 도시 창고에 남은 소나무 원목 2(받은 4 − Lv1 재료 2)를 넣고 하나를 꺼낸다 — 소나무 2kg
+    // 야적장(창고 단계): 지은 칸의 도시 창고에 남은 소나무 원목 2(받은 4 − Lv1 재료 2)를 넣고 하나를 꺼내 본다(운반꾼이 없어 막힘)
     await buildAt(page, facilities, "stockpile", [30, 48, 64, 88, 120, 152, 190, 210]);
     const yard = facilities.locator('li[data-part="facility-card"]').last();
     await yard.getByRole("button", { name: message("ko", "facility_dev_finish") }).click();
@@ -115,9 +115,11 @@ test.describe("건물", () => {
     await move.getByLabel(message("ko", "facility_field_qty")).fill("2");
     const moveIn = move.getByRole("button", { name: message("ko", "facility_move_in"), exact: true });
     await clickUntil(moveIn, yard, message("ko", "facility_storage_used", { used: 4, kg: 1000 }));
+    // 꺼내기는 운반꾼이 걸어 나른다(기획 D-569 1784): 이 계정은 이 2차맵에 휴먼·사이보그 유닛이 없어(본체는 운반꾼이 아니다) 막히고 창고 그대로
     await move.getByLabel(message("ko", "facility_field_qty")).fill("1");
     const moveOut = move.getByRole("button", { name: message("ko", "facility_move_out"), exact: true });
-    await clickUntil(moveOut, yard, message("ko", "facility_storage_used", { used: 2, kg: 1000 }));
+    await clickUntil(moveOut, facilities, message("ko", "facility_move_no_carrier"));
+    await expect(yard).toContainText(message("ko", "facility_storage_used", { used: 4, kg: 1000 }));
     // 칠 수 있는 건물(질문 381): 남의 시설·다른 세력 비콘 목록 칸
     await expect(
       facilities.getByRole("heading", { name: message("ko", "facility_targets_title") }),

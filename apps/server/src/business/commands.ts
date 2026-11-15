@@ -2,11 +2,15 @@
 // 건물 게이트웨이(facilities/gateway.ts)가 받아 건물 서비스의 고리로 여기에 넘긴다(app.ts 1,000줄 상한 — 새 게이트웨이를 잇지 않는다).
 // - 정산(1501·1502): 주인·대주주만. 적자를 먼저 갚고 남은 돈(금액이 있으면 그만큼)을 지분 수대로.
 // - 넣기: 주인·대주주가 자기 지갑에서. 적자를 바로 갚는다(멈춘 사업장이 다시 돈다).
-// - 사기(1507): 그 건물 주인의 사업장 창고 물건(임대형 임차인 몫은 아니다). 값 = 주인이 정한 1단위 값(없으면 팩 기준 값 [임시]), 0이면 남에게
-//   팔지 않는다. 주인이 꺼낼 때도 주인이 정한 값을 낸다(D-564 1627 "판매가를 정하고 모두가 그 가격에 구매" — 너무 낮으면 남이 다 사 가고, 너무
-//   높으면 안 팔린다). 값이 0(남에게 안 팖)이거나 없으면 주인은 팩 기준 값을 낸다(공짜로 꺼내 다른 주주 몫을 빼 가지 않게 — 질문 1781). 남에게는 최소 묶음(business_min_lot)부터,
-//   그 도시 행정 레벨이 business_retail_max_admin 이하(저급 도시)면 낱개도(소매). 물건은 산 사람의 그 도시 창고로, 돈은 사업장 금고로(소득세).
-//   멈춘 사업장은 팔지 않는다(1504).
+// - 사기(1507): 그 건물 주인의 사업장 창고 물건(임대형 임차인 몫은 아니다). 값 = 주인이 정한 1단위 값(없으면 팩 기준 값 [임시]), 0이면
+//   팔지 않는다(D-564 1627 "판매가를 정하고 모두가 그 가격에 구매" — 너무 낮으면 남이 다 사 가고, 너무 높으면 안 팔린다). 최소 묶음
+//   (business_min_lot)부터, 그 도시 행정 레벨이 business_retail_max_admin 이하(저급 도시)면 낱개도(소매). 돈은 사업장 금고로(매출 business_sale,
+//   소득세). 멈춘 사업장은 팔지 않는다(1504).
+//   바뀜 (기획 D-569 1781 "주인이 꺼내는 기능은 존재하지 않는다 무조건 판매이고 재무상태로 수익으로 잡혀야한다"): 주인도 누구나와 같은 판매다 —
+//   같은 판매가(0이면 주인도 못 산다 — 값을 먼저 정한다)·같은 최소 묶음. 주인 지갑 → 사업장 금고가 매출(손익계산서 판매 칸)로 잡힌다. 주인이 꺼내는
+//   길(storage_move out의 값 받기)은 없앴다(건물 서비스가 sale_only로 거절).
+//   바뀜 (D-569 1784 "거래소 반입은 실제 운반만"): 산 물건은 운반꾼(그 건물 일꾼 또는 산 사람의 유닛)이 그 도시의 산 사람 도시 창고로 걸어 나른다
+//   (carry 고리 — gather/station.ts haulOut). 운반꾼이 없으면 no_carrier(돈·물건 그대로). 옮김 셈을 끄거나 거리 0이면 예전처럼 바로 도시 창고로.
 // - 값 정하기: 주인·대주주. 원장 물자만.
 // - 지급준비율(D-564 1623): 주인·대주주. 정산이 이 비율로 금고에 돈을 남긴다(core.ts·reserve.ts).
 // - 선물(1508): 내 유닛의 유닛 지갑(@terra/shared/businessBooks unitPurseLocation)에 내 지갑 돈을 준다.
@@ -55,8 +59,21 @@ export interface BusinessCommandDeps {
   /** 건물 주인·도시(없으면 undefined), 사업장(시설 줄)인가 */
   place(buildingId: number): { ownerId: number | null; cityId: number | null } | undefined;
   isBusiness(buildingId: number): boolean;
-  /** 창고 시설인가(창고 시설은 주인 물건을 맡아 두는 곳 — 꺼낼 때 값을 내지 않는다) */
-  isStorage(buildingId: number): boolean;
+  /**
+   * 산 물건 나르기(기획 D-569 1784): 판 사람(seller)의 그 건물 창고 asset qty를 산 사람(buyer)의 그 도시 창고로 운반꾼이 나른다(물건은 떠날 때
+   * 운반꾼 화물로 옮겨진다). null = 떠남, undefined = 나를 거리가 없음(옮김 셈 끔·거리 0 — 부르는 쪽이 바로 옮긴다), 그 밖 = 건물 결과 코드
+   * (unknown_unit·unit_busy = 운반꾼 없음). 없으면 늘 바로
+   */
+  readonly carry?:
+    | ((
+        seller: number,
+        buyer: number,
+        buildingId: number,
+        asset: string,
+        qty: bigint,
+        atMs: number,
+      ) => string | null | undefined)
+    | undefined;
   cityAdminLevel(cityId: number): number | undefined;
   /** 사용자의 소유 주체(없으면 undefined) */
   ownerOf(userId: string, atMs: number): number | undefined;
@@ -74,21 +91,15 @@ export interface BusinessCommands {
    * (정산·넣기·값 정하기)을 주인·대주주가 아니어도 한다. 사고팔기(물건·지분)는 운영자도 자기 지갑으로 한다
    */
   run(userId: string, command: BusinessCommand, operator?: boolean): Promise<BusinessCommandResult>;
-  /**
-   * 주인이 제 사업장 창고 물건을 꺼낼 때 값을 낸다(storage_move out, D-555 1507 "주인도 돈을 내고 꺼낸다"). 창고 시설·남의 건물·화폐는 값이 없다.
-   * 지갑이 모자라면 "insufficient_funds", 낼 것이 없거나 냈으면 null
-   */
-  chargeTake(
-    ownerId: number,
-    buildingId: number,
-    asset: string,
-    qty: bigint,
-    atMs: number,
-  ): "insufficient_funds" | null;
-  /** 사업장 창고 1단위 판매 값(남에게, 주인이 정한 값 → 팩 기준 값). 팔지 않으면 null */
+  /** 사업장 창고 1단위 판매 값(누구에게나 — 주인도, 주인이 정한 값 → 팩 기준 값). 팔지 않으면 null */
   priceOf(buildingId: number, asset: string): bigint | null;
   /** 판매 최소 묶음·소매 도시인가 */
   lotOf(buildingId: number): { minLot: number; retail: boolean };
+  /**
+   * 채집소 자동 옮김의 주인 구매(기획 D-569 1781 — gather/station.ts ownerSale): buyer가 그 사업장 창고 asset을 qty까지 판매가로 산다(지갑이 되는
+   * 만큼, 최소 묶음 아래면 0 — 소매 도시 빼고). 돈 → 금고(매출 business_sale, 소득세). 물건은 부르는 쪽이 옮긴다. 산 수량(값 0·멈춘 사업장은 0)
+   */
+  sellTo(buyer: number, buildingId: number, asset: string, qty: bigint, atMs: number): bigint;
   /**
    * 외주 요금(기획 D-564 1682 — 남의 공방 장비 수리 등): 쓰는 재료 기준 값 합 × 설정 칸 business_service_fee_pm ‰, 올림. 재료가 없으면 0 [임시]
    * (주인이 정하는 요금은 질문 1785)
@@ -121,12 +132,6 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     return basePrice(asset);
   };
 
-  /** 주인이 꺼낼 때 1단위 값: 주인이 정한 값(0보다 크면), 아니면 팩 기준 값(D-564 1627, 질문 1781) */
-  const ownerPriceOf = (buildingId: number, asset: string): bigint => {
-    const set = core.price(buildingId, asset);
-    return set !== undefined && set > 0n ? set : basePrice(asset);
-  };
-
   const lotOf = (buildingId: number): { minLot: number; retail: boolean } => {
     const rules = deps.rules();
     const cityId = deps.place(buildingId)?.cityId ?? null;
@@ -136,30 +141,6 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       minLot: Math.max(1, Math.trunc(rules.minLot)),
       retail: retailMax > 0 && admin !== undefined && admin <= retailMax,
     };
-  };
-
-  const chargeTake = (
-    ownerId: number,
-    buildingId: number,
-    asset: string,
-    qty: bigint,
-    atMs: number,
-  ): "insufficient_funds" | null => {
-    const place = deps.place(buildingId);
-    if (!place || place.ownerId !== ownerId || isMoney(asset) || qty <= 0n) return null;
-    if (!deps.isBusiness(buildingId) || deps.isStorage(buildingId)) return null;
-    const cost = ownerPriceOf(buildingId, asset) * qty;
-    const wallet = ledger.ownerAccount(ownerId, deps.fallbackAsset);
-    if (ledger.balance(wallet) < cost) return "insufficient_funds";
-    core.receive({
-      from: wallet,
-      buildingId,
-      asset: deps.fallbackAsset,
-      amount: cost,
-      kind: "business_sale",
-      atMs,
-    });
-    return null;
   };
 
   /** 사업장을 찾고 주인·대주주인지 본다 */
@@ -189,17 +170,32 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     if (core.suspended(buildingId)) return fail("suspended");
     if (place.cityId === null) return fail("no_place");
     const seller = place.ownerId;
-    const own = seller === me;
-    const unit = own ? ownerPriceOf(buildingId, asset) : priceOf(buildingId, asset);
+    // 주인도 누구나와 같은 판매(D-569 1781): 같은 값·같은 최소 묶음
+    const unit = priceOf(buildingId, asset);
     if (unit === null) return fail("not_for_sale");
     const lot = lotOf(buildingId);
-    if (!own && !lot.retail && qty < lot.minLot) return fail("below_lot");
+    if (!lot.retail && qty < lot.minLot) return fail("below_lot");
     const amount = BigInt(qty);
     const here = businessLocation(buildingId);
     if (ledger.balanceOf(seller, asset, here) < amount) return fail("insufficient_goods");
     const cost = unit * amount;
     const wallet = ledger.ownerAccount(me, deps.fallbackAsset);
     if (ledger.balance(wallet) < cost) return fail("insufficient_funds");
+    // 물건부터 운반꾼에 싣는다(운반꾼이 없으면 돈·물건 그대로 — D-569 1784). 거리가 없으면 바로 도시 창고로
+    const carried = deps.carry?.(seller, me, buildingId, asset, amount, atMs);
+    if (carried === "unknown_unit" || carried === "unit_busy") return fail("no_carrier");
+    if (carried === "insufficient_materials") return fail("insufficient_goods");
+    if (typeof carried === "string") return fail("no_place");
+    if (carried === undefined)
+      ledger.post({
+        kind: "business_sale_goods",
+        atMs,
+        entries: [
+          { account: ledger.ownerAccount(seller, asset, here), amount: -amount },
+          { account: ledger.ownerAccount(me, asset, cityLocation(place.cityId)), amount },
+        ],
+      });
+    // 돈은 사업장 금고로 — 매출(business_sale, 주인이 사도 같다) + 소득세
     core.receive({
       from: wallet,
       buildingId,
@@ -207,14 +203,6 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       amount: cost,
       kind: "business_sale",
       atMs,
-    });
-    ledger.post({
-      kind: "business_sale_goods",
-      atMs,
-      entries: [
-        { account: ledger.ownerAccount(seller, asset, here), amount: -amount },
-        { account: ledger.ownerAccount(me, asset, cityLocation(place.cityId)), amount },
-      ],
     });
     return { ok: true, paid: cost };
   };
@@ -319,9 +307,31 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       if (result.ok) await deps.durable();
       return result;
     },
-    chargeTake,
     priceOf,
     lotOf,
+    sellTo(buyer, buildingId, asset, qty, atMs) {
+      const place = deps.place(buildingId);
+      if (!place || place.ownerId === null || !deps.isBusiness(buildingId) || core.suspended(buildingId))
+        return 0n;
+      const unit = priceOf(buildingId, asset);
+      if (unit === null || qty <= 0n) return 0n;
+      const have = ledger.balanceOf(place.ownerId, asset, businessLocation(buildingId));
+      const wallet = ledger.ownerAccount(buyer, deps.fallbackAsset);
+      const afford = ledger.balance(wallet) / unit;
+      let n = qty < have ? qty : have;
+      if (afford < n) n = afford;
+      const lot = lotOf(buildingId);
+      if (n <= 0n || (!lot.retail && n < BigInt(lot.minLot))) return 0n;
+      core.receive({
+        from: wallet,
+        buildingId,
+        asset: deps.fallbackAsset,
+        amount: unit * n,
+        kind: "business_sale",
+        atMs,
+      });
+      return n;
+    },
     serviceFee(materials) {
       const pm = BigInt(Math.max(0, Math.trunc(deps.rules().serviceFeePm)));
       let base = 0n;

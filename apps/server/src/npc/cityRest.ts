@@ -8,6 +8,7 @@
 //   D-534 "숙소 침대가 인구 상한을 늘림". 예전 749 다는 max(주거, 침대)). 침대를 받은 일꾼은 숙소, 나머지는 주거 수(집)까지 집이다.
 // - 생산 속도 배율 = 그 시설 일꾼의 쉼터 회복·일터 ↔ 쉼터 거리 셈 배율 평균(@terra/sim restDutyPm).
 // - 옮김 칸: 채집소 건물 가운데 → 그 도시 주인의 가장 가까운 창고(창고 단계 시설) 가운데, 창고가 없으면 시청 칸.
+//   바뀜 (기획 D-569 1784·D-564 1626): 채집소만이 아니라 건물 시설 모두(가공 시설 산출도 창고로 나르는 시간을 센다 — 시간 자동 계산).
 // 거리는 체비셰프 칸(가운데끼리, humanPlaces.nearestArea와 같다) [임시]. 정수만 쓴다.
 import {
   type RestPlace,
@@ -25,8 +26,8 @@ export interface RestFacility {
   /** 건물 ID(도시 직무면 null — 일터 = 시청 칸) */
   readonly buildingId: number | null;
   readonly workers: number;
-  /** 채집소인가(옮김 칸을 셈한다) */
-  readonly station?: boolean | undefined;
+  /** 산출을 창고로 나르는 칸을 셈하나(건물 시설 — D-569 1784부터 채집소만이 아니라 모두) */
+  readonly hauls?: boolean | undefined;
 }
 
 /** 숙소 하나 */
@@ -168,7 +169,7 @@ export function planCityRest(input: CityRestInput): CityRestPlan {
     const entry = duty.get(facility.id);
     const area = facility.buildingId === null ? undefined : input.areas.get(facility.buildingId);
     const haulCells =
-      facility.station === true && area ? (nearestCells(area, input.stores) ?? cheb(area, home)) : 0;
+      facility.hauls === true && area ? (nearestCells(area, input.stores) ?? cheb(area, home)) : 0;
     facilities.set(facility.id, {
       dutyPm: entry && entry.n > 0 ? Math.floor(entry.sum / entry.n) : 1000,
       haulCells,

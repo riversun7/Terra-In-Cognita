@@ -7675,7 +7675,6 @@
   "books_price": "1개 {price}",
   "books_qty": "수량",
   "books_buy": "사기",
-  "books_take": "값 내고 꺼내기",
   "books_set_price": "값 정하기",
   "books_price_set": "값을 정했습니다.",
   "books_bought": "샀습니다.",
@@ -7907,5 +7906,12 @@
   "recruit_err_no_house": "유닛을 고용하려면 가문이 있어야 합니다.",
   "recruit_need_house": "유닛을 고용하려면 가문이 있어야 합니다. 가문을 만들거나(무료) 가문에 드세요.",
   "recruit_need_house_link": "세력 화면으로",
-  "map_peek_unaffiliated": "무소속(가문 없음)"
+  "map_peek_unaffiliated": "무소속(가문 없음)",
+  "facility_error_sale_only": "사업장 창고 물건은 판매만 됩니다. 주인도 건물 판 [장부]에서 판매가로 삽니다(돈은 그 사업장 매출로 잡힙니다).",
+  "books_err_no_carrier": "산 물건을 나를 운반꾼이 없습니다. 그 건물에 일꾼을 두거나 이 2차맵에 내 유닛을 두면 걸어서 도시 창고로 나릅니다.",
+  "books_sale_note": "주인도 판매가로 삽니다. 낸 돈은 이 사업장 매출로 잡힙니다.",
+  "station_buy_haul": "판매가로 사서 도시 창고로",
+  "station_buy_haul_done": "샀습니다. 돈은 사업장 매출로 잡히고, 운반꾼이 도시 창고로 걸어 나릅니다.",
+  "facility_place_sale_only": "사업장 물건 · 건물 판 [장부]에서 판매가로 삽니다",
+  "facility_move_no_carrier": "나를 운반꾼이 없습니다. 그 건물에 일꾼을 두거나 이 2차맵에 내 휴먼·사이보그 유닛을 두면 걸어서 도시 창고로 나릅니다."
 }

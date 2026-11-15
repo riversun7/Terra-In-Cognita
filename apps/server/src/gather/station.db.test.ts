@@ -17,6 +17,7 @@ import {
   joinCityFaction,
   rows,
 } from "../testDb.ts";
+import { ASSET_CREDIT } from "../world/settlement.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { type World, startWorld } from "../world/world.ts";
@@ -318,11 +319,31 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     ]);
     expect(view.upgrade?.buffs).toMatchObject({ radiusCells: null, yieldPm: 1200, regrowPm: null });
 
-    const stored = sum(buildingLocation(farmId));
+    // 자동 옮김은 주인 자동 구매(기획 D-569 1781): 지갑이 비면 옮기지 않는다 — 돈을 넣고 물건마다 최소 묶음(10)을 채운 뒤 옮긴다
+    const farmHere = buildingLocation(farmId);
     current.station.haulNow(clock);
+    expect(current.station.trip(farmId)).toBeUndefined();
+    const issue = (asset: string, qty: bigint, location: number | null): void => {
+      p.ledger.post({
+        kind: "grant",
+        atMs: clock,
+        entries: [
+          { account: p.ledger.systemAccount(`issue:${asset}`, asset), amount: -qty },
+          { account: p.ledger.ownerAccount(ownerId, asset, location), amount: qty },
+        ],
+      });
+    };
+    for (const asset of cropAssets)
+      if (p.ledger.balanceOf(ownerId, asset, farmHere) > 0n) issue(asset, 10n, farmHere);
+    issue(ASSET_CREDIT, 1_000_000_000n, null);
+    const vault = (): bigint => p.ledger.balanceOf(ownerId, ASSET_CREDIT, farmHere);
+    const vaultBefore = vault();
+    const stored = sum(farmHere);
+    current.station.haulNow(clock);
+    expect(vault()).toBeGreaterThan(vaultBefore);
     const arrive = current.station.trip(farmId)?.arriveAtMs ?? clock;
     expect(current.station.haulNow(arrive)).toBeGreaterThan(0);
-    expect(sum(buildingLocation(farmId))).toBe(0n);
+    expect(sum(farmHere)).toBe(0n);
     expect(sum(cityLocation(cityId ?? 0))).toBe(cityBefore + stored);
     expect(await world.checkInvariants()).toEqual([]);
   });

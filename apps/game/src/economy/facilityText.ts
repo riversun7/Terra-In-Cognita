@@ -19,6 +19,7 @@ export const FACILITY_ERROR_TEXT: Readonly<Record<FacilityResultCode | "offline"
     plot_full: m.facility_error_plot_full,
     no_plot: m.facility_error_no_plot,
     tier_locked: m.facility_error_tier_locked,
+    sale_only: m.facility_error_sale_only,
     busy: m.facility_error_busy,
     rate_limited: m.facility_error_rate_limited,
     forbidden: m.facility_error_forbidden,

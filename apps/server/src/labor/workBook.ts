@@ -1,15 +1,15 @@
 // 유닛 직무 장부(서버) — docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산", 기획 D-506·D-507·60_UX §7.1 ③(첫 유닛 고용·직무 배치)
 // 노동 계약 서비스(service.ts)가 들고 쓴다. 하는 일:
 // - 직무 배치: 내 유닛을 내 채집 시설(다 지은 farm·lumber_camp·mine 등, 팩 gather가 있는 시설)에 돈 없이 둔다(질문 521). 자리 수 = 시설
-//   레벨 × 레벨당 자리(팩 slotsPerLevel, 직무 배치 + 열린 노동 계약을 함께 센다). 산출은 그 건물이 선 도시의 내 도시 창고(도시가 없으면 그
-//   건물 창고)로 간다.
+//   레벨 × 레벨당 자리(팩 slotsPerLevel, 직무 배치 + 열린 노동 계약을 함께 센다). 산출은 그 건물 창고(사업장 창고)로 간다(D-569 1784 — 예전에는
+//   그 건물이 선 도시의 내 도시 창고).
 // - 채집 산출: 채집 시설에서 일한 주기(직무 배치·노동 계약 work 구간)를 시험 광석 대신 진짜 물건으로 바꾸는 산출 구간(goods)을 만든다
 //   (gatherWork.ts, 시뮬과 같은 규칙 함수). 쌓인 진행·묶음 차례는 unit_work 줄에 남긴다(work.ts).
 // - 직무 켜기·끄기: 일을 시작하면(배치·계약) 유닛 직무를 채집(JOB_GATHER)으로, 일이 끝나면 직무 없음(JOB_NONE)으로 바꾼다(@terra/sim
 //   switchJob — 피로·단계 그대로, 진행 0). 직무 없는 동안은 정산이 쉬게 해 피로가 시간만큼 풀린다(D-430 회복 꼴, 기획 정리 D-518 525 ① —
 //   다시 배치해도 피로가 지워지지 않는다). 정산 뒤 고리에서 일이 없는 플레이어 유닛의 직무를 끈다.
 // - 임대형 상한(523 ②): 임대형 임차인 몫(그 건물 창고)은 그 건물 창고 상한까지만 쌓인다(leaseRooms — 정산 하나 안에서 함께 줄이는 남은 자리).
-//   넘친 물건은 나오지 않는다(묶음 진행은 쓴다, 확인 대기 질문 580). 임금형·직무 배치(도시 창고)는 상한이 없다(질문 411).
+//   넘친 물건은 나오지 않는다(묶음 진행은 쓴다, 확인 대기 질문 580). 임금형·직무 배치는 채집소 고리가 없으면 상한이 없다(질문 411).
 // - 사라짐: 유닛·시설이 사라지거나 주인이 바뀌거나 유닛이 일을 멈추면(비활성·수호신) 다음 정산에서 배치를 푼다(그 구간 산출 없음).
 // - 채집소(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요", gather/station.ts가 고리를 잇는다): 채집 시설이면 레벨 수확 버프를 곱하고, 산출은
 //   그 건물 창고(채집소 창고, 상한 = 팩 storageKg × 레벨 — 모든 몫이 함께 쓴다)로 간다. 반경 안 원자재 오브젝트를 맡는 시설(벌목장·광산)은 묶음마다
@@ -17,7 +17,7 @@
 //   피로 덜기는 정산 뒤 고리(afterSettle)에서 한다. 고리가 없으면(DB 없는 세계·채집 세계 준비 전) 위 직무 배치·임대형 규칙 그대로 낸다.
 import type { Primaries, SocietyCoefficients, OutputSegment, GoodsLine } from "@terra/sim";
 import { JOB_GATHER, JOB_NONE, TEST_JOB_RULES, switchJob } from "@terra/sim";
-import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
+import { buildingLocation } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -310,12 +310,13 @@ export function createWorkBook(options: {
   };
 }
 
-/** 임금형·직무 배치 산출이 가는 곳: 그 건물이 선 도시의 도시 창고(도시가 없으면 그 건물 창고) */
-export function cityReceiver(ownerId: number): (site: GatherSite) => GoodsReceiver {
-  return (site) => ({
-    ownerId,
-    location: site.cityId !== null ? cityLocation(site.cityId) : buildingLocation(site.buildingId),
-  });
+/**
+ * 임금형·직무 배치 산출이 가는 곳: 그 건물 창고(사업장 창고 — 주인 몫). 바뀜 (기획 D-569 1784 "거래소 반입은 실제 운반만 — 우회 길 없음",
+ * D-555 1505 "운영 자금·재료는 건물마다의 창고·금고"): 예전에는 채집소 고리가 없으면(DB 없는 세계·채집 세계 준비 전) 그 도시의 도시 창고로 바로
+ * 갔다. 이제 늘 그 건물 창고로 가고, 거기서 판매(business_buy)·운반꾼으로만 나간다
+ */
+export function businessReceiver(ownerId: number): (site: GatherSite) => GoodsReceiver {
+  return (site) => ({ ownerId, location: buildingLocation(site.buildingId) });
 }
 
 /** 임대형 임차인 몫이 가는 곳: 그 건물 창고(창고·직무 줄기 규칙, 유예 뒤 시설 주인 것이 된다) */

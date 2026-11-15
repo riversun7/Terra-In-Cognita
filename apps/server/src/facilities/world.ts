@@ -31,7 +31,7 @@ import {
 } from "./attack.ts";
 import { type CatalogSource, type FacilityCatalog, facilityCatalogOf } from "./catalog.ts";
 import { spendGoods } from "./materials.ts";
-import { type PlaceWorld, assetWeightG, beaconMaterialScope, buildingPlace, isStorage } from "./places.ts";
+import { type PlaceWorld, assetWeightG, beaconMaterialScope, buildingPlace } from "./places.ts";
 import { type FacilityService, createFacilityService } from "./service.ts";
 import { roomGrams } from "./storage.ts";
 import { type BusinessCore, EMPTY_BUSINESS, createBusinessCore } from "../business/core.ts";
@@ -327,7 +327,9 @@ export function createWorldFacilities(input: {
     rules: () => input.rules().business,
     place: (buildingId) => buildingPlace(service.places, buildingId),
     isBusiness: (buildingId) => service.facilities.has(buildingId),
-    isStorage: (buildingId) => isStorage(service.places, buildingId),
+    // 산 물건은 운반꾼이 나른다(기획 D-569 1784 — 채집 세계가 잇는 창고 꺼내기 고리)
+    carry: (seller, buyer, buildingId, asset, qty, atMs) =>
+      service.carryOut(seller, buyer, buildingId, asset, qty, atMs),
     cityAdminLevel: (cityId) => npcCity(cityId)?.adminLevel,
     ownerOf: (userId, atMs) => input.settlement.ownerOfUser(userId, atMs).id,
     fallbackAsset: ASSET_CREDIT,

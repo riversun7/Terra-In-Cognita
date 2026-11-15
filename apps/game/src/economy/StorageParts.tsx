@@ -1,7 +1,8 @@
 // 건물 칸의 창고 부분 — 창고 시설 넣기·꺼내기 폼, 내 물건 자리 목록(도시 창고·건물 창고·화물·자리 없음)
 // docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)", 기획 49 N50·D-117·D-121·D-516(361·382).
 // - 넣기 = 그 건물이 선 도시의 내 도시 창고 → 이 2차맵 내 유닛 화물 차례로 꺼내 창고 시설에(서버 판정: 용량·상태·물자만).
-// - 꺼내기 = 그 건물 창고의 내 몫 → 그 도시의 내 도시 창고. 남의 건물(임대 몫)도 꺼낸다(유예 동안 가져가기).
+// - 꺼내기 = 그 건물 창고의 내 몫 → 그 도시의 내 도시 창고. 남의 건물(임대 몫)도 꺼낸다(유예 동안 가져가기). 운반꾼(그 건물 일꾼·내 유닛)이
+//   걸어 나른다(기획 D-569 1784). 내 사업장 물건(sale)은 꺼내지 못하고 건물 판 [장부]에서 판매가로 산다(1781) — 단추 대신 안내 한 줄.
 // - 바꾸는 명령은 WebSocket storage_move(프로토콜 11)이고, 화면은 가진 수로 단추만 막는다.
 import type { FacilitiesOverviewResponse, FacilityView, GoodsPlaceView } from "@terra/shared/facilities";
 import { useState } from "react";
@@ -157,7 +158,12 @@ export function PlacesList({
               {place.lines.map((line) => `${lineName(line)} ${fmt(line.qty)}`).join(" · ")}
             </span>
           </div>
-          {place.kind === "building" && !place.storage && place.id !== null
+          {place.kind === "building" && place.sale === true ? (
+            <span className="eco-row-meta" data-part="facility-place-sale">
+              {m.facility_place_sale_only()}
+            </span>
+          ) : null}
+          {place.kind === "building" && !place.storage && place.sale !== true && place.id !== null
             ? place.lines.map((line) => (
                 <button
                   key={line.asset}

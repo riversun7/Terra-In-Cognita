@@ -229,6 +229,11 @@ export interface GoodsPlaceView {
   readonly storage: boolean;
   /** 건물 창고: 그 건물의 팩 시설 ID(시설이 아니면 null) */
   readonly facilityId: string | null;
+  /**
+   * 건물 창고: 내 사업장 물건(내 시설이고 창고 시설이 아님)인가 — 꺼내지 못하고 판매가로만 산다(기획 D-569 1781, 서버 storage_move out = sale_only).
+   * 없으면 false
+   */
+  readonly sale?: boolean | undefined;
   readonly lines: readonly {
     /** 원장 자산 코드(item:<ID>, 시험 광석 등) */
     readonly asset: string;

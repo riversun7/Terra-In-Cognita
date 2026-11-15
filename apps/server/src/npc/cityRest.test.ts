@@ -8,7 +8,7 @@ const area = (x: number, y: number) => ({ x, y, radius: 4 });
 
 /** 시청 (100,100), 채집소 (130,100), 창고 (122,100) */
 const base: CityRestInput = {
-  facilities: [{ id: 7, buildingId: 7, workers: 3, station: true }],
+  facilities: [{ id: 7, buildingId: 7, workers: 3, hauls: true }],
   areas: new Map([[7, area(130, 100)]]),
   lodgings: [],
   home: { x: 100, y: 100 },
@@ -39,7 +39,7 @@ describe("planCityRest", () => {
     const rulesSmall = { ...rules, logistics: { ...rules.logistics, lodgingBedsPerLevel: 2 } };
     const plan = planCityRest({
       ...base,
-      facilities: [{ id: 7, buildingId: 7, workers: 5, station: true }],
+      facilities: [{ id: 7, buildingId: 7, workers: 5, hauls: true }],
       lodgings,
       rules: rulesSmall,
     });
@@ -57,14 +57,14 @@ describe("planCityRest", () => {
     const plan = planCityRest({
       ...base,
       housing: 2,
-      facilities: [{ id: 7, buildingId: 7, workers: 4, station: true }],
+      facilities: [{ id: 7, buildingId: 7, workers: 4, hauls: true }],
     });
     expect(plan.workers.map((w) => w.place.kind)).toEqual(["home", "home", "homeless", "homeless"]);
     const lodged = planCityRest({
       ...base,
       housing: 2,
       lodgings: [{ id: 60, area: area(115, 100), level: 1, ownerId: 1 }],
-      facilities: [{ id: 7, buildingId: 7, workers: 4, station: true }],
+      facilities: [{ id: 7, buildingId: 7, workers: 4, hauls: true }],
     });
     // 숙소 침대 10이 주거가 되어 넷 모두 숙소
     expect(lodged.workers.every((w) => w.place.kind === "lodging")).toBe(true);
@@ -79,7 +79,7 @@ describe("planCityRest", () => {
         { id: 61, area: area(118, 100), level: 2, ownerId: 1, seeded: true },
         { id: 62, area: area(121, 100), level: 1, ownerId: 9 },
       ],
-      facilities: [{ id: 7, buildingId: 7, workers: 4, station: true }],
+      facilities: [{ id: 7, buildingId: 7, workers: 4, hauls: true }],
     });
     expect(seeded.bedTotal).toBe(40);
     expect(seeded.capBeds).toBe(20);
@@ -89,7 +89,7 @@ describe("planCityRest", () => {
       housing: 2,
       rules: { ...rules, logistics: { ...rules.logistics, lodgingBedsPerLevel: 2 } },
       lodgings: [{ id: 60, area: area(115, 100), level: 1, ownerId: 1 }],
-      facilities: [{ id: 7, buildingId: 7, workers: 5, station: true }],
+      facilities: [{ id: 7, buildingId: 7, workers: 5, hauls: true }],
     });
     expect(mixed.workers.map((w) => w.place.kind)).toEqual([
       "lodging",

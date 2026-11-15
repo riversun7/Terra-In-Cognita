@@ -1,4 +1,4 @@
-// 사업장 장부 명령 시험 — 기획 D-555(1501·1502·1507·1508), docs/adr/2026-11-15-business-ledger.md
+// 사업장 장부 명령 시험 — 기획 D-555(1501·1502·1507·1508)·D-569(1781 판매만·1784 실제 운반), docs/adr/2026-11-15-business-ledger.md
 import { businessLocation, unitPurseLocation } from "@terra/shared/businessBooks";
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import { START_BUSINESS, createLedgerBook } from "@terra/sim";
@@ -29,9 +29,23 @@ const writer: WorldWriter = {
 const place = (buildingId: number) =>
   buildingId === FARM || buildingId === STORE ? { ownerId: OWNER, cityId: CITY } : undefined;
 
-function setup(admin = 4) {
+type Carry = (
+  seller: number,
+  buyer: number,
+  buildingId: number,
+  asset: string,
+  qty: bigint,
+  atMs: number,
+) => string | null | undefined;
+
+function setup(admin = 4, carry?: Carry) {
   let ids = 1;
-  const ledger = createLedgerBook({ nextAccountId: () => ids++, nextTxId: () => ids++ });
+  const kinds: string[] = [];
+  const ledger = createLedgerBook({
+    nextAccountId: () => ids++,
+    nextTxId: () => ids++,
+    hooks: { posted: (_id, tx) => kinds.push(tx.kind) },
+  });
   const core = createBusinessCore({
     ledger,
     writer,
@@ -50,7 +64,7 @@ function setup(admin = 4) {
     rules: () => START_BUSINESS,
     place,
     isBusiness: (id) => id === FARM || id === STORE,
-    isStorage: (id) => id === STORE,
+    carry,
     cityAdminLevel: () => admin,
     ownerOf: (userId) => (userId === "owner" ? OWNER : userId === "buyer" ? BUYER : undefined),
     fallbackAsset: ASSET,
@@ -66,7 +80,7 @@ function setup(admin = 4) {
         { account: ledger.ownerAccount(ownerId, asset, location), amount },
       ],
     });
-  return { ledger, core, commands, grant };
+  return { ledger, core, commands, grant, kinds };
 }
 
 describe("사업장 장부 명령", () => {
@@ -107,36 +121,77 @@ describe("사업장 장부 명령", () => {
     });
   });
 
-  it("주인도 값을 내고 꺼낸다(창고 시설은 값 없음)", async () => {
-    const { ledger, commands, grant } = setup();
-    grant(OWNER, ASSET, 10n);
-    expect(commands.chargeTake(OWNER, FARM, WOOD, 5n, 1)).toBe("insufficient_funds");
-    expect(commands.chargeTake(OWNER, FARM, WOOD, 2n, 1)).toBeNull();
-    expect(ledger.balanceOf(OWNER, ASSET)).toBe(4n);
-    expect(ledger.balanceOf(OWNER, ASSET, businessLocation(FARM))).toBe(6n);
-    expect(commands.chargeTake(OWNER, STORE, WOOD, 100n, 1)).toBeNull();
-    expect(commands.chargeTake(BUYER, FARM, WOOD, 1n, 1)).toBeNull();
-  });
-
-  it("주인도 주인이 정한 판매가를 낸다(D-564 1627), 값 0이면 기준 값", async () => {
-    const { ledger, commands, grant } = setup();
+  it("주인도 누구나와 같은 판매(D-569 1781): 같은 판매가·최소 묶음, 값 0이면 주인도 못 사고, 돈은 매출로 금고에", async () => {
+    const { ledger, commands, grant, kinds } = setup();
     grant(OWNER, ASSET, 100n);
     grant(OWNER, WOOD, 50n, businessLocation(FARM));
     expect((await commands.run("owner", { kind: "price", buildingId: FARM, item: WOOD, price: 7n })).ok).toBe(
       true,
     );
-    expect(commands.chargeTake(OWNER, FARM, WOOD, 2n, 1)).toBeNull();
-    expect(ledger.balanceOf(OWNER, ASSET)).toBe(86n);
+    // 주인도 최소 묶음(10)부터
     expect(await commands.run("owner", { kind: "buy", buildingId: FARM, item: WOOD, qty: 1 })).toEqual({
-      ok: true,
-      paid: 7n,
+      ok: false,
+      code: "below_lot",
     });
-    // 값 0(남에게 안 팖)이면 주인은 기준 값(3)을 낸다 — 공짜로 꺼내지 않는다
+    expect(await commands.run("owner", { kind: "buy", buildingId: FARM, item: WOOD, qty: 10 })).toEqual({
+      ok: true,
+      paid: 70n,
+    });
+    expect(ledger.balanceOf(OWNER, ASSET)).toBe(30n);
+    expect(ledger.balanceOf(OWNER, ASSET, businessLocation(FARM))).toBe(70n);
+    expect(ledger.balanceOf(OWNER, WOOD, cityLocation(CITY))).toBe(10n);
+    // 매출 거래(business_sale)로 금고에 든다(손익계산서 판매 칸)
+    expect(kinds).toContain("business_sale");
+    expect(kinds).toContain("business_sale_goods");
+    // 값 0 = 아무에게도 안 팖 — 주인도 못 산다(값을 먼저 정한다)
     expect((await commands.run("owner", { kind: "price", buildingId: FARM, item: WOOD, price: 0n })).ok).toBe(
       true,
     );
-    expect(commands.chargeTake(OWNER, FARM, WOOD, 1n, 1)).toBeNull();
-    expect(ledger.balanceOf(OWNER, ASSET)).toBe(76n);
+    expect(await commands.run("owner", { kind: "buy", buildingId: FARM, item: WOOD, qty: 10 })).toEqual({
+      ok: false,
+      code: "not_for_sale",
+    });
+  });
+
+  it("산 물건은 운반꾼이 나른다(D-569 1784): 운반꾼이 없으면 no_carrier — 돈·물건 그대로", async () => {
+    const calls: string[] = [];
+    let answer: string | null | undefined = "unknown_unit";
+    const { ledger, commands, grant } = setup(4, (seller, buyer, buildingId, asset, qty) => {
+      calls.push(`${seller}>${buyer}:${buildingId}:${asset}:${qty}`);
+      return answer;
+    });
+    grant(OWNER, WOOD, 50n, businessLocation(FARM));
+    grant(BUYER, ASSET, 1000n);
+    expect(await commands.run("buyer", { kind: "buy", buildingId: FARM, item: WOOD, qty: 10 })).toEqual({
+      ok: false,
+      code: "no_carrier",
+    });
+    expect(ledger.balanceOf(BUYER, ASSET)).toBe(1000n);
+    expect(ledger.balanceOf(OWNER, WOOD, businessLocation(FARM))).toBe(50n);
+    // 운반꾼이 실었으면(고리가 물건을 옮김) 돈만 낸다 — 도시 창고에는 닿을 때 든다
+    answer = null;
+    expect(await commands.run("buyer", { kind: "buy", buildingId: FARM, item: WOOD, qty: 10 })).toEqual({
+      ok: true,
+      paid: 30n,
+    });
+    expect(ledger.balanceOf(BUYER, WOOD, cityLocation(CITY))).toBe(0n);
+    expect(ledger.balanceOf(OWNER, ASSET, businessLocation(FARM))).toBe(30n);
+    expect(calls).toEqual([`${OWNER}>${BUYER}:${FARM}:${WOOD}:10`, `${OWNER}>${BUYER}:${FARM}:${WOOD}:10`]);
+  });
+
+  it("자동 옮김의 주인 구매(sellTo): 지갑이 되는 만큼·최소 묶음, 값 0이면 0", async () => {
+    const { ledger, commands, grant } = setup();
+    grant(OWNER, ASSET, 40n);
+    grant(OWNER, WOOD, 50n, businessLocation(FARM));
+    // 값 3 × 지갑 40 → 13개까지
+    expect(commands.sellTo(OWNER, FARM, WOOD, 50n, 1)).toBe(13n);
+    expect(ledger.balanceOf(OWNER, ASSET)).toBe(1n);
+    expect(ledger.balanceOf(OWNER, ASSET, businessLocation(FARM))).toBe(39n);
+    // 지갑 1 → 최소 묶음 아래라 0
+    expect(commands.sellTo(OWNER, FARM, WOOD, 50n, 1)).toBe(0n);
+    await commands.run("owner", { kind: "price", buildingId: FARM, item: WOOD, price: 0n });
+    grant(OWNER, ASSET, 1000n);
+    expect(commands.sellTo(OWNER, FARM, WOOD, 10n, 1)).toBe(0n);
   });
 
   it("정산·넣기는 주인만, 유닛 선물은 내 유닛 지갑으로", async () => {

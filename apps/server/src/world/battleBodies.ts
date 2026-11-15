@@ -81,7 +81,7 @@ export function createBattleBodies(input: {
             buildingMulPm: spec.buildingMulPm,
             eye: spec.eye,
             air: spec.air,
-            commandCap: spec.commandCap,
+            // 지휘관 정원은 다시 만든 몸의 1차 스탯으로 센다(설정 칸 C7, 사용자 1464)
           },
           nowMs,
         );

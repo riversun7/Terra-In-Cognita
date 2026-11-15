@@ -2,7 +2,7 @@
 // 살아 있는 세계에서 도시 하나를 **읽기만** 해서 공성 전투맵 재료를 만든다. 세계를 바꾸는 호출은 하나도 없다(쓰기 대기열·DB 쓰기·메모리 표 고침 없음):
 // - 배치: 서버 정원사 웨이브와 같은 함수(facilities/siegeLayout.ts citySiegeLayout — 넥서스 = 행정 건물, 다른 건물 = 장애물, 성벽·성문, 지형).
 //   행정 건물이 없으면 undefined(정원사와 같이 옛 열린 맵).
-// - 수비: 그 도시 휴먼(세계 거울 SimWorld, 정원사와 같은 차례 defenseOrder, 앞에서 REPORT_WORLD_DEFENDERS명)과 주인 세력 기술 단계.
+// - 수비: 그 도시 휴먼(세계 거울 SimWorld, 정원사와 같은 차례 defenseOrder, 앞에서 REPORT_WORLD_DEFENDERS_MAX명 — 판에는 지휘관 정원만큼의 파티)과 주인 세력 기술 단계.
 // - 수비 사양: 세계 전투를 여는 길(world/battleStart.ts)과 같은 차례 — 몸(입은 장비·버프) → 비활성·배 위 빼기 → 수호신·방어 버프(DB 읽기만)
 //   → 남은 HP·아머·쉴드 → 물약·탄. 세계 유닛 ID만 이 길을 지난다(실험실·크리쳐 유닛은 그대로).
 // 스냅숏 지문(reportCityInfo)은 배치 구조(내구도 빼고)와 수비 사양(자리 빼고)을 따로 적어 화면이 "저장 뒤 바뀜"을 가른다.
@@ -11,7 +11,7 @@ import { type BattleInit, type SimUnit, type SocietyCoefficients, defenseOrder }
 import type { SiegeLayout } from "@terra/sim/siegeArena";
 import {
   REPORT_CITY_LIST_MAX,
-  REPORT_WORLD_DEFENDERS,
+  REPORT_WORLD_DEFENDERS_MAX,
   type ReportCityInfo,
   type ReportCityListInput,
   type ReportCityListResponse,
@@ -79,7 +79,7 @@ export interface ReportCitySnapshot {
   /** 공성 배치(없으면 옛 열린 맵) */
   readonly layout: SiegeLayout | undefined;
   readonly defenderTech: number;
-  /** 그 도시 휴먼 수와 수비로 드는 휴먼(앞에서 REPORT_WORLD_DEFENDERS명, 복사본) */
+  /** 그 도시 휴먼 수와 수비로 드는 휴먼(앞에서 REPORT_WORLD_DEFENDERS_MAX명 — 판에는 지휘관 정원만큼의 파티, 복사본) */
   readonly humans: number;
   readonly defenders: readonly SimUnit[];
   /**
@@ -197,7 +197,7 @@ export function createReportCities(deps: {
         defenderTech: Math.max(1, faction?.tech ?? 1),
         humans: humans.length,
         // 복사본(판정 재료는 스냅숏 때 값 — 세계 거울이 바뀌어도 그대로)
-        defenders: humans.slice(0, REPORT_WORLD_DEFENDERS).map((unit) => ({ ...unit })),
+        defenders: humans.slice(0, REPORT_WORLD_DEFENDERS_MAX).map((unit) => ({ ...unit })),
         async prepare(init, worldIds) {
           // 세계 전투 시작 길(world/battleStart.ts)과 같은 차례. 세계 유닛만 지나간다(실험실·크리쳐 ID가 세계 유닛 ID와 겹쳐도 바뀌지 않게)
           const first = split(init, (id) => worldIds.has(id));

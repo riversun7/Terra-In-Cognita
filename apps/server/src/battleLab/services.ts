@@ -22,6 +22,7 @@ import {
   labSettingsProblem,
 } from "@terra/shared/battleLab";
 import type { ReplayArenaRef, ReplayName } from "@terra/protocol/battleReplay";
+import { REPORT_LIMITS, reportProblem } from "@terra/shared/battleReport";
 import type { LocalizedName } from "@terra/shared/roster";
 import { combatCoefficientsFrom, societyCoefficientsFrom } from "@terra/sim";
 import type { HeavyGate } from "../balance/gate.ts";
@@ -38,7 +39,8 @@ import { reasonedError } from "../trpc/init.ts";
 import type { TuningShared } from "../tuning/services.ts";
 import { type AnalysisLimits, type AnalysisService, createAnalysisService } from "./analysisJobs.ts";
 import { type BatchRunner, inlineBatchRunner } from "./analysisRunner.ts";
-import type { ArenaJob, ArenaParty } from "./arena.ts";
+import { type ArenaJob, type ArenaParty, arenaPartyId, arenaUnitId } from "./arena.ts";
+import { legionInputs } from "../battleReport/orderInputs.ts";
 import {
   type LabRules,
   LabUnitError,
@@ -210,6 +212,18 @@ export function createBattleLabShared(deps: {
     work: (job: ArenaJob, arena: ReplayArenaRef | null) => Promise<T>,
   ): Promise<{ result: T; revision: number; dropped: LabDropped[]; ms: number }> => {
     if (labSettingsProblem(input) !== null) throw rejected("invalid_settings");
+    // 군단 전체(1469): 파티 대 파티 보고서와 같은 검사(파티 수·명령·목표)
+    const legion = input.legion;
+    if (
+      legion &&
+      reportProblem({
+        setup: { mode: "arena", a: legion.a, b: legion.b, terrain: input.terrain, limitSec: input.limitSec },
+        variant: null,
+        runs: REPORT_LIMITS.runsMin,
+        seed: input.seed,
+      }) !== null
+    )
+      throw rejected("invalid_settings");
     const pick = await terrains.map(input.terrain).catch((error: unknown) => {
       log.warn({ err: error, terrain: input.terrain }, "battle lab terrain failed");
       return null;
@@ -218,6 +232,8 @@ export function createBattleLabShared(deps: {
     const { rules, revision } = rulesNow();
     const a = partyOf(input.a, rules);
     const b = partyOf(input.b, rules);
+    const legionA = legion ? legion.a.parties.map((party) => partyOf(party, rules)) : [];
+    const legionB = legion ? legion.b.parties.map((party) => partyOf(party, rules)) : [];
     if (!battleLimiter.take(viewer.id))
       throw reasonedError("TOO_MANY_REQUESTS", "RATE_LIMITED", "rate_limited");
     if (!gate.tryEnter()) throw reasonedError("TOO_MANY_REQUESTS", "BALANCE_BUSY", "busy");
@@ -229,6 +245,34 @@ export function createBattleLabShared(deps: {
         coefficients: rules.coefficients,
         limitMs: input.limitSec * 1000,
         seed: input.seed,
+        ...(legion
+          ? {
+              legion: {
+                a: legionA.map((entry) => entry.party),
+                b: legionB.map((entry) => entry.party),
+                inputs: [
+                  ...legionInputs(
+                    legion.a,
+                    {
+                      partyId: (p) => arenaPartyId("a", p),
+                      side: 1,
+                      enemyId: (p, i) => arenaUnitId("b", p, i),
+                    },
+                    rules.coefficients.tickMs,
+                  ),
+                  ...legionInputs(
+                    legion.b,
+                    {
+                      partyId: (p) => arenaPartyId("b", p),
+                      side: 2,
+                      enemyId: (p, i) => arenaUnitId("a", p, i),
+                    },
+                    rules.coefficients.tickMs,
+                  ),
+                ].toSorted((x, y) => x.tick - y.tick),
+              },
+            }
+          : {}),
       };
       const started = now();
       let result: T;
@@ -250,7 +294,16 @@ export function createBattleLabShared(deps: {
         },
         LAB_BATTLE_MESSAGE,
       );
-      return { result, revision, dropped: uniqueDropped([a.dropped, b.dropped]), ms };
+      return {
+        result,
+        revision,
+        dropped: uniqueDropped([
+          a.dropped,
+          b.dropped,
+          ...[...legionA, ...legionB].map((entry) => entry.dropped),
+        ]),
+        ms,
+      };
     } finally {
       gate.leave();
     }
@@ -369,13 +422,18 @@ export function createBattleLabShared(deps: {
 
     async replay(viewer, input) {
       // 리플레이 이름표: 표시 이름(없으면 A1·B3)과 유닛 종류. 팀 A ID 1~, 팀 B 101~(전투장과 같다)
+      // 군단 전체면 파티마다(이름표 A2·3 = 2번 파티 3번째)
       const units: Record<number, { name: string; kind: string }> = {};
-      input.a.units.forEach((unit, index) => {
-        units[1 + index] = { name: unit.label.trim() || `A${index + 1}`, kind: unit.kind };
-      });
-      input.b.units.forEach((unit, index) => {
-        units[101 + index] = { name: unit.label.trim() || `B${index + 1}`, kind: unit.kind };
-      });
+      const teamParties = (team: "a" | "b") =>
+        input.legion ? input.legion[team].parties : [team === "a" ? input.a : input.b];
+      for (const team of ["a", "b"] as const)
+        teamParties(team).forEach((party, p) =>
+          party.units.forEach((unit, index) => {
+            const tag = team.toUpperCase();
+            const fallback = p === 0 ? `${tag}${index + 1}` : `${tag}${p + 1}·${index + 1}`;
+            units[arenaUnitId(team, p, index)] = { name: unit.label.trim() || fallback, kind: unit.kind };
+          }),
+        );
       const names = { skills: { ...roster.names.skills }, effects: { ...deps.effectNames } };
       const out = await runArena(viewer, input, async (job, arena) => {
         const result = await runner({ kind: "replay", replay: { job, arena, units, names } });

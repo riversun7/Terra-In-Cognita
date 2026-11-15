@@ -14,7 +14,7 @@ import {
   type ArenaBattleResult,
   type ArenaJob,
   type ArenaMonteResult,
-  arenaInit,
+  arenaJobInit,
   runArenaBattle,
   runArenaMonteCarlo,
 } from "../battleLab/arena.ts";
@@ -52,8 +52,9 @@ export type WorkerResult =
 
 /** 전투장 한 판(팀 A 서쪽)을 리플레이로 기록한다 */
 export function runReplayLabJob(input: ReplayLabJob): ReplayLabResult {
-  const { replay } = recordBattleReplay(arenaInit(input.job, input.job.seed, false), {
+  const { replay } = recordBattleReplay(arenaJobInit(input.job, input.job.seed, false), {
     coefficients: input.job.coefficients,
+    inputs: input.job.legion?.inputs ?? [],
     arena: input.arena,
     units: input.units,
     names: input.names,

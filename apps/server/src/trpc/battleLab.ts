@@ -13,7 +13,14 @@ import {
   labPresetSaveSchema,
   labUnitSchema,
 } from "../battleLab/schema.ts";
+import { reportLegionSchema } from "../battleReport/schema.ts";
+import { z } from "zod";
 import { permissionProcedure, router } from "./init.ts";
+
+/** 한 판·3D 관람 입력: 옛 실험실 입력 + 군단 전체(사용자 결정 1469 — 파티 모두와 명령) */
+const labLegionBattleSchema = labBattleInputSchema.extend({
+  legion: z.strictObject({ a: reportLegionSchema, b: reportLegionSchema }).optional(),
+});
 
 /** 권한 표 확인(미들웨어) → Better Auth 확인 → 속도 제한(D1과 같은 제한기) → ctx.lab */
 const guarded = (action: "read" | "write") =>
@@ -47,11 +54,11 @@ export const battleLabRouter = router({
     .mutation(({ ctx, input }) => ctx.lab.shared.deletePreset(ctx.lab.db, ctx.viewer, ctx.lab.ip, input)),
   /** 한 판(워커): 사건 기록 + 유닛 요약 */
   battle: read
-    .input(labBattleInputSchema)
+    .input(labLegionBattleSchema)
     .mutation(({ ctx, input }) => ctx.lab.shared.battle(ctx.viewer, input)),
   /** 3D 관람(워커): 같은 시드의 한 판을 리플레이로 기록(@terra/protocol/battleReplay base64) */
   replay: read
-    .input(labBattleInputSchema)
+    .input(labLegionBattleSchema)
     .mutation(({ ctx, input }) => ctx.lab.shared.replay(ctx.viewer, input)),
   /** 몬테카를로 N판(워커, 편을 반씩 바꿈) */
   monteCarlo: read

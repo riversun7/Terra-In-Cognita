@@ -18,6 +18,7 @@ import {
 import { FORMATION_FRONT_DISTANCE, type FormationPoint, isValidFormationPoint } from "@terra/shared/roster";
 import {
   type BattleInit,
+  type BattleInput,
   type BattleMapInput,
   type BattleState,
   type CombatCoefficients,
@@ -56,6 +57,21 @@ export interface ArenaJob {
   readonly coefficients: CombatCoefficients;
   readonly limitMs: number;
   readonly seed: number;
+  /** 군단 전체(한 판·3D 관람, 사용자 1469): 있으면 a·b 대신 이 파티들과 판정 입력(파티·군단 명령)으로 돈다 */
+  readonly legion?:
+    | {
+        readonly a: readonly ArenaParty[];
+        readonly b: readonly ArenaParty[];
+        readonly inputs: readonly BattleInput[];
+      }
+    | undefined;
+}
+
+/** 일 → 시작 자료(군단이 있으면 군단 배치) */
+export function arenaJobInit(job: ArenaJob, seed: number, swapped: boolean): BattleInit {
+  return job.legion
+    ? arenaLegionInit({ a: job.legion.a, b: job.legion.b, map: job.map, limitMs: job.limitMs }, seed, swapped)
+    : arenaInit(job, seed, swapped);
 }
 
 /** 빈 평지 전투장 */
@@ -117,19 +133,27 @@ export interface ArenaLegionJob {
   readonly limitMs: number;
 }
 
-/** [임시] 군단 안 파티 p의 자리 비킴(칸): 0번 파티는 가운데(옛 전투장과 같다), 1·2번은 위아래로 13칸, 3번 이후는 뒤로 7칸씩 */
+/**
+ * [임시] 군단 안 파티 p의 자리 비킴(칸): 세 줄(가운데·위·아래 13칸)씩 채우고 다음 셋은 뒤로 7칸. 0번 파티는 가운데(옛 전투장과 같다),
+ * 3번은 가운데 뒤 7칸(옛 4파티 상한 때와 같은 자리). 전투장보다 뒤로 밀리는 파티는 가장 가까운 빈칸에 선다(20파티, 사용자 1464)
+ */
 const PARTY_LATERAL = [0, -13, 13];
 const PARTY_DEPTH_STEP = 7;
-const partyOffset = (p: number): { depth: number; lateral: number } =>
-  p < PARTY_LATERAL.length
-    ? { depth: 0, lateral: PARTY_LATERAL[p] ?? 0 }
-    : { depth: PARTY_DEPTH_STEP * (p - PARTY_LATERAL.length + 1), lateral: 0 };
+const partyOffset = (p: number): { depth: number; lateral: number } => ({
+  depth: PARTY_DEPTH_STEP * Math.floor(p / PARTY_LATERAL.length),
+  lateral: PARTY_LATERAL[p % PARTY_LATERAL.length] ?? 0,
+});
 
 /** 팀·군단 안 파티 → 파티 ID(팀 A 1·3·5…, 팀 B 2·4·6… — 파티 하나면 옛 전투장과 같은 1·2) */
 export const arenaPartyId = (team: LabTeam, p: number): number => (team === "a" ? 1 : 2) + 2 * p;
-/** 팀·파티·자리 → 유닛 ID(팀 A 1~, 팀 B 101~, 파티마다 6칸 — 파티 하나면 옛 전투장과 같다) */
+/** 팀 A 17번 파티부터(ID 101~이 팀 B와 겹치는 자리)는 따로 1001~ */
+const A_HIGH_PARTY = 16;
+const A_HIGH_BASE = 1001;
+/** 팀·파티·자리 → 유닛 ID(팀 A 1~, 팀 B 101~, 파티마다 6칸 — 파티 하나면 옛 전투장과 같다. 팀 A 17~20번 파티는 1001~, 사용자 1464 20파티) */
 export const arenaUnitId = (team: LabTeam, p: number, index: number): number =>
-  idOf(team, p * LAB_LIMITS.partyMax + index);
+  team === "a" && p >= A_HIGH_PARTY
+    ? A_HIGH_BASE + (p - A_HIGH_PARTY) * LAB_LIMITS.partyMax + index
+    : idOf(team, p * LAB_LIMITS.partyMax + index);
 
 /** 군단 일 → 전투 시작 자료. 파티 하나씩이면 arenaInit와 같은 값이다(시험) */
 export function arenaLegionInit(job: ArenaLegionJob, seed: number, swapped: boolean): BattleInit {
@@ -201,8 +225,9 @@ export function arenaLegionInit(job: ArenaLegionJob, seed: number, swapped: bool
   };
 }
 
-const teamOfId = (id: number): LabTeam => (id >= 101 ? "b" : "a");
-const indexOfId = (id: number): number => (id >= 101 ? id - 101 : id - 1);
+const teamOfId = (id: number): LabTeam => (id >= A_HIGH_BASE ? "a" : id >= 101 ? "b" : "a");
+const indexOfId = (id: number): number =>
+  id >= A_HIGH_BASE ? A_HIGH_PARTY * LAB_LIMITS.partyMax + id - A_HIGH_BASE : id >= 101 ? id - 101 : id - 1;
 const keyOfId = (id: number): string => labUnitKey(teamOfId(id), indexOfId(id));
 
 /** 팀의 남은 (HP + 아머 + 쉴드) 몫(‰) */
@@ -227,11 +252,12 @@ interface Played {
 }
 
 function play(job: ArenaJob, seed: number, swapped: boolean, logMax: number): Played {
-  const init = arenaInit(job, seed, swapped);
+  const init = arenaJobInit(job, seed, swapped);
   let battle: Battle | null = null;
   const tally = createBattleTally(init.units, { logMax, tick: () => battle?.state.tick ?? 0 });
   battle = createBattle(init, job.coefficients, tally.trace);
-  const { result, state } = battle.runToEnd([]);
+  // 군단 명령은 편을 바꾸지 않는 판(한 판·3D 관람)에서만 든다
+  const { result, state } = battle.runToEnd(swapped ? [] : (job.legion?.inputs ?? []));
   if (!result) throw new Error("arena battle did not end");
   const remaining = { a: remainingPm(state, "a"), b: remainingPm(state, "b") };
   let winner: LabTeam | null;

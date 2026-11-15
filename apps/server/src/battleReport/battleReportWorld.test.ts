@@ -86,7 +86,7 @@ describe("군단(파티 여럿)", () => {
     expect(result?.legion?.b).toMatchObject({ parties: 2, units: 3 });
   });
 
-  it("군단 퇴각 명령: 그 시각에 군단 모든 파티가 물러난다(판정 파티 퇴각)", async () => {
+  it("군단 퇴각 명령: 그 시각에 군단 명령 하나 — 지휘 정원 안 모든 파티가 물러난다(판정 군단 퇴각, 1463)", async () => {
     const setup: ReportSetup = {
       mode: "arena",
       a: { parties: [party(fighter(10)), party(fighter(10))], retreatAtSec: 1 },
@@ -95,8 +95,11 @@ describe("군단(파티 여럿)", () => {
       limitSec: 120,
     };
     const { play } = await playSetupOf(setup, ctx);
-    expect(play.inputs).toHaveLength(2);
-    expect(play.inputs?.every((input) => input.kind === "command" && input.tick === 10)).toBe(true);
+    expect(play.inputs).toEqual([{ tick: 10, kind: "legion", side: 1, order: { kind: "retreat" } }]);
+    // 편 바꾼 판은 팀 A가 편 2
+    expect(play.swappedInputs).toEqual([{ tick: 10, kind: "legion", side: 2, order: { kind: "retreat" } }]);
+    // 실험실 휴먼(1차 10)의 지휘 정원 = 3(설정 칸 C7 출발값) ≥ 파티 2
+    expect(play.legion?.a).toMatchObject({ commandCap: 3, uncommanded: 0 });
     const [result] = runReport({ setups: [play], runs: 2, seed: 5 }, clock);
     expect(result?.sides.a.retreats).toBeGreaterThan(0);
   });
@@ -105,7 +108,7 @@ describe("군단(파티 여럿)", () => {
     const base = { variant: null, runs: 2, seed: 1 } as const;
     const many: ReportSetup = {
       mode: "arena",
-      a: { parties: Array.from({ length: 5 }, () => party(fighter(1))), retreatAtSec: 0 },
+      a: { parties: Array.from({ length: 21 }, () => party(fighter(1))), retreatAtSec: 0 },
       b: party(fighter(1)),
       terrain: "flat",
       limitSec: 60,
@@ -259,7 +262,7 @@ describe("실제 세계 도시(1383)", () => {
     });
   });
 
-  it("파티 공성: 넥서스 = 행정 건물 지금 내구도, 세계 수비 10명(비활성 빼고)·생명 수치는 세계 유닛만, 실험실 ID는 세계 ID와 안 겹침", async () => {
+  it("파티 공성: 넥서스 = 행정 건물 지금 내구도, 세계 수비 군단(지휘관 정원만큼 파티, 비활성 빼고)·생명 수치는 세계 유닛만, 실험실 ID는 세계 ID와 안 겹침", async () => {
     // 세계 유닛 ID가 실험실 옛 ID(1~)와 겹치는 경우도 본다: 휴먼 하나를 ID 1로
     const { world, units } = fakeWorld({
       isInactive: (id) => id === 503,
@@ -277,18 +280,38 @@ describe("실제 세계 도시(1383)", () => {
     const built = await playSetupOf(worldSiege(), { ...ctx, city: snapshot });
     const init = built.play.normal;
     const worldUnits = init.units.filter((unit) => unit.side === 2);
-    // 정원사 차례(defenseOrder = ID 차례)로 앞 10명 → 비활성 503 빠짐 → 9명
-    expect(worldUnits.map((unit) => unit.id)).toEqual([1, 500, 501, 502, 504, 505, 506, 507, 508]);
+    // 정원사 차례(defenseOrder = ID 차례)로 휴먼 15명 → 비활성 503 빠짐 → 14명(파티 3개 = 지휘관 정원 3 안, 사용자 1464·1466)
+    expect(worldUnits.map((unit) => unit.id)).toEqual([
+      1, 500, 501, 502, 504, 505, 506, 507, 508, 509, 510, 511, 512, 513,
+    ]);
     expect(worldUnits.every((unit) => unit.start?.hp === 1)).toBe(true);
     const lab = init.units.filter((unit) => unit.side === 1);
     expect(lab).toHaveLength(3);
     expect(lab.every((unit) => unit.id >= 2_000_000_001 && unit.start === undefined)).toBe(true);
-    expect(built.play.rows.at(-1)).toMatchObject({ key: "defenders", members: 9 });
-    expect(built.city).toMatchObject({ cityId: 1, name: "Fake Town", hall: true, humans: 15, defenders: 9 });
+    expect(built.play.rows.at(-1)).toMatchObject({ key: "defenders", members: 14 });
+    expect(built.city).toMatchObject({ cityId: 1, name: "Fake Town", hall: true, humans: 15, defenders: 14 });
     expect(built.city?.nexusDurability).toBe(init.map.buildings.find((b) => b.nexus)?.durability);
     expect(built.city?.nexusDurability).toBeGreaterThan(0);
     const [result] = runReport({ setups: [built.play], runs: 2, seed: 9 }, clock);
     expect(result?.outcome.runs).toBe(2);
+  });
+
+  it("세계 수비 군단: 휴먼이 많아도 지휘관 정원(파티 수)만큼 앞 파티만 든다(사용자 1464·1466)", async () => {
+    const { world, units } = fakeWorld();
+    for (let i = 0; i < 46; i++) units.set(600 + i, human(600 + i));
+    const snapshot = createReportCities({ world: () => world, now: () => 2_000 }).snapshot(1);
+    const built = await playSetupOf(worldSiege(), { ...ctx, city: snapshot });
+    const defenders = built.play.normal.units.filter((unit) => unit.side === 2);
+    // 휴먼 60명 → 파티 6명씩 10개 → 정원 7(휴먼 INT·WIS 56: 2 + ⌊56 ÷ 10⌋, 설정 칸 C7 출발값) → 앞 7파티 42명
+    expect(defenders.every((unit) => unit.commandCap === 7)).toBe(true);
+    expect(defenders).toHaveLength(42);
+    const kept = [101, 102, 103, 104, 105, 106, 107];
+    expect(new Set(defenders.map((unit) => unit.party))).toEqual(new Set(kept));
+    expect(built.play.normal.parties.filter((party) => party.side === 2).map((party) => party.id)).toEqual(
+      kept,
+    );
+    expect(built.city).toMatchObject({ humans: 60, defenders: 42 });
+    expect(built.play.legion?.b).toMatchObject({ parties: 7, units: 42, commandCap: 7, uncommanded: 0 });
   });
 
   it("수호신: 싸울 수 있으면 수비 편 새 파티로 들고 세계 유닛으로 센다", async () => {
@@ -325,7 +348,7 @@ describe("실제 세계 도시(1383)", () => {
     const built = await playSetupOf(worldSiege(), { ...ctx, city: snapshot });
     expect(built.play.normal.units.some((unit) => unit.id === 9001 && unit.side === 2)).toBe(true);
     expect(built.city?.guardians).toBe(1);
-    expect(built.city?.defenders).toBe(11);
+    expect(built.city?.defenders).toBe(15);
   });
 
   it("스냅숏은 복사본·지문은 같으면 같다, 행정 건물 내구도가 바뀌면 nexus, 휴먼이 바뀌면 defense, 도시가 없으면 gone", async () => {

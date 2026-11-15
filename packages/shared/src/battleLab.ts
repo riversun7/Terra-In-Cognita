@@ -2,6 +2,7 @@
 // 서버(tRPC battleLab.*, apps/server/src/battleLab/)와 화면(apps/game/src/editor/balance/lab/)이 같이 쓴다. 계산은 서버만 한다
 // (기기는 판정 코드를 받지 않는다). 1차 스탯 키는 roster의 PrimaryStat, 속성 칸 차례는 ELEMENT_CODES(12칸)다.
 // 수치 칸의 범위는 실험 도구의 입력 범위(넘침·비용 방지)이지 게임 규칙이 아니다.
+import type { ReportLegion } from "./battleReport.ts";
 import type { FormationPoint, LocalizedName, PrimaryStat } from "./roster.ts";
 import { hasUnstorableText } from "./settings.ts";
 
@@ -309,9 +310,14 @@ export interface LabBattleInput {
   readonly terrain: string;
   readonly limitSec: number;
   readonly seed: number;
+  /**
+   * 군단 전체(한 판·3D 관람 — 사용자 결정 1469 "군단 전체"): 있으면 a·b 대신 군단의 모든 파티와 명령으로 돈다(a·b는 1번 파티).
+   * 몬테카를로(옛 도구)는 받지 않는다
+   */
+  readonly legion?: { readonly a: ReportLegion; readonly b: ReportLegion } | undefined;
 }
 
-export interface LabMonteCarloInput extends LabBattleInput {
+export interface LabMonteCarloInput extends Omit<LabBattleInput, "legion"> {
   readonly runs: number;
 }
 

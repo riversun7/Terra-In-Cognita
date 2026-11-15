@@ -209,12 +209,13 @@ describe("마법 자료(팩과 같은 TEST_COMBAT_CATALOG)", () => {
     "dark_curse",
   ];
 
-  it("마법 스킬은 모두 속성 기반·MP이고, 일곱 모양(SKILL_SHAPES)을 모두 쓴다", () => {
+  it("마법 스킬은 모두 속성 기반·MP이고, 일곱 모양(SKILL_SHAPES, 움직임 move 빼고)을 모두 쓴다", () => {
     const skills = TEST_COMBAT_CATALOG.skills.filter((skill) => magicIds.includes(skill.id));
     expect(skills.map((skill) => skill.id)).toEqual(magicIds);
     for (const skill of skills) expect([skill.base, skill.resource]).toEqual(["elemental", "mp"]);
     const shapes = new Set(TEST_COMBAT_CATALOG.skills.map((skill) => skill.shape));
-    expect([...SKILL_SHAPES].filter((shape) => !shapes.has(shape))).toEqual([]);
+    // move(움직이기만 하는 스킬, docs/adr/2026-11-15-combat-moves.md)는 팩에 아직 없다(생성기 3단계가 만든다)
+    expect([...SKILL_SHAPES].filter((shape) => !shapes.has(shape))).toEqual(["move"]);
   });
 
   it("속성 지팡이는 속성 공격력 칸만 있고(D-465), 옵션 계수는 그 계열 기본형 칸 하나, 장비 스킬은 마법 스킬이다", () => {

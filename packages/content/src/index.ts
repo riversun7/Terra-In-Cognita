@@ -150,6 +150,7 @@ export {
   EQUIP_SLOT_KINDS,
   PRIMARY_STAT_CODES,
   PRIMARY_STAT_SLOTS,
+  SKILL_CURVE_IDS,
   SKILL_SHAPES,
   effectEntrySchema,
   equipSchema,

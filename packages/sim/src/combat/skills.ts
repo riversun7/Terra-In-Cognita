@@ -61,9 +61,9 @@ export interface SkillEffectData {
  * 보는 쪽(전투 재생·화면)이 그림을 고르는 모양(팩 `shape`, ADR "바뀜 (2026-11-01, 마법 스킬)"). 판정은 대상·사거리·반지름·연쇄 칸으로
  * 하고, 팩 검사가 모양과 그 칸이 맞는지 본다: single = 적 하나에 바로(근접·지면), projectile = 적 하나에 날아가는 것(사거리 2 이상),
  * area = 목표 둘레 반지름 안 적 모두, chain = 적에서 적으로 튐, heal = 자기·아군 체력 회복, buff = 자기·아군 효과·쉴드 회복,
- * debuff = 피해 없이 적에게 효과
+ * debuff = 피해 없이 적에게 효과, move = 피해 없이 자기 몸만 옮김(돌진·도약·점멸·뒷걸음, docs/adr/2026-11-15-combat-moves.md)
  */
-export type SkillShape = "single" | "projectile" | "area" | "chain" | "heal" | "buff" | "debuff";
+export type SkillShape = "single" | "projectile" | "area" | "chain" | "heal" | "buff" | "debuff" | "move";
 
 /** 연쇄(모양 chain): 첫 대상 포함 최대 대상 수, 튐 거리(칸, 앞 대상에서), 튈 때마다 피해 배율(‰) */
 export interface SkillChain {

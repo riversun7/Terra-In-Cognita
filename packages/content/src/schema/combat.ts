@@ -131,8 +131,8 @@ const conditionPart = z.discriminatedUnion("part", [
  * 스킬 모양(보는 쪽이 그림을 고르는 칸, ADR combat-core "바뀜 (2026-11-01, 마법 스킬)"). 판정은 대상·사거리·반지름·연쇄 칸으로 하고
  * checkSkillShape가 둘이 맞는지 본다
  */
-export const SKILL_SHAPES = ["single", "projectile", "area", "chain", "heal", "buff", "debuff"] as const;
-const ENEMY_SHAPES: readonly string[] = ["single", "projectile", "area", "chain", "debuff"];
+export const SKILL_SHAPES = ["single", "projectile", "area", "chain", "heal", "buff", "debuff", "move"] as const;
+const ENEMY_SHAPES: readonly string[] = ["single", "projectile", "area", "chain", "debuff", "move"];
 const DAMAGE_SHAPES: readonly string[] = ["single", "projectile", "area", "chain"];
 
 /** 모양과 판정 칸이 맞는지(필드 검사가 실패해도 불리므로 값의 모양을 다시 본다, AGENTS 6장 Zod 4.6.7) */
@@ -165,6 +165,8 @@ function checkSkillShape(entry: unknown, ctx: z.RefinementCtx): void {
       "damage",
       `모양 ${shape}은(는) 피해를 줍니다(damage: physical·elemental). 피해 없이 효과만 걸면 debuff입니다.`,
     );
+  if (shape === "move" && damage !== "none")
+    fail("damage", "모양 move는 피해 없이(damage: none) 자기 몸만 옮깁니다. 끝에 치면 single·area에 move 칸을 답니다.");
   if (shape === "debuff" && damage !== "none")
     fail(
       "damage",
@@ -185,6 +187,65 @@ function checkSkillShape(entry: unknown, ctx: z.RefinementCtx): void {
       "range",
       "반지름 0인 아군 대상은 아군 하나를 고르는 스킬이라 사거리 1 이상입니다(자기만이면 target: self).",
     );
+}
+
+/** 자기 몸 이동 부품(docs/adr/2026-11-15-combat-moves.md 2절, 칸 단위) */
+const cells = z.int().min(1).max(32);
+const moveDuration = z.int().min(100).max(600_000);
+const movePart = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("dash"), cells, hitRange: z.int().min(1).max(8).optional() }),
+  z.strictObject({ kind: z.literal("leap"), cells }),
+  z.strictObject({ kind: z.literal("blink"), cells, dir: z.enum(["toward", "away"]) }),
+  z.strictObject({ kind: z.literal("backstep"), cells }),
+  z.strictObject({ kind: z.literal("stealth"), durationMs: moveDuration }),
+  z.strictObject({ kind: z.literal("detect"), cells, durationMs: moveDuration }),
+]);
+/** 맞은 대상 옮김 부품 */
+const displacePart = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("knockback"), cells }),
+  z.strictObject({ kind: z.literal("pull"), cells }),
+  z.strictObject({ kind: z.literal("root"), durationMs: moveDuration }),
+]);
+/** 스킬이 고르는 계수 곡선(@terra/sim combat/curves.ts SKILL_CURVES와 같다) */
+export const SKILL_CURVE_IDS = [
+  "range_interval",
+  "magic_distance",
+  "magic_targets",
+  "dot_total",
+  "close_shot",
+] as const;
+const MOTION_KINDS: readonly string[] = ["dash", "leap", "blink", "backstep"];
+const DISPLACE_SHAPES: readonly string[] = ["single", "projectile", "area", "chain", "debuff"];
+const SHOT_SHAPES: readonly string[] = ["single", "projectile"];
+
+/** 움직임 부품·곡선 칸이 모양·대상과 맞는지(필드 검사가 실패해도 불리므로 모양을 다시 본다) */
+function checkSkillMoves(entry: unknown, ctx: z.RefinementCtx): void {
+  if (typeof entry !== "object" || entry === null) return;
+  const get = (key: string): unknown => Reflect.get(entry, key);
+  const fail = (path: string, message: string): void => {
+    ctx.addIssue({ code: "custom", path: [path], message });
+  };
+  const shape = get("shape");
+  const target = get("target");
+  const move = get("move");
+  const moveKind = typeof move === "object" && move !== null ? Reflect.get(move, "kind") : undefined;
+  const motion = typeof moveKind === "string" && MOTION_KINDS.includes(moveKind);
+  if (motion && target !== "enemy")
+    fail("move", "돌진·도약·점멸·뒷걸음은 적을 기준으로 움직입니다(target: enemy).");
+  if ((moveKind === "stealth" || moveKind === "detect") && (target !== "self" || shape !== "buff"))
+    fail("move", "은신·감지는 자기에게 거는 buff 모양입니다(target: self).");
+  if (shape === "move" && !motion)
+    fail("move", "모양 move는 자기 몸 이동 부품(dash·leap·blink·backstep)이 있어야 합니다.");
+  if (get("displace") !== undefined && (typeof shape !== "string" || !DISPLACE_SHAPES.includes(shape)))
+    fail("displace", "밀치기·끌어오기·묶기는 적에게 맞는 모양(single·projectile·area·chain·debuff)에만 답니다.");
+  if (get("shots") !== undefined && (typeof shape !== "string" || !SHOT_SHAPES.includes(shape)))
+    fail("shots", "연사(shots)는 대상 하나 모양(single·projectile)에만 답니다.");
+  const curves = get("curves");
+  if (Array.isArray(curves)) {
+    if (new Set(curves).size !== curves.length) fail("curves", "곡선 이름이 겹칩니다.");
+    if (curves.length > 0 && get("damage") === "none" && !curves.every((curve) => curve === "dot_total"))
+      fail("curves", "피해 곡선은 피해를 주는 스킬에만 답니다(지속 피해 합 dot_total 빼고).");
+  }
 }
 
 export const skillEntrySchema = z
@@ -242,10 +303,19 @@ export const skillEntrySchema = z
       .max(8),
     /** 등급별 값 배율(‰, 등급 1부터. 스킬 등급 상한 10, D-5001) */
     gradePm: z.array(z.int().min(0).max(100_000)).min(1).max(10),
+    /** 자기 몸 이동 부품(돌진·도약·점멸·뒷걸음·은신·감지, docs/adr/2026-11-15-combat-moves.md). 없으면 옛 스킬 */
+    move: movePart.optional(),
+    /** 맞은 대상 옮김(밀치기·끌어오기·묶기) */
+    displace: displacePart.optional(),
+    /** 고른 계수 곡선(사거리 간격 예산·마법 거리·마법 대상 수·지속 피해 합·가까이 쏘기) */
+    curves: z.array(z.enum(SKILL_CURVE_IDS)).max(SKILL_CURVE_IDS.length).optional(),
+    /** 연사 수(대상 하나 모양만, 발마다 따로 굴림·한 발 배율 곡선) */
+    shots: z.int().min(2).max(8).optional(),
     enabled,
   })
   .superRefine((entry, ctx) => {
     checkSkillShape(entry, ctx);
+    checkSkillMoves(entry, ctx);
     // 필드 검사가 실패해도 불린다(AGENTS 6장 Zod 4.6.7): 두 칸이 모두 알맞은 글자일 때만 본다
     const { damage, base, weaponField, bareHand } = entry;
     if (bareHand === true && weaponField !== undefined)

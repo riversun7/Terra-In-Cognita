@@ -27,7 +27,16 @@ export const SKILL_EDITOR_CATEGORIES = ["skills", "items", "unit_kinds"] as cons
 export type SkillEditorCategory = (typeof SKILL_EDITOR_CATEGORIES)[number];
 
 /** 스킬 모양(@terra/content SKILL_SHAPES와 같다, 서버 시험이 맞춰 본다) */
-export const SKILL_SHAPE_IDS = ["single", "projectile", "area", "chain", "heal", "buff", "debuff"] as const;
+export const SKILL_SHAPE_IDS = [
+  "single",
+  "projectile",
+  "area",
+  "chain",
+  "heal",
+  "buff",
+  "debuff",
+  "move",
+] as const;
 export type SkillShapeId = (typeof SKILL_SHAPE_IDS)[number];
 export const SKILL_TRIGGERS = ["active", "passive"] as const;
 export const SKILL_RESOURCES = ["stamina", "mp"] as const;
@@ -106,8 +115,31 @@ export interface SkillJson {
   readonly conditions: readonly SkillConditionJson[];
   readonly effects: readonly SkillEffectJson[];
   readonly gradePm: readonly number[];
+  /**
+   * 움직임 부품·곡선(docs/adr/2026-11-15-combat-moves.md 6절, 팩 선택 칸). 편집기 입력 칸은 뒤 작업이고, 항목을 통째로 저장하므로
+   * 칸을 잃지 않는다
+   */
+  readonly move?: SkillMoveJson | undefined;
+  readonly displace?: SkillDisplaceJson | undefined;
+  readonly curves?: readonly string[] | undefined;
+  readonly shots?: number | undefined;
   readonly enabled: boolean;
 }
+
+/** 자기 몸 이동 부품(팩 move 칸) */
+export type SkillMoveJson =
+  | { readonly kind: "dash"; readonly cells: number; readonly hitRange?: number | undefined }
+  | { readonly kind: "leap"; readonly cells: number }
+  | { readonly kind: "blink"; readonly cells: number; readonly dir: "toward" | "away" }
+  | { readonly kind: "backstep"; readonly cells: number }
+  | { readonly kind: "stealth"; readonly durationMs: number }
+  | { readonly kind: "detect"; readonly cells: number; readonly durationMs: number };
+
+/** 맞은 대상 옮김 부품(팩 displace 칸) */
+export type SkillDisplaceJson =
+  | { readonly kind: "knockback"; readonly cells: number }
+  | { readonly kind: "pull"; readonly cells: number }
+  | { readonly kind: "root"; readonly durationMs: number };
 
 /** 입력 칸 범위(팩 스키마와 같다. 서버가 다시 본다) */
 export const SKILL_LIMITS = {

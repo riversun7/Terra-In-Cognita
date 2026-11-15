@@ -178,8 +178,12 @@
  *    행동·결과는 그대로다(orders.test.ts가 바꾸기 전 코드의 끝 상태 지문과 견준다). 같은 판: 전투맵 걸음도 AGI(사용자 1265, D-553 — D-223
  *    "1칸 1초"를 대체): 사양의 한 칸 간격 = ⌊기본 × walk_speed(10) ÷ walk_speed(실효 AGI)⌋(combat/formulas.ts battleMoveIntervalMs) — AGI가 10이
  *    아닌 유닛의 전투 결과가 달라진다. 43은 같은 묶음의 다른 줄기가 쓴다
+ * 46: 전투 움직임 판정 토대(docs/adr/2026-11-15-combat-moves.md, 사용자 2026-11-15 "시작 (판정 토대부터)"): 달리기(대기 명령 run 칸·AI 고리
+ *    wantsRun, 초당 스태미나 설정 칸 moves_run_*), 스킬 칸 move(돌진·도약·점멸·뒷걸음·은신·감지)·displace(밀치기·끌어오기·묶기)·curves(사거리
+ *    간격 예산·마법 거리·마법 대상 수·지속 피해 합·가까이 쏘기)·shots(연사), 은신 들킴(감지 반지름 moves_detect_cells). 모두 [임시] 설정 칸.
+ *    새 부품이 없는 전투(지금 팩·시뮬 시나리오)는 결과가 그대로다(moves.test.ts가 바꾸기 전 지문과 견준다). 45는 같은 묶음의 다른 줄기가 쓴다
  */
-export const SIM_VERSION = 44;
+export const SIM_VERSION = 46;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

@@ -16,6 +16,9 @@ export interface ReplayUnitState {
   /** 효과 표 번호 → {겹침, 끝나는 틱(−1 = 내내)} */
   effects: Map<number, { stacks: number; untilTick: number }>;
   cast: { skill: number; target: number; startTick: number; endTick: number } | null;
+  /** 은신 중·달리는 중(형식 2). 켜졌을 때만 칸이 있다 */
+  stealth?: true | undefined;
+  running?: true | undefined;
 }
 
 /** 키프레임 → 고칠 수 있는 상태(키프레임 시전의 시작 틱은 모른다: 키프레임 틱으로 둔다) */
@@ -34,6 +37,8 @@ export function stateFromKeyframe(keyframe: ReplayKeyframe): ReplayUnitState[] {
       unit.effects.map((effect) => [effect.effect, { stacks: effect.stacks, untilTick: effect.untilTick }]),
     ),
     cast: unit.cast ? { ...unit.cast, startTick: keyframe.tick } : null,
+    ...(unit.stealth ? { stealth: true as const } : {}),
+    ...(unit.running ? { running: true as const } : {}),
   }));
 }
 
@@ -138,9 +143,32 @@ export function applyReplayEvent(state: ReplayUnitState[], event: ReplayEvent): 
       unit.stamina = event.stamina;
       return;
     }
+    case "motion": {
+      const unit = state[event.u];
+      if (!unit) return;
+      unit.x = event.x;
+      unit.y = event.y;
+      unit.facing = event.facing;
+      return;
+    }
+    case "stealth": {
+      const unit = state[event.u];
+      if (!unit) return;
+      if (event.on) unit.stealth = true;
+      else delete unit.stealth;
+      return;
+    }
+    case "run": {
+      const unit = state[event.u];
+      if (!unit) return;
+      if (event.on) unit.running = true;
+      else delete unit.running;
+      return;
+    }
     case "projectile":
     case "building":
     case "vision":
+    case "multishot":
     case "end":
       return;
     default: {

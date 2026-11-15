@@ -205,6 +205,11 @@ export function combatCatalogFrom(pack: CombatPackEntries): CombatCatalog {
             durationMs: part.durationMs,
           })),
         gradePm: entry.gradePm,
+        // 움직임 부품·곡선(docs/adr/2026-11-15-combat-moves.md 6절). 없으면 칸을 두지 않는다
+        ...(entry.move ? { move: entry.move } : {}),
+        ...(entry.displace ? { displace: entry.displace } : {}),
+        ...(entry.curves ? { curves: entry.curves } : {}),
+        ...(entry.shots !== undefined ? { shots: entry.shots } : {}),
       }),
     );
   const equipment = pack.items.flatMap((item): EquipDef[] => {

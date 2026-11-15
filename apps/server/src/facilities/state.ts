@@ -30,6 +30,11 @@ export type JobKind = (typeof JOB_KINDS)[number];
 export interface JobMaterial {
   readonly item: string;
   readonly qty: number;
+  /**
+   * 이 줄의 재료로 받는 아이템(첫째 = item, 기획 D-562 1563·1564 — 레벨 0 재료는 같은 원자재 종류 T0~T1). 없으면 item만. 저장하지 않는다(작업
+   * 줄 jsonb는 item·qty만 — materialsOf)
+   */
+  readonly accepts?: readonly string[] | undefined;
 }
 
 /** 시간이 걸리는 작업 하나(끝나면 지운다) */
@@ -150,7 +155,7 @@ export const jobRow = (job: JobRecord) => ({
   restore_ppm: job.restorePpm,
   unit_ids: [...job.unitIds],
   // pg가 배열을 Postgres 배열로 바꾸지 않게 JSON 글자로 넣는다(보유 물건 stats와 같다)
-  materials: JSON.stringify(job.materials),
+  materials: JSON.stringify(job.materials.map((stack) => ({ item: stack.item, qty: stack.qty }))),
   started_at_ms: job.startedAtMs,
   done_at_ms: job.doneAtMs,
 });

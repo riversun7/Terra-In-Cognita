@@ -71,6 +71,16 @@ export interface WorldFacilities {
    * 없으면 undefined
    */
   condition(unitId: number): WorkerConditionView | undefined;
+  /**
+   * 유닛이 있는 도시(condition과 같은 고르기 — 없으면 null, 띄운 2차맵에 없으면 undefined)와 일하는 채집 시설(시설 ID·레벨). 사이보그 판 채집
+   * 예상(기획 D-556 1255 "예상에 일터 레벨 반영", D-562 1569 "그 도시 거래소 체결가")이 읽는다
+   */
+  unitPlace(unitId: number):
+    | {
+        readonly cityId: number | null;
+        readonly workplace?: { readonly facility: string; readonly level: number };
+      }
+    | undefined;
   /** 플레이어 일꾼 쉼터를 잇는다(채집 세계가 세계 준비 뒤 labor/workerRest.ts로 만든다 — D-535 1152 나) */
   attachRest(read: RestReader): void;
   /** 사업장 장부(금고·소득세·적자·정산 — docs/adr/2026-11-15-business-ledger.md, D-548·D-555) */
@@ -430,6 +440,15 @@ export function createWorldFacilities(input: {
     condition(unitId) {
       const cityId = cityOfUnit(unitId);
       return cityId === undefined ? undefined : conditionView(unitId, cityId);
+    },
+    unitPlace(unitId) {
+      const cityId = cityOfUnit(unitId);
+      if (cityId === undefined) return undefined;
+      const buildingId = labor?.assignedTo(unitId);
+      const record = buildingId === undefined ? undefined : service.facilities.get(buildingId);
+      return record && record.level >= 1
+        ? { cityId, workplace: { facility: record.facilityId, level: record.level } }
+        : { cityId };
     },
     attachRest(read) {
       readRest = read;

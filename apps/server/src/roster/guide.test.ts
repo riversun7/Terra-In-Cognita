@@ -1,7 +1,12 @@
 // 유닛 추천 표(팩) 시험 — 팩 core의 1차 생산 여섯 가지가 사용자 표(2026-11-11, 옛 gather_type_config = 기획 43 §4)와 같고 스탯마다 주 하나·
 // 보조 하나인지, 전투 클래스 표가 옛 35종(2스탯 15 + 3스탯 20, 기획 D-529) + 범용인지, 옛 문서·코드 예시가 그대로 나오는지.
 // 팩 파일을 읽어야 해서 서버 시험이다(함수 시험은 packages/shared/src/unitGuide.test.ts).
-import { combatClassEntrySchema, facilityEntrySchema, readCategoryFile } from "@terra/content";
+import {
+  combatClassEntrySchema,
+  facilityEntrySchema,
+  itemEntrySchema,
+  readCategoryFile,
+} from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
 import { PRIMARY_STATS } from "@terra/shared/roster";
 import {
@@ -13,9 +18,11 @@ import {
   statCoverage,
 } from "@terra/shared/unitGuide";
 import type { FishTierRanges } from "@terra/shared/fishWater";
-import { TEST_SOCIETY_COEFFICIENTS, fishTierRangesOf } from "@terra/sim";
+import { TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
+import { gatherKindsFromEntries } from "../gather/kinds.ts";
+import { fishRangesOfKinds } from "../gather/npcTiers.ts";
 import { unitGuideOf } from "./guide.ts";
 
 function packGuide(fishTiers?: FishTierRanges) {
@@ -127,14 +134,24 @@ describe("유닛 추천 표(팩 core)", () => {
     ).toEqual(["fishing_spot", "ranch"]);
   });
 
-  it("낚시터 줄에만 물 종류마다 티어 범위(D-542 1365 나 — 설정 칸이 없으면 싣지 않는다)", () => {
-    const withTiers = packGuide(fishTierRangesOf(TEST_SOCIETY_COEFFICIENTS.worldSeed));
+  it("낚시터 줄에만 물 종류마다 티어 범위(D-562 1562 — 팩 오브젝트 물터·어군에서 끌어냄, 없으면 싣지 않는다)", () => {
+    const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+    if (!loaded.source) throw new Error("content pack");
+    const tiers = new Map(
+      readCategoryFile(loaded.source, "items").entries.map((raw) => {
+        const item = itemEntrySchema.parse(raw);
+        return [item.id, item.tier];
+      }),
+    );
+    const kinds = gatherKindsFromEntries(readCategoryFile(loaded.source, "gather_objects").entries);
+    const withTiers = packGuide(fishRangesOfKinds(kinds, (id) => tiers.get(id)));
     const fishing = withTiers.production.find((row) => row.facility === "fishing_spot");
+    // 민물 = 민물 물터·호수 어군 T2, 연안 = 바다 물터·연안 어군 T4, 대륙붕 T6·심해 T8(어군), 아래 끝은 막지 않는다(물터가 섞인다)
     expect(fishing?.waterTiers).toEqual([
       { water: "fresh", min: 0, max: 2 },
       { water: "coast", min: 0, max: 4 },
-      { water: "shelf", min: 2, max: 6 },
-      { water: "deep", min: 4, max: 8 },
+      { water: "shelf", min: 0, max: 6 },
+      { water: "deep", min: 0, max: 8 },
     ]);
     expect(withTiers.production.filter((row) => row.waterTiers).map((row) => row.facility)).toEqual([
       "fishing_spot",

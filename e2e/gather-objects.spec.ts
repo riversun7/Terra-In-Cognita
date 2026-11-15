@@ -1,7 +1,9 @@
 // 채집 오브젝트 편집기 화면 시험 — 기획 D-552(사용자 "오브젝트마다 3d 모델 및 티어범위, 해당오브젝트 출현 2차맵 지형등을 관리하는 에디터페이지
 // 만들어라"), docs/adr/2026-11-15-gather-object-tiers.md 7절.
-// - /dev/gather-objects(dev): 오브젝트 49종 목록, 광맥을 고르면 티어 범위 T2~T9·미리 보기 구리부터, 위를 T6으로 내리면 바뀐 항목 1개,
+// - /dev/gather-objects(dev): 오브젝트 50종 목록(D-562 바다 물터 더함), 광맥을 고르면 티어 범위 T2~T9·미리 보기 구리부터, 위를 T6으로 내리면 바뀐 항목 1개,
 //   [되돌리기]로 0. 굴림표(고래 무리)는 범위 칸이 없다. 거르기(어군)로 다섯 줄.
+// - 바뀜 (기획 D-562 1561·1565): 같은 티어 아이템 비중 칸(빈터 약초 T1 — 알로에 비중을 적으면 미리 보기가 바뀌고 바뀐 항목 1개), 바다 물터의
+//   물 종류(연안·대륙붕·심해 켬)와 T0 조개 비중.
 // - 배치·사진: 개발 화면 테마 둘(네온·라이트) × 390·1440, 가로 넘침 없음.
 import type { Page } from "@playwright/test";
 import { horizontalOverflow, shot } from "./helpers/screen.ts";
@@ -23,7 +25,7 @@ test.describe("채집 오브젝트 편집기", () => {
   }) => {
     await open(page);
     const screen = screenOf(page);
-    await expect(page.locator(".go-table tbody tr")).toHaveCount(49);
+    await expect(page.locator(".go-table tbody tr")).toHaveCount(50);
     await page.locator('tr[data-row="ore_vein"] .go-pick').click();
     await expect(screen).toHaveAttribute("data-selected", "ore_vein");
     const panel = page.locator(".go-panel");
@@ -45,6 +47,34 @@ test.describe("채집 오브젝트 편집기", () => {
     // 거르기: 어군 다섯(민물·연안·대륙붕·큰 어군·고래 무리)
     await page.locator(".go-filters select").selectOption("school");
     await expect(screen).toHaveAttribute("data-rows", "5");
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("같은 티어 아이템 비중(D-562 1561)·바다 물터 물 종류(1565)", async ({ page, deviceErrors }) => {
+    await open(page);
+    const screen = screenOf(page);
+    await page.locator('tr[data-row="herb_patch"] .go-pick').click();
+    const weights = page.locator('.go-panel [data-part="weights"]');
+    const t1 = weights.locator('li[data-tier="1"]');
+    await expect(t1).toHaveAttribute("data-weighted", "false");
+    // 유효 스탯 20: T1 850‰ → 대표(캐모마일)
+    await expect(page.locator('.go-chances li[data-item="chamomile"] .dev-num')).toHaveText("85.0%");
+    await t1.locator('.go-weight[data-item="aloe"] input').fill("100");
+    await expect(t1).toHaveAttribute("data-weighted", "true");
+    // 비중을 적은 티어: 알로에만(캐모마일 0)
+    await expect(page.locator('.go-chances li[data-item="aloe"] .dev-num')).toHaveText("85.0%");
+    await expect(page.locator('.go-chances li[data-item="chamomile"]')).toHaveCount(0);
+    await expect(screen).toHaveAttribute("data-changes", "1");
+    // 바다 물터: 연안·대륙붕·심해, T0은 조개
+    await page.locator('tr[data-row="fishing_water_sea"] .go-pick').click();
+    const waters = page.locator('.go-panel [data-part="waters"]');
+    await expect(waters.locator('[data-water="fresh"]')).toHaveAttribute("aria-pressed", "false");
+    await expect(waters.locator('[data-water="coast"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator('.go-panel [data-part="weights"] li[data-tier="0"]')).toHaveAttribute(
+      "data-weighted",
+      "true",
+    );
+    await expect(page.locator('.go-chances li[data-tier="0"]')).toHaveAttribute("data-item", "shellfish");
     expect(deviceErrors).toEqual([]);
   });
 

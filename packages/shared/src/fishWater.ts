@@ -5,8 +5,8 @@
 //   연안, 호수(2)·강(4)이면 민물, 바이옴이 호수·습지면 민물. 물이 없으면 없음.
 // - 여러 칸에서 하나 고르기(spotFishWater): 낚시터가 설 수 있는 칸(물에 잠기지 않은 땅 — 해안·강가)의 물 종류를 먼저 보고, 그런 칸이 없으면
 //   모든 칸(바다·호수 칸)을 본다. 가장 많은 종류, 같으면 더 깊은 쪽.
-// - 범위(설정 칸 fish_tier_* — 출발값은 어군 범위와 같다: 민물 T0~T2, 연안 T0~T4, 대륙붕 T2~T6, 심해 T4~T8)는 추첨으로 뽑은 티어를 접는다
-//   (아래는 min으로 올리고 위는 max로 내린다 — @terra/sim rollGatherOutputs tierRange, 어군 직접 채집 foldTierRange와 같은 꼴).
+// - 범위는 추첨으로 뽑은 티어를 접는다(아래는 min으로 올리고 위는 max로 내린다 — @terra/sim rollGatherOutputs tierRange, 어군 직접 채집
+//   foldTierRange와 같은 꼴). 바뀜 (기획 D-562 1562): 범위는 설정 칸 fish_tier_*가 아니라 팩 오브젝트 범위에서 끌어낸다(npcGatherTiers.ts).
 // 정수만 쓴다(판정 코드 규칙). 다른 내부 패키지를 가져오지 않는다.
 
 /** 물 종류(얕은 것부터 — 차례가 깊이다) */
@@ -19,7 +19,7 @@ export interface FishTierRange {
   readonly max: number;
 }
 
-/** 물 종류마다 티어 범위(설정 칸) */
+/** 물 종류마다 티어 범위(팩 오브젝트에서 끌어냄 — npcGatherTiers.ts npcFishRanges) */
 export type FishTierRanges = Readonly<Record<FishWater, FishTierRange>>;
 
 /** 물 종류를 보는 칸 값(행성 값 PlanetCellValues·@terra/shared/catchment CatchmentLand의 일부) */
@@ -47,6 +47,11 @@ const OCEAN_BIOME: Readonly<Record<string, FishWater>> = {
 
 /** 민물 바이옴 */
 const FRESH_BIOMES: ReadonlySet<string> = new Set(["lake", "wetland"]);
+
+/** 바이옴 하나의 물 종류(바다 바이옴이면 그 깊이, 호수·습지면 민물, 그 밖은 undefined — 어군 오브젝트의 집 물, 기획 D-562 1562) */
+export function fishWaterOfBiome(biomeId: string): FishWater | undefined {
+  return OCEAN_BIOME[biomeId] ?? (FRESH_BIOMES.has(biomeId) ? "fresh" : undefined);
+}
 
 /** 칸 하나의 물 종류(머리 주석). 물이 없거나 값이 없으면 undefined */
 export function fishWaterOfLand(land: FishWaterLand | undefined): FishWater | undefined {

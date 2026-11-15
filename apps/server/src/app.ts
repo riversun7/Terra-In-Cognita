@@ -3,7 +3,7 @@ import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
-import { TEST_RANKING_COEFFICIENTS, combatCoefficientsFrom, fishTierRangesOf } from "@terra/sim";
+import { TEST_RANKING_COEFFICIENTS, combatCoefficientsFrom } from "@terra/sim";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { registerAccountRoutes } from "./auth/account.ts";
 import { type TerraAuth, createAuth, verifyAuth } from "./auth/auth.ts";
@@ -45,7 +45,7 @@ import { TEST_HOUSE_RULES, houseRulesFrom } from "./factionIdentity/rules.ts";
 import { configureInjuryRules } from "./world/unitCondition.ts";
 import { createRuinGateway } from "./ruins/gateway.ts";
 import { marketSourceOf } from "./market/appSource.ts";
-import { serverEconomyCatalogAccessor } from "./market/catalog.ts";
+import { marketContentOf, serverEconomyCatalogAccessor } from "./market/catalog.ts";
 import { createTravelRaids } from "./travel/raid.ts";
 import { createMarketGateway } from "./market/gateway.ts";
 import { createTravelGateway } from "./travel/gateway.ts";
@@ -66,6 +66,7 @@ import { type CyborgService, cyborgReadsOf } from "./cyborg/service.ts";
 import { loadEmblemHashes } from "./nationEdit/emblems.ts";
 import type { RecruitService } from "./recruit/service.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
+import { gatherSheetSourceOf, unitGuideSourceOf } from "./roster/appSources.ts";
 import { testRosterCatalog } from "./roster/catalog.ts";
 import { createWorldRosterSource } from "./roster/worldUnits.ts";
 import { createSecondMapLab } from "./world/secondMapLab.ts";
@@ -367,7 +368,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         // NPC 도시 경제·거래소(docs/adr/2026-11-07-play-flow.md WP4): 경제 화면 목록 + 실효 아이템·시설·채집 확률표
         economy: serverEconomyCatalogAccessor(
           options.economyCatalog,
-          contentEditState ? () => contentEditState.effective() : undefined,
+          marketContentOf(contentEditState, () => options.gatherObjects),
         ),
       })
     : undefined;
@@ -647,30 +648,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
               }
             : undefined;
         },
-        // 사이보그 판 원자재별 채집 예상(2026-11-12): 실효 팩 채집 시설·티어 구간·중분류 이름
-        gatherSheet: contentEditState
-          ? () => {
-              const effective = contentEditState.effective();
-              return {
-                facilities: effective.facilities,
-                gatherTiers: effective.gatherTiers,
-                itemSubcategories: effective.itemSubcategories,
-              };
-            }
-          : undefined,
-        // 유닛 추천 표(1차 생산 스탯 짝·전투 클래스, docs/adr/2026-11-11-production-six.md): 실효 팩과 설정 칸 실효 문턱
-        guide: contentEditState
-          ? () => {
-              const effective = contentEditState.effective();
-              return {
-                facilities: effective.facilities,
-                combatClasses: effective.combatClasses,
-                rule: tuningState?.society().combatClass,
-                // 낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나, 설정 칸 fish_tier_*)
-                fishTiers: tuningState ? fishTierRangesOf(tuningState.society().worldSeed) : undefined,
-              };
-            }
-          : undefined,
+        // 사이보그 판 원자재별 채집 예상(2026-11-12, D-562 1569)·유닛 추천 표(production-six): roster/appSources.ts
+        gatherSheet: gatherSheetSourceOf(contentEditState, () => options.gatherObjects ?? [], world),
+        guide: unitGuideSourceOf(contentEditState, tuningState, () => options.gatherObjects ?? []),
       },
       cyborgs: () => {
         const service = cyborgService();

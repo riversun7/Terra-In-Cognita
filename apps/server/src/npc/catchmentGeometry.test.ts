@@ -4,8 +4,8 @@ import type { CatchmentLand } from "@terra/shared/catchment";
 import {
   TEST_SOCIETY_COEFFICIENTS,
   catchmentSettingsOf,
+  catchmentPlaceOf,
   createCatchmentState,
-  fishTierRange,
 } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
@@ -49,6 +49,8 @@ describe("NPC 배후지 낚시터 물 종류", () => {
       landPm: full,
       highOrePm: 1000,
     });
-    expect(fishTierRange(state, 1, "fishing_spot")).toEqual({ min: 0, max: 4 });
+    // 낚시터 자리 = 연안(범위는 팩 오브젝트에서 — @terra/shared/npcGatherTiers, 기획 D-562 1562), 광산 자리 = 산지 몫
+    expect(catchmentPlaceOf(state, 1, "fishing_spot")).toEqual({ water: "coast" });
+    expect(catchmentPlaceOf(state, 1, "mine")).toEqual({ highOrePm: 1000 });
   });
 });

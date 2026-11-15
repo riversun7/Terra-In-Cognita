@@ -7,10 +7,9 @@ import {
   type CatchmentState,
   catchmentSettingsOf,
   createCatchmentState,
+  catchmentPlaceOf,
   facilitySupplyPm,
-  fishTierRange,
   landShares,
-  oreTierCap,
   planeCell,
   planeGeometry,
   scenarioPlaneLayout,
@@ -175,9 +174,9 @@ describe("광석 고도 몫(기획 D-533)", () => {
     expect(elevated(350).capacityPm(planeCell(0, 0), "ore")).toBe(775);
     expect(elevated(600).capacityPm(planeCell(0, 0), "ore")).toBe(1000);
     expect(elevated(0).capacityPm(planeCell(0, 0), "crop")).toBe(1000);
-    // 높은 티어 몫(기획 D-535): 산지 200m 이상 1000, 산지 밖 50(ore_flat_high_pm [임시])
-    expect(elevated(0).highOrePm?.(planeCell(0, 0))).toBe(50);
-    expect(elevated(199).highOrePm?.(planeCell(0, 0))).toBe(50);
+    // 높은 티어 몫(기획 D-535, D-562 1562): 산지 200m 이상 1000, 산지 밖 0(옛 설정 칸 ore_flat_high_pm은 없앴다)
+    expect(elevated(0).highOrePm?.(planeCell(0, 0))).toBe(0);
+    expect(elevated(199).highOrePm?.(planeCell(0, 0))).toBe(0);
     expect(elevated(200).highOrePm?.(planeCell(0, 0))).toBe(1000);
     expect(elevated(600).highOrePm?.(planeCell(0, 0))).toBe(1000);
     // 고도가 없는 평면(옛 시나리오)은 그대로
@@ -225,7 +224,7 @@ describe("광석 고도 몫(기획 D-533)", () => {
   });
 
   it("땅 몫 = 칸 몫 평균, 산지 몫 = 광석 몫으로 가중한 산지 칸 몫", () => {
-    // x = 0은 산지, x = 1은 해수면: 광석 (1000 + 350) ÷ 2, 높은 티어 몫 (1000 × 1000 + 350 × 50) ÷ 1350(산지 밖 50 — 기획 D-535)
+    // x = 0은 산지, x = 1은 해수면: 광석 (1000 + 350) ÷ 2, 높은 티어 몫 (1000 × 1000 + 350 × 0) ÷ 1350(산지 밖 0 — 기획 D-562 1562)
     const geometry = planeGeometry({
       at: new Map(),
       elevationAt: (x) => (x === 0 ? 800 : 0),
@@ -234,7 +233,7 @@ describe("광석 고도 몫(기획 D-533)", () => {
     const land = landShares(geometry, [planeCell(0, 0), planeCell(1, 0), planeCell(1, 0)]);
     expect(land.landPm.ore).toBe(675);
     expect(land.landPm.wood).toBe(1000);
-    expect(land.highOrePm).toBe(753);
+    expect(land.highOrePm).toBe(740);
     expect(landShares(geometry, [])).toEqual({
       landPm: { ore: 0, wood: 0, herb: 0, crop: 0, livestock: 0, fish: 0 },
       highOrePm: 0,
@@ -259,10 +258,11 @@ describe("광석 고도 몫(기획 D-533)", () => {
     // 바닥 100
     expect(facilitySupplyPm(state, 1, "lumber_camp")).toBe(100);
     expect(facilitySupplyPm(state, 1, "farm")).toBe(1000);
-    expect(oreTierCap(state, 1, "mine")).toEqual({ maxTier: 2, keepAbovePm: 250 });
-    expect(oreTierCap(state, 1, "lumber_camp")).toBeUndefined();
-    expect(oreTierCap(state, 2, "mine")).toBeUndefined();
-    expect(oreTierCap(undefined, 1, "mine")).toBeUndefined();
+    // 자리(기획 D-562 1562 — 위 끝은 팩 오브젝트 묶음, @terra/shared/npcGatherTiers): 광산 = 산지 몫, 그 밖 시설·모르는 도시는 빈 자리
+    expect(catchmentPlaceOf(state, 1, "mine")).toEqual({ highOrePm: 250 });
+    expect(catchmentPlaceOf(state, 1, "lumber_camp")).toEqual({});
+    expect(catchmentPlaceOf(state, 2, "mine")).toEqual({});
+    expect(catchmentPlaceOf(undefined, 1, "mine")).toEqual({});
   });
 
   it("낮은 땅 광산 도시도 혼자면 다 받는다(가난한 땅만으로는 성장이 멈추지 않는다) — 시뮬 시나리오 고도", () => {
@@ -322,17 +322,16 @@ describe("낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나)", () 
       highOrePm: 1000,
     });
 
-  it("배후지 땅 칸에서 가장 많은 물 종류의 범위(설정 칸 출발값 = 어군 범위), 낚시터만, 하루 끝 전·물 정보 없음은 접지 않는다", () => {
+  it("배후지 땅 칸에서 가장 많은 물 종류, 낚시터만, 하루 끝 전·물 정보 없음은 모름(D-562 1562 — 범위는 팩 오브젝트)", () => {
     const geometry = planeGeometry({ at: new Map([[1, { x: 0, y: 0 }]]), fishWaterAt: () => "shelf" });
     const state = createCatchmentState(geometry, settings);
-    expect(fishTierRange(state, 1, "fishing_spot")).toBeUndefined();
+    expect(catchmentPlaceOf(state, 1, "fishing_spot")).toEqual({});
     cityAt(state, 1000);
-    expect(fishTierRange(state, 1, "fishing_spot")).toEqual({ min: 2, max: 6 });
-    expect(fishTierRange(state, 1, "mine")).toBeUndefined();
-    expect(fishTierRange(undefined, 1, "fishing_spot")).toBeUndefined();
+    expect(catchmentPlaceOf(state, 1, "fishing_spot")).toEqual({ water: "shelf" });
+    expect(catchmentPlaceOf(undefined, 1, "fishing_spot")).toEqual({});
     const dry = createCatchmentState(planeGeometry({ at: new Map([[1, { x: 0, y: 0 }]]) }), settings);
     dry.cities.set(1, state.cities.get(1) ?? fail());
-    expect(fishTierRange(dry, 1, "fishing_spot")).toBeUndefined();
+    expect(catchmentPlaceOf(dry, 1, "fishing_spot")).toEqual({});
   });
 
   it("섞인 배후지: 땅 칸 다수결(같으면 깊은 쪽) — 반경이 바뀌면 다시 센다", () => {
@@ -343,10 +342,10 @@ describe("낚시터 물 종류 티어 범위(기획 D-542 질문 1365 나)", () 
     });
     const state = createCatchmentState(geometry, settings);
     cityAt(state, 1000);
-    expect(fishTierRange(state, 1, "fishing_spot")).toEqual({ min: 0, max: 2 });
+    expect(catchmentPlaceOf(state, 1, "fishing_spot")).toEqual({ water: "fresh" });
     // 칸 하나만(반경 < 1칸): 가운데 x = 0 → 민물
     cityAt(state, 500);
-    expect(fishTierRange(state, 1, "fishing_spot")).toEqual({ min: 0, max: 2 });
+    expect(catchmentPlaceOf(state, 1, "fishing_spot")).toEqual({ water: "fresh" });
   });
 
   it("시나리오: 세력 묶음 catchmentFishWater > catchment.fishWater > 기본 연안(질문 1411)", () => {

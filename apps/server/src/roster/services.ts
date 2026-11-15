@@ -226,7 +226,13 @@ export function createRosterServices(
         );
         body = {
           ...body,
-          gather: gatherSheetOf(sheetSource, stats, body.condition?.total ?? 0, catalog.society),
+          gather: gatherSheetOf(
+            sheetSource,
+            stats,
+            body.condition?.total ?? 0,
+            catalog.society,
+            query.preview ? null : (record?.unitId ?? null),
+          ),
         };
       }
       const names = body

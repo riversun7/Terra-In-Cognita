@@ -7,6 +7,7 @@ import {
   type StatRowEntry,
   facilityEntrySchema,
   formulaEntrySchema,
+  gatherObjectEntrySchema,
   gatherTierEntrySchema,
   overlayFormulasDiff,
   formatIssue,
@@ -28,6 +29,7 @@ import {
   type EntriesDiffChange,
 } from "@terra/content";
 import { loadContentPack, overlayEntriesDiff } from "@terra/content/node";
+import type { NpcObjectSource } from "@terra/shared/npcGatherTiers";
 import {
   type CombatCatalog,
   type CombatFormulaSet,
@@ -148,7 +150,29 @@ function catalogOf(source: PackSource): EconomyCatalog {
     ),
     // 채집 티어 확률표(팩 gather_tiers, 파일 차례 = from 차례). 파일이 없으면 시뮬 기본표(TEST_GATHER_BANDS)
     ...gatherBandsOf(source),
+    // NPC 채집 티어 규칙(기획 D-562 1562): 팩 채집 오브젝트에서 끌어낸다(@terra/shared/npcGatherTiers)
+    gatherObjects: gatherObjectsOf(source),
   };
+}
+
+/** 팩 gather_objects → NPC 채집 티어 규칙 입력(파일이 없으면 빈 목록) */
+function gatherObjectsOf(source: PackSource): NpcObjectSource[] {
+  return parseFile(source, "gather_objects.json", (raw) => gatherObjectEntrySchema.parse(raw)).map(
+    (entry) => ({
+      source: entry.source,
+      facility: entry.facility?.id ?? null,
+      item: id(entry.item),
+      table: (entry.table?.length ?? 0) > 0,
+      ...(entry.tierRange ? { tierRange: { min: entry.tierRange.min, max: entry.tierRange.max } } : {}),
+      ...(entry.itemWeights
+        ? { itemWeights: entry.itemWeights.map((row) => ({ item: id(row.item), weight: row.weight })) }
+        : {}),
+      ...(entry.source === "plot" && entry.waters ? { waters: [...entry.waters] } : {}),
+      ...(entry.source === "school"
+        ? { biomes: entry.biomes.map((row) => ({ biome: id(row.biome), amount: row.count })) }
+        : {}),
+    }),
+  );
 }
 
 /** 팩 gather_tiers → 시뮬 확률표(파일이 없거나 비면 칸을 두지 않는다) */

@@ -140,9 +140,7 @@ export function WorldCatchmentPanel({ planetId, code, busy }: Props) {
               hillM: view.ore.hillM,
               hill: view.ore.hillPm,
               mountainM: view.ore.mountainM,
-              tier: view.ore.lowTierMax,
               highM: view.ore.highM,
-              flat: view.ore.flatHighPm,
             })}
           </p>
           <ul className="wl-legend wl-catch-legend">

@@ -3,7 +3,8 @@
 // 줄 = 두 스탯(주 + 보조) 초기 합, 칸 = 레벨. 칸마다 K 범위(N6)의 유효 스탯 범위와 T0~T9 확률. 컨디션(관리 보너스)·시설 레벨 손잡이를 옮기면 바로
 // 다시 센다. 칸 아래에 선택 방식(농장·목장) 해금 티어 범위도 보인다(D-535 1154 나 — 컨디션을 반씩 두 스탯에). 셈은 판정과 같은 @terra/shared/gatherExpect(성장 primaryAtLevel·유효 스탯 gatherStat·구간 gatherBandIndex)이고, 확률표는 담은
 // 변경을 얹은 지금 표(draftBands)라 확률 분포 탭에서 고친 값이 바로 보인다. 계산만 한다(서버에 보내지 않는다).
-// 바뀜 (2026-11-14, 기획 D-542 질문 1365 나): 고른 사다리에 낚시터가 있으면 물 종류를 골라 확률을 그 티어 범위(설정 칸 fish_tier_*)로 접어 본다.
+// 바뀜 (2026-11-14, 기획 D-542 질문 1365 나): 고른 사다리에 낚시터가 있으면 물 종류를 골라 확률을 그 티어 범위로 접어 본다.
+// 바뀜 (2026-11-15, 기획 D-562 1562): 범위는 설정 칸이 아니라 팩 오브젝트(물터·어군)에서 끌어낸 값이다(서버 buildingEdit fishTiers).
 import type { BuildingEditorGatherRules } from "@terra/shared/buildingEditor";
 import {
   GATHER_EXPECT_LEVELS,

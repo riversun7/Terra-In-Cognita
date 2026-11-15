@@ -2531,7 +2531,7 @@
       },
       "category": "raw",
       "subcategory": "ore",
-      "tier": 0,
+      "tier": 1,
       "startPrice": 1,
       "weight": 100,
       "enabled": true
@@ -2557,7 +2557,7 @@
       },
       "category": "raw",
       "subcategory": "ore",
-      "tier": 0,
+      "tier": 1,
       "startPrice": 1,
       "weight": 1000,
       "enabled": true
@@ -2609,7 +2609,7 @@
       },
       "category": "raw",
       "subcategory": "ore",
-      "tier": 0,
+      "tier": 4,
       "startPrice": 1,
       "weight": 2000,
       "enabled": true

@@ -12,6 +12,9 @@
 // 재료·시간) → 짓기(나라 성격 목표·주거·식량·배후지, 건물 수 상한 = 도시 등급 표) → 상한에 닿았으면 레벨 올리기(플레이어 레벨업과 같은 재료·시간).
 // 모자란 재료는 셋 모두 같은 길(도시 목표 재고)로 산다. 숙소 침대는 인구 상한에 더한다(시뮬 짓기 자리가 도시 beds에 적는다 — 시뮬 도시에는 씨앗
 // 숙소가 없다).
+// 바뀜 (2026-11-15, 기획 D-562 1563·1564 "레벨 0은 T0~T1 인정"): 원자재 T0~T1 재료 줄은 같은 원자재 종류의 T0~T1을 모두 받는다(있나·빼기·구할
+// 길·모자란 몫, @terra/shared/bareHandMaterials — 서버 건물 서비스와 같은 함수).
+import { allocateMaterials } from "@terra/shared/bareHandMaterials";
 import { materialOfFacility } from "@terra/shared/catchment";
 import {
   type BuildStackJson,
@@ -265,13 +268,21 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
     return spec?.build ? { stage: spec.stage, maxLevel: spec.maxLevel ?? FACILITY_LEVEL_MAX } : undefined;
   };
   const weight = (item: string) => lotWeightOf(economy, item);
+  const accepts = economy.catalog.bareHandAccepts;
   for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
-    /** 재료를 모두 구할 길이 있나(그 도시에 있거나 세계 어느 시설이 낸다) */
+    /** 재료 줄이 받는 아이템들의 그 도시 재고 합(레벨 0 재료는 같은 원자재 종류 T0~T1 — 기획 D-562 1563·1564) */
+    const groupStock = (item: string): bigint => {
+      let sum = 0n;
+      for (const other of accepts(item)) sum += world.book.balanceOf(faction.id, itemAsset(other), cityId);
+      return sum;
+    };
+    /** 재료를 모두 구할 길이 있나(그 도시에 있거나 세계 어느 시설이 낸다 — 받는 아이템 가운데 하나라도) */
     const canObtain = (materials: readonly BuildStackJson[]): boolean =>
-      materials.every((stack) => {
-        const asset = itemAsset(stack.item);
-        return produced.has(asset) || world.book.balanceOf(faction.id, asset, cityId) >= BigInt(stack.qty);
-      });
+      materials.every(
+        (stack) =>
+          accepts(stack.item).some((other) => produced.has(itemAsset(other))) ||
+          groupStock(stack.item) >= BigInt(stack.qty),
+      );
     wants.delete(cityId);
     const site = builder.site(faction, cityId);
     const city = world.cities.get(cityId);
@@ -416,9 +427,13 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
       const asset = itemAsset(stack.item);
       const qty = BigInt(stack.qty);
       need.set(asset, (need.get(asset) ?? 0n) + qty);
-      const short = qty - world.book.balanceOf(faction.id, asset, cityId);
+      const short = qty - groupStock(stack.item);
       if (short <= 0n) continue;
-      if (!produced.has(asset) && world.book.balanceOf(faction.id, asset, cityId) <= 0n) obtainable = false;
+      if (
+        !accepts(stack.item).some((other) => produced.has(itemAsset(other))) &&
+        groupStock(stack.item) <= 0n
+      )
+        obtainable = false;
       const lot = lotSizeOf(economy.catalog, asset);
       cost += ((short + lot - 1n) / lot) * marketRefPrice(economy, cityId, asset);
     }
@@ -612,10 +627,13 @@ export function simNpcBuilder(
       if (next.eventId === undefined) scheduleProduce(economy, world, loop, next, nowMs);
     }
   };
-  const has = (faction: SimFaction, cityId: number, materials: readonly BuildStackJson[]): boolean =>
-    materials.every(
-      (stack) => world.book.balanceOf(faction.id, itemAsset(stack.item), cityId) >= BigInt(stack.qty),
+  /** 꺼낼 아이템별 수량(레벨 0 재료는 같은 원자재 종류 T0~T1 — 기획 D-562 1563·1564, @terra/shared/bareHandMaterials). 모자라면 undefined */
+  const planOf = (faction: SimFaction, cityId: number, materials: readonly BuildStackJson[]) =>
+    allocateMaterials(materials, economy.catalog.bareHandAccepts, (item) =>
+      world.book.balanceOf(faction.id, itemAsset(item), cityId),
     );
+  const has = (faction: SimFaction, cityId: number, materials: readonly BuildStackJson[]): boolean =>
+    planOf(faction, cityId, materials) !== undefined;
   /** 재료를 도시 창고에서 뺀다(sink, 감사 규칙 facility_build) */
   const spend = (
     faction: SimFaction,
@@ -624,10 +642,12 @@ export function simNpcBuilder(
     nowMs: number,
   ) => {
     const { book } = world;
+    const plan = planOf(faction, cityId, materials);
+    if (!plan) return;
     const entries: { account: number; amount: bigint }[] = [];
-    for (const stack of materials) {
-      const asset = itemAsset(stack.item);
-      const qty = BigInt(stack.qty);
+    for (const [item, qty] of plan) {
+      if (qty <= 0n) continue;
+      const asset = itemAsset(item);
       entries.push({ account: book.ownerAccount(faction.id, asset, cityId), amount: -qty });
       entries.push({ account: book.systemAccount(`sink:${asset}`, asset), amount: qty });
     }

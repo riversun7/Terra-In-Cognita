@@ -5,6 +5,7 @@
 // - 굴림표(table, 난파선·고래 무리): 가중치(‰)로 하나를 뽑는다.
 // - 직접 채집(objectYieldItem)과 채집소 일꾼(gather/station.ts lotRoll → labor/gatherWork.ts)이 같은 규칙(objectRollOf)과 같은 함수
 //   (@terra/sim rollGatherOutputs)를 쓴다(D-552 "직접 채집과 일꾼 채집이 같은 규칙").
+// - 바뀜 (기획 D-562 1561): 오브젝트마다 아이템별 비중(itemWeights)이 있으면 그 티어는 비중대로 고른다(적지 않은 티어는 대표 → 고르게).
 // 난수는 (유닛, 오브젝트, 차례)로 정한 시드 하나(서버 권위, 같은 입력이면 같은 결과). 정수 연산만 쓴다.
 import { createRng } from "@terra/shared";
 import { GATHER_TIERS, gatherSubcategories } from "@terra/shared/gatherMath";
@@ -63,7 +64,7 @@ const clampTier = (tier: number): number => Math.max(0, Math.min(GATHER_TIERS - 
  * 사다리에 없으면(꺼진 아이템 등) 그 티어 칸에 넣는다 — 범위 없는 오브젝트가 옛 고정 아이템을 그대로 낸다. 범위 = tierRange, 없으면 대표 아이템 티어
  */
 export function objectRollOf(
-  kind: Pick<GatherKind, "item" | "table" | "facility" | "tierRange">,
+  kind: Pick<GatherKind, "item" | "table" | "facility" | "tierRange" | "itemWeights">,
   catalog: ObjectYieldCatalog,
 ): ObjectRoll {
   const prefer = itemAsset(kind.item);
@@ -84,10 +85,15 @@ export function objectRollOf(
     kind.table && kind.table.length > 0
       ? kind.table.map((row) => ({ asset: itemAsset(row.item), weightPm: row.weightPm }))
       : undefined;
+  const weights =
+    kind.itemWeights && kind.itemWeights.length > 0 && !table
+      ? new Map(kind.itemWeights.map((row) => [itemAsset(row.item), Math.max(0, row.weight)]))
+      : undefined;
   return {
     ladder,
     tierRange: { min: clampTier(range.min), max: clampTier(Math.max(range.min, range.max)) },
     prefer,
+    ...(weights ? { weights } : {}),
     ...(table ? { table } : {}),
     select: gather?.mode === "select",
   };
@@ -95,7 +101,7 @@ export function objectRollOf(
 
 /** 한 번 캘 때 나오는 아이템 ID(item: 앞머리 없음). 아무것도 고르지 못하면 대표 아이템 */
 export function objectYieldItem(
-  kind: Pick<GatherKind, "item" | "table" | "facility" | "tierRange">,
+  kind: Pick<GatherKind, "item" | "table" | "facility" | "tierRange" | "itemWeights">,
   catalog: ObjectYieldCatalog,
   input: ObjectYieldInput,
 ): string {
@@ -112,6 +118,7 @@ export function objectYieldItem(
       selectTier: roll.select ? accessibleTier(primary, secondary) : undefined,
       tierRange: roll.tierRange,
       prefer: roll.prefer,
+      weights: roll.weights,
       table: roll.table,
     },
     createRng(yieldSeed(input)),

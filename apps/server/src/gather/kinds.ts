@@ -5,6 +5,7 @@ import { type ContentPack, GATHER_PLOT_SURFACES, gatherObjectEntrySchema } from 
 import { TERRAIN_SURFACE } from "@terra/protocol";
 import { mapPropArtCode } from "@terra/shared";
 import type { CatchmentMaterial } from "@terra/shared/catchment";
+import type { FishWater } from "@terra/shared/fishWater";
 
 /** 팩 지표 이름 → 지형 칸 지표 번호(@terra/protocol TERRAIN_SURFACE). 팩 이름 차례가 번호 차례다(시험이 본다) */
 export function plotSurfaceCode(name: (typeof GATHER_PLOT_SURFACES)[number]): number {
@@ -51,6 +52,10 @@ export interface GatherKind {
    * 티어 범위(기획 D-552 — 굴림표가 아닌 모든 오브젝트): 확률표로 뽑은 티어를 이 안으로 자른다. 없으면 대표 아이템 티어 하나(objectYield.ts)
    */
   readonly tierRange?: { readonly min: number; readonly max: number } | undefined;
+  /** 아이템별 비중(기획 D-562 1561 — 아이템 ID 앞머리 없음). 없으면 빈 목록과 같다(대표 → 고르게) */
+  readonly itemWeights?: readonly { readonly item: string; readonly weight: number }[] | undefined;
+  /** source plot: 서는 물 종류(기획 D-562 1565 — 민물·바다 물터). 없으면 보지 않는다 */
+  readonly waters?: readonly FishWater[] | undefined;
   readonly lots: number;
   readonly workMs: number;
   readonly uses: number;
@@ -63,7 +68,12 @@ export interface GatherKind {
 
 /** 팩의 오브젝트 종류(팩 차례 = 같은 그림을 둘이 맡을 때 앞의 것) */
 export function gatherKindsFromPack(pack: ContentPack): GatherKind[] {
-  return (pack.entries.get("gather_objects") ?? []).map((entry) => {
+  return gatherKindsFromEntries(pack.entries.get("gather_objects") ?? []);
+}
+
+/** 오브젝트 항목들(파싱한 팩 항목 또는 팩 파일 원본 JSON) → 종류(차례 그대로) */
+export function gatherKindsFromEntries(entries: readonly unknown[]): GatherKind[] {
+  return entries.map((entry) => {
     const json: unknown = JSON.parse(JSON.stringify(entry));
     const kind = gatherObjectEntrySchema.parse(json);
     const artName =
@@ -105,6 +115,10 @@ export function gatherKindsFromPack(pack: ContentPack): GatherKind[] {
       ...(kind.tierRange && !kind.table
         ? { tierRange: { min: kind.tierRange.min, max: kind.tierRange.max } }
         : {}),
+      ...(kind.itemWeights && !kind.table
+        ? { itemWeights: kind.itemWeights.map((row) => ({ item: row.item.id, weight: row.weight })) }
+        : {}),
+      ...(kind.source === "plot" && kind.waters ? { waters: [...kind.waters] } : {}),
       lots: kind.lots,
       workMs: kind.workMs,
       uses: kind.uses,

@@ -50,6 +50,8 @@ export interface LotRoll {
   readonly tierRange: { readonly min: number; readonly max: number };
   /** 대표 아이템 자산(item:<ID>) */
   readonly prefer: string;
+  /** 아이템별 비중(자산 → 비중, 기획 D-562 1561). 없으면 대표 → 고르게 */
+  readonly weights?: ReadonlyMap<string, number> | undefined;
   /** 굴림표(난파선·고래 무리). 있으면 티어를 뽑지 않는다 */
   readonly table?: readonly { readonly asset: string; readonly weightPm: number }[] | undefined;
 }
@@ -182,6 +184,7 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
         harvestGrams: BigInt(settings.oreGrams ?? 1000),
         tierRange: object?.tierRange,
         prefer: object?.prefer,
+        weights: object?.weights,
         table: object?.table,
       },
       createRng(lotSeed(input.unitId, seq)),

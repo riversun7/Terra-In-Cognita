@@ -16,13 +16,15 @@
 //   티어 막기는 oreTierCapOf(플레이어 광산과 같은 함수)다. 시뮬 평면도 같은 함수를 쓴다.
 // - 바뀜 (2026-11-12, 기획 D-534 — 질문 1080 가): 목재도 칸 몫(숲 밀도 몫, @terra/shared/catchment forestSharePm)이다. 서버는 행성 칸 숲 밀도,
 //   시뮬 평면은 시나리오 catchment.forest·세력 묶음 catchmentForest(없으면 숲을 보지 않는다 — 옛 결과 그대로). 땅 몫·빠르기는 광석과 같은 셈이다.
+// - 바뀜 (2026-11-15, 기획 D-562 1562 "npc도 스탯티어 따른다"): 광산 티어 막기·낚시터 물 종류 범위는 설정 칸(ore_low_tier_max·
+//   ore_flat_high_pm·fish_tier_*)이 아니라 팩 오브젝트 범위에서 끌어낸다(@terra/shared/npcGatherTiers). 여기는 자리(산지 몫·물 종류)만 준다
+//   (catchmentPlaceOf). 산지 밖 칸의 높은 티어 몫은 0이다(산지 = 고도 ≥ ore_high_min_m만 1000).
 // 정수 셈만 쓰고 난수가 없다(도시 ID·칸 키 차례) — 같은 시드면 같은 결과다.
 import {
   CATCHMENT_MATERIALS,
   type CatchmentGrowthRules,
   type CatchmentLand,
   type HighOreRules,
-  type OreTierCap,
   type OreShareRules,
   type CatchmentMaterial,
   type CatchmentSupplyRules,
@@ -35,23 +37,14 @@ import {
   highOrePm,
   materialOfFacility,
   oreSharePm,
-  oreTierCapOf,
   stepCatchmentSupply,
 } from "@terra/shared/catchment";
-import {
-  type FishTierRange,
-  type FishTierRanges,
-  type FishWater,
-  type FishWaterCell,
-  fishTierRangeOf,
-  spotFishWater,
-} from "@terra/shared/fishWater";
+import { type FishWater, type FishWaterCell, spotFishWater } from "@terra/shared/fishWater";
 import { type TerritoryCoefficients, cityGrade } from "@terra/shared/territory";
 import {
   type WorldSeedCoefficients,
   catchmentGrowthOf,
   catchmentSupplyOf,
-  fishTierRangesOf,
   plannedCityRadiusMilli,
 } from "../society/worldSeed.ts";
 import { DEFAULT_SCENARIO_FISH_WATER, type Scenario } from "./scenario.ts";
@@ -63,10 +56,10 @@ export interface CatchmentGeometry {
   cellsOf(cityId: number, radiusMilli: number): readonly number[];
   /** 칸의 원자재 몫(‰, 0이면 없음) */
   capacityPm(cell: number, material: CatchmentMaterial): number;
-  /** 칸 광석 가운데 높은 티어가 나오는 몫(‰ — 산지 칸 1000, 산지 밖 oreFlatHighPm). 없으면 모든 칸 1000(티어를 막지 않는다) */
+  /** 칸 광석 가운데 높은 티어가 나오는 몫(‰ — 산지 칸 1000, 산지 밖 0). 없으면 모든 칸 1000(티어를 막지 않는다) */
   highOrePm?(cell: number): number;
   /**
-   * 칸의 낚시터 물 종류와 땅 여부(기획 D-542 질문 1365 나, @terra/shared/fishWater fishWaterCellOf). 없으면 낚시터 티어를 접지 않는다(옛 결과)
+   * 칸의 낚시터 물 종류와 땅 여부(기획 D-542 질문 1365 나, @terra/shared/fishWater fishWaterCellOf). 없으면 물 종류를 모른다(모든 물 묶음)
    */
   fishWaterOf?(cell: number): FishWaterCell;
 }
@@ -80,10 +73,6 @@ export interface CatchmentSettings {
   readonly growthMinPm: number;
   /** 채집 시설 빠르기 바닥(‰) */
   readonly yieldFloorPm: number;
-  /** 산지 밖 광석의 가장 높은 티어(설정 칸 ore_low_tier_max) */
-  readonly lowOreTierMax: number;
-  /** 낚시터 물 종류마다 티어 범위(설정 칸 fish_tier_*). 없으면 접지 않는다 */
-  readonly fishTiers?: FishTierRanges | undefined;
 }
 
 /** 도시 하나의 지금 배후지 */
@@ -138,42 +127,16 @@ export function facilitySupplyPm(
   return Math.max(floor, Math.floor((supply * Math.min(1000, city.landPm[material])) / 1000));
 }
 
-/**
- * 광석 채집 시설(광산)의 티어 막기(모듈 머리 주석 "바뀜 (2026-11-12)"). 배후지가 없거나 광석 시설이 아니거나 아직 하루 끝 전이면 undefined
- * (막지 않는다). 산지 몫이 1000이면 막지 않는다
- */
-export function oreTierCap(
-  state: CatchmentState | undefined,
-  cityId: number,
-  facility: string,
-): OreTierCap | undefined {
-  if (!state || materialOfFacility(facility) !== "ore") return undefined;
-  const city = state.cities.get(cityId);
-  if (!city) return undefined;
-  return oreTierCapOf(city.highOrePm, state.settings().lowOreTierMax);
-}
-
 /** 도시 → 낚시터 물 종류(반경이 바뀌면 다시 센다 — 칸 물 종류는 정해져 있다) */
 const fishWaterCache = new WeakMap<
   CatchmentState,
   Map<number, { radiusMilli: number; water: FishWater | undefined }>
 >();
 
-/**
- * 낚시터(어류 채집 시설)의 티어 범위(기획 D-542 질문 1365 나): 그 도시 배후지 칸의 물 종류 가운데 낚시터가 설 땅 칸에서 가장 많은 것(같으면 더
- * 깊은 쪽, 땅 칸이 없으면 모든 칸 — spotFishWater)의 범위. 배후지가 없거나 어류 시설이 아니거나 아직 하루 끝 전이거나 칸 물 종류를 모르면
- * undefined(접지 않는다 — 광산 티어 막기 oreTierCap과 같은 때)
- */
-export function fishTierRange(
-  state: CatchmentState | undefined,
-  cityId: number,
-  facility: string,
-): FishTierRange | undefined {
-  if (!state || materialOfFacility(facility) !== "fish") return undefined;
-  const ranges = state.settings().fishTiers;
-  const city = state.cities.get(cityId);
+/** 그 도시 배후지의 낚시터 물 종류(spotFishWater — 땅 칸에서 가장 많은 것, 같으면 더 깊은 쪽). 모르면 undefined */
+function cityFishWater(state: CatchmentState, cityId: number, city: CityCatchment): FishWater | undefined {
   const fishWaterOf = state.geometry.fishWaterOf?.bind(state.geometry);
-  if (!ranges || !city || !fishWaterOf) return undefined;
+  if (!fishWaterOf) return undefined;
   let cache = fishWaterCache.get(state);
   if (!cache) {
     cache = new Map();
@@ -185,7 +148,27 @@ export function fishTierRange(
     known = { radiusMilli: city.radiusMilli, water: spotFishWater(cells.map((cell) => fishWaterOf(cell))) };
     cache.set(cityId, known);
   }
-  return fishTierRangeOf(ranges, known.water);
+  return known.water;
+}
+
+/**
+ * NPC 채집 시설이 선 배후지 자리(기획 D-562 1562 — @terra/shared/npcGatherTiers npcTierRollOf가 받는 모양): 광석 시설이면 배후지 광석의
+ * 산지 몫, 어류 시설이면 낚시터 물 종류. 배후지가 없거나 아직 하루 끝 전이면 빈 자리(산지로 셈·물 종류 모름 — 모든 물 묶음)
+ */
+export function catchmentPlaceOf(
+  state: CatchmentState | undefined,
+  cityId: number,
+  facility: string,
+): { highOrePm?: number; water?: FishWater } {
+  const city = state?.cities.get(cityId);
+  if (!state || !city) return {};
+  const material = materialOfFacility(facility);
+  if (material === "ore") return { highOrePm: city.highOrePm };
+  if (material === "fish") {
+    const water = cityFishWater(state, cityId, city);
+    return water === undefined ? {} : { water };
+  }
+  return {};
 }
 
 /** 경제 자료 가운데 배후지 하루가 읽는 것(Economy의 일부 — 순환 import를 피한다) */
@@ -340,7 +323,7 @@ export interface PlaneLayout {
   readonly richnessPm?: Readonly<Partial<Record<CatchmentMaterial, number>>> | undefined;
   /**
    * 칸 x 자리 → 땅 고도(m). 있고 값이 있으면 광석 몫 = richnessPm.ore × 고도 몫(oreSharePm) ÷ 1000, 높은 티어 몫 = highOrePm(산지 고도 이상
-   * 1000, 아래는 oreFlatHighPm).
+   * 1000, 아래는 0).
    * 없으면 고도를 보지 않는다
    */
   readonly elevationAt?: ((x: number) => number | undefined) | undefined;
@@ -515,7 +498,5 @@ export function catchmentSettingsOf(
     territory,
     growthMinPm: seed.catchmentGrowthMinPm,
     yieldFloorPm: seed.catchmentYieldFloorPm,
-    lowOreTierMax: seed.oreLowTierMax,
-    fishTiers: fishTierRangesOf(seed),
   };
 }

@@ -381,13 +381,16 @@ for (const theme of ["pastel", "dark", "station"] as const) {
       const best = page.locator(".combat-row:has(.combat-best)");
       await best.locator(".combat-toggle").click();
       await expect(best.locator(".combat-detail")).toContainText(message("ko", "cyborg_gather_best_line"));
+      // 최적 = 시간당 기대 금액(D-562 1569): 금액 줄과 시세 출처(자리를 모르면 시작 시세)
+      await expect(best.locator('[data-part="gather-value"]')).toBeVisible();
+      await expect(best.locator(".combat-detail")).toContainText(message("ko", "cyborg_gather_price_start"));
       const fish = page.locator('.combat-row[data-sec="gather_fish"]');
       if ((await fish.getAttribute("data-open")) !== "true") await fish.locator(".combat-toggle").click();
-      // 낚시터 물 종류마다 접은 확률(기획 D-542 질문 1365 나): 민물은 T2까지, 심해는 T4부터
+      // 낚시터 물 종류마다 접은 확률(기획 D-542 질문 1365 나, D-562 1562 — 위 끝은 팩 물터·어군): 민물은 T2까지, 심해는 T8까지
       await expect(fish.locator(".combat-detail")).toContainText(message("ko", "cyborg_gather_waters"));
       await expect(fish.locator('[data-water="fresh"]')).toContainText(/^민물 T0~T2: /);
       await expect(fish.locator('[data-water="fresh"]')).not.toContainText(/T[3-9] /);
-      await expect(fish.locator('[data-water="deep"]')).toContainText(/^심해 T4~T8: T4 /);
+      await expect(fish.locator('[data-water="deep"]')).toContainText(/^심해 T0~T8: T0 /);
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
       expect(await horizontalOverflow(page)).toEqual([]);
       expect(await smallTapTargets(page)).toEqual([]);

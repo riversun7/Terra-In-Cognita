@@ -9,6 +9,8 @@
 //   한다(materials가 없으면 — 행성 값 없는 임시 지형 — 원자재를 보지 않는다). 맞는 종류가 여럿이면 (2차맵 키, 묶음) 굴림으로 하나.
 //   자리 = 그 지표 지형 칸 가운데 묶음 가운데에 가장 가까운 칸의 배치 칸(오른쪽 아래 — 홀수 좌표). 그 칸에 이미 오브젝트가 있으면 다음 가까운
 //   칸. 소품·바위 오브젝트는 그대로다(번호·자리 — 앞 판 상태 줄이 그대로 맞는다).
+//   바뀜 (기획 D-562 1565): 종류에 waters(물 종류)가 있으면 그 2차맵(1차맵 칸) 물 종류(@terra/shared/fishWater fishWaterOfLand, 모르면 민물)가
+//   그 안일 때만 맞는다 — 민물 물터·바다 물터는 한 2차맵에 하나만 맞아 묶음 굴림·자리는 그대로다(바닷가 2차맵의 물터 종류만 바뀐다).
 // - 노두(outcrop) 종류(기획 D-534 — 질문 1083 나 "낮은 땅 플레이어도 서버가 놓는 노두에서 석재·구리"): 밭·목초지·물터 뒤에 같은 16×16 묶음마다
 //   많아야 하나. 묶음 안에 그 종류 지표 지형 칸이 하나라도 있고 (2차맵 키, 묶음, 종류) 굴림 < chancePm × 광석 몫 ÷ 1000이면(종류는 팩 차례로 첫
 //   맞는 것) 그 지표 지형 칸 가운데 묶음 가운데에 가장 가까운 빈 칸의 배치 칸에 둔다. 광석 몫 = 그 2차맵(1차맵 칸) 행성 값의 고도 몫(NPC 배후지와
@@ -20,6 +22,7 @@
 // 정수 연산만 쓴다(판정 코드 규칙).
 import { TERRAIN_SURFACE } from "@terra/protocol";
 import { MATERIAL_BIT } from "@terra/shared/catchment";
+import { fishWaterOfLand } from "@terra/shared/fishWater";
 import { PLACEMENT_SIZE, TERRAIN_SIZE } from "@terra/sim";
 import type { SchoolRoute } from "@terra/shared/fishSchool";
 import type { GatherKind } from "./kinds.ts";
@@ -173,8 +176,11 @@ function plotObjects(
   taken: ReadonlySet<number>,
 ): GatherObject[] {
   const plotKinds: number[] = [];
+  // 그 2차맵(1차맵 칸)의 물 종류(기획 D-562 1565 — 민물·바다 물터). 물 비트·바이옴으로 모르면 민물(땅 안 웅덩이)
+  const water = fishWaterOfLand({ water: layers.waterBits ?? 0, biomeId: layers.biomeId }) ?? "fresh";
   kinds.forEach((kind, index) => {
     if (kind.source !== "plot" || kind.surfaces.length === 0) return;
+    if (kind.waters && kind.waters.length > 0 && !kind.waters.includes(water)) return;
     if (
       kind.material !== null &&
       materialBits !== undefined &&

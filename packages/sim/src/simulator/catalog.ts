@@ -16,6 +16,8 @@ import {
 import { type NecessitySpec } from "../economy/upkeep.ts";
 import { type GatherMode, type RecipeSpec } from "../economy/production.ts";
 import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
+import { bareHandAcceptsOf } from "@terra/shared/bareHandMaterials";
+import { type NpcFacilityTiers, type NpcObjectSource, npcGatherTiersOf } from "@terra/shared/npcGatherTiers";
 
 export interface CatalogItem {
   readonly id: string;
@@ -105,6 +107,11 @@ export interface EconomyCatalog {
   readonly presets: readonly CatalogPreset[];
   /** 채집 티어 확률표(팩 gather_tiers, 49 N43). 없으면 TEST_GATHER_BANDS */
   readonly gatherBands?: readonly GatherBand[] | undefined;
+  /**
+   * 채집 오브젝트 요약(팩 gather_objects — 기획 D-562 1562 "npc도 스탯티어 따른다"). NPC 채집 시설의 티어 위 끝·같은 티어 아이템 비중을
+   * 여기서 끌어낸다(@terra/shared/npcGatherTiers). 없으면 막지 않는다(옛 시험 목록)
+   */
+  readonly gatherObjects?: readonly NpcObjectSource[] | undefined;
 }
 
 /** 물건 자산 코드 */
@@ -132,6 +139,13 @@ export interface PreparedCatalog {
    */
   readonly gatherLadders: ReadonlyMap<string, readonly (readonly string[])[]>;
   readonly gatherBands: readonly GatherBand[];
+  /** 시설 ID → NPC 채집 티어 규칙(팩 오브젝트에서 끌어냄, 기획 D-562 1562). 오브젝트 요약이 없으면 빈 표 */
+  readonly npcTiers: ReadonlyMap<string, NpcFacilityTiers>;
+  /**
+   * 짓기 재료 줄 아이템 ID → 그 줄로 받는 아이템 ID(첫째 = 그 아이템, 원자재 T0~T1이면 같은 중분류 켜진 T0~T1 — 기획 D-562 1563·1564,
+   * @terra/shared/bareHandMaterials)
+   */
+  readonly bareHandAccepts: (item: string) => readonly string[];
 }
 
 /** 자산의 묶음 크기(기본 단위, 없으면 1) */
@@ -218,5 +232,7 @@ export function prepareCatalog(catalog: EconomyCatalog): PreparedCatalog {
     ),
     gatherLadders,
     gatherBands: catalog.gatherBands ?? TEST_GATHER_BANDS,
+    npcTiers: npcGatherTiersOf(catalog.gatherObjects ?? [], (id) => tierOf.get(id)),
+    bareHandAccepts: bareHandAcceptsOf(items),
   };
 }

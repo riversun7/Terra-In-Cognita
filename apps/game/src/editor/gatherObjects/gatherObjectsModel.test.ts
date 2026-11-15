@@ -19,9 +19,13 @@ import {
   setChance,
   setItem,
   setLots,
+  setItemWeight,
   setTierRange,
   toggleModel,
   toggleSurface,
+  toggleWater,
+  watersOf,
+  weightTiers,
 } from "./gatherObjectsModel.ts";
 
 const rawSubs = new Set(subcategoriesJson.entries.filter((sub) => sub.major === "raw").map((sub) => sub.id));
@@ -182,6 +186,62 @@ describe("미리 보기(서버 objectRollOf·rollGatherOutputs와 같은 셈)", 
       ["whale_meat", 700_000],
       ["whale_oil", 300_000],
     ]);
+  });
+});
+
+describe("아이템 비중·물 종류(기획 D-562 1561·1565)", () => {
+  it("비중 칸: 범위 안 아이템 둘 이상인 티어만, 적은 티어는 비중대로(적지 않은 아이템 0)", () => {
+    const tiers = weightTiers(find(pack, "herb_patch"), refs);
+    expect(tiers.map((row) => row.tier)).toEqual([1, 2, 3, 4, 5]);
+    expect(tiers[0]?.weighted).toBe(false);
+    const edited = setItemWeight(
+      setItemWeight(pack, "herb_patch", "aloe", 300),
+      "herb_patch",
+      "peppermint",
+      100,
+    );
+    const entry = find(edited, "herb_patch");
+    expect(entry.itemWeights).toEqual([
+      { item: "aloe", weight: 300 },
+      { item: "peppermint", weight: 100 },
+    ]);
+    expect(weightTiers(entry, refs)[0]?.weighted).toBe(true);
+    // 유효 스탯 0 구간: T1(150‰ + 범위 아래 끝으로 접은 T0 700‰ = 850‰)이 알로에 3 : 페퍼민트 1, 캐모마일 0
+    const rows = chancePreview(entry, refs, 0);
+    expect(rows.find((row) => row.item === "aloe")?.ppm).toBe(637_500);
+    expect(rows.find((row) => row.item === "peppermint")?.ppm).toBe(212_500);
+    expect(rows.find((row) => row.item === "chamomile")).toBeUndefined();
+    // 모두 빼면 칸이 없어진다
+    const cleared = setItemWeight(
+      setItemWeight(edited, "herb_patch", "aloe", null),
+      "herb_patch",
+      "peppermint",
+      null,
+    );
+    expect("itemWeights" in find(cleared, "herb_patch")).toBe(false);
+    // 범위를 줄여 밖이 된 아이템 비중은 빠진다
+    const narrowed = setTierRange(
+      setItemWeight(pack, "herb_patch", "lavender", 5),
+      refs,
+      "herb_patch",
+      "max",
+      1,
+    );
+    expect("itemWeights" in find(narrowed, "herb_patch")).toBe(false);
+    // 굴림표는 그대로
+    expect(setItemWeight(pack, "shipwreck", "rubble", 3)).toEqual(pack);
+  });
+
+  it("바다 물터: 비중 적은 T0은 조개만, 물 종류 켜고 끄기(plot만, 모두 끄면 칸 없음)", () => {
+    const sea = find(pack, "fishing_water_sea");
+    const t0 = chancePreview(sea, refs, 0).find((row) => row.tier === 0);
+    expect(t0?.item).toBe("shellfish");
+    expect(watersOf(sea)).toEqual(["coast", "shelf", "deep"]);
+    expect(watersOf(find(pack, "fishing_water"))).toEqual(["fresh"]);
+    const off = toggleWater(pack, "fishing_water", "fresh");
+    expect("waters" in find(off, "fishing_water")).toBe(false);
+    expect(watersOf(find(toggleWater(off, "fishing_water", "coast"), "fishing_water"))).toEqual(["coast"]);
+    expect(toggleWater(pack, "conifer_tree", "fresh")).toEqual(pack);
   });
 });
 

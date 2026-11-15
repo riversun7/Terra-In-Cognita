@@ -151,14 +151,15 @@
     },
     {
       "id": "fishing_water",
-      "name": { "ko": "물터", "en": "Fishing water" },
+      "name": { "ko": "민물 물터", "en": "Freshwater fishing water" },
       "description": {
-        "ko": "물고기가 사는 물(바다·호수·강·얕은 물). 낚시터 일꾼만 쓴다(직접 캐지 못함).",
-        "en": "Water with fish (sea, lake, river, shallows). Only fishing spot workers use it (no direct gathering)."
+        "ko": "민물고기가 사는 물(호수·강·얕은 물). 바닷가가 아닌 2차맵에 선다. 낚시터 일꾼만 쓴다(직접 캐지 못함).",
+        "en": "Water with freshwater fish (lake, river, shallows) on second maps away from the sea. Only fishing spot workers use it (no direct gathering)."
       },
       "source": "plot",
       "surfaces": ["water", "shallow_water"],
       "minCells": 16,
+      "waters": ["fresh"],
       "item": "loach",
       "tierRange": { "min": 0, "max": 2 },
       "lots": 1,
@@ -846,7 +847,7 @@
       "source": "prop",
       "arts": ["salt_flat"],
       "item": "salt",
-      "tierRange": { "min": 0, "max": 0 },
+      "tierRange": { "min": 1, "max": 1 },
       "lots": 1,
       "workMs": 15000,
       "uses": 3,
@@ -882,7 +883,7 @@
       "source": "prop",
       "arts": ["peat_mound"],
       "item": "peat",
-      "tierRange": { "min": 0, "max": 0 },
+      "tierRange": { "min": 1, "max": 1 },
       "lots": 1,
       "workMs": 20000,
       "uses": 3,
@@ -954,13 +955,36 @@
       "source": "prop",
       "arts": ["ice_fossil"],
       "item": "fossil",
-      "tierRange": { "min": 0, "max": 0 },
+      "tierRange": { "min": 4, "max": 4 },
       "lots": 1,
       "workMs": 40000,
       "uses": 1,
       "regrowMs": 86400000,
       "primary": "str",
       "secondary": "vit"
+    },
+    {
+      "id": "fishing_water_sea",
+      "name": { "ko": "바다 물터", "en": "Sea fishing water" },
+      "description": {
+        "ko": "바닷고기가 사는 물(바닷가 2차맵의 바다·얕은 물). 낚시터 일꾼만 쓴다(직접 캐지 못함).",
+        "en": "Water with sea fish (sea and shallows on coastal second maps). Only fishing spot workers use it (no direct gathering)."
+      },
+      "source": "plot",
+      "surfaces": ["water", "shallow_water"],
+      "minCells": 16,
+      "waters": ["coast", "shelf", "deep"],
+      "item": "saury",
+      "tierRange": { "min": 0, "max": 4 },
+      "itemWeights": [{ "item": "shellfish", "weight": 1000 }],
+      "lots": 1,
+      "workMs": 20000,
+      "uses": 5,
+      "regrowMs": 1800000,
+      "facility": "fishing_spot",
+      "primary": "agi",
+      "secondary": "dex",
+      "direct": false
     }
   ]
 }

@@ -17,7 +17,9 @@ import {
 } from "@terra/shared/buildingEditor";
 import type { ContentIssueView } from "@terra/shared/contentEdit";
 import { normalizeTuningNote } from "@terra/shared/tuning";
-import { TEST_SOCIETY_COEFFICIENTS, fishTierRangesOf } from "@terra/sim";
+import { TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
+import { gatherKindsFromEntries } from "../gather/kinds.ts";
+import { fishRangesOfKinds } from "../gather/npcTiers.ts";
 import type { Database } from "../db/client.ts";
 import { issueView } from "../contentEdit/core.ts";
 import { type ContentEditShared, applyContentBatch } from "../contentEdit/services.ts";
@@ -124,6 +126,10 @@ export function createBuildingEditorServices(deps: {
   const recipes: readonly RecipeEntry[] = readCategoryFile(state.core.source, "recipes").entries.map((raw) =>
     recipeEntrySchema.parse(raw),
   );
+  // 채집 오브젝트 종류(팩 그대로 — 오브젝트 편집기 차이는 tuning:apply로 팩에 든다)
+  const gatherKinds = gatherKindsFromEntries(readCategoryFile(state.core.source, "gather_objects").entries);
+  const itemTiers = (): Map<string, number> =>
+    new Map(state.effective().items.map((item) => [item.id, item.tier]));
   const knownFacilities = (): Set<string> => new Set(state.effective().facilities.map((entry) => entry.id));
   const knownBands = (): Set<string> => new Set(state.effective().gatherTiers.map((entry) => entry.id));
   const knownClasses = (): Set<string> => new Set(state.effective().combatClasses.map((entry) => entry.id));
@@ -161,8 +167,8 @@ export function createBuildingEditorServices(deps: {
         maxLevel: society.cyborg.maxLevel,
         levelBonus: society.gatherLevelBonus,
         conditionCap: society.condition.cap,
-        // 낚시터 물 종류 티어 범위("예상 확률" 탭 물 종류 고르기, 기획 D-542 질문 1365 나)
-        fishTiers: fishTierRangesOf(society.worldSeed),
+        // 낚시터 물 종류 티어 범위("예상 확률" 탭 물 종류 고르기 — 팩 오브젝트에서 끌어냄, 기획 D-562 1562)
+        fishTiers: fishRangesOfKinds(gatherKinds, (id) => itemTiers().get(id)),
       },
       combatClasses: combatClassViews(state, snapshot),
       classRule: {

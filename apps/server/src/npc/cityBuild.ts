@@ -157,10 +157,12 @@ export function createServerNpcBuilder(o: ServerNpcBuilderOptions): NpcBuilder {
     has(faction, cityId, materials) {
       const at = mapOf(cityId);
       if (!at) return false;
+      // 레벨 0 재료는 같은 원자재 종류 T0~T1을 받는다(기획 D-562 1563·1564 — 건물 서비스 npcBuild·npcJob과 같다)
+      const accepts = o.world.catalog().bareHandAccepts?.bind(o.world.catalog());
       return hasGoods(
         o.ledger,
         faction.id,
-        materials,
+        accepts ? materials.map((stack) => ({ ...stack, accepts: accepts(stack.item) })) : materials,
         materialScope(service.places, faction.id, at.place.mapKey, cityId, false),
       );
     },

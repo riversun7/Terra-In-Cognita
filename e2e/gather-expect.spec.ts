@@ -73,7 +73,7 @@ test.describe("개발자: 예상 확률 탭", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("낚시터 물 종류(기획 D-542 질문 1365 나): 고르면 확률을 그 티어 범위로 접는다", async ({
+  test("낚시터 물 종류(기획 D-542 질문 1365 나, D-562 1562): 고르면 확률을 그 물의 위 끝으로 접는다", async ({
     page,
     deviceErrors,
   }) => {
@@ -84,10 +84,9 @@ test.describe("개발자: 예상 확률 탭", () => {
     const water = page.getByTestId("expect-water");
     await expect(water).toHaveValue("");
     await expect(tier(30, 1, 0)).toHaveText("70%");
-    // 대륙붕 T2~T6: T0·T1이 T2로 모인다
+    // 대륙붕 T0~T6(기획 D-562 1562 — 위 끝은 팩 대륙붕 어군, 아래 끝은 막지 않는다): 낮은 스탯은 그대로
     await water.selectOption("shelf");
-    await expect(tier(30, 1, 0)).toHaveText("0");
-    await expect(tier(30, 1, 2)).toHaveText("95%");
+    await expect(tier(30, 1, 0)).toHaveText("70%");
     await expect(tier(30, 1, 3)).toHaveText("5%");
     // 민물 T0~T2: T3이 T2로
     await water.selectOption("fresh");

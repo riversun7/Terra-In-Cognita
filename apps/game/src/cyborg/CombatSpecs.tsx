@@ -244,6 +244,12 @@ function WeightLines({ row, name, shown }: { row: RosterStatBreakdown; name: str
           {m.cyborg_term_base()} {formatNumber(row.base)}
         </p>
       ) : null}
+      {row.terms.length > 1 ? (
+        // 식의 가중치와 이 유닛 값에서의 몫을 나눠 읽게(기획 D-562 1611~1613 "왜 반영율이 1:1이 아니냐")
+        <p className="combat-formula-note" data-part="term-legend">
+          {m.cyborg_term_legend()}
+        </p>
+      ) : null}
       {row.terms.map((term) => (
         <p key={term.stat} className="combat-line" translate="no">
           {primaryCode(term.stat)}({formatNumber(term.value)})×{formatMilli(term.weightPm)} ={" "}

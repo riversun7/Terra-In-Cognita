@@ -1,5 +1,6 @@
 // 채집 오브젝트 편집기의 오브젝트 판(기획 D-552 — docs/adr/2026-11-15-gather-object-tiers.md 7절): 3D 모델·대표 아이템(원자재 종류)·양·
 // 티어 범위·나오는 2차맵 지형과 유효 스탯 하나의 나오는 아이템 확률. 값은 모두 팩 항목(JSON)을 고치고 화면(GatherObjectsScreen)이 차이로 내보낸다.
+// 바뀜 (기획 D-562 1561·1565): 같은 티어 아이템마다 비중 칸, 밭·물터의 물 종류(민물·바다) 칸.
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import {
@@ -13,6 +14,8 @@ import {
   SURFACES,
   TIER_MAX,
   TIER_MIN,
+  WATERS,
+  WEIGHT_RANGE,
   biomesOf,
   chancePreview,
   effectiveRange,
@@ -21,14 +24,18 @@ import {
   setBiome,
   setChance,
   setItem,
+  setItemWeight,
   setLots,
   setTierRange,
   sourceOf,
   surfacesOf,
   toggleModel,
   toggleSurface,
+  toggleWater,
+  watersOf,
+  weightTiers,
 } from "./gatherObjectsModel.ts";
-import { SOURCE_TEXT, SURFACE_TEXT, nameText, percentText } from "./gatherObjectsText.ts";
+import { SOURCE_TEXT, SURFACE_TEXT, WATER_TEXT, nameText, percentText } from "./gatherObjectsText.ts";
 
 /** 미리 보기 유효 스탯 범위(채집 확률표 마지막 구간 260을 넘는 값까지) */
 const STAT_RANGE = { min: 0, max: 300 } as const;
@@ -65,6 +72,8 @@ export function GatherObjectPanel({ entry, entries, refs, biomes, locale, onChan
   const models = modelsOf(entry);
   const biomeRows = biomesOf(entry);
   const surfaces = surfacesOf(entry);
+  const waters = watersOf(entry);
+  const tierWeights = weightTiers(entry, refs);
   const chancePm = typeof entry.chancePm === "number" ? entry.chancePm : null;
   const preview = chancePreview(entry, refs, stat);
   const itemRef = refs.items.find((candidate) => candidate.id === item);
@@ -181,7 +190,7 @@ export function GatherObjectPanel({ entry, entries, refs, biomes, locale, onChan
               <span>{m.dev_gather_objects_item_pick()}</span>
               <select
                 value={item}
-                onChange={(event) => onChange(setItem(entries, id, event.currentTarget.value))}
+                onChange={(event) => onChange(setItem(entries, id, event.currentTarget.value, refs))}
               >
                 {itemGroups(refs).map((group) => (
                   <optgroup key={group.subcategory} label={nameText(group.name, locale)}>
@@ -272,6 +281,53 @@ export function GatherObjectPanel({ entry, entries, refs, biomes, locale, onChan
         )}
       </div>
 
+      {range && tierWeights.length > 0 ? (
+        <div className="go-block" data-part="weights">
+          <h3 className="go-block-title">{m.dev_gather_objects_weights()}</h3>
+          <ul className="go-weights">
+            {tierWeights.map((row) => (
+              <li key={row.tier} data-tier={row.tier} data-weighted={row.weighted ? "true" : "false"}>
+                <span className="go-weight-tier">
+                  {`T${row.tier}`}
+                  <span className="dev-muted">
+                    {row.weighted
+                      ? m.dev_gather_objects_weights_set()
+                      : m.dev_gather_objects_weights_default()}
+                  </span>
+                </span>
+                <span className="go-weight-items">
+                  {row.items.map((candidate) => (
+                    <label key={candidate.id} className="go-weight" data-item={candidate.id}>
+                      <span>{itemName(candidate.id)}</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={WEIGHT_RANGE.min}
+                        max={WEIGHT_RANGE.max}
+                        placeholder="—"
+                        value={candidate.weight ?? ""}
+                        aria-label={m.dev_gather_objects_weight_of({ item: itemName(candidate.id) })}
+                        onChange={(event) =>
+                          onChange(
+                            setItemWeight(
+                              entries,
+                              id,
+                              candidate.id,
+                              numberOf(event.currentTarget.value) ?? null,
+                            ),
+                          )
+                        }
+                      />
+                    </label>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="field-hint">{m.dev_gather_objects_weights_hint()}</p>
+        </div>
+      ) : null}
+
       <div className="go-block" data-part="terrain">
         <h3 className="go-block-title">{m.dev_gather_objects_terrain()}</h3>
         {source === "prop" ? <p className="dev-muted">{m.dev_gather_objects_terrain_prop()}</p> : null}
@@ -336,6 +392,30 @@ export function GatherObjectPanel({ entry, entries, refs, biomes, locale, onChan
                 {m.dev_gather_objects_add()}
               </button>
             </div>
+          </>
+        ) : null}
+        {source === "plot" ? (
+          <>
+            <div
+              className="go-surfaces"
+              role="group"
+              aria-label={m.dev_gather_objects_waters()}
+              data-part="waters"
+            >
+              {WATERS.map((water) => (
+                <button
+                  key={water}
+                  type="button"
+                  className="go-surface"
+                  data-water={water}
+                  aria-pressed={waters.includes(water)}
+                  onClick={() => onChange(toggleWater(entries, id, water))}
+                >
+                  {WATER_TEXT[water]()}
+                </button>
+              ))}
+            </div>
+            <p className="field-hint">{m.dev_gather_objects_waters_hint()}</p>
           </>
         ) : null}
         {source === "plot" || source === "outcrop" || source === "site" ? (

@@ -258,4 +258,21 @@ describe("원자재 오브젝트 굴림표·티어 범위(기획 D-552)", () => 
       ["gather_tier_range_order", "tierRange"],
     ]);
   });
+
+  it("아이템별 비중(D-562 1561): 사다리·범위 안이면 통과, 굴림표와 함께·범위 밖·같은 아이템 두 번은 오류", () => {
+    const itemWeights = [
+      { item: "carp", weight: 3 },
+      { item: "gold", weight: 1 },
+    ];
+    expect(checkObject({ itemWeights })).toEqual([]);
+    expect(checkObject({ itemWeights, tierRange: { min: 0, max: 2 } })).toEqual([]);
+    expect(checkObject({ itemWeights, table: table(700, 300) })).toEqual([
+      ["gather_item_weight_table", "itemWeights"],
+    ]);
+    expect(checkObject({ itemWeights, tierRange: { min: 1, max: 2 } })).toEqual([
+      ["gather_item_weight_range", "itemWeights.0.item"],
+      ["gather_item_weight_range", "itemWeights.1.item"],
+    ]);
+    expect(checkObject({ itemWeights: [itemWeights[0], itemWeights[0]] }).length).toBeGreaterThan(0);
+  });
 });

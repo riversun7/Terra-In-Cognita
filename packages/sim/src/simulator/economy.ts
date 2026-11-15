@@ -42,7 +42,8 @@ import { dueNecessities, payNecessities } from "../economy/upkeep.ts";
 import { clampCondition } from "../society/condition.ts";
 import { START_GATHER_OBJECTS } from "../society/gatherObjects.ts";
 import { haulTimeMs } from "../society/logistics.ts";
-import { type CatchmentState, facilitySupplyPm, fishTierRange, oreTierCap } from "./catchmentRun.ts";
+import { type CatchmentState, catchmentPlaceOf, facilitySupplyPm } from "./catchmentRun.ts";
+import { npcTierRollOf } from "@terra/shared/npcGatherTiers";
 import {
   type CatalogGather,
   type EconomyCatalog,
@@ -514,6 +515,20 @@ function nextBatch(economy: Economy, world: SimWorld, facility: EcoFacility): Pe
   return durationMs === plain.durationMs ? plain : { outputs: plain.outputs, durationMs };
 }
 
+/** 아이템 ID 비중 → 자산 비중(규칙 표마다 한 번 만든다) */
+const assetWeightCache = new WeakMap<ReadonlyMap<string, number>, ReadonlyMap<string, number>>();
+function assetWeights(
+  weights: ReadonlyMap<string, number> | undefined,
+): ReadonlyMap<string, number> | undefined {
+  if (!weights || weights.size === 0) return undefined;
+  let out = assetWeightCache.get(weights);
+  if (!out) {
+    out = new Map([...weights].map(([id, weight]) => [itemAsset(id), weight]));
+    assetWeightCache.set(weights, out);
+  }
+  return out;
+}
+
 /** 배후지를 보지 않은 다음 한 번(nextBatch 머리 주석) */
 function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): PendingBatch | undefined {
   const roll = facility.recipe.gather;
@@ -534,6 +549,11 @@ function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): P
   const rules = economy.gather;
   const rng = streamRng(world.seed, STREAM_GATHER, facility.id, facility.batches);
   facility.batches += 1;
+  // NPC 채집 티어 규칙(기획 D-562 1562): 팩 오브젝트 묶음의 위 끝·같은 티어 비중 + 배후지 자리(산지 몫·물 종류)
+  const tierRoll = npcTierRollOf(
+    economy.catalog.npcTiers.get(facility.recipe.facility),
+    catchmentPlaceOf(economy.catchment, facility.city, facility.recipe.facility),
+  );
   const result = rollGatherOutputs(
     {
       ladder,
@@ -545,9 +565,9 @@ function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): P
       yieldPerLot: facility.yieldPerLot,
       successPm: facility.catchPm,
       harvestGrams: BigInt(rules.oreGrams ?? 1000),
-      tierCap: oreTierCap(economy.catchment, facility.city, facility.recipe.facility),
-      // 낚시터 물 종류 범위(기획 D-542 질문 1365 나 — 배후지 땅 칸 물 종류, catchmentRun.ts fishTierRange)
-      tierRange: fishTierRange(economy.catchment, facility.city, facility.recipe.facility),
+      tierCap: tierRoll.tierCap,
+      tierRange: tierRoll.tierRange,
+      weights: assetWeights(tierRoll.weights),
     },
     rng,
   );

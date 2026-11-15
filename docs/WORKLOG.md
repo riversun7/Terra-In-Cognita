@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 18:00 | 건물 판 개편·임금형/임대형·건물 관리·재무 화면·생산시설 지분 사고팔기 | Claude Code | [15-1800-building-screen](worklog/2026/11/15-1800-building-screen.md) |
 | 2026-11-15 13:30 | 운영자 모드·시설 분류·개발 도구 후속·옛 2D 초상 정리 (D-560) | Claude Code | [15-1330-operator-mode](worklog/2026/11/15-1330-operator-mode.md) |
 | 2026-11-15 13:20 | 아무도 보지 않는 2차맵은 띄우지 않는다 — 좌표 유닛·좌표 이동 (map-coords) | Claude Code | [15-1320-map-coords](worklog/2026/11/15-1320-map-coords.md) |
 | 2026-11-15 11:30 | 사업장 장부 구현(D-548·D-555) | Claude Code | [15-1130-business-ledger-impl](worklog/2026/11/15-1130-business-ledger-impl.md) |

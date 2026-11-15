@@ -97,10 +97,21 @@ export function BooksSummary({ books }: { readonly books: BooksOk }) {
 /** 손익계산서(기간 합) */
 export function IncomeStatement({ books }: { readonly books: BooksOk }) {
   const locale = getLocale();
-  if (books.totals.length === 0) return <p className="bp-muted">{m.books_empty()}</p>;
+  // 기록이 없어도 0으로 채운 표를 보인다(빈 사업장도 손익 모양이 같다)
+  const totals =
+    books.totals.length > 0
+      ? books.totals
+      : [
+          {
+            asset: books.vault[0]?.asset ?? books.market?.asset ?? "s3_test_credit",
+            columns: {},
+            profit: "0",
+          },
+        ];
   return (
     <>
-      {books.totals.map((total) => {
+      {books.totals.length === 0 ? <p className="bp-muted">{m.books_empty()}</p> : null}
+      {totals.map((total) => {
         const revenue = REVENUE.reduce((sum, column) => sum + big(total.columns[column]), 0n);
         const costs = COSTS.reduce((sum, column) => sum + big(total.columns[column]), 0n);
         const money = moneyName(total.asset);

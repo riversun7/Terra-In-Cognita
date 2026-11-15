@@ -213,3 +213,18 @@
 - 초상 칸 표지 `data-portrait`: `3d`(그린 초상) · `pending`(그리는 중) · `none`(그릴 수 없음). `2d`는 없어졌다.
 - 기기 저장소(`terra.portrait`)는 한 장 → **최근 4장 목록**(`PORTRAIT_STORED_MAX`, `[{ k, u }]`, 옛 한 장 값도 읽는다). 사이보그 화면 초상도 남긴다(`persist`). 그래서 다시 들어가면(앱 안 이동은 메모리, 새로 고침·다시 켬은 기기 저장소) 첫 그림 틀부터 3D다. 저장소가 가득 차면 오래된 것부터 버리고 다시 쓴다. 기기 편의일 뿐이다(실패하면 다시 그린다).
 - 옛 외형 자료(`appearance` 칸, `@terra/shared/cyborgLooks`, `legacyAppearanceOf`)는 그대로 둔다: 그림이 아니라 서버·프로토콜 자료다(만들기 요청의 필수 칸, 서버가 3D 외형이 없을 때 넘겨 쓰는 값). 지울지는 질문 `docs/questions/2026-11-14-portrait-fix.md`.
+
+## 바뀜 (2026-11-15, D-560 1421)
+- 날짜: 2026-11-15(KST), 가지 `work/operator-mode`, 작업 기록 `docs/worklog/2026/11/15-1330-operator-mode.md`.
+- 기획 D-560(사용자 원문 1421 "옛 2D 자료 바로 정리", 정리 "3D 외형 없는 옛 사이보그는 기술이 3D 외형으로 옮김"). 질문 1421 가(옛 칸 그대로 둠)를 대체한다. 1422는 1421과 함께 정리했다(2D 전용 목록만 — 아래).
+- 세계를 새로 시작하지 않는다(켤 때 도는 멱등 옮기기 + 직전 앱이 그대로 도는 마이그레이션).
+
+### 결정
+1. **켤 때 옮기기(`cyborg/state.ts`·`service.ts`)**: 3D 외형(`cyborgs.look`)이 없거나 맞지 않는 줄은 옛 2D 칸(맞지 않으면 기본 2D 외형)에서 넘긴 3D 외형(사용자 ID 씨앗, `characterLookFromLegacy`)으로 채우고 `look_auto = true`(한 번 무료로 고르기 — 질문 961 나가 남는다). 옛 칸이 남은 줄은 켤 때 한 번 다시 쓴다(`appearance = null`). 다음에 켜면 할 일이 없다.
+2. **옛 칸 쓰지 않음**: 앱은 `appearance`를 쓰지 않는다(쓰기 줄은 null). 조회(`cyborg.status`, `cyborg.get`)에서 `appearance`를 뺐다. `cyborg_create`의 `appearance`는 36판부터 선택 칸(기기는 `look`만 보낸다). look 없이 옛 칸만 오면(35판 기기) 그 값에서 넘겨 만들고 `look_auto`를 켠다.
+3. **한 번 고르기**: `lookPick` = `look_auto`(옛 "look이 null"). 고르면 false가 되고 다시 켜지지 않는다.
+4. **지운 공용 코드**: `legacyAppearanceOf`(3D → 2D), `CYBORG_PRESETS`·`stepCyborgPart`·`randomCyborgAppearance`(2D 고르기). 남긴 것: `CyborgAppearance`·`isCyborgAppearance`·`DEFAULT_CYBORG_APPEARANCE`·부위·색 목록(옮기기와 35판 기기용). 3D 칠 색 앞 8개(`CYBORG_COLORS`)는 3D 색 목록이 그대로 쓴다.
+
+### 판·마이그레이션
+- 마이그레이션 `20261115041940_cyborg_look_auto`: `look_auto boolean not null default false` 추가, `appearance`의 not null만 푼다(직전 앱은 null을 기본 2D 외형으로 읽고 3D 외형을 쓴다 — 그대로 돈다).
+- 다음 배포에서(이 앱이 한 번 켜져 옛 칸이 모두 비면): `appearance` 열 지우기, `cyborg_create.appearance` 칸과 옛 2D 목록(색 표 말고) 지우기.

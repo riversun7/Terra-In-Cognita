@@ -169,3 +169,15 @@
 - B 팀 따로: 1번 파티뿐 아니라 B 군단 전체(2번 파티부터·명령, 폼 `variantLegion`)를 따로 든다. 팀 판 파티 탭·명령 칸은 고치는 설정(A·B)의 군단을 고친다.
 - 한 판·3D 관람(`battleLab.battle`·`replay`): 입력 `legion`(선택 — 군단 둘)이 있으면 모든 파티와 명령으로 돈다(`ArenaJob.legion`, 리플레이 기록기
   입력 포함). 파티 하나·명령 없음이면 옛 입력 그대로. 몬테카를로(옛 도구, D-545 "둠")는 받지 않는다.
+
+## 바뀜 (2026-11-15, D-560)
+- 날짜: 2026-11-15(KST), 가지 `work/operator-mode`, 작업 기록 `docs/worklog/2026/11/15-1330-operator-mode.md`.
+- 기획 D-560(사용자 원문 1376·1380·1381): "영향도는 2차 스탯 화면으로", "기록 상한 없음", "A/B에 계산식도". 질문 1376 가·1380 가·1381 가를 대체한다.
+
+### 결정
+1. **[스탯 영향도]**: 밸런스 화면 탭에서 빼고 2차 스탯 화면(`/dev/secondary-stats`) 맨 아래 판으로 옮겼다(`secondaryStats/StatInfluenceSection.tsx` — [열기]를 누르면 실험실 자료를 받아 옛 `SensitivityTab` 그대로). 옛 `/dev/balance?tab=sensitivity`는 2차 스탯 화면으로 보낸다. 팀은 밸런스 화면과 같은 기기 저장소다.
+2. **기록 상한 없음**: `battle_reports` 줄 수 상한(2,000, 넘으면 오래된 것부터 지움)을 뺐다. 지우기 단추는 아직 없다. 보고서 하나 JSON 약 60KB(이 ADR 측정) → 1만 개면 약 600MB(jsonb TOAST 압축 전, Assumed) — NAS 디스크를 지켜본다(질문 1667).
+3. **B 계산식**: `ReportVariant.formulas`(식 칸 키 → 글, 최대 8줄, 칸 키 모양은 `tuning.save`와 같다). 서버가 지금 세계 식 위에 얹어 가중치 표(행 식)·전투 식 묶음을 B에만 만든다(`tuning/state.ts rulesWithFormulas` — 세계 값은 바꾸지 않는다). 모르는 칸 `unknown_formula`, 그 칸 변수로 읽히지 않는 식 `invalid_formula`. 화면은 B 판에 [식 바꿈 더하기](식 칸 고르기 — 고르면 지금 식을 채운다 + 식 글). 같은 식이면 A와 결과가 같다(공통 난수, 시험).
+
+### 판
+- 팩·마이그레이션·프로토콜 없음(tRPC 입력 칸 더하기 — 옛 기록은 칸이 없다).

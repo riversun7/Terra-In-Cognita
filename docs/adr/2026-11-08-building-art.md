@@ -92,3 +92,13 @@
 - 모델 이름표 `FACILITY_LOOK_MODELS`(`@terra/shared/facilityLook`) 끝에 셋을 더했다(한 번 쓴 이름은 다시 쓰지 않는다 규칙 그대로). 팩 `facilities.look.model`도 바꿨다(core@80). 옛 기기는 모르는 모델 이름을 받으면 시설 ID로 고르므로(`resolveLook` → `artKindOf`) 옛 모델로 그린다.
 - 코드: `packages/engine/src/buildings/buildingKindsGather.ts`(새), 종류 표 `buildingKinds.ts`, 색 표 `buildingPalette.ts`(잎·꽃·울타리·털·물·배 몸통·그물), 건물 편집기 모델 이름(ko·en).
 - 지도 위에서 무리를 가르는 색 점(누른 건물 이름표)·도시 화면 무리 표시는 이 모델에서 정한다(`docs/adr/2026-10-29-app-shell.md` "바뀜 (2026-11-12, 2차맵 아래 탭·운영 메뉴)").
+
+## 바뀜 (2026-11-15, D-560 시설 분류)
+- 날짜: 2026-11-15(KST), 가지 `work/operator-mode`, 작업 기록 `docs/worklog/2026/11/15-1330-operator-mode.md`.
+- 기획 D-560(1236 "분류 칸을 기획이 정함", 시설 분류표 — 사용자 "일단은 알아서. 거래소가 빠지긴했다."). 질문 1236 가(그림 모델에서 무리)를 대체한다.
+
+### 결정
+1. **팩 시설 `category`**(선택 칸, `@terra/shared/facilityCategory`): 행정 `administration` / 채집 `gathering` / 가공·제작 `processing` / 저장·물류 `storage` / 주거 `housing` / 공공·서비스 `public` / 상업 `commerce` / 교통·항만 `transport` / 군사·방어 `military`(9가지, 차례 = 도시 화면 무리 차례). core@102에서 시설 25개 모두 적었다(영토 비콘·성벽 = 군사, 생명과학 연구소 = 공공, 정박장·조선소·교역 부두 = 교통). 칸이 없으면(옛 덮어쓰기 줄·편집기로 만든 시설) 생산 단계에서 고른다(`facilityCategoryOf`).
+2. **화면**: 서버 겉모습 답(`facilities.mapLooks`)이 `category`를 싣고, 도시 화면 거르기 칩·지도 위 누른 건물 이름표 색이 분류를 따른다(분류가 없는 옛 답은 그림 모델에서 고른다). 분류마다 아이콘(동전·닻·방패·십자 더함)과 색(1차 스탯 색 6 + 경고·시장 파랑·위험). 건물을 누르면 카메라가 가는 것은 그대로(1237).
+3. **건물 편집기**: 기본 칸에 [시설 분류] 고르기(칸이 없으면 생산 단계에서 고른 값을 보인다). 
+4. **상업(거래소)**: 지금 시설이 없다 — 거래소 건물은 D-561 다음 줄기(이 줄기에서 만들지 않음). 분류와 화면 칩(0이면 숨김)만 둔다.

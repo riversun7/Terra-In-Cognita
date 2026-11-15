@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-15 20:40 | 건물 안 유닛 숨김·"안에 N명" 표시·[나가기] | Claude Code | [15-2040-building-inside-hide](worklog/2026/11/15-2040-building-inside-hide.md) |
 | 2026-11-15 19:20 | 경로 시야선 다듬기·텔레포트·정부 판·돈 표시·확대 4단계 유닛 | Claude Code | [15-1920-path-teleport-money-ui](worklog/2026/11/15-1920-path-teleport-money-ui.md) |
 | 2026-11-15 17:44 | 2026-11-15 열두째 묶음 합치기 (전투 움직임·사업장 장부·좌표 이동·운영자 모드) | Claude Code | [15-1744-batch-1116-merge](worklog/2026/11/15-1744-batch-1116-merge.md) |
 | 2026-11-15 13:30 | 운영자 모드·시설 분류·개발 도구 후속·옛 2D 초상 정리 (D-560) | Claude Code | [15-1330-operator-mode](worklog/2026/11/15-1330-operator-mode.md) |

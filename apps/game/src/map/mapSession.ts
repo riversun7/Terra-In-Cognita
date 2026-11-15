@@ -25,6 +25,7 @@ import { cachedLooks, prefetchLooks, startBuildingLooks, withLooks } from "./bui
 import { createBuildingMerger } from "./buildingMerge.ts";
 import type { CommandReport, FeedSink, FeedStatus, MapFeed } from "./feedTypes.ts";
 import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
+import { attachInsideOverlay } from "./gather/insideOverlay.ts";
 import { attachObjectProps } from "./gather/objectProps.ts";
 import { type GatherState, gatherSink } from "./gather/gatherState.ts";
 import { type LeaderTagState, attachLeaderTags } from "./leaderTags.ts";
@@ -359,6 +360,8 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     serverNow: options.serverNow,
     nearby,
   });
+  // 건물 안 유닛(사용자 답 2026-11-15 "숨기고 건물에 표시"): 지도에서 숨기고 건물 위에 "안에 N명"
+  const inside = attachInsideOverlay(engine, host, gather, { mapKey });
   // 노두 등 서버 채집 오브젝트의 소품 그림(질문 1083 나): 오브젝트 자리에 덮어 세운다
   const detachObjectProps = attachObjectProps(engine, gather, mapKey);
   // 유닛 3D 외형(unitModels.ts): 유닛에 외형·몸을 붙여 엔진이 가까운 유닛을 모델로 그리게 한다(엔진 바로 앞). 붙은 옆 2차맵 유닛도 같이 묻는다
@@ -373,6 +376,7 @@ export function startMapSession(options: MapSessionOptions): MapSession {
     own: () => options.ownUnit?.() ?? null,
     isLeader: (unitId) => options.leaderTags.isLeader(unitId),
     leaderIds: () => options.leaderTags.ids,
+    isHidden: (unitId) => inside.isHidden(unitId),
   });
   const modelSink = unitModels.sink;
   // 건물: 지금 2차맵 건물(겉모습을 붙인 것) + 옆 2차맵 건물을 함께 엔진에. 유닛은 외형을 붙이는 쪽을 거쳐 엔진에
@@ -508,6 +512,7 @@ export function startMapSession(options: MapSessionOptions): MapSession {
       for (const neighbour of attached.values()) neighbour.attach(null);
       attached.clear();
       detachGather();
+      inside.stop();
       detachObjectProps();
       detachLeaders();
       detachNames();

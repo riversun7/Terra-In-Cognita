@@ -328,6 +328,19 @@ describe("건물 들어가기", () => {
     await until(() => loopOf(r)?.phase === "done");
     expect(loopOf(r)).toMatchObject({ enterResult: "inside" });
     expect(r.gather.insideOf(theirs.buildingId)).toEqual([{ unitId: 1, ownerId: OWNER }]);
+    // 2차맵 단위 목록(지도에서 숨김 — 사용자 답 2026-11-15 "숨기고 건물에 표시")
+    expect(r.gather.insideOn(map?.mapKey ?? 0)).toEqual([
+      { unitId: 1, buildingId: theirs.buildingId, ownerId: OWNER },
+    ]);
+    // [나가기] = 멈추기: 안에 머문 내 유닛이 나온다(남의 사용자는 못 꺼낸다)
+    expect(r.gather.halt("someone-else", 1)).toEqual({ ok: false, code: "not_gathering" });
+    expect(r.gather.halt(USER, 1)).toEqual({ ok: true });
+    expect(r.gather.insideOn(map?.mapKey ?? 0)).toEqual([]);
+    expect(r.gather.halt(USER, 1)).toEqual({ ok: false, code: "not_gathering" });
+    // 다시 들어가 머물다 움직이면 나간다
+    expect(await r.gather.enter(USER, { unitId: 1, buildingId: theirs.buildingId })).toEqual({ ok: true });
+    const theirsId = theirs.buildingId ?? 0;
+    await until(() => r.gather.insideOf(theirsId).length === 1);
     await map?.moveUnit(1, { x: 20 * 1024, y: 20 * 1024 });
     expect(r.gather.insideOf(theirs.buildingId)).toEqual([]);
     // 없는 건물

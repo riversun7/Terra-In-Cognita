@@ -442,7 +442,8 @@ export function createSecondMapEngine(
     updatePropFade();
     const ppm = pixelsPerMetre(state.distance, viewport);
     chooseUnitMode(ppm);
-    // 모델로 그릴 유닛을 먼저 고른다(그 유닛은 캡슐을 건너뛴다)
+    // 모델로 그릴 유닛을 먼저 고른다(그 유닛은 캡슐을 건너뛴다). flags = 일하는·건물 안(숨김) 칸 표시
+    const flags = working.slots(motion.size, (id) => roster.slotOf(id));
     characters.update({
       count: motion.size,
       x: motion.x,
@@ -457,7 +458,7 @@ export function createSecondMapEngine(
       icons: unitView.mode === "icon",
       level: viewDistance.index,
       deltaMs,
-      working: working.slots(motion.size, (id) => roster.slotOf(id)),
+      working: flags,
     });
     unitView.update(
       motion.x,
@@ -479,6 +480,7 @@ export function createSecondMapEngine(
       radiusOf: ringRadiusOf,
       pixelsPerMetre: ppm,
       icons: unitView.mode === "icon",
+      flags,
     });
     const targeting = updateRoute(ppm);
     const swimming = schoolView.update(serverNow(), cellM, surfaceAt, frustum, ppm);
@@ -772,10 +774,8 @@ export function createSecondMapEngine(
       scheduler.request();
     },
 
-    setWorkingUnits(ids) {
-      working.set(ids);
-      scheduler.request();
-    },
+    setWorkingUnits: (ids) => working.set(ids, () => scheduler.request()),
+    setHiddenUnits: (ids) => working.hide(ids, () => scheduler.request()),
 
     setUnitRings(list) {
       rings.setRings(list);

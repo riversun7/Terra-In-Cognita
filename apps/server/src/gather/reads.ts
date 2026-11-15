@@ -8,6 +8,7 @@ import {
   GATHER_OBJECT_STRIDE,
   type GatherBuildingResponse,
   type GatherName,
+  type GatherInsideResponse,
   type GatherInsideUnit,
   type GatherLoopsResponse,
   type GatherObjectsResponse,
@@ -26,6 +27,7 @@ export interface GatherReads {
   objects(viewer: Viewer, mapKey: number, nowMs: number): GatherObjectsResponse;
   loops(viewer: Viewer, nowMs: number): GatherLoopsResponse;
   building(viewer: Viewer, buildingId: number, nowMs: number): GatherBuildingResponse;
+  inside(viewer: Viewer, mapKey: number, nowMs: number): GatherInsideResponse;
   station(viewer: Viewer, buildingId: number, nowMs: number): GatherStationResponse;
 }
 
@@ -172,6 +174,21 @@ export function gatherReadsOf(
       const gather = source();
       if (!gather) return { status: "not_ready", loops: [], generatedAt: nowMs };
       return { status: "ok", loops: gather.service.loops(viewer.id), generatedAt: nowMs };
+    },
+    inside(viewer, mapKey, nowMs) {
+      const gather = source();
+      if (!gather) return { status: "not_ready", mapKey, units: [], generatedAt: nowMs };
+      const ownerId = gather.ownerOf(viewer.id);
+      return {
+        status: "ok",
+        mapKey,
+        units: gather.service.insideOn(mapKey).map((entry) => ({
+          unitId: entry.unitId,
+          buildingId: entry.buildingId,
+          own: ownerId !== undefined && entry.ownerId === ownerId,
+        })),
+        generatedAt: nowMs,
+      };
     },
     building(viewer, buildingId, nowMs) {
       const gather = source();

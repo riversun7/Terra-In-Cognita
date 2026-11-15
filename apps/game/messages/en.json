@@ -7635,5 +7635,7 @@
   "facility_error_insufficient_funds": "Not enough money. Owners also pay to take goods out of a business's storage.",
   "government_rulers_title": "Who governs",
   "government_city_title": "City at a glance",
-  "government_leader_away_note": "In the capital"
+  "government_leader_away_note": "In the capital",
+  "gather_inside_badge": "{count} inside",
+  "gather_building_leave": "Leave"
 }

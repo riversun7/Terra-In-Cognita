@@ -372,6 +372,19 @@ export function GatherPanel({
                           ? m.gather_building_inside_work({ id: unit.unitId })
                           : m.gather_building_inside_unit({ id: unit.unitId })}
                         {unit.own ? ` · ${m.gather_building_inside_own()}` : ""}
+                        {/* 들어가기로 머문 내 유닛은 [나가기](멈추기 명령 — 서버가 안에 머묾을 끝낸다, 사용자 답 2026-11-15) */}
+                        {unit.own && unit.via === "inside" ? (
+                          <button
+                            type="button"
+                            className="button-small gather-leave"
+                            disabled={sending}
+                            onClick={() =>
+                              void send(() => sendGatherCommand({ t: "gather_stop", unitId: unit.unitId }))
+                            }
+                          >
+                            {m.gather_building_leave()}
+                          </button>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

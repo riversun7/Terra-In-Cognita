@@ -7635,5 +7635,7 @@
   "facility_error_insufficient_funds": "돈이 모자랍니다. 주인도 사업장 창고 물건은 값을 내고 꺼냅니다.",
   "government_rulers_title": "다스리는 사람",
   "government_city_title": "도시 현황",
-  "government_leader_away_note": "수도에 있음"
+  "government_leader_away_note": "수도에 있음",
+  "gather_inside_badge": "안에 {count}명",
+  "gather_building_leave": "나가기"
 }

@@ -79,6 +79,7 @@ export function inertEngine(): SecondMapEngine {
     selected: () => null,
     setRouteUnit: () => undefined,
     setWorkingUnits: () => undefined,
+    setHiddenUnits: () => undefined,
     setMoveTarget: () => undefined,
     stats: () => empty,
     camera: () => camera,

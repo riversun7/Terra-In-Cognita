@@ -98,6 +98,8 @@ export interface UnitNameOptions {
   readonly own: () => number | null;
   /** NPC 국가 지도자인가(지도자 이름표가 따로 그린다) */
   readonly isLeader: (unitId: number) => boolean;
+  /** 건물 안에 들어 숨긴 유닛(insideOverlay.ts) — 이름표도 띄우지 않는다 */
+  readonly isHidden?: ((unitId: number) => boolean) | undefined;
   /** 지금 보이는 지도자 유닛(그 이름표와 겹치지 않게 비킨다) */
   readonly leaderIds: () => readonly number[];
 }
@@ -190,7 +192,7 @@ export function attachUnitNames(
     if (own !== null) always.push([own, "own"]);
     if (selected !== null && selected !== own) always.push([selected, "selected"]);
     for (const [unitId, role] of always) {
-      if (options.isLeader(unitId)) continue;
+      if (options.isLeader(unitId) || options.isHidden?.(unitId) === true) continue;
       const point = pointOf(unitId);
       if (point) show(unitId, role, point.x, point.y);
     }
@@ -198,7 +200,13 @@ export function attachUnitNames(
     if (1.8 * view.pixelsPerMetre >= NAME_MIN_PX || view.zoomStage >= UNIT_DETAIL_STAGE) {
       const candidates: NameCandidate[] = [];
       for (const unitId of labels.named()) {
-        if (unitId === own || unitId === selected || options.isLeader(unitId)) continue;
+        if (
+          unitId === own ||
+          unitId === selected ||
+          options.isLeader(unitId) ||
+          options.isHidden?.(unitId) === true
+        )
+          continue;
         const point = pointOf(unitId);
         if (point) candidates.push({ unitId, ...point });
       }

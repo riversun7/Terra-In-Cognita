@@ -9,6 +9,7 @@
 // 바뀜(2026-11-12, 사용자 지적 "큰 유닛들은 캐릭터가 없는 문제" — ADR "바뀜 (2026-11-12, 유닛 겉모습)"): 유닛마다 배율(큰 유닛은 키에 맞춰 늘린
 // 캐릭터)과 사람꼴이 아닌 몸(짐승·탈것, unitBodies.ts)도 받는다. 같은 조각·같은 메시라 그리기 호출은 그대로다. 탈것은 걷는 자세가 없다.
 import { type CharacterLook, isCharacterLook } from "@terra/shared/characterLook";
+import { HIDDEN_FLAG } from "./workingUnits.ts";
 import { type Frustum, Sphere } from "three";
 import { CharacterCache, type CharacterPose, type CompiledCharacter, REST_POSE } from "./characterCompile.ts";
 import { CharacterMeshes } from "./characterMeshes.ts";
@@ -127,6 +128,9 @@ export function chopShape(t: number): { readonly lift: number; readonly dip: num
   return { lift: 1 - k, dip: Math.sin(k * Math.PI) };
 }
 
+/** drawn 칸 값: 건물 안에 숨김(그리지 않음 — 1·2는 그린 LOD + 1) */
+const HIDDEN_DRAWN = 3;
+
 export class CharacterLayer {
   private readonly meshes = new CharacterMeshes();
   readonly group = this.meshes.group;
@@ -227,7 +231,8 @@ export class CharacterLayer {
 
   /** 그 칸을 마지막 프레임에 어떻게 그렸나(0 = 모델 아님) */
   drawnAs(slot: number): number {
-    return slot >= 0 && slot < this.bound ? (this.drawn[slot] ?? 0) : 0;
+    const drawn = slot >= 0 && slot < this.bound ? (this.drawn[slot] ?? 0) : 0;
+    return drawn === HIDDEN_DRAWN ? 0 : drawn;
   }
 
   /** 그 칸을 모델로 그렸을 때 몸 위 누르기 반 너비(m). 모델이 아니면 0 */
@@ -260,6 +265,10 @@ export class CharacterLayer {
   update(view: CharacterLayerView): void {
     const n = Math.min(view.count, this.bound);
     this.drawn.fill(0, 0, Math.max(n, this.bound));
+    // 건물 안에 숨긴 유닛: 그리지 않고 표시(HIDDEN_DRAWN)만 남겨 캡슐·점도 건너뛰게 한다(unitView skip)
+    if (view.working)
+      for (let slot = 0; slot < n; slot++)
+        if (view.working[slot] === HIDDEN_FLAG) this.drawn[slot] = HIDDEN_DRAWN;
     this.meshes.begin();
     this.models = 0;
     this.lod0 = 0;
@@ -316,7 +325,7 @@ export class CharacterLayer {
     let count = 0;
     for (let slot = 0; slot < n; slot++) {
       const model = this.slotLooks[slot];
-      if (!model) continue;
+      if (!model || view.working?.[slot] === HIDDEN_FLAG) continue;
       const wx = (view.x[slot] ?? 0) * view.cellM;
       const wz = (view.y[slot] ?? 0) * view.cellM;
       const dx = wx - view.targetX;

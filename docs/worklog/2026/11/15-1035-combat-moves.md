@@ -38,7 +38,12 @@
 - Verified: 새 부품 없는 전투의 지문이 기준 커밋과 같다 — 시범 6 대 6(시드 1·7·42) 끝 상태 + 리플레이(시드 3) 사건 지문(`testMovesBaseline.ts`, 바꾸기 전 코드에서 뜬 값), 파티·군단 명령 줄기의 옛 지문 시험(`orders.test.ts`)도 그대로 통과.
 - Verified: `moves.test.ts` 24개(곡선 값·곧은 줄·돌진/막힘·도약/성벽·점멸 시야/away·뒷걸음·밀치기/끌어오기/묶기·은신 들킴/공격·NPC 편 같은 판정·달리기 빠르기/소모/지침/명령 끝·결정성 시드 셋·스냅숏 다시 켜기·리플레이 끝 상태·사건 되짚기 자리·은신 표지·부호화 왕복). sim 전투·설정 칸 시험 묶음 통과.
 - Verified: 프로토콜 리플레이 시험 11개(모든 사건 종류를 시험 자료가 씀, 형식 1 읽기), 팩 검사 시험 17개, 게임 앱 `src/battle` 시험 통과, 게임 앱 typecheck, `pnpm check:content --no-compat`.
-- 전체 `pnpm check`·빌드·check-pwa·check:bundle·전투 보고서 e2e 결과는 아래 "마지막 검사"에 적는다.
+- 마지막 검사(Verified):
+  - `pnpm check`(TEST_DATABASE_URL): 포맷·린트·타입·경계·크기·다국어·대비·콘텐츠 통과, 시험 5,370개 중 5,369 통과 — 실패 1개는 `itemEdit.db.test.ts`가 "더 새 팩"을 `core@99`로 박아 둔 것(이 줄기 팩이 core@99라 겹침) → `core@999`로 고치고 그 파일만 다시 돌려 9/9 통과.
+  - `pnpm build` + `node scripts/check-pwa.mjs` + `pnpm check:bundle`: 통과(첫 화면 JS 109,680 B / 상한 131,416 B).
+  - e2e `battleReport.spec.ts`: 14/14 통과.
+  - e2e `battle-replay.spec.ts`: 9개 실패 — **기준 커밋에서도 같다**(이 줄기 탓 아님). 시범 6 대 6 리플레이가 8.7초(87틱)로 끝나 "8배속으로 4초 넘게 간다"·"투사체 순간 찾기"가 못 맞는다. 기준 소스(`24f91102f1`의 packages)로 되돌려 같은 계산을 돌려도 끝 틱이 [87, 83, 95]로 같았다(시드 1·2·3). 짐작(Assumed): D-553 전투맵 걸음 AGI(0accd78a67) 뒤 시범 전투가 짧아졌다. 다른 줄기로 넘긴다.
+  - `pnpm check:docs origin/main` 통과.
 
 - 다음 줄기(전투 편집기 + 절차적 그림)를 위한 고리를 ADR 8절에 적었다(서버 없이 손으로 만든 리플레이로 보기 화면을 돌림).
 

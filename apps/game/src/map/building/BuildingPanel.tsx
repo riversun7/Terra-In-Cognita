@@ -252,7 +252,7 @@ export function BuildingPanel({
             {stationPart("summary")}
             {ok ? (
               <section className="bp-card" aria-label={m.gather_building_inside()}>
-                <h3 className="bp-card-title">
+                <h3 className="bp-card-title gather-inside-title">
                   {m.gather_building_inside()} <span className="bp-muted">· {ok.inside.length}</span>
                 </h3>
                 {ok.inside.length === 0 ? (

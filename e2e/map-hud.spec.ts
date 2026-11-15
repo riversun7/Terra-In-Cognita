@@ -105,7 +105,10 @@ test.describe("2차맵 아래 탭·도시 화면: 플레이어", () => {
     const tag = page.locator(".gather-building-tag:not([hidden])");
     await expect(tag).toHaveCount(1);
     await expect(tag).toHaveAttribute("data-building", id);
-    await expect(tag).toHaveAttribute("data-group", /^(gather|storage|craft|civic|housing|other)$/);
+    await expect(tag).toHaveAttribute(
+      "data-group",
+      /^(administration|gathering|processing|storage|housing|public|commerce|transport|military|other)$/,
+    );
     await sheet.locator(".gather-sheet-close").click();
     await expect(page.locator(".gather-building-tag:not([hidden])")).toHaveCount(0);
 

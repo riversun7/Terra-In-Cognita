@@ -19,6 +19,7 @@ import {
   itemAsset,
 } from "@terra/sim";
 import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
+import { type FacilityCategory, facilityCategoryOf } from "@terra/shared/facilityCategory";
 import { type FacilityLookJson, cleanFacilityLook } from "@terra/shared/facilityLook";
 import type { HarborRole } from "@terra/shared/harbor";
 import type { LocalizedName } from "@terra/shared/roster";
@@ -30,6 +31,8 @@ export interface FacilityDef {
   readonly id: string;
   readonly name: LocalizedName;
   readonly stage: FacilityEntry["stage"];
+  /** 시설 분류(기획 D-560, 팩 칸 → 생산 단계에서 고른 값). 화면 묶음·이름표 색만 — 판정에 쓰지 않는다 */
+  readonly category?: FacilityCategory | undefined;
   readonly maxLevel: number;
   readonly slotsPerLevel: number;
   readonly footprint: { readonly width: number; readonly height: number } | undefined;
@@ -108,6 +111,7 @@ function defOf(entry: FacilityEntry): FacilityDef {
     id: entry.id,
     name: { ko: entry.name.ko, en: entry.name.en },
     stage: entry.stage,
+    category: facilityCategoryOf(entry),
     maxLevel: entry.maxLevel ?? 5,
     slotsPerLevel: entry.slotsPerLevel,
     footprint: entry.footprint ? { width: entry.footprint.width, height: entry.footprint.height } : undefined,

@@ -98,6 +98,8 @@ describe("mapBuildingLooks", () => {
         facilityName: (id) => (id === "storehouse" ? { ko: "창고", en: "Storehouse" } : undefined),
         // 실효 팩 겉모습(건물 편집기가 바꾼 것, 2026-11-09): 광산만 칸이 있다
         facilityArt: (id) => (id === "mine" ? { model: "mine", roof: "teal", heightPm: 1300 } : undefined),
+        // 시설 분류(기획 D-560): 창고만 칸이 있다
+        facilityCategory: (id) => (id === "storehouse" ? "storage" : undefined),
       },
       KEY,
       NOW,
@@ -118,6 +120,7 @@ describe("mapBuildingLooks", () => {
         factionId: 12,
         name: { ko: "창고", en: "Storehouse" },
         mine: false,
+        category: "storage",
       },
       {
         buildingId: farm,

@@ -13,15 +13,18 @@ import type {
   FacilityJson,
 } from "@terra/shared/buildingEditor";
 import {
+  FACILITY_CATEGORIES,
   FACILITY_LEVEL_MAX,
   FACILITY_LIMITS,
   FACILITY_STAGE_IDS,
   FACILITY_STAT_IDS,
   GATHER_MODE_IDS,
+  facilityCategoryOf,
 } from "@terra/shared/buildingEditor";
 import type { ContentIssueView } from "@terra/shared/contentEdit";
 import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
 import { m } from "../../paraglide/messages.js";
+import { FACILITY_CATEGORY_TEXT } from "../../map/facilityCategoryText.ts";
 import { AppLink } from "../../shell/AppLink.tsx";
 import { type CompareSource, CompareProvider } from "../content/contentEditorCompare.tsx";
 import {
@@ -376,6 +379,7 @@ export function BuildingDetail({
               paths={[
                 "name",
                 "stage",
+                "category",
                 "maxLevel",
                 "slotsPerLevel",
                 "pollution",
@@ -405,6 +409,18 @@ export function BuildingDetail({
                   value={draft.stage}
                   options={FACILITY_STAGE_IDS.map((value) => ({ value, label: STAGE_TEXT[value]() }))}
                   onChange={(stage) => edit({ ...draft, stage })}
+                />
+                {/* 시설 분류(기획 D-560): 도시 화면 건물 무리·이름표 색. 칸이 없으면 생산 단계에서 고른 값을 보인다 */}
+                <SelectField
+                  label={m.dev_buildings_field_category()}
+                  path="category"
+                  desc={m.dev_buildings_category_desc()}
+                  value={facilityCategoryOf(draft)}
+                  options={FACILITY_CATEGORIES.map((value) => ({
+                    value,
+                    label: FACILITY_CATEGORY_TEXT[value](),
+                  }))}
+                  onChange={(category) => edit({ ...draft, category })}
                 />
                 <NumberField
                   label={m.dev_buildings_field_max_level()}

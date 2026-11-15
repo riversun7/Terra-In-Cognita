@@ -1,7 +1,8 @@
 // 2차맵 도시 화면(큰 판) — 사용자 지적 2026-11-12 "도시(현재맵도시와 건물 리스트를 보여주고 빠르게 조회 및 조작할 수있는 큰화면)".
 // 아래 탭 [도시]로 연다(판 하나 규칙 — useBottomSheet). 위 판 줄까지 덮는 큰 판이고 아래 탭은 남는다.
 // - 머리: 이 2차맵의 도시(이름·국가·등급·수도 — world.cities), 건물 수, [행정 건물](정부 판이 그 건물 판 안에 있다), [닫기].
-// - 거르기 칩: 전체·내 것·채집소·창고·생산·공공·집·그 밖(0인 무리는 숨긴다). 무리는 건물 그림 모델에서 정한다(cityRows.ts).
+// - 거르기 칩: 전체·내 것·시설 분류 아홉(기획 D-560 — 행정·채집·가공·제작·저장·물류·주거·공공·서비스·상업·교통·항만·군사·방어)·그 밖(0인 무리는
+//   숨긴다). 무리는 시설 분류(겉모습 답의 category)에서 정한다(cityRows.ts).
 // - 건물 줄: 무리 표시·이름·레벨·상태(짓는 중·손상·멈춤·폐허·레벨 올리는 중)·내 것·거리. 줄을 누르면 카메라가 그 건물로 가고 그 건물 판이
 //   열린다(onOpen — 화면이 한다. 판의 들어가기·채집소·정부 몫은 옛 건물 판 그대로, 이 화면은 같은 판을 연다).
 // 자료는 지도 자료의 건물(보이는 것만)과 겉모습 답(근처 판과 같은 nearbyState.looks)이다 — 새 조회를 하지 않는다(도시 이름만 world.cities).
@@ -11,6 +12,7 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import type { GatherState } from "../gather/gatherState.ts";
+import { FACILITY_CATEGORY_TEXT } from "../facilityCategoryText.ts";
 import { MapIcon } from "../mapIcons.tsx";
 import { type Point, distanceParts } from "../nearby/nearbyData.ts";
 import type { NearbyState } from "../nearby/nearbyState.ts";
@@ -31,11 +33,7 @@ import "./citySheet.css";
 const DISTANCE_TICK_MS = 2_000;
 
 const GROUP_TEXT = {
-  gather: () => m.map_city_group_gather(),
-  storage: () => m.map_city_group_storage(),
-  craft: () => m.map_city_group_craft(),
-  civic: () => m.map_city_group_civic(),
-  housing: () => m.map_city_group_housing(),
+  ...FACILITY_CATEGORY_TEXT,
   other: () => m.map_city_group_other(),
 } satisfies Record<FacilityGroup, () => string>;
 

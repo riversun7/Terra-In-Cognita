@@ -131,21 +131,33 @@
   color: var(--color-text-muted);
 }
 
-/* 시설 무리 색(도시 화면 표시·지도 위 누른 건물 표시) — 색만이 아니라 아이콘 모양도 다르다 */
-[data-group="gather"] {
+/* 시설 무리 색 = 시설 분류(기획 D-560 — 도시 화면 표시·지도 위 누른 건물 이름표) — 색만이 아니라 아이콘 모양도 다르다 */
+[data-group="administration"] {
+  --group-color: var(--color-stat-str);
+}
+[data-group="gathering"] {
   --group-color: var(--color-stat-agi);
+}
+[data-group="processing"] {
+  --group-color: var(--color-stat-vit);
 }
 [data-group="storage"] {
   --group-color: var(--color-stat-dex);
 }
-[data-group="craft"] {
-  --group-color: var(--color-stat-vit);
-}
-[data-group="civic"] {
-  --group-color: var(--color-stat-int);
-}
 [data-group="housing"] {
   --group-color: var(--color-stat-wis);
+}
+[data-group="public"] {
+  --group-color: var(--color-stat-int);
+}
+[data-group="commerce"] {
+  --group-color: var(--color-warning);
+}
+[data-group="transport"] {
+  --group-color: var(--color-market-blue);
+}
+[data-group="military"] {
+  --group-color: var(--color-danger);
 }
 [data-group="other"] {
   --group-color: var(--color-text-muted);

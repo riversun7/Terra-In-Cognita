@@ -34,6 +34,7 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
     id: entry.id,
     name: nameOf(entry),
     stage: entry.stage,
+    ...(entry.category === undefined ? {} : { category: entry.category }),
     ...(entry.maxLevel === undefined ? {} : { maxLevel: entry.maxLevel }),
     slotsPerLevel: entry.slotsPerLevel,
     ...(entry.pollution === undefined ? {} : { pollution: entry.pollution }),

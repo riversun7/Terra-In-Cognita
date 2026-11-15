@@ -7,6 +7,7 @@ import {
   FACILITY_LEVEL_MAX,
   FACILITY_REPAIR_LIMITS,
 } from "@terra/shared/facilityBuild";
+import { FACILITY_CATEGORIES } from "@terra/shared/facilityCategory";
 import { FACILITY_LOOK_COLORS, FACILITY_LOOK_LIMITS, FACILITY_LOOK_MODELS } from "@terra/shared/facilityLook";
 import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
 import { GATHER_EXTRA_SUBCATEGORIES_MAX } from "@terra/shared/gatherMath";
@@ -113,6 +114,11 @@ export const facilityEntrySchema = z.strictObject({
   id: contentId,
   name: localizedText,
   stage: z.enum(FACILITY_STAGES),
+  /**
+   * 시설 분류(기획 D-560 시설 분류표 — 도시 화면 건물 무리·지도 이름표 색, @terra/shared/facilityCategory). 판정에 쓰지 않는다.
+   * 없으면 생산 단계에서 고른다(facilityCategoryOf — 옛 덮어쓰기 줄·편집기로 만든 시설). 새 시설은 건물 편집기에서 고른다
+   */
+  category: z.enum(FACILITY_CATEGORIES).optional(),
   /** 최고 레벨(D-5001 시설 Lv1~5). 없으면 5. 건설 재료 구간·편집기 레벨 표가 본다 */
   maxLevel: z.int().min(1).max(FACILITY_LEVEL_MAX).optional(),
   /** [임시] 레벨당 일하는 자리 수(Lv × 이 값). 기획 수치 없음(E29 근처, 건물 데이터 D-5044). 영토 비콘처럼 일하지 않는 시설은 0 */

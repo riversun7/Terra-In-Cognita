@@ -18,6 +18,7 @@
     "src/testFixtures.ts",
     "src/testDb.ts",
     "src/world/testSupport.ts",
+    "src/boats/testHarbor.ts",
     "src/planet/testSupport.ts",
     "src/planetEditor/testSupport.ts"
   ]

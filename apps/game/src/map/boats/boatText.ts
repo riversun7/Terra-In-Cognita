@@ -5,7 +5,19 @@ import { durationText } from "../travelData.ts";
 import type { BoatOutcome } from "./boatCommands.ts";
 
 /** 결과 → 알림 문구. nowMs = 지금 서버 시각(만드는 중 남은 시간) */
-export type BoatOutcomeKind = "build" | "board" | "leave" | "repair" | "berth" | "dock_time" | "policy";
+export type BoatOutcomeKind =
+  | "build"
+  | "board"
+  | "leave"
+  | "repair"
+  | "berth"
+  | "dock_time"
+  | "policy"
+  | "release"
+  | "refuel"
+  | "overheat"
+  | "crew"
+  | "seize";
 
 export function boatOutcomeText(
   kind: BoatOutcomeKind,
@@ -24,6 +36,11 @@ export function boatOutcomeText(
     if (kind === "berth") return outcome.walking ? m.boat_berth_sailing() : m.boat_berth_done();
     if (kind === "dock_time") return outcome.walking ? m.boat_dock_time_sailing() : m.boat_dock_time_done();
     if (kind === "policy") return m.boat_policy_done();
+    if (kind === "release") return m.boat_release_done({ id: outcome.boatId ?? 0 });
+    if (kind === "refuel") return m.boat_refuel_done();
+    if (kind === "overheat") return m.boat_overheat_done();
+    if (kind === "crew") return m.boat_crew_done();
+    if (kind === "seize") return m.boat_seize_done({ id: outcome.boatId ?? 0 });
     return m.boat_leave_done();
   }
   switch (outcome.code) {
@@ -79,6 +96,24 @@ export function boatOutcomeText(
       return m.boat_error_invalid_policy();
     case "wrong_map":
       return m.boat_error_wrong_map();
+    case "not_docked":
+      return m.boat_error_not_docked();
+    case "not_moored":
+      return m.boat_error_not_moored();
+    case "fuel_full":
+      return m.boat_error_fuel_full();
+    case "fuel_empty":
+      return m.boat_error_fuel_empty();
+    case "cooling":
+      return m.boat_error_cooling({ time: durationText((outcome.readyAtMs ?? nowMs) - nowMs) });
+    case "not_aboard":
+      return m.boat_error_not_aboard();
+    case "post_full":
+      return m.boat_error_post_full();
+    case "own_boat":
+      return m.boat_error_own_boat();
+    case "not_drifting":
+      return m.boat_error_not_drifting();
     case "busy":
     case "rate_limited":
     case "offline":
@@ -118,13 +153,18 @@ export function boatChoiceOf(unit: MapUnit | undefined, units: readonly MapUnit[
   return best ? { kind: "board", boatId: best.id } : { kind: "none" };
 }
 
-/** 배 줄 상태: 내구도(‰ → %)·집 정박장(없으면 "집 없음 — 빨리 닳음"). 정보가 없으면 null */
+/** 배 줄 상태: 내구도(‰ → %)·연료·집 정박장(없으면 "집 없음 — 빨리 닳음")·표류·오버히트(D-559). 정보가 없으면 null */
 export function boatStatusText(boat: MapUnit["boat"]): string | null {
   if (boat?.hullPm === undefined) return null;
   const hull = m.boat_hull({ percent: Math.floor(boat.hullPm / 10) });
   const home =
     boat.homeId === null || boat.homeId === undefined ? m.boat_home_none() : m.boat_home({ id: boat.homeId });
-  return `${hull} · ${home}`;
+  const parts = [hull];
+  if (boat.fuelPm !== undefined) parts.push(m.boat_fuel({ percent: Math.floor(boat.fuelPm / 10) }));
+  parts.push(home);
+  if (boat.drifting === true) parts.push(m.boat_drifting());
+  if (boat.overheat === true) parts.push(m.boat_overheating());
+  return parts.join(" · ");
 }
 
 /** 부두 판: 만드는 중인 배의 남은 시간 문구(없으면 null) */

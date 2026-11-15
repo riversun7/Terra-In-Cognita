@@ -758,13 +758,25 @@ export const WORLD_TABLES = {
       "trade_id",
       "trade_until_ms",
       "trade_charged_to_ms",
+      // D-559: 도크·연료·오버히트·보직
+      "owner_id",
+      "yard_id",
+      "yard_since_ms",
+      "yard_map_key",
+      "yard_x",
+      "yard_y",
+      "fuel_milli",
+      "fuel_at_ms",
+      "overheat",
+      "cool_until_ms",
+      "crew",
     ],
     key: ["boat_id"],
   },
   /** 배 시설 주인 설정(받기 범위·요금·조선소 모듈) */
   boatFacilities: {
     name: "boat_facilities",
-    columns: ["building_id", "planet_id", "access", "fee", "module"],
+    columns: ["building_id", "planet_id", "access", "fee", "module", "modules"],
     key: ["building_id"],
   },
   /** 전투 결과 적용 기록(추가만, 전투마다 한 줄 — 유닛 바뀜·탈취 거래와 같은 묶음) */

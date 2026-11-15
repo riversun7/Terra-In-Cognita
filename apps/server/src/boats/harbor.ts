@@ -8,6 +8,10 @@
 // - 교역 부두(1488·1489): 시간을 사면 바로 그 부두 금고에 낸다. 산 시간을 넘겨 부두 둘레에 있으면 초과 한 시간마다 한 시간 요금 × tradeOverstayMul을 낸다
 //   (있는 만큼). 산 시간이 지나고 부두를 떠났으면 머묾이 끝난다.
 // - 내 배(같은 주인)는 내 시설에서 요금이 없다. 주인 없는 시설은 요금을 받지 않는다.
+// D-559(docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559"):
+// - 요금 화폐 = 그 시설이 선 나라 화폐(1524, deps.feeAssetOf — 모르면 서버 시험 화폐).
+// - 도크에 든 배(yardId)는 2차맵 유닛이 없다(처지 docked — 닳지 않는다, 정시 살피기는 dock.ts가 본다).
+// - 연료·오버히트·갑판병 수리(1529·1533·1540): 정시 살피기마다 지난 구간에 움직인 시간으로 연료를 쓰고(오버히트면 더), 오버히트 닳음·갑판병 수리를 더한다.
 import { buildingLocation } from "@terra/shared/goodsPlaces";
 import {
   DEFAULT_HARBOR_ACCESS,
@@ -17,6 +21,7 @@ import {
   type ShipyardModule,
 } from "@terra/shared/harbor";
 import type { BoatTypeDef } from "../facilities/catalog.ts";
+import { arrivalAt } from "@terra/sim";
 import { UNIT_KIND_BOAT } from "../world/unitKinds.ts";
 import {
   type BoatDeps,
@@ -32,13 +37,19 @@ import {
   DAY_MS,
   HOUR_MS,
   boatTypesOf,
+  deckRepairPpm,
   dueDays,
+  fuelBurnMilli,
+  fuelTankMilli,
   harborOpen,
   isBerth,
+  isShipyard,
   isTradeDock,
+  overheatWearPpm,
+  overlapMs,
   wornHull,
 } from "./rules.ts";
-import type { BoatFacility, BoatState, BoatStore } from "./store.ts";
+import { type BoatFacility, type BoatState, type BoatStore, FRESH_BOAT_FIELDS } from "./store.ts";
 
 /** 정시 살피기 간격(ms) [임시] */
 export const HARBOR_TICK_MS = 60_000;
@@ -56,12 +67,22 @@ export interface Harbor {
   readonly states: ReadonlyMap<number, BoatState>;
   /** 배 상태(없으면 처음 볼 때 만든다 — 배가 띄운 2차맵에 있을 때만) */
   stateOf(boatId: number): BoatState | undefined;
-  /** 새 배의 상태를 만든다(조선소가 띄울 때) */
-  create(boatId: number, typeId: string, nowMs: number): BoatState;
+  /** 새 배의 상태를 만든다(조선소가 띄우거나 도크에 넣을 때 — extra로 도크 칸을 함께) */
+  create(boatId: number, typeId: string, nowMs: number, extra?: Partial<BoatState>): BoatState;
+  /** 그 조선소 도크에 든 배(배 ID 차례) */
+  dockedAt(buildingId: number): BoatState[];
+  /** 연료가 바닥났나(표류) */
+  fuelEmpty(state: BoatState): boolean;
+  /** 지금 연료(천분의 단위)·연료 통 */
+  fuelOf(state: BoatState): { readonly milli: number; readonly tank: number };
+  /** 그 시설의 요금 화폐 */
+  assetAt(buildingId: number): string | undefined;
   /** 지금 내구도(ppm) */
   hullOf(state: BoatState, nowMs: number): number;
   /** 지금 처지 */
   modeOf(state: BoatState, nowMs: number): BoatMode;
+  /** 지난 구간을 모두 셈한다(닳음 + 연료·오버히트·갑판병 — 오버히트·보급 바꾸기 직전) */
+  account(state: BoatState, nowMs: number): void;
   /** 지금 처지로 닳음을 들이고 시각을 옮긴다(처지가 바뀌기 직전에 부른다). 적었으면 true */
   settle(state: BoatState, nowMs: number, force?: boolean): boolean;
   /** 배 종류 정의(모르면 undefined) */
@@ -85,8 +106,8 @@ export interface Harbor {
     kind: string,
     atMs: number,
   ): bigint;
-  /** 배 주인 지갑 잔고 */
-  balanceOf(ownerId: number): bigint;
+  /** 배 주인 지갑 잔고(그 시설의 요금 화폐) */
+  balanceOf(ownerId: number, buildingId: number): bigint;
   /** 시설 금고 잔고(사업장 장부, D-548) */
   cashOf(facilityOwner: number | null, buildingId: number): bigint;
   saveState(state: BoatState): void;
@@ -99,6 +120,9 @@ const near = (boatId: number, found: FoundBuilding, reach: number, nowMs: number
   const rect = bodyRect(found.map, boatId, nowMs);
   return rect !== undefined && rectGap(rect, found.rect) <= reach;
 };
+
+/** 연료가 바닥났나(표류, D-559 1529 — null = 가득인 옛 배) */
+const fuelEmpty = (state: BoatState): boolean => state.fuelMilli !== null && state.fuelMilli <= 0;
 
 /** 집을 잃는다(배는 잃지 않는다) */
 const evict = (state: BoatState): void => {
@@ -125,6 +149,7 @@ export function createHarbor(
 
   const modeOf = (state: BoatState, nowMs: number): BoatMode => {
     if (repairing(state.boatId)) return "repair";
+    if (state.yardId !== null) return "docked";
     if (state.homeId === null) return "homeless";
     const home = findBuilding(maps, state.homeId);
     if (!home || home.map.unitInfo(state.boatId) === undefined) return "away";
@@ -145,7 +170,12 @@ export function createHarbor(
     return changed || force;
   };
 
-  const create = (boatId: number, typeId: string, nowMs: number): BoatState => {
+  const create = (
+    boatId: number,
+    typeId: string,
+    nowMs: number,
+    extra: Partial<BoatState> = {},
+  ): BoatState => {
     const state: BoatState = {
       boatId,
       typeId,
@@ -157,6 +187,9 @@ export function createHarbor(
       tradeId: null,
       tradeUntilMs: null,
       tradeChargedToMs: null,
+      ...FRESH_BOAT_FIELDS,
+      crew: {},
+      ...extra,
     };
     states.set(boatId, state);
     saveState(state);
@@ -182,8 +215,13 @@ export function createHarbor(
     return {
       buildingId,
       access: npc ? NPC_HARBOR_ACCESS : DEFAULT_HARBOR_ACCESS,
-      fee: isTradeDock(def) ? rules.tradeFeePerHour : rules.berthFeePerDay,
+      fee: isTradeDock(def)
+        ? rules.tradeFeePerHour
+        : isShipyard(def)
+          ? rules.shipyardRepairFee
+          : rules.berthFeePerDay,
       module: null,
+      modules: [],
     };
   };
 
@@ -216,13 +254,72 @@ export function createHarbor(
       .filter((state) => state.tradeId === buildingId)
       .toSorted((a, b) => a.boatId - b.boatId);
 
-  const balanceOf = (ownerId: number): bigint =>
-    deps.feeAsset ? deps.ledger.balanceOf(ownerId, deps.feeAsset) : 0n;
+  // 요금 화폐 = 그 시설이 선 나라 화폐(D-559 1524), 모르면 서버 시험 화폐
+  const assetAt = (buildingId: number): string | undefined => deps.feeAssetOf?.(buildingId) ?? deps.feeAsset;
 
-  const cashOf = (facilityOwner: number | null, buildingId: number): bigint =>
-    deps.feeAsset && facilityOwner !== null
-      ? deps.ledger.balanceOf(facilityOwner, deps.feeAsset, buildingLocation(buildingId))
+  const balanceOf = (ownerId: number, buildingId: number): bigint => {
+    const asset = assetAt(buildingId);
+    return asset ? deps.ledger.balanceOf(ownerId, asset) : 0n;
+  };
+
+  const cashOf = (facilityOwner: number | null, buildingId: number): bigint => {
+    const asset = assetAt(buildingId);
+    return asset && facilityOwner !== null
+      ? deps.ledger.balanceOf(facilityOwner, asset, buildingLocation(buildingId))
       : 0n;
+  };
+
+  const dockedAt = (buildingId: number): BoatState[] =>
+    [...states.values()]
+      .filter((state) => state.yardId === buildingId)
+      .toSorted((a, b) => a.boatId - b.boatId);
+
+  const fuelOf = (state: BoatState): { readonly milli: number; readonly tank: number } => {
+    const tank = fuelTankMilli(types().get(state.typeId), deps.rules());
+    return { milli: Math.min(tank, state.fuelMilli ?? tank), tank };
+  };
+
+  /**
+   * 항해 셈(D-559 1529·1533·1540): fuelAtMs부터 지금까지 움직인 시간만큼 연료를 쓰고, 오버히트면 내구도를 더 깎고, 갑판병은 기본 수리를 한다.
+   * 바뀌었으면 true. 연료가 바닥나면 오버히트를 끄고 빠르기를 다시 읽는다
+   */
+  const sail = (state: BoatState, nowMs: number): boolean => {
+    const map = mapOfUnit(maps, state.boatId);
+    const boat = map?.unitInfo(state.boatId);
+    if (!map || !boat || state.yardId !== null) return false;
+    const from = state.fuelAtMs ?? nowMs;
+    // 셈한 시각은 메모리에서 늘 옮긴다(적는 것은 연료·내구도 ‰가 바뀔 때만 — 다시 켜면 지금 움직임의 출발부터 다시 센다)
+    state.fuelAtMs = nowMs;
+    if (nowMs <= from) return false;
+    const before = {
+      fuel: Math.floor((state.fuelMilli ?? -1000) / 1000),
+      hull: Math.floor(state.hullPpm / 1000),
+    };
+    const rules = deps.rules();
+    const type = types().get(state.typeId);
+    const moving = overlapMs(boat.motion.departAtMs, arrivalAt(boat.motion), from, nowMs);
+    const aboard = new Set(map.passengers(state.boatId));
+    const count = (post: string): number =>
+      Object.entries(state.crew).filter(([id, value]) => value === post && aboard.has(Number(id))).length;
+    let hull = state.hullPpm;
+    if (moving > 0) {
+      const { milli } = fuelOf(state);
+      const burn = fuelBurnMilli(type, moving, state.overheat, rules);
+      state.fuelMilli = Math.max(0, milli - burn);
+      if (state.overheat) hull -= overheatWearPpm(moving, count("engine"), rules);
+      if (state.fuelMilli <= 0 && state.overheat) {
+        state.overheat = false;
+        state.coolUntilMs = nowMs + Math.max(0, rules.overheatCoolMin) * 60_000;
+      }
+      if (state.fuelMilli <= 0) map.refreshSpeed(state.boatId);
+    }
+    hull += deckRepairPpm(Math.max(0, hull), count("deck"), nowMs - from, rules);
+    state.hullPpm = Math.max(0, Math.min(HULL_FULL, hull));
+    return (
+      Math.floor((state.fuelMilli ?? -1000) / 1000) !== before.fuel ||
+      Math.floor(state.hullPpm / 1000) !== before.hull
+    );
+  };
 
   const charge = (
     boatOwner: number,
@@ -232,7 +329,7 @@ export function createHarbor(
     kind: string,
     atMs: number,
   ): bigint => {
-    const asset = deps.feeAsset;
+    const asset = assetAt(buildingId);
     if (!asset || facilityOwner === null || facilityOwner === boatOwner || amount <= 0n) return 0n;
     const from = deps.ledger.ownerAccount(boatOwner, asset);
     const have = deps.ledger.balance(from);
@@ -265,6 +362,7 @@ export function createHarbor(
       // 띄우지 않은 2차맵의 배는 건너뛴다(다시 띄우면 그때부터 셈한다 — 지난 시간은 그때의 처지로)
       if (!map || !boat) continue;
       let dirty = settle(state, nowMs);
+      if (sail(state, nowMs)) dirty = true;
       // 집: 정박장이 없어지거나 폐허면 잃는다
       if (state.homeId !== null) {
         const home = findBuilding(maps, state.homeId);
@@ -336,6 +434,14 @@ export function createHarbor(
     states,
     stateOf,
     create,
+    account(state, nowMs) {
+      const worn = settle(state, nowMs);
+      if (sail(state, nowMs) || worn) saveState(state);
+    },
+    dockedAt,
+    fuelEmpty,
+    fuelOf,
+    assetAt,
     hullOf,
     modeOf,
     settle,

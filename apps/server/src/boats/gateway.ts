@@ -4,13 +4,16 @@
 // - 운영자 모드(같은 연결이 2차맵 전체 보기 + 모든 유닛 명령 권한)는 남의 부두·유닛·배에 명령하고 배를 재료 없이 만든다. 타러 걷는 길은 운영자
 //   빠르기(world/operatorPace.ts).
 // - 프로토콜 30(배 체계 개편, docs/adr/2026-11-15-shipyard-harbor.md): 수리·집 정박장·교역 부두 시간·주인 설정. 새 결과 코드는 30판 연결에만, 29판은 옛 코드로.
+// - 프로토콜 37(D-559): 도크 출고·모듈 묶음·연료 보급·오버히트·보직·빼앗기. 새 결과 코드는 37판 연결에만, 36판은 legacyVoyageCode로.
 import {
   BOAT_B2_PROTOCOL_VERSION,
   type BoatResultCode,
   type ClientMessageOf,
   HARBOR_PROTOCOL_VERSION,
+  VOYAGE_PROTOCOL_VERSION,
   encodeMessage,
   legacyBoatCode,
+  legacyVoyageCode,
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
@@ -25,6 +28,11 @@ export type BoatClientMessage = ClientMessageOf<
   | "boat_berth"
   | "boat_dock_time"
   | "harbor_policy"
+  | "boat_release"
+  | "boat_refuel"
+  | "boat_overheat"
+  | "boat_crew"
+  | "boat_seize"
 >;
 
 const MAX_PENDING = 8;
@@ -51,7 +59,8 @@ export interface BoatGateway {
 function resultText(id: number, result: BoatCommandResult, protocolVersion: number): string {
   if (!result.ok) {
     // 30판 새 코드는 29판 연결에 옛 코드로. dock_busy는 그 코드를 아는 연결(28)에만, 아니면 busy(다시 해 볼 수 있다)
-    const known = protocolVersion < HARBOR_PROTOCOL_VERSION ? legacyBoatCode(result.code) : result.code;
+    const voyage = protocolVersion < VOYAGE_PROTOCOL_VERSION ? legacyVoyageCode(result.code) : result.code;
+    const known = protocolVersion < HARBOR_PROTOCOL_VERSION ? legacyBoatCode(voyage) : voyage;
     const code = known === "dock_busy" && protocolVersion < BOAT_B2_PROTOCOL_VERSION ? "busy" : known;
     return encodeMessage({
       t: "boat_result",
@@ -99,6 +108,7 @@ export function createBoatGateway(options: {
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
         const operator = isOperatorMode(link.observing?.() === true, viewer.roles);
+        const owner = (): number | undefined => service.ownerOf(viewer.id);
         switch (message.t) {
           case "boat_build":
             return reply(
@@ -126,7 +136,12 @@ export function createBoatGateway(options: {
               service.policy(
                 viewer.id,
                 message.buildingId,
-                { access: message.access, fee: message.fee, module: message.module },
+                {
+                  access: message.access,
+                  fee: message.fee,
+                  module: message.module,
+                  modules: message.modules,
+                },
                 operator,
               ),
             );
@@ -139,6 +154,22 @@ export function createBoatGateway(options: {
             );
           case "boat_leave":
             return reply(message.id, service.leave(viewer.id, message.boatId, operator));
+          case "boat_release":
+            return reply(message.id, service.release(viewer.id, message.boatId, operator));
+          case "boat_refuel":
+            return reply(
+              message.id,
+              service.voyage.refuel(owner(), message.boatId, message.buildingId, operator),
+            );
+          case "boat_overheat":
+            return reply(message.id, service.voyage.overheat(owner(), message.boatId, message.on, operator));
+          case "boat_crew":
+            return reply(
+              message.id,
+              service.voyage.crew(owner(), message.boatId, message.unitId, message.post, operator),
+            );
+          case "boat_seize":
+            return reply(message.id, service.voyage.seize(owner(), message.boatId, message.unitId, operator));
           default: {
             const unknown: never = message;
             return unknown;

@@ -6,8 +6,11 @@
 // 배 체계 개편(기획 D-545·D-547·D-548, docs/adr/2026-11-15-shipyard-harbor.md): 작업 줄에 종류(만들기·수리)·배 종류·수리 배·수리 끝 내구도 열을 더하고(옛 줄 = 만들기),
 // 배마다 상태(boat_states — 종류·내구도·집 정박장·정박료·교역 부두 머묾), 배 시설마다 주인 설정(boat_facilities — 받기 범위·요금·조선소 모듈),
 // 옛 배·부두 지우기 표지(boat_resets — 기획 D-547 1499 "배·부두만 지움", 행성마다 한 번)를 더한다. 모두 더하기만 해서 직전 판 앱은 그대로 돈다.
+// D-559(docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559"): 배 상태에 도크(yard_* — 다 된 배는 꺼낼 때까지 조선소 도크에 있고 유닛 줄이 없다)·
+// 연료(fuel_milli)·오버히트·보직(crew) 열, 배 시설에 모듈 묶음(modules) 열을 더한다. 더하기만 — 직전 판 앱은 새 열을 읽지 않는다(다만 직전 판 앱의 부팅
+// 정리는 유닛 줄이 없는 도크 배 상태를 지운다 — 되돌리기 위험, ADR에 적음).
 import { sql } from "drizzle-orm";
-import { bigint, check, index, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
+import { bigint, boolean, check, index, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
 import { planetIdColumn } from "./planetColumns.ts";
 
 /** 배 만들기 작업 한 줄(materials = 뺀 재료 [{item, qty}] — 기록·화면용) */
@@ -55,9 +58,29 @@ export const boatStates = pgTable(
     tradeId: bigint("trade_id", { mode: "number" }),
     tradeUntilMs: bigint("trade_until_ms", { mode: "number" }),
     tradeChargedToMs: bigint("trade_charged_to_ms", { mode: "number" }),
+    /** 도크에 든 배의 주인(유닛 줄이 없을 때만 — 2차맵 배는 null, 유닛 줄의 주인) */
+    ownerId: bigint("owner_id", { mode: "number" }),
+    /** 든 조선소 도크(없으면 null — 2차맵에 떠 있다, D-559 1523) */
+    yardId: bigint("yard_id", { mode: "number" }),
+    /** 도크에서 다 된 시각(장기 보관료가 여기서부터 — 고치는 중이면 null) */
+    yardSinceMs: bigint("yard_since_ms", { mode: "number" }),
+    /** 조선소가 선 2차맵·칸(조선소가 없어졌을 때 배를 띄울 자리) */
+    yardMapKey: bigint("yard_map_key", { mode: "number" }),
+    yardX: integer("yard_x"),
+    yardY: integer("yard_y"),
+    /** 연료(천분의 단위, null = 가득 — 옛 배, D-559 1529)와 셈한 시각 */
+    fuelMilli: bigint("fuel_milli", { mode: "number" }),
+    fuelAtMs: bigint("fuel_at_ms", { mode: "number" }),
+    /** 오버히트 켬(D-559 1540)과 다시 켤 수 있는 시각 */
+    overheat: boolean("overheat").notNull().default(false),
+    coolUntilMs: bigint("cool_until_ms", { mode: "number" }),
+    /** 보직 {유닛 ID: captain|gunner|engine|deck|pilot}(D-559 1533). 내린 유닛은 읽을 때 거른다 */
+    crew: jsonb("crew"),
   },
   (table) => [
     index("boat_states_home_idx").on(table.homeId),
+    index("boat_states_yard_idx").on(table.yardId),
+    check("boat_states_fuel", sql`${table.fuelMilli} is null or ${table.fuelMilli} >= 0`),
     check("boat_states_hull", sql`${table.hullPpm} between 0 and 1000000`),
     check("boat_states_arrears", sql`${table.arrears} >= 0`),
   ],
@@ -75,6 +98,8 @@ export const boatFacilities = pgTable(
     access: text("access").notNull(),
     fee: bigint("fee", { mode: "number" }).notNull(),
     module: text("module"),
+    /** 조선소 모듈 묶음(쉼표로 이은 글자, 자리 차례 — D-559 1521). null이면 module 하나(직전 판 줄). module에는 첫 모듈을 같이 적는다 */
+    modules: text("modules"),
   },
   (table) => [
     check("boat_facilities_access", sql`${table.access} in ('owner', 'nation', 'peace')`),

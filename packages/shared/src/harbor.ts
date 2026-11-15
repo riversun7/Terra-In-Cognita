@@ -1,6 +1,8 @@
 // 배 시설(조선소·정박장·교역 부두)과 배 종류의 공용 이름·범위 — 기획 D-545·D-547(배 체계 개편, 1481~1500)·D-548(사업장 수입은 사업장 장부),
 // docs/adr/2026-11-15-shipyard-harbor.md. 팩 스키마(@terra/content)·서버(apps/server/src/boats)·화면이 같은 값을 쓴다.
-// - 조선소(shipyard): 배를 만들고 고친다(1481·1494). 물가 어디나(1482). 도크 기본 1, 레벨 2부터 모듈 하나(도크 늘림·건조 특화·수리 특화, 1483).
+// - 조선소(shipyard): 배를 만들고 고친다(1481·1494). 물가 어디나(1482). 도크 기본 1, 레벨 2부터 레벨마다 모듈 하나 더(도크 늘림·건조 특화·수리 특화,
+//   1483·D-559 1521). 다 만들거나 고친 배는 꺼낼(출고) 때까지 도크에 있고 그 도크를 쓴다. 남의 배는 장기 보관료를 내야 꺼낸다(D-559 1523).
+//   남의 조선소도 받기 범위 안이면 고치고 수리비는 그 조선소 금고로(D-559 1522). 요금은 그 항구가 선 나라 화폐(D-559 1524).
 // - 정박장(berth): 배가 사는 곳(유닛 주거처럼). 레벨마다 정박 자리가 는다(1487). 남의 배는 주인이 고른 범위만 받고 정박료는 정박장 장부로(1490·1491·1498).
 // - 교역 부두(trade_dock): 시간을 사서 상하차·보급을 하고 떠나는 곳(1488·1489). 산 시간을 넘기면 초과 시간마다 높은 요금.
 // 배 내구도는 백만분율(ppm) 정수다(건물 상태 값과 같은 단위 — @terra/shared/facilityRuntime CONDITION_FULL).
@@ -24,6 +26,22 @@ export const SHIPYARD_MODULES = ["docks", "build", "repair"] as const;
 export type ShipyardModule = (typeof SHIPYARD_MODULES)[number];
 /** 모듈을 붙일 수 있는 조선소 레벨 */
 export const SHIPYARD_MODULE_LEVEL = 2;
+/**
+ * 조선소 모듈 자리 수(D-559 1521 "조선소는 일단 레벨마다 하나씩 추가로"): 레벨 2부터 한 레벨마다 하나(레벨 3 = 둘).
+ * 도크 늘림은 겹쳐 붙일 수 있고(하나마다 도크가 는다), 건조·수리 특화는 하나씩만 듣는다 [임시]
+ */
+export const shipyardModuleSlots = (level: number): number =>
+  Math.max(0, Math.floor(level) - SHIPYARD_MODULE_LEVEL + 1);
+/** 모듈 묶음이 맞나(자리 수 안, 건조·수리 특화는 한 번씩) */
+export function modulesValid(modules: readonly ShipyardModule[], level: number): boolean {
+  if (modules.length > shipyardModuleSlots(level)) return false;
+  return (
+    modules.filter((module) => module === "build").length <= 1 &&
+    modules.filter((module) => module === "repair").length <= 1
+  );
+}
+/** 한 조선소에 붙는 모듈 상한(메시지 모양 검사 — 조선소 최고 레벨보다 넉넉히) */
+export const SHIPYARD_MODULES_MAX = 8;
 
 /** 배 내구도 가득(ppm) */
 export const HULL_FULL = 1_000_000;
@@ -86,6 +104,18 @@ export interface HarborBoatTypeView {
   readonly capacity: number;
 }
 
+/** 조선소 도크에 든 배(D-559 1523 — 다 만들거나 고친 배는 꺼낼 때까지 도크에 있다) */
+export interface HarborDockedView {
+  readonly boatId: number;
+  readonly own: boolean;
+  readonly typeId: string;
+  readonly hullPm: number;
+  /** 고치는 중이면 끝 시각, 다 됐으면 null(출고 기다림) */
+  readonly repairUntil: number | null;
+  /** 지금 꺼내면 낼 장기 보관료(남의 배만, 화폐 최소 단위 글자. 내 조선소의 내 배는 "0") */
+  readonly storageDue: string;
+}
+
 export interface HarborVisitView {
   readonly boatId: number;
   readonly own: boolean;
@@ -98,21 +128,32 @@ export interface HarborPanel {
   /** 내구도가 기준 아래라 새 배·임시 정박을 받지 않는다(1500 가) */
   readonly closed: boolean;
   readonly access: HarborAccess;
-  /** 정박장 = 하루 정박료, 교역 부두 = 한 시간 요금(화폐 최소 단위) */
+  /** 정박장 = 하루 정박료, 교역 부두 = 한 시간 요금, 조선소 = 남의 배 수리 한 번 요금(화폐 최소 단위) */
   readonly fee: number;
-  /** 조선소 모듈(없으면 null) */
+  /** 조선소 첫 모듈(없으면 null — 옛 판 기기용, 모듈 묶음은 modules) */
   readonly module: ShipyardModule | null;
+  /** 조선소 모듈 묶음(자리 차례, D-559 1521) */
+  readonly modules: readonly ShipyardModule[];
+  /** 조선소 모듈 자리 수(레벨 2부터 레벨마다 하나) */
+  readonly moduleSlots: number;
+  /** 요금 화폐 코드(그 항구가 선 나라 화폐, D-559 1524) */
+  readonly currency: string;
+  /** 조선소: 남의 배 장기 보관료(하루), 보관료 없이 두는 시간(ms) */
+  readonly storageFee: number;
+  readonly storageFreeMs: number;
   /** 조선소: 도크 수 / 정박장: 정박 자리 / 교역 부두: 임시 자리 */
   readonly capacity: number;
-  /** 쓰는 자리 수(조선소 = 작업 수, 정박장 = 집으로 둔 배 수, 교역 부두 = 머무는 배 수) */
+  /** 쓰는 자리 수(조선소 = 만드는 작업 + 도크에 든 배, 정박장 = 집으로 둔 배 수, 교역 부두 = 머무는 배 수) */
   readonly used: number;
+  /** 조선소: 도크에 든 배(고치는 중·출고 기다림) */
+  readonly docked: readonly HarborDockedView[];
   readonly jobs: readonly HarborJobView[];
   readonly types: readonly HarborBoatTypeView[];
   /** 정박장: 이 정박장을 집으로 둔 배 */
   readonly boats: readonly HarborBoatView[];
   /** 교역 부두: 머무는 배 */
   readonly visits: readonly HarborVisitView[];
-  /** 같은 2차맵의 내 배(정박·수리·시간 사기 단추) */
+  /** 같은 2차맵의 내 배(정박·수리·시간 사기 단추). 남의 조선소도 받기 범위 안이면 [수리](D-559 1522) */
   readonly mine: readonly HarborBoatView[];
   /** 사업장 금고(주인에게만, 화폐 최소 단위 글자 — D-548). 남이 보면 null */
   readonly cash: string | null;

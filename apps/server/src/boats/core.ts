@@ -53,6 +53,10 @@ export interface BoatDeps {
   nationOf?: ((ownerId: number) => number | undefined) | undefined;
   /** 두 나라가 전쟁 중인가(평화 세력 받기). 없으면 아니다 */
   atWar?: ((a: number, b: number) => Promise<boolean>) | undefined;
+  /**
+   * 그 배 시설의 요금 화폐(그 항구가 선 나라 화폐 — D-559 1524). 없거나 undefined를 주면 feeAsset(서버 시험 화폐)
+   */
+  feeAssetOf?: ((buildingId: number) => string | undefined) | undefined;
   /** 정박료·교역 부두 요금 화폐(없으면 요금 없음) */
   readonly feeAsset?: string | undefined;
   /** 작업·상태 줄 쓰기(없으면 메모리에만) */

@@ -1,12 +1,35 @@
 // 조선소가 만드는 배 종류 표(시설 boats 칸) — 기획 D-547 1484("장비 제작처럼 당연히 배 종류마다 다르지") — docs/adr/2026-11-15-shipyard-harbor.md.
 // 배 종류마다 재료·만드는 시간·빠르기·자리 수를 적는다(장비 제작 레시피처럼). 시설 역할(harbor)은 조선소·정박장·교역 부두(D-547 1481·1488).
+// D-559: 배 종류에 연료(1529)·함선 칸(함급·HP·장갑·모듈 총한도·함포·보직·격납고, 1533·1537)을 더했다(선택 칸 — 없으면 설정 칸·처음 값).
 // 배 종류 ID는 그 시설 안에서 하나다(2단계 검사가 아니라 여기 superRefine이 본다 — 다른 시설과 같은 ID면 처음 시설의 것을 쓴다).
 import { BOAT_TYPE_LIMITS, HARBOR_ROLES } from "@terra/shared/harbor";
+import { CREW_POSTS, GUN_CALIBERS, NAVAL_LIMITS, SHELL_KINDS } from "@terra/shared/naval";
 import { z } from "zod";
 import { contentId, localizedText, ref } from "./common.ts";
 
 /** 시설 역할(조선소·정박장·교역 부두). 없으면 배 시설이 아니다 */
 export const harborRoleSchema = z.enum(HARBOR_ROLES);
+
+/**
+ * 함선 칸(D-559 1533·1537 "조선소 설계시 함급등으로 내구도나 장착가능한 모듈 총한도 등등 설계 가능") — 함급·전투 HP·장갑·모듈 총한도·함포 자리(규격·쓰는 포탄)·
+ * 보직 자리·전투기 격납고(항공모함 틀, 지금 0). 해상 전투 판정은 아직 없어 서버는 보직·화면에만 쓴다(전투 고리가 HP·장갑·함포를 읽는다)
+ */
+export const navalSpecSchema = z.strictObject({
+  shipClass: contentId,
+  hullPoints: z.int().min(NAVAL_LIMITS.hullPoints.min).max(NAVAL_LIMITS.hullPoints.max),
+  armor: z.int().min(NAVAL_LIMITS.armor.min).max(NAVAL_LIMITS.armor.max),
+  modulePoints: z.int().min(NAVAL_LIMITS.modulePoints.min).max(NAVAL_LIMITS.modulePoints.max),
+  guns: z
+    .array(
+      z.strictObject({
+        caliber: z.enum(GUN_CALIBERS),
+        shells: z.array(z.enum(SHELL_KINDS)).min(1).max(SHELL_KINDS.length),
+      }),
+    )
+    .max(NAVAL_LIMITS.guns),
+  crew: z.partialRecord(z.enum(CREW_POSTS), z.int().min(0).max(NAVAL_LIMITS.crewPerPost)),
+  hangar: z.int().min(NAVAL_LIMITS.hangar.min).max(NAVAL_LIMITS.hangar.max),
+});
 
 /** 배 종류 한 줄 */
 export const boatTypeSchema = z.strictObject({
@@ -28,6 +51,11 @@ export const boatTypeSchema = z.strictObject({
   speedPm: z.int().min(BOAT_TYPE_LIMITS.speedPm.min).max(BOAT_TYPE_LIMITS.speedPm.max),
   /** 타는 유닛 수 */
   capacity: z.int().min(BOAT_TYPE_LIMITS.capacity.min).max(BOAT_TYPE_LIMITS.capacity.max),
+  /** 연료 통·항해 한 시간 연료(D-559 1529, 없으면 설정 칸 boat_fuel_capacity·boat_fuel_per_hour) */
+  fuelCapacity: z.int().min(NAVAL_LIMITS.fuelCapacity.min).max(NAVAL_LIMITS.fuelCapacity.max).optional(),
+  fuelPerHour: z.int().min(NAVAL_LIMITS.fuelPerHour.min).max(NAVAL_LIMITS.fuelPerHour.max).optional(),
+  /** 함선 칸(없으면 함장 1·갑판병 1, 함포 없음) */
+  naval: navalSpecSchema.optional(),
 });
 
 /** 조선소의 배 종류 목록(종류 ID가 겹치면 막는다) */
@@ -49,5 +77,21 @@ export const boatTypesSchema = z
           params: { rule: "boat_type_duplicate" },
         });
       seen.add(id);
+      // 보직 자리 합은 타는 유닛 수 안(함장은 하나)
+      const capacity: unknown = Reflect.get(type, "capacity");
+      const naval: unknown = Reflect.get(type, "naval");
+      const crew: unknown =
+        typeof naval === "object" && naval !== null ? Reflect.get(naval, "crew") : undefined;
+      if (typeof capacity !== "number" || typeof crew !== "object" || crew === null) continue;
+      let seats = 0;
+      for (const value of Object.values(crew)) if (typeof value === "number") seats += value;
+      const captain: unknown = Reflect.get(crew, "captain");
+      if (seats > capacity || (typeof captain === "number" && captain > 1))
+        ctx.addIssue({
+          code: "custom",
+          path: [index, "naval", "crew"],
+          message: `배 종류 ${id}의 보직 자리(${String(seats)})가 자리 수(${String(capacity)})보다 많거나 함장이 둘 이상입니다.`,
+          params: { rule: "boat_crew_seats" },
+        });
     }
   });

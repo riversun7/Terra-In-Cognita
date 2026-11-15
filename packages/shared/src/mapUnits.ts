@@ -61,6 +61,11 @@ export interface MapUnit {
         readonly typeId?: string | undefined;
         readonly hullPm?: number | undefined;
         readonly homeId?: number | null | undefined;
+        /** 연료(‰)·오버히트·표류(내구도 0이나 연료 0)·함장 유닛(D-559 1529·1533·1534·1540). 옛 서버면 없음 */
+        readonly fuelPm?: number | undefined;
+        readonly overheat?: boolean | undefined;
+        readonly drifting?: boolean | undefined;
+        readonly captain?: number | null | undefined;
       }
     | undefined;
 }

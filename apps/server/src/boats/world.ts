@@ -3,6 +3,7 @@
 // - 먼저 옛 배·부두 지우기(기획 D-547 1499 "배·부두만 지움", purge.ts — 행성마다 한 번)를 한 뒤 작업·상태·시설 설정 줄을 읽는다.
 // - 배 고리(hooks.ts)에 배 종류·내구도 빠르기와 표시 정보를 채운다.
 // - 받기 범위의 나라는 시야 공유와 같은 나라(world/nationVision.ts), 전쟁은 faction_wars(건물 공격과 같은 읽기).
+// - 요금 화폐(D-559 1524 "요금은 그 나라 화폐"): 시설이 선 도시 → 그 도시 주인 세력의 나라 화폐(도시 경제 런타임, 거래소와 같은 읽기). 도시·경제가 없으면 서버 시험 화폐.
 // B3("바뀜 (2026-11-14, B3)", 기획 D-542 1329 나): 이동 서비스에 "행성 값이 바다인 2차맵"을 붙인다(배가 띄우지 않은 바다 2차맵을 건너뛴다).
 import { WATER_OCEAN } from "@terra/planet";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
@@ -87,6 +88,13 @@ export function startWorldBoats(
             [Math.min(a, b), Math.max(a, b)],
           );
           return found.rows.length > 0;
+        },
+        feeAssetOf: (buildingId) => {
+          const cityId = facilities.service.places?.facilities.get(buildingId)?.cityId;
+          const runtime = world.npc;
+          if (cityId === null || cityId === undefined || !runtime?.economy) return undefined;
+          const owner = runtime.world.cities.get(cityId)?.owner;
+          return owner === undefined ? undefined : runtime.economy.economy.currencyOf.get(owner);
         },
         feeAsset: ASSET_CREDIT,
         writer: parts.writer,

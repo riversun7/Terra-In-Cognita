@@ -2,6 +2,8 @@
 // - 조선소: 도크(쓰는 수/모두)·모듈(주인, 레벨 2부터)·작업 줄(남은 시간)·배 종류마다 재료·시간·[만들기]·같은 2차맵 내 배 [수리].
 // - 정박장: 정박 자리(쓰는 수/모두)·든 배·같은 2차맵 내 배 [여기 정박]/[집 비우기]·받기 범위·하루 정박료(주인).
 // - 교역 부두: 임시 자리·머무는 배(남은 시간)·내 배 [N시간 사기]·받기 범위·한 시간 요금(주인).
+// - D-559: 조선소 모듈 자리(레벨마다 하나 더)·도크에 든 배([출고], 남의 배는 장기 보관료)·남의 조선소 [수리](받기 범위·수리 요금)·교역 부두 [연료 채우기]·
+//   요금 화폐(그 항구 나라 화폐).
 // - 금고(사업장 장부, D-548)는 주인에게만 보인다. 서버가 소유·거리·자리·받기 범위·돈을 다시 본다. 결과는 판 아래 한 줄에 알리고 판을 다시 읽는다.
 import type {
   HarborAccess,
@@ -65,7 +67,13 @@ export function HarborPanel({
   const [hours, setHours] = useState(1);
   const [fee, setFee] = useState(String(harbor.fee));
   const [access, setAccess] = useState<HarborAccess>(harbor.access);
-  const working = harbor.jobs.length > 0 || harbor.visits.length > 0;
+  const [modules, setModules] = useState<readonly (ShipyardModule | null)[]>(() =>
+    Array.from({ length: harbor.moduleSlots }, (_, index) => harbor.modules[index] ?? null),
+  );
+  const working =
+    harbor.jobs.length > 0 ||
+    harbor.visits.length > 0 ||
+    harbor.docked.some((row) => row.repairUntil !== null);
   // 작업·머묾 남은 시간을 1초마다 다시 그린다
   useEffect(() => {
     if (!working) return () => undefined;
@@ -103,7 +111,9 @@ export function HarborPanel({
       </p>
       <p className="boat-line harbor-capacity" data-used={harbor.used}>
         {roleTitle}
-        {harbor.role === "shipyard" ? ` · ${moduleLabel(harbor.module)}` : ""}
+        {harbor.role === "shipyard"
+          ? ` · ${harbor.modules.length > 0 ? harbor.modules.map((module) => moduleLabel(module)).join(", ") : moduleLabel(null)}`
+          : ""}
       </p>
       {level < 1 ? <p className="gather-muted">{m.harbor_unbuilt()}</p> : null}
       {harbor.closed ? (
@@ -113,6 +123,9 @@ export function HarborPanel({
       ) : null}
       {mine && harbor.cash !== null ? (
         <p className="gather-muted harbor-cash">{m.harbor_cash({ cash: harbor.cash })}</p>
+      ) : null}
+      {harbor.currency !== "" ? (
+        <p className="gather-muted harbor-currency">{m.harbor_currency({ currency: harbor.currency })}</p>
       ) : null}
 
       {harbor.role === "shipyard" ? (
@@ -158,20 +171,83 @@ export function HarborPanel({
               </li>
             ))}
           </ul>
-          {mine && level >= 2 ? (
-            <div className="harbor-row">
-              {(["docks", "build", "repair"] as const).map((module) => (
-                <button
-                  key={module}
-                  type="button"
-                  className="button-small harbor-module"
-                  aria-pressed={harbor.module === module}
-                  disabled={sending}
-                  onClick={() => run("policy", { t: "harbor_policy", buildingId, module })}
-                >
-                  {moduleLabel(module)}
-                </button>
+          {/* 도크에 든 배(D-559 1523): 고치는 중·출고 기다림, 내 배는 [출고](남의 조선소면 보관료) */}
+          {harbor.docked.length > 0 ? (
+            <div className="harbor-docked">
+              <p className="gather-inside-title">{m.harbor_docked_title()}</p>
+              <ul className="harbor-list">
+                {harbor.docked.map((row) => (
+                  <li key={row.boatId} className="harbor-boat" data-docked={row.boatId}>
+                    <span>
+                      {row.repairUntil !== null
+                        ? m.harbor_docked_repairing({
+                            id: row.boatId,
+                            type: row.typeId,
+                            time: durationText(row.repairUntil - now),
+                          })
+                        : m.harbor_docked_ready({ id: row.boatId, type: row.typeId })}
+                      {row.storageDue !== "0"
+                        ? ` · ${m.harbor_storage_due({ fee: row.storageDue, currency: harbor.currency })}`
+                        : ""}
+                    </span>
+                    {row.own ? (
+                      <button
+                        type="button"
+                        className="button-small button-primary harbor-release"
+                        disabled={sending || row.repairUntil !== null}
+                        onClick={() => run("release", { t: "boat_release", boatId: row.boatId })}
+                      >
+                        {m.harbor_release()}
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <p className="gather-muted harbor-storage-note">
+            {m.harbor_storage_note({
+              hours: Math.round(harbor.storageFreeMs / 3_600_000),
+              fee: harbor.storageFee,
+              currency: harbor.currency,
+            })}
+          </p>
+          {mine && harbor.moduleSlots > 0 ? (
+            <div className="harbor-row harbor-modules">
+              {modules.map((module, index) => (
+                <label key={`slot-${String(index)}`} className="harbor-field">
+                  <span>{m.harbor_module_slot({ n: index + 1 })}</span>
+                  <select
+                    className="harbor-module"
+                    value={module ?? "none"}
+                    onChange={(event) =>
+                      setModules(
+                        modules.map((old, at) => (at === index ? moduleOf(event.target.value) : old)),
+                      )
+                    }
+                  >
+                    {(["none", "docks", "build", "repair"] as const).map((value) => (
+                      <option key={value} value={value}>
+                        {moduleLabel(value === "none" ? null : value)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ))}
+              <button
+                type="button"
+                className="button-small harbor-modules-save"
+                disabled={sending}
+                onClick={() =>
+                  run("policy", {
+                    t: "harbor_policy",
+                    buildingId,
+                    modules: modules.filter((value) => value !== null),
+                  })
+                }
+              >
+                {m.harbor_modules_save()}
+              </button>
             </div>
           ) : null}
         </>
@@ -232,6 +308,16 @@ export function HarborPanel({
                     {m.harbor_repair()}
                   </button>
                 ) : null}
+                {harbor.role === "trade_dock" ? (
+                  <button
+                    type="button"
+                    className="button-small harbor-refuel"
+                    disabled={sending}
+                    onClick={() => run("refuel", { t: "boat_refuel", boatId: boat.boatId, buildingId })}
+                  >
+                    {m.harbor_refuel()}
+                  </button>
+                ) : null}
                 {harbor.role === "berth" ? (
                   boat.homeId === buildingId ? (
                     <button
@@ -271,8 +357,8 @@ export function HarborPanel({
         </div>
       ) : null}
 
-      {/* 주인 설정: 받기 범위·요금(정박장·교역 부두) */}
-      {mine && harbor.role !== "shipyard" ? (
+      {/* 주인 설정: 받기 범위·요금(정박장 하루·교역 부두 한 시간·조선소 남의 배 수리 한 번 — D-559 1522) */}
+      {mine ? (
         <div className="harbor-policy">
           <label className="harbor-field">
             <span>{m.harbor_access()}</span>
@@ -285,7 +371,13 @@ export function HarborPanel({
             </select>
           </label>
           <label className="harbor-field">
-            <span>{harbor.role === "berth" ? m.harbor_fee_day() : m.harbor_fee_hour()}</span>
+            <span>
+              {harbor.role === "berth"
+                ? m.harbor_fee_day()
+                : harbor.role === "shipyard"
+                  ? m.harbor_fee_repair()
+                  : m.harbor_fee_hour()}
+            </span>
             <input
               type="number"
               inputMode="numeric"
@@ -310,7 +402,11 @@ export function HarborPanel({
             {m.harbor_save()}
           </button>
         </div>
-      ) : !mine && harbor.role !== "shipyard" ? (
+      ) : harbor.role === "shipyard" ? (
+        <p className="gather-muted harbor-terms">
+          {m.harbor_repair_fee({ fee: harbor.fee, currency: harbor.currency })} · {accessLabel(harbor.access)}
+        </p>
+      ) : (
         <p className="gather-muted">
           {m.harbor_terms({
             access: accessLabel(harbor.access),
@@ -318,7 +414,7 @@ export function HarborPanel({
             unit: harbor.role === "berth" ? m.harbor_unit_day() : m.harbor_unit_hour(),
           })}
         </p>
-      ) : null}
+      )}
 
       {notice ? (
         <p className="boat-notice" role="status">
@@ -327,6 +423,11 @@ export function HarborPanel({
       ) : null}
     </div>
   );
+}
+
+/** 고른 값 → 조선소 모듈(모르는 값·none은 없음) */
+function moduleOf(value: string): ShipyardModule | null {
+  return value === "docks" || value === "build" || value === "repair" ? value : null;
 }
 
 /** 고른 값 → 받기 범위(모르는 값은 같은 나라) */

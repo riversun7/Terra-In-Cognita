@@ -195,7 +195,7 @@ function setup(perDock = 1) {
   return { map, fleet, boats, ledger, dock, acting, started, boatIds, rules };
 }
 
-describe("NPC 배(D-547 1497)", () => {
+describe("NPC 배(D-547 1497, D-559 1523 도크)", () => {
   it("NPC 조선소가 배를 상한까지 만들고(도시 창고 재료) 정박장에 넣는다, 플레이어 시설은 건드리지 않는다", async () => {
     const r = setup();
     const berth = r.dock(125, NPC);
@@ -203,13 +203,16 @@ describe("NPC 배(D-547 1497)", () => {
     r.dock(125, PLAYER, 120);
     const first = await r.fleet.tick();
     expect(first).toMatchObject({ docks: 1, built: 1 });
+    // 다 된 배는 도크에 든다(D-559 1523) — 다음 살피기에 꺼내 정박장에 넣는다
+    expect(r.boatIds()).toHaveLength(0);
+    const second = await r.fleet.tick();
+    expect(second).toMatchObject({ boats: 1, built: 0, berthed: 1 });
     expect(r.boatIds()).toHaveLength(1);
     const boatId = r.boatIds()[0] ?? 0;
     expect(r.map.unitInfo(boatId)?.ownerId).toBe(NPC);
     expect(r.ledger.balanceOf(NPC, goodsAsset("pine_log"), cityLocation(CITY))).toBe(86n);
-    // 다음 살피기: 집 없는 배를 정박장에 넣는다, 상한 1이라 더 만들지 않는다
-    const second = await r.fleet.tick();
-    expect(second).toMatchObject({ boats: 1, built: 0, berthed: 1 });
+    // 상한 1이라 더 만들지 않는다
+    expect(await r.fleet.tick()).toMatchObject({ boats: 1, built: 0, berthed: 0 });
     expect(r.boats.info(boatId)?.homeId).toBe(berth);
     expect(r.boatIds()).toHaveLength(1);
   });

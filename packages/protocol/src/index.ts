@@ -151,7 +151,10 @@ export {
   HARBOR_ACCESS_VALUES,
   HARBOR_PROTOCOL_VERSION,
   SHIPYARD_MODULE_VALUES,
+  CREW_POST_VALUES,
+  VOYAGE_PROTOCOL_VERSION,
   legacyBoatCode,
+  legacyVoyageCode,
 } from "./boats.ts";
 export {
   GUARDIAN_BUFF_IDS,

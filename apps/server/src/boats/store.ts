@@ -3,6 +3,7 @@
 // - boat_states: 배마다 종류·내구도·집 정박장·정박료·교역 부두 머묾.
 // - boat_facilities: 배 시설 주인 설정(받기 범위·요금·조선소 모듈).
 // 쓰기는 월드 쓰기 대기열(재료 빼기와 같은 묶음), 읽기는 배 서비스를 만들 때(부팅 복구 뒤) 한 번.
+// D-559: 도크에 든 배(yard_*, 유닛 줄 없음 — 주인은 owner_id)·연료·오버히트·보직, 조선소 모듈 묶음(modules).
 import {
   DEFAULT_HARBOR_ACCESS,
   HARBOR_ACCESS,
@@ -11,6 +12,7 @@ import {
   SHIPYARD_MODULES,
   type ShipyardModule,
 } from "@terra/shared/harbor";
+import { CREW_POSTS, type CrewPost } from "@terra/shared/naval";
 import type { JobMaterial } from "../facilities/state.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -50,14 +52,49 @@ export interface BoatState {
   tradeId: number | null;
   tradeUntilMs: number | null;
   tradeChargedToMs: number | null;
+  /** 도크에 든 배의 주인(유닛 줄이 없을 때만, 2차맵 배는 null) */
+  ownerId: number | null;
+  /** 든 조선소 도크(없으면 null — 2차맵에 떠 있다, D-559 1523) */
+  yardId: number | null;
+  /** 도크에서 다 된 시각(장기 보관료 시작, 고치는 중이면 null) */
+  yardSinceMs: number | null;
+  /** 조선소가 선 2차맵·칸(조선소가 없어지면 이 둘레에 띄운다. 모르면 null) */
+  yardMapKey: number | null;
+  yardX: number | null;
+  yardY: number | null;
+  /** 연료(천분의 단위, null = 가득)와 셈한 시각(D-559 1529) */
+  fuelMilli: number | null;
+  fuelAtMs: number | null;
+  /** 오버히트 켬·다시 켤 수 있는 시각(D-559 1540) */
+  overheat: boolean;
+  coolUntilMs: number | null;
+  /** 보직(유닛 ID → 보직, D-559 1533) */
+  crew: Record<number, CrewPost>;
 }
+
+/** 새 배 상태의 D-559 칸 처음 값(2차맵 배, 연료 가득, 보직 없음) */
+export const FRESH_BOAT_FIELDS = {
+  ownerId: null,
+  yardId: null,
+  yardSinceMs: null,
+  yardMapKey: null,
+  yardX: null,
+  yardY: null,
+  fuelMilli: null,
+  fuelAtMs: null,
+  overheat: false,
+  coolUntilMs: null,
+} as const;
 
 /** 배 시설 주인 설정 */
 export interface BoatFacility {
   readonly buildingId: number;
   access: HarborAccess;
   fee: number;
+  /** 조선소 첫 모듈(직전 판 앱이 읽는다 — modules[0]과 같다) */
   module: ShipyardModule | null;
+  /** 조선소 모듈 묶음(자리 차례, D-559 1521) */
+  modules: ShipyardModule[];
 }
 
 /** jsonb 재료 목록(모양이 틀린 줄은 버린다). B3 줄에 있던 뺀 자리(location)는 읽지 않는다 */
@@ -84,6 +121,30 @@ const accessOf = (value: unknown): HarborAccess =>
 const moduleOf = (value: unknown): ShipyardModule | null =>
   SHIPYARD_MODULES.find((module) => module === value) ?? null;
 
+/** 모듈 묶음 글자(쉼표로 이음) → 목록. null이면 옛 줄의 module 하나 */
+export function modulesOf(value: unknown, single: unknown): ShipyardModule[] {
+  if (typeof value === "string")
+    return value
+      .split(",")
+      .map((part) => moduleOf(part.trim()))
+      .filter((module) => module !== null);
+  const one = moduleOf(single);
+  return one === null ? [] : [one];
+}
+
+/** jsonb 보직 {유닛 ID: 보직} → 표(모양이 틀린 칸은 버린다) */
+export function crewOf(value: unknown): Record<number, CrewPost> {
+  const raw: unknown = typeof value === "string" ? JSON.parse(value) : value;
+  const out: Record<number, CrewPost> = {};
+  if (typeof raw !== "object" || raw === null) return out;
+  for (const [key, post] of Object.entries(raw)) {
+    const id = Number(key);
+    const known = CREW_POSTS.find((entry) => entry === post);
+    if (Number.isSafeInteger(id) && id > 0 && known) out[id] = known;
+  }
+  return out;
+}
+
 /** 그 행성의 조선소 작업(ID 차례) */
 export async function loadBoatJobs(pool: QueryPool, planetId: string): Promise<BoatJob[]> {
   const found = await pool.query(
@@ -108,7 +169,8 @@ export async function loadBoatJobs(pool: QueryPool, planetId: string): Promise<B
 export async function loadBoatStates(pool: QueryPool, planetId: string): Promise<BoatState[]> {
   const found = await pool.query(
     `select boat_id, type_id, hull_ppm, hull_at_ms, home_id, fee_paid_to_ms, arrears, trade_id, trade_until_ms,
-       trade_charged_to_ms from boat_states where planet_id = $1 order by boat_id`,
+       trade_charged_to_ms, owner_id, yard_id, yard_since_ms, yard_map_key, yard_x, yard_y, fuel_milli, fuel_at_ms,
+       overheat, cool_until_ms, crew from boat_states where planet_id = $1 order by boat_id`,
     [planetId],
   );
   return found.rows.map((row) => ({
@@ -122,13 +184,24 @@ export async function loadBoatStates(pool: QueryPool, planetId: string): Promise
     tradeId: numOrNull(row.trade_id),
     tradeUntilMs: numOrNull(row.trade_until_ms),
     tradeChargedToMs: numOrNull(row.trade_charged_to_ms),
+    ownerId: numOrNull(row.owner_id),
+    yardId: numOrNull(row.yard_id),
+    yardSinceMs: numOrNull(row.yard_since_ms),
+    yardMapKey: numOrNull(row.yard_map_key),
+    yardX: numOrNull(row.yard_x),
+    yardY: numOrNull(row.yard_y),
+    fuelMilli: numOrNull(row.fuel_milli),
+    fuelAtMs: numOrNull(row.fuel_at_ms),
+    overheat: row.overheat === true,
+    coolUntilMs: numOrNull(row.cool_until_ms),
+    crew: crewOf(row.crew),
   }));
 }
 
 /** 그 행성의 배 시설 설정 */
 export async function loadBoatFacilities(pool: QueryPool, planetId: string): Promise<BoatFacility[]> {
   const found = await pool.query(
-    `select building_id, access, fee, module from boat_facilities where planet_id = $1 order by building_id`,
+    `select building_id, access, fee, module, modules from boat_facilities where planet_id = $1 order by building_id`,
     [planetId],
   );
   return found.rows.map((row) => ({
@@ -136,13 +209,17 @@ export async function loadBoatFacilities(pool: QueryPool, planetId: string): Pro
     access: accessOf(row.access),
     fee: Math.max(0, Number(row.fee)),
     module: moduleOf(row.module),
+    modules: modulesOf(row.modules, row.module),
   }));
 }
 
-/** 유닛 줄이 없는 배의 상태 줄을 지운다(부팅 때 — 띄우지 않은 2차맵의 배는 유닛 줄이 있어 남는다). 지운 수 */
+/**
+ * 유닛 줄이 없는 배의 상태 줄을 지운다(부팅 때 — 띄우지 않은 2차맵의 배는 유닛 줄이 있어 남는다). 도크에 든 배(yard_id, D-559 1523)는 유닛 줄이 없어도
+ * 남긴다. 지운 수
+ */
 export async function pruneBoatStates(pool: QueryPool, planetId: string): Promise<number> {
   const found = await pool.query(
-    `delete from boat_states s where s.planet_id = $1
+    `delete from boat_states s where s.planet_id = $1 and s.yard_id is null
        and not exists (select 1 from world_units u where u.id = s.boat_id) returning boat_id`,
     [planetId],
   );
@@ -183,6 +260,18 @@ export function boatJobWriter(writer: Pick<WorldWriter, "upsert" | "remove"> | u
         trade_id: state.tradeId,
         trade_until_ms: state.tradeUntilMs,
         trade_charged_to_ms: state.tradeChargedToMs,
+        owner_id: state.ownerId,
+        yard_id: state.yardId,
+        yard_since_ms: state.yardSinceMs,
+        yard_map_key: state.yardMapKey,
+        yard_x: state.yardX,
+        yard_y: state.yardY,
+        fuel_milli: state.fuelMilli,
+        fuel_at_ms: state.fuelAtMs,
+        overheat: state.overheat,
+        cool_until_ms: state.coolUntilMs,
+        // pg가 객체를 jsonb로 넣게 JSON 글자로(재료와 같다)
+        crew: JSON.stringify(state.crew),
       });
     },
     removeState(boatId: number): void {
@@ -194,7 +283,8 @@ export function boatJobWriter(writer: Pick<WorldWriter, "upsert" | "remove"> | u
         planet_id: planetId,
         access: row.access,
         fee: row.fee,
-        module: row.module,
+        module: row.modules[0] ?? null,
+        modules: row.modules.length > 0 ? row.modules.join(",") : null,
       });
     },
   };

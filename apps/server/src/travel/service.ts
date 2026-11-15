@@ -187,7 +187,13 @@ export function createTravelService(deps: TravelDeps): TravelService {
     stop: WorldTravelStop | null,
     arriveAt: number,
   ): TravelView => {
-    const place = journey.hidden ? hiddenPlace(journey, journey.hidden) : null;
+    const spot = journey.hidden ? undefined : parked.get(journey.unitId);
+    // 좌표로 가는 중이면 곧은 선 위 자리, 좌표 유닛으로 섰으면 그 자리
+    const place = journey.hidden
+      ? hiddenPlace(journey, journey.hidden)
+      : spot
+        ? { mapKey: spot.row.mapKey, cell: spot.cell }
+        : null;
     const info = maps.get(journey.route[journey.leg] ?? -1)?.unitInfo(journey.unitId);
     return travelView(journey, state, stop, arriveAt, place, info, now());
   };

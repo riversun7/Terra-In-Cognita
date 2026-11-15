@@ -67,7 +67,7 @@ export function coordinateOf(row: UnitRow, mapKey: number, cell: CellPoint, movi
   };
 }
 
-/** 화면 한 줄: 좌표로 가는 중이면 곧은 선 위 자리(place), 2차맵 위면 지금 자리(info), 아니면 목표 칸 */
+/** 화면 한 줄: 2차맵 위면 지금 자리(info), 좌표로 가는 중·좌표 유닛이면 그 자리(place), 아니면 목표 칸 */
 export function travelView(
   journey: Journey,
   state: TravelView["state"],
@@ -79,12 +79,11 @@ export function travelView(
 ): TravelView {
   let mapKey = journey.route[journey.leg] ?? journey.route[0] ?? 0;
   let cell: CellPoint = journey.target;
-  if (journey.hidden) {
-    if (place) {
-      mapKey = place.mapKey;
-      cell = place.cell;
-    }
-  } else if (info) cell = cellOf(positionAt(info.motion, at));
+  if (info) cell = cellOf(positionAt(info.motion, at));
+  else if (place) {
+    mapKey = place.mapKey;
+    cell = place.cell;
+  }
   return {
     unitId: journey.unitId,
     kind: journey.kind,

@@ -310,7 +310,9 @@ describe("2차맵 사이 이동", () => {
     expect(r.travel.cancel(USER, 1)).toEqual({ ok: true });
     expect(whereIs(r, 1)).toBe(-1);
     expect(r.travel.parkedAt(1)).toEqual(place);
-    expect(r.travel.list(USER)).toMatchObject([{ state: "stopped", stop: "cancelled", mapKey: K[1] }]);
+    expect(r.travel.list(USER)).toMatchObject([
+      { state: "stopped", stop: "cancelled", mapKey: K[1], cellX: place?.cellX, cellY: place?.cellY },
+    ]);
     expect(r.travels.at(-1)).toEqual({ op: "remove", row: { unit_id: 1 } });
     expect(r.travel.coordinateUnits(new Set([OWNER]))).toMatchObject([
       { unitId: 1, ownerId: OWNER, mapKey: K[1], moving: false },

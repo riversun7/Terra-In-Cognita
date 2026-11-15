@@ -127,3 +127,4 @@
 - 2026-11-15 12:01 KST: 원본 `dc0a6fa`(D-560 시설 분류표 fa76eea, D-561 거래소는 건물) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/44. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-15 18:10 KST: 원본 `4de131f`(D-562 채집 오브젝트 2 답·식 글 확인, b36bd05·d66ef02·4de131f) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-15 22:20 KST: 원본 `55dfe87`(D-563 지분 매매·건물 판, D-564 전투 움직임·사업장·좌표·운영자·배 2 답, D-565 가문, D-566 채집 3 남은 답, D-567 약초원·농장·목장 건물 채집소, 결정 로그 대체 표시 정리, cf41c18~55dfe87) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/43·46. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
+- 2026-11-15 22:35 KST: 원본 `632a1f9`(D-568 점검 답 — 영토 판정은 지도대로·도약 성벽·제련소·피해 방식은 무기·스킬, 시스템 본문 42~46 현재 규칙 정리, 07a76ad·632a1f9) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/42·43·44·45·46. README·PLAN §14 머리 문장 갱신. 49 변경 없음.

@@ -57,13 +57,19 @@
   직전 판 앱은 새 표를 모르고 그대로 돈다(건물 위치 화폐는 옛 화면이 건물 창고 줄로 보인다 — 돈은 사라지지 않는다).
 
 ## 미검증·TODO·알려진 문제
-- (결과는 아래 "검사"에 채운다)
 - NPC 생산 물건의 시설 창고·운반(1510), 물류 센터(1505), 전쟁 약탈(1511), 지분 매매(1621)는 하지 않았다 — 질문.
 - 보증금 30일치 전부를 적자로 잡아 빈 금고 새 사업장은 하루 넘게 갚지 못하면 멈춘다(질문 1624 추천: 한 주기 임금만).
 - 건물 짓기 화면의 재료 미리 셈(`materialStockAt`)은 사업장 창고를 세지 않는다(서버는 쓴다) — 화면이 단추를 막을 수 있다. Assumed 드묾.
 - 경제 화면 "내 사업장" 묶음 없음(질문 1632).
 
 ## 검사
+- Verified: `pnpm check`(TEST_DATABASE_URL 있음) 통과 — 시험 파일 719개, 시험 5,382개 통과(DB 시험 포함).
+- Verified: `pnpm build`, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 109,727 B / 상한 131,416 B(바뀌지 않음 — 장부 칸은 지도 조각).
+- Verified: 화면 시험 `e2e/business-books.spec.ts`·`labor`·`facilities`·`temple`·`gather-station`·`produce` 31개 통과(18.8분). 장부 사진 시험은 판 전체 두 장씩 찍게 고친 뒤 다시 돌렸다.
+- 사진(저장소 밖): `business-books-390-{pastel-ko,dark-en}.png`, `business-books-goods-390-{pastel-ko,dark-en}.png` — 사진의 장부 값은 견본(rewriteTrpc), 판정 시험은 실제 서버 값.
+- Verified(단위·DB): `business/core.test.ts` 7, `commands.test.ts` 4, `business.db.test.ts` 1(헌금 → 금고·소득세·장부·손 정산·꺼내기 값·자동 정산·다시 켜기), `labor.db.test.ts` 8(금고·적자 규칙),
+  `workerRest.test.ts` 3, 공용 `businessBooks.test.ts` 7, 프로토콜 `business.test.ts` 4.
+- 시험 고침(규칙이 바뀐 것): `settlement.db.test.ts`(보증금 금고), `station.test.ts`·`station.db.test.ts`(자동 옮김 기본 끔 → 시험은 켜고 본다), `itemEdit.db.test.ts`(더 새 팩 표지 core@99 → core@999, 팩이 core@100이 됐다).
 
 ## 사용자 결정 대기
 - 질문 1621~1633.

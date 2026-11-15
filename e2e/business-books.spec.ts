@@ -1,7 +1,7 @@
 // 사업장 장부 화면 시험 — 기획 D-548·D-555(1513 "장부는 모두에게 공개, 건물 판 개편"), docs/adr/2026-11-15-business-ledger.md.
 // - player: 내 사이보그 2차맵의 시작 도시 시설(NPC 사업장) 건물 판에서 [장부]를 펼치면 서버 장부(facilities.books)가 보인다: 주인 = NPC 나라,
 //   소득세·금고·기간(1·7·30일) 단추. 기간을 바꾸면 다시 읽는다. 남의 사업장이라 정산 단추는 없다. 가로 넘침·작은 단추 없음.
-// - 사진(E2E_SHOTS_DIR): 장부 칸 390 파스텔 한국어·다크 영어. 기록이 많은 모양을 보이려고 사진 시험만 응답에 견본 장부를 얹는다(rewriteTrpc —
+// - 사진(E2E_SHOTS_DIR): 장부 칸 390 파스텔 한국어·다크 영어(합계 쪽·물건·거래 쪽 둘씩). 기록이 많은 모양을 보이려고 사진 시험만 응답에 견본 장부를 얹는다(rewriteTrpc —
 //   화면 모양 확인용, 판정은 위 시험이 실제 서버 값으로 본다).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -159,7 +159,12 @@ for (const look of LOOKS) {
       await expect(books.locator('[data-part="books-debt"]')).toBeVisible();
       await expect(books.locator('[data-part="books-bars"] li')).toHaveCount(3);
       expect(await horizontalOverflow(page)).toEqual([]);
-      await elementShot(books, `business-books-390-${look.theme}-${look.language}`);
+      // 건물 판은 스크롤하는 판이라 판 전체를 두 번 찍는다(합계 쪽·창고 물건·최근 거래 쪽)
+      const sheet = page.locator(`.gather-sheet[data-building="${String(id)}"]`);
+      await books.locator('[data-part="books-totals"]').scrollIntoViewIfNeeded();
+      await elementShot(sheet, `business-books-390-${look.theme}-${look.language}`);
+      await books.locator('[data-part="books-entries"]').scrollIntoViewIfNeeded();
+      await elementShot(sheet, `business-books-goods-390-${look.theme}-${look.language}`);
       expect(deviceErrors).toEqual([]);
     });
   });

@@ -57,7 +57,13 @@ NAS 세계에 옛 배·부두가 몇 개 있는지는 **Unknown**(운영 DB를 �
 - 정박장·교역 부두 둘레의 배 자리는 물 칸을 차례로 고른다(배끼리 겹칠 수 있음 — 1496 가).
 
 ## 검사
-(아래 채움)
+- `pnpm check`(TEST_DATABASE_URL 있음): 통과 — 시험 파일 711개, 시험 5,331개(Verified).
+- 배 단위 시험 `apps/server/src/boats/*`(만들기·종류·도크·모듈·정박·닳음·정박료·체납·교역 부두·수리·운행 정지·NPC·1405) + DB 시험 `purge.db.test.ts`(1499 지우기·멱등·감사 기록), `travel/sea.test.ts`(먼 바다 띄우고 항해), 프로토콜 30 시험: 통과(Verified).
+- `pnpm build` · `node scripts/check-pwa.mjs` · `pnpm check:bundle`: 통과(첫 화면 JS 109,678 B / 상한 131,416 B, Verified).
+- 화면 시험 `e2e/boats.spec.ts`(파스텔·다크, 조선소 → 배 → 타기·항해·내리기 → 정박장 집·판 → 교역 부두 시간 → hull_full·not_shipyard·not_trade_dock → 바다 건너기·배에서 캐기): 2개 통과(5.8분, Verified).
+  처음 두 번은 시험 쪽 문제로 실패해 고쳤다: 배 시설 명령을 지도 탭에서 보내 화면이 /health로 넘어감 → 다른 탭에서, 두 번째 테마가 앞 테마 건물·속도 제한에 걸림 → 물가 자리 40곳까지·속도 제한이면 쉼,
+  두 번째 테마가 앞 테마가 다 낚은 어군을 고름 → 남은 번수 0인 어군을 뺌.
+- 사진(390px): `boats-sail-390-{pastel,dark}.png`, `boats-berth-390-{pastel,dark}.png`(스크래치 폴더 `boats-impl-shots/`, 저장소에 올리지 않음). 정박장 판의 배 줄은 배 종류 이름이 아니라 ID(`rowboat`)를 보인다 — 다음에 고친다.
 
 ## 사용자 결정 대기
 - 질문 `docs/questions/2026-11-14-boats-impl.md` 1521~1545.

@@ -27,6 +27,8 @@ function fakeService(calls: string[]): FacilityService {
     damage: () => false,
     attachGovernment: () => {},
     attachStorageOut: () => {},
+    attachBusiness: () => {},
+    businessCommand: () => Promise.resolve({ ok: true }),
     seedBuilt: () => {},
     npcBuild: notUsed,
     npcJob: notUsed,

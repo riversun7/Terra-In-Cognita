@@ -44,10 +44,12 @@ import {
 import { type CatalogSource, type FacilityCatalog, facilityCatalogOf } from "./catalog.ts";
 import { spotWaterOfMap } from "./fishWater.ts";
 import { spendGoods } from "./materials.ts";
-import { type PlaceWorld, assetWeightG, beaconMaterialScope, buildingPlace } from "./places.ts";
+import { type PlaceWorld, assetWeightG, beaconMaterialScope, buildingPlace, isStorage } from "./places.ts";
 import { type FacilityService, createFacilityService } from "./service.ts";
 import { roomGrams } from "./storage.ts";
 import { type BusinessCore, EMPTY_BUSINESS, createBusinessCore } from "../business/core.ts";
+import { type BusinessCommands, createBusinessCommands } from "../business/commands.ts";
+import { ASSET_CREDIT } from "../world/settlement.ts";
 import { TEST_PLANET_ID } from "../world/testMaps.ts";
 import type { LoadedFacilities } from "./state.ts";
 
@@ -84,6 +86,8 @@ export interface WorldFacilities {
   attachRest(read: RestReader): void;
   /** 사업장 장부(금고·소득세·적자·정산 — docs/adr/2026-11-15-business-ledger.md, D-548·D-555) */
   readonly business: BusinessCore;
+  /** 사업장 장부 명령(값·묶음 조회 포함) */
+  readonly businessCommands: BusinessCommands;
   /** 그 도시 행정 레벨(모르면 undefined — 소매 도시 판단) */
   cityAdminLevel(cityId: number): number | undefined;
 }
@@ -318,6 +322,23 @@ export function createWorldFacilities(input: {
     rules: () => input.rules().business,
   });
   business = core;
+  // 사업장 장부 명령(프로토콜 34) — 건물 게이트웨이가 건물 서비스 고리로 넘긴다
+  const commands = createBusinessCommands({
+    core,
+    ledger: input.ledger,
+    maps: input.maps,
+    catalog,
+    rules: () => input.rules().business,
+    place: (buildingId) => buildingPlace(service.places, buildingId),
+    isBusiness: (buildingId) => service.facilities.has(buildingId),
+    isStorage: (buildingId) => isStorage(service.places, buildingId),
+    cityAdminLevel: (cityId) => npcCity(cityId)?.adminLevel,
+    ownerOf: (userId, atMs) => input.settlement.ownerOfUser(userId, atMs).id,
+    fallbackAsset: ASSET_CREDIT,
+    now: input.now,
+    durable: () => input.writer.durable(),
+  });
+  service.attachBusiness(commands);
   const attack = createBuildingAttack({
     ...input.battles,
     maps: input.maps,
@@ -435,6 +456,7 @@ export function createWorldFacilities(input: {
       readRest = read;
     },
     business: core,
+    businessCommands: commands,
     cityAdminLevel: (cityId) => npcCity(cityId)?.adminLevel,
   };
 }

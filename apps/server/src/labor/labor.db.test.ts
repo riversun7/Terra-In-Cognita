@@ -56,6 +56,10 @@ async function fakeUser(name: string): Promise<string> {
   return String(found[0]?.id);
 }
 
+/** 그 건물의 사업장 금고(D-548·D-555 — 보증금·돌려받기·임대료는 금고로) */
+const vaultOf = (world: World, ownerId: number, buildingId: number): bigint =>
+  persistence(world).ledger.balanceOf(ownerId, ASSET_CREDIT, buildingLocation(buildingId));
+
 function persistence(world: World) {
   const found = world.persistence;
   if (!found) throw new Error("no persistence");
@@ -135,10 +139,11 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     expect(await p.labor.topUp(a.userId, 1, 100n)).toEqual({ ok: true });
     expect(contract?.state).toBe("active");
     expect(contract?.deposit).toBe(95n);
-    const before = p.ledger.balanceOf(a.ownerId, ASSET_CREDIT);
+    const before = vaultOf(world, a.ownerId, a.buildingId);
     expect(await p.labor.terminate(a.userId, 1)).toEqual({ ok: true });
     expect(contract?.endReason).toBe("owner");
-    expect(p.ledger.balanceOf(a.ownerId, ASSET_CREDIT)).toBe(before + 95n);
+    // 남은 보증금은 사업장 금고로 돌아온다(D-555 1504)
+    expect(vaultOf(world, a.ownerId, a.buildingId)).toBe(before + 95n);
     expect(await p.labor.terminate(a.userId, 1)).toEqual({ ok: false, code: "not_open" });
     expect(await world.checkInvariants()).toEqual([]);
   });
@@ -180,7 +185,9 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
       ok: false,
       code: "forbidden",
     });
-    expect(p.ledger.balanceOf(owner.ownerId, ASSET_CREDIT)).toBe(30n);
+    // 임대료는 시설 주인 지갑이 아니라 사업장 금고로(D-548)
+    expect(vaultOf(world, owner.ownerId, owner.buildingId)).toBe(30n);
+    expect(p.ledger.balanceOf(owner.ownerId, ASSET_CREDIT)).toBe(0n);
     // 임차인 100: 맺을 때 30, 1시간 뒤 30, 2시간 뒤 30(남은 10), 3시간 뒤에는 못 낸다(계약 정산이 유지비보다 먼저)
     clock = T0 + 5 * HOUR;
     p.settlement.settleOwner(tenant.ownerId, clock);
@@ -188,7 +195,7 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     expect(contract?.state).toBe("grace");
     expect(contract?.endReason).toBe("rent_unpaid");
     expect(contract?.paidTotal).toBe(90n);
-    expect(p.ledger.balanceOf(owner.ownerId, ASSET_CREDIT)).toBe(90n);
+    expect(vaultOf(world, owner.ownerId, owner.buildingId)).toBe(90n);
     const view = p.labor.overview(tenant.userId);
     expect(view.contracts.map((c) => [c.id, c.kind, c.role, c.state])).toEqual([
       [1, "lease", "worker", "grace"],
@@ -247,13 +254,13 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     expect(a.map.mapKey).toBeGreaterThan(0);
     const map = second.maps.get(a.map.mapKey);
     expect(map?.removeBuilding(a.buildingId)).toEqual({ ok: true });
-    const before = q.ledger.balanceOf(a.ownerId, ASSET_CREDIT);
+    const before = vaultOf(second, a.ownerId, a.buildingId);
     clock += HOUR;
     q.settlement.settleOwner(a.ownerId, clock);
     expect(q.labor.contracts.get(1)?.endReason).toBe("building_gone");
     expect(q.labor.contracts.get(2)?.endReason).toBe("building_gone");
-    // 두 계약의 남은 보증금(560씩)이 돌아온다(유지비 2를 빼고)
-    expect(q.ledger.balanceOf(a.ownerId, ASSET_CREDIT)).toBe(before + 1120n - 2n);
+    // 두 계약의 남은 보증금(560씩)이 사업장 금고로 돌아온다(사라진 건물 금고는 노화 정시에 주인 지갑으로 — 1511)
+    expect(vaultOf(second, a.ownerId, a.buildingId)).toBe(before + 1120n);
     expect(await second.checkInvariants()).toEqual([]);
   });
 
@@ -302,7 +309,9 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
       first?.deposit,
       first?.endsAtMs,
     ]).toEqual(["wage", boss.ownerId, hand.ownerId, 24n, 696n, clock + 72 * HOUR]);
-    expect(p.ledger.balanceOf(boss.ownerId, ASSET_CREDIT)).toBe(bossBefore - 720n);
+    // 보증금은 사업장 금고에서 — 금고가 비었으니 적자로 미리 넣었다(D-555 1504). 주인 지갑은 그대로
+    expect(p.ledger.balanceOf(boss.ownerId, ASSET_CREDIT)).toBe(bossBefore);
+    expect(p.facilities.business.debts(boss.buildingId).get(ASSET_CREDIT)).toBe(720n);
     expect(await p.labor.acceptJob(hand.userId, 1, unitA)).toEqual({ ok: false, code: "unit_busy" });
     expect(p.labor.overview(hand.userId).contracts.map((c) => [c.id, c.kind, c.role])).toEqual([
       [1, "wage", "worker"],
@@ -326,12 +335,12 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     expect(p.ledger.balanceOf(hand.ownerId, ASSET_ORE)).toBe(handOre);
 
     // 어느 쪽이든 해지한다: 남은 보증금은 고용주에게(임금형은 유예 없이 끝)
-    const bossNow = p.ledger.balanceOf(boss.ownerId, ASSET_CREDIT);
+    const bossNow = vaultOf(world, boss.ownerId, boss.buildingId);
     expect(await p.labor.terminate(hand.userId, 1)).toEqual({ ok: true });
     expect([first?.state, first?.endReason]).toEqual(["ended", "worker"]);
     expect(await p.labor.terminate(boss.userId, 2)).toEqual({ ok: true });
     expect(p.labor.contracts.get(2)?.endReason).toBe("owner");
-    expect(p.ledger.balanceOf(boss.ownerId, ASSET_CREDIT)).toBe(bossNow + 696n + 696n);
+    expect(vaultOf(world, boss.ownerId, boss.buildingId)).toBe(bossNow + 696n + 696n);
     expect(await world.checkInvariants()).toEqual([]);
   });
 
@@ -339,8 +348,8 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     const first = await boot();
     const p = persistence(first);
     const boss = await setup(first, "chief", { workers: 1, credit: 900n, building: 40 });
-    const hand = await setup(first, "helper", { workers: 2, credit: 1_000n });
-    const [unitA = 0, unitB = 0] = hand.units;
+    const hand = await setup(first, "helper", { workers: 3, credit: 1_000n });
+    const [unitA = 0, unitB = 0, unitC = 0] = hand.units;
     const bossUnit = boss.units[0] ?? 0;
     expect(
       await p.labor.postJob(boss.userId, { buildingId: boss.buildingId, adjustPm: 1000, slots: 3 }),
@@ -357,22 +366,20 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     expect(await p.labor.acceptJob(boss.userId, 2, bossUnit)).toEqual({ ok: false, code: "invalid_terms" });
     expect(await p.labor.acceptJob(hand.userId, 2, 999_999)).toEqual({ ok: false, code: "unknown_unit" });
     expect(await p.labor.acceptJob(hand.userId, 2, bossUnit)).toEqual({ ok: false, code: "forbidden" });
-    // 고용주 900 → 첫 사람 보증금 480, 남은 420으로는 두 번째를 받지 못한다
+    // 보증금은 사업장 금고에서: 금고가 모자라도 받고 적자로 적는다(D-555 1504 — 다음 주기까지 못 갚으면 사업장이 멈춘다)
     expect(await p.labor.acceptJob(hand.userId, 2, unitA)).toEqual({ ok: true, contractId: 1 });
-    expect(await p.labor.acceptJob(hand.userId, 2, unitB)).toEqual({
-      ok: false,
-      code: "employer_insufficient_funds",
-    });
+    expect(await p.labor.acceptJob(hand.userId, 2, unitB)).toEqual({ ok: true, contractId: 2 });
+    expect(p.facilities.business.debts(boss.buildingId).get(ASSET_CREDIT)).toBe(960n);
     // 거두기는 낸 사람만. 거둬도 맺은 계약은 그대로
     expect(await p.labor.withdrawJob(hand.userId, 2)).toEqual({ ok: false, code: "forbidden" });
     expect(await p.labor.withdrawJob(boss.userId, 2)).toEqual({ ok: true });
     expect(await p.labor.withdrawJob(boss.userId, 2)).toEqual({ ok: false, code: "job_not_open" });
-    expect(await p.labor.acceptJob(hand.userId, 2, unitB)).toEqual({ ok: false, code: "job_not_open" });
+    expect(await p.labor.acceptJob(hand.userId, 2, unitC)).toEqual({ ok: false, code: "job_not_open" });
     expect(p.labor.contracts.get(1)?.state).toBe("active");
     await p.writer.durable();
     expect(await rows(test.db, "select id, state, filled from labor_postings order by id")).toEqual([
       { id: "1", state: "withdrawn", filled: 0 },
-      { id: "2", state: "withdrawn", filled: 1 },
+      { id: "2", state: "withdrawn", filled: 2 },
     ]);
 
     // 열린 게시는 다시 켜도 이어진다
@@ -383,12 +390,12 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     await first.crashForTest("commit");
     const second = await boot();
     const q = persistence(second);
-    expect([...q.labor.contracts.keys()]).toEqual([1]);
+    expect([...q.labor.contracts.keys()]).toEqual([1, 2]);
     expect(q.labor.jobs(hand.userId, {}).jobs.map((j) => j.id)).toEqual([3]);
     // 시설이 사라지면 게시판에서 빠지고, 받으려 하면 닫는다(gone)
     expect(second.maps.get(boss.map.mapKey)?.removeBuilding(boss.buildingId)).toEqual({ ok: true });
     expect(q.labor.jobs(hand.userId, {}).jobs).toEqual([]);
-    expect(await q.labor.acceptJob(hand.userId, 3, unitB)).toEqual({ ok: false, code: "job_not_open" });
+    expect(await q.labor.acceptJob(hand.userId, 3, unitC)).toEqual({ ok: false, code: "job_not_open" });
     await q.writer.durable();
     expect(await rows(test.db, "select state from labor_postings where id = 3")).toEqual([{ state: "gone" }]);
     expect(await second.checkInvariants()).toEqual([]);
@@ -422,7 +429,7 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     ]);
     // 유예 동안 유닛은 계약에 묶이지 않는다
     expect(view.units.find((u) => u.id === unitId)?.busy).toBe(false);
-    expect(p.ledger.balanceOf(owner.ownerId, ASSET_CREDIT)).toBe(10n);
+    expect(vaultOf(first, owner.ownerId, owner.buildingId)).toBe(10n);
 
     // 다시 켜도 유예가 이어지고, 유예가 끝나면 남은 물건이 넘어간 시각(= 유예 끝)을 적는다
     await p.writer.durable();
@@ -447,7 +454,7 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
       },
     ]);
     expect(q.labor.overview(tenant.userId).contracts[0]?.leftoversMovedAt).toBe(stoppedAt + 7 * DAY);
-    expect(q.ledger.balanceOf(owner.ownerId, ASSET_CREDIT)).toBe(10n);
+    expect(vaultOf(second, owner.ownerId, owner.buildingId)).toBe(10n);
     expect(await second.checkInvariants()).toEqual([]);
   });
 

@@ -21,7 +21,7 @@
 //   지금처럼 그 칸에서 가장 가까운 도시 창고·창고 시설·화물에서.
 import type { LandCheck } from "./landRule.ts";
 import type { FacilityResultCode } from "@terra/protocol";
-import { type CityCell, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
+import { type CityCell, buildingLocation, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
 import {
   CONDITION_FULL,
@@ -64,6 +64,7 @@ import {
   materialScope,
 } from "./places.ts";
 import { type StorageMoveInput, moveStorage, rehomeBuildingGoods } from "./storage.ts";
+import type { BusinessCommand, BusinessCommandResult, BusinessCommands } from "../business/commands.ts";
 import {
   type FacilityRecord,
   type JobKind,
@@ -209,6 +210,10 @@ export interface FacilityService {
    * undefined를 돌려주면(채집소 아님·거리 0) 예전처럼 바로 옮긴다
    */
   attachStorageOut(hook: StorageOutHook | undefined): void;
+  /** 사업장 장부 명령을 잇는다(건물 세계 — business/commands.ts, 프로토콜 34) */
+  attachBusiness(commands: BusinessCommands | undefined): void;
+  /** 사업장 장부 명령(정산·넣기·사기·값·선물 — 건물 게이트웨이가 넘긴다). 고리가 없으면 busy */
+  businessCommand(userId: string, command: BusinessCommand): Promise<BusinessCommandResult>;
   /**
    * 다 지은 시설 줄을 그대로 넣는다(세계 씨앗 = NPC 시작 도시 기본 시설, facilities/npcSeed.ts). 건물 칸은 부르는 쪽이 먼저 놓는다.
    * 재료·작업 없이 쓰기 대기열에만 쓴다(건물 칸과 같은 묶음)
@@ -288,6 +293,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
   let lastJobId = options.loaded.maxJobId;
   let government: GovernmentHook | undefined;
   let storageOut: StorageOutHook | undefined;
+  let business: BusinessCommands | undefined;
   const runtime = (): FacilityRuntimeRules => options.rules().facilityRuntime;
   const saveFacility = (record: FacilityRecord): void => writer.upsert("facilities", facilityRow(record));
   /**
@@ -523,6 +529,13 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     },
     attachStorageOut(hook) {
       storageOut = hook;
+    },
+    attachBusiness(commands) {
+      business = commands;
+    },
+    async businessCommand(userId, command) {
+      if (!business) return { ok: false, code: "busy" };
+      return business.run(userId, command);
     },
     seedBuilt(record) {
       facilities.set(record.buildingId, record);
@@ -885,6 +898,15 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (record) {
         fillCity(record);
         advance(record, at);
+      }
+      // 주인도 제 사업장 창고 물건은 값을 내고 꺼낸다(D-555 1507 — 돈은 그 사업장 금고로). 창고 시설은 값이 없다
+      if (input.direction === "out" && input.qty > 0) {
+        const place = buildingPlace(places, input.buildingId);
+        const here = buildingLocation(input.buildingId);
+        if (place?.ownerId === me && ledger.balanceOf(me, input.asset, here) >= BigInt(input.qty)) {
+          const charged = business?.chargeTake(me, input.buildingId, input.asset, BigInt(input.qty), at);
+          if (charged) return fail(charged);
+        }
       }
       // 채집소 창고 꺼내기는 운반꾼이 나른다(질문 1091 가) — 고리가 맡지 않으면 예전처럼 바로
       const hauled = input.direction === "out" ? storageOut?.(me, input, at) : undefined;

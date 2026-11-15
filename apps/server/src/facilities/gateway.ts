@@ -7,7 +7,10 @@
 // - 행정 건물(폐허 정부, 프로토콜 13 — docs/adr/2026-11-07-ruins-restoration.md)의 새 코드 not_ruin·ruin_claimed는 13판 연결에만 가고 더 낮은
 //   판은 not_buildable을 받는다(그 판 기기가 모르는 코드라 메시지를 풀지 못한다).
 // - 물가 조건(프로토콜 21, 질문 947 나)의 새 코드 needs_water도 같다: 21판 연결에만 가고 20판은 blocked_terrain을 받는다.
+// - 사업장 장부 명령(프로토콜 34, docs/adr/2026-11-15-business-ledger.md)도 이 게이트웨이가 받아 business_result로 답한다(app.ts 상한 — 새 게이트웨이를
+//   잇지 않는다). 34의 새 코드 insufficient_funds(주인 꺼내기 값)는 더 낮은 판에 insufficient_materials로 간다.
 import {
+  BUSINESS_PROTOCOL_VERSION,
   type ClientMessageOf,
   type FacilityResultCode,
   RUINS_PROTOCOL_VERSION,
@@ -19,7 +22,13 @@ import { rolesAllow } from "../auth/permissions.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { BuildingAttack } from "./attack.ts";
+import type { BusinessCommand, BusinessCommandResult } from "../business/commands.ts";
 import type { FacilityCommandResult, FacilityService } from "./service.ts";
+
+/** 사업장 장부 명령(프로토콜 34, business/commands.ts) — 건물 게이트웨이가 함께 받고 business_result로 답한다 */
+export type BusinessClientMessage = ClientMessageOf<
+  "business_settle" | "business_invest" | "business_buy" | "business_price" | "unit_gift"
+>;
 
 export type FacilityClientMessage = ClientMessageOf<
   | "facility_build"
@@ -48,7 +57,7 @@ export interface FacilityLink {
 const RUIN_CODES: ReadonlySet<FacilityResultCode> = new Set(["not_ruin", "ruin_claimed"]);
 
 export interface FacilitySocket {
-  handle(message: FacilityClientMessage): void;
+  handle(message: FacilityClientMessage | BusinessClientMessage): void;
   close(): void;
 }
 
@@ -68,6 +77,61 @@ function resultText(id: number, result: FacilityCommandResult): string {
 }
 
 const fail = (code: FacilityResultCode): FacilityCommandResult => ({ ok: false, code });
+
+const BUSINESS_TYPES: ReadonlySet<string> = new Set([
+  "business_settle",
+  "business_invest",
+  "business_buy",
+  "business_price",
+  "unit_gift",
+]);
+const isBusiness = (
+  message: FacilityClientMessage | BusinessClientMessage,
+): message is BusinessClientMessage => BUSINESS_TYPES.has(message.t);
+
+function businessCommandOf(message: BusinessClientMessage): BusinessCommand {
+  switch (message.t) {
+    case "business_settle":
+      return {
+        kind: "settle",
+        buildingId: message.buildingId,
+        ...(message.asset === undefined ? {} : { asset: message.asset }),
+        ...(message.amount === undefined ? {} : { amount: BigInt(message.amount) }),
+      };
+    case "business_invest":
+      return {
+        kind: "invest",
+        buildingId: message.buildingId,
+        asset: message.asset,
+        amount: BigInt(message.amount),
+      };
+    case "business_buy":
+      return { kind: "buy", buildingId: message.buildingId, item: message.item, qty: message.qty };
+    case "business_price":
+      return {
+        kind: "price",
+        buildingId: message.buildingId,
+        item: message.item,
+        price: BigInt(message.price),
+      };
+    case "unit_gift":
+      return { kind: "gift", unitId: message.unitId, amount: BigInt(message.amount) };
+    default: {
+      const unhandled: never = message;
+      return unhandled;
+    }
+  }
+}
+
+function businessText(id: number, result: BusinessCommandResult): string {
+  if (!result.ok) return encodeMessage({ t: "business_result", id, ok: false, code: result.code });
+  return encodeMessage({
+    t: "business_result",
+    id,
+    ok: true,
+    ...(result.paid === undefined ? {} : { paid: String(result.paid) }),
+  });
+}
 
 function run(
   service: FacilityService,
@@ -154,8 +218,14 @@ export function createFacilityGateway(options: {
       const old = (link.protocolVersion ?? RUINS_PROTOCOL_VERSION) < RUINS_PROTOCOL_VERSION;
       const beforeWater =
         (link.protocolVersion ?? WATER_PLACE_PROTOCOL_VERSION) < WATER_PLACE_PROTOCOL_VERSION;
+      const beforeBusiness = (link.protocolVersion ?? BUSINESS_PROTOCOL_VERSION) < BUSINESS_PROTOCOL_VERSION;
       const reply = (id: number, result: FacilityCommandResult): void => {
         if (closed) return;
+        // 돈 모자람(34)은 더 낮은 판에 재료 모자람으로
+        if (beforeBusiness && !result.ok && result.code === "insufficient_funds") {
+          link.send(resultText(id, fail("insufficient_materials")));
+          return;
+        }
         const shown =
           old && !result.ok && RUIN_CODES.has(result.code)
             ? fail("not_buildable")
@@ -164,7 +234,20 @@ export function createFacilityGateway(options: {
               : result;
         link.send(resultText(id, shown));
       };
-      const process = async (message: FacilityClientMessage): Promise<void> => {
+      const processBusiness = async (message: BusinessClientMessage): Promise<void> => {
+        const viewer = await link.viewer();
+        if (closed) return;
+        const send = (result: BusinessCommandResult): void => {
+          if (!closed) link.send(businessText(message.id, result));
+        };
+        if (!viewer) return send({ ok: false, code: "sign_in_required" });
+        const service = options.service();
+        if (!service) return send({ ok: false, code: "busy" });
+        if (!limiter.take(viewer.id)) return send({ ok: false, code: "rate_limited" });
+        send(await service.businessCommand(viewer.id, businessCommandOf(message)));
+      };
+      const process = async (message: FacilityClientMessage | BusinessClientMessage): Promise<void> => {
+        if (isBusiness(message)) return processBusiness(message);
         const viewer = await link.viewer();
         if (closed) return;
         if (!viewer) return reply(message.id, fail("sign_in_required"));
@@ -180,7 +263,8 @@ export function createFacilityGateway(options: {
         handle(message) {
           if (closed) return;
           if (pending >= MAX_PENDING) {
-            reply(message.id, fail("busy"));
+            if (isBusiness(message)) link.send(businessText(message.id, { ok: false, code: "busy" }));
+            else reply(message.id, fail("busy"));
             return;
           }
           pending += 1;
@@ -188,7 +272,9 @@ export function createFacilityGateway(options: {
             .then(() => process(message))
             .catch((error: unknown) => {
               options.log.error({ err: error, t: message.t }, "facility request failed");
-              reply(message.id, fail("internal_error"));
+              if (isBusiness(message)) {
+                if (!closed) link.send(businessText(message.id, { ok: false, code: "internal_error" }));
+              } else reply(message.id, fail("internal_error"));
             })
             .finally(() => {
               pending -= 1;

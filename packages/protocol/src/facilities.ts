@@ -220,6 +220,11 @@ export const FACILITY_RESULT_CODES = [
    * 물가 조건(질문 947 나, 팩 needsWaterWithin — 낚시터): 건물 칸 둘레 N 배치 칸 안에 물 칸이 없다(21 — 더 낮은 판 연결은 blocked_terrain)
    */
   "needs_water",
+  /**
+   * 돈이 모자람: 주인이 제 사업장 창고 물건을 꺼낼 때도 값을 낸다(D-555 1507, 34 — 더 낮은 판 연결은 insufficient_materials,
+   * docs/adr/2026-11-15-business-ledger.md)
+   */
+  "insufficient_funds",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];

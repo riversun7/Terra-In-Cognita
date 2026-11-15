@@ -62,7 +62,19 @@
 - 검사 결과는 아래 "검사" 절.
 
 ## 검사
-(작업 끝에 채운다)
+- Verified `pnpm check`(TEST_DATABASE_URL 있음): 포맷·린트·타입·경계·파일 크기·다국어(7,756키)·디자인 값·콘텐츠 core@104 통과, 시험 파일 726개·시험 5,486개 통과.
+- Verified 빌드 + `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 110,049 B / 상한 131,416 B(+250 B — 주소 표 한 줄·화면 표; 건물 판·재무 화면은 지연 조각).
+- Verified `pnpm check:content origin/main` 통과(core@104), `node scripts/check-docs.mjs origin/main` 통과.
+- Verified 새 시험: `business/shares.test.ts` 4(발행·체결·정산 지분대로·경영권·한도·거두기), `business.db.test.ts` 지분 1(주문 → 다시 켜기 복원 → 회차 체결 → 대주주 관리·운영자
+  대신 임대료·장부 주주 이름·이름표·정산 지분대로·불변 조건).
+- Verified 화면 시험(빌드한 앱, 헤드리스): `build-mode` 5/5(반경 고리 새 시험 포함), `building-screen` 5/5, `labor` 4/4, `gather-station`·`gather`·`government`·`facilities`
+  30/30(두 번째 실행). 첫 실행에서 재무 화면 손익 표가 빈 사업장에서 안 보여 고쳤고(0 표), 두 번째 실행에서 운영자 시험이 NPC 건물 임대료를 남겨 `labor` 4개가
+  같은 세계에서 실패해 시험이 되돌리게 고친 뒤 `building-screen`+`labor` 9/9.
+- 사진(저장소 밖, 390): `building-panel-390-{pastel-ko,dark-en}.png`(개요), `building-shares-390-*`, `building-books-390-*`, `building-finance-390-*`, `build-place-390-*`
+  — 장부 사진의 값은 견본(rewriteTrpc).
+- break-ui 관점 검토(390, 긴 이름·큰 수·빈 값): 이름표·주주 이름은 줄바꿈, 큰 금액은 표·카드에서 줄바꿈, 영어 복수형("1 shares")은 문구를 바꿨다. 탭 6개는 휴대폰에서
+  가로로 넘긴다(선택한 탭이 보인다).
+- 미실행: `unit-control`·`boats`·`map-hud` 화면 시험(건물 판을 열지만 이번 바뀜과 겹치는 단언 없음 — Assumed).
 
 ## 사용자 결정 대기
 - 질문 1701~1708(`docs/questions/2026-11-15-building-screen.md`).

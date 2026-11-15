@@ -76,7 +76,8 @@ export interface NpcBuildInput {
  * buildPolicy가 플레이어와 같은 식으로 셈해 넘긴다. 건물 주인 = ownerId여야 한다
  */
 export interface NpcJobInput {
-  readonly kind: "upgrade" | "repair";
+  /** plot = 면적 모듈 붙이기(기획 D-569 1768 — NPC도 모듈) */
+  readonly kind: "upgrade" | "repair" | "plot";
   readonly ownerId: number;
   readonly buildingId: number;
   readonly materials: readonly JobMaterial[];

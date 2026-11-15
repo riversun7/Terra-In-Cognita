@@ -582,6 +582,7 @@ export const WORLD_TABLES = {
       "city_id",
       "seeded",
       "plots",
+      "gather_tier",
     ],
     key: ["building_id"],
   },

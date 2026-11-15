@@ -57,6 +57,8 @@ import {
   createCatchmentState,
   haulOn,
   restsPerDay,
+  isSelectRecipe,
+  npcSelectTier,
 } from "@terra/sim";
 import type { CatchmentLand } from "@terra/shared/catchment";
 import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
@@ -112,6 +114,8 @@ export interface CityFacility {
   readonly facility: string;
   readonly level: number;
   readonly ownerId: number | null;
+  /** 붙은 면적 모듈 수(건물 채집소, 기획 D-569 1768). 없으면 0 */
+  readonly plots?: number | undefined;
 }
 
 /** 월드가 넘기는 경제 입력(world.ts → runtime.ts) */
@@ -414,25 +418,44 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     const city = world.cities.get(cityId);
     const wanted = new Map<
       number,
-      { recipe: string; facility: string; level: number; buildingId: number | null; slots: number }
+      {
+        recipe: string;
+        facility: string;
+        level: number;
+        buildingId: number | null;
+        slots: number;
+        plots: number;
+        tier: number | undefined;
+      }
     >();
     if (city) {
       // 건물(건물 ID 차례)은 그 시설의 특산 레시피(553 나), 건물이 받지 못한 특산은 도시 직무(531 다·600 나) — 시뮬 planCityFacilities
       const buildings = o.input
         .facilitiesIn(cityId)
         .filter((entry) => entry.ownerId === city.owner && entry.level >= 1);
+      const plotsOf = new Map(buildings.map((entry) => [entry.buildingId, entry.plots ?? 0]));
       for (const plan of planCityFacilities(
         buildings,
         personalityOfCity(cityId)?.cityJobs ?? CITY_JOBS,
         catalog,
-      ))
+      )) {
+        const plots = plan.buildingId === null ? 0 : (plotsOf.get(plan.buildingId) ?? 0);
+        const recipe = catalog.recipes.get(plan.recipe);
+        // 건물 채집소의 기르는 티어 = 시세로 고른 기술 추천(기획 D-569 1761 — 시뮬과 같은 함수)
+        const tier =
+          recipe && isSelectRecipe(recipe)
+            ? npcSelectTier(economy, cityId, { recipe, level: plan.level, plots })
+            : undefined;
         wanted.set(plan.buildingId ?? CITY_JOB_BASE + cityId * 16 + (plan.jobIndex ?? 0), {
           recipe: plan.recipe,
           facility: plan.facility,
           level: plan.level,
           buildingId: plan.buildingId,
           slots: plan.slots,
+          plots,
+          tier,
         });
+      }
     }
     // 일꾼: 굶음 먼저(생필품 사슬에 하루 몫만큼) → 남은 휴먼은 시설마다 한 명씩 돌려 자리 수까지(기획 답 532 나)
     const slots: CityWorkSlot[] = [];
@@ -440,7 +463,11 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       const recipe = catalog.recipes.get(want.recipe);
       const spec = catalog.facilities.get(want.facility);
       if (!recipe || !spec) continue;
-      const effects = workerEffects(spec.gather, { level: want.level }, economy.gather);
+      const effects = workerEffects(
+        spec.gather,
+        { level: want.level, plots: want.plots, tier: want.tier },
+        economy.gather,
+      );
       slots.push({
         id,
         recipe,
@@ -494,6 +521,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         want &&
         want.recipe === facility.recipe.id &&
         want.level === facility.level &&
+        want.plots === (facility.plots ?? 0) &&
+        (want.tier === undefined || want.tier === facility.selectTier) &&
         (workers.get(id) ?? 0) === facility.workers &&
         logistics.dutyPm === facility.dutyPm &&
         logistics.haul?.cells === facility.haul?.cells &&
@@ -514,7 +543,11 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         recipe,
         level: want.level,
         workers: workers.get(id) ?? 0,
-        ...workerEffects(spec.gather, { level: want.level }, economy.gather),
+        ...workerEffects(
+          spec.gather,
+          { level: want.level, plots: want.plots, tier: want.tier },
+          economy.gather,
+        ),
         ...logisticsOf(id),
         batches: 0,
         eventId: undefined,

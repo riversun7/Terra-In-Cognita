@@ -40,6 +40,8 @@ export {
   buildingGatherEfficiencyPm,
   buildingGatherTier,
   buildingYieldPm,
+  chosenGatherTier,
+  recommendGatherTier,
   plotAreaPm,
   plotSlots,
   conditionedStats,

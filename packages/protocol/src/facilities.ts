@@ -1,7 +1,8 @@
 // 건물(시설) 명령 (프로토콜 10부터, 창고 옮기기는 12부터) — docs/adr/2026-11-07-buildings-runtime.md, 기획 49 N50·M14·M15·N54,
 // D-171·D-508·D-509·D-514·D-516(361·382)
 // - 바꾸는 명령: 짓기(facility_build), 레벨업(facility_upgrade), 건물·영토 비콘 수리(facility_repair), 공방 장비 수리(equipment_repair),
-//   면적 모듈 붙이기(facility_plot, 프로토콜 41 — 건물 채집소, 기획 D-567),
+//   면적 모듈 붙이기(facility_plot, 프로토콜 41 — 건물 채집소, 기획 D-567; 45부터 짓는 시간·일꾼, D-569 1765)·떼기(facility_plot_remove, 45)·
+//   기르는 티어 고르기(facility_gather_tier, 45 — D-569 1761),
 //   개발 시험(dev_facility_grant: 재료 받기, dev_facility_finish: 하던 작업 바로 끝내기 — 권한 secondMap: dev-test).
 //   창고 옮기기(storage_move, 프로토콜 11): 도시 창고·화물 ↔ 창고 시설, 건물 창고(임대 몫) → 도시 창고. 조회는 tRPC facilities.overview다.
 //   건물·영토 비콘 공격(facility_attack, 프로토콜 12, 질문 381): 내 유닛으로 남의 시설·다른 세력 비콘을 넥서스로 하는 공성 전투를 연다.
@@ -21,6 +22,11 @@ export const ATTACK_PROTOCOL_VERSION = 12;
 export const WATER_PLACE_PROTOCOL_VERSION = 21;
 /** 면적 모듈 붙이기(facility_plot, 기획 D-567)와 결과 코드 plot_full이 생긴 판. 더 낮은 판 기기는 보내지 않는다(코드는 이 메시지의 답에만) */
 export const PLOT_PROTOCOL_VERSION = 41;
+/**
+ * 면적 모듈 떼기(facility_plot_remove)·기르는 티어 고르기(facility_gather_tier)와 결과 코드 no_plot·tier_locked가 생긴 판(기획 D-569 1761·1765).
+ * 더 낮은 판 기기는 보내지 않는다(코드는 이 메시지들의 답에만)
+ */
+export const GATHER_TIER_PROTOCOL_VERSION = 45;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -143,12 +149,35 @@ export const facilityAttackMessage = z
 /**
  * 면적 모듈 하나 붙이기(프로토콜 41, 기획 D-567 "모듈을 추가하여 건물의 목장이나 밭 등의 면적을 넓힌다"): 내 건물 채집소(농장·목장·약초원 — 선택
  * 방식)에 밭·목장·약초밭 면적 모듈을 하나 더한다. 자리 = 레벨 × 설정 칸 plot_module_slots_per_level, 재료 = 그 시설 레벨 1 짓기 재료(건물이 선
- * 도시 창고 등에서 뺀다 — 짓기와 같은 자리·같은 레벨 0 재료 규칙). 바로 붙는다(작업 시간 없음 [임시])
+ * 도시 창고 등에서 뺀다 — 짓기와 같은 자리·같은 레벨 0 재료 규칙). 45부터 짓기처럼 작업이 걸린다(D-569 1765 "모듈은 짓는 시간·재료" — 시간 = 그
+ * 시설 레벨 1 짓는 시간 × 일꾼 단축, unitIds = 내 유닛, 없어도 된다). 답의 doneAtMs = 붙는 시각. 41~44판 기기는 unitIds 없이 보낸다
  */
 export const facilityPlotMessage = z.object({
   t: z.literal("facility_plot"),
   id: requestId,
   buildingId: rowId,
+  unitIds: units.optional(),
+});
+
+/**
+ * 면적 모듈 하나 떼기(프로토콜 45, 기획 D-569 1765 "모듈 떼기 가능"): 붙은 모듈 하나를 바로 뗀다. 재료는 돌려주지 않는다 [임시, 질문 1861].
+ * 붙은 모듈이 없으면 no_plot, 그 건물에 작업이 걸려 있으면 job_running
+ */
+export const facilityPlotRemoveMessage = z.object({
+  t: z.literal("facility_plot_remove"),
+  id: requestId,
+  buildingId: rowId,
+});
+
+/**
+ * 기르는 티어 고르기(프로토콜 45, 기획 D-569 1761 "최고 티어 아래에서 골라 기름"): 내 건물 채집소가 기를 티어(0~최고 = 2 × 레벨 − 1). null = 기본
+ * (최고 티어 — 레벨을 올리면 따라 오른다). 최고 티어 위면 tier_locked. 다음 수확 묶음부터 든다
+ */
+export const facilityGatherTierMessage = z.object({
+  t: z.literal("facility_gather_tier"),
+  id: requestId,
+  buildingId: rowId,
+  tier: z.number().int().min(0).max(9).nullable(),
 });
 
 /** 개발 시험: 하던 작업(짓기·레벨업·수리·장비 수리) 바로 끝내기(권한 secondMap: dev-test) */
@@ -241,6 +270,10 @@ export const FACILITY_RESULT_CODES = [
   "insufficient_funds",
   /** 면적 모듈 자리가 가득(레벨 × 레벨당 자리, 41 — facility_plot의 답에만) */
   "plot_full",
+  /** 뗄 면적 모듈이 없다(45 — facility_plot_remove의 답에만) */
+  "no_plot",
+  /** 고른 티어가 그 건물 레벨의 최고 티어 위다(45 — facility_gather_tier의 답에만) */
+  "tier_locked",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];
@@ -273,5 +306,7 @@ export const facilityClientMessages = [
   storageMoveMessage,
   facilityAttackMessage,
   facilityPlotMessage,
+  facilityPlotRemoveMessage,
+  facilityGatherTierMessage,
 ] as const;
 export const facilityServerMessages = [facilityResultMessage] as const;

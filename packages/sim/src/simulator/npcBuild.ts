@@ -29,6 +29,7 @@ import {
   repairTimeMs,
   withBuilders,
 } from "@terra/shared/facilityRuntime";
+import { DEFAULT_BUILDING_GATHER, plotSlots } from "@terra/shared/gatherMath";
 import { cityGrade } from "@terra/shared/territory";
 import {
   BUILD_LODGING,
@@ -37,6 +38,7 @@ import {
   type SiteFacility,
   buildingCapOf,
   chooseCityBuild,
+  chooseCityPlot,
   chooseCityRepair,
   countedBuildings,
   rankCityUpgrades,
@@ -47,6 +49,7 @@ import { itemAsset, lotSizeOf } from "./catalog.ts";
 import { type Economy, scheduleProduce, workerEffects } from "./economy.ts";
 import type { SimLoop } from "./loop.ts";
 import type { NpcContext, SimEvent } from "./npcRun.ts";
+import { retierFacility } from "./npcGatherTier.ts";
 import { marketRefPrice } from "./npcTrade.ts";
 import type { SimFaction, SimWorld } from "./world.ts";
 
@@ -80,6 +83,18 @@ export interface NpcBuilder {
   ): boolean;
   /** 레벨 올리기(1146 나): 재료를 빼고 한 레벨 올리기 작업을 건다. 못 하면 false. 없으면 레벨을 올리지 않는다 */
   upgrade?(
+    faction: SimFaction,
+    cityId: number,
+    key: number,
+    materials: readonly BuildStackJson[],
+    ms: number,
+    nowMs: number,
+  ): boolean;
+  /**
+   * 면적 모듈 붙이기(기획 D-569 1768 — 플레이어 facility_plot과 같은 재료 = 레벨 1 짓기 재료·시간 = 레벨 1 짓는 시간): 재료를 빼고 모듈 하나를 붙이는
+   * 작업을 건다. 못 하면 false. 없으면 붙이지 않는다
+   */
+  plot?(
     faction: SimFaction,
     cityId: number,
     key: number,
@@ -388,6 +403,32 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
         };
       }
     }
+    // 2-1. 면적 모듈(기획 D-569 1768 — D-212 NPC도 같은 시스템): 지을 것이 없을 때, 재료가 이미 창고에 있을 때만(모듈 재료는 사지 않는다)
+    if (!action && builder.plot) {
+      const rules = economy.gather.building ?? DEFAULT_BUILDING_GATHER;
+      const target = chooseCityPlot(facilities, (facility, level) =>
+        economy.catalog.facilities.get(facility)?.gather?.mode === "select" ? plotSlots(level, rules) : 0,
+      );
+      const build = target ? economy.catalog.facilities.get(target.facility)?.build : undefined;
+      if (target && build) {
+        const materials = buildCostAt(build, 1).filter((stack) => stack.qty > 0);
+        const ms = withBuilders(
+          buildTimeAt(build, 1, weight, c.facilityBuild).ms,
+          helpers,
+          c.facilityRuntime,
+        );
+        const plot = builder.plot.bind(builder);
+        if (builder.has(faction, cityId, materials))
+          action = {
+            materials,
+            run: () => {
+              const ok = plot(faction, cityId, target.key, materials, ms, nowMs);
+              if (ok) ctx.counts.plots += 1;
+              return ok;
+            },
+          };
+      }
+    }
     // 3. 상한에 닿았으면 레벨 올리기(1146 나): 한 번에 한 레벨, 플레이어 레벨업과 같은 재료·시간. 구할 길이 없는 재료가 드는 시설은 건너뛴다
     if (!action && cap > 0 && builder.upgrade && countedBuildings(site.counts, stageOf) >= cap) {
       const upgrade = builder.upgrade.bind(builder);
@@ -508,7 +549,7 @@ export function simNpcBuilder(
   bedsPerLevel: () => number = () => 0,
 ): NpcBuilder {
   /** 도시 → 짓는 것(짓기 = facility, 레벨 올리기 = key) */
-  const active = new Map<number, { facility: string; key: number | null; doneAtMs: number }>();
+  const active = new Map<number, { facility: string; key: number | null; doneAtMs: number; plot?: true }>();
   /** 생산하지 않는 다 지은 시설(숙소 등): 열쇠 → 도시·시설·레벨 */
   const extra = new Map<number, { city: number; facility: string; level: number }>();
   let nextId = 0;
@@ -542,7 +583,7 @@ export function simNpcBuilder(
       if (facility === BUILD_LODGING) refreshBeds(cityId);
       return;
     }
-    const built = {
+    const built = retierFacility(economy, {
       id,
       city: cityId,
       recipe,
@@ -551,7 +592,7 @@ export function simNpcBuilder(
       ...workerEffects(spec.gather, { level: 1 }, economy.gather),
       batches: 0,
       eventId: undefined,
-    };
+    });
     economy.facilities.set(id, built);
     scheduleProduce(economy, world, loop, built, nowMs);
   };
@@ -569,12 +610,40 @@ export function simNpcBuilder(
     const level = facility.level + 1;
     const free = idleHumans(economy, world, cityId, guardsIn(cityId));
     const workers = Math.min(spec.slotsPerLevel * level, facility.workers + free);
-    economy.facilities.set(key, {
-      ...facility,
-      level,
-      workers,
-      ...workerEffects(spec.gather, { level }, economy.gather),
-    });
+    economy.facilities.set(
+      key,
+      retierFacility(economy, {
+        ...facility,
+        level,
+        workers,
+        ...workerEffects(spec.gather, { level, plots: facility.plots }, economy.gather),
+      }),
+    );
+  };
+  /** 면적 모듈 붙이기 끝(기획 D-569 1768): 모듈 + 1, 수확 배율을 다시 셈한다(다음 생산부터) */
+  const plotDone = (key: number): void => {
+    const facility = economy.facilities.get(key);
+    const spec = facility ? economy.catalog.facilities.get(facility.recipe.facility) : undefined;
+    if (!facility || !spec) return;
+    economy.facilities.set(
+      key,
+      retierFacility(economy, {
+        ...facility,
+        ...workerEffects(
+          spec.gather,
+          { level: facility.level, plots: (facility.plots ?? 0) + 1 },
+          economy.gather,
+        ),
+      }),
+    );
+  };
+  /** 그 도시 건물 채집소의 기르는 티어를 시세로 다시 고른다(기획 D-569 1761 — 판단마다, 다음 생산부터) */
+  const retierCity = (cityId: number): void => {
+    for (const facility of [...economy.facilities.values()].toSorted((a, b) => a.id - b.id)) {
+      if (facility.city !== cityId) continue;
+      const next = retierFacility(economy, facility);
+      if (next !== facility) economy.facilities.set(facility.id, next);
+    }
   };
   /**
    * 증축 시설의 빈 자리를 일 없는 휴먼으로 채운다(질문 1186 나 확인 — 서버 도시 경제가 맞출 때마다 휴먼을 시설마다 한 명씩 돌려 나누는 것과 같은
@@ -664,9 +733,11 @@ export function simNpcBuilder(
           if (job.key === null) {
             activate(cityId, job.facility, nowMs);
             done += 1;
-          } else levelUp(cityId, job.key);
+          } else if (job.plot) plotDone(job.key);
+          else levelUp(cityId, job.key);
         }
         fillBuilt(cityId, nowMs);
+        retierCity(cityId);
       }
       return done;
     },
@@ -689,6 +760,7 @@ export function simNpcBuilder(
             facility: facility.recipe.facility,
             level: facility.level,
             workers: facility.workers,
+            ...(facility.plots ? { plots: facility.plots } : {}),
           });
         }
       const job = active.get(cityId);
@@ -714,6 +786,13 @@ export function simNpcBuilder(
       spend(faction, cityId, materials, nowMs);
       const facility = extra.get(key)?.facility ?? economy.facilities.get(key)?.recipe.facility ?? "";
       active.set(cityId, { facility, key, doneAtMs: nowMs + ms });
+      return true;
+    },
+    plot(faction, cityId, key, materials, ms, nowMs) {
+      const facility = economy.facilities.get(key);
+      if (facility?.city !== cityId || active.has(cityId) || !has(faction, cityId, materials)) return false;
+      spend(faction, cityId, materials, nowMs);
+      active.set(cityId, { facility: facility.recipe.facility, key, doneAtMs: nowMs + ms, plot: true });
       return true;
     },
   };

@@ -36,7 +36,13 @@ import { productionTypesOf } from "./guide.ts";
 export interface GatherPlace {
   /** 일하는 채집 시설(시설 ID·레벨·면적 모듈 수). 없으면 모든 줄 레벨 1·모듈 0 */
   readonly workplace?:
-    | { readonly facility: string; readonly level: number; readonly plots?: number | undefined }
+    | {
+        readonly facility: string;
+        readonly level: number;
+        readonly plots?: number | undefined;
+        /** 고른 기르는 티어(D-569 1761). 없으면 최고 티어 */
+        readonly tier?: number | null | undefined;
+      }
     | undefined;
   /** 아이템 ID → 그 도시 거래소 마지막 체결가(없으면 undefined — 시작 시세) */
   readonly lastPrice: (item: string) => bigint | undefined;
@@ -114,7 +120,15 @@ export function gatherSheetOf(
         yieldCap: gather.yieldCap,
         catch: gather.catch,
       },
-      { level, primaryStat: primaryValue, secondaryStat: secondaryValue, condition: clamped, plots },
+      // 고른 기르는 티어(D-569 1761 — 일터일 때만, 없으면 최고 티어)
+      {
+        level,
+        primaryStat: primaryValue,
+        secondaryStat: secondaryValue,
+        condition: clamped,
+        plots,
+        tier: here?.tier,
+      },
       settings,
     );
     // 띠 표 하나(기획 D-552 "표 하나")

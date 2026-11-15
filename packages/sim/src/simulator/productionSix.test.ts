@@ -161,6 +161,7 @@ describe("1차 생산 여섯 가지: 약초원·목장·낚시터", () => {
       gatherStat: 180,
       selectTier: 7,
       yieldPm: 1000,
+      statSum: 150,
       progress: 2,
       yieldPerLot: 6,
     });
@@ -191,9 +192,9 @@ describe("1차 생산 여섯 가지: 약초원·목장·낚시터", () => {
     // 새 유닛(스탯 10·10 = 유효 20): 약초 T0가 가장 많고 T3까지 나온다
     expect(qty("wild_herb")).toBeGreaterThan(qty("aloe"));
     expect(qty("wild_herb") + qty("aloe") + qty("lavender") + qty("angelica_root")).toBeGreaterThan(0n);
-    // 목장 선택: 레벨 1 = T1(D-566 1721) → 사슴 고기만(T0 생고기·T2 양고기는 나오지 않는다)
-    expect(qty("venison")).toBeGreaterThan(0n);
-    expect(qty("raw_meat")).toBe(0n);
+    // 목장 선택: 레벨 1 = 최고 T1(D-566 1721) — NPC는 그 아래에서 시세로 고른다(D-569 1761 npcSelectTier: T0 생고기·T1 사슴 고기),
+    // T2 양고기는 나오지 않는다
+    expect(qty("venison") + qty("raw_meat")).toBeGreaterThan(0n);
     expect(qty("mutton")).toBe(0n);
     // 낚시: 성공률 300 + ⌊500 × 20 ÷ 200⌋ = 350‰ — 약초원(같은 스탯·같은 표, 늘 성공)보다 적게 낚는다
     const fish = qty("loach") + qty("carp") + qty("salmon") + qty("mackerel");
@@ -259,7 +260,8 @@ describe('목장 사다리 = 축산물 + 목축 부산물(질문 946 나, ADR pr
     const qty = (id: string) => BigInt(both[`item:${id}`] ?? "0");
     expect(qty("venison")).toBeGreaterThan(0n);
     expect(qty("deer_hide")).toBeGreaterThan(0n);
-    expect(qty("raw_meat") + qty("feather") + qty("mutton")).toBe(0n);
+    // 최고 T1 위(T2 양고기)는 나오지 않는다 — NPC가 시세로 T0(생고기·깃털)을 고르는 때도 있다(D-569 1761)
+    expect(qty("mutton")).toBe(0n);
     // 약초·어류는 목장 사다리를 넓혀도 그대로다(시설마다 난수 흐름이 따로)
     const before = producedWith(SIX_CATALOG);
     for (const id of [

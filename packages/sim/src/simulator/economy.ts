@@ -24,8 +24,8 @@ import { type GoodsMarket, createGoodsMarket } from "../economy/goodsMarket.ts";
 import {
   type BuildingGatherRules,
   DEFAULT_BUILDING_GATHER,
-  buildingGatherTier,
   buildingYieldPm,
+  chosenGatherTier,
   conditionedStats,
   gatherCatchPm,
   gatherProgress,
@@ -108,14 +108,19 @@ export interface EcoFacility {
   readonly workers: number;
   /** 채집 티어 추첨의 유효 스탯(일꾼 주 + 보조 + 레벨 보너스). 추첨 레시피가 아니면 쓰지 않는다 */
   readonly gatherStat: number;
-  /** 선택 방식(건물 채집소)이 기르는 티어 = 건물 레벨의 최고 티어(D-566 1721). 선택 레시피가 아니면 쓰지 않는다 */
+  /**
+   * 선택 방식(건물 채집소)이 기르는 티어 = 건물 레벨의 최고 티어 아래에서 고른 것(D-566 1721·D-569 1761 — NPC는 기술 추천 npcSelectTier). 선택
+   * 레시피가 아니면 쓰지 않는다
+   */
   readonly selectTier: number;
   /**
    * 건물 채집소 수확 배율(‰ — 권장 스탯 미달 효율 × 면적 모듈, D-566 1721·D-567). 선택 레시피가 아니면 없다(배율 없음)
    */
   readonly yieldPm?: number | undefined;
-  /** 붙은 면적 모듈 수(D-567). 없으면 0 — NPC 시설은 모듈을 붙이지 않는다 [임시, 질문 1768] */
+  /** 붙은 면적 모듈 수(D-567). 없으면 0 — NPC도 짓기 판단으로 붙인다(D-569 1768, simulator/npcBuild.ts) */
   readonly plots?: number | undefined;
+  /** 건물 채집소 일꾼 스탯 합(주 + 보조 + 컨디션, 티어를 다시 고를 때 수확 배율을 셈한다 — D-569 1761). 선택 레시피가 아니면 없다 */
+  readonly statSum?: number | undefined;
   /** 진행 속도(49 N32): 일꾼 한 명의 효율 = 1000 × 이 값. 스탯 짝이 없는 시설은 1 */
   readonly progress: number;
   /** 한 번 캘 때 수확량(옛 gather_type_config): 산출 × 이 값. 스탯 짝이 없는 시설은 1 */
@@ -463,6 +468,7 @@ export function scheduleEconomy(
  * 기획 D-535 1154 나 — @terra/shared/gatherMath conditionedStats). 없으면 0.
  * 바뀜 (기획 D-566 1721·D-567): 선택 방식(건물 채집소)은 티어 = 건물 레벨의 최고 티어(buildingGatherTier), 수확 배율 = 권장 스탯 미달 효율 ×
  * 면적 모듈(buildingYieldPm, plots = 붙은 모듈 수)
+ * 바뀜 (기획 D-569 1761): tier = 고른 티어(최고 티어로 자른다 — chosenGatherTier, 없으면 최고 티어)
  */
 export function workerEffects(
   rule: CatalogGather | undefined,
@@ -472,16 +478,21 @@ export function workerEffects(
     secondaryStat?: number | undefined;
     condition?: number | undefined;
     plots?: number | undefined;
+    tier?: number | null | undefined;
   },
   gather: GatherSettings,
-): Pick<EcoFacility, "gatherStat" | "selectTier" | "yieldPm" | "progress" | "yieldPerLot" | "catchPm"> {
+): Pick<
+  EcoFacility,
+  "gatherStat" | "selectTier" | "yieldPm" | "plots" | "statSum" | "progress" | "yieldPerLot" | "catchPm"
+> {
   const primary = plan.primaryStat ?? gather.defaultStat;
   const secondary = plan.secondaryStat ?? gather.defaultStat;
   if (!rule) return { gatherStat: 0, selectTier: 0, progress: 1, yieldPerLot: 1 };
   const condition = plan.condition ?? 0;
   // 컨디션을 두 스탯에 반씩(D-535 1154 나): 건물 채집소 효율·진행 속도·수확량·성공 확률도 관리의 덕을 본다
   const [mainStat, subStat] = conditionedStats(primary, secondary, condition);
-  const selectTier = buildingGatherTier(plan.level);
+  const selectTier = chosenGatherTier(plan.level, plan.tier);
+  const plots = Math.max(0, Math.trunc(plan.plots ?? 0));
   return {
     gatherStat: gatherStat(primary + secondary, plan.level, gather.levelBonus, condition),
     selectTier,
@@ -490,9 +501,11 @@ export function workerEffects(
           yieldPm: buildingYieldPm(
             mainStat + subStat,
             selectTier,
-            plan.plots ?? 0,
+            plots,
             gather.building ?? DEFAULT_BUILDING_GATHER,
           ),
+          statSum: mainStat + subStat,
+          ...(plots > 0 ? { plots } : {}),
         }
       : {}),
     progress: gatherProgress(mainStat, gather.progressDivisor ?? 20),

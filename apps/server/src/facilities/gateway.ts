@@ -11,7 +11,9 @@
 //   잇지 않는다). 34의 새 코드 insufficient_funds(주인 꺼내기 값)는 더 낮은 판에 insufficient_materials로 간다.
 // - 지분 주문(프로토콜 38, docs/adr/2026-11-15-building-screen.md)도 여기서 받는다. 운영자 모드 연결(전체 보기 + 모든 유닛 명령 권한)의 관리 명령은
 //   남의 사업장에도 된다(사용자 요청 2026-11-15 "운영자도 조작가능").
-// - 면적 모듈 붙이기(facility_plot, 프로토콜 41 — 건물 채집소, 기획 D-567): plots.ts. 새 코드 plot_full은 이 메시지의 답에만 간다.
+// - 면적 모듈 붙이기(facility_plot, 프로토콜 41 — 건물 채집소, 기획 D-567; 45부터 짓는 시간·일꾼, D-569 1765): plots.ts. 새 코드 plot_full은 이
+//   메시지의 답에만 간다. 모듈 떼기(facility_plot_remove)·기르는 티어 고르기(facility_gather_tier, 45 — D-569 1761·1765)도 plots.ts(코드 no_plot·
+//   tier_locked는 그 답에만).
 import {
   BUSINESS_PROTOCOL_VERSION,
   type ClientMessageOf,
@@ -51,6 +53,8 @@ export type FacilityClientMessage = ClientMessageOf<
   | "storage_move"
   | "facility_attack"
   | "facility_plot"
+  | "facility_plot_remove"
+  | "facility_gather_tier"
 >;
 
 const MAX_PENDING = 8;
@@ -198,7 +202,11 @@ function run(
     case "facility_upgrade":
       return service.upgrade(userId, message.buildingId, message.unitIds ?? [], operator);
     case "facility_plot":
-      return service.plot(userId, message.buildingId, operator);
+      return service.plot(userId, message.buildingId, message.unitIds ?? [], operator);
+    case "facility_plot_remove":
+      return service.plotRemove(userId, message.buildingId);
+    case "facility_gather_tier":
+      return service.gatherTier(userId, message.buildingId, message.tier);
     case "facility_repair":
       return service.repair(
         userId,

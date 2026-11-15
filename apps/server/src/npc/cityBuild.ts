@@ -71,7 +71,7 @@ export interface ServerNpcBuilderOptions {
 export function createServerNpcBuilder(o: ServerNpcBuilderOptions): NpcBuilder {
   const { service } = o.world;
   /** 이번 실행에서 건 짓기·레벨 올리기·수리(도시 → 건물·종류) — 끝나면 settle이 도시 경제를 다시 맞춘다 */
-  const started = new Map<number, { buildingId: number; kind: "build" | "upgrade" | "repair" }>();
+  const started = new Map<number, { buildingId: number; kind: "build" | "upgrade" | "repair" | "plot" }>();
   const mapOf = (cityId: number) => {
     const place = o.places.get(cityId);
     const map = place ? o.world.maps.get(place.mapKey) : undefined;
@@ -81,7 +81,8 @@ export function createServerNpcBuilder(o: ServerNpcBuilderOptions): NpcBuilder {
   const building = (ownerId: number, cityId: number): boolean => {
     for (const job of service.jobs.values()) {
       if (job.ownerId !== ownerId || job.buildingId === null) continue;
-      if (job.kind !== "build" && job.kind !== "upgrade" && job.kind !== "repair") continue;
+      if (job.kind !== "build" && job.kind !== "upgrade" && job.kind !== "repair" && job.kind !== "plot")
+        continue;
       if (service.facilities.get(job.buildingId)?.cityId === cityId) return true;
     }
     return false;
@@ -142,6 +143,7 @@ export function createServerNpcBuilder(o: ServerNpcBuilderOptions): NpcBuilder {
             level: record.level,
             workers: o.workersOf?.(record.buildingId) ?? 0,
             conditionPpm: record.conditionPpm,
+            ...(record.plots ? { plots: record.plots } : {}),
           });
       }
       // 다 지었지만 아직 도시 경제에 넣지 않은 것(다음 판단 settle)도 바쁨으로 친다
@@ -216,6 +218,15 @@ export function createServerNpcBuilder(o: ServerNpcBuilderOptions): NpcBuilder {
         faction,
         cityId,
         { kind: "upgrade", ownerId: faction.id, buildingId: key, materials, ms },
+        nowMs,
+      );
+    },
+    plot(faction, cityId, key, materials, ms, nowMs) {
+      // 면적 모듈(기획 D-569 1768): 플레이어 facility_plot과 같은 자리 규칙·작업 줄(건물 서비스 npcJob kind plot)
+      return job(
+        faction,
+        cityId,
+        { kind: "plot", ownerId: faction.id, buildingId: key, materials, ms },
         nowMs,
       );
     },

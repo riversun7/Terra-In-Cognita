@@ -44,6 +44,8 @@ export interface GatherSite {
   readonly cityId: number | null;
   /** 붙은 면적 모듈 수(건물 채집소, D-567). 없으면 0 */
   readonly plots?: number | undefined;
+  /** 고른 기르는 티어(건물 채집소, D-569 1761 — 최고 티어로 자른다). 없으면 최고 티어 */
+  readonly tier?: number | null | undefined;
 }
 
 /** 묶음 하나가 쓰는 오브젝트의 굴림 규칙(기획 D-552 — gather/objectYield.ts objectRollOf) */
@@ -163,6 +165,7 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
       secondaryStat: secondary,
       condition: clampCondition(input.condition ?? 0, { cap: settings.conditionCap ?? 0 }),
       plots: site.plots ?? 0,
+      tier: site.tier,
     },
     settings,
   );

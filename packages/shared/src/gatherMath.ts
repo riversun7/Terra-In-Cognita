@@ -84,6 +84,55 @@ export function buildingGatherTier(level: number): number {
   return Math.max(0, Math.min(GATHER_TIERS - 1, Math.trunc(level) * 2 - 1));
 }
 
+/**
+ * 건물 채집소가 실제로 기르는 티어(기획 D-569 1761 "최고 티어 아래에서 골라 기름"): 고른 티어(chosen, 0~최고)를 최고 티어(buildingGatherTier)로
+ * 자른다. 고르지 않았으면(undefined·null) 최고 티어 — 기본값(질문 1861 [임시]). 음수·소수는 0·버림
+ */
+export function chosenGatherTier(level: number, chosen?: number | null): number {
+  const top = buildingGatherTier(level);
+  if (chosen === undefined || chosen === null || !Number.isFinite(chosen)) return top;
+  return Math.max(0, Math.min(top, Math.trunc(chosen)));
+}
+
+/** 기술 추천 티어 고르기 입력(recommendGatherTier) */
+export interface GatherTierAdvice {
+  /** 고를 수 있는 가장 높은 티어(건물 레벨의 최고 티어) */
+  readonly maxTier: number;
+  /** 그 티어에 기를 아이템이 있나(사다리) */
+  readonly hasTier: (tier: number) => boolean;
+  /** 그 티어 아이템 한 묶음 값(시세, 최소 단위). 0 이하면 그 티어는 값이 없다 */
+  readonly valueOf: (tier: number) => bigint;
+  /** 그 티어 한 번 캘 때의 필요 진행(tierRequiredProgress, 1 이상) */
+  readonly progressOf: (tier: number) => number;
+  /** 그 티어의 수확 배율(‰ — buildingYieldPm) */
+  readonly yieldPmOf: (tier: number) => number;
+}
+
+/**
+ * 기술 추천 티어(기획 D-569 1761 — NPC는 시세로 고른다, 질문 1862 [임시]): 아이템이 있는 0~최고 티어 가운데 시간당 값 = 값 × 수확 배율 ÷ 필요
+ * 진행이 가장 큰 티어(같으면 높은 티어). 값이 있는 티어가 없으면 최고 티어. 정수(BigInt)만 쓴다(판정 결정성)
+ */
+export function recommendGatherTier(advice: GatherTierAdvice): number {
+  const top = Math.max(0, Math.min(GATHER_TIERS - 1, Math.trunc(advice.maxTier)));
+  let best = -1;
+  // 점수 비교는 곱셈으로(a/b > c/d ⇔ a·d > c·b) — 나눗셈 버림 없이
+  let bestScore = 0n;
+  let bestProgress = 1n;
+  for (let tier = 0; tier <= top; tier++) {
+    if (!advice.hasTier(tier)) continue;
+    const value = advice.valueOf(tier);
+    if (value <= 0n) continue;
+    const score = value * BigInt(Math.max(0, Math.trunc(advice.yieldPmOf(tier))));
+    const progress = BigInt(Math.max(1, Math.trunc(advice.progressOf(tier))));
+    if (best < 0 || score * bestProgress >= bestScore * progress) {
+      best = tier;
+      bestScore = score;
+      bestProgress = progress;
+    }
+  }
+  return best < 0 ? top : best;
+}
+
 /** 권장 스탯 합 미달 효율(‰): max(바닥, 1000 − 걸음 × max(0, 권장 × 티어 − (주 + 보조))). 넘쳐도 1000(보너스는 진행 속도·수확량에 이미 든다) */
 export function buildingGatherEfficiencyPm(
   statSum: number,

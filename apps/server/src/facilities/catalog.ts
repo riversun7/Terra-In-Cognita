@@ -18,7 +18,7 @@ import {
   gatherSubcategories,
   itemAsset,
 } from "@terra/sim";
-import { bareHandAcceptsOf } from "@terra/shared/bareHandMaterials";
+import { bareHandAcceptsOf, bareHandFlag } from "@terra/shared/bareHandMaterials";
 import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
 import { type FacilityCategory, facilityCategoryOf } from "@terra/shared/facilityCategory";
 import { type FacilityLookJson, cleanFacilityLook } from "@terra/shared/facilityLook";
@@ -283,6 +283,11 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
           subcategory: item.subcategory?.id,
           tier: item.tier,
           enabled: item.enabled,
+          // 레벨 0 건축 재료 칸(아이템·중분류, 기획 D-569 1764 — 아이템 편집기)
+          bareHand: bareHandFlag(
+            item,
+            item.subcategory ? subcategoryById.get(item.subcategory.id) : undefined,
+          ),
         })),
       ),
       subcategoryName(id) {

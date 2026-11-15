@@ -163,6 +163,14 @@ function checkItemEntry(entry: unknown, ctx: z.RefinementCtx): void {
       "item_stack_equipment",
       "장비는 하나하나 성능이 달라 쌓지 않습니다(stackMax 1, D-5003).",
     );
+  const tierValue = get("tier");
+  if (get("bareHand") === true && (category !== "raw" || (typeof tierValue === "number" && tierValue > 1)))
+    fail(
+      ctx,
+      ["bareHand"],
+      "item_bare_hand_raw",
+      "레벨 0 건축 재료(bareHand)는 원자재(raw) T0~T1에만 씁니다(D-566 1723).",
+    );
   if (get("bound") === true && get("tradable") === true)
     fail(
       ctx,
@@ -221,6 +229,11 @@ export const itemEntrySchema = z
     use: useSchema.optional(),
     /** 유전자 조각이면 종·종류·얻는 길(D-478) */
     gene: geneSchema.optional(),
+    /**
+     * 레벨 0(맨손 채집) 건축 재료(기획 D-566 1723·D-569 1764): 참이면 같은 중분류의 다른 건축 재료 T0~T1과 바꿔 받는다(@terra/shared/bareHandMaterials).
+     * 원자재(raw) T0~T1에만(팩 검사). 중분류 전부를 받게 하려면 중분류 칸 bareHand. 없으면 거짓
+     */
+    bareHand: z.boolean().optional(),
     enabled,
   })
   .superRefine(checkItemEntry);
@@ -240,10 +253,22 @@ export const itemSubcategoryEntrySchema = z
     storage: z.enum(STORAGE_KINDS).optional(),
     food: z.boolean().optional(),
     foodFamily: z.enum(FOOD_FAMILIES).optional(),
+    /**
+     * 레벨 0(맨손 채집) 건축 재료 중분류(기획 D-566 1723·D-569 1764): 참이면 이 중분류의 원자재 T0~T1을 모두 건축 재료로 받는다(지금 팩 목재).
+     * 원자재 대분류(raw) 중분류에만. 없으면 거짓(아이템 칸 bareHand로 아이템 하나씩 고를 수 있다)
+     */
+    bareHand: z.boolean().optional(),
     enabled,
   })
   .superRefine((entry, ctx) => {
     if (typeof entry !== "object" || entry === null) return;
+    if (entry.bareHand === true && entry.major !== "raw")
+      fail(
+        ctx,
+        ["bareHand"],
+        "subcategory_bare_hand_raw",
+        "레벨 0 건축 재료 중분류(bareHand)는 원자재(raw) 중분류에만 씁니다(D-566 1723).",
+      );
     if (entry.foodFamily !== undefined && entry.food !== true)
       fail(
         ctx,

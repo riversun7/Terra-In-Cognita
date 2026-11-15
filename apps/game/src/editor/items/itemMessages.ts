@@ -197,6 +197,8 @@ const ISSUE_TEXT: Readonly<Record<string, (params: Params) => string>> = {
   weapon_basic_field: () => m.dev_items_issue_weapon_basic(),
   weapon_appropriate_empty: () => m.dev_items_issue_appropriate_empty(),
   subcategory_food_family: () => m.dev_items_issue_food_family(),
+  item_bare_hand_raw: () => m.dev_items_issue_bare_hand_raw(),
+  subcategory_bare_hand_raw: () => m.dev_items_issue_bare_hand_raw(),
   entry_changed: () => m.dev_items_err_entry_changed(),
   category_locked: () => m.dev_items_err_category_locked(),
   entry_too_large: () => m.dev_items_err_entry_too_large(),

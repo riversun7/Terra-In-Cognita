@@ -114,6 +114,8 @@ export function itemJsonOf(entry: ItemEntry): ItemJson {
           },
         }
       : {}),
+    // 레벨 0 건축 재료(기획 D-569 1764)
+    ...(entry.bareHand === undefined ? {} : { bareHand: entry.bareHand }),
     enabled: entry.enabled,
   };
 }
@@ -127,6 +129,7 @@ export function subcategoryJsonOf(entry: ItemSubcategoryEntry): SubcategoryJson 
     ...(entry.storage === undefined ? {} : { storage: entry.storage }),
     ...(entry.food === undefined ? {} : { food: entry.food }),
     ...(entry.foodFamily === undefined ? {} : { foodFamily: entry.foodFamily }),
+    ...(entry.bareHand === undefined ? {} : { bareHand: entry.bareHand }),
     enabled: entry.enabled,
   };
 }

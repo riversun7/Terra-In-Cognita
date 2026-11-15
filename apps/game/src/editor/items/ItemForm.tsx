@@ -264,7 +264,7 @@ export function ItemBasicSections({
         name="value"
         desc={m.dev_items_section_value_desc()}
         source="295 · D-505 · D-506"
-        paths={["tier", "startPrice", "weight", "lotSize", "stackMax", "tradable", "bound"]}
+        paths={["tier", "startPrice", "weight", "lotSize", "stackMax", "tradable", "bound", "bareHand"]}
       >
         <div className="ie-grid">
           <NumberField
@@ -360,6 +360,19 @@ export function ItemBasicSections({
             onChange(bound ? { ...rest, bound: true } : rest);
           }}
         />
+        {draft.category === "raw" ? (
+          <CheckField
+            label={m.dev_items_field_bare_hand()}
+            path="bareHand"
+            checked={draft.bareHand === true}
+            hint={fieldHint("bareHand", m.dev_items_bare_hand_hint())}
+            problem={problem("bareHand")}
+            onChange={(bareHand) => {
+              const { bareHand: _drop, ...rest } = draft;
+              onChange(bareHand ? { ...rest, bareHand: true } : rest);
+            }}
+          />
+        ) : null}
         <dl className="ie-facts">
           <div>
             <dt>{m.dev_items_field_storage()}</dt>

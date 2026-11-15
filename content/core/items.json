@@ -583,6 +583,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 1000,
+      "bareHand": true,
       "enabled": true
     },
     {
@@ -596,6 +597,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1000,
+      "bareHand": true,
       "enabled": true
     },
     {

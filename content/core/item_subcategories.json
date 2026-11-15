@@ -16,6 +16,7 @@
         "en": "Wood"
       },
       "major": "raw",
+      "bareHand": true,
       "enabled": true
     },
     {

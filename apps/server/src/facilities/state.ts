@@ -25,9 +25,15 @@ export interface FacilityRecord {
    * 붙은 면적 모듈 수(건물 채집소 — 농장·목장·약초원, 기획 D-567 "모듈을 추가하여 건물의 목장이나 밭 등의 면적을 넓힌다"). 없으면 0
    */
   plots?: number | undefined;
+  /**
+   * 기르는 티어(건물 채집소, 기획 D-569 1761 "최고 티어 아래에서 골라 기름" — 0~최고, @terra/shared/gatherMath chosenGatherTier가 최고 티어로
+   * 자른다). 없으면(null·undefined) 기본 = 최고 티어
+   */
+  gatherTier?: number | null | undefined;
 }
 
-export const JOB_KINDS = ["build", "upgrade", "repair", "beacon_repair", "equipment"] as const;
+/** 작업 종류. plot = 면적 모듈 붙이기(기획 D-569 1765 — 끝나면 모듈 + 1) */
+export const JOB_KINDS = ["build", "upgrade", "repair", "beacon_repair", "equipment", "plot"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 /** 재료 한 줄(아이템 ID·묶음 수량) */
@@ -88,7 +94,8 @@ const numOrNull = (value: unknown): number | null => (value === null ? null : Nu
 
 export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities> {
   const facilities = await pool.query(
-    `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id, seeded, plots
+    `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id, seeded, plots,
+            gather_tier
      from world_facilities order by building_id`,
   );
   const jobs = await pool.query(
@@ -111,6 +118,9 @@ export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities>
       cityId: numOrNull(row.city_id),
       ...(row.seeded === true ? { seeded: true } : {}),
       ...(Number(row.plots ?? 0) > 0 ? { plots: Number(row.plots) } : {}),
+      ...(row.gather_tier === null || row.gather_tier === undefined
+        ? {}
+        : { gatherTier: Number(row.gather_tier) }),
     })),
     jobs: jobs.rows.flatMap((row) => {
       const kind: unknown = row.kind;
@@ -148,6 +158,8 @@ export const facilityRow = (record: FacilityRecord) => ({
   city_id: record.cityId,
   seeded: record.seeded === true,
   plots: Math.max(0, Math.trunc(record.plots ?? 0)),
+  gather_tier:
+    record.gatherTier === null || record.gatherTier === undefined ? null : Math.trunc(record.gatherTier),
 });
 
 export const jobRow = (job: JobRecord) => ({

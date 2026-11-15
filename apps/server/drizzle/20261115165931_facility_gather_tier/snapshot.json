@@ -1,0 +1,104 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "22a71ad3-9c15-4a67-aef4-42828561488a",
+  "prevIds": [
+    "15ffb077-1836-49ea-bb84-0e21b2e29e3a",
+    "f538ae35-2fe1-4d0f-8446-0928e4de69e6",
+    "b551eca4-f70a-4d10-991b-42161197c963",
+    "2c839e64-6226-4e8d-84a8-7f67d118c51d"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_facilities",
+        "gather_tier"
+      ],
+      "writes": [
+        "s|col|public.world_facilities.gather_tier",
+        "n|col|public.world_facilities.gather_tier",
+        "e|col|public.world_facilities.gather_tier"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_facilities"
+      ],
+      "writes": [
+        "s|ck|public.world_facilities.world_facilities_gather_tier",
+        "n|ck|public.world_facilities.world_facilities_gather_tier",
+        "e|ck|public.world_facilities.world_facilities_gather_tier",
+        "n|con|public.world_facilities.world_facilities_gather_tier"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public",
+        "n|col|public.world_facilities.gather_tier"
+      ]
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "facility_jobs"
+      ],
+      "writes": [
+        "s|ck|public.facility_jobs.facility_jobs_kind"
+      ],
+      "reads": [
+        "n|tbl|public.facility_jobs",
+        "n|sch|public",
+        "n|col|public.facility_jobs.kind",
+        "e|col|public.facility_jobs.kind"
+      ],
+      "sqlHash": "d8b4315c852f376e"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "gather_tier",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "world_facilities_gather_tier",
+        "value": "\"gather_tier\" between 0 and 9",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"facility_jobs\",\"facility_jobs_kind\"]",
+      "set": {
+        "value": "\"kind\" in ('build', 'upgrade', 'repair', 'beacon_repair', 'equipment', 'plot')"
+      }
+    }
+  ]
+}

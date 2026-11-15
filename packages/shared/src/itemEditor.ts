@@ -245,6 +245,8 @@ export interface ItemJson {
         readonly drops?: readonly ("death" | "wave")[] | undefined;
       }
     | undefined;
+  /** 레벨 0(맨손 채집) 건축 재료(기획 D-566 1723·D-569 1764 — 원자재 T0~T1만, 같은 중분류의 건축 재료와 바꿔 받는다) */
+  readonly bareHand?: boolean | undefined;
   readonly enabled: boolean;
 }
 
@@ -256,6 +258,8 @@ export interface SubcategoryJson {
   readonly storage?: StorageKindId | undefined;
   readonly food?: boolean | undefined;
   readonly foodFamily?: FoodFamilyId | undefined;
+  /** 레벨 0 건축 재료 중분류(기획 D-569 1764 — 이 원자재 중분류의 T0~T1 전부) */
+  readonly bareHand?: boolean | undefined;
   readonly enabled: boolean;
 }
 

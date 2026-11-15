@@ -52,6 +52,8 @@ export function npcEconomyInputOf(
           facility: record.facilityId,
           level: record.level,
           ownerId: ownerOf(record.buildingId),
+          // 면적 모듈(건물 채집소, 기획 D-569 1768 — NPC도 붙인다)
+          ...(record.plots ? { plots: record.plots } : {}),
         });
       }
       return out;

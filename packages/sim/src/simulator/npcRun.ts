@@ -82,6 +82,8 @@ export interface NpcCounts {
   /** 레벨 올리기 시작한 수(1146 나)·수리 시작한 수(1114 가) */
   upgrades: number;
   repairs: number;
+  /** 면적 모듈 붙이기 시작한 수(기획 D-569 1768) */
+  plots: number;
 }
 
 export function emptyNpcCounts(): NpcCounts {
@@ -104,6 +106,7 @@ export function emptyNpcCounts(): NpcCounts {
     buildsDone: 0,
     upgrades: 0,
     repairs: 0,
+    plots: 0,
   };
 }
 

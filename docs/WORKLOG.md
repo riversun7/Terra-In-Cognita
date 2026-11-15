@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-16 07:30 | 화면 시험 "경계 너머 보기" 시간 초과 고침(vision-fix) | Claude Code | [16-0730-vision-fix](worklog/2026/11/16-0730-vision-fix.md) |
 | 2026-11-16 06:00 | 2026-11-16 묶음 1116g 합치기 (D-564 좌표 이동 2 · D-568 영토 판정 = 1차맵 지도) | Claude Code | [16-0600-batch-1116g-merge](worklog/2026/11/16-0600-batch-1116g-merge.md) |
 | 2026-11-16 04:10 | 영토 판정도 1차맵 지도대로 (D-568) | Claude Code | [16-0410-territory-2](worklog/2026/11/16-0410-territory-2.md) |
 | 2026-11-16 04:10 | 좌표 이동 2 — 좌표 유닛 조우·좌표 구간 지형 감속·탐사만 한 2차맵은 내 유닛이 있어야 (map-coords-2) | Claude Code | [16-0410-map-coords-2](worklog/2026/11/16-0410-map-coords-2.md) |

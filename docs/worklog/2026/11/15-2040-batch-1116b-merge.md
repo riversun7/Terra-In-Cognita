@@ -70,3 +70,8 @@
 - 손으로 푼 곳: `apps/game/src/map/gather/GatherPanel.tsx` — main은 옛 건물 판 안에 있는 유닛 줄에 [나가기](`gather_stop`, 들어가기로 머문 내 유닛)를 넣었고, building-screen은 그 판을 `apps/game/src/map/building/BuildingPanel.tsx`로 옮겼다. 건물 판을 BuildingPanel로 두고 [나가기]를 그 "안에 있는 유닛" 줄로 옮김(`onLeave` 칸, 버튼 클래스 `gather-leave` 그대로 — `e2e/building-inside.spec.ts`가 찾는다). 메시지 파일 둘은 양쪽 키 모두, `docs/WORKLOG.md`는 다시 만듦.
 - 검사(Verified, 355537c): `pnpm check` 732 파일·5,517 시험 통과. `pnpm build`·`check-pwa` 통과, `check:bundle` 110,059 B / 131,416 B.
 - 화면 시험(Verified, 20.5분): building-inside 1/1, building-screen 5/5, labor 4/4, government 9/9, boats 2/2 — 21/21 통과.
+
+## 배포 (Verified)
+- main bb9d462, CI 346: 검사·이미지·NAS 배포 성공(2026-11-15 21:26 KST 무렵 끝남, core@104). 세계는 새로 시작하지 않았다.
+- 바로 뒤 1116c(10d0f5d)가 22:39 KST에 다시 배포되어, 켠 뒤 지표는 1116c 작업 기록 "배포" 절에 함께 적었다.
+- 배·부두 지우기(1499, 1115c에서 처음 돔) 기록을 nas-metrics가 `boat_resets` 표에서 읽었다: 1줄, 지운 배·부두·작업 0개(그 세계에는 옛 배·부두가 없었다). 1115c 기록의 "Unknown"은 이것으로 풀렸다.

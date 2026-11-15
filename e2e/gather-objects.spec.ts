@@ -17,7 +17,10 @@ async function open(page: Page): Promise<void> {
 test.describe("채집 오브젝트 편집기", () => {
   test.use({ account: "dev" });
 
-  test("광맥 티어 범위를 고치고 되돌린다, 굴림표는 범위가 없다, 어군으로 거른다", async ({ page, deviceErrors }) => {
+  test("광맥 티어 범위를 고치고 되돌린다, 굴림표는 범위가 없다, 어군으로 거른다", async ({
+    page,
+    deviceErrors,
+  }) => {
     await open(page);
     const screen = screenOf(page);
     await expect(page.locator(".go-table tbody tr")).toHaveCount(49);
@@ -55,7 +58,10 @@ test.describe("채집 오브젝트 편집기", () => {
     await terrain.locator(".go-row .button-small").click();
     await expect(terrain.locator(".go-biomes li")).toHaveCount(2);
     await terrain.locator('.go-surface[data-surface="gravel"]').click();
-    await expect(terrain.locator('.go-surface[data-surface="gravel"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(terrain.locator('.go-surface[data-surface="gravel"]')).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(screen).toHaveAttribute("data-changes", "1");
     expect(deviceErrors).toEqual([]);
   });

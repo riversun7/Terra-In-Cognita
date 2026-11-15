@@ -317,11 +317,20 @@ describe("pnpm tuning:apply", () => {
       ...diff([]),
       entries: [
         { category: "gather_objects", id: "conifer_tree", from: hashEntry(tree), entry: edited },
-        { category: "gather_objects", id: "old_school", from: null, entry: { ...tree, id: "old_school", ladder: true } },
+        {
+          category: "gather_objects",
+          id: "old_school",
+          from: null,
+          entry: { ...tree, id: "old_school", ladder: true },
+        },
       ],
     });
-    expect(outcome.entries.applied).toEqual([{ category: "gather_objects", id: "conifer_tree", kind: "replaced" }]);
-    expect(outcome.entries.skipped).toEqual([{ category: "gather_objects", id: "old_school", reason: "invalid" }]);
+    expect(outcome.entries.applied).toEqual([
+      { category: "gather_objects", id: "conifer_tree", kind: "replaced" },
+    ]);
+    expect(outcome.entries.skipped).toEqual([
+      { category: "gather_objects", id: "old_school", reason: "invalid" },
+    ]);
     expect(JSON.parse(readFileSync(path.join(dir, "gather_objects.json"), "utf8")).entries).toEqual([edited]);
     expect(outcome.version).toBe(4);
   });

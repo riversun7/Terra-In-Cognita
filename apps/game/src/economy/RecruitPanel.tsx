@@ -137,7 +137,9 @@ export function RecruitPanel({ cityId: fixedCity }: RecruitPanelProps = {}) {
               {loaded.hasCyborg && loaded.hasHouse === false ? (
                 <p className="eco-footnote" data-part="recruit-need-house">
                   {m.recruit_need_house()}{" "}
-                  <AppLink to={{ route: "faction" }}>{m.recruit_need_house_link()}</AppLink>
+                  <AppLink to={{ route: "faction" }} className="eco-inline-link">
+                    {m.recruit_need_house_link()}
+                  </AppLink>
                 </p>
               ) : null}
               {loaded.cards.length === 0 ? (

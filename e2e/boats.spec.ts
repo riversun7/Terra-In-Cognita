@@ -183,7 +183,7 @@ async function harborAt(
   let id = firstId;
   for (const site of sites
     .filter((candidate) => !used.some((other) => overlaps(other, candidate)))
-    .slice(0, 12)) {
+    .slice(0, 40)) {
     const replies = await sendCommands(
       page,
       [
@@ -196,7 +196,13 @@ async function harborAt(
     );
     id += 10;
     const buildingId = field(replies[3], "buildingId");
-    if (field(replies[3], "ok") !== true || typeof buildingId !== "number") continue;
+    if (field(replies[3], "ok") !== true || typeof buildingId !== "number") {
+      // 명령 속도 제한(분당 30번)에 걸렸으면 잠시 쉬고 다음 자리로(앞 테마 시험이 한도를 썼을 수 있다)
+      const code = field(replies[3], "code");
+      console.log(`[boats] ${String(site.dockX)},${String(site.dockY)} build refused: ${String(code)}`);
+      if (code === "rate_limited") await page.waitForTimeout(15_000);
+      continue;
+    }
     const done = await sendCommands(
       page,
       [
@@ -229,7 +235,13 @@ async function dockAndBoat(page: Page, mapKey: number, sites: readonly Site[], f
     );
     id += 10;
     const buildingId = field(replies[3], "buildingId");
-    if (field(replies[3], "ok") !== true || typeof buildingId !== "number") continue;
+    if (field(replies[3], "ok") !== true || typeof buildingId !== "number") {
+      // 명령 속도 제한(분당 30번)에 걸렸으면 잠시 쉬고 다음 자리로(앞 테마 시험이 한도를 썼을 수 있다)
+      const code = field(replies[3], "code");
+      console.log(`[boats] ${String(site.dockX)},${String(site.dockY)} build refused: ${String(code)}`);
+      if (code === "rate_limited") await page.waitForTimeout(15_000);
+      continue;
+    }
     const before = new Set(await boatIds(page, mapKey));
     const made = await sendCommands(
       page,
@@ -474,6 +486,10 @@ for (const theme of ["pastel", "dark"] as const) {
       const boatAt = await myUnit(page, EAST_SEA_KEY, boatId);
       const objects = await trpcQuery(page, "gather.objects", { mapKey: EAST_SEA_KEY });
       const schools = field(objects, "schools");
+      const flat = field(objects, "objects");
+      const usesLeft = new Map<number, number>();
+      if (Array.isArray(flat))
+        for (let i = 0; i + 3 < flat.length; i += 4) usesLeft.set(Number(flat[i]), Number(flat[i + 2]));
       const school = (Array.isArray(schools) ? schools : [])
         .map((entry: unknown) => {
           const points = field(entry, "points");
@@ -482,6 +498,8 @@ for (const theme of ["pastel", "dark"] as const) {
           const d = Math.hypot(x - Number(field(boatAt, "cellX")), y - Number(field(boatAt, "cellY")));
           return { id: Number(field(entry, "id")), d };
         })
+        // 앞 테마 시험이 다 낚은 어군(남은 번수 0)은 빼고 고른다(objects = [ID, 종류, 남은 번수, 다시 자람]…)
+        .filter((entry) => usesLeft.get(entry.id) !== 0)
         .toSorted((a, b) => a.d - b.d)[0];
       expect(school, "동쪽 바다 2차맵에 어군이 없다").toBeDefined();
       console.log(

@@ -7415,5 +7415,6 @@
   "harbor_save": "저장",
   "harbor_terms": "받는 배: {access} · 요금 {fee}/{unit}",
   "harbor_unit_day": "하루",
-  "harbor_unit_hour": "시간"
+  "harbor_unit_hour": "시간",
+  "harbor_own": "내 배"
 }

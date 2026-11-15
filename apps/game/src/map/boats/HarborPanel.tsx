@@ -182,7 +182,7 @@ export function HarborPanel({
           {harbor.boats.map((boat) => (
             <li key={boat.boatId} data-boat={boat.boatId}>
               {boatLine(boat)}
-              {boat.own ? ` · ${m.gather_building_inside_own()}` : ""}
+              {boat.own ? ` · ${m.harbor_own()}` : ""}
             </li>
           ))}
         </ul>

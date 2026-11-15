@@ -7415,5 +7415,6 @@
   "harbor_save": "Save",
   "harbor_terms": "Accepts: {access} · fee {fee}/{unit}",
   "harbor_unit_day": "day",
-  "harbor_unit_hour": "hour"
+  "harbor_unit_hour": "hour",
+  "harbor_own": "mine"
 }

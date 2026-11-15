@@ -360,6 +360,7 @@ export function relocateUnits(
         path: [at.x, at.y],
         pace: null,
         departAtMs: nowMs,
+        motionSpeed: null,
         wakeAtMs: row.kind === UNIT_KIND_BOT ? nowMs : null,
       };
       save(next);

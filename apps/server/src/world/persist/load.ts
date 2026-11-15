@@ -61,9 +61,19 @@ const toRotation = (value: unknown): Rotation => {
   return rotation === 90 || rotation === 180 || rotation === 270 ? rotation : 0;
 };
 
-const UNIT_COLUMNS = `id, owner_id, kind, size, speed, map_key, planet_id, domain, path, pace, depart_at_ms, wake_at_ms, ai_step,
-  job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by, aboard_id`;
+const UNIT_COLUMNS = `id, owner_id, kind, size, speed, map_key, planet_id, domain, path, pace, depart_at_ms, motion_speed,
+  motion_depart_at_ms, wake_at_ms, ai_step, job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by, aboard_id`;
 const BUILDING_COLUMNS = "id, map_key, planet_id, domain, owner_id, x, y, width, height, rotation";
+
+/**
+ * 움직임 속도(운영자 배율 등, secondMapRows.ts motionOfRow). 짝인 출발 시각이 지금 움직임의 출발 시각과 다르면 버린다: 이 칸을 모르는
+ * 직전 판 앱이 움직임(path·depart_at_ms)만 고쳐 쓴 행에 남은 옛 값이다. 범위 확인은 움직임을 만들 때
+ */
+function motionSpeedOf(row: Record<string, unknown>): number | null {
+  const speed = numOrNull(row.motion_speed);
+  const departAtMs = numOrNull(row.motion_depart_at_ms);
+  return speed !== null && departAtMs !== null && departAtMs === num(row.depart_at_ms) ? speed : null;
+}
 
 /** world_units 한 줄 → 유닛 행 */
 function unitRowOf(row: Record<string, unknown>): UnitRow {
@@ -80,6 +90,7 @@ function unitRowOf(row: Record<string, unknown>): UnitRow {
     // 구간 걸음 배율(ADR 2026-11-14-segment-speed.md). 길이 확인은 움직임을 만들 때(secondMapRows.ts motionOfRow)
     pace: Array.isArray(row.pace) ? row.pace.map(num) : null,
     departAtMs: num(row.depart_at_ms),
+    motionSpeed: motionSpeedOf(row),
     wakeAtMs: numOrNull(row.wake_at_ms),
     aiStep: num(row.ai_step),
     job: {

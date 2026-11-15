@@ -1,0 +1,82 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "15ffb077-1836-49ea-bb84-0e21b2e29e3a",
+  "prevIds": [
+    "e5d6a5de-08cf-40fa-8895-fdc71836912a",
+    "7eb4628a-4470-4c9b-acb2-9c0a9891242e"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "motion_speed"
+      ],
+      "writes": [
+        "s|col|public.world_units.motion_speed",
+        "n|col|public.world_units.motion_speed",
+        "e|col|public.world_units.motion_speed"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "motion_depart_at_ms"
+      ],
+      "writes": [
+        "s|col|public.world_units.motion_depart_at_ms",
+        "n|col|public.world_units.motion_depart_at_ms",
+        "e|col|public.world_units.motion_depart_at_ms"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "motion_speed",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "motion_depart_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

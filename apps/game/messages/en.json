@@ -7424,6 +7424,7 @@
   "build_rotate": "Rotate",
   "build_change": "Other building",
   "build_confirm": "Build",
+  "build_operator_note": "Operator mode: build without materials or land limits. Build time is divided by operator speed.",
   "build_none": "No buildings can be built.",
   "dev_report_city_layout_world": "Real world city",
   "dev_report_city_search": "Search cities (name or ID)",

@@ -7424,6 +7424,7 @@
   "build_rotate": "회전",
   "build_change": "다른 건물",
   "build_confirm": "짓기",
+  "build_operator_note": "운영자 모드: 재료와 땅 제한 없이 짓습니다. 짓는 시간은 운영자 속도로 나눕니다.",
   "build_none": "지을 수 있는 건물이 없습니다.",
   "dev_report_city_layout_world": "실제 세계 도시",
   "dev_report_city_search": "도시 찾기(이름·ID)",

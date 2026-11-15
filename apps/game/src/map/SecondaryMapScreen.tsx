@@ -721,6 +721,7 @@ function SecondMapView({
             gather={gather}
             mapKey={mapKey}
             builder={shown}
+            operator={operator}
           />
         ) : null}
         {!building && sheet === "units" ? (

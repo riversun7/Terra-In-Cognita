@@ -42,6 +42,7 @@ export function BuildSheet({
   gather,
   mapKey,
   builder,
+  operator = false,
 }: {
   readonly mode: BuildMode;
   readonly engineRef: RefObject<SecondMapEngine | null>;
@@ -49,6 +50,11 @@ export function BuildSheet({
   readonly mapKey: number;
   /** 고른 유닛(내 유닛이면 일꾼 후보), 없으면 null */
   readonly builder: number | null;
+  /**
+   * 운영자 모드(기획 D-560 1239 "건설도 제한 없이 다 가능"): 재료·땅 규칙을 기기에서 막지 않는다(서버가 권한을 다시 보고 재료 없이 짓는다).
+   * 칸 겹침·물가 조건은 그대로 본다
+   */
+  readonly operator?: boolean | undefined;
 }) {
   const state = useSyncExternalStore(mode.subscribe, mode.snapshot);
   useSyncExternalStore(
@@ -80,7 +86,8 @@ export function BuildSheet({
     footprint,
     anchor ? { x: anchor.x, y: anchor.y, rotation: state.rotation } : null,
   );
-  const landAllowed = land.data?.status === "ready" ? land.data.allowed : null;
+  // 운영자 모드는 땅 규칙을 보지 않는다(모름 = 막지 않음)
+  const landAllowed = operator ? null : land.data?.status === "ready" ? land.data.allowed : null;
   const problems = footprint
     ? placementProblems({
         anchor,
@@ -89,7 +96,7 @@ export function BuildSheet({
         rotation: state.rotation,
         buildings: gather.buildings,
         water: waterState,
-        affordable: level1 ? canAfford(stock, level1.materials) : false,
+        affordable: operator || (level1 ? canAfford(stock, level1.materials) : false),
         landAllowed,
       })
     : [];
@@ -161,6 +168,7 @@ export function BuildSheet({
       data-phase={chosen ? "place" : "list"}
       data-valid={chosen ? String(valid) : undefined}
       data-land={landAllowed === null ? "unknown" : landAllowed ? "allowed" : "blocked"}
+      data-operator={operator ? "on" : undefined}
     >
       <div className="map-units-head">
         <h2 id="map-build-title" className="map-units-title">
@@ -179,6 +187,7 @@ export function BuildSheet({
           {m.build_problem_foreign_city()}
         </p>
       ) : null}
+      {operator ? <p className="map-units-note map-build-operator">{m.build_operator_note()}</p> : null}
       {!data ? (
         <p className="map-units-note">{m.shell_loading()}</p>
       ) : !chosen ? (

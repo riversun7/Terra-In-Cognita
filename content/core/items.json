@@ -2516,8 +2516,8 @@
         "ko": "물",
         "en": "Water"
       },
-      "category": "raw",
-      "subcategory": "wild_goods",
+      "category": "consumable",
+      "subcategory": "drink",
       "tier": 0,
       "startPrice": 1,
       "weight": 1000,
@@ -2530,7 +2530,7 @@
         "en": "Salt"
       },
       "category": "raw",
-      "subcategory": "wild_goods",
+      "subcategory": "ore",
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
@@ -2543,7 +2543,7 @@
         "en": "Plant fiber"
       },
       "category": "raw",
-      "subcategory": "wild_goods",
+      "subcategory": "crop",
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
@@ -2556,7 +2556,7 @@
         "en": "Peat"
       },
       "category": "raw",
-      "subcategory": "wild_goods",
+      "subcategory": "ore",
       "tier": 0,
       "startPrice": 1,
       "weight": 1000,
@@ -2569,7 +2569,7 @@
         "en": "Berries"
       },
       "category": "raw",
-      "subcategory": "wild_goods",
+      "subcategory": "crop",
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
@@ -2582,7 +2582,7 @@
         "en": "Wild fruit"
       },
       "category": "raw",
-      "subcategory": "wild_goods",
+      "subcategory": "crop",
       "tier": 0,
       "startPrice": 1,
       "weight": 200,
@@ -2595,7 +2595,7 @@
         "en": "Shellfish"
       },
       "category": "raw",
-      "subcategory": "wild_goods",
+      "subcategory": "fish",
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
@@ -2608,7 +2608,7 @@
         "en": "Fossil"
       },
       "category": "raw",
-      "subcategory": "wild_goods",
+      "subcategory": "ore",
       "tier": 0,
       "startPrice": 1,
       "weight": 2000,
@@ -2621,7 +2621,7 @@
         "en": "Whale meat"
       },
       "category": "raw",
-      "subcategory": "wild_goods",
+      "subcategory": "fish",
       "tier": 6,
       "startPrice": 1,
       "weight": 5000,
@@ -2634,7 +2634,7 @@
         "en": "Whale oil"
       },
       "category": "raw",
-      "subcategory": "wild_goods",
+      "subcategory": "fish",
       "tier": 7,
       "startPrice": 1,
       "weight": 1000,

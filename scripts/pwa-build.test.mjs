@@ -284,6 +284,8 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
       "assets/buildingEditorPreview-B7p8V9w0.js",
       "assets/GatherTierScreen-G1t2T3s4.js",
       "assets/GatherTierScreen-G1t2T3s4.css",
+      "assets/GatherObjectsScreen-G5o6B7j8.js",
+      "assets/GatherObjectsScreen-G5o6B7j8.css",
       "assets/ProductionEditorScreen-P1r2D3n4.js",
       "assets/ProductionEditorScreen-P1r2D3n4.css",
       "assets/CreatureEditorScreen-C1r2E3a4.js",
@@ -402,6 +404,7 @@ describe("미리 캐시하는 조각의 소스(DEV_ONLY_SOURCE)", () => {
     expect(DEV_ONLY_SOURCE.test("../../../../packages/engine/src/buildings/buildingPreview.ts")).toBe(true);
     expect(DEV_ONLY_SOURCE.test("../../../../packages/engine/src/buildings/buildingView.ts")).toBe(false);
     expect(DEV_ONLY_SOURCE.test("../../src/editor/gatherTiers/GatherTierTable.tsx")).toBe(true);
+    expect(DEV_ONLY_SOURCE.test("../../src/editor/gatherObjects/GatherObjectsScreen.tsx")).toBe(true);
     expect(DEV_ONLY_SOURCE.test("../../src/editor/production/ProductionEditorScreen.tsx")).toBe(true);
     // 시작 국가 설정(/dev/nations): 편집 화면은 개발 조각, 게임 화면도 쓰는 국가 마크 그리기(ui/NationEmblem.tsx)는 밖
     expect(DEV_ONLY_SOURCE.test("../../src/editor/nations/NationEditorScreen.tsx")).toBe(true);

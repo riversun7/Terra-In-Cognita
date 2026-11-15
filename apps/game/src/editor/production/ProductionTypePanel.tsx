@@ -13,7 +13,7 @@ import {
   type FacilityJson,
 } from "@terra/shared/buildingEditor";
 import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
-import { type GatherBand, gatherLadderBands, gatherSubcategories } from "@terra/shared/gatherMath";
+import { type GatherBand, gatherSubcategories } from "@terra/shared/gatherMath";
 import { PRIMARY_STATS, type PrimaryStat } from "@terra/shared/roster";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
@@ -411,9 +411,7 @@ export function ProductionTypePanel({
               {select ? (
                 <strong className="pd-num">T{preview.selectTier ?? 0}</strong>
               ) : (
-                <strong className="pd-num">
-                  {bandText(gatherLadderBands(bands, gather.subcategory), preview.bandIndex)}
-                </strong>
+                <strong className="pd-num">{bandText(bands, preview.bandIndex)}</strong>
               )}
             </dd>
           </div>

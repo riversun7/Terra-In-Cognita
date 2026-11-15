@@ -1,19 +1,19 @@
-// 원자재 오브젝트 한 번에서 나오는 아이템 고르기 — 기획 D-540 1222(다 + 나), docs/adr/2026-11-07-gather-objects.md "바뀜 (2026-11-14)".
-// - 기본: 종류의 아이템 하나(item).
-// - 굴림표(table, 난파선): 가중치(‰)로 하나를 뽑는다.
-// - 사다리 굴림(ladder, 어군): 맡는 시설의 채집 사다리(주 중분류 + 함께 내는 중분류)에서, 그 사다리 띠 표(@terra/shared/gatherMath
-//   gatherLadderBands)와 캐는 유닛의 유효 스탯(주 + 보조 + 맡는 시설 레벨 보너스, @terra/sim gatherStat)으로 티어를 뽑고 그 티어 아이템 하나를
-//   고른다(@terra/sim rollGatherTier·pickGatherItem — 시설 일꾼 추첨과 같은 함수). 사다리가 비거나 시설을 모르면 대표 아이템.
-//   티어 범위(tierRange, 기획 D-541 — 질문 1307 나 "깊은 바다일수록 큰 고기")가 있으면 뽑은 티어를 범위 안으로 접는다(광산 티어 막기
-//   @terra/shared/catchment oreTierCapOf와 같은 꼴 — 위는 max로 내리고, 아래는 min으로 올린다. 남기는 몫·난수 없음).
+// 원자재 오브젝트 한 번에서 나오는 아이템 고르기 — 기획 D-540 1222(다 + 나), D-552(docs/adr/2026-11-15-gather-object-tiers.md).
+// - 오브젝트 = 원자재 종류(대표 아이템 item의 중분류 사다리 — 맡는 시설 사다리에 들면 그 사다리) + 양 + 티어 범위(tierRange, 없으면 대표 아이템
+//   티어 하나). 한 번 캘 때 채집 확률표(표 하나)와 캐는 유닛의 유효 스탯(주 + 보조 + 맡는 시설 반경 안이면 레벨 보너스, @terra/sim gatherStat)으로
+//   티어를 뽑고(맡는 시설이 선택 방식이면 해금 티어) 범위로 자른 뒤, 그 티어에 대표 아이템이 있으면 대표 아이템, 아니면 그 티어 아이템 하나.
+// - 굴림표(table, 난파선·고래 무리): 가중치(‰)로 하나를 뽑는다.
+// - 직접 채집(objectYieldItem)과 채집소 일꾼(gather/station.ts lotRoll → labor/gatherWork.ts)이 같은 규칙(objectRollOf)과 같은 함수
+//   (@terra/sim rollGatherOutputs)를 쓴다(D-552 "직접 채집과 일꾼 채집이 같은 규칙").
 // 난수는 (유닛, 오브젝트, 차례)로 정한 시드 하나(서버 권위, 같은 입력이면 같은 결과). 정수 연산만 쓴다.
 import { createRng } from "@terra/shared";
-import { gatherLadderBands } from "@terra/shared/gatherMath";
-import { gatherStat, mix32, pickGatherItem, rollGatherTier } from "@terra/sim";
+import { GATHER_TIERS, gatherSubcategories } from "@terra/shared/gatherMath";
+import { accessibleTier, gatherStat, mix32, rollGatherOutputs } from "@terra/sim";
 import type { GatherBand, GatherSubcategorySource } from "@terra/sim";
+import type { LotRoll } from "../labor/gatherWork.ts";
 import type { GatherKind } from "./kinds.ts";
 
-/** 사다리 굴림에 드는 시설 자료(시설 목록 FacilityCatalog의 일부) */
+/** 오브젝트 규칙에 드는 시설·아이템 자료(시설 목록 FacilityCatalog의 일부) */
 export interface ObjectYieldCatalog {
   facility(
     id: string,
@@ -22,6 +22,10 @@ export interface ObjectYieldCatalog {
     | undefined;
   gatherLadder(gather: GatherSubcategorySource): readonly (readonly string[])[];
   readonly gatherBands: readonly GatherBand[];
+  /** 아이템의 중분류 ID(없으면 undefined) */
+  subcategoryOf(item: string): string | undefined;
+  /** 아이템 티어(없으면 undefined) */
+  itemTier(item: string): number | undefined;
 }
 
 export interface ObjectYieldInput {
@@ -38,6 +42,11 @@ export interface ObjectYieldInput {
   readonly levelBonus: number;
 }
 
+/** 오브젝트 규칙(굴림 입력) + 맡는 시설이 선택 방식인가 */
+export interface ObjectRoll extends LotRoll {
+  readonly select: boolean;
+}
+
 /** 시드(유닛·오브젝트·차례만으로) */
 function yieldSeed(input: ObjectYieldInput): number {
   return mix32(
@@ -46,56 +55,67 @@ function yieldSeed(input: ObjectYieldInput): number {
   );
 }
 
-/** 굴림표에서 하나(가중치 합이 0이면 첫 줄) */
-export function pickTableItem(
-  table: readonly { readonly item: string; readonly weightPm: number }[],
-  roll: number,
-): string | undefined {
-  let total = 0;
-  for (const row of table) total += Math.max(0, row.weightPm);
-  if (total <= 0) return table[0]?.item;
-  let left = roll % total;
-  for (const row of table) {
-    const weight = Math.max(0, row.weightPm);
-    if (left < weight) return row.item;
-    left -= weight;
-  }
-  return table[0]?.item;
-}
-
-/** 뽑은 티어를 범위 안으로 접는다(범위가 없으면 그대로, min > max면 max — 팩 검사가 막는 경우) */
-export function foldTierRange(
-  tier: number,
-  range: { readonly min: number; readonly max: number } | undefined,
-): number {
-  if (!range) return tier;
-  return Math.min(Math.max(tier, range.min), range.max);
-}
+const itemAsset = (id: string): string => `item:${id}`;
+const clampTier = (tier: number): number => Math.max(0, Math.min(GATHER_TIERS - 1, Math.trunc(tier)));
 
 /**
- * 한 번 캘 때 나오는 아이템 ID(item: 앞머리 없음). 굴림표·사다리 굴림이 없으면 대표 아이템. 사다리 굴림은 맡는 시설의 추첨 방식 채집 칸이
- * 있어야 하고(팩 검사), 사다리가 비면 대표 아이템
+ * 오브젝트의 굴림 규칙(머리 주석): 사다리 = 맡는 시설 사다리(대표 아이템이 그 사다리 중분류에 들 때) 또는 대표 아이템 중분류 사다리. 대표 아이템이
+ * 사다리에 없으면(꺼진 아이템 등) 그 티어 칸에 넣는다 — 범위 없는 오브젝트가 옛 고정 아이템을 그대로 낸다. 범위 = tierRange, 없으면 대표 아이템 티어
  */
+export function objectRollOf(
+  kind: Pick<GatherKind, "item" | "table" | "facility" | "tierRange">,
+  catalog: ObjectYieldCatalog,
+): ObjectRoll {
+  const prefer = itemAsset(kind.item);
+  const gather = kind.facility === null ? undefined : catalog.facility(kind.facility)?.gather;
+  const sub = catalog.subcategoryOf(kind.item);
+  const base =
+    gather && sub !== undefined && gatherSubcategories(gather).includes(sub)
+      ? catalog.gatherLadder(gather)
+      : sub !== undefined
+        ? catalog.gatherLadder({ subcategory: sub })
+        : Array.from({ length: GATHER_TIERS }, (): string[] => []);
+  const tier = clampTier(catalog.itemTier(kind.item) ?? 0);
+  const ladder = base[tier]?.includes(prefer)
+    ? base
+    : base.map((choices, t) => (t === tier ? [...choices, prefer] : choices));
+  const range = kind.tierRange ?? { min: tier, max: tier };
+  const table =
+    kind.table && kind.table.length > 0
+      ? kind.table.map((row) => ({ asset: itemAsset(row.item), weightPm: row.weightPm }))
+      : undefined;
+  return {
+    ladder,
+    tierRange: { min: clampTier(range.min), max: clampTier(Math.max(range.min, range.max)) },
+    prefer,
+    ...(table ? { table } : {}),
+    select: gather?.mode === "select",
+  };
+}
+
+/** 한 번 캘 때 나오는 아이템 ID(item: 앞머리 없음). 아무것도 고르지 못하면 대표 아이템 */
 export function objectYieldItem(
-  kind: Pick<GatherKind, "item" | "table" | "ladder" | "facility" | "tierRange">,
+  kind: Pick<GatherKind, "item" | "table" | "facility" | "tierRange">,
   catalog: ObjectYieldCatalog,
   input: ObjectYieldInput,
 ): string {
-  if (kind.table && kind.table.length > 0) {
-    const rng = createRng(yieldSeed(input));
-    return pickTableItem(kind.table, rng.nextInt(1_000_000)) ?? kind.item;
-  }
-  if (kind.ladder !== true || kind.facility === null) return kind.item;
-  const gather = catalog.facility(kind.facility)?.gather;
-  if (!gather || gather.mode === "select") return kind.item;
-  const rng = createRng(yieldSeed(input));
-  const bands = gatherLadderBands(catalog.gatherBands, gather.subcategory);
-  const stat = gatherStat(
-    Math.max(0, input.primary) + Math.max(0, input.secondary),
-    Math.max(1, input.level),
-    input.levelBonus,
+  const roll = objectRollOf(kind, catalog);
+  const primary = Math.max(0, input.primary);
+  const secondary = Math.max(0, input.secondary);
+  const result = rollGatherOutputs(
+    {
+      ladder: roll.ladder,
+      bands: catalog.gatherBands,
+      stat: gatherStat(primary + secondary, Math.max(1, input.level), input.levelBonus),
+      lots: 1,
+      lotSize: new Map(),
+      selectTier: roll.select ? accessibleTier(primary, secondary) : undefined,
+      tierRange: roll.tierRange,
+      prefer: roll.prefer,
+      table: roll.table,
+    },
+    createRng(yieldSeed(input)),
   );
-  const tier = foldTierRange(rollGatherTier(bands, stat, rng), kind.tierRange);
-  const asset = pickGatherItem(catalog.gatherLadder(gather), tier, rng);
+  const asset = result.outputs[0]?.asset;
   return asset === undefined ? kind.item : asset.replace(/^item:/, "");
 }

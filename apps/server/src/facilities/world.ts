@@ -7,22 +7,10 @@
 //   자리 수, 유닛 1차 스탯)를 함께 넘긴다(gatherSiteOf). 임대형 임차인 몫의 건물 창고 남은 자리(storage.ts roomGrams, WP8 523 ②)도 함께.
 // - 컨디션(D-534·D-535, labor/condition.ts): 채집 정산과 유닛 화면에 그 유닛의 관리 보너스를 넘긴다(주거 = 쉼터 배정 — 채집 세계가 attachRest로
 //   늦게 잇는다, 음식 = 도시 생필품 충족, 선호 = 세계 시드·유닛 ID, 좋아하는 음식 = 그 도시 창고에 그 중분류가 있나).
-// - 높은 티어 광석(기획 D-535 질문 1121, docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12): 높은 티어 광석"): 플레이어 광산도 NPC 광산과
-//   같은 티어 막기(@terra/shared/catchment oreTierCapOf)를 받는다 — 높은 티어 몫 = 건물이 선 2차맵 칸의 highOrePm(산지 1000, 산지 밖
-//   ore_flat_high_pm). 행성 값이 없는 2차맵(임시 지형)은 막지 않는다.
-// - 낚시터 물 종류(기획 D-542 질문 1365 나): 플레이어 낚시터도 NPC 낚시터처럼 그 자리 물 종류(fishWater.ts spotWaterOfMap)의 티어 범위(설정 칸
-//   fish_tier_*)로 뽑은 티어를 접는다(@terra/sim rollGatherOutputs tierRange). 행성 값이 없는 2차맵은 접지 않는다.
+// - 바뀜 (기획 D-552, docs/adr/2026-11-15-gather-object-tiers.md): 플레이어 광산의 칸 산지 막기와 플레이어 낚시터의 물 종류 범위를 지웠다 —
+//   채집소 일꾼은 묶음마다 그 묶음이 쓰는 오브젝트의 티어 범위로 굴린다(gather/station.ts lotRoll). NPC 경제의 배후지 막기는 그대로다.
 import { type LandCheck, createLandCheck } from "./landRule.ts";
-import { type CatchmentLand, highOrePm, materialOfFacility, oreTierCapOf } from "@terra/shared/catchment";
-import { type FishTierRanges, type FishWater, fishTierRangeOf } from "@terra/shared/fishWater";
-import {
-  HOME_HOUSING,
-  type RestPlace,
-  type SocietyCoefficients,
-  fishTierRangesOf,
-  gatherLadderBands,
-  unitPreferences,
-} from "@terra/sim";
+import { HOME_HOUSING, type RestPlace, type SocietyCoefficients, unitPreferences } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
 import type { GatherKind } from "../gather/kinds.ts";
@@ -42,7 +30,6 @@ import {
   createBuildingAttack,
 } from "./attack.ts";
 import { type CatalogSource, type FacilityCatalog, facilityCatalogOf } from "./catalog.ts";
-import { spotWaterOfMap } from "./fishWater.ts";
 import { spendGoods } from "./materials.ts";
 import { type PlaceWorld, assetWeightG, beaconMaterialScope, buildingPlace } from "./places.ts";
 import { type FacilityService, createFacilityService } from "./service.ts";
@@ -139,53 +126,26 @@ export function beaconConstructionOf(options: {
   };
 }
 
-/** 광산 티어 막기 자료: 2차맵 → 그 칸 높은 티어 몫(‰, 행성 값이 없으면 undefined)·산지 밖 가장 높은 티어(설정 칸 ore_low_tier_max) */
-export interface OreCapSource {
-  highOrePm(mapKey: number): number | undefined;
-  lowTierMax(): number;
-}
-
-/** 낚시터 티어 범위 자료: 2차맵 → 물 종류(행성 값이 없으면 undefined)·물 종류마다 범위(설정 칸 fish_tier_*) */
-export interface FishWaterSource {
-  waterOf(mapKey: number): FishWater | undefined;
-  ranges(): FishTierRanges;
-}
-
 /**
  * 그 건물이 채집 시설(팩 gather가 있는 시설)이면 채집 산출 자료: 정의·다 지은 레벨·사다리·확률표·묶음 크기·건물이 선 도시·자리 수(레벨 ×
- * 레벨당 자리, 레벨 0이면 0)·광석 시설이면 티어 막기(oreCap이 있을 때, 머리 주석). 시설 줄이 없거나 채집 시설이 아니면 undefined
+ * 레벨당 자리, 레벨 0이면 0). 시설 줄이 없거나 채집 시설이 아니면 undefined
  */
 export function gatherSiteOf(
   service: Pick<FacilityService, "facilities" | "places">,
   catalog: FacilityCatalog,
   buildingId: number,
-  oreCap?: OreCapSource,
-  fishWater?: FishWaterSource,
 ): (GatherSite & { readonly slots: number }) | undefined {
   const record = service.facilities.get(buildingId);
   const def = record ? catalog.facility(record.facilityId) : undefined;
   if (!record || !def?.gather) return undefined;
-  const material = materialOfFacility(def.id);
-  const place =
-    (oreCap && material === "ore") || (fishWater && material === "fish")
-      ? buildingPlace(service.places, buildingId)
-      : undefined;
-  const highPm = place && oreCap && material === "ore" ? oreCap.highOrePm(place.mapKey) : undefined;
-  const tierCap = highPm === undefined || !oreCap ? undefined : oreTierCapOf(highPm, oreCap.lowTierMax());
-  const tierRange =
-    place && fishWater && material === "fish"
-      ? fishTierRangeOf(fishWater.ranges(), fishWater.waterOf(place.mapKey))
-      : undefined;
   return {
-    ...(tierCap ? { tierCap } : {}),
-    ...(tierRange ? { tierRange } : {}),
     buildingId,
     facilityId: def.id,
     level: record.level,
     rule: def.gather,
     ladder: catalog.gatherLadder(def.gather),
-    // 사다리 띠 표(기획 D-540 1217 나): 이 시설 주 중분류의 전용 표, 없으면 기본 표
-    bands: gatherLadderBands(catalog.gatherBands, def.gather.subcategory),
+    // 확률표 하나(기획 D-552)
+    bands: catalog.gatherBands,
     lotSize: catalog.lotSize,
     cityId: record.cityId ?? buildingPlace(service.places, buildingId)?.cityId ?? null,
     slots: Math.max(0, record.level) * Math.max(0, def.slotsPerLevel),
@@ -235,26 +195,8 @@ export function createWorldFacilities(input: {
           }
         | undefined)
     | undefined;
-  /** 2차맵 칸 행성 값(플레이어 광산 티어 막기의 높은 티어 몫 — 머리 주석). 없거나 undefined면 광산 티어를 막지 않는다 */
-  readonly cellValues?: ((mapKey: number) => CatchmentLand | undefined) | undefined;
 }): WorldFacilities {
   const catalog = facilityCatalogOf(input.config?.content ?? (() => EMPTY_SOURCE));
-  const cellValues = input.cellValues;
-  const oreCap: OreCapSource | undefined = cellValues
-    ? {
-        highOrePm: (mapKey) => {
-          const land = cellValues(mapKey);
-          return land ? highOrePm(land, input.rules().worldSeed) : undefined;
-        },
-        lowTierMax: () => input.rules().worldSeed.oreLowTierMax,
-      }
-    : undefined;
-  const fishWater: FishWaterSource | undefined = cellValues
-    ? {
-        waterOf: (mapKey) => spotWaterOfMap(mapKey, cellValues),
-        ranges: () => fishTierRangesOf(input.rules().worldSeed),
-      }
-    : undefined;
   let labor: LaborService | undefined;
   // 2차맵 건설 땅 규칙(landRule.ts): 짓기 명령과 화면 미리 묻기가 같은 판정
   const land = createLandCheck({
@@ -369,7 +311,7 @@ export function createWorldFacilities(input: {
     attachLabor(next) {
       labor = next;
       next.attachProduction({
-        site: (buildingId) => gatherSiteOf(service, catalog(), buildingId, oreCap, fishWater),
+        site: (buildingId) => gatherSiteOf(service, catalog(), buildingId),
         // 병원(의료 단계 시설): 의사 직무 배치 자리(D-521, 산출 없음)
         workplace: (buildingId) => medicalSiteOf(service, catalog(), buildingId),
         primaries: (unitId) => input.holdings.primariesOf(unitId),

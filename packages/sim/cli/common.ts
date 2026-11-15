@@ -153,15 +153,11 @@ function catalogOf(source: PackSource): EconomyCatalog {
 
 /** 팩 gather_tiers → 시뮬 확률표(파일이 없거나 비면 칸을 두지 않는다) */
 function gatherBandsOf(source: PackSource): {
-  gatherBands?: { from: number; weightsPm: number[]; ladder?: string }[];
+  gatherBands?: { from: number; weightsPm: number[] }[];
 } {
-  // 사다리 띠 표(기획 D-540 1217 나): ladder를 ID로 남긴다(시뮬 생산이 gatherLadderBands로 고른다)
+  // 표 하나(기획 D-552)
   const bands = parseFile(source, "gather_tiers.json", (raw) => gatherTierEntrySchema.parse(raw)).map(
-    (band) => ({
-      from: band.from,
-      weightsPm: [...band.weightsPm],
-      ...(band.ladder ? { ladder: band.ladder.id } : {}),
-    }),
+    (band) => ({ from: band.from, weightsPm: [...band.weightsPm] }),
   );
   return bands.length > 0 ? { gatherBands: bands } : {};
 }

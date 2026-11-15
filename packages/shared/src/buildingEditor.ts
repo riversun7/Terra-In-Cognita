@@ -53,8 +53,6 @@ export const GATHER_BAND_WEIGHT_TOTAL = 1000;
 /** 팩 gather_tiers.json 한 줄(JSON 모양, 49 N43, D-513) */
 export interface GatherTierJson {
   readonly id: string;
-  /** 사다리(원자재 중분류 ID, 기획 D-540 1217 나). 없으면 기본 표 */
-  readonly ladder?: string;
   readonly from: number;
   readonly weightsPm: readonly number[];
 }

@@ -17,7 +17,7 @@ import {
   gatherYield,
   tierRequiredProgress,
 } from "@terra/sim";
-import { gatherCatchPm, gatherLadderBands, gatherSubcategories } from "@terra/shared/gatherMath";
+import { gatherCatchPm, gatherSubcategories } from "@terra/shared/gatherMath";
 
 /** 시설 레벨(D-5001 Lv1~5) */
 const LEVELS = [1, 2, 3, 4, 5] as const;
@@ -118,7 +118,7 @@ export function previewGather(
   if (!facility || !gather) return null;
   const subs = subsOf(gather);
   // 띠 표: 이 시설 주 중분류의 전용 표, 없으면 기본 표(기획 D-540 1217 나)
-  const bands = gatherLadderBands(ctx.bands, gather.subcategory.id);
+  const bands = ctx.bands;
   // 사다리: 초안이 같은 ID의 실효 항목을 대신한다(새로 만드는 초안이면 더한다)
   const pool = [...items.filter((item) => item.id !== draft.id), draft];
   const ladder = Array.from({ length: GATHER_TIERS }, (): string[] => []);

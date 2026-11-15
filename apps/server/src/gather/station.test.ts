@@ -118,6 +118,7 @@ const catalog: FacilityCatalog = {
   lotSize: new Map(),
   foodSubcategories: [],
   subcategoryOf: () => undefined,
+  itemTier: () => undefined,
   subcategoryName: () => undefined,
 };
 

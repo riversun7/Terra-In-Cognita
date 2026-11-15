@@ -82,9 +82,15 @@ describe("원자재 오브젝트 종류", () => {
         .slice(ids.indexOf("copper_outcrop") + 1, -wild.length - 1)
         .every((kind) => kind.source === "site" || kind.source === "school"),
     ).toBe(true);
-    // 바다 오브젝트(기획 D-540 1222): 어군 넷은 낚시 사다리 굴림, 고래 무리는 고래 고기·기름 굴림표, 난파선은 굴림표
+    // 바다 오브젝트(기획 D-540 1222): 어군 넷은 낚시터가 맡고 티어 범위로 굴림, 고래 무리는 고래 고기·기름 굴림표, 난파선은 굴림표
     for (const id of ["school_lake", "school_coastal", "school_shelf", "school_deep"])
-      expect(byId.get(id)).toMatchObject({ ladder: true, facility: "fishing_spot" });
+      expect(byId.get(id)).toMatchObject({ facility: "fishing_spot" });
+    // 오브젝트마다 티어 범위(기획 D-552): 굴림표가 아닌 47종 모두 범위가 있고, 굴림표 둘은 없다
+    expect(kinds.filter((kind) => kind.tierRange !== undefined)).toHaveLength(47);
+    expect(byId.get("whale_pod")?.tierRange).toBeUndefined();
+    expect(byId.get("boulder_stone")?.tierRange).toEqual({ min: 1, max: 1 });
+    expect(byId.get("conifer_tree")?.tierRange).toEqual({ min: 0, max: 1 });
+    expect(byId.get("ore_vein")?.tierRange).toEqual({ min: 2, max: 9 });
     // 어군 티어 범위(기획 D-541 질문 1307 나 [임시]): 깊은 바다일수록 큰 고기
     expect(
       ["school_lake", "school_coastal", "school_shelf", "school_deep"].map((id) => byId.get(id)?.tierRange),

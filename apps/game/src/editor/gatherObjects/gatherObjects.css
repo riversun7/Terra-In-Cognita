@@ -1,0 +1,236 @@
+/*
+ * 채집 오브젝트 편집기(/dev/gather-objects, 기획 D-552) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 촘촘.
+ * 개발 화면 층(ADR 2026-11-02-dev-ui): 표는 공용 .dev-table, 표지는 .dev-badge. 넓은 화면은 목록 | 판 두 칸, 390px는 위아래로 쌓는다.
+ * 조각 GatherObjectsScreen-*와 함께 내려온다(미리 캐시 밖, [Gg]atherObjects).
+ */
+.go-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+.go-lead {
+  margin: 0;
+}
+
+/* ── 거르기 ── */
+.go-filters,
+.go-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.go-field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: var(--font-size-sm);
+}
+.go-field select,
+.go-field input:not([type="range"]) {
+  min-height: var(--tap-size);
+  max-inline-size: 100%;
+}
+.go-search {
+  flex: 1 1 12em;
+}
+
+/* ── 목록 | 판 ── */
+.go-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  min-width: 0;
+}
+@media (min-width: 64rem) {
+  .go-layout {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+  .go-panel {
+    position: sticky;
+    inset-block-start: var(--space-3);
+  }
+}
+.go-list {
+  min-width: 0;
+}
+.go-table tr[aria-selected="true"] {
+  background: var(--color-highlight);
+}
+.go-table tr[data-changed] .go-name::after {
+  content: " •";
+  color: var(--color-primary);
+}
+.go-table th[scope="row"] {
+  text-align: start;
+}
+.go-pick {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+  inline-size: 100%;
+  min-height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.go-pick:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.go-name {
+  overflow-wrap: anywhere;
+}
+.go-id {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.go-item,
+.go-sub {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.go-sub {
+  font-size: var(--font-size-xs);
+}
+.go-range {
+  white-space: nowrap;
+}
+
+/* ── 판 ── */
+.go-panel {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.go-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.go-panel-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  overflow-wrap: anywhere;
+}
+.go-block {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.go-block-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.go-block p {
+  margin: 0;
+}
+.go-grid2 {
+  grid-template-columns: repeat(auto-fit, minmax(8em, 1fr));
+}
+.go-chips,
+.go-list-plain,
+.go-biomes,
+.go-chances {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+.go-chips li,
+.go-biomes li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--font-size-sm);
+}
+.go-chips code {
+  overflow-wrap: anywhere;
+}
+.go-biome-name {
+  flex: 1 1 8em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.go-biomes input {
+  inline-size: 5.5em;
+  min-height: var(--tap-size);
+}
+.go-surfaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.go-surface {
+  min-height: var(--tap-size);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.go-surface[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-highlight);
+  font-weight: var(--font-weight-strong);
+}
+.go-stat input {
+  inline-size: 100%;
+}
+.go-chances li {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.go-chance-name {
+  overflow-wrap: anywhere;
+}
+.go-bar {
+  display: block;
+  block-size: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+.go-bar-fill {
+  display: block;
+  block-size: 100%;
+  background: var(--color-primary);
+}
+
+/* ── 담은 변경 ── */
+.go-pending {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--font-size-sm);
+}
+.go-pending > span {
+  margin-inline-end: auto;
+}

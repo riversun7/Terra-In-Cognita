@@ -87,6 +87,8 @@ export interface FacilityCatalog {
   readonly foodSubcategories: readonly string[];
   /** 아이템의 중분류 ID(없으면 undefined) */
   subcategoryOf(item: string): string | undefined;
+  /** 아이템 티어(없으면 undefined — 오브젝트 대표 아이템 티어, 기획 D-552) */
+  itemTier(item: string): number | undefined;
   /** 중분류 이름(목록에 없으면 undefined) */
   subcategoryName(id: string): LocalizedName | undefined;
 }
@@ -232,6 +234,7 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
         .filter((sub) => sub.food === true && sub.enabled)
         .map((sub) => sub.id),
       subcategoryOf: (id) => items.get(id)?.subcategory?.id,
+      itemTier: (id) => items.get(id)?.tier,
       subcategoryName(id) {
         const sub = subcategoryById.get(id);
         return sub ? { ko: sub.name.ko, en: sub.name.en } : undefined;

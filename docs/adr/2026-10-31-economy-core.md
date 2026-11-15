@@ -169,3 +169,6 @@
 - 팩 값: 기본 표 0~39 T0 700·T1 150·T2 100·T3 50, 40~59 T0 650·T1 220·T2 100·T3 30(core@76 값으로 되돌림). 광석 표(`ore_band_*` 14줄) = core@80 값(0~39 T0 500·T1 350, 40~59 T0 500·T1 350·T2 120). 60 위는 두 표가 같다.
 - 쓰는 곳 모두 사다리 표를 고른다: 시뮬 생산(`simulator/economy.ts`), 서버 채집 직무·채집소(`facilities/world.ts`), NPC 경제(`market/catalog.ts` → 시뮬), 아이템 편집기 미리 보기(`itemEdit/previewGather.ts`), 사이보그 판 효율 줄(`roster/gatherSheet.ts`), 생산 편집기 미리 보기(`productionModel.ts typePreview`)와 확률 분포·예상 확률 탭(띠 표 고르기 `ProductionLadderPicker`), 오브젝트 사다리 굴림(`gather/objectYield.ts`). 유닛 추천(`recommendProduction`)은 띠를 보지 않는다(주 + 보조 합 차례). 읽기 모양은 `@terra/content` `gatherBandOfEntry`(사다리 ID를 잃지 않게).
 - 편집기: 띠 표마다 구간을 고친다(담은 덮어쓰기는 `ladder`를 그대로 싣는다). 새 사다리 표 만들기는 없다(팩에서 더한다).
+
+## 바뀜 (2026-11-15, D-552 — 확률표 하나, 팩 core@98, `SIM_VERSION` 45)
+- 기획 D-552 "표 하나": "바뀜 (2026-11-14, 사다리마다 채집 띠 표)"의 사다리 칸(`gather_tiers.ladder`)과 광석 전용 표를 지운다. 남는 표 = 기본 표(옛 값). 석재 바닥은 오브젝트 범위(석재 오브젝트 T1~T1)가 맡는다. 자세한 것과 econ16 측정은 ADR `2026-11-15-gather-object-tiers.md`.

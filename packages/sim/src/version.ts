@@ -178,8 +178,12 @@
  *    행동·결과는 그대로다(orders.test.ts가 바꾸기 전 코드의 끝 상태 지문과 견준다). 같은 판: 전투맵 걸음도 AGI(사용자 1265, D-553 — D-223
  *    "1칸 1초"를 대체): 사양의 한 칸 간격 = ⌊기본 × walk_speed(10) ÷ walk_speed(실효 AGI)⌋(combat/formulas.ts battleMoveIntervalMs) — AGI가 10이
  *    아닌 유닛의 전투 결과가 달라진다. 43은 같은 묶음의 다른 줄기가 쓴다
+ * 45: 채집 확률표 하나(기획 D-552 "표 하나", docs/adr/2026-11-15-gather-object-tiers.md): 사다리마다 띠 표(gatherLadderBands)를 지웠다 — 광산도
+ *    기본 표(0~39 T0 700·T1 150·T2 100·T3 50)로 굴린다(팩 core@98에서 광석 전용 표를 지움). rollGatherOutputs에 오브젝트 규칙(대표 아이템
+ *    prefer·굴림표 table, 범위는 선택 방식에도)을 더했다 — 시뮬 NPC 시설은 넘기지 않아 그 몫은 그대로다. 광산이 있는 시나리오(econ16·build16 등)의
+ *    결과가 달라진다(43·44는 같은 묶음의 다른 줄기가 쓴다)
  */
-export const SIM_VERSION = 44;
+export const SIM_VERSION = 45;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

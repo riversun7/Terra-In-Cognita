@@ -44,20 +44,16 @@ import {
   ProductionProcessPanel,
 } from "./ProductionCommonPanels.tsx";
 import { type ProductionTabGroup, ProductionTabs } from "./ProductionTabs.tsx";
-import { ProductionLadderPicker } from "./ProductionLadderPicker.tsx";
 import { ProductionTiersPanel } from "./ProductionTiersPanel.tsx";
 import { ProductionTypePanel } from "./ProductionTypePanel.tsx";
 import { COMMON_ICON, facilityIcon } from "./productionIcons.tsx";
 import {
   EMPTY_PRODUCTION_STAGE,
   type ProductionStage,
-  bandLadderKeys,
-  bandRowsOfLadder,
   draftBands,
   editClass,
   editFacility,
   ladderOf,
-  ladderOfType,
   processRows,
   productionChangesOf,
   productionStageKeys,
@@ -105,7 +101,6 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
   // 확률 분포 탭의 구간 조절 판에 올린 구간
   const [band, setBand] = useState<string | null>(null);
   // 확률 분포·예상 확률 탭이 보이는 띠 표(기획 D-540 1217 나 — undefined = 기본 표)
-  const [ladder, setLadder] = useState<string | undefined>(undefined);
   const undoStack = useUndoStack<ProductionStage>();
   const notice = useLiveLines();
   const problem = useLiveLines();
@@ -181,29 +176,8 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
   ];
   const processes = processRows(list?.facilities ?? []);
   const shownBands = draftBands(bands, stage);
-  // 고른 사다리의 띠 표(그 사다리 표가 없어졌으면 기본 표)
-  const ladders = bandLadderKeys(bands);
-  const shownLadder = ladders.includes(ladder) ? ladder : undefined;
-  const ladderRows = bandRowsOfLadder(bands, shownLadder);
-  const ladderShown = shownBands.filter((row) => row.ladder === shownLadder);
-  // 고른 사다리 표를 쓰는 시설에 낚시터(어류 시설)가 있나 — "예상 확률" 탭 물 종류 고르기(기획 D-542 질문 1365 나)
-  const fishShown = types.some(
-    (row) =>
-      materialOfFacility(row.type.facility) === "fish" &&
-      ladderOfType(bands, row.gather.subcategory) === shownLadder,
-  );
-  const ladderPicker = (
-    <ProductionLadderPicker
-      ladders={ladders}
-      value={shownLadder}
-      subcategories={list?.subcategories ?? []}
-      locale={locale}
-      onChange={(next) => {
-        setLadder(next);
-        setBand(null);
-      }}
-    />
-  );
+  // 표 하나(기획 D-552 "표 하나") — 낚시터(어류 시설)가 있으면 "예상 확률" 탭 물 종류 고르기(NPC 배후지, 기획 D-542 질문 1365 나)
+  const fishShown = types.some((row) => materialOfFacility(row.type.facility) === "fish");
   const sleeping = (list?.sleeping ?? []).filter((row) => row.category === "gather_tiers");
   const coverage = statCoverage(types.map((row) => row.type));
   const keys = productionStageKeys(stage);
@@ -292,10 +266,8 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
   }, [keys.length]);
 
   const rangeOf = (id: string): string => {
-    // 사다리 표 안의 차례로 범위를 센다(기본 표·광석 표가 한 목록에 섞여 있다)
-    const rows = bandRowsOfLadder(bands, bands.find((row) => row.entry.id === id)?.entry.ladder);
-    const index = rows.findIndex((row) => row.entry.id === id);
-    return index < 0 ? id : bandRangeText(rows, index);
+    const index = bands.findIndex((row) => row.entry.id === id);
+    return index < 0 ? id : bandRangeText(bands, index);
   };
   const facilityName = (id: string): string =>
     list?.facilities.find((row) => row.entry.id === id)?.entry.name[locale] ?? id;
@@ -542,11 +514,10 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
             ) : null}
             {active.kind === "tiers" ? (
               <ProductionTiersPanel
-                picker={ladderPicker}
-                bands={ladderRows}
+                bands={bands}
                 stage={stage.gather}
                 sleeping={sleeping}
-                types={types.filter((row) => ladderOfType(bands, row.gather.subcategory) === shownLadder)}
+                types={types}
                 locale={locale}
                 levelBonus={levelBonus}
                 selected={band}
@@ -559,8 +530,7 @@ export default function ProductionEditorScreen({ initialTab }: { initialTab?: st
             ) : null}
             {active.kind === "expect" ? (
               <ProductionExpectPanel
-                picker={ladderPicker}
-                bands={ladderShown}
+                bands={shownBands}
                 rules={rules}
                 fishTiers={fishShown ? rules.fishTiers : undefined}
               />

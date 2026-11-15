@@ -86,13 +86,7 @@ export function editBand(
   const current = stage.bands.get(id);
   const base = current ? current.base : row.entry;
   const baseHash = current ? current.baseHash : row.hash;
-  // 사다리 칸(기획 D-540 1217 나)을 그대로 실어 덮어쓰기가 기본 표로 옮겨 가지 않게 한다
-  const entry: GatherTierJson = {
-    id,
-    ...(row.entry.ladder === undefined ? {} : { ladder: row.entry.ladder }),
-    from: row.entry.from,
-    weightsPm: [...weightsPm],
-  };
+  const entry: GatherTierJson = { id, from: row.entry.from, weightsPm: [...weightsPm] };
   const same = base.from === entry.from && sameWeights(base.weightsPm, entry.weightsPm);
   return stageBand(stage, id, same ? null : { op: "put_gather_band", entry, base, baseHash });
 }

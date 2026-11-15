@@ -295,4 +295,43 @@ describe("pnpm tuning:apply", () => {
     expect(JSON.parse(readFileSync(path.join(dir, "facilities.json"), "utf8")).entries).toEqual([edited]);
     expect(outcome.version).toBe(4);
   });
+
+  it("채집 오브젝트(채집 오브젝트 편집기, 기획 D-552)도 entries로 gather_objects.json에 넣는다: 티어 범위·양·지형을 통째로, 사다리 칸(ladder)은 없앤 칸이라 건너뛴다", () => {
+    const tree = {
+      id: "conifer_tree",
+      name: { ko: "침엽수", en: "Conifer" },
+      source: "prop",
+      arts: ["tree_conifer"],
+      item: "pine_log",
+      tierRange: { min: 0, max: 1 },
+      lots: 1,
+      workMs: 20000,
+      uses: 5,
+      regrowMs: 1800000,
+      primary: "dex",
+      secondary: "str",
+    };
+    writeFileSync(path.join(dir, "gather_objects.json"), json({ entries: [tree] }));
+    const edited = { ...tree, arts: ["tree_conifer", "tree_palm"], tierRange: { min: 0, max: 4 }, lots: 2 };
+    const outcome = applyDiffToPack(dir, {
+      ...diff([]),
+      entries: [
+        { category: "gather_objects", id: "conifer_tree", from: hashEntry(tree), entry: edited },
+        {
+          category: "gather_objects",
+          id: "old_school",
+          from: null,
+          entry: { ...tree, id: "old_school", ladder: true },
+        },
+      ],
+    });
+    expect(outcome.entries.applied).toEqual([
+      { category: "gather_objects", id: "conifer_tree", kind: "replaced" },
+    ]);
+    expect(outcome.entries.skipped).toEqual([
+      { category: "gather_objects", id: "old_school", reason: "invalid" },
+    ]);
+    expect(JSON.parse(readFileSync(path.join(dir, "gather_objects.json"), "utf8")).entries).toEqual([edited]);
+    expect(outcome.version).toBe(4);
+  });
 });

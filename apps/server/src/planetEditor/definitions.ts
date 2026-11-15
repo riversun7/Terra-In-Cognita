@@ -16,7 +16,7 @@ import {
   definitionHashOf,
   planetDefinitionForHash,
 } from "../planet/sources.ts";
-import type { JsonObject, PlanetEditorDefinitions, PlanetEditorPlanet } from "./types.ts";
+import type { GatherEditorRefs, JsonObject, PlanetEditorDefinitions, PlanetEditorPlanet } from "./types.ts";
 
 /**
  * 행성 면 레벨 → 확인 레벨. 확인 레벨 = 편집기 빠른 미리보기 레벨(@terra/shared PLANET_EDITOR_CHECK_FACE_LEVEL, 기기
@@ -137,11 +137,59 @@ export function buildPlanetEditorDefinitions(input: PlanetEditorBuildInput): Pla
       gatherObjects: (input.raw.gatherObjects ?? []).map((entry, index) =>
         copyObject(entry, `gather_objects.json entries[${index}]`),
       ),
+      gatherRefs: gatherRefsOf(input.raw),
     },
     timings,
     templateTimings,
     totalMs: now() - started,
   };
+}
+
+/** 이름 칸(ko·en, 없으면 ID) */
+function nameOf(entry: JsonObject, id: string): { ko: string; en: string } {
+  const name = entry.name;
+  if (!isJsonObject(name)) return { ko: id, en: id };
+  return {
+    ko: typeof name.ko === "string" ? name.ko : id,
+    en: typeof name.en === "string" ? name.en : id,
+  };
+}
+
+/**
+ * 채집 오브젝트 편집기 참고 자료(기획 D-552): 원자재(major raw) 중분류와 그 아이템(ID·이름·중분류·티어·켜짐), 확률표. 굴림표에 든 가공품은 넣지
+ * 않는다(편집기는 굴림표를 보이기만 한다). 팩 파일이 없으면 빈 목록
+ */
+function gatherRefsOf(raw: RawPackEntries): GatherEditorRefs {
+  const subs: GatherEditorRefs["subcategories"] = [];
+  for (const entry of raw.itemSubcategories ?? []) {
+    const id = idOf(entry);
+    if (id === undefined || !isJsonObject(entry) || entry.major !== "raw") continue;
+    subs.push({ id, name: nameOf(entry, id) });
+  }
+  const rawSubs = new Set(subs.map((sub) => sub.id));
+  const items: GatherEditorRefs["items"] = [];
+  for (const entry of raw.items ?? []) {
+    const id = idOf(entry);
+    if (id === undefined || !isJsonObject(entry)) continue;
+    const subcategory = typeof entry.subcategory === "string" ? entry.subcategory : "";
+    if (!rawSubs.has(subcategory)) continue;
+    items.push({
+      id,
+      name: nameOf(entry, id),
+      subcategory,
+      tier: typeof entry.tier === "number" ? entry.tier : 0,
+      enabled: entry.enabled !== false,
+    });
+  }
+  const bands: GatherEditorRefs["bands"] = [];
+  for (const entry of raw.gatherTiers ?? []) {
+    if (!isJsonObject(entry) || typeof entry.from !== "number" || !Array.isArray(entry.weightsPm)) continue;
+    bands.push({
+      from: entry.from,
+      weightsPm: entry.weightsPm.map((value) => (typeof value === "number" ? value : 0)),
+    });
+  }
+  return { items, subcategories: subs, bands };
 }
 
 const round1 = (value: number): number => Math.round(value * 10) / 10;

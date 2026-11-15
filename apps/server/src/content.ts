@@ -27,6 +27,13 @@ export interface RawPackEntries {
    * 고치고 차이를 내보낸다. 없으면(시험 모양) 빈 배열로 본다
    */
   gatherObjects?: readonly unknown[];
+  /**
+   * 채집 오브젝트 편집기(/dev/gather-objects, 기획 D-552) 참고 자료: items.json·item_subcategories.json·gather_tiers.json entries(파일 순서).
+   * 없으면(시험 모양) 빈 배열로 본다
+   */
+  items?: readonly unknown[];
+  itemSubcategories?: readonly unknown[];
+  gatherTiers?: readonly unknown[];
 }
 
 export type ContentLoadResult =
@@ -75,6 +82,9 @@ export function loadServerContent(dir: string): ContentLoadResult {
       planetTemplates: rawEntriesOf(loaded.source, "planet_templates.json"),
       mapProps: rawEntriesOf(loaded.source, "map_props.json"),
       gatherObjects: rawEntriesOf(loaded.source, "gather_objects.json"),
+      items: rawEntriesOf(loaded.source, "items.json"),
+      itemSubcategories: rawEntriesOf(loaded.source, "item_subcategories.json"),
+      gatherTiers: rawEntriesOf(loaded.source, "gather_tiers.json"),
     },
     warnings: lines,
   };

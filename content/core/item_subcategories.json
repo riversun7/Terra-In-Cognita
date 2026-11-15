@@ -85,15 +85,6 @@
       "enabled": true
     },
     {
-      "id": "wild_goods",
-      "name": {
-        "ko": "자연 채집물",
-        "en": "Wild goods"
-      },
-      "major": "raw",
-      "enabled": true
-    },
-    {
       "id": "metal",
       "name": {
         "ko": "금속",

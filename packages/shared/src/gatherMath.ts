@@ -12,27 +12,6 @@ export interface GatherBand {
   readonly from: number;
   /** T0~T9 가중치(‰, 합 1000) */
   readonly weightsPm: readonly number[];
-  /** 이 구간이 드는 사다리(원자재 중분류 ID, 기획 D-540 1217 나). 없으면 기본 표 */
-  readonly ladder?: string | undefined;
-}
-
-/**
- * 사다리 하나가 쓰는 띠 표(기획 D-540 1217 나 — 사다리(채집 시설의 주 중분류)마다 띠 표): 그 사다리 전용 구간(ladder = 사다리)이 있으면
- * 그것만, 없으면 ladder 없는 기본 표. 적힌 차례 그대로(팩 검사가 표마다 from이 늘어나는 차례를 지킨다). 섞인 목록을 그대로 구간 함수에
- * 넘기지 않게 판정·미리 보기가 모두 이 함수로 고른다
- */
-export function gatherLadderBands(bands: readonly GatherBand[], ladder: string | undefined): GatherBand[] {
-  if (ladder !== undefined && bands.some((band) => band.ladder === ladder))
-    return bands.filter((band) => band.ladder === ladder);
-  return bands.filter((band) => band.ladder === undefined);
-}
-
-/** 띠 표가 있는 사다리들(적힌 차례, 기본 표는 빼고) */
-export function gatherBandLadders(bands: readonly GatherBand[]): string[] {
-  const out: string[] = [];
-  for (const band of bands)
-    if (band.ladder !== undefined && !out.includes(band.ladder)) out.push(band.ladder);
-  return out;
 }
 
 /** 해금 티어 한 칸의 스탯 폭(49 P8 "÷ 20", 옛 calcAccessibleTier) */

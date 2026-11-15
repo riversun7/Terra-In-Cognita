@@ -74,11 +74,14 @@ test.describe("dev", () => {
     const paused = await timeOf(page);
     await page.waitForTimeout(400);
     expect(await timeOf(page)).toBe(paused);
-    // 8배속 재생 → 빨리 간다
+    // 8배속 재생 → 빨리 간다(전투가 짧으면 끝까지 — D-549 걸음 AGI 뒤 시범 6 대 6은 약 9초)
+    const length = Number(await page.locator(".br-seek").getAttribute("max"));
     await page.locator(".br-speed button").last().click();
     await expect(view(page)).toHaveAttribute("data-speed", "8");
     await page.locator(".br-play").click();
-    await expect.poll(() => timeOf(page), { timeout: 10_000 }).toBeGreaterThan(paused + 4000);
+    await expect
+      .poll(() => timeOf(page), { timeout: 10_000 })
+      .toBeGreaterThanOrEqual(Math.min(paused + 4000, length));
     // 유닛 줄: 12칩, 고르면 자세히, 따라가기
     await expect(page.locator(".br-unit-chip")).toHaveCount(12);
     await page.locator(".br-unit-chip").nth(3).click();
@@ -149,15 +152,15 @@ test.describe("dev", () => {
             await ready(page);
             await page.locator(".br-play").click();
             await expect(view(page)).toHaveAttribute("data-playing", "false");
-            const at = await seekToAction(page, 7000);
+            const end = Number(await page.locator(".br-seek").getAttribute("max"));
+            const at = await seekToAction(page, Math.min(7000, Math.floor(end / 4)));
             await page.waitForTimeout(300);
             expect(await horizontalOverflow(page)).toEqual([]);
             await shot(page, `battle-replay-${size}-${theme}-${language}-action`);
-            // 다른 싸움 순간(뒤쪽, 쓰러진 유닛이 있을 때)도 한 장
-            await seekToAction(page, at + 30_000);
+            // 다른 싸움 순간(뒤쪽, 쓰러진 유닛이 있을 때)도 한 장 — 남은 시간의 가운데부터
+            await seekToAction(page, Math.min(at + 30_000, at + Math.floor((end - at) / 2)));
             await page.waitForTimeout(300);
             await shot(page, `battle-replay-${size}-${theme}-${language}-action2`);
-            const end = Number(await page.locator(".br-seek").getAttribute("max"));
             await page.locator(".br-seek").fill(String(end));
             await expect(page.locator(".br-summary")).toBeVisible();
             await page.waitForTimeout(300);

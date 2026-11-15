@@ -64,10 +64,14 @@
 - (Verified) sim 시험 전체 통과(108 파일·873개 — `orders.test.ts` 14, `command.test.ts` 2, 걷기 1 더함). 옛 판정 지문 넷은 바꾸기 전 코드(12aee9b)와 같다.
 - (Verified) 서버 단위 시험: 바뀐 곳 통과(`battleReportOrders.test.ts` 7, `battleReportWorld.test.ts` 11, `walkSpeed.test.ts` 6). `apps/server`에서 vitest를
   바로 돌리면 빌드 도장 시험 3개(`app.test.ts`·`trpc/system.test.ts`)가 실패하는데, 바꾸기 전 코드에서도 같다(작업 트리 git 도장 — 루트 `pnpm check`에서는 아래 결과).
-- `pnpm check`·빌드·check-pwa·check:bundle·e2e·사진: 아래 "마지막 검사"에 적는다.
 
-## 마지막 검사
-- (작업 끝에 채운다)
+## 마지막 검사 (Verified, 개발 컨테이너, main 05012e5 합친 뒤)
+- `TEST_DATABASE_URL=… pnpm check` 통과: 시험 파일 712개·시험 5,342개(DB 시험 포함), 포맷·린트·타입·경계·크기·다국어(7,383키)·대비·콘텐츠(core@97).
+- `pnpm build` 통과, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 109,687 B / 상한 131,416 B.
+- e2e `e2e/battleReport.spec.ts` 14개 통과(새: 명령 20판·군단 한 판 1개, 공격 변 칩 확인, 명령 칸·공격 변 사진). 명령 칸 넓은 화면 빼기 단추 자리를
+  고친 뒤 사진 시험 4개 다시 통과.
+- 사진(눈으로 봄: 네온 390·1440, 라이트 390·1440): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/legion-commands-shots/`
+  `battle-report-orders-{neon,light}-{390,1440}.png`, `battle-report-edge-{neon,light}-{390,1440}.png`(그 밖 옛 사진도 같은 폴더).
 
 ## 미검증·TODO·알려진 문제
 - 실제 게임에서 플레이어가 전투에 명령을 넣는 길(WS·화면)은 없다 — 유닛 명령도 없다(질문 1546). 프로토콜은 그대로(29).

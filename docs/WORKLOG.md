@@ -12,6 +12,7 @@
 | 2026-11-15 07:30 | 전투 보고서: 실제 세계 도시 공성·웨이브 팀 수비·군단(파티 여럿) | Claude Code | [15-0730-battle-report-2](worklog/2026/11/15-0730-battle-report-2.md) |
 | 2026-11-15 06:55 ~ 07:40 | 배 재료 돌려주지 않음(D-545 1405) + 배 체계 개편 설계안(조선소·정박장, 질문 1481~1500) | Claude Code | [15-0700-boats-redesign](worklog/2026/11/15-0700-boats-redesign.md) |
 | 2026-11-14 23:50 | 2026-11-14 아홉째 묶음 합치기 (1차맵 개편) | Claude Code | [14-2350-batch-1114c-merge](worklog/2026/11/14-2350-batch-1114c-merge.md) |
+| 2026-11-14 23:30 ~ 2026-11-15 | 파티·군단 명령(판정·전투 보고서)·지휘관 정원·공격 변·수비 군단·전투맵 걸음 AGI | Claude Code | [14-2330-legion-commands](worklog/2026/11/14-2330-legion-commands.md) |
 | 2026-11-14 21:40 | 2차맵 건축 모드(1단계)와 지을 수 있는 땅 규칙 | Claude Code | [14-2140-second-map-build-mode](worklog/2026/11/14-2140-second-map-build-mode.md) |
 | 2026-11-14 21:30 | 1차맵 UI 개편 — 고도 과장 ×12 고정, 레이어 접는 단추, 영토 = 도시 배후지 원의 합 | Claude Code | [14-2130-planet-ui](worklog/2026/11/14-2130-planet-ui.md) |
 | 2026-11-14 21:10 | 2차맵 장식 소품 작은 섬(islet) 지우기 | Claude Code | [14-2110-islet-remove](worklog/2026/11/14-2110-islet-remove.md) |

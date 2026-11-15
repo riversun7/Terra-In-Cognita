@@ -558,8 +558,10 @@
   .rp-order {
     grid-template-columns: minmax(0, 0.7fr) repeat(3, minmax(0, 1fr)) auto;
   }
+  /* 목표 칸이 없는 줄도 빼기 단추는 마지막 칸에, 제 크기로 */
   .rp-order-remove {
-    grid-column: auto;
-    grid-row: auto;
+    grid-column: -2;
+    grid-row: 1;
+    justify-self: end;
   }
 }

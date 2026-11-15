@@ -1,7 +1,9 @@
 // 2차맵 사이 이동 서비스 시험(DB 없음, 가짜 시계) — 평평한 시험 2차맵 셋을 한 줄로 두고 내 유닛이 변 끝까지 걸어 옆 2차맵으로 넘어가고(실제 유닛·
 // 지나는 2차맵 시야), 넘기 직전 정산, 마지막 2차맵에서 목표 둘레 설 칸에 닿아 끝난다. 확인 단계·멈추기·길에서 벗어남·소유 확인·쓰기 대기열 줄
 // (docs/adr/2026-11-07-play-flow.md "WP9", 질문 571 가·582). WP11: 정찰은 닿으면 돌아오고 탐사 기록을 남긴다(591 나), 띄우지 않은 2차맵은
-// 건너뛴다(593 나 — 사라졌다 나타남·멈추기·다시 켜면 다시 숨김). WP13: 건너뛰는 동안 확률 습격(610 나 — 지면 부상으로 그 자리에 멈춤)
+// 건너뛴다(593 나 — 사라졌다 나타남·멈추기·다시 켜면 다시 숨김). WP13: 건너뛰는 동안 확률 습격(610 나 — 지면 부상으로 그 자리에 멈춤).
+// 좌표 이동(docs/adr/2026-11-15-unloaded-second-maps.md): 띄우지 않은 목적지는 띄우지 않고 좌표 유닛으로 서고, 좌표 유닛을 보내고, 멈추면 그 좌표에
+// 선다. 2차맵을 띄울 때 장부 줄을 꺼내고(claim), 내리기 전 쉬는 유닛을 좌표 유닛으로(parkAll), 다시 켜면 장부를 채운다(restore orphans).
 import { performance } from "node:perf_hooks";
 import { CELL_UNITS, SURFACE_ROCK, WALK_SPEED, anchorCenter, arrivalAt, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -87,12 +89,11 @@ function rig(loaded: readonly number[] = [0, 1, 2], pool?: QueryPool, terrain = 
   return { maps, travel, units, travels, settled, makeMap, paths };
 }
 
-/** 그때 띄우기(가짜 — 부르면 같은 모양 2차맵을 만들어 목록·경로 사본에 넣는다). full이면 상한 */
+/** 2차맵 띄우기(가짜 — 부르면 같은 모양 2차맵을 만들어 목록·경로 사본에 넣는다). full이면 상한 */
 function spawnFor(r: Rig, options: { full?: boolean } = {}) {
   const opened: number[] = [];
   const spawn: TravelSpawn = {
     canOpen: (mapKey) => !r.maps.has(mapKey) && K.some((key) => key === mapKey),
-    hasRoom: () => !options.full,
     open: async (mapKey) => {
       await Promise.resolve();
       if (options.full) return "full";
@@ -102,7 +103,6 @@ function spawnFor(r: Rig, options: { full?: boolean } = {}) {
       opened.push(mapKey);
       return "ok";
     },
-    prefetch: () => {},
   };
   r.travel.attachSpawn(spawn);
   return opened;
@@ -296,7 +296,7 @@ describe("2차맵 사이 이동", () => {
     r.travel.stop();
   });
 
-  it("건너뛰는 중 멈추기: 다음 띄운 2차맵에 나타난 자리에서 선다", async () => {
+  it("건너뛰는 중 멈추기: 지금 좌표(띄우지 않은 2차맵)의 좌표 유닛으로 선다(ADR 2026-11-15 4절)", async () => {
     const r = rig([0, 2]);
     placeMine(r, 250, 100);
     expect(
@@ -304,14 +304,17 @@ describe("2차맵 사이 이동", () => {
     ).toBe(true);
     await vi.advanceTimersByTimeAsync(30_000);
     expect(whereIs(r, 1)).toBe(-1);
+    await vi.advanceTimersByTimeAsync(200_000);
+    const place = r.travel.hiddenAt(1);
+    expect(place?.mapKey).toBe(K[1]);
     expect(r.travel.cancel(USER, 1)).toEqual({ ok: true });
-    expect(r.travel.list(USER)).toMatchObject([{ state: "going", hidden: true }]);
-    await vi.advanceTimersByTimeAsync(700_000);
-    expect(r.maps.get(K[2] ?? 0)?.unitInfo(1)).toBeDefined();
-    expect(r.travel.list(USER)).toMatchObject([
-      { state: "stopped", stop: "cancelled", mapKey: K[2], cellX: 0, cellY: 100 },
-    ]);
+    expect(whereIs(r, 1)).toBe(-1);
+    expect(r.travel.parkedAt(1)).toEqual(place);
+    expect(r.travel.list(USER)).toMatchObject([{ state: "stopped", stop: "cancelled", mapKey: K[1] }]);
     expect(r.travels.at(-1)).toEqual({ op: "remove", row: { unit_id: 1 } });
+    expect(r.travel.coordinateUnits(new Set([OWNER]))).toMatchObject([
+      { unitId: 1, ownerId: OWNER, mapKey: K[1], moving: false },
+    ]);
     r.travel.stop();
   });
 
@@ -469,83 +472,153 @@ describe("2차맵 사이 이동", () => {
   });
 });
 
-describe("730 다: 띄우지 않은 목적 2차맵은 닿을 때 띄운다(WP15)", () => {
-  it("옆 2차맵을 띄우지 않았어도 보낼 수 있고(opensMap), 변 끝에 닿으면 띄운 뒤 넘어가 목표에 선다", async () => {
+/** 좌표 이동을 끝까지 돌린다(15초씩, 약속도 돌린다) */
+async function runOut(r: Rig, steps = 300): Promise<void> {
+  for (let step = 0; step < steps && r.travel.active > 0; step++) {
+    await vi.advanceTimersByTimeAsync(15_000);
+    await flush();
+  }
+}
+
+describe("좌표 이동: 아무도 보지 않는 2차맵은 띄우지 않는다(docs/adr/2026-11-15-unloaded-second-maps.md)", () => {
+  it("띄우지 않은 옆 2차맵으로 보내면 띄우지 않고 목표 칸의 좌표 유닛으로 선다(map_full 없음)", async () => {
     const r = rig([0]);
-    const opened = spawnFor(r);
+    const opened = spawnFor(r, { full: true });
     placeMine(r, 250, 100);
     const plan = r.travel.plan(USER, { mapKey: K[1] ?? 0, x: 10, y: 100 });
-    expect(plan).toMatchObject({ ok: true, plan: { route: [K[0], K[1]], hiddenMaps: 0, opensMap: true } });
+    expect(plan).toMatchObject({ ok: true, plan: { route: [K[0], K[1]], hiddenMaps: 0 } });
+    expect(plan.ok && plan.plan.durationMs).toBe(Math.ceil(((5 + 1 + 10) * CELL_UNITS * 1000) / WALK_SPEED));
     expect(
       (await r.travel.start(USER, { unitId: 1, mapKey: K[1] ?? 0, x: 10, y: 100, kind: "move" })).ok,
     ).toBe(true);
-    expect(r.travel.touches(K[1] ?? 0)).toBe(true);
-    expect(opened).toEqual([]);
-    // 변 끝(5칸) → 띄우고 넘는다 → (10, 100)에 닿는다
-    for (let step = 0; step < 6 && r.travel.active > 0; step++) {
-      await vi.advanceTimersByTimeAsync(15_000);
-      await flush();
-    }
-    expect(opened).toEqual([K[1]]);
-    expect(whereIs(r, 1)).toBe(1);
-    expect(r.travel.list(USER)).toMatchObject([{ state: "arrived", mapKey: K[1], cellX: 10, cellY: 100 }]);
     expect(r.travel.touches(K[1] ?? 0)).toBe(false);
-    r.travel.stop();
-  });
-
-  it("지나는 2차맵(중간)은 건너뛰고 마지막 2차맵은 나타날 때 띄운다", async () => {
-    const r = rig([0]);
-    const spawn = spawnFor(r);
-    // K[1]은 지나는 2차맵이라 띄우지 않는다(canOpen이어도 목적지가 아니면 건너뛴다)
-    placeMine(r, 250, 100);
-    const plan = r.travel.plan(USER, { mapKey: K[2] ?? 0, x: 10, y: 100 });
-    expect(plan).toMatchObject({ ok: true, plan: { route: K, hiddenMaps: 1, opensMap: true } });
-    expect(
-      (await r.travel.start(USER, { unitId: 1, mapKey: K[2] ?? 0, x: 10, y: 100, kind: "move" })).ok,
-    ).toBe(true);
-    let hiddenSeen = false;
-    // 건너뛰기 = 2차맵 한 장(약 1.5km) ÷ 걷는 속도 — 몇십 분
-    for (let step = 0; step < 300 && r.travel.active > 0; step++) {
-      await vi.advanceTimersByTimeAsync(15_000);
-      await flush();
-      if (r.travel.list(USER)[0]?.hidden) hiddenSeen = true;
-    }
-    expect(hiddenSeen).toBe(true);
-    expect(spawn).toEqual([K[2]]);
+    await runOut(r);
+    expect(opened).toEqual([]);
     expect(r.maps.has(K[1] ?? 0)).toBe(false);
-    expect(whereIs(r, 1)).toBe(2);
-    expect(r.travel.list(USER)).toMatchObject([{ state: "arrived", mapKey: K[2] }]);
+    expect(whereIs(r, 1)).toBe(-1);
+    expect(r.travel.parkedAt(1)).toEqual({ mapKey: K[1], cellX: 10, cellY: 100 });
+    expect(r.travel.list(USER)).toMatchObject([{ state: "arrived", mapKey: K[1], cellX: 10, cellY: 100 }]);
+    expect(r.travel.carries(1)).toBe(true);
+    expect(r.travel.takeMetrics()).toMatchObject({ coordUnits: 1, coordParked: 1, coordLands: 1 });
     r.travel.stop();
   });
 
-  it("더 띄울 수 없으면 확인 단계 map_full·보내기 busy, 닿을 때 꽉 찼으면 변 앞에 멈춘다(map_full)", async () => {
+  it("좌표 유닛을 보내면 그 자리에서 좌표로 가 띄운 2차맵 변에 나타나 걷는다", async () => {
     const r = rig([0]);
-    const options = { full: true };
-    spawnFor(r, options);
+    spawnFor(r);
     placeMine(r, 250, 100);
-    const to = { mapKey: K[1] ?? 0, x: 10, y: 100 };
-    expect(r.travel.plan(USER, to)).toEqual({ ok: false, problem: "map_full" });
-    expect(await r.travel.start(USER, { ...to, unitId: 1, kind: "move" })).toEqual({
-      ok: false,
-      code: "busy",
+    await r.travel.start(USER, { unitId: 1, mapKey: K[1] ?? 0, x: 10, y: 100, kind: "move" });
+    await runOut(r);
+    expect(r.travel.parkedAt(1)?.mapKey).toBe(K[1]);
+    // 좌표 유닛도 확인 단계·보내기를 받는다
+    expect(r.travel.plan(USER, { unitId: 1, mapKey: K[0] ?? 0, x: 200, y: 100 })).toMatchObject({
+      ok: true,
+      plan: { route: [K[1], K[0]] },
     });
-    // 보낼 때는 자리가 있었는데 닿을 때 꽉 찼다
-    const late = { full: false };
-    const spawn: TravelSpawn = {
-      canOpen: (mapKey) => !r.maps.has(mapKey) && K.some((key) => key === mapKey),
-      hasRoom: () => !late.full,
-      open: async () => "full",
-      prefetch: () => {},
-    };
-    r.travel.attachSpawn(spawn);
-    expect((await r.travel.start(USER, { ...to, unitId: 1, kind: "move" })).ok).toBe(true);
-    late.full = true;
-    for (let step = 0; step < 4 && r.travel.active > 0; step++) {
-      await vi.advanceTimersByTimeAsync(15_000);
-      await flush();
-    }
+    expect(
+      (await r.travel.start(USER, { unitId: 1, mapKey: K[0] ?? 0, x: 200, y: 100, kind: "move" })).ok,
+    ).toBe(true);
+    expect(r.travel.parkedAt(1)).toBeUndefined();
+    expect(r.travel.coordinateUnits(new Set([OWNER]))).toMatchObject([{ unitId: 1, moving: true }]);
+    await runOut(r);
     expect(whereIs(r, 1)).toBe(0);
-    expect(r.travel.list(USER)).toMatchObject([{ state: "stopped", stop: "map_full", mapKey: K[0] }]);
+    const info = mapAt(r, 0).unitInfo(1);
+    expect(info && positionAt(info.motion, Date.now())).toEqual(anchorCenter(200, 100, 1));
+    expect(r.travel.list(USER)).toMatchObject([{ state: "arrived", mapKey: K[0] }]);
+    r.travel.stop();
+  });
+
+  it("띄우지 않은 목적지에서 도중 습격이 나면 그 2차맵을 띄워 싸운다(전투 = 띄우는 까닭)", async () => {
+    const r = rig([0]);
+    const opened = spawnFor(r);
+    placeMine(r, 250, 100);
+    const fought: number[] = [];
+    r.travel.attachRaids({
+      raidAt: (skipped) => skipped[0] ?? null,
+      fight: (map) => {
+        fought.push(map.mapKey);
+        return { lost: false, creatures: 1, ticks: 10 };
+      },
+    });
+    await r.travel.start(USER, { unitId: 1, mapKey: K[2] ?? 0, x: 10, y: 100, kind: "move" });
+    await runOut(r);
+    expect(opened).toEqual([K[2]]);
+    expect(fought).toEqual([K[2]]);
+    expect(whereIs(r, 1)).toBe(2);
+    expect(r.travel.parkedAt(1)).toBeUndefined();
+    r.travel.stop();
+  });
+
+  it("2차맵을 띄우면 장부 줄을 꺼내 놓고(claim), 내리기 전에는 쉬는 유닛만 좌표 유닛으로 옮긴다(parkAll)", async () => {
+    const r = rig([0]);
+    placeMine(r, 100, 100);
+    const map0 = mapAt(r, 0);
+    expect(r.travel.parkable(map0)).toBe(true);
+    expect(map0.moveUnit(1, anchorCenter(120, 100, 1))).toBeDefined();
+    await flush();
+    expect(r.travel.parkable(map0)).toBe(false);
+    expect(r.travel.parkAll(map0)).toBe(-1);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(r.travel.parkAll(map0)).toBe(1);
+    expect(whereIs(r, 1)).toBe(-1);
+    expect(r.travel.parkedAt(1)).toEqual({ mapKey: K[0], cellX: 120, cellY: 100 });
+    expect(r.travel.hasParked(K[0] ?? 0, OWNER)).toBe(true);
+    expect(r.travel.hasParked(K[0] ?? 0, 99)).toBe(false);
+    // 다시 띄운다: 장부 줄을 꺼내 놓는다
+    const again = r.makeMap(K[1] ?? 0);
+    expect(r.travel.claim(K[1] ?? 0, again)).toEqual([]);
+    const rows = r.travel.claim(K[0] ?? 0, map0);
+    expect(rows.map((row) => row.id)).toEqual([1]);
+    map0.restore(rows, []);
+    expect(map0.unitInfo(1)).toBeDefined();
+    expect(r.travel.parkedAt(1)).toBeUndefined();
+    r.travel.stop();
+  });
+
+  it("다시 켜면 띄우지 않은 2차맵의 유닛 행은 좌표 유닛이 되고, 그 유닛의 저장한 길은 좌표 이동으로 잇는다", async () => {
+    const saved = {
+      unit_id: 1,
+      owner_id: OWNER,
+      user_id: USER,
+      kind: "move",
+      route: [K[1], K[0]].map(String),
+      leg: 0,
+      target_x: 200,
+      target_y: 100,
+      started_at_ms: START - 10_000,
+      arrive_at_ms: START + 100_000,
+      origin_map_key: K[1],
+      origin_x: 10,
+      origin_y: 100,
+      scouted_map_key: null,
+      hidden_until_ms: null,
+    };
+    const r = rig([0], { query: () => Promise.resolve({ rows: [saved] }) });
+    spawnFor(r);
+    const row = (id: number, mapKey: number, kind = UNIT_KIND_HUMAN): UnitRow => ({
+      id,
+      ownerId: OWNER,
+      kind,
+      size: 1,
+      speed: WALK_SPEED,
+      mapKey,
+      planetId: "s2_test_planet",
+      domain: "land",
+      path: [anchorCenter(10, 100, 1).x, anchorCenter(10, 100, 1).y],
+      departAtMs: START - 50_000,
+      wakeAtMs: null,
+      aiStep: 0,
+      job: { job: 0, phase: 0, progressMs: 0, fatigue: 0 },
+      condition: { injury: 0, injuryUntilMs: null, injuryHealPm: 1000, heldBy: null },
+    });
+    expect(
+      await r.travel.restore([row(1, K[1] ?? 0), row(2, K[2] ?? 0), row(3, K[2] ?? 0, UNIT_KIND_BOT)]),
+    ).toBe(1);
+    expect(r.travel.parkedAt(2)).toEqual({ mapKey: K[2], cellX: 10, cellY: 100 });
+    expect(r.travel.parkedAt(3)).toBeUndefined();
+    expect(r.travel.list(USER)).toMatchObject([{ unitId: 1, state: "going", hidden: true }]);
+    await runOut(r);
+    expect(whereIs(r, 1)).toBe(0);
     r.travel.stop();
   });
 });

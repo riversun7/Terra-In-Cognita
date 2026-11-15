@@ -1,11 +1,18 @@
 // 옆 2차맵을 그때 띄우기 시험(DB 없음, docs/adr/2026-11-07-play-flow.md "WP15", 기획 답 730 다) — 띄우기(지형 → 행 놓기 → 목록·경로 사본),
 // 같은 2차맵을 함께 띄우면 한 번, 상한(빈 것을 내리고 띄움·빈 것이 없으면 full), 비어 있은 지 오래면 내리기(유닛·건물·구독·붙잡음이 있으면
-// 내리지 않음), 부팅이 함께 띄울 플레이어 2차맵 고르기.
+// 내리지 않음), 부팅이 함께 띄울 2차맵 고르기(건물만). 좌표 유닛(docs/adr/2026-11-15-unloaded-second-maps.md): 쉬는 유닛만 있으면 내리며 좌표 유닛으로
+// 옮기고(park), 쉬지 않는 유닛이 있으면 내리지 않는다, 보는 사람이 띄우면 mapViewOpens.
 import { performance } from "node:perf_hooks";
 import { WALK_SPEED, anchorCenter } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { MapFactory } from "./mapFactory.ts";
-import { type MapSpawnRules, bootExtraMaps, createMapSpawner, sameLevelAs } from "./mapSpawn.ts";
+import {
+  type MapSpawnDeps,
+  type MapSpawnRules,
+  bootExtraMaps,
+  createMapSpawner,
+  sameLevelAs,
+} from "./mapSpawn.ts";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { createInlinePathService } from "./pathService.ts";
 import { type BuildingRow, type SecondMap, type UnitRow, createSecondMap } from "./secondMap.ts";
@@ -30,7 +37,10 @@ interface Rig {
   clock: { now: number };
 }
 
-function rig(rules: MapSpawnRules = { maxLoaded: 2, idleMs: 10 * 60_000 }): Rig {
+function rig(
+  rules: MapSpawnRules = { maxLoaded: 2, idleMs: 10 * 60_000 },
+  extra: Pick<MapSpawnDeps, "parkable" | "park"> = {},
+): Rig {
   const maps = new Map<number, SecondMap>();
   const clock = { now: 1_800_000_000_000 };
   const paths = createInlinePathService(
@@ -73,6 +83,7 @@ function rig(rules: MapSpawnRules = { maxLoaded: 2, idleMs: 10 * 60_000 }): Rig 
     rules: () => live,
     now: () => clock.now,
     log: silentLog,
+    ...extra,
   });
   return { maps, spawner, rules: live, held, builds, rows, paths, clock };
 }
@@ -201,28 +212,54 @@ describe("그때 띄우기(WP15)", () => {
     expect(r.maps.has(SEED)).toBe(false);
   });
 
-  it("부팅이 함께 띄울 2차맵 = 플레이어 유닛·건물이 선 이 행성의 2차맵(씨앗 빼고, 키 차례)", () => {
-    const owners = [
-      { id: 1, userId: null, factionId: 3, settledAtMs: 0, upkeepArrears: 0, upkeepUnpaidAtMs: null },
-      { id: 2, userId: "u", factionId: null, settledAtMs: 0, upkeepArrears: 0, upkeepUnpaidAtMs: null },
-    ];
+  it("부팅이 함께 띄울 2차맵 = 건물이 선 이 행성의 2차맵(씨앗 빼고, 키 차례). 유닛만 선 2차맵은 띄우지 않는다(좌표 유닛)", () => {
     const planetId = "s2_test_planet";
     const extra = bootExtraMaps(
       {
-        owners,
-        units: [
-          { ownerId: 2, mapKey: C, planetId },
-          { ownerId: 2, mapKey: SEED, planetId },
-          { ownerId: 1, mapKey: B, planetId },
-          { ownerId: 2, mapKey: A, planetId: "other_planet" },
-          { ownerId: 2, mapKey: 12345, planetId },
+        buildings: [
+          { mapKey: C, planetId },
+          { mapKey: A, planetId },
+          { mapKey: SEED, planetId },
+          { mapKey: B, planetId: "other_planet" },
+          { mapKey: 12345, planetId },
         ],
-        buildings: [{ mapKey: A, planetId }],
       },
       [SEED],
       planetId,
       sameLevelAs(SEED),
     );
     expect(extra).toEqual([A, C].toSorted((x, y) => x - y));
+  });
+
+  it("쉬는 유닛만 있으면 한가한 2차맵으로 보고 내리며 좌표 유닛으로 옮긴다(park). 쉬지 않으면 그대로", async () => {
+    const parked: number[] = [];
+    const resting = { value: false };
+    const r = rig(
+      { maxLoaded: 2, idleMs: 60_000 },
+      {
+        parkable: () => resting.value,
+        park: (map) => {
+          let moved = 0;
+          map.forEachUnit(() => {
+            moved += 1;
+          });
+          parked.push(map.mapKey);
+          return moved;
+        },
+      },
+    );
+    r.rows.set(A, { units: [standingRow(41, A)], buildings: [] });
+    expect(await r.spawner.open(A, "view")).toBe("ok");
+    r.spawner.sweep();
+    r.clock.now += 120_000;
+    r.spawner.sweep();
+    expect(r.maps.has(A)).toBe(true);
+    resting.value = true;
+    r.spawner.sweep();
+    r.clock.now += 120_000;
+    expect(r.spawner.sweep()).toBe(1);
+    expect(r.maps.has(A)).toBe(false);
+    expect(parked).toEqual([A]);
+    expect(r.spawner.takeMetrics()).toMatchObject({ mapOpens: 1, mapCloses: 1, mapViewOpens: 1 });
   });
 });

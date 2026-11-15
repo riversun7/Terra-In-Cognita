@@ -1,6 +1,7 @@
 // 바다 건너기 시험(기획 D-541 1283 나, docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)") — 배가 2차맵 사이 이동으로 물 변을 지나 옆 2차맵 바다로
 // 넘어가고(승객도 함께, 다시 태운 채), 승객에게 보낸 길은 그 배의 길이며, 띄우지 않은 2차맵은 건너뛰지 않고, 물이 끊긴 변은 넘지 않는다.
-// 먼 바다(기획 D-553 1329 "먼바다로 순간이동하는기능은 없다"): 띄우지 않은 바다 2차맵은 닿을 때 띄우고 실제로 항해한다(사라졌다 나타나지 않는다).
+// 먼 바다(기획 D-553 1329·D-559 1619, docs/adr/2026-11-15-unloaded-second-maps.md 4절): 띄우지 않은 바다 2차맵은 띄우지 않고 좌표로 항해한다
+// (실제 길·시간 — 띄우지 않은 바다를 지나 다음 띄운 2차맵 물 변에 나타난다, 승객도 함께).
 import { performance } from "node:perf_hooks";
 import { START_BOATS, SURFACE_WATER, type TempTerrain, arrivalAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -152,7 +153,7 @@ describe("바다 건너기", () => {
     gap.travel.stop();
   });
 
-  it("행성 값이 바다인 띄우지 않은 2차맵은 닿을 때 띄우고 항해한다(D-553 1329, 건너뛰지 않음) — 승객도 함께, 땅이면 no_route", async () => {
+  it("행성 값이 바다인 띄우지 않은 2차맵은 띄우지 않고 좌표로 항해한다(D-559 1619) — 승객도 함께, 땅이면 no_route", async () => {
     const gap = rig([64, 0, 0], [0, 2]);
     gap.travel.attachSpawn(gap.spawn);
     gap.map(0).addBoat({ id: 1, ownerId: OWNER, speed: START_BOATS.speed, cellX: 240, cellY: 100 });
@@ -175,15 +176,18 @@ describe("바다 건너기", () => {
     ).toMatchObject({ ok: true, maps: 3 });
     const first = gap.map(0).unitInfo(3);
     if (!first) throw new Error("no boat");
-    // 변 끝에 닿으면 사라지지 않고 K[1]을 띄워 넘어간다(배와 승객 모두)
+    // 변 끝에 닿으면 K[1]을 띄우지 않고 좌표로 항해한다(배와 승객 모두 좌표 유닛 — 가는 중)
     await vi.advanceTimersByTimeAsync(arrivalAt(first.motion) - Date.now() + 1);
-    expect(gap.opened).toEqual([K[1]]);
-    expect(gap.travel.hiddenAt(3)).toBeUndefined();
-    await vi.advanceTimersByTimeAsync(1_000);
-    expect(gap.whereIs(3)).toBe(1);
-    expect(gap.map(1).unitInfo(2)?.aboard).toBe(3);
-    // K[1]을 실제로 항해해 K[2]로 넘어가 도착한다
-    await vi.advanceTimersByTimeAsync(600_000);
+    expect(gap.opened).toEqual([]);
+    expect(gap.travel.hiddenAt(3)?.mapKey).toBeDefined();
+    expect(
+      gap.travel.coordinateUnits(new Set([OWNER])).map((unit) => [unit.unitId, unit.moving, unit.aboard]),
+    ).toEqual([
+      [2, true, 3],
+      [3, true, null],
+    ]);
+    // K[1]을 좌표로 지나 K[2] 물 변에 나타나 도착한다(승객은 배에 탄 채)
+    for (let step = 0; step < 80 && gap.travel.active > 0; step++) await vi.advanceTimersByTimeAsync(15_000);
     expect(gap.whereIs(3)).toBe(2);
     expect(gap.map(2).unitInfo(2)?.aboard).toBe(3);
     expect(gap.travel.list(USER)).toMatchObject([{ unitId: 3, state: "arrived" }]);

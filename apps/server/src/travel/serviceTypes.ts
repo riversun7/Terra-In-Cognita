@@ -21,6 +21,7 @@ import type {
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap, UnitRow } from "../world/secondMap.ts";
+import type { TransferRow } from "../world/secondMapRows.ts";
 import type { TravelRaids } from "./raid.ts";
 import type { Hop } from "./route.ts";
 import type { TravelRecord } from "./store.ts";
@@ -44,17 +45,27 @@ export type TravelPlanResult =
 export type TravelView = Omit<WorldTravel, "latDeg" | "lonDeg">;
 
 /**
- * 그때 띄우기(world/mapSpawn.ts, 기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 길의 마지막 2차맵(목적지)을 서버가 띄우지 않았으면
- * 유닛이 들어서려 할 때 띄운다. 지나는 2차맵(중간)은 그대로 건너뛴다(593 나)
+ * 2차맵 띄우기(world/mapSpawn.ts). 좌표 이동(docs/adr/2026-11-15-unloaded-second-maps.md)부터 이동은 2차맵을 띄우지 않는다 — 이 행성의
+ * 2차맵 키인지 보고(canOpen), 띄우지 않은 목적지에서 도중 습격이 났을 때만 싸울 2차맵을 띄운다(open, 전투 = 띄우는 까닭)
  */
 export interface TravelSpawn {
   /** 그때 띄울 수 있는 2차맵인가(이 행성의 2차맵 키, 아직 띄우지 않음) */
   canOpen(mapKey: number): boolean;
-  /** 하나 더 띄울 자리가 있나(확인 단계·보내기가 미리 본다 — 닿을 때 다시 본다) */
-  hasRoom(): boolean;
   open(mapKey: number): Promise<"ok" | "full" | "invalid" | "failed">;
-  /** 곧 띄울 2차맵의 지형을 미리 받는다 */
-  prefetch(mapKey: number): void;
+}
+
+/** 좌표 유닛 한 줄(1차맵 표시·정산·유닛 수) */
+export interface CoordinateUnit {
+  readonly unitId: number;
+  readonly ownerId: number;
+  readonly kind: number;
+  readonly mapKey: number;
+  readonly cellX: number;
+  readonly cellY: number;
+  /** 가는 중(좌표 이동)이면 true, 서 있으면 false */
+  readonly moving: boolean;
+  /** 배에 탄 승객이면 그 배 ID */
+  readonly aboard: number | null;
 }
 
 /** 건너뛰는 중인 유닛의 지금 자리(보기 값 — 1차맵 내 자리 표시) */
@@ -79,22 +90,40 @@ export interface TravelService {
   list(userId: string): TravelView[];
   /** 띄우지 않은 2차맵을 건너뛰는 중인 유닛의 지금 자리(아니면 undefined) */
   hiddenAt(unitId: number): HiddenPlace | undefined;
+  /** 좌표 유닛(서 있음)의 자리(아니면 undefined) */
+  parkedAt(unitId: number): HiddenPlace | undefined;
+  /** 그 주인들의 좌표 유닛(서 있음 + 가는 중, 승객 포함, 유닛 ID 차례) */
+  coordinateUnits(ownerIds: ReadonlySet<number>): CoordinateUnit[];
+  /** 이 서비스가 든 유닛인가(가는 중인 좌표 이동·좌표 유닛 장부) — 2차맵을 띄울 때 DB 행 대신 장부를 쓴다 */
+  carries(unitId: number): boolean;
+  /** 2차맵을 띄울 때: 그 2차맵에 선 좌표 유닛 줄을 꺼낸다(목표 칸이 막혔으면 가까운 설 칸으로) */
+  claim(mapKey: number, map: SecondMap): UnitRow[];
+  /** 그 2차맵에 그 주인의 좌표 유닛이 서 있나(보는 사람이 그 2차맵을 띄울 수 있나) */
+  hasParked(mapKey: number, ownerId: number): boolean;
+  /** 2차맵을 내릴 수 있나: 모든 유닛이 쉬는 중(걷는 중 아님·직무 없음·봇 아님) */
+  parkable(map: SecondMap): boolean;
+  /** 2차맵을 내리기 전: 남은 유닛을 모두 그 자리의 좌표 유닛으로. 옮긴 수(못 옮긴 것이 있으면 −1, 아무것도 옮기지 않는다) */
+  parkAll(map: SecondMap): number;
+  takeMetrics(): Record<string, number>;
   /**
    * 도중 습격(기획 답 610 나, raid.ts)을 붙인다. 앱이 세계가 준비된 뒤 전투 자료·설정 칸으로 만든다(없으면 습격 없음). 굴림은 나타날 때라
    * 부팅 복구가 다시 숨긴 길도 붙인 뒤에 나타나면 굴린다
    */
   attachRaids(raids: TravelRaids | undefined): void;
-  /** 그때 띄우기를 붙인다(world/mapSpawnWorld.ts — 없으면 띄우지 않은 목적지는 unknown_map) */
+  /** 2차맵 띄우기를 붙인다(world/mapSpawnWorld.ts — 없으면 띄우지 않은 목적지는 unknown_map) */
   attachSpawn(spawn: TravelSpawn | undefined): void;
   /**
    * 행성 값이 바다인 2차맵인가를 붙인다(boats/world.ts — 기획 D-542 1329 나). 배는 그런 띄우지 않은 2차맵만 건너뛴다. 없으면 배는 띄우지 않은
    * 2차맵을 건너뛰지 않는다(B2 그대로)
    */
   attachSea(isSea: ((mapKey: number) => boolean) | undefined): void;
-  /** 가는 중인 길이 그 2차맵에 서 있거나(건너뛰어 나타날 곳 포함) 그 2차맵을 노리나 — 그때 띄운 2차맵을 내리지 않는다 */
+  /** 가는 중인 길이 지금 그 2차맵을 걷거나 곧 그 2차맵에 나타나나 — 그때 띄운 2차맵을 내리지 않는다 */
   touches(mapKey: number): boolean;
-  /** 부팅: 저장한 길을 다시 잇는다(유닛을 다시 놓은 뒤). 다시 시작한 수 */
-  restore(): Promise<number>;
+  /**
+   * 부팅: 띄우지 않은 2차맵의 유닛 행(봇 빼고)을 좌표 유닛 장부에 넣고(orphans — 쓰지 않는다), 저장한 길을 다시 잇는다(유닛을 다시 놓은 뒤).
+   * 다시 시작한 수
+   */
+  restore(orphans?: readonly UnitRow[]): Promise<number>;
   /** 지금 시각까지 확인할 길을 처리한다(타이머가 부른다. 시험은 가짜 시계를 옮긴 뒤 부른다) */
   runDue(): void;
   /** 가는 중인 길 수 */
@@ -124,13 +153,15 @@ export interface TravelDeps {
   ready(): boolean;
   /** 도중 습격(raid.ts). 없으면 습격 없음(attachRaids로 나중에 붙일 수 있다) */
   readonly raids?: TravelRaids | undefined;
-  /** 그때 띄우기(없으면 띄우지 않은 목적지는 unknown_map, attachSpawn으로 나중에 붙일 수 있다) */
+  /** 2차맵 띄우기(없으면 띄우지 않은 목적지는 unknown_map, attachSpawn으로 나중에 붙일 수 있다) */
   readonly spawn?: TravelSpawn | undefined;
+  /** 띄우지 않은 2차맵에 탐사 기록을 남긴다(정찰·이동이 띄우지 않은 목적지에 닿음). 없으면 남기지 않는다 */
+  readonly exploreOff?: ((userId: string, mapKey: number, points: readonly Point[]) => void) | undefined;
 }
 
 /** 건너뛰는 중(메모리): 들고 있는 유닛 행, 사라진 점(route[hop.from] 틀), 나타날 곳 */
 export interface Hidden {
-  readonly row: UnitRow;
+  readonly row: TransferRow;
   readonly startMs: number;
   readonly untilMs: number;
   readonly hop: Hop;

@@ -62,6 +62,13 @@ export interface WorldDirectory {
   ownerOfUser?(userId: string): number | undefined;
   /** 월드 저장 층(저장하는 월드만) — 같은 나라 시야 공유의 소유 주체 → 나라(nationVision.ts) */
   readonly persistence?: NationSource["persistence"];
+  /**
+   * 띄우지 않은 2차맵을 구독하면 띄울 수 있나(내 좌표 유닛이 선 2차맵·운영자 전체 보기 — viewOpen.ts, docs/adr/2026-11-15-unloaded-second-maps.md).
+   * 없으면 띄우지 않는다(unknown_map)
+   */
+  openForView?(userId: string, mapKey: number, observe: boolean): Promise<"ok" | "refused" | "busy">;
+  /** 구독을 받았다(변 미리 띄우기를 바로 다시 본다 — 주인이 볼 때만 미리 띄운다). 없으면 아무것도 하지 않는다 */
+  viewed?(mapKey: number): void;
 }
 
 /** 연결 하나가 게이트웨이에 주는 것 */
@@ -241,7 +248,15 @@ export function createWorldGateway(options: {
         if (closed) return;
         if (!viewer) return reply(message.id, fail("sign_in_required"));
         if (world.isReady && !world.isReady()) return reply(message.id, fail("busy"));
-        const map = isCellKey(mapKey) ? world.map(mapKey) : undefined;
+        let map = isCellKey(mapKey) ? world.map(mapKey) : undefined;
+        // 보는 사람이 띄운다(내 좌표 유닛이 선 2차맵·운영자 전체 보기). 상한이면 busy
+        if (!map && message.t === "subscribe" && isCellKey(mapKey) && world.openForView) {
+          const observe = message.observe === true && canObserve(viewer);
+          const opened = await world.openForView(viewer.id, mapKey, observe);
+          if (closed) return;
+          if (opened === "busy") return reply(message.id, fail("busy"));
+          map = world.map(mapKey);
+        }
         if (!map) return reply(message.id, fail("unknown_map"));
 
         if (message.t === "subscribe") {
@@ -271,6 +286,7 @@ export function createWorldGateway(options: {
               nations: nationLookupOf(world),
             });
           }
+          world.viewed?.(mapKey);
           return;
         }
 

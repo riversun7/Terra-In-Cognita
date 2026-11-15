@@ -122,6 +122,8 @@ export interface MapVision {
   /** 시험용: 시야 틱 한 번 */
   tick(): void;
   readonly groupCount: number;
+  /** 그 소유 주체의 사람이 지금 이 2차맵을 보고 있나(변 미리 띄우기는 주인이 볼 때만 — docs/adr/2026-11-15-unloaded-second-maps.md 2절) */
+  watchedBy(ownerId: number): boolean;
   close(): void;
 }
 
@@ -578,6 +580,10 @@ export function createMapVision(options: {
     tick,
     get groupCount() {
       return groups.size;
+    },
+    watchedBy(ownerId) {
+      for (const group of groups.values()) if (group.viewer.ownerId === ownerId) return true;
+      return false;
     },
     close() {
       if (tickTimer) clearInterval(tickTimer);

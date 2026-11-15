@@ -159,7 +159,7 @@ export interface WorldPosition {
   readonly startCityId: number;
   /**
    * 띄우지 않은 2차맵을 건너뛰는 중(질문 593 나): mapKey는 그 2차맵(서버가 띄우지 않음), 칸은 곧은 선을 따라 지금 있을 자리(보기 값).
-   * 2차맵 화면은 이 자리를 열지 않는다
+   * 2차맵 화면은 이 자리를 열지 않는다. 좌표 유닛으로 서 있으면 false(그 2차맵을 열면 서버가 띄운다 — ADR 2026-11-15-unloaded-second-maps)
    */
   readonly hidden: boolean;
 }
@@ -288,9 +288,28 @@ export interface WorldTravel {
   readonly hidden: boolean;
 }
 
+/**
+ * 내 좌표 유닛(서 있음) — 띄우지 않은 2차맵 위에 선 유닛(docs/adr/2026-11-15-unloaded-second-maps.md). 1차맵에만 보인다.
+ * 가는 중인 좌표 유닛은 travels 줄(hidden)이다
+ */
+export interface WorldParkedUnit {
+  readonly unitId: number;
+  readonly mapKey: number;
+  readonly cellX: number;
+  readonly cellY: number;
+  readonly latDeg: number;
+  readonly lonDeg: number;
+  /** 사이보그 본체인가 */
+  readonly cyborg: boolean;
+  /** 배인가 */
+  readonly boat: boolean;
+}
+
 export interface WorldTravelsResponse {
   readonly status: "ready" | "not_ready";
   /** 내 유닛의 길(가는 중 + 최근 끝난 것), 유닛 ID 차례 */
   readonly travels: readonly WorldTravel[];
+  /** 내 좌표 유닛(서 있음, 승객 빼고), 유닛 ID 차례. 옛 서버는 없음 */
+  readonly parked?: readonly WorldParkedUnit[] | undefined;
   readonly generatedAt: number;
 }

@@ -8,6 +8,8 @@
 //   변을 넘으러 가는 길(2차맵 사이 이동 구간의 끝은 변 끝 칸, 더 먼 목적지도 같다)과 변 가까이 서는 것을 함께 잡는다. 1분마다(그때 띄우기의
 //   살피기) 색인을 다시 보아 못 띄웠던 것(상한·부팅 중)을 다시 해 본다. 변 이웃 넷만(대각선은 시야도 넘기도 변을 거친다).
 // - 붙잡기: 플레이어 유닛이 지금(또는 걷는 길의 끝이) 그 변에서 map_preopen_cells 안에 있는 동안 그 이웃은 내리지 않는다(holds).
+// - 바뀜(기획 D-559 1619, docs/adr/2026-11-15-unloaded-second-maps.md 2절): 미리 띄우기·붙잡기는 그 유닛의 주인이 지금 그 2차맵을 볼 때만
+//   (watching). 보지 않으면 변을 넘을 때 좌표 유닛이 된다(아무도 보지 않는 2차맵은 띄우지 않는다). 경계 너머 시야는 그대로.
 // - 경계 너머 시야(sight): 이웃 B를 볼 때, B의 변 이웃 A에 선 색인 유닛 가운데 시야 원이 B에 닿는 것(변에서 BORDER_SIGHT_UNITS 안)의 지금
 //   자리를 B의 늘인 틀(travel/frame.ts neighbourFrame — 면 경계의 돌림·뒤집힘 포함)로 옮겨 준다. 시야 판정(vision.ts)이 그 원을 B의 덮개에
 //   더한다. 시야 틱(1초) 안에서는 센 것을 다시 쓴다.
@@ -42,8 +44,8 @@ export interface EdgeHooks {
 export interface EdgeWatch extends EdgeHooks {
   /** 내리면 안 되나: 플레이어 유닛이 지금(또는 길 끝이) 이 2차맵과 나눈 변에서 미리 띄우기 거리 안 */
   holds(mapKey: number, at: number): boolean;
-  /** 색인을 다시 보아 띄워야 할 이웃을 띄운다(1분마다·부팅 뒤). 띄우기를 부른 수 */
-  reconcile(at: number): number;
+  /** 색인을 다시 보아 띄워야 할 이웃을 띄운다(1분마다·부팅 뒤). mapKey가 있으면 그 2차맵만(누가 그 2차맵을 보기 시작함). 띄우기를 부른 수 */
+  reconcile(at: number, mapKey?: number): number;
   /** 이미 띄운 2차맵들의 봇 아닌 유닛을 색인에 넣는다(부팅 — 2차맵이 고리보다 먼저 만들어졌다) */
   seed(maps: Iterable<SecondMap>): void;
   takeMetrics(): Record<string, number>;
@@ -59,6 +61,8 @@ export interface EdgeWatchDeps {
   canOpen(mapKey: number): boolean;
   /** 미리 띄운다(mapSpawn.ts openEarly — 같은 2차맵을 함께 불러도 한 번) */
   openEarly(mapKey: number): void;
+  /** 그 주인이 지금 그 2차맵을 보고 있나. 없으면 늘 본다고 친다(옛 규칙) */
+  readonly watching?: ((mapKey: number, ownerId: number) => boolean) | undefined;
 }
 
 /** 그 변(SIDES 차례) 너머 2차맵 키: 변 가운데 칸에서 한 걸음(면 경계 포함, stepMapCell). 없으면 null */
@@ -126,6 +130,8 @@ export function createEdgeWatch(deps: EdgeWatchDeps): EdgeWatch {
     return frame;
   };
 
+  const watched = (mapKey: number, ownerId: number): boolean => deps.watching?.(mapKey, ownerId) ?? true;
+
   const open = (from: number, side: number): void => {
     const next = neighbours(from)[side];
     if (next === null || next === undefined || maps.has(next) || !deps.canOpen(next)) return;
@@ -178,7 +184,7 @@ export function createEdgeWatch(deps: EdgeWatchDeps): EdgeWatch {
     else index.set(mapKey, new Map([[unit.id, { ownerId: unit.ownerId, sides }]]));
     sightMemo.clear();
     const reach = preopenUnits();
-    if (reach <= 0 || !openNow) return;
+    if (reach <= 0 || !openNow || !watched(mapKey, unit.ownerId)) return;
     for (const [side, gap] of gaps.entries()) if (gap <= reach) open(mapKey, side);
   };
 
@@ -207,13 +213,14 @@ export function createEdgeWatch(deps: EdgeWatchDeps): EdgeWatch {
       for (const from of neighbours(mapKey)) {
         if (from === null) continue;
         for (const unit of facing(from, mapKey))
-          if (nearSides(unit.motion, at).includes(unit.side)) return true;
+          if (nearSides(unit.motion, at).includes(unit.side) && watched(from, unit.ownerId)) return true;
       }
       return false;
     },
-    reconcile(at) {
+    reconcile(at, only) {
       const before = counts.preopens;
       for (const [mapKey, units] of index) {
+        if (only !== undefined && mapKey !== only) continue;
         const map = maps.get(mapKey);
         if (!map) {
           index.delete(mapKey);
@@ -225,7 +232,8 @@ export function createEdgeWatch(deps: EdgeWatchDeps): EdgeWatch {
             units.delete(id);
             continue;
           }
-          for (const side of nearSides(info.motion, at)) open(mapKey, side);
+          if (watched(mapKey, info.ownerId))
+            for (const side of nearSides(info.motion, at)) open(mapKey, side);
         }
         if (units.size === 0) index.delete(mapKey);
       }
@@ -235,9 +243,9 @@ export function createEdgeWatch(deps: EdgeWatchDeps): EdgeWatch {
       for (const map of list) map.forEachUnit((unit) => note(map.mapKey, unit, false));
     },
     takeMetrics() {
-      let watched = 0;
-      for (const units of index.values()) watched += units.size;
-      const out = { edgeUnits: watched, mapPreopenAsks: counts.preopens };
+      let indexed = 0;
+      for (const units of index.values()) indexed += units.size;
+      const out = { edgeUnits: indexed, mapPreopenAsks: counts.preopens };
       counts = { preopens: 0 };
       return out;
     },

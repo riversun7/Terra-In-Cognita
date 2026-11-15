@@ -221,14 +221,13 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치 위 2차맵 사이 이동(WP1
     const start = Number(capital.map_key);
     expect(mapOf(world, unitId)).toBe(start);
 
-    // 1. 옆 2차맵: 띄우지 않은 쪽은 unknown_map, 붙은 시작 도시 쪽(띄움)은 변 너머 바로 그 자리로 보낼 수 있다
+    // 1. 옆 2차맵: 띄우지 않은 쪽도 보낼 수 있고(좌표 이동 — 띄우지 않는다), 붙은 시작 도시 쪽(띄움)은 변 너머 바로 그 자리로 보낼 수 있다
     const neighbours = neighbors4(parseCellKey(start));
     const closed = neighbours.find((key) => !world.maps.has(key));
     expect(closed).toBeDefined();
-    expect(p.travel.plan(userId, { mapKey: closed ?? 0, x: 128, y: 128 })).toMatchObject({
-      ok: true,
-      plan: { route: [start, closed], hiddenMaps: 0, opensMap: true },
-    });
+    const closedPlan = p.travel.plan(userId, { mapKey: closed ?? 0, x: 128, y: 128 });
+    expect(closedPlan).toMatchObject({ ok: true, plan: { route: [start, closed], hiddenMaps: 0 } });
+    expect(closedPlan.ok && closedPlan.plan.opensMap).toBeFalsy();
     const open = Number(sibling.map_key);
     expect(neighbours).toContain(open);
     const side = sideToward(start, open);
@@ -278,7 +277,7 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치 위 2차맵 사이 이동(WP1
     expect(await again.checkInvariants()).toEqual([]);
   });
 
-  it("730 다: 띄우지 않은 옆 2차맵에 닿으면 띄우고 선다 — 다시 켜면 그 2차맵을 함께 띄우고, 떠나서 비면 내린다", async () => {
+  it("좌표 이동(ADR 2026-11-15): 띄우지 않은 옆 2차맵에 닿으면 띄우지 않고 좌표 유닛으로 선다 — 다시 켜도 좌표 유닛, 보면 띄우고, 떠나 한가하면 내린다", async () => {
     const world = await boot();
     const cities = await startCities();
     const capital = cities[0];
@@ -292,53 +291,55 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치 위 2차맵 사이 이동(WP1
     if (closed === undefined) throw new Error("no unopened neighbour");
     expect(p.spawn.canOpen(closed)).toBe(true);
 
-    // 보내기 → 변 끝 → 띄움 → 넘어가 (128, 128) 둘레에 선다
+    // 보내기 → 변 끝 → 좌표로 (128, 128)까지 → 좌표 유닛(2차맵을 띄우지 않는다)
     expect((await p.travel.start(userId, { mapKey: closed, x: 128, y: 128, unitId, kind: "move" })).ok).toBe(
       true,
     );
     const first = await travelUntilDone(world, userId, unitId);
     expect(first.view?.state).toBe("arrived");
-    expect(first.hiddenSeen).toBe(false);
-    expect(world.maps.size).toBe(seedMaps + 1);
-    expect(mapOf(world, unitId)).toBe(closed);
-    expect(p.spawn.onDemand.has(closed)).toBe(true);
-    // 다른 사람도 그 2차맵을 띄운 2차맵처럼 쓴다(구독 자리·보낼 곳), 같은 나라 시야 공유도 걸린다(그 나라 NPC 주체로 보면 내 유닛이 보인다)
-    expect(world.map(closed)?.mapKey).toBe(closed);
-    const nation = p.cyborgs.record(userId)?.factionId;
-    const nationOwner = [...p.owners.values()].find(
-      (owner) => owner.factionId === nation && owner.userId === null,
-    );
-    expect(nationOwner).toBeDefined();
-    const sameNation = {
-      userId: "same-nation-viewer",
-      ownerId: nationOwner?.id,
-      nations: nationLookupOf(world),
-    };
-    expect(world.map(closed)?.vision.sees(sameNation, unitId)).toBe(true);
-    expect(world.map(closed)?.vision.sees({ userId: "stranger", ownerId: undefined }, unitId)).toBe(false);
+    expect(world.maps.size).toBe(seedMaps);
+    expect(mapOf(world, unitId)).toBeUndefined();
+    expect(p.travel.parkedAt(unitId)).toEqual({ mapKey: closed, cellX: 128, cellY: 128 });
+    // 1차맵 내 자리 = 그 좌표(열 수 있다 — hidden 아님)
+    expect(p.travel.coordinateUnits(new Set([world.ownerOfUser?.(userId) ?? -1]))).toMatchObject([
+      { unitId, mapKey: closed, moving: false },
+    ]);
     await p.writer.durable();
     const saved = await rows<{ map_key: string }>(test.db, `select map_key from world_units where id = $1`, [
       unitId,
     ]);
     expect(Number(saved[0]?.map_key)).toBe(closed);
     expect(await world.checkInvariants()).toEqual([]);
-    // 유닛이 선 동안은 오래 지나도 내리지 않는다
-    clock += 60 * 60_000;
-    expect(p.spawn.sweep()).toBe(0);
-    p.spawn.sweep();
-    expect(world.maps.has(closed)).toBe(true);
 
-    // 다시 켜면 플레이어 유닛이 선 그 2차맵을 함께 띄운다(그때 띄운 2차맵으로 센다)
+    // 다시 켜면 그 2차맵은 띄우지 않고 좌표 유닛으로 장부에 든다
     await world.stop();
     worlds.splice(worlds.indexOf(world), 1);
     const again = await boot();
     const q = persistence(again);
-    expect(again.maps.has(closed)).toBe(true);
-    expect(mapOf(again, unitId)).toBe(closed);
-    expect(q.spawn.onDemand.has(closed)).toBe(true);
+    expect(again.maps.has(closed)).toBe(false);
+    expect(q.travel.parkedAt(unitId)).toEqual({ mapKey: closed, cellX: 128, cellY: 128 });
     expect(await again.checkInvariants()).toEqual([]);
+    // 남은 그 2차맵을 띄울 까닭이 없다(내 유닛이 없다), 주인이 보면 띄운다
+    expect(await again.openForView?.("stranger", closed, false)).toBe("refused");
+    expect(await again.openForView?.(userId, closed, false)).toBe("ok");
+    expect(mapOf(again, unitId)).toBe(closed);
+    expect(q.travel.parkedAt(unitId)).toBeUndefined();
+    expect(q.spawn.takeMetrics()).toMatchObject({ mapViewOpens: 1 });
+    // 띄운 뒤로는 다른 2차맵과 같다: 같은 나라 시야 공유도 걸린다(그 나라 NPC 주체로 보면 내 유닛이 보인다)
+    const nation = q.cyborgs.record(userId)?.factionId;
+    const nationOwner = [...q.owners.values()].find(
+      (owner) => owner.factionId === nation && owner.userId === null,
+    );
+    expect(nationOwner).toBeDefined();
+    const sameNation = {
+      userId: "same-nation-viewer",
+      ownerId: nationOwner?.id,
+      nations: nationLookupOf(again),
+    };
+    expect(again.map(closed)?.vision.sees(sameNation, unitId)).toBe(true);
+    expect(again.map(closed)?.vision.sees({ userId: "stranger", ownerId: undefined }, unitId)).toBe(false);
 
-    // 수도로 돌아가면 그 2차맵이 빈다 → 비어 있은 지 idle(설정 칸 10분)이 지나면 내린다
+    // 수도로 돌아가면 그 2차맵이 한가해진다 → idle(설정 칸 10분)이 지나면 내린다
     const back = { mapKey: start, x: capital.cell_x, y: capital.cell_y };
     expect((await q.travel.start(userId, { ...back, unitId, kind: "move" })).ok).toBe(true);
     const returned = await travelUntilDone(again, userId, unitId);
@@ -350,5 +351,36 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치 위 2차맵 사이 이동(WP1
     expect(again.maps.has(closed)).toBe(false);
     expect(q.spawn.onDemand.size).toBe(0);
     expect(await again.checkInvariants()).toEqual([]);
+  });
+
+  it("좌표 유닛이 서 있는 띄운 2차맵은 보는 사람이 떠나 한가하면 내리며 그 유닛을 좌표 유닛으로 둔다", async () => {
+    const world = await boot();
+    const cities = await startCities();
+    const capital = cities[0];
+    if (!capital) throw new Error("no start city");
+    const userId = await newUser("ParkWalker");
+    const unitId = await makeCyborg(world, userId, Number(capital.id));
+    const p = persistence(world);
+    const start = Number(capital.map_key);
+    const closed = neighbors4(parseCellKey(start)).find((key) => !world.maps.has(key));
+    if (closed === undefined) throw new Error("no unopened neighbour");
+    expect((await p.travel.start(userId, { mapKey: closed, x: 100, y: 100, unitId, kind: "move" })).ok).toBe(
+      true,
+    );
+    await travelUntilDone(world, userId, unitId);
+    expect(await world.openForView?.(userId, closed, false)).toBe("ok");
+    expect(mapOf(world, unitId)).toBe(closed);
+    // 아무도 보지 않고 유닛은 쉰다 → idle 뒤 내리고 유닛은 그 자리의 좌표 유닛
+    p.spawn.sweep();
+    clock += TEST_SOCIETY_COEFFICIENTS.worldSeed.mapSpawnIdleMs;
+    p.spawn.sweep();
+    expect(world.maps.has(closed)).toBe(false);
+    expect(p.travel.parkedAt(unitId)?.mapKey).toBe(closed);
+    await p.writer.durable();
+    const saved = await rows<{ map_key: string }>(test.db, `select map_key from world_units where id = $1`, [
+      unitId,
+    ]);
+    expect(Number(saved[0]?.map_key)).toBe(closed);
+    expect(await world.checkInvariants()).toEqual([]);
   });
 });

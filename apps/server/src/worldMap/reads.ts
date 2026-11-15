@@ -72,6 +72,8 @@ export interface WorldMapSource {
   territory?: ((planetId: string, userId: string) => Promise<TerritoryPlanetView | undefined>) | undefined;
   /** 띄우지 않은 2차맵을 건너뛰는 유닛의 지금 자리(이동 서비스 hiddenAt). 없으면 그런 유닛은 자리 없음 */
   travelling?: ((unitId: number) => { mapKey: number; cellX: number; cellY: number } | undefined) | undefined;
+  /** 좌표 유닛(서 있음)의 자리(이동 서비스 parkedAt, ADR 2026-11-15). 없으면 그런 유닛은 자리 없음 */
+  parked?: ((unitId: number) => { mapKey: number; cellX: number; cellY: number } | undefined) | undefined;
 }
 
 export interface WorldMapReadDeps {
@@ -461,22 +463,24 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
           };
           break;
         }
-        // 띄우지 않은 2차맵을 건너뛰는 중: 곧은 선 위 자리(2차맵 화면은 열지 않는다)
-        const away = position ? undefined : source.travelling?.(unitId);
-        if (away && isCellKey(away.mapKey)) {
-          const cell = decodeCellKey(away.mapKey);
+        // 띄우지 않은 2차맵을 건너뛰는 중: 곧은 선 위 자리(2차맵 화면은 열지 않는다). 좌표 유닛으로 서 있으면 그 자리(열면 서버가 띄운다)
+        const standing = position ? undefined : source.parked?.(unitId);
+        const away = position || standing ? undefined : source.travelling?.(unitId);
+        const spot = standing ?? away;
+        if (spot && isCellKey(spot.mapKey)) {
+          const cell = decodeCellKey(spot.mapKey);
           position = {
             planetId,
-            mapKey: away.mapKey,
+            mapKey: spot.mapKey,
             face: cell.face,
             i: cell.i,
             j: cell.j,
-            cellX: away.cellX,
-            cellY: away.cellY,
-            ...placeLatLon(away.mapKey, away.cellX, away.cellY),
+            cellX: spot.cellX,
+            cellY: spot.cellY,
+            ...placeLatLon(spot.mapKey, spot.cellX, spot.cellY),
             unitId,
             startCityId: cyborg.startCityId,
-            hidden: true,
+            hidden: standing === undefined,
           };
         }
       }
@@ -617,6 +621,7 @@ export function worldMapReadsOf(options: {
       territory: (id, userId) =>
         world.persistence?.territory.planetView(id, userId) ?? Promise.resolve(undefined),
       travelling: (unitId) => world.persistence?.travel.hiddenAt(unitId),
+      parked: (unitId) => world.persistence?.travel.parkedAt(unitId),
     },
     values: planets ? () => planets.planetValues(planetId) : undefined,
     biomeName: (id) => planets?.manifest(planetId)?.biomes.find((biome) => biome.id === id)?.name,
@@ -640,6 +645,7 @@ export function worldMapReadsOf(options: {
     () => world.persistence?.travel,
     (mapKey, x, y) => (isCellKey(mapKey) ? placeLatLon(mapKey, x, y) : { latDeg: 0, lonDeg: 0 }),
     danger,
+    (userId) => world.ownerOfUser?.(userId),
   );
   // 2차맵 화면의 내 유닛 목록(docs/adr/2026-11-07-unit-control.md): 메모리 유닛만 읽는다. 남의 유닛 한눈 정보(636 나)만 세력 행을 DB에서 읽는다
   const units = createMapUnitReads({
@@ -650,9 +656,13 @@ export function worldMapReadsOf(options: {
     boatCapacity: () => world.persistence?.facilities.rules().boats.capacity ?? 0,
     boatInfo: (unitId) => world.persistence?.boatHooks.info(unitId),
     maps: () => world.maps.values(),
-    hiddenUnits: (userId) =>
-      world.persistence?.travel.list(userId).filter((entry) => entry.hidden && entry.state === "going")
-        .length ?? 0,
+    // 이 2차맵 밖의 내 유닛 가운데 좌표 유닛(서 있음 + 가는 중, ADR 2026-11-15 5절)
+    hiddenUnits: (userId) => {
+      const ownerId = world.ownerOfUser?.(userId);
+      return ownerId === undefined
+        ? 0
+        : (world.persistence?.travel.coordinateUnits(new Set([ownerId])).length ?? 0);
+    },
     sees: (mapKey, viewer, unitId) =>
       world.maps.get(mapKey)?.vision.sees(visionViewerOf(world, viewer.id), unitId) ?? false,
     observer: canObserve,

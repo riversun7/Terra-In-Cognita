@@ -207,6 +207,10 @@ describe.skipIf(!TEST_DATABASE_URL)("옆 2차맵 미리 띄우기(2026-11-12)", 
     const viewer = { userId, ownerId: world.ownerOfUser?.(userId) };
     expect(viewer.ownerId).toBeDefined();
 
+    // 주인이 지금 그 2차맵을 본다(미리 띄우기는 주인이 볼 때만 — docs/adr/2026-11-15-unloaded-second-maps.md 2절)
+    const watcher = collector();
+    home.vision.subscribe(watcher, viewer);
+
     // 1. 변 앞으로 가는 길을 받는 순간(아직 도시 가까이) 그 변 너머를 띄운다
     const target = edgeCell(closedSide);
     expect(await home.moveUnit(unitId, anchorCenter(target.x, target.y, 1))).toEqual({ ok: true });
@@ -271,6 +275,7 @@ describe.skipIf(!TEST_DATABASE_URL)("옆 2차맵 미리 띄우기(2026-11-12)", 
     p.spawn.sweep();
     expect(world.maps.has(closed)).toBe(false);
     expect(seed.mapPreopenIdleMs).toBeLessThan(seed.mapSpawnIdleMs);
+    home.vision.unsubscribe(watcher);
     expect(await world.checkInvariants()).toEqual([]);
   });
 });

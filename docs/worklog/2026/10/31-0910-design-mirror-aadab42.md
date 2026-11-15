@@ -122,3 +122,4 @@
 - 2026-11-15 07:40 KST: 원본 `f3c9331`(D-546: 다시 묻기 2 — 1차맵 영토 표시 1431~1436) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/42. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-15 08:20 KST: 원본 `a5892da`(D-547 배 개편 답·D-548 사업장 수입 장부) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/44. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-15 08:55 KST: 원본 `02a45ad`(D-547 배 개편 4·5차 답, D-549 파티·군단 명령) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/45. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
+- 2026-11-15 11:28 KST: 원본 `77ff7ff`(D-550~D-559: 아카데미·다시 묻기 3~6·채집 정리·사업장 장부·전투 개편·군단 명령·배 구현 답) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/42·43·44·45·46·48. README·PLAN §14 머리 문장 갱신. 49 변경 없음.

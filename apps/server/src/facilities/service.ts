@@ -575,10 +575,11 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (exchangeProblem) return fail(exchangeProblem);
       const scope = materialScope(places, me, input.mapKey, cityId);
       if (!hasGoods(ledger, me, cost.materials, scope)) return fail("insufficient_materials");
-      // 땅(docs/adr/2026-11-14-second-map-build.md): 다른 세력 도시 2차맵이면 못 짓는다(결과 코드는 forbidden — 화면은 미리 묻기
-      // facilities.landRule로 까닭을 안다). 필지(D-149)는 아직 없다 → 그 밖은 2차맵 빈 칸이면 짓는다. 칸 검사·놓기는 2차맵이 한다.
-      // 운영자 모드도 땅 규칙을 본다(D-564 1663 — 운영자 모드가 없애는 것은 재료·건설 시간뿐)
-      if (options.land && !(await options.land(me, input.mapKey)).allowed) return fail("forbidden");
+      // 땅(docs/adr/2026-11-14-second-map-build.md): 다른 세력 도시 2차맵이거나 짓는 자리가 다른 세력 1차맵 영토(D-568, 질문 1927)면
+      // 못 짓는다(결과 코드는 forbidden — 화면은 미리 묻기 facilities.landRule로 까닭을 안다). 필지(D-149)는 아직 없다 → 그 밖은 2차맵 빈
+      // 칸이면 짓는다. 칸 검사·놓기는 2차맵이 한다. 운영자 모드도 땅 규칙을 본다(D-564 1663 — 운영자 모드가 없애는 것은 재료·건설 시간뿐)
+      if (options.land && !(await options.land(me, input.mapKey, { x: input.x, y: input.y })).allowed)
+        return fail("forbidden");
       const placed = map.placeBuilding(
         {
           x: input.x,

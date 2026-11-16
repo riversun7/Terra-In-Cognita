@@ -123,10 +123,22 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
     const a = await setup(world, "lander", 0, { pine_log: 60, iron_ore: 40 });
     const screen = createFacilityScreenServices(() => facilityScreenSourceOf(world));
     const viewer: Viewer = { id: a.userId, loginId: "lander", roles: ["player"] };
-    // 시험 세계 2차맵에는 NPC 도시가 있다: 짓는 2차맵의 도시를 비우면 도시가 없는 2차맵 — 짓는다(미리 묻기도 허용)
+    // 시험 세계 2차맵에는 NPC 도시가 있다: 짓는 2차맵의 도시를 비우면 도시가 없는 2차맵이지만 그 자리는 아직 그 NPC 세력의 1차맵 영토다
+    // (영토 배치는 부팅 끝에 셈해 둔 것 — D-568, 질문 1927) → 세력이 없으면 못 짓는다(foreign_territory)
+    const npcCity = await rows<{ faction_id: string }>(
+      test.db,
+      "select faction_id from world_cities where map_key = $1 order by id limit 1",
+      [a.map.mapKey],
+    );
     await rows(test.db, "delete from world_cities where map_key = $1", [a.map.mapKey]);
     await rows(test.db, "delete from faction_members where user_id = $1", [a.userId]);
-    expect(await screen.landRule(viewer, a.map.mapKey)).toMatchObject({ status: "ready", allowed: true });
+    expect(await screen.landRule(viewer, a.map.mapKey)).toEqual({
+      status: "ready",
+      mapKey: a.map.mapKey,
+      allowed: false,
+      reason: "foreign_territory",
+      cityFaction: Number(npcCity[0]?.faction_id),
+    });
     // 그 2차맵에 다른 세력 도시(정부 건물)를 둔다
     const nation = await rows<{ id: string }>(
       test.db,

@@ -61,3 +61,23 @@
   - 화면은 안개 때문에 판정과 다를 수 있다(모르는 이웃 땅이 빠짐).
   - 새 도시 세우기 겹침 검사(D-519, `foundingConflict`)·시가지(D-146, 영향권 ÷ 3)·2차맵 건설 땅 규칙은 옛 영향권·2차맵 기준 그대로다(질문 1922·1923·1927).
 - 다시 볼 조건: 기획이 1921~1930에 답하면 이 ADR에 "바뀜" 절을 단다.
+
+## 바뀜 (2026-11-16, territory-3 — 기획 답 1922·1923·1927·1930)
+기획 세션 답: 1922·1923·1927 = D-568 "판정도 지도대로"(모두 지도 판정), 1925·1928·1930 = 기술 추천대로. 남은 세부는 질문 `docs/questions/2026-11-16-territory-3.md`(1981~1990).
+
+- **새 도시·마을 자리(1922 나)**: 다른 세력 땅 = 1차맵 영토 지도. 공용 `foundingClaimConflict(layout, own, point)` = 그 점의 지도 주인이 같은 편이 아니면 막는다(겹친 곳은 영향력 비율 — 비콘 놓기와 같은 기준).
+  - NPC 마을·가문 마을(`npc/townSites.ts`): 영토 서비스의 마지막 배치(`provinceAt`, `territory/npcHooks.ts`)로 본다. 지도가 모르는 곳(셀 키가 아닌 시험 2차맵, 배치 전)은 옛 영향권 닿기(`foundingConflict`).
+  - 세계 배치 시작 도시(`world/worldLayout.ts` 머리 주석 6): 입력 `territory`(설정 칸 `planet_territory_*`)가 있으면 피할 도시·이미 선 도시·고른 도시로 만든 지도(원 바탕 = 계획 배후지 반경, 비콘 없음)에서 남의 땅이 아닌 곳만. 폐허 자리는 영토가 없어 옛 영향권 닿기로 띄운다. 부팅(`worldBoot.ts`)·국력 등급 계획 화면(`tierPlan.ts`·`placementService.ts`)이 같은 값을 넘긴다.
+- **시가지(1923 나)**: `urbanCityAt` = 영토 원(`territoryMilli`) ÷ 3, 겹치면 영향력 비율이 작은 도시. 아래 끝 4칸이면 시가지 ≥ 약 1.33칸(도시 2차맵 거의 전체). 개발 영토 화면의 점선 원도 시가지로 바꿨다.
+- **2차맵 건설 땅(1927 나)**: `facilities/landRule.ts` — 내 도시 2차맵은 짓는다, 남의 도시 2차맵은 `foreign_city`, 그 밖은 짓는 기준 칸(x, y)의 지도 주인이 남이면 `foreign_territory`(세력이 없으면 모든 영토가 남의 것). 짓기 명령은 그대로 `forbidden`. `facilities.landRule`에 선택 입력 `x`·`y`(없으면 2차맵 가운데)와 까닭 `foreign_territory`를 더했다(옛 기기는 `allowed`만 본다). 건축 모드 화면은 누른 자리를 묻는다.
+- **칸 표 셈(1930)**: 판정 질의는 칸 표 없이 `claimAt`만 — 영토 서비스 `claimsAt(planetId, places)`(땅 규칙·이동 위험 구간). 이동 확인 위험 구간의 전쟁 영토 = 지나는 2차맵 가운데 점의 지도 주인(옛: 칸 표 다수결). 칸 표(개발 영토 화면 `territory.planet`·`territory.mine`만)는 `@terra/planet/territory` `startTerritoryRaster`로 8ms 조각마다 `setImmediate`로 양보하며 나눠 셈한다(결과는 한 번에 셈한 것과 같다 — 시험). 응답에 `rasterSliceMs`(가장 긴 조각).
+  - 측정(Verified, vitest Node 24.22.1, 개발 컨테이너 부하 평균 약 3.7 — 측정 파일은 저장소 밖 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/territory-3/tmpSliceBench.test.ts`, 서버 `cellsOf`와 같은 조각 셈):
+
+    | 세계(F9) | 배치 셈 | 칸 표 CPU 합 | 칸 수 | 조각 수 | 가장 긴 조각 | 이벤트 루프 지연 최대 | `claimAt` |
+    |---|---|---|---|---|---|---|---|
+    | 국가 16 × 도시 3, 비콘 0 (NAS 규모) | 2.3ms | 102ms | 3,215 | 13 | 8.2ms | 9.0ms | 0.7µs |
+    | 국가 16 × 도시 3, 비콘 144 | 3.8ms | 358ms | 6,729 | 44 | 8.4ms | 8.7ms | 1.4µs |
+    | 국가 16 × 도시 6, 비콘 480 | 37ms | 1,747ms | 9,859 | 193 | 12.4ms | 12.5ms | 7.2µs |
+    | 국가 64 × 도시 4, 비콘 1,024 | 26ms | 3,411ms | 32,709 | 404 | 19.9ms | 16.8ms | 5.0µs |
+  - 큰 세계의 가장 긴 조각은 마지막 조각의 결과 정렬(칸 수만큼)이다. 배치 셈(`buildTerritory`)은 나누지 않는다(NAS 규모 수 ms).
+- 기존 세계: 이미 선 도시·지은 건물·놓인 비콘은 그대로(판정은 새 행동부터). 저장하는 값이 없어 마이그레이션·리셋 없음. 프로토콜·팩·SIM 판 그대로(`packages/sim`은 영토 판정을 쓰지 않는다).

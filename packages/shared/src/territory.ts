@@ -1,6 +1,7 @@
 // 영토 층 — 도시·영토 비콘 배치, 소속 판정, 비콘 놓기 검사. docs/adr/2026-11-03-territory-layer.md
 // 기획: D-568(판정도 1차맵 지도대로 — 비콘 놓기·세금·지방이 1차맵 영토 모양을 쓴다. D-485 비콘 볼록 도형 판정·D-544 "표시만"을 대체),
-// D-546·D-555(영향력 비율 경계, 도시 소유 비콘은 도시·국가 외곽선을 넓힌다), D-104(도시 영향권 반경 — 시가지·새 도시 겹침 검사),
+// D-546·D-555(영향력 비율 경계, 도시 소유 비콘은 도시·국가 외곽선을 넓힌다), D-104(도시 영향권 반경 — 지도가 없을 때의 새 도시 겹침 검사.
+// 시가지·새 도시 자리도 D-568부터 지도 영토로 — 질문 1922·1923),
 // 49 N42(도시 등급별 비콘 수·최대 거리)·N51(비콘 건물)·M2·M3.
 //
 // 점 = 구 위 방향을 정수 벡터로 둔 것(성분 |x| ≤ TERRITORY_POINT_SCALE = 2^16). 행성 칸 → 점은 @terra/planet/territory가 만든다
@@ -153,7 +154,7 @@ export interface TerritoryGroup {
 }
 
 export interface TerritoryCity extends TerritoryCityInput {
-  /** 영향권 반경(1000분율 칸, M3 — 시가지·새 도시 겹침 검사) */
+  /** 영향권 반경(1000분율 칸, M3 — 지도가 없을 때의 새 도시 겹침 검사·도시 표. 시가지는 D-568부터 영토 원 ÷ 3) */
   readonly radiusMilli: number;
   /** 영토 원 반지름(1000분율 칸, 1차맵 지도와 같다 — D-546·D-568). 0이면 영토가 없다 */
   readonly territoryMilli: number;
@@ -291,18 +292,44 @@ export function checkBeaconPlacement(
   return { ok: false, problem: inRange ? "beacon_limit" : "out_of_range" };
 }
 
-/** 시가지 반경 = 영향권 반경 ÷ 이 값(기획 D-104·49 M4 "영향권은 시가지 반경의 3배다") */
+/**
+ * 시가지 반경 = 영토 원 반지름 ÷ 이 값(기획 D-104·49 M4 "영향권은 시가지 반경의 3배다"를 D-568 "판정도 지도대로"로 읽음 — 질문 1923 나:
+ * 바탕이 D-104 영향권에서 1차맵 영토 원(territoryMilli)으로 바뀌었다)
+ */
 export const URBAN_RADIUS_DIVISOR = 3;
 
 /**
- * 점이 어느 도시의 시가지(안전지대, D-146) 안인가: 도시 중심에서 시가지 반경(영향권 반경 ÷ 3) 안인 도시 가운데 작은 ID. 없으면 null.
+ * 점이 어느 도시의 시가지(안전지대, D-146) 안인가: 도시 중심에서 시가지 반경(영토 원 ÷ 3) 안인 도시 가운데 영향력 비율(거리 ÷ 영토 원)이
+ * 가장 작은 도시(같으면 작은 ID — 1차맵 지도의 주인 고르기와 같은 차례). 없으면 null. 영토 원이 0인 도시(바탕 없음)는 시가지도 없다.
  * 시가지 안의 건물은 공성 시간에만 공격받는다(D-174·D-184, 기획 45 "시가지 안의 시설은 공성 시간에 공격받는다") — 건물 공격 판정이 쓴다
  */
 export function urbanCityAt(layout: TerritoryLayout, point: TerritoryVec): number | null {
-  for (const city of layout.cities)
-    if (territoryDistanceMilli(point, city.point, layout.metric) * URBAN_RADIUS_DIVISOR <= city.radiusMilli)
-      return city.id;
-  return null;
+  let best: { readonly id: number; readonly ratio: number } | undefined;
+  for (const city of layout.cities) {
+    if (!(city.territoryMilli > 0)) continue;
+    const distance = territoryDistanceMilli(point, city.point, layout.metric);
+    if (distance * URBAN_RADIUS_DIVISOR > city.territoryMilli) continue;
+    const ratio = distance / city.territoryMilli;
+    if (!best || ratio < best.ratio || (ratio === best.ratio && city.id < best.id))
+      best = { id: city.id, ratio };
+  }
+  return best?.id ?? null;
+}
+
+/**
+ * 새 도시·마을 자리 검사(D-568 "판정도 지도대로" — 질문 1922 나, D-519 "다른 세력 범위에 도시를 건설할 수 없다"): 그 점의 1차맵 영토
+ * 주인이 같은 편(own)이 아니면 그 소속, 영토 밖·같은 편 영토면 null. 겹친 곳은 지도 주인(영향력 비율)을 따른다 — 남의 원이 덮어도 내 도시가
+ * 이기는 곳이면 된다(비콘 놓기 checkBeaconPlacement와 같은 기준). 지도가 없는 곳(셀 키가 아닌 시험 2차맵 등)은 부르는 쪽이 옛 영향권 검사
+ * (foundingConflict)를 쓴다
+ */
+export function foundingClaimConflict(
+  layout: TerritoryLayout,
+  own: (faction: number) => boolean,
+  point: TerritoryVec,
+): TerritoryClaim | null {
+  if (!isTerritoryVec(point)) return null;
+  const claim = claimAt(layout, point);
+  return claim && !own(claim.faction) ? claim : null;
 }
 
 /** 새 도시 세우기 검사가 보는 도시 하나(영향권 반경 = 지금 등급의 M3 값) */
@@ -314,7 +341,7 @@ export interface FoundingCity {
 }
 
 /**
- * 이 점에 새 도시를 세우면 다른 세력 도시의 영향권과 겹치나(D-104 영향권·D-486 "남의 도시를 잠식하지 못한다", 사용자 지적 2026-11-07
+ * [옛 규칙 — 지도가 없을 때만] 이 점에 새 도시를 세우면 다른 세력 도시의 영향권과 겹치나(D-104 영향권·D-486 "남의 도시를 잠식하지 못한다", 사용자 지적 2026-11-07
  * "다른 세력 범위에 도시를 건설할 수 없다"): 같은 편(own)이 아닌 도시 가운데 거리 ≤ 그 도시 영향권 반경 + 새 도시 영향권 반경인 첫 도시
  * (ID 차례)의 ID, 없으면 null. 두 원이 닿기만 해도 막는다(새 도시 원이 남의 원 안으로 들어가지 않게). 세계 씨앗의 시작 도시 자리·NPC
  * 마을 자리(서버)·나중의 플레이어 도시 세우기가 같은 함수를 쓴다. 폐허 복원은 같은 자리라 이 검사를 거치지 않는다

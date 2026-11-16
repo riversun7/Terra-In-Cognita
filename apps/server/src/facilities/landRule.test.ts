@@ -22,4 +22,14 @@ describe("landVerdict", () => {
   it("한 2차맵에 내 도시와 남의 도시가 함께 있으면 내 땅으로 친다(옛 세계·시험 2차맵 줄)", () => {
     expect(landVerdict(3, [9, 3, 7])).toEqual({ allowed: true });
   });
+
+  it("도시가 없는 2차맵: 짓는 자리가 다른 세력 1차맵 영토면 못 짓는다(D-568, 질문 1927), 영토 밖·내 영토는 짓는다", () => {
+    expect(landVerdict(3, [], 5)).toEqual({ allowed: false, reason: "foreign_territory", cityFaction: 5 });
+    expect(landVerdict(null, [], 5)).toEqual({ allowed: false, reason: "foreign_territory", cityFaction: 5 });
+    expect(landVerdict(3, [], 3)).toEqual({ allowed: true });
+    expect(landVerdict(3, [], null)).toEqual({ allowed: true });
+    // 내 도시 2차맵은 가장자리가 남의 영토여도 짓는다, 남의 도시 2차맵은 도시 까닭이 먼저
+    expect(landVerdict(3, [3], 5)).toEqual({ allowed: true });
+    expect(landVerdict(3, [7], 5)).toEqual({ allowed: false, reason: "foreign_city", cityFaction: 7 });
+  });
 });

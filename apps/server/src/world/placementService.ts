@@ -51,6 +51,7 @@ import type { CityLayoutService } from "../facilities/cityLayoutView.ts";
 import { type NationPlacement, loadPlacements, planNationMove } from "./nationPlacement.ts";
 import type { QueryPool } from "./persist/load.ts";
 import { cancelTierApply, requestTierApply } from "./tierApply.ts";
+import type { TerritoryMapValues } from "@terra/shared/territoryMap";
 import { type TierPlanNation, freshTierPlan, startViewOf, tierApplyPlan } from "./tierPlan.ts";
 import {
   CITY_CELL,
@@ -83,6 +84,8 @@ export interface PlacementServiceOptions {
   readonly testNations?: number | undefined;
   /** 영토 설정 칸(도시 영향권 — 더 세울 도시 자리 미리 보기). 없으면 출발값 */
   readonly territory?: (() => SocietyCoefficients["territory"]) | undefined;
+  /** 1차맵 영토 값(설정 칸 planet_territory_* — 시작 도시 자리 = 다른 세력 지도 영토 밖, D-568). 없으면 옛 영향권 검사 */
+  readonly mapValues?: (() => TerritoryMapValues) | undefined;
   /** 도시 건물 배치 미리 보기·다시 놓기 예약(facilities/cityLayoutView.ts). 없으면 그 조회가 not ready */
   readonly cityLayout?: CityLayoutService | undefined;
 }
@@ -249,7 +252,14 @@ export function createPlacementService(o: PlacementServiceOptions): PlacementSer
         })),
     ];
   };
-  const planBase = () => ({ faceLevel, land: landOf, seed: o.seed(), planetId: o.planetId, avoidMaps });
+  const planBase = () => ({
+    faceLevel,
+    land: landOf,
+    seed: o.seed(),
+    planetId: o.planetId,
+    avoidMaps,
+    mapValues: o.mapValues?.(),
+  });
   const tierView = async (): Promise<WorldTierApplyView | undefined> => {
     if (!ready()) return undefined;
     const [nations, placements] = await Promise.all([loadNations(), loadPlacements(o.pool, o.planetId)]);
@@ -601,6 +611,7 @@ export function placementSourceOf(input: {
   readonly presets?: PlacementServiceOptions["presets"];
   readonly testNations?: number | undefined;
   readonly territory?: PlacementServiceOptions["territory"];
+  readonly mapValues?: PlacementServiceOptions["mapValues"];
   readonly cityLayout?: PlacementServiceOptions["cityLayout"];
 }): () => { readonly planetId: string; readonly service: PlacementService } | undefined {
   let made: PlacementService | undefined;
@@ -618,6 +629,7 @@ export function placementSourceOf(input: {
       presets: input.presets,
       testNations: input.testNations,
       territory: input.territory,
+      mapValues: input.mapValues,
       cityLayout: input.cityLayout,
     });
     return { planetId: input.planetId, service: made };

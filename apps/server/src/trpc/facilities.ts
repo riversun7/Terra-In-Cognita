@@ -37,9 +37,22 @@ export const facilitiesRouter = router({
   owner: signedInProcedure
     .input(z.strictObject({ buildingId: z.int().min(1).max(Number.MAX_SAFE_INTEGER) }))
     .query(({ ctx, input }) => (ctx.facilities ?? notReady).owner(ctx.viewer, input.buildingId)),
+  /** 그 2차맵(의 배치 칸 x·y — 없으면 2차맵 가운데)에 지을 수 있나(땅 규칙, D-568 지도 영토 — 질문 1927) */
   landRule: signedInProcedure
-    .input(z.strictObject({ mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }))
-    .query(({ ctx, input }) => (ctx.facilities ?? notReady).landRule(ctx.viewer, input.mapKey)),
+    .input(
+      z.strictObject({
+        mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER),
+        x: z.int().min(0).max(255).optional(),
+        y: z.int().min(0).max(255).optional(),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      (ctx.facilities ?? notReady).landRule(
+        ctx.viewer,
+        input.mapKey,
+        input.x === undefined || input.y === undefined ? undefined : { x: input.x, y: input.y },
+      ),
+    ),
   waterMask: signedInProcedure
     .input(z.strictObject({ mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }))
     .query(({ ctx, input }) => (ctx.facilities ?? notReady).waterMask(input.mapKey)),

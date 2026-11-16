@@ -36,6 +36,7 @@ function fakeService(calls: string[]): TerritoryService {
     finishBeacon: () => false,
     supplyCity: () => Promise.resolve(null),
     urbanCity: () => Promise.resolve(null),
+    claimsAt: () => Promise.resolve(undefined),
     damageBeacon: () => false,
     provinceAt: () => undefined,
     warm: async () => undefined,

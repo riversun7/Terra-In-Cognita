@@ -136,6 +136,8 @@ export interface NpcRuntimeOptions {
   readonly combatRules?: (() => CombatCoefficients) | undefined;
   /** 도시 주인이 바뀐 것을 저장할 때(영토 비콘이 도시를 따라간다, D-512 335) */
   readonly onCityOwner?: ((cityId: number, factionRowId: number) => void) | undefined;
+  /** 배치 칸의 1차맵 영토 주인(마을 자리가 다른 세력 영토가 아니게 — D-568, persist.ts) */
+  readonly territoryClaim?: NpcPersistOptions["territoryClaim"];
   /** 실행 중에 선 새 도시의 행을 처음 쓸 때(마을 건물, 질문 1052 다 — persist.ts) */
   readonly onCityFounded?: NpcPersistOptions["onCityFounded"];
   /** 막아 낸 도시 웨이브 보상 아이템(D-499: 팩 유전자·크리쳐 재료, waveRewards.ts). 없으면 명성만 */
@@ -451,6 +453,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       cityNamesOf,
       takenNames,
       territory: () => territoryOf(o.rules().territory),
+      territoryClaim: o.territoryClaim,
     },
     { rowOf, places, spares: state.spares },
   );

@@ -4,6 +4,7 @@
 // 꺼낼 수 있으며(넣기는 막힘), 수리로 되돌린다. 다른 세력 비콘은 0이 되어도 지우지 않고 꼭짓점에서만 빠진다. 비콘 짓기·수리 재료는 그
 // 세력의 가장 가까운 도시 창고 + 그 도시의 창고 시설에서만 꺼낸다(위치 없는 장부·화물은 쓰지 않는다).
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
+import { TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { buildingLocation, cargoLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
@@ -23,6 +24,14 @@ import { goodsAsset, grantGoods } from "./materials.ts";
 import { TEST_FACILITY_SOURCE } from "./testFacilities.ts";
 
 const T0 = 1_800_000_000_000;
+/**
+ * 시가지(D-146)는 D-568부터 1차맵 영토 원 ÷ 3(질문 1923 — 아래 끝 4칸이면 약 1.33칸으로 시험 2차맵 전체)이라, 이 시험은 영토 원을 작게
+ * 둔다(원 = 배후지 × 0.1, 아래 끝 0.1칸 → 시가지는 도시 둘레 배치 칸 십여 칸): 시가지 안·밖 건물을 한 2차맵에서 함께 본다
+ */
+const SMALL_TERRITORY = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  territoryDisplay: { ...TEST_SOCIETY_COEFFICIENTS.territoryDisplay, radiusScalePm: 100, minCells: 0.1 },
+};
 let test: TestDatabase;
 let clock = T0;
 const worlds: World[] = [];
@@ -54,6 +63,7 @@ async function boot(): Promise<World> {
     holdings: { content: () => TEST_HOLDING_CONTENT },
     roster: () => roster,
     territory: { beaconFacility: () => ({ enabled: true, materials: [{ item: "pine_log", qty: 3 }] }) },
+    cyborgRules: () => SMALL_TERRITORY,
   });
   worlds.push(world);
   await world.ready;
@@ -185,7 +195,8 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
       ok: false,
       code: "forbidden",
     });
-    // 도시 시가지(안전지대 D-146: 시험 도시 (128, 128) 마을, 영향권 0.1칸 ÷ 3 ≈ 8.5칸) 안의 건물은 공성 시간에만 → 지금은 막는다
+    // 도시 시가지(안전지대 D-146: 시험 도시 (128, 128) 둘레 영토 원 ÷ 3 — SMALL_TERRITORY) 안의 건물은 공성 시간에만
+    // → 지금은 막는다
     expect(await attack.attack(raider, { buildingId: innerId }, raiders)).toEqual({
       ok: false,
       code: "safe_zone",

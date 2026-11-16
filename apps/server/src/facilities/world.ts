@@ -240,11 +240,15 @@ export function createWorldFacilities(input: {
   let labor: LaborService | undefined;
   let business: BusinessCore | undefined;
   let shares: ShareMarkets | undefined;
-  // 2차맵 건설 땅 규칙(landRule.ts): 짓기 명령과 화면 미리 묻기가 같은 판정
+  // 2차맵 건설 땅 규칙(landRule.ts): 짓기 명령과 화면 미리 묻기가 같은 판정. 짓는 자리의 1차맵 영토 주인(D-568, 질문 1927)
   const land = createLandCheck({
     pool: input.battles.pool,
     owners: input.battles.owners,
     writer: input.writer,
+    territoryFaction: async (mapKey, x, y) => {
+      const claims = await input.territory()?.claimsAt(TEST_PLANET_ID, [{ mapKey, x, y }]);
+      return claims === undefined ? undefined : (claims[0]?.faction ?? null);
+    },
   });
   const service = createFacilityService({
     loaded: input.loaded,

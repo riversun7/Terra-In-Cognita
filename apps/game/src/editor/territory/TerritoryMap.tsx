@@ -2,7 +2,7 @@
 // 표 테두리, 도시 영토 원(굵은 선)·영향권(점선), 도시·비콘 표시를 그린다. docs/adr/2026-11-03-territory-layer.md 5절. 색은 개발 화면 토큰(세력 = --color-stat-* 돌려 쓰기)을 그때 읽는다
 // (테마를 바꾸면 <html> 속성이 바뀌어 다시 그린다). 칸을 누르면 onSelect(칸 키). 키보드는 화면의 칸 고르기 칸이 맡는다.
 import type { CellKey } from "@terra/planet";
-import type { TerritoryLayout } from "@terra/shared/territory";
+import { type TerritoryLayout, URBAN_RADIUS_DIVISOR } from "@terra/shared/territory";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
@@ -79,17 +79,17 @@ function draw(
     path(ctx, outline);
     ctx.stroke();
   }
-  // 도시 영토 원(굵은 선, 1차맵 지도·판정 D-568)과 영향권(점선 원, D-104 — 시가지·새 도시 겹침): 반지름 = 각 × 평면 배율
-  for (const [field, dash, width] of [
-    ["territoryMilli", [], 2.5],
-    ["radiusMilli", [4, 3], 1],
+  // 도시 영토 원(굵은 선, 1차맵 지도·판정 D-568)과 시가지(점선 원 = 영토 원 ÷ 3, D-146 — 질문 1923): 반지름 = 각 × 평면 배율
+  for (const [divisor, dash, width] of [
+    [1, [], 2.5],
+    [URBAN_RADIUS_DIVISOR, [4, 3], 1],
   ] as const) {
     ctx.setLineDash(dash);
     ctx.lineWidth = width;
     for (const city of layout.cities) {
       const at = project(view, city.point);
       if (!at) continue;
-      const radius = (city[field] / data.milliPerRadian) * view.pxPerUnit;
+      const radius = (city.territoryMilli / divisor / data.milliPerRadian) * view.pxPerUnit;
       ctx.strokeStyle = colorOf(city.faction);
       ctx.beginPath();
       ctx.arc(at[0], at[1], Math.max(2, radius), 0, Math.PI * 2);

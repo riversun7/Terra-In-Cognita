@@ -12,7 +12,13 @@ import { HOMELESS, type SimFaction, type SimWorld, recruitElementSlots, traitsTo
 import { type ServerGardener, storedGardenerOf } from "./gardener.ts";
 import { nextCityName } from "./nations.ts";
 import { createRuinsPersist } from "./ruinsPersist.ts";
-import { type TownSiteCity, type TownSiteProblem, checkTownSite, pickTownSite } from "./townSites.ts";
+import {
+  type ForeignClaim,
+  type TownSiteCity,
+  type TownSiteProblem,
+  checkTownSite,
+  pickTownSite,
+} from "./townSites.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { QueryPool, OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -89,6 +95,13 @@ export interface NpcPersistOptions {
    */
   readonly territory?:
     | (() => { influenceOf(development: number): number; newRadiusMilli: number })
+    | undefined;
+  /**
+   * 배치 칸의 1차맵 영토 주인(세력 행 ID — 영토 서비스 provinceAt, 마지막으로 셈한 배치). 영토 밖이면 null, 모르면 undefined. 마을 자리가
+   * 다른 세력 영토가 아니게 한다(D-568, 질문 1922 나). 없으면 옛 영향권 규칙(시험)
+   */
+  readonly territoryClaim?:
+    | ((mapKey: number, x: number, y: number) => { readonly faction: number } | null | undefined)
     | undefined;
 }
 
@@ -252,7 +265,21 @@ export function createNpcPersist(
     return place ? maps.get(place.mapKey) : undefined;
   };
 
-  /** 마을 자리(townSites.ts): from 둘레, 다른 도시와 띄우고 founder가 아닌 세력 영향권과 닿지 않는 첫 칸 */
+  /**
+   * 1차맵 영토 지도로 본 다른 세력 땅(D-568, townSites.ts ForeignClaim): 영토 주인(세력 행 ID)을 거울 세력 ID로 바꿔 같은 편인지 본다.
+   * 거울 세력이 아닌 행(모르는 세력)은 남의 것이다
+   */
+  const foreignClaim: ForeignClaim | undefined = o.territoryClaim
+    ? (mapKey, x, y, own) => {
+        const claim = o.territoryClaim?.(mapKey, x, y);
+        if (claim === undefined) return undefined;
+        if (claim === null) return false;
+        for (const [mirror, row] of rowOf) if (row === claim.faction) return !own(mirror);
+        return true;
+      }
+    : undefined;
+
+  /** 마을 자리(townSites.ts): from 둘레, 다른 도시와 띄우고 founder가 아닌 세력 땅(1차맵 영토)이 아닌 첫 칸 */
   const siteFrom = (from: CityPlace, founder: number): CityPlace | undefined => {
     const rules = o.territory?.();
     const cities: TownSiteCity[] = [...places].map(([id, place]) => {
@@ -270,6 +297,7 @@ export function createNpcPersist(
       cities: rules ? cities : cities.map((city) => ({ ...city, owner: null })),
       newRadiusMilli: rules?.newRadiusMilli ?? 0,
       nowMs: o.now(),
+      foreignClaim: rules ? foreignClaim : undefined,
     });
   };
 
@@ -300,6 +328,7 @@ export function createNpcPersist(
       own,
       cities: siteCities(),
       newRadiusMilli: o.territory?.().newRadiusMilli ?? 0,
+      foreignClaim: o.territory ? foreignClaim : undefined,
     });
 
   /**

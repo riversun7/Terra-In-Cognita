@@ -198,9 +198,18 @@ export const useWaterMask = createQuery<FacilityWaterMaskResponse>(([mapKey = "0
   api.facilities.waterMask.query({ mapKey: Number(mapKey) }, { signal }),
 );
 
-/** 그 2차맵에 지을 수 있나(서버 땅 규칙 — 2차맵 건축 모드 미리 묻기, docs/adr/2026-11-14-second-map-build.md) */
-export const useLandRule = createQuery<FacilityLandRuleResponse>(([mapKey = "0"], _preview, signal) =>
-  api.facilities.landRule.query({ mapKey: Number(mapKey) }, { signal }),
+/**
+ * 그 2차맵(의 배치 칸)에 지을 수 있나(서버 땅 규칙 — 2차맵 건축 모드 미리 묻기, docs/adr/2026-11-14-second-map-build.md, D-568 지도 영토).
+ * args = [2차맵 키 글자] 또는 [2차맵 키, x, y](놓을 자리 — 없으면 서버가 2차맵 가운데를 본다)
+ */
+export const useLandRule = createQuery<FacilityLandRuleResponse>(([mapKey = "0", x, y], _preview, signal) =>
+  api.facilities.landRule.query(
+    {
+      mapKey: Number(mapKey),
+      ...(x === undefined || y === undefined ? {} : { x: Number(x), y: Number(y) }),
+    },
+    { signal },
+  ),
 );
 
 /** 신전·생명과학 연구소(비활성 휴먼 환생·신격화·유전자 변환, D-517 — docs/adr/2026-11-07-temple-religion.md) */

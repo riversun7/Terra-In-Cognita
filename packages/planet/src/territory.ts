@@ -55,7 +55,62 @@ export interface TerritoryRasterCell {
 }
 
 /**
- * 영토 칸 표: 레벨 faceLevel 칸 키 → 차지한 세력. seeds = 시작 칸(꼭짓점이 든 1차맵 칸들). 차례 = 칸 키 차례
+ * 영토 칸 표를 조금씩 셈하는 일(질문 1930 — 큰 세계에서 한 번에 셈하면 수백 ms~수 초 걸려 서버가 조각마다 이벤트 루프에 양보한다).
+ * step(n) = 칸을 n개까지 더 보고, 다 셈했으면 true. 조각 크기와 상관없이 rasterizeTerritory와 같은 표다(같은 차례로 본다)
+ */
+export interface TerritoryRasterJob {
+  step(maxCells: number): boolean;
+  /** 지금까지 본 칸 수 */
+  readonly visited: number;
+  /** 다 셈한 표(칸 키 차례). 다 셈하기 전에는 그때까지의 표 */
+  result(): Map<CellKey, TerritoryRasterCell>;
+}
+
+/** 영토 칸 표 일을 시작한다(seeds = 시작 칸 — 꼭짓점이 든 1차맵 칸들) */
+export function startTerritoryRaster(
+  layout: TerritoryLayout,
+  seeds: readonly CellKey[],
+  faceLevel: number,
+  depth = TERRITORY_SAMPLE_DEPTH,
+): TerritoryRasterJob {
+  const side = 1 << depth;
+  const queue = [...new Set(seeds.filter((key) => cellLevel(key) === faceLevel))].toSorted((a, b) => a - b);
+  const seen = new Set<CellKey>(queue);
+  const out = new Map<CellKey, TerritoryRasterCell>();
+  let head = 0;
+  const finished = (): boolean => head >= queue.length || head >= TERRITORY_RASTER_MAX_CELLS;
+  return {
+    get visited() {
+      return head;
+    },
+    step(maxCells) {
+      for (let n = 0; n < maxCells && !finished(); n++, head++) {
+        const key = queue[head];
+        if (key === undefined) continue;
+        const claims: TerritoryClaim[] = [];
+        for (let x = 0; x < side; x++)
+          for (let y = 0; y < side; y++) {
+            const claim = claimAt(layout, territoryPoint(descendantAt(key, depth, x, y)));
+            if (claim) claims.push(claim);
+          }
+        if (claims.length === 0) continue;
+        const cell = pickCell(claims, side * side);
+        if (cell) out.set(key, cell);
+        for (const next of neighbors8(key))
+          if (!seen.has(next)) {
+            seen.add(next);
+            queue.push(next);
+          }
+      }
+      return finished();
+    },
+    result: () => new Map([...out.entries()].toSorted((a, b) => a[0] - b[0])),
+  };
+}
+
+/**
+ * 영토 칸 표: 레벨 faceLevel 칸 키 → 차지한 세력. seeds = 시작 칸(꼭짓점이 든 1차맵 칸들). 차례 = 칸 키 차례. 한 번에 다 셈한다(시험·도구 —
+ * 서버는 startTerritoryRaster로 나눠 셈한다)
  */
 export function rasterizeTerritory(
   layout: TerritoryLayout,
@@ -63,29 +118,9 @@ export function rasterizeTerritory(
   faceLevel: number,
   depth = TERRITORY_SAMPLE_DEPTH,
 ): Map<CellKey, TerritoryRasterCell> {
-  const side = 1 << depth;
-  const queue = [...new Set(seeds.filter((key) => cellLevel(key) === faceLevel))].toSorted((a, b) => a - b);
-  const seen = new Set<CellKey>(queue);
-  const out = new Map<CellKey, TerritoryRasterCell>();
-  for (let head = 0; head < queue.length && head < TERRITORY_RASTER_MAX_CELLS; head++) {
-    const key = queue[head];
-    if (key === undefined) continue;
-    const claims: TerritoryClaim[] = [];
-    for (let x = 0; x < side; x++)
-      for (let y = 0; y < side; y++) {
-        const claim = claimAt(layout, territoryPoint(descendantAt(key, depth, x, y)));
-        if (claim) claims.push(claim);
-      }
-    if (claims.length === 0) continue;
-    const cell = pickCell(claims, side * side);
-    if (cell) out.set(key, cell);
-    for (const next of neighbors8(key))
-      if (!seen.has(next)) {
-        seen.add(next);
-        queue.push(next);
-      }
-  }
-  return new Map([...out.entries()].toSorted((a, b) => a[0] - b[0]));
+  const job = startTerritoryRaster(layout, seeds, faceLevel, depth);
+  job.step(Number.POSITIVE_INFINITY);
+  return job.result();
 }
 
 /** 표본 소속 → 칸 하나(가장 많은 세력이 소속 없음보다 적으면 없음) */

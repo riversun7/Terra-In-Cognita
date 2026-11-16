@@ -17,13 +17,14 @@
 import { type CellKey, cellLevel, isCellKey, parseCellKey } from "@terra/planet";
 import {
   placementCellKey,
-  rasterizeTerritory,
+  startTerritoryRaster,
   territoryMetric,
   territoryPoint,
 } from "@terra/planet/territory";
 import type { BeaconResultCode } from "@terra/protocol";
 import { catchmentRadiusMilli } from "@terra/shared/catchment";
 import {
+  type TerritoryClaim,
   type TerritoryCoefficients,
   type TerritoryLayout,
   buildTerritory,
@@ -54,6 +55,18 @@ import type { CatchmentRadiusRules } from "./catchmentRules.ts";
 
 /** 조회용 배치를 다시 셈하는 간격(ms). 비콘이 바뀌면 바로 다시 셈한다 */
 export const VIEW_TTL_MS = 30_000;
+
+/**
+ * 칸 표 나눠 셈(질문 1930): 한 조각 = 이 시간(ms)까지 칸을 보고 이벤트 루프에 양보한다(setImmediate). 칸 하나는 표본 16곳이라 약 0.1~0.3ms
+ * (작업 기록 측정) — 조각마다 RASTER_STEP_CELLS칸씩 보며 시간을 잰다
+ */
+export const RASTER_SLICE_MS = 8;
+export const RASTER_STEP_CELLS = 8;
+
+/** 자리 하나(2차맵 배치 칸 또는 1차맵 칸 중심) */
+export type TerritoryPlace =
+  | { readonly mapKey: number; readonly x: number; readonly y: number }
+  | { readonly cellKey: number };
 
 export interface BeaconRow {
   readonly id: number;
@@ -147,13 +160,19 @@ export interface TerritoryService {
   /** 재료를 꺼내는 도시: 그 비콘 세력에서 비콘 칸과 가장 가까운 도시(질문 410 ①). 세력 도시가 없으면 null */
   supplyCity(beaconId: number): Promise<BeaconSupply | null>;
   /**
-   * 그 자리가 어느 도시의 시가지(안전지대, D-146: 영향권 반경 ÷ 3) 안인가 — 그 도시 ID, 아니면 null. 2차맵 배치 칸(건물) 또는 1차맵 칸
-   * 중심(비콘). 시가지 안의 건물은 공성 시간에만 공격받는다(D-174·D-184). 영토를 셈하지 않는 행성이면 null
+   * 그 자리가 어느 도시의 시가지(안전지대, D-146: 1차맵 영토 원 ÷ 3 — D-568 질문 1923) 안인가 — 그 도시 ID, 아니면 null. 2차맵
+   * 배치 칸(건물) 또는 1차맵 칸 중심(비콘). 시가지 안의 건물은 공성 시간에만 공격받는다(D-174·D-184). 영토를 셈하지 않는 행성이면 null
    */
-  urbanCity(
+  urbanCity(planetId: string, at: TerritoryPlace): Promise<number | null>;
+  /**
+   * 자리마다 1차맵 영토 소속(D-568 — 칸 표 없이 claimAt만, 질문 1930): 조회용 배치(VIEW_TTL_MS)로 답한다. 영토 밖이면 null, 영토를 셈하지
+   * 않는 행성이면 undefined. 2차맵 건설 땅 규칙(facilities/landRule.ts, 질문 1927)·이동 위험 구간(worldMap/travelDanger.ts)이 쓴다.
+   * 1차맵 칸 중심(cellKey)은 면 레벨이 다르면 null
+   */
+  claimsAt(
     planetId: string,
-    at: { readonly mapKey: number; readonly x: number; readonly y: number } | { readonly cellKey: number },
-  ): Promise<number | null>;
+    places: readonly TerritoryPlace[],
+  ): Promise<readonly (TerritoryClaim | null)[] | undefined>;
   /**
    * 지방(D-568 — 1차맵 영토 지도 그대로): 2차맵 배치 칸이 어느 나라·어느 도시 땅인가. 마지막으로 셈한 배치로 바로 답하고(동기), 셈이 오래됐으면
    * 뒤에서 다시 셈한다. 영토 밖이면 null, 아직 셈한 배치가 없거나 영토를 셈하지 않는 행성·면 레벨이 다른 칸이면 undefined(부르는 쪽이 옛
@@ -255,12 +274,24 @@ const beaconRow = (beacon: BeaconRow) => ({
 
 const fail = (code: BeaconResultCode): BeaconCommandResult => ({ ok: false, code });
 
+/** 자리 → 점의 칸 키(2차맵 배치 칸 또는 1차맵 칸 중심). 칸 키가 아니거나 면 레벨이 다르면 undefined */
+function placeKeyOf(at: TerritoryPlace, faceLevel: number): CellKey | undefined {
+  if ("cellKey" in at)
+    return isCellKey(at.cellKey) && cellLevel(at.cellKey) === faceLevel
+      ? parseCellKey(at.cellKey)
+      : undefined;
+  if (!isCellKey(at.mapKey) || cellLevel(at.mapKey) !== faceLevel) return undefined;
+  return placementCellKey(parseCellKey(at.mapKey), at.x, at.y);
+}
+
 interface Computed {
   readonly atMs: number;
   /** 배치를 셈한 시간(ms, 측정용) */
   readonly computeMs: number;
-  /** 칸 표를 셈한 시간(ms, 측정용 — 셈했을 때만) */
+  /** 칸 표를 셈한 시간(ms, 측정용 — 셈했을 때만, 조각 CPU 합) */
   rasterMs?: number;
+  /** 칸 표 조각 하나의 가장 긴 시간(ms, 측정용 — 메인 스레드를 한 번에 잡은 가장 긴 시간) */
+  rasterSliceMs?: number;
   readonly layout: TerritoryLayout;
   readonly faceLevel: number;
   readonly rules: TerritoryCoefficients;
@@ -268,8 +299,10 @@ interface Computed {
   readonly cities: readonly CityRecord[];
   readonly factions: ReadonlyMap<number, FactionRecord>;
   readonly beacons: readonly BeaconRow[];
-  /** 칸 표(처음 찾을 때 셈한다 — cellsOf) */
+  /** 칸 표(처음 찾을 때 나눠 셈한다 — cellsOf) */
   cells: Map<CellKey, { faction: number; province: number | null; samples: number }> | undefined;
+  /** 셈하는 중인 칸 표(같은 배치를 겹쳐 셈하지 않는다) */
+  cellsJob?: Promise<void>;
   readonly seeds: readonly CellKey[];
 }
 
@@ -463,14 +496,34 @@ export function createTerritoryService(
     return row ? Number(row.faction_id) : null;
   };
 
-  /** 칸 표(처음 찾을 때 셈하고 그 배치 동안 쓴다) */
-  const cellsOf = (computed: Computed) => {
-    if (!computed.cells) {
-      const started = performance.now();
-      computed.cells = rasterizeTerritory(computed.layout, computed.seeds, computed.faceLevel);
-      computed.rasterMs = performance.now() - started;
-    }
-    return computed.cells;
+  /**
+   * 칸 표(처음 찾을 때 셈하고 그 배치 동안 쓴다). 큰 세계에서는 수백 ms~수 초라(질문 1930) 조각(RASTER_SLICE_MS)마다 이벤트 루프에 양보하며
+   * 나눠 셈한다. 결과는 한 번에 셈한 것과 같다(startTerritoryRaster)
+   */
+  const cellsOf = (computed: Computed): Promise<void> => {
+    if (computed.cells) return Promise.resolve();
+    computed.cellsJob ??= (async () => {
+      const job = startTerritoryRaster(computed.layout, computed.seeds, computed.faceLevel);
+      let busy = 0;
+      let longest = 0;
+      for (;;) {
+        const sliceStart = performance.now();
+        let done = false;
+        while (!done && performance.now() - sliceStart < RASTER_SLICE_MS) done = job.step(RASTER_STEP_CELLS);
+        const cells = done ? job.result() : undefined;
+        const slice = performance.now() - sliceStart;
+        busy += slice;
+        longest = Math.max(longest, slice);
+        if (cells) {
+          computed.cells = cells;
+          computed.rasterMs = busy;
+          computed.rasterSliceMs = longest;
+          return;
+        }
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+    })();
+    return computed.cellsJob;
   };
 
   const view = (
@@ -554,16 +607,16 @@ export function createTerritoryService(
         // D-568부터 껍질 판정이 없다(옛 화면 호환으로 칸만 남긴다)
         hull: null,
       })),
-      cells: [...(withCells ? cellsOf(computed) : new Map<CellKey, never>()).entries()].map(([key, cell]) => [
-        key,
-        cell.faction,
-        cell.province ?? 0,
-        cell.samples,
-      ]),
+      cells: [...((withCells ? computed.cells : undefined) ?? new Map<CellKey, never>()).entries()].map(
+        ([key, cell]) => [key, cell.faction, cell.province ?? 0, cell.samples],
+      ),
       myFactionId,
       computedAtMs: computed.atMs,
       computeMs: Math.round(computed.computeMs * 10) / 10,
       ...(computed.rasterMs === undefined ? {} : { rasterMs: Math.round(computed.rasterMs * 10) / 10 }),
+      ...(computed.rasterSliceMs === undefined
+        ? {}
+        : { rasterSliceMs: Math.round(computed.rasterSliceMs * 10) / 10 }),
     };
   };
 
@@ -643,14 +696,18 @@ export function createTerritoryService(
     async planetView(planetId, userId, viewOptions) {
       const computed = await current(planetId);
       if (!computed) return undefined;
+      const withCells = viewOptions?.cells ?? true;
+      if (withCells) await cellsOf(computed);
       const mine = userId === null ? null : await factionOfUser(userId);
-      return view(computed, planetId, mine, viewOptions?.cells ?? true);
+      return view(computed, planetId, mine, withCells);
     },
     async mineView(planetId, userId, viewOptions) {
       const computed = await current(planetId);
       if (!computed) return undefined;
+      const withCells = viewOptions?.cells ?? true;
+      if (withCells) await cellsOf(computed);
       const mine = await factionOfUser(userId);
-      const full = view(computed, planetId, mine, viewOptions?.cells ?? true);
+      const full = view(computed, planetId, mine, withCells);
       return {
         ...full,
         factions: full.factions.filter((faction) => faction.id === mine),
@@ -705,9 +762,16 @@ export function createTerritoryService(
     async urbanCity(planetId, at) {
       const computed = await current(planetId);
       if (!computed) return null;
-      const key =
-        "cellKey" in at ? parseCellKey(at.cellKey) : placementCellKey(parseCellKey(at.mapKey), at.x, at.y);
-      return urbanCityAt(computed.layout, territoryPoint(key));
+      const key = placeKeyOf(at, computed.faceLevel);
+      return key === undefined ? null : urbanCityAt(computed.layout, territoryPoint(key));
+    },
+    async claimsAt(planetId, places) {
+      const computed = await current(planetId);
+      if (!computed) return undefined;
+      return places.map((at) => {
+        const key = placeKeyOf(at, computed.faceLevel);
+        return key === undefined ? null : claimAt(computed.layout, territoryPoint(key));
+      });
     },
     async supplyCity(beaconId) {
       const row = beacons.get(beaconId);

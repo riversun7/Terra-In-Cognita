@@ -52,6 +52,15 @@ describe("건축 모드 자리", () => {
     expect(placementProblems({ ...base, anchor: { x: 10, y: 10 }, landAllowed: false })).toEqual([
       "foreign_city",
     ]);
+    // 놓을 자리가 다른 세력 1차맵 영토(D-568, 질문 1927)
+    expect(
+      placementProblems({
+        ...base,
+        anchor: { x: 10, y: 10 },
+        landAllowed: false,
+        landReason: "foreign_territory",
+      }),
+    ).toEqual(["foreign_territory"]);
     expect(placementProblems({ ...base, anchor: { x: 10, y: 10 }, landAllowed: null })).toEqual([]);
   });
 });

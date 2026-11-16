@@ -397,6 +397,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           presets: () => options.world?.npc?.presets ?? [],
           testNations: options.world?.npc?.testNations,
           territory: () => tuningState.society().territory,
+          mapValues: () => tuningState.society().territoryDisplay,
           // 도시 건물 배치 미리 보기·다시 놓기 예약(docs/adr/2026-11-11-city-building-layout.md)
           cityLayout: cityLayoutServiceOf(
             world,

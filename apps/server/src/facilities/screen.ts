@@ -22,8 +22,12 @@ export interface FacilityScreenServices {
   mapLooks(viewer: Viewer, mapKey: number, nowMs: number): Promise<MapLooksResponse>;
   /** 띄운 2차맵의 물 표(물가 조건 미리 보기, 질문 947 나) */
   waterMask(mapKey: number): FacilityWaterMaskResponse;
-  /** 그 2차맵에 지을 수 있나(땅 규칙, landRule.ts — 건축 모드 미리 묻기) */
-  landRule(viewer: Viewer, mapKey: number): Promise<FacilityLandRuleResponse>;
+  /** 그 2차맵(의 배치 칸, 없으면 가운데)에 지을 수 있나(땅 규칙, landRule.ts — 건축 모드 미리 묻기) */
+  landRule(
+    viewer: Viewer,
+    mapKey: number,
+    at?: { readonly x: number; readonly y: number },
+  ): Promise<FacilityLandRuleResponse>;
   /** 사업장 장부(누구나 — D-555 1513, business/books.ts) */
   books(viewer: Viewer, buildingId: number, days: number, nowMs: number): Promise<BusinessBooksResponse>;
   /** 건물 판 머리 이름표(주인·대주주 이름, 누구나 — docs/adr/2026-11-15-building-screen.md) */
@@ -103,14 +107,14 @@ export function createFacilityScreenServices(
       if (!found) return { status: "not_ready" };
       return found.owner(viewer.id, buildingId);
     },
-    async landRule(viewer, mapKey) {
+    async landRule(viewer, mapKey, at) {
       const found = source?.();
       const shut = { mapKey, allowed: false, reason: null, cityFaction: null } as const;
       if (!found) return { status: "not_ready", ...shut };
       if (!found.map(mapKey)) return { status: "unknown_map", ...shut };
       const ownerId = found.ownerOf(viewer.id);
       if (ownerId === undefined) return { status: "ready", ...shut };
-      const verdict = await found.land(ownerId, mapKey);
+      const verdict = await found.land(ownerId, mapKey, at);
       return verdict.allowed
         ? { status: "ready", mapKey, allowed: true, reason: null, cityFaction: null }
         : {

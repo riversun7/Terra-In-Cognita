@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { type CellKey, cellFace, cellKey } from "./cellKey.ts";
 import { EARTH_FACE_LEVEL, PLACEMENT_SUBLEVELS } from "./levels.ts";
 import { neighbors4 } from "./neighbors.ts";
-import { placementCellKey, rasterizeTerritory, territoryMetric, territoryPoint } from "./territory.ts";
+import {
+  placementCellKey,
+  rasterizeTerritory,
+  startTerritoryRaster,
+  territoryMetric,
+  territoryPoint,
+} from "./territory.ts";
 
 const F = EARTH_FACE_LEVEL;
 const metric = territoryMetric(F);
@@ -73,6 +79,20 @@ describe("영토 칸 표(1차맵 지도대로, D-568)", () => {
     expect([raster.size, [...raster.keys()].reduce((sum, key) => sum + (key % 1_000_003), 0)]).toEqual(
       RASTER_GOLDEN,
     );
+  });
+
+  it("나눠 셈(질문 1930): 조각 크기와 상관없이 한 번에 셈한 표와 같다", () => {
+    const beacons = [cell(282, 338)];
+    const whole = rasterizeTerritory(layoutOf(beacons), [MAP, ...beacons], F);
+    for (const slice of [1, 7, 64]) {
+      const job = startTerritoryRaster(layoutOf(beacons), [MAP, ...beacons], F);
+      let steps = 0;
+      while (!job.step(slice)) steps += 1;
+      expect(steps).toBeGreaterThan(slice === 64 ? 0 : 10);
+      expect([...job.result().entries()]).toEqual([...whole.entries()]);
+      // 다 셈한 뒤 더 불러도 그대로
+      expect(job.step(slice)).toBe(true);
+    }
   });
 
   it("큐브 꼭짓점(면 0·1·2가 만나는 곳)을 넘는 영토도 세 면의 칸을 칠한다", () => {

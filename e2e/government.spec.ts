@@ -234,6 +234,8 @@ test.describe("정부 판·지도자: 플레이어", () => {
           "glance",
         );
         if (field(glance, "kind") !== "human") continue;
+        // NPC 도시 휴먼은 사는 도시 가문에 든다(질문 1848 답 — 도시마다 하나, 이름 = 시장의 성)
+        expect(typeof field(field(glance, "npcHouse"), "name")).toBe("string");
         if (field(glance, "guard") === true) {
           guardId = id;
           break;
@@ -250,6 +252,9 @@ test.describe("정부 판·지도자: 플레이어", () => {
     await expect(peek.locator(".map-peek-title")).toContainText(message("ko", "map_unit_guard"), {
       timeout: 10_000,
     });
+    // 한눈 정보의 가문 줄(질문 1848 답): "{이름} 가문"
+    await expect(peek.locator('[data-part="peek-npc-house"]')).toContainText("가문");
+    await shot(page, "npc-house-peek-390-pastel-ko");
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
   });

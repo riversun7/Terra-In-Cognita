@@ -8,7 +8,9 @@ import {
   type HouseMemberResultCode,
   type HouseRecruitResultCode,
   type HouseResultCode,
+  PROTOCOL_VERSION,
   encodeMessage,
+  legacyHouseMemberAction,
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
@@ -45,6 +47,8 @@ const MEMBER_LIMIT = { capacity: 10, refillPerMinute: 30 };
 export interface HouseLink {
   send(text: string): void;
   viewer(): Promise<Viewer | null>;
+  /** 연결이 인사한 프로토콜 판(없으면 지금 판 — 시험) */
+  readonly protocolVersion?: number | undefined;
 }
 
 export interface HouseSocket {
@@ -62,13 +66,14 @@ function resultText(id: number, result: HouseFoundResult): string {
     : encodeMessage({ t: "house_result", id, ok: false, code: result.code });
 }
 
-function memberText(id: number, result: HouseMemberResult): string {
+function memberText(id: number, result: HouseMemberResult, protocolVersion: number): string {
   return result.ok
     ? encodeMessage({
         t: "house_member_result",
         id,
         ok: true,
-        action: result.action,
+        // 공고·공고 거둠(D-570, 52판)은 더 낮은 판 연결에 home_set으로
+        action: legacyHouseMemberAction(result.action, protocolVersion),
         factionId: result.factionId,
       })
     : encodeMessage({ t: "house_member_result", id, ok: false, code: result.code });
@@ -170,7 +175,7 @@ export function createHouseGateway(options: {
         if (!closed) link.send(resultText(id, result));
       };
       const replyMember = (id: number, result: HouseMemberResult): void => {
-        if (!closed) link.send(memberText(id, result));
+        if (!closed) link.send(memberText(id, result, link.protocolVersion ?? PROTOCOL_VERSION));
       };
       const replyCity = (id: number, result: HouseCityResult): void => {
         if (!closed) link.send(cityText(id, result));

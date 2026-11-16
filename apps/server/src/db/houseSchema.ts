@@ -121,6 +121,12 @@ export const houseHomes = pgTable("house_homes", {
   cityId: bigint("city_id", { mode: "number" }).notNull(),
   /** 소속 도시를 마지막으로 정한 시각(창설 포함 — 다시 바꾸기 대기 house_home_wait_ms가 센다) */
   setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
+  /**
+   * 공고한 새 소속 도시(D-570 "가문장이 미리 공고하고 원치않은 가문세력원은 탈퇴한다")와 옮기는 시각(공고 + 설정 칸 house_home_notice_ms). 둘 다
+   * 있거나 둘 다 null. 그 시각이 지나면 서버가 가문 모두를 옮기고 비운다(factionIdentity/houseMoves.ts). 외래 키 없음(폐허가 되면 옮기지 않고 비운다)
+   */
+  pendingCityId: bigint("pending_city_id", { mode: "number" }),
+  pendingAtMs: bigint("pending_at_ms", { mode: "number" }),
 });
 
 /**
@@ -142,4 +148,34 @@ export const houseUnits = pgTable(
     index("house_units_faction_idx").on(table.factionId),
     index("house_units_user_idx").on(table.userId),
   ],
+);
+
+/**
+ * NPC 도시의 가문(기획 D-569 "도시국가든 도시의 가문들이 존재하며 가문장이 유닛을 고용한다"·D-212 NPC도 같은 규칙, 질문 1848 답): NPC 도시마다
+ * 하나 [임시 질문 2011]. 세력 행(factions)이 아니다 — NPC 사회 런타임·나라 목록이 세력 행을 읽어 NPC 세력으로 세지 않게 따로 둔다. 나라 = 그
+ * 도시의 지금 주인, 가문장 = 그 도시 시장(world_cities.mayor_unit_id — 저장하지 않고 읽을 때 본다). 이름 = 세울 때 시장의 성(그 나라 팩 휴먼
+ * 이름 목록), 없으면 도시 이름. 도시가 폐허가 되어도 남는다(외래 키 없음 — 같은 도시 ID로 복원되면 그 가문). ID는 서버가 정한다(NPC 런타임
+ * 하나만 만든다, npc/cityHouses.ts). 세계 표(시험 세계 새로 시작에서 지운다)
+ */
+export const npcHouses = pgTable("npc_houses", {
+  id: bigint("id", { mode: "number" }).primaryKey(),
+  cityId: bigint("city_id", { mode: "number" }).notNull().unique(),
+  name: text("name").notNull(),
+  foundedAtMs: bigint("founded_at_ms", { mode: "number" }).notNull(),
+});
+
+/**
+ * NPC 휴먼의 가문(D-569 — 생성될 때 그 도시 가문에 든다): 휴먼마다 한 줄, 한 번 들면 그대로다(사는 도시가 바뀌어도). 유닛 외래 키는 house_units와
+ * 같은 까닭으로 두지 않는다 — 죽은 휴먼 줄은 런타임이 지우고, 남은 것은 켤 때 휴먼 행이 없는 줄을 지운다(npc/cityHouses.ts). 쓰기 대기열이 묶어 쓴다
+ */
+export const npcHouseUnits = pgTable(
+  "npc_house_units",
+  {
+    unitId: bigint("unit_id", { mode: "number" }).primaryKey(),
+    houseId: bigint("house_id", { mode: "number" })
+      .notNull()
+      .references(() => npcHouses.id, { onDelete: "cascade" }),
+    setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [index("npc_house_units_house_idx").on(table.houseId)],
 );

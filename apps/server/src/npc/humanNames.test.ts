@@ -1,6 +1,6 @@
 // NPC 휴먼 이름 시험 — 기획 답 773 나(이름 규칙 + 목록 콘텐츠), docs/adr/2026-11-07-play-flow.md "WP-NPC4".
 import { describe, expect, it } from "vitest";
-import { humanNameOf } from "./humanNames.ts";
+import { humanFamilyOf, humanNameOf } from "./humanNames.ts";
 
 const lists = { given: ["Alda", "Bren", "Corin", "Dela"], family: ["Ashby", "Brook", "Reed"] };
 
@@ -25,5 +25,18 @@ describe("humanNameOf", () => {
     expect(lists.given).toContain(humanNameOf({ given: lists.given, family: [] }, 5));
     expect(humanNameOf({ given: [], family: lists.family }, 5)).toBeUndefined();
     expect(humanNameOf(undefined, 5)).toBeUndefined();
+  });
+});
+
+describe("humanFamilyOf", () => {
+  it("이름과 같은 해시의 성(NPC 도시 가문 이름), 성 목록이 비면 이름, 이름 목록도 비면 undefined", () => {
+    for (const unitId of [1, 2, 77]) {
+      const family = humanFamilyOf(lists, unitId);
+      expect(String(humanNameOf(lists, unitId)).endsWith(` ${String(family)}`)).toBe(true);
+    }
+    expect(humanFamilyOf({ given: lists.given, family: [] }, 5)).toBe(
+      humanNameOf({ given: lists.given, family: [] }, 5),
+    );
+    expect(humanFamilyOf(undefined, 5)).toBeUndefined();
   });
 });

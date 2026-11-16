@@ -117,6 +117,8 @@ export {
   HOUSE_CITY_PROTOCOL_VERSION,
   HOUSE_CITY_RESULT_CODES,
   HOUSE_HOME_PROTOCOL_VERSION,
+  HOUSE_HOME_NOTICE_PROTOCOL_VERSION,
+  legacyHouseMemberAction,
   HOUSE_REGIMES,
   type HouseCityMode,
   type HouseCityResultCode,

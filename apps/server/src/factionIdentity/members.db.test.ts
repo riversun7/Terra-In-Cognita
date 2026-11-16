@@ -9,6 +9,7 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { attachHouseTies } from "../world/houseTies.ts";
 import { createHouseFounder, nationFromDb } from "./found.ts";
 import { createHouseHome } from "./houseHome.ts";
+import { createHouseMoves } from "./houseMoves.ts";
 import { createHouseInboxProviders } from "./houseInbox.ts";
 import { createHouseMembers } from "./members.ts";
 import { type HouseRules, TEST_HOUSE_RULES } from "./rules.ts";
@@ -365,26 +366,89 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
     expect(await home.set(leader, 999_999)).toEqual({ ok: false, code: "unknown_city" });
     expect(await home.set(leader, 911)).toEqual({ ok: false, code: "home_wait" });
     clock += rules.homeWaitMs;
-    expect(await home.set(leader, 911)).toEqual({ ok: true, action: "home_set", factionId: houseId });
+    // 공고(D-570): 바로 옮기지 않고 공고 기간 뒤 가문 모두가 옮긴다. 가문원에게 공고 소식, 가문 나라는 아직 그대로
+    expect(await home.set(leader, 911)).toEqual({ ok: true, action: "home_announced", factionId: houseId });
+    expect(await rows(test.db, "select born_of from factions where id = $1", [houseId])).toEqual([
+      { born_of: String(nationB) },
+    ]);
+    expect(await noticeKinds(member)).toEqual(["home_announced"]);
+    expect((await view(member)).home?.pending).toMatchObject({
+      city: { id: 911, nationId: nationA },
+      at: clock + rules.homeNoticeMs,
+      terms: "0",
+    });
+    expect(await home.set(leader, 911)).toEqual({ ok: false, code: "same_city" });
+    const moves = createHouseMoves({ pool: test.db.$client, db: test.db, now: () => clock });
+    expect(await moves.applyDue()).toBe(0);
+    clock += rules.homeNoticeMs;
+    expect(await moves.applyDue()).toBe(1);
     expect(await rows(test.db, "select born_of from factions where id = $1", [houseId])).toEqual([
       { born_of: String(nationA) },
     ]);
-    expect(await noticeKinds(member)).toEqual(["home_changed"]);
+    expect(
+      await rows(
+        test.db,
+        "select city_id, set_at_ms, pending_city_id, pending_at_ms from house_homes where faction_id = $1",
+        [houseId],
+      ),
+    ).toEqual([{ city_id: "911", set_at_ms: String(clock), pending_city_id: null, pending_at_ms: null }]);
+    expect(await noticeKinds(member)).toEqual(["home_changed", "home_announced"]);
+    expect((await view(member)).home?.pending).toBeNull();
     await ties.reload();
     expect(ties.memberNationOf(member)).toBe(nationA);
     const audit = await rows<{ after: unknown }>(
       test.db,
-      "select after from audit_log where action = 'faction.house_home' and target_id = $1",
+      "select after from audit_log where action = 'faction.house_home' and target_id = $1 order by id",
       [leader],
     );
     expect(audit).toMatchObject([
-      { after: { factionId: houseId, beforeCity: 912, city: 911, nation: nationA } },
+      { after: { factionId: houseId, beforeCity: 912, announced: 911, nation: nationA } },
+      { after: { factionId: houseId, beforeNation: nationB, city: 911, nation: nationA, paid: "0" } },
     ]);
     // 도시를 가진 가문(소유 주체가 있음)은 아직 바꾸지 못한다
     clock += rules.homeWaitMs;
     await sql("insert into world_owners (id, faction_id, settled_at_ms) values (99001, $1, 0)", [houseId]);
     expect(await home.set(leader, 912)).toEqual({ ok: false, code: "has_city" });
     expect((await view(leader)).home?.locked).toBe(true);
+  });
+
+  it("소속 도시 공고(D-570): 다시 고르면 새 공고, 지금 도시를 고르면 거둠, 그 사이 가문원이 나가면 남은 가문만 옮김, 도시를 얻으면 공고를 거둠", async () => {
+    const leader = await citizen("Movea8", nationA);
+    const houseId = await found(leader, "이사가문", "MOV");
+    const member = await citizen("Moveb8", nationA);
+    const leaver = await citizen("Movec8", nationA);
+    for (const name of ["Moveb8", "Movec8"]) await members().invite(leader, name);
+    for (const id of [member, leaver]) await members().answer(id, (await view(id)).offers[0]?.id ?? 0, true);
+    const home = createHouseHome({ ...deps(), rules: () => rules });
+    const moves = createHouseMoves({ pool: test.db.$client, db: test.db, now: () => clock });
+    clock += rules.homeWaitMs;
+    expect(await home.set(leader, 912)).toMatchObject({ ok: true, action: "home_announced" });
+    // 공고 중 지금 도시(911)를 고르면 거둔다
+    expect(await home.set(leader, 911)).toMatchObject({ ok: true, action: "home_cancelled" });
+    expect((await view(member)).home?.pending).toBeNull();
+    expect(await noticeKinds(member)).toEqual(["home_cancelled", "home_announced"]);
+    // 다시 공고 → 원치 않는 가문원은 나간다 → 공고 기간 뒤 남은 가문만 옮긴다(나간 사람의 나라는 그대로)
+    expect(await home.set(leader, 912)).toMatchObject({ ok: true, action: "home_announced" });
+    expect(await members().leave(leaver)).toMatchObject({ ok: true, action: "left" });
+    clock += rules.homeNoticeMs;
+    expect(await moves.applyDue()).toBe(1);
+    const ties = attachHouseTies({}, test.db.$client);
+    await ties.reload();
+    expect(ties.memberNationOf(member)).toBe(nationB);
+    expect(ties.houseOfUser(leaver)).toBeUndefined();
+    expect(await nationOf(leaver)).toBe(nationA);
+    // 공고 사이에 도시를 얻으면 옮기지 않고 거둔다(has_city)
+    clock += rules.homeWaitMs;
+    expect(await home.set(leader, 911)).toMatchObject({ ok: true, action: "home_announced" });
+    await sql("insert into world_owners (id, faction_id, settled_at_ms) values (99002, $1, 0)", [houseId]);
+    clock += rules.homeNoticeMs;
+    expect(await moves.applyDue()).toBe(0);
+    expect(
+      await rows(test.db, "select city_id, pending_city_id from house_homes where faction_id = $1", [
+        houseId,
+      ]),
+    ).toEqual([{ city_id: "912", pending_city_id: null }]);
+    expect((await view(member)).notices[0]).toMatchObject({ kind: "home_cancelled", reason: "has_city" });
   });
 
   it('운영자 이름 되돌리기(986 가): "가문 #ID"·세력 정체성도·신고 지움·주인에게 사유 소식·대기 없이 다시 정함·감사 기록', async () => {

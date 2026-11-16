@@ -20,6 +20,7 @@ import {
   normalizeEmblem,
 } from "@terra/shared/nationEmblem";
 import type { NationPreset } from "../npc/nations.ts";
+import { houseEntryTermsOf } from "./houseEntry.ts";
 import { cityHome, cyborgCityOf, homeChoices, houseHasCity, houseHomeRow } from "./houseHome.ts";
 import { membershipOf } from "./members.ts";
 import type { HouseRules } from "./rules.ts";
@@ -130,16 +131,25 @@ async function homeView(
       waitMs,
       locked: false,
       choices: [],
+      pending: null,
+      noticeMs: input.rules.homeNoticeMs,
     };
   }
   const row = await houseHomeRow(q, house.factionId);
   const changeAt = row && house.leader ? row.setAtMs + waitMs : null;
+  const city = row ? await cityHome(q, row.cityId, input.presets) : null;
+  // 공고한 새 소속 도시(D-570)와 그 나라 정책(나라가 바뀔 때만 — 가문원마다 + 가입비 / − 지원금)
+  const target = row?.pending ? await cityHome(q, row.pending.cityId, input.presets) : null;
+  const terms =
+    target && target.nationId !== city?.nationId ? await houseEntryTermsOf(q, target.nationId) : 0n;
   return {
-    city: row ? await cityHome(q, row.cityId, input.presets) : null,
+    city,
     changeAt: changeAt !== null && changeAt > input.nowMs ? changeAt : null,
     waitMs,
     locked: await houseHasCity(q, house.factionId),
     choices: house.leader ? await homeChoices(q, input.presets) : [],
+    pending: target && row?.pending ? { city: target, at: row.pending.atMs, terms: terms.toString() } : null,
+    noticeMs: input.rules.homeNoticeMs,
   };
 }
 

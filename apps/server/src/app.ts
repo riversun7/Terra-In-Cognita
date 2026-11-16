@@ -833,6 +833,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       })
     : undefined;
   const houseGateway = houses?.gateway;
+  if (houses) app.addHook("onClose", async () => houses.stop());
   // 국적 바꾸기(docs/adr/2026-11-08-citizenship.md): 세계가 준비되고 NPC 사회 런타임이 돌 때만(서비스가 busy로 답한다). 가문은 따라가지 않는다(D-565)
   const citizenshipGateway = world
     ? createCitizenshipGateway({

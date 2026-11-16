@@ -81,9 +81,16 @@ export interface MapUnitSource {
    * (docs/adr/2026-11-07-play-flow.md "WP-NPC4"). 없으면 NPC 휴먼도 시험 유닛으로 보인다
    */
   npcHuman?:
-    | ((
-        unitId: number,
-      ) => { readonly name: string | undefined; readonly guard?: boolean | undefined } | undefined)
+    | ((unitId: number) =>
+        | {
+            readonly name: string | undefined;
+            readonly guard?: boolean | undefined;
+            /** NPC 도시 가문(질문 1848 답, npc/cityHouses.ts). 없으면 undefined */
+            readonly house?:
+              | { readonly id: number; readonly name: string; readonly leader: boolean }
+              | undefined;
+          }
+        | undefined)
     | undefined;
   /**
    * 유닛의 1차 스탯(입은 장비·버프 포함, 직무 산출과 같은 값 — holdings primariesOf). 고른 유닛의 추천 줄이 읽는다
@@ -352,6 +359,15 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
             ...ownerPart,
             ...(human.name === undefined ? {} : { name: { ko: human.name, en: human.name } }),
             ...(human.guard === true ? { guard: true as const } : {}),
+            ...(human.house
+              ? {
+                  npcHouse: {
+                    id: human.house.id,
+                    name: human.house.name,
+                    ...(human.house.leader ? { leader: true as const } : {}),
+                  },
+                }
+              : {}),
           },
         };
       return {

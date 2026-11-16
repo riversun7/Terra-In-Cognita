@@ -82,6 +82,9 @@ export const HOUSE_NOTICE_KINDS = [
   "leader_changed",
   "city_gained",
   "home_changed",
+  // D-570: 가문장이 새 소속 도시를 공고함(reason = 새 도시 이름)·공고를 거둠(reason = has_city·unknown_city면 서버가 거둠, 없으면 가문장)
+  "home_announced",
+  "home_cancelled",
 ] as const;
 export type HouseNoticeKind = (typeof HOUSE_NOTICE_KINDS)[number];
 
@@ -196,6 +199,13 @@ export interface HouseHomeView {
   readonly locked: boolean;
   /** 고를 수 있는 도시(가문장만 받는다 — 가문원·무소속은 빈 목록. 무소속이 가문을 만들 때는 factionIdentity.mine의 homeChoices) */
   readonly choices: readonly HouseHomeCity[];
+  /**
+   * 공고한 새 소속 도시(D-570 — at이 지나면 가문 모두가 옮긴다. 원치 않는 가문원은 그 사이 나간다). terms = 그 나라 정책의 가문원마다 값(10진
+   * 문자열 최소 단위, + 가입비 / − 지원금, "0" = 없음). 공고가 없으면 null. 옛 서버는 보내지 않는다
+   */
+  readonly pending?: { readonly city: HouseHomeCity; readonly at: number; readonly terms: string } | null;
+  /** 공고 기간(ms, 설정 칸 house_home_notice_ms — 0이면 바로 옮긴다). 옛 서버는 보내지 않는다 */
+  readonly noticeMs?: number;
 }
 
 /** 소속 도시 후보 상한(나라·도시 ID 차례) */

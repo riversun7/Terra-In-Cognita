@@ -25,6 +25,8 @@ export interface HouseRules {
   readonly villageHousing: number;
   /** 가문 소속 도시 바꾸기 대기(ms, 0 = 바로 — 기획 D-565, 질문 1741) */
   readonly homeWaitMs: number;
+  /** 가문 소속 도시 바꾸기 공고 기간(ms, 0 = 바로 옮김 — 기획 D-570) */
+  readonly homeNoticeMs: number;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -47,6 +49,7 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
     villageCost: BigInt(whole(h.villageCost)),
     villageHousing: atLeastOne(h.villageHousing),
     homeWaitMs: whole(h.homeWaitMs),
+    homeNoticeMs: whole(h.homeNoticeMs),
   };
 }
 

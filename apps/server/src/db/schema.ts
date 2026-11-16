@@ -409,14 +409,12 @@ export const factions = pgTable(
     regime: text("regime").notNull().default("democracy"),
     /** 고정 세력(D-324: 해산·멸망 처리를 하지 않는다) */
     fixed: boolean("fixed").notNull().default(false),
-    /** 기술 단계·설계도(가장 높았던 단계, 질문 121·D-396) */
+    /** 기술 단계·설계도(가장 높았던 단계, 질문 121·D-396)·다음 단계로 쌓은 연구 작업량(질문 121, ADR 2026-11-01-npc-brain-r5 7절) */
     techLevel: smallint("tech_level").notNull().default(1),
     techBlueprint: smallint("tech_blueprint").notNull().default(1),
-    /** 다음 기술 단계로 쌓은 연구 작업량(질문 121, NPC 사회 런타임 docs/adr/2026-11-01-npc-brain-r5.md 7절) */
     researchProgress: integer("research_progress").notNull().default(0),
-    /** NPC 성향 4축(공격·상업·신앙·정거장, D-327, 칸마다 0~1000). null = 아직 굴리지 않음(서버가 굴려 채운다) */
+    /** NPC 성향 4축(공격·상업·신앙·정거장, D-327, 칸마다 0~1000, null = 아직 — 서버가 굴려 채운다)·NPC 판단 횟수(판단 난수의 차례) */
     traits: smallint("traits").array(),
-    /** NPC 판단 횟수(판단 난수의 차례) */
     aiStep: integer("ai_step").notNull().default(0),
     /** 사라진 시각(유동 세력, D-294). 고정 세력은 사라지지 않는다 */
     dissolvedAtMs: bigint("dissolved_at_ms", { mode: "number" }),
@@ -428,6 +426,8 @@ export const factions = pgTable(
     capitalCityId: bigint("capital_city_id", { mode: "number" }),
     /** 그 나라가 정한 귀화 조건(D-526, 부호 있는 최소 단위: + 입회비 / − 지원금). null = 설정 칸 기본값(NPC 국가는 늘 null) */
     naturalizeFee: bigint("naturalize_fee", { mode: "bigint" }),
+    /** 가문이 이 나라 도시로 옮겨 올 때 가문원마다(D-570, 부호 있는 최소 단위: + 가입비 / − 지원금). null = 0. factionIdentity/houseMoves.ts */
+    houseEntryFee: bigint("house_entry_fee", { mode: "bigint" }),
     /** 가문 도시 자동 구인(질문 1041 다, docs/adr/2026-11-11-house-village.md "바뀜 (2026-11-12)"). 가문장이 끄면 손으로만 산다. NPC 세력은 쓰지 않는다 */
     recruitAuto: boolean("recruit_auto").notNull().default(true),
   },

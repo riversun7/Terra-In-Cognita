@@ -19,6 +19,7 @@
 //   시각, 그 전까지는 돈다). 재정이 안정되면(적자를 다 갚고 금고가 다음 정산까지 낼 임금을 덮으면) 다시 돈다. 새 임금형 계약은 금고에 한 주기 임금이
 //   없거나 멈춘 사업장이면 맺지 않는다(fundDeposit = undefined — 고용을 막는다, 적자로 미리 넣지 않는다).
 // - 쓰기는 월드 쓰기 대기열(원장 고리와 같은 묶음). 거래에 중복 방지 키를 달지 않는다(자동 정산 주기는 business_states.settled_at_ms로 한 번만).
+import { houseTaxerOf } from "../factionIdentity/houseTax.ts";
 import {
   type ShareHolder,
   businessDebtCode,
@@ -408,8 +409,16 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
       const split = splitByShares(amount, owners);
       if (split.size === 0) continue;
       const entries = [{ account: vault(ownerId, asset, buildingId), amount: -amount }];
-      for (const [holder, part] of [...split].toSorted((a, b) => a[0] - b[0]))
-        if (part > 0n) entries.push({ account: ledger.ownerAccount(holder, asset), amount: part });
+      // 가문세(D-574 2150 — 받는 사람이 가문원이면 그 가문 세율만큼 가문 금고로, factionIdentity/houseTax.ts)
+      const taxer = houseTaxerOf(ledger);
+      for (const [holder, part] of [...split].toSorted((a, b) => a[0] - b[0])) {
+        if (part <= 0n) continue;
+        const cut = taxer?.ownerTax(holder, asset, part);
+        const tax = cut && cut.tax <= part ? cut.tax : 0n;
+        if (part - tax > 0n)
+          entries.push({ account: ledger.ownerAccount(holder, asset), amount: part - tax });
+        if (cut && tax > 0n) entries.push({ account: cut.account, amount: tax });
+      }
       ledger.post({ kind: "business_settle", atMs, entries });
       paid.set(asset, amount);
     }

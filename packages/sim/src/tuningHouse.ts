@@ -124,6 +124,29 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 나라 가문 이동 지원금 최대(최소 단위)",
     "NPC nation house entry grant max (minor units)",
   ),
+  // 가문세 상한·가문 도시 짓기 기본값·NPC 지배 가문 금고 국고 돌려보내기(D-574 2150·2124, 2223 고침) — 49에 칸이 없다
+  k("house_tax_max_pm", "", "house.taxMaxPm", "가문세율 상한(‰)", "House tax rate cap (‰)"),
+  k(
+    "house_city_build_default",
+    "",
+    "house.cityBuildDefault",
+    "가문 도시에 같은 나라 다른 가문 짓기 기본값(1 = 허용)",
+    "Other houses may build in a house city by default (1 = yes)",
+  ),
+  k(
+    "house_npc_vault_return_min_pm",
+    "",
+    "house.npcVaultReturnMinPm",
+    "NPC 지배 가문 금고 → 국고 몫 최소(‰, 상업 성향 높음)",
+    "NPC ruling house vault to treasury min (‰, high commerce)",
+  ),
+  k(
+    "house_npc_vault_return_max_pm",
+    "",
+    "house.npcVaultReturnMaxPm",
+    "NPC 지배 가문 금고 → 국고 몫 최대(‰, 상업 성향 낮음)",
+    "NPC ruling house vault to treasury max (‰, low commerce)",
+  ),
   // NPC 도시의 가문 수(D-573 — 도시 등급마다)
   ...CITY_GRADES.map(([ko, en], index) =>
     k(

@@ -61,6 +61,23 @@ export interface GovernmentNation {
   readonly mine: boolean;
   /** 거래세(만분율, 그 나라 지금 세율 — NPC 세율 규칙식이 바꾼다). 도시 경제가 돌지 않으면 null */
   readonly taxBp: number | null;
+  /** 정권 체제(D-217 — 독재·민주주의·자본주의). 모르면 null·없음(옛 서버) */
+  readonly regime?: GovernmentRegime | null;
+}
+
+/** 정권 체제(D-217) */
+export type GovernmentRegime = "dictatorship" | "democracy" | "capitalism";
+
+/**
+ * 나라를 누가 이끄나(기획 D-574 10 "지분(자본주의), 투표(민주주의), 독재자" — D-217): dictator = 독재자(지배 가문의 장)가 정함, vote = 소속 가문들의
+ * 투표, shares = 지분 비례 투표(의결권 = 지분)
+ */
+export type GovernmentLeaderRule = "dictator" | "vote" | "shares";
+
+/** 체제 → 이끄는 방식(D-217 표) */
+export function leaderRuleOf(regime: GovernmentRegime): GovernmentLeaderRule {
+  if (regime === "democracy") return "vote";
+  return regime === "capitalism" ? "shares" : "dictator";
 }
 
 /**
@@ -78,12 +95,17 @@ export interface GovernmentLeader {
    * 지도자가 이끄는 지배 가문(질문 2012 답): NPC 나라는 수도 NPC 가문(이름 = 성, npc), 플레이어 나라는 그 가문 이름. 모르면 null·없음(옛 서버)
    */
   readonly house?: { readonly name: string; readonly npc: boolean } | null;
+  /**
+   * 나라를 이끄는 방식(D-574 10·D-217 — leaderRuleOf). 독재면 이 지도자(지배 가문의 장)가 독재자, 민주주의·자본주의면 투표로 정하고 이 지도자는 지배
+   * 가문의 장으로서 나라를 대표한다([임시] 투표·지분 의결 규칙이 아직 없다 — 질문 2254). 모르면 없음(옛 서버)
+   */
+  readonly rule?: GovernmentLeaderRule | undefined;
 }
 
 /**
  * 가문 이동 정책(기획 D-570 "해당 국가나 도시의 정책 — 지원금이 있을지 가입비가 있을지"·D-526 받는 쪽이 정함, 질문 2018 답): 가문이 이 도시로
- * 소속 도시를 옮길 때 가문원마다 매기는 값(+ 가입비 / − 지원금, 10진 최소 단위). 도시 값이 있으면 그것(나라가 같아도), 없으면 다른 나라에서
- * 옮겨 올 때 나라 값
+ * 소속 도시를 옮길 때 가문원마다 매기는 값(+ 가입비 / − 지원금, 10진 최소 단위). 바뀜(D-574 2142 "별개"): 도시 값(나라가 같아도)과 다른 나라에서
+ * 옮겨 올 때 나라 값을 둘 다 매긴다
  */
 export interface GovernmentHouseEntry {
   /** 이 도시가 정한 값. 정하지 않았으면 null(나라 값을 따른다) */
@@ -95,6 +117,11 @@ export interface GovernmentHouseEntry {
   /** 보는 사람이 정할 수 있나: 도시 = 이 도시를 가진 가문의 가문장, 나라 = 이 나라(독립 가문)의 가문장 */
   readonly canSetCity: boolean;
   readonly canSetNation: boolean;
+  /**
+   * 같은 나라 다른 가문이 이 도시에 짓게 하나(D-574 2124 — 그 도시 가문의 정책, 자기 가문은 늘 짓는다. 가문 도시에서만 뜻이 있다): city = 이 도시가
+   * 정한 값(null = 정하지 않음), fallback = 정하지 않았을 때(설정 칸 house_city_build_default). 정하는 사람 = canSetCity. 옛 서버는 보내지 않는다
+   */
+  readonly build?: { readonly city: boolean | null; readonly fallback: boolean } | undefined;
 }
 
 /**

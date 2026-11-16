@@ -367,6 +367,10 @@ export interface SocietyCoefficients {
    *   npcHouseEntryFee): 상업 성향 가장 높음 = 가문원마다 가입비 npcEntryFeeMax, 가장 낮음 = 지원금 npcEntryGrantMax(최소 단위). [임시] 출발값.
    * - npcCityHouses: NPC 도시의 가문 수(D-573 "도시 크기(도시 등급)에 따라 여럿") — 도시 등급(territory.gradeAtDevelopment, 마을·읍·소도시·도시·
    *   대도시·거대도시) 차례로 6칸, 1 이상. [임시] 출발값 1·1·2·3·4·5(서버 npc/cityHouses.ts).
+   * - taxMaxPm: 가문세율 상한(‰, D-574 2150 — 가문장이 0~이 값에서 정한다). [임시] 출발값 300.
+   * - cityBuildDefault: 가문 도시가 같은 나라 다른 가문의 짓기를 정하지 않았을 때(D-574 2124): 1 = 허용, 0 = 막음. [임시] 출발값 1(질문 2251).
+   * - npcVaultReturnMinPm·npcVaultReturnMaxPm: 독재 NPC 나라의 지배 가문 금고에 든 남은 이익 가운데 국고로 돌려보내는 몫(‰, 2223 고침 — 상업 성향
+   *   가장 높음 = min, 가장 낮음 = max, npc/policy.ts npcRulingVaultReturnPm). [임시] 출발값 300·900.
    */
   readonly house: {
     readonly shortMin: number;
@@ -386,6 +390,10 @@ export interface SocietyCoefficients {
     readonly npcEntryFeeMax: number;
     readonly npcEntryGrantMax: number;
     readonly npcCityHouses: readonly number[];
+    readonly taxMaxPm: number;
+    readonly cityBuildDefault: number;
+    readonly npcVaultReturnMinPm: number;
+    readonly npcVaultReturnMaxPm: number;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -623,6 +631,10 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     npcEntryFeeMax: 100,
     npcEntryGrantMax: 100,
     npcCityHouses: [1, 1, 2, 3, 4, 5],
+    taxMaxPm: 300,
+    cityBuildDefault: 1,
+    npcVaultReturnMinPm: 300,
+    npcVaultReturnMaxPm: 900,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

@@ -19,12 +19,17 @@ import type { HouseFounder, HouseFoundResult } from "./found.ts";
 import type { HouseCityResult, HouseCityService } from "./houseCity.ts";
 import type { HouseEntryPolicyService } from "./houseEntryPolicy.ts";
 import type { HouseHomeService } from "./houseHome.ts";
+import type { HousePolicyService } from "./housePolicy.ts";
 import type { HouseMemberResult, HouseMembers } from "./members.ts";
 import type { HouseRecruitResult, HouseRecruitService } from "./houseRecruit.ts";
 import type { HouseSuccession } from "./succession.ts";
 
 export type HouseMemberClientMessage = ClientMessageOf<
   | "house_invite"
+  | "house_donate"
+  | "house_vault_take"
+  | "house_tax"
+  | "house_build_policy"
   | "house_apply"
   | "house_answer"
   | "house_withdraw"
@@ -120,6 +125,17 @@ const fail = (code: HouseResultCode): HouseFoundResult => ({ ok: false, code });
 const cityFail = (code: HouseCityResultCode): HouseCityResult => ({ ok: false, code });
 const memberFail = (code: HouseMemberResultCode): HouseMemberResult => ({ ok: false, code });
 
+/** 해산한 뒤 남은 가문 금고 돈은 가문장 지갑으로(D-576 — 기획 해석, housePolicy.ts vaultToLeader) */
+async function dissolveWithVault(
+  succession: HouseSuccession,
+  policy: HousePolicyService | undefined,
+  userId: string,
+): Promise<HouseMemberResult> {
+  const result = await succession.dissolve(userId);
+  if (result.ok) await policy?.vaultToLeader(userId, result.factionId);
+  return result;
+}
+
 /** 가입 메시지 하나를 서비스에 넘긴다 */
 function runMember(
   members: HouseMembers,
@@ -128,8 +144,20 @@ function runMember(
   userId: string,
   message: HouseMemberClientMessage,
   entryPolicy?: HouseEntryPolicyService,
+  policy?: HousePolicyService,
 ): Promise<HouseMemberResult> {
   switch (message.t) {
+    // 가문 금고 기부·가문세율·도시 짓기 정책(프로토콜 64, D-574 — housePolicy.ts)
+    case "house_donate":
+      return policy ? policy.donate(userId, BigInt(message.amount)) : Promise.resolve(memberFail("busy"));
+    case "house_vault_take":
+      return policy ? policy.take(userId, BigInt(message.amount)) : Promise.resolve(memberFail("busy"));
+    case "house_tax":
+      return policy ? policy.setTax(userId, message.ratePm) : Promise.resolve(memberFail("busy"));
+    case "house_build_policy":
+      return policy
+        ? policy.setBuild(userId, message.cityId, message.allow)
+        : Promise.resolve(memberFail("busy"));
     case "house_entry_policy":
       return entryPolicy
         ? entryPolicy.set(userId, { scope: message.scope, cityId: message.cityId, fee: message.fee })
@@ -139,7 +167,7 @@ function runMember(
     case "house_handover":
       return succession ? succession.handover(userId, message.userId) : Promise.resolve(memberFail("busy"));
     case "house_dissolve":
-      return succession ? succession.dissolve(userId) : Promise.resolve(memberFail("busy"));
+      return succession ? dissolveWithVault(succession, policy, userId) : Promise.resolve(memberFail("busy"));
     case "house_invite":
       return members.invite(userId, message.name);
     case "house_apply":
@@ -171,6 +199,8 @@ export function createHouseGateway(options: {
   home?: (() => HouseHomeService | undefined) | undefined;
   /** 가문 이동 정책 정하기(프로토콜 50, 질문 2018 답, 없으면 busy) */
   entryPolicy?: (() => HouseEntryPolicyService | undefined) | undefined;
+  /** 가문 금고 기부·가문세율·도시 짓기 정책(프로토콜 64, D-574, 없으면 busy) */
+  policy?: (() => HousePolicyService | undefined) | undefined;
   /** 창설·가입·넘기기·해산·소속 도시가 성공한 뒤(시야 묶음·가문 표 다시 읽기 — 가문원 나라·구인 자격이 바뀐다) */
   afterMembership?: (() => Promise<void>) | undefined;
   now: () => number;
@@ -258,6 +288,7 @@ export function createHouseGateway(options: {
           viewer.id,
           message,
           options.entryPolicy?.(),
+          options.policy?.(),
         );
         if (result.ok) {
           options.log.info(

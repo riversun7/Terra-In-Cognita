@@ -195,3 +195,28 @@ export function npcHouseEntryFee(
   if (lead2 < 0) return -Math.floor((Math.max(0, Math.trunc(limits.grantMax)) * -lead2) / span2);
   return 0;
 }
+
+/** ‰ 값(0~1000, 정수) */
+const clampPm = (value: number): number => Math.min(1000, Math.max(0, Math.trunc(value)));
+
+/**
+ * NPC 지배 가문 금고에서 국고로 돌려보내는 몫(‰) — 기획 대조 2223 고침(D-338 "도시 세금의 남은 이익은 지배 가문 금고로"·D-555 1509 "NPC만으로도
+ * 똑같이"·D-574 지배 가문 = 수도의 첫 가문·D-554 "세력 성향마다 다양한 변수"). 상업 성향(D-327)이 낮을수록 금고 돈을 국고 지원으로 더 돌려보내고
+ * (가장 낮음 = maxPm), 높을수록 가문 금고에 더 쌓는다(가장 높음 = minPm). 둘 사이는 선형. 서버가 독재 NPC 나라의 남은 이익을 금고에 넣은 뒤 쓴다
+ * (시뮬은 가문 층이 없어 부르지 않는다). 국고가 마르지 않게 하는 길이다 [임시 — 질문 2255]
+ */
+export function npcRulingVaultReturnPm(
+  commerce: number,
+  c: Pick<NpcCoefficients, "traitMin" | "traitMax">,
+  limits: { readonly minPm: number; readonly maxPm: number },
+): number {
+  const low = clampPm(Math.min(limits.minPm, limits.maxPm));
+  const high = clampPm(Math.max(limits.minPm, limits.maxPm));
+  const min = Math.min(c.traitMin, c.traitMax);
+  const max = Math.max(c.traitMin, c.traitMax);
+  const span = max - min;
+  if (span <= 0) return high;
+  const value = Math.min(max, Math.max(min, Number.isFinite(commerce) ? Math.trunc(commerce) : min));
+  // 상업 성향이 높을수록 low 쪽(정수 나눗셈 — 결정적)
+  return high - Math.floor(((high - low) * (value - min)) / span);
+}

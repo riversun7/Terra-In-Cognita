@@ -34,9 +34,17 @@ export interface HouseRules {
     readonly feeMax: number;
     readonly grantMax: number;
   };
+  /** 가문세율 상한(‰, 0~1000 — D-574 2150) */
+  readonly taxMaxPm: number;
+  /** 가문 도시가 같은 나라 다른 가문 짓기를 정하지 않았을 때 허용하나(D-574 2124) */
+  readonly cityBuildDefault: boolean;
+  /** 독재 NPC 나라 지배 가문 금고 → 국고 몫(‰, 상업 성향 높음 = minPm·낮음 = maxPm — 2223 고침, @terra/sim npcRulingVaultReturnPm) */
+  readonly npcVaultReturn: { readonly minPm: number; readonly maxPm: number };
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
+/** ‰ 칸(0~1000) */
+const permille = (value: number): number => Math.min(1000, whole(value));
 /** 1 이상(틀리거나 0이면 1 — 상한이 0이면 아무도 들 수 없어 가문장만 남는다) */
 const atLeastOne = (value: number): number => Math.max(1, whole(value));
 
@@ -63,6 +71,9 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
       feeMax: whole(h.npcEntryFeeMax),
       grantMax: whole(h.npcEntryGrantMax),
     },
+    taxMaxPm: permille(h.taxMaxPm),
+    cityBuildDefault: h.cityBuildDefault !== 0,
+    npcVaultReturn: { minPm: permille(h.npcVaultReturnMinPm), maxPm: permille(h.npcVaultReturnMaxPm) },
   };
 }
 

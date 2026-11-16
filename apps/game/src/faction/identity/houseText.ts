@@ -37,6 +37,8 @@ export const HOUSE_MEMBER_ERROR_TEXT: Readonly<Record<HouseMemberResultCode | "o
     home_wait: m.fid_home_error_wait,
     not_ruler: m.fid_house_error_not_ruler,
     entry_fee_short: m.fid_home_error_entry_fee,
+    insufficient_funds: m.fid_house_error_insufficient_funds,
+    tax_too_high: m.fid_house_error_tax_too_high,
     offline: m.fid_found_offline,
     timeout: m.fid_found_offline,
   };
@@ -57,6 +59,10 @@ export const HOUSE_ACTION_TEXT: Readonly<Record<HouseMemberAction | "accepted", 
   home_announced: m.fid_home_done_announced,
   home_cancelled: m.fid_home_done_cancelled,
   entry_policy_set: m.fid_house_done_entry_policy,
+  donated: m.fid_house_done_donated,
+  vault_taken: m.fid_house_done_vault_taken,
+  tax_set: m.fid_house_done_tax_set,
+  build_policy_set: m.fid_house_done_build_policy,
 };
 
 /** 가문 도시 명령 결과 코드 → 문장(질문 1005 가) */

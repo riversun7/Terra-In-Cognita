@@ -46,7 +46,9 @@ function source(overrides: Partial<GovernmentSource> = {}): GovernmentSource {
     [3, cityOf(3, 101, true)],
     [4, cityOf(4, 101, true)],
   ]);
-  const factions = new Map([[101, { code: "placeholder_nation_01", fixed: true }]]);
+  const factions = new Map([
+    [101, { code: "placeholder_nation_01", fixed: true, regime: "dictatorship" as const }],
+  ]);
   const units = new Map<number, { city: number; recruit: SimUnit["recruit"]; satisfactionMilli: number }>();
   // 도시 4: 휴먼 셋(만족도 60·70·81.5 → 평균 70.5 → 70), 도시 3: 둘
   const satisfaction = [60_000, 70_000, 81_500, 40_000, 50_400];
@@ -170,6 +172,8 @@ describe("world.government", () => {
       fixed: true,
       mine: true,
       taxBp: 250,
+      // 정권 체제(D-217) — 나라를 이끄는 방식은 지도자 칸 rule(D-574 10)
+      regime: "dictatorship",
     });
     // 수도(도시 3, 2차맵 7)에 선 지도자 — 이 도시(2차맵 8)에는 없다
     expect(answer.leader).toEqual({
@@ -177,6 +181,7 @@ describe("world.government", () => {
       name: { ko: "임시 지도자 1", en: "Placeholder leader 1" },
       here: false,
       house: null,
+      rule: "dictator",
     });
     expect(answer.mayor).toBeNull();
     // 행정 건물 기준 칸(이 도시 2차맵에서)
@@ -286,6 +291,7 @@ describe("world.leaderGovernment(지도자 창구, 742 나)", () => {
       name: { ko: "임시 지도자 1", en: "Placeholder leader 1" },
       here: true,
       house: null,
+      rule: "dictator",
     });
     expect(answer).toEqual(await reads.government(viewer, 12, NOW));
   });

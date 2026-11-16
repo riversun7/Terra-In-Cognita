@@ -1,0 +1,206 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "9afdc6b8-11e0-40d9-810f-f00c2e261c8f",
+  "prevIds": [
+    "58f17376-bf4f-4341-a452-5a5c9c8ab21e",
+    "2d4ed532-bad1-48c9-ad27-6cbe2b63bb8b"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_policies"
+      ],
+      "writes": [
+        "s|tbl|public.house_policies",
+        "n|tbl|public.house_policies",
+        "e|tbl|public.house_policies",
+        "n|rel|public.house_policies",
+        "n|type|public.house_policies",
+        "n|rel|public.house_policies_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "city_policies",
+        "house_build"
+      ],
+      "writes": [
+        "s|col|public.city_policies.house_build",
+        "n|col|public.city_policies.house_build",
+        "e|col|public.city_policies.house_build"
+      ],
+      "reads": [
+        "n|tbl|public.city_policies",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_policies"
+      ],
+      "writes": [
+        "s|fk|public.house_policies.house_policies_faction_id_factions_id_fkey",
+        "n|fk|public.house_policies.house_policies_faction_id_factions_id_fkey",
+        "e|fk|public.house_policies.house_policies_faction_id_factions_id_fkey",
+        "n|con|public.house_policies.house_policies_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_policies",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.house_policies.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "house_policies",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "city_policies",
+        "name": "house_build",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_policies",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_policies",
+        "name": "tax_pm",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_policies",
+        "name": "set_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_policies",
+        "name": "set_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_policies",
+        "name": "house_policies_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_policies",
+        "name": "house_policies_pkey",
+        "columns": [
+          "faction_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_policies",
+        "name": "house_policies_tax_pm",
+        "value": "\"tax_pm\" between 0 and 1000",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

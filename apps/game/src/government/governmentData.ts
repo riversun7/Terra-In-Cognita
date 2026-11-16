@@ -67,6 +67,14 @@ export function leaderHouseText(leader: Pick<GovernmentLeader, "house"> | null):
     : m.government_leader_house({ name: house.name });
 }
 
+/** 나라를 이끄는 방식(D-574 10 — 체제대로) → 덧말. 모르면(옛 서버) null */
+export function leaderRuleText(leader: Pick<GovernmentLeader, "rule"> | null): string | null {
+  const rule = leader?.rule;
+  if (rule === undefined) return null;
+  if (rule === "vote") return m.government_leader_rule_vote();
+  return rule === "shares" ? m.government_leader_rule_shares() : m.government_leader_rule_dictator();
+}
+
 /** 가문 이동 정책 값(가문원마다, 10진 최소 단위) → 문장. null = 정하지 않음 */
 export function entryFeeText(value: string | null, formatAmount: (amount: string) => string): string {
   if (value === null) return m.government_entry_unset();

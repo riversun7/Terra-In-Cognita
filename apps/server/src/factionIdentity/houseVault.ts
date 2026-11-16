@@ -6,8 +6,9 @@
 //   (houseCity.ts·npc/houseRuntime.ts), 도시 없는 가문에는 주체가 없다.
 // - 시스템 계정은 장부가 0 아래를 막지 않는다 → 금고에서 꺼내는 쪽(vaultTake)이 잔고까지만 꺼낸다. 불변 조건 검사가 음수 금고를 본다(world/invariants.ts).
 // - 계정은 처음 넣을 때 만든다. 읽기는 만들지 않는다(없으면 0 — 가문마다 빈 계정 줄이 생기지 않게).
-// - 채우는 길(질문 2150 — 사용자에게 묻는 중, fixes-1116l 질문 2222): 지금은 원래 가문으로 들어오던 돈만 — 가문 이동 지원금(houseEntry.ts), 독재 가문
-//   나라의 남은 이익 국고 몫(D-338, rulingVaultOf → @terra/sim payCityProfit). 가문장 넣기·빼기·가문원 기부는 아직 없다(기술 기본값).
+// - 채우는 길: 가문 이동 지원금(houseEntry.ts), 독재 가문 나라의 남은 이익 국고 몫(D-338, rulingVaultOf → @terra/sim payCityProfit). 바뀜(house-8,
+//   D-574 2150 나·기획 대조 2222 확정): 가문원 기부(housePolicy.ts)와 가문세(houseTax.ts — 임금·사업장 배당). 금고에서 꺼내는 길·해산 때 금고 돈은
+//   사용자에게 묻는 중이라 없다.
 import type { Ledger } from "../economy/ledger.ts";
 
 /** 가문 금고 시스템 계정 앞머리 */
@@ -72,8 +73,8 @@ export const vaultTake = (ledger: VaultLedger, houseId: number, asset: string, a
 /**
  * 독재 나라의 남은 이익 국고 몫을 받을 지배 가문 금고 계정(D-338 — @terra/sim SimHooks.rulingVaultOf). 플레이어 가문 나라(도시를 가진 가문 — 지배
  * 가문 = 그 가문 자신, 질문 2012 답)는 그 가문 금고. faction.id = 소유 주체 ID(서버 거울 세계), owners = 소유 주체 → 세력 행.
- * [임시] NPC 나라는 undefined(국고에 남는다 — 옛 동작, 질문 2223): NPC 지배 가문(npc/cityHouses.ts)은 금고 돈을 쓰는 규칙이 없어 국고 돈이 금고에
- * 쌓여 멈춘다(NPC 나라 셋 가운데 하나가 독재). 쓰는 규칙이 정해지면 여기서 NPC 지배 가문 금고(NPC 가문 ID로 센 다른 앞머리)를 돌려준다
+ * NPC 나라는 여기서 undefined — 바뀜(house-8, 기획 대조 2223 고침): NPC 지배 가문 금고는 npc/rulingVault.ts가 이 고리 뒤에 얹는다(vault:house:npc:…,
+ * 성향 몫은 국고로 돌려보냄)
  */
 export function rulingVaultOf(
   ledger: VaultLedger,

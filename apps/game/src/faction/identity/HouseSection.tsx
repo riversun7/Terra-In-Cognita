@@ -8,11 +8,11 @@ import { labelTextOn } from "@terra/shared/factionIdentity";
 import type { HouseBadge, HouseView } from "@terra/shared/house";
 import { type ReactNode, useState } from "react";
 import { m } from "../../paraglide/messages.js";
-import { formatAmount } from "../../roster/rosterText.ts";
 import { dateText } from "../../sections/screenText.ts";
 import { NationEmblem } from "../../ui/NationEmblem.tsx";
 import { HouseCityBlock } from "./HouseCityBlock.tsx";
 import { HouseHomeBlock } from "./HouseHomeBlock.tsx";
+import { HouseVaultBlock } from "./HouseVaultBlock.tsx";
 import { type HouseMemberRequest, sendHouseMember } from "./houseCommands.ts";
 import { HOUSE_ACTION_TEXT, HOUSE_MEMBER_ERROR_TEXT, houseNoticeText } from "./houseText.ts";
 import { dismissHouseNotices } from "./identityQueries.ts";
@@ -41,7 +41,9 @@ function useHouseCommand(onChanged: () => void) {
       setBusy(false);
     }
   };
-  return { busy, status, run };
+  /** 기기에서 막은 입력(서버에 보내지 않음)의 문장 */
+  const say = (text: string): void => setStatus({ tone: "error", text });
+  return { busy, status, run, say };
 }
 
 function BadgeLine({ house, children }: { house: HouseBadge; children?: ReactNode }) {
@@ -185,11 +187,18 @@ function MyHouse({
         />
       ) : null}
       {house.vault === undefined ? null : (
-        // 가문 금고(국고와 따로 — D-338·D-213, 질문 2150 고침): 가문원 모두에게 잔고만
-        <div className="fid-house-block" data-testid="house-vault">
-          <p data-part="house-vault">{m.fid_house_vault({ amount: formatAmount(house.vault) })}</p>
-          <p className="faction-muted">{m.fid_house_vault_hint()}</p>
-        </div>
+        // 가문 금고(국고와 따로 — D-338·D-213): 잔고·가문세율, 기부(가문원)·가문세율 정하기(가문장) — D-574 2150, HouseVaultBlock.tsx
+        <HouseVaultBlock
+          vault={house.vault}
+          tax={house.tax}
+          log={house.vaultLog}
+          leader={leader}
+          busy={busy}
+          onDonate={(amount) => void run({ t: "house_donate", amount })}
+          onTake={(amount) => void run({ t: "house_vault_take", amount })}
+          onTax={(ratePm) => void run({ t: "house_tax", ratePm })}
+          onInvalid={command.say}
+        />
       )}
       <div className="fid-house-block" data-testid="house-members">
         <h3 className="fid-house-sub">

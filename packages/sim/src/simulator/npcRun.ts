@@ -66,6 +66,11 @@ export interface SimHooks {
    * 그대로(시뮬은 가문 층이 없다)
    */
   rulingVaultOf?(faction: SimFaction, asset: string): number | undefined;
+  /**
+   * 그 독재 세력의 남은 이익을 지배 가문 금고(rulingVaultOf)에 넣은 배당 차례가 끝났다(서버만 — NPC 지배 가문이 금고 돈을 쓰는 규칙, 기획 대조
+   * 2223 고침). 시뮬은 가문 층이 없어 부르지 않는다
+   */
+  rulingVaultPaid?(faction: SimFaction, asset: string, nowMs: number): void;
   /** 세율(거래세 만분율): 지금 값·프리셋 기본값·바꾸기. 없으면 세율 규칙식이 돌지 않는다 */
   taxOf?(faction: SimFaction): number;
   baseTaxOf?(faction: SimFaction): number;

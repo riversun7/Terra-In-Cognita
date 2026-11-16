@@ -3,6 +3,7 @@
 // SQL만 둔다. 지난 초대·신청은 거른다(지우기는 명령이 한다 — members.ts). 그림 바이트는 읽지 않는다(해시만).
 import {
   HOUSE_LIST_LIMIT,
+  HOUSE_VAULT_LOG_LIMIT,
   type HouseBadge,
   type HouseHomeView,
   type HouseLimits,
@@ -85,6 +86,16 @@ async function badges(q: IdentityQueryable, where: string, values: unknown[]): P
   const { rows } = await q.query<BadgeRaw>(`${BADGE_SQL} and ${where}`, values);
   return rows.map(badgeOf);
 }
+
+/** 가문 금고 장부(최근 줄, 새 것 먼저): 금고 계정 줄마다 거래 종류·양, 같은 거래에 든 그 가문원 사이보그 이름($1 = 금고 코드, $2 = 가문, $3 = 줄 수) */
+const VAULT_LOG_SQL = `select t.at_ms::text as at_ms, t.kind, e.amount::text as amount,
+    (select c.name from ledger_entries e2 join ledger_accounts a2 on a2.id = e2.account_id
+       join world_owners o on o.id = a2.owner_id
+       join house_members m on m.user_id = o.user_id and m.faction_id = $2
+       left join cyborgs c on c.user_id = o.user_id
+      where e2.tx_id = t.id order by e2.account_id limit 1) as who
+  from ledger_entries e join ledger_accounts a on a.id = e.account_id join ledger_transactions t on t.id = e.tx_id
+ where a.system_code = $1 order by t.at_ms desc, t.id desc limit $3`;
 
 export const limitsOf = (rules: HouseRules): HouseLimits => ({
   memberMax: rules.memberMax,
@@ -220,10 +231,23 @@ export async function readHouseView(
         : { rows: [] };
     const bornOf = nation.rows[0]?.born_of;
     // 가문 금고(houseVault.ts — 국고와 따로). 보기 값이라 DB 계정 줄을 읽는다(쓰기 대기열이 곧 맞춘다), 없으면 0
-    const vault = await q.query<{ balance: string }>(
-      "select balance::text as balance from ledger_accounts where system_code = $1",
-      [houseVaultCode(mine.factionId, ASSET_CREDIT)],
-    );
+    const [vault, policy, vaultLog] = await Promise.all([
+      q.query<{ balance: string }>(
+        "select balance::text as balance from ledger_accounts where system_code = $1",
+        [houseVaultCode(mine.factionId, ASSET_CREDIT)],
+      ),
+      // 가문세율(D-574 2150 — house_policies, 상한으로 자른 값)
+      q.query<{ tax_pm: number }>("select tax_pm from house_policies where faction_id = $1", [
+        mine.factionId,
+      ]),
+      // 금고 장부(D-576 — 넣기·꺼내기 모두 가문원에게 공개, 보기 값: DB 원장 줄)
+      q.query<{ at_ms: string; kind: string; amount: string; who: string | null }>(VAULT_LOG_SQL, [
+        houseVaultCode(mine.factionId, ASSET_CREDIT),
+        mine.factionId,
+        HOUSE_VAULT_LOG_LIMIT,
+      ]),
+    ]);
+    const taxMaxPm = input.rules.taxMaxPm;
     return {
       nationId: input.nationId,
       house: badge
@@ -240,6 +264,13 @@ export async function readHouseView(
               }),
             ),
             vault: vault.rows[0]?.balance ?? "0",
+            vaultLog: vaultLog.rows.map((row) => ({
+              atMs: Number(row.at_ms),
+              kind: row.kind,
+              amount: row.amount,
+              who: row.who,
+            })),
+            tax: { ratePm: Math.min(taxMaxPm, policy.rows[0]?.tax_pm ?? 0), maxPm: taxMaxPm },
             requests: requests.rows.map(
               (row): HouseRequestRow => ({
                 id: Number(row.id),

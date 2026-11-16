@@ -209,6 +209,23 @@ export interface HouseHomeView {
   readonly noticeMs?: number;
 }
 
+/** 가문 금고 장부 한 줄(원장 거래 하나에서 금고 몫) */
+export interface HouseVaultLogRow {
+  readonly atMs: number;
+  /**
+   * 원장 거래 종류: house_donate 기부 · house_vault_take 꺼냄 · business_settle·labor_wage 가문세 · house_entry 가입비·지원금 · city_profit 등 그 밖(화면은
+   * "그 밖")
+   */
+  readonly kind: string;
+  /** 금고에 든(+)·나간(−) 양(기준 통화 최소 단위, 부호 있는 글자) */
+  readonly amount: string;
+  /** 같은 거래에 든 가문원의 사이보그 이름(기부한 사람·꺼낸 가문장·세금을 낸 사람). 없으면 null */
+  readonly who: string | null;
+}
+
+/** 가문 금고 장부 줄 상한 */
+export const HOUSE_VAULT_LOG_LIMIT = 30;
+
 /** 소속 도시 후보 상한(나라·도시 ID 차례) */
 export const HOUSE_HOME_CHOICE_LIMIT = 300;
 
@@ -230,6 +247,13 @@ export interface HouseView {
          * 가문 금고 잔고(기준 통화 최소 단위, 글자 — BigInt). 국고와 따로 둔 가문 돈(D-338·D-213 — 도시 없는 가문에도). 옛 서버는 보내지 않는다
          */
         readonly vault?: string | undefined;
+        /**
+         * 가문세(D-574 2150 — 가문원 수입의 일부를 가문 금고로): 가문장이 정한 세율 ratePm(‰)과 설정 칸 상한 maxPm(house_tax_max_pm). 가문장만
+         * 바꾼다(house_tax). 옛 서버는 보내지 않는다
+         */
+        readonly tax?: { readonly ratePm: number; readonly maxPm: number } | undefined;
+        /** 금고 장부(D-576 — 넣기·꺼내기 모두 가문원에게 공개): 최근 HOUSE_VAULT_LOG_LIMIT줄, 새 것 먼저. 옛 서버는 보내지 않는다 */
+        readonly vaultLog?: readonly HouseVaultLogRow[] | undefined;
       })
     | null;
   /** 내가 받은 초대·내가 보낸 신청(가문이 없을 때) */

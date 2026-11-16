@@ -72,6 +72,7 @@ export function createSocietyPayouts(
             return { city: cityId, revenue, operating: cost };
           });
         const asset = treasuryAsset(faction);
+        let vaultPaid = false;
         for (const city of settleCityTaxes(revenues, interest > 0n ? interest : 0n).cities) {
           if (city.profit <= 0n) continue;
           counts.settlements += 1;
@@ -79,19 +80,23 @@ export function createSocietyPayouts(
             counts.toTreasury += 1;
             continue;
           }
+          const rulingAccount =
+            faction.regime === "dictatorship" ? hooks?.rulingVaultOf?.(faction, asset) : undefined;
           const paid = payCityProfit(book, {
             city: city.city,
             asset,
             regime: faction.regime,
             treasury: faction.id,
             rulingFamily: rulingFamilyOf(faction),
-            rulingAccount:
-              faction.regime === "dictatorship" ? hooks?.rulingVaultOf?.(faction, asset) : undefined,
+            rulingAccount,
             profit: city.profit,
             atMs: nowMs,
           });
           if (paid > 0n) counts.payouts += 1;
+          if (paid > 0n && rulingAccount !== undefined) vaultPaid = true;
         }
+        // 지배 가문 금고를 쓰는 규칙(서버 — NPC 지배 가문이 국고로 돌려보내기 등, 2223 고침)
+        if (vaultPaid) hooks?.rulingVaultPaid?.(faction, asset, nowMs);
       }
     },
     payTribute(nowMs) {

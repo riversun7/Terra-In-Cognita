@@ -15,6 +15,7 @@ import { fusionClientMessages, fusionServerMessages } from "./fusion.ts";
 import { hospitalClientMessages, hospitalServerMessages } from "./hospital.ts";
 import { houseClientMessages, houseServerMessages } from "./house.ts";
 import { houseRecruitClientMessages, houseRecruitServerMessages } from "./houseRecruit.ts";
+import { housePolicyClientMessages } from "./housePolicy.ts";
 import { itemClientMessages, itemServerMessages } from "./items.ts";
 import { laborClientMessages, laborServerMessages } from "./labor.ts";
 import { marketClientMessages, marketServerMessages } from "./market.ts";
@@ -68,6 +69,7 @@ export const clientMessageSchema = z.discriminatedUnion("t", [
   ...citizenshipClientMessages,
   ...houseClientMessages,
   ...houseRecruitClientMessages,
+  ...housePolicyClientMessages,
   ...boatClientMessages,
   ...businessClientMessages,
   ...battleOrderClientMessages,

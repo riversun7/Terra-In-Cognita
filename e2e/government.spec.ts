@@ -183,6 +183,12 @@ test.describe("정부 판·지도자: 플레이어", () => {
     expect(field(entry, "nationSource")).toBe("npc");
     expect(field(entry, "canSetCity")).toBe(false);
     expect(field(entry, "canSetNation")).toBe(false);
+    // NPC 나라 도시에는 다른 가문 짓기 칸이 없다(D-574 2124 — 가문 도시만)
+    expect(field(entry, "build")).toBeUndefined();
+    // 나라를 이끄는 방식(D-574 10 — 체제대로)
+    const regime = String(field(field(hall.data, "nation"), "regime"));
+    const rule = regime === "democracy" ? "vote" : regime === "capitalism" ? "shares" : "dictator";
+    expect(field(field(hall.data, "leader"), "rule")).toBe(rule);
 
     // [정부 열기] → 대화상자
     await sheet.locator(".gov-open").click();
@@ -193,6 +199,10 @@ test.describe("정부 판·지도자: 플레이어", () => {
     await expect(dialog.locator('[data-part="government-leader"] .government-leader-house')).toHaveText(
       message("ko", "government_leader_house_npc", { name: rulingName }),
     );
+    await expect(dialog.locator('[data-part="government-leader"] .government-leader-rule')).toHaveText(
+      message("ko", `government_leader_rule_${rule}`),
+    );
+    await expect(dialog.locator('[data-part="government-house-build"]')).toHaveCount(0);
     const entryBox = dialog.locator('[data-part="government-house-entry"]');
     await expect(
       entryBox.locator('[data-part="government-entry-city"] [data-part="government-entry-value"]'),

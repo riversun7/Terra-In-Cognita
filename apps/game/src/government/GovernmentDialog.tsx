@@ -10,6 +10,7 @@
 // 바뀜(사용자 지적 2026-11-15 "정보창 ui가 매우 허접 … 너무 단일톤 … 칸이나 정보구간 나누는것도 다 똑같에서 구분이 안된다"): 사실 줄을 두 구간으로
 // 나눴다 — [다스리는 사람](나라·지도자·시장, 역할 색 사람 줄 PersonFact.tsx)과 [도시 현황](거래세·행정 레벨·휴먼, 큰 숫자 칸). 하루 값은 막대.
 // 바뀜(질문 2012·2018 답): 지도자 덧말에 지배 가문, 하루 값 아래 가문 이동 정책 칸(HouseEntryPolicy.tsx — 도시 주인·독립 나라 가문장이 정한다).
+// 바뀜(D-574): 지도자 덧말에 나라를 이끄는 방식(체제 — 10), 가문 도시면 다른 가문 짓기 정책 칸(HouseBuildPolicy.tsx — 2124).
 import type { GovernmentResponse } from "@terra/shared/government";
 import { useEffect, useId, useRef } from "react";
 import { RecruitPanel } from "../economy/RecruitPanel.tsx";
@@ -22,11 +23,13 @@ import { LeaderHead } from "./LeaderHead.tsx";
 import {
   cityTitle,
   leaderHouseText,
+  leaderRuleText,
   leaderTitle,
   nationTitle,
   populationText,
   taxText,
 } from "./governmentData.ts";
+import { HouseBuildPolicy } from "./HouseBuildPolicy.tsx";
 import { HouseEntryPolicy } from "./HouseEntryPolicy.tsx";
 import { MayorFact } from "./MayorFact.tsx";
 import { PersonFact } from "./PersonFact.tsx";
@@ -138,6 +141,10 @@ export default function GovernmentDialog({ government, onClose, via = "building"
                 ...(leaderHouseText(leader) === null
                   ? []
                   : [{ text: leaderHouseText(leader) ?? "", part: "government-leader-house" }]),
+                // 나라를 이끄는 방식(D-574 10 — 체제대로: 독재자·투표·지분)
+                ...(leaderRuleText(leader) === null
+                  ? []
+                  : [{ text: leaderRuleText(leader) ?? "", part: "government-leader-rule" }]),
               ]}
             />
             <MayorFact mayor={government.mayor} />
@@ -163,6 +170,13 @@ export default function GovernmentDialog({ government, onClose, via = "building"
         </section>
         <GovernmentDay day={city.day} />
         {government.houseEntry ? <HouseEntryPolicy cityId={city.id} policy={government.houseEntry} /> : null}
+        {government.houseEntry?.build ? (
+          <HouseBuildPolicy
+            cityId={city.id}
+            build={government.houseEntry.build}
+            canSet={government.houseEntry.canSetCity}
+          />
+        ) : null}
         <div className="gov-links">
           <button type="button" className="button-small gov-link" onClick={() => go("economy_warehouse")}>
             {m.government_go_storage()}

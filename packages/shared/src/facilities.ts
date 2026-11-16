@@ -325,9 +325,10 @@ export interface FacilityLandRuleResponse {
   readonly allowed: boolean;
   /**
    * 못 지으면 까닭: foreign_city = 다른 세력의 도시 2차맵. (D-568 territory-3의 foreign_territory는 D-572로 없어졌다 — 그 판의 기기는 그 문구를
-   * 갖고 있지만 서버가 더는 보내지 않는다.) 옛 기기는 allowed만 본다
+   * 갖고 있지만 서버가 더는 보내지 않는다.) house_policy = 같은 나라 다른 가문의 도시가 남의 가문 짓기를 막았다(D-574 2124, 옛 기기는 다른 세력
+   * 도시 문구로 보인다). 옛 기기는 allowed만 본다
    */
-  readonly reason: "foreign_city" | null;
+  readonly reason: "foreign_city" | "house_policy" | null;
   /** 못 지으면 그 도시 주인 세력 ID */
   readonly cityFaction: number | null;
   /**

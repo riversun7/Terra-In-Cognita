@@ -59,6 +59,10 @@ async function boot(capByGrade: readonly number[], supplyLead?: number): Promise
       ...TEST_SOCIETY_COEFFICIENTS.npc,
       decideEveryMs: HOUR_MS,
       buildCapByGrade: [...capByGrade],
+      // 상한은 시험값 그대로(성향 몫 0). 성향 몫(D-572 simulator/npcGrowthTemper.ts — ±npc_build_cap_temper채)은 세계 시드(새 DB면 켤 때 무작위)와
+      // 세력 성향에 따라 달라, 상한 1에 −1 이상이 붙으면 상한 0 = 증축·레벨 올리기 끔이 되어 레벨 올리기 시험이 시드 여섯에 하나꼴로 실패했다
+      // (CI 359 — 시드 1~48 가운데 8개)
+      buildCapTemper: 0,
       ...(supplyLead === undefined ? {} : { buildLevelSupplyLead: supplyLead }),
     },
   };

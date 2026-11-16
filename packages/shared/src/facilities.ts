@@ -314,9 +314,9 @@ export type FacilityWaterMaskResponse =
   | { readonly status: "unknown_map" | "not_ready"; readonly mapKey: number };
 
 /**
- * facilities.landRule — 그 2차맵(의 배치 칸)에 지을 수 있나(서버 땅 규칙, docs/adr/2026-11-14-second-map-build.md). 다른 세력 도시 2차맵이거나
- * 그 자리가 다른 세력 1차맵 영토(D-568)면 못 짓는다
- * (전쟁·중립·동맹 — 동맹 정책은 아직 없고 기본값 금지). 짓기 명령은 그때 같은 판정으로 forbidden을 준다
+ * facilities.landRule — 그 2차맵(의 배치 칸)에 지을 수 있나(서버 땅 규칙, docs/adr/2026-11-14-second-map-build.md). 다른 세력 도시 2차맵(정부
+ * 건물 있음)이면 못 짓는다(전쟁·중립·동맹 — 동맹 정책은 아직 없고 기본값 금지). 정부 건물이 없는 2차맵은 다른 세력 1차맵 영토 안이어도 짓는다
+ * (기획 D-572 알박기 우선 — territoryFaction으로 알린다). 짓기 명령은 그때 같은 판정으로 forbidden을 준다
  */
 export interface FacilityLandRuleResponse {
   readonly status: "ready" | "not_ready" | "unknown_map";
@@ -324,10 +324,15 @@ export interface FacilityLandRuleResponse {
   /** 지을 수 있나(not_ready·unknown_map이면 false) */
   readonly allowed: boolean;
   /**
-   * 못 지으면 까닭: foreign_city = 다른 세력의 도시 2차맵, foreign_territory = 그 자리가 다른 세력의 1차맵 영토(D-568, 질문 1927). 옛 기기는
-   * allowed만 본다
+   * 못 지으면 까닭: foreign_city = 다른 세력의 도시 2차맵. (D-568 territory-3의 foreign_territory는 D-572로 없어졌다 — 그 판의 기기는 그 문구를
+   * 갖고 있지만 서버가 더는 보내지 않는다.) 옛 기기는 allowed만 본다
    */
-  readonly reason: "foreign_city" | "foreign_territory" | null;
-  /** 못 지으면 그 도시·영토 주인 세력 ID */
+  readonly reason: "foreign_city" | null;
+  /** 못 지으면 그 도시 주인 세력 ID */
   readonly cityFaction: number | null;
+  /**
+   * 지을 수 있지만 짓는 자리가 다른 세력의 1차맵 영토 안이면 그 세력 ID(알박기 땅 — 지킬 힘이 없으면 빼앗길 수 있음, D-572). 아니면 null.
+   * 옛 서버는 이 칸이 없다
+   */
+  readonly territoryFaction?: number | null | undefined;
 }

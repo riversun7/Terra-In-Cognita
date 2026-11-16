@@ -125,7 +125,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
     const screen = createFacilityScreenServices(() => facilityScreenSourceOf(world));
     const viewer: Viewer = { id: a.userId, loginId: "lander", roles: ["player"] };
     // 시험 세계 2차맵에는 NPC 도시가 있다: 짓는 2차맵의 도시를 비우면 도시가 없는 2차맵이지만 그 자리는 아직 그 NPC 세력의 1차맵 영토다
-    // (영토 배치는 부팅 끝에 셈해 둔 것 — D-568, 질문 1927) → 세력이 없으면 못 짓는다(foreign_territory)
+    // (영토 배치는 부팅 끝에 셈해 둔 것) → 정부 건물이 없으니 세력이 없어도 짓는다(D-572 알박기 우선, 질문 1983) — 남의 영토라고 알린다
     const npcCity = await rows<{ faction_id: string }>(
       test.db,
       "select faction_id from world_cities where map_key = $1 order by id limit 1",
@@ -136,9 +136,10 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
     expect(await screen.landRule(viewer, a.map.mapKey)).toEqual({
       status: "ready",
       mapKey: a.map.mapKey,
-      allowed: false,
-      reason: "foreign_territory",
-      cityFaction: Number(npcCity[0]?.faction_id),
+      allowed: true,
+      reason: null,
+      cityFaction: null,
+      territoryFaction: Number(npcCity[0]?.faction_id),
     });
     // 그 2차맵에 다른 세력 도시(정부 건물)를 둔다
     const nation = await rows<{ id: string }>(
@@ -157,6 +158,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
       allowed: false,
       reason: "foreign_city",
       cityFaction: factionId,
+      territoryFaction: null,
     });
     const blocked = await service.build(a.userId, {
       mapKey: a.map.mapKey,
@@ -179,11 +181,13 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
     });
     expect(operatorBlocked).toEqual({ ok: false, code: "forbidden" });
     expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(60n);
-    // 그 세력에 들면(내 세력 도시) 짓는다
-    await rows(test.db, "insert into faction_members (user_id, faction_id) values ($1, $2)", [
-      a.userId,
-      factionId,
-    ]);
+    // 가문 없는 플레이어(무소속)도 사이보그의 나라(소속 도시의 나라)가 그 세력이면 내 도시라 짓는다(D-572 1982, D-565·D-569)
+    await rows(
+      test.db,
+      `insert into cyborgs (user_id, name, name_key, temperament, initial, k_pm, appearance, faction_id, start_city_id, created_at_ms)
+         values ($1, '땅시험', '땅시험', 'balanced', '{10,10,10,10,10,10}', '{100,100,100,100,100,100}', '{}', $2, 950, 0)`,
+      [a.userId, factionId],
+    );
     expect(await screen.landRule(viewer, a.map.mapKey)).toMatchObject({ allowed: true });
     const built = await service.build(a.userId, {
       mapKey: a.map.mapKey,

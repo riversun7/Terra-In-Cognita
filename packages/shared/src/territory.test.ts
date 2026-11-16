@@ -172,28 +172,28 @@ describe("영토 배치·소속(D-568 — 1차맵 지도대로)", () => {
     expect(nearestFactionCity(cities, 10, at(1, 0))).toBe(4);
   });
 
-  it("시가지(D-146, 질문 1923 나): 도시 중심에서 영토 원 ÷ 3 안, 겹치면 영향력 비율이 작은 도시(같으면 작은 ID)", () => {
+  it("시가지(D-146·D-104, D-572 질문 1987): 도시 중심에서 등급별 영향권 ÷ 3 안, 겹치면 영향력 비율이 작은 도시(같으면 작은 ID)", () => {
     const layout = buildTerritory(
       [
-        // 배후지 3칸 → 영토 원 3000 → 시가지 1000(x 100)
+        // 도시 등급 4: 영향권 1100 → 시가지 약 367(x 36). 배후지(영토 원)가 넓어도 시가지는 그대로
         { id: 2, faction: 10, point: at(0, 0), grade: 4, catchmentMilli: 3000 },
-        // 마을: 영토 원 아래 끝 1칸 → 시가지 약 333(x 33)
-        { id: 1, faction: 20, point: at(130, 0), grade: 1 },
-        // 바탕이 0이면 영토 원·시가지가 없다
-        { id: 5, faction: 30, point: at(-500, 0), grade: 1, catchmentMilli: 0 },
+        // 마을(등급 1): 영향권 100 → 시가지 약 33(x 3)
+        { id: 1, faction: 20, point: at(30, 0), grade: 1 },
       ],
       [],
       rules,
       metric,
       values,
     );
-    expect(urbanCityAt(layout, at(95, 0))).toBe(2);
-    expect(urbanCityAt(layout, at(-105, 0))).toBeNull();
-    // 둘 다 덮는 곳(x 99): 도시 2 비율 990/3000 = 0.33, 마을 1 비율 310/1000 = 0.31 → 마을
-    expect(urbanCityAt(layout, at(99, 0))).toBe(1);
-    expect(urbanCityAt(layout, at(-500, 0))).toBeNull();
-    // 옛 규칙(영향권 1100 ÷ 3 ≈ x 37)보다 넓다
-    expect(urbanCityAt(layout, at(-60, 0))).toBe(2);
+    expect(urbanCityAt(layout, at(20, 0))).toBe(2);
+    // 영토 원 ÷ 3(옛 정리 1923, x 100)이면 시가지였던 곳이 이제 프런티어
+    expect(urbanCityAt(layout, at(-60, 0))).toBeNull();
+    expect(urbanCityAt(layout, at(-95, 0))).toBeNull();
+    // 둘 다 덮는 곳(x 28): 도시 2 비율 280/1100 ≈ 0.25, 마을 1 비율 20/100 = 0.2 → 마을
+    expect(urbanCityAt(layout, at(28, 0))).toBe(1);
+    // 마을 시가지 밖(x 35 — 마을에서 50, 도시 2 시가지 안)
+    expect(urbanCityAt(layout, at(35, 0))).toBe(2);
+    expect(urbanCityAt(layout, at(70, 0))).toBeNull();
   });
 
   it("새 도시 자리(질문 1922 나): 다른 세력 지도 영토 안이면 막고, 영토 밖·내 영토(겹치면 지도 주인)는 된다", () => {

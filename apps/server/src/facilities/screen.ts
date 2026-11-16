@@ -109,20 +109,35 @@ export function createFacilityScreenServices(
     },
     async landRule(viewer, mapKey, at) {
       const found = source?.();
-      const shut = { mapKey, allowed: false, reason: null, cityFaction: null } as const;
+      const shut = {
+        mapKey,
+        allowed: false,
+        reason: null,
+        cityFaction: null,
+        territoryFaction: null,
+      } as const;
       if (!found) return { status: "not_ready", ...shut };
       if (!found.map(mapKey)) return { status: "unknown_map", ...shut };
       const ownerId = found.ownerOf(viewer.id);
       if (ownerId === undefined) return { status: "ready", ...shut };
       const verdict = await found.land(ownerId, mapKey, at);
       return verdict.allowed
-        ? { status: "ready", mapKey, allowed: true, reason: null, cityFaction: null }
+        ? {
+            status: "ready",
+            mapKey,
+            allowed: true,
+            reason: null,
+            cityFaction: null,
+            // 알박기 땅(D-572): 다른 세력 영토 안이지만 정부 건물이 없는 2차맵 — 막지 않고 알린다
+            territoryFaction: verdict.territoryFaction ?? null,
+          }
         : {
             status: "ready",
             mapKey,
             allowed: false,
             reason: verdict.reason,
             cityFaction: verdict.cityFaction,
+            territoryFaction: null,
           };
     },
     waterMask(mapKey) {

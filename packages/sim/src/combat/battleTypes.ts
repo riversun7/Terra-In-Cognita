@@ -97,6 +97,11 @@ export interface CombatUnitSpec {
   readonly arc: boolean;
   /** 공격 간격(ms, 행동 속도에서, unitSpec.ts) */
   readonly attackIntervalMs: number;
+  /**
+   * 스킬 행동 간격의 바탕(ms) = 무기 사거리 예산을 곱하기 전 공격 간격(기획 D-572 — 질문 2008 나: 무기 사거리 예산은 기본 공격에만).
+   * 예산이 걸려 공격 간격과 다를 때만 칸을 둔다. 없으면 attackIntervalMs(옛 시작 자료 — 진행 중 전투는 옛 셈 그대로)
+   */
+  readonly skillIntervalMs?: number | undefined;
   /** 한 칸 가는 시간(ms, 전투 속도 C28) */
   readonly moveIntervalMs: number;
   /** 스태미나·MP 최대와 공격 한 번에 드는 양(D-415·D-418) */

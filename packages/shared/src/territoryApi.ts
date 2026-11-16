@@ -28,7 +28,7 @@ export interface TerritoryCityView {
   readonly development: number;
   /** 도시 등급 1~6(M2 문턱) */
   readonly grade: number;
-  /** 영향권 반경(1000분율 칸, M3 — 지도가 없을 때의 새 도시 겹침 검사·도시 표. 시가지는 D-568부터 영토 원 ÷ 3) */
+  /** 영향권 반경(1000분율 칸, M3 — 지도가 없을 때의 새 도시 겹침 검사·도시 표·시가지 = 이 값 ÷ 3, D-104·D-572) */
   readonly radiusMilli: number;
   /** 배후지 지금 반경(1000분율 칸, 영토 원 바탕). 배후지 규칙이 꺼졌으면 null(바탕 = 영향권). 옛 서버는 없다 */
   readonly catchmentMilli?: number | null | undefined;

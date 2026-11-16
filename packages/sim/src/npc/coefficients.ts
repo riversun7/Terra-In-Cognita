@@ -95,6 +95,16 @@ export interface NpcCoefficients {
    * [임시] 도시 등급(1~6, D-137)마다 건물 수 상한(질문 1143 나, 설정 칸 npc_build_cap_l1~l6). buildMaxBuildings가 전체 끝(0 = 끔). 없으면 전체 끝
    */
   readonly buildCapByGrade?: readonly number[] | undefined;
+  /**
+   * [임시] 도시 성장 성향 변수(기획 D-554 1187·1188, D-572 질문 1995 — simulator/npcGrowthTemper.ts): 건물 수 상한 성향 폭(채, 치우침 끝에서 등급
+   * 표에 더하는 채, 설정 칸 npc_build_cap_temper)·상업 성향 몫(‰, npc_build_cap_commerce)·지도자 기질 몫(‰, npc_build_cap_leader), 붐빔 숙소
+   * 점수의 신앙 성향 몫·상업 성향 몫(점수, npc_build_lodging_faith·npc_build_lodging_commerce). 없거나 0이면 옛 판
+   */
+  readonly buildCapTemper?: number | undefined;
+  readonly buildCapCommercePm?: number | undefined;
+  readonly buildCapLeaderPm?: number | undefined;
+  readonly buildLodgingFaith?: number | undefined;
+  readonly buildLodgingCommerce?: number | undefined;
   /** [임시] 이 상태(‰) 아래인 시설을 NPC가 고친다(질문 1114 가, 설정 칸 npc_build_repair_below_pm). 0 = 고치지 않는다 */
   readonly buildRepairBelowPm?: number | undefined;
   /**
@@ -178,6 +188,11 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   buildFarmHumans: 12,
   buildBuildersMax: 4,
   buildCapByGrade: [8, 10, 12, 16, 20, 24],
+  buildCapTemper: 4,
+  buildCapCommercePm: 600,
+  buildCapLeaderPm: 1000,
+  buildLodgingFaith: 150,
+  buildLodgingCommerce: 100,
   buildRepairBelowPm: 700,
   buildLevelSupply: 1,
   buildLevelSupplyLead: 2,

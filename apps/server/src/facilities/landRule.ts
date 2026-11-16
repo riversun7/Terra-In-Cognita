@@ -1,12 +1,17 @@
 // 2차맵 건설 땅 규칙 — 사용자 결정 2026-11-14(docs/adr/2026-11-14-second-map-build.md):
 // "1차맵에 보이는 세력범위안에 포함된 2차맵들. 정부건물이 있으면 도시이고 해당 2차맵에 적대세력은 아예 건설불가, 동맹 연합세력은 정책에따라
 // 건설가능여부 설정가능. 세력범위에는 포함되나 정부건물이 없는 땅에는 다른세력이 건설가능". 이어진 답: 중립은 못 지음, 동맹 정책 기본값은 금지.
-// 기획 D-568 "판정도 지도대로"(질문 1927 나, 2026-11-16): 짓는 자리가 다른 세력의 1차맵 영토 안이면 못 짓는다.
-// - 2차맵에 내 세력 도시가 있으면 짓는다(내 도시 2차맵 — 가장자리가 지도에서 이웃 도시 땅이어도).
+// 기획 D-572(2026-11-16, 그 원문을 결정 로그에 올림 — 질문 1927 기획 정리와 부딪쳐 **알박기 우선**, 1982·1983):
+// - 2차맵에 내 세력 도시가 있으면 짓는다(1982 "자기세력인경우 건설가능" — 가장자리가 지도에서 이웃 도시 땅이어도).
 // - 내 도시가 없고 다른 세력의 도시(정부 건물 = world_cities 줄)가 있으면 못 짓는다(foreign_city, 전쟁·중립·동맹 모두 — 동맹 정책 칸은 3단계).
-// - 도시가 없는 2차맵은 짓는 자리(배치 칸)의 1차맵 영토 주인(영토 서비스 claimsAt — 비콘 놓기·지방과 같은 지도)이 다른 세력이면 못 짓는다
-//   (foreign_territory). 영토 밖·내 세력 영토는 짓는다. 세력이 없으면 모든 영토가 남의 것이다. 영토를 셈하지 않은 세계(시험·DB 없음)는 옛
-//   규칙대로 짓는다.
+// - 도시가 없는 2차맵(정부 건물 없음)은 1차맵 세력 범위 안이어도 누구나 짓는다(알박기 땅 — "건설되면 해당 정부가 영토소유 알박기처럼 가능.
+//   물론 군사력이 약하여 뺐기고 자원과 시간만 날릴수있음"). territory-3이 넣은 "남의 지도 영토면 foreign_territory로 막음"·"세력 없는
+//   플레이어는 영토 밖에서만"을 걷었다. 짓는 자리의 지도 주인이 남이면 막지 않고 알린다(territoryFaction — 화면이 "빼앗길 수 있음" 안내).
+// - 내 세력 = 건물 주인 세력(world_owners·가문 줄 ownerFactionsOf) + 나라(D-565·D-569 "가문 없는 플레이어도 소속 도시가 있어 자기 나라 영토는
+//   내 땅": 사용자 주체는 사이보그의 나라 cyborgs.faction_id — 가문원은 가문 소속 도시의 나라로 맞춰져 있다, houseTies.ts — 봉신 가문은 위
+//   세력 factions.parent_id). 이 가운데 하나라도 그 도시 세력이면 내 도시다.
+// - 정부 건물을 다 지으면 그 세력이 차지(알박기)하는 규칙은 지금 폐허 자리만 있다(행정 건물은 주인 없는 폐허에만 짓는다 — facilities/service.ts,
+//   ruins/service.ts). 빈 2차맵 알박기는 3단계(질문 2122).
 // - 도시 주인은 NPC 사회 런타임이 쓰기 대기열로 바꾸므로 대기열을 비운 뒤 DB에서 읽는다(건물 공격의 전쟁 판정과 같은 방식).
 // - 기존 세계: 이미 지은 건물은 그대로 둔다(판정은 새 짓기부터, 리셋 없음).
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
@@ -14,29 +19,49 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import { ownerFactionsOf } from "./targets.ts";
 
 export type LandVerdict =
-  | { readonly allowed: true }
+  /** 지을 수 있다. territoryFaction = 짓는 자리가 다른 세력의 1차맵 영토면 그 세력(알박기 땅 — 막지 않고 알림, D-572) */
+  | { readonly allowed: true; readonly territoryFaction?: number }
   /** 다른 세력의 도시 2차맵(cityFaction = 그 도시 세력, 여럿이면 작은 ID) */
-  | { readonly allowed: false; readonly reason: "foreign_city"; readonly cityFaction: number }
-  /** 다른 세력의 1차맵 영토 안(cityFaction = 그 영토 주인 세력, D-568) */
-  | { readonly allowed: false; readonly reason: "foreign_territory"; readonly cityFaction: number };
+  | { readonly allowed: false; readonly reason: "foreign_city"; readonly cityFaction: number };
 
 /**
- * 판정: 그 2차맵에 내 세력 도시가 있으면 짓는다(내 땅). 없고 다른 세력 도시만 있으면 못 짓는다(세력이 없으면 모든 도시가 남의 것).
- * 도시가 없으면 짓는 자리의 영토 주인(territoryFaction, 영토 밖·모름이면 null)이 다른 세력일 때만 막는다. 한 2차맵에 여러 세력 도시가 있는
- * 경우(옛 세계·시험 2차맵 줄)는 내 도시가 있는 쪽으로 친다
+ * 판정: 그 2차맵에 내 세력(mine — 주인 세력·나라, 비었으면 세력 없음) 도시가 있으면 짓는다. 없고 다른 세력 도시만 있으면 못 짓는다. 도시가
+ * 없으면 짓는다 — 짓는 자리의 영토 주인(territoryFaction, 영토 밖·모름이면 null)이 내 세력이 아니면 알림만 단다(D-572 알박기 우선). 한
+ * 2차맵에 여러 세력 도시가 있는 경우(옛 세계·시험 2차맵 줄)는 내 도시가 있는 쪽으로 친다
  */
 export function landVerdict(
-  myFaction: number | null,
+  mine: readonly number[],
   cityFactions: readonly number[],
   territoryFaction: number | null = null,
 ): LandVerdict {
-  if (myFaction !== null && cityFactions.includes(myFaction)) return { allowed: true };
-  const foreign = cityFactions.filter((faction) => faction !== myFaction).toSorted((a, b) => a - b);
+  if (cityFactions.some((faction) => mine.includes(faction))) return { allowed: true };
+  const foreign = cityFactions.toSorted((a, b) => a - b);
   const first = foreign[0];
   if (first !== undefined) return { allowed: false, reason: "foreign_city", cityFaction: first };
-  if (territoryFaction !== null && territoryFaction !== myFaction)
-    return { allowed: false, reason: "foreign_territory", cityFaction: territoryFaction };
+  if (territoryFaction !== null && !mine.includes(territoryFaction))
+    return { allowed: true, territoryFaction };
   return { allowed: true };
+}
+
+/**
+ * 소유 주체의 내 세력 목록(위 머리 주석): 주인 세력(ownerFactionsOf) + 봉신이면 위 세력 + 사용자 주체면 사이보그의 나라. 작은 ID 차례, 겹침 없음
+ */
+export async function myFactionsOf(
+  pool: QueryPool,
+  owners: ReadonlyMap<number, OwnerRow>,
+  ownerId: number,
+): Promise<number[]> {
+  const out = new Set<number>();
+  const base = (await ownerFactionsOf(pool, owners, [ownerId])).get(ownerId) ?? null;
+  if (base !== null) out.add(base);
+  const userId = owners.get(ownerId)?.userId ?? null;
+  const found = await pool.query(
+    `select f.parent_id as faction_id from factions f where f.id = $1 and f.parent_id is not null
+     union all select c.faction_id from cyborgs c where $2::text is not null and c.user_id::text = $2 and c.faction_id is not null`,
+    [base, userId],
+  );
+  for (const row of found.rows) out.add(Number(row.faction_id));
+  return [...out].toSorted((a, b) => a - b);
 }
 
 /** 2차맵 가운데 배치 칸(자리를 모를 때 — 화면 목록 단계의 미리 묻기) */
@@ -55,7 +80,7 @@ export function createLandCheck(deps: {
   readonly pool: QueryPool;
   readonly owners: ReadonlyMap<number, OwnerRow>;
   readonly writer: Pick<WorldWriter, "durable">;
-  /** 배치 칸의 1차맵 영토 주인 세력(영토 밖이면 null, 영토를 셈하지 않으면 undefined). 없으면 영토를 보지 않는다(옛 규칙) */
+  /** 배치 칸의 1차맵 영토 주인 세력(영토 밖이면 null, 영토를 셈하지 않으면 undefined) — 알박기 땅 알림(D-572). 없으면 알리지 않는다 */
   readonly territoryFaction?:
     | ((mapKey: number, x: number, y: number) => Promise<number | null | undefined>)
     | undefined;
@@ -73,7 +98,6 @@ export function createLandCheck(deps: {
     const cityFactions = found.rows.map((row) => Number(row.faction_id));
     const territoryFaction = holder ?? null;
     if (cityFactions.length === 0 && territoryFaction === null) return { allowed: true };
-    const mine = (await ownerFactionsOf(deps.pool, deps.owners, [ownerId])).get(ownerId) ?? null;
-    return landVerdict(mine, cityFactions, territoryFaction);
+    return landVerdict(await myFactionsOf(deps.pool, deps.owners, ownerId), cityFactions, territoryFaction);
   };
 }

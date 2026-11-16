@@ -65,8 +65,8 @@ export function leaderTemperOf(seed: number, factionId: number, c: NpcCoefficien
   return streamRng(seed, STREAM_LEADER, factionId, 0).nextInt(spread * 2 + 1) - spread;
 }
 
-/** 성향 축 하나가 가운데에서 벗어난 몫 × 칸 값(‰). 끝에서 칸 값 그대로 */
-function axisTilt(value: number, weightPm: number | undefined, c: NpcCoefficients): number {
+/** 성향 축 하나가 가운데에서 벗어난 몫 × 칸 값(‰). 끝에서 칸 값 그대로(도시 성장 성향 npcGrowthTemper.ts도 쓴다) */
+export function axisTilt(value: number, weightPm: number | undefined, c: NpcCoefficients): number {
   const half = Math.max(1, Math.trunc((c.traitMax - c.traitMin) / 2));
   const mid = c.traitMin + half;
   return Math.trunc(((value - mid) * Math.trunc(weightPm ?? 0)) / half);

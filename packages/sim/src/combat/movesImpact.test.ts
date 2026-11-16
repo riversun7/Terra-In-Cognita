@@ -20,7 +20,7 @@ import type { EffectDef } from "./effects.ts";
 import { buildingDamage, skillAttack } from "./formula.ts";
 import { MOVE_COLLISION, isStealthed, unitDisplaceResistPm } from "./moves.ts";
 import { recordBattleReplay } from "./replay.ts";
-import { type CombatSkill, type SkillData, resolveSkill, skillFromData } from "./skills.ts";
+import { type CombatSkill, type SkillData, resolveSkill, skillFromData, startSkill } from "./skills.ts";
 import { openMap, unit } from "./testBattle.ts";
 import { type WeaponSpec, specFromStats } from "./unitSpec.ts";
 
@@ -251,7 +251,12 @@ describe("밀림 저항(D-564 1588, 질문 1806 → D-429 데이터 칸, D-570 1
     expect(sizes.map((size) => bodyDisplaceSizePm(size, m))).toEqual([1500, 1000, 600, 300, 1000]);
     expect(displacedCells(3, 1500, 0)).toBe(4);
     expect(displacedCells(3, 1000, 300)).toBe(2);
-    expect(displacedCells(3, 300, 0)).toBe(0);
+    // D-572(질문 2005): XL도 적어도 1칸(3 × 0.3 = 0.9 → 1). 원래 0칸·저항 1000·크기 배율 0이면 0칸
+    expect(displacedCells(3, 300, 0)).toBe(1);
+    expect(displacedCells(1, 300, 900)).toBe(1);
+    expect(displacedCells(0, 300, 0)).toBe(0);
+    expect(displacedCells(3, 300, 1000)).toBe(0);
+    expect(displacedCells(3, 0, 0)).toBe(0);
   });
 
   it("저항은 밀치기·끌어오기 칸 수만 줄인다(묶기 지속은 그대로). 저항 1000이면 밀리지 않는다", () => {
@@ -279,7 +284,7 @@ describe("밀림 저항(D-564 1588, 질문 1806 → D-429 데이터 칸, D-570 1
     expect(byId(boss.state, 101).x).toBe(6);
   });
 
-  it("크기 S는 더 멀리, XL은 훨씬 덜 밀린다(M 기준, 설정 칸 배율)", () => {
+  it("크기 S는 더 멀리, XL은 훨씬 덜 밀린다(M 기준, 설정 칸 배율) — XL도 적어도 1칸(D-572)", () => {
     const push = skill({ displace: { kind: "knockback", cells: 2 } });
     const small = oneTick([
       unit(1, 1, 1, 5, 10, { skills: [push] }),
@@ -290,7 +295,8 @@ describe("밀림 저항(D-564 1588, 질문 1806 → D-429 데이터 칸, D-570 1
       unit(1, 1, 1, 5, 10, { skills: [push] }),
       dummy(101, 6, 10, { displaceSizePm: 300 }),
     ]);
-    expect(byId(huge.state, 101).x).toBe(6);
+    // 2 × 0.3 = 0.6 → 적어도 1칸(질문 2005, D-572)
+    expect(byId(huge.state, 101).x).toBe(7);
   });
 
   it("팩 항목이 있으면 스킬에 실리고(같은 종류의 상태이상만), 데이터 저항을 쓴다", () => {
@@ -447,6 +453,27 @@ describe("피해 방식은 계열과 따로(D-568)", () => {
     const melee = specFromStats({ ...body, weapon: { ...TEST_WEAPON, range: 1 } });
     const meleeOff = specFromStats({ ...body, weapon: { ...TEST_WEAPON, range: 1, curves: [] } });
     expect(melee.attackIntervalMs).toBe(meleeOff.attackIntervalMs);
+    // 스킬 행동 간격의 바탕은 예산 전 간격(D-572 질문 2008 나). 같으면 칸이 없다
+    expect(budget.skillIntervalMs).toBe(off.attackIntervalMs);
+    expect("skillIntervalMs" in melee).toBe(false);
+    expect("skillIntervalMs" in off).toBe(false);
+  });
+
+  it("무기 사거리 예산은 기본 공격에만(D-572 질문 2008 나): 스킬 뒤 간격은 예산 전 값, range_interval 스킬은 한 번만 곱한다", () => {
+    const plain = skill({ range: 5 });
+    const ranged = skill({ range: 5, curves: ["range_interval"] });
+    // 공격 간격 700(예산 곱함)·예산 전 500인 유닛
+    const caster = unitFrom(unit(1, 1, 1, 0, 10, { skills: [plain, ranged] }));
+    const spec = { ...caster, attackIntervalMs: 700, skillIntervalMs: 500 };
+    startSkill(spec, 0, 101, 0, TEST_COMBAT_COEFFICIENTS);
+    expect(spec.nextActionMs).toBe(500);
+    startSkill(spec, 1, 101, 0, TEST_COMBAT_COEFFICIENTS);
+    // 500 × 1400‰(사거리 5) = 700 — 700 × 1400‰가 아니다
+    expect(spec.nextActionMs).toBe(700);
+    // 옛 시작 자료(칸 없음)는 공격 간격 그대로(진행 중 전투)
+    const old = { ...caster, attackIntervalMs: 700 };
+    startSkill(old, 0, 101, 0, TEST_COMBAT_COEFFICIENTS);
+    expect(old.nextActionMs).toBe(700);
   });
 });
 

@@ -131,6 +131,32 @@ describe("NPC 증축 판단(질문 1101 나)", () => {
     expect(choose({ ...needs, foodPm: 800, housingCap: 40 })).not.toBe("lodging");
   });
 
+  it("성향 몫(D-554 1187·1188, D-572 질문 1995): 상한 = 등급 표 + 채(0·전체 끝에서 자름), 붐빔 숙소 점수 ± 몫", () => {
+    const c = { ...TEST_NPC_COEFFICIENTS, buildMaxBuildings: 32, buildCapByGrade: [8, 10, 12, 16, 20, 24] };
+    expect(buildingCapOf(1, c, 3)).toBe(11);
+    expect(buildingCapOf(1, c, -10)).toBe(0);
+    expect(buildingCapOf(6, c, 20)).toBe(32);
+    // 붐빔 숙소(700) vs 나라 목표 주방(650 + 10): 몫이 −100이면 목표가 먼저, 0이면 숙소가 먼저
+    const crowded = {
+      humans: 40,
+      workers: 40,
+      beds: 40,
+      foodPm: 1000,
+      housingCap: 40,
+      counts: counts({ lodging: 4, farm: 4 }),
+      targets: new Map([["kitchen", 1]]),
+    };
+    expect(chooseCityBuild(crowded, OPTIONS, TRAITS, c, RULES)).toBe("lodging");
+    expect(chooseCityBuild(crowded, OPTIONS, TRAITS, c, { ...RULES, lodgingTilt: -100 })).toBe("kitchen");
+    // −몫은 −90에서 멈춘다(농장·채집보다는 위): 목표 없이 농장이 모자라도 숙소가 먼저
+    const farmShort = { ...crowded, targets: undefined, counts: counts({ lodging: 4, farm: 1 }) };
+    expect(chooseCityBuild(farmShort, OPTIONS, TRAITS, c, { ...RULES, lodgingTilt: -250 })).toBe("lodging");
+    // +몫은 생필품이 조금 모자라도(1000 − 몫 ÷ 2) 붐빔 숙소를 짓는다
+    const hungry = { ...crowded, targets: undefined, foodPm: 900 };
+    expect(chooseCityBuild(hungry, OPTIONS, TRAITS, c, RULES)).not.toBe("lodging");
+    expect(chooseCityBuild(hungry, OPTIONS, TRAITS, c, { ...RULES, lodgingTilt: 200 })).toBe("lodging");
+  });
+
   it("레벨 올리기 후보: 붐비면 낮은 숙소 먼저, 아니면 일꾼 많은 생산 시설(같으면 낮은 레벨·열쇠 차례), 상한·행정 건물 빼고(1146 나)", () => {
     const list: SiteFacility[] = [
       { key: 1, facility: "farm", level: 1, workers: 2 },

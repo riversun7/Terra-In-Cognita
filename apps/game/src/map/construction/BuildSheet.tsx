@@ -36,7 +36,6 @@ const PROBLEM_TEXT: Readonly<Record<PlacementProblem, () => string>> = {
   needs_water: m.build_problem_water,
   insufficient_materials: m.build_problem_materials,
   foreign_city: m.build_problem_foreign_city,
-  foreign_territory: m.build_problem_foreign_territory,
 };
 
 export function BuildSheet({
@@ -76,7 +75,8 @@ export function BuildSheet({
     footprint && state.tap
       ? anchorForTap(state.tap, footprint.width, footprint.height, state.rotation)
       : null;
-  // 땅 규칙(D-568 지도 영토): 놓을 자리가 있으면 그 칸을, 없으면 2차맵 가운데를 묻는다
+  // 땅 규칙(정부 건물이 있는 남의 도시만 막는다, D-572 알박기 우선): 놓을 자리가 있으면 그 칸을, 없으면 2차맵 가운데를 묻는다 — 그 자리가
+  // 다른 세력 영토면 알림(territoryFaction)
   const land = useLandRule(anchor ? [String(mapKey), String(anchor.x), String(anchor.y)] : [String(mapKey)]);
   // 재료 자리(D-516 361): 짓는 칸(없으면 2차맵 가운데)이 속한 도시 창고 + 그 도시 내 창고 시설 + 이 2차맵 내 유닛 화물
   const at = anchor ?? { x: PLACEMENT_CELLS / 2, y: PLACEMENT_CELLS / 2 };
@@ -102,7 +102,6 @@ export function BuildSheet({
         water: waterState,
         affordable: operator || (level1 ? canAfford(stock, level1.materials) : false),
         landAllowed,
-        landReason: land.data?.status === "ready" ? land.data.reason : null,
       })
     : [];
   // 일꾼: 고른 유닛이 이 2차맵의 내 유닛이고 다른 작업 중이 아니면
@@ -176,6 +175,9 @@ export function BuildSheet({
   };
 
   const landBlocked = landAllowed === false;
+  // 알박기 땅(D-572): 지을 수 있지만 다른 세력 영토 안 — 지키지 못하면 빼앗길 수 있다고 알린다
+  const landClaim =
+    land.data?.status === "ready" && land.data.allowed && (land.data.territoryFaction ?? null) !== null;
   return (
     <section
       className="map-panel map-units map-build"
@@ -199,10 +201,10 @@ export function BuildSheet({
       </div>
       {landBlocked ? (
         <p className="map-build-warning" role="alert">
-          {land.data?.reason === "foreign_territory"
-            ? m.build_problem_foreign_territory()
-            : m.build_problem_foreign_city()}
+          {m.build_problem_foreign_city()}
         </p>
+      ) : landClaim ? (
+        <p className="map-units-note map-build-claim">{m.build_land_claim_note()}</p>
       ) : null}
       {operator ? <p className="map-units-note map-build-operator">{m.build_operator_note()}</p> : null}
       {!data ? (

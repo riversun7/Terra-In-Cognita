@@ -13,7 +13,8 @@
 // - 나라 성격(1142 다): 국가 프리셋 특산 줄(cityJobs)의 시설 수와 국력 등급 처음 시설 수 가운데 큰 값이 목표다(targets). 모자라면 650 + 모자란 수
 //   × 10 — 건물이 없어 휴먼이 도시 직무로 돌리던 특산이 건물로 옮겨 간다. 채집 시설은 그 땅 몫이 0이라고 알면 짓지 않는다(특산은 도시 직무로 남는다)
 // - 숙소: 침대가 휴먼보다 적거나 휴먼이 인구 상한에 닿았고 생필품이 넉넉하면(붐빔 — 숙소를 지어야 상한이 오른다, 1131 나) 숙소
-// - 건물 수 상한 = 도시 등급(발전도 → 1~6, D-137) 표(설정 칸 npc_build_cap_l1~l6 [임시]), 전체 끝 npc_build_max_buildings(0 = 끔) — 1143 나
+// - 건물 수 상한 = 도시 등급(발전도 → 1~6, D-137) 표(설정 칸 npc_build_cap_l1~l6 [임시]), 전체 끝 npc_build_max_buildings(0 = 끔) — 1143 나.
+//   기획 D-554 1187·D-572(질문 1995): 표는 바탕이고 세력·지도자 성향 몫(채)을 더한다. 붐빔 숙소 점수도 성향 몫(1188) — simulator/npcGrowthTemper.ts
 // - 상한에 닿으면 레벨 올리기(1146 나, rankCityUpgrades): 숙소가 찼으면(붐빔) 가장 낮은 숙소, 아니면 일꾼이 가장 많은 생산 시설(같으면 낮은 레벨 →
 //   ID 차례), 한 번에 한 레벨. 재료·시간은 플레이어 레벨업과 같은 식(팩 buildCostAt·buildTimeAt, 부르는 쪽)
 // - 수리(1114 가, chooseCityRepair): 상태가 문턱(설정 칸 npc_build_repair_below_pm [임시]) 아래인 시설을 가장 낮은 것부터 가득까지 — 짓기·레벨
@@ -61,26 +62,36 @@ export interface CityBuildNeeds {
 /** 숙소 레벨당 침대(설정 칸 lodging_beds_per_level)를 넘긴다 — 이 파일은 logistics 계수표를 모른다 */
 export interface BuildChoiceRules {
   readonly bedsPerLevel: number;
+  /**
+   * 붐빔 숙소 점수(700)에 더하는 성향 몫(기획 D-554 1188·D-572 질문 1995 — simulator/npcGrowthTemper.ts: 신앙이 높으면 +, 상업이 높으면 −).
+   * 없으면 0(옛 판)
+   */
+  readonly lodgingTilt?: number | undefined;
   /** 이 도시의 건물 수 상한(buildingCapOf — 도시 등급). 없으면 설정 칸 npc_build_max_buildings */
   readonly cap?: number | undefined;
   /** 재료를 구할 길이 없는 시설(고르지 않는다 — 다음 점수의 시설을 고른다). 없으면 모두 고를 수 있다 */
   readonly blocked?: ReadonlySet<string> | undefined;
 }
 
+/** 붐빔 숙소 점수를 성향으로 내리는 끝(농장 600·채집보다 위, 나라 목표 650 + 10 × 모자란 수와 다툰다) */
+const LODGING_TILT_FLOOR = -90;
+
 /** 도시 등급 수(D-137, @terra/shared/territory CITY_GRADE_COUNT와 같다) */
 const GRADES = 6;
 
 /**
  * 도시 등급(1~6)의 건물 수 상한(1143 나): 등급 표(npc_build_cap_l1~l6) 값, 전체 끝 npc_build_max_buildings. 전체 끝이 0이면 0(증축·레벨 올리기
- * 끔). 표가 비었으면 전체 끝
+ * 끔). 표가 비었으면 전체 끝. temperDelta = 세력·지도자 성향 몫(채, 기획 D-554 1187·D-572 질문 1995 — simulator/npcGrowthTemper.ts)을 표 값에
+ * 더한다(0 아래·전체 끝 위는 자른다)
  */
-export function buildingCapOf(grade: number, c: NpcCoefficients): number {
+export function buildingCapOf(grade: number, c: NpcCoefficients, temperDelta = 0): number {
   const top = Math.max(0, Math.trunc(c.buildMaxBuildings));
   if (top === 0) return 0;
   const index = Math.min(GRADES, Math.max(1, Math.trunc(grade))) - 1;
   const table = c.buildCapByGrade ?? [];
   const value = table[Math.min(index, table.length - 1)];
-  return value === undefined ? top : Math.min(top, Math.max(0, Math.trunc(value)));
+  if (value === undefined) return top;
+  return Math.min(top, Math.max(0, Math.trunc(value) + Math.trunc(temperDelta)));
 }
 
 /** 상한에 세는 건물 수 */
@@ -109,8 +120,13 @@ function scoreOf(
     const beds = needs.beds ?? have * Math.max(1, rules.bedsPerLevel);
     if (beds < needs.humans) return 700 + ceilDiv(needs.humans - beds, rules.bedsPerLevel) * 20;
     // 붐빔(1131 나): 씨앗 숙소는 주거 몫이라 상한을 올리지 않는다 → 상한에 닿으면 숙소를 더 지어야 자란다. 생필품이 모자란 도시는 늘리지 않는다
-    return needs.housingCap !== undefined && needs.humans >= needs.housingCap && needs.foodPm >= 1000
-      ? 700
+    // 성향 몫(D-554 1188, D-572 질문 1995·2127 — 세력 평균으로 중립이 되게): + = 생필품이 조금 모자라도(1000 − 몫 ÷ 2‰ 이상) 붐빔 숙소를
+    // 짓는다, − = 붐빔 숙소 점수를 내려 나라 목표(650 + 10 × 모자란 수) 뒤로 보낸다(LODGING_TILT_FLOOR까지). 처음 판(점수에 몫을 그대로 더함)은
+    // 700이 이미 가장 높은 점수라 +는 차례를 바꾸지 못하고 −만 농장·채집 뒤로까지 밀어 도시가 한쪽으로 줄었다(build16 30일 휴먼 −14%)
+    const tilt = Math.trunc(rules.lodgingTilt ?? 0);
+    const foodNeed = 1000 - Math.trunc(Math.max(0, tilt) / 2);
+    return needs.housingCap !== undefined && needs.humans >= needs.housingCap && needs.foodPm >= foodNeed
+      ? 700 + Math.max(LODGING_TILT_FLOOR, Math.min(0, tilt))
       : undefined;
   }
   if (BUILD_PRODUCING_STAGES.has(option.stage) && needs.workers <= producing) return undefined;

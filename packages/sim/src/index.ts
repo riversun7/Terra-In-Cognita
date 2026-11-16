@@ -995,3 +995,5 @@ export {
   temperedGatherTier,
   tierTemperOf,
 } from "./simulator/npcGatherTier.ts";
+// NPC 도시 성장 성향 변수(기획 D-554 1187·1188, D-572 질문 1995)
+export { type GrowthTemper, NO_GROWTH_TEMPER, growthTemperOf } from "./simulator/npcGrowthTemper.ts";

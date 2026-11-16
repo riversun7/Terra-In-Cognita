@@ -168,7 +168,10 @@ export function startWorldGather(
         // 자동 옮김은 주인 자동 구매(기획 D-569 1781 — 판매가, 매출로 잡힘)
         ownerSale: (ownerId, buildingId, asset, qty, atMs) =>
           facilities.service.ownerSale(ownerId, buildingId, asset, qty, atMs),
+        // 물류센터 운반 대행(기획 D-576 — logistics/haulService.ts): 고른 물류센터·자동 맡기기
+        haulService: facilities.haul,
       });
+      facilities.attachHaulStaff((buildingId, mapKey, nowMs) => station.freeStaff(buildingId, mapKey, nowMs));
       parts.labor.attachStation(station.hook);
       // 손으로 옮기기도 운반꾼·거리 시간(질문 1091 가)
       // 사업장 판매(business_buy)·창고 시설 꺼내기도 같은 운반꾼(기획 D-569 1784 — sellerId = 판 사람)
@@ -187,7 +190,7 @@ export function startWorldGather(
           BigInt(input.qty),
         );
         if (room === false) return "storage_full";
-        return station.haulIn(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs);
+        return station.haulIn(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs, input.via);
       });
       // 플레이어 일꾼도 숙소에서 회복한다(질문 1088 가, labor/workerRest.ts) — 세계가 준비된 뒤 정산에 잇는다(DB가 있는 세계만 일꾼이 있다)
       const workerRest = attachWorkerRest({

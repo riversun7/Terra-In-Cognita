@@ -13,6 +13,9 @@
 //   세워 둔다(ok + waiting). 정시 살피기(service.ts — HARBOR_TICK_MS)마다 다시 해 보고, 운반꾼이 생기면 나른다. 다시 해 볼 때 정박이 끝났거나 짐이
 //   없어지는 등 다른 까닭으로 못 하면 그 줄을 버린다. 배마다 내리기 1줄(새 내리기가 앞 줄을 바꾼다)·싣기 WAIT_LOADS_MAX줄, 기다림 상한 WAIT_MAX_MS [임시].
 //   기다리는 줄은 메모리에만 있다(다시 켜면 버린다 — 물건은 그대로 제자리).
+// - 물류센터(기획 D-576, docs/adr/2026-11-16-logistics-center.md): 명령의 via(물류센터 건물 ID | auto)를 운반에 넘긴다(station.ts carry). 물류센터 쪽 실패는
+//   no_shop_worker → no_carrier, service_closed → unavailable, insufficient_funds는 그대로. 차례(묶음 1116p): via 건물 ID면 그 물류센터 일꾼만 → 아니면 내 운반꾼 →
+//   없으면 자동 맡기기(via auto) → 그래도 없으면(no_carrier) 위 기다림 줄. 기다리는 줄은 같은 via로 다시 해 본다.
 // - 창고 시설(무게 상한)로는 내리지 않는다 — 도시 창고는 상한이 없다(질문 411). NPC 배는 내리기·싣기를 쓰지 않는다(npcFleet.ts).
 import { cargoLocation } from "@terra/shared/goodsPlaces";
 import type { CarryResult } from "../gather/station.ts";
@@ -33,7 +36,13 @@ export const WAIT_LOADS_MAX = 8;
 
 export interface Cargo {
   /** 배 창고를 그 항구의 물건 자리로 내린다(me = 부르는 소유 주체) */
-  unload(me: number | undefined, boatId: number, buildingId: number, operator: boolean): BoatCommandResult;
+  unload(
+    me: number | undefined,
+    boatId: number,
+    buildingId: number,
+    operator: boolean,
+    via?: number | "auto",
+  ): BoatCommandResult;
   /** 그 항구의 물건 자리에서 아이템을 묶음 수만큼 배 창고에 싣는다 */
   load(
     me: number | undefined,
@@ -42,6 +51,7 @@ export interface Cargo {
     item: string,
     lots: number,
     operator: boolean,
+    via?: number | "auto",
   ): BoatCommandResult;
   /** 운반꾼을 기다리는 줄을 다시 해 본다(정시 살피기). 나르기 시작한 줄 수 */
   retry(nowMs: number): number;
@@ -93,6 +103,8 @@ export function loadableOf(
 
 /** 운반 결과 → 배 명령 결과(운반꾼이 걷는 중이면 닿는 시각). 운반꾼이 없으면 no_carrier(부르는 쪽이 줄을 세운다) */
 function carried(result: CarryResult, boatId: number, atMs: number): BoatCommandResult {
+  if (result === "insufficient_funds") return fail("insufficient_funds");
+  if (result === "service_closed") return fail("unavailable");
   if (typeof result === "string") return fail("no_carrier");
   return result.arriveAtMs > atMs
     ? { ok: true, boatId, walking: true, readyAtMs: result.arriveAtMs }
@@ -164,6 +176,7 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
     boatId: number,
     buildingId: number,
     operator: boolean,
+    via?: number | "auto",
   ): BoatCommandResult => {
     const port = portOf(deps, harbor, me, boatId, buildingId, operator);
     if (portFailed(port)) return port;
@@ -198,6 +211,7 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
       loads: stacks.map((stack) => ({ asset: stack.asset, qty: stack.qty })),
       atMs: at,
       instantKind: "boat_unload",
+      via,
     });
     return carried(result, boatId, at);
   };
@@ -209,6 +223,7 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
     item: string,
     lots: number,
     operator: boolean,
+    via?: number | "auto",
   ): BoatCommandResult => {
     const port = portOf(deps, harbor, me, boatId, buildingId, operator);
     if (portFailed(port)) return port;
@@ -261,6 +276,7 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
         loads: [{ asset, qty: take.qty }],
         atMs: at,
         instantKind: "boat_load",
+        via,
         // 닿을 때 배가 그 항구에 없으면(떠남·시간 끝·주인 바뀜) 꺼낸 자리로
         redirect: () =>
           portFailed(portOf(deps, harbor, owner, boatId, buildingId, false)) ? take.location : undefined,
@@ -278,13 +294,13 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
   };
 
   return {
-    unload(me, boatId, buildingId, operator) {
-      const attempt = (): BoatCommandResult => unloadNow(me, boatId, buildingId, false);
-      return orWait(unloadNow(me, boatId, buildingId, operator), boatId, "unload", attempt);
+    unload(me, boatId, buildingId, operator, via) {
+      const attempt = (): BoatCommandResult => unloadNow(me, boatId, buildingId, false, via);
+      return orWait(unloadNow(me, boatId, buildingId, operator, via), boatId, "unload", attempt);
     },
-    load(me, boatId, buildingId, item, lots, operator) {
-      const attempt = (): BoatCommandResult => loadNow(me, boatId, buildingId, item, lots, false);
-      return orWait(loadNow(me, boatId, buildingId, item, lots, operator), boatId, "load", attempt);
+    load(me, boatId, buildingId, item, lots, operator, via) {
+      const attempt = (): BoatCommandResult => loadNow(me, boatId, buildingId, item, lots, false, via);
+      return orWait(loadNow(me, boatId, buildingId, item, lots, operator, via), boatId, "load", attempt);
     },
     retry(nowMs) {
       let started = 0;

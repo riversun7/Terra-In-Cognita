@@ -201,6 +201,8 @@ export interface FacilityJson {
   readonly harbor?: HarborRole | undefined;
   /** 거래소 종류(docs/adr/2026-11-16-exchange-buildings.md). 편집기는 고치지 않고 그대로 둔다 */
   readonly exchange?: ExchangeKind | undefined;
+  /** 물류센터(운반 대행 사업장 — docs/adr/2026-11-16-logistics-center.md). 편집기는 고치지 않고 그대로 둔다 */
+  readonly logistics?: true | undefined;
   /** 조선소 배 종류 표(D-547 1484). 편집기는 고치지 않고 그대로 둔다 */
   readonly boats?:
     | readonly {

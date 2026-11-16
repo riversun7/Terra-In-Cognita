@@ -220,6 +220,10 @@
  *      service:exchange_fee(만분율 — 53판 기기는 보내지 않는다). 메시지 꼴은 더하기만 했다. 배 상하역 운반꾼 기다림(기획 대조 질문 2212 — D-555 1505):
  *      boat_result ok에 waiting(선택). 운반꾼이 없으면 줄을 세우고 waiting: true — 54판 아래 연결은 예전 실패 코드(no_carrier, 51판 아래 unavailable)를
  *      받는다(boats.ts BOAT_WAIT_PROTOCOL_VERSION).
+ *    - 물류센터 운반 대행(줄기 logistics 판 70, 기획 D-555 1505·D-576, docs/adr/2026-11-16-logistics-center.md): storage_move(물자 거래소 넣기)·boat_unload·
+ *      boat_load에 선택 칸 via(물류센터 건물 ID | auto — facilities.ts haulViaSchema, LOGISTICS_PROTOCOL_VERSION), business_price의 item에 service:haul(물류센터
+ *      한 단위 요금). 53판 기기는 보내지 않는다(서버는 내 운반꾼으로). 새 결과 코드 없음(물류센터 쪽 실패는 있는 코드 — 배 메시지는 no_carrier·
+ *      insufficient_funds·unavailable).
  */
 export const PROTOCOL_VERSION = 54;
 

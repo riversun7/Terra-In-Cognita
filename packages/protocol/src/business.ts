@@ -9,6 +9,7 @@
 //   service:equipment_repair, D-570 1785). 51부터 조선소 배 판매가도(item = boat:<배 종류>, 0 = 그 종류는 만들지 않음 — 기획 대조 2057).
 //   52부터 외환 거래소 환전 이용료 요율도(item = service:fx_fee, 값 = 만분율 — 질문 2086, 줄기 exchange-3 판 56).
 //   54부터 물자 거래소 이용료 요율도(item = service:exchange_fee, 값 = 만분율 — 기획 D-574 질문 2085, 줄기 misc-574).
+//   54부터 물류센터 운반 대행 한 단위 요금도(item = service:haul, 0 = 받지 않음 — 기획 D-576, docs/adr/2026-11-16-logistics-center.md).
 // - 선물(unit_gift, 1508): 내 유닛의 사유재산(유닛 지갑)에 돈을 준다. 유닛은 그 돈으로 숙박비를 낸다.
 // - 지분 주문(business_share_order·business_share_cancel, 프로토콜 38 — docs/adr/2026-11-15-building-screen.md): 생산시설 지분(기획 44 §6
 //   "100% 매각 가능, 배당은 지분만큼")을 동시호가(D-125)로 사고판다. 사기 = 1주 상한 × 주 수를 지갑(사업장 금고 화폐)에서 묶고, 팔기 = 그 지분을
@@ -58,6 +59,8 @@ const priced = z.union([
   z.literal("service:fx_fee"),
   // 54부터 물자 거래소 이용료 요율(만분율 — 물자 거래소만, 기획 D-574 질문 2085)
   z.literal("service:exchange_fee"),
+  // 54부터 물류센터 운반 대행 한 단위 요금(물류센터만, 0 = 받지 않음 — 기획 D-576·D-570 1822)
+  z.literal("service:haul"),
   // 51부터 배 판매가(boat:<배 종류> — 조선소만, 기획 대조 2057·2072·2074)
   z.string().regex(/^boat:[a-z][a-z0-9_]{1,47}$/),
 ]);

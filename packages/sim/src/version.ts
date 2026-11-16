@@ -263,6 +263,8 @@
  *    - NPC 건물 수 상한(npc/build.ts buildingCapOf): 등급 표 값이 1 이상이면 성향 몫(npcGrowthTemper capDelta)을 더해 0 이하가 돼도 1(옛 꼴은 0 —
  *      그 도시 짓기가 멈췄다, D-554 "다양한 변수로 조정"). 상한이 0이던 세력의 도시가 다시 짓는다(시뮬 기본 시나리오는 성향 몫이 표를 넘지 않아
  *      sim 시험이 그대로 통과한다)
+ *    - (줄기 logistics의 80) 사업장 계수표에 물류센터 운반 대행 요금 단위 칸 둘(haulUnitG·haulUnitCells — 기획 D-576·질문 2213 요금 단위 나, 서버
+ *      logistics/haulService.ts만 읽는다). 시뮬 판정·출력은 그대로다(시뮬은 운반 대행을 돌리지 않는다)
  */
 export const SIM_VERSION = 62;
 

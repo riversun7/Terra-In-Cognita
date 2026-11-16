@@ -4,6 +4,7 @@ import { encodeMessage } from "./encode.ts";
 import {
   ATTACK_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
+  LOGISTICS_PROTOCOL_VERSION,
   STORAGE_PROTOCOL_VERSION,
 } from "./facilities.ts";
 import { MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION } from "./version.ts";
@@ -58,6 +59,28 @@ describe("건물 메시지(프로토콜 10, 창고 11, 공격 12)", () => {
     } as const;
     expect(decodeClientMessage(encodeMessage(grant))).toEqual(grant);
     expect(() => decodeClientMessage(bad({ ...move, direction: "up" }))).toThrow();
+    // 물류센터에 맡기기(70, D-576): 건물 ID 또는 auto, 그 밖은 받지 않는다
+    expect(LOGISTICS_PROTOCOL_VERSION).toBeLessThanOrEqual(PROTOCOL_VERSION);
+    for (const via of [42, "auto"] as const) {
+      const haul = { ...move, via };
+      expect(decodeClientMessage(encodeMessage(haul))).toEqual(haul);
+      const unload = { t: "boat_unload" as const, id: 2, boatId: 5, buildingId: 9, via };
+      expect(decodeClientMessage(encodeMessage(unload))).toEqual(unload);
+      const load = {
+        t: "boat_load" as const,
+        id: 3,
+        boatId: 5,
+        buildingId: 9,
+        item: "pine_log",
+        lots: 2,
+        via,
+      };
+      expect(decodeClientMessage(encodeMessage(load))).toEqual(load);
+    }
+    expect(() => decodeClientMessage(bad({ ...move, via: 0 }))).toThrow();
+    expect(() => decodeClientMessage(bad({ ...move, via: "cheapest" }))).toThrow();
+    const price = { t: "business_price" as const, id: 4, buildingId: 9, item: "service:haul", price: "30" };
+    expect(decodeClientMessage(encodeMessage(price))).toEqual(price);
     expect(() => decodeClientMessage(bad({ ...move, asset: "Item:Pine" }))).toThrow();
     expect(() => decodeClientMessage(bad({ ...move, qty: 0 }))).toThrow();
     expect(() => decodeClientMessage(bad({ ...grant, x: 256 }))).toThrow();

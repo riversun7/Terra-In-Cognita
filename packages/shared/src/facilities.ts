@@ -5,6 +5,7 @@ import type { ExchangeKind } from "./exchange.ts";
 import type { ConditionState, FacilityRuntimeRules } from "./facilityRuntime.ts";
 import { type CityCell, type GoodsPlaceKind, isMaterialSource } from "./goodsPlaces.ts";
 import type { LocalizedName } from "./roster.ts";
+import type { HaulCenterView } from "./logistics.ts";
 
 export type { ConditionState } from "./facilityRuntime.ts";
 
@@ -247,6 +248,8 @@ export interface GoodsPlaceView {
   readonly exchange?: ExchangeKind | undefined;
   /** 도시 창고: 그 도시 물자 거래소 건물 ID(없으면 null — [거래소로 옮기기]를 숨긴다). 칸이 없으면 옛 서버 */
   readonly exchangeId?: number | null | undefined;
+  /** 도시 창고: 거래소로 옮길 때 맡길 수 있는 그 도시 물류센터(기획 D-576 — 건물 ID 차례). 칸이 없으면 옛 서버 */
+  readonly haulCenters?: readonly HaulCenterView[] | undefined;
   readonly lines: readonly {
     /** 원장 자산 코드(item:<ID>, 시험 광석 등) */
     readonly asset: string;

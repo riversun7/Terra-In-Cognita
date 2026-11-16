@@ -130,6 +130,8 @@ export function cleanFacility(entry: FacilityJson): FacilityJson {
     ...(entry.harbor === undefined ? {} : { harbor: entry.harbor }),
     // 거래소 종류(docs/adr/2026-11-16-exchange-buildings.md): 같은 까닭으로 그대로 돌려보낸다
     ...(entry.exchange === undefined ? {} : { exchange: entry.exchange }),
+    // 물류센터(docs/adr/2026-11-16-logistics-center.md): 같은 까닭으로 그대로 돌려보낸다
+    ...(entry.logistics === true ? { logistics: true as const } : {}),
     ...(entry.boats === undefined ? {} : { boats: entry.boats }),
     // 2차맵 겉모습(빈 칸을 빼고, 칸이 하나도 없으면 칸째 뺀다 — docs/adr/2026-11-08-building-art.md "바뀜 (2026-11-09)")
     ...(look === undefined ? {} : { look }),

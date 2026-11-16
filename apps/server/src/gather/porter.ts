@@ -15,6 +15,8 @@
 //   2차맵 유닛. 거래 직무 유닛이 나르면 시간이 설정 칸 exchange_desk_haul_pm 배(station.ts deskHaulPm).
 // - 배 상하역(기획 D-555 1505, boats/cargo.ts — station.ts carry): 배 창고 ↔ 항구 옆 거래소 건물 창고·도시 창고도 같은 짐이다. 싣는 짐은 닿을 때 배가
 //   그 항구에 없으면 꺼낸 자리로 돌려놓는다(redirect).
+// - 물류센터(운반 대행, 기획 D-555 1505·D-576 — logistics/haulService.ts, docs/adr/2026-11-16-logistics-center.md): 맡긴 짐은 그 물류센터 일꾼(누구의 배치·계약이든
+//   그 사업장의 운반꾼)만 진다(pick의 service — 물건 주인의 유닛으로 넘어가지 않는다). 짐의 건물 = 그 물류센터.
 // - 같은 채집소·같은 주인의 짐이 떠난 지 MERGE_MS 안이면 그 짐에 더한다(손으로 옮기기는 물건마다 명령을 보낸다 — 운반꾼 하나가 한 번에 진다).
 // - [임시] 나르는 중 상태는 메모리다. 다시 켜면 화물은 운반꾼에 남아 있어 다음 정시에 그 유닛의 화물로 짐을 다시 떠나보낸다(resume).
 // 정수 연산만 쓴다.
@@ -106,8 +108,16 @@ export interface Porters {
   busyAt(buildingId: number): boolean;
   /** 그 채집소의 가장 늦게 닿는 짐 */
   latestAt(buildingId: number): PorterTrip | undefined;
-  /** 운반꾼으로 쓸 유닛(없으면 undefined) */
-  pick(buildingId: number, mapKey: number, ownerId: number, nowMs: number): number | undefined;
+  /** 운반꾼으로 쓸 유닛(없으면 undefined). service = 물류센터(그 건물 일꾼 모두가 남의 짐을 진다, 물건 주인 유닛은 후보가 아니다) */
+  pick(
+    buildingId: number,
+    mapKey: number,
+    ownerId: number,
+    nowMs: number,
+    service?: boolean,
+  ): number | undefined;
+  /** 물류센터의 지금 나를 수 있는 일꾼 수(그 2차맵에 있고 움직일 수 있고 다른 일·짐이 없는 — 화면 보이기) */
+  freeStaff(buildingId: number, mapKey: number, nowMs: number): number;
   /**
    * 짐을 떠나보낸다: 채집소 창고(stationLocation)의 그 주인 물건 qty를 운반꾼 화물로 싣고 걷기 시작한다. 같은 채집소·주인의 짐이 MERGE_MS 안에
    * 떠났으면 거기에 더하고 닿는 시각을 다시 센다(timeMs(전체 무게)). 실은 짐
@@ -214,9 +224,16 @@ export function createPorters(deps: PorterDeps): Porters {
         if (trip.buildingId === buildingId && (!found || trip.arriveAtMs > found.arriveAtMs)) found = trip;
       return found;
     },
-    pick(buildingId, mapKey, ownerId, nowMs) {
+    pick(buildingId, mapKey, ownerId, nowMs, service = false) {
       const map = maps.get(mapKey);
       if (!map) return undefined;
+      // 물류센터(D-576): 그 사업장 일꾼은 누구의 짐이든 진다 — 일꾼만, 유닛 ID 차례
+      const staff = service
+        ? deps
+            .workersAt(buildingId)
+            .map((worker) => worker.unitId)
+            .toSorted((a, b) => a - b)
+        : undefined;
       // 거래 직무(질문 2083·2084): 그 자리에서 나를 위해 일하는 유닛만(직무 배치·빌린 자리 = 유닛 주인, 고용 = 고용주) — 남의 짐을 나르지 않는다
       const desk = deps.deskAt?.(buildingId) === true;
       const workers = deps
@@ -234,7 +251,7 @@ export function createPorters(deps: PorterDeps): Porters {
         .map((worker) => worker.unitId);
       // 일꾼 다음은 받을 사람의 그 2차맵 유닛(D-569 1784 — 창고 시설·일꾼 없는 사업장)
       const own = (deps.ownUnits?.(ownerId, mapKey) ?? []).filter((unitId) => !workers.includes(unitId));
-      for (const unitId of [...workers, ...own.toSorted((a, b) => a - b)]) {
+      for (const unitId of staff ?? [...workers, ...own.toSorted((a, b) => a - b)]) {
         const info = map.unitInfo(unitId);
         if (!info || unavailable(info.condition, nowMs)) continue;
         if (deps.busy?.(unitId) === true) continue;
@@ -252,6 +269,17 @@ export function createPorters(deps: PorterDeps): Porters {
         return unitId;
       }
       return undefined;
+    },
+    freeStaff(buildingId, mapKey, nowMs) {
+      const map = maps.get(mapKey);
+      if (!map) return 0;
+      let count = 0;
+      for (const worker of deps.workersAt(buildingId)) {
+        const info = map.unitInfo(worker.unitId);
+        if (!info || unavailable(info.condition, nowMs) || deps.busy?.(worker.unitId) === true) continue;
+        if (!carrying(worker.unitId)) count += 1;
+      }
+      return count;
     },
     depart(spec) {
       const entries: { account: number; amount: bigint }[] = [];

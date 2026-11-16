@@ -142,4 +142,11 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 거래소 거래 직무 자리 값(적정가 ‰)",
     "NPC exchange trade-desk rent (‰ of fair)",
   ),
+  k("business_haul_unit_g", "haulUnitG", "운반 대행 요금 단위 무게(g)", "Haul service fee unit weight (g)"),
+  k(
+    "business_haul_unit_cells",
+    "haulUnitCells",
+    "운반 대행 요금 단위 거리(칸)",
+    "Haul service fee unit distance (cells)",
+  ),
 ];

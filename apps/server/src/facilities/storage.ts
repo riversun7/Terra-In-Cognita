@@ -26,6 +26,8 @@ export interface StorageMoveInput {
   readonly asset: string;
   readonly qty: number;
   readonly direction: "in" | "out";
+  /** 물류센터에 맡기기(기획 D-576 — 물자 거래소 넣기만 쓴다, gather/station.ts haulIn). 없으면 내 운반꾼 */
+  readonly via?: number | "auto" | undefined;
 }
 
 export interface StorageContext {

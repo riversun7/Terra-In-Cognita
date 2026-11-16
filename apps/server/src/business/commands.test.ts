@@ -46,6 +46,7 @@ function setup(
     boatTypes?: (buildingId: number) => readonly string[];
     fxShop?: (buildingId: number) => boolean;
     goodsExchange?: (buildingId: number) => boolean;
+    haulShop?: (buildingId: number) => boolean;
   } = {},
 ) {
   let ids = 1;
@@ -83,6 +84,7 @@ function setup(
     boatTypes: opts.boatTypes,
     fxShop: opts.fxShop,
     goodsExchange: opts.goodsExchange,
+    haulShop: opts.haulShop,
   });
   const grant = (ownerId: number, asset: string, amount: bigint, location: number | null = null) =>
     ledger.post({
@@ -314,5 +316,19 @@ describe("사업장 장부 명령", () => {
       await commands.run("owner", { kind: "price", buildingId: STORE, item: "service:fx_fee", price: 30n }),
     ).toEqual({ ok: true });
     expect(core.price(STORE, "service:fx_fee")).toBe(30n);
+  });
+
+  it("운반 대행 요금(기획 D-576): 물류센터만 service:haul 한 단위 값을 정한다(0 = 받지 않음)", async () => {
+    const { core, commands } = setup(4, undefined, { haulShop: (buildingId) => buildingId === STORE });
+    expect(
+      await commands.run("owner", { kind: "price", buildingId: FARM, item: "service:haul", price: 30n }),
+    ).toEqual({ ok: false, code: "not_goods" });
+    expect(
+      await commands.run("owner", { kind: "price", buildingId: STORE, item: "service:haul", price: -1n }),
+    ).toEqual({ ok: false, code: "invalid_amount" });
+    expect(
+      await commands.run("owner", { kind: "price", buildingId: STORE, item: "service:haul", price: 0n }),
+    ).toEqual({ ok: true });
+    expect(core.price(STORE, "service:haul")).toBe(0n);
   });
 });

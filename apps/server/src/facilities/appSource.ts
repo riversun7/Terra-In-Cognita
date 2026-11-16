@@ -57,6 +57,8 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
         const plan = world.npc?.economy?.restPlan(cityId);
         return plan ? (plan.occupancy.get(buildingId) ?? 0) : undefined;
       },
+      // 거래소 넣기에 맡길 물류센터(D-576)
+      haulCenters: (cityId, viewerOwnerId) => facilities.haul.centersView(cityId, viewerOwnerId),
     },
     ownerOf: (userId) => settlement.findOwnerOfUser(userId),
     map: (mapKey) => world.maps.get(mapKey),
@@ -103,6 +105,8 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
                   id,
                 )
               : undefined,
+          // 운반 대행 요금(D-576): 물류센터만
+          haulService: (id) => facilities.haul.view(id),
         },
         settlement.findOwnerOfUser(userId),
         buildingId,

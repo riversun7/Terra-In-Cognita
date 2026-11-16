@@ -12,6 +12,7 @@ import type {
   GoodsPlaceView,
 } from "@terra/shared/facilities";
 import { placeKey, placeOfLocation, sourceOrder } from "@terra/shared/goodsPlaces";
+import type { HaulCenterView } from "@terra/shared/logistics";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
 import {
   advanceCondition,
@@ -64,6 +65,8 @@ export interface FacilityViewSource {
   readonly suspended?: ((buildingId: number) => boolean) | undefined;
   /** 그 숙소를 쓰는 NPC 일꾼 수(도시 경제 쉼터 계획, 질문 1047 다). 없으면 null */
   readonly lodgingOccupants?: ((buildingId: number, cityId: number | null) => number | undefined) | undefined;
+  /** 그 도시의 고를 수 있는 물류센터(거래소 넣기 운반 맡기기 — 기획 D-576, logistics/haulService.ts centersView). 없으면 칸 없이 */
+  readonly haulCenters?: ((cityId: number, viewerOwnerId: number) => HaulCenterView[]) | undefined;
 }
 
 /** 내 세력 비콘 하나(영토 서비스)와 재료를 꺼내는 도시(그 세력에서 가장 가까운 도시, 질문 410 ①) */
@@ -98,6 +101,7 @@ function placesOf(
   ledger: Ledger,
   catalog: FacilityCatalog,
   ownerId: number,
+  haulCenters?: (cityId: number, viewerOwnerId: number) => HaulCenterView[],
 ): GoodsPlaceView[] {
   const byKey = new Map<
     string,
@@ -116,10 +120,13 @@ function placesOf(
       let facilityId: string | null = null;
       let exchange: GoodsPlaceView["exchange"];
       let exchangeId: number | null | undefined;
+      let centers: HaulCenterView[] | undefined;
       if (place.kind === "city") {
         cityId = place.id;
         // 그 도시 물자 거래소 건물(D-561 — 화면 [거래소로 옮기기], docs/adr/2026-11-16-exchange-buildings.md)
         exchangeId = goodsExchangeIn(world, catalog, cityId);
+        // 거래소로 옮길 때 맡길 수 있는 물류센터(D-576)
+        if (exchangeId !== null && cityId !== null) centers = haulCenters?.(cityId, ownerId);
       } else if (place.kind === "building" && place.id !== null) {
         const found = buildingPlace(world, place.id);
         cityId = found?.cityId ?? null;
@@ -143,6 +150,7 @@ function placesOf(
           sale,
           ...(exchange === undefined ? {} : { exchange }),
           ...(exchangeId === undefined ? {} : { exchangeId }),
+          ...(centers === undefined ? {} : { haulCenters: centers }),
         },
         lines: [],
       };
@@ -525,7 +533,10 @@ export function facilitiesOverview(
     rules: { ...rt },
     maps: [...source.maps.keys()],
     cities: service.places.cities().filter((city) => source.maps.has(city.mapKey)),
-    places: ownerId === undefined ? [] : placesOf(service.places, source.ledger, catalog, ownerId),
+    places:
+      ownerId === undefined
+        ? []
+        : placesOf(service.places, source.ledger, catalog, ownerId, source.haulCenters),
     catalog: catalogViews,
     facilities: facilities.toSorted((a, b) => a.buildingId - b.buildingId),
     beacons,

@@ -4,6 +4,7 @@
 // 메뉴(nav)·홈(home)은 모양을 모르는 JSON 객체 그대로 쓰고 읽는다(ADR 2026-10-29-app-shell 5절). 판(v)은 1 그대로다:
 // 올리면 theme-init.js가 저장된 테마를 버린다. 칸을 더하기만 하므로 옛 앱은 모르는 칸을 무시한다(다시 쓸 때 지운다, ADR 37 5절 감수).
 // 시세 색(marketColors, D-442)은 기기에만 둔다(계정 설정 표에 칸이 없다). 계정과 맞추는 묶음(SETTINGS_GROUPS)에 넣지 않는다.
+// 물류센터 자동 맡기기(autoHaul, 기획 D-576 — docs/adr/2026-11-16-logistics-center.md)도 같은 까닭으로 기기에만 둔다(운반 명령이 via auto로 보낸다).
 import {
   EMPTY_SETTINGS,
   SETTINGS_OBJECT_MAX_BYTES,
@@ -32,6 +33,8 @@ export interface DeviceSettings extends UserSettings {
   pending: PendingChanges;
   /** 시세 색(기기에만). 칸이 없으면 언어 기본 */
   marketColors?: MarketColorChoice;
+  /** 물류센터 자동 맡기기(기기에만, D-576). 칸이 없으면 끔 */
+  autoHaul?: boolean;
 }
 
 export const EMPTY_DEVICE_SETTINGS: DeviceSettings = { ...EMPTY_SETTINGS, pending: {} };
@@ -55,6 +58,7 @@ export function parseDeviceSettings(raw: string | null): DeviceSettings {
   const marketColors = field(data, "marketColors");
   const settings: DeviceSettings = { ...parseUserSettings(data), pending };
   if (isMarketColorChoice(marketColors)) settings.marketColors = marketColors;
+  if (field(data, "autoHaul") === true) settings.autoHaul = true;
   return settings;
 }
 
@@ -68,6 +72,7 @@ export function serializeDeviceSettings(settings: DeviceSettings): string {
     nav: settings.nav,
     home: settings.home,
     marketColors: settings.marketColors,
+    autoHaul: settings.autoHaul,
     pending: settings.pending,
   });
 }

@@ -15,6 +15,7 @@
 // 도시 창고·항구 옆 물자 거래소 건물 창고에서), 보직 낚시 선원(fisher). 새 결과 코드는 49판 연결에만, 그 아래 연결은 legacyGearCode로 낮춘다.
 // 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다: 소유·거리·재료 판정은 서버가 하고, 여기서는 모양만 본다.
 import { z } from "zod";
+import { haulViaSchema } from "./facilities.ts";
 
 /** 배 메시지에 필요한 가장 낮은 프로토콜 버전. 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
 export const BOAT_PROTOCOL_VERSION = 27;
@@ -165,6 +166,8 @@ export const boatUnloadMessage = z.object({
   id: requestId,
   boatId: unitId,
   buildingId,
+  /** 물류센터에 맡기기(54부터, D-576 — facilities.ts haulViaSchema). 없으면 내 운반꾼만 */
+  via: haulViaSchema.optional(),
 });
 
 /**
@@ -192,6 +195,8 @@ export const boatLoadMessage = z.object({
   buildingId,
   item: itemId,
   lots: z.number().int().min(1).max(1_000_000),
+  /** 물류센터에 맡기기(54부터, D-576). 없으면 내 운반꾼만 */
+  via: haulViaSchema.optional(),
 });
 
 /** 내 유닛을 내 배에 태운다 */

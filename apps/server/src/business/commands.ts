@@ -14,6 +14,7 @@
 // - 값 정하기: 주인·대주주. 원장 물자, 그리고 외주 수리 시간당 요금(REPAIR_SERVICE_ITEM — 수리 줄이 있는 공방만, 기획 D-570 1785 "요금은 주인이
 //   정한다"). 수리 요금을 정하지 않았으면 적정가(fairPrice.ts — 그 공방 시간당 재료비(2167)·일꾼 시간당 인건비·수수료·세금)로 받고, 0이면 외주를 받지 않는다.
 //   배 판매가(boat:<종류> — 기획 대조 2057·2072: 그 종류를 만드는 조선소만, 0 = 만들지 않음, 정하지 않으면 적정가 — boats/shipyard.ts).
+//   물류센터 운반 대행 한 단위 요금(service:haul — 기획 D-576: 물류센터만, 0 = 받지 않음, 정하지 않으면 적정가 — logistics/haulService.ts).
 // - 지급준비율(D-564 1623): 주인 또는 대주주(D-570 1790 — D-555 1502). 정산이 이 비율로 금고에 돈을 남긴다(core.ts·reserve.ts).
 // - 선물(1508): 내 유닛의 유닛 지갑(@terra/shared/businessBooks unitPurseLocation)에 내 지갑 돈을 준다.
 // - 화폐는 서버 시험 화폐가 기본 [임시](요금·임금과 같다). 넣기·정산은 고른 화폐.
@@ -21,6 +22,7 @@ import type { BusinessResultCode } from "@terra/protocol";
 import {
   EXCHANGE_FEE_ITEM,
   FX_FEE_ITEM,
+  HAUL_SERVICE_ITEM,
   REPAIR_SERVICE_ITEM,
   businessLocation,
   isReservePm,
@@ -103,6 +105,8 @@ export interface BusinessCommandDeps {
   readonly materialsHourly?: ((buildingId: number) => bigint) | undefined;
   /** 그 건물(조선소)이 만드는 배 종류 ID(배 판매가 boat:<종류>를 정할 수 있다 — 기획 대조 2057). 없으면 빈 목록 */
   readonly boatTypes?: ((buildingId: number) => readonly string[]) | undefined;
+  /** 그 건물이 물류센터인가(운반 대행 한 단위 요금 service:haul을 정할 수 있다 — 기획 D-576). 없으면 늘 false */
+  readonly haulShop?: ((buildingId: number) => boolean) | undefined;
   /** 그 건물이 외환 거래소인가(환전 이용료 요율 service:fx_fee를 정할 수 있다 — 질문 2086). 없으면 늘 false */
   readonly fxShop?: ((buildingId: number) => boolean) | undefined;
   /** 물자 거래소인가(이용료 요율 — D-574 질문 2085). 없으면 아니다 */
@@ -351,6 +355,13 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
           const max = fx ? bound(r.exchangeFxFeeMaxBp, 0) : bound(r.exchangeFeeMaxBp, 10_000);
           const min = fx ? bound(r.exchangeFxFeeMinBp, 0) : bound(r.exchangeFeeMinBp, 0);
           if (command.price < min || command.price > max) return fail("invalid_amount");
+          core.setPrice(command.buildingId, command.item, command.price);
+          return { ok: true };
+        }
+        // 물류센터 운반 대행 한 단위 요금(D-576 — 0 = 받지 않음)
+        if (command.item === HAUL_SERVICE_ITEM) {
+          if (deps.haulShop?.(command.buildingId) !== true) return fail("not_goods");
+          if (command.price < 0n) return fail("invalid_amount");
           core.setPrice(command.buildingId, command.item, command.price);
           return { ok: true };
         }

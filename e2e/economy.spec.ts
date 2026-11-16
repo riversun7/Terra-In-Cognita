@@ -534,3 +534,85 @@ test.describe("실제 거래소 사진", () => {
     });
   }
 });
+
+/** 도시 창고 자리 하나에 물류센터 둘(하나는 받지 않음)과 거래소 건물을 붙인다(기획 D-576 — 서버는 그 도시에 물류센터가 있을 때만 싣는다) */
+function withHaulCenters(data: unknown): void {
+  if (typeof data !== "object" || data === null) return;
+  const places: unknown = Reflect.get(data, "places");
+  const list = Array.isArray(places) ? places : [];
+  const unit = { unitG: 100_000, unitCells: 10 };
+  Reflect.set(data, "places", [
+    {
+      key: "city_9001",
+      kind: "city",
+      id: 9001,
+      cityId: 9001,
+      mapKey: null,
+      storage: false,
+      facilityId: null,
+      sale: false,
+      exchangeId: 9002,
+      haulCenters: [
+        { buildingId: 9003, mine: false, perUnit: "1250000", workers: 3, ...unit },
+        { buildingId: 9004, mine: true, perUnit: "0", workers: 0, ...unit },
+      ],
+      lines: [
+        {
+          asset: "item:pine_log",
+          item: "pine_log",
+          name: { ko: "소나무 통나무", en: "Pine log" },
+          qty: "40",
+        },
+      ],
+    },
+    ...list,
+  ]);
+}
+
+test.describe("물류센터 고르기(D-576)", () => {
+  test.use({ account: "player" });
+
+  for (const { theme, language } of [
+    { theme: "pastel", language: "ko" },
+    { theme: "dark", language: "en" },
+  ] as const) {
+    test.describe(`${theme}·${language}`, () => {
+      test.use({ theme, language, viewport: { width: 390, height: 844 } });
+
+      test("거래소로 옮기기에 운반 고르기: 받지 않는 곳은 막고, 자동 맡기기를 켜면 내 유닛 줄 글이 바뀐다", async ({
+        page,
+        deviceErrors,
+      }) => {
+        test.setTimeout(120_000);
+        await rewriteTrpc(page, { "summary.get": hideSummary, "facilities.overview": withHaulCenters });
+        await page.goto("/economy/production");
+        const moves = economy(page).locator('[data-part="facility-exchange-moves"]').first();
+        await expect(moves).toBeVisible({ timeout: 30_000 });
+        const pick = moves.locator('[data-part="facility-haul-pick"]');
+        await expect(pick.locator("option")).toHaveCount(3);
+        await expect(pick.locator("option").first()).toHaveText(message(language, "facility_haul_own"));
+        await expect(pick.locator('option[value="9004"]')).toHaveAttribute("disabled", "");
+        await pick.selectOption("9003");
+        await expect(pick).toHaveValue("9003");
+        await expect(moves.locator('[data-part="facility-haul-unit"]')).toBeVisible();
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await elementShot(moves, `economy-haul-pick-${theme}-${language}-390`);
+        // 설정의 자동 맡기기(기기에만)
+        await page.goto("/settings");
+        const toggle = page.locator('[data-part="settings-auto-haul"]');
+        await expect(toggle).toBeVisible();
+        await toggle.click();
+        await expect(toggle.locator('input[name="auto-haul"]')).toBeChecked();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await elementShot(toggle, `settings-auto-haul-${theme}-${language}-390`);
+        await page.goto("/economy/production");
+        await expect(economy(page).locator('[data-part="facility-haul-pick"] option').first()).toHaveText(
+          message(language, "facility_haul_own_auto"),
+          { timeout: 30_000 },
+        );
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
+});

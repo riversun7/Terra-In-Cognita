@@ -52,6 +52,7 @@
     "./itemEditor": "./src/itemEditor.ts",
     "./itemWeights": "./src/itemWeights.ts",
     "./labor": "./src/labor.ts",
+    "./logistics": "./src/logistics.ts",
     "./mail": "./src/mail.ts",
     "./mapLooks": "./src/mapLooks.ts",
     "./naval": "./src/naval.ts",

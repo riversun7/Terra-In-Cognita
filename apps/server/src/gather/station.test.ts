@@ -28,6 +28,7 @@ import { emptyWorldStats } from "../world/worldStats.ts";
 import type { GatherKind } from "./kinds.ts";
 import { placeGatherObjects } from "./objects.ts";
 import { stationBuffs } from "./rules.ts";
+import type { HaulCarryHook } from "../logistics/haulService.ts";
 import { createObjectStore } from "./state.ts";
 import { createStationRuntime, fatigueRefundPm, scaleByPm } from "./station.ts";
 import { mapLayers } from "./terrainLayers.ts";
@@ -137,6 +138,8 @@ function rig(
         ownerSale?: ((ownerId: number, buildingId: number, asset: string, qty: bigint) => bigint) | undefined;
         /** 창고 자리(store)를 거래소로 보고 거래 직무 운반 시간 배율(‰, 질문 2084) */
         deskHaulPm?: number | undefined;
+        /** 물류센터 고리(기획 D-576) */
+        haulService?: HaulCarryHook | undefined;
       } = 1,
 ) {
   const opts = typeof level === "number" ? {} : level;
@@ -237,6 +240,7 @@ function rig(
       return found;
     },
     ownerSale: opts.ownerSale,
+    haulService: opts.haulService,
   });
   /** 그 채집소 일꾼(운반꾼 후보)으로 유닛을 놓는다 */
   const hire = (buildingId: number, unitId: number, cellX: number, cellY: number, ownerId = OWNER): void => {
@@ -717,6 +721,67 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
     expect(r.runtime.inbound(hold)).toBe(0n);
     expect(r.ledger.balanceOf(OWNER, ORE, hold)).toBe(0n);
     expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(5n);
+  });
+
+  it("물류센터(기획 D-576): 고른 물류센터 일꾼만 지고 떠날 때 요금을 낸다, 자동 맡기기는 내 운반꾼이 없을 때만", () => {
+    const paid: [number, number, bigint][] = [];
+    let broke = false;
+    let centerId = 0;
+    const hook: HaulCarryHook = {
+      centers: (via) => (via === "auto" || via === centerId ? [centerId] : "service_closed"),
+      fee: (_center, grams, cells) => grams * 10n + BigInt(cells),
+      pay(ownerId, center, fee) {
+        if (broke) return "insufficient_funds";
+        paid.push([ownerId, center, fee]);
+        return null;
+      },
+    };
+    const r = rig({ store: { x: 30, y: 24 }, haulService: hook });
+    // 농장 자리를 물류센터로 본다(고리가 정한다)
+    centerId = r.farmId;
+    const exchangeId = r.storeId ?? 0;
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -9n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, cityLocation(CITY)), amount: 9n },
+      ],
+    });
+    // 고른 물류센터에 일꾼이 없음·고를 수 없는 건물
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 2n, NOW, centerId)).toBe("no_shop_worker");
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 2n, NOW, 999)).toBe("service_closed");
+    // 남의 물류센터 일꾼(다른 주인)이 내 짐을 진다
+    r.hire(centerId, 41, 86, 86, OWNER + 1);
+    broke = true;
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 2n, NOW, centerId)).toBe("insufficient_funds");
+    expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(9n);
+    broke = false;
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 2n, NOW, centerId)).toBeNull();
+    expect(r.runtime.trip(centerId)).toMatchObject({ porter: 41, grams: 2n });
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(41))).toBe(2n);
+    expect(paid).toHaveLength(1);
+    expect(paid[0]?.slice(0, 2)).toEqual([OWNER, centerId]);
+    expect(r.runtime.freeStaff(centerId, r.map.mapKey, NOW)).toBe(0);
+    r.runtime.haulNow(r.runtime.trip(centerId)?.arriveAtMs ?? 0);
+    expect(r.ledger.balanceOf(OWNER, ORE, buildingLocation(exchangeId))).toBe(2n);
+    expect(r.runtime.freeStaff(centerId, r.map.mapKey, NOW)).toBe(1);
+    // 자동 맡기기: 내 운반꾼이 없으면 물류센터, 내 유닛이 생기면 내 유닛(요금 없음)
+    const later = (r.runtime.trip(centerId)?.arriveAtMs ?? NOW) + 60_000;
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 1n, later, "auto")).toBeNull();
+    expect(paid).toHaveLength(2);
+    r.map.addUnit({
+      id: 22,
+      size: 1,
+      speed: WALK_SPEED,
+      cellX: 40,
+      cellY: 30,
+      ownerId: OWNER,
+      kind: UNIT_KIND_HUMAN,
+    });
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 1n, later, "auto")).toBeNull();
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(22))).toBe(1n);
+    expect(paid).toHaveLength(2);
   });
 
   it("자동 옮김은 주인 자동 구매(D-569 1781): 산 만큼만 옮기고, 못 사면 창고에 남는다", () => {

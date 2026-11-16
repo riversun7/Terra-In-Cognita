@@ -98,6 +98,13 @@ export interface BusinessCoefficients {
    * D-212, misc-574). 0이면 NPC 거래소는 자리를 내지 않는다. 선택 칸 — 없으면 1000
    */
   readonly exchangeNpcDeskRentPm?: number | undefined;
+  /**
+   * [임시] 물류센터 운반 대행 요금 한 단위의 무게(g, 질문 2213 요금 단위 나 "100kg × 10칸마다" — 기획 D-576 "기술 추천", docs/adr/2026-11-16-logistics-center.md).
+   * 단위 수 = ⌈짐 무게 ÷ 이 값⌉ × ⌈칸 ÷ haulUnitCells⌉(@terra/shared/logistics haulUnits). 서버만 읽는다
+   */
+  readonly haulUnitG: number;
+  /** [임시] 물류센터 운반 대행 요금 한 단위의 칸 수(체비셰프 배치 칸) */
+  readonly haulUnitCells: number;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -128,4 +135,6 @@ export const START_BUSINESS: BusinessCoefficients = {
   exchangeFeeMaxBp: 1000,
   exchangeFxFeeMinBp: 0,
   exchangeNpcDeskRentPm: 1000,
+  haulUnitG: 100_000,
+  haulUnitCells: 10,
 };

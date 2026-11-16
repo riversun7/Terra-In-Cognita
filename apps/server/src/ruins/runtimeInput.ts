@@ -28,6 +28,7 @@ export function npcRuinsInputOf(
   return {
     government: (buildingId) => source()?.ruins.governmentStatus(buildingId) ?? { state: "down", level: 0 },
     governmentLevels: () => source()?.ruins.governmentLevels() ?? new Map(),
+    foundClaims: (nowMs) => source()?.ruins.foundClaims(nowMs) ?? 0,
     hasGuardians: (cityId) => source()?.fusion.temple.hasFightingGuardian(cityId, now()) ?? false,
     nationOf(ownerId) {
       const owner = owners.get(ownerId);

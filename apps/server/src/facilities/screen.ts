@@ -2,6 +2,7 @@
 // 세계(DB)가 있고 준비되면 건물 서비스의 자료, 아니면 빈 자료(status "not_ready", 규칙 값은 출발값)다.
 import type {
   FacilitiesOverviewResponse,
+  FacilityLandClaim,
   FacilityLandRuleResponse,
   FacilityTargetView,
   FacilityWaterMaskResponse,
@@ -49,6 +50,8 @@ export interface FacilityScreenSource {
   map(mapKey: number): Pick<SecondMap, "waterMask"> | undefined;
   /** 땅 규칙(짓기 명령과 같은 판정) */
   land: LandCheck;
+  /** 빈 2차맵 알박기의 편(폐허 서비스 claimOf — 짓기 명령의 행정 건물 판정과 같은 함수). 없으면 알리지 않는다 */
+  claim?: ((ownerId: number, mapKey: number) => FacilityLandClaim | null) | undefined;
   /** 사업장 장부(보는 사람의 소유 주체 기준) */
   books(userId: string, buildingId: number, days: number, nowMs: number): Promise<BusinessBooksResponse>;
   /** 건물 판 머리 이름표 */
@@ -115,12 +118,15 @@ export function createFacilityScreenServices(
         reason: null,
         cityFaction: null,
         territoryFaction: null,
+        claim: null,
       } as const;
       if (!found) return { status: "not_ready", ...shut };
       if (!found.map(mapKey)) return { status: "unknown_map", ...shut };
       const ownerId = found.ownerOf(viewer.id);
       if (ownerId === undefined) return { status: "ready", ...shut };
       const verdict = await found.land(ownerId, mapKey, at);
+      // 빈 2차맵이면 정부를 다 지었을 때의 편(알박기 완성, 질문 2122 가). 땅 규칙이 막으면(남의 도시) 도시가 있으니 늘 null
+      const claim = verdict.allowed ? (found.claim?.(ownerId, mapKey) ?? null) : null;
       return verdict.allowed
         ? {
             status: "ready",
@@ -130,6 +136,7 @@ export function createFacilityScreenServices(
             cityFaction: null,
             // 알박기 땅(D-572): 다른 세력 영토 안이지만 정부 건물이 없는 2차맵 — 막지 않고 알린다
             territoryFaction: verdict.territoryFaction ?? null,
+            claim,
           }
         : {
             status: "ready",
@@ -138,6 +145,7 @@ export function createFacilityScreenServices(
             reason: verdict.reason,
             cityFaction: verdict.cityFaction,
             territoryFaction: null,
+            claim,
           };
     },
     waterMask(mapKey) {

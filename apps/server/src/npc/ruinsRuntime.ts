@@ -26,6 +26,8 @@ export interface NpcRuinsInput {
   readonly government?: GovernmentLookup | undefined;
   /** 도시마다 행정 건물 레벨(폐허 서비스 governmentLevels) */
   readonly governmentLevels?: (() => ReadonlyMap<number, number>) | undefined;
+  /** 다 지은 빈 2차맵 행정 건물마다 새 도시를 세운다(폐허 서비스 foundClaims, 기획 D-572 알박기 — ruins/landClaim.ts). 세운 수 */
+  readonly foundClaims?: ((nowMs: number) => number) | undefined;
   /** 그 도시에 싸울 수 있는 수호신이 있나(신전 서비스) */
   readonly hasGuardians?: ((cityId: number) => boolean) | undefined;
   /** 유저 소유 주체가 드는 나라(세력 소유 주체 ID, 사이보그 나라). 세력 주체·모르면 undefined */
@@ -45,6 +47,15 @@ export function syncAdminLevels(world: SimWorld, levels: ReadonlyMap<number, num
     changed += 1;
   }
   return changed;
+}
+
+/**
+ * 틱마다 정부 건물 맞추기: 먼저 다 지은 빈 2차맵 알박기 행정 건물로 새 도시를 세우고(그 건물이 새 도시 시설이 된다), 행정 레벨을 맞춘다.
+ * 세운 도시 수 + 바꾼 도시 수(0이 아니면 런타임이 저장한다)
+ */
+export function liftGovernments(world: SimWorld, input: NpcRuinsInput | undefined, nowMs: number): number {
+  const founded = input?.foundClaims?.(nowMs) ?? 0;
+  return founded + syncAdminLevels(world, input?.governmentLevels?.());
 }
 
 /** 같은 2차맵 두 도시의 칸 거리 제곱(다른 2차맵이거나 자리를 모르면 undefined) */

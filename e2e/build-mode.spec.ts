@@ -2,6 +2,7 @@
 // (docs/adr/2026-11-14-second-map-build.md 1단계).
 // - [도시] → [건설] → 건물 목록 → 고르기 → 땅 누르기 = 반투명 미리보기 자리(판 data-valid) → [회전] → [다른 건물] → [닫기].
 // - 땅 규칙: 서버 조회 facilities.landRule이 막힘(다른 세력 도시)이면 경고를 보이고 [짓기]가 꺼진다(응답을 바꿔 본다 — 서버 규칙은 DB 시험).
+// - 빈 2차맵 알박기(D-572, 질문 2122 가): 정부 건물을 고르면 다 지었을 때의 편 안내, 가문 없으면(claim = no_house, 질문 2192) [짓기] 꺼짐.
 // - 사진: 390 × 파스텔·다크(놓기 단계).
 import type { Page } from "@playwright/test";
 import { groundOffsets } from "./helpers/mapGround.ts";
@@ -28,6 +29,20 @@ function claimLand(data: unknown): void {
   Reflect.set(data, "reason", null);
   Reflect.set(data, "cityFaction", null);
   Reflect.set(data, "territoryFaction", 1);
+}
+
+/** 서버 땅 규칙 응답을 "도시·폐허 없는 빈 2차맵 — 정부를 다 지으면 claim 편의 새 도시"로 바꾼다 */
+function emptyLand(claim: "nation" | "no_house"): (data: unknown) => void {
+  return (data) => {
+    if (typeof data !== "object" || data === null)
+      throw new Error("facilities.landRule 응답 모양이 다릅니다");
+    Reflect.set(data, "status", "ready");
+    Reflect.set(data, "allowed", true);
+    Reflect.set(data, "reason", null);
+    Reflect.set(data, "cityFaction", null);
+    Reflect.set(data, "territoryFaction", null);
+    Reflect.set(data, "claim", claim);
+  };
 }
 
 async function openMap(
@@ -162,6 +177,28 @@ test.describe("건축 모드: 플레이어", () => {
     await shot(page, "build-claim-390");
     expect(deviceErrors).toEqual([]);
   });
+
+  for (const claim of ["nation", "no_house"] as const)
+    test(`빈 2차맵 정부 건물(알박기 완성, 질문 2122): ${claim}`, async ({ page, deviceErrors }) => {
+      test.setTimeout(150_000);
+      await openMap(page, { "facilities.landRule": emptyLand(claim) });
+      const sheet = await openBuild(page);
+      await expect(sheet).toHaveAttribute("data-land", "allowed", { timeout: 20_000 });
+      await pickAndPlace(page, "government_hall");
+      const status = sheet.locator(".map-build-status");
+      if (claim === "nation") {
+        await expect(sheet.locator('[data-part="build-claim"]')).toHaveText(
+          message("ko", "build_claim_nation"),
+        );
+        await expect(status).not.toHaveAttribute("data-problem", /\bclaim_no_house\b/);
+      } else {
+        await expect(sheet.locator('[data-part="build-claim"]')).toHaveCount(0);
+        await expect(status).toHaveAttribute("data-problem", /\bclaim_no_house\b/);
+        await expect(sheet.locator(".map-build-confirm")).toBeDisabled();
+      }
+      await shot(page, `build-gov-${claim}-390`);
+      expect(deviceErrors).toEqual([]);
+    });
 });
 
 const THEMES: readonly Theme[] = ["pastel", "dark"];

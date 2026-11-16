@@ -718,8 +718,8 @@ export function startWorld(
           cyborgs,
           facilities,
           now,
-          // 도시 가진 가문의 가문장이 지은 정부 = 가문 도시(docs/adr/2026-11-11-house-village.md)
-          houseOf: (userId) => houseTiesOf(persistence)?.ledHouseOf(userId),
+          ties: () => houseTiesOf(persistence), // 가문장 정부 = 가문 도시(house-village ADR)
+          rules: societyRules,
         },
         () => npc,
       ),

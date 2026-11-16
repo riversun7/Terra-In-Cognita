@@ -19,6 +19,7 @@
 //   그 폐허)에만 짓고, 짓기 시작한 쪽이 폐허 주인이 된다(고리 GovernmentHook = 폐허 서비스, docs/adr/2026-11-07-ruins-restoration.md). 같은
 //   동기 처리 = 같은 커밋. 시설 줄 도시는 그 폐허(되살아날 도시 ID)다 — 되살아난 도시의 행정 레벨 = 그 건물 레벨(489 다). 짓는 재료는
 //   지금처럼 그 칸에서 가장 가까운 도시 창고·창고 시설·화물에서.
+//   도시도 폐허도 없는 2차맵에도 짓는다(빈 2차맵 알박기, 기획 D-572 — 시설 줄 도시를 비워 두고 다 지으면 그 편의 새 도시, ruins/landClaim.ts).
 import type { FacilityResultCode } from "@terra/protocol";
 import { buildingLocation, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
@@ -584,13 +585,16 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (!map) return fail("unknown_map");
       // 물가 조건(질문 947 나, 팩 needsWaterWithin — 낚시터): 건물 칸 둘레 N 배치 칸 안에 물 칸이 있어야 한다(NPC 씨앗과 같은 함수)
       if (!waterOk(map, def, input.x, input.y, input.rotation)) return fail("needs_water");
-      // 행정 건물(D-510): 주인 없는 폐허 자리에만 — 짓기 시작한 쪽이 주인
+      // 행정 건물(D-510): 주인 없는 폐허 자리 — 짓기 시작한 쪽이 주인. 도시·폐허 없는 2차맵이면 알박기(D-572, 시설 줄 도시는 비워 두고 다
+      // 지으면 새 도시 — ruins/landClaim.ts)
       let ruinId: number | undefined;
+      let landClaim = false;
       if (def.stage === "government") {
         const claim = government?.check(me, input.mapKey, input.x, input.y);
         if (!claim) return fail("not_ruin");
         if (!claim.ok) return fail(claim.code);
-        ruinId = claim.ruinId;
+        if (claim.ruinId === null) landClaim = true;
+        else ruinId = claim.ruinId;
       }
       const unitIds = input.unitIds ?? [];
       const unitProblem = checkUnits(me, unitIds);
@@ -633,8 +637,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         conditionAtMs: at + ms,
         builtAtMs: at,
         builtBy: userId,
-        // 행정 건물은 그 폐허(되살아날 도시)의 시설이다(489 다)
-        cityId: ruinId ?? cityId,
+        // 행정 건물은 그 폐허(되살아날 도시)의 시설이다(489 다). 알박기 행정 건물은 도시가 설 때까지 비운다
+        cityId: landClaim ? null : (ruinId ?? cityId),
       };
       facilities.set(record.buildingId, record);
       saveFacility(record);

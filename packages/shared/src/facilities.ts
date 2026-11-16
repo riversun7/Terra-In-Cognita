@@ -335,4 +335,13 @@ export interface FacilityLandRuleResponse {
    * 옛 서버는 이 칸이 없다
    */
   readonly territoryFaction?: number | null | undefined;
+  /**
+   * 빈 2차맵 알박기(기획 D-572, 질문 2122 가): 그 2차맵에 도시도 폐허도 없으면 정부(행정) 건물을 다 지었을 때 새 도시가 드는 편 — house = 내 가문,
+   * nation = 내 나라, faction = 내 세력. no_house = 가문 없는 플레이어라 아직 정부를 지을 수 없다(사용자 결정 대기, 질문 2192). 도시·폐허가 있는
+   * 2차맵·모르면 null. 옛 서버는 이 칸이 없다
+   */
+  readonly claim?: FacilityLandClaim | null | undefined;
 }
+
+/** 빈 2차맵 정부 건물의 편(FacilityLandRuleResponse.claim) */
+export type FacilityLandClaim = "house" | "nation" | "faction" | "no_house";

@@ -10,8 +10,8 @@
 // - 내 세력 = 건물 주인 세력(world_owners·가문 줄 ownerFactionsOf) + 나라(D-565·D-569 "가문 없는 플레이어도 소속 도시가 있어 자기 나라 영토는
 //   내 땅": 사용자 주체는 사이보그의 나라 cyborgs.faction_id — 가문원은 가문 소속 도시의 나라로 맞춰져 있다, houseTies.ts — 봉신 가문은 위
 //   세력 factions.parent_id). 이 가운데 하나라도 그 도시 세력이면 내 도시다.
-// - 정부 건물을 다 지으면 그 세력이 차지(알박기)하는 규칙은 지금 폐허 자리만 있다(행정 건물은 주인 없는 폐허에만 짓는다 — facilities/service.ts,
-//   ruins/service.ts). 빈 2차맵 알박기는 3단계(질문 2122).
+// - 정부 건물을 다 지으면 그 세력이 차지(알박기): 폐허 자리는 폐허 복원(ruins/service.ts), 도시·폐허 없는 빈 2차맵은 다 지으면 그 편의 새
+//   도시(ruins/landClaim.ts, 질문 2122 가 — 가문 없는 플레이어는 묻는 중이라 막음, 2192). 도시가 서면 아래 foreign_city가 남의 새 짓기를 막는다.
 // - 도시 주인은 NPC 사회 런타임이 쓰기 대기열로 바꾸므로 대기열을 비운 뒤 DB에서 읽는다(건물 공격의 전쟁 판정과 같은 방식).
 // - 기존 세계: 이미 지은 건물은 그대로 둔다(판정은 새 짓기부터, 리셋 없음).
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";

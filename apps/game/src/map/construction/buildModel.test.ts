@@ -53,5 +53,9 @@ describe("건축 모드 자리", () => {
       "foreign_city",
     ]);
     expect(placementProblems({ ...base, anchor: { x: 10, y: 10 }, landAllowed: null })).toEqual([]);
+    // 빈 2차맵 정부 건물인데 가문이 없다(알박기 — 질문 2192)
+    expect(placementProblems({ ...base, anchor: { x: 10, y: 10 }, claimBlocked: true })).toEqual([
+      "claim_no_house",
+    ]);
   });
 });

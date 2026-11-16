@@ -13,7 +13,8 @@ const ASSET_CREDIT = "s3_test_credit";
 
 /**
  * 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들(result, 2차맵 사이 이동은 travel_result,
- * 구인 고용은 recruit_result, 건물은 facility_result, 배는 boat_result, 채집은 gather_result, 영토 비콘은 beacon_result, 가문 창설은 house_result)
+ * 구인 고용은 recruit_result, 건물은 facility_result, 배는 boat_result, 채집은 gather_result, 영토 비콘은 beacon_result, 가문 창설은 house_result,
+ * 사업장 장부는 business_result)
  * 운영자 빠르기(기획 D-560 1246~1248, apps/server/src/world/operatorPace.ts): 전체 보기 구독(observe) 다음에는 운영자 배율 100(operator_pace)을
  * 함께 보낸다(그 답은 결과 목록에 넣지 않는다) — 배율 기본이 1이 된 뒤에도 시험은 운영자 빠르기로 유닛을 옮긴다. 운영자 모드는 연결이 끊기면 풀리고
  * 가는 길의 빠르기도 1로 돌아가므로, 전체 보기로 구독한 연결은 닫지 않고 다음 sendCommands·페이지 이동 때까지 열어 둔다(그동안 받는 메시지는 버린다)
@@ -67,6 +68,7 @@ export async function sendCommands(
               "gather_result",
               "beacon_result",
               "house_result",
+              "business_result",
             ].includes(String(Reflect.get(reply, "t"))) &&
             Reflect.get(reply, "id") === id,
         );

@@ -1,8 +1,10 @@
 // 노동 계약 화면 시험 — 생산 칸 아래 "노동 계약"(docs/adr/2026-11-03-labor-contracts.md, 기획 D-479·49 N48, 338~342).
 // - admin: player 사이보그가 선 2차맵의 내 휴먼(없으면 그 2차맵 도시에서 구인 카드로 고용)과 운영자 지급 시험 화폐(ops.economy.grant)를 갖춘 뒤
-//   (recruit_hire — 시험 일꾼은 없앴다, 사용자 지적 2026-11-09) 시험 건물을 놓고(place_building, 놓은 사람 것),
-//   화면에서 그 휴먼으로 임금형을 맺고(보증금은 사업장 금고에 있는 만큼 — 빈 금고면 한 주기 임금만 적자로 내고 첫 임금 선불, D-564 1624),
-//   보증금 채우기가 빈 금고에서는 막히는 것을 보고(있는 만큼만) 내 시설 임대료를 정하고 구인을 낸다.
+//   (recruit_hire — 시험 일꾼은 없앴다, 사용자 지적 2026-11-09) 시험 건물(야적장 — 금고가 있는 사업장, 개발 재료로 짓고 다 지음)을 놓고,
+//   시험 건물 금고에 한 주기 임금(16)만 넣은 뒤(business_invest — 금고에 한 주기 임금도 없으면 고용을 막는다, D-570 1789)
+//   화면에서 그 휴먼으로 임금형을 맺고(보증금은 사업장 금고에 있는 만큼 — 한 주기 임금을 묶어 첫 임금 선불, D-564 1624),
+//   보증금 채우기가 빈 금고에서는 막히는 것을 보고(있는 만큼만) 내 시설 임대료를 정하고 구인을 낸다. player가 구인을 받기 전에 금고에
+//   그 일자리 한 주기 임금(24)을 넣는다.
 // - player: 사이보그 본체로 admin 시설을 임대형으로 빌렸다가 해지한다 → 7일 유예(기획 341, 유예는 손으로 끝내지 않는다).
 //   그다음 구인 게시판에서 admin 일자리를 본체로 받는다 → 임금형(고용주 = admin, 역할 "내 유닛").
 // - 끝에 admin이 임금형 둘을 해지한다(남은 보증금은 돌아온다, 본체는 다시 쉰다). 유예 중인 임대는 돈이 오가지 않아 그대로 둔다.
@@ -25,14 +27,53 @@ function unitText(page: Page, value: number, unit: "day" | "hour", locale = "ko"
   );
 }
 
-/** 시험 건물을 그 2차맵의 빈 칸에 놓는다(지형·유닛에 막히면 다음 자리). 건물 ID */
+/** 시험 건물 사업장 금고에 시험 화폐를 넣는다(business_invest — 주인 지갑 → 금고). 같은 ID 명령은 한 번만 하므로 부를 때마다 firstId를 바꾼다 */
+async function investVault(page: Page, buildingId: number, amount: number, firstId: number): Promise<void> {
+  const [reply] = await sendCommands(
+    page,
+    [{ t: "business_invest", buildingId, asset: "s3_test_credit", amount: String(amount) }],
+    firstId,
+  );
+  expect(reply, JSON.stringify(reply)).toMatchObject({ t: "business_result", ok: true });
+}
+
+const replyField = (reply: unknown, key: string): unknown =>
+  typeof reply === "object" && reply !== null ? Reflect.get(reply, key) : undefined;
+
+/**
+ * 시험 건물: 그 2차맵 빈 칸에 야적장(stockpile, 사업장 — 금고가 있다)을 개발 재료로 짓고 다 짓는다(운영자). 건물 ID.
+ * 금고를 채울 수 없는 일반 건물(place_building)로는 임금형을 맺지 못한다(D-570 1789 — 금고에 한 주기 임금이 있어야 고용)
+ */
 async function placeBuilding(page: Page, mapKey: number): Promise<number> {
+  let id = 9200;
   for (const cell of [24, 40, 56, 72, 180, 200, 220]) {
-    const [reply] = await sendCommands(page, [
-      { t: "place_building", mapKey, x: cell, y: cell, width: 2, height: 2, rotation: 0 },
-    ]);
-    const id = typeof reply === "object" && reply !== null ? Reflect.get(reply, "buildingId") : undefined;
-    if (typeof id === "number") return id;
+    const replies = await sendCommands(
+      page,
+      [
+        { t: "subscribe", mapKey, observe: true },
+        { t: "dev_facility_grant", item: "pine_log", qty: 20, mapKey, x: cell, y: cell },
+        { t: "facility_build", mapKey, facility: "stockpile", x: cell, y: cell, rotation: 0 },
+      ],
+      id,
+    );
+    id += 10;
+    const buildingId = replyField(replies[2], "buildingId");
+    if (replyField(replies[2], "ok") !== true || typeof buildingId !== "number") {
+      console.log(`[labor] ${String(cell)} build refused: ${String(replyField(replies[2], "code"))}`);
+      continue;
+    }
+    const done = await sendCommands(
+      page,
+      [
+        { t: "subscribe", mapKey, observe: true },
+        { t: "dev_facility_finish", buildingId },
+      ],
+      id,
+    );
+    id += 10;
+    const finished = replyField(done[1], "ok") === true ? "ok" : replyField(done[1], "code");
+    expect(["ok", "not_damaged"]).toContain(finished);
+    return buildingId;
   }
   throw new Error("no free cell for the test building");
 }
@@ -73,10 +114,12 @@ test.describe("노동 계약", () => {
     await rewriteTrpc(tenant.page, { "summary.get": hideSummary });
     await tenant.page.goto("/");
     const mapKey = await cyborgMapKey(tenant.page);
-    // 시험 화폐(내 임금형 보증금 480 + 채우기 10 + 구인 받힘 보증금 720) + 그 2차맵의 내 휴먼 하나(없으면 고용) + 시험 건물
+    // 시험 화폐(금고 넣기 16 + 24, 내 임금형 보증금 480 + 채우기 10 + 구인 받힘 보증금 720) + 그 2차맵의 내 휴먼 하나(없으면 고용) + 시험 건물
     await ensureHuman(page, "e2e_admin", mapKey);
     await grantCredit(page, "e2e_admin", 1_300);
     const buildingId = await placeBuilding(page, mapKey);
+    // 금고에 한 주기 임금(16)만 — 빈 금고면 임금형을 맺지 못한다(D-570 1789)
+    await investVault(page, buildingId, 16, 9100);
     const day = await unitText(page, 1, "day");
 
     const labor = await openLabor(page);
@@ -93,7 +136,7 @@ test.describe("노동 계약", () => {
     await expect(labor.locator('[role="status"]')).toContainText(message("ko", "labor_done"));
     const wageRow = labor.locator('li.labor-contract[data-state="active"]').first();
     await expect(wageRow).toContainText(message("ko", "labor_kind_wage"));
-    // 시험 건물 금고가 비어 보증금 = 한 주기 임금(16)만 적자로 넣어 첫 임금으로 냈다 → 보증금 0(D-564 1624 "보증금은 있는 만큼만")
+    // 금고에 있던 한 주기 임금(16)을 보증금으로 묶어 첫 임금으로 냈다 → 보증금 0, 금고 0(D-564 1624 "보증금은 있는 만큼만")
     await expect(wageRow).toContainText(message("ko", "labor_deposit", { amount: "0", cycles: 0 }));
 
     // 보증금 채우기도 금고에 있는 만큼만 — 빈 금고면 돈이 모자람(적자로 넣지 않는다)
@@ -152,7 +195,8 @@ test.describe("노동 계약", () => {
     await expect(leaseRow).toContainText(message("ko", "labor_grace_note"));
     await expect(leaseRow.getByRole("button", { name: message("ko", "labor_terminate") })).toHaveCount(0);
 
-    // 구인 게시판: admin 일자리(임금 24/일, 자리 0/1)를 본체로 받는다(유예 중인 유닛은 묶이지 않는다)
+    // 구인 게시판: admin 일자리(임금 24/일, 자리 0/1)를 본체로 받는다(유예 중인 유닛은 묶이지 않는다). 받기 전에 admin 금고에 한 주기 임금(24)
+    await investVault(page, buildingId, 24, 9110);
     const board = leasePanel.locator('[data-part="labor-board"]');
     const job = board.locator("li.labor-job");
     await expect(job).toHaveCount(1);
@@ -172,8 +216,8 @@ test.describe("노동 계약", () => {
     expect(tenant.errors).toEqual([]);
 
     // admin: 내 시설 계약 셋(내 임금형, player 임대 유예, player 유닛을 고용한 임금형). 임금형 둘을 해지한다
-    await page.reload();
-    const adminPanel = panel(page);
+    // (금고 넣기가 admin 기기를 /health로 옮겼다)
+    const adminPanel = await openLabor(page);
     await expect(adminPanel.locator('li.labor-contract[data-state="grace"]')).toHaveCount(1);
     await expect(adminPanel.locator('[data-part="labor-my-jobs"]')).toContainText(
       message("ko", "labor_my_jobs_empty"),

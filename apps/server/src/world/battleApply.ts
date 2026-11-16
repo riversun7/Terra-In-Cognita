@@ -20,6 +20,11 @@ export interface BattleApply {
   readonly apply: (battleId: number, init: BattleInit, outcome: BattleOutcome, atMs: number) => void;
   /** 듣는 곳을 붙인다. 붙기 전에 끝난 전투(부팅 때 restore가 바로 적용한 것)는 모아 두었다가 붙을 때 넘긴다 */
   readonly onEnded: (listener: BattleEndedListener) => void;
+  /**
+   * 결과 적용 안에서(같은 커밋, 동기) 더 쓸 곳을 붙인다 — 방어 명성(defenseRenown.ts, D-326·D-571). 붙기 전에 끝난 전투는 받지 않는다
+   * (월드가 전투 서비스를 다시 켜기 전에 붙인다). 돌려준 수는 서버 기록에 남긴다
+   */
+  readonly onApplied: (step: (init: BattleInit, outcome: BattleOutcome, atMs: number) => number) => void;
 }
 
 /** 듣는 곳이 붙기 전에 모아 두는 끝난 전투 수 상한 */
@@ -35,6 +40,7 @@ export function createBattleApply(parts: {
   readonly log: { info(obj: object, message: string): void };
 }): BattleApply {
   const listeners = new Set<BattleEndedListener>();
+  const steps: ((init: BattleInit, outcome: BattleOutcome, atMs: number) => number)[] = [];
   const early: [number, boolean][] = [];
   return {
     apply: (battleId, init, outcome, atMs) => {
@@ -49,6 +55,8 @@ export function createBattleApply(parts: {
       const vitalsWritten = parts.vitals().service.applyBattle(init, outcome.units, atMs);
       const sink = parts.buildings();
       const buildings = sink ? applyBuildingDamage(sink, init, outcome, atMs) : undefined;
+      let renowned = 0;
+      for (const step of steps) renowned += step(init, outcome, atMs);
       parts.log.info(
         {
           battleId,
@@ -60,6 +68,7 @@ export function createBattleApply(parts: {
           potionsUsed: used.potions,
           shots: used.shots,
           vitalsWritten,
+          ...(renowned > 0 ? { renowned } : {}),
           ...(buildings && buildings.damaged + buildings.missing > 0
             ? {
                 buildingsDamaged: buildings.damaged,
@@ -74,6 +83,9 @@ export function createBattleApply(parts: {
       const attackerWon = outcome.result.winner === attacker;
       if (listeners.size === 0 && early.length < MAX_EARLY) early.push([battleId, attackerWon]);
       for (const listener of listeners) listener(battleId, attackerWon);
+    },
+    onApplied: (step) => {
+      steps.push(step);
     },
     onEnded: (listener) => {
       listeners.add(listener);

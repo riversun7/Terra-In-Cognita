@@ -168,9 +168,13 @@ export function arenaLegionInit(job: ArenaLegionJob, seed: number, swapped: bool
     return party.units.map((unit, index) => {
       let depth: number;
       let lateral: number;
+      // 손으로 짠 진형 자리(D-172·D-571 답 1965): 대형 custom이 이 자리로 다시 선다. 진형판 y = 뒤로 깊이(앞 f = −y), x = 옆 —
+      // 서쪽 편(가장자리 3)은 판정 옆 방향이 지도 y의 반대라 부호를 바꾼다(시작 자리와 같은 모양)
+      let formationSlot: { f: number; l: number } | undefined;
       if (unit.pos && isValidFormationPoint(unit.pos)) {
         depth = FORMATION_FRONT_DISTANCE + unit.pos.y;
         lateral = unit.pos.x;
+        formationSlot = { f: -unit.pos.y, l: side === 1 ? -unit.pos.x : unit.pos.x };
       } else {
         const lane = lanes[unit.row];
         lanes[unit.row] = lane + 1;
@@ -191,6 +195,7 @@ export function arenaLegionInit(job: ArenaLegionJob, seed: number, swapped: bool
         party: arenaPartyId(team, p),
         x: cell % size,
         y: Math.floor(cell / size),
+        ...(formationSlot ? { formationSlot } : {}),
       };
     });
   };

@@ -145,6 +145,11 @@ export interface CombatUnitSpec {
    * 정원 → ID)
    */
   readonly commandRank?: CommandRank | undefined;
+  /**
+   * 손으로 짠 진형 자리(D-172 "내 파티 배치포메이션"·D-179 "진형은 파티·군단마다 저장", 답 1965 → D-571): 파티 안 (앞 f ≤ 0, 옆 l) 칸.
+   * 대형 "custom"(formation.ts)이 이 자리로 다시 선다. 진형을 짜지 않은 유닛은 칸이 없다(옛 시작 자료 그대로 — custom이면 방진 자리)
+   */
+  readonly formationSlot?: { readonly f: number; readonly l: number } | undefined;
   readonly cyborg: boolean;
   /** 건물 피해 배율(천분율, C32) */
   readonly buildingMulPm: number;

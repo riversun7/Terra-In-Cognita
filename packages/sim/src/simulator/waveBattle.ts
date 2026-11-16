@@ -75,6 +75,11 @@ export interface WaveBattleInput {
    */
   readonly defenderPartyOf?: ((unitId: number) => number | undefined) | undefined;
   /**
+   * 수비 군단 묶음(D-571 답 1970 "편성이 잘리지 않게"): 파티 묶음 키 → 군단 키(같은 키 = 한 군단). 없으면 파티마다 따로. 상한을 고를 때만
+   * 본다(waveDefenderPick) — 전투 안에서는 수비 편 전체가 한 군단이다
+   */
+  readonly defenderLegionOf?: ((partyKey: number) => number | undefined) | undefined;
+  /**
    * 공성 제한 시간(ms, C2). 없으면 전투를 만드는 쪽의 계수표 값. 서버 전투 서비스는 시험 계수표로 전투를 만들므로 설정 칸
    * 실효 값을 여기로 넘긴다
    */
@@ -91,6 +96,64 @@ export interface WaveBattleInput {
    * 같은 자리 차례를 이어 써서 유닛을 더 세운다. 결과는 주지 않았을 때와 같다
    */
   readonly prepared?: { readonly arena: SiegeArena; readonly placer: SiegePlacer } | undefined;
+}
+
+/**
+ * 웨이브 수비 인원 상한 안에서 편성을 자르지 않고 고른다(D-558 1547 → D-571 답 1970 "편성이 잘리지 않게", 추천 [임시] 질문 2108):
+ * 수비 차례대로 편성(군단 → 파티 → 혼자인 유닛) 하나씩 본다. 통째로 들어가면 넣고, 넘치면 군단은 파티 하나씩 들어가는 만큼 넣고(파티는
+ * 자르지 않는다), 파티·유닛은 건너뛴다(뒤 편성이 남은 자리에 들어갈 수 있으면 넣는다). 아무도 못 넣었으면(상한이 가장 작은 파티보다
+ * 작다) 앞에서부터 상한만큼 넣는다(전투에 수비가 없지 않게). 차례는 수비 목록 차례 그대로다. 묶음 함수가 없으면 앞에서부터 상한만큼(옛 꼴)
+ */
+export function waveDefenderPick<T extends { readonly id: number }>(
+  defenders: readonly T[],
+  max: number,
+  partyOf?: (unitId: number) => number | undefined,
+  legionOf?: (partyKey: number) => number | undefined,
+): T[] {
+  const cap = Math.max(0, Math.trunc(max));
+  if (!partyOf) return defenders.slice(0, cap);
+  // 편성: 군단 = 파티 묶음들, 파티 = 유닛들, 혼자 = 유닛 하나(처음 나온 차례)
+  type Group = { units: T[]; parties: T[][] | null };
+  const groups: Group[] = [];
+  const legions = new Map<number, Group>();
+  const parties = new Map<number, T[]>();
+  for (const unit of defenders) {
+    const key = partyOf(unit.id);
+    if (key === undefined) {
+      groups.push({ units: [unit], parties: null });
+      continue;
+    }
+    let party = parties.get(key);
+    if (!party) {
+      party = [];
+      parties.set(key, party);
+      const legionKey = legionOf?.(key);
+      if (legionKey === undefined) groups.push({ units: party, parties: null });
+      else {
+        let legion = legions.get(legionKey);
+        if (!legion) {
+          legion = { units: [], parties: [] };
+          legions.set(legionKey, legion);
+          groups.push(legion);
+        }
+        legion.parties?.push(party);
+      }
+    }
+    party.push(unit);
+  }
+  const picked = new Set<T>();
+  let left = cap;
+  const take = (units: readonly T[]): void => {
+    for (const unit of units) picked.add(unit);
+    left -= units.length;
+  };
+  for (const group of groups) {
+    const all = group.parties ? group.parties.flat() : group.units;
+    if (all.length <= left) take(all);
+    else if (group.parties) for (const party of group.parties) if (party.length <= left) take(party);
+  }
+  if (picked.size === 0) return defenders.slice(0, cap);
+  return defenders.filter((unit) => picked.has(unit));
 }
 
 /** 공성 크리쳐가 남았는지 보는 간격(틱). 결과는 간격과 상관없다(멈춘 틱만 이만큼 늦을 수 있다) */
@@ -237,7 +300,12 @@ export function waveBattleInit(
     groupIds.set(key, nextParty);
     return nextParty++;
   };
-  input.defenders.slice(0, input.maxDefenders).forEach((unit, index) => {
+  waveDefenderPick(
+    input.defenders,
+    input.maxDefenders,
+    input.defenderPartyOf,
+    input.defenderLegionOf,
+  ).forEach((unit, index) => {
     const at = placer
       ? placer.defender(index)
       : { x: center - 3 + Math.floor(index / 24), y: spreadY(index, center) };

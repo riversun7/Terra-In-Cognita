@@ -985,7 +985,7 @@ export { businessShareOrders, businessShareRounds } from "./businessSchema.ts";
 /** 공성 결과 표(docs/adr/2026-11-07-war-outcomes.md) */
 export { warOutcomes } from "./warSchema.ts";
 /** 국적 바꾸기(귀화) 기록 표(docs/adr/2026-11-08-citizenship.md) */
-export { nationalityChanges, userNationStandings } from "./citizenshipSchema.ts";
+export { nationalityChanges, userNationRenown, userNationStandings } from "./citizenshipSchema.ts";
 
 /** 운영 권한 체크박스 표(docs/adr/2026-11-08-operator-console.md) */
 export { currencyProfiles, factionIdentities, factionProfiles, opsGrants, opsSwitches } from "./opsSchema.ts";

@@ -486,7 +486,10 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       // 배 결과(프로토콜 27)는 배 단추(boats/boatCommands.ts)가 받는다
       message.t === "boat_result" ||
       // 사업장 장부 결과(프로토콜 34)는 장부 칸(business/businessCommands.ts)이 받는다
-      message.t === "business_result"
+      message.t === "business_result" ||
+      // 세계 전투 목록·명령 결과(프로토콜 49)는 유닛 화면 전투 칸(battle/liveBattleCommands.ts)이 받는다
+      message.t === "battle_list_result" ||
+      message.t === "battle_order_result"
     )
       return;
     if (message.mapKey !== mapKey) return;

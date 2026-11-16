@@ -53,6 +53,8 @@ function fakeService(calls: string[]): CyborgService {
     alignHome: () => false,
     naturalizationRules: () => ({ fee: 0n, restMs: 0, standingDrop: 0, standingDropHostile: 0 }),
     standingOf: () => 0,
+    renownOf: () => 0,
+    addRenown: () => undefined,
     addFaith: () => undefined,
   };
 }

@@ -185,6 +185,9 @@
  *    - 거래소 건물 2(기획 D-571, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)") — 거래소 개인 창고 넓히기 market_locker_expand →
  *      market_result(새 코드 locker_max), 사기 주문의 새 코드 locker_full(48판 연결은 invalid_amount — market.ts LOCKER_PROTOCOL_VERSION). 거래 직무는
  *      labor_assign 꼴 그대로(남의 거래소에도 받는다).
+ *    - 실시간 세계 전투 명령(battleOrder.ts, 기획 D-558 1546 → D-571 답 1969, docs/adr/2026-10-31-combat-core.md "바뀜 (D-571)") —
+ *      battle_list → battle_list_result(내 유닛이 낀 진행 중인 전투), battle_order → battle_order_result(파티·군단 명령, 다음 틱 경계). 대형에
+ *      custom(손으로 짠 진형, D-172)이 생겼다(이 메시지에만 — 다른 메시지 꼴은 그대로). 48판 기기는 새 메시지를 보내지 않는다.
  */
 export const PROTOCOL_VERSION = 49;
 

@@ -1,6 +1,7 @@
 // 유닛 화면 — 기획 60 §9 "유닛" 두 줄(D-6016·D-179·D-246 / D-242·D-244·D-269·D-271). ADR 37 "구현하며 정한 것 (유닛·사이보그 화면)".
-// 칸(탭) 일곱: 목록(걸러 보기·다중 선택·상세) · 파티(진형) · 직무 프리셋 · 관리인 · 경매소 · 포로 ·
-// 융합(사이보그 유닛 융합·유전자, D-470·D-478·D-516 — FusionPanel.tsx·GenePanel.tsx, 자료는 fusion.overview·명령은 WebSocket 프로토콜 9·11).
+// 칸(탭) 여덟: 목록(걸러 보기·다중 선택·상세) · 파티(진형) · 직무 프리셋 · 관리인 · 경매소 · 포로 ·
+// 융합(사이보그 유닛 융합·유전자, D-470·D-478·D-516 — FusionPanel.tsx·GenePanel.tsx, 자료는 fusion.overview·명령은 WebSocket 프로토콜 9·11) ·
+// 전투(실제 세계 전투 명령, D-558 1546·D-571 답 1969 — LiveBattlesPanel.tsx, WebSocket 프로토콜 49).
 // - 자료는 units.list 하나(실제 세계 유닛 + dev·admin 시안 자료). 바꾸는 명령(직무 배치·장착·편성·입찰·포로 처리)은 아직 없어
 //   "곧 열림" 버튼이다(명령은 WebSocket으로 만들 때 켠다, AGENTS 4장).
 // - 좁은 폭: 목록 ↔ 상세를 바꿔 보인다(상세 [목록으로]). 넓은 폭(64em 이상): 목록 옆에 상세 판(데스크톱 옆 판, D-6003).
@@ -17,11 +18,12 @@ import { loadUnits, useRosterQuery } from "../roster/useRosterQuery.ts";
 import { type VitalsNow, useVitals } from "../roster/useVitals.ts";
 import { formatNumber } from "../roster/rosterText.ts";
 import { FusionPanel } from "./FusionPanel.tsx";
+import { LiveBattlesPanel } from "./LiveBattlesPanel.tsx";
 import { UnitList } from "./UnitList.tsx";
 import { AuctionPanel, ManagersPanel, PartiesPanel, PresetsPanel, PrisonersPanel } from "./UnitPanels.tsx";
 import "./units.css";
 
-const TABS = ["list", "parties", "presets", "managers", "auction", "prisoners", "fusion"] as const;
+const TABS = ["list", "parties", "presets", "managers", "auction", "prisoners", "fusion", "battles"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS = {
@@ -32,6 +34,7 @@ const TAB_LABELS = {
   auction: m.units_tab_auction,
   prisoners: m.units_tab_prisoners,
   fusion: m.units_tab_fusion,
+  battles: m.units_tab_battles,
 } satisfies Record<Tab, () => string>;
 
 export default function UnitsScreen() {
@@ -62,6 +65,8 @@ export default function UnitsScreen() {
             prisoners: data.prisoners.length,
             // 융합 칸은 자기 자료(fusion.overview)를 따로 받는다
             fusion: 0,
+            // 전투 칸은 WebSocket battle_list로 따로 받는다
+            battles: 0,
           }
         : null,
     [data],
@@ -165,6 +170,8 @@ function TabBody({
       return <PrisonersPanel data={data} />;
     case "fusion":
       return <FusionPanel onChanged={onHoldingsChanged} />;
+    case "battles":
+      return <LiveBattlesPanel />;
     default: {
       const unknown: never = tab;
       return unknown;

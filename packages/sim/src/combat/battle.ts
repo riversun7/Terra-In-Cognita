@@ -40,6 +40,7 @@ import {
   type OrderTick,
   type OrderWorld,
   applyOrderInput,
+  dropUncommanded,
   oppositeEdgeCells,
   prepareOrders,
   standGoal,
@@ -662,6 +663,7 @@ function makeBattle(
       commanders,
       anchor,
       retreatBand: c.retreatBand,
+      k: c.tactics,
     });
     const target = plan.target;
     if (target) {
@@ -761,8 +763,11 @@ function makeBattle(
       for (const unit of members) unit.status = "retreated";
       const side = state.sides.find((entry) => entry.id === party.side);
       const commander = side ? unitById(side.commander) : undefined;
-      if (side && (!commander || commander.party === party.id || commander.status !== "alive"))
+      if (side && (!commander || commander.party === party.id || commander.status !== "alive")) {
+        // D-571(답 1967): 퇴각 승계도 쓰러짐 승계와 같은 순서(작위 → 전투 랭킹)이고, 새 정원 밖 파티는 군단 명령을 내려놓는다
         electCommander(state, side);
+        dropUncommanded(state, side);
+      }
     }
   };
 

@@ -235,6 +235,14 @@ describe.skipIf(!TEST_DATABASE_URL)("신전·종교(D-517)", () => {
       code: "faith_low",
     });
     expect(await temple.pray(userId, { buildingId: templeId })).toEqual({ ok: true, gained: 1, faith: 1 });
+    // 신전 축복(D-571 답 1968): 기도하면 사이보그 본체에 이동 속도 버프가 잠시 걸린다(설정 칸 출발값 +100‰·30분)
+    const body = persistenceOf(world).cyborgs.record(userId)?.unitId;
+    if (body === null || body === undefined) throw new Error("no cyborg unit");
+    expect(
+      persistenceOf(world)
+        .holdings.service.effectsOn(body, clock)
+        .map((entry) => [entry.effect, entry.value, entry.untilMs - clock, entry.item]),
+    ).toContainEqual(["temple_blessing", C.blessingMovePm, C.blessingMs, "temple"]);
     expect(await temple.pray(userId, { buildingId: templeId })).toEqual({ ok: false, code: "cooldown" });
     const beforeOffer = ledger.balanceOf(ownerId, ASSET_CREDIT);
     expect(await temple.offer(userId, { buildingId: templeId, amount: "2450" })).toEqual({

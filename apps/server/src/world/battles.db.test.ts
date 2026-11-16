@@ -98,6 +98,45 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 인스턴스(서버)", () => {
     expect(results).toHaveLength(1);
   });
 
+  it("진행 중 목록(편·파티·유닛·한 변)과 넣어 보기(probe — 저장 없이 그 틱만, 거절·승계한 지휘관)가 맞다(D-571 답 1969)", async () => {
+    const service = boot([]);
+    const id = await service.start(encounter(), { war: false });
+    const [running] = await service.running();
+    expect(running).toMatchObject({ id, kind: "normal", mapSize: 32, startedAtMs: clock });
+    expect(running?.units).toEqual([
+      { id: 1, side: 1, party: 1 },
+      { id: 2, side: 1, party: 1 },
+      { id: 11, side: 2, party: 2 },
+      { id: 12, side: 2, party: 2 },
+    ]);
+    expect(running?.parties.map((party) => party.id)).toEqual([1, 2]);
+    clock += 5 * TEST_COMBAT_COEFFICIENTS.tickMs;
+    // 지난 틱은 넣어 볼 수 없다
+    expect(
+      await service.probe(id, { tick: 2, kind: "order", party: 1, order: { kind: "hold" } }),
+    ).toBeUndefined();
+    const hold = await service.probe(id, { tick: 6, kind: "order", party: 1, order: { kind: "hold" } });
+    expect(hold?.rejected).toBe(false);
+    expect(hold?.state.tick).toBe(7);
+    expect(hold?.state.parties.find((party) => party.id === 1)?.order?.kind).toBe("hold");
+    // 없는 목표 공격은 판정이 거절한다
+    const bad = await service.probe(id, {
+      tick: 6,
+      kind: "order",
+      party: 1,
+      order: { kind: "attack", target: 999 },
+    });
+    expect(bad?.rejected).toBe(true);
+    // 넣어 보기는 저장하지 않는다: 끝 시각·입력이 그대로
+    const before = await service.get(id);
+    await service.probe(id, { tick: 6, kind: "order", party: 1, order: { kind: "retreat" } });
+    expect((await service.get(id))?.endsAtMs).toBe(before?.endsAtMs);
+    // 같은 틱에 저장된 입력이 거절돼도 새 입력은 따로 센다
+    await service.addInput(id, { tick: 6, kind: "order", party: 1, order: { kind: "attack", target: 999 } });
+    const after = await service.probe(id, { tick: 6, kind: "order", party: 2, order: { kind: "hold" } });
+    expect(after?.rejected).toBe(false);
+  });
+
   it("결과 기록이 커밋된 뒤 status를 고치기 전에 죽었으면, 다시 켤 때 다시 적용하지 않고 status만 고친다", async () => {
     const results: { id: number; outcome: BattleOutcome; atMs: number }[] = [];
     const first = boot(results);

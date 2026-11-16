@@ -8,6 +8,7 @@
 // 개발자 모드에서 고치는 계산식이다
 // (formulas.ts, docs/adr/2026-11-01-formula-editor.md). 이 표의 수(N10·N11·N12·N13)는 식의 변수로 들어간다.
 import type { CommandCapCoefficients } from "./command.ts";
+import { DEFAULT_TACTIC_COEFFICIENTS, type TacticCoefficients } from "./tactics.ts";
 import type { MoveCoefficients } from "./curves.ts";
 import { type CombatFormulaSet, staminaCostMilliOf, staminaScoreOf } from "./formulas.ts";
 
@@ -69,8 +70,10 @@ export interface CombatCoefficients {
    * 쓴다(새 부품이 없는 전투는 이 표와 상관없다). 없으면 출발값(DEFAULT_MOVE_COEFFICIENTS)
    */
   readonly moves?: MoveCoefficients | undefined;
-  /** 지휘관 정원 표(49 C7, command.ts — D-558 계급·랭킹·환생). 없으면 정원 0(옛 계수표) */
+  /** 지휘관 정원 표(49 C7, command.ts — D-558·D-571 작위·환생). 없으면 정원 0(옛 계수표) */
   readonly command?: CommandCapCoefficients | undefined;
+  /** AI 전개 방식 수(D-558 2차, 질문 1963 → D-571 설정 칸, tactics.ts). 없으면 DEFAULT_TACTIC_COEFFICIENTS(옛 코드 상수와 같다) */
+  readonly tactics?: TacticCoefficients | undefined;
   /**
    * 전투 계산식 묶음(팩 formulas + 그 세계의 덮어쓰기, docs/adr/2026-11-01-formula-editor.md). 없으면 기본 식
    * (DEFAULT_COMBAT_FORMULA_SET = 지금 코드와 같은 결과)
@@ -122,15 +125,16 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
   },
   // [임시] N54 아머 회복: 분당 최대의 10%(가득까지 10분, 쉴드 재생 새 사이보그 WIS 10 ÷ 쉴드 48 ≈ 21%보다 느림)
   armorRegenPm: 100,
-  // [임시] C7 지휘관 정원(D-558 "군단은 3~10개 분대", 계급처럼): 작위 민간인·시민 3 → 공훈자 4 → 기사 5 → 영주 7 → 대공 9,
-  // 전투 랭킹 등급(상위 1%·5%·20%·50%) 9·7·5·4, 환생했으면 +1, 3~10
+  // [임시] C7 지휘관 정원(D-558 "군단은 3~10개 분대", 계급처럼, D-571 작위로만): 작위 민간인·시민 3 → 공훈자 4 → 기사 5 → 영주 7 →
+  // 대공 9, 환생했으면 +1, 3~10
   command: {
     titleParties: [3, 3, 4, 5, 7, 9],
-    tierParties: [9, 7, 5, 4],
     rebirthBonus: 1,
     min: 3,
     max: 10,
   },
+  // [임시] AI 전개 방식 수(질문 1963 — D-558 때 코드 상수 그대로)
+  tactics: DEFAULT_TACTIC_COEFFICIENTS,
   // [임시] 달리기·감지·계수 곡선(docs/adr/2026-11-15-combat-moves.md 1·3절, curves.ts DEFAULT_MOVE_COEFFICIENTS와 같은 값)
   moves: {
     run: { intervalPm: 600, staminaPerSec: 15, resumeSec: 3 },

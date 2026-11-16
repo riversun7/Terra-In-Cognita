@@ -21,6 +21,7 @@ const FORMATION: Readonly<Record<ReportFormation, () => string>> = {
   column: m.battle_cmd_shape_column,
   wedge: m.battle_cmd_shape_wedge,
   block: m.battle_cmd_shape_block,
+  custom: m.battle_cmd_shape_custom,
 };
 export const formationText = (shape: ReportFormation): string => FORMATION[shape]();
 

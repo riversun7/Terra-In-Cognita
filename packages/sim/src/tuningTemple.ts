@@ -103,4 +103,18 @@ export const TEMPLE_TUNING_KEYS: readonly TuningKey[] = [
     "휴먼 환생: K 증가량(‰, 스탯 하나)",
     "Human rebirth: K boost (‰, one stat)",
   ),
+  k(
+    "d571_temple_blessing_pm",
+    "",
+    "blessingMovePm",
+    "신전 축복: 기도하면 걸리는 이동 속도(‰, 0 = 없음)",
+    "Temple blessing: move speed on prayer (‰, 0 = none)",
+  ),
+  k(
+    "d571_temple_blessing_ms",
+    "",
+    "blessingMs",
+    "신전 축복: 지속 시간(ms)",
+    "Temple blessing: duration (ms)",
+  ),
 ];

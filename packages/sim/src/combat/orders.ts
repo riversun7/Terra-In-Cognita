@@ -238,8 +238,8 @@ export function applyOrderInput(
 }
 
 /**
- * 지휘관 자동 승계(D-558 1545): 군단 명령을 받은 적 있는 편의 지휘관이 쓰러졌으면(퇴각은 battle.ts checkRetreats가 따로 다시 고른다)
- * 바로 다시 고르고, 새 정원 밖이 된 파티의 군단 명령을 거둔다. 받은 적 없는 편은 건드리지 않는다(옛 상태 모양)
+ * 지휘관 자동 승계(D-558 1545): 군단 명령을 받은 적 있는 편의 지휘관이 쓰러졌으면(퇴각은 battle.ts checkRetreats가 같은 순서로 다시 고르고
+ * 같은 dropUncommanded를 부른다 — D-571) 바로 다시 고르고, 새 정원 밖이 된 파티의 군단 명령을 거둔다. 받은 적 없는 편은 건드리지 않는다
  */
 export function succeedCommanders(state: BattleState): void {
   for (const side of state.sides) {
@@ -247,10 +247,19 @@ export function succeedCommanders(state: BattleState): void {
     const commander = state.units.find((unit) => unit.id === side.commander);
     if (commander && active(commander)) continue;
     electCommander(state, side);
-    for (const party of state.parties)
-      if (party.side === side.id && party.order?.legion === true && side.uncommanded.includes(party.id))
-        delete party.order;
+    dropUncommanded(state, side);
   }
+}
+
+/**
+ * 새 정원 밖이 된 파티의 군단 명령을 거둔다(쓰러짐 승계와 퇴각 승계가 같은 규칙 — D-571 답 1967 "퇴각도 같은 순서"). 군단 명령을 받은 적
+ * 없는 편은 건드리지 않는다(옛 상태 모양)
+ */
+export function dropUncommanded(state: BattleState, side: BattleState["sides"][number]): void {
+  if (side.orderMs === undefined) return;
+  for (const party of state.parties)
+    if (party.side === side.id && party.order?.legion === true && side.uncommanded.includes(party.id))
+      delete party.order;
 }
 
 /** 따라가기 묶음의 이번 틱 설 칸(앞 파티 가운데에서 뒤로 FOLLOW_GAP_CELLS, 대형 앞줄 기준) */

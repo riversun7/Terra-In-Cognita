@@ -902,6 +902,13 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
     },
     equippedOn,
     effectsOn: unitEffects,
+    grantEffect(unitId, entry, nowMs) {
+      const keep = unitEffects(unitId, nowMs).filter((active) => active.effect !== entry.effect);
+      replaceEffects(unitId, [
+        ...keep,
+        { effect: entry.effect, value: entry.value, untilMs: entry.untilMs, group: null, item: entry.source },
+      ]);
+    },
     unitLayout(unitId) {
       const kind = world.unitKind(unitId);
       const slots = kind === undefined ? undefined : lookup().unitSlots.get(kind);

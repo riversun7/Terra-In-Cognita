@@ -1,4 +1,5 @@
-// 국적 바꾸기(귀화) 기록 표와 사람·나라 우호도 표(docs/adr/2026-11-08-citizenship.md, 질문 745 나·D-526) — schema.ts가 다시 내보낸다(drizzle-kit 표 정의 진입점은
+// 국적 바꾸기(귀화) 기록 표와 사람·나라 우호도 표(docs/adr/2026-11-08-citizenship.md, 질문 745 나·D-526), 사람·나라 명성 표(D-326 작위, D-571) —
+// schema.ts가 다시 내보낸다(drizzle-kit 표 정의 진입점은
 // schema.ts). users·factions·world_cities는 schema.ts에서 오고, 참조는 함수 안에서만 읽어 순환 가져오기가 문제되지 않는다.
 // 쓰기는 월드 쓰기 대기열(src/world/persist/writer.ts) 하나다(사이보그 행·세력 가입·원장 거래와 같은 커밋, 추가만).
 import { sql } from "drizzle-orm";
@@ -65,5 +66,28 @@ export const userNationStandings = pgTable(
   (table) => [
     primaryKey({ columns: [table.userId, table.factionId] }),
     check("user_nation_standings_score", sql`${table.score} between -100 and 100`),
+  ],
+);
+
+/**
+ * 사람(사용자)의 나라별 명성(D-326 "명성은 납품·방어·의뢰로 그 나라에서 쌓는다. 나라마다 따로다", 46 §9.4). 작위 = 명성 구간(49 S18,
+ * @terra/sim titleOfRenown) — 기획 D-571(답 1961·1962)로 지휘관 정원이 작위를 읽는다(world/commandRanks.ts). 줄이 없으면 0(민간인).
+ * 쓰기는 월드 쓰기 대기열(덮어쓰기 — 메모리 값이 원본의 캐시, cyborg/service.ts addRenown). 추가만 한 표다(D-571 줄기 legion-3)
+ */
+export const userNationRenown = pgTable(
+  "user_nation_renown",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    factionId: bigint("faction_id", { mode: "number" })
+      .notNull()
+      .references(() => factions.id),
+    renown: bigint("renown", { mode: "number" }).notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.factionId] }),
+    check("user_nation_renown_nonnegative", sql`${table.renown} >= 0`),
   ],
 );

@@ -62,6 +62,11 @@ export interface CyborgRecord {
   nationChangedAtMs: number | null;
   /** 나라(세력 행 ID)별 우호도(D-526, 표 user_nation_standings, −100~100). 줄이 없는 나라는 0(보통) */
   readonly standings: Map<number, number>;
+  /**
+   * 나라(세력 행 ID)별 명성(D-326, 표 user_nation_renown, 0 이상). 작위 = 명성 구간(D-571 지휘관 정원). 줄이 없는 나라는 0. 옛 시험 자료처럼
+   * 칸이 없으면 서비스가 처음 쌓을 때 만든다
+   */
+  renown?: Map<number, number> | undefined;
 }
 
 export interface RollRecord {
@@ -113,7 +118,7 @@ const numOrNull = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
 
 export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
-  const [cyborgRows, rollRows, factionRows, nationRows, standingRows] = await Promise.all([
+  const [cyborgRows, rollRows, factionRows, nationRows, standingRows, renownRows] = await Promise.all([
     pool.query(
       `select user_id, name, name_key, temperament, initial, k_pm, appearance, look, look_auto, faction_id, start_city_id,
               unit_id, level, exp, rebirths, faith, created_at_ms, elements, religion, faith_points, start_grant
@@ -127,7 +132,16 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
     pool.query(`select user_id, max(at_ms) as last_at from nationality_changes group by user_id`),
     // 사람·나라 우호도(D-526)
     pool.query(`select user_id, faction_id, score from user_nation_standings`),
+    // 사람·나라 명성(D-326 작위, D-571)
+    pool.query(`select user_id, faction_id, renown from user_nation_renown`),
   ]);
+  const renown = new Map<string, Map<number, number>>();
+  for (const row of renownRows.rows) {
+    const user = String(row.user_id);
+    const map = renown.get(user) ?? new Map<number, number>();
+    map.set(num(row.faction_id), num(row.renown));
+    renown.set(user, map);
+  }
   const nations = new Map<string, number>();
   for (const row of nationRows.rows) nations.set(String(row.user_id), num(row.last_at));
   const standings = new Map<string, Map<number, number>>();
@@ -171,6 +185,7 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
       startGrant: bigOrNull(row.start_grant),
       nationChangedAtMs: nations.get(String(row.user_id)) ?? null,
       standings: standings.get(String(row.user_id)) ?? new Map<number, number>(),
+      renown: renown.get(String(row.user_id)) ?? new Map<number, number>(),
     };
   });
   const rolls = rollRows.rows.map(

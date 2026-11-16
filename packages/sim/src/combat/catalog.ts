@@ -159,6 +159,17 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     ...MAGIC_EFFECTS,
     // 밀림 상태이상(질문 1806 → D-429, 팩과 같은 차례·값)
     ...DISPLACE_EFFECTS,
+    // 신전 축복(D-571 답 1968 — 기도하면 걸리는 이동 속도 버프, 값·시간은 서버가 설정 칸으로 건다, 팩과 같은 값)
+    {
+      id: "temple_blessing",
+      durationMs: 1_800_000,
+      kind: "buff",
+      stat: "move_speed",
+      valueMode: "permille",
+      tickMs: 0,
+      stacking: "refresh",
+      maxStacks: 1,
+    },
   ],
   skills: [
     {

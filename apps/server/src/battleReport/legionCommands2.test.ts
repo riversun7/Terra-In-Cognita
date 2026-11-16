@@ -96,14 +96,15 @@ describe("보고서 명령 D-558", () => {
   });
 });
 
-describe("지휘관 정원(D-558): 실험 유닛 계급·환생", () => {
-  it("계급이 없으면 3, 작위·랭킹 등급 가운데 큰 쪽, 환생 +1", () => {
+describe("지휘관 정원(D-558·D-571): 실험 유닛 계급·환생", () => {
+  it("계급이 없으면 3, 작위 표만(랭킹 등급은 정원에 들지 않는다 — D-571), 환생 +1", () => {
     const cap = (rank?: { title: number; combatTier: number | null }, rebirths = 0) =>
       buildLabUnit({ ...newLabUnit("human"), rebirths, ...(rank ? { rank } : {}) }, rules).spec.commandCap;
     expect(cap()).toBe(3);
     expect(cap(undefined, 2)).toBe(4);
     expect(cap({ title: 4, combatTier: null })).toBe(7);
-    expect(cap({ title: 1, combatTier: 0 }, 1)).toBe(10);
+    expect(cap({ title: 1, combatTier: 0 }, 1)).toBe(4);
+    expect(cap({ title: 5, combatTier: null }, 1)).toBe(10);
     expect(
       buildLabUnit({ ...newLabUnit("human"), rank: { title: 2, combatTier: 3 } }, rules).spec.commandRank,
     ).toEqual({

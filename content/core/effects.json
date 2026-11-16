@@ -174,6 +174,25 @@
       "stacking": "refresh",
       "maxStacks": 1,
       "enabled": true
+    },
+    {
+      "id": "temple_blessing",
+      "name": {
+        "ko": "신전 축복",
+        "en": "Temple blessing"
+      },
+      "description": {
+        "ko": "[임시] 신전에서 기도하면 잠시 걸리는 이동 속도 버프(D-558 1548·D-571 1968). 값·시간은 설정 칸 d571_temple_blessing_*.",
+        "en": "[temp] Move-speed buff for a while after praying at a temple (D-558 1548, D-571 1968). Value and duration: tuning cells d571_temple_blessing_*."
+      },
+      "durationMs": 1800000,
+      "kind": "buff",
+      "stat": "move_speed",
+      "valueMode": "permille",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
     }
   ]
 }

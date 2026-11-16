@@ -36,6 +36,7 @@ import { createCyborgGateway } from "./cyborg/gateway.ts";
 import { createRecruitGateway } from "./recruit/gateway.ts";
 import { createFusionGateway } from "./fusion/gateway.ts";
 import { createTempleGateway } from "./temple/gateway.ts";
+import { battleOrderWorldOf, createBattleOrderGateway } from "./world/battleOrders.ts";
 import { hospitalServiceOf } from "./hospital/attach.ts";
 import { createHospitalGateway } from "./hospital/gateway.ts";
 import { citizenshipServiceOf } from "./citizenship/attach.ts";
@@ -820,6 +821,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     ? createTempleGateway({ service: templeService, now, log: app.log })
     : undefined;
   const ruinGateway = world ? createRuinGateway({ service: ruinService, now, log: app.log }) : undefined;
+  const battleGateway = createBattleOrderGateway({ world: battleOrderWorldOf(world), now, log: app.log });
   const hospitalGateway = world
     ? createHospitalGateway({ service: hospitalService, now, log: app.log })
     : undefined;
@@ -917,6 +919,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         fusion: fusionGateway,
         facilities: facilityGateway,
         temple: templeGateway,
+        battles: battleGateway,
         ruins: ruinGateway,
         market: marketGateway,
         travel: travelGateway,

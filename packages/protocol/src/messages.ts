@@ -27,6 +27,7 @@ import { travelClientMessages, travelServerMessages } from "./travel.ts";
 import { gatherClientMessages, gatherServerMessages } from "./gather.ts";
 import { boatClientMessages, boatServerMessages } from "./boats.ts";
 import { businessClientMessages, businessServerMessages } from "./business.ts";
+import { battleOrderClientMessages, battleOrderServerMessages } from "./battleOrder.ts";
 
 const nonNegativeInt = z.number().int().nonnegative();
 const timestampMs = z.number().nonnegative();
@@ -69,6 +70,7 @@ export const clientMessageSchema = z.discriminatedUnion("t", [
   ...houseRecruitClientMessages,
   ...boatClientMessages,
   ...businessClientMessages,
+  ...battleOrderClientMessages,
 ]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
@@ -119,6 +121,7 @@ export const serverMessageSchema = z.discriminatedUnion("t", [
   ...houseRecruitServerMessages,
   ...boatServerMessages,
   ...businessServerMessages,
+  ...battleOrderServerMessages,
 ]);
 export type ServerMessage = z.infer<typeof serverMessageSchema>;
 

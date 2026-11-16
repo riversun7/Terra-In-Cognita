@@ -184,6 +184,16 @@ export {
   type BusinessResultCode,
 } from "./business.ts";
 export {
+  BATTLE_FORMATIONS,
+  BATTLE_LIST_MAX,
+  BATTLE_ORDER_PROTOCOL_VERSION,
+  BATTLE_ORDER_RESULT_CODES,
+  BATTLE_TACTICS,
+  type BattleOrder,
+  type BattleOrderResultCode,
+  type BattleView,
+} from "./battleOrder.ts";
+export {
   GUARDIAN_BUFF_IDS,
   GUARDIAN_BUFF_PROTOCOL_VERSION,
   TEMPLE_PROTOCOL_VERSION,

@@ -17,6 +17,9 @@
 //   고친다).
 // - 기도·헌금(옛 religion_routes.js): 내 사이보그와 내 휴먼 모두(비활성 포함)의 신앙도·포인트를 함께 올린다. 종교 목록이 아직 없어 종교 없이
 //   쌓인다 [임시](질문 457).
+// - 신전 축복(D-558 1548 "신전 축복" → D-571 답 1968 "기도하면 잠시 걸리는 효과 — 종교컨텐츠 일일 보상같은. 아직 시스템 미흡 임시로"): 기도에
+//   성공하면 사이보그 본체에 걸린 효과 temple_blessing(팩 효과 사전 — 이동 속도 버프)을 설정 칸 d571_temple_blessing_pm·_ms만큼 건다(같은 효과는
+//   새로 건다). 걸린 효과라 2차맵 걷기 빠르기(walkSpeed.ts)와 전투 시작 효과에 그대로 든다. 기도 쿨다운(d444_pray_cooldown_ms)이 곧 축복 쿨이다.
 // 명령 하나 = 읽기(DB, 쓰기 대기열이 따라잡은 뒤) → 다시 확인(메모리) → 한 번의 동기 처리 → 커밋 뒤 답(U2).
 import type { TempleResultCode } from "@terra/protocol";
 import { createRng } from "@terra/shared";
@@ -39,6 +42,7 @@ import {
   riteCost,
 } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
+import type { HoldingService } from "../holdings/service.ts";
 import type { Ledger } from "../economy/ledger.ts";
 import { buildingPlace } from "../facilities/places.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
@@ -62,6 +66,11 @@ import {
   writeHumanGrowth,
 } from "./rows.ts";
 
+/** 신전 축복 효과(팩 효과 사전 항목 ID — 이동 속도 버프) */
+export const TEMPLE_BLESSING_EFFECT = "temple_blessing";
+/** 신전 축복 효과 줄의 출처 칸(물건 ID 자리) */
+export const TEMPLE_BLESSING_SOURCE = "temple";
+
 export type TempleCommandResult =
   | { readonly ok: true; readonly unitId?: number; readonly faith?: number; readonly gained?: number }
   | { readonly ok: false; readonly code: TempleResultCode };
@@ -76,6 +85,8 @@ export interface TempleServiceOptions {
   readonly facilities?: WorldFacilities | undefined;
   /** 사이보그(본체 신앙도). 없으면 사이보그 신앙은 오르지 않는다 */
   readonly cyborgs?: CyborgService | undefined;
+  /** 보유 물건(걸린 효과 — 신전 축복). 없으면 축복을 걸지 않는다 */
+  readonly holdings?: Pick<HoldingService, "grantEffect"> | undefined;
   readonly hasCyborg: (userId: string) => boolean;
   /** 설정 칸 실효 값(부를 때마다 읽는다: temple·fusion·수명 T4) */
   readonly rules: () => SocietyCoefficients;
@@ -202,6 +213,20 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
     return o.cyborgs?.addFaith(userId, gain)?.faith;
   };
 
+  /** 신전 축복(D-571 답 1968): 사이보그 본체에 이동 속도 효과를 건다(같은 커밋). 값·시간이 0이거나 본체가 없으면 아무것도 하지 않는다 */
+  const bless = (userId: string, c: SocietyCoefficients["temple"], at: number): void => {
+    const unitId = o.cyborgs?.record(userId)?.unitId;
+    if (!o.holdings || unitId === null || unitId === undefined) return;
+    const value = Math.trunc(c.blessingMovePm);
+    const ms = Math.trunc(c.blessingMs);
+    if (value <= 0 || ms <= 0) return;
+    o.holdings.grantEffect(
+      unitId,
+      { effect: TEMPLE_BLESSING_EFFECT, value, untilMs: at + ms, source: TEMPLE_BLESSING_SOURCE },
+      at,
+    );
+  };
+
   return {
     overview: (viewer, nowMs) => buildTempleOverview({ ...o, cityOfUnit }, viewer, nowMs),
 
@@ -218,6 +243,7 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       const gain = devotionGain("pray", 0n, c);
       const faith = await devote(userId, owner.ownerId, gain);
       writer.upsert("templeDevotions", { owner_id: owner.ownerId, last_prayed_at_ms: at });
+      bless(userId, c, at);
       await writer.durable();
       return { ok: true, gained: gain, ...(faith === undefined ? {} : { faith }) };
     },

@@ -1,0 +1,55 @@
+/* 전투맵 명령 줄(BattleCommandBar.tsx) — 전투 다시보기·3D 관람과 실제 세계 전투 화면(units/LiveBattlesPanel.tsx)이 함께 쓴다. battleReplay.css에서 옮겼다 */
+/* 전투맵 명령 줄(D-558 1546, BattleCommandBar.tsx): 받는 쪽 단추 줄 · 명령 단추 줄 · 고르기 안내 · 더 고르기 */
+.br-cmd {
+  grid-area: cmd;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+}
+.br-cmd-whos,
+.br-cmd-orders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.br-cmd-who,
+.br-cmd-order {
+  min-height: var(--tap-size);
+}
+.br-cmd-who[aria-pressed="true"],
+.br-cmd-order[aria-pressed="true"] {
+  border-color: var(--color-focus);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+/* 다시 넣기 링: 방금 명령한 받는 쪽 */
+.br-cmd-who[data-locked="true"] {
+  outline: var(--border-w) dashed var(--color-focus);
+  outline-offset: var(--hairline);
+}
+.br-cmd-hint,
+.br-cmd-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.br-cmd-hint > span {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.br-cmd-more select {
+  flex: 1 1 10rem;
+  min-width: 0;
+  min-height: var(--tap-size);
+}
+.br-cmd-locked,
+.br-cmd-busy {
+  margin: 0;
+}

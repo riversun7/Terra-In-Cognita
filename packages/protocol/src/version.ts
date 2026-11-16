@@ -224,6 +224,10 @@
  *      boat_load에 선택 칸 via(물류센터 건물 ID | auto — facilities.ts haulViaSchema, LOGISTICS_PROTOCOL_VERSION), business_price의 item에 service:haul(물류센터
  *      한 단위 요금). 53판 기기는 보내지 않는다(서버는 내 운반꾼으로). 새 결과 코드 없음(물류센터 쪽 실패는 있는 코드 — 배 메시지는 no_carrier·
  *      insufficient_funds·unavailable).
+ *    - 기획 대조 2237(D-6006·D-6011, 줄기 fixes-1116o 판 72) — 멈춘 노동 계약 처리할 일 [기다림]을 계정에 저장: labor_wait(contractId·dueAt → labor_result,
+ *      코드는 있던 것). 53판 기기는 보내지 않는다(labor.ts LABOR_WAIT_PROTOCOL_VERSION).
+ *    - 기획 D-577(줄기 fixes-1116o) — 짓는 중 알박기 고르기 바꾸기 facility_claim(buildingId·claim → facility_result, 코드는 있던 것). 53판 기기는 보내지
+ *      않는다(facilities.ts FACILITY_CLAIM_PROTOCOL_VERSION). 다른 메시지 꼴은 그대로.
  */
 export const PROTOCOL_VERSION = 54;
 

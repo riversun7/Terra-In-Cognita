@@ -37,6 +37,13 @@ export const laborContracts = pgTable(
      * 시설 창고가 아직 없어 넘어간 물건은 없다(기록만). null = 유예를 거치지 않았거나 아직. 직전 판 앱은 이 열을 모른다(쓰지 않음)
      */
     leftoversMovedAtMs: bigint("leftovers_moved_at_ms", { mode: "number" }),
+    /**
+     * 일꾼 유닛 주인이 처리할 일(labor_paused)에서 [기다림]을 누른 멈춤 회차 = 그때의 next_due_ms(기획 대조 2237 — D-6006 처리할 일은 서버가
+     * 계정마다). next_due_ms와 같으면 처리할 일에서 접힌다(같은 계정의 모든 기기). 다시 돌다 또 멈추면 next_due_ms가 바뀌어 다시 보인다.
+     * 월드 쓰기 대기열 열 목록(world/persist/tables.ts)에 넣지 않는다 — 기다림 명령(labor/pauseWait.ts)만 DB에 바로 쓰고, 대기열 upsert는 이 열을
+     * 건드리지 않는다(직전 판 앱도 마찬가지). null = 누르지 않음
+     */
+    pausedWaitedDueMs: bigint("paused_waited_due_ms", { mode: "number" }),
   },
   (table) => [
     index("labor_contracts_owner_idx").on(table.ownerId),

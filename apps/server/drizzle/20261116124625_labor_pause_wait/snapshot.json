@@ -1,0 +1,49 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c6f2df91-7ceb-4060-904b-f313a1523b28",
+  "prevIds": [
+    "95bd9580-a1e4-44d4-b2d6-d050b07e09e3",
+    "58f17376-bf4f-4341-a452-5a5c9c8ab21e",
+    "2d4ed532-bad1-48c9-ad27-6cbe2b63bb8b"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "labor_contracts",
+        "paused_waited_due_ms"
+      ],
+      "writes": [
+        "s|col|public.labor_contracts.paused_waited_due_ms",
+        "n|col|public.labor_contracts.paused_waited_due_ms",
+        "e|col|public.labor_contracts.paused_waited_due_ms"
+      ],
+      "reads": [
+        "n|tbl|public.labor_contracts",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_contracts",
+        "name": "paused_waited_due_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

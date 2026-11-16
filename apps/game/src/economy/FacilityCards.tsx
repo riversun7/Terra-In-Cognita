@@ -1,7 +1,7 @@
 // 건물 칸의 카드 — 내 시설(상태 막대·작업·레벨업·수리·채집 시설 일꾼 칸), 내 세력 영토 비콘(수리), 고칠 장비(공방 장비 수리)
 // docs/adr/2026-11-07-buildings-runtime.md. 판정은 서버, 화면은 미리 셈(@terra/shared/facilityRuntime 같은 식)과 결과 문구만.
 // 채집 시설 일꾼 칸(직무 배치)은 WorkerParts.tsx(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"), 채집소 칸(버프·원자재·채집소 창고)은
-// StationParts.tsx(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요").
+// StationParts.tsx(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요"). 짓는 중 알박기 정부의 고르기 바꾸기는 ClaimChoiceParts.tsx(기획 D-577).
 import type {
   FacilitiesOverviewResponse,
   FacilityBeaconView,
@@ -32,6 +32,7 @@ import {
   stacksText,
   stockAt,
 } from "./facilityText.ts";
+import { ClaimChoice } from "./ClaimChoiceParts.tsx";
 import type { LaborRun } from "./laborText.ts";
 import { StationSummary } from "./StationParts.tsx";
 import { StorageMoveForm } from "./StorageParts.tsx";
@@ -156,6 +157,7 @@ export function FacilityCard({
         </p>
       ) : null}
       {facility.job ? <JobLine job={facility.job} now={now} /> : null}
+      {facility.landClaim ? <ClaimChoice facility={facility} run={run} busy={busy} /> : null}
       <div className="labor-actions">
         {idle && facility.upgrade ? (
           <button

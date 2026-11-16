@@ -116,6 +116,19 @@ export interface FacilityView {
   readonly workers: readonly FacilityWorkerView[];
   /** 병원(의료 단계 시설, D-521)이면 true — 의사 직무 배치 칸이 보인다(산출 없음, docs/adr/2026-11-08-injury.md). 아니면 없음 */
   readonly medical?: boolean | undefined;
+  /**
+   * 빈 2차맵에 짓는 중인 알박기 정부 건물의 고르기(기획 D-577 — 다 지어질 때 발효, 그 전에는 facility_claim으로 바꾼다). kind = 다 지었을 때 새 도시의
+   * 주인(personal = 1인 독재 도시라 체제는 늘 독재), locked = 가문이 이미 봉신·독립을 정해 고르기를 보지 않는다(FacilityLandRuleResponse.claimLocked와
+   * 같다). 다 지었거나 알박기 정부가 아니면 없음. 옛 서버는 이 칸이 없다
+   */
+  readonly landClaim?:
+    | {
+        readonly choice: LandClaimChoice;
+        readonly kind: FacilityLandClaim | null;
+        readonly locked: "vassal" | "independent" | null;
+      }
+    | null
+    | undefined;
 }
 
 /** 채집 시설의 스탯 짝(주 = 진행 속도, 보조 = 수확량)·중분류·방식(roll 추첨, select 해금 티어에서 고름) */

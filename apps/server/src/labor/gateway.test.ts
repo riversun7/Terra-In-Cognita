@@ -154,6 +154,15 @@ describe("노동 계약 연결 처리", () => {
     expect(older.sent).toEqual([{ t: "labor_result", id: 2, ok: false, code: "invalid_terms" }]);
   });
 
+  it("멈춘 계약 기다림(판 54, 2237)은 서비스가 아니라 DB로 — DB가 없으면 busy", async () => {
+    const calls: string[] = [];
+    const { sent, socket } = open(fakeService(calls), viewer);
+    socket.handle({ t: "labor_wait", id: 1, contractId: 4, dueAt: 1_000 });
+    for (let i = 0; i < 4; i++) await settle();
+    expect(calls).toEqual([]);
+    expect(sent).toEqual([{ t: "labor_result", id: 1, ok: false, code: "busy" }]);
+  });
+
   it("로그인하지 않았으면 sign_in_required, 세계가 준비 전이면 busy", async () => {
     const signedOut = open(fakeService([]), null);
     signedOut.socket.handle({ t: "labor_terminate", id: 1, contractId: 1 });

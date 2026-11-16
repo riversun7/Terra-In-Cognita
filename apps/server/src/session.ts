@@ -18,6 +18,8 @@ import {
   LABOR_PROTOCOL_VERSION,
   LABOR_ASSIGN_PROTOCOL_VERSION,
   LABOR_JOBS_PROTOCOL_VERSION,
+  LABOR_WAIT_PROTOCOL_VERSION,
+  FACILITY_CLAIM_PROTOCOL_VERSION,
   ATTACK_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
   STORAGE_PROTOCOL_VERSION,
@@ -409,16 +411,19 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "labor_withdraw_job":
       case "labor_accept_job":
       case "labor_assign":
-      case "labor_unassign": {
-        // 구인 게시 셋은 판 8부터, 직무 배치 둘은 판 14부터(그 앞 판 기기는 보내지 않는다)
+      case "labor_unassign":
+      case "labor_wait": {
+        // 구인 게시 셋은 판 8부터, 직무 배치 둘은 판 14부터, 멈춘 계약 기다림은 54부터(그 앞 판 기기는 보내지 않는다)
         const needs =
-          message.t === "labor_assign" || message.t === "labor_unassign"
-            ? LABOR_ASSIGN_PROTOCOL_VERSION
-            : message.t === "labor_post_job" ||
-                message.t === "labor_withdraw_job" ||
-                message.t === "labor_accept_job"
-              ? LABOR_JOBS_PROTOCOL_VERSION
-              : LABOR_PROTOCOL_VERSION;
+          message.t === "labor_wait"
+            ? LABOR_WAIT_PROTOCOL_VERSION
+            : message.t === "labor_assign" || message.t === "labor_unassign"
+              ? LABOR_ASSIGN_PROTOCOL_VERSION
+              : message.t === "labor_post_job" ||
+                  message.t === "labor_withdraw_job" ||
+                  message.t === "labor_accept_job"
+                ? LABOR_JOBS_PROTOCOL_VERSION
+                : LABOR_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;
@@ -478,19 +483,22 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "facility_attack":
       case "facility_plot":
       case "facility_plot_remove":
-      case "facility_gather_tier": {
-        // 건물 명령은 프로토콜 10, 창고 옮기기는 11, 건물·비콘 공격은 12, 면적 모듈은 41, 모듈 떼기·기르는 티어는 45의 메시지다. 더 낮게 인사한
-        // 연결은 모르는 메시지로 본다
+      case "facility_gather_tier":
+      case "facility_claim": {
+        // 건물 명령은 프로토콜 10, 창고 옮기기는 11, 건물·비콘 공격은 12, 면적 모듈은 41, 모듈 떼기·기르는 티어는 45, 짓는 중 알박기 고르기
+        // 바꾸기는 72의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
         const needs =
-          message.t === "facility_plot_remove" || message.t === "facility_gather_tier"
-            ? GATHER_TIER_PROTOCOL_VERSION
-            : message.t === "facility_plot"
-              ? PLOT_PROTOCOL_VERSION
-              : message.t === "facility_attack"
-                ? ATTACK_PROTOCOL_VERSION
-                : message.t === "storage_move"
-                  ? STORAGE_PROTOCOL_VERSION
-                  : FACILITY_PROTOCOL_VERSION;
+          message.t === "facility_claim"
+            ? FACILITY_CLAIM_PROTOCOL_VERSION
+            : message.t === "facility_plot_remove" || message.t === "facility_gather_tier"
+              ? GATHER_TIER_PROTOCOL_VERSION
+              : message.t === "facility_plot"
+                ? PLOT_PROTOCOL_VERSION
+                : message.t === "facility_attack"
+                  ? ATTACK_PROTOCOL_VERSION
+                  : message.t === "storage_move"
+                    ? STORAGE_PROTOCOL_VERSION
+                    : FACILITY_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;

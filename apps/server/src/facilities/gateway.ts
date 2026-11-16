@@ -16,6 +16,7 @@
 //   tier_locked는 그 답에만).
 // - 판매만·실제 운반(프로토콜 46, 기획 D-569 1781·1784): 새 코드 sale_only(storage_move)는 더 낮은 판에 forbidden, no_carrier(business_buy)는 busy로 간다.
 // - 거래소 건물(프로토콜 47, 기획 D-561): 짓기의 새 코드 exchange_locked·exchange_exists는 더 낮은 판에 forbidden으로 간다.
+// - 짓는 중 알박기 고르기 바꾸기(facility_claim, 프로토콜 54 — 기획 D-577): claimChoice.ts. 결과 코드는 있던 것.
 import {
   BUSINESS_CARRY_PROTOCOL_VERSION,
   BUSINESS_PROTOCOL_VERSION,
@@ -61,6 +62,7 @@ export type FacilityClientMessage = ClientMessageOf<
   | "facility_plot"
   | "facility_plot_remove"
   | "facility_gather_tier"
+  | "facility_claim"
 >;
 
 const MAX_PENDING = 8;
@@ -216,6 +218,11 @@ function run(
       return service.plotRemove(userId, message.buildingId);
     case "facility_gather_tier":
       return service.gatherTier(userId, message.buildingId, message.tier);
+    case "facility_claim":
+      return service.claimChoice(userId, message.buildingId, {
+        mode: message.claim.mode,
+        regime: message.claim.regime ?? null,
+      });
     case "facility_repair":
       return service.repair(
         userId,

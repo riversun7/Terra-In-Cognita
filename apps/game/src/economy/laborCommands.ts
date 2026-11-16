@@ -1,5 +1,5 @@
 // 노동 계약 명령(WebSocket) — labor_create·labor_terminate·labor_top_up·labor_set_rent와 구인 게시(labor_post_job·
-// labor_withdraw_job·labor_accept_job, 판 8), 직무 배치(labor_assign·labor_unassign, 판 14)를 보내고 같은 요청 번호의 labor_result를 기다린다.
+// labor_withdraw_job·labor_accept_job, 판 8), 직무 배치(labor_assign·labor_unassign, 판 14), 멈춘 계약 기다림(labor_wait, 판 54 — 처리할 일)을 보내고 같은 요청 번호의 labor_result를 기다린다.
 // docs/adr/2026-11-03-labor-contracts.md. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // - 연결이 아직 인사 전이면 인사가 끝날 때까지 기다렸다 보낸다. 기다림·답 모두 TIMEOUT_MS 안.
 // - 끊기면(down) 기다리던 명령은 "offline"으로 끝난다. 서버가 받았는지 모르므로 화면은 계약 목록을 다시 받는다.
@@ -16,7 +16,8 @@ export type LaborCommand =
   | Omit<ClientMessageOf<"labor_withdraw_job">, "id">
   | Omit<ClientMessageOf<"labor_accept_job">, "id">
   | Omit<ClientMessageOf<"labor_assign">, "id">
-  | Omit<ClientMessageOf<"labor_unassign">, "id">;
+  | Omit<ClientMessageOf<"labor_unassign">, "id">
+  | Omit<ClientMessageOf<"labor_wait">, "id">;
 
 export type LaborCommandOutcome =
   | { readonly ok: true; readonly contractId?: number; readonly jobId?: number }

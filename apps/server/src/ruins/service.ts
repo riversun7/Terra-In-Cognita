@@ -29,7 +29,7 @@ import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
 import type { HouseTies } from "../world/houseTies.ts";
-import { type ClaimNotice, foundPersonalHouse, writeClaimNotices } from "./claimHouse.ts";
+import { type ClaimNotice, foundPersonalHouse, nameUnnamedHouses, writeClaimNotices } from "./claimHouse.ts";
 import { type LandClaimKind, createLandClaims } from "./landClaim.ts";
 
 /** 정부 짓기 자리를 찾는 반지름(칸, 폐허 칸 둘레) */
@@ -172,6 +172,8 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
     const near = cityOfCell(anchors, mapKey, x, y);
     return near ? runtime.world.ruins.get(near.id) : undefined;
   };
+  /** 이름 없는 가문에 자리표시 정체성을 붙였나(한 번만 — 실패하면 다음 틱에 다시) */
+  let unnamed = false;
   // 1인 가문 만들기(가문 없는 플레이어의 알박기 — claimHouse.ts): 사용자마다 한 번에 하나, 끝나면 가문 표를 다시 읽는다(실패하면 다음 틱에 다시)
   const making = new Set<string>();
   const foundPersonal = (userId: string): void => {
@@ -314,6 +316,16 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
       return runtime ? claims.lockedOf(runtime, ownerId) : null;
     },
     foundClaims(nowMs) {
+      // 이 판 앞에 만든 이름 없는 1인 가문에 자리표시 정체성을 한 번 붙인다(claimHouse.ts — 질문 2242 이름 붙이기 길)
+      const ties = unnamed ? undefined : d.ties?.();
+      if (ties) {
+        unnamed = true;
+        void nameUnnamedHouses(ties.pool, nowMs)
+          .then((named) => (named > 0 ? ties.reload() : undefined))
+          .catch(() => {
+            unnamed = false;
+          });
+      }
       const runtime = live();
       return runtime ? claims.foundPending(runtime, nowMs) : 0;
     },

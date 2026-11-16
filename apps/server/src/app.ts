@@ -804,7 +804,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // 유닛 명령 게이트웨이는 운영자 빠르기 표시를 그 유닛이 선 2차맵에 단다(world/operatorPace.ts)
   const paceMaps = () => world?.maps.values() ?? [];
   const laborGateway = world
-    ? createLaborGateway({ service: laborService, maps: paceMaps, now, log: app.log })
+    ? createLaborGateway({ service: laborService, maps: paceMaps, now, log: app.log, pool: rankingPool })
     : undefined;
   const fusionGateway = world
     ? createFusionGateway({ service: fusionService, now, log: app.log })

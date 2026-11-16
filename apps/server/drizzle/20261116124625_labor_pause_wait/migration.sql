@@ -1,0 +1,1 @@
+ALTER TABLE "labor_contracts" ADD COLUMN "paused_waited_due_ms" bigint;

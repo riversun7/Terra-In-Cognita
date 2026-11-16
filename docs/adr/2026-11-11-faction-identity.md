@@ -307,8 +307,8 @@
 
 ### 5. 가문이 한꺼번에 내는 가입비(2017 다) — 앞 "바뀜 (1847·1848 답·D-570)" 3절 "가문원마다(가문장 포함) 원장 거래 · 가입비는 있는 만큼"을 대신함
 - 합 = 정책(가문원마다) × 옮기는 가문원 수(질문 2145), 원장 거래 `house_entry` 하나. 지갑 = 가문 금고(가문 소유 주체) → 없으면 가문장 지갑(질문 2150). 지원금도 그 지갑이 받는다(국고에 있는 만큼).
-- 못 내면 옮기지 못한다: 공고할 때·바로 옮길 때 `house_home`이 `entry_fee_short`(51판 — 50판 연결은 `busy`, `legacyHouseMemberCode`), 공고를 옮길 때(1분 타이머) 모자라면 공고를 거둔다(소식 `home_cancelled` 까닭 `entry_fee`). 공고 칸의 값은 그 합(`HouseHomeView.pending.terms`).
+- 못 내면 옮기지 못한다: 공고할 때·바로 옮길 때 `house_home`이 `entry_fee_short`(50판 — 49판 연결은 `busy`, `legacyHouseMemberCode`. 줄기에서는 51판), 공고를 옮길 때(1분 타이머) 모자라면 공고를 거둔다(소식 `home_cancelled` 까닭 `entry_fee`). 공고 칸의 값은 그 합(`HouseHomeView.pending.terms`).
 - 확인과 매기기 사이(옮기는 DB 트랜잭션 동안) 잔고가 줄면 있는 만큼 낸다(Assumed: 드문 경합 — 원장이 메모리라 옮기기 앞에 막을 수 없다).
 
 ### 6. 판
-- 프로토콜 51(최소 50 — 49·50은 다른 줄기 자리), 팩 `core@119`(설정 칸 8개 — `house_entry_npc_fee_max`·`house_entry_npc_grant_max`·`house_npc_city_houses_l1`~`l6`), 마이그레이션 `20261116052201_city_policies_npc_houses`(`prevIds` = `npc_houses_home_notice`), `SIM_VERSION` 그대로(`npcHouseEntryFee`·새 계수는 시뮬이 부르거나 읽지 않는다).
+- 프로토콜 50(최소 49 — 묶음 1116l 합친 판, 줄기에서는 51), 팩 `core@118`(묶음 1116l 합친 판, 줄기에서는 119. 설정 칸 8개 — `house_entry_npc_fee_max`·`house_entry_npc_grant_max`·`house_npc_city_houses_l1`~`l6`), 마이그레이션 `20261116052201_city_policies_npc_houses`(`prevIds` = `npc_houses_home_notice`, 묶음 1116k의 셋·encounter-4의 `unit_tactics`와 형제), `SIM_VERSION` 그대로(`npcHouseEntryFee`·새 계수는 시뮬이 부르거나 읽지 않는다).

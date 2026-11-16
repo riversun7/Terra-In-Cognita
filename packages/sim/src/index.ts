@@ -983,7 +983,6 @@ export {
   type SocietyRun,
   type SocietySummary,
 } from "./simulator/society.ts";
-
 // NPC 건물 채집소 기르는 티어(기획 D-569 1761 — 시세 기술 추천, 서버 NPC 도시 경제가 같은 함수를 쓴다)
 export {
   STREAM_GATHER_TIER,

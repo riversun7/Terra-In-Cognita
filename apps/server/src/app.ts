@@ -67,7 +67,7 @@ import { createLaborGateway } from "./labor/gateway.ts";
 import { createFacilityGateway } from "./facilities/gateway.ts";
 import { facilityScreenSourceOf } from "./facilities/appSource.ts";
 import { type CyborgService, cyborgReadsOf } from "./cyborg/service.ts";
-import { loadEmblemHashes } from "./nationEdit/emblems.ts";
+import { loadEmblemHashes, registerNationEmblemRoute } from "./nationEdit/emblems.ts";
 import type { RecruitService } from "./recruit/service.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
 import { gatherSheetSourceOf, unitGuideSourceOf } from "./roster/appSources.ts";
@@ -107,7 +107,6 @@ import { primaryPlanetId } from "./world/playablePlanets.ts";
 import { planetGaugesOf } from "./ops/planetReads.ts";
 import { placementSourceOf } from "./world/placementService.ts";
 import { cityLayoutServiceOf } from "./facilities/cityLayoutView.ts";
-import { registerNationEmblemRoute } from "./nationEdit/emblems.ts";
 import { nationName } from "./npc/nations.ts";
 import type { AppOptions } from "./appOptions.ts";
 import { createRankingRuntime, createRankingServices } from "./ranking/services.ts";
@@ -130,7 +129,6 @@ const signedOut = (): Promise<Viewer | null> => Promise.resolve(null);
 export const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 export type { AppAuthOptions, AppOptions, AppPlanetsOptions } from "./appOptions.ts";
-
 /** 서버 준비(onReady: 월드 부팅 복구 + 시험 2차맵 지형)를 기다리는 상한(ms) */
 export const WORLD_READY_TIMEOUT_MS = 300_000;
 

@@ -2,7 +2,9 @@
 import { describe, expect, it } from "vitest";
 import {
   HOUSE_HOME_NOTICE_PROTOCOL_VERSION,
+  HOUSE_ENTRY_POLICY_PROTOCOL_VERSION,
   legacyHouseMemberAction,
+  legacyHouseMemberCode,
   HOUSE_CITY_PROTOCOL_VERSION,
   HOUSE_CITY_RESULT_CODES,
   HOUSE_HOME_PROTOCOL_VERSION,
@@ -196,5 +198,30 @@ describe("가문 소속 도시(프로토콜 39, D-565)", () => {
       expect(legacyHouseMemberAction(action, 47)).toBe("home_set");
     }
     expect(legacyHouseMemberAction("joined", 47)).toBe("joined");
+  });
+  it("가문 이동 정책(50, 질문 2018): 도시·나라 정책이 왕복하고, 값은 부호 있는 15자리·null(정하지 않음)", () => {
+    expect(HOUSE_ENTRY_POLICY_PROTOCOL_VERSION).toBe(50);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOUSE_ENTRY_POLICY_PROTOCOL_VERSION);
+    const city = { t: "house_entry_policy", id: 6, scope: "city", cityId: 12, fee: "-250" } as const;
+    expect(decodeClientMessage(encodeMessage(city))).toEqual(city);
+    const nation = { t: "house_entry_policy", id: 7, scope: "nation", fee: null } as const;
+    expect(decodeClientMessage(encodeMessage(nation))).toEqual(nation);
+    for (const fee of ["-0", "01", "1.5", "1000000000000000", "x"])
+      expect(decodes(decodeClientMessage, { ...city, fee })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...city, scope: "world" })).toBe(false);
+    expect(HOUSE_MEMBER_RESULT_CODES).toContain("not_ruler");
+    const ok = {
+      t: "house_member_result",
+      id: 6,
+      ok: true,
+      action: "entry_policy_set",
+      factionId: 9,
+    } as const;
+    expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
+    expect(legacyHouseMemberAction("entry_policy_set", 49)).toBe("entry_policy_set");
+    // D-573: 가입비 모자람은 49판 연결에 busy
+    expect(legacyHouseMemberCode("entry_fee_short", 50)).toBe("entry_fee_short");
+    expect(legacyHouseMemberCode("entry_fee_short", 49)).toBe("busy");
+    expect(legacyHouseMemberCode("home_wait", 49)).toBe("home_wait");
   });
 });

@@ -41,7 +41,7 @@ import { NATION_COLOR_PATTERN, TERRITORY_DISPLAY_START } from "@terra/shared/wor
 import { type CatchmentRadiusRules, catchmentRadiusRulesOf } from "../territory/catchmentRules.ts";
 import { houseIdentityOf, ownerIdentityOf } from "../factionIdentity/store.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
-import { type GovernmentReads, governmentReadsOfWorld } from "../government/reads.ts";
+import { type GovernmentReads, type GovernmentSource, governmentReadsOfWorld } from "../government/reads.ts";
 import { loadEmblemHashes } from "../nationEdit/emblems.ts";
 import { type NaturalizationReads, naturalizationReadsOfWorld } from "../citizenship/attach.ts";
 import { type NationPreset, nationEmblemOf, nationLeaderName, nationName } from "../npc/nations.ts";
@@ -580,6 +580,8 @@ export function worldMapReadsOf(options: {
   readonly territoryDisplay?: (() => WorldTerritoryDisplay) | undefined;
   /** 설정 칸 실효 계수표(앱). catchment·territoryDisplay를 따로 주지 않으면 여기서 읽는다 */
   readonly society?: (() => SocietyCoefficients) | undefined;
+  /** 정부 판의 가문 몫(플레이어 가문 나라 지도자·가문 이동 정책 — government/houseRule.ts). 없으면 그 칸이 없다 */
+  readonly governmentHouses?: Pick<GovernmentSource, "houseLeader" | "houseEntry"> | undefined;
 }): () =>
   | (WorldMapReadServices &
       TravelReads &
@@ -687,7 +689,7 @@ export function worldMapReadsOf(options: {
     // NPC 도시 휴먼 이름(773 나, "WP-NPC4")·경비대 표시(920 라)·가문: 거울 세계 휴먼만
     npcHuman: (unitId) => {
       const human = world.npc?.world.units.get(unitId);
-      // NPC 도시 가문(질문 1848 답 — 도시마다 하나, 가문장 = 시장)
+      // NPC 도시 가문(질문 1848 답·D-573 — 도시 등급마다 수, 가문장 = 지배 가문은 지도자·그 밖은 시장이나 앞선 가문원)
       return human
         ? {
             name: world.npc?.humanName(unitId),
@@ -696,6 +698,8 @@ export function worldMapReadsOf(options: {
           }
         : undefined;
     },
+    // NPC 국가 지도자의 지배 가문(질문 2012 답 — 수도 NPC 가문)
+    npcLeaderHouse: (ownerId) => world.npc?.cityHouses.rulingHouseOf(ownerId),
     // 사이보그 본체의 3D 외형(docs/adr/2026-11-11-character-3d.md 5절): 저장한 것, 없으면 옛 외형에서 넘긴 값
     cyborgLook: (unitId) => {
       const cyborgs = world.persistence?.cyborgs;
@@ -718,6 +722,7 @@ export function worldMapReadsOf(options: {
   // 정부(행정 건물) 판(WP-NPC): 아는 도시·이름은 위와 같은 함수. 세력 화면은 nationNames로 나라·지도자 이름을 받는다
   // 지도자 창구(742 나, "WP-NPC3")는 한눈 정보와 같은 규칙으로 지도자가 보이는지 본다(내 유닛·전체 보기·시야 전송)
   const government = governmentReadsOfWorld(world, {
+    ...options.governmentHouses,
     knownCityIds: (viewer) => reads.knownCityIds(viewer),
     nationName: nameOfCode,
     nationEmblem: emblemOfCode,

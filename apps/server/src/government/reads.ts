@@ -9,7 +9,9 @@
 // 바뀜(기획 정리 742 나·743 나, docs/adr/2026-11-07-play-flow.md "WP-NPC3"): 도시 하루 값(만족도·발전도·생필품 충족, cityDay.ts — 읽기만)과
 // 지도자 창구(governmentOfLeader — 2차맵에서 누른 NPC 국가 지도자가 지금 내 시야 안이면 그 나라 수도 행정 건물의 정부 판).
 // 바뀜("WP-NPC4"): 생필품 충족 = 지난 하루 끝에 저장한 값(781 나 — npc/cityDayStore.ts), 시장 이름(773 나 — npc/humanNames.ts).
-import type { GovernmentMayor, GovernmentResponse } from "@terra/shared/government";
+// 바뀜(질문 2012·2018 답, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)"): 지도자 = 지배 가문의 장 —
+// NPC 나라는 지도자 사이보그에 지배 가문(수도 NPC 가문) 이름, 플레이어 가문 나라는 그 가문장. 가문 이동 정책 칸(houseEntry).
+import type { GovernmentHouseEntry, GovernmentMayor, GovernmentResponse } from "@terra/shared/government";
 import type { NationEmblemView } from "@terra/shared/nationEditor";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { SimCity, SimFaction, SimUnit } from "@terra/sim";
@@ -27,7 +29,10 @@ export const GOVERNMENT_FACILITY = "government_hall";
 /** 이 조회가 세계에서 읽는 것(시험은 가짜를 넣는다) */
 export interface GovernmentSource {
   /** 띄운 2차맵(건물이 서 있나·지도자 유닛) */
-  readonly maps: ReadonlyMap<number, LeaderUnits & Pick<SecondMap, "buildingOwner" | "forEachBuilding">>;
+  readonly maps: ReadonlyMap<
+    number,
+    LeaderUnits & Pick<SecondMap, "buildingOwner" | "forEachBuilding"> & Partial<Pick<SecondMap, "unitInfo">>
+  >;
   /** 건물 ID → 시설 줄(없으면 undefined) */
   facility(buildingId: number): { readonly facilityId: string; readonly cityId: number | null } | undefined;
   /** NPC 사회 런타임 거울 세계·도시 자리·도시 경제 세율(런타임이 없으면 undefined) */
@@ -38,7 +43,10 @@ export interface GovernmentSource {
             number,
             Pick<SimCity, "id" | "owner" | "start" | "adminLevel" | "housing" | "development">
           >;
-          readonly factions: ReadonlyMap<number, Pick<SimFaction, "code" | "fixed">>;
+          readonly factions: ReadonlyMap<
+            number,
+            Pick<SimFaction, "code" | "fixed"> & Partial<Pick<SimFaction, "player">>
+          >;
           readonly units: ReadonlyMap<number, Pick<SimUnit, "city" | "recruit" | "satisfactionMilli">>;
         };
         readonly places: ReadonlyMap<number, { readonly mapKey: number; readonly name?: string | undefined }>;
@@ -51,6 +59,8 @@ export interface GovernmentSource {
         readonly humanName?: ((unitId: number) => string | undefined) | undefined;
         /** 그 세력의 수도 도시(D-528, npc/capitals.ts — NPC가 발전도로 고름). 없으면 가장 작은 ID 시작 도시로 읽는다 */
         readonly capitalOf?: ((owner: number) => number | undefined) | undefined;
+        /** NPC 나라의 지배 가문(수도에서 먼저 세운 NPC 가문 — 질문 2012 답, npc/cityHouses.ts). 없으면 undefined */
+        readonly rulingHouseOf?: ((owner: number) => { readonly name: string } | undefined) | undefined;
       }
     | undefined;
   /** 소유 주체 ID → 세력 행 ID(유저 주체·없으면 undefined) */
@@ -69,6 +79,20 @@ export interface GovernmentSource {
    * (지도자 창구가 답하지 않는다)
    */
   seesUnit?: ((viewer: Viewer, mapKey: number, unitId: number) => boolean) | undefined;
+  /**
+   * 플레이어 가문 나라(도시를 가진 가문)의 지도자 = 그 가문장(질문 2012 답 — 국가 지도자 = 지배 가문의 장): 가문 세력 행 → 가문장 사이보그
+   * 본체 유닛·이름·가문 이름. 없으면 undefined(정부 판 지도자 없음)
+   */
+  houseLeader?:
+    | ((
+        factionRow: number,
+      ) => Promise<
+        | { readonly unitId: number | null; readonly name: string | null; readonly house: string | null }
+        | undefined
+      >)
+    | undefined;
+  /** 가문 이동 정책 칸(질문 2018 답, factionIdentity/houseEntryPolicy.ts). 없으면 칸 없음 */
+  houseEntry?: ((viewer: Viewer, cityId: number) => Promise<GovernmentHouseEntry | null>) | undefined;
 }
 
 export interface GovernmentReads {
@@ -213,6 +237,13 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
       // 지도자가 이 도시 2차맵에 있나(아니면 화면이 "수도에 있음")
       const cityMap = source.maps.get(place.mapKey);
       const here = cityMap !== undefined && leaderUnitOf([cityMap], city.owner) === leaderUnit;
+      // 플레이어 가문 나라의 지도자 = 그 가문장(질문 2012 답)
+      const head =
+        faction?.player === true && factionRow !== undefined
+          ? await source.houseLeader?.(factionRow).catch(() => undefined)
+          : undefined;
+      const ruling = leaderUnit === undefined ? undefined : runtime.rulingHouseOf?.(city.owner);
+      const houseEntry = (await source.houseEntry?.(viewer, city.id).catch(() => null)) ?? null;
       const code = faction?.code ?? null;
       const mayorId = runtime.mayorOf?.(city.id);
       const mayorUnit = mayorId === undefined ? undefined : runtime.world.units.get(mayorId);
@@ -243,18 +274,27 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
           taxBp: runtime.taxOf?.(city.owner) ?? null,
         },
         leader:
-          leaderUnit === undefined
-            ? null
-            : {
+          leaderUnit !== undefined
+            ? {
                 unitId: leaderUnit,
                 name: code === null ? null : (source.leaderName(code) ?? null),
                 here,
-              },
+                house: ruling ? { name: ruling.name, npc: true } : null,
+              }
+            : head?.unitId !== null && head?.unitId !== undefined
+              ? {
+                  unitId: head.unitId,
+                  name: head.name === null ? null : { ko: head.name, en: head.name },
+                  here: cityMap?.unitInfo?.(head.unitId) !== undefined,
+                  house: head.house === null ? null : { name: head.house, npc: false },
+                }
+              : null,
         building: buildingCell(cityMap, buildingId),
         mayor:
           mayorId === undefined || !mayorUnit
             ? null
             : mayorView(mayorId, mayorUnit, runtime.humanName?.(mayorId)),
+        houseEntry,
         generatedAt: nowMs,
       };
     },
@@ -265,7 +305,10 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
 /** 월드(app.ts → worldMap/reads.ts worldMapReadsOf)로 정부 판 조회를 만든다. 아는 도시·이름은 지도 흐름 조회와 같은 함수 */
 export function governmentReadsOfWorld(
   world: Pick<World, "maps" | "persistence" | "npc">,
-  names: Pick<GovernmentSource, "knownCityIds" | "nationName" | "nationEmblem" | "leaderName" | "seesUnit">,
+  names: Pick<
+    GovernmentSource,
+    "knownCityIds" | "nationName" | "nationEmblem" | "leaderName" | "seesUnit" | "houseLeader" | "houseEntry"
+  >,
 ): GovernmentReads {
   return createGovernmentReads({
     ...names,
@@ -283,6 +326,7 @@ export function governmentReadsOfWorld(
         mayorOf: (cityId) => npc.mayorOf(cityId),
         humanName: (unitId) => npc.humanName(unitId),
         capitalOf: (owner) => npc.capitalOf(owner),
+        rulingHouseOf: (owner) => npc.cityHouses.rulingHouseOf(owner),
       };
     },
     factionRowOf: (ownerId) => world.persistence?.owners.get(ownerId)?.factionId ?? undefined,

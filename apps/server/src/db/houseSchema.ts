@@ -152,17 +152,22 @@ export const houseUnits = pgTable(
 
 /**
  * NPC 도시의 가문(기획 D-569 "도시국가든 도시의 가문들이 존재하며 가문장이 유닛을 고용한다"·D-212 NPC도 같은 규칙, 질문 1848 답): NPC 도시마다
- * 하나 [임시 질문 2011]. 세력 행(factions)이 아니다 — NPC 사회 런타임·나라 목록이 세력 행을 읽어 NPC 세력으로 세지 않게 따로 둔다. 나라 = 그
- * 도시의 지금 주인, 가문장 = 그 도시 시장(world_cities.mayor_unit_id — 저장하지 않고 읽을 때 본다). 이름 = 세울 때 시장의 성(그 나라 팩 휴먼
+ * 도시 등급에 따른 수(D-573, 설정 칸 house_npc_city_houses_l*). 세력 행(factions)이 아니다 — NPC 사회 런타임·나라 목록이 세력 행을 읽어 NPC 세력으로 세지 않게 따로 둔다. 나라 = 그
+ * 도시의 지금 주인, 가문장 = 지배 가문은 국가 지도자·그 밖은 시장이나 앞선 가문원(저장하지 않고 읽을 때 본다). 이름 = 세울 때 그 사람의 성(그 나라 팩 휴먼
  * 이름 목록), 없으면 도시 이름. 도시가 폐허가 되어도 남는다(외래 키 없음 — 같은 도시 ID로 복원되면 그 가문). ID는 서버가 정한다(NPC 런타임
  * 하나만 만든다, npc/cityHouses.ts). 세계 표(시험 세계 새로 시작에서 지운다)
  */
-export const npcHouses = pgTable("npc_houses", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
-  cityId: bigint("city_id", { mode: "number" }).notNull().unique(),
-  name: text("name").notNull(),
-  foundedAtMs: bigint("founded_at_ms", { mode: "number" }).notNull(),
-});
+export const npcHouses = pgTable(
+  "npc_houses",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey(),
+    /** 바뀜(D-573 — 질문 2011 나): 도시 등급마다 여러 가문이라 도시 ID는 하나가 아니다(고유 제약을 풀었다 — 직전 판 앱은 도시마다 하나만 본다) */
+    cityId: bigint("city_id", { mode: "number" }).notNull(),
+    name: text("name").notNull(),
+    foundedAtMs: bigint("founded_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [index("npc_houses_city_idx").on(table.cityId)],
+);
 
 /**
  * NPC 휴먼의 가문(D-569 — 생성될 때 그 도시 가문에 든다): 휴먼마다 한 줄, 한 번 들면 그대로다(사는 도시가 바뀌어도). 유닛 외래 키는 house_units와
@@ -179,3 +184,17 @@ export const npcHouseUnits = pgTable(
   },
   (table) => [index("npc_house_units_house_idx").on(table.houseId)],
 );
+
+/**
+ * 도시의 정책(기획 D-570 "해당 국가나 도시의 정책에 따름"·D-526 받는 쪽이 정함, 질문 2018 답): 도시마다 한 줄. 지금은 가문 이동 정책 하나 —
+ * 가문이 이 도시로 소속 도시를 옮길 때 가문원마다 + 가입비 / − 지원금(최소 단위, null = 정하지 않음 → 나라 정책 factions.house_entry_fee). 정하는
+ * 사람 = 그 도시를 가진 가문의 가문장(factionIdentity/houseEntryPolicy.ts). NPC 도시는 줄이 없다(나라 정책 — NPC 나라는 성향 규칙식). 외래 키 없음
+ * (도시가 폐허가 되어 world_cities 행이 지워져도 남고, 읽을 때 지금 도시만 본다). 세계 표(시험 세계 새로 시작에서 지운다)
+ */
+export const cityPolicies = pgTable("city_policies", {
+  cityId: bigint("city_id", { mode: "number" }).primaryKey(),
+  houseEntryFee: bigint("house_entry_fee", { mode: "bigint" }),
+  /** 마지막으로 정한 시각·사람(감사 기록과 같은 값) */
+  setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
+  setBy: uuid("set_by"),
+});

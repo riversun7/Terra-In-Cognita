@@ -188,8 +188,13 @@
  *    - 실시간 세계 전투 명령(battleOrder.ts, 기획 D-558 1546 → D-571 답 1969, docs/adr/2026-10-31-combat-core.md "바뀜 (D-571)") —
  *      battle_list → battle_list_result(내 유닛이 낀 진행 중인 전투), battle_order → battle_order_result(파티·군단 명령, 다음 틱 경계). 대형에
  *      custom(손으로 짠 진형, D-172)이 생겼다(이 메시지에만 — 다른 메시지 꼴은 그대로). 48판 기기는 새 메시지를 보내지 않는다.
- * 50: 유닛 AI 작전 저장(travel.ts unit_tactics → travel_result, 기획 D-5039·D-5040 — 질문 2021·2023 답, docs/adr/2026-11-15-unloaded-second-maps.md
- *    "바뀜 (encounter-4)"). 더하기만 했고 49판 기기는 그대로 받는다(이 메시지를 보내지 않는다). 받는 가장 낮은 판은 원칙대로 49.
+ * 50: 합친 판(묶음 1116l — 줄기 둘이 더한 것을 한 판으로 묶었다. 받는 가장 낮은 판은 원칙대로 49).
+ *    - 유닛 AI 작전 저장(travel.ts unit_tactics → travel_result, 기획 D-5039·D-5040 — 질문 2021·2023 답, docs/adr/2026-11-15-unloaded-second-maps.md
+ *      "바뀜 (encounter-4)"). 더하기만 했고 49판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
+ *    - 가문 이동 정책(house.ts house_entry_policy → house_member_result, 기획 D-570·질문 2018 답, docs/adr/2026-11-11-faction-identity.md
+ *      "바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)") — 도시를 가진 가문의 가문장이 그 도시의, 독립 나라 가문장이 그 나라의 가문 이동 가입비·지원금을
+ *      정한다. 새 한 일 entry_policy_set·새 코드 not_ruler는 이 메시지의 답에만 간다(49판 기기는 이 메시지를 보내지 않는다). 가문 이동 가입비는
+ *      가문이 한꺼번에 내고 못 내면 옮기지 못한다(D-573): house_home의 새 코드 entry_fee_short(49판 연결은 busy — house.ts legacyHouseMemberCode).
  */
 export const PROTOCOL_VERSION = 50;
 

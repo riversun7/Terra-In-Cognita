@@ -73,6 +73,7 @@ import { createNpcCapitals } from "./capitals.ts";
 import { createCatchmentStore, loadCatchment } from "./catchmentStore.ts";
 import { createCityDayStore } from "./cityDayStore.ts";
 import { type NpcCityHouses, createNpcCityHouses, loadNpcCityHouses } from "./cityHouses.ts";
+import { leaderUnitOf } from "./leaders.ts";
 import { createCityPeople, seedPopulationOf } from "./cityPeople.ts";
 import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./economy.ts";
 import { gardenerRulesOf, gardenerWavesEnabled } from "./gardenerSwitch.ts";
@@ -199,7 +200,7 @@ export interface NpcRuntime {
   readonly houseRecruit: HouseRecruit;
   /** 그 도시 시장 유닛(기획 답 744 나, cityPeople.ts). 없으면 undefined */
   mayorOf(cityId: number): number | undefined;
-  /** NPC 도시의 가문(질문 1848 답, cityHouses.ts — 도시마다 하나, 가문장 = 시장) */
+  /** NPC 도시의 가문(질문 1848 답·D-573, cityHouses.ts — 도시 등급마다 수, 지배 가문장 = 국가 지도자) */
   readonly cityHouses: NpcCityHouses;
   /** NPC 휴먼 이름(기획 답 773 나, humanNames.ts — 그 휴먼 나라의 팩 목록). 거울 세계 휴먼이 아니거나 목록이 없으면 undefined */
   humanName(unitId: number): string | undefined;
@@ -497,11 +498,14 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   // 처음 인구(749 다, cityPeople.ts): 시작 도시마다 한 번, 주거 × 비율에 모자란 만큼 휴먼을 세운다(처음 저장이 구인과 같은 길로 도시 둘레에
   // 봇을 세운다). 나이·수명은 들이기와 같이 흩는다. 이미 있는 휴먼(옛 세계의 봇 휴먼)은 그대로 센다
   const people = createCityPeople({ world, writer, rows: state.cities });
-  // NPC 도시의 가문(질문 1848 답): 가문장 = 시장, 이름 = 세울 때 시장의 성(그 도시 주인 나라 목록) → 도시 이름. 맞추기는 시장 다음(syncPeople)
+  // NPC 도시의 가문(1848·D-573): 도시 등급마다 수, 지배 가문장 = 국가 지도자(2012), 이름 = 세운 사람의 성. 맞추기는 시장 다음(syncPeople)
   const cityHouses = createNpcCityHouses({
     world,
     writer,
     loaded: await loadNpcCityHouses(o.pool),
+    rules: () => ({ housesByGrade: o.rules().house.npcCityHouses, territory: o.rules().territory }),
+    capitalOf: (owner) => capitals.capitalOf(owner),
+    leaderOf: (owner) => leaderUnitOf(maps.values(), owner),
     mayorOf: (cityId) => people.mayorOf(cityId),
     nameFor: (cityId, mayor) =>
       humanFamilyOf(namesOf(cities.get(cityId)?.owner ?? 0), mayor) ??

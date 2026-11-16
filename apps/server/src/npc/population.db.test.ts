@@ -3,7 +3,8 @@
 // 1. 옛 세계(처음 인구 칸이 없던 판 — 시험 봇이 휴먼이 됨)를 켠 뒤 처음 인구 칸을 켜면 모자란 것만 더하고 옛 휴먼은 지우지 않는다.
 // 2. 다시 켜도 더 세우지 않는다(채운 시각 저장), 시장은 저장된 그대로.
 // 3. 시장이 죽으면 다시 고르고 저장한다.
-// 5. NPC 도시의 가문(질문 1848 답, cityHouses.ts): 도시마다 하나(가문장 = 시장), 휴먼은 모두 사는 도시 가문에 든다. 옛 세계(가문 표가 빈 세계)도
+// 5. NPC 도시의 가문(질문 1848 답·D-573, cityHouses.ts): 도시 등급마다 수(시험 도시는 마을 — 하나), 수도의 지배 가문장 = 국가 지도자(질문 2012),
+//    휴먼은 모두 사는 도시 가문에 든다. 옛 세계(가문 표가 빈 세계)도
 //    켤 때 세우고 채운다(멱등), 죽은 휴먼은 빠진다.
 // 4. 처음부터 있던 휴먼도 스탯·속성을 받는다(774 나, "WP-NPC4"): 저장된 스탯이 없는 휴먼(옛 NAS 세계처럼)은 켤 때 같은 값으로 채운다(지우지 않음).
 import { DAY_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
@@ -201,7 +202,10 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 처음 인구·시장 (DB)", () 
     if (!runtime) throw new Error("npc runtime");
     const cityId = Number(cities[0]?.id);
     const mayor = runtime.mayorOf(cityId) ?? -1;
-    expect(runtime.cityHouses.of(mayor)).toMatchObject({ cityId, leader: true });
+    // 시작 도시가 하나뿐인 나라라 이 도시는 수도 — 그 가문은 지배 가문이고 가문장은 국가 지도자(질문 2012 답), 시장은 가문원
+    expect(runtime.cityHouses.of(mayor)).toMatchObject({ cityId, leader: false });
+    const nationOwner = runtime.world.cities.get(cityId)?.owner ?? -1;
+    expect(runtime.cityHouses.rulingHouseOf(nationOwner)).toMatchObject({ cityId, leader: true });
     await stop(first);
     // 다시 켜도 그대로(새 가문·새 줄 없음)
     await boot(12, 500).then(stop);

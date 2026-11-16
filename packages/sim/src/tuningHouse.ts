@@ -13,6 +13,16 @@ const k = (id: string, code: string, path: string, ko: string, en: string): Tuni
   en,
 });
 
+/** 도시 등급 이름(D-104 표 차례 — tuningTerritory.ts와 같다) */
+const CITY_GRADES = [
+  ["마을", "village"],
+  ["읍", "town"],
+  ["소도시", "small city"],
+  ["도시", "city"],
+  ["대도시", "metropolis"],
+  ["거대도시", "megacity"],
+] as const;
+
 export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
   // 가문 창설 비용 칸(house_found_cost)은 지웠다 — 창설은 무료(기획 D-565, 팩 core@106)
   k("s20_short_min", "S20", "house.shortMin", "세력 약어 최소 글자 수", "Faction tag minimum length"),
@@ -98,5 +108,30 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "house.homeNoticeMs",
     "가문 소속 도시 바꾸기 공고 기간(ms)",
     "House home city move notice (ms)",
+  ),
+  // NPC 나라의 가문 이동 정책(D-570·D-323 성향 규칙식, 질문 2018 답)
+  k(
+    "house_entry_npc_fee_max",
+    "",
+    "house.npcEntryFeeMax",
+    "NPC 나라 가문 이동 가입비 최대(최소 단위)",
+    "NPC nation house entry fee max (minor units)",
+  ),
+  k(
+    "house_entry_npc_grant_max",
+    "",
+    "house.npcEntryGrantMax",
+    "NPC 나라 가문 이동 지원금 최대(최소 단위)",
+    "NPC nation house entry grant max (minor units)",
+  ),
+  // NPC 도시의 가문 수(D-573 — 도시 등급마다)
+  ...CITY_GRADES.map(([ko, en], index) =>
+    k(
+      `house_npc_city_houses_l${index + 1}`,
+      "",
+      `house.npcCityHouses.${index}`,
+      `NPC 도시 가문 수: ${ko}`,
+      `NPC city houses: ${en}`,
+    ),
   ),
 ];

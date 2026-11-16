@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import { m } from "../paraglide/messages.js";
 import {
   cityTitle,
+  entryFeeText,
   leaderTitle,
   nameIn,
   nationTitle,
   necessitiesText,
+  parseEntryFee,
   pointsText,
   populationText,
   taxText,
@@ -43,5 +45,26 @@ describe("정부 판 글", () => {
     expect(necessitiesText(875, "en")).toBe("87.5%");
     expect(necessitiesText(1000, "en")).toBe("100%");
     expect(necessitiesText(null)).toBe(m.government_value_unknown());
+  });
+});
+
+/** 금액 글 흉내(꺾쇠로 감싼다) */
+const amount = (value: string) => `<${value}>`;
+
+describe("가문 이동 정책 값(질문 2018 답)", () => {
+  it("parseEntryFee: 부호 있는 정수 15자리까지, 앞 0·− 기호 정리, 틀리면 null", () => {
+    expect(parseEntryFee(" 40 ")).toBe("40");
+    expect(parseEntryFee("-0030")).toBe("-30");
+    expect(parseEntryFee("−12")).toBe("-12");
+    expect(parseEntryFee("-0")).toBe("0");
+    expect(parseEntryFee("1.5")).toBeNull();
+    expect(parseEntryFee("1000000000000000")).toBeNull();
+    expect(parseEntryFee("")).toBeNull();
+  });
+  it("entryFeeText: 정하지 않음·없음·가입비·지원금", () => {
+    expect(entryFeeText(null, amount)).toBe(m.government_entry_unset());
+    expect(entryFeeText("0", amount)).toBe(m.government_entry_free());
+    expect(entryFeeText("40", amount)).toBe(m.government_entry_fee({ amount: "<40>" }));
+    expect(entryFeeText("-7", amount)).toBe(m.government_entry_grant({ amount: "<7>" }));
   });
 });

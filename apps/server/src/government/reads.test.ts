@@ -96,6 +96,56 @@ function source(overrides: Partial<GovernmentSource> = {}): GovernmentSource {
   };
 }
 
+describe("지배 가문·가문 이동 정책(질문 2012·2018 답)", () => {
+  it("NPC 지도자에 지배 가문(수도 NPC 가문), 가문 이동 정책 칸을 싣는다", async () => {
+    const base = source();
+    const entry = {
+      city: null,
+      nation: "-40",
+      nationSource: "npc" as const,
+      canSetCity: false,
+      canSetNation: false,
+    };
+    const reads = createGovernmentReads({
+      ...base,
+      runtime: () => {
+        const runtime = base.runtime();
+        return runtime ? { ...runtime, rulingHouseOf: () => ({ name: "Kaso" }) } : undefined;
+      },
+      houseEntry: async () => entry,
+    });
+    const answer = await reads.government(viewer, 12, NOW);
+    expect(answer.leader?.house).toEqual({ name: "Kaso", npc: true });
+    expect(answer.houseEntry).toEqual(entry);
+  });
+
+  it("플레이어 가문 나라(도시를 가진 가문)의 지도자 = 그 가문장 사이보그", async () => {
+    const base = source();
+    const reads = createGovernmentReads({
+      ...base,
+      runtime: () => {
+        const runtime = base.runtime();
+        if (!runtime) return undefined;
+        return {
+          ...runtime,
+          world: {
+            ...runtime.world,
+            factions: new Map([[101, { code: "fake_house", fixed: false, player: true }]]),
+          },
+        };
+      },
+      houseLeader: async (row) => (row === 2 ? { unitId: 901, name: "Aria", house: "Dawn" } : undefined),
+    });
+    const answer = await reads.government(viewer, 10, NOW);
+    expect(answer.leader).toEqual({
+      unitId: 901,
+      name: { ko: "Aria", en: "Aria" },
+      here: false,
+      house: { name: "Dawn", npc: false },
+    });
+  });
+});
+
 describe("world.government", () => {
   it("수도가 아닌 시작 도시: 나라·지도자(수도에 있음)·세율·행정 레벨·휴먼 수", async () => {
     const reads = createGovernmentReads(source());
@@ -126,6 +176,7 @@ describe("world.government", () => {
       unitId: 900,
       name: { ko: "임시 지도자 1", en: "Placeholder leader 1" },
       here: false,
+      house: null,
     });
     expect(answer.mayor).toBeNull();
     // 행정 건물 기준 칸(이 도시 2차맵에서)
@@ -234,6 +285,7 @@ describe("world.leaderGovernment(지도자 창구, 742 나)", () => {
       unitId: 900,
       name: { ko: "임시 지도자 1", en: "Placeholder leader 1" },
       here: true,
+      house: null,
     });
     expect(answer).toEqual(await reads.government(viewer, 12, NOW));
   });

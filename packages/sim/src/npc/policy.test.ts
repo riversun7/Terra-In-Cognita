@@ -6,6 +6,7 @@ import {
   foundingChoice,
   independenceYes,
   nextTaxBp,
+  npcHouseEntryFee,
   occupationChoice,
   recruitPicks,
   tradePolicy,
@@ -157,5 +158,22 @@ describe("구인 규칙식(D-469, [임시] 목표 = 주거, 예비금 = 카드 �
     expect(recruitPicks({ ...base, population: 10, guards: 0, guardTarget: 5, treasury: 150n }, c)).toEqual([
       { slot: 2, guard: true },
     ]);
+  });
+});
+
+describe("npcHouseEntryFee — NPC 나라 가문 이동 정책(D-570·D-323, 질문 2018)", () => {
+  const limits = { feeMax: 100, grantMax: 60 };
+  it("상업 성향이 가운데보다 높으면 가입비, 낮으면 지원금, 가운데는 0", () => {
+    expect(npcHouseEntryFee(1000, c, limits)).toBe(100);
+    expect(npcHouseEntryFee(750, c, limits)).toBe(50);
+    expect(npcHouseEntryFee(500, c, limits)).toBe(0);
+    expect(npcHouseEntryFee(250, c, limits)).toBe(-30);
+    expect(npcHouseEntryFee(0, c, limits)).toBe(-60);
+  });
+  it("범위 밖 성향은 자르고, 상한이 0이면 0", () => {
+    expect(npcHouseEntryFee(5000, c, limits)).toBe(100);
+    expect(npcHouseEntryFee(-9, c, limits)).toBe(-60);
+    expect(npcHouseEntryFee(900, c, { feeMax: 0, grantMax: 0 })).toBe(0);
+    expect(npcHouseEntryFee(900, { traitMin: 3, traitMax: 3 }, limits)).toBe(0);
   });
 });

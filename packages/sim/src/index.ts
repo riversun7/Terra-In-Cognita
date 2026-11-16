@@ -212,6 +212,7 @@ export {
   foundingChoice,
   independenceYes,
   nextTaxBp,
+  npcHouseEntryFee,
   recruitPicks,
   tradePolicy,
   type FoundingChoice,

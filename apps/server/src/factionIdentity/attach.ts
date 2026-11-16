@@ -11,6 +11,7 @@ import type { World } from "../world/world.ts";
 import { adoptUnfoundedIdentities, createHouseFounder, nationFromDb } from "./found.ts";
 import { type HouseGateway, createHouseGateway } from "./gateway.ts";
 import { type HouseCityService, createHouseCity } from "./houseCity.ts";
+import { createHouseEntryPolicy } from "./houseEntryPolicy.ts";
 import { createHouseHome } from "./houseHome.ts";
 import { createHouseMoves } from "./houseMoves.ts";
 import { createHouseRecruitService } from "./houseRecruit.ts";
@@ -79,11 +80,14 @@ export function attachHouses(options: {
     presets: options.presets,
     persistence,
   });
+  // 가문 이동 정책 정하기(질문 2018 답, houseEntryPolicy.ts — 도시 주인·독립 나라 가문장)
+  const entryPolicy = createHouseEntryPolicy({ pool, db: options.db, now: options.now });
   // 공고한 소속 도시 옮기기(D-570, houseMoves.ts): 1분마다 시각이 지난 공고를 옮긴다(세계가 준비된 뒤 — 가입비·지원금 원장)
   const moves = createHouseMoves({
     pool,
     db: options.db,
     now: options.now,
+    rules: options.rules,
     presets: options.presets,
     persistence,
   });
@@ -101,6 +105,7 @@ export function attachHouses(options: {
     city: () => city,
     recruit: () => recruit,
     home: () => home,
+    entryPolicy: () => entryPolicy,
     afterMembership: async () => {
       await houseTiesOf(options.world?.persistence)?.reload();
     },

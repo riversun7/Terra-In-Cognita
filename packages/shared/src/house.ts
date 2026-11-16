@@ -200,8 +200,9 @@ export interface HouseHomeView {
   /** 고를 수 있는 도시(가문장만 받는다 — 가문원·무소속은 빈 목록. 무소속이 가문을 만들 때는 factionIdentity.mine의 homeChoices) */
   readonly choices: readonly HouseHomeCity[];
   /**
-   * 공고한 새 소속 도시(D-570 — at이 지나면 가문 모두가 옮긴다. 원치 않는 가문원은 그 사이 나간다). terms = 그 나라 정책의 가문원마다 값(10진
-   * 문자열 최소 단위, + 가입비 / − 지원금, "0" = 없음). 공고가 없으면 null. 옛 서버는 보내지 않는다
+   * 공고한 새 소속 도시(D-570 — at이 지나면 가문 모두가 옮긴다. 원치 않는 가문원은 그 사이 나간다). terms = 그 도시·나라 정책으로 가문이 한꺼번에
+   * 내거나 받는 합(D-573 — 가문원마다 값 × 지금 가문원 수, 10진 문자열 최소 단위, + 가입비 / − 지원금, "0" = 없음). 공고가 없으면 null. 옛 서버는
+   * 보내지 않는다
    */
   readonly pending?: { readonly city: HouseHomeCity; readonly at: number; readonly terms: string } | null;
   /** 공고 기간(ms, 설정 칸 house_home_notice_ms — 0이면 바로 옮긴다). 옛 서버는 보내지 않는다 */

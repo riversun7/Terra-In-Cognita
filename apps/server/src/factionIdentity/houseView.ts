@@ -20,7 +20,7 @@ import {
   normalizeEmblem,
 } from "@terra/shared/nationEmblem";
 import type { NationPreset } from "../npc/nations.ts";
-import { houseEntryTermsOf } from "./houseEntry.ts";
+import { entryTotal, houseEntryTermsOf } from "./houseEntry.ts";
 import { cityHome, cyborgCityOf, homeChoices, houseHasCity, houseHomeRow } from "./houseHome.ts";
 import { membershipOf } from "./members.ts";
 import type { HouseRules } from "./rules.ts";
@@ -138,10 +138,27 @@ async function homeView(
   const row = await houseHomeRow(q, house.factionId);
   const changeAt = row && house.leader ? row.setAtMs + waitMs : null;
   const city = row ? await cityHome(q, row.cityId, input.presets) : null;
-  // 공고한 새 소속 도시(D-570)와 그 나라 정책(나라가 바뀔 때만 — 가문원마다 + 가입비 / − 지원금)
+  // 공고한 새 소속 도시(D-570)와 그 도시·나라 정책(도시 정책, 없으면 나라가 바뀔 때 나라 정책 — + 가입비 / − 지원금, 가문이 한꺼번에 D-573)
   const target = row?.pending ? await cityHome(q, row.pending.cityId, input.presets) : null;
-  const terms =
-    target && target.nationId !== city?.nationId ? await houseEntryTermsOf(q, target.nationId) : 0n;
+  // 가문이 한꺼번에 내고 받는 합(D-573 — 가문원마다 값 × 가문원 수)
+  const counted = target
+    ? await q.query<{ n: number }>("select count(*)::int as n from house_members where faction_id = $1", [
+        house.factionId,
+      ])
+    : null;
+  const terms = target
+    ? entryTotal({
+        terms: (
+          await houseEntryTermsOf(q, {
+            cityId: target.id,
+            nationId: target.nationId,
+            nationChanged: target.nationId !== city?.nationId,
+            npc: input.rules.npcEntry,
+          })
+        ).terms,
+        members: counted?.rows[0]?.n ?? 0,
+      })
+    : 0n;
   return {
     city,
     changeAt: changeAt !== null && changeAt > input.nowMs ? changeAt : null,

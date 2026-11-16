@@ -139,8 +139,9 @@ export interface MapUnitGlance {
    */
   readonly guard?: true;
   /**
-   * NPC 도시 휴먼의 가문(기획 D-569·질문 1848 답 — NPC 도시마다 하나, 가문장 = 그 도시 시장, 생성될 때 사는 도시의 가문에 든다). 이름은 세울 때
-   * 시장의 성(번역 안 함 — 두 언어 같은 글자). leader = 이 휴먼이 가문장. NPC 휴먼이 아니거나 아직 가문이 없으면 없음
+   * NPC 도시 휴먼의 가문(기획 D-569·질문 1848 답 — 생성될 때 사는 도시의 가문에 든다. D-573부터 도시 등급마다 여러 가문). 이름은 세울 때
+   * 그 사람의 성(번역 안 함 — 두 언어 같은 글자). leader = 이 유닛이 가문장. NPC 국가 지도자는 지배 가문(수도 NPC 가문)의 장이라 그 가문에 leader
+   * (질문 2012 답). NPC 휴먼·지도자가 아니거나 아직 가문이 없으면 없음
    */
   readonly npcHouse?: { readonly id: number; readonly name: string; readonly leader?: true };
 }

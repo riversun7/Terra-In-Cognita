@@ -27,6 +27,13 @@ export interface HouseRules {
   readonly homeWaitMs: number;
   /** 가문 소속 도시 바꾸기 공고 기간(ms, 0 = 바로 옮김 — 기획 D-570) */
   readonly homeNoticeMs: number;
+  /** NPC 나라의 가문 이동 정책 규칙식 입력(D-570·D-323 — @terra/sim npcHouseEntryFee): 상업 성향 범위와 가입비·지원금 최대(최소 단위) */
+  readonly npcEntry: {
+    readonly traitMin: number;
+    readonly traitMax: number;
+    readonly feeMax: number;
+    readonly grantMax: number;
+  };
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -50,6 +57,12 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
     villageHousing: atLeastOne(h.villageHousing),
     homeWaitMs: whole(h.homeWaitMs),
     homeNoticeMs: whole(h.homeNoticeMs),
+    npcEntry: {
+      traitMin: c.npc.traitMin,
+      traitMax: c.npc.traitMax,
+      feeMax: whole(h.npcEntryFeeMax),
+      grantMax: whole(h.npcEntryGrantMax),
+    },
   };
 }
 

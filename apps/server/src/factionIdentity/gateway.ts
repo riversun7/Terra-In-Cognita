@@ -11,11 +11,13 @@ import {
   PROTOCOL_VERSION,
   encodeMessage,
   legacyHouseMemberAction,
+  legacyHouseMemberCode,
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { HouseFounder, HouseFoundResult } from "./found.ts";
 import type { HouseCityResult, HouseCityService } from "./houseCity.ts";
+import type { HouseEntryPolicyService } from "./houseEntryPolicy.ts";
 import type { HouseHomeService } from "./houseHome.ts";
 import type { HouseMemberResult, HouseMembers } from "./members.ts";
 import type { HouseRecruitResult, HouseRecruitService } from "./houseRecruit.ts";
@@ -31,6 +33,7 @@ export type HouseMemberClientMessage = ClientMessageOf<
   | "house_handover"
   | "house_dissolve"
   | "house_home"
+  | "house_entry_policy"
 >;
 export type HouseCityClientMessage = ClientMessageOf<"house_village" | "house_ruin">;
 export type HouseRecruitClientMessage = ClientMessageOf<"house_recruit_auto" | "house_recruit_hire">;
@@ -76,7 +79,13 @@ function memberText(id: number, result: HouseMemberResult, protocolVersion: numb
         action: legacyHouseMemberAction(result.action, protocolVersion),
         factionId: result.factionId,
       })
-    : encodeMessage({ t: "house_member_result", id, ok: false, code: result.code });
+    : encodeMessage({
+        t: "house_member_result",
+        id,
+        ok: false,
+        // 가입비 모자람(D-573, 51판)은 더 낮은 판 연결에 busy로
+        code: legacyHouseMemberCode(result.code, protocolVersion),
+      });
 }
 
 function cityText(id: number, result: HouseCityResult): string {
@@ -118,8 +127,13 @@ function runMember(
   home: HouseHomeService | undefined,
   userId: string,
   message: HouseMemberClientMessage,
+  entryPolicy?: HouseEntryPolicyService,
 ): Promise<HouseMemberResult> {
   switch (message.t) {
+    case "house_entry_policy":
+      return entryPolicy
+        ? entryPolicy.set(userId, { scope: message.scope, cityId: message.cityId, fee: message.fee })
+        : Promise.resolve(memberFail("busy"));
     case "house_home":
       return home ? home.set(userId, message.cityId) : Promise.resolve(memberFail("busy"));
     case "house_handover":
@@ -155,6 +169,8 @@ export function createHouseGateway(options: {
   recruit?: (() => HouseRecruitService | undefined) | undefined;
   /** 가문 소속 도시 바꾸기(프로토콜 39, D-565, 없으면 busy) */
   home?: (() => HouseHomeService | undefined) | undefined;
+  /** 가문 이동 정책 정하기(프로토콜 51, 질문 2018 답, 없으면 busy) */
+  entryPolicy?: (() => HouseEntryPolicyService | undefined) | undefined;
   /** 창설·가입·넘기기·해산·소속 도시가 성공한 뒤(시야 묶음·가문 표 다시 읽기 — 가문원 나라·구인 자격이 바뀐다) */
   afterMembership?: (() => Promise<void>) | undefined;
   now: () => number;
@@ -235,7 +251,14 @@ export function createHouseGateway(options: {
         const members = options.members?.();
         if (!members) return replyMember(message.id, memberFail("busy"));
         if (!memberLimiter.take(viewer.id)) return replyMember(message.id, memberFail("rate_limited"));
-        const result = await runMember(members, options.succession?.(), options.home?.(), viewer.id, message);
+        const result = await runMember(
+          members,
+          options.succession?.(),
+          options.home?.(),
+          viewer.id,
+          message,
+          options.entryPolicy?.(),
+        );
         if (result.ok) {
           options.log.info(
             { userId: viewer.id, factionId: result.factionId, action: result.action },

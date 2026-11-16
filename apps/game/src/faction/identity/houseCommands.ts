@@ -1,11 +1,12 @@
 // 가문 창설·가입 명령(WebSocket house_found → house_result, 프로토콜 22 / house_invite·house_apply·house_answer·house_withdraw·house_leave·
 // house_kick → house_member_result, 프로토콜 23 / house_handover·house_dissolve → house_member_result, house_village·house_ruin →
 // house_city_result, 프로토콜 24 / house_recruit_auto·house_recruit_hire → house_recruit_result, 프로토콜 25 / house_home → house_member_result,
-// house_found cityId, 프로토콜 39 — D-565) — 보내고 같은 요청 번호의 답을 기다린다.
+// house_found cityId, 프로토콜 39 — D-565 / house_entry_policy → house_member_result, 프로토콜 51 — 질문 2018) — 보내고 같은 요청 번호의 답을 기다린다.
 // 질문 926 나·985 다, docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"·"바뀜 (981~986 답)". 게임 상태를 바꾸는 명령은 WebSocket으로만.
 // 국적 바꾸기 명령(government/naturalizeCommands.ts)과 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
 import type {
   HouseCityMode,
+  HouseEntryScope,
   HouseCityResultCode,
   HouseMemberAction,
   HouseMemberResultCode,
@@ -37,7 +38,14 @@ export type HouseMemberRequest =
   | { readonly t: "house_handover"; readonly userId: string }
   | { readonly t: "house_dissolve" }
   // 프로토콜 39(D-565): 가문장이 소속 도시를 바꾼다
-  | { readonly t: "house_home"; readonly cityId: number };
+  | { readonly t: "house_home"; readonly cityId: number }
+  // 프로토콜 51(질문 2018 답): 도시 주인·독립 나라 가문장이 가문 이동 정책(+ 가입비 / − 지원금, null = 정하지 않음)을 정한다
+  | {
+      readonly t: "house_entry_policy";
+      readonly scope: HouseEntryScope;
+      readonly cityId?: number;
+      readonly fee: string | null;
+    };
 
 export type HouseCityOutcome =
   | {

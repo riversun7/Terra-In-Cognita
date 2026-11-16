@@ -165,6 +165,12 @@ export const HOUSE_MEMBER_RESULT_CODES = [
   "same_city",
   /** 소속 도시를 바꾼 지 얼마 되지 않았다(설정 칸 house_home_wait_ms) */
   "home_wait",
+  // 51판부터(가문 이동 정책 house_entry_policy의 답에만 간다)
+  /** 그 도시를 가진 가문(도시 정책)·독립 나라인 가문(나라 정책)의 가문장이 아니다 */
+  "not_ruler",
+  // 51판부터(house_home의 답에만 — 더 낮은 판 연결은 busy, legacyHouseMemberCode)
+  /** 가문 금고(없으면 가문장 지갑)에 들어가는 도시·나라의 가입비가 모자라 옮기지 못한다(D-573) */
+  "entry_fee_short",
 ] as const;
 export type HouseMemberResultCode = (typeof HOUSE_MEMBER_RESULT_CODES)[number];
 
@@ -186,6 +192,8 @@ export const HOUSE_MEMBER_ACTIONS = [
   // 옮긴다)·공고를 거둠(지금 소속 도시를 다시 고름)
   "home_announced",
   "home_cancelled",
+  // 51판부터(house_entry_policy의 답에만): 가문 이동 정책을 정함
+  "entry_policy_set",
 ] as const;
 export type HouseMemberAction = (typeof HOUSE_MEMBER_ACTIONS)[number];
 
@@ -335,6 +343,14 @@ export function legacyHouseMemberAction(
     : action;
 }
 
+/** 가문 이동 가입비 모자람(D-573, 51판)을 더 낮은 판 연결에는 busy로 낮춘다(그 판 기기가 모르는 코드) */
+export function legacyHouseMemberCode(
+  code: HouseMemberResultCode,
+  protocolVersion: number,
+): HouseMemberResultCode {
+  return protocolVersion < 51 && code === "entry_fee_short" ? "busy" : code;
+}
+
 /**
  * 가문장이 가문 소속 도시를 바꾼다(가문 나라가 그 도시의 나라로 바뀐다). D-570부터 설정 칸 house_home_notice_ms가 0보다 크면 바로 옮기지 않고
  * 공고한다(그 시각이 지나면 가문 모두가 옮긴다). 공고 중에 지금 소속 도시를 고르면 공고를 거둔다
@@ -343,6 +359,32 @@ export const houseHomeMessage = z.object({
   t: z.literal("house_home"),
   id: requestId,
   cityId: rowId,
+});
+
+// ---------- 가문 이동 정책(프로토콜 51부터) ----------
+// 기획 D-570 "해당 국가나 도시의 정책에 따름. 지원금이 있을지 가입비가 있을지 등"·D-526(받는 쪽이 정함), 질문 2018 답. 가문이 그 도시·나라로 옮겨
+// 올 때 가문원마다 + 가입비 / − 지원금. 도시 정책 = 그 도시를 가진 가문의 가문장, 나라 정책 = 독립 나라(도시를 가진 위 세력 없는 가문)의
+// 가문장(국가 지도자 = 지배 가문의 장, D-217·질문 2012 답). NPC 도시·나라는 정하지 않는다(성향 규칙식). 답은 house_member_result
+// (한 일 entry_policy_set, 코드 not_in_house·not_leader·unknown_city·not_ruler). docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)".
+
+/** 가문 이동 정책 메시지에 필요한 가장 낮은 프로토콜 버전 */
+export const HOUSE_ENTRY_POLICY_PROTOCOL_VERSION = 51;
+
+/** 가문원마다 값(부호 있는 10진 최소 단위 — + 가입비 / − 지원금, 15자리까지) */
+const entryFee = z.string().regex(/^(0|-?[1-9][0-9]{0,14})$/);
+
+/** 정책 자리: 도시(cityId 꼭) | 나라(내가 이끄는 독립 나라) */
+export const HOUSE_ENTRY_SCOPES = ["city", "nation"] as const;
+export type HouseEntryScope = (typeof HOUSE_ENTRY_SCOPES)[number];
+
+/** 가문 이동 정책을 정한다(fee null = 정하지 않음 — 도시는 나라 정책을, 나라는 0을 따른다) */
+export const houseEntryPolicyMessage = z.object({
+  t: z.literal("house_entry_policy"),
+  id: requestId,
+  scope: z.enum(HOUSE_ENTRY_SCOPES),
+  /** 도시 정책의 도시(scope city에 꼭 — 없으면 unknown_city) */
+  cityId: rowId.optional(),
+  fee: entryFee.nullable(),
 });
 
 export const houseClientMessages = [
@@ -358,6 +400,7 @@ export const houseClientMessages = [
   houseVillageMessage,
   houseRuinMessage,
   houseHomeMessage,
+  houseEntryPolicyMessage,
 ] as const;
 export const houseServerMessages = [
   houseResultMessage,

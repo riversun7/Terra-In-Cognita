@@ -5,29 +5,36 @@
 // - 옮기기(이 파일 applyDue — 1분마다, attach.ts): 시각이 지난 공고마다 한 트랜잭션으로 소속 도시·가문 나라(born_of)를 바꾸고 공고를 비운 뒤 가문원
 //   모두에게 home_changed. 가문원 시민권·내 도시는 가문 표 다시 읽기(world/houseTies.ts)가 새 나라·도시로 맞춘다(가문 단위로만 이동 — 가문원
 //   개인 귀화는 그대로 막는다, citizenship in_house). 그 사이 가문이 도시를 얻었거나(has_city) 새 도시가 폐허가 됐으면(unknown_city) 옮기지 않고
-//   공고를 거둔다(home_cancelled, reason = 까닭).
-// - 들어가는 나라의 정책(factions.house_entry_fee, 부호 있는 최소 단위 — + 가입비 / − 지원금, null = 0): 옮긴 뒤 가문원마다(가문장 포함) 원장 거래
-//   house_entry 하나. 가입비는 가문원 → 그 나라 국고, 지원금은 국고 → 가문원. 시험 화폐(귀화 D-526과 같은 자산). [임시 질문 2017] 가입비가 잔고보다
-//   크면 있는 만큼, 지원금은 국고에 있는 만큼(새 화폐를 만들지 않는다 — 귀화 질문 845와 같다). 정책을 정하는 화면·명령은 아직 없다(기본 0, 질문 2018).
-//   같은 나라 안에서 도시만 바꾸면 매기지 않는다(나라가 그대로).
+//   공고를 거둔다(home_cancelled, reason = 까닭). 바뀜(D-573 — 질문 2017 다): 들어가는 도시·나라의 가입비를 가문(가문 금고 → 없으면 가문장 지갑)이
+//   한꺼번에 내지 못하면 옮기지 않고 거둔다(reason = entry_fee).
+// - 들어가는 도시·나라의 정책(부호 있는 최소 단위 — + 가입비 / − 지원금, houseEntry.ts houseEntryTermsOf): 옮긴 뒤 가문이 한꺼번에(D-573 — 값 =
+//   가문원마다 값 × 가문원 수) 원장 거래 house_entry 하나. 가입비는 가문 금고(없으면 가문장 지갑) → 받는 국고, 지원금은 국고 → 가문 금고(없으면
+//   가문장). 시험 화폐(귀화 D-526과 같은 자산). 지원금은 국고에 있는 만큼(새 화폐를 만들지 않는다 — 귀화 질문 845와 같다). 바뀜(질문 2018 답 —
+//   D-570 "해당 국가나 도시의 정책"): 도시 정책(city_policies, 그 도시 가문장)이 있으면 나라가 같아도 그것, 없으면 나라가 바뀔 때 나라 정책(지도자),
+//   NPC 나라는 성향 규칙식.
 import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import {
+  type HouseEntryCharge,
   type HouseMovePersistence,
   chargeHouseEntry,
+  entryShortfall,
   houseEntryTermsOf,
   moveHouseHome,
 } from "./houseEntry.ts";
 import { cityHome, houseHasCity } from "./houseHome.ts";
 import { type HouseTxPool, cyborgNameOf, inTransaction, lockHouse, notify } from "./members.ts";
+import type { HouseRules } from "./rules.ts";
 
 export interface HouseMovesOptions {
   readonly pool: HouseTxPool;
   readonly db?: Database | undefined;
   readonly now: () => number;
   readonly presets?: (() => readonly NationPreset[]) | undefined;
+  /** 가문 설정값(NPC 나라 가문 이동 정책 규칙식). 없으면 NPC 나라도 0 */
+  readonly rules?: (() => HouseRules) | undefined;
   /** 세계 저장 층(원장·가문 표). 없으면 값 없이 옮긴다 */
   readonly persistence?: (() => (HouseMovePersistence & object) | undefined) | undefined;
 }
@@ -45,6 +52,7 @@ type DueOutcome =
       readonly nationId: number;
       readonly before: number | null;
       readonly leaderId: string | null;
+      readonly charge: HouseEntryCharge;
     }
   | { readonly kind: "cancelled" | "skip" };
 
@@ -61,7 +69,39 @@ export function createHouseMoves(o: HouseMovesOptions): HouseMoves {
       const row = rows[0];
       if (!row || row.pending_city_id === null || Number(row.pending_at_ms) > nowMs) return { kind: "skip" };
       const target = await cityHome(q, Number(row.pending_city_id), o.presets?.() ?? []);
-      const reason = (await houseHasCity(q, houseId)) ? "has_city" : target ? null : "unknown_city";
+      const leader = await q.query<{ user_id: string }>(
+        "select user_id from house_members where faction_id = $1 and role = 'leader'",
+        [houseId],
+      );
+      const leaderId = leader.rows[0]?.user_id;
+      // 들어가는 도시의 정책, 나라가 바뀌면 그 나라의 정책(가입비·지원금 — houseEntry.ts). 가문이 한꺼번에 내고 못 내면 옮기지 않는다(D-573)
+      const entry = target
+        ? await houseEntryTermsOf(q, {
+            cityId: target.id,
+            nationId: target.nationId,
+            nationChanged: house.nation !== target.nationId,
+            npc: o.rules?.().npcEntry,
+          })
+        : null;
+      const counted = await q.query<{ n: number }>(
+        "select count(*)::int as n from house_members where faction_id = $1",
+        [houseId],
+      );
+      const charge: HouseEntryCharge = {
+        houseId,
+        leaderId: leaderId ?? null,
+        payee: entry?.payee ?? null,
+        terms: entry?.terms ?? 0n,
+        members: counted.rows[0]?.n ?? 0,
+        nowMs,
+      };
+      const reason = (await houseHasCity(q, houseId))
+        ? "has_city"
+        : !target
+          ? "unknown_city"
+          : entryShortfall(o.persistence?.(), charge) > 0n
+            ? "entry_fee"
+            : null;
       if (reason !== null || !target) {
         await q.query(
           "update house_homes set pending_city_id = null, pending_at_ms = null where faction_id = $1",
@@ -82,11 +122,6 @@ export function createHouseMoves(o: HouseMovesOptions): HouseMoves {
           });
         return { kind: "cancelled" };
       }
-      const leader = await q.query<{ user_id: string }>(
-        "select user_id from house_members where faction_id = $1 and role = 'leader'",
-        [houseId],
-      );
-      const leaderId = leader.rows[0]?.user_id;
       const users = await moveHouseHome(q, {
         house,
         city: target,
@@ -101,6 +136,7 @@ export function createHouseMoves(o: HouseMovesOptions): HouseMoves {
         nationId: target.nationId,
         before: house.nation,
         leaderId: leaderId ?? null,
+        charge,
       };
     });
 
@@ -117,16 +153,8 @@ export function createHouseMoves(o: HouseMovesOptions): HouseMoves {
         const outcome = await applyOne(houseId, nowMs);
         if (outcome.kind !== "moved") continue;
         moved += 1;
-        // 나라가 바뀌면 들어가는 나라의 정책(가입비·지원금)
-        const terms =
-          outcome.before === outcome.nationId ? 0n : await houseEntryTermsOf(o.pool, outcome.nationId);
-        const charged = await chargeHouseEntry(o.persistence?.(), {
-          houseId,
-          nationId: outcome.nationId,
-          terms,
-          userIds: outcome.users,
-          nowMs,
-        });
+        // 가입비·지원금(가문이 한꺼번에 — 옮기기 전에 낼 수 있는지 봤다)
+        const charged = await chargeHouseEntry(o.persistence?.(), outcome.charge);
         if (o.db)
           await writeAudit(o.db, {
             actor: { kind: "system", id: null, ip: null },

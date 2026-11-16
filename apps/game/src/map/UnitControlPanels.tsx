@@ -227,7 +227,7 @@ export function PeekCard({
         </p>
       ) : null}
       {glance?.npcHouse ? (
-        // NPC 도시 휴먼의 가문(질문 1848 답 — 도시마다 하나, 가문장 = 시장). 이름은 성이라 번역하지 않는다
+        // NPC 도시 휴먼의 가문(질문 1848 답·D-573 — 도시 등급마다 수), NPC 국가 지도자는 지배 가문의 장(질문 2012 답). 이름은 성이라 번역하지 않는다
         <p className="map-peek-line map-peek-owner" data-part="peek-npc-house" translate="no">
           {glance.npcHouse.leader === true
             ? m.map_peek_npc_house_leader({ name: glance.npcHouse.name })

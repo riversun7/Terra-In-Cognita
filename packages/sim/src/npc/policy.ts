@@ -172,3 +172,26 @@ export function recruitPicks(
   }
   return picks;
 }
+
+/**
+ * NPC 나라의 가문 이동 정책(기획 D-570 "해당 국가나 도시의 정책 — 지원금이 있을지 가입비가 있을지", D-526 받는 쪽이 정함, D-323 성향 규칙식,
+ * 질문 2018 답): 가문원마다 + 가입비 / − 지원금(최소 단위). 상업 성향(D-327)이 가운데보다 높으면 높은 만큼 가입비(가장 높음 = feeMax), 낮으면
+ * 낮은 만큼 지원금(가장 낮음 = grantMax). 가운데는 0 [임시 — 질문 2141]. 서버가 정책을 정하지 않은 NPC 나라에 읽을 때 쓴다(시뮬은 부르지 않는다)
+ */
+export function npcHouseEntryFee(
+  commerce: number,
+  c: Pick<NpcCoefficients, "traitMin" | "traitMax">,
+  limits: { readonly feeMax: number; readonly grantMax: number },
+): number {
+  const min = Math.min(c.traitMin, c.traitMax);
+  const max = Math.max(c.traitMin, c.traitMax);
+  const value = Math.min(max, Math.max(min, Math.trunc(commerce)));
+  // 가운데의 두 배(나누지 않고 정수로 비교한다)
+  const mid2 = min + max;
+  const span2 = max - min;
+  if (span2 <= 0) return 0;
+  const lead2 = value * 2 - mid2;
+  if (lead2 > 0) return Math.floor((Math.max(0, Math.trunc(limits.feeMax)) * lead2) / span2);
+  if (lead2 < 0) return -Math.floor((Math.max(0, Math.trunc(limits.grantMax)) * -lead2) / span2);
+  return 0;
+}

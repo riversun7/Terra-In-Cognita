@@ -129,10 +129,11 @@ function factionSizeTexts(row: RankingRow): string[] {
   ];
 }
 
-/** 가문 줄 덧붙임 글: 소속 도시·가문원 수(D-569 1746 — 가문 판에만) */
+/** 가문 줄 덧붙임 글: NPC 도시 가문 표시(질문 2014 답)·소속 도시·가문원 수(D-569 1746 — 가문 판에만) */
 function houseTexts(row: RankingRow): string[] {
   if (row.kind !== "house") return [];
   const texts = [m.ranking_house_home({ city: row.home ?? m.ranking_house_home_unknown() })];
+  if (row.npc === true) texts.unshift(m.ranking_house_npc());
   if (row.members !== undefined) texts.push(m.ranking_house_members({ count: formatCount(row.members) }));
   return texts;
 }

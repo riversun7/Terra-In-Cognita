@@ -92,6 +92,10 @@ export interface MapUnitSource {
           }
         | undefined)
     | undefined;
+  /** NPC 국가 지도자가 이끄는 지배 가문(수도 NPC 가문 — 질문 2012 답, npc/cityHouses.ts rulingHouseOf). 없으면 가문 줄 없음 */
+  npcLeaderHouse?:
+    | ((ownerId: number) => { readonly id: number; readonly name: string } | undefined)
+    | undefined;
   /**
    * 유닛의 1차 스탯(입은 장비·버프 포함, 직무 산출과 같은 값 — holdings primariesOf). 고른 유닛의 추천 줄이 읽는다
    * (docs/adr/2026-11-11-production-six.md). 없으면 스탯을 싣지 않는다
@@ -370,6 +374,8 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
               : {}),
           },
         };
+      // 지도자는 지배 가문의 장(질문 2012 답)
+      const ruling = info.kind === UNIT_KIND_NPC_LEADER ? source.npcLeaderHouse?.(info.ownerId) : undefined;
       return {
         ...none,
         glance: {
@@ -378,6 +384,7 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
           faction,
           ...ownerPart,
           ...(leader ? { name: leader } : {}),
+          ...(ruling ? { npcHouse: { id: ruling.id, name: ruling.name, leader: true as const } } : {}),
         },
       };
     },

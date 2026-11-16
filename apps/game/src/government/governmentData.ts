@@ -58,6 +58,33 @@ export function leaderTitle(leader: Pick<GovernmentLeader, "name"> | null, local
   return nameIn(leader.name, m.government_leader_unnamed(), locale);
 }
 
+/** 지도자의 덧말: 지배 가문(질문 2012 답 — 국가 지도자 = 지배 가문의 장). 모르면 null */
+export function leaderHouseText(leader: Pick<GovernmentLeader, "house"> | null): string | null {
+  const house = leader?.house;
+  if (!house) return null;
+  return house.npc
+    ? m.government_leader_house_npc({ name: house.name })
+    : m.government_leader_house({ name: house.name });
+}
+
+/** 가문 이동 정책 값(가문원마다, 10진 최소 단위) → 문장. null = 정하지 않음 */
+export function entryFeeText(value: string | null, formatAmount: (amount: string) => string): string {
+  if (value === null) return m.government_entry_unset();
+  if (value === "0") return m.government_entry_free();
+  return value.startsWith("-")
+    ? m.government_entry_grant({ amount: formatAmount(value.slice(1)) })
+    : m.government_entry_fee({ amount: formatAmount(value) });
+}
+
+/** 넣은 정책 값이 맞는지(부호 있는 정수, 15자리까지 — 프로토콜과 같은 꼴). 맞으면 정리한 글자, 틀리면 null */
+export function parseEntryFee(input: string): string | null {
+  const text = input.trim().replace(/^\u2212/, "-");
+  if (!/^-?[0-9]{1,15}$/.test(text)) return null;
+  const negative = text.startsWith("-");
+  const digits = text.replace(/^-/, "").replace(/^0+(?=\d)/, "");
+  return digits === "0" ? "0" : negative ? `-${digits}` : digits;
+}
+
 /** 거래세(만분율) → "2%"(소수 둘째 자리까지). 모르면 "모름" */
 export function taxText(taxBp: number | null, locale: Locale = getLocale()): string {
   if (taxBp === null) return m.government_tax_unknown();

@@ -63,14 +63,38 @@ export interface GovernmentNation {
   readonly taxBp: number | null;
 }
 
-/** 정부 판의 지도자(NPC 국가 지도자 사이보그) */
+/**
+ * 정부 판의 지도자. 국가 지도자 = 지배 가문의 장(수도 가문장 — 기획 D-217, 질문 2012 답): NPC 나라는 NPC 국가 지도자 사이보그(수도 NPC 가문의 장),
+ * 플레이어 가문이 나라면(도시를 가진 가문) 그 가문장의 사이보그
+ */
 export interface GovernmentLeader {
-  /** 지도자 유닛(지도의 한눈 정보와 같은 유닛) */
+  /** 지도자 유닛(지도의 한눈 정보와 같은 유닛 — 플레이어 가문장은 사이보그 본체) */
   readonly unitId: number;
-  /** 팩 국가 프리셋 leaderName. 없으면 null(화면은 "지도자") */
+  /** 팩 국가 프리셋 leaderName(플레이어 가문장은 사이보그 이름 — 두 언어 같은 글자). 없으면 null(화면은 "지도자") */
   readonly name: LocalizedName | null;
   /** 이 도시 2차맵에 있나(아니면 화면은 "수도에 있음" — 지도자는 수도 행정 건물 곁에 선다) */
   readonly here: boolean;
+  /**
+   * 지도자가 이끄는 지배 가문(질문 2012 답): NPC 나라는 수도 NPC 가문(이름 = 성, npc), 플레이어 나라는 그 가문 이름. 모르면 null·없음(옛 서버)
+   */
+  readonly house?: { readonly name: string; readonly npc: boolean } | null;
+}
+
+/**
+ * 가문 이동 정책(기획 D-570 "해당 국가나 도시의 정책 — 지원금이 있을지 가입비가 있을지"·D-526 받는 쪽이 정함, 질문 2018 답): 가문이 이 도시로
+ * 소속 도시를 옮길 때 가문원마다 매기는 값(+ 가입비 / − 지원금, 10진 최소 단위). 도시 값이 있으면 그것(나라가 같아도), 없으면 다른 나라에서
+ * 옮겨 올 때 나라 값
+ */
+export interface GovernmentHouseEntry {
+  /** 이 도시가 정한 값. 정하지 않았으면 null(나라 값을 따른다) */
+  readonly city: string | null;
+  /** 이 도시 나라의 값(정하지 않은 플레이어 나라는 "0") */
+  readonly nation: string;
+  /** 나라 값을 정한 곳: 지도자 | NPC 성향 규칙식(D-323) | 없음 */
+  readonly nationSource: "leader" | "npc" | "none";
+  /** 보는 사람이 정할 수 있나: 도시 = 이 도시를 가진 가문의 가문장, 나라 = 이 나라(독립 가문)의 가문장 */
+  readonly canSetCity: boolean;
+  readonly canSetNation: boolean;
 }
 
 /**
@@ -104,5 +128,7 @@ export interface GovernmentResponse {
   readonly building: { readonly x: number; readonly y: number } | null;
   /** 시장(46 §2 시장·관리인, D-5062). NPC 도시는 서버가 자동 지정(744 나). 없으면 null(화면 "없음" — 휴먼이 없는 도시) */
   readonly mayor: GovernmentMayor | null;
+  /** 가문 이동 정책(질문 2018 답). 읽지 못하면(DB 없는 서버·옛 서버) null·없음 */
+  readonly houseEntry?: GovernmentHouseEntry | null;
   readonly generatedAt: number;
 }

@@ -1,7 +1,11 @@
 // 가문 판(기획 D-569 1746 "랭킹은 가문별 유닛별 모두 존재") — 경로 하나의 유저 점수(마지막 집계 ranking_path_scores)를 가문원끼리 더해 가문마다
 // 한 줄로 읽는다. 읽을 때 센다(따로 집계 표가 없다 — 지난 순위는 null). 가문원 = 지금 house_members(해산하지 않은 가문), 줄에 소속 도시 이름을
 // 싣는다(D-565 "랭킹 집계는 소속 도시 기준"). 유닛 단위 가문(D-569 1744)이지만 경로 점수가 사람(소유 주체) 단위라 사람의 가문으로 더한다
-// ([임시] 질문 1844). 순위 = 점수 높은 차례(같으면 가문 ID 차례), 등급 = 유저 판과 같은 백분위 문턱(tierPmOf).
+// ([임시] 질문 1844). 순위 = 점수 높은 차례(같으면 플레이어 가문 → NPC 가문, 그 안에서 가문 ID 차례), 등급 = 유저 판과 같은 백분위 문턱(tierPmOf).
+// 바뀜(질문 2014 답 — D-569 "랭킹은 가문별 유닛별 모두 존재"·D-212·D-555 1509 NPC도 똑같이): NPC 도시 가문(npc/cityHouses.ts)도 같은 판에 든다.
+// NPC 휴먼은 경로 점수 주체가 아니라(소유 주체 = 나라) 가문원 점수 합의 자리에 "나라 점수를 그 나라 NPC 가문원 수로 나눈 몫 × 가문원 수"를 쓴다
+// (= 나라 점수 × 가문원 수 ÷ 그 나라 NPC 가문원 합, 내림 [임시 질문 2146]). 나라 = 가문 도시의 지금 주인(NPC 세력만), 폐허가 된 도시의 가문·
+// 가문원이 없는 가문은 빠진다. 보상 대상을 좁히는 일은 따로(지금 가문 판 보상 코드는 없다).
 import type { RankingBoardResponse, RankingRow, RankingTierCut } from "@terra/shared/ranking";
 import { RANKING_BOARD_ROWS } from "@terra/shared/ranking";
 import { tierPmOf } from "@terra/sim";
@@ -36,36 +40,98 @@ const HOUSE_SQL = `select m.faction_id, sum(s.score) as score, count(*)::int as 
    group by m.faction_id, i.name, c.name, n.id, n.code
    order by sum(s.score) desc, m.faction_id`;
 
+/** NPC 도시 가문 줄(위 머리 주석 — 나라 점수를 가문원 수로 나눈 몫) */
+const NPC_HOUSE_SQL = `with share as (
+    select h.id, h.name, c.name as city_name, c.faction_id as nation_id, count(u.unit_id)::int as members
+      from npc_houses h
+      join world_cities c on c.id = h.city_id
+      join factions n on n.id = c.faction_id and n.kind = 'npc'
+      join npc_house_units u on u.house_id = h.id
+     group by h.id, h.name, c.name, c.faction_id
+  ), totals as (select nation_id, sum(members) as total from share group by nation_id)
+  select s.id, s.name as house_name, s.city_name, s.nation_id, n.code as nation_code, s.members,
+         floor(p.score::numeric * s.members / t.total)::bigint as score
+    from share s
+    join totals t on t.nation_id = s.nation_id
+    join factions n on n.id = s.nation_id
+    join world_owners o on o.faction_id = s.nation_id
+    join ranking_path_scores p on p.owner_id = o.id and p.path_id = $1`;
+
+/** 판 한 줄로 바꾸기 전의 가문(플레이어·NPC 함께 차례를 정한다) */
+interface HouseEntry {
+  readonly npc: boolean;
+  readonly id: number;
+  readonly name: string | null;
+  readonly nationId: number | null;
+  readonly nationCode: string | null;
+  readonly score: number;
+  readonly home: string | null;
+  readonly members: number;
+}
+
 /** 가문 판 줄들(전부)과 내 가문 */
 export async function readHouseBoard(
   ctx: HouseBoardContext,
   userId: string,
   path: string,
 ): Promise<Pick<RankingBoardResponse, "total" | "rows" | "me" | "tiers">> {
-  const [result, mine] = await Promise.all([
+  const [result, npcResult, mine] = await Promise.all([
     ctx.db.query(HOUSE_SQL, [path]),
+    ctx.db.query(NPC_HOUSE_SQL, [path]),
     ctx.db.query("select faction_id from house_members where user_id = $1", [userId]),
   ]);
   const myHouse = mine.rows[0] ? num(mine.rows[0].faction_id) : null;
-  const total = result.rows.length;
+  const nationOf = (row: Record<string, unknown>): number | null =>
+    row.nation_id === null || row.nation_id === undefined ? null : num(row.nation_id);
+  const entries: HouseEntry[] = [
+    ...result.rows.map((row) => ({
+      npc: false,
+      id: num(row.faction_id),
+      name: text(row.house_name),
+      nationId: nationOf(row),
+      nationCode: text(row.nation_code),
+      score: num(row.score),
+      home: text(row.city_name),
+      members: num(row.members),
+    })),
+    ...npcResult.rows.map((row) => ({
+      npc: true,
+      id: num(row.id),
+      name: text(row.house_name),
+      nationId: nationOf(row),
+      nationCode: text(row.nation_code),
+      score: num(row.score),
+      home: text(row.city_name),
+      members: num(row.members),
+    })),
+  ]
+    .filter((entry) => entry.score > 0)
+    .toSorted((a, b) => b.score - a.score || Number(a.npc) - Number(b.npc) || a.id - b.id);
+  const total = entries.length;
   const tiersPm = ctx.coefficients.tiersPm;
-  const all: RankingRow[] = result.rows.map((row, index) => {
+  const all: RankingRow[] = entries.map((entry, index) => {
     const rank = index + 1;
-    const nationId = row.nation_id === null || row.nation_id === undefined ? null : num(row.nation_id);
-    const name = text(row.house_name);
+    // NPC 가문 이름은 성 하나(번역 안 함 D-476) — 판에는 "{성} 가문"·"House {성}"으로
+    const name =
+      entry.name === null
+        ? null
+        : entry.npc
+          ? { ko: `${entry.name} 가문`, en: `House ${entry.name}` }
+          : { ko: entry.name, en: entry.name };
     return {
       rank,
       prevRank: null,
       kind: "house",
-      name: name === null ? null : { ko: name, en: name },
-      faction: nationId === null ? null : nationName(ctx.nations, nationId, text(row.nation_code)),
-      score: num(row.score),
+      name,
+      faction: entry.nationId === null ? null : nationName(ctx.nations, entry.nationId, entry.nationCode),
+      score: entry.score,
       tierPm: tierPmOf(rank, total, tiersPm),
       top: rank <= ctx.coefficients.topRanks,
-      me: myHouse !== null && num(row.faction_id) === myHouse,
+      me: !entry.npc && myHouse !== null && entry.id === myHouse,
       detail: null,
-      home: text(row.city_name),
-      members: num(row.members),
+      home: entry.home,
+      members: entry.members,
+      ...(entry.npc ? { npc: true as const } : {}),
     };
   });
   const tiers: RankingTierCut[] = tiersPm

@@ -360,6 +360,10 @@ export interface SocietyCoefficients {
    * - villageCost·villageHousing: 가문 마을 세우기(질문 1005 가, D-340) 값(최소 단위, 가문장 → 소각)·새 마을 주거 수. [임시] 출발값.
    * - homeWaitMs: 가문장이 가문 소속 도시(D-565)를 다시 바꾸기까지 기다리는 시간(ms, 0 = 바로). [임시] 출발값 7일(질문 1741).
    * - homeNoticeMs: 소속 도시 바꾸기 공고 기간(ms, D-570 — 가문장이 미리 공고하고 원치 않는 가문원은 그 사이 나간다, 0 = 바로 옮김). [임시] 출발값 1일.
+   * - npcEntryFeeMax·npcEntryGrantMax: NPC 나라의 가문 이동 정책(D-570 "해당 국가나 도시의 정책", D-323 성향 규칙식 — npc/policy.ts
+   *   npcHouseEntryFee): 상업 성향 가장 높음 = 가문원마다 가입비 npcEntryFeeMax, 가장 낮음 = 지원금 npcEntryGrantMax(최소 단위). [임시] 출발값.
+   * - npcCityHouses: NPC 도시의 가문 수(D-573 "도시 크기(도시 등급)에 따라 여럿") — 도시 등급(territory.gradeAtDevelopment, 마을·읍·소도시·도시·
+   *   대도시·거대도시) 차례로 6칸, 1 이상. [임시] 출발값 1·1·2·3·4·5(서버 npc/cityHouses.ts).
    */
   readonly house: {
     readonly shortMin: number;
@@ -376,6 +380,9 @@ export interface SocietyCoefficients {
     readonly villageHousing: number;
     readonly homeWaitMs: number;
     readonly homeNoticeMs: number;
+    readonly npcEntryFeeMax: number;
+    readonly npcEntryGrantMax: number;
+    readonly npcCityHouses: readonly number[];
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -609,6 +616,9 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     villageHousing: 8,
     homeWaitMs: 7 * 86_400_000,
     homeNoticeMs: 86_400_000,
+    npcEntryFeeMax: 100,
+    npcEntryGrantMax: 100,
+    npcCityHouses: [1, 1, 2, 3, 4, 5],
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

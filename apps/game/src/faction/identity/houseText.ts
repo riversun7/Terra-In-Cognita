@@ -35,6 +35,8 @@ export const HOUSE_MEMBER_ERROR_TEXT: Readonly<Record<HouseMemberResultCode | "o
     unknown_city: m.fid_home_error_unknown_city,
     same_city: m.fid_home_error_same_city,
     home_wait: m.fid_home_error_wait,
+    not_ruler: m.fid_house_error_not_ruler,
+    entry_fee_short: m.fid_home_error_entry_fee,
     offline: m.fid_found_offline,
     timeout: m.fid_found_offline,
   };
@@ -54,6 +56,7 @@ export const HOUSE_ACTION_TEXT: Readonly<Record<HouseMemberAction | "accepted", 
   home_set: m.fid_home_done,
   home_announced: m.fid_home_done_announced,
   home_cancelled: m.fid_home_done_cancelled,
+  entry_policy_set: m.fid_house_done_entry_policy,
 };
 
 /** 가문 도시 명령 결과 코드 → 문장(질문 1005 가) */
@@ -122,7 +125,9 @@ const NOTICE_TEXT: Readonly<Record<HouseNoticeKind, NoticeText>> = {
       ? m.fid_house_notice_home_cancelled_city({ house: v.house })
       : v.reason === "unknown_city"
         ? m.fid_house_notice_home_cancelled_gone({ house: v.house })
-        : m.fid_house_notice_home_cancelled({ house: v.house, other: v.other }),
+        : v.reason === "entry_fee"
+          ? m.fid_house_notice_home_cancelled_fee({ house: v.house })
+          : m.fid_house_notice_home_cancelled({ house: v.house, other: v.other }),
 };
 
 /** 가문 소식 한 줄의 문장(모르는 종류는 "가문 소식이 있습니다") */

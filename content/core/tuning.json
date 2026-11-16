@@ -10238,6 +10238,150 @@
       "source": "D-570 · ADR 2026-11-11-faction-identity \"바뀜 (2026-11-16, D-570)\""
     },
     {
+      "id": "house_entry_npc_fee_max",
+      "code": "",
+      "name": {
+        "ko": "NPC 나라 가문 이동 가입비 최대(최소 단위)",
+        "en": "NPC nation house entry fee max (minor units)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000,
+      "desc": {
+        "ko": "가문이 NPC 나라로 옮겨 올 때 가문원마다 내는 가입비의 최대. 상업 성향이 가장 높은 나라가 이 값을 받고, 가운데 성향은 0이다.",
+        "en": "Most a house member pays when the house moves into an NPC nation. The most commercial nation charges this; a middle trait charges 0."
+      },
+      "source": "D-570 · D-323 · 질문 2018 답 · ADR 2026-11-11-faction-identity \"바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)\""
+    },
+    {
+      "id": "house_entry_npc_grant_max",
+      "code": "",
+      "name": {
+        "ko": "NPC 나라 가문 이동 지원금 최대(최소 단위)",
+        "en": "NPC nation house entry grant max (minor units)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000,
+      "desc": {
+        "ko": "가문이 NPC 나라로 옮겨 올 때 가문원마다 국고에서 받는 지원금의 최대. 상업 성향이 가장 낮은 나라가 이 값을 주고, 국고에 있는 만큼만 준다.",
+        "en": "Most a house member receives from the treasury when the house moves into an NPC nation. The least commercial nation grants this, up to what the treasury holds."
+      },
+      "source": "D-570 · D-323 · 질문 2018 답 · ADR 2026-11-11-faction-identity \"바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)\""
+    },
+    {
+      "id": "house_npc_city_houses_l1",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 가문 수: 마을",
+        "en": "NPC city houses: village"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 50,
+      "desc": {
+        "ko": "마을 등급 NPC 도시에 두는 가문 수. 늘면 휴먼이 있을 때 모자란 가문을 세우고 가문원을 나눠 옮긴다. 줄어도 이미 있는 가문은 그대로다.",
+        "en": "How many houses an NPC village keeps. When it grows, missing houses are founded and members are split into them. Existing houses stay when it shrinks."
+      },
+      "source": "D-573 · 질문 2011 답 · ADR 2026-11-11-faction-identity \"바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)\""
+    },
+    {
+      "id": "house_npc_city_houses_l2",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 가문 수: 읍",
+        "en": "NPC city houses: town"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 50,
+      "desc": {
+        "ko": "읍 등급 NPC 도시에 두는 가문 수. 늘면 휴먼이 있을 때 모자란 가문을 세우고 가문원을 나눠 옮긴다. 줄어도 이미 있는 가문은 그대로다.",
+        "en": "How many houses an NPC town keeps. When it grows, missing houses are founded and members are split into them. Existing houses stay when it shrinks."
+      },
+      "source": "D-573 · 질문 2011 답 · ADR 2026-11-11-faction-identity \"바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)\""
+    },
+    {
+      "id": "house_npc_city_houses_l3",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 가문 수: 소도시",
+        "en": "NPC city houses: small city"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 50,
+      "desc": {
+        "ko": "소도시 등급 NPC 도시에 두는 가문 수. 늘면 휴먼이 있을 때 모자란 가문을 세우고 가문원을 나눠 옮긴다. 줄어도 이미 있는 가문은 그대로다.",
+        "en": "How many houses an NPC small city keeps. When it grows, missing houses are founded and members are split into them. Existing houses stay when it shrinks."
+      },
+      "source": "D-573 · 질문 2011 답 · ADR 2026-11-11-faction-identity \"바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)\""
+    },
+    {
+      "id": "house_npc_city_houses_l4",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 가문 수: 도시",
+        "en": "NPC city houses: city"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 50,
+      "desc": {
+        "ko": "도시 등급 NPC 도시에 두는 가문 수. 늘면 휴먼이 있을 때 모자란 가문을 세우고 가문원을 나눠 옮긴다. 줄어도 이미 있는 가문은 그대로다.",
+        "en": "How many houses an NPC city keeps. When it grows, missing houses are founded and members are split into them. Existing houses stay when it shrinks."
+      },
+      "source": "D-573 · 질문 2011 답 · ADR 2026-11-11-faction-identity \"바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)\""
+    },
+    {
+      "id": "house_npc_city_houses_l5",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 가문 수: 대도시",
+        "en": "NPC city houses: metropolis"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 50,
+      "desc": {
+        "ko": "대도시 등급 NPC 도시에 두는 가문 수. 늘면 휴먼이 있을 때 모자란 가문을 세우고 가문원을 나눠 옮긴다. 줄어도 이미 있는 가문은 그대로다.",
+        "en": "How many houses an NPC metropolis keeps. When it grows, missing houses are founded and members are split into them. Existing houses stay when it shrinks."
+      },
+      "source": "D-573 · 질문 2011 답 · ADR 2026-11-11-faction-identity \"바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)\""
+    },
+    {
+      "id": "house_npc_city_houses_l6",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 가문 수: 거대도시",
+        "en": "NPC city houses: megacity"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 50,
+      "desc": {
+        "ko": "거대도시 등급 NPC 도시에 두는 가문 수. 늘면 휴먼이 있을 때 모자란 가문을 세우고 가문원을 나눠 옮긴다. 줄어도 이미 있는 가문은 그대로다.",
+        "en": "How many houses an NPC megacity keeps. When it grows, missing houses are founded and members are split into them. Existing houses stay when it shrinks."
+      },
+      "source": "D-573 · 질문 2011 답 · ADR 2026-11-11-faction-identity \"바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)\""
+    },
+    {
       "id": "house_village_housing",
       "code": "",
       "name": {

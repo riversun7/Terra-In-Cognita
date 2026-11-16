@@ -118,7 +118,9 @@ async function factionPart(db: Queryable, userId: string): Promise<FactionMember
             (select count(*)::int from world_cities c where c.faction_id = f.id) as cities,
             (select o.id from world_owners o where o.faction_id = f.id) as owner_id,
             (select u.id from world_units u join world_owners o on o.id = u.owner_id
-              where o.faction_id = f.id and u.kind = $2 order by u.id limit 1) as leader_unit
+              where o.faction_id = f.id and u.kind = $2 order by u.id limit 1) as leader_unit,
+            (select c.name from house_members h join cyborgs c on c.user_id = h.user_id
+              where h.faction_id = f.id and h.role = 'leader' and f.kind = 'player') as house_leader
        from faction_members m
        join factions f on f.id = m.faction_id
        left join factions p on p.id = f.parent_id
@@ -145,6 +147,10 @@ async function factionPart(db: Queryable, userId: string): Promise<FactionMember
     cityCount: asNumber(row.cities),
     treasury,
     leaderUnit: row.leader_unit === null || row.leader_unit === undefined ? null : asNumber(row.leader_unit),
+    // 플레이어 가문 나라의 지도자 = 그 가문장(질문 2012 답 — 국가 지도자 = 지배 가문의 장). NPC 나라는 withNationNames가 팩 이름을 붙인다
+    ...(typeof row.house_leader === "string"
+      ? { leaderName: { ko: row.house_leader, en: row.house_leader } }
+      : {}),
   };
 }
 

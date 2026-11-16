@@ -1,10 +1,13 @@
 // 가문 이동의 공통 몫 — 기획 D-570(houseMoves.ts 머리 주석). 소속 도시 바꾸기(houseHome.ts — 공고 기간 0이면 바로)와 공고 옮기기(houseMoves.ts)가
-// 같이 쓴다: 소속 도시·가문 나라 바꾸기와 가문원 소식, 들어가는 나라의 정책(factions.house_entry_fee — + 가입비 / − 지원금, null = 0)을 가문원마다 매기기.
+// 같이 쓴다: 소속 도시·가문 나라 바꾸기와 가문원 소식, 들어가는 도시·나라의 정책(+ 가입비 / − 지원금 — houseEntryTermsOf)을 가문이 한꺼번에
+// 내고 받기(D-573 — 가문 금고 → 없으면 가문장 지갑, 못 내면 옮기지 않는다: entryShortfall).
+import { npcHouseEntryFee } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
 import { notify } from "./members.ts";
+import type { HouseRules } from "./rules.ts";
 import type { IdentityQueryable } from "./store.ts";
 
 /** 원장 몫(가입비·지원금) — 세계 저장 층(WorldPersistence)이 그대로 맞는다 */
@@ -17,14 +20,83 @@ export interface HouseMovePersistence {
   readonly writer: Pick<WorldWriter, "durable">;
 }
 
-/** 그 나라의 가문 이동 정책(가문원마다 값, + 가입비 / − 지원금). 없으면 0 */
-export async function houseEntryTermsOf(q: IdentityQueryable, nationId: number): Promise<bigint> {
-  const { rows } = await q.query<{ house_entry_fee: string | null }>(
-    "select house_entry_fee from factions where id = $1",
+/** 가문 이동 정책을 정한 곳: 도시(city_policies) · 나라(factions.house_entry_fee) · NPC 나라 성향 규칙식 · 없음 */
+export type HouseEntrySource = "city" | "nation" | "npc" | "none";
+
+/** 옮길 때 가문원마다 매길 값(+ 가입비 / − 지원금)과 받는·주는 쪽(세력 행 — 그 세력 소유 주체의 국고) */
+export interface HouseEntryTerms {
+  readonly terms: bigint;
+  /** 국고 세력 행(도시 정책이면 도시 주인, 나라 정책이면 그 나라). 값이 0이면 null */
+  readonly payee: number | null;
+  readonly source: HouseEntrySource;
+}
+
+const NO_TERMS: HouseEntryTerms = { terms: 0n, payee: null, source: "none" };
+
+/** 정책 읽기가 쓰는 질의(pg Pool·트랜잭션 연결이 그대로 맞는다 — 줄 모양은 읽을 때 본다) */
+export interface EntryQueryable {
+  query(text: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
+}
+
+/** DB 값 → 부호 있는 금액(정하지 않음 null) */
+const feeOf = (value: unknown): bigint | null =>
+  typeof value === "string" || typeof value === "number" || typeof value === "bigint" ? BigInt(value) : null;
+
+/** 상업 성향 축 자리(@terra/sim TRAIT_AXES — 공격·상업·신앙·정거장) */
+const COMMERCE_AXIS = 1;
+
+/** NPC 나라의 정책(성향 규칙식 D-323, 질문 2018): 저장한 성향이 없으면 가운데(0) */
+export function npcEntryTerms(traits: unknown, rule: HouseRules["npcEntry"]): bigint {
+  const commerce = Array.isArray(traits) ? Number(traits[COMMERCE_AXIS]) : Number.NaN;
+  if (!Number.isFinite(commerce)) return 0n;
+  return BigInt(npcHouseEntryFee(commerce, rule, { feeMax: rule.feeMax, grantMax: rule.grantMax }));
+}
+
+/**
+ * 가문이 그 도시로 옮길 때의 정책(기획 D-570 "해당 국가나 도시의 정책", D-526 받는 쪽이 정함, 질문 2018 답 — [임시] 차례 질문 2142):
+ * 1. 그 도시가 정한 값(city_policies, 도시를 가진 가문의 가문장이 정함)이 있으면 그것 — 나라가 같아도 매기고, 받는 쪽은 도시 주인 국고.
+ * 2. 나라가 바뀌는 옮기기면 들어가는 나라가 정한 값(factions.house_entry_fee — 지도자가 정함), 없고 NPC 나라면 성향 규칙식(npc 입력이 있을 때).
+ * 3. 그 밖은 0
+ */
+export async function houseEntryTermsOf(
+  q: EntryQueryable,
+  input: {
+    readonly cityId: number;
+    readonly nationId: number;
+    readonly nationChanged: boolean;
+    readonly npc?: HouseRules["npcEntry"] | undefined;
+  },
+): Promise<HouseEntryTerms> {
+  const city = await q.query(
+    `select p.house_entry_fee::text as house_entry_fee, c.faction_id from city_policies p
+       join world_cities c on c.id = p.city_id where p.city_id = $1 and p.house_entry_fee is not null`,
+    [input.cityId],
+  );
+  const own = city.rows[0];
+  const ownFee = own ? feeOf(own.house_entry_fee) : null;
+  if (own && ownFee !== null)
+    return { terms: ownFee, payee: ownFee === 0n ? null : Number(own.faction_id), source: "city" };
+  if (!input.nationChanged) return NO_TERMS;
+  const nation = await nationEntryTerms(q, input.nationId, input.npc);
+  return { terms: nation.terms, payee: nation.terms === 0n ? null : input.nationId, source: nation.source };
+}
+
+/** 그 나라의 가문 이동 정책: 지도자가 정한 값(factions.house_entry_fee) → 없고 NPC 나라면 성향 규칙식(npc 입력이 있을 때) → 0 */
+export async function nationEntryTerms(
+  q: EntryQueryable,
+  nationId: number,
+  npc: HouseRules["npcEntry"] | undefined,
+): Promise<{ readonly terms: bigint; readonly source: HouseEntrySource }> {
+  const { rows } = await q.query(
+    "select house_entry_fee::text as house_entry_fee, kind, traits from factions where id = $1",
     [nationId],
   );
-  const value = rows[0]?.house_entry_fee;
-  return value === null || value === undefined ? 0n : BigInt(value);
+  const nation = rows[0];
+  if (!nation) return { terms: 0n, source: "none" };
+  const fee = feeOf(nation.house_entry_fee);
+  if (fee !== null) return { terms: fee, source: "nation" };
+  if (nation.kind !== "npc" || !npc) return { terms: 0n, source: "none" };
+  return { terms: npcEntryTerms(nation.traits, npc), source: "npc" };
 }
 
 /**
@@ -66,46 +138,86 @@ export async function moveHouseHome(
   return rows.map((row) => row.user_id);
 }
 
-/** 가입비·지원금을 가문원마다 매긴다(원장 — 커밋 뒤에 부른다). 낸 합·받은 합 */
+/**
+ * 가문이 한꺼번에 내고 받는 몫(기획 D-573 — 질문 2017 다 "가문장 또는 가문 금고가 한꺼번에 낸다. 못 내면 이동 못 함", 지원금도 가문이 받는다):
+ * 값 = 정책(가문원마다) × 옮기는 가문원 수(가문장 포함) [임시 질문 2145], 지갑 = 가문 금고(가문 소유 주체 — 도시를 가진 가문) → 없으면 가문장 지갑.
+ */
+export interface HouseEntryCharge {
+  readonly houseId: number;
+  /** 가문장(가문 금고가 없을 때 그 지갑). 없으면 null */
+  readonly leaderId: string | null;
+  /** 받는·주는 국고의 세력 행(HouseEntryTerms.payee) */
+  readonly payee: number | null;
+  /** 가문원마다 값(+ 가입비 / − 지원금) */
+  readonly terms: bigint;
+  /** 옮기는 가문원 수(가문장 포함) */
+  readonly members: number;
+  readonly nowMs: number;
+}
+
+/** 가문이 낼 합(가입비면 양수, 지원금이면 음수 — 받을 합) */
+export const entryTotal = (charge: Pick<HouseEntryCharge, "terms" | "members">): bigint =>
+  charge.terms * BigInt(Math.max(0, charge.members));
+
+/** 가문 지갑(가문 금고 → 가문장)과 국고 소유 주체. 국고가 없으면 treasury undefined */
+function walletsOf(
+  p: HouseMovePersistence,
+  charge: HouseEntryCharge,
+): { readonly purse: number | undefined; readonly treasury: number | undefined } {
+  let treasury: number | undefined;
+  let house: number | undefined;
+  for (const owner of p.owners.values()) {
+    if (charge.payee !== null && owner.factionId === charge.payee) treasury = owner.id;
+    if (owner.factionId === charge.houseId) house = owner.id;
+  }
+  const purse =
+    house ?? (charge.leaderId === null ? undefined : p.settlement.findOwnerOfUser(charge.leaderId));
+  return { purse, treasury };
+}
+
+/**
+ * 가입비를 못 내는 만큼(0이면 낼 수 있다 — 지원금·값 없음·세계 없음도 0). 옮기기 전에 본다: 모자라면 옮기지 않는다(D-573). 지갑은 지금까지 정산한 뒤 본다
+ */
+export function entryShortfall(p: HouseMovePersistence | undefined, charge: HouseEntryCharge): bigint {
+  const total = entryTotal(charge);
+  if (!p || total <= 0n || charge.payee === null) return 0n;
+  const { purse, treasury } = walletsOf(p, charge);
+  if (treasury === undefined) return 0n;
+  if (purse === undefined) return total;
+  if (purse === treasury) return 0n;
+  p.settlement.settleOwner(purse, charge.nowMs);
+  const available = p.ledger.balanceOf(purse, ASSET_CREDIT);
+  return available >= total ? 0n : total - available;
+}
+
+/**
+ * 가입비·지원금을 한꺼번에 매긴다(원장 거래 house_entry 하나 — 옮긴 커밋 뒤에 부른다). 가입비는 앞서 entryShortfall로 본 뒤라 모자라면(그 사이 줄었으면)
+ * 있는 만큼, 지원금은 국고에 있는 만큼(새 화폐를 만들지 않는다 — 귀화 질문 845와 같다). 낸 합·받은 합
+ */
 export async function chargeHouseEntry(
   p: HouseMovePersistence | undefined,
-  input: {
-    readonly houseId: number;
-    readonly nationId: number;
-    readonly terms: bigint;
-    readonly userIds: readonly string[];
-    readonly nowMs: number;
-  },
+  charge: HouseEntryCharge,
 ): Promise<{ readonly paid: bigint; readonly granted: bigint }> {
-  if (!p || input.terms === 0n) return { paid: 0n, granted: 0n };
-  let treasury: number | undefined;
-  for (const owner of p.owners.values()) if (owner.factionId === input.nationId) treasury = owner.id;
-  if (treasury === undefined) return { paid: 0n, granted: 0n };
-  let paid = 0n;
-  let granted = 0n;
-  for (const userId of input.userIds) {
-    const me = p.settlement.findOwnerOfUser(userId);
-    if (me === undefined || me === treasury) continue;
-    // 잔고는 지금까지 정산한 뒤 본다(유지비가 먼저 빠진다)
-    p.settlement.settleOwner(me, input.nowMs);
-    const from = input.terms > 0n ? me : treasury;
-    const to = input.terms > 0n ? treasury : me;
-    const asked = input.terms > 0n ? input.terms : -input.terms;
-    const available = p.ledger.balanceOf(from, ASSET_CREDIT);
-    const amount = asked < available ? asked : available;
-    if (amount <= 0n) continue;
-    p.ledger.post({
-      kind: "house_entry",
-      atMs: input.nowMs,
-      key: `house_entry:${input.houseId}:${userId}:${input.nowMs}`,
-      entries: [
-        { account: p.ledger.ownerAccount(from, ASSET_CREDIT), amount: -amount },
-        { account: p.ledger.ownerAccount(to, ASSET_CREDIT), amount },
-      ],
-    });
-    if (input.terms > 0n) paid += amount;
-    else granted += amount;
-  }
-  if (paid + granted > 0n) await p.writer.durable();
-  return { paid, granted };
+  const total = entryTotal(charge);
+  if (!p || total === 0n || charge.payee === null) return { paid: 0n, granted: 0n };
+  const { purse, treasury } = walletsOf(p, charge);
+  if (treasury === undefined || purse === undefined || purse === treasury) return { paid: 0n, granted: 0n };
+  p.settlement.settleOwner(purse, charge.nowMs);
+  const from = total > 0n ? purse : treasury;
+  const to = total > 0n ? treasury : purse;
+  const asked = total > 0n ? total : -total;
+  const available = p.ledger.balanceOf(from, ASSET_CREDIT);
+  const amount = asked < available ? asked : available;
+  if (amount <= 0n) return { paid: 0n, granted: 0n };
+  p.ledger.post({
+    kind: "house_entry",
+    atMs: charge.nowMs,
+    key: `house_entry:${charge.houseId}:${charge.nowMs}`,
+    entries: [
+      { account: p.ledger.ownerAccount(from, ASSET_CREDIT), amount: -amount },
+      { account: p.ledger.ownerAccount(to, ASSET_CREDIT), amount },
+    ],
+  });
+  await p.writer.durable();
+  return total > 0n ? { paid: amount, granted: 0n } : { paid: 0n, granted: amount };
 }

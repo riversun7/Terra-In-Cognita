@@ -170,6 +170,19 @@ test.describe("정부 판·지도자: 플레이어", () => {
     );
     expect(field(glance, "kind")).toBe("npc_leader");
     expect(field(field(glance, "name"), "ko")).toBe(field(field(leader, "name"), "ko"));
+    // 국가 지도자 = 지배 가문(수도 NPC 가문)의 장(질문 2012 답): 정부 판·한눈 정보 모두
+    const ruling = field(leader, "house");
+    expect(field(ruling, "npc")).toBe(true);
+    const rulingName = String(field(ruling, "name"));
+    expect(rulingName).not.toBe("");
+    expect(field(field(glance, "npcHouse"), "name")).toBe(rulingName);
+    expect(field(field(glance, "npcHouse"), "leader")).toBe(true);
+    // 가문 이동 정책(질문 2018 답): NPC 도시는 도시 값이 없고 나라 값은 성향 규칙식, player는 정하지 못한다
+    const entry = field(hall.data, "houseEntry");
+    expect(field(entry, "city")).toBeNull();
+    expect(field(entry, "nationSource")).toBe("npc");
+    expect(field(entry, "canSetCity")).toBe(false);
+    expect(field(entry, "canSetNation")).toBe(false);
 
     // [정부 열기] → 대화상자
     await sheet.locator(".gov-open").click();
@@ -177,6 +190,17 @@ test.describe("정부 판·지도자: 플레이어", () => {
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('[data-part="government-nation"] dd')).not.toHaveText("");
     await expect(dialog.locator('[data-part="government-leader"] dd')).toContainText(leaderName);
+    await expect(dialog.locator('[data-part="government-leader"] .government-leader-house')).toHaveText(
+      message("ko", "government_leader_house_npc", { name: rulingName }),
+    );
+    const entryBox = dialog.locator('[data-part="government-house-entry"]');
+    await expect(
+      entryBox.locator('[data-part="government-entry-city"] [data-part="government-entry-value"]'),
+    ).toHaveText(message("ko", "government_entry_unset"));
+    await expect(entryBox.locator('[data-part="government-entry-nation"]')).toContainText(
+      message("ko", "government_entry_npc"),
+    );
+    await expect(entryBox.locator('[data-part="government-entry-input"]')).toHaveCount(0);
     await expect(dialog.locator('[data-part="government-mayor"] dd')).toContainText(
       message("ko", "government_mayor_named", {
         name: String(mayorName),
@@ -338,6 +362,9 @@ test.describe("정부 판 사진", () => {
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `government-dialog-390-${theme}-${language}`);
+        // 가문 이동 정책 칸(질문 2018 답)
+        await dialog.locator('[data-part="government-house-entry"]').scrollIntoViewIfNeeded();
+        await shot(page, `government-entry-390-${theme}-${language}`);
         // 아래(구인 카드)까지 내려 한 장 더
         await dialog.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
         await shot(page, `government-dialog-cards-390-${theme}-${language}`);

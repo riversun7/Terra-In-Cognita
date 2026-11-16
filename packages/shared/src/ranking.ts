@@ -117,6 +117,8 @@ export interface RankingRow {
   /** 가문 판에만: 소속 도시 이름(이름 없는 도시·모르면 null)과 점수를 더한 가문원 수 */
   readonly home?: string | null | undefined;
   readonly members?: number | undefined;
+  /** 가문 판에만: NPC 도시 가문(질문 2014 답 — D-569·D-212 NPC 가문도 같은 판)이면 true */
+  readonly npc?: true | undefined;
   /** 시안 자료(dev·admin이 켰을 때)면 true */
   readonly preview?: boolean | undefined;
 }

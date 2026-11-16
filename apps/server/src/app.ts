@@ -41,6 +41,7 @@ import { createHospitalGateway } from "./hospital/gateway.ts";
 import { citizenshipServiceOf } from "./citizenship/attach.ts";
 import { createCitizenshipGateway } from "./citizenship/gateway.ts";
 import { attachHouses } from "./factionIdentity/attach.ts";
+import { houseGovernmentSources } from "./government/houseRule.ts";
 import { TEST_HOUSE_RULES, houseRulesFrom } from "./factionIdentity/rules.ts";
 import { configureInjuryRules } from "./world/unitCondition.ts";
 import { createRuinGateway } from "./ruins/gateway.ts";
@@ -446,6 +447,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           pollutionDanger: tuningState ? () => tuningState.society().gardener.nomadThreshold : undefined,
           // 1차맵 영토 원(배후지 지금 반경)·영토 표시 값(D-544) = 설정 칸 실효 값(ADR planet-view "바뀜 (2026-11-14)"·"(2026-11-15 D-546)")
           society: tuningState ? () => tuningState.society() : undefined,
+          governmentHouses: houseGovernmentSources(world, options.db.$client, tuningState),
         })
       : undefined;
   let coordinateRules: CoordinateRules | undefined;

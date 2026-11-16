@@ -19,6 +19,8 @@ import {
   legacyBoatCode,
   legacyGearCode,
   legacyOrderCode,
+  legacyCarryCode,
+  BOAT_CARRY_PROTOCOL_VERSION,
   legacyHoldCode,
   legacyVoyageCode,
 } from "./index.ts";
@@ -153,6 +155,16 @@ describe("배 메시지(프로토콜 27)", () => {
     expect(legacyOrderCode("order_closed")).toBe("forbidden");
     expect(legacyOrderCode("busy")).toBe("busy");
     expect(legacyGearCode("order_closed")).toBe("forbidden");
+  });
+
+  it("52: 운반꾼 없음(no_carrier)은 51판 이하 연결에 unavailable로(기획 대조 boats-5, D-555 1505)", () => {
+    expect(BOAT_CARRY_PROTOCOL_VERSION).toBe(52);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(BOAT_CARRY_PROTOCOL_VERSION);
+    expect(legacyCarryCode("no_carrier")).toBe("unavailable");
+    expect(legacyCarryCode("busy")).toBe("busy");
+    expect(legacyOrderCode("no_carrier")).toBe("unavailable");
+    const old = BOAT_RESULT_CODES.slice(0, BOAT_RESULT_CODES.indexOf("order_closed") + 1);
+    for (const code of BOAT_RESULT_CODES) expect(old).toContain(legacyCarryCode(code));
   });
 
   it("37판 새 결과 코드는 36판 연결에 옛 코드로", () => {

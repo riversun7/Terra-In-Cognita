@@ -8,8 +8,10 @@
 // - 프로토콜 43(D-564·D-568): 배 창고 내리기(boat_unload), 남의 조선소 주문(만들기가 받기 범위를 기다린다). 새 결과 코드는 43판 연결에만, 그 아래는 legacyHoldCode로.
 // - 프로토콜 49(D-570, 줄기 55): 포획 장비 달기·떼기(boat_gear)·배 창고 싣기(boat_load). 새 결과 코드는 49판 연결에만, 그 아래는 legacyGearCode로.
 // - 프로토콜 51(기획 대조 2057·2072): 배 판매가 0 = 만들지 않음(order_closed). 50판 이하는 legacyOrderCode로.
+// - 프로토콜 52(묶음 1116n 합친 판, 줄기 boats-5 판 58 — 기획 대조 boats-5, D-555 1505): 내리기·싣기 운반꾼 없음(no_carrier). 51판 이하는 legacyCarryCode로.
 import {
   BOAT_B2_PROTOCOL_VERSION,
+  BOAT_CARRY_PROTOCOL_VERSION,
   type BoatResultCode,
   type ClientMessageOf,
   GEAR_PROTOCOL_VERSION,
@@ -19,6 +21,7 @@ import {
   VOYAGE_PROTOCOL_VERSION,
   encodeMessage,
   legacyBoatCode,
+  legacyCarryCode,
   legacyGearCode,
   legacyHoldCode,
   legacyOrderCode,
@@ -79,7 +82,8 @@ export interface BoatGateway {
 function resultText(id: number, result: BoatCommandResult, protocolVersion: number): string {
   if (!result.ok) {
     // 30판 새 코드는 29판 연결에 옛 코드로. dock_busy는 그 코드를 아는 연결(28)에만, 아니면 busy(다시 해 볼 수 있다)
-    const order = protocolVersion < BOAT_PRICE_PROTOCOL_VERSION ? legacyOrderCode(result.code) : result.code;
+    const carry = protocolVersion < BOAT_CARRY_PROTOCOL_VERSION ? legacyCarryCode(result.code) : result.code;
+    const order = protocolVersion < BOAT_PRICE_PROTOCOL_VERSION ? legacyOrderCode(carry) : carry;
     const gear = protocolVersion < GEAR_PROTOCOL_VERSION ? legacyGearCode(order) : order;
     const hold = protocolVersion < HOLD_PROTOCOL_VERSION ? legacyHoldCode(gear) : gear;
     const voyage = protocolVersion < VOYAGE_PROTOCOL_VERSION ? legacyVoyageCode(hold) : hold;

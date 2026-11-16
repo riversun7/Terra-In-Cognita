@@ -34,6 +34,10 @@
 //   창고, 없으면 도시 칸. 운반꾼이 없으면 unknown_unit·unit_busy(물건은 건물 창고에 그대로).
 // - 거래소 넣기(haulIn, 기획 D-564 1628·D-569 1784, docs/adr/2026-11-16-exchange-buildings.md): 도시 창고 → 물자 거래소 건물 창고도 운반꾼(받을 사람의 그
 //   2차맵 유닛 — 거래소 건물에는 일꾼 자리가 없다)이 도시 칸 → 건물 가운데를 같은 셈 시간으로 나른다. 옮김 셈 끔·거리 0이면 바로(exchange_deposit).
+//   바뀜 (질문 2084, 줄기 exchange-3): 그 거래소에서 나를 위해 일하는 거래 직무 유닛(사이보그 본체도)이 먼저 나르고, 그 유닛이 나르면 시간이 설정 칸
+//   exchange_desk_haul_pm 배(haulTime). 묶음 1116n부터 거래소 넣기도 아래 carry 한 길이다.
+// - 배 상하역(기획 D-555 1505 "어떤 유닛이든 실제로 옮겨야", boats/cargo.ts): 거래소 넣기와 같은 운반 하나(carry)로 배 창고 ↔ 항구 옆 거래소 건물 창고·
+//   도시 창고를 나른다. 운반꾼은 그 배 시설 일꾼 → 배 주인의 그 2차맵 유닛(배에 탄 유닛은 빼낸다 — gather/world.ts ownUnits).
 // - 오브젝트 규칙(기획 D-552 "직접 채집과 일꾼 채집이 같은 규칙", docs/adr/2026-11-15-gather-object-tiers.md): objects 채집소 일꾼의 k번째 묶음은
 //   번수를 쓸 차례(가까운 것부터)의 k번째 오브젝트 규칙(사다리·티어 범위·대표 아이템·굴림표 — objectYield.ts objectRollOf)으로 굴린다(lotRoll).
 // [임시] 일꾼 상태·끝낸 묶음 수·피로 나머지는 메모리에만 있다(다시 켜면 0부터). 정산이 길게 밀리면(오프라인) 그 사이 다시 자란 번수는 세지 못하고
@@ -209,8 +213,40 @@ export interface StationRuntime {
     qty: bigint,
     atMs: number,
   ): FacilityResultCode | null | undefined;
+  /** 실제 운반 하나(CarrySpec — 거래소 넣기·배 상하역이 같이 쓴다) */
+  carry(spec: CarrySpec): CarryResult;
+  /** 그 원장 자리로 나르는 중인 짐 무게(g) — 배 싣기가 창고 상한에 미리 센다 */
+  inbound(location: number): bigint;
   stop(): void;
 }
+
+/** 실제 운반 하나(기획 D-555 1505) */
+export interface CarrySpec {
+  /** 물건 주인(운반꾼은 이 주인 몫을 진다) */
+  readonly ownerId: number;
+  /** 운반꾼을 고르는 건물(그 건물 일꾼 먼저, 같은 건물·주인 짐은 합친다) */
+  readonly buildingId: number;
+  readonly mapKey: number;
+  readonly cityId: number;
+  /** 꺼내는 원장 위치 / 닿으면 넣는 원장 위치 */
+  readonly source: number;
+  readonly deliverTo: number;
+  /** 걷는 길(배치 칸) — 거리 셈과 운반꾼 걸음 */
+  readonly from: { readonly x: number; readonly y: number };
+  readonly to: { readonly x: number; readonly y: number };
+  readonly loads: readonly { readonly asset: string; readonly qty: bigint }[];
+  readonly atMs: number;
+  /** 바로 옮길 때(옮김 셈 끔·거리 0) 거래 이름 */
+  readonly instantKind: string;
+  /** 닿을 때 받을 자리를 다시 고른다(porter.ts PorterTrip.redirect) */
+  readonly redirect?: (() => number | undefined) | undefined;
+}
+
+/** 실제 운반 결과: 닿는 시각(바로 옮겼으면 atMs, porter 없음)이나 운반꾼이 없는 까닭 */
+export type CarryResult =
+  | { readonly arriveAtMs: number; readonly porter?: number }
+  | "unit_busy"
+  | "unknown_unit";
 
 /** setTimeout 지연 상한 */
 const MAX_TIMER_MS = 0x7fff_ffff;
@@ -699,6 +735,74 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     return null;
   };
 
+  /**
+   * 실제 운반(기획 D-555 1505 "어떤 유닛이든 실제로 옮겨야"): 거래소 넣기·배 상하역(boats/cargo.ts)이 같이 쓴다. 운반꾼 = 그 건물 일꾼 → 물건 주인의
+   * 그 2차맵 유닛(porters.pick — 거래소 거래 직무 자리면 나를 위해 일하는 유닛만), 걸리는 시간 = haulMs(전체 무게, from → to 체비셰프 칸, 운반꾼
+   * 하나) × haulTime(운반꾼 빠르기, 거래 직무 배율). 옮김 셈 끔·거리 0이면 바로 옮긴다
+   */
+  const carry = (spec: CarrySpec): CarryResult => {
+    const world = deps.places();
+    const catalog = world?.catalog();
+    const loads = spec.loads
+      .filter((load) => load.qty > 0n)
+      .map((load) => ({
+        asset: load.asset,
+        qty: load.qty,
+        grams: catalog ? load.qty * assetWeightG(catalog, load.asset) : 0n,
+      }));
+    const grams = loads.reduce((sum, load) => sum + load.grams, 0n);
+    const cells = Math.max(Math.abs(spec.to.x - spec.from.x), Math.abs(spec.to.y - spec.from.y));
+    const rules = deps.rules();
+    if (!haulOn(rules) || haulMs(grams, cells, 1, rules) <= 0) {
+      const entries: { account: number; amount: bigint }[] = [];
+      for (const load of loads)
+        entries.push(
+          { account: ledger.ownerAccount(spec.ownerId, load.asset, spec.source), amount: -load.qty },
+          { account: ledger.ownerAccount(spec.ownerId, load.asset, spec.deliverTo), amount: load.qty },
+        );
+      if (entries.length > 0) ledger.post({ kind: spec.instantKind, atMs: spec.atMs, entries });
+      return { arriveAtMs: spec.atMs };
+    }
+    const porter = porters.pick(spec.buildingId, spec.mapKey, spec.ownerId, spec.atMs);
+    if (porter === undefined) {
+      const map = maps.get(spec.mapKey);
+      // 거래소 거래 직무 자리(질문 2084)는 나를 위해 일하는 유닛만 후보다(porter.ts pick과 같은 걸러내기)
+      const desk = deps.deskHaulPm?.(spec.buildingId) !== undefined;
+      const candidates = [
+        ...(deps.workersAt?.(spec.buildingId) ?? [])
+          .filter((worker) => !desk || (worker.forOwnerId ?? worker.workerOwnerId) === spec.ownerId)
+          .map((worker) => worker.unitId),
+        ...(deps.ownUnits?.(spec.ownerId, spec.mapKey) ?? []),
+      ];
+      return candidates.some((unitId) => map?.unitInfo(unitId) !== undefined) ? "unit_busy" : "unknown_unit";
+    }
+    const trip = porters.depart({
+      buildingId: spec.buildingId,
+      ownerId: spec.ownerId,
+      cityId: spec.cityId,
+      mapKey: spec.mapKey,
+      porter,
+      stationLocation: spec.source,
+      loads,
+      from: spec.from,
+      to: spec.to,
+      nowMs: spec.atMs,
+      // 운영자 빠르기·거래 직무 배율(haulTime — 거래소 넣기에서 거래 직무 유닛이 나르면 exchange_desk_haul_pm배, 질문 2084)
+      timeMs: (total) =>
+        haulTime(haulMs(total, cells, 1, deps.rules()), spec.mapKey, spec.buildingId, porter),
+      deliverTo: spec.deliverTo,
+      redirect: spec.redirect,
+    });
+    rearm();
+    return { arriveAtMs: trip.arriveAtMs, porter };
+  };
+
+  const inbound = (location: number): bigint => {
+    let grams = 0n;
+    for (const trip of porters.trips.values()) if (trip.deliverTo === location) grams += trip.grams;
+    return grams;
+  };
+
   const haulIn = (
     ownerId: number,
     buildingId: number,
@@ -714,47 +818,22 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     if (!asset.startsWith("item:")) return "not_storage";
     const cityId = target.cityId;
     const source = cityLocation(cityId);
-    const deliverTo = buildingLocation(buildingId);
     if (qty <= 0n || ledger.balanceOf(ownerId, asset, source) < qty) return "insufficient_materials";
     const city = world.cities().find((entry) => entry.id === cityId);
-    const from = city ? { x: city.x, y: city.y } : { x: target.x, y: target.y };
-    const to = centerOf(target.mapKey, buildingId) ?? { x: target.x, y: target.y };
-    const cells = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y));
-    const grams = qty * assetWeightG(world.catalog(), asset);
-    const rules = deps.rules();
-    if (!haulOn(rules) || haulMs(grams, cells, 1, rules) <= 0) {
-      ledger.post({
-        kind: "exchange_deposit",
-        atMs,
-        entries: [
-          { account: ledger.ownerAccount(ownerId, asset, source), amount: -qty },
-          { account: ledger.ownerAccount(ownerId, asset, deliverTo), amount: qty },
-        ],
-      });
-      return null;
-    }
-    const porter = porters.pick(buildingId, target.mapKey, ownerId, atMs);
-    if (porter === undefined) {
-      const map = maps.get(target.mapKey);
-      const own = deps.ownUnits?.(ownerId, target.mapKey) ?? [];
-      return own.some((unitId) => map?.unitInfo(unitId) !== undefined) ? "unit_busy" : "unknown_unit";
-    }
-    porters.depart({
-      buildingId,
+    const carried = carry({
       ownerId,
-      cityId,
+      buildingId,
       mapKey: target.mapKey,
-      porter,
-      stationLocation: source,
-      loads: [{ asset, qty, grams }],
-      from,
-      to,
-      nowMs: atMs,
-      timeMs: (total) => haulTime(haulMs(total, cells, 1, deps.rules()), target.mapKey, buildingId, porter),
-      deliverTo,
+      cityId,
+      source,
+      deliverTo: buildingLocation(buildingId),
+      from: city ? { x: city.x, y: city.y } : { x: target.x, y: target.y },
+      to: centerOf(target.mapKey, buildingId) ?? { x: target.x, y: target.y },
+      loads: [{ asset, qty }],
+      atMs,
+      instantKind: "exchange_deposit",
     });
-    rearm();
-    return null;
+    return typeof carried === "string" ? carried : null;
   };
 
   const haulEvery = (): number => Math.max(0, Math.floor(deps.rules().gatherObjects.stationHaulMs));
@@ -822,6 +901,8 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     },
     haulOut,
     haulIn,
+    carry,
+    inbound,
     stop() {
       stopped = true;
       if (timer) clearTimeout(timer);

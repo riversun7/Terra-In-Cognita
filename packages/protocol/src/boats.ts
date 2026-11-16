@@ -37,6 +37,12 @@ export const GEAR_PROTOCOL_VERSION = 49;
  */
 export const BOAT_PRICE_PROTOCOL_VERSION = 51;
 
+/**
+ * 실제 운반 판(묶음 1116n 합친 판 52, 줄기 boats-5 판 58 — 기획 대조 boats-5, D-555 1505 "어떤 유닛이든 실제로 옮겨야"): 배 내리기·싣기를 운반꾼이 나른다. 운반꾼으로 쓸 유닛이 없으면 결과 코드
+ * no_carrier — 이 판 연결에만, 그 아래는 legacyCarryCode로 낮춘다. 메시지 꼴은 그대로(걷는 중이면 ok + walking·readyAtMs = 닿는 시각)
+ */
+export const BOAT_CARRY_PROTOCOL_VERSION = 52;
+
 /** 받기 범위(@terra/shared/harbor HARBOR_ACCESS와 같다 — 이 꾸러미는 shared를 가져오지 않는다) */
 export const HARBOR_ACCESS_VALUES = ["owner", "nation", "peace"] as const;
 /** 조선소 모듈(@terra/shared/harbor SHIPYARD_MODULES와 같다) */
@@ -145,7 +151,8 @@ export const boatSeizeMessage = z.object({
 });
 
 /**
- * 배 창고를 내린다(43판부터, D-568): 교역 부두(시간을 사고 대어 있을 때 — 그 도시의 내 창고로, 거기서 거래소에 판다)나 내 배 시설·창고 둘레(내 창고로)
+ * 배 창고를 내린다(43판부터, D-568): 교역 부두(시간을 사고 대어 있을 때 — 그 도시의 내 창고로, 거기서 거래소에 판다)나 내 배 시설·창고 둘레(내 창고로).
+ * 52판부터 정박 = 시간을 산 교역 부두·집 정박장(조선소 아님), 운반꾼이 항구 옆 거래소 건물 창고·도시 창고로 나른다(ok + walking·readyAtMs, 없으면 no_carrier)
  */
 export const boatUnloadMessage = z.object({
   t: z.literal("boat_unload"),
@@ -156,7 +163,7 @@ export const boatUnloadMessage = z.object({
 
 /**
  * 내 배 함포 칸(slot = 칸 차례)에 포획 장비를 단다(49판부터, D-570 1821). item null = 떼기(장비는 배 창고로). 정박한 항구(내 배 시설·시간을 산 교역 부두)
- * 둘레에서만 — 장비는 배 창고 → 그 도시 내 창고 차례로 꺼낸다
+ * 둘레에서만 — 장비는 배 창고 → 그 도시 내 창고 차례로 꺼낸다. 52판부터 정박 = 시간을 산 교역 부두·집 정박장, 장비는 배 창고에서만(떼면 배 창고로만, 차면 hold_full)
  */
 export const boatGearMessage = z.object({
   t: z.literal("boat_gear"),
@@ -169,7 +176,8 @@ export const boatGearMessage = z.object({
 
 /**
  * 배 창고에 싣는다(49판부터, D-570 1823 "물건 상하역"). 정박한 항구(내 배 시설·시간을 산 교역 부두) 둘레에서 그 도시 내 창고(항구 옆 물자 거래소 건물 창고가
- * 먼저)의 물건을 묶음 수(lots)만큼. 배 창고 상한을 넘으면 hold_full
+ * 먼저)의 물건을 묶음 수(lots)만큼. 배 창고 상한을 넘으면 hold_full. 52판부터 정박 = 시간을 산 교역 부두·집 정박장, 운반꾼이 배로 나른다(ok + walking·readyAtMs,
+ * 없으면 no_carrier, 나르는 중인 짐도 상한에 센다)
  */
 export const boatLoadMessage = z.object({
   t: z.literal("boat_load"),
@@ -294,6 +302,9 @@ export const BOAT_RESULT_CODES = [
   // ---------- 51판부터(기획 대조 2057·2072·2074) ----------
   /** 그 조선소가 그 배 종류의 판매가를 0으로 정했다(만들지 않음) */
   "order_closed",
+  // ---------- 52판부터(묶음 1116n — 줄기 boats-5 판 58, D-555 1505) ----------
+  /** 내리기·싣기: 물건을 나를 유닛(그 배 시설 일꾼·그 2차맵의 내 유닛, 배에 탄 유닛 빼고)이 없거나 모두 바쁘다 */
+  "no_carrier",
 ] as const;
 export type BoatResultCode = (typeof BOAT_RESULT_CODES)[number];
 
@@ -337,9 +348,14 @@ export const boatClientMessages = [
   boatLoadMessage,
 ] as const;
 
+/** 52판 결과 코드 → 51판 이하 연결이 아는 코드(운반꾼 없음은 unavailable로) */
+export function legacyCarryCode(code: BoatResultCode): BoatResultCode {
+  return code === "no_carrier" ? "unavailable" : code;
+}
+
 /** 51판 결과 코드 → 50판 이하 연결이 아는 코드(판매가 0 = 만들지 않음은 forbidden으로) */
 export function legacyOrderCode(code: BoatResultCode): BoatResultCode {
-  return code === "order_closed" ? "forbidden" : code;
+  return code === "order_closed" ? "forbidden" : legacyCarryCode(code);
 }
 
 /** 49판 결과 코드 → 48판 이하 연결이 아는 코드(boat_gear·boat_load는 그 연결이 보내지 않는다 — 옛 메시지에서 나올 수 있는 것만 중요하다) */
@@ -351,7 +367,7 @@ export function legacyGearCode(code: BoatResultCode): BoatResultCode {
     case "hold_full":
       return "busy";
     default:
-      // 51판 코드도 먼저 낮춘다(게이트웨이는 51 → 49 → 43 → 37 → 30 차례로 낮춘다)
+      // 51·52판 코드도 먼저 낮춘다(게이트웨이는 52 → 51 → 49 → 43 → 37 → 30 차례로 낮춘다)
       return legacyOrderCode(code);
   }
 }

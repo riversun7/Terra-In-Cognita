@@ -491,7 +491,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       ? startWorldBoats(world, {
           now,
           log: app.log,
-          gather: () => worldGather?.current()?.service,
+          gatherWorld: () => worldGather?.current(),
           kinds: () => options.gatherObjects ?? [],
         })
       : undefined;

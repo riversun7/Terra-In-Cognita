@@ -204,6 +204,9 @@
  *      market_locker_expand에 unitId(선택, 넓힐 내 유닛 창고), 새 코드 unknown_unit(51판 연결은 locker_max — market.ts UNIT_LOCKER_PROTOCOL_VERSION).
  *      business_price의 item에 service:fx_fee(외환 거래소 환전 이용료 요율, 만분율 — 51판 기기는 보내지 않는다). 남의 거래소 거래 직무는 labor_create
  *      lease(주인이 낸 자리 값) 꼴 그대로, 남의 거래소 labor_assign은 forbidden(다른 시설과 같다). 메시지 꼴은 더하기만 했다.
+ *    - 기획 대조 boats-5(줄기 판 58, docs/questions/2026-11-16-boats-4.md 2069·2070·2071 — D-555 1505·1514·D-559 1523·D-570 1830) — 배 내리기·싣기는
+ *      운반꾼이 나른다(boat_result ok에 walking·readyAtMs = 닿는 시각, 꼴 그대로). 새 결과 코드 no_carrier(51판 연결은 unavailable — boats.ts
+ *      BOAT_CARRY_PROTOCOL_VERSION·legacyCarryCode). 연료 보급·장비·상하역은 교역 부두(시간을 산 것, 제 부두도)와 집 정박장에서만(조선소 빼기, 꼴 그대로).
  */
 export const PROTOCOL_VERSION = 52;
 

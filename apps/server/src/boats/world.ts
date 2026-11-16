@@ -12,7 +12,8 @@ import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import { nationOfOwner } from "../world/nationVision.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { GatherKind } from "../gather/kinds.ts";
-import type { GatherService } from "../gather/service.ts";
+import type { GatherWorld } from "../gather/world.ts";
+import { exchangeRoom } from "../market/lockerRoom.ts";
 import { type NpcFleet, createNpcFleet } from "./npcFleet.ts";
 import { purgeLegacyBoats } from "./purge.ts";
 import { type BoatService, createBoatService } from "./service.ts";
@@ -29,8 +30,8 @@ export function startWorldBoats(
   options: {
     readonly now: () => number;
     readonly log: { info(obj: object, message: string): void; error(obj: object, message: string): void };
-    /** 채집 서비스(NPC 배 어부 — 없으면 NPC 배를 띄우지 않는다) */
-    readonly gather?: (() => GatherService | undefined) | undefined;
+    /** 채집 세계(NPC 배 어부의 채집 서비스, 배 상하역 운반꾼 — station.carry. 없으면 NPC 배를 띄우지 않고 상하역은 바로 옮긴다) */
+    readonly gatherWorld?: (() => GatherWorld | undefined) | undefined;
     readonly kinds?: (() => readonly GatherKind[]) | undefined;
   },
 ): WorldBoats {
@@ -112,6 +113,11 @@ export function startWorldBoats(
             }),
           );
         },
+        // 배 상하역 실제 운반(기획 D-555 1505 — 채집 세계의 운반꾼, gather/station.ts carry)
+        carrier: () => options.gatherWorld?.()?.station,
+        // 항구 옆 거래소 개인 창고(기획 D-571 1943): 차면 내리기는 도시 창고로
+        exchangeFits: (ownerId, exchangeId, asset, qty) =>
+          exchangeRoom(world, facilities, ownerId, exchangeId, asset, qty),
         writer: parts.writer,
         planetId: TEST_PLANET_ID,
         jobs,
@@ -125,7 +131,8 @@ export function startWorldBoats(
         catchCrew: (unitId) => service.catchCrew(unitId),
       });
       // NPC 배(기획 D-547 1497 — 플레이어와 같은 규칙): NPC 사회가 켜진 세계에서 세력 정박장마다(npcFleet.ts)
-      const gather = options.gather;
+      const gatherWorld = options.gatherWorld;
+      const gather = gatherWorld ? () => gatherWorld()?.service : undefined;
       if (gather)
         fleet = createNpcFleet({
           maps: world.maps,

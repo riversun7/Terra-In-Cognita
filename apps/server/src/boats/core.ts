@@ -16,6 +16,7 @@ import type { FacilityDef } from "../facilities/catalog.ts";
 import type { PlaceWorld } from "../facilities/places.ts";
 import type { FacilityRecord } from "../facilities/state.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import type { StationRuntime } from "../gather/station.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { BoatFacility, BoatJob, BoatState } from "./store.ts";
 
@@ -68,6 +69,18 @@ export interface BoatDeps {
    * 없으면 적정가 칸 없이
    */
   readonly fairOf?: ((buildingId: number, materials: bigint, ms: number) => FairPriceView) | undefined;
+  /**
+   * 실제 운반(기획 D-555 1505 "어떤 유닛이든 실제로 옮겨야" — gather/station.ts carry·inbound): 배 창고 ↔ 항구 옆 거래소 건물 창고·도시 창고를 운반꾼이 나른다.
+   * 없거나 undefined면 바로 옮긴다(시험·채집 세계가 아직 없을 때)
+   */
+  readonly carrier?: (() => Pick<StationRuntime, "carry" | "inbound"> | undefined) | undefined;
+  /**
+   * 그 물자 거래소 건물의 그 주인 개인 창고에 그 물건이 더 들어가나(기획 D-571 1943 — market/lockerRoom.ts). false면 내리기는 도시 창고로 간다.
+   * 없거나 undefined면 막지 않는다
+   */
+  readonly exchangeFits?:
+    | ((ownerId: number, exchangeId: number, asset: string, qty: bigint) => boolean | undefined)
+    | undefined;
   /** 작업·상태 줄 쓰기(없으면 메모리에만) */
   readonly writer?: Pick<WorldWriter, "upsert" | "remove"> | undefined;
   readonly planetId?: string | undefined;

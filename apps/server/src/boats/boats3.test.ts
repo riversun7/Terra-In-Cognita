@@ -118,7 +118,7 @@ describe("D-564·D-568 배 서비스", () => {
     expect(service.release("player", boatId, false)).toEqual({ ok: true, boatId });
   });
 
-  it("배 창고 내리기(D-568): 교역 부두는 시간을 사고 대어 있을 때 그 도시 내 창고로, 내 정박장은 대어 있으면", async () => {
+  it("배 창고 내리기(D-568): 교역 부두는 시간을 사고 대어 있을 때 그 도시 내 창고로, 정박장은 집 정박장에 대어 있으면", async () => {
     const { map, service, place, grant, ledger, facilities } = setup();
     const trade = place(TRADE, 40, 8);
     const berth = place(BERTH, 60, 7);
@@ -143,6 +143,9 @@ describe("D-564·D-568 배 서비스", () => {
     expect(service.unload(7, 1, berth, false)).toEqual({ ok: false, code: "not_moored" });
     expect((await map.moveUnit(1, anchorCenter(130, 61, 2))).ok).toBe(true);
     vi.setSystemTime(Date.now() + HOUR_MS);
+    // 내 정박장 둘레에 대어도 집 정박장이 아니면 정박이 아니다(정박료를 내는 집 — 기획 대조 boats-5, D-555 1514)
+    expect(service.unload(7, 1, berth, false)).toEqual({ ok: false, code: "not_moored" });
+    expect(await service.berth("player", 1, berth, false)).toEqual({ ok: true });
     expect(service.unload(7, 1, berth, false)).toEqual({ ok: true, boatId: 1 });
     expect(ledger.balanceOf(7, "item:fish", cityLocation(4))).toBe(1n);
     expect(boatsOn(map)).toEqual([1]);

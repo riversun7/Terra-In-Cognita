@@ -4,7 +4,9 @@
 // - 교역 부두: 임시 자리·머무는 배(남은 시간)·내 배 [N시간 사기]·받기 범위·한 시간 요금(주인).
 // - D-559: 조선소 모듈 자리(레벨마다 하나 더)·도크에 든 배([출고], 남의 배는 장기 보관료)·남의 조선소 [수리](받기 범위·수리 요금)·교역 부두 [연료 채우기]·
 //   요금 화폐(그 항구 나라 화폐).
-// - D-570: 내 배 줄마다 함포 칸 포획 장비·싣기(BoatPortRow.tsx), 연료 채우기는 내 배 시설에서도(1830), 항구 옆 거래소 알림(1823).
+// - D-570: 내 배 줄마다 함포 칸 포획 장비·싣기(BoatPortRow.tsx), 연료 채우기는 정박하는 곳에서(1830), 항구 옆 거래소 알림(1823).
+// - 기획 대조 boats-5: 내리기·연료·장비·싣기는 정박하는 곳에서만 — 교역 부두(시간을 사서, 제 부두도)와 그 배의 집 정박장. 조선소는 아니다(D-559 1523).
+//   내리기·싣기는 운반꾼이 나른다(D-555 1505 — 알림에 닿는 시간).
 // - 금고(사업장 장부, D-548)는 주인에게만 보인다. 서버가 소유·거리·자리·받기 범위·돈을 다시 본다. 결과는 판 아래 한 줄에 알리고 판을 다시 읽는다.
 import { fairText } from "../business/businessText.ts";
 import type {
@@ -96,6 +98,10 @@ export function HarborPanel({
       })
       .finally(() => setSending(false));
   };
+
+  // 정박하는 곳(기획 대조 boats-5 — D-559 1523·D-570 1830): 교역 부두, 또는 이 정박장이 그 배의 집일 때. 서버가 시간·거리를 다시 본다
+  const portHere = (boat: HarborBoatView): boolean =>
+    harbor.role === "trade_dock" || (harbor.role === "berth" && boat.homeId === buildingId);
 
   const roleTitle =
     harbor.role === "shipyard"
@@ -338,8 +344,8 @@ export function HarborPanel({
                     ? ` · ${m.harbor_hold({ kg: Math.floor(boat.holdGrams / 1000), cap: Math.floor(boat.holdCapGrams / 1000) })}`
                     : ""}
                 </span>
-                {/* 배 창고 내리기(D-568): 교역 부두(대어 있을 때)나 내 배 시설 → 그 도시 내 창고 */}
-                {(harbor.role === "trade_dock" || mine) && (boat.holdGrams ?? 0) > 0 ? (
+                {/* 배 창고 내리기(D-568): 교역 부두(시간을 산 것)나 집 정박장 → 항구 옆 거래소·그 도시 내 창고(운반꾼이 나른다 — D-555 1505) */}
+                {portHere(boat) && (boat.holdGrams ?? 0) > 0 ? (
                   <button
                     type="button"
                     className="button-small harbor-unload"
@@ -359,7 +365,8 @@ export function HarborPanel({
                     {m.harbor_repair()}
                   </button>
                 ) : null}
-                {harbor.role === "trade_dock" || mine ? (
+                {/* 연료 보급(D-570 1830 "교역 부두와 내 정박장 모두" — 조선소는 아니다, D-559 1523) */}
+                {portHere(boat) ? (
                   <button
                     type="button"
                     className="button-small harbor-refuel"
@@ -402,8 +409,10 @@ export function HarborPanel({
                     {m.harbor_buy_time({ hours, fee: harbor.fee * hours })}
                   </button>
                 ) : null}
-                {/* 함포 칸 포획 장비·싣기(D-570 1821·1823) */}
-                <BoatPortRow boat={boat} buildingId={buildingId} sending={sending} run={run} />
+                {/* 함포 칸 포획 장비·싣기(D-570 1821·1823) — 정박하는 곳에서만 */}
+                {portHere(boat) ? (
+                  <BoatPortRow boat={boat} buildingId={buildingId} sending={sending} run={run} />
+                ) : null}
               </li>
             ))}
           </ul>

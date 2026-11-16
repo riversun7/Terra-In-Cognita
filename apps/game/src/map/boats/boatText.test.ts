@@ -148,4 +148,12 @@ describe("배 체계 개편(D-547) 문구", () => {
     expect(status).toContain("45%");
     expect(status).toContain("표류");
   });
+
+  it("실제 운반(기획 대조 boats-5): 운반꾼이 걷는 중이면 남은 시간, 운반꾼이 없으면 그 까닭", () => {
+    const now = 1_000_000;
+    const carrying = { ok: true as const, walking: true, readyAtMs: now + 90_000 };
+    expect(boatOutcomeText("unload", carrying, now)).not.toBe(boatOutcomeText("unload", { ok: true }, now));
+    expect(boatOutcomeText("load", carrying, now)).not.toBe(boatOutcomeText("load", { ok: true }, now));
+    expect(boatOutcomeText("load", { ok: false, code: "no_carrier" })).not.toContain("no_carrier");
+  });
 });

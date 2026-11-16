@@ -56,7 +56,6 @@ import {
   catchmentSettingsOf,
   createCatchmentState,
   haulOn,
-  restsPerDay,
   haulTimeMs,
   walkMsPerCell,
   isSelectRecipe,
@@ -71,6 +70,7 @@ import type { WorkFacility } from "./humanPlaces.ts";
 import { type CarryBoard, createCarryBoard, peopleCounter } from "./npcCarry.ts";
 import { EVENT_NPC_DELIVER, type NpcBusiness, createNpcDeliveries } from "./npcDelivery.ts";
 import { shopPriceSource } from "./npcShopPrice.ts";
+import { createNpcWages } from "./npcWages.ts";
 import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { rulingVaultOf } from "../factionIdentity/houseVault.ts";
@@ -136,7 +136,7 @@ export interface NpcEconomyInput {
    * 사업장 장부(D-548·D-555, docs/adr/2026-11-15-business-ledger.md): 남의 숙소 요금은 그 숙소 금고로 든다(소득세 포함). 없으면 숙소 주인
    * 지갑(옛 길, 시험)
    */
-  readonly business?: (NpcBusiness & Pick<BusinessCore, "settle">) | undefined;
+  readonly business?: (NpcBusiness & Pick<BusinessCore, "settle" | "vault" | "taxIncome">) | undefined;
   /** 팩 기준 값(1단위 — 사업장 판매 기본 값, NPC 시설 판매가의 기준, 2153). 없으면 NPC는 값을 정하지 않는다 */
   readonly unitPriceOf?: ((asset: string) => bigint | undefined) | undefined;
   /** 시뮬 경제 목록(없으면 경제 끔) */
@@ -434,7 +434,14 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       catchmentSettingsOf(o.rules().worldSeed, o.rules().territory),
     );
   if (economy.catchment && o.catchmentSaved) restoreCatchment(economy.catchment, o.catchmentSaved, world);
-  const run = runEconomy(economy, world, loop, o.rules().npc, o.goodsHome);
+  // NPC 휴먼 일꾼 임금·숙박비(질문 2236, npcWages.ts) — restPlans·runs는 아래에서 만든다(부를 때 읽는다)
+  const wagesRef: { current?: ReturnType<typeof createNpcWages> } = {};
+  const run = runEconomy(economy, world, loop, o.rules().npc, o.goodsHome, {
+    rules: () =>
+      wagesRef.current?.living.rules() ?? { wageMode: 0, wagePm: 0, baseDailyWage: 0n, foodEfficiency: [] },
+    wageSource: (input) => wagesRef.current?.living.wageSource?.(input),
+    lodgingDue: (cityId) => wagesRef.current?.living.lodgingDue?.(cityId),
+  });
   // 처음 발행(E6): 찍는 나라마다 한 번
   for (const [currency, amount] of mintNationCurrencies({
     world,
@@ -498,6 +505,16 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   const restPlans = new Map<number, CityRestPlan>();
   /** 시설 → 시작·끝 시각(화면용) */
   const runs = new Map<number, { startedAtMs: number; endsAtMs: number | null; buildingId: number | null }>();
+  wagesRef.current = createNpcWages({
+    book,
+    world,
+    economy,
+    business: o.input.business,
+    restPlans,
+    currencyOf: (owner) => currencyOf.get(owner) ?? ASSET_CREDIT,
+    buildingOf: (facilityId) => runs.get(facilityId)?.buildingId ?? null,
+    rules: o.rules,
+  });
   const noteRun = (facility: EcoFacility, nowMs: number, buildingId: number | null): void => {
     runs.set(facility.id, {
       startedAtMs: nowMs,
@@ -656,62 +673,6 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       scheduleProduce(economy, world, loop, facility, nowMs);
       noteRun(facility, nowMs, want.buildingId);
     }
-  };
-  /**
-   * 숙소 요금(D-245 "요금은 시설 주인이", 설정 칸 lodging_fee_per_night [임시]): 하루 끝에 그 도시 일꾼이 쓴 남의 숙소(도시 주인 세력이 아닌
-   * 주인 — 플레이어가 NPC 도시에 지은 숙소 등)마다 일꾼 × 하루 쉬는 번 수 × 요금을 도시 주인 국고(나라 화폐)에서 숙소 주인에게 낸다.
-   * 국고가 모자라면 남은 만큼만. 받는 곳은 그 숙소 사업장 금고(D-548). 사업장 장부가 있으면 도시 주인 세력의 숙소도 낸다(D-555 1509 — NPC도
-   * 플레이어와 같다, 금고 돈은 자동 정산으로 국고에 돌아간다). 장부가 없으면(시험) 같은 주머니라 오가지 않는다
-   */
-  const chargeLodgingFees = (nowMs: number): { paid: bigint; lodgings: number } => {
-    const c = o.rules();
-    const fee = BigInt(Math.max(0, Math.trunc(c.logistics.lodgingFeePerNight)));
-    let paid = 0n;
-    let lodgings = 0;
-    if (fee <= 0n) return { paid, lodgings };
-    for (const [cityId, plan] of [...restPlans].toSorted((a, b) => a[0] - b[0])) {
-      const city = world.cities.get(cityId);
-      if (!city) continue;
-      const currency = currencyOf.get(city.owner) ?? ASSET_CREDIT;
-      const due = new Map<number, bigint>();
-      for (const worker of plan.workers) {
-        if (worker.lodgingId === null) continue;
-        const owner = plan.owners.get(worker.lodgingId) ?? null;
-        // 도시 주인 세력의 숙소도 요금을 낸다(사업장 장부가 있을 때 — D-555 1509·1514, NPC도 플레이어와 같다). 장부가 없으면 같은 주머니라 건너뛴다
-        if (owner === null || (owner === city.owner && !o.input.business)) continue;
-        const nights = BigInt(restsPerDay(worker.place, worker.commuteCells, c));
-        due.set(worker.lodgingId, (due.get(worker.lodgingId) ?? 0n) + nights * fee);
-      }
-      for (const [lodgingId, amount] of due) {
-        const owner = plan.owners.get(lodgingId);
-        if (owner === null || owner === undefined) continue;
-        const from = book.ownerAccount(city.owner, currency);
-        const pay = book.balance(from) < amount ? book.balance(from) : amount;
-        if (pay <= 0n) continue;
-        // 사업장 금고로(D-548) — 장부가 없으면 숙소 주인 지갑(옛 길)
-        const vaulted = o.input.business?.receive({
-          from,
-          buildingId: lodgingId,
-          asset: currency,
-          amount: pay,
-          kind: "lodging_fee",
-          atMs: nowMs,
-        });
-        if (!vaulted)
-          book.post({
-            kind: "lodging_fee",
-            atMs: nowMs,
-            key: `lodging_fee:${cityId}:${lodgingId}:${nowMs}`,
-            entries: [
-              { account: from, amount: -pay },
-              { account: book.ownerAccount(owner, currency), amount: pay },
-            ],
-          });
-        paid += pay;
-        lodgings += 1;
-      }
-    }
-    return { paid, lodgings };
   };
 
   /**
@@ -908,8 +869,9 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     },
     afterDay(nowMs, day) {
       o.log.info({ npcEcon: { day, ...run.dayLine() } }, "npc economy day");
-      const fees = chargeLodgingFees(nowMs);
-      if (fees.paid > 0n)
+      // 숙박비(npcWages.ts): 휴먼 지갑에서(옛 판은 국고에서)
+      const fees = wagesRef.current?.chargeLodgingFees(nowMs);
+      if (fees && (fees.paid > 0n || fees.short > 0))
         o.log.info({ npcLodgingFees: { day, ...fees, paid: String(fees.paid) } }, "npc lodging fees");
       syncAll(nowMs);
     },

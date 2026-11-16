@@ -48,6 +48,7 @@ import { clampCondition } from "../society/condition.ts";
 import { START_GATHER_OBJECTS } from "../society/gatherObjects.ts";
 import { haulTimeMs } from "../society/logistics.ts";
 import { type CatchmentState, catchmentPlaceOf, facilitySupplyPm } from "./catchmentRun.ts";
+import { noteServed, pursePlacesOf } from "./humanPurse.ts";
 import { npcTierRollOf } from "@terra/shared/npcGatherTiers";
 import {
   type CatalogGather,
@@ -206,6 +207,8 @@ export interface Economy {
     burned: Map<string, bigint>;
     /** 오늘 생산한 양(물건 자산 → 기본 단위) */
     produced: Map<string, bigint>;
+    /** 도시 → 생필품 → 경계마다 받은 사람 수(휴먼 지갑 생활비, humanPurse.ts noteServed). 하루 끝 livingDay가 비운다 */
+    served?: Map<number, Map<string, number[]>> | undefined;
   };
 }
 
@@ -698,6 +701,7 @@ export function onUpkeep(
       consumeAccount(world.book),
       nowMs,
     );
+    noteServed(economy, cityId, spec.asset, paid.servedUnits);
     economy.today.dueByCity.set(cityId, (economy.today.dueByCity.get(cityId) ?? 0) + units);
     if (paid.shortUnits > 0)
       economy.today.shortByCity.set(cityId, (economy.today.shortByCity.get(cityId) ?? 0) + paid.shortUnits);
@@ -865,7 +869,15 @@ export function beforeCityTransfer(
       to.id,
       economy.taxOf.get(to.id) ?? 0,
     );
-  transferHoldings(world, from, to, (location) => location === cityId, nowMs);
+  // 그 도시 휴먼의 지갑(유닛 지갑 위치)도 새 주인 밑으로 — 휴먼이 함께 넘어간다(humanPurse.ts)
+  const purses = pursePlacesOf(world, cityId);
+  transferHoldings(
+    world,
+    from,
+    to,
+    (location) => location === cityId || (location !== null && purses.has(location)),
+    nowMs,
+  );
 }
 
 /**

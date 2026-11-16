@@ -71,6 +71,10 @@ export interface SimHooks {
    * 2223 고침). 시뮬은 가문 층이 없어 부르지 않는다
    */
   rulingVaultPaid?(faction: SimFaction, asset: string, nowMs: number): void;
+  /** 휴먼 지갑에 들 수 있는 화폐(simulator/humanPurse.ts — 죽은 휴먼 지갑 상속). 없으면 지갑을 보지 않는다(경제 없음) */
+  moneyAssets?(): readonly string[];
+  /** 도시 주인 바뀜 밖에서 휴먼의 주인이 바뀌었다(새 마을 등) — 지갑을 새 주인 밑으로 옮긴다 */
+  unitsOwnerChanged?(unitIds: readonly number[], from: number, to: number, nowMs: number): void;
   /** 세율(거래세 만분율): 지금 값·프리셋 기본값·바꾸기. 없으면 세율 규칙식이 돌지 않는다 */
   taxOf?(faction: SimFaction): number;
   baseTaxOf?(faction: SimFaction): number;

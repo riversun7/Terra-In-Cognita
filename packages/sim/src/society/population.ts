@@ -2,6 +2,7 @@
 // 기획: D-469(출생 없음 — 인구는 행정 건물 구인 카드로만 는다, society/recruitment.ts. 상속자는 소유자뿐, 유닛에게 자녀·배우자가 없다,
 // D-332 대체), D-021·D-395(수명·환생·신격화), S22(상속세는 그 도시 국고), D-438 4(환생 횟수는 그 유닛 것).
 // 판정은 시드 굴림(0~9999)을 받는다. 환생·신격화는 시설 서비스(D-395) 전 단계라 수명이 다했을 때의 확률로 둔다([임시]).
+import { unitPurseLocation } from "@terra/shared/businessBooks";
 import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
 import type { SocietyCoefficients } from "./coefficients.ts";
 
@@ -31,11 +32,44 @@ export function inherit(
   atMs: number,
   c: SocietyCoefficients,
 ): number {
-  const entries: LedgerEntry[] = [];
-  let assets = 0;
   const accounts = [...book.accounts()]
     .filter((a) => a.ownerId === wallet && a.location === null && a.balance > 0n)
     .toSorted((a, b) => a.id - b.id);
+  return inheritAccounts(book, accounts, owner, treasury, atMs, c);
+}
+
+/**
+ * 휴먼 지갑(유닛 주인, 화폐, 유닛 지갑 위치 — simulator/humanPurse.ts)의 상속: inherit와 같은 규칙(상속세 = 도시 국고, 나머지 = 소유자 = 지갑 주인).
+ * assets = 화폐 목록(그 밖의 자산 — 유닛이 실은 화물 — 은 보지 않는다). 옮긴 자산 수
+ */
+export function inheritPurse(
+  book: LedgerBook,
+  owner: number,
+  unitId: number,
+  treasury: number,
+  assets: readonly string[],
+  atMs: number,
+  c: SocietyCoefficients,
+): number {
+  const accounts = [];
+  for (const asset of assets) {
+    if (book.balanceOf(owner, asset, unitPurseLocation(unitId)) <= 0n) continue;
+    const id = book.ownerAccount(owner, asset, unitPurseLocation(unitId));
+    accounts.push({ id, asset, balance: book.balance(id) });
+  }
+  return inheritAccounts(book, accounts, owner, treasury, atMs, c);
+}
+
+function inheritAccounts(
+  book: LedgerBook,
+  accounts: readonly { readonly id: number; readonly asset: string; readonly balance: bigint }[],
+  owner: number | null,
+  treasury: number,
+  atMs: number,
+  c: SocietyCoefficients,
+): number {
+  const entries: LedgerEntry[] = [];
+  let assets = 0;
   for (const account of accounts) {
     const amount = account.balance;
     const tax = owner === null ? amount : (amount * BigInt(c.inheritanceTaxBp)) / 10_000n;

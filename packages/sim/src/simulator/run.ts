@@ -17,6 +17,7 @@ import type { Scenario } from "./scenario.ts";
 import type { EconomyCatalog } from "./catalog.ts";
 import { defaultGatherStat } from "./economy.ts";
 import { type EconomyRun, type EconomySummary, attachEconomy, systemRule } from "./economyRun.ts";
+import { npcBaseDailyWage } from "./humanPurse.ts";
 import {
   catchmentSettingsOf,
   createCatchmentState,
@@ -86,8 +87,10 @@ import {
  *    도시 수·건물 수·레벨 합·휴먼·인구 상한, 질문 1143 나)
  * 20: 요약 npc.cities에 leveled(레벨 2 이상 시설이 있는 도시 수, 질문 1186 나)
  * 21: 요약 npc.plots(NPC 면적 모듈 붙이기 시작한 수, 기획 D-569 1768)
+ * 22: econ 줄·요약 economy 칸에 living(NPC 휴먼 지갑 — 임금 받은·못 받은 일꾼 수, 화폐마다 임금·지갑에서 낸 생필품 값·주인 현물 부양, 지갑 합·국고 합,
+ *    질문 2236, simulator/humanPurse.ts)
  */
-export const SIM_OUTPUT_FORMAT = 21;
+export const SIM_OUTPUT_FORMAT = 22;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */
@@ -332,6 +335,15 @@ export function runSimulation(options: RunOptions): RunSummary {
             building: societyCoefficients.buildingGather,
           },
           ruinedGoodsHome(world, simCityDistance),
+          // NPC 휴먼 지갑·임금·생활비(humanPurse.ts — 설정 칸 business_npc_wage_*)
+          {
+            rules: () => ({
+              wageMode: societyCoefficients.business.npcWageMode,
+              wagePm: societyCoefficients.business.npcWagePm,
+              baseDailyWage: npcBaseDailyWage(societyCoefficients),
+              foodEfficiency: societyCoefficients.foodEfficiency,
+            }),
+          },
         )
       : undefined;
   // 배후지 채집 다툼(시나리오 catchment 칸, docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)"): 평면 배치

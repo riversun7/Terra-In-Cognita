@@ -13238,6 +13238,42 @@
       "source": "기획 대조 2153(D-564 1627 \"판매가를 정하고 모두가 그가격에 구매가능\" · D-570 1822 \"판매자가 정하지\" · D-555 1510) [임시]"
     },
     {
+      "id": "business_npc_wage_mode",
+      "code": "",
+      "name": {
+        "ko": "NPC 일꾼 임금(1 켬·0 끔)",
+        "en": "NPC worker wages (1 on, 0 off)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "1이면 하루 끝에 NPC 시설 일꾼 휴먼이 임금을 자기 지갑(사유재산)으로 받고, 휴먼은 그날 먹은 생필품 값과 숙박비를 그 지갑에서 낸다(지갑이 모자란 생필품은 주인이 현물로 부양, 숙박비 몫은 남긴다). 0이면 옛 판: 임금이 없고 숙박비는 도시 주인 국고가 낸다.",
+        "en": "1 pays NPC facility worker humans a daily wage into their own purse (private property) at the end of the day, and they pay for the necessities they ate and for lodging from it (necessities the purse cannot cover are provided in kind by the owner). 0 = old rule: no wage, the city owner's treasury pays lodging."
+      },
+      "source": "질문 2236(D-569 1782 · D-097 · D-555 1507 · 1509) [임시]"
+    },
+    {
+      "id": "business_npc_wage_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 일꾼 하루 임금(기준 임금 대비 ‰)",
+        "en": "NPC worker daily wage (‰ of base wage)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "NPC 시설 일꾼 하루 임금 = 기준 임금(플레이어 직무 배치와 같은 식: 새 유닛 평균 효율 × 기준 단가 n27_wage_rate_milli, 조정 1000‰) × 이 값 ÷ 1000. 임금은 시설 금고(도시 직무는 국고)에서 그 휴먼 지갑으로 간다. 높이면 생필품 값을 내고 남는 돈이 지갑에 쌓인다.",
+        "en": "NPC facility worker daily wage = base wage (same formula as a player's job assignment: new-unit average efficiency × base rate n27_wage_rate_milli, adjustment 1000‰) × this ÷ 1000. The wage goes from the facility vault (the treasury for city jobs) to that human's purse. Higher values leave money in purses after paying for necessities."
+      },
+      "source": "질문 2291 [임시]"
+    },
+    {
       "id": "exchange_fee_bp",
       "code": "",
       "name": {

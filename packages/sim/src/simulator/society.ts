@@ -20,7 +20,7 @@ import {
   resolveOffer,
   settleShares,
 } from "../society/occupation.ts";
-import { deathFate, inherit, lifespanMs } from "../society/population.ts";
+import { deathFate, inherit, inheritPurse, lifespanMs } from "../society/population.ts";
 import {
   type RecruitCoefficients,
   type RecruitProfile,
@@ -454,6 +454,13 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       };
       world.cities.set(city.id, city);
       child.cities.add(city.id);
+      // 휴먼 지갑도 새 세력 밑으로(humanPurse.ts)
+      o.hooks?.unitsOwnerChanged?.(
+        movers.map((unit) => unit.id),
+        parent.id,
+        child.id,
+        nowMs,
+      );
       for (const unit of movers) {
         parent.units.delete(unit.id);
         child.units.add(unit.id);
@@ -663,6 +670,18 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           o.onDeath?.(unit, nowMs);
           counts.deaths += 1;
         }
+        // 휴먼 지갑(유닛 지갑 위치, humanPurse.ts): 떠나는 휴먼(사망·신격화)의 지갑은 상속 규칙으로(돈이 사라진 유닛에 남지 않게)
+        const assets = o.hooks?.moneyAssets?.();
+        if (assets)
+          inheritPurse(
+            book,
+            unit.owner,
+            unit.id,
+            world.cities.get(unit.city)?.owner ?? unit.owner,
+            assets,
+            nowMs,
+            c,
+          );
         removeUnit(unit);
       }
 

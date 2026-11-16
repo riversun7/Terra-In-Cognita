@@ -24,7 +24,29 @@ export {
   type CityDistance,
   type RuinedGoodsHome,
 } from "./ruinedGoods.ts";
-export { runEconomy, type EconomyRun, type EconomySummary } from "./economyRun.ts";
+export {
+  runEconomy,
+  type EconomyRun,
+  type EconomySummary,
+  type LivingOptions,
+  type LivingSummary,
+} from "./economyRun.ts";
+// NPC 휴먼 지갑·임금·생활비(질문 2236 — 서버 npc/npcWages.ts가 숙박비·금고 고리를 붙인다)
+export {
+  cityUnitOrder,
+  cityWorkerUnits,
+  humanPurseAccount,
+  livingDay,
+  moneyAssets,
+  movePurses,
+  npcBaseDailyWage,
+  npcDailyWage,
+  purseTotals,
+  type CityWorker,
+  type LivingDay,
+  type NpcLivingHooks,
+  type NpcLivingRules,
+} from "./humanPurse.ts";
 // 배후지 채집 다툼(docs/adr/2026-11-11-city-catchment.md "바뀜 (2026-11-12)" — 서버는 행성 1차맵 칸·원자재 비트로 칸 자리를 준다)
 export {
   catchmentLine,

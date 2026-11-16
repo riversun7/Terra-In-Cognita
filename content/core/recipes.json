@@ -386,6 +386,54 @@
       ],
       "work": 750,
       "enabled": true
+    },
+    {
+      "id": "make_fishing_net",
+      "name": {
+        "ko": "그물 만들기",
+        "en": "Make fishing net"
+      },
+      "facility": "workshop",
+      "inputs": [
+        {
+          "item": "plant_fiber",
+          "qty": 6
+        }
+      ],
+      "outputs": [
+        {
+          "item": "fishing_net",
+          "qty": 1
+        }
+      ],
+      "work": 500,
+      "enabled": true
+    },
+    {
+      "id": "make_longline_rig",
+      "name": {
+        "ko": "주낙 장비 만들기",
+        "en": "Make longline rig"
+      },
+      "facility": "workshop",
+      "inputs": [
+        {
+          "item": "plant_fiber",
+          "qty": 4
+        },
+        {
+          "item": "iron_ingot",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "longline_rig",
+          "qty": 1
+        }
+      ],
+      "work": 800,
+      "enabled": true
     }
   ]
 }

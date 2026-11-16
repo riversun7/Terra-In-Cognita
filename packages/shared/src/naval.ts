@@ -10,8 +10,10 @@
  * - engine(엔진실): 오버히트 내구도 닳음을 줄인다.
  * - deck(갑판병): 바다에서 기본 수리(상한까지).
  * - pilot(조종사): 항공모함 격납고 틀(아직 쓰지 않는다 — 함급 hangar가 0이면 둘 수 없다).
+ * - fisher(낚시 선원, 기획 D-570 1821 "함포처럼 채집사이클 및 포획장비마다 유닛배치. 어선은 함장1명 및 낚시선원 3명"): 함포 칸에 단 포획 장비 하나에
+ *   한 명(화포수와 같은 틀). 포획 장비가 붙은 낚시 선원만 배 채집 일꾼이다(gather/boatCrew.ts).
  */
-export const CREW_POSTS = ["captain", "gunner", "engine", "deck", "pilot"] as const;
+export const CREW_POSTS = ["captain", "gunner", "engine", "deck", "pilot", "fisher"] as const;
 export type CrewPost = (typeof CREW_POSTS)[number];
 
 /** 함포 규격(D-559 1533 "함포 및 포탄 규격화") — 소·중·대구경 */
@@ -43,7 +45,39 @@ export const NAVAL_LIMITS = {
   /** 태우는 연료 아이템 줄 수·한 개가 채우는 연료(단위, D-564 1687 — 연료는 아이템만) */
   fuelItems: 8,
   fuelUnits: { min: 1, max: 1_000_000 },
+  /** 달 수 있는 포획 장비 줄 수(D-570 1821) */
+  catchGear: 8,
 } as const;
+
+/**
+ * 포획 장비 한 줄(기획 D-570 1821 "어선의 함포칸에 장비하는 포획장비에 따라 채집가능한 최대티어가 정해지고 유닛들마다 채집티어확률로 적용됨").
+ * 배 종류가 달 수 있는 아이템과 그 장비로 잡을 수 있는 가장 높은 티어. 장비는 함포 칸 하나에 하나 달고(그 칸의 함포는 쉰다), 낚시 선원 한 명이 맡는다
+ */
+export interface CatchGear {
+  readonly item: string;
+  readonly maxTier: number;
+}
+
+/**
+ * 함포 칸에 단 장비(배마다 칸 차례 — 칸 수 = 배 종류 함포 자리 수). null = 함포 그대로. 서버 boat_states.gear와 화면이 같은 모양을 쓴다.
+ * 칸 수보다 긴 줄·모르는 칸은 읽을 때 자른다
+ */
+export type GunSlotGear = readonly (string | null)[];
+
+/** 함포 칸 차례에서 장비가 달린 칸만 → 포획 장비(배 종류가 모르는 아이템은 버린다, 칸 차례) */
+export function mountedCatchGear(
+  gear: GunSlotGear,
+  slots: number,
+  options: readonly CatchGear[] | undefined,
+): { readonly slot: number; readonly gear: CatchGear }[] {
+  const out: { slot: number; gear: CatchGear }[] = [];
+  for (let slot = 0; slot < Math.min(slots, gear.length); slot += 1) {
+    const item = gear[slot];
+    const found = item === null || item === undefined ? undefined : options?.find((row) => row.item === item);
+    if (found) out.push({ slot, gear: found });
+  }
+  return out;
+}
 
 /** 연료 아이템 한 줄(그 아이템 1개 = 연료 units 단위) */
 export interface FuelItem {
@@ -64,7 +98,10 @@ export interface NavalSpec {
   readonly hangar: number;
 }
 
-/** 보직 자리 수(함장은 늘 1 — 함급에 0이어도 함장 자리는 있다, 조종사는 격납고가 있을 때만) */
+/**
+ * 보직 자리 수(함장은 늘 1 — 함급에 0이어도 함장 자리는 있다, 조종사는 격납고가 있을 때만). 낚시 선원은 함급 자리 수(D-570 1821 — 어선 3)이고,
+ * 일하는 수는 단 포획 장비 수까지다(gather — 장비 없는 선원은 쉰다)
+ */
 export function postSeats(spec: Pick<NavalSpec, "crew" | "hangar"> | undefined, post: CrewPost): number {
   if (post === "captain") return 1;
   if (post === "pilot" && (spec?.hangar ?? 0) <= 0) return 0;

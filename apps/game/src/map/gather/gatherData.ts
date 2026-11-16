@@ -106,6 +106,8 @@ export function stopText(stop: GatherStop): string {
       return m.gather_stop_no_path();
     case "no_deposit":
       return m.gather_stop_no_deposit();
+    case "tier_too_high":
+      return m.gather_stop_tier_too_high();
     case "entered":
       return m.gather_stop_entered();
     default: {

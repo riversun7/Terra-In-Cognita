@@ -11,6 +11,8 @@
 // D-564·D-568(프로토콜 43 — docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (D-564·D-568)"): 배 창고 내리기(boat_unload — 교역 부두나 내 부두·창고에),
 // 연료는 아이템만(결과 코드 no_fuel_items), 남의 조선소에 배 짓기 주문(boat_build 그대로 — 받기 범위·요금은 서버). 새 결과 코드는 43판 연결에만,
 // 그 아래 연결은 legacyHoldCode로 낮춘다.
+// D-570(프로토콜 55 — docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (D-570)"): 함포 칸에 포획 장비 달기·떼기(boat_gear), 배 창고에 싣기(boat_load — 정박한 항구의
+// 도시 창고·항구 옆 물자 거래소 건물 창고에서), 보직 낚시 선원(fisher). 새 결과 코드는 55판 연결에만, 그 아래 연결은 legacyGearCode로 낮춘다.
 // 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다: 소유·거리·재료 판정은 서버가 하고, 여기서는 모양만 본다.
 import { z } from "zod";
 
@@ -27,13 +29,15 @@ export const HARBOR_PROTOCOL_VERSION = 30;
 export const VOYAGE_PROTOCOL_VERSION = 37;
 /** D-564·D-568(배 창고 내리기·연료 아이템). 새 메시지·결과 코드는 이 판부터 */
 export const HOLD_PROTOCOL_VERSION = 43;
+/** D-570(포획 장비 달기·배 창고 싣기·낚시 선원). 새 메시지·결과 코드는 이 판부터 */
+export const GEAR_PROTOCOL_VERSION = 55;
 
 /** 받기 범위(@terra/shared/harbor HARBOR_ACCESS와 같다 — 이 꾸러미는 shared를 가져오지 않는다) */
 export const HARBOR_ACCESS_VALUES = ["owner", "nation", "peace"] as const;
 /** 조선소 모듈(@terra/shared/harbor SHIPYARD_MODULES와 같다) */
 export const SHIPYARD_MODULE_VALUES = ["docks", "build", "repair"] as const;
 /** 배 보직(@terra/shared/naval CREW_POSTS와 같다) */
-export const CREW_POST_VALUES = ["captain", "gunner", "engine", "deck", "pilot"] as const;
+export const CREW_POST_VALUES = ["captain", "gunner", "engine", "deck", "pilot", "fisher"] as const;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const unitId = z.number().int().positive().max(0xffff_ffff);
@@ -79,6 +83,9 @@ export const boatDockTimeMessage = z.object({
   buildingId,
   hours: z.number().int().min(1).max(72),
 });
+
+/** 아이템 ID(콘텐츠 ID 모양) */
+const itemId = z.string().regex(/^[a-z][a-z0-9_]{1,47}$/);
 
 /** 배 시설 주인 설정(30판부터): 받기 범위·요금(정박장 하루·교역 부두 한 시간)·조선소 모듈(null = 떼기). 빠진 칸은 그대로 */
 export const harborPolicyMessage = z.object({
@@ -140,6 +147,32 @@ export const boatUnloadMessage = z.object({
   id: requestId,
   boatId: unitId,
   buildingId,
+});
+
+/**
+ * 내 배 함포 칸(slot = 칸 차례)에 포획 장비를 단다(55판부터, D-570 1821). item null = 떼기(장비는 배 창고로). 정박한 항구(내 배 시설·시간을 산 교역 부두)
+ * 둘레에서만 — 장비는 배 창고 → 그 도시 내 창고 차례로 꺼낸다
+ */
+export const boatGearMessage = z.object({
+  t: z.literal("boat_gear"),
+  id: requestId,
+  boatId: unitId,
+  buildingId,
+  slot: z.number().int().min(0).max(15),
+  item: itemId.nullable(),
+});
+
+/**
+ * 배 창고에 싣는다(55판부터, D-570 1823 "물건 상하역"). 정박한 항구(내 배 시설·시간을 산 교역 부두) 둘레에서 그 도시 내 창고(항구 옆 물자 거래소 건물 창고가
+ * 먼저)의 물건을 묶음 수(lots)만큼. 배 창고 상한을 넘으면 hold_full
+ */
+export const boatLoadMessage = z.object({
+  t: z.literal("boat_load"),
+  id: requestId,
+  boatId: unitId,
+  buildingId,
+  item: itemId,
+  lots: z.number().int().min(1).max(1_000_000),
 });
 
 /** 내 유닛을 내 배에 태운다 */
@@ -246,6 +279,13 @@ export const BOAT_RESULT_CODES = [
   "no_fuel_items",
   /** 배 창고가 비었다(내리기) */
   "hold_empty",
+  // ---------- 55판부터(D-570) ----------
+  /** 그 배 종류가 달 수 없는 포획 장비 */
+  "not_catch_gear",
+  /** 그 배에 없는 함포 칸 */
+  "bad_slot",
+  /** 배 창고가 모자라다(싣기·떼기) */
+  "hold_full",
 ] as const;
 export type BoatResultCode = (typeof BOAT_RESULT_CODES)[number];
 
@@ -285,7 +325,22 @@ export const boatClientMessages = [
   boatCrewMessage,
   boatSeizeMessage,
   boatUnloadMessage,
+  boatGearMessage,
+  boatLoadMessage,
 ] as const;
+
+/** 55판 결과 코드 → 54판 이하 연결이 아는 코드(boat_gear·boat_load는 그 연결이 보내지 않는다 — 옛 메시지에서 나올 수 있는 것만 중요하다) */
+export function legacyGearCode(code: BoatResultCode): BoatResultCode {
+  switch (code) {
+    case "not_catch_gear":
+    case "bad_slot":
+      return "forbidden";
+    case "hold_full":
+      return "busy";
+    default:
+      return code;
+  }
+}
 
 /** 43판 결과 코드 → 42판 이하 연결이 아는 코드(boat_unload는 그 연결이 보내지 않는다 — 연료 보급의 답만 중요하다) */
 export function legacyHoldCode(code: BoatResultCode): BoatResultCode {
@@ -314,8 +369,8 @@ export function legacyVoyageCode(code: BoatResultCode): BoatResultCode {
     case "not_drifting":
       return "busy";
     default:
-      // 43판 코드도 먼저 낮춘다(게이트웨이는 43 → 37 → 30 차례로 낮춘다)
-      return legacyHoldCode(code);
+      // 43·55판 코드도 먼저 낮춘다(게이트웨이는 55 → 43 → 37 → 30 차례로 낮춘다)
+      return legacyHoldCode(legacyGearCode(code));
   }
 }
 

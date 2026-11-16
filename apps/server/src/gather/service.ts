@@ -12,6 +12,8 @@
 // 바뀜(D-568, boatCrew.ts): 작업은 배 단위다 — 한 배에 줄 하나(승객 누가 시켜도 앞 줄을 끝낸다), 일꾼 = 탄 승객 모두, 캔 것은 **배 창고**(원장 위치
 // cargoLocation(배 ID), 상한 = 배 종류 창고)에 든다. 차면 배가 부두의 내 창고(넣는 곳 둘레 물, 없으면 내 부두 도시 창고)로 가서 넣는다(닿을 물이 없으면
 // no_deposit — 배 창고에 든 채, 교역 부두에 내리기는 boats/cargo.ts). 같은 배의 앞 줄이 배를 옮긴 움직임은 벗어남으로 보지 않는다(steer).
+// 바뀜(D-570 1821, boatCrew.ts·crewYield.ts): 배 줄 일꾼 = 포획 장비를 맡은 낚시 선원(장비 최대 티어로 자름), 없으면 이끄는 유닛 혼자 장비 없는 티어까지.
+// 아무도 못 잡는 오브젝트면 tier_too_high로 끝.
 import type { GatherResultCode } from "@terra/protocol";
 import type { GatherLoopView, GatherPhase, GatherStop } from "@terra/shared/gather";
 import {
@@ -41,7 +43,8 @@ import {
 } from "./deposit.ts";
 import { enterBuilding } from "./enter.ts";
 import type { GatherKind } from "./kinds.ts";
-import { objectYieldItem } from "./objectYield.ts";
+import { catchable } from "./objectYield.ts";
+import { crewHaul } from "./crewYield.ts";
 import { schoolCell } from "@terra/shared/fishSchool";
 import { type GatherObject, placeGatherObjects } from "./objects.ts";
 import {
@@ -58,7 +61,7 @@ import type { GatherCommandResult, GatherDeps, GatherService } from "./serviceTy
 
 export type { GatherCommandResult, GatherDeps, GatherService } from "./serviceTypes.ts";
 import { BOAT_BODY_SIZE, boatReach, commandCode, onLand, onWater, seaObject, standNear } from "./stand.ts";
-import { boatCrew, tireCrew } from "./boatCrew.ts";
+import { boatWorkers, tireCrew } from "./boatCrew.ts";
 import { holdStacks } from "../boats/hold.ts";
 
 /** 끝난 줄을 화면에 보이는 시간(ms) */
@@ -103,7 +106,8 @@ interface Action {
   campLevel: number | null;
   /** 캐기 차례(굴림표·사다리 굴림 시드, objectYield.ts) */
   yieldSeq: number;
-  yieldCarryPm: number;
+  /** 일꾼마다 수확 나머지(‰, crewYield.ts) */
+  readonly yieldCarry: Map<number, number>;
   fatigueCarryPm: number;
   /** 채집 중 부상을 마지막으로 굴린 시각(이 뒤의 작업 주기 경계를 굴린다) */
   injuryCheckedMs: number;
@@ -132,6 +136,17 @@ export function createGatherService(deps: GatherDeps): GatherService {
   >();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
+
+  /** 채집 줄의 일꾼(걷는 줄 = 이끄는 유닛, 배 줄 = 장비를 맡은 낚시 선원 — boatCrew.ts) */
+  const workersOf = (action: Action, map: SecondMap, at: number) =>
+    boatWorkers(
+      map,
+      action.boatId,
+      action.ownerId,
+      action.unitId,
+      at,
+      action.boatId === null ? undefined : deps.boatCatch?.(action.boatId),
+    );
 
   const objectsOf = (mapKey: number) => {
     const map = maps.get(mapKey);
@@ -470,10 +485,14 @@ export function createGatherService(deps: GatherDeps): GatherService {
       await goToObject(action);
       return;
     }
-    // 배 줄은 일꾼 가운데 가장 높은 주 스탯(D-568 배 단위 작업)
-    const crew =
-      action.boatId === null ? [action.unitId] : boatCrew(where.map, action.boatId, action.ownerId, now());
-    const primary = Math.max(0, ...crew.map((id) => statOf(deps.primaries(id), kind.primary) ?? 0));
+    // 배 줄 일꾼 = 포획 장비를 맡은 낚시 선원(없으면 이끄는 유닛 혼자, D-570 1821 — boatCrew.ts). 아무도 못 잡는 티어면 끝
+    const crew = workersOf(action, where.map, now());
+    const catalog = deps.places()?.catalog();
+    if (catalog && !crew.some((worker) => catchable(kind, catalog, worker.maxTier))) {
+      finish(action, "tier_too_high");
+      return;
+    }
+    const primary = Math.max(0, ...crew.map((w) => statOf(deps.primaries(w.unitId), kind.primary) ?? 0));
     const duration = gatherDurationMs(kind, primary, deps.rules().productionMainDivisor);
     action.phase = "gathering";
     action.motion = where.info.motion;
@@ -511,49 +530,44 @@ export function createGatherService(deps: GatherDeps): GatherService {
       await moveOn(action);
       return;
     }
-    // 수확: 묶음 × 수확량(보조 스탯·시설 규칙) × 효율 → 기본 단위. 아이템 = 대표·굴림표·사다리 굴림(D-540 1222, objectYield.ts)
+    // 수확: 일꾼마다(배 줄 = 낚시 선원 — 장비 최대 티어로 자름, D-570 1821) 묶음 × 수확량(보조 스탯·시설 규칙) × 효율 → 기본 단위.
+    // 아이템 = 대표·굴림표·사다리 굴림(D-540 1222, objectYield.ts). 걷는 줄은 이끄는 유닛 하나(옛 셈과 같다, crewYield.ts)
     const catalog = world.catalog();
     const rule = kind.facility === null ? undefined : catalog.facility(kind.facility)?.gather;
-    const secondary = statOf(deps.primaries(action.unitId), kind.secondary) ?? 0;
-    const asset = `item:${objectYieldItem(kind, catalog, {
-      unitId: action.unitId,
+    const efficiency = gatherEfficiencyPm(rules.gatherObjects, action.campLevel);
+    const crew = workersOf(action, where.map, at);
+    const hauls = crewHaul({
+      kind,
+      catalog,
       objectId: object.id,
       seq: action.yieldSeq++,
-      primary: statOf(deps.primaries(action.unitId), kind.primary) ?? 0,
-      secondary,
+      workers: crew,
+      statsOf: (id) => ({
+        primary: statOf(deps.primaries(id), kind.primary) ?? 0,
+        secondary: statOf(deps.primaries(id), kind.secondary) ?? 0,
+      }),
       level: action.campLevel ?? 1,
       levelBonus: rules.gatherLevelBonus,
-    })}`;
-    const efficiency = gatherEfficiencyPm(rules.gatherObjects, action.campLevel);
-    // 배 줄은 일꾼마다 보조 스탯으로 센 몫의 합(D-568 배 단위 작업)
-    const crew =
-      action.boatId === null ? [action.unitId] : boatCrew(where.map, action.boatId, action.ownerId, at);
-    let yieldPm = 0;
-    for (const id of crew.length > 0 ? crew : [action.unitId]) {
-      const sub = id === action.unitId ? secondary : (statOf(deps.primaries(id), kind.secondary) ?? 0);
-      yieldPm += gatherYieldPm(kind, sub, rule, rules.productionSubYieldPm, efficiency);
-    }
-    const lots = splitPm(yieldPm, action.yieldCarryPm);
-    action.yieldCarryPm = lots.carryPm;
-    if (lots.whole > 0) {
-      const qty = BigInt(lots.whole) * (catalog.lotSize.get(asset) ?? 1n);
-      gatherIntoCargo(deps.ledger, action.ownerId, holder(action), asset, qty, at);
-      action.assets.add(asset);
-      action.gatheredLots += lots.whole;
+      yieldPmOf: (sub) => gatherYieldPm(kind, sub, rule, rules.productionSubYieldPm, efficiency),
+      carry: action.yieldCarry,
+    });
+    let heaviest =
+      BigInt(catalog.unitWeightOf(kind.item) ?? 0) * (catalog.lotSize.get(`item:${kind.item}`) ?? 1n);
+    for (const haul of hauls) {
+      const lot = catalog.lotSize.get(haul.asset) ?? 1n;
+      gatherIntoCargo(deps.ledger, action.ownerId, holder(action), haul.asset, BigInt(haul.lots) * lot, at);
+      action.assets.add(haul.asset);
+      action.gatheredLots += haul.lots;
+      const weight = BigInt(catalog.unitWeightOf(haul.asset.slice("item:".length)) ?? 0) * lot;
+      if (weight > heaviest) heaviest = weight;
     }
     // 피로(시설 반경 안이면 덜)
     const fatigue = splitPm(gatherFatiguePm(rules.gatherObjects, action.campLevel), action.fatigueCarryPm);
     action.fatigueCarryPm = fatigue.carryPm;
-    // 피로는 일꾼 모두(배 줄), 이끄는 유닛이 상한이면 끝
+    // 피로는 일꾼과 이끄는 유닛(배 줄), 이끄는 유닛이 상한이면 끝
+    const tiredIds = [...new Set([action.unitId, ...crew.map((worker) => worker.unitId)])];
     const tired =
-      fatigue.whole > 0 &&
-      tireCrew(
-        where.map,
-        crew.includes(action.unitId) ? crew : [action.unitId, ...crew],
-        action.unitId,
-        fatigue.whole,
-        rules.fatigueMax,
-      );
+      fatigue.whole > 0 && tireCrew(where.map, tiredIds, action.unitId, fatigue.whole, rules.fatigueMax);
     // 채집 중 부상(D-521): 지난번 뒤로 지난 작업 주기 경계를 굴린다. 빨강(활동 불가)이면 그 자리에서 끝(든 화물은 그대로)
     if (deps.workInjury) {
       const fatigueNow = where.map.unitInfo(action.unitId)?.job.fatigue ?? where.info.job.fatigue;
@@ -567,9 +581,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     }
     action.updatedAt = at;
     // 다음: 화물이 차면 넣으러, 피로 상한이면 넣고 끝, 오브젝트가 남았으면 또 캐기, 떨어졌으면 다음 오브젝트
-    const weight =
-      BigInt(catalog.unitWeightOf(asset.slice("item:".length)) ?? 0) * (catalog.lotSize.get(asset) ?? 1n);
-    const full = carried(action) + weight > BigInt(capacity(action));
+    const full = carried(action) + heaviest > BigInt(capacity(action));
     if (tired) {
       action.endAfterDeposit = "tired";
       if (carried(action) > 0n) await goToDeposit(action);
@@ -729,7 +741,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     deposit: null,
     skip: new Set(),
     campLevel: null,
-    yieldCarryPm: 0,
+    yieldCarry: new Map(),
     fatigueCarryPm: 0,
     injuryCheckedMs: now(),
     assets: new Set(),

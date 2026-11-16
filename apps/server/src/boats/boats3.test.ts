@@ -96,12 +96,17 @@ describe("D-564·D-568 배 서비스", () => {
     await vi.advanceTimersByTimeAsync(600_000);
     const boatId = service.dockJob(yard)?.docked[0]?.boatId ?? 0;
     grant(8, "item:fish", 3n, cargoLocation(boatId));
-    // 배값 = 재료 10 × 시세 5 = 50. 보관료 하루 20: 압류 문턱(3일) 전에는 압류가 아니다
+    // 배값 = 판매가(주문 요금 50 × 3000‰ = 150, D-570 1827 — 옛 셈 재료 10 × 시세 5 = 50이 아니다). 보관료 하루 20: 압류 문턱(3일) 전에는 압류가 아니다
     vi.setSystemTime(Date.now() + START_BOATS.storageFreeHours * HOUR_MS + DAY_MS + 1);
-    expect(service.dockJob(yard)?.docked[0]).toMatchObject({ impounded: false, value: "50" });
+    expect(service.dockJob(yard)?.docked[0]).toMatchObject({ impounded: false, value: "150" });
     vi.setSystemTime(Date.now() + DAY_MS);
     expect(service.dockJob(yard)?.docked[0]).toMatchObject({ impounded: true, storageDue: "60" });
-    // 밀린 60 > 배값 50: 정시 살피기가 조선소 주인(7) 것으로, 배 창고도 함께
+    // 밀린 60 ≤ 배값 150: 아직 배 주인 것
+    await service.tick();
+    expect(service.dockJob(yard)?.docked[0]).toMatchObject({ ownerId: 8, impounded: true });
+    // 밀린 160 > 배값 150: 정시 살피기가 조선소 주인(7) 것으로, 배 창고도 함께
+    vi.setSystemTime(Date.now() + 5 * DAY_MS);
+    expect(service.dockJob(yard)?.docked[0]).toMatchObject({ storageDue: "160" });
     await service.tick();
     expect(service.dockJob(yard)?.docked[0]).toMatchObject({ ownerId: 7, impounded: false, storageDue: "0" });
     expect(ledger.balanceOf(7, "item:fish", cargoLocation(boatId))).toBe(3n);

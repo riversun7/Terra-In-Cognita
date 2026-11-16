@@ -1,6 +1,6 @@
 // 고른 유닛의 배 단추 — 배: 승객 수 + [모두 내리기], 탄 유닛: "배 #N에 탔음" + [배에서 내리기], 걷는 유닛: 가까운 내 배가 있으면 [배에 타기].
 // docs/adr/2026-11-13-boats.md 4절. 배는 내구도·집 정박장도 보인다(docs/adr/2026-11-15-shipyard-harbor.md). D-559: 배는 연료·표류·[오버히트 켜기/끄기],
-// 탄 유닛은 보직 고르기(함장·화포수·엔진실·갑판병 — 자리 수는 서버가 본다). 조선소·정박장·교역 부두 판은 HarborPanel.tsx. 서버가 소유·거리·자리를 다시 본다(멀면 배 옆까지 걸어간 뒤 탄다). 결과는 같은 줄에 알린다.
+// 탄 유닛은 보직 고르기(함장·화포수·엔진실·갑판병·낚시 선원(D-570) — 자리 수는 서버가 본다). 조선소·정박장·교역 부두 판은 HarborPanel.tsx. 서버가 소유·거리·자리를 다시 본다(멀면 배 옆까지 걸어간 뒤 탄다). 결과는 같은 줄에 알린다.
 import type { MapUnit } from "@terra/shared/mapUnits";
 import { CREW_POSTS, type CrewPost } from "@terra/shared/naval";
 import { useState } from "react";
@@ -20,7 +20,9 @@ const postLabel = (post: CrewPost | "none"): string =>
           ? m.boat_post_deck()
           : post === "pilot"
             ? m.boat_post_pilot()
-            : m.boat_post_none();
+            : post === "fisher"
+              ? m.boat_post_fisher()
+              : m.boat_post_none();
 
 /** 고른 값 → 보직(모르면 없음) */
 const postOf = (value: string): CrewPost | null => CREW_POSTS.find((post) => post === value) ?? null;

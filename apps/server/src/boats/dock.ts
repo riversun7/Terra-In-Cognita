@@ -7,7 +7,7 @@
 // - 출고(release): 배 주인(또는 운영자)만. 고치는 중이면 dock_busy. 남의 조선소면 다 된 뒤 보관료 없는 시간이 지나 하루(올림)마다 장기 보관료를 그 조선소 금고에
 //   내야 꺼낸다(모자라면 insufficient_funds — 그동안 그 도크는 막힌다). 꺼낸 배는 집이 없으면 집 없는 배다(정박은 따로 — 1485 "생산과 정박은 별개").
 // - 압류(D-564 1686 "밀리면 압류", "배값초과시 소유권 넘어감"): 남의 배 장기 보관료가 impoundDays일 넘게 밀리면 압류다(판에 보인다 — 배 주인은 밀린 보관료를
-//   모두 내면 그대로 꺼낸다). 밀린 보관료가 배값(배 종류 재료 × 아이템 시작 시세 × valuePm ÷ 1000)을 넘으면 정시 살피기가 배를 조선소 주인 것으로 바꾼다
+//   모두 내면 그대로 꺼낸다). 밀린 보관료가 배값(판매가 — D-570 1827, 없으면 배 종류 재료 × 아이템 시작 시세 × valuePm ÷ 1000)을 넘으면 정시 살피기가 배를 조선소 주인 것으로 바꾼다
 //   (배 창고 물건도 함께, 보관료는 그때부터 없다 — 제 배). 조선소 2차맵을 띄웠을 때만 본다(주인을 건물에서 읽는다).
 // - 조선소가 없어지면(관리자 지움·재배치) 그 도크의 배는 조선소가 섰던 자리 옆 물에 띄운다(보관료 없음). 그 2차맵을 띄우지 않았으면 띄울 때까지 기다린다.
 import { type CellPoint, PLACEMENT_SIZE } from "@terra/sim";
@@ -74,8 +74,12 @@ export function createDock(
   const impounded = (state: BoatState, nowMs: number): boolean =>
     storageOf(state, nowMs) > 0n && owedDays(state, nowMs) >= Math.max(1, deps.rules().impoundDays);
 
-  /** 배값 = 배 종류 재료(boat_cost_pm 반영) × 아이템 시작 시세 × valuePm ÷ 1000. 종류·값을 모르면 0(넘어가지 않는다) */
+  /**
+   * 배값 = 판매가(남의 조선소가 받은 주문 요금 — D-570 1827 "배 판매값이지, 선불받고 제작하니까"). 판매가가 없는 배(제 조선소에서 만든 배·옛 배)는
+   * 배 종류 재료(boat_cost_pm 반영) × 아이템 시작 시세 × valuePm ÷ 1000. 종류·값을 모르면 0(넘어가지 않는다)
+   */
   const valueOf = (state: BoatState): bigint => {
+    if (state.price !== null && state.price > 0n) return state.price;
     const type = harbor.typeOf(state);
     const catalog = deps.places()?.catalog();
     if (!type || !catalog) return 0n;

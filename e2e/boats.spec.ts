@@ -537,8 +537,21 @@ for (const theme of ["pastel", "dark"] as const) {
       const schools = field(objects, "schools");
       const flat = field(objects, "objects");
       const usesLeft = new Map<number, number>();
+      const kindOf = new Map<number, number>();
       if (Array.isArray(flat))
-        for (let i = 0; i + 3 < flat.length; i += 4) usesLeft.set(Number(flat[i]), Number(flat[i + 2]));
+        for (let i = 0; i + 3 < flat.length; i += 4) {
+          usesLeft.set(Number(flat[i]), Number(flat[i + 2]));
+          kindOf.set(Number(flat[i]), Number(flat[i + 1]));
+        }
+      // 작은 배는 포획 장비가 없어 이끄는 유닛 혼자 장비 없는 티어(설정 칸 boat_bare_catch_tier 2)까지 낚는다(D-570 1821) —
+      // 아래 끝이 그보다 높은 어군·굴림표(고래 무리)는 빼고 고른다
+      const kinds = field(objects, "kinds");
+      const bareOk = (id: number): boolean => {
+        const kind = Array.isArray(kinds) ? kinds[kindOf.get(id) ?? -1] : undefined;
+        if (field(kind, "table") !== undefined) return false;
+        const tiers = field(kind, "ladderTiers");
+        return tiers === undefined || Number(field(tiers, "min")) <= 2;
+      };
       const school = (Array.isArray(schools) ? schools : [])
         .map((entry: unknown) => {
           const points = field(entry, "points");
@@ -548,7 +561,7 @@ for (const theme of ["pastel", "dark"] as const) {
           return { id: Number(field(entry, "id")), d };
         })
         // 앞 테마 시험이 다 낚은 어군(남은 번수 0)은 빼고 고른다(objects = [ID, 종류, 남은 번수, 다시 자람]…)
-        .filter((entry) => usesLeft.get(entry.id) !== 0)
+        .filter((entry) => usesLeft.get(entry.id) !== 0 && bareOk(entry.id))
         .toSorted((a, b) => a.d - b.d)[0];
       expect(school, "동쪽 바다 2차맵에 어군이 없다").toBeDefined();
       console.log(

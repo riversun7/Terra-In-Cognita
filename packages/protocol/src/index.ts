@@ -165,7 +165,9 @@ export {
   CREW_POST_VALUES,
   VOYAGE_PROTOCOL_VERSION,
   HOLD_PROTOCOL_VERSION,
+  GEAR_PROTOCOL_VERSION,
   legacyBoatCode,
+  legacyGearCode,
   legacyHoldCode,
   legacyVoyageCode,
 } from "./boats.ts";

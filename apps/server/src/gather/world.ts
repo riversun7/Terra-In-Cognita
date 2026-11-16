@@ -123,6 +123,8 @@ export function startWorldGather(
         workInjury: createGatherInjury(),
         // 배 창고 상한(D-568 배 단위 채집 — 배 서비스가 배 고리에 채운다)
         boatHoldGrams: (boatId) => world.persistence?.boatHooks.info(boatId)?.holdCapGrams,
+        // 배 채집 일꾼(D-570 1821 — 낚시 선원 ↔ 포획 장비)
+        boatCatch: (boatId) => world.persistence?.boatHooks.catchCrew(boatId),
         ready: () => world.status().state === "ready",
       });
       const station = createStationRuntime({

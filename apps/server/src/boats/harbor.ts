@@ -189,6 +189,7 @@ export function createHarbor(
       tradeChargedToMs: null,
       ...FRESH_BOAT_FIELDS,
       crew: {},
+      gear: [],
       ...extra,
     };
     states.set(boatId, state);

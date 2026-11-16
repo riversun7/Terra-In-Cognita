@@ -53,6 +53,7 @@ describe.skipIf(!TEST_DATABASE_URL)("배 상태 D-559 열", () => {
       tradeChargedToMs: null,
       ...FRESH_BOAT_FIELDS,
       crew: {},
+      gear: [],
     };
     // 2차맵 배(오버히트·보직·연료), 도크 배(유닛 줄 없음), 버려진 상태(유닛 줄도 도크도 없음)
     store.saveState({
@@ -62,6 +63,9 @@ describe.skipIf(!TEST_DATABASE_URL)("배 상태 D-559 열", () => {
       fuelAtMs: T0,
       overheat: true,
       crew: { 5: "deck" },
+      // D-570: 함포 칸 포획 장비·판매가
+      gear: [null, "fishing_net"],
+      price: 12_345n,
     });
     store.saveState({
       ...base,
@@ -91,6 +95,8 @@ describe.skipIf(!TEST_DATABASE_URL)("배 상태 D-559 열", () => {
       overheat: true,
       crew: { 5: "deck" },
       yardId: null,
+      gear: [null, "fishing_net"],
+      price: 12_345n,
     });
     expect(states[1]).toMatchObject({
       ownerId: 7,
@@ -100,6 +106,8 @@ describe.skipIf(!TEST_DATABASE_URL)("배 상태 D-559 열", () => {
       yardX: 120,
       yardY: 40,
       overheat: false,
+      gear: [],
+      price: null,
     });
     expect(await loadBoatFacilities(pool, PLANET)).toEqual([
       { buildingId: 4_321, access: "peace", fee: 75, module: "docks", modules: ["docks", "build"] },

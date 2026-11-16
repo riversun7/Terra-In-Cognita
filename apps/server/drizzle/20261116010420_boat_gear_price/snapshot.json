@@ -1,0 +1,116 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "43d61ca8-b8e2-4c08-ac26-45b6ee5feaf5",
+  "prevIds": [
+    "22a71ad3-9c15-4a67-aef4-42828561488a",
+    "e39360c4-a832-4a11-a9d1-41c1f6cfbfcb"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_jobs",
+        "price"
+      ],
+      "writes": [
+        "s|col|public.boat_jobs.price",
+        "n|col|public.boat_jobs.price",
+        "e|col|public.boat_jobs.price"
+      ],
+      "reads": [
+        "n|tbl|public.boat_jobs",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "gear"
+      ],
+      "writes": [
+        "s|col|public.boat_states.gear",
+        "n|col|public.boat_states.gear",
+        "e|col|public.boat_states.gear"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "boat_states",
+        "price"
+      ],
+      "writes": [
+        "s|col|public.boat_states.price",
+        "n|col|public.boat_states.price",
+        "e|col|public.boat_states.price"
+      ],
+      "reads": [
+        "n|tbl|public.boat_states",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_jobs",
+        "name": "price",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "gear",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "boat_states",
+        "name": "price",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

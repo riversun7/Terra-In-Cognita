@@ -81,6 +81,20 @@ export interface HarborBoatView {
   /** 배 창고 무게·상한(g, D-568 — 내 배만, 옛 서버면 없음) */
   readonly holdGrams?: number | undefined;
   readonly holdCapGrams?: number | undefined;
+  /** 함포 칸(칸 차례 — 규격·단 장비 아이템, D-570 1821). 함포가 없는 배·옛 서버면 없음 */
+  readonly slots?: readonly { readonly caliber: string; readonly gear: string | null }[] | undefined;
+  /** 이 배 종류가 달 수 있는 포획 장비(아이템·최대 티어·이름). 없으면 달 수 없다 */
+  readonly gearOptions?: readonly HarborItemView[] | undefined;
+  /** 이 항구에서 실을 수 있는 내 물건(항구 옆 거래소 건물 창고 + 그 도시 내 창고, 묶음 수 — D-570 1823). 옛 서버면 없음 */
+  readonly loadable?: readonly HarborItemView[] | undefined;
+}
+
+/** 배 판의 아이템 한 줄(포획 장비면 maxTier, 실을 물건이면 lots) */
+export interface HarborItemView {
+  readonly item: string;
+  readonly name?: { readonly ko: string; readonly en: string } | undefined;
+  readonly maxTier?: number | undefined;
+  readonly lots?: number | undefined;
 }
 
 export interface HarborJobView {
@@ -171,4 +185,6 @@ export interface HarborPanel {
   readonly overstayMul: number;
   /** 한 번에 살 수 있는 시간 상한(설정 칸 trade_dock_max_hours) */
   readonly maxHours: number;
+  /** 항구 옆 물자 거래소 건물(내리기·싣기가 그 창고를 쓴다 — D-570 1823). 없으면 null, 옛 서버면 없음 */
+  readonly exchangeId?: number | null | undefined;
 }

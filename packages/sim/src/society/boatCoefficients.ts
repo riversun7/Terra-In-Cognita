@@ -120,10 +120,18 @@ export interface BoatCoefficients {
   readonly shipyardBuildFeePm: number;
   /** [임시] 남의 배 장기 보관료가 이만큼(일) 밀리면 조선소가 압류한다(꺼낼 때까지 밀린 보관료가 쌓인다) */
   readonly impoundDays: number;
-  /** [임시] 배값 = 배 종류 재료(boat_cost_pm 반영) × 아이템 시작 시세 × 이 값 ÷ 1000 — 밀린 보관료가 넘으면 조선소 주인 것이 된다 */
+  /**
+   * [임시] 판매가가 없는 배(제 조선소에서 만든 배·옛 배)의 배값 = 배 종류 재료(boat_cost_pm 반영) × 아이템 시작 시세 × 이 값 ÷ 1000 — 밀린 보관료가 넘으면
+   * 조선소 주인 것이 된다. 판매가가 있는 배는 그 값(D-570 1827)
+   */
   readonly valuePm: number;
   /** [임시] 배 종류에 창고 칸이 없을 때 배 창고 무게(kg) — 배에서 캔 것이 든다(D-568) */
   readonly holdKg: number;
+  // ---------- 포획 장비·항구 교역(D-570 1821·1823) ----------
+  /** [임시] 포획 장비를 단 낚시 선원이 없는 배에서 캘 때 이끄는 유닛 혼자 잡는 가장 높은 티어 */
+  readonly bareCatchTier: number;
+  /** [임시] 배 시설에서 이 칸 안에 그 도시 물자 거래소 건물이 있으면 내리기·싣기가 그 건물 창고를 쓴다(0 = 늘 도시 창고) */
+  readonly exchangeReachCells: number;
 }
 
 export const START_BOATS: BoatCoefficients = {
@@ -179,4 +187,6 @@ export const START_BOATS: BoatCoefficients = {
   impoundDays: 3,
   valuePm: 1000,
   holdKg: 200,
+  bareCatchTier: 2,
+  exchangeReachCells: 12,
 };

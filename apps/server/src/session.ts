@@ -48,6 +48,7 @@ import {
   HOUSE_PROTOCOL_VERSION,
   HOUSE_RECRUIT_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
+  GEAR_PROTOCOL_VERSION,
   HARBOR_PROTOCOL_VERSION,
   VOYAGE_PROTOCOL_VERSION,
   HOLD_PROTOCOL_VERSION,
@@ -756,9 +757,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "boat_overheat":
       case "boat_crew":
       case "boat_seize":
-      case "boat_unload": {
+      case "boat_unload":
+      case "boat_gear":
+      case "boat_load": {
         // 배는 프로토콜 27의 메시지, 수리·정박장·교역 부두·주인 설정은 30(docs/adr/2026-11-15-shipyard-harbor.md), 도크 출고·연료·오버히트·보직·빼앗기는 37(D-559),
-        // 배 창고 내리기는 43(D-568)
+        // 배 창고 내리기는 43(D-568), 포획 장비·싣기는 55(D-570)
         const harbor = message.t !== "boat_build" && message.t !== "boat_board" && message.t !== "boat_leave";
         const voyage =
           message.t === "boat_release" ||
@@ -767,13 +770,15 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           message.t === "boat_crew" ||
           message.t === "boat_seize";
         const needed =
-          message.t === "boat_unload"
-            ? HOLD_PROTOCOL_VERSION
-            : voyage
-              ? VOYAGE_PROTOCOL_VERSION
-              : harbor
-                ? HARBOR_PROTOCOL_VERSION
-                : BOAT_PROTOCOL_VERSION;
+          message.t === "boat_gear" || message.t === "boat_load"
+            ? GEAR_PROTOCOL_VERSION
+            : message.t === "boat_unload"
+              ? HOLD_PROTOCOL_VERSION
+              : voyage
+                ? VOYAGE_PROTOCOL_VERSION
+                : harbor
+                  ? HARBOR_PROTOCOL_VERSION
+                  : BOAT_PROTOCOL_VERSION;
         if (protocolVersion < needed) {
           reject("invalid_message");
           return;

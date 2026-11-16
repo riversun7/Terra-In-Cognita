@@ -6,15 +6,18 @@
 // - 프로토콜 30(배 체계 개편, docs/adr/2026-11-15-shipyard-harbor.md): 수리·집 정박장·교역 부두 시간·주인 설정. 새 결과 코드는 30판 연결에만, 29판은 옛 코드로.
 // - 프로토콜 37(D-559): 도크 출고·모듈 묶음·연료 보급·오버히트·보직·빼앗기. 새 결과 코드는 37판 연결에만, 36판은 legacyVoyageCode로.
 // - 프로토콜 43(D-564·D-568): 배 창고 내리기(boat_unload), 남의 조선소 주문(만들기가 받기 범위를 기다린다). 새 결과 코드는 43판 연결에만, 그 아래는 legacyHoldCode로.
+// - 프로토콜 55(D-570): 포획 장비 달기·떼기(boat_gear)·배 창고 싣기(boat_load). 새 결과 코드는 55판 연결에만, 그 아래는 legacyGearCode로.
 import {
   BOAT_B2_PROTOCOL_VERSION,
   type BoatResultCode,
   type ClientMessageOf,
+  GEAR_PROTOCOL_VERSION,
   HARBOR_PROTOCOL_VERSION,
   HOLD_PROTOCOL_VERSION,
   VOYAGE_PROTOCOL_VERSION,
   encodeMessage,
   legacyBoatCode,
+  legacyGearCode,
   legacyHoldCode,
   legacyVoyageCode,
 } from "@terra/protocol";
@@ -43,6 +46,8 @@ export type BoatClientMessage = ClientMessageOf<
   | "boat_crew"
   | "boat_seize"
   | "boat_unload"
+  | "boat_gear"
+  | "boat_load"
 >;
 
 const MAX_PENDING = 8;
@@ -71,7 +76,8 @@ export interface BoatGateway {
 function resultText(id: number, result: BoatCommandResult, protocolVersion: number): string {
   if (!result.ok) {
     // 30판 새 코드는 29판 연결에 옛 코드로. dock_busy는 그 코드를 아는 연결(28)에만, 아니면 busy(다시 해 볼 수 있다)
-    const hold = protocolVersion < HOLD_PROTOCOL_VERSION ? legacyHoldCode(result.code) : result.code;
+    const gear = protocolVersion < GEAR_PROTOCOL_VERSION ? legacyGearCode(result.code) : result.code;
+    const hold = protocolVersion < HOLD_PROTOCOL_VERSION ? legacyHoldCode(gear) : gear;
     const voyage = protocolVersion < VOYAGE_PROTOCOL_VERSION ? legacyVoyageCode(hold) : hold;
     const known = protocolVersion < HARBOR_PROTOCOL_VERSION ? legacyBoatCode(voyage) : voyage;
     const code = known === "dock_busy" && protocolVersion < BOAT_B2_PROTOCOL_VERSION ? "busy" : known;
@@ -189,6 +195,16 @@ export function createBoatGateway(options: {
             return reply(message.id, service.voyage.seize(owner(), message.boatId, message.unitId, operator));
           case "boat_unload":
             return reply(message.id, service.unload(owner(), message.boatId, message.buildingId, operator));
+          case "boat_gear":
+            return reply(
+              message.id,
+              service.gear(owner(), message.boatId, message.buildingId, message.slot, message.item, operator),
+            );
+          case "boat_load":
+            return reply(
+              message.id,
+              service.load(owner(), message.boatId, message.buildingId, message.item, message.lots, operator),
+            );
           default: {
             const unknown: never = message;
             return unknown;

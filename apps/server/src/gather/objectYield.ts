@@ -124,3 +124,68 @@ export function objectYieldItem(
   const asset = result.outputs[0]?.asset;
   return asset === undefined ? kind.item : asset.replace(/^item:/, "");
 }
+
+/**
+ * 포획 장비가 정한 최대 티어(D-570 1821)로 굴림 규칙을 자른다: 범위 위 끝 = min(범위 위, maxTier), 굴림표는 티어가 maxTier 이하인 줄만. 그 장비로 잡을 것이
+ * 없으면(범위 아래 끝 > maxTier, 남는 굴림표 줄 없음) undefined. maxTier null = 자르지 않음
+ */
+export function cappedRoll(
+  roll: ObjectRoll,
+  catalog: ObjectYieldCatalog,
+  maxTier: number | null,
+): ObjectRoll | undefined {
+  if (maxTier === null) return roll;
+  const cap = clampTier(maxTier);
+  if (roll.table) {
+    const table = roll.table.filter(
+      (row) => clampTier(catalog.itemTier(row.asset.replace(/^item:/, "")) ?? 0) <= cap,
+    );
+    return table.length > 0 ? { ...roll, table } : undefined;
+  }
+  if (roll.tierRange.min > cap) return undefined;
+  return { ...roll, tierRange: { min: roll.tierRange.min, max: Math.min(roll.tierRange.max, cap) } };
+}
+
+/** 그 오브젝트를 maxTier 장비로 잡을 수 있나 */
+export function catchable(
+  kind: Pick<GatherKind, "item" | "table" | "facility" | "tierRange" | "itemWeights">,
+  catalog: ObjectYieldCatalog,
+  maxTier: number | null,
+): boolean {
+  return cappedRoll(objectRollOf(kind, catalog), catalog, maxTier) !== undefined;
+}
+
+/** objectYieldItem과 같되 maxTier로 자른다(D-570 1821 — 배 낚시 선원마다). 잡을 것이 없으면 null */
+export function catchYieldItem(
+  kind: Pick<GatherKind, "item" | "table" | "facility" | "tierRange" | "itemWeights">,
+  catalog: ObjectYieldCatalog,
+  input: ObjectYieldInput,
+  maxTier: number | null,
+): string | null {
+  if (maxTier === null) return objectYieldItem(kind, catalog, input);
+  const roll = cappedRoll(objectRollOf(kind, catalog), catalog, maxTier);
+  if (!roll) return null;
+  const result = rollGatherOutputs(
+    {
+      ladder: roll.ladder,
+      bands: catalog.gatherBands,
+      stat: gatherStat(
+        Math.max(0, input.primary) + Math.max(0, input.secondary),
+        Math.max(1, input.level),
+        input.levelBonus,
+      ),
+      lots: 1,
+      lotSize: new Map(),
+      tierRange: roll.tierRange,
+      prefer: roll.prefer,
+      weights: roll.weights,
+      table: roll.table,
+    },
+    createRng(yieldSeed(input)),
+  );
+  const asset = result.outputs[0]?.asset;
+  if (asset !== undefined) return asset.replace(/^item:/, "");
+  // 굴림이 비면 대표 아이템이 잘린 범위 안일 때만 그것
+  const tier = clampTier(catalog.itemTier(kind.item) ?? 0);
+  return tier <= clampTier(maxTier) ? kind.item : null;
+}

@@ -9,6 +9,8 @@
 // D-559(docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559"): 배 상태에 도크(yard_* — 다 된 배는 꺼낼 때까지 조선소 도크에 있고 유닛 줄이 없다)·
 // 연료(fuel_milli)·오버히트·보직(crew) 열, 배 시설에 모듈 묶음(modules) 열을 더한다. 더하기만 — 직전 판 앱은 새 열을 읽지 않는다(다만 직전 판 앱의 부팅
 // 정리는 유닛 줄이 없는 도크 배 상태를 지운다 — 되돌리기 위험, ADR에 적음).
+// D-570(docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (D-570)"): 배 상태에 함포 칸 포획 장비(gear)·판매가(price — 남의 조선소가 받은 주문 요금, 압류 배값),
+// 작업 줄에 판매가(price — 다 되면 배 상태로 옮긴다) 열을 더한다. 더하기만(모두 null 허용) — 직전 판 앱은 새 열을 읽지도 쓰지도 않는다(upsert가 그 열을 건드리지 않는다).
 import { sql } from "drizzle-orm";
 import { bigint, boolean, check, index, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
 import { planetIdColumn } from "./planetColumns.ts";
@@ -30,6 +32,8 @@ export const boatJobs = pgTable(
     typeId: text("type_id"),
     /** 수리하는 배(유닛 ID). 만들기는 null */
     boatId: bigint("boat_id", { mode: "number" }),
+    /** 남의 조선소 주문의 판매가(주문 요금, 화폐 최소 단위 — D-570 1827). 제 조선소 만들기·수리·옛 줄은 null */
+    price: bigint("price", { mode: "bigint" }),
   },
   (table) => [
     index("boat_jobs_building_idx").on(table.buildingId),
@@ -76,6 +80,10 @@ export const boatStates = pgTable(
     coolUntilMs: bigint("cool_until_ms", { mode: "number" }),
     /** 보직 {유닛 ID: captain|gunner|engine|deck|pilot}(D-559 1533). 내린 유닛은 읽을 때 거른다 */
     crew: jsonb("crew"),
+    /** 함포 칸 장비 [아이템 ID | null](칸 차례, D-570 1821 — 포획 장비). null = 아무것도 달지 않음(옛 줄) */
+    gear: jsonb("gear"),
+    /** 판매가(남의 조선소가 받은 주문 요금, 화폐 최소 단위 — 압류 배값 D-570 1827). 없으면 null(재료 시작 시세로 센다) */
+    price: bigint("price", { mode: "bigint" }),
   },
   (table) => [
     index("boat_states_home_idx").on(table.homeId),

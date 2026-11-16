@@ -6,6 +6,7 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { PlaceWorld } from "../facilities/places.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { GatherInjuryHook } from "../world/unitCondition.ts";
+import type { BoatCatch } from "./boatCrew.ts";
 import type { GatherKind } from "./kinds.ts";
 import type { GatherObject } from "./objects.ts";
 import type { ObjectStore } from "./state.ts";
@@ -68,6 +69,8 @@ export interface GatherDeps {
   workInjury?: GatherInjuryHook | undefined;
   /** 배 창고 상한(g, 배 종류 — boats 고리, D-568). 없거나 undefined면 설정 칸 boat_hold_kg */
   boatHoldGrams?: ((boatId: number) => number | undefined) | undefined;
+  /** 배 채집 일꾼(낚시 선원 ↔ 포획 장비 최대 티어, D-570 1821 — boats/gear.ts). 없으면 이끄는 유닛 혼자, 티어를 자르지 않는다 */
+  boatCatch?: ((boatId: number) => BoatCatch | undefined) | undefined;
   ready(): boolean;
 }
 

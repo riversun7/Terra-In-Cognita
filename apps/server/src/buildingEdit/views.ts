@@ -103,6 +103,9 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
             ...(type.fuelItems === undefined
               ? {}
               : { fuelItems: type.fuelItems.map((fuel) => ({ item: fuel.item.id, units: fuel.units })) }),
+            ...(type.catchGear === undefined
+              ? {}
+              : { catchGear: type.catchGear.map((row) => ({ item: row.item.id, maxTier: row.maxTier })) }),
             ...(type.naval === undefined
               ? {}
               : {

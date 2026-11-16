@@ -99,6 +99,8 @@ export type GatherStop =
   | "no_path"
   /** 넣을 곳(시설·창고·도시)이 그 2차맵에 없다 */
   | "no_deposit"
+  /** 배 줄: 단 포획 장비(없으면 장비 없는 티어)로는 그 오브젝트의 티어를 못 잡는다(D-570 1821) */
+  | "tier_too_high"
   /** 들어가기를 마쳤다 */
   | "entered";
 

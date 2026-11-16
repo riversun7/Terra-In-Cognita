@@ -108,6 +108,7 @@ export function startWorldBoats(
       parts.boatHooks.attach({
         speedPm: (unitId) => service.speedPm(unitId),
         info: (unitId) => service.info(unitId),
+        catchCrew: (unitId) => service.catchCrew(unitId),
       });
       // NPC 배(기획 D-547 1497 — 플레이어와 같은 규칙): NPC 사회가 켜진 세계에서 세력 정박장마다(npcFleet.ts)
       const gather = options.gather;

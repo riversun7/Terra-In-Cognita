@@ -51,6 +51,7 @@ import { type EcoFacility, type Economy, scheduleProduce, workerEffects } from "
 import type { SimLoop } from "./loop.ts";
 import type { NpcContext, SimEvent } from "./npcRun.ts";
 import { retierFacility, tierTemperOf } from "./npcGatherTier.ts";
+import { growthTemperOf } from "./npcGrowthTemper.ts";
 import { marketRefPrice } from "./npcTrade.ts";
 import type { SimFaction, SimWorld } from "./world.ts";
 
@@ -278,6 +279,8 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
   const treasuryAsset = economy.currencyOf.get(faction.id) ?? economy.base;
   let funds = world.book.balanceOf(faction.id, treasuryAsset);
   const produced = producedAssets(economy);
+  // 도시 성장 성향 몫(기획 D-554 1187·1188, D-572 질문 1995): 건물 수 상한 ± 채, 붐빔 숙소 점수 ±
+  const temper = growthTemperOf(world.seed, faction, c.npc);
   const stageOf = (facility: string) => economy.catalog.facilities.get(facility)?.stage;
   const upgradeSpec = (facility: string) => {
     const spec = economy.catalog.facilities.get(facility);
@@ -305,7 +308,7 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
     if (!site || site.busy || !city) continue;
     const humans = economy.cityUnits.get(cityId) ?? 0;
     const housingCap = cityHousingCap(city);
-    const cap = buildingCapOf(cityGrade(city.development, c.territory), c.npc);
+    const cap = buildingCapOf(cityGrade(city.development, c.territory), c.npc, temper.capDelta);
     const helpers = Math.min(
       Math.max(0, c.npc.buildBuildersMax),
       idleHumans(economy, world, cityId, guards.get(cityId) ?? 0),
@@ -375,6 +378,7 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
         c.npc,
         {
           bedsPerLevel: c.logistics.lodgingBedsPerLevel,
+          lodgingTilt: temper.lodgingTilt,
           cap,
           blocked: new Set(
             options

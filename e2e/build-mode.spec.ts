@@ -20,6 +20,16 @@ function blockLand(data: unknown): void {
   Reflect.set(data, "cityFaction", 1);
 }
 
+/** 서버 땅 규칙 응답을 "지을 수 있지만 다른 세력 영토 안(알박기 땅, D-572)"으로 바꾼다 */
+function claimLand(data: unknown): void {
+  if (typeof data !== "object" || data === null) throw new Error("facilities.landRule 응답 모양이 다릅니다");
+  Reflect.set(data, "status", "ready");
+  Reflect.set(data, "allowed", true);
+  Reflect.set(data, "reason", null);
+  Reflect.set(data, "cityFaction", null);
+  Reflect.set(data, "territoryFaction", 1);
+}
+
 async function openMap(
   page: Page,
   edits: Readonly<Record<string, (data: unknown) => void>> = {},
@@ -135,6 +145,21 @@ test.describe("건축 모드: 플레이어", () => {
     await pickAndPlace(page);
     await expect(sheet).toHaveAttribute("data-valid", "false");
     await expect(sheet.locator(".map-build-confirm")).toBeDisabled();
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("땅 규칙: 정부 건물 없는 남의 영토는 알림만, [짓기]는 막지 않는다(D-572 알박기)", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(150_000);
+    await openMap(page, { "facilities.landRule": claimLand });
+    const sheet = await openBuild(page);
+    await expect(sheet).toHaveAttribute("data-land", "allowed", { timeout: 20_000 });
+    await expect(sheet.locator(".map-build-claim")).toHaveText(message("ko", "build_land_claim_note"));
+    await expect(sheet.locator(".map-build-warning")).toHaveCount(0);
+    await pickAndPlace(page);
+    await shot(page, "build-claim-390");
     expect(deviceErrors).toEqual([]);
   });
 });

@@ -42,10 +42,8 @@ export type PlacementProblem =
   | "overlaps_building"
   | "needs_water"
   | "insufficient_materials"
-  /** 서버 땅 규칙: 다른 세력의 도시 2차맵 */
-  | "foreign_city"
-  /** 서버 땅 규칙: 놓을 자리가 다른 세력의 1차맵 영토(D-568) */
-  | "foreign_territory";
+  /** 서버 땅 규칙: 다른 세력의 도시 2차맵(정부 건물 있음 — D-572: 정부 건물이 없는 남의 영토는 막지 않는다) */
+  | "foreign_city";
 
 export interface PlacementInput {
   /** 왼쪽 위 칸(돌린 뒤), 없으면 아직 안 누름 */
@@ -60,8 +58,6 @@ export interface PlacementInput {
   readonly affordable: boolean;
   /** 땅 규칙(모르면 null — 막지 않는다) */
   readonly landAllowed: boolean | null;
-  /** 못 지을 때 서버가 준 까닭(없으면 도시 2차맵으로 친다 — 옛 서버) */
-  readonly landReason?: "foreign_city" | "foreign_territory" | null | undefined;
 }
 
 /** 칸 범위가 겹치나(x0 ≤ x < x1) */
@@ -83,8 +79,7 @@ function rectOf(building: BuildingFootprint): { x0: number; y0: number; x1: numb
 /** 기기 대략 판정: 문제 목록(비었으면 [짓기]를 보낼 수 있다 — 막힌 지형·유닛은 서버가 본다) */
 export function placementProblems(input: PlacementInput): PlacementProblem[] {
   const problems: PlacementProblem[] = [];
-  if (input.landAllowed === false)
-    problems.push(input.landReason === "foreign_territory" ? "foreign_territory" : "foreign_city");
+  if (input.landAllowed === false) problems.push("foreign_city");
   if (!input.anchor) return [...problems, "no_cell"];
   const { sx, sy } = rotatedSize(input.width, input.depth, input.rotation);
   const rect = { x0: input.anchor.x, y0: input.anchor.y, x1: input.anchor.x + sx, y1: input.anchor.y + sy };

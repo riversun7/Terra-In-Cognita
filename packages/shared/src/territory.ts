@@ -1,7 +1,7 @@
 // 영토 층 — 도시·영토 비콘 배치, 소속 판정, 비콘 놓기 검사. docs/adr/2026-11-03-territory-layer.md
 // 기획: D-568(판정도 1차맵 지도대로 — 비콘 놓기·세금·지방이 1차맵 영토 모양을 쓴다. D-485 비콘 볼록 도형 판정·D-544 "표시만"을 대체),
-// D-546·D-555(영향력 비율 경계, 도시 소유 비콘은 도시·국가 외곽선을 넓힌다), D-104(도시 영향권 반경 — 지도가 없을 때의 새 도시 겹침 검사.
-// 시가지·새 도시 자리도 D-568부터 지도 영토로 — 질문 1922·1923),
+// D-546·D-555(영향력 비율 경계, 도시 소유 비콘은 도시·국가 외곽선을 넓힌다), D-104(도시 영향권 반경 — 지도가 없을 때의 새 도시 겹침 검사와
+// 시가지 = 영향권 ÷ 3(D-572가 되돌림). 새 도시 자리는 D-568부터 지도 영토로 — 질문 1922),
 // 49 N42(도시 등급별 비콘 수·최대 거리)·N51(비콘 건물)·M2·M3.
 //
 // 점 = 구 위 방향을 정수 벡터로 둔 것(성분 |x| ≤ TERRITORY_POINT_SCALE = 2^16). 행성 칸 → 점은 @terra/planet/territory가 만든다
@@ -154,7 +154,7 @@ export interface TerritoryGroup {
 }
 
 export interface TerritoryCity extends TerritoryCityInput {
-  /** 영향권 반경(1000분율 칸, M3 — 지도가 없을 때의 새 도시 겹침 검사·도시 표. 시가지는 D-568부터 영토 원 ÷ 3) */
+  /** 영향권 반경(1000분율 칸, M3 — 지도가 없을 때의 새 도시 겹침 검사·도시 표·시가지 = 이 값 ÷ 3, D-104·D-572) */
   readonly radiusMilli: number;
   /** 영토 원 반지름(1000분율 칸, 1차맵 지도와 같다 — D-546·D-568). 0이면 영토가 없다 */
   readonly territoryMilli: number;
@@ -293,23 +293,25 @@ export function checkBeaconPlacement(
 }
 
 /**
- * 시가지 반경 = 영토 원 반지름 ÷ 이 값(기획 D-104·49 M4 "영향권은 시가지 반경의 3배다"를 D-568 "판정도 지도대로"로 읽음 — 질문 1923 나:
- * 바탕이 D-104 영향권에서 1차맵 영토 원(territoryMilli)으로 바뀌었다)
+ * 시가지 반경 = 도시 등급의 영향권 반경(M3 influenceMilli, radiusMilli) ÷ 이 값(기획 D-104 사용자 선택 "영향권은 시가지 반경의 3배" — 등급별
+ * 시가지 반경 마을 47m ~ 대도시 940m, 49 M4). 기획 D-572(질문 1987): 1차맵 영토 원 ÷ 3(질문 1923 나 정리)으로 넓힌 것은 고친다 — 영토 원은
+ * 판정 지도(비콘·세금·지방)이고 시가지(안전지대 D-146)는 이 등급별 반경이다
  */
 export const URBAN_RADIUS_DIVISOR = 3;
 
 /**
- * 점이 어느 도시의 시가지(안전지대, D-146) 안인가: 도시 중심에서 시가지 반경(영토 원 ÷ 3) 안인 도시 가운데 영향력 비율(거리 ÷ 영토 원)이
- * 가장 작은 도시(같으면 작은 ID — 1차맵 지도의 주인 고르기와 같은 차례). 없으면 null. 영토 원이 0인 도시(바탕 없음)는 시가지도 없다.
- * 시가지 안의 건물은 공성 시간에만 공격받는다(D-174·D-184, 기획 45 "시가지 안의 시설은 공성 시간에 공격받는다") — 건물 공격 판정이 쓴다
+ * 점이 어느 도시의 시가지(안전지대, D-146) 안인가: 도시 중심에서 시가지 반경(등급별 영향권 ÷ 3, D-104) 안인 도시 가운데 영향력 비율(거리 ÷
+ * 영향권)이 가장 작은 도시(같으면 작은 ID — 1차맵 지도의 주인 고르기와 같은 차례). 없으면 null. 영향권이 0인 도시는 시가지도 없다.
+ * 시가지 안의 건물은 공성 시간에만 공격받는다(D-174·D-184·D-193 웨이브 도착, 기획 45 "시가지 안의 시설은 공성 시간에 공격받는다") — 건물
+ * 공격 판정이 쓴다
  */
 export function urbanCityAt(layout: TerritoryLayout, point: TerritoryVec): number | null {
   let best: { readonly id: number; readonly ratio: number } | undefined;
   for (const city of layout.cities) {
-    if (!(city.territoryMilli > 0)) continue;
+    if (!(city.radiusMilli > 0)) continue;
     const distance = territoryDistanceMilli(point, city.point, layout.metric);
-    if (distance * URBAN_RADIUS_DIVISOR > city.territoryMilli) continue;
-    const ratio = distance / city.territoryMilli;
+    if (distance * URBAN_RADIUS_DIVISOR > city.radiusMilli) continue;
+    const ratio = distance / city.radiusMilli;
     if (!best || ratio < best.ratio || (ratio === best.ratio && city.id < best.id))
       best = { id: city.id, ratio };
   }

@@ -404,10 +404,12 @@ export function startSkill(
   if (skill.resource === "mp") unit.mpMilli -= costMilli(unit, skill, c);
   else unit.staminaMilli -= costMilli(unit, skill, c);
   unit.skillReadyMs[index] = nowMs + skill.cooldownMs;
-  // 사거리 ↔ 공격 간격 예산(곡선 range_interval을 고른 스킬만, ADR 3절)
+  // 사거리 ↔ 공격 간격 예산(곡선 range_interval을 고른 스킬만, ADR 3절). 바탕은 무기 사거리 예산 전 간격(D-572 — 질문 2008 나: 무기 예산은
+  // 기본 공격에만, 스킬은 스킬 곡선만 — 두 번 곱하지 않는다). 옛 시작 자료(칸 없음)는 공격 간격 그대로
+  const base = unit.skillIntervalMs ?? unit.attackIntervalMs;
   const interval = hasCurve(skill, "range_interval")
-    ? scalePm(unit.attackIntervalMs, rangeIntervalPm(skill.range, moveCoefficientsOf(c)))
-    : unit.attackIntervalMs;
+    ? scalePm(base, rangeIntervalPm(skill.range, moveCoefficientsOf(c)))
+    : base;
   unit.nextActionMs = nowMs + Math.max(skill.castMs, interval);
   if (skill.castMs <= 0) return true;
   unit.cast = { skill: index, target: targetId, atMs: nowMs + skill.castMs };

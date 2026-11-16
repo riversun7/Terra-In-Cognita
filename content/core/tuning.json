@@ -9464,6 +9464,96 @@
       "source": "기획 D-541 · 질문 1291 나 [임시]"
     },
     {
+      "id": "npc_build_cap_temper",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 성향 폭(채)",
+        "en": "NPC city building cap: trait spread (buildings)"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16,
+      "desc": {
+        "ko": "NPC 도시 건물 수 상한은 도시 등급 표 값에 세력·지도자 성향 몫을 더한다. 성향 치우침이 끝(±1000‰)이면 이 채 수만큼 더하거나 뺀다(0 쪽으로 버림). 0이면 등급 표 그대로(옛 판).",
+        "en": "An NPC city's building cap is the city-grade table value plus a faction and leader trait share. At the end of the tilt (±1000‰) it adds or removes this many buildings (rounded toward 0). 0 keeps the grade table as is (the old rule)."
+      },
+      "source": "기획 D-554 1187·1188 · D-572(질문 1995) [임시]"
+    },
+    {
+      "id": "npc_build_cap_commerce",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 상업 성향 몫(‰)",
+        "en": "NPC city building cap: commerce share (‰)"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "상업 성향이 가운데보다 높은 세력은 건물 수 상한 치우침이 + 쪽으로(도시가 더 크게), 낮으면 − 쪽으로 간다. 성향 끝에서 이 값. 0이면 상업 성향을 보지 않는다.",
+        "en": "Factions with commerce above the middle tilt the building cap upward (bigger cities), below it downward; this value at the trait's end. 0 ignores commerce."
+      },
+      "source": "기획 D-554 1187·1188 · D-572(질문 1995) [임시]"
+    },
+    {
+      "id": "npc_build_cap_leader",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 건물 수 상한: 지도자 기질 몫(‰)",
+        "en": "NPC city building cap: leader temper share (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "세력마다 하나인 지도자 기질(기르는 티어와 같은 값, 폭 = NPC 기르는 티어: 지도자 기질 폭)의 이 몫을 건물 수 상한 치우침에 더한다. 기질이 +(모험)면 도시가 더 크게, −(신중)면 작게 자란다. 0이면 지도자 기질을 보지 않는다.",
+        "en": "Adds this share of the faction's single leader temper (the same value as for gather tiers; spread = NPC gather tier: leader temper spread) to the building cap tilt. A positive (bold) temper grows bigger cities, a negative (cautious) one smaller. 0 ignores the leader temper."
+      },
+      "source": "기획 D-554 1187·1188 · D-572(질문 1995) [임시]"
+    },
+    {
+      "id": "npc_build_lodging_faith",
+      "code": "",
+      "name": {
+        "ko": "NPC 붐빔 숙소: 신앙 성향 → 먼저(점수)",
+        "en": "NPC crowded lodging: faith → sooner (score)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 300,
+      "desc": {
+        "ko": "인구 상한에 닿은 NPC 도시가 숙소를 더 짓는 점수(700)에 신앙 성향 몫을 더한다. 신앙이 높은 세력은 숙소(사람)를 먼저, 낮은 세력은 나중에 짓는다. 성향 끝에서 이 점수(농장 600·나라 목표 650 안팎과 견준다). 0이면 보지 않는다.",
+        "en": "Adds a faith share to the score (700) an NPC city at its population cap uses to build another lodging. Devout factions build lodging (people) first, secular ones later. This many points at the trait's end (compare farms at 600 and nation goals around 650). 0 ignores it."
+      },
+      "source": "기획 D-554 1187·1188 · D-572(질문 1995) [임시]"
+    },
+    {
+      "id": "npc_build_lodging_commerce",
+      "code": "",
+      "name": {
+        "ko": "NPC 붐빔 숙소: 상업 성향 → 나중(점수)",
+        "en": "NPC crowded lodging: commerce → later (score)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 300,
+      "desc": {
+        "ko": "상업 성향이 높은 세력은 붐빔 숙소 점수에서 이 값(성향 끝)을 빼 생산 시설을 먼저 짓고, 낮은 세력은 더한다. 0이면 보지 않는다.",
+        "en": "Factions high in commerce subtract this (at the trait's end) from the crowded-lodging score and build production first; low-commerce factions add it. 0 ignores it."
+      },
+      "source": "기획 D-554 1187·1188 · D-572(질문 1995) [임시]"
+    },
+    {
       "id": "npc_gather_tier_commerce",
       "code": "",
       "name": {

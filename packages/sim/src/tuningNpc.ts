@@ -310,6 +310,42 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 레벨 재료 가공 시설: 상한 몇 채 전부터",
     "NPC level-material processors: buildings before cap",
   ),
+  // 도시 성장 성향 변수(기획 D-554 1187·1188, D-572 질문 1995 [임시] — simulator/npcGrowthTemper.ts)
+  k(
+    "npc_build_cap_temper",
+    "",
+    "buildCapTemper",
+    "NPC 도시 건물 수 상한: 성향 폭(채)",
+    "NPC city building cap: trait spread (buildings)",
+  ),
+  k(
+    "npc_build_cap_commerce",
+    "",
+    "buildCapCommercePm",
+    "NPC 도시 건물 수 상한: 상업 성향 몫(‰)",
+    "NPC city building cap: commerce share (‰)",
+  ),
+  k(
+    "npc_build_cap_leader",
+    "",
+    "buildCapLeaderPm",
+    "NPC 도시 건물 수 상한: 지도자 기질 몫(‰)",
+    "NPC city building cap: leader temper share (‰)",
+  ),
+  k(
+    "npc_build_lodging_faith",
+    "",
+    "buildLodgingFaith",
+    "NPC 붐빔 숙소: 신앙 성향 → 먼저(점수)",
+    "NPC crowded lodging: faith → sooner (score)",
+  ),
+  k(
+    "npc_build_lodging_commerce",
+    "",
+    "buildLodgingCommerce",
+    "NPC 붐빔 숙소: 상업 성향 → 나중(점수)",
+    "NPC crowded lodging: commerce → later (score)",
+  ),
   // 기르는 티어 성향 가중 고르기(기획 답 1862 — D-554, 질문 1991~1993 [임시])
   k(
     "npc_gather_tier_commerce",

@@ -37,7 +37,10 @@ export const facilitiesRouter = router({
   owner: signedInProcedure
     .input(z.strictObject({ buildingId: z.int().min(1).max(Number.MAX_SAFE_INTEGER) }))
     .query(({ ctx, input }) => (ctx.facilities ?? notReady).owner(ctx.viewer, input.buildingId)),
-  /** 그 2차맵(의 배치 칸 x·y — 없으면 2차맵 가운데)에 지을 수 있나(땅 규칙, D-568 지도 영토 — 질문 1927) */
+  /**
+   * 그 2차맵(의 배치 칸 x·y — 없으면 2차맵 가운데)에 지을 수 있나(땅 규칙 — 정부 건물이 있는 다른 세력 도시만 막는다, D-572 알박기 우선).
+   * 그 자리가 다른 세력 1차맵 영토면 territoryFaction으로 알린다
+   */
   landRule: signedInProcedure
     .input(
       z.strictObject({

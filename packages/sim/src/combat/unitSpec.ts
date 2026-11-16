@@ -294,8 +294,9 @@ export function specFromStats(
     },
     range: w.range,
     arc: w.arc,
-    // 맨손 기본 공격은 맨손 식 bare_interval(사용자 답 1252 — AGI 10 → 2초, 20 → 0.5초, 0.25~5초), 무기·발톱은 attack_interval
-    attackIntervalMs: weaponRangeInterval(
+    // 맨손 기본 공격은 맨손 식 bare_interval(사용자 답 1252 — AGI 10 → 2초, 20 → 0.5초, 0.25~5초), 무기·발톱은 attack_interval.
+    // 무기 사거리 예산은 기본 공격 간격에만 곱하고, 스킬 행동 간격은 예산 전 값(skillIntervalMs — D-572 질문 2008 나)
+    ...intervalsOf(
       w,
       w.unarmed === true
         ? bareIntervalMs(w.intervalMs, primaries[2] ?? 0, body.level ?? 1, c)
@@ -340,6 +341,21 @@ export function specFromStats(
 function weaponRangeInterval(weapon: WeaponSpec, intervalMs: number, c: CombatCoefficients): number {
   if (!(weapon.curves ?? DEFAULT_WEAPON_CURVES).includes("range_interval")) return intervalMs;
   return scalePm(intervalMs, rangeIntervalPm(weapon.range, moveCoefficientsOf(c)));
+}
+
+/**
+ * 기본 공격 간격(무기 사거리 예산 곱함)과 스킬 행동 간격 바탕(예산 전 — D-572 질문 2008 나). 둘이 같으면 스킬 칸을 두지 않는다(옛 사양과
+ * 같은 모양 — 사거리 1 무기·예산을 끈 무기)
+ */
+function intervalsOf(
+  weapon: WeaponSpec,
+  intervalMs: number,
+  c: CombatCoefficients,
+): { attackIntervalMs: number; skillIntervalMs?: number } {
+  const attack = weaponRangeInterval(weapon, intervalMs, c);
+  return attack === intervalMs
+    ? { attackIntervalMs: attack }
+    : { attackIntervalMs: attack, skillIntervalMs: intervalMs };
 }
 
 /** 몸 밀림 저항(보스, 0이면 칸 없음)·크기 거리 배율(1000이면 칸 없음) 칸 */

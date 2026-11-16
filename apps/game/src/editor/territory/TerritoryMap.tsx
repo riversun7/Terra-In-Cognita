@@ -79,17 +79,18 @@ function draw(
     path(ctx, outline);
     ctx.stroke();
   }
-  // 도시 영토 원(굵은 선, 1차맵 지도·판정 D-568)과 시가지(점선 원 = 영토 원 ÷ 3, D-146 — 질문 1923): 반지름 = 각 × 평면 배율
-  for (const [divisor, dash, width] of [
-    [1, [], 2.5],
-    [URBAN_RADIUS_DIVISOR, [4, 3], 1],
+  // 도시 영토 원(굵은 선, 1차맵 지도·판정 D-568)과 시가지(점선 원 = 등급별 영향권 ÷ 3, D-146·D-104 — D-572 질문 1987): 반지름 = 각 × 평면 배율
+  for (const [urban, dash, width] of [
+    [false, [], 2.5],
+    [true, [4, 3], 1],
   ] as const) {
     ctx.setLineDash(dash);
     ctx.lineWidth = width;
     for (const city of layout.cities) {
       const at = project(view, city.point);
       if (!at) continue;
-      const radius = (city.territoryMilli / divisor / data.milliPerRadian) * view.pxPerUnit;
+      const milli = urban ? city.radiusMilli / URBAN_RADIUS_DIVISOR : city.territoryMilli;
+      const radius = (milli / data.milliPerRadian) * view.pxPerUnit;
       ctx.strokeStyle = colorOf(city.faction);
       ctx.beginPath();
       ctx.arc(at[0], at[1], Math.max(2, radius), 0, Math.PI * 2);

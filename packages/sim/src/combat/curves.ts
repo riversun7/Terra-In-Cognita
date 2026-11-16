@@ -132,11 +132,16 @@ export const DEFAULT_DISPLACE_RESIST: {
 
 /**
  * 밀리는 칸 수(D-570 "넉백 저항은 거리만 줄임"): ⌊칸 × 크기 배율 × (1000 − 저항) ÷ 1000000⌋. 저항 = 스탯 몫(효과 사전 밀림 상태이상
- * 항목의 resist) + 보스 몸 저항, 0~1000에서 자른다
+ * 항목의 resist) + 보스 몸 저항, 0~1000에서 자른다.
+ * 기획 D-572(질문 2005 — D-570 "xl 훨씬 적게"는 0칸이 아니라 적어도 1칸): 원래 칸이 1 이상이면 적어도 1칸 민다. 다만 저항이 1000(완전히
+ * 버팀 — 데이터가 정한 면역)이거나 크기 배율이 0이면 밀리지 않는다(질문 2121 [임시])
  */
 export function displacedCells(cells: number, sizePm: number, resistPm: number): number {
   const resist = Math.max(0, Math.min(1000, resistPm));
-  return Math.floor((Math.max(0, Math.trunc(cells)) * Math.max(0, sizePm) * (1000 - resist)) / 1_000_000);
+  const base = Math.max(0, Math.trunc(cells));
+  const size = Math.max(0, sizePm);
+  if (base === 0 || size === 0 || resist >= 1000) return 0;
+  return Math.max(1, Math.floor((base * size * (1000 - resist)) / 1_000_000));
 }
 
 /** 배율 곱(버림): value × pm ÷ 1000 */

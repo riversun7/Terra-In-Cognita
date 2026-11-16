@@ -160,7 +160,7 @@ export interface TerritoryService {
   /** 재료를 꺼내는 도시: 그 비콘 세력에서 비콘 칸과 가장 가까운 도시(질문 410 ①). 세력 도시가 없으면 null */
   supplyCity(beaconId: number): Promise<BeaconSupply | null>;
   /**
-   * 그 자리가 어느 도시의 시가지(안전지대, D-146: 1차맵 영토 원 ÷ 3 — D-568 질문 1923) 안인가 — 그 도시 ID, 아니면 null. 2차맵
+   * 그 자리가 어느 도시의 시가지(안전지대, D-146: 등급별 영향권 ÷ 3 — D-104, D-572 질문 1987) 안인가 — 그 도시 ID, 아니면 null. 2차맵
    * 배치 칸(건물) 또는 1차맵 칸 중심(비콘). 시가지 안의 건물은 공성 시간에만 공격받는다(D-174·D-184). 영토를 셈하지 않는 행성이면 null
    */
   urbanCity(planetId: string, at: TerritoryPlace): Promise<number | null>;

@@ -24,6 +24,7 @@ import {
   onFx,
   onProduce,
   onUpkeep,
+  peekMarket,
   priceIndexMilli,
   scheduleEconomy,
   setTax,
@@ -199,7 +200,7 @@ export function runEconomy(
     for (const asset of economy.catalog.items) {
       const sums = new Map<string, { sum: bigint; n: bigint }>();
       for (const perItem of economy.markets.values()) {
-        const market = perItem.get(asset);
+        const market = peekMarket(perItem, asset);
         if (!market || market.lastPrice === undefined) continue;
         const entry = sums.get(market.config.currency) ?? { sum: 0n, n: 0n };
         entry.sum += market.lastPrice;

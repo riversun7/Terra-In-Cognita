@@ -27,8 +27,8 @@ import { testEncounter } from "./testSupport.ts";
 const { tickMs } = TEST_COMBAT_COEFFICIENTS;
 
 describe("판 번호·목록(D-571 줄기)", () => {
-  it("SIM 59·프로토콜 49(최소 48)·대형·전개 방식 목록이 판정·보고서와 같다", () => {
-    expect(SIM_VERSION).toBe(59);
+  it("SIM 64·프로토콜 49(최소 48)·대형·전개 방식 목록이 판정·보고서와 같다", () => {
+    expect(SIM_VERSION).toBe(64);
     expect(PROTOCOL_VERSION).toBe(49);
     expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(48);
     expect(BATTLE_ORDER_PROTOCOL_VERSION).toBe(49);

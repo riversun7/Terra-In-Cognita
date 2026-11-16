@@ -3,7 +3,8 @@
 // 끝까지 싸운(퇴각하지 않은) 유닛의 주인 사용자마다 한 번, 지킨 편 세력의 나라 명성을 설정 칸 d326_renown_defense만큼 더한다.
 // - 지킨 나라 = 수비 편 faction 칸(소유 주체 ID, battleResults.ts 머리 주석)의 세력. 세력이 없는 주체(유저 개인 땅)면 주지 않는다.
 // - 사용자 = 유닛 주인 소유 주체의 user_id(사이보그 본체·유저 휴먼 모두). 사이보그가 없는 사용자는 건너뛴다.
-// - 납품·의뢰는 그 기능이 생기면 같은 addRenown으로 더한다(질문 2102). 정원사 웨이브 수비 승리도 세계 전투라 같은 길이다.
+// - 납품은 deliveryRenown.ts(거래소 체결, 질문 2182), 의뢰는 의뢰 게시판이 생기면 같은 addRenown으로(설정 칸 d326_renown_quest, 질문 2183).
+//   정원사 웨이브 수비 승리도 세계 전투라 같은 길이다.
 import type { BattleInit, RenownCoefficients } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { BattleOutcome } from "./battles.ts";

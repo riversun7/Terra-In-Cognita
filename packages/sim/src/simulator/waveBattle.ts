@@ -99,10 +99,11 @@ export interface WaveBattleInput {
 }
 
 /**
- * 웨이브 수비 인원 상한 안에서 편성을 자르지 않고 고른다(D-558 1547 → D-571 답 1970 "편성이 잘리지 않게", 추천 [임시] 질문 2108):
- * 수비 차례대로 편성(군단 → 파티 → 혼자인 유닛) 하나씩 본다. 통째로 들어가면 넣고, 넘치면 군단은 파티 하나씩 들어가는 만큼 넣고(파티는
- * 자르지 않는다), 파티·유닛은 건너뛴다(뒤 편성이 남은 자리에 들어갈 수 있으면 넣는다). 아무도 못 넣었으면(상한이 가장 작은 파티보다
- * 작다) 앞에서부터 상한만큼 넣는다(전투에 수비가 없지 않게). 차례는 수비 목록 차례 그대로다. 묶음 함수가 없으면 앞에서부터 상한만큼(옛 꼴)
+ * 웨이브 수비 인원 상한 안에서 편성을 자르지 않고 고른다(D-558 1547 "군단이 존재하면 군단이고 … 파티분대 만있으면 각파티형태로 참전, 파티도
+ * 없으면 유닛들 개별 참전" → D-571 답 1970 "편성이 잘리지 않게", 질문 2105 → 2181): 수비 차례대로 편성(군단 → 파티 → 혼자인 유닛) 하나씩
+ * 본다. 통째로 들어가면 넣고, 넘치면 그 편성을 통째로 건너뛴다(군단도 파티로 나누지 않는다 — 군단은 군단으로). 뒤 편성이 남은 자리에 들어갈
+ * 수 있으면 넣는다. 아무도 못 넣었으면(상한이 첫 편성보다 작다) 첫 편성을 통째로 넣는다(전투에 수비가 없지 않게, 자르지 않으므로 상한을 넘을
+ * 수 있다 [임시] 질문 2181). 차례는 수비 목록 차례 그대로다. 묶음 함수가 없으면 앞에서부터 상한만큼(옛 꼴 — 모두 혼자인 유닛과 같다)
  */
 export function waveDefenderPick<T extends { readonly id: number }>(
   defenders: readonly T[],
@@ -147,12 +148,14 @@ export function waveDefenderPick<T extends { readonly id: number }>(
     for (const unit of units) picked.add(unit);
     left -= units.length;
   };
+  const unitsOf = (group: Group): readonly T[] => (group.parties ? group.parties.flat() : group.units);
   for (const group of groups) {
-    const all = group.parties ? group.parties.flat() : group.units;
+    const all = unitsOf(group);
     if (all.length <= left) take(all);
-    else if (group.parties) for (const party of group.parties) if (party.length <= left) take(party);
   }
-  if (picked.size === 0) return defenders.slice(0, cap);
+  // 아무도 못 넣었으면 첫 편성을 통째로(상한이 0이면 수비 없음)
+  const first = groups[0];
+  if (picked.size === 0 && cap > 0 && first) take(unitsOf(first));
   return defenders.filter((unit) => picked.has(unit));
 }
 

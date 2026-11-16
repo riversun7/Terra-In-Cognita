@@ -1,8 +1,7 @@
 // 월드 — 시험 2차맵(들) + 경로 서비스 + 시험 봇, DB가 있으면 저장·부팅 복구까지
 // ADR 2026-10-28-s1-second-map.md(S1), 2026-10-31-s3-server-stage.md 1·2절(S3 저장·복구)
 // - DB가 없으면 S1처럼 메모리에만 둔다(시험·DB 없는 서버).
-// - DB가 있으면 부팅 때 DB에서 건물·유닛을 다시 놓고 예약을 다시 건 뒤 준비 완료(ready)다. 그 뒤 바뀜은 월드 쓰기
-//   대기열이 0.25초마다 묶어 커밋하고, 10초마다 생존 시각을 쓴다. 끌 때 대기열을 비운다.
+// - DB가 있으면 부팅 때 건물·유닛을 다시 놓고 예약을 다시 건 뒤 준비 완료(ready). 바뀜은 쓰기 대기열이 0.25초마다 커밋, 10초마다 생존 시각, 끌 때 비운다.
 import { randomInt, randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { EARTH_FACE_LEVEL } from "@terra/planet";
@@ -45,6 +44,7 @@ import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import { walkSpeedsOf } from "./walkSpeed.ts";
 import { commandRankSource } from "./commandRanks.ts";
 import { defenseRenown } from "./defenseRenown.ts";
+import { attachDeliveryRenown } from "./deliveryRenown.ts";
 import { type BoatHooks, createBoatHooks } from "../boats/hooks.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
@@ -603,8 +603,7 @@ export function startWorld(
       facilities: () => facilities.service,
       territory: () => territory,
     });
-    // 건물: 짓기·노화·수리(노동 계약 정산이 시설이 일하는지 묻는다 — 서로 고리라 계약 서비스는 뒤에 잇는다)
-    // 건물이 선 도시(재료·창고 자리, D-516 361): 부팅 때 읽은 도시 + NPC 런타임이 새로 세운 도시
+    // 건물: 짓기·노화·수리(계약 서비스는 뒤에 잇는다). 건물이 선 도시(D-516 361) = 부팅 때 읽은 도시 + NPC 런타임이 세운 도시
     const cityCells = () => cityCellsOf(cities, npc?.places, TEST_PLANET_ID, maps, npc?.world.ruins);
     const facilities = createWorldFacilities({
       loaded: facilityData,
@@ -865,6 +864,7 @@ export function startWorld(
           // 국력 등급 반영 요청이 든 부팅(world/tierApply.ts): 이미 채운 시작 도시도 등급 값까지 주거·휴먼·경비대를 더한다
           tierApply: seeded?.tierApply !== undefined,
         });
+        attachDeliveryRenown(npc.economy, { owners, cyborgs, rules: societyRules }); // 납품 명성(D-326)
         await finishTierApply(db, TEST_PLANET_ID, now(), seeded?.tierApply, npc.seedReport, log);
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");

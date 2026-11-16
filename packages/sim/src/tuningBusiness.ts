@@ -66,7 +66,12 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
   ),
   // 거래소 건물 2(기획 D-571, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)") — 서버만 읽는다
   k("exchange_fee_bp", "exchangeFeeBp", "거래소 이용료(만분율)", "Exchange usage fee (bp)"),
-  k("exchange_locker_g", "exchangeLockerG", "거래소 개인 창고 기본 크기(g)", "Exchange locker base size (g)"),
+  k(
+    "exchange_locker_g",
+    "exchangeLockerG",
+    "거래소 개인 창고 기본 크기(유닛마다, g)",
+    "Exchange locker base size (per unit, g)",
+  ),
   k(
     "exchange_locker_step_g",
     "exchangeLockerStepG",
@@ -88,7 +93,15 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
   k(
     "exchange_trade_slots",
     "exchangeTradeSlots",
-    "거래소 하나의 내 거래 직무 유닛 수",
-    "Trade-desk units per exchange (per owner)",
+    "거래소 거래 직무 자리 수(레벨마다)",
+    "Trade-desk seats per exchange level",
   ),
+  k(
+    "exchange_desk_haul_pm",
+    "exchangeDeskHaulPm",
+    "거래 직무 유닛 운반 시간 배율(‰)",
+    "Trade-desk unit haul time (‰)",
+  ),
+  k("exchange_fx_fee_bp", "exchangeFxFeeBp", "환전 이용료 적정 요율(만분율)", "Fair FX usage fee (bp)"),
+  k("exchange_fx_fee_max_bp", "exchangeFxFeeMaxBp", "환전 이용료 위 끝(만분율)", "FX usage fee limit (bp)"),
 ];

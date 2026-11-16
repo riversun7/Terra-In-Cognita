@@ -13,7 +13,7 @@ import type {
 import { useEffect, useId, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { parseAmountInput, toBig, trendOf } from "./amount.ts";
-import { type CatalogIndex, currencyName, fmt, formatAgo, indexCatalog } from "./economyText.ts";
+import { type CatalogIndex, bpPercent, currencyName, fmt, formatAgo, indexCatalog } from "./economyText.ts";
 import { type FxOutcome, sendFxCommand } from "./market/marketCommands.ts";
 import { MARKET_ERROR_TEXT, wireAmount } from "./market/marketText.ts";
 import "./market/market.css";
@@ -87,6 +87,11 @@ function PairCard({ pair, index, preview }: { pair: FxPairView; index: CatalogIn
           {m.fx_exchange_none()}
         </p>
       ) : null}
+      {pair.feeBp === undefined ? null : (
+        <p className="eco-row-meta" data-part="fx-fee">
+          {pair.feeBp > 0 ? m.fx_fee_line({ pct: bpPercent(pair.feeBp) }) : m.fx_fee_free()}
+        </p>
+      )}
       <div className="eco-fx-prices">
         <div>
           <span className="eco-quote-label">{m.economy_exchange_indicative()}</span>

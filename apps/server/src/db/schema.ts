@@ -974,6 +974,7 @@ export { templeDevotions, templeGuardians, unitFaith } from "./templeSchema.ts";
 export { restorationContributions, worldRuins } from "./ruinsSchema.ts";
 /** 물자 거래소 표(docs/adr/2026-11-07-play-flow.md WP4) */
 export * from "./marketSchema.ts";
+export * from "./exchangeLockerSchema.ts";
 /** 2차맵 사이 이동 표(WP9)·원자재 오브젝트 상태 표(docs/adr/2026-11-07-gather-objects.md) */
 export { worldTravels } from "./travelSchema.ts";
 export { gatherObjectStates } from "./gatherSchema.ts";

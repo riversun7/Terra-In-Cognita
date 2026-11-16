@@ -187,7 +187,9 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     expect(await p.labor.assign(a.userId, camp, a.unitId)).toEqual({ ok: true });
     expect(jobOf(world, a.unitId)).toBe(JOB_GATHER);
     expect(await p.labor.assign(a.userId, camp, a.unitId)).toEqual({ ok: false, code: "unit_busy" });
-    expect(p.labor.workersAt(camp)).toEqual([{ unitId: a.unitId, via: "assign", workerOwnerId: a.ownerId }]);
+    expect(p.labor.workersAt(camp)).toEqual([
+      { unitId: a.unitId, via: "assign", workerOwnerId: a.ownerId, forOwnerId: a.ownerId },
+    ]);
     // 배치된 유닛은 계약을 맺지 못한다
     expect(await p.labor.create(a.userId, { kind: "wage", buildingId: camp, unitId: a.unitId })).toEqual({
       ok: false,
@@ -253,7 +255,9 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
 
     const second = await boot();
     const p = persistence(second);
-    expect(p.labor.workersAt(farm)).toEqual([{ unitId: a.unitId, via: "assign", workerOwnerId: a.ownerId }]);
+    expect(p.labor.workersAt(farm)).toEqual([
+      { unitId: a.unitId, via: "assign", workerOwnerId: a.ownerId, forOwnerId: a.ownerId },
+    ]);
     expect(jobOf(second, a.unitId)).toBe(JOB_GATHER);
     // 농장(선택 방식): 스탯 10·10 → 해금 T1(감자·배추·당근), 필요 진행 60 = 1시간에 하나
     clock += 3 * HOUR;
@@ -394,7 +398,8 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     p.settlement.settleOwner(boss.ownerId, clock);
     expect(stockAt(world, boss.ownerId, buildingLocation(camp), woodAssets)).toBeGreaterThan(0n);
     expect(p.ledger.balanceOf(boss.ownerId, ASSET_ORE)).toBe(0n);
-    expect(p.labor.workersAt(camp)).toEqual([
+    // 임금형 = 고용주 몫(forOwnerId), 계약 ID
+    expect(p.labor.workersAt(camp)).toMatchObject([
       { unitId: boss.unitId, via: "wage", workerOwnerId: boss.ownerId },
     ]);
     const contractId = made.ok ? (made.contractId ?? 0) : 0;

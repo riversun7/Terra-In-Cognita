@@ -74,6 +74,7 @@ import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { type MarketRegistry, createMarketRegistry } from "../market/books.ts";
 import { type FxRegistry, createFxRegistry } from "../market/fx.ts";
+import { fxFeeHook } from "../market/fxFeeHook.ts";
 import { loadFx, loadMarkets } from "../market/load.ts";
 import { type Lockers, createLockers, loadLockers } from "../market/lockers.ts";
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
@@ -180,6 +181,9 @@ export interface NpcEconomyInput {
   readonly exchangeCenter?:
     | ((buildingId: number) => { readonly x: number; readonly y: number } | undefined)
     | undefined;
+  /** 일하는 외환 거래소(도시 → 건물 ID)·그 건물의 환전 이용료 요율(만분율) — 질문 2086 환전 이용료. 둘 다 있어야 이용료를 받는다 */
+  readonly fxExchanges?: (() => ReadonlyMap<number, number>) | undefined;
+  readonly fxFeeBp?: ((buildingId: number) => number) | undefined;
 }
 
 /** 시설 하나의 지금 생산(화면용) */
@@ -363,6 +367,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     lotSize: SERVER_ECONOMY_SETTINGS.fxLot,
     isUser,
     now: o.now,
+    fee: fxFeeHook(o.input, book, (cityId) => currencyOf.get(world.cities.get(cityId)?.owner ?? -1)),
   });
   for (const currency of issuer.keys()) fx.ensure(currency);
   let lastOrderId = 0;

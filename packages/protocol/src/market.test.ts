@@ -4,6 +4,7 @@ import {
   FX_PROTOCOL_VERSION,
   FX_RESULT_CODES,
   LOCKER_PROTOCOL_VERSION,
+  UNIT_LOCKER_PROTOCOL_VERSION,
   MARKET_EXPIRY_DAYS_MAX,
   MARKET_PROTOCOL_VERSION,
   MARKET_RESULT_CODES,
@@ -132,5 +133,14 @@ describe("거래소 개인 창고 넓히기(프로토콜 49, 기획 D-571 1943)"
     expect(MARKET_RESULT_CODES).toContain("locker_max");
     const full = { t: "market_result", id: 9, ok: false, code: "locker_max" } as const;
     expect(decodeServerMessage(encodeMessage(full))).toEqual(full);
+  });
+  it("56부터 넓힐 유닛 창고(unitId)와 결과 코드 unknown_unit(질문 2081)", () => {
+    expect(UNIT_LOCKER_PROTOCOL_VERSION).toBe(56);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(UNIT_LOCKER_PROTOCOL_VERSION);
+    const expand = { t: "market_locker_expand", id: 9, city: 3, unitId: 41 } as const;
+    expect(decodeClientMessage(encodeMessage(expand))).toEqual(expand);
+    expect(decodes(decodeClientMessage, { ...expand, unitId: 0 })).toBe(false);
+    const unknown = { t: "market_result", id: 9, ok: false, code: "unknown_unit" } as const;
+    expect(decodeServerMessage(encodeMessage(unknown))).toEqual(unknown);
   });
 });

@@ -227,3 +227,11 @@ export function formatClock(atMs: number, nowMs: number): string {
   }
   return format.format(atMs);
 }
+
+/** 만분율 → 백분율 글(정수 연산, 소수 둘째 자리까지 — 100 = "1", 50 = "0.5") */
+export function bpPercent(bp: number): string {
+  const whole = Math.max(0, Math.trunc(bp));
+  const cents = whole % 100;
+  if (cents === 0) return String(Math.floor(whole / 100));
+  return `${Math.floor(whole / 100)}.${String(cents).padStart(2, "0").replace(/0$/, "")}`;
+}

@@ -5,10 +5,12 @@ import {
   ORDER_BASE,
   exchangeLocked,
   isExchangeKind,
+  defaultLockerUnit,
   lockerCapacityG,
   lockerFits,
   orderLimit,
   stationBonus,
+  unitLockersG,
 } from "./exchange.ts";
 
 describe("거래소 건물 규칙", () => {
@@ -37,5 +39,19 @@ describe("거래소 건물 규칙", () => {
     expect(lockerFits(150n, 100n, 200n)).toBe(false);
     // 이미 넘친 창고(설정을 줄였거나 옛 세계)도 빼는 쪽·0은 된다
     expect(lockerFits(500n, 0n, 200n)).toBe(true);
+  });
+
+  it("유닛마다 작은 창고: 주인 크기 = 유닛 창고 합, 고르지 않은 넓히기는 사이보그 본체 먼저(질문 2081)", () => {
+    expect(unitLockersG(200_000, 50_000, [])).toBe(0n);
+    expect(unitLockersG(200_000, 50_000, [0, 2, 1])).toBe(750_000n);
+    const units = [
+      { unitId: 9, cyborg: false, steps: 0 },
+      { unitId: 4, cyborg: true, steps: 3 },
+      { unitId: 2, cyborg: false, steps: 1 },
+    ];
+    expect(defaultLockerUnit(units, 5)).toBe(4);
+    // 본체가 위 끝이면 유닛 ID 차례로 다음
+    expect(defaultLockerUnit(units, 3)).toBe(2);
+    expect(defaultLockerUnit(units, 0)).toBeUndefined();
   });
 });

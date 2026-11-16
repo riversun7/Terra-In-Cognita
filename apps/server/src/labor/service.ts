@@ -21,7 +21,7 @@
 //   (그 구간에 시험 광석을 내던 개발 시험 일꾼은 없앴다 — 사용자 지적 2026-11-09 "시험일꾼 다 없애라고"). 계약을 맺으면 유닛 직무를
 //   채집으로 켜고, 일이 끝나면 정산 뒤 고리가 끈다.
 //   직무 배치(assign·unassign, 프로토콜 14)는 내 유닛을 내 채집 시설에 돈 없이 둔다(질문 521, 자리 = 레벨 × 레벨당 자리).
-//   거래 직무(D-571 1944, ADR exchange-buildings "바뀜 (D-571)"): 남의 거래소에도 주인마다 exchange_trade_slots, 산출 없이 주문 한도를 늘린다.
+//   거래 직무(D-571 1944, 질문 2083): 내 거래소는 직무 배치, 남의 거래소는 주인이 낸 자리(임대형)·고용(임금형). 자리 = 레벨 × 설정 칸, 산출 없음.
 // - 직무 위치·임대 상한(docs/adr/2026-11-07-play-flow.md "WP8", 기획 정리 D-518 522 ①·523 ②): 직무 배치·계약 맺기·구인 받기는 유닛이 그
 //   시설과 같은 2차맵에 있어야 한다(wrong_map). 정산 때 유닛이 그 2차맵을 떠났으면 배치는 풀고 계약은 "유닛 사라짐"으로 끝낸다. 임대형
 //   임차인 몫(그 건물 창고)은 그 건물 창고 상한(팩 시설 storageKg × 레벨, N50)까지만 쌓인다(workBook.ts leaseRooms).
@@ -75,7 +75,8 @@ import { wageRulesOf } from "./rules.ts";
 import { npcQuits } from "./npcWait.ts";
 import { fundDueWages } from "./wageFunding.ts";
 import { wageWalletOf } from "./wagePurse.ts";
-import { KEEP_ENDED_MS, type LoadedLabor, type RentRow, contractRow, rentRow } from "./store.ts";
+import { type LaborWorkerEntry, contractEntry } from "./workerEntry.ts";
+import { KEEP_ENDED_MS, type LoadedLabor, type RentRow, contractRow, postedRent, rentRow } from "./store.ts";
 
 const HOUR_MS = 3_600_000;
 
@@ -139,6 +140,8 @@ export interface LaborService {
   unassign(userId: string, unitId: number): Promise<LaborCommandResult>;
   /** 그 시설에서 일하는 유닛(직무 배치 + 열린 노동 계약, 유닛 ID 차례) — 건물 화면 */
   workersAt(buildingId: number): readonly LaborWorkerEntry[];
+  /** 그 시설의 시간당 임대료(주인이 낸 것, 0·없음 = null) — 거래소 거래 직무 자리 값(질문 2083) */
+  rentOf(buildingId: number): bigint | null;
   /**
    * 그 시설의 시간당 인건비(적정가 — 기획 D-570 1822): 열린 임금형 계약 임금 + 직무 배치 유닛은 기준 임금(조정 1000‰)으로 친다. 임대형(임차인
    * 몫)은 뺀다. 화폐 최소 단위, 올림
@@ -178,15 +181,6 @@ export interface LaborBusinessHook {
   stopAfter?(buildingId: number, atMs: number): void;
   /** 사업장 금고 잔고(화폐 하나). 없으면 0 */
   vaultBalance?(buildingId: number, ownerId: number, asset: string): bigint;
-}
-
-/** 시설에서 일하는 유닛 하나 */
-export interface LaborWorkerEntry {
-  readonly unitId: number;
-  /** assign = 직무 배치, wage·lease = 노동 계약 */
-  readonly via: "assign" | "wage" | "lease";
-  /** 유닛 소유 주체 */
-  readonly workerOwnerId: number;
 }
 
 function isOpen(c: LaborContract): boolean {
@@ -313,31 +307,28 @@ export function createLaborService(options: {
   const workersAt = (buildingId: number): LaborWorkerEntry[] => {
     const out: LaborWorkerEntry[] = [];
     for (const c of contracts.values())
-      if (c.buildingId === buildingId && isOpen(c))
-        out.push({ unitId: c.unitId, via: c.kind, workerOwnerId: c.workerOwnerId });
+      if (c.buildingId === buildingId && isOpen(c)) out.push(contractEntry(c));
     for (const unitId of work.assignedAt(buildingId)) {
       const owner = unitOwnerOf(unitId);
-      if (owner !== undefined) out.push({ unitId, via: "assign", workerOwnerId: owner });
+      if (owner !== undefined) out.push({ unitId, via: "assign", workerOwnerId: owner, forOwnerId: owner });
     }
     return out.toSorted((a, b) => a.unitId - b.unitId);
   };
-  /** 직무 배치를 받는 일터: 채집 시설 또는 채집이 아닌 일터(병원 의사, D-521 — 산출 없음) */
+  /** 거래소 거래 직무 자리(질문 2083 — 레벨 × 설정 칸, 산출 없음). 거래소가 아니면 undefined */
+  const deskOf = (buildingId: number) => work.source()?.tradeDesk?.(buildingId);
+  /** 직무 배치를 받는 일터: 채집 시설 또는 채집이 아닌 일터(병원 의사 D-521·거래소 거래 직무 — 산출 없음) */
   const workplaceOf = (buildingId: number): { readonly level: number; readonly slots: number } | undefined =>
-    work.source()?.site(buildingId) ?? work.source()?.workplace?.(buildingId);
+    work.source()?.site(buildingId) ?? work.source()?.workplace?.(buildingId) ?? deskOf(buildingId);
   /**
    * 직무 배치가 끝날 까닭(유닛 사라짐·주인 바뀜·일 멈춤, 시설 사라짐·주인 바뀜·채집 시설 아님). 그대로면 false. 풀면 그 구간 산출은 없다
    */
-  const assignmentGone = (unitId: number, ownerId: number, buildingId: number): boolean => {
-    const desk = work.source()?.tradeDesk?.(buildingId);
-    return (
-      unitOwnerOf(unitId) !== ownerId ||
-      (options.unitAway?.(unitId) ?? false) ||
-      // 거래 직무는 남의 거래소에 둔다(건물이 남아 있기만 하면 된다)
-      (desk ? buildingOwnerOf(buildingId) === undefined : buildingOwnerOf(buildingId) !== ownerId) ||
-      (desk === undefined && workplaceOf(buildingId) === undefined) ||
-      !onSiteMap(unitId, buildingId)
-    );
-  };
+  // 바뀜 (질문 2083): 거래 직무도 내 거래소에만 배치한다(남의 거래소 배치는 다음 정산에 풀린다 — 남의 자리는 노동 계약)
+  const assignmentGone = (unitId: number, ownerId: number, buildingId: number): boolean =>
+    unitOwnerOf(unitId) !== ownerId ||
+    (options.unitAway?.(unitId) ?? false) ||
+    buildingOwnerOf(buildingId) !== ownerId ||
+    workplaceOf(buildingId) === undefined ||
+    !onSiteMap(unitId, buildingId);
   /** 이번 정산에서 유예가 끝난 임대형 계약(정산 뒤 고리가 남은 물건을 옮긴다) */
   const leftoverQueue: LaborContract[] = [];
 
@@ -442,7 +433,9 @@ export function createLaborService(options: {
         rooms,
       );
       for (const segment of segments) {
-        const producing = productionOn && segment.mode === "work" && works;
+        // 거래 직무(질문 2084)는 산출이 없다(시험 광석도 내지 않는다)
+        const producing =
+          productionOn && segment.mode === "work" && works && deskOf(c.buildingId) === undefined;
         list.push({
           untilMs: segment.untilMs,
           ...(bonusPm > 0 && segment.mode === "work" ? { bonusPm } : {}),
@@ -567,6 +560,7 @@ export function createLaborService(options: {
     assignedTo: (unitId) => work.assignedTo(unitId) ?? openContractOf(unitId)?.buildingId,
     unitAway: (unitId) => options.unitAway?.(unitId) ?? false,
     workersAt,
+    rentOf: (buildingId) => postedRent(rents.get(buildingId), buildingOwnerOf(buildingId)),
     hourlyLabor(buildingId) {
       const rules = wageRulesOf(options.rules());
       const cycle = BigInt(Math.max(1, rules.labor.wageCycleMs));
@@ -645,6 +639,9 @@ export function createLaborService(options: {
       if (unitOwner !== me) return fail("forbidden");
       if (!onSiteMap(input.unitId, input.buildingId)) return fail("wrong_map");
       if (unitBusy(input.unitId)) return fail("unit_busy");
+      // 거래소 거래 직무 자리(질문 2083): 주인이 낸 자리 수(레벨 × 설정 칸) 안에서만 빌린다
+      const desk = deskOf(input.buildingId);
+      if (desk && workersAt(input.buildingId).length >= desk.slots) return fail("facility_full");
       const rules = wageRulesOf(options.rules());
       let ownerId: number;
       let rate: bigint;
@@ -965,17 +962,13 @@ export function createLaborService(options: {
       if (buildingOwner === undefined) return fail("unknown_building");
       const unitOwner = unitOwnerOf(unitId);
       if (unitOwner === undefined) return fail("unknown_unit");
-      // 거래 직무(D-571)는 남의 거래소에도 주인마다 자리 수까지, 그 밖은 내 다 지은 채집 시설·병원(레벨 1 이상)만
-      const desk = work.source()?.tradeDesk?.(buildingId);
-      if (unitOwner !== me || (!desk && buildingOwner !== me)) return fail("forbidden");
-      const site = desk ?? workplaceOf(buildingId);
+      // 내 다 지은 채집 시설·병원·거래소(레벨 1 이상)만 — 남의 거래소 거래 직무는 주인이 낸 자리를 노동 계약으로(질문 2083)
+      if (unitOwner !== me || buildingOwner !== me) return fail("forbidden");
+      const site = workplaceOf(buildingId);
       if (!site || site.level < 1) return fail("not_workplace");
       if (!onSiteMap(unitId, buildingId)) return fail("wrong_map");
       if (unitBusy(unitId)) return fail("unit_busy");
-      const taken = desk
-        ? work.assignedAt(buildingId).filter((id) => unitOwnerOf(id) === me).length
-        : workersAt(buildingId).length;
-      if (taken >= site.slots) return fail("facility_full");
+      if (workersAt(buildingId).length >= site.slots) return fail("facility_full");
       // 바꾸기 전에 지금까지 정산한다(배치 구간이 이 시각에서 시작한다)
       settlement.settleOwner(me, at);
       work.assign(unitId, me, buildingId, at);

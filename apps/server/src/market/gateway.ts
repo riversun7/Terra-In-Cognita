@@ -5,11 +5,13 @@
 // - 환전(fx_place·fx_cancel, 프로토콜 15)도 같은 연결 차례·속도 제한으로 받아 fx_result로 답한다(WP6).
 // - 판정·저장은 서비스(service.ts)가 한다.
 // - 거래소 건물(프로토콜 47, docs/adr/2026-11-16-exchange-buildings.md): 새 코드 no_exchange는 더 낮은 판에 unknown_city(물자)·unknown_currency(환전)로 간다.
+// - 유닛마다 개인 창고(프로토콜 56, 질문 2081): market_locker_expand의 unitId, 새 코드 unknown_unit은 더 낮은 판에 locker_max로 간다.
 // - 거래소 개인 창고(프로토콜 49, 기획 D-571 1943): market_locker_expand → market_result. 새 코드 locker_full은 더 낮은 판에 invalid_amount로 간다.
 import {
   type ClientMessageOf,
   EXCHANGE_MARKET_PROTOCOL_VERSION,
   LOCKER_PROTOCOL_VERSION,
+  UNIT_LOCKER_PROTOCOL_VERSION,
   type FxResultCode,
   type MarketResultCode,
   encodeMessage,
@@ -125,8 +127,13 @@ export function createMarketGateway(options: {
         (link.protocolVersion ?? EXCHANGE_MARKET_PROTOCOL_VERSION) < EXCHANGE_MARKET_PROTOCOL_VERSION;
       // 개인 창고(49, D-571 1943): 더 낮은 판은 locker_full을 모른다
       const beforeLocker = (link.protocolVersion ?? LOCKER_PROTOCOL_VERSION) < LOCKER_PROTOCOL_VERSION;
+      // 유닛마다 개인 창고(56, 질문 2081): 더 낮은 판은 unknown_unit을 모른다
+      const beforeUnitLocker =
+        (link.protocolVersion ?? UNIT_LOCKER_PROTOCOL_VERSION) < UNIT_LOCKER_PROTOCOL_VERSION;
       const lower = (result: MarketCommandResult): MarketCommandResult => {
         if (result.ok) return result;
+        if (beforeUnitLocker && result.code === "unknown_unit")
+          return fail(beforeLocker ? "invalid_amount" : "locker_max");
         if (beforeExchange && result.code === "no_exchange") return fail("unknown_city");
         if (beforeLocker && (result.code === "locker_full" || result.code === "locker_max"))
           return fail("invalid_amount");
@@ -188,7 +195,7 @@ export function createMarketGateway(options: {
         if (message.t === "market_cancel")
           return reply(message.id, await service.cancel(viewer.id, message.order));
         if (message.t === "market_locker_expand")
-          return reply(message.id, await service.lockerExpand(viewer.id, message.city));
+          return reply(message.id, await service.lockerExpand(viewer.id, message.city, message.unitId));
         reply(
           message.id,
           await service.place(viewer.id, {

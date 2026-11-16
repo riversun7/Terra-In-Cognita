@@ -135,6 +135,8 @@ function rig(
         store?: { x: number; y: number } | undefined;
         haulMode?: number | undefined;
         ownerSale?: ((ownerId: number, buildingId: number, asset: string, qty: bigint) => bigint) | undefined;
+        /** 창고 자리(store)를 거래소로 보고 거래 직무 운반 시간 배율(‰, 질문 2084) */
+        deskHaulPm?: number | undefined;
       } = 1,
 ) {
   const opts = typeof level === "number" ? {} : level;
@@ -220,7 +222,12 @@ function rig(
     pollution: () => 0,
     timers: false,
     workersAt: (buildingId) =>
-      (workers.get(buildingId) ?? []).map((unitId) => ({ unitId, workerOwnerId: OWNER })),
+      (workers.get(buildingId) ?? []).map((unitId) => ({
+        unitId,
+        workerOwnerId: map.unitInfo(unitId)?.ownerId ?? OWNER,
+      })),
+    deskHaulPm: (buildingId) =>
+      opts.deskHaulPm !== undefined && buildingId === storeId ? opts.deskHaulPm : undefined,
     // 받을 사람의 그 2차맵 유닛(기획 D-569 1784 — 일꾼 다음 운반꾼)
     ownUnits: (ownerId, mapKey) => {
       const found: number[] = [];
@@ -232,14 +239,14 @@ function rig(
     ownerSale: opts.ownerSale,
   });
   /** 그 채집소 일꾼(운반꾼 후보)으로 유닛을 놓는다 */
-  const hire = (buildingId: number, unitId: number, cellX: number, cellY: number): void => {
+  const hire = (buildingId: number, unitId: number, cellX: number, cellY: number, ownerId = OWNER): void => {
     map.addUnit({
       id: unitId,
       size: 1,
       speed: WALK_SPEED,
       cellX,
       cellY,
-      ownerId: OWNER,
+      ownerId,
       kind: UNIT_KIND_HUMAN,
     });
     workers.set(buildingId, [...(workers.get(buildingId) ?? []), unitId]);
@@ -617,6 +624,49 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
     r.runtime.haulNow(trip?.arriveAtMs ?? 0);
     expect(r.ledger.balanceOf(OWNER, ORE, buildingLocation(exchangeId))).toBe(3n);
     expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(22))).toBe(0n);
+  });
+
+  it("거래 직무(질문 2084): 그 거래소에서 나를 위해 일하는 거래 직무 유닛이 먼저 나르고 시간이 배율만큼 준다, 남의 거래 직무 유닛은 나르지 않는다", () => {
+    const seed = (r: ReturnType<typeof rig>): void => {
+      r.ledger.post({
+        kind: "test",
+        atMs: NOW,
+        entries: [
+          { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -6n },
+          { account: r.ledger.ownerAccount(OWNER, ORE, cityLocation(CITY)), amount: 6n },
+        ],
+      });
+    };
+    const addOwn = (r: ReturnType<typeof rig>): void => {
+      r.map.addUnit({
+        id: 22,
+        size: 1,
+        speed: WALK_SPEED,
+        cellX: 40,
+        cellY: 30,
+        ownerId: OWNER,
+        kind: UNIT_KIND_HUMAN,
+      });
+    };
+    // 거래 직무 없이: 내 유닛이 보통 시간으로
+    const plain = rig({ store: { x: 30, y: 24 }, deskHaulPm: 500 });
+    seed(plain);
+    addOwn(plain);
+    expect(plain.runtime.haulIn(OWNER, plain.storeId ?? 0, ORE, 3n, NOW)).toBeNull();
+    const slow = plain.runtime.trip(plain.storeId ?? 0);
+    expect(slow?.porter).toBe(22);
+    // 남의 거래 직무 유닛(다른 주인이 빌린 자리)은 내 짐을 나르지 않는다, 내 거래 직무 유닛은 먼저 나르고 절반 시간
+    const desk = rig({ store: { x: 30, y: 24 }, deskHaulPm: 500 });
+    seed(desk);
+    addOwn(desk);
+    desk.hire(desk.storeId ?? 0, 31, 34, 28, OWNER + 1);
+    desk.hire(desk.storeId ?? 0, 33, 36, 28);
+    expect(desk.runtime.haulIn(OWNER, desk.storeId ?? 0, ORE, 3n, NOW)).toBeNull();
+    const fast = desk.runtime.trip(desk.storeId ?? 0);
+    expect(fast?.porter).toBe(33);
+    const slowMs = (slow?.arriveAtMs ?? 0) - NOW;
+    expect(slowMs).toBeGreaterThan(0);
+    expect((fast?.arriveAtMs ?? 0) - NOW).toBe(Math.ceil(slowMs / 2));
   });
 
   it("자동 옮김은 주인 자동 구매(D-569 1781): 산 만큼만 옮기고, 못 사면 창고에 남는다", () => {

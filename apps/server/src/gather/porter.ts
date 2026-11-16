@@ -11,6 +11,8 @@
 //   본체는 빼낸다 [임시]). 판매면 물건은 떠날 때 판 사람의 건물 창고에서 산 사람 몫의 운반꾼 화물로 간다(거래 business_sale_goods).
 // - 거래소 넣기(기획 D-564 1628, docs/adr/2026-11-16-exchange-buildings.md): 도시 창고 → 물자 거래소 건물 창고도 같은 운반꾼이 나른다(deliverTo = 그 건물
 //   창고). 떠날 때 도시 창고에서 운반꾼 화물로, 닿으면 거래소 건물 창고로 넣는다(같은 거래 이름).
+//   바뀜 (질문 2084, 줄기 exchange-3): 거래소 반입·반출은 그 거래소에서 나를 위해 일하는 거래 직무 유닛(사이보그 본체도)이 먼저 나르고, 없으면 내 그
+//   2차맵 유닛. 거래 직무 유닛이 나르면 시간이 설정 칸 exchange_desk_haul_pm 배(station.ts deskHaulPm).
 // - 같은 채집소·같은 주인의 짐이 떠난 지 MERGE_MS 안이면 그 짐에 더한다(손으로 옮기기는 물건마다 명령을 보낸다 — 운반꾼 하나가 한 번에 진다).
 // - [임시] 나르는 중 상태는 메모리다. 다시 켜면 화물은 운반꾼에 남아 있어 다음 정시에 그 유닛의 화물로 짐을 다시 떠나보낸다(resume).
 // 정수 연산만 쓴다.
@@ -61,7 +63,11 @@ export interface PorterDeps {
     readonly unitId: number;
     readonly workerOwnerId: number;
     readonly via?: string | undefined;
+    /** 그 일의 몫을 받는 주체(임금형 = 고용주). 없으면 유닛 주인 */
+    readonly forOwnerId?: number | undefined;
   }[];
+  /** 거래소 거래 직무 자리인가(질문 2084 — 그 자리 일꾼은 제 몫을 받는 주체의 짐만 나른다). 없으면 거래소 없음 */
+  readonly deskAt?: ((buildingId: number) => boolean) | undefined;
   /** 채집 줄 등 다른 일이 있는 유닛(운반꾼에서 뺀다). 없으면 모두 한가 */
   readonly busy?: ((unitId: number) => boolean) | undefined;
   /** 물건 받을 사람의 그 2차맵 유닛(일꾼 다음 운반꾼 후보, 기획 D-569 1784). 없으면 일꾼만 */
@@ -204,10 +210,16 @@ export function createPorters(deps: PorterDeps): Porters {
     pick(buildingId, mapKey, ownerId, nowMs) {
       const map = maps.get(mapKey);
       if (!map) return undefined;
+      // 거래 직무(질문 2083·2084): 그 자리에서 나를 위해 일하는 유닛만(직무 배치·빌린 자리 = 유닛 주인, 고용 = 고용주) — 남의 짐을 나르지 않는다
+      const desk = deps.deskAt?.(buildingId) === true;
       const workers = deps
         .workersAt(buildingId)
-        // 직무 배치는 제 유닛만(거래소 거래 직무는 남의 유닛도 있다 — 기획 D-571 1944, 남의 짐을 나르지 않는다)
-        .filter((worker) => worker.via !== "assign" || worker.workerOwnerId === ownerId)
+        // 직무 배치는 제 유닛만
+        .filter((worker) =>
+          desk
+            ? (worker.forOwnerId ?? worker.workerOwnerId) === ownerId
+            : worker.via !== "assign" || worker.workerOwnerId === ownerId,
+        )
         .toSorted(
           (a, b) =>
             Number(b.workerOwnerId === ownerId) - Number(a.workerOwnerId === ownerId) || a.unitId - b.unitId,

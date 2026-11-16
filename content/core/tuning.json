@@ -12953,8 +12953,8 @@
       "id": "exchange_locker_g",
       "code": "",
       "name": {
-        "ko": "거래소 개인 창고 기본 크기(g)",
-        "en": "Exchange locker base size (g)"
+        "ko": "거래소 개인 창고 기본 크기(유닛마다, g)",
+        "en": "Exchange locker base size (per unit, g)"
       },
       "value": 200000,
       "structural": false,
@@ -12962,8 +12962,8 @@
       "min": 0,
       "max": 100000000,
       "desc": {
-        "ko": "그 도시 물자 거래소 건물 창고에서 한 사람이 쓰는 자리(창고 물건 + 걸어 둔 팔 물건 + 걸어 둔 사기 수량, 무게)의 기본 위 끝. 넘으면 새 사기 주문·반입을 받지 않는다(이미 든 물건은 그대로).",
-        "en": "Base limit of the space one player uses in that city's goods exchange building (stored goods + goods in open sell orders + open buy quantity, by weight). Above it new buy orders and deliveries are refused (goods already there stay)."
+        "ko": "유닛(사이보그·휴먼) 하나마다 그 도시 물자 거래소 건물에 주는 개인 창고의 기본 크기. 한 사람이 쓰는 자리(창고 물건 + 걸어 둔 팔 물건 + 걸어 둔 사기 수량, 무게)의 위 끝 = 그 사람 유닛마다(이 값 + 그 유닛 넓힌 칸)의 합. 넘으면 새 사기 주문·반입을 받지 않는다(이미 든 물건은 그대로).",
+        "en": "Base size of the personal locker each unit (cyborg or human) gets at that city's goods exchange. The space one player uses (stored goods + goods in open sell orders + open buy quantity, by weight) is limited to the sum over that player's units of (this + that unit's expansions). Above it new buy orders and deliveries are refused (goods already there stay)."
       },
       "source": "D-571 (질문 1943·1944·1948) [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\""
     },
@@ -12998,7 +12998,7 @@
       "min": 0,
       "max": 1000000000,
       "desc": {
-        "ko": "개인 창고를 한 번 넓히는 값. 그 도시 화폐로 내고 그 거래소 건물 금고(사업장 장부 수입)로 간다.",
+        "ko": "유닛 하나의 개인 창고를 한 번 넓히는 값. 그 도시 화폐로 내고 그 거래소 건물 금고(사업장 장부 수입)로 간다.",
         "en": "Price of one locker expansion, paid in that city's currency into the exchange building's vault (business income)."
       },
       "source": "D-571 (질문 1943·1944·1948) [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\""
@@ -13016,8 +13016,8 @@
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "한 사람이 한 도시 거래소에서 넓힐 수 있는 칸 수.",
-        "en": "How many expansions one player may buy at one city's exchange."
+        "ko": "유닛 하나가 한 도시 거래소에서 넓힐 수 있는 칸 수.",
+        "en": "How many expansions one unit's locker may get at one city's exchange."
       },
       "source": "D-571 (질문 1943·1944·1948) [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\""
     },
@@ -13025,8 +13025,8 @@
       "id": "exchange_trade_slots",
       "code": "",
       "name": {
-        "ko": "거래소 하나의 내 거래 직무 유닛 수",
-        "en": "Trade-desk units per exchange (per owner)"
+        "ko": "거래소 거래 직무 자리 수(레벨마다)",
+        "en": "Trade-desk seats per exchange level"
       },
       "value": 5,
       "structural": false,
@@ -13034,10 +13034,64 @@
       "min": 0,
       "max": 100,
       "desc": {
-        "ko": "한 사람이 거래소 하나에 거래 직무로 둘 수 있는 유닛 수. 거래 직무 유닛의 INT·WIS가 주문 한도를 늘린다.",
-        "en": "How many units one player may put on the trade desk of one exchange. Their INT and WIS raise the order limit."
+        "ko": "물자·외환 거래소 건물 하나의 거래 직무 자리 = 레벨 × 이 값. 주인은 제 유닛을 직무 배치로 두고, 남의 유닛은 주인이 낸 자리(임대형 노동 계약 — 시간당 자리 값은 주인이 정한다)나 구인 게시판 고용으로 들어온다. 거래 직무 유닛의 INT·WIS가 주문 한도를 늘리고, 그 거래소 반입·반출을 먼저 나른다.",
+        "en": "Trade-desk seats of one goods or FX exchange building = level × this. The owner places own units by job assignment; other players' units come in through seats the owner offers (lease contract, hourly seat rent set by the owner) or job-board hiring. Desk units' INT and WIS raise the order limit, and they carry that exchange's deliveries and pick-ups first."
       },
-      "source": "D-571 (질문 1943·1944·1948) [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\""
+      "source": "D-571 1944 [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\" · 줄기 exchange-3 (질문 2083)"
+    },
+    {
+      "id": "exchange_desk_haul_pm",
+      "code": "",
+      "name": {
+        "ko": "거래 직무 유닛 운반 시간 배율(‰)",
+        "en": "Trade-desk unit haul time (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "그 거래소의 거래 직무 유닛이 개인 창고 반입·반출을 나를 때 걸리는 시간 = 보통 운반 시간 × 이 값 ÷ 1000(창고를 맡은 일꾼이라 빨리 넣고 꺼낸다). 1000이면 다른 운반꾼과 같다.",
+        "en": "When a desk unit of that exchange carries locker deliveries or pick-ups, the haul takes normal time × this ÷ 1000 (it runs the locker, so it stores and fetches faster). 1000 means the same as any other carrier."
+      },
+      "source": "D-571 1944 (\"거래소 개인창고 및 거래물품 관리 등 역할\") [임시] · 줄기 exchange-3 (질문 2084)"
+    },
+    {
+      "id": "exchange_fx_fee_bp",
+      "code": "",
+      "name": {
+        "ko": "환전 이용료 적정 요율(만분율)",
+        "en": "Fair FX usage fee (bp)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 2000,
+      "desc": {
+        "ko": "외환 거래소 주인이 요율을 정하지 않았을 때 받는 환전 이용료이자, 요율을 정할 때 곁에 보이는 적정 요율. 회차마다 화폐를 판 사람이 받은 기준 통화 × 요율 ÷ 10000(버림)을 그 화폐 나라 외환 거래소 가운데 요율이 가장 낮은 곳의 금고(사업장 장부)에 낸다.",
+        "en": "FX usage fee charged when the FX exchange owner has not set a rate, and the fair rate shown beside the rate field. Each round the seller of a currency pays base currency received × rate ÷ 10000 (rounded down) into the vault of the cheapest FX exchange of that currency's nation (business books)."
+      },
+      "source": "D-564 1682 · D-560 · D-548 · D-570 1822 [임시] · 줄기 exchange-3 (질문 2086)"
+    },
+    {
+      "id": "exchange_fx_fee_max_bp",
+      "code": "",
+      "name": {
+        "ko": "환전 이용료 위 끝(만분율)",
+        "en": "FX usage fee limit (bp)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "외환 거래소 주인이 정할 수 있는 환전 이용료의 위 끝.",
+        "en": "Highest FX usage fee an FX exchange owner may set."
+      },
+      "source": "줄기 exchange-3 (질문 2086) [임시] — 입력 한도"
     },
     {
       "id": "moves_knock_wall_pm",

@@ -13,7 +13,7 @@
 import type { FacilityResultCode } from "@terra/protocol";
 import { type FacilityRuntimeRules, conditionWorks, equipmentRepairMs } from "@terra/shared/facilityRuntime";
 import { repairMaterials, repairRuleFor } from "@terra/sim";
-import type { LaborWorkerEntry } from "../labor/service.ts";
+import type { LaborWorkerEntry } from "../labor/workerEntry.ts";
 import type { BusinessCommands } from "../business/commands.ts";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";

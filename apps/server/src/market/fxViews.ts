@@ -60,6 +60,10 @@ export interface FxViewSource {
    */
   readonly fxOpen?: (() => ReadonlySet<string>) | undefined;
   readonly fxLimit?: ((ownerId: number | undefined) => number) | undefined;
+  /** 그 화폐(원장 자산)의 환전 이용료를 받는 외환 거래소·요율(질문 2086 — fxFee.ts). 없으면 이용료 칸 없이 */
+  readonly fxFeeOf?:
+    | ((currency: string) => { readonly buildingId: number; readonly bp: number } | undefined)
+    | undefined;
 }
 
 export type FxExchangeView = Omit<EconomyExchangeResponse, "generatedAt" | "preview" | "status">;
@@ -110,6 +114,7 @@ export function createFxViews(src: FxViewSource): { exchange(userId: string, now
       history,
       balance: String(me === undefined ? 0n : ledger.balanceOf(me, book.currency)),
       ...(open === undefined ? {} : { exchange: open.has(book.currency) }),
+      ...(src.fxFeeOf ? { feeBp: src.fxFeeOf(book.currency)?.bp ?? 0 } : {}),
     };
   };
 

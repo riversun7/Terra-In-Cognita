@@ -22,6 +22,11 @@ export const EXCHANGE_MARKET_PROTOCOL_VERSION = 47;
  * 못하고(invalid_message), 사기 주문의 locker_full은 invalid_amount로 받는다
  */
 export const LOCKER_PROTOCOL_VERSION = 49;
+/**
+ * 유닛마다 개인 창고(질문 2081 — 줄기 exchange-3): market_locker_expand의 unitId(넓힐 유닛 창고)와 결과 코드 unknown_unit이 생긴 판. 더 낮은 판 연결은
+ * unitId 없이 보내고(서버가 사이보그 본체 먼저 고른다) unknown_unit을 locker_max로 받는다
+ */
+export const UNIT_LOCKER_PROTOCOL_VERSION = 56;
 /** 지정가 만료로 고를 수 있는 가장 긴 날(기획 잠정 7일 E10, 서버가 고를 수 있는 날만 받는다) */
 export const MARKET_EXPIRY_DAYS_MAX = 30;
 
@@ -60,11 +65,15 @@ export const marketCancelMessage = z.object({
   order: rowId,
 });
 
-/** 그 도시 거래소 개인 창고를 한 칸 넓힌다(그 도시 화폐로 한 칸 값을 낸다 — D-571 1943, 판 49) */
+/**
+ * 그 도시 거래소 개인 창고를 한 칸 넓힌다(그 도시 화폐로 한 칸 값을 낸다 — D-571 1943, 판 49). 56부터 unitId = 넓힐 내 유닛 창고(질문 2081 — 없으면
+ * 서버가 사이보그 본체 먼저 칸이 남은 유닛을 고른다)
+ */
 export const marketLockerExpandMessage = z.object({
   t: z.literal("market_locker_expand"),
   id: requestId,
   city: rowId,
+  unitId: rowId.optional(),
 });
 
 /** 이 연결에 체결 알림(market_fill)을 켜고 끈다(거래창을 연 동안) */
@@ -129,6 +138,8 @@ export const MARKET_RESULT_CODES = [
   "locker_full",
   /** 개인 창고를 더 넓힐 수 없음(넓히기 칸 수 위 끝 — 49) */
   "locker_max",
+  /** 넓힐 유닛 창고가 내 유닛이 아님·없음(질문 2081 — 56, 더 낮은 판은 locker_max) */
+  "unknown_unit",
 ] as const;
 export type MarketResultCode = (typeof MARKET_RESULT_CODES)[number];
 

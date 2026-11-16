@@ -10,20 +10,22 @@
 //   ORDER_MAX [임시]. 회차 전에 거둘 수 있다. 거래소 끔(49 N53)이면 내기만 막는다.
 // - 거래소 개인 창고(기획 D-571 1943, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)" — lockers.ts): 사기 주문은 개인 창고에 자리가 있어야
 //   받는다(locker_full — 체결되면 들어올 물건 자리). 넓히기(market_locker_expand)는 그 도시 화폐로 한 칸 값을 내고(그 거래소 건물 금고 — 사업장
-//   장부 수입 exchange_locker) 칸을 하나 늘린다(locker_max — 위 끝).
+//   장부 수입 exchange_locker) 칸을 하나 늘린다(locker_max — 위 끝). 바뀜 (질문 2081, 줄기 exchange-3): 창고는 유닛마다 — 크기 = 내 유닛 창고의 합,
+//   넓히기는 고른 내 유닛 창고(unitId, 없으면 사이보그 본체 먼저 칸이 남은 유닛 — @terra/shared/exchange defaultLockerUnit)에 한 칸.
 import type { FxResultCode, MarketResultCode } from "@terra/protocol";
-import { ORDER_BASE, lockerFits } from "@terra/shared/exchange";
+import { ORDER_BASE, defaultLockerUnit, lockerFits } from "@terra/shared/exchange";
 import type { BusinessCore } from "../business/core.ts";
 import { DAY_MS, type Side, type SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
 import type { FillNotice } from "./books.ts";
 import { type ExchangeDirectory, fxExchangeCurrencies } from "./exchangeBuildings.ts";
 import { exchangeHolding } from "./exchangeStock.ts";
-import { lockerCapacityOf, lockerUsedG } from "./lockers.ts";
+import { lockerUnitsOf, lockerUsedG, ownerLockerG } from "./lockers.ts";
 
 /**
  * [임시] 걸어 둘 수 있는 기본 주문 수(질문 149 기본안 → D-443 출발값, 경제 화면 시안과 같다). 거래소 건물의 내 거래 직무 유닛(D-571 1944) INT·WIS가 한도를 더한다
@@ -68,8 +70,8 @@ export interface MarketService {
   fxPlace(userId: string, input: FxPlaceInput): Promise<FxCommandResult>;
   /** 회차 전에 내 환전 주문을 거둔다 */
   fxCancel(userId: string, orderId: number): Promise<FxCommandResult>;
-  /** 그 도시 거래소 개인 창고를 한 칸 넓힌다(기획 D-571 1943) */
-  lockerExpand(userId: string, cityId: number): Promise<MarketCommandResult>;
+  /** 그 도시 거래소의 내 유닛 개인 창고를 한 칸 넓힌다(기획 D-571 1943, 질문 2081 — unitId가 없으면 사이보그 본체 먼저) */
+  lockerExpand(userId: string, cityId: number, unitId?: number): Promise<MarketCommandResult>;
   /** 사용자의 소유 주체(없으면 undefined, 만들지 않는다) */
   ownerOf(userId: string): number | undefined;
   /** 소유 주체의 사용자(세력이면 undefined) */
@@ -94,6 +96,8 @@ export interface MarketDeps {
   readonly exchanges?: ExchangeDirectory | undefined;
   /** 자산 한 기본 단위 무게(g) — 개인 창고(D-571 1943). 없으면 개인 창고 상한을 보지 않는다 */
   readonly weightOf?: ((asset: string) => bigint) | undefined;
+  /** 2차맵(개인 창고를 받는 내 유닛 — 질문 2081). 없으면 개인 창고 상한을 보지 않고 넓히기는 busy */
+  readonly maps?: ReadonlyMap<number, SecondMap> | undefined;
   /** 사업장 장부(넓히기 값 → 그 거래소 건물 금고, D-548). 없으면 넓히기는 busy */
   readonly business?: Pick<BusinessCore, "receive"> | undefined;
 }
@@ -158,7 +162,7 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
       if (input.side === "buy" && d.ledger.balanceOf(me, currency) < price * qty)
         return fail("insufficient_funds");
       // 개인 창고(D-571 1943): 산 물건이 들어올 자리(쓰는 무게 = 창고 물건 + 걸린 내 주문 남은 양)
-      if (input.side === "buy" && exchange !== undefined && d.weightOf) {
+      if (input.side === "buy" && exchange !== undefined && d.weightOf && d.maps) {
         const add = qty * lot * d.weightOf(asset);
         const used = lockerUsedG({
           ledger: d.ledger,
@@ -168,7 +172,10 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
           cityId: input.city,
           exchangeBuildingId: exchange,
         });
-        const capacity = lockerCapacityOf(d.rules().business, econ.lockers.steps(input.city, me));
+        const capacity = ownerLockerG(
+          d.rules().business,
+          lockerUnitsOf(d.maps, econ.lockers, me, input.city),
+        );
         if (!lockerFits(used, add, capacity)) return fail("locker_full");
       }
       if (input.kind === "market") {
@@ -227,17 +234,24 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
       return commit({ ok: true, orderId: result.orderId });
     },
 
-    async lockerExpand(userId, cityId) {
+    async lockerExpand(userId, cityId, unitId) {
       if (!world.cities.has(cityId)) return fail("unknown_city");
       const exchange = d.exchanges?.cityExchange(cityId, "goods");
       if (exchange === undefined) return fail("no_exchange");
-      if (!d.business) return fail("busy");
+      if (!d.business || !d.maps) return fail("busy");
       const rules = d.rules().business;
       const at = d.now();
       const me = d.settlement.ownerOfUser(userId, at).id;
       d.settlement.settleOwner(me, at);
-      const steps = econ.lockers.steps(cityId, me);
-      if (steps >= Math.max(0, Math.floor(rules.exchangeLockerMaxSteps))) return fail("locker_max");
+      // 넓힐 유닛 창고: 고른 내 유닛, 없으면 사이보그 본체 먼저 칸이 남은 유닛(질문 2081)
+      const maxSteps = Math.max(0, Math.floor(rules.exchangeLockerMaxSteps));
+      const units = lockerUnitsOf(d.maps, econ.lockers, me, cityId);
+      const target = unitId ?? defaultLockerUnit(units, maxSteps);
+      const unit = units.find((entry) => entry.unitId === target);
+      if (unit === undefined)
+        return fail(unitId === undefined && units.length > 0 ? "locker_max" : "unknown_unit");
+      const steps = unit.steps;
+      if (steps >= maxSteps) return fail("locker_max");
       const owner = world.cities.get(cityId)?.owner;
       const currency =
         (owner === undefined ? undefined : econ.economy.currencyOf.get(owner)) ?? econ.economy.base;
@@ -255,7 +269,7 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
         })
       )
         return fail("no_exchange");
-      econ.lockers.setSteps(cityId, me, steps + 1, at);
+      econ.lockers.setSteps(cityId, unit.unitId, steps + 1, at);
       return commit({ ok: true });
     },
 

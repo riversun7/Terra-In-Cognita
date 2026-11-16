@@ -19,7 +19,7 @@ import { testMapKey } from "../world/world.ts";
 import { emptyWorldStats } from "../world/worldStats.ts";
 import { gatherIntoCargo } from "./deposit.ts";
 import type { GatherKind } from "./kinds.ts";
-import { type GatherService, createGatherService } from "./service.ts";
+import { type GatherDeps, type GatherService, createGatherService } from "./service.ts";
 import { createObjectStore } from "./state.ts";
 
 const START = 1_798_000_000_000;
@@ -115,6 +115,8 @@ interface Rig {
 interface RigOptions {
   readonly kinds?: readonly GatherKind[];
   readonly waterStrip?: boolean;
+  /** 배 채집 일꾼 고리(D-570 1821, 없으면 이끄는 유닛 혼자·자르지 않음) */
+  readonly boatCatch?: GatherDeps["boatCatch"];
 }
 
 function rig(options: RigOptions = {}): Rig {
@@ -176,6 +178,7 @@ function rig(options: RigOptions = {}): Rig {
     terrainKind: () => (options.waterStrip ? { biomeId: "ocean_coastal", waterBits: 1 } : undefined),
     // 배 창고 3kg(D-568 — 걷는 화물과 같은 값으로 시험 시간을 맞춘다)
     boatHoldGrams: () => 3000,
+    boatCatch: options.boatCatch,
     ready: () => true,
   });
   return { maps, gather, ledger, facilities, store };
@@ -500,7 +503,7 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
     r.gather.stop();
   });
 
-  it("배 단위 작업(D-568): 한 배에 줄 하나 — 다른 승객이 시키면 앞 줄이 끝나고, 탄 승객 모두가 일꾼", async () => {
+  it("배 단위 작업(D-568): 한 배에 줄 하나 — 다른 승객이 시키면 앞 줄이 끝나고, 배 고리가 없으면 이끄는 유닛 혼자 일한다", async () => {
     const kinds = [VEIN, school("school_coastal", 6), school("school_shelf", 0)];
     const r = rig({ kinds, waterStrip: true });
     const map = r.maps.get(K[0] ?? 0);
@@ -523,8 +526,49 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
       ok: true,
     });
     expect(r.gather.acting(2)).toBe(true);
-    // 일꾼 둘 다 지친다(배 줄 하나가 두 승객의 피로를 올린다)
+    // 일꾼 = 이끄는 유닛(2)만 — 탄 승객 모두가 일꾼이던 옛 규칙(D-568)은 D-570 1821로 바뀌었다
+    await until(() => (map.unitInfo(2)?.job.fatigue ?? 0) > 0);
+    expect(map.unitInfo(1)?.job.fatigue ?? 0).toBe(0);
+    r.gather.stop();
+  });
+
+  it("포획 장비(D-570 1821): 장비를 맡은 낚시 선원이 일꾼이고 선원마다 굴린다, 장비 없는 티어로 못 잡는 어군은 tier_too_high", async () => {
+    const deep: GatherKind = { ...school("school_deep", 0), tierRange: { min: 2, max: 6 } };
+    const fishers = new Map<number, { unitId: number; maxTier: number }[]>([[50, []]]);
+    const r = rig({
+      kinds: [VEIN, school("school_coastal", 6), deep],
+      waterStrip: true,
+      boatCatch: (boatId) => ({ fishers: fishers.get(boatId) ?? [], bareMaxTier: 1 }),
+    });
+    const map = r.maps.get(K[0] ?? 0);
+    if (!map) throw new Error("no map");
+    const target = (r.gather.objects(K[0] ?? 0) ?? []).find((object) => object.kind === 2);
+    for (const [id, y] of [
+      [1, 40],
+      [2, 41],
+      [3, 42],
+    ] as const)
+      placeMine(r, 118, y, id);
+    map.addBoat({ id: 50, ownerId: OWNER, speed: 1536, cellX: 121, cellY: 40 });
+    for (const id of [1, 2, 3]) map.board(id, 50);
+    const mapKey = K[0] ?? 0;
+    // 선원이 없으면 이끄는 유닛 혼자 티어 1까지 — 티어 2부터인 어군은 못 잡는다
+    expect(await r.gather.start(USER, { unitId: 3, mapKey, objectId: target?.id ?? 0 })).toEqual({
+      ok: true,
+    });
+    await until(() => loopOf(r, 3)?.phase === "done");
+    expect(loopOf(r, 3)?.stop).toBe("tier_too_high");
+    // 장비(최대 티어 6)를 맡은 선원 1·2가 일꾼: 둘 다 지치고, 시킨 유닛(3)도 이끄는 유닛이라 지친다
+    fishers.set(50, [
+      { unitId: 1, maxTier: 6 },
+      { unitId: 2, maxTier: 6 },
+    ]);
+    expect(await r.gather.start(USER, { unitId: 3, mapKey, objectId: target?.id ?? 0 })).toEqual({
+      ok: true,
+    });
+    await until(() => r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(50)) >= 2n);
     await until(() => (map.unitInfo(1)?.job.fatigue ?? 0) > 0 && (map.unitInfo(2)?.job.fatigue ?? 0) > 0);
+    expect(map.unitInfo(3)?.job.fatigue ?? 0).toBeGreaterThan(0);
     r.gather.stop();
   });
 });

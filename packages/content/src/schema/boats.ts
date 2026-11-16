@@ -2,6 +2,7 @@
 // 배 종류마다 재료·만드는 시간·빠르기·자리 수를 적는다(장비 제작 레시피처럼). 시설 역할(harbor)은 조선소·정박장·교역 부두(D-547 1481·1488).
 // D-559: 배 종류에 연료(1529)·함선 칸(함급·HP·장갑·모듈 총한도·함포·보직·격납고, 1533·1537)을 더했다(선택 칸 — 없으면 설정 칸·처음 값).
 // D-564·D-568: 태우는 연료 아이템(fuelItems — 연료는 아이템만, 1687)·배 창고(holdKg — 배에서 캔 것)를 더했다(선택 칸).
+// D-570 1821: 함포 칸에 달 수 있는 포획 장비(catchGear — 아이템과 최대 채집 티어)를 더했다(선택 칸 — 없으면 포획 장비를 달 수 없다).
 // 배 종류 ID는 그 시설 안에서 하나다(2단계 검사가 아니라 여기 superRefine이 본다 — 다른 시설과 같은 ID면 처음 시설의 것을 쓴다).
 import { BOAT_TYPE_LIMITS, HARBOR_ROLES } from "@terra/shared/harbor";
 import { CREW_POSTS, GUN_CALIBERS, NAVAL_LIMITS, SHELL_KINDS } from "@terra/shared/naval";
@@ -72,6 +73,15 @@ export const boatTypeSchema = z.strictObject({
     )
     .min(1)
     .max(NAVAL_LIMITS.fuelItems)
+    .optional(),
+  /**
+   * 함포 칸에 다는 포획 장비(D-570 1821 "어선의 함포칸에 장비하는 포획장비에 따라 채집가능한 최대티어가 정해지고") — 아이템과 그 장비로 잡는 가장 높은 티어.
+   * 칸 하나에 하나, 낚시 선원 한 명이 맡는다. 없으면 이 배는 포획 장비를 달지 못한다(배에서 캐면 이끄는 유닛 혼자 설정 칸 boat_bare_catch_tier까지)
+   */
+  catchGear: z
+    .array(z.strictObject({ item: ref("items"), maxTier: z.int().min(0).max(9) }))
+    .min(1)
+    .max(NAVAL_LIMITS.catchGear)
     .optional(),
 });
 

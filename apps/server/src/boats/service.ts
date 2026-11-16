@@ -41,7 +41,10 @@ import {
   ringCells,
   waterSpot,
 } from "./core.ts";
+import type { BoatCatch } from "../gather/boatCrew.ts";
 import { createCargo } from "./cargo.ts";
+import { createBoatGear } from "./gear.ts";
+import { portView } from "./portView.ts";
 import { createDock } from "./dock.ts";
 import { holdCapGrams, holdGramsOf } from "./hold.ts";
 import { HARBOR_TICK_MS, type HarborTick, createHarbor, harborAccepts } from "./harbor.ts";
@@ -138,6 +141,26 @@ export interface BoatService {
   readonly voyage: Voyage;
   /** 배 창고 내리기(cargo.ts — D-568, 소유 주체로 부른다) */
   unload(me: number | undefined, boatId: number, buildingId: number, operator: boolean): BoatCommandResult;
+  /** 배 창고 싣기(cargo.ts — D-570 1823, 소유 주체로 부른다) */
+  load(
+    me: number | undefined,
+    boatId: number,
+    buildingId: number,
+    item: string,
+    lots: number,
+    operator: boolean,
+  ): BoatCommandResult;
+  /** 함포 칸 포획 장비 달기·떼기(gear.ts — D-570 1821, 소유 주체로 부른다) */
+  gear(
+    me: number | undefined,
+    boatId: number,
+    buildingId: number,
+    slot: number,
+    item: string | null,
+    operator: boolean,
+  ): BoatCommandResult;
+  /** 배 채집 일꾼(gear.ts — 채집 서비스가 배 고리로 읽는다) */
+  catchCrew(boatId: number): BoatCatch | undefined;
   /** 사용자 → 소유 주체 */
   ownerOf(userId: string): number | undefined;
   /** 배 시설 판 원본(배 시설이 아니면 undefined). 이름은 옛 부두 판 고리(app.ts → gather/reads.ts)를 그대로 쓰려고 둔다 */
@@ -186,6 +209,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
   );
   const voyage = createVoyage(deps, harbor);
   const cargo = createCargo(deps, harbor);
+  const gear = createBoatGear(deps, harbor);
   let stopped = false;
   let ticking = false;
   const timer = deps.manual
@@ -591,10 +615,15 @@ export function createBoatService(deps: BoatDeps): BoatService {
     found.map.forEachUnit((unit) => {
       if (unit.kind === UNIT_KIND_BOAT) nearby.push(unit.id);
     });
-    const holds = holdGramsOf(
-      deps.ledger,
-      deps.places()?.catalog(),
-      new Map(nearby.map((boatId) => [boatId, found.map.unitInfo(boatId)?.ownerId ?? -1])),
+    const owners = new Map(nearby.map((boatId) => [boatId, found.map.unitInfo(boatId)?.ownerId ?? -1]));
+    const holds = holdGramsOf(deps.ledger, deps.places()?.catalog(), owners);
+    // 항구 칸(D-570 — 항구 옆 거래소·함포 칸 장비·실을 물건, portView.ts)
+    const port = portView(
+      deps,
+      harbor,
+      found,
+      fac.record,
+      [...owners].map(([boatId, ownerId]) => ({ boatId, ownerId })),
     );
     const level = fac.record.level;
     const docked = isShipyard(fac.def) ? harbor.dockedAt(buildingId) : [];
@@ -680,11 +709,13 @@ export function createBoatService(deps: BoatDeps): BoatService {
             ...view,
             holdGrams: Number(holds.get(boatId) ?? 0n),
             holdCapGrams: holdCapGrams(harbor.typeOf(harbor.stateOf(boatId)), rules),
+            ...port.row(boatId, view.ownerId),
           };
         }),
       cash: harbor.cashOf(found.ownerId, buildingId).toString(),
       overstayMul: rules.tradeOverstayMul,
       maxHours: rules.tradeMaxHours,
+      exchangeId: port.exchangeId,
       ...(first ? { startedAtMs: first.startedAtMs, readyAtMs: first.doneAtMs } : {}),
     };
   }
@@ -738,6 +769,11 @@ export function createBoatService(deps: BoatDeps): BoatService {
     },
     voyage,
     unload: (me, boatId, buildingId, operator) => cargo.unload(me, boatId, buildingId, operator),
+    load: (me, boatId, buildingId, item, lots, operator) =>
+      cargo.load(me, boatId, buildingId, item, lots, operator),
+    gear: (me, boatId, buildingId, slot, item, operator) =>
+      gear.mount(me, boatId, buildingId, slot, item, operator),
+    catchCrew: (boatId) => gear.catchCrew(boatId),
     ownerOf: (userId) => deps.ownerOf(userId),
     repairAs(ownerId, boatId, buildingId) {
       return repairFor(ownerId, boatId, buildingId, false);

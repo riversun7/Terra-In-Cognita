@@ -111,3 +111,44 @@
   flex-direction: column;
   gap: var(--space-2);
 }
+
+/* 내 배 줄 아래 항구 칸(D-570 — 함포 칸 포획 장비·싣기) */
+.harbor-port {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.harbor-gear {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.harbor-gear legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.harbor-load {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.harbor-load .harbor-field select {
+  max-width: 100%;
+}
+
+.harbor-port .harbor-load-button {
+  margin-left: 0;
+}
+
+.harbor-load-empty {
+  margin: 0;
+}

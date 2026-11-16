@@ -17,6 +17,7 @@ import {
   encodeMessage,
   HOLD_PROTOCOL_VERSION,
   legacyBoatCode,
+  legacyGearCode,
   legacyHoldCode,
   legacyVoyageCode,
 } from "./index.ts";
@@ -162,7 +163,7 @@ describe("배 메시지(프로토콜 27)", () => {
     expect(decodeClientMessage(encodeMessage(unload))).toEqual(unload);
     expect(decodes(decodeClientMessage, { t: "boat_unload", id: 2, boatId: 9 })).toBe(false);
     const old = BOAT_RESULT_CODES.slice(0, BOAT_RESULT_CODES.indexOf("not_drifting") + 1);
-    for (const code of BOAT_RESULT_CODES) expect(old).toContain(legacyHoldCode(code));
+    for (const code of BOAT_RESULT_CODES) expect(old).toContain(legacyHoldCode(legacyGearCode(code)));
     expect(legacyHoldCode("no_fuel_items")).toBe("insufficient_materials");
     expect(legacyHoldCode("hold_empty")).toBe("empty");
     const result = { t: "boat_result", id: 3, ok: false, code: "no_fuel_items" } as const;

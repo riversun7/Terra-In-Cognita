@@ -12539,8 +12539,8 @@
       "id": "boat_value_pm",
       "code": "",
       "name": {
-        "ko": "배값(재료 시작 시세 × ‰)",
-        "en": "Boat value (material start price × ‰)"
+        "ko": "배값(판매가 없을 때 재료 시작 시세 × ‰)",
+        "en": "Boat value without a sale price (material start price × ‰)"
       },
       "value": 1000,
       "structural": false,
@@ -12548,10 +12548,10 @@
       "min": 1,
       "max": 100000,
       "desc": {
-        "ko": "압류한 배의 값 = 배 종류 재료 수 × 아이템 시작 시세 × 이 값 ÷ 1000. 밀린 보관료가 이 값을 넘으면 소유권이 넘어간다.",
-        "en": "Value of an impounded boat = boat type materials × item start price × this ÷ 1000. Ownership passes when the arrears exceed it."
+        "ko": "압류한 배의 값은 조선소가 받은 판매가(주문 요금)다(D-570 1827). 판매가가 없는 배(제 조선소에서 만든 배·옛 배)만 배 종류 재료 수 × 아이템 시작 시세 × 이 값 ÷ 1000으로 센다. 밀린 보관료가 배값을 넘으면 소유권이 넘어간다.",
+        "en": "An impounded boat is worth the sale price the shipyard was paid for it (D-570 1827). Only boats without one (built in their owner's yard, older boats) use boat type materials × item start price × this ÷ 1000. Ownership passes when the arrears exceed the value."
       },
-      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (D-564·D-568)\" · D-564 1686 [임시]"
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (D-564·D-568)\" · D-564 1686 [임시] · D-570 1827"
     },
     {
       "id": "boat_hold_kg",
@@ -12570,6 +12570,42 @@
         "en": "Boat hold weight for boat types without their own value. Catches from the boat go here; when full they go to my warehouse at a dock or are unloaded at a trade dock."
       },
       "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (D-564·D-568)\" · D-568 [임시]"
+    },
+    {
+      "id": "boat_bare_catch_tier",
+      "code": "",
+      "name": {
+        "ko": "포획 장비 없이 배에서 잡는 최대 티어",
+        "en": "Max tier caught from a boat without catch gear"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 9,
+      "desc": {
+        "ko": "포획 장비를 단 낚시 선원이 없는 배에서 캐면 줄을 시킨 유닛 혼자 이 티어까지 잡는다(그보다 높은 티어만 있는 어군은 못 잡는다). 포획 장비를 단 어선은 장비마다 정해진 티어까지 낚시 선원마다 굴린다.",
+        "en": "When a boat has no fisher with catch gear, only the unit that started the job fishes, up to this tier (schools with only higher tiers can't be caught). A fishing boat with catch gear rolls for each fisher up to that gear's tier."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (D-570)\" · D-570 1821 [임시]"
+    },
+    {
+      "id": "harbor_exchange_reach_cells",
+      "code": "",
+      "name": {
+        "ko": "항구 옆 거래소 거리(칸)",
+        "en": "Harbor-side exchange reach (cells)"
+      },
+      "value": 12,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 256,
+      "desc": {
+        "ko": "배 시설에서 이 칸 안에 그 도시 물자 거래소 건물이 있으면 배 창고를 내릴 때 거래소 건물 창고로 바로 내리고, 실을 때도 그 창고에서 먼저 싣는다. 0이면 늘 도시 창고로.",
+        "en": "If the city's goods exchange building is within this many cells of a harbor facility, unloading a boat hold goes straight into the exchange building storage, and loading takes from it first. 0 always uses the city warehouse."
+      },
+      "source": "ADR 2026-11-15-shipyard-harbor \"바뀜 (D-570)\" · D-570 1823 [임시]"
     },
     {
       "id": "business_share_count",

@@ -166,4 +166,19 @@ export const BOAT_TUNING_KEYS: readonly TuningKey[] = [
   ),
   k("boat_value_pm", "", "valuePm", "배값(재료 시작 시세 × ‰)", "Boat value (material start price × ‰)"),
   k("boat_hold_kg", "", "holdKg", "배 창고(kg)", "Boat hold (kg)"),
+  // 기획 D-570 1821·1823 — docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (D-570)"
+  k(
+    "boat_bare_catch_tier",
+    "",
+    "bareCatchTier",
+    "포획 장비 없이 배에서 잡는 최대 티어",
+    "Max tier caught from a boat without catch gear",
+  ),
+  k(
+    "harbor_exchange_reach_cells",
+    "",
+    "exchangeReachCells",
+    "항구 옆 거래소 거리(칸)",
+    "Harbor-side exchange reach (cells)",
+  ),
 ];

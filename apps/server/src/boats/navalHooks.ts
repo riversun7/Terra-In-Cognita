@@ -1,12 +1,13 @@
 // 해상 전투 고리(순수 함수) — 기획 D-559 1531·1532("같은 전투 코어에 배 몸")·1533·1536·1537·1534·1617, docs/adr/2026-11-15-sea-combat-routes.md "바뀜 (2026-11-15) D-559".
 // 전투 판정 코어(`packages/sim/src/combat`, 줄기 work/combat-moves가 다시 짜는 중)에 배를 넣을 때 쓰는 값만 여기서 만든다. 전투 코어가 이 모듈을 부르고, 이 모듈은
 // 전투 코어를 부르지 않는다(전투 코어가 바뀌어도 이 값 모양만 맞추면 된다).
-// - 배 몸(boatBody): 크기 2 물 유닛, HP = 함선 칸 hullPoints × 지금 내구도 몫(내구도 0이면 HP 0 = 표류), 장갑, 함포(규격·포탄), 보직 수, 빠르기 배율(연료·오버히트 포함).
+// - 배 몸(boatBody): 크기 2 물 유닛, HP = 함선 칸 hullPoints × 지금 내구도 몫(내구도 0이면 HP 0 = 표류), 장갑, 함포(규격·포탄 — 포획 장비를 단 칸은 뺀다,
+//   D-570 1821), 보직 수, 빠르기 배율(연료·오버히트 포함).
 // - 포탄 피해(shellHit): 함포 규격 기본 피해 × 포탄 ‰ — AP는 선체만, HE는 선체 + 갑판 승객(1536 "포탄 종류마다 다름"). 쏘려면 함포마다 화포수 한 명(1537 — 화포수보다 많은 함포는 쉰다).
 // - 전투 뒤(afterBattle): 남은 HP 몫을 내구도로 돌려 적는다(0이면 표류 — 가라앉지 않는다, 1534 "표류").
 import type { BoatCoefficients } from "@terra/sim";
 import { HULL_FULL } from "@terra/shared/harbor";
-import type { CrewPost, GunCaliber, NavalSpec, ShellKind } from "@terra/shared/naval";
+import type { CrewPost, GunCaliber, GunSlotGear, NavalSpec, ShellKind } from "@terra/shared/naval";
 import type { BoatTypeDef } from "../facilities/catalog.ts";
 import { boatSpeedPm } from "./rules.ts";
 
@@ -44,6 +45,8 @@ export function boatBody(
   state: { readonly hullPpm: number; readonly fuelEmpty: boolean; readonly overheat: boolean },
   crew: Readonly<Partial<Record<CrewPost, number>>>,
   rules: Pick<BoatCoefficients, "brokenSpeedPm" | "noFuelSpeedPm" | "overheatSpeedPm">,
+  /** 함포 칸 장비(D-570 1821 — 포획 장비를 단 칸의 함포는 쉰다). 없으면 모두 함포 */
+  gear: GunSlotGear = [],
 ): BoatBody {
   const naval = type?.naval ?? DEFAULT_NAVAL;
   const share = Math.max(0, Math.min(HULL_FULL, state.hullPpm));
@@ -54,6 +57,7 @@ export function boatBody(
     engine: crew.engine ?? 0,
     deck: crew.deck ?? 0,
     pilot: crew.pilot ?? 0,
+    fisher: crew.fisher ?? 0,
   };
   return {
     size: 2,
@@ -61,7 +65,7 @@ export function boatBody(
     hp,
     maxHp: naval.hullPoints,
     armor: naval.armor,
-    guns: naval.guns.slice(0, counts.gunner),
+    guns: naval.guns.filter((_, slot) => (gear[slot] ?? null) === null).slice(0, counts.gunner),
     crew: counts,
     speedPm: boatSpeedPm(type, share, rules, { empty: state.fuelEmpty, overheat: state.overheat }),
     drifting: hp <= 0 || state.fuelEmpty,

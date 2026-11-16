@@ -55,6 +55,29 @@ export const SHIPYARD: FacilityDef = {
       speedPm: 500,
       capacity: 6,
     },
+    {
+      // 어선(D-570 1821): 함포 칸 둘, 포획 장비 그물(최대 티어 3), 함장 1 + 낚시 선원 2
+      id: "fishing_boat",
+      name: { ko: "어선", en: "Fishing boat" },
+      materials: [{ item: "plank", qty: 2 }],
+      buildMs: 600_000,
+      speedPm: 900,
+      capacity: 4,
+      holdKg: 10,
+      catchGear: [{ item: "fishing_net", maxTier: 3 }],
+      naval: {
+        shipClass: "fishing",
+        hullPoints: 500,
+        armor: 0,
+        modulePoints: 0,
+        guns: [
+          { caliber: "light", shells: ["ap"] },
+          { caliber: "light", shells: ["ap"] },
+        ],
+        crew: { captain: 1, fisher: 2 },
+        hangar: 0,
+      },
+    },
   ],
 };
 export const BERTH: FacilityDef = {
@@ -69,7 +92,16 @@ export const TRADE: FacilityDef = {
   name: { ko: "교역 부두", en: "Trade dock" },
   harbor: "trade_dock",
 };
-const DEFS = [SHIPYARD, BERTH, TRADE];
+/** 물자 거래소 건물(D-561 — 항구 옆 교역소 시험, D-570 1823) */
+export const EXCHANGE: FacilityDef = {
+  ...base,
+  id: "goods_exchange",
+  name: { ko: "물자 거래소", en: "Goods exchange" },
+  stage: "commerce",
+  needsWaterWithin: undefined,
+  exchange: "goods",
+};
+const DEFS = [SHIPYARD, BERTH, TRADE, EXCHANGE];
 
 export function setup(extra: Partial<Parameters<typeof createBoatService>[0]> = {}) {
   const test = createTestMap({ terrain: coastTerrain() });

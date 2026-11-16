@@ -2441,6 +2441,40 @@
       "enabled": true
     },
     {
+      "id": "fishing_net",
+      "name": {
+        "ko": "그물",
+        "en": "Fishing net"
+      },
+      "description": {
+        "ko": "[임시] 어선 함포 칸에 다는 포획 장비. 낮은 티어 물고기까지 잡는다.",
+        "en": "[Placeholder] Catch gear mounted in a fishing boat's gun slot. Catches low-tier fish."
+      },
+      "category": "part",
+      "subcategory": "catch_gear",
+      "tier": 1,
+      "startPrice": 1,
+      "weight": 5000,
+      "enabled": true
+    },
+    {
+      "id": "longline_rig",
+      "name": {
+        "ko": "주낙 장비",
+        "en": "Longline rig"
+      },
+      "description": {
+        "ko": "[임시] 어선 함포 칸에 다는 포획 장비. 먼바다의 높은 티어 물고기까지 잡는다.",
+        "en": "[Placeholder] Catch gear mounted in a fishing boat's gun slot. Catches higher-tier offshore fish."
+      },
+      "category": "part",
+      "subcategory": "catch_gear",
+      "tier": 3,
+      "startPrice": 1,
+      "weight": 8000,
+      "enabled": true
+    },
+    {
       "id": "gene_stat_human",
       "name": {
         "ko": "휴먼 스탯 유전자",

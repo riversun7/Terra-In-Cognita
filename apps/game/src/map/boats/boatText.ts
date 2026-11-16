@@ -18,7 +18,9 @@ export type BoatOutcomeKind =
   | "overheat"
   | "crew"
   | "seize"
-  | "unload";
+  | "unload"
+  | "gear"
+  | "load";
 
 export function boatOutcomeText(
   kind: BoatOutcomeKind,
@@ -43,6 +45,8 @@ export function boatOutcomeText(
     if (kind === "crew") return m.boat_crew_done();
     if (kind === "seize") return m.boat_seize_done({ id: outcome.boatId ?? 0 });
     if (kind === "unload") return m.boat_unload_done();
+    if (kind === "gear") return m.boat_gear_done();
+    if (kind === "load") return m.boat_load_done();
     return m.boat_leave_done();
   }
   switch (outcome.code) {
@@ -120,6 +124,12 @@ export function boatOutcomeText(
       return m.boat_error_no_fuel_items();
     case "hold_empty":
       return m.boat_error_hold_empty();
+    case "not_catch_gear":
+      return m.boat_error_not_catch_gear();
+    case "bad_slot":
+      return m.boat_error_bad_slot();
+    case "hold_full":
+      return m.boat_error_hold_full();
     case "busy":
     case "rate_limited":
     case "offline":

@@ -2,7 +2,7 @@
 // - 도크 수(rules.ts shipyardDocks — 모듈 묶음)만큼 쓴다. 도크를 쓰는 것 = 만드는 작업 + 도크에 든 배(고치는 중·출고 기다림).
 // - 만들기: 내 조선소, 또는 받기 범위 안의 남의 조선소(외주 주문 — D-564 1682 "남의 조선소에 주문 가능", 받기 범위는 서비스가 먼저 봤다). 배 종류마다 재료·시간(1484).
 //   남의 조선소면 재료는 주문자가 그 조선소 자리(그 도시 창고·그 2차맵 내 유닛 화물)에서 내고, 주문 요금(외주 요금 × shipyardBuildFeePm ÷ 1000)은 그 조선소
-//   금고로(D-548). 다 된 배는 주문자 것이고 그 조선소 도크에 든다(남의 배 — 보관료 규칙 그대로). 주인 자신의 만들기는 요금이 없다(외주가 아니다). 재료는 지금 뺀다(건물 짓기와 같은 재료 자리 materialScope). 끝 시각에 배가 **도크에 든다**
+//   금고로(D-548). 다 된 배는 주문자 것이고 그 조선소 도크에 든다(남의 배 — 보관료 규칙 그대로). 주문 요금은 그 배의 판매가로 남는다(압류 배값, D-570 1827). 주인 자신의 만들기는 요금이 없다(외주가 아니다). 재료는 지금 뺀다(건물 짓기와 같은 재료 자리 materialScope). 끝 시각에 배가 **도크에 든다**
 //   (D-559 1523 — 2차맵 유닛이 아니다, 꺼낼 때(출고 — dock.ts) 조선소 옆 물에 뜬다). 연료는 가득.
 // - 수리: 배가 조선소 둘레 shipyardReachCells 안 물에 있어야 시작한다. 승객을 내리고 배를 도크에 넣는다(2차맵에서 뺀다). 끝 시각에 가득으로 고치고 배는 도크에
 //   남는다(출고 기다림). 남의 조선소도 받기 범위 안이면 고친다(D-559 1522) — 재료는 배 주인이 그 자리에서 내고, 수리 요금은 조선소 금고로(그 나라 화폐).
@@ -130,11 +130,19 @@ export function createShipyard(
   };
 
   /** 다 만든 배를 도크에 넣는다(D-559 1523 — 2차맵 유닛은 꺼낼 때 만든다). 배 ID */
-  const dockNew = (buildingId: number, ownerId: number, type: BoatTypeDef | undefined, typeId: string) => {
+  const dockNew = (
+    buildingId: number,
+    ownerId: number,
+    type: BoatTypeDef | undefined,
+    typeId: string,
+    price: bigint | null = null,
+  ) => {
     const boatId = deps.nextUnitId();
     const at = now();
     harborOf().create(boatId, type?.id ?? typeId, at, {
       ownerId,
+      // 판매가(남의 조선소 주문 요금 — 압류 배값, D-570 1827)
+      price,
       yardId: buildingId,
       yardSinceMs: at,
       ...yardSpot(buildingId),
@@ -197,7 +205,7 @@ export function createShipyard(
         return;
       }
       const type = typeFor(job.buildingId, job.typeId);
-      dockNew(job.buildingId, job.ownerId, type, type?.id ?? job.typeId ?? "rowboat");
+      dockNew(job.buildingId, job.ownerId, type, type?.id ?? job.typeId ?? "rowboat", job.price ?? null);
       drop(id);
     } catch (error) {
       deps.log.error({ err: error, jobId: id }, "boat job failed");
@@ -343,10 +351,11 @@ export function createShipyard(
           kind: "build",
           typeId: type.id,
           boatId: null,
+          price: fee > 0n ? fee : null,
         });
         return { ok: true, readyAtMs: job.doneAtMs };
       }
-      return { ok: true, boatId: dockNew(buildingId, owner, type, type.id) };
+      return { ok: true, boatId: dockNew(buildingId, owner, type, type.id, fee > 0n ? fee : null) };
     },
     repairProblem,
     startRepair(me, boatId, buildingId, operator) {

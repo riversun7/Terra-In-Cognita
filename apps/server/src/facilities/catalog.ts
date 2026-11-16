@@ -24,7 +24,7 @@ import type { FacilityBuildJson } from "@terra/shared/facilityBuild";
 import { type FacilityCategory, facilityCategoryOf } from "@terra/shared/facilityCategory";
 import { type FacilityLookJson, cleanFacilityLook } from "@terra/shared/facilityLook";
 import type { HarborRole } from "@terra/shared/harbor";
-import type { FuelItem, NavalSpec } from "@terra/shared/naval";
+import type { CatchGear, FuelItem, NavalSpec } from "@terra/shared/naval";
 import type { LocalizedName } from "@terra/shared/roster";
 
 /** 레벨 1 최대 내구도가 팩에 없을 때(옛 코드 기본 max_durability 100) */
@@ -75,6 +75,8 @@ export interface BoatTypeDef {
   /** 배 창고(kg, D-568, 없으면 설정 칸 boat_hold_kg)·태우는 연료 아이템(D-564 1687, 없으면 보급 못 함) */
   readonly holdKg?: number | undefined;
   readonly fuelItems?: readonly FuelItem[] | undefined;
+  /** 함포 칸에 다는 포획 장비(D-570 1821, 없으면 달지 못함) */
+  readonly catchGear?: readonly CatchGear[] | undefined;
 }
 
 export interface FacilityCatalog {
@@ -159,6 +161,9 @@ function defOf(entry: FacilityEntry): FacilityDef {
             ...(type.fuelItems === undefined
               ? {}
               : { fuelItems: type.fuelItems.map((fuel) => ({ item: fuel.item.id, units: fuel.units })) }),
+            ...(type.catchGear === undefined
+              ? {}
+              : { catchGear: type.catchGear.map((row) => ({ item: row.item.id, maxTier: row.maxTier })) }),
             ...(type.naval === undefined
               ? {}
               : {

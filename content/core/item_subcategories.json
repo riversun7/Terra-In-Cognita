@@ -149,6 +149,15 @@
       "enabled": true
     },
     {
+      "id": "catch_gear",
+      "name": {
+        "ko": "포획 장비",
+        "en": "Catch gear"
+      },
+      "major": "part",
+      "enabled": true
+    },
+    {
       "id": "reagent",
       "name": {
         "ko": "시약",

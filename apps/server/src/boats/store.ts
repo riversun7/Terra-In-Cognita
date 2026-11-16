@@ -4,6 +4,7 @@
 // - boat_facilities: 배 시설 주인 설정(받기 범위·요금·조선소 모듈).
 // 쓰기는 월드 쓰기 대기열(재료 빼기와 같은 묶음), 읽기는 배 서비스를 만들 때(부팅 복구 뒤) 한 번.
 // D-559: 도크에 든 배(yard_*, 유닛 줄 없음 — 주인은 owner_id)·연료·오버히트·보직, 조선소 모듈 묶음(modules).
+// D-570: 함포 칸 포획 장비(gear)·판매가(price — 작업 줄에서 배 상태로).
 import {
   DEFAULT_HARBOR_ACCESS,
   HARBOR_ACCESS,
@@ -33,6 +34,8 @@ export interface BoatJob {
   readonly typeId: string | null;
   /** 수리하는 배(만들기는 null) */
   readonly boatId: number | null;
+  /** 남의 조선소 주문의 판매가(주문 요금, D-570 1827). 제 조선소·수리·옛 줄은 null(없으면 null) */
+  readonly price?: bigint | null | undefined;
 }
 
 /** 배 하나의 상태 */
@@ -70,6 +73,10 @@ export interface BoatState {
   coolUntilMs: number | null;
   /** 보직(유닛 ID → 보직, D-559 1533) */
   crew: Record<number, CrewPost>;
+  /** 함포 칸 장비(칸 차례 — 아이템 ID 또는 null, D-570 1821). 옛 줄은 빈 줄 */
+  gear: (string | null)[];
+  /** 판매가(남의 조선소가 받은 주문 요금 — 압류 배값, D-570 1827). 없으면 null */
+  price: bigint | null;
 }
 
 /** 새 배 상태의 D-559 칸 처음 값(2차맵 배, 연료 가득, 보직 없음) */
@@ -84,6 +91,7 @@ export const FRESH_BOAT_FIELDS = {
   fuelAtMs: null,
   overheat: false,
   coolUntilMs: null,
+  price: null,
 } as const;
 
 /** 배 시설 주인 설정 */
@@ -145,10 +153,33 @@ export function crewOf(value: unknown): Record<number, CrewPost> {
   return out;
 }
 
+/** jsonb 함포 칸 장비 → 줄(아이템 ID 모양이 아니면 null, 칸은 16개까지) */
+export function gearOf(value: unknown): (string | null)[] {
+  const raw: unknown = typeof value === "string" ? JSON.parse(value) : value;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .slice(0, 16)
+    .map((entry: unknown) =>
+      typeof entry === "string" && /^[a-z][a-z0-9_]{1,47}$/.test(entry) ? entry : null,
+    );
+}
+
+/** bigint 열(글자·수·null) → bigint|null(음수·모양이 틀리면 null) */
+export function priceOf(value: unknown): bigint | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "bigint") return value >= 0n ? value : null;
+  if (
+    (typeof value === "string" && /^\d+$/.test(value)) ||
+    (typeof value === "number" && Number.isSafeInteger(value))
+  )
+    return BigInt(value) >= 0n ? BigInt(value) : null;
+  return null;
+}
+
 /** 그 행성의 조선소 작업(ID 차례) */
 export async function loadBoatJobs(pool: QueryPool, planetId: string): Promise<BoatJob[]> {
   const found = await pool.query(
-    `select id, owner_id, building_id, materials, started_at_ms, done_at_ms, kind, type_id, boat_id
+    `select id, owner_id, building_id, materials, started_at_ms, done_at_ms, kind, type_id, boat_id, price
      from boat_jobs where planet_id = $1 order by id`,
     [planetId],
   );
@@ -162,6 +193,7 @@ export async function loadBoatJobs(pool: QueryPool, planetId: string): Promise<B
     kind: row.kind === "repair" ? "repair" : "build",
     typeId: typeof row.type_id === "string" ? row.type_id : null,
     boatId: numOrNull(row.boat_id),
+    price: priceOf(row.price),
   }));
 }
 
@@ -170,7 +202,7 @@ export async function loadBoatStates(pool: QueryPool, planetId: string): Promise
   const found = await pool.query(
     `select boat_id, type_id, hull_ppm, hull_at_ms, home_id, fee_paid_to_ms, arrears, trade_id, trade_until_ms,
        trade_charged_to_ms, owner_id, yard_id, yard_since_ms, yard_map_key, yard_x, yard_y, fuel_milli, fuel_at_ms,
-       overheat, cool_until_ms, crew from boat_states where planet_id = $1 order by boat_id`,
+       overheat, cool_until_ms, crew, gear, price from boat_states where planet_id = $1 order by boat_id`,
     [planetId],
   );
   return found.rows.map((row) => ({
@@ -195,6 +227,8 @@ export async function loadBoatStates(pool: QueryPool, planetId: string): Promise
     overheat: row.overheat === true,
     coolUntilMs: numOrNull(row.cool_until_ms),
     crew: crewOf(row.crew),
+    gear: gearOf(row.gear),
+    price: priceOf(row.price),
   }));
 }
 
@@ -242,6 +276,7 @@ export function boatJobWriter(writer: Pick<WorldWriter, "upsert" | "remove"> | u
         kind: job.kind,
         type_id: job.typeId,
         boat_id: job.boatId,
+        price: job.price === undefined || job.price === null ? null : job.price.toString(),
       });
     },
     remove(id: number): void {
@@ -272,6 +307,8 @@ export function boatJobWriter(writer: Pick<WorldWriter, "upsert" | "remove"> | u
         cool_until_ms: state.coolUntilMs,
         // pg가 객체를 jsonb로 넣게 JSON 글자로(재료와 같다)
         crew: JSON.stringify(state.crew),
+        gear: JSON.stringify(state.gear),
+        price: state.price === null ? null : state.price.toString(),
       });
     },
     removeState(boatId: number): void {

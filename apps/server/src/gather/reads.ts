@@ -83,6 +83,7 @@ function harborOf(source: HarborPanelSource | undefined, ownerId: number | undef
     cash: mine ? source.cash : null,
     overstayMul: source.overstayMul,
     maxHours: source.maxHours,
+    ...(source.exchangeId === undefined ? {} : { exchangeId: source.exchangeId }),
   };
   return {
     harbor,

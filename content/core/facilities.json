@@ -1344,6 +1344,75 @@
             },
             "hangar": 0
           }
+        },
+        {
+          "id": "fishing_boat",
+          "name": {
+            "ko": "어선",
+            "en": "Fishing boat"
+          },
+          "materials": [
+            {
+              "item": "plank",
+              "qty": 12
+            },
+            {
+              "item": "iron_ingot",
+              "qty": 2
+            }
+          ],
+          "buildMs": 1200000,
+          "speedPm": 900,
+          "capacity": 6,
+          "fuelCapacity": 1200,
+          "fuelPerHour": 80,
+          "holdKg": 1200,
+          "fuelItems": [
+            {
+              "item": "whale_oil",
+              "units": 200
+            },
+            {
+              "item": "peat",
+              "units": 60
+            }
+          ],
+          "catchGear": [
+            {
+              "item": "fishing_net",
+              "maxTier": 3
+            },
+            {
+              "item": "longline_rig",
+              "maxTier": 6
+            }
+          ],
+          "naval": {
+            "shipClass": "fishing",
+            "hullPoints": 500,
+            "armor": 2,
+            "modulePoints": 3,
+            "guns": [
+              {
+                "caliber": "light",
+                "shells": ["ap", "he"]
+              },
+              {
+                "caliber": "light",
+                "shells": ["ap", "he"]
+              },
+              {
+                "caliber": "light",
+                "shells": ["ap", "he"]
+              }
+            ],
+            "crew": {
+              "captain": 1,
+              "fisher": 3,
+              "deck": 1
+            },
+            "hangar": 0
+          }
         }
       ],
       "look": {

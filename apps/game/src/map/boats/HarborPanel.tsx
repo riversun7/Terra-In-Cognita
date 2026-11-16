@@ -4,6 +4,7 @@
 // - 교역 부두: 임시 자리·머무는 배(남은 시간)·내 배 [N시간 사기]·받기 범위·한 시간 요금(주인).
 // - D-559: 조선소 모듈 자리(레벨마다 하나 더)·도크에 든 배([출고], 남의 배는 장기 보관료)·남의 조선소 [수리](받기 범위·수리 요금)·교역 부두 [연료 채우기]·
 //   요금 화폐(그 항구 나라 화폐).
+// - D-570: 내 배 줄마다 함포 칸 포획 장비·싣기(BoatPortRow.tsx), 연료 채우기는 내 배 시설에서도(1830), 항구 옆 거래소 알림(1823).
 // - 금고(사업장 장부, D-548)는 주인에게만 보인다. 서버가 소유·거리·자리·받기 범위·돈을 다시 본다. 결과는 판 아래 한 줄에 알리고 판을 다시 읽는다.
 import { fairText } from "../business/businessText.ts";
 import type {
@@ -19,6 +20,7 @@ import { serverLink } from "../../net/serverLink.ts";
 import { durationText } from "../travelData.ts";
 import { type BoatCommand, sendBoatCommand } from "./boatCommands.ts";
 import { type BoatOutcomeKind, boatOutcomeText } from "./boatText.ts";
+import { BoatPortRow } from "./BoatPortRow.tsx";
 import "./boats.css";
 
 /** 서버 시각(기기 시계 + 인사 때 잰 차이) */
@@ -293,6 +295,9 @@ export function HarborPanel({
       {harbor.mine.length > 0 ? (
         <div className="harbor-mine">
           <p className="gather-inside-title">{m.harbor_my_boats()}</p>
+          {harbor.exchangeId !== undefined && harbor.exchangeId !== null ? (
+            <p className="gather-muted harbor-exchange">{m.harbor_exchange_near()}</p>
+          ) : null}
           {harbor.role === "trade_dock" ? (
             <label className="harbor-field">
               <span>{m.harbor_hours()}</span>
@@ -338,7 +343,7 @@ export function HarborPanel({
                     {m.harbor_repair()}
                   </button>
                 ) : null}
-                {harbor.role === "trade_dock" ? (
+                {harbor.role === "trade_dock" || mine ? (
                   <button
                     type="button"
                     className="button-small harbor-refuel"
@@ -381,6 +386,8 @@ export function HarborPanel({
                     {m.harbor_buy_time({ hours, fee: harbor.fee * hours })}
                   </button>
                 ) : null}
+                {/* 함포 칸 포획 장비·싣기(D-570 1821·1823) */}
+                <BoatPortRow boat={boat} buildingId={buildingId} sending={sending} run={run} />
               </li>
             ))}
           </ul>

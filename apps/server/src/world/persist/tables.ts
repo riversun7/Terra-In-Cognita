@@ -764,6 +764,8 @@ export const WORLD_TABLES = {
       "kind",
       "type_id",
       "boat_id",
+      // D-570: 판매가
+      "price",
     ],
     key: ["id"],
   },
@@ -794,6 +796,9 @@ export const WORLD_TABLES = {
       "overheat",
       "cool_until_ms",
       "crew",
+      // D-570: 포획 장비·판매가
+      "gear",
+      "price",
     ],
     key: ["boat_id"],
   },

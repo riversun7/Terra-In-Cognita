@@ -8,6 +8,7 @@
 | 2026-11-16 09:10 | 영토 판정 3 — 새 도시 자리·시가지·건설 땅도 지도대로, 칸 표 나눠 셈 (기획 답 1922·1923·1927·1930) | Claude Code | [16-0910-territory-3](worklog/2026/11/16-0910-territory-3.md) |
 | 2026-11-16 08:40 | 2026-11-16 묶음 1116h 합치기 (D-561 거래소는 건물 · D-558 군단 명령 2단계) | Claude Code | [16-0840-batch-1116h-merge](worklog/2026/11/16-0840-batch-1116h-merge.md) |
 | 2026-11-16 06:30 ~ 08:30 | 군단 명령 2단계 — 지휘 계급·승계, 집결·따라가기·대형, AI 전개 방식 8가지, 전투맵 명령 화면, 웨이브 편성, 이동 속도 출처 | Claude Code | [16-0830-legion-commands-2](worklog/2026/11/16-0830-legion-commands-2.md) |
+| 2026-11-16 08:30 | 채집 6: NPC 기를 티어는 세력·지도자 성향 변수로, NPC도 모듈 재료를 산다 (답 1862·1864) | Claude Code | [16-0830-gather-6](worklog/2026/11/16-0830-gather-6.md) |
 | 2026-11-16 07:50 | 거래소 건물: 물자·외환 거래소를 도시의 건물로, 지금 세계는 켤 때 세우기 (D-561) | Claude Code | [16-0750-exchange-buildings](worklog/2026/11/16-0750-exchange-buildings.md) |
 | 2026-11-16 07:30 | 화면 시험 "경계 너머 보기" 시간 초과 고침(vision-fix) | Claude Code | [16-0730-vision-fix](worklog/2026/11/16-0730-vision-fix.md) |
 | 2026-11-16 06:00 | 2026-11-16 묶음 1116g 합치기 (D-564 좌표 이동 2 · D-568 영토 판정 = 1차맵 지도) | Claude Code | [16-0600-batch-1116g-merge](worklog/2026/11/16-0600-batch-1116g-merge.md) |

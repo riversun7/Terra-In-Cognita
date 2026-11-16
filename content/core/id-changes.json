@@ -448,6 +448,38 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "c7_command_tier_1",
+      "since": 124,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "c7_command_tier_2",
+      "since": 124,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "c7_command_tier_3",
+      "since": 124,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "c7_command_tier_4",
+      "since": 124,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

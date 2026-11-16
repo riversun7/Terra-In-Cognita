@@ -138,6 +138,12 @@ export const WORLD_TABLES = {
     columns: ["user_id", "faction_id", "score", "updated_at_ms"],
     key: ["user_id", "faction_id"],
   },
+  /** 사람·나라 명성(D-326 작위, D-571 — 덮어쓰기) — 세계 전투 결과 적용과 같은 커밋 */
+  userNationRenown: {
+    name: "user_nation_renown",
+    columns: ["user_id", "faction_id", "renown", "updated_at_ms"],
+    key: ["user_id", "faction_id"],
+  },
   /** 만드는 중인 초기 스탯 굴림(만들면 지운다) */
   cyborgRolls: {
     name: "cyborg_rolls",
@@ -885,6 +891,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "cyborgs",
   "nationalityChanges",
   "userNationStandings",
+  "userNationRenown",
   "cyborgRolls",
   "holdings",
   "unitEffects",

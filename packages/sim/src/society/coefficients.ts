@@ -15,6 +15,7 @@ import { type FusionCoefficients, OLD_FUSION_COEFFICIENTS } from "./fusion.ts";
 import { type InjuryCoefficients, START_INJURY_COEFFICIENTS } from "./injury.ts";
 import { OLD_RECRUIT_COEFFICIENTS, type RecruitCoefficients } from "./recruitment.ts";
 import { type RestorationCoefficients, START_RESTORATION_COEFFICIENTS } from "./restoration.ts";
+import { DEFAULT_RENOWN_COEFFICIENTS, type RenownCoefficients } from "./renown.ts";
 import { OLD_TEMPLE_COEFFICIENTS, type TempleCoefficients } from "./temple.ts";
 import { START_WAR_COEFFICIENTS, type WarCoefficients } from "./warOutcomes.ts";
 import { START_WORLD_SEED, type WorldSeedCoefficients } from "./worldSeed.ts";
@@ -256,6 +257,8 @@ export interface SocietyCoefficients {
   readonly labor: LaborRules;
   /** 랭킹(20 §8, 팩 tuning 경로 "ranking.*" [임시]): 집계 주기·감쇠·등급 문턱·세력 판 점수. docs/adr/2026-11-07-ranking.md */
   readonly ranking: RankingCoefficients;
+  /** 나라별 명성 → 작위(D-326·49 S18, D-571 지휘관 정원), society/renown.ts */
+  readonly renown: RenownCoefficients;
   /** 사이보그 성장·환생·속성·유지·정착 지원금(48 §2, D-417·D-440·D-441·D-450~D-453·D-455, 49 N6·N7·N9·N34·N36~N39) */
   readonly cyborg: {
     /** 만렙(N7 기본 50, 구조 값). 특수 만렙 60은 누가 받는지 정해지지 않아 두지 않는다 */
@@ -461,6 +464,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   },
   fusion: { ...OLD_FUSION_COEFFICIENTS },
   temple: { ...OLD_TEMPLE_COEFFICIENTS },
+  renown: { ...DEFAULT_RENOWN_COEFFICIENTS, titleRenown: [...DEFAULT_RENOWN_COEFFICIENTS.titleRenown] },
   restoration: { ...START_RESTORATION_COEFFICIENTS },
   war: { ...START_WAR_COEFFICIENTS },
   worldSeed: { ...START_WORLD_SEED },

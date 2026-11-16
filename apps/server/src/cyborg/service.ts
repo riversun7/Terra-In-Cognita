@@ -189,6 +189,10 @@ export interface CyborgService {
   naturalizationRules(nation?: number): NaturalizationRules;
   /** 그 사람과 그 나라 사이 우호도(D-526, −100~100, 없으면 0) */
   standingOf(userId: string, factionId: number): number;
+  /** 그 사람의 그 나라 명성(D-326, 없으면 0) */
+  renownOf(userId: string, factionId: number): number;
+  /** 그 사람의 그 나라 명성을 더한다(쓰기 대기열, 동기 — 부르는 쪽 커밋에 든다). 사이보그가 없으면 undefined, 있으면 새 값 */
+  addRenown(userId: string, factionId: number, amount: number, atMs: number): number | undefined;
   /**
    * 신앙도·신앙 포인트를 함께 올린다(신전 기도·헌금, D-444 165·D-451 — 신앙도는 100에서 멈춘다). 사이보그가 없으면 undefined.
    * 쓰기 대기열에 넣기만 한다(커밋은 부르는 쪽이 기다린다)
@@ -692,6 +696,22 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       };
     },
     standingOf: (userId, factionId) => byUser.get(userId)?.standings.get(factionId) ?? 0,
+    renownOf: (userId, factionId) => byUser.get(userId)?.renown?.get(factionId) ?? 0,
+    addRenown(userId, factionId, amount, atMs) {
+      const record = byUser.get(userId);
+      if (!record) return undefined;
+      const map = record.renown ?? new Map<number, number>();
+      record.renown = map;
+      const renown = Math.max(0, (map.get(factionId) ?? 0) + Math.trunc(amount));
+      map.set(factionId, renown);
+      writer.upsert("userNationRenown", {
+        user_id: userId,
+        faction_id: factionId,
+        renown,
+        updated_at_ms: atMs,
+      });
+      return renown;
+    },
     joinable: (factionId) =>
       factions.some((faction) => faction.id === factionId) && startCitiesOf(factionId).length > 0,
     changeNation(userId, change) {

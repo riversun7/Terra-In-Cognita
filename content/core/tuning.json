@@ -6861,78 +6861,6 @@
       "source": "ADR 2026-10-31-combat-core \"바뀜 (D-558)\" · D-179 · D-558 1543·1544"
     },
     {
-      "id": "c7_command_tier_1",
-      "code": "C7",
-      "name": {
-        "ko": "지휘관 정원: 전투 랭킹 등급 1(파티 수)",
-        "en": "Commander cap: combat ranking tier 1 (parties)"
-      },
-      "value": 9,
-      "structural": false,
-      "unit": "count",
-      "min": 0,
-      "max": 40,
-      "desc": {
-        "ko": "전투 계열 랭킹 등급 1(출발값 상위 1%)인 지휘관이 지휘하는 파티 수. 등급 밖이면 아래 끝.",
-        "en": "Parties a commander in combat ranking tier 1 (default top 1%) can lead. Outside every tier: the minimum."
-      },
-      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-558)\" · D-179 · D-558 1543·1544"
-    },
-    {
-      "id": "c7_command_tier_2",
-      "code": "C7",
-      "name": {
-        "ko": "지휘관 정원: 전투 랭킹 등급 2(파티 수)",
-        "en": "Commander cap: combat ranking tier 2 (parties)"
-      },
-      "value": 7,
-      "structural": false,
-      "unit": "count",
-      "min": 0,
-      "max": 40,
-      "desc": {
-        "ko": "전투 계열 랭킹 등급 2(출발값 상위 5%)인 지휘관이 지휘하는 파티 수. 등급 밖이면 아래 끝.",
-        "en": "Parties a commander in combat ranking tier 2 (default top 5%) can lead. Outside every tier: the minimum."
-      },
-      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-558)\" · D-179 · D-558 1543·1544"
-    },
-    {
-      "id": "c7_command_tier_3",
-      "code": "C7",
-      "name": {
-        "ko": "지휘관 정원: 전투 랭킹 등급 3(파티 수)",
-        "en": "Commander cap: combat ranking tier 3 (parties)"
-      },
-      "value": 5,
-      "structural": false,
-      "unit": "count",
-      "min": 0,
-      "max": 40,
-      "desc": {
-        "ko": "전투 계열 랭킹 등급 3(출발값 상위 20%)인 지휘관이 지휘하는 파티 수. 등급 밖이면 아래 끝.",
-        "en": "Parties a commander in combat ranking tier 3 (default top 20%) can lead. Outside every tier: the minimum."
-      },
-      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-558)\" · D-179 · D-558 1543·1544"
-    },
-    {
-      "id": "c7_command_tier_4",
-      "code": "C7",
-      "name": {
-        "ko": "지휘관 정원: 전투 랭킹 등급 4(파티 수)",
-        "en": "Commander cap: combat ranking tier 4 (parties)"
-      },
-      "value": 4,
-      "structural": false,
-      "unit": "count",
-      "min": 0,
-      "max": 40,
-      "desc": {
-        "ko": "전투 계열 랭킹 등급 4(출발값 상위 50%)인 지휘관이 지휘하는 파티 수. 등급 밖이면 아래 끝.",
-        "en": "Parties a commander in combat ranking tier 4 (default top 50%) can lead. Outside every tier: the minimum."
-      },
-      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-558)\" · D-179 · D-558 1543·1544"
-    },
-    {
       "id": "c7_command_rebirth",
       "code": "C7",
       "name": {
@@ -6985,6 +6913,258 @@
         "en": "Largest cap (user: a legion is 3 to 10 squads)."
       },
       "source": "ADR 2026-10-31-combat-core \"바뀜 (D-558)\" · D-179 · D-558 1543·1544"
+    },
+    {
+      "id": "d558_tactic_defend_radius",
+      "code": "",
+      "name": {
+        "ko": "전개 방식: 수비 집중 닻 둘레(칸)",
+        "en": "Tactic: defend anchor radius (cells)"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 32,
+      "desc": {
+        "ko": "수비 집중: 명령 받은 자리(닻) 둘레 이 칸 안에 들어온 적만 쫓는다. [임시]",
+        "en": "Defend: chase only enemies within this many cells of the anchor. [temp]"
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-571)\" · D-558 2차 · D-571 1963"
+    },
+    {
+      "id": "d558_tactic_backline_range",
+      "code": "",
+      "name": {
+        "ko": "전개 방식: 후방 침투 뒤쪽 적 사거리(칸)",
+        "en": "Tactic: infiltrate backline range (cells)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 20,
+      "desc": {
+        "ko": "후방 침투: 사거리가 이 이상인 적을 뒤쪽 원거리·마법 유닛으로 보고 쫓는다. [임시]",
+        "en": "Infiltrate: enemies with at least this range count as the backline. [temp]"
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-571)\" · D-558 2차 · D-571 1963"
+    },
+    {
+      "id": "d558_tactic_delay_gap",
+      "code": "",
+      "name": {
+        "ko": "전개 방식: 지연전 물러나는 거리(사거리 + 칸)",
+        "en": "Tactic: delay retreat gap (range + cells)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 20,
+      "desc": {
+        "ko": "지연전: 적이 사거리 + 이 칸 안이면 자기 가장자리 쪽으로 물러난다. [임시]",
+        "en": "Delay: fall back when an enemy is within range + this many cells. [temp]"
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-571)\" · D-558 2차 · D-571 1963"
+    },
+    {
+      "id": "d558_tactic_harass_min_range",
+      "code": "",
+      "name": {
+        "ko": "전개 방식: 견제하는 유닛 사거리(칸)",
+        "en": "Tactic: harass minimum range (cells)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 20,
+      "desc": {
+        "ko": "견제: 사거리가 이 이상인 유닛만 치고 물러나기를 한다(아래는 돌격). [임시]",
+        "en": "Harass: only units with at least this range hit and step back (others assault). [temp]"
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-571)\" · D-558 2차 · D-571 1963"
+    },
+    {
+      "id": "d558_tactic_flank_turn_pm",
+      "code": "",
+      "name": {
+        "ko": "전개 방식: 측면 우회 → 돌격 지점(지도 ‰)",
+        "en": "Tactic: flank turns to assault at (map ‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "측면 우회: 자기 가장자리에서 지도의 이 몫을 지나면 돌격으로 바꾼다. [임시]",
+        "en": "Flank: switch to assault after crossing this share of the map. [temp]"
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-571)\" · D-558 2차 · D-571 1963"
+    },
+    {
+      "id": "d558_tactic_lane_divisor",
+      "code": "",
+      "name": {
+        "ko": "전개 방식: 중앙·측면 길 나눗수",
+        "en": "Tactic: centre and flank lane divisor"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 2,
+      "max": 10,
+      "desc": {
+        "ko": "맞은편 가장자리를 이 수로 나눈 폭이 측면 길, 가운데 남은 칸이 중앙 돌파 길이다(3 = 1/3씩). [임시]",
+        "en": "The far edge split by this number gives the flank lanes; the rest in the middle is the centre lane (3 = thirds). [temp]"
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-571)\" · D-558 2차 · D-571 1963"
+    },
+    {
+      "id": "s18_title_citizen",
+      "code": "S18",
+      "name": {
+        "ko": "작위 문턱: 시민(나라 명성)",
+        "en": "Title threshold: citizen (nation renown)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "그 나라 명성이 이 값 이상이면 작위 시민(49 S18 기존값). 작위가 지휘관 정원을 정한다(D-571).",
+        "en": "Nation renown at or above this makes the title citizen (49 S18 legacy value). The title sets the commander cap (D-571)."
+      },
+      "source": "46 §9.4 · D-326 · 49 S18 · D-571 1961"
+    },
+    {
+      "id": "s18_title_merit",
+      "code": "S18",
+      "name": {
+        "ko": "작위 문턱: 공훈자(나라 명성)",
+        "en": "Title threshold: meritorious (nation renown)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "그 나라 명성이 이 값 이상이면 작위 공훈자(49 S18 기존값). 작위가 지휘관 정원을 정한다(D-571).",
+        "en": "Nation renown at or above this makes the title meritorious (49 S18 legacy value). The title sets the commander cap (D-571)."
+      },
+      "source": "46 §9.4 · D-326 · 49 S18 · D-571 1961"
+    },
+    {
+      "id": "s18_title_knight",
+      "code": "S18",
+      "name": {
+        "ko": "작위 문턱: 기사(나라 명성)",
+        "en": "Title threshold: knight (nation renown)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "그 나라 명성이 이 값 이상이면 작위 기사(49 S18 기존값). 작위가 지휘관 정원을 정한다(D-571).",
+        "en": "Nation renown at or above this makes the title knight (49 S18 legacy value). The title sets the commander cap (D-571)."
+      },
+      "source": "46 §9.4 · D-326 · 49 S18 · D-571 1961"
+    },
+    {
+      "id": "s18_title_lord",
+      "code": "S18",
+      "name": {
+        "ko": "작위 문턱: 영주(나라 명성)",
+        "en": "Title threshold: lord (nation renown)"
+      },
+      "value": 3000,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "그 나라 명성이 이 값 이상이면 작위 영주(49 S18 기존값). 작위가 지휘관 정원을 정한다(D-571).",
+        "en": "Nation renown at or above this makes the title lord (49 S18 legacy value). The title sets the commander cap (D-571)."
+      },
+      "source": "46 §9.4 · D-326 · 49 S18 · D-571 1961"
+    },
+    {
+      "id": "s18_title_duke",
+      "code": "S18",
+      "name": {
+        "ko": "작위 문턱: 대공(나라 명성)",
+        "en": "Title threshold: grand duke (nation renown)"
+      },
+      "value": 5000,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "그 나라 명성이 이 값 이상이면 작위 대공(49 S18 기존값). 작위가 지휘관 정원을 정한다(D-571).",
+        "en": "Nation renown at or above this makes the title grand duke (49 S18 legacy value). The title sets the commander cap (D-571)."
+      },
+      "source": "46 §9.4 · D-326 · 49 S18 · D-571 1961"
+    },
+    {
+      "id": "d326_renown_defense",
+      "code": "",
+      "name": {
+        "ko": "명성: 방어 한 번(수비 편 승리)",
+        "en": "Renown: one defence (defending side wins)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "세계 전투에서 수비 편이 이기면 끝까지 싸운 유닛의 주인마다 한 번, 지킨 나라 명성에 더한다. [임시]",
+        "en": "When the defending side wins a world battle, each owner of a unit that fought to the end gains this much renown with the defended nation, once. [temp]"
+      },
+      "source": "46 §9.4 · D-326 · 49 S18 · D-571 1961"
+    },
+    {
+      "id": "d571_temple_blessing_pm",
+      "code": "",
+      "name": {
+        "ko": "신전 축복: 기도하면 걸리는 이동 속도(‰, 0 = 없음)",
+        "en": "Temple blessing: move speed on prayer (‰, 0 = none)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "신전에서 기도하면 사이보그 본체에 잠시 걸리는 이동 속도 버프(종교 일일 보상 같은 것, 종교 시스템이 미흡해 [임시]).",
+        "en": "Move-speed buff on the cyborg body after praying at a temple (like a daily religion reward; [temp] until religion is fuller)."
+      },
+      "source": "ADR 2026-11-07-temple-religion \"바뀜 (D-571)\" · D-558 1548 · D-571 1968"
+    },
+    {
+      "id": "d571_temple_blessing_ms",
+      "code": "",
+      "name": {
+        "ko": "신전 축복: 지속 시간(ms)",
+        "en": "Temple blessing: duration (ms)"
+      },
+      "value": 1800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 86400000,
+      "desc": {
+        "ko": "신전 축복 이동 속도 버프가 걸려 있는 시간. [임시]",
+        "en": "How long the temple blessing move-speed buff lasts. [temp]"
+      },
+      "source": "ADR 2026-11-07-temple-religion \"바뀜 (D-571)\" · D-558 1548 · D-571 1968"
     },
     {
       "id": "n54_injury_regen_1",

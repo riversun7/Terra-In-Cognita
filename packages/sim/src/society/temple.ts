@@ -51,6 +51,12 @@ export interface TempleCoefficients {
   readonly rebirthKChanceBp: number;
   readonly rebirthStatAmount: number;
   readonly rebirthKAmountPm: number;
+  /**
+   * 신전 축복(D-558 1548 "신전 축복" → D-571 답 1968 "종교컨텐츠 일일 보상같은. 아직 시스템 미흡 임시로"): 기도하면 사이보그 본체에 잠시 걸리는
+   * 이동 속도 버프(‰, 걸린 효과 temple_blessing — 2차맵 걷기·전투에 그대로 든다)와 지속 시간(ms). 0이면 걸지 않는다 [임시]
+   */
+  readonly blessingMovePm: number;
+  readonly blessingMs: number;
 }
 
 const HOUR_MS = 3_600_000;
@@ -77,6 +83,9 @@ export const OLD_TEMPLE_COEFFICIENTS: TempleCoefficients = {
   rebirthKChanceBp: 2000,
   rebirthStatAmount: 2,
   rebirthKAmountPm: 50,
+  // [임시] 신전 축복(D-571 답 1968): 이동 속도 +100‰ 30분(기도 쿨다운 1시간의 절반)
+  blessingMovePm: 100,
+  blessingMs: 30 * 60_000,
 };
 
 /**

@@ -18,6 +18,7 @@ import {
   COMMAND_LOCK_MS,
 } from "./battleCommands.ts";
 import { formationText, orderText, tacticText } from "./battleCommandText.ts";
+import "./battleCommandBar.css";
 
 type OrderKind = BattleOrderDraft["kind"];
 /** 단추 차례 */
@@ -49,12 +50,15 @@ export interface BattleCommandBarProps {
   readonly busy: boolean;
   readonly onPick: (pick: BattlePick) => void;
   readonly onIssue: (party: number | null, order: BattleOrderDraft) => void;
+  /** 군단 단추를 보이나(없으면 보인다). 실제 세계 전투에서 내가 지휘관이 아니면 끈다(서버도 not_commander로 거절) */
+  readonly legion?: boolean | undefined;
 }
 
 export function BattleCommandBar(props: BattleCommandBarProps) {
   const { parties, pick } = props;
   const id = useId();
-  const [who, setWho] = useState<number | null>(null);
+  const legionOn = props.legion !== false;
+  const [who, setWho] = useState<number | null>(legionOn ? null : (parties[0] ?? null));
   const [open, setOpen] = useState<"follow" | "formation" | "tactic" | null>(null);
   const [shape, setShape] = useState<ReportFormation>("line");
   const [tactic, setTactic] = useState<ReportTactic>("assault");
@@ -100,7 +104,7 @@ export function BattleCommandBar(props: BattleCommandBarProps) {
       data-busy={props.busy ? "true" : "false"}
     >
       <div className="br-cmd-whos" role="group" aria-label={m.battle_cmd_who()}>
-        {[null, ...parties].map((party) => (
+        {[...(legionOn ? [null] : []), ...parties].map((party) => (
           <button
             key={party ?? "legion"}
             type="button"

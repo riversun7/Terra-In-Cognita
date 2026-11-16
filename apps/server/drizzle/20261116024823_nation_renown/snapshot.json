@@ -1,0 +1,216 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "98fc86ba-aeba-47e8-9f68-63b83b556b90",
+  "prevIds": [
+    "22a71ad3-9c15-4a67-aef4-42828561488a",
+    "e39360c4-a832-4a11-a9d1-41c1f6cfbfcb"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_nation_renown"
+      ],
+      "writes": [
+        "s|tbl|public.user_nation_renown",
+        "n|tbl|public.user_nation_renown",
+        "e|tbl|public.user_nation_renown",
+        "n|rel|public.user_nation_renown",
+        "n|type|public.user_nation_renown",
+        "n|rel|public.user_nation_renown_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_nation_renown"
+      ],
+      "writes": [
+        "s|fk|public.user_nation_renown.user_nation_renown_user_id_users_id_fkey",
+        "n|fk|public.user_nation_renown.user_nation_renown_user_id_users_id_fkey",
+        "e|fk|public.user_nation_renown.user_nation_renown_user_id_users_id_fkey",
+        "n|con|public.user_nation_renown.user_nation_renown_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.user_nation_renown",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.user_nation_renown.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_nation_renown"
+      ],
+      "writes": [
+        "s|fk|public.user_nation_renown.user_nation_renown_faction_id_factions_id_fkey",
+        "n|fk|public.user_nation_renown.user_nation_renown_faction_id_factions_id_fkey",
+        "e|fk|public.user_nation_renown.user_nation_renown_faction_id_factions_id_fkey",
+        "n|con|public.user_nation_renown.user_nation_renown_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.user_nation_renown",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.user_nation_renown.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "user_nation_renown",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_renown",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_renown",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_renown",
+        "name": "renown",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_renown",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_renown",
+        "name": "user_nation_renown_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_renown",
+        "name": "user_nation_renown_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_renown",
+        "name": "user_nation_renown_pkey",
+        "columns": [
+          "user_id",
+          "faction_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_nation_renown",
+        "name": "user_nation_renown_nonnegative",
+        "value": "\"renown\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

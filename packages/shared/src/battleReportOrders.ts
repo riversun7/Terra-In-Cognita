@@ -17,8 +17,8 @@ export const REPORT_ORDER_KINDS = [
   "tactic",
 ] as const;
 export type ReportOrderKind = (typeof REPORT_ORDER_KINDS)[number];
-/** 대형(판정 FORMATION_SHAPES와 같은 목록 — 서버 시험이 견준다): 횡대·종대·쐐기·방진 */
-export const REPORT_FORMATIONS = ["line", "column", "wedge", "block"] as const;
+/** 대형(판정 FORMATION_SHAPES와 같은 목록 — 서버 시험이 견준다): 횡대·종대·쐐기·방진·손으로 짠 진형(custom — 유닛 진형판 자리, D-172·D-571 답 1965) */
+export const REPORT_FORMATIONS = ["line", "column", "wedge", "block", "custom"] as const;
 export type ReportFormation = (typeof REPORT_FORMATIONS)[number];
 /** AI 전개 방식(판정 TACTICS와 같은 목록, D-558 2차): 돌격·수비 집중·중앙 돌파·측면 우회·후방 침투·집중 사격·견제·지연전 */
 export const REPORT_TACTICS = [

@@ -3,11 +3,14 @@
 // - 앞 = 자기 편 가장자리의 맞은편 쪽. 앞줄부터 채우고, 줄 안에서는 가운데 → 왼쪽 → 오른쪽 차례다.
 // - 앞줄에는 사거리가 짧은 유닛부터 선다(같으면 작은 ID) — 근접이 앞, 원거리가 뒤 [임시].
 // - 지도 밖·못 서는 칸은 가운데 칸으로 바꾼다(유닛이 그 둘레에 모인다 — 옛 칸 전진 slotsOf와 같은 규칙).
+// - 손으로 짠 진형(custom, 답 1965 → D-571 "기본 대형 + 진형 저장 D-172·D-179"): 유닛 사양의 formationSlot(파티 진형판에서 짠 자리)대로 선다.
+//   군단이면 파티마다 진형판 하나를 옆으로 CUSTOM_PARTY_GAP 칸씩 벌려 놓는다(파티 ID 차례로 가운데 → 왼쪽 → 오른쪽). 자리가 없는 유닛은 그
+//   파티 진형판 뒤에 방진으로 선다 [임시].
 // 정수·결정적 계산만 쓴다.
 import type { Edge, UnitState } from "./battleTypes.ts";
 
-/** 대형 종류: 횡대(옆으로 넓게)·종대(좁고 길게)·쐐기(앞이 뾰족)·방진(네모, 기본) */
-export const FORMATION_SHAPES = ["line", "column", "wedge", "block"] as const;
+/** 대형 종류: 횡대(옆으로 넓게)·종대(좁고 길게)·쐐기(앞이 뾰족)·방진(네모, 기본)·손으로 짠 진형(저장한 진형판, D-172) */
+export const FORMATION_SHAPES = ["line", "column", "wedge", "block", "custom"] as const;
 export type FormationShape = (typeof FORMATION_SHAPES)[number];
 
 /** 대형을 고른 적 없는 묶음의 대형 */
@@ -15,6 +18,10 @@ export const DEFAULT_FORMATION: FormationShape = "block";
 
 /** [임시] 횡대 한 줄의 칸 수 */
 export const LINE_WIDTH = 8;
+/** [임시] 손으로 짠 진형: 군단 파티 진형판 사이 옆 간격(칸 — 진형판 폭 9칸 + 1) */
+export const CUSTOM_PARTY_GAP = 10;
+/** [임시] 손으로 짠 진형: 자리가 없는 유닛이 서는 진형판 뒤 줄(진형판 깊이 6칸) */
+const CUSTOM_FALLBACK_ROW = -6;
 
 export const isFormationShape = (value: unknown): value is FormationShape =>
   typeof value === "string" && (FORMATION_SHAPES as readonly string[]).includes(value);
@@ -30,7 +37,7 @@ export function facingDelta(edge: Edge, f: number, l: number): { dx: number; dy:
 /** 줄 안 옆 자리 차례: 0, −1, +1, −2, +2 … */
 const lateral = (i: number): number => (i % 2 === 1 ? -(i + 1) / 2 : i / 2);
 
-/** n명 대형의 (앞, 옆) 자리. 앞줄이 f = 0이고 뒤줄일수록 f가 작다 */
+/** n명 대형의 (앞, 옆) 자리. 앞줄이 f = 0이고 뒤줄일수록 f가 작다. custom은 유닛 자리가 없으면 방진과 같다(customOffsets) */
 export function formationOffsets(n: number, shape: FormationShape): { f: number; l: number }[] {
   const out: { f: number; l: number }[] = [];
   if (shape === "wedge") {
@@ -45,11 +52,28 @@ export function formationOffsets(n: number, shape: FormationShape): { f: number;
       : shape === "column"
         ? Math.min(2, Math.max(1, n))
         : Math.max(1, Math.ceil(Math.sqrt(n)));
+  // block·custom(자리 정보 없이 부를 때)
   for (let index = 0; index < n; index++) {
     const row = Math.floor(index / width);
     out.push({ f: -row, l: lateral(index % width) });
   }
   return out;
+}
+
+/** 손으로 짠 진형의 (앞, 옆) 자리 — members 차례 그대로(파티 ID 차례로 진형판을 옆으로 벌린다) */
+export function customOffsets(members: readonly UnitState[]): { f: number; l: number }[] {
+  const parties = [...new Set(members.map((unit) => unit.party))].toSorted((a, b) => a - b);
+  const missing = new Map<number, number>();
+  return members.map((unit) => {
+    const shift = lateral(parties.indexOf(unit.party)) * CUSTOM_PARTY_GAP;
+    const slot = unit.formationSlot;
+    if (slot && Number.isInteger(slot.f) && Number.isInteger(slot.l))
+      return { f: Math.min(0, slot.f), l: slot.l + shift };
+    const index = missing.get(unit.party) ?? 0;
+    missing.set(unit.party, index + 1);
+    const width = 3;
+    return { f: CUSTOM_FALLBACK_ROW - Math.floor(index / width), l: lateral(index % width) + shift };
+  });
 }
 
 /** 대형 자리에 설 차례: 사거리 짧은 유닛부터(같으면 작은 ID) */
@@ -71,9 +95,12 @@ export function formationSlots(
   anchor: "center" | "front" = "center",
 ): { unit: number; cell: number }[] {
   if (members.length === 0) return [];
-  const ordered = formationOrder(members);
-  const offsets = formationOffsets(ordered.length, shape);
-  const rows = 1 - (offsets.at(-1)?.f ?? 0);
+  // 손으로 짠 진형은 유닛마다 자리가 정해져 있다(ID 차례). 나머지는 사거리 짧은 유닛부터 앞줄
+  const ordered = shape === "custom" ? members.toSorted((a, b) => a.id - b.id) : formationOrder(members);
+  const offsets = shape === "custom" ? customOffsets(ordered) : formationOffsets(ordered.length, shape);
+  let minF = 0;
+  for (const offset of offsets) minF = Math.min(minF, offset.f);
+  const rows = 1 - minF;
   const shift = anchor === "center" ? Math.floor(rows / 2) : 0;
   const cx = Math.min(size - 1, Math.max(0, center.x));
   const cy = Math.min(size - 1, Math.max(0, center.y));

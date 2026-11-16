@@ -10,15 +10,16 @@ const u = (id: number, commandCap: number, title?: number, tier?: number | null)
 });
 const pick = (list: ReturnType<typeof u>[]) => list.toSorted(commanderOrder)[0]?.id;
 
-describe("지휘관 정원(C7, D-558 — 군단 3~10, 작위·전투 랭킹·환생 +1)", () => {
-  it("계급이 없으면 아래 끝 3, 작위·랭킹 등급 가운데 큰 쪽, 위 끝 10에서 멈춘다", () => {
+describe("지휘관 정원(C7, D-558·D-571 — 군단 3~10, 작위로만·환생 +1)", () => {
+  it("계급이 없으면 아래 끝 3, 작위 표만 본다(랭킹 등급은 정원에 들지 않는다 — D-571), 칸 밖 작위는 끝으로 자른다", () => {
     expect(commandCapOf(undefined, 0, c)).toBe(3);
     expect(commandCapOf({ title: 3, combatTier: null }, 0, c)).toBe(5);
-    expect(commandCapOf({ title: 0, combatTier: 1 }, 0, c)).toBe(7);
+    // D-558 때는 max(작위, 등급 표)로 7이었다 → D-571: 작위 민간인 = 3
+    expect(commandCapOf({ title: 0, combatTier: 1 }, 0, c)).toBe(3);
     expect(commandCapOf({ title: 4, combatTier: 3 }, 0, c)).toBe(7);
     expect(commandCapOf({ title: 5, combatTier: 0 }, 0, c)).toBe(9);
-    // 칸 밖 작위·등급은 끝으로 자른다
     expect(commandCapOf({ title: 99, combatTier: -4 }, 0, c)).toBe(9);
+    expect(commandCapOf({ title: -2, combatTier: 0 }, 0, c)).toBe(3);
   });
 
   it("환생은 횟수와 상관없이 +1 한 번, 위 끝 10을 넘지 않는다. 표가 없는 옛 계수표는 0", () => {
@@ -29,7 +30,6 @@ describe("지휘관 정원(C7, D-558 — 군단 3~10, 작위·전투 랭킹·환
       commandCapOf({ title: 5, combatTier: 0 }, 3, {
         command: {
           titleParties: [3, 3, 4, 5, 7, 9],
-          tierParties: [9, 7, 5, 4],
           rebirthBonus: 5,
           min: 3,
           max: 20,

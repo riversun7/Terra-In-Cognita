@@ -17,6 +17,7 @@ import {
   type BattleInit,
   type BattleInput,
   type BattleResult,
+  type BattleState,
   SIM_VERSION,
   TEST_COMBAT_COEFFICIENTS,
   type UnitResult,
@@ -31,6 +32,19 @@ import {
 import type { QueryPool } from "./persist/load.ts";
 import type { WorldWriter } from "./persist/writer.ts";
 import { type Scheduler, createScheduler } from "./scheduler.ts";
+
+/** 진행 중인 전투 하나(목록용 — 지도 층 없음) */
+export interface RunningBattle {
+  readonly id: number;
+  readonly kind: BattleInit["kind"];
+  readonly startedAtMs: number;
+  readonly endsAtMs: number;
+  readonly mapSize: number;
+  readonly sides: BattleInit["sides"];
+  /** 시작 자료 + 참전 입력의 파티·유닛(유닛은 ID·편·파티만) */
+  readonly parties: readonly BattleInit["parties"][number][];
+  readonly units: readonly { readonly id: number; readonly side: number; readonly party: number }[];
+}
 
 export interface BattleOutcome {
   readonly result: BattleResult;
@@ -58,6 +72,16 @@ export interface BattleService {
   start(init: BattleInit, options: { war: boolean }): Promise<number>;
   /** 입력(참전·명령·퇴각)을 더하고 다시 계산한다. 틱은 지금 진행 틱 이상이어야 한다 */
   addInput(battleId: number, input: BattleInput): Promise<void>;
+  /**
+   * 진행 중인 전투 목록(시작 자료의 편·파티·유닛·지도 한 변, 참전 입력의 파티·유닛을 더한 것 — 지도 층은 읽지 않는다). 실시간 세계 전투
+   * 명령(battleOrders.ts, D-571 답 1969)이 내 유닛이 낀 전투를 고른다
+   */
+  running(): Promise<RunningBattle[]>;
+  /**
+   * 입력 하나를 그 틱에 넣어 보면 판정이 받는지(저장하지 않는다): 그 틱 직전 상태를 스냅숏 + 입력으로 만들고 그 틱을 한 번 돌린다.
+   * 끝난 전투·지난 틱이면 undefined. state = 그 틱을 돈 뒤 상태(군단 명령이면 승계까지 한 지휘관)
+   */
+  probe(battleId: number, input: BattleInput): Promise<{ state: BattleState; rejected: boolean } | undefined>;
   /** 전투 행(없으면 undefined) */
   get(
     battleId: number,
@@ -319,6 +343,72 @@ export function createBattleService(options: {
       const endsAtMs = battle.startedAtMs + result.endTick * tickMs;
       await pool.query(`update world_battles set ends_at_ms = $2 where id = $1`, [battleId, endsAtMs]);
       schedule(battleId, endsAtMs);
+    },
+    async running() {
+      const found = await pool.query(
+        `select id, kind, started_at_ms, ends_at_ms, (init->'map'->>'size')::int as size, init->'sides' as sides,
+                init->'parties' as parties, init->'units' as units, inputs
+           from world_battles where status = 'running' order by id`,
+      );
+      return found.rows.map((row): RunningBattle => {
+        // 저장한 시작 자료·입력은 이 서비스가 쓴 모양 그대로다
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 서버가 쓴 자료를 그대로 읽는다
+        const inputs = (Array.isArray(row.inputs) ? row.inputs : []) as BattleInput[];
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 서버가 쓴 자료를 그대로 읽는다
+        const units = (Array.isArray(row.units) ? row.units : []) as BattleInit["units"];
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 서버가 쓴 자료를 그대로 읽는다
+        const parties = (Array.isArray(row.parties) ? row.parties : []) as BattleInit["parties"];
+        const joins = inputs.filter((input) => input.kind === "join");
+        return {
+          id: Number(row.id),
+          kind: row.kind === "siege" ? "siege" : "normal",
+          startedAtMs: Number(row.started_at_ms),
+          endsAtMs: Number(row.ends_at_ms),
+          mapSize: Number(row.size),
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 서버가 쓴 자료를 그대로 읽는다
+          sides: (Array.isArray(row.sides) ? row.sides : []) as BattleInit["sides"],
+          parties: [...parties, ...joins.map((input) => input.party)],
+          units: [...units, ...joins.flatMap((input) => input.units)].map((unit) => ({
+            id: unit.id,
+            side: unit.side,
+            party: unit.party,
+          })),
+        };
+      });
+    },
+    async probe(battleId, input) {
+      const battle = await load(battleId);
+      if (!battle || battle.status !== "running") return undefined;
+      const currentTick = Math.floor((options.now() - battle.startedAtMs) / tickMs);
+      if (input.tick < currentTick) return undefined;
+      /** 그 틱 직전 상태(가장 가까운 스냅숏 + 저장된 입력) */
+      const before = async (): Promise<Battle> => {
+        const snap = await pool.query(
+          `select state from world_battle_snapshots where battle_id = $1 and tick <= $2 order by tick desc limit 1`,
+          [battleId, input.tick],
+        );
+        const row = snap.rows[0];
+        const b = row ? restoreBattle(battle.init, String(row.state)) : createBattle(battle.init);
+        const from = b.state.tick;
+        if (input.tick > from)
+          b.runToEnd(
+            battle.inputs.filter((entry) => entry.tick >= from && entry.tick < input.tick),
+            input.tick - from,
+          );
+        return b;
+      };
+      const same = battle.inputs.filter((entry) => entry.tick === input.tick);
+      const b = await before();
+      if (b.state.result || b.state.tick !== input.tick) return undefined;
+      // 같은 틱에 저장된 입력의 거절은 빼고 센다(그 입력만 돌린 판을 따로 만든다)
+      let base = b.state.rejected;
+      if (same.length > 0) {
+        const only = await before();
+        only.step(same);
+        base = only.state.rejected;
+      }
+      b.step([...same, input]);
+      return { state: b.state, rejected: b.state.rejected > base };
     },
     async get(battleId) {
       const battle = await load(battleId);

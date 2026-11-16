@@ -265,6 +265,20 @@ export interface HoldingService {
   equippedOn(unitId: number): readonly HoldingRecord[];
   /** 유닛에 지금 걸린 효과(끝나지 않은 것, 스탯 몸·전투 시작 사양이 읽는다) */
   effectsOn(unitId: number, nowMs: number): readonly UnitEffectRecord[];
+  /**
+   * 물건 없이 효과 하나를 건다(신전 축복 — D-558 1548·D-571 답 1968): 같은 효과가 걸려 있으면 바꿔 건다(시간을 새로). source = 효과 줄의
+   * 출처 칸(물건 ID 자리, 예 "temple"). 쓰기 대기열에만 쓴다(부르는 쪽 커밋)
+   */
+  grantEffect(
+    unitId: number,
+    entry: {
+      readonly effect: string;
+      readonly value: number;
+      readonly untilMs: number;
+      readonly source: string;
+    },
+    nowMs: number,
+  ): void;
   /** 유닛의 칸 배치(팩 unit_kinds ID와 칸 차례 — 화면이 칸 번호를 칸 종류로 읽는다). 없는 유닛·종류면 undefined */
   unitLayout(unitId: number): { readonly kind: string; readonly slots: readonly string[] } | undefined;
   /** 쓸 수 있는 물건의 쓰기 쿨 종류(D-509·D-510). 쓸 수 없거나 팩에서 사라졌으면 null */

@@ -76,7 +76,8 @@ export function ItemWeaponFields({
     const { damage: _drop, ...rest } = value;
     onChange({ ...weapon, [field]: damage === field ? rest : { ...rest, damage } });
   };
-  const rangeInterval = weapon.curves?.includes("range_interval") === true;
+  // 곡선 칸이 없으면 사거리 예산 켬(질문 1814 답: 모든 무기에 기본), 빈 목록이면 끔
+  const rangeInterval = weapon.curves === undefined || weapon.curves.includes("range_interval");
   const appropriate = weapon.appropriate ?? {};
   /** 적정 칸 아래 글: 기준 유닛 1차 → 비율(미리 보기 값, 없으면 일반 도움말) */
   const ratioHint = (part: WeaponPartRatio["part"]): string | undefined => {
@@ -249,7 +250,7 @@ export function ItemWeaponFields({
         hint={m.dev_items_range_interval_hint()}
         onChange={(on) => {
           const { curves: _drop, ...rest } = weapon;
-          onChange(on ? { ...rest, curves: ["range_interval"] } : rest);
+          onChange(on ? rest : { ...rest, curves: [] });
         }}
       />
       <CheckField

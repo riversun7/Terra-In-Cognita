@@ -17,6 +17,7 @@ import type {
 import { STAT_FORMULA_VARS, compileFormulaOrThrow } from "@terra/shared/formula";
 import type { CombatCatalog } from "./catalog.ts";
 import type { EffectDef, ModifierStat } from "./effects.ts";
+import type { SkillDisplace } from "./moveParts.ts";
 import type { EquipDef, GearCombat } from "./equipment.ts";
 import { type CombatFormulaSet, combatFormulaSetFrom } from "./formulas.ts";
 import type { SkillData } from "./skills.ts";
@@ -68,6 +69,14 @@ function gearCombatOfPack(equip: PackEquip): GearCombat {
 }
 
 const idOf = (ref: { readonly id: string }): string => ref.id;
+
+/** 팩 대상 옮김 부품 → 판정 자료(밀림 저항 항목 참조 effect는 ID로, 없으면 칸을 두지 않는다) */
+function displaceDataOf(part: NonNullable<SkillEntry["displace"]>): SkillDisplace {
+  const effect = part.effect ? { effect: idOf(part.effect) } : {};
+  return part.kind === "root"
+    ? { kind: "root", durationMs: part.durationMs, ...effect }
+    : { kind: part.kind, cells: part.cells, ...effect };
+}
 const STAT_VARS = STAT_FORMULA_VARS.map((item) => item.name);
 
 /** 팩 행(켜진 것) → sim 가중치 표 행. formula가 있으면 읽은 식을 싣는다 */
@@ -208,7 +217,8 @@ export function combatCatalogFrom(pack: CombatPackEntries): CombatCatalog {
         gradePm: entry.gradePm,
         // 움직임 부품·곡선(docs/adr/2026-11-15-combat-moves.md 6절). 없으면 칸을 두지 않는다
         ...(entry.move ? { move: entry.move } : {}),
-        ...(entry.displace ? { displace: entry.displace } : {}),
+        // 대상 옮김: effect(밀림 저항 항목 참조)는 ID로 바꾼다(skillFromData가 효과 사전에서 찾아 싣는다)
+        ...(entry.displace ? { displace: displaceDataOf(entry.displace) } : {}),
         ...(entry.curves ? { curves: entry.curves } : {}),
         ...(entry.shots !== undefined ? { shots: entry.shots } : {}),
       }),

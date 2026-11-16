@@ -8,6 +8,7 @@ import {
   TEST_WEAPON_AGI,
   TEST_WEAPON_DEX,
 } from "./catalogMagic.ts";
+import { DISPLACE_EFFECTS } from "./moveParts.ts";
 import type { EffectDef } from "./effects.ts";
 import type { EquipDef, SlotKind } from "./equipment.ts";
 import { type CombatSkill, type SkillData, skillFromData } from "./skills.ts";
@@ -156,6 +157,8 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       maxStacks: 1,
     },
     ...MAGIC_EFFECTS,
+    // 밀림 상태이상(질문 1806 → D-429, 팩과 같은 차례·값)
+    ...DISPLACE_EFFECTS,
   ],
   skills: [
     {

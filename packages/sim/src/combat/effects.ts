@@ -17,7 +17,11 @@ export type ModifierStat =
   | "crit_multiplier"
   | "move_speed"
   | "shield_regen";
-export type StatusKind = "stun" | "root" | "silence";
+/**
+ * 상태이상 종류. knockback·pull은 밀림 상태이상(D-564 1588·질문 1806 답 → D-429 모양): 효과 사전 항목이 밀치기·끌어오기의 저항
+ * (resist)을 데이터로 들고, 이동 부품(displace)이 읽는다. 시간 효과로 걸려도 판정은 아무것도 하지 않는다(팩 검사가 효과 줄에서 막는다)
+ */
+export type StatusKind = "stun" | "root" | "silence" | "knockback" | "pull";
 
 export interface EffectDef {
   readonly id: string;

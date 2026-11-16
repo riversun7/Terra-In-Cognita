@@ -18,7 +18,7 @@ import {
   rangeIntervalPm,
   scalePm,
 } from "./curves.ts";
-import type { SkillDisplace, SkillMove } from "./moveParts.ts";
+import { type CombatDisplace, DISPLACE_EFFECT_IDS, type SkillDisplace, type SkillMove } from "./moveParts.ts";
 import { moveSkillAllowed } from "./moveAi.ts";
 import { type EffectDef, applyEffect, hasEffect, hasStatus, modifiersOf, statusResistPm } from "./effects.ts";
 import {
@@ -145,7 +145,7 @@ export interface CombatSkill extends SkillFormula {
    * 움직임 부품·곡선(docs/adr/2026-11-15-combat-moves.md). 자료에 있을 때만 칸을 둔다(옛 스킬의 상태 JSON이 그대로 — 스냅숏·지문)
    */
   readonly move?: SkillMove | undefined;
-  readonly displace?: SkillDisplace | undefined;
+  readonly displace?: CombatDisplace | undefined;
   readonly curves?: readonly SkillCurve[] | undefined;
   readonly shots?: number | undefined;
 }
@@ -218,10 +218,23 @@ export function skillFromData(
     }),
     // 움직임 부품·곡선은 있을 때만(칸 단위·지속은 등급으로 바꾸지 않는다)
     ...(data.move ? { move: data.move } : {}),
-    ...(data.displace ? { displace: data.displace } : {}),
+    ...(data.displace ? { displace: displaceOf(data.displace, effects) } : {}),
     ...(data.curves && data.curves.length > 0 ? { curves: data.curves } : {}),
     ...(data.shots !== undefined && data.shots > 1 ? { shots: data.shots } : {}),
   };
+}
+
+/**
+ * 대상 옮김 부품에 효과 사전 항목(밀림 저항, 질문 1806 → D-429)을 싣는다. 항목이 없거나 꺼졌거나 종류가 다르면 def 없이(계수표 기본 저항).
+ * 자료의 effect ID 칸은 싣지 않는다(def가 대신한다)
+ */
+function displaceOf(part: SkillDisplace, effects: ReadonlyMap<string, EffectDef>): CombatDisplace {
+  const base: SkillDisplace =
+    part.kind === "root"
+      ? { kind: "root", durationMs: part.durationMs }
+      : { kind: part.kind, cells: part.cells };
+  const def = effects.get(part.effect ?? DISPLACE_EFFECT_IDS[part.kind]);
+  return def && def.kind === "status" && def.status === part.kind ? { ...base, def } : base;
 }
 
 /** 스킬이 이 곡선을 골랐나 */

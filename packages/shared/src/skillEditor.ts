@@ -135,11 +135,12 @@ export type SkillMoveJson =
   | { readonly kind: "stealth"; readonly durationMs: number }
   | { readonly kind: "detect"; readonly cells: number; readonly durationMs: number };
 
-/** 맞은 대상 옮김 부품(팩 displace 칸) */
-export type SkillDisplaceJson =
+/** 맞은 대상 옮김 부품(팩 displace 칸). effect = 밀림 저항을 읽는 효과 사전 항목(없으면 move_knockback·move_pull·move_root) */
+export type SkillDisplaceJson = (
   | { readonly kind: "knockback"; readonly cells: number }
   | { readonly kind: "pull"; readonly cells: number }
-  | { readonly kind: "root"; readonly durationMs: number };
+  | { readonly kind: "root"; readonly durationMs: number }
+) & { readonly effect?: string | undefined };
 
 /** 입력 칸 범위(팩 스키마와 같다. 서버가 다시 본다) */
 export const SKILL_LIMITS = {

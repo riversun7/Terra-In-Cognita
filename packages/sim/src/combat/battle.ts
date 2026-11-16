@@ -160,6 +160,20 @@ function makeBattle(
   };
 
   const unitById = (id: number): UnitState | undefined => state.units.find((unit) => unit.id === id);
+  /**
+   * 밀치기 부딪힘 피해를 건물에(D-570 1803 "건물 포함"): 시전자 편 건물(성문은 그 편, 공성의 다른 건물은 수비 편)은 받지 않는다. 일반
+   * 전투의 건물은 주인이 없어 누가 밀어도 받는다. 내구도에서 빼고 관찰자에게 건물 피해로 알린다(attackBuilding과 같다)
+   */
+  const pushIntoBuilding = (source: UnitState, buildingId: number, amount: number): void => {
+    const building = state.buildings.find((entry) => entry.id === buildingId);
+    if (!building || building.durability <= 0) return;
+    const owner =
+      map.buildings.find((entry) => entry.id === buildingId)?.gateSide ??
+      (state.kind === "siege" ? state.sides.find((side) => side.defender)?.id : undefined);
+    if (owner === source.side) return;
+    building.durability -= amount;
+    if (trace) trace.building(source, buildingId, amount, building.durability);
+  };
   /** 이번 틱의 점유 격자(틱 처음에 만든다 — 이동 부품이 고친다) */
   let tickOccupied = new Int32Array(size * size);
   const moveWorld = (gone: ReadonlySet<number>, nowMs: number): MoveWorld => ({
@@ -171,6 +185,7 @@ function makeBattle(
     nowMs,
     trace,
     reach: (from, goal, range) => reach(from, gone)(goal, range),
+    hitBuilding: pushIntoBuilding,
   });
   /** 이번 틱의 파티·군단 명령 묶음(틱 시작에 준비) */
   let orderTick: OrderTick = NO_ORDERS;

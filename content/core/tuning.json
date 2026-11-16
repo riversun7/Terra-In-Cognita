@@ -12608,112 +12608,58 @@
       "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-564·D-568)\" · D-564 1587·1588 [임시]"
     },
     {
-      "id": "moves_resist_cap_pm",
+      "id": "moves_size_small_pm",
       "code": "",
       "name": {
-        "ko": "[임시] 밀림 저항: 스탯 몫 위 끝(‰)",
-        "en": "[temp] Displace resist: stat cap (‰)"
+        "ko": "[임시] 밀리는 거리: 작은 몸(S) 배율(‰)",
+        "en": "[temp] Push distance: small body (S) multiplier (‰)"
+      },
+      "value": 1500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000,
+      "desc": {
+        "ko": "크기 S 몸이 밀치기·끌어오기로 밀리는 칸 수에 곱하는 배율. 크기 M = 1000(D-570: S는 더 많이 밀린다).",
+        "en": "Multiplier on how many cells a size S body is pushed or pulled. Size M = 1000 (D-570: S is pushed farther)."
+      },
+      "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-570·질문 1806·1814)\" · D-570 1805 [임시]"
+    },
+    {
+      "id": "moves_size_large_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 밀리는 거리: 큰 몸(L) 배율(‰)",
+        "en": "[temp] Push distance: large body (L) multiplier (‰)"
       },
       "value": 600,
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 1000,
+      "max": 5000,
       "desc": {
-        "ko": "밀치기·끌어오기 칸 수와 묶기 지속을 줄이는 저항의 스탯 몫 위 끝. 상태이상 저항(D-429)과 같은 모양.",
-        "en": "Upper limit of the stat part of the resistance that shortens knockback, pull and root. Same shape as status resistance (D-429)."
+        "ko": "크기 L 몸이 밀리는 칸 수에 곱하는 배율. 크기 M = 1000(D-570: L은 덜 밀린다).",
+        "en": "Multiplier on how many cells a size L body is pushed or pulled. Size M = 1000 (D-570: L is pushed less)."
       },
-      "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-564·D-568)\" · D-564 1587·1588 [임시]"
+      "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-570·질문 1806·1814)\" · D-570 1805 [임시]"
     },
     {
-      "id": "moves_resist_half",
+      "id": "moves_size_huge_pm",
       "code": "",
       "name": {
-        "ko": "[임시] 밀림 저항: 반 지점 점수",
-        "en": "[temp] Displace resist: half-point score"
+        "ko": "[임시] 밀리는 거리: 거대한 몸(XL) 배율(‰)",
+        "en": "[temp] Push distance: huge body (XL) multiplier (‰)"
       },
-      "value": 100,
-      "structural": false,
-      "unit": "points",
-      "min": 1,
-      "max": 100000,
-      "desc": {
-        "ko": "스탯 점수가 이 값이면 위 끝의 절반만큼 버틴다.",
-        "en": "At this stat score the resistance is half of the cap."
-      },
-      "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-564·D-568)\" · D-564 1587·1588 [임시]"
-    },
-    {
-      "id": "moves_resist_str_pm",
-      "code": "",
-      "name": {
-        "ko": "[임시] 밀림 저항: STR 가중치(‰)",
-        "en": "[temp] Displace resist: STR weight (‰)"
-      },
-      "value": 500,
+      "value": 300,
       "structural": false,
       "unit": "pm",
       "min": 0,
-      "max": 10000,
+      "max": 5000,
       "desc": {
-        "ko": "밀림 저항 점수에 STR을 더하는 비중.",
-        "en": "How much STR counts toward the displace resist score."
+        "ko": "크기 XL 몸이 밀리는 칸 수에 곱하는 배율. 크기 M = 1000(D-570: XL은 훨씬 덜 밀린다).",
+        "en": "Multiplier on how many cells a size XL body is pushed or pulled. Size M = 1000 (D-570: XL is pushed much less)."
       },
-      "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-564·D-568)\" · D-564 1587·1588 [임시]"
-    },
-    {
-      "id": "moves_resist_vit_pm",
-      "code": "",
-      "name": {
-        "ko": "[임시] 밀림 저항: VIT 가중치(‰)",
-        "en": "[temp] Displace resist: VIT weight (‰)"
-      },
-      "value": 1000,
-      "structural": false,
-      "unit": "pm",
-      "min": 0,
-      "max": 10000,
-      "desc": {
-        "ko": "밀림 저항 점수에 VIT를 더하는 비중.",
-        "en": "How much VIT counts toward the displace resist score."
-      },
-      "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-564·D-568)\" · D-564 1587·1588 [임시]"
-    },
-    {
-      "id": "moves_body_large_pm",
-      "code": "",
-      "name": {
-        "ko": "[임시] 밀림 저항: 큰 몸(L)(‰)",
-        "en": "[temp] Displace resist: large body (L) (‰)"
-      },
-      "value": 250,
-      "structural": false,
-      "unit": "pm",
-      "min": 0,
-      "max": 1000,
-      "desc": {
-        "ko": "크기 L 몸이 더하는 밀림 저항.",
-        "en": "Extra displace resistance of a size L body."
-      },
-      "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-564·D-568)\" · D-564 1587·1588 [임시]"
-    },
-    {
-      "id": "moves_body_huge_pm",
-      "code": "",
-      "name": {
-        "ko": "[임시] 밀림 저항: 거대한 몸(XL)(‰)",
-        "en": "[temp] Displace resist: huge body (XL) (‰)"
-      },
-      "value": 500,
-      "structural": false,
-      "unit": "pm",
-      "min": 0,
-      "max": 1000,
-      "desc": {
-        "ko": "크기 XL 몸이 더하는 밀림 저항.",
-        "en": "Extra displace resistance of a size XL body."
-      },
-      "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-564·D-568)\" · D-564 1587·1588 [임시]"
+      "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-570·질문 1806·1814)\" · D-570 1805 [임시]"
     },
     {
       "id": "moves_body_boss_pm",

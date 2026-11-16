@@ -107,6 +107,73 @@
       "stacking": "refresh",
       "maxStacks": 1,
       "enabled": true
+    },
+    {
+      "id": "move_knockback",
+      "name": {
+        "ko": "밀려남",
+        "en": "Knocked back"
+      },
+      "description": {
+        "ko": "[임시] 밀치기 저항 항목(D-564 1588·D-429·D-570). 저항(VIT)이 밀려 가는 칸 수만 줄인다. 스킬 이동 부품이 읽고, 효과 줄로는 걸지 않는다.",
+        "en": "[temp] Knockback resistance (D-564 1588, D-429, D-570). Resistance (VIT) only shortens how far the target is pushed. Read by skill move parts, never applied as an effect line."
+      },
+      "durationMs": 0,
+      "kind": "status",
+      "status": "knockback",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "resist": {
+        "cap": 600,
+        "halfConstant": 100,
+        "weights": [0, 0, 0, 1000, 0, 0]
+      },
+      "enabled": true
+    },
+    {
+      "id": "move_pull",
+      "name": {
+        "ko": "끌려옴",
+        "en": "Pulled"
+      },
+      "description": {
+        "ko": "[임시] 끌어오기 저항 항목(D-564 1588·D-429·D-570). 저항(VIT)이 끌려오는 칸 수만 줄인다. 스킬 이동 부품이 읽고, 효과 줄로는 걸지 않는다.",
+        "en": "[temp] Pull resistance (D-564 1588, D-429, D-570). Resistance (VIT) only shortens how far the target is pulled. Read by skill move parts, never applied as an effect line."
+      },
+      "durationMs": 0,
+      "kind": "status",
+      "status": "pull",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "resist": {
+        "cap": 600,
+        "halfConstant": 100,
+        "weights": [0, 0, 0, 1000, 0, 0]
+      },
+      "enabled": true
+    },
+    {
+      "id": "move_root",
+      "name": {
+        "ko": "묶임",
+        "en": "Rooted"
+      },
+      "description": {
+        "ko": "[임시] 묶기(스킬 이동 부품)가 거는 상태이상. 밀림 저항은 묶이는 시간을 줄이지 않는다(D-570 \"거리만 줄임\"). 시간은 거는 스킬이 정한다.",
+        "en": "[temp] The status a root move part applies. Displace resistance does not shorten it (D-570: distance only). The skill sets the duration."
+      },
+      "durationMs": 2000,
+      "kind": "status",
+      "status": "root",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
     }
   ]
 }

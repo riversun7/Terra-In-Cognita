@@ -56,7 +56,6 @@ import {
   lifespanMs,
   newFaction,
   positionAt,
-  recruitElementsFromSlots,
   rollTraits,
   scheduleDecide,
   streamRng,
@@ -91,8 +90,7 @@ import { type CityPlace, type NpcPersist, type NpcPersistOptions, createNpcPersi
 import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, liftGovernments, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
 import { ruinsOf } from "./ruinsState.ts";
-import type { NpcHumanRow } from "./state.ts";
-import { loadNpcState } from "./state.ts";
+import { loadNpcState, recruitOf } from "./state.ts";
 import { createWarOutcomePersist, loadWarOutcomes } from "./warOutcomes.ts";
 
 /** 루프를 미는 간격(ms). 판단·하루 끝은 그 시각에만 돌고, 나머지 틱은 할 일이 없으면 바로 끝난다 */
@@ -218,12 +216,6 @@ export interface NpcRuntime {
 /** 다음 하루 끝(UTC 0시, 하루 길이를 줄였으면 그 배수) */
 const nextDayEnd = (nowMs: number, dayMs: number): number => (Math.floor(nowMs / dayMs) + 1) * dayMs;
 const NO_ITEMS: WaveRewardItems = { genes: [], materials: [] };
-
-/** 구인 카드로 온 휴먼의 레벨·스탯·속성(저장 값). 처음부터 있던 휴먼은 null */
-const recruitOf = (row: NpcHumanRow): SimUnit["recruit"] =>
-  row.stats && row.stats.length === 6
-    ? { level: row.level, stats: row.stats, elements: recruitElementsFromSlots(row.elements ?? []) }
-    : null;
 
 export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime> {
   const { ledger, writer, maps, log } = o;

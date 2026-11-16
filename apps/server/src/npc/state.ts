@@ -2,6 +2,7 @@
 // 부팅 때 한 번(쓰기 대기열이 돌기 전, 월드 복구 뒤): NPC 세력·소유 주체·도시·휴먼·전쟁·런타임 상태 한 줄과 예비 세력 행,
 // 구인 카드 산 칸(D-469, recruit_draws — NPC 세력 몫은 거울 도시에, 유저 몫은 구인 서비스가 따로 읽는다).
 // int8은 pg가 문자열로 주므로 숫자로 바꾼다.
+import { type SimUnit, recruitElementsFromSlots } from "@terra/sim";
 import type { QueryPool } from "../world/persist/load.ts";
 import { type RuinRow, loadRuins } from "./ruinsState.ts";
 
@@ -73,6 +74,12 @@ export interface NpcHumanRow {
   /** 경비대(국력 등급 씨앗) */
   readonly guard: boolean;
 }
+
+/** 구인 카드로 온 휴먼의 레벨·스탯·속성(저장 값). 처음부터 있던 휴먼은 null (runtime.ts에서 옮김 — 1,000줄 상한) */
+export const recruitOf = (row: NpcHumanRow): SimUnit["recruit"] =>
+  row.stats && row.stats.length === 6
+    ? { level: row.level, stats: row.stats, elements: recruitElementsFromSlots(row.elements ?? []) }
+    : null;
 
 /** 구인 카드 산 칸(고용 주체 × 도시) */
 export interface RecruitDrawRow {

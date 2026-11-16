@@ -353,6 +353,6 @@ WP1~WP4는 답 없이도 [임시] 추천안으로 갈 수 있다(돈이 사라�
 | 2047 주인 또는 대주주(D-555 1502) | 정산·넣기·지급준비율은 건물 주인(대주주가 아니어도) 또는 대주주. 값 정하기는 대주주 |
 | 2048 외주 수리(D-573) | 재료는 공방(사업장 창고 먼저, 모자라면 공방 주인의 그 자리 — D-555 1505), 맡기는 사람은 요금만 |
 
-- 프로토콜 52(최소 51 — 50·51은 같은 묶음 다른 줄기 몫): business_price item에 `boat:<배 종류>`(조선소 판매가 — shipyard-harbor ADR "바뀜"). 팩 core@120(설정 칸
-  `business_npc_wait_days` 더함·`business_npc_books` 뜻 바꿈, 국가 프리셋 `temper` 칸). SIM_VERSION 62(지도자 기질 칸 — npc-brain-r5 ADR "바뀜").
+- 프로토콜 51(최소 50, 묶음 1116m 합친 판 — 줄기에서는 52·최소 51): business_price item에 `boat:<배 종류>`(조선소 판매가 — shipyard-harbor ADR "바뀜"). 팩 core@119(합친 판 — 줄기에서는 120, 설정 칸
+  `business_npc_wait_days` 더함·`business_npc_books` 뜻 바꿈, 국가 프리셋 `temper` 칸). SIM_VERSION 60(합친 판 — 줄기에서는 62, 지도자 기질 칸 — npc-brain-r5 ADR "바뀜").
 - DB 표·마이그레이션 없음: 운반 일은 메모리, 배 판매가는 값 표의 새 줄, 처리할 일은 노동 계약 표를 읽는다.

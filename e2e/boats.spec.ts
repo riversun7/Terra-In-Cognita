@@ -426,6 +426,13 @@ for (const theme of ["pastel", "dark"] as const) {
       await expect(yard.locator(".harbor-capacity")).toHaveAttribute("data-used", "1");
       await page.waitForTimeout(500);
       await shot(page, `boats-dock-390-${theme}`);
+      // 배 판매가 줄(값 칸·단추)이 조선소 판을 시트보다 넓히지 않는다(묶음 1116m — 값 칸 기본 폭이 390px 판을 밀어냈다)
+      const fits = await yard.evaluate((root) =>
+        root.parentElement ? root.getBoundingClientRect().width <= root.parentElement.clientWidth + 1 : true,
+      );
+      expect(fits, "조선소 판이 시트보다 넓다").toBe(true);
+      await yard.locator('[data-part="harbor-type-price"]').first().scrollIntoViewIfNeeded();
+      await shot(page, `boats-price-390-${theme}`);
       await yard.locator(".harbor-release").first().click();
       await expect(yard.locator(".boat-notice")).toBeVisible({ timeout: 15_000 });
       await expect(yard.locator(".harbor-release")).toHaveCount(0, { timeout: 15_000 });

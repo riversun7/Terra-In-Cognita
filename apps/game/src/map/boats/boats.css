@@ -73,6 +73,19 @@
   margin-left: auto;
 }
 
+/* 배 판매가 줄(BoatPriceRow): 제 줄을 차지하고 줄여도 판보다 넓어지지 않게 — 값 칸은 기본 폭(size 20)을 들고 와 390px 판을 밀어냈다(묶음 1116m) */
+.harbor-price {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.harbor-price .bp-form-row > .bp-input {
+  inline-size: 0;
+}
+
 .harbor-row,
 .harbor-policy {
   display: flex;

@@ -3,6 +3,8 @@
 // 1. 옛 세계(처음 인구 칸이 없던 판 — 시험 봇이 휴먼이 됨)를 켠 뒤 처음 인구 칸을 켜면 모자란 것만 더하고 옛 휴먼은 지우지 않는다.
 // 2. 다시 켜도 더 세우지 않는다(채운 시각 저장), 시장은 저장된 그대로.
 // 3. 시장이 죽으면 다시 고르고 저장한다.
+// 5. NPC 도시의 가문(질문 1848 답, cityHouses.ts): 도시마다 하나(가문장 = 시장), 휴먼은 모두 사는 도시 가문에 든다. 옛 세계(가문 표가 빈 세계)도
+//    켤 때 세우고 채운다(멱등), 죽은 휴먼은 빠진다.
 // 4. 처음부터 있던 휴먼도 스탯·속성을 받는다(774 나, "WP-NPC4"): 저장된 스탯이 없는 휴먼(옛 NAS 세계처럼)은 켤 때 같은 값으로 채운다(지우지 않음).
 import { DAY_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -179,5 +181,47 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 처음 인구·시장 (DB)", () 
     );
     expect(Number(stored[0]?.mayor_unit_id)).toBe(next);
     expect(await again.checkInvariants()).toEqual([]);
+  });
+  it("NPC 도시 가문(1848): 도시마다 하나·가문장 = 시장·휴먼 모두 소속, 다시 켜도 그대로, 옛 세계(빈 표)도 채움, 죽으면 빠짐", async () => {
+    const houseLines = () =>
+      rows<{ id: string; city_id: string; name: string; members: string }>(
+        test.db,
+        `select h.id, h.city_id, h.name, (select count(*) from npc_house_units u where u.house_id = h.id) as members
+           from npc_houses h order by h.city_id`,
+      );
+    const first = await boot(12, 500);
+    const cities = await cityLines();
+    const houses = await houseLines();
+    expect(houses.map((line) => line.city_id)).toEqual(cities.map((city) => city.id));
+    for (const line of houses) {
+      expect(line.members).toBe("20");
+      expect(line.name.length).toBeGreaterThan(0);
+    }
+    const runtime = first.npc;
+    if (!runtime) throw new Error("npc runtime");
+    const cityId = Number(cities[0]?.id);
+    const mayor = runtime.mayorOf(cityId) ?? -1;
+    expect(runtime.cityHouses.of(mayor)).toMatchObject({ cityId, leader: true });
+    await stop(first);
+    // 다시 켜도 그대로(새 가문·새 줄 없음)
+    await boot(12, 500).then(stop);
+    expect(await houseLines()).toEqual(houses);
+    // 옛 세계(이 판 전 — 가문 표가 비었다): 켤 때 세우고 채운다
+    await test.db.$client.query("delete from npc_houses");
+    const again = await boot(12, 500);
+    expect((await houseLines()).map((line) => [line.city_id, line.members])).toEqual(
+      houses.map((line) => [line.city_id, "20"]),
+    );
+    // 죽은 휴먼은 빠진다
+    const npc = again.npc;
+    if (!npc || !again.persistence) throw new Error("npc runtime");
+    const dead = npc.mayorOf(cityId) ?? -1;
+    const owner = npc.world.units.get(dead)?.owner;
+    npc.world.units.delete(dead);
+    if (owner !== undefined) npc.world.factions.get(owner)?.units.delete(dead);
+    await npc.tick(true);
+    await again.persistence.writer.durable();
+    expect(npc.cityHouses.of(dead)).toBeUndefined();
+    expect(await rows(test.db, "select unit_id from npc_house_units where unit_id = $1", [dead])).toEqual([]);
   });
 });

@@ -138,6 +138,11 @@ export interface MapUnitGlance {
    * 916~925 답)")면 true. 기기는 종류 대신 "경비대"로 적는다. 아니면 없음
    */
   readonly guard?: true;
+  /**
+   * NPC 도시 휴먼의 가문(기획 D-569·질문 1848 답 — NPC 도시마다 하나, 가문장 = 그 도시 시장, 생성될 때 사는 도시의 가문에 든다). 이름은 세울 때
+   * 시장의 성(번역 안 함 — 두 언어 같은 글자). leader = 이 휴먼이 가문장. NPC 휴먼이 아니거나 아직 가문이 없으면 없음
+   */
+  readonly npcHouse?: { readonly id: number; readonly name: string; readonly leader?: true };
 }
 
 export interface MapUnitGlanceResponse {

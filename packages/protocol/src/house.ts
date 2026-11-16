@@ -182,6 +182,10 @@ export const HOUSE_MEMBER_ACTIONS = [
   "dissolved",
   // 39판부터: 소속 도시를 바꿈(house_home)
   "home_set",
+  // 48판부터(house_home의 답에만 — 더 낮은 판 연결은 home_set, legacyHouseMemberAction): 새 소속 도시를 공고함(D-570 — 공고 기간 뒤 가문 모두가
+  // 옮긴다)·공고를 거둠(지금 소속 도시를 다시 고름)
+  "home_announced",
+  "home_cancelled",
 ] as const;
 export type HouseMemberAction = (typeof HOUSE_MEMBER_ACTIONS)[number];
 
@@ -317,7 +321,24 @@ const houseCityResultMessage = z.discriminatedUnion("ok", [
 /** 소속 도시 메시지(house_found cityId·house_home)에 필요한 가장 낮은 프로토콜 버전 */
 export const HOUSE_HOME_PROTOCOL_VERSION = 39;
 
-/** 가문장이 가문 소속 도시를 바꾼다(가문 나라가 그 도시의 나라로 바뀐다) */
+/** 소속 도시 공고(D-570, 한 일 home_announced·home_cancelled)를 받는 가장 낮은 프로토콜 버전 */
+export const HOUSE_HOME_NOTICE_PROTOCOL_VERSION = 48;
+
+/** 그 연결 판이 모르는 한 일(공고·공고 거둠)을 home_set으로 낮춘다(47판 기기는 바뀐 소속 도시를 다시 읽는다) */
+export function legacyHouseMemberAction(
+  action: HouseMemberAction,
+  protocolVersion: number,
+): HouseMemberAction {
+  return protocolVersion < HOUSE_HOME_NOTICE_PROTOCOL_VERSION &&
+    (action === "home_announced" || action === "home_cancelled")
+    ? "home_set"
+    : action;
+}
+
+/**
+ * 가문장이 가문 소속 도시를 바꾼다(가문 나라가 그 도시의 나라로 바뀐다). D-570부터 설정 칸 house_home_notice_ms가 0보다 크면 바로 옮기지 않고
+ * 공고한다(그 시각이 지나면 가문 모두가 옮긴다). 공고 중에 지금 소속 도시를 고르면 공고를 거둔다
+ */
 export const houseHomeMessage = z.object({
   t: z.literal("house_home"),
   id: requestId,

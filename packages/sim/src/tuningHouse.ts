@@ -91,4 +91,12 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "가문 소속 도시 바꾸기 대기(ms)",
     "House home city change wait (ms)",
   ),
+  // 소속 도시 바꾸기 공고 기간(D-570)
+  k(
+    "house_home_notice_ms",
+    "",
+    "house.homeNoticeMs",
+    "가문 소속 도시 바꾸기 공고 기간(ms)",
+    "House home city move notice (ms)",
+  ),
 ];

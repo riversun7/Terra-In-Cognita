@@ -3,7 +3,9 @@
 //   세금 납부·랭킹 집계에 쓴다. 가문 나라는 factions.born_of에 함께 적는다 — 같은 나라 시야 공유(D-250, world/houseTies.ts memberNationOf)·
 //   봉신 고르기(houseCity.ts)가 읽는다. 나라는 하나(D-569): 가문원의 시민권·내 도시는 이 도시와 그 나라로 맞춘다(houseTies.ts — 소속 도시를
 //   바꾸면 가문원 모두의 나라가 바뀐다).
-// - 창설할 때 고른다(found.ts — 안 고르면 창설자 사이보그의 내 도시). 가문장은 나중에 바꾼다(WebSocket house_home, 프로토콜 39):
+// - 창설할 때 고른다(found.ts — 안 고르면 창설자 사이보그의 내 도시). 가문장은 나중에 바꾼다(WebSocket house_home, 프로토콜 39 — D-570부터
+//   공고: 설정 칸 house_home_notice_ms 뒤 가문 모두가 함께 옮기고 그 사이 원치 않는 가문원은 탈퇴한다, houseMoves.ts. 공고 중 지금 도시를 다시
+//   고르면 거둔다. 들어가는 나라의 가입비·지원금 정책을 가문원마다 매긴다, houseEntry.ts):
 //   대기 = 설정 칸 house_home_wait_ms([임시] 출발값 7일, D-569 1741 설정값), 도시를 가진 가문은 바꾸지 못한다(has_city — 소속 도시 = 그 가문
 //   도시, D-569 1743. houseTies.ts가 맞춘다). 바꾸면 가문원에게 소식 home_changed, 감사 기록 faction.house_home.
 // - 무소속(가문 없는 사람)의 소속 도시는 사이보그의 내 도시(cyborgs.start_city_id — 귀화하면 바뀌고, 가문에 있던 사람은 마지막 가문 소속
@@ -24,6 +26,12 @@ import {
   membershipOf,
   notify,
 } from "./members.ts";
+import {
+  type HouseMovePersistence,
+  chargeHouseEntry,
+  houseEntryTermsOf,
+  moveHouseHome,
+} from "./houseEntry.ts";
 import type { HouseRules } from "./rules.ts";
 import type { IdentityQueryable } from "./store.ts";
 
@@ -83,17 +91,33 @@ export async function homeChoices(
   return rows.map((row) => homeOf(row, presets));
 }
 
-/** 가문 소속 도시 줄(없으면 null — 이 표 전에 창설했고 가문장 사이보그가 없던 가문) */
+/** 가문 소속 도시 줄(없으면 null — 이 표 전에 창설했고 가문장 사이보그가 없던 가문). pending = 공고한 새 도시와 옮기는 시각(D-570, 없으면 null) */
 export async function houseHomeRow(
   q: IdentityQueryable,
   factionId: number,
-): Promise<{ cityId: number; setAtMs: number } | null> {
-  const { rows } = await q.query<{ city_id: string; set_at_ms: string }>(
-    "select city_id, set_at_ms from house_homes where faction_id = $1",
-    [factionId],
-  );
+): Promise<{
+  cityId: number;
+  setAtMs: number;
+  pending: { readonly cityId: number; readonly atMs: number } | null;
+} | null> {
+  const { rows } = await q.query<{
+    city_id: string;
+    set_at_ms: string;
+    pending_city_id: string | null;
+    pending_at_ms: string | null;
+  }>("select city_id, set_at_ms, pending_city_id, pending_at_ms from house_homes where faction_id = $1", [
+    factionId,
+  ]);
   const row = rows[0];
-  return row ? { cityId: Number(row.city_id), setAtMs: Number(row.set_at_ms) } : null;
+  if (!row) return null;
+  return {
+    cityId: Number(row.city_id),
+    setAtMs: Number(row.set_at_ms),
+    pending:
+      row.pending_city_id === null || row.pending_at_ms === null
+        ? null
+        : { cityId: Number(row.pending_city_id), atMs: Number(row.pending_at_ms) },
+  };
 }
 
 /** 사이보그의 내 도시(무소속의 소속 도시·창설 기본값). 사이보그가 없으면 null */
@@ -121,20 +145,44 @@ export interface HouseHomeOptions {
   readonly rules: () => HouseRules;
   readonly now: () => number;
   readonly presets?: (() => readonly NationPreset[]) | undefined;
+  /** 세계 저장 층(바로 옮길 때 가입비·지원금 원장, D-570). 없으면 값 없이 옮긴다 */
+  readonly persistence?: (() => HouseMovePersistence | undefined) | undefined;
 }
 
 export interface HouseHomeService {
-  /** 가문장이 소속 도시를 바꾼다(가문 나라도 그 도시의 나라로) */
+  /** 가문장이 소속 도시를 바꾼다: 공고(D-570 — 공고 기간 뒤 가문 모두가 옮긴다)·공고 거두기(지금 도시를 다시 고름)·바로 옮기기(공고 기간 0) */
   set(leaderId: string, cityId: number): Promise<HouseMemberResult>;
 }
 
 const fail = (code: HouseMemberResultCode): HouseMemberResult => ({ ok: false, code });
 
+/** 가문장 말고 가문원 모두에게 소식 */
+async function notifyOthers(
+  q: IdentityQueryable,
+  house: { readonly id: number; readonly name: string },
+  leaderId: string,
+  input: {
+    kind: "home_announced" | "home_cancelled";
+    other: string | null;
+    reason: string | null;
+    nowMs: number;
+  },
+): Promise<void> {
+  const { rows } = await q.query<{ user_id: string }>(
+    "select user_id from house_members where faction_id = $1 and user_id <> $2",
+    [house.id, leaderId],
+  );
+  for (const row of rows)
+    await notify(q, { userId: row.user_id, factionId: house.id, houseName: house.name, ...input });
+}
+
 export function createHouseHome(o: HouseHomeOptions): HouseHomeService {
   return {
     async set(leaderId, cityId) {
       const presets = o.presets?.() ?? [];
-      let audit: Record<string, unknown> | null = null;
+      // 트랜잭션 콜백 안에서 채운다(as — 바깥에서 null로 좁혀지지 않게)
+      let audit = null as Record<string, unknown> | null;
+      let charge = null as Parameters<typeof chargeHouseEntry>[1] | null;
       const result = await inTransaction(o.pool, async (q): Promise<HouseMemberResult> => {
         const mine = await membershipOf(q, leaderId);
         if (!mine) return fail("not_in_house");
@@ -145,39 +193,61 @@ export function createHouseHome(o: HouseHomeOptions): HouseHomeService {
         const city = await cityHome(q, cityId, presets);
         if (!city) return fail("unknown_city");
         const before = await houseHomeRow(q, house.id);
-        if (before?.cityId === city.id) return fail("same_city");
         const now = o.now();
-        if (before && before.setAtMs + o.rules().homeWaitMs > now) return fail("home_wait");
-        await q.query(
-          `insert into house_homes (faction_id, city_id, set_at_ms) values ($1, $2, $3)
-           on conflict (faction_id) do update set city_id = excluded.city_id, set_at_ms = excluded.set_at_ms`,
-          [house.id, city.id, now],
-        );
-        await q.query("update factions set born_of = $2 where id = $1", [house.id, city.nationId]);
         const leaderName = await cyborgNameOf(q, leaderId);
-        const { rows } = await q.query<{ user_id: string }>(
-          "select user_id from house_members where faction_id = $1 and user_id <> $2",
-          [house.id, leaderId],
-        );
-        for (const row of rows)
-          await notify(q, {
-            userId: row.user_id,
-            factionId: house.id,
-            kind: "home_changed",
-            houseName: house.name,
+        const base = { factionId: house.id, beforeCity: before?.cityId ?? null, beforeNation: house.nation };
+        if (before?.pending) {
+          if (before.pending.cityId === city.id) return fail("same_city");
+          // 공고 중에 지금 소속 도시를 다시 고르면 공고를 거둔다(D-570)
+          if (before.cityId === city.id) {
+            await q.query(
+              "update house_homes set pending_city_id = null, pending_at_ms = null where faction_id = $1",
+              [house.id],
+            );
+            await notifyOthers(q, house, leaderId, {
+              kind: "home_cancelled",
+              other: leaderName,
+              reason: null,
+              nowMs: now,
+            });
+            audit = { ...base, cancelled: before.pending.cityId };
+            return { ok: true, action: "home_cancelled", factionId: house.id };
+          }
+        } else if (before?.cityId === city.id) return fail("same_city");
+        if (before && before.setAtMs + o.rules().homeWaitMs > now) return fail("home_wait");
+        const noticeMs = o.rules().homeNoticeMs;
+        if (before && noticeMs > 0) {
+          // 공고(D-570): 공고 기간 뒤 가문 모두가 옮긴다(houseMoves.ts). 다른 도시를 다시 고르면 새 공고로 바꾼다
+          await q.query(
+            "update house_homes set pending_city_id = $2, pending_at_ms = $3 where faction_id = $1",
+            [house.id, city.id, now + noticeMs],
+          );
+          await notifyOthers(q, house, leaderId, {
+            kind: "home_announced",
             other: leaderName,
-            reason: city.name,
+            reason: city.name ?? `#${city.id}`,
             nowMs: now,
           });
-        audit = {
-          factionId: house.id,
-          beforeCity: before?.cityId ?? null,
-          beforeNation: house.nation,
-          city: city.id,
-          nation: city.nationId,
-        };
+          audit = { ...base, announced: city.id, nation: city.nationId, at: now + noticeMs };
+          return { ok: true, action: "home_announced", factionId: house.id };
+        }
+        // 바로 옮긴다(공고 기간 0, 또는 소속 도시 줄이 없는 옛 가문)
+        const users = await moveHouseHome(q, { house, city, leaderName, skip: leaderId, nowMs: now });
+        if (house.nation !== city.nationId)
+          charge = {
+            houseId: house.id,
+            nationId: city.nationId,
+            terms: await houseEntryTermsOf(q, city.nationId),
+            userIds: users,
+            nowMs: now,
+          };
+        audit = { ...base, city: city.id, nation: city.nationId };
         return { ok: true, action: "home_set", factionId: house.id };
       });
+      if (charge) {
+        const charged = await chargeHouseEntry(o.persistence?.(), charge);
+        if (audit) audit = { ...audit, paid: charged.paid.toString(), granted: charged.granted.toString() };
+      }
       if (audit && o.db)
         await writeAudit(o.db, {
           actor: { kind: "user", id: leaderId, ip: null },

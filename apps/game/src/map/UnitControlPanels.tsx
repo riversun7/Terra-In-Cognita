@@ -226,6 +226,14 @@ export function PeekCard({
           {m.map_peek_unaffiliated()}
         </p>
       ) : null}
+      {glance?.npcHouse ? (
+        // NPC 도시 휴먼의 가문(질문 1848 답 — 도시마다 하나, 가문장 = 시장). 이름은 성이라 번역하지 않는다
+        <p className="map-peek-line map-peek-owner" data-part="peek-npc-house" translate="no">
+          {glance.npcHouse.leader === true
+            ? m.map_peek_npc_house_leader({ name: glance.npcHouse.name })
+            : m.map_peek_npc_house({ name: glance.npcHouse.name })}
+        </p>
+      ) : null}
       {/* 다른 가문 [신고](질문 930 나) — 옛 서버면 가문 ID가 없어 단추가 없다 */}
       {glance?.owner?.houseId === undefined ? null : (
         <HouseReport houseId={glance.owner.houseId} name={glance.owner.name} />

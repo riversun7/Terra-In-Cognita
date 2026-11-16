@@ -4,7 +4,7 @@ import { TEST_GARDENER_COEFFICIENTS, createLedgerBook, waveReward } from "@terra
 import { describe, expect, it } from "vitest";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
 import { parseStoredGardener } from "./gardener.ts";
-import { gardenerRulesOf } from "./runtime.ts";
+import { gardenerRulesOf } from "./gardenerSwitch.ts";
 import { grantWaveReward, rewardRecordOf, waveRewardItemsOf } from "./waveRewards.ts";
 
 /** 저장소 팩 아이템(+ 보유 물건 시험 아이템 — 유전자·크리쳐 재료가 아니다) */

@@ -683,7 +683,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "house_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        houseSocket ??= context.house.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        houseSocket ??= context.house.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         houseSocket.handle(message);
         return;
       }
@@ -702,7 +706,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "house_member_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        houseSocket ??= context.house.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        houseSocket ??= context.house.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         houseSocket.handle(message);
         return;
       }
@@ -725,7 +733,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           else send({ t: "house_city_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        houseSocket ??= context.house.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        houseSocket ??= context.house.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         houseSocket.handle(message);
         return;
       }
@@ -740,7 +752,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "house_recruit_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        houseSocket ??= context.house.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        houseSocket ??= context.house.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         houseSocket.handle(message);
         return;
       }

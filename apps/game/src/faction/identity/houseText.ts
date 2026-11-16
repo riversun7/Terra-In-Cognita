@@ -52,6 +52,8 @@ export const HOUSE_ACTION_TEXT: Readonly<Record<HouseMemberAction | "accepted", 
   handed_over: m.fid_house_done_handed_over,
   dissolved: m.fid_house_done_dissolved,
   home_set: m.fid_home_done,
+  home_announced: m.fid_home_done_announced,
+  home_cancelled: m.fid_home_done_cancelled,
 };
 
 /** 가문 도시 명령 결과 코드 → 문장(질문 1005 가) */
@@ -96,7 +98,7 @@ export const HOUSE_RECRUIT_ERROR_TEXT: Readonly<
   timeout: m.fid_found_offline,
 };
 
-type NoticeText = (values: { house: string; other: string; count: number }) => string;
+type NoticeText = (values: { house: string; other: string; count: number; reason: string }) => string;
 
 const NOTICE_TEXT: Readonly<Record<HouseNoticeKind, NoticeText>> = {
   invite_accepted: (v) => m.fid_house_notice_invite_accepted(v),
@@ -112,6 +114,15 @@ const NOTICE_TEXT: Readonly<Record<HouseNoticeKind, NoticeText>> = {
   leader_changed: (v) => m.fid_house_notice_leader_changed(v),
   city_gained: (v) => m.fid_house_notice_city_gained({ house: v.house }),
   home_changed: (v) => m.fid_house_notice_home_changed({ house: v.house, other: v.other }),
+  // D-570: 공고(reason = 새 도시 이름)·공고 거둠(reason = 서버가 거둔 까닭 has_city·unknown_city, 없으면 가문장)
+  home_announced: (v) =>
+    m.fid_house_notice_home_announced({ house: v.house, other: v.other, city: v.reason }),
+  home_cancelled: (v) =>
+    v.reason === "has_city"
+      ? m.fid_house_notice_home_cancelled_city({ house: v.house })
+      : v.reason === "unknown_city"
+        ? m.fid_house_notice_home_cancelled_gone({ house: v.house })
+        : m.fid_house_notice_home_cancelled({ house: v.house, other: v.other }),
 };
 
 /** 가문 소식 한 줄의 문장(모르는 종류는 "가문 소식이 있습니다") */
@@ -120,6 +131,7 @@ export function houseNoticeText(notice: HouseNoticeRow): string {
     house: notice.houseName,
     other: notice.other ?? m.fid_house_someone(),
     count: notice.count,
+    reason: notice.reason ?? "",
   };
   return isHouseNoticeKind(notice.kind)
     ? NOTICE_TEXT[notice.kind](values)

@@ -10,7 +10,7 @@
 // 6~10(질문 985 다·986 가): player가 dev(같은 나라)를 사이보그 이름으로 초대 → dev가 처리할 일·세력 화면에서 받음(가문원) → player가 소식 확인·
 //    내보냄 → dev가 소식을 보고 가문 이름 신고 → admin이 [이름 되돌리기] → player 칸에 "가문 #ID"·사유 소식·이름 대기 없음.
 // 사진 6장(E2E_SHOTS_DIR): 단계 390 파스텔·한국어(1), 단계 390 다크·영어, 자르기 390 파스텔·영어, 자르기 390 다크·한국어,
-// 세력 화면 칸 390 파스텔·한국어(2), 마크 관리 1440 네온(4).
+// 세력 화면 칸 390 파스텔·한국어(2), 마크 관리 1440 네온(4). 소속 도시 공고 칸(D-570 — house 조회에 공고를 얹음) 390 파스텔·한국어·다크·영어.
 // 계정마다 속도 제한(저장 순간 10번, 그림 순간 5번)이 있어 저장은 player 2번·dev 1번(거절)만 한다. 사진 시험은 저장하지 않는다.
 import { crc32, deflateSync } from "node:zlib";
 import type { Locator, Page } from "@playwright/test";
@@ -21,6 +21,7 @@ import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc, watchTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
+import { ensureHouse } from "./helpers/wsCommands.ts";
 
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
@@ -628,6 +629,49 @@ test.describe("사진 390px", () => {
         await expect(home).toContainText(message("ko", "fid_home_unaffiliated_title"));
         expect(await horizontalOverflow(page)).toEqual([]);
         await tallShot(page, `fid-house-unaffiliated-${theme}-ko-390`);
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
+
+  // 소속 도시 공고(D-570): player(가문장)의 house 조회에 공고를 얹어 공고 칸(새 도시·옮기는 시각·나라 정책·[공고 거두기])을 본다
+  for (const [theme, language] of [
+    ["pastel", "ko"],
+    ["dark", "en"],
+  ] as const) {
+    test.describe(`소속 도시 공고 ${theme}·${language}`, () => {
+      test.use({ account: "player", theme, language });
+
+      test("공고 중: 새 도시·시각·지원금 안내·[공고 거두기], 가로 넘침 없음", async ({
+        page,
+        deviceErrors,
+      }) => {
+        // 12에서 해산했으므로 남은 정체성으로 다시 창설한다(이미 있으면 그대로)
+        await ensureHouse(page);
+        await rewriteTrpc(page, {
+          "summary.get": hideSummary,
+          "factionIdentity.house": (data) => {
+            const home = field(data, "home");
+            if (typeof home !== "object" || home === null) throw new Error("house.home 응답 모양이 다릅니다");
+            Reflect.set(home, "pending", {
+              city: field(home, "city"),
+              at: Date.now() + 86_400_000,
+              terms: "-500",
+            });
+            Reflect.set(home, "noticeMs", 86_400_000);
+          },
+        });
+        await page.goto("/faction");
+        await expect(card(page)).toBeVisible({ timeout: 20_000 });
+        const pending = house(page).locator('[data-part="house-home-pending"]');
+        await expect(pending).toContainText(message(language, "fid_home_pending_cancel"));
+        await expect(pending).toContainText(message(language, "fid_home_pending_grant", { amount: "500" }));
+        await expect(house(page).locator('[data-testid="house-home"]')).toContainText(
+          message(language, "fid_home_announce"),
+        );
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await pending.scrollIntoViewIfNeeded();
+        await tallShot(page, `fid-house-home-notice-${theme}-${language}-390`);
         expect(deviceErrors).toEqual([]);
       });
     });

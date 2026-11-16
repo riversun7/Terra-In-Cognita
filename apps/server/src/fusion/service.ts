@@ -119,6 +119,8 @@ export interface FusionServiceOptions {
    * 개발 시험 화폐 받기가 기준 통화와 함께 주는 화폐(그 유저 나라의 화폐 — 폐허 모금 화폐, 질문 546). 없거나 기준 통화와 같으면 기준 통화만
    */
   readonly devExtraCurrency?: ((userId: string) => string | undefined) | undefined;
+  /** 인큐베이터 휴먼을 만든 사람의 가문에 적는다(질문 1847 답, geneCommands.ts) */
+  readonly assignHouse?: ((unitId: number, userId: string, nowMs: number) => void) | undefined;
 }
 
 export interface FusionService extends Omit<GeneCommands, "expireDue"> {

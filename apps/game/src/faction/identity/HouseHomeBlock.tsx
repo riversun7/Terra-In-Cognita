@@ -1,11 +1,14 @@
 // "내 가문" 칸의 소속 도시 부분(기획 D-565) — 가문은 소속 도시를 골라 그 도시가 속한 나라의 가문이 된다(세금 납부·랭킹 집계).
 // - 가문원: 지금 소속 도시·나라. 가문장: 후보 고르기 + [소속 도시 바꾸기](WebSocket house_home, 프로토콜 39). 대기 중이면 다음 시각을 보이고
 //   단추를 막는다. 도시를 가진 가문은 아직 바꾸지 못한다(서버 has_city — 안내만).
+// - 공고(D-570): 가문장이 고르면 바로 옮기지 않고 공고한다(공고 기간 = 설정 칸). 공고 중이면 모두에게 새 도시·옮기는 시각·그 나라 정책(가입비·
+//   지원금)과 "원치 않으면 그 전에 가문을 나갈 수 있다"를 보이고, 가문장에게는 [공고 거두기](지금 소속 도시를 다시 보낸다)를 준다.
 // - 무소속(가문 없음): 내 도시가 소속 도시이고 개인 세금을 낸다는 안내, 유닛을 고용하려면 가문이 필요하다는 안내.
 // docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-15, D-565)"
 import type { HouseHomeView } from "@terra/shared/house";
 import { useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
+import { formatAmount } from "../../roster/rosterText.ts";
 import { dateText } from "../../sections/screenText.ts";
 import { homeChoiceText } from "./homeText.ts";
 
@@ -36,13 +39,41 @@ export function HouseHomeBlock({
     );
   const canChange = leader && !home.locked && home.choices.length > 0;
   const waiting = home.changeAt !== null;
-  const same = picked === String(home.city?.id ?? "");
+  const pending = home.pending ?? null;
+  const same = picked === String(home.city?.id ?? "") || picked === String(pending?.city.id ?? "");
+  const noticeDays = Math.max(0, Math.round((home.noticeMs ?? 0) / 86_400_000));
   return (
     <div className="fid-house-block" data-testid="house-home">
       <h3 className="fid-house-sub">{m.fid_home_title()}</h3>
       <p data-part="house-home-city">{m.fid_home_current({ where })}</p>
       <p className="faction-muted">{m.fid_home_hint()}</p>
       {leader && home.locked ? <p className="faction-muted">{m.fid_home_locked()}</p> : null}
+      {pending ? (
+        // 공고 중(D-570): 새 도시·옮기는 시각·그 나라 정책, 원치 않으면 그 전에 나간다
+        <div className="fid-house-block" data-part="house-home-pending">
+          <p>{m.fid_home_pending({ where: homeChoiceText(pending.city), when: dateText(pending.at) })}</p>
+          <p className="faction-muted">
+            {pending.terms.startsWith("-")
+              ? m.fid_home_pending_grant({ amount: formatAmount(pending.terms.slice(1)) })
+              : pending.terms === "0"
+                ? m.fid_home_pending_free()
+                : m.fid_home_pending_fee({ amount: formatAmount(pending.terms) })}
+          </p>
+          {leader ? null : <p className="faction-muted">{m.fid_home_pending_leave()}</p>}
+          {leader && home.city ? (
+            <button
+              type="button"
+              className="button-small"
+              aria-disabled={busy}
+              onClick={() => {
+                if (!busy && home.city) onChange(home.city.id);
+              }}
+            >
+              {m.fid_home_pending_cancel()}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {canChange ? (
         <form
           className="fid-house-home-form"
@@ -74,7 +105,7 @@ export function HouseHomeBlock({
               className="button-small button-primary"
               aria-disabled={busy || same || waiting}
             >
-              {m.fid_home_change()}
+              {(home.noticeMs ?? 0) > 0 ? m.fid_home_announce() : m.fid_home_change()}
             </button>
           </span>
           <span className="faction-muted">
@@ -86,6 +117,9 @@ export function HouseHomeBlock({
       ) : null}
       {/* 나라는 하나(D-569): 소속 도시를 바꾸면 가문원 모두의 나라가 바뀐다 */}
       {canChange ? <p className="faction-muted">{m.fid_home_change_note()}</p> : null}
+      {canChange && noticeDays > 0 ? (
+        <p className="faction-muted">{m.fid_home_notice_rule({ days: noticeDays })}</p>
+      ) : null}
     </div>
   );
 }

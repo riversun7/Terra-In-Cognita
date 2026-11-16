@@ -1,6 +1,8 @@
 // 가문 창설(프로토콜 22)·가입(23) 메시지 스키마 시험( docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)") — 왕복, 값 모양, 결과 코드
 import { describe, expect, it } from "vitest";
 import {
+  HOUSE_HOME_NOTICE_PROTOCOL_VERSION,
+  legacyHouseMemberAction,
   HOUSE_CITY_PROTOCOL_VERSION,
   HOUSE_CITY_RESULT_CODES,
   HOUSE_HOME_PROTOCOL_VERSION,
@@ -182,5 +184,17 @@ describe("가문 소속 도시(프로토콜 39, D-565)", () => {
     expect(HOUSE_MEMBER_ACTIONS).toContain("home_set");
     const ok = { t: "house_member_result", id: 4, ok: true, action: "home_set", factionId: 9 } as const;
     expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
+  });
+  it("공고(D-570): 48부터 한 일 home_announced·home_cancelled, 47판 연결은 home_set으로 낮춘다", () => {
+    expect(HOUSE_HOME_NOTICE_PROTOCOL_VERSION).toBe(48);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOUSE_HOME_NOTICE_PROTOCOL_VERSION);
+    for (const action of ["home_announced", "home_cancelled"] as const) {
+      expect(HOUSE_MEMBER_ACTIONS).toContain(action);
+      const ok = { t: "house_member_result", id: 5, ok: true, action, factionId: 9 } as const;
+      expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
+      expect(legacyHouseMemberAction(action, 48)).toBe(action);
+      expect(legacyHouseMemberAction(action, 47)).toBe("home_set");
+    }
+    expect(legacyHouseMemberAction("joined", 47)).toBe("joined");
   });
 });

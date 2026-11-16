@@ -1,0 +1,412 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "31deac81-db76-4577-bd0a-58eb7113ca2a",
+  "prevIds": [
+    "22a71ad3-9c15-4a67-aef4-42828561488a",
+    "e39360c4-a832-4a11-a9d1-41c1f6cfbfcb"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "npc_house_units"
+      ],
+      "writes": [
+        "s|tbl|public.npc_house_units",
+        "n|tbl|public.npc_house_units",
+        "e|tbl|public.npc_house_units",
+        "n|rel|public.npc_house_units",
+        "n|type|public.npc_house_units",
+        "n|rel|public.npc_house_units_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "npc_houses"
+      ],
+      "writes": [
+        "s|tbl|public.npc_houses",
+        "n|tbl|public.npc_houses",
+        "e|tbl|public.npc_houses",
+        "n|rel|public.npc_houses",
+        "n|type|public.npc_houses",
+        "n|rel|public.npc_houses_pkey",
+        "n|rel|public.npc_houses_city_id_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "house_entry_fee"
+      ],
+      "writes": [
+        "s|col|public.factions.house_entry_fee",
+        "n|col|public.factions.house_entry_fee",
+        "e|col|public.factions.house_entry_fee"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "house_homes",
+        "pending_city_id"
+      ],
+      "writes": [
+        "s|col|public.house_homes.pending_city_id",
+        "n|col|public.house_homes.pending_city_id",
+        "e|col|public.house_homes.pending_city_id"
+      ],
+      "reads": [
+        "n|tbl|public.house_homes",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "house_homes",
+        "pending_at_ms"
+      ],
+      "writes": [
+        "s|col|public.house_homes.pending_at_ms",
+        "n|col|public.house_homes.pending_at_ms",
+        "e|col|public.house_homes.pending_at_ms"
+      ],
+      "reads": [
+        "n|tbl|public.house_homes",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "npc_house_units",
+        "npc_house_units_house_idx"
+      ],
+      "writes": [
+        "s|idx|public.npc_house_units_house_idx",
+        "n|idx|public.npc_house_units_house_idx",
+        "e|idx|public.npc_house_units_house_idx",
+        "n|rel|public.npc_house_units_house_idx"
+      ],
+      "reads": [
+        "n|tbl|public.npc_house_units",
+        "n|sch|public",
+        "n|col|public.npc_house_units.house_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "npc_house_units"
+      ],
+      "writes": [
+        "s|fk|public.npc_house_units.npc_house_units_house_id_npc_houses_id_fkey",
+        "n|fk|public.npc_house_units.npc_house_units_house_id_npc_houses_id_fkey",
+        "e|fk|public.npc_house_units.npc_house_units_house_id_npc_houses_id_fkey",
+        "n|con|public.npc_house_units.npc_house_units_house_id_npc_houses_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.npc_house_units",
+        "n|sch|public",
+        "n|tbl|public.npc_houses",
+        "n|sch|public",
+        "n|col|public.npc_house_units.house_id",
+        "n|col|public.npc_houses.id",
+        "e|uniqueness|public.npc_houses.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "npc_house_units",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "npc_houses",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "house_entry_fee",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_homes",
+        "name": "pending_city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_homes",
+        "name": "pending_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_house_units",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_house_units",
+        "name": "house_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_house_units",
+        "name": "set_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_houses",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_houses",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_houses",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_houses",
+        "name": "founded_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_house_units",
+        "name": "npc_house_units_house_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "house_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_house_units",
+        "name": "npc_house_units_house_id_npc_houses_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "house_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "npc_houses",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_house_units",
+        "name": "npc_house_units_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_houses",
+        "name": "npc_houses_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_houses",
+        "name": "npc_houses_city_id_key",
+        "nameExplicit": false,
+        "columns": [
+          "city_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    }
+  ]
+}

@@ -10220,6 +10220,24 @@
       "source": "ADR 2026-11-11-faction-identity \"바뀜 (2026-11-15, D-565)\" · 질문 1741"
     },
     {
+      "id": "house_home_notice_ms",
+      "code": "",
+      "name": {
+        "ko": "가문 소속 도시 바꾸기 공고 기간(ms)",
+        "en": "House home city move notice (ms)"
+      },
+      "value": 86400000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 2592000000,
+      "desc": {
+        "ko": "가문장이 소속 도시(나라)를 바꾸면 이만큼 공고한 뒤 가문 모두가 함께 옮긴다. 그 사이 원치 않는 가문원은 탈퇴한다. 0이면 바로 옮긴다.",
+        "en": "When a house leader changes the home city (nation), the whole house moves after this notice. Members who disagree can leave meanwhile. 0 = move at once."
+      },
+      "source": "D-570 · ADR 2026-11-11-faction-identity \"바뀜 (2026-11-16, D-570)\""
+    },
+    {
       "id": "house_village_housing",
       "code": "",
       "name": {

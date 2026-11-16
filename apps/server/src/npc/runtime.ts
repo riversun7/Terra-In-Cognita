@@ -31,7 +31,6 @@ import {
   DEFAULT_SCENARIO_SOCIETY,
   EVENT_DECIDE,
   type FactionDay,
-  type GardenerCoefficients,
   HOMELESS,
   type NpcContext,
   SATISFACTION_MAX_MILLI,
@@ -73,9 +72,11 @@ import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
 import { createNpcCapitals } from "./capitals.ts";
 import { createCatchmentStore, loadCatchment } from "./catchmentStore.ts";
 import { createCityDayStore } from "./cityDayStore.ts";
+import { type NpcCityHouses, createNpcCityHouses, loadNpcCityHouses } from "./cityHouses.ts";
 import { createCityPeople, seedPopulationOf } from "./cityPeople.ts";
 import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./economy.ts";
-import { humanNameOf } from "./humanNames.ts";
+import { gardenerRulesOf, gardenerWavesEnabled } from "./gardenerSwitch.ts";
+import { humanFamilyOf, humanNameOf } from "./humanNames.ts";
 import { type HouseRecruit, createHouseRecruit } from "./houseRecruit.ts";
 import { type NpcHouses, attachNpcHouses } from "./houseRuntime.ts";
 import { restCycleOf } from "./cityRest.ts";
@@ -198,6 +199,8 @@ export interface NpcRuntime {
   readonly houseRecruit: HouseRecruit;
   /** 그 도시 시장 유닛(기획 답 744 나, cityPeople.ts). 없으면 undefined */
   mayorOf(cityId: number): number | undefined;
+  /** NPC 도시의 가문(질문 1848 답, cityHouses.ts — 도시마다 하나, 가문장 = 시장) */
+  readonly cityHouses: NpcCityHouses;
   /** NPC 휴먼 이름(기획 답 773 나, humanNames.ts — 그 휴먼 나라의 팩 목록). 거울 세계 휴먼이 아니거나 목록이 없으면 undefined */
   humanName(unitId: number): string | undefined;
   /** 그 도시의 지난 하루 끝 생필품 충족 ‰(781 나, cityDayStore.ts). 아직 하루 끝 전이면 undefined */
@@ -209,24 +212,6 @@ export interface NpcRuntime {
   /** 켤 때 세운 휴먼·경비대(국력 등급 씨앗) */
   readonly seedReport: NpcSeedReport;
   stop(): void;
-}
-/**
- * 웨이브를 끄면 도시 웨이브 확률 상한(chanceMaxPm)과 보호 레이드 세기 배율(raidStrengthPm, D-500)을 0으로 둔다: 굴림은 돌지만 늘
- * 실패하고 레이드는 생기지 않으며, 오염 층·관계도는 그대로 돈다.
- * 사용자 결정(2026-11-01 "합치되 웨이브 끔", D-513 운영자 온/오프 스위치 49 N53 `n53_gardener_waves`), GARDENER_WAVES
- */
-export function gardenerRulesOf(rules: GardenerCoefficients, wavesOn: boolean): GardenerCoefficients {
-  return wavesOn ? rules : { ...rules, chanceMaxPm: 0, raidStrengthPm: 0 };
-}
-
-/**
- * 운영자 스위치(n53_gardener_waves = 1)가 켜져 있으면 환경변수(기본 false)가 꺼져 있어도 웨이브를 켠다.
- * 환경변수를 주지 않은 시험(undefined)은 스위치가 기본값(0)이어도 기존 시험처럼 켜 둔다.
- */
-export function gardenerWavesEnabled(envFlag: boolean | undefined, switchValue: number | undefined): boolean {
-  if (switchValue === 1) return true;
-  if (envFlag === undefined) return true;
-  return envFlag;
 }
 /** 다음 하루 끝(UTC 0시, 하루 길이를 줄였으면 그 배수) */
 const nextDayEnd = (nowMs: number, dayMs: number): number => (Math.floor(nowMs / dayMs) + 1) * dayMs;
@@ -435,6 +420,9 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   };
   const cityNamesOf = (ownerId: number): readonly string[] | undefined =>
     nationPresetOf(ownerId, nationLinkOf, presets)?.cityNames;
+  // 휴먼 이름 조각(773 나): 그 세력이 따르는 나라의 목록(도시 이름과 같은 길)
+  const namesOf = (ownerId: number) =>
+    nationPresetOf(ownerId, nationLinkOf, o.presets ?? presets)?.humanNames;
   const persist = createNpcPersist(
     {
       world,
@@ -509,6 +497,17 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   // 처음 인구(749 다, cityPeople.ts): 시작 도시마다 한 번, 주거 × 비율에 모자란 만큼 휴먼을 세운다(처음 저장이 구인과 같은 길로 도시 둘레에
   // 봇을 세운다). 나이·수명은 들이기와 같이 흩는다. 이미 있는 휴먼(옛 세계의 봇 휴먼)은 그대로 센다
   const people = createCityPeople({ world, writer, rows: state.cities });
+  // NPC 도시의 가문(질문 1848 답): 가문장 = 시장, 이름 = 세울 때 시장의 성(그 도시 주인 나라 목록) → 도시 이름. 맞추기는 시장 다음(syncPeople)
+  const cityHouses = createNpcCityHouses({
+    world,
+    writer,
+    loaded: await loadNpcCityHouses(o.pool),
+    mayorOf: (cityId) => people.mayorOf(cityId),
+    nameFor: (cityId, mayor) =>
+      humanFamilyOf(namesOf(cities.get(cityId)?.owner ?? 0), mayor) ??
+      persist.places.get(cityId)?.name ??
+      `#${cityId}`,
+  });
   const cityDay = createCityDayStore({ writer, rows: state.cities });
   let seededHumans = 0;
   let seededGuards = 0;
@@ -873,6 +872,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     });
     people.sync();
     people.flush();
+    cityHouses.sync(o.now());
     cityDay.flush();
   };
   syncPeople();
@@ -887,6 +887,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       seededGuards,
       housingRaised,
       foundedStats,
+      cityHouses: cityHouses.counts(),
       catchment: catchmentState
         ? { cells: catchmentState.stock.size, cities: catchmentState.cities.size, loadMs: catchmentLoadMs }
         : null,
@@ -952,12 +953,11 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       rules: o.rules,
     }),
     mayorOf: (cityId) => people.mayorOf(cityId),
+    cityHouses,
     // 휴먼 이름(773 나): 그 휴먼 주인 세력이 따르는 나라의 목록(도시 이름과 같은 길)
     humanName(unitId) {
       const unit = world.units.get(unitId);
-      return unit
-        ? humanNameOf(nationPresetOf(unit.owner, nationLinkOf, o.presets ?? presets)?.humanNames, unitId)
-        : undefined;
+      return unit ? humanNameOf(namesOf(unit.owner), unitId) : undefined;
     },
     necessitiesOf: (cityId) => cityDay.necessitiesOf(cityId),
     capitalOf: (owner) => capitals.capitalOf(owner),

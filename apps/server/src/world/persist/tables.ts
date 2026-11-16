@@ -86,6 +86,18 @@ export const WORLD_TABLES = {
     columns: ["unit_id", "faction_id", "user_id", "set_at_ms"],
     key: ["unit_id"],
   },
+  /** NPC 도시의 가문(질문 1848 답, npc/cityHouses.ts). 지우지 않는다 */
+  npcHouses: {
+    name: "npc_houses",
+    columns: ["id", "city_id", "name", "founded_at_ms"],
+    key: ["id"],
+  },
+  /** NPC 휴먼의 가문(휴먼마다 한 줄, npc/cityHouses.ts). 휴먼이 죽으면 지운다 */
+  npcHouseUnits: {
+    name: "npc_house_units",
+    columns: ["unit_id", "house_id", "set_at_ms"],
+    key: ["unit_id"],
+  },
   /** 사이보그(계정당 하나, docs/adr/2026-11-01-first-login-cyborg.md 2절) — 만들 때 유닛과 같은 커밋 */
   cyborgs: {
     name: "cyborgs",
@@ -857,6 +869,8 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "cityCatchment",
   "humanGrowth",
   "humanGuard",
+  "npcHouses",
+  "npcHouseUnits",
   "cyborgUnits",
   "unitSkills",
   "unitFaith",

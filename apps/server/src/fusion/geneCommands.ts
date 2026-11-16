@@ -12,7 +12,8 @@
 // - 인큐베이터(incubate): 휴먼 스탯 유전자 하나 → 새 휴먼(유닛 종류 4) 하나(총합 또는 주력 스탯 적용, 속성은 유전자 값, 수명 T4 굴림).
 //   기획 답 459 가: 생명과학 연구소(생명공학 단계, Lv1부터 — 다 지음·30% 이상)에서 플레이어 명령으로 연다. 비용 = 화폐(설정 칸
 //   n47_incubate_currency [임시], 남의 연구소 = 주인 수입·내 연구소 = 소각, 454 가), 재료 없음. 새 휴먼은 연구소 둘레에 태어나고 사는 도시 =
-//   연구소 도시. 연구소 없이 여는 것은 개발 시험(dev·admin, gateway.ts — 사이보그 본체 둘레·사는 도시 없음·값 없음)이다.
+//   연구소 도시. 연구소 없이 여는 것은 개발 시험(dev·admin, gateway.ts — 사이보그 본체 둘레·사는 도시 없음·값 없음)이다. 새 휴먼은 만든 사람의
+//   가문에 든다(질문 1847 답 — D-569 고용과 같다, house_units. 가문이 없으면 무소속).
 // - 개발 시험(dev·admin): 시험 유전자 받기(devGrantGene), 수명 끝내기(devExpire).
 // 명령 하나 = 읽기(DB, 쓰기 대기열이 따라잡은 뒤) → 다시 확인(메모리) → 한 번의 동기 처리 → 커밋 뒤 답(U2).
 import type { ItemEntry } from "@terra/content";
@@ -100,6 +101,8 @@ export interface GeneCommandOptions {
   readonly log?: { warn(obj: object, message: string): void } | undefined;
   /** 건물(생명과학 연구소 시설 줄·일함·도시 자리, D-517 변환). 없으면 연구소가 없다 */
   readonly facilities?: WorldFacilities | undefined;
+  /** 인큐베이터 휴먼을 만든 사람의 가문에 적는다(질문 1847 답 — 고용과 같다, world/houseTies.ts assignUnit). 없으면 적지 않는다 */
+  readonly assignHouse?: ((unitId: number, userId: string, nowMs: number) => void) | undefined;
 }
 
 export interface GeneCommands {
@@ -402,6 +405,8 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         stats,
         elements: [...record.gene.elements],
       });
+      // 만든 사람의 가문(질문 1847 답 — D-569 고용과 같이 house_units, 같은 커밋). 가문이 없으면 무소속
+      o.assignHouse?.(unitId, userId, at);
       await writer.durable();
       return { ok: true, unitId, stats };
     },

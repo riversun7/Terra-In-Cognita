@@ -672,6 +672,7 @@ export function startWorld(
       log,
       manual: config.npc?.manual,
       devExtraCurrency: (userId) => persistence?.ruins.fundCurrencyOf(userId),
+      assignHouse: (unitId, userId, at) => houseTiesOf(persistence)?.assignUnit(unitId, userId, at),
     });
     const travelParts = { maps, writer, pool: db, now, log, settlement, cyborgs, planetId: TEST_PLANET_ID };
     const travel = createWorldTravel({ ...travelParts, ready: () => status.state === "ready" });

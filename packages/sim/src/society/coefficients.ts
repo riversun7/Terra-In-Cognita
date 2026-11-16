@@ -353,6 +353,7 @@ export interface SocietyCoefficients {
    * - nameResetBlock: 운영자가 이름을 이만큼 되돌리면 그 가문의 이름·약어 바꾸기를 저절로 막는다(질문 1006 나, 0 = 끔).
    * - villageCost·villageHousing: 가문 마을 세우기(질문 1005 가, D-340) 값(최소 단위, 가문장 → 소각)·새 마을 주거 수. [임시] 출발값.
    * - homeWaitMs: 가문장이 가문 소속 도시(D-565)를 다시 바꾸기까지 기다리는 시간(ms, 0 = 바로). [임시] 출발값 7일(질문 1741).
+   * - homeNoticeMs: 소속 도시 바꾸기 공고 기간(ms, D-570 — 가문장이 미리 공고하고 원치 않는 가문원은 그 사이 나간다, 0 = 바로 옮김). [임시] 출발값 1일.
    */
   readonly house: {
     readonly shortMin: number;
@@ -368,6 +369,7 @@ export interface SocietyCoefficients {
     readonly villageCost: number;
     readonly villageHousing: number;
     readonly homeWaitMs: number;
+    readonly homeNoticeMs: number;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -599,6 +601,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     villageCost: 5000,
     villageHousing: 8,
     homeWaitMs: 7 * 86_400_000,
+    homeNoticeMs: 86_400_000,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

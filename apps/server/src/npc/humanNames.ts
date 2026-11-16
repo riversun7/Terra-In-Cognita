@@ -15,14 +15,30 @@ export interface HumanNameLists {
 /** 이름 고르기 해시의 소금(다른 해시와 겹치지 않게) */
 const NAME_SALT = 0x6e61_6d65;
 
-/** 휴먼 하나의 이름(순수 함수). 이름 목록이 비었으면 undefined(화면이 "휴먼 #ID") */
-export function humanNameOf(lists: HumanNameLists | undefined, unitId: number): string | undefined {
+/** 휴먼 하나의 이름 조각(순수 함수): 이름과 성(성 목록이 비면 null). 이름 목록이 비었으면 undefined */
+function namePartsOf(
+  lists: HumanNameLists | undefined,
+  unitId: number,
+): { readonly given: string; readonly family: string | null } | undefined {
   if (!lists || lists.given.length === 0) return undefined;
   const hash = mix32(Math.imul(unitId, 0x9e37_79b1) ^ NAME_SALT) >>> 0;
   const given = lists.given[hash % lists.given.length];
   if (given === undefined) return undefined;
-  if (lists.family.length === 0) return given;
+  if (lists.family.length === 0) return { given, family: null };
   // 성은 해시의 다른 자리로(이름과 함께 돌지 않게)
   const family = lists.family[Math.floor(hash / lists.given.length) % lists.family.length];
-  return family === undefined ? given : `${given} ${family}`;
+  return { given, family: family ?? null };
+}
+
+/** 휴먼 하나의 이름(순수 함수). 이름 목록이 비었으면 undefined(화면이 "휴먼 #ID") */
+export function humanNameOf(lists: HumanNameLists | undefined, unitId: number): string | undefined {
+  const parts = namePartsOf(lists, unitId);
+  if (!parts) return undefined;
+  return parts.family === null ? parts.given : `${parts.given} ${parts.family}`;
+}
+
+/** 휴먼 하나의 성(NPC 도시 가문 이름 — npc/cityHouses.ts). 성 목록이 비면 이름, 이름 목록도 비면 undefined */
+export function humanFamilyOf(lists: HumanNameLists | undefined, unitId: number): string | undefined {
+  const parts = namePartsOf(lists, unitId);
+  return parts ? (parts.family ?? parts.given) : undefined;
 }

@@ -2,7 +2,7 @@
 import { TEST_GARDENER_COEFFICIENTS, waveChancePm } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { readConfig } from "../config.ts";
-import { gardenerRulesOf, gardenerWavesEnabled } from "./runtime.ts";
+import { gardenerRulesOf, gardenerWavesEnabled } from "./gardenerSwitch.ts";
 
 describe("정원사 웨이브 스위치", () => {
   it("운영 설정은 기본 끔이고 GARDENER_WAVES=1 또는 운영 스위치(n53_gardener_waves=1)면 켠다", () => {

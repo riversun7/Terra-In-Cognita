@@ -2,6 +2,7 @@
 // - 게이트웨이(WebSocket house_found): DB가 있으면 선다. 시민권(사이보그 나라)은 세계가 준비됐으면 월드 사이보그 기록, 아니면 DB에서 읽는다.
 //   창설은 무료다(기획 D-565 — 옛 창설 비용·국고 이체를 지웠다).
 // - 서버를 켤 때 옛 정체성(가문 없는 줄)을 한 번 가문으로 옮긴다(found.ts adoptUnfoundedIdentities, 뒤에서 — 실패해도 서버는 뜬다).
+// - 공고한 소속 도시 옮기기(D-570, houseMoves.ts)는 1분 타이머가 한다.
 // - 가문 가입(질문 985 다, members.ts)·소속 도시 바꾸기(D-565, houseHome.ts)도 같은 게이트웨이가 받는다. 명령 뒤 가문 표를 다시 읽어
 //   가문원 시민권·내 도시를 가문 소속 도시에 맞춘다(D-569 "나라는 하나", world/houseTies.ts). 가문원은 귀화하지 못한다(citizenship in_house).
 import type { Database } from "../db/client.ts";
@@ -11,6 +12,7 @@ import { adoptUnfoundedIdentities, createHouseFounder, nationFromDb } from "./fo
 import { type HouseGateway, createHouseGateway } from "./gateway.ts";
 import { type HouseCityService, createHouseCity } from "./houseCity.ts";
 import { createHouseHome } from "./houseHome.ts";
+import { createHouseMoves } from "./houseMoves.ts";
 import { createHouseRecruitService } from "./houseRecruit.ts";
 import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
@@ -18,6 +20,9 @@ import { houseTiesOf } from "../world/houseTies.ts";
 import type { HouseRules } from "./rules.ts";
 
 type HouseWorld = Pick<World, "status" | "persistence" | "npc" | "maps">;
+
+/** 공고한 소속 도시를 옮기는 간격(D-570) */
+const MOVE_SWEEP_MS = 60_000;
 
 export function attachHouses(options: {
   readonly db: Database;
@@ -35,6 +40,8 @@ export function attachHouses(options: {
   gateway: HouseGateway;
   /** 가문 도시(조회 — 세력 화면 "내 가문" 칸) */
   city: HouseCityService;
+  /** 공고 옮기기 타이머를 멈춘다(앱을 닫을 때) */
+  stop(): void;
 } {
   const pool = options.db.$client;
   /** 사용자의 나라: 세계가 준비됐으면 월드 사이보그 기록, 아니면 DB */
@@ -63,13 +70,28 @@ export function attachHouses(options: {
     now: options.now,
     world: () => options.world,
   });
+  const persistence = () => options.world?.persistence;
   const home = createHouseHome({
     pool,
     db: options.db,
     rules: options.rules,
     now: options.now,
     presets: options.presets,
+    persistence,
   });
+  // 공고한 소속 도시 옮기기(D-570, houseMoves.ts): 1분마다 시각이 지난 공고를 옮긴다(세계가 준비된 뒤 — 가입비·지원금 원장)
+  const moves = createHouseMoves({
+    pool,
+    db: options.db,
+    now: options.now,
+    presets: options.presets,
+    persistence,
+  });
+  const moveTimer = setInterval(() => {
+    if (options.world?.status().state !== "ready") return;
+    moves.applyDue().catch((error: unknown) => options.log.error({ err: error }, "house moves failed"));
+  }, MOVE_SWEEP_MS);
+  moveTimer.unref();
   const gateway = createHouseGateway({
     founder: () =>
       createHouseFounder({ pool, db: options.db, now: options.now, nationOf, presets: options.presets }),
@@ -85,5 +107,5 @@ export function attachHouses(options: {
     now: options.now,
     log: options.log,
   });
-  return { gateway, city };
+  return { gateway, city, stop: () => clearInterval(moveTimer) };
 }

@@ -684,10 +684,17 @@ export function worldMapReadsOf(options: {
     leaderName: leaderOfCode,
     // 고른 유닛의 추천 줄(1차 생산·전투 유형): 직무 산출과 같은 1차 스탯
     primaries: (unitId) => world.persistence?.holdings.primariesOf(unitId),
-    // NPC 도시 휴먼 이름(773 나, "WP-NPC4")·경비대 표시(920 라): 거울 세계 휴먼만
+    // NPC 도시 휴먼 이름(773 나, "WP-NPC4")·경비대 표시(920 라)·가문: 거울 세계 휴먼만
     npcHuman: (unitId) => {
       const human = world.npc?.world.units.get(unitId);
-      return human ? { name: world.npc?.humanName(unitId), guard: human.guard === true } : undefined;
+      // NPC 도시 가문(질문 1848 답 — 도시마다 하나, 가문장 = 시장)
+      return human
+        ? {
+            name: world.npc?.humanName(unitId),
+            guard: human.guard === true,
+            house: world.npc?.cityHouses.of(unitId),
+          }
+        : undefined;
     },
     // 사이보그 본체의 3D 외형(docs/adr/2026-11-11-character-3d.md 5절): 저장한 것, 없으면 옛 외형에서 넘긴 값
     cyborgLook: (unitId) => {

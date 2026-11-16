@@ -204,4 +204,4 @@
   임시로"): 기도에 성공하면 사이보그 본체에 걸린 효과 `temple_blessing`(팩 효과 사전 — 이동 속도 버프 ‰)을 설정 칸 `d571_temple_blessing_pm`(출발값
   100‰)·`d571_temple_blessing_ms`(30분)만큼 건다(`temple/service.ts bless` → 보유 물건 `grantEffect` — 같은 효과는 새로 건다, 출처 칸 `temple`).
   걸린 효과라 2차맵 걷기 빠르기(`world/walkSpeed.ts`)·전투 시작 효과에 그대로 든다. 축복 쿨은 기도 쿨다운(`d444_pray_cooldown_ms`, 1시간)이다 [임시].
-- 프로토콜·표 그대로(기도 답 모양 그대로, 걸린 효과 표 unit_effects). 팩 core@124. 종교 목록·종교별 축복은 종교 시스템이 생길 때(질문 2107).
+- 프로토콜·표 그대로(기도 답 모양 그대로, 걸린 효과 표 unit_effects). 팩 core@117(묶음 1116k — 줄기에서는 124). 종교 목록·종교별 축복은 종교 시스템이 생길 때(질문 2107).

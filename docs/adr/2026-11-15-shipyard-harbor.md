@@ -343,7 +343,7 @@
 - **배 채집 일꾼**(`gather/boatCrew.ts boatWorkers`): 장비를 맡은 낚시 선원. 선원마다 자기 스탯으로 채집 티어 확률표를 굴리고 그 장비의 최대 티어로 자른다(`objectYield.ts catchYieldItem` — 범위 위 끝을 자르고,
   굴림표는 그 티어 이하 줄만). 수확도 선원마다 보조 스탯으로(`crewYield.ts`). 캐는 시간 = 일꾼 가운데 가장 높은 주 스탯, 피로 = 일꾼 + 이끄는 유닛. 장비를 맡은 선원이 없으면 이끄는 유닛 혼자
   설정 칸 `boat_bare_catch_tier`(2)까지 잡는다(작은 배·NPC 배, 질문 2061). 아무도 그 오브젝트 티어를 못 잡으면 줄이 `tier_too_high`로 끝난다.
-- 팩 core@122 [임시]: 중분류 `catch_gear`, 아이템 `fishing_net`(그물, 최대 티어 3)·`longline_rig`(주낙 장비, 6), 공방 레시피 둘, 배 종류 `fishing_boat`(어선 — 함포 칸 3, 함장 1·낚시 선원 3·갑판병 1, 창고 1,200kg).
+- 팩 core@117(묶음 1116k — 줄기에서는 122) [임시]: 중분류 `catch_gear`, 아이템 `fishing_net`(그물, 최대 티어 3)·`longline_rig`(주낙 장비, 6), 공방 레시피 둘, 배 종류 `fishing_boat`(어선 — 함포 칸 3, 함장 1·낚시 선원 3·갑판병 1, 창고 1,200kg).
 
 ### 정박한 항구(1823·1830, `boats/port.ts`)
 - 정박 = 배가 배 시설 둘레 `harbor_reach_cells` 안이고, 그 시설이 내 배 시설이거나 시간을 산 교역 부두. 내리기·싣기·연료 보급·포획 장비 달기가 같은 조건을 쓴다(모든 배 같다).
@@ -353,7 +353,7 @@
 - 바다에서 승객이 식량을 먹는 규칙·정유소·물류 시설은 아직 없다(질문 2067·2068).
 
 ### 프로토콜·데이터
-- 프로토콜 55(최소 54 — 48~54는 같이 합쳐지는 다른 줄기): `boat_gear`·`boat_load`, 보직 `fisher`, 결과 코드 `not_catch_gear`·`bad_slot`·`hold_full`(54판 이하 연결은 `legacyGearCode` — `forbidden`·`busy`).
+- 프로토콜 49(최소 48, 묶음 1116k 합친 판 — 줄기에서는 55·최소 54): `boat_gear`·`boat_load`, 보직 `fisher`, 결과 코드 `not_catch_gear`·`bad_slot`·`hold_full`(48판 이하 연결은 `legacyGearCode` — `forbidden`·`busy`).
 - 판: 내 배 줄 `slots`·`gearOptions`·`loadable`, 판 `exchangeId`(모두 선택 칸). 채집 줄 멈춤 `tier_too_high`(조회 모양).
 - DB 마이그레이션 `20261116010420_boat_gear_price`(더하기만): `boat_states.gear jsonb`·`boat_states.price bigint`·`boat_jobs.price bigint`, 모두 null 허용.
 - 시뮬 판정은 그대로(배·배 채집은 시뮬에 없다 — SIM_VERSION 그대로). 설정 칸 `boat_bare_catch_tier`·`harbor_exchange_reach_cells` 더함.

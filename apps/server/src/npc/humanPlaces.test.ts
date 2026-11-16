@@ -325,16 +325,17 @@ describe("mapLongitudeDeg", () => {
   });
 });
 
+const spareTrip = (key: string) => ({ key, x: 5, y: 6, fromMs: 1000, untilMs: 9000 });
+
 describe("빈 일꾼 운반이 일 없는 휴먼보다 많으면(2155)", () => {
   it("시설 일꾼이 뒤에서부터 짬을 내 화물을 진다(시설 첫 운반꾼은 빼고)", () => {
     const loads: [string, number][] = [];
-    const trip = (key: string) => ({ key, x: 5, y: 6, fromMs: 1000, untilMs: 9000 });
     const homes = assignHumanPlaces({
       humans: [1, 2, 3],
       home: { x: 100, y: 100 },
       facilities: [{ id: 10, buildingId: 10, workers: 3 }],
       areas: new Map([[10, { x: 50, y: 50, radius: 4 }]]),
-      trips: [trip("x:1"), trip("x:2")],
+      trips: [spareTrip("x:1"), spareTrip("x:2")],
       onCarrier: (key, unitId) => loads.push([key, unitId]),
     });
     expect(loads).toEqual([

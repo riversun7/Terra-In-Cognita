@@ -27,6 +27,7 @@ function fakeService(calls: string[]): FacilityService {
     pausesFor: () => undefined,
     outsourceQuote: () => "no_shop_worker",
     shopWorkers: () => [],
+    repairMaterialsHourly: () => 0n,
     damage: () => false,
     attachGovernment: () => {},
     attachStorageOut: () => {},

@@ -3,7 +3,8 @@
 // 요금을 주인이 정하지 않았으면 적정가로 받는다(D-570 1785).
 // - 창고 물건(1개): 재료비 = 0(플레이어 사업장 산출은 채집 — 레시피 재료가 없다 [임시]), 인건비 = 장부 기간의 임금 칸 지출을 그 기간 산출(job_output)에
 //   팩 기준 값 비율로 나눈 몫(올림). 산출이 없으면 인건비 0.
-// - 외주 수리(시간당): 재료비 = 0(재료는 맡기는 사람이 낸다), 인건비 = 그 공방 일꾼 시간당 인건비(labor/service.ts hourlyLabor).
+// - 외주 수리(시간당): 재료비 = 그 공방이 내는 시간당 재료비(바뀜 기획 대조 2167 — D-573 2048 재료는 공방, facilities/equipmentRepair.ts
+//   repairMaterialsHourly. 예전: 0 — 맡기는 사람이 냈다), 인건비 = 그 공방 일꾼 시간당 인건비(labor/service.ts hourlyLabor).
 // - 수수료 = 설정 칸 business_service_fee_pm, 세금 = 그 사업장 소득세율.
 import { type FairPrice, fairPrice } from "@terra/shared/fairPrice";
 
@@ -12,9 +13,14 @@ export interface FairInput {
   readonly taxBp: number;
 }
 
-/** 시간당 외주 적정가(재료 없음) */
-export function hourlyFair(hourly: bigint, input: FairInput): FairPrice {
-  return fairPrice({ materials: 0n, labor: hourly, feePm: input.feePm, taxBp: input.taxBp });
+/** 시간당 외주 적정가(재료비 = 시간당 재료비, 없으면 0) */
+export function hourlyFair(hourly: bigint, input: FairInput & { readonly materials?: bigint }): FairPrice {
+  return fairPrice({
+    materials: input.materials ?? 0n,
+    labor: hourly,
+    feePm: input.feePm,
+    taxBp: input.taxBp,
+  });
 }
 
 /**

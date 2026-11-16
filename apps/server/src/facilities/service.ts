@@ -46,6 +46,7 @@ import {
   type OutsourceQuote,
   type RepairItem,
   outsourceQuote,
+  repairMaterialsHourly,
   shopWorkers,
   startEquipmentRepair,
 } from "./equipmentRepair.ts";
@@ -144,6 +145,8 @@ export interface FacilityService extends PlotCommands {
   outsourceQuote(buildingId: number, item: RepairItem): OutsourceQuote | FacilityResultCode;
   /** 그 공방에서 지금 외주 수리를 맡을 수 있는 일꾼(ID 차례) */
   shopWorkers(buildingId: number): number[];
+  /** 외주 시간당 재료비(적정가 몫, 기획 대조 2167 — equipmentRepair.ts repairMaterialsHourly) */
+  repairMaterialsHourly(buildingId: number): bigint;
   /** 개발 시험 재료 받기: at(짓는 자리)이 속한 도시 창고로(없으면 첫 2차맵 가운데 칸, 도시가 없으면 내 첫 유닛 화물) */
   devFacilityGrant(
     userId: string,
@@ -874,6 +877,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
 
     outsourceQuote: (buildingId, item) => outsourceQuote(repairDeps, buildingId, item),
     shopWorkers: (buildingId) => shopWorkers(repairDeps, buildingId),
+    repairMaterialsHourly: (buildingId) =>
+      repairMaterialsHourly(repairDeps, buildingId, (item) => options.catalog().unitPriceOf?.(item) ?? 1n),
 
     async devFacilityGrant(userId, item, qty, place) {
       const at = now();

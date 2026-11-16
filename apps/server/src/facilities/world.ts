@@ -360,6 +360,8 @@ export function createWorldFacilities(input: {
       return (catalog().facility(record?.facilityId ?? "")?.repair?.length ?? 0) > 0;
     },
     laborHourly: (buildingId) => labor?.hourlyLabor(buildingId) ?? 0n,
+    // 공방이 내는 외주 수리 시간당 재료비(기획 대조 2167 — 적정가에 넣는다)
+    materialsHourly: (buildingId) => service.repairMaterialsHourly(buildingId),
     // 배 판매가(기획 대조 2057): 그 조선소가 만드는 배 종류
     boatTypes: (buildingId) =>
       (catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.boats ?? []).map(

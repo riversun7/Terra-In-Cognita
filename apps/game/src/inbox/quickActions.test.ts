@@ -1,7 +1,7 @@
 // 바로 처리 버튼 시험 — 시안 자료는 버튼만(명령 없음), 실제 항목은 보낼 길이 생길 때까지 버튼 없음, 모르는 동작은 그리지 않는다
 import type { InboxItem } from "@terra/shared/inbox";
 import { describe, expect, it } from "vitest";
-import { quickActionLabel, quickActionsFor } from "./quickActions.ts";
+import { isLiveItem, quickActionLabel, quickActionsFor } from "./quickActions.ts";
 
 const item = (extra: Partial<InboxItem> = {}): InboxItem => ({
   id: "contract_match:c1",
@@ -30,6 +30,14 @@ describe("바로 처리 버튼", () => {
 
   it("실제 항목: 명령(inbox_action)이 아직 없어 버튼을 그리지 않는다(줄을 눌러 그 화면에서 처리)", () => {
     expect(quickActionsFor(item())).toEqual([]);
+  });
+
+  it("실제 항목이라도 기존 명령으로 처리하는 종류(labor_paused — 2163)는 [기다림]·[해지]를 그린다", () => {
+    const paused = item({ id: "labor_paused:c4", kind: "labor_paused", actions: ["wait", "terminate"] });
+    expect(quickActionsFor(paused)).toEqual(["wait", "terminate"]);
+    expect(isLiveItem(paused)).toBe(true);
+    expect(isLiveItem({ ...paused, preview: true })).toBe(false);
+    expect(quickActionLabel("terminate", "en")).toBe("End contract");
   });
 
   it("버튼 이름(한국어 기본)", () => {

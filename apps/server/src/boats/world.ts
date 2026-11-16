@@ -6,7 +6,7 @@
 // - 요금 화폐(D-559 1524 "요금은 그 나라 화폐"): 시설이 선 도시 → 그 도시 주인 세력의 나라 화폐(도시 경제 런타임, 거래소와 같은 읽기). 도시·경제가 없으면 서버 시험 화폐.
 // B3("바뀜 (2026-11-14, B3)", 기획 D-542 1329 나): 이동 서비스에 "행성 값이 바다인 2차맵"을 붙인다(배가 띄우지 않은 바다 2차맵을 건너뛴다).
 import { WATER_OCEAN } from "@terra/planet";
-import { fairPrice, fairPriceView, laborCostOf } from "@terra/shared/fairPrice";
+import { convertFair, fairPrice, fairPriceView, laborCostOf } from "@terra/shared/fairPrice";
 import { buildingPlace } from "../facilities/places.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import { nationOfOwner } from "../world/nationVision.ts";
@@ -68,6 +68,14 @@ export function startWorldBoats(
         const row = parts.owners.get(ownerId);
         return world.npc !== undefined && row !== undefined && row.userId === null && row.factionId !== null;
       };
+      // 요금 화폐(D-559 1524): 시설이 선 도시 주인 나라의 화폐
+      const feeAssetOf = (buildingId: number): string | undefined => {
+        const cityId = facilities.service.places?.facilities.get(buildingId)?.cityId;
+        const runtime = world.npc;
+        if (cityId === null || cityId === undefined || !runtime?.economy) return undefined;
+        const owner = runtime.world.cities.get(cityId)?.owner;
+        return owner === undefined ? undefined : runtime.economy.economy.currencyOf.get(owner);
+      };
       built = createBoatService({
         maps: world.maps,
         now: options.now,
@@ -91,26 +99,25 @@ export function startWorldBoats(
           );
           return found.rows.length > 0;
         },
-        feeAssetOf: (buildingId) => {
-          const cityId = facilities.service.places?.facilities.get(buildingId)?.cityId;
-          const runtime = world.npc;
-          if (cityId === null || cityId === undefined || !runtime?.economy) return undefined;
-          const owner = runtime.world.cities.get(cityId)?.owner;
-          return owner === undefined ? undefined : runtime.economy.economy.currencyOf.get(owner);
-        },
+        feeAssetOf,
         feeAsset: ASSET_CREDIT,
         business: facilities.business,
-        // 배 주문 적정가(D-570 1822): 재료 기준 값 + 조선소 일꾼 인건비 × 만드는 시간 + 수수료 + 세금
+        // 배 주문·수리 적정가(D-570 1822): 재료 기준 값 + 조선소 일꾼 인건비 × 시간 + 수수료 + 세금. 셈은 서버 기준 통화 눈금, 보이는 값·받는 값은 그
+        // 항구 나라 화폐(기획 대조 2158 — 지난 환전 체결가, 없으면 같은 값)
         fairOf: (buildingId, materials, ms) => {
           const owner = buildingPlace(facilities.service.places, buildingId)?.ownerId ?? null;
-          return fairPriceView(
-            fairPrice({
-              materials,
-              labor: laborCostOf(parts.labor.hourlyLabor(buildingId), ms),
-              feePm: facilities.rules().business.serviceFeePm,
-              taxBp: owner === null ? 0 : facilities.business.taxRateOf(buildingId, owner),
-            }),
-          );
+          const fair = fairPrice({
+            materials,
+            labor: laborCostOf(parts.labor.hourlyLabor(buildingId), ms),
+            feePm: facilities.rules().business.serviceFeePm,
+            taxBp: owner === null ? 0 : facilities.business.taxRateOf(buildingId, owner),
+          });
+          const asset = feeAssetOf(buildingId);
+          const economy = world.npc?.economy?.economy;
+          if (asset === undefined || asset === ASSET_CREDIT || !economy) return fairPriceView(fair);
+          // 기준 통화 C → 나라 화폐 = C × 로트 ÷ (로트당 기준 통화 값)
+          const rate = economy.fx.get(asset)?.lastPrice ?? economy.settings.fxLot;
+          return fairPriceView(convertFair(fair, economy.settings.fxLot, rate));
         },
         writer: parts.writer,
         planetId: TEST_PLANET_ID,

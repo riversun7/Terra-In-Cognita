@@ -89,6 +89,8 @@ export interface Harbor {
   typeOf(state: BoatState | undefined): BoatTypeDef | undefined;
   /** 시설 주인 설정(줄이 없으면 처음 값) */
   facility(buildingId: number, ownerId: number | null): BoatFacility;
+  /** 주인이 설정(받기 범위·요금)을 저장했나 — 아니면 요금은 처음 값(조선소 수리는 적정가, 기획 대조 2161) */
+  facilitySet(buildingId: number): boolean;
   saveFacility(row: BoatFacility): void;
   /** 그 주인의 배가 그 시설(주인 facilityOwner)을 쓸 수 있나(받기 범위) */
   admits(buildingId: number, facilityOwner: number | null, boatOwner: number): Promise<boolean>;
@@ -458,6 +460,7 @@ export function createHarbor(
     settle,
     typeOf: (state) => (state ? types().get(state.typeId) : undefined),
     facility,
+    facilitySet: (buildingId) => settings.has(buildingId),
     saveFacility(row) {
       settings.set(row.buildingId, { ...row });
       store.saveFacility(row);

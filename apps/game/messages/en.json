@@ -7664,7 +7664,7 @@
   "harbor_release": "Release",
   "harbor_storage_note": "A finished boat keeps its dock until released. Someone else's boat pays {fee} {currency} per day starting {hours} h after it is done, settled on release. Long arrears mean impound, and once the arrears pass the boat's value it goes to the shipyard owner.",
   "harbor_repair_fee": "Repair fee at this shipyard: {fee} {currency}",
-  "harbor_fee_repair": "Service fee (one repair of another's boat — build orders pay a multiple)",
+  "harbor_fee_repair": "Service fee (one repair of another's boat — the shipyard pays materials and labor)",
   "harbor_refuel": "Refuel",
   "harbor_currency": "Fees in {currency}",
   "boat_fuel": "Fuel {percent}%",
@@ -8152,5 +8152,12 @@
   "dev_nations_temper_station": "Station attitude",
   "dev_nations_temper_leader": "Leader disposition",
   "dev_nations_temper_leader_desc": "Position within the leader-disposition range setting (+ = bold, − = cautious). 1000 = the end of the range.",
-  "dev_nations_temper_random": "Empty = random"
+  "dev_nations_temper_random": "Empty = random",
+  "harbor_repair_fair": "If you set no repair fee, each repair charges its fair price. For reference: fully repairing the first boat type costs {price} {currency}",
+  "harbor_repair_fee_fair": "Repair fee at this shipyard: each repair's fair price in {currency} (the shipyard pays materials and labor)",
+  "inbox_action_wait": "Wait",
+  "inbox_action_terminate": "End contract",
+  "inbox_action_waited": "Warning folded. The contract stays paused and resumes once the business earns again.",
+  "inbox_action_terminated": "Contract ended.",
+  "inbox_action_failed": "Could not do that. Try again from the economy screen."
 }

@@ -12,7 +12,7 @@
 //   바뀜 (D-569 1784 "거래소 반입은 실제 운반만"): 산 물건은 운반꾼(그 건물 일꾼 또는 산 사람의 유닛)이 그 도시의 산 사람 도시 창고로 걸어 나른다
 //   (carry 고리 — gather/station.ts haulOut). 운반꾼이 없으면 no_carrier(돈·물건 그대로). 옮김 셈을 끄거나 거리 0이면 예전처럼 바로 도시 창고로.
 // - 값 정하기: 주인·대주주. 원장 물자, 그리고 외주 수리 시간당 요금(REPAIR_SERVICE_ITEM — 수리 줄이 있는 공방만, 기획 D-570 1785 "요금은 주인이
-//   정한다"). 수리 요금을 정하지 않았으면 적정가(fairPrice.ts — 그 공방 일꾼 시간당 인건비·수수료·세금)로 받고, 0이면 외주를 받지 않는다.
+//   정한다"). 수리 요금을 정하지 않았으면 적정가(fairPrice.ts — 그 공방 시간당 재료비(2167)·일꾼 시간당 인건비·수수료·세금)로 받고, 0이면 외주를 받지 않는다.
 //   배 판매가(boat:<종류> — 기획 대조 2057·2072: 그 종류를 만드는 조선소만, 0 = 만들지 않음, 정하지 않으면 적정가 — boats/shipyard.ts).
 // - 지급준비율(D-564 1623): 주인 또는 대주주(D-570 1790 — D-555 1502). 정산이 이 비율로 금고에 돈을 남긴다(core.ts·reserve.ts).
 // - 선물(1508): 내 유닛의 유닛 지갑(@terra/shared/businessBooks unitPurseLocation)에 내 지갑 돈을 준다.
@@ -97,6 +97,8 @@ export interface BusinessCommandDeps {
   readonly repairShop?: ((buildingId: number) => boolean) | undefined;
   /** 그 공방 일꾼 시간당 인건비(labor/service.ts hourlyLabor — 적정가). 없으면 0 */
   readonly laborHourly?: ((buildingId: number) => bigint) | undefined;
+  /** 그 공방이 외주 수리에 내는 시간당 재료비(적정가 몫, 기획 대조 2167). 없으면 0 */
+  readonly materialsHourly?: ((buildingId: number) => bigint) | undefined;
   /** 그 건물(조선소)이 만드는 배 종류 ID(배 판매가 boat:<종류>를 정할 수 있다 — 기획 대조 2057). 없으면 빈 목록 */
   readonly boatTypes?: ((buildingId: number) => readonly string[]) | undefined;
 }
@@ -117,7 +119,7 @@ export interface BusinessCommands {
    */
   sellTo(buyer: number, buildingId: number, asset: string, qty: bigint, atMs: number): bigint;
   /**
-   * 외주 수리 시간당 적정가(기획 D-570 1822 — 재료는 맡기는 사람이 내므로 인건비·수수료·세금). 화면이 요금을 정할 때 곁에 보이고, 요금을
+   * 외주 수리 시간당 적정가(기획 D-570 1822 — 바뀜 2167: 공방이 내는 시간당 재료비 + 인건비 + 수수료 + 세금). 화면이 요금을 정할 때 곁에 보이고, 요금을
    * 정하지 않은 공방은 이 값으로 받는다
    */
   repairFair(buildingId: number): FairPrice;
@@ -159,6 +161,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     return hourlyFair(deps.laborHourly?.(buildingId) ?? 0n, {
       feePm: deps.rules().serviceFeePm,
       taxBp: ownerId === null ? 0 : core.taxRateOf(buildingId, ownerId),
+      materials: deps.materialsHourly?.(buildingId) ?? 0n,
     });
   };
   const repairRate = (buildingId: number): { perHour: bigint; set: boolean } => {

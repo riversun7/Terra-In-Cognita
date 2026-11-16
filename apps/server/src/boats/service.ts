@@ -61,6 +61,7 @@ import {
   isShipyard,
   isTradeDock,
   moduleUnlocked,
+  repairPlan,
   shipyardDocks,
   tradeSlots,
 } from "./rules.ts";
@@ -591,6 +592,22 @@ export function createBoatService(deps: BoatDeps): BoatService {
   }
 
   /** 배 시설 판 원본 */
+  /** 조선소 수리 요금 칸(2161): 주인이 정했나·참고 적정가 */
+  function repairTerms(
+    buildingId: number,
+    type: Parameters<typeof repairPlan>[0] | undefined,
+    modules: Parameters<typeof repairPlan>[3],
+  ): { feeSet: boolean; repairFair?: NonNullable<HarborPanel["repairFair"]> } {
+    const feeSet = harbor.facilitySet(buildingId);
+    const plan = type ? repairPlan(type, 0, deps.rules(), modules, false) : null;
+    if (!plan || !deps.fairOf) return { feeSet };
+    const catalog = deps.places()?.catalog();
+    let worth = 0n;
+    for (const stack of plan.materials)
+      worth += BigInt(stack.qty) * (catalog?.unitPriceOf?.(stack.item) ?? 1n);
+    return { feeSet, repairFair: deps.fairOf(buildingId, worth, plan.ms) };
+  }
+
   function panelOf(buildingId: number): HarborPanelSource | undefined {
     const found = findBuilding(maps, buildingId);
     const fac = facilityOf(deps.places(), buildingId);
@@ -679,6 +696,10 @@ export function createBoatService(deps: BoatDeps): BoatService {
       access: row.access,
       fee: row.fee,
       ...(isShipyard(fac.def) && typeViews[0]?.price !== undefined ? { orderFee: typeViews[0].price } : {}),
+      // 수리 요금(2161): 정했나와 참고 적정가(첫 배 종류를 선체 0에서 가득 — 재료는 조선소가 낸다)
+      ...(isShipyard(fac.def) && found.ownerId !== null
+        ? repairTerms(buildingId, fac.def.boats?.[0], row.modules)
+        : {}),
       module: row.modules[0] ?? null,
       modules: row.modules,
       moduleSlots: isShipyard(fac.def) ? shipyardModuleSlots(level) : 0,

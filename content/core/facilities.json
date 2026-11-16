@@ -1474,6 +1474,58 @@
       }
     },
     {
+      "id": "logistics_center",
+      "name": {
+        "ko": "물류센터",
+        "en": "Logistics center"
+      },
+      "stage": "transport",
+      "category": "storage",
+      "maxLevel": 3,
+      "slotsPerLevel": 4,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 10
+              },
+              {
+                "item": "stone",
+                "qty": 6
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 10
+              },
+              {
+                "item": "brick",
+                "qty": 6
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 250,
+      "logistics": true,
+      "look": {
+        "model": "storehouse",
+        "heightPm": 900
+      }
+    },
+    {
       "id": "goods_exchange",
       "name": {
         "ko": "물자 거래소",

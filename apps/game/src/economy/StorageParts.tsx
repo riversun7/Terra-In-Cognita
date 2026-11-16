@@ -5,10 +5,14 @@
 //   걸어 나른다(기획 D-569 1784). 내 사업장 물건(sale)은 꺼내지 못하고 건물 판 [장부]에서 판매가로 산다(1781) — 단추 대신 안내 한 줄.
 // - 거래소 건물(기획 D-561·D-564 1628, docs/adr/2026-11-16-exchange-buildings.md): 도시 창고 줄마다 [거래소로](그 도시 물자 거래소 건물 storage_move in —
 //   서버가 운반꾼으로 나른다), 거래소 건물 창고는 "물자 거래소 #id"로 보이고 [꺼내기](도시 창고로, 운반꾼)를 쓴다.
+// - 물류센터(기획 D-576, docs/adr/2026-11-16-logistics-center.md): [거래소로] 위에 운반 고르기 — 내 유닛(설정의 자동 맡기기를 켰으면 "내 유닛, 없으면
+//   물류센터" = via auto) 또는 그 도시 물류센터(한 단위 요금·나를 수 있는 일꾼 수, via = 건물 ID). 요금은 서버가 떠날 때 받는다.
 // - 바꾸는 명령은 WebSocket storage_move(프로토콜 11)이고, 화면은 가진 수로 단추만 막는다.
 import type { FacilitiesOverviewResponse, FacilityView, GoodsPlaceView } from "@terra/shared/facilities";
-import { useState } from "react";
+import type { HaulCenterView } from "@terra/shared/logistics";
+import { useId, useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { useSettings } from "../settings/settings.ts";
 import { type CityText, useCityText } from "./cityText.ts";
 import { fmt, pickName } from "./economyText.ts";
 import type { FacilityRun } from "./facilityText.ts";
@@ -146,6 +150,87 @@ export function StorageMoveForm({
   );
 }
 
+/** 운반 고르기 글: 물류센터 한 줄 */
+function centerLabel(center: HaulCenterView): string {
+  if (center.perUnit === "0") return m.facility_haul_center_closed({ id: center.buildingId });
+  return center.mine
+    ? m.facility_haul_center_mine({
+        id: center.buildingId,
+        price: fmt(center.perUnit),
+        workers: center.workers,
+      })
+    : m.facility_haul_center({ id: center.buildingId, price: fmt(center.perUnit), workers: center.workers });
+}
+
+/** 도시 창고 → 물자 거래소 건물 옮기기 단추들(물류센터 고르기 포함, D-576) */
+function ExchangeMoves({ place, run, busy }: { place: GoodsPlaceView; run: FacilityRun; busy: boolean }) {
+  const { device } = useSettings();
+  const [picked, setPicked] = useState("own");
+  const fieldId = useId();
+  const centers = place.haulCenters ?? [];
+  const open = centers.filter((center) => center.perUnit !== "0");
+  const choice = open.some((center) => String(center.buildingId) === picked) ? picked : "own";
+  const auto = device.autoHaul === true;
+  // 내 유닛 고르기: 자동 맡기기를 켰으면 auto(내 운반꾼이 없으면 가장 싼 물류센터), 아니면 via 없이
+  const via: number | "auto" | undefined = choice === "own" ? (auto ? "auto" : undefined) : Number(choice);
+  const unit = centers[0];
+  return (
+    <div className="facility-exchange-moves" data-part="facility-exchange-moves">
+      {centers.length === 0 ? null : (
+        <label className="eco-field" htmlFor={fieldId}>
+          <span className="visually-hidden">{m.facility_haul_pick()}</span>
+          <select
+            id={fieldId}
+            className="eco-select"
+            data-part="facility-haul-pick"
+            value={choice}
+            onChange={(event) => setPicked(event.target.value)}
+          >
+            <option value="own">{auto ? m.facility_haul_own_auto() : m.facility_haul_own()}</option>
+            {centers.map((center) => (
+              <option
+                key={center.buildingId}
+                value={String(center.buildingId)}
+                disabled={center.perUnit === "0"}
+              >
+                {centerLabel(center)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {unit === undefined ? null : (
+        <span className="eco-row-meta" data-part="facility-haul-unit">
+          {m.facility_haul_unit({ kg: fmt(BigInt(Math.floor(unit.unitG / 1000))), cells: unit.unitCells })}
+        </span>
+      )}
+      {place.lines
+        .filter((line) => line.item !== null)
+        .map((line) => (
+          <button
+            key={`exchange-${line.asset}`}
+            type="button"
+            className="button-small"
+            data-part="facility-to-exchange"
+            disabled={busy}
+            onClick={() =>
+              void run({
+                t: "storage_move",
+                buildingId: place.exchangeId ?? 0,
+                asset: line.asset,
+                qty: Math.min(MOVE_MAX, Number(line.qty)),
+                direction: "in",
+                ...(via === undefined ? {} : { via }),
+              })
+            }
+          >
+            {m.facility_to_exchange({ name: lineName(line) })}
+          </button>
+        ))}
+    </div>
+  );
+}
+
 /** 내 물건 자리 목록. 남의 건물 창고(임대 몫)는 줄마다 [꺼내기](그 도시의 내 도시 창고로) */
 export function PlacesList({
   data,
@@ -168,30 +253,9 @@ export function PlacesList({
               {place.lines.map((line) => `${lineName(line)} ${fmt(line.qty)}`).join(" · ")}
             </span>
           </div>
-          {place.kind === "city" && typeof place.exchangeId === "number"
-            ? place.lines
-                .filter((line) => line.item !== null)
-                .map((line) => (
-                  <button
-                    key={`exchange-${line.asset}`}
-                    type="button"
-                    className="button-small"
-                    data-part="facility-to-exchange"
-                    disabled={busy}
-                    onClick={() =>
-                      void run({
-                        t: "storage_move",
-                        buildingId: place.exchangeId ?? 0,
-                        asset: line.asset,
-                        qty: Math.min(MOVE_MAX, Number(line.qty)),
-                        direction: "in",
-                      })
-                    }
-                  >
-                    {m.facility_to_exchange({ name: lineName(line) })}
-                  </button>
-                ))
-            : null}
+          {place.kind === "city" && typeof place.exchangeId === "number" ? (
+            <ExchangeMoves place={place} run={run} busy={busy} />
+          ) : null}
           {place.kind === "building" && place.sale === true ? (
             <span className="eco-row-meta" data-part="facility-place-sale">
               {m.facility_place_sale_only()}

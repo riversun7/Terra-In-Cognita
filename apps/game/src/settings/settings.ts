@@ -181,6 +181,14 @@ export function chooseMarketColors(choice: MarketColorChoice): void {
   replaceDeviceSettings({ ...device, marketColors: choice });
 }
 
+/** 물류센터 자동 맡기기(D-576) — 기기에만 저장한다(시세 색과 같다). 켜면 운반 명령이 내 운반꾼이 없을 때 같은 도시의 가장 싼 물류센터에 맡긴다 */
+export function setAutoHaul(on: boolean): void {
+  const next: DeviceSettings = { ...device };
+  if (on) next.autoHaul = true;
+  else delete next.autoHaul;
+  replaceDeviceSettings(next);
+}
+
 /** 언어 바꾸기 — 로그인했으면 계정에 올린 뒤(최대 3초, 줄에서 기다리는 시간 포함) Paraglide로 바꾼다(새로고침) */
 export async function chooseLocale(locale: Locale): Promise<void> {
   const by = change({ locale });

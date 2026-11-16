@@ -122,4 +122,11 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
   ),
   k("exchange_fx_fee_bp", "exchangeFxFeeBp", "환전 이용료 적정 요율(만분율)", "Fair FX usage fee (bp)"),
   k("exchange_fx_fee_max_bp", "exchangeFxFeeMaxBp", "환전 이용료 위 끝(만분율)", "FX usage fee limit (bp)"),
+  k("business_haul_unit_g", "haulUnitG", "운반 대행 요금 단위 무게(g)", "Haul service fee unit weight (g)"),
+  k(
+    "business_haul_unit_cells",
+    "haulUnitCells",
+    "운반 대행 요금 단위 거리(칸)",
+    "Haul service fee unit distance (cells)",
+  ),
 ];

@@ -87,6 +87,8 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
     ...(entry.harbor === undefined ? {} : { harbor: entry.harbor }),
     // 거래소 종류(docs/adr/2026-11-16-exchange-buildings.md — 편집기는 고치지 않고 그대로 돌려보낸다)
     ...(entry.exchange === undefined ? {} : { exchange: entry.exchange }),
+    // 물류센터(docs/adr/2026-11-16-logistics-center.md — 편집기는 고치지 않고 그대로 돌려보낸다)
+    ...(entry.logistics === true ? { logistics: true as const } : {}),
     ...(entry.boats === undefined
       ? {}
       : {

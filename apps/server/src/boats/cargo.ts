@@ -9,6 +9,8 @@
 //   운반꾼·시간 셈). 운반꾼 = 그 배 시설 일꾼 → 배 주인의 그 2차맵 휴먼·사이보그 유닛(배에 탄 유닛은 빼낸다). 쓸 유닛이 없으면 no_carrier(물건은 그대로).
 //   내리는 짐은 떠날 때 배 창고에서 운반꾼 화물로 간다(배 창고가 바로 빈다). 싣는 짐은 떠날 때 물건 자리에서 운반꾼 화물로 가고, 닿을 때 배가 그 항구에
 //   없으면(떠남·시간 끝·주인 바뀜) 꺼낸 자리로 돌려놓는다. 옮김 셈 끔·거리 0·운반 고리가 없으면 예전처럼 바로 옮긴다(거래 하나).
+// - 물류센터(기획 D-576, docs/adr/2026-11-16-logistics-center.md): 명령의 via(물류센터 건물 ID | auto)를 운반에 넘긴다(station.ts carry). 물류센터 쪽 실패는
+//   no_shop_worker → no_carrier, service_closed → unavailable, insufficient_funds는 그대로.
 // - 창고 시설(무게 상한)로는 내리지 않는다 — 도시 창고는 상한이 없다(질문 411). NPC 배는 내리기·싣기를 쓰지 않는다(npcFleet.ts).
 import { cargoLocation } from "@terra/shared/goodsPlaces";
 import type { CarryResult } from "../gather/station.ts";
@@ -24,7 +26,13 @@ import { type Port, portFailed, portOf } from "./port.ts";
 
 export interface Cargo {
   /** 배 창고를 그 항구의 물건 자리로 내린다(me = 부르는 소유 주체) */
-  unload(me: number | undefined, boatId: number, buildingId: number, operator: boolean): BoatCommandResult;
+  unload(
+    me: number | undefined,
+    boatId: number,
+    buildingId: number,
+    operator: boolean,
+    via?: number | "auto",
+  ): BoatCommandResult;
   /** 그 항구의 물건 자리에서 아이템을 묶음 수만큼 배 창고에 싣는다 */
   load(
     me: number | undefined,
@@ -33,6 +41,7 @@ export interface Cargo {
     item: string,
     lots: number,
     operator: boolean,
+    via?: number | "auto",
   ): BoatCommandResult;
 }
 
@@ -80,6 +89,8 @@ export function loadableOf(
 
 /** 운반 결과 → 배 명령 결과(운반꾼이 걷는 중이면 닿는 시각) */
 function carried(result: CarryResult, boatId: number, atMs: number): BoatCommandResult {
+  if (result === "insufficient_funds") return fail("insufficient_funds");
+  if (result === "service_closed") return fail("unavailable");
   if (typeof result === "string") return fail("no_carrier");
   return result.arriveAtMs > atMs
     ? { ok: true, boatId, walking: true, readyAtMs: result.arriveAtMs }
@@ -122,7 +133,7 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
   };
 
   return {
-    unload(me, boatId, buildingId, operator) {
+    unload(me, boatId, buildingId, operator, via) {
       const port = portOf(deps, harbor, me, boatId, buildingId, operator);
       if (portFailed(port)) return port;
       const owner = port.boatOwner;
@@ -156,10 +167,11 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
         loads: stacks.map((stack) => ({ asset: stack.asset, qty: stack.qty })),
         atMs: at,
         instantKind: "boat_unload",
+        via,
       });
       return carried(result, boatId, at);
     },
-    load(me, boatId, buildingId, item, lots, operator) {
+    load(me, boatId, buildingId, item, lots, operator, via) {
       const port = portOf(deps, harbor, me, boatId, buildingId, operator);
       if (portFailed(port)) return port;
       const catalog = deps.places()?.catalog();
@@ -211,6 +223,7 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
           loads: [{ asset, qty: take.qty }],
           atMs: at,
           instantKind: "boat_load",
+          via,
           // 닿을 때 배가 그 항구에 없으면(떠남·시간 끝·주인 바뀜) 꺼낸 자리로
           redirect: () =>
             portFailed(portOf(deps, harbor, owner, boatId, buildingId, false)) ? take.location : undefined,

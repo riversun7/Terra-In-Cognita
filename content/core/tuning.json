@@ -13328,6 +13328,42 @@
       "source": "줄기 exchange-3 (질문 2086) [임시] — 입력 한도"
     },
     {
+      "id": "business_haul_unit_g",
+      "code": "",
+      "name": {
+        "ko": "운반 대행 요금 단위 무게(g)",
+        "en": "Haul service fee unit weight (g)"
+      },
+      "value": 100000,
+      "structural": false,
+      "unit": "grams",
+      "min": 1,
+      "max": 100000000,
+      "desc": {
+        "ko": "물류센터 운반 대행 요금 한 단위의 무게. 운반 한 번의 단위 수 = ⌈짐 무게 ÷ 이 값⌉ × ⌈걷는 칸 ÷ 단위 거리⌉(짐이 있으면 적어도 1), 요금 = 주인이 정한 한 단위 요금(정하지 않으면 적정가) × 단위 수.",
+        "en": "Weight of one haul service fee unit at a logistics center. Units per haul = ⌈cargo weight ÷ this⌉ × ⌈cells walked ÷ unit distance⌉ (at least 1 when there is cargo); fee = the owner-set price per unit (fair price if unset) × units."
+      },
+      "source": "D-576 · 질문 2213 요금 단위 나(\"100kg × 10칸마다\") [임시] · 줄기 logistics"
+    },
+    {
+      "id": "business_haul_unit_cells",
+      "code": "",
+      "name": {
+        "ko": "운반 대행 요금 단위 거리(칸)",
+        "en": "Haul service fee unit distance (cells)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 10000,
+      "desc": {
+        "ko": "물류센터 운반 대행 요금 한 단위의 거리(배치 칸, 체비셰프). 단위 무게와 함께 요금 단위를 정한다.",
+        "en": "Distance of one haul service fee unit (placement cells, Chebyshev). Sets the fee unit together with the unit weight."
+      },
+      "source": "D-576 · 질문 2213 요금 단위 나 [임시] · 줄기 logistics"
+    },
+    {
       "id": "moves_knock_wall_pm",
       "code": "",
       "name": {

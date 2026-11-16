@@ -19,7 +19,7 @@ import {
   languageMarketColors,
 } from "./marketColors.ts";
 import { buildInfo } from "./buildInfo.ts";
-import { chooseMarketColors, chooseTheme, setFollowSystem, useSettings } from "./settings.ts";
+import { chooseMarketColors, chooseTheme, setAutoHaul, setFollowSystem, useSettings } from "./settings.ts";
 import { VersionRow } from "./VersionRow.tsx";
 import "./settings.css";
 
@@ -133,6 +133,9 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
   const followId = useId();
   const followNameId = useId();
   const followHintId = useId();
+  const haulId = useId();
+  const haulNameId = useId();
+  const haulHintId = useId();
 
   return (
     <section className="screen settings" aria-labelledby="settings-title">
@@ -176,6 +179,29 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
       </label>
       <LanguageSelect variant="field" />
       <MarketColorsSelect value={device.marketColors ?? "language"} />
+      {/* 물류센터 자동 맡기기(기획 D-576 — 기기에만, 기본 끔) */}
+      <label className="setting-row" htmlFor={haulId} data-part="settings-auto-haul">
+        <span className="setting-text">
+          <span className="setting-name" id={haulNameId}>
+            {m.settings_auto_haul()}
+          </span>
+          <span className="setting-hint" id={haulHintId}>
+            {m.settings_auto_haul_hint()}
+          </span>
+        </span>
+        <input
+          id={haulId}
+          type="checkbox"
+          name="auto-haul"
+          role="switch"
+          className="switch-input visually-hidden"
+          checked={device.autoHaul === true}
+          onChange={(event) => setAutoHaul(event.target.checked)}
+          aria-labelledby={haulNameId}
+          aria-describedby={haulHintId}
+        />
+        <span className="switch-track" aria-hidden="true" />
+      </label>
       <NavigationSettings />
       <fieldset className="settings-section">
         <legend className="section-title">{m.settings_help_legend()}</legend>

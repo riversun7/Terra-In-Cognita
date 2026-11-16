@@ -57,6 +57,8 @@ export interface FacilityDef {
   readonly boats?: readonly BoatTypeDef[] | undefined;
   /** 거래소 종류(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md). 없으면 거래소가 아니다 */
   readonly exchange?: ExchangeKind | undefined;
+  /** 물류센터(운반 대행 사업장 — docs/adr/2026-11-16-logistics-center.md). 없으면 물류센터가 아니다 */
+  readonly logistics?: true | undefined;
 }
 
 /** 배 종류 한 줄(팩 참조를 ID 글자로) */
@@ -145,6 +147,7 @@ function defOf(entry: FacilityEntry): FacilityDef {
     look: cleanFacilityLook(entry.look),
     ...(entry.harbor === undefined ? {} : { harbor: entry.harbor }),
     ...(entry.exchange === undefined ? {} : { exchange: entry.exchange }),
+    ...(entry.logistics === true ? { logistics: true as const } : {}),
     ...(entry.boats === undefined
       ? {}
       : {

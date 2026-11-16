@@ -265,6 +265,12 @@ export const facilityEntrySchema = z.strictObject({
    * units = 유닛 거래소(D-242, 기능 전 잠금), securities = 증권 거래소(D-393·D-409 출시 뒤 잠금). 상업 단계(commerce)에만 쓴다. 없으면 거래소가 아니다
    */
   exchange: z.enum(EXCHANGE_KINDS).optional(),
+  /**
+   * 물류센터(운반 대행 사업장 — 기획 D-555 1505 "운반을 대행하는 서비스업종(물류센터같이)", D-560 분류 저장·물류, D-576, docs/adr/2026-11-16-logistics-center.md):
+   * true면 이 시설 일꾼(직무 배치·노동 계약)이 운반꾼으로 남이 맡긴 짐(거래소 넣기·배 상하역)을 실제로 지고 걷는다. 요금은 주인이 정한다(business_price
+   * service:haul). 교통 단계(transport)에만 둔다(창고 단계면 물건을 넣는 창고로 읽힌다). 없으면 물류센터가 아니다
+   */
+  logistics: z.literal(true).optional(),
   look: z
     .strictObject({
       model: z.enum(FACILITY_LOOK_MODELS).optional(),

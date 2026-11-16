@@ -41,6 +41,7 @@ import { ASSET_CREDIT } from "../world/settlement.ts";
 import { DEFAULT_TAX_BP } from "../npc/currency.ts";
 import { TEST_PLANET_ID } from "../world/testMaps.ts";
 import type { LoadedFacilities } from "./state.ts";
+import { type HaulService, createHaulService } from "../logistics/haulService.ts";
 
 /** 월드 설정의 건물 칸(app.ts가 실효 콘텐츠 접근자를 넘긴다) */
 export interface FacilitiesConfig {
@@ -96,6 +97,10 @@ export interface WorldFacilities {
   readonly shares: ShareMarkets;
   /** 그 도시 행정 레벨(모르면 undefined — 소매 도시 판단) */
   cityAdminLevel(cityId: number): number | undefined;
+  /** 물류센터 운반 대행(기획 D-576 — logistics/haulService.ts, docs/adr/2026-11-16-logistics-center.md) */
+  readonly haul: HaulService;
+  /** 물류센터의 지금 나를 수 있는 일꾼 수를 잇는다(채집 세계의 운반꾼 — gather/station.ts freeStaff) */
+  attachHaulStaff(read: (buildingId: number, mapKey: number, nowMs: number) => number): void;
 }
 
 /** 유닛의 지금 쉼터(labor/workerRest.ts restOf의 모양). 일꾼이 아니면 undefined */
@@ -185,8 +190,9 @@ export function gatherSiteOf(
 }
 
 /**
- * 채집이 아닌 일터면 다 지은 레벨·자리 수(레벨 × 레벨당 자리). 아니면 undefined. 병원(의료 단계 시설, D-521 — 의사), 그리고 장비 수리 줄이 있는
- * 공방(기획 D-570 1785 "그 공방(사업장) 일꾼이 고친다" — 외주 수리 일꾼, 레벨당 자리가 0이면 1 [임시])
+ * 채집이 아닌 일터면 다 지은 레벨·자리 수(레벨 × 레벨당 자리). 아니면 undefined. 병원(의료 단계 시설, D-521 — 의사), 물류센터(운반꾼 — 기획 D-576,
+ * docs/adr/2026-11-16-logistics-center.md), 그리고 장비 수리 줄이 있는 공방(기획 D-570 1785 "그 공방(사업장) 일꾼이 고친다" — 외주 수리 일꾼, 레벨당 자리가
+ * 0이면 1 [임시])
  */
 export function medicalSiteOf(
   service: Pick<FacilityService, "facilities">,
@@ -196,7 +202,7 @@ export function medicalSiteOf(
   const record = service.facilities.get(buildingId);
   const def = record ? catalog.facility(record.facilityId) : undefined;
   if (!record || !def) return undefined;
-  if (def.stage === "medical")
+  if (def.stage === "medical" || def.logistics === true)
     return { level: record.level, slots: Math.max(0, record.level) * Math.max(0, def.slotsPerLevel) };
   if ((def.repair?.length ?? 0) === 0) return undefined;
   return { level: record.level, slots: Math.max(0, record.level) * Math.max(1, def.slotsPerLevel) };
@@ -360,6 +366,9 @@ export function createWorldFacilities(input: {
       return (catalog().facility(record?.facilityId ?? "")?.repair?.length ?? 0) > 0;
     },
     laborHourly: (buildingId) => labor?.hourlyLabor(buildingId) ?? 0n,
+    // 물류센터 운반 대행 한 단위 요금(D-576)
+    haulShop: (buildingId) =>
+      catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.logistics === true,
     // 환전 이용료 요율(질문 2086): 외환 거래소
     fxShop: (buildingId) =>
       catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.exchange === "fx",
@@ -372,6 +381,23 @@ export function createWorldFacilities(input: {
       ),
   });
   service.attachBusiness(commands);
+  // 물류센터 운반 대행(D-576): 요금은 주인이 정한 한 단위 값(없으면 적정가), 떠날 때 맡긴 사람 지갑 → 그 사업장 금고
+  let haulStaff: ((buildingId: number, mapKey: number, nowMs: number) => number) | undefined;
+  const haul = createHaulService({
+    places: () => service.places,
+    works: (buildingId) => service.works(buildingId),
+    price: (buildingId, item) => core.price(buildingId, item),
+    taxRateOf: (buildingId, ownerId) => core.taxRateOf(buildingId, ownerId),
+    suspended: (buildingId) => core.suspended(buildingId),
+    laborHourly: (buildingId) => labor?.hourlyLabor(buildingId) ?? 0n,
+    workerCount: (buildingId) => labor?.workersAt(buildingId).length ?? 0,
+    freeStaff: (buildingId, mapKey, nowMs) =>
+      haulStaff?.(buildingId, mapKey, nowMs) ?? labor?.workersAt(buildingId).length ?? 0,
+    rules: input.rules,
+    charge: (ownerId, buildingId, fee, kind, atMs) =>
+      commands.chargeService(ownerId, buildingId, fee, kind, atMs),
+    now: input.now,
+  });
   const attack = createBuildingAttack({
     ...input.battles,
     maps: input.maps,
@@ -523,5 +549,9 @@ export function createWorldFacilities(input: {
     businessCommands: commands,
     shares: shareMarkets,
     cityAdminLevel: (cityId) => npcCity(cityId)?.adminLevel,
+    haul,
+    attachHaulStaff(read) {
+      haulStaff = read;
+    },
   };
 }

@@ -106,6 +106,15 @@ function sampleBooks(data: unknown): void {
     fair: { materials: "0", labor: "100", fee: "20", tax: "6", price: "126" },
     workers: 2,
   });
+  // 운반 대행 요금 칸(물류센터, D-576 — 견본 건물은 물류센터가 아니어도 칸을 그린다)
+  Reflect.set(data, "haulService", {
+    perUnit: null,
+    charged: "1250000",
+    fair: { materials: "0", labor: "1000000", fee: "200000", tax: "50000", price: "1250000" },
+    unitG: 100_000,
+    unitCells: 10,
+    workers: 3,
+  });
 }
 
 /** 내 2차맵을 열고 시작 도시 시설(사업장) 하나의 건물 판을 연다. 건물 ID */
@@ -325,6 +334,13 @@ for (const look of LOOKS) {
       await expect(repair.locator('[data-part="repair-service-fair"]')).toBeVisible();
       await repair.scrollIntoViewIfNeeded();
       await elementShot(repair, `building-repair-service-390-${look.theme}-${look.language}`);
+      // 운반 대행 요금·적정가(D-576·D-570 1822)
+      const haul = sheet.locator('[data-part="books-haul-service"]');
+      await expect(haul.locator('[data-part="haul-service-fair"]')).toBeVisible();
+      await expect(haul.locator('[data-part="haul-service-unit"]')).toBeVisible();
+      await haul.scrollIntoViewIfNeeded();
+      expect(await horizontalOverflow(page)).toEqual([]);
+      await elementShot(haul, `building-haul-service-390-${look.theme}-${look.language}`);
       expect(deviceErrors).toEqual([]);
     });
   });

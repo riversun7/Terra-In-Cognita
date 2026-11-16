@@ -64,6 +64,12 @@ export const REPAIR_SERVICE_ITEM = "service:equipment_repair";
  */
 export const FX_FEE_ITEM = "service:fx_fee";
 
+/**
+ * 물류센터 운반 대행 요금 줄의 값 칸 이름(기획 D-576·D-570 1822, docs/adr/2026-11-16-logistics-center.md). 값 = 운반 한 단위(설정 칸 무게 × 칸 수 —
+ * 질문 2213 요금 단위 나)마다 요금(주인이 정한다, 0 = 받지 않음), 줄이 없으면 적정가
+ */
+export const HAUL_SERVICE_ITEM = "service:haul";
+
 /** 사업장 적자 시스템 계정 코드(잔고 음수 = 갚을 돈) */
 export function businessDebtCode(buildingId: number, asset: string): string {
   return `debt:business:${buildingId}:${asset}`;
@@ -113,6 +119,8 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   exchange_fee: "income",
   exchange_locker: "income",
   fx_fee: "income",
+  // 물류센터 운반 대행 요금(기획 D-576, docs/adr/2026-11-16-logistics-center.md)
+  haul_service: "income",
   // 판매(사업장 창고에서 판 것 — 주인이 꺼낼 때도 값을 낸다, D-555 1507). NPC 시설 산출을 그 도시(나라)가 사들인 것도(D-570 1887)
   business_sale: "sales",
   // 조선소 배 판매가(기획 대조 2057·2072 — 주문자·주인 모두 판매가를 낸다, D-569 1781)
@@ -350,6 +358,21 @@ export interface FxFeeView {
   readonly maxBp: number;
 }
 
+/** 물류센터 운반 대행(물류센터만 — 기획 D-576·D-570 1822, docs/adr/2026-11-16-logistics-center.md) */
+export interface HaulServiceView {
+  /** 주인이 정한 한 단위 요금(최소 단위 글자). 정하지 않았으면 null(적정가로 받는다) */
+  readonly perUnit: string | null;
+  /** 지금 받는 한 단위 요금(정한 값, 없으면 적정가). 0이면 받지 않는다 */
+  readonly charged: string;
+  /** 한 단위 적정가(운반꾼 한 명 인건비 × 한 단위 나르는 시간 + 수수료 + 세금) */
+  readonly fair: FairPriceView;
+  /** 한 단위 = 이 무게(g) × 이 칸 수(설정 칸 business_haul_unit_g·business_haul_unit_cells) */
+  readonly unitG: number;
+  readonly unitCells: number;
+  /** 지금 나를 수 있는 그 물류센터 일꾼 수(나르는 중 빼고) */
+  readonly workers: number;
+}
+
 export interface RepairServiceView {
   /** 주인이 정한 시간당 요금(최소 단위 글자). 정하지 않았으면 null(적정가로 받는다) */
   readonly perHour: string | null;
@@ -427,6 +450,8 @@ export type BusinessBooksResponse =
       readonly repairService?: RepairServiceView | undefined;
       /** 환전 이용료(외환 거래소만, 질문 2086). 옛 응답에는 없다 */
       readonly fxFee?: FxFeeView | undefined;
+      /** 운반 대행(물류센터만, D-576). 옛 응답에는 없다 */
+      readonly haulService?: HaulServiceView | undefined;
       readonly vault: readonly BookBalance[];
       /** 갚을 돈(적자, 화폐별 양수) */
       readonly debt: readonly BookBalance[];

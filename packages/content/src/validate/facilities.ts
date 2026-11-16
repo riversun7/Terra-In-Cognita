@@ -44,6 +44,7 @@ export function checkFacilities(pack: ContentPack): ContentIssue[] {
   for (const facility of pack.entries.get("facilities") ?? []) {
     checkHarbor(facility, error);
     checkExchange(facility, error);
+    checkLogistics(facility, error);
     const build = get(facility, "build");
     if (build === undefined) continue;
     const maxLevel = get(facility, "maxLevel");
@@ -124,6 +125,29 @@ function checkExchange(
       "exchange",
       "commerce_needs_exchange",
       "상업 단계(commerce) 시설에는 거래소 종류(exchange)를 적습니다.",
+    );
+}
+
+/** 물류센터 칸 검사(docs/adr/2026-11-16-logistics-center.md): 교통 단계에만, 배 시설·거래소와 겹치지 않게, 일하는 자리가 있어야 한다 */
+function checkLogistics(
+  facility: { readonly id: string },
+  error: (id: string, path: string, code: string, message: string) => void,
+): void {
+  if (get(facility, "logistics") !== true) return;
+  if (get(facility, "stage") !== "transport" || get(facility, "harbor") !== undefined)
+    error(
+      facility.id,
+      "logistics",
+      "logistics_needs_transport",
+      "물류센터(logistics)는 교통 단계(transport)이고 배 시설(harbor)이 아니어야 합니다.",
+    );
+  const slots = get(facility, "slotsPerLevel");
+  if (typeof slots !== "number" || slots < 1)
+    error(
+      facility.id,
+      "slotsPerLevel",
+      "logistics_needs_slots",
+      "물류센터(logistics)에는 운반꾼이 일할 자리(slotsPerLevel 1 이상)가 있어야 합니다.",
     );
 }
 

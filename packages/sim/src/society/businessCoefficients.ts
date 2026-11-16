@@ -85,6 +85,13 @@ export interface BusinessCoefficients {
   readonly exchangeFxFeeBp: number;
   /** [임시] 외환 거래소 주인이 정할 수 있는 환전 이용료 위 끝(만분율) */
   readonly exchangeFxFeeMaxBp: number;
+  /**
+   * [임시] 물류센터 운반 대행 요금 한 단위의 무게(g, 질문 2213 요금 단위 나 "100kg × 10칸마다" — 기획 D-576 "기술 추천", docs/adr/2026-11-16-logistics-center.md).
+   * 단위 수 = ⌈짐 무게 ÷ 이 값⌉ × ⌈칸 ÷ haulUnitCells⌉(@terra/shared/logistics haulUnits). 서버만 읽는다
+   */
+  readonly haulUnitG: number;
+  /** [임시] 물류센터 운반 대행 요금 한 단위의 칸 수(체비셰프 배치 칸) */
+  readonly haulUnitCells: number;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -111,4 +118,6 @@ export const START_BUSINESS: BusinessCoefficients = {
   exchangeDeskHaulPm: 500,
   exchangeFxFeeBp: 50,
   exchangeFxFeeMaxBp: 1000,
+  haulUnitG: 100_000,
+  haulUnitCells: 10,
 };

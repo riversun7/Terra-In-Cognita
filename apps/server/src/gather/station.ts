@@ -38,6 +38,10 @@
 //   exchange_desk_haul_pm 배(haulTime). 묶음 1116n부터 거래소 넣기도 아래 carry 한 길이다.
 // - 배 상하역(기획 D-555 1505 "어떤 유닛이든 실제로 옮겨야", boats/cargo.ts): 거래소 넣기와 같은 운반 하나(carry)로 배 창고 ↔ 항구 옆 거래소 건물 창고·
 //   도시 창고를 나른다. 운반꾼은 그 배 시설 일꾼 → 배 주인의 그 2차맵 유닛(배에 탄 유닛은 빼낸다 — gather/world.ts ownUnits).
+// - 물류센터(운반 대행, 기획 D-555 1505·D-576, docs/adr/2026-11-16-logistics-center.md): 명령이 물류센터를 고르면(CarrySpec via = 건물 ID) 그 물류센터 일꾼만
+//   운반꾼이 되고(porter.ts pick service), 떠날 때 요금(한 단위 요금 × 단위 수, logistics/haulService.ts)을 물건 주인 지갑에서 그 사업장 금고로 낸다.
+//   via = auto(설정의 자동 맡기기)는 내 운반꾼이 없을 때만 같은 도시의 받는 물류센터를 한 단위 요금이 싼 차례로 본다(나를 일꾼이 있는 첫 곳). 짐의 건물 =
+//   그 물류센터(합치기·닿는 시각은 같은 셈).
 // - 오브젝트 규칙(기획 D-552 "직접 채집과 일꾼 채집이 같은 규칙", docs/adr/2026-11-15-gather-object-tiers.md): objects 채집소 일꾼의 k번째 묶음은
 //   번수를 쓸 차례(가까운 것부터)의 k번째 오브젝트 규칙(사다리·티어 범위·대표 아이템·굴림표 — objectYield.ts objectRollOf)으로 굴린다(lotRoll).
 // [임시] 일꾼 상태·끝낸 묶음 수·피로 나머지는 메모리에만 있다(다시 켜면 0부터). 정산이 길게 밀리면(오프라인) 그 사이 다시 자란 번수는 세지 못하고
@@ -58,6 +62,7 @@ import { type ObjectRoll, objectRollOf } from "./objectYield.ts";
 import { createPorters } from "./porter.ts";
 import { type StationBuffs, cellDistance2, regrowMs, stationBuffs } from "./rules.ts";
 import type { ObjectStore } from "./state.ts";
+import type { HaulCarryHook } from "../logistics/haulService.ts";
 
 /** 채집소 하나(지금 상태) */
 export interface StationSite {
@@ -140,6 +145,8 @@ export interface StationDeps {
   readonly ownerSale?:
     | ((ownerId: number, buildingId: number, asset: string, qty: bigint, atMs: number) => bigint)
     | undefined;
+  /** 물류센터 운반 대행(기획 D-576 — logistics/haulService.ts). 없으면 맡기지 못한다(via 건물 ID = service_closed, auto = 내 운반꾼만) */
+  readonly haulService?: HaulCarryHook | undefined;
 }
 
 /** 옮김 길의 출발 건물(채집소 또는 다른 시설 건물, D-569 1784) */
@@ -212,7 +219,10 @@ export interface StationRuntime {
     asset: string,
     qty: bigint,
     atMs: number,
+    via?: number | "auto",
   ): FacilityResultCode | null | undefined;
+  /** 물류센터의 지금 나를 수 있는 일꾼 수(화면 — porter.ts freeStaff) */
+  freeStaff(buildingId: number, mapKey: number, nowMs: number): number;
   /** 실제 운반 하나(CarrySpec — 거래소 넣기·배 상하역이 같이 쓴다) */
   carry(spec: CarrySpec): CarryResult;
   /** 그 원장 자리로 나르는 중인 짐 무게(g) — 배 싣기가 창고 상한에 미리 센다 */
@@ -240,13 +250,19 @@ export interface CarrySpec {
   readonly instantKind: string;
   /** 닿을 때 받을 자리를 다시 고른다(porter.ts PorterTrip.redirect) */
   readonly redirect?: (() => number | undefined) | undefined;
+  /** 물류센터에 맡기기(기획 D-576): 건물 ID = 그 물류센터, auto = 내 운반꾼이 없으면 같은 도시의 가장 싼 곳. 없으면 내 운반꾼만 */
+  readonly via?: number | "auto" | undefined;
 }
 
 /** 실제 운반 결과: 닿는 시각(바로 옮겼으면 atMs, porter 없음)이나 운반꾼이 없는 까닭 */
 export type CarryResult =
   | { readonly arriveAtMs: number; readonly porter?: number }
   | "unit_busy"
-  | "unknown_unit";
+  | "unknown_unit"
+  // 물류센터(D-576): 나를 일꾼 없음·받지 않음(고를 수 없는 건물 포함)·요금 모자람
+  | "no_shop_worker"
+  | "service_closed"
+  | "insufficient_funds";
 
 /** setTimeout 지연 상한 */
 const MAX_TIMER_MS = 0x7fff_ffff;
@@ -763,8 +779,18 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       if (entries.length > 0) ledger.post({ kind: spec.instantKind, atMs: spec.atMs, entries });
       return { arriveAtMs: spec.atMs };
     }
+    const service = deps.haulService;
+    // 물류센터를 고른 명령(D-576)은 그 물류센터 일꾼만 — 내 운반꾼으로 넘어가지 않는다
+    if (typeof spec.via === "number")
+      return service
+        ? (viaCenter(spec, service, loads, grams, cells, true) ?? "no_shop_worker")
+        : "service_closed";
     const porter = porters.pick(spec.buildingId, spec.mapKey, spec.ownerId, spec.atMs);
     if (porter === undefined) {
+      // 자동 맡기기(설정, D-576): 내 운반꾼이 없으면 같은 도시의 받는 물류센터(싼 차례)
+      const auto =
+        spec.via === "auto" && service ? viaCenter(spec, service, loads, grams, cells, false) : undefined;
+      if (auto !== undefined) return auto;
       const map = maps.get(spec.mapKey);
       // 거래소 거래 직무 자리(질문 2084)는 나를 위해 일하는 유닛만 후보다(porter.ts pick과 같은 걸러내기)
       const desk = deps.deskHaulPm?.(spec.buildingId) !== undefined;
@@ -776,8 +802,19 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       ];
       return candidates.some((unitId) => map?.unitInfo(unitId) !== undefined) ? "unit_busy" : "unknown_unit";
     }
+    return departCarry(spec, spec.buildingId, porter, loads, cells);
+  };
+
+  /** 짐 하나를 떠나보낸다(buildingId = 운반꾼을 고른 건물 — 물류센터에 맡겼으면 그 물류센터) */
+  const departCarry = (
+    spec: CarrySpec,
+    buildingId: number,
+    porter: number,
+    loads: readonly { asset: string; qty: bigint; grams: bigint }[],
+    cells: number,
+  ): CarryResult => {
     const trip = porters.depart({
-      buildingId: spec.buildingId,
+      buildingId,
       ownerId: spec.ownerId,
       cityId: spec.cityId,
       mapKey: spec.mapKey,
@@ -788,13 +825,36 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       to: spec.to,
       nowMs: spec.atMs,
       // 운영자 빠르기·거래 직무 배율(haulTime — 거래소 넣기에서 거래 직무 유닛이 나르면 exchange_desk_haul_pm배, 질문 2084)
-      timeMs: (total) =>
-        haulTime(haulMs(total, cells, 1, deps.rules()), spec.mapKey, spec.buildingId, porter),
+      timeMs: (total) => haulTime(haulMs(total, cells, 1, deps.rules()), spec.mapKey, buildingId, porter),
       deliverTo: spec.deliverTo,
       redirect: spec.redirect,
     });
     rearm();
     return { arriveAtMs: trip.arriveAtMs, porter };
+  };
+
+  /**
+   * 물류센터에 맡긴다(기획 D-576, logistics/haulService.ts): 후보(고른 곳 하나 또는 싼 차례) 가운데 나를 일꾼이 있는 첫 곳의 일꾼이 지고, 떠날 때 요금을 낸다.
+   * strict = 명령이 고른 곳(받지 않으면 그 코드). 맡기지 못하면 undefined(고른 곳이면 부르는 쪽이 no_shop_worker)
+   */
+  const viaCenter = (
+    spec: CarrySpec,
+    service: HaulCarryHook,
+    loads: readonly { asset: string; qty: bigint; grams: bigint }[],
+    grams: bigint,
+    cells: number,
+    strict: boolean,
+  ): CarryResult | undefined => {
+    const candidates = service.centers(spec.via ?? "auto", spec);
+    if (typeof candidates === "string") return strict ? candidates : undefined;
+    for (const centerId of candidates) {
+      const porter = porters.pick(centerId, spec.mapKey, spec.ownerId, spec.atMs, true);
+      if (porter === undefined) continue;
+      const paid = service.pay(spec.ownerId, centerId, service.fee(centerId, grams, cells), spec.atMs);
+      if (paid !== null) return paid;
+      return departCarry(spec, centerId, porter, loads, cells);
+    }
+    return undefined;
   };
 
   const inbound = (location: number): bigint => {
@@ -809,6 +869,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     asset: string,
     qty: bigint,
     atMs: number,
+    via?: number | "auto",
   ): FacilityResultCode | null | undefined => {
     const world = deps.places();
     const target = placeOf(buildingId);
@@ -832,6 +893,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       loads: [{ asset, qty }],
       atMs,
       instantKind: "exchange_deposit",
+      via,
     });
     return typeof carried === "string" ? carried : null;
   };
@@ -903,6 +965,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     haulIn,
     carry,
     inbound,
+    freeStaff: (buildingId, mapKey, nowMs) => porters.freeStaff(buildingId, mapKey, nowMs),
     stop() {
       stopped = true;
       if (timer) clearTimeout(timer);

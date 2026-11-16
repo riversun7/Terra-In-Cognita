@@ -202,7 +202,10 @@ export function createBoatGateway(options: {
           case "boat_seize":
             return reply(message.id, service.voyage.seize(owner(), message.boatId, message.unitId, operator));
           case "boat_unload":
-            return reply(message.id, service.unload(owner(), message.boatId, message.buildingId, operator));
+            return reply(
+              message.id,
+              service.unload(owner(), message.boatId, message.buildingId, operator, message.via),
+            );
           case "boat_gear":
             return reply(
               message.id,
@@ -211,7 +214,15 @@ export function createBoatGateway(options: {
           case "boat_load":
             return reply(
               message.id,
-              service.load(owner(), message.boatId, message.buildingId, message.item, message.lots, operator),
+              service.load(
+                owner(),
+                message.boatId,
+                message.buildingId,
+                message.item,
+                message.lots,
+                operator,
+                message.via,
+              ),
             );
           default: {
             const unknown: never = message;

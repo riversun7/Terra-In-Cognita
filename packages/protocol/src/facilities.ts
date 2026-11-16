@@ -50,6 +50,12 @@ export const OUTSOURCE_PROTOCOL_VERSION = 48;
  * 기기는 보내지 않는다(서버는 기본 선택으로 본다)
  */
 export const LAND_CLAIM_PROTOCOL_VERSION = 53;
+/**
+ * 물류센터에 운반 맡기기(기획 D-555 1505·D-576, docs/adr/2026-11-16-logistics-center.md): storage_move(거래소 넣기)·boat_unload·boat_load의 선택 칸 via가
+ * 생긴 판. 더 낮은 판 기기는 보내지 않는다(서버는 예전처럼 내 운반꾼으로). 물류센터 쪽 실패는 있는 코드 no_shop_worker(나를 일꾼 없음)·service_closed(받지
+ * 않음·고를 수 없는 건물)·insufficient_funds(요금 모자람)로 답한다(배 메시지는 boats.ts legacyHaulCode)
+ */
+export const LOGISTICS_PROTOCOL_VERSION = 70;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -151,6 +157,12 @@ const assetCode = z
   .regex(/^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$/);
 
 /**
+ * 운반 맡기기 칸(70부터, D-576): 물류센터 건물 ID(명령에서 직접 고름 — 같은 도시의 물류센터) 또는 auto(설정의 자동 맡기기 — 내 운반꾼이 없으면 같은 도시의
+ * 받는 물류센터 가운데 한 단위 요금이 가장 싼 곳, 없으면 예전처럼). 없으면 내 운반꾼만
+ */
+export const haulViaSchema = z.union([rowId, z.literal("auto")]);
+
+/**
  * 창고 옮기기(프로토콜 11, 49 N50·D-121·D-516 382): direction in = 그 건물이 선 도시의 내 도시 창고 → 그 2차맵 내 유닛 화물 차례로 꺼내
  * 내 창고 시설(창고 단계, 다 지었고 30% 이상)에 넣는다(무게 합 ≤ 용량, 물자만). out = 그 건물 창고의 내 몫(창고 시설·임대 몫, 남의 건물이어도
  * 된다)을 그 도시의 내 도시 창고로. 수량은 원장 단위(재료와 같은 묶음 수). [임시] 같은 도시 안은 바로 옮긴다(운송은 운송 줄기)
@@ -162,6 +174,8 @@ export const storageMoveMessage = z.object({
   asset: assetCode,
   qty: z.number().int().min(1).max(1_000_000),
   direction: z.enum(["in", "out"]),
+  /** 물류센터에 맡기기(70부터 — 물자 거래소 건물 넣기만 쓴다, 다른 옮기기는 무시) */
+  via: haulViaSchema.optional(),
 });
 
 /**

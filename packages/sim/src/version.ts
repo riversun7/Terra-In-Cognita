@@ -256,8 +256,10 @@
  *      서버 명성만 읽는다). 세계 휴먼·시뮬 수비는 묶음이 없어(모두 혼자인 유닛) 지금 결과가 그대로다.
  * 61: (묶음 1116o 합친 판, 줄기 npc-econ-6의 70) 사업장 계수표에 NPC 시설 판매가 칸 셋(npcPriceTemperPm·npcPriceStockPm·npcPriceStockLots — 기획 대조
  *    2153, 서버 npc/npcShopPrice.ts만 읽는다). 시뮬 판정·출력은 그대로다(시뮬은 사업장 금고를 돌리지 않는다)
+ * 80: (줄기 logistics — 묶을 때 다시 매긴다) 사업장 계수표에 물류센터 운반 대행 요금 단위 칸 둘(haulUnitG·haulUnitCells — 기획 D-576·질문 2213 요금 단위 나,
+ *    서버 logistics/haulService.ts만 읽는다). 시뮬 판정·출력은 그대로다(시뮬은 운반 대행을 돌리지 않는다)
  */
-export const SIM_VERSION = 61;
+export const SIM_VERSION = 80;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

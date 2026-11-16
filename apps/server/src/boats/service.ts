@@ -141,8 +141,14 @@ export interface BoatService {
   releaseAs(ownerId: number, boatId: number): BoatCommandResult;
   /** 연료·오버히트·보직·빼앗기(voyage.ts — 소유 주체로 부른다) */
   readonly voyage: Voyage;
-  /** 배 창고 내리기(cargo.ts — D-568, 소유 주체로 부른다) */
-  unload(me: number | undefined, boatId: number, buildingId: number, operator: boolean): BoatCommandResult;
+  /** 배 창고 내리기(cargo.ts — D-568, 소유 주체로 부른다). via = 물류센터에 맡기기(D-576) */
+  unload(
+    me: number | undefined,
+    boatId: number,
+    buildingId: number,
+    operator: boolean,
+    via?: number | "auto",
+  ): BoatCommandResult;
   /** 배 창고 싣기(cargo.ts — D-570 1823, 소유 주체로 부른다) */
   load(
     me: number | undefined,
@@ -151,6 +157,7 @@ export interface BoatService {
     item: string,
     lots: number,
     operator: boolean,
+    via?: number | "auto",
   ): BoatCommandResult;
   /** 함포 칸 포획 장비 달기·떼기(gear.ts — D-570 1821, 소유 주체로 부른다) */
   gear(
@@ -802,9 +809,9 @@ export function createBoatService(deps: BoatDeps): BoatService {
       return dock.release(ownerId, boatId, false);
     },
     voyage,
-    unload: (me, boatId, buildingId, operator) => cargo.unload(me, boatId, buildingId, operator),
-    load: (me, boatId, buildingId, item, lots, operator) =>
-      cargo.load(me, boatId, buildingId, item, lots, operator),
+    unload: (me, boatId, buildingId, operator, via) => cargo.unload(me, boatId, buildingId, operator, via),
+    load: (me, boatId, buildingId, item, lots, operator, via) =>
+      cargo.load(me, boatId, buildingId, item, lots, operator, via),
     gear: (me, boatId, buildingId, slot, item, operator) =>
       gear.mount(me, boatId, buildingId, slot, item, operator),
     catchCrew: (boatId) => gear.catchCrew(boatId),

@@ -242,6 +242,8 @@ function run(
         asset: message.asset,
         qty: message.qty,
         direction: message.direction,
+        // 물류센터에 맡기기(프로토콜 70, D-576 — 물자 거래소 넣기만 쓴다)
+        ...(message.via === undefined ? {} : { via: message.via }),
       });
     case "dev_facility_finish":
       return service.devFinish(

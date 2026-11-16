@@ -95,13 +95,13 @@ test.describe("플레이어(실제 자료)", () => {
       economy(page).getByRole("combobox", { name: message("ko", "market_locker_pick"), exact: true }),
     ).toContainText(message("ko", "market_locker_unit_cyborg", { steps: 0, max: 20 }));
     await expect(economy(page).locator('[data-part="market-locker-units"]')).toBeVisible();
-    // 거래 직무(질문 2083): 자리 = 레벨 × 5, NPC 거래소는 주인이 자리를 내지 않았다(빌리기 없음)
+    // 거래 직무(질문 2083): 자리 = 레벨 × 5. 바뀜(기획 대조 2204 나, 묶음 1116p): NPC 거래소도 적정 자리 값으로 자리를 낸다(labor/deskRent.ts)
     await expect(economy(page).locator('[data-part="market-desk"]')).toContainText(
       message("ko", "market_desk_seats", { taken: 0, slots: 5, count: 0 }),
     );
-    await expect(economy(page).locator('[data-part="market-desk-rent"]')).toHaveText(
-      message("ko", "market_desk_closed"),
-    );
+    const deskRent = economy(page).locator('[data-part="market-desk-rent"]');
+    await expect(deskRent).toContainText(message("ko", "market_desk_rent", { rent: "" }).trim());
+    await expect(deskRent).not.toHaveText(message("ko", "market_desk_closed"));
     await shot(page, "market-exchange-note", { fullPage: true });
     // 실제 거래소의 [주문]은 "곧 열림"이 아니라 쪽에 맞는 보내기 단추다. 조건 주문은 아직 서버에 없어 잠근다
     const submit = economy(page).locator(".eco-submit");

@@ -30,13 +30,30 @@ async function openPreview(
 
 const economy = (page: Page) => page.locator("section.economy");
 
+/** 전체 사진 한 장의 기기 화소 상한(390px 거래소 목록 1170 × 39,321 ≈ 4,600만은 찍힌다) */
+const MAX_SHOT_PIXELS = 60_000_000;
+
 /**
  * 화면 전체 사진. 화면에 붙은 하단 탭(position: fixed)은 전체 사진에서 첫 화면 높이 자리에 겹쳐 찍혀서 사진 동안만 숨긴다
  * (하단 탭 자체는 shell.spec.ts가 본다)
  */
 async function fullShot(page: Page, name: string): Promise<void> {
   const style = await page.addStyleTag({ content: ".tabbar { visibility: hidden !important; }" });
-  await shot(page, name, { fullPage: true });
+  // 1440px × 기기 배율 3에서 거래소 목록 전체(약 4320 × 34,000화소 ≈ 5.9억 바이트 비트맵)는 Chromium이 찍다 죽는다("Unable to capture
+  // screenshot"·Target crashed — 묶음 1116j·1116k). 앱 화면 문제가 아니라 사진 크기라, 화소 수가 상한을 넘으면 위에서부터 상한만큼만 찍는다
+  const size = await page.evaluate(() => ({
+    width: document.documentElement.scrollWidth,
+    height: document.documentElement.scrollHeight,
+    ratio: window.devicePixelRatio,
+  }));
+  const maxHeight = Math.floor(MAX_SHOT_PIXELS / (size.width * size.ratio * size.ratio));
+  await shot(
+    page,
+    name,
+    size.height > maxHeight
+      ? { fullPage: true, clip: { x: 0, y: 0, width: size.width, height: maxHeight } }
+      : { fullPage: true },
+  );
   await style.evaluate((element) => element.parentNode?.removeChild(element));
 }
 
@@ -53,10 +70,11 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(page.locator("#economy-title")).toHaveText(message("ko", "nav_economy"));
     await page.getByRole("link", { name: message("ko", "economy_tab_market"), exact: true }).click();
     await expect(page).toHaveURL(/\/economy\/market$/);
-    // 서버 도시 경제가 돌아 거래소가 열려 있다. 팩의 호가창 물건(장비·유전자·문서 빼고): 켜진 아이템 177개 − 장비 12개 − 유전자 4개 = 161개
+    // 서버 도시 경제가 돌아 거래소가 열려 있다. 팩의 호가창 물건(장비·유전자·문서 빼고): 켜진 아이템 179개 − 장비 12개 − 유전자 4개 = 163개
     // (core@32에서 옛 자원 129·괴 7·판자·벽돌을 켬, core@38에서 마이크로칩·유전자 4개를 더함, core@41에서 유전자는 인스턴스라 경매 매물 D-516,
-    // 형식 확인용 dev_placeholder는 꺼짐, D-540에서 자연 채집물·고래 아이템 10개를 더함 — D-556에서 분류만 어류·작물·광석·음료로 옮겨 수는 그대로)
-    await expect(economy(page).locator(".eco-row-link")).toHaveCount(161);
+    // 형식 확인용 dev_placeholder는 꺼짐, D-540에서 자연 채집물·고래 아이템 10개를 더함 — D-556에서 분류만 어류·작물·광석·음료로 옮겨 수는 그대로,
+    // D-570 배 4에서 포획 장비 그물·주낙 장비 둘을 더함 — 묶음 1116k)
+    await expect(economy(page).locator(".eco-row-link")).toHaveCount(163);
     await expect(economy(page).locator(".eco-not-ready")).toHaveCount(0);
     // 하위 화면에서도 하단 탭의 경제가 지금 화면이다(menuRoute)
     await expect(page.locator('nav.tabbar a[aria-current="page"]')).toHaveText(message("ko", "nav_economy"));

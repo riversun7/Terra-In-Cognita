@@ -113,9 +113,18 @@ export async function smallTapTargets(
  * 화면 사진을 찍고 파일 경로를 돌려준다. 폴더는 E2E_SHOTS_DIR(작업 기록에 남길 사진은 세션 임시 폴더 등 저장소 밖),
  * 없으면 e2e/test-results/shots(다음 실행이 지운다). 이름은 영문 소문자·숫자·`-`·`_`·`.`만(예: home-pastel-ko-390).
  */
-export async function shot(page: Page, name: string, options: { fullPage?: boolean } = {}): Promise<string> {
+export async function shot(
+  page: Page,
+  name: string,
+  options: { fullPage?: boolean; clip?: { x: number; y: number; width: number; height: number } } = {},
+): Promise<string> {
   return capture(name, (file) =>
-    page.screenshot({ path: file, fullPage: options.fullPage ?? false, animations: "disabled" }),
+    page.screenshot({
+      path: file,
+      fullPage: options.fullPage ?? false,
+      animations: "disabled",
+      ...(options.clip ? { clip: options.clip } : {}),
+    }),
   );
 }
 

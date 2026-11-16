@@ -8,6 +8,7 @@ import { labelTextOn } from "@terra/shared/factionIdentity";
 import type { HouseBadge, HouseView } from "@terra/shared/house";
 import { type ReactNode, useState } from "react";
 import { m } from "../../paraglide/messages.js";
+import { formatAmount } from "../../roster/rosterText.ts";
 import { dateText } from "../../sections/screenText.ts";
 import { NationEmblem } from "../../ui/NationEmblem.tsx";
 import { HouseCityBlock } from "./HouseCityBlock.tsx";
@@ -183,6 +184,13 @@ function MyHouse({
           onChange={(cityId) => void run({ t: "house_home", cityId })}
         />
       ) : null}
+      {house.vault === undefined ? null : (
+        // 가문 금고(국고와 따로 — D-338·D-213, 질문 2150 고침): 가문원 모두에게 잔고만
+        <div className="fid-house-block" data-testid="house-vault">
+          <p data-part="house-vault">{m.fid_house_vault({ amount: formatAmount(house.vault) })}</p>
+          <p className="faction-muted">{m.fid_house_vault_hint()}</p>
+        </div>
+      )}
       <div className="fid-house-block" data-testid="house-members">
         <h3 className="fid-house-sub">
           {m.fid_house_members_title()}{" "}

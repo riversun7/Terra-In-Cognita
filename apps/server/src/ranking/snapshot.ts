@@ -4,15 +4,13 @@
 // - 연 경로(팩 ranking_paths open)만 판을 만든다. 닫힌 경로의 줄은 지운다. 점수 0은 판에서 빠진다(줄을 지운다).
 // - 세력 판은 집계 때의 규모(감쇠 없음). 명성 칸 = 정원사 2가 쌓은 세력 명성(점수에 더하지 않음, 질문 427 가).
 // - 쓰기는 한 트랜잭션: 두 판을 통째로 바꾸고 상태 줄을 앞 값과 맞을 때만 고친다(두 번 세지 않는다).
+// - NPC 도시 가문원 유닛 점수(ranking_unit_scores, unitScores.ts — 가문 판의 NPC 가문 점수 = 가문원 실제 점수의 합)도 같은 트랜잭션에서 바꾼다.
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import {
   type RankingCoefficients,
-  citiesValue,
-  facilitiesValue,
   factionScore,
   nextScore,
   periodGain,
-  productionValue,
   rankEntries,
   tierPmOf,
 } from "@terra/sim";
@@ -21,10 +19,18 @@ import {
   type OwnerFlows,
   type OwnerStocks,
   type Queryable,
+  measureValues,
   readFactionScales,
   readFlows,
   readStocks,
 } from "./measures.ts";
+import {
+  computeUnitScores,
+  readHouseUnits,
+  readPrevUnits,
+  readUnitFlows,
+  writeUnitScores,
+} from "./unitScores.ts";
 
 /** 집계 주기 하한(설정 칸 범위와 같다) */
 export const MIN_PERIOD_MS = 60_000;
@@ -66,16 +72,7 @@ export interface SnapshotInput {
 const NO_FLOWS: OwnerFlows = { production: 0n, warWinsPm: 0, battleWinsPm: 0 };
 const NO_STOCKS: OwnerStocks = { cities: 0, developmentSum: 0, facilityLevelPpm: 0n };
 
-/** 주체 하나의 지표 값(sim 변환: 로그 압축·언더독 합) */
-export function measureValues(flows: OwnerFlows, stocks: OwnerStocks): Record<string, number> {
-  return {
-    war_wins: flows.warWinsPm,
-    battle_wins: flows.battleWinsPm,
-    cities_held: citiesValue(stocks.cities, stocks.developmentSum),
-    production: productionValue(flows.production),
-    facilities: facilitiesValue(stocks.facilityLevelPpm),
-  };
-}
+export { measureValues } from "./measures.ts";
 
 /** 두 판의 다음 줄(순수 함수 — DB 없이 시험한다) */
 export function computeSnapshot(input: SnapshotInput): {
@@ -183,6 +180,8 @@ export interface SnapshotReport {
   readonly periods: number;
   readonly pathRows: number;
   readonly factionRows: number;
+  /** NPC 가문원 유닛 점수 줄 수 */
+  readonly unitRows: number;
 }
 
 /**
@@ -202,12 +201,23 @@ export async function runSnapshot(
   const state = await readSnapshotState(pool);
   const window = dueWindow(state, options.nowMs, c.periodMs);
   if (window === null) return null;
-  const [flows, stocks, factions, prev] = await Promise.all([
+  const [flows, stocks, factions, prev, members, prevUnits] = await Promise.all([
     readFlows(pool, window.fromMs, window.toMs, c.underdogCapPm),
     readStocks(pool),
     readFactionScales(pool, options.creditAsset),
     readPrev(pool),
+    readHouseUnits(pool),
+    readPrevUnits(pool),
   ]);
+  // NPC 도시 가문원 유닛 점수(질문 2146 → 고침, unitScores.ts) — 같은 기간·같은 감쇠, 같은 트랜잭션에 쓴다
+  const unitRows = computeUnitScores({
+    paths: options.paths,
+    prev: prevUnits,
+    flows: await readUnitFlows(pool, window.fromMs, window.toMs, c.underdogCapPm, members),
+    members,
+    coefficients: c,
+    periods: window.periods,
+  });
   const next = computeSnapshot({
     paths: options.paths,
     ...prev,
@@ -257,6 +267,7 @@ export async function runSnapshot(
           next.factions.map((row) => row.renown),
         ],
       );
+    await writeUnitScores(client, unitRows);
     await client.query(
       `insert into ranking_state (id, period_from_ms, period_to_ms, computed_at_ms) values (1, $1, $2, $3)
        on conflict (id) do update set period_from_ms = excluded.period_from_ms, period_to_ms = excluded.period_to_ms,
@@ -270,5 +281,10 @@ export async function runSnapshot(
   } finally {
     client.release();
   }
-  return { ...window, pathRows: next.paths.length, factionRows: next.factions.length };
+  return {
+    ...window,
+    pathRows: next.paths.length,
+    factionRows: next.factions.length,
+    unitRows: unitRows.length,
+  };
 }

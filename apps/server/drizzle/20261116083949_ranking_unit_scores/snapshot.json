@@ -1,0 +1,171 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "58f17376-bf4f-4341-a452-5a5c9c8ab21e",
+  "prevIds": [
+    "bd0d640e-af77-4350-8296-46f7f58b1d82",
+    "7f14a324-d889-4f32-92c6-43ed1b68babd",
+    "98fc86ba-aeba-47e8-9f68-63b83b556b90",
+    "8315ae4c-6d61-4e83-8d17-d427b00675d3",
+    "43d61ca8-b8e2-4c08-ac26-45b6ee5feaf5"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "ranking_unit_scores"
+      ],
+      "writes": [
+        "s|tbl|public.ranking_unit_scores",
+        "n|tbl|public.ranking_unit_scores",
+        "e|tbl|public.ranking_unit_scores",
+        "n|rel|public.ranking_unit_scores",
+        "n|type|public.ranking_unit_scores",
+        "n|rel|public.ranking_unit_scores_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ranking_unit_scores",
+        "ranking_unit_scores_unit_idx"
+      ],
+      "writes": [
+        "s|idx|public.ranking_unit_scores_unit_idx",
+        "n|idx|public.ranking_unit_scores_unit_idx",
+        "e|idx|public.ranking_unit_scores_unit_idx",
+        "n|rel|public.ranking_unit_scores_unit_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ranking_unit_scores",
+        "n|sch|public",
+        "n|col|public.ranking_unit_scores.unit_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "ranking_unit_scores",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_unit_scores",
+        "name": "path_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_unit_scores",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_unit_scores",
+        "name": "score",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_unit_scores",
+        "name": "ranking_unit_scores_unit_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "unit_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_unit_scores",
+        "name": "ranking_unit_scores_pkey",
+        "columns": [
+          "path_id",
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_unit_scores",
+        "name": "ranking_unit_scores_score",
+        "value": "\"score\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_unit_scores",
+        "name": "ranking_unit_scores_path_format",
+        "value": "\"path_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

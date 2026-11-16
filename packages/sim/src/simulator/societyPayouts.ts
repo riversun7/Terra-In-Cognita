@@ -4,7 +4,8 @@
 //   (새 주인은 가진 뒤 걷은 세금만, 옛 주인의 정산 전 몫은 정산하지 않는다).
 // - 기간 이자 = 그 세력이 낸 발행 이자 누적(interestPaidOf, 중앙은행이 날마다 이미 소각한 양)의 차이.
 // - 운영비 = 그 기간 그 도시 연구 시설 짓기 값(공공 건물, 지금 있는 운영비). 시장 급여·유지비(D-252)가 생기면 더한다(D-444 166).
-// - [임시] 가문이 없어 지배 가문 금고 = 세력 국고 주체(world.ts rulingFamilyOf, 독재 국고 몫은 국고에 남는다).
+// - [임시] 가문이 없어 지배 가문 금고 = 세력 국고 주체(world.ts rulingFamilyOf, 독재 국고 몫은 국고에 남는다). 서버는 고리 rulingVaultOf로 가문
+//   금고 계정을 준다(D-338, apps/server/src/factionIdentity/houseVault.ts — 플레이어 가문 나라).
 // - 공물 = 봉신 국고 × tributePm ÷ 1000(D-443 설정값, 기획 값 없음).
 import { type CityRevenue, payCityProfit, profitRecipient, settleCityTaxes } from "../society/dividends.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
@@ -84,6 +85,8 @@ export function createSocietyPayouts(
             regime: faction.regime,
             treasury: faction.id,
             rulingFamily: rulingFamilyOf(faction),
+            rulingAccount:
+              faction.regime === "dictatorship" ? hooks?.rulingVaultOf?.(faction, asset) : undefined,
             profit: city.profit,
             atMs: nowMs,
           });

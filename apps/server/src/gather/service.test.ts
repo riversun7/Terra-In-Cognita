@@ -358,10 +358,15 @@ describe("건물 들어가기", () => {
     });
     placeMine(r, 50, 40);
     gatherIntoCargo(r.ledger, OWNER, 1, ORE, 3n, START);
-    expect(await r.gather.enter(USER, { unitId: 1, buildingId: storeId })).toEqual({ ok: true });
+    // then = 들어간 뒤 한 번(조우 뒤 정리를 마치고 원래 목표로 — travel/afterEncounter.ts)
+    const afterEnter: string[] = [];
+    expect(
+      await r.gather.enter(USER, { unitId: 1, buildingId: storeId }, (result) => afterEnter.push(result)),
+    ).toEqual({ ok: true });
     expect(loopOf(r)).toMatchObject({ phase: "entering", buildingId: storeId });
     await until(() => loopOf(r)?.phase === "done");
     expect(loopOf(r)).toMatchObject({ stop: "entered", enterResult: "deposited", depositedUnits: 3 });
+    expect(afterEnter).toEqual(["deposited"]);
     expect(r.ledger.balanceOf(OWNER, ORE, buildingLocation(storeId))).toBe(3n);
 
     // 남의 건물: 넣을 것도 직무도 없어 안에 머문다

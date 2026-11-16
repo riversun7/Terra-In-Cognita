@@ -1782,7 +1782,7 @@
   "ranking_house_home": "Home city {city}",
   "ranking_house_home_unknown": "unknown",
   "ranking_house_members": "{count} members",
-  "ranking_house_note": "The house board adds up each member's score on this path. NPC city houses get their nation's score shared by member count. Previous ranks aren't kept yet.",
+  "ranking_house_note": "The house board adds up each member's score on this path. NPC city houses also add up each member's own score on this path (for now, battles they won). Previous ranks aren't kept yet.",
   "ranking_area_force": "Force",
   "ranking_area_life": "Life",
   "ranking_area_wealth": "Wealth",
@@ -7951,8 +7951,8 @@
   "fid_home_change": "Change home city",
   "fid_home_change_note": "Changing it moves every member's nation and home city to the new home city and its nation.",
   "fid_home_pending": "Announced: the whole house moves to {where} on {when}.",
-  "fid_home_pending_fee": "Policy there: the house pays an entry fee of {amount} all at once on the move (house treasury, or the leader's wallet). If it can't, the house doesn't move.",
-  "fid_home_pending_grant": "Policy there: the house receives a grant of {amount} all at once on the move (house treasury, or the leader's wallet).",
+  "fid_home_pending_fee": "Policy there: the house pays an entry fee of {amount} all at once on the move (from the house vault first, then the leader's wallet). If it can't, the house doesn't move.",
+  "fid_home_pending_grant": "Policy there: the house receives a grant of {amount} all at once on the move (into the house vault).",
   "fid_home_pending_free": "Policy there: no entry fee or grant.",
   "fid_home_pending_leave": "If you disagree, you can leave the house before then (your nation and home city stay as they are).",
   "fid_home_pending_cancel": "Withdraw announcement",
@@ -8110,7 +8110,7 @@
   "tactics_result_offline": "Connection lost. Save again once reconnected.",
   "tactics_result_retry": "Could not save right now. Try again shortly.",
   "fid_house_error_not_ruler": "Only the head of the house that holds this city (city policy) or is this nation (nation policy) can set it.",
-  "fid_home_error_entry_fee": "The house treasury (or the leader's wallet if there is none) can't cover the entry fee, so the house can't move.",
+  "fid_home_error_entry_fee": "The house vault and the leader's wallet together can't cover the entry fee, so the house can't move.",
   "fid_house_done_entry_policy": "House move policy set.",
   "fid_house_notice_home_cancelled_fee": "The entry fee couldn't be paid, so the home city move of {house} was withdrawn.",
   "ranking_house_npc": "NPC city house",
@@ -8128,5 +8128,7 @@
   "government_entry_input": "Per-member value (+ fee, − grant)",
   "government_entry_save": "Set",
   "government_entry_clear": "Clear",
-  "government_entry_invalid": "Whole numbers only (up to 15 digits, put − first for a grant)."
+  "government_entry_invalid": "Whole numbers only (up to 15 digits, put − first for a grant).",
+  "fid_house_vault": "House vault {amount}",
+  "fid_house_vault_hint": "House money kept apart from the treasury. It pays entry fees first and takes grants when the house moves. In a dictatorship house nation, the treasury's share of city profit comes here."
 }

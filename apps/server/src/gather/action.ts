@@ -1,5 +1,5 @@
 // 채집 줄 한 개(서비스 안 상태) — service.ts에서 나눔(그 파일 1,000줄 상한). docs/adr/2026-11-07-gather-objects.md 3·5절.
-import type { GatherLoopView, GatherPhase, GatherStop } from "@terra/shared/gather";
+import type { GatherEnterResult, GatherLoopView, GatherPhase, GatherStop } from "@terra/shared/gather";
 import type { Motion } from "@terra/sim";
 import type { Deposit } from "./deposit.ts";
 
@@ -42,6 +42,8 @@ export interface Action {
   updatedAt: number;
   /** 조우로 멈춤(suspend — 전투 뒤 resume이 다시 잇는다, 그동안 확인하지 않는다) */
   suspended: boolean;
+  /** 들어가기 줄: 들어간 뒤 한 번 부를 것(GatherService.enter의 then). 없으면 null */
+  afterEnter: ((result: GatherEnterResult) => void) | null;
 }
 
 /** 새 줄(걷기 전). 채집 줄은 오브젝트로 가는 단계, 들어가기는 들어가는 단계로 시작한다 */
@@ -86,5 +88,6 @@ export function freshAction(
     enterResult: null,
     updatedAt: atMs,
     suspended: false,
+    afterEnter: null,
   };
 }

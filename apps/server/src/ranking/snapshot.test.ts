@@ -4,6 +4,7 @@ import { TEST_RANKING_COEFFICIENTS } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { OwnerFlows, OwnerStocks } from "./measures.ts";
 import { computeSnapshot, dueWindow, measureValues } from "./snapshot.ts";
+import { computeUnitScores } from "./unitScores.ts";
 
 const DAY = 86_400_000;
 const PATHS: RankingPathInfo[] = [
@@ -98,6 +99,37 @@ describe("다음 판", () => {
     ).toEqual([
       [1, 3000, 1, 2, 40],
       [3, 3000, 1, null, null],
+    ]);
+  });
+});
+
+describe("NPC 가문원 유닛 점수(질문 2146 → 고침, unitScores.ts)", () => {
+  it("유닛 자신의 전투 승리만 세고(도시·산출 0), 앞 점수는 감쇠, 지금 가문원이 아닌 유닛·점수 0은 뺀다", () => {
+    const decayPm = TEST_RANKING_COEFFICIENTS.decayPm;
+    const rows = computeUnitScores({
+      paths: PATHS,
+      prev: new Map([
+        [
+          "conqueror",
+          new Map([
+            [5, 10_000],
+            [6, 900],
+          ]),
+        ],
+      ]),
+      flows: new Map([
+        [5, flows(0n, 2000)],
+        [7, flows(0n, 1500)],
+        [8, flows(0n, 0, 4000)],
+      ]),
+      members: new Set([5, 7, 8]),
+      coefficients: { decayPm },
+      periods: 1,
+    });
+    const decayed = 10_000 - Math.floor((10_000 * decayPm) / 1000);
+    expect(rows).toEqual([
+      { pathId: "conqueror", unitId: 5, score: decayed + 2000 },
+      { pathId: "conqueror", unitId: 7, score: 1500 },
     ]);
   });
 });

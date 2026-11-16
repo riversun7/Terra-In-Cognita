@@ -821,6 +821,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
         mapKey: action.mapKey,
         motion,
       });
+    action.afterEnter?.(result.result);
   }
 
   return {
@@ -891,7 +892,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
       const action = actions.get(unitId);
       if (action?.suspended) finish(action, "interrupted");
     },
-    async enter(userId, input) {
+    async enter(userId, input, then) {
       if (!deps.ready()) return fail("busy");
       const unit = ownUnit(userId, input.unitId);
       if ("problem" in unit) return fail(unit.problem);
@@ -908,6 +909,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
       }
       const action = newAction(userId, unit.ownerId, input.unitId, unit.map.mapKey, "enter");
       action.buildingId = input.buildingId;
+      action.afterEnter = then ?? null;
       replace(action);
       return walkToBuilding(action);
     },

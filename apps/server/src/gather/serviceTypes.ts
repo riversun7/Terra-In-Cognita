@@ -1,6 +1,6 @@
 // 채집 서비스 모양(입력 고리·명령 결과·서비스) — gather/service.ts(1,000줄 상한)에서 옮겼다. service.ts가 다시 내보낸다.
 import type { GatherResultCode } from "@terra/protocol";
-import type { GatherLoopView } from "@terra/shared/gather";
+import type { GatherEnterResult, GatherLoopView } from "@terra/shared/gather";
 import type { Primaries, SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { PlaceWorld } from "../facilities/places.ts";
@@ -88,7 +88,15 @@ export interface GatherService {
   ): Promise<GatherCommandResult>;
   /** 채집을 멈춘다(그 자리에 선다, 든 화물은 그대로) */
   halt(userId: string, unitId: number): GatherCommandResult;
-  enter(userId: string, input: { unitId: number; buildingId: number }): Promise<GatherCommandResult>;
+  /**
+   * 그 건물에 들어간다(걸어가서 화물 넣기·배치·안에 머묾). then = 들어간 뒤 한 번(결과와 함께 — 조우 뒤 정리를 마치고 원래 목표로 다시 가기,
+   * travel/afterEncounter.ts). 들어가지 못하고 끝나면(막힘·끊김) 부르지 않는다
+   */
+  enter(
+    userId: string,
+    input: { unitId: number; buildingId: number },
+    then?: (result: GatherEnterResult) => void,
+  ): Promise<GatherCommandResult>;
   /** 그 2차맵의 오브젝트(자리는 지형에서, 상태는 저장소에서). 어군은 집 자리(x, y)와 길(route) */
   objects(mapKey: number): readonly GatherObject[] | undefined;
   /** 그 2차맵의 오브젝트, 어군은 시각 nowMs의 자리로(채집소 반경 셈 — 기획 D-536 움직이는 어군) */

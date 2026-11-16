@@ -61,6 +61,11 @@ export interface SimHooks {
   taxCollectedOf?(cityId: number): bigint;
   /** 그 세력이 낸 발행 이자 누적(D-303, 화폐를 찍지 않으면 0) */
   interestPaidOf?(factionId: number): bigint;
+  /**
+   * 독재 세력의 남은 이익 국고 몫을 받을 지배 가문 금고 계정 ID(D-338, 서버만 — 가문마다 따로 둔 금고). 없거나 undefined면 rulingFamilyOf(국고 주체)
+   * 그대로(시뮬은 가문 층이 없다)
+   */
+  rulingVaultOf?(faction: SimFaction, asset: string): number | undefined;
   /** 세율(거래세 만분율): 지금 값·프리셋 기본값·바꾸기. 없으면 세율 규칙식이 돌지 않는다 */
   taxOf?(faction: SimFaction): number;
   baseTaxOf?(faction: SimFaction): number;

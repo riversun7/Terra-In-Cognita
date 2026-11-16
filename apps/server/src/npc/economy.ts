@@ -71,6 +71,7 @@ import type { WorkFacility } from "./humanPlaces.ts";
 import { recordNpcSale } from "./npcBooks.ts";
 import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
+import { rulingVaultOf } from "../factionIdentity/houseVault.ts";
 import { type MarketRegistry, createMarketRegistry } from "../market/books.ts";
 import { type FxRegistry, createFxRegistry } from "../market/fx.ts";
 import { loadFx, loadMarkets } from "../market/load.ts";
@@ -746,6 +747,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       registry.ensureCity(cityId);
       syncCity(cityId, nowMs);
     },
+    // 독재 가문 나라의 남은 이익 국고 몫 → 지배 가문 금고(D-338, 국고와 따로 — factionIdentity/houseVault.ts)
+    rulingVaultOf: (faction, asset) => rulingVaultOf(book, o.owners, faction, asset),
   };
 
   return {

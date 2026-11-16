@@ -116,6 +116,8 @@ describe("buildEncounterInit", () => {
       place: spec,
       seed: 42,
       retreatPct: [0, 50],
+      // 유닛 2만 제 작전 ⑦(판단 유닛), 나머지는 편 값
+      unitRetreat: new Map([[2, 70]]),
     });
     expect(init?.kind).toBe("normal");
     expect(init?.sides).toEqual([
@@ -127,9 +129,16 @@ describe("buildEncounterInit", () => {
       [1, 2, 10, 20],
       [2, 2, 12, 20],
     ]);
-    expect(init?.parties.map((p) => [p.side, p.retreatHpPct]).toSorted()).toEqual([
-      [1, 0],
-      [2, 50],
+    // 유닛마다 제 파티(D-558 1547 "파티도 없으면 유닛들 개별 참전", 질문 2131)
+    expect(init?.units.map((u) => [u.id, u.party])).toEqual([
+      [7, 101],
+      [1, 201],
+      [2, 202],
+    ]);
+    expect(init?.parties.map((p) => [p.id, p.side, p.retreatHpPct])).toEqual([
+      [101, 1, 0],
+      [201, 2, 50],
+      [202, 2, 70],
     ]);
   });
 

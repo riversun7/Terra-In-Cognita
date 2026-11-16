@@ -226,6 +226,10 @@ export interface HouseView {
         readonly requests: readonly HouseRequestRow[];
         /** 가문 도시(옛 서버는 보내지 않는다) */
         readonly city?: HouseCityView | undefined;
+        /**
+         * 가문 금고 잔고(기준 통화 최소 단위, 글자 — BigInt). 국고와 따로 둔 가문 돈(D-338·D-213 — 도시 없는 가문에도). 옛 서버는 보내지 않는다
+         */
+        readonly vault?: string | undefined;
       })
     | null;
   /** 내가 받은 초대·내가 보낸 신청(가문이 없을 때) */

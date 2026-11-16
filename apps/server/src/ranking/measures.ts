@@ -9,7 +9,7 @@
 // - 세력 규모(세력 판): 사라지지 않은 세력마다 도시·발전도·휴먼(그 세력 도시에 사는)·국고(시험 화폐, 위치 없는 계정)·명성(정원사 2)
 // - 보호 레이드(D-500, gardener_waves.kind = protection) 전투는 랭킹 점수가 없다 → 전투 승리에서 뺀다
 import { BUILDING_LOCATION_BASE } from "@terra/shared/goodsPlaces";
-import { underdogPm } from "@terra/sim";
+import { citiesValue, facilitiesValue, productionValue, underdogPm } from "@terra/sim";
 
 /** pg Pool·Client 모양(query만) */
 export interface Queryable {
@@ -39,6 +39,17 @@ export interface OwnerStocks {
   cities: number;
   developmentSum: number;
   facilityLevelPpm: bigint;
+}
+
+/** 주체 하나의 지표 값(sim 변환: 로그 압축·언더독 합). 유닛 점수(unitScores.ts)도 같은 변환을 쓴다 */
+export function measureValues(flows: OwnerFlows, stocks: OwnerStocks): Record<string, number> {
+  return {
+    war_wins: flows.warWinsPm,
+    battle_wins: flows.battleWinsPm,
+    cities_held: citiesValue(stocks.cities, stocks.developmentSum),
+    production: productionValue(flows.production),
+    facilities: facilitiesValue(stocks.facilityLevelPpm),
+  };
 }
 
 const emptyFlows = (): OwnerFlows => ({ production: 0n, warWinsPm: 0, battleWinsPm: 0 });

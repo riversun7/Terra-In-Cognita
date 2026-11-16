@@ -39,7 +39,14 @@ export interface ProductionSource {
    * "바뀜 (D-571)")면 다 지은 레벨과 자리 수(바뀜 질문 2083: 건물마다 레벨 × 설정 칸 — 주인의 직무 배치와 남의 노동 계약이 함께 쓴다, 산출 없음 —
    * 주문 한도·반입·반출). 없으면 거래 직무 없음
    */
-  tradeDesk?(buildingId: number): { readonly level: number; readonly slots: number } | undefined;
+  tradeDesk?(buildingId: number):
+    | {
+        readonly level: number;
+        readonly slots: number;
+        /** NPC 거래소면 자리 값 ‰(설정 칸 exchange_npc_desk_rent_pm — 기획 대조 2204, labor/deskRent.ts). 아니면 없다 */
+        readonly npcRentPm?: number | undefined;
+      }
+    | undefined;
   /** 유닛의 1차 스탯(입은 장비·버프 포함, 공방 장인 실력과 같은 셈 — holdings primariesOf) */
   primaries(unitId: number): Primaries;
   /**

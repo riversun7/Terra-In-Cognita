@@ -194,19 +194,28 @@ describe("파티·군단 명령(D-545·D-549)", () => {
 
   it("다시 넣기 막기: 같은 파티·편에 약 1초 안 두 번째 명령은 거절(파티·편 따로)", () => {
     const lock = TEST_COMBAT_COEFFICIENTS.commandLockMs / TEST_COMBAT_COEFFICIENTS.tickMs;
-    const state = run(
+    // 파티: 같은 파티 두 번째는 거절, 다른 파티는 따로
+    const parties = run(
       legionBattle(2),
       [
         { tick: 0, kind: "order", party: 1, order: { kind: "hold" } },
         { tick: 1, kind: "order", party: 1, order: { kind: "advance" } },
         { tick: 1, kind: "order", party: 2, order: { kind: "hold" } },
+      ],
+      3,
+    );
+    expect(parties.rejected).toBe(1);
+    // 편: 같은 편 두 번째 군단 명령은 거절(파티 명령이 서 있으면 군단 명령을 받지 않으므로 — D-574 — 편만 따로 본다)
+    const state = run(
+      legionBattle(2),
+      [
         { tick: 2, kind: "legion", side: 1, order: { kind: "advance" } },
         { tick: 3, kind: "legion", side: 1, order: { kind: "hold" } },
         { tick: 2 + lock, kind: "legion", side: 1, order: { kind: "free" } },
       ],
       lock + 5,
     );
-    expect(state.rejected).toBe(2);
+    expect(state.rejected).toBe(1);
     expect(state.parties.filter((party) => party.side === 1).every((party) => !party.order)).toBe(true);
   });
 
@@ -218,6 +227,42 @@ describe("파티·군단 명령(D-545·D-549)", () => {
     );
     expect(state.parties.find((party) => party.id === 1)?.retreated).toBe(true);
     expect(state.parties.find((party) => party.id === 2)?.retreating).toBe(false);
+  });
+
+  it("명령 순위(D-574 질문 2110): 파티 명령이 서 있는 파티는 군단 명령을 받지 않고, 자유로 풀면 다시 받는다", () => {
+    const lock = Math.ceil(TEST_COMBAT_COEFFICIENTS.commandLockMs / TEST_COMBAT_COEFFICIENTS.tickMs);
+    const inputs: BattleInput[] = [
+      { tick: 0, kind: "legion", side: 1, order: { kind: "advance" } },
+      // 소유주 명령이 군단 명령을 덮는다(뒤에 내린 쪽)
+      { tick: 1, kind: "order", party: 2, order: { kind: "hold" } },
+      // 그 뒤 군단 명령은 파티 2를 건너뛴다
+      { tick: 1 + lock, kind: "legion", side: 1, order: { kind: "hold" } },
+    ];
+    const held = run(legionBattle(2), inputs, 2 + lock);
+    expect(held.parties.find((party) => party.id === 1)?.order).toEqual({ kind: "hold", legion: true });
+    expect(held.parties.find((party) => party.id === 2)?.order).toEqual({ kind: "hold", legion: false });
+    // 정원 안 모든 파티가 소유주 명령이면 군단 명령은 거절
+    const both = run(
+      legionBattle(2),
+      [
+        { tick: 0, kind: "order", party: 1, order: { kind: "hold" } },
+        { tick: 0, kind: "order", party: 2, order: { kind: "hold" } },
+        { tick: 1, kind: "legion", side: 1, order: { kind: "advance" } },
+      ],
+      3,
+    );
+    expect(both.rejected).toBe(1);
+    // 소유주가 자유로 풀면 다음 군단 명령을 받는다
+    const freed = run(
+      legionBattle(2),
+      [
+        ...inputs,
+        { tick: 1 + lock, kind: "order", party: 2, order: { kind: "free" } },
+        { tick: 1 + 2 * lock, kind: "legion", side: 1, order: { kind: "advance" } },
+      ],
+      2 + 2 * lock,
+    );
+    expect(freed.parties.find((party) => party.id === 2)?.order).toEqual({ kind: "advance", legion: true });
   });
 
   it("명령이 든 전투도 같은 입력이면 끝 상태가 같고, 스냅숏에서 다시 켜도 같다", () => {

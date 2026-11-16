@@ -122,4 +122,24 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
   ),
   k("exchange_fx_fee_bp", "exchangeFxFeeBp", "환전 이용료 적정 요율(만분율)", "Fair FX usage fee (bp)"),
   k("exchange_fx_fee_max_bp", "exchangeFxFeeMaxBp", "환전 이용료 위 끝(만분율)", "FX usage fee limit (bp)"),
+  // 기타 D-574(줄기 misc-574): 물자 거래소 이용료 위아래 한도(질문 2085), 환전 이용료 아래 끝, NPC 거래소 거래 직무 자리 값(질문 2204)
+  k(
+    "exchange_fee_min_bp",
+    "exchangeFeeMinBp",
+    "거래소 이용료 아래 끝(만분율)",
+    "Exchange usage fee floor (bp)",
+  ),
+  k(
+    "exchange_fee_max_bp",
+    "exchangeFeeMaxBp",
+    "거래소 이용료 위 끝(만분율)",
+    "Exchange usage fee limit (bp)",
+  ),
+  k("exchange_fx_fee_min_bp", "exchangeFxFeeMinBp", "환전 이용료 아래 끝(만분율)", "FX usage fee floor (bp)"),
+  k(
+    "exchange_npc_desk_rent_pm",
+    "exchangeNpcDeskRentPm",
+    "NPC 거래소 거래 직무 자리 값(적정가 ‰)",
+    "NPC exchange trade-desk rent (‰ of fair)",
+  ),
 ];

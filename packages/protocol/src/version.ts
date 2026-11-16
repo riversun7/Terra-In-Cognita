@@ -216,6 +216,10 @@
  *    - 가문 8(줄기 house-8 판 64, 기획 D-574 2124·2150·D-576, docs/questions/2026-11-16-house-8.md) — 가문 금고 기부 house_donate·꺼내기 house_vault_take·
  *      가문세율 house_tax·도시 짓기 정책 house_build_policy(housePolicy.ts) → house_member_result(새 한 일 donated·vault_taken·tax_set·build_policy_set,
  *      새 코드 insufficient_funds·tax_too_high는 이 메시지들의 답에만 간다 — 53판 기기는 보내지 않는다). 다른 메시지 꼴은 그대로.
+ *    - 기타 D-574(줄기 misc-574 판 66) — 물자 거래소 이용료 요율(기획 D-574 질문 2085 "거래소 주인이 정하고 위아래 한도만 설정값"): business_price의 item에
+ *      service:exchange_fee(만분율 — 53판 기기는 보내지 않는다). 메시지 꼴은 더하기만 했다. 배 상하역 운반꾼 기다림(기획 대조 질문 2212 — D-555 1505):
+ *      boat_result ok에 waiting(선택). 운반꾼이 없으면 줄을 세우고 waiting: true — 54판 아래 연결은 예전 실패 코드(no_carrier, 51판 아래 unavailable)를
+ *      받는다(boats.ts BOAT_WAIT_PROTOCOL_VERSION).
  */
 export const PROTOCOL_VERSION = 54;
 

@@ -256,8 +256,15 @@
  *      서버 명성만 읽는다). 세계 휴먼·시뮬 수비는 묶음이 없어(모두 혼자인 유닛) 지금 결과가 그대로다.
  * 61: (묶음 1116o 합친 판, 줄기 npc-econ-6의 70) 사업장 계수표에 NPC 시설 판매가 칸 셋(npcPriceTemperPm·npcPriceStockPm·npcPriceStockLots — 기획 대조
  *    2153, 서버 npc/npcShopPrice.ts만 읽는다). 시뮬 판정·출력은 그대로다(시뮬은 사업장 금고를 돌리지 않는다)
+ * 62: (묶음 1116p 합친 판, 줄기 misc-574의 76) 기타 D-574.
+ *    - 명령 순위(기획 D-574, 질문 2110 "소유주 명령이 1순위, 군단장 명령은 2순위", docs/adr/2026-10-31-combat-core.md "바뀜 (D-574)"): 파티 명령이 서 있는
+ *      파티(party.order.legion === false)는 군단 명령을 받지 않는다(combat/orders.ts applyOrderInput). 정원 안 대상이 모두 그런 파티면 군단 명령은
+ *      거절. 파티 명령을 받은 뒤 군단 명령을 받은 전투 결과가 달라진다. 명령 없는 전투·군단 명령만 받은 전투는 그대로다
+ *    - NPC 건물 수 상한(npc/build.ts buildingCapOf): 등급 표 값이 1 이상이면 성향 몫(npcGrowthTemper capDelta)을 더해 0 이하가 돼도 1(옛 꼴은 0 —
+ *      그 도시 짓기가 멈췄다, D-554 "다양한 변수로 조정"). 상한이 0이던 세력의 도시가 다시 짓는다(시뮬 기본 시나리오는 성향 몫이 표를 넘지 않아
+ *      sim 시험이 그대로 통과한다)
  */
-export const SIM_VERSION = 61;
+export const SIM_VERSION = 62;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

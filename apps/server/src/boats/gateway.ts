@@ -9,6 +9,7 @@
 // - 프로토콜 49(D-570, 줄기 55): 포획 장비 달기·떼기(boat_gear)·배 창고 싣기(boat_load). 새 결과 코드는 49판 연결에만, 그 아래는 legacyGearCode로.
 // - 프로토콜 51(기획 대조 2057·2072): 배 판매가 0 = 만들지 않음(order_closed). 50판 이하는 legacyOrderCode로.
 // - 프로토콜 52(묶음 1116n 합친 판, 줄기 boats-5 판 58 — 기획 대조 boats-5, D-555 1505): 내리기·싣기 운반꾼 없음(no_carrier). 51판 이하는 legacyCarryCode로.
+// - 프로토콜 54(묶음 1116p 합친 판, 줄기 misc-574 판 66 — 질문 2212): 운반꾼이 없으면 줄을 세우고 ok + waiting. 54판 아래는 예전 no_carrier(그 아래 낮춤 그대로).
 import {
   BOAT_B2_PROTOCOL_VERSION,
   BOAT_CARRY_PROTOCOL_VERSION,
@@ -21,6 +22,7 @@ import {
   VOYAGE_PROTOCOL_VERSION,
   encodeMessage,
   legacyBoatCode,
+  BOAT_WAIT_PROTOCOL_VERSION,
   legacyCarryCode,
   legacyGearCode,
   legacyHoldCode,
@@ -79,7 +81,12 @@ export interface BoatGateway {
   open(link: BoatLink): BoatSocket;
 }
 
-function resultText(id: number, result: BoatCommandResult, protocolVersion: number): string {
+function resultText(id: number, given: BoatCommandResult, protocolVersion: number): string {
+  // 운반꾼 기다림(54판, 질문 2212): 그 아래 연결은 예전 실패 코드(no_carrier → 더 낮으면 아래에서 unavailable). 줄은 그대로 선다
+  const result: BoatCommandResult =
+    given.ok && given.waiting === true && protocolVersion < BOAT_WAIT_PROTOCOL_VERSION
+      ? { ok: false, code: "no_carrier" }
+      : given;
   if (!result.ok) {
     // 30판 새 코드는 29판 연결에 옛 코드로. dock_busy는 그 코드를 아는 연결(28)에만, 아니면 busy(다시 해 볼 수 있다)
     const carry = protocolVersion < BOAT_CARRY_PROTOCOL_VERSION ? legacyCarryCode(result.code) : result.code;
@@ -104,6 +111,7 @@ function resultText(id: number, result: BoatCommandResult, protocolVersion: numb
     ...(result.boatId === undefined ? {} : { boatId: result.boatId }),
     ...(result.walking ? { walking: true } : {}),
     ...(result.readyAtMs === undefined ? {} : { readyAtMs: result.readyAtMs }),
+    ...(result.waiting ? { waiting: true } : {}),
   });
 }
 

@@ -76,7 +76,8 @@ import { npcQuits } from "./npcWait.ts";
 import { fundDueWages } from "./wageFunding.ts";
 import { wageWalletOf, withHouseWageTax } from "./wagePurse.ts";
 import { type LaborWorkerEntry, contractEntry } from "./workerEntry.ts";
-import { KEEP_ENDED_MS, type LoadedLabor, type RentRow, contractRow, postedRent, rentRow } from "./store.ts";
+import { deskRentOf, npcDeskRentOf } from "./deskRent.ts";
+import { KEEP_ENDED_MS, type LoadedLabor, type RentRow, contractRow, rentRow } from "./store.ts";
 
 const HOUR_MS = 3_600_000;
 
@@ -319,6 +320,12 @@ export function createLaborService(options: {
   };
   /** 거래소 거래 직무 자리(질문 2083 — 레벨 × 설정 칸, 산출 없음). 거래소가 아니면 undefined */
   const deskOf = (buildingId: number) => work.source()?.tradeDesk?.(buildingId);
+  /** 거래 직무 자리 값: 주인이 낸 값 → 줄이 없는 NPC 거래소는 NPC 셈(deskRent.ts, 기획 대조 2204) */
+  const rentHere = (buildingId: number, owner: number | null | undefined): bigint | null =>
+    deskRentOf(rents.get(buildingId), owner, () => {
+      const pm = deskOf(buildingId)?.npcRentPm;
+      return pm === undefined ? null : npcDeskRentOf(wageRulesOf(options.rules()), pm);
+    });
   /** 직무 배치를 받는 일터: 채집 시설 또는 채집이 아닌 일터(병원 의사 D-521·거래소 거래 직무 — 산출 없음) */
   const workplaceOf = (buildingId: number): { readonly level: number; readonly slots: number } | undefined =>
     work.source()?.site(buildingId) ?? work.source()?.workplace?.(buildingId) ?? deskOf(buildingId);
@@ -563,7 +570,7 @@ export function createLaborService(options: {
     assignedTo: (unitId) => work.assignedTo(unitId) ?? openContractOf(unitId)?.buildingId,
     unitAway: (unitId) => options.unitAway?.(unitId) ?? false,
     workersAt,
-    rentOf: (buildingId) => postedRent(rents.get(buildingId), buildingOwnerOf(buildingId)),
+    rentOf: (buildingId) => rentHere(buildingId, buildingOwnerOf(buildingId)),
     hourlyLabor(buildingId) {
       const rules = wageRulesOf(options.rules());
       const cycle = BigInt(Math.max(1, rules.labor.wageCycleMs));
@@ -658,10 +665,9 @@ export function createLaborService(options: {
       } else {
         if (buildingOwner === null) return fail("not_for_lease");
         if (buildingOwner === me) return fail("invalid_terms");
-        const posted = rents.get(input.buildingId);
-        if (!posted || posted.rentPerHour <= 0n || posted.ownerId !== buildingOwner)
-          return fail("not_for_lease");
-        rate = posted.rentPerHour;
+        const posted = rentHere(input.buildingId, buildingOwner);
+        if (posted === null) return fail("not_for_lease");
+        rate = posted;
         ownerId = buildingOwner;
       }
       // 일하는 쪽(유닛 소유 주체 = 나)을 지금까지 정산한 뒤 맺는다: 계약 구간이 주체 정산 시각에서 시작한다
@@ -785,11 +791,8 @@ export function createLaborService(options: {
       if (owner === undefined) return { status: "unknown_building", buildingId };
       const me = settlement.findOwnerOfUser(userId);
       const rules = wageRulesOf(options.rules());
-      const rent = rents.get(buildingId);
-      const posted =
-        owner !== null && rent && rent.rentPerHour > 0n && rent.ownerId === owner
-          ? String(rent.rentPerHour)
-          : null;
+      const rent = owner === null ? null : rentHere(buildingId, owner);
+      const posted = rent === null ? null : String(rent);
       const manager =
         me !== undefined &&
         owner !== null &&
@@ -891,11 +894,8 @@ export function createLaborService(options: {
       const units: LaborUnitView[] = [];
       for (const map of maps.values()) {
         map.forEachBuilding((building) => {
-          const rent = rents.get(building.id);
-          const posted =
-            rent && rent.rentPerHour > 0n && rent.ownerId === building.ownerId
-              ? String(rent.rentPerHour)
-              : null;
+          const rent = rentHere(building.id, building.ownerId);
+          const posted = rent === null ? null : String(rent);
           const own = me !== undefined && building.ownerId === me;
           if (own || (posted !== null && building.ownerId !== null))
             buildings.push({ id: building.id, own, rent: posted, mapKey: map.mapKey });

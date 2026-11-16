@@ -185,6 +185,8 @@ export interface BoatService {
   launchSpotOf(buildingId: number, index?: number): CellPoint | undefined;
   /** 정시 살피기(타이머가 부른다. 시험은 바로 부른다) */
   tick(nowMs?: number): Promise<HarborTick>;
+  /** 운반꾼을 기다리는 내리기·싣기 줄 수(cargo.ts — 질문 2212) */
+  cargoWaiting(): number;
   stop(): void;
 }
 
@@ -223,6 +225,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
           .tick(now())
           .then((result) => {
             dock.tick(now());
+            cargo.retry(now());
             return result;
           })
           .catch((error: unknown) => deps.log.error({ err: error }, "harbor tick failed"))
@@ -803,6 +806,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
     },
     voyage,
     unload: (me, boatId, buildingId, operator) => cargo.unload(me, boatId, buildingId, operator),
+    cargoWaiting: () => cargo.waiting(),
     load: (me, boatId, buildingId, item, lots, operator) =>
       cargo.load(me, boatId, buildingId, item, lots, operator),
     gear: (me, boatId, buildingId, slot, item, operator) =>
@@ -862,6 +866,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
     async tick(nowMs) {
       const result = await harbor.tick(nowMs ?? now());
       dock.tick(nowMs ?? now());
+      cargo.retry(nowMs ?? now());
       return result;
     },
     stop() {

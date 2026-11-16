@@ -82,7 +82,7 @@ const GRADES = 6;
 /**
  * 도시 등급(1~6)의 건물 수 상한(1143 나): 등급 표(npc_build_cap_l1~l6) 값, 전체 끝 npc_build_max_buildings. 전체 끝이 0이면 0(증축·레벨 올리기
  * 끔). 표가 비었으면 전체 끝. temperDelta = 세력·지도자 성향 몫(채, 기획 D-554 1187·D-572 질문 1995 — simulator/npcGrowthTemper.ts)을 표 값에
- * 더한다(0 아래·전체 끝 위는 자른다)
+ * 더한다(전체 끝 위는 자른다). 표 값이 1 이상이면 성향 몫을 더해도 1 아래로 내려가지 않는다(misc-574 — 옛 꼴은 0까지 내려가 그 도시 짓기가 멈췄다)
  */
 export function buildingCapOf(grade: number, c: NpcCoefficients, temperDelta = 0): number {
   const top = Math.max(0, Math.trunc(c.buildMaxBuildings));
@@ -91,7 +91,10 @@ export function buildingCapOf(grade: number, c: NpcCoefficients, temperDelta = 0
   const table = c.buildCapByGrade ?? [];
   const value = table[Math.min(index, table.length - 1)];
   if (value === undefined) return top;
-  return Math.min(top, Math.max(0, Math.trunc(value) + Math.trunc(temperDelta)));
+  // 성향 몫으로 0 이하가 되어도 1(misc-574 — D-554 "다양한 변수로 조정"이지 멈춤이 아니다). 표 값 자체가 0 이하면 그대로 0(설정으로 끈 등급)
+  const base = Math.trunc(value);
+  const sum = base + Math.trunc(temperDelta);
+  return Math.min(top, sum > 0 ? sum : base > 0 ? 1 : 0);
 }
 
 /** 상한에 세는 건물 수 */

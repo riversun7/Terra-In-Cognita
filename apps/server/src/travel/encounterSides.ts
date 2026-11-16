@@ -3,11 +3,15 @@
 // - 판단 유닛마다 작전: 플레이어 유닛 = 저장한 작전(tactics/store.ts, 없으면 균형), NPC 유닛 = 그 세력 공격 성향 → 프리셋(npcPresetOf).
 //   [임시] 세계에 파티 묶음이 없어 편 = 한 파티로 보고 판단 유닛 값을 평균한다(내림, 질문 2131) — 걸지 말지(조우 = 기회 하나)만.
 //   바뀜(fixes-1116l, D-558 1547 "파티도 없으면 유닛들 개별 참전"): 전투에는 유닛마다 제 파티로 들고 퇴각 기준도 그 유닛 작전(unitRetreats).
-// - starters = NPC 판단 유닛 + 주인이 접속 중인 플레이어 판단 유닛(D-144). 플레이어 가문 주체 유닛은 접속 판단을 할 수 없어 먼저 걸지 않는다.
+// - starters = NPC 판단 유닛 + 주인이 접속 중인 플레이어 판단 유닛(D-144).
+//   바뀜(misc-574, D-574 2140 "유닛소유주가 접속하면"): 접속은 유닛마다 그 유닛 소유주의 접속이다. 가문원이 가진 유닛은 그 가문원, 플레이어 가문 소유
+//   주체가 가진 유닛(가문 도시 주민)은 그 가문장(가문 주체를 움직이는 사람 — 기술 기본값, 질문 2262)의 접속(encounterWorld.ts online).
+// - 바뀜(misc-574, 질문 2224 — D-558 1547): 판단 묶음(groups) = 판단 유닛마다 하나(세계에 파티 묶음이 없다 — 파티가 생기면 파티마다 그 파티 설정).
+//   묶음마다 자기 작전·남은 HP·접속·① 굴림으로 판단한다(clashDecide.ts). 평균 칸(engage·retreatPct)은 기록·옛 꼴로만 남는다.
 // - 전투 몸이 있으면(띄운 2차맵) 전력·남은 HP %를 몸으로, 아니면 유닛 수(한 명 = 1,000)로 센다.
 // - 빠르기 = 편에서 가장 느린 유닛의 걷기 빠르기(실효 AGI·이동 버프, world/walkSpeed.ts — 2차맵이 마지막 이동 때 잰 값·좌표 유닛 행 값).
 import { type AiTactics, DEFAULT_PLAYER_PRESET, npcPresetOf, presetTactics } from "@terra/shared/aiTactics";
-import type { ClashSideView } from "./clashDecide.ts";
+import type { ClashGroupView, ClashSideView } from "./clashDecide.ts";
 
 /** 판단 앞의 한 편 유닛 */
 export interface SideUnit {
@@ -51,19 +55,33 @@ export function sideView(
   sources: SideSources,
   bodies: ReadonlyMap<number, SideBody> | undefined,
   carriers: ReadonlySet<number>,
+  /** 묶음마다 ① 교전 굴림(0 이상 1000 미만). 없으면 0 */
+  roll?: () => number,
 ): ClashSideView {
   const deciders = side.filter((unit) => unit.decider);
   let engage = 0;
   let retreat = 0;
   let players = 0;
   let starters = 0;
+  const groups: ClashGroupView[] = [];
   for (const unit of deciders) {
     const tactics = unitTactics(unit, nation, sources);
     engage += tactics.engage;
     retreat += tactics.retreatPct;
     const player = sources.playerOwned(unit.ownerId);
     if (player) players += 1;
-    if (!player || sources.online(unit.ownerId)) starters += 1;
+    const starter = !player || sources.online(unit.ownerId);
+    if (starter) starters += 1;
+    const body = bodies?.get(unit.unitId);
+    groups.push({
+      player,
+      starter,
+      engage: tactics.engage,
+      retreatPct: tactics.retreatPct,
+      hpPct: body && body.maxHp > 0 ? Math.floor((body.hp * 100) / body.maxHp) : undefined,
+      rollPm: roll?.() ?? 0,
+      unitIds: [unit.unitId],
+    });
   }
   let power = 0;
   let hp = 0;
@@ -87,6 +105,7 @@ export function sideView(
     power,
     carries: side.some((unit) => carriers.has(unit.unitId)),
     speed: side.length > 0 ? speed : 0,
+    groups,
   };
 }
 

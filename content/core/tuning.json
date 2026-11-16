@@ -13400,6 +13400,78 @@
       "source": "줄기 exchange-3 (질문 2086) [임시] — 입력 한도"
     },
     {
+      "id": "exchange_fee_min_bp",
+      "code": "",
+      "name": {
+        "ko": "거래소 이용료 아래 끝(만분율)",
+        "en": "Exchange usage fee floor (bp)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "물자 거래소 주인이 정할 수 있는 이용료의 아래 끝. 주인이 정하지 않으면 적정 요율(거래소 이용료)을 이 범위로 잘라 받는다.",
+        "en": "Lowest usage fee a goods exchange owner may set. When the owner has not set one, the fair rate (exchange usage fee) clamped to this range is charged."
+      },
+      "source": "D-574 (질문 2085) [임시] · 줄기 misc-574 — 입력 한도"
+    },
+    {
+      "id": "exchange_fee_max_bp",
+      "code": "",
+      "name": {
+        "ko": "거래소 이용료 위 끝(만분율)",
+        "en": "Exchange usage fee limit (bp)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "물자 거래소 주인이 정할 수 있는 이용료의 위 끝.",
+        "en": "Highest usage fee a goods exchange owner may set."
+      },
+      "source": "D-574 (질문 2085) [임시] · 줄기 misc-574 — 입력 한도"
+    },
+    {
+      "id": "exchange_fx_fee_min_bp",
+      "code": "",
+      "name": {
+        "ko": "환전 이용료 아래 끝(만분율)",
+        "en": "FX usage fee floor (bp)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "외환 거래소 주인이 정할 수 있는 환전 이용료의 아래 끝(물자 거래소 이용료와 같은 틀).",
+        "en": "Lowest FX usage fee an FX exchange owner may set (same frame as the goods exchange fee)."
+      },
+      "source": "D-574 (질문 2085 같은 틀) [임시] · 줄기 misc-574 — 입력 한도"
+    },
+    {
+      "id": "exchange_npc_desk_rent_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 거래소 거래 직무 자리 값(적정가 ‰)",
+        "en": "NPC exchange trade-desk rent (‰ of fair)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "NPC 거래소가 남에게 빌려주는 거래 직무 자리의 시간당 값 = 적정 자리 값(일꾼 한 명 시간당 인건비 + 수수료) × 이 값 ÷ 1000. NPC가 따로 정하지 않으면 이 값을 쓴다. 0이면 NPC 거래소는 자리를 내지 않는다.",
+        "en": "Hourly rent of a trade-desk seat an NPC exchange lets to others = fair seat rent (one worker's hourly labor + fee) × this ÷ 1000. Used unless the NPC sets its own. 0 means NPC exchanges let no seats."
+      },
+      "source": "D-555 1509 · D-212 (질문 2204) [임시] · 줄기 misc-574"
+    },
+    {
       "id": "moves_knock_wall_pm",
       "code": "",
       "name": {

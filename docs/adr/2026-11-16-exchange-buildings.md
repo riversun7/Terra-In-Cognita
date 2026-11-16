@@ -168,3 +168,20 @@
   도시 칸 — 질문 2234)이다(`market/npcHaul.ts`). 보는 2차맵은 휴먼이 화물을 지고 걷는다(약탈 대상).
 - **2155 운반꾼이 없으면 기다림**(D-555 1505): 팔기·돌려보내기 운반은 그 도시 운반꾼 수만큼만 떠나고 나머지는 기다린다(물건은 출발 자리에 그대로). 닿는 시각은 운반 일이
   정한다(`stateOf`). 떠난 운반은 판 주문을 거두어도 끝까지 간다(보는지와 상관없이 같은 판정 — 질문 2240). business-ledger ADR "바뀜 (npc-econ-6)".
+
+## 바뀜 (D-574 2085 · 기획 대조 2201·2204, 2026-11-16, 줄기 misc-574)
+
+- 근거: 기획 D-574 5번(질문 2085 "거래소 이용료 요율 → 나) 거래소 주인이 정하고, 위아래 한도만 설정값. 사업장 금고로"), 기획 대조(1116n 질문 — 2201 가, 2204 나 확정:
+  D-555 1509·D-212, 창고 크기 고침: D-571 1943 "유닛마다 작은한도 창고", D-148 "누구나 어디서든 주문"). 질문 `docs/questions/2026-11-16-exchange-2.md`·`exchange-3.md`(답 표시),
+  새 질문 `docs/questions/2026-11-16-misc-574.md`. 작업 기록 `docs/worklog/2026/11/16-*-misc-574.md`.
+1. **물자 거래소 이용료 요율 = 주인이 정함(2085)**: 환전 이용료와 같은 틀 — 사업장 값 표 item `service:exchange_fee`(만분율, `@terra/shared/businessBooks` `EXCHANGE_FEE_ITEM`),
+   정하지 않으면 적정 요율 `exchange_fee_bp`(50). 정할 수 있는 범위 = 새 설정 칸 `exchange_fee_min_bp`(0) ~ `exchange_fee_max_bp`(1000), 정하지 않은 적정 요율도 이 범위로 자른다
+   (`market/fxFee.ts` `exchangeFeeOf`). 체결마다 판 쪽이 그 도시 물자 거래소 건물 금고에 낸다(받는 곳·내는 쪽은 그대로). 명령은 `business_price`(물자 거래소만 — 그 밖은
+   `not_goods`, 범위 밖은 `invalid_amount`), 건물 판 [관리]의 거래소 이용료 칸(`ExchangeFeeService` — `FxFeeService.tsx`가 두 칸을 같은 카드로 그린다). 환전 이용료도 같은 틀로
+   아래 끝 `exchange_fx_fee_min_bp`(0)를 더했다(받는 곳 = 그 화폐 나라에서 가장 싼 외환 거래소, 질문 2206 그대로). 장부 보기 칸 `exchangeFee`(`FeeRateView` — 아래 끝 `minBp`).
+2. **개인 창고 크기는 위치와 상관없이 모든 유닛(2201 가 확정 + 고침)**: 띄운 2차맵 유닛에 더해 좌표 유닛(띄우지 않은 2차맵에 선 유닛·1차맵을 걷는 유닛 — travel `coordinateUnits`)을
+   센다(`market/lockers.ts` `lockerUnitsOf`의 coords). 2차맵에 유닛이 없다고 창고 크기가 0이 되지 않는다. 물건은 그대로 주인 단위로 한데.
+3. **NPC 거래소도 거래 직무 자리를 낸다(2204 나)**: 주인이 낸 자리 값 줄(`labor_rents`)이 없는 NPC 세력 거래소는 시간당 자리 값 = 적정 자리 값(기본 일꾼 한 명 시간당 인건비 +
+   수수료 `serviceFeePm`, 세금 0) × 새 설정 칸 `exchange_npc_desk_rent_pm`(1000‰) ÷ 1000(`labor/deskRent.ts`, 건물 세계 `tradeDesk`의 `npcRentPm`). 남은 예전처럼 임대형
+   계약(`labor_create` lease)으로 빌린다. 0‰면 NPC 거래소는 자리를 내지 않는다. NPC가 성향으로 값을 바꾸는 것은 질문 2264.
+- 설정 칸 넷(팩 core@122 — 묶음 1116p 합친 판, 줄기 136), 프로토콜 54(받는 가장 낮은 판 53 — 묶음 1116p 합친 판, 줄기 66·65): `business_price` item `service:exchange_fee`. SIM 판 그대로(서버 몫).

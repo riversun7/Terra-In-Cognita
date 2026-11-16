@@ -2,10 +2,13 @@
 import { START_ENCOUNTER } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import {
+  type ClashGroupView,
   type ClashSideView,
+  PLAYER_POLICY_TACTICS,
   clashPower,
   clashThreshold,
   decideClash,
+  engagedUnits,
   powerRatioPm,
   resolveClash,
 } from "./clashDecide.ts";
@@ -136,5 +139,51 @@ describe("resolveClash", () => {
     };
     expect(clashPower(spec)).toBe(Math.floor((150 * 15 * 1000) / 1500));
     expect(clashPower({ ...spec, start: { hp: 50, armor: 0, shield: 0 } })).toBe(500);
+  });
+});
+
+const group = (patch: Partial<ClashGroupView>): ClashGroupView => ({
+  player: true,
+  starter: true,
+  engage: 5,
+  retreatPct: 0,
+  rollPm: 0,
+  ...patch,
+});
+
+describe("판단 묶음(질문 2224 — 파티 없는 유닛은 유닛마다, D-574 2140 소유주 접속)", () => {
+  const policy = { ...rules, playerPolicy: PLAYER_POLICY_TACTICS };
+
+  it("한 묶음이라도 걸면 편이 건다 — 편 평균이 아니라 묶음마다 자기 교전·굴림", () => {
+    // 교전 0(늘 회피) + 교전 10: 옛 평균(5)과 굴림 600이면 회피였지만 교전 10 묶음은 건다
+    const groups = [group({ engage: 0, rollPm: 600 }), group({ engage: 10, rollPm: 600 })];
+    expect(decideClash(side({ deciders: 2, player: true, groups }), side({}), true, policy)).toBe("fight");
+    expect(
+      decideClash(
+        side({ deciders: 2, player: true, groups: [group({ engage: 0 }), group({ engage: 0 })] }),
+        side({}),
+        true,
+        policy,
+      ),
+    ).toBe("avoid");
+  });
+
+  it("공격 편에는 건 묶음의 유닛만 든다(2224 나)", () => {
+    const groups = [group({ engage: 0, unitIds: [1] }), group({ engage: 10, unitIds: [2] })];
+    expect(engagedUnits(side({ deciders: 2, player: true, groups }), side({}), true, policy)).toEqual(
+      new Set([2]),
+    );
+    expect(engagedUnits(side({}), side({}), true, policy)).toBeUndefined();
+  });
+
+  it("소유주가 접속하지 않은 묶음은 먼저 걸지 않고, ⑦ 퇴각 기준은 묶음 자기 HP로 본다", () => {
+    const offline = [group({ engage: 10, starter: false }), group({ engage: 10, hpPct: 20, retreatPct: 30 })];
+    expect(decideClash(side({ deciders: 2, player: true, groups: offline }), side({}), true, policy)).toBe(
+      "avoid",
+    );
+    const online = [group({ engage: 10, starter: false }), group({ engage: 10, hpPct: 40, retreatPct: 30 })];
+    expect(decideClash(side({ deciders: 2, player: true, groups: online }), side({}), true, policy)).toBe(
+      "fight",
+    );
   });
 });

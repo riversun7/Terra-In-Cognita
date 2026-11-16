@@ -13,7 +13,7 @@ import type { NationPreset } from "../npc/nations.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { ServerEconomyCatalog } from "./catalog.ts";
 import { buildingCenterOf, createExchangeDirectory } from "./exchangeBuildings.ts";
-import { fxFeeOf } from "./fxFee.ts";
+import { exchangeFeeOf, fxFeeOf } from "./fxFee.ts";
 
 export function npcEconomyInputOf(
   catalog: (() => ServerEconomyCatalog) | undefined,
@@ -68,6 +68,13 @@ export function npcEconomyInputOf(
     },
     // NPC 시설 판매가의 기준(기획 대조 2153): 사업장 판매 기본 값과 같은 팩 기준 값
     unitPriceOf: (asset) => facilities.catalog().unitPriceOf?.(asset.slice(5)),
+    // 물자 거래소 이용료(D-574 질문 2085): 그 건물 주인이 정한 요율(없으면 적정 요율, 한도 안)
+    exchangeFeeBp: (buildingId) =>
+      exchangeFeeOf(
+        (id, item) => facilities.business.price(id, item),
+        facilities.rules().business,
+        buildingId,
+      ).charged,
     // NPC 증축(질문 1101 나): 건물 서비스로 짓고 전략 배치로 자리를 고른다
     build: {
       service: facilities.service,

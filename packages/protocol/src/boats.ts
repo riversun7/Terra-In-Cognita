@@ -43,6 +43,12 @@ export const BOAT_PRICE_PROTOCOL_VERSION = 51;
  */
 export const BOAT_CARRY_PROTOCOL_VERSION = 52;
 
+/**
+ * 운반꾼 기다림 판(프로토콜 54 — 묶음 1116p 합친 판, 줄기 misc-574 판 66 — 기획 대조 질문 2212, D-555 1505): 내리기·싣기에 쓸 유닛이 없으면 실패하지 않고 줄을 세운다 — boat_result ok에
+ * waiting: true(운반꾼이 생기면 나른다). 이 판 아래 연결은 예전처럼 no_carrier(그 아래는 legacyCarryCode)를 받는다(줄은 그대로 선다)
+ */
+export const BOAT_WAIT_PROTOCOL_VERSION = 54;
+
 /** 받기 범위(@terra/shared/harbor HARBOR_ACCESS와 같다 — 이 꾸러미는 shared를 가져오지 않는다) */
 export const HARBOR_ACCESS_VALUES = ["owner", "nation", "peace"] as const;
 /** 조선소 모듈(@terra/shared/harbor SHIPYARD_MODULES와 같다) */
@@ -319,6 +325,8 @@ const boatResultMessage = z.discriminatedUnion("ok", [
     walking: z.boolean().optional(),
     /** 만들기: 만드는 중이면 배가 뜨는 시각(서버 ms, 28판부터 — 바로 만들었으면 없고 boatId가 있다) */
     readyAtMs: timeMs.optional(),
+    /** 내리기·싣기: 운반꾼을 기다리는 줄에 섰다(54판부터 — 운반꾼이 생기면 나른다) */
+    waiting: z.boolean().optional(),
   }),
   z.object({
     t: z.literal("boat_result"),

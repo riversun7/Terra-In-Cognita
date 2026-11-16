@@ -16,9 +16,30 @@
 // - 회피 편 빠져나가기(D-573, 질문 2022 나): 한쪽만 걸고 다른 쪽이 판단 끝에 회피했으면(판단 유닛이 있는 편) 걷기 빠르기(가장 느린 유닛 —
 //   실효 AGI·이동 버프, world/walkSpeed.ts)를 견준다. 회피 편이 더 빠르면 전투 없이 빠져나가고(escaped), 아니면 조우 전투가 열리고 그 편은
 //   전투맵에서 퇴각을 시도한다(flee — 시작 틱에 파티 퇴각 명령, D-190 퇴각 규칙). 판단 유닛이 없는 편(봇만)은 빠져나가지 않고 맞선다(2024 가).
+// - 바뀜(misc-574, 기획 대조 질문 2224 — D-558 1547 "파티도 없으면 유닛들 개별 참전"): 편 평균으로 한 번 판단하지 않는다. 편 안의 판단 묶음(파티·분대는
+//   그 파티 설정, 파티 없는 유닛은 유닛마다 — 지금 세계에는 파티 묶음이 없어 모두 유닛마다)이 저마다 자기 작전(① 교전 굴림·⑦ 퇴각 기준·남은 HP)과
+//   접속(D-574 2140 — 그 유닛 소유주)으로 판단하고, 하나라도 걸면 그 편이 건다(전력 비는 편 전체 — 함께 선 편이 같이 싸운다). 모두 회피면 회피.
+//   공격 편에는 건 묶음의 유닛만 든다(engagedUnits — 질문 2224 나: 걸지 않은 유닛은 하던 길을 간다, 판단하지 않는 봇은 함께 든다). 수비 편은 모두 든다.
 import type { EncounterCoefficients } from "@terra/sim";
 
 export type ClashChoice = "avoid" | "loot" | "fight";
+
+/** 편 안의 판단 묶음 하나(파티·분대 또는 파티 없는 유닛 하나 — 질문 2224) */
+export interface ClashGroupView {
+  /** 플레이어가 움직이는 묶음인가(아니면 NPC) */
+  readonly player: boolean;
+  /** 먼저 걸 수 있나(NPC, 또는 소유주가 접속 중인 플레이어 — D-144·D-574) */
+  readonly starter: boolean;
+  /** AI 작전 ① 교전(0~10)·⑦ 퇴각 기준(%) */
+  readonly engage: number;
+  readonly retreatPct: number;
+  /** 남은 HP(%, 전투 몸으로 셀 수 있을 때만) */
+  readonly hpPct?: number | undefined;
+  /** ① 교전 굴림(0 이상 1000 미만 — 묶음마다 따로) */
+  readonly rollPm: number;
+  /** 그 묶음의 유닛(공격 편에 드는 유닛 고르기 — engagedUnits). 없으면 빈 묶음 */
+  readonly unitIds?: readonly number[] | undefined;
+}
 
 /** 판단에 드는 한 편의 값 */
 export interface ClashSideView {
@@ -40,6 +61,8 @@ export interface ClashSideView {
   readonly carries: boolean;
   /** 편 걷기 빠르기(가장 느린 유닛, 단위/초). 모르면 0(빠져나가지 못한다) */
   readonly speed?: number | undefined;
+  /** 판단 묶음(질문 2224). 있으면 묶음마다 판단하고 위 평균 칸(engage·retreatPct·hpPct·starters)은 쓰지 않는다 */
+  readonly groups?: readonly ClashGroupView[] | undefined;
 }
 
 export type EncounterRules = Pick<
@@ -76,6 +99,23 @@ export function decideClash(
   rules: EncounterRules,
   rollPm = 0,
 ): ClashChoice {
+  if (me.groups && me.deciders > 0) {
+    for (const group of me.groups) {
+      const view: ClashSideView = {
+        deciders: 1,
+        starters: group.starter ? 1 : 0,
+        player: group.player,
+        engage: group.engage,
+        retreatPct: group.retreatPct,
+        hpPct: group.hpPct,
+        power: me.power,
+        carries: me.carries,
+      };
+      const choice = decideClash(view, them, atWar, rules, group.rollPm);
+      if (choice !== "avoid") return choice;
+    }
+    return "avoid";
+  }
   if (me.deciders <= 0 || (me.starters ?? me.deciders) <= 0) return "avoid";
   const neutral = me.player && rules.playerPolicy === PLAYER_POLICY_NEUTRAL;
   if (me.player && !neutral && rules.playerPolicy !== PLAYER_POLICY_TACTICS) return "avoid";
@@ -88,6 +128,32 @@ export function decideClash(
   const need = clashThreshold(atWar ? rules.warRatioPm : rules.lootRatioPm, engage * 100, rules.aggressionPm);
   if (powerRatioPm(me.power, them.power) < need) return "avoid";
   return atWar ? "fight" : "loot";
+}
+
+/** 그 편에서 건 묶음의 유닛(질문 2224 — 공격 편에 드는 판단 유닛). 묶음이 없으면 undefined(편 전체) */
+export function engagedUnits(
+  me: ClashSideView,
+  them: ClashSideView,
+  atWar: boolean,
+  rules: EncounterRules,
+): Set<number> | undefined {
+  if (!me.groups) return undefined;
+  const out = new Set<number>();
+  for (const group of me.groups) {
+    const view: ClashSideView = {
+      deciders: 1,
+      starters: group.starter ? 1 : 0,
+      player: group.player,
+      engage: group.engage,
+      retreatPct: group.retreatPct,
+      hpPct: group.hpPct,
+      power: me.power,
+      carries: me.carries,
+    };
+    if (decideClash(view, them, atWar, rules, group.rollPm) !== "avoid")
+      for (const unitId of group.unitIds ?? []) out.add(unitId);
+  }
+  return out;
 }
 
 export interface ClashResolution {

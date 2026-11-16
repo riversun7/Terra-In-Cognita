@@ -1,11 +1,11 @@
 // 환전 이용료(질문 2086, 줄기 exchange-3 — fxFee.ts·fxFeeHook.ts·fx.ts fee 고리) 시험
-import { FX_FEE_ITEM } from "@terra/shared/businessBooks";
+import { EXCHANGE_FEE_ITEM, FX_FEE_ITEM } from "@terra/shared/businessBooks";
 import { type LedgerBook, START_BUSINESS, createLedgerBook } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import { EMPTY_FX, createFxRegistry } from "./fx.ts";
-import { cheapestFxExchange, fxFeeAmount, fxFeeOf } from "./fxFee.ts";
+import { cheapestFxExchange, exchangeFeeOf, fxFeeAmount, fxFeeOf } from "./fxFee.ts";
 import { fxFeeHook } from "./fxFeeHook.ts";
 
 const T0 = 1_800_000_000_000;
@@ -42,6 +42,31 @@ function endow(book: LedgerBook, owner: number, asset: string, qty: bigint): voi
   });
 }
 
+describe("물자 거래소 이용료 요율(D-574 질문 2085 — 주인이 정하고 위아래 한도는 설정값)", () => {
+  it("정한 값은 아래·위 끝으로 자르고, 정하지 않으면 적정 요율(한도 안). 환전 이용료도 아래 끝이 있다", () => {
+    const rules = { ...START_BUSINESS, exchangeFeeBp: 50, exchangeFeeMinBp: 10, exchangeFeeMaxBp: 200 };
+    const prices = new Map<string, bigint>([
+      [`7|${EXCHANGE_FEE_ITEM}`, 120n],
+      [`8|${EXCHANGE_FEE_ITEM}`, 5_000n],
+      [`9|${EXCHANGE_FEE_ITEM}`, 0n],
+      [`9|${FX_FEE_ITEM}`, 0n],
+    ]);
+    const priceOf = (id: number, item: string): bigint | undefined => prices.get(`${id}|${item}`);
+    expect(exchangeFeeOf(priceOf, rules, 6)).toEqual({
+      bp: null,
+      charged: 50,
+      fairBp: 50,
+      minBp: 10,
+      maxBp: 200,
+    });
+    expect(exchangeFeeOf(priceOf, rules, 7)).toMatchObject({ bp: 120, charged: 120 });
+    expect(exchangeFeeOf(priceOf, rules, 8)).toMatchObject({ bp: 200, charged: 200 });
+    expect(exchangeFeeOf(priceOf, rules, 9)).toMatchObject({ bp: 10, charged: 10 });
+    expect(exchangeFeeOf(priceOf, { ...rules, exchangeFeeBp: 500 }, 6).charged).toBe(200);
+    expect(fxFeeOf(priceOf, { ...rules, exchangeFxFeeMinBp: 5 }, 9)).toMatchObject({ bp: 5, charged: 5 });
+  });
+});
+
 describe("환전 이용료(질문 2086)", () => {
   it("요율 = 주인이 정한 값(위 끝까지), 없으면 적정 요율. 받는 곳 = 가장 싼 외환 거래소(같으면 작은 ID)", () => {
     const rules = { ...START_BUSINESS, exchangeFxFeeBp: 50, exchangeFxFeeMaxBp: 300 };
@@ -51,7 +76,7 @@ describe("환전 이용료(질문 2086)", () => {
       [`9|${FX_FEE_ITEM}`, 0n],
     ]);
     const priceOf = (id: number, item: string): bigint | undefined => prices.get(`${id}|${item}`);
-    expect(fxFeeOf(priceOf, rules, 6)).toEqual({ bp: null, charged: 50, fairBp: 50, maxBp: 300 });
+    expect(fxFeeOf(priceOf, rules, 6)).toEqual({ bp: null, charged: 50, fairBp: 50, minBp: 0, maxBp: 300 });
     expect(fxFeeOf(priceOf, rules, 7)).toMatchObject({ bp: 20, charged: 20 });
     expect(fxFeeOf(priceOf, rules, 8)).toMatchObject({ bp: 300, charged: 300 });
     expect(fxFeeOf(priceOf, rules, 9)).toMatchObject({ bp: 0, charged: 0 });

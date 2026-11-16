@@ -21,6 +21,8 @@ export interface HouseTies {
   nationOfHouse(rowId: number): number | undefined;
   /** 가문장 → 그가 이끄는 도시 가진 가문 행(폐허 복원 고리가 쓴다). 아니면 undefined */
   ledHouseOf(userId: string): number | undefined;
+  /** 도시를 가진 가문 행 → 그 가문장 사용자(조우 접속 판정 — 가문 소유 주체 유닛의 소유주, D-574 2140). 아니면 undefined */
+  leaderOfHouse(rowId: number): string | undefined;
   /** 가문원(가문장 포함) → 나라(도시 가진 가문은 봉신 = 위 세력·독립 = 그 가문, 도시 없는 가문은 소속 도시의 나라 born_of) */
   memberNationOf(userId: string): number | undefined;
   /** 사용자가 든 가문 행(해산하지 않은 것). 없으면 undefined(무소속) */
@@ -65,6 +67,7 @@ export function attachHouseTies(store: HouseTiesStore, pool: QueryPool): HouseTi
   if (existing) return existing;
   let nations = new Map<number, number>();
   let leaders = new Map<string, number>();
+  let leaderOf = new Map<number, string>();
   let memberNations = new Map<string, number>();
   let memberHouses = new Map<string, number>();
   const units = new Map<number, UnitHouse>();
@@ -96,6 +99,7 @@ export function attachHouseTies(store: HouseTiesStore, pool: QueryPool): HouseTi
     pool,
     nationOfHouse: (rowId) => nations.get(rowId),
     ledHouseOf: (userId) => leaders.get(userId),
+    leaderOfHouse: (rowId) => leaderOf.get(rowId),
     memberNationOf: (userId) => memberNations.get(userId),
     houseOfUser: (userId) => memberHouses.get(userId),
     unitHouseOf(unitId, userId) {
@@ -163,6 +167,7 @@ export function attachHouseTies(store: HouseTiesStore, pool: QueryPool): HouseTi
       }
       nations = nextNations;
       leaders = nextLeaders;
+      leaderOf = new Map([...nextLeaders].map(([userId, rowId]) => [rowId, userId]));
       memberNations = nextMemberNations;
       memberHouses = nextMemberHouses;
       if (align(homes) + detachLeft() > 0) await store.writer?.durable();

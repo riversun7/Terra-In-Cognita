@@ -183,6 +183,7 @@ export {
   GEAR_PROTOCOL_VERSION,
   BOAT_PRICE_PROTOCOL_VERSION,
   BOAT_CARRY_PROTOCOL_VERSION,
+  BOAT_WAIT_PROTOCOL_VERSION,
   legacyBoatCode,
   legacyCarryCode,
   legacyGearCode,

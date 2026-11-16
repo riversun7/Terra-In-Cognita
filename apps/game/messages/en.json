@@ -8208,7 +8208,6 @@
   "fx_fee_service_rate": "Now {pct}%",
   "fx_fee_service_rate_fair": "Now {pct}% (fair rate)",
   "fx_fee_service_closed": "No fee is charged (0%).",
-  "fx_fee_service_fair": "Fair rate {pct}% · limit {max}%",
   "fx_fee_service_input": "Rate (basis points, 100 = 1%)",
   "fx_fee_service_save": "Set rate",
   "fx_fee_service_use_fair": "Use fair rate",
@@ -8232,12 +8231,18 @@
   "dev_nations_temper_leader_desc": "Position within the leader-disposition range setting (+ = bold, − = cautious). 1000 = the end of the range.",
   "dev_nations_temper_random": "Empty = random",
   "fid_house_vault": "House vault {amount}",
-  "fid_house_vault_hint": "House money kept apart from the treasury. Member donations and the house tax fill it, and the leader may take from it (the ledger is open to all members). It pays move fees first and receives grants; in a dictatorship house nation, the treasury share of city leftover profit comes here.",
+  "fid_house_vault_hint": "House money kept apart from the treasury. It pays entry fees first and takes grants when the house moves. In a dictatorship house nation, the treasury's share of city profit comes here.",
   "harbor_repair_fair": "If you set no repair fee, each repair charges its fair price. For reference: fully repairing the first boat type costs {price} {currency}",
   "harbor_repair_fee_fair": "Repair fee at this shipyard: each repair's fair price in {currency} (the shipyard pays materials and labor)",
   "inbox_action_wait": "Wait",
   "inbox_action_terminate": "End contract",
   "inbox_action_waited": "Warning folded. The contract stays paused and resumes once the business earns again.",
   "inbox_action_terminated": "Contract ended.",
-  "inbox_action_failed": "Could not do that. Try again from the economy screen."
+  "inbox_action_failed": "Could not do that. Try again from the economy screen.",
+  "fee_service_range": "Fair rate {pct}% · settable range {min}–{max}%",
+  "exchange_fee_service_title": "Exchange usage fee",
+  "exchange_fee_service_hint": "On every fill at this goods exchange the seller pays total × rate into this building's vault. Unset means the fair rate; you can only set a rate within the allowed range.",
+  "exchange_fee_service_saved": "Exchange usage fee changed.",
+  "boat_unload_waiting": "No unit free to carry the goods, so the order is waiting. A porter will carry them once one of your units off the boat is on this map.",
+  "boat_load_waiting": "No unit free to carry the goods, so the order is waiting. They will be carried to the boat once one of your units off the boat is on this map."
 }

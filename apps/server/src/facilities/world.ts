@@ -360,6 +360,9 @@ export function createWorldFacilities(input: {
       return (catalog().facility(record?.facilityId ?? "")?.repair?.length ?? 0) > 0;
     },
     laborHourly: (buildingId) => labor?.hourlyLabor(buildingId) ?? 0n,
+    // 환전 이용료 요율(질문 2086): 외환 거래소
+    fxShop: (buildingId) =>
+      catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.exchange === "fx",
     // 배 판매가(기획 대조 2057): 그 조선소가 만드는 배 종류
     boatTypes: (buildingId) =>
       (catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.boats ?? []).map(
@@ -464,15 +467,13 @@ export function createWorldFacilities(input: {
         site: (buildingId) => gatherSiteOf(service, catalog(), buildingId),
         // 병원(의료 단계 시설): 의사 직무 배치 자리(D-521, 산출 없음)
         workplace: (buildingId) => medicalSiteOf(service, catalog(), buildingId),
-        // 거래소 거래 직무(기획 D-571 1944): 물자·외환 거래소, 주인마다 설정 칸 exchange_trade_slots 자리
+        // 거래소 거래 직무(기획 D-571 1944, 질문 2083): 물자·외환 거래소, 자리 = 레벨 × 설정 칸 exchange_trade_slots(주인 배치·남의 계약이 함께 쓴다)
         tradeDesk: (buildingId) => {
           const record = service.facilities.get(buildingId);
           const kind = record ? catalog().facility(record.facilityId)?.exchange : undefined;
           if (!record || (kind !== "goods" && kind !== "fx")) return undefined;
-          return {
-            level: record.level,
-            slots: Math.max(0, Math.floor(input.rules().business.exchangeTradeSlots)),
-          };
+          const perLevel = Math.max(0, Math.floor(input.rules().business.exchangeTradeSlots));
+          return { level: record.level, slots: Math.max(0, record.level) * perLevel };
         },
         primaries: (unitId) => input.holdings.primariesOf(unitId),
         // 임대형 임차인 몫의 건물 창고 상한(523 ②)

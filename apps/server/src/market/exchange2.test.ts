@@ -175,10 +175,12 @@ describe("거래소 건물 2", () => {
     });
     // 창고 6 + 팔기 4 + 사기 3 = 13개 × 2g
     expect(used).toBe(26n);
-    const lockers = createLockers([{ cityId: CITY, ownerId: USER, steps: 2, updatedAtMs: T0 }], undefined);
-    expect(lockers.steps(CITY, USER)).toBe(2);
-    lockers.setSteps(CITY, USER, 3, T0);
-    expect(lockers.steps(CITY, USER)).toBe(3);
-    expect(lockers.steps(CITY, NPC)).toBe(0);
+    // 바뀜 (질문 2081): 넓힌 칸은 유닛마다(도시 × 유닛)
+    const UNIT = 77;
+    const lockers = createLockers([{ cityId: CITY, unitId: UNIT, steps: 2, updatedAtMs: T0 }], undefined);
+    expect(lockers.steps(CITY, UNIT)).toBe(2);
+    lockers.setSteps(CITY, UNIT, 3, T0);
+    expect(lockers.steps(CITY, UNIT)).toBe(3);
+    expect(lockers.steps(CITY, UNIT + 1)).toBe(0);
   });
 });

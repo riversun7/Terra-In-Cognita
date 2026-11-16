@@ -5,7 +5,7 @@
 // 거두고, 다시 켜도 걸린 환전 주문이 그대로(M2). 없는 동안 체결된 내 주문은 복귀 요약 거래 칸에 센다(질문 538).
 import { loadContentPack } from "@terra/content/node";
 import { buildingLocation } from "@terra/shared/goodsPlaces";
-import { DAY_MS, HOUR_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
+import { DAY_MS, HOUR_MS, TEST_SOCIETY_COEFFICIENTS, WALK_SPEED } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
@@ -19,6 +19,8 @@ import { silentLog, legacyNationPresets } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { marketSourceOf } from "./appSource.ts";
 import { serverEconomyCatalogAccessor } from "./catalog.ts";
+import { buildingCenterOf } from "./exchangeBuildings.ts";
+import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
@@ -248,6 +250,23 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     );
     if (!exchangeRecord) throw new Error("no goods exchange");
     const holding = buildingLocation(exchangeRecord.buildingId);
+    // 개인 창고는 유닛마다(질문 2081): 산 사람의 사이보그 본체 하나를 그 거래소 2차맵에 둔다
+    const center = buildingCenterOf(world.maps, exchangeRecord.buildingId);
+    const exchangeMap = center ? world.maps.get(center.mapKey) : undefined;
+    if (!center || !exchangeMap) throw new Error("no exchange map");
+    const buyerUnit = persistence.nextId.unit();
+    const placed = [6, 8, 10, 12, 16, 20].some((d) =>
+      exchangeMap.addUnit({
+        id: buyerUnit,
+        size: 1,
+        speed: WALK_SPEED,
+        cellX: center.x + d,
+        cellY: center.y + d,
+        ownerId: buyer.ownerId,
+        kind: UNIT_KIND_CYBORG,
+      }),
+    );
+    expect(placed).toBe(true);
     expect(source.views.book(buyer.userId, ask.item, ask.cityId, clock)?.exchange).toMatchObject({
       buildingId: String(exchangeRecord.buildingId),
     });
@@ -268,8 +287,15 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(ledger.balanceOf(buyer.ownerId, ask.asset, ask.cityId)).toBe(0n);
     // 개인 창고(D-571 1943): 화면 자료·넓히기(그 도시 화폐로 한 칸 값 → 거래소 건물 금고)·거래 직무 자리(1944)
     const lockerView = source.views.book(buyer.userId, ask.item, ask.cityId, clock)?.exchange;
-    expect(lockerView?.locker).toMatchObject({ steps: 0, maxSteps: 20, stepPrice: "100" });
-    expect(lockerView?.desk).toMatchObject({ traders: [], slots: 5 });
+    expect(lockerView?.locker).toMatchObject({
+      steps: 0,
+      maxSteps: 20,
+      stepPrice: "100",
+      capacityG: "200000",
+      units: [{ unitId: buyerUnit, cyborg: true, steps: 0 }],
+    });
+    // 거래 직무 자리(질문 2083): 레벨 × 5, 남의(NPC) 거래소 — 주인이 자리를 내지 않았다
+    expect(lockerView?.desk).toMatchObject({ traders: [], slots: 5, taken: 0, own: false, rent: null });
     ledger.post({
       kind: "issue",
       atMs: clock,
@@ -278,11 +304,19 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
         { account: ledger.ownerAccount(buyer.ownerId, currency), amount: 100n },
       ],
     });
+    // 남의 유닛 창고는 넓히지 못한다
+    expect(await source.service.lockerExpand(buyer.userId, ask.cityId, buyerUnit + 999)).toEqual({
+      ok: false,
+      code: "unknown_unit",
+    });
     expect(await source.service.lockerExpand(buyer.userId, ask.cityId)).toEqual({ ok: true });
-    expect(source.views.book(buyer.userId, ask.item, ask.cityId, clock)?.exchange?.locker?.steps).toBe(1);
+    expect(source.views.book(buyer.userId, ask.item, ask.cityId, clock)?.exchange?.locker).toMatchObject({
+      steps: 1,
+      capacityG: "400000",
+    });
     expect(await count(`select id from ledger_transactions where kind = 'exchange_locker'`)).toBe(1);
     expect(
-      await count(`select city_id from exchange_lockers where owner_id = ${buyer.ownerId} and steps = 1`),
+      await count(`select city_id from exchange_unit_lockers where unit_id = ${buyerUnit} and steps = 1`),
     ).toBe(1);
     expect(await count(`select id from market_trades where taker_owner_id = ${buyer.ownerId}`)).toBe(1);
     expect(
@@ -375,7 +409,7 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(book?.trades.length).toBeGreaterThan(0);
     expect(reloaded.registry.check()).toEqual([]);
     // 넓힌 개인 창고 칸도 그대로(D-571 1943)
-    expect(reloaded.lockers.steps(ask.cityId, buyer.ownerId)).toBe(1);
+    expect(reloaded.lockers.steps(ask.cityId, buyerUnit)).toBe(1);
     const restored = marketSourceOf(again, () => clock)();
     expect(restored?.views.orders(buyer.userId, clock).open[0]?.id).toBe(String(sell.orderId));
     // 걸린 환전 주문도 같은 짝·같은 차례로 되살아난다(에스크로 M2), 지난 체결가가 이어진다

@@ -5,6 +5,8 @@
 // - 시장을 바꾸는 호출(내기·거두기·회차)마다 주문 줄(fx_orders)·회차 줄(fx_rounds, 추가만)을 쓰기 대기열에 넣는다(원장 거래와 같은 동기 처리 =
 //   같은 커밋). 유저 주문은 회차가 끝나도 줄을 남기고(체결 로트·체결가, 내 환전 기록), NPC 세력 주문은 지운다(회차마다 다시 낸다).
 // - 부팅: 걸린 주문(seq 그대로)·지난 체결가로 시장을 다시 만든다(createFxMarket restore). 걸린 주문은 다음 회차에 그대로 체결된다.
+// - 환전 이용료(질문 2086, fxFee.ts): 회차 뒤 그 화폐를 판 쪽이 받은 기준 통화 × 요율을 그 화폐 나라에서 가장 싼 외환 거래소 금고에 낸다(fee 고리,
+//   회차 정산과 같은 동기 처리). 고리가 없으면 이용료가 없다(시뮬·시험).
 import {
   type FxMarket,
   type FxOrder,
@@ -14,6 +16,7 @@ import {
   createFxMarket,
 } from "@terra/sim";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import { fxFeeAmount } from "./fxFee.ts";
 
 /** 메모리에 두는 회차 창(지난 24회차 차트 + 여유) */
 export const FX_ROUND_WINDOW_MS = 8 * 24 * 3_600_000;
@@ -89,6 +92,21 @@ export interface FxRegistryOptions {
   /** 유저 소유 주체인가(아니면 NPC 세력 — 끝난 주문 줄을 지운다) */
   readonly isUser: (ownerId: number) => boolean;
   readonly now: () => number;
+  /**
+   * 환전 이용료(질문 2086): 그 화폐(원장 자산)의 이용료 받는 외환 거래소·만분율(없으면 이용료 없음)과 내기(판 쪽 기준 통화 지갑 → 그 건물 금고).
+   * 없으면 이용료 없음
+   */
+  readonly fee?:
+    | {
+        readonly of: (currency: string) => { readonly buildingId: number; readonly bp: number } | undefined;
+        readonly charge: (input: {
+          readonly seller: number;
+          readonly amount: bigint;
+          readonly buildingId: number;
+          readonly atMs: number;
+        }) => void;
+      }
+    | undefined;
 }
 
 export interface FxRegistry {
@@ -232,6 +250,15 @@ export function createFxRegistry(o: FxRegistryOptions): FxRegistry {
       if (!book) return result;
       for (const order of before)
         writeDone(book, order, "done", result.fills.get(order.id) ?? 0n, result.price, nowMs);
+      // 환전 이용료(질문 2086): 판 쪽(기준 통화를 받은 쪽)이 받은 기준 통화 × 요율 → 가장 싼 외환 거래소 금고
+      const feeAt = result.price === undefined ? undefined : o.fee?.of(book.currency);
+      if (feeAt && feeAt.bp > 0 && result.price !== undefined)
+        for (const order of before) {
+          if (order.side !== "sell") continue;
+          const amount = fxFeeAmount(result.fills.get(order.id) ?? 0n, result.price, feeAt.bp);
+          if (amount > 0n)
+            o.fee?.charge({ seller: order.owner, amount, buildingId: feeAt.buildingId, atMs: nowMs });
+        }
       lastRoundId += 1;
       const round: FxRoundRecord = {
         id: lastRoundId,

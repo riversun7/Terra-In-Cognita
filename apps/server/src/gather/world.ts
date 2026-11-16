@@ -6,7 +6,7 @@ import type { SocietyCoefficients } from "@terra/sim";
 import type { PlaceWorld } from "../facilities/places.ts";
 import type { JobRecord } from "../facilities/state.ts";
 import type { StorageContext } from "../facilities/storage.ts";
-import type { LaborWorkerEntry } from "../labor/service.ts";
+import type { LaborWorkerEntry } from "../labor/workerEntry.ts";
 import { type WorkerRest, attachWorkerRest } from "../labor/workerRest.ts";
 import { createGatherInjury } from "../world/unitCondition.ts";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
@@ -144,6 +144,12 @@ export function startWorldGather(
         pollution: (mapKey) => world.npc?.gardener.run.layer().get(mapKey) ?? 0,
         // 운반꾼(질문 1090 가): 그 채집소 일꾼 가운데 채집 줄이 없는 유닛
         workersAt,
+        // 거래소 거래 직무(질문 2084): 그 자리 유닛이 반입·반출을 먼저 나르고 시간이 설정 칸 배(‰)
+        deskHaulPm: (buildingId) => {
+          const record = facilities.service.facilities.get(buildingId);
+          const kind = record ? facilities.catalog().facility(record.facilityId)?.exchange : undefined;
+          return kind === "goods" ? Math.floor(rules().business.exchangeDeskHaulPm) : undefined;
+        },
         busy: (unitId) => service.acting(unitId),
         // 일꾼 다음 운반꾼(기획 D-569 1784): 받을 사람의 그 2차맵 휴먼·사이보그 유닛(사이보그 본체는 빼낸다 [임시])
         ownUnits: (ownerId, mapKey) => {

@@ -5,8 +5,10 @@
 // - 짓기 규칙: 잠긴 종류(유닛·증권)는 짓지 못한다(exchange_locked). 도시 밖은 짓지 못한다(no_place). 같은 도시에 같은 종류가 이미 있으면
 //   (짓는 중 포함) 짓지 못한다(exchange_exists).
 // - 배치(D-148): 바뀜 (기획 D-571 1944 "거래소에 배치, 거래소 개인 창고·거래 물품 관리 역할", docs/adr/2026-11-16-exchange-buildings.md
-//   "바뀜 (D-571)") — 그 종류 거래소 건물의 거래 직무 유닛(노동 직무 배치 labor_assign, 남의 거래소에도 — labor/service.ts tradeDesk). 예전
-//   "건물 3칸 안에 선 유닛"은 없앴다. 주문 한도 = 기본 + 유닛마다 ⌊(INT + WIS) ÷ 나눗수⌋(입은 장비·버프 포함, holdings primariesOf), 위 끝 있음.
+//   "바뀜 (D-571)") — 그 종류 거래소 건물의 거래 직무 유닛. 예전 "건물 3칸 안에 선 유닛"은 없앴다. 바뀜 (질문 2083, 줄기 exchange-3): 내 거래소는
+//   직무 배치(labor_assign), 남의 거래소는 주인이 낸 자리를 임대형 계약(labor_create lease — 임차인 몫)이나 고용(구인 게시판 임금형 — 고용주 몫)으로.
+//   유닛은 그 일의 몫을 받는 주체(tradersAt ownerId)로 센다. 주문 한도 = 기본 + 유닛마다 ⌊(INT + WIS) ÷ 나눗수⌋(입은 장비·버프 포함, holdings
+//   primariesOf), 위 끝 있음.
 // 읽기만 한다(원장·시설을 바꾸지 않는다). 정수 연산만 쓴다.
 import { type ExchangeKind, exchangeLocked, orderLimit, stationBonus } from "@terra/shared/exchange";
 import { footprintRect } from "@terra/sim";
@@ -50,7 +52,7 @@ export interface ExchangeWorld {
   works(buildingId: number): boolean;
   /** 유닛 1차 스탯(입은 장비·버프 포함). 없으면 배치 몫 0 */
   primariesOf?: ((unitId: number) => { readonly int: number; readonly wis: number }) | undefined;
-  /** 그 건물의 거래 직무 유닛(노동 직무 배치 — 유닛 ID·주인). 없으면 배치 몫 0 */
+  /** 그 건물의 거래 직무 유닛(유닛 ID·그 일의 몫을 받는 주체 — 직무 배치·노동 계약). 없으면 배치 몫 0 */
   tradersAt?:
     | ((buildingId: number) => readonly { readonly unitId: number; readonly ownerId: number }[])
     | undefined;

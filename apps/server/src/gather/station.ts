@@ -113,8 +113,18 @@ export interface StationDeps {
   readonly timers?: boolean | undefined;
   /** 그 채집소 일꾼(운반꾼 고르기, 질문 1090 가). 없으면 운반꾼이 없다 */
   readonly workersAt?:
-    | ((buildingId: number) => readonly { unitId: number; workerOwnerId: number }[])
+    | ((buildingId: number) => readonly {
+        unitId: number;
+        workerOwnerId: number;
+        via?: string;
+        forOwnerId?: number | undefined;
+      }[])
     | undefined;
+  /**
+   * 거래소 거래 직무 자리의 운반 시간 배율(질문 2084): 그 건물이 거래소면 거래 직무 유닛이 나를 때 걸리는 시간 ‰(설정 칸 exchange_desk_haul_pm),
+   * 거래소가 아니면 undefined. 없으면 거래소 없음
+   */
+  readonly deskHaulPm?: ((buildingId: number) => number | undefined) | undefined;
   /** 다른 일(채집 줄 등)이 있는 유닛 — 운반꾼에서 뺀다 */
   readonly busy?: ((unitId: number) => boolean) | undefined;
   /** 받을 사람의 그 2차맵 유닛(일꾼 다음 운반꾼 후보, D-569 1784 — porter.ts). 없으면 일꾼만 */
@@ -471,9 +481,24 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     ledger,
     log: deps.log,
     workersAt: (buildingId) => deps.workersAt?.(buildingId) ?? [],
+    deskAt: (buildingId) => deps.deskHaulPm?.(buildingId) !== undefined,
     busy: deps.busy,
     ownUnits: deps.ownUnits,
   });
+
+  /**
+   * 걸리는 시간 배율(‰): 운영자 빠르기 표시(world/operatorPace.ts — 걸음처럼 그 배수로 준다, 사용자 지적 2026-11-12) × 거래 직무 유닛이 그 거래소
+   * 반입·반출을 나르면 exchange_desk_haul_pm(질문 2084 — 창고를 맡은 일꾼이라 빨리 넣고 꺼낸다)
+   */
+  const haulTime = (ms: number, mapKey: number, buildingId: number, porter: number): number => {
+    if (ms <= 0) return ms;
+    const pace = maps.get(mapKey)?.paceOf(porter) ?? 1;
+    const deskPm = deps.deskHaulPm?.(buildingId);
+    const desk =
+      deskPm !== undefined && (deps.workersAt?.(buildingId) ?? []).some((worker) => worker.unitId === porter);
+    const scaled = desk ? Math.ceil((ms * Math.min(1000, Math.max(1, Math.trunc(deskPm)))) / 1000) : ms;
+    return Math.ceil(scaled / pace);
+  };
 
   /** 옮김 거래 하나(그때 남은 양까지만, 거리 0·옮김 셈 끔). 넣은 계정 수 */
   const postMoves = (
@@ -506,12 +531,9 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     const route = routeOf(target.buildingId, ownerId);
     const rules = deps.rules();
     if (!route) return false;
-    // 운영자 빠르기 표시(world/operatorPace.ts)가 달린 운반꾼은 걸음처럼 나르는 시간도 그 배수로 준다(사용자 지적 2026-11-12) [임시]
-    const pace = maps.get(target.mapKey)?.paceOf(porter) ?? 1;
-    const timeMs = (grams: bigint): number => {
-      const ms = haulMs(grams, route.cells, 1, rules);
-      return ms <= 0 ? ms : Math.ceil(ms / pace);
-    };
+    // 운영자 빠르기·거래 직무 배율(haulTime) [임시]
+    const timeMs = (grams: bigint): number =>
+      haulTime(haulMs(grams, route.cells, 1, rules), target.mapKey, target.buildingId, porter);
     let grams = 0n;
     for (const load of loads) grams += load.grams;
     if (timeMs(grams) <= 0) return false;
@@ -717,7 +739,6 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       const own = deps.ownUnits?.(ownerId, target.mapKey) ?? [];
       return own.some((unitId) => map?.unitInfo(unitId) !== undefined) ? "unit_busy" : "unknown_unit";
     }
-    const pace = maps.get(target.mapKey)?.paceOf(porter) ?? 1;
     porters.depart({
       buildingId,
       ownerId,
@@ -729,10 +750,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       from,
       to,
       nowMs: atMs,
-      timeMs: (total) => {
-        const ms = haulMs(total, cells, 1, deps.rules());
-        return ms <= 0 ? ms : Math.ceil(ms / pace);
-      },
+      timeMs: (total) => haulTime(haulMs(total, cells, 1, deps.rules()), target.mapKey, buildingId, porter),
       deliverTo,
     });
     rearm();

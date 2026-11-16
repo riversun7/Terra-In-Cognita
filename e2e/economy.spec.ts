@@ -90,12 +90,17 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(economy(page)).toHaveAttribute("data-density", "compact");
     // 거래소 건물(D-561): 세계 씨앗이 NPC 도시마다 물자 거래소를 세우고, 거래창은 그 건물을 알린다(팔 물건 = 그 건물 창고)
     await expect(economy(page).locator('[data-part="market-exchange"]')).toBeVisible();
-    // 개인 창고·거래 직무(D-571 1943·1944): 쓰는 무게/크기와 넓히기, 거래 직무 자리(주인마다 5)
-    await expect(economy(page).locator('[data-part="market-locker"]')).toContainText(
-      message("ko", "market_locker_steps", { steps: 0, max: 20 }),
-    );
+    // 개인 창고·거래 직무(D-571 1943·1944): 쓰는 무게/크기와 넓히기. 바뀜 (질문 2081): 유닛마다 창고 — 넓힐 유닛 고르기에 내 사이보그 창고
+    await expect(
+      economy(page).getByRole("combobox", { name: message("ko", "market_locker_pick"), exact: true }),
+    ).toContainText(message("ko", "market_locker_unit_cyborg", { steps: 0, max: 20 }));
+    await expect(economy(page).locator('[data-part="market-locker-units"]')).toBeVisible();
+    // 거래 직무(질문 2083): 자리 = 레벨 × 5, NPC 거래소는 주인이 자리를 내지 않았다(빌리기 없음)
     await expect(economy(page).locator('[data-part="market-desk"]')).toContainText(
-      message("ko", "market_desk_title", { count: 0, slots: 5 }),
+      message("ko", "market_desk_seats", { taken: 0, slots: 5, count: 0 }),
+    );
+    await expect(economy(page).locator('[data-part="market-desk-rent"]')).toHaveText(
+      message("ko", "market_desk_closed"),
     );
     await shot(page, "market-exchange-note", { fullPage: true });
     // 실제 거래소의 [주문]은 "곧 열림"이 아니라 쪽에 맞는 보내기 단추다. 조건 주문은 아직 서버에 없어 잠근다
@@ -113,6 +118,10 @@ test.describe("플레이어(실제 자료)", () => {
     await page.goto("/economy/exchange");
     await expect(economy(page).locator(".eco-not-ready")).toHaveCount(0);
     await expect(economy(page).locator(".eco-fx")).toHaveCount(4);
+    // 환전 이용료(질문 2086): 주인이 정하지 않은 NPC 외환 거래소 = 적정 요율 0.5%
+    await expect(economy(page).locator('[data-part="fx-fee"]').first()).toHaveText(
+      message("ko", "fx_fee_line", { pct: "0.5" }),
+    );
     await expect(economy(page).getByText(message("ko", "fx_intro_live"))).toBeVisible();
     await expect(economy(page).getByText(message("ko", "fx_open_empty"))).toBeVisible();
     await page.getByLabel(message("ko", "economy_exchange_lots"), { exact: true }).fill("1");

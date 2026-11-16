@@ -57,6 +57,10 @@ export interface MarketViewSource {
   readonly locker?: ((ownerId: number, cityId: number, buildingId: number) => MarketLockerView) | undefined;
   /** 내 거래 직무(기획 D-571 1944, exchangeDesk.ts). 없으면 칸 없음 */
   readonly desk?: ((ownerId: number, buildingId: number) => MarketDeskView) | undefined;
+  /** 환전 이용료를 받는 외환 거래소·요율(질문 2086, fxFeeHook.ts). 없으면 이용료 칸 없음 */
+  readonly fxFeeOf?:
+    | ((currency: string) => { readonly buildingId: number; readonly bp: number } | undefined)
+    | undefined;
 }
 
 export interface MarketViews {
@@ -116,6 +120,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
             me === undefined ? ORDER_MAX : exchanges.orderLimit(me, "fx"),
         }
       : {}),
+    fxFeeOf: src.fxFeeOf,
   });
 
   const homeCity = (userId: string, me: number | undefined): number | undefined => {

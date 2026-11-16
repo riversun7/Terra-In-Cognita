@@ -54,18 +54,28 @@ export interface BusinessCoefficients {
    */
   readonly exchangeFeeBp: number;
   /**
-   * [임시] 거래소 개인 창고 기본 크기(g, 기획 D-571 "유닛마다 작은 한도 창고"). 그 도시 물자 거래소 건물 창고에서 한 주인이 쓰는 자리(창고 물건 +
-   * 걸어 둔 팔 물건 + 걸어 둔 사기 수량)의 위 끝. 넘으면 새 사기 주문·반입을 받지 않는다(이미 든 것은 그대로)
+   * [임시] 거래소 개인 창고 기본 크기(g, 기획 D-571 1943 "유닛마다 작은 한도 창고"). 바뀜 (줄기 exchange-3, 질문 2081): 유닛 하나의 창고 크기다.
+   * 한 주인이 그 도시 물자 거래소 건물 창고에서 쓰는 자리(창고 물건 + 걸어 둔 팔 물건 + 걸어 둔 사기 수량)의 위 끝 = 그 주인 유닛마다(기본 +
+   * 그 유닛 넓힌 칸)의 합. 넘으면 새 사기 주문·반입을 받지 않는다(이미 든 것은 그대로)
    */
   readonly exchangeLockerG: number;
   /** [임시] 거래소 개인 창고 넓히기 한 칸(g, D-571 "비용 지불하여 창고 확장") */
   readonly exchangeLockerStepG: number;
   /** [임시] 넓히기 한 칸 값(그 도시 화폐 최소 단위 — 그 거래소 건물 금고로, 사업장 장부 수입) */
   readonly exchangeLockerStepPrice: number;
-  /** [임시] 넓히기 칸 수 위 끝(주인마다·도시마다) */
+  /** [임시] 넓히기 칸 수 위 끝(유닛마다·도시마다 — 질문 2081) */
   readonly exchangeLockerMaxSteps: number;
-  /** [임시] 한 주인이 거래소 하나에 둘 수 있는 거래 직무 유닛 수(D-571 1944 "거래소에 배치" — 주문 한도를 늘린다) */
+  /**
+   * [임시] 거래소 거래 직무 자리 수(레벨마다, D-571 1944 "거래소에 배치" — 주문 한도를 늘린다). 바뀜 (질문 2083): 거래소 건물 하나의 자리 = 레벨 × 이 값.
+   * 주인의 직무 배치·남의 임대형 계약(주인이 자리 값을 낸다)·고용(구인 게시판)이 함께 쓴다
+   */
   readonly exchangeTradeSlots: number;
+  /** [임시] 거래 직무 유닛이 그 거래소 반입·반출을 나를 때 걸리는 시간 배율(‰, 질문 2084 — 1000 = 다른 운반꾼과 같음) */
+  readonly exchangeDeskHaulPm: number;
+  /** [임시] 외환 거래소 환전 이용료 적정 요율(만분율, 질문 2086 — 주인이 정하지 않으면 이 값) */
+  readonly exchangeFxFeeBp: number;
+  /** [임시] 외환 거래소 주인이 정할 수 있는 환전 이용료 위 끝(만분율) */
+  readonly exchangeFxFeeMaxBp: number;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -86,4 +96,7 @@ export const START_BUSINESS: BusinessCoefficients = {
   exchangeLockerStepPrice: 100,
   exchangeLockerMaxSteps: 20,
   exchangeTradeSlots: 5,
+  exchangeDeskHaulPm: 500,
+  exchangeFxFeeBp: 50,
+  exchangeFxFeeMaxBp: 1000,
 };

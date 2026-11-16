@@ -1,5 +1,6 @@
 // 건물 화면 자료의 월드 쪽(app.ts → tRPC 맥락) — docs/adr/2026-11-07-buildings-runtime.md
 // 세계가 준비되고 DB가 있을 때만 자료를 준다(아니면 화면은 not_ready).
+import { fxFeeOf } from "../market/fxFee.ts";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { nearestFactionCity } from "@terra/shared/territory";
 import { nationLookupOf } from "../world/nationVision.ts";
@@ -82,6 +83,16 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
               .facility(facilities.service.facilities.get(id)?.facilityId ?? "");
             return (def?.repair?.length ?? 0) > 0 ? facilities.service.shopWorkers(id).length : undefined;
           },
+          // 환전 이용료(질문 2086): 외환 거래소만
+          fxFee: (id) =>
+            facilities.catalog().facility(facilities.service.facilities.get(id)?.facilityId ?? "")
+              ?.exchange === "fx"
+              ? fxFeeOf(
+                  (building, item) => facilities.business.price(building, item),
+                  facilities.rules().business,
+                  id,
+                )
+              : undefined,
         },
         settlement.findOwnerOfUser(userId),
         buildingId,

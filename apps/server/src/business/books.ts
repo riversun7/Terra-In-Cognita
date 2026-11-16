@@ -16,6 +16,7 @@ import {
   type BookOwnerKind,
   type BookTotals,
   type BusinessBooksResponse,
+  type FxFeeView,
   type ReserveView,
   bookColumnOf,
   businessLocation,
@@ -59,6 +60,8 @@ export interface BooksSource {
   readonly fairFeePm?: (() => number) | undefined;
   /** 외주 수리를 맡을 그 공방 일꾼 수(수리 줄이 없는 건물이면 undefined — D-570 1785) */
   readonly repairWorkers?: ((buildingId: number) => number | undefined) | undefined;
+  /** 환전 이용료(외환 거래소만 — 질문 2086, market/fxFee.ts). 외환 거래소가 아니면 undefined */
+  readonly fxFee?: ((buildingId: number) => FxFeeView | undefined) | undefined;
 }
 
 const isMoney = (asset: string): boolean => !asset.startsWith("item:");
@@ -202,6 +205,7 @@ export async function readBusinessBooks(
           { feePm, taxBp },
         );
   const repairWorkers = source.repairWorkers?.(buildingId);
+  const fxFee = source.fxFee?.(buildingId);
   const lot = source.commands.lotOf(buildingId);
   const holderList = source.core.holders(buildingId);
   const total = holderList.reduce((sum, holder) => sum + holder.shares, 0n);
@@ -254,6 +258,7 @@ export async function readBusinessBooks(
             };
           })(),
         }),
+    ...(fxFee === undefined ? {} : { fxFee }),
     nextSettleMs: source.core.nextSettleMs(nowMs),
     taxBp,
     minLot: lot.minLot,

@@ -179,3 +179,11 @@ export function rentRow(r: RentRow): Row {
     updated_at_ms: r.updatedAtMs,
   };
 }
+
+/** 지금 주인이 낸 시간당 임대료(0·없음·주인이 바뀐 줄 = null) — 거래소 거래 직무 자리 값(질문 2083) */
+export function postedRent(
+  row: RentRow | undefined,
+  buildingOwner: number | null | undefined,
+): bigint | null {
+  return row && row.rentPerHour > 0n && row.ownerId === buildingOwner ? row.rentPerHour : null;
+}

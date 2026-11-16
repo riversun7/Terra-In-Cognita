@@ -398,17 +398,31 @@ export interface MarketExchangeView {
   readonly desk?: MarketDeskView | undefined;
 }
 
-/** 거래소 개인 창고(무게는 g, 값은 그 도시 화폐 최소 단위) */
+/**
+ * 거래소 개인 창고(무게는 g, 값은 그 도시 화폐 최소 단위). 바뀜 (질문 2081): 유닛마다 작은 창고 — 크기 = 내 유닛마다(기본 + 그 유닛 넓힌 칸 × 한 칸)의 합
+ */
 export interface MarketLockerView {
   /** 쓰는 무게 = 창고 물건 + 걸어 둔 팔 물건 + 걸어 둔 사기 남은 수량 */
   readonly usedG: DecimalString;
   readonly capacityG: DecimalString;
-  /** 넓힌 칸 수·위 끝 */
+  /** 넓힌 칸 수(내 유닛 모두의 합)·유닛 하나의 위 끝 */
   readonly steps: number;
   readonly maxSteps: number;
   /** 넓히기 한 칸(g)·값 */
   readonly stepG: DecimalString;
   readonly stepPrice: DecimalString;
+  /** 유닛 하나의 기본 크기(g). 옛 응답에는 없다 */
+  readonly unitBaseG?: DecimalString | undefined;
+  /** 창고를 받는 내 유닛(사이보그 본체 먼저, 유닛 ID 차례). 옛 응답에는 없다 */
+  readonly units?: readonly MarketLockerUnit[] | undefined;
+}
+
+/** 개인 창고를 받는 유닛 하나 */
+export interface MarketLockerUnit {
+  readonly unitId: number;
+  readonly cyborg: boolean;
+  /** 그 도시에서 넓힌 칸 수 */
+  readonly steps: number;
 }
 
 /** 거래 직무 유닛 하나(주문 한도 몫 = ⌊(INT + WIS) ÷ 20⌋) */
@@ -416,16 +430,27 @@ export interface MarketDeskUnit {
   readonly unitId: number;
   readonly cyborg: boolean;
   readonly bonus: number;
+  /** 노동 계약으로 앉은 자리(임대형 = 빌린 자리, 임금형 = 고용)면 계약 ID — [빼기]는 해지. 직무 배치면 없다 */
+  readonly contractId?: number | undefined;
 }
 
-/** 거래소 하나의 내 거래 직무 */
+/**
+ * 거래소 하나의 내 거래 직무. 바뀜 (질문 2083): 자리는 거래소 건물마다(레벨 × 설정 칸). 주인은 제 유닛을 직무 배치로 두고, 남은 주인이 낸 자리를
+ * 임대형 노동 계약으로 빌린다(시간당 자리 값 = 주인이 정한 임대료)
+ */
 export interface MarketDeskView {
-  /** 이 거래소에 둔 내 거래 직무 유닛 */
+  /** 이 거래소에서 나를 위해 일하는 거래 직무 유닛 */
   readonly traders: readonly MarketDeskUnit[];
   /** 둘 수 있는 내 유닛(그 거래소와 같은 2차맵, 쉬는 것) */
   readonly candidates: readonly MarketDeskUnit[];
-  /** 내가 이 거래소에 둘 수 있는 거래 직무 유닛 수 */
+  /** 이 거래소 건물의 거래 직무 자리 수(모두) */
   readonly slots: number;
+  /** 앉은 자리 수(모두 — 주인·남의 계약 포함). 옛 응답에는 없다 */
+  readonly taken?: number | undefined;
+  /** 내 거래소인가(직무 배치로 둔다). 옛 응답에는 없다 */
+  readonly own?: boolean | undefined;
+  /** 남의 거래소: 주인이 낸 시간당 자리 값(기준 통화 최소 단위, 노동 임대료). 자리를 내지 않았으면 null. 옛 응답·내 거래소는 없다 */
+  readonly rent?: DecimalString | null | undefined;
 }
 
 /** economy.marketBook — 도시 하나 × 물건 하나의 호가창·체결·봉·주문표 자료 */
@@ -541,6 +566,8 @@ export interface FxPairView {
    * 칸이 없으면(시안) 안내를 보이지 않는다
    */
   readonly exchange?: boolean | undefined;
+  /** 환전 이용료(만분율, 질문 2086): 회차마다 이 화폐를 판 쪽이 받은 기준 통화에서 낸다(그 화폐 나라에서 가장 싼 외환 거래소). 옛 응답에는 없다 */
+  readonly feeBp?: number | undefined;
 }
 
 /** 내 환전 주문(이번 회차에 낸 것, 회차 전에 거둘 수 있다 — 실제 자료, docs/adr/2026-11-07-play-flow.md WP6) */

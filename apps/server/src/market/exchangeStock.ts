@@ -7,7 +7,7 @@
 //   (건물이 사라질 때 건물 창고 물건이 도시 창고로 돌아가는 것과 같다 — facilities/storage.ts rehomeBuildingGoods).
 // - NPC 세력(유저가 아닌 주체) 물건 자리: 바뀜 (질문 1945 답 — D-212·D-564 1626, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)") —
 //   서버는 NPC도 거래소 건물 창고다(운반 시간 셈, npcHaul.ts — books.ts가 고른다). 시뮬·운반 고리 없는 시험은 예전처럼 도시 창고(exchangeHolding isUser false).
-// - 개인 창고(D-571 1943): 거래소 건물 창고의 주인마다 몫이 곧 개인 창고다(크기·넓히기 lockers.ts).
+// - 개인 창고(D-571 1943): 거래소 건물 창고의 주인마다 몫이 곧 개인 창고다(크기·넓히기 lockers.ts). 바뀜 (질문 2081): 크기는 그 주인 유닛마다 작은 창고의 합.
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 
 /** 그 도시 물자 거래소의 에스크로(거래소 금고) 원장 위치 */

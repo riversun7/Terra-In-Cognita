@@ -19,6 +19,7 @@
 // - 화폐는 서버 시험 화폐가 기본 [임시](요금·임금과 같다). 넣기·정산은 고른 화폐.
 import type { BusinessResultCode } from "@terra/protocol";
 import {
+  FX_FEE_ITEM,
   REPAIR_SERVICE_ITEM,
   businessLocation,
   isReservePm,
@@ -99,6 +100,8 @@ export interface BusinessCommandDeps {
   readonly laborHourly?: ((buildingId: number) => bigint) | undefined;
   /** 그 건물(조선소)이 만드는 배 종류 ID(배 판매가 boat:<종류>를 정할 수 있다 — 기획 대조 2057). 없으면 빈 목록 */
   readonly boatTypes?: ((buildingId: number) => readonly string[]) | undefined;
+  /** 그 건물이 외환 거래소인가(환전 이용료 요율 service:fx_fee를 정할 수 있다 — 질문 2086). 없으면 늘 false */
+  readonly fxShop?: ((buildingId: number) => boolean) | undefined;
 }
 
 export interface BusinessCommands {
@@ -328,6 +331,14 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
         const found = managed(me, command.buildingId, operator);
         if (!found.ok) return fail(found.code);
         // 외주 수리 시간당 요금(D-570 1785)은 수리 줄이 있는 공방만, 배 판매가(2057·2072)는 그 배 종류를 만드는 조선소만
+        // 환전 이용료 요율(질문 2086)은 외환 거래소만, 위 끝(설정 칸 exchange_fx_fee_max_bp)까지
+        if (command.item === FX_FEE_ITEM) {
+          if (deps.fxShop?.(command.buildingId) !== true) return fail("not_goods");
+          const max = BigInt(Math.max(0, Math.trunc(deps.rules().exchangeFxFeeMaxBp)));
+          if (command.price < 0n || command.price > max) return fail("invalid_amount");
+          core.setPrice(command.buildingId, command.item, command.price);
+          return { ok: true };
+        }
         const service = command.item === REPAIR_SERVICE_ITEM;
         const boat = boatTypeOfPriceItem(command.item);
         if (

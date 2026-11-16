@@ -35,7 +35,7 @@ import {
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
-import type { LaborWorkerEntry } from "../labor/service.ts";
+import type { LaborWorkerEntry } from "../labor/workerEntry.ts";
 import type { TerritoryService } from "../territory/service.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";

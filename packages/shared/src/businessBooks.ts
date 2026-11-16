@@ -58,6 +58,12 @@ export const unitPurseLocation = cargoLocation;
  */
 export const REPAIR_SERVICE_ITEM = "service:equipment_repair";
 
+/**
+ * 외환 거래소 환전 이용료 요율 줄의 값 칸 이름(질문 2086 — D-564 1682 "상업시설은 외주를 받아 장사"). 값 = 만분율(주인이 정한다, 0 = 받지 않음), 줄이
+ * 없으면 적정 요율(설정 칸 exchange_fx_fee_bp)
+ */
+export const FX_FEE_ITEM = "service:fx_fee";
+
 /** 사업장 적자 시스템 계정 코드(잔고 음수 = 갚을 돈) */
 export function businessDebtCode(buildingId: number, asset: string): string {
   return `debt:business:${buildingId}:${asset}`;
@@ -106,6 +112,7 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   // 거래소 이용료·개인 창고 넓히기(기획 D-571 1943·1948, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)")
   exchange_fee: "income",
   exchange_locker: "income",
+  fx_fee: "income",
   // 판매(사업장 창고에서 판 것 — 주인이 꺼낼 때도 값을 낸다, D-555 1507). NPC 시설 산출을 그 도시(나라)가 사들인 것도(D-570 1887)
   business_sale: "sales",
   // 조선소 배 판매가(기획 대조 2057·2072 — 주문자·주인 모두 판매가를 낸다, D-569 1781)
@@ -332,6 +339,17 @@ export interface ReserveView {
  * 외주 수리(기획 D-570 1785 — 그 공방 일꾼이 고치고 요금은 주인이 정한다): 주인이 정한 시간당 요금(없으면 적정가를 쓴다, 0 = 받지 않음)·적정가
  * (시간당 — 재료는 맡기는 사람이 내므로 인건비·수수료·세금, D-570 1822)·지금 고칠 수 있는 그 공방 일꾼 수
  */
+/** 외환 거래소 환전 이용료(질문 2086 — 외환 거래소만) */
+export interface FxFeeView {
+  /** 주인이 정한 요율(만분율). 정하지 않았으면 null(적정 요율로 받는다) */
+  readonly bp: number | null;
+  /** 지금 받는 요율(정한 값, 없으면 적정 요율). 0이면 받지 않는다 */
+  readonly charged: number;
+  /** 적정 요율(설정 칸)·정할 수 있는 위 끝 */
+  readonly fairBp: number;
+  readonly maxBp: number;
+}
+
 export interface RepairServiceView {
   /** 주인이 정한 시간당 요금(최소 단위 글자). 정하지 않았으면 null(적정가로 받는다) */
   readonly perHour: string | null;
@@ -407,6 +425,8 @@ export type BusinessBooksResponse =
       readonly reserve?: ReserveView | undefined;
       /** 외주 수리(수리 줄이 있는 공방만, D-570 1785). 옛 응답에는 없다 */
       readonly repairService?: RepairServiceView | undefined;
+      /** 환전 이용료(외환 거래소만, 질문 2086). 옛 응답에는 없다 */
+      readonly fxFee?: FxFeeView | undefined;
       readonly vault: readonly BookBalance[];
       /** 갚을 돈(적자, 화폐별 양수) */
       readonly debt: readonly BookBalance[];

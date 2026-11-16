@@ -3,7 +3,10 @@
 import type { World } from "../world/world.ts";
 import { assetWeightG } from "../facilities/places.ts";
 import { createExchangeDirectory } from "./exchangeBuildings.ts";
-import { type ExchangeDeskSource, deskViewOf, lockerViewOf } from "./exchangeDesk.ts";
+import { fxFeeOf } from "./fxFee.ts";
+import { fxFeeHook } from "./fxFeeHook.ts";
+import { workerFor } from "../labor/workerEntry.ts";
+import { type DeskTrader, type ExchangeDeskSource, deskViewOf, lockerViewOf } from "./exchangeDesk.ts";
 import { type MarketService, createMarketService } from "./service.ts";
 import { type MarketViews, createMarketViews } from "./views.ts";
 
@@ -22,11 +25,13 @@ export function marketSourceOf(world: World | undefined, now: () => number): () 
     // 거래소 건물(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md): 그 도시 거래소·거래 직무 유닛 주문 한도(D-148·D-571 1944)
     const facilities = persistence.facilities;
     const labor = persistence.labor;
-    const tradersAt = (buildingId: number): { unitId: number; ownerId: number }[] =>
-      labor
-        .workersAt(buildingId)
-        .filter((entry) => entry.via === "assign")
-        .map((entry) => ({ unitId: entry.unitId, ownerId: entry.workerOwnerId }));
+    // 거래 직무 유닛(질문 2083): 주인의 직무 배치·남의 임대형(빌린 자리 — 임차인 몫)·임금형(고용 — 고용주 몫), 그 일의 몫을 받는 주체로 센다
+    const tradersAt = (buildingId: number): DeskTrader[] =>
+      labor.workersAt(buildingId).map((entry) => ({
+        unitId: entry.unitId,
+        ownerId: workerFor(entry),
+        ...(entry.contractId === undefined ? {} : { contractId: entry.contractId }),
+      }));
     const exchanges = createExchangeDirectory({
       records: () => facilities.service.facilities.values(),
       catalog: facilities.catalog,
@@ -44,6 +49,12 @@ export function marketSourceOf(world: World | undefined, now: () => number): () 
       weightOf,
       maps: world.maps,
       tradersAt,
+      // 자리 수(레벨 × 설정 칸)·차지한 자리(모든 일꾼)·주인이 낸 자리 값(질문 2083)
+      seats: (buildingId) =>
+        Math.max(0, facilities.service.facilities.get(buildingId)?.level ?? 0) *
+        Math.max(0, Math.floor(facilities.rules().business.exchangeTradeSlots)),
+      takenAt: (buildingId) => labor.workersAt(buildingId).length,
+      rentOf: (buildingId) => labor.rentOf(buildingId),
       unitBusy: (unitId) => labor.unitBusy(unitId) || facilities.service.unitInJob(unitId),
       primariesOf: (unitId) => persistence.holdings.primariesOf(unitId),
     };
@@ -58,6 +69,7 @@ export function marketSourceOf(world: World | undefined, now: () => number): () 
       exchanges,
       weightOf,
       business: facilities.business,
+      maps: world.maps,
     });
     const views = createMarketViews({
       runtime,
@@ -71,6 +83,24 @@ export function marketSourceOf(world: World | undefined, now: () => number): () 
       },
       locker: lockerViewOf(desk),
       desk: deskViewOf(desk),
+      // 환전 이용료(질문 2086): 경제 런타임 환전 회차와 같은 고르기(fxFeeHook.ts)
+      fxFeeOf: fxFeeHook(
+        {
+          fxExchanges: () => exchanges.citiesWith("fx"),
+          fxFeeBp: (buildingId) =>
+            fxFeeOf(
+              (id, item) => facilities.business.price(id, item),
+              facilities.rules().business,
+              buildingId,
+            ).charged,
+          business: facilities.business,
+        },
+        persistence.ledger,
+        (cityId) => {
+          const owner = runtime.world.cities.get(cityId)?.owner;
+          return owner === undefined ? undefined : runtime.economy?.economy.currencyOf.get(owner);
+        },
+      )?.of,
     });
     built = { runtime, source: service ? { service, views } : undefined };
     return built.source;

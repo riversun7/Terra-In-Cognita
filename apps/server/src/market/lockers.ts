@@ -1,58 +1,62 @@
 // 거래소 개인 창고(기획 D-571 1943 "거래소에서 산 물건은 거래소 건물 창고 — 유닛마다 작은 한도의 개인 창고, 비용 내면 확장", D-117 대체) —
-// docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)". 설정 칸 exchange_locker_*(사업장 계수표 business.exchangeLocker*).
-// - 물건 자리는 예전 그대로다: 원장 계정(주인, 물건, 그 도시 물자 거래소 건물 위치). 원장 계정이 이미 주인마다라 "건물 창고 하나"가 곧 주인마다의
-//   개인 창고다(지금 세계 물건은 옮기지 않고 그대로 읽힌다 — 리셋 없음).
-// - 크기 = 기본(exchange_locker_g) + 넓힌 칸 수 × 한 칸(exchange_locker_step_g). 넓힌 칸 수는 exchange_lockers 줄(도시 × 주인, 건물이 바뀌어도 남는다).
+// docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)"·"바뀜 (2081·2083·2084·2086)". 설정 칸 exchange_locker_*(사업장 계수표 business.exchangeLocker*).
+// - 물건 자리는 예전 그대로다: 원장 계정(주인, 물건, 그 도시 물자 거래소 건물 위치). 물건은 주인마다 한 자리에 모여 있다.
+// - 바뀜 (질문 2081, 줄기 exchange-3): 창고는 유닛(사이보그 본체·휴먼·사이보그 유닛)마다 하나다. 주인이 쓸 수 있는 크기 = 그 주인 유닛마다(기본
+//   exchange_locker_g + 그 유닛 넓힌 칸 × exchange_locker_step_g)의 합(@terra/shared/exchange unitLockersG). 넓힌 칸 수는 exchange_unit_lockers 줄
+//   (도시 × 유닛, 건물이 바뀌어도 남는다). 유닛이 사라지거나 주인이 바뀌면 그 창고 크기도 그 주인 몫에서 빠진다(든 물건은 그대로 — 넘치면 새 사기·반입만 막힌다).
+//   유닛 = 2차맵에 있는 그 주인 유닛(배에 탄 유닛 포함) [임시].
 // - 쓰는 무게 = 그 건물 창고의 내 물건 + 그 도시에 걸어 둔 내 팔 주문 남은 양(에스크로) + 걸어 둔 내 사기 주문 남은 양(체결되면 들어올 물건).
 //   새 사기 주문과 반입(운반꾼 떠날 때)만 막는다. 돌려받기·체결은 막지 않는다(자리를 미리 셌다). 크기를 줄여 넘친 창고도 든 물건은 그대로다.
 // - 넓히기 값은 그 도시 화폐로 내고 그 거래소 건물 금고로 간다(사업장 장부 수입 exchange_locker, 소득세 포함 — D-548).
 // 정수 연산만 쓴다.
-import { lockerCapacityG } from "@terra/shared/exchange";
+import { type LockerUnit, lockerCapacityG, unitLockersG } from "@terra/shared/exchange";
 import { buildingLocation } from "@terra/shared/goodsPlaces";
 import type { BusinessCoefficients, LedgerBook } from "@terra/sim";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import type { SecondMap } from "../world/secondMap.ts";
+import { UNIT_KIND_CYBORG, UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import type { MarketRegistry } from "./books.ts";
 
-/** 넓힌 칸 줄 하나(exchange_lockers) */
+/** 넓힌 칸 줄 하나(exchange_unit_lockers) */
 export interface LockerRow {
   readonly cityId: number;
-  readonly ownerId: number;
+  readonly unitId: number;
   readonly steps: number;
   readonly updatedAtMs: number;
 }
 
 export interface Lockers {
-  /** 그 도시에서 그 주인이 넓힌 칸 수(없으면 0) */
-  steps(cityId: number, ownerId: number): number;
+  /** 그 도시에서 그 유닛 창고를 넓힌 칸 수(없으면 0) */
+  steps(cityId: number, unitId: number): number;
   /** 넓힌 칸 수를 바꾼다(쓰기 대기열 — 넓히기 값 거래와 같은 묶음) */
-  setSteps(cityId: number, ownerId: number, steps: number, atMs: number): void;
+  setSteps(cityId: number, unitId: number, steps: number, atMs: number): void;
 }
 
 export async function loadLockers(pool: QueryPool): Promise<LockerRow[]> {
   const result = await pool.query(
-    `select city_id, owner_id, steps, updated_at_ms from exchange_lockers order by city_id, owner_id`,
+    `select city_id, unit_id, steps, updated_at_ms from exchange_unit_lockers order by city_id, unit_id`,
   );
   return result.rows.map((row) => ({
     cityId: Number(row.city_id),
-    ownerId: Number(row.owner_id),
+    unitId: Number(row.unit_id),
     steps: Math.max(0, Number(row.steps)),
     updatedAtMs: Number(row.updated_at_ms),
   }));
 }
 
-const keyOf = (cityId: number, ownerId: number): string => `${cityId}|${ownerId}`;
+const keyOf = (cityId: number, unitId: number): string => `${cityId}|${unitId}`;
 
 export function createLockers(loaded: readonly LockerRow[], writer: WorldWriter | undefined): Lockers {
-  const steps = new Map(loaded.map((row) => [keyOf(row.cityId, row.ownerId), row.steps]));
+  const steps = new Map(loaded.map((row) => [keyOf(row.cityId, row.unitId), row.steps]));
   return {
-    steps: (cityId, ownerId) => steps.get(keyOf(cityId, ownerId)) ?? 0,
-    setSteps(cityId, ownerId, next, atMs) {
+    steps: (cityId, unitId) => steps.get(keyOf(cityId, unitId)) ?? 0,
+    setSteps(cityId, unitId, next, atMs) {
       const value = Math.max(0, Math.trunc(next));
-      steps.set(keyOf(cityId, ownerId), value);
-      writer?.upsert("exchangeLockers", {
+      steps.set(keyOf(cityId, unitId), value);
+      writer?.upsert("exchangeUnitLockers", {
         city_id: cityId,
-        owner_id: ownerId,
+        unit_id: unitId,
         steps: value,
         updated_at_ms: atMs,
       });
@@ -60,7 +64,43 @@ export function createLockers(loaded: readonly LockerRow[], writer: WorldWriter 
   };
 }
 
-/** 개인 창고 크기(g) */
+/** 개인 창고를 받는 유닛 종류(사이보그 본체·휴먼·사이보그 유닛 — 거래 직무와 같다) */
+export const LOCKER_UNIT_KINDS: ReadonlySet<number> = new Set([
+  UNIT_KIND_CYBORG,
+  UNIT_KIND_HUMAN,
+  UNIT_KIND_CYBORG_UNIT,
+]);
+
+/** 그 주인의 개인 창고 유닛(2차맵에 있는 것, 사이보그 본체 먼저·유닛 ID 차례). steps = 그 도시에서 넓힌 칸 */
+export function lockerUnitsOf(
+  maps: ReadonlyMap<number, SecondMap>,
+  lockers: Pick<Lockers, "steps"> | undefined,
+  ownerId: number,
+  cityId: number,
+): LockerUnit[] {
+  const out: LockerUnit[] = [];
+  for (const map of maps.values())
+    map.forEachUnit((unit) => {
+      if (unit.ownerId !== ownerId || !LOCKER_UNIT_KINDS.has(unit.kind)) return;
+      out.push({
+        unitId: unit.id,
+        cyborg: unit.kind === UNIT_KIND_CYBORG,
+        steps: lockers?.steps(cityId, unit.id) ?? 0,
+      });
+    });
+  return out.toSorted((a, b) => Number(b.cyborg) - Number(a.cyborg) || a.unitId - b.unitId);
+}
+
+/** 주인이 쓸 수 있는 개인 창고 크기(g) = 유닛 창고 크기의 합(질문 2081) */
+export function ownerLockerG(rules: BusinessCoefficients, units: readonly LockerUnit[]): bigint {
+  return unitLockersG(
+    rules.exchangeLockerG,
+    rules.exchangeLockerStepG,
+    units.map((unit) => unit.steps),
+  );
+}
+
+/** 유닛 하나의 개인 창고 크기(g) */
 export function lockerCapacityOf(rules: BusinessCoefficients, steps: number): bigint {
   return lockerCapacityG(rules.exchangeLockerG, rules.exchangeLockerStepG, steps);
 }

@@ -6,7 +6,7 @@
   명령 2단계)"·"바뀜 (D-558 — 2차맵 이동 속도 출처)", `docs/adr/2026-11-14-battle-report.md` "바뀜 (D-558 …)", `docs/adr/2026-11-01-gardener-r5b.md`
   "바뀜 (D-558 …)", 질문 `docs/questions/2026-11-16-legion-commands-2.md`(1961~1974), 앞 줄기 `docs/worklog/2026/11/14-2330-legion-commands.md`,
   줄기 `work/legion-commands-2`
-- 판 번호: 줄기에서는 SIM 57·core@115로 적었으나 묶음 1116h에서 처음 main에 오르는 판이라 합칠 때 SIM 56·core@114로 고쳤다(`docs/worklog/2026/11/16-HHMM-batch-1116h-merge.md`).
+- 판 번호: 줄기에서는 SIM 57·core@115로 적었으나 묶음 1116h에서 처음 main에 오르는 판이라 합칠 때 SIM 56·core@114로 고쳤다(`docs/worklog/2026/11/16-0840-batch-1116h-merge.md`).
 
 ## D-558 원문과 대조
 | 원문 | 한 것 |

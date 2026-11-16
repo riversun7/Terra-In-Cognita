@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-16 08:40 | 2026-11-16 묶음 1116h 합치기 (D-561 거래소는 건물 · D-558 군단 명령 2단계) | Claude Code | [16-0840-batch-1116h-merge](worklog/2026/11/16-0840-batch-1116h-merge.md) |
 | 2026-11-16 06:30 ~ 08:30 | 군단 명령 2단계 — 지휘 계급·승계, 집결·따라가기·대형, AI 전개 방식 8가지, 전투맵 명령 화면, 웨이브 편성, 이동 속도 출처 | Claude Code | [16-0830-legion-commands-2](worklog/2026/11/16-0830-legion-commands-2.md) |
 | 2026-11-16 07:50 | 거래소 건물: 물자·외환 거래소를 도시의 건물로, 지금 세계는 켤 때 세우기 (D-561) | Claude Code | [16-0750-exchange-buildings](worklog/2026/11/16-0750-exchange-buildings.md) |
 | 2026-11-16 07:30 | 화면 시험 "경계 너머 보기" 시간 초과 고침(vision-fix) | Claude Code | [16-0730-vision-fix](worklog/2026/11/16-0730-vision-fix.md) |

@@ -625,8 +625,15 @@ export const WORLD_TABLES = {
       "seeded",
       "plots",
       "gather_tier",
+      "claim_choice",
     ],
     key: ["building_id"],
+  },
+  /** 빈 2차맵 알박기로 선 도시(D-575 표지, ruins/landClaim.ts) — 새 도시 행과 같은 묶음 */
+  claimCities: {
+    name: "claim_cities",
+    columns: ["city_id", "founder_owner_id", "choice", "founded_at_ms"],
+    key: ["city_id"],
   },
   /** 시간이 걸리는 건물 작업(짓기·레벨업·수리·장비 수리, 끝나면 지운다). materials는 JSON 글자로 넣는다 */
   facilityJobs: {
@@ -947,6 +954,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "unitWork",
   "facilities",
   "facilityJobs",
+  "claimCities",
   "boatJobs",
   "boatStates",
   "boatFacilities",

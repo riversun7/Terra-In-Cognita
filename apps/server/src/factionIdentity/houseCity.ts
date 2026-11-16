@@ -19,6 +19,7 @@ import type { NpcRuntime } from "../npc/runtime.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import { ASSET_CREDIT, SYSTEM_SINK_CREDIT } from "../world/settlement.ts";
 import type { World } from "../world/world.ts";
+import { claimCityIds, independenceOpen } from "./houseIndependence.ts";
 import { houseRecruitView } from "./houseRecruit.ts";
 import { membershipOf, notify } from "./members.ts";
 import type { HouseRules } from "./rules.ts";
@@ -45,6 +46,8 @@ export interface HouseCityService {
     input: HouseCityChoice & { mapKey: number; x: number; y: number; cost: string },
   ): Promise<HouseCityResult>;
   ruin(userId: string, input: HouseCityChoice & { ruinId: number }): Promise<HouseCityResult>;
+  /** 봉신 가문 독립 선언(D-575 — houseIndependence.ts) */
+  independence(userId: string, input: { regime: HouseRegime }): Promise<HouseCityResult>;
   /** 세력 화면 "내 가문" 칸의 도시 줄(가문장이면 마을 자리 제안·고를 폐허) */
   view(userId: string, house: { factionId: number; leader: boolean }): Promise<HouseCityView>;
 }
@@ -272,6 +275,34 @@ export function createHouseCity(o: {
       return { ok: true, factionId: house.id, mode, cityId: ruin.id, paid: "0" };
     },
 
+    async independence(userId, input) {
+      const ctx = await context(userId);
+      if (!ctx.ok) return fail(ctx.code);
+      const { world, npc, house } = ctx;
+      const mirror = npc.houses.mirrorOf(house.id);
+      const faction = mirror ? npc.world.factions.get(mirror.ownerId) : undefined;
+      if (!mirror || !faction || !mirror.vassal) return fail("not_vassal");
+      // 커밋 전 알박기 도시 줄(새 도시와 같은 묶음)이 DB에 닿은 뒤 본다
+      await world.persistence.writer.durable();
+      if (!independenceOpen(mirror.cities, await claimCityIds(o.pool, mirror.cities)))
+        return fail("independence_blocked");
+      npc.society.breakVassal(faction);
+      faction.regime = input.regime;
+      npc.houses.flush(mirror.ownerId);
+      await world.persistence.writer.durable();
+      await houseTiesOf(world.persistence)?.reload();
+      if (o.db)
+        await writeAudit(o.db, {
+          actor: { kind: "user", id: userId, ip: null },
+          action: "faction.house_independence",
+          targetId: userId,
+          before: { factionId: house.id, mode: "vassal" },
+          after: { factionId: house.id, mode: "independent", regime: input.regime },
+        });
+      const cityId = mirror.cities[0] ?? house.id;
+      return { ok: true, factionId: house.id, mode: "independent", cityId, paid: "0" };
+    },
+
     async view(userId, input) {
       const rules = o.rules();
       const { rows } = await o.pool.query<{ parent_id: string | null; regime: string; owned: boolean }>(
@@ -331,7 +362,16 @@ export function createHouseCity(o: {
       }
       const regime =
         row?.regime === "dictatorship" || row?.regime === "capitalism" ? row.regime : "democracy";
+      // 봉신이면 독립 선언이 열리나(D-575 — 가문 도시가 모두 알박기로 선 도시)
+      const cityIds = cities.rows.map((city) => Number(city.id));
+      const vassal = owned && row?.parent_id !== null;
+      const independence = vassal
+        ? independenceOpen(cityIds, await claimCityIds(o.pool, cityIds))
+          ? "open"
+          : "blocked"
+        : null;
       return {
+        independence,
         status: owned ? (row?.parent_id === null ? "independent" : "vassal") : null,
         regime: owned && row?.parent_id === null ? regime : null,
         cities: cities.rows.map((city) => ({

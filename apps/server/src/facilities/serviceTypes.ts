@@ -1,5 +1,6 @@
 // 건물(시설) 서비스 입력·결과·만들기 입력 타입(service.ts에서 나눔 — 파일 1,000줄 상한). service.ts가 다시 내보낸다.
 import type { FacilityResultCode } from "@terra/protocol";
+import type { LandClaimChoice } from "@terra/shared/facilities";
 import type { Rotation } from "@terra/sim";
 import type { JobMaterial } from "./state.ts";
 import type { StorageMoveInput } from "./storage.ts";
@@ -64,6 +65,8 @@ export interface FacilityBuildInput {
    * 재료를 쓰지 않고 건설 시간이 없다(바로 다 짓는다). 그 밖의 건설 규칙(칸 검사·물가 조건·행정 건물 폐허 자리·땅 규칙)은 그대로 본다
    */
   readonly operator?: OperatorBuild | undefined;
+  /** 빈 2차맵 알박기 정부 건물의 고르기(D-574, 프로토콜 62). 없으면 기본 선택(@terra/shared/facilities DEFAULT_LAND_CLAIM_MODE) */
+  readonly claim?: LandClaimChoice | undefined;
 }
 
 /**

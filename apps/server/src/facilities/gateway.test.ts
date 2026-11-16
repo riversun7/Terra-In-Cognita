@@ -36,6 +36,7 @@ function fakeService(calls: string[]): FacilityService {
     attachBusiness: () => {},
     businessCommand: () => Promise.resolve({ ok: true }),
     seedBuilt: () => {},
+    haltBuild: () => false,
     npcBuild: notUsed,
     npcJob: notUsed,
     places: { maps: new Map(), facilities: new Map(), catalog: notUsed, cities: () => [] },

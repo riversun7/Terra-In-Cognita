@@ -268,6 +268,20 @@ export const houseRuinMessage = z.object({
   ...cityChoice,
 });
 
+/** 봉신 가문 독립 선언(house_independence)이 생긴 판(기획 D-575, 프로토콜 62) */
+export const HOUSE_INDEPENDENCE_PROTOCOL_VERSION = 62;
+
+/**
+ * 봉신 가문의 가문장이 독립을 선언한다(기획 D-575 "소속된 국가로 귀속을 하여도 … 독립을 선언할수도 있음", D-216 봉신 독립 선언): 위 세력과의
+ * 봉신 관계를 끊고 독립 도시국가가 된다(체제를 함께 고른다, D-340). 독재 나라의 봉신은 가문 도시가 모두 알박기로 선 도시일 때만(D-575 보충 —
+ * D-302 "독재 = 반란으로만"의 예외). 답은 house_city_result(mode independent, cityId = 가문의 첫 도시, paid "0")
+ */
+export const houseIndependenceMessage = z.object({
+  t: z.literal("house_independence"),
+  id: requestId,
+  regime: z.enum(HOUSE_REGIMES),
+});
+
 /** 가문 도시 명령 결과 코드 */
 export const HOUSE_CITY_RESULT_CODES = [
   "sign_in_required",
@@ -298,6 +312,10 @@ export const HOUSE_CITY_RESULT_CODES = [
   "unknown_ruin",
   /** 그 폐허의 주인이 아니다 */
   "not_owner",
+  /** 봉신이 아니다(도시 없는 가문·이미 독립 — house_independence만, 62부터) */
+  "not_vassal",
+  /** 독재 나라의 봉신인데 알박기로 서지 않은 가문 도시가 있다(반란으로만 — D-302, house_independence만, 62부터) */
+  "independence_blocked",
 ] as const;
 export type HouseCityResultCode = (typeof HOUSE_CITY_RESULT_CODES)[number];
 
@@ -401,6 +419,7 @@ export const houseClientMessages = [
   houseRuinMessage,
   houseHomeMessage,
   houseEntryPolicyMessage,
+  houseIndependenceMessage,
 ] as const;
 export const houseServerMessages = [
   houseResultMessage,

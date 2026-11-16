@@ -204,6 +204,9 @@ function run(
         rotation: message.rotation,
         unitIds: message.unitIds,
         ...(operator ? { operator } : {}),
+        ...(message.claim
+          ? { claim: { mode: message.claim.mode, regime: message.claim.regime ?? null } }
+          : {}),
       });
     case "facility_upgrade":
       return service.upgrade(userId, message.buildingId, message.unitIds ?? [], operator);

@@ -32,6 +32,7 @@ function fakeService(calls: string[]): RuinService {
     governmentStatus: () => ({ state: "up", level: 1 }),
     governmentLevels: () => new Map(),
     claimOf: () => null,
+    claimLockedOf: () => null,
     foundClaims: () => 0,
   };
 }

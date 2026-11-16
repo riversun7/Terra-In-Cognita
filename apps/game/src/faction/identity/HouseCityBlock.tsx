@@ -1,6 +1,7 @@
 // 세력 화면 "내 가문" 칸의 가문 도시 부분(질문 1005 가 — 마을 세우기와 폐허 복원이 같은 봉신·독립 고르기, D-340·D-339).
 // 상태(아직 / 봉신 / 독립 + 체제)·가문 도시 목록, 가문장이면 처음 고르기(봉신 | 독립 + 체제)·마을 세우기(서버가 고른 내 사이보그 둘레 자리)·
 // 내가 주인인 폐허를 가문 도시로, 가문 도시 구인(HouseRecruitBlock.tsx, 질문 1041 다). 자료는 tRPC factionIdentity.house의 house.city, 명령은 WebSocket(houseCommands.ts sendHouseCity, 프로토콜 24).
+// 봉신 가문이면 독립 선언(D-575 — 가문 도시가 모두 알박기로 선 도시일 때 열림, 프로토콜 62 house_independence).
 // docs/adr/2026-11-11-house-village.md
 import type { HouseRegime } from "@terra/protocol";
 import type { HouseCityView } from "@terra/shared/house";
@@ -86,6 +87,47 @@ export function HouseCityBlock({
         <p className="faction-muted">{m.fid_city_not_ready()}</p>
       ) : (
         <>
+          {city.status === "vassal" && city.independence ? (
+            <div className="fid-city-action" data-testid="house-independence" data-state={city.independence}>
+              <span className="fid-house-sub">{m.fid_city_independence_title()}</span>
+              <span className="faction-muted">
+                {city.independence === "open"
+                  ? m.fid_city_independence_hint()
+                  : m.fid_city_error_independence_blocked()}
+              </span>
+              {city.independence === "open" ? (
+                <>
+                  <label className="fid-city-option">
+                    <span>{m.fid_city_regime()}</span>
+                    <select
+                      className="input"
+                      value={regime}
+                      onChange={(event) => {
+                        const next = REGIMES.find((value) => value === event.target.value);
+                        if (next) setRegime(next);
+                      }}
+                    >
+                      {REGIMES.map((value) => (
+                        <option key={value} value={value}>
+                          {REGIME_TEXT[value]()}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="button-small button-primary"
+                    aria-disabled={busy}
+                    onClick={() =>
+                      void run({ t: "house_independence", regime }, m.fid_city_done_independence)
+                    }
+                  >
+                    {m.fid_city_independence_declare()}
+                  </button>
+                </>
+              ) : null}
+            </div>
+          ) : null}
           {city.status === null ? (
             <fieldset className="fid-city-choice">
               <legend className="fid-house-sub">{m.fid_city_choose()}</legend>

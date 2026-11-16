@@ -6,11 +6,18 @@
 // - 채집소 반경(사용자 요청 2026-11-15 "건설시 … 오브젝트 포함할 반경 표시", docs/adr/2026-11-15-building-screen.md): 고른 시설이 원자재
 //   오브젝트를 맡으면(gatherRadiusCells) 미리보기 자리(서버 판정과 같은 왼쪽 위 칸 기준)에 레벨 1 반경 고리를 그린다(채집 덧그림 고리).
 // - 일꾼: 고른 내 유닛(지금 2차맵, 다른 작업 중이 아니면)을 넣는다(지금 규칙 — 건설 시간 단축). 건설 현장·납품·작업량은 2단계(ADR).
-// - 빈 2차맵 알박기(기획 D-572, 질문 2122 가): 정부(행정) 건물을 고르면 서버 미리 묻기(landRule claim)로 다 지었을 때 새 도시가 드는 편을
-//   알리고, 가문 없는 플레이어(claim = no_house, 사용자 결정 대기 — 질문 2192)는 [짓기]를 막는다.
+// - 빈 2차맵 알박기(기획 D-572·D-574·D-575): 정부(행정) 건물을 고르면 서버 미리 묻기(landRule claim)로 다 지었을 때 새 도시의 주인(가문 |
+//   1인 독재 도시 | 세력)을 알리고, 가문·1인 도시면 "소속 국가로 귀속 | 독립"을 고른다(기본 = @terra/shared/facilities DEFAULT_LAND_CLAIM_MODE,
+//   가문 독립이면 체제도). 가문이 이미 봉신·독립을 정했으면(claimLocked) 고르지 않고 그 상태를 알린다. 고른 것은 facility_build claim(프로토콜 62).
 // - 명령은 WebSocket facility_build(facilityCommands.ts). 성공하면 건축 모드를 닫는다(건물은 지도 자료로 짓는 중 모습이 온다).
 import type { SecondMapEngine } from "@terra/engine";
 import { createBuildPreview } from "@terra/engine";
+import {
+  DEFAULT_LAND_CLAIM_MODE,
+  LAND_CLAIM_REGIMES,
+  type LandClaimMode,
+  type LandClaimRegime,
+} from "@terra/shared/facilities";
 import { cityOfCell } from "@terra/shared/goodsPlaces";
 import { type RefObject, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { waterStateOf } from "../../economy/FacilityPanel.tsx";
@@ -38,15 +45,25 @@ const PROBLEM_TEXT: Readonly<Record<PlacementProblem, () => string>> = {
   needs_water: m.build_problem_water,
   insufficient_materials: m.build_problem_materials,
   foreign_city: m.build_problem_foreign_city,
-  claim_no_house: m.build_problem_claim_no_house,
 };
 
-/** 빈 2차맵 정부 건물이 다 지어지면 새 도시가 드는 편 → 안내 한 줄(알박기, D-572) */
+/** 빈 2차맵 정부 건물이 다 지어지면 새 도시의 주인 → 안내 한 줄(알박기, D-572·D-574) */
 const CLAIM_TEXT = {
   house: m.build_claim_house,
-  nation: m.build_claim_nation,
+  personal: m.build_claim_personal,
   faction: m.build_claim_faction,
 } as const;
+
+const CLAIM_MODE_TEXT: Readonly<Record<LandClaimMode, () => string>> = {
+  nation: m.build_claim_mode_nation,
+  independent: m.build_claim_mode_independent,
+};
+
+const CLAIM_REGIME_TEXT: Readonly<Record<LandClaimRegime, () => string>> = {
+  dictatorship: m.build_claim_regime_dictatorship,
+  democracy: m.build_claim_regime_democracy,
+  capitalism: m.build_claim_regime_capitalism,
+};
 
 export function BuildSheet({
   mode,
@@ -115,9 +132,15 @@ export function BuildSheet({
         water: waterState,
         affordable: operator || (level1 ? canAfford(stock, level1.materials) : false),
         landAllowed,
-        claimBlocked: claim === "no_house",
       })
     : [];
+  // 알박기 고르기(D-574): 가문(아직 안 정함)·1인 도시만 고른다. 세력·이미 정한 가문은 고르지 않는다
+  const claimLocked = claim === "house" ? (land.data?.claimLocked ?? null) : null;
+  const choosing = (claim === "house" && claimLocked === null) || claim === "personal";
+  const [claimMode, setClaimMode] = useState<LandClaimMode>(DEFAULT_LAND_CLAIM_MODE);
+  const [claimRegime, setClaimRegime] = useState<LandClaimRegime>("democracy");
+  // 1인 독재 도시는 늘 독재(D-574 "유닛 독재 도시")
+  const regimeSent: LandClaimRegime = claim === "personal" ? "dictatorship" : claimRegime;
   // 일꾼: 고른 유닛이 이 2차맵의 내 유닛이고 다른 작업 중이 아니면
   const worker = data?.units.find((unit) => unit.id === builder && unit.mapKey === mapKey && !unit.busy);
   const [sending, setSending] = useState(false);
@@ -178,6 +201,12 @@ export function BuildSheet({
       y: anchor.y,
       rotation: state.rotation,
       ...(worker ? { unitIds: [worker.id] } : {}),
+      ...(choosing
+        ? {
+            claim:
+              claimMode === "independent" ? { mode: claimMode, regime: regimeSent } : { mode: claimMode },
+          }
+        : {}),
     });
     setSending(false);
     if (!outcome.ok) {
@@ -283,10 +312,59 @@ export function BuildSheet({
               ? m.build_ready()
               : problems.map((problem) => PROBLEM_TEXT[problem]()).join(" · ")}
           </p>
-          {claim !== null && claim !== "no_house" ? (
+          {claim !== null ? (
             <p className="map-units-note" data-part="build-claim" data-claim={claim}>
               {CLAIM_TEXT[claim]()}
             </p>
+          ) : null}
+          {claimLocked !== null ? (
+            <p className="map-units-note" data-part="build-claim-locked" data-locked={claimLocked}>
+              {claimLocked === "vassal" ? m.build_claim_locked_vassal() : m.build_claim_locked_independent()}
+            </p>
+          ) : null}
+          {choosing ? (
+            <fieldset className="map-build-claim-choice" data-part="build-claim-choice" data-mode={claimMode}>
+              <legend className="map-units-note">{m.build_claim_mode_label()}</legend>
+              <div className="map-build-claim-options">
+                {(["nation", "independent"] as const).map((option) => (
+                  <label key={option} className="map-build-claim-option">
+                    <input
+                      type="radio"
+                      name="map-build-claim-mode"
+                      value={option}
+                      checked={claimMode === option}
+                      onChange={() => setClaimMode(option)}
+                    />
+                    <span>{CLAIM_MODE_TEXT[option]()}</span>
+                  </label>
+                ))}
+              </div>
+              {claimMode === "independent" ? (
+                claim === "personal" ? (
+                  <p className="map-units-note">{m.build_claim_personal_regime()}</p>
+                ) : (
+                  <label className="map-build-claim-option">
+                    <span>{m.build_claim_regime_label()}</span>
+                    <select
+                      className="input"
+                      value={claimRegime}
+                      onChange={(event) => {
+                        const next = LAND_CLAIM_REGIMES.find((value) => value === event.target.value);
+                        if (next) setClaimRegime(next);
+                      }}
+                    >
+                      {LAND_CLAIM_REGIMES.map((value) => (
+                        <option key={value} value={value}>
+                          {CLAIM_REGIME_TEXT[value]()}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )
+              ) : (
+                <p className="map-units-note">{m.build_claim_mode_note()}</p>
+              )}
+            </fieldset>
           ) : null}
           {level1 ? (
             <p className="map-units-note">

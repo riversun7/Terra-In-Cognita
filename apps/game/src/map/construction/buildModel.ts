@@ -43,7 +43,9 @@ export type PlacementProblem =
   | "needs_water"
   | "insufficient_materials"
   /** 서버 땅 규칙: 다른 세력의 도시 2차맵(정부 건물 있음 — D-572: 정부 건물이 없는 남의 영토는 막지 않는다) */
-  | "foreign_city";
+  | "foreign_city"
+  /** 빈 2차맵 정부 건물(알박기, D-572): 가문 없는 플레이어는 아직 못 짓는다(사용자 결정 대기, 질문 2192) */
+  | "claim_no_house";
 
 export interface PlacementInput {
   /** 왼쪽 위 칸(돌린 뒤), 없으면 아직 안 누름 */
@@ -58,6 +60,8 @@ export interface PlacementInput {
   readonly affordable: boolean;
   /** 땅 규칙(모르면 null — 막지 않는다) */
   readonly landAllowed: boolean | null;
+  /** 고른 시설이 정부 건물이고 빈 2차맵인데 가문이 없다(서버 미리 묻기 claim = no_house). 없으면 false */
+  readonly claimBlocked?: boolean | undefined;
 }
 
 /** 칸 범위가 겹치나(x0 ≤ x < x1) */
@@ -80,6 +84,7 @@ function rectOf(building: BuildingFootprint): { x0: number; y0: number; x1: numb
 export function placementProblems(input: PlacementInput): PlacementProblem[] {
   const problems: PlacementProblem[] = [];
   if (input.landAllowed === false) problems.push("foreign_city");
+  if (input.claimBlocked === true) problems.push("claim_no_house");
   if (!input.anchor) return [...problems, "no_cell"];
   const { sx, sy } = rotatedSize(input.width, input.depth, input.rotation);
   const rect = { x0: input.anchor.x, y0: input.anchor.y, x1: input.anchor.x + sx, y1: input.anchor.y + sy };

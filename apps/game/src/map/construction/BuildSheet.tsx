@@ -6,6 +6,8 @@
 // - 채집소 반경(사용자 요청 2026-11-15 "건설시 … 오브젝트 포함할 반경 표시", docs/adr/2026-11-15-building-screen.md): 고른 시설이 원자재
 //   오브젝트를 맡으면(gatherRadiusCells) 미리보기 자리(서버 판정과 같은 왼쪽 위 칸 기준)에 레벨 1 반경 고리를 그린다(채집 덧그림 고리).
 // - 일꾼: 고른 내 유닛(지금 2차맵, 다른 작업 중이 아니면)을 넣는다(지금 규칙 — 건설 시간 단축). 건설 현장·납품·작업량은 2단계(ADR).
+// - 빈 2차맵 알박기(기획 D-572, 질문 2122 가): 정부(행정) 건물을 고르면 서버 미리 묻기(landRule claim)로 다 지었을 때 새 도시가 드는 편을
+//   알리고, 가문 없는 플레이어(claim = no_house, 사용자 결정 대기 — 질문 2192)는 [짓기]를 막는다.
 // - 명령은 WebSocket facility_build(facilityCommands.ts). 성공하면 건축 모드를 닫는다(건물은 지도 자료로 짓는 중 모습이 온다).
 import type { SecondMapEngine } from "@terra/engine";
 import { createBuildPreview } from "@terra/engine";
@@ -36,7 +38,15 @@ const PROBLEM_TEXT: Readonly<Record<PlacementProblem, () => string>> = {
   needs_water: m.build_problem_water,
   insufficient_materials: m.build_problem_materials,
   foreign_city: m.build_problem_foreign_city,
+  claim_no_house: m.build_problem_claim_no_house,
 };
+
+/** 빈 2차맵 정부 건물이 다 지어지면 새 도시가 드는 편 → 안내 한 줄(알박기, D-572) */
+const CLAIM_TEXT = {
+  house: m.build_claim_house,
+  nation: m.build_claim_nation,
+  faction: m.build_claim_faction,
+} as const;
 
 export function BuildSheet({
   mode,
@@ -92,6 +102,9 @@ export function BuildSheet({
   );
   // 운영자 모드도 땅 규칙은 본다(D-564 1663 — 운영자 모드가 없애는 것은 재료·건설 시간뿐)
   const landAllowed = land.data?.status === "ready" ? land.data.allowed : null;
+  // 빈 2차맵 알박기(질문 2122 가): 정부 건물을 고르면 다 지었을 때의 편(서버 claimOf). 옛 서버는 칸이 없어 알리지 않는다
+  const claim =
+    chosen?.stage === "government" && land.data?.status === "ready" ? (land.data.claim ?? null) : null;
   const problems = footprint
     ? placementProblems({
         anchor,
@@ -102,6 +115,7 @@ export function BuildSheet({
         water: waterState,
         affordable: operator || (level1 ? canAfford(stock, level1.materials) : false),
         landAllowed,
+        claimBlocked: claim === "no_house",
       })
     : [];
   // 일꾼: 고른 유닛이 이 2차맵의 내 유닛이고 다른 작업 중이 아니면
@@ -269,6 +283,11 @@ export function BuildSheet({
               ? m.build_ready()
               : problems.map((problem) => PROBLEM_TEXT[problem]()).join(" · ")}
           </p>
+          {claim !== null && claim !== "no_house" ? (
+            <p className="map-units-note" data-part="build-claim" data-claim={claim}>
+              {CLAIM_TEXT[claim]()}
+            </p>
+          ) : null}
           {level1 ? (
             <p className="map-units-note">
               {stacksText(data, stock, level1.materials)} · {formatDuration(level1.timeMs)}

@@ -140,6 +140,8 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
       reason: null,
       cityFaction: null,
       territoryFaction: Number(npcCity[0]?.faction_id),
+      // NPC 사회 런타임 없는 세계라 빈 2차맵 알박기의 편은 모른다(질문 2122 — ruins/landClaim.db.test.ts)
+      claim: null,
     });
     // 그 2차맵에 다른 세력 도시(정부 건물)를 둔다
     const nation = await rows<{ id: string }>(
@@ -159,6 +161,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
       reason: "foreign_city",
       cityFaction: factionId,
       territoryFaction: null,
+      claim: null,
     });
     const blocked = await service.build(a.userId, {
       mapKey: a.map.mapKey,

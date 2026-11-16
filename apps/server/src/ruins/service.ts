@@ -11,7 +11,10 @@
 //   세계 규칙에 고리로 알려 준다(attachGovernment) — 다 지어야 모금을 열고 넣고, 0%·사라지면 다시 지은 쪽이 주인(낸 값은 사업에 남음). 모금
 //   기한이 지나면 하루 끝에 돌려준다. 행정 건물은 그 폐허(되살아날 도시)의 시설로 적는다(시설 줄 도시 = 폐허 ID) — 되살아난 도시의 행정 레벨 =
 //   그 건물 레벨(govLevels, NPC 사회 런타임이 모든 도시에 맞춘다).
+// - 빈 2차맵 알박기(기획 D-572, 질문 2122 가 — landClaim.ts): 도시도 폐허도 없는 2차맵에도 행정 건물을 짓고, 다 지으면 그 편(joinOf)의 새
+//   도시가 된다(NPC 사회 런타임 틱이 foundClaims를 부른다). 가문 없는 플레이어는 묻는 중이라 막는다(질문 2192).
 import type { RestorationResultCode } from "@terra/protocol";
+import type { SocietyCoefficients } from "@terra/sim";
 import { buildCostAt } from "@terra/shared/facilityBuild";
 import { type CityCell, cityOfCell } from "@terra/shared/goodsPlaces";
 import type { RuinFactionView, RuinView, RuinsOverviewResponse } from "@terra/shared/ruins";
@@ -25,6 +28,8 @@ import type { CityPlace } from "../npc/persist.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import type { HouseTies } from "../world/houseTies.ts";
+import { type LandClaimKind, createLandClaims } from "./landClaim.ts";
 
 /** 정부 짓기 자리를 찾는 반지름(칸, 폐허 칸 둘레) */
 const BUILD_SEARCH_RADIUS = 12;
@@ -80,6 +85,13 @@ export interface RuinService extends RuinReadServices {
    * 가운데 다 지은 것의 가장 높은 레벨. 행정 건물이 없는 도시는 없다(그 도시 레벨은 그대로)
    */
   governmentLevels(): ReadonlyMap<number, number>;
+  /**
+   * 빈 2차맵 알박기(landClaim.ts): 그 2차맵에 도시·폐허가 없으면 그 주체가 정부를 지었을 때 새 도시가 드는 편(무소속 유저 = no_house),
+   * 아니면 null — 건축 모드 미리 묻기(facilities.landRule claim)
+   */
+  claimOf(ownerId: number, mapKey: number): LandClaimKind | null;
+  /** 다 지은 빈 2차맵 행정 건물마다 새 도시를 세운다(NPC 사회 런타임 틱이 부른다, 같은 동기 처리에서 쓰기 대기열로). 세운 수 */
+  foundClaims(nowMs: number): number;
 }
 
 export interface RuinDeps {
@@ -91,10 +103,13 @@ export interface RuinDeps {
   readonly facilities: WorldFacilities;
   readonly now: () => number;
   /**
-   * 그 사용자가 이끄는 도시 가진 가문(세력 행, docs/adr/2026-11-11-house-village.md). 있으면 그 가문장이 지은 정부의 폐허는 가문 도시로
-   * 되살아난다(이미 봉신·독립을 고른 가문 — 처음 고르기는 가문 명령 house_ruin). 없으면 지금처럼 사이보그 나라(질문 481)
+   * 가문 표(world/houseTies.ts). ledHouseOf = 그 사용자가 이끄는 도시 가진 가문(docs/adr/2026-11-11-house-village.md) — 있으면 그 가문장이
+   * 지은 정부의 폐허·빈 2차맵은 가문 도시가 된다(이미 봉신·독립을 고른 가문 — 처음 고르기는 가문 명령 house_ruin). 없으면 지금처럼 사이보그
+   * 나라(질문 481). houseOfUser = 든 가문(무소속이면 빈 2차맵 알박기를 막는다, 질문 2192)
    */
-  readonly houseOf?: ((userId: string) => number | undefined) | undefined;
+  readonly ties?: (() => Pick<HouseTies, "ledHouseOf" | "houseOfUser"> | undefined) | undefined;
+  /** 설정 칸(빈 2차맵 새 도시 주거 = house_village_housing). 없으면 시험 계수표 */
+  readonly rules?: (() => SocietyCoefficients) | undefined;
 }
 
 const fail = (code: RestorationResultCode): RuinCommandResult => ({ ok: false, code });
@@ -134,7 +149,7 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
   /** 소유 주체가 복원하면 도시가 드는 세력(유저 = 사이보그 나라, 세력 주체 = 그 세력). 거울 세계에 산 세력이어야 한다 */
   const joinOf = (runtime: NpcRuntime, ownerId: number): number | undefined => {
     const owner = d.owners.get(ownerId);
-    const house = owner?.userId ? d.houseOf?.(owner.userId) : undefined;
+    const house = owner?.userId ? d.ties?.()?.ledHouseOf(owner.userId) : undefined;
     const houseOwner = house === undefined ? undefined : runtime.houses.ownerOfRow(house);
     if (houseOwner !== undefined && runtime.world.factions.get(houseOwner)?.alive) return houseOwner;
     const record = owner?.userId ? d.cyborgs.record(owner.userId) : undefined;
@@ -151,6 +166,14 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
     const near = cityOfCell(anchors, mapKey, x, y);
     return near ? runtime.world.ruins.get(near.id) : undefined;
   };
+  const claims = createLandClaims({
+    places,
+    owners: d.owners,
+    facilities: d.facilities.service,
+    joinOf,
+    houseOfUser: (userId) => d.ties?.()?.houseOfUser(userId),
+    rules: d.rules,
+  });
   const governmentDef = () => places.catalog().facilities.find((def) => def.stage === "government");
   const isGovernment = (facilityId: string): boolean =>
     places.catalog().facility(facilityId)?.stage === "government";
@@ -223,6 +246,13 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
       const runtime = live();
       if (!runtime) return { ok: false, code: "not_ruin" };
       const ruin = ruinAt(runtime, mapKey, x, y);
+      // 도시도 폐허도 없는 2차맵 = 알박기 자리(landClaim.ts): 다 지으면 새 도시. 가문 없는 플레이어·편이 없으면 막는다(질문 2192)
+      if (!ruin && !claims.settled(runtime, mapKey)) {
+        const kind = claims.kindOf(runtime, ownerId, mapKey);
+        return kind === null || kind === "no_house"
+          ? { ok: false, code: "forbidden" }
+          : { ok: true, ruinId: null };
+      }
       if (!ruin) return { ok: false, code: "not_ruin" };
       // 주인 없음, 또는 주인의 정부 건물이 0%·사라짐이면 다시 지은 쪽이 주인(487 다)
       if (!runtime.society.ruins.claimable(ruin.id)) return { ok: false, code: "ruin_claimed" };
@@ -240,6 +270,14 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
 
   return {
     governmentStatus,
+    claimOf(ownerId, mapKey) {
+      const runtime = live();
+      return runtime ? claims.kindOf(runtime, ownerId, mapKey) : null;
+    },
+    foundClaims(nowMs) {
+      const runtime = live();
+      return runtime ? claims.foundPending(runtime, nowMs) : 0;
+    },
     governmentLevels() {
       const out = new Map<number, number>();
       for (const record of d.facilities.service.facilities.values()) {

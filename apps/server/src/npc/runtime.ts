@@ -10,7 +10,7 @@
 //   보호 레이드(판단의 치기 → onAttack)·막아 낸 웨이브 보상(waveRewards.ts).
 // - 도시 경제(docs/adr/2026-11-07-play-flow.md WP4, economy.ts): 시뮬과 같은 경제 실행(생산·생필품 유지비·NPC 거래·거래세)을 같은 루프에서
 //   돌리고 세력·사회에 경제 고리(생필품 충족·거래세 배당·세율·도시 주인 바뀜의 창고·거래소)를 준다. 거래소는 market/books.ts(저장·복원).
-// - 폐허 2(ruinsRuntime.ts): 정부 건물 상태·행정 레벨 = 그 도시 안 행정 건물 레벨(489 다, 틱마다 맞춤)·수호신만 있는 도시의 웨이브 전투
+// - 폐허 2(ruinsRuntime.ts): 정부 건물 상태·행정 레벨 = 그 도시 안 행정 건물 레벨(489 다, 틱마다 맞춤 — 빈 2차맵 알박기 새 도시도)·수호신만 있는 도시의 웨이브 전투
 //   (472 가)·폐허가 된 도시 창고 물건을 주인 나라의 가장 가까운 도시 창고로(535).
 // - NPC 휴먼 일터·시장·처음 인구(docs/adr/2026-11-07-play-flow.md "WP-NPC2"): 처음 켤 때 시작 도시마다 한 번 처음 인구(주거 × 비율, 749 다,
 //   cityPeople.ts), 저장 뒤마다 휴먼의 집·일터(도시 경제 일꾼 → 그 시설 둘레, 740 나, humanPlaces.ts)와 시장(떠나면 다시 고름, 744 나)을 맞춘다.
@@ -87,7 +87,7 @@ import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
 import { type CityPlace, type NpcPersist, type NpcPersistOptions, createNpcPersist } from "./persist.ts";
 import { territoryOf } from "./townSites.ts";
-import { type NpcRuinsInput, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
+import { type NpcRuinsInput, liftGovernments, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
 import { ruinsOf } from "./ruinsState.ts";
 import type { NpcHumanRow } from "./state.ts";
 import { loadNpcState } from "./state.ts";
@@ -902,7 +902,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       // 끝난 웨이브 전투(전투 서비스가 알려 줌)의 결과를 먼저 넣는다
       const results = gardener.applyPending(o.now());
       metrics.waveResults += results;
-      const lifted = syncAdminLevels(world, o.ruins?.governmentLevels?.());
+      const lifted = liftGovernments(world, o.ruins, o.now());
       loop.runUntil(o.now() + 1);
       // 걸어 둔 거래소 주문의 만료(쓰기 대기열로 바로 간다)
       if (econ && o.now() - expiredAt >= EXPIRE_EVERY_MS) {

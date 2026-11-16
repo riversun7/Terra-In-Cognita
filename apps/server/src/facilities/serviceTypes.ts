@@ -36,14 +36,17 @@ export type StorageOutHook = (
 
 /** 행정 건물(폐허 정부) 짓기 고리 — 폐허 서비스(src/ruins/service.ts)가 붙인다 */
 export interface GovernmentHook {
-  /** 그 칸이 주인 없는 폐허 자리인가(주체가 짓기 시작하면 주인이 될 수 있나) */
+  /**
+   * 그 칸이 주인 없는 폐허 자리인가(주체가 짓기 시작하면 주인이 될 수 있나). ruinId null = 도시도 폐허도 없는 2차맵(빈 2차맵 알박기 — 다 지으면
+   * 그 편의 새 도시, ruins/landClaim.ts)
+   */
   check(
     ownerId: number,
     mapKey: number,
     x: number,
     y: number,
   ):
-    | { readonly ok: true; readonly ruinId: number }
+    | { readonly ok: true; readonly ruinId: number | null }
     | { readonly ok: false; readonly code: FacilityResultCode };
   /** 짓기를 시작했다(같은 동기 처리): 주인이 된다 */
   claimed(ruinId: number, ownerId: number, buildingId: number, atMs: number): void;

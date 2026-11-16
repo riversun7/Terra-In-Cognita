@@ -131,10 +131,13 @@ describe("NPC 증축 판단(질문 1101 나)", () => {
     expect(choose({ ...needs, foodPm: 800, housingCap: 40 })).not.toBe("lodging");
   });
 
-  it("성향 몫(D-554 1187·1188, D-572 질문 1995): 상한 = 등급 표 + 채(0·전체 끝에서 자름), 붐빔 숙소 점수 ± 몫", () => {
+  it("성향 몫(D-554 1187·1188, D-572 질문 1995): 상한 = 등급 표 + 채(1·전체 끝에서 자름), 붐빔 숙소 점수 ± 몫", () => {
     const c = { ...TEST_NPC_COEFFICIENTS, buildMaxBuildings: 32, buildCapByGrade: [8, 10, 12, 16, 20, 24] };
     expect(buildingCapOf(1, c, 3)).toBe(11);
-    expect(buildingCapOf(1, c, -10)).toBe(0);
+    // 성향 몫으로 0 이하가 돼도 1(misc-574 — 멈춤이 아니다). 표 값이 0이면(끈 등급) 그대로 0
+    expect(buildingCapOf(1, c, -10)).toBe(1);
+    expect(buildingCapOf(1, { ...c, buildCapByGrade: [1] }, -4)).toBe(1);
+    expect(buildingCapOf(1, { ...c, buildCapByGrade: [0] }, -4)).toBe(0);
     expect(buildingCapOf(6, c, 20)).toBe(32);
     // 붐빔 숙소(700) vs 나라 목표 주방(650 + 10): 몫이 −100이면 목표가 먼저, 0이면 숙소가 먼저
     const crowded = {

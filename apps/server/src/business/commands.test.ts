@@ -45,6 +45,7 @@ function setup(
     holders?: () => { ownerId: number; shares: bigint }[];
     boatTypes?: (buildingId: number) => readonly string[];
     fxShop?: (buildingId: number) => boolean;
+    goodsExchange?: (buildingId: number) => boolean;
   } = {},
 ) {
   let ids = 1;
@@ -81,6 +82,7 @@ function setup(
     durable: () => Promise.resolve(),
     boatTypes: opts.boatTypes,
     fxShop: opts.fxShop,
+    goodsExchange: opts.goodsExchange,
   });
   const grant = (ownerId: number, asset: string, amount: bigint, location: number | null = null) =>
     ledger.post({
@@ -275,6 +277,23 @@ describe("사업장 장부 명령", () => {
       await commands.run("owner", { kind: "price", buildingId: STORE, item: "boat:rowboat", price: 500n }),
     ).toEqual({ ok: true });
     expect(core.price(STORE, "boat:rowboat")).toBe(500n);
+  });
+
+  it("물자 거래소 이용료 요율(D-574 질문 2085): 물자 거래소만 service:exchange_fee를, 아래·위 끝(설정 칸) 안에서 정한다", async () => {
+    const { core, commands } = setup(4, undefined, { goodsExchange: (buildingId) => buildingId === STORE });
+    const price = (buildingId: number, value: bigint) =>
+      commands.run("owner", { kind: "price", buildingId, item: "service:exchange_fee", price: value });
+    expect(await price(FARM, 30n)).toEqual({ ok: false, code: "not_goods" });
+    expect(await price(STORE, BigInt(START_BUSINESS.exchangeFeeMaxBp ?? 0) + 1n)).toEqual({
+      ok: false,
+      code: "invalid_amount",
+    });
+    expect(await price(STORE, 30n)).toEqual({ ok: true });
+    expect(core.price(STORE, "service:exchange_fee")).toBe(30n);
+    // 외환 거래소 칸은 물자 거래소에 쓰지 못한다
+    expect(
+      await commands.run("owner", { kind: "price", buildingId: STORE, item: "service:fx_fee", price: 30n }),
+    ).toEqual({ ok: false, code: "not_goods" });
   });
 
   it("환전 이용료 요율(질문 2086): 외환 거래소만 service:fx_fee를, 위 끝(만분율)까지 정한다", async () => {

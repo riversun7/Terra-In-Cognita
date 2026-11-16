@@ -294,8 +294,9 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
       capacityG: "200000",
       units: [{ unitId: buyerUnit, cyborg: true, steps: 0 }],
     });
-    // 거래 직무 자리(질문 2083): 레벨 × 5, 남의(NPC) 거래소 — 주인이 자리를 내지 않았다
-    expect(lockerView?.desk).toMatchObject({ traders: [], slots: 5, taken: 0, own: false, rent: null });
+    // 거래 직무 자리(질문 2083): 레벨 × 5, 남의(NPC) 거래소 — 주인 줄이 없어도 NPC가 적정가로 자리를 낸다(기획 대조 2204, labor/deskRent.ts)
+    expect(lockerView?.desk).toMatchObject({ traders: [], slots: 5, taken: 0, own: false });
+    expect(BigInt(lockerView?.desk?.rent ?? "0")).toBeGreaterThan(0n);
     ledger.post({
       kind: "issue",
       atMs: clock,

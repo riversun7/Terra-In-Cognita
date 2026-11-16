@@ -9,6 +9,10 @@
 //   운반꾼·시간 셈). 운반꾼 = 그 배 시설 일꾼 → 배 주인의 그 2차맵 휴먼·사이보그 유닛(배에 탄 유닛은 빼낸다). 쓸 유닛이 없으면 no_carrier(물건은 그대로).
 //   내리는 짐은 떠날 때 배 창고에서 운반꾼 화물로 간다(배 창고가 바로 빈다). 싣는 짐은 떠날 때 물건 자리에서 운반꾼 화물로 가고, 닿을 때 배가 그 항구에
 //   없으면(떠남·시간 끝·주인 바뀜) 꺼낸 자리로 돌려놓는다. 옮김 셈 끔·거리 0·운반 고리가 없으면 예전처럼 바로 옮긴다(거래 하나).
+// - 바뀜(misc-574, 기획 대조 질문 2212 — D-555 1505, npc-econ-6 2155 "운반꾼 없으면 기다림"과 같은 뜻): 쓸 유닛이 없으면 no_carrier로 끝내지 않고 줄을
+//   세워 둔다(ok + waiting). 정시 살피기(service.ts — HARBOR_TICK_MS)마다 다시 해 보고, 운반꾼이 생기면 나른다. 다시 해 볼 때 정박이 끝났거나 짐이
+//   없어지는 등 다른 까닭으로 못 하면 그 줄을 버린다. 배마다 내리기 1줄(새 내리기가 앞 줄을 바꾼다)·싣기 WAIT_LOADS_MAX줄, 기다림 상한 WAIT_MAX_MS [임시].
+//   기다리는 줄은 메모리에만 있다(다시 켜면 버린다 — 물건은 그대로 제자리).
 // - 창고 시설(무게 상한)로는 내리지 않는다 — 도시 창고는 상한이 없다(질문 411). NPC 배는 내리기·싣기를 쓰지 않는다(npcFleet.ts).
 import { cargoLocation } from "@terra/shared/goodsPlaces";
 import type { CarryResult } from "../gather/station.ts";
@@ -22,6 +26,11 @@ import type { Harbor } from "./harbor.ts";
 import { holdCapGrams, holdGrams, holdStacks } from "./hold.ts";
 import { type Port, portFailed, portOf } from "./port.ts";
 
+/** [임시] 운반꾼을 기다리는 상한(이 뒤엔 그 줄을 버린다) */
+export const WAIT_MAX_MS = 6 * 3_600_000;
+/** [임시] 배 하나에 기다리는 싣기 줄 수 상한 */
+export const WAIT_LOADS_MAX = 8;
+
 export interface Cargo {
   /** 배 창고를 그 항구의 물건 자리로 내린다(me = 부르는 소유 주체) */
   unload(me: number | undefined, boatId: number, buildingId: number, operator: boolean): BoatCommandResult;
@@ -34,6 +43,10 @@ export interface Cargo {
     lots: number,
     operator: boolean,
   ): BoatCommandResult;
+  /** 운반꾼을 기다리는 줄을 다시 해 본다(정시 살피기). 나르기 시작한 줄 수 */
+  retry(nowMs: number): number;
+  /** 기다리는 줄 수(시험·지표) */
+  waiting(): number;
 }
 
 /** 실을 수 있는 물건 한 줄(묶음 수) */
@@ -78,7 +91,7 @@ export function loadableOf(
   return out;
 }
 
-/** 운반 결과 → 배 명령 결과(운반꾼이 걷는 중이면 닿는 시각) */
+/** 운반 결과 → 배 명령 결과(운반꾼이 걷는 중이면 닿는 시각). 운반꾼이 없으면 no_carrier(부르는 쪽이 줄을 세운다) */
 function carried(result: CarryResult, boatId: number, atMs: number): BoatCommandResult {
   if (typeof result === "string") return fail("no_carrier");
   return result.arriveAtMs > atMs
@@ -86,8 +99,33 @@ function carried(result: CarryResult, boatId: number, atMs: number): BoatCommand
     : { ok: true, boatId };
 }
 
+/** 기다리는 줄 하나: 다시 해 볼 명령(운영자 아님) */
+interface WaitLine {
+  readonly kind: "unload" | "load";
+  readonly sinceMs: number;
+  readonly attempt: () => BoatCommandResult;
+}
+
 export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
   const { now } = deps;
+  /** 배 ID → 기다리는 줄(들어온 차례) */
+  const waits = new Map<number, WaitLine[]>();
+
+  /** 운반꾼이 없으면 줄을 세운다(ok + waiting). 그 밖의 결과는 그대로 */
+  const orWait = (
+    result: BoatCommandResult,
+    boatId: number,
+    kind: WaitLine["kind"],
+    attempt: () => BoatCommandResult,
+  ): BoatCommandResult => {
+    if (result.ok || result.code !== "no_carrier") return result;
+    const lines = (waits.get(boatId) ?? []).filter((line) => kind === "load" || line.kind !== "unload");
+    if (kind === "load" && lines.filter((line) => line.kind === "load").length >= WAIT_LOADS_MAX)
+      return result;
+    lines.push({ kind, sinceMs: now(), attempt });
+    waits.set(boatId, lines);
+    return { ok: true, boatId, waiting: true };
+  };
 
   /** 같은 거래 하나로 바로 옮긴다(운반 고리 없음·운영자) */
   const moveNow = (
@@ -121,110 +159,148 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
     return 0;
   };
 
-  return {
-    unload(me, boatId, buildingId, operator) {
-      const port = portOf(deps, harbor, me, boatId, buildingId, operator);
-      if (portFailed(port)) return port;
-      const owner = port.boatOwner;
-      const stacks = holdStacks(deps.ledger, owner, boatId);
-      if (stacks.length === 0) return fail("hold_empty");
-      const from = cargoLocation(boatId);
-      // 항구 옆 거래소 건물 창고가 있으면 거기로(개인 창고가 차면 도시 창고), 아니면 도시 창고
-      const index = unloadTarget(port, stacks);
-      const to = port.places[index];
-      const spot = port.spots[index];
-      if (to === undefined || spot === undefined || port.cityId === null) return fail("not_ready");
-      const carrier = operator ? undefined : deps.carrier?.();
-      if (!carrier) {
-        moveNow(
-          "boat_unload",
-          owner,
-          stacks.map((stack) => ({ asset: stack.asset, qty: stack.qty, from, to })),
-        );
-        return { ok: true, boatId };
-      }
-      const at = now();
+  const unloadNow = (
+    me: number | undefined,
+    boatId: number,
+    buildingId: number,
+    operator: boolean,
+  ): BoatCommandResult => {
+    const port = portOf(deps, harbor, me, boatId, buildingId, operator);
+    if (portFailed(port)) return port;
+    const owner = port.boatOwner;
+    const stacks = holdStacks(deps.ledger, owner, boatId);
+    if (stacks.length === 0) return fail("hold_empty");
+    const from = cargoLocation(boatId);
+    // 항구 옆 거래소 건물 창고가 있으면 거기로(개인 창고가 차면 도시 창고), 아니면 도시 창고
+    const index = unloadTarget(port, stacks);
+    const to = port.places[index];
+    const spot = port.spots[index];
+    if (to === undefined || spot === undefined || port.cityId === null) return fail("not_ready");
+    const carrier = operator ? undefined : deps.carrier?.();
+    if (!carrier) {
+      moveNow(
+        "boat_unload",
+        owner,
+        stacks.map((stack) => ({ asset: stack.asset, qty: stack.qty, from, to })),
+      );
+      return { ok: true, boatId };
+    }
+    const at = now();
+    const result = carrier.carry({
+      ownerId: owner,
+      buildingId,
+      mapKey: port.map.mapKey,
+      cityId: port.cityId,
+      source: from,
+      deliverTo: to,
+      from: port.at,
+      to: spot,
+      loads: stacks.map((stack) => ({ asset: stack.asset, qty: stack.qty })),
+      atMs: at,
+      instantKind: "boat_unload",
+    });
+    return carried(result, boatId, at);
+  };
+
+  const loadNow = (
+    me: number | undefined,
+    boatId: number,
+    buildingId: number,
+    item: string,
+    lots: number,
+    operator: boolean,
+  ): BoatCommandResult => {
+    const port = portOf(deps, harbor, me, boatId, buildingId, operator);
+    if (portFailed(port)) return port;
+    const catalog = deps.places()?.catalog();
+    if (!catalog) return fail("busy");
+    const owner = port.boatOwner;
+    const asset = goodsAsset(item);
+    const lot = catalog.lotSize.get(asset) ?? 1n;
+    const qty = BigInt(Math.max(1, Math.trunc(lots))) * lot;
+    const carrier = operator ? undefined : deps.carrier?.();
+    const hold = cargoLocation(boatId);
+    // 배 창고 상한(배 종류 holdKg) — 나르는 중인 싣는 짐까지
+    const room =
+      BigInt(holdCapGrams(harbor.typeOf(port.state), deps.rules())) -
+      holdGrams(deps.ledger, catalog, owner, boatId) -
+      (carrier?.inbound(hold) ?? 0n);
+    if (qty * assetWeightG(catalog, asset) > room) return fail("hold_full");
+    const takes: { location: number; spot: CellPoint; qty: bigint }[] = [];
+    let left = qty;
+    for (const [index, location] of port.places.entries()) {
+      if (left <= 0n) break;
+      const have = deps.ledger.balanceOf(owner, asset, location);
+      if (have <= 0n) continue;
+      const take = have < left ? have : left;
+      takes.push({ location, spot: port.spots[index] ?? port.at, qty: take });
+      left -= take;
+    }
+    if (left > 0n) return fail("insufficient_materials");
+    if (!carrier || port.cityId === null) {
+      moveNow(
+        "boat_load",
+        owner,
+        takes.map((take) => ({ asset, qty: take.qty, from: take.location, to: hold })),
+      );
+      return { ok: true, boatId };
+    }
+    const at = now();
+    const cityId = port.cityId;
+    let last: BoatCommandResult | undefined;
+    for (const take of takes) {
       const result = carrier.carry({
         ownerId: owner,
         buildingId,
         mapKey: port.map.mapKey,
-        cityId: port.cityId,
-        source: from,
-        deliverTo: to,
-        from: port.at,
-        to: spot,
-        loads: stacks.map((stack) => ({ asset: stack.asset, qty: stack.qty })),
+        cityId,
+        source: take.location,
+        deliverTo: hold,
+        from: take.spot,
+        to: port.at,
+        loads: [{ asset, qty: take.qty }],
         atMs: at,
-        instantKind: "boat_unload",
+        instantKind: "boat_load",
+        // 닿을 때 배가 그 항구에 없으면(떠남·시간 끝·주인 바뀜) 꺼낸 자리로
+        redirect: () =>
+          portFailed(portOf(deps, harbor, owner, boatId, buildingId, false)) ? take.location : undefined,
       });
-      return carried(result, boatId, at);
+      const outcome = carried(result, boatId, at);
+      // 첫 짐이 못 떠나면 아무것도 옮기지 않았다. 뒤 짐이 못 떠나면(드묾 — 같은 운반꾼이 합쳐 진다) 떠난 짐만 간다
+      if (!outcome.ok) {
+        if (!last) return outcome;
+        break;
+      }
+      // 뒤 짐이 앞 짐에 합쳐지면 닿는 시각이 늦어진다 — 마지막 결과가 그 시각이다
+      last = outcome;
+    }
+    return last ?? { ok: true, boatId };
+  };
+
+  return {
+    unload(me, boatId, buildingId, operator) {
+      const attempt = (): BoatCommandResult => unloadNow(me, boatId, buildingId, false);
+      return orWait(unloadNow(me, boatId, buildingId, operator), boatId, "unload", attempt);
     },
     load(me, boatId, buildingId, item, lots, operator) {
-      const port = portOf(deps, harbor, me, boatId, buildingId, operator);
-      if (portFailed(port)) return port;
-      const catalog = deps.places()?.catalog();
-      if (!catalog) return fail("busy");
-      const owner = port.boatOwner;
-      const asset = goodsAsset(item);
-      const lot = catalog.lotSize.get(asset) ?? 1n;
-      const qty = BigInt(Math.max(1, Math.trunc(lots))) * lot;
-      const carrier = operator ? undefined : deps.carrier?.();
-      const hold = cargoLocation(boatId);
-      // 배 창고 상한(배 종류 holdKg) — 나르는 중인 싣는 짐까지
-      const room =
-        BigInt(holdCapGrams(harbor.typeOf(port.state), deps.rules())) -
-        holdGrams(deps.ledger, catalog, owner, boatId) -
-        (carrier?.inbound(hold) ?? 0n);
-      if (qty * assetWeightG(catalog, asset) > room) return fail("hold_full");
-      const takes: { location: number; spot: CellPoint; qty: bigint }[] = [];
-      let left = qty;
-      for (const [index, location] of port.places.entries()) {
-        if (left <= 0n) break;
-        const have = deps.ledger.balanceOf(owner, asset, location);
-        if (have <= 0n) continue;
-        const take = have < left ? have : left;
-        takes.push({ location, spot: port.spots[index] ?? port.at, qty: take });
-        left -= take;
-      }
-      if (left > 0n) return fail("insufficient_materials");
-      if (!carrier || port.cityId === null) {
-        moveNow(
-          "boat_load",
-          owner,
-          takes.map((take) => ({ asset, qty: take.qty, from: take.location, to: hold })),
-        );
-        return { ok: true, boatId };
-      }
-      const at = now();
-      const cityId = port.cityId;
-      let last: BoatCommandResult | undefined;
-      for (const take of takes) {
-        const result = carrier.carry({
-          ownerId: owner,
-          buildingId,
-          mapKey: port.map.mapKey,
-          cityId,
-          source: take.location,
-          deliverTo: hold,
-          from: take.spot,
-          to: port.at,
-          loads: [{ asset, qty: take.qty }],
-          atMs: at,
-          instantKind: "boat_load",
-          // 닿을 때 배가 그 항구에 없으면(떠남·시간 끝·주인 바뀜) 꺼낸 자리로
-          redirect: () =>
-            portFailed(portOf(deps, harbor, owner, boatId, buildingId, false)) ? take.location : undefined,
-        });
-        const outcome = carried(result, boatId, at);
-        // 첫 짐이 못 떠나면 아무것도 옮기지 않았다. 뒤 짐이 못 떠나면(드묾 — 같은 운반꾼이 합쳐 진다) 떠난 짐만 간다
-        if (!outcome.ok) {
-          if (!last) return outcome;
-          break;
-        }
-        // 뒤 짐이 앞 짐에 합쳐지면 닿는 시각이 늦어진다 — 마지막 결과가 그 시각이다
-        last = outcome;
-      }
-      return last ?? { ok: true, boatId };
+      const attempt = (): BoatCommandResult => loadNow(me, boatId, buildingId, item, lots, false);
+      return orWait(loadNow(me, boatId, buildingId, item, lots, operator), boatId, "load", attempt);
     },
+    retry(nowMs) {
+      let started = 0;
+      for (const [boatId, lines] of waits) {
+        const keep: WaitLine[] = [];
+        for (const line of lines) {
+          if (nowMs - line.sinceMs > WAIT_MAX_MS) continue;
+          const result = line.attempt();
+          if (result.ok) started += 1;
+          else if (result.code === "no_carrier") keep.push(line);
+        }
+        if (keep.length > 0) waits.set(boatId, keep);
+        else waits.delete(boatId);
+      }
+      return started;
+    },
+    waiting: () => [...waits.values()].reduce((sum, lines) => sum + lines.length, 0),
   };
 }

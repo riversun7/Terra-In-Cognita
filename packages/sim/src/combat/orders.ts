@@ -7,6 +7,8 @@
 // - 명령을 내리면 그 파티 유닛들의 대기 명령(D-180)을 비운다(1462). 그 뒤 유닛 명령을 받은 유닛은 유닛 명령을 먼저 따르고, 끝나면 다시
 //   파티 명령을 따른다.
 // - 다시 넣기 막기는 파티마다·편마다 따로 유닛 명령과 같은 시간(C5 commandLockMs)이다.
+// - 명령 순위(기획 D-574, 질문 2110): 파티 명령(소유주) 1순위, 군단 명령(군단장) 2순위. 파티 명령은 군단 명령을 언제든 덮어쓰고(뒤에 내린 쪽),
+//   파티 명령이 서 있는 동안 군단 명령은 그 파티를 건너뛴다(덮는 방식은 기술 기본값 — 질문 2263). 모든 대상 파티가 건너뛰어지면 거절.
 // - 진형 지키기(advance·목표가 안 보이는 attack): 같은 명령 묶음에서 가장 뒤처진 유닛보다 FORMATION_LEASH_CELLS 칸 넘게 앞선 유닛은 걷지
 //   않고 기다린다(치기·스킬은 한다). 틱 시작에 한 번 센다. 전개 방식·집결·따라가기는 기다리지 않는다.
 // - 집결·대형 고르기는 대형 자리(formation.ts)를 내릴 때 정하고, 따라가기는 틱마다 앞 파티 뒤 FOLLOW_GAP_CELLS 칸에 대형 자리를 다시 센다.
@@ -223,6 +225,8 @@ export function applyOrderInput(
   const commander = state.units.find((unit) => unit.id === side.commander);
   if (!commander || !active(commander)) electCommander(state, side);
   // 1463: 지휘 정원 밖 파티는 군단 명령을 받지 않는다(각자 AI 작전). 따라가기는 앞 파티 자신을 뺀다
+  // 명령 순위(기획 D-574 — 질문 2110 "소유주 명령이 1순위, 군단장 명령은 2순위"): 파티 명령(주인이 내린 것 — 서버는 파티 유닛이 모두 제 것일 때만
+  // 넣는다)이 서 있는 파티는 군단 명령을 받지 않는다. 주인이 자유(free)로 풀거나 그 명령이 끝나면(목표 쓰러짐·앞 파티 없어짐) 다시 받는다
   const leader = input.order.kind === "follow" ? input.order.party : undefined;
   const reached = state.parties.filter(
     (party) =>
@@ -230,6 +234,7 @@ export function applyOrderInput(
       !party.retreated &&
       !party.retreating &&
       !side.uncommanded.includes(party.id) &&
+      party.order?.legion !== false &&
       party.id !== leader,
   );
   if (reached.length === 0 || side.commander === 0) return reject();

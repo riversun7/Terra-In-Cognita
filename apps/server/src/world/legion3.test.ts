@@ -28,7 +28,7 @@ const { tickMs } = TEST_COMBAT_COEFFICIENTS;
 
 describe("판 번호·목록(D-571 줄기)", () => {
   it("SIM 60·실시간 전투 명령 프로토콜 49(지금 판 이하, 최소 = 지금 판 − 1)·대형·전개 방식 목록이 판정·보고서와 같다", () => {
-    expect(SIM_VERSION).toBe(60);
+    expect(SIM_VERSION).toBe(76);
     expect(BATTLE_ORDER_PROTOCOL_VERSION).toBe(49);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(BATTLE_ORDER_PROTOCOL_VERSION);
     expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);

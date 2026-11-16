@@ -76,6 +76,19 @@ export interface BusinessCoefficients {
   readonly exchangeFxFeeBp: number;
   /** [임시] 외환 거래소 주인이 정할 수 있는 환전 이용료 위 끝(만분율) */
   readonly exchangeFxFeeMaxBp: number;
+  /**
+   * [임시] 물자 거래소 주인이 정할 수 있는 이용료 아래·위 끝(만분율, 기획 D-574 질문 2085 "요율은 거래소 주인이 정하고 위아래 한도는 설정값"). 정하지 않으면
+   * 적정 요율 exchangeFeeBp(이 범위로 자름). 선택 칸 — 없으면 0·10000
+   */
+  readonly exchangeFeeMinBp?: number | undefined;
+  readonly exchangeFeeMaxBp?: number | undefined;
+  /** [임시] 환전 이용료 아래 끝(만분율, 같은 틀 — misc-574). 선택 칸 — 없으면 0 */
+  readonly exchangeFxFeeMinBp?: number | undefined;
+  /**
+   * [임시] NPC 거래소가 내는 거래 직무 자리 값(시간당) = 적정 자리 값(일꾼 한 명 시간당 인건비 + 수수료 serviceFeePm) × 이 값 ÷ 1000(기획 대조 2204 — D-555 1509·
+   * D-212, misc-574). 0이면 NPC 거래소는 자리를 내지 않는다. 선택 칸 — 없으면 1000
+   */
+  readonly exchangeNpcDeskRentPm?: number | undefined;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -99,4 +112,8 @@ export const START_BUSINESS: BusinessCoefficients = {
   exchangeDeskHaulPm: 500,
   exchangeFxFeeBp: 50,
   exchangeFxFeeMaxBp: 1000,
+  exchangeFeeMinBp: 0,
+  exchangeFeeMaxBp: 1000,
+  exchangeFxFeeMinBp: 0,
+  exchangeNpcDeskRentPm: 1000,
 };

@@ -39,6 +39,7 @@ import { OBSTACLE_DURABILITY, facilityPoints, mapLayers } from "../facilities/si
 import { gatherOf } from "../gather/registry.ts";
 import { attachUnitTactics } from "../tactics/store.ts";
 import { type WorldBattleInit, siegeFacilityTargets } from "../world/battleTargets.ts";
+import { houseTiesOf } from "../world/houseTies.ts";
 import { nationOfOwner } from "../world/nationVision.ts";
 import { TEST_PLANET_ID } from "../world/testMaps.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -54,7 +55,7 @@ import type { WorldPersistence } from "../world/world.ts";
 import { type HaltedGather, reconsiderTrips, RECHECK_SLACK_MS } from "./afterEncounter.ts";
 import { cargoCarriers, cargoGrams } from "./cargo.ts";
 import { type ClashUnit, findClashes } from "./clash.ts";
-import { type ClashResolution, clashPower, resolveClash } from "./clashDecide.ts";
+import { type ClashResolution, clashPower, engagedUnits, resolveClash } from "./clashDecide.ts";
 import { coordPacePm, neighborMapKeys } from "./coordPace.ts";
 import { groupEncounters, sidePairs } from "./encounter.ts";
 import {
@@ -250,8 +251,12 @@ export function startCoordinateRules(
   /** 편 판단 값의 출처(작전·접속·성향) */
   const sources = {
     playerOwned,
+    // 유닛 소유주의 접속(D-574 2140): 사용자 주체 = 그 사용자, 플레이어 가문 소유 주체 = 그 가문장(질문 2262)
     online: (ownerId: number): boolean => {
-      const userId = persistence.owners.get(ownerId)?.userId ?? null;
+      const owner = persistence.owners.get(ownerId);
+      let userId = owner?.userId ?? null;
+      if (userId === null && owner?.factionId !== null && owner?.factionId !== undefined)
+        userId = houseTiesOf(persistence)?.leaderOfHouse(owner.factionId) ?? null;
       return userId !== null && persistence.settlement?.offlineSince(userId) === null;
     },
     aggressionOf,
@@ -308,10 +313,10 @@ export function startCoordinateRules(
           all.map((unit) => unit.unitId),
         );
     const views = [
-      sideView(capped[0], nations[0], sources, bodies, carriers),
-      sideView(capped[1], nations[1], sources, bodies, carriers),
+      sideView(capped[0], nations[0], sources, bodies, carriers, roll),
+      sideView(capped[1], nations[1], sources, bodies, carriers, roll),
     ] as const;
-    const resolution = resolveClash(views[0], views[1], war, r, [roll(), roll()]);
+    const resolution = resolveClash(views[0], views[1], war, r);
     counts.contacts += 1;
     if (!resolution || resolution.escaped) {
       // 둘 다 회피, 또는 회피 편이 더 빨라 빠져나감(D-573) — 그 2차맵·나라 짝은 쉬는 시간
@@ -322,6 +327,11 @@ export function startCoordinateRules(
       rest(pairKey(mapKey, nations[0], nations[1]), at);
       return undefined;
     }
+    // 공격 편에는 건 묶음의 판단 유닛과 봇만(질문 2224 나 — 걸지 않은 유닛은 하던 길을 간다). 수비 편은 모두
+    const attacker = resolution.attacker;
+    const engaged = engagedUnits(views[attacker], views[attacker === 0 ? 1 : 0], war, r);
+    if (engaged)
+      capped[attacker] = capped[attacker].filter((unit) => !unit.decider || engaged.has(unit.unitId));
     const retreatPct = [views[0].retreatPct, views[1].retreatPct] as const;
     const unitRetreat = unitRetreats(capped, nations, sources);
     return { mapKey, loaded, nations, sides: capped, resolution, atWar: war, retreatPct, unitRetreat };

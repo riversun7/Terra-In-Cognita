@@ -30,6 +30,8 @@ export type BoatOutcome =
       readonly walking?: boolean | undefined;
       /** 만들기: 만드는 중이면 배가 뜨는 시각(서버 ms, 프로토콜 28) */
       readonly readyAtMs?: number | undefined;
+      /** 내리기·싣기: 운반꾼을 기다리는 줄에 섰다(프로토콜 66, 질문 2212) */
+      readonly waiting?: boolean | undefined;
     }
   | {
       readonly ok: false;
@@ -76,7 +78,13 @@ export function sendBoatCommand(command: BoatCommand, link: ServerLink = serverL
         const message = event.message;
         finish(
           message.ok
-            ? { ok: true, boatId: message.boatId, walking: message.walking, readyAtMs: message.readyAtMs }
+            ? {
+                ok: true,
+                boatId: message.boatId,
+                walking: message.walking,
+                readyAtMs: message.readyAtMs,
+                waiting: message.waiting,
+              }
             : { ok: false, code: message.code, readyAtMs: message.readyAtMs },
         );
       }

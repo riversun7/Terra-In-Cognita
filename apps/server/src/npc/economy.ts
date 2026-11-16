@@ -185,6 +185,8 @@ export interface NpcEconomyInput {
   /** 일하는 외환 거래소(도시 → 건물 ID)·그 건물의 환전 이용료 요율(만분율) — 질문 2086 환전 이용료. 둘 다 있어야 이용료를 받는다 */
   readonly fxExchanges?: (() => ReadonlyMap<number, number>) | undefined;
   readonly fxFeeBp?: ((buildingId: number) => number) | undefined;
+  /** 물자 거래소 이용료 요율(D-574 질문 2085 — 주인이 정한 값, 없으면 적정 요율. fxFee.ts exchangeFeeOf). 없으면 설정 칸 적정 요율 */
+  readonly exchangeFeeBp?: ((buildingId: number) => number) | undefined;
 }
 
 /** 시설 하나의 지금 생산(화면용) */
@@ -331,7 +333,13 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
             const buildingId = o.input.exchangeOf?.(cityId);
             return buildingId === undefined
               ? undefined
-              : { buildingId, bp: Math.max(0, Math.floor(o.rules().business.exchangeFeeBp)) };
+              : {
+                  buildingId,
+                  // 주인이 정한 요율(D-574 질문 2085 — exchangeFeeBp 고리), 없으면 적정 요율
+                  bp:
+                    o.input.exchangeFeeBp?.(buildingId) ??
+                    Math.max(0, Math.floor(o.rules().business.exchangeFeeBp)),
+                };
           },
           charge({ seller, currency, amount, buildingId, atMs }) {
             const from = book.ownerAccount(seller, currency);

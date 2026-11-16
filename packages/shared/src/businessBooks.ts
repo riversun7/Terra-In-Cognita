@@ -64,6 +64,12 @@ export const REPAIR_SERVICE_ITEM = "service:equipment_repair";
  */
 export const FX_FEE_ITEM = "service:fx_fee";
 
+/**
+ * 물자 거래소 이용료 요율 줄의 값 칸 이름(기획 D-574 질문 2085 — 요율은 거래소 주인이 정하고 위아래 한도는 설정값). 값 = 만분율, 줄이 없으면 적정 요율
+ * (설정 칸 exchange_fee_bp, 한도로 자름)
+ */
+export const EXCHANGE_FEE_ITEM = "service:exchange_fee";
+
 /** 사업장 적자 시스템 계정 코드(잔고 음수 = 갚을 돈) */
 export function businessDebtCode(buildingId: number, asset: string): string {
   return `debt:business:${buildingId}:${asset}`;
@@ -339,16 +345,21 @@ export interface ReserveView {
  * 외주 수리(기획 D-570 1785 — 그 공방 일꾼이 고치고 요금은 주인이 정한다): 주인이 정한 시간당 요금(없으면 적정가를 쓴다, 0 = 받지 않음)·적정가
  * (시간당 — 재료는 맡기는 사람이 내므로 인건비·수수료·세금, D-570 1822)·지금 고칠 수 있는 그 공방 일꾼 수
  */
-/** 외환 거래소 환전 이용료(질문 2086 — 외환 거래소만) */
-export interface FxFeeView {
+/** 거래소 이용료 요율(외환 거래소 환전 이용료 질문 2086, 물자 거래소 이용료 D-574 질문 2085 — 같은 틀) */
+export interface FeeRateView {
   /** 주인이 정한 요율(만분율). 정하지 않았으면 null(적정 요율로 받는다) */
   readonly bp: number | null;
-  /** 지금 받는 요율(정한 값, 없으면 적정 요율). 0이면 받지 않는다 */
+  /** 지금 받는 요율(정한 값, 없으면 적정 요율 — 한도 안). 0이면 받지 않는다 */
   readonly charged: number;
-  /** 적정 요율(설정 칸)·정할 수 있는 위 끝 */
+  /** 적정 요율(설정 칸)·정할 수 있는 아래·위 끝 */
   readonly fairBp: number;
+  /** 아래 끝(옛 응답에는 없다 — 0) */
+  readonly minBp?: number | undefined;
   readonly maxBp: number;
 }
+
+/** 외환 거래소 환전 이용료(질문 2086 — 외환 거래소만) */
+export type FxFeeView = FeeRateView;
 
 export interface RepairServiceView {
   /** 주인이 정한 시간당 요금(최소 단위 글자). 정하지 않았으면 null(적정가로 받는다) */
@@ -427,6 +438,8 @@ export type BusinessBooksResponse =
       readonly repairService?: RepairServiceView | undefined;
       /** 환전 이용료(외환 거래소만, 질문 2086). 옛 응답에는 없다 */
       readonly fxFee?: FxFeeView | undefined;
+      /** 물자 거래소 이용료(물자 거래소만, D-574 질문 2085). 옛 응답에는 없다 */
+      readonly exchangeFee?: FeeRateView | undefined;
       readonly vault: readonly BookBalance[];
       /** 갚을 돈(적자, 화폐별 양수) */
       readonly debt: readonly BookBalance[];

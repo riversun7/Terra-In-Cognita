@@ -25,7 +25,7 @@ import type { Settlement } from "../world/settlement.ts";
 import type { FillNotice } from "./books.ts";
 import { type ExchangeDirectory, fxExchangeCurrencies } from "./exchangeBuildings.ts";
 import { exchangeHolding } from "./exchangeStock.ts";
-import { lockerUnitsOf, lockerUsedG, ownerLockerG } from "./lockers.ts";
+import { type LockerCoords, lockerUnitsOf, lockerUsedG, ownerLockerG } from "./lockers.ts";
 
 /**
  * [임시] 걸어 둘 수 있는 기본 주문 수(질문 149 기본안 → D-443 출발값, 경제 화면 시안과 같다). 거래소 건물의 내 거래 직무 유닛(D-571 1944) INT·WIS가 한도를 더한다
@@ -98,6 +98,8 @@ export interface MarketDeps {
   readonly weightOf?: ((asset: string) => bigint) | undefined;
   /** 2차맵(개인 창고를 받는 내 유닛 — 질문 2081). 없으면 개인 창고 상한을 보지 않고 넓히기는 busy */
   readonly maps?: ReadonlyMap<number, SecondMap> | undefined;
+  /** 좌표 유닛(개인 창고 크기 — 어디에 있든 모든 유닛, lockers.ts). 없으면 띄운 2차맵만 */
+  readonly coords?: (() => LockerCoords | undefined) | undefined;
   /** 사업장 장부(넓히기 값 → 그 거래소 건물 금고, D-548). 없으면 넓히기는 busy */
   readonly business?: Pick<BusinessCore, "receive"> | undefined;
 }
@@ -174,7 +176,7 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
         });
         const capacity = ownerLockerG(
           d.rules().business,
-          lockerUnitsOf(d.maps, econ.lockers, me, input.city),
+          lockerUnitsOf(d.maps, econ.lockers, me, input.city, d.coords?.()),
         );
         if (!lockerFits(used, add, capacity)) return fail("locker_full");
       }
@@ -245,7 +247,7 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
       d.settlement.settleOwner(me, at);
       // 넓힐 유닛 창고: 고른 내 유닛, 없으면 사이보그 본체 먼저 칸이 남은 유닛(질문 2081)
       const maxSteps = Math.max(0, Math.floor(rules.exchangeLockerMaxSteps));
-      const units = lockerUnitsOf(d.maps, econ.lockers, me, cityId);
+      const units = lockerUnitsOf(d.maps, econ.lockers, me, cityId, d.coords?.());
       const target = unitId ?? defaultLockerUnit(units, maxSteps);
       const unit = units.find((entry) => entry.unitId === target);
       if (unit === undefined)

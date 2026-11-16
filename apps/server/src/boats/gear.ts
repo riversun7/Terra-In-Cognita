@@ -8,7 +8,7 @@
 //   장비는 배에 남아 배 주인이 바뀌어도(빼앗기·압류 뒤 넘어감) 함께 간다.
 // - 장비를 단 칸의 함포는 쉰다(해상 전투 몸 navalHooks.boatBody가 그 칸을 뺀다).
 // - 일꾼(catchCrew): 보직이 낚시 선원(fisher)이고 배에 탄 유닛을 유닛 번호 차례로, 장비를 단 칸 차례에 하나씩 짝짓는다(함포 하나에 화포수 하나와 같은 틀). 짝이
-//   없는 선원·선원이 없는 장비는 쉰다. 일꾼이 없으면 채집 줄을 시킨 유닛 혼자 설정 칸 boat_bare_catch_tier까지 잡는다(gather/boatCrew.ts).
+//   없는 선원·선원이 없는 장비는 쉰다. 일꾼이 없으면 탄 유닛마다 맨손 개인 낚시로 설정 칸 boat_bare_catch_tier까지 잡는다(gather/boatCrew.ts — D-574).
 import { mountedCatchGear } from "@terra/shared/naval";
 import { cargoLocation } from "@terra/shared/goodsPlaces";
 import { goodsAsset } from "../facilities/materials.ts";

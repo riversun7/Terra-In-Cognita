@@ -151,7 +151,7 @@ describe("D-570 배 서비스", () => {
     expect(ledger.balanceOf(7, "item:fish", buildingLocation(exchange))).toBe(2n);
   });
 
-  it("실제 운반(2069·2070 기획 대조 — D-555 1505): 내리기·싣기는 운반꾼이 나르고, 없으면 no_carrier, 개인 창고가 차면 도시 창고로, 싣는 짐은 배가 떠나면 돌아간다", async () => {
+  it("실제 운반(2069·2070 기획 대조 — D-555 1505): 내리기·싣기는 운반꾼이 나르고, 없으면 기다리는 줄(2212), 개인 창고가 차면 도시 창고로, 싣는 짐은 배가 떠나면 돌아간다", async () => {
     const specs: CarrySpec[] = [];
     let busy = false;
     let inbound = 0n;
@@ -216,13 +216,20 @@ describe("D-570 배 서비스", () => {
     grant(7, "item:fish", 1n, cargoLocation(1));
     expect(service.unload(7, 1, berth, false)).toMatchObject({ ok: true, walking: true });
     expect(specs[1]).toMatchObject({ deliverTo: cityLocation(3), loads: [{ asset: "item:fish", qty: 1n }] });
-    // 운반꾼이 없으면 아무것도 옮기지 않는다
+    // 운반꾼이 없으면 아무것도 옮기지 않고 기다리는 줄에 선다(질문 2212 — 운반꾼이 생기면 정시 살피기가 나른다)
     busy = true;
     grant(7, "item:fish", 1n, cargoLocation(1));
-    expect(service.unload(7, 1, berth, false)).toEqual({ ok: false, code: "no_carrier" });
+    expect(service.unload(7, 1, berth, false)).toEqual({ ok: true, boatId: 1, waiting: true });
     expect(ledger.balanceOf(7, "item:fish", cargoLocation(1))).toBe(1n);
+    // 다시 내리면 앞 줄을 바꾼다(배마다 내리기 한 줄)
+    expect(service.unload(7, 1, berth, false)).toMatchObject({ ok: true, waiting: true });
+    expect(service.cargoWaiting()).toBe(1);
+    await service.tick();
+    expect(service.cargoWaiting()).toBe(1);
     busy = false;
-    expect(service.unload(7, 1, berth, false)).toMatchObject({ ok: true });
+    await service.tick();
+    expect(service.cargoWaiting()).toBe(0);
+    expect(ledger.balanceOf(7, "item:fish", cargoLocation(1))).toBe(0n);
     // 싣기: 거래소 건물 창고(2) → 도시 창고(2) 차례로 짐 둘, 나르는 중인 짐까지 창고 상한(2kg)에 센다
     expect(ledger.balanceOf(7, "item:fish", buildingLocation(exchange))).toBe(2n);
     expect(ledger.balanceOf(7, "item:fish", cityLocation(3))).toBe(2n);

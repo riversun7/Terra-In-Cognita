@@ -28,6 +28,8 @@ export type BoatCommandResult =
       readonly walking?: boolean;
       /** 만들기·수리: 끝 시각(만드는 중이면 — 바로 끝났으면 없다) */
       readonly readyAtMs?: number;
+      /** 내리기·싣기: 운반꾼을 기다리는 줄에 섰다(질문 2212 — 운반꾼이 생기면 나른다) */
+      readonly waiting?: boolean;
     }
   | { readonly ok: false; readonly code: BoatResultCode; readonly readyAtMs?: number };
 

@@ -599,6 +599,18 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
     });
     await until(() => loopOf(r, 3)?.phase === "done");
     expect(loopOf(r, 3)?.stop).toBe("tier_too_high");
+    // 장비 없는 배(D-574 개인 낚시): 낮은 티어 어군은 탄 유닛 모두가 각자 맨손으로 낚는다(셋 다 지친다)
+    const coastal = (r.gather.objects(K[0] ?? 0) ?? []).find((object) => object.kind === 1);
+    expect(await r.gather.start(USER, { unitId: 3, mapKey, objectId: coastal?.id ?? 0 })).toEqual({
+      ok: true,
+    });
+    await until(() => [1, 2, 3].every((id) => (map.unitInfo(id)?.job.fatigue ?? 0) > 0));
+    expect(r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(50))).toBeGreaterThan(0n);
+    for (const id of [1, 2, 3]) {
+      const info = map.unitInfo(id);
+      if (info) map.setJob(id, { ...info.job, fatigue: 0 });
+    }
+    const before = r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(50));
     // 장비(최대 티어 6)를 맡은 선원 1·2가 일꾼: 둘 다 지치고, 시킨 유닛(3)도 이끄는 유닛이라 지친다
     fishers.set(50, [
       { unitId: 1, maxTier: 6 },
@@ -607,7 +619,7 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
     expect(await r.gather.start(USER, { unitId: 3, mapKey, objectId: target?.id ?? 0 })).toEqual({
       ok: true,
     });
-    await until(() => r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(50)) >= 2n);
+    await until(() => r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(50)) >= before + 2n);
     await until(() => (map.unitInfo(1)?.job.fatigue ?? 0) > 0 && (map.unitInfo(2)?.job.fatigue ?? 0) > 0);
     expect(map.unitInfo(3)?.job.fatigue ?? 0).toBeGreaterThan(0);
     r.gather.stop();

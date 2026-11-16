@@ -11,7 +11,14 @@ import type { SecondMap } from "../world/secondMap.ts";
 import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
 import type { MarketRegistry } from "./books.ts";
 import { buildingCenterOf } from "./exchangeBuildings.ts";
-import { LOCKER_UNIT_KINDS, type Lockers, lockerUnitsOf, lockerUsedG, ownerLockerG } from "./lockers.ts";
+import {
+  LOCKER_UNIT_KINDS,
+  type LockerCoords,
+  type Lockers,
+  lockerUnitsOf,
+  lockerUsedG,
+  ownerLockerG,
+} from "./lockers.ts";
 
 /** 거래 직무 유닛 한 줄(그 일의 몫을 받는 주체로) */
 export interface DeskTrader {
@@ -39,6 +46,8 @@ export interface ExchangeDeskSource {
   readonly rentOf?: ((buildingId: number) => bigint | null) | undefined;
   /** 유닛이 일·작업 중인가(노동 계약·직무 배치·건물 작업·비활성) */
   readonly unitBusy: (unitId: number) => boolean;
+  /** 좌표 유닛(개인 창고는 어디에 있든 모든 유닛을 센다 — lockers.ts). 없으면 띄운 2차맵만 */
+  readonly coords?: (() => LockerCoords | undefined) | undefined;
   readonly primariesOf: (unitId: number) => { readonly int: number; readonly wis: number };
 }
 
@@ -49,7 +58,7 @@ export function lockerViewOf(
 ): (ownerId: number, cityId: number, buildingId: number) => MarketLockerView {
   return (ownerId, cityId, buildingId) => {
     const rules = src.rules();
-    const units = lockerUnitsOf(src.maps, src.lockers(), ownerId, cityId);
+    const units = lockerUnitsOf(src.maps, src.lockers(), ownerId, cityId, src.coords?.());
     const registry = src.registry();
     const used = registry
       ? lockerUsedG({

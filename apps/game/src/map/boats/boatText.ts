@@ -45,6 +45,9 @@ export function boatOutcomeText(
     if (kind === "crew") return m.boat_crew_done();
     if (kind === "seize") return m.boat_seize_done({ id: outcome.boatId ?? 0 });
     // 운반꾼이 나르는 중(기획 대조 boats-5 — D-555 1505): readyAtMs = 닿는 시각
+    // 운반꾼을 기다림(질문 2212): 줄에 섰고 운반꾼이 생기면 나른다
+    if ((kind === "unload" || kind === "load") && outcome.waiting === true)
+      return kind === "unload" ? m.boat_unload_waiting() : m.boat_load_waiting();
     if (kind === "unload")
       return outcome.walking
         ? m.boat_unload_carrying({ time: durationText((outcome.readyAtMs ?? nowMs) - nowMs) })

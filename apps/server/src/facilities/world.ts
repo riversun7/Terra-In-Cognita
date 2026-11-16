@@ -363,6 +363,9 @@ export function createWorldFacilities(input: {
     // 환전 이용료 요율(질문 2086): 외환 거래소
     fxShop: (buildingId) =>
       catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.exchange === "fx",
+    // 물자 거래소 이용료 요율(D-574 질문 2085): 물자 거래소
+    goodsExchange: (buildingId) =>
+      catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.exchange === "goods",
     // 배 판매가(기획 대조 2057): 그 조선소가 만드는 배 종류
     boatTypes: (buildingId) =>
       (catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.boats ?? []).map(
@@ -473,7 +476,16 @@ export function createWorldFacilities(input: {
           const kind = record ? catalog().facility(record.facilityId)?.exchange : undefined;
           if (!record || (kind !== "goods" && kind !== "fx")) return undefined;
           const perLevel = Math.max(0, Math.floor(input.rules().business.exchangeTradeSlots));
-          return { level: record.level, slots: Math.max(0, record.level) * perLevel };
+          // NPC 거래소도 자리를 낸다(기획 대조 2204 — D-555 1509·D-212): 소유 주체에 사용자가 없고 세력이 있으면 자리 값 ‰(labor/deskRent.ts)
+          const ownerId = buildingPlace(service.places, buildingId)?.ownerId;
+          const owner =
+            ownerId === undefined || ownerId === null ? undefined : input.battles.owners.get(ownerId);
+          const npc = owner !== undefined && owner.userId === null && owner.factionId !== null;
+          return {
+            level: record.level,
+            slots: Math.max(0, record.level) * perLevel,
+            ...(npc ? { npcRentPm: input.rules().business.exchangeNpcDeskRentPm ?? 1000 } : {}),
+          };
         },
         primaries: (unitId) => input.holdings.primariesOf(unitId),
         // 임대형 임차인 몫의 건물 창고 상한(523 ②)

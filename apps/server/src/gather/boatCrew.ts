@@ -6,7 +6,9 @@
 // 포획장비마다 유닛배치. 어선은 함장1명 및 낚시선원 3명", docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (D-570)"): "탄 승객 모두 일꾼"을 버린다.
 // - 일꾼 = 포획 장비를 맡은 낚시 선원(배 고리 catchCrew — boats/gear.ts가 선원 ↔ 단 장비를 짝짓는다). 선원마다 자기 스탯으로 티어를 굴리되 그 장비의
 //   최대 티어로 자르고(objectYield.ts catchYieldItem), 수확도 선원마다 보조 스탯으로 센다. 캐는 시간 = 일꾼 가운데 가장 높은 주 스탯.
-// - 장비를 맡은 선원이 없으면 줄을 시킨 유닛(이끄는 유닛) 혼자 설정 칸 boat_bare_catch_tier까지 잡는다(작은 배·장비 없는 배·NPC 배).
+// - 바뀜(기획 D-574 — 질문 2061·2063 "포획장비없으면 개인유닛별 낚시", 함장은 필수가 아님): 장비를 맡은 낚시 선원이 없으면(장비가 없는 배·장비는 있어도
+//   맡은 선원이 없는 배 — 기술 기본값, 질문 2261) 배에 탄 같은 주인의 쓸 수 있는 유닛 모두가 각자 맨손으로 낚는다. 티어는 유닛마다 자기 스탯으로 굴리고
+//   설정 칸 boat_bare_catch_tier까지로 자른다(작은 배·짐배·NPC 배 모두 같은 규칙 — 질문 2075). 쓸 수 있는 승객이 없으면 이끄는 유닛 혼자.
 // - 배 고리가 없으면(시험·배 서비스 전) 이끄는 유닛 혼자, 티어를 자르지 않는다.
 // - 피로는 일꾼과 이끄는 유닛. 이끄는 유닛이 지치면 넣고 끝.
 import type { SecondMap } from "../world/secondMap.ts";
@@ -25,7 +27,8 @@ export interface BoatWorker {
 }
 
 /**
- * 채집 줄의 일꾼(머리 주석). boatId null = 걷는 줄(이끄는 유닛 혼자, 자르지 않음). 배 줄은 쓸 수 있는 몸의 낚시 선원 → 없으면 이끄는 유닛 혼자 장비 없는 티어까지
+ * 채집 줄의 일꾼(머리 주석). boatId null = 걷는 줄(이끄는 유닛 혼자, 자르지 않음). 배 줄은 쓸 수 있는 몸의 낚시 선원 → 없으면 탄 유닛 모두가 각자
+ * 장비 없는 티어까지(D-574 개인 낚시)
  */
 export function boatWorkers(
   map: SecondMap,
@@ -39,7 +42,9 @@ export function boatWorkers(
   const able = new Set(boatCrew(map, boatId, ownerId, nowMs));
   const fishers = info.fishers.filter((row) => able.has(row.unitId));
   if (fishers.length > 0) return fishers.map((row) => ({ unitId: row.unitId, maxTier: row.maxTier }));
-  return [{ unitId: leadId, maxTier: info.bareMaxTier }];
+  // 개인 낚시(D-574): 탄 유닛마다 맨손, 티어는 유닛마다 굴린다
+  const bare = [...able].map((unitId) => ({ unitId, maxTier: info.bareMaxTier }));
+  return bare.length > 0 ? bare : [{ unitId: leadId, maxTier: info.bareMaxTier }];
 }
 
 /** 배의 일꾼(같은 주인 승객, 쓸 수 있는 몸 — 유닛 번호 차례). 이끄는 유닛이 타 있으면 늘 넣는다 */

@@ -57,6 +57,7 @@ export function marketSourceOf(world: World | undefined, now: () => number): () 
       rentOf: (buildingId) => labor.rentOf(buildingId),
       unitBusy: (unitId) => labor.unitBusy(unitId) || facilities.service.unitInJob(unitId),
       primariesOf: (unitId) => persistence.holdings.primariesOf(unitId),
+      coords: () => persistence.travel,
     };
     const service = createMarketService({
       runtime,
@@ -70,6 +71,7 @@ export function marketSourceOf(world: World | undefined, now: () => number): () 
       weightOf,
       business: facilities.business,
       maps: world.maps,
+      coords: () => persistence.travel,
     });
     const views = createMarketViews({
       runtime,

@@ -6,6 +6,8 @@
 // - 거래소 건물(기획 D-561, docs/adr/2026-11-16-exchange-buildings.md): 팔 수 있는 양 = 그 도시 물자 거래소 건물 창고, 건물이 없으면 안내(exchange null).
 // - 화폐(WP6): 값은 그 도시 거래소 화폐(주인 나라 화폐)다. 화면에는 팩 화폐 코드(원장 자산 cur:<코드>의 코드, 기준 통화는 자산 코드 그대로)로 보낸다.
 import type {
+  MarketDeskView,
+  MarketLockerView,
   EconomyOrdersResponse,
   EconomyProductionResponse,
   MarketBookResponse,
@@ -51,6 +53,10 @@ export interface MarketViewSource {
   readonly buildingName?:
     | ((buildingId: number) => { readonly ko: string; readonly en: string } | undefined)
     | undefined;
+  /** 내 개인 창고(기획 D-571 1943, exchangeDesk.ts). 없으면 칸 없음 */
+  readonly locker?: ((ownerId: number, cityId: number, buildingId: number) => MarketLockerView) | undefined;
+  /** 내 거래 직무(기획 D-571 1944, exchangeDesk.ts). 없으면 칸 없음 */
+  readonly desk?: ((ownerId: number, buildingId: number) => MarketDeskView) | undefined;
 }
 
 export interface MarketViews {
@@ -280,7 +286,14 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
                       buildingId: String(exchangeId),
                       name: src.buildingName?.(exchangeId) ?? { ko: "", en: "" },
                       cityGoods: String(me === undefined ? 0n : ledger.balanceOf(me, asset, cityId) / lot),
+                      ...(me !== undefined && src.locker
+                        ? { locker: src.locker(me, cityId, exchangeId) }
+                        : {}),
+                      ...(me !== undefined && src.desk ? { desk: src.desk(me, exchangeId) } : {}),
                     },
+              ...(exchangeId === undefined && exchanges.stoppedIn(cityId, "goods")
+                ? { exchangeStopped: true }
+                : {}),
             };
       return {
         item,

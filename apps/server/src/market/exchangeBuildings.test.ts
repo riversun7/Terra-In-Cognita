@@ -57,9 +57,7 @@ describe("거래소 건물", () => {
       records: () => records,
       catalog: () => catalog,
       works: (buildingId) => buildingId !== 7,
-      maps: new Map(),
       primariesOf: () => ({ int: 100, wis: 100 }),
-      now: () => 0,
     });
     expect(directory.cityExchange(5, "goods")).toBe(4);
     // 짓는 중(레벨 0)·일하지 않는 상태는 그 도시 거래소가 아니다
@@ -68,5 +66,35 @@ describe("거래소 건물", () => {
     expect([...directory.citiesWith("fx")]).toEqual([[5, 8]]);
     expect(directory.stationed(1, "goods")).toEqual([]);
     expect(directory.orderLimit(1, "goods")).toBe(ORDER_BASE);
+    // 일하지 않는 거래소(상태 30% 미만 — D-559, 질문 1950)는 "멈춤"으로 알린다
+    expect(directory.stoppedIn(7, "goods")).toBe(true);
+    expect(directory.stoppedIn(5, "goods")).toBe(false);
+    expect(directory.stoppedIn(6, "goods")).toBe(false);
+  });
+
+  it("주문 한도는 거래 직무 유닛(직무 배치)으로 센다 — 일하는 거래소만, 내 유닛만(D-571 1944)", () => {
+    const records = [record(4, "goods_exchange", 5), record(7, "goods_exchange", 7)];
+    const traders = new Map([
+      [
+        4,
+        [
+          { unitId: 11, ownerId: 1 },
+          { unitId: 12, ownerId: 2 },
+        ],
+      ],
+      [7, [{ unitId: 13, ownerId: 1 }]],
+    ]);
+    const directory = createExchangeDirectory({
+      records: () => records,
+      catalog: () => catalog,
+      works: (buildingId) => buildingId !== 7,
+      primariesOf: (unitId) => ({ int: unitId === 11 ? 30 : 100, wis: 30 }),
+      tradersAt: (buildingId) => traders.get(buildingId) ?? [],
+    });
+    expect(directory.stationed(1, "goods")).toEqual([11]);
+    expect(directory.orderLimit(1, "goods")).toBe(ORDER_BASE + 3);
+    expect(directory.stationed(2, "goods")).toEqual([12]);
+    expect(directory.orderLimit(2, "goods")).toBe(ORDER_BASE + 6);
+    expect(directory.orderLimit(3, "goods")).toBe(ORDER_BASE);
   });
 });

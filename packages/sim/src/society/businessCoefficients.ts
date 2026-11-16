@@ -35,6 +35,24 @@ export interface BusinessCoefficients {
    * 합 × 이 값/1000(올림)을 그 공방 금고에 낸다. 0이면 요금 없음. 주인이 요금을 정하는 길은 질문 1785
    */
   readonly serviceFeePm: number;
+  /**
+   * [임시] 거래소 이용료(만분율, 기획 D-564 1682·D-548·D-160 — 질문 1948 답, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)"). 물자 거래소
+   * 체결마다 판 쪽이 총액 × 이 값 ÷ 10000(버림)을 그 도시 물자 거래소 건물 금고(사업장 장부)에 낸다. 거래세(국고, D-128)와 따로. 0이면 이용료 없음
+   */
+  readonly exchangeFeeBp: number;
+  /**
+   * [임시] 거래소 개인 창고 기본 크기(g, 기획 D-571 "유닛마다 작은 한도 창고"). 그 도시 물자 거래소 건물 창고에서 한 주인이 쓰는 자리(창고 물건 +
+   * 걸어 둔 팔 물건 + 걸어 둔 사기 수량)의 위 끝. 넘으면 새 사기 주문·반입을 받지 않는다(이미 든 것은 그대로)
+   */
+  readonly exchangeLockerG: number;
+  /** [임시] 거래소 개인 창고 넓히기 한 칸(g, D-571 "비용 지불하여 창고 확장") */
+  readonly exchangeLockerStepG: number;
+  /** [임시] 넓히기 한 칸 값(그 도시 화폐 최소 단위 — 그 거래소 건물 금고로, 사업장 장부 수입) */
+  readonly exchangeLockerStepPrice: number;
+  /** [임시] 넓히기 칸 수 위 끝(주인마다·도시마다) */
+  readonly exchangeLockerMaxSteps: number;
+  /** [임시] 한 주인이 거래소 하나에 둘 수 있는 거래 직무 유닛 수(D-571 1944 "거래소에 배치" — 주문 한도를 늘린다) */
+  readonly exchangeTradeSlots: number;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -47,4 +65,10 @@ export const START_BUSINESS: BusinessCoefficients = {
   reserveMarginPm: 200,
   reserveDefaultPm: 1000,
   serviceFeePm: 200,
+  exchangeFeeBp: 50,
+  exchangeLockerG: 200_000,
+  exchangeLockerStepG: 200_000,
+  exchangeLockerStepPrice: 100,
+  exchangeLockerMaxSteps: 20,
+  exchangeTradeSlots: 5,
 };

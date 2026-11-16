@@ -3,6 +3,7 @@
 // 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout". 경제 화면 지연 조각 안에서만 쓴다.
 // 체결 알림(market_fill)은 거래창을 연 동안 켜 두고(useMarketFills), 알림이 오면 받은 자료를 다시 받는다.
 // 환전(프로토콜 15, docs/adr/2026-11-07-play-flow.md WP6): fx_place·fx_cancel을 같은 틀로 보내고 fx_result를 기다린다.
+// 개인 창고 넓히기(프로토콜 56, 기획 D-571 1943): market_locker_expand도 같은 틀(market_result).
 import type {
   ClientMessageOf,
   FxResultCode,
@@ -15,7 +16,8 @@ import { type ServerLink, serverLink } from "../../net/serverLink.ts";
 
 export type MarketCommand =
   | Omit<ClientMessageOf<"market_place">, "id">
-  | Omit<ClientMessageOf<"market_cancel">, "id">;
+  | Omit<ClientMessageOf<"market_cancel">, "id">
+  | Omit<ClientMessageOf<"market_locker_expand">, "id">;
 
 export type MarketOutcome =
   | {
@@ -34,7 +36,9 @@ export type FxOutcome =
   | { readonly ok: true; readonly orderId?: number | undefined }
   | { readonly ok: false; readonly code: FxResultCode | "offline" | "timeout" };
 
-type Request = ClientMessageOf<"market_place" | "market_cancel" | "market_watch" | "fx_place" | "fx_cancel">;
+type Request = ClientMessageOf<
+  "market_place" | "market_cancel" | "market_watch" | "market_locker_expand" | "fx_place" | "fx_cancel"
+>;
 
 const TIMEOUT_MS = 15_000;
 

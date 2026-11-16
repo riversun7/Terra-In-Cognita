@@ -7980,5 +7980,21 @@
   "dev_lab_tier": "전투 랭킹 등급",
   "dev_lab_tier_none": "등급 밖",
   "dev_lab_tier_n": "등급 {n}",
-  "dev_lab_rank_hint": "지휘관 정원(파티 수)은 작위와 등급 가운데 큰 쪽 + 환생 덤, 3~10입니다. 지휘관이 쓰러지면 작위 → 등급 순으로 잇습니다."
+  "dev_lab_rank_hint": "지휘관 정원(파티 수)은 작위와 등급 가운데 큰 쪽 + 환생 덤, 3~10입니다. 지휘관이 쓰러지면 작위 → 등급 순으로 잇습니다.",
+  "market_exchange_stopped": "이 도시 물자 거래소 건물의 상태가 30% 아래라 멈췄습니다. 고칠 때까지 주문을 낼 수 없습니다. 걸어 둔 주문은 거둘 수 있습니다.",
+  "market_err_locker_full": "거래소 개인 창고에 자리가 모자랍니다. 창고를 넓히거나 물건을 꺼내세요.",
+  "market_err_locker_max": "개인 창고를 더 넓힐 수 없습니다.",
+  "market_locker_title": "내 개인 창고: {used} / {capacity}kg",
+  "market_locker_meter": "개인 창고 쓰는 무게",
+  "market_locker_expand": "넓히기 +{step}kg ({price})",
+  "market_locker_steps": "넓힌 칸 {steps}/{max}",
+  "market_locker_max": "더 넓힐 수 없습니다",
+  "market_desk_title": "거래 직무 {count}/{slots}명",
+  "market_desk_rule": "거래 직무 유닛마다 INT + WIS 20당 주문 한도가 1 늘어납니다. 산출은 없습니다.",
+  "market_desk_cyborg": "사이보그 (+{bonus})",
+  "market_desk_unit": "유닛 #{id} (+{bonus})",
+  "market_desk_unassign": "빼기",
+  "market_desk_pick": "거래 직무에 둘 유닛",
+  "market_desk_assign": "거래 직무에 두기",
+  "market_desk_no_free": "이 거래소가 있는 지역에 쉬는 내 유닛이 없습니다."
 }

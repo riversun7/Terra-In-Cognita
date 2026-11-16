@@ -3,9 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   EXCHANGE_BONUS_MAX,
   ORDER_BASE,
-  cellsFromRect,
   exchangeLocked,
   isExchangeKind,
+  lockerCapacityG,
+  lockerFits,
   orderLimit,
   stationBonus,
 } from "./exchange.ts";
@@ -28,11 +29,13 @@ describe("거래소 건물 규칙", () => {
     expect(orderLimit([EXCHANGE_BONUS_MAX, 9])).toBe(ORDER_BASE + EXCHANGE_BONUS_MAX);
   });
 
-  it("건물 칸에서 칸까지 체비셰프 거리(안이면 0)", () => {
-    const rect = { x: 10, y: 10, width: 3, height: 3 };
-    expect(cellsFromRect(rect, 11, 11)).toBe(0);
-    expect(cellsFromRect(rect, 12, 12)).toBe(0);
-    expect(cellsFromRect(rect, 15, 11)).toBe(3);
-    expect(cellsFromRect(rect, 8, 6)).toBe(4);
+  it("개인 창고 크기 = 기본 + 넓힌 칸 × 한 칸, 넘치면 더 넣지 못한다(D-571 1943)", () => {
+    expect(lockerCapacityG(200_000, 50_000, 0)).toBe(200_000n);
+    expect(lockerCapacityG(200_000, 50_000, 3)).toBe(350_000n);
+    expect(lockerCapacityG(-1, 50_000, -2)).toBe(0n);
+    expect(lockerFits(100n, 100n, 200n)).toBe(true);
+    expect(lockerFits(150n, 100n, 200n)).toBe(false);
+    // 이미 넘친 창고(설정을 줄였거나 옛 세계)도 빼는 쪽·0은 된다
+    expect(lockerFits(500n, 0n, 200n)).toBe(true);
   });
 });

@@ -33,6 +33,7 @@ import {
   GUARDIAN_BUFF_PROTOCOL_VERSION,
   TEMPLE_PROTOCOL_VERSION,
   FX_PROTOCOL_VERSION,
+  LOCKER_PROTOCOL_VERSION,
   MARKET_PROTOCOL_VERSION,
   RUINS_PROTOCOL_VERSION,
   OPERATOR_PACE_PROTOCOL_VERSION,
@@ -575,11 +576,17 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "market_place":
       case "market_cancel":
       case "market_watch":
+      case "market_locker_expand":
       case "fx_place":
       case "fx_cancel": {
-        // 거래소 명령은 프로토콜 14, 환전은 15의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        // 거래소 명령은 프로토콜 14, 환전은 15, 개인 창고 넓히기는 56의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
         const fx = message.t === "fx_place" || message.t === "fx_cancel";
-        if (protocolVersion < (fx ? FX_PROTOCOL_VERSION : MARKET_PROTOCOL_VERSION)) {
+        const need = fx
+          ? FX_PROTOCOL_VERSION
+          : message.t === "market_locker_expand"
+            ? LOCKER_PROTOCOL_VERSION
+            : MARKET_PROTOCOL_VERSION;
+        if (protocolVersion < need) {
           reject("invalid_message");
           return;
         }

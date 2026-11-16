@@ -392,6 +392,40 @@ export interface MarketExchangeView {
   readonly name: { readonly ko: string; readonly en: string };
   /** 그 도시 내 도시 창고의 이 물건(묶음) */
   readonly cityGoods: DecimalString;
+  /** 내 개인 창고(기획 D-571 1943 — 유닛마다 작은 창고, 비용 내면 넓힘). 칸이 없으면(옛 서버) 보이지 않는다 */
+  readonly locker?: MarketLockerView | undefined;
+  /** 거래 직무(기획 D-571 1944 — 거래소에 배치, 주문 한도를 늘린다). 칸이 없으면 보이지 않는다 */
+  readonly desk?: MarketDeskView | undefined;
+}
+
+/** 거래소 개인 창고(무게는 g, 값은 그 도시 화폐 최소 단위) */
+export interface MarketLockerView {
+  /** 쓰는 무게 = 창고 물건 + 걸어 둔 팔 물건 + 걸어 둔 사기 남은 수량 */
+  readonly usedG: DecimalString;
+  readonly capacityG: DecimalString;
+  /** 넓힌 칸 수·위 끝 */
+  readonly steps: number;
+  readonly maxSteps: number;
+  /** 넓히기 한 칸(g)·값 */
+  readonly stepG: DecimalString;
+  readonly stepPrice: DecimalString;
+}
+
+/** 거래 직무 유닛 하나(주문 한도 몫 = ⌊(INT + WIS) ÷ 20⌋) */
+export interface MarketDeskUnit {
+  readonly unitId: number;
+  readonly cyborg: boolean;
+  readonly bonus: number;
+}
+
+/** 거래소 하나의 내 거래 직무 */
+export interface MarketDeskView {
+  /** 이 거래소에 둔 내 거래 직무 유닛 */
+  readonly traders: readonly MarketDeskUnit[];
+  /** 둘 수 있는 내 유닛(그 거래소와 같은 2차맵, 쉬는 것) */
+  readonly candidates: readonly MarketDeskUnit[];
+  /** 내가 이 거래소에 둘 수 있는 거래 직무 유닛 수 */
+  readonly slots: number;
 }
 
 /** economy.marketBook — 도시 하나 × 물건 하나의 호가창·체결·봉·주문표 자료 */
@@ -428,6 +462,8 @@ export interface MarketBookResponse extends EconomyResponseHead {
    * cityGoods = 그 도시 내 도시 창고의 이 물건(묶음 — 거래소 건물로 실어 날라야 판다, D-564 1628)
    */
   readonly exchange?: MarketExchangeView | null | undefined;
+  /** 거래소 건물은 있지만 상태 30% 미만·멈춘 사업장이라 일하지 않는다(기획 D-559, 질문 1950 — exchange가 null일 때만) */
+  readonly exchangeStopped?: boolean | undefined;
   /** [임시] 고를 수 있는 지정가 만료(날). 기획 잠정 7일(E10) */
   readonly expiryDays: readonly number[];
   readonly observedAt: number;

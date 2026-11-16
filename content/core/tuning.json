@@ -12572,6 +12572,114 @@
       "source": "D-564 1682 \"상업시설은 외주를 받아 장사\" [임시] · 질문 1785"
     },
     {
+      "id": "exchange_fee_bp",
+      "code": "",
+      "name": {
+        "ko": "거래소 이용료(만분율)",
+        "en": "Exchange usage fee (bp)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 2000,
+      "desc": {
+        "ko": "물자 거래소에서 체결될 때마다 판 사람이 총액 × 이 값 ÷ 10000(버림)을 그 도시 물자 거래소 건물 금고(사업장 장부)에 낸다. 거래세(나라 국고)와 따로다. 0이면 이용료가 없다.",
+        "en": "On every goods exchange fill the seller pays total × this ÷ 10000 (rounded down) into the vault of that city's goods exchange building (business books). Separate from the trade tax (state treasury). 0 means no fee."
+      },
+      "source": "D-564 1682 · D-548 · D-160 (질문 1948) [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\""
+    },
+    {
+      "id": "exchange_locker_g",
+      "code": "",
+      "name": {
+        "ko": "거래소 개인 창고 기본 크기(g)",
+        "en": "Exchange locker base size (g)"
+      },
+      "value": 200000,
+      "structural": false,
+      "unit": "grams",
+      "min": 0,
+      "max": 100000000,
+      "desc": {
+        "ko": "그 도시 물자 거래소 건물 창고에서 한 사람이 쓰는 자리(창고 물건 + 걸어 둔 팔 물건 + 걸어 둔 사기 수량, 무게)의 기본 위 끝. 넘으면 새 사기 주문·반입을 받지 않는다(이미 든 물건은 그대로).",
+        "en": "Base limit of the space one player uses in that city's goods exchange building (stored goods + goods in open sell orders + open buy quantity, by weight). Above it new buy orders and deliveries are refused (goods already there stay)."
+      },
+      "source": "D-571 (질문 1943·1944·1948) [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\""
+    },
+    {
+      "id": "exchange_locker_step_g",
+      "code": "",
+      "name": {
+        "ko": "거래소 개인 창고 넓히기 한 칸(g)",
+        "en": "Exchange locker expansion step (g)"
+      },
+      "value": 200000,
+      "structural": false,
+      "unit": "grams",
+      "min": 1000,
+      "max": 100000000,
+      "desc": {
+        "ko": "개인 창고를 한 번 넓힐 때 늘어나는 무게.",
+        "en": "How much weight one expansion adds to the locker."
+      },
+      "source": "D-571 (질문 1943·1944·1948) [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\""
+    },
+    {
+      "id": "exchange_locker_step_price",
+      "code": "",
+      "name": {
+        "ko": "거래소 개인 창고 넓히기 값(화폐 최소 단위)",
+        "en": "Exchange locker expansion price (minor units)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000,
+      "desc": {
+        "ko": "개인 창고를 한 번 넓히는 값. 그 도시 화폐로 내고 그 거래소 건물 금고(사업장 장부 수입)로 간다.",
+        "en": "Price of one locker expansion, paid in that city's currency into the exchange building's vault (business income)."
+      },
+      "source": "D-571 (질문 1943·1944·1948) [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\""
+    },
+    {
+      "id": "exchange_locker_max_steps",
+      "code": "",
+      "name": {
+        "ko": "거래소 개인 창고 넓히기 칸 수 위 끝",
+        "en": "Exchange locker expansion steps limit"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "한 사람이 한 도시 거래소에서 넓힐 수 있는 칸 수.",
+        "en": "How many expansions one player may buy at one city's exchange."
+      },
+      "source": "D-571 (질문 1943·1944·1948) [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\""
+    },
+    {
+      "id": "exchange_trade_slots",
+      "code": "",
+      "name": {
+        "ko": "거래소 하나의 내 거래 직무 유닛 수",
+        "en": "Trade-desk units per exchange (per owner)"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "한 사람이 거래소 하나에 거래 직무로 둘 수 있는 유닛 수. 거래 직무 유닛의 INT·WIS가 주문 한도를 늘린다.",
+        "en": "How many units one player may put on the trade desk of one exchange. Their INT and WIS raise the order limit."
+      },
+      "source": "D-571 (질문 1943·1944·1948) [임시] · ADR 2026-11-16-exchange-buildings \"바뀜 (D-571)\""
+    },
+    {
       "id": "moves_knock_wall_pm",
       "code": "",
       "name": {

@@ -266,6 +266,24 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(ledger.balanceOf(buyer.ownerId, ask.asset, holding) - before).toBe(lot);
     // 산 물건은 도시 창고가 아니라 거래소 건물 창고로 간다(D-564 1628)
     expect(ledger.balanceOf(buyer.ownerId, ask.asset, ask.cityId)).toBe(0n);
+    // 개인 창고(D-571 1943): 화면 자료·넓히기(그 도시 화폐로 한 칸 값 → 거래소 건물 금고)·거래 직무 자리(1944)
+    const lockerView = source.views.book(buyer.userId, ask.item, ask.cityId, clock)?.exchange;
+    expect(lockerView?.locker).toMatchObject({ steps: 0, maxSteps: 20, stepPrice: "100" });
+    expect(lockerView?.desk).toMatchObject({ traders: [], slots: 5 });
+    ledger.post({
+      kind: "issue",
+      atMs: clock,
+      entries: [
+        { account: ledger.systemAccount("test:locker", currency), amount: -100n },
+        { account: ledger.ownerAccount(buyer.ownerId, currency), amount: 100n },
+      ],
+    });
+    expect(await source.service.lockerExpand(buyer.userId, ask.cityId)).toEqual({ ok: true });
+    expect(source.views.book(buyer.userId, ask.item, ask.cityId, clock)?.exchange?.locker?.steps).toBe(1);
+    expect(await count(`select id from ledger_transactions where kind = 'exchange_locker'`)).toBe(1);
+    expect(
+      await count(`select city_id from exchange_lockers where owner_id = ${buyer.ownerId} and steps = 1`),
+    ).toBe(1);
     expect(await count(`select id from market_trades where taker_owner_id = ${buyer.ownerId}`)).toBe(1);
     expect(
       await count(`select id from market_orders where owner_id = ${buyer.ownerId} and state = 'filled'`),
@@ -356,6 +374,8 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     );
     expect(book?.trades.length).toBeGreaterThan(0);
     expect(reloaded.registry.check()).toEqual([]);
+    // 넓힌 개인 창고 칸도 그대로(D-571 1943)
+    expect(reloaded.lockers.steps(ask.cityId, buyer.ownerId)).toBe(1);
     const restored = marketSourceOf(again, () => clock)();
     expect(restored?.views.orders(buyer.userId, clock).open[0]?.id).toBe(String(sell.orderId));
     // 걸린 환전 주문도 같은 짝·같은 차례로 되살아난다(에스크로 M2), 지난 체결가가 이어진다

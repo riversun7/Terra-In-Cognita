@@ -34,6 +34,11 @@ export interface ProductionSource {
    * 없으면 채집 시설만 일터
    */
   workplace?(buildingId: number): { readonly level: number; readonly slots: number } | undefined;
+  /**
+   * 거래소 건물의 거래 직무(기획 D-571 1944 "거래소에 배치, 거래소 개인 창고·거래 물품 관리 역할", docs/adr/2026-11-16-exchange-buildings.md
+   * "바뀜 (D-571)")면 다 지은 레벨과 주인마다 자리 수. 남의 거래소에도 둔다(산출 없음 — 주문 한도만 늘린다). 없으면 거래 직무 없음
+   */
+  tradeDesk?(buildingId: number): { readonly level: number; readonly slots: number } | undefined;
   /** 유닛의 1차 스탯(입은 장비·버프 포함, 공방 장인 실력과 같은 셈 — holdings primariesOf) */
   primaries(unitId: number): Primaries;
   /**

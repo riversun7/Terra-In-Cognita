@@ -17,6 +17,11 @@ export const MARKET_PROTOCOL_VERSION = 14;
 export const FX_PROTOCOL_VERSION = 15;
 /** 거래소 건물(기획 D-561): 결과 코드 no_exchange(물자·환전)가 생긴 판. 더 낮은 판 연결은 unknown_city·unknown_currency를 받는다 */
 export const EXCHANGE_MARKET_PROTOCOL_VERSION = 47;
+/**
+ * 거래소 개인 창고(기획 D-571 1943): market_locker_expand 메시지와 결과 코드 locker_full·locker_max가 생긴 판. 더 낮은 판 연결은 이 메시지를 보내지
+ * 못하고(invalid_message), 사기 주문의 locker_full은 invalid_amount로 받는다
+ */
+export const LOCKER_PROTOCOL_VERSION = 56;
 /** 지정가 만료로 고를 수 있는 가장 긴 날(기획 잠정 7일 E10, 서버가 고를 수 있는 날만 받는다) */
 export const MARKET_EXPIRY_DAYS_MAX = 30;
 
@@ -53,6 +58,13 @@ export const marketCancelMessage = z.object({
   t: z.literal("market_cancel"),
   id: requestId,
   order: rowId,
+});
+
+/** 그 도시 거래소 개인 창고를 한 칸 넓힌다(그 도시 화폐로 한 칸 값을 낸다 — D-571 1943, 판 56) */
+export const marketLockerExpandMessage = z.object({
+  t: z.literal("market_locker_expand"),
+  id: requestId,
+  city: rowId,
 });
 
 /** 이 연결에 체결 알림(market_fill)을 켜고 끈다(거래창을 연 동안) */
@@ -113,6 +125,10 @@ export const MARKET_RESULT_CODES = [
    * 건물 창고로 실어 나른다
    */
   "no_exchange",
+  /** 거래소 개인 창고에 자리가 모자람(사기 — 산 물건이 들어올 자리, 기획 D-571 1943 — 56, 더 낮은 판은 invalid_amount) */
+  "locker_full",
+  /** 개인 창고를 더 넓힐 수 없음(넓히기 칸 수 위 끝 — 56) */
+  "locker_max",
 ] as const;
 export type MarketResultCode = (typeof MARKET_RESULT_CODES)[number];
 
@@ -190,6 +206,7 @@ export const marketClientMessages = [
   marketPlaceMessage,
   marketCancelMessage,
   marketWatchMessage,
+  marketLockerExpandMessage,
   fxPlaceMessage,
   fxCancelMessage,
 ] as const;

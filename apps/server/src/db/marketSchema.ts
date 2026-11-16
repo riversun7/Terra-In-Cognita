@@ -13,6 +13,9 @@
 // - 환전(동시호가 D-125, 경제 ADR 5절): fx_pairs = 짝 하나(화폐 ↔ 기준 통화, ID = 에스크로 계정 escrow:fx:<ID>:base·quote의 열쇠),
 //   fx_orders = 회차에 낸 주문(open은 부팅 때 같은 차례로 되살린다, locked = 지금 묶인 양 → 불변 조건 M2). 회차가 끝나면 유저 주문은 done
 //   (체결 로트·체결가)으로 남기고 NPC 주문은 지운다. fx_rounds = 회차 결과(추가만, 지난 체결가·차트).
+// - exchange_lockers(기획 D-571 1943, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)"): 거래소 개인 창고를 넓힌 칸 수(도시 × 주인).
+//   물건 자체는 원장 계정(주인, 물건, 그 도시 물자 거래소 건물 위치)이다. 건물이 아니라 도시를 열쇠로 둔다(건물이 부서져 다시 지어도 산 칸이 남는다).
+//   줄이 없으면 넓히지 않은 것(기본 크기). 더하기만 해서 직전 판 앱은 그대로 돈다(모르는 표).
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -21,6 +24,7 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -177,5 +181,22 @@ export const fxRounds = pgTable(
   (table) => [
     index("fx_rounds_pair_at_idx").on(table.pairId, table.atMs),
     check("fx_rounds_amounts", sql`(${table.price} is null or ${table.price} > 0) and ${table.lots} >= 0`),
+  ],
+);
+
+/** 거래소 개인 창고를 넓힌 칸 수(도시 × 주인, D-571 1943) */
+export const exchangeLockers = pgTable(
+  "exchange_lockers",
+  {
+    cityId: bigint("city_id", { mode: "number" }).notNull(),
+    ownerId: bigint("owner_id", { mode: "number" })
+      .notNull()
+      .references((): AnyPgColumn => worldOwners.id),
+    steps: integer("steps").notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.cityId, table.ownerId] }),
+    check("exchange_lockers_steps", sql`${table.steps} >= 0`),
   ],
 );

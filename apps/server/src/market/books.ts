@@ -9,6 +9,11 @@
 // - 화폐(docs/adr/2026-11-07-play-flow.md WP6 나라 화폐): 거래소 줄에 값을 매기는 화폐를 남긴다(비었으면 WP4 시험 화폐). 부팅 때 걸린 주문을
 //   남긴 화폐로 되살린 뒤 지금 도시 주인의 화폐(configOf)와 다르면 시뮬 retarget으로 주문을 돌려주고 화폐를 바꾼다(주인이 바뀔 때와 같은 길).
 //   화폐가 바뀌면 메모리 체결 창을 비운다(다른 화폐 값을 한 차트에 섞지 않는다). 체결 줄에도 화폐를 남긴다.
+// - 거래소 건물 2(기획 D-571, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)"):
+//   - 이용료(질문 1948 답 — D-564 1682·D-548·D-160): 체결마다 판 쪽이 총액 × 만분율(설정 칸 exchange_fee_bp)을 그 도시 물자 거래소 건물 금고에 낸다
+//     (fee 고리 — 사업장 장부 수입, 소득세 포함). 거래세(국고)와 따로, 체결 거래 바로 뒤 같은 동기 처리.
+//   - NPC(질문 1945 답 — D-212·D-564 1626, npcHaul 고리가 있을 때): 그 도시에 거래소 건물이 없으면 NPC 주문을 받지 않고, NPC 물건 자리도 거래소
+//     건물 창고다. 팔 물건은 보이지 않는 운반꾼 시간 뒤에 오른다(npcHaul.ts). 런타임 틱(expire)이 닿은 짐을 처리한다.
 import {
   TEST_ASSET_CREDIT,
   type BookFill,
@@ -22,6 +27,7 @@ import {
 } from "@terra/sim";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { exchangeEscrowLocation, exchangeHolding } from "./exchangeStock.ts";
+import { type NpcHaulOptions, createNpcHauler } from "./npcHaul.ts";
 
 /** 화폐 칸이 빈 거래소·체결 줄(WP4 판 앱이 쓴 것)의 화폐 */
 export const LEGACY_MARKET_CURRENCY = TEST_ASSET_CREDIT;
@@ -133,6 +139,23 @@ export interface MarketRegistryOptions {
    * 도시 창고(예전과 같다)
    */
   readonly exchangeOf?: ((cityId: number) => number | undefined) | undefined;
+  /**
+   * 거래소 이용료(질문 1948 답): 그 도시 이용료 받는 건물·만분율(없으면 이용료 없음)과 내기(판 쪽 지갑 → 그 건물 금고). 없으면 이용료 없음
+   */
+  readonly fee?:
+    | {
+        readonly of: (cityId: number) => { readonly buildingId: number; readonly bp: number } | undefined;
+        readonly charge: (input: {
+          readonly seller: number;
+          readonly currency: string;
+          readonly amount: bigint;
+          readonly buildingId: number;
+          readonly atMs: number;
+        }) => void;
+      }
+    | undefined;
+  /** NPC 거래소 운반(질문 1945 답, npcHaul.ts — exchangeOf가 함께 있어야 한다). 없으면 NPC는 예전처럼 도시 창고로 바로 거래 */
+  readonly npcHaul?: Omit<NpcHaulOptions, "ledger" | "exchangeOf" | "isUser"> | undefined;
   readonly now: () => number;
 }
 
@@ -161,6 +184,8 @@ export interface MarketRegistry {
   expire(nowMs: number): number;
   /** 에스크로 불변식(모든 거래소) */
   check(): string[];
+  /** NPC 운반 대기 수(지표, 고리가 없으면 0) */
+  npcHaulPending(): number;
 }
 
 function lotOf(config: GoodsMarketConfig): bigint {
@@ -192,6 +217,11 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
   const done = new Map<number, DoneOrder[]>();
   const listeners = new Set<(notice: FillNotice) => void>();
   const markets = new Map<number, Map<string, GoodsMarket>>();
+  const exchangeOf = o.exchangeOf;
+  const hauler =
+    o.npcHaul && exchangeOf
+      ? createNpcHauler({ ...o.npcHaul, ledger, exchangeOf, isUser: o.isUser })
+      : undefined;
 
   for (const row of loaded.open)
     metas.set(row.order.id, { marketId: row.marketId, qty: row.qty, placedAtMs: row.placedAtMs });
@@ -303,6 +333,22 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       currency: trade.currency,
     });
     book.trades.push(trade);
+    // 거래소 이용료(1948): 판 쪽이 그 거래소 건물 금고에
+    const seller = fill.takerSide === "buy" ? fill.makerOwner : fill.takerOwner;
+    const buyer = fill.takerSide === "buy" ? fill.takerOwner : fill.makerOwner;
+    const feeAt = o.fee?.of(book.cityId);
+    if (feeAt && feeAt.bp > 0) {
+      const amount = (trade.price * trade.qty * BigInt(feeAt.bp)) / 10_000n;
+      if (amount > 0n)
+        o.fee?.charge({
+          seller,
+          currency: trade.currency,
+          amount,
+          buildingId: feeAt.buildingId,
+          atMs,
+        });
+    }
+    hauler?.touch(buyer, book.cityId, book.asset);
     const cut = atMs - TRADE_WINDOW_MS;
     let drop = 0;
     while (drop < book.trades.length && (book.trades[drop]?.at ?? cut) < cut) drop += 1;
@@ -330,6 +376,8 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       for (const [id, prev] of before) {
         if (now.has(id)) continue;
         writeDone(book, prev.order, reason === "filled" ? 0n : prev.remaining, reason, atMs);
+        // 돌려받은 NPC 물건은 거래소 건물 창고에 있다 — 도시 창고로 돌려보낼 후보
+        hauler?.touch(prev.order.owner, book.cityId, book.asset);
       }
     };
     const guarded = <T>(reason: DoneState, atMs: number, run: () => T): T => {
@@ -355,8 +403,28 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       get taxCollected() {
         return inner.taxCollected;
       },
-      place(owner, side, price, qty, nowMs, expiresAtMs): PlaceResult {
+      place(owner, side, price, rawQty, nowMs, expiresAtMs): PlaceResult {
         const book = bookRef.current;
+        let qty = rawQty;
+        // NPC(1945): 거래소 건물이 있어야 거래하고, 팔 물건은 거래소 건물 창고에 있는 만큼만 바로 건다(나머지는 운반 뒤)
+        if (hauler && exchangeOf && book && !o.isUser(owner)) {
+          if (exchangeOf(book.cityId) === undefined) return { ok: false, reason: "insufficient" };
+          if (side === "sell") {
+            qty = hauler.sell(
+              {
+                owner,
+                cityId: book.cityId,
+                asset: book.asset,
+                lot: lotOf(inner.config),
+                price,
+                lots: rawQty,
+                expiresAtMs,
+              },
+              nowMs,
+            );
+            if (qty <= 0n) return { ok: true, orderId: 0, fills: [] };
+          }
+        }
         const before = snapshot();
         const result = inner.place(owner, side, price, qty, nowMs, expiresAtMs);
         if (!result.ok || !book) return result;
@@ -386,6 +454,8 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
         return guarded("cancelled", nowMs, () => inner.cancel(orderId, nowMs));
       },
       cancelOwner(owner, nowMs) {
+        const book = bookRef.current;
+        if (book) hauler?.cancel(owner, book.cityId, book.asset);
         return guarded("cancelled", nowMs, () => inner.cancelOwner(owner, nowMs));
       },
       expire(nowMs) {
@@ -447,8 +517,9 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       id,
       // 에스크로 = 그 도시(거래소 금고), 주인 물건 자리 = 유저는 거래소 건물 창고(D-564 1628 — exchangeStock.ts)
       location: exchangeEscrowLocation(cityId),
+      // NPC 운반 고리가 있으면 NPC도 거래소 건물 창고(1945 답), 없으면 도시 창고(예전 — 시뮬과 같다)
       holdingOf: (owner) =>
-        o.isUser(owner)
+        o.isUser(owner) || hauler
           ? exchangeHolding(cityId, true, o.exchangeOf?.(cityId))
           : exchangeEscrowLocation(cityId),
       item: asset,
@@ -574,6 +645,18 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
         const orders = entry.market.orders();
         if (orders.some((order) => order.expiresAtMs <= nowMs)) count += entry.market.expire(nowMs);
       }
+      // NPC 운반(1945): 닿은 짐 — 거래소 건물 창고에 오른 팔 물건을 건다(만료가 지났으면 버린다)
+      for (const due of hauler?.tick(nowMs, markets.keys()) ?? []) {
+        if (due.expiresAtMs <= nowMs) continue;
+        book(due.cityId, due.asset)?.market.place(
+          due.owner,
+          "sell",
+          due.price,
+          due.lots,
+          nowMs,
+          due.expiresAtMs,
+        );
+      }
       return count;
     },
     check() {
@@ -581,5 +664,6 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       for (const entry of byId.values()) problems.push(...entry.market.checkEscrow());
       return problems;
     },
+    npcHaulPending: () => hauler?.pending() ?? 0,
   };
 }

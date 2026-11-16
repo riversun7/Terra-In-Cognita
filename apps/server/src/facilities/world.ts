@@ -444,6 +444,16 @@ export function createWorldFacilities(input: {
         site: (buildingId) => gatherSiteOf(service, catalog(), buildingId),
         // 병원(의료 단계 시설): 의사 직무 배치 자리(D-521, 산출 없음)
         workplace: (buildingId) => medicalSiteOf(service, catalog(), buildingId),
+        // 거래소 거래 직무(기획 D-571 1944): 물자·외환 거래소, 주인마다 설정 칸 exchange_trade_slots 자리
+        tradeDesk: (buildingId) => {
+          const record = service.facilities.get(buildingId);
+          const kind = record ? catalog().facility(record.facilityId)?.exchange : undefined;
+          if (!record || (kind !== "goods" && kind !== "fx")) return undefined;
+          return {
+            level: record.level,
+            slots: Math.max(0, Math.floor(input.rules().business.exchangeTradeSlots)),
+          };
+        },
         primaries: (unitId) => input.holdings.primariesOf(unitId),
         // 임대형 임차인 몫의 건물 창고 상한(523 ②)
         roomGrams: (buildingId) =>

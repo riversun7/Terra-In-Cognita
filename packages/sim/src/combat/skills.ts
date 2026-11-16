@@ -105,7 +105,10 @@ export interface SkillData {
   readonly move?: SkillMove | undefined;
   /** 맞은 대상 옮김(밀치기·끌어오기·묶기) */
   readonly displace?: SkillDisplace | undefined;
-  /** 고른 계수 곡선(curves.ts, ADR 3절) */
+  /**
+   * 고른 계수 곡선(curves.ts, ADR 3절). 칸이 없으면 공격 스킬(적 대상·피해 있음)은 DEFAULT_ATTACK_SKILL_CURVES(사거리-공속 맞바꿈 켬,
+   * D-573 2009), 그 밖은 없음. 적으면 적은 목록이 전부다(빈 목록 []이면 끔 — 무기 curves와 같은 방식)
+   */
   readonly curves?: readonly SkillCurve[] | undefined;
   /** 연사 수(2~8, 대상 하나 모양만). 없으면 한 발 */
   readonly shots?: number | undefined;
@@ -219,9 +222,30 @@ export function skillFromData(
     // 움직임 부품·곡선은 있을 때만(칸 단위·지속은 등급으로 바꾸지 않는다)
     ...(data.move ? { move: data.move } : {}),
     ...(data.displace ? { displace: displaceOf(data.displace, effects) } : {}),
-    ...(data.curves && data.curves.length > 0 ? { curves: data.curves } : {}),
+    ...curvesOf(data),
     ...(data.shots !== undefined && data.shots > 1 ? { shots: data.shots } : {}),
   };
+}
+
+/**
+ * 곡선 칸을 적지 않은 공격 스킬의 곡선(D-573 2009 "스킬 말하는거고 무기도 포함이다. 장점과 단점으로 개성을 확실히": 사거리-공속 맞바꿈은
+ * 공격 스킬과 무기 모두, 물리·속성 가리지 않음). 스킬은 자기 사거리로 자기 맞바꿈을 갖는다 — 무기 몫은 기본 공격에만(D-572 2008)
+ */
+export const DEFAULT_ATTACK_SKILL_CURVES: readonly SkillCurve[] = ["range_interval"];
+
+/** 공격 스킬: 적을 대상으로 피해를 주는 스킬(D-573 2009의 "스킬" — 회복·버프·피해 없는 저주는 빼고, 질문 2171) */
+export function isAttackSkill(data: { readonly target: string; readonly damage: string }): boolean {
+  return data.target === "enemy" && data.damage !== "none";
+}
+
+/**
+ * 전투용 스킬의 곡선 칸: 자료 칸이 있으면 그대로, 없으면 사거리 2 이상 공격 스킬만 기본 곡선(사거리 1 이하는 예산 1000이라 칸을 두지 않는다 —
+ * 근접 스킬의 상태 JSON 모양 그대로). 빈 목록이면 칸을 두지 않는다. 기본은 스킬을 만들 때 싣는다 — 저장된 시작 자료의 스킬(진행 중 전투)은
+ * 칸이 없어 옛 셈을 이어 간다
+ */
+function curvesOf(data: SkillData): { curves?: readonly SkillCurve[] } {
+  const curves = data.curves ?? (isAttackSkill(data) && data.range > 1 ? DEFAULT_ATTACK_SKILL_CURVES : []);
+  return curves.length > 0 ? { curves } : {};
 }
 
 /**
@@ -404,13 +428,15 @@ export function startSkill(
   if (skill.resource === "mp") unit.mpMilli -= costMilli(unit, skill, c);
   else unit.staminaMilli -= costMilli(unit, skill, c);
   unit.skillReadyMs[index] = nowMs + skill.cooldownMs;
-  // 사거리 ↔ 공격 간격 예산(곡선 range_interval을 고른 스킬만, ADR 3절). 바탕은 무기 사거리 예산 전 간격(D-572 — 질문 2008 나: 무기 예산은
-  // 기본 공격에만, 스킬은 스킬 곡선만 — 두 번 곱하지 않는다). 옛 시작 자료(칸 없음)는 공격 간격 그대로
-  const base = unit.skillIntervalMs ?? unit.attackIntervalMs;
-  const interval = hasCurve(skill, "range_interval")
-    ? scalePm(base, rangeIntervalPm(skill.range, moveCoefficientsOf(c)))
-    : base;
-  unit.nextActionMs = nowMs + Math.max(skill.castMs, interval);
+  // 행동 간격 = max(시전, 공격 간격). 바탕은 무기 사거리 예산 전 간격(D-572 — 질문 2008 나: 무기 예산은 기본 공격에만, 스킬은 스킬 곡선만 —
+  // 두 번 곱하지 않는다), 옛 시작 자료(칸 없음)는 공격 간격 그대로. 곡선 range_interval(공격 스킬은 칸이 없으면 켬, D-573 2009)이면 그 행동
+  // 간격 × 스킬 사거리 예산 — 시전이 길어 공격 간격을 덮는 원거리 스킬에도 맞바꿈이 보이게 시전까지 함께 곱한다(질문 2172)
+  const action = Math.max(skill.castMs, unit.skillIntervalMs ?? unit.attackIntervalMs);
+  unit.nextActionMs =
+    nowMs +
+    (hasCurve(skill, "range_interval")
+      ? scalePm(action, rangeIntervalPm(skill.range, moveCoefficientsOf(c)))
+      : action);
   if (skill.castMs <= 0) return true;
   unit.cast = { skill: index, target: targetId, atMs: nowMs + skill.castMs };
   return false;

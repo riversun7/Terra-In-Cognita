@@ -6,6 +6,7 @@ import type {
   ContentEditCategory,
   ContentEditOrigin,
   ContentOverrideView,
+  SkillDisplaceJson,
   SkillEditorEffect,
   SkillEditorSkill,
   SkillJson,
@@ -48,8 +49,22 @@ export function skillJsonOf(entry: SkillEntry): SkillJson {
       ...(part.durationMs === undefined ? {} : { durationMs: part.durationMs }),
     })),
     gradePm: [...entry.gradePm],
+    // 움직임 부품·곡선·연사(팩 선택 칸, docs/adr/2026-11-15-combat-moves.md 6절) — 없으면 칸을 두지 않는다. 화면은 항목을 통째로 저장하므로
+    // 여기서 빠지면 저장할 때 칸을 잃는다(곡선 칸이 없으면 공격 스킬 사거리 예산 켬이라 curves: []도 그대로 싣는다, D-573)
+    ...(entry.move ? { move: { ...entry.move } } : {}),
+    ...(entry.displace ? { displace: displaceJsonOf(entry.displace) } : {}),
+    ...(entry.curves ? { curves: [...entry.curves] } : {}),
+    ...(entry.shots === undefined ? {} : { shots: entry.shots }),
     enabled: entry.enabled,
   };
+}
+
+/** 대상 옮김 부품 → 화면 JSON(effect 참조는 ID로) */
+function displaceJsonOf(part: NonNullable<SkillEntry["displace"]>): SkillDisplaceJson {
+  const effect = part.effect ? { effect: part.effect.id } : {};
+  return part.kind === "root"
+    ? { kind: "root", durationMs: part.durationMs, ...effect }
+    : { kind: part.kind, cells: part.cells, ...effect };
 }
 
 export function overrideViewOf(record: ContentOverrideRecord | undefined): ContentOverrideView | null {

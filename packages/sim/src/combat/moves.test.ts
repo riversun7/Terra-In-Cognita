@@ -136,12 +136,21 @@ describe("움직임 부품이 없는 전투는 그대로(docs/adr/2026-11-15-com
     });
   });
 
-  it("무기 사거리 예산 기본 켬(질문 1814, SIM 57 → 67 기본 공격에만 D-572 2008 나): 시범 6 대 6 지문(마법사·사제 지팡이 사거리 5~7이 기본 공격 간격 140~160%)", () => {
-    expect(movesBaselineHashes()).toEqual({
+  it("무기 사거리 예산 기본 켬(질문 1814, SIM 57 → 59 기본 공격에만 D-572 2008 나): 시범 6 대 6 지문(마법사·사제 지팡이 사거리 5~7이 기본 공격 간격 140~160%) — 스킬 곡선을 끄면 SIM 59 지문 그대로", () => {
+    expect(movesBaselineHashes("weapon")).toEqual({
       demo1: "02601dc164e38279",
       demo7: "6d2adbc8b76da070",
       demo42: "23a6a765217b21dd",
       replay3: "877a34ae0893cca6",
+    });
+  });
+
+  it("공격 스킬 사거리 예산 기본 켬(D-573 2009, SIM 63): 시범 6 대 6 지문(마법사 원거리 스킬 사거리 4~6 뒤 행동 간격 130~150%)", () => {
+    expect(movesBaselineHashes()).toEqual({
+      demo1: "4a92a055fcd89c9d",
+      demo7: "ec744b1b6d8732d3",
+      demo42: "641a00889d3fdb90",
+      replay3: "20271f807d1cd0b8",
     });
   });
 
@@ -232,9 +241,31 @@ describe("계수 곡선(ADR 3절, [임시] 출발값)", () => {
     );
     startSkill(caster, 0, 101, 0, TEST_COMBAT_COEFFICIENTS);
     expect(caster.nextActionMs).toBe(700);
-    const plain = unitFrom(unit(2, 1, 1, 0, 11, { skills: [skill({ range: 5 })] }));
+    // 공격 스킬은 곡선 칸이 없으면 켬(D-573 2009), curves: []면 끔
+    const byDefault = unitFrom(unit(3, 1, 1, 0, 12, { skills: [skill({ range: 5 })] }));
+    startSkill(byDefault, 0, 101, 0, TEST_COMBAT_COEFFICIENTS);
+    expect(byDefault.nextActionMs).toBe(700);
+    const plain = unitFrom(unit(2, 1, 1, 0, 11, { skills: [skill({ range: 5, curves: [] })] }));
     startSkill(plain, 0, 101, 0, TEST_COMBAT_COEFFICIENTS);
     expect(plain.nextActionMs).toBe(500);
+  });
+
+  it("공격 스킬 사거리 예산(D-573 2009): 사거리 2 이상 공격 스킬만 기본 켬, 시전이 간격을 덮어도 행동 간격 × 예산(질문 2172)", () => {
+    // 피해 없는 저주·회복·근접(사거리 1)은 기본 곡선이 없다(근접은 예산 1000이라 칸을 두지 않는다)
+    expect("curves" in skill({ range: 5, shape: "debuff", damage: "none" })).toBe(false);
+    expect("curves" in skill({ range: 5, target: "ally", shape: "heal", damage: "none" })).toBe(false);
+    expect("curves" in skill({ range: 1 })).toBe(false);
+    expect(skill({ range: 6, damage: "elemental", base: "elemental" }).curves).toEqual(["range_interval"]);
+    expect(skill({ range: 6, curves: ["magic_distance"] }).curves).toEqual(["magic_distance"]);
+    // 시전 800 > 간격 500: 행동 간격 = max(800, 500) × 1500‰(사거리 6) = 1200(옛 식 max(800, 500 × 1500‰) = 800)
+    const caster = unitFrom(unit(1, 1, 1, 0, 10, { skills: [skill({ range: 6, castMs: 800 })] }));
+    startSkill(caster, 0, 101, 0, TEST_COMBAT_COEFFICIENTS);
+    expect(caster.nextActionMs).toBe(1200);
+    // 곡선 칸이 없는 저장된 스킬(진행 중 전투의 시작 자료)은 옛 셈 그대로
+    const { curves: _drop, ...stored } = skill({ range: 6, castMs: 800 });
+    const old = unitFrom(unit(2, 1, 1, 0, 11, { skills: [stored] }));
+    startSkill(old, 0, 101, 0, TEST_COMBAT_COEFFICIENTS);
+    expect(old.nextActionMs).toBe(800);
   });
 
   it("연사: 대상에 발 수만큼 따로 맞고 한 발은 약하다", () => {

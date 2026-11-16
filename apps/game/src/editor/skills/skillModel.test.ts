@@ -4,11 +4,14 @@ import {
   cleanSkill,
   filterSkills,
   freeSkillId,
+  isAttackSkill,
   issueLinesById,
   newSkillTemplate,
   parseInt32,
+  rangeIntervalOn,
   sameSkill,
   skillErrorOf,
+  withRangeInterval,
   withShape,
 } from "./skillModel.ts";
 
@@ -126,5 +129,24 @@ describe("스킬 편집기 모델", () => {
       null,
       null,
     ]);
+  });
+
+  it("사거리 예산(D-573 2009): 공격 스킬은 칸이 없으면 켬, 끄면 curves에서 뺀다(없으면 []), 켜면 다른 곡선이 없을 때 칸을 지운다", () => {
+    const attack = newSkillTemplate("bolt");
+    expect(isAttackSkill(attack)).toBe(true);
+    expect(rangeIntervalOn(attack)).toBe(true);
+    const off = withRangeInterval(attack, false);
+    expect(off.curves).toEqual([]);
+    expect(rangeIntervalOn(off)).toBe(false);
+    expect("curves" in withRangeInterval(off, true)).toBe(false);
+    const magic = { ...attack, curves: ["magic_distance", "range_interval"] };
+    expect(withRangeInterval(magic, false).curves).toEqual(["magic_distance"]);
+    expect(withRangeInterval({ ...attack, curves: ["magic_distance"] }, true).curves).toEqual([
+      "magic_distance",
+      "range_interval",
+    ]);
+    const heal = withShape(attack, "heal");
+    expect(isAttackSkill(heal)).toBe(false);
+    expect(rangeIntervalOn(heal)).toBe(false);
   });
 });

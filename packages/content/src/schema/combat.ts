@@ -340,7 +340,10 @@ export const skillEntrySchema = z
     move: movePart.optional(),
     /** 맞은 대상 옮김(밀치기·끌어오기·묶기) */
     displace: displacePart.optional(),
-    /** 고른 계수 곡선(사거리 간격 예산·마법 거리·마법 대상 수·지속 피해 합·가까이 쏘기) */
+    /**
+     * 고른 계수 곡선(사거리 간격 예산·마법 거리·마법 대상 수·지속 피해 합·가까이 쏘기). 칸이 없으면 공격 스킬(적 대상·피해 있음, 사거리 2
+     * 이상)은 사거리 간격 예산 켬(D-573 2009 — 무기 curves와 같은 방식), 적으면 적은 목록이 전부, 빈 목록 []이면 끔
+     */
     curves: z.array(z.enum(SKILL_CURVE_IDS)).max(SKILL_CURVE_IDS.length).optional(),
     /** 연사 수(대상 하나 모양만, 발마다 따로 굴림·한 발 배율 곡선) */
     shots: z.int().min(2).max(8).optional(),

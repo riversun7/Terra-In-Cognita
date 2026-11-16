@@ -3488,6 +3488,8 @@
   "dev_skills_shape_desc": "적 하나·투사체·범위·연쇄·회복·버프·디버프.",
   "dev_skills_trigger_desc": "지속형은 버프 모양만 됩니다.",
   "dev_skills_range_desc": "대상까지 최대 거리. 투사체는 2칸 이상.",
+  "dev_skills_field_range_interval": "사거리 예산(사거리가 길수록 행동 간격이 김)",
+  "dev_skills_range_interval_hint": "공격 스킬은 기본 켬(D-573 — 무기와 같은 사거리-공속 맞바꿈, 물리·속성 가리지 않음). 이 스킬 뒤 행동 간격(시전과 공격 간격 중 긴 것) × (1 + (스킬 사거리 − 1) × 칸당 더함), 위 끝까지. 무기 몫은 기본 공격에만 걸린다. 끄면 자료의 curves에서 뺀다(없으면 curves: []). 값은 설정 칸 moves_range_interval_*.",
   "dev_skills_radius_desc": "범위 모양에서 맞는 반지름(적 하나·투사체·연쇄는 0).",
   "dev_skills_falloff_desc": "튈 때마다 곱하는 세기.",
   "dev_skills_section_cost_desc": "쓸 때 드는 자원과 시간. 실제 소모 = 기본 소모 × 스태미나 점수 배율(설정 칸 N13 식).",

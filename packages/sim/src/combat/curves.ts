@@ -1,6 +1,7 @@
 // 전투 계수 곡선 — docs/adr/2026-11-15-combat-moves.md 3절. 판정·스킬 생성기(3단계)·밸런스 화면이 같은 함수를 쓴다.
 // 모두 ‰ 정수(버림)다. 값은 설정 칸(`moves.*`, tuningMoves.ts) [임시]이고 기획 결정 번호가 붙으면 바꾼다(질문 1589~1595).
-// 곡선은 스킬이 고른 것만 걸린다(스킬 칸 curves·shots). 고르지 않은 스킬·기본 공격은 옛 판정 그대로다.
+// 곡선은 스킬이 고른 것만 걸린다(스킬 칸 curves·shots). 사거리 예산(range_interval)만 칸이 없을 때 기본으로 켠다 — 무기(unitSpec.ts
+// DEFAULT_WEAPON_CURVES)와 공격 스킬(skills.ts DEFAULT_ATTACK_SKILL_CURVES), D-573 2009.
 
 /** 스킬이 고르는 곡선 이름(팩 스킬 칸 curves) */
 export const SKILL_CURVES = [
@@ -21,7 +22,7 @@ export interface MoveCoefficients {
   readonly run: { readonly intervalPm: number; readonly staminaPerSec: number; readonly resumeSec: number };
   /** 은신을 들키는 기본 감지 반지름(칸, 체비쇼프 + 시선) */
   readonly detectCells: number;
-  /** 물리 사거리 ↔ 공격 간격 예산: 사거리 1을 넘는 칸마다 간격 + perCellPm, 위 끝 maxPm */
+  /** 사거리 ↔ 공격 간격 예산(물리·속성 가리지 않음, D-573): 사거리 1을 넘는 칸마다 간격 + perCellPm, 위 끝 maxPm */
   readonly rangeInterval: { readonly perCellPm: number; readonly maxPm: number };
   /** 마법 거리: 거리 1에서 nearPm, 칸마다 − slopePm, 아래 끝 minPm */
   readonly magicDistance: { readonly nearPm: number; readonly slopePm: number; readonly minPm: number };
@@ -67,7 +68,7 @@ export function moveCoefficientsOf(c: { readonly moves?: MoveCoefficients | unde
   return c.moves ?? DEFAULT_MOVE_COEFFICIENTS;
 }
 
-/** 물리 사거리 ↔ 공격 간격 예산(‰): min(maxPm, 1000 + max(0, 사거리 − 1) × perCellPm), 아래 끝 1000 */
+/** 사거리 ↔ 공격 간격 예산(‰, 무기·공격 스킬, D-573): min(maxPm, 1000 + max(0, 사거리 − 1) × perCellPm), 아래 끝 1000 */
 export function rangeIntervalPm(range: number, m: MoveCoefficients): number {
   const extra = Math.max(0, Math.trunc(range) - 1) * m.rangeInterval.perCellPm;
   return Math.max(1000, Math.min(m.rangeInterval.maxPm, 1000 + extra));
@@ -134,7 +135,8 @@ export const DEFAULT_DISPLACE_RESIST: {
  * 밀리는 칸 수(D-570 "넉백 저항은 거리만 줄임"): ⌊칸 × 크기 배율 × (1000 − 저항) ÷ 1000000⌋. 저항 = 스탯 몫(효과 사전 밀림 상태이상
  * 항목의 resist) + 보스 몸 저항, 0~1000에서 자른다.
  * 기획 D-572(질문 2005 — D-570 "xl 훨씬 적게"는 0칸이 아니라 적어도 1칸): 원래 칸이 1 이상이면 적어도 1칸 민다. 다만 저항이 1000(완전히
- * 버팀 — 데이터가 정한 면역)이거나 크기 배율이 0이면 밀리지 않는다(질문 2121 [임시])
+ * 버팀 — 데이터가 정한 면역, 효과 사전 항목 상한)이거나 크기 배율이 0이면 밀리지 않는다. 보스 몫으로는 1000이 되지 않는다(moves.ts
+ * unitDisplaceResistPm — 질문 2121 답: 보스도 덜 밀릴 뿐 0칸이 아니다)
  */
 export function displacedCells(cells: number, sizePm: number, resistPm: number): number {
   const resist = Math.max(0, Math.min(1000, resistPm));

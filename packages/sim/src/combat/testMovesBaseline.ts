@@ -16,22 +16,31 @@ function fingerprint(text: string): string {
   return fnv(0x811c_9dc5) + fnv(0x0bad_f00d);
 }
 
+/** 곡선 칸이 없는 스킬을 모두 끈(curves: []) 시험 계열표 — 공격 스킬 사거리 예산을 기본으로 켜기 전(D-573, SIM 63 전) 스킬 */
+const SKILL_CURVES_OFF: CombatCatalog = {
+  ...TEST_COMBAT_CATALOG,
+  skills: TEST_COMBAT_CATALOG.skills.map((row) => (row.curves === undefined ? { ...row, curves: [] } : row)),
+};
+
 /**
- * 무기 곡선을 모두 끈 시험 계열표(curves: []). 무기 사거리 예산을 기본으로 켜기 전(질문 1814, SIM 57) 판정과 같은 무기 간격이다
+ * 무기·스킬 곡선을 모두 끈 시험 계열표(curves: []). 무기 사거리 예산을 기본으로 켜기 전(질문 1814, SIM 57) 판정과 같은 간격이다
  */
 const CURVES_OFF: CombatCatalog = {
-  ...TEST_COMBAT_CATALOG,
+  ...SKILL_CURVES_OFF,
   equipment: TEST_COMBAT_CATALOG.equipment.map((item) =>
     item.weapon ? { ...item, weapon: { ...item.weapon, curves: [] } } : item,
   ),
 };
 
 /**
- * 시범 6 대 6 끝 상태 지문(시드 셋)과 리플레이 사건 지문(시드 하나). weaponCurves "off" = 무기 곡선을 모두 끈 계열표(옛 무기 간격),
- * "default" = 팩·시험 자료 그대로(무기 곡선 칸 없음 = 사거리 예산 켬)
+ * 시범 6 대 6 끝 상태 지문(시드 셋)과 리플레이 사건 지문(시드 하나). curves "off" = 무기·스킬 곡선을 모두 끈 계열표(옛 간격),
+ * "weapon" = 무기만 기본(스킬 곡선 끔 — D-573 전 판정), "default" = 팩·시험 자료 그대로(곡선 칸 없음 = 무기·공격 스킬 사거리 예산 켬)
  */
-export function movesBaselineHashes(weaponCurves: "off" | "default" = "default"): Record<string, string> {
-  const catalog = weaponCurves === "off" ? CURVES_OFF : TEST_COMBAT_CATALOG;
+export function movesBaselineHashes(
+  curves: "off" | "weapon" | "default" = "default",
+): Record<string, string> {
+  const catalog =
+    curves === "off" ? CURVES_OFF : curves === "weapon" ? SKILL_CURVES_OFF : TEST_COMBAT_CATALOG;
   const out: Record<string, string> = {};
   for (const seed of [1, 7, 42]) {
     const { init } = demoSkirmish({ catalog, map: openMap(64), seed });

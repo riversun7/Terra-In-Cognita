@@ -179,6 +179,13 @@ test.describe("개발자", () => {
     await input(page, message("ko", "dev_skills_field_name_ko")).fill("발차기");
     await input(page, message("ko", "dev_skills_field_name_en")).fill("Kick");
     await editing(page).getByLabel(message("ko", "dev_skills_field_bare_hand"), { exact: true }).check();
+    // 사거리 예산(D-573 2009): 공격 스킬은 기본 켜짐, 끄면 curves: []
+    const budget = editing(page).getByLabel(message("ko", "dev_skills_field_range_interval"), {
+      exact: true,
+    });
+    await expect(budget).toBeChecked();
+    await budget.uncheck();
+    await expect(budget).not.toBeChecked();
     await editing(page)
       .locator(".sk-section")
       .filter({ hasText: message("ko", "dev_skills_section_effects") })
@@ -195,6 +202,7 @@ test.describe("개발자", () => {
       (entry) => field(field(entry, "entry"), "id") === "e2e_kick",
     );
     expect(field(field(kick, "entry"), "bareHand")).toBe(true);
+    expect(field(field(kick, "entry"), "curves")).toEqual([]);
     expect(field(list(field(field(kick, "entry"), "effects"))[0], "chancePm")).toBe(500);
 
     // 복제: 새 ID 초안(적용 전에는 담은 변경에만 있고 목록에 담음 표지로 보인다)

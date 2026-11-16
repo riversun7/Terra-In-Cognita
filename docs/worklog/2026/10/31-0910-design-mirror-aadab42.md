@@ -134,3 +134,6 @@
 - 2026-11-16 11:00 KST: 원본 `6ea0984`(D-571 거래소 건물·군단 명령 2 사용자 답) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-16 11:20 KST: 원본 `e32ea4e`(D-572 영토 3·채집 6·전투 3 답, 알박기 원문 결정화) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules 등. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-16 14:30 KST: 원본 `ae93bcc`(D-573 사용자 답 8개, 2011~2057 대조 답) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules 등. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
+- 2026-11-16 19:10 KST: 원본 `9ed9276`(D-574 사용자 답 11개, 2061~2150 사용자 몫) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
+- 2026-11-16 19:15 KST: 원본 `8314bbd`(D-575 사용자 답 2개: 알박기 도시 귀속 뒤 지분·독립, 납품 명성 범위) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
+- 2026-11-16 19:20 KST: 원본 `0acaa1b`(D-575 보충: 독재 나라 귀속 알박기 도시도 설립자 지분·독립 선언) 동기화 — 00_README, 02_Decision_Log. README·PLAN §14 머리 문장 갱신.

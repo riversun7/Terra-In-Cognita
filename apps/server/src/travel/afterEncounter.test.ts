@@ -1,9 +1,10 @@
 // 조우 뒤 다시 판단(D-570 1908, 질문 2033·2035 답) — 짐이 차면 창고로 정리하러, 다치면 거점으로 재정비하러, 아니면 하던 길·채집
 // (창고·거점을 모르면 출발한 자리 — 옛 줄)
+import type { GatherEnterResult } from "@terra/shared/gather";
 import { START_ENCOUNTER } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { SecondMap } from "../world/secondMap.ts";
-import { type AfterInput, afterEncounterChoice, reconsiderTrips } from "./afterEncounter.ts";
+import { type AfterInput, afterEncounterChoice, afterUnloadGoal, reconsiderTrips } from "./afterEncounter.ts";
 import type { HaltedTrip } from "./serviceTypes.ts";
 
 const base: AfterInput = {
@@ -101,6 +102,7 @@ describe("reconsiderTrips — 창고·거점·채집 줄(encounter-4)", () => {
     const resumed: unknown[] = [];
     const dropped: number[] = [];
     const laters: (() => void)[] = [];
+    const thens: ((result: GatherEnterResult) => void)[] = [];
     const condition = { injury: 0, injuryUntilMs: null, healPm: 1000, heldBy: null };
     const onMap = new Map<number, number>([
       [1, 1],
@@ -160,8 +162,9 @@ describe("reconsiderTrips — 창고·거점·채집 줄(encounter-4)", () => {
           drop: (unitId) => {
             dropped.push(unitId);
           },
-          enter: (userId, input) => {
+          enter: (userId, input, then) => {
             entered.push([userId, input]);
+            if (then) thens.push(then);
             return Promise.resolve({ ok: true });
           },
         },
@@ -190,6 +193,15 @@ describe("reconsiderTrips — 창고·거점·채집 줄(encounter-4)", () => {
     ]);
     expect(counts).toEqual({ resume: 1, unload: 2, regroup: 1, stay: 0 });
     expect(laters).toEqual([]);
+    // 정리를 마치면 원래 목표로 다시(질문 2138 고침 — 같은 명령 종류). 배치되면(일하는 건물) 그대로
+    expect(thens).toHaveLength(1);
+    thens[0]?.("assigned");
+    await Promise.resolve();
+    expect(started).toHaveLength(1);
+    thens[0]?.("deposited");
+    await Promise.resolve();
+    expect(started.at(-1)).toEqual(["u", { unitId: 1, mapKey: 3, x: 7, y: 8, kind: "scout" }]);
+    thens.length = 0;
 
     // 다른 2차맵 창고: 가서(이동) 닿으면 들어가기
     unitIdWarehouse.value = 3;
@@ -218,8 +230,9 @@ describe("reconsiderTrips — 창고·거점·채집 줄(encounter-4)", () => {
         gather: {
           resume: () => Promise.resolve("ended"),
           drop: () => {},
-          enter: (userId, input) => {
+          enter: (userId, input, then) => {
             entered.push([userId, input]);
+            if (then) thens.push(then);
             return Promise.resolve({ ok: true });
           },
         },
@@ -240,5 +253,9 @@ describe("reconsiderTrips — 창고·거점·채집 줄(encounter-4)", () => {
     onMap.set(2, 3);
     laters.shift()?.();
     expect(entered).toEqual([["u", { unitId: 2, buildingId: 60 }]]);
+    thens[0]?.("deposited");
+    await Promise.resolve();
+    expect(started.at(-1)).toEqual(["u", { unitId: 2, mapKey: 3, x: 7, y: 8, kind: "scout" }]);
+    expect(afterUnloadGoal(trip(2))).toEqual({ target: { mapKey: 3, x: 7, y: 8 }, kind: "scout" });
   });
 });

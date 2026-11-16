@@ -122,6 +122,39 @@ describe("남은 이익 나누기(D-304·D-338)", () => {
     expect(audit.check(book.accounts())).toEqual([]);
   });
 
+  it("독재 + 금고 계정(서버 — D-338 가문마다 따로 둔 금고): 국고 몫은 그 계정으로, 나머지 주주는 지분대로", () => {
+    const { book, audit } = setup();
+    const vault = book.systemAccount("vault:house:9:cur:a", "cur:a");
+    const paid = payCityProfit(book, {
+      city: 5,
+      asset: "cur:a",
+      regime: "dictatorship",
+      treasury: 1,
+      rulingFamily: 1,
+      rulingAccount: vault,
+      profit: 1000n,
+      atMs: 1,
+    });
+    expect(paid).toBe(1000n);
+    expect(book.balance(vault)).toBe(600n);
+    expect([1, 7, 8].map((owner) => book.balanceOf(owner, "cur:a"))).toEqual([4000n, 300n, 100n]);
+    expect(audit.check(book.accounts())).toEqual([]);
+    // 자본주의는 금고 계정이 있어도 국고에 남는다
+    const other = setup();
+    const otherVault = other.book.systemAccount("vault:house:9:cur:a", "cur:a");
+    payCityProfit(other.book, {
+      city: 5,
+      asset: "cur:a",
+      regime: "capitalism",
+      treasury: 1,
+      rulingFamily: 1,
+      rulingAccount: otherVault,
+      profit: 1000n,
+      atMs: 1,
+    });
+    expect(other.book.balance(otherVault)).toBe(0n);
+  });
+
   it("국고에 있는 만큼만 나눈다(내림, 남는 몫은 국고)", () => {
     const { book } = setup();
     const paid = payCityProfit(book, {

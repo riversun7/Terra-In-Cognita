@@ -440,6 +440,10 @@ test.describe("가문 가입·이름 되돌리기", () => {
       const members = house(page).locator('[data-testid="house-members"]');
       await expect(members.locator('[data-role="leader"]')).toContainText("E2EPlayer");
       await expect(members.locator(".fid-house-row")).toHaveCount(1);
+      // 가문 금고(국고와 따로 — D-338·D-213): 새 가문은 0
+      await expect(house(page).locator('[data-part="house-vault"]')).toHaveText(
+        message("ko", "fid_house_vault", { amount: "0" }),
+      );
       await house(page).locator("#fid-house-invite-name").fill("e2edev");
       await house(page).locator(".fid-house-invite button[type='submit']").click();
       await expect(house(page).locator(".fid-house-status")).toHaveText(
@@ -659,6 +663,9 @@ test.describe("사진 390px", () => {
               terms: "-500",
             });
             Reflect.set(home, "noticeMs", 86_400_000);
+            // 가문 금고 잔고(큰 수 — 자리 나눔)
+            const mine = field(data, "house");
+            if (typeof mine === "object" && mine !== null) Reflect.set(mine, "vault", "1234567");
           },
         });
         await page.goto("/faction");
@@ -666,6 +673,9 @@ test.describe("사진 390px", () => {
         const pending = house(page).locator('[data-part="house-home-pending"]');
         await expect(pending).toContainText(message(language, "fid_home_pending_cancel"));
         await expect(pending).toContainText(message(language, "fid_home_pending_grant", { amount: "500" }));
+        await expect(house(page).locator('[data-part="house-vault"]')).toHaveText(
+          message(language, "fid_house_vault", { amount: "1,234,567" }),
+        );
         await expect(house(page).locator('[data-testid="house-home"]')).toContainText(
           message(language, "fid_home_announce"),
         );

@@ -10,6 +10,7 @@ import {
   houseEntryTermsOf,
   npcEntryTerms,
 } from "./houseEntry.ts";
+import { houseVaultCode, vaultBalance } from "./houseVault.ts";
 import { TEST_HOUSE_RULES } from "./rules.ts";
 
 /** 원장(공용 장부 — 계정 ID는 따로)·정산 흉내. balances = 소유 주체 → 처음 잔고(발행 계정에서), extraOwners = 국고 50(세력 9) 밖의 소유 주체 */
@@ -42,6 +43,9 @@ function fakePersistence(
     ledger: {
       balanceOf: (owner, asset) => book.balanceOf(owner, asset),
       ownerAccount: (owner, asset) => book.ownerAccount(owner, asset),
+      systemAccount: (code, asset) => book.systemAccount(code, asset),
+      balance: (account) => book.balance(account),
+      accounts: () => book.accounts(),
       post: (tx) => {
         if (tx.key !== undefined) posts.push(tx.key);
         return book.post(tx);
@@ -58,6 +62,17 @@ function fakePersistence(
     posts,
     durable: () => durable,
     balance: (owner: number) => book.balanceOf(owner, ASSET_CREDIT),
+    /** 가문 금고에 넣는다(발행 계정에서) */
+    fundVault: (houseId: number, amount: bigint) =>
+      book.post({
+        kind: "issue",
+        atMs: 0,
+        entries: [
+          { account: issue, amount: -amount },
+          { account: book.systemAccount(houseVaultCode(houseId, ASSET_CREDIT), ASSET_CREDIT), amount },
+        ],
+      }),
+    vault: (houseId: number) => vaultBalance(book, houseId, ASSET_CREDIT),
   };
 }
 
@@ -74,20 +89,33 @@ describe("chargeHouseEntry·entryShortfall — 가문이 한꺼번에(D-573, 질
     expect(durable()).toBe(1);
   });
 
-  it("가문 금고(가문 소유 주체)가 있으면 그것이 내고, 지원금도 가문 금고가 받는다(국고에 있는 만큼)", async () => {
-    const { p, balance } = fakePersistence(
+  it("가문 금고(국고와 따로 — D-338·질문 2150)가 먼저 내고 모자란 만큼 가문장 지갑, 지원금은 가문 금고가 받는다(국고에 있는 만큼)", async () => {
+    // 가문 7의 소유 주체 60(도시를 가진 가문의 국고)은 금고가 아니다 — 쓰지 않는다
+    const { p, balance, fundVault, vault } = fakePersistence(
       new Map([
-        [60, 250n],
+        [60, 999n],
         [50, 150n],
       ]),
       { a: 1 },
       [{ id: 60, factionId: 7 }],
     );
+    fundVault(7, 250n);
     expect(entryShortfall(p, charge)).toBe(50n);
     expect(await chargeHouseEntry(p, { ...charge, terms: -100n })).toEqual({ paid: 0n, granted: 150n });
-    expect(balance(60)).toBe(400n);
+    expect(vault(7)).toBe(400n);
     expect(balance(50)).toBe(0n);
+    expect(balance(60)).toBe(999n);
     expect(balance(1)).toBe(0n);
+  });
+
+  it("가입비: 금고 250 + 가문장 지갑 100 → 금고를 비우고 지갑에서 50", async () => {
+    const { p, balance, fundVault, vault } = fakePersistence(new Map([[1, 100n]]), { a: 1 });
+    fundVault(7, 250n);
+    expect(entryShortfall(p, charge)).toBe(0n);
+    expect(await chargeHouseEntry(p, charge)).toEqual({ paid: 300n, granted: 0n });
+    expect(vault(7)).toBe(0n);
+    expect(balance(1)).toBe(50n);
+    expect(balance(50)).toBe(300n);
   });
 
   it("정책 0·국고(소유 주체) 없는 나라·저장 층 없음은 아무것도 하지 않고 막지도 않는다, 가문장 지갑이 없으면 못 낸다", async () => {

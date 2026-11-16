@@ -63,3 +63,23 @@ export const rankingFactionScores = pgTable(
     check("ranking_faction_scores_score", sql`${table.score} > 0 and ${table.rank} >= 1`),
   ],
 );
+
+/**
+ * 유닛 점수 한 줄(경로 × 세계 유닛, 감쇠형 — 경로 판과 같은 셈). NPC 도시 가문 판의 가문원 점수(질문 2146 → 고침, fixes-1116l: 가문 점수 = 가문원
+ * 실제 점수의 합 — D-555 1509 "NPC만으로도 그대로 똑같이"·D-569 "랭킹은 가문별 유닛별 모두 존재"). 랭킹 집계가 같은 트랜잭션에서 통째로 바꾼다
+ * (ranking/unitScores.ts). 지금은 NPC 가문원(npc_house_units)만 센다. 점수가 0이 되면 줄을 지운다. 새 표라 직전 판 앱은 모른 채 돈다
+ */
+export const rankingUnitScores = pgTable(
+  "ranking_unit_scores",
+  {
+    pathId: text("path_id").notNull(),
+    unitId: bigint("unit_id", { mode: "number" }).notNull(),
+    score: bigint("score", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.pathId, table.unitId] }),
+    index("ranking_unit_scores_unit_idx").on(table.unitId),
+    check("ranking_unit_scores_score", sql`${table.score} > 0`),
+    check("ranking_unit_scores_path_format", sql`${table.pathId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+  ],
+);

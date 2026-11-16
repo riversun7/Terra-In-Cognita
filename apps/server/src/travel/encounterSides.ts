@@ -1,7 +1,8 @@
 // 조우 한 편의 판단 값 — 질문 2021·2023 답(encounter-4: 판단 입력 = AI 작전 D-5039·D-5040), D-144(오프라인·직무 중 유닛은 먼저 치지 않는다),
 // D-573(회피 편 빠르기 비교). 판단 자체는 clashDecide.ts(순수), 이 파일은 편 유닛 → ClashSideView.
 // - 판단 유닛마다 작전: 플레이어 유닛 = 저장한 작전(tactics/store.ts, 없으면 균형), NPC 유닛 = 그 세력 공격 성향 → 프리셋(npcPresetOf).
-//   [임시] 세계에 파티 묶음이 없어 편 = 한 파티로 보고 판단 유닛 값을 평균한다(내림, 질문 2131).
+//   [임시] 세계에 파티 묶음이 없어 편 = 한 파티로 보고 판단 유닛 값을 평균한다(내림, 질문 2131) — 걸지 말지(조우 = 기회 하나)만.
+//   바뀜(fixes-1116l, D-558 1547 "파티도 없으면 유닛들 개별 참전"): 전투에는 유닛마다 제 파티로 들고 퇴각 기준도 그 유닛 작전(unitRetreats).
 // - starters = NPC 판단 유닛 + 주인이 접속 중인 플레이어 판단 유닛(D-144). 플레이어 가문 주체 유닛은 접속 판단을 할 수 없어 먼저 걸지 않는다.
 // - 전투 몸이 있으면(띄운 2차맵) 전력·남은 HP %를 몸으로, 아니면 유닛 수(한 명 = 1,000)로 센다.
 // - 빠르기 = 편에서 가장 느린 유닛의 걷기 빠르기(실효 AGI·이동 버프, world/walkSpeed.ts — 2차맵이 마지막 이동 때 잰 값·좌표 유닛 행 값).
@@ -87,4 +88,17 @@ export function sideView(
     carries: side.some((unit) => carriers.has(unit.unitId)),
     speed: side.length > 0 ? speed : 0,
   };
+}
+
+/** 판단 유닛마다 퇴각 기준(AI 작전 ⑦ — 유닛 개별 파티, D-558 1547). [편 0, 편 1]의 나라 */
+export function unitRetreats(
+  sides: readonly (readonly SideUnit[])[],
+  nations: readonly number[],
+  sources: SideSources,
+): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const [index, side] of sides.entries())
+    for (const unit of side)
+      if (unit.decider) out.set(unit.unitId, unitTactics(unit, nations[index] ?? 0, sources).retreatPct);
+  return out;
 }

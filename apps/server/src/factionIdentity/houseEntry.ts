@@ -1,11 +1,15 @@
 // 가문 이동의 공통 몫 — 기획 D-570(houseMoves.ts 머리 주석). 소속 도시 바꾸기(houseHome.ts — 공고 기간 0이면 바로)와 공고 옮기기(houseMoves.ts)가
 // 같이 쓴다: 소속 도시·가문 나라 바꾸기와 가문원 소식, 들어가는 도시·나라의 정책(+ 가입비 / − 지원금 — houseEntryTermsOf)을 가문이 한꺼번에
-// 내고 받기(D-573 — 가문 금고 → 없으면 가문장 지갑, 못 내면 옮기지 않는다: entryShortfall).
+// 내고 받기(D-573 — 가문 금고 → 모자라면 가문장 지갑, 못 내면 옮기지 않는다: entryShortfall).
+// 바뀜(fixes-1116l, 질문 2150 → D-338·D-213): 가문 금고 = 가문마다 따로 둔 금고(houseVault.ts — 국고와 따로, 도시 없는 가문에도). 옛 "가문 소유 주체
+// (도시를 가진 가문의 국고) → 없으면 가문장 지갑"을 대신한다. 국고에 섞인 옛 가문 돈은 없다(도시를 가진 가문은 옮기지 못해 옛 길이 쓰인 적이 없고,
+// 옛 지원금은 가문장 지갑으로 갔다 — 그 지갑 돈은 가문장 것으로 둔다).
 import { npcHouseEntryFee } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import { vaultAccount, vaultTake } from "./houseVault.ts";
 import { notify } from "./members.ts";
 import type { HouseRules } from "./rules.ts";
 import type { IdentityQueryable } from "./store.ts";
@@ -16,7 +20,10 @@ export interface HouseMovePersistence {
   readonly settlement: Pick<Settlement, "findOwnerOfUser"> & {
     settleOwner(ownerId: number, toMs: number): unknown;
   };
-  readonly ledger: Pick<Ledger, "balanceOf" | "ownerAccount" | "post">;
+  readonly ledger: Pick<
+    Ledger,
+    "balanceOf" | "ownerAccount" | "post" | "systemAccount" | "balance" | "accounts"
+  >;
   readonly writer: Pick<WorldWriter, "durable">;
 }
 
@@ -140,11 +147,12 @@ export async function moveHouseHome(
 
 /**
  * 가문이 한꺼번에 내고 받는 몫(기획 D-573 — 질문 2017 다 "가문장 또는 가문 금고가 한꺼번에 낸다. 못 내면 이동 못 함", 지원금도 가문이 받는다):
- * 값 = 정책(가문원마다) × 옮기는 가문원 수(가문장 포함) [임시 질문 2145], 지갑 = 가문 금고(가문 소유 주체 — 도시를 가진 가문) → 없으면 가문장 지갑.
+ * 값 = 정책(가문원마다) × 옮기는 가문원 수(가문장 포함) [임시 질문 2145]. 가입비는 가문 금고(houseVault.ts)에서 먼저, 모자란 만큼 가문장 지갑에서
+ * [기술 기본값 — 질문 2222], 지원금은 가문 금고로.
  */
 export interface HouseEntryCharge {
   readonly houseId: number;
-  /** 가문장(가문 금고가 없을 때 그 지갑). 없으면 null */
+  /** 가문장(금고가 모자랄 때 그 지갑). 없으면 null */
   readonly leaderId: string | null;
   /** 받는·주는 국고의 세력 행(HouseEntryTerms.payee) */
   readonly payee: number | null;
@@ -159,65 +167,83 @@ export interface HouseEntryCharge {
 export const entryTotal = (charge: Pick<HouseEntryCharge, "terms" | "members">): bigint =>
   charge.terms * BigInt(Math.max(0, charge.members));
 
-/** 가문 지갑(가문 금고 → 가문장)과 국고 소유 주체. 국고가 없으면 treasury undefined */
-function walletsOf(
+/** 받는·주는 국고 소유 주체(세력 행 payee의 주체). 없으면 undefined */
+function treasuryOf(p: HouseMovePersistence, payee: number | null): number | undefined {
+  if (payee === null) return undefined;
+  for (const owner of p.owners.values()) if (owner.factionId === payee) return owner.id;
+  return undefined;
+}
+
+/** 가입비를 낼 몫: 금고에서 꺼낼 양·가문장 지갑에서 낼 양(지갑 주체)·못 내는 양. 가문장 지갑은 지금까지 정산한 뒤 본다 */
+function feeSplit(
   p: HouseMovePersistence,
   charge: HouseEntryCharge,
-): { readonly purse: number | undefined; readonly treasury: number | undefined } {
-  let treasury: number | undefined;
-  let house: number | undefined;
-  for (const owner of p.owners.values()) {
-    if (charge.payee !== null && owner.factionId === charge.payee) treasury = owner.id;
-    if (owner.factionId === charge.houseId) house = owner.id;
-  }
-  const purse =
-    house ?? (charge.leaderId === null ? undefined : p.settlement.findOwnerOfUser(charge.leaderId));
-  return { purse, treasury };
+  total: bigint,
+): {
+  readonly vault: bigint;
+  readonly leader: number | undefined;
+  readonly fromLeader: bigint;
+  readonly short: bigint;
+} {
+  const vault = vaultTake(p.ledger, charge.houseId, ASSET_CREDIT, total);
+  const rest = total - vault;
+  const leader = charge.leaderId === null ? undefined : p.settlement.findOwnerOfUser(charge.leaderId);
+  if (rest <= 0n || leader === undefined) return { vault, leader, fromLeader: 0n, short: rest };
+  p.settlement.settleOwner(leader, charge.nowMs);
+  const available = p.ledger.balanceOf(leader, ASSET_CREDIT);
+  const fromLeader = rest < available ? rest : available;
+  return { vault, leader, fromLeader, short: rest - fromLeader };
 }
 
 /**
- * 가입비를 못 내는 만큼(0이면 낼 수 있다 — 지원금·값 없음·세계 없음도 0). 옮기기 전에 본다: 모자라면 옮기지 않는다(D-573). 지갑은 지금까지 정산한 뒤 본다
+ * 가입비를 못 내는 만큼(0이면 낼 수 있다 — 지원금·값 없음·세계 없음·국고 없는 나라도 0). 옮기기 전에 본다: 모자라면 옮기지 않는다(D-573)
  */
 export function entryShortfall(p: HouseMovePersistence | undefined, charge: HouseEntryCharge): bigint {
   const total = entryTotal(charge);
-  if (!p || total <= 0n || charge.payee === null) return 0n;
-  const { purse, treasury } = walletsOf(p, charge);
-  if (treasury === undefined) return 0n;
-  if (purse === undefined) return total;
-  if (purse === treasury) return 0n;
-  p.settlement.settleOwner(purse, charge.nowMs);
-  const available = p.ledger.balanceOf(purse, ASSET_CREDIT);
-  return available >= total ? 0n : total - available;
+  if (!p || total <= 0n || treasuryOf(p, charge.payee) === undefined) return 0n;
+  return feeSplit(p, charge, total).short;
 }
 
 /**
  * 가입비·지원금을 한꺼번에 매긴다(원장 거래 house_entry 하나 — 옮긴 커밋 뒤에 부른다). 가입비는 앞서 entryShortfall로 본 뒤라 모자라면(그 사이 줄었으면)
- * 있는 만큼, 지원금은 국고에 있는 만큼(새 화폐를 만들지 않는다 — 귀화 질문 845와 같다). 낸 합·받은 합
+ * 있는 만큼, 지원금은 국고에 있는 만큼 가문 금고로(새 화폐를 만들지 않는다 — 귀화 질문 845와 같다). 낸 합·받은 합
  */
 export async function chargeHouseEntry(
   p: HouseMovePersistence | undefined,
   charge: HouseEntryCharge,
 ): Promise<{ readonly paid: bigint; readonly granted: bigint }> {
   const total = entryTotal(charge);
-  if (!p || total === 0n || charge.payee === null) return { paid: 0n, granted: 0n };
-  const { purse, treasury } = walletsOf(p, charge);
-  if (treasury === undefined || purse === undefined || purse === treasury) return { paid: 0n, granted: 0n };
-  p.settlement.settleOwner(purse, charge.nowMs);
-  const from = total > 0n ? purse : treasury;
-  const to = total > 0n ? treasury : purse;
-  const asked = total > 0n ? total : -total;
-  const available = p.ledger.balanceOf(from, ASSET_CREDIT);
-  const amount = asked < available ? asked : available;
-  if (amount <= 0n) return { paid: 0n, granted: 0n };
+  const none = { paid: 0n, granted: 0n };
+  if (!p || total === 0n) return none;
+  const treasury = treasuryOf(p, charge.payee);
+  if (treasury === undefined) return none;
+  const entries: { account: number; amount: bigint }[] = [];
+  let paid = 0n;
+  let granted = 0n;
+  if (total > 0n) {
+    const split = feeSplit(p, charge, total);
+    if (split.vault > 0n)
+      entries.push({ account: vaultAccount(p.ledger, charge.houseId, ASSET_CREDIT), amount: -split.vault });
+    if (split.leader !== undefined && split.fromLeader > 0n)
+      entries.push({ account: p.ledger.ownerAccount(split.leader, ASSET_CREDIT), amount: -split.fromLeader });
+    paid = split.vault + split.fromLeader;
+    if (paid > 0n) entries.push({ account: p.ledger.ownerAccount(treasury, ASSET_CREDIT), amount: paid });
+  } else {
+    const available = p.ledger.balanceOf(treasury, ASSET_CREDIT);
+    granted = -total < available ? -total : available;
+    if (granted > 0n)
+      entries.push(
+        { account: p.ledger.ownerAccount(treasury, ASSET_CREDIT), amount: -granted },
+        { account: vaultAccount(p.ledger, charge.houseId, ASSET_CREDIT), amount: granted },
+      );
+  }
+  if (entries.length === 0) return none;
   p.ledger.post({
     kind: "house_entry",
     atMs: charge.nowMs,
     key: `house_entry:${charge.houseId}:${charge.nowMs}`,
-    entries: [
-      { account: p.ledger.ownerAccount(from, ASSET_CREDIT), amount: -amount },
-      { account: p.ledger.ownerAccount(to, ASSET_CREDIT), amount },
-    ],
+    entries,
   });
   await p.writer.durable();
-  return total > 0n ? { paid: amount, granted: 0n } : { paid: 0n, granted: amount };
+  return { paid, granted };
 }

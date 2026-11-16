@@ -59,6 +59,11 @@ export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promis
     INVARIANT_I2_NEGATIVE,
     `select id from ledger_accounts where system_code is null and balance < 0`,
   );
+  // 가문 금고(시스템 계정 vault:house:… — 장부가 0 아래를 막지 않는다, factionIdentity/houseVault.ts)도 0 아래로 내려가지 않는다
+  await count(
+    "I2 house vault below zero",
+    `select id from ledger_accounts where system_code like 'vault:house:%' and balance < 0`,
+  );
   await count("I6 owners settled in the future", `select id from world_owners where settled_at_ms > $1`, [
     nowMs + 60_000,
   ]);

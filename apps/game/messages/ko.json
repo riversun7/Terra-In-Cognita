@@ -1782,7 +1782,7 @@
   "ranking_house_home": "소속 도시 {city}",
   "ranking_house_home_unknown": "모름",
   "ranking_house_members": "가문원 {count}명",
-  "ranking_house_note": "가문 판은 가문원 각자의 이 경로 점수를 더해 셉니다. NPC 도시 가문은 그 나라 점수를 가문원 수로 나눈 몫입니다. 지난 순위는 아직 남기지 않습니다.",
+  "ranking_house_note": "가문 판은 가문원 각자의 이 경로 점수를 더해 셉니다. NPC 도시 가문도 가문원(휴먼) 각자가 이 경로에서 낸 점수(지금은 직접 이긴 전투)를 더합니다. 지난 순위는 아직 남기지 않습니다.",
   "ranking_area_force": "무력",
   "ranking_area_life": "생명",
   "ranking_area_wealth": "부",
@@ -7957,8 +7957,8 @@
   "fid_home_change": "소속 도시 바꾸기",
   "fid_home_change_note": "바꾸면 가문원 모두의 나라와 내 도시가 새 소속 도시와 그 나라로 바뀝니다.",
   "fid_home_pending": "공고: {when}에 가문 모두가 {where}(으)로 옮깁니다.",
-  "fid_home_pending_fee": "그곳 정책: 옮길 때 가문이 한꺼번에 가입비 {amount}를 냅니다(가문 금고, 없으면 가문장 지갑). 모자라면 옮기지 못합니다.",
-  "fid_home_pending_grant": "그곳 정책: 옮길 때 가문이 한꺼번에 지원금 {amount}를 받습니다(가문 금고, 없으면 가문장 지갑).",
+  "fid_home_pending_fee": "그곳 정책: 옮길 때 가문이 한꺼번에 가입비 {amount}를 냅니다(가문 금고에서 먼저, 모자라면 가문장 지갑). 모자라면 옮기지 못합니다.",
+  "fid_home_pending_grant": "그곳 정책: 옮길 때 가문이 한꺼번에 지원금 {amount}를 받습니다(가문 금고로).",
   "fid_home_pending_free": "그곳 정책: 가입비·지원금이 없습니다.",
   "fid_home_pending_leave": "원치 않으면 그 전에 가문을 나갈 수 있습니다(나가도 지금 나라·내 도시는 그대로).",
   "fid_home_pending_cancel": "공고 거두기",
@@ -8116,7 +8116,7 @@
   "tactics_result_offline": "연결이 끊겼어요. 다시 연결되면 저장해 주세요.",
   "tactics_result_retry": "지금은 저장하지 못했어요. 잠시 뒤 다시 해 주세요.",
   "fid_house_error_not_ruler": "그 도시를 가진 가문(도시 정책)이나 나라인 가문(나라 정책)의 가문장만 정할 수 있습니다.",
-  "fid_home_error_entry_fee": "가문 금고(없으면 가문장 지갑)에 들어갈 곳의 가입비가 모자라 옮길 수 없습니다.",
+  "fid_home_error_entry_fee": "가문 금고와 가문장 지갑을 합쳐도 들어갈 곳의 가입비가 모자라 옮길 수 없습니다.",
   "fid_house_done_entry_policy": "가문 이동 정책을 정했습니다.",
   "fid_house_notice_home_cancelled_fee": "가입비가 모자라 {house}의 소속 도시 옮기기 공고가 거둬졌습니다.",
   "ranking_house_npc": "NPC 도시 가문",
@@ -8152,5 +8152,7 @@
   "dev_nations_temper_station": "정거장 태도",
   "dev_nations_temper_leader": "지도자 기질",
   "dev_nations_temper_leader_desc": "설정 칸 지도자 기질 폭 안의 위치(+ = 모험적, − = 신중). 1000이면 폭 끝.",
-  "dev_nations_temper_random": "비우면 무작위"
+  "dev_nations_temper_random": "비우면 무작위",
+  "fid_house_vault": "가문 금고 {amount}",
+  "fid_house_vault_hint": "국고와 따로인 가문 돈입니다. 옮길 때 가입비를 먼저 내고 지원금을 받습니다. 독재 가문 나라는 도시 남은 이익의 국고 몫이 여기로 옵니다."
 }

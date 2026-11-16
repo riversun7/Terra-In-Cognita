@@ -20,8 +20,10 @@ import {
   normalizeEmblem,
 } from "@terra/shared/nationEmblem";
 import type { NationPreset } from "../npc/nations.ts";
+import { ASSET_CREDIT } from "../world/settlement.ts";
 import { entryTotal, houseEntryTermsOf } from "./houseEntry.ts";
 import { cityHome, cyborgCityOf, homeChoices, houseHasCity, houseHomeRow } from "./houseHome.ts";
+import { houseVaultCode } from "./houseVault.ts";
 import { membershipOf } from "./members.ts";
 import type { HouseRules } from "./rules.ts";
 import type { IdentityQueryable } from "./store.ts";
@@ -217,6 +219,11 @@ export async function readHouseView(
           )
         : { rows: [] };
     const bornOf = nation.rows[0]?.born_of;
+    // 가문 금고(houseVault.ts — 국고와 따로). 보기 값이라 DB 계정 줄을 읽는다(쓰기 대기열이 곧 맞춘다), 없으면 0
+    const vault = await q.query<{ balance: string }>(
+      "select balance::text as balance from ledger_accounts where system_code = $1",
+      [houseVaultCode(mine.factionId, ASSET_CREDIT)],
+    );
     return {
       nationId: input.nationId,
       house: badge
@@ -232,6 +239,7 @@ export async function readHouseView(
                 joinedAt: Number(row.joined_at_ms),
               }),
             ),
+            vault: vault.rows[0]?.balance ?? "0",
             requests: requests.rows.map(
               (row): HouseRequestRow => ({
                 id: Number(row.id),

@@ -209,6 +209,9 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 이동 정책 (DB)", () => {
       ledger: {
         balanceOf: (owner, asset) => book.balanceOf(owner, asset),
         ownerAccount: (owner, asset) => book.ownerAccount(owner, asset),
+        systemAccount: (code, asset) => book.systemAccount(code, asset),
+        balance: (account) => book.balance(account),
+        accounts: () => book.accounts(),
         post: (tx) => book.post(tx),
       },
       writer: { durable: async () => undefined },

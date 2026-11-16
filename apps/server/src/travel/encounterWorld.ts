@@ -66,7 +66,7 @@ import {
   encounterMap,
 } from "./encounterArena.ts";
 import { nearestBase, nearestWarehouse } from "./encounterPlaces.ts";
-import { type SideBody, type SideUnit, sideView } from "./encounterSides.ts";
+import { type SideBody, type SideUnit, sideView, unitRetreats } from "./encounterSides.ts";
 import { buildEncounterInit } from "./encounterInit.ts";
 import type { HaltedTrip } from "./serviceTypes.ts";
 
@@ -152,8 +152,10 @@ interface Engagement {
   readonly sides: readonly [readonly SideUnit[], readonly SideUnit[]];
   readonly resolution: ClashResolution;
   readonly atWar: boolean;
-  /** 두 편 작전 ⑦ 퇴각 기준(파티 HP %) */
+  /** 두 편 작전 ⑦ 퇴각 기준(파티 HP %, 편 평균 — 판단 유닛이 아닌 유닛의 파티) */
   readonly retreatPct: readonly [number, number];
+  /** 판단 유닛마다 퇴각 기준(유닛 개별 파티 — D-558 1547) */
+  readonly unitRetreat: ReadonlyMap<number, number>;
 }
 
 /** 쉬는 시간 열쇠(2차맵·나라 짝) */
@@ -321,7 +323,8 @@ export function startCoordinateRules(
       return undefined;
     }
     const retreatPct = [views[0].retreatPct, views[1].retreatPct] as const;
-    return { mapKey, loaded, nations, sides: capped, resolution, atWar: war, retreatPct };
+    const unitRetreat = unitRetreats(capped, nations, sources);
+    return { mapKey, loaded, nations, sides: capped, resolution, atWar: war, retreatPct, unitRetreat };
   };
 
   /** ① 좌표 유닛 만남 */
@@ -480,7 +483,7 @@ export function startCoordinateRules(
             gather: gather && {
               resume: (unitId, unload) => gather.resume(unitId, unload),
               drop: (unitId) => gather.drop(unitId),
-              enter: (userId, input) => gather.enter(userId, input),
+              enter: (userId, input, then) => gather.enter(userId, input, then),
             },
             later,
             now,
@@ -586,6 +589,7 @@ export function startCoordinateRules(
       map: arena.map,
       origin,
       retreatPct: retreat,
+      unitRetreat: engagement.unitRetreat,
       ownerOf: (unitId) => map.unitInfo(unitId)?.ownerId ?? 0,
       place: (unitId, spot) =>
         persistence.bodies.build(

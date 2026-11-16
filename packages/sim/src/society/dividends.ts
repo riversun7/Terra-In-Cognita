@@ -85,6 +85,11 @@ export interface CityProfitPayment {
   readonly treasury: number;
   /** 지배 가문 금고 주체(독재). 가문이 따로 없으면 국고와 같게 준다 */
   readonly rulingFamily: number;
+  /**
+   * 지배 가문 금고 계정(독재, 서버만 — 가문마다 따로 둔 금고 시스템 계정, D-338). 있으면 국고가 가진 몫은 rulingFamily 대신 이 계정으로 간다.
+   * 시뮬은 주지 않는다(가문 층이 없다 — 결과 그대로)
+   */
+  readonly rulingAccount?: number | undefined;
   readonly profit: bigint;
   readonly atMs: number;
 }
@@ -101,10 +106,15 @@ export function payCityProfit(book: LedgerBook, p: CityProfitPayment): bigint {
   const shares = holdings.reduce((sum, h) => sum + h.amount, 0n);
   if (shares === 0n || total <= 0n) return 0n;
   const parts = new Map<number, bigint>();
+  let vaultPart = 0n;
   for (const h of holdings) {
     const part = (total * h.amount) / shares;
     if (part <= 0n) continue;
-    // 국고 몫: 자본주의는 국고에 남고(D-298), 독재는 지배 가문 금고로(D-338)
+    // 국고 몫: 자본주의는 국고에 남고(D-298), 독재는 지배 가문 금고로(D-338 — 금고 계정이 따로 있으면 그 계정)
+    if (h.owner === p.treasury && p.regime === "dictatorship" && p.rulingAccount !== undefined) {
+      vaultPart += part;
+      continue;
+    }
     const to = h.owner === p.treasury ? (p.regime === "dictatorship" ? p.rulingFamily : p.treasury) : h.owner;
     if (to === p.treasury) continue;
     parts.set(to, (parts.get(to) ?? 0n) + part);
@@ -114,6 +124,10 @@ export function payCityProfit(book: LedgerBook, p: CityProfitPayment): bigint {
   for (const [owner, part] of [...parts].toSorted((a, b) => a[0] - b[0])) {
     entries.push({ account: book.ownerAccount(owner, p.asset), amount: part });
     paid += part;
+  }
+  if (vaultPart > 0n && p.rulingAccount !== undefined) {
+    entries.push({ account: p.rulingAccount, amount: vaultPart });
+    paid += vaultPart;
   }
   if (paid === 0n) return 0n;
   entries.push({ account: book.ownerAccount(p.treasury, p.asset), amount: -paid });

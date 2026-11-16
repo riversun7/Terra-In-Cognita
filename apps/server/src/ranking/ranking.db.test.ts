@@ -20,6 +20,7 @@ import {
 import type { AppRouter } from "../trpc/router.ts";
 import { createRankingServices } from "./services.ts";
 import { readSnapshotState, runSnapshot } from "./snapshot.ts";
+import { computeUnitScores, readHouseUnits, readUnitFlows, writeUnitScores } from "./unitScores.ts";
 
 type Outputs = inferRouterOutputs<AppRouter>;
 
@@ -403,28 +404,49 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 집계·조회 (DB)", () => {
       houses.rows.map((row) => [row.rank, row.kind, row.me, row.score, row.home, row.members, row.faction]),
     ).toEqual([[1, "house", true, 3000, "Rank Town", 1, { ko: "시험 국가 가", en: "Test nation A" }]]);
     expect(houses.me?.score).toBe(3000);
-    // 질문 2014 답: NPC 도시 가문도 같은 판 — 나라 점수 × 가문원 수 ÷ 그 나라 NPC 가문원 합(내림)
-    const nationScore = board.rows[1]?.score ?? 0;
+    // 질문 2014 답: NPC 도시 가문도 같은 판. 질문 2146 → 고침(fixes-1116l): 점수 = 가문원 유닛 점수의 합(unitScores.ts)
     await sql(
       "insert into npc_houses (id, city_id, name, founded_at_ms) values (1, 1, 'Kaso', 0), (2, 1, 'Bora', 0)",
     );
     await sql(
-      "insert into npc_house_units (unit_id, house_id, set_at_ms) values (901, 1, 0), (902, 1, 0), (903, 1, 0), (904, 2, 0)",
+      "insert into npc_house_units (unit_id, house_id, set_at_ms) values (4, 1, 0), (902, 1, 0), (903, 1, 0), (904, 2, 0)",
     );
+    // 유닛 흐름: 전투 1(전쟁, 편 2 = 유닛 4 혼자 셋을 이김 → 3000‰)의 이긴 편 가문원 유닛 4만. 전투 2(유닛 3·4가 진 편)·보호 레이드 4는 없다
+    const members = await readHouseUnits(test.db.$client);
+    const unitFlows = await readUnitFlows(
+      test.db.$client,
+      BOUNDARY - DAY,
+      BOUNDARY,
+      TEST_RANKING_COEFFICIENTS.underdogCapPm,
+      members,
+    );
+    expect([...unitFlows]).toEqual([[4, { production: 0n, warWinsPm: 3000, battleWinsPm: 0 }]]);
+    const unitRows = computeUnitScores({
+      paths: PATHS,
+      prev: new Map(),
+      flows: unitFlows,
+      members,
+      coefficients: TEST_RANKING_COEFFICIENTS,
+      periods: 1,
+    });
+    expect(unitRows).toEqual([{ pathId: "conqueror", unitId: 4, score: 3000 }]);
+    await writeUnitScores(test.db.$client, [...unitRows, { pathId: "conqueror", unitId: 902, score: 500 }]);
     const withNpc = await houseBoard();
-    expect(withNpc.total).toBe(3);
+    // Bora(가문원 점수 없음 = 0)는 빠진다
+    expect(withNpc.total).toBe(2);
     expect(
       withNpc.rows
         .map((row) => [row.name?.ko ?? null, row.npc ?? false, row.score, row.members, row.me])
         .toSorted((a, b) => String(a[0]).localeCompare(String(b[0]))),
     ).toEqual(
       [
-        ["Bora 가문", true, Math.floor(nationScore / 4), 1, false],
-        ["Kaso 가문", true, Math.floor((nationScore * 3) / 4), 3, false],
+        ["Kaso 가문", true, 3500, 3, false],
         [null, false, 3000, 1, true],
       ].toSorted((a, b) => String(a[0]).localeCompare(String(b[0]))),
     );
     expect(withNpc.rows.find((row) => row.npc)?.name?.en).toMatch(/^House /);
+    await sql("delete from ranking_unit_scores");
+    await sql("delete from npc_house_units");
     await sql("delete from npc_houses");
     // 경로를 비우면 유저 판과 같이 내 점수가 가장 높은 경로
     const chosenHouse = await query<Outputs["ranking"]["board"]>(

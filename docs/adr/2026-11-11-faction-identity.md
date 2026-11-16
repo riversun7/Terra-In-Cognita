@@ -280,7 +280,7 @@
 - 옮기기(`factionIdentity/houseMoves.ts`, 1분 타이머 `attach.ts`): 시각이 지난 공고마다 한 트랜잭션으로 소속 도시·가문 나라(`born_of`)·공고 비우기·가문원 모두에게 `home_changed`, 그다음 가문 표 다시 읽기가 가문원 시민권·내 도시를 맞춘다. 그 사이 가문이 도시를 얻었거나 새 도시가 사라졌으면 거둔다(`home_cancelled` + 까닭). 감사 기록 `faction.house_home`(시스템).
 - 원치 않는 가문원은 공고 사이 탈퇴한다(나가도 나라·내 도시 그대로 — 1841). 가문원 개인 귀화는 그대로 막는다(1846, `in_house`).
 - 들어가는 나라의 정책 칸 `factions.house_entry_fee`(부호 있는 최소 단위 — + 가입비 / − 지원금, null = 0): 나라가 바뀌는 옮기기에서 가문원마다(가문장 포함) 원장 거래 `house_entry`(`houseEntry.ts`). 가입비는 있는 만큼(질문 2017), 지원금은 국고에 있는 만큼. 정하는 화면은 아직 없다(질문 2018). 공고 칸이 그 값을 보인다(`HouseHomeView.pending.terms`).
-- 프로토콜 52(최소 51): `house_member_result` 한 일 `home_announced`·`home_cancelled`(51판 연결은 `home_set` — `legacyHouseMemberAction`). 팩 core@119(설정 칸 `house_home_notice_ms`). `SIM_VERSION` 그대로(판정 코드는 가문을 읽지 않는다).
+- 프로토콜 48(최소 47, 묶음 1116j 합친 판 — 줄기에서는 52·최소 51): `house_member_result` 한 일 `home_announced`·`home_cancelled`(47판 연결은 `home_set` — `legacyHouseMemberAction`). 팩 core@116(묶음 1116j — 줄기에서는 119, 설정 칸 `house_home_notice_ms`). `SIM_VERSION` 그대로(판정 코드는 가문을 읽지 않는다).
 
 ### 4. 마이그레이션
 - `20261115235802_npc_houses_home_notice`: 표 `npc_houses`·`npc_house_units`, 열 `factions.house_entry_fee`·`house_homes.pending_city_id`·`pending_at_ms`(모두 더하기만 — 직전 판 앱은 모른 채 돈다). `prevIds` = 두 끝 `house_units`·`facility_gather_tier`.

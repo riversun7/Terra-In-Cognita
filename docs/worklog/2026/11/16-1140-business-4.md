@@ -57,6 +57,7 @@
 - 프로토콜 48~53은 같은 묶음의 다른 줄기 몫으로 비웠다. 합칠 때 `version.ts` 설명 차례와 `MIN_SUPPORTED_PROTOCOL_VERSION`(53)을 맞춘다. 53판 낮추기는
   `facilities/gateway.ts`(`OUTSOURCE_PROTOCOL_VERSION`).
 - 팩 115~120, SIM 57~62도 다른 줄기 몫. 합칠 때 manifest 판(121)·SIM_VERSION(63) 설명 줄을 맞춘다.
+  - main(묶음 1116j)에서는 프로토콜 **48**(최소 47)·팩 **core@116**·SIM_VERSION **58**로 합쳤다(`16-1200-batch-1116j-merge.md`).
 - 배 줄기(D-570 1827 배 판매값): 주문 요금을 바꾸면 `boats/service.ts` types의 `fair`를 그 요금 화면 곁에 둔다.
 
 ## 건드리지 말 것

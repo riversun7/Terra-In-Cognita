@@ -42,6 +42,7 @@
 
 ## 함께 바꿔야 하는 파일
 - 판: 팩 **core@120**(설정 칸 12개 — 다른 줄기 114~119와 겹치지 않음). 프로토콜·`SIM_VERSION` 그대로(WebSocket 메시지·결과 코드 바뀜 없음, 전투 판정은 있는 세계 전투, `packages/sim`은 계수표 칸만 더했고 판정은 읽지 않는다).
+  - main(묶음 1116j)에서는 팩 **core@116**으로 합쳤다(`16-1200-batch-1116j-merge.md`).
 - 마이그레이션 없음.
 - 조우 상대 규칙을 바꾸면 `clash.ts`(띄운 2차맵)와 `encounter.ts`(좌표 유닛)를 같이 본다. 판단은 둘 다 `clashDecide.ts` 하나.
 - 플레이어 행동 설정(질문 2021 다)이 생기면 `clashDecide.ts`의 `player` 분기와 설정 칸 `encounter_player_policy`를 그 설정으로 바꾼다.

@@ -45,7 +45,12 @@ export type HouseMemberRequest =
       readonly scope: HouseEntryScope;
       readonly cityId?: number;
       readonly fee: string | null;
-    };
+    }
+  // 프로토콜 54(D-574 2150·2124): 가문 금고 기부(가문원)·가문세율(가문장, ‰)·도시 짓기 정책(도시를 가진 가문의 가문장, null = 기본값)
+  | { readonly t: "house_donate"; readonly amount: string }
+  | { readonly t: "house_vault_take"; readonly amount: string }
+  | { readonly t: "house_tax"; readonly ratePm: number }
+  | { readonly t: "house_build_policy"; readonly cityId: number; readonly allow: boolean | null };
 
 export type HouseCityOutcome =
   | {

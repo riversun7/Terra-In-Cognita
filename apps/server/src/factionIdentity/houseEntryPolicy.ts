@@ -28,7 +28,7 @@ export interface HouseEntryPolicyService {
 }
 
 /** 그 가문이 다스리는 것: 가진 도시 ID들과 독립 나라인가(도시를 가졌고 위 세력이 없음) */
-async function ruledBy(
+export async function ruledBy(
   q: IdentityQueryable,
   houseId: number,
 ): Promise<{ readonly cities: ReadonlySet<number>; readonly nation: boolean }> {
@@ -128,13 +128,17 @@ export async function readHouseEntryPolicy(
 ): Promise<GovernmentHouseEntry | null> {
   const city = await cityHome(q, input.cityId);
   if (!city) return null;
-  const [own, nation, mine] = await Promise.all([
-    q.query<{ house_entry_fee: string | null }>(
-      "select house_entry_fee::text as house_entry_fee from city_policies where city_id = $1",
+  const [own, nation, mine, owner] = await Promise.all([
+    q.query<{ house_entry_fee: string | null; house_build: boolean | null }>(
+      "select house_entry_fee::text as house_entry_fee, house_build from city_policies where city_id = $1",
       [input.cityId],
     ),
     nationEntryTerms(q, city.nationId, input.rules.npcEntry),
     membershipOf(q, input.viewerId),
+    q.query<{ kind: string }>(
+      "select f.kind from world_cities c join factions f on f.id = c.faction_id where c.id = $1",
+      [input.cityId],
+    ),
   ]);
   const ruled = mine?.role === "leader" ? await ruledBy(q, mine.factionId) : null;
   return {
@@ -143,5 +147,9 @@ export async function readHouseEntryPolicy(
     nationSource: nation.source === "nation" ? "leader" : nation.source === "npc" ? "npc" : "none",
     canSetCity: ruled?.cities.has(input.cityId) === true,
     canSetNation: ruled?.nation === true && mine?.factionId === city.nationId,
+    // 같은 나라 다른 가문의 짓기(D-574 2124 — 가문 도시만, 정하는 사람 = canSetCity). NPC 나라 도시는 칸이 없다
+    ...(owner.rows[0]?.kind === "player"
+      ? { build: { city: own.rows[0]?.house_build ?? null, fallback: input.rules.cityBuildDefault } }
+      : {}),
   };
 }

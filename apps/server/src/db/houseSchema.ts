@@ -1,7 +1,17 @@
 // 플레이어 가문 표(질문 926~935 답, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 926~935 답)") — schema.ts가 다시 내보낸다
 // (그 파일 줄 수 때문에 따로 둔다). 둘 다 세계 표라 시험 세계 새로 시작(reset-world)에서 지운다(남길 표 목록에 넣지 않는다).
 import { sql } from "drizzle-orm";
-import { bigint, check, index, integer, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { factions, users } from "./schema.ts";
 
 /**
@@ -194,7 +204,31 @@ export const npcHouseUnits = pgTable(
 export const cityPolicies = pgTable("city_policies", {
   cityId: bigint("city_id", { mode: "number" }).primaryKey(),
   houseEntryFee: bigint("house_entry_fee", { mode: "bigint" }),
+  /**
+   * 같은 나라의 다른 가문이 이 도시에 짓게 하나(기획 D-574 2124 — "그 도시 가문의 정책", 자기 가문은 늘 짓는다). null = 정하지 않음(설정 칸
+   * house_city_build_default). 정하는 사람은 가문 이동 정책과 같다(factionIdentity/houseBuildPolicy.ts). 바뀜(house-8): 칸을 더하기만 했다
+   */
+  houseBuild: boolean("house_build"),
   /** 마지막으로 정한 시각·사람(감사 기록과 같은 값) */
   setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
   setBy: uuid("set_by"),
 });
+
+/**
+ * 가문의 정책(기획 D-574 2150 — 가문 금고는 가문원 기부 + 가문원 수입의 일부를 가문세로, 세율은 가문장이 정한다 — 기획 해석): 가문(세력 행)마다
+ * 한 줄, 줄이 없으면 세율 0. tax_pm = 가문원 수입(임금·사업장 배당 — factionIdentity/houseTax.ts)에서 떼어 가문 금고로 보내는 몫(‰, 상한은 설정 칸
+ * house_tax_max_pm — 상한이 내려가면 읽을 때 상한으로 자른다). 세계 표(시험 세계 새로 시작에서 지운다)
+ */
+export const housePolicies = pgTable(
+  "house_policies",
+  {
+    factionId: bigint("faction_id", { mode: "number" })
+      .primaryKey()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    taxPm: integer("tax_pm").notNull().default(0),
+    /** 마지막으로 정한 시각·사람(감사 기록과 같은 값) */
+    setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
+    setBy: uuid("set_by"),
+  },
+  (table) => [check("house_policies_tax_pm", sql`${table.taxPm} between 0 and 1000`)],
+);

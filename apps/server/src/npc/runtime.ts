@@ -90,6 +90,7 @@ import { type CityPlace, type NpcPersist, type NpcPersistOptions, createNpcPersi
 import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, liftGovernments, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
 import { ruinsOf } from "./ruinsState.ts";
+import { npcRulingHooks } from "./rulingVault.ts";
 import { loadNpcState, recruitOf } from "./state.ts";
 import { createWarOutcomePersist, loadWarOutcomes } from "./warOutcomes.ts";
 
@@ -688,7 +689,9 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     : undefined;
   econRef.current = econ;
   // 사회·판단 고리 = 경제 고리(태어날 때 부모는 규칙이 세력 칸 bornOf에 적는다 — 기획 답 620 나)
-  const hooks: SimHooks | undefined = econ?.hooks;
+  // + NPC 지배 가문 금고(2223 고침, rulingVault.ts — 독재 NPC 나라의 남은 이익을 지배 가문 금고로, 성향 몫은 국고로 돌려보냄)
+  const hooks: SimHooks | undefined =
+    econ && npcRulingHooks(econ.hooks, { ledger, cityHouses, rules: o.rules });
   const ctx: NpcContext = {
     world,
     loop,

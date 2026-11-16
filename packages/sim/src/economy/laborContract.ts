@@ -112,6 +112,14 @@ export interface LaborAccounts {
   workerOwner(contract: LaborContract): number;
   workerWallet(contract: LaborContract): number;
   escrow(contract: LaborContract): number;
+  /**
+   * 임금에서 뗄 몫(서버만 — 가문세 D-574 2150: 일한 유닛의 가문 금고 계정과 양). 없거나 undefined면 임금 모두 workerWallet로. 시뮬은 노동 계약을
+   * 돌리지 않는다
+   */
+  wageTax?(
+    contract: LaborContract,
+    amount: bigint,
+  ): { readonly account: number; readonly tax: bigint } | undefined;
 }
 
 /** 보증금 에스크로 시스템 계정 코드 */
@@ -219,6 +227,16 @@ function enterGrace(c: LaborContract, atMs: number, reason: LaborEndReason, rule
   c.endReason = reason;
 }
 
+/** 임금 한 번의 원장 줄: 에스크로 → 받는 지갑(가문세가 있으면 그 몫은 가문 금고로 — 합은 그대로) */
+function wageEntries(c: LaborContract, accounts: LaborAccounts): { account: number; amount: bigint }[] {
+  const cut = accounts.wageTax?.(c, c.rate);
+  const tax = cut && cut.tax > 0n && cut.tax <= c.rate ? cut.tax : 0n;
+  const entries = [{ account: accounts.escrow(c), amount: -c.rate }];
+  if (c.rate - tax > 0n) entries.push({ account: accounts.workerWallet(c), amount: c.rate - tax });
+  if (cut && tax > 0n) entries.push({ account: cut.account, amount: tax });
+  return entries;
+}
+
 /** 지급 시각 하나(선불) */
 function payDue(
   c: LaborContract,
@@ -234,10 +252,7 @@ function payDue(
         kind: "labor_wage",
         atMs: at,
         key: `labor:${c.id}:${at}`,
-        entries: [
-          { account: accounts.escrow(c), amount: -c.rate },
-          { account: accounts.workerWallet(c), amount: c.rate },
-        ],
+        entries: wageEntries(c, accounts),
       });
       c.deposit -= c.rate;
       c.paidTotal += c.rate;

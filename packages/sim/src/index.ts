@@ -1,5 +1,4 @@
-// 서버 전용 판정 코드 진입점 (ADR 2026-10-28-s1-second-map.md, 2026-10-28-simulation-model.md)
-// 게임 앱은 이 패키지를 import할 수 없다(scripts/check-boundaries.mjs). 정수 계산만 쓰고 초월함수는 쓰지 않는다.
+// 서버 전용 판정 코드 진입점 (ADR 2026-10-28-s1-second-map.md, 2026-10-28-simulation-model.md). 게임 앱은 이 패키지를 import할 수 없다(scripts/check-boundaries.mjs). 정수 계산만 쓰고 초월함수는 쓰지 않는다.
 export { SIM_VERSION, TEMP_TERRAIN_GENERATOR_VERSION } from "./version.ts";
 export {
   CAR_SPEED,
@@ -213,6 +212,7 @@ export {
   independenceYes,
   nextTaxBp,
   npcHouseEntryFee,
+  npcRulingVaultReturnPm,
   recruitPicks,
   tradePolicy,
   type FoundingChoice,

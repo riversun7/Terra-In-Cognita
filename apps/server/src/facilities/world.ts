@@ -255,6 +255,8 @@ export function createWorldFacilities(input: {
       const claims = await input.territory()?.claimsAt(TEST_PLANET_ID, [{ mapKey, x, y }]);
       return claims === undefined ? undefined : (claims[0]?.faction ?? null);
     },
+    // 가문 도시가 정하지 않은 남의 가문 짓기(D-574 2124, 설정 칸 house_city_build_default)
+    buildDefault: () => input.rules().house.cityBuildDefault !== 0,
   });
   const service = createFacilityService({
     loaded: input.loaded,

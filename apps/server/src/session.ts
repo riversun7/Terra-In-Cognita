@@ -50,6 +50,7 @@ import {
   HOUSE_HOME_PROTOCOL_VERSION,
   HOUSE_ENTRY_POLICY_PROTOCOL_VERSION,
   HOUSE_MEMBER_PROTOCOL_VERSION,
+  HOUSE_POLICY_PROTOCOL_VERSION,
   HOUSE_PROTOCOL_VERSION,
   HOUSE_RECRUIT_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
@@ -736,9 +737,21 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "house_answer":
       case "house_withdraw":
       case "house_leave":
-      case "house_kick": {
-        // 가문 가입은 프로토콜 23의 메시지다(질문 985 다). 더 낮게 인사한 연결은 모르는 메시지로 본다
-        if (protocolVersion < HOUSE_MEMBER_PROTOCOL_VERSION) {
+      case "house_kick":
+      case "house_donate":
+      case "house_vault_take":
+      case "house_tax":
+      case "house_build_policy": {
+        // 가문 가입은 프로토콜 23의 메시지다(질문 985 다). 더 낮게 인사한 연결은 모르는 메시지로 본다. 가문 금고 기부·꺼내기·가문세율·도시
+        // 짓기 정책은 54부터(D-574·D-576)
+        if (
+          protocolVersion < HOUSE_MEMBER_PROTOCOL_VERSION ||
+          ((message.t === "house_donate" ||
+            message.t === "house_vault_take" ||
+            message.t === "house_tax" ||
+            message.t === "house_build_policy") &&
+            protocolVersion < HOUSE_POLICY_PROTOCOL_VERSION)
+        ) {
           reject("invalid_message");
           return;
         }

@@ -74,7 +74,7 @@ import { type JobBoardFilter, type LaborPostInput, createJobBoard } from "./jobB
 import { wageRulesOf } from "./rules.ts";
 import { npcQuits } from "./npcWait.ts";
 import { fundDueWages } from "./wageFunding.ts";
-import { wageWalletOf } from "./wagePurse.ts";
+import { wageWalletOf, withHouseWageTax } from "./wagePurse.ts";
 import { type LaborWorkerEntry, contractEntry } from "./workerEntry.ts";
 import { KEEP_ENDED_MS, type LoadedLabor, type RentRow, contractRow, postedRent, rentRow } from "./store.ts";
 
@@ -228,8 +228,11 @@ export function createLaborService(options: {
   // 시설 주인 쪽 = 그 시설의 사업장 금고(D-548·D-555 1504): 보증금·채우기를 내고, 돌려받고(옛 계약도 금고로 — 주인이 정산으로 꺼낸다),
   // 임대료를 받는다(소득세는 정산 뒤 taxRent)
   // 임금을 받는 곳 = 휴먼의 유닛 지갑(D-097·D-564 1631, wagePurse.ts)
-  const accounts = laborAccounts(ledger, wageWalletOf(ledger, maps), (c) =>
-    ledger.ownerAccount(c.ownerId, c.asset, buildingLocation(c.buildingId)),
+  const accounts = withHouseWageTax(
+    ledger,
+    laborAccounts(ledger, wageWalletOf(ledger, maps), (c) =>
+      ledger.ownerAccount(c.ownerId, c.asset, buildingLocation(c.buildingId)),
+    ),
   );
   let business: LaborBusinessHook | undefined;
   /** 임대료 소득세(D-555 1503): 정산 전후 낸 임대료 차이 */

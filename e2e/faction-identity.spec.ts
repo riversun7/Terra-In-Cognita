@@ -444,6 +444,42 @@ test.describe("가문 가입·이름 되돌리기", () => {
       await expect(house(page).locator('[data-part="house-vault"]')).toHaveText(
         message("ko", "fid_house_vault", { amount: "0" }),
       );
+      // 가문세(D-574 2150): 새 가문은 0%, 가문장이 정하면 줄이 바뀐다. 기부는 서버까지 가서 답을 받는다(시험 계정 잔고에 따라 기부·모자람)
+      await expect(house(page).locator('[data-part="house-tax"]')).toHaveText(
+        message("ko", "fid_house_tax_line", { rate: "0" }),
+      );
+      const taxForm = house(page).locator('[data-part="house-tax-form"]');
+      await taxForm.locator("input").fill("31");
+      await taxForm.locator("button[type='submit']").click();
+      await expect(house(page).locator(".fid-house-status")).toHaveText(
+        message("ko", "fid_house_tax_invalid", { max: "30" }),
+      );
+      await taxForm.locator("input").fill("2.5");
+      await taxForm.locator("button[type='submit']").click();
+      await expect(house(page).locator(".fid-house-status")).toHaveText(
+        message("ko", "fid_house_done_tax_set"),
+      );
+      await expect(house(page).locator('[data-part="house-tax"]')).toHaveText(
+        message("ko", "fid_house_tax_line", { rate: "2.5" }),
+      );
+      const donate = house(page).locator('[data-part="house-donate"]');
+      await donate.locator("input").fill("1");
+      await donate.locator("button[type='submit']").click();
+      await expect(house(page).locator(".fid-house-status")).toHaveText(
+        new RegExp(
+          `^(${message("ko", "fid_house_done_donated")}|${message("ko", "fid_house_error_insufficient_funds")})$`,
+        ),
+      );
+      // 꺼내기·금고 장부(D-576): 가문장만 꺼내고, 장부는 가문원 모두에게 보인다(기부가 됐으면 그 줄)
+      const take = house(page).locator('[data-part="house-take"]');
+      await take.locator("input").fill("1");
+      await take.locator("button[type='submit']").click();
+      await expect(house(page).locator(".fid-house-status")).toHaveText(
+        new RegExp(
+          `^(${message("ko", "fid_house_done_vault_taken")}|${message("ko", "fid_house_error_insufficient_funds")})$`,
+        ),
+      );
+      await expect(house(page).locator('[data-part="house-vault-log"]')).toBeVisible();
       await house(page).locator("#fid-house-invite-name").fill("e2edev");
       await house(page).locator(".fid-house-invite button[type='submit']").click();
       await expect(house(page).locator(".fid-house-status")).toHaveText(

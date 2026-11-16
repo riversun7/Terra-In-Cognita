@@ -1,5 +1,6 @@
 // 랭킹 집계·조회 시험(DB) — 원장 산출·전투 기록(언더독)·도시·시설·세력 규모를 읽어 한 번 세고, 다음 경계에 감쇠·지난 순위를 남기고,
 // 판·내 자리·사이보그 칸·tRPC(로그인·시안 권한)를 본다. TEST_DATABASE_URL이 있을 때만 돈다. 아이디·비밀번호는 모두 시험용 가짜 값이다.
+import { BUILDING_LOCATION_BASE } from "@terra/shared/goodsPlaces";
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
@@ -20,7 +21,14 @@ import {
 import type { AppRouter } from "../trpc/router.ts";
 import { createRankingServices } from "./services.ts";
 import { readSnapshotState, runSnapshot } from "./snapshot.ts";
-import { computeUnitScores, readHouseUnits, readUnitFlows, writeUnitScores } from "./unitScores.ts";
+import {
+  addCityWork,
+  computeUnitScores,
+  readHouseUnits,
+  readMemberCities,
+  readUnitFlows,
+  writeUnitScores,
+} from "./unitScores.ts";
 
 type Outputs = inferRouterOutputs<AppRouter>;
 
@@ -445,6 +453,50 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 집계·조회 (DB)", () => {
       ].toSorted((a, b) => String(a[0]).localeCompare(String(b[0]))),
     );
     expect(withNpc.rows.find((row) => row.npc)?.name?.en).toMatch(/^House /);
+    // 바뀜(D-576 — 질문 2221 "여러 항목, 플레이어와 같은 항목"): 도시 1(세력 A)의 산출·NPC 시설을 그 도시에 사는 가문원 일꾼(휴먼 1·2)에게 나눈다.
+    // 휴먼 3은 경비대(빼고), 유닛 4·902는 사는 도시가 없다(world_humans 줄 없음)
+    await sql(
+      "insert into npc_house_units (unit_id, house_id, set_at_ms) values (1, 1, 0), (2, 2, 0), (3, 2, 0)",
+    );
+    await sql("update world_humans set guard = true where unit_id = 3");
+    await sql(
+      `insert into ledger_accounts (id, owner_id, system_code, asset, location, balance) values
+         (40, 1, null, 's3_test_ore', 1, 70), (41, 1, null, 's3_test_ore', $1, 30), (42, 2, null, 's3_test_ore', 3, 500)`,
+      [BUILDING_LOCATION_BASE + 77],
+    );
+    await sql(`insert into ledger_transactions (id, kind, at_ms) values (40, 'produce', $1)`, [IN_WINDOW]);
+    await sql(
+      `insert into ledger_entries (tx_id, account_id, amount) values (40, 1, -600), (40, 40, 70), (40, 41, 30), (40, 42, 500)`,
+    );
+    await sql(
+      `insert into world_facilities (building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id)
+         values (77, 'farm', 2, 1000000, 0, 0, null, 1), (78, 'farm', 1, 1000000, 0, 0, $1, 1)`,
+      [playerId],
+    );
+    const workMembers = await readHouseUnits(test.db.$client);
+    const workFlows = new Map<number, { production: bigint; warWinsPm: number; battleWinsPm: number }>();
+    const workCities = await readMemberCities(test.db.$client, workMembers);
+    expect([...workCities]).toEqual([[1, [1, 2]]]);
+    const workStocks = await addCityWork(test.db.$client, BOUNDARY - DAY, BOUNDARY, workCities, workFlows);
+    // 도시 1 산출 100(창고 70 + 시설 30, 도시 3의 세력 B 몫은 빼고) ÷ 2, NPC 시설 Lv2 × 1,000,000 ÷ 2(플레이어가 지은 것은 빼고)
+    expect([...workFlows].map(([unitId, flow]) => [unitId, flow.production])).toEqual([
+      [1, 50n],
+      [2, 50n],
+    ]);
+    expect(workStocks.get(1)?.facilityLevelPpm).toBe(1_000_000n);
+    const workRows = computeUnitScores({
+      paths: PATHS,
+      prev: new Map(),
+      flows: workFlows,
+      stocks: workStocks,
+      members: workMembers,
+      coefficients: TEST_RANKING_COEFFICIENTS,
+      periods: 1,
+    });
+    expect(workRows.some((row) => row.pathId === "landlord" && row.unitId === 1 && row.score > 0)).toBe(true);
+    await sql("delete from world_facilities where building_id in (77, 78)");
+    // 원장 줄은 지우지 못한다(덧붙이기만) — 이미 지난 기간(IN_WINDOW)이라 뒤 집계에 들지 않는다
+    await sql("update world_humans set guard = false where unit_id = 3");
     await sql("delete from ranking_unit_scores");
     await sql("delete from npc_house_units");
     await sql("delete from npc_houses");

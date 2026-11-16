@@ -123,6 +123,23 @@ describe("노동 계약 — 임금형(옛 salary_engine·WAGE)", () => {
     expect(audit.check(book.accounts())).toEqual([]);
   });
 
+  it("임금에서 뗄 몫(wageTax — 서버 가문세 D-574)이 있으면 그 몫은 그 계정으로, 합은 그대로", () => {
+    const { book, audit, accounts } = world();
+    const vault = book.systemAccount("vault:house:7:" + CUR, CUR);
+    const taxed = { ...accounts, wageTax: () => ({ account: vault, tax: 5n }) };
+    const c = open(book, taxed);
+    settleLabor(c, 2 * DAY, book, taxed, rules);
+    // 세 번 냈다(선불 첫 임금 + 두 번): 일꾼 15 × 3, 금고 5 × 3
+    expect(c.paidTotal).toBe(60n);
+    expect(book.balanceOf(WORKER, CUR)).toBe(ISSUED + 45n);
+    expect(book.balance(vault)).toBe(15n);
+    expect(checkLaborEscrow([c], book)).toEqual([]);
+    // 시뮬 감사 표는 가문 금고(서버 시스템 계정)를 모른다 — 금고 줄 하나만 걸린다(서버 원장 감사는 시스템 규칙 없이 돈다)
+    expect(audit.check(book.accounts())).toEqual([
+      "I1 system accounts touched by a transaction kind that may not create or destroy: 3",
+    ]);
+  });
+
   it("남은 보증금이 7일분 아래로 내려가면 경고(옛 DEPOSIT_WARNING_DAYS)", () => {
     const { book, accounts } = world();
     const c = open(book, accounts);

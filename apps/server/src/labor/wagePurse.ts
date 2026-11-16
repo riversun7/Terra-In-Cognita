@@ -5,9 +5,10 @@
 //   NPC 휴먼 봇(0 — D-097 해석 "NPC 세력의 휴먼도 같은 규칙"). 사이보그 본체(3)는 플레이어 자신이라 플레이어 지갑이다.
 // - 유닛을 찾지 못하면(사라진 유닛의 마지막 정산) 소유 주체 지갑으로 간다(돈이 사라지지 않는다).
 // - 유닛 지갑 돈은 유닛 것이다: 숙박비 등 유닛이 쓰는 돈은 여기서 나간다. 주인이 꺼내 쓰는 길은 두지 않는다(D-097).
-import type { LaborContract } from "@terra/sim";
+import type { LaborAccounts, LaborContract } from "@terra/sim";
 import { unitPurseLocation } from "@terra/shared/businessBooks";
 import type { Ledger } from "../economy/ledger.ts";
+import { houseTaxerOf } from "../factionIdentity/houseTax.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 
@@ -39,5 +40,15 @@ export function wageWalletOf(
     return kind !== undefined && PROPERTY_UNIT_KINDS.has(kind)
       ? ledger.ownerAccount(c.workerOwnerId, c.asset, unitPurseLocation(c.unitId))
       : ledger.ownerAccount(c.workerOwnerId, c.asset);
+  };
+}
+
+/**
+ * 임금에 가문세(D-574 2150 — 일한 유닛의 가문 금고로 그 가문 세율만큼, factionIdentity/houseTax.ts)를 얹은 계약 계정. 가문 표가 붙기 전이면 떼지 않는다
+ */
+export function withHouseWageTax(ledger: object, accounts: LaborAccounts): LaborAccounts {
+  return {
+    ...accounts,
+    wageTax: (c, amount) => houseTaxerOf(ledger)?.unitTax(c.unitId, c.workerOwnerId, c.asset, amount),
   };
 }

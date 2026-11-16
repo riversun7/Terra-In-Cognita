@@ -36,4 +36,19 @@ describe("landVerdict", () => {
     expect(landVerdict([3], [3], 5)).toEqual({ allowed: true });
     expect(landVerdict([3], [7], 5)).toEqual({ allowed: false, reason: "foreign_city", cityFaction: 7 });
   });
+
+  it("가문 도시(D-574 2124): 자기 가문 도시는 늘, 같은 나라 다른 가문은 그 도시 정책대로, 다른 나라는 foreign_city", () => {
+    const allow = { faction: 40, house: { sameNation: true, allow: true } };
+    const deny = { faction: 40, house: { sameNation: true, allow: false } };
+    const foreign = { faction: 40, house: { sameNation: false, allow: true } };
+    expect(landVerdict([3], [allow])).toEqual({ allowed: true });
+    expect(landVerdict([3], [deny])).toEqual({ allowed: false, reason: "house_policy", cityFaction: 40 });
+    // 자기 가문 도시는 정책·시민권과 상관없이(봉신 가문원의 시민권은 위 나라)
+    expect(landVerdict([3], [deny], null, 40)).toEqual({ allowed: true });
+    expect(landVerdict([3], [foreign])).toEqual({ allowed: false, reason: "foreign_city", cityFaction: 40 });
+    // 내 세력 목록에 가문 행이 있어도 가문 도시는 정책을 본다(다른 가문원)
+    expect(landVerdict([40], [deny])).toEqual({ allowed: false, reason: "house_policy", cityFaction: 40 });
+    // 같은 2차맵에 내 NPC 나라 도시가 있으면 짓는다
+    expect(landVerdict([3], [deny, 3])).toEqual({ allowed: true });
+  });
 });

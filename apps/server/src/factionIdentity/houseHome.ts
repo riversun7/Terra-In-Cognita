@@ -233,8 +233,7 @@ export function createHouseHome(o: HouseHomeOptions): HouseHomeService {
         const due: HouseEntryCharge = {
           houseId: house.id,
           leaderId,
-          payee: entry.payee,
-          terms: entry.terms,
+          parts: entry.parts,
           members: counted.rows[0]?.n ?? 0,
           nowMs: now,
         };
@@ -256,7 +255,7 @@ export function createHouseHome(o: HouseHomeOptions): HouseHomeService {
         }
         // 바로 옮긴다(공고 기간 0, 또는 소속 도시 줄이 없는 옛 가문)
         await moveHouseHome(q, { house, city, leaderName, skip: leaderId, nowMs: now });
-        if (entry.terms !== 0n) charge = due;
+        if (entry.parts.length > 0) charge = due;
         audit = { ...base, city: city.id, nation: city.nationId };
         return { ok: true, action: "home_set", factionId: house.id };
       });

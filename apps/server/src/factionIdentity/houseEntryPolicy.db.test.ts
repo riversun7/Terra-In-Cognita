@@ -130,6 +130,8 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 이동 정책 (DB)", () => {
       nationSource: "none",
       canSetCity: true,
       canSetNation: true,
+      // 가문 도시라 다른 가문 짓기 칸도(D-574 2124 — 정하지 않음 = 기본값 허용)
+      build: { city: null, fallback: true },
     });
     // 비우면 나라 값을 따른다
     await policy().set(mine.leader, { scope: "city", cityId: 950, fee: null });
@@ -173,7 +175,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 이동 정책 (DB)", () => {
         nationChanged: true,
         npc: TEST_HOUSE_RULES.npcEntry,
       }),
-    ).toEqual({ terms: 70n, payee: free.id, source: "nation" });
+    ).toEqual({ terms: 70n, parts: [{ terms: 70n, payee: free.id, source: "nation" }] });
     const vassal = await house({ city: 961, parent: npcNation });
     expect(await policy().set(vassal.leader, { scope: "nation", fee: "1" })).toEqual({
       ok: false,

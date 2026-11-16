@@ -14,6 +14,8 @@ import { type HouseCityService, createHouseCity } from "./houseCity.ts";
 import { createHouseEntryPolicy } from "./houseEntryPolicy.ts";
 import { createHouseHome } from "./houseHome.ts";
 import { createHouseMoves } from "./houseMoves.ts";
+import { createHousePolicy } from "./housePolicy.ts";
+import { attachHouseTax, houseTaxerOf } from "./houseTax.ts";
 import { createHouseRecruitService } from "./houseRecruit.ts";
 import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
@@ -91,6 +93,32 @@ export function attachHouses(options: {
     presets: options.presets,
     persistence,
   });
+  // 가문 금고 기부·가문세율·도시 짓기 정책(D-574 2150·2124, housePolicy.ts)
+  const policy = createHousePolicy({
+    pool,
+    db: options.db,
+    rules: options.rules,
+    now: options.now,
+    persistence,
+  });
+  // 가문세 표(houseTax.ts — 배당·임금이 원장으로 찾는다): 세계가 준비되면 원장에 붙이고 세율을 읽는다(5초마다 보고, 붙으면 멈춘다)
+  const taxTimer = setInterval(() => {
+    const p = options.world?.status().state === "ready" ? options.world.persistence : undefined;
+    if (!p) return;
+    clearInterval(taxTimer);
+    if (houseTaxerOf(p.ledger)) return;
+    const taxer = attachHouseTax({
+      pool,
+      ledger: p.ledger,
+      owners: p.owners,
+      ties: () => houseTiesOf(p),
+      maxPm: () => options.rules().taxMaxPm,
+    });
+    taxer
+      .reload()
+      .catch((error: unknown) => options.log.error({ err: error }, "house tax rates load failed"));
+  }, 5_000);
+  taxTimer.unref();
   const moveTimer = setInterval(() => {
     if (options.world?.status().state !== "ready") return;
     moves.applyDue().catch((error: unknown) => options.log.error({ err: error }, "house moves failed"));
@@ -106,11 +134,19 @@ export function attachHouses(options: {
     recruit: () => recruit,
     home: () => home,
     entryPolicy: () => entryPolicy,
+    policy: () => policy,
     afterMembership: async () => {
       await houseTiesOf(options.world?.persistence)?.reload();
     },
     now: options.now,
     log: options.log,
   });
-  return { gateway, city, stop: () => clearInterval(moveTimer) };
+  return {
+    gateway,
+    city,
+    stop: () => {
+      clearInterval(moveTimer);
+      clearInterval(taxTimer);
+    },
+  };
 }

@@ -244,7 +244,10 @@ export function BuildSheet({
       </div>
       {landBlocked ? (
         <p className="map-build-warning" role="alert">
-          {m.build_problem_foreign_city()}
+          {/* 같은 나라 다른 가문 도시의 정책이 막음(D-574 2124) */}
+          {land.data?.status === "ready" && land.data.reason === "house_policy"
+            ? m.build_problem_house_policy()
+            : m.build_problem_foreign_city()}
         </p>
       ) : landClaim ? (
         <p className="map-units-note map-build-claim">{m.build_land_claim_note()}</p>

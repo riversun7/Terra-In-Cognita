@@ -10,7 +10,7 @@
 // - 들어가는 도시·나라의 정책(부호 있는 최소 단위 — + 가입비 / − 지원금, houseEntry.ts houseEntryTermsOf): 옮긴 뒤 가문이 한꺼번에(D-573 — 값 =
 //   가문원마다 값 × 가문원 수) 원장 거래 house_entry 하나. 가입비는 가문 금고(없으면 가문장 지갑) → 받는 국고, 지원금은 국고 → 가문 금고(없으면
 //   가문장). 시험 화폐(귀화 D-526과 같은 자산). 지원금은 국고에 있는 만큼(새 화폐를 만들지 않는다 — 귀화 질문 845와 같다). 바뀜(질문 2018 답 —
-//   D-570 "해당 국가나 도시의 정책"): 도시 정책(city_policies, 그 도시 가문장)이 있으면 나라가 같아도 그것, 없으면 나라가 바뀔 때 나라 정책(지도자),
+//   D-570 "해당 국가나 도시의 정책"): 도시 정책(city_policies, 그 도시 가문장 — 나라가 같아도)과 나라가 바뀔 때 나라 정책(지도자)을 별개로 둘 다(D-574 2142),
 //   NPC 나라는 성향 규칙식.
 import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
@@ -90,8 +90,7 @@ export function createHouseMoves(o: HouseMovesOptions): HouseMoves {
       const charge: HouseEntryCharge = {
         houseId,
         leaderId: leaderId ?? null,
-        payee: entry?.payee ?? null,
-        terms: entry?.terms ?? 0n,
+        parts: entry?.parts ?? [],
         members: counted.rows[0]?.n ?? 0,
         nowMs,
       };

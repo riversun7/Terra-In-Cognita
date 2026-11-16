@@ -30,15 +30,23 @@ export interface HouseMovePersistence {
 /** 가문 이동 정책을 정한 곳: 도시(city_policies) · 나라(factions.house_entry_fee) · NPC 나라 성향 규칙식 · 없음 */
 export type HouseEntrySource = "city" | "nation" | "npc" | "none";
 
-/** 옮길 때 가문원마다 매길 값(+ 가입비 / − 지원금)과 받는·주는 쪽(세력 행 — 그 세력 소유 주체의 국고) */
-export interface HouseEntryTerms {
+/** 정책 한 몫: 가문원마다 값(+ 가입비 / − 지원금)과 받는·주는 쪽(세력 행 — 그 세력 소유 주체의 국고) */
+export interface HouseEntryPart {
   readonly terms: bigint;
-  /** 국고 세력 행(도시 정책이면 도시 주인, 나라 정책이면 그 나라). 값이 0이면 null */
-  readonly payee: number | null;
+  /** 국고 세력 행(도시 정책이면 도시 주인, 나라 정책이면 그 나라) */
+  readonly payee: number;
   readonly source: HouseEntrySource;
 }
 
-const NO_TERMS: HouseEntryTerms = { terms: 0n, payee: null, source: "none" };
+/** 옮길 때 매길 정책들(도시 몫·나라 몫 — 별개로 둘 다, D-574 2142)과 가문원마다 합 */
+export interface HouseEntryTerms {
+  /** 가문원마다 합(도시 몫 + 나라 몫 — 보이기용. 매기기는 몫마다 따로) */
+  readonly terms: bigint;
+  /** 값이 0이 아닌 몫(도시 → 나라 차례) */
+  readonly parts: readonly HouseEntryPart[];
+}
+
+const NO_TERMS: HouseEntryTerms = { terms: 0n, parts: [] };
 
 /** 정책 읽기가 쓰는 질의(pg Pool·트랜잭션 연결이 그대로 맞는다 — 줄 모양은 읽을 때 본다) */
 export interface EntryQueryable {
@@ -60,10 +68,11 @@ export function npcEntryTerms(traits: unknown, rule: HouseRules["npcEntry"]): bi
 }
 
 /**
- * 가문이 그 도시로 옮길 때의 정책(기획 D-570 "해당 국가나 도시의 정책", D-526 받는 쪽이 정함, 질문 2018 답 — [임시] 차례 질문 2142):
- * 1. 그 도시가 정한 값(city_policies, 도시를 가진 가문의 가문장이 정함)이 있으면 그것 — 나라가 같아도 매기고, 받는 쪽은 도시 주인 국고.
- * 2. 나라가 바뀌는 옮기기면 들어가는 나라가 정한 값(factions.house_entry_fee — 지도자가 정함), 없고 NPC 나라면 성향 규칙식(npc 입력이 있을 때).
- * 3. 그 밖은 0
+ * 가문이 그 도시로 옮길 때의 정책(기획 D-570 "해당 국가나 도시의 정책", D-526 받는 쪽이 정함, 질문 2018 답). 바뀜(D-574 2142 — 사용자 답
+ * "나. 별개"): 도시 정책과 나라 정책은 별개로 둘 다 매긴다(지원금·가입비 모두 각각, 옛 "도시 값이 나라 값을 대신"을 대신함).
+ * - 도시 몫: 그 도시가 정한 값(city_policies, 도시를 가진 가문의 가문장이 정함) — 나라가 같아도 매기고, 받는 쪽은 도시 주인 국고.
+ * - 나라 몫: 나라가 바뀌는 옮기기면 들어가는 나라가 정한 값(factions.house_entry_fee — 지도자가 정함), 없고 NPC 나라면 성향 규칙식(npc 입력이
+ *   있을 때). 같은 나라 안 옮기기는 나라 몫이 없다.
  */
 export async function houseEntryTermsOf(
   q: EntryQueryable,
@@ -74,6 +83,7 @@ export async function houseEntryTermsOf(
     readonly npc?: HouseRules["npcEntry"] | undefined;
   },
 ): Promise<HouseEntryTerms> {
+  const parts: HouseEntryPart[] = [];
   const city = await q.query(
     `select p.house_entry_fee::text as house_entry_fee, c.faction_id from city_policies p
        join world_cities c on c.id = p.city_id where p.city_id = $1 and p.house_entry_fee is not null`,
@@ -81,11 +91,15 @@ export async function houseEntryTermsOf(
   );
   const own = city.rows[0];
   const ownFee = own ? feeOf(own.house_entry_fee) : null;
-  if (own && ownFee !== null)
-    return { terms: ownFee, payee: ownFee === 0n ? null : Number(own.faction_id), source: "city" };
-  if (!input.nationChanged) return NO_TERMS;
-  const nation = await nationEntryTerms(q, input.nationId, input.npc);
-  return { terms: nation.terms, payee: nation.terms === 0n ? null : input.nationId, source: nation.source };
+  if (own && ownFee !== null && ownFee !== 0n)
+    parts.push({ terms: ownFee, payee: Number(own.faction_id), source: "city" });
+  if (input.nationChanged) {
+    const nation = await nationEntryTerms(q, input.nationId, input.npc);
+    if (nation.terms !== 0n)
+      parts.push({ terms: nation.terms, payee: input.nationId, source: nation.source });
+  }
+  if (parts.length === 0) return NO_TERMS;
+  return { terms: parts.reduce((sum, part) => sum + part.terms, 0n), parts };
 }
 
 /** 그 나라의 가문 이동 정책: 지도자가 정한 값(factions.house_entry_fee) → 없고 NPC 나라면 성향 규칙식(npc 입력이 있을 때) → 0 */
@@ -147,24 +161,23 @@ export async function moveHouseHome(
 
 /**
  * 가문이 한꺼번에 내고 받는 몫(기획 D-573 — 질문 2017 다 "가문장 또는 가문 금고가 한꺼번에 낸다. 못 내면 이동 못 함", 지원금도 가문이 받는다):
- * 값 = 정책(가문원마다) × 옮기는 가문원 수(가문장 포함) [임시 질문 2145]. 가입비는 가문 금고(houseVault.ts)에서 먼저, 모자란 만큼 가문장 지갑에서
- * [기술 기본값 — 질문 2222], 지원금은 가문 금고로.
+ * 몫마다 값 = 정책(가문원마다) × 옮기는 가문원 수(가문장 포함) [질문 2145 가]. 도시 몫·나라 몫은 별개로 둘 다(D-574 2142). 가입비는 가문 금고
+ * (houseVault.ts)에서 먼저, 모자란 만큼 가문장 지갑에서 [기획 대조 2222 확정], 지원금은 가문 금고로. 못 내는지는 가입비 합으로 본다(받을 지원금으로
+ * 가입비를 메우지 않는다 — 기술 기본값, 질문 2253).
  */
 export interface HouseEntryCharge {
   readonly houseId: number;
   /** 가문장(금고가 모자랄 때 그 지갑). 없으면 null */
   readonly leaderId: string | null;
-  /** 받는·주는 국고의 세력 행(HouseEntryTerms.payee) */
-  readonly payee: number | null;
-  /** 가문원마다 값(+ 가입비 / − 지원금) */
-  readonly terms: bigint;
+  /** 몫들(HouseEntryTerms.parts — 받는·주는 국고와 가문원마다 값) */
+  readonly parts: readonly Pick<HouseEntryPart, "payee" | "terms">[];
   /** 옮기는 가문원 수(가문장 포함) */
   readonly members: number;
   readonly nowMs: number;
 }
 
-/** 가문이 낼 합(가입비면 양수, 지원금이면 음수 — 받을 합) */
-export const entryTotal = (charge: Pick<HouseEntryCharge, "terms" | "members">): bigint =>
+/** 가문이 낼 합(가입비면 양수, 지원금이면 음수 — 몫을 모두 더한 값, 보이기용) */
+export const entryTotal = (charge: { readonly terms: bigint; readonly members: number }): bigint =>
   charge.terms * BigInt(Math.max(0, charge.members));
 
 /** 받는·주는 국고 소유 주체(세력 행 payee의 주체). 없으면 undefined */
@@ -172,6 +185,20 @@ function treasuryOf(p: HouseMovePersistence, payee: number | null): number | und
   if (payee === null) return undefined;
   for (const owner of p.owners.values()) if (owner.factionId === payee) return owner.id;
   return undefined;
+}
+
+/** 몫마다 합(가문원 수를 곱함)과 국고 주체 — 국고 없는 몫은 뺀다 */
+function chargeLines(
+  p: HouseMovePersistence,
+  charge: HouseEntryCharge,
+): { readonly treasury: number; readonly total: bigint }[] {
+  const out: { treasury: number; total: bigint }[] = [];
+  for (const part of charge.parts) {
+    const total = entryTotal({ terms: part.terms, members: charge.members });
+    const treasury = treasuryOf(p, part.payee);
+    if (total !== 0n && treasury !== undefined) out.push({ treasury, total });
+  }
+  return out;
 }
 
 /** 가입비를 낼 몫: 금고에서 꺼낼 양·가문장 지갑에서 낼 양(지갑 주체)·못 내는 양. 가문장 지갑은 지금까지 정산한 뒤 본다 */
@@ -195,47 +222,61 @@ function feeSplit(
   return { vault, leader, fromLeader, short: rest - fromLeader };
 }
 
+/** 가입비 몫의 합 */
+const feeTotalOf = (lines: readonly { readonly total: bigint }[]): bigint =>
+  lines.reduce((sum, line) => (line.total > 0n ? sum + line.total : sum), 0n);
+
 /**
  * 가입비를 못 내는 만큼(0이면 낼 수 있다 — 지원금·값 없음·세계 없음·국고 없는 나라도 0). 옮기기 전에 본다: 모자라면 옮기지 않는다(D-573)
  */
 export function entryShortfall(p: HouseMovePersistence | undefined, charge: HouseEntryCharge): bigint {
-  const total = entryTotal(charge);
-  if (!p || total <= 0n || treasuryOf(p, charge.payee) === undefined) return 0n;
-  return feeSplit(p, charge, total).short;
+  if (!p) return 0n;
+  const fees = feeTotalOf(chargeLines(p, charge));
+  return fees <= 0n ? 0n : feeSplit(p, charge, fees).short;
 }
 
 /**
- * 가입비·지원금을 한꺼번에 매긴다(원장 거래 house_entry 하나 — 옮긴 커밋 뒤에 부른다). 가입비는 앞서 entryShortfall로 본 뒤라 모자라면(그 사이 줄었으면)
- * 있는 만큼, 지원금은 국고에 있는 만큼 가문 금고로(새 화폐를 만들지 않는다 — 귀화 질문 845와 같다). 낸 합·받은 합
+ * 가입비·지원금을 한꺼번에 매긴다(원장 거래 house_entry 하나 — 옮긴 커밋 뒤에 부른다). 가입비는 앞서 entryShortfall로 본 뒤라 모자라면(그 사이
+ * 줄었으면) 있는 만큼을 몫 차례로, 지원금은 몫마다 그 국고에 있는 만큼 가문 금고로(새 화폐를 만들지 않는다 — 귀화 질문 845와 같다). 낸 합·받은 합
  */
 export async function chargeHouseEntry(
   p: HouseMovePersistence | undefined,
   charge: HouseEntryCharge,
 ): Promise<{ readonly paid: bigint; readonly granted: bigint }> {
-  const total = entryTotal(charge);
   const none = { paid: 0n, granted: 0n };
-  if (!p || total === 0n) return none;
-  const treasury = treasuryOf(p, charge.payee);
-  if (treasury === undefined) return none;
+  if (!p) return none;
+  const lines = chargeLines(p, charge);
+  if (lines.length === 0) return none;
   const entries: { account: number; amount: bigint }[] = [];
   let paid = 0n;
   let granted = 0n;
-  if (total > 0n) {
-    const split = feeSplit(p, charge, total);
+  const fees = feeTotalOf(lines);
+  if (fees > 0n) {
+    const split = feeSplit(p, charge, fees);
     if (split.vault > 0n)
       entries.push({ account: vaultAccount(p.ledger, charge.houseId, ASSET_CREDIT), amount: -split.vault });
     if (split.leader !== undefined && split.fromLeader > 0n)
       entries.push({ account: p.ledger.ownerAccount(split.leader, ASSET_CREDIT), amount: -split.fromLeader });
-    paid = split.vault + split.fromLeader;
-    if (paid > 0n) entries.push({ account: p.ledger.ownerAccount(treasury, ASSET_CREDIT), amount: paid });
-  } else {
-    const available = p.ledger.balanceOf(treasury, ASSET_CREDIT);
-    granted = -total < available ? -total : available;
-    if (granted > 0n)
-      entries.push(
-        { account: p.ledger.ownerAccount(treasury, ASSET_CREDIT), amount: -granted },
-        { account: vaultAccount(p.ledger, charge.houseId, ASSET_CREDIT), amount: granted },
-      );
+    // 낸 만큼을 몫 차례로 나눠 받는 국고에
+    let left = split.vault + split.fromLeader;
+    for (const line of lines) {
+      if (line.total <= 0n || left <= 0n) continue;
+      const part = line.total < left ? line.total : left;
+      entries.push({ account: p.ledger.ownerAccount(line.treasury, ASSET_CREDIT), amount: part });
+      left -= part;
+      paid += part;
+    }
+  }
+  for (const line of lines) {
+    if (line.total >= 0n) continue;
+    const available = p.ledger.balanceOf(line.treasury, ASSET_CREDIT);
+    const part = -line.total < available ? -line.total : available;
+    if (part <= 0n) continue;
+    entries.push(
+      { account: p.ledger.ownerAccount(line.treasury, ASSET_CREDIT), amount: -part },
+      { account: vaultAccount(p.ledger, charge.houseId, ASSET_CREDIT), amount: part },
+    );
+    granted += part;
   }
   if (entries.length === 0) return none;
   p.ledger.post({

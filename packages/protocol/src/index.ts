@@ -150,6 +150,7 @@ export {
   type HouseRecruitPayer,
   type HouseRecruitResultCode,
 } from "./houseRecruit.ts";
+export { HOUSE_POLICY_PROTOCOL_VERSION } from "./housePolicy.ts";
 export {
   HOSPITAL_PROTOCOL_VERSION,
   HOSPITAL_RESULT_CODES,

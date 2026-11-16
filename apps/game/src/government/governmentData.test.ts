@@ -4,6 +4,7 @@ import { m } from "../paraglide/messages.js";
 import {
   cityTitle,
   entryFeeText,
+  leaderRuleText,
   leaderTitle,
   nameIn,
   nationTitle,
@@ -66,5 +67,15 @@ describe("가문 이동 정책 값(질문 2018 답)", () => {
     expect(entryFeeText("0", amount)).toBe(m.government_entry_free());
     expect(entryFeeText("40", amount)).toBe(m.government_entry_fee({ amount: "<40>" }));
     expect(entryFeeText("-7", amount)).toBe(m.government_entry_grant({ amount: "<7>" }));
+  });
+});
+
+describe("나라를 이끄는 방식(D-574 10)", () => {
+  it("체제 → 덧말, 모르면 null", () => {
+    expect(leaderRuleText({ rule: "dictator" })).toBe(m.government_leader_rule_dictator());
+    expect(leaderRuleText({ rule: "vote" })).toBe(m.government_leader_rule_vote());
+    expect(leaderRuleText({ rule: "shares" })).toBe(m.government_leader_rule_shares());
+    expect(leaderRuleText({})).toBeNull();
+    expect(leaderRuleText(null)).toBeNull();
   });
 });

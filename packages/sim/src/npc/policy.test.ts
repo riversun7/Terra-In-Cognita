@@ -7,6 +7,7 @@ import {
   independenceYes,
   nextTaxBp,
   npcHouseEntryFee,
+  npcRulingVaultReturnPm,
   occupationChoice,
   recruitPicks,
   tradePolicy,
@@ -175,5 +176,24 @@ describe("npcHouseEntryFee — NPC 나라 가문 이동 정책(D-570·D-323, 질
     expect(npcHouseEntryFee(-9, c, limits)).toBe(-60);
     expect(npcHouseEntryFee(900, c, { feeMax: 0, grantMax: 0 })).toBe(0);
     expect(npcHouseEntryFee(900, { traitMin: 3, traitMax: 3 }, limits)).toBe(0);
+  });
+});
+
+describe("npcRulingVaultReturnPm — NPC 지배 가문 금고 → 국고 몫(2223 고침, D-554 성향 변수)", () => {
+  const axis = { traitMin: 0, traitMax: 1000 };
+  const limits = { minPm: 300, maxPm: 900 };
+  it("상업 성향 낮음 = maxPm, 높음 = minPm, 그 사이는 선형(내림)", () => {
+    expect(npcRulingVaultReturnPm(0, axis, limits)).toBe(900);
+    expect(npcRulingVaultReturnPm(1000, axis, limits)).toBe(300);
+    expect(npcRulingVaultReturnPm(500, axis, limits)).toBe(600);
+    expect(npcRulingVaultReturnPm(333, axis, limits)).toBe(701);
+  });
+  it("범위 밖 성향·뒤바뀐 한도·0~1000 밖 한도를 좁힌다", () => {
+    expect(npcRulingVaultReturnPm(-50, axis, limits)).toBe(900);
+    expect(npcRulingVaultReturnPm(5000, axis, limits)).toBe(300);
+    expect(npcRulingVaultReturnPm(0, axis, { minPm: 900, maxPm: 300 })).toBe(900);
+    expect(npcRulingVaultReturnPm(1000, axis, { minPm: -10, maxPm: 2000 })).toBe(0);
+    expect(npcRulingVaultReturnPm(Number.NaN, axis, limits)).toBe(900);
+    expect(npcRulingVaultReturnPm(10, { traitMin: 5, traitMax: 5 }, limits)).toBe(900);
   });
 });

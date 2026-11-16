@@ -171,6 +171,11 @@ export const HOUSE_MEMBER_RESULT_CODES = [
   // 50판부터(house_home의 답에만 — 더 낮은 판 연결은 busy, legacyHouseMemberCode)
   /** 가문 금고(없으면 가문장 지갑)에 들어가는 도시·나라의 가입비가 모자라 옮기지 못한다(D-573) */
   "entry_fee_short",
+  // 54판부터(housePolicy.ts의 답에만 — house_donate·house_tax·house_build_policy)
+  /** 지갑(기부)·가문 금고(꺼내기) 돈이 그 양보다 적다(house_donate·house_vault_take) */
+  "insufficient_funds",
+  /** 가문세율이 설정 칸 상한(house_tax_max_pm)을 넘는다(house_tax) */
+  "tax_too_high",
 ] as const;
 export type HouseMemberResultCode = (typeof HOUSE_MEMBER_RESULT_CODES)[number];
 
@@ -194,6 +199,12 @@ export const HOUSE_MEMBER_ACTIONS = [
   "home_cancelled",
   // 50판부터(house_entry_policy의 답에만): 가문 이동 정책을 정함
   "entry_policy_set",
+  // 54판부터(housePolicy.ts의 답에만): 가문 금고에 기부함·가문세율을 정함·도시 짓기 정책을 정함(D-574)
+  "donated",
+  "tax_set",
+  "build_policy_set",
+  // 가문장이 금고에서 꺼냄(house_vault_take, D-576)
+  "vault_taken",
 ] as const;
 export type HouseMemberAction = (typeof HOUSE_MEMBER_ACTIONS)[number];
 

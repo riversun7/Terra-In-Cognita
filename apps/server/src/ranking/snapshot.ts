@@ -25,8 +25,10 @@ import {
   readStocks,
 } from "./measures.ts";
 import {
+  addCityWork,
   computeUnitScores,
   readHouseUnits,
+  readMemberCities,
   readPrevUnits,
   readUnitFlows,
   writeUnitScores,
@@ -209,11 +211,20 @@ export async function runSnapshot(
     readHouseUnits(pool),
     readPrevUnits(pool),
   ]);
-  // NPC 도시 가문원 유닛 점수(질문 2146 → 고침, unitScores.ts) — 같은 기간·같은 감쇠, 같은 트랜잭션에 쓴다
+  // NPC 도시 가문원 유닛 점수(질문 2146 → 고침, unitScores.ts) — 같은 기간·같은 감쇠, 같은 트랜잭션에 쓴다. 바뀜(D-576): 도시 산출·NPC 시설 몫도
+  const unitFlows = await readUnitFlows(pool, window.fromMs, window.toMs, c.underdogCapPm, members);
+  const unitStocks = await addCityWork(
+    pool,
+    window.fromMs,
+    window.toMs,
+    await readMemberCities(pool, members),
+    unitFlows,
+  );
   const unitRows = computeUnitScores({
     paths: options.paths,
     prev: prevUnits,
-    flows: await readUnitFlows(pool, window.fromMs, window.toMs, c.underdogCapPm, members),
+    flows: unitFlows,
+    stocks: unitStocks,
     members,
     coefficients: c,
     periods: window.periods,

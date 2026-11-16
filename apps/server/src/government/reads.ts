@@ -11,7 +11,14 @@
 // 바뀜("WP-NPC4"): 생필품 충족 = 지난 하루 끝에 저장한 값(781 나 — npc/cityDayStore.ts), 시장 이름(773 나 — npc/humanNames.ts).
 // 바뀜(질문 2012·2018 답, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)"): 지도자 = 지배 가문의 장 —
 // NPC 나라는 지도자 사이보그에 지배 가문(수도 NPC 가문) 이름, 플레이어 가문 나라는 그 가문장. 가문 이동 정책 칸(houseEntry).
-import type { GovernmentHouseEntry, GovernmentMayor, GovernmentResponse } from "@terra/shared/government";
+// 바뀜(D-574 10 — 2144·2147 가): 지배 가문 = 수도에서 처음 세운 가문(수도를 옮기면 새 수도의 첫 가문 — npc/cityHouses.ts가 읽을 때 정한다, 그대로).
+// 나라를 누가 이끄는지는 체제대로(D-217): 나라 칸 regime, 지도자 칸 rule(독재 = 독재자·민주주의 = 투표·자본주의 = 지분).
+import {
+  type GovernmentHouseEntry,
+  type GovernmentMayor,
+  type GovernmentResponse,
+  leaderRuleOf,
+} from "@terra/shared/government";
 import type { NationEmblemView } from "@terra/shared/nationEditor";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { SimCity, SimFaction, SimUnit } from "@terra/sim";
@@ -45,7 +52,7 @@ export interface GovernmentSource {
           >;
           readonly factions: ReadonlyMap<
             number,
-            Pick<SimFaction, "code" | "fixed"> & Partial<Pick<SimFaction, "player">>
+            Pick<SimFaction, "code" | "fixed"> & Partial<Pick<SimFaction, "player" | "regime">>
           >;
           readonly units: ReadonlyMap<number, Pick<SimUnit, "city" | "recruit" | "satisfactionMilli">>;
         };
@@ -247,6 +254,8 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
       const code = faction?.code ?? null;
       const mayorId = runtime.mayorOf?.(city.id);
       const mayorUnit = mayorId === undefined ? undefined : runtime.world.units.get(mayorId);
+      // 나라를 이끄는 방식(D-574 10 — 체제대로: 독재 = 독재자, 민주주의 = 투표, 자본주의 = 지분)
+      const rule = faction?.regime ? { rule: leaderRuleOf(faction.regime) } : {};
       return {
         status: "ready",
         buildingId,
@@ -272,6 +281,7 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
           fixed: faction?.fixed ?? false,
           mine: factionRow !== undefined && source.myFactionRow(viewer.id) === factionRow,
           taxBp: runtime.taxOf?.(city.owner) ?? null,
+          regime: faction?.regime ?? null,
         },
         leader:
           leaderUnit !== undefined
@@ -280,6 +290,7 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
                 name: code === null ? null : (source.leaderName(code) ?? null),
                 here,
                 house: ruling ? { name: ruling.name, npc: true } : null,
+                ...rule,
               }
             : head?.unitId !== null && head?.unitId !== undefined
               ? {
@@ -287,6 +298,7 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
                   name: head.name === null ? null : { ko: head.name, en: head.name },
                   here: cityMap?.unitInfo?.(head.unitId) !== undefined,
                   house: head.house === null ? null : { name: head.house, npc: false },
+                  ...rule,
                 }
               : null,
         building: buildingCell(cityMap, buildingId),

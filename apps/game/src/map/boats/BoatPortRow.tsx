@@ -1,6 +1,7 @@
 // 배 시설 판의 내 배 한 줄 아래 항구 칸(기획 D-570 1821·1823, docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (D-570)") — HarborPanel.tsx가 쓴다.
 // - 함포 칸: 칸마다 [함포 / 포획 장비 …] 고르기 → boat_gear(달기·떼기). 달 수 있는 장비가 없는 배는 칸만 보인다.
-// - 싣기: 이 항구에서 실을 수 있는 내 물건(항구 옆 거래소 건물 창고 + 그 도시 내 창고)과 묶음 수 → boat_load.
+// - 싣기: 이 항구에서 실을 수 있는 내 물건(항구 옆 거래소 건물 창고 + 그 도시 내 창고)과 묶음 수 → boat_load(운반꾼이 배로 나른다 — D-555 1505).
+//   연료·포획 장비는 배 창고에서만 꺼내므로 먼저 싣는다. 판은 정박하는 곳(교역 부두·집 정박장)에서만 보인다(HarborPanel.tsx).
 // 서버가 정박·소유·재고·창고 상한을 다시 본다. 결과는 판의 알림 줄(run)로.
 import type { HarborBoatView, HarborItemView } from "@terra/shared/harbor";
 import { useState } from "react";

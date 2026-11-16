@@ -44,9 +44,16 @@ export function boatOutcomeText(
     if (kind === "overheat") return m.boat_overheat_done();
     if (kind === "crew") return m.boat_crew_done();
     if (kind === "seize") return m.boat_seize_done({ id: outcome.boatId ?? 0 });
-    if (kind === "unload") return m.boat_unload_done();
+    // 운반꾼이 나르는 중(기획 대조 boats-5 — D-555 1505): readyAtMs = 닿는 시각
+    if (kind === "unload")
+      return outcome.walking
+        ? m.boat_unload_carrying({ time: durationText((outcome.readyAtMs ?? nowMs) - nowMs) })
+        : m.boat_unload_done();
     if (kind === "gear") return m.boat_gear_done();
-    if (kind === "load") return m.boat_load_done();
+    if (kind === "load")
+      return outcome.walking
+        ? m.boat_load_carrying({ time: durationText((outcome.readyAtMs ?? nowMs) - nowMs) })
+        : m.boat_load_done();
     return m.boat_leave_done();
   }
   switch (outcome.code) {
@@ -130,6 +137,8 @@ export function boatOutcomeText(
       return m.boat_error_bad_slot();
     case "hold_full":
       return m.boat_error_hold_full();
+    case "no_carrier":
+      return m.boat_error_no_carrier();
     case "busy":
     case "rate_limited":
     case "offline":

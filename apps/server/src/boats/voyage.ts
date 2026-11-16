@@ -1,8 +1,9 @@
 // 항해 명령(연료 보급·오버히트·보직·표류한 배 빼앗기) — 기획 D-559 1529·1533·1534·1537·1540, docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559",
 // docs/adr/2026-11-15-sea-combat-routes.md "바뀜 (2026-11-15) D-559".
 // - 연료 보급(1529 "교역 부두에서 보급", D-564 1687 "처음부터 아이템만", D-570 1830 "교역 부두와 내 정박장 모두"): 정박해 있어야 한다(port.ts — 시간을 산
-//   교역 부두나 내 배 시설 둘레). 배 종류 연료 아이템을 배 창고 → 항구 옆 거래소 건물 창고 → 그 도시의 내 창고 차례로 태워 통을 채운다(hold.ts burnFuelItems).
-//   돈으로 채우기는 없다(옛 boat_fuel_price 칸을 뺐다).
+//   교역 부두(제 부두도 요금)나 그 배의 집 정박장 둘레. 조선소는 아니다 — D-559 1523). 배 종류 연료 아이템을 배 창고에서만 태워 통을 채운다(hold.ts
+//   burnFuelItems). 항구 옆 거래소·도시 창고의 연료는 먼저 싣기(boat_load — 운반꾼이 나른다)로 배 창고에 싣는다(D-555 1505 "어떤 유닛이든 실제로 옮겨야",
+//   기획 대조 boats-5). 돈으로 채우기는 없다(옛 boat_fuel_price 칸을 뺐다).
 // - 오버히트(1540 "연료도 씀", "전투 밖에서도"): 켜면 빠르기가 오르고 연료·내구도를 더 쓴다(셈은 harbor.ts 정시 살피기). 끄면 식는 시간 동안 다시 못 켠다.
 //   연료가 없으면 켜지 않는다. 켜고 끌 때 지난 구간을 먼저 셈하고 빠르기를 다시 읽는다(가던 길은 새 빠르기로 이어 간다).
 // - 보직(1533 "캡틴함장, 화포수, 엔진실, 갑판병 기본수리"): 배에 탄 내 유닛을 보직에 둔다. 자리 수는 배 종류 함선 칸(함장 1, 없으면 갑판병 1).
@@ -48,7 +49,7 @@ export function createVoyage(deps: BoatDeps, harbor: Harbor): Voyage {
 
   return {
     refuel(me, boatId, buildingId, operator) {
-      // 정박(교역 부두에 시간을 사고 대어 있거나 내 배 시설에 대어 있음 — D-570 1830 "교역 부두와 내 정박장 모두", port.ts)
+      // 정박(교역 부두에 시간을 사고 대어 있거나 집 정박장에 대어 있음 — D-570 1830 "교역 부두와 내 정박장 모두", port.ts)
       const port = portOf(deps, harbor, me, boatId, buildingId, operator);
       if (portFailed(port)) return port;
       const open = harborAccepts(deps, buildingId);
@@ -62,11 +63,11 @@ export function createVoyage(deps: BoatDeps, harbor: Harbor): Voyage {
       const wasEmpty = harbor.fuelEmpty(state);
       let filled = need;
       if (!operator) {
-        // 연료 아이템(배 종류 fuelItems)을 배 창고 → 항구 옆 거래소 건물 창고 → 그 도시 내 창고 차례로 태운다(D-564 1687)
+        // 연료 아이템(배 종류 fuelItems)을 배 창고에서 태운다(D-564 1687 — 땅의 창고 연료는 싣기로 먼저 나른다, D-555 1505)
         const catalog = deps.places()?.catalog();
         const fuels = harbor.typeOf(state)?.fuelItems ?? [];
         if (!catalog || fuels.length === 0) return fail("no_fuel_items");
-        const from = [cargoLocation(boatId), ...port.places];
+        const from = [cargoLocation(boatId)];
         filled = burnFuelItems(deps.ledger, catalog, port.boatOwner, fuels, from, need, at).milli;
         if (filled <= 0) return fail("no_fuel_items");
       }

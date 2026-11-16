@@ -148,8 +148,10 @@ export function startWorldGather(
         ownUnits: (ownerId, mapKey) => {
           const found: number[] = [];
           world.maps.get(mapKey)?.forEachUnit((unit) => {
+            // 배에 탄 유닛은 빼낸다(움직이면 배가 움직인다 — 배 상하역 운반꾼, D-555 1505)
             if (
               unit.ownerId === ownerId &&
+              unit.aboard === undefined &&
               (unit.kind === UNIT_KIND_HUMAN || unit.kind === UNIT_KIND_CYBORG_UNIT)
             )
               found.push(unit.id);

@@ -619,6 +619,56 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
     expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(22))).toBe(0n);
   });
 
+  it("실제 운반 하나(carry — 배 상하역, D-555 1505): 나르는 중 무게를 받는 자리로 세고, 닿을 때 받는 자리를 다시 고른다", () => {
+    const r = rig({ store: { x: 30, y: 24 } });
+    const dockId = r.storeId ?? 0;
+    const hold = cargoLocation(900);
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -5n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, cityLocation(CITY)), amount: 5n },
+      ],
+    });
+    const spec = {
+      ownerId: OWNER,
+      buildingId: dockId,
+      mapKey: r.map.mapKey,
+      cityId: CITY,
+      source: cityLocation(CITY),
+      deliverTo: hold,
+      from: { x: 40, y: 30 },
+      to: { x: 30, y: 24 },
+      loads: [{ asset: ORE, qty: 2n }],
+      atMs: NOW,
+      instantKind: "boat_load",
+    };
+    expect(r.runtime.carry(spec)).toBe("unknown_unit");
+    r.map.addUnit({
+      id: 23,
+      size: 1,
+      speed: WALK_SPEED,
+      cellX: 40,
+      cellY: 30,
+      ownerId: OWNER,
+      kind: UNIT_KIND_HUMAN,
+    });
+    let gone = false;
+    const left = r.runtime.carry({ ...spec, redirect: () => (gone ? cityLocation(CITY) : undefined) });
+    expect(left).toMatchObject({ porter: 23 });
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(23))).toBe(2n);
+    expect(r.runtime.inbound(hold)).toBe(2n);
+    // 같은 운반꾼 짐에 합친다(배가 떠나면 둘 다 꺼낸 자리로)
+    expect(r.runtime.carry({ ...spec, loads: [{ asset: ORE, qty: 1n }] })).toMatchObject({ porter: 23 });
+    expect(r.runtime.inbound(hold)).toBe(3n);
+    gone = true;
+    r.runtime.haulNow(r.runtime.trip(dockId)?.arriveAtMs ?? 0);
+    expect(r.runtime.inbound(hold)).toBe(0n);
+    expect(r.ledger.balanceOf(OWNER, ORE, hold)).toBe(0n);
+    expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(5n);
+  });
+
   it("자동 옮김은 주인 자동 구매(D-569 1781): 산 만큼만 옮기고, 못 사면 창고에 남는다", () => {
     const asked: bigint[] = [];
     let allow = 0n;

@@ -1,9 +1,11 @@
 // 함포 칸 포획 장비(boat_gear)와 배 채집 일꾼 — 기획 D-570 1821 "어선의 함포칸에 장비하는 포획장비에 따라 채집가능한 최대티어가 정해지고 유닛들마다
 // 채집티어확률로 적용됨. 함포처럼 채집사이클 및 포획장비마다 유닛배치. 어선은 함장1명 및 낚시선원 3명 이런식으로 배정됨.", docs/adr/2026-11-15-shipyard-harbor.md
 // "바뀜 (D-570)".
-// - 달기: 정박한 항구(port.ts)에서 배 종류 catchGear에 있는 아이템을 함포 칸 하나에 단다. 장비 아이템 한 묶음을 배 창고 → 항구 옆 거래소 건물 창고 → 그 도시
-//   내 창고 차례로 꺼내 배에 붙인다(원장 sink:item:<ID> — 배의 일부가 된다, 건물 재료와 같은 계정). 칸에 다른 장비가 있으면 먼저 뗀다.
-// - 떼기: 장비를 배 창고로 돌려준다(원장 source:item:<ID>, 배 창고가 차면 그 도시 내 창고로). 장비는 배에 남아 배 주인이 바뀌어도(빼앗기·압류 뒤 넘어감) 함께 간다.
+// - 달기: 정박한 항구(port.ts — 시간을 산 교역 부두·집 정박장)에서 배 종류 catchGear에 있는 아이템을 함포 칸 하나에 단다. 장비 아이템 한 묶음을 배 창고에서
+//   꺼내 배에 붙인다(원장 sink:item:<ID> — 배의 일부가 된다, 건물 재료와 같은 계정). 땅의 창고 장비는 싣기(boat_load — 운반꾼)로 먼저 싣는다(D-555 1505,
+//   기획 대조 boats-5). 칸에 다른 장비가 있으면 먼저 뗀다.
+// - 떼기: 장비를 배 창고로 돌려준다(원장 source:item:<ID>). 배 창고가 모자라면 hold_full(땅의 창고로 바로 보내지 않는다 — 내리기로 나른다).
+//   장비는 배에 남아 배 주인이 바뀌어도(빼앗기·압류 뒤 넘어감) 함께 간다.
 // - 장비를 단 칸의 함포는 쉰다(해상 전투 몸 navalHooks.boatBody가 그 칸을 뺀다).
 // - 일꾼(catchCrew): 보직이 낚시 선원(fisher)이고 배에 탄 유닛을 유닛 번호 차례로, 장비를 단 칸 차례에 하나씩 짝짓는다(함포 하나에 화포수 하나와 같은 틀). 짝이
 //   없는 선원·선원이 없는 장비는 쉰다. 일꾼이 없으면 채집 줄을 시킨 유닛 혼자 설정 칸 boat_bare_catch_tier까지 잡는다(gather/boatCrew.ts).
@@ -34,28 +36,36 @@ export interface BoatGear {
 export function createBoatGear(deps: BoatDeps, harbor: Harbor): BoatGear {
   const { now } = deps;
 
-  /** 칸의 장비를 뗀다(배 창고 → 차면 항구 도시 창고). 뗀 아이템(없으면 null) */
+  /** 칸의 장비를 배 창고로 돌려줄 무게가 남았나(free = 먼저 배 창고에서 빠질 무게) */
+  const roomFor = (port: Port, item: string, free: bigint): boolean => {
+    const catalog = deps.places()?.catalog();
+    if (!catalog) return false;
+    const asset = goodsAsset(item);
+    const weight = (catalog.lotSize.get(asset) ?? 1n) * assetWeightG(catalog, asset);
+    const room =
+      BigInt(holdCapGrams(harbor.typeOf(port.state), deps.rules())) -
+      holdGrams(deps.ledger, catalog, port.boatOwner, port.state.boatId) +
+      free;
+    return weight <= room;
+  };
+
+  /** 칸의 장비를 뗀다(배 창고로 — 자리는 부르는 쪽이 roomFor로 먼저 본다). 뗀 아이템(없으면 null) */
   const takeOff = (port: Port, slot: number, at: number, operator: boolean): string | null => {
     const item = port.state.gear[slot] ?? null;
     if (item === null) return null;
     port.state.gear[slot] = null;
     if (operator) return item;
-    const catalog = deps.places()?.catalog();
     const asset = goodsAsset(item);
-    const qty = catalog?.lotSize.get(asset) ?? 1n;
-    const room = catalog
-      ? BigInt(holdCapGrams(harbor.typeOf(port.state), deps.rules())) -
-        holdGrams(deps.ledger, catalog, port.boatOwner, port.state.boatId)
-      : 0n;
-    const weight = catalog ? qty * assetWeightG(catalog, asset) : 0n;
-    const to = weight <= room ? cargoLocation(port.state.boatId) : (port.places.at(-1) ?? null);
-    if (to === null) return item;
+    const qty = deps.places()?.catalog().lotSize.get(asset) ?? 1n;
     deps.ledger.post({
       kind: "boat_gear_off",
       atMs: at,
       entries: [
         { account: deps.ledger.systemAccount(`source:${asset}`, asset), amount: -qty },
-        { account: deps.ledger.ownerAccount(port.boatOwner, asset, to), amount: qty },
+        {
+          account: deps.ledger.ownerAccount(port.boatOwner, asset, cargoLocation(port.state.boatId)),
+          amount: qty,
+        },
       ],
     });
     return item;
@@ -71,7 +81,9 @@ export function createBoatGear(deps: BoatDeps, harbor: Harbor): BoatGear {
       const at = now();
       const gear = port.state.gear;
       while (gear.length < slots) gear.push(null);
+      const current = gear[slot] ?? null;
       if (item === null) {
+        if (current !== null && !operator && !roomFor(port, current, 0n)) return fail("hold_full");
         takeOff(port, slot, at, operator);
         harbor.saveState(port.state);
         return { ok: true, boatId };
@@ -79,14 +91,14 @@ export function createBoatGear(deps: BoatDeps, harbor: Harbor): BoatGear {
       if (!type?.catchGear?.some((row) => row.item === item)) return fail("not_catch_gear");
       if (gear[slot] === item) return { ok: true, boatId };
       if (!operator) {
-        // 새 장비 한 묶음을 꺼낼 수 있는지 먼저 본다(옛 장비를 떼기 전에)
+        // 새 장비 한 묶음을 배 창고에서 꺼낼 수 있는지, 옛 장비가 배 창고에 들어가는지 먼저 본다(옛 장비를 떼기 전에)
         const catalog = deps.places()?.catalog();
         const asset = goodsAsset(item);
         const qty = catalog?.lotSize.get(asset) ?? 1n;
-        const from = [cargoLocation(boatId), ...port.places].find(
-          (location) => deps.ledger.balanceOf(port.boatOwner, asset, location) >= qty,
-        );
-        if (from === undefined) return fail("insufficient_materials");
+        const from = cargoLocation(boatId);
+        if (deps.ledger.balanceOf(port.boatOwner, asset, from) < qty) return fail("insufficient_materials");
+        const freed = catalog ? qty * assetWeightG(catalog, asset) : 0n;
+        if (current !== null && !roomFor(port, current, freed)) return fail("hold_full");
         deps.ledger.post({
           kind: "boat_gear_on",
           atMs: at,

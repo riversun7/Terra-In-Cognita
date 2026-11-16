@@ -11,6 +11,8 @@
 //   본체는 빼낸다 [임시]). 판매면 물건은 떠날 때 판 사람의 건물 창고에서 산 사람 몫의 운반꾼 화물로 간다(거래 business_sale_goods).
 // - 거래소 넣기(기획 D-564 1628, docs/adr/2026-11-16-exchange-buildings.md): 도시 창고 → 물자 거래소 건물 창고도 같은 운반꾼이 나른다(deliverTo = 그 건물
 //   창고). 떠날 때 도시 창고에서 운반꾼 화물로, 닿으면 거래소 건물 창고로 넣는다(같은 거래 이름).
+// - 배 상하역(기획 D-555 1505, boats/cargo.ts — station.ts carry): 배 창고 ↔ 항구 옆 거래소 건물 창고·도시 창고도 같은 짐이다. 싣는 짐은 닿을 때 배가
+//   그 항구에 없으면 꺼낸 자리로 돌려놓는다(redirect).
 // - 같은 채집소·같은 주인의 짐이 떠난 지 MERGE_MS 안이면 그 짐에 더한다(손으로 옮기기는 물건마다 명령을 보낸다 — 운반꾼 하나가 한 번에 진다).
 // - [임시] 나르는 중 상태는 메모리다. 다시 켜면 화물은 운반꾼에 남아 있어 다음 정시에 그 유닛의 화물로 짐을 다시 떠나보낸다(resume).
 // 정수 연산만 쓴다.
@@ -46,6 +48,8 @@ export interface PorterTrip {
   readonly to: CellPoint;
   /** 닿으면 넣는 원장 위치(도시 창고, 거래소 넣기는 그 거래소 건물 창고 — D-564 1628) */
   readonly deliverTo: number;
+  /** 닿을 때 받을 자리를 다시 고른다(배 싣기 — 배가 떠났으면 꺼낸 자리로, boats/cargo.ts). undefined를 돌려주면 deliverTo */
+  readonly redirect?: (() => number | undefined) | undefined;
   /** 다음에 걸어갈 쪽 */
   heading: "store" | "station";
   /** 이동 명령을 기다리는 중 */
@@ -120,6 +124,8 @@ export interface Porters {
     readonly sourceOwnerId?: number | undefined;
     /** 닿으면 넣는 원장 위치(없으면 그 도시 창고 — 거래소 넣기는 거래소 건물 창고, docs/adr/2026-11-16-exchange-buildings.md) */
     readonly deliverTo?: number | undefined;
+    /** 닿을 때 받을 자리를 다시 고른다(PorterTrip.redirect) */
+    readonly redirect?: (() => number | undefined) | undefined;
   }): PorterTrip;
   /** 닿은 짐을 도시 창고에 넣는다. 넣은 계정 수 */
   arriveDue(nowMs: number): number;
@@ -174,6 +180,7 @@ export function createPorters(deps: PorterDeps): Porters {
   const deliver = (trip: PorterTrip): number => {
     const entries: { account: number; amount: bigint }[] = [];
     let count = 0;
+    const target = trip.redirect?.() ?? trip.deliverTo;
     for (const [asset, qty] of [...trip.lines].toSorted((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))) {
       const from = ledger.ownerAccount(trip.ownerId, asset, cargoLocation(trip.porter));
       const have = ledger.balance(from);
@@ -181,7 +188,7 @@ export function createPorters(deps: PorterDeps): Porters {
       if (moved <= 0n) continue;
       entries.push(
         { account: from, amount: -moved },
-        { account: ledger.ownerAccount(trip.ownerId, asset, trip.deliverTo), amount: moved },
+        { account: ledger.ownerAccount(trip.ownerId, asset, target), amount: moved },
       );
       count += 1;
     }
@@ -292,6 +299,7 @@ export function createPorters(deps: PorterDeps): Porters {
         from: spec.from,
         to: spec.to,
         deliverTo,
+        redirect: spec.redirect,
         heading: "store",
         walking: false,
       };

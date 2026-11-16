@@ -50,6 +50,11 @@ export const OUTSOURCE_PROTOCOL_VERSION = 48;
  * 기기는 보내지 않는다(서버는 기본 선택으로 본다)
  */
 export const LAND_CLAIM_PROTOCOL_VERSION = 53;
+/**
+ * 짓는 중 알박기 고르기 바꾸기(facility_claim, 기획 D-577 — "정부 건물 완성 때 발효, 완성 전에는 언제든 바꿀 수 있게")가 생긴 판. 더 낮은 판
+ * 기기는 보내지 않는다(그 판은 짓기 때 고른 것이 그대로 간다)
+ */
+export const FACILITY_CLAIM_PROTOCOL_VERSION = 72;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -214,6 +219,21 @@ export const facilityGatherTierMessage = z.object({
   tier: z.number().int().min(0).max(9).nullable(),
 });
 
+/**
+ * 짓는 중 알박기 고르기 바꾸기(판 72, 기획 D-577): 빈 2차맵에 짓는 중인 내 정부(행정) 건물의 고르기(facility_build claim과 같은 꼴)를 바꾼다.
+ * 다 지어질 때 발효한다(그때의 고르기로 도시가 선다). 다 지었거나 멈춘 건물(남의 도시가 먼저 섬)은 not_buildable, 알박기 정부가 아니면
+ * not_facility. 결과는 facility_result
+ */
+export const facilityClaimMessage = z.object({
+  t: z.literal("facility_claim"),
+  id: requestId,
+  buildingId: rowId,
+  claim: z.object({
+    mode: z.enum(["nation", "independent"]),
+    regime: z.enum(["dictatorship", "democracy", "capitalism"]).optional(),
+  }),
+});
+
 /** 개발 시험: 하던 작업(짓기·레벨업·수리·장비 수리) 바로 끝내기(권한 secondMap: dev-test) */
 export const devFacilityFinishMessage = z
   .object({
@@ -355,5 +375,6 @@ export const facilityClientMessages = [
   facilityPlotMessage,
   facilityPlotRemoveMessage,
   facilityGatherTierMessage,
+  facilityClaimMessage,
 ] as const;
 export const facilityServerMessages = [facilityResultMessage] as const;

@@ -70,6 +70,10 @@ function fakeService(calls: string[]): FacilityService {
       calls.push(`tier:${userId}:${buildingId}:${String(tier)}`);
       return Promise.resolve({ ok: false, code: "tier_locked" });
     },
+    claimChoice: (userId, buildingId, claim) => {
+      calls.push(`claim:${userId}:${buildingId}:${claim.mode}:${String(claim.regime)}`);
+      return Promise.resolve({ ok: true });
+    },
     repair: (userId, target, steps, unitIds) => {
       calls.push(`repair:${userId}:${JSON.stringify(target)}:${steps}:${unitIds.join(",")}`);
       return Promise.resolve({ ok: true, doneAtMs: 2_000 });
@@ -243,6 +247,24 @@ describe("건물 연결 처리", () => {
       { t: "facility_result", id: 6, ok: false, code: "plot_full" },
       { t: "facility_result", id: 7, ok: false, code: "no_plot" },
       { t: "facility_result", id: 8, ok: false, code: "tier_locked" },
+    ]);
+  });
+
+  it("짓는 중 알박기 고르기 바꾸기(72, D-577)를 넘기고 결과를 돌려준다", async () => {
+    const calls: string[] = [];
+    const { sent, socket } = open(fakeService(calls), player);
+    socket.handle({
+      t: "facility_claim",
+      id: 1,
+      buildingId: 7,
+      claim: { mode: "independent", regime: "capitalism" },
+    });
+    socket.handle({ t: "facility_claim", id: 2, buildingId: 7, claim: { mode: "nation" } });
+    for (let i = 0; i < 6; i++) await settle();
+    expect(calls).toEqual(["claim:user-1:7:independent:capitalism", "claim:user-1:7:nation:null"]);
+    expect(sent).toEqual([
+      { t: "facility_result", id: 1, ok: true },
+      { t: "facility_result", id: 2, ok: true },
     ]);
   });
 

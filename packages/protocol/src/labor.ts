@@ -32,6 +32,12 @@ export const LABOR_ASSIGN_PROTOCOL_VERSION = 14;
  */
 export const LABOR_MAP_PROTOCOL_VERSION = 15;
 
+/**
+ * 멈춘 계약 기다림(labor_wait, 기획 대조 2237 — D-6006 처리할 일은 서버가 계정마다 보낸다)에 필요한 가장 낮은 프로토콜 버전. 메시지를 더해 판을
+ * 올렸다(ADR 7). 더 낮은 판 기기는 이 메시지를 보내지 않는다(그 판은 [기다림]을 그 기기에만 접었다)
+ */
+export const LABOR_WAIT_PROTOCOL_VERSION = 72;
+
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -138,6 +144,19 @@ export const laborUnassignMessage = z.object({
   unitId: rowId,
 });
 
+/**
+ * 멈춘 계약 기다림(판 72, 기획 대조 2237 — D-573 2045 "기다릴지 해지하고 다른곳으로 갈지 정함"): 일꾼 유닛 주인이 일시 중지된 임금형 계약의
+ * 처리할 일(labor_paused)을 접는다. 계약은 그대로(이미 일시 중지 — 사업장에 수익이 나면 다시 일한다). 서버가 그 멈춤 회차(dueAt = 밀린 지급
+ * 시각 = 처리할 일의 처음 생긴 시각)에 "기다림" 표시를 남겨 같은 계정의 모든 기기에서 접힌다. 같은 계약이 다시 돌다 또 멈추면(dueAt가 바뀜)
+ * 다시 보인다. 그 회차가 아니면(이미 다시 돎·해지) not_open
+ */
+export const laborWaitMessage = z.object({
+  t: z.literal("labor_wait"),
+  id: requestId,
+  contractId: rowId,
+  dueAt: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+});
+
 // ---------- 서버 → 기기 ----------
 
 export const LABOR_RESULT_CODES = [
@@ -204,5 +223,6 @@ export const laborClientMessages = [
   laborAcceptJobMessage,
   laborAssignMessage,
   laborUnassignMessage,
+  laborWaitMessage,
 ] as const;
 export const laborServerMessages = [laborResultMessage] as const;

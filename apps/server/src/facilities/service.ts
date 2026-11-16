@@ -61,6 +61,7 @@ import {
   plotOpen,
   removePlot,
 } from "./plots.ts";
+import { type ClaimCommands, chooseClaim } from "./claimChoice.ts";
 import {
   type PlaceWorld,
   beaconMaterialScope,
@@ -111,7 +112,7 @@ export type {
 } from "./serviceTypes.ts";
 
 /** 면적 모듈 붙이기·떼기·기르는 티어 고르기(건물 채집소, 기획 D-567·D-569 1761·1765)는 plots.ts PlotCommands */
-export interface FacilityService extends PlotCommands {
+export interface FacilityService extends PlotCommands, ClaimCommands {
   build(userId: string, input: FacilityBuildInput): Promise<FacilityCommandResult>;
   /**
    * NPC 증축 짓기(질문 1101 나): 플레이어 짓기와 같이 그 도시 창고·창고 시설에서 재료를 빼고, 건물 칸을 놓고(레벨 0), 짓기 작업을 건다(일꾼 유닛을
@@ -815,6 +816,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       plotDone(addPlot(plotDeps, userId, buildingId, unitIds, operator !== undefined)),
     plotRemove: (userId, buildingId) => plotDone(removePlot(plotDeps, userId, buildingId)),
     gatherTier: (userId, buildingId, tier) => plotDone(chooseTier(plotDeps, userId, buildingId, tier)),
+    claimChoice: (userId, buildingId, claim) => plotDone(chooseClaim(plotDeps, userId, buildingId, claim)),
 
     async repair(userId, target, steps, unitIds) {
       const at = now();

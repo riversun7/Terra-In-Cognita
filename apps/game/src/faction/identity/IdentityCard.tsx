@@ -4,8 +4,10 @@
 // docs/adr/2026-11-11-faction-identity.md 2·5절
 // 바뀜(질문 985 다): 가문원 목록·초대·가입 신청·나가기·가문 소식은 HouseSection(factionIdentity.house — 이 조회도 따로, 실패하면 그 부분만
 // 빠진다). 다른 사람의 가문에 든 가문원에게는 그 가문의 이름·마크가 보이고 [가문 창설] 링크는 없다(사용자마다 한 가문).
+// 바뀜(질문 2242 이름 붙이기 길): 이름이 자리표시("가문 #ID" — 서버가 만든 이름 없는 1인 가문, 운영자가 되돌린 이름)면 안내 한 줄과 [이름 정하기]
+// (같은 정체성 화면 — 이름 대기 없이 바로 정한다).
 import { type FactionIdentityMine, labelTextOn } from "@terra/shared/factionIdentity";
-import type { HouseView } from "@terra/shared/house";
+import { type HouseView, houseResetName } from "@terra/shared/house";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { useScreenQuery } from "../../sections/useScreenQuery.ts";
@@ -71,6 +73,8 @@ export function IdentityCard() {
   const memberOf = houseView?.house?.role === "member" ? houseView.house : null;
   const identity = memberOf ?? mine.identity;
   const founded = mine.house !== null || memberOf !== null;
+  // 내 가문의 이름이 아직 자리표시(서버가 만든 1인 가문·운영자가 되돌린 이름)
+  const unnamed = mine.house !== null && mine.identity?.name === houseResetName(mine.house.factionId);
   return (
     <section
       className="panel faction-me fid-card"
@@ -106,14 +110,21 @@ export function IdentityCard() {
         <p className="faction-muted">{m.faction_identity_unset()}</p>
       )}
       {identity && !founded ? <p className="faction-muted">{m.faction_identity_draft()}</p> : null}
+      {unnamed && !memberOf ? (
+        <p className="faction-muted" data-part="fid-unnamed">
+          {m.faction_identity_unnamed()}
+        </p>
+      ) : null}
       <p className="faction-muted fid-card-note">{m.faction_identity_note()}</p>
       {memberOf ? null : (
         <AppLink className="fid-card-link" to={{ route: "faction_identity" }}>
-          {founded
-            ? m.faction_identity_edit()
-            : identity
-              ? m.faction_identity_finish()
-              : m.faction_identity_start()}
+          {unnamed
+            ? m.faction_identity_name_house()
+            : founded
+              ? m.faction_identity_edit()
+              : identity
+                ? m.faction_identity_finish()
+                : m.faction_identity_start()}
         </AppLink>
       )}
       {houseView ? (

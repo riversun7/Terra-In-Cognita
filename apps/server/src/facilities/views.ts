@@ -6,6 +6,7 @@ import type {
   FacilityCatalogView,
   FacilityHoldingView,
   FacilityJobView,
+  FacilityLandClaim,
   FacilityStackView,
   FacilityTargetView,
   FacilityView,
@@ -64,6 +65,9 @@ export interface FacilityViewSource {
   readonly suspended?: ((buildingId: number) => boolean) | undefined;
   /** 그 숙소를 쓰는 NPC 일꾼 수(도시 경제 쉼터 계획, 질문 1047 다). 없으면 null */
   readonly lodgingOccupants?: ((buildingId: number, cityId: number | null) => number | undefined) | undefined;
+  /** 빈 2차맵 알박기의 편·가문이 정한 상태(폐허 서비스 claimOf·claimLockedOf — 짓는 중 고르기 바꾸기 칸, D-577). 없으면 kind null·locked null */
+  readonly claimOf?: ((ownerId: number, mapKey: number) => FacilityLandClaim | null) | undefined;
+  readonly claimLockedOf?: ((ownerId: number) => "vassal" | "independent" | null) | undefined;
 }
 
 /** 내 세력 비콘 하나(영토 서비스)와 재료를 꺼내는 도시(그 세력에서 가장 가까운 도시, 질문 410 ①) */
@@ -388,6 +392,16 @@ export function facilitiesOverview(
             ? Math.max(0, record.level) * Math.max(0, def.slotsPerLevel)
             : 0,
         ...(def.stage === "medical" ? { medical: true } : {}),
+        // 짓는 중 알박기 정부의 고르기(D-577 — 다 지어질 때 발효, facility_claim으로 바꾼다)
+        ...(record.claim && record.level < 1
+          ? {
+              landClaim: {
+                choice: record.claim,
+                kind: source.claimOf?.(ownerId, map.mapKey) ?? null,
+                locked: source.claimLockedOf?.(ownerId) ?? null,
+              },
+            }
+          : {}),
         workers: (source.workersOf?.(building.id) ?? []).map((worker) => {
           if (worker.via === "assign") myWork.set(worker.unitId, building.id);
           return {

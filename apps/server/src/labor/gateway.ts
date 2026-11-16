@@ -3,6 +3,7 @@
 // - 사용자별 속도 제한(순간 10번, 분당 30번). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 판정·저장은 서비스(service.ts)가 한다. 세계가 아직 없으면(부팅 중·DB 없음) busy.
 // - 운영자 모드 연결(전체 보기 + 모든 유닛 명령 권한)의 관리 명령(해지·채우기·임대료·구인)은 남의 건물에도 된다(docs/adr/2026-11-15-building-screen.md).
+// - 멈춘 계약 기다림(labor_wait, 프로토콜 72 — 기획 대조 2237)은 서비스가 아니라 DB에 바로 쓴다(pauseWait.ts — 처리할 일과 같은 원천). DB가 없으면 busy.
 // - 결과 코드 wrong_map(판 15, docs/adr/2026-11-07-play-flow.md "WP8")은 15판 연결에만 가고 더 낮은 판은 invalid_terms를 받는다.
 import {
   type ClientMessageOf,
@@ -11,6 +12,7 @@ import {
   encodeMessage,
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
+import type { QueryPool } from "../world/persist/load.ts";
 import type { Viewer } from "../trpc/context.ts";
 import {
   type OperatorPaceLink,
@@ -19,6 +21,7 @@ import {
   operatorFactor,
   withPace,
 } from "../world/operatorPace.ts";
+import { waitPausedContract } from "./pauseWait.ts";
 import type { LaborCommandResult, LaborService } from "./service.ts";
 
 export type LaborClientMessage = ClientMessageOf<
@@ -31,7 +34,11 @@ export type LaborClientMessage = ClientMessageOf<
   | "labor_accept_job"
   | "labor_assign"
   | "labor_unassign"
+  | "labor_wait"
 >;
+
+/** 서비스가 처리하는 명령(기다림은 DB에 바로 — pauseWait.ts) */
+type ServiceMessage = Exclude<LaborClientMessage, { t: "labor_wait" }>;
 
 const MAX_PENDING = 8;
 const LIMIT = { capacity: 10, refillPerMinute: 30 };
@@ -72,7 +79,7 @@ const fail = (code: LaborResultCode): LaborCommandResult => ({ ok: false, code }
 function run(
   service: LaborService,
   userId: string,
-  message: LaborClientMessage,
+  message: ServiceMessage,
   operator: boolean,
 ): Promise<LaborCommandResult> {
   switch (message.t) {
@@ -117,7 +124,7 @@ function run(
 }
 
 /** 운영자 빠르기 표시를 다는 명령의 유닛(없으면 undefined) */
-function pacedUnit(message: LaborClientMessage): number | undefined {
+function pacedUnit(message: ServiceMessage): number | undefined {
   if (message.t === "labor_assign" || message.t === "labor_unassign" || message.t === "labor_accept_job")
     return message.unitId;
   return undefined;
@@ -130,6 +137,8 @@ export function createLaborGateway(options: {
   maps?: (() => Iterable<PaceMap>) | undefined;
   now: () => number;
   log: { error(obj: object, message: string): void };
+  /** 멈춘 계약 기다림(labor_wait)이 쓰는 DB. 없으면 그 명령은 busy */
+  pool?: QueryPool | undefined;
 }): LaborGateway {
   const limiter: RateLimiter = createRateLimiter({ ...LIMIT, now: options.now });
   return {
@@ -151,6 +160,11 @@ export function createLaborGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
+        if (message.t === "labor_wait") {
+          if (!options.pool) return reply(message.id, fail("busy"));
+          const input = { userId: viewer.id, contractId: message.contractId, dueAt: message.dueAt };
+          return reply(message.id, await waitPausedContract(options.pool, input));
+        }
         // 일을 맡기는 유닛 명령(직무 배치·풀기·일자리 받기)은 운영자 빠르기 표시를 단다·지운다 — 운반꾼 걸음·나르는 시간(gather/station.ts)이
         // 읽는다(사용자 지적 2026-11-12, world/operatorPace.ts)
         const unitId = pacedUnit(message);

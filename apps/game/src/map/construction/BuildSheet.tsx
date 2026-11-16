@@ -9,6 +9,8 @@
 // - 빈 2차맵 알박기(기획 D-572·D-574·D-575): 정부(행정) 건물을 고르면 서버 미리 묻기(landRule claim)로 다 지었을 때 새 도시의 주인(가문 |
 //   1인 독재 도시 | 세력)을 알리고, 가문·1인 도시면 "소속 국가로 귀속 | 독립"을 고른다(기본 = @terra/shared/facilities DEFAULT_LAND_CLAIM_MODE,
 //   가문 독립이면 체제도). 가문이 이미 봉신·독립을 정했으면(claimLocked) 고르지 않고 그 상태를 알린다. 고른 것은 facility_build claim(프로토콜 53).
+//   바뀜(기획 D-577): 고르기는 다 지어질 때 발효한다 — 고르기 칸 위에 경고 한 줄(완성 때 적용·짓는 중에는 경제 화면 시설 카드에서 바꿈 —
+//   facility_claim, 프로토콜 72).
 // - 명령은 WebSocket facility_build(facilityCommands.ts). 성공하면 건축 모드를 닫는다(건물은 지도 자료로 짓는 중 모습이 온다).
 import type { SecondMapEngine } from "@terra/engine";
 import { createBuildPreview } from "@terra/engine";
@@ -21,6 +23,7 @@ import {
 import { cityOfCell } from "@terra/shared/goodsPlaces";
 import { type RefObject, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { waterStateOf } from "../../economy/FacilityPanel.tsx";
+import { CLAIM_MODE_TEXT, CLAIM_REGIME_TEXT } from "../../economy/claimText.ts";
 import { formatDuration, pickName } from "../../economy/economyText.ts";
 import { sendFacilityCommand } from "../../economy/facilityCommands.ts";
 import { FACILITY_ERROR_TEXT, canAfford, stacksText, stockAt } from "../../economy/facilityText.ts";
@@ -53,17 +56,6 @@ const CLAIM_TEXT = {
   personal: m.build_claim_personal,
   faction: m.build_claim_faction,
 } as const;
-
-const CLAIM_MODE_TEXT: Readonly<Record<LandClaimMode, () => string>> = {
-  nation: m.build_claim_mode_nation,
-  independent: m.build_claim_mode_independent,
-};
-
-const CLAIM_REGIME_TEXT: Readonly<Record<LandClaimRegime, () => string>> = {
-  dictatorship: m.build_claim_regime_dictatorship,
-  democracy: m.build_claim_regime_democracy,
-  capitalism: m.build_claim_regime_capitalism,
-};
 
 export function BuildSheet({
   mode,
@@ -325,6 +317,9 @@ export function BuildSheet({
           {choosing ? (
             <fieldset className="map-build-claim-choice" data-part="build-claim-choice" data-mode={claimMode}>
               <legend className="map-units-note">{m.build_claim_mode_label()}</legend>
+              <p className="map-units-note" data-part="build-claim-warning">
+                {m.build_claim_effect_warning()}
+              </p>
               <div className="map-build-claim-options">
                 {(["nation", "independent"] as const).map((option) => (
                   <label key={option} className="map-build-claim-option">

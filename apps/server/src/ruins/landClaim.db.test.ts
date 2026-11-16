@@ -211,6 +211,17 @@ describe.skipIf(!TEST_DATABASE_URL)("빈 2차맵 알박기 완성(D-572·D-574·
     expect(factionRows).toEqual([
       { kind: "player", parent_id: String(one.factionRow), born_of: String(one.factionRow) },
     ]);
+    // 이름 없는 1인 가문 → 자리표시 정체성(질문 2242 이름 붙이기 길 — 운영자가 되돌린 이름과 같은 꼴, 이름 대기 없음)
+    expect(
+      await rows(test.db, "select name, short_name, source from faction_profiles where faction_id = $1", [
+        house,
+      ]),
+    ).toEqual([
+      { name: `가문 #${house}`, short_name: `H${house.toString(36).toUpperCase()}`, source: "player" },
+    ]);
+    expect(
+      await rows(test.db, "select faction_id, name from faction_identities where user_id = $1", [one.userId]),
+    ).toEqual([{ faction_id: String(house), name: `가문 #${house}` }]);
     const cityRows = await rows<{ faction_id: string; map_key: string }>(
       test.db,
       "select faction_id, map_key from world_cities where id = $1",
@@ -257,7 +268,7 @@ describe.skipIf(!TEST_DATABASE_URL)("빈 2차맵 알박기 완성(D-572·D-574·
       claimLocked: "vassal",
     });
 
-    // 귀속한 1인 가문의 독립 선언(D-575): 가문 도시가 모두 알박기 도시라 열림 → 독립 + 고른 체제. 다시 하면 not_vassal
+    // 귀속한 1인 가문의 독립 선언(D-575·D-577 가문 단위): 알박기 도시가 있어 열림 → 가문 전체가 독립 + 고른 체제. 다시 하면 not_vassal
     expect(await houseCity.view(one.userId, { factionId: house, leader: true })).toMatchObject({
       status: "vassal",
       independence: "open",

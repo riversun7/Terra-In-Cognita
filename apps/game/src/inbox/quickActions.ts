@@ -6,7 +6,7 @@
 // - 실제 항목: 보낼 길이 없어 버튼을 그리지 않는다. 줄을 눌러 그 화면에서 처리한다. inbox_action을 만들 때 여기를 바꾼다
 //   (결과를 받으면 처리할 일을 다시 받는다: store.ts refreshInbox).
 //   바뀜 (기획 대조 2163): 그 시스템의 기존 명령으로 처리할 수 있는 종류는 실제 항목에도 버튼을 그린다(LIVE_ACTION_KINDS) — labor_paused의 [기다림]
-//   (이 기기에서 접기, folded.ts)·[해지](labor_terminate — 경제 화면과 같은 WebSocket 명령, liveActions.ts).
+//   (labor_wait — 계정에 저장해 모든 기기에서 접힘, 기획 대조 2237)·[해지](labor_terminate — 경제 화면과 같은 WebSocket 명령, liveActions.ts).
 // - 모르는 동작 ID(더 새 서버)와 모르는 종류의 동작은 그리지 않는다(뜻을 모른다).
 // 동작 ID 목록은 종류 표의 타입에서 나온다(값은 가져오지 않는다). 표에 동작이 늘면 satisfies가 빠진 이름을 알려 준다.
 import type { INBOX_KINDS, InboxItem, InboxKindId } from "@terra/shared/inbox";

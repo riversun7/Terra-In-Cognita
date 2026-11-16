@@ -15,7 +15,6 @@ import { getSessionState, refreshSession } from "../auth/session.ts";
 import type { HomeQueryResult } from "../net/homeQueries.ts";
 import { serverLink } from "../net/serverLink.ts";
 import type { PlainMessageKey } from "../ui/messageRef.ts";
-import { withoutFolded } from "./folded.ts";
 import { isPreviewOn, subscribePreview } from "./preview.ts";
 
 export type InboxStatus = "idle" | "loading" | "ready" | "failed";
@@ -243,9 +242,8 @@ const store = createInboxStore({
   async load(preview, signal) {
     try {
       const queries = await loadQueries();
-      const result = await queries.loadInbox(preview, signal);
-      // 이 기기에서 접은 줄([기다림] — folded.ts)은 뺀다
-      return result.ok ? { ...result, data: withoutFolded(result.data) } : result;
+      // [기다림]으로 접은 줄은 서버가 빼고 보낸다(기획 대조 2237 — 계정에 저장, 모든 기기에서 같다)
+      return await queries.loadInbox(preview, signal);
     } catch {
       // 조각을 받지 못함(오프라인, 배포 뒤 옛 조각)
       return { ok: false, error: "err_network", sessionEnded: false };

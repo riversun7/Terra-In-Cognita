@@ -52,6 +52,9 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       objectFacilities: () =>
         new Set(facilities.gatherKinds().flatMap((kind) => (kind.facility === null ? [] : [kind.facility]))),
       // 숙소를 쓰는 NPC 일꾼(도시 경제 쉼터 계획, 질문 1047 다)
+      // 짓는 중 알박기 정부의 편·가문 상태(D-577 고르기 바꾸기 칸)
+      claimOf: (ownerId, mapKey) => persistence.ruins.claimOf(ownerId, mapKey),
+      claimLockedOf: (ownerId) => persistence.ruins.claimLockedOf(ownerId),
       lodgingOccupants: (buildingId, cityId) => {
         if (cityId === null) return undefined;
         const plan = world.npc?.economy?.restPlan(cityId);

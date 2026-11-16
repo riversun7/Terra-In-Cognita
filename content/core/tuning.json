@@ -9530,8 +9530,8 @@
       "min": 0,
       "max": 300,
       "desc": {
-        "ko": "인구 상한에 닿은 NPC 도시가 숙소를 더 짓는 점수(700)에 신앙 성향 몫을 더한다. 신앙이 높은 세력은 숙소(사람)를 먼저, 낮은 세력은 나중에 짓는다. 성향 끝에서 이 점수(농장 600·나라 목표 650 안팎과 견준다). 0이면 보지 않는다.",
-        "en": "Adds a faith share to the score (700) an NPC city at its population cap uses to build another lodging. Devout factions build lodging (people) first, secular ones later. This many points at the trait's end (compare farms at 600 and nation goals around 650). 0 ignores it."
+        "ko": "인구 상한에 닿은 NPC 도시의 숙소 성장에 신앙 성향 몫을 준다(성향 끝에서 이 값, 상업 칸과 합한다). 합이 +면 생필품이 조금 모자라도(1000 − 합 ÷ 2‰ 이상) 숙소를 더 짓고, −면 숙소 점수 700을 최대 90까지 내려 나라 목표 시설을 먼저 짓는다. 세력 평균으로는 도시 크기가 그대로이게 맞췄다. 0이면 보지 않는다.",
+        "en": "Gives a faith share to lodging growth in an NPC city at its population cap (this value at the trait's end, summed with the commerce cell). A positive sum builds more lodging even when necessities are slightly short (at least 1000 − sum ÷ 2‰); a negative sum lowers the lodging score of 700 by up to 90 so nation goals come first. Tuned so that city size stays the same on average across factions. 0 ignores it."
       },
       "source": "기획 D-554 1187·1188 · D-572(질문 1995) [임시]"
     },
@@ -9548,8 +9548,8 @@
       "min": 0,
       "max": 300,
       "desc": {
-        "ko": "상업 성향이 높은 세력은 붐빔 숙소 점수에서 이 값(성향 끝)을 빼 생산 시설을 먼저 짓고, 낮은 세력은 더한다. 0이면 보지 않는다.",
-        "en": "Factions high in commerce subtract this (at the trait's end) from the crowded-lodging score and build production first; low-commerce factions add it. 0 ignores it."
+        "ko": "상업 성향이 높은 세력은 숙소 성장 몫에서 이 값(성향 끝)을 빼고(나라 목표 시설 먼저), 낮은 세력은 더한다(신앙 칸과 같은 방식). 0이면 보지 않는다.",
+        "en": "Factions high in commerce subtract this (at the trait's end) from the lodging growth share (nation goals first); low-commerce factions add it (same rule as the faith cell). 0 ignores it."
       },
       "source": "기획 D-554 1187·1188 · D-572(질문 1995) [임시]"
     },

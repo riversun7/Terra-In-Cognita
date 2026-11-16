@@ -4,8 +4,9 @@
 // - 건물 수 상한(1187): 도시 등급 표(npc_build_cap_l1~l6)는 바탕이고, 그 위에 성향 몫 = 치우침 × 칸 npc_build_cap_temper ÷ 1000(채, 0 쪽으로 버림).
 //   치우침(‰, −1000~1000) = 상업 성향 × 칸 npc_build_cap_commerce(축 가운데에서 벗어난 몫, 끝에서 칸 값) + 지도자 기질 × 칸
 //   npc_build_cap_leader ÷ 1000. 상업이 높고 지도자가 모험적이면 도시가 더 크게, 반대면 작게 자란다.
-// - 숙소 성장(1188): 인구 상한에 닿은 도시의 붐빔 숙소 점수 700에 신앙 성향 × 칸 npc_build_lodging_faith − 상업 성향 × 칸
-//   npc_build_lodging_commerce(점수, 축 끝에서 칸 값)를 더한다. 신앙이 높으면 숙소(사람)가 먼저, 상업이 높으면 생산 시설이 먼저.
+// - 숙소 성장(1188): 몫 = 신앙 성향 × 칸 npc_build_lodging_faith − 상업 성향 × 칸 npc_build_lodging_commerce(축 끝에서 칸 값). npc/build.ts가
+//   + 몫은 생필품 문턱을 낮추고(1000 − 몫 ÷ 2‰ — 신앙이 높으면 조금 모자라도 숙소), − 몫은 붐빔 숙소 점수 700을 −90까지 내린다(상업이 높으면
+//   나라 목표 시설이 먼저). 양쪽이 같은 크기로 듣게 맞췄다(질문 2127 — build16 30일 시드 1~4 평균 건물 −0.3%·휴먼 +1.5%).
 // 칸이 모두 0이면 옛 판(등급 표 그대로·붐빔 숙소 700)과 같다. 정수만 쓴다(판정 결정성).
 import type { NpcCoefficients } from "../npc/coefficients.ts";
 import type { Traits } from "../npc/traits.ts";

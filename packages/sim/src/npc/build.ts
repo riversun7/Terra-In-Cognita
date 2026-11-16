@@ -73,6 +73,9 @@ export interface BuildChoiceRules {
   readonly blocked?: ReadonlySet<string> | undefined;
 }
 
+/** 붐빔 숙소 점수를 성향으로 내리는 끝(농장 600·채집보다 위, 나라 목표 650 + 10 × 모자란 수와 다툰다) */
+const LODGING_TILT_FLOOR = -90;
+
 /** 도시 등급 수(D-137, @terra/shared/territory CITY_GRADE_COUNT와 같다) */
 const GRADES = 6;
 
@@ -117,8 +120,13 @@ function scoreOf(
     const beds = needs.beds ?? have * Math.max(1, rules.bedsPerLevel);
     if (beds < needs.humans) return 700 + ceilDiv(needs.humans - beds, rules.bedsPerLevel) * 20;
     // 붐빔(1131 나): 씨앗 숙소는 주거 몫이라 상한을 올리지 않는다 → 상한에 닿으면 숙소를 더 지어야 자란다. 생필품이 모자란 도시는 늘리지 않는다
-    return needs.housingCap !== undefined && needs.humans >= needs.housingCap && needs.foodPm >= 1000
-      ? Math.max(1, 700 + Math.trunc(rules.lodgingTilt ?? 0))
+    // 성향 몫(D-554 1188, D-572 질문 1995·2127 — 세력 평균으로 중립이 되게): + = 생필품이 조금 모자라도(1000 − 몫 ÷ 2‰ 이상) 붐빔 숙소를
+    // 짓는다, − = 붐빔 숙소 점수를 내려 나라 목표(650 + 10 × 모자란 수) 뒤로 보낸다(LODGING_TILT_FLOOR까지). 처음 판(점수에 몫을 그대로 더함)은
+    // 700이 이미 가장 높은 점수라 +는 차례를 바꾸지 못하고 −만 농장·채집 뒤로까지 밀어 도시가 한쪽으로 줄었다(build16 30일 휴먼 −14%)
+    const tilt = Math.trunc(rules.lodgingTilt ?? 0);
+    const foodNeed = 1000 - Math.trunc(Math.max(0, tilt) / 2);
+    return needs.housingCap !== undefined && needs.humans >= needs.housingCap && needs.foodPm >= foodNeed
+      ? 700 + Math.max(LODGING_TILT_FLOOR, Math.min(0, tilt))
       : undefined;
   }
   if (BUILD_PRODUCING_STAGES.has(option.stage) && needs.workers <= producing) return undefined;

@@ -148,6 +148,13 @@ describe("NPC 증축 판단(질문 1101 나)", () => {
     };
     expect(chooseCityBuild(crowded, OPTIONS, TRAITS, c, RULES)).toBe("lodging");
     expect(chooseCityBuild(crowded, OPTIONS, TRAITS, c, { ...RULES, lodgingTilt: -100 })).toBe("kitchen");
+    // −몫은 −90에서 멈춘다(농장·채집보다는 위): 목표 없이 농장이 모자라도 숙소가 먼저
+    const farmShort = { ...crowded, targets: undefined, counts: counts({ lodging: 4, farm: 1 }) };
+    expect(chooseCityBuild(farmShort, OPTIONS, TRAITS, c, { ...RULES, lodgingTilt: -250 })).toBe("lodging");
+    // +몫은 생필품이 조금 모자라도(1000 − 몫 ÷ 2) 붐빔 숙소를 짓는다
+    const hungry = { ...crowded, targets: undefined, foodPm: 900 };
+    expect(chooseCityBuild(hungry, OPTIONS, TRAITS, c, RULES)).not.toBe("lodging");
+    expect(chooseCityBuild(hungry, OPTIONS, TRAITS, c, { ...RULES, lodgingTilt: 200 })).toBe("lodging");
   });
 
   it("레벨 올리기 후보: 붐비면 낮은 숙소 먼저, 아니면 일꾼 많은 생산 시설(같으면 낮은 레벨·열쇠 차례), 상한·행정 건물 빼고(1146 나)", () => {

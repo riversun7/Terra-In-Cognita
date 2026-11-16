@@ -65,24 +65,28 @@ describe("D-564·D-568 배 서비스", () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it("남의 조선소에 배 짓기 주문: 받기 범위 안이면 재료는 주문자, 요금은 조선소 금고, 다 된 배는 주문자 것(1682)", async () => {
+  it("남의 조선소에 배 짓기 주문: 받기 범위 안이면 재료는 조선소(D-573 2048), 판매가는 조선소 금고, 다 된 배는 주문자 것(1682)", async () => {
     const { map, service, place, grant, ledger } = setup();
     const yard = place(SHIPYARD, 40);
     // 주문자 8(같은 나라)의 배 화물에 재료, 9(다른 나라)는 받기 범위 밖
     map.addBoat({ id: 1, ownerId: 8, speed: START_BOATS.speed, cellX: 130, cellY: 41 });
     expect(await service.build("p9", yard, false)).toEqual({ ok: false, code: "berth_denied" });
     expect(await service.build("other", yard, false)).toEqual({ ok: false, code: "insufficient_materials" });
+    // 재료는 조선소 사업장 창고에서(주문자의 화물은 보지 않는다)
     grant(8, "item:pine_log", 10n, cargoLocation(1));
+    expect(await service.build("other", yard, false)).toEqual({ ok: false, code: "insufficient_materials" });
+    grant(7, "item:pine_log", 10n, buildingLocation(yard));
     expect(await service.build("other", yard, false)).toEqual({ ok: false, code: "insufficient_funds" });
     const fee = (BigInt(START_BOATS.shipyardRepairFee) * BigInt(START_BOATS.shipyardBuildFeePm)) / 1000n;
     expect(service.dockJob(yard)?.orderFee).toBe(fee.toString());
     grant(8, CREDIT, fee);
     expect(await service.build("other", yard, false)).toEqual({ ok: true, readyAtMs: START + 600_000 });
     expect(ledger.balanceOf(7, CREDIT, buildingLocation(yard))).toBe(fee);
-    expect(ledger.balanceOf(8, "item:pine_log", cargoLocation(1))).toBe(0n);
+    expect(ledger.balanceOf(7, "item:pine_log", buildingLocation(yard))).toBe(0n);
+    expect(ledger.balanceOf(8, "item:pine_log", cargoLocation(1))).toBe(10n);
     await vi.advanceTimersByTimeAsync(600_000);
     expect(service.dockJob(yard)?.docked).toMatchObject([{ ownerId: 8, storageDue: "0" }]);
-    // 주인 자신의 만들기는 요금이 없다
+    // 주인 지갑은 그대로(판매가는 조선소 금고로)
     expect(ledger.balanceOf(7, CREDIT)).toBe(0n);
   });
 
@@ -90,7 +94,7 @@ describe("D-564·D-568 배 서비스", () => {
     const { map, service, place, grant, ledger } = setup();
     const yard = place(SHIPYARD, 40);
     map.addBoat({ id: 9, ownerId: 8, speed: START_BOATS.speed, cellX: 130, cellY: 41 });
-    grant(8, "item:pine_log", 10n, cargoLocation(9));
+    grant(7, "item:pine_log", 10n, buildingLocation(yard));
     grant(8, CREDIT, 10_000n);
     expect(await service.build("other", yard, false)).toMatchObject({ ok: true });
     await vi.advanceTimersByTimeAsync(600_000);

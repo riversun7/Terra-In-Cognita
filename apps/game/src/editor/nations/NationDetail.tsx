@@ -15,6 +15,7 @@ import { m } from "../../paraglide/messages.js";
 import { CompareProvider } from "../content/contentEditorCompare.tsx";
 import { NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
 import { Badge, EntryHead, FormSection, SectionJump } from "../content/contentEditorLayout.tsx";
+import { NationTemperSection } from "./NationTemperSection.tsx";
 import { NationEmblemPanel } from "./NationEmblemPanel.tsx";
 import { NameGenerator } from "./NationNameGen.tsx";
 import { NameListField } from "./NationNameList.tsx";
@@ -23,7 +24,7 @@ import { NationPeopleSection, NationStartSection, NationTraitsSection } from "./
 import { READABLE_COLORS, colorOf, colorReadability, isNationJson } from "./nationModel.ts";
 import { ORIGIN_TEXT, STYLE_TEXT, nationIssueText, nationIssueWhere } from "./nationText.ts";
 
-const SECTIONS = ["identity", "currency", "start", "people", "traits"] as const;
+const SECTIONS = ["identity", "currency", "start", "people", "traits", "temper"] as const;
 
 export function NationDetail({
   list,
@@ -79,6 +80,7 @@ export function NationDetail({
     start: m.dev_nations_section_start(),
     people: m.dev_nations_section_people(),
     traits: m.dev_nations_section_traits(),
+    temper: m.dev_nations_section_temper(),
   };
   const seed = (field: string): string => `${draft.id}:${field}`;
 
@@ -455,6 +457,7 @@ export function NationDetail({
           locale={locale}
           onEdit={onEdit}
         />
+        <NationTemperSection title={sectionTitles.temper} draft={draft} onEdit={onEdit} />
       </article>
     </CompareProvider>
   );

@@ -6,6 +6,7 @@ import {
   type NationPersonalityJson,
   type NationPresetJson,
   type NationSeedDefaults,
+  type NationTemperJson,
 } from "@terra/shared/nationEditor";
 import { type NationEmblemSpec, contrastOf, emblemOfId } from "@terra/shared/nationEmblem";
 import { FACTION_IDENTITY_COLORS } from "@terra/shared/factionIdentity";
@@ -171,6 +172,9 @@ export function cleanNation(entry: NationPresetJson): NationPresetJson {
   const family = entry.humanNames?.family ?? [];
   const leader = entry.leaderName;
   const intro = entry.intro;
+  // 성향 칸(D-573 1991): 채운 축만, 모두 비면 칸째 뺀다(빈 칸 = 무작위)
+  const temperPairs = Object.entries(entry.temper ?? {}).filter(([, value]) => typeof value === "number");
+  const temper = temperPairs.length === 0 ? undefined : Object.fromEntries(temperPairs);
   return {
     id: entry.id,
     name: { ko: entry.name.ko, en: entry.name.en },
@@ -199,6 +203,7 @@ export function cleanNation(entry: NationPresetJson): NationPresetJson {
         : { ticker: entry.currency.ticker }),
     },
     tradeTaxBp: entry.tradeTaxBp,
+    ...(temper ? { temper } : {}),
     ...(personality ? { personality } : {}),
     ...(entry.cityNames && entry.cityNames.length > 0 ? { cityNames: [...entry.cityNames] } : {}),
     ...(leader && (leader.ko !== "" || leader.en !== "")
@@ -220,6 +225,21 @@ export function setPersonality<K extends keyof NationPersonalityJson>(
 ): NationPresetJson {
   const next: NationPersonalityJson = { ...entry.personality, [key]: value };
   return { ...entry, personality: next };
+}
+
+/** 성향 칸 하나를 바꾼다(undefined = 비움 → 무작위, D-573 1991). 모든 칸이 비면 temper째 뺀다 */
+export function setTemper(
+  entry: NationPresetJson,
+  key: keyof NationTemperJson,
+  value: number | undefined,
+): NationPresetJson {
+  const next: Record<string, number> = {};
+  for (const [name, current] of Object.entries({ ...entry.temper, [key]: value }))
+    if (typeof current === "number") next[name] = current;
+  const out: { -readonly [K in keyof NationPresetJson]: NationPresetJson[K] } = { ...entry };
+  if (Object.keys(next).length === 0) delete out.temper;
+  else out.temper = next;
+  return out;
 }
 
 /** 목록의 한 줄을 위·아래로 옮긴다(끝을 넘으면 그대로) */

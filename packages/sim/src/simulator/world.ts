@@ -78,6 +78,11 @@ export interface SimFaction extends WarState {
    * 도시 없이도 있다 D-213, 도시를 잃으면 도시 없는 세력으로 남는다 D-294). 시뮬은 만들지 않는다
    */
   player?: true | undefined;
+  /**
+   * 지도자 기질(‰, −1000~1000 — 폭 안 위치, 기획 D-573 1991 "국가 편집기에 성향 칸, 비어 있으면 무작위"). 서버가 팩 국가 프리셋 성향 칸(temper.leader)에서
+   * 넣는다. 없으면 (세계 시드, 세력)으로 굴린다(npcGatherTier.ts leaderTemperOf — D-327). 시뮬 시나리오는 넣지 않는다(결과 그대로)
+   */
+  leaderPm?: number | undefined;
 }
 
 /**

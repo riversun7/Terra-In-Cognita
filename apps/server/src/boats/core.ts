@@ -62,7 +62,7 @@ export interface BoatDeps {
   /** 정박료·교역 부두 요금 화폐(없으면 요금 없음) */
   readonly feeAsset?: string | undefined;
   /** 사업장 장부(요금 → 시설 금고·소득세, D-548·D-555). 없으면 금고로 바로(시험) */
-  readonly business?: Pick<BusinessCore, "receive"> | undefined;
+  readonly business?: Pick<BusinessCore, "receive" | "price"> | undefined;
   /**
    * 적정가(기획 D-570 1822 — 재료비 materials·인건비 = 그 시설 일꾼 시간당 인건비 × ms·수수료·세금). 배 주문 요금을 정하는 화면 곁에 보인다.
    * 없으면 적정가 칸 없이

@@ -137,18 +137,17 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
       "select count(*) as n from ledger_transactions where kind = 'labor_wage'",
     );
     expect(wages).toEqual([{ n: "32" }]);
-    // 금고도 비면 마지막 한 주기만 적자로 돌리고 그 주기 끝(51일)에 멈춘다(D-570 1789 — 재정이 안정될 때까지 운영 중단)
+    // 금고도 비면 바로 멈춘다(D-573 2042 — 진행 중인 생산 주기가 없는 일꾼: 적자 없이 금고가 덮는 50일 지급 앞에서 멈춤, 재정이 안정될 때까지 운영 중단)
     clock = T0 + 50 * DAY;
     p.settlement.settleOwner(a.ownerId, clock);
-    expect(contract?.state).toBe("active");
     expect(vaultOf(world, a.ownerId, a.buildingId)).toBe(0n);
-    expect(p.facilities.business.debts(a.buildingId).get(ASSET_CREDIT)).toBe(20n);
-    expect(p.facilities.business.state(a.buildingId)?.suspendedAtMs).toBe(T0 + 51 * DAY);
-    expect(p.facilities.business.suspended(a.buildingId)).toBe(false);
-    // 멈춘 뒤: 더 채우지 않고 보증금이 바닥나면 일시 중지(자동 해고 없음)
+    expect(p.facilities.business.debts(a.buildingId).size).toBe(0);
+    expect(p.facilities.business.state(a.buildingId)?.suspendedAtMs).toBe(T0 + 50 * DAY);
+    expect(p.facilities.business.suspended(a.buildingId)).toBe(true);
+    // 보증금이 바닥나면 일시 중지(자동 해지 없음 — D-573 2045, 유닛 주인에게 처리할 일 labor_paused)
+    expect([contract?.state, contract?.endReason]).toEqual(["paused", null]);
     clock = T0 + 53 * DAY;
     p.settlement.settleOwner(a.ownerId, clock);
-    expect(p.facilities.business.suspended(a.buildingId)).toBe(true);
     expect([contract?.state, contract?.endReason]).toEqual(["paused", null]);
     expect(await world.checkInvariants()).toEqual([]);
   });

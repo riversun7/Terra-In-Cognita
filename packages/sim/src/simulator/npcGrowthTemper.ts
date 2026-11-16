@@ -29,14 +29,14 @@ export const NO_GROWTH_TEMPER: GrowthTemper = { capDelta: 0, lodgingTilt: 0 };
 /** 세력 하나의 도시 성장 성향 몫(머리 주석). seed = 세계 시드 */
 export function growthTemperOf(
   seed: number,
-  faction: { readonly id: number; readonly traits: Traits },
+  faction: { readonly id: number; readonly traits: Traits; readonly leaderPm?: number | undefined },
   c: NpcCoefficients,
 ): GrowthTemper {
   const temperCount = Math.max(0, Math.trunc(c.buildCapTemper ?? 0));
   const leaderPm = Math.trunc(c.buildCapLeaderPm ?? 0);
   const raw =
     axisTilt(faction.traits.commerce, c.buildCapCommercePm, c) +
-    (leaderPm === 0 ? 0 : Math.trunc((leaderTemperOf(seed, faction.id, c) * leaderPm) / 1000));
+    (leaderPm === 0 ? 0 : Math.trunc((leaderTemperOf(seed, faction, c) * leaderPm) / 1000));
   const bias = Math.max(-BIAS_LIMIT, Math.min(BIAS_LIMIT, raw));
   const tilt =
     axisTilt(faction.traits.faith, c.buildLodgingFaith, c) -

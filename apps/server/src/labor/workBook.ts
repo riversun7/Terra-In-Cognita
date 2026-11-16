@@ -136,6 +136,8 @@ export interface WorkBook {
   stopIdle(ownerId: number, working: (unitId: number) => boolean): void;
   /** 메모리 불변 조건: 배치된 유닛에 열린 계약이 있으면 안 된다 */
   check(openContract: (unitId: number) => boolean): string[];
+  /** 그 유닛이 그 시설에서 진행 중인 생산 주기가 있나(쌓은 채집 진행 > 0 — 묶음을 끝내지 않음, D-573 2042) */
+  inProgress(unitId: number, buildingId: number): boolean;
 }
 
 export function createWorkBook(options: {
@@ -302,6 +304,10 @@ export function createWorkBook(options: {
           // 피로·단계는 그대로: 직무 없는 동안 정산이 쉬게 해 시간만큼 푼다(525 ①)
           map.setJob(unit.id, switchJob(unit.job, JOB_NONE));
         });
+    },
+    inProgress(unitId, buildingId) {
+      const record = records.get(unitId);
+      return record !== undefined && record.gatherBuildingId === buildingId && record.gatherPoints > 0;
     },
     check(openContract) {
       const issues: string[] = [];

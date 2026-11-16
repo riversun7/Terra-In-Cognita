@@ -6,10 +6,17 @@
 //   (D-559 1523 — 2차맵 유닛이 아니다, 꺼낼 때(출고 — dock.ts) 조선소 옆 물에 뜬다). 연료는 가득.
 // - 수리: 배가 조선소 둘레 shipyardReachCells 안 물에 있어야 시작한다. 승객을 내리고 배를 도크에 넣는다(2차맵에서 뺀다). 끝 시각에 가득으로 고치고 배는 도크에
 //   남는다(출고 기다림). 남의 조선소도 받기 범위 안이면 고친다(D-559 1522) — 재료는 배 주인이 그 자리에서 내고, 수리 요금은 조선소 금고로(그 나라 화폐).
+// - 바뀜 (기획 대조 2057·2074 — D-570 1822 "당연히 판매자가 정하지 … (모든 제작이 그러함)", 2072 — D-569 1781 "무조건 판매이고 재무상태로 수익",
+//   D-573 2048 "모든 재료나 인건비는 사업장이 부담"): 주인이 있는 조선소의 배는 늘 판매가로 판다 — 주문자든 주인 자신이든 판매가(그 조선소 주인이 배 종류마다
+//   정한 값 = 사업장 값 표 boat:<종류>, 정하지 않았으면 적정가, 0이면 만들지 않음 = order_closed)를 그 조선소 금고에 낸다(매출, 종류 boat_sale). 재료는 그
+//   조선소 사업장 창고(건물 위치)에서 먼저, 모자라면 조선소 주인의 그 자리에서 뺀다(D-555 1505 "사업장 창고 먼저" — 맡기는 사람의 재료는 보지 않는다). 외주 요금 × 배수 고정 셈은 없앴다(적정가 셈이 없는 시험 세계만 옛 셈).
+//   주인 없는 조선소(폐허)·운영자는 판매가 없이 옛 길(재료는 부르는 사람 자리).
 // - 조선소가 없어지면 만들던 작업을 버린다 — 재료는 돌려주지 않는다(D-545 1405). 도크에 든 배는 dock.ts가 조선소 자리 옆 물에 띄운다.
 // - 옛 수리 작업(배가 2차맵에 있는 채로 고치던 것 — 이 판 전에 시작)은 예전처럼 끝 때 그 배가 둘레에 있으면 가득으로 고친다.
 import type { BoatTypeDef } from "../facilities/catalog.ts";
-import { hasGoods, spendGoods } from "../facilities/materials.ts";
+import { buildingLocation } from "@terra/shared/goodsPlaces";
+import { boatPriceItem } from "@terra/shared/harbor";
+import { type GoodsScope, hasGoods, spendGoods } from "../facilities/materials.ts";
 import { cityAt, materialScope } from "../facilities/places.ts";
 import { HULL_FULL } from "@terra/shared/harbor";
 import {
@@ -250,13 +257,9 @@ export function createShipyard(
     }
     const owner = payerOverride ?? (operator ? (found.ownerId ?? me) : me);
     if (owner === undefined) return { problem: fail("forbidden") } as const;
-    const scope = materialScope(
-      places,
-      owner,
-      found.map.mapKey,
-      fac.record.cityId ?? cityAt(places, found.map.mapKey, found.rect.x, found.rect.y),
-    );
-    return { found, fac, modules, owner, scope, rules } as const;
+    const yardCity = fac.record.cityId ?? cityAt(places, found.map.mapKey, found.rect.x, found.rect.y);
+    const scope = materialScope(places, owner, found.map.mapKey, yardCity);
+    return { found, fac, modules, owner, scope, rules, places, yardCity } as const;
   };
 
   const addJob = (job: Omit<BoatJob, "id">): BoatJob => {
@@ -306,14 +309,28 @@ export function createShipyard(
   const foreignFee = (yardOwner: number | null, buildingId: number, operator: boolean) =>
     yardOwner === null || operator ? 0n : BigInt(Math.max(0, harborOf().facility(buildingId, yardOwner).fee));
 
-  /** 남의 조선소 주문 요금 = 외주 요금 × shipyardBuildFeePm ÷ 1000(주인 자신·운영자·주인 없는 조선소는 0) */
-  const orderFee = (
+  /**
+   * 배 판매가(위 머리 주석 "바뀜 (2057·2072)"): 주인이 정한 값 → 적정가 → (적정가 셈이 없는 시험 세계) 옛 셈 외주 요금 × shipyardBuildFeePm ÷ 1000.
+   * null = 판매가 0(만들지 않음). 주인 없는 조선소·운영자는 0
+   */
+  const salePrice = (
     yardOwner: number | null,
-    orderer: number,
     buildingId: number,
+    type: BoatTypeDef,
+    materials: readonly { readonly item: string; readonly qty: number }[],
+    ms: number,
     operator: boolean,
-  ): bigint => {
-    if (yardOwner === null || yardOwner === orderer || operator) return 0n;
+  ): bigint | null => {
+    // 요금 화폐가 없는 세계(시험)는 판매가 없음
+    if (yardOwner === null || operator || harborOf().assetAt(buildingId) === undefined) return 0n;
+    const set = deps.business?.price?.(buildingId, boatPriceItem(type.id));
+    if (set !== undefined) return set > 0n ? set : null;
+    if (deps.fairOf) {
+      const catalog = deps.places()?.catalog();
+      let worth = 0n;
+      for (const stack of materials) worth += BigInt(stack.qty) * (catalog?.unitPriceOf?.(stack.item) ?? 1n);
+      return BigInt(deps.fairOf(buildingId, worth, ms).price);
+    }
     const base = BigInt(Math.max(0, harborOf().facility(buildingId, yardOwner).fee));
     return (base * BigInt(Math.max(0, deps.rules().shipyardBuildFeePm))) / 1000n;
   };
@@ -327,20 +344,28 @@ export function createShipyard(
     build(me, buildingId, operator, typeId, order = false) {
       const yard = yardProblem(me, buildingId, operator, !order, order ? me : undefined);
       if ("problem" in yard) return yard.problem;
-      const { fac, found, modules, owner, scope, rules } = yard;
+      const { fac, found, modules, owner, scope, rules, places, yardCity } = yard;
       const list = fac.def.boats ?? [];
       const type = typeId === undefined ? list[0] : list.find((entry) => entry.id === typeId);
       if (!type) return fail("unknown_boat_type");
       const at = now();
       const materials = operator ? [] : boatCost(type, rules.costPm);
-      if (!hasGoods(ledger, owner, materials, scope)) return fail("insufficient_materials");
-      // 외주 주문 요금(D-564 1682 — 그 조선소 금고로, 그 나라 화폐). 주인 자신의 만들기·운영자는 없다
-      const fee = orderFee(found.ownerId, owner, buildingId, operator);
-      if (fee > 0n && harborOf().balanceOf(owner, buildingId) < fee) return fail("insufficient_funds");
       const ms = boatBuildMs(type, rules, modules, operator);
-      if (!spendGoods(ledger, owner, materials, at, "boat_build", scope))
+      // 판매가(2057·2072): 주인 있는 조선소면 주문자·주인 모두 그 값을 금고에 내고, 재료는 조선소 사업장 창고에서(D-573 2048)
+      const price = salePrice(found.ownerId, buildingId, type, boatCost(type, rules.costPm), ms, operator);
+      if (price === null) return fail("order_closed");
+      const sold = found.ownerId !== null && !operator;
+      const payer = sold ? (found.ownerId ?? owner) : owner;
+      // 조선소 사업장 창고 먼저, 모자라면 조선소 주인의 그 자리(D-555 1505 "사업장 창고 먼저" — NPC 조선소는 도시 창고)
+      const yardScope =
+        sold && payer !== owner ? materialScope(places, payer, found.map.mapKey, yardCity) : scope;
+      const from: GoodsScope = sold ? [buildingLocation(buildingId), ...yardScope] : scope;
+      if (!hasGoods(ledger, payer, materials, from)) return fail("insufficient_materials");
+      const fee = price;
+      if (fee > 0n && harborOf().balanceOf(owner, buildingId) < fee) return fail("insufficient_funds");
+      if (!spendGoods(ledger, payer, materials, at, "boat_build", from))
         return fail("insufficient_materials");
-      if (fee > 0n) harborOf().charge(owner, found.ownerId, buildingId, fee, "shipyard_build_fee", at);
+      if (fee > 0n) harborOf().charge(owner, found.ownerId, buildingId, fee, "boat_sale", at);
       if (ms > 0) {
         const job = addJob({
           ownerId: owner,

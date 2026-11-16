@@ -68,7 +68,8 @@ import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
 import { type CatchmentSaved, restoreCatchment } from "./catchmentStore.ts";
 import type { CityRestPlan, RestFacility } from "./cityRest.ts";
 import type { WorkFacility } from "./humanPlaces.ts";
-import { recordNpcSale } from "./npcBooks.ts";
+import { type CarryBoard, createCarryBoard } from "./npcCarry.ts";
+import { EVENT_NPC_DELIVER, createNpcDeliveries } from "./npcDelivery.ts";
 import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { type MarketRegistry, createMarketRegistry } from "../market/books.ts";
@@ -132,7 +133,7 @@ export interface NpcEconomyInput {
    * 사업장 장부(D-548·D-555, docs/adr/2026-11-15-business-ledger.md): 남의 숙소 요금은 그 숙소 금고로 든다(소득세 포함). 없으면 숙소 주인
    * 지갑(옛 길, 시험)
    */
-  readonly business?: Pick<BusinessCore, "receive" | "settle" | "vaultBalance"> | undefined;
+  readonly business?: Pick<BusinessCore, "receive" | "settle" | "vaultBalance" | "invest"> | undefined;
   /** 시뮬 경제 목록(없으면 경제 끔) */
   readonly catalog: () => ServerEconomyCatalog | undefined;
   /** 팩 국가 프리셋(나라 성격: 도시 직무·처음 창고). 없으면 모든 국가가 기본 */
@@ -175,6 +176,10 @@ export interface NpcEconomyInput {
   readonly exchangeHaulMs?: ((cityId: number, buildingId: number, grams: bigint) => number) | undefined;
   /** 자산 한 기본 단위 무게(g) — NPC 운반 시간 */
   readonly weightOf?: ((asset: string) => bigint) | undefined;
+  /** 거래소 건물 가운데 칸(보이는 NPC 거래소 운반꾼이 내려놓는 곳 — 기획 대조 2088). 없으면 거래소 운반은 시간 셈만 */
+  readonly exchangeCenter?:
+    | ((buildingId: number) => { readonly x: number; readonly y: number } | undefined)
+    | undefined;
 }
 
 /** 시설 하나의 지금 생산(화면용) */
@@ -193,6 +198,8 @@ export interface ServerEconomy {
   readonly lockers: Lockers;
   /** 환전 시장 모음(나라 화폐 ↔ 기준 통화) */
   readonly fx: FxRegistry;
+  /** NPC 운반꾼의 실제 화물(npcCarry.ts — 시설 산출 운반·거래소 운반, 기획 대조 2052·2088) */
+  readonly carry: CarryBoard;
   readonly run: EconomyRun;
   /** 세력·사회·NPC 판단에 넘기는 고리(시뮬 고리 + 서버 몫) */
   readonly hooks: SimHooks;
@@ -293,6 +300,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   // 나라 화폐(npc/currency.ts): 세력마다 화폐·세율, 화폐마다 찍는 나라
   const { currencyOf, taxOf, issuer } = nationCurrencies(world, catalog, ASSET_CREDIT);
   const isUser = (ownerId: number): boolean => (o.owners.get(ownerId)?.userId ?? null) !== null;
+  // NPC 운반꾼 화물(기획 대조 2052·2088): 시설 산출 운반과 거래소 운반이 같이 쓴다
+  const carry = createCarryBoard(book);
   // 거래소 모음: 호가창 물건 + 있는 도시에만. 화폐·세율·국고 = 그 도시 주인
   const registry = createMarketRegistry({
     ledger: book,
@@ -335,7 +344,12 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       : undefined,
     // NPC도 거래소 건물이 있어야 거래하고 운반 시간을 센다(질문 1945 답 — D-212·D-564 1626, market/npcHaul.ts)
     npcHaul: o.input.exchangeHaulMs
-      ? { haulMs: o.input.exchangeHaulMs, weightOf: o.input.weightOf }
+      ? {
+          haulMs: o.input.exchangeHaulMs,
+          weightOf: o.input.weightOf,
+          // 보이는 운반꾼이 기본(기획 대조 2088 — D-564 1626): 보는 2차맵은 일 없는 휴먼이 화물을 지고 거래소 건물로
+          carry: o.input.exchangeCenter ? { board: carry, centerOf: o.input.exchangeCenter } : undefined,
+        }
       : undefined,
     now: o.now,
   });
@@ -678,34 +692,37 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   };
 
   /**
-   * 보이는 운반 일정(D-570 1886): 이번 산출(pending)을 창고로 나르는 시간(시뮬과 같은 haulTimeMs — 일꾼이 나눠 나름)을 산출 끝에 붙인다. 보이는
-   * 일정은 한 사람이 한 번 오가는 시간 + 내려놓는 잠깐보다 짧지 않게, 산출 시작보다 이르지 않게 [임시]
+   * 시설 산출 운반(npcDelivery.ts — 기획 대조 2052·2053): 이번 산출을 가장 가까운 창고로 나르는 시간(시뮬과 같은 haulTimeMs — 일꾼이 나눠 나름)과 내려놓는 곳.
+   * 한 사람이 한 번 오가는 시간 + 내려놓는 잠깐보다 짧지 않게 [임시]. 옮김 칸·창고가 없으면 바로(0)
    */
-  const haulShown = (
+  const haulOf = (
     facility: EcoFacility,
     plan: CityRestPlan | undefined,
-    note: { startedAtMs: number; endsAtMs: number | null } | undefined,
-  ): Pick<WorkFacility, "haul"> => {
+    outputs: readonly { readonly asset: string; readonly qty: bigint }[],
+  ): { to?: { x: number; y: number }; ms: number } => {
     const to = plan?.facilities.get(facility.id)?.haulTo;
     const haul = facility.haul;
-    if (
-      !to ||
-      !haul ||
-      haul.cells <= 0 ||
-      !facility.pending ||
-      note?.endsAtMs === null ||
-      note?.endsAtMs === undefined
-    )
-      return {};
+    if (!to || !haul || haul.cells <= 0) return { ms: 0 };
     let grams = 0n;
-    for (const stack of facility.pending.outputs)
-      grams += stack.qty * (economy.catalog.weightG.get(stack.asset) ?? 0n);
+    for (const stack of outputs) grams += stack.qty * (economy.catalog.weightG.get(stack.asset) ?? 0n);
     const timed = haulTimeMs(grams, haul.cells, facility.workers, haul.carryG);
-    if (timed <= 0) return {};
-    const shown = Math.max(timed, 2 * haul.cells * walkMsPerCell() + HAUL_SHOWN_EXTRA_MS);
-    const fromMs = Math.max(note.startedAtMs, note.endsAtMs - shown);
-    return { haul: { x: to.x, y: to.y, fromMs, untilMs: note.endsAtMs } };
+    if (timed <= 0) return { ms: 0 };
+    return {
+      to: { x: to.x, y: to.y },
+      ms: Math.max(timed, 2 * haul.cells * walkMsPerCell() + HAUL_SHOWN_EXTRA_MS),
+    };
   };
+  const deliveries = o.input.business
+    ? createNpcDeliveries({
+        book,
+        business: o.input.business,
+        board: carry,
+        priceOf: (cityId, asset) =>
+          registry.existing(cityId, asset)?.market.lastPrice ?? catalog.startPrice.get(asset) ?? 0n,
+        lotOf: (asset) => lotSizeOf(catalog, asset),
+        schedule: (atMs, id) => loop.schedule(atMs, { kind: EVENT_NPC_DELIVER, subject: id }),
+      })
+    : undefined;
 
   const syncAll = (nowMs: number): void => {
     recount();
@@ -727,6 +744,22 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   // 처음 예약: 유지비·거래 판단·환전 회차(시뮬과 같은 함수) 다음에 시설을 놓는다(시설 예약은 syncAll이 한다)
   scheduleEconomy(economy, world, loop, o.startMs);
   syncAll(o.startMs);
+  // 켤 때 한 번: NPC 시설 창고에 남은 물건(끈 동안 잊은 운반)을 그 도시 창고로(npcDelivery.ts sweep)
+  if (deliveries && o.rules().business.npcBooks === 1) {
+    const shops = new Map<number, { cityId: number; owner: number; currency: string }>();
+    for (const [id, note] of runs) {
+      const facility = economy.facilities.get(id);
+      const city = facility ? world.cities.get(facility.city) : undefined;
+      if (note.buildingId !== null && city)
+        shops.set(note.buildingId, {
+          cityId: city.id,
+          owner: city.owner,
+          currency: currencyOf.get(city.owner) ?? ASSET_CREDIT,
+        });
+    }
+    const swept = deliveries.sweep(shops, o.startMs);
+    if (swept > 0) o.log.info({ npcShopSweep: swept }, "npc facility storage swept to city stores");
+  }
 
   const metrics = { produced: 0, trades: 0, expired: 0, npcSales: 0 };
   let bidsSeen = 0;
@@ -753,6 +786,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     registry,
     lockers,
     fx,
+    carry,
     run,
     hooks,
     handle(event, nowMs) {
@@ -769,36 +803,40 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         const batch = facility?.pending;
         const shortBefore = economy.today.inputShort;
         run.handle(event, nowMs);
-        // NPC 사업장 장부(D-570 1887): 건물 시설 산출 = 그 도시(나라)에 판 매출, 레시피 재료 = 재료비(npcBooks.ts — 손익만)
+        // NPC 사업장(기획 대조 2053·2054, npcDelivery.ts): 산출은 시설 창고로, 재료비, 일꾼이 도시 창고로 실제로 나른다(닿으면 나라가 산 매출), 하루 끝 정산
         const buildingId = runs.get(subject)?.buildingId ?? null;
         const city = facility ? world.cities.get(facility.city) : undefined;
         if (
           facility &&
           city &&
           buildingId !== null &&
-          o.input.business &&
+          deliveries &&
           c.business.npcBooks === 1 &&
           economy.today.inputShort === shortBefore
         ) {
-          const currency = currencyOf.get(city.owner) ?? ASSET_CREDIT;
-          const sold = recordNpcSale({
-            business: o.input.business,
-            book,
-            owner: city.owner,
-            currency,
+          const outputs = batch?.outputs ?? facility.recipe.outputs;
+          const haul = haulOf(facility, restPlans.get(city.id), outputs);
+          deliveries.produced({
+            facilityId: facility.id,
             buildingId,
-            outputs: batch?.outputs ?? facility.recipe.outputs,
+            cityId: city.id,
+            owner: city.owner,
+            currency: currencyOf.get(city.owner) ?? ASSET_CREDIT,
+            outputs,
             inputs: facility.recipe.inputs,
-            priceOf: (asset) =>
-              registry.existing(city.id, asset)?.market.lastPrice ?? catalog.startPrice.get(asset) ?? 0n,
-            lotOf: (asset) => lotSizeOf(catalog, asset),
+            to: haul.to,
+            haulMs: haul.ms,
             atMs: nowMs,
           });
-          metrics.npcSales += sold.sale > 0n ? 1 : 0;
+          metrics.npcSales += 1;
         }
         const after = economy.facilities.get(subject);
         if (after) noteRun(after, nowMs, runs.get(subject)?.buildingId ?? null);
         metrics.produced += 1;
+        return true;
+      }
+      if (kind === EVENT_NPC_DELIVER) {
+        deliveries?.arrive(subject, nowMs);
         return true;
       }
       if (kind === EVENT_UPKEEP) recount();
@@ -827,17 +865,20 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     },
     restPlan: (cityId) => restPlans.get(cityId),
     workFacilities(cityId) {
-      const plan = restPlans.get(cityId);
       const out: WorkFacility[] = [];
       for (const facility of economy.facilities.values()) {
         if (facility.city !== cityId) continue;
         const note = runs.get(facility.id);
         const buildingId = note?.buildingId ?? null;
+        // 보이는 운반(기획 대조 2052): 지금 이 시설 일꾼이 나르는 일(npcCarry.ts) — 보는 2차맵이면 humanPlaces가 첫 일꾼에게 화물을 싣는다
+        const job = carry.ofWorker(facility.id, o.now());
         out.push({
           id: facility.id,
           buildingId,
           workers: facility.workers,
-          ...haulShown(facility, plan, note),
+          ...(job
+            ? { haul: { x: job.x, y: job.y, fromMs: job.fromMs, untilMs: job.untilMs, key: job.key } }
+            : {}),
         });
       }
       return out.toSorted((a, b) => a.id - b.id);

@@ -58,6 +58,12 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 사업장 장부(1 = 켬, 0 = 끔)",
     "NPC business books (1 = on, 0 = off)",
   ),
+  k(
+    "business_npc_wait_days",
+    "npcWaitDays",
+    "NPC 일꾼 소유자가 멈춘 계약을 기다리는 날",
+    "Days an NPC worker owner waits on a paused contract",
+  ),
   // 거래소 건물 2(기획 D-571, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)") — 서버만 읽는다
   k("exchange_fee_bp", "exchangeFeeBp", "거래소 이용료(만분율)", "Exchange usage fee (bp)"),
   k("exchange_locker_g", "exchangeLockerG", "거래소 개인 창고 기본 크기(g)", "Exchange locker base size (g)"),

@@ -360,6 +360,11 @@ export function createWorldFacilities(input: {
       return (catalog().facility(record?.facilityId ?? "")?.repair?.length ?? 0) > 0;
     },
     laborHourly: (buildingId) => labor?.hourlyLabor(buildingId) ?? 0n,
+    // 배 판매가(기획 대조 2057): 그 조선소가 만드는 배 종류
+    boatTypes: (buildingId) =>
+      (catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.boats ?? []).map(
+        (type) => type.id,
+      ),
   });
   service.attachBusiness(commands);
   const attack = createBuildingAttack({

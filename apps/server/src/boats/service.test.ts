@@ -119,6 +119,12 @@ describe("배", () => {
     });
     expect(await service.build("player", yard, false)).toEqual({ ok: false, code: "insufficient_materials" });
     grant(7, "item:pine_log", 10n, cargoLocation(2));
+    // 제 조선소도 판매가를 제 금고에 낸다(기획 대조 2072)
+    expect(await service.build("player", yard, false, "rowboat")).toEqual({
+      ok: false,
+      code: "insufficient_funds",
+    });
+    grant(7, CREDIT, 10_000n);
     // 작은 배: 10분 × 1000‰
     expect(await service.build("player", yard, false, "rowboat")).toEqual({
       ok: true,

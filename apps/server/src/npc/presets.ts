@@ -93,6 +93,7 @@ export function nationPresetsFrom(
               },
             }
           : {}),
+        ...(entry.temper ? { temper: { ...entry.temper } } : {}),
         ...(entry.cityNames ? { cityNames: [...entry.cityNames] } : {}),
         ...(entry.leaderName ? { leaderName: { ko: entry.leaderName.ko, en: entry.leaderName.en } } : {}),
         ...(entry.intro ? { intro: { ko: entry.intro.ko, en: entry.intro.en } } : {}),

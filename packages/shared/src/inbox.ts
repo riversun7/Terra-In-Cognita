@@ -137,6 +137,18 @@ export const INBOX_KINDS = {
     // 제공 함수: 서버 travel/scoutInbox.ts
     planned: false,
   },
+  // 제안·결정: 내 유닛의 임금형 노동 계약이 일시 중지됐다(고용한 사업장 보증금이 바닥남 — 기획 D-573 2045 "일꾼이 중단된 상태로 소유자에게 경고창이 뜨고
+  // 기다릴지 해지하고 다른곳으로 갈지 정함"). 자동 해지는 없다: 기다리면 사업장에 수익이 나 임금 정산이 다시 될 때 일한다. 계정마다 한 줄로 묶는다(key = labor).
+  // 해지는 경제 화면 노동 계약 칸에서(labor_terminate)
+  labor_paused: {
+    category: "decision",
+    grouped: true,
+    route: "economy",
+    actions: [],
+    badge: null,
+    // 제공 함수: 서버 labor/pausedInbox.ts
+    planned: false,
+  },
   // 제안·결정: 맞는 의뢰(D-036)
   contract_match: {
     category: "decision",

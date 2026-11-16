@@ -8,6 +8,7 @@
 // - 자리 수·빠르기는 배 종류(조선소 boats 칸 — D-547 1484), 내구도 0이면 아주 느리게(1495).
 // D-559(docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559"): 다 된 배는 도크에 들고 출고(release)해야 뜬다(dock.ts), 남의 조선소도 받기 범위 안이면
 // 고친다(수리 요금은 그 조선소 금고), 조선소 모듈 묶음(레벨마다 하나 더), 요금은 그 항구 나라 화폐. 연료·오버히트·보직·빼앗기 명령은 voyage.ts.
+import { boatPriceItem } from "@terra/shared/harbor";
 import {
   HARBOR_FEE_MAX,
   type HarborAccess,
@@ -638,14 +639,46 @@ export function createBoatService(deps: BoatDeps): BoatService {
         ? homed.length
         : visits.filter((state) => (state.tradeUntilMs ?? 0) > at).length;
     const first = jobs.find((job) => job.kind === "build");
+    const typeViews = (fac.def.boats ?? []).map((type) => {
+      const cost = boatCost(type, rules.costPm);
+      const buildMs = boatBuildMs(type, rules, row.modules, false);
+      // 배 주문 적정가(D-570 1822): 재료 기준 값 합 + 조선소 일꾼 인건비 × 만드는 시간 + 수수료 + 세금
+      const catalog = deps.places()?.catalog();
+      let worth = 0n;
+      for (const stack of cost) worth += BigInt(stack.qty) * (catalog?.unitPriceOf?.(stack.item) ?? 1n);
+      const fair = deps.fairOf?.(buildingId, worth, buildMs);
+      const set = deps.business?.price?.(buildingId, boatPriceItem(type.id));
+      return {
+        id: type.id,
+        name: type.name,
+        materials: cost.map((stack) => {
+          const name = catalog?.itemName(stack.item);
+          return name ? { ...stack, name } : stack;
+        }),
+        buildMs,
+        speedPm: type.speedPm,
+        capacity: type.capacity,
+        ...(fair ? { fair } : {}),
+        // 지금 판매가(2057·2072): 주인이 정한 값, 없으면 적정가. 주인 없는 조선소는 없음
+        ...(found.ownerId === null || harbor.assetAt(buildingId) === undefined
+          ? {}
+          : set !== undefined
+            ? { price: set.toString(), priceSet: true }
+            : {
+                // 적정가 셈이 없는 시험 세계는 옛 셈(외주 요금 × 배수 — shipyard.ts salePrice와 같다)
+                price:
+                  fair?.price ??
+                  ((BigInt(row.fee) * BigInt(Math.max(0, rules.shipyardBuildFeePm))) / 1000n).toString(),
+                priceSet: false,
+              }),
+      };
+    });
     return {
       role,
       closed: !harborOpen(fac.record.conditionPpm, rules),
       access: row.access,
       fee: row.fee,
-      ...(isShipyard(fac.def)
-        ? { orderFee: ((BigInt(row.fee) * BigInt(Math.max(0, rules.shipyardBuildFeePm))) / 1000n).toString() }
-        : {}),
+      ...(isShipyard(fac.def) && typeViews[0]?.price !== undefined ? { orderFee: typeViews[0].price } : {}),
       module: row.modules[0] ?? null,
       modules: row.modules,
       moduleSlots: isShipyard(fac.def) ? shipyardModuleSlots(level) : 0,
@@ -673,27 +706,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
         readyAt: job.doneAtMs,
         ownerId: job.ownerId,
       })),
-      types: (fac.def.boats ?? []).map((type) => {
-        const cost = boatCost(type, rules.costPm);
-        const buildMs = boatBuildMs(type, rules, row.modules, false);
-        // 배 주문 적정가(D-570 1822): 재료 기준 값 합 + 조선소 일꾼 인건비 × 만드는 시간 + 수수료 + 세금
-        const catalog = deps.places()?.catalog();
-        let worth = 0n;
-        for (const stack of cost) worth += BigInt(stack.qty) * (catalog?.unitPriceOf?.(stack.item) ?? 1n);
-        const fair = deps.fairOf?.(buildingId, worth, buildMs);
-        return {
-          id: type.id,
-          name: type.name,
-          materials: cost.map((stack) => {
-            const name = catalog?.itemName(stack.item);
-            return name ? { ...stack, name } : stack;
-          }),
-          buildMs,
-          speedPm: type.speedPm,
-          capacity: type.capacity,
-          ...(fair ? { fair } : {}),
-        };
-      }),
+      types: typeViews,
       boats: homed.map((state) => boatView(state.boatId)),
       visits: visits.map((state) => ({
         boatId: state.boatId,

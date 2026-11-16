@@ -220,7 +220,10 @@ export async function readBusinessBooks(
     facilityId,
     facilityName: catalog.facility(facilityId)?.name ?? null,
     ownerKind: kindOf(ownerId),
-    mine: viewerOwnerId !== undefined && source.core.mayManage(buildingId, viewerOwnerId),
+    // 정산할 수 있는 사람(D-555 1502 "주인 또는 대주주" — 기획 대조 2047)
+    mine:
+      viewerOwnerId !== undefined &&
+      (ownerId === viewerOwnerId || source.core.mayManage(buildingId, viewerOwnerId)),
     holders,
     ownerName: names?.get(ownerId) ?? null,
     stockValue: String(stockValue),

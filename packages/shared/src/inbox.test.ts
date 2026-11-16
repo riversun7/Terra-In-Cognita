@@ -44,6 +44,7 @@ describe("종류 표", () => {
       "boat_in_dock",
       "boat_homeless",
       "scout_returned",
+      "labor_paused",
       "contract_match",
       "house_invite",
       "house_application",
@@ -59,6 +60,7 @@ describe("종류 표", () => {
       "house_notice",
       "boat_in_dock",
       "boat_homeless",
+      "labor_paused",
     ]);
     for (const [kind, definition] of kinds) expect(definition.planned, kind).toBe(!live.has(kind));
   });

@@ -426,7 +426,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     expect(await world.checkInvariants()).toEqual([]);
   });
 
-  it("외주(D-570 1785): 남의 공방은 그 공방 일꾼이 고치고 요금(주인이 정한 시간당, 없으면 적정가)은 그 공방 사업장 금고로", async () => {
+  it("외주(D-570 1785·D-573 2048): 남의 공방은 그 공방 일꾼이 그 공방 재료로 고치고 요금(주인이 정한 시간당, 없으면 적정가)만 그 공방 사업장 금고로", async () => {
     const world = await boot();
     const p = persistence(world);
     const service = p.facilities.service;
@@ -481,6 +481,13 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     ).toEqual({ ok: true });
     const vault = () => p.ledger.balanceOf(owner.ownerId, ASSET_CREDIT, buildingLocation(buildingId));
     const wallet = () => p.ledger.balanceOf(guest.ownerId, ASSET_CREDIT);
+    // 재료는 공방이 낸다(D-573 2048 — 맡기는 사람의 재료는 보지 않는다): 공방 쪽에 재료가 없으면 받지 않는다
+    expect(await service.repairEquipment(guest.userId, buildingId, holdingId, [])).toEqual({
+      ok: false,
+      code: "insufficient_materials",
+    });
+    expect(await service.devFacilityGrant(owner.userId, "iron_ingot", 5)).toEqual({ ok: true });
+    expect(await service.devFacilityGrant(owner.userId, "deer_hide", 5)).toEqual({ ok: true });
     const walletBefore = wallet();
     const vaultBefore = vault();
     expect(await service.repairEquipment(guest.userId, buildingId, holdingId, [])).toEqual({
@@ -488,7 +495,8 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       doneAtMs: clock + 360_000,
     });
     const fee = 60n;
-    expect(goodsStock(p.ledger, guest.ownerId, "iron_ingot")).toBe(4n);
+    expect(goodsStock(p.ledger, guest.ownerId, "iron_ingot")).toBe(5n);
+    expect(goodsStock(p.ledger, owner.ownerId, "iron_ingot")).toBe(4n);
     expect(wallet()).toBe(walletBefore - fee);
     const tax = (fee * BigInt(p.facilities.business.taxRateOf(buildingId, owner.ownerId))) / 10_000n;
     expect(vault() - vaultBefore).toBe(fee - tax);

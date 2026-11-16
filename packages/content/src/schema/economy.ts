@@ -501,6 +501,19 @@ export const nationPresetEntrySchema = z.strictObject({
   powerTier: z.enum(POWER_TIERS).optional(),
   /** [임시] 거래세(만분율). NPC 세율은 규칙식(D-323, R5)이 바꾼다 */
   tradeTaxBp: z.int().min(0).max(10_000),
+  /**
+   * 성향 칸(기획 D-573 1991 — 사용자 답 "국가 편집기에 성향 칸, 비어 있으면 무작위"): 세력 성향 4축(공격·상업·신앙·정거장 태도, 0~1000 — D-327)과 지도자 기질
+   * (−1000~1000‰ — 설정 칸 폭 안 위치). NPC 판단·채집 티어 성향·도시 성장 성향이 읽는다. 빈 칸(축마다)은 (세계 시드, 세력)으로 굴린 값. 없으면 모두 무작위
+   */
+  temper: z
+    .strictObject({
+      aggression: z.int().min(0).max(1000).optional(),
+      commerce: z.int().min(0).max(1000).optional(),
+      faith: z.int().min(0).max(1000).optional(),
+      station: z.int().min(0).max(1000).optional(),
+      leader: z.int().min(-1000).max(1000).optional(),
+    })
+    .optional(),
   /** 나라 성격(위). 없으면 모든 국가가 같은 기본 */
   personality: nationPersonality.optional(),
   /**

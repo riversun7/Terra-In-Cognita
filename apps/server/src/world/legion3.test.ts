@@ -28,9 +28,10 @@ const { tickMs } = TEST_COMBAT_COEFFICIENTS;
 
 describe("판 번호·목록(D-571 줄기)", () => {
   it("SIM 59·프로토콜 49(최소 48)·대형·전개 방식 목록이 판정·보고서와 같다", () => {
-    expect(SIM_VERSION).toBe(59);
-    expect(PROTOCOL_VERSION).toBe(49);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(48);
+    // 뒤 줄기가 판을 올린다(npc-econ-5: SIM 62·프로토콜 52, 최소 = 현재 − 1)
+    expect(SIM_VERSION).toBeGreaterThanOrEqual(59);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(49);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
     expect(BATTLE_ORDER_PROTOCOL_VERSION).toBe(49);
     expect([...BATTLE_FORMATIONS]).toEqual([...FORMATION_SHAPES]);
     expect([...REPORT_FORMATIONS]).toEqual([...FORMATION_SHAPES]);

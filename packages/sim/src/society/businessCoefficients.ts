@@ -37,11 +37,17 @@ export interface BusinessCoefficients {
    */
   readonly serviceFeePm: number;
   /**
-   * [임시] NPC 사업장 장부(기획 D-570 1887 — D-212 "NPC도 같은 시스템"·D-569 1781 "무조건 판매"): 1이면 NPC 세력 시설의 산출을 그 도시(나라)가
-   * 시세에 사들인 매출로, 레시피 재료를 시설이 사들인 재료비로 시설 금고에 적고 바로 국고로 정산한다(손익만 — 물건 흐름·시뮬 판정은 그대로).
-   * 0이면 끈다(원장 거래가 늘어 부하가 크면)
+   * [임시] NPC 사업장 장부(기획 D-570 1887 — D-212 "NPC도 같은 시스템"·D-569 1781 "무조건 판매"): 1이면 NPC 세력 시설의 산출을 플레이어 사업장처럼
+   * 시설 창고에 쌓고 실제로 나른다(서버 npc/npcDelivery.ts). 그 도시 창고에 닿은 만큼 나라가 시세에 사들인 매출, 레시피 재료는 시설이 사들인 재료비로
+   * 시설 금고에 적고, 금고는 하루 끝 자동 정산으로 국고에 든다(바뀜 기획 대조 2053·2054 — D-555 1509·1510·D-571 1945). 0이면 예전처럼 도시 창고로 바로
+   * (장부 없음). 시뮬 판정은 그대로
    */
   readonly npcBooks: number;
+  /**
+   * [임시] NPC 일꾼 소유자가 일시 중지된 임금형 계약을 기다리는 날(기획 D-573 2045 — NPC 소유자는 성향 규칙 D-212·D-323, apps/server/src/labor/npcWait.ts).
+   * 실제 날 = 이 값 × (1500 − 상업 성향 치우침‰) ÷ 1000. 지나면 해지하고 다른 곳으로 간다. 0이면 바로 해지. 플레이어 소유자는 처리할 일로 손으로 정한다
+   */
+  readonly npcWaitDays: number;
   /**
    * [임시] 거래소 이용료(만분율, 기획 D-564 1682·D-548·D-160 — 질문 1948 답, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)"). 물자 거래소
    * 체결마다 판 쪽이 총액 × 이 값 ÷ 10000(버림)을 그 도시 물자 거래소 건물 금고(사업장 장부)에 낸다. 거래세(국고, D-128)와 따로. 0이면 이용료 없음
@@ -73,6 +79,7 @@ export const START_BUSINESS: BusinessCoefficients = {
   reserveDefaultPm: 1000,
   serviceFeePm: 200,
   npcBooks: 1,
+  npcWaitDays: 3,
   exchangeFeeBp: 50,
   exchangeLockerG: 200_000,
   exchangeLockerStepG: 200_000,

@@ -28,6 +28,8 @@ describe("D-570 배 셈", () => {
 /** 내 조선소에서 어선을 만들어 꺼낸다(배 ID) */
 const fishingBoat = async (rig: ReturnType<typeof setup>, yard: number): Promise<number> => {
   rig.grant(7, "item:plank", 2n, cargoLocation(1));
+  // 제 조선소에서 만들어도 판매가를 제 조선소 금고에 낸다(기획 대조 2072)
+  rig.grant(7, CREDIT, 10_000n);
   expect(await rig.service.build("player", yard, false, "fishing_boat")).toMatchObject({ ok: true });
   await vi.advanceTimersByTimeAsync(600_000);
   const boatId = rig.service.dockJob(yard)?.docked[0]?.boatId ?? 0;
@@ -153,21 +155,30 @@ describe("D-570 배 서비스", () => {
     expect(service.info(1)?.fuelPm).toBe(1000);
   });
 
-  it("배값(1827): 남의 조선소 주문은 판매가(주문 요금), 제 조선소에서 만든 배는 재료 시작 시세", async () => {
-    const { map, service, place, grant } = setup();
+  it("배값(1827)·판매가(2057·2072): 주문자·주인 모두 판매가(주인이 정한 값, 없으면 적정가·옛 셈)를 조선소 금고에, 재료는 조선소 창고 먼저", async () => {
+    const { map, service, place, grant, ledger } = setup();
     const yard = place(SHIPYARD, 40);
     map.addBoat({ id: 9, ownerId: 8, speed: START_BOATS.speed, cellX: 130, cellY: 41 });
-    grant(8, "item:pine_log", 10n, cargoLocation(9));
     grant(8, CREDIT, 10_000n);
+    // 주문자의 재료는 보지 않는다(D-573 2048 — 재료는 조선소가 낸다)
+    grant(8, "item:pine_log", 10n, cargoLocation(9));
+    expect(await service.build("other", yard, false)).toEqual({ ok: false, code: "insufficient_materials" });
+    grant(7, "item:pine_log", 10n, buildingLocation(yard));
     expect(await service.build("other", yard, false)).toMatchObject({ ok: true });
-    // 내 배(다른 내 조선소에서 — 재료 10 × 시세 5 = 50)
+    expect(ledger.balanceOf(7, "item:pine_log", buildingLocation(yard))).toBe(0n);
+    expect(ledger.balanceOf(8, "item:pine_log", cargoLocation(9))).toBe(10n);
+    // 제 조선소: 주인도 판매가를 낸다(제 금고로 — 매출)
     const own = place(SHIPYARD, 60);
     map.addBoat({ id: 1, ownerId: 7, speed: START_BOATS.speed, cellX: 130, cellY: 61 });
     grant(7, "item:pine_log", 10n, cargoLocation(1));
+    expect(await service.build("player", own, false)).toEqual({ ok: false, code: "insufficient_funds" });
+    grant(7, CREDIT, 10_000n);
     expect(await service.build("player", own, false)).toMatchObject({ ok: true });
     await vi.advanceTimersByTimeAsync(600_000);
     const fee = (BigInt(START_BOATS.shipyardRepairFee) * BigInt(START_BOATS.shipyardBuildFeePm)) / 1000n;
+    expect(ledger.balanceOf(7, CREDIT, buildingLocation(own))).toBe(fee);
     expect(service.dockJob(yard)?.docked[0]).toMatchObject({ ownerId: 8, value: fee.toString() });
-    expect(service.dockJob(own)?.docked[0]).toMatchObject({ ownerId: 7, value: "50" });
+    expect(service.dockJob(own)?.docked[0]).toMatchObject({ ownerId: 7, value: fee.toString() });
+    expect(service.dockJob(own)?.types[0]).toMatchObject({ price: fee.toString(), priceSet: false });
   });
 });

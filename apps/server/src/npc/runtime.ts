@@ -85,6 +85,7 @@ import { nationBuildTargets, npcBuildRunOf } from "./cityBuild.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
+import { applyPresetTemper } from "./presetTemper.ts";
 import { type CityPlace, type NpcPersist, type NpcPersistOptions, createNpcPersist } from "./persist.ts";
 import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
@@ -258,6 +259,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       blueprint: Math.max(row.techLevel, row.techBlueprint),
     };
     faction.aiStep = row.aiStep;
+    applyPresetTemper(faction, presetOfCode(row.code, o.presets ?? o.economy?.presets ?? []), c.npc);
     // 플레이어 가문(소유 주체가 있는 가문, houseRuntime.ts): 판단을 돌리지 않고 사라지지 않는다
     if (row.player) faction.player = true;
     faction.rebelOf = row.rebelOfRowId === null ? null : (ownerOfRow.get(row.rebelOfRowId) ?? null);
@@ -863,6 +865,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       // 쉼터 계획(질문 1047 다): 도시 경제가 생산 속도 배율을 셈한 같은 계획
       restOf: econ ? (cityId) => econ.restPlan(cityId) : undefined,
       restCycle: restCycleOf(o.rules()), // 피로 바퀴로 일터 ↔ 쉼터(질문 1095 가)
+      carry: econ ? { board: econ.carry, nowMs: o.now() } : undefined, // 운반꾼 화물(2052·2088)
     });
     people.sync();
     people.flush();

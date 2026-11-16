@@ -131,3 +131,4 @@
 - 2026-11-15 22:40 KST: 원본 `c878e14`(D-568 점검 2차 답 — 약초원 레벨 = 티어, 배 채집 배 단위·배 창고, 배 보유 수 제외) 동기화 — 02_Decision_Log. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-16 01:50 KST: 원본 `b7b7cff`(D-569 가문 소속 한 줄·채집 4·사업장 2 답) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules, 40_Systems/43·44·46. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-16 09:30 KST: 원본 `8557ec7`(D-570 남은 질문 1·2차 사용자 답, 667a689·8557ec7) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
+- 2026-11-16 11:00 KST: 원본 `6ea0984`(D-571 거래소 건물·군단 명령 2 사용자 답) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules. README·PLAN §14 머리 문장 갱신. 49 변경 없음.

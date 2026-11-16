@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   FX_PROTOCOL_VERSION,
   FX_RESULT_CODES,
+  LOCKER_PROTOCOL_VERSION,
   MARKET_EXPIRY_DAYS_MAX,
   MARKET_PROTOCOL_VERSION,
   MARKET_RESULT_CODES,
@@ -117,5 +118,19 @@ describe("물자 거래소 메시지(프로토콜 14)", () => {
     expect(decodes(decodeServerMessage, { t: "fx_result", id: 7, ok: false, code: "no_liquidity" })).toBe(
       false,
     );
+  });
+});
+
+describe("거래소 개인 창고 넓히기(프로토콜 49, 기획 D-571 1943)", () => {
+  it("market_locker_expand가 왕복하고 결과 코드 locker_full·locker_max가 있다", () => {
+    expect(LOCKER_PROTOCOL_VERSION).toBe(49);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(LOCKER_PROTOCOL_VERSION);
+    const expand = { t: "market_locker_expand", id: 9, city: 3 } as const;
+    expect(decodeClientMessage(encodeMessage(expand))).toEqual(expand);
+    expect(decodes(decodeClientMessage, { ...expand, city: 0 })).toBe(false);
+    expect(MARKET_RESULT_CODES).toContain("locker_full");
+    expect(MARKET_RESULT_CODES).toContain("locker_max");
+    const full = { t: "market_result", id: 9, ok: false, code: "locker_max" } as const;
+    expect(decodeServerMessage(encodeMessage(full))).toEqual(full);
   });
 });

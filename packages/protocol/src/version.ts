@@ -182,6 +182,9 @@
  *    - 배 D-570(boats.ts, docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (D-570)") — 함포 칸 포획 장비 달기·떼기(boat_gear)·배 창고 싣기(boat_load) →
  *      boat_result, 보직 낚시 선원(boat_crew post fisher), 새 결과 코드 not_catch_gear·bad_slot·hold_full은 49판 연결에만 가고 그 아래 연결은
  *      legacyGearCode로 낮춘다. 연료 보급(boat_refuel)은 내 배 시설에서도 된다(메시지 꼴 그대로). 48판 기기는 새 메시지를 보내지 않는다.
+ *    - 거래소 건물 2(기획 D-571, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)") — 거래소 개인 창고 넓히기 market_locker_expand →
+ *      market_result(새 코드 locker_max), 사기 주문의 새 코드 locker_full(48판 연결은 invalid_amount — market.ts LOCKER_PROTOCOL_VERSION). 거래 직무는
+ *      labor_assign 꼴 그대로(남의 거래소에도 받는다).
  */
 export const PROTOCOL_VERSION = 49;
 

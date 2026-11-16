@@ -21,6 +21,8 @@
 //   (그 구간에 시험 광석을 내던 개발 시험 일꾼은 없앴다 — 사용자 지적 2026-11-09 "시험일꾼 다 없애라고"). 계약을 맺으면 유닛 직무를
 //   채집으로 켜고, 일이 끝나면 정산 뒤 고리가 끈다.
 //   직무 배치(assign·unassign, 프로토콜 14)는 내 유닛을 내 채집 시설에 돈 없이 둔다(질문 521, 자리 = 레벨 × 레벨당 자리).
+//   거래 직무(기획 D-571 1944, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)"): 물자·외환 거래소 건물에는 주인이 아니어도 내 유닛을 둔다
+//   (주인마다 자리 = 설정 칸 exchange_trade_slots, 산출 없음 — 주문 한도 D-148을 늘린다). 거래소 주인이 바뀌어도 풀리지 않는다.
 // - 직무 위치·임대 상한(docs/adr/2026-11-07-play-flow.md "WP8", 기획 정리 D-518 522 ①·523 ②): 직무 배치·계약 맺기·구인 받기는 유닛이 그
 //   시설과 같은 2차맵에 있어야 한다(wrong_map). 정산 때 유닛이 그 2차맵을 떠났으면 배치는 풀고 계약은 "유닛 사라짐"으로 끝낸다. 임대형
 //   임차인 몫(그 건물 창고)은 그 건물 창고 상한(팩 시설 storageKg × 레벨, N50)까지만 쌓인다(workBook.ts leaseRooms).
@@ -322,12 +324,17 @@ export function createLaborService(options: {
   /**
    * 직무 배치가 끝날 까닭(유닛 사라짐·주인 바뀜·일 멈춤, 시설 사라짐·주인 바뀜·채집 시설 아님). 그대로면 false. 풀면 그 구간 산출은 없다
    */
-  const assignmentGone = (unitId: number, ownerId: number, buildingId: number): boolean =>
-    unitOwnerOf(unitId) !== ownerId ||
-    (options.unitAway?.(unitId) ?? false) ||
-    buildingOwnerOf(buildingId) !== ownerId ||
-    workplaceOf(buildingId) === undefined ||
-    !onSiteMap(unitId, buildingId);
+  const assignmentGone = (unitId: number, ownerId: number, buildingId: number): boolean => {
+    const desk = work.source()?.tradeDesk?.(buildingId);
+    return (
+      unitOwnerOf(unitId) !== ownerId ||
+      (options.unitAway?.(unitId) ?? false) ||
+      // 거래 직무는 남의 거래소에 둔다(건물이 남아 있기만 하면 된다)
+      (desk ? buildingOwnerOf(buildingId) === undefined : buildingOwnerOf(buildingId) !== ownerId) ||
+      (desk === undefined && workplaceOf(buildingId) === undefined) ||
+      !onSiteMap(unitId, buildingId)
+    );
+  };
   /** 이번 정산에서 유예가 끝난 임대형 계약(정산 뒤 고리가 남은 물건을 옮긴다) */
   const leftoverQueue: LaborContract[] = [];
 
@@ -959,6 +966,20 @@ export function createLaborService(options: {
       if (buildingOwner === undefined) return fail("unknown_building");
       const unitOwner = unitOwnerOf(unitId);
       if (unitOwner === undefined) return fail("unknown_unit");
+      // 거래 직무(D-571 1944): 남의 거래소에도, 주인마다 자리 수까지
+      const desk = work.source()?.tradeDesk?.(buildingId);
+      if (desk) {
+        if (unitOwner !== me) return fail("forbidden");
+        if (desk.level < 1) return fail("not_workplace");
+        if (!onSiteMap(unitId, buildingId)) return fail("wrong_map");
+        if (unitBusy(unitId)) return fail("unit_busy");
+        const mine = work.assignedAt(buildingId).filter((id) => unitOwnerOf(id) === me).length;
+        if (mine >= desk.slots) return fail("facility_full");
+        settlement.settleOwner(me, at);
+        work.assign(unitId, me, buildingId, at);
+        work.startJob(unitId);
+        return done({ ok: true });
+      }
       if (buildingOwner !== me || unitOwner !== me) return fail("forbidden");
       // 다 지은 채집 시설·병원만(팩 gather가 있는 시설 또는 의료 단계 시설, 레벨 1 이상)
       const site = workplaceOf(buildingId);

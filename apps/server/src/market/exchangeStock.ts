@@ -5,8 +5,9 @@
 //   여기로 돌아온다. 도시 창고·사업장 창고 물건은 유닛이 거래소 건물로 실어 날라야 올린다(창고 넣기 storage_move in → 운반꾼, gather/station.ts haulIn).
 //   그 도시에 거래소 건물이 없으면(부서짐·옛 세계) 새 주문은 받지 않고(no_exchange), 이미 걸린 주문의 체결·돌려받기는 도시 창고로 간다
 //   (건물이 사라질 때 건물 창고 물건이 도시 창고로 돌아가는 것과 같다 — facilities/storage.ts rehomeBuildingGoods).
-// - NPC 세력(유저가 아닌 주체) 물건 자리 = 도시 창고 그대로 [임시](질문 1945): 시뮬 NPC 경제가 도시를 자리로 쓰고(판정 그대로), NPC 운반은 보이지 않는
-//   곳의 시간 셈(D-564 1626)이라 도시 창고와 그 도시 거래소 사이는 바로 잇는다고 본다.
+// - NPC 세력(유저가 아닌 주체) 물건 자리: 바뀜 (질문 1945 답 — D-212·D-564 1626, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)") —
+//   서버는 NPC도 거래소 건물 창고다(운반 시간 셈, npcHaul.ts — books.ts가 고른다). 시뮬·운반 고리 없는 시험은 예전처럼 도시 창고(exchangeHolding isUser false).
+// - 개인 창고(D-571 1943): 거래소 건물 창고의 주인마다 몫이 곧 개인 창고다(크기·넓히기 lockers.ts).
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 
 /** 그 도시 물자 거래소의 에스크로(거래소 금고) 원장 위치 */

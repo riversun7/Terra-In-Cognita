@@ -3,7 +3,7 @@
 // 주문표 상태는 이 화면이 들고, 호가 줄을 누르면 값이 주문표에 들어간다.
 // 묶음 크기가 1보다 큰 물건(광석 1kg)은 가격·수량이 묶음 단위라는 알림을 시세 아래 둔다(302·D-506).
 // 실제 거래소(서버 도시 경제, docs/adr/2026-11-07-play-flow.md WP4)면 주문표가 명령을 보내고, 화면을 연 동안 체결 알림을 켜서 알림마다 다시 받는다.
-// 내 걸린 주문은 여기서도 거둘 수 있다.
+// 내 걸린 주문은 여기서도 거둘 수 있다. 거래소 건물 칸(개인 창고·거래 직무, 기획 D-571)은 ExchangeDesk.tsx.
 import type { EconomyOrdersResponse, MarketBookResponse } from "@terra/shared/economy";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
@@ -18,7 +18,6 @@ import {
   itemName,
   lotOf,
   lotText,
-  pickName,
 } from "../economyText.ts";
 import type { OrderContext, OrderDraft } from "../orderForm.ts";
 import { Change, Loaded, NotReady, PreviewTag } from "../parts.tsx";
@@ -27,6 +26,7 @@ import { toDepthLevels } from "../shape.ts";
 import { useMarketFills } from "./marketCommands.ts";
 import { refreshMarket } from "./marketText.ts";
 import { CancelOrderButton } from "./CancelOrderButton.tsx";
+import { ExchangeDesk } from "./ExchangeDesk.tsx";
 import { OrderBookPanel } from "./OrderBookPanel.tsx";
 import { OrderFormPanel, initialDraft } from "./OrderFormPanel.tsx";
 import { PriceChart } from "./PriceChart.tsx";
@@ -41,33 +41,6 @@ function contextOf(book: MarketBookResponse): OrderContext {
     goods: toBig(book.mine.goods),
     ordersLeft: Math.max(0, book.limit.max - book.limit.used),
   };
-}
-
-/**
- * 거래소 건물 안내(기획 D-561·D-564 1628, docs/adr/2026-11-16-exchange-buildings.md): 그 도시 물자 거래소 건물 이름과 팔 물건 자리, 도시 창고에 남은 이 물건.
- * 건물이 없으면 주문을 못 낸다는 알림. 시안(칸 없음)은 보이지 않는다
- */
-function ExchangeNote({ book }: { book: MarketBookResponse }) {
-  const exchange = book.exchange;
-  if (exchange === undefined) return null;
-  if (exchange === null)
-    return (
-      <p className="eco-notice" data-tone="warning" data-part="market-no-exchange">
-        {m.market_exchange_none()}
-      </p>
-    );
-  return (
-    <p className="eco-notice" data-part="market-exchange">
-      {m.market_exchange_at({ name: pickName(exchange.name, `#${exchange.buildingId}`) })}
-      {toBig(exchange.cityGoods) > 0n ? (
-        <>
-          {" "}
-          {m.market_exchange_city_goods({ qty: fmt(exchange.cityGoods) })}{" "}
-          <AppLink to={{ route: "economy_production" }}>{m.market_exchange_go_move()}</AppLink>
-        </>
-      ) : null}
-    </p>
-  );
 }
 
 function TradesList({ book }: { book: MarketBookResponse }) {
@@ -205,7 +178,7 @@ function BookTrader({
             {m.economy_lot_note({ size: lotText(index.items.get(book.item)) })}
           </p>
         ) : null}
-        <ExchangeNote book={book} />
+        <ExchangeDesk book={book} />
         {book.inSight ? null : (
           <p className="eco-notice" data-tone="warning">
             {m.economy_book_observed({ time: formatAgo(book.observedAt, book.generatedAt) })}

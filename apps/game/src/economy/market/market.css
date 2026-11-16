@@ -512,3 +512,42 @@ button.eco-level {
 .eco-sent[data-tone="error"] {
   color: var(--color-danger);
 }
+
+/* 거래소 건물 칸(ExchangeDesk.tsx, 기획 D-571): 개인 창고 막대·넓히기, 거래 직무 유닛 목록·고르기. 좁으면 감싼다 */
+.eco-desk {
+  display: grid;
+  gap: var(--space-2);
+}
+.eco-desk-line {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.eco-desk-part {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: var(--border-w) solid var(--color-border);
+}
+.eco-desk-meter {
+  inline-size: 100%;
+}
+.eco-desk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.eco-desk-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.eco-desk-unit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}

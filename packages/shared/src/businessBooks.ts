@@ -103,6 +103,9 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   dock_time_fee: "income",
   dock_overstay_fee: "income",
   tuition: "income",
+  // 거래소 이용료·개인 창고 넓히기(기획 D-571 1943·1948, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)")
+  exchange_fee: "income",
+  exchange_locker: "income",
   // 판매(사업장 창고에서 판 것 — 주인이 꺼낼 때도 값을 낸다, D-555 1507). NPC 시설 산출을 그 도시(나라)가 사들인 것도(D-570 1887)
   business_sale: "sales",
   // 재료비: NPC 시설이 레시피 재료를 그 도시(나라) 창고에서 사들인 값(D-570 1887 — 플레이어처럼 손익)
@@ -132,6 +135,8 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   station_haul_load: "goods",
   // 도시 창고 → 물자 거래소 건물(운반 거리 0·옮김 셈 끔일 때, docs/adr/2026-11-16-exchange-buildings.md)
   exchange_deposit: "goods",
+  // NPC 도시 창고 ↔ 거래소 건물 운반(질문 1945 답, market/npcHaul.ts)
+  npc_exchange_haul: "goods",
   gather_deposit: "goods",
   job_output: "goods",
   labor_leftovers: "goods",

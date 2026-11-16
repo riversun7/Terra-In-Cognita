@@ -8034,5 +8034,21 @@
   "facility_outsource_workers": "{count} of that workshop's workers repair it",
   "facility_error_no_shop_worker": "That workshop has no worker free to repair.",
   "facility_error_service_closed": "That workshop is not taking outsourced repairs now.",
-  "harbor_type_fair": "Fair price ≈ {price} (materials {materials} · labor {labor} · fee {fee} · tax {tax})"
+  "harbor_type_fair": "Fair price ≈ {price} (materials {materials} · labor {labor} · fee {fee} · tax {tax})",
+  "market_exchange_stopped": "This city's goods exchange building is below 30% condition and has stopped. Orders can't be placed until it is repaired. Open orders can still be withdrawn.",
+  "market_err_locker_full": "Not enough room in your exchange locker. Expand it or take goods out.",
+  "market_err_locker_max": "Your locker can't be expanded any further.",
+  "market_locker_title": "My locker: {used} / {capacity} kg",
+  "market_locker_meter": "Locker weight in use",
+  "market_locker_expand": "Expand +{step} kg ({price})",
+  "market_locker_steps": "Expansions {steps}/{max}",
+  "market_locker_max": "Fully expanded",
+  "market_desk_title": "Trade desk {count}/{slots}",
+  "market_desk_rule": "Each trade-desk unit adds 1 to your order limit per 20 INT + WIS. It produces nothing.",
+  "market_desk_cyborg": "Cyborg (+{bonus})",
+  "market_desk_unit": "Unit #{id} (+{bonus})",
+  "market_desk_unassign": "Remove",
+  "market_desk_pick": "Unit for the trade desk",
+  "market_desk_assign": "Put on trade desk",
+  "market_desk_no_free": "None of your units are idle in this exchange's area."
 }

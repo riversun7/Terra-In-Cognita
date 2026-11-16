@@ -57,7 +57,11 @@ export interface PorterDeps {
   readonly ledger: Ledger;
   readonly log: { error(obj: object, message: string): void };
   /** 그 채집소 일꾼(유닛 ID·유닛 주인) */
-  workersAt(buildingId: number): readonly { readonly unitId: number; readonly workerOwnerId: number }[];
+  workersAt(buildingId: number): readonly {
+    readonly unitId: number;
+    readonly workerOwnerId: number;
+    readonly via?: string | undefined;
+  }[];
   /** 채집 줄 등 다른 일이 있는 유닛(운반꾼에서 뺀다). 없으면 모두 한가 */
   readonly busy?: ((unitId: number) => boolean) | undefined;
   /** 물건 받을 사람의 그 2차맵 유닛(일꾼 다음 운반꾼 후보, 기획 D-569 1784). 없으면 일꾼만 */
@@ -202,6 +206,8 @@ export function createPorters(deps: PorterDeps): Porters {
       if (!map) return undefined;
       const workers = deps
         .workersAt(buildingId)
+        // 직무 배치는 제 유닛만(거래소 거래 직무는 남의 유닛도 있다 — 기획 D-571 1944, 남의 짐을 나르지 않는다)
+        .filter((worker) => worker.via !== "assign" || worker.workerOwnerId === ownerId)
         .toSorted(
           (a, b) =>
             Number(b.workerOwnerId === ownerId) - Number(a.workerOwnerId === ownerId) || a.unitId - b.unitId,

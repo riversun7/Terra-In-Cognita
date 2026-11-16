@@ -8034,5 +8034,21 @@
   "facility_outsource_workers": "그 공방 일꾼 {count}명이 고칩니다",
   "facility_error_no_shop_worker": "그 공방에 고칠 일꾼이 없습니다.",
   "facility_error_service_closed": "그 공방은 지금 외주 수리를 받지 않습니다.",
-  "harbor_type_fair": "적정가 ≈ {price} (재료 {materials} · 인건비 {labor} · 수수료 {fee} · 세금 {tax})"
+  "harbor_type_fair": "적정가 ≈ {price} (재료 {materials} · 인건비 {labor} · 수수료 {fee} · 세금 {tax})",
+  "market_exchange_stopped": "이 도시 물자 거래소 건물의 상태가 30% 아래라 멈췄습니다. 고칠 때까지 주문을 낼 수 없습니다. 걸어 둔 주문은 거둘 수 있습니다.",
+  "market_err_locker_full": "거래소 개인 창고에 자리가 모자랍니다. 창고를 넓히거나 물건을 꺼내세요.",
+  "market_err_locker_max": "개인 창고를 더 넓힐 수 없습니다.",
+  "market_locker_title": "내 개인 창고: {used} / {capacity}kg",
+  "market_locker_meter": "개인 창고 쓰는 무게",
+  "market_locker_expand": "넓히기 +{step}kg ({price})",
+  "market_locker_steps": "넓힌 칸 {steps}/{max}",
+  "market_locker_max": "더 넓힐 수 없습니다",
+  "market_desk_title": "거래 직무 {count}/{slots}명",
+  "market_desk_rule": "거래 직무 유닛마다 INT + WIS 20당 주문 한도가 1 늘어납니다. 산출은 없습니다.",
+  "market_desk_cyborg": "사이보그 (+{bonus})",
+  "market_desk_unit": "유닛 #{id} (+{bonus})",
+  "market_desk_unassign": "빼기",
+  "market_desk_pick": "거래 직무에 둘 유닛",
+  "market_desk_assign": "거래 직무에 두기",
+  "market_desk_no_free": "이 거래소가 있는 지역에 쉬는 내 유닛이 없습니다."
 }

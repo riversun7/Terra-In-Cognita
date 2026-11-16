@@ -16,6 +16,7 @@ import { type GatherService, createGatherService } from "./service.ts";
 import { type ObjectStore, createObjectStore, loadObjectStates } from "./state.ts";
 import { type StationRuntime, createStationRuntime } from "./station.ts";
 import { cellMaterials, oreSharePm, woodSharePm } from "@terra/shared/catchment";
+import { exchangeRoom } from "../market/lockerRoom.ts";
 
 /** 조회가 쓰는 채집 세계 */
 export interface GatherWorld {
@@ -166,9 +167,19 @@ export function startWorldGather(
         station.haulOut(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs, sellerId),
       );
       // 물자 거래소 건물 넣기도 운반꾼(기획 D-564 1628 — docs/adr/2026-11-16-exchange-buildings.md)
-      facilities.service.attachExchangeIn((ownerId, input, atMs) =>
-        station.haulIn(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs),
-      );
+      // 개인 창고 자리(기획 D-571 1943 — market/lockers.ts): 넘치면 떠나지 않는다(storage_full)
+      facilities.service.attachExchangeIn((ownerId, input, atMs) => {
+        const room = exchangeRoom(
+          world,
+          facilities,
+          ownerId,
+          input.buildingId,
+          input.asset,
+          BigInt(input.qty),
+        );
+        if (room === false) return "storage_full";
+        return station.haulIn(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs);
+      });
       // 플레이어 일꾼도 숙소에서 회복한다(질문 1088 가, labor/workerRest.ts) — 세계가 준비된 뒤 정산에 잇는다(DB가 있는 세계만 일꾼이 있다)
       const workerRest = attachWorkerRest({
         settlement: parts.settlement,

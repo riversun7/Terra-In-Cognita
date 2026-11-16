@@ -1,0 +1,173 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8315ae4c-6d61-4e83-8d17-d427b00675d3",
+  "prevIds": [
+    "22a71ad3-9c15-4a67-aef4-42828561488a",
+    "e39360c4-a832-4a11-a9d1-41c1f6cfbfcb"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exchange_lockers"
+      ],
+      "writes": [
+        "s|tbl|public.exchange_lockers",
+        "n|tbl|public.exchange_lockers",
+        "e|tbl|public.exchange_lockers",
+        "n|rel|public.exchange_lockers",
+        "n|type|public.exchange_lockers",
+        "n|rel|public.exchange_lockers_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exchange_lockers"
+      ],
+      "writes": [
+        "s|fk|public.exchange_lockers.exchange_lockers_owner_id_world_owners_id_fkey",
+        "n|fk|public.exchange_lockers.exchange_lockers_owner_id_world_owners_id_fkey",
+        "e|fk|public.exchange_lockers.exchange_lockers_owner_id_world_owners_id_fkey",
+        "n|con|public.exchange_lockers.exchange_lockers_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exchange_lockers",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.exchange_lockers.owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "exchange_lockers",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "exchange_lockers",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "exchange_lockers",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "exchange_lockers",
+        "name": "steps",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "exchange_lockers",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "exchange_lockers",
+        "name": "exchange_lockers_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "exchange_lockers",
+        "name": "exchange_lockers_pkey",
+        "columns": [
+          "city_id",
+          "owner_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "exchange_lockers",
+        "name": "exchange_lockers_steps",
+        "value": "\"steps\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

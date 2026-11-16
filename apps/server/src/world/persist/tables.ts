@@ -623,6 +623,12 @@ export const WORLD_TABLES = {
     ],
     key: ["id"],
   },
+  /** 거래소 개인 창고 넓힌 칸(기획 D-571 1943 — 도시 × 주인, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)") */
+  exchangeLockers: {
+    name: "exchange_lockers",
+    columns: ["city_id", "owner_id", "steps", "updated_at_ms"],
+    key: ["city_id", "owner_id"],
+  },
   /** 물자 거래소(docs/adr/2026-11-07-play-flow.md WP4): 도시 × 물건 거래소 ID(에스크로 계정 열쇠) */
   marketBooks: {
     name: "market_books",
@@ -925,6 +931,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "marketBooks",
   "marketOrders",
   "marketTrades",
+  "exchangeLockers",
   "fxPairs",
   "fxOrders",
   "fxRounds",

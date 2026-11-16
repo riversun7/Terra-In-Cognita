@@ -5,9 +5,11 @@
 // - 환전(fx_place·fx_cancel, 프로토콜 15)도 같은 연결 차례·속도 제한으로 받아 fx_result로 답한다(WP6).
 // - 판정·저장은 서비스(service.ts)가 한다.
 // - 거래소 건물(프로토콜 47, docs/adr/2026-11-16-exchange-buildings.md): 새 코드 no_exchange는 더 낮은 판에 unknown_city(물자)·unknown_currency(환전)로 간다.
+// - 거래소 개인 창고(프로토콜 49, 기획 D-571 1943): market_locker_expand → market_result. 새 코드 locker_full은 더 낮은 판에 invalid_amount로 간다.
 import {
   type ClientMessageOf,
   EXCHANGE_MARKET_PROTOCOL_VERSION,
+  LOCKER_PROTOCOL_VERSION,
   type FxResultCode,
   type MarketResultCode,
   encodeMessage,
@@ -18,7 +20,7 @@ import type { FillNotice } from "./books.ts";
 import type { FxCommandResult, MarketCommandResult, MarketService } from "./service.ts";
 
 export type MarketClientMessage = ClientMessageOf<
-  "market_place" | "market_cancel" | "market_watch" | "fx_place" | "fx_cancel"
+  "market_place" | "market_cancel" | "market_watch" | "market_locker_expand" | "fx_place" | "fx_cancel"
 >;
 
 const MAX_PENDING = 8;
@@ -121,13 +123,16 @@ export function createMarketGateway(options: {
       // 거래소 건물(47, 기획 D-561): 더 낮은 판은 no_exchange를 모른다
       const beforeExchange =
         (link.protocolVersion ?? EXCHANGE_MARKET_PROTOCOL_VERSION) < EXCHANGE_MARKET_PROTOCOL_VERSION;
-      const reply = (id: number, result: MarketCommandResult): void =>
-        send(
-          resultText(
-            id,
-            beforeExchange && !result.ok && result.code === "no_exchange" ? fail("unknown_city") : result,
-          ),
-        );
+      // 개인 창고(49, D-571 1943): 더 낮은 판은 locker_full을 모른다
+      const beforeLocker = (link.protocolVersion ?? LOCKER_PROTOCOL_VERSION) < LOCKER_PROTOCOL_VERSION;
+      const lower = (result: MarketCommandResult): MarketCommandResult => {
+        if (result.ok) return result;
+        if (beforeExchange && result.code === "no_exchange") return fail("unknown_city");
+        if (beforeLocker && (result.code === "locker_full" || result.code === "locker_max"))
+          return fail("invalid_amount");
+        return result;
+      };
+      const reply = (id: number, result: MarketCommandResult): void => send(resultText(id, lower(result)));
       const fxSend = (id: number, result: FxCommandResult): void =>
         send(
           fxResultText(
@@ -182,6 +187,8 @@ export function createMarketGateway(options: {
           return fxSend(message.id, await service.fxCancel(viewer.id, message.order));
         if (message.t === "market_cancel")
           return reply(message.id, await service.cancel(viewer.id, message.order));
+        if (message.t === "market_locker_expand")
+          return reply(message.id, await service.lockerExpand(viewer.id, message.city));
         reply(
           message.id,
           await service.place(viewer.id, {

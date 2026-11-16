@@ -4,18 +4,12 @@
 //   것의 가장 작은 건물 ID [임시](같은 종류 둘은 짓지 못하지만 옛 줄·관리자 놓기에 대비한다). 체결·돌려받기마다 불려 시설 줄만 훑는다(2차맵은 보지 않는다).
 // - 짓기 규칙: 잠긴 종류(유닛·증권)는 짓지 못한다(exchange_locked). 도시 밖은 짓지 못한다(no_place). 같은 도시에 같은 종류가 이미 있으면
 //   (짓는 중 포함) 짓지 못한다(exchange_exists).
-// - 배치(D-148): 그 종류 거래소 건물 칸에서 EXCHANGE_STATION_CELLS 칸 안(체비셰프)에 서 있는 내 유닛. 주문 한도 = 기본 + 유닛마다
-//   ⌊(INT + WIS) ÷ 나눗수⌋(입은 장비·버프 포함, holdings primariesOf), 위 끝 있음. 한 유닛은 한 번만 센다.
+// - 배치(D-148): 바뀜 (기획 D-571 1944 "거래소에 배치, 거래소 개인 창고·거래 물품 관리 역할", docs/adr/2026-11-16-exchange-buildings.md
+//   "바뀜 (D-571)") — 그 종류 거래소 건물의 거래 직무 유닛(노동 직무 배치 labor_assign, 남의 거래소에도 — labor/service.ts tradeDesk). 예전
+//   "건물 3칸 안에 선 유닛"은 없앴다. 주문 한도 = 기본 + 유닛마다 ⌊(INT + WIS) ÷ 나눗수⌋(입은 장비·버프 포함, holdings primariesOf), 위 끝 있음.
 // 읽기만 한다(원장·시설을 바꾸지 않는다). 정수 연산만 쓴다.
-import {
-  EXCHANGE_STATION_CELLS,
-  type ExchangeKind,
-  cellsFromRect,
-  exchangeLocked,
-  orderLimit,
-  stationBonus,
-} from "@terra/shared/exchange";
-import { anchorAt, footprintRect, positionAt } from "@terra/sim";
+import { type ExchangeKind, exchangeLocked, orderLimit, stationBonus } from "@terra/shared/exchange";
+import { footprintRect } from "@terra/sim";
 import type { FacilityCatalog } from "../facilities/catalog.ts";
 import type { FacilityRecord } from "../facilities/state.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -54,10 +48,12 @@ export interface ExchangeWorld {
   catalog(): FacilityCatalog;
   /** 일하는 상태인가(건물 서비스 works) */
   works(buildingId: number): boolean;
-  readonly maps: ReadonlyMap<number, SecondMap>;
   /** 유닛 1차 스탯(입은 장비·버프 포함). 없으면 배치 몫 0 */
   primariesOf?: ((unitId: number) => { readonly int: number; readonly wis: number }) | undefined;
-  readonly now: () => number;
+  /** 그 건물의 거래 직무 유닛(노동 직무 배치 — 유닛 ID·주인). 없으면 배치 몫 0 */
+  tradersAt?:
+    | ((buildingId: number) => readonly { readonly unitId: number; readonly ownerId: number }[])
+    | undefined;
 }
 
 export interface ExchangeDirectory {
@@ -65,24 +61,32 @@ export interface ExchangeDirectory {
   cityExchange(cityId: number, kind: ExchangeKind): number | undefined;
   /** 그 종류 거래소가 있는 도시들(도시 → 건물 ID) */
   citiesWith(kind: ExchangeKind): Map<number, number>;
-  /** 그 종류 거래소 건물 둘레에 선 내 유닛(유닛 ID 차례) */
+  /** 그 종류 거래소 건물(일하는 것)들의 내 거래 직무 유닛(유닛 ID 차례) */
   stationed(ownerId: number, kind: ExchangeKind): number[];
+  /** 그 도시에 그 종류 거래소 건물이 있지만 일하지 않는가(상태 30% 미만·멈춘 사업장 — 기획 D-559, 질문 1950) */
+  stoppedIn(cityId: number, kind: ExchangeKind): boolean;
   /** 내 주문 한도(그 종류 거래소의 배치 유닛 몫 포함) */
   orderLimit(ownerId: number, kind: ExchangeKind): number;
 }
 
-/** 건물이 선 2차맵·칸(없으면 undefined) */
-function placementOf(
+/** 건물 가운데 칸과 그 2차맵 키(없으면 undefined) — NPC 운반 시간(npcHaul.ts) */
+export function buildingCenterOf(
   maps: ReadonlyMap<number, SecondMap>,
   buildingId: number,
-): { map: SecondMap; rect: { x: number; y: number; width: number; height: number } } | undefined {
+): { readonly mapKey: number; readonly x: number; readonly y: number } | undefined {
   for (const map of maps.values()) {
     if (map.buildingOwner(buildingId) === undefined) continue;
-    let rect: { x: number; y: number; width: number; height: number } | undefined;
+    let found: { mapKey: number; x: number; y: number } | undefined;
     map.forEachBuilding((building) => {
-      if (building.id === buildingId) rect = footprintRect(building.placement);
+      if (building.id !== buildingId) return;
+      const rect = footprintRect(building.placement);
+      found = {
+        mapKey: map.mapKey,
+        x: rect.x + Math.floor(rect.width / 2),
+        y: rect.y + Math.floor(rect.height / 2),
+      };
     });
-    return rect ? { map, rect } : undefined;
+    return found;
   }
   return undefined;
 }
@@ -102,16 +106,9 @@ export function createExchangeDirectory(w: ExchangeWorld): ExchangeDirectory {
 
   const stationed = (ownerId: number, kind: ExchangeKind): number[] => {
     const found = new Set<number>();
-    const at = w.now();
-    for (const buildingId of citiesWith(kind).values()) {
-      const place = placementOf(w.maps, buildingId);
-      if (!place) continue;
-      place.map.forEachUnit((unit) => {
-        if (unit.ownerId !== ownerId || unit.aboard !== undefined) return;
-        const cell = anchorAt(positionAt(unit.motion, at), unit.size);
-        if (cellsFromRect(place.rect, cell.x, cell.y) <= EXCHANGE_STATION_CELLS) found.add(unit.id);
-      });
-    }
+    for (const buildingId of citiesWith(kind).values())
+      for (const entry of w.tradersAt?.(buildingId) ?? [])
+        if (entry.ownerId === ownerId) found.add(entry.unitId);
     return [...found].toSorted((a, b) => a - b);
   };
 
@@ -119,6 +116,21 @@ export function createExchangeDirectory(w: ExchangeWorld): ExchangeDirectory {
     cityExchange: (cityId, kind) => citiesWith(kind).get(cityId),
     citiesWith,
     stationed,
+    stoppedIn(cityId, kind) {
+      const catalog = w.catalog();
+      let any = false;
+      for (const record of w.records()) {
+        if (
+          record.cityId !== cityId ||
+          record.level < 1 ||
+          exchangeKindOf(catalog, record.facilityId) !== kind
+        )
+          continue;
+        if (w.works(record.buildingId)) return false;
+        any = true;
+      }
+      return any;
+    },
     orderLimit(ownerId, kind) {
       const primaries = w.primariesOf;
       if (!primaries) return orderLimit([]);

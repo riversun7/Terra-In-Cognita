@@ -2,6 +2,8 @@
 // 도시 시설 = 건물 서비스의 시설 줄 가운데 그 도시에 선 것(다 지었고 일하는 상태 — 상태 30% 미만·짓는 중은 빼기, 건물 서비스 works),
 // 주인 = 2차맵 건물 주인. 국가 프리셋(나라 성격: 도시 직무·처음 창고, 기획 답 531 다·533 다)도 함께 넘긴다.
 import type { CatchmentLand } from "@terra/shared/catchment";
+import { haulMs } from "@terra/sim";
+import { assetWeightG } from "../facilities/places.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import { type RestLodging, planCityRest } from "../npc/cityRest.ts";
 import type { CityFacility, NpcEconomyInput } from "../npc/economy.ts";
@@ -10,7 +12,7 @@ import type { TripArea } from "../world/bots.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { ServerEconomyCatalog } from "./catalog.ts";
-import { createExchangeDirectory } from "./exchangeBuildings.ts";
+import { buildingCenterOf, createExchangeDirectory } from "./exchangeBuildings.ts";
 
 export function npcEconomyInputOf(
   catalog: (() => ServerEconomyCatalog) | undefined,
@@ -33,8 +35,6 @@ export function npcEconomyInputOf(
     records: () => facilities.service.facilities.values(),
     catalog: facilities.catalog,
     works: (buildingId) => facilities.service.works(buildingId),
-    maps,
-    now: () => Date.now(),
   });
   return {
     catalog,
@@ -44,6 +44,15 @@ export function npcEconomyInputOf(
     business: facilities.business,
     // 유저 거래소 물건 자리 = 그 도시 물자 거래소 건물 창고(기획 D-561·D-564 1628, exchangeStock.ts)
     exchangeOf: (cityId) => exchanges.cityExchange(cityId, "goods"),
+    // NPC 운반 시간(질문 1945 답 — D-564 1626): 도시 칸 ↔ 거래소 건물 가운데(체비셰프 칸), 유저 반입과 같은 셈(운반꾼 하나)
+    exchangeHaulMs(cityId, buildingId, grams) {
+      const city = facilities.service.places.cities().find((entry) => entry.id === cityId);
+      const center = buildingCenterOf(maps, buildingId);
+      if (!city || !center) return 0;
+      const cells = Math.max(Math.abs(center.x - city.x), Math.abs(center.y - city.y));
+      return haulMs(grams, cells, 1, facilities.rules());
+    },
+    weightOf: (asset) => assetWeightG(facilities.catalog(), asset),
     // NPC 증축(질문 1101 나): 건물 서비스로 짓고 전략 배치로 자리를 고른다
     build: {
       service: facilities.service,

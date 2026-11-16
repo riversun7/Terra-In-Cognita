@@ -58,4 +58,31 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 사업장 장부(1 = 켬, 0 = 끔)",
     "NPC business books (1 = on, 0 = off)",
   ),
+  // 거래소 건물 2(기획 D-571, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)") — 서버만 읽는다
+  k("exchange_fee_bp", "exchangeFeeBp", "거래소 이용료(만분율)", "Exchange usage fee (bp)"),
+  k("exchange_locker_g", "exchangeLockerG", "거래소 개인 창고 기본 크기(g)", "Exchange locker base size (g)"),
+  k(
+    "exchange_locker_step_g",
+    "exchangeLockerStepG",
+    "거래소 개인 창고 넓히기 한 칸(g)",
+    "Exchange locker expansion step (g)",
+  ),
+  k(
+    "exchange_locker_step_price",
+    "exchangeLockerStepPrice",
+    "거래소 개인 창고 넓히기 값(화폐 최소 단위)",
+    "Exchange locker expansion price (minor units)",
+  ),
+  k(
+    "exchange_locker_max_steps",
+    "exchangeLockerMaxSteps",
+    "거래소 개인 창고 넓히기 칸 수 위 끝",
+    "Exchange locker expansion steps limit",
+  ),
+  k(
+    "exchange_trade_slots",
+    "exchangeTradeSlots",
+    "거래소 하나의 내 거래 직무 유닛 수",
+    "Trade-desk units per exchange (per owner)",
+  ),
 ];

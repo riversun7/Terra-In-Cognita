@@ -99,6 +99,7 @@ export {
 } from "./ruins.ts";
 export {
   EXCHANGE_MARKET_PROTOCOL_VERSION,
+  LOCKER_PROTOCOL_VERSION,
   FX_PROTOCOL_VERSION,
   FX_RESULT_CODES,
   type FxResultCode,

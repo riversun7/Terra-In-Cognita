@@ -74,6 +74,7 @@ import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { type MarketRegistry, createMarketRegistry } from "../market/books.ts";
 import { type FxRegistry, createFxRegistry } from "../market/fx.ts";
 import { loadFx, loadMarkets } from "../market/load.ts";
+import { type Lockers, createLockers, loadLockers } from "../market/lockers.ts";
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
@@ -167,6 +168,13 @@ export interface NpcEconomyInput {
    * 없으면 유저 물건도 도시 창고(예전과 같다)
    */
   readonly exchangeOf?: ((cityId: number) => number | undefined) | undefined;
+  /**
+   * 도시 창고 ↔ 그 도시 물자 거래소 건물 운반 시간(ms, 기획 D-564 1626 NPC 운반 시간 셈 — market/npcHaul.ts). exchangeOf와 함께 있으면 NPC도 거래소
+   * 건물이 있어야 거래하고 물건 자리가 거래소 건물 창고다(질문 1945 답). 없으면 NPC는 예전처럼 도시 창고로 바로
+   */
+  readonly exchangeHaulMs?: ((cityId: number, buildingId: number, grams: bigint) => number) | undefined;
+  /** 자산 한 기본 단위 무게(g) — NPC 운반 시간 */
+  readonly weightOf?: ((asset: string) => bigint) | undefined;
 }
 
 /** 시설 하나의 지금 생산(화면용) */
@@ -181,6 +189,8 @@ export interface FacilityRun {
 export interface ServerEconomy {
   readonly economy: Economy;
   readonly registry: MarketRegistry;
+  /** 거래소 개인 창고 넓힌 칸(기획 D-571 1943, market/lockers.ts) */
+  readonly lockers: Lockers;
   /** 환전 시장 모음(나라 화폐 ↔ 기준 통화) */
   readonly fx: FxRegistry;
   readonly run: EconomyRun;
@@ -300,8 +310,36 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     },
     isUser,
     exchangeOf: o.input.exchangeOf,
+    // 거래소 이용료(질문 1948 답, D-564 1682·D-548): 판 쪽 지갑 → 그 도시 물자 거래소 건물 금고(사업장 장부 수입·소득세)
+    fee: o.input.exchangeOf
+      ? {
+          of(cityId) {
+            const buildingId = o.input.exchangeOf?.(cityId);
+            return buildingId === undefined
+              ? undefined
+              : { buildingId, bp: Math.max(0, Math.floor(o.rules().business.exchangeFeeBp)) };
+          },
+          charge({ seller, currency, amount, buildingId, atMs }) {
+            const from = book.ownerAccount(seller, currency);
+            if (book.balance(from) < amount) return;
+            o.input.business?.receive({
+              from,
+              buildingId,
+              asset: currency,
+              amount,
+              kind: "exchange_fee",
+              atMs,
+            });
+          },
+        }
+      : undefined,
+    // NPC도 거래소 건물이 있어야 거래하고 운반 시간을 센다(질문 1945 답 — D-212·D-564 1626, market/npcHaul.ts)
+    npcHaul: o.input.exchangeHaulMs
+      ? { haulMs: o.input.exchangeHaulMs, weightOf: o.input.weightOf }
+      : undefined,
     now: o.now,
   });
+  const lockers = createLockers(await loadLockers(o.pool), writer);
   // 환전 시장(찍는 나라가 있는 화폐마다, 걸린 주문이 남은 짝은 fx.ts가 부팅 때 되살린다)
   const fx = createFxRegistry({
     ledger: book,
@@ -713,6 +751,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   return {
     economy,
     registry,
+    lockers,
     fx,
     run,
     hooks,

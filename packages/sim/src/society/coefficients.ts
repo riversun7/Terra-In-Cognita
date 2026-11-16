@@ -21,6 +21,7 @@ import { START_WORLD_SEED, type WorldSeedCoefficients } from "./worldSeed.ts";
 import { type BuildingGatherRules, DEFAULT_BUILDING_GATHER } from "@terra/shared/gatherMath";
 import { type GatherObjectCoefficients, START_GATHER_OBJECTS } from "./gatherObjects.ts";
 import { type LogisticsCoefficients, START_LOGISTICS } from "./logisticsCoefficients.ts";
+import { type EncounterCoefficients, START_ENCOUNTER } from "./encounterCoefficients.ts";
 import { type BoatCoefficients, START_BOATS } from "./boatCoefficients.ts";
 import { type BusinessCoefficients, START_BUSINESS } from "./businessCoefficients.ts";
 import { type ConditionCoefficients, START_CONDITION } from "./condition.ts";
@@ -125,6 +126,11 @@ export interface SocietyCoefficients {
    * docs/adr/2026-11-11-city-building-layout.md "바뀜 (2026-11-12)"
    */
   readonly logistics: LogisticsCoefficients;
+  /**
+   * 유닛 조우(팩 tuning 경로 "encounter.*", 모두 [임시] — 기획 D-564 1641·D-570, 질문 1905). 서버 travel/encounterWorld.ts가 읽는다. 시뮬은
+   * 읽지 않는다
+   */
+  readonly encounter: EncounterCoefficients;
   /** 배(팩 tuning 경로 "boats.*", 모두 [임시] — docs/adr/2026-11-13-boats.md). 서버 배 서비스가 읽는다 */
   readonly boats: BoatCoefficients;
   /** 사업장 장부(팩 tuning 경로 "business.*", 모두 [임시] — docs/adr/2026-11-15-business-ledger.md). 서버 사업장 장부가 읽는다 */
@@ -467,6 +473,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   gatherObjects: { ...START_GATHER_OBJECTS },
   buildingGather: { ...DEFAULT_BUILDING_GATHER },
   logistics: { ...START_LOGISTICS },
+  encounter: { ...START_ENCOUNTER },
   boats: { ...START_BOATS },
   business: { ...START_BUSINESS },
   techGroundMax: 5,

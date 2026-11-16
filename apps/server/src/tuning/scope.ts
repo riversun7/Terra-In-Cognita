@@ -358,6 +358,19 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "territoryDisplay.radiusScalePm",
   "territoryDisplay.minCells",
   "territoryDisplay.beaconCells",
+  // 유닛 조우(travel/encounterWorld.ts·afterEncounter.ts, D-564 1641·D-570): 조우 틱·조우 뒤 다시 판단마다 읽는다
+  "encounter.scanMs",
+  "encounter.cooldownMs",
+  "encounter.maxPerScan",
+  "encounter.mapSize",
+  "encounter.radiusCells",
+  "encounter.maxSideUnits",
+  "encounter.warRatioPm",
+  "encounter.lootRatioPm",
+  "encounter.aggressionPm",
+  "encounter.playerPolicy",
+  "encounter.fullPm",
+  "encounter.regroupHpPm",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

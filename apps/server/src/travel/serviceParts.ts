@@ -15,7 +15,13 @@ import { lastPoint } from "../world/mapGeometry.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { type UnitRow, motionOfRow } from "../world/secondMapRows.ts";
 import { type RouteContext, planLegs, travelMs } from "./route.ts";
-import { type CoordinateUnit, type Journey, type TravelView, cellOf } from "./serviceTypes.ts";
+import {
+  type CoordinateUnit,
+  type HaltedTrip,
+  type Journey,
+  type TravelView,
+  cellOf,
+} from "./serviceTypes.ts";
 
 /**
  * 걷는 빠르기 × 배수(운영자 모드 길, 사용자 지적 2026-11-09 "운영자모드에서 인접 2차맵을 목적지로 선택시 원래 속도로 느려진다").
@@ -131,4 +137,16 @@ export function travelEta(
     ? Math.max(at, arrivalAt(info.motion)) +
         travelMs(rest.distance, walkSpeed(info.speed, journey.speedFactor))
     : journey.arriveAtMs;
+}
+
+/** 조우로 멈춘 길의 다시 판단 자료(D-570 1908): 목표 = 지금 길의 마지막 2차맵 칸(정찰이 돌아오는 중이면 돌아오는 곳) */
+export function haltedTrip(journey: Journey): HaltedTrip {
+  return {
+    unitId: journey.unitId,
+    ownerId: journey.ownerId,
+    userId: journey.userId,
+    kind: journey.kind,
+    origin: journey.origin,
+    target: { mapKey: journey.route.at(-1) ?? -1, x: journey.target.x, y: journey.target.y },
+  };
 }

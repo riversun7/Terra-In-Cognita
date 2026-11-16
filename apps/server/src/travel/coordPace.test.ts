@@ -2,7 +2,16 @@
 import type { PlanetCellValues } from "@terra/planet/secondMap";
 import { FOREST_COST_PM, SURFACE_COST } from "@terra/sim";
 import { describe, expect, it } from "vitest";
-import { coordPacePm, hopPaceDistance } from "./coordPace.ts";
+import {
+  ROCK_FULL_RELIEF_M,
+  RIVER_DETOUR_PM,
+  RIVER_SHALLOW_PM,
+  coordPacePm,
+  hopPaceDistance,
+  neighborMapKeys,
+  slopeRockPm,
+} from "./coordPace.ts";
+import { cellKey } from "@terra/planet";
 
 const cell = (patch: Partial<PlanetCellValues>): PlanetCellValues => ({
   mapKey: 1,
@@ -18,6 +27,41 @@ const cell = (patch: Partial<PlanetCellValues>): PlanetCellValues => ({
   riverOrder: 0,
   forest: 0,
   ...patch,
+});
+
+describe("coordPacePm 강·비탈(1903)", () => {
+  it("얕은 강(등급 1~2)은 등급 × 몫만 얕은 물 비용, 깊은 강(3 이상)은 돌아가는 몫만큼 배율이 는다", () => {
+    const base = coordPacePm(cell({}));
+    const shallow = SURFACE_COST[10] ?? 0;
+    expect(coordPacePm(cell({ riverOrder: 2 }))).toBe(
+      Math.floor((base * (1000 - 2 * RIVER_SHALLOW_PM) + shallow * 2 * RIVER_SHALLOW_PM) / 1000),
+    );
+    expect(coordPacePm(cell({ riverOrder: 4 }))).toBe(
+      Math.floor((base * (1000 + 4 * RIVER_DETOUR_PM)) / 1000),
+    );
+    // 바다·호수 2차맵은 강을 따로 보지 않는다
+    expect(coordPacePm(cell({ water: 1, riverOrder: 4 }))).toBe(SURFACE_COST[10]);
+  });
+
+  it("비탈: 이웃 고도 차 가장 큰 값 ÷ 576m 몫만 바위 비용(해수면 아래는 0으로)", () => {
+    const here = cell({ elevationM: 100 });
+    expect(slopeRockPm(here, [])).toBe(0);
+    expect(slopeRockPm(here, [cell({ elevationM: 100 + ROCK_FULL_RELIEF_M / 2 }), undefined])).toBe(500);
+    expect(slopeRockPm(here, [cell({ elevationM: 5000 })])).toBe(1000);
+    expect(slopeRockPm(cell({ elevationM: 0 }), [cell({ elevationM: -3000 })])).toBe(0);
+    const flat = coordPacePm(here);
+    const steep = coordPacePm(here, [cell({ elevationM: 100 + ROCK_FULL_RELIEF_M })]);
+    expect(steep).toBe(SURFACE_COST[3]);
+    expect(steep).toBeGreaterThan(flat);
+  });
+
+  it("이웃 2차맵 키는 넷(같은 면 안), 셀 키가 아니면 빈 목록", () => {
+    const keys = neighborMapKeys(cellKey(0, 9, 100, 100));
+    expect(keys).toHaveLength(4);
+    expect(new Set(keys).size).toBe(4);
+    expect(keys).toContain(cellKey(0, 9, 101, 100));
+    expect(neighborMapKeys(-1)).toEqual([]);
+  });
 });
 
 describe("coordPacePm", () => {

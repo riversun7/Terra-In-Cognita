@@ -12498,6 +12498,222 @@
         "en": "Extra displace resistance of boss-grade (and higher) creatures."
       },
       "source": "ADR 2026-11-15-combat-moves \"바뀜 (D-564·D-568)\" · D-564 1587·1588 [임시]"
+    },
+    {
+      "id": "encounter_scan_ms",
+      "code": "",
+      "name": {
+        "ko": "[임시] 조우 찾기 간격(ms)",
+        "en": "[temp] Encounter scan interval (ms)"
+      },
+      "value": 10000,
+      "structural": false,
+      "unit": "ms",
+      "min": 2000,
+      "max": 600000,
+      "desc": {
+        "ko": "띄운 2차맵 유닛과 띄우지 않은 2차맵 좌표 유닛의 조우를 이 간격마다 찾는다. 짧을수록 서버 부하가 는다.",
+        "en": "How often loaded-map units and off-map coordinate units are checked for encounters. Shorter means more server load."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_cooldown_ms",
+      "code": "",
+      "name": {
+        "ko": "[임시] 조우 뒤 그 2차맵·나라 짝을 다시 보지 않는 시간(ms)",
+        "en": "[temp] Encounter cooldown per map and nation pair (ms)"
+      },
+      "value": 1800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 10000,
+      "max": 86400000,
+      "desc": {
+        "ko": "조우 전투가 났거나 두 편이 모두 회피한 2차맵·두 나라 짝은 이 시간 동안 다시 판단하지 않는다.",
+        "en": "After a battle or a mutual avoid, the same map and nation pair is not judged again for this long."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_max_per_scan",
+      "code": "",
+      "name": {
+        "ko": "[임시] 한 번에 여는 조우 전투 수",
+        "en": "[temp] Encounter battles per scan"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 32,
+      "desc": {
+        "ko": "한 번 찾을 때 여는 조우 전투 상한. 나머지는 다음 틱에 본다.",
+        "en": "Most encounter battles opened per scan; the rest wait for the next scan."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_map_size",
+      "code": "",
+      "name": {
+        "ko": "[임시] 조우 전투맵 한 변(칸)",
+        "en": "[temp] Encounter battle map edge (cells)"
+      },
+      "value": 64,
+      "structural": false,
+      "unit": "cells",
+      "min": 32,
+      "max": 128,
+      "desc": {
+        "ko": "만난 자리 둘레 2차맵 지형을 이만큼 잘라 전투맵으로 쓴다(짝수로 내림).",
+        "en": "The battle map copies this many cells of the second map around the meeting point (rounded down to even)."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_radius_cells",
+      "code": "",
+      "name": {
+        "ko": "[임시] 띄운 2차맵에서 만났다고 보는 거리(칸)",
+        "en": "[temp] Encounter reach on loaded maps (cells)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 64,
+      "desc": {
+        "ko": "띄운 2차맵에서 다른 나라 유닛이 이 거리 안에 들면 양쪽 AI가 회피·약탈·전투를 판단한다.",
+        "en": "On a loaded map, units of another nation within this reach make both sides decide to avoid, raid or fight."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_max_side_units",
+      "code": "",
+      "name": {
+        "ko": "[임시] 조우 한 편 유닛 상한",
+        "en": "[temp] Units per encounter side"
+      },
+      "value": 24,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 96,
+      "desc": {
+        "ko": "조우 전투 한 편에 드는 유닛 상한(유닛 ID 차례).",
+        "en": "Most units one side brings into an encounter battle (by unit ID)."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_war_ratio_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 전쟁 상대에게 싸움을 거는 전력 비(‰)",
+        "en": "[temp] Power ratio to attack a war enemy (‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "전쟁 중인 상대와 만나면 내 전력 ÷ 상대 전력이 이 값 이상일 때 싸움을 건다(공격 성향이 문턱을 옮긴다).",
+        "en": "Against a war enemy, a side attacks when its power ÷ the enemy's is at least this (aggression shifts the threshold)."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_loot_ratio_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 다른 나라 짐을 약탈하러 거는 전력 비(‰)",
+        "en": "[temp] Power ratio to raid another nation's cargo (‰)"
+      },
+      "value": 1500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "전쟁이 아닌 다른 나라 유닛이 짐을 지녔으면 전력 비가 이 값 이상일 때 약탈하러 건다. 짐이 없으면 회피한다.",
+        "en": "A side raids a non-war foreign group carrying cargo when its power ratio is at least this; with no cargo it avoids."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_aggression_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] NPC 공격 성향이 문턱을 옮기는 세기(‰)",
+        "en": "[temp] How far NPC aggression moves the thresholds (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 2000,
+      "desc": {
+        "ko": "문턱 × (1 + (500 − 공격 성향) ÷ 1000 × 이 값 ÷ 1000). 성향 500이면 그대로, 높을수록 쉽게 건다.",
+        "en": "Threshold × (1 + (500 − aggression) / 1000 × this / 1000). Aggression 500 keeps it; higher attacks more readily."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_player_policy",
+      "code": "",
+      "name": {
+        "ko": "[임시] 플레이어 유닛 자동 판단(0 = 회피, 1 = NPC와 같은 판단)",
+        "en": "[temp] Player unit auto decision (0 = avoid, 1 = same as NPC)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "플레이어 행동 설정이 아직 없어 플레이어 유닛은 기본으로 먼저 걸지 않는다(회피). 1이면 성향 500인 NPC처럼 판단한다.",
+        "en": "Players have no behaviour setting yet, so their units do not start fights by default (avoid). 1 makes them judge like an aggression-500 NPC."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_full_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 조우 뒤 짐 정리하러 가는 짐 몫(‰)",
+        "en": "[temp] Cargo share that sends a unit to unload after an encounter (‰)"
+      },
+      "value": 850,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "조우로 멈춘 유닛은 전투 뒤 다시 판단한다. 짐이 운반 상한의 이 몫 이상이면 출발한 자리로 전리품을 정리하러 간다.",
+        "en": "After an encounter battle a halted unit decides again: with cargo at or above this share of its carry limit it heads back to unload."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+    },
+    {
+      "id": "encounter_regroup_hp_pm",
+      "code": "",
+      "name": {
+        "ko": "[임시] 조우 뒤 재정비하러 돌아가는 남은 HP 몫(‰)",
+        "en": "[temp] Remaining HP share that sends a unit back to regroup (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "조우 전투 뒤 남은 HP가 최대의 이 몫 아래이거나 부상이면 출발한 자리로 돌아가 재정비한다. 아니면 하던 길을 다시 간다.",
+        "en": "After an encounter battle, a unit below this share of max HP (or injured) returns to regroup; otherwise it resumes its trip."
+      },
+      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
     }
   ]
 }

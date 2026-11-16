@@ -216,12 +216,23 @@ describe("웨이브 수비 편성을 자르지 않는다(D-571 답 1970)", () =>
     expect(ids(waveDefenderPick(units, 7, partyAB))).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 
-  it("넘치는 군단은 파티 하나씩 들어가는 만큼(파티는 자르지 않는다)", () => {
-    expect(ids(waveDefenderPick(units, 7, partyThree, legionOfThree))).toEqual([1, 2, 3, 4, 5, 6, 10]);
+  it("넘치는 군단은 파티로 나누지 않고 통째로 빠진다 — 군단은 군단으로(D-558 1547, 질문 2105 → 2181)", () => {
+    // 군단(1~9)이 상한 7을 넘어 통째로 빠지고 뒤의 혼자인 유닛이 남은 자리에 든다
+    expect(ids(waveDefenderPick(units, 7, partyThree, legionOfThree))).toEqual([10]);
+    // 군단이 들어가면 통째로
+    expect(ids(waveDefenderPick(units, 9, partyThree, legionOfThree))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(ids(waveDefenderPick(units, 10, partyThree, legionOfThree))).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
   });
 
-  it("상한이 가장 작은 파티보다 작으면 앞에서부터 상한만큼(수비가 없지 않게)", () => {
-    expect(ids(waveDefenderPick(units, 2, oneParty))).toEqual([1, 2]);
+  it("상한이 첫 편성보다 작으면 첫 편성을 통째로(수비가 없지 않게, 자르지 않는다)", () => {
+    expect(ids(waveDefenderPick(units, 2, oneParty))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    // 군단(1~9)만 있으면 상한 5여도 군단 통째로
+    expect(ids(waveDefenderPick(units.slice(0, 9), 5, partyThree, legionOfThree))).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9,
+    ]);
+    expect(waveDefenderPick(units, 0, oneParty)).toEqual([]);
   });
 });
 

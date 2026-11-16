@@ -45,7 +45,7 @@ const TACTIC_KEYS: readonly TuningKey[] = [
   tactic("lane_divisor", "laneDivisor", "중앙·측면 길 나눗수", "centre and flank lane divisor"),
 ];
 
-/** 명성 → 작위 문턱(49 S18, D-326)·방어 명성 */
+/** 명성 → 작위 문턱(49 S18, D-326)·방어·납품·의뢰 명성 */
 const RENOWN_KEYS: readonly TuningKey[] = [
   ...(
     [
@@ -74,6 +74,24 @@ const RENOWN_KEYS: readonly TuningKey[] = [
     structural: false,
     ko: "명성: 방어 한 번(수비 편 승리)",
     en: "Renown: one defence (defending side wins)",
+  },
+  {
+    id: "d326_renown_delivery_value",
+    code: "",
+    target: "society",
+    path: "renown.deliveryValue",
+    structural: false,
+    ko: "명성: 납품 가치 몇에 1(0 = 없음)",
+    en: "Renown: delivery value per point (0 = none)",
+  },
+  {
+    id: "d326_renown_quest",
+    code: "",
+    target: "society",
+    path: "renown.questRenown",
+    structural: false,
+    ko: "명성: 의뢰 하나 끝냄",
+    en: "Renown: one finished request",
   },
 ];
 

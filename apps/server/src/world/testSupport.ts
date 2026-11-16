@@ -16,7 +16,9 @@ import type { NationPreset } from "../npc/nations.ts";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { type PathOutcome, type PathService, createInlinePathService } from "./pathService.ts";
 import { type SecondMap, type SecondMapOptions, createSecondMap } from "./secondMap.ts";
-import type { Settlement } from "./settlement.ts";
+import { buildingLocation } from "@terra/shared/goodsPlaces";
+import type { LedgerBook } from "@terra/sim";
+import { ASSET_CREDIT, type Settlement } from "./settlement.ts";
 import { UNIT_KIND_HUMAN } from "./unitKinds.ts";
 import { type WorldStats, emptyWorldStats } from "./worldStats.ts";
 
@@ -249,5 +251,26 @@ export function legacyNationPresets(presets: readonly NationPreset[]): NationPre
       ...rest,
       personality: { ...preset.personality, ...(startCities === undefined ? {} : { startCities }) },
     };
+  });
+}
+
+/**
+ * 시험: 그 건물 사업장 금고에 시험 화폐를 바로 넣는다(시스템 발행 → 금고). 새 임금형 계약은 금고에 한 주기 임금이 있어야 맺는다(기획 D-570 1789 —
+ * 빈 금고 고용을 막는다)
+ */
+export function fundTestVault(
+  ledger: Pick<LedgerBook, "post" | "ownerAccount" | "systemAccount">,
+  ownerId: number,
+  buildingId: number,
+  amount: bigint,
+  atMs: number,
+): void {
+  ledger.post({
+    kind: "issue",
+    atMs,
+    entries: [
+      { account: ledger.systemAccount("test_issue_credit", ASSET_CREDIT), amount: -amount },
+      { account: ledger.ownerAccount(ownerId, ASSET_CREDIT, buildingLocation(buildingId)), amount },
+    ],
   });
 }

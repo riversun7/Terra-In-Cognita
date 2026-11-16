@@ -14,6 +14,10 @@
 //   임금 + 한 달치 보증금 모자람, 열린 임금형 계약마다) × 임금 상승 여유(설정 칸 business_reserve_margin_pm) × 주인이 고른 지급준비율(사업장마다,
 //   고르지 않았으면 설정 칸 business_reserve_default_pm). 남긴 돈으로 모자란 보증금부터 채운다(fundLaborDeposit, 계약 ID 차례) — 보증금은
 //   있는 만큼만 묶는다(1624). 새 고용은 한 주기 임금만 적자로 미리 넣고, 보증금은 금고에 있는 만큼만(fundDeposit). reserve.ts가 셈을 맡는다.
+// - 바뀜 (기획 D-570 1788·1789 원문 "적자는 기본적으로 멈춰야한다. 중단이 어려울때 마지막을 적자처리하고 마지막 사이클을 돌리고 재정안정될때까지
+//   운영중단 원칙."): 임금을 낼 돈이 금고에 없으면 마지막 한 주기만 적자로 넣고, 그 주기가 끝나는 시각에 멈춘다(stopAfter — suspendedAtMs가 그
+//   시각, 그 전까지는 돈다). 재정이 안정되면(적자를 다 갚고 금고가 다음 정산까지 낼 임금을 덮으면) 다시 돈다. 새 임금형 계약은 금고에 한 주기 임금이
+//   없거나 멈춘 사업장이면 맺지 않는다(fundDeposit = undefined — 고용을 막는다, 적자로 미리 넣지 않는다).
 // - 쓰기는 월드 쓰기 대기열(원장 고리와 같은 묶음). 거래에 중복 방지 키를 달지 않는다(자동 정산 주기는 business_states.settled_at_ms로 한 번만).
 import {
   type ShareHolder,
@@ -73,6 +77,8 @@ export interface BusinessDeps {
   readonly rules: () => BusinessCoefficients;
   /** 주주(지분 시장 — shares.ts). 없으면 주인 하나 1주 */
   readonly holders?: ((buildingId: number) => ShareHolder[]) | undefined;
+  /** 지금 시각(정해 둔 멈춤 시각을 견준다, D-570 1789). 없으면 정해 둔 멈춤도 바로 멈춤으로 본다 */
+  readonly now?: (() => number) | undefined;
 }
 
 export interface IncomeInput {
@@ -90,6 +96,8 @@ export interface BusinessCore {
   vault(ownerId: number, asset: string, buildingId: number): number;
   /** 금고 잔고(건물 주인, 화폐마다) */
   vaultBalances(buildingId: number): Map<string, bigint>;
+  /** 금고 잔고 하나(그 주인·화폐) */
+  vaultBalance(buildingId: number, ownerId: number, asset: string): bigint;
   /**
    * 수입: from → 그 건물 주인 금고, 그리고 소득세. 주인 없는 건물이면 false(부르는 쪽이 옛 길 — 소각 등 — 을 쓴다). 금액이 0 이하면 아무것도 하지
    * 않고 true. from 잔고가 모자라면 LedgerError(부르는 쪽이 미리 확인한다)
@@ -115,8 +123,12 @@ export interface BusinessCore {
   holders(buildingId: number): ShareHolder[];
   /** 정산할 수 있는 사람인가(주인·대주주, 1502) */
   mayManage(buildingId: number, ownerId: number): boolean;
-  /** 멈췄나(적자를 한 주기 넘게 못 갚음) */
+  /** 멈췄나(적자를 한 주기 넘게 못 갚음, 또는 마지막 적자 주기가 끝남 — D-570 1789) */
   suspended(buildingId: number): boolean;
+  /**
+   * 마지막 적자 주기 뒤 멈춤(D-570 1789): atMs에 멈춘다(이미 더 이르게 정해졌으면 그대로). 재정이 안정되면(적자 0 + 금고 ≥ 다음 임금) 풀린다
+   */
+  stopAfter(buildingId: number, atMs: number): void;
   state(buildingId: number): Readonly<BusinessState> | undefined;
   /** 주기 끝 처리: 적자 갚기·멈춤 판단·자동 정산(주기마다 사업장 하나 한 번). 처리한 사업장 수 */
   tick(nowMs: number): number;
@@ -136,8 +148,8 @@ export interface BusinessCore {
   /** 지급준비율을 고른다(‰, null = 기본값으로) */
   setReserve(buildingId: number, pm: number | null): void;
   /**
-   * 새 임금형 계약의 보증금(D-564 1624): 금고에 한 주기 임금(perCycle)도 없으면 그만큼만 적자로 미리 넣고, 묶을 보증금 = 금고에 있는 만큼
-   * (perCycle 이상 full 이하)
+   * 새 임금형 계약의 보증금(D-564 1624): 묶을 보증금 = 금고에 있는 만큼(perCycle 이상 full 이하). 바뀜 (D-570 1789 "고용을 막는다"): 금고에 한
+   * 주기 임금(perCycle)도 없거나 멈춘(멈춤이 정해진) 사업장이면 undefined — 고용하지 않는다(예전: 한 주기 임금을 적자로 미리 넣었다)
    */
   fundDeposit(
     buildingId: number,
@@ -146,7 +158,7 @@ export interface BusinessCore {
     perCycle: bigint,
     full: bigint,
     atMs: number,
-  ): bigint;
+  ): bigint | undefined;
 }
 
 /** 화폐 자산인가(물건 item:<ID>이 아니면) */
@@ -238,6 +250,8 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
       ],
     });
     taxIncome(input.buildingId, ownerId, input.asset, input.amount, input.atMs);
+    // 멈춘 사업장에 돈이 들어오면(판매·요금) 적자 갚기·재정 안정을 다시 본다(D-570 1789)
+    if ((states.get(input.buildingId)?.suspendedAtMs ?? null) !== null) repay(input.buildingId, input.atMs);
     return true;
   };
 
@@ -301,7 +315,8 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
     const state = states.get(buildingId);
     if (left === 0n && state && (state.debtSinceMs !== null || state.suspendedAtMs !== null)) {
       state.debtSinceMs = null;
-      state.suspendedAtMs = null;
+      // 재정 안정(D-570 1789): 적자를 다 갚고 금고가 다음 정산까지 낼 임금을 덮을 때만 다시 돈다
+      if (state.suspendedAtMs !== null && stable(buildingId)) state.suspendedAtMs = null;
       saveState(state);
     }
     return left;
@@ -340,6 +355,13 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
   };
 
   let labor: BusinessLaborHook | undefined;
+  /** 재정이 안정됐나(D-570 1789): 화폐마다 금고 ≥ 다음 정산까지 낼 임금(지급준비금 바닥) */
+  const stable = (buildingId: number): boolean => {
+    const have = vaultBalances(buildingId);
+    for (const [asset, line] of reserve(buildingId).assets)
+      if ((have.get(asset) ?? 0n) < line.floor) return false;
+    return true;
+  };
   /** 지급준비금 계획(reserve.ts) — 설정 칸·주인 비율·노동 계약 필요액 */
   const reserve = (buildingId: number): ReservePlan => {
     const rules = deps.rules();
@@ -427,6 +449,7 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
       return !tax || tax.treasuryOwner === ownerId ? 0 : Math.max(0, tax.bp);
     },
     vaultBalances,
+    vaultBalance: (buildingId, ownerId, asset) => ledger.balance(vault(ownerId, asset, buildingId)),
     receive,
     taxIncome,
     advance,
@@ -436,7 +459,17 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
     settle,
     holders,
     mayManage: (buildingId, ownerId) => majorHolders(holders(buildingId)).includes(ownerId),
-    suspended: (buildingId) => (states.get(buildingId)?.suspendedAtMs ?? null) !== null,
+    suspended(buildingId) {
+      const at = states.get(buildingId)?.suspendedAtMs ?? null;
+      return at !== null && at <= (deps.now?.() ?? at);
+    },
+    stopAfter(buildingId, atMs) {
+      const state = stateOf(buildingId);
+      if (state.suspendedAtMs !== null && state.suspendedAtMs <= atMs) return;
+      state.suspendedAtMs = atMs;
+      if (state.debtSinceMs === null) state.debtSinceMs = atMs;
+      saveState(state);
+    },
     state: (buildingId) => states.get(buildingId),
     tick,
     nextSettleMs(nowMs) {
@@ -474,12 +507,14 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
       state.reservePm = pm;
       saveState(state);
     },
-    fundDeposit(buildingId, ownerId, asset, perCycle, full, atMs) {
+    fundDeposit(buildingId, ownerId, asset, perCycle, full) {
+      // 멈춘(멈춤이 정해진) 사업장은 고용하지 않는다(재정이 안정될 때까지 운영 중단 — 안정되면 갚기·정산이 멈춤을 푼다)
+      if ((states.get(buildingId)?.suspendedAtMs ?? null) !== null) return undefined;
       if (perCycle <= 0n) return full;
-      advance(buildingId, ownerId, asset, perCycle, atMs);
       const have = ledger.balance(vault(ownerId, asset, buildingId));
-      if (have >= full) return full;
-      return have > perCycle ? have : perCycle;
+      // 금고에 한 주기 임금도 없으면 고용을 막는다(D-570 1789 — 적자로 미리 넣지 않는다)
+      if (have < perCycle) return undefined;
+      return have >= full ? full : have;
     },
     check() {
       const out: string[] = [];

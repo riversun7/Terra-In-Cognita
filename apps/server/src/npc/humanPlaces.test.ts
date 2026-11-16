@@ -6,6 +6,7 @@ import type { BotHome } from "../world/bots.ts";
 import { cellKey } from "@terra/planet";
 import { DEFAULT_WORK_SHIFT } from "../world/bots.ts";
 import {
+  HAUL_DROP_RADIUS_CELLS,
   WORK_MARGIN_CELLS,
   assignHumanPlaces,
   createHumanPlaces,
@@ -214,6 +215,53 @@ describe("createHumanPlaces", () => {
     // 시각을 주지 않으면 기본(06:00~18:00)
     expect(people.sync({ ...input, workHours: undefined })).toBe(2);
     expect(set.get(1)?.shift?.startPm).toBe(DEFAULT_WORK_SHIFT.startPm);
+  });
+});
+
+describe("보이는 운반꾼(D-570 1886)", () => {
+  const placement: BuildingPlacement = { x: 88, y: 88, width: 4, height: 4, rotation: 0 };
+  const haul = { x: 140, y: 120, fromMs: 1_000, untilMs: 61_000 };
+
+  it("옮김이 있는 건물 시설은 첫 일꾼만 창고 둘레 운반 일정을 받는다", () => {
+    const homes = assignHumanPlaces({
+      humans: [1, 2],
+      home,
+      facilities: [{ id: 10, buildingId: 10, workers: 2, haul }],
+      areas: new Map([[10, workAreaOf(placement)]]),
+    });
+    expect(homes.get(1)?.haul).toEqual({
+      area: { x: 140, y: 120, radius: HAUL_DROP_RADIUS_CELLS },
+      fromMs: 1_000,
+      untilMs: 61_000,
+    });
+    expect(homes.get(2)?.haul).toBeUndefined();
+  });
+
+  it("보는 사람이 있는 2차맵에만 붙인다(보지 않는 2차맵은 시간 셈만)", () => {
+    const set = new Map<number, BotHome | null>();
+    const stream = { subscriberCount: 0 };
+    const map = {
+      forEachBuilding: (visit: (building: { id: number; placement: BuildingPlacement }) => void) =>
+        visit({ id: 10, placement }),
+      unitInfo: () => ({}),
+      setHome: (unitId: number, value: BotHome | null) => {
+        set.set(unitId, value);
+        return true;
+      },
+      stream,
+    };
+    const input = {
+      units: new Map([[1, { id: 1, city: 7 }]]),
+      places: new Map([[7, { mapKey: 99, cellX: 128, cellY: 128 }]]),
+      maps: new Map([[99, map]]),
+      facilitiesOf: () => [{ id: 10, buildingId: 10, workers: 1, haul }],
+    };
+    const people = createHumanPlaces();
+    people.sync(input);
+    expect(set.get(1)?.haul).toBeUndefined();
+    stream.subscriberCount = 1;
+    expect(people.sync(input)).toBe(1);
+    expect(set.get(1)?.haul?.untilMs).toBe(61_000);
   });
 });
 

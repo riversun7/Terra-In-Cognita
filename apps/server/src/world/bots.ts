@@ -137,6 +137,23 @@ export interface BotHome {
   readonly shift?: WorkShift | undefined;
   /** 집 둘레 반경(칸). 없으면 HOME_RADIUS_CELLS(도시 시청 칸 둘레). 숙소가 집인 일꾼은 숙소 둘레(docs/adr/2026-11-11-city-building-layout.md) */
   readonly homeRadius?: number | undefined;
+  /**
+   * 운반 일정(기획 D-564 1626·D-570 1886 "보이는 운반꾼이 원칙(NPC 포함)", npc/humanPlaces.ts): [fromMs, untilMs) 동안 일터 대신 이 네모(그 도시
+   * 창고 둘레)로 걸어가 산출을 내려놓는 모습. 보는 사람이 있는 2차맵에만 붙는다. 판정은 도시 경제의 시간 셈 그대로(모습만)
+   */
+  readonly haul?: HaulTrip | undefined;
+}
+
+/** 운반 일정 하나(보이는 모습만) */
+export interface HaulTrip {
+  readonly area: TripArea;
+  readonly fromMs: number;
+  readonly untilMs: number;
+}
+
+/** 운반 일정이 지금인가 */
+function hauling(home: BotHome, nowMs: number): boolean {
+  return home.haul !== undefined && nowMs >= home.haul.fromMs && nowMs < home.haul.untilMs;
 }
 
 /**
@@ -150,6 +167,8 @@ const WORK_IDLE_SPREAD_MS = 90_000;
 /** [임시] 집 둘레에 닿은 NPC 휴먼이 쉬는 시간(시험 봇 2~6초보다 길게 — 사람처럼 서 있다가 걷는다) */
 const HOME_IDLE_MIN_MS = 8_000;
 const HOME_IDLE_SPREAD_MS = 16_000;
+/** [임시] 운반꾼이 창고에서 서 있는 가장 짧은 시간·일정을 기다리는 가장 짧은 잠(경로 요청을 줄인다) */
+const HAUL_IDLE_MIN_MS = 2_000;
 
 /** 그 경도의 지금 지역 시각(지역 하루 천분율, 0 이상 1000 미만). 2차맵 빛과 같은 셈(공용 달력 localSolarHours) */
 export function localDayPm(nowMs: number, lonDeg: number): number {
@@ -176,8 +195,9 @@ export function atWork(shift: WorkShift, unitId: number, nowMs: number): boolean
   return inShift(t, shift.startPm, shift.endPm);
 }
 
-/** 지금 가려는 네모: 일하는 때이고 일터가 있으면 일터, 아니면 집 둘레 */
+/** 지금 가려는 네모: 운반 중이면 창고 둘레, 일하는 때이고 일터가 있으면 일터, 아니면 집 둘레 */
 function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
+  if (home.haul && hauling(home, nowMs)) return home.haul.area;
   return home.work && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs)
     ? home.work
     : { x: home.x, y: home.y, radius: home.homeRadius ?? HOME_RADIUS_CELLS };
@@ -235,9 +255,15 @@ export function arrivalIdleMs(
   const target = targetOf(home, bot.id, nowMs);
   const here = anchorAt(at, bot.size);
   if (Math.max(Math.abs(target.x - here.x), Math.abs(target.y - here.y)) > target.radius) return idleMs(rng);
-  return target === home.work
-    ? WORK_IDLE_MIN_MS + rng.nextInt(WORK_IDLE_SPREAD_MS + 1)
-    : HOME_IDLE_MIN_MS + rng.nextInt(HOME_IDLE_SPREAD_MS + 1);
+  const rest =
+    target === home.work
+      ? WORK_IDLE_MIN_MS + rng.nextInt(WORK_IDLE_SPREAD_MS + 1)
+      : HOME_IDLE_MIN_MS + rng.nextInt(HOME_IDLE_SPREAD_MS + 1);
+  // 운반 일정(D-570 1886): 창고에 닿으면 내려놓는 동안만 서 있고(일정 끝까지), 다가오는 일정이 있으면 그때 깨어 창고로 간다
+  if (home.haul && target === home.haul.area) return Math.max(HAUL_IDLE_MIN_MS, home.haul.untilMs - nowMs);
+  if (home.haul && nowMs < home.haul.fromMs)
+    return Math.min(rest, Math.max(HAUL_IDLE_MIN_MS, home.haul.fromMs - nowMs));
+  return rest;
 }
 
 /** 목적지 하나: 네모(없으면 지금 자리 둘레 TRIP_RADIUS_CELLS) 안 설 수 있는 칸. 못 고르면 undefined(잠시 뒤 다시) */

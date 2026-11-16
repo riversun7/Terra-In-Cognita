@@ -379,7 +379,7 @@ describe.skipIf(!TEST_DATABASE_URL)("사업장 장부(D-548·D-555)", () => {
     expect(await second.checkInvariants()).toEqual([]);
   });
 
-  it("지급준비금(D-564 1623·1624): 빈 금고 고용은 한 주기 임금만 적자, 정산은 필요액 × 여유 × 비율을 남겨 보증금부터 채우고 나머지를 나눈다", async () => {
+  it("지급준비금(D-564 1623·1624·D-570 1783·1789): 빈 금고 고용은 막고, 정산은 필요액 × 여유 × 비율(0%여도 다음 임금)을 남겨 보증금부터 채우고 나머지를 나눈다", async () => {
     const world = await boot();
     const p = persistenceOf(world);
     const { ledger } = p;
@@ -390,18 +390,35 @@ describe.skipIf(!TEST_DATABASE_URL)("사업장 장부(D-548·D-555)", () => {
     const templeId = await buildNear(world, shop.userId, builder, "temple");
     const vault = () => ledger.balanceOf(shop.ownerId, ASSET_CREDIT, businessLocation(templeId));
     const service = p.facilities.service;
-    // 빈 금고에 고용: 보증금 = 한 주기 임금만 적자로 미리 넣어 첫 임금으로 낸다(30일분 전부를 적자로 잡지 않는다)
+    // 빈 금고면 고용하지 않는다(D-570 1789 — 적자로 미리 넣지 않는다)
+    expect(await p.labor.create(shop.userId, { kind: "wage", buildingId: templeId, unitId: worker })).toEqual(
+      {
+        ok: false,
+        code: "insufficient_funds",
+      },
+    );
+    expect(p.facilities.business.debts(templeId).size).toBe(0);
+    // 한 주기 임금만큼 넣고 고용: 보증금 = 금고에 있는 만큼(한 주기) → 첫 임금으로 낸다
+    expect(
+      await service.businessCommand(shop.userId, {
+        kind: "invest",
+        buildingId: templeId,
+        asset: ASSET_CREDIT,
+        amount: 20n,
+      }),
+    ).toMatchObject({ ok: true });
     const hired = await p.labor.create(shop.userId, { kind: "wage", buildingId: templeId, unitId: worker });
     if (!hired.ok || hired.contractId === undefined) throw new Error(`hire ${JSON.stringify(hired)}`);
     const contract = p.labor.contracts.get(hired.contractId);
     if (!contract) throw new Error("contract");
     const rate = contract.rate;
+    expect(rate).toBe(20n);
     expect(contract.deposit).toBe(0n);
-    expect(p.facilities.business.debts(templeId).get(ASSET_CREDIT)).toBe(rate);
+    expect(p.facilities.business.debts(templeId).size).toBe(0);
     // 임금은 그 휴먼의 유닛 지갑(사유재산, D-097·D-564 1631)
     expect(ledger.balanceOf(shop.ownerId, ASSET_CREDIT, unitPurseLocation(worker))).toBe(rate);
 
-    // 수입이 들어온 뒤 정산: 적자를 갚고, 남길 돈 = (다음 임금 + 30일분 보증금 모자람) × 1.2 × 100%
+    // 수입이 들어온 뒤 정산: 남길 돈 = (다음 임금 + 30일분 보증금 모자람) × 1.2 × 100%
     expect(
       await p.fusion.temple.offer(guest.userId, { buildingId: templeId, amount: "1000000" }),
     ).toMatchObject({ ok: true });
@@ -415,12 +432,12 @@ describe.skipIf(!TEST_DATABASE_URL)("사업장 장부(D-548·D-555)", () => {
       ratioPm: 1000,
       chosen: false,
       marginPm: START_BUSINESS.reserveMarginPm,
-      lines: [{ asset: ASSET_CREDIT, needed: String(rate + full), keep: String(keep) }],
+      lines: [{ asset: ASSET_CREDIT, needed: String(rate + full), keep: String(keep), floor: String(rate) }],
     });
     const vaultBefore = vault();
     const walletBefore = ledger.balanceOf(shop.ownerId, ASSET_CREDIT);
     const settled = await service.businessCommand(shop.userId, { kind: "settle", buildingId: templeId });
-    const paidOut = vaultBefore - rate - keep;
+    const paidOut = vaultBefore - keep;
     expect(settled).toEqual({ ok: true, paid: paidOut });
     expect(ledger.balanceOf(shop.ownerId, ASSET_CREDIT)).toBe(walletBefore + paidOut);
     // 남긴 돈으로 모자란 보증금(30일분)부터 채웠다, 나머지는 금고에
@@ -428,7 +445,7 @@ describe.skipIf(!TEST_DATABASE_URL)("사업장 장부(D-548·D-555)", () => {
     expect(vault()).toBe(keep - full);
     expect(p.facilities.business.debts(templeId).size).toBe(0);
 
-    // 지급준비율: 주인·대주주만, 0~5000‰. 0이면 모두 나눈다
+    // 지급준비율: 주인·대주주만, 0~5000‰. 0이어도 다음 임금만큼은 남긴다(D-570 1783)
     expect(
       await service.businessCommand(guest.userId, { kind: "reserve", buildingId: templeId, reservePm: 0 }),
     ).toEqual({ ok: false, code: "forbidden" });
@@ -440,9 +457,9 @@ describe.skipIf(!TEST_DATABASE_URL)("사업장 장부(D-548·D-555)", () => {
     ).toEqual({ ok: true });
     expect(await service.businessCommand(shop.userId, { kind: "settle", buildingId: templeId })).toEqual({
       ok: true,
-      paid: keep - full,
+      paid: keep - full - rate,
     });
-    expect(vault()).toBe(0n);
+    expect(vault()).toBe(rate);
     await p.writer.durable();
     expect(
       await rows(test.db, "select reserve_pm from business_states where building_id = $1", [templeId]),

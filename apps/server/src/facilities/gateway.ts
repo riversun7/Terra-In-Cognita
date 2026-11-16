@@ -24,6 +24,7 @@ import {
   RUINS_PROTOCOL_VERSION,
   SALE_ONLY_PROTOCOL_VERSION,
   EXCHANGE_PROTOCOL_VERSION,
+  OUTSOURCE_PROTOCOL_VERSION,
   WATER_PLACE_PROTOCOL_VERSION,
   encodeMessage,
 } from "@terra/protocol";
@@ -276,8 +277,19 @@ export function createFacilityGateway(options: {
       const beforeExchange = (link.protocolVersion ?? EXCHANGE_PROTOCOL_VERSION) < EXCHANGE_PROTOCOL_VERSION;
       const beforeCarry =
         (link.protocolVersion ?? BUSINESS_CARRY_PROTOCOL_VERSION) < BUSINESS_CARRY_PROTOCOL_VERSION;
+      const beforeOutsource =
+        (link.protocolVersion ?? OUTSOURCE_PROTOCOL_VERSION) < OUTSOURCE_PROTOCOL_VERSION;
       const reply = (id: number, result: FacilityCommandResult): void => {
         if (closed) return;
+        // 외주 수리(48, D-570 1785): 공방 일꾼 없음은 일꾼 바쁨, 받지 않음은 수리 못 함으로
+        if (
+          beforeOutsource &&
+          !result.ok &&
+          (result.code === "no_shop_worker" || result.code === "service_closed")
+        ) {
+          link.send(resultText(id, fail(result.code === "no_shop_worker" ? "unit_busy" : "cannot_repair")));
+          return;
+        }
         // 판매만(46)·거래소 건물 짓기(47)는 더 낮은 판에 권한 없음으로
         if (
           !result.ok &&

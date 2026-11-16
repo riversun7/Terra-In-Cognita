@@ -17,7 +17,7 @@ import {
   rows,
 } from "../testDb.ts";
 import { ASSET_ORE } from "../world/settlement.ts";
-import { silentLog } from "../world/testSupport.ts";
+import { silentLog, fundTestVault } from "../world/testSupport.ts";
 import { UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { type World, startWorld } from "../world/world.ts";
 
@@ -386,6 +386,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     const p = persistence(world);
     const boss = await setup(world, "boss", 30);
     const camp = await buildAt(world, boss.userId, "lumber_camp", 50, { pine_log: 30, stone: 20 });
+    fundTestVault(p.ledger, boss.ownerId, camp, 1_000n, clock);
     const made = await p.labor.create(boss.userId, { kind: "wage", buildingId: camp, unitId: boss.unitId });
     expect(made.ok).toBe(true);
     expect(jobOf(world, boss.unitId)).toBe(JOB_GATHER);

@@ -23,6 +23,7 @@ import {
   majorHolders,
   sharePm,
 } from "@terra/shared/businessBooks";
+import { fairPriceView } from "@terra/shared/fairPrice";
 import type { Ledger } from "../economy/ledger.ts";
 import type { FacilityCatalog } from "../facilities/catalog.ts";
 import type { QueryPool } from "../world/persist/load.ts";
@@ -31,6 +32,7 @@ import type { BusinessCore } from "./core.ts";
 import type { OwnerNames } from "./names.ts";
 import type { ReservePlan } from "./reserve.ts";
 import type { ShareMarkets } from "./shares.ts";
+import { goodsFair } from "./fairPrice.ts";
 
 const DAY_MS = 86_400_000;
 /** 최근 거래 목록 길이 */
@@ -53,6 +55,10 @@ export interface BooksSource {
   readonly shares?: ShareMarkets | undefined;
   /** 주인·주주 이름(없으면 이름 없이) */
   readonly names?: OwnerNames | undefined;
+  /** 적정가 수수료(‰, 설정 칸 business_service_fee_pm — D-570 1822). 없으면 적정가 칸 없이 */
+  readonly fairFeePm?: (() => number) | undefined;
+  /** 외주 수리를 맡을 그 공방 일꾼 수(수리 줄이 없는 건물이면 undefined — D-570 1785) */
+  readonly repairWorkers?: ((buildingId: number) => number | undefined) | undefined;
 }
 
 const isMoney = (asset: string): boolean => !asset.startsWith("item:");
@@ -98,6 +104,8 @@ export async function readBusinessBooks(
   const fromMs = Math.floor(nowMs / DAY_MS) * DAY_MS - (span - 1) * DAY_MS;
   const ids = [...accounts.keys()];
   const sums = new Map<string, Map<BookColumn, bigint>>();
+  /** 기간 산출(job_output이 이 창고에 넣은 물건) — 적정가 인건비 몫(D-570 1822) */
+  const produced = new Map<string, bigint>();
   const daily = new Map<string, { income: bigint; spend: bigint }>();
   const entries: BookEntry[] = [];
   let firstMs: number | null = null;
@@ -111,6 +119,10 @@ export async function readBusinessBooks(
     );
     for (const row of grouped.rows) {
       const asset = accounts.get(Number(row.account_id));
+      if (asset !== undefined && !isMoney(asset) && String(row.kind) === "job_output") {
+        const qty = BigInt(String(row.amount));
+        if (qty > 0n) produced.set(asset, (produced.get(asset) ?? 0n) + qty);
+      }
       if (asset === undefined || !isMoney(asset)) continue;
       const column = bookColumnOf(String(row.kind), true);
       const amount = BigInt(String(row.amount));
@@ -174,6 +186,22 @@ export async function readBusinessBooks(
   const kindOf = (id: number): BookOwnerKind =>
     id === viewerOwnerId ? "me" : source.isNpc(id) ? "npc" : "player";
   const state = source.core.state(buildingId);
+  const taxBp = source.core.taxRateOf(buildingId, ownerId);
+  // 적정가(D-570 1822): 기간 임금 지출(임금 칸, 금고 화폐 합 — 나간 돈이 음수)을 산출에 나눈다
+  const feePm = source.fairFeePm?.();
+  let wagesSpent = 0n;
+  for (const byColumn of sums.values()) wagesSpent -= byColumn.get("wages") ?? 0n;
+  const fair =
+    feePm === undefined
+      ? undefined
+      : goodsFair(
+          goods.map((line) => line.asset),
+          wagesSpent,
+          produced,
+          (asset) => catalog.unitPriceOf?.(asset.slice(5)) ?? 1n,
+          { feePm, taxBp },
+        );
+  const repairWorkers = source.repairWorkers?.(buildingId);
   const lot = source.commands.lotOf(buildingId);
   const holderList = source.core.holders(buildingId);
   const total = holderList.reduce((sum, holder) => sum + holder.shares, 0n);
@@ -204,9 +232,27 @@ export async function readBusinessBooks(
       .map(([asset, amount]) => ({ asset, amount: String(amount) })),
     debtSinceMs: state?.debtSinceMs ?? null,
     suspendedAtMs: state?.suspendedAtMs ?? null,
-    goods: goods.toSorted((a, b) => (a.asset < b.asset ? -1 : 1)),
+    goods: goods
+      .map((line) => {
+        const value = fair?.get(line.asset);
+        return value ? { ...line, fair: fairPriceView(value) } : line;
+      })
+      .toSorted((a, b) => (a.asset < b.asset ? -1 : 1)),
+    ...(repairWorkers === undefined
+      ? {}
+      : {
+          repairService: (() => {
+            const rate = source.commands.repairRate(buildingId);
+            return {
+              perHour: rate.set ? String(rate.perHour) : null,
+              charged: String(rate.perHour),
+              fair: fairPriceView(source.commands.repairFair(buildingId)),
+              workers: repairWorkers,
+            };
+          })(),
+        }),
     nextSettleMs: source.core.nextSettleMs(nowMs),
-    taxBp: source.core.taxRateOf(buildingId, ownerId),
+    taxBp,
     minLot: lot.minLot,
     retail: lot.retail,
     fromMs,
@@ -226,7 +272,12 @@ function reserveView(plan: ReservePlan): ReserveView {
     marginPm: plan.marginPm,
     lines: [...plan.assets]
       .toSorted((a, b) => (a[0] < b[0] ? -1 : 1))
-      .map(([asset, line]) => ({ asset, needed: String(line.needed), keep: String(line.keep) })),
+      .map(([asset, line]) => ({
+        asset,
+        needed: String(line.needed),
+        keep: String(line.keep),
+        floor: String(line.floor),
+      })),
   };
 }
 

@@ -19,7 +19,7 @@ import {
 } from "../testDb.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { silentLog } from "../world/testSupport.ts";
+import { silentLog, fundTestVault } from "../world/testSupport.ts";
 import { UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { TEST_PLANET_ID, type World, startWorld } from "../world/world.ts";
 import { createTravelDanger } from "../worldMap/travelDanger.ts";
@@ -341,6 +341,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 사이 이동(서버·DB)", () => {
     const p = persistence(world);
     const boss = await setup(world, "boss", 245, 60);
     const camp = await buildAt(world, boss.userId, "lumber_camp", 50);
+    fundTestVault(p.ledger, boss.ownerId, camp, 1_000n, clock);
     const made = await p.labor.create(boss.userId, { kind: "wage", buildingId: camp, unitId: boss.unitId });
     if (!made.ok || made.contractId === undefined)
       throw new Error(`contract failed: ${JSON.stringify(made)}`);

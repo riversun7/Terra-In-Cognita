@@ -1,5 +1,5 @@
 // 노동 계약 DB 통합 시험(docs/adr/2026-11-03-labor-contracts.md) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
-// 가짜 시계로 임금형(보증금·자동 해고·일시 중지·채우기)·임대형(임대료·유예, 손 해지 유예 = 기획 341)·구인 게시(남의 유닛 고용)를
+// 가짜 시계로 임금형(보증금·마지막 적자 주기 뒤 멈춤·일시 중지·채우기 — D-570 1789 자동 해고 없음)·임대형(임대료·유예, 손 해지 유예 = 기획 341)·구인 게시(남의 유닛 고용)를
 // 돌리고, 원장 불변 조건(I1·I2·I14)과 다시 켠 뒤의 복구를 본다.
 import { unitPurseLocation } from "@terra/shared/businessBooks";
 import { buildingLocation } from "@terra/shared/goodsPlaces";
@@ -137,36 +137,53 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
       "select count(*) as n from ledger_transactions where kind = 'labor_wage'",
     );
     expect(wages).toEqual([{ n: "32" }]);
-    // 금고도 비면 모자란 임금은 적자로(다음 주기까지 못 갚으면 사업장이 멈춘다 — 1504)
+    // 금고도 비면 마지막 한 주기만 적자로 돌리고 그 주기 끝(51일)에 멈춘다(D-570 1789 — 재정이 안정될 때까지 운영 중단)
     clock = T0 + 50 * DAY;
     p.settlement.settleOwner(a.ownerId, clock);
     expect(contract?.state).toBe("active");
     expect(vaultOf(world, a.ownerId, a.buildingId)).toBe(0n);
     expect(p.facilities.business.debts(a.buildingId).get(ASSET_CREDIT)).toBe(20n);
+    expect(p.facilities.business.state(a.buildingId)?.suspendedAtMs).toBe(T0 + 51 * DAY);
+    expect(p.facilities.business.suspended(a.buildingId)).toBe(false);
+    // 멈춘 뒤: 더 채우지 않고 보증금이 바닥나면 일시 중지(자동 해고 없음)
+    clock = T0 + 53 * DAY;
+    p.settlement.settleOwner(a.ownerId, clock);
+    expect(p.facilities.business.suspended(a.buildingId)).toBe(true);
+    expect([contract?.state, contract?.endReason]).toEqual(["paused", null]);
     expect(await world.checkInvariants()).toEqual([]);
   });
 
-  it("임금형: 빈 금고면 한 주기 임금만 적자로, 채우기는 금고에 있는 만큼만. 해고하면 남은 보증금이 돌아온다", async () => {
+  it("임금형: 빈 금고면 고용을 막고(D-570 1789), 채우기는 금고에 있는 만큼만. 해고하면 남은 보증금이 돌아온다", async () => {
     const world = await boot();
     const p = persistence(world);
     const a = await setup(world, "pauser", { workers: 1, credit: 100_000n, building: 40 });
     const unitId = a.units[0] ?? 0;
-    await p.labor.create(a.userId, { kind: "wage", buildingId: a.buildingId, unitId });
+    // 빈 금고: 한 주기 임금도 없으면 고용하지 않는다(적자로 미리 넣지 않는다)
+    expect(await p.labor.create(a.userId, { kind: "wage", buildingId: a.buildingId, unitId })).toEqual({
+      ok: false,
+      code: "insufficient_funds",
+    });
+    expect(p.facilities.business.debts(a.buildingId).size).toBe(0);
+    fillVault(world, a.ownerId, a.buildingId, 40n);
+    expect(await p.labor.create(a.userId, { kind: "wage", buildingId: a.buildingId, unitId })).toEqual({
+      ok: true,
+      contractId: 1,
+    });
     const contract = p.labor.contracts.get(1);
-    // 빈 금고: 보증금 = 한 주기 임금(20)만 적자로 미리 넣고 바로 첫 임금으로 낸다(D-564 1624 — 30일분 전부를 적자로 잡지 않는다)
-    expect(contract?.deposit).toBe(0n);
-    expect(p.facilities.business.debts(a.buildingId).get(ASSET_CREDIT)).toBe(20n);
+    // 보증금 = 금고에 있는 만큼(40), 첫 임금 20을 바로 냈다
+    expect(contract?.deposit).toBe(20n);
+    expect(vaultOf(world, a.ownerId, a.buildingId)).toBe(0n);
     // 채우기는 금고에 있는 만큼만(적자로 미리 넣지 않는다)
     expect(await p.labor.topUp(a.userId, 1, 15n)).toEqual({ ok: false, code: "insufficient_funds" });
     fillVault(world, a.ownerId, a.buildingId, 100n);
     expect(await p.labor.topUp(a.userId, 1, 95n)).toEqual({ ok: true });
     expect(contract?.state).toBe("active");
-    expect(contract?.deposit).toBe(95n);
+    expect(contract?.deposit).toBe(115n);
     const before = vaultOf(world, a.ownerId, a.buildingId);
     expect(await p.labor.terminate(a.userId, 1)).toEqual({ ok: true });
     expect(contract?.endReason).toBe("owner");
     // 남은 보증금은 사업장 금고로 돌아온다(D-555 1504)
-    expect(vaultOf(world, a.ownerId, a.buildingId)).toBe(before + 95n);
+    expect(vaultOf(world, a.ownerId, a.buildingId)).toBe(before + 115n);
     expect(await p.labor.terminate(a.userId, 1)).toEqual({ ok: false, code: "not_open" });
     expect(await world.checkInvariants()).toEqual([]);
   });
@@ -323,6 +340,12 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     expect(p.labor.jobs(boss.userId, {}).jobs).toEqual([]);
     expect(p.labor.overview(boss.userId).jobs.map((j) => [j.id, j.own, j.filled])).toEqual([[1, true, 0]]);
 
+    // 빈 금고면 받지 못한다(D-570 1789 — 금고에 한 주기 임금이 없으면 고용을 막는다)
+    expect(await p.labor.acceptJob(hand.userId, 1, unitA)).toEqual({
+      ok: false,
+      code: "employer_insufficient_funds",
+    });
+    fillVault(world, boss.ownerId, boss.buildingId, 24n);
     const bossBefore = p.ledger.balanceOf(boss.ownerId, ASSET_CREDIT);
     expect(await p.labor.acceptJob(hand.userId, 1, unitA)).toEqual({ ok: true, contractId: 1 });
     const first = p.labor.contracts.get(1);
@@ -334,15 +357,16 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
       first?.deposit,
       first?.endsAtMs,
     ]).toEqual(["wage", boss.ownerId, hand.ownerId, 24n, 0n, clock + 72 * HOUR]);
-    // 보증금은 사업장 금고에서 — 금고가 비었으니 한 주기 임금(24)만 적자로 미리 넣었다(D-564 1624). 주인 지갑은 그대로
+    // 보증금은 사업장 금고에서 — 금고에 있던 한 주기 임금(24)만 묶어 첫 임금으로 냈다(D-564 1624). 주인 지갑은 그대로, 적자 없음
     expect(p.ledger.balanceOf(boss.ownerId, ASSET_CREDIT)).toBe(bossBefore);
-    expect(p.facilities.business.debts(boss.buildingId).get(ASSET_CREDIT)).toBe(24n);
+    expect(p.facilities.business.debts(boss.buildingId).size).toBe(0);
     expect(await p.labor.acceptJob(hand.userId, 1, unitA)).toEqual({ ok: false, code: "unit_busy" });
     expect(p.labor.overview(hand.userId).contracts.map((c) => [c.id, c.kind, c.role])).toEqual([
       [1, "wage", "worker"],
     ]);
     expect(p.labor.overview(boss.userId).contracts.map((c) => [c.id, c.role])).toEqual([[1, "owner"]]);
     // 두 번째로 받으면 자리가 다 차서 닫힌다
+    fillVault(world, boss.ownerId, boss.buildingId, 24n);
     expect(await p.labor.acceptJob(hand.userId, 1, unitB)).toEqual({ ok: true, contractId: 2 });
     expect(p.labor.overview(boss.userId).jobs).toEqual([]);
     expect(p.labor.jobs(hand.userId, {}).jobs).toEqual([]);
@@ -392,10 +416,12 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     expect(await p.labor.acceptJob(boss.userId, 2, bossUnit)).toEqual({ ok: false, code: "invalid_terms" });
     expect(await p.labor.acceptJob(hand.userId, 2, 999_999)).toEqual({ ok: false, code: "unknown_unit" });
     expect(await p.labor.acceptJob(hand.userId, 2, bossUnit)).toEqual({ ok: false, code: "forbidden" });
-    // 보증금은 사업장 금고에서: 금고가 모자라도 받고 한 주기 임금만 적자로 적는다(D-564 1624 — 다음 주기까지 못 갚으면 사업장이 멈춘다)
+    // 보증금은 사업장 금고에서: 금고에 한 주기 임금(16)이 있어야 받는다(D-570 1789 — 적자로 미리 넣지 않는다)
+    fillVault(first, boss.ownerId, boss.buildingId, 16n);
     expect(await p.labor.acceptJob(hand.userId, 2, unitA)).toEqual({ ok: true, contractId: 1 });
+    fillVault(first, boss.ownerId, boss.buildingId, 16n);
     expect(await p.labor.acceptJob(hand.userId, 2, unitB)).toEqual({ ok: true, contractId: 2 });
-    expect(p.facilities.business.debts(boss.buildingId).get(ASSET_CREDIT)).toBe(32n);
+    expect(p.facilities.business.debts(boss.buildingId).size).toBe(0);
     // 거두기는 낸 사람만. 거둬도 맺은 계약은 그대로
     expect(await p.labor.withdrawJob(hand.userId, 2)).toEqual({ ok: false, code: "forbidden" });
     expect(await p.labor.withdrawJob(boss.userId, 2)).toEqual({ ok: true });

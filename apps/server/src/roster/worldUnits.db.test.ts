@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { cargoLocation } from "../world/battleResults.ts";
 import { ASSET_CREDIT, ASSET_ORE } from "../world/settlement.ts";
-import { addTestUnits, silentLog } from "../world/testSupport.ts";
+import { addTestUnits, silentLog, fundTestVault } from "../world/testSupport.ts";
 import { HEALTHY } from "../world/unitCondition.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { createWorldRosterSource } from "./worldUnits.ts";
@@ -75,6 +75,7 @@ describe.skipIf(!TEST_DATABASE_URL)("실제 유닛 읽기", () => {
       ?.placeBuilding({ x: 40, y: 40, width: 2, height: 2, rotation: 0 }, ownerA);
     if (!placed?.ok || placed.buildingId === undefined) throw new Error("no building");
     persistence.settlement.grantCredit(ownerA, 1_000n, clock);
+    fundTestVault(persistence.ledger, ownerA, placed.buildingId, 1_000n, clock);
     const hired = await persistence.labor.create(userA, {
       kind: "wage",
       buildingId: placed.buildingId,

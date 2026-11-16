@@ -2,8 +2,10 @@
 // 서버(apps/server/src/labor/)와 시뮬레이터가 같은 함수를 쓴다(D-013). 돈은 원장 장부로만 옮긴다(만들거나 없애지 않는다).
 // - 임금형: 고용주(시설 주인)가 계약할 때 보증금(임금 × N48 날수, 옛 salary_engine.js DEPOSIT_DAYS 30)을 에스크로
 //   escrow:labor:<계약 ID>에 넣는다. 임금 주기마다 그 주기 몫을 먼저(선불) 보증금에서 일꾼 지갑으로 낸다.
-//   보증금이 0이면 자동 해고(옛 salary_engine.js processPayroll "보증금 소진 → 자동 해고"), 0보다 많지만 한 번 임금에 모자라면
-//   일시 중지(옛 ContractDistributor.js INSUFFICIENT_WAGE_BUDGET). 채우면 바로 다시 일한다(옛 ProductionRepository 자동 재개).
+//   한 번 임금에 모자라면(0이어도) 일시 중지(옛 ContractDistributor.js INSUFFICIENT_WAGE_BUDGET). 채우면 바로 다시 일한다(옛
+//   ProductionRepository 자동 재개). 바뀜 (기획 D-570 1789 "적자는 기본적으로 멈춰야한다 … 재정안정될때까지 운영중단 원칙" — 자동 해고는 사용자
+//   결정이 아니다): 보증금이 0이 되어도 자동 해고(옛 salary_engine.js processPayroll "보증금 소진 → 자동 해고")하지 않고 일시 중지로 둔다.
+//   해고는 시설 주인·유닛 소유 주체가 손으로만 한다. 끝 사유 deposit_used_up은 옛 계약 기록에만 남는다.
 //   해고·만료면 남은 보증금을 고용주에게 돌려준다(옛 fireMinion). 산출은 고용주 몫(옛 "100% 건물 창고").
 // - 임대형: 임차인(유닛 소유 주체)이 시설을 빌린다. 시간당 임대료(오너가 정함, D-479)를 매시간 먼저(선불) 임차인 지갑에서 오너
 //   지갑으로 바로 낸다. 산출은 임차인 몫. 못 내거나 기간이 끝나거나 손으로 해지하면(어느 쪽이든, 기획 341) 유예(N48 7일, 옛 독점형
@@ -51,7 +53,7 @@ export type LaborKind = (typeof LABOR_KINDS)[number];
 export const LABOR_STATES = ["active", "paused", "grace", "ended"] as const;
 export type LaborState = (typeof LABOR_STATES)[number];
 
-/** owner 시설 주인이 해지, worker 유닛 소유 주체가 해지, deposit_used_up 보증금을 다 씀(자동 해고), rent_unpaid 임대료 미납,
+/** owner 시설 주인이 해지, worker 유닛 소유 주체가 해지, deposit_used_up 보증금을 다 씀(옛 자동 해고 — D-570부터 새로 생기지 않음), rent_unpaid 임대료 미납,
  *  expired 기간 끝, unit_gone·building_gone 유닛·시설이 사라짐 */
 export const LABOR_END_REASONS = [
   "owner",
@@ -240,9 +242,8 @@ function payDue(
       c.deposit -= c.rate;
       c.paidTotal += c.rate;
       c.state = "active";
-    } else if (c.deposit === 0n) {
-      end(c, at, "deposit_used_up");
     } else {
+      // 보증금이 모자라면(0이어도) 일시 중지 — 자동 해고 없음(D-570 1789)
       c.state = "paused";
     }
     return;

@@ -174,6 +174,10 @@
  *    - 가문 소속 도시 공고 D-570(house.ts, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-16, D-570)") — house_home의 답 house_member_result에
  *      새 한 일 home_announced(새 소속 도시를 공고 — 공고 기간 뒤 가문 모두가 옮긴다)·home_cancelled(공고를 거둠). 47판 연결은 home_set을 받는다
  *      (house.ts HOUSE_HOME_NOTICE_PROTOCOL_VERSION, legacyHouseMemberAction).
+ *    - 사업장 4차(기획 D-570 1785, docs/adr/2026-11-15-business-ledger.md "바뀜 (D-570)") — 외주 수리는 그 공방 일꾼이 고친다: equipment_repair의
+ *      unitIds가 빈 목록도 받고(남의 공방은 보지 않는다), 새 결과 코드 no_shop_worker·service_closed는 48판 연결에만 가고 더 낮은 판은 unit_busy·
+ *      cannot_repair를 받는다(facilities.ts OUTSOURCE_PROTOCOL_VERSION). business_price의 item에 service:equipment_repair(외주 수리 시간당 요금)를
+ *      더했다(47판 기기는 그대로 받는다).
  */
 export const PROTOCOL_VERSION = 48;
 

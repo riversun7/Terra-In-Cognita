@@ -51,5 +51,11 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "지급준비율 기본값(‰)",
     "Default payroll reserve ratio (‰)",
   ),
-  k("business_service_fee_pm", "serviceFeePm", "외주 요금(‰)", "Outsourcing fee (‰)"),
+  k("business_service_fee_pm", "serviceFeePm", "적정가 수수료(‰)", "Fair-price fee (‰)"),
+  k(
+    "business_npc_books",
+    "npcBooks",
+    "NPC 사업장 장부(1 = 켬, 0 = 끔)",
+    "NPC business books (1 = on, 0 = off)",
+  ),
 ];

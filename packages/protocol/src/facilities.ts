@@ -39,6 +39,12 @@ export const SALE_ONLY_PROTOCOL_VERSION = 46;
  * 같은 종류 거래소가 이미 있음)가 생긴 판. 더 낮은 판 연결은 forbidden을 받는다. 물자 거래소 건물의 창고 넣기(storage_move in)는 운반꾼이 나른다(메시지 꼴 그대로)
  */
 export const EXCHANGE_PROTOCOL_VERSION = 47;
+/**
+ * 외주 수리(기획 D-570 1785 "그 공방(사업장) 일꾼이 고치고 요금은 주인이 정한다"): 남의 공방 equipment_repair는 unitIds를 보지 않고(빈 목록도 받는다)
+ * 그 공방 일꾼이 고친다. 결과 코드 no_shop_worker(그 공방에 고칠 일꾼이 없음)·service_closed(주인이 외주를 받지 않음 — 요금 0)가 생긴 판. 더 낮은 판
+ * 연결은 unit_busy·cannot_repair를 받는다
+ */
+export const OUTSOURCE_PROTOCOL_VERSION = 48;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -96,14 +102,15 @@ export const facilityRepairMessage = z
 
 /**
  * 장비 수리(D-512 323·D-514 351): 내 공방(수리 줄이 있는 시설)에서 내 장인 유닛으로 내 장비를 끝까지 고친다. 재료(공방 수리 줄)는 시작할 때
- * 빼고, 시간 = 기준 × 티어 × 잃은 ÷ 최대 × 장인 보정, 끝나면 고쳐진다(최대 내구도 감소 F11·파괴 F12)
+ * 빼고, 시간 = 기준 × 티어 × 잃은 ÷ 최대 × 장인 보정, 끝나면 고쳐진다(최대 내구도 감소 F11·파괴 F12). 48부터 남의 공방(외주)은 unitIds를 보지
+ * 않고 그 공방 일꾼이 고친다(빈 목록을 보낸다, D-570 1785). 내 공방은 서버가 일꾼 하나 이상을 본다(unknown_unit)
  */
 export const equipmentRepairMessage = z.object({
   t: z.literal("equipment_repair"),
   id: requestId,
   buildingId: rowId,
   holdingId: rowId,
-  unitIds: units.min(1),
+  unitIds: units,
 });
 
 /**
@@ -295,6 +302,10 @@ export const FACILITY_RESULT_CODES = [
   "exchange_locked",
   /** 그 도시에 같은 종류 거래소 건물이 이미 있다(도시마다 하나, D-117, 47 — 더 낮은 판 연결은 forbidden) */
   "exchange_exists",
+  /** 그 공방에 외주 수리를 맡을 일꾼이 없다(48 — 더 낮은 판 연결은 unit_busy, OUTSOURCE_PROTOCOL_VERSION) */
+  "no_shop_worker",
+  /** 그 공방 주인이 외주 수리를 받지 않는다(시간당 요금 0, 48 — 더 낮은 판 연결은 cannot_repair) */
+  "service_closed",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];

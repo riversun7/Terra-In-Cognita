@@ -207,12 +207,16 @@ export interface FacilityHoldingView {
   readonly busy: boolean;
   /**
    * 이 장비를 받는 공방(건물 ID)과 그 공방에서의 재료(고치기 전 잃은 양으로 셈). 내 공방이 먼저, 그다음 내 유닛이 있는 2차맵의 남의 공방(외주 —
-   * 기획 D-564 1682, fee = 그 공방 금고에 낼 요금(최소 단위 글자). 내 공방·옛 응답에는 없다)
+   * 기획 D-564 1682, fee = 그 공방 금고에 낼 요금(최소 단위 글자) = 주인이 정한 시간당 요금 × 시간(D-570 1785). 내 공방·옛 응답에는 없다)
    */
   readonly shops: readonly {
     readonly buildingId: number;
     readonly materials: readonly FacilityStackView[];
     readonly fee?: string | undefined;
+    /** 남의 공방 수리 시간(ms — 그 공방 일꾼이 고친다, D-570 1785). 내 공방·옛 응답에는 없다(기기가 내 장인으로 셈) */
+    readonly ms?: number | undefined;
+    /** 남의 공방에서 고칠 일꾼 수(D-570 1785). 내 공방·옛 응답에는 없다 */
+    readonly workers?: number | undefined;
     /** 남의 공방 자리(내 재료를 꺼내는 도시 — 미리 셈). 내 공방은 facilities 줄에서 찾는다 */
     readonly mapKey?: number | undefined;
     readonly cityId?: number | null | undefined;

@@ -349,7 +349,10 @@ export function HoldingRepairRow({
     },
     data.rules,
   );
-  const blocked = holding.busy || holding.equipped || !chosen || units.length === 0;
+  // 남의 공방(외주, D-570 1785)은 그 공방 일꾼이 고친다 — 내 장인이 필요 없고 시간은 서버 견적
+  const outsource = chosen?.fee !== undefined;
+  const shownMs = outsource && chosen?.ms !== undefined ? chosen.ms : ms;
+  const blocked = holding.busy || holding.equipped || !chosen || (!outsource && units.length === 0);
   const shopView = chosen
     ? data.facilities.find((entry) => entry.buildingId === chosen.buildingId)
     : undefined;
@@ -383,6 +386,9 @@ export function HoldingRepairRow({
             {chosen.fee === undefined
               ? ""
               : ` · ${m.facility_outsource_fee({ fee: formatAmount(chosen.fee, getLocale()) })}`}
+            {chosen.workers === undefined
+              ? ""
+              : ` · ${m.facility_outsource_workers({ count: chosen.workers })}`}
           </span>
         ) : (
           <span className="eco-row-meta">{m.facility_holding_no_shop()}</span>
@@ -418,11 +424,11 @@ export function HoldingRepairRow({
               t: "equipment_repair",
               buildingId: chosen.buildingId,
               holdingId: holding.id,
-              unitIds: [...units],
+              unitIds: outsource ? [] : [...units],
             });
         }}
       >
-        {m.facility_equipment_repair({ time: formatDuration(ms) })}
+        {m.facility_equipment_repair({ time: formatDuration(shownMs) })}
       </button>
     </li>
   );

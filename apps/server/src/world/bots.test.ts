@@ -185,3 +185,20 @@ describe("일터가 있는 NPC 휴먼(WP-NPC2)", () => {
     }
   });
 });
+
+describe("보이는 운반 일정(D-570 1886)", () => {
+  const work = { x: 60, y: 60, radius: 5 };
+  const store = { x: 90, y: 60, radius: 4 };
+
+  it("운반 일정 동안은 창고 둘레로, 끝나면 일터로. 창고에 닿으면 일정 끝까지 서 있고, 일터에서는 일정 시작에 깬다", () => {
+    const t = timeWhen(5, true);
+    const home = { x: 128, y: 128, work, haul: { area: store, fromMs: t + 10_000, untilMs: t + 70_000 } };
+    expect(tripArea(at(62, 58), 1, home, 5, t)).toEqual(work);
+    expect(tripArea(at(62, 58), 1, home, 5, t + 10_000)).toEqual(store);
+    expect(tripArea(at(90, 60), 1, home, 5, t + 70_000)).toEqual(work);
+    // 일터 안: 다가오는 일정 시작에 맞춰 깬다
+    expect(arrivalIdleMs(createRng(1), { id: 5, size: 1, home }, at(60, 60), t)).toBe(10_000);
+    // 창고 둘레: 일정 끝까지
+    expect(arrivalIdleMs(createRng(1), { id: 5, size: 1, home }, at(90, 60), t + 20_000)).toBe(50_000);
+  });
+});

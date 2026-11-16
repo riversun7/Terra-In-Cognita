@@ -1,6 +1,7 @@
 // 지급준비금 칸(건물 판 [관리] — 주인·대주주·운영자) — 기획 D-564 1623·1624(사용자 원문 "지급준비율처럼 남길 비율선택 임금비율 한달치보증금등 자동 계산 …
 // 핵심은 끊기지 않게 돌아가는것"). 서버가 정산 때 남길 돈 = 필요액(다음 정산까지 임금 + 한 달치 보증금 모자람) × 임금 상승 여유 × 고른 비율을 계산하고
 // 남긴 돈으로 모자란 보증금부터 채운다. 화면은 계산값을 보이고 비율만 고른다(business_reserve, 프로토콜 40). 판정은 서버.
+// 바뀜 (D-570 1783 "다음 임금만큼 남김"): 비율이 0%여도 다음 정산까지 낼 임금(floor)은 늘 남긴다 — 그 줄을 함께 보인다.
 import { RESERVE_CHOICES_PM } from "@terra/shared/businessBooks";
 import { formatAmount } from "../../economy/amount.ts";
 import { m } from "../../paraglide/messages.js";
@@ -43,6 +44,13 @@ export function ReserveTools({ books, reload }: { readonly books: BooksOk; reado
               <strong className="bp-num">
                 {m.reserve_keep({ amount: `${formatAmount(line.keep, locale)} ${moneyName(line.asset)}` })}
               </strong>
+              {line.floor !== undefined && line.floor !== "0" ? (
+                <span className="bp-muted" data-part="reserve-floor">
+                  {m.reserve_floor({
+                    amount: `${formatAmount(line.floor, locale)} ${moneyName(line.asset)}`,
+                  })}
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>

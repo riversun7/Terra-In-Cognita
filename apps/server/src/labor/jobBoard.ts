@@ -142,8 +142,8 @@ export function createJobBoard(options: {
   /** 맺은 계약을 서비스에 넣고 저장한다 */
   addContract: (contract: LaborContract) => void;
   /**
-   * 보증금을 정한다(D-564 1624 "보증금은 있는 만큼만", business/core.ts fundDeposit): 고용주 사업장 금고에 한 주기 임금도 없으면 그만큼만 적자로
-   * 미리 넣고, 금고에 있는 만큼(한 주기 임금 이상) 묶는다. undefined를 돌려주면 N48 날수 전부(모자라면 employer_insufficient_funds)
+   * 보증금을 정한다(D-564 1624 "보증금은 있는 만큼만", business/core.ts fundDeposit): 금고에 있는 만큼(한 주기 임금 이상) 묶는다. null =
+   * 고용을 막는다(D-570 1789 — 금고에 한 주기 임금도 없거나 멈춘 사업장, employer_insufficient_funds). undefined를 돌려주면 N48 날수 전부
    */
   fundDeposit?:
     | ((
@@ -152,7 +152,7 @@ export function createJobBoard(options: {
         asset: string,
         perCycle: bigint,
         atMs: number,
-      ) => bigint | undefined)
+      ) => bigint | null | undefined)
     | undefined;
 }): JobBoard {
   const { settlement, ledger, writer, accounts } = options;
@@ -233,7 +233,7 @@ export function createJobBoard(options: {
       settlement.settleOwner(job.ownerId, at);
       settlement.settleOwner(me, at);
       const rules = options.rules();
-      // 보증금은 고용주 사업장 금고에서(D-555 1504) — 있는 만큼만, 한 주기 임금도 없으면 그만큼만 적자로(D-564 1624)
+      // 보증금은 고용주 사업장 금고에서(D-555 1504) — 있는 만큼만(D-564 1624), 한 주기 임금도 없으면 고용을 막는다(D-570 1789)
       const deposit =
         job.state === "open" && job.filled < job.slots && me !== job.ownerId
           ? options.fundDeposit?.(
@@ -244,6 +244,7 @@ export function createJobBoard(options: {
               at,
             )
           : undefined;
+      if (deposit === null) return fail("employer_insufficient_funds");
       const result = acceptLaborJob(
         job,
         {

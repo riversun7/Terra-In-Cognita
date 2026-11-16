@@ -184,7 +184,10 @@ export function gatherSiteOf(
   };
 }
 
-/** 병원(의료 단계 시설, D-521)이면 다 지은 레벨·의사 자리 수(레벨 × 레벨당 자리). 아니면 undefined */
+/**
+ * 채집이 아닌 일터면 다 지은 레벨·자리 수(레벨 × 레벨당 자리). 아니면 undefined. 병원(의료 단계 시설, D-521 — 의사), 그리고 장비 수리 줄이 있는
+ * 공방(기획 D-570 1785 "그 공방(사업장) 일꾼이 고친다" — 외주 수리 일꾼, 레벨당 자리가 0이면 1 [임시])
+ */
 export function medicalSiteOf(
   service: Pick<FacilityService, "facilities">,
   catalog: FacilityCatalog,
@@ -192,8 +195,11 @@ export function medicalSiteOf(
 ): { readonly level: number; readonly slots: number } | undefined {
   const record = service.facilities.get(buildingId);
   const def = record ? catalog.facility(record.facilityId) : undefined;
-  if (!record || def?.stage !== "medical") return undefined;
-  return { level: record.level, slots: Math.max(0, record.level) * Math.max(0, def.slotsPerLevel) };
+  if (!record || !def) return undefined;
+  if (def.stage === "medical")
+    return { level: record.level, slots: Math.max(0, record.level) * Math.max(0, def.slotsPerLevel) };
+  if ((def.repair?.length ?? 0) === 0) return undefined;
+  return { level: record.level, slots: Math.max(0, record.level) * Math.max(1, def.slotsPerLevel) };
 }
 
 export function createWorldFacilities(input: {
@@ -270,6 +276,8 @@ export function createWorldFacilities(input: {
     labor: {
       unitBusy: (unitId) => labor?.unitBusy(unitId) ?? false,
       buildingInUse: (buildingId) => labor?.buildingInUse(buildingId) ?? false,
+      workersAt: (buildingId) => labor?.workersAt(buildingId) ?? [],
+      unitAway: (unitId) => labor?.unitAway(unitId) ?? false,
     },
     now: input.now,
     ready: input.ready,
@@ -303,6 +311,7 @@ export function createWorldFacilities(input: {
     },
     rules: () => input.rules().business,
     holders: (buildingId) => shares?.holders(buildingId) ?? [],
+    now: input.now,
   });
   business = core;
   // 생산시설 지분 시장(값 = 사업장 금고 화폐 [임시] — shares.ts)
@@ -345,6 +354,12 @@ export function createWorldFacilities(input: {
     now: input.now,
     durable: () => input.writer.durable(),
     shares: () => shareMarkets,
+    // 외주 수리 요금(D-570 1785): 수리 줄이 있는 공방·그 공방 일꾼 시간당 인건비(적정가)
+    repairShop: (buildingId) => {
+      const record = service.facilities.get(buildingId);
+      return (catalog().facility(record?.facilityId ?? "")?.repair?.length ?? 0) > 0;
+    },
+    laborHourly: (buildingId) => labor?.hourlyLabor(buildingId) ?? 0n,
   });
   service.attachBusiness(commands);
   const attack = createBuildingAttack({

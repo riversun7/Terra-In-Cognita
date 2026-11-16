@@ -857,14 +857,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       maps,
       // 일하는 때(770 나): 설정 칸 실효 값(개발자 패널에서 바꾸면 다음 맞추기부터)
       workHours: { startPm: seedRules.workStartPm, endPm: seedRules.workEndPm },
-      facilitiesOf: econ
-        ? (cityId) =>
-            econ.production(cityId).map((run) => ({
-              id: run.facility.id,
-              buildingId: run.buildingId,
-              workers: run.facility.workers,
-            }))
-        : undefined,
+      // 시설 일꾼 + 보이는 운반 일정(D-570 1886 — 보는 2차맵에만, humanPlaces.ts)
+      facilitiesOf: econ ? (cityId) => econ.workFacilities(cityId) : undefined,
       lodgingsOf: o.economy?.lodgingsIn,
       // 쉼터 계획(질문 1047 다): 도시 경제가 생산 속도 배율을 셈한 같은 계획
       restOf: econ ? (cityId) => econ.restPlan(cityId) : undefined,

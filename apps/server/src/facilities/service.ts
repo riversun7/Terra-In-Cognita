@@ -27,27 +27,27 @@ import {
   type FacilityRuntimeRules,
   advanceCondition,
   conditionWorks,
-  equipmentRepairMs,
   maxDurabilityAt,
   repairMaterialsFor,
   repairRestorePpm,
   repairTimeMs,
   withBuilders,
 } from "@terra/shared/facilityRuntime";
-import {
-  PLACEMENT_SIZE,
-  type StatRow,
-  TEST_STAT_TABLE,
-  craftScore,
-  repairMaterials,
-  repairRuleFor,
-} from "@terra/sim";
+import { PLACEMENT_SIZE, type StatRow, TEST_STAT_TABLE, craftScore } from "@terra/sim";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityDef } from "./catalog.ts";
 import { type GoodsScope, grantGoods, hasGoods, spendGoods } from "./materials.ts";
 import { waterOk } from "./water.ts";
 import { exchangeBuildProblem, exchangeKindOf } from "../market/exchangeBuildings.ts";
 import { PLACE_CODES, averagePrimaries } from "./serviceHelpers.ts";
+import {
+  type EquipmentRepairDeps,
+  type OutsourceQuote,
+  type RepairItem,
+  outsourceQuote,
+  shopWorkers,
+  startEquipmentRepair,
+} from "./equipmentRepair.ts";
 import {
   PLOT_JOB,
   type PlotCommands,
@@ -139,6 +139,10 @@ export interface FacilityService extends PlotCommands {
     holdingId: number,
     unitIds: readonly number[],
   ): Promise<FacilityCommandResult>;
+  /** 남의 공방 외주 수리 견적(D-570 1785 — 그 공방 일꾼·시간·요금). 받을 수 없으면 결과 코드 */
+  outsourceQuote(buildingId: number, item: RepairItem): OutsourceQuote | FacilityResultCode;
+  /** 그 공방에서 지금 외주 수리를 맡을 수 있는 일꾼(ID 차례) */
+  shopWorkers(buildingId: number): number[];
   /** 개발 시험 재료 받기: at(짓는 자리)이 속한 도시 창고로(없으면 첫 2차맵 가운데 칸, 도시가 없으면 내 첫 유닛 화물) */
   devFacilityGrant(
     userId: string,
@@ -230,7 +234,10 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
    * 지운 뒤에는 다시 산출이 난다(D-516 364)
    */
   const dropJob = (job: JobRecord, atMs: number): void => {
-    if (job.unitIds.length > 0) settlement.settleOwner(job.ownerId, Math.min(atMs, job.doneAtMs));
+    // 일꾼 주인마다(외주 수리는 공방 일꾼 주인도 — D-570 1785) 작업 끝까지 정산한다
+    const owners = new Set(job.unitIds.length > 0 ? [job.ownerId] : []);
+    for (const unitId of job.unitIds) owners.add(unitOwner(unitId) ?? job.ownerId);
+    for (const owner of owners) settlement.settleOwner(owner, Math.min(atMs, job.doneAtMs));
     jobs.delete(job.id);
     writer.remove("facilityJobs", { id: job.id });
   };
@@ -425,6 +432,29 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     return craftScore(options.holdings.primariesOf(unitId), table);
   };
 
+  /** 장비 수리(equipmentRepair.ts — 내 공방·외주 D-570 1785) 고리 */
+  const repairDeps: EquipmentRepairDeps = {
+    ledger,
+    holdings: options.holdings,
+    runtime,
+    destroyAtMax: () => options.rules().durability.destroyAtMax,
+    business: () => business,
+    owner: (buildingId) => buildingAt(buildingId)?.owner,
+    myFacility,
+    shopFacility,
+    suspended: (buildingId) => options.suspended?.(buildingId) ?? false,
+    jobOn,
+    checkUnits,
+    scopeOf,
+    craftScoreOf,
+    workersAt: (buildingId) => options.labor?.workersAt?.(buildingId) ?? [],
+    unitTaken: (unitId) => unitInJob(unitId) || (options.labor?.unitAway?.(unitId) ?? false),
+    startJob: (fields) => {
+      const job = newJob(fields);
+      if (job.doneAtMs <= job.startedAtMs) finish(job);
+    },
+  };
+
   const finishDue = (nowMs: number): number => {
     const due = [...jobs.values()]
       .filter((job) => job.doneAtMs <= nowMs)
@@ -530,10 +560,11 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       saveFacility(record);
     },
     pausesFor(ownerId) {
+      // 작업에 묶인 유닛의 주인 기준(외주 수리는 맡긴 사람의 작업에 공방 일꾼이 묶인다 — D-570 1785)
       const out = new Map<number, { fromMs: number; untilMs: number }[]>();
       for (const job of jobs.values()) {
-        if (job.ownerId !== ownerId) continue;
         for (const unitId of job.unitIds) {
+          if ((unitOwner(unitId) ?? job.ownerId) !== ownerId) continue;
           const list = out.get(unitId) ?? [];
           list.push({ fromMs: job.startedAtMs, untilMs: job.doneAtMs });
           out.set(unitId, list);
@@ -833,66 +864,12 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const at = now();
       const me = ownerFor(userId, at);
       if (me === undefined) return fail("busy");
-      // 외주(기획 D-564 1682 "상업시설은 모두 외주를 받아 장사한다"): 남의 공방에서도 고친다 — 내 장인·내 재료, 요금은 그 사업장 금고(D-548).
-      // 멈춘 사업장(1504)은 받지 않는다. 내 공방은 예전처럼 요금이 없다
-      const outsource = buildingAt(buildingId)?.owner !== me;
-      const found = outsource ? shopFacility(buildingId) : myFacility(me, buildingId);
-      if (typeof found === "string") return fail(found);
-      const { record, def } = found;
-      if (!def.repair || def.repair.length === 0) return fail("cannot_repair");
-      if (outsource && options.suspended?.(buildingId)) return fail("facility_disabled");
-      if (record.level < 1) return fail("under_construction");
-      if (!conditionWorks(record.conditionPpm, runtime())) return fail("facility_disabled");
-      const holdings = options.holdings.service;
-      const held = holdings.list(me, at).holdings.find((entry) => entry.id === holdingId);
-      if (!held) return fail("unknown_holding");
-      const itemDef = holdings.defOf(held.itemId);
-      if (held.durability === null || held.maxDurability === null || !itemDef?.equip)
-        return fail("not_equipment");
-      if (held.slot !== null) return fail("equipped");
-      if (jobOn((job) => job.holdingId === holdingId)) return fail("holding_busy");
-      if (held.maxDurability <= options.rules().durability.destroyAtMax) return fail("broken");
-      const lost = held.maxDurability - held.durability;
-      if (lost <= 0) return fail("not_damaged");
-      const rule = repairRuleFor(def.repair, {
-        slot: itemDef.equip.slot,
-        weaponType: itemDef.equip.weaponType,
-      });
-      if (!rule) return fail("cannot_repair");
-      if (unitIds.length === 0) return fail("unknown_unit");
-      const unitProblem = checkUnits(me, unitIds);
-      if (unitProblem) return fail(unitProblem);
-      const materials = repairMaterials(rule, itemDef.tier, lost, held.maxDurability);
-      const scope = scopeOf(me, buildingId);
-      if (!hasGoods(ledger, me, materials, scope)) return fail("insufficient_materials");
-      // 외주 요금: 낼 수 있는지 먼저 보고(재료를 빼기 전), 재료를 뺀 뒤 그 사업장 금고로(소득세)
-      const fee = outsource ? (business?.serviceFee(materials) ?? 0n) : 0n;
-      if (fee > 0n && !business?.canPay(me, fee)) return fail("insufficient_funds");
-      if (!spendGoods(ledger, me, materials, at, "equipment_repair", scope))
-        return fail("insufficient_materials");
-      if (fee > 0n) business?.chargeService(me, buildingId, fee, "equipment_repair_fee", at);
-      const scores = unitIds.map(craftScoreOf);
-      const avg = scores.reduce((total, score) => total + score, 0) / Math.max(1, scores.length);
-      const ms = equipmentRepairMs(
-        { tier: itemDef.tier, lost, maxDurability: held.maxDurability, avgScore: avg, units: unitIds.length },
-        runtime(),
-      );
-      const job = newJob({
-        kind: "equipment",
-        ownerId: me,
-        buildingId,
-        beaconId: null,
-        holdingId,
-        targetLevel: null,
-        restorePpm: null,
-        unitIds: [...unitIds],
-        materials,
-        startedAtMs: at,
-        doneAtMs: at + ms,
-      });
-      if (ms === 0) finish(job);
-      return done({ ok: true, doneAtMs: at + ms });
+      const result = startEquipmentRepair(repairDeps, me, buildingId, holdingId, unitIds, at);
+      return result.ok ? done(result) : result;
     },
+
+    outsourceQuote: (buildingId, item) => outsourceQuote(repairDeps, buildingId, item),
+    shopWorkers: (buildingId) => shopWorkers(repairDeps, buildingId),
 
     async devFacilityGrant(userId, item, qty, place) {
       const at = now();

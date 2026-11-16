@@ -319,3 +319,25 @@ WP1~WP4는 답 없이도 [임시] 추천안으로 갈 수 있다(돈이 사라�
 - NPC 보이는 운반꾼·NPC 사업장 판매(NPC 세력이 제 시설 물건을 도시 창고로 들이는 것도 판매인가)는 이번에 하지 않았다 — 질문 1886·1887과 설계안.
 - 거래소 건물(D-561)이 생기면 `market/exchangeStock.ts` `exchangeGoodsLocation`만 그 건물 창고로 바꾸고, 도시 창고 → 거래소 건물도 같은 운반꾼 길(haulOut)로 잇는다.
 - 프로토콜 46(최소 45): 메시지 꼴은 그대로, 새 결과 코드 둘만. DB·마이그레이션 없음. SIM_VERSION·팩 그대로(시뮬 판정 함수를 바꾸지 않았다 — 서버 NPC 경제의 옮김 칸 입력만 넓혔다).
+
+## 바뀜 (D-570, 2026-11-16)
+
+기획 D-570(1789 원문 "적자는 기본적으로 멈춰야한다. 중단이 어려울때 마지막을 적자처리하고 마지막 사이클을 돌리고 재정안정될때까지 운영중단 원칙.", 1822 원문
+"당연히 판매자가 정하지, 적정가격 계산은 필요 재료비 인건비, 수수료 세금 등을 대략계산하여 가격설정시 보여줌.(모든 제작이 그러함)")과 그 묶음으로 답이 된 1783·1785·1788·
+1790·1886·1887을 줄기 `work/business-4`에서 옮겼다. 위 두 "바뀜" 절의 1623·1624·1682·1626 줄보다 이 절이 앞선다. 남은 세부는 질문
+`docs/questions/2026-11-16-business-4.md`(2041~2057).
+
+| 답 | 바뀐 것 | 코드 |
+|---|---|---|
+| 1783 다음 임금만큼 | 남길 돈 = max(비율 셈, 바닥), 바닥 = 다음 정산까지 낼 임금 합 — 지급준비율 0%여도 남긴다. 장부 응답 `reserve.lines[].floor` | `business/reserve.ts`, `books.ts` |
+| 1788·1789 적자 = 멈춤 | 보증금·금고로 덮지 못한 임금은 **임금 주기 하나만** 적자로 넣고 그 주기 끝 시각에 멈춘다(`stopAfter` — `business_states.suspended_at_ms`가 앞날 시각이면 "마지막 주기 돌리는 중"). 재정 안정(적자 0 + 금고 ≥ 다음 임금)이면 갚기·넣기·매출·자동 정산 때 풀린다. 새 임금형(고용·구인 받기)은 금고에 한 주기 임금이 없거나 멈춘 사업장이면 막는다(적자로 미리 넣지 않는다) | `business/core.ts` stopAfter·suspended·stable·fundDeposit, `labor/service.ts` fundDueWages·depositFor, `labor/jobBoard.ts` |
+| 1789 자동 해고 없음 | 임금형은 보증금이 0이 되어도 끝내지 않고 일시 중지(채우면 다시 일함, 해고는 손으로만). `deposit_used_up`은 옛 기록에만 | `@terra/sim` `economy/laborContract.ts` payDue (SIM_VERSION 63) |
+| 1790 주인 또는 대주주 | 지급준비율은 건물 주인(대주주가 아니어도) 또는 대주주·운영자가 정한다 | `business/commands.ts` reserve |
+| 1785 외주 수리 | 남의 공방은 **그 공방 일꾼**(직무 배치·임금형, 다른 작업 없음)이 고친다 — 보낸 unitIds는 보지 않는다. 요금 = 주인이 정한 **시간당 요금** × 걸리는 시간(값 표 `business_prices`의 `service:equipment_repair` 줄, 없으면 적정가, 0 = 받지 않음). 재료는 맡기는 사람이 낸다. 수리 줄이 있는 공방은 일터(직무 배치 가능). 작업 동안 공방 일꾼 원래 직무 산출은 쉰다(`pausesFor`가 유닛 주인 기준) | `facilities/equipmentRepair.ts`(새 — `service.ts`에서 옮김), `business/commands.ts` repairFee·repairRate, `facilities/world.ts` medicalSiteOf, 프로토콜 54 |
+| 1886 보이는 NPC 운반꾼 | 보는 사람(구독자)이 있는 2차맵에서, 옮김 칸이 있는 건물 시설의 첫 일꾼 휴먼이 이번 산출 끝 몫 동안 가장 가까운 창고 둘레로 걸어갔다 돌아온다(`BotHome.haul`). 판정은 시간 셈 그대로(모습만, 화물 없음) | `world/bots.ts`, `npc/humanPlaces.ts`, `npc/cityRest.ts` haulTo, `npc/economy.ts` workFacilities |
+| 1887 NPC 장부 | NPC 세력 시설 산출마다 그 도시(나라)가 시세(거래소 마지막 체결가, 없으면 팩 시작 시세)에 사들인 매출, 레시피 재료 재료비를 시설 금고 장부에 적고 바로 국고로 정산(국고 합 그대로). 장부 칸 "재료비"(`business_input`) 새로. 설정 칸 `business_npc_books`(기본 1) | `npc/npcBooks.ts`(새), `npc/economy.ts` handle, `@terra/shared/businessBooks` |
+| 1822 적정가 | 적정가 = (재료비 + 인건비 + 수수료) ÷ (1 − 소득세율), 수수료 = 설정 칸 `business_service_fee_pm`(이름을 "적정가 수수료"로). 창고 물건(장부 기간 임금 ÷ 산출), 외주 수리(시간당 일꾼 인건비), 배 주문(재료 기준 값 + 인건비 × 만드는 시간)에 보인다. 판정에 쓰지 않는다(외주 요금을 정하지 않은 공방만 적정가로 받는다) | `@terra/shared/fairPrice`(새), `business/fairPrice.ts`(새), `books.ts`, `boats/service.ts`, `labor/service.ts` hourlyLabor |
+
+- 프로토콜 54(최소 53): equipment_repair unitIds 빈 목록 허용, 새 결과 코드 `no_shop_worker`·`service_closed`(53판은 `unit_busy`·`cannot_repair`), business_price item에
+  `service:equipment_repair`. 팩 core@121(설정 칸 `business_service_fee_pm` 뜻 바꿈·`business_npc_books` 더함). SIM_VERSION 63(자동 해고 없앰 — 시뮬 시나리오 결과는 그대로).
+- DB 표·마이그레이션 없음(외주 요금은 값 표의 새 줄, 멈춤 예약은 같은 열).

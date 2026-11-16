@@ -7,6 +7,7 @@
 // - 정박장(berth): 배가 사는 곳(유닛 주거처럼). 레벨마다 정박 자리가 는다(1487). 남의 배는 주인이 고른 범위만 받고 정박료는 정박장 장부로(1490·1491·1498).
 // - 교역 부두(trade_dock): 시간을 사서 상하차·보급을 하고 떠나는 곳(1488·1489). 산 시간을 넘기면 초과 시간마다 높은 요금.
 // 배 내구도는 백만분율(ppm) 정수다(건물 상태 값과 같은 단위 — @terra/shared/facilityRuntime CONDITION_FULL).
+import type { FairPriceView } from "./fairPrice.ts";
 
 /** 배 시설 역할(팩 facilities.json harbor 칸) */
 export const HARBOR_ROLES = ["shipyard", "berth", "trade_dock"] as const;
@@ -107,6 +108,8 @@ export interface HarborBoatTypeView {
   readonly buildMs: number;
   readonly speedPm: number;
   readonly capacity: number;
+  /** 배 한 척 적정가(재료비·조선소 인건비·수수료·세금 — 기획 D-570 1822, 요금을 정하는 주인에게 보인다). 옛 서버면 없음 */
+  readonly fair?: FairPriceView | undefined;
 }
 
 /** 조선소 도크에 든 배(D-559 1523 — 다 만들거나 고친 배는 꺼낼 때까지 도크에 있다) */

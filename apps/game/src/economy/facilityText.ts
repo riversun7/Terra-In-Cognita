@@ -22,6 +22,8 @@ export const FACILITY_ERROR_TEXT: Readonly<Record<FacilityResultCode | "offline"
     sale_only: m.facility_error_sale_only,
     exchange_locked: m.facility_error_exchange_locked,
     exchange_exists: m.facility_error_exchange_exists,
+    no_shop_worker: m.facility_error_no_shop_worker,
+    service_closed: m.facility_error_service_closed,
     busy: m.facility_error_busy,
     rate_limited: m.facility_error_rate_limited,
     forbidden: m.facility_error_forbidden,

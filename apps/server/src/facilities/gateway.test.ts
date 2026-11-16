@@ -25,6 +25,8 @@ function fakeService(calls: string[]): FacilityService {
     holdingLocked: () => false,
     unitInJob: () => false,
     pausesFor: () => undefined,
+    outsourceQuote: () => "no_shop_worker",
+    shopWorkers: () => [],
     damage: () => false,
     attachGovernment: () => {},
     attachStorageOut: () => {},
@@ -168,6 +170,32 @@ describe("건물 연결 처리", () => {
         for (let i = 0; i < 6; i++) await settle();
         expect(sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: shown }]);
       }
+    }
+  });
+
+  it("외주 수리(48, D-570 1785): 빈 unitIds를 받고, no_shop_worker·service_closed는 48판에만, 47판은 unit_busy·cannot_repair로", async () => {
+    for (const [code, legacy] of [
+      ["no_shop_worker", "unit_busy"],
+      ["service_closed", "cannot_repair"],
+    ] as const) {
+      const seen: (readonly number[])[] = [];
+      const service: FacilityService = {
+        ...fakeService([]),
+        repairEquipment: (_userId, _buildingId, _holdingId, unitIds) => {
+          seen.push(unitIds);
+          return Promise.resolve({ ok: false, code });
+        },
+      };
+      for (const [version, shown] of [
+        [48, code],
+        [47, legacy],
+      ] as const) {
+        const { sent, socket } = open(service, player, undefined, version);
+        socket.handle({ t: "equipment_repair", id: 1, buildingId: 8, holdingId: 3, unitIds: [] });
+        for (let i = 0; i < 6; i++) await settle();
+        expect(sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: shown }]);
+      }
+      expect(seen).toEqual([[], []]);
     }
   });
 

@@ -12575,8 +12575,8 @@
       "id": "business_service_fee_pm",
       "code": "",
       "name": {
-        "ko": "외주 요금(‰)",
-        "en": "Outsourcing fee (‰)"
+        "ko": "적정가 수수료(‰)",
+        "en": "Fair-price fee (‰)"
       },
       "value": 200,
       "structural": false,
@@ -12584,10 +12584,28 @@
       "min": 0,
       "max": 5000,
       "desc": {
-        "ko": "남의 공방에서 장비를 고칠 때 그 공방 사업장 금고에 내는 요금. 쓰는 재료 기준 값 합 × 이 값 ÷ 1000(올림). 0이면 요금이 없다.",
-        "en": "Fee paid into the workshop's vault when repairing gear at someone else's workshop. Sum of the materials' base value × this ÷ 1000 (rounded up). 0 means no fee."
+        "ko": "값을 정하는 화면(사업장 판매가·외주 수리 요금 등)에 보이는 적정가에 붙는 수수료. 적정가 = (재료비 + 인건비) × (1000 + 이 값) ÷ 1000을 소득세 뒤에 남기는 값. 외주 수리 요금을 주인이 정하지 않았으면 적정가로 받는다.",
+        "en": "Fee added to the fair price shown when setting prices (business sale prices, outsourced repair fees, etc.). Fair price = the price that leaves (materials + labor) × (1000 + this) ÷ 1000 after income tax. An outsourced repair fee the owner has not set is charged at the fair price."
       },
-      "source": "D-564 1682 \"상업시설은 외주를 받아 장사\" [임시] · 질문 1785"
+      "source": "D-570 1822 \"적정가격 계산은 필요 재료비 인건비, 수수료 세금 등을 대략계산\" · 1785 [임시]"
+    },
+    {
+      "id": "business_npc_books",
+      "code": "",
+      "name": {
+        "ko": "NPC 사업장 장부(1 = 켬, 0 = 끔)",
+        "en": "NPC business books (1 = on, 0 = off)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "1이면 NPC 세력 시설의 산출을 그 도시(나라)가 시세에 사들인 매출로, 레시피 재료를 시설이 사들인 재료비로 시설 금고 장부에 적고 바로 국고로 정산한다(손익만 — 물건 흐름은 그대로). 0이면 적지 않는다.",
+        "en": "1 = an NPC faction facility's output is booked as a sale to its city (nation) at market price and its recipe inputs as a materials purchase, in the facility vault's books, then settled straight back to the treasury (profit and loss only — goods flow is unchanged). 0 = not booked."
+      },
+      "source": "D-570 1887 (D-212 \"NPC도 같은 시스템\" · D-569 1781 \"무조건 판매\") [임시]"
     },
     {
       "id": "moves_knock_wall_pm",

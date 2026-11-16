@@ -466,7 +466,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             bodies: persistence.bodies,
           }),
         );
-      // 좌표 이동 지형 빠르기·좌표 유닛 조우(D-564 1641·1643, travel/encounterWorld.ts)
+      // 좌표 이동 지형 빠르기·조우(띄운 2차맵·좌표 유닛, D-564 1641·1643·D-570, travel/encounterWorld.ts)
       coordinateRules = startCoordinateRules(world, { now, log: app.log });
     });
     app.addHook("onClose", async () => {
@@ -946,6 +946,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       ...world?.takeMetrics(),
       ...terrain?.takeMetrics(),
       ...planets?.takeMetrics(),
+      ...coordinateRules?.takeMetrics(),
       ...(tuningState
         ? { tuningRevision: tuningState.revision(), tuningOverrides: tuningState.appliedCount() }
         : {}),

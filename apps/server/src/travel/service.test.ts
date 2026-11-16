@@ -717,13 +717,40 @@ describe('좌표 이동 2(기획 D-564 1641·1643, docs/adr/2026-11-15-unloaded-
     // 다른 2차맵·다른 유닛이면 멈추지 않는다
     expect(r.travel.haltOn(K[0] ?? 0, new Set([1]))).toEqual([]);
     expect(r.travel.haltOn(K[1] ?? 0, new Set([2]))).toEqual([]);
-    expect(r.travel.haltOn(K[1] ?? 0, new Set([1]))).toEqual([1]);
+    expect(r.travel.haltOn(K[1] ?? 0, new Set([1]))).toEqual([
+      {
+        unitId: 1,
+        ownerId: OWNER,
+        userId: USER,
+        kind: "move",
+        origin: { mapKey: K[0], x: 250, y: 100 },
+        target: { mapKey: K[2], x: 10, y: 100 },
+      },
+    ]);
     expect(r.travel.parkedAt(1)).toEqual(place);
     expect(r.travel.list(USER)).toMatchObject([{ state: "stopped", stop: "encounter", mapKey: K[1] }]);
     expect(r.travels.at(-1)).toEqual({ op: "remove", row: { unit_id: 1 } });
     expect(r.travel.coordinateUnits(null)).toMatchObject([
       { unitId: 1, mapKey: K[1], moving: false, sea: false },
     ]);
+    r.travel.stop();
+  });
+
+  it("1901: 띄운 2차맵을 걷는 유닛도 조우로 멈추면 그 자리에 서고 길은 encounter로 끝난다(다시 판단 자료를 돌려준다)", async () => {
+    const r = rig();
+    placeMine(r, 100, 100);
+    await r.travel.start(USER, { unitId: 1, mapKey: K[1] ?? 0, x: 10, y: 10, kind: "scout" });
+    await vi.advanceTimersByTimeAsync(20_000);
+    // 다른 2차맵이면 멈추지 않는다
+    expect(r.travel.haltOn(K[1] ?? 0, new Set([1]))).toEqual([]);
+    expect(r.travel.haltOn(K[0] ?? 0, new Set([1]))).toMatchObject([
+      { unitId: 1, kind: "scout", target: { mapKey: K[1], x: 10, y: 10 } },
+    ]);
+    const info = mapAt(r, 0).unitInfo(1);
+    expect(info && arrivalAt(info.motion)).toBe(Date.now());
+    expect(r.travel.list(USER)).toMatchObject([{ state: "stopped", stop: "encounter", mapKey: K[0] }]);
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(whereIs(r, 1)).toBe(0);
     r.travel.stop();
   });
 

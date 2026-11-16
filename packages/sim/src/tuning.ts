@@ -21,6 +21,7 @@ import { RANKING_TUNING_KEYS } from "./tuningRanking.ts";
 import { SWITCH_TUNING_KEYS } from "./tuningSwitches.ts";
 import { TERRITORY_TUNING_KEYS } from "./tuningTerritory.ts";
 import { TERRITORY_DISPLAY_TUNING_KEYS } from "./tuningTerritoryDisplay.ts";
+import { ENCOUNTER_TUNING_KEYS } from "./tuningEncounter.ts";
 import { VITALS_TUNING_KEYS } from "./tuningVitals.ts";
 import { COMMAND_TUNING_KEYS } from "./tuningCommand.ts";
 import { MOVE_TUNING_KEYS } from "./tuningMoves.ts";
@@ -665,6 +666,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...HOUSE_TUNING_KEYS,
   // 컨디션·초기 스탯 합 상한(49 N43·N9, D-534): tuningCondition.ts
   ...CONDITION_TUNING_KEYS,
+  // 유닛 조우(49에 칸 없음 [임시], 기획 D-564 1641·D-570·질문 1905): tuningEncounter.ts
+  ...ENCOUNTER_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

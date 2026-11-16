@@ -70,6 +70,21 @@ export interface CoordinateUnit {
   readonly sea: boolean;
 }
 
+/**
+ * 조우로 멈춘 길(기획 D-570 1908 — 전투 뒤 AI가 다시 판단한다, afterEncounter.ts): 보낸 사용자·명령 종류·출발 자리·목표. 메모리에만(다시 켜면 버린다)
+ */
+export interface HaltedTrip {
+  readonly unitId: number;
+  readonly ownerId: number;
+  /** 보낸 사용자(옛 줄은 null — 다시 판단하지 않는다) */
+  readonly userId: string | null;
+  readonly kind: TravelKind;
+  /** 출발 자리(재정비·짐 정리로 돌아갈 곳. 옛 줄은 null) */
+  readonly origin: { readonly mapKey: number; readonly x: number; readonly y: number } | null;
+  /** 가던 목표(마지막 2차맵의 칸) */
+  readonly target: { readonly mapKey: number; readonly x: number; readonly y: number };
+}
+
 /** 건너뛰는 중인 유닛의 지금 자리(보기 값 — 1차맵 내 자리 표시) */
 export interface HiddenPlace {
   readonly mapKey: number;
@@ -104,10 +119,10 @@ export interface TravelService {
   /** 그 주인들의(null = 모든 주인) 좌표 유닛(서 있음 + 가는 중, 승객 포함, 유닛 ID 차례) */
   coordinateUnits(ownerIds: ReadonlySet<number> | null): CoordinateUnit[];
   /**
-   * 좌표 조우(기획 D-564 1641, encounter.ts): 띄우지 않은 그 2차맵을 지금 좌표로 지나는 그 유닛들의 길을 멈추고(stop "encounter") 그 자리의
-   * 좌표 유닛으로 세운다. 멈춘 유닛 ID
+   * 조우(기획 D-564 1641·D-570, encounterWorld.ts): 그 2차맵을 지나는 그 유닛들의 길을 멈춘다(stop "encounter"). 띄우지 않은 2차맵을 좌표로 지나면
+   * 그 자리의 좌표 유닛으로 세우고, 띄운 2차맵을 걷는 중이면 그 자리에 세운다. 멈춘 길(전투 뒤 다시 판단할 자료)
    */
-  haltOn(mapKey: number, unitIds: ReadonlySet<number>): number[];
+  haltOn(mapKey: number, unitIds: ReadonlySet<number>): HaltedTrip[];
   /** 그 시각까지 그 2차맵을 내리지 않는다(touches가 true — 좌표 조우 전투가 끝나 결과를 적용할 때까지) */
   holdMap(mapKey: number, untilMs: number): void;
   /** 좌표 구간의 2차맵 걸음 배율(‰, coordPace.ts — 행성 값)을 붙인다. 없으면 곧은 선 ÷ 걷기 속도(D-564 1643 전과 같다) */

@@ -20,6 +20,7 @@ import { TEMPLE_TUNING_KEYS } from "./tuningTemple.ts";
 import { VITALS_TUNING_KEYS } from "./tuningVitals.ts";
 import { WAR_TUNING_KEYS } from "./tuningWar.ts";
 import { WORLD_SEED_TUNING_KEYS } from "./tuningWorldSeed.ts";
+import { ENCOUNTER_TUNING_KEYS } from "./tuningEncounter.ts";
 
 /** 묶음 → 페이지(아래 경로 규칙보다 먼저 본다) */
 const GROUP_PAGES: readonly (readonly [readonly TuningKey[], TuningPage])[] = [
@@ -27,6 +28,8 @@ const GROUP_PAGES: readonly (readonly [readonly TuningKey[], TuningPage])[] = [
   [WORLD_SEED_TUNING_KEYS, "npc"],
   [VITALS_TUNING_KEYS, "combat"],
   [INJURY_TUNING_KEYS, "combat"],
+  // 유닛 조우(D-564 1641·D-570) — 전투가 시작되는 길이라 전투 코어 페이지
+  [ENCOUNTER_TUNING_KEYS, "combat"],
   [LABOR_TUNING_KEYS, "economy"],
   [BUILD_TUNING_KEYS, "economy"],
   [GATHER_OBJECT_TUNING_KEYS, "economy"],

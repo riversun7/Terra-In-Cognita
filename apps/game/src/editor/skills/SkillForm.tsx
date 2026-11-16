@@ -26,7 +26,7 @@ import {
   TARGET_TEXT,
   TRIGGER_TEXT,
 } from "./skillMessages.ts";
-import { withShape } from "./skillModel.ts";
+import { isAttackSkill, rangeIntervalOn, withRangeInterval, withShape } from "./skillModel.ts";
 
 type WeaponChoice = "base" | SkillWeaponFieldId;
 
@@ -212,6 +212,15 @@ export function SkillForm({
             onChange={(radius) => update({ ...draft, radius: radius ?? 0 })}
           />
         </div>
+        {isAttackSkill(draft) ? (
+          <CheckField
+            label={m.dev_skills_field_range_interval()}
+            path="curves"
+            checked={rangeIntervalOn(draft)}
+            hint={m.dev_skills_range_interval_hint()}
+            onChange={(on) => update(withRangeInterval(draft, on))}
+          />
+        ) : null}
         {draft.chain ? (
           <div className="sk-grid">
             <NumberField

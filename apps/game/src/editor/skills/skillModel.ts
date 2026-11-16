@@ -135,6 +135,27 @@ export function withShape(draft: SkillJson, shape: SkillShapeId): SkillJson {
   return shape === "buff" ? rest : { ...rest, trigger: "active" };
 }
 
+/** 공격 스킬: 적 대상·피해 있음(판정 @terra/sim skills.ts isAttackSkill과 같은 규칙 — 사거리 예산 기본 켬의 대상, D-573 2009) */
+export function isAttackSkill(draft: Pick<SkillJson, "target" | "damage">): boolean {
+  return draft.target === "enemy" && draft.damage !== "none";
+}
+
+/** 사거리 예산(range_interval)이 켜졌나: 곡선 칸이 없으면 공격 스킬은 켬(D-573), 있으면 목록에 있을 때만 */
+export function rangeIntervalOn(draft: SkillJson): boolean {
+  return draft.curves === undefined ? isAttackSkill(draft) : draft.curves.includes("range_interval");
+}
+
+/**
+ * 사거리 예산 켜기·끄기(무기 칸과 같은 방식): 끄면 곡선 목록에서 빼고(칸이 없으면 curves: []), 켜면 목록에 더한다 — 다른 곡선이 없으면
+ * 칸을 지워 기본(켬)으로 되돌린다(팩 자료와 같은 모양)
+ */
+export function withRangeInterval(draft: SkillJson, on: boolean): SkillJson {
+  const { curves, ...rest } = draft;
+  const others = (curves ?? []).filter((curve) => curve !== "range_interval");
+  if (!on) return { ...rest, curves: others };
+  return others.length === 0 ? rest : { ...rest, curves: [...others, "range_interval"] };
+}
+
 /** 보낼 항목: 빈 설명·거짓 맨손 스킬 칸은 뺀다(팩 항목과 같은 내용이면 서버가 덮어쓰기를 두지 않게) */
 export function cleanSkill(draft: SkillJson): SkillJson {
   const { description, bareHand, weaponField, ...rest } = draft;

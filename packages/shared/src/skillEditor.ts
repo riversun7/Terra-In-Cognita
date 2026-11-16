@@ -116,11 +116,12 @@ export interface SkillJson {
   readonly effects: readonly SkillEffectJson[];
   readonly gradePm: readonly number[];
   /**
-   * 움직임 부품·곡선(docs/adr/2026-11-15-combat-moves.md 6절, 팩 선택 칸). 편집기 입력 칸은 뒤 작업이고, 항목을 통째로 저장하므로
-   * 칸을 잃지 않는다
+   * 움직임 부품·곡선(docs/adr/2026-11-15-combat-moves.md 6절, 팩 선택 칸). 편집기 입력 칸은 사거리 예산 체크만 있고(나머지는 뒤 작업),
+   * 항목을 통째로 저장하므로 칸을 잃지 않는다
    */
   readonly move?: SkillMoveJson | undefined;
   readonly displace?: SkillDisplaceJson | undefined;
+  /** 곡선 칸이 없으면 공격 스킬은 사거리 예산 켬(D-573 2009), 빈 목록이면 끔 — 편집기 체크 "사거리 예산" */
   readonly curves?: readonly string[] | undefined;
   readonly shots?: number | undefined;
   readonly enabled: boolean;

@@ -243,8 +243,15 @@ describe("밀림 저항(D-564 1588, 질문 1806 → D-429 데이터 칸, D-570 1
     expect(unitDisplaceResistPm(vit)).toBe(300);
     // 항목이 STR을 세면 그 데이터대로(질문 1806): STR 100 + VIT 100 → 점수 200 → 400
     expect(unitDisplaceResistPm(vit, knockDef([1000, 0, 0, 1000, 0, 0]))).toBe(400);
+    // 질문 2121 답: 보스 몫을 더한 합은 999에서 멈춘다(보스도 0칸이 아니다). 1000은 데이터(항목 상한)만 만든다
     const boss = unitFrom(unit(102, 2, 11, 0, 0, { primaries: [0, 0, 0, 100, 0, 0], displaceResistPm: 800 }));
-    expect(unitDisplaceResistPm(boss)).toBe(1000);
+    expect(unitDisplaceResistPm(boss)).toBe(999);
+    // 스탯 몫이 1000이면(판정은 끝값을 남긴다 — 팩 검사는 반감 상수 ≥ 1이라 지금 팩 데이터로는 999까지, 질문 2173) 밀리지 않는다
+    const immune: EffectDef = {
+      ...knockDef([0, 0, 0, 1000, 0, 0]),
+      resist: { cap: 1000, halfConstant: 0, weights: [0, 0, 0, 1000, 0, 0] },
+    };
+    expect(unitDisplaceResistPm(vit, immune)).toBe(1000);
     expect(bodyDisplaceResistPm(false, m)).toBe(0);
     expect(bodyDisplaceResistPm(true, m)).toBe(300);
     const sizes: (BodySize | undefined)[] = ["S", "M", "L", "XL", undefined];
@@ -277,11 +284,12 @@ describe("밀림 저항(D-564 1588, 질문 1806 → D-429 데이터 칸, D-570 1
       101,
     );
     expect(rooted.effects.map((e) => [e.id, e.untilMs])).toEqual([["move_root", 2000]]);
+    // 보스 몫(사양 칸)이 1000이어도 적어도 1칸(질문 2121 답 — 보스는 덜 밀릴 뿐)
     const boss = oneTick([
       unit(1, 1, 1, 5, 10, { skills: [push] }),
       dummy(101, 6, 10, { displaceResistPm: 1000 }),
     ]);
-    expect(byId(boss.state, 101).x).toBe(6);
+    expect(byId(boss.state, 101).x).toBe(7);
   });
 
   it("크기 S는 더 멀리, XL은 훨씬 덜 밀린다(M 기준, 설정 칸 배율) — XL도 적어도 1칸(D-572)", () => {
@@ -460,7 +468,7 @@ describe("피해 방식은 계열과 따로(D-568)", () => {
   });
 
   it("무기 사거리 예산은 기본 공격에만(D-572 질문 2008 나): 스킬 뒤 간격은 예산 전 값, range_interval 스킬은 한 번만 곱한다", () => {
-    const plain = skill({ range: 5 });
+    const plain = skill({ range: 5, curves: [] });
     const ranged = skill({ range: 5, curves: ["range_interval"] });
     // 공격 간격 700(예산 곱함)·예산 전 500인 유닛
     const caster = unitFrom(unit(1, 1, 1, 0, 10, { skills: [plain, ranged] }));

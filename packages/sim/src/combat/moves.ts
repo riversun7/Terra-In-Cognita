@@ -236,11 +236,14 @@ export const MOVE_COLLISION = "move_collision";
 
 /**
  * 이 유닛의 밀림 저항(‰, 0~1000): 스탯 몫 + 보스 몸 저항. 스탯 몫은 효과 사전 밀림 상태이상 항목(def)의 저항(질문 1806 답 → D-429 모양,
- * D-570 "스탯 기여도는 VIT", 저항 칸이 없는 항목은 0). def가 없으면(항목을 싣기 전 시작 자료·항목 없는 계열표) 같은 값의 기본 칸
+ * D-570 "스탯 기여도는 VIT", 저항 칸이 없는 항목은 0). def가 없으면(항목을 싣기 전 시작 자료·항목 없는 계열표) 같은 값의 기본 칸.
+ * 1000(밀리지 않음)은 스탯 몫(데이터 — 효과 사전 항목의 상한)만 만든다. 보스 몫을 더한 합은 999에서 멈춘다 — 보스도 덜 밀릴 뿐 0칸이 아니다
+ * (D-564 1588 "큰 몸·보스는 덜 밀림", D-570 "xl 훨씬 적게"와 같은 결 — 질문 2121 답, 원래 칸이 1 이상이면 적어도 1칸)
  */
 export function unitDisplaceResistPm(unit: UnitState, def?: EffectDef): number {
   const statPm = statusResistPm(def ?? DEFAULT_DISPLACE_DEF, unit.primaries);
-  return Math.max(0, Math.min(1000, statPm + Math.max(0, unit.displaceResistPm ?? 0)));
+  if (statPm >= 1000) return 1000;
+  return Math.max(0, Math.min(999, statPm + Math.max(0, unit.displaceResistPm ?? 0)));
 }
 
 /** 항목이 없을 때 저항을 셀 자리 항목(curves.ts DEFAULT_DISPLACE_RESIST, 판정은 resist만 읽는다) */
@@ -298,7 +301,7 @@ function pushStop(world: MoveWorld, unit: UnitState, nx: number, ny: number): Pu
 
 /**
  * 맞은 대상 하나를 옮긴다(밀치기·끌어오기) 또는 묶는다. 쓰러진 대상은 그대로. 밀림 저항은 칸 수(거리)만 줄인다(D-570 1805 — 묶기 지속은
- * 그대로): 칸 = ⌊칸 × 크기 배율 × (1000 − 저항) ÷ 1000000⌋, 원래 칸이 1 이상이면 적어도 1칸(D-572 — 저항 1000만 0칸, curves.ts displacedCells).
+ * 그대로): 칸 = ⌊칸 × 크기 배율 × (1000 − 저항) ÷ 1000000⌋, 원래 칸이 1 이상이면 적어도 1칸(D-572 — 데이터 저항 1000만 0칸, 보스 몫으로는 0칸이 안 됨, curves.ts displacedCells).
  * 밀치기가 줄 끝까지 못 가고 벽에 막히면 밀린 대상이 한 방 피해 × wallPm, 건물에 막히면 밀린 대상과 그 건물(시전자 편 건물 빼고, 판정
  * hitBuilding)이 × wallPm, 유닛에 막히면 밀린 대상과 막은 유닛(시전자 편이 아니면 누구나 — 중립 포함)이 × unitPm을 받는다(D-564 1587,
  * D-570 1801·1803). hitDamage = 밀어낸 한 방의 피해(피해 없는 스킬은 0 → 부딪힘 피해 없음)

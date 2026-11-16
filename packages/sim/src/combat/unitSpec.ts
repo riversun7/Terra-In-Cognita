@@ -52,7 +52,7 @@ export type WeaponCurve = "range_interval";
 
 /**
  * 무기 곡선 칸(curves)을 적지 않은 무기의 곡선(질문 1814 답: D-557 "사정거리가 길면 공격속도가 낮게"는 일반 규칙 → 모든 무기에 기본으로
- * 켠다). 끄려면 무기 자료에 curves: []를 적는다
+ * 켠다. D-573 2009: 물리·속성 가리지 않음, 공격 스킬도 — skills.ts DEFAULT_ATTACK_SKILL_CURVES). 끄려면 무기 자료에 curves: []를 적는다
  */
 export const DEFAULT_WEAPON_CURVES: readonly WeaponCurve[] = ["range_interval"];
 

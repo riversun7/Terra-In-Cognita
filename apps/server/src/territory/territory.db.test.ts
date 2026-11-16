@@ -2,7 +2,8 @@
 // 서버 규칙: 가입한 세력만 놓는다(개발 시험은 다른 세력 대신), 1차맵 칸 하나에 하나, N42 거리·개수(기준 도시), 다른 세력 영토(1차맵 지도,
 // D-568), 팩에 비콘 시설이 없으면 disabled, 커밋 뒤 답·다시 켜도 남음, 치우면 외곽선이 빠져 다시 셈, 조회(내 세력·전체), 지방(provinceAt),
 // 건물 규칙(기획 336, docs/adr/2026-11-07-buildings-runtime.md): 재료 빼기·건설 시간 뒤 꼭짓점·노화 30% 멈춤·수리
-import { EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
+import { EARTH_FACE_LEVEL, cellKey, parseCellKey } from "@terra/planet";
+import { placementCellKey } from "@terra/planet/territory";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -168,6 +169,24 @@ describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
     expect(territory.provinceAt(TEST_PLANET_ID, near(40, 40), 128, 128)).toBeNull();
     expect(territory.provinceAt("nowhere_planet", near(5, 5), 128, 128)).toBeUndefined();
     expect(view?.cells.every(([, owner, province]) => owner === faction && province === city?.id)).toBe(true);
+    // 칸 표는 나눠 셈한다(질문 1930): 조각 하나의 가장 긴 시간 ≤ 칸 CPU 합
+    expect(view?.rasterSliceMs).toBeGreaterThan(0);
+    expect(view?.rasterSliceMs ?? 0).toBeLessThanOrEqual(view?.rasterMs ?? 0);
+    // 판정 질의는 칸 표 없이(claimsAt — 땅 규칙·이동 위험): 칸 표와 같은 주인, 영토 밖 null, 면 레벨이 다른 칸 null
+    expect(
+      await territory.claimsAt(TEST_PLANET_ID, [
+        { cellKey: near(5, 5) },
+        { mapKey: near(5, 5), x: 128, y: 128 },
+        { cellKey: near(40, 40) },
+        { cellKey: placementCellKey(parseCellKey(near(5, 5)), 1, 1) },
+      ]),
+    ).toEqual([
+      { faction, province: city?.id, source: "beacon" },
+      expect.objectContaining({ faction }),
+      null,
+      null,
+    ]);
+    expect(await territory.claimsAt("nowhere_planet", [{ cellKey: near(5, 5) }])).toBeUndefined();
     expect(view?.beacon).toEqual({ enabled: true, materials: [{ item: "pine_log", qty: 3 }] });
 
     // 세력이 없으면 내 영토는 비었다

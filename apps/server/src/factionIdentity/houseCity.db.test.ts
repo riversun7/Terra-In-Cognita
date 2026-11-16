@@ -4,7 +4,7 @@
 // 독립 + 폐허 고르기: 가문장이 정부를 지어 주인이 된 폐허를 가문 도시로(독립은 체제를 고름) → 되살아날 세력 = 가문, 위 세력 없음·체제,
 // 가문원 시야 = 가문(옛 나라와 따로), 같은 상태로 마을도 세운다.
 import { loadContentPack } from "@terra/content/node";
-import { DAY_MS, shareAsset } from "@terra/sim";
+import { DAY_MS, TEST_SOCIETY_COEFFICIENTS, shareAsset } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
@@ -42,6 +42,15 @@ afterEach(async () => {
   await test.drop();
 });
 
+/**
+ * 마을 자리는 D-568부터 1차맵 영토 지도로 본다(질문 1922 — 원 아래 끝 4칸이면 시험 2차맵 하나가 모두 NPC 영토). 이 시험은 영토 원을 작게
+ * 둔다(원 = 배후지 × 0.1, 아래 끝 0.1칸): 독립 가문(내 나라 영토도 남의 것)이 마을 자리를 찾는다
+ */
+const SMALL_TERRITORY = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  territoryDisplay: { ...TEST_SOCIETY_COEFFICIENTS.territoryDisplay, radiusScalePm: 100, minCells: 0.1 },
+};
+
 async function boot(): Promise<World> {
   const world = startWorld({
     testBots: 12,
@@ -56,6 +65,7 @@ async function boot(): Promise<World> {
     npc: { testNations: 2, manual: true },
     holdings: { content: () => pack },
     facilities: { content: () => pack },
+    cyborgRules: () => SMALL_TERRITORY,
   });
   worlds.push(world);
   await world.ready;
@@ -402,7 +412,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 도시(질문 1005 가)", () => {
     expect(nationOfOwner(world, leader.ownerId)).toBe(factionId);
     expect(nationOfOwner(world, outsider.ownerId)).toBe(leader.nation);
 
-    // 같은 상태로 마을(독립 = 내 나라 영향권도 남의 것)
+    // 같은 상태로 마을(독립 = 내 나라 영토도 남의 것 — 1차맵 영토 지도 D-568, 이 시험은 영토를 작게 둔다: SMALL_TERRITORY)
     const free = freeSpot(world, [owner]);
     expect(await cities.village(leader.userId, { ...free, cost: "5000", mode: "vassal" })).toEqual({
       ok: false,

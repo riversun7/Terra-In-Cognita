@@ -14,6 +14,7 @@ import type {
   WorldTierStartView,
 } from "@terra/shared/worldPlacementApi";
 import type { SocietyCoefficients, WorldSeedCoefficients } from "@terra/sim";
+import type { TerritoryMapValues } from "@terra/shared/territoryMap";
 import type { QueryPool } from "./persist/load.ts";
 import { loadTierRequest } from "./tierApply.ts";
 import {
@@ -49,6 +50,8 @@ interface PlanBase {
   readonly seed: WorldSeedCoefficients;
   readonly planetId: string;
   readonly avoidMaps: ReadonlySet<number>;
+  /** 1차맵 영토 값(설정 칸 planet_territory_* — 시작 도시 자리가 다른 세력 지도 영토 밖, D-568 질문 1922). 없으면 옛 영향권 검사 */
+  readonly mapValues?: TerritoryMapValues | undefined;
 }
 
 /** 빈 세계 등급 배치 계획(순수 함수 — 행성 값·설정 칸·국가 목록에서) */
@@ -68,6 +71,7 @@ export function freshTierPlan(base: PlanBase, nations: readonly TierPlanNation[]
     obstacles: [],
     newRadiusMilli: 0,
     avoidMaps: base.avoidMaps,
+    territory: base.mapValues,
   });
   return {
     nations: nations.flatMap((nation) => {
@@ -185,6 +189,7 @@ export async function tierApplyPlan(
     obstacles,
     newRadiusMilli,
     avoidMaps: base.avoidMaps,
+    territory: base.mapValues,
   });
   const out: WorldTierApplyNation[] = nations.map((nation) => {
     const own = startsOf(nation.factionId);

@@ -2,7 +2,12 @@
 // 하나·수도와 붙은 2차맵 먼저·알맞은 땅·다른 세력 영향권 밖에 서는지, 같은 입력이면 같은 결과인지 본다.
 import { type CellKey, cellKey, decodeCellKey, neighbors4, parseCellKey } from "@terra/planet";
 import { territoryMetric } from "@terra/planet/territory";
-import { territoryDistanceMilli } from "@terra/shared/territory";
+import {
+  START_TERRITORY_COEFFICIENTS,
+  buildTerritory,
+  claimAt,
+  territoryDistanceMilli,
+} from "@terra/shared/territory";
 import { START_WORLD_SEED } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import {
@@ -148,6 +153,42 @@ describe("세계 배치(국가 자리·시작 도시)", () => {
       );
       expect(d).toBeGreaterThan(1900 + 100);
     }
+  });
+
+  it("1차맵 영토 값이 있으면(D-568, 질문 1922) 다른 세력 지도 영토 안은 건너뛴다 — 옛 영향권 검사보다 넓다", () => {
+    // 사람이 고른 수도 자리(home)가 다른 세력 도시에서 3칸: 옛 규칙(영향권 0.1칸 닿기)은 그 자리에, 지도(원 아래 끝 4칸)는 그 밖에
+    const home = cellKey(1, LEVEL, 30, 30);
+    const rival = walkCell(home, 0, -3) ?? home;
+    const input = base({
+      nations: [{ factionId: 7, missing: 2, placed: [], home }],
+      obstacles: [{ factionId: 9, spot: { mapKey: rival, x: CITY_CELL, y: CITY_CELL }, radiusMilli: 100 }],
+    });
+    const values = { corridorCells: 12, radiusScalePm: 2000, minCells: 4, beaconCells: 2 };
+    const old = planWorldLayout(input);
+    const mapped = planWorldLayout({ ...input, territory: values });
+    expect(old.spots[0]?.spot.mapKey).toBe(home);
+    expect(mapped.spots).toHaveLength(2);
+    expect(mapped.spots.some(({ spot }) => spot.mapKey === home)).toBe(false);
+    // 첫 도시는 경쟁 도시 영토 밖, 둘째 도시는 첫 도시까지 넣은 지도에서 남의 영토가 아니다
+    const rivalCity = {
+      id: 1,
+      faction: 9,
+      point: spotPoint({ mapKey: rival, x: CITY_CELL, y: CITY_CELL }),
+      grade: 1,
+      catchmentMilli: 100,
+    };
+    const [first, second] = mapped.spots;
+    if (!first || !second) return;
+    const rivalOnly = buildTerritory([rivalCity], [], START_TERRITORY_COEFFICIENTS, metric, values);
+    expect(claimAt(rivalOnly, spotPoint(first.spot))).toBeNull();
+    const withFirst = buildTerritory(
+      [rivalCity, { id: 2, faction: 7, point: spotPoint(first.spot), grade: 1, catchmentMilli: 100 }],
+      [],
+      START_TERRITORY_COEFFICIENTS,
+      metric,
+      values,
+    );
+    expect(claimAt(withFirst, spotPoint(second.spot))?.faction ?? 7).toBe(7);
   });
 
   it("시험 2차맵 줄(피할 2차맵)에는 두지 않고, 땅이 없으면 모자란 수를 알린다", () => {

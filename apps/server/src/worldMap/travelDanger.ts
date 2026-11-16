@@ -5,10 +5,10 @@
 // - 오염이 위험: 그 2차맵(F9 칸 키)의 planet_pollution 값 ≥ 문턱. [임시] 문턱 = 유목 목표 오염 문턱(설정 칸 S17 — 유목 부대가 노리는
 //   오염이라 지나기 위험하다, 새 칸 없음, 확인 대기 질문 611).
 // - 전쟁(기획 답 611 나, docs/adr/2026-11-07-play-flow.md "WP13"): 내 국가(faction_members)와 전쟁(faction_wars state = war) 중인 세력만.
-//   영토 = 그 세력의 영토 칸(영토 셈 territory planetView cells — 1차맵 칸 = 2차맵 키)이 덮는 2차맵. 안개 규칙: 아는 2차맵의 영토 칸이거나,
-//   그 2차맵에 내가 아는 그 세력 도시(1차맵 도시 안개와 같은 규칙, knownCities.ts)가 있을 때. 국가가 없으면 전쟁 위험도 없다.
+//   영토 = 2차맵(1차맵 칸) 가운데 점의 1차맵 영토 주인(D-568 지도 — 영토 서비스 claimsAt, 칸 표 없이: 질문 1930). 안개 규칙: 아는 2차맵의
+//   영토이거나, 그 2차맵에 내가 아는 그 세력 도시(1차맵 도시 안개와 같은 규칙, knownCities.ts)가 있을 때. 국가가 없으면 전쟁 위험도 없다.
 // 출발 2차맵(route 차례 0)은 넣지 않는다(이미 그곳에 있다).
-import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
+import type { TerritoryClaim } from "@terra/shared/territory";
 import type { WorldTravelDanger } from "@terra/shared/worldMap";
 import type { Viewer } from "../trpc/context.ts";
 import type { WorldDirectory } from "../world/gateway.ts";
@@ -27,7 +27,7 @@ export interface TravelDangerFacts {
   readonly knownCities: readonly { readonly factionId: number; readonly mapKey: number }[];
   /** 내 국가와 전쟁 중인 세력 */
   readonly enemies: ReadonlySet<number>;
-  /** 영토 칸: 2차맵 키(1차맵 칸) → 차지한 세력 */
+  /** 영토: 2차맵 키(1차맵 칸) → 그 가운데 점의 영토 주인 세력 */
   readonly territory: ReadonlyMap<number, number>;
   /** 오염 위험 문턱 */
   readonly threshold: number;
@@ -70,9 +70,14 @@ export interface TravelDangerDeps {
   readonly sighted?: ((mapKey: number, viewer: Viewer) => Promise<Uint8Array | undefined>) | undefined;
   /** 오염 위험 문턱(설정 칸 실효 값) */
   readonly threshold: () => number;
-  /** 영토 셈(조회 캐시). 없으면 영토 칸 없이 도시가 선 2차맵만 본다 */
+  /**
+   * 2차맵(1차맵 칸) 가운데 점마다 영토 소속(영토 서비스 claimsAt — 조회 캐시, 칸 표 없이). 없으면 영토 없이 도시가 선 2차맵만 본다
+   */
   readonly territory?:
-    | ((planetId: string, userId: string) => Promise<TerritoryPlanetView | undefined>)
+    | ((
+        planetId: string,
+        mapKeys: readonly number[],
+      ) => Promise<readonly (TerritoryClaim | null)[] | undefined>)
     | undefined;
 }
 
@@ -104,7 +109,7 @@ export function createTravelDanger(deps: TravelDangerDeps) {
         [viewer.id, planetId, keys],
       ),
       pool.query(`select faction_id from faction_members where user_id = $1`, [viewer.id]),
-      deps.territory?.(planetId, viewer.id).catch(() => undefined) ?? Promise.resolve(undefined),
+      deps.territory?.(planetId, keys).catch(() => undefined) ?? Promise.resolve(undefined),
     ]);
     const sighted = new Map<number, Uint8Array>();
     for (const row of exploredRows.rows)
@@ -139,10 +144,11 @@ export function createTravelDanger(deps: TravelDangerDeps) {
       if (a === mine) enemies.add(b);
       else if (b === mine) enemies.add(a);
     }
-    const wanted = new Set(keys);
     const cells = new Map<number, number>();
-    for (const [cellKey, factionId] of territory?.cells ?? [])
-      if (wanted.has(cellKey) && enemies.has(factionId)) cells.set(cellKey, factionId);
+    keys.forEach((key, index) => {
+      const claim = territory?.[index];
+      if (claim && enemies.has(claim.faction)) cells.set(key, claim.faction);
+    });
     return travelDangers(route, {
       // 아는 2차맵 = 볼 수 있거나(내 유닛·건물·같은 나라) 탐사 기록이 있다(D-564 1642부터 탐사만으로는 열리지 않지만 위험은 안다)
       knownMap: (key) => observer || viewable.has(key) || explored(key),

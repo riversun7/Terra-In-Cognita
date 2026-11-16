@@ -5,6 +5,7 @@ import {
   buildTerritory,
   checkBeaconPlacement,
   claimAt,
+  foundingClaimConflict,
   foundingConflict,
   nearestFactionCity,
   territoryDistanceMilli,
@@ -171,21 +172,52 @@ describe("영토 배치·소속(D-568 — 1차맵 지도대로)", () => {
     expect(nearestFactionCity(cities, 10, at(1, 0))).toBe(4);
   });
 
-  it("시가지(D-146): 도시 중심에서 영향권 반경 ÷ 3 안, 겹치면 작은 ID", () => {
+  it("시가지(D-146, 질문 1923 나): 도시 중심에서 영토 원 ÷ 3 안, 겹치면 영향력 비율이 작은 도시(같으면 작은 ID)", () => {
     const layout = buildTerritory(
       [
-        { id: 2, faction: 10, point: at(0, 0), grade: 4 },
-        { id: 1, faction: 20, point: at(5, 0), grade: 1 },
+        // 배후지 3칸 → 영토 원 3000 → 시가지 1000(x 100)
+        { id: 2, faction: 10, point: at(0, 0), grade: 4, catchmentMilli: 3000 },
+        // 마을: 영토 원 아래 끝 1칸 → 시가지 약 333(x 33)
+        { id: 1, faction: 20, point: at(130, 0), grade: 1 },
+        // 바탕이 0이면 영토 원·시가지가 없다
+        { id: 5, faction: 30, point: at(-500, 0), grade: 1, catchmentMilli: 0 },
       ],
       [],
       rules,
       metric,
+      values,
     );
-    // 등급 4 영향권 1100 → 시가지 약 367(1000분율 칸), 이 시험 평면에서 x 100 ≈ 1000
-    expect(urbanCityAt(layout, at(30, 0))).toBe(2);
-    expect(urbanCityAt(layout, at(40, 0))).toBeNull();
-    // 등급 1 마을(영향권 100 → 시가지 약 33)과 겹치는 곳
-    expect(urbanCityAt(layout, at(6, 0))).toBe(1);
+    expect(urbanCityAt(layout, at(95, 0))).toBe(2);
+    expect(urbanCityAt(layout, at(-105, 0))).toBeNull();
+    // 둘 다 덮는 곳(x 99): 도시 2 비율 990/3000 = 0.33, 마을 1 비율 310/1000 = 0.31 → 마을
+    expect(urbanCityAt(layout, at(99, 0))).toBe(1);
+    expect(urbanCityAt(layout, at(-500, 0))).toBeNull();
+    // 옛 규칙(영향권 1100 ÷ 3 ≈ x 37)보다 넓다
+    expect(urbanCityAt(layout, at(-60, 0))).toBe(2);
+  });
+
+  it("새 도시 자리(질문 1922 나): 다른 세력 지도 영토 안이면 막고, 영토 밖·내 영토(겹치면 지도 주인)는 된다", () => {
+    const layout = buildTerritory(
+      [
+        { id: 1, faction: 10, point: at(0, 0), grade: 1, catchmentMilli: 2000 },
+        { id: 2, faction: 20, point: at(1000, 0), grade: 1, catchmentMilli: 2000 },
+        { id: 3, faction: 20, point: at(1500, 0), grade: 1, catchmentMilli: 1000 },
+      ],
+      [{ id: 9, faction: 20, point: at(1000, 900), anchorCity: 2 }],
+      rules,
+      metric,
+      values,
+    );
+    // 도시 2 원(x 200) 안 → 막는다(그 소속), 도시 2·3 사이 띠 안도 막는다
+    expect(foundingClaimConflict(layout, mine, at(1150, 0))?.faction).toBe(20);
+    expect(foundingClaimConflict(layout, mine, at(1300, 40))?.faction).toBe(20);
+    // 비콘 외곽선(도시 2 → 비콘 9 줄) 안도 남의 영토
+    expect(foundingClaimConflict(layout, mine, at(1000, 500))?.province).toBe(2);
+    // 영토 밖, 내 영토
+    expect(foundingClaimConflict(layout, mine, at(500, 600))).toBeNull();
+    expect(foundingClaimConflict(layout, mine, at(150, 0))).toBeNull();
+    // 세력 20 눈으로는 내 도시 1 영토가 막는다
+    expect(foundingClaimConflict(layout, (faction) => faction === 20, at(150, 0))?.faction).toBe(10);
   });
 
   it("새 도시 세우기 검사: 남의 영향권 + 새 영향권 안이면 막고(작은 ID), 같은 편 도시는 보지 않는다", () => {

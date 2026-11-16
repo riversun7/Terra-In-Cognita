@@ -1,7 +1,9 @@
 // NPC 마을 자리 — docs/adr/2026-11-01-npc-brain-r5.md 7절(새 마을은 부모 도시 둘레), docs/adr/2026-11-07-world-layout.md
-// 사용자 지적(2026-11-07) "다른 세력 범위에 도시를 건설할 수 없다": 세우는 세력(부모)이 아닌 세력의 도시 영향권과 닿는 자리는 고르지 않는다
-// (@terra/shared foundingConflict — 세계 배치의 시작 도시 자리와 같은 규칙). 자리가 없으면 세우지 않는다(시뮬 society.found의 자리 검사
-// canFound가 false → 값을 내지 않는다). 순수 함수: 같은 입력이면 같은 자리(정해진 거리·16방위 차례).
+// 사용자 지적(2026-11-07) "다른 세력 범위에 도시를 건설할 수 없다": 세우는 세력(부모)이 아닌 세력의 땅에는 세우지 않는다. 기획 D-568
+// "판정도 지도대로"(질문 1922 나, 2026-11-16): 다른 세력 땅 = 1차맵 영토 지도(영토 서비스의 마지막 배치 — 비콘 놓기·지방과 같은 지도,
+// 부르는 쪽이 foreignClaim으로 준다). 지도가 없는 자리(셀 키가 아닌 시험 2차맵·영토를 아직 셈하지 않음)는 옛 규칙(도시 영향권과 닿기,
+// @terra/shared foundingConflict). 자리가 없으면 세우지 않는다(시뮬 society.found의 자리 검사 canFound가 false → 값을 내지 않는다).
+// 같은 입력이면 같은 자리(정해진 거리·16방위 차례).
 import { placementCellKey, territoryMetric, territoryPoint } from "@terra/planet/territory";
 import {
   type FoundingCity,
@@ -60,6 +62,17 @@ export function territoryOf(t: TerritoryCoefficients): {
   };
 }
 
+/**
+ * 그 배치 칸이 다른 세력(own이 아닌 세력)의 1차맵 영토인가(D-568). 모르면 undefined(옛 영향권 규칙으로 본다). own은 부르는 쪽이 넣는
+ * 같은 편 판정(거울 세력 ID)이다
+ */
+export type ForeignClaim = (
+  mapKey: number,
+  x: number,
+  y: number,
+  own: (faction: number) => boolean,
+) => boolean | undefined;
+
 /** 배치 칸 자리의 영토 점(셀 키가 아니면 undefined — S1 임시 지형 시험 등) */
 function pointOf(mapKey: number, x: number, y: number) {
   return isCellKey(mapKey) ? territoryPoint(placementCellKey(parseCellKey(mapKey), x, y)) : undefined;
@@ -67,7 +80,7 @@ function pointOf(mapKey: number, x: number, y: number) {
 
 /**
  * 마을 자리: from(붐비는 도시) 둘레 같은 2차맵에서 정해진 거리 × 16방위 차례로, 지도 가장자리 안·다른 도시(폐허 자리 포함)와 띄운 곳·
- * founder가 아닌 세력 도시 영향권과 닿지 않는 첫 칸. 없으면 undefined
+ * founder가 아닌 세력의 1차맵 영토 밖(지도가 없으면 도시 영향권과 닿지 않는 곳)인 첫 칸. 없으면 undefined
  */
 export function pickTownSite(input: {
   readonly from: CityPlace;
@@ -76,6 +89,8 @@ export function pickTownSite(input: {
   /** 새 마을의 영향권 반경(처음 등급, 1000분율 칸) */
   readonly newRadiusMilli: number;
   readonly nowMs: number;
+  /** 1차맵 영토 지도로 본 다른 세력 땅(D-568). 없거나 undefined를 돌려주면 옛 영향권 규칙 */
+  readonly foreignClaim?: ForeignClaim | undefined;
 }): CityPlace | undefined {
   const { from } = input;
   const taken = input.cities.filter((city) => city.place.mapKey === from.mapKey).map((city) => city.place);
@@ -86,7 +101,8 @@ export function pickTownSite(input: {
       const x = from.cellX + Math.trunc((dx * distance) / 1000);
       const y = from.cellY + Math.trunc((dy * distance) / 1000);
       const own = (faction: number) => faction === input.founder;
-      if (siteProblem(from.mapKey, x, y, own, taken, foreign, metric, input.newRadiusMilli) !== null)
+      const site = { mapKey: from.mapKey, x, y };
+      if (siteProblem(site, own, taken, foreign, metric, input.newRadiusMilli, input.foreignClaim) !== null)
         continue;
       return { planetId: from.planetId, mapKey: from.mapKey, cellX: x, cellY: y, foundedAtMs: input.nowMs };
     }
@@ -94,24 +110,26 @@ export function pickTownSite(input: {
   return undefined;
 }
 
-/** 마을 자리가 안 되는 까닭: 지도 가장자리 | 다른 도시·폐허와 가까움 | 다른 세력 영향권(D-519) */
+/** 마을 자리가 안 되는 까닭: 지도 가장자리 | 다른 도시·폐허와 가까움 | 다른 세력 땅(D-519 — D-568부터 1차맵 영토, 코드 이름은 그대로) */
 export type TownSiteProblem = "edge" | "too_close" | "foreign_influence";
 
 /** 한 칸의 마을 자리 검사(pickTownSite와 같은 규칙 — NPC 마을과 플레이어 가문 마을이 함께 쓴다, docs/adr/2026-11-11-house-village.md) */
 function siteProblem(
-  mapKey: number,
-  x: number,
-  y: number,
+  { mapKey, x, y }: { readonly mapKey: number; readonly x: number; readonly y: number },
   own: (faction: number) => boolean,
   taken: readonly CityPlace[],
   foreign: readonly FoundingCity[],
   metric: ReturnType<typeof territoryMetric> | undefined,
   newRadiusMilli: number,
+  foreignClaim: ForeignClaim | undefined,
 ): TownSiteProblem | null {
   if (x < MAP_MARGIN || y < MAP_MARGIN || x >= MAP_SIZE - MAP_MARGIN || y >= MAP_SIZE - MAP_MARGIN)
     return "edge";
   if (taken.some((p) => Math.max(Math.abs(p.cellX - x), Math.abs(p.cellY - y)) < TOWN_SPACING))
     return "too_close";
+  // 1차맵 영토 지도(D-568)가 답하면 그것만, 모르면 옛 영향권 규칙
+  const mapped = foreignClaim?.(mapKey, x, y, own);
+  if (mapped !== undefined) return mapped ? "foreign_influence" : null;
   const point = pointOf(mapKey, x, y);
   if (metric && point && foundingConflict(foreign, metric, own, point, newRadiusMilli) !== null)
     return "foreign_influence";
@@ -127,18 +145,19 @@ export function checkTownSite(input: {
   readonly own: readonly number[];
   readonly cities: readonly TownSiteCity[];
   readonly newRadiusMilli: number;
+  /** 1차맵 영토 지도로 본 다른 세력 땅(D-568). 없으면 옛 영향권 규칙 */
+  readonly foreignClaim?: ForeignClaim | undefined;
 }): TownSiteProblem | null {
   const taken = input.cities.filter((city) => city.place.mapKey === input.mapKey).map((city) => city.place);
   const metric = isCellKey(input.mapKey) ? territoryMetric(cellLevel(parseCellKey(input.mapKey))) : undefined;
   return siteProblem(
-    input.mapKey,
-    input.x,
-    input.y,
+    input,
     (faction) => input.own.includes(faction),
     taken,
     foreignOf(input.cities),
     metric,
     input.newRadiusMilli,
+    input.foreignClaim,
   );
 }
 

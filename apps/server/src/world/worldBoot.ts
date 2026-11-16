@@ -204,6 +204,8 @@ function layoutPlacer(
       obstacles,
       newRadiusMilli,
       avoidMaps,
+      // 시작 도시 자리 = 다른 세력 1차맵 영토 밖(D-568, 질문 1922 나 — worldLayout.ts 머리 주석 6)
+      territory: rules.territoryDisplay,
     });
     log.info(
       {

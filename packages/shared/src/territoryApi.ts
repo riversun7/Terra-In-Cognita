@@ -28,7 +28,7 @@ export interface TerritoryCityView {
   readonly development: number;
   /** 도시 등급 1~6(M2 문턱) */
   readonly grade: number;
-  /** 영향권 반경(1000분율 칸, M3 — 시가지·새 도시 겹침 검사) */
+  /** 영향권 반경(1000분율 칸, M3 — 지도가 없을 때의 새 도시 겹침 검사·도시 표. 시가지는 D-568부터 영토 원 ÷ 3) */
   readonly radiusMilli: number;
   /** 배후지 지금 반경(1000분율 칸, 영토 원 바탕). 배후지 규칙이 꺼졌으면 null(바탕 = 영향권). 옛 서버는 없다 */
   readonly catchmentMilli?: number | null | undefined;
@@ -105,6 +105,8 @@ export interface TerritoryPlanetView {
   readonly computedAtMs: number;
   /** 배치를 셈한 시간(ms, 측정용). 옛 서버는 없다 */
   readonly computeMs?: number | undefined;
-  /** 칸 표를 셈한 시간(ms, 측정용 — 그 배치에서 칸 표를 셈했을 때만) */
+  /** 칸 표를 셈한 시간(ms, 측정용 — 그 배치에서 칸 표를 셈했을 때만, 나눠 셈한 조각 CPU 합) */
   readonly rasterMs?: number | undefined;
+  /** 칸 표 조각 하나의 가장 긴 시간(ms, 측정용 — 메인 스레드를 한 번에 잡은 가장 긴 시간, 질문 1930) */
+  readonly rasterSliceMs?: number | undefined;
 }

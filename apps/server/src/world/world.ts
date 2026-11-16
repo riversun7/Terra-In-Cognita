@@ -89,6 +89,7 @@ import {
   loadBeacons,
 } from "../territory/service.ts";
 import { territoryJudgeOf } from "../territory/catchmentRules.ts";
+import { npcTerritoryHooks } from "../territory/npcHooks.ts";
 import { loadRecruitDraws } from "../npc/state.ts";
 import {
   type FacilitiesConfig,
@@ -839,11 +840,8 @@ export function startWorld(
           combatRules: config.combatRules,
           // 새 마을의 행정 건물·숙소를 도시 배치 함수로(질문 1052 다, 도시 줄과 같은 쓰기 묶음)
           onCityFounded: villageSeeder({ ...seedWith, seedOfFaction, planetId: TEST_PLANET_ID, now }),
-          // 기준 도시를 빼앗기면 영토 비콘도 함께 넘어간다(D-512 335, 도시 줄과 같은 쓰기 묶음)
-          onCityOwner: (cityId, factionId) => {
-            const moved = territory.cityOwnerChanged(cityId, factionId);
-            if (moved > 0) log.info({ cityId, factionId, moved }, "beacons follow city owner");
-          },
+          // 비콘이 도시 주인을 따라감(D-512 335)·마을 자리 = 1차맵 영토 밖(D-568 질문 1922) — territory/npcHooks.ts
+          ...npcTerritoryHooks(territory, TEST_PLANET_ID, log),
           // 막아 낸 도시 웨이브 보상 아이템(D-499): 팩 유전자(gene.drops wave)·크리쳐 재료(중분류 creature_material)
           waveRewardItems: () => waveRewardItemsOf(config.holdings?.content().items ?? []),
           // 수호신 만족도 버프(기획 답 470 가): 하루 끝에 그 도시 휴먼마다

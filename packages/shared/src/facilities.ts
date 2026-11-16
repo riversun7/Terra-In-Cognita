@@ -301,7 +301,8 @@ export type FacilityWaterMaskResponse =
   | { readonly status: "unknown_map" | "not_ready"; readonly mapKey: number };
 
 /**
- * facilities.landRule — 그 2차맵에 지을 수 있나(서버 땅 규칙, docs/adr/2026-11-14-second-map-build.md). 다른 세력 도시 2차맵이면 못 짓는다
+ * facilities.landRule — 그 2차맵(의 배치 칸)에 지을 수 있나(서버 땅 규칙, docs/adr/2026-11-14-second-map-build.md). 다른 세력 도시 2차맵이거나
+ * 그 자리가 다른 세력 1차맵 영토(D-568)면 못 짓는다
  * (전쟁·중립·동맹 — 동맹 정책은 아직 없고 기본값 금지). 짓기 명령은 그때 같은 판정으로 forbidden을 준다
  */
 export interface FacilityLandRuleResponse {
@@ -309,8 +310,11 @@ export interface FacilityLandRuleResponse {
   readonly mapKey: number;
   /** 지을 수 있나(not_ready·unknown_map이면 false) */
   readonly allowed: boolean;
-  /** 못 지으면 까닭: foreign_city = 다른 세력의 도시 2차맵 */
-  readonly reason: "foreign_city" | null;
-  /** foreign_city면 그 도시 세력 ID */
+  /**
+   * 못 지으면 까닭: foreign_city = 다른 세력의 도시 2차맵, foreign_territory = 그 자리가 다른 세력의 1차맵 영토(D-568, 질문 1927). 옛 기기는
+   * allowed만 본다
+   */
+  readonly reason: "foreign_city" | "foreign_territory" | null;
+  /** 못 지으면 그 도시·영토 주인 세력 ID */
   readonly cityFaction: number | null;
 }

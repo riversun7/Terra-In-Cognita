@@ -31,6 +31,10 @@
 //    R > 0이면 반경이 도시마다 다르다 — 국가 등급의 주거(처음 기간에 찰 인구)·기술과 설정 칸 등급으로 잡은 반경(@terra/sim plannedCityRadiusMilli,
 //    수도는 더 크게). 간격 = (두 반경 합) × 천분율이라 초강대국 수도 둘레는 넓고 소국 도시는 촘촘하다(고른 바둑판이 아니다). 수도 고르기 덮임도 그
 //    국가 수도 반경으로 센다. 피할 도시(다른 세력 도시·폐허)는 catchmentMilli(없으면 기본 주거·기술 1의 지방 도시 반경).
+// 6. 다른 세력 땅 = 1차맵 영토 지도(기획 D-568 "판정도 지도대로", 질문 1922 나 — 2026-11-16): 입력에 territory(설정 칸 planet_territory_*
+//    실효 값)가 있으면 시작 도시 자리는 피할 도시·이미 선 도시·이번에 고른 도시로 만든 영토 지도(원 바탕 = 머리 주석 5의 배후지 반경,
+//    배후지가 꺼졌으면 영향권 반경 — 영토 서비스와 같은 바탕, 비콘은 넣지 않는다)에서 다른 세력 땅이 아닌 곳만 고른다(겹친 곳은 지도 주인).
+//    폐허 자리는 영토가 없어 옛 영향권 닿기 검사로만 띄운다. territory가 없으면 옛 영향권 닿기 검사(foundingConflict, 1~5와 같은 결과).
 import {
   type CellKey,
   FACES,
@@ -44,10 +48,15 @@ import { placementCellKey, territoryMetric, territoryPoint } from "@terra/planet
 import { type NationStart, isPowerTier, tierRank } from "@terra/shared/nationTier";
 import {
   type FoundingCity,
+  type TerritoryCityInput,
+  type TerritoryLayout,
   type TerritoryVec,
+  buildTerritory,
+  foundingClaimConflict,
   foundingConflict,
   territoryDistanceMilli,
 } from "@terra/shared/territory";
+import type { TerritoryMapValues } from "@terra/shared/territoryMap";
 import { type CatchmentRules, type MaterialWeights, weightsOfFacilities } from "@terra/shared/catchment";
 import { PLACEMENT_SIZE, type WorldSeedCoefficients, plannedCityRadiusMilli } from "@terra/sim";
 import { type CatchmentCache, createCatchmentCache, pickCitySites, walkCell } from "./citySites.ts";
@@ -155,7 +164,15 @@ export interface LayoutInput {
   readonly newRadiusMilli: number;
   /** 시작 도시를 두지 않을 2차맵(시험 2차맵 줄 — 봇 규모 시험 자리) */
   readonly avoidMaps?: ReadonlySet<number> | undefined;
+  /** 1차맵 영토 값(설정 칸 planet_territory_* 실효 값, 머리 주석 6). 없으면 옛 영향권 닿기 검사 */
+  readonly territory?: TerritoryMapValues | undefined;
 }
+
+/** 폐허 자리의 세력 ID(주인 없음 — 영토가 없다, 머리 주석 6) */
+export const RUIN_FACTION = -1;
+
+/** 영토 지도 배치에 넘기는 규칙(원 바탕을 늘 직접 주므로 영향권 표는 쓰지 않는다) */
+const MAP_ONLY_RULES = { influenceMilli: [0], beaconRangeMilli: [0], beaconsPerCity: [0] };
 
 export interface LayoutResult {
   /** 국가마다 수도 2차맵 */
@@ -472,16 +489,48 @@ export function planWorldLayout(input: LayoutInput): LayoutResult {
   const cities: FoundingCity[] = [];
   const usedMaps = new Set<number>();
   let nextId = 1;
-  const addCity = (factionId: number, spot: LayoutSpot, radiusMilli: number): void => {
-    cities.push({ id: nextId, faction: factionId, point: spotPoint(spot), radiusMilli });
+  // 영토 지도(머리 주석 6): 도시마다 원 바탕(배후지 반경, 배후지가 꺼졌으면 영향권), 도시가 늘면 다시 셈한다
+  const mapCities: TerritoryCityInput[] = [];
+  let mapLayout: TerritoryLayout | undefined;
+  const defaultMilli = nationCatchmentMilli(input.seed, undefined).province;
+  const addCity = (
+    factionId: number,
+    spot: LayoutSpot,
+    radiusMilli: number,
+    catchmentMilli: number,
+  ): void => {
+    const point = spotPoint(spot);
+    cities.push({ id: nextId, faction: factionId, point, radiusMilli });
+    if (factionId !== RUIN_FACTION)
+      mapCities.push({
+        id: nextId,
+        faction: factionId,
+        point,
+        grade: 1,
+        catchmentMilli: cache ? catchmentMilli : radiusMilli,
+      });
+    mapLayout = undefined;
     nextId += 1;
     usedMaps.add(spot.mapKey);
   };
-  for (const obstacle of input.obstacles) addCity(obstacle.factionId, obstacle.spot, obstacle.radiusMilli);
-  for (const nation of input.nations)
-    for (const spot of nation.placed) addCity(nation.factionId, spot, input.newRadiusMilli);
+  for (const obstacle of input.obstacles)
+    addCity(obstacle.factionId, obstacle.spot, obstacle.radiusMilli, obstacle.catchmentMilli ?? defaultMilli);
+  for (const nation of input.nations) {
+    const radius = nationCatchmentMilli(input.seed, nation.tier);
+    nation.placed.forEach((spot, index) =>
+      addCity(nation.factionId, spot, input.newRadiusMilli, index === 0 ? radius.capital : radius.province),
+    );
+  }
+  /** 다른 세력 땅인가: 영토 지도가 있으면 지도(폐허는 옛 영향권), 없으면 옛 영향권 닿기 검사 */
+  const conflicts = (own: (faction: number) => boolean, point: TerritoryVec): boolean => {
+    const values = input.territory;
+    if (!values) return foundingConflict(cities, metric, own, point, input.newRadiusMilli) !== null;
+    mapLayout ??= buildTerritory(mapCities, [], MAP_ONLY_RULES, metric, values);
+    if (foundingClaimConflict(mapLayout, own, point) !== null) return true;
+    const ruins = cities.filter((city) => city.faction === RUIN_FACTION);
+    return ruins.length > 0 && foundingConflict(ruins, metric, own, point, input.newRadiusMilli) !== null;
+  };
   // 배후지 간격을 볼 도시(피할 도시 + 제자리 시작 도시 + 이번에 고른 도시 — pickCitySites가 더한다). 반경은 머리 주석 5
-  const defaultMilli = nationCatchmentMilli(input.seed, undefined).province;
   const spaced = [
     ...input.obstacles.map((obstacle) => ({
       factionId: obstacle.factionId,
@@ -515,9 +564,7 @@ export function planWorldLayout(input: LayoutInput): LayoutResult {
       if (usedMaps.has(mapKey) || input.avoidMaps?.has(mapKey)) return undefined;
       if (!isSettleLand(input.land(mapKey), input.seed)) return undefined;
       const spot = { mapKey, x: CITY_CELL, y: CITY_CELL };
-      return foundingConflict(cities, metric, own, spotPoint(spot), input.newRadiusMilli) === null
-        ? spot
-        : undefined;
+      return conflicts(own, spotPoint(spot)) ? undefined : spot;
     };
     if (cache) {
       // 배후지 배치(머리 주석 4·5): 간격을 지키며 배후지 덮임이 높은 칸부터, 반경은 국가 크기
@@ -541,7 +588,8 @@ export function planWorldLayout(input: LayoutInput): LayoutResult {
       });
       for (const key of picked) {
         const spot = { mapKey: key, x: CITY_CELL, y: CITY_CELL };
-        addCity(nation.factionId, spot, input.newRadiusMilli);
+        const first = nation.placed.length === 0 && key === picked[0];
+        addCity(nation.factionId, spot, input.newRadiusMilli, first ? radius.capital : radius.province);
         spots.push({ factionId: nation.factionId, spot });
         left -= 1;
       }
@@ -558,7 +606,9 @@ export function planWorldLayout(input: LayoutInput): LayoutResult {
       if (key === null) continue;
       const spot = fits(key);
       if (!spot) continue;
-      addCity(nation.factionId, spot, input.newRadiusMilli);
+      const capital = nation.placed.length === 0 && key === home;
+      const radius = nationCatchmentMilli(input.seed, nation.tier);
+      addCity(nation.factionId, spot, input.newRadiusMilli, capital ? radius.capital : radius.province);
       spots.push({ factionId: nation.factionId, spot });
       left -= 1;
     }

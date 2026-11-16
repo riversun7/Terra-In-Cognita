@@ -631,8 +631,12 @@ export function worldMapReadsOf(options: {
     directory: world,
     sighted,
     threshold: options.pollutionDanger ?? (() => TEST_GARDENER_COEFFICIENTS.nomadThreshold),
-    territory: (id, userId) =>
-      world.persistence?.territory.planetView(id, userId) ?? Promise.resolve(undefined),
+    // 지나는 2차맵 가운데 점의 영토 주인(칸 표 없이 claimAt — 질문 1930)
+    territory: (id, mapKeys) =>
+      world.persistence?.territory.claimsAt(
+        id,
+        mapKeys.map((cellKey) => ({ cellKey })),
+      ) ?? Promise.resolve(undefined),
   });
   const travel = createTravelReads(
     () => world.persistence?.travel,

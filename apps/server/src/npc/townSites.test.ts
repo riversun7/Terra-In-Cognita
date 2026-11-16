@@ -63,4 +63,58 @@ describe("NPC 마을 자리(다른 세력 영향권 밖)", () => {
     });
     expect(site).not.toMatchObject({ cellX: 156, cellY: 128 });
   });
+
+  it("1차맵 영토 지도(D-568, 질문 1922)가 답하면 그것만 본다: 남의 영토 자리는 건너뛰고, 모르면 옛 영향권 규칙", () => {
+    // 동쪽(x > 150)은 세력 20 영토라고 답하는 지도 — 첫 자리(동쪽 156)를 건너뛴다
+    const seen: number[] = [];
+    const foreignClaim = (_mapKey: number, x: number, _y: number, own: (faction: number) => boolean) => {
+      seen.push(x);
+      return x > 150 ? !own(20) : false;
+    };
+    const site = pickTownSite({
+      from: home.place,
+      founder: 10,
+      cities: [home],
+      newRadiusMilli: 100,
+      nowMs: 0,
+      foreignClaim,
+    });
+    expect(site).toBeDefined();
+    expect(site?.cellX).toBeLessThanOrEqual(150);
+    expect(seen.length).toBeGreaterThan(1);
+    // 같은 편(세력 20)이 세우면 동쪽 첫 자리
+    expect(
+      pickTownSite({
+        from: home.place,
+        founder: 20,
+        cities: [home],
+        newRadiusMilli: 100,
+        nowMs: 0,
+        foreignClaim,
+      }),
+    ).toMatchObject({ cellX: 156, cellY: 128 });
+    // 지도가 영토 밖이라고 하면 옛 영향권이 막는 자리도 된다(지도가 이긴다)
+    const giant: TownSiteCity = { id: 3, place: place(130, 130), owner: 30, radiusMilli: 3600 };
+    expect(
+      pickTownSite({
+        from: home.place,
+        founder: 10,
+        cities: [home, giant],
+        newRadiusMilli: 100,
+        nowMs: 0,
+        foreignClaim: () => false,
+      }),
+    ).toMatchObject({ cellX: 156 });
+    // 지도가 모르면(undefined) 옛 규칙 그대로
+    expect(
+      pickTownSite({
+        from: home.place,
+        founder: 10,
+        cities: [home, giant],
+        newRadiusMilli: 100,
+        nowMs: 0,
+        foreignClaim: () => undefined,
+      }),
+    ).toBeUndefined();
+  });
 });

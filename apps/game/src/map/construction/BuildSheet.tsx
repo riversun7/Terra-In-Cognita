@@ -36,6 +36,7 @@ const PROBLEM_TEXT: Readonly<Record<PlacementProblem, () => string>> = {
   needs_water: m.build_problem_water,
   insufficient_materials: m.build_problem_materials,
   foreign_city: m.build_problem_foreign_city,
+  foreign_territory: m.build_problem_foreign_territory,
 };
 
 export function BuildSheet({
@@ -64,7 +65,6 @@ export function BuildSheet({
     () => gather.version,
   );
   const facilities = useFacilities(NO_ARGS);
-  const land = useLandRule([String(mapKey)]);
   const data = facilities.data;
   const buildable = (data?.catalog ?? []).filter(
     (entry) => entry.footprint !== null && entry.levels.length > 0,
@@ -76,6 +76,8 @@ export function BuildSheet({
     footprint && state.tap
       ? anchorForTap(state.tap, footprint.width, footprint.height, state.rotation)
       : null;
+  // 땅 규칙(D-568 지도 영토): 놓을 자리가 있으면 그 칸을, 없으면 2차맵 가운데를 묻는다
+  const land = useLandRule(anchor ? [String(mapKey), String(anchor.x), String(anchor.y)] : [String(mapKey)]);
   // 재료 자리(D-516 361): 짓는 칸(없으면 2차맵 가운데)이 속한 도시 창고 + 그 도시 내 창고 시설 + 이 2차맵 내 유닛 화물
   const at = anchor ?? { x: PLACEMENT_CELLS / 2, y: PLACEMENT_CELLS / 2 };
   const city = data ? cityOfCell(data.cities, mapKey, at.x, at.y) : undefined;
@@ -100,6 +102,7 @@ export function BuildSheet({
         water: waterState,
         affordable: operator || (level1 ? canAfford(stock, level1.materials) : false),
         landAllowed,
+        landReason: land.data?.status === "ready" ? land.data.reason : null,
       })
     : [];
   // 일꾼: 고른 유닛이 이 2차맵의 내 유닛이고 다른 작업 중이 아니면
@@ -196,7 +199,9 @@ export function BuildSheet({
       </div>
       {landBlocked ? (
         <p className="map-build-warning" role="alert">
-          {m.build_problem_foreign_city()}
+          {land.data?.reason === "foreign_territory"
+            ? m.build_problem_foreign_territory()
+            : m.build_problem_foreign_city()}
         </p>
       ) : null}
       {operator ? <p className="map-units-note map-build-operator">{m.build_operator_note()}</p> : null}

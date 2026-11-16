@@ -49,6 +49,8 @@
 | `apps/server/drizzle/20261116051806_unit_tactics/`(이름 바꿈), `docs/worklog/2026/11/16-1453-encounter-4.md` | 마이그레이션 이름을 내용대로 |
 | 프로토콜 판을 담은 코드·시험(위 목록) | 프로토콜 50·49 |
 | `apps/server/src/app.ts`, `packages/sim/src/index.ts` | 1,000줄 안으로 |
+| `apps/server/src/world/legion3.test.ts` | 판 번호 시험을 프로토콜 50에 맞춤 |
+| `e2e/units.spec.ts` | 유닛 화면 칸 여덟(1116k [전투] 칸) |
 | ADR 하나·질문 하나 | 판 번호 설명 50·118 |
 | `docs/worklog/2026/11/16-1540-batch-1116l-merge.md` | 이 기록 |
 
@@ -60,11 +62,20 @@
 ## 건드리지 말 것
 - 줄기 기록의 "건드리지 말 것"을 그대로 따른다.
 
-## 검사
-(아래 채움)
+## 검사 (Verified)
+- `pnpm check`(TEST_DATABASE_URL, DB 시험 포함, 잠금 안) 한 번: 포맷·린트·타입·경계·크기·다국어(8,129키)·디자인 값·콘텐츠(core@118 042a5e4a3431) 통과, 시험 파일 765/766, 시험 5,768/5,769. 실패 하나 = `apps/server/src/world/legion3.test.ts` "판 번호·목록"이 프로토콜 49·최소 48을 그대로 적어 둠(1116k 시험) → 실시간 전투 명령 판 49는 그대로 보고 지금 판은 `≥ 49`, 최소 = 지금 판 − 1로 고쳐 그 파일 10/10 통과(oxlint `--deny-warnings` 통과). 그 한 파일만 바뀌어 전체는 다시 돌리지 않았다.
+- 그 전 작업 중(잠금 안): 포맷·타입 통과, `check:size`에서 `app.ts`·`sim/index.ts` 1,001 → 위처럼 999로.
+- `pnpm check:content 0e6c394`: core@118 (042a5e4a3431) 단계 1·2·4a·4b 통과.
+- `pnpm check:docs 0e6c394`: 통과.
+- `pnpm build` 통과, `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 첫 화면 JS 110,170 B / 상한 131,416 B.
+- `pnpm --filter @terra/server db:generate`: No schema changes.
 
-## 화면 시험
-(아래 채움)
+## 화면 시험 (Verified, 빌드한 앱, 헤드리스, 잠금 안)
+- 일곱 spec 한 번에(units·government·faction-identity·ranking·play-map·seamless·gather-station, 한 DB, 32.0분): 92 통과·3 실패·1 건너뜀(play-map 좌표 유닛 — 그 2차맵이 이미 떠 있으면 건너뜀, 시험 규칙).
+  - `ranking` "세력 화면 세력 순위 칸…": 작은 누르는 곳 = 가문 도시 칸의 봉신·독립 라디오(322×25). 한 DB에서 faction-identity가 먼저 돌아 player를 가문장으로 남기므로(`ensureHouse`) 세력 화면에 가문 도시 고르기가 보인다 — 시험 사이 상태. 두 줄기 모두 그 화면·시험을 건드리지 않았다. **새 DB로 ranking만 다시: 9/9 통과**.
+  - `units` "보유 유닛 0"(사이보그 판): government 시험이 player로 구인 카드를 고용해 유닛이 하나 생긴 뒤라 1 — 시험 사이 상태. 새 DB에서 통과.
+  - `units` "유닛이 없으면 빈 안내…": 칸 수 7 기대 → 8. 묶음 1116k(legion-3)가 유닛 화면에 [전투] 칸을 더했는데 이 시험은 1116k에서 돌지 않았다 → 시험을 칸 여덟·←→ 차례(포로 → 융합 → 전투 → 목록)로 고침(앱 회귀 아님). **새 DB로 units 다시: 15/15 통과**(AI 작전 시험 포함).
+- 합: 일곱 spec 모두 앱 회귀 없음. 대표 사진(눈 확인, 가로 넘침 없음): 저장소 밖 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/1116l-shots/` — `unit-tactics-390-{pastel-ko,dark-en}`, `government-entry-390-{pastel,dark}-ko`(가문 이동 정책 칸), `ranking-house-{pastel-ko-390,dark-en-1440}`, `npc-house-peek-390-pastel-ko`, `leader-sheet-390-dark-ko`, `gather-station-390-pastel-ko`, `play-map-planet-390-dark-en`. 나머지 사진·`test-results`는 지웠다(디스크).
 
 ## 미검증·TODO·알려진 문제
 - 줄기 TODO는 줄기 기록에 있다. encounter-4 — 걷기 빠르기는 마지막 이동 때 잰 값(2136), 조우 전투맵 건물을 일부러 치지 않음(2135), 먼 2차맵 창고 도착 확인 약 3분(2138). house-6 — 정부 판 [정하기]·[비우기]를 화면에서 누르는 시험 없음(e2e player는 도시를 가진 가문이 아니다), 가문 이동 공고 처리할 일은 다음 줄기.
